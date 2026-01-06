@@ -15,13 +15,11 @@ import (
 )
 
 // Schema wraps a compiled schema with convenience methods.
-// This uses the multi-phase architecture (Parse → Resolve → Compile).
 type Schema struct {
 	compiled *grammar.CompiledSchema
 }
 
 // Load loads and compiles a schema from the given filesystem and location.
-// This uses the multi-phase architecture for better performance and correctness.
 func Load(fsys fs.FS, location string) (*Schema, error) {
 	l := loader.NewLoader(loader.Config{
 		FS: fsys,
@@ -44,33 +42,7 @@ func LoadFile(path string) (*Schema, error) {
 }
 
 // Validate validates a document against the schema.
-// It returns nil when the document is valid.
-// Use errors.AsValidations to extract violations from a non-nil error.
 func (s *Schema) Validate(r io.Reader) error {
-	return s.validateReader(r)
-}
-
-// ValidateReader validates XML from a reader.
-// It returns nil when the document is valid.
-// Use errors.AsValidations to extract violations from a non-nil error.
-func (s *Schema) ValidateReader(r io.Reader) error {
-	return s.validateReader(r)
-}
-
-// ValidateFile validates an XML file against the schema.
-// It returns nil when the document is valid.
-// Use errors.AsValidations to extract violations from a non-nil error.
-func (s *Schema) ValidateFile(path string) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("open xml file %s: %w", path, err)
-	}
-	defer f.Close()
-
-	return s.validateReader(f)
-}
-
-func (s *Schema) validateReader(r io.Reader) error {
 	if s == nil || s.compiled == nil {
 		return errors.ValidationList{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}
 	}
@@ -89,4 +61,15 @@ func (s *Schema) validateReader(r io.Reader) error {
 		return nil
 	}
 	return errors.ValidationList(violations)
+}
+
+// ValidateFile validates an XML file against the schema.
+func (s *Schema) ValidateFile(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open xml file %s: %w", path, err)
+	}
+	defer f.Close()
+
+	return s.Validate(f)
 }

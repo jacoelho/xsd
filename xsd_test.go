@@ -50,44 +50,44 @@ func requireSingleViolation(t *testing.T, err error, code errors.ErrorCode) {
 	t.Helper()
 
 	if err == nil {
-		t.Fatalf("ValidateReader() err = nil, want %s", code)
+		t.Fatalf("Validate() err = nil, want %s", code)
 	}
 	violations, ok := errors.AsValidations(err)
 	if !ok {
 		t.Fatalf("AsValidations() ok = false, want true")
 	}
 	if len(violations) != 1 {
-		t.Fatalf("ValidateReader() violations = %v, want 1", violations)
+		t.Fatalf("Validate() violations = %v, want 1", violations)
 	}
 	if violations[0].Code != string(code) {
-		t.Fatalf("ValidateReader() code = %q, want %q", violations[0].Code, code)
+		t.Fatalf("Validate() code = %q, want %q", violations[0].Code, code)
 	}
 }
 
 func TestSchemaValidateFileValid(t *testing.T) {
 	s := loadSchema(t)
 
-	if err := s.ValidateReader(strings.NewReader(validPersonXML)); err != nil {
-		t.Fatalf("ValidateReader() err = %v, want nil", err)
+	if err := s.Validate(strings.NewReader(validPersonXML)); err != nil {
+		t.Fatalf("Validate() err = %v, want nil", err)
 	}
 }
 
-func TestSchemaValidateReaderParseError(t *testing.T) {
+func TestSchemaValidateParseError(t *testing.T) {
 	s := loadSchema(t)
 
-	requireSingleViolation(t, s.ValidateReader(strings.NewReader("<broken")), errors.ErrXMLParse)
+	requireSingleViolation(t, s.Validate(strings.NewReader("<broken")), errors.ErrXMLParse)
 }
 
-func TestSchemaValidateReaderNilSchema(t *testing.T) {
+func TestSchemaValidateNilSchema(t *testing.T) {
 	var s *xsd.Schema
 
-	requireSingleViolation(t, s.ValidateReader(strings.NewReader("<root/>")), errors.ErrSchemaNotLoaded)
+	requireSingleViolation(t, s.Validate(strings.NewReader("<root/>")), errors.ErrSchemaNotLoaded)
 }
 
-func TestSchemaValidateReaderNilReader(t *testing.T) {
+func TestSchemaValidateNilReader(t *testing.T) {
 	s := loadSchema(t)
 
-	requireSingleViolation(t, s.ValidateReader(nil), errors.ErrXMLParse)
+	requireSingleViolation(t, s.Validate(nil), errors.ErrXMLParse)
 }
 
 const pain008Schema = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -1089,13 +1089,13 @@ func TestSchemaValidatePain008(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	if err := s.ValidateReader(strings.NewReader(pain008XML)); err != nil {
+	if err := s.Validate(strings.NewReader(pain008XML)); err != nil {
 		if violations, ok := errors.AsValidations(err); ok {
 			for _, v := range violations {
 				t.Logf("violation: %s at %s: %s", v.Code, v.Path, v.Message)
 			}
-			t.Fatalf("ValidateReader() violations = %d, want 0", len(violations))
+			t.Fatalf("Validate() violations = %d, want 0", len(violations))
 		}
-		t.Fatalf("ValidateReader() err = %v, want nil", err)
+		t.Fatalf("Validate() err = %v, want nil", err)
 	}
 }
