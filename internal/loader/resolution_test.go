@@ -1,0 +1,279 @@
+package loader
+
+import (
+	"testing"
+
+	"github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/types"
+)
+
+func TestTwoPhaseResolution_SimpleType(t *testing.T) {
+	// Test that simple type base types are resolved in phase 2
+	schema := &schema.Schema{
+		TargetNamespace: "http://example.com",
+		TypeDefs:        make(map[types.QName]types.Type),
+	}
+
+	baseType := &types.SimpleType{
+		QName: types.QName{
+			Namespace: "http://example.com",
+			Local:     "BaseType",
+		},
+		// Variety set via SetVariety
+	}
+	schema.TypeDefs[baseType.QName] = baseType
+
+	// Create derived type with QName reference (not yet resolved)
+	derivedType := &types.SimpleType{
+		QName: types.QName{
+			Namespace: "http://example.com",
+			Local:     "DerivedType",
+		},
+		// Variety set via SetVariety
+		Restriction: &types.Restriction{
+			Base: baseType.QName,
+		},
+		// BaseType is nil initially (not resolved)
+	}
+	schema.TypeDefs[derivedType.QName] = derivedType
+
+	// Phase 2: Resolve base types
+	if err := resolveTypeReferences(schema); err != nil {
+		t.Fatalf("resolveTypeReferences failed: %v", err)
+	}
+
+	if derivedType.ResolvedBase == nil {
+		t.Fatal("BaseType should be resolved after phase 2")
+	}
+	if derivedType.BaseType() != baseType {
+		t.Errorf("BaseType = %v, want %v", derivedType.BaseType(), baseType)
+	}
+}
+
+func TestTwoPhaseResolution_ComplexType(t *testing.T) {
+	// Test that complex type base types are resolved in phase 2
+	schema := &schema.Schema{
+		TargetNamespace: "http://example.com",
+		TypeDefs:        make(map[types.QName]types.Type),
+	}
+
+	baseType := &types.ComplexType{
+		QName: types.QName{
+			Namespace: "http://example.com",
+			Local:     "BaseType",
+		},
+		// Content set via SetContent
+	}
+	baseType.SetContent(&types.ElementContent{})
+	schema.TypeDefs[baseType.QName] = baseType
+
+	derivedType := &types.ComplexType{
+		QName: types.QName{
+			Namespace: "http://example.com",
+			Local:     "DerivedType",
+		},
+		// Content set via SetContent
+		// BaseType is nil initially
+	}
+	derivedType.SetContent(&types.ComplexContent{
+		Base: baseType.QName,
+		Extension: &types.Extension{
+			Base: baseType.QName,
+		},
+	})
+	schema.TypeDefs[derivedType.QName] = derivedType
+
+	// Phase 2: Resolve base types
+	if err := resolveTypeReferences(schema); err != nil {
+		t.Fatalf("resolveTypeReferences failed: %v", err)
+	}
+
+	if derivedType.ResolvedBase == nil {
+		t.Fatal("BaseType should be resolved after phase 2")
+	}
+	if derivedType.BaseType() != baseType {
+		t.Errorf("BaseType = %v, want %v", derivedType.BaseType(), baseType)
+	}
+}
+
+func TestTwoPhaseResolution_ForwardReference(t *testing.T) {
+	// Test that forward references work (type A can reference type B defined later)
+	schema := &schema.Schema{
+		TargetNamespace: "http://example.com",
+		TypeDefs:        make(map[types.QName]types.Type),
+	}
+
+	// Create type A that references type B (forward reference)
+	typeA := &types.SimpleType{
+		QName: types.QName{
+			Namespace: "http://example.com",
+			Local:     "TypeA",
+		},
+		// Variety set via SetVariety
+		Restriction: &types.Restriction{
+			Base: types.QName{
+				Namespace: "http://example.com",
+				Local:     "TypeB",
+			},
+		},
+	}
+	schema.TypeDefs[typeA.QName] = typeA
+
+	// Create type B (defined after type A)
+	typeB := &types.SimpleType{
+		QName: types.QName{
+			Namespace: "http://example.com",
+			Local:     "TypeB",
+		},
+		// Variety set via SetVariety
+	}
+	schema.TypeDefs[typeB.QName] = typeB
+
+	// Phase 2: Resolve base types (should work even though B is defined after A)
+	if err := resolveTypeReferences(schema); err != nil {
+		t.Fatalf("resolveTypeReferences failed: %v", err)
+	}
+
+	if typeA.ResolvedBase == nil {
+		t.Fatal("Forward reference should be resolved")
+	}
+	if typeA.BaseType() != typeB {
+		t.Errorf("BaseType = %v, want %v", typeA.BaseType(), typeB)
+	}
+}
+
+func TestTwoPhaseResolution_CircularDependency(t *testing.T) {
+	// Test that circular dependencies are detected
+	schema := &schema.Schema{
+		TargetNamespace: "http://example.com",
+		TypeDefs:        make(map[types.QName]types.Type),
+	}
+
+	// Type A references Type B
+	typeA := &types.SimpleType{
+		QName: types.QName{
+			Namespace: "http://example.com",
+			Local:     "TypeA",
+		},
+		// Variety set via SetVariety
+		Restriction: &types.Restriction{
+			Base: types.QName{
+				Namespace: "http://example.com",
+				Local:     "TypeB",
+			},
+		},
+	}
+	schema.TypeDefs[typeA.QName] = typeA
+
+	// Type B references Type A (circular)
+	typeB := &types.SimpleType{
+		QName: types.QName{
+			Namespace: "http://example.com",
+			Local:     "TypeB",
+		},
+		// Variety set via SetVariety
+		Restriction: &types.Restriction{
+			Base: types.QName{
+				Namespace: "http://example.com",
+				Local:     "TypeA",
+			},
+		},
+	}
+	schema.TypeDefs[typeB.QName] = typeB
+
+	// Phase 2: Should detect circular dependency
+	err := resolveTypeReferences(schema)
+	if err == nil {
+		t.Fatal("Should detect circular dependency")
+	}
+	if err.Error() == "" {
+		t.Error("Error message should not be empty")
+	}
+}
+
+func TestTwoPhaseResolution_MissingBaseType(t *testing.T) {
+	// Test that missing base types are detected
+	schema := &schema.Schema{
+		TargetNamespace: "http://example.com",
+		TypeDefs:        make(map[types.QName]types.Type),
+	}
+
+	// Type that references non-existent base type
+	derivedType := &types.SimpleType{
+		QName: types.QName{
+			Namespace: "http://example.com",
+			Local:     "DerivedType",
+		},
+		// Variety set via SetVariety
+		Restriction: &types.Restriction{
+			Base: types.QName{
+				Namespace: "http://example.com",
+				Local:     "NonExistentType",
+			},
+		},
+	}
+	schema.TypeDefs[derivedType.QName] = derivedType
+
+	// Phase 2: Should detect missing base type
+	err := resolveTypeReferences(schema)
+	if err == nil {
+		t.Fatal("Should detect missing base type")
+	}
+}
+
+func TestTwoPhaseResolution_ValidCircularUnion(t *testing.T) {
+	// Test that union types can have circular member references (this is valid in XSD)
+	// This is based on MS-SimpleType2006-07-15/ste110 test case
+	schema := &schema.Schema{
+		TargetNamespace: "",
+		TypeDefs:        make(map[types.QName]types.Type),
+	}
+
+	// Type st is a union with member types: xsd:int, xsd:string, and st2
+	st := &types.SimpleType{
+		QName: types.QName{
+			Namespace: "",
+			Local:     "st",
+		},
+	}
+	st.SetVariety(types.UnionVariety)
+	st.Union = &types.UnionType{
+		MemberTypes: []types.QName{
+			{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "int"},
+			{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "string"},
+			{Namespace: "", Local: "st2"},
+		},
+	}
+	schema.TypeDefs[st.QName] = st
+
+	// Type st2 is a union with member type: st (circular reference)
+	st2 := &types.SimpleType{
+		QName: types.QName{
+			Namespace: "",
+			Local:     "st2",
+		},
+	}
+	st2.SetVariety(types.UnionVariety)
+	st2.Union = &types.UnionType{
+		MemberTypes: []types.QName{
+			{Namespace: "", Local: "st"},
+		},
+	}
+	schema.TypeDefs[st2.QName] = st2
+
+	// Phase 2: Should NOT detect this as a circular dependency (union circular references are valid)
+	err := resolveTypeReferences(schema)
+	if err != nil {
+		t.Fatalf("resolveTypeReferences should not fail for valid circular union: %v", err)
+	}
+
+	if len(st.MemberTypes) != 3 {
+		t.Fatalf("st.MemberTypes should have 3 members, got %d", len(st.MemberTypes))
+	}
+	if len(st2.MemberTypes) != 1 {
+		t.Fatalf("st2.MemberTypes should have 1 member, got %d", len(st2.MemberTypes))
+	}
+	if st2.MemberTypes[0] != st {
+		t.Errorf("st2.MemberTypes[0] should be st, got %v", st2.MemberTypes[0])
+	}
+}

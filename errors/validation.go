@@ -1,0 +1,135 @@
+package errors
+
+import (
+	stderrors "errors"
+	"fmt"
+	"strings"
+)
+
+// ErrorCode represents a W3C XSD error code.
+// See: https://www.w3.org/TR/xmlschema-1/#cvc-elt
+type ErrorCode string
+
+const (
+	// ErrNoRoot indicates the XML document has no root element.
+	ErrNoRoot ErrorCode = "xsd-no-root"
+	// ErrSchemaNotLoaded indicates validation was attempted without a loaded schema.
+	ErrSchemaNotLoaded ErrorCode = "xsd-schema-not-loaded"
+	// ErrXMLParse indicates the XML document could not be parsed.
+	ErrXMLParse ErrorCode = "xml-parse-error"
+	// ErrSchemaLocationHint reports a schemaLocation hint issue.
+	ErrSchemaLocationHint ErrorCode = "xsd-schema-location"
+
+	// ErrElementNotDeclared indicates an element has no declaration.
+	ErrElementNotDeclared ErrorCode = "cvc-elt.1"
+	// ErrElementAbstract indicates an abstract element was used.
+	ErrElementAbstract ErrorCode = "cvc-elt.2"
+	// ErrElementNotNillable indicates xsi:nil was used on a non-nillable element.
+	ErrElementNotNillable ErrorCode = "cvc-elt.3.1"
+	// ErrNilElementNotEmpty indicates a nilled element had content.
+	ErrNilElementNotEmpty ErrorCode = "cvc-elt.3.2.2"
+	// ErrXsiTypeInvalid indicates an xsi:type could not be resolved or is invalid.
+	ErrXsiTypeInvalid ErrorCode = "cvc-elt.4.3"
+	// ErrElementTypeAbstract indicates an abstract type was used for an element.
+	ErrElementTypeAbstract ErrorCode = "cvc-elt.4.2"
+	// ErrElementFixedValue indicates a fixed element value was violated.
+	ErrElementFixedValue ErrorCode = "cvc-elt.5.2.2.2"
+
+	// ErrTextInElementOnly indicates text appeared in element-only content.
+	ErrTextInElementOnly ErrorCode = "cvc-complex-type.2.3"
+	// ErrContentModelInvalid indicates children violate the content model.
+	ErrContentModelInvalid ErrorCode = "cvc-complex-type.2.4"
+	// ErrRequiredElementMissing indicates a required child element is missing.
+	ErrRequiredElementMissing ErrorCode = "cvc-complex-type.2.4.b"
+	// ErrUnexpectedElement indicates an unexpected child element.
+	ErrUnexpectedElement ErrorCode = "cvc-complex-type.2.4.d"
+	// ErrAttributeNotDeclared indicates an attribute is not declared.
+	ErrAttributeNotDeclared ErrorCode = "cvc-complex-type.3.2.1"
+	// ErrAttributeProhibited indicates a prohibited attribute is present.
+	ErrAttributeProhibited ErrorCode = "cvc-complex-type.3.2.2"
+	// ErrRequiredAttributeMissing indicates a required attribute is missing.
+	ErrRequiredAttributeMissing ErrorCode = "cvc-complex-type.4"
+
+	// ErrAttributeFixedValue indicates a fixed attribute value was violated.
+	ErrAttributeFixedValue ErrorCode = "cvc-attribute.1"
+
+	// ErrWildcardNotDeclared indicates a wildcard requires a declaration.
+	ErrWildcardNotDeclared ErrorCode = "cvc-wildcard.1.2"
+
+	// ErrDatatypeInvalid indicates a lexical value is invalid for its datatype.
+	ErrDatatypeInvalid ErrorCode = "cvc-datatype-valid"
+	// ErrFacetViolation indicates a value violates a facet constraint.
+	ErrFacetViolation ErrorCode = "cvc-facet-valid"
+
+	// ErrDuplicateID indicates a duplicate ID value.
+	ErrDuplicateID ErrorCode = "cvc-id.2"
+	// ErrIDRefNotFound indicates an IDREF was not found.
+	ErrIDRefNotFound ErrorCode = "cvc-id.1.2"
+
+	// ErrIdentityDuplicate indicates an identity constraint is duplicated.
+	ErrIdentityDuplicate ErrorCode = "cvc-identity-constraint.4.1"
+	// ErrIdentityAbsent indicates an identity constraint is absent.
+	ErrIdentityAbsent ErrorCode = "cvc-identity-constraint.4.2.1"
+	// ErrIdentityKeyRefFailed indicates a keyref constraint failed.
+	ErrIdentityKeyRefFailed ErrorCode = "cvc-identity-constraint.4.3"
+)
+
+// Validation describes a schema validation error with a W3C or local error code
+// and an optional instance path for context.
+type Validation struct {
+	Code     string
+	Message  string
+	Path     string
+	Expected []string
+	Actual   string
+}
+
+// ValidationList is an error that wraps one or more validation errors.
+type ValidationList []Validation
+
+// Error returns a compact summary of the validation errors.
+func (v ValidationList) Error() string {
+	switch len(v) {
+	case 0:
+		return "no validation errors"
+	case 1:
+		return v[0].Error()
+	default:
+		return fmt.Sprintf("%s (and %d more)", v[0].Error(), len(v)-1)
+	}
+}
+
+// Error formats the validation for display, including code, message, and context.
+func (v Validation) Error() string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("[%s] %s", v.Code, v.Message))
+	if v.Path != "" {
+		b.WriteString(fmt.Sprintf(" at %s", v.Path))
+	}
+	if len(v.Expected) > 0 {
+		b.WriteString(fmt.Sprintf(" (expected: %s)", strings.Join(v.Expected, ", ")))
+	}
+	if v.Actual != "" {
+		b.WriteString(fmt.Sprintf(" (actual: %s)", v.Actual))
+	}
+	return b.String()
+}
+
+// NewValidation builds a Validation with a code, message, and optional path.
+func NewValidation(code ErrorCode, msg, path string) Validation {
+	return Validation{Code: string(code), Message: msg, Path: path}
+}
+
+// NewValidationf formats a message and builds a Validation.
+func NewValidationf(code ErrorCode, path, format string, args ...any) Validation {
+	return NewValidation(code, fmt.Sprintf(format, args...), path)
+}
+
+// AsValidations extracts validation errors from an error returned by validation helpers.
+func AsValidations(err error) ([]Validation, bool) {
+	var list ValidationList
+	if stderrors.As(err, &list) {
+		return []Validation(list), true
+	}
+	return nil, false
+}
