@@ -22,9 +22,6 @@ import (
 // We support XSD 1.0
 const processorVersion = "1.0"
 
-// w3cTestSetFiles is a hardcoded list of all 95 test set files from the W3C test suite
-// This matches suite.xml exactly (excluding commented-out entries)
-// Using a hardcoded list ensures stable, explicit test discovery
 var w3cTestSetFiles = []string{
 	// Common (1 file)
 	"common/introspection.testSet",
@@ -164,15 +161,8 @@ var excludePatterns = []ExclusionReason{
 	{"d3_4_6ii04", "XML 1.1 NameStartChar tests - XML 1.1 features not supported in XSD 1.0 implementation"},
 	// HTTP schema import tests
 	{"introspection", "Requires HTTP schema imports (e.g., xlink.xsd) - not supported to keep library pure Go with no network dependencies"},
-
-	// ============================================================================
-	// Unsupported XSD regex patterns - Go RE2 regexp limitations
-	// See issues/regex-go-only-support.md for details
-	// ============================================================================
-
-	// --- Unicode block escapes (\p{Is...}) - not supported in Go regexp ---
-	// These tests use \p{IsBlockName} which Go regexp doesn't support
-	// Matches: reL1-reL99, reM1-reM99, reN1-reN99 (Unicode block tests)
+	
+	// Unicode block escapes (\p{Is...}) - not supported in Go regexp 
 	{"/rel", "Uses \\p{Is...} Unicode block escape - not supported in Go regexp"},
 	{"/rem", "Uses \\p{Is...} Unicode block escape - not supported in Go regexp"},
 	{"/ren", "Uses \\p{Is...} Unicode block escape - not supported in Go regexp"},
@@ -265,7 +255,6 @@ var excludePatterns = []ExclusionReason{
 
 	// --- XML NameChar escapes (\i, \c, \I, \C) - not implemented ---
 	// These escape sequences represent XML NameStartChar and NameChar
-	// Matches: reQ1-reQ24 (\i tests), reR1-reR29 (\c tests)
 	{"/req", "Uses \\i escape (XML NameStartChar) - not supported in Go regexp"},
 	{"/rer", "Uses \\c escape (XML NameChar) - not supported in Go regexp"},
 	{"addb058", "Uses \\C escape (XML NameChar) - not supported in Go regexp"},
