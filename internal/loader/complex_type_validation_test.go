@@ -1,0 +1,858 @@
+package loader
+
+import (
+	"strings"
+	"testing"
+	"testing/fstest"
+
+	"github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/types"
+)
+
+// TestValidateElementDeclarationsConsistent tests the "Element Declarations Consistent" constraint
+// According to XSD spec: when extending a complex type, elements in the extension cannot have
+// the same name as elements in the base type with different types.
+func TestValidateElementDeclarationsConsistent(t *testing.T) {
+	tests := []struct {
+		name    string
+		schema  string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid extension with different element names",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:integer"/>
+					</xs:sequence>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType">
+					<xs:complexContent>
+						<xs:extension base="BaseType">
+							<xs:sequence>
+								<xs:element name="child2" type="xs:string"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: false,
+		},
+		{
+			name: "invalid extension with same element name but different type",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:integer"/>
+					</xs:sequence>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType">
+					<xs:complexContent>
+						<xs:extension base="BaseType">
+							<xs:sequence>
+								<xs:element name="child1" type="xs:date"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "Element Declarations Consistent",
+		},
+		{
+			name: "valid extension with same element name and same type",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:integer"/>
+					</xs:sequence>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType">
+					<xs:complexContent>
+						<xs:extension base="BaseType">
+							<xs:sequence>
+								<xs:element name="child1" type="xs:integer"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: false,
+		},
+		{
+			name: "extension with nested groups - element conflict",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:integer"/>
+					</xs:sequence>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType">
+					<xs:complexContent>
+						<xs:extension base="BaseType">
+							<xs:sequence>
+								<xs:choice>
+									<xs:element name="child1" type="xs:date"/>
+								</xs:choice>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "Element Declarations Consistent",
+		},
+		{
+			name: "extension from derived type - checks base chain",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:integer"/>
+					</xs:sequence>
+				</xs:complexType>
+				<xs:complexType name="MiddleType">
+					<xs:complexContent>
+						<xs:extension base="BaseType">
+							<xs:sequence>
+								<xs:element name="child2" type="xs:string"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType">
+					<xs:complexContent>
+						<xs:extension base="MiddleType">
+							<xs:sequence>
+								<xs:element name="child1" type="xs:date"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "Element Declarations Consistent",
+		},
+		{
+			name: "restriction element type must be derived from base element type",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:integer" minOccurs="0"/>
+					</xs:sequence>
+				</xs:complexType>
+				<xs:complexType name="RestrictedType">
+					<xs:complexContent>
+						<xs:restriction base="BaseType">
+							<xs:sequence>
+								<xs:element name="child1" type="xs:date"/>
+							</xs:sequence>
+						</xs:restriction>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true, // Per XSD 1.0 spec: restriction element type must be derived from base element type
+			errMsg:  "type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fsys := fstest.MapFS{
+				"test.xsd": &fstest.MapFile{
+					Data: []byte(tt.schema),
+				},
+			}
+			cfg := Config{
+				FS: fsys,
+			}
+			l := NewLoader(cfg)
+			_, err := l.Load("test.xsd")
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected schema validation error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error to contain %q, got: %v", tt.errMsg, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected schema to be valid but got error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestValidateGroupOccurrenceConstraints tests that groups cannot have
+// minOccurs="0" or maxOccurs="unbounded" directly.
+func TestValidateGroupOccurrenceConstraints(t *testing.T) {
+	tests := []struct {
+		name    string
+		schema  string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid group with default occurrences",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:group name="validGroup">
+					<xs:sequence>
+						<xs:element name="a" type="xs:string"/>
+					</xs:sequence>
+				</xs:group>
+			</xs:schema>`,
+			wantErr: false,
+		},
+		{
+			name: "invalid group with minOccurs=0",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:group name="invalidGroup">
+					<xs:sequence minOccurs="0">
+						<xs:element name="a" type="xs:string"/>
+					</xs:sequence>
+				</xs:group>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "minOccurs='0'",
+		},
+		{
+			name: "invalid group with maxOccurs=unbounded",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:group name="invalidGroup">
+					<xs:sequence maxOccurs="unbounded">
+						<xs:element name="a" type="xs:string"/>
+					</xs:sequence>
+				</xs:group>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "maxOccurs='unbounded'",
+		},
+		{
+			name: "invalid group with minOccurs=2",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:group name="invalidGroup">
+					<xs:sequence minOccurs="2" maxOccurs="1">
+						<xs:element name="a" type="xs:string"/>
+					</xs:sequence>
+				</xs:group>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "minOccurs='1' and maxOccurs='1'",
+		},
+		{
+			name: "invalid group with maxOccurs=2",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:group name="invalidGroup">
+					<xs:sequence minOccurs="1" maxOccurs="2">
+						<xs:element name="a" type="xs:string"/>
+					</xs:sequence>
+				</xs:group>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "minOccurs='1' and maxOccurs='1'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fsys := fstest.MapFS{
+				"test.xsd": &fstest.MapFile{
+					Data: []byte(tt.schema),
+				},
+			}
+			cfg := Config{
+				FS: fsys,
+			}
+			l := NewLoader(cfg)
+			_, err := l.Load("test.xsd")
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected schema validation error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error to contain %q, got: %v", tt.errMsg, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected schema to be valid but got error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestValidateMixedContentDerivation tests mixed content derivation constraints.
+// According to XSD spec: when extending a complex type, the mixed content property
+// must be consistent. You cannot extend a mixed content type to element-only content,
+// or extend an element-only type to mixed content.
+func TestValidateMixedContentDerivation(t *testing.T) {
+	tests := []struct {
+		name    string
+		schema  string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid extension - both element-only",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:string"/>
+					</xs:sequence>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType">
+					<xs:complexContent>
+						<xs:extension base="BaseType">
+							<xs:sequence>
+								<xs:element name="child2" type="xs:string"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: false,
+		},
+		{
+			name: "valid extension - both mixed",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType" mixed="true">
+					<xs:choice minOccurs="0" maxOccurs="unbounded">
+						<xs:element name="child1" type="xs:string"/>
+					</xs:choice>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType" mixed="true">
+					<xs:complexContent>
+						<xs:extension base="BaseType">
+							<xs:sequence>
+								<xs:element name="child2" type="xs:string"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: false,
+		},
+		{
+			name: "valid extension - base mixed, no extension content",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType" mixed="true">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:string"/>
+					</xs:sequence>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType">
+					<xs:complexContent>
+						<xs:extension base="BaseType"/>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: false,
+		},
+		{
+			name: "invalid extension - base mixed, derived element-only",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType" mixed="true">
+					<xs:choice minOccurs="0" maxOccurs="unbounded">
+						<xs:element name="child1" type="xs:string"/>
+					</xs:choice>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType">
+					<xs:complexContent>
+						<xs:extension base="BaseType">
+							<xs:sequence>
+								<xs:element name="child2" type="xs:string"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "mixed content",
+		},
+		{
+			name: "invalid extension - base element-only, derived mixed",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:string"/>
+					</xs:sequence>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType" mixed="true">
+					<xs:complexContent>
+						<xs:extension base="BaseType">
+							<xs:sequence>
+								<xs:element name="child2" type="xs:string"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "mixed content",
+		},
+		{
+			name: "restriction does not check mixed content consistency",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType" mixed="true">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:string" minOccurs="0"/>
+					</xs:sequence>
+				</xs:complexType>
+				<xs:complexType name="RestrictedType" mixed="true">
+					<xs:complexContent>
+						<xs:restriction base="BaseType">
+							<xs:sequence>
+								<xs:element name="child1" type="xs:string"/>
+							</xs:sequence>
+						</xs:restriction>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: false, // Restrictions have different rules, and mixed content can be the same
+		},
+		{
+			name: "invalid extension from derived type - base chain with mixed to element-only",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType" mixed="true">
+					<xs:choice minOccurs="0" maxOccurs="unbounded">
+						<xs:element name="child1" type="xs:string"/>
+					</xs:choice>
+				</xs:complexType>
+				<xs:complexType name="MiddleType" mixed="true">
+					<xs:complexContent>
+						<xs:extension base="BaseType">
+							<xs:sequence>
+								<xs:element name="child2" type="xs:string"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType">
+					<xs:complexContent>
+						<xs:extension base="MiddleType">
+							<xs:sequence>
+								<xs:element name="child3" type="xs:string"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "mixed content",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fsys := fstest.MapFS{
+				"test.xsd": &fstest.MapFile{
+					Data: []byte(tt.schema),
+				},
+			}
+			cfg := Config{
+				FS: fsys,
+			}
+			l := NewLoader(cfg)
+			_, err := l.Load("test.xsd")
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected schema validation error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error to contain %q, got: %v", tt.errMsg, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected schema to be valid but got error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestValidateComplexTypeStructureIntegration tests the full integration
+// of complex type validation with all constraints.
+func TestValidateComplexTypeStructureIntegration(t *testing.T) {
+	tests := []struct {
+		name    string
+		schema  string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid complex type with all constraints satisfied",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="ValidType">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:string"/>
+						<xs:element name="child2" type="xs:integer"/>
+					</xs:sequence>
+					<xs:attribute name="attr1" type="xs:string"/>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: false,
+		},
+		{
+			name: "invalid - element declarations consistent violation",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:integer"/>
+					</xs:sequence>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType">
+					<xs:complexContent>
+						<xs:extension base="BaseType">
+							<xs:sequence>
+								<xs:element name="child1" type="xs:date"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "Element Declarations Consistent",
+		},
+		{
+			name: "invalid - extension from mixed to element-only",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType" mixed="true">
+					<xs:choice minOccurs="0" maxOccurs="unbounded">
+						<xs:element name="child1" type="xs:string"/>
+					</xs:choice>
+				</xs:complexType>
+				<xs:complexType name="ExtendedType">
+					<xs:complexContent>
+						<xs:extension base="BaseType">
+							<xs:sequence>
+								<xs:element name="child2" type="xs:string"/>
+							</xs:sequence>
+						</xs:extension>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "mixed content",
+		},
+		{
+			name: "invalid - restriction from element-only to mixed",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BaseType">
+					<xs:sequence>
+						<xs:element name="child1" type="xs:string"/>
+					</xs:sequence>
+				</xs:complexType>
+				<xs:complexType name="RestrictedType" mixed="true">
+					<xs:complexContent>
+						<xs:restriction base="BaseType">
+							<xs:sequence>
+								<xs:element name="child1" type="xs:string"/>
+							</xs:sequence>
+						</xs:restriction>
+					</xs:complexContent>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "mixed",
+		},
+		{
+			name: "invalid - group occurrence constraint violation",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:group name="InvalidGroup">
+					<xs:sequence minOccurs="0">
+						<xs:element name="a" type="xs:string"/>
+					</xs:sequence>
+				</xs:group>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "minOccurs='0'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fsys := fstest.MapFS{
+				"test.xsd": &fstest.MapFile{
+					Data: []byte(tt.schema),
+				},
+			}
+			cfg := Config{
+				FS: fsys,
+			}
+			l := NewLoader(cfg)
+			_, err := l.Load("test.xsd")
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected schema validation error but got none")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error to contain %q, got: %v", tt.errMsg, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected schema to be valid but got error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestCollectElementDeclarationsFromType tests the element collection logic
+// to ensure it correctly collects elements from base types recursively.
+func TestCollectElementDeclarationsFromType(t *testing.T) {
+	schema := &schema.Schema{
+		TargetNamespace: "http://example.com",
+		TypeDefs:        make(map[types.QName]types.Type),
+	}
+
+	// Base type with one element
+	baseType := &types.ComplexType{
+		QName: types.QName{Namespace: "http://example.com", Local: "BaseType"},
+	}
+	baseType.SetContent(&types.ElementContent{
+		Particle: &types.ModelGroup{
+			Kind: types.Sequence,
+			Particles: []types.Particle{
+				&types.ElementDecl{
+					Name: types.QName{Namespace: "http://example.com", Local: "baseElement"},
+					Type: types.GetBuiltin(types.TypeNameString),
+				},
+			},
+		},
+	})
+
+	// Middle type extending base
+	middleType := &types.ComplexType{
+		QName: types.QName{Namespace: "http://example.com", Local: "MiddleType"},
+	}
+	middleType.SetContent(&types.ComplexContent{
+		Extension: &types.Extension{
+			Base: baseType.QName,
+			Particle: &types.ModelGroup{
+				Kind: types.Sequence,
+				Particles: []types.Particle{
+					&types.ElementDecl{
+						Name: types.QName{Namespace: "http://example.com", Local: "middleElement"},
+						Type: types.GetBuiltin(types.TypeNameInteger),
+					},
+				},
+			},
+		},
+	})
+	middleType.DerivationMethod = types.DerivationExtension
+
+	// Extended type extending middle
+	extendedType := &types.ComplexType{
+		QName: types.QName{Namespace: "http://example.com", Local: "ExtendedType"},
+	}
+	extendedType.SetContent(&types.ComplexContent{
+		Extension: &types.Extension{
+			Base: middleType.QName,
+			Particle: &types.ModelGroup{
+				Kind: types.Sequence,
+				Particles: []types.Particle{
+					&types.ElementDecl{
+						Name: types.QName{Namespace: "http://example.com", Local: "extendedElement"},
+						Type: types.GetBuiltin(types.TypeNameDate),
+					},
+				},
+			},
+		},
+	})
+	extendedType.DerivationMethod = types.DerivationExtension
+
+	schema.TypeDefs[baseType.QName] = baseType
+	schema.TypeDefs[middleType.QName] = middleType
+	schema.TypeDefs[extendedType.QName] = extendedType
+
+	// Test collecting from extended type should get all elements
+	elements := collectAllElementDeclarationsFromType(schema, extendedType)
+	if len(elements) != 3 {
+		t.Errorf("Expected 3 elements, got %d", len(elements))
+	}
+
+	// Verify element names
+	names := make(map[string]bool)
+	for _, elem := range elements {
+		names[elem.Name.Local] = true
+	}
+	expectedNames := []string{"baseElement", "middleElement", "extendedElement"}
+	for _, name := range expectedNames {
+		if !names[name] {
+			t.Errorf("Expected element %s not found in collection", name)
+		}
+	}
+}
+
+// TestAllGroupConstraints tests XSD 1.0 constraints on xs:all model groups
+func TestAllGroupConstraints(t *testing.T) {
+	tests := []struct {
+		name    string
+		schema  string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid xs:all with default occurrences",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="AllType">
+					<xs:all>
+						<xs:element name="a" type="xs:string"/>
+						<xs:element name="b" type="xs:string"/>
+					</xs:all>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: false,
+		},
+		{
+			name: "valid xs:all with minOccurs=0",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="AllType">
+					<xs:all minOccurs="0">
+						<xs:element name="a" type="xs:string"/>
+						<xs:element name="b" type="xs:string"/>
+					</xs:all>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: false,
+		},
+		{
+			name: "invalid xs:all with maxOccurs > 1",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="AllType">
+					<xs:all maxOccurs="2">
+						<xs:element name="a" type="xs:string"/>
+					</xs:all>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "xs:all must have maxOccurs='1'",
+		},
+		{
+			name: "invalid xs:all with minOccurs > 1",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="AllType">
+					<xs:all minOccurs="2">
+						<xs:element name="a" type="xs:string"/>
+					</xs:all>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "xs:all must have minOccurs='0' or '1'",
+		},
+		{
+			name: "invalid xs:all member with maxOccurs > 1",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="AllType">
+					<xs:all>
+						<xs:element name="a" type="xs:string" maxOccurs="2"/>
+					</xs:all>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "maxOccurs <= 1",
+		},
+		{
+			name: "valid xs:all member with minOccurs=0",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="AllType">
+					<xs:all>
+						<xs:element name="a" type="xs:string" minOccurs="0"/>
+						<xs:element name="b" type="xs:string"/>
+					</xs:all>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: false,
+		},
+		{
+			name: "invalid xs:all inside xs:sequence",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BadType">
+					<xs:sequence>
+						<xs:all>
+							<xs:element name="a" type="xs:string"/>
+						</xs:all>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "xs:all cannot appear as a child",
+		},
+		{
+			name: "invalid xs:all inside xs:choice",
+			schema: `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+				<xs:complexType name="BadType">
+					<xs:choice>
+						<xs:all>
+							<xs:element name="a" type="xs:string"/>
+						</xs:all>
+					</xs:choice>
+				</xs:complexType>
+			</xs:schema>`,
+			wantErr: true,
+			errMsg:  "xs:all cannot appear as a child",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testFS := fstest.MapFS{
+				"test.xsd": &fstest.MapFile{
+					Data: []byte(tt.schema),
+				},
+			}
+
+			loader := NewLoader(Config{
+				FS: testFS,
+			})
+
+			_, err := loader.Load("test.xsd")
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error but got nil")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("error should contain %q, got: %v", tt.errMsg, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestComplexContentExtensionFromSimpleContentBase(t *testing.T) {
+	schemaXML := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+		<xs:complexType name="BaseType">
+			<xs:simpleContent>
+				<xs:extension base="xs:string">
+					<xs:attribute name="field1" type="xs:string"/>
+				</xs:extension>
+			</xs:simpleContent>
+		</xs:complexType>
+		<xs:complexType name="DerivedType">
+			<xs:complexContent>
+				<xs:extension base="BaseType">
+					<xs:attribute name="field2" type="xs:string"/>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:schema>`
+
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{
+			Data: []byte(schemaXML),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	if _, err := loader.Load("test.xsd"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

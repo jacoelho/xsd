@@ -1,0 +1,189 @@
+package loader
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/types"
+)
+
+type idValuePolicy int
+
+const (
+	idValuesAllowed idValuePolicy = iota
+	idValuesDisallowed
+)
+
+// validateDefaultOrFixedValueWithResolvedType validates a default/fixed value after type resolution.
+func validateDefaultOrFixedValueWithResolvedType(schema *schema.Schema, value string, typ types.Type) error {
+	return validateDefaultOrFixedValueWithResolvedTypeVisited(schema, value, typ, make(map[types.Type]bool))
+}
+
+func validateDefaultOrFixedValueWithResolvedTypeVisited(schema *schema.Schema, value string, typ types.Type, visited map[types.Type]bool) error {
+	return validateDefaultOrFixedValueResolved(schema, value, typ, visited, idValuesDisallowed)
+}
+
+func validateDefaultOrFixedValueResolved(schema *schema.Schema, value string, typ types.Type, visited map[types.Type]bool, policy idValuePolicy) error {
+	if typ == nil {
+		return nil
+	}
+	if visited[typ] {
+		return nil
+	}
+	visited[typ] = true
+	defer delete(visited, typ)
+
+	if ct, ok := typ.(*types.ComplexType); ok {
+		textType := getComplexTypeTextType(schema, ct)
+		if textType != nil {
+			return validateDefaultOrFixedValueResolved(schema, value, textType, visited, policy)
+		}
+		return nil
+	}
+
+	normalizedValue := types.NormalizeWhiteSpace(value, typ)
+
+	if typ.IsBuiltin() {
+		bt := types.GetBuiltinNS(typ.Name().Namespace, typ.Name().Local)
+		if bt != nil {
+			if policy == idValuesDisallowed && isIDOnlyType(typ.Name()) {
+				return fmt.Errorf("type '%s' cannot have default or fixed values", typ.Name().Local)
+			}
+			if err := bt.Validate(normalizedValue); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	if st, ok := typ.(*types.SimpleType); ok {
+		if policy == idValuesDisallowed && isIDOnlyDerivedType(st) {
+			return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
+		}
+		switch st.Variety() {
+		case types.UnionVariety:
+			memberTypes := resolveUnionMemberTypes(schema, st)
+			if len(memberTypes) == 0 {
+				return fmt.Errorf("union type '%s' has no member types", typ.Name().Local)
+			}
+			for _, member := range memberTypes {
+				if err := validateDefaultOrFixedValueResolved(schema, normalizedValue, member, visited, idValuesAllowed); err == nil {
+					return nil
+				}
+			}
+			return fmt.Errorf("value '%s' does not match any member type of union '%s'", normalizedValue, typ.Name().Local)
+		case types.ListVariety:
+			itemType := resolveListItemType(schema, st)
+			if itemType == nil {
+				return nil
+			}
+			for item := range strings.FieldsSeq(normalizedValue) {
+				if err := validateDefaultOrFixedValueResolved(schema, item, itemType, visited, policy); err != nil {
+					return err
+				}
+			}
+			return nil
+		default:
+			if err := st.Validate(normalizedValue); err != nil {
+				return err
+			}
+			if err := validateValueAgainstFacets(normalizedValue, st, schema); err != nil {
+				return err
+			}
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func resolveUnionMemberTypes(schema *schema.Schema, st *types.SimpleType) []types.Type {
+	if st == nil || st.Union == nil {
+		return nil
+	}
+	if len(st.MemberTypes) > 0 {
+		return st.MemberTypes
+	}
+	memberTypes := make([]types.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
+	for _, inline := range st.Union.InlineTypes {
+		memberTypes = append(memberTypes, inline)
+	}
+	for _, memberQName := range st.Union.MemberTypes {
+		if member := resolveSimpleTypeReference(schema, memberQName); member != nil {
+			memberTypes = append(memberTypes, member)
+		}
+	}
+	return memberTypes
+}
+
+func resolveListItemType(schema *schema.Schema, st *types.SimpleType) types.Type {
+	if st == nil || st.List == nil {
+		return nil
+	}
+	if st.ItemType != nil {
+		return st.ItemType
+	}
+	if st.List.InlineItemType != nil {
+		return st.List.InlineItemType
+	}
+	if !st.List.ItemType.IsZero() {
+		return resolveSimpleTypeReference(schema, st.List.ItemType)
+	}
+	return nil
+}
+
+// validateValueAgainstFacets validates a value against all facets of a simple type.
+func validateValueAgainstFacets(value string, st *types.SimpleType, schema *schema.Schema) error {
+	if st == nil || st.Restriction == nil {
+		return nil
+	}
+
+	for _, facetIface := range st.Restriction.Facets {
+		facet, ok := facetIface.(facets.Facet)
+		if !ok {
+			continue
+		}
+
+		typedValue := facets.TypedValueForFacet(value, st)
+
+		if err := facet.Validate(typedValue, st); err != nil {
+			return fmt.Errorf("facet '%s' violation: %w", facet.Name(), err)
+		}
+	}
+
+	return nil
+}
+
+// getComplexTypeTextType returns the text content type for a complex type with simple content.
+func getComplexTypeTextType(schema *schema.Schema, ct *types.ComplexType) types.Type {
+	content := ct.Content()
+	sc, ok := content.(*types.SimpleContent)
+	if !ok {
+		return nil
+	}
+
+	var baseQName types.QName
+	if sc.Extension != nil {
+		baseQName = sc.Extension.Base
+	} else if sc.Restriction != nil {
+		baseQName = sc.Restriction.Base
+	}
+
+	if baseQName.IsZero() {
+		return nil
+	}
+
+	// Check if base is a built-in type.
+	if bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local); bt != nil {
+		return bt
+	}
+
+	// Try to resolve from schema.
+	if resolvedType, ok := schema.TypeDefs[baseQName]; ok {
+		return resolvedType
+	}
+
+	return nil
+}

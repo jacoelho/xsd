@@ -1,0 +1,68 @@
+package validator
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/xml"
+)
+
+func TestXsiTypeBlockedByRestrictionInChain(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test"
+           xmlns:tns="http://example.com/test">
+  <xs:complexType name="base">
+    <xs:sequence>
+      <xs:element name="b" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="ext">
+    <xs:complexContent>
+      <xs:extension base="tns:base"/>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="e" block="restriction"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<tns:root xmlns:tns="http://example.com/test"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <e xsi:type="tns:ext"><b/></e>
+</tns:root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	doc, err := xml.Parse(strings.NewReader(docXML))
+	if err != nil {
+		t.Fatalf("Parse XML: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := v.Validate(doc)
+	if len(violations) == 0 {
+		t.Fatalf("Expected xsi:type violation, got none")
+	}
+
+	found := false
+	for _, viol := range violations {
+		if viol.Code == string(errors.ErrXsiTypeInvalid) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("Expected violation code %s, got: %v", errors.ErrXsiTypeInvalid, violations)
+	}
+}
