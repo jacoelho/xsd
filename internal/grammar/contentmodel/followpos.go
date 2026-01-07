@@ -11,7 +11,7 @@ func (b *Builder) computeFollowPos(n node) {
 	case *seqNode:
 		b.computeFollowPos(v.left)
 		b.computeFollowPos(v.right)
-		// Rule 1: sequence
+		// rule 1: sequence
 		v.left.lastPos().forEach(func(pos int) {
 			b.followPos[pos].or(v.right.firstPos())
 		})
@@ -22,14 +22,14 @@ func (b *Builder) computeFollowPos(n node) {
 
 	case *starNode:
 		b.computeFollowPos(v.child)
-		// Rule 2: repetition loops back
+		// rule 2: repetition loops back
 		v.child.lastPos().forEach(func(pos int) {
 			b.followPos[pos].or(v.child.firstPos())
 		})
 
 	case *plusNode:
 		b.computeFollowPos(v.child)
-		// Rule 2: repetition loops back
+		// rule 2: repetition loops back
 		v.child.lastPos().forEach(func(pos int) {
 			b.followPos[pos].or(v.child.firstPos())
 		})
@@ -38,6 +38,6 @@ func (b *Builder) computeFollowPos(n node) {
 		b.computeFollowPos(v.child)
 
 	case *leafNode:
-		// Leaves don't contribute followPos rules
+		// leaves don't contribute followPos rules
 	}
 }

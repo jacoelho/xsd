@@ -63,7 +63,7 @@ func (b *bitset) String() string {
 			sb.WriteByte(':')
 		}
 		hex := strconv.FormatUint(w, 16)
-		// Pad to 16 hex digits
+		// pad to 16 hex digits
 		if len(hex) < 16 {
 			hex = strings.Repeat("0", 16-len(hex)) + hex
 		}

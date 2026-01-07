@@ -59,12 +59,11 @@ func newSubstitutionMatcher(view schemaView) *substitutionMatcher {
 
 // IsSubstitutable reports whether actual can substitute for declared.
 func (m *substitutionMatcher) IsSubstitutable(actual, declared types.QName) bool {
-	// Direct match - element matches itself
 	if actual == declared {
 		return true
 	}
 
-	// Find the head element - declared might be a substitute itself, so check substitution groups.
+	// find the head element - declared might be a substitute itself, so check substitution groups
 	head := m.view.Element(declared)
 	if head == nil {
 		head = m.view.SubstitutionGroupHead(declared)
@@ -74,7 +73,6 @@ func (m *substitutionMatcher) IsSubstitutable(actual, declared types.QName) bool
 		declared = head.QName
 	}
 
-	// Check if the head element blocks all substitutions
 	if head.Block.Has(types.DerivationSubstitution) {
 		return false
 	}
@@ -82,7 +80,6 @@ func (m *substitutionMatcher) IsSubstitutable(actual, declared types.QName) bool
 	if subs := m.view.SubstitutionGroup(declared); len(subs) > 0 {
 		for _, sub := range subs {
 			if sub.QName == actual {
-				// Check if the derivation method is blocked
 				if m.isDerivationBlocked(sub, head) {
 					return false
 				}
@@ -98,23 +95,20 @@ func (m *substitutionMatcher) IsSubstitutable(actual, declared types.QName) bool
 // 1. Element's block attribute
 // 2. Type's block attribute (the head element's type)
 func (m *substitutionMatcher) isDerivationBlocked(sub, head *grammar.CompiledElement) bool {
-	// Check if the substitute's type is derived from the head's type
 	if sub.Type == nil || head.Type == nil {
 		return false
 	}
 
-	// Combine blocking from element and type
+	// combine blocking from element and type
 	combinedBlock := head.Block.Add(types.DerivationMethod(head.Type.Block))
 
-	// Walk the derivation chain of the substitute's type
-	// Check if any derivation step from sub's type to head's type uses a blocked method
+	// walk the derivation chain of the substitute's type
+	// check if any derivation step from sub's type to head's type uses a blocked method
 	for _, typeInChain := range sub.Type.DerivationChain {
-		// If we've reached the head's type, we're done checking
 		if typeInChain == head.Type {
 			break
 		}
 
-		// Check if this type's derivation method is blocked
 		if typeInChain.DerivationMethod == types.DerivationExtension && combinedBlock.Has(types.DerivationExtension) {
 			return true
 		}

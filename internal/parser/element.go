@@ -58,7 +58,7 @@ func parseTopLevelElement(elem xml.Element, schema *xsdschema.Schema) error {
 		return fmt.Errorf("top-level element cannot have 'form' attribute")
 	}
 
-	// Validate annotation order: if present, must be first child
+	// validate annotation order: if present, must be first child
 	if err := validateAnnotationOrder(elem); err != nil {
 		return err
 	}
@@ -72,13 +72,13 @@ func parseTopLevelElement(elem xml.Element, schema *xsdschema.Schema) error {
 		}
 		switch child.LocalName() {
 		case "annotation", "complexType", "simpleType", "key", "keyref", "unique":
-			// Allowed.
+			// allowed.
 		default:
 			return fmt.Errorf("invalid child element <%s> in <element> declaration", child.LocalName())
 		}
 	}
 
-	// Validate: cannot have both default and fixed
+	// validate: cannot have both default and fixed
 	if elem.GetAttribute("default") != "" && elem.GetAttribute("fixed") != "" {
 		return fmt.Errorf("element cannot have both 'default' and 'fixed' attributes")
 	}
@@ -93,7 +93,7 @@ func parseTopLevelElement(elem xml.Element, schema *xsdschema.Schema) error {
 		}
 	}
 
-	// Validate: cannot have both type attribute and inline type definition
+	// validate: cannot have both type attribute and inline type definition
 	if elem.GetAttribute("type") != "" && hasInlineType {
 		return fmt.Errorf("element cannot have both 'type' attribute and inline type definition")
 	}
@@ -106,7 +106,7 @@ func parseTopLevelElement(elem xml.Element, schema *xsdschema.Schema) error {
 		MinOccurs:       1,
 		MaxOccurs:       1,
 		SourceNamespace: schema.TargetNamespace,
-		Form:            types.FormQualified, // Global elements are always qualified
+		Form:            types.FormQualified, // global elements are always qualified
 	}
 
 	if typeName := elem.GetAttribute("type"); typeName != "" {
@@ -115,7 +115,7 @@ func parseTopLevelElement(elem xml.Element, schema *xsdschema.Schema) error {
 			return fmt.Errorf("resolve type %s: %w", typeName, err)
 		}
 
-		// Check if it's a built-in type
+		// check if it's a built-in type
 		if builtinType := types.GetBuiltinNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
 			// anyType is special - it's a complex type, not a simple type
 			if typeQName.Local == "anyType" {
@@ -124,8 +124,8 @@ func parseTopLevelElement(elem xml.Element, schema *xsdschema.Schema) error {
 				decl.Type = builtinType
 			}
 		} else {
-			// Will be resolved later in a second pass
-			// For now, create a placeholder
+			// will be resolved later in a second pass
+			// for now, create a placeholder
 			decl.Type = &types.SimpleType{
 				QName: typeQName,
 			}
@@ -157,7 +157,7 @@ func parseTopLevelElement(elem xml.Element, schema *xsdschema.Schema) error {
 				decl.Type = st
 			}
 		}
-		// If no inline type was found, default to anyType
+		// if no inline type was found, default to anyType
 		if decl.Type == nil {
 			decl.Type = makeAnyType()
 		}
@@ -185,7 +185,7 @@ func parseTopLevelElement(elem xml.Element, schema *xsdschema.Schema) error {
 		decl.HasFixed = true
 	}
 
-	// Parse block attribute (space-separated list: substitution, extension, restriction, #all)
+	// parse block attribute (space-separated list: substitution, extension, restriction, #all)
 	if elem.HasAttribute("block") {
 		blockAttr := elem.GetAttribute("block")
 		if blockAttr == "" {
@@ -201,8 +201,8 @@ func parseTopLevelElement(elem xml.Element, schema *xsdschema.Schema) error {
 		decl.Block = schema.BlockDefault & types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction)
 	}
 
-	// Parse final attribute (space-separated list: extension, restriction, #all).
-	// Element final does not allow substitution; W3C tests (elemF004/006/007/008) expect invalid.
+	// parse final attribute (space-separated list: extension, restriction, #all).
+	// element final does not allow substitution; W3C tests (elemF004/006/007/008) expect invalid.
 	if elem.HasAttribute("final") {
 		finalAttr := elem.GetAttribute("final")
 		if finalAttr == "" {
@@ -219,21 +219,21 @@ func parseTopLevelElement(elem xml.Element, schema *xsdschema.Schema) error {
 	}
 
 	if subGroup := elem.GetAttribute("substitutionGroup"); subGroup != "" {
-		// Use resolveElementQName for element references (not type references)
+		// use resolveElementQName for element references (not type references)
 		subGroupQName, err := resolveElementQName(subGroup, elem, schema)
 		if err != nil {
 			return fmt.Errorf("resolve substitutionGroup %s: %w", subGroup, err)
 		}
 		decl.SubstitutionGroup = subGroupQName
 
-		// Add to schema's substitution groups map
+		// add to schema's substitution groups map
 		if schema.SubstitutionGroups[subGroupQName] == nil {
 			schema.SubstitutionGroups[subGroupQName] = []types.QName{}
 		}
 		schema.SubstitutionGroups[subGroupQName] = append(schema.SubstitutionGroups[subGroupQName], decl.Name)
 	}
 
-	// Parse identity constraints (key, keyref, unique)
+	// parse identity constraints (key, keyref, unique)
 	for _, child := range elem.Children() {
 		if child.NamespaceURI() != xml.XSDNamespace {
 			continue
@@ -273,12 +273,12 @@ func parseElement(elem xml.Element, schema *xsdschema.Schema) (*types.ElementDec
 		}
 	}
 
-	// Validate: cannot have both name and ref
+	// validate: cannot have both name and ref
 	if ref != "" && name != "" {
 		return nil, fmt.Errorf("element cannot have both 'name' and 'ref' attributes")
 	}
 
-	// Check if it's a reference
+	// check if it's a reference
 	if ref != "" {
 		validAttributes := map[string]bool{
 			"id":        true,
@@ -292,8 +292,8 @@ func parseElement(elem xml.Element, schema *xsdschema.Schema) (*types.ElementDec
 		if err := validateOnlyAnnotationChildren(elem, "element"); err != nil {
 			return nil, err
 		}
-		// Validate: element references cannot have certain attributes
-		// Per XSD spec, when ref is present, these are forbidden:
+		// validate: element references cannot have certain attributes
+		// per XSD spec, when ref is present, these are forbidden:
 		// name, type, default, fixed, nillable, block, form, substitutionGroup, abstract
 		if elem.HasAttribute("type") {
 			return nil, fmt.Errorf("element reference cannot have 'type' attribute")
@@ -317,7 +317,7 @@ func parseElement(elem xml.Element, schema *xsdschema.Schema) (*types.ElementDec
 			return nil, fmt.Errorf("element reference cannot have 'abstract' attribute")
 		}
 
-		// For element references, use resolveElementQName (doesn't check built-in types)
+		// for element references, use resolveElementQName (doesn't check built-in types)
 		refQName, err := resolveElementQName(ref, elem, schema)
 		if err != nil {
 			return nil, fmt.Errorf("resolve ref %s: %w", ref, err)
@@ -345,7 +345,7 @@ func parseElement(elem xml.Element, schema *xsdschema.Schema) (*types.ElementDec
 		return parsed, nil
 	}
 
-	// Local element declaration
+	// local element declaration
 	if name == "" {
 		return nil, fmt.Errorf("element missing name and ref")
 	}
@@ -380,24 +380,24 @@ func parseElement(elem xml.Element, schema *xsdschema.Schema) (*types.ElementDec
 		}
 		switch child.LocalName() {
 		case "annotation", "complexType", "simpleType", "key", "keyref", "unique":
-			// Allowed.
+			// allowed.
 		default:
 			return nil, fmt.Errorf("invalid child element <%s> in <element> declaration", child.LocalName())
 		}
 	}
 
-	// Validate: abstract attribute is only allowed on global elements
-	// Per XSD spec, local elements cannot have the abstract attribute
+	// validate: abstract attribute is only allowed on global elements
+	// per XSD spec, local elements cannot have the abstract attribute
 	if elem.HasAttribute("abstract") {
 		return nil, fmt.Errorf("local element cannot have 'abstract' attribute (only global elements can be abstract)")
 	}
 
-	// Validate: final attribute is only allowed on global elements
+	// validate: final attribute is only allowed on global elements
 	if elem.HasAttribute("final") {
 		return nil, fmt.Errorf("local element cannot have 'final' attribute (only global elements can be final)")
 	}
 
-	// Validate: cannot have both default and fixed
+	// validate: cannot have both default and fixed
 	if elem.GetAttribute("default") != "" && elem.GetAttribute("fixed") != "" {
 		return nil, fmt.Errorf("element cannot have both 'default' and 'fixed' attributes")
 	}
@@ -412,12 +412,12 @@ func parseElement(elem xml.Element, schema *xsdschema.Schema) (*types.ElementDec
 		}
 	}
 
-	// Validate: cannot have both type attribute and inline type definition
+	// validate: cannot have both type attribute and inline type definition
 	if elem.GetAttribute("type") != "" && hasInlineType {
 		return nil, fmt.Errorf("element cannot have both 'type' attribute and inline type definition")
 	}
 
-	// Per XSD spec: local elements use the form attribute if present,
+	// per XSD spec: local elements use the form attribute if present,
 	// otherwise use schema's elementFormDefault (which defaults to unqualified)
 	var effectiveForm xsdschema.Form
 	if formAttr := elem.GetAttribute("form"); formAttr != "" {
@@ -433,8 +433,8 @@ func parseElement(elem xml.Element, schema *xsdschema.Schema) (*types.ElementDec
 		effectiveForm = schema.ElementFormDefault
 	}
 
-	// For unqualified elements, the namespace is empty (no namespace)
-	// For qualified elements, the namespace is the target namespace
+	// for unqualified elements, the namespace is empty (no namespace)
+	// for qualified elements, the namespace is the target namespace
 	var elementNamespace types.NamespaceURI
 	if effectiveForm == xsdschema.Qualified {
 		elementNamespace = schema.TargetNamespace
@@ -530,7 +530,7 @@ func parseElement(elem xml.Element, schema *xsdschema.Schema) (*types.ElementDec
 		decl.HasFixed = true
 	}
 
-	// Parse block attribute (space-separated list: substitution, extension, restriction, #all)
+	// parse block attribute (space-separated list: substitution, extension, restriction, #all)
 	if elem.HasAttribute("block") {
 		blockAttr := elem.GetAttribute("block")
 		if blockAttr == "" {
@@ -546,7 +546,7 @@ func parseElement(elem xml.Element, schema *xsdschema.Schema) (*types.ElementDec
 		decl.Block = schema.BlockDefault & types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction)
 	}
 
-	// Parse identity constraints (key, keyref, unique) for local elements
+	// parse identity constraints (key, keyref, unique) for local elements
 	for _, child := range elem.Children() {
 		if child.NamespaceURI() != xml.XSDNamespace {
 			continue
@@ -667,7 +667,7 @@ func resolveQName(qname string, elem xml.Element, schema *xsdschema.Schema) (typ
 		return types.QName{}, fmt.Errorf("empty qname")
 	}
 
-	// Trim whitespace from the QName value per XSD spec
+	// trim whitespace from the QName value per XSD spec
 	qname = strings.TrimSpace(qname)
 	if !types.IsValidQName(qname) {
 		return types.QName{}, fmt.Errorf("invalid QName '%s'", qname)
@@ -685,27 +685,27 @@ func resolveQName(qname string, elem xml.Element, schema *xsdschema.Schema) (typ
 
 	var namespace types.NamespaceURI
 	if prefix == "" {
-		// No prefix - check if it's a built-in type first
+		// no prefix - check if it's a built-in type first
 		if types.GetBuiltin(types.TypeName(local)) != nil {
-			// Built-in type - use XSD namespace
+			// built-in type - use XSD namespace
 			namespace = types.XSDNamespace
 		} else {
-			// Check for default namespace (xmlns="...") in scope
+			// check for default namespace (xmlns="...") in scope
 			defaultNS := namespaceForPrefix(elem, schema, "")
-			// If default namespace is XSD namespace, treat as no namespace
+			// if default namespace is XSD namespace, treat as no namespace
 			// (XSD types are handled above, non-XSD names in XSD namespace don't exist)
-			// This is the strict spec behavior that W3C tests expect.
+			// this is the strict spec behavior that W3C tests expect.
 			if defaultNS == xml.XSDNamespace {
 				namespace = ""
 			} else if defaultNS != "" {
 				namespace = types.NamespaceURI(defaultNS)
 			} else {
-				// No default namespace - per XSD spec, unprefixed QNames resolve to no namespace
+				// no default namespace - per XSD spec, unprefixed QNames resolve to no namespace
 				// (not target namespace). The spec explicitly states that targetNamespace is NOT
 				// used implicitly in QName resolution.
-				// However, when there's no targetNamespace, types are in no namespace, so
+				// however, when there's no targetNamespace, types are in no namespace, so
 				// unprefixed references naturally resolve to no namespace (which is correct).
-				// When there's a targetNamespace, unprefixed references must resolve to no namespace
+				// when there's a targetNamespace, unprefixed references must resolve to no namespace
 				// (not target namespace), which makes them invalid if they reference types in
 				// the target namespace (unless there's a default namespace binding).
 				namespace = types.NamespaceEmpty
@@ -732,7 +732,7 @@ func resolveQNameWithoutBuiltin(qname string, elem xml.Element, schema *xsdschem
 		return types.QName{}, fmt.Errorf("empty qname")
 	}
 
-	// Trim whitespace from the QName value per XSD spec
+	// trim whitespace from the QName value per XSD spec
 	qname = strings.TrimSpace(qname)
 	if !types.IsValidQName(qname) {
 		return types.QName{}, fmt.Errorf("invalid QName '%s'", qname)
@@ -750,15 +750,15 @@ func resolveQNameWithoutBuiltin(qname string, elem xml.Element, schema *xsdschem
 
 	var namespace types.NamespaceURI
 	if prefix == "" {
-		// No prefix - check for default namespace (xmlns="...") in scope
+		// no prefix - check for default namespace (xmlns="...") in scope
 		defaultNS := namespaceForPrefix(elem, schema, "")
-		// If default namespace is XSD namespace, treat as no namespace
+		// if default namespace is XSD namespace, treat as no namespace
 		if defaultNS == xml.XSDNamespace {
 			namespace = ""
 		} else if defaultNS != "" {
 			namespace = types.NamespaceURI(defaultNS)
 		} else {
-			// No default namespace - per XSD spec, unprefixed QNames resolve to no namespace.
+			// no default namespace - per XSD spec, unprefixed QNames resolve to no namespace.
 			namespace = types.NamespaceEmpty
 		}
 	} else {
@@ -797,7 +797,7 @@ func resolveAttributeRefQName(qname string, elem xml.Element, schema *xsdschema.
 		return types.QName{}, fmt.Errorf("empty qname")
 	}
 
-	// Trim whitespace from the QName value per XSD spec
+	// trim whitespace from the QName value per XSD spec
 	qname = strings.TrimSpace(qname)
 	if !types.IsValidQName(qname) {
 		return types.QName{}, fmt.Errorf("invalid QName '%s'", qname)
@@ -815,15 +815,15 @@ func resolveAttributeRefQName(qname string, elem xml.Element, schema *xsdschema.
 
 	var namespace types.NamespaceURI
 	if prefix == "" {
-		// No prefix - check for default namespace (xmlns="...")
+		// no prefix - check for default namespace (xmlns="...")
 		defaultNS := namespaceForPrefix(elem, schema, "")
-		// If default namespace is XSD namespace, treat as no namespace
+		// if default namespace is XSD namespace, treat as no namespace
 		if defaultNS == xml.XSDNamespace {
 			namespace = ""
 		} else if defaultNS != "" {
 			namespace = types.NamespaceURI(defaultNS)
 		}
-		// If no default namespace, namespace stays empty
+		// if no default namespace, namespace stays empty
 	} else {
 		namespaceStr := namespaceForPrefix(elem, schema, prefix)
 		if namespaceStr == "" {

@@ -10,7 +10,6 @@ import (
 )
 
 func TestGYearMinInclusive003Schema(t *testing.T) {
-	// Test loading the actual schema
 	testDataDir := "../../testdata/xsdtests"
 	if _, err := os.Stat(testDataDir); os.IsNotExist(err) {
 		t.Skip("testdata directory not found")
@@ -22,22 +21,18 @@ func TestGYearMinInclusive003Schema(t *testing.T) {
 	l := NewLoader(cfg)
 	schema, err := l.Load("msData/datatypes/Facets/Schemas/gYear_minInclusive003.xsd")
 	if err != nil {
-		// This should fail because the schema is invalid
 		t.Logf("Schema loading failed as expected: %v", err)
 		return
 	}
 
-	// If it loaded successfully, that's the bug - it should have failed
 	t.Errorf("Schema loaded successfully but should have failed validation")
 
-	// Let's check what we got
 	if schema != nil {
 		t.Logf("Schema loaded with %d type definitions", len(schema.TypeDefs))
 	}
 }
 
 func TestCompareGYearValues(t *testing.T) {
-	// Test that "2002" > "1998" returns 1 for gYear
 	bt := types.GetBuiltin(types.TypeNameGYear)
 	if bt == nil {
 		t.Fatal("builtin.Get(\"gYear\") returned nil")
@@ -48,7 +43,6 @@ func TestCompareGYearValues(t *testing.T) {
 		t.Errorf("compareNumericOrString(\"2002\", \"1998\", \"gYear\", bt) = %d, want 1", result)
 	}
 
-	// Test with nil bt
 	result = compareNumericOrString("2002", "1998", "gYear", nil)
 	if result != 1 {
 		t.Errorf("compareNumericOrString(\"2002\", \"1998\", \"gYear\", nil) = %d, want 1", result)
@@ -107,7 +101,7 @@ func TestValidatePatternFacetSyntax(t *testing.T) {
 			if bt != nil {
 				baseType = &types.SimpleType{
 					QName: baseQName,
-					// Variety set via SetVariety
+					// variety set via SetVariety
 				}
 				baseType.(*types.SimpleType).MarkBuiltin()
 			}
@@ -121,7 +115,7 @@ func TestValidatePatternFacetSyntax(t *testing.T) {
 				t.Errorf("Pattern %q should be invalid but validation passed", tt.pattern)
 			}
 			if !tt.valid && err != nil {
-				// Verify the error mentions pattern
+				// verify the error mentions pattern
 				if !strings.Contains(err.Error(), "pattern") {
 					t.Errorf("Error should mention 'pattern', got: %v", err)
 				}
@@ -160,7 +154,6 @@ func TestInvalidPatternSchemas(t *testing.T) {
 				if err == nil {
 					t.Errorf("Schema %s should have failed validation but loaded successfully", tt.schemaPath)
 				} else {
-					// Schema failed to load - verify the error mentions pattern
 					if !strings.Contains(err.Error(), "pattern") {
 						t.Logf("Schema validation failed as expected, but error doesn't mention 'pattern': %v", err)
 					} else {

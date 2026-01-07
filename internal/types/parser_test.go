@@ -10,7 +10,7 @@ func TestParseDecimal(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
-		want    string // Expected decimal value as string (for comparison)
+		want    string // expected decimal value as string (for comparison)
 		wantErr bool
 	}{
 		{"positive integer", "123", "123", false},
@@ -34,7 +34,7 @@ func TestParseDecimal(t *testing.T) {
 				return
 			}
 			if !tt.wantErr {
-				// Compare as float64 for decimal values
+				// compare as float64 for decimal values
 				gotFloat, _ := got.Float64()
 				wantRat, _ := lexicalparser.ParseDecimal(tt.want)
 				wantFloat, _ := wantRat.Float64()
@@ -50,7 +50,7 @@ func TestParseInteger(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
-		want    string // Expected string representation
+		want    string // expected string representation
 		wantErr bool
 	}{
 		{"positive", "123", "123", false},

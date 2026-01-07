@@ -175,12 +175,12 @@ func getComplexTypeTextType(schema *schema.Schema, ct *types.ComplexType) types.
 		return nil
 	}
 
-	// Check if base is a built-in type.
+	// check if base is a built-in type.
 	if bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local); bt != nil {
 		return bt
 	}
 
-	// Try to resolve from schema.
+	// try to resolve from schema.
 	if resolvedType, ok := schema.TypeDefs[baseQName]; ok {
 		return resolvedType
 	}

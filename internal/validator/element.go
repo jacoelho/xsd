@@ -25,9 +25,9 @@ func (r *validationRun) checkElementWithProcessContents(elem xml.Element, proces
 	decl := r.findElementDeclaration(qname)
 
 	if decl == nil {
-		// Check for xsi:type - per XSD spec, if no element declaration exists but
+		// check for xsi:type - per XSD spec, if no element declaration exists but
 		// xsi:type is specified, we can validate using just the type definition.
-		// This is especially common for "schema-less" root elements.
+		// this is especially common for "schema-less" root elements.
 		xsiTypeAttr := elem.GetAttributeNS(xml.XSINamespace, "type")
 		if xsiTypeAttr != "" {
 			xsiType, err := r.resolveXsiTypeOnly(elem, xsiTypeAttr)
@@ -70,8 +70,8 @@ func (r *validationRun) checkElementWithDecl(elem xml.Element, decl *grammar.Com
 	hasNilAttr := nilAttr != ""
 	isNil := nilAttr == "true" || nilAttr == "1"
 
-	// Per XSD spec, xsi:nil can only appear on elements declared as nillable
-	// This is true even if the value is "false"
+	// per XSD spec, xsi:nil can only appear on elements declared as nillable
+	// this is true even if the value is "false"
 	if hasNilAttr && !decl.Nillable {
 		violations = append(violations, errors.NewValidationf(errors.ErrElementNotNillable, path,
 			"Element '%s' is not nillable but has xsi:nil attribute", elem.LocalName()))
@@ -80,7 +80,7 @@ func (r *validationRun) checkElementWithDecl(elem xml.Element, decl *grammar.Com
 
 	if decl.Type == nil {
 		if isNil {
-			// No type, nillable element with xsi:nil=true - just check for empty content
+			// no type, nillable element with xsi:nil=true - just check for empty content
 			textContent := strings.TrimSpace(elem.TextContent())
 			if textContent != "" || len(elem.Children()) > 0 {
 				violations = append(violations, errors.NewValidation(errors.ErrNilElementNotEmpty,
@@ -109,10 +109,10 @@ func (r *validationRun) checkElementWithDecl(elem xml.Element, decl *grammar.Com
 		return violations
 	}
 
-	// When xsi:nil is true, validate that element is empty but still check attributes
+	// when xsi:nil is true, validate that element is empty but still check attributes
 	// per XSD spec - the type's attribute declarations still apply
 	if isNil {
-		// Per XSD spec: if element has a fixed value, xsi:nil="true" is invalid
+		// per XSD spec: if element has a fixed value, xsi:nil="true" is invalid
 		// because fixed values require element content, but xsi:nil means no content
 		if decl.HasFixed {
 			violations = append(violations, errors.NewValidationf(errors.ErrElementFixedValue, path,
@@ -124,7 +124,7 @@ func (r *validationRun) checkElementWithDecl(elem xml.Element, decl *grammar.Com
 			violations = append(violations, errors.NewValidation(errors.ErrNilElementNotEmpty,
 				"Element with xsi:nil='true' must be empty", path))
 		}
-		// Still validate attributes against the effective type
+		// still validate attributes against the effective type
 		violations = append(violations, r.checkAttributes(elem, effectiveType.AllAttributes, effectiveType.AnyAttribute, path)...)
 		return violations
 	}
@@ -142,7 +142,7 @@ func (r *validationRun) checkElementContent(elem xml.Element, ct *grammar.Compil
 
 	var violations []errors.Validation
 
-	// Always check attributes, even if type has none declared, to reject undeclared attributes
+	// always check attributes, even if type has none declared, to reject undeclared attributes
 	// when AnyAttribute is nil (empty intersection) or absent.
 	violations = append(violations, r.checkAttributes(elem, ct.AllAttributes, ct.AnyAttribute, path)...)
 
@@ -166,8 +166,8 @@ func (r *validationRun) checkElementContent(elem xml.Element, ct *grammar.Compil
 func (r *validationRun) validateAnyTypeContent(elem xml.Element, decl *grammar.CompiledElement, path string) []errors.Validation {
 	var violations []errors.Validation
 
-	// For anyType, we still need to check fixed values before returning
-	// Per XSD spec 3.3.4: If there is a fixed {value constraint}, the element
+	// for anyType, we still need to check fixed values before returning
+	// per XSD spec 3.3.4: If there is a fixed {value constraint}, the element
 	// information item must have no element information item children.
 	if decl != nil && decl.HasFixed {
 		if len(elem.Children()) > 0 {
@@ -175,8 +175,8 @@ func (r *validationRun) validateAnyTypeContent(elem xml.Element, decl *grammar.C
 				"Element '%s' has a fixed value constraint and cannot have element children", decl.QName.Local))
 		} else {
 			textContent := elem.TextContent()
-			// Per XSD spec 9.1.1: If element is empty, the fixed value is supplied.
-			// Only validate non-empty content (anyType has whiteSpace=preserve).
+			// per XSD spec 9.1.1: If element is empty, the fixed value is supplied.
+			// only validate non-empty content (anyType has whiteSpace=preserve).
 			if textContent != "" && textContent != decl.Fixed {
 				violations = append(violations, errors.NewValidationf(errors.ErrElementFixedValue, path,
 					"Element has fixed value '%s' but actual value is '%s'", decl.Fixed, textContent))
@@ -195,7 +195,7 @@ func (r *validationRun) validateTextContent(elem xml.Element, ct *grammar.Compil
 	if textType != nil {
 		text := elem.TextContent()
 		hadContent := text != ""
-		// If element is empty and has a default or fixed value, use it
+		// if element is empty and has a default or fixed value, use it
 		if text == "" && decl != nil {
 			if decl.Default != "" {
 				text = decl.Default
@@ -206,20 +206,20 @@ func (r *validationRun) validateTextContent(elem xml.Element, ct *grammar.Compil
 		violations = append(violations, r.checkSimpleValue(text, textType, path, elem)...)
 		violations = append(violations, r.collectIDRefs(text, textType, path)...)
 
-		// Also validate additional facets on complex types with simpleContent
+		// also validate additional facets on complex types with simpleContent
 		if ct.Kind == grammar.TypeKindComplex && len(ct.Facets) > 0 {
 			violations = append(violations, r.checkComplexTypeFacets(text, ct, path)...)
 		}
 
-		// Check fixed value constraint only when element had actual content.
-		// If element was empty, fixed value was applied above and is valid by definition.
+		// check fixed value constraint only when element had actual content.
+		// if element was empty, fixed value was applied above and is valid by definition.
 		if decl != nil && decl.HasFixed && hadContent {
 			violations = append(violations, r.checkFixedValue(text, decl.Fixed, textType, path)...)
 		}
 
-		// Simple type content or complex type with simple content cannot have element children
+		// simple type content or complex type with simple content cannot have element children
 		// (only text content is allowed)
-		// Exception: If the type has a content model, it can have element children
+		// exception: If the type has a content model, it can have element children
 		if len(elem.Children()) > 0 && !ct.HasContentModel() {
 			for _, child := range elem.Children() {
 				childPath := appendPath(path, child.LocalName())
@@ -232,8 +232,8 @@ func (r *validationRun) validateTextContent(elem xml.Element, ct *grammar.Compil
 	}
 
 	if ct.Kind == grammar.TypeKindComplex && ct.Mixed && !ct.HasContentModel() {
-		// Mixed content type with no content model (empty mixed content)
-		// Per XSD spec 3.3.4: If there is a fixed {value constraint}, the element
+		// mixed content type with no content model (empty mixed content)
+		// per XSD spec 3.3.4: If there is a fixed {value constraint}, the element
 		// information item must have no element information item children.
 		if decl != nil && decl.HasFixed {
 			if len(elem.Children()) > 0 {
@@ -248,8 +248,8 @@ func (r *validationRun) validateTextContent(elem xml.Element, ct *grammar.Compil
 	}
 
 	if ct.Kind == grammar.TypeKindComplex && !ct.AllowsText() {
-		// Complex type that doesn't allow text (empty content or element-only content)
-		// Reject non-whitespace DIRECT text content (text nodes that are direct children,
+		// complex type that doesn't allow text (empty content or element-only content)
+		// reject non-whitespace DIRECT text content (text nodes that are direct children,
 		// not text inside nested child elements)
 		if text := elem.DirectTextContent(); !isWhitespaceOnly(text) {
 			violations = append(violations, errors.NewValidation(errors.ErrTextInElementOnly,
@@ -285,7 +285,7 @@ func (r *validationRun) validateContentModel(elem xml.Element, ct *grammar.Compi
 
 	var violations []errors.Validation
 
-	// Check element-only constraint (redundant if we already checked above, but
+	// check element-only constraint (redundant if we already checked above, but
 	// this is more specific for element-only content models)
 	if !ct.Mixed {
 		if directText := elem.DirectTextContent(); !isWhitespaceOnly(directText) {
@@ -294,15 +294,15 @@ func (r *validationRun) validateContentModel(elem xml.Element, ct *grammar.Compi
 		}
 	}
 
-	// Per XSD spec 3.3.4: If there is a fixed {value constraint}, the element
+	// per XSD spec 3.3.4: If there is a fixed {value constraint}, the element
 	// information item must have no element information item children.
-	// This applies even to mixed content types.
+	// this applies even to mixed content types.
 	if decl != nil && decl.HasFixed && len(elem.Children()) > 0 {
 		violations = append(violations, errors.NewValidationf(errors.ErrElementFixedValue, path,
 			"Element '%s' has a fixed value constraint and cannot have element children", decl.QName.Local))
 	} else if ct.Mixed && decl != nil && decl.HasFixed {
-		// For mixed content types with fixed value (and no element children),
-		// If element is empty, use the fixed value as the default (like simple types)
+		// for mixed content types with fixed value (and no element children),
+		// if element is empty, use the fixed value as the default (like simple types)
 		textContent := elem.TextContent()
 		if textContent == "" {
 			textContent = decl.Fixed
@@ -313,7 +313,7 @@ func (r *validationRun) validateContentModel(elem xml.Element, ct *grammar.Compi
 	matches, contentViolations := r.checkContentModel(elem, ct.ContentModel, path)
 	violations = append(violations, contentViolations...)
 
-	// Recurse into children based on matches
+	// recurse into children based on matches
 	violations = append(violations, r.checkMatchedChildren(elem, ct.ContentModel, matches, path)...)
 
 	return violations
@@ -355,12 +355,12 @@ func (r *validationRun) checkMatchedChildren(elem xml.Element, cm *grammar.Compi
 	for i, child := range children {
 		childPath := appendPath(path, child.LocalName())
 
-		// If content model validation failed, don't validate unmatched children
+		// if content model validation failed, don't validate unmatched children
 		if i >= len(matches) {
 			continue
 		}
 
-		// Check if this child was matched by a wildcard
+		// check if this child was matched by a wildcard
 		match := matches[i]
 		if match.IsWildcard {
 			switch matches[i].ProcessContents {
@@ -375,7 +375,7 @@ func (r *validationRun) checkMatchedChildren(elem xml.Element, cm *grammar.Compi
 			}
 		}
 
-		// Regular element validation
+		// regular element validation
 		if !match.MatchedQName.IsZero() {
 			if contentModelDecls != nil {
 				if decl := contentModelDecls[match.MatchedQName]; decl != nil {

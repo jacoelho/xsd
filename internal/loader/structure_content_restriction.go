@@ -43,11 +43,11 @@ func validateRestrictionAttributes(schema *schema.Schema, baseCT *types.ComplexT
 		if baseAttr.Use == types.Required && restrictionAttr.Use != types.Required {
 			return fmt.Errorf("%s: required attribute '%s' cannot be relaxed", context, restrictionAttr.Name.Local)
 		}
-		// Attribute exists in base - type must match
+		// attribute exists in base - type must match
 		baseTypeQName := getTypeQName(baseAttr.Type)
 		restrictionTypeQName := getTypeQName(restrictionAttr.Type)
-		// Skip comparison if either type is anonymous (empty QName)
-		// Anonymous types would require structural comparison which is complex
+		// skip comparison if either type is anonymous (empty QName)
+		// anonymous types would require structural comparison which is complex
 		if baseTypeQName.IsZero() || restrictionTypeQName.IsZero() {
 			continue
 		}

@@ -161,8 +161,8 @@ var excludePatterns = []ExclusionReason{
 	{"d3_4_6ii04", "XML 1.1 NameStartChar tests - XML 1.1 features not supported in XSD 1.0 implementation"},
 	// HTTP schema import tests
 	{"introspection", "Requires HTTP schema imports (e.g., xlink.xsd) - not supported to keep library pure Go with no network dependencies"},
-	
-	// Unicode block escapes (\p{Is...}) - not supported in Go regexp 
+
+	// Unicode block escapes (\p{Is...}) - not supported in Go regexp
 	{"/rel", "Uses \\p{Is...} Unicode block escape - not supported in Go regexp"},
 	{"/rem", "Uses \\p{Is...} Unicode block escape - not supported in Go regexp"},
 	{"/ren", "Uses \\p{Is...} Unicode block escape - not supported in Go regexp"},
@@ -363,10 +363,6 @@ var excludePatterns = []ExclusionReason{
 	{"rej69.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
 	{"rej75.i", "Unicode property \\p{Lu} matching differs between Go regexp and XSD for mathematical symbols"},
 
-	// ============================================================================
-	// xs:redefine - not supported (XSD 1.0 feature we chose not to implement)
-	// See AGENTS.md design decisions
-	// ============================================================================
 	// MS additional tests using redefine (test names differ from schema names)
 	{"addb007", "Uses xs:redefine - not supported"},
 	{"addb094", "Uses xs:redefine - not supported"},
@@ -569,19 +565,17 @@ func NewFilter(opts FilterOptions) *Filter {
 
 // ShouldIncludeVersion returns true if the version string should be included
 func (f *Filter) ShouldIncludeVersion(versionAttr string) bool {
-	// Exclude by version first
 	for _, excludeVer := range f.opts.ExcludeVersion {
 		if versionContains(versionAttr, excludeVer) {
 			return false
 		}
 	}
 
-	// Include by version
 	if f.opts.IncludeVersion != "" {
 		return versionMatches(versionAttr, f.opts.IncludeVersion)
 	}
 
-	// If no include version specified, include all (except excluded)
+	// if no include version specified, include all (except excluded)
 	return true
 }
 
@@ -589,19 +583,16 @@ func (f *Filter) ShouldIncludeVersion(versionAttr string) bool {
 func (f *Filter) GetExclusionReason(testSet, testGroup, testName, status string) (string, bool) {
 	fullName := strings.ToLower(testSet + "/" + testGroup + "/" + testName)
 
-	// Exclude by patterns first
 	for _, exclusion := range f.opts.ExcludePatterns {
 		if strings.Contains(fullName, strings.ToLower(exclusion.Pattern)) {
 			return exclusion.Reason, true
 		}
 	}
 
-	// Exclude by status
 	if slices.Contains(f.opts.ExcludeStatus, status) {
 		return fmt.Sprintf("excluded status: %s", status), true
 	}
 
-	// Include by name filter
 	if f.opts.NameFilter != "" {
 		if !strings.Contains(fullName, strings.ToLower(f.opts.NameFilter)) {
 			return "", false
@@ -617,7 +608,6 @@ func (f *Filter) GetExpected(expected []W3CExpected, processorVersion string) W3
 		return W3CExpected{Validity: "notKnown"}
 	}
 
-	// Filter out excluded versions from expected results
 	var filtered []W3CExpected
 	for _, exp := range expected {
 		excluded := false
@@ -636,24 +626,22 @@ func (f *Filter) GetExpected(expected []W3CExpected, processorVersion string) W3
 		return W3CExpected{Validity: "notKnown"}
 	}
 
-	// If all expected entries are Unicode-versioned, select by current Unicode version.
+	// if all expected entries are Unicode-versioned, select by current Unicode version
 	if selected, ok := selectUnicodeExpected(filtered); ok {
 		return selected
 	}
 
-	// If only one expected, use it
 	if len(filtered) == 1 {
 		return filtered[0]
 	}
 
-	// Find expected element that matches processor version
 	for _, exp := range filtered {
 		if versionMatchesAND(exp.Version, processorVersion) {
 			return exp
 		}
 	}
 
-	// No match found - use first expected as fallback
+	// no match found - use first expected as fallback
 	return filtered[0]
 }
 
@@ -694,7 +682,7 @@ func selectUnicodeExpected(expected []W3CExpected) (W3CExpected, bool) {
 		return best, true
 	}
 
-	// If all expected versions are newer, fall back to the smallest.
+	// if all expected versions are newer, fall back to the smallest
 	best = unicodeExpected[0].exp
 	bestVersion = unicodeExpected[0].version
 	for _, candidate := range unicodeExpected[1:] {
@@ -748,12 +736,11 @@ func compareUnicodeVersion(a, b [3]int) int {
 
 // versionMatches checks if a version string matches the processor version (OR semantics)
 func versionMatches(versionAttr, processorVersion string) bool {
-	// Empty version attribute means XSD 1.0 (default/legacy)
+	// empty version attribute means XSD 1.0 (default/legacy)
 	if versionAttr == "" {
 		return true
 	}
 
-	// Parse version attribute as space-separated tokens
 	tokens := strings.Fields(versionAttr)
 	return slices.Contains(tokens, processorVersion)
 }
@@ -768,18 +755,17 @@ func versionContains(versionAttr, version string) bool {
 
 // versionMatchesAND checks if a version string matches ALL tokens in the processor version (AND semantics)
 func versionMatchesAND(versionAttr, processorVersion string) bool {
-	// Empty version attribute means XSD 1.0 (default/legacy)
+	// empty version attribute means XSD 1.0 (default/legacy)
 	if versionAttr == "" {
 		return true
 	}
 
-	// Parse version attribute as space-separated tokens
 	tokens := strings.Fields(versionAttr)
 	if len(tokens) == 0 {
 		return true
 	}
 
-	// All tokens must match (AND semantics)
+	// all tokens must match (AND semantics)
 	for _, token := range tokens {
 		if token != processorVersion {
 			return false
@@ -798,12 +784,12 @@ type W3CTestRunner struct {
 func NewW3CTestRunner(testSuiteDir string) *W3CTestRunner {
 	filter := NewFilter(FilterOptions{
 		IncludeVersion:  processorVersion,
-		ExcludeVersion:  []string{"1.1"}, // Exclude XSD 1.1 tests (we only support XSD 1.0)
+		ExcludeVersion:  []string{"1.1"}, // exclude XSD 1.1 tests (we only support XSD 1.0)
 		ExcludePatterns: excludePatterns,
 		ExcludeStatus: []string{
-			"disputed-test", // Tests with disputed-test status - may not be reliable indicators of conformance
-			"disputed-spec", // Tests with disputed-spec status - may not be reliable indicators of conformance
-			"queried",       // Tests with queried status are under review and may be unreliable
+			"disputed-test", // tests with disputed-test status - may not be reliable indicators of conformance
+			"disputed-spec", // tests with disputed-spec status - may not be reliable indicators of conformance
+			"queried",       // tests with queried status are under review and may be unreliable
 		},
 	})
 	return &W3CTestRunner{
@@ -834,7 +820,7 @@ func (r *W3CTestRunner) LoadTestSet(metadataPath string) (*W3CTestSet, error) {
 		return nil, fmt.Errorf("parse test metadata: %w", err)
 	}
 
-	// Validate test set metadata
+	// validate test set metadata
 	if err := r.validateTestSet(&testSet); err != nil {
 		return nil, fmt.Errorf("validate test set: %w", err)
 	}
@@ -845,12 +831,11 @@ func (r *W3CTestRunner) LoadTestSet(metadataPath string) (*W3CTestSet, error) {
 // validateTestSet validates test set metadata according to XSTS schema constraints
 func (r *W3CTestRunner) validateTestSet(testSet *W3CTestSet) error {
 	for _, group := range testSet.TestGroups {
-		// Validate at most one schemaTest per group (per schema spec)
+		// validate at most one schemaTest per group (per schema spec)
 		if len(group.SchemaTests) > 1 {
 			return fmt.Errorf("testGroup '%s' has %d schemaTest elements (max 1 allowed)", group.Name, len(group.SchemaTests))
 		}
 
-		// Validate unique test names within group
 		testNames := make(map[string]string) // name -> test type
 		for _, schemaTest := range group.SchemaTests {
 			if existingType, exists := testNames[schemaTest.Name]; exists {
@@ -872,21 +857,18 @@ func (r *W3CTestRunner) validateTestSet(testSet *W3CTestSet) error {
 func (r *W3CTestRunner) RunTestSet(t *testing.T, testSet *W3CTestSet, metadataPath string) {
 	metadataDir := filepath.Dir(metadataPath)
 
-	// Apply test set version filter
 	if !r.filter.ShouldIncludeVersion(testSet.Version) {
 		return
 	}
 
 	for _, group := range testSet.TestGroups {
-		// Apply group version filter
 		if !r.filter.ShouldIncludeVersion(group.Version) {
 			continue
 		}
 
-		// Run tests for this group as a subtest
 		groupName := group.Name
 		t.Run(groupName, func(t *testing.T) {
-			// Run schema tests first (instance tests depend on them)
+			// run schema tests first (instance tests depend on them)
 			for _, test := range group.SchemaTests {
 				if !r.filter.ShouldIncludeVersion(test.Version) {
 					continue
@@ -900,7 +882,6 @@ func (r *W3CTestRunner) RunTestSet(t *testing.T, testSet *W3CTestSet, metadataPa
 				r.runSchemaTest(t, testSet.Name, groupName, test, metadataDir)
 			}
 
-			// Run instance tests
 			for _, test := range group.InstanceTests {
 				if !r.filter.ShouldIncludeVersion(test.Version) {
 					continue
@@ -932,14 +913,12 @@ func (r *W3CTestRunner) runSchemaTest(t *testing.T, testSet, testGroup string, t
 			return
 		}
 
-		// Validate schema documents
 		if len(test.SchemaDocuments) == 0 {
 			t.Fatalf("schemaTest '%s' has no schema documents", test.Name)
 			return
 		}
 
-		// Load schema - the loader handles imports/includes automatically
-		// Find entry point: use schema document with role="principal" if present,
+		// find entry point: use schema document with role="principal" if present,
 		// otherwise fall back to the last schema document (composition order)
 		var entryDoc W3CSchemaDoc
 		foundPrincipal := false
@@ -951,7 +930,7 @@ func (r *W3CTestRunner) runSchemaTest(t *testing.T, testSet, testGroup string, t
 			}
 		}
 		if !foundPrincipal {
-			// No principal role specified - use last schema document
+			// no principal role specified - use last schema document
 			// W3C test suite lists schemas in composition order (dependencies first, then the schema that imports them)
 			entryDoc = test.SchemaDocuments[len(test.SchemaDocuments)-1]
 		}
@@ -972,7 +951,6 @@ func (r *W3CTestRunner) runSchemaTest(t *testing.T, testSet, testGroup string, t
 			actual = "invalid"
 		} else {
 			actual = "valid"
-			// Schema loaded successfully - verify it's valid by checking it's not nil
 			if schema == nil {
 				actual = "invalid"
 			}
@@ -1005,21 +983,19 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 			return
 		}
 
-		// Skip "notKnown" tests
 		if expected.Validity == "notKnown" {
 			t.Skip("test validity not known")
 			return
 		}
 
-		// Schema resolution per XSTS spec:
-		// - If schemaTest is present in the group, use its schema
-		// - If no schemaTest, validate against built-in components only
-		// - Fallback to instance document schema location hints as last resort
+		// schema resolution per XSTS spec:
+		// - if schemaTest is present in the group, use its schema
+		// - if no schemaTest, validate against built-in components only
+		// - fallback to instance document schema location hints as last resort
 		var schema *grammar.CompiledSchema
 		var schemaPath string
 		var err error
 
-		// Resolve instance path and parse document first (needed for schema location hints)
 		fullInstancePath := r.resolvePath(metadataDir, test.InstanceDocument.Href)
 		file, err := os.Open(fullInstancePath)
 		if err != nil {
@@ -1034,29 +1010,23 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 
 		doc, err := xsdxml.Parse(file)
 		if err != nil {
-			// If XML parsing fails and the test expects "invalid", this is a pass
+			// if XML parsing fails and the test expects "invalid", this is a pass
 			// (malformed XML is invalid, which matches the expected result)
 			if expected.Validity == "invalid" {
-				// Parse error for test expecting invalid - pass
 				return
 			}
-			// Parse error but test expects valid - fail
 			t.Fatalf("parse instance %s: %v", test.InstanceDocument.Href, err)
 			return
 		}
 
-		// Find schema: from schemaTest or xsi:noNamespaceSchemaLocation
 		schemaPath, schema = r.loadSchemaForInstance(t, group, doc, metadataDir, fullInstancePath)
 
-		// Handle case where schema failed to load
-		// If schema is nil but schemaPath is set, schema loading failed
-		// If the test expects "invalid", this is actually a pass (invalid schema = invalid instance)
+		// if schema is nil but schemaPath is set, schema loading failed
+		// if the test expects "invalid", this is actually a pass (invalid schema = invalid instance)
 		if schema == nil && schemaPath != "" {
 			if expected.Validity == "invalid" {
-				// Schema failed to load, test expects invalid - pass
 				return
 			}
-			// Schema failed to load but test expects valid - fail
 			t.Errorf("instance validation failed:\n"+
 				"  Test: %s/%s/%s\n"+
 				"  Schema: %s\n"+
@@ -1071,11 +1041,9 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 		}
 
 		if schema == nil {
-			// No schema found - skip
 			return
 		}
 
-		// Validate
 		schemaForInstance := r.schemaForInstance(schema, fullInstancePath)
 		v := validator.New(schemaForInstance)
 		violations := v.Validate(doc)
@@ -1111,25 +1079,23 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, doc xsdxml.Document, metadataDir, instancePath string) (string, *grammar.CompiledSchema) {
 	rootNS := doc.DocumentElement().NamespaceURI()
 
-	// Option 1: Use xsi:schemaLocation to find schemas
-	// Load all schemas from xsi:schemaLocation using a single loader instance
+	// option 1: use xsi:schemaLocation to find schemas
+	// load all schemas from xsi:schemaLocation using a single loader instance
 	// so that imports between schemas are properly resolved
 	if schemaLoc := doc.DocumentElement().GetAttributeNS(xsdxml.XSINamespace, "schemaLocation"); schemaLoc != "" {
 		schemaPaths := parseSchemaLocations(schemaLoc)
 		if len(schemaPaths) > 0 {
-			// Use the instance directory as base for all schemas
 			instanceDir := filepath.Dir(instancePath)
 
-			// Strategy: Load schemas in reverse order first (importing schemas are usually listed last).
-			// An importing schema will have all imported schemas merged into it, so it will contain
-			// elements from all namespaces. This is important for cases where schema B imports schema A,
+			// strategy: load schemas in reverse order first (importing schemas are usually listed last).
+			// an importing schema will have all imported schemas merged into it, so it will contain
+			// elements from all namespaces. this is important for cases where schema B imports schema A,
 			// and the instance uses elements from both namespaces.
 			for i := len(schemaPaths) - 1; i >= 0; i-- {
 				schemaPath := resolveSchemaPath(instanceDir, schemaPaths[i])
 				schema, err := r.loadSchemaFromPath(schemaPath)
 				if err == nil {
-					// Verify this schema has the root element (it should if it imports the root's schema)
-					// If not, continue to next schema
+					// verify this schema has the root element (it should if it imports the root's schema)
 					rootQName := types.QName{
 						Namespace: types.NamespaceURI(rootNS),
 						Local:     doc.DocumentElement().LocalName(),
@@ -1140,7 +1106,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 				}
 			}
 
-			// Fallback: try the root schema directly (in case it doesn't import others)
+			// fallback: try the root schema directly (in case it doesn't import others)
 			if schemaPath, found := findSchemaForNamespace(schemaLoc, rootNS); found {
 				fullSchemaPath := resolveSchemaPath(instanceDir, schemaPath)
 				schema, err := r.loadSchemaFromPath(fullSchemaPath)
@@ -1151,7 +1117,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 		}
 	}
 
-	// Option 2: Use schema from schemaTest in the same group
+	// option 2: use schema from schemaTest in the same group
 	if len(group.SchemaTests) > 0 {
 		schemaTest := group.SchemaTests[0]
 		if len(schemaTest.SchemaDocuments) == 0 {
@@ -1191,7 +1157,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 			}
 		}
 
-		// Fallback: principal role or last document
+		// fallback: principal role or last document
 		entryDoc := schemaTest.SchemaDocuments[len(schemaTest.SchemaDocuments)-1]
 		if principalDoc != nil {
 			entryDoc = *principalDoc
@@ -1199,14 +1165,14 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 		entryPath := r.resolvePath(metadataDir, entryDoc.Href)
 		schema, err := r.loadSchemaFromPath(entryPath)
 		if err != nil {
-			// Schema failed to load - return path with nil schema
-			// The calling code will handle this (check expected validity)
+			// schema failed to load - return path with nil schema
+			// the calling code will handle this (check expected validity)
 			return entryDoc.Href, nil
 		}
 		return entryDoc.Href, schema
 	}
 
-	// Option 3: Use xsi:noNamespaceSchemaLocation hint
+	// option 3: use xsi:noNamespaceSchemaLocation hint
 	if hint := doc.DocumentElement().GetAttributeNS(xsdxml.XSINamespace, "noNamespaceSchemaLocation"); hint != "" {
 		schemaFullPath := filepath.Join(filepath.Dir(instancePath), hint)
 		schema, err := r.loadSchemaFromPath(schemaFullPath)
@@ -1216,7 +1182,6 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 		return hint, schema
 	}
 
-	// No schema found - skip test
 	t.Skip("no schema available for instance test")
 	return "", nil
 }
@@ -1288,12 +1253,12 @@ func (r *W3CTestRunner) resolvePath(metadataDir, href string) string {
 	if filepath.IsAbs(href) {
 		return href
 	}
-	// First try relative to metadata directory
+	// first try relative to metadata directory
 	path := filepath.Join(metadataDir, href)
 	if _, err := os.Stat(path); err == nil {
 		return path
 	}
-	// Try one level up (data directory is sibling of metadata directory)
+	// try one level up (data directory is sibling of metadata directory)
 	path = filepath.Join(filepath.Dir(metadataDir), href)
 	return path
 }
@@ -1348,11 +1313,11 @@ func GetW3CTestSetFilePaths(testSuiteDir string, t *testing.T) []string {
 	var metadataFiles []string
 	for _, testSetFile := range w3cTestSetFiles {
 		fullPath := filepath.Join(testSuiteDir, testSetFile)
-		// Verify file exists
+		// verify file exists
 		if _, err := os.Stat(fullPath); err == nil {
 			metadataFiles = append(metadataFiles, fullPath)
 		} else if t != nil {
-			// Log missing files but don't fail - test suite might be incomplete
+			// log missing files but don't fail - test suite might be incomplete
 			t.Logf("Warning: test set file not found: %s", testSetFile)
 		}
 	}
@@ -1363,14 +1328,14 @@ func GetW3CTestSetFilePaths(testSuiteDir string, t *testing.T) []string {
 func TestW3CConformance(t *testing.T) {
 	testSuiteDir := "../testdata/xsdtests"
 
-	// Check if test suite exists
+	// check if test suite exists
 	if _, err := os.Stat(testSuiteDir); os.IsNotExist(err) {
 		t.Skip("W3C test suite not found at", testSuiteDir)
 	}
 
 	runner := NewW3CTestRunner(testSuiteDir)
 
-	// Build list of metadata files from hardcoded list
+	// build list of metadata files from hardcoded list
 	metadataFiles := GetW3CTestSetFilePaths(testSuiteDir, t)
 
 	if len(metadataFiles) == 0 {
@@ -1379,7 +1344,7 @@ func TestW3CConformance(t *testing.T) {
 
 	t.Logf("Found %d test metadata files (out of %d expected)", len(metadataFiles), len(GetW3CTestSetFiles()))
 
-	// Run all test sets
+	// run all test sets
 	for _, metadataPath := range metadataFiles {
 		if err := runner.RunMetadataFile(t, metadataPath); err != nil {
 			t.Errorf("Error running test set %s: %v", filepath.Base(metadataPath), err)

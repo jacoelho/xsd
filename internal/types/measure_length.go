@@ -15,7 +15,7 @@ func measureLengthForPrimitive(value string, primitiveName TypeName) int {
 			return 0
 		}
 		if len(value)%2 != 0 {
-			// Invalid hexBinary - return character count as fallback
+			// invalid hexBinary - return character count as fallback
 			return utf8.RuneCountInString(value)
 		}
 		return len(value) / 2
@@ -30,20 +30,20 @@ func measureLengthForPrimitive(value string, primitiveName TypeName) int {
 		cleaned = strings.ReplaceAll(cleaned, "\n", "")
 		cleaned = strings.ReplaceAll(cleaned, "\r", "")
 
-		// Decode to get actual byte length
+		// decode to get actual byte length
 		decoded, err := base64.StdEncoding.DecodeString(cleaned)
 		if err != nil {
-			// Try URL encoding variant
+			// try URL encoding variant
 			decoded, err = base64.URLEncoding.DecodeString(cleaned)
 			if err != nil {
-				// Invalid base64 - return character count as fallback
+				// invalid base64 - return character count as fallback
 				return utf8.RuneCountInString(value)
 			}
 		}
 		return len(decoded)
 	}
 
-	// For all other types, length is in characters (Unicode code points)
+	// for all other types, length is in characters (Unicode code points)
 	return utf8.RuneCountInString(value)
 }
 

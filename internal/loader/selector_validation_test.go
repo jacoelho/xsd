@@ -344,7 +344,7 @@ func TestSelectorXPathValidation(t *testing.T) {
 				if err == nil {
 					t.Error("Schema loading should have failed but succeeded")
 				} else {
-					// Verify the error message
+					// verify the error message
 					if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
 						t.Errorf("Expected error to contain %q, got: %v", tt.errorMsg, err)
 					}
@@ -501,7 +501,7 @@ func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 	}
 	schema.TypeDefs[complexTypeQName] = complexType
 
-	// Test invalid selector - attribute selection
+	// test invalid selector - attribute selection
 	elementDecl := &types.ElementDecl{
 		Name: types.QName{
 			Namespace: "http://example.com",
@@ -513,7 +513,7 @@ func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 				Name: "partKey",
 				Type: types.KeyConstraint,
 				Selector: types.Selector{
-					XPath: "@number", // Invalid - selects attribute
+					XPath: "@number", // invalid - selects attribute
 				},
 				Fields: []types.Field{
 					{XPath: "@number"},
@@ -536,7 +536,7 @@ func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 		}
 	}
 
-	// Test invalid selector - text node selection
+	// test invalid selector - text node selection
 	elementDecl2 := &types.ElementDecl{
 		Name: types.QName{
 			Namespace: "http://example.com",
@@ -548,7 +548,7 @@ func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 				Name: "partKey",
 				Type: types.KeyConstraint,
 				Selector: types.Selector{
-					XPath: "child::text()", // Invalid - selects text
+					XPath: "child::text()", // invalid - selects text
 				},
 				Fields: []types.Field{
 					{XPath: "@number"},
@@ -571,7 +571,7 @@ func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 		}
 	}
 
-	// Test valid selector - element selection
+	// test valid selector - element selection
 	elementDecl3 := &types.ElementDecl{
 		Name: types.QName{
 			Namespace: "http://example.com",
@@ -583,7 +583,7 @@ func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 				Name: "partKey",
 				Type: types.KeyConstraint,
 				Selector: types.Selector{
-					XPath: "parts/part", // Valid - selects elements
+					XPath: "parts/part", // valid - selects elements
 				},
 				Fields: []types.Field{
 					{XPath: "@number"},
@@ -1042,7 +1042,7 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
 				if err == nil {
 					t.Error("Schema loading should have failed but succeeded")
 				} else {
-					// Verify the error message
+					// verify the error message
 					if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
 						t.Errorf("Expected error to contain %q, got: %v", tt.errorMsg, err)
 					}

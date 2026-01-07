@@ -51,14 +51,13 @@ func (r *validationRun) extractKeyValueWithNS(elem xml.Element, fields []types.F
 		return KeyResult{State: KeyAbsent}
 	}
 
-	// For multiple fields, concatenate values with a separator.
 	values := make([]string, 0, len(fields))
 	for _, field := range fields {
 		rawValue, count := r.evaluateFieldWithCountNS(elem, field.XPath, nsContext)
 		if count == 0 {
 			return KeyResult{State: KeyAbsent}
 		}
-		// Per XSD spec, if a field selects more than one node, it's invalid.
+		// per XSD spec, if a field selects more than one node, it's invalid
 		if count > 1 {
 			return KeyResult{State: KeyMultiple}
 		}
@@ -69,7 +68,7 @@ func (r *validationRun) extractKeyValueWithNS(elem xml.Element, fields []types.F
 		values = append(values, normalizedValue.Value)
 	}
 
-	// Join values with a separator (using a character unlikely to appear in values).
+	// join values with a separator (using a character unlikely to appear in values)
 	return KeyResult{Value: strings.Join(values, "\x00"), State: KeyValid}
 }
 
@@ -93,8 +92,8 @@ func (r *validationRun) normalizeKeyValue(value string, field types.Field, elem 
 		return KeyResult{Value: "", State: KeyValid}
 	}
 
-	// For attributes (xpath starts with @), try to look up attribute type from element declaration.
-	// This is done early to ensure we have the correct type for normalization.
+	// for attributes (xpath starts with @), try to look up attribute type from element declaration.
+	// this is done early to ensure we have the correct type for normalization
 	var attrQName types.QName
 	var attrDecl *grammar.CompiledElement
 	attrDeclared := false
@@ -110,11 +109,10 @@ func (r *validationRun) normalizeKeyValue(value string, field types.Field, elem 
 		}
 		attrQName = resolvedQName
 		if targetElem != nil {
-			// Try to find attribute type from element declaration.
 			decl := r.lookupElementDecl(targetElem)
 			attrDecl = decl
 			if decl != nil && decl.Type != nil {
-				// Search through all attributes (including inherited ones).
+				// search through all attributes (including inherited ones)
 				for _, attr := range decl.Type.AllAttributes {
 					if attr.QName.Local == attrQName.Local {
 						if attrQName.Namespace != "" && attr.QName.Namespace != attrQName.Namespace {
@@ -122,7 +120,7 @@ func (r *validationRun) normalizeKeyValue(value string, field types.Field, elem 
 						}
 						attrDeclared = true
 						if attr.Type != nil && attr.Type.Original != nil {
-							// Use attribute type for normalization (preferred over field.ResolvedType for consistency).
+							// use attribute type for normalization (preferred over field.ResolvedType for consistency)
 							return KeyResult{Value: r.normalizeValueByType(value, attr.Type.Original, targetElem), State: KeyValid}
 						}
 					}
@@ -140,14 +138,14 @@ func (r *validationRun) normalizeKeyValue(value string, field types.Field, elem 
 		return KeyResult{Value: r.normalizeValueByType(value, fieldType, targetElem), State: KeyValid}
 	}
 
-	// Attribute normalization - if type unknown, return as-is.
-	// Don't fall back to decimal normalization for attributes.
+	// attribute normalization - if type unknown, return as-is.
+	// don't fall back to decimal normalization for attributes
 	if isAttribute {
 		return KeyResult{Value: value, State: KeyValid}
 	}
 
-	// No type information available - return value as-is without normalization.
-	// This is the conservative choice: don't guess the type.
+	// no type information available - return value as-is without normalization.
+	// this is the conservative choice: don't guess the type
 	return KeyResult{Value: value, State: KeyValid}
 }
 
@@ -160,7 +158,6 @@ func (r *validationRun) resolveKeyTarget(elem xml.Element, expr string, nsContex
 	}
 
 	if isAttribute {
-		// For attributes, the target element is the element that owns the attribute.
 		if attrPath {
 			elementPath = normalizeAttributeElementPath(elementPath)
 			var selected []xml.Element
@@ -177,7 +174,6 @@ func (r *validationRun) resolveKeyTarget(elem xml.Element, expr string, nsContex
 		return elem, isAttribute, attrNameFromPath, attrPath
 	}
 
-	// For child/descendant elements, find the selected element to infer type.
 	if nsContext != nil {
 		selected := r.evaluateSelectorWithNS(elem, expr, nsContext)
 		if len(selected) > 0 {
@@ -216,7 +212,6 @@ func (r *validationRun) resolveAttributeQName(attrName string, targetElem xml.El
 }
 
 func (r *validationRun) resolveKeyFieldType(field types.Field, targetElem xml.Element, isAttribute bool, attrQName types.QName, attrDecl *grammar.CompiledElement, attrDeclared bool) (types.Type, KeyState) {
-	// Try to get type from field's ResolvedType first.
 	var fieldType types.Type
 	if field.ResolvedType != nil {
 		fieldType = field.ResolvedType
@@ -236,22 +231,19 @@ func (r *validationRun) resolveKeyFieldType(field types.Field, targetElem xml.El
 		return fieldType, KeyValid
 	}
 
-	// Check for xsi:type on the target element.
-	// This is important for:
+	// check for xsi:type on the target element.
+	// this is important for:
 	// 1. anySimpleType where instance specifies actual type
-	// 2. Any other case where runtime type differs from schema type
+	// 2. any other case where runtime type differs from schema type
 	if targetElem != nil {
 		xsiType := targetElem.GetAttributeNS("http://www.w3.org/2001/XMLSchema-instance", "type")
 		if xsiType != "" {
-			// Parse the xsi:type value to get the type.
 			if resolvedXsiType := r.lookupTypeFromXsiType(targetElem, xsiType); resolvedXsiType != nil {
-				// Use the xsi:type as the actual type for comparison.
 				fieldType = resolvedXsiType
 			}
 		}
 	}
 
-	// If still no type, try to infer from element declaration.
 	if fieldType == nil && targetElem != nil {
 		if decl := r.lookupElementDecl(targetElem); decl != nil && decl.Type != nil {
 			fieldType = decl.Type.Original
@@ -272,7 +264,7 @@ func (r *validationRun) lookupTypeFromXsiType(elem xml.Element, xsiTypeValue str
 		return ct.Original
 	}
 
-	// Check builtin types in XSD namespace.
+	// check builtin types in XSD namespace
 	if bt := types.GetBuiltinNS(qname.Namespace, qname.Local); bt != nil {
 		return bt
 	}
@@ -341,7 +333,7 @@ func (r *validationRun) normalizeValueByType(value string, fieldType types.Type,
 		}
 	}
 
-	// Use primitive type name to keep derived types comparable within the same value space.
+	// use primitive type name to keep derived types comparable within the same value space
 	typePrefix := primitiveName
 	if typePrefix == "" && fieldType != nil {
 		typePrefix = fieldType.Name().String()
@@ -353,7 +345,7 @@ func (r *validationRun) normalizeValueByType(value string, fieldType types.Type,
 		"unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
 		rat, err := lexical.ParseDecimal(value)
 		if err == nil {
-			// Prefix with type to ensure different types compare differently.
+			// prefix with type to ensure different types compare differently
 			return typePrefix + "\x01" + rat.String()
 		}
 	case "float", "double":
@@ -367,17 +359,17 @@ func (r *validationRun) normalizeValueByType(value string, fieldType types.Type,
 			if math.IsNaN(floatValue) {
 				return typePrefix + "\x01" + "NaN"
 			}
-			// Canonicalize to the shortest round-trippable form per precision.
+			// canonicalize to the shortest round-trippable form per precision
 			return typePrefix + "\x01" + strconv.FormatFloat(floatValue, 'g', -1, bitSize)
 		}
 		return typePrefix + "\x01" + trimmed
 	case "QName":
-		// Normalize QName values (resolve namespace prefix to URI).
+		// normalize QName values (resolve namespace prefix to URI)
 		return typePrefix + "\x01" + r.normalizeQName(value, elem)
 	}
 
-	// For string and other types, use lexical value with type prefix.
-	// This ensures "3" as string is different from "3" as integer.
+	// for string and other types, use lexical value with type prefix.
+	// this ensures "3" as string is different from "3" as integer
 	return typePrefix + "\x01" + value
 }
 
@@ -392,7 +384,7 @@ func (r *validationRun) evaluateFieldWithNS(elem xml.Element, expr string, nsCon
 func (r *validationRun) evaluateFieldWithCountNS(elem xml.Element, expr string, nsContext map[string]string) (string, int) {
 	expr = strings.TrimSpace(expr)
 
-	// Handle XPath union expressions (path1|path2|path3).
+	// handle XPath union expressions (path1|path2|path3)
 	if strings.Contains(expr, "|") {
 		parts := strings.SplitSeq(expr, "|")
 		for part := range parts {
@@ -408,7 +400,6 @@ func (r *validationRun) evaluateFieldWithCountNS(elem xml.Element, expr string, 
 		return "", 0
 	}
 
-	// Handle "." (current element).
 	if expr == "." || expr == "" {
 		return strings.TrimSpace(elem.TextContent()), 1
 	}
@@ -422,14 +413,12 @@ func (r *validationRun) evaluateFieldWithCountNS(elem xml.Element, expr string, 
 		return r.evaluateAttributeSelection(selectedElements, attrName, nsContext)
 	}
 
-	// Handle "@prefix:attributeName" for attributes with namespace prefix.
 	if strings.HasPrefix(expr, "@") || strings.HasPrefix(expr, "attribute::") {
 		attrName := expr[1:]
 		if after, ok := strings.CutPrefix(expr, "attribute::"); ok {
 			attrName = after
 		}
 
-		// Check if attribute name has a prefix.
 		if idx := strings.Index(attrName, ":"); idx > 0 {
 			prefix := attrName[:idx]
 			localName := attrName[idx+1:]
@@ -451,7 +440,6 @@ func (r *validationRun) evaluateFieldWithCountNS(elem xml.Element, expr string, 
 					}
 					return "", 0
 				}
-				// Look for attribute with matching namespace URI.
 				for _, attr := range elem.Attributes() {
 					if attr.LocalName() == localName && attr.NamespaceURI() == nsURI {
 						return attr.Value(), 1
@@ -472,7 +460,6 @@ func (r *validationRun) evaluateFieldWithCountNS(elem xml.Element, expr string, 
 			return attrs[0].Value(), len(attrs)
 		}
 
-		// Fall back to local name matching.
 		value := elem.GetAttribute(attrName)
 		if value != "" || elem.HasAttribute(attrName) {
 			return value, 1

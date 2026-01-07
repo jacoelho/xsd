@@ -326,13 +326,13 @@ func TestFractionDigits(t *testing.T) {
 	}{
 		{"123.45", true},
 		{"123.4", true},
-		{"123", true},       // No fraction digits
+		{"123", true},       // no fraction digits
 		{"123.456", false},  // 3 fraction digits
 		{"123.4567", false}, // 4 fraction digits
 		{"0.12", true},
 		{"0.1", true},
 		{"0.123", false},
-		{"1.23E4", true}, // Exponent doesn't affect fraction digits
+		{"1.23E4", true}, // exponent doesn't affect fraction digits
 	}
 
 	for _, tt := range tests {
@@ -352,7 +352,7 @@ func TestLengthCalculation(t *testing.T) {
 		baseType   types.Type
 		wantLength int
 	}{
-		// String types - length in characters
+		// string types - length in characters
 		{
 			name:       "string type",
 			value:      "hello",
@@ -407,7 +407,7 @@ func TestLengthCalculation(t *testing.T) {
 			name:       "hexBinary odd chars (invalid, fallback to char count)",
 			value:      "123",
 			baseType:   types.GetBuiltin(types.TypeNameHexBinary),
-			wantLength: 3, // Invalid hexBinary, falls back to character count
+			wantLength: 3, // invalid hexBinary, falls back to character count
 		},
 
 		// base64Binary - length in octets (decoded bytes)
@@ -442,9 +442,9 @@ func TestLengthCalculation(t *testing.T) {
 			wantLength: 3,
 		},
 
-		// List types - length in items
-		// Note: List types need to be checked before primitive type check
-		// For now, we'll test list types separately since they require special setup
+		// list types - length in items
+		// note: List types need to be checked before primitive type check
+		// for now, we'll test list types separately since they require special setup
 
 		// nil baseType - should use character count
 		{
@@ -457,25 +457,25 @@ func TestLengthCalculation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test through MaxLength facet (which uses getLength internally)
-			// Use a maxLength that should pass for the expected length
+			// test through MaxLength facet (which uses getLength internally)
+			// use a maxLength that should pass for the expected length
 			maxLen := &MaxLength{Value: tt.wantLength + 1}
 			tv := &StringTypedValue{Value: tt.value, Typ: tt.baseType}
 
-			// Should pass (value length <= maxLength)
+			// should pass (value length <= maxLength)
 			err := maxLen.Validate(tv, tt.baseType)
 			if err != nil {
 				t.Errorf("MaxLength.Validate(%q) with max=%d failed: %v", tt.value, tt.wantLength+1, err)
 			}
 
-			// Test with exact maxLength
+			// test with exact maxLength
 			exactMaxLen := &MaxLength{Value: tt.wantLength}
 			err = exactMaxLen.Validate(tv, tt.baseType)
 			if err != nil {
 				t.Errorf("MaxLength.Validate(%q) with max=%d failed: %v", tt.value, tt.wantLength, err)
 			}
 
-			// Test with maxLength one less (should fail)
+			// test with maxLength one less (should fail)
 			if tt.wantLength > 0 {
 				tooSmallMaxLen := &MaxLength{Value: tt.wantLength - 1}
 				err = tooSmallMaxLen.Validate(tv, tt.baseType)
@@ -484,7 +484,7 @@ func TestLengthCalculation(t *testing.T) {
 				}
 			}
 
-			// Test Length facet with exact length
+			// test Length facet with exact length
 			exactLen := &Length{Value: tt.wantLength}
 			err = exactLen.Validate(tv, tt.baseType)
 			if err != nil {
@@ -735,7 +735,7 @@ func TestLengthFacetsWithQName(t *testing.T) {
 			name:      "maxLength 1 with prefix:localname - ignored per XSD errata",
 			value:     "prefix:localname",
 			facet:     &MaxLength{Value: 1},
-			wantValid: true, // Per XSD 1.0 errata, length facets are ignored for QName
+			wantValid: true, // per XSD 1.0 errata, length facets are ignored for QName
 		},
 		{
 			name:      "length 1 with local name only (1 char) - valid",
@@ -753,7 +753,7 @@ func TestLengthFacetsWithQName(t *testing.T) {
 			name:      "length 1 with prefix:localname - ignored per XSD errata",
 			value:     "prefix:localname",
 			facet:     &Length{Value: 1},
-			wantValid: true, // Per XSD 1.0 errata, length facets are ignored for QName
+			wantValid: true, // per XSD 1.0 errata, length facets are ignored for QName
 		},
 		{
 			name:      "minLength 9 with prefix:localname (local name is 9 chars) - valid",
@@ -765,20 +765,20 @@ func TestLengthFacetsWithQName(t *testing.T) {
 			name:      "minLength 10 with prefix:localname - ignored per XSD errata",
 			value:     "prefix:localname",
 			facet:     &MinLength{Value: 10},
-			wantValid: true, // Per XSD 1.0 errata, length facets are ignored for QName
+			wantValid: true, // per XSD 1.0 errata, length facets are ignored for QName
 		},
 		// W3C test case: length facets should be ignored for QName values (per XSD 1.0 errata)
 		{
 			name:      "W3C: maxLength 1 with QName - ignored per errata",
 			value:     "a",
 			facet:     &MaxLength{Value: 1},
-			wantValid: true, // Ignored per XSD 1.0 errata
+			wantValid: true, // ignored per XSD 1.0 errata
 		},
 		{
 			name:      "W3C: maxLength 1 with prefixed QName - ignored per errata",
 			value:     "ns:a",
 			facet:     &MaxLength{Value: 1},
-			wantValid: true, // Ignored per XSD 1.0 errata
+			wantValid: true, // ignored per XSD 1.0 errata
 		},
 	}
 
@@ -796,7 +796,7 @@ func TestLengthFacetsWithQName(t *testing.T) {
 // TestLengthFacetsWithQNameRestriction tests length facets with a SimpleType that restricts QName
 // Per XSD 1.0 errata, length facets are ignored for types derived from QName.
 func TestLengthFacetsWithQNameRestriction(t *testing.T) {
-	// Create a SimpleType that restricts QName (like in W3C tests)
+	// create a SimpleType that restricts QName (like in W3C tests)
 	qnameBaseType := types.GetBuiltin(types.TypeNameQName)
 	restrictedType := &types.SimpleType{
 		QName: types.QName{Local: "restrictedQName"},
@@ -817,25 +817,25 @@ func TestLengthFacetsWithQNameRestriction(t *testing.T) {
 			name:      "W3C case: maxLength 1 with prefixed QName - ignored per errata",
 			value:     "someprefix:a",
 			facet:     &MaxLength{Value: 1},
-			wantValid: true, // Ignored per XSD 1.0 errata
+			wantValid: true, // ignored per XSD 1.0 errata
 		},
 		{
 			name:      "maxLength 1 with single char QName - ignored per errata",
 			value:     "a",
 			facet:     &MaxLength{Value: 1},
-			wantValid: true, // Ignored per XSD 1.0 errata
+			wantValid: true, // ignored per XSD 1.0 errata
 		},
 		{
 			name:      "Restriction of QName with length facet - ignored per errata",
 			value:     "prefix:a",
 			facet:     &MaxLength{Value: 1},
-			wantValid: true, // Ignored per XSD 1.0 errata
+			wantValid: true, // ignored per XSD 1.0 errata
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Verify PrimitiveType is set correctly
+			// verify PrimitiveType is set correctly
 			primitive := restrictedType.PrimitiveType()
 			if primitive == nil {
 				t.Fatalf("PrimitiveType() returned nil - this would cause length to be measured incorrectly")

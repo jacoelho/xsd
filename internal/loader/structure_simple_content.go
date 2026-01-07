@@ -9,9 +9,9 @@ import (
 
 // validateSimpleContentStructure validates structural constraints of simple content
 func validateSimpleContentStructure(schema *schema.Schema, sc *types.SimpleContent, isInline bool) error {
-	// Simple content doesn't have model groups
+	// simple content doesn't have model groups
 	if sc.Restriction != nil {
-		// Check if base type is valid for simpleContent restriction
+		// check if base type is valid for simpleContent restriction
 		baseType, ok := schema.TypeDefs[sc.Restriction.Base]
 		if ok {
 			if _, isSimpleType := baseType.(*types.SimpleType); isSimpleType {
@@ -22,24 +22,24 @@ func validateSimpleContentStructure(schema *schema.Schema, sc *types.SimpleConte
 				return fmt.Errorf("simpleContent restriction cannot have simpleType base '%s'", sc.Restriction.Base)
 			}
 		}
-		// Per XSD spec: when a complexType is defined locally to an element (inline),
+		// per XSD spec: when a complexType is defined locally to an element (inline),
 		// a simpleContent restriction with a simpleType base must have at least one facet.
-		// Empty restrictions (no facets) are not allowed in this context.
+		// empty restrictions (no facets) are not allowed in this context.
 		if isInline {
-			// Check if base is a simpleType (not a complexType)
+			// check if base is a simpleType (not a complexType)
 			if !ok || baseType == nil {
-				// Base type not found in schema - check if it's a built-in simpleType
+				// base type not found in schema - check if it's a built-in simpleType
 				if sc.Restriction.Base.Namespace == types.XSDNamespace {
-					// Built-in type - check if it's a simpleType by checking if it's not a complex type name
-					// For inline complexTypes, restrictions with simpleType bases must have facets
+					// built-in type - check if it's a simpleType by checking if it's not a complex type name
+					// for inline complexTypes, restrictions with simpleType bases must have facets
 					if len(sc.Restriction.Facets) == 0 {
 						return fmt.Errorf("simpleContent restriction in inline complexType cannot restrict simpleType '%s' without facets", sc.Restriction.Base)
 					}
 				}
 			} else {
-				// Base type is resolved - check if it's a simpleType
+				// base type is resolved - check if it's a simpleType
 				if _, isSimpleType := baseType.(*types.SimpleType); isSimpleType {
-					// Restriction with simpleType base must have at least one facet
+					// restriction with simpleType base must have at least one facet
 					if len(sc.Restriction.Facets) == 0 {
 						return fmt.Errorf("simpleContent restriction in inline complexType cannot restrict simpleType '%s' without facets", sc.Restriction.Base)
 					}
@@ -48,14 +48,14 @@ func validateSimpleContentStructure(schema *schema.Schema, sc *types.SimpleConte
 		}
 		if ok {
 			if baseCT, ok := baseType.(*types.ComplexType); ok {
-				// Base must have simpleContent or be anyType
+				// base must have simpleContent or be anyType
 				if baseCT.QName.Local != "anyType" {
 					if _, isSimpleContent := baseCT.Content().(*types.SimpleContent); !isSimpleContent {
 						return fmt.Errorf("simpleContent restriction cannot derive from complexType '%s' which does not have simpleContent", sc.Restriction.Base)
 					}
 				}
 			}
-			// If it's a SimpleType, that's always valid for simpleContent restriction (unless inline with no facets, checked above)
+			// if it's a SimpleType, that's always valid for simpleContent restriction (unless inline with no facets, checked above)
 		}
 		if sc.Restriction.SimpleType != nil {
 			baseSimpleType, baseQName := resolveSimpleContentBaseType(schema, sc.Restriction.Base)
@@ -86,16 +86,16 @@ func validateSimpleContentStructure(schema *schema.Schema, sc *types.SimpleConte
 		}
 	}
 	if sc.Extension != nil {
-		// Check if base type is valid for simpleContent extension
+		// check if base type is valid for simpleContent extension
 		baseType, ok := schema.TypeDefs[sc.Extension.Base]
 		if ok {
 			if baseCT, ok := baseType.(*types.ComplexType); ok {
-				// Base must have simpleContent
+				// base must have simpleContent
 				if _, isSimpleContent := baseCT.Content().(*types.SimpleContent); !isSimpleContent {
 					return fmt.Errorf("simpleContent extension cannot derive from complexType '%s' which does not have simpleContent", sc.Extension.Base)
 				}
 			}
-			// If it's a SimpleType, that's always valid for simpleContent extension
+			// if it's a SimpleType, that's always valid for simpleContent extension
 		}
 		if sc.Extension.Base.Namespace == types.XSDNamespace && sc.Extension.Base.Local == string(types.TypeNameAnyType) {
 			return fmt.Errorf("simpleContent extension cannot have base type anyType")

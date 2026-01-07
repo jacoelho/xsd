@@ -29,7 +29,7 @@ func (c *Compiler) compileContentModel(ct *types.ComplexType) *grammar.CompiledC
 			minOccurs = mg.MinOccurs
 		}
 		particles := c.flattenParticles(cnt.Particle)
-		// If flattening produces no particles (e.g., empty group), mark as empty
+		// if flattening produces no particles (e.g., empty group), mark as empty
 		if len(particles) == 0 {
 			if mg != nil && mg.Kind == types.Choice && len(mg.Particles) == 0 {
 				return &grammar.CompiledContentModel{
@@ -52,7 +52,7 @@ func (c *Compiler) compileContentModel(ct *types.ComplexType) *grammar.CompiledC
 		return c.compileComplexContent(cnt, ct.Mixed())
 
 	case *types.SimpleContent:
-		// Simple content - no element content model
+		// simple content - no element content model
 		return &grammar.CompiledContentModel{Empty: true}
 	}
 
@@ -60,7 +60,7 @@ func (c *Compiler) compileContentModel(ct *types.ComplexType) *grammar.CompiledC
 }
 
 func (c *Compiler) flattenParticles(particle types.Particle) []*grammar.CompiledParticle {
-	// Inline ModelGroups are tree-structured (no pointer cycles) from parser
+	// inline ModelGroups are tree-structured (no pointer cycles) from parser
 	expandedGroups := make(map[types.QName]bool)
 	return c.flattenParticle(particle, expandedGroups)
 }
@@ -100,7 +100,7 @@ func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[t
 			}
 		}
 		if p.IsReference {
-			// Reference to a top-level element - reuse the global compiled element.
+			// reference to a top-level element - reuse the global compiled element.
 			if elem, ok := c.elements[p.Name]; ok {
 				compiled.Element = elem
 			} else if elemDecl, ok := c.schema.ElementDecls[p.Name]; ok {
@@ -109,7 +109,7 @@ func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[t
 				}
 			}
 		} else {
-			// Local element - compile directly from the particle's ElementDecl.
+			// local element - compile directly from the particle's ElementDecl.
 			if compiledElem, err := c.compileElement(p.Name, p, false); err == nil {
 				compiled.Element = compiledElem
 			}
@@ -117,15 +117,15 @@ func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[t
 		return []*grammar.CompiledParticle{compiled}
 
 	case *types.GroupRef:
-		// Cycle detection via QName - check if already expanding this group
+		// cycle detection via QName - check if already expanding this group
 		if expandedGroups[p.RefQName] {
-			// Circular group reference detected - return empty result
+			// circular group reference detected - return empty result
 			return nil
 		}
 		expandedGroups[p.RefQName] = true
 		defer func() { delete(expandedGroups, p.RefQName) }()
 
-		// Expand group reference
+		// expand group reference
 		if group, ok := c.schema.Groups[p.RefQName]; ok {
 			if p.MaxOccurs == 0 {
 				return nil
@@ -167,7 +167,7 @@ func (c *Compiler) compileComplexContent(cc *types.ComplexContent, mixed bool) *
 	if cc.Extension != nil && cc.Extension.Particle != nil {
 		cm.Kind = c.getGroupKind(cc.Extension.Particle)
 		cm.Particles = c.flattenParticles(cc.Extension.Particle)
-		// If flattening produces no particles (e.g., empty group), mark as empty
+		// if flattening produces no particles (e.g., empty group), mark as empty
 		if len(cm.Particles) == 0 {
 			if mg, ok := cc.Extension.Particle.(*types.ModelGroup); ok && mg.Kind == types.Choice && len(mg.Particles) == 0 {
 				cm.RejectAll = true
@@ -179,7 +179,7 @@ func (c *Compiler) compileComplexContent(cc *types.ComplexContent, mixed bool) *
 	} else if cc.Restriction != nil && cc.Restriction.Particle != nil {
 		cm.Kind = c.getGroupKind(cc.Restriction.Particle)
 		cm.Particles = c.flattenParticles(cc.Restriction.Particle)
-		// If flattening produces no particles (e.g., empty group), mark as empty
+		// if flattening produces no particles (e.g., empty group), mark as empty
 		if len(cm.Particles) == 0 {
 			if mg, ok := cc.Restriction.Particle.(*types.ModelGroup); ok && mg.Kind == types.Choice && len(mg.Particles) == 0 {
 				cm.RejectAll = true
@@ -200,8 +200,8 @@ func (c *Compiler) buildAutomaton(ct *grammar.CompiledType) error {
 		return nil
 	}
 
-	// For all groups, use simple array-based validation instead of DFA
-	// This correctly handles missing required elements, duplicates, and any order
+	// for all groups, use simple array-based validation instead of DFA
+	// this correctly handles missing required elements, duplicates, and any order
 	if ct.ContentModel.Kind == types.AllGroup {
 		elements := c.buildAllGroupElements(ct.ContentModel.Particles)
 		if len(elements) == 0 {
@@ -232,7 +232,7 @@ func (c *Compiler) collectAllGroupElements(particles []*grammar.CompiledParticle
 	for _, p := range particles {
 		switch p.Kind {
 		case grammar.ParticleElement:
-			// Per XSD spec: maxOccurs="0" means the particle contributes no schema component
+			// per XSD spec: maxOccurs="0" means the particle contributes no schema component
 			// and is ignored during validation (Section 5.4 of validation-rules.md)
 			if p.Element != nil && p.MaxOccurs != 0 {
 				elements = append(elements, &grammar.AllGroupElement{

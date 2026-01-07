@@ -63,7 +63,7 @@ func calculateEffectiveOccurrence(mg *types.ModelGroup) (minOcc, maxOcc int) {
 
 	switch mg.Kind {
 	case types.Sequence:
-		// For sequences, sum all children's occurrences
+		// for sequences, sum all children's occurrences
 		sumMinOcc := 0
 		sumMaxOcc := 0
 		for _, p := range mg.Particles {
@@ -84,9 +84,9 @@ func calculateEffectiveOccurrence(mg *types.ModelGroup) (minOcc, maxOcc int) {
 			maxOcc = groupMaxOcc * sumMaxOcc
 		}
 	case types.Choice:
-		// For choices, take the min of children's minOccurs (since only one branch is taken)
+		// for choices, take the min of children's minOccurs (since only one branch is taken)
 		// and max of children's maxOccurs
-		childMinOcc := -1 // Will be set to actual min
+		childMinOcc := -1 // will be set to actual min
 		childMaxOcc := 0
 		for _, p := range mg.Particles {
 			childMin, childMax := getParticleEffectiveOccurrence(p)
@@ -112,7 +112,7 @@ func calculateEffectiveOccurrence(mg *types.ModelGroup) (minOcc, maxOcc int) {
 			maxOcc = groupMaxOcc * childMaxOcc
 		}
 	case types.AllGroup:
-		// For all groups, sum all children (like sequence, all must appear)
+		// for all groups, sum all children (like sequence, all must appear)
 		sumMinOcc := 0
 		sumMaxOcc := 0
 		for _, p := range mg.Particles {
@@ -163,7 +163,7 @@ func isEffectivelyOptional(mg *types.ModelGroup) bool {
 		if particle.MinOcc() > 0 {
 			return false
 		}
-		// Recursively check nested model groups
+		// recursively check nested model groups
 		if nestedMG, ok := particle.(*types.ModelGroup); ok {
 			if !isEffectivelyOptional(nestedMG) {
 				return false
@@ -332,10 +332,10 @@ func isIDOnlyDerivedType(st *types.SimpleType) bool {
 // Deferred facets are range facets (min/max Inclusive/Exclusive) that couldn't be constructed
 // during parsing because the base type wasn't available.
 func validateDeferredFacetApplicability(df *facets.DeferredFacet, baseType types.Type, baseQName types.QName) error {
-	// Check if facet is applicable to the base type
+	// check if facet is applicable to the base type
 	switch df.FacetName {
 	case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive":
-		// Range facets are NOT applicable to list types
+		// range facets are NOT applicable to list types
 		if baseType != nil {
 			if baseST, ok := baseType.(*types.SimpleType); ok {
 				if baseST.Variety() == types.ListVariety {

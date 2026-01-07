@@ -21,7 +21,7 @@ func TestComparable_BigRat(t *testing.T) {
 	comp2 := ComparableBigRat{Value: rat2, Typ: decimalType}
 	comp3 := ComparableBigRat{Value: rat3, Typ: decimalType}
 
-	// Test Compare
+	// test Compare
 	cmp, err := comp1.Compare(comp2)
 	if err != nil {
 		t.Fatalf("Compare() error = %v", err)
@@ -58,7 +58,7 @@ func TestComparable_BigInt(t *testing.T) {
 	comp2 := ComparableBigInt{Value: int2, Typ: integerType}
 	comp3 := ComparableBigInt{Value: int3, Typ: integerType}
 
-	// Test Compare
+	// test Compare
 	cmp, err := comp1.Compare(comp2)
 	if err != nil {
 		t.Fatalf("Compare() error = %v", err)
@@ -180,7 +180,7 @@ func TestComparable_Time(t *testing.T) {
 	comp2 := ComparableTime{Value: time2, Typ: dateTimeType}
 	comp3 := ComparableTime{Value: time3, Typ: dateTimeType}
 
-	// Test Compare
+	// test Compare
 	cmp, err := comp1.Compare(comp2)
 	if err != nil {
 		t.Fatalf("Compare() error = %v", err)
@@ -209,7 +209,7 @@ func TestComparable_Float64(t *testing.T) {
 	doubleType := &SimpleType{
 		QName: QName{Namespace: XSDNamespace, Local: "double"},
 	}
-	// Test normal values
+	// test normal values
 	comp1 := ComparableFloat64{Value: 123.456, Typ: doubleType}
 	comp2 := ComparableFloat64{Value: 789.012, Typ: doubleType}
 	comp3 := ComparableFloat64{Value: 123.456, Typ: doubleType}
@@ -229,7 +229,7 @@ func TestComparable_Float64(t *testing.T) {
 		t.Error("float1 should equal float3")
 	}
 
-	// Test INF
+	// test INF
 	infComp := ComparableFloat64{Value: math.Inf(1), Typ: doubleType}
 	negInfComp := ComparableFloat64{Value: math.Inf(-1), Typ: doubleType}
 	normalComp := ComparableFloat64{Value: 100.0, Typ: doubleType}
@@ -261,7 +261,7 @@ func TestComparable_Float64(t *testing.T) {
 		t.Error("INF should be greater than -INF")
 	}
 
-	// Test NaN - should return error or special value
+	// test NaN - should return error or special value
 	nanComp := ComparableFloat64{Value: math.NaN(), Typ: doubleType}
 	_, err = nanComp.Compare(infComp)
 	if err == nil {
@@ -277,7 +277,7 @@ func TestParseDurationToTimeDuration(t *testing.T) {
 		wantErr bool
 		errMsg  string
 	}{
-		// Valid pure day/time durations
+		// valid pure day/time durations
 		{
 			name:  "days only",
 			input: "P1D",
@@ -333,7 +333,7 @@ func TestParseDurationToTimeDuration(t *testing.T) {
 			input: "P365DT23H59M59S",
 			want:  365*24*time.Hour + 23*time.Hour + 59*time.Minute + 59*time.Second,
 		},
-		// Invalid durations - with years/months
+		// invalid durations - with years/months
 		{
 			name:    "with years",
 			input:   "P1Y",
@@ -358,7 +358,7 @@ func TestParseDurationToTimeDuration(t *testing.T) {
 			wantErr: true,
 			errMsg:  "years or months",
 		},
-		// Invalid formats
+		// invalid formats
 		{
 			name:    "empty string",
 			input:   "",
@@ -428,7 +428,7 @@ func TestParseDurationToTimeDuration(t *testing.T) {
 }
 
 func TestComparableDuration(t *testing.T) {
-	// Test valid durations
+	// test valid durations
 	dur1, err := ParseDurationToTimeDuration("P1DT2H")
 	if err != nil {
 		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
@@ -449,7 +449,7 @@ func TestComparableDuration(t *testing.T) {
 	comp2 := ComparableDuration{Value: dur2, Typ: durationType}
 	comp3 := ComparableDuration{Value: dur3, Typ: durationType}
 
-	// Test Compare
+	// test Compare
 	cmp, err := comp1.Compare(comp2)
 	if err != nil {
 		t.Fatalf("Compare() error = %v", err)
@@ -474,7 +474,7 @@ func TestComparableDuration(t *testing.T) {
 		t.Error("dur2 should be greater than dur1")
 	}
 
-	// Test negative durations
+	// test negative durations
 	negDur, err := ParseDurationToTimeDuration("-P1DT2H")
 	if err != nil {
 		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)

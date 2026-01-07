@@ -194,13 +194,13 @@ func (s *SimpleType) Copy(opts CopyOptions) *SimpleType {
 		return inlineCopy
 	}
 	clone.Restriction = copyRestriction(s.Restriction, opts)
-	// Remap union memberTypes and inline types if present
+	// remap union memberTypes and inline types if present
 	if s.Union != nil {
 		unionCopy := *s.Union
 		if len(unionCopy.MemberTypes) > 0 {
 			memberTypes := make([]QName, len(unionCopy.MemberTypes))
 			for i, mt := range unionCopy.MemberTypes {
-				// Only remap if not in XSD namespace (built-in types)
+				// only remap if not in XSD namespace (built-in types)
 				if mt.Namespace.IsEmpty() {
 					memberTypes[i] = opts.RemapQName(mt)
 				} else {
@@ -218,7 +218,7 @@ func (s *SimpleType) Copy(opts CopyOptions) *SimpleType {
 		}
 		clone.Union = &unionCopy
 	}
-	// Remap list itemType if present
+	// remap list itemType if present
 	if s.List != nil {
 		listCopy := *s.List
 		if !listCopy.ItemType.IsZero() && listCopy.ItemType.Namespace.IsEmpty() {
@@ -252,7 +252,7 @@ func (s *SimpleType) ResolvedBaseType() Type {
 
 // FundamentalFacets returns the fundamental facets for this simple type
 func (s *SimpleType) FundamentalFacets() *FundamentalFacets {
-	// Return cached value if available
+	// return cached value if available
 	if s.fundamentalFacetsCache != nil {
 		return s.fundamentalFacetsCache
 	}
@@ -262,14 +262,14 @@ func (s *SimpleType) FundamentalFacets() *FundamentalFacets {
 		return nil
 	}
 
-	// For built-in types accessed as Type interface
+	// for built-in types accessed as Type interface
 	if bt, ok := as[*BuiltinType](primitive); ok {
 		facets := bt.FundamentalFacets()
 		s.fundamentalFacetsCache = facets
 		return facets
 	}
 
-	// For SimpleType that is built-in
+	// for SimpleType that is built-in
 	if st, ok := as[*SimpleType](primitive); ok {
 		if st.IsBuiltin() {
 			facets := ComputeFundamentalFacets(TypeName(st.QName.Local))
@@ -311,45 +311,45 @@ func (s *SimpleType) WhiteSpaceExplicit() bool {
 // MeasureLength returns length in type-appropriate units (octets, items, or characters).
 // Implements LengthMeasurable interface.
 func (s *SimpleType) MeasureLength(value string) int {
-	// Check if this type is itself a list type
+	// check if this type is itself a list type
 	if s.List != nil {
-		// List type: length is number of items (space-separated)
+		// list type: length is number of items (space-separated)
 		if len(strings.TrimSpace(value)) == 0 {
 			return 0
 		}
 		return len(strings.Fields(value))
 	}
 
-	// Check if this type restricts a list type
+	// check if this type restricts a list type
 	if s.Restriction != nil {
-		// First check ResolvedBase if available
+		// first check ResolvedBase if available
 		if s.ResolvedBase != nil {
 			if lm, ok := as[LengthMeasurable](s.ResolvedBase); ok {
-				// Check if base is a list type
+				// check if base is a list type
 				if baseST, ok := as[*SimpleType](s.ResolvedBase); ok && baseST.List != nil {
-					// Restriction of list type: length is number of items
+					// restriction of list type: length is number of items
 					if len(strings.TrimSpace(value)) == 0 {
 						return 0
 					}
 					return len(strings.Fields(value))
 				}
 				if bt, ok := as[*BuiltinType](s.ResolvedBase); ok && isBuiltinListType(bt.Name().Local) {
-					// Restriction of built-in list type: length is number of items
+					// restriction of built-in list type: length is number of items
 					if len(strings.TrimSpace(value)) == 0 {
 						return 0
 					}
 					return len(strings.Fields(value))
 				}
-				// Otherwise delegate to base type
+				// otherwise delegate to base type
 				return lm.MeasureLength(value)
 			}
 		}
-		// Fallback: check if Restriction.Base QName suggests it's a list type
+		// fallback: check if Restriction.Base QName suggests it's a list type
 		if !s.Restriction.Base.IsZero() {
 			baseLocal := s.Restriction.Base.Local
 			if strings.HasPrefix(strings.ToLower(baseLocal), "list") ||
 				isBuiltinListType(baseLocal) {
-				// Likely a list type - count items
+				// likely a list type - count items
 				if len(strings.TrimSpace(value)) == 0 {
 					return 0
 				}
@@ -358,17 +358,17 @@ func (s *SimpleType) MeasureLength(value string) int {
 		}
 	}
 
-	// For user-defined types, delegate to primitive type
+	// for user-defined types, delegate to primitive type
 	primitiveType := s.PrimitiveType()
 	if primitiveType != nil {
 		if lm, ok := as[LengthMeasurable](primitiveType); ok {
 			return lm.MeasureLength(value)
 		}
-		// Fallback: use primitive name directly
+		// fallback: use primitive name directly
 		return measureLengthForPrimitive(value, TypeName(primitiveType.Name().Local))
 	}
 
-	// Fallback: character count
+	// fallback: character count
 	return utf8.RuneCountInString(value)
 }
 
@@ -389,14 +389,14 @@ func (s *SimpleType) Validate(lexical string) error {
 		return err
 	}
 
-	// For built-in types, use built-in validator
+	// for built-in types, use built-in validator
 	if s.IsBuiltin() {
 		if bt := GetBuiltinNS(s.QName.Namespace, s.QName.Local); bt != nil {
 			return bt.Validate(normalized)
 		}
 	}
 
-	// For user-defined types with restrictions, validate against base type and facets
+	// for user-defined types with restrictions, validate against base type and facets
 	if s.Restriction != nil {
 		baseType := GetBuiltinNS(s.Restriction.Base.Namespace, s.Restriction.Base.Local)
 		if baseType != nil {
@@ -404,7 +404,7 @@ func (s *SimpleType) Validate(lexical string) error {
 				return err
 			}
 		}
-		// Facet validation is done separately in the validator
+		// facet validation is done separately in the validator
 	}
 
 	return nil
@@ -417,7 +417,7 @@ func (s *SimpleType) ParseValue(lexical string) (TypedValue, error) {
 		return nil, err
 	}
 
-	// First, try to parse based on the type's own name (for built-in types)
+	// first, try to parse based on the type's own name (for built-in types)
 	if s.IsBuiltin() {
 		typeName := TypeName(s.QName.Local)
 		if result, err := ParseValueForType(normalized, typeName, s); err == nil {
@@ -425,7 +425,7 @@ func (s *SimpleType) ParseValue(lexical string) (TypedValue, error) {
 		}
 	}
 
-	// For user-defined types or if built-in type not handled above, use primitive type
+	// for user-defined types or if built-in type not handled above, use primitive type
 	primitiveType := s.PrimitiveType()
 	if primitiveType == nil {
 		return nil, fmt.Errorf("cannot determine primitive type")
@@ -433,7 +433,7 @@ func (s *SimpleType) ParseValue(lexical string) (TypedValue, error) {
 
 	primitiveST, ok := as[*SimpleType](primitiveType)
 	if !ok {
-		// Try BuiltinType
+		// try BuiltinType
 		if bt, ok := as[*BuiltinType](primitiveType); ok {
 			return bt.ParseValue(normalized)
 		}
@@ -451,7 +451,7 @@ func (s *SimpleType) MarkBuiltin() {
 
 // PrimitiveType returns the ultimate primitive base type for this simple type
 func (s *SimpleType) PrimitiveType() Type {
-	// Return cached value if available
+	// return cached value if available
 	if s.primitiveType != nil {
 		return s.primitiveType
 	}
@@ -468,19 +468,19 @@ func (s *SimpleType) SetPrimitiveType(primitive Type) {
 
 // getPrimitiveTypeWithVisited is the internal implementation with cycle detection
 func (s *SimpleType) getPrimitiveTypeWithVisited(visited map[*SimpleType]bool) Type {
-	// If already computed, return it
+	// if already computed, return it
 	if s.primitiveType != nil {
 		return s.primitiveType
 	}
 
 	if visited[s] {
-		// Circular reference detected - return nil to break the cycle
+		// circular reference detected - return nil to break the cycle
 		return nil
 	}
 	visited[s] = true
 	defer delete(visited, s)
 
-	// Primitive types: self
+	// primitive types: self
 	if s.builtin && s.Variety() == AtomicVariety {
 		if isPrimitiveName(TypeName(s.QName.Local)) && s.QName.Namespace == XSDNamespace {
 			s.primitiveType = s
@@ -488,9 +488,9 @@ func (s *SimpleType) getPrimitiveTypeWithVisited(visited map[*SimpleType]bool) T
 		}
 	}
 
-	// Derived by restriction: follow base chain
+	// derived by restriction: follow base chain
 	if s.Restriction != nil {
-		// First try ResolvedBase if available (after type resolution)
+		// first try ResolvedBase if available (after type resolution)
 		if s.ResolvedBase != nil {
 			if baseSimple, ok := as[*SimpleType](s.ResolvedBase); ok {
 				primitive := baseSimple.getPrimitiveTypeWithVisited(visited)
@@ -499,7 +499,7 @@ func (s *SimpleType) getPrimitiveTypeWithVisited(visited map[*SimpleType]bool) T
 					return primitive
 				}
 			} else if baseBuiltin, ok := as[*BuiltinType](s.ResolvedBase); ok {
-				// Base is a built-in type, get its primitive type
+				// base is a built-in type, get its primitive type
 				primitive := baseBuiltin.PrimitiveType()
 				if primitive != nil {
 					s.primitiveType = primitive
@@ -508,7 +508,7 @@ func (s *SimpleType) getPrimitiveTypeWithVisited(visited map[*SimpleType]bool) T
 			}
 		} else if !s.Restriction.Base.IsZero() {
 			// ResolvedBase not set yet (during parsing), try to resolve from Restriction.Base
-			// For built-in types, we can resolve directly
+			// for built-in types, we can resolve directly
 			if s.Restriction.Base.Namespace == XSDNamespace {
 				if bt := GetBuiltin(TypeName(s.Restriction.Base.Local)); bt != nil {
 					primitive := bt.PrimitiveType()
@@ -518,12 +518,12 @@ func (s *SimpleType) getPrimitiveTypeWithVisited(visited map[*SimpleType]bool) T
 					}
 				}
 			}
-			// For user-defined types, we can't resolve without schema context
-			// This will be resolved during schema validation phase
+			// for user-defined types, we can't resolve without schema context
+			// this will be resolved during schema validation phase
 		}
 	}
 
-	// List types: item type's primitive
+	// list types: item type's primitive
 	if s.List != nil && s.ItemType != nil {
 		if itemSimple, ok := as[*SimpleType](s.ItemType); ok {
 			primitive := itemSimple.getPrimitiveTypeWithVisited(visited)
@@ -532,7 +532,7 @@ func (s *SimpleType) getPrimitiveTypeWithVisited(visited map[*SimpleType]bool) T
 				return primitive
 			}
 		} else if itemBuiltin, ok := as[*BuiltinType](s.ItemType); ok {
-			// Item type is a built-in type, get its primitive type
+			// item type is a built-in type, get its primitive type
 			primitive := itemBuiltin.PrimitiveType()
 			if primitive != nil {
 				s.primitiveType = primitive
@@ -541,18 +541,18 @@ func (s *SimpleType) getPrimitiveTypeWithVisited(visited map[*SimpleType]bool) T
 		}
 	}
 
-	// Union types: common primitive or anySimpleType
-	// For now, if we can't determine, return nil
-	// This will be resolved during schema compilation
+	// union types: common primitive or anySimpleType
+	// for now, if we can't determine, return nil
+	// this will be resolved during schema compilation
 	if s.Union != nil {
-		// Try to find common primitive
+		// try to find common primitive
 		var commonPrimitive Type
 		for _, memberType := range s.MemberTypes {
 			var memberPrimitive Type
 			if memberSimple, ok := as[*SimpleType](memberType); ok {
 				memberPrimitive = memberSimple.getPrimitiveTypeWithVisited(visited)
 			} else if memberBuiltin, ok := as[*BuiltinType](memberType); ok {
-				// Member type is a built-in type, get its primitive type
+				// member type is a built-in type, get its primitive type
 				memberPrimitive = memberBuiltin.PrimitiveType()
 			}
 			if memberPrimitive == nil {
@@ -561,8 +561,8 @@ func (s *SimpleType) getPrimitiveTypeWithVisited(visited map[*SimpleType]bool) T
 			if commonPrimitive == nil {
 				commonPrimitive = memberPrimitive
 			} else if commonPrimitive != memberPrimitive {
-				// Different primitives, return anySimpleType or nil
-				// For now, return nil (will be resolved later)
+				// different primitives, return anySimpleType or nil
+				// for now, return nil (will be resolved later)
 				return nil
 			}
 		}

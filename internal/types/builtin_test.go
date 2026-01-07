@@ -94,8 +94,8 @@ func TestValidateToken(t *testing.T) {
 	}{
 		{"hello", true},
 		{"hello world", true},
-		{"  hello  ", false},    // Should be collapsed first
-		{"hello  world", false}, // Should be collapsed first
+		{"  hello  ", false},    // should be collapsed first
+		{"hello  world", false}, // should be collapsed first
 		{"", true},
 	}
 
@@ -117,12 +117,12 @@ func TestValidateNCName(t *testing.T) {
 		{"hello123", true},
 		{"hello-world", true},
 		{"hello.world", true},
-		{"123hello", false},    // Can't start with digit
-		{"hello:world", false}, // No colons allowed
+		{"123hello", false},    // can't start with digit
+		{"hello:world", false}, // no colons allowed
 		{":hello", false},
 		{"hello:", false},
 		{"", false},
-		{"-hello", false}, // Can't start with hyphen
+		{"-hello", false}, // can't start with hyphen
 	}
 
 	for _, tt := range tests {
@@ -250,10 +250,10 @@ func TestBuiltinTypeImplementsType(t *testing.T) {
 		t.Fatal("GetBuiltin(\"string\") returned nil")
 	}
 
-	// Test that BuiltinType implements Type interface
+	// test that BuiltinType implements Type interface
 	var _ Type = typ
 
-	// Test Name() returns QName
+	// test Name() returns QName
 	name := typ.Name()
 	if name.Namespace != XSDNamespace {
 		t.Errorf("Name().Namespace = %q, want %q", name.Namespace, XSDNamespace)
@@ -262,14 +262,14 @@ func TestBuiltinTypeImplementsType(t *testing.T) {
 		t.Errorf("Name().Local = %q, want %q", name.Local, "string")
 	}
 
-	// Test IsBuiltin() returns true
+	// test IsBuiltin() returns true
 	if !typ.IsBuiltin() {
 		t.Error("IsBuiltin() = false, want true")
 	}
 }
 
 func TestBuiltinType_BaseType(t *testing.T) {
-	// Test derived type (integer -> decimal)
+	// test derived type (integer -> decimal)
 	integerType := GetBuiltin(TypeNameInteger)
 	if integerType == nil {
 		t.Fatal("GetBuiltin(\"integer\") returned nil")
@@ -283,22 +283,22 @@ func TestBuiltinType_BaseType(t *testing.T) {
 		t.Errorf("BaseType().Name().Local = %q, want %q", base.Name().Local, "decimal")
 	}
 
-	// Test primitive type (decimal -> nil or anySimpleType)
+	// test primitive type (decimal -> nil or anySimpleType)
 	decimalType := GetBuiltin(TypeNameDecimal)
 	if decimalType == nil {
 		t.Fatal("GetBuiltin(\"decimal\") returned nil")
 	}
 
-	// Primitive types may return nil (anySimpleType not registered)
+	// primitive types may return nil (anySimpleType not registered)
 	primBase := decimalType.BaseType()
-	// This is acceptable - anySimpleType is not a registered built-in
+	// this is acceptable - anySimpleType is not a registered built-in
 	if primBase != nil && primBase.Name().Local != "anySimpleType" {
 		t.Logf("Primitive type base is %q (expected nil or anySimpleType)", primBase.Name().Local)
 	}
 }
 
 func TestBuiltinType_PrimitiveType(t *testing.T) {
-	// Test derived type (integer -> decimal)
+	// test derived type (integer -> decimal)
 	integerType := GetBuiltin(TypeNameInteger)
 	if integerType == nil {
 		t.Fatal("GetBuiltin(\"integer\") returned nil")
@@ -312,7 +312,7 @@ func TestBuiltinType_PrimitiveType(t *testing.T) {
 		t.Errorf("PrimitiveType().Name().Local = %q, want %q", primitive.Name().Local, "decimal")
 	}
 
-	// Test primitive type (decimal -> decimal)
+	// test primitive type (decimal -> decimal)
 	decimalType := GetBuiltin(TypeNameDecimal)
 	if decimalType == nil {
 		t.Fatal("GetBuiltin(\"decimal\") returned nil")
@@ -328,7 +328,7 @@ func TestBuiltinType_PrimitiveType(t *testing.T) {
 }
 
 func TestBuiltinType_FundamentalFacets(t *testing.T) {
-	// Test numeric type (integer)
+	// test numeric type (integer)
 	integerType := GetBuiltin(TypeNameInteger)
 	if integerType == nil {
 		t.Fatal("GetBuiltin(\"integer\") returned nil")
@@ -346,7 +346,7 @@ func TestBuiltinType_FundamentalFacets(t *testing.T) {
 		t.Error("FundamentalFacets().Numeric = false, want true")
 	}
 
-	// Test string type
+	// test string type
 	stringType := GetBuiltin(TypeNameString)
 	if stringType == nil {
 		t.Fatal("GetBuiltin(\"string\") returned nil")
@@ -366,7 +366,7 @@ func TestBuiltinType_FundamentalFacets(t *testing.T) {
 }
 
 func TestBuiltinType_WhiteSpace(t *testing.T) {
-	// Test collapse
+	// test collapse
 	integerType := GetBuiltin(TypeNameInteger)
 	if integerType == nil {
 		t.Fatal("GetBuiltin(\"integer\") returned nil")
@@ -377,7 +377,7 @@ func TestBuiltinType_WhiteSpace(t *testing.T) {
 		t.Errorf("WhiteSpace() = %v, want %v", ws, WhiteSpaceCollapse)
 	}
 
-	// Test preserve
+	// test preserve
 	stringType := GetBuiltin(TypeNameString)
 	if stringType == nil {
 		t.Fatal("GetBuiltin(\"string\") returned nil")
@@ -390,7 +390,7 @@ func TestBuiltinType_WhiteSpace(t *testing.T) {
 }
 
 func TestBuiltinType_CanBeAssignedToType(t *testing.T) {
-	// Test that BuiltinType can be assigned to Type variable
+	// test that BuiltinType can be assigned to Type variable
 	bt := GetBuiltin(TypeNameInteger)
 	if bt == nil {
 		t.Fatal("GetBuiltin(\"integer\") returned nil")
@@ -398,12 +398,12 @@ func TestBuiltinType_CanBeAssignedToType(t *testing.T) {
 
 	var tType Type = bt
 
-	// Test type assertion works
+	// test type assertion works
 	if _, ok := tType.(*BuiltinType); !ok {
 		t.Error("Type assertion to *BuiltinType failed")
 	}
 
-	// Test all methods work through Type interface
+	// test all methods work through Type interface
 	if tType.Name().Local != "integer" {
 		t.Errorf("Type.Name().Local = %q, want %q", tType.Name().Local, "integer")
 	}

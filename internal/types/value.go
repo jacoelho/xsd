@@ -275,7 +275,7 @@ func ValueAs[T any](value TypedValue) (T, error) {
 	var zero T
 	native := value.Native()
 
-	// For Comparable wrapper types, extract the inner value
+	// for Comparable wrapper types, extract the inner value
 	if nativeVal, ok := as[T](native); ok {
 		return nativeVal, nil
 	}
@@ -286,7 +286,7 @@ func ValueAs[T any](value TypedValue) (T, error) {
 		}
 	}
 
-	// Get XSD type name for user-friendly error message
+	// get XSD type name for user-friendly error message
 	var xsdTypeName string
 	if value != nil && value.Type() != nil {
 		xsdTypeName = value.Type().Name().Local

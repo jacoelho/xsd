@@ -5,13 +5,13 @@ import (
 )
 
 func TestWhiteSpace_Inheritance(t *testing.T) {
-	// Test that derived types inherit whitespace from base type
+	// test that derived types inherit whitespace from base type
 	baseType := &SimpleType{
 		QName: QName{
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     string(TypeNameString),
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	baseType.MarkBuiltin()
 	baseType.SetVariety(AtomicVariety)
@@ -22,14 +22,14 @@ func TestWhiteSpace_Inheritance(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "MyString",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Restriction: &Restriction{
 			Base: baseType.QName,
 		},
 	}
 	derivedType.ResolvedBase = baseType
 	derivedType.SetVariety(AtomicVariety)
-	derivedType.SetWhiteSpace(baseType.WhiteSpace()) // Inherit from base
+	derivedType.SetWhiteSpace(baseType.WhiteSpace()) // inherit from base
 
 	if derivedType.WhiteSpace() != WhiteSpacePreserve {
 		t.Errorf("WhiteSpace = %v, want %v", derivedType.WhiteSpace(), WhiteSpacePreserve)
@@ -37,13 +37,13 @@ func TestWhiteSpace_Inheritance(t *testing.T) {
 }
 
 func TestWhiteSpace_Override(t *testing.T) {
-	// Test that whitespace can be overridden in restrictions
+	// test that whitespace can be overridden in restrictions
 	baseType := &SimpleType{
 		QName: QName{
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     string(TypeNameString),
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	baseType.MarkBuiltin()
 	baseType.SetVariety(AtomicVariety)
@@ -54,14 +54,14 @@ func TestWhiteSpace_Override(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "MyString",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Restriction: &Restriction{
 			Base: baseType.QName,
 		},
 	}
 	derivedType.ResolvedBase = baseType
 	derivedType.SetVariety(AtomicVariety)
-	derivedType.SetWhiteSpace(WhiteSpaceCollapse) // Override to collapse
+	derivedType.SetWhiteSpace(WhiteSpaceCollapse) // override to collapse
 
 	if derivedType.WhiteSpace() != WhiteSpaceCollapse {
 		t.Errorf("WhiteSpace = %v, want %v", derivedType.WhiteSpace(), WhiteSpaceCollapse)
@@ -69,8 +69,8 @@ func TestWhiteSpace_Override(t *testing.T) {
 }
 
 func TestWhiteSpace_StricterOnly(t *testing.T) {
-	// Test that whitespace can only be made stricter (preserve -> replace -> collapse)
-	// This is validated during schema validation, not here, but we can test the values
+	// test that whitespace can only be made stricter (preserve -> replace -> collapse)
+	// this is validated during schema validation, not here, but we can test the values
 	tests := []struct {
 		name      string
 		base      WhiteSpace
@@ -83,7 +83,7 @@ func TestWhiteSpace_StricterOnly(t *testing.T) {
 		{"preserve to preserve", WhiteSpacePreserve, WhiteSpacePreserve, false},
 		{"replace to replace", WhiteSpaceReplace, WhiteSpaceReplace, false},
 		{"collapse to collapse", WhiteSpaceCollapse, WhiteSpaceCollapse, false},
-		// These should fail validation (but we're just testing the values here)
+		// these should fail validation (but we're just testing the values here)
 		{"replace to preserve", WhiteSpaceReplace, WhiteSpacePreserve, true},
 		{"collapse to preserve", WhiteSpaceCollapse, WhiteSpacePreserve, true},
 		{"collapse to replace", WhiteSpaceCollapse, WhiteSpaceReplace, true},
@@ -96,7 +96,7 @@ func TestWhiteSpace_StricterOnly(t *testing.T) {
 					Namespace: "http://example.com",
 					Local:     "Base",
 				},
-				// Variety set via SetVariety
+				// variety set via SetVariety
 			}
 			baseType.SetVariety(AtomicVariety)
 			baseType.SetWhiteSpace(tt.base)
@@ -106,17 +106,17 @@ func TestWhiteSpace_StricterOnly(t *testing.T) {
 					Namespace: "http://example.com",
 					Local:     "Derived",
 				},
-				// Variety set via SetVariety
+				// variety set via SetVariety
 			}
 			derivedType.ResolvedBase = baseType
 			derivedType.SetVariety(AtomicVariety)
 			derivedType.SetWhiteSpace(tt.derived)
 
-			// Check if the values are set correctly
+			// check if the values are set correctly
 			if derivedType.WhiteSpace() != tt.derived {
 				t.Errorf("WhiteSpace = %v, want %v", derivedType.WhiteSpace(), tt.derived)
 			}
-			// The actual validation that it's stricter will be in schema validator
+			// the actual validation that it's stricter will be in schema validator
 		})
 	}
 }

@@ -10,7 +10,7 @@ import (
 // resolveGroupReferences resolves all GroupRef placeholders in a schema
 // This must be called after all schemas (including imports/includes) are loaded
 func (l *SchemaLoader) resolveGroupReferences(schema *schema.Schema) error {
-	// First, resolve all top-level groups (they may reference each other)
+	// first, resolve all top-level groups (they may reference each other)
 	detector := NewCycleDetector[types.QName]()
 
 	for qname, group := range schema.Groups {
@@ -81,25 +81,25 @@ func (l *SchemaLoader) resolveGroupRefsInContentWithVisited(content types.Conten
 // resolveGroupRefsInParticleWithVisited resolves GroupRef placeholders in a particle with cycle detector
 // Returns the resolved particle if it was a GroupRef, nil otherwise
 func (l *SchemaLoader) resolveGroupRefsInParticleWithVisited(particle types.Particle, schema *schema.Schema, detector *CycleDetector[types.QName]) (types.Particle, error) {
-	// Check if this particle is a GroupRef that needs resolution
+	// check if this particle is a GroupRef that needs resolution
 	if groupRef, ok := particle.(*types.GroupRef); ok {
-		// Look up the actual group
+		// look up the actual group
 		groupDef, ok := schema.Groups[groupRef.RefQName]
 		if !ok {
 			return nil, fmt.Errorf("group '%s' not found", groupRef.RefQName)
 		}
-		// Create a copy of the group with occurrence constraints from the reference
-		// Note: Group references with minOccurs > 1 are valid XSD. UPA validation will catch
+		// create a copy of the group with occurrence constraints from the reference
+		// note: Group references with minOccurs > 1 are valid XSD. UPA validation will catch
 		// any actual UPA violations that arise from ambiguous content models.
 		groupCopy := *groupDef
 		groupCopy.MinOccurs = groupRef.MinOccurs
 		groupCopy.MaxOccurs = groupRef.MaxOccurs
-		// The group is already resolved (it's in schema.Groups and was resolved earlier)
-		// Just return the copy
+		// the group is already resolved (it's in schema.Groups and was resolved earlier)
+		// just return the copy
 		return &groupCopy, nil
 	}
 
-	// If it's a ModelGroup, resolve recursively
+	// if it's a ModelGroup, resolve recursively
 	if mg, ok := particle.(*types.ModelGroup); ok {
 		if err := l.resolveGroupRefsInModelGroupWithCycleDetection(mg, schema, detector); err != nil {
 			return nil, err
@@ -116,9 +116,9 @@ func (l *SchemaLoader) resolveGroupRefsInModelGroupWithCycleDetection(mg *types.
 
 // resolveGroupRefsInModelGroupWithPointerCycleDetection resolves GroupRef placeholders with both QName and pointer-based cycle detection
 func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg *types.ModelGroup, schema *schema.Schema, detector *CycleDetector[types.QName], visitedMGs map[*types.ModelGroup]bool) error {
-	// Pointer-based cycle detection for ModelGroup structures
+	// pointer-based cycle detection for ModelGroup structures
 	if visitedMGs[mg] {
-		return nil // Already processed this ModelGroup
+		return nil // already processed this ModelGroup
 	}
 	visitedMGs[mg] = true
 
@@ -129,15 +129,15 @@ func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg 
 			}
 			defer detector.Leave(groupRef.RefQName)
 
-			// Look up the actual group
+			// look up the actual group
 			groupDef, ok := schema.Groups[groupRef.RefQName]
 			if !ok {
 				return fmt.Errorf("group '%s' not found", groupRef.RefQName)
 			}
 
-			// If the group is already resolved (visited), just copy it
+			// if the group is already resolved (visited), just copy it
 			if detector.IsVisited(groupRef.RefQName) {
-				// Create a deep copy of the already-resolved group with occurrence constraints from the reference
+				// create a deep copy of the already-resolved group with occurrence constraints from the reference
 				groupCopy := deepCopyModelGroup(groupDef)
 				groupCopy.MinOccurs = groupRef.MinOccurs
 				groupCopy.MaxOccurs = groupRef.MaxOccurs
@@ -145,21 +145,21 @@ func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg 
 				continue
 			}
 
-			// Create a deep copy of the group with occurrence constraints from the reference
+			// create a deep copy of the group with occurrence constraints from the reference
 			groupCopy := deepCopyModelGroup(groupDef)
 			groupCopy.MinOccurs = groupRef.MinOccurs
 			groupCopy.MaxOccurs = groupRef.MaxOccurs
 
-			// Recursively resolve any GroupRefs in the copied group
-			// Use a fresh visitedMGs since this is a new copy
+			// recursively resolve any GroupRefs in the copied group
+			// use a fresh visitedMGs since this is a new copy
 			if err := l.resolveGroupRefsInModelGroupWithPointerCycleDetection(groupCopy, schema, detector, make(map[*types.ModelGroup]bool)); err != nil {
 				return err
 			}
 
-			// Replace the GroupRef with the resolved group
+			// replace the GroupRef with the resolved group
 			mg.Particles[i] = groupCopy
 		} else if nestedMG, ok := particle.(*types.ModelGroup); ok {
-			// Recursively resolve nested model groups
+			// recursively resolve nested model groups
 			if err := l.resolveGroupRefsInModelGroupWithPointerCycleDetection(nestedMG, schema, detector, visitedMGs); err != nil {
 				return err
 			}

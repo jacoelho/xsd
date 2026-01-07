@@ -263,7 +263,6 @@ func (r *validationRun) mergeSchemaOverlay(extra *grammar.CompiledSchema) {
 }
 
 func (r *validationRun) findElementDeclaration(qname types.QName) *grammar.CompiledElement {
-	// Try direct lookup first (for top-level elements)
 	if decl := r.schema.Element(qname); decl != nil {
 		return decl
 	}
@@ -272,7 +271,7 @@ func (r *validationRun) findElementDeclaration(qname types.QName) *grammar.Compi
 		return decl
 	}
 
-	// Check local elements index (precomputed during compilation)
+	// check local elements index (precomputed during compilation)
 	return r.schema.LocalElement(qname)
 }
 

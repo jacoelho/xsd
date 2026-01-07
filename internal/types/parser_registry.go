@@ -58,7 +58,7 @@ func asSimpleType(typ Type) *SimpleType {
 		return st
 	}
 
-	// For BuiltinType, create a SimpleType wrapper
+	// for BuiltinType, create a SimpleType wrapper
 	if bt, ok := as[*BuiltinType](typ); ok {
 		st := &SimpleType{
 			QName:   bt.qname,

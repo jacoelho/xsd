@@ -109,7 +109,7 @@ func ParseDateTime(lexical string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("invalid dateTime: empty string")
 	}
 
-	// Try various ISO 8601 formats
+	// try various ISO 8601 formats
 	formats := []string{
 		time.RFC3339Nano,                // 2006-01-02T15:04:05.999999999Z07:00
 		time.RFC3339,                    // 2006-01-02T15:04:05Z07:00

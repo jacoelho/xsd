@@ -15,7 +15,7 @@ import (
 // XML: <Root><a/><a/><b/></Root>
 // Expected: valid (Sequence1: <a/>, Sequence2: <a/><b/>)
 func TestRepeatingSequenceWithOptionalElement(t *testing.T) {
-	// Create the content model:
+	// create the content model:
 	// (a{1,2}, b{0,1}){2,2}
 	elemA := &types.ElementDecl{Name: types.QName{Local: "a"}}
 	elemB := &types.ElementDecl{Name: types.QName{Local: "b"}}
@@ -49,7 +49,7 @@ func TestRepeatingSequenceWithOptionalElement(t *testing.T) {
 		t.Fatalf("Failed to build automaton: %v", err)
 	}
 
-	// Print automaton info for debugging
+	// print automaton info for debugging
 	t.Logf("Symbols: %d", len(automaton.symbols))
 	for i, sym := range automaton.symbols {
 		t.Logf("  Symbol %d: Kind=%d, QName=%s", i, sym.Kind, sym.QName.Local)
@@ -82,17 +82,17 @@ func TestRepeatingSequenceWithOptionalElement(t *testing.T) {
 		children []string
 		valid    bool
 	}{
-		// Valid cases
-		{"<a><a>", []string{"a", "a"}, true},                 // Seq1: a, Seq2: a
-		{"<a><a><b>", []string{"a", "a", "b"}, true},         // Seq1: a, Seq2: a,b
-		{"<a><b><a>", []string{"a", "b", "a"}, true},         // Seq1: a,b, Seq2: a
-		{"<a><b><a><b>", []string{"a", "b", "a", "b"}, true}, // Seq1: a,b, Seq2: a,b
-		{"<a><a><a>", []string{"a", "a", "a"}, true},         // Seq1: a,a, Seq2: a (each seq can have 1-2 a's)
-		{"<a><a><a><a>", []string{"a", "a", "a", "a"}, true}, // Seq1: a,a, Seq2: a,a
+		// valid cases
+		{"<a><a>", []string{"a", "a"}, true},                 // seq1: a, Seq2: a
+		{"<a><a><b>", []string{"a", "a", "b"}, true},         // seq1: a, Seq2: a,b
+		{"<a><b><a>", []string{"a", "b", "a"}, true},         // seq1: a,b, Seq2: a
+		{"<a><b><a><b>", []string{"a", "b", "a", "b"}, true}, // seq1: a,b, Seq2: a,b
+		{"<a><a><a>", []string{"a", "a", "a"}, true},         // seq1: a,a, Seq2: a (each seq can have 1-2 a's)
+		{"<a><a><a><a>", []string{"a", "a", "a", "a"}, true}, // seq1: a,a, Seq2: a,a
 
-		// Invalid cases
-		{"<a>", []string{"a"}, false},                                 // Only 1 sequence, need 2
-		{"<a><a><a><a><a>", []string{"a", "a", "a", "a", "a"}, false}, // Too many
+		// invalid cases
+		{"<a>", []string{"a"}, false},                                 // only 1 sequence, need 2
+		{"<a><a><a><a><a>", []string{"a", "a", "a", "a", "a"}, false}, // too many
 	}
 
 	for _, tt := range tests {

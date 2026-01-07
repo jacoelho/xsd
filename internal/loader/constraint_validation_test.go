@@ -13,7 +13,7 @@ import (
 // TestFacetLengthWithMinMaxLength tests that length facet cannot be used with minLength/maxLength
 // Per XSD 1.0 Errata E1-17, they are mutually exclusive regardless of derivation step
 func TestFacetLengthWithMinMaxLength(t *testing.T) {
-	// Schema with length=5 and minLength=2 - should be invalid
+	// schema with length=5 and minLength=2 - should be invalid
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="InvalidType">
@@ -26,7 +26,7 @@ func TestFacetLengthWithMinMaxLength(t *testing.T) {
 
 	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
-		// Parser may reject this during parse-time facet checks.
+		// parser may reject this during parse-time facet checks.
 		return
 	}
 
@@ -50,7 +50,7 @@ func TestFacetLengthWithMinMaxLength(t *testing.T) {
 // TestFacetLengthWithMaxLength tests that length facet cannot be used with maxLength
 // Per XSD 1.0 Errata E1-17, they are mutually exclusive regardless of derivation step
 func TestFacetLengthWithMaxLength(t *testing.T) {
-	// Schema with length=5 and maxLength=10 - should be invalid
+	// schema with length=5 and maxLength=10 - should be invalid
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="InvalidType">
@@ -63,7 +63,7 @@ func TestFacetLengthWithMaxLength(t *testing.T) {
 
 	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
-		// Parser may reject this during parse-time facet checks.
+		// parser may reject this during parse-time facet checks.
 		return
 	}
 
@@ -75,7 +75,7 @@ func TestFacetLengthWithMaxLength(t *testing.T) {
 
 // TestFacetLengthOnBoolean tests that length facet is not applicable to boolean type
 func TestFacetLengthOnBoolean(t *testing.T) {
-	// Schema with length facet on boolean - should be invalid
+	// schema with length facet on boolean - should be invalid
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="InvalidType">
@@ -87,7 +87,7 @@ func TestFacetLengthOnBoolean(t *testing.T) {
 
 	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
-		// Parser may reject this during parse-time facet checks.
+		// parser may reject this during parse-time facet checks.
 		return
 	}
 
@@ -99,7 +99,7 @@ func TestFacetLengthOnBoolean(t *testing.T) {
 
 // TestFacetTotalDigitsOnNonDecimal tests that totalDigits facet is only applicable to decimal types
 func TestFacetTotalDigitsOnNonDecimal(t *testing.T) {
-	// Schema with totalDigits on string - should be invalid
+	// schema with totalDigits on string - should be invalid
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="InvalidType">
@@ -111,7 +111,7 @@ func TestFacetTotalDigitsOnNonDecimal(t *testing.T) {
 
 	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
-		// Parser may reject this during parse-time facet checks.
+		// parser may reject this during parse-time facet checks.
 		return
 	}
 
@@ -123,7 +123,7 @@ func TestFacetTotalDigitsOnNonDecimal(t *testing.T) {
 
 // TestFacetRangeOnNonOrderedType tests that range facets are only applicable to ordered types
 func TestFacetRangeOnNonOrderedType(t *testing.T) {
-	// Schema with maxInclusive on QName (not ordered) - should be invalid
+	// schema with maxInclusive on QName (not ordered) - should be invalid
 	// QName has OrderedNone, so range facets don't apply
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -136,7 +136,7 @@ func TestFacetRangeOnNonOrderedType(t *testing.T) {
 
 	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
-		// Parser might reject this - that's fine, it's still a constraint violation
+		// parser might reject this - that's fine, it's still a constraint violation
 		return
 	}
 
@@ -159,7 +159,7 @@ func TestFacetRangeOnNonOrderedType(t *testing.T) {
 
 // TestAttributeDefaultValueValidation tests that default attribute values must be valid for the type
 func TestAttributeDefaultValueValidation(t *testing.T) {
-	// Schema with invalid default value for integer attribute - should be invalid
+	// schema with invalid default value for integer attribute - should be invalid
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
@@ -182,7 +182,7 @@ func TestAttributeDefaultValueValidation(t *testing.T) {
 
 // TestAttributeFixedValueValidation tests that fixed attribute values must be valid for the type
 func TestAttributeFixedValueValidation(t *testing.T) {
-	// Schema with invalid fixed value for integer attribute - should be invalid
+	// schema with invalid fixed value for integer attribute - should be invalid
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
@@ -205,7 +205,7 @@ func TestAttributeFixedValueValidation(t *testing.T) {
 
 // TestElementDefaultValueValidation tests that default element values must be valid for the type
 func TestElementDefaultValueValidation(t *testing.T) {
-	// Schema with invalid default value for integer element - should be invalid
+	// schema with invalid default value for integer element - should be invalid
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="count" type="xs:integer" default="not-a-number"/>
@@ -370,8 +370,8 @@ func TestIDTypeDefaultValueRejection(t *testing.T) {
 
 // TestWildcardInvalidNamespace tests that wildcards must have valid namespace constraints
 func TestWildcardInvalidNamespace(t *testing.T) {
-	// Schema with invalid namespace value in wildcard - should be invalid
-	// Note: The parser might reject this before validation, but we should test
+	// schema with invalid namespace value in wildcard - should be invalid
+	// note: The parser might reject this before validation, but we should test
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/test">
@@ -386,12 +386,12 @@ func TestWildcardInvalidNamespace(t *testing.T) {
 
 	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
-		// Parser might reject this - that's fine, it's still a constraint violation
+		// parser might reject this - that's fine, it's still a constraint violation
 		return
 	}
 
 	errors := ValidateSchema(result.Schema)
-	// If parser accepts it, validation should reject it
+	// if parser accepts it, validation should reject it
 	if len(errors) == 0 {
 		t.Error("Expected schema validation error for invalid wildcard namespace, but got none")
 	}

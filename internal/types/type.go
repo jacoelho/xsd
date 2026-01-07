@@ -134,18 +134,18 @@ func IsFacetApplicable(facetName string, facets *FundamentalFacets) bool {
 
 	switch facetName {
 	case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive":
-		// Range facets require ordered types.
+		// range facets require ordered types.
 		return facets.Ordered == OrderedTotal || facets.Ordered == OrderedPartial
 
 	case "length", "minLength", "maxLength", "pattern", "enumeration", "whiteSpace":
-		// Length and lexical facets apply to all types.
+		// length and lexical facets apply to all types.
 		return true
 
 	case "fractionDigits", "totalDigits":
-		// Digit facets apply to numeric types.
+		// digit facets apply to numeric types.
 		return facets.Numeric
 	}
 
-	// Default: assume applicable
+	// default: assume applicable
 	return true
 }

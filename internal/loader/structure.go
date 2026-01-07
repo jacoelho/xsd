@@ -15,25 +15,25 @@ func resolveTypeReference(schema *schema.Schema, typ types.Type, allowMissing bo
 		return nil
 	}
 
-	// If it's a placeholder SimpleType (has QName but not builtin and no Restriction/List/Union),
+	// if it's a placeholder SimpleType (has QName but not builtin and no Restriction/List/Union),
 	if st, ok := typ.(*types.SimpleType); ok {
-		// Check if it's a placeholder: not builtin, has QName, but no Restriction/List/Union
+		// check if it's a placeholder: not builtin, has QName, but no Restriction/List/Union
 		if !st.IsBuiltin() && st.Restriction == nil && st.List == nil && st.Union == nil {
-			// This is a placeholder - resolve from schema.TypeDefs
+			// this is a placeholder - resolve from schema.TypeDefs
 			if resolvedType, ok := schema.TypeDefs[st.QName]; ok {
 				return resolvedType
 			}
 			if allowMissing {
 				return typ
 			}
-			// Type not found - return nil to indicate error
+			// type not found - return nil to indicate error
 			return nil
 		}
-		// Not a placeholder, return as-is
+		// not a placeholder, return as-is
 		return typ
 	}
 
-	// Already a resolved type (ComplexType or non-placeholder SimpleType)
+	// already a resolved type (ComplexType or non-placeholder SimpleType)
 	return typ
 }
 
@@ -46,7 +46,7 @@ func resolveTypeForValidation(schema *schema.Schema, typ types.Type) types.Type 
 // validateTypeDefStructure validates structural constraints of a type definition
 // Does not validate references (which might be forward references or imports)
 func validateTypeDefStructure(schema *schema.Schema, qname types.QName, typ types.Type) error {
-	// This is a structural constraint that is definitely invalid if violated
+	// this is a structural constraint that is definitely invalid if violated
 	if !isValidNCName(qname.Local) {
 		return fmt.Errorf("invalid type name '%s': must be a valid NCName", qname.Local)
 	}
@@ -55,7 +55,7 @@ func validateTypeDefStructure(schema *schema.Schema, qname types.QName, typ type
 	case *types.SimpleType:
 		return validateSimpleTypeStructure(schema, t)
 	case *types.ComplexType:
-		// Named type definitions (top-level types), so isInline=false
+		// named type definitions (top-level types), so isInline=false
 		return validateComplexTypeStructure(schema, t, false)
 	default:
 		return fmt.Errorf("unknown type kind")
@@ -70,15 +70,15 @@ func validateWhiteSpaceRestriction(derivedType *types.SimpleType, baseType types
 		return nil
 	}
 
-	// Only validate if whiteSpace was explicitly set in this restriction
-	// If not explicitly set, the type inherits from base (which is valid)
+	// only validate if whiteSpace was explicitly set in this restriction
+	// if not explicitly set, the type inherits from base (which is valid)
 	if !derivedType.WhiteSpaceExplicit() {
 		return nil
 	}
 
 	derivedWS := derivedType.WhiteSpace()
 
-	// Get base type's whiteSpace
+	// get base type's whiteSpace
 	var baseWS types.WhiteSpace
 	if baseType != nil {
 		if baseST, ok := baseType.(*types.SimpleType); ok {
@@ -87,7 +87,7 @@ func validateWhiteSpaceRestriction(derivedType *types.SimpleType, baseType types
 			baseWS = baseBT.WhiteSpace()
 		}
 	} else if !baseQName.IsZero() && baseQName.Namespace == types.XSDNamespace {
-		// Built-in type by QName
+		// built-in type by QName
 		bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local)
 		if bt != nil {
 			baseWS = bt.WhiteSpace()
@@ -117,15 +117,15 @@ func validateNotationEnumeration(schema *schema.Schema, facetList []facets.Facet
 		return nil
 	}
 
-	// Per XSD spec, NOTATION enumeration values cannot be empty strings
+	// per XSD spec, NOTATION enumeration values cannot be empty strings
 	for _, val := range enumValues {
 		if val == "" {
 			return fmt.Errorf("NOTATION enumeration value cannot be empty")
 		}
-		// Parse value as QName (may be prefixed like "ns:notation")
+		// parse value as QName (may be prefixed like "ns:notation")
 		var qname types.QName
 		if before, after, ok := strings.Cut(val, ":"); ok {
-			// Prefixed QName - resolve prefix to namespace
+			// prefixed QName - resolve prefix to namespace
 			prefix := before
 			local := after
 
@@ -135,7 +135,7 @@ func validateNotationEnumeration(schema *schema.Schema, facetList []facets.Facet
 			}
 			qname = types.QName{Local: local, Namespace: types.NamespaceURI(ns)}
 		} else {
-			// Unprefixed - use target namespace
+			// unprefixed - use target namespace
 			qname = types.QName{Local: val, Namespace: targetNS}
 		}
 

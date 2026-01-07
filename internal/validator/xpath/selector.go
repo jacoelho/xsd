@@ -27,13 +27,12 @@ func (e *Evaluator) SelectWithNS(root xml.Element, expr string, nsContext map[st
 }
 
 func (e *Evaluator) selectInternal(root xml.Element, expr string, nsContext map[string]string) []xml.Element {
-	// Handle "." (current element)
 	if expr == "." || expr == "" {
 		return []xml.Element{root}
 	}
 
-	// Handle XPath union expressions (path1|path2|path3)
-	// Evaluate each path and combine results, removing duplicates.
+	// handle XPath union expressions (path1|path2|path3)
+	// evaluate each path and combine results, removing duplicates
 	if strings.Contains(expr, "|") {
 		parts := strings.Split(expr, "|")
 		seen := make(map[xml.Element]bool)
@@ -56,22 +55,18 @@ func (e *Evaluator) selectInternal(root xml.Element, expr string, nsContext map[
 
 	normalized := strings.TrimSpace(expr)
 
-	// Handle multi-step paths (e.g., ".//p:keys/p:a/*/p:b").
 	if strings.Contains(normalized, "/") && normalized != "." {
 		return e.evaluateMultiStepPathNS(root, normalized, nsContext)
 	}
 
-	// Handle "child::*" or just "*" (all direct children).
 	if normalized == "child::*" || normalized == "*" {
 		return root.Children()
 	}
 
-	// Handle "descendant::*" or "//*" (all descendants).
 	if normalized == "descendant::*" || normalized == "//*" {
 		return e.collectAllDescendants(root, nil)
 	}
 
-	// Handle "descendant-or-self::*" (element and all descendants).
 	if normalized == "descendant-or-self::*" {
 		results := []xml.Element{root}
 		return e.collectAllDescendants(root, results)
@@ -86,13 +81,10 @@ func (e *Evaluator) selectInternal(root xml.Element, expr string, nsContext map[
 	var results []xml.Element
 	switch axis {
 	case "child":
-		// Direct children only.
 		results = e.collectMatchingChildrenNS(root, localName, targetNSURI, namespaceSpecified, results)
 	case "descendant":
-		// All descendants.
 		results = e.collectMatchingDescendantsNS(root, localName, targetNSURI, namespaceSpecified, results)
 	case "descendant-or-self":
-		// Element itself and all descendants.
 		if e.matchesElementNS(root, localName, targetNSURI, namespaceSpecified) {
 			results = append(results, root)
 		}
@@ -102,7 +94,7 @@ func (e *Evaluator) selectInternal(root xml.Element, expr string, nsContext map[
 			results = append(results, root)
 		}
 	default:
-		// Default to child axis for backward compatibility.
+		// default to child axis for backward compatibility
 		results = e.collectMatchingChildrenNS(root, localName, targetNSURI, namespaceSpecified, results)
 	}
 
@@ -118,14 +110,12 @@ func (e *Evaluator) evaluateMultiStepPathNS(root xml.Element, expr string, nsCon
 
 	currentElements := []xml.Element{root}
 
-	// Evaluate each step relative to the results of the previous step.
 	for _, step := range steps {
 		step = strings.TrimSpace(step)
 		if step == "" {
 			continue
 		}
 
-		// Evaluate this step for all current elements.
 		nextElements := make([]xml.Element, 0)
 		seen := make(map[xml.Element]bool)
 		for _, elem := range currentElements {
@@ -150,7 +140,7 @@ func splitXPathSteps(expr string) []string {
 	i := 0
 
 	for i < len(expr) {
-		// Handle ".//" (descendant-or-self axis) - keep it with the following element name.
+		// handle ".//" (descendant-or-self axis) - keep it with the following element name
 		if i+2 < len(expr) && expr[i:i+3] == ".//" {
 			if current.Len() > 0 {
 				steps = append(steps, current.String())
@@ -158,11 +148,10 @@ func splitXPathSteps(expr string) []string {
 			}
 			current.WriteString(".//")
 			i += 3
-			// Continue to read the element name that follows.
 			continue
 		}
 
-		// Handle "//" (descendant axis) - keep it with the following element name.
+		// handle "//" (descendant axis) - keep it with the following element name
 		if i+1 < len(expr) && expr[i:i+2] == "//" {
 			if current.Len() > 0 {
 				steps = append(steps, current.String())
@@ -170,11 +159,9 @@ func splitXPathSteps(expr string) []string {
 			}
 			current.WriteString("//")
 			i += 2
-			// Continue to read the element name that follows.
 			continue
 		}
 
-		// Handle "/" (child axis separator).
 		if expr[i] == '/' {
 			if current.Len() > 0 {
 				steps = append(steps, current.String())
@@ -184,7 +171,6 @@ func splitXPathSteps(expr string) []string {
 			continue
 		}
 
-		// Regular character.
 		current.WriteByte(expr[i])
 		i++
 	}
@@ -203,17 +189,14 @@ func (e *Evaluator) evaluateSingleStepNS(elem xml.Element, step string, nsContex
 		return []xml.Element{elem}
 	}
 
-	// Handle "." (current element).
 	if step == "." {
 		return []xml.Element{elem}
 	}
 
-	// Handle "*" (wildcard - all children).
 	if step == "*" {
 		return elem.Children()
 	}
 
-	// Handle step with axis prefix (e.g., ".//p:keys", "//p:keys").
 	var axis string
 	var elementPart string
 	if strings.HasPrefix(step, ".//") {
@@ -227,10 +210,8 @@ func (e *Evaluator) evaluateSingleStepNS(elem xml.Element, step string, nsContex
 		elementPart = step
 	}
 
-	// Extract element name from element part (handle namespace prefixes).
 	elementName, _ := parseXPathPattern(elementPart)
 	if elementPart == "" || elementPart == "*" {
-		// No element name specified - return all descendants/children.
 		switch axis {
 		case "descendant-or-self":
 			results := []xml.Element{elem}
@@ -254,13 +235,12 @@ func (e *Evaluator) evaluateSingleStepNS(elem xml.Element, step string, nsContex
 	case "descendant":
 		results = e.collectMatchingDescendantsNS(elem, localName, targetNSURI, namespaceSpecified, results)
 	case "descendant-or-self":
-		// Check if current element matches.
 		if e.matchesElementNS(elem, localName, targetNSURI, namespaceSpecified) {
 			results = append(results, elem)
 		}
 		results = e.collectMatchingDescendantsNS(elem, localName, targetNSURI, namespaceSpecified, results)
 	default:
-		// Default to child axis.
+		// default to child axis
 		results = e.collectMatchingChildrenNS(elem, localName, targetNSURI, namespaceSpecified, results)
 	}
 

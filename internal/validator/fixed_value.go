@@ -13,7 +13,7 @@ import (
 // Both values must be normalized according to the type's whitespace facet before comparison.
 func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType *grammar.CompiledType, path string) []errors.Validation {
 	if textType == nil || textType.Original == nil {
-		// No type information - compare as strings
+		// no type information - compare as strings
 		if actualValue != fixedValue {
 			return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, path,
 				"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
@@ -21,7 +21,7 @@ func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType
 		return nil
 	}
 
-	// Try value space comparison for union types with compiled member types
+	// try value space comparison for union types with compiled member types
 	if len(textType.MemberTypes) > 0 {
 		if match, err := r.compareFixedValueInUnion(actualValue, fixedValue, textType.MemberTypes); err == nil {
 			if !match {
@@ -32,7 +32,7 @@ func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType
 		}
 	}
 
-	// Try value space comparison for union types from original SimpleType
+	// try value space comparison for union types from original SimpleType
 	if st, ok := textType.Original.(*types.SimpleType); ok && st.Variety() == types.UnionVariety {
 		memberTypes := r.resolveUnionMemberTypes(st)
 		if len(memberTypes) > 0 {
@@ -46,7 +46,7 @@ func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType
 		}
 	}
 
-	// Try value space comparison for simple types
+	// try value space comparison for simple types
 	if st, ok := textType.Original.(types.SimpleTypeDefinition); ok {
 		if match, err := r.compareFixedValueAsType(actualValue, fixedValue, st); err == nil {
 			if !match {
@@ -57,7 +57,7 @@ func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType
 		}
 	}
 
-	// Fall back to normalized string comparison
+	// fall back to normalized string comparison
 	if !fixedValueMatches(actualValue, fixedValue, textType.Original) {
 		return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, path,
 			"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
@@ -71,7 +71,7 @@ func (r *validationRun) resolveUnionMemberTypes(st *types.SimpleType) []types.Ty
 		return st.MemberTypes
 	}
 
-	// Use pre-resolved member types if available
+	// use pre-resolved member types if available
 	if len(st.MemberTypes) > 0 {
 		return st.MemberTypes
 	}

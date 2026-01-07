@@ -20,7 +20,7 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 		shouldAccept  bool
 		expectedError string
 	}{
-		// Numeric types (OrderedTotal) - should accept range facets
+		// numeric types (OrderedTotal) - should accept range facets
 		{
 			name:         "float with minInclusive",
 			baseTypeName: "float",
@@ -71,7 +71,7 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 			shouldAccept: true,
 		},
 
-		// Date/time types (OrderedTotal) - should accept range facets
+		// date/time types (OrderedTotal) - should accept range facets
 		{
 			name:         "dateTime with minInclusive",
 			baseTypeName: "dateTime",
@@ -129,8 +129,8 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 			shouldAccept: true,
 		},
 
-		// Duration (OrderedPartial) - SHOULD accept range facets
-		// According to XSD spec, duration is partially ordered (ordered=partial), and range facets ARE applicable
+		// duration (OrderedPartial) - SHOULD accept range facets
+		// according to XSD spec, duration is partially ordered (ordered=partial), and range facets ARE applicable
 		{
 			name:         "duration with minInclusive - should accept",
 			baseTypeName: "duration",
@@ -160,7 +160,7 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 			shouldAccept: true,
 		},
 
-		// Unordered types (OrderedNone) - should reject range facets
+		// unordered types (OrderedNone) - should reject range facets
 		{
 			name:          "string with minInclusive - should reject",
 			baseTypeName:  "string",
@@ -222,9 +222,9 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 				if tt.shouldAccept {
 					t.Fatalf("Failed to create facet %s: %v", tt.facetName, err)
 				}
-				// If we expect rejection and facet creation failed, that's correct behavior
-				// The constructor now validates applicability, so this is expected
-				// For schema validation testing, create a mock facet that will be caught by validation
+				// if we expect rejection and facet creation failed, that's correct behavior
+				// the constructor now validates applicability, so this is expected
+				// for schema validation testing, create a mock facet that will be caught by validation
 				facet = &mockRangeFacet{
 					name:    tt.facetName,
 					lexical: tt.facetValue,
@@ -255,9 +255,7 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 
 			errs := ValidateSchema(schema)
 
-			// Check if we got the expected result
 			if tt.shouldAccept {
-				// Should not have errors about facet applicability
 				for _, err := range errs {
 					if err != nil {
 						errStr := err.Error()
@@ -267,7 +265,6 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 					}
 				}
 			} else {
-				// Should have an error about facet applicability
 				foundError := false
 				for _, err := range errs {
 					if err != nil {
@@ -302,5 +299,5 @@ func (m *mockRangeFacet) GetLexical() string {
 }
 
 func (m *mockRangeFacet) Validate(value types.TypedValue, baseType types.Type) error {
-	return nil // Not used for applicability testing
+	return nil // not used for applicability testing
 }

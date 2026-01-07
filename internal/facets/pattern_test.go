@@ -12,7 +12,7 @@ func TestTranslateXSDPatternToGo(t *testing.T) {
 		xsd      string
 		wantErr  bool
 		errMsg   string
-		re2      string // Expected Go pattern (without ^(?:...)$ wrapper)
+		re2      string // expected Go pattern (without ^(?:...)$ wrapper)
 		matches  []string
 		nonMatch []string
 	}{
@@ -206,7 +206,7 @@ func TestTranslateXSDPatternToGo(t *testing.T) {
 			matches:  []string{"aa", "aaa", "aaaa"},
 			nonMatch: []string{"a"},
 		},
-		// Rejection tests
+		// rejection tests
 		{
 			name:    "character class subtraction",
 			xsd:     `[A-Z-[AEIOU]]`,
@@ -335,13 +335,13 @@ func TestTranslateXSDPatternToGo(t *testing.T) {
 				return
 			}
 
-			// Check that the pattern is wrapped in ^(?:...)$
+			// check that the pattern is wrapped in ^(?:...)$
 			expectedFull := `^(?:` + tt.re2 + `)$`
 			if got != expectedFull {
 				t.Errorf("TranslateXSDPatternToGo(%q) = %q, want %q", tt.xsd, got, expectedFull)
 			}
 
-			// Test that the pattern compiles and works
+			// test that the pattern compiles and works
 			re, err := regexp.Compile(got)
 			if err != nil {
 				t.Fatalf("Failed to compile pattern %q: %v", got, err)
@@ -491,7 +491,7 @@ func TestPatternValidateSyntax(t *testing.T) {
 				if err != nil {
 					t.Errorf("ValidateSyntax(%q) unexpected error: %v", tt.pattern, err)
 				}
-				// Verify regex was compiled
+				// verify regex was compiled
 				if p.regex == nil {
 					t.Errorf("ValidateSyntax(%q) should have compiled regex, but regex is nil", tt.pattern)
 				}
@@ -579,7 +579,7 @@ func TestPatternValidate(t *testing.T) {
 
 func TestPatternValidateWithoutValidateSyntax(t *testing.T) {
 	p := &Pattern{Value: `\d+`}
-	// Intentionally skip ValidateSyntax() to test the error message
+	// intentionally skip ValidateSyntax() to test the error message
 	tv := &StringTypedValue{Value: "123", Typ: nil}
 	err := p.Validate(tv, nil)
 

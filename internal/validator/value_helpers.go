@@ -150,8 +150,8 @@ func compareTypedValues(left, right types.TypedValue) bool {
 		return true
 
 	default:
-		// For unknown types, fall back to string comparison of lexical forms
-		// This handles any custom TypedValue implementations
+		// for unknown types, fall back to string comparison of lexical forms
+		// this handles any custom TypedValue implementations
 		return left.Lexical() == right.Lexical()
 	}
 }

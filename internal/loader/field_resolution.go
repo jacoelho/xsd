@@ -19,8 +19,8 @@ var ErrFieldSelectsComplexContent = errors.New("field selects element with compl
 func resolveFieldType(schema *schema.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string) (types.Type, error) {
 	xpath := normalizeXPathForResolution(field.XPath)
 
-	// Handle union expressions (path1|path2|path3)
-	// All paths in a union should have the same type, so resolve using the first path
+	// handle union expressions (path1|path2|path3)
+	// all paths in a union should have the same type, so resolve using the first path
 	if strings.Contains(xpath, "|") {
 		parts := strings.SplitSeq(xpath, "|")
 		for part := range parts {
@@ -32,24 +32,24 @@ func resolveFieldType(schema *schema.Schema, field *types.Field, constraintEleme
 		}
 	}
 
-	// First, resolve the selector to find the selected element type
-	// Fields are resolved relative to the element selected by the selector
+	// first, resolve the selector to find the selected element type
+	// fields are resolved relative to the element selected by the selector
 	selectedElementType, err := resolveSelectorElementType(schema, constraintElement, selectorXPath)
 	if err != nil {
 		return nil, fmt.Errorf("resolve selector '%s': %w", selectorXPath, err)
 	}
 
-	// This allows us to reuse findAttributeType and findElementType
+	// this allows us to reuse findAttributeType and findElementType
 	selectedElementDecl := &types.ElementDecl{
 		Type: selectedElementType,
 	}
 
-	// Handle nested field paths like "part/@number"
-	// Split on "/@" to get element path and attribute name
+	// handle nested field paths like "part/@number"
+	// split on "/@" to get element path and attribute name
 	if idx := strings.Index(xpath, "/@"); idx > 0 {
 		elementPath := xpath[:idx]
 		attrName := xpath[idx+2:]
-		// Remove axis prefix if present
+		// remove axis prefix if present
 		if strings.HasPrefix(attrName, "attribute::") {
 			attrName = attrName[12:]
 		}
@@ -63,7 +63,7 @@ func resolveFieldType(schema *schema.Schema, field *types.Field, constraintEleme
 			Type: elementType,
 		}
 
-		// Find attribute in that element's type
+		// find attribute in that element's type
 		attrType, err := findAttributeType(schema, elementDecl, attrName)
 		if err != nil {
 			return nil, fmt.Errorf("resolve attribute field '%s' in element from path '%s': %w", attrName, elementPath, err)
@@ -71,16 +71,16 @@ func resolveFieldType(schema *schema.Schema, field *types.Field, constraintEleme
 		return attrType, nil
 	}
 
-	// Handle "." field xpath - returns the selected element's own type/text content
+	// handle "." field xpath - returns the selected element's own type/text content
 	if xpath == "." || xpath == "self::*" || strings.HasPrefix(xpath, "self::") {
-		// For simple types, return the type directly
+		// for simple types, return the type directly
 		if st, ok := selectedElementType.(*types.SimpleType); ok {
 			return st, nil
 		}
 		if bt, ok := selectedElementType.(*types.BuiltinType); ok {
 			return bt, nil
 		}
-		// For complex types with simple content, return the base type
+		// for complex types with simple content, return the base type
 		if ct, ok := selectedElementType.(*types.ComplexType); ok {
 			if _, ok := ct.Content().(*types.SimpleContent); ok {
 				baseType := ct.BaseType()
@@ -88,25 +88,25 @@ func resolveFieldType(schema *schema.Schema, field *types.Field, constraintEleme
 					return baseType, nil
 				}
 			}
-			// Complex types with mixed content can have text extracted
+			// complex types with mixed content can have text extracted
 			if ct.Mixed() {
 				return types.GetBuiltin(types.TypeNameString), nil
 			}
-			// Complex types without simple or mixed content can't be used as field values
+			// complex types without simple or mixed content can't be used as field values
 			return nil, ErrFieldSelectsComplexContent
 		}
 		return selectedElementType, nil
 	}
 
-	// Handle attribute selection (direct attribute like "@number")
+	// handle attribute selection (direct attribute like "@number")
 	if strings.HasPrefix(xpath, "@") {
 		attrName := xpath[1:]
-		// Remove axis prefix if present
+		// remove axis prefix if present
 		if strings.HasPrefix(attrName, "attribute::") {
 			attrName = attrName[12:]
 		}
 
-		// Find attribute declaration in selected element's type
+		// find attribute declaration in selected element's type
 		attrType, err := findAttributeType(schema, selectedElementDecl, attrName)
 		if err != nil {
 			return nil, fmt.Errorf("resolve attribute field '%s': %w", attrName, err)
@@ -116,15 +116,15 @@ func resolveFieldType(schema *schema.Schema, field *types.Field, constraintEleme
 
 	elementName, _ := parseXPathPatternForField(xpath)
 
-	// Find element declaration in selected element's type
+	// find element declaration in selected element's type
 	elementType, err := findElementType(schema, selectedElementDecl, elementName)
 	if err != nil {
 		return nil, fmt.Errorf("resolve element field '%s': %w", elementName, err)
 	}
 
-	// Verify element has simple type
+	// verify element has simple type
 	if ct, ok := elementType.(*types.ComplexType); ok {
-		// Check if it's simple content (has simple type base)
+		// check if it's simple content (has simple type base)
 		if _, ok := ct.Content().(*types.SimpleContent); ok {
 			baseType := ct.BaseType()
 			if baseType != nil {
@@ -141,7 +141,7 @@ func resolveFieldType(schema *schema.Schema, field *types.Field, constraintEleme
 func resolveSelectorElementType(schema *schema.Schema, constraintElement *types.ElementDecl, selectorXPath string) (types.Type, error) {
 	selectorXPath = normalizeXPathForResolution(selectorXPath)
 
-	// Handle "." selector - selects the constraint element itself
+	// handle "." selector - selects the constraint element itself
 	if selectorXPath == "." {
 		elementType := resolveTypeForValidation(schema, constraintElement.Type)
 		if elementType == nil {
@@ -150,7 +150,7 @@ func resolveSelectorElementType(schema *schema.Schema, constraintElement *types.
 		return elementType, nil
 	}
 
-	// Handle union expressions (path1|path2|path3) by resolving the first non-empty path.
+	// handle union expressions (path1|path2|path3) by resolving the first non-empty path.
 	if strings.Contains(selectorXPath, "|") {
 		parts := strings.SplitSeq(selectorXPath, "|")
 		for part := range parts {
@@ -161,20 +161,20 @@ func resolveSelectorElementType(schema *schema.Schema, constraintElement *types.
 		}
 	}
 
-	// Parse selector XPath to get element name(s)
-	// Selectors can be simple like "part" or nested like "orders/order/part"
+	// parse selector XPath to get element name(s)
+	// selectors can be simple like "part" or nested like "orders/order/part"
 	elementName, axis := parseXPathPatternForField(selectorXPath)
 
-	// Handle nested paths first (paths with "/")
+	// handle nested paths first (paths with "/")
 	if strings.Contains(selectorXPath, "/") {
 		return resolveNestedSelectorElementType(schema, constraintElement, selectorXPath)
 	}
 
-	// For child axis, search direct children only
-	// For descendant axis, search all descendants (which findElementType already does recursively)
+	// for child axis, search direct children only
+	// for descendant axis, search all descendants (which findElementType already does recursively)
 	elementType, err := findElementType(schema, constraintElement, elementName)
 	if err != nil {
-		// If descendant axis and direct search failed, try deeper search
+		// if descendant axis and direct search failed, try deeper search
 		if axis == "descendant" {
 			return findElementTypeDescendant(schema, constraintElement, elementName)
 		}
@@ -187,7 +187,7 @@ func resolveSelectorElementType(schema *schema.Schema, constraintElement *types.
 // findElementTypeDescendant searches for an element at any depth in the content model
 // This is used for descendant axis selectors
 func findElementTypeDescendant(schema *schema.Schema, elementDecl *types.ElementDecl, elementName string) (types.Type, error) {
-	// Resolve element's type
+	// resolve element's type
 	elementType := resolveTypeForValidation(schema, elementDecl.Type)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
@@ -198,7 +198,7 @@ func findElementTypeDescendant(schema *schema.Schema, elementDecl *types.Element
 		return nil, fmt.Errorf("element does not have complex type")
 	}
 
-	// Search content model recursively for element declaration
+	// search content model recursively for element declaration
 	return findElementInContentDescendant(schema, ct.Content(), elementName)
 }
 
@@ -230,7 +230,7 @@ func findElementInContentDescendant(schema *schema.Schema, content types.Content
 // findElementInParticleDescendant searches for an element at any depth in a particle tree
 // This recursively searches through all nested particles
 func findElementInParticleDescendant(schema *schema.Schema, particle types.Particle, elementName string) (types.Type, error) {
-	// Handle namespace prefix in element name (e.g., "tn:key" -> "key")
+	// handle namespace prefix in element name (e.g., "tn:key" -> "key")
 	localName := elementName
 	if _, after, ok := strings.Cut(elementName, ":"); ok {
 		localName = after
@@ -238,7 +238,7 @@ func findElementInParticleDescendant(schema *schema.Schema, particle types.Parti
 
 	switch p := particle.(type) {
 	case *types.ElementDecl:
-		// Found an element declaration
+		// found an element declaration
 		if p.Name.Local == localName {
 			resolvedType := resolveTypeForValidation(schema, p.Type)
 			if resolvedType == nil {
@@ -246,7 +246,7 @@ func findElementInParticleDescendant(schema *schema.Schema, particle types.Parti
 			}
 			return resolvedType, nil
 		}
-		// Even if name doesn't match, if this element has complex type, search its content
+		// even if name doesn't match, if this element has complex type, search its content
 		if p.Type != nil {
 			if resolvedType := resolveTypeForValidation(schema, p.Type); resolvedType != nil {
 				if ct, ok := resolvedType.(*types.ComplexType); ok {
@@ -257,7 +257,7 @@ func findElementInParticleDescendant(schema *schema.Schema, particle types.Parti
 			}
 		}
 	case *types.ModelGroup:
-		// Search in model group particles recursively
+		// search in model group particles recursively
 		for _, childParticle := range p.Particles {
 			if typ, err := findElementInParticleDescendant(schema, childParticle, elementName); err == nil {
 				return typ, nil
@@ -265,7 +265,7 @@ func findElementInParticleDescendant(schema *schema.Schema, particle types.Parti
 		}
 		return nil, fmt.Errorf("element '%s' not found in model group", elementName)
 	case *types.AnyElement:
-		// Wildcard - cannot determine specific element type
+		// wildcard - cannot determine specific element type
 		return nil, fmt.Errorf("cannot resolve element type for wildcard")
 	}
 
@@ -282,7 +282,7 @@ func resolveNestedSelectorElementType(schema *schema.Schema, constraintElement *
 	currentElement := constraintElement
 	descendantNext := false
 
-	// Navigate through each part of the path
+	// navigate through each part of the path
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
@@ -290,7 +290,7 @@ func resolveNestedSelectorElementType(schema *schema.Schema, constraintElement *
 			continue
 		}
 
-		// Handle "." - stay on current element
+		// handle "." - stay on current element
 		if part == "." {
 			continue
 		}
@@ -334,7 +334,7 @@ func findAttributeType(schema *schema.Schema, elementDecl *types.ElementDecl, at
 	if idx := strings.Index(attrName, ":"); idx >= 0 {
 		attrName = attrName[idx+1:]
 	}
-	// Resolve element's type
+	// resolve element's type
 	elementType := resolveTypeForValidation(schema, elementDecl.Type)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
@@ -345,7 +345,7 @@ func findAttributeType(schema *schema.Schema, elementDecl *types.ElementDecl, at
 		return nil, fmt.Errorf("element does not have complex type")
 	}
 
-	// Search attribute uses
+	// search attribute uses
 	for _, attrUse := range ct.Attributes() {
 		if attrUse.Name.Local == attrName {
 			resolvedType := resolveTypeForValidation(schema, attrUse.Type)
@@ -356,9 +356,9 @@ func findAttributeType(schema *schema.Schema, elementDecl *types.ElementDecl, at
 		}
 	}
 
-	// Search attribute groups
+	// search attribute groups
 	for _, attrGroupQName := range ct.AttrGroups {
-		// Look up attribute group in schema
+		// look up attribute group in schema
 		if attrGroup, ok := schema.AttributeGroups[attrGroupQName]; ok {
 			for _, attr := range attrGroup.Attributes {
 				if attr.Name.Local == attrName {
@@ -369,7 +369,7 @@ func findAttributeType(schema *schema.Schema, elementDecl *types.ElementDecl, at
 					return resolvedType, nil
 				}
 			}
-			// Recursively search nested attribute groups
+			// recursively search nested attribute groups
 			for _, nestedAttrGroupQName := range attrGroup.AttrGroups {
 				if nestedAttrGroup, ok := schema.AttributeGroups[nestedAttrGroupQName]; ok {
 					for _, attr := range nestedAttrGroup.Attributes {
@@ -386,8 +386,8 @@ func findAttributeType(schema *schema.Schema, elementDecl *types.ElementDecl, at
 		}
 	}
 
-	// Note: anyAttribute wildcard cannot be used to resolve specific attribute types.
-	// Fields must reference declared attributes, not wildcard attributes (per XSD 1.0 spec).
+	// note: anyAttribute wildcard cannot be used to resolve specific attribute types.
+	// fields must reference declared attributes, not wildcard attributes (per XSD 1.0 spec).
 
 	return nil, fmt.Errorf("attribute '%s' not found in element type", attrName)
 }
@@ -397,7 +397,7 @@ func findAttributeType(schema *schema.Schema, elementDecl *types.ElementDecl, at
 func resolveFieldElementType(schema *schema.Schema, elementDecl *types.ElementDecl, elementPath string) (types.Type, error) {
 	elementPath = normalizeXPathForResolution(elementPath)
 
-	// Handle nested paths (paths with "/")
+	// handle nested paths (paths with "/")
 	if strings.Contains(elementPath, "/") {
 		parts := strings.Split(elementPath, "/")
 		currentElement := elementDecl
@@ -444,7 +444,7 @@ func resolveFieldElementType(schema *schema.Schema, elementDecl *types.ElementDe
 		return currentElement.Type, nil
 	}
 
-	// Simple element name - use findElementType directly
+	// simple element name - use findElementType directly
 	if after, ok := strings.CutPrefix(elementPath, "child::"); ok {
 		elementPath = after
 	} else if strings.Contains(elementPath, "::") {
@@ -466,7 +466,7 @@ func normalizeXPathForResolution(xpath string) string {
 
 // findElementType finds the type of an element in an element's content model
 func findElementType(schema *schema.Schema, elementDecl *types.ElementDecl, elementName string) (types.Type, error) {
-	// Resolve element's type
+	// resolve element's type
 	elementType := resolveTypeForValidation(schema, elementDecl.Type)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
@@ -477,14 +477,14 @@ func findElementType(schema *schema.Schema, elementDecl *types.ElementDecl, elem
 		return nil, fmt.Errorf("element does not have complex type")
 	}
 
-	// Search content model for element declaration
-	// This requires traversing the particle tree
+	// search content model for element declaration
+	// this requires traversing the particle tree
 	return findElementInContent(schema, ct.Content(), elementName)
 }
 
 // findElementInContent searches for an element in a content model
 func findElementInContent(schema *schema.Schema, content types.Content, elementName string) (types.Type, error) {
-	// Handle content types that don't have particles
+	// handle content types that don't have particles
 	switch content.(type) {
 	case *types.SimpleContent:
 		return nil, fmt.Errorf("element '%s' not found in simple content", elementName)
@@ -499,12 +499,12 @@ func findElementInContent(schema *schema.Schema, content types.Content, elementN
 		found, err := findElementInParticle(schema, particle, elementName)
 		if err == nil && found != nil {
 			result = found
-			return nil // Found it, stop searching
+			return nil // found it, stop searching
 		}
 		if resultErr == nil {
 			resultErr = err
 		}
-		return nil // Continue to next particle
+		return nil // continue to next particle
 	})
 
 	if err != nil {
@@ -523,7 +523,7 @@ func findElementInContent(schema *schema.Schema, content types.Content, elementN
 // This handles basic cases: direct element declarations and model groups (sequence, choice, all).
 // For more complex cases with group references and nested structures, this may need enhancement.
 func findElementInParticle(schema *schema.Schema, particle types.Particle, elementName string) (types.Type, error) {
-	// Handle namespace prefix in element name (e.g., "tn:key" -> "key")
+	// handle namespace prefix in element name (e.g., "tn:key" -> "key")
 	localName := elementName
 	if _, after, ok := strings.Cut(elementName, ":"); ok {
 		localName = after
@@ -531,7 +531,7 @@ func findElementInParticle(schema *schema.Schema, particle types.Particle, eleme
 
 	switch p := particle.(type) {
 	case *types.ElementDecl:
-		// Found an element declaration
+		// found an element declaration
 		if p.Name.Local == localName {
 			resolvedType := resolveTypeForValidation(schema, p.Type)
 			if resolvedType == nil {
@@ -540,7 +540,7 @@ func findElementInParticle(schema *schema.Schema, particle types.Particle, eleme
 			return resolvedType, nil
 		}
 	case *types.ModelGroup:
-		// Search in model group particles
+		// search in model group particles
 		for _, childParticle := range p.Particles {
 			if typ, err := findElementInParticle(schema, childParticle, elementName); err == nil {
 				return typ, nil
@@ -548,7 +548,7 @@ func findElementInParticle(schema *schema.Schema, particle types.Particle, eleme
 		}
 		return nil, fmt.Errorf("element '%s' not found in model group", elementName)
 	case *types.AnyElement:
-		// Wildcard - cannot determine specific element type
+		// wildcard - cannot determine specific element type
 		return nil, fmt.Errorf("cannot resolve element type for wildcard")
 	}
 
@@ -557,18 +557,18 @@ func findElementInParticle(schema *schema.Schema, particle types.Particle, eleme
 
 // parseXPathPatternForField extracts element name from XPath pattern for field resolution
 func parseXPathPatternForField(xpath string) (elementName string, axis string) {
-	// Handle "child::elementName"
+	// handle "child::elementName"
 	if strings.HasPrefix(xpath, "child::") {
 		return xpath[7:], "child"
 	}
-	// Handle "descendant::elementName"
+	// handle "descendant::elementName"
 	if strings.HasPrefix(xpath, "descendant::") {
 		return xpath[12:], "descendant"
 	}
-	// Handle "//elementName" (abbreviated descendant)
+	// handle "//elementName" (abbreviated descendant)
 	if strings.HasPrefix(xpath, "//") {
 		return xpath[2:], "descendant"
 	}
-	// Default: assume child axis
+	// default: assume child axis
 	return xpath, "child"
 }

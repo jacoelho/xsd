@@ -152,11 +152,11 @@ func TestDuplicateConstraintNameValidation(t *testing.T) {
 				if err == nil {
 					t.Error("Schema loading should have failed but succeeded")
 				} else {
-					// Verify the error mentions duplicate constraint name
+					// verify the error mentions duplicate constraint name
 					if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
 						t.Errorf("Expected error to contain %q, got: %v", tt.errorMsg, err)
 					}
-					// Verify it mentions duplicate
+					// verify it mentions duplicate
 					if !strings.Contains(err.Error(), "duplicate") {
 						t.Errorf("Expected error to mention 'duplicate', got: %v", err)
 					}
@@ -215,7 +215,7 @@ func TestDuplicateConstraintNameDirect(t *testing.T) {
 				},
 			},
 			{
-				Name: "partKey", // Duplicate name
+				Name: "partKey", // duplicate name
 				Type: types.KeyConstraint,
 				Selector: types.Selector{
 					XPath: "parts/part",
@@ -244,7 +244,7 @@ func TestDuplicateConstraintNameDirect(t *testing.T) {
 		}
 	}
 
-	// Test with unique constraint names (should pass)
+	// test with unique constraint names (should pass)
 	elementDecl2 := &types.ElementDecl{
 		Name: types.QName{
 			Namespace: "http://example.com",
@@ -263,7 +263,7 @@ func TestDuplicateConstraintNameDirect(t *testing.T) {
 				},
 			},
 			{
-				Name: "regionKey", // Different name - should pass
+				Name: "regionKey", // different name - should pass
 				Type: types.UniqueConstraint,
 				Selector: types.Selector{
 					XPath: "regions/region",

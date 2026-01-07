@@ -5,13 +5,13 @@ import (
 )
 
 func TestComplexType_DerivationMethod_Extension(t *testing.T) {
-	// Test derivation method for extension
+	// test derivation method for extension
 	ct := &ComplexType{
 		QName: QName{
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// Content set via SetContent
+		// content set via SetContent
 		DerivationMethod: DerivationExtension,
 	}
 	ct.SetContent(&ComplexContent{
@@ -32,13 +32,13 @@ func TestComplexType_DerivationMethod_Extension(t *testing.T) {
 }
 
 func TestComplexType_DerivationMethod_Restriction(t *testing.T) {
-	// Test derivation method for restriction
+	// test derivation method for restriction
 	ct := &ComplexType{
 		QName: QName{
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// Content set via SetContent
+		// content set via SetContent
 		DerivationMethod: DerivationRestriction,
 	}
 	ct.SetContent(&ComplexContent{
@@ -59,14 +59,14 @@ func TestComplexType_DerivationMethod_Restriction(t *testing.T) {
 }
 
 func TestComplexType_DerivationMethod_NoDerivation(t *testing.T) {
-	// Test derivation method for non-derived types
+	// test derivation method for non-derived types
 	ct := &ComplexType{
 		QName: QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// Content set via SetContent
-		DerivationMethod: 0, // No derivation
+		// content set via SetContent
+		DerivationMethod: 0, // no derivation
 	}
 	ct.SetContent(&ElementContent{})
 
@@ -82,13 +82,13 @@ func TestComplexType_DerivationMethod_NoDerivation(t *testing.T) {
 }
 
 func TestComplexType_DerivationMethod_SimpleContent(t *testing.T) {
-	// Test derivation method for simpleContent
+	// test derivation method for simpleContent
 	ct := &ComplexType{
 		QName: QName{
 			Namespace: "http://example.com",
 			Local:     "StringWithAttr",
 		},
-		// Content set via SetContent
+		// content set via SetContent
 		DerivationMethod: DerivationExtension,
 	}
 	ct.SetContent(&SimpleContent{

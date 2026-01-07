@@ -22,7 +22,7 @@ func validateContentStructure(schema *schema.Schema, content types.Content, isIn
 	case *types.ComplexContent:
 		return validateComplexContentStructure(schema, c)
 	case *types.EmptyContent:
-		// Empty content is always valid
+		// empty content is always valid
 	}
 	return nil
 }

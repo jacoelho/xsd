@@ -32,7 +32,7 @@ func TestFundamentalFacets_ForPrimitiveTypes(t *testing.T) {
 		cardinality Cardinality
 		numeric     bool
 	}{
-		// Primitive types
+		// primitive types
 		{"decimal", OrderedTotal, false, CardinalityUncountablyInfinite, true},
 		{"float", OrderedTotal, false, CardinalityUncountablyInfinite, true},
 		{"double", OrderedTotal, false, CardinalityUncountablyInfinite, true},
@@ -77,7 +77,7 @@ func TestFundamentalFacets_ForPrimitiveTypes(t *testing.T) {
 }
 
 func TestFundamentalFacets_Inheritance(t *testing.T) {
-	// Test that derived types inherit fundamental facets from base type
+	// test that derived types inherit fundamental facets from base type
 	baseType := &SimpleType{
 		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
 	}
@@ -97,7 +97,7 @@ func TestFundamentalFacets_Inheritance(t *testing.T) {
 	}
 	derivedType.SetVariety(AtomicVariety)
 
-	// Inherit facets from base
+	// inherit facets from base
 	derivedType.SetFundamentalFacets(baseType.FundamentalFacets())
 
 	facets := derivedType.FundamentalFacets()

@@ -11,19 +11,19 @@ import (
 func validateWildcardDerivation(schema *schema.Schema, ct *types.ComplexType) error {
 	baseQName := ct.Content().BaseTypeQName()
 	if baseQName.IsZero() {
-		return nil // No derivation
+		return nil // no derivation
 	}
 
-	// Check if base type exists
+	// check if base type exists
 	baseType, ok := schema.TypeDefs[baseQName]
 	if !ok {
-		// Base type not found - might be builtin or forward reference
+		// base type not found - might be builtin or forward reference
 		return nil
 	}
 
 	baseCT, ok := baseType.(*types.ComplexType)
 	if !ok {
-		// Base type is not complex - no wildcard to check
+		// base type is not complex - no wildcard to check
 		return nil
 	}
 
@@ -31,16 +31,16 @@ func validateWildcardDerivation(schema *schema.Schema, ct *types.ComplexType) er
 	derivedWildcards := collectWildcardsFromContent(ct.Content())
 
 	if ct.IsExtension() {
-		// Extension: new wildcards must not violate UPA with base type's particles
+		// extension: new wildcards must not violate UPA with base type's particles
 		// UPA violations are checked in validateUPA
-		// According to spec, wildcards in extension should union with base wildcards
-		// The union is checked at validation time, but we verify here that the structure is valid
+		// according to spec, wildcards in extension should union with base wildcards
+		// the union is checked at validation time, but we verify here that the structure is valid
 		// (UPA violations are the main constraint and are checked separately)
 	} else if ct.IsRestriction() {
-		// Restriction: derived wildcard namespace must be a subset of base wildcard namespace
-		// According to spec: "Wildcard Subset" - each derived wildcard must be a subset of at least one base wildcard
+		// restriction: derived wildcard namespace must be a subset of base wildcard namespace
+		// according to spec: "Wildcard Subset" - each derived wildcard must be a subset of at least one base wildcard
 		if len(baseWildcards) == 0 && len(derivedWildcards) > 0 {
-			// Base has no wildcard, but derived does - invalid (can't add wildcard in restriction)
+			// base has no wildcard, but derived does - invalid (can't add wildcard in restriction)
 			return fmt.Errorf("wildcard restriction: cannot add wildcard when base type has no wildcard")
 		}
 		for _, derivedWildcard := range derivedWildcards {
@@ -84,7 +84,7 @@ func collectWildcardsInParticle(particle types.Particle) []*types.AnyElement {
 	var result []*types.AnyElement
 	switch p := particle.(type) {
 	case *types.ModelGroup:
-		// Recursively collect wildcards from all particles in the model group
+		// recursively collect wildcards from all particles in the model group
 		for _, child := range p.Particles {
 			result = append(result, collectWildcardsInParticle(child)...)
 		}
@@ -105,12 +105,12 @@ func wildcardIsSubset(w1, w2 *types.AnyElement) bool {
 }
 
 func wildcardNamespaceSubset(w1, w2 *types.AnyElement) bool {
-	// If w2 is ##any, w1 is always a subset (##any matches everything)
+	// if w2 is ##any, w1 is always a subset (##any matches everything)
 	if w2.Namespace == types.NSCAny {
 		return true
 	}
 
-	// If w1 is ##any, it's only a subset if w2 is also ##any (handled above)
+	// if w1 is ##any, it's only a subset if w2 is also ##any (handled above)
 	if w1.Namespace == types.NSCAny {
 		return false
 	}
@@ -150,19 +150,19 @@ func wildcardNamespaceSubset(w1, w2 *types.AnyElement) bool {
 func validateAnyAttributeDerivation(schema *schema.Schema, ct *types.ComplexType) error {
 	baseQName := ct.Content().BaseTypeQName()
 	if baseQName.IsZero() {
-		return nil // No derivation
+		return nil // no derivation
 	}
 
-	// Check if base type exists
+	// check if base type exists
 	baseType, ok := schema.TypeDefs[baseQName]
 	if !ok {
-		// Base type not found - might be builtin or forward reference
+		// base type not found - might be builtin or forward reference
 		return nil
 	}
 
 	baseCT, ok := baseType.(*types.ComplexType)
 	if !ok {
-		// Base type is not complex - no anyAttribute to check
+		// base type is not complex - no anyAttribute to check
 		return nil
 	}
 
@@ -170,25 +170,25 @@ func validateAnyAttributeDerivation(schema *schema.Schema, ct *types.ComplexType
 	derivedAnyAttr := collectAnyAttributeFromType(schema, ct)
 
 	if ct.IsExtension() {
-		// Extension: anyAttribute must union with base anyAttribute
-		// According to spec (cos-aw-union): the union must be expressible
+		// extension: anyAttribute must union with base anyAttribute
+		// according to spec (cos-aw-union): the union must be expressible
 		if baseAnyAttr != nil && derivedAnyAttr != nil {
-			// Both have anyAttribute - union must be expressible
+			// both have anyAttribute - union must be expressible
 			union := types.UnionAnyAttribute(derivedAnyAttr, baseAnyAttr)
 			if union == nil {
 				return fmt.Errorf("anyAttribute extension: union of derived and base anyAttribute is not expressible")
 			}
 		}
-		// If only one has anyAttribute, that's fine (union with nil is the non-nil one)
+		// if only one has anyAttribute, that's fine (union with nil is the non-nil one)
 	} else if ct.IsRestriction() {
-		// Restriction: derived anyAttribute namespace constraint must be a subset of base anyAttribute
-		// According to spec (cos-aw-subset): derived namespace constraint must be subset of base
+		// restriction: derived anyAttribute namespace constraint must be a subset of base anyAttribute
+		// according to spec (cos-aw-subset): derived namespace constraint must be subset of base
 		if baseAnyAttr == nil && derivedAnyAttr != nil {
-			// Base has no anyAttribute, but derived does - invalid (can't add anyAttribute in restriction)
+			// base has no anyAttribute, but derived does - invalid (can't add anyAttribute in restriction)
 			return fmt.Errorf("anyAttribute restriction: cannot add anyAttribute when base type has no anyAttribute")
 		}
 		if derivedAnyAttr != nil && baseAnyAttr != nil {
-			// Both have anyAttribute - derived must be subset of base
+			// both have anyAttribute - derived must be subset of base
 			if !anyAttributeIsSubset(derivedAnyAttr, baseAnyAttr) {
 				return fmt.Errorf("anyAttribute restriction: derived anyAttribute is not a valid subset of base anyAttribute")
 			}
@@ -266,12 +266,12 @@ func anyAttributeIsSubset(w1, w2 *types.AnyAttribute) bool {
 	if !processContentsStrongerOrEqual(w1.ProcessContents, w2.ProcessContents) {
 		return false
 	}
-	// If w2 is ##any, w1 is always a subset (##any matches everything)
+	// if w2 is ##any, w1 is always a subset (##any matches everything)
 	if w2.Namespace == types.NSCAny {
 		return true
 	}
 
-	// If w1 is ##any, it's only a subset if w2 is also ##any (handled above)
+	// if w1 is ##any, it's only a subset if w2 is also ##any (handled above)
 	if w1.Namespace == types.NSCAny {
 		return false
 	}

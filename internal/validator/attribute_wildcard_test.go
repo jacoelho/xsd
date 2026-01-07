@@ -484,11 +484,11 @@ func TestAttributeWildcard_ProcessContentsStrict(t *testing.T) {
 		},
 		{
 			name: "strict rejects attribute in wrong namespace",
-			// This tests that strict mode correctly rejects attributes in namespaces
+			// this tests that strict mode correctly rejects attributes in namespaces
 			// where no declaration exists. The attribute is declared in the target namespace
 			// (stored with empty namespace due to unqualified form default), but used in
 			// a different namespace, which should fail.
-			// NOTE: This test currently fails due to a known limitation in the conservative
+			// note: This test currently fails due to a known limitation in the conservative
 			// fallback for multi-schema composition. The fallback is needed for W3C test cases
 			// where merged schemas only have attributes, but it can cause false matches in
 			// single-schema scenarios. This limitation could be fixed by tracking which schema
@@ -508,7 +508,7 @@ func TestAttributeWildcard_ProcessContentsStrict(t *testing.T) {
 <root xmlns="http://example.com/test" 
       xmlns:other="http://other.com/ns"
       other:attr="value"/>`,
-			shouldErr: true, // Attribute declared in target namespace, but used in other namespace
+			shouldErr: true, // attribute declared in target namespace, but used in other namespace
 			errorCode: string(errors.ErrWildcardNotDeclared),
 		},
 	}

@@ -19,12 +19,12 @@ func validateRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive 
 	if baseTypeName == "duration" {
 		return validateDurationRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive)
 	}
-	// Per XSD spec: maxInclusive and maxExclusive cannot both be present
+	// per XSD spec: maxInclusive and maxExclusive cannot both be present
 	if maxInclusive != nil && maxExclusive != nil {
 		return fmt.Errorf("maxInclusive and maxExclusive cannot both be specified")
 	}
 
-	// Per XSD spec: minInclusive and minExclusive cannot both be present
+	// per XSD spec: minInclusive and minExclusive cannot both be present
 	if minInclusive != nil && minExclusive != nil {
 		return fmt.Errorf("minInclusive and minExclusive cannot both be specified")
 	}
@@ -32,7 +32,7 @@ func validateRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive 
 	// minExclusive > maxInclusive is invalid
 	if minExclusive != nil && maxInclusive != nil {
 		if err := compareRangeValues(baseTypeName, bt); err == nil {
-			// Values are comparable, check if minExclusive >= maxInclusive
+			// values are comparable, check if minExclusive >= maxInclusive
 			if compareNumericOrString(*minExclusive, *maxInclusive, baseTypeName, bt) >= 0 {
 				return fmt.Errorf("minExclusive (%s) must be < maxInclusive (%s)", *minExclusive, *maxInclusive)
 			}
@@ -47,7 +47,7 @@ func validateRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive 
 				return fmt.Errorf("minExclusive (%s) must be < maxExclusive (%s)", *minExclusive, *maxExclusive)
 			}
 		} else {
-			// If compareRangeValues failed (e.g., bt is nil), try comparison anyway for known types
+			// if compareRangeValues failed (e.g., bt is nil), try comparison anyway for known types
 			if isDateTimeTypeName(baseTypeName) || isNumericTypeName(baseTypeName) {
 				if compareNumericOrString(*minExclusive, *maxExclusive, baseTypeName, bt) >= 0 {
 					return fmt.Errorf("minExclusive (%s) must be < maxExclusive (%s)", *minExclusive, *maxExclusive)
@@ -64,7 +64,7 @@ func validateRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive 
 				return fmt.Errorf("minInclusive (%s) must be <= maxInclusive (%s)", *minInclusive, *maxInclusive)
 			}
 		} else {
-			// If compareRangeValues failed (e.g., bt is nil), try comparison anyway for known types
+			// if compareRangeValues failed (e.g., bt is nil), try comparison anyway for known types
 			if isDateTimeTypeName(baseTypeName) || isNumericTypeName(baseTypeName) {
 				if compareNumericOrString(*minInclusive, *maxInclusive, baseTypeName, bt) > 0 {
 					return fmt.Errorf("minInclusive (%s) must be <= maxInclusive (%s)", *minInclusive, *maxInclusive)
@@ -155,7 +155,7 @@ func validateDurationRangeFacets(minExclusive, maxExclusive, minInclusive, maxIn
 // validateRangeFacetValues validates that range facet values are within the base type's value space
 // Per XSD spec, facet values must be valid for the base type
 func validateRangeFacetValues(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseType types.Type, bt *types.BuiltinType) error {
-	// Try to get a validator and whitespace handling for the base type
+	// try to get a validator and whitespace handling for the base type
 	var validator types.TypeValidator
 	var whiteSpace types.WhiteSpace
 
@@ -165,7 +165,7 @@ func validateRangeFacetValues(minExclusive, maxExclusive, minInclusive, maxInclu
 		}
 		whiteSpace = bt.WhiteSpace()
 	} else if baseType != nil {
-		// For user-defined types, try to get the underlying built-in type validator
+		// for user-defined types, try to get the underlying built-in type validator
 		switch t := baseType.(type) {
 		case *types.BuiltinType:
 			validator = func(value string) error {
@@ -173,7 +173,7 @@ func validateRangeFacetValues(minExclusive, maxExclusive, minInclusive, maxInclu
 			}
 			whiteSpace = t.WhiteSpace()
 		case *types.SimpleType:
-			// For SimpleType, check if it has a built-in base
+			// for SimpleType, check if it has a built-in base
 			if t.IsBuiltin() || t.QName.Namespace == types.XSDNamespace {
 				if builtinType := types.GetBuiltinNS(t.QName.Namespace, t.QName.Local); builtinType != nil {
 					validator = func(value string) error {
@@ -194,19 +194,19 @@ func validateRangeFacetValues(minExclusive, maxExclusive, minInclusive, maxInclu
 	}
 
 	if validator == nil {
-		return nil // Can't validate without a validator
+		return nil // can't validate without a validator
 	}
 
-	// Helper to normalize whitespace before validation
+	// helper to normalize whitespace before validation
 	normalizeValue := func(val string) string {
 		switch whiteSpace {
 		case types.WhiteSpaceCollapse:
-			// Collapse: replace sequences of whitespace with single space, trim leading/trailing
+			// collapse: replace sequences of whitespace with single space, trim leading/trailing
 			val = strings.TrimSpace(val)
-			// Replace multiple whitespace with single space
+			// replace multiple whitespace with single space
 			return strings.Join(strings.Fields(val), " ")
 		case types.WhiteSpaceReplace:
-			// Replace: replace all whitespace chars with spaces
+			// replace: replace all whitespace chars with spaces
 			return strings.Map(func(r rune) rune {
 				if r == '\t' || r == '\n' || r == '\r' {
 					return ' '
@@ -282,7 +282,7 @@ func compareRangeValues(baseTypeName string, bt *types.BuiltinType) error {
 
 // compareNumericOrString compares two values, returning -1, 0, or 1
 func compareNumericOrString(v1, v2, baseTypeName string, bt *types.BuiltinType) int {
-	// If bt is nil, try to compare anyway if it's a known date/time or numeric type
+	// if bt is nil, try to compare anyway if it's a known date/time or numeric type
 	if bt == nil {
 		if baseTypeName == "duration" {
 			if cmp, err := compareDurationValues(v1, v2); err == nil {
@@ -290,14 +290,14 @@ func compareNumericOrString(v1, v2, baseTypeName string, bt *types.BuiltinType) 
 			}
 			return 0
 		}
-		// For date/time types, we can still compare using string comparison
+		// for date/time types, we can still compare using string comparison
 		if isDateTimeTypeName(baseTypeName) {
 			if cmp, err := compareDateTimeValues(v1, v2, baseTypeName); err == nil {
 				return cmp
 			}
 			return 0
 		}
-		// For numeric types, try parsing
+		// for numeric types, try parsing
 		if isNumericTypeName(baseTypeName) {
 			val1, err1 := strconv.ParseFloat(v1, 64)
 			val2, err2 := strconv.ParseFloat(v2, 64)
@@ -311,14 +311,14 @@ func compareNumericOrString(v1, v2, baseTypeName string, bt *types.BuiltinType) 
 				return 0
 			}
 		}
-		return 0 // Can't compare without type info
+		return 0 // can't compare without type info
 	}
 
 	if !bt.Ordered() {
-		return 0 // Can't compare
+		return 0 // can't compare
 	}
 
-	// Try numeric comparison first
+	// try numeric comparison first
 	if isNumericTypeName(baseTypeName) {
 		val1, err1 := strconv.ParseFloat(v1, 64)
 		val2, err2 := strconv.ParseFloat(v2, 64)
@@ -339,14 +339,14 @@ func compareNumericOrString(v1, v2, baseTypeName string, bt *types.BuiltinType) 
 		}
 	}
 
-	// For date/time types, try to parse and compare as dates
+	// for date/time types, try to parse and compare as dates
 	if isDateTimeTypeName(baseTypeName) {
 		if result, err := compareDateTimeValues(v1, v2, baseTypeName); err == nil && result != 0 {
 			return result
 		}
 	}
 
-	// Fall back to string comparison
+	// fall back to string comparison
 	if v1 < v2 {
 		return -1
 	}
@@ -400,7 +400,7 @@ func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
 		return compareTimes(t1, t2), nil
 	}
 
-	// Fallback: lexicographic comparison for other date/time types.
+	// fallback: lexicographic comparison for other date/time types.
 	if v1 < v2 {
 		return -1, nil
 	}

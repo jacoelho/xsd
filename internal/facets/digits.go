@@ -72,12 +72,12 @@ func countDigits(value string) int {
 func countFractionDigits(value string) int {
 	_, after, ok := strings.Cut(value, ".")
 	if !ok {
-		return 0 // No decimal point, so no fraction digits
+		return 0 // no decimal point, so no fraction digits
 	}
 
 	fractionPart := after
 
-	// Remove exponent if present (e.g., "1.23E4" -> "1.23")
+	// remove exponent if present (e.g., "1.23E4" -> "1.23")
 	if eIdx := strings.IndexAny(fractionPart, "Ee"); eIdx >= 0 {
 		fractionPart = fractionPart[:eIdx]
 	}

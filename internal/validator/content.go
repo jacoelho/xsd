@@ -24,7 +24,7 @@ func (r *validationRun) checkContentModel(elem xml.Element, cm *grammar.Compiled
 			"element not allowed by empty choice", path)}
 	}
 
-	// For all groups, use the simple array-based validator
+	// for all groups, use the simple array-based validator
 	if cm.AllElements != nil {
 		return r.checkAllGroupContent(elem, cm, path)
 	}
@@ -33,7 +33,7 @@ func (r *validationRun) checkContentModel(elem xml.Element, cm *grammar.Compiled
 		return r.checkAutomatonContent(elem, cm, path)
 	}
 
-	// Fallback: content model not compiled
+	// fallback: content model not compiled
 	return nil, []errors.Validation{errors.NewValidation(errors.ErrContentModelInvalid,
 		"Content model not compiled (automaton missing)", path)}
 }

@@ -12,32 +12,32 @@ import (
 func validateRestriction(schema *schema.Schema, st *types.SimpleType, restriction *types.Restriction) error {
 	var baseType types.Type
 
-	// Use ResolvedBase if available (handles inline simpleType bases)
+	// use ResolvedBase if available (handles inline simpleType bases)
 	if st.ResolvedBase != nil {
 		baseType = st.ResolvedBase
 	} else if !restriction.Base.IsZero() {
-		// Fall back to resolving from QName if ResolvedBase is not set
+		// fall back to resolving from QName if ResolvedBase is not set
 		baseTypeName := restriction.Base.Local
 
-		// Check if it's a built-in type
+		// check if it's a built-in type
 		if restriction.Base.Namespace == types.XSDNamespace {
 			bt := types.GetBuiltin(types.TypeName(baseTypeName))
 			if bt == nil {
-				// Unknown built-in type - might be a forward reference issue, skip for now
+				// unknown built-in type - might be a forward reference issue, skip for now
 				baseType = nil
 			} else {
 				baseType = bt
 			}
 		} else {
-			// Check if it's a user-defined type in this schema
+			// check if it's a user-defined type in this schema
 			if defType, ok := schema.TypeDefs[restriction.Base]; ok {
 				baseType = defType
 			}
 		}
 	}
 
-	// Convert facets to []facets.Facet for validation
-	// Also process deferred facets (range facets that couldn't be constructed during parsing)
+	// convert facets to []facets.Facet for validation
+	// also process deferred facets (range facets that couldn't be constructed during parsing)
 	facetList := make([]facets.Facet, 0, len(restriction.Facets))
 	var deferredFacets []*facets.DeferredFacet
 	for _, f := range restriction.Facets {
@@ -50,17 +50,17 @@ func validateRestriction(schema *schema.Schema, st *types.SimpleType, restrictio
 
 	baseQName := restriction.Base
 	if baseQName.IsZero() && baseType != nil {
-		// For inline simpleType bases, use the base type's QName
+		// for inline simpleType bases, use the base type's QName
 		baseQName = baseType.Name()
 	}
 
-	// Simple type restrictions must have a simple type base.
+	// simple type restrictions must have a simple type base.
 	// anyType is a complex type and cannot be restricted by a simpleType.
 	if baseQName.Namespace == types.XSDNamespace && baseQName.Local == string(types.TypeNameAnyType) {
 		return fmt.Errorf("simpleType restriction cannot have base type anyType")
 	}
 
-	// Per XSD 1.0 tests: anySimpleType cannot be used as a restriction base in schema definitions.
+	// per XSD 1.0 tests: anySimpleType cannot be used as a restriction base in schema definitions.
 	if baseQName.Namespace == types.XSDNamespace && baseQName.Local == string(types.TypeNameAnySimpleType) {
 		return fmt.Errorf("simpleType restriction cannot have base type anySimpleType")
 	}
@@ -69,20 +69,20 @@ func validateRestriction(schema *schema.Schema, st *types.SimpleType, restrictio
 		return fmt.Errorf("simpleType restriction cannot have complex base type '%s'", baseQName)
 	}
 
-	// Validate deferred facets - check applicability now that base type is resolved
+	// validate deferred facets - check applicability now that base type is resolved
 	for _, df := range deferredFacets {
 		if err := validateDeferredFacetApplicability(df, baseType, baseQName); err != nil {
 			return err
 		}
 	}
 
-	// Convert deferred facets to actual facets now that base type is resolved
-	// This is needed for facet inheritance validation
+	// convert deferred facets to actual facets now that base type is resolved
+	// this is needed for facet inheritance validation
 	for _, df := range deferredFacets {
 		resolvedFacet, err := convertDeferredFacet(df, baseType)
 		if err != nil {
-			// If we can't convert, the facet will just not be validated for inheritance
-			// This is a fallback - most cases should be handled above
+			// if we can't convert, the facet will just not be validated for inheritance
+			// this is a fallback - most cases should be handled above
 			continue
 		}
 		if resolvedFacet != nil {
@@ -94,27 +94,27 @@ func validateRestriction(schema *schema.Schema, st *types.SimpleType, restrictio
 		return err
 	}
 
-	// Validate facet inheritance (A9)
+	// validate facet inheritance (A9)
 	if baseType != nil {
 		if err := validateFacetInheritance(facetList, baseType); err != nil {
 			return err
 		}
 	}
 
-	// Validate whiteSpace restriction: derived type can only be stricter, not relaxed
-	// Order of restrictiveness: preserve < replace < collapse
+	// validate whiteSpace restriction: derived type can only be stricter, not relaxed
+	// order of restrictiveness: preserve < replace < collapse
 	if err := validateWhiteSpaceRestriction(st, baseType, baseQName); err != nil {
 		return err
 	}
 
 	// XSD 1.0 spec: NOTATION type cannot be used directly; must have enumeration facet
-	// However, if restricting a NOTATION-derived type that already has enumeration, additional
+	// however, if restricting a NOTATION-derived type that already has enumeration, additional
 	// restrictions (like length facets) are allowed without re-specifying enumeration.
 	isDirectNotation := !baseQName.IsZero() &&
 		baseQName.Namespace == types.XSDNamespace &&
 		baseQName.Local == string(types.TypeNameNOTATION)
 	if isDirectNotation {
-		// Directly restricting xs:NOTATION - must have enumeration in this restriction
+		// directly restricting xs:NOTATION - must have enumeration in this restriction
 		if !hasEnumerationFacet(facetList) {
 			return fmt.Errorf("NOTATION restriction must have enumeration facet")
 		}
@@ -122,7 +122,7 @@ func validateRestriction(schema *schema.Schema, st *types.SimpleType, restrictio
 			return err
 		}
 	} else if hasEnumerationFacet(facetList) {
-		// If this restriction adds enumeration facets, validate them against declared notations
+		// if this restriction adds enumeration facets, validate them against declared notations
 		// (if the base type is NOTATION-derived)
 		isNotation := false
 		if baseType != nil {
@@ -166,7 +166,7 @@ func validateSimpleContentRestrictionFacets(schema *schema.Schema, restriction *
 		return fmt.Errorf("simpleContent restriction cannot have complex base type '%s'", baseQName)
 	}
 
-	// Convert facets to []facets.Facet for validation
+	// convert facets to []facets.Facet for validation
 	facetList := make([]facets.Facet, 0, len(restriction.Facets))
 	var deferredFacets []*facets.DeferredFacet
 	for _, f := range restriction.Facets {

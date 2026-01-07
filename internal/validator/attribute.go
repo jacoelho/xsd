@@ -27,9 +27,9 @@ func (r *validationRun) checkAttributes(elem xml.Element, attrs []*grammar.Compi
 			}
 		}
 
-		// Validate attribute value only if the attribute is actually present in the XML.
-		// An absent optional attribute should not be validated against type facets.
-		// Note: We validate even empty values (attr="") because facets must validate empty strings.
+		// validate attribute value only if the attribute is actually present in the XML.
+		// an absent optional attribute should not be validated against type facets.
+		// note: We validate even empty values (attr="") because facets must validate empty strings.
 		if elem.HasAttributeNS(attr.QName.Namespace.String(), attr.QName.Local) {
 			value := elem.GetAttributeNS(attr.QName.Namespace.String(), attr.QName.Local)
 			if attr.Type != nil {
@@ -42,7 +42,7 @@ func (r *validationRun) checkAttributes(elem xml.Element, attrs []*grammar.Compi
 				}
 			}
 
-			// Both values must be normalized according to the type's whitespace facet before comparison
+			// both values must be normalized according to the type's whitespace facet before comparison
 			if attr.Fixed != "" {
 				var typ types.Type
 				if attr.Type != nil {
@@ -121,7 +121,7 @@ func (r *validationRun) checkWildcardAttribute(xmlAttr xml.Attr, anyAttr *types.
 			return []errors.Validation{errors.NewValidationf(errors.ErrWildcardNotDeclared, path,
 				"Attribute '%s' is not declared (strict wildcard requires declaration)", attrQName.Local)}
 		}
-		// Lax mode: no error when not found
+		// lax mode: no error when not found
 		return nil
 	}
 
@@ -137,7 +137,7 @@ func (r *validationRun) checkDeclaredAttributeValue(value string, decl *grammar.
 		violations = append(violations, r.checkSimpleValue(value, decl.Type, path, elem)...)
 	}
 
-	// Check fixed constraint - both values must be normalized per type's whitespace facet
+	// check fixed constraint - both values must be normalized per type's whitespace facet
 	if decl.HasFixed {
 		var typ types.Type
 		if decl.Type != nil {

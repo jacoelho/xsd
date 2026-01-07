@@ -11,7 +11,7 @@ type FundamentalFacets struct {
 // ComputeFundamentalFacets computes fundamental facets for a primitive type
 func ComputeFundamentalFacets(typeName TypeName) *FundamentalFacets {
 	switch typeName {
-	// Numeric types (ordered=total, numeric=true)
+	// numeric types (ordered=total, numeric=true)
 	case TypeNameDecimal, TypeNameFloat, TypeNameDouble:
 		return &FundamentalFacets{
 			Ordered:     OrderedTotal,
@@ -19,7 +19,7 @@ func ComputeFundamentalFacets(typeName TypeName) *FundamentalFacets {
 			Cardinality: CardinalityUncountablyInfinite,
 			Numeric:     true,
 		}
-	// Date/time types (ordered=total, numeric=false)
+	// date/time types (ordered=total, numeric=false)
 	case TypeNameDateTime, TypeNameTime, TypeNameDate, TypeNameGYearMonth, TypeNameGYear, TypeNameGMonthDay, TypeNameGDay, TypeNameGMonth:
 		return &FundamentalFacets{
 			Ordered:     OrderedTotal,
@@ -27,7 +27,7 @@ func ComputeFundamentalFacets(typeName TypeName) *FundamentalFacets {
 			Cardinality: CardinalityUncountablyInfinite,
 			Numeric:     false,
 		}
-	// Duration (ordered=partial)
+	// duration (ordered=partial)
 	case TypeNameDuration:
 		return &FundamentalFacets{
 			Ordered:     OrderedPartial,
@@ -35,7 +35,7 @@ func ComputeFundamentalFacets(typeName TypeName) *FundamentalFacets {
 			Cardinality: CardinalityUncountablyInfinite,
 			Numeric:     false,
 		}
-	// String types (ordered=none, countably infinite)
+	// string types (ordered=none, countably infinite)
 	case TypeNameString, TypeNameHexBinary, TypeNameBase64Binary, TypeNameAnyURI, TypeNameQName, TypeNameNOTATION:
 		return &FundamentalFacets{
 			Ordered:     OrderedNone,
@@ -43,7 +43,7 @@ func ComputeFundamentalFacets(typeName TypeName) *FundamentalFacets {
 			Cardinality: CardinalityCountablyInfinite,
 			Numeric:     false,
 		}
-	// Boolean (ordered=none, finite)
+	// boolean (ordered=none, finite)
 	case TypeNameBoolean:
 		return &FundamentalFacets{
 			Ordered:     OrderedNone,

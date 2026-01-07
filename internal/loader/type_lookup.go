@@ -27,6 +27,6 @@ func lookupType(schema *schema.Schema, qname types.QName) (types.Type, error) {
 		return typeDef, nil
 	}
 
-	// Type not found
+	// type not found
 	return nil, fmt.Errorf("type %s not found", qname)
 }

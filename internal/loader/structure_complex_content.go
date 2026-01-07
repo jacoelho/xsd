@@ -16,7 +16,7 @@ func validateComplexContentStructure(schema *schema.Schema, cc *types.ComplexCon
 			}
 		}
 		if cc.Extension.Particle != nil {
-			// Cannot add particles when extending a simpleContent type
+			// cannot add particles when extending a simpleContent type
 			baseType, ok := schema.TypeDefs[cc.Extension.Base]
 			if ok {
 				if baseCT, ok := baseType.(*types.ComplexType); ok {
@@ -24,7 +24,7 @@ func validateComplexContentStructure(schema *schema.Schema, cc *types.ComplexCon
 						return fmt.Errorf("cannot extend simpleContent type '%s' with particles", cc.Extension.Base)
 					}
 					// XSD 1.0: Cannot extend a type with xs:all content model
-					// Per Errata E1-21: Can extend if base xs:all is emptiable
+					// per Errata E1-21: Can extend if base xs:all is emptiable
 					if baseParticle := effectiveContentParticle(schema, baseCT); baseParticle != nil {
 						if baseMG, ok := baseParticle.(*types.ModelGroup); ok && baseMG.Kind == types.AllGroup {
 							if !isEmptiableParticle(baseMG) {
@@ -35,14 +35,14 @@ func validateComplexContentStructure(schema *schema.Schema, cc *types.ComplexCon
 				}
 			}
 			// xs:all in complex content extensions
-			// Per XSD 1.0 Errata E1-21: xs:all can be used in extensions if base content is emptiable
-			// Check if extension particle is or contains xs:all (may be in a group reference)
+			// per XSD 1.0 Errata E1-21: xs:all can be used in extensions if base content is emptiable
+			// check if extension particle is or contains xs:all (may be in a group reference)
 			containsAll := false
 			if mg, ok := cc.Extension.Particle.(*types.ModelGroup); ok {
 				if mg.Kind == types.AllGroup {
 					containsAll = true
 				} else if mg.Kind == types.Sequence || mg.Kind == types.Choice {
-					// Check if any particle in the group is xs:all
+					// check if any particle in the group is xs:all
 					for _, p := range mg.Particles {
 						if pmg, ok := p.(*types.ModelGroup); ok && pmg.Kind == types.AllGroup {
 							containsAll = true
@@ -53,11 +53,11 @@ func validateComplexContentStructure(schema *schema.Schema, cc *types.ComplexCon
 			}
 
 			if containsAll {
-				// Check if base type's content is emptiable
-				// Per XSD 1.0 Errata E1-21: emptiable means minOccurs=0 or no content or empty content
+				// check if base type's content is emptiable
+				// per XSD 1.0 Errata E1-21: emptiable means minOccurs=0 or no content or empty content
 				baseIsEmptiable := false
 				if baseType, ok := schema.TypeDefs[cc.Extension.Base]; ok {
-					// Cannot extend simpleType with particles
+					// cannot extend simpleType with particles
 					if _, isSimpleType := baseType.(*types.SimpleType); isSimpleType {
 						return fmt.Errorf("cannot extend simpleType with complex content containing xs:all")
 					}
@@ -69,8 +69,8 @@ func validateComplexContentStructure(schema *schema.Schema, cc *types.ComplexCon
 						}
 					}
 				} else {
-					// Base type not found in schema - might be builtin
-					// Builtin types cannot have emptiable complex content
+					// base type not found in schema - might be builtin
+					// builtin types cannot have emptiable complex content
 					baseIsEmptiable = false
 				}
 				if !baseIsEmptiable {
@@ -111,8 +111,8 @@ func validateComplexContentStructure(schema *schema.Schema, cc *types.ComplexCon
 				return err
 			}
 		}
-		// Validate that attributes in restriction match base type's attributes (only use can differ)
-		// Per XSD spec (cos-ct-derived-ok): in complexContent restriction, attributes must have the same type as base attributes
+		// validate that attributes in restriction match base type's attributes (only use can differ)
+		// per XSD spec (cos-ct-derived-ok): in complexContent restriction, attributes must have the same type as base attributes
 		baseType, ok := schema.TypeDefs[cc.Restriction.Base]
 		if ok {
 			if baseCT, ok := baseType.(*types.ComplexType); ok {

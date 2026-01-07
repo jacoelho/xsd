@@ -87,7 +87,7 @@ func TestValidateComplexElement(t *testing.T) {
 }
 
 func TestValidateAttributeDefault(t *testing.T) {
-	// Create a simple schema with an attribute that has a default value
+	// create a simple schema with an attribute that has a default value
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -105,7 +105,7 @@ func TestValidateAttributeDefault(t *testing.T) {
 		t.Fatalf("Parse schema: %v", err)
 	}
 
-	// Test XML without the attribute (should use default)
+	// test XML without the attribute (should use default)
 	xmlWithoutAttr := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test"/>
 `
@@ -118,7 +118,7 @@ func TestValidateAttributeDefault(t *testing.T) {
 	v := New(mustCompile(t, schema))
 	violations := v.Validate(doc1)
 
-	// Should be valid - default value will be validated
+	// should be valid - default value will be validated
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for missing attribute with default, got %d:", len(violations))
 		for _, v := range violations {
@@ -126,7 +126,7 @@ func TestValidateAttributeDefault(t *testing.T) {
 		}
 	}
 
-	// Test XML with the attribute present
+	// test XML with the attribute present
 	xmlWithAttr := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test" status="inactive"/>
 `
@@ -168,7 +168,7 @@ func TestValidateSubstitutionGroup(t *testing.T) {
 		t.Fatalf("Parse schema: %v", err)
 	}
 
-	// Test XML with head element (should be valid)
+	// test XML with head element (should be valid)
 	xmlWithHead := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">
   <head>value</head>
@@ -188,7 +188,7 @@ func TestValidateSubstitutionGroup(t *testing.T) {
 		}
 	}
 
-	// Test XML with member element (should be valid due to substitution group)
+	// test XML with member element (should be valid due to substitution group)
 	xmlWithMember := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">
   <member>value</member>
@@ -209,7 +209,7 @@ func TestValidateSubstitutionGroup(t *testing.T) {
 }
 
 func TestValidateXsiAttributes(t *testing.T) {
-	// Test that xsi:* attributes are allowed without explicit declaration
+	// test that xsi:* attributes are allowed without explicit declaration
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -229,7 +229,7 @@ func TestValidateXsiAttributes(t *testing.T) {
 		t.Fatalf("Parse schema: %v", err)
 	}
 
-	// Test XML with xsi:schemaLocation attribute (should be allowed)
+	// test XML with xsi:schemaLocation attribute (should be allowed)
 	xmlWithSchemaLocation := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -251,7 +251,7 @@ func TestValidateXsiAttributes(t *testing.T) {
 		}
 	}
 
-	// Test XML with xsi:noNamespaceSchemaLocation attribute (should be allowed)
+	// test XML with xsi:noNamespaceSchemaLocation attribute (should be allowed)
 	xmlWithNoNamespaceSchemaLocation := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -272,7 +272,7 @@ func TestValidateXsiAttributes(t *testing.T) {
 		}
 	}
 
-	// Test XML with both xsi attributes (should be allowed)
+	// test XML with both xsi attributes (should be allowed)
 	xmlWithBoth := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -296,9 +296,9 @@ func TestValidateXsiAttributes(t *testing.T) {
 }
 
 func TestCircularAttributeGroupReference(t *testing.T) {
-	// Test that circular attribute group references are detected and rejected
+	// test that circular attribute group references are detected and rejected
 	// AttributeGroup A references AttributeGroup B, which references AttributeGroup A
-	// Per XSD spec, this is an error and should be caught during schema resolution
+	// per XSD spec, this is an error and should be caught during schema resolution
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -324,11 +324,11 @@ func TestCircularAttributeGroupReference(t *testing.T) {
 		t.Fatalf("Parse schema: %v", err)
 	}
 
-	// Resolve schema - this should detect the circular reference
+	// resolve schema - this should detect the circular reference
 	resolver := loader.NewResolver(schema)
 	err = resolver.Resolve()
 
-	// Circular attribute group references should be detected as an error
+	// circular attribute group references should be detected as an error
 	if err == nil {
 		t.Error("Expected error for circular attribute group reference, got none")
 	} else if !strings.Contains(err.Error(), "circular") {
@@ -337,8 +337,8 @@ func TestCircularAttributeGroupReference(t *testing.T) {
 }
 
 func TestValidateAllGroupMinOccursZero(t *testing.T) {
-	// Test that when an <all> group has minOccurs="0", all child elements become optional
-	// This is based on the issue described in FIX_PLAN.md #2
+	// test that when an <all> group has minOccurs="0", all child elements become optional
+	// this is based on the issue described in FIX_PLAN.md #2
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -360,7 +360,7 @@ func TestValidateAllGroupMinOccursZero(t *testing.T) {
 		t.Fatalf("Parse schema: %v", err)
 	}
 
-	// Test XML with empty element (should be valid because all group has minOccurs="0")
+	// test XML with empty element (should be valid because all group has minOccurs="0")
 	xmlEmpty := `<?xml version="1.0"?>
 <elt1 xmlns="http://example.com/test"/>
 `
@@ -379,7 +379,7 @@ func TestValidateAllGroupMinOccursZero(t *testing.T) {
 		}
 	}
 
-	// Test XML with some elements (should be invalid because required elements are missing)
+	// test XML with some elements (should be invalid because required elements are missing)
 	xmlPartial := `<?xml version="1.0"?>
 <elt1 xmlns="http://example.com/test">
   <elt2>value2</elt2>
@@ -406,7 +406,7 @@ func TestValidateAllGroupMinOccursZero(t *testing.T) {
 		t.Fatalf("Expected violation code %s, got: %v", errors.ErrRequiredElementMissing, violations)
 	}
 
-	// Test XML with all elements (should also be valid)
+	// test XML with all elements (should also be valid)
 	xmlAll := `<?xml version="1.0"?>
 <elt1 xmlns="http://example.com/test">
   <elt2>value2</elt2>
@@ -430,8 +430,8 @@ func TestValidateAllGroupMinOccursZero(t *testing.T) {
 }
 
 func TestValidateWildcardElement(t *testing.T) {
-	// Test that elements matching wildcards are allowed even without declarations
-	// This tests the fix for FIX_PLAN.md #5
+	// test that elements matching wildcards are allowed even without declarations
+	// this tests the fix for FIX_PLAN.md #5
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -451,8 +451,8 @@ func TestValidateWildcardElement(t *testing.T) {
 		t.Fatalf("Parse schema: %v", err)
 	}
 
-	// Test XML with element that matches wildcard but has no declaration
-	// This should be valid because processContents="skip"
+	// test XML with element that matches wildcard but has no declaration
+	// this should be valid because processContents="skip"
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">
   <foo xmlns="http://other.com/ns">value</foo>
@@ -474,7 +474,7 @@ func TestValidateWildcardElement(t *testing.T) {
 }
 
 func TestValidateWildcardElementLax(t *testing.T) {
-	// Test wildcard with processContents="lax" - should allow elements without declarations
+	// test wildcard with processContents="lax" - should allow elements without declarations
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -494,8 +494,8 @@ func TestValidateWildcardElementLax(t *testing.T) {
 		t.Fatalf("Parse schema: %v", err)
 	}
 
-	// Test XML with element that matches wildcard but has no declaration
-	// This should be valid because processContents="lax" allows elements without declarations
+	// test XML with element that matches wildcard but has no declaration
+	// this should be valid because processContents="lax" allows elements without declarations
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">
   <foo xmlns="http://other.com/ns">value</foo>
@@ -517,8 +517,8 @@ func TestValidateWildcardElementLax(t *testing.T) {
 }
 
 func TestValidateWildcardAsTopLevelParticle(t *testing.T) {
-	// Test that a wildcard as a top-level particle (not nested in a sequence) is handled correctly
-	// This tests the fix for validateParticle() not handling AnyElement
+	// test that a wildcard as a top-level particle (not nested in a sequence) is handled correctly
+	// this tests the fix for validateParticle() not handling AnyElement
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -536,7 +536,7 @@ func TestValidateWildcardAsTopLevelParticle(t *testing.T) {
 		t.Fatalf("Parse schema: %v", err)
 	}
 
-	// Test XML with element that matches wildcard
+	// test XML with element that matches wildcard
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">
   <foo xmlns="http://other.com/ns">value</foo>
@@ -558,7 +558,7 @@ func TestValidateWildcardAsTopLevelParticle(t *testing.T) {
 }
 
 func TestValidateWildcardWithMinOccursMaxOccurs(t *testing.T) {
-	// Test wildcard with minOccurs and maxOccurs constraints
+	// test wildcard with minOccurs and maxOccurs constraints
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -578,7 +578,7 @@ func TestValidateWildcardWithMinOccursMaxOccurs(t *testing.T) {
 		t.Fatalf("Parse schema: %v", err)
 	}
 
-	// Test XML with one element (should be valid)
+	// test XML with one element (should be valid)
 	xmlDoc1 := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">
   <foo xmlns="http://other.com/ns">value</foo>
@@ -598,7 +598,7 @@ func TestValidateWildcardWithMinOccursMaxOccurs(t *testing.T) {
 		}
 	}
 
-	// Test XML with two elements (should be valid)
+	// test XML with two elements (should be valid)
 	xmlDoc2 := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">
   <foo xmlns="http://other.com/ns">value1</foo>
@@ -618,7 +618,7 @@ func TestValidateWildcardWithMinOccursMaxOccurs(t *testing.T) {
 		}
 	}
 
-	// Test XML with zero elements (should fail - minOccurs="1")
+	// test XML with zero elements (should fail - minOccurs="1")
 	xmlDoc3 := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test"/>
 `
@@ -647,11 +647,11 @@ func TestValidateWildcardWithMinOccursMaxOccurs(t *testing.T) {
 }
 
 func TestAttributeWildcardInheritance(t *testing.T) {
-	// Test that attribute wildcards are inherited from base types
-	// Base type has anyAttribute allowing any namespace
-	// Derived type extends base type
-	// Attribute matching wildcard should be allowed
-	// Note: processContents="skip" is used because strict mode requires declarations
+	// test that attribute wildcards are inherited from base types
+	// base type has anyAttribute allowing any namespace
+	// derived type extends base type
+	// attribute matching wildcard should be allowed
+	// note: processContents="skip" is used because strict mode requires declarations
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -696,7 +696,7 @@ func TestAttributeWildcardInheritance(t *testing.T) {
 	v := New(mustCompile(t, schema))
 	violations := v.Validate(doc)
 
-	// Should have no violations - other:wildcardAttr should be allowed by inherited wildcard
+	// should have no violations - other:wildcardAttr should be allowed by inherited wildcard
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))
 		for _, v := range violations {
@@ -706,12 +706,12 @@ func TestAttributeWildcardInheritance(t *testing.T) {
 }
 
 func TestAttributeWildcardOverride(t *testing.T) {
-	// Test that derived type's anyAttribute unions with base type's anyAttribute for extension
-	// Base type allows any namespace (##any)
-	// Derived type (extension) allows target namespace (##targetNamespace)
-	// According to XSD spec, extension uses UNION, so result is ##any ∪ ##targetNamespace = ##any
-	// Attribute in other namespace should be allowed (because union = ##any)
-	// Note: processContents="skip" is used because strict mode requires declarations
+	// test that derived type's anyAttribute unions with base type's anyAttribute for extension
+	// base type allows any namespace (##any)
+	// derived type (extension) allows target namespace (##targetNamespace)
+	// according to XSD spec, extension uses UNION, so result is ##any ∪ ##targetNamespace = ##any
+	// attribute in other namespace should be allowed (because union = ##any)
+	// note: processContents="skip" is used because strict mode requires declarations
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -742,8 +742,8 @@ func TestAttributeWildcardOverride(t *testing.T) {
 	}
 
 	// XML with attribute in target namespace (should be allowed)
-	// Note: attributes without prefix are in no namespace, not default namespace
-	// So we use a prefixed attribute in target namespace
+	// note: attributes without prefix are in no namespace, not default namespace
+	// so we use a prefixed attribute in target namespace
 	xmlDoc1 := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test"
       xmlns:tns="http://example.com/test"
@@ -758,7 +758,7 @@ func TestAttributeWildcardOverride(t *testing.T) {
 	v := New(mustCompile(t, schema))
 	violations := v.Validate(doc1)
 
-	// Should have no violations - localAttr in target namespace should be allowed
+	// should have no violations - localAttr in target namespace should be allowed
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for target namespace attribute, got %d:", len(violations))
 		for _, v := range violations {
@@ -779,7 +779,7 @@ func TestAttributeWildcardOverride(t *testing.T) {
 
 	violations = v.Validate(doc2)
 
-	// Should have no violations - other namespace attribute should be allowed because union = ##any
+	// should have no violations - other namespace attribute should be allowed because union = ##any
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for attribute in other namespace (union of ##any and ##targetNamespace = ##any), got %d:", len(violations))
 		for _, v := range violations {
@@ -789,7 +789,7 @@ func TestAttributeWildcardOverride(t *testing.T) {
 }
 
 func TestValidateUnionWithInlineTypes(t *testing.T) {
-	// Test union type with inline simpleType children
+	// test union type with inline simpleType children
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -822,7 +822,7 @@ func TestValidateUnionWithInlineTypes(t *testing.T) {
 		t.Fatalf("Validate schema: %v", validationErrors)
 	}
 
-	// Test valid string value (matches first inline type)
+	// test valid string value (matches first inline type)
 	xmlDoc1 := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">hello</root>`
 
@@ -841,7 +841,7 @@ func TestValidateUnionWithInlineTypes(t *testing.T) {
 		}
 	}
 
-	// Test valid integer value (matches second inline type)
+	// test valid integer value (matches second inline type)
 	xmlDoc2 := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">42</root>`
 
@@ -859,7 +859,7 @@ func TestValidateUnionWithInlineTypes(t *testing.T) {
 		}
 	}
 
-	// Test invalid value (too long string)
+	// test invalid value (too long string)
 	xmlDoc3 := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">this string is too long</root>`
 
@@ -874,9 +874,9 @@ func TestValidateUnionWithInlineTypes(t *testing.T) {
 		t.Error("Expected violation for string exceeding maxLength, got none")
 	}
 
-	// Test that inline types are being used for validation
-	// The key test is that values matching inline types should be accepted.
-	// Note: The validateUnionType function uses v.schema indirectly when validating
+	// test that inline types are being used for validation
+	// the key test is that values matching inline types should be accepted.
+	// note: The validateUnionType function uses v.schema indirectly when validating
 	// inline types - if an inline type is itself a union/list with QName references,
 	// those are resolved through the recursive validateSimpleValue -> validateUnionType
 }

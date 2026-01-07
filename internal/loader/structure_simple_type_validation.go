@@ -25,25 +25,25 @@ func validateSimpleTypeStructure(schema *schema.Schema, st *types.SimpleType) er
 			}
 		}
 	case types.ListVariety:
-		// List types can be defined by xs:list or by restriction of a list type
+		// list types can be defined by xs:list or by restriction of a list type
 		if st.List != nil {
 			if err := validateListType(schema, st.List); err != nil {
 				return fmt.Errorf("list: %w", err)
 			}
 		} else if st.Restriction != nil {
-			// List type derived by restriction of another list type - validate facets
+			// list type derived by restriction of another list type - validate facets
 			if err := validateRestriction(schema, st, st.Restriction); err != nil {
 				return fmt.Errorf("restriction: %w", err)
 			}
 		}
 	case types.UnionVariety:
-		// Union types can be defined by xs:union or by restriction of a union type
+		// union types can be defined by xs:union or by restriction of a union type
 		if st.Union != nil {
 			if err := validateUnionType(schema, st.Union); err != nil {
 				return fmt.Errorf("union: %w", err)
 			}
 		} else if st.Restriction != nil {
-			// Union type derived by restriction of another union type - validate facets
+			// union type derived by restriction of another union type - validate facets
 			if err := validateRestriction(schema, st, st.Restriction); err != nil {
 				return fmt.Errorf("restriction: %w", err)
 			}

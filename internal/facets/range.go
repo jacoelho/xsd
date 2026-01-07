@@ -93,21 +93,21 @@ func isIntegerDerivedType(t types.Type) bool {
 
 	typeName := t.Name().Local
 
-	// Check if the type name itself is integer-derived
+	// check if the type name itself is integer-derived
 	if integerDerivedTypeNames[typeName] {
 		return true
 	}
 
-	// For SimpleType, walk the derivation chain
+	// for SimpleType, walk the derivation chain
 	if st, ok := t.(*types.SimpleType); ok {
 		current := st.ResolvedBase
 		for current != nil {
-			// Use Name() interface method instead of type assertions
+			// use Name() interface method instead of type assertions
 			currentName := current.Name().Local
 			if integerDerivedTypeNames[currentName] {
 				return true
 			}
-			// Continue walking the chain if it's a SimpleType
+			// continue walking the chain if it's a SimpleType
 			if currentST, ok := current.(*types.SimpleType); ok {
 				current = currentST.ResolvedBase
 			} else {
@@ -129,12 +129,12 @@ func extractComparableValue(value types.TypedValue, baseType types.Type) (types.
 		typ = baseType
 	}
 
-	// Try to convert native to ComparableValue directly
+	// try to convert native to ComparableValue directly
 	if compVal, ok := native.(types.ComparableValue); ok {
 		return compVal, nil
 	}
 
-	// Try to extract using ValueAs helper for known types
+	// try to extract using ValueAs helper for known types
 	if rat, err := types.ValueAs[*big.Rat](value); err == nil {
 		return types.ComparableBigRat{Value: rat, Typ: typ}, nil
 	}
@@ -155,12 +155,12 @@ func extractComparableValue(value types.TypedValue, baseType types.Type) (types.
 		return types.ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
 	}
 
-	// If native is a string, try to parse it according to the type
+	// if native is a string, try to parse it according to the type
 	if strVal, ok := native.(string); ok {
 		return parseStringToComparableValue(value, strVal, typ)
 	}
 
-	// Try to wrap the native value in a Comparable type
+	// try to wrap the native value in a Comparable type
 	switch v := native.(type) {
 	case *big.Rat:
 		return types.ComparableBigRat{Value: v, Typ: typ}, nil
@@ -177,7 +177,7 @@ func extractComparableValue(value types.TypedValue, baseType types.Type) (types.
 		return types.ComparableFloat32{Value: v, Typ: typ}, nil
 	}
 
-	// All conversion attempts failed
+	// all conversion attempts failed
 	xsdTypeName := getXSDTypeName(value)
 	return nil, fmt.Errorf("value type %s cannot be compared with facet value", xsdTypeName)
 }
@@ -194,7 +194,7 @@ func parseStringToComparableValue(value types.TypedValue, lexical string, typ ty
 
 	typeName := typ.Name().Local
 
-	// Check if the actual type is integer (even though primitive is decimal)
+	// check if the actual type is integer (even though primitive is decimal)
 	if typeName == "integer" {
 		intVal, err := lexicalparser.ParseInteger(lexical)
 		if err != nil {
@@ -218,12 +218,12 @@ func parseStringToComparableValue(value types.TypedValue, lexical string, typ ty
 
 	primitiveName := primitiveType.Name().Local
 
-	// Check if type is integer-derived
+	// check if type is integer-derived
 	isIntegerDerived := isIntegerDerivedType(typ)
 
 	switch primitiveName {
 	case "decimal":
-		// If type is integer-derived, parse as integer
+		// if type is integer-derived, parse as integer
 		if isIntegerDerived {
 			intVal, err := lexicalparser.ParseInteger(lexical)
 			if err != nil {
@@ -296,7 +296,7 @@ func (r *RangeFacet) Validate(value types.TypedValue, baseType types.Type) error
 		return fmt.Errorf("%s: %w", r.name, err)
 	}
 
-	// Compare using ComparableValue interface
+	// compare using ComparableValue interface
 	cmp, err := compVal.Compare(r.value)
 	if err != nil {
 		return fmt.Errorf("%s: cannot compare values: %w", r.name, err)

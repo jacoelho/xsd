@@ -77,15 +77,15 @@ func (b *Builder) Build() (*Automaton, error) {
 	var nextPos int
 	content := b.buildTree(b.particles, &nextPos)
 	if content == nil {
-		// Empty content model
+		// empty content model
 		return &Automaton{emptyOK: true}, nil
 	}
 
-	// Append end marker: content · end
+	// append end marker: content · end
 	endLeaf := newLeaf(b.endPos, nil, 1, 1, b.size)
 	b.root = newSeq(content, endLeaf, b.size)
 
-	// Compute followPos (firstPos/lastPos computed lazily)
+	// compute followPos (firstPos/lastPos computed lazily)
 	b.computeFollowPos(b.root)
 
 	content.lastPos().forEach(func(pos int) {
@@ -103,7 +103,7 @@ func (b *Builder) Build() (*Automaton, error) {
 		}
 	}
 
-	// Subset construction
+	// subset construction
 	return b.construct()
 }
 
@@ -116,7 +116,7 @@ func (b *Builder) buildTree(particles []*ParticleAdapter, nextPos *int) node {
 		return b.buildNode(particles[0], nextPos)
 	}
 
-	// Build right-associative sequence: a · (b · c)
+	// build right-associative sequence: a · (b · c)
 	left := b.buildNode(particles[0], nextPos)
 	right := b.buildTree(particles[1:], nextPos)
 	if left == nil {
@@ -156,31 +156,31 @@ func (b *Builder) buildNode(p *ParticleAdapter, nextPos *int) node {
 		case types.Choice:
 			child = b.buildChoice(p.Children, nextPos)
 		case types.AllGroup:
-			// All groups are handled by AllGroupValidator, not the DFA automaton.
-			// The compiler skips automaton building for all groups.
+			// all groups are handled by AllGroupValidator, not the DFA automaton.
+			// the compiler skips automaton building for all groups.
 			return nil
 		}
 		if child == nil {
 			return nil
 		}
-		// For groups with non-trivial minOccurs/maxOccurs, track the positions
+		// for groups with non-trivial minOccurs/maxOccurs, track the positions
 		// for counting group iterations
 		if (p.MinOccurs > 1) || (p.MaxOccurs != 1 && p.MaxOccurs != types.UnboundedOccurs) {
-			// Collect first positions (start of iteration) and last positions (end of iteration)
+			// collect first positions (start of iteration) and last positions (end of iteration)
 			firstPositions := child.firstPos()
 			lastPositions := child.lastPos()
 
 			var firstPosList []int
 			var lastPosList []int
 			groupID := -1
-			firstPosMaxOccurs := 1 // Default: each start symbol is one iteration
+			firstPosMaxOccurs := 1 // default: each start symbol is one iteration
 
 			firstPositions.forEach(func(pos int) {
 				firstPosList = append(firstPosList, pos)
 				if groupID < 0 || pos < groupID {
-					groupID = pos // Use minimum first position as GroupID
+					groupID = pos // use minimum first position as GroupID
 				}
-				// This is used to compute minimum iterations needed
+				// this is used to compute minimum iterations needed
 				if pos < len(b.positions) && b.positions[pos] != nil {
 					if b.positions[pos].Max == types.UnboundedOccurs {
 						firstPosMaxOccurs = types.UnboundedOccurs
@@ -195,7 +195,7 @@ func (b *Builder) buildNode(p *ParticleAdapter, nextPos *int) node {
 				lastPosList = append(lastPosList, pos)
 			})
 
-			// Assign GroupCounterInfo to all last positions (states that can be "done")
+			// assign GroupCounterInfo to all last positions (states that can be "done")
 			unitSize := 0
 			if len(firstPosList) == 1 && len(lastPosList) == 1 && firstPosList[0] == lastPosList[0] {
 				pos := firstPosList[0]
@@ -218,7 +218,7 @@ func (b *Builder) buildNode(p *ParticleAdapter, nextPos *int) node {
 				}
 			}
 		}
-		// Wrap the group with its minOccurs/maxOccurs to allow repetition
+		// wrap the group with its minOccurs/maxOccurs to allow repetition
 		return b.wrapOccurs(child, p.MinOccurs, p.MaxOccurs)
 	}
 	return nil
@@ -266,10 +266,10 @@ func (b *Builder) wrapOccurs(n node, min, max int) node {
 		return newStar(n, b.size)
 	case min >= 1:
 		// min >= 1 with bounded max - use plus (not nullable)
-		// Counting constraints handle the actual min/max
+		// counting constraints handle the actual min/max
 		return newPlus(n, b.size)
 	default:
-		// Fallback (shouldn't reach here normally)
+		// fallback (shouldn't reach here normally)
 		return newPlus(n, b.size)
 	}
 }
@@ -284,10 +284,10 @@ func (b *Builder) buildSymbols() {
 		if p == nil {
 			continue
 		}
-		// Completion positions (Particle == nil) need a special symbol
+		// completion positions (Particle == nil) need a special symbol
 		var key string
 		if p.Particle == nil {
-			// This is a group completion position - use unique key
+			// this is a group completion position - use unique key
 			key = fmt.Sprintf("__group_completion_%d", i)
 		} else {
 			key = symbolKey(p.Particle, p.AllowSubstitution)
@@ -297,9 +297,9 @@ func (b *Builder) buildSymbols() {
 			idx = len(b.symbols)
 			seen[key] = idx
 			if p.Particle == nil {
-				// Use a dummy symbol that won't match any element
+				// use a dummy symbol that won't match any element
 				b.symbols = append(b.symbols, Symbol{
-					Kind:  KindAny, // Use KindAny as a placeholder - it won't match elements
+					Kind:  KindAny, // use KindAny as a placeholder - it won't match elements
 					QName: types.QName{Local: fmt.Sprintf("__group_completion_%d", i)},
 				})
 			} else {
@@ -324,7 +324,7 @@ func (b *Builder) construct() (*Automaton, error) {
 		trans:           [][]int{b.newTransRow()},
 		accepting:       []bool{initial.test(b.endPos)},
 		counting:        []*Counter{nil},
-		emptyOK:         initial.test(b.endPos), // Empty is OK if initial state is accepting
+		emptyOK:         initial.test(b.endPos), // empty is OK if initial state is accepting
 		symbolMin:       b.symbolMin,
 		symbolMax:       b.symbolMax,
 		targetNamespace: b.targetNamespace,
@@ -381,23 +381,23 @@ func (b *Builder) setCounter(a *Automaton, stateID int, state *bitset) {
 		if pos >= len(b.positions) || b.positions[pos] == nil {
 			return
 		}
-		// Check if this is a group completion position
+		// check if this is a group completion position
 		if groupInfo, isGroupCompletion := b.groupCounters[pos]; isGroupCompletion {
-			// Collect the symbol indices for completion positions (lastPos)
+			// collect the symbol indices for completion positions (lastPos)
 			var completionSymbols []int
 			for _, completionPos := range groupInfo.LastPositions {
 				if completionPos < len(b.posSymbol) {
 					completionSymbols = append(completionSymbols, b.posSymbol[completionPos])
 				}
 			}
-			// Collect the symbol indices for start positions (firstPos)
+			// collect the symbol indices for start positions (firstPos)
 			var startSymbols []int
 			for _, startPos := range groupInfo.FirstPositions {
 				if startPos < len(b.posSymbol) {
 					startSymbols = append(startSymbols, b.posSymbol[startPos])
 				}
 			}
-			// Use GroupID as the counter key so all states share the same counter
+			// use GroupID as the counter key so all states share the same counter
 			unitSize := 0
 			if groupInfo.UnitSize > 0 && len(startSymbols) == 1 && len(completionSymbols) == 1 && startSymbols[0] == completionSymbols[0] {
 				if startSymbols[0] >= 0 && startSymbols[0] < len(b.symbolPositionCounts) && b.symbolPositionCounts[startSymbols[0]] == 1 {
@@ -604,7 +604,7 @@ func (b *Builder) makeSymbol(p types.Particle, allowSubstitution bool) Symbol {
 	case *types.ElementDecl:
 		qname := v.Name
 		if !b.isElementQualified(v) {
-			// Unqualified local elements should match elements with no namespace
+			// unqualified local elements should match elements with no namespace
 			qname = types.QName{Namespace: "", Local: v.Name.Local}
 		}
 		return Symbol{Kind: KindElement, QName: qname, AllowSubstitution: allowSubstitution}
@@ -622,7 +622,7 @@ func (b *Builder) makeSymbol(p types.Particle, allowSubstitution bool) Symbol {
 			// ##local - matches empty namespace
 			return Symbol{Kind: KindAnyNS, NS: ""}
 		case types.NSCList:
-			// Explicit namespace list - only elements from listed namespaces match
+			// explicit namespace list - only elements from listed namespaces match
 			nsList := make([]string, len(v.NamespaceList))
 			for i, ns := range v.NamespaceList {
 				nsList[i] = string(ns)
