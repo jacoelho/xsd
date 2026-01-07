@@ -270,9 +270,9 @@ func ParseDurationToTimeDuration(s string) (time.Duration, error) {
 
 	datePart := s
 	timePart := ""
-	if idx := strings.IndexByte(s, 'T'); idx != -1 {
-		datePart = s[:idx]
-		timePart = s[idx+1:]
+	if before, after, ok := strings.Cut(s, "T"); ok {
+		datePart = before
+		timePart = after
 		if strings.IndexByte(timePart, 'T') != -1 {
 			return 0, fmt.Errorf("invalid duration format: multiple T separators")
 		}
@@ -477,9 +477,9 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 
 	datePart := s
 	timePart := ""
-	if idx := strings.IndexByte(s, 'T'); idx != -1 {
-		datePart = s[:idx]
-		timePart = s[idx+1:]
+	if before, after, ok := strings.Cut(s, "T"); ok {
+		datePart = before
+		timePart = after
 		if strings.IndexByte(timePart, 'T') != -1 {
 			return XSDDuration{}, fmt.Errorf("invalid duration format: multiple T separators")
 		}

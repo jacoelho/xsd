@@ -39,10 +39,9 @@ func BenchmarkPain008Validate(b *testing.B) {
 
 	b.ReportAllocs()
 	b.SetBytes(int64(len(xmlBytes)))
-	b.ResetTimer()
 
 	reader := bytes.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		reader.Reset(xmlBytes)
 		if err := schema.Validate(reader); err != nil {
 			b.Fatal(err)
@@ -54,9 +53,8 @@ func BenchmarkPain008Load(b *testing.B) {
 	schemaBytes := []byte(pain008Schema)
 
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		fsys := fstest.MapFS{
 			"pain.008.001.02.xsd": &fstest.MapFile{Data: schemaBytes},
 		}

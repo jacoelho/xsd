@@ -571,9 +571,9 @@ func parseDurationParts(value string) (int, float64, error) {
 
 	datePart := value
 	timePart := ""
-	if idx := strings.IndexByte(value, 'T'); idx != -1 {
-		datePart = value[:idx]
-		timePart = value[idx+1:]
+	if before, after, ok := strings.Cut(value, "T"); ok {
+		datePart = before
+		timePart = after
 		if extra := strings.IndexByte(timePart, 'T'); extra != -1 {
 			timePart = timePart[:extra]
 		}

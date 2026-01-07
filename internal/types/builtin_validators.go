@@ -521,9 +521,9 @@ func parseDuration(s string) (time.Duration, error) {
 
 	datePart := s
 	timePart := ""
-	if idx := strings.IndexByte(s, 'T'); idx != -1 {
-		datePart = s[:idx]
-		timePart = s[idx+1:]
+	if before, after, ok := strings.Cut(s, "T"); ok {
+		datePart = before
+		timePart = after
 		if extra := strings.IndexByte(timePart, 'T'); extra != -1 {
 			timePart = timePart[:extra]
 		}
@@ -611,7 +611,7 @@ func parseFixedDigits(value string, start, length int) (int, bool) {
 		return 0, false
 	}
 	n := 0
-	for i := 0; i < length; i++ {
+	for i := range length {
 		ch := value[start+i]
 		if ch < '0' || ch > '9' {
 			return 0, false
