@@ -247,3 +247,71 @@ func (c *Compiler) collectAllGroupElements(particles []*grammar.CompiledParticle
 	}
 	return elements
 }
+
+func (c *Compiler) populateContentModelCaches(cm *grammar.CompiledContentModel) {
+	if cm == nil || len(cm.Particles) == 0 {
+		return
+	}
+	cm.ElementIndex = c.indexContentModelElements(cm.Particles)
+	cm.SimpleSequence, cm.IsSimpleSequence = c.flattenSequenceParticles(cm.Particles, nil)
+}
+
+func (c *Compiler) indexContentModelElements(particles []*grammar.CompiledParticle) map[types.QName]*grammar.CompiledElement {
+	var decls map[types.QName]*grammar.CompiledElement
+	var walk func(items []*grammar.CompiledParticle)
+	walk = func(items []*grammar.CompiledParticle) {
+		for _, particle := range items {
+			if particle == nil {
+				continue
+			}
+			switch particle.Kind {
+			case grammar.ParticleElement:
+				if particle.Element == nil {
+					continue
+				}
+				qname := particle.Element.EffectiveQName
+				if qname.IsZero() {
+					qname = particle.Element.QName
+				}
+				if decls == nil {
+					decls = make(map[types.QName]*grammar.CompiledElement)
+				}
+				if existing, ok := decls[qname]; ok && existing != particle.Element {
+					decls[qname] = nil
+					continue
+				}
+				decls[qname] = particle.Element
+			case grammar.ParticleGroup:
+				walk(particle.Children)
+			}
+		}
+	}
+	walk(particles)
+	return decls
+}
+
+func (c *Compiler) flattenSequenceParticles(particles []*grammar.CompiledParticle, out []*grammar.CompiledParticle) ([]*grammar.CompiledParticle, bool) {
+	for _, particle := range particles {
+		if particle == nil {
+			return nil, false
+		}
+		switch particle.Kind {
+		case grammar.ParticleElement:
+			out = append(out, particle)
+		case grammar.ParticleGroup:
+			if particle.GroupKind != types.Sequence {
+				return nil, false
+			}
+			var ok bool
+			out, ok = c.flattenSequenceParticles(particle.Children, out)
+			if !ok {
+				return nil, false
+			}
+		case grammar.ParticleWildcard:
+			return nil, false
+		default:
+			return nil, false
+		}
+	}
+	return out, true
+}

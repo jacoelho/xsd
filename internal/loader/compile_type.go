@@ -206,6 +206,10 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, ct *types.
 		}
 	}
 
+	if compiled.ContentModel != nil {
+		c.populateContentModelCaches(compiled.ContentModel)
+	}
+
 	// for simpleContent, set up text content validation type
 	if sc, ok := ct.Content().(*types.SimpleContent); ok {
 		c.setupSimpleContentType(compiled, sc)

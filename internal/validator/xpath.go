@@ -33,20 +33,20 @@ type KeyResult struct {
 }
 
 // evaluateSelectorWithNS evaluates a selector XPath with namespace context for prefix resolution.
-func (r *validationRun) evaluateSelectorWithNS(root xml.Element, expr string, nsContext map[string]string) []xml.Element {
-	evaluator := xpath.New(r.root)
+func (r *validationRun) evaluateSelectorWithNS(root xml.NodeID, expr string, nsContext map[string]string) []xml.NodeID {
+	evaluator := xpath.New(r.doc, r.root)
 	return evaluator.SelectWithNS(root, expr, nsContext)
 }
 
 // evaluateSelector evaluates a simple XPath selector.
-func (r *validationRun) evaluateSelector(root xml.Element, expr string) []xml.Element {
-	evaluator := xpath.New(r.root)
+func (r *validationRun) evaluateSelector(root xml.NodeID, expr string) []xml.NodeID {
+	evaluator := xpath.New(r.doc, r.root)
 	return evaluator.Select(root, expr)
 }
 
 // extractKeyValueWithNS extracts a key value from an element using field XPath expressions,
 // with namespace prefix resolution from the schema context.
-func (r *validationRun) extractKeyValueWithNS(elem xml.Element, fields []types.Field, nsContext map[string]string) KeyResult {
+func (r *validationRun) extractKeyValueWithNS(elem xml.NodeID, fields []types.Field, nsContext map[string]string) KeyResult {
 	if len(fields) == 0 {
 		return KeyResult{State: KeyAbsent}
 	}
@@ -76,11 +76,11 @@ func (r *validationRun) extractKeyValueWithNS(elem xml.Element, fields []types.F
 // Per XSD spec, values of different types are always considered distinct.
 // Values of numeric types (decimal, integer, etc.) are normalized to canonical form.
 // String values are compared lexically without normalization.
-func (r *validationRun) normalizeKeyValue(value string, field types.Field, elem xml.Element, nsContext map[string]string) KeyResult {
+func (r *validationRun) normalizeKeyValue(value string, field types.Field, elem xml.NodeID, nsContext map[string]string) KeyResult {
 	expr := strings.TrimSpace(field.XPath)
 	targetElem, isAttribute, attrNameFromPath, attrPath := r.resolveKeyTarget(elem, expr, nsContext)
 
-	if targetElem != nil && !isAttribute {
+	if targetElem != xml.InvalidNode && !isAttribute {
 		if decl := r.lookupElementDecl(targetElem); decl != nil && decl.Type != nil {
 			if !decl.Type.AllowsText() {
 				return KeyResult{State: KeyInvalid}
@@ -108,7 +108,7 @@ func (r *validationRun) normalizeKeyValue(value string, field types.Field, elem 
 			return KeyResult{Value: value, State: KeyValid}
 		}
 		attrQName = resolvedQName
-		if targetElem != nil {
+		if targetElem != xml.InvalidNode {
 			decl := r.lookupElementDecl(targetElem)
 			attrDecl = decl
 			if decl != nil && decl.Type != nil {
@@ -149,7 +149,7 @@ func (r *validationRun) normalizeKeyValue(value string, field types.Field, elem 
 	return KeyResult{Value: value, State: KeyValid}
 }
 
-func (r *validationRun) resolveKeyTarget(elem xml.Element, expr string, nsContext map[string]string) (xml.Element, bool, string, bool) {
+func (r *validationRun) resolveKeyTarget(elem xml.NodeID, expr string, nsContext map[string]string) (xml.NodeID, bool, string, bool) {
 	elementPath, attrNameFromPath, attrPath := splitFieldAttributeXPath(expr)
 	isAttribute := strings.HasPrefix(expr, "@") || strings.HasPrefix(expr, "attribute::") || attrPath
 
@@ -160,7 +160,7 @@ func (r *validationRun) resolveKeyTarget(elem xml.Element, expr string, nsContex
 	if isAttribute {
 		if attrPath {
 			elementPath = normalizeAttributeElementPath(elementPath)
-			var selected []xml.Element
+			var selected []xml.NodeID
 			if nsContext != nil {
 				selected = r.evaluateSelectorWithNS(elem, elementPath, nsContext)
 			} else {
@@ -169,7 +169,7 @@ func (r *validationRun) resolveKeyTarget(elem xml.Element, expr string, nsContex
 			if len(selected) > 0 {
 				return selected[0], isAttribute, attrNameFromPath, attrPath
 			}
-			return nil, isAttribute, attrNameFromPath, attrPath
+			return xml.InvalidNode, isAttribute, attrNameFromPath, attrPath
 		}
 		return elem, isAttribute, attrNameFromPath, attrPath
 	}
@@ -179,16 +179,16 @@ func (r *validationRun) resolveKeyTarget(elem xml.Element, expr string, nsContex
 		if len(selected) > 0 {
 			return selected[0], isAttribute, attrNameFromPath, attrPath
 		}
-		return nil, isAttribute, attrNameFromPath, attrPath
+		return xml.InvalidNode, isAttribute, attrNameFromPath, attrPath
 	}
 	selected := r.evaluateSelector(elem, expr)
 	if len(selected) > 0 {
 		return selected[0], isAttribute, attrNameFromPath, attrPath
 	}
-	return nil, isAttribute, attrNameFromPath, attrPath
+	return xml.InvalidNode, isAttribute, attrNameFromPath, attrPath
 }
 
-func (r *validationRun) resolveAttributeQName(attrName string, targetElem xml.Element, nsContext map[string]string) (types.QName, bool) {
+func (r *validationRun) resolveAttributeQName(attrName string, targetElem xml.NodeID, nsContext map[string]string) (types.QName, bool) {
 	attrNamespace := types.NamespaceURI("")
 	attrLocal := attrName
 	if idx := strings.Index(attrName, ":"); idx > 0 {
@@ -200,7 +200,7 @@ func (r *validationRun) resolveAttributeQName(attrName string, targetElem xml.El
 				return types.QName{}, false
 			}
 			attrNamespace = types.NamespaceURI(nsURI)
-		} else if targetElem != nil {
+		} else if targetElem != xml.InvalidNode {
 			nsURI := r.lookupNamespaceURI(targetElem, prefix)
 			if nsURI == "" {
 				return types.QName{}, false
@@ -211,7 +211,7 @@ func (r *validationRun) resolveAttributeQName(attrName string, targetElem xml.El
 	return types.QName{Namespace: attrNamespace, Local: attrLocal}, true
 }
 
-func (r *validationRun) resolveKeyFieldType(field types.Field, targetElem xml.Element, isAttribute bool, attrQName types.QName, attrDecl *grammar.CompiledElement, attrDeclared bool) (types.Type, KeyState) {
+func (r *validationRun) resolveKeyFieldType(field types.Field, targetElem xml.NodeID, isAttribute bool, attrQName types.QName, attrDecl *grammar.CompiledElement, attrDeclared bool) (types.Type, KeyState) {
 	var fieldType types.Type
 	if field.ResolvedType != nil {
 		fieldType = field.ResolvedType
@@ -235,8 +235,8 @@ func (r *validationRun) resolveKeyFieldType(field types.Field, targetElem xml.El
 	// this is important for:
 	// 1. anySimpleType where instance specifies actual type
 	// 2. any other case where runtime type differs from schema type
-	if targetElem != nil {
-		xsiType := targetElem.GetAttributeNS("http://www.w3.org/2001/XMLSchema-instance", "type")
+	if targetElem != xml.InvalidNode {
+		xsiType := r.doc.GetAttributeNS(targetElem, "http://www.w3.org/2001/XMLSchema-instance", "type")
 		if xsiType != "" {
 			if resolvedXsiType := r.lookupTypeFromXsiType(targetElem, xsiType); resolvedXsiType != nil {
 				fieldType = resolvedXsiType
@@ -244,7 +244,7 @@ func (r *validationRun) resolveKeyFieldType(field types.Field, targetElem xml.El
 		}
 	}
 
-	if fieldType == nil && targetElem != nil {
+	if fieldType == nil && targetElem != xml.InvalidNode {
 		if decl := r.lookupElementDecl(targetElem); decl != nil && decl.Type != nil {
 			fieldType = decl.Type.Original
 		}
@@ -254,7 +254,7 @@ func (r *validationRun) resolveKeyFieldType(field types.Field, targetElem xml.El
 }
 
 // lookupTypeFromXsiType resolves an xsi:type attribute value to a types.Type for identity constraint comparison.
-func (r *validationRun) lookupTypeFromXsiType(elem xml.Element, xsiTypeValue string) types.Type {
+func (r *validationRun) lookupTypeFromXsiType(elem xml.NodeID, xsiTypeValue string) types.Type {
 	qname, err := r.parseQNameValue(elem, xsiTypeValue)
 	if err != nil {
 		return nil
@@ -272,10 +272,10 @@ func (r *validationRun) lookupTypeFromXsiType(elem xml.Element, xsiTypeValue str
 	return nil
 }
 
-func (r *validationRun) lookupAttributeDefault(elem xml.Element, attrQName types.QName) (string, bool) {
+func (r *validationRun) lookupAttributeDefault(elem xml.NodeID, attrQName types.QName) (string, bool) {
 	elemQName := types.QName{
-		Namespace: types.NamespaceURI(elem.NamespaceURI()),
-		Local:     elem.LocalName(),
+		Namespace: types.NamespaceURI(r.doc.NamespaceURI(elem)),
+		Local:     r.doc.LocalName(elem),
 	}
 	decl := r.schema.Element(elemQName)
 	if decl == nil {
@@ -298,10 +298,10 @@ func (r *validationRun) lookupAttributeDefault(elem xml.Element, attrQName types
 	return "", false
 }
 
-func (r *validationRun) lookupElementDecl(elem xml.Element) *grammar.CompiledElement {
+func (r *validationRun) lookupElementDecl(elem xml.NodeID) *grammar.CompiledElement {
 	elemQName := types.QName{
-		Namespace: types.NamespaceURI(elem.NamespaceURI()),
-		Local:     elem.LocalName(),
+		Namespace: types.NamespaceURI(r.doc.NamespaceURI(elem)),
+		Local:     r.doc.LocalName(elem),
 	}
 	decl := r.schema.Element(elemQName)
 	if decl == nil {
@@ -313,7 +313,7 @@ func (r *validationRun) lookupElementDecl(elem xml.Element) *grammar.CompiledEle
 // normalizeValueByType normalizes a value according to its XSD type.
 // Returns the value prefixed with type identifier for proper comparison.
 // Per XSD spec, values of different primitive types are never equal (disjoint value spaces).
-func (r *validationRun) normalizeValueByType(value string, fieldType types.Type, elem xml.Element) string {
+func (r *validationRun) normalizeValueByType(value string, fieldType types.Type, elem xml.NodeID) string {
 	var primitiveName string
 	if bt, ok := fieldType.(*types.BuiltinType); ok {
 		if pt := bt.PrimitiveType(); pt != nil {
@@ -374,14 +374,14 @@ func (r *validationRun) normalizeValueByType(value string, fieldType types.Type,
 }
 
 // evaluateFieldWithNS evaluates a field XPath expression with namespace prefix resolution.
-func (r *validationRun) evaluateFieldWithNS(elem xml.Element, expr string, nsContext map[string]string) string {
+func (r *validationRun) evaluateFieldWithNS(elem xml.NodeID, expr string, nsContext map[string]string) string {
 	value, _ := r.evaluateFieldWithCountNS(elem, expr, nsContext)
 	return value
 }
 
 // evaluateFieldWithCountNS evaluates a field XPath expression with namespace prefix resolution,
 // returning both the value and the count of matching nodes.
-func (r *validationRun) evaluateFieldWithCountNS(elem xml.Element, expr string, nsContext map[string]string) (string, int) {
+func (r *validationRun) evaluateFieldWithCountNS(elem xml.NodeID, expr string, nsContext map[string]string) (string, int) {
 	expr = strings.TrimSpace(expr)
 
 	// handle XPath union expressions (path1|path2|path3)
@@ -401,7 +401,7 @@ func (r *validationRun) evaluateFieldWithCountNS(elem xml.Element, expr string, 
 	}
 
 	if expr == "." || expr == "" {
-		return strings.TrimSpace(elem.TextContent()), 1
+		return strings.TrimSpace(r.doc.TextContent(elem)), 1
 	}
 
 	if elementPath, attrName, ok := splitFieldAttributeXPath(expr); ok {
@@ -427,7 +427,7 @@ func (r *validationRun) evaluateFieldWithCountNS(elem xml.Element, expr string, 
 				if localName == "*" {
 					var firstValue string
 					count := 0
-					for _, attr := range elem.Attributes() {
+					for _, attr := range r.doc.Attributes(elem) {
 						if attr.NamespaceURI() == nsURI {
 							count++
 							if firstValue == "" {
@@ -440,7 +440,7 @@ func (r *validationRun) evaluateFieldWithCountNS(elem xml.Element, expr string, 
 					}
 					return "", 0
 				}
-				for _, attr := range elem.Attributes() {
+				for _, attr := range r.doc.Attributes(elem) {
 					if attr.LocalName() == localName && attr.NamespaceURI() == nsURI {
 						return attr.Value(), 1
 					}
@@ -453,15 +453,15 @@ func (r *validationRun) evaluateFieldWithCountNS(elem xml.Element, expr string, 
 		}
 
 		if attrName == "*" {
-			attrs := elem.Attributes()
+			attrs := r.doc.Attributes(elem)
 			if len(attrs) == 0 {
 				return "", 0
 			}
 			return attrs[0].Value(), len(attrs)
 		}
 
-		value := elem.GetAttribute(attrName)
-		if value != "" || elem.HasAttribute(attrName) {
+		value := r.doc.GetAttribute(elem, attrName)
+		if value != "" || r.doc.HasAttribute(elem, attrName) {
 			return value, 1
 		}
 		if defaultValue, ok := r.lookupAttributeDefault(elem, types.QName{Local: attrName}); ok {
@@ -474,7 +474,7 @@ func (r *validationRun) evaluateFieldWithCountNS(elem xml.Element, expr string, 
 	if len(selectedElements) == 0 {
 		return "", 0
 	}
-	return strings.TrimSpace(selectedElements[0].TextContent()), len(selectedElements)
+	return strings.TrimSpace(r.doc.TextContent(selectedElements[0])), len(selectedElements)
 }
 
 func splitFieldAttributeXPath(expr string) (string, string, bool) {
@@ -502,7 +502,7 @@ func normalizeAttributeElementPath(path string) string {
 	return path
 }
 
-func (r *validationRun) evaluateAttributeSelection(elements []xml.Element, attrName string, nsContext map[string]string) (string, int) {
+func (r *validationRun) evaluateAttributeSelection(elements []xml.NodeID, attrName string, nsContext map[string]string) (string, int) {
 	attrName = strings.TrimSpace(attrName)
 	if attrName == "" {
 		return "", 0
@@ -512,7 +512,7 @@ func (r *validationRun) evaluateAttributeSelection(elements []xml.Element, attrN
 		var firstValue string
 		count := 0
 		for _, elem := range elements {
-			attrs := elem.Attributes()
+			attrs := r.doc.Attributes(elem)
 			if len(attrs) == 0 {
 				continue
 			}
@@ -530,8 +530,8 @@ func (r *validationRun) evaluateAttributeSelection(elements []xml.Element, attrN
 		count := 0
 		for _, elem := range elements {
 			if hasPrefix {
-				value := elem.GetAttribute(attrName)
-				if value != "" || elem.HasAttribute(attrName) {
+				value := r.doc.GetAttribute(elem, attrName)
+				if value != "" || r.doc.HasAttribute(elem, attrName) {
 					if firstValue == "" {
 						firstValue = value
 					}
@@ -539,8 +539,8 @@ func (r *validationRun) evaluateAttributeSelection(elements []xml.Element, attrN
 					continue
 				}
 			} else {
-				value := elem.GetAttribute(local)
-				if value != "" || elem.HasAttribute(local) {
+				value := r.doc.GetAttribute(elem, local)
+				if value != "" || r.doc.HasAttribute(elem, local) {
 					if firstValue == "" {
 						firstValue = value
 					}
@@ -566,7 +566,7 @@ func (r *validationRun) evaluateAttributeSelection(elements []xml.Element, attrN
 	var firstValue string
 	count := 0
 	for _, elem := range elements {
-		for _, attr := range elem.Attributes() {
+		for _, attr := range r.doc.Attributes(elem) {
 			if attr.NamespaceURI() != nsURI {
 				continue
 			}
@@ -592,7 +592,7 @@ func (r *validationRun) evaluateAttributeSelection(elements []xml.Element, attrN
 
 // normalizeQName normalizes a QName value by resolving the namespace prefix to a URI.
 // Returns the normalized form "{namespaceURI}local" for comparison.
-func (r *validationRun) normalizeQName(value string, elem xml.Element) string {
-	evaluator := xpath.New(r.root)
+func (r *validationRun) normalizeQName(value string, elem xml.NodeID) string {
+	evaluator := xpath.New(r.doc, r.root)
 	return evaluator.NormalizeQName(value, elem)
 }

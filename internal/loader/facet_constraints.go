@@ -405,14 +405,15 @@ func validateEnumerationValues(facetList []facets.Facet, baseType types.Type) er
 				return nil
 			}
 			for _, enumVal := range enumValues {
-				items := strings.Fields(enumVal)
-				if len(items) == 0 {
-					return fmt.Errorf("enumeration value %q must contain at least one list item", enumVal)
-				}
-				for _, item := range items {
+				found := false
+				for item := range strings.FieldsSeq(enumVal) {
+					found = true
 					if err := validateListItemValue(itemType, item); err != nil {
 						return fmt.Errorf("enumeration value %q contains invalid list item %q: %w", enumVal, item, err)
 					}
+				}
+				if !found {
+					return fmt.Errorf("enumeration value %q must contain at least one list item", enumVal)
 				}
 			}
 			return nil
@@ -435,14 +436,15 @@ func validateEnumerationValues(facetList []facets.Facet, baseType types.Type) er
 				return nil
 			}
 			for _, enumVal := range enumValues {
-				items := strings.Fields(enumVal)
-				if len(items) == 0 {
-					return fmt.Errorf("enumeration value %q must contain at least one list item", enumVal)
-				}
-				for _, item := range items {
+				found := false
+				for item := range strings.FieldsSeq(enumVal) {
+					found = true
 					if err := validateListItemValue(itemType, item); err != nil {
 						return fmt.Errorf("enumeration value %q contains invalid list item %q: %w", enumVal, item, err)
 					}
+				}
+				if !found {
+					return fmt.Errorf("enumeration value %q must contain at least one list item", enumVal)
 				}
 			}
 			return nil

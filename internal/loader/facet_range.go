@@ -204,7 +204,7 @@ func validateRangeFacetValues(minExclusive, maxExclusive, minInclusive, maxInclu
 			// collapse: replace sequences of whitespace with single space, trim leading/trailing
 			val = strings.TrimSpace(val)
 			// replace multiple whitespace with single space
-			return strings.Join(strings.Fields(val), " ")
+			return joinFields(val)
 		case types.WhiteSpaceReplace:
 			// replace: replace all whitespace chars with spaces
 			return strings.Map(func(r rune) rune {
@@ -244,6 +244,19 @@ func validateRangeFacetValues(minExclusive, maxExclusive, minInclusive, maxInclu
 	}
 
 	return nil
+}
+
+func joinFields(value string) string {
+	var b strings.Builder
+	first := true
+	for field := range strings.FieldsSeq(value) {
+		if !first {
+			b.WriteByte(' ')
+		}
+		first = false
+		b.WriteString(field)
+	}
+	return b.String()
 }
 
 // findBuiltinAncestor walks up the type hierarchy to find the nearest built-in type
@@ -556,11 +569,14 @@ func parseDurationParts(value string) (int, float64, error) {
 	var years, months, days, hours, minutes int
 	var seconds float64
 
-	parts := strings.Split(value, "T")
-	datePart := parts[0]
+	datePart := value
 	timePart := ""
-	if len(parts) > 1 {
-		timePart = parts[1]
+	if idx := strings.IndexByte(value, 'T'); idx != -1 {
+		datePart = value[:idx]
+		timePart = value[idx+1:]
+		if extra := strings.IndexByte(timePart, 'T'); extra != -1 {
+			timePart = timePart[:extra]
+		}
 	}
 
 	datePattern := regexp.MustCompile(`([0-9]+)Y|([0-9]+)M|([0-9]+)D`)

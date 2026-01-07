@@ -16,6 +16,8 @@ const (
 
 type whiteSpaceNormalizer struct{}
 
+var whiteSpaceReplacer = strings.NewReplacer("\t", " ", "\r", " ", "\n", " ")
+
 func (n whiteSpaceNormalizer) Normalize(value string, typ Type) (string, error) {
 	if typ == nil {
 		return value, nil
@@ -51,8 +53,7 @@ func NormalizeWhiteSpace(value string, typ Type) string {
 }
 
 func replaceWhiteSpace(value string) string {
-	replacer := strings.NewReplacer("\t", " ", "\r", " ", "\n", " ")
-	return replacer.Replace(value)
+	return whiteSpaceReplacer.Replace(value)
 }
 
 func collapseWhiteSpace(value string) string {

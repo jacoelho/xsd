@@ -17,37 +17,37 @@ func TestParse(t *testing.T) {
 	}
 
 	root := doc.DocumentElement()
-	if root == nil {
-		t.Fatal("DocumentElement() returned nil")
+	if root == InvalidNode {
+		t.Fatal("DocumentElement() returned invalid node")
 	}
 
-	if root.LocalName() != "root" {
-		t.Errorf("root LocalName() = %v, want %v", root.LocalName(), "root")
+	if doc.LocalName(root) != "root" {
+		t.Errorf("root LocalName() = %v, want %v", doc.LocalName(root), "root")
 	}
 
-	if root.NamespaceURI() != "http://example.com" {
-		t.Errorf("root NamespaceURI() = %v, want %v", root.NamespaceURI(), "http://example.com")
+	if doc.NamespaceURI(root) != "http://example.com" {
+		t.Errorf("root NamespaceURI() = %v, want %v", doc.NamespaceURI(root), "http://example.com")
 	}
 
-	children := root.Children()
+	children := doc.Children(root)
 	if len(children) != 2 {
 		t.Fatalf("root has %d children, want 2", len(children))
 	}
 
 	child := children[0]
-	if child.LocalName() != "child" {
-		t.Errorf("child LocalName() = %v, want %v", child.LocalName(), "child")
+	if doc.LocalName(child) != "child" {
+		t.Errorf("child LocalName() = %v, want %v", doc.LocalName(child), "child")
 	}
 
-	if !child.HasAttribute("attr") {
+	if !doc.HasAttribute(child, "attr") {
 		t.Error("child should have 'attr' attribute")
 	}
 
-	if got := child.GetAttribute("attr"); got != "value" {
+	if got := doc.GetAttribute(child, "attr"); got != "value" {
 		t.Errorf("GetAttribute(attr) = %v, want %v", got, "value")
 	}
 
-	if got := child.TextContent(); got != "text content" {
+	if got := doc.TextContent(child); got != "text content" {
 		t.Errorf("TextContent() = %v, want %v", got, "text content")
 	}
 }
@@ -61,7 +61,7 @@ func TestElement_Attributes(t *testing.T) {
 	}
 
 	root := doc.DocumentElement()
-	attrs := root.Attributes()
+	attrs := doc.Attributes(root)
 
 	if len(attrs) < 2 {
 		t.Errorf("Attributes() returned %d attributes, want at least 2", len(attrs))
@@ -93,7 +93,7 @@ func TestTextContent(t *testing.T) {
 	}
 
 	root := doc.DocumentElement()
-	content := root.TextContent()
+	content := doc.TextContent(root)
 
 	if !strings.Contains(content, "text 1") {
 		t.Errorf("TextContent() = %q, should contain 'text 1'", content)

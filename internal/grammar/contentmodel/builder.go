@@ -2,6 +2,7 @@ package contentmodel
 
 import (
 	"fmt"
+	"math/bits"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/types"
@@ -37,7 +38,7 @@ type Builder struct {
 	subGroups          map[types.QName]any // []*grammar.CompiledElement
 	targetNamespace    string              // Schema target namespace for wildcard matching
 	elementFormDefault bool                // true if elementFormDefault="qualified"
-	symbolIndexByKey   map[string]int
+	symbolIndexByKey   map[symbolKey]int
 
 	// Construction state
 	root                 node
@@ -51,6 +52,9 @@ type Builder struct {
 	symbolMax            []int
 	symbolPositionCounts []int
 	groupCounters        map[int]*GroupCounterInfo // position index -> group counter info
+	rangeMapPool         []map[int]occRange
+	countMapPool         []map[int]int
+	bitsetPool           []*bitset
 }
 
 // NewBuilder creates a builder for the given content model.
@@ -276,8 +280,9 @@ func (b *Builder) wrapOccurs(n node, min, max int) node {
 
 // buildSymbols creates the symbol alphabet.
 func (b *Builder) buildSymbols() {
-	seen := make(map[string]int)
+	seen := make(map[symbolKey]int, b.endPos)
 	b.posSymbol = make([]int, b.size)
+	b.symbols = make([]Symbol, 0, b.endPos)
 
 	for i := 0; i < b.endPos; i++ {
 		p := b.positions[i]
@@ -285,12 +290,12 @@ func (b *Builder) buildSymbols() {
 			continue
 		}
 		// completion positions (Particle == nil) need a special symbol
-		var key string
+		var key symbolKey
 		if p.Particle == nil {
 			// this is a group completion position - use unique key
-			key = fmt.Sprintf("__group_completion_%d", i)
+			key = symbolKey{kind: symbolKeyGroupCompletion, groupID: i}
 		} else {
-			key = symbolKey(p.Particle, p.AllowSubstitution)
+			key = symbolKeyForParticle(p.Particle, p.AllowSubstitution)
 		}
 		idx, ok := seen[key]
 		if !ok {
@@ -313,17 +318,30 @@ func (b *Builder) buildSymbols() {
 
 // construct performs subset construction to build the DFA.
 func (b *Builder) construct() (*Automaton, error) {
-	initial := b.root.firstPos()
+	initial := b.getWorkBitset()
+	initial.or(b.root.firstPos())
 
-	stateIDs := make(map[string]int)
-	stateIDs[initial.String()] = 0
-	worklist := []*bitset{initial}
+	type workItem struct {
+		set *bitset
+		id  int
+	}
+
+	stateIDs := make(map[string]int, b.size)
+	stateIDs[initial.key()] = 0
+	worklist := make([]workItem, 1, b.size)
+	worklist[0] = workItem{set: initial, id: 0}
+
+	trans := make([][]int, 1, b.size)
+	trans[0] = b.newTransRow()
+	accepting := make([]bool, 1, b.size)
+	accepting[0] = initial.test(b.endPos)
+	counting := make([]*Counter, 1, b.size)
 
 	a := &Automaton{
 		symbols:         b.symbols,
-		trans:           [][]int{b.newTransRow()},
-		accepting:       []bool{initial.test(b.endPos)},
-		counting:        []*Counter{nil},
+		trans:           trans,
+		accepting:       accepting,
+		counting:        counting,
 		emptyOK:         initial.test(b.endPos), // empty is OK if initial state is accepting
 		symbolMin:       b.symbolMin,
 		symbolMax:       b.symbolMax,
@@ -331,24 +349,45 @@ func (b *Builder) construct() (*Automaton, error) {
 		groupCounters:   b.groupCounters,
 	}
 
+	nextBySymbol := make([]*bitset, len(b.symbols))
+	usedSymbols := make([]int, 0, len(b.symbols))
+
 	for len(worklist) > 0 {
 		cur := worklist[0]
 		worklist = worklist[1:]
-		curID := stateIDs[cur.String()]
+		curSet := cur.set
+		curID := cur.id
 
-		for symIdx := range b.symbols {
-			next := newBitset(b.size)
-			cur.forEach(func(pos int) {
-				if pos < len(b.posSymbol) && b.posSymbol[pos] == symIdx {
-					next.or(b.followPos[pos])
+		usedSymbols = usedSymbols[:0]
+		for wordIdx, w := range curSet.words {
+			for w != 0 {
+				bit := bits.TrailingZeros64(w)
+				pos := wordIdx*64 + bit
+				if pos < len(b.positions) && b.positions[pos] != nil {
+					symIdx := b.posSymbol[pos]
+					if symIdx >= 0 && symIdx < len(nextBySymbol) {
+						next := nextBySymbol[symIdx]
+						if next == nil {
+							next = newBitset(b.size)
+							nextBySymbol[symIdx] = next
+							usedSymbols = append(usedSymbols, symIdx)
+						}
+						next.or(b.followPos[pos])
+					}
 				}
-			})
+				w &^= 1 << bit
+			}
+		}
 
+		for _, symIdx := range usedSymbols {
+			next := nextBySymbol[symIdx]
 			if next.empty() {
+				b.putWorkBitset(next)
+				nextBySymbol[symIdx] = nil
 				continue
 			}
 
-			key := next.String()
+			key := next.key()
 			nextID, exists := stateIDs[key]
 			if !exists {
 				nextID = len(a.trans)
@@ -356,13 +395,17 @@ func (b *Builder) construct() (*Automaton, error) {
 				a.trans = append(a.trans, b.newTransRow())
 				a.accepting = append(a.accepting, next.test(b.endPos))
 				a.counting = append(a.counting, nil)
-				worklist = append(worklist, next)
+				worklist = append(worklist, workItem{set: next, id: nextID})
+			} else {
+				b.putWorkBitset(next)
 			}
 
 			a.trans[curID][symIdx] = nextID
+			nextBySymbol[symIdx] = nil
 		}
 
-		b.setCounter(a, curID, cur)
+		b.setCounter(a, curID, curSet)
+		b.putWorkBitset(curSet)
 	}
 
 	return a, nil
@@ -437,6 +480,61 @@ type occRange struct {
 	max int
 }
 
+func (b *Builder) getRangeMap() map[int]occRange {
+	n := len(b.rangeMapPool)
+	if n == 0 {
+		return make(map[int]occRange)
+	}
+	m := b.rangeMapPool[n-1]
+	b.rangeMapPool = b.rangeMapPool[:n-1]
+	return m
+}
+
+func (b *Builder) putRangeMap(m map[int]occRange) {
+	if m == nil {
+		return
+	}
+	clear(m)
+	b.rangeMapPool = append(b.rangeMapPool, m)
+}
+
+func (b *Builder) getCountMap() map[int]int {
+	n := len(b.countMapPool)
+	if n == 0 {
+		return make(map[int]int)
+	}
+	m := b.countMapPool[n-1]
+	b.countMapPool = b.countMapPool[:n-1]
+	return m
+}
+
+func (b *Builder) putCountMap(m map[int]int) {
+	if m == nil {
+		return
+	}
+	clear(m)
+	b.countMapPool = append(b.countMapPool, m)
+}
+
+func (b *Builder) getWorkBitset() *bitset {
+	n := len(b.bitsetPool)
+	if n == 0 {
+		return newBitset(b.size)
+	}
+	bs := b.bitsetPool[n-1]
+	b.bitsetPool = b.bitsetPool[:n-1]
+	bs.clear()
+	return bs
+}
+
+func (b *Builder) putWorkBitset(bs *bitset) {
+	if bs == nil {
+		return
+	}
+	bs.clear()
+	b.bitsetPool = append(b.bitsetPool, bs)
+}
+
 func (b *Builder) computeSymbolBounds() ([]int, []int) {
 	bounds := b.symbolBoundsForParticles(b.particles)
 	mins := make([]int, len(b.symbols))
@@ -448,20 +546,19 @@ func (b *Builder) computeSymbolBounds() ([]int, []int) {
 		mins[symIdx] = r.min
 		maxs[symIdx] = r.max
 	}
+	b.putRangeMap(bounds)
 	return mins, maxs
 }
 
 func (b *Builder) symbolBoundsForParticles(particles []*ParticleAdapter) map[int]occRange {
-	result := make(map[int]occRange)
+	result := b.getRangeMap()
 	for _, p := range particles {
 		child := b.symbolBoundsForParticle(p)
-		for key, r := range child {
-			cur := result[key]
-			result[key] = occRange{
-				min: cur.min + r.min,
-				max: sumMax(cur.max, r.max),
-			}
+		if child == nil {
+			continue
 		}
+		mergeSequenceRanges(result, child)
+		b.putRangeMap(child)
 	}
 	return result
 }
@@ -473,24 +570,49 @@ func (b *Builder) symbolBoundsForParticle(p *ParticleAdapter) map[int]occRange {
 		if !ok {
 			return nil
 		}
-		return map[int]occRange{
-			idx: {min: p.MinOccurs, max: p.MaxOccurs},
-		}
+		result := b.getRangeMap()
+		result[idx] = occRange{min: p.MinOccurs, max: p.MaxOccurs}
+		return result
 	case ParticleGroup:
-		var childRanges []map[int]occRange
-		for _, child := range p.Children {
-			childRanges = append(childRanges, b.symbolBoundsForParticle(child))
-		}
 		var combined map[int]occRange
 		switch p.GroupKind {
 		case types.Sequence, types.AllGroup:
-			combined = combineSequenceRanges(childRanges)
+			combined = b.getRangeMap()
+			for _, child := range p.Children {
+				childRanges := b.symbolBoundsForParticle(child)
+				if childRanges == nil {
+					continue
+				}
+				mergeSequenceRanges(combined, childRanges)
+				b.putRangeMap(childRanges)
+			}
 		case types.Choice:
-			combined = combineChoiceRanges(childRanges)
+			combined = b.getRangeMap()
+			counts := b.getCountMap()
+			childCount := 0
+			for _, child := range p.Children {
+				childCount++
+				childRanges := b.symbolBoundsForParticle(child)
+				if childRanges == nil {
+					continue
+				}
+				mergeChoiceRanges(combined, counts, childRanges)
+				b.putRangeMap(childRanges)
+			}
+			finalizeChoiceRanges(combined, counts, childCount)
+			b.putCountMap(counts)
 		default:
-			combined = combineSequenceRanges(childRanges)
+			combined = b.getRangeMap()
+			for _, child := range p.Children {
+				childRanges := b.symbolBoundsForParticle(child)
+				if childRanges == nil {
+					continue
+				}
+				mergeSequenceRanges(combined, childRanges)
+				b.putRangeMap(childRanges)
+			}
 		}
-		return applyGroupOccurs(combined, p.MinOccurs, p.MaxOccurs)
+		return applyGroupOccursInPlace(combined, p.MinOccurs, p.MaxOccurs)
 	default:
 		return nil
 	}
@@ -500,64 +622,63 @@ func (b *Builder) symbolIndexForParticle(p *ParticleAdapter) (int, bool) {
 	if p.Original == nil {
 		return 0, false
 	}
-	key := symbolKey(p.Original, p.AllowSubstitution)
+	key := symbolKeyForParticle(p.Original, p.AllowSubstitution)
 	idx, ok := b.symbolIndexByKey[key]
 	return idx, ok
 }
 
-func combineSequenceRanges(ranges []map[int]occRange) map[int]occRange {
-	result := make(map[int]occRange)
-	for _, r := range ranges {
-		for key, val := range r {
-			cur := result[key]
-			result[key] = occRange{
-				min: cur.min + val.min,
-				max: sumMax(cur.max, val.max),
-			}
+func mergeSequenceRanges(dst, src map[int]occRange) {
+	for key, val := range src {
+		cur := dst[key]
+		dst[key] = occRange{
+			min: cur.min + val.min,
+			max: sumMax(cur.max, val.max),
 		}
 	}
-	return result
 }
 
-func combineChoiceRanges(ranges []map[int]occRange) map[int]occRange {
-	keys := make(map[int]struct{})
-	for _, r := range ranges {
-		for key := range r {
-			keys[key] = struct{}{}
+func mergeChoiceRanges(dst map[int]occRange, counts map[int]int, src map[int]occRange) {
+	for key, val := range src {
+		cur, ok := dst[key]
+		if !ok {
+			dst[key] = occRange{min: val.min, max: val.max}
+		} else {
+			if val.min < cur.min {
+				cur.min = val.min
+			}
+			if cur.max == types.UnboundedOccurs || val.max == types.UnboundedOccurs {
+				cur.max = types.UnboundedOccurs
+			} else if val.max > cur.max {
+				cur.max = val.max
+			}
+			dst[key] = cur
 		}
+		counts[key]++
 	}
-	result := make(map[int]occRange, len(keys))
-	for key := range keys {
-		min := -1
-		max := 0
-		for _, r := range ranges {
-			val, ok := r[key]
-			if !ok {
-				val = occRange{min: 0, max: 0}
-			}
-			if min == -1 || val.min < min {
-				min = val.min
-			}
-			if max == types.UnboundedOccurs || val.max == types.UnboundedOccurs {
-				max = types.UnboundedOccurs
-			} else if val.max > max {
-				max = val.max
-			}
-		}
-		result[key] = occRange{min: min, max: max}
-	}
-	return result
 }
 
-func applyGroupOccurs(ranges map[int]occRange, groupMin, groupMax int) map[int]occRange {
-	result := make(map[int]occRange, len(ranges))
+func finalizeChoiceRanges(dst map[int]occRange, counts map[int]int, childCount int) {
+	if childCount <= 1 {
+		return
+	}
+	for key, r := range dst {
+		if counts[key] < childCount {
+			r.min = 0
+			dst[key] = r
+		}
+	}
+}
+
+func applyGroupOccursInPlace(ranges map[int]occRange, groupMin, groupMax int) map[int]occRange {
+	if ranges == nil || (groupMin == 1 && groupMax == 1) {
+		return ranges
+	}
 	for key, r := range ranges {
-		result[key] = occRange{
-			min: r.min * groupMin,
-			max: multiplyMax(r.max, groupMax),
-		}
+		r.min = r.min * groupMin
+		r.max = multiplyMax(r.max, groupMax)
+		ranges[key] = r
 	}
-	return result
+	return ranges
 }
 
 func sumMax(a, b int) int {
@@ -577,26 +698,60 @@ func multiplyMax(a, b int) int {
 	return a * b
 }
 
+type symbolKeyKind uint8
+
+const (
+	symbolKeyElement symbolKeyKind = iota
+	symbolKeyAny
+	symbolKeyGroupCompletion
+)
+
+type symbolKey struct {
+	kind              symbolKeyKind
+	allowSubstitution bool
+	qname             types.QName
+	wildcardNS        types.NamespaceConstraint
+	wildcardTarget    types.NamespaceURI
+	wildcardList      string
+	groupID           int
+}
+
 // Symbol helpers
-func symbolKey(p types.Particle, allowSubstitution bool) string {
+func symbolKeyForParticle(p types.Particle, allowSubstitution bool) symbolKey {
 	switch v := p.(type) {
 	case *types.ElementDecl:
-		return fmt.Sprintf("e:%t:%s", allowSubstitution, v.Name.String())
+		return symbolKey{
+			kind:              symbolKeyElement,
+			allowSubstitution: allowSubstitution,
+			qname:             v.Name,
+		}
 	case *types.AnyElement:
+		key := symbolKey{
+			kind:           symbolKeyAny,
+			wildcardNS:     v.Namespace,
+			wildcardTarget: v.TargetNamespace,
+		}
 		if v.Namespace == types.NSCList {
-			parts := make([]string, len(v.NamespaceList))
-			for i, ns := range v.NamespaceList {
-				parts[i] = string(ns)
-			}
-			return "a:" + fmt.Sprintf("%d:%s", int(v.Namespace), strings.Join(parts, ","))
+			key.wildcardList = namespaceListKey(v.NamespaceList)
 		}
-		if v.Namespace == types.NSCOther || v.Namespace == types.NSCTargetNamespace {
-			return "a:" + fmt.Sprintf("%d:%s", int(v.Namespace), v.TargetNamespace)
-		}
-		return "a:" + fmt.Sprintf("%d", int(v.Namespace))
+		return key
 	default:
-		return "?"
+		return symbolKey{kind: symbolKeyAny}
 	}
+}
+
+func namespaceListKey(list []types.NamespaceURI) string {
+	if len(list) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	for i, ns := range list {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteString(string(ns))
+	}
+	return sb.String()
 }
 
 func (b *Builder) makeSymbol(p types.Particle, allowSubstitution bool) Symbol {
@@ -623,11 +778,7 @@ func (b *Builder) makeSymbol(p types.Particle, allowSubstitution bool) Symbol {
 			return Symbol{Kind: KindAnyNS, NS: ""}
 		case types.NSCList:
 			// explicit namespace list - only elements from listed namespaces match
-			nsList := make([]string, len(v.NamespaceList))
-			for i, ns := range v.NamespaceList {
-				nsList[i] = string(ns)
-			}
-			return Symbol{Kind: KindAnyNSList, NSList: nsList}
+			return Symbol{Kind: KindAnyNSList, NSList: v.NamespaceList}
 		default:
 			return Symbol{Kind: KindAny}
 		}

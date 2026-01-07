@@ -8,7 +8,7 @@ import (
 
 // NormalizeQName normalizes a QName value by resolving the namespace prefix to a URI.
 // Returns the normalized form "{namespaceURI}local" for comparison.
-func (e *Evaluator) NormalizeQName(value string, elem xml.Element) string {
+func (e *Evaluator) NormalizeQName(value string, elem xml.NodeID) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return ""
@@ -28,13 +28,13 @@ func (e *Evaluator) NormalizeQName(value string, elem xml.Element) string {
 }
 
 // resolveNamespacePrefix resolves a namespace prefix to a URI by walking up the element tree.
-func (e *Evaluator) resolveNamespacePrefix(prefix string, elem xml.Element) string {
+func (e *Evaluator) resolveNamespacePrefix(prefix string, elem xml.NodeID) string {
 	// first check the element itself for namespace declarations.
-	if ns := checkElementNamespace(prefix, elem); ns != "" {
+	if ns := checkElementNamespace(e.doc, prefix, elem); ns != "" {
 		return ns
 	}
 
-	if e.root == nil {
+	if e.root == xml.InvalidNode {
 		return ""
 	}
 
@@ -55,8 +55,8 @@ func (e *Evaluator) resolveNamespacePrefix(prefix string, elem xml.Element) stri
 }
 
 // checkElementNamespace checks namespace declarations on a single element.
-func checkElementNamespace(prefix string, elem xml.Element) string {
-	for _, attr := range elem.Attributes() {
+func checkElementNamespace(doc *xml.Document, prefix string, elem xml.NodeID) string {
+	for _, attr := range doc.Attributes(elem) {
 		attrNS := attr.NamespaceURI()
 		attrLocal := attr.LocalName()
 		attrName := attr.Name()
@@ -79,11 +79,11 @@ func checkElementNamespace(prefix string, elem xml.Element) string {
 }
 
 // collectNamespaces collects namespace declarations along the path from root to target element.
-func (e *Evaluator) collectNamespaces(root, target xml.Element, nsMap map[string]string) bool {
+func (e *Evaluator) collectNamespaces(root, target xml.NodeID, nsMap map[string]string) bool {
 	// xmlns attributes can be stored in two ways:
 	// 1. As attributes with namespace "http://www.w3.org/2000/xmlns/" and local name = prefix.
 	// 2. As attributes with name "xmlns" or "xmlns:prefix".
-	for _, attr := range root.Attributes() {
+	for _, attr := range e.doc.Attributes(root) {
 		attrNS := attr.NamespaceURI()
 		attrLocal := attr.LocalName()
 		attrName := attr.Name()
@@ -111,7 +111,7 @@ func (e *Evaluator) collectNamespaces(root, target xml.Element, nsMap map[string
 	}
 
 	// recursively search children.
-	for _, child := range root.Children() {
+	for _, child := range e.doc.Children(root) {
 		if e.collectNamespaces(child, target, nsMap) {
 			return true
 		}

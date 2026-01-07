@@ -118,6 +118,7 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, is
 		HasFixed: elem.HasFixed,
 		Block:    elem.Block,
 	}
+	compiled.EffectiveQName = c.effectiveElementQName(compiled)
 
 	// link to compiled type
 	// per XSD spec, if element is in a substitution group and has no explicit type,
@@ -353,7 +354,10 @@ func (c *Compiler) indexLocalElementsFromParticles(particles []*grammar.Compiled
 			if p.Element != nil {
 				// check if this element is not already a top-level element
 				if _, isTopLevel := c.grammar.Elements[p.Element.QName]; !isTopLevel {
-					effectiveQName := c.effectiveElementQName(p.Element)
+					effectiveQName := p.Element.EffectiveQName
+					if effectiveQName.IsZero() {
+						effectiveQName = c.effectiveElementQName(p.Element)
+					}
 					c.grammar.LocalElements[effectiveQName] = p.Element
 				}
 				// recursively index elements from this element's type

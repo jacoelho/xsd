@@ -11,11 +11,11 @@ import (
 // checkFixedValue validates that element content matches the fixed value constraint.
 // Per XSD spec section 3.3.4, fixed values are compared in the value space of the type.
 // Both values must be normalized according to the type's whitespace facet before comparison.
-func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType *grammar.CompiledType, path string) []errors.Validation {
+func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType *grammar.CompiledType) []errors.Validation {
 	if textType == nil || textType.Original == nil {
 		// no type information - compare as strings
 		if actualValue != fixedValue {
-			return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, path,
+			return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
 				"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
 		}
 		return nil
@@ -25,7 +25,7 @@ func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType
 	if len(textType.MemberTypes) > 0 {
 		if match, err := r.compareFixedValueInUnion(actualValue, fixedValue, textType.MemberTypes); err == nil {
 			if !match {
-				return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, path,
+				return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
 					"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
 			}
 			return nil
@@ -38,7 +38,7 @@ func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType
 		if len(memberTypes) > 0 {
 			if match, err := r.compareFixedValueInUnionTypes(actualValue, fixedValue, memberTypes); err == nil {
 				if !match {
-					return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, path,
+					return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
 						"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
 				}
 				return nil
@@ -50,7 +50,7 @@ func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType
 	if st, ok := textType.Original.(types.SimpleTypeDefinition); ok {
 		if match, err := r.compareFixedValueAsType(actualValue, fixedValue, st); err == nil {
 			if !match {
-				return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, path,
+				return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
 					"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
 			}
 			return nil
@@ -59,7 +59,7 @@ func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType
 
 	// fall back to normalized string comparison
 	if !fixedValueMatches(actualValue, fixedValue, textType.Original) {
-		return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, path,
+		return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
 			"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
 	}
 	return nil

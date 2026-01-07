@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
@@ -16,7 +17,9 @@ import (
 
 // Schema wraps a compiled schema with convenience methods.
 type Schema struct {
-	compiled *grammar.CompiledSchema
+	compiled          *grammar.CompiledSchema
+	validatorOnce     sync.Once
+	validatorInstance *validator.Validator
 }
 
 // Load loads and compiles a schema from the given filesystem and location.
@@ -50,17 +53,29 @@ func (s *Schema) Validate(r io.Reader) error {
 		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, "nil reader", "")}
 	}
 
-	doc, err := xml.Parse(r)
-	if err != nil {
+	doc := xml.AcquireDocument()
+	defer xml.ReleaseDocument(doc)
+
+	if err := xml.ParseInto(r, doc); err != nil {
 		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, err.Error(), "")}
 	}
 
-	v := validator.New(s.compiled)
+	v := s.getValidator()
 	violations := v.Validate(doc)
 	if len(violations) == 0 {
 		return nil
 	}
 	return errors.ValidationList(violations)
+}
+
+func (s *Schema) getValidator() *validator.Validator {
+	if s == nil {
+		return nil
+	}
+	s.validatorOnce.Do(func() {
+		s.validatorInstance = validator.New(s.compiled)
+	})
+	return s.validatorInstance
 }
 
 // ValidateFile validates an XML file against the schema.

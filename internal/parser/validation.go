@@ -9,9 +9,9 @@ import (
 
 // validateSchemaAttributeNamespaces enforces that schema element attributes are unqualified.
 // Per validation-rules.md section 2.3.1, any non-xmlns attribute on an XSD element must be in no namespace.
-func validateSchemaAttributeNamespaces(elem xml.Element) error {
-	if elem.NamespaceURI() == xml.XSDNamespace {
-		for _, attr := range elem.Attributes() {
+func validateSchemaAttributeNamespaces(doc *xml.Document, elem xml.NodeID) error {
+	if doc.NamespaceURI(elem) == xml.XSDNamespace {
+		for _, attr := range doc.Attributes(elem) {
 			if attr.NamespaceURI() == "xmlns" {
 				continue
 			}
@@ -19,19 +19,19 @@ func validateSchemaAttributeNamespaces(elem xml.Element) error {
 				continue
 			}
 			if attr.NamespaceURI() == xml.XSDNamespace {
-				return fmt.Errorf("schema attribute '%s' on <%s> must be unprefixed", attr.LocalName(), elem.LocalName())
+				return fmt.Errorf("schema attribute '%s' on <%s> must be unprefixed", attr.LocalName(), doc.LocalName(elem))
 			}
 		}
 	}
 
-	if elem.NamespaceURI() == xml.XSDNamespace && elem.LocalName() == "annotation" {
-		if err := validateAnnotationStructure(elem); err != nil {
+	if doc.NamespaceURI(elem) == xml.XSDNamespace && doc.LocalName(elem) == "annotation" {
+		if err := validateAnnotationStructure(doc, elem); err != nil {
 			return err
 		}
 	}
 
-	for _, child := range elem.Children() {
-		if err := validateSchemaAttributeNamespaces(child); err != nil {
+	for _, child := range doc.Children(elem) {
+		if err := validateSchemaAttributeNamespaces(doc, child); err != nil {
 			return err
 		}
 	}
@@ -39,31 +39,31 @@ func validateSchemaAttributeNamespaces(elem xml.Element) error {
 	return nil
 }
 
-func validateAnnotationStructure(elem xml.Element) error {
-	if err := validateAnnotationAttributes(elem); err != nil {
+func validateAnnotationStructure(doc *xml.Document, elem xml.NodeID) error {
+	if err := validateAnnotationAttributes(doc, elem); err != nil {
 		return err
 	}
 
-	for _, child := range elem.Children() {
-		if child.NamespaceURI() != xml.XSDNamespace {
-			return fmt.Errorf("annotation: unexpected child element '%s'", child.LocalName())
+	for _, child := range doc.Children(elem) {
+		if doc.NamespaceURI(child) != xml.XSDNamespace {
+			return fmt.Errorf("annotation: unexpected child element '%s'", doc.LocalName(child))
 		}
-		switch child.LocalName() {
+		switch doc.LocalName(child) {
 		case "appinfo", "documentation":
-			if err := validateAnnotationChildAttributes(child); err != nil {
+			if err := validateAnnotationChildAttributes(doc, child); err != nil {
 				return err
 			}
 			// allowed.
 		default:
-			return fmt.Errorf("annotation: unexpected child element '%s'", child.LocalName())
+			return fmt.Errorf("annotation: unexpected child element '%s'", doc.LocalName(child))
 		}
 	}
 
 	return nil
 }
 
-func validateAnnotationAttributes(elem xml.Element) error {
-	for _, attr := range elem.Attributes() {
+func validateAnnotationAttributes(doc *xml.Document, elem xml.NodeID) error {
+	for _, attr := range doc.Attributes(elem) {
 		if attr.NamespaceURI() == "xmlns" {
 			continue
 		}
@@ -86,10 +86,10 @@ func validateAnnotationAttributes(elem xml.Element) error {
 	return nil
 }
 
-func validateAnnotationChildAttributes(elem xml.Element) error {
-	switch elem.LocalName() {
+func validateAnnotationChildAttributes(doc *xml.Document, elem xml.NodeID) error {
+	switch doc.LocalName(elem) {
 	case "appinfo":
-		for _, attr := range elem.Attributes() {
+		for _, attr := range doc.Attributes(elem) {
 			if attr.NamespaceURI() == "xmlns" {
 				continue
 			}
@@ -104,7 +104,7 @@ func validateAnnotationChildAttributes(elem xml.Element) error {
 			}
 		}
 	case "documentation":
-		for _, attr := range elem.Attributes() {
+		for _, attr := range doc.Attributes(elem) {
 			if attr.NamespaceURI() == "xmlns" {
 				continue
 			}

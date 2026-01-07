@@ -8,36 +8,36 @@ import (
 
 // Evaluator selects XML elements using the XPath subset allowed in XSD 1.0 identity constraints.
 type Evaluator struct {
-	root xml.Element
+	doc  *xml.Document
+	root xml.NodeID
 }
 
 // New creates a selector bound to a document root for namespace resolution.
-func New(root xml.Element) *Evaluator {
-	return &Evaluator{root: root}
+func New(doc *xml.Document, root xml.NodeID) *Evaluator {
+	return &Evaluator{doc: doc, root: root}
 }
 
 // Select evaluates an XPath selector without namespace context.
-func (e *Evaluator) Select(root xml.Element, expr string) []xml.Element {
+func (e *Evaluator) Select(root xml.NodeID, expr string) []xml.NodeID {
 	return e.selectInternal(root, expr, nil)
 }
 
 // SelectWithNS evaluates an XPath selector with a namespace context.
-func (e *Evaluator) SelectWithNS(root xml.Element, expr string, nsContext map[string]string) []xml.Element {
+func (e *Evaluator) SelectWithNS(root xml.NodeID, expr string, nsContext map[string]string) []xml.NodeID {
 	return e.selectInternal(root, expr, nsContext)
 }
 
-func (e *Evaluator) selectInternal(root xml.Element, expr string, nsContext map[string]string) []xml.Element {
+func (e *Evaluator) selectInternal(root xml.NodeID, expr string, nsContext map[string]string) []xml.NodeID {
 	if expr == "." || expr == "" {
-		return []xml.Element{root}
+		return []xml.NodeID{root}
 	}
 
 	// handle XPath union expressions (path1|path2|path3)
 	// evaluate each path and combine results, removing duplicates
 	if strings.Contains(expr, "|") {
-		parts := strings.Split(expr, "|")
-		seen := make(map[xml.Element]bool)
-		results := make([]xml.Element, 0)
-		for _, part := range parts {
+		seen := make(map[xml.NodeID]bool)
+		results := make([]xml.NodeID, 0)
+		for part := range strings.SplitSeq(expr, "|") {
 			part = strings.TrimSpace(part)
 			if part == "" {
 				continue
@@ -60,7 +60,7 @@ func (e *Evaluator) selectInternal(root xml.Element, expr string, nsContext map[
 	}
 
 	if normalized == "child::*" || normalized == "*" {
-		return root.Children()
+		return e.doc.Children(root)
 	}
 
 	if normalized == "descendant::*" || normalized == "//*" {
@@ -68,7 +68,7 @@ func (e *Evaluator) selectInternal(root xml.Element, expr string, nsContext map[
 	}
 
 	if normalized == "descendant-or-self::*" {
-		results := []xml.Element{root}
+		results := []xml.NodeID{root}
 		return e.collectAllDescendants(root, results)
 	}
 
@@ -78,7 +78,7 @@ func (e *Evaluator) selectInternal(root xml.Element, expr string, nsContext map[
 		return nil
 	}
 
-	var results []xml.Element
+	var results []xml.NodeID
 	switch axis {
 	case "child":
 		results = e.collectMatchingChildrenNS(root, localName, targetNSURI, namespaceSpecified, results)
@@ -102,13 +102,13 @@ func (e *Evaluator) selectInternal(root xml.Element, expr string, nsContext map[
 }
 
 // evaluateMultiStepPathNS evaluates a multi-step XPath path with namespace context.
-func (e *Evaluator) evaluateMultiStepPathNS(root xml.Element, expr string, nsContext map[string]string) []xml.Element {
+func (e *Evaluator) evaluateMultiStepPathNS(root xml.NodeID, expr string, nsContext map[string]string) []xml.NodeID {
 	steps := splitXPathSteps(expr)
 	if len(steps) == 0 {
-		return []xml.Element{root}
+		return []xml.NodeID{root}
 	}
 
-	currentElements := []xml.Element{root}
+	currentElements := []xml.NodeID{root}
 
 	for _, step := range steps {
 		step = strings.TrimSpace(step)
@@ -116,8 +116,8 @@ func (e *Evaluator) evaluateMultiStepPathNS(root xml.Element, expr string, nsCon
 			continue
 		}
 
-		nextElements := make([]xml.Element, 0)
-		seen := make(map[xml.Element]bool)
+		nextElements := make([]xml.NodeID, 0)
+		seen := make(map[xml.NodeID]bool)
 		for _, elem := range currentElements {
 			stepResults := e.evaluateSingleStepNS(elem, step, nsContext)
 			for _, result := range stepResults {
@@ -183,18 +183,18 @@ func splitXPathSteps(expr string) []string {
 }
 
 // evaluateSingleStepNS evaluates a single XPath step with namespace context.
-func (e *Evaluator) evaluateSingleStepNS(elem xml.Element, step string, nsContext map[string]string) []xml.Element {
+func (e *Evaluator) evaluateSingleStepNS(elem xml.NodeID, step string, nsContext map[string]string) []xml.NodeID {
 	step = strings.TrimSpace(step)
 	if step == "" {
-		return []xml.Element{elem}
+		return []xml.NodeID{elem}
 	}
 
 	if step == "." {
-		return []xml.Element{elem}
+		return []xml.NodeID{elem}
 	}
 
 	if step == "*" {
-		return elem.Children()
+		return e.doc.Children(elem)
 	}
 
 	var axis string
@@ -214,12 +214,12 @@ func (e *Evaluator) evaluateSingleStepNS(elem xml.Element, step string, nsContex
 	if elementPart == "" || elementPart == "*" {
 		switch axis {
 		case "descendant-or-self":
-			results := []xml.Element{elem}
+			results := []xml.NodeID{elem}
 			return e.collectAllDescendants(elem, results)
 		case "descendant":
 			return e.collectAllDescendants(elem, nil)
 		default:
-			return elem.Children()
+			return e.doc.Children(elem)
 		}
 	}
 
@@ -228,7 +228,7 @@ func (e *Evaluator) evaluateSingleStepNS(elem xml.Element, step string, nsContex
 		return nil
 	}
 
-	var results []xml.Element
+	var results []xml.NodeID
 	switch axis {
 	case "child":
 		results = e.collectMatchingChildrenNS(elem, localName, targetNSURI, namespaceSpecified, results)
@@ -306,8 +306,8 @@ func SplitQName(name string) (prefix, local string, hasPrefix bool) {
 }
 
 // collectMatchingChildrenNS collects direct children matching the element name and namespace.
-func (e *Evaluator) collectMatchingChildrenNS(elem xml.Element, localName, targetNSURI string, namespaceSpecified bool, results []xml.Element) []xml.Element {
-	for _, child := range elem.Children() {
+func (e *Evaluator) collectMatchingChildrenNS(elem xml.NodeID, localName, targetNSURI string, namespaceSpecified bool, results []xml.NodeID) []xml.NodeID {
+	for _, child := range e.doc.Children(elem) {
 		if localName == "*" || e.matchesElementNS(child, localName, targetNSURI, namespaceSpecified) {
 			results = append(results, child)
 		}
@@ -316,8 +316,8 @@ func (e *Evaluator) collectMatchingChildrenNS(elem xml.Element, localName, targe
 }
 
 // collectMatchingDescendantsNS collects all descendants matching the element name and namespace.
-func (e *Evaluator) collectMatchingDescendantsNS(elem xml.Element, localName, targetNSURI string, namespaceSpecified bool, results []xml.Element) []xml.Element {
-	for _, child := range elem.Children() {
+func (e *Evaluator) collectMatchingDescendantsNS(elem xml.NodeID, localName, targetNSURI string, namespaceSpecified bool, results []xml.NodeID) []xml.NodeID {
+	for _, child := range e.doc.Children(elem) {
 		if localName == "*" || e.matchesElementNS(child, localName, targetNSURI, namespaceSpecified) {
 			results = append(results, child)
 		}
@@ -327,8 +327,8 @@ func (e *Evaluator) collectMatchingDescendantsNS(elem xml.Element, localName, ta
 }
 
 // collectAllDescendants collects all descendant elements.
-func (e *Evaluator) collectAllDescendants(elem xml.Element, results []xml.Element) []xml.Element {
-	for _, child := range elem.Children() {
+func (e *Evaluator) collectAllDescendants(elem xml.NodeID, results []xml.NodeID) []xml.NodeID {
+	for _, child := range e.doc.Children(elem) {
 		results = append(results, child)
 		results = e.collectAllDescendants(child, results)
 	}
@@ -336,11 +336,11 @@ func (e *Evaluator) collectAllDescendants(elem xml.Element, results []xml.Elemen
 }
 
 // matchesElementNS checks if an element matches the given local name and namespace URI.
-func (e *Evaluator) matchesElementNS(elem xml.Element, localName, targetNSURI string, namespaceSpecified bool) bool {
-	if localName != "*" && elem.LocalName() != localName {
+func (e *Evaluator) matchesElementNS(elem xml.NodeID, localName, targetNSURI string, namespaceSpecified bool) bool {
+	if localName != "*" && e.doc.LocalName(elem) != localName {
 		return false
 	}
-	if namespaceSpecified && elem.NamespaceURI() != targetNSURI {
+	if namespaceSpecified && e.doc.NamespaceURI(elem) != targetNSURI {
 		return false
 	}
 	return true

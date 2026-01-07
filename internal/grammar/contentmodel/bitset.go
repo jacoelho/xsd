@@ -1,6 +1,7 @@
 package contentmodel
 
 import (
+	"encoding/binary"
 	"math/bits"
 	"strconv"
 	"strings"
@@ -53,6 +54,27 @@ func (b *bitset) forEach(f func(int)) {
 			w &^= 1 << bit
 		}
 	}
+}
+
+func (b *bitset) clear() {
+	for i := range b.words {
+		b.words[i] = 0
+	}
+}
+
+// key returns an opaque byte string used for fast state lookup.
+func (b *bitset) key() string {
+	if len(b.words) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.Grow(len(b.words) * 8)
+	var buf [8]byte
+	for _, w := range b.words {
+		binary.LittleEndian.PutUint64(buf[:], w)
+		_, _ = sb.Write(buf[:])
+	}
+	return sb.String()
 }
 
 // String returns a hex representation for use as map key.

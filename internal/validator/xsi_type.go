@@ -10,7 +10,7 @@ import (
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
-func (r *validationRun) resolveXsiType(elem xml.Element, xsiTypeValue string, declaredType *grammar.CompiledType, elemBlock types.DerivationSet) (*grammar.CompiledType, error) {
+func (r *validationRun) resolveXsiType(elem xml.NodeID, xsiTypeValue string, declaredType *grammar.CompiledType, elemBlock types.DerivationSet) (*grammar.CompiledType, error) {
 	xsiTypeQName, err := r.parseQNameValue(elem, xsiTypeValue)
 	if err != nil {
 		return nil, fmt.Errorf("invalid xsi:type value '%s': %w", strings.TrimSpace(xsiTypeValue), err)
@@ -58,7 +58,7 @@ func (r *validationRun) resolveXsiType(elem xml.Element, xsiTypeValue string, de
 
 // resolveXsiTypeOnly resolves an xsi:type attribute without a declared type.
 // This is used when no element declaration exists but xsi:type is specified.
-func (r *validationRun) resolveXsiTypeOnly(elem xml.Element, xsiTypeValue string) (*grammar.CompiledType, error) {
+func (r *validationRun) resolveXsiTypeOnly(elem xml.NodeID, xsiTypeValue string) (*grammar.CompiledType, error) {
 	xsiTypeQName, err := r.parseQNameValue(elem, xsiTypeValue)
 	if err != nil {
 		return nil, fmt.Errorf("invalid xsi:type value '%s': %w", strings.TrimSpace(xsiTypeValue), err)
@@ -88,12 +88,12 @@ func (r *validationRun) lookupType(qname types.QName) *grammar.CompiledType {
 
 // checkElementWithType validates an element using only a type (no element declaration).
 // This is used when xsi:type is specified on an undeclared element.
-func (r *validationRun) checkElementWithType(elem xml.Element, ct *grammar.CompiledType, path string) []errors.Validation {
-	return r.checkElementContent(elem, ct, nil, path)
+func (r *validationRun) checkElementWithType(elem xml.NodeID, ct *grammar.CompiledType) []errors.Validation {
+	return r.checkElementContent(elem, ct, nil)
 }
 
 // parseQNameValue parses a QName value in the context of an element's namespace declarations.
-func (r *validationRun) parseQNameValue(elem xml.Element, value string) (types.QName, error) {
+func (r *validationRun) parseQNameValue(elem xml.NodeID, value string) (types.QName, error) {
 	// trim whitespace from the value per XSD spec (QName values should be normalized)
 	value = strings.TrimSpace(value)
 
@@ -128,9 +128,9 @@ func (r *validationRun) parseQNameValue(elem xml.Element, value string) (types.Q
 // Searches the element and all its ancestors for namespace declarations.
 // Note: Go's encoding/xml reports xmlns declarations with NamespaceURI() == "xmlns"
 // (not the full XMLNSNamespace URI), so we check for both.
-func (r *validationRun) lookupNamespaceURI(elem xml.Element, prefix string) string {
-	for current := elem; current != nil; current = current.Parent() {
-		for _, attr := range current.Attributes() {
+func (r *validationRun) lookupNamespaceURI(elem xml.NodeID, prefix string) string {
+	for current := elem; current != xml.InvalidNode; current = r.doc.Parent(current) {
+		for _, attr := range r.doc.Attributes(current) {
 			if prefix == "" {
 				// default namespace: xmlns="..."
 				if attr.LocalName() == "xmlns" &&
@@ -153,12 +153,12 @@ func (r *validationRun) lookupNamespaceURI(elem xml.Element, prefix string) stri
 	// for default namespace (prefix == ""):
 	// if the element is in a non-empty namespace and we didn't find xmlns="...",
 	// the element must be using the default namespace from an ancestor
-	if prefix == "" && elem.NamespaceURI() != "" {
+	if prefix == "" && r.doc.NamespaceURI(elem) != "" {
 		// check if any xmlns:prefix declaration on any ancestor binds to the element's namespace
 		// if so, the element is using that prefix, not the default namespace
-		elementNS := elem.NamespaceURI()
-		for current := elem; current != nil; current = current.Parent() {
-			for _, attr := range current.Attributes() {
+		elementNS := r.doc.NamespaceURI(elem)
+		for current := elem; current != xml.InvalidNode; current = r.doc.Parent(current) {
+			for _, attr := range r.doc.Attributes(current) {
 				if (attr.NamespaceURI() == "xmlns" || attr.NamespaceURI() == xml.XMLNSNamespace) &&
 					attr.LocalName() != "xmlns" &&
 					attr.Value() == elementNS {

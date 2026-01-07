@@ -8,61 +8,62 @@ import (
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
-func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.AttributeDecl, error) {
-	if hasIDAttribute(elem) {
-		idAttr := elem.GetAttribute("id")
+var validAttributeAttributes = map[string]bool{
+	"name":    true,
+	"ref":     true,
+	"type":    true,
+	"use":     true,
+	"default": true,
+	"fixed":   true,
+	"form":    true,
+	"id":      true,
+}
+
+func parseAttribute(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.AttributeDecl, error) {
+	if hasIDAttribute(doc, elem) {
+		idAttr := doc.GetAttribute(elem, "id")
 		if err := validateIDAttribute(idAttr, "attribute", schema); err != nil {
 			return nil, err
 		}
 	}
 
-	if err := validateAnnotationOrder(elem); err != nil {
+	if err := validateAnnotationOrder(doc, elem); err != nil {
 		return nil, err
 	}
 
-	ref := elem.GetAttribute("ref")
-	nameAttr := elem.GetAttribute("name")
+	ref := doc.GetAttribute(elem, "ref")
+	nameAttr := doc.GetAttribute(elem, "name")
 	if ref != "" && nameAttr != "" {
 		return nil, fmt.Errorf("attribute cannot have both 'name' and 'ref' attributes")
 	}
 
-	validAttributes := map[string]bool{
-		"name":    true,
-		"ref":     true,
-		"type":    true,
-		"use":     true,
-		"default": true,
-		"fixed":   true,
-		"form":    true,
-		"id":      true,
-	}
-	for _, attr := range elem.Attributes() {
+	for _, attr := range doc.Attributes(elem) {
 		if attr.NamespaceURI() == "xmlns" || (attr.NamespaceURI() == "" && attr.LocalName() == "xmlns") {
 			continue
 		}
-		if attr.NamespaceURI() == "" && !validAttributes[attr.LocalName()] {
+		if attr.NamespaceURI() == "" && !validAttributeAttributes[attr.LocalName()] {
 			return nil, fmt.Errorf("invalid attribute '%s' on <attribute> element", attr.LocalName())
 		}
 	}
 
-	if elem.HasAttribute("default") && elem.HasAttribute("fixed") {
+	if doc.HasAttribute(elem, "default") && doc.HasAttribute(elem, "fixed") {
 		return nil, fmt.Errorf("attribute cannot have both 'default' and 'fixed' attributes")
 	}
 
 	// check if it's a reference
 	if ref != "" {
-		if elem.HasAttribute("type") {
+		if doc.HasAttribute(elem, "type") {
 			return nil, fmt.Errorf("attribute reference cannot have 'type' attribute")
 		}
-		if elem.HasAttribute("form") {
+		if doc.HasAttribute(elem, "form") {
 			return nil, fmt.Errorf("attribute reference cannot have 'form' attribute")
 		}
-		if err := validateOnlyAnnotationChildren(elem, "attribute"); err != nil {
+		if err := validateOnlyAnnotationChildren(doc, elem, "attribute"); err != nil {
 			return nil, err
 		}
 		// for attribute references, use resolveAttributeRefQName
 		// per XSD spec, unprefixed attribute refs refer to no namespace
-		refQName, err := resolveAttributeRefQName(ref, elem, schema)
+		refQName, err := resolveAttributeRefQName(doc, ref, elem, schema)
 		if err != nil {
 			return nil, fmt.Errorf("resolve ref %s: %w", ref, err)
 		}
@@ -75,25 +76,25 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 		}
 
 		// parse use attribute (can override referenced attribute's use)
-		use, err := parseAttributeUse(elem)
+		use, err := parseAttributeUse(doc, elem)
 		if err != nil {
 			return nil, err
 		}
 		attr.Use = use
 
-		if attr.Use == types.Prohibited && elem.HasAttribute("default") {
+		if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
 			return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
 		}
-		if attr.Use == types.Required && elem.HasAttribute("default") {
+		if attr.Use == types.Required && doc.HasAttribute(elem, "default") {
 			return nil, fmt.Errorf("attribute with use='required' cannot have default value")
 		}
 
-		if defaultVal := elem.GetAttribute("default"); defaultVal != "" {
+		if defaultVal := doc.GetAttribute(elem, "default"); defaultVal != "" {
 			attr.Default = defaultVal
 		}
 
-		if elem.HasAttribute("fixed") {
-			attr.Fixed = elem.GetAttribute("fixed")
+		if doc.HasAttribute(elem, "fixed") {
+			attr.Fixed = doc.GetAttribute(elem, "fixed")
 			attr.HasFixed = true
 		}
 
@@ -105,7 +106,7 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 	}
 
 	// local attribute declaration
-	name := getAttr(elem, "name")
+	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return nil, fmt.Errorf("attribute missing name and ref")
 	}
@@ -128,19 +129,19 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 	}
 
 	// attribute can have either 'type' attribute OR inline simpleType, but not both
-	typeName := elem.GetAttribute("type")
+	typeName := doc.GetAttribute(elem, "type")
 	simpleTypeCount := 0
-	for _, child := range elem.Children() {
-		if child.NamespaceURI() == xml.XSDNamespace && child.LocalName() == "simpleType" {
+	for _, child := range doc.Children(elem) {
+		if doc.NamespaceURI(child) == xml.XSDNamespace && doc.LocalName(child) == "simpleType" {
 			simpleTypeCount++
-		} else if child.NamespaceURI() == xml.XSDNamespace {
-			switch child.LocalName() {
+		} else if doc.NamespaceURI(child) == xml.XSDNamespace {
+			switch doc.LocalName(child) {
 			case "key", "keyref", "unique":
-				return nil, fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", child.LocalName())
+				return nil, fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(child))
 			case "annotation":
 				// allowed; ordering handled by validateAnnotationOrder.
 			default:
-				return nil, fmt.Errorf("invalid child element <%s> in <attribute> declaration", child.LocalName())
+				return nil, fmt.Errorf("invalid child element <%s> in <attribute> declaration", doc.LocalName(child))
 			}
 		}
 	}
@@ -153,7 +154,7 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 	}
 
 	if typeName != "" {
-		typeQName, err := resolveQName(typeName, elem, schema)
+		typeQName, err := resolveQName(doc, typeName, elem, schema)
 		if err != nil {
 			return nil, fmt.Errorf("resolve type %s: %w", typeName, err)
 		}
@@ -166,14 +167,14 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 			}
 		}
 	} else {
-		for _, child := range elem.Children() {
-			if child.NamespaceURI() != xml.XSDNamespace {
+		for _, child := range doc.Children(elem) {
+			if doc.NamespaceURI(child) != xml.XSDNamespace {
 				continue
 			}
 
-			switch child.LocalName() {
+			switch doc.LocalName(child) {
 			case "simpleType":
-				st, err := parseInlineSimpleType(child, schema)
+				st, err := parseInlineSimpleType(doc, child, schema)
 				if err != nil {
 					return nil, fmt.Errorf("parse inline simpleType: %w", err)
 				}
@@ -182,31 +183,31 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 		}
 	}
 
-	use, err := parseAttributeUse(elem)
+	use, err := parseAttributeUse(doc, elem)
 	if err != nil {
 		return nil, err
 	}
 	attr.Use = use
 
-	if attr.Use == types.Prohibited && elem.HasAttribute("default") {
+	if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
 		return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
 	}
-	if attr.Use == types.Required && elem.HasAttribute("default") {
+	if attr.Use == types.Required && doc.HasAttribute(elem, "default") {
 		return nil, fmt.Errorf("attribute with use='required' cannot have default value")
 	}
 
-	if defaultVal := elem.GetAttribute("default"); defaultVal != "" {
+	if defaultVal := doc.GetAttribute(elem, "default"); defaultVal != "" {
 		attr.Default = defaultVal
 	}
 
-	if elem.HasAttribute("fixed") {
-		attr.Fixed = elem.GetAttribute("fixed")
+	if doc.HasAttribute(elem, "fixed") {
+		attr.Fixed = doc.GetAttribute(elem, "fixed")
 		attr.HasFixed = true
 	}
 
 	// parse form attribute - must be exactly "qualified" or "unqualified"
-	if elem.HasAttribute("form") {
-		formAttr := elem.GetAttribute("form")
+	if doc.HasAttribute(elem, "form") {
+		formAttr := doc.GetAttribute(elem, "form")
 		switch formAttr {
 		case "qualified":
 			attr.Form = types.FormQualified
@@ -224,9 +225,9 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 	return parsed, nil
 }
 
-func parseAttributeUse(elem xml.Element) (types.AttributeUse, error) {
-	if elem.HasAttribute("use") {
-		useAttr := elem.GetAttribute("use")
+func parseAttributeUse(doc *xml.Document, elem xml.NodeID) (types.AttributeUse, error) {
+	if doc.HasAttribute(elem, "use") {
+		useAttr := doc.GetAttribute(elem, "use")
 		switch useAttr {
 		case "optional":
 			return types.Optional, nil
@@ -243,24 +244,24 @@ func parseAttributeUse(elem xml.Element) (types.AttributeUse, error) {
 }
 
 // parseTopLevelAttribute parses a top-level attribute declaration
-func parseTopLevelAttribute(elem xml.Element, schema *xsdschema.Schema) error {
-	name := getAttr(elem, "name")
+func parseTopLevelAttribute(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("attribute missing name attribute")
 	}
 
 	// 'form' attribute only applies to local attribute declarations
-	if elem.HasAttribute("form") {
+	if doc.HasAttribute(elem, "form") {
 		return fmt.Errorf("top-level attribute cannot have 'form' attribute")
 	}
-	if elem.HasAttribute("use") {
+	if doc.HasAttribute(elem, "use") {
 		return fmt.Errorf("top-level attribute cannot have 'use' attribute")
 	}
-	if elem.HasAttribute("ref") {
+	if doc.HasAttribute(elem, "ref") {
 		return fmt.Errorf("top-level attribute cannot have 'ref' attribute")
 	}
 
-	attr, err := parseAttribute(elem, schema)
+	attr, err := parseAttribute(doc, elem, schema)
 	if err != nil {
 		return err
 	}

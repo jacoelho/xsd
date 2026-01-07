@@ -8,12 +8,18 @@ import (
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
-func parseOccursAttr(elem xml.Element, attr string, defaultValue int) (int, error) {
-	if !elem.HasAttribute(attr) {
+func parseOccursAttr(doc *xml.Document, elem xml.NodeID, attr string, defaultValue int) (int, error) {
+	if !doc.HasAttribute(elem, attr) {
 		return defaultValue, nil
 	}
 
-	value := elem.GetAttribute(attr)
+	return parseOccursValue(attr, doc.GetAttribute(elem, attr), true, defaultValue)
+}
+
+func parseOccursValue(attr, value string, present bool, defaultValue int) (int, error) {
+	if !present {
+		return defaultValue, nil
+	}
 	if value == "" {
 		return 0, fmt.Errorf("%s attribute cannot be empty", attr)
 	}

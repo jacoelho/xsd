@@ -1,81 +1,15 @@
 package contentmodel
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
-// TestRepeatingSequenceWithOptionalElement tests the addB176 case:
-// Sequence with minOccurs=2, maxOccurs=2 containing:
-//   - element a (minOccurs=1, maxOccurs=2)
-//   - element b (minOccurs=0 - optional)
-//
-// XML: <Root><a/><a/><b/></Root>
-// Expected: valid (Sequence1: <a/>, Sequence2: <a/><b/>)
-func TestRepeatingSequenceWithOptionalElement(t *testing.T) {
-	// create the content model:
-	// (a{1,2}, b{0,1}){2,2}
-	elemA := &types.ElementDecl{Name: types.QName{Local: "a"}}
-	elemB := &types.ElementDecl{Name: types.QName{Local: "b"}}
-
-	particles := []*ParticleAdapter{
-		{
-			Kind:      1, // ParticleGroup
-			MinOccurs: 2,
-			MaxOccurs: 2,
-			GroupKind: types.Sequence,
-			Children: []*ParticleAdapter{
-				{
-					Kind:      0, // ParticleElement
-					MinOccurs: 1,
-					MaxOccurs: 2,
-					Original:  elemA,
-				},
-				{
-					Kind:      0, // ParticleElement
-					MinOccurs: 0,
-					MaxOccurs: 1,
-					Original:  elemB,
-				},
-			},
-		},
-	}
-
-	builder := NewBuilder(particles, nil, "", false)
-	automaton, err := builder.Build()
-	if err != nil {
-		t.Fatalf("Failed to build automaton: %v", err)
-	}
-
-	// print automaton info for debugging
-	t.Logf("Symbols: %d", len(automaton.symbols))
-	for i, sym := range automaton.symbols {
-		t.Logf("  Symbol %d: Kind=%d, QName=%s", i, sym.Kind, sym.QName.Local)
-	}
-	t.Logf("States: %d", len(automaton.trans))
-	t.Logf("Counters:")
-	for i, c := range automaton.counting {
-		if c != nil {
-			t.Logf("  State %d: Min=%d, Max=%d, SymIdx=%d, IsGroup=%v, GroupID=%d, CompletionSymbols=%v",
-				i, c.Min, c.Max, c.SymbolIdx, c.IsGroupCounter, c.GroupID, c.GroupCompletionSymbols)
-		}
-	}
-	t.Logf("Accepting states:")
-	for i, acc := range automaton.accepting {
-		if acc {
-			t.Logf("  State %d is accepting", i)
-		}
-	}
-	t.Logf("Transitions:")
-	for stateIdx, row := range automaton.trans {
-		for symIdx, next := range row {
-			if next >= 0 {
-				t.Logf("  State %d --[sym %d]--> State %d", stateIdx, symIdx, next)
-			}
-		}
-	}
+func TestAutomatonValidate(t *testing.T) {
+	automaton := buildTestAutomaton(t)
 
 	tests := []struct {
 		name     string
@@ -97,8 +31,8 @@ func TestRepeatingSequenceWithOptionalElement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			children := makeElements(tt.children)
-			err := automaton.Validate(children, nil)
+			doc, children := makeElements(t, tt.children)
+			err := automaton.Validate(doc, children, nil)
 
 			if tt.valid {
 				if err != nil {
@@ -113,32 +47,62 @@ func TestRepeatingSequenceWithOptionalElement(t *testing.T) {
 	}
 }
 
-// mockElement implements xml.Element for testing
-type mockElement struct {
-	localName    string
-	namespaceURI string
+func buildTestAutomaton(t *testing.T) *Automaton {
+	t.Helper()
+
+	elemA := &types.ElementDecl{Name: types.QName{Local: "a"}}
+	elemB := &types.ElementDecl{Name: types.QName{Local: "b"}}
+
+	group := func() *ParticleAdapter {
+		return &ParticleAdapter{
+			Kind:      ParticleGroup,
+			MinOccurs: 1,
+			MaxOccurs: 1,
+			GroupKind: types.Sequence,
+			Children: []*ParticleAdapter{
+				{
+					Kind:      ParticleElement,
+					MinOccurs: 1,
+					MaxOccurs: 2,
+					Element:   elemA,
+					Original:  elemA,
+				},
+				{
+					Kind:      ParticleElement,
+					MinOccurs: 0,
+					MaxOccurs: 1,
+					Element:   elemB,
+					Original:  elemB,
+				},
+			},
+		}
+	}
+
+	builder := NewBuilder([]*ParticleAdapter{group(), group()}, nil, "", false)
+	automaton, err := builder.Build()
+	if err != nil {
+		t.Fatalf("build automaton: %v", err)
+	}
+	return automaton
 }
 
-func (m *mockElement) NodeType() xml.NodeType                 { return xml.ElementNode }
-func (m *mockElement) NodeName() string                       { return m.localName }
-func (m *mockElement) NodeValue() string                      { return "" }
-func (m *mockElement) LocalName() string                      { return m.localName }
-func (m *mockElement) NamespaceURI() string                   { return m.namespaceURI }
-func (m *mockElement) Prefix() string                         { return "" }
-func (m *mockElement) GetAttribute(name string) string        { return "" }
-func (m *mockElement) GetAttributeNS(ns, local string) string { return "" }
-func (m *mockElement) HasAttribute(name string) bool          { return false }
-func (m *mockElement) HasAttributeNS(ns, local string) bool   { return false }
-func (m *mockElement) Attributes() []xml.Attr                 { return nil }
-func (m *mockElement) Children() []xml.Element                { return nil }
-func (m *mockElement) Parent() xml.Element                    { return nil }
-func (m *mockElement) TextContent() string                    { return "" }
-func (m *mockElement) DirectTextContent() string              { return "" }
+func makeElements(t *testing.T, names []string) (*xml.Document, []xml.NodeID) {
+	t.Helper()
 
-func makeElements(names []string) []xml.Element {
-	elements := make([]xml.Element, len(names))
-	for i, name := range names {
-		elements[i] = &mockElement{localName: name}
+	var sb strings.Builder
+	sb.WriteString("<root>")
+	for _, name := range names {
+		sb.WriteString("<")
+		sb.WriteString(name)
+		sb.WriteString("/>")
 	}
-	return elements
+	sb.WriteString("</root>")
+
+	doc, err := xml.Parse(strings.NewReader(sb.String()))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	root := doc.Root()
+	return doc, doc.Children(root)
 }

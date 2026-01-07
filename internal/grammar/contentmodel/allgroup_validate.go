@@ -46,7 +46,7 @@ func NewAllGroupValidator(elements []AllGroupElementInfo, mixed bool) *AllGroupV
 
 // Validate checks that children satisfy the all group content model.
 // Returns nil if valid, or a ValidationError describing the violation.
-func (v *AllGroupValidator) Validate(children []xml.Element, matcher SymbolMatcher) error {
+func (v *AllGroupValidator) Validate(doc *xml.Document, children []xml.NodeID, matcher SymbolMatcher) error {
 	// if all group is empty and there are no children, it's valid
 	if len(v.elements) == 0 {
 		if len(children) == 0 {
@@ -55,7 +55,7 @@ func (v *AllGroupValidator) Validate(children []xml.Element, matcher SymbolMatch
 		// no elements allowed but got some
 		return &ValidationError{
 			Index:   0,
-			Message: fmt.Sprintf("element %q not allowed", children[0].LocalName()),
+			Message: fmt.Sprintf("element %q not allowed", doc.LocalName(children[0])),
 			SubCode: ErrorCodeNotExpectedHere,
 		}
 	}
@@ -65,8 +65,8 @@ func (v *AllGroupValidator) Validate(children []xml.Element, matcher SymbolMatch
 
 	for i, child := range children {
 		childQName := types.QName{
-			Namespace: types.NamespaceURI(child.NamespaceURI()),
-			Local:     child.LocalName(),
+			Namespace: types.NamespaceURI(doc.NamespaceURI(child)),
+			Local:     doc.LocalName(child),
 		}
 
 		found := false
@@ -77,7 +77,7 @@ func (v *AllGroupValidator) Validate(children []xml.Element, matcher SymbolMatch
 				if elementSeen[j] {
 					return &ValidationError{
 						Index:   i,
-						Message: fmt.Sprintf("element %q appears more than once in all group", child.LocalName()),
+						Message: fmt.Sprintf("element %q appears more than once in all group", doc.LocalName(child)),
 						SubCode: ErrorCodeNotExpectedHere,
 					}
 				}
@@ -93,7 +93,7 @@ func (v *AllGroupValidator) Validate(children []xml.Element, matcher SymbolMatch
 				if elementSeen[j] {
 					return &ValidationError{
 						Index:   i,
-						Message: fmt.Sprintf("element %q (substituting for %q) appears more than once in all group", child.LocalName(), elemQName.Local),
+						Message: fmt.Sprintf("element %q (substituting for %q) appears more than once in all group", doc.LocalName(child), elemQName.Local),
 						SubCode: ErrorCodeNotExpectedHere,
 					}
 				}
@@ -110,7 +110,7 @@ func (v *AllGroupValidator) Validate(children []xml.Element, matcher SymbolMatch
 		if !found {
 			return &ValidationError{
 				Index:   i,
-				Message: fmt.Sprintf("element %q not allowed in all group", child.LocalName()),
+				Message: fmt.Sprintf("element %q not allowed in all group", doc.LocalName(child)),
 				SubCode: ErrorCodeNotExpectedHere,
 			}
 		}
