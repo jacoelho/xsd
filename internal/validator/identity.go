@@ -11,7 +11,7 @@ import (
 
 // checkIdentityConstraints validates all identity constraints in the document.
 // Uses precomputed ElementsWithConstraints from compilation for O(1) lookup.
-func (r *validationRun) checkIdentityConstraints(root xml.Element) []errors.Validation {
+func (r *validationRun) checkIdentityConstraints(root xml.NodeID) []errors.Validation {
 	var violations []errors.Validation
 
 	// use precomputed list of elements with constraints (computed during compilation)
@@ -26,7 +26,7 @@ func (r *validationRun) checkIdentityConstraints(root xml.Element) []errors.Vali
 }
 
 // checkIdentityConstraintsOnElement validates all identity constraints on a single element.
-func (r *validationRun) checkIdentityConstraintsOnElement(elem xml.Element, decl *grammar.CompiledElement) []errors.Validation {
+func (r *validationRun) checkIdentityConstraintsOnElement(elem xml.NodeID, decl *grammar.CompiledElement) []errors.Validation {
 	var violations []errors.Validation
 
 	// first pass: collect key and unique values
@@ -56,13 +56,13 @@ func (r *validationRun) checkIdentityConstraintsOnElement(elem xml.Element, decl
 }
 
 // checkKey validates a key constraint and returns the key table and any violations.
-func (r *validationRun) checkKey(elem xml.Element, constraint *grammar.CompiledConstraint) (map[string]bool, []errors.Validation) {
+func (r *validationRun) checkKey(elem xml.NodeID, constraint *grammar.CompiledConstraint) (map[string]bool, []errors.Validation) {
 	var violations []errors.Validation
 	ic := constraint.Original
 	keyTable := make(map[string]bool)
 
 	selectedElements := r.evaluateSelectorWithNS(elem, ic.Selector.XPath, ic.NamespaceContext)
-	seenValues := make(map[string]xml.Element)
+	seenValues := make(map[string]xml.NodeID)
 
 	for _, selectedElem := range selectedElements {
 		keyResult := r.extractKeyValueWithNS(selectedElem, ic.Fields, ic.NamespaceContext)
@@ -100,13 +100,13 @@ func (r *validationRun) checkKey(elem xml.Element, constraint *grammar.CompiledC
 }
 
 // checkUnique validates a unique constraint.
-func (r *validationRun) checkUnique(elem xml.Element, constraint *grammar.CompiledConstraint) (map[string]bool, []errors.Validation) {
+func (r *validationRun) checkUnique(elem xml.NodeID, constraint *grammar.CompiledConstraint) (map[string]bool, []errors.Validation) {
 	var violations []errors.Validation
 	ic := constraint.Original
 	uniqueTable := make(map[string]bool)
 
 	selectedElements := r.evaluateSelectorWithNS(elem, ic.Selector.XPath, ic.NamespaceContext)
-	seenValues := make(map[string]xml.Element)
+	seenValues := make(map[string]xml.NodeID)
 
 	for _, selectedElem := range selectedElements {
 		keyResult := r.extractKeyValueWithNS(selectedElem, ic.Fields, ic.NamespaceContext)
@@ -143,7 +143,7 @@ func (r *validationRun) checkUnique(elem xml.Element, constraint *grammar.Compil
 }
 
 // checkKeyRef validates a keyref constraint.
-func (r *validationRun) checkKeyRef(elem xml.Element, constraint *grammar.CompiledConstraint, localKeyTables map[string]map[string]bool) []errors.Validation {
+func (r *validationRun) checkKeyRef(elem xml.NodeID, constraint *grammar.CompiledConstraint, localKeyTables map[string]map[string]bool) []errors.Validation {
 	var violations []errors.Validation
 	ic := constraint.Original
 
@@ -198,15 +198,15 @@ func (r *validationRun) checkKeyRef(elem xml.Element, constraint *grammar.Compil
 }
 
 // findAllMatchingElements finds all elements that match the given declaration.
-func (r *validationRun) findAllMatchingElements(root xml.Element, decl *grammar.CompiledElement) []xml.Element {
+func (r *validationRun) findAllMatchingElements(root xml.NodeID, decl *grammar.CompiledElement) []xml.NodeID {
 	return r.collectMatchingElements(root, decl, nil)
 }
 
 // collectMatchingElements recursively collects elements matching the declaration.
-func (r *validationRun) collectMatchingElements(elem xml.Element, decl *grammar.CompiledElement, results []xml.Element) []xml.Element {
+func (r *validationRun) collectMatchingElements(elem xml.NodeID, decl *grammar.CompiledElement, results []xml.NodeID) []xml.NodeID {
 	elemQName := types.QName{
-		Namespace: types.NamespaceURI(elem.NamespaceURI()),
-		Local:     elem.LocalName(),
+		Namespace: types.NamespaceURI(r.doc.NamespaceURI(elem)),
+		Local:     r.doc.LocalName(elem),
 	}
 
 	// direct match
@@ -222,16 +222,16 @@ func (r *validationRun) collectMatchingElements(elem xml.Element, decl *grammar.
 	}
 
 	// recursively check children
-	for _, child := range elem.Children() {
+	for _, child := range r.doc.Children(elem) {
 		results = r.collectMatchingElements(child, decl, results)
 	}
 	return results
 }
 
 // elementPath builds a path string for an element.
-func (r *validationRun) elementPath(elem xml.Element) string {
-	name := elem.LocalName()
-	if ns := elem.NamespaceURI(); ns != "" {
+func (r *validationRun) elementPath(elem xml.NodeID) string {
+	name := r.doc.LocalName(elem)
+	if ns := r.doc.NamespaceURI(elem); ns != "" {
 		return "/" + ns + ":" + name
 	}
 	return "/" + name
@@ -239,7 +239,7 @@ func (r *validationRun) elementPath(elem xml.Element) string {
 
 // getDisplayValueWithNS extracts the original value for display in error messages,
 // using the provided namespace context for XPath prefix resolution.
-func (r *validationRun) getDisplayValueWithNS(elem xml.Element, fields []types.Field, nsContext map[string]string) string {
+func (r *validationRun) getDisplayValueWithNS(elem xml.NodeID, fields []types.Field, nsContext map[string]string) string {
 	if len(fields) == 0 {
 		return ""
 	}

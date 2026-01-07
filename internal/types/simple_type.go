@@ -317,7 +317,7 @@ func (s *SimpleType) MeasureLength(value string) int {
 		if len(strings.TrimSpace(value)) == 0 {
 			return 0
 		}
-		return len(strings.Fields(value))
+		return countFields(value)
 	}
 
 	// check if this type restricts a list type
@@ -331,14 +331,14 @@ func (s *SimpleType) MeasureLength(value string) int {
 					if len(strings.TrimSpace(value)) == 0 {
 						return 0
 					}
-					return len(strings.Fields(value))
+					return countFields(value)
 				}
 				if bt, ok := as[*BuiltinType](s.ResolvedBase); ok && isBuiltinListType(bt.Name().Local) {
 					// restriction of built-in list type: length is number of items
 					if len(strings.TrimSpace(value)) == 0 {
 						return 0
 					}
-					return len(strings.Fields(value))
+					return countFields(value)
 				}
 				// otherwise delegate to base type
 				return lm.MeasureLength(value)
@@ -353,7 +353,7 @@ func (s *SimpleType) MeasureLength(value string) int {
 				if len(strings.TrimSpace(value)) == 0 {
 					return 0
 				}
-				return len(strings.Fields(value))
+				return countFields(value)
 			}
 		}
 	}
@@ -367,9 +367,16 @@ func (s *SimpleType) MeasureLength(value string) int {
 		// fallback: use primitive name directly
 		return measureLengthForPrimitive(value, TypeName(primitiveType.Name().Local))
 	}
-
 	// fallback: character count
 	return utf8.RuneCountInString(value)
+}
+
+func countFields(value string) int {
+	count := 0
+	for range strings.FieldsSeq(value) {
+		count++
+	}
+	return count
 }
 
 // Variety returns the simple type variety (implements SimpleTypeDefinition)

@@ -1076,13 +1076,14 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 
 // loadSchemaForInstance finds and loads the schema for an instance test.
 // Returns the schema path (for error messages) and compiled schema, or nil if not found.
-func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, doc xsdxml.Document, metadataDir, instancePath string) (string, *grammar.CompiledSchema) {
-	rootNS := doc.DocumentElement().NamespaceURI()
+func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, doc *xsdxml.Document, metadataDir, instancePath string) (string, *grammar.CompiledSchema) {
+	root := doc.DocumentElement()
+	rootNS := doc.NamespaceURI(root)
 
 	// option 1: use xsi:schemaLocation to find schemas
 	// load all schemas from xsi:schemaLocation using a single loader instance
 	// so that imports between schemas are properly resolved
-	if schemaLoc := doc.DocumentElement().GetAttributeNS(xsdxml.XSINamespace, "schemaLocation"); schemaLoc != "" {
+	if schemaLoc := doc.GetAttributeNS(root, xsdxml.XSINamespace, "schemaLocation"); schemaLoc != "" {
 		schemaPaths := parseSchemaLocations(schemaLoc)
 		if len(schemaPaths) > 0 {
 			instanceDir := filepath.Dir(instancePath)
@@ -1098,7 +1099,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 					// verify this schema has the root element (it should if it imports the root's schema)
 					rootQName := types.QName{
 						Namespace: types.NamespaceURI(rootNS),
-						Local:     doc.DocumentElement().LocalName(),
+						Local:     doc.LocalName(root),
 					}
 					if schema.Elements[rootQName] != nil {
 						return schemaPaths[i], schema
@@ -1127,7 +1128,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 
 		rootQName := types.QName{
 			Namespace: types.NamespaceURI(rootNS),
-			Local:     doc.DocumentElement().LocalName(),
+			Local:     doc.LocalName(root),
 		}
 
 		var principalDoc *W3CSchemaDoc
@@ -1173,7 +1174,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 	}
 
 	// option 3: use xsi:noNamespaceSchemaLocation hint
-	if hint := doc.DocumentElement().GetAttributeNS(xsdxml.XSINamespace, "noNamespaceSchemaLocation"); hint != "" {
+	if hint := doc.GetAttributeNS(root, xsdxml.XSINamespace, "noNamespaceSchemaLocation"); hint != "" {
 		schemaFullPath := filepath.Join(filepath.Dir(instancePath), hint)
 		schema, err := r.loadSchemaFromPath(schemaFullPath)
 		if err != nil {

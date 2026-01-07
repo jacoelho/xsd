@@ -24,8 +24,11 @@ type validationRun struct {
 	schema          schemaView
 	ids             map[string]bool
 	idrefs          []idrefEntry
-	root            xml.Element
+	root            xml.NodeID
 	schemaHintCache map[string]*grammar.CompiledSchema
+	doc             *xml.Document
+	path            pathStack
+	subMatcher      substitutionMatcher
 }
 
 // idrefEntry tracks an IDREF value and where it was found during validation.
@@ -47,7 +50,7 @@ func New(g *grammar.CompiledSchema) *Validator {
 
 // Validate runs a validation pass and returns all violations, including
 // schemaLocation hint issues.
-func (v *Validator) Validate(doc xml.Document) []errors.Validation {
+func (v *Validator) Validate(doc *xml.Document) []errors.Validation {
 	run := v.newRun()
 	return run.validate(doc)
 }
@@ -60,19 +63,25 @@ func (v *Validator) newRun() *validationRun {
 	}
 }
 
-func (r *validationRun) validate(doc xml.Document) []errors.Validation {
+func (r *validationRun) validate(doc *xml.Document) []errors.Validation {
 	r.reset()
+	r.doc = doc
 
+	if doc == nil {
+		return []errors.Validation{errors.NewValidation(errors.ErrNoRoot, "Document is nil", "")}
+	}
 	root := doc.DocumentElement()
-	if root == nil {
+	if root == xml.InvalidNode {
 		return []errors.Validation{errors.NewValidation(errors.ErrNoRoot, "Document has no root element", "")}
 	}
 
 	violations := r.mergeSchemaLocationHints(root)
 
 	r.root = root
+	r.path.reset()
+	r.path.push(r.doc.LocalName(root))
 
-	violations = append(violations, r.checkElement(root, "/"+root.LocalName())...)
+	violations = append(violations, r.checkElement(root)...)
 	violations = append(violations, r.checkIDRefs()...)
 	violations = append(violations, r.checkIdentityConstraints(root)...)
 
@@ -83,7 +92,9 @@ func (r *validationRun) validate(doc xml.Document) []errors.Validation {
 func (r *validationRun) reset() {
 	r.ids = make(map[string]bool)
 	r.idrefs = nil
-	r.root = nil
+	r.root = xml.InvalidNode
+	r.doc = nil
+	r.path.reset()
 }
 
 type schemaLocationHint struct {
@@ -92,7 +103,7 @@ type schemaLocationHint struct {
 	attribute string
 }
 
-func (r *validationRun) mergeSchemaLocationHints(root xml.Element) []errors.Validation {
+func (r *validationRun) mergeSchemaLocationHints(root xml.NodeID) []errors.Validation {
 	if r.validator.grammar == nil || r.validator.grammar.SourceFS == nil {
 		return nil
 	}
@@ -108,7 +119,7 @@ func (r *validationRun) mergeSchemaLocationHints(root xml.Element) []errors.Vali
 	})
 
 	var warnings []errors.Validation
-	rootPath := "/" + root.LocalName()
+	rootPath := "/" + r.doc.LocalName(root)
 	seen := make(map[string]bool)
 	seenNamespace := make(map[string]string)
 	for _, hint := range hints {
@@ -149,28 +160,33 @@ func (r *validationRun) mergeSchemaLocationHints(root xml.Element) []errors.Vali
 }
 
 // collectSchemaLocationHints recursively collects schema location hints from the element tree.
-func (r *validationRun) collectSchemaLocationHints(elem xml.Element, hints []schemaLocationHint) []schemaLocationHint {
-	if elem == nil {
+func (r *validationRun) collectSchemaLocationHints(elem xml.NodeID, hints []schemaLocationHint) []schemaLocationHint {
+	if elem == xml.InvalidNode {
 		return hints
 	}
-	if schemaLoc := elem.GetAttributeNS(xml.XSINamespace, "schemaLocation"); schemaLoc != "" {
-		fields := strings.Fields(schemaLoc)
-		for i := 0; i+1 < len(fields); i += 2 {
+	if schemaLoc := r.doc.GetAttributeNS(elem, xml.XSINamespace, "schemaLocation"); schemaLoc != "" {
+		var pending string
+		for field := range strings.FieldsSeq(schemaLoc) {
+			if pending == "" {
+				pending = field
+				continue
+			}
 			hints = append(hints, schemaLocationHint{
-				namespace: fields[i],
-				location:  fields[i+1],
+				namespace: pending,
+				location:  field,
 				attribute: "xsi:schemaLocation",
 			})
+			pending = ""
 		}
 	}
-	if hint := elem.GetAttributeNS(xml.XSINamespace, "noNamespaceSchemaLocation"); hint != "" {
+	if hint := r.doc.GetAttributeNS(elem, xml.XSINamespace, "noNamespaceSchemaLocation"); hint != "" {
 		hints = append(hints, schemaLocationHint{
 			namespace: "",
 			location:  hint,
 			attribute: "xsi:noNamespaceSchemaLocation",
 		})
 	}
-	for _, child := range elem.Children() {
+	for _, child := range r.doc.Children(elem) {
 		hints = r.collectSchemaLocationHints(child, hints)
 	}
 	return hints

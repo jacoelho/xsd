@@ -60,11 +60,15 @@ func asSimpleType(typ Type) *SimpleType {
 
 	// for BuiltinType, create a SimpleType wrapper
 	if bt, ok := as[*BuiltinType](typ); ok {
+		if bt.simpleWrapper != nil {
+			return bt.simpleWrapper
+		}
 		st := &SimpleType{
 			QName:   bt.qname,
 			variety: AtomicVariety,
 		}
 		st.MarkBuiltin()
+		bt.simpleWrapper = st
 		return st
 	}
 

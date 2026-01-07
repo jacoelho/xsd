@@ -50,9 +50,8 @@ func isAnySimpleType(ct *grammar.CompiledType) bool {
 	return ct.QName.Local == "anySimpleType" && ct.QName.Namespace == xml.XSDNamespace
 }
 
-// isWhitespaceOnly checks if a string contains only whitespace characters.
-func isWhitespaceOnly(s string) bool {
-	for _, r := range s {
+func isWhitespaceOnlyBytes(b []byte) bool {
+	for _, r := range b {
 		if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
 			return false
 		}
@@ -60,15 +59,7 @@ func isWhitespaceOnly(s string) bool {
 	return true
 }
 
-// appendPath creates a new path by appending a component.
-func appendPath(path, component string) string {
-	if path == "/" {
-		return "/" + component
-	}
-	return path + "/" + component
-}
-
 // getElementChildren returns element children of an element.
-func getElementChildren(elem xml.Element) []xml.Element {
-	return elem.Children()
+func getElementChildren(doc *xml.Document, elem xml.NodeID) []xml.NodeID {
+	return doc.Children(elem)
 }

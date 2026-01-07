@@ -30,6 +30,11 @@ type CompiledContentModel struct {
 
 	// For AllGroup - uses simple array-based validation instead of DFA
 	AllElements []*AllGroupElement // Elements in the all group
+
+	// Cached validation data (precomputed during compilation)
+	ElementIndex     map[types.QName]*CompiledElement
+	SimpleSequence   []*CompiledParticle
+	IsSimpleSequence bool
 }
 
 // AllGroupElement represents an element in an all group.
