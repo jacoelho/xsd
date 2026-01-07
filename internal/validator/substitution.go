@@ -41,7 +41,7 @@ func (r *validationRun) resolveSubstitutionDecl(actualQName types.QName, declare
 	if actualDecl == nil {
 		return declared
 	}
-	matcher := newSubstitutionMatcher(r.schema)
+	matcher := r.matcher()
 	if matcher.IsSubstitutable(actualQName, declared.QName) {
 		return actualDecl
 	}
@@ -53,8 +53,9 @@ type substitutionMatcher struct {
 	view schemaView
 }
 
-func newSubstitutionMatcher(view schemaView) *substitutionMatcher {
-	return &substitutionMatcher{view: view}
+func (r *validationRun) matcher() *substitutionMatcher {
+	r.subMatcher.view = r.schema
+	return &r.subMatcher
 }
 
 // IsSubstitutable reports whether actual can substitute for declared.

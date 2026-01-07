@@ -6,11 +6,17 @@ import (
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
-func parseBoolAttribute(elem xml.Element, name string) (bool, bool, error) {
-	if !elem.HasAttribute(name) {
+func parseBoolAttribute(doc *xml.Document, elem xml.NodeID, name string) (bool, bool, error) {
+	if !doc.HasAttribute(elem, name) {
 		return false, false, nil
 	}
-	value := elem.GetAttribute(name)
+	return parseBoolValue(name, doc.GetAttribute(elem, name), true)
+}
+
+func parseBoolValue(name, value string, present bool) (bool, bool, error) {
+	if !present {
+		return false, false, nil
+	}
 	switch value {
 	case "true", "1":
 		return true, true, nil

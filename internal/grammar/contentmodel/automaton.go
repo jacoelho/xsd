@@ -34,8 +34,8 @@ type Symbol struct {
 	Kind              SymbolKind
 	QName             types.QName // for KindElement
 	NS                string      // for KindAnyNS, KindAnyOther
-	NSList            []string    // for KindAnyNSList
-	AllowSubstitution bool        // only for KindElement
+	NSList            []types.NamespaceURI
+	AllowSubstitution bool // only for KindElement
 }
 
 // SymbolKind classifies symbols in the alphabet.

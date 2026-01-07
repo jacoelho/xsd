@@ -38,7 +38,30 @@ func validateBoolean(value string) error {
 }
 
 // validateDecimal validates xs:decimal
-var decimalPattern = regexp.MustCompile(`^[+-]?(\d+(\.\d*)?|\.\d+)$`)
+var (
+	decimalPattern = regexp.MustCompile(`^[+-]?(\d+(\.\d*)?|\.\d+)$`)
+	floatPattern   = regexp.MustCompile(`^[+-]?((\d+(\.\d*)?)|(\.\d+))([eE][+-]?\d+)?$`)
+	integerPattern = regexp.MustCompile(`^[+-]?\d+$`)
+
+	languagePattern              = regexp.MustCompile(`^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$`)
+	durationPattern              = regexp.MustCompile(`^-?P(\d+Y)?(\d+M)?(\d+D)?(T(\d+H)?(\d+M)?(\d+(\.\d+)?S)?)?$`)
+	durationTimeComponentPattern = regexp.MustCompile(`T(\d+H|\d+M|\d+(\.\d+)?S)`)
+	hexBinaryPattern             = regexp.MustCompile(`^[0-9A-Fa-f]+$`)
+	uriSchemePattern             = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*$`)
+)
+
+var fractionalLayouts = [...]string{
+	"",
+	".0",
+	".00",
+	".000",
+	".0000",
+	".00000",
+	".000000",
+	".0000000",
+	".00000000",
+	".000000000",
+}
 
 func validateDecimal(value string) error {
 	if !decimalPattern.MatchString(value) {
@@ -50,7 +73,6 @@ func validateDecimal(value string) error {
 // validateFloat validates xs:float
 // Per XSD 1.0 spec (3.2.4), the lexical space excludes "+INF", so apply
 // an explicit lexical check before ParseFloat (which would otherwise accept it).
-var floatPattern = regexp.MustCompile(`^[+-]?((\d+(\.\d*)?)|(\.\d+))([eE][+-]?\d+)?$`)
 
 func validateFloat(value string) error {
 	if value == "INF" || value == "-INF" || value == "NaN" {
@@ -84,9 +106,6 @@ func validateDouble(value string) error {
 	}
 	return nil
 }
-
-// validateInteger validates xs:integer
-var integerPattern = regexp.MustCompile(`^[+-]?\d+$`)
 
 func validateInteger(value string) error {
 	if !integerPattern.MatchString(value) {
@@ -448,7 +467,6 @@ func validateNMTOKENS(value string) error {
 // validateLanguage validates xs:language
 // Format: language identifier per RFC 3066
 // Pattern: [a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*
-var languagePattern = regexp.MustCompile(`^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$`)
 
 func validateLanguage(value string) error {
 	// per XSD spec, language pattern is [a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*
@@ -464,13 +482,11 @@ func validateLanguage(value string) error {
 // Format: PnYnMnDTnHnMnS or -PnYnMnDTnHnMnS
 func validateDuration(value string) error {
 	// basic format check
-	durationPattern := regexp.MustCompile(`^-?P(\d+Y)?(\d+M)?(\d+D)?(T(\d+H)?(\d+M)?(\d+(\.\d+)?S)?)?$`)
 	if !durationPattern.MatchString(value) {
 		return fmt.Errorf("invalid duration format: %s", value)
 	}
 	if strings.Contains(value, "T") {
-		timeComponentPattern := regexp.MustCompile(`T(\d+H|\d+M|\d+(\.\d+)?S)`)
-		if !timeComponentPattern.MatchString(value) {
+		if !durationTimeComponentPattern.MatchString(value) {
 			return fmt.Errorf("time designator present but no time components specified")
 		}
 	}
@@ -503,16 +519,18 @@ func parseDuration(s string) (time.Duration, error) {
 	hasDateComponent := false
 	hasTimeComponent := false
 
-	parts := strings.Split(s, "T")
-	datePart := parts[0]
+	datePart := s
 	timePart := ""
-	if len(parts) > 1 {
-		timePart = parts[1]
+	if idx := strings.IndexByte(s, 'T'); idx != -1 {
+		datePart = s[:idx]
+		timePart = s[idx+1:]
+		if extra := strings.IndexByte(timePart, 'T'); extra != -1 {
+			timePart = timePart[:extra]
+		}
 	}
 
 	// parse date part (years, months, days)
-	datePattern := regexp.MustCompile(`(\d+)Y|(\d+)M|(\d+)D`)
-	matches := datePattern.FindAllStringSubmatch(datePart, -1)
+	matches := durationDatePattern.FindAllStringSubmatch(datePart, -1)
 	for _, match := range matches {
 		if match[1] != "" {
 			// years component found (value may be 0)
@@ -530,8 +548,7 @@ func parseDuration(s string) (time.Duration, error) {
 
 	// parse time part (hours, minutes, seconds)
 	if timePart != "" {
-		timePattern := regexp.MustCompile(`(\d+)H|(\d+)M|(\d+(\.\d+)?)S`)
-		matches := timePattern.FindAllStringSubmatch(timePart, -1)
+		matches := durationTimePattern.FindAllStringSubmatch(timePart, -1)
 		for _, match := range matches {
 			if match[1] != "" {
 				hours, _ = strconv.Atoi(match[1])
@@ -572,22 +589,105 @@ func parseDuration(s string) (time.Duration, error) {
 	return dur, nil
 }
 
+func splitTimezone(value string) (string, string) {
+	if value == "" {
+		return value, ""
+	}
+	last := value[len(value)-1]
+	if last == 'Z' {
+		return value[:len(value)-1], "Z"
+	}
+	if len(value) >= 6 {
+		tz := value[len(value)-6:]
+		if (tz[0] == '+' || tz[0] == '-') && tz[3] == ':' {
+			return value[:len(value)-6], tz
+		}
+	}
+	return value, ""
+}
+
+func parseFixedDigits(value string, start, length int) (int, bool) {
+	if start < 0 || length <= 0 || start+length > len(value) {
+		return 0, false
+	}
+	n := 0
+	for i := 0; i < length; i++ {
+		ch := value[start+i]
+		if ch < '0' || ch > '9' {
+			return 0, false
+		}
+		n = n*10 + int(ch-'0')
+	}
+	return n, true
+}
+
+func parseDateParts(value string) (int, int, int, bool) {
+	if len(value) != 10 || value[4] != '-' || value[7] != '-' {
+		return 0, 0, 0, false
+	}
+	year, ok := parseFixedDigits(value, 0, 4)
+	if !ok {
+		return 0, 0, 0, false
+	}
+	month, ok := parseFixedDigits(value, 5, 2)
+	if !ok {
+		return 0, 0, 0, false
+	}
+	day, ok := parseFixedDigits(value, 8, 2)
+	if !ok {
+		return 0, 0, 0, false
+	}
+	return year, month, day, true
+}
+
+func parseTimeParts(value string) (int, int, int, int, bool) {
+	if len(value) < 8 || value[2] != ':' || value[5] != ':' {
+		return 0, 0, 0, 0, false
+	}
+	hour, ok := parseFixedDigits(value, 0, 2)
+	if !ok {
+		return 0, 0, 0, 0, false
+	}
+	minute, ok := parseFixedDigits(value, 3, 2)
+	if !ok {
+		return 0, 0, 0, 0, false
+	}
+	second, ok := parseFixedDigits(value, 6, 2)
+	if !ok {
+		return 0, 0, 0, 0, false
+	}
+	if len(value) == 8 {
+		return hour, minute, second, 0, true
+	}
+	if value[8] != '.' || len(value) == 9 {
+		return 0, 0, 0, 0, false
+	}
+	for i := 9; i < len(value); i++ {
+		ch := value[i]
+		if ch < '0' || ch > '9' {
+			return 0, 0, 0, 0, false
+		}
+	}
+	fractionLength := len(value) - 9
+	return hour, minute, second, fractionLength, true
+}
+
 // validateDateTime validates xs:dateTime
 // Format: CCYY-MM-DDThh:mm:ss[.sss][Z|(+|-)hh:mm]
 func validateDateTime(value string) error {
-	match := regexp.MustCompile(`^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.(\d+))?(Z|([+-]\d{2}:\d{2}))?$`).FindStringSubmatch(value)
-	if match == nil {
+	main, tz := splitTimezone(value)
+	if len(main) < 19 || main[10] != 'T' {
 		return fmt.Errorf("invalid dateTime format: %s", value)
 	}
 
-	year, _ := strconv.Atoi(match[1])
-	month, _ := strconv.Atoi(match[2])
-	day, _ := strconv.Atoi(match[3])
-	hour, _ := strconv.Atoi(match[4])
-	minute, _ := strconv.Atoi(match[5])
-	second, _ := strconv.Atoi(match[6])
-	fraction := match[8]
-	tz := match[9]
+	year, month, day, ok := parseDateParts(main[:10])
+	if !ok {
+		return fmt.Errorf("invalid dateTime format: %s", value)
+	}
+	hour, minute, second, fractionLength, ok := parseTimeParts(main[11:])
+	if !ok {
+		return fmt.Errorf("invalid dateTime format: %s", value)
+	}
 
 	if year < 1 || year > 9999 {
 		return fmt.Errorf("invalid dateTime: year %04d is not valid in XSD 1.0", year)
@@ -598,7 +698,7 @@ func validateDateTime(value string) error {
 	if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 {
 		return fmt.Errorf("invalid dateTime: time out of range")
 	}
-	if fraction != "" && len(fraction) > 9 {
+	if fractionLength > 9 {
 		return fmt.Errorf("invalid dateTime: fractional seconds too long")
 	}
 	if err := validateTimezoneOffset(tz); err != nil {
@@ -609,9 +709,7 @@ func validateDateTime(value string) error {
 	}
 
 	layout := "2006-01-02T15:04:05"
-	if fraction != "" {
-		layout += "." + strings.Repeat("0", len(fraction))
-	}
+	layout += fractionalLayouts[fractionLength]
 	if tz == "Z" {
 		layout += "Z"
 	} else if tz != "" {
@@ -627,15 +725,11 @@ func validateDateTime(value string) error {
 // validateDate validates xs:date
 // Format: CCYY-MM-DD[Z|(+|-)hh:mm]
 func validateDate(value string) error {
-	match := regexp.MustCompile(`^(\d{4})-(\d{2})-(\d{2})(Z|([+-]\d{2}:\d{2}))?$`).FindStringSubmatch(value)
-	if match == nil {
+	main, tz := splitTimezone(value)
+	year, month, day, ok := parseDateParts(main)
+	if !ok {
 		return fmt.Errorf("invalid date format: %s", value)
 	}
-
-	year, _ := strconv.Atoi(match[1])
-	month, _ := strconv.Atoi(match[2])
-	day, _ := strconv.Atoi(match[3])
-	tz := match[4]
 
 	if year < 1 || year > 9999 {
 		return fmt.Errorf("invalid date: year %04d is not valid in XSD 1.0", year)
@@ -663,21 +757,16 @@ func validateDate(value string) error {
 // validateTime validates xs:time
 // Format: hh:mm:ss[.sss][Z|(+|-)hh:mm]
 func validateTime(value string) error {
-	match := regexp.MustCompile(`^(\d{2}):(\d{2}):(\d{2})(\.(\d+))?(Z|([+-]\d{2}:\d{2}))?$`).FindStringSubmatch(value)
-	if match == nil {
+	main, tz := splitTimezone(value)
+	hour, minute, second, fractionLength, ok := parseTimeParts(main)
+	if !ok {
 		return fmt.Errorf("invalid time format: %s", value)
 	}
-
-	hour, _ := strconv.Atoi(match[1])
-	minute, _ := strconv.Atoi(match[2])
-	second, _ := strconv.Atoi(match[3])
-	fraction := match[5]
-	tz := match[6]
 
 	if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 {
 		return fmt.Errorf("invalid time: time out of range")
 	}
-	if fraction != "" && len(fraction) > 9 {
+	if fractionLength > 9 {
 		return fmt.Errorf("invalid time: fractional seconds too long")
 	}
 	if err := validateTimezoneOffset(tz); err != nil {
@@ -685,9 +774,7 @@ func validateTime(value string) error {
 	}
 
 	layout := "15:04:05"
-	if fraction != "" {
-		layout += "." + strings.Repeat("0", len(fraction))
-	}
+	layout += fractionalLayouts[fractionLength]
 	if tz == "Z" {
 		layout += "Z"
 	} else if tz != "" {
@@ -704,13 +791,12 @@ func validateTime(value string) error {
 // Format: CCYY[Z|(+|-)hh:mm]
 // Note: Only years 0001-9999 are supported (Go time.Parse limitation + XSD 1.0 no year 0)
 func validateGYear(value string) error {
-	match := regexp.MustCompile(`^(\d{4})(Z|([+-]\d{2}:\d{2}))?$`).FindStringSubmatch(value)
-	if match == nil {
+	main, tz := splitTimezone(value)
+	year, ok := parseFixedDigits(main, 0, 4)
+	if !ok || len(main) != 4 {
 		return fmt.Errorf("invalid gYear format: %s", value)
 	}
 
-	year, _ := strconv.Atoi(match[1])
-	tz := match[2]
 	if year < 1 || year > 9999 {
 		return fmt.Errorf("invalid gYear: year %04d is not valid in XSD 1.0", year)
 	}
@@ -735,14 +821,19 @@ func validateGYear(value string) error {
 // Format: CCYY-MM[Z|(+|-)hh:mm]
 // Note: Only years 0001-9999 are supported (Go time.Parse limitation + XSD 1.0 no year 0)
 func validateGYearMonth(value string) error {
-	match := regexp.MustCompile(`^(\d{4})-(\d{2})(Z|([+-]\d{2}:\d{2}))?$`).FindStringSubmatch(value)
-	if match == nil {
+	main, tz := splitTimezone(value)
+	if len(main) != 7 || main[4] != '-' {
 		return fmt.Errorf("invalid gYearMonth format: %s", value)
 	}
 
-	year, _ := strconv.Atoi(match[1])
-	month, _ := strconv.Atoi(match[2])
-	tz := match[3]
+	year, ok := parseFixedDigits(main, 0, 4)
+	if !ok {
+		return fmt.Errorf("invalid gYearMonth format: %s", value)
+	}
+	month, ok := parseFixedDigits(main, 5, 2)
+	if !ok {
+		return fmt.Errorf("invalid gYearMonth format: %s", value)
+	}
 	if year < 1 || year > 9999 {
 		return fmt.Errorf("invalid gYearMonth: year %04d is not valid in XSD 1.0", year)
 	}
@@ -769,25 +860,29 @@ func validateGYearMonth(value string) error {
 // validateGMonth validates xs:gMonth
 // Format: --MM[Z|(+|-)hh:mm]
 func validateGMonth(value string) error {
-	match := regexp.MustCompile(`^--(\d{2})(Z|([+-]\d{2}:\d{2}))?$`).FindStringSubmatch(value)
-	if match == nil {
+	main, tz := splitTimezone(value)
+	if len(main) != 4 || main[0] != '-' || main[1] != '-' {
 		return fmt.Errorf("invalid gMonth format: %s", value)
 	}
-	month, _ := strconv.Atoi(match[1])
-	tz := match[2]
+	month, ok := parseFixedDigits(main, 2, 2)
+	if !ok {
+		return fmt.Errorf("invalid gMonth format: %s", value)
+	}
 	if month < 1 || month > 12 {
-		return fmt.Errorf("invalid month value: %s", match[1])
+		return fmt.Errorf("invalid month value: %s", main[2:4])
 	}
 	if err := validateTimezoneOffset(tz); err != nil {
 		return err
 	}
 
 	layout := "2006-01"
-	testValue := "2000-" + value[2:]
+	testValue := "2000-" + main[2:]
 	if tz == "Z" {
 		layout += "Z"
+		testValue += "Z"
 	} else if tz != "" {
 		layout += "-07:00"
+		testValue += tz
 	}
 	if _, err := time.Parse(layout, testValue); err != nil {
 		return fmt.Errorf("invalid gMonth format: %s", value)
@@ -799,13 +894,18 @@ func validateGMonth(value string) error {
 // validateGMonthDay validates xs:gMonthDay
 // Format: --MM-DD[Z|(+|-)hh:mm]
 func validateGMonthDay(value string) error {
-	match := regexp.MustCompile(`^--(\d{2})-(\d{2})(Z|([+-]\d{2}:\d{2}))?$`).FindStringSubmatch(value)
-	if match == nil {
+	main, tz := splitTimezone(value)
+	if len(main) != 7 || main[0] != '-' || main[1] != '-' || main[4] != '-' {
 		return fmt.Errorf("invalid gMonthDay format: %s", value)
 	}
-	month, _ := strconv.Atoi(match[1])
-	day, _ := strconv.Atoi(match[2])
-	tz := match[3]
+	month, ok := parseFixedDigits(main, 2, 2)
+	if !ok {
+		return fmt.Errorf("invalid gMonthDay format: %s", value)
+	}
+	day, ok := parseFixedDigits(main, 5, 2)
+	if !ok {
+		return fmt.Errorf("invalid gMonthDay format: %s", value)
+	}
 	if month < 1 || month > 12 {
 		return fmt.Errorf("invalid gMonthDay: month out of range")
 	}
@@ -817,7 +917,7 @@ func validateGMonthDay(value string) error {
 	}
 
 	layout := "2006-01-02"
-	testValue := fmt.Sprintf("2000-%02d-%02d", month, day)
+	testValue := "2000-" + main[2:4] + "-" + main[5:7]
 	if tz == "Z" {
 		layout += "Z"
 		testValue += "Z"
@@ -835,12 +935,14 @@ func validateGMonthDay(value string) error {
 // validateGDay validates xs:gDay
 // Format: ---DD[Z|(+|-)hh:mm]
 func validateGDay(value string) error {
-	match := regexp.MustCompile(`^---(\d{2})(Z|([+-]\d{2}:\d{2}))?$`).FindStringSubmatch(value)
-	if match == nil {
+	main, tz := splitTimezone(value)
+	if len(main) != 5 || main[0] != '-' || main[1] != '-' || main[2] != '-' {
 		return fmt.Errorf("invalid gDay format: %s", value)
 	}
-	day, _ := strconv.Atoi(match[1])
-	tz := match[2]
+	day, ok := parseFixedDigits(main, 3, 2)
+	if !ok {
+		return fmt.Errorf("invalid gDay format: %s", value)
+	}
 	if day < 1 || day > 31 {
 		return fmt.Errorf("invalid gDay: day out of range")
 	}
@@ -849,7 +951,7 @@ func validateGDay(value string) error {
 	}
 
 	layout := "2006-01-02"
-	testValue := fmt.Sprintf("2000-01-%02d", day)
+	testValue := "2000-01-" + main[3:5]
 	if tz == "Z" {
 		layout += "Z"
 		testValue += "Z"
@@ -915,8 +1017,7 @@ func validateHexBinary(value string) error {
 	}
 
 	// must contain only hex digits
-	hexPattern := regexp.MustCompile(`^[0-9A-Fa-f]+$`)
-	if !hexPattern.MatchString(value) {
+	if !hexBinaryPattern.MatchString(value) {
 		return fmt.Errorf("hexBinary must contain only hexadecimal digits (0-9, A-F, a-f)")
 	}
 
@@ -991,8 +1092,7 @@ func validateAnyURI(value string) error {
 				return fmt.Errorf("anyURI scheme cannot be empty")
 			}
 			scheme := value[:idx]
-			schemePattern := regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*$`)
-			if !schemePattern.MatchString(scheme) {
+			if !uriSchemePattern.MatchString(scheme) {
 				return fmt.Errorf("anyURI has invalid scheme: %s", scheme)
 			}
 		}
@@ -1013,21 +1113,29 @@ func validateQName(value string) error {
 	}
 
 	// check for prefix (local:name format)
-	parts := strings.Split(value, ":")
-	if len(parts) > 2 {
+	colon := strings.IndexByte(value, ':')
+	if colon == -1 {
+		if err := validateNCName(value); err != nil {
+			return fmt.Errorf("invalid QName part '%s': %v", value, err)
+		}
+		return nil
+	}
+	if colon == 0 || colon == len(value)-1 {
+		return fmt.Errorf("QName part cannot be empty")
+	}
+	if strings.IndexByte(value[colon+1:], ':') != -1 {
 		return fmt.Errorf("QName can have at most one colon")
 	}
-	if len(parts) == 2 && parts[0] == "xmlns" {
+	prefix := value[:colon]
+	local := value[colon+1:]
+	if prefix == "xmlns" {
 		return fmt.Errorf("QName cannot use reserved prefix 'xmlns'")
 	}
-
-	for _, part := range parts {
-		if len(part) == 0 {
-			return fmt.Errorf("QName part cannot be empty")
-		}
-		if err := validateNCName(part); err != nil {
-			return fmt.Errorf("invalid QName part '%s': %v", part, err)
-		}
+	if err := validateNCName(prefix); err != nil {
+		return fmt.Errorf("invalid QName part '%s': %v", prefix, err)
+	}
+	if err := validateNCName(local); err != nil {
+		return fmt.Errorf("invalid QName part '%s': %v", local, err)
 	}
 
 	return nil

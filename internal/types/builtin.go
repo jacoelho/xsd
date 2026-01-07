@@ -22,6 +22,7 @@ type BuiltinType struct {
 	ordered                bool
 	primitiveTypeCache     Type
 	fundamentalFacetsCache *FundamentalFacets
+	simpleWrapper          *SimpleType
 }
 
 var builtinRegistry = make(map[string]*BuiltinType)
@@ -78,13 +79,20 @@ func GetBuiltinNS(namespace NamespaceURI, local string) *BuiltinType {
 
 func registerBuiltin(name TypeName, validator TypeValidator, ws WhiteSpace, ordered bool) {
 	nameStr := string(name)
-	builtinRegistry[nameStr] = &BuiltinType{
+	builtin := &BuiltinType{
 		name:       nameStr,
 		qname:      QName{Namespace: XSDNamespace, Local: nameStr},
 		validator:  validator,
 		whiteSpace: ws,
 		ordered:    ordered,
 	}
+	simple := &SimpleType{
+		QName:   builtin.qname,
+		variety: AtomicVariety,
+	}
+	simple.MarkBuiltin()
+	builtin.simpleWrapper = simple
+	builtinRegistry[nameStr] = builtin
 }
 
 // Compile-time check that BuiltinType implements Type interface
@@ -132,12 +140,7 @@ func (b *BuiltinType) ParseValue(lexical string) (TypedValue, error) {
 	}
 
 	// fallback for types not in registry: create a string value
-	st := &SimpleType{
-		QName:   b.qname,
-		variety: AtomicVariety,
-	}
-	st.MarkBuiltin()
-	return NewStringValue(NewParsedValue(normalized, normalized), st), nil
+	return NewStringValue(NewParsedValue(normalized, normalized), b.simpleWrapper), nil
 }
 
 // Variety returns the simple type variety (all built-in types are atomic)
@@ -166,7 +169,11 @@ func (b *BuiltinType) MeasureLength(value string) int {
 		if len(strings.TrimSpace(value)) == 0 {
 			return 0
 		}
-		return len(strings.Fields(value))
+		count := 0
+		for range strings.FieldsSeq(value) {
+			count++
+		}
+		return count
 	}
 
 	primitiveType := b.PrimitiveType()

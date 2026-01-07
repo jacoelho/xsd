@@ -4,9 +4,10 @@ import "github.com/jacoelho/xsd/internal/types"
 
 // CompiledElement is a fully-resolved element declaration.
 type CompiledElement struct {
-	QName    types.QName
-	Original *types.ElementDecl
-	Type     *CompiledType // Direct pointer (not QName)
+	QName          types.QName
+	EffectiveQName types.QName
+	Original       *types.ElementDecl
+	Type           *CompiledType // Direct pointer (not QName)
 
 	// Substitution group membership (pre-computed transitive closure)
 	SubstitutionHead *CompiledElement   // What this element substitutes

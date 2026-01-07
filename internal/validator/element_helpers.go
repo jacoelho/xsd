@@ -60,15 +60,16 @@ func isWhitespaceOnly(s string) bool {
 	return true
 }
 
-// appendPath creates a new path by appending a component.
-func appendPath(path, component string) string {
-	if path == "/" {
-		return "/" + component
+func isWhitespaceOnlyBytes(b []byte) bool {
+	for _, r := range b {
+		if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
+			return false
+		}
 	}
-	return path + "/" + component
+	return true
 }
 
 // getElementChildren returns element children of an element.
-func getElementChildren(elem xml.Element) []xml.Element {
-	return elem.Children()
+func getElementChildren(doc *xml.Document, elem xml.NodeID) []xml.NodeID {
+	return doc.Children(elem)
 }

@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
@@ -9,6 +10,13 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
+
+var validNotationAttributes = map[string]bool{
+	"name":   true,
+	"id":     true,
+	"public": true,
+	"system": true,
+}
 
 // ParseError represents a schema parsing error with an error code
 type ParseError struct {
@@ -54,8 +62,8 @@ type IncludeInfo struct {
 
 // getAttr returns an attribute value with whitespace trimmed.
 // XSD attribute values should be normalized per XML spec, so we always trim.
-func getAttr(elem xml.Element, name string) string {
-	return strings.TrimSpace(elem.GetAttribute(name))
+func getAttr(doc *xml.Document, elem xml.NodeID, name string) string {
+	return strings.TrimSpace(doc.GetAttribute(elem, name))
 }
 
 // ParseResult contains the parsed schema and import/include directives
@@ -76,22 +84,24 @@ func Parse(r io.Reader) (*xsdschema.Schema, error) {
 
 // ParseWithImports parses an XSD schema and returns import/include information
 func ParseWithImports(r io.Reader) (*ParseResult, error) {
-	doc, err := xml.Parse(r)
-	if err != nil {
+	doc := xml.AcquireDocument()
+	defer xml.ReleaseDocument(doc)
+
+	if err := xml.ParseInto(r, doc); err != nil {
 		return nil, newParseError("parse XML", err)
 	}
 
 	root := doc.DocumentElement()
-	if root == nil {
+	if root == xml.InvalidNode {
 		return nil, fmt.Errorf("empty document")
 	}
 
-	if root.LocalName() != "schema" || root.NamespaceURI() != xml.XSDNamespace {
+	if doc.LocalName(root) != "schema" || doc.NamespaceURI(root) != xml.XSDNamespace {
 		return nil, fmt.Errorf("root element must be xs:schema, got {%s}%s",
-			root.NamespaceURI(), root.LocalName())
+			doc.NamespaceURI(root), doc.LocalName(root))
 	}
 
-	if err := validateSchemaAttributeNamespaces(root); err != nil {
+	if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
 		return nil, err
 	}
 
@@ -103,7 +113,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	// also, schema attributes must be unprefixed (not in XSD namespace)
 	targetNSAttr := ""
 	targetNSFound := false
-	for _, attr := range root.Attributes() {
+	for _, attr := range doc.Attributes(root) {
 		// schema attributes must be unprefixed (empty namespace)
 		// prefixed attributes like xsd:targetNamespace are invalid
 		if attr.LocalName() == "targetNamespace" {
@@ -128,7 +138,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 
 	// note: Go's encoding/xml represents xmlns:prefix attributes with NamespaceURI="xmlns"
 	// and the local name is the prefix
-	for _, attr := range root.Attributes() {
+	for _, attr := range doc.Attributes(root) {
 		if attr.LocalName() == "xmlns" && (attr.NamespaceURI() == "" || attr.NamespaceURI() == xml.XMLNSNamespace) {
 			// xmlns="namespace" - default namespace (no prefix)
 			schema.NamespaceDecls[""] = attr.Value()
@@ -142,8 +152,8 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		}
 	}
 
-	if root.HasAttribute("elementFormDefault") {
-		elemForm := root.GetAttribute("elementFormDefault")
+	if doc.HasAttribute(root, "elementFormDefault") {
+		elemForm := doc.GetAttribute(root, "elementFormDefault")
 		if elemForm == "" {
 			return nil, fmt.Errorf("elementFormDefault attribute cannot be empty")
 		}
@@ -157,8 +167,8 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		}
 	}
 
-	if root.HasAttribute("attributeFormDefault") {
-		attrForm := root.GetAttribute("attributeFormDefault")
+	if doc.HasAttribute(root, "attributeFormDefault") {
+		attrForm := doc.GetAttribute(root, "attributeFormDefault")
 		if attrForm == "" {
 			return nil, fmt.Errorf("attributeFormDefault attribute cannot be empty")
 		}
@@ -172,8 +182,8 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		}
 	}
 
-	if root.HasAttribute("blockDefault") {
-		blockDefaultAttr := root.GetAttribute("blockDefault")
+	if doc.HasAttribute(root, "blockDefault") {
+		blockDefaultAttr := doc.GetAttribute(root, "blockDefault")
 		if blockDefaultAttr != "" {
 			block, err := parseDerivationSetWithValidation(blockDefaultAttr, types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction))
 			if err != nil {
@@ -183,8 +193,8 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		}
 	}
 
-	if root.HasAttribute("finalDefault") {
-		finalDefaultAttr := root.GetAttribute("finalDefault")
+	if doc.HasAttribute(root, "finalDefault") {
+		finalDefaultAttr := doc.GetAttribute(root, "finalDefault")
 		if finalDefaultAttr != "" {
 			final, err := parseDerivationSetWithValidation(finalDefaultAttr, types.DerivationSet(types.DerivationExtension|types.DerivationRestriction|types.DerivationList|types.DerivationUnion))
 			if err != nil {
@@ -200,80 +210,80 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		Includes: []IncludeInfo{},
 	}
 
-	for _, child := range root.Children() {
-		if child.NamespaceURI() != xml.XSDNamespace {
+	for _, child := range doc.Children(root) {
+		if doc.NamespaceURI(child) != xml.XSDNamespace {
 			continue
 		}
 
-		switch child.LocalName() {
+		switch doc.LocalName(child) {
 		case "annotation":
 			// allowed at top-level; nothing to parse.
 		case "import":
-			if hasIDAttribute(child) {
-				idAttr := child.GetAttribute("id")
+			if hasIDAttribute(doc, child) {
+				idAttr := doc.GetAttribute(child, "id")
 				if err := validateIDAttribute(idAttr, "import", schema); err != nil {
 					return nil, err
 				}
 			}
-			if err := validateOnlyAnnotationChildren(child, "import"); err != nil {
+			if err := validateOnlyAnnotationChildren(doc, child, "import"); err != nil {
 				return nil, err
 			}
 			importInfo := ImportInfo{
-				Namespace:      child.GetAttribute("namespace"),
-				SchemaLocation: child.GetAttribute("schemaLocation"),
+				Namespace:      doc.GetAttribute(child, "namespace"),
+				SchemaLocation: doc.GetAttribute(child, "schemaLocation"),
 			}
 			result.Imports = append(result.Imports, importInfo)
 		case "include":
-			if hasIDAttribute(child) {
-				idAttr := child.GetAttribute("id")
+			if hasIDAttribute(doc, child) {
+				idAttr := doc.GetAttribute(child, "id")
 				if err := validateIDAttribute(idAttr, "include", schema); err != nil {
 					return nil, err
 				}
 			}
-			if err := validateOnlyAnnotationChildren(child, "include"); err != nil {
+			if err := validateOnlyAnnotationChildren(doc, child, "include"); err != nil {
 				return nil, err
 			}
 			includeInfo := IncludeInfo{
-				SchemaLocation: child.GetAttribute("schemaLocation"),
+				SchemaLocation: doc.GetAttribute(child, "schemaLocation"),
 			}
 			if includeInfo.SchemaLocation == "" {
 				return nil, fmt.Errorf("include directive missing schemaLocation")
 			}
 			result.Includes = append(result.Includes, includeInfo)
 		case "element":
-			if err := parseTopLevelElement(child, schema); err != nil {
+			if err := parseTopLevelElement(doc, child, schema); err != nil {
 				return nil, fmt.Errorf("parse element: %w", err)
 			}
 		case "complexType":
-			if err := parseComplexType(child, schema); err != nil {
+			if err := parseComplexType(doc, child, schema); err != nil {
 				return nil, fmt.Errorf("parse complexType: %w", err)
 			}
 		case "simpleType":
-			if err := parseSimpleType(child, schema); err != nil {
+			if err := parseSimpleType(doc, child, schema); err != nil {
 				return nil, fmt.Errorf("parse simpleType: %w", err)
 			}
 		case "group":
-			if err := parseTopLevelGroup(child, schema); err != nil {
+			if err := parseTopLevelGroup(doc, child, schema); err != nil {
 				return nil, fmt.Errorf("parse group: %w", err)
 			}
 		case "attribute":
-			if err := parseTopLevelAttribute(child, schema); err != nil {
+			if err := parseTopLevelAttribute(doc, child, schema); err != nil {
 				return nil, fmt.Errorf("parse attribute: %w", err)
 			}
 		case "attributeGroup":
-			if err := parseTopLevelAttributeGroup(child, schema); err != nil {
+			if err := parseTopLevelAttributeGroup(doc, child, schema); err != nil {
 				return nil, fmt.Errorf("parse attributeGroup: %w", err)
 			}
 		case "notation":
-			if err := parseTopLevelNotation(child, schema); err != nil {
+			if err := parseTopLevelNotation(doc, child, schema); err != nil {
 				return nil, fmt.Errorf("parse notation: %w", err)
 			}
 		case "key", "keyref", "unique":
-			return nil, fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", child.LocalName())
+			return nil, fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(child))
 		case "redefine":
 			return nil, fmt.Errorf("redefine is not supported")
 		default:
-			return nil, fmt.Errorf("unexpected top-level element '%s'", child.LocalName())
+			return nil, fmt.Errorf("unexpected top-level element '%s'", doc.LocalName(child))
 		}
 	}
 
@@ -281,22 +291,17 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 }
 
 // parseTopLevelNotation parses a top-level notation declaration
-func parseTopLevelNotation(elem xml.Element, schema *xsdschema.Schema) error {
-	if err := validateAllowedAttributes(elem, "notation", map[string]bool{
-		"name":   true,
-		"id":     true,
-		"public": true,
-		"system": true,
-	}); err != nil {
+func parseTopLevelNotation(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+	if err := validateAllowedAttributes(doc, elem, "notation", validNotationAttributes); err != nil {
 		return err
 	}
 
-	if strings.TrimSpace(elem.DirectTextContent()) != "" {
+	if len(bytes.TrimSpace(doc.DirectTextContentBytes(elem))) != 0 {
 		return fmt.Errorf("notation must not contain character data")
 	}
 
 	// notation must have a name attribute
-	name := elem.GetAttribute("name")
+	name := doc.GetAttribute(elem, "name")
 	if name == "" {
 		return fmt.Errorf("notation must have a 'name' attribute")
 	}
@@ -305,8 +310,8 @@ func parseTopLevelNotation(elem xml.Element, schema *xsdschema.Schema) error {
 		return fmt.Errorf("notation name '%s' must be a valid NCName", name)
 	}
 
-	if hasIDAttribute(elem) {
-		idAttr := elem.GetAttribute("id")
+	if hasIDAttribute(doc, elem) {
+		idAttr := doc.GetAttribute(elem, "id")
 		if err := validateIDAttribute(idAttr, "notation", schema); err != nil {
 			return err
 		}
@@ -315,22 +320,22 @@ func parseTopLevelNotation(elem xml.Element, schema *xsdschema.Schema) error {
 	// notation must have either public or system attribute
 	// per XSD spec, both public and system can be empty strings (they're URIs)
 	// the requirement is that at least ONE attribute must be present
-	public := elem.GetAttribute("public")
-	system := elem.GetAttribute("system")
-	hasPublic := elem.HasAttribute("public")
-	hasSystem := elem.HasAttribute("system")
+	public := doc.GetAttribute(elem, "public")
+	system := doc.GetAttribute(elem, "system")
+	hasPublic := doc.HasAttribute(elem, "public")
+	hasSystem := doc.HasAttribute(elem, "system")
 	if !hasPublic && !hasSystem {
 		return fmt.Errorf("notation must have either 'public' or 'system' attribute")
 	}
 
 	// validate annotation constraints: at most one annotation, must be first
 	hasAnnotation := false
-	for _, child := range elem.Children() {
-		if child.NamespaceURI() != xml.XSDNamespace {
-			return fmt.Errorf("notation '%s': unexpected child element '%s'", name, child.LocalName())
+	for _, child := range doc.Children(elem) {
+		if doc.NamespaceURI(child) != xml.XSDNamespace {
+			return fmt.Errorf("notation '%s': unexpected child element '%s'", name, doc.LocalName(child))
 		}
 
-		switch child.LocalName() {
+		switch doc.LocalName(child) {
 		case "annotation":
 			if hasAnnotation {
 				return fmt.Errorf("notation '%s': at most one annotation is allowed", name)
@@ -338,7 +343,7 @@ func parseTopLevelNotation(elem xml.Element, schema *xsdschema.Schema) error {
 			hasAnnotation = true
 		default:
 			// notation can only have annotation as child
-			return fmt.Errorf("notation '%s': unexpected child element '%s'", name, child.LocalName())
+			return fmt.Errorf("notation '%s': unexpected child element '%s'", name, doc.LocalName(child))
 		}
 	}
 
