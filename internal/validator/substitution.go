@@ -81,10 +81,7 @@ func (m *substitutionMatcher) IsSubstitutable(actual, declared types.QName) bool
 	if subs := m.view.SubstitutionGroup(declared); len(subs) > 0 {
 		for _, sub := range subs {
 			if sub.QName == actual {
-				if m.isDerivationBlocked(sub, head) {
-					return false
-				}
-				return true
+				return !m.isDerivationBlocked(sub, head)
 			}
 		}
 	}

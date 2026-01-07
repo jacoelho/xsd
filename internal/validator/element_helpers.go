@@ -50,16 +50,6 @@ func isAnySimpleType(ct *grammar.CompiledType) bool {
 	return ct.QName.Local == "anySimpleType" && ct.QName.Namespace == xml.XSDNamespace
 }
 
-// isWhitespaceOnly checks if a string contains only whitespace characters.
-func isWhitespaceOnly(s string) bool {
-	for _, r := range s {
-		if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
-			return false
-		}
-	}
-	return true
-}
-
 func isWhitespaceOnlyBytes(b []byte) bool {
 	for _, r := range b {
 		if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
