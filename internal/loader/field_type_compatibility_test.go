@@ -220,7 +220,7 @@ func TestKeyRef_CompatibleFieldTypes(t *testing.T) {
 		t.Fatal("Load() returned nil schema")
 	}
 
-	// Verify the constraints are present
+	// verify the constraints are present
 	purchaseReportQName := types.QName{
 		Namespace: "http://example.com",
 		Local:     "purchaseReport",
@@ -241,7 +241,7 @@ func TestKeyRef_CompatibleFieldTypes(t *testing.T) {
 		t.Fatal("keyref constraint 'partRef' not found")
 	}
 
-	// Verify field types are resolved
+	// verify field types are resolved
 	if len(keyrefConstraint.Fields) == 0 {
 		t.Fatal("keyref constraint should have fields")
 	}
@@ -450,7 +450,7 @@ func TestKeyRef_DescendantOrSelfPrefix(t *testing.T) {
 		t.Fatal("Load() returned nil schema")
 	}
 
-	// Verify field types are resolved
+	// verify field types are resolved
 	containerQName := types.QName{
 		Namespace: "http://example.com",
 		Local:     "container",
@@ -471,7 +471,7 @@ func TestKeyRef_DescendantOrSelfPrefix(t *testing.T) {
 		t.Fatal("key constraint 'targetKey' not found")
 	}
 
-	// Verify field type is resolved for descendant-or-self selector
+	// verify field type is resolved for descendant-or-self selector
 	if len(keyConstraint.Fields) == 0 {
 		t.Fatal("key constraint should have fields")
 	}

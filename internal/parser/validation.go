@@ -53,7 +53,7 @@ func validateAnnotationStructure(elem xml.Element) error {
 			if err := validateAnnotationChildAttributes(child); err != nil {
 				return err
 			}
-			// Allowed.
+			// allowed.
 		default:
 			return fmt.Errorf("annotation: unexpected child element '%s'", child.LocalName())
 		}

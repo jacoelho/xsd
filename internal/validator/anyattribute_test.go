@@ -772,7 +772,7 @@ func TestAnyAttributeWithExplicitAttributes(t *testing.T) {
 	v := New(mustCompile(t, schema))
 	violations := v.Validate(doc)
 
-	// Should be valid - explicit attribute and wildcard attribute both allowed
+	// should be valid - explicit attribute and wildcard attribute both allowed
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))
 		for _, v := range violations {
@@ -806,7 +806,7 @@ func TestProhibitedAttributeWithAnyAttribute(t *testing.T) {
 	}
 
 	// XML with the "prohibited" attribute
-	// This should be VALID because:
+	// this should be VALID because:
 	// 1. prohibited attributes are not in {attribute uses}
 	// 2. anyAttribute namespace="##local" allows local (no-namespace) attributes
 	// 3. attr="123" is a local attribute, so it matches the wildcard
@@ -820,7 +820,7 @@ func TestProhibitedAttributeWithAnyAttribute(t *testing.T) {
 	v := New(mustCompile(t, schema))
 	violations := v.Validate(doc)
 
-	// Should be valid - anyAttribute allows this attribute
+	// should be valid - anyAttribute allows this attribute
 	if len(violations) > 0 {
 		t.Errorf("Expected valid (prohibited only matters for derivation), got invalid:")
 		for _, v := range violations {

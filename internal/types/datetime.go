@@ -49,7 +49,7 @@ func ParseTime(lexical string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("invalid time: empty string")
 	}
 
-	// Use a reference date (2000-01-01) for time-only parsing
+	// use a reference date (2000-01-01) for time-only parsing
 	formats := []string{
 		"2006-01-02T15:04:05.999999999Z",      // UTC with nanoseconds
 		"2006-01-02T15:04:05.999999999-07:00", // offset with nanoseconds (matches both + and -)
@@ -128,14 +128,14 @@ func ParseGMonth(lexical string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("invalid gMonth: empty string")
 	}
 
-	// Format strings must include the year placeholder (2006) to match the structure
+	// format strings must include the year placeholder (2006) to match the structure
 	formats := []string{
-		"2006--01Z",      // Format: year--monthZ (UTC)
-		"2006--01-07:00", // Format: year--month-offset (matches both + and - offsets)
-		"2006--01",       // Format: year--month (no timezone)
+		"2006--01Z",      // format: year--monthZ (UTC)
+		"2006--01-07:00", // format: year--month-offset (matches both + and - offsets)
+		"2006--01",       // format: year--month (no timezone)
 	}
 
-	// Prepend reference year to the value
+	// prepend reference year to the value
 	testValue := "2000" + lexical
 	for _, format := range formats {
 		if t, err := time.Parse(format, testValue); err == nil {
@@ -154,14 +154,14 @@ func ParseGMonthDay(lexical string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("invalid gMonthDay: empty string")
 	}
 
-	// Format strings must include the year placeholder (2006) to match the structure
+	// format strings must include the year placeholder (2006) to match the structure
 	formats := []string{
-		"2006--01-02Z",      // Format: year--month-dayZ (UTC)
-		"2006--01-02-07:00", // Format: year--month-day-offset (matches both + and - offsets)
-		"2006--01-02",       // Format: year--month-day (no timezone)
+		"2006--01-02Z",      // format: year--month-dayZ (UTC)
+		"2006--01-02-07:00", // format: year--month-day-offset (matches both + and - offsets)
+		"2006--01-02",       // format: year--month-day (no timezone)
 	}
 
-	// Prepend reference year to the value
+	// prepend reference year to the value
 	testValue := "2000" + lexical
 	for _, format := range formats {
 		if t, err := time.Parse(format, testValue); err == nil {
@@ -180,14 +180,14 @@ func ParseGDay(lexical string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("invalid gDay: empty string")
 	}
 
-	// Format strings must include the year and month placeholders (2006-01) to match the structure
+	// format strings must include the year and month placeholders (2006-01) to match the structure
 	formats := []string{
-		"2006-01---02Z",      // Format: year-month---dayZ (UTC)
-		"2006-01---02-07:00", // Format: year-month---day-offset (matches both + and - offsets)
-		"2006-01---02",       // Format: year-month---day (no timezone)
+		"2006-01---02Z",      // format: year-month---dayZ (UTC)
+		"2006-01---02-07:00", // format: year-month---day-offset (matches both + and - offsets)
+		"2006-01---02",       // format: year-month---day (no timezone)
 	}
 
-	// Prepend reference year and month to the value
+	// prepend reference year and month to the value
 	testValue := "2000-01" + lexical
 	for _, format := range formats {
 		if t, err := time.Parse(format, testValue); err == nil {
@@ -209,12 +209,12 @@ func ParseDuration(lexical string) (string, error) {
 		return "", fmt.Errorf("invalid duration: empty string")
 	}
 
-	// Basic validation: must start with P
+	// basic validation: must start with P
 	if len(lexical) == 0 || lexical[0] != 'P' {
 		return "", fmt.Errorf("invalid duration: must start with 'P': %s", lexical)
 	}
 
-	// For now, just return the lexical form
-	// A full implementation would parse into a Duration struct
+	// for now, just return the lexical form
+	// a full implementation would parse into a Duration struct
 	return lexical, nil
 }

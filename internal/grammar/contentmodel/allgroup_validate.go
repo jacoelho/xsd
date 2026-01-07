@@ -47,12 +47,12 @@ func NewAllGroupValidator(elements []AllGroupElementInfo, mixed bool) *AllGroupV
 // Validate checks that children satisfy the all group content model.
 // Returns nil if valid, or a ValidationError describing the violation.
 func (v *AllGroupValidator) Validate(children []xml.Element, matcher SymbolMatcher) error {
-	// If all group is empty and there are no children, it's valid
+	// if all group is empty and there are no children, it's valid
 	if len(v.elements) == 0 {
 		if len(children) == 0 {
 			return nil
 		}
-		// No elements allowed but got some
+		// no elements allowed but got some
 		return &ValidationError{
 			Index:   0,
 			Message: fmt.Sprintf("element %q not allowed", children[0].LocalName()),
@@ -73,7 +73,7 @@ func (v *AllGroupValidator) Validate(children []xml.Element, matcher SymbolMatch
 		for j, elem := range v.elements {
 			elemQName := elem.ElementQName()
 			if elemQName.Equal(childQName) {
-				// Check for duplicate (each element can appear at most once in an all group)
+				// check for duplicate (each element can appear at most once in an all group)
 				if elementSeen[j] {
 					return &ValidationError{
 						Index:   i,
@@ -106,7 +106,7 @@ func (v *AllGroupValidator) Validate(children []xml.Element, matcher SymbolMatch
 			}
 		}
 
-		// Element not found in the all group
+		// element not found in the all group
 		if !found {
 			return &ValidationError{
 				Index:   i,
@@ -126,7 +126,7 @@ func (v *AllGroupValidator) Validate(children []xml.Element, matcher SymbolMatch
 				}
 			}
 		}
-		// Fallback message
+		// fallback message
 		return &ValidationError{
 			Index:   len(children),
 			Message: "required elements missing from all group",

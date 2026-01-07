@@ -151,7 +151,7 @@ func TestValidateElementDeclarationsConsistent(t *testing.T) {
 					</xs:complexContent>
 				</xs:complexType>
 			</xs:schema>`,
-			wantErr: true, // Per XSD 1.0 spec: restriction element type must be derived from base element type
+			wantErr: true, // per XSD 1.0 spec: restriction element type must be derived from base element type
 			errMsg:  "type",
 		},
 	}
@@ -409,7 +409,7 @@ func TestValidateMixedContentDerivation(t *testing.T) {
 					</xs:complexContent>
 				</xs:complexType>
 			</xs:schema>`,
-			wantErr: false, // Restrictions have different rules, and mixed content can be the same
+			wantErr: false, // restrictions have different rules, and mixed content can be the same
 		},
 		{
 			name: "invalid extension from derived type - base chain with mixed to element-only",
@@ -606,7 +606,7 @@ func TestCollectElementDeclarationsFromType(t *testing.T) {
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Base type with one element
+	// base type with one element
 	baseType := &types.ComplexType{
 		QName: types.QName{Namespace: "http://example.com", Local: "BaseType"},
 	}
@@ -622,7 +622,7 @@ func TestCollectElementDeclarationsFromType(t *testing.T) {
 		},
 	})
 
-	// Middle type extending base
+	// middle type extending base
 	middleType := &types.ComplexType{
 		QName: types.QName{Namespace: "http://example.com", Local: "MiddleType"},
 	}
@@ -642,7 +642,7 @@ func TestCollectElementDeclarationsFromType(t *testing.T) {
 	})
 	middleType.DerivationMethod = types.DerivationExtension
 
-	// Extended type extending middle
+	// extended type extending middle
 	extendedType := &types.ComplexType{
 		QName: types.QName{Namespace: "http://example.com", Local: "ExtendedType"},
 	}
@@ -666,13 +666,13 @@ func TestCollectElementDeclarationsFromType(t *testing.T) {
 	schema.TypeDefs[middleType.QName] = middleType
 	schema.TypeDefs[extendedType.QName] = extendedType
 
-	// Test collecting from extended type should get all elements
+	// test collecting from extended type should get all elements
 	elements := collectAllElementDeclarationsFromType(schema, extendedType)
 	if len(elements) != 3 {
 		t.Errorf("Expected 3 elements, got %d", len(elements))
 	}
 
-	// Verify element names
+	// verify element names
 	names := make(map[string]bool)
 	for _, elem := range elements {
 		names[elem.Name.Local] = true

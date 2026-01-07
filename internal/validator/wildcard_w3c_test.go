@@ -43,7 +43,7 @@ func composeSchemasForTest(testDataDir string, schemaFiles []string) (*xsdschema
 			return nil, err
 		}
 
-		// Merge additional schema into composed schema (preserve original namespaces)
+		// merge additional schema into composed schema (preserve original namespaces)
 		for qname, decl := range additionalSchema.AttributeDecls {
 			if _, exists := composedSchema.AttributeDecls[qname]; exists {
 				continue
@@ -64,7 +64,7 @@ func composeSchemasForTest(testDataDir string, schemaFiles []string) (*xsdschema
 func TestWildO016(t *testing.T) {
 	testDataDir := "../../testdata/xsdtests"
 
-	// Compose schemas like the W3C test runner does
+	// compose schemas like the W3C test runner does
 	schema, err := composeSchemasForTest(testDataDir, []string{
 		"msData/wildcards/wildO016.xsd",
 		"msData/wildcards/wildO016a.xsd",

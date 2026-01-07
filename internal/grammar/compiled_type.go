@@ -67,7 +67,7 @@ func (ct *CompiledType) TextType() *CompiledType {
 	case TypeKindSimple, TypeKindBuiltin:
 		return ct
 	case TypeKindComplex:
-		// Mixed content has unrestricted text - no type validation
+		// mixed content has unrestricted text - no type validation
 		if ct.Mixed {
 			return nil
 		}

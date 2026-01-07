@@ -212,18 +212,18 @@ func unionNamespaceConstraints(ns1 NamespaceConstraint, list1 []NamespaceURI, ta
 		list2 = []NamespaceURI{NamespaceEmpty}
 	}
 
-	// If either O1 or O2 is ##any, ##any must be the value
+	// if either O1 or O2 is ##any, ##any must be the value
 	if ns1 == NSCAny || ns2 == NSCAny {
 		return intersectedNamespace{Constraint: NSCAny, NamespaceList: nil}
 	}
 
-	// If both are sets (NSCList), the union of those sets must be the value
+	// if both are sets (NSCList), the union of those sets must be the value
 	if ns1 == NSCList && ns2 == NSCList {
 		result := unionLists(list1, list2)
 		return intersectedNamespace{Constraint: NSCList, NamespaceList: result}
 	}
 
-	// Handle ##other (negation of targetNamespace) with list
+	// handle ##other (negation of targetNamespace) with list
 	if ns1 == NSCOther && ns2 == NSCList {
 		return unionOtherWithList(list2, targetNS1, resultTargetNS)
 	}
@@ -238,13 +238,13 @@ func unionNamespaceConstraints(ns1 NamespaceConstraint, list1 []NamespaceURI, ta
 		return intersectedNamespace{Constraint: NSCInvalid, NamespaceList: nil}
 	}
 
-	// Default: not expressible
+	// default: not expressible
 	return intersectedNamespace{Constraint: NSCInvalid, NamespaceList: nil}
 }
 
 // unionOtherWithList handles union of ##other with a list according to spec rules
 func unionOtherWithList(list []NamespaceURI, otherTargetNS NamespaceURI, resultTargetNS NamespaceURI) intersectedNamespace {
-	// According to spec: if set includes both the negated namespace name and absent, then ##any
+	// according to spec: if set includes both the negated namespace name and absent, then ##any
 	hasTargetNS := false
 	hasEmpty := false
 	for _, ns := range list {
@@ -260,18 +260,18 @@ func unionOtherWithList(list []NamespaceURI, otherTargetNS NamespaceURI, resultT
 		return intersectedNamespace{Constraint: NSCAny, NamespaceList: nil}
 	}
 
-	// If set includes negated namespace but not absent, return not and absent
+	// if set includes negated namespace but not absent, return not and absent
 	if hasTargetNS && !hasEmpty {
-		// Treat as ##any (##other plus target namespace covers all namespaces)
+		// treat as ##any (##other plus target namespace covers all namespaces)
 		return intersectedNamespace{Constraint: NSCAny, NamespaceList: nil}
 	}
 
-	// If set includes absent but not negated namespace, union is not expressible
+	// if set includes absent but not negated namespace, union is not expressible
 	if hasEmpty && !hasTargetNS {
 		return intersectedNamespace{Constraint: NSCInvalid, NamespaceList: nil}
 	}
 
-	// If set doesn't include either, return ##other
+	// if set doesn't include either, return ##other
 	if !hasTargetNS && !hasEmpty {
 		if otherTargetNS == resultTargetNS {
 			return intersectedNamespace{Constraint: NSCOther, NamespaceList: nil}
@@ -279,7 +279,7 @@ func unionOtherWithList(list []NamespaceURI, otherTargetNS NamespaceURI, resultT
 		return intersectedNamespace{Constraint: NSCInvalid, NamespaceList: nil}
 	}
 
-	// Should not reach here
+	// should not reach here
 	return intersectedNamespace{Constraint: NSCInvalid, NamespaceList: nil}
 }
 

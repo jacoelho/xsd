@@ -82,9 +82,9 @@ func (l *SchemaLoader) loadWithValidation(location string, validate bool) (*sche
 		return loadedSchema, err
 	}
 
-	// Check import context BEFORE setting loading flag (for first-time loads)
-	// This handles the case where we're loading a schema that's being imported
-	// The import context will be checked later when we detect a cycle
+	// check import context BEFORE setting loading flag (for first-time loads)
+	// this handles the case where we're loading a schema that's being imported
+	// the import context will be checked later when we detect a cycle
 
 	l.loading[absLoc] = true
 	defer delete(l.loading, absLoc)
@@ -110,15 +110,15 @@ func (l *SchemaLoader) loadWithValidation(location string, validate bool) (*sche
 		return nil, err
 	}
 
-	// Resolve group and type references only when validating the full schema.
-	// Included/imported schemas may reference components defined in other files
+	// resolve group and type references only when validating the full schema.
+	// included/imported schemas may reference components defined in other files
 	// that are only available after merging.
 	if validate {
 		if err := l.resolveGroupReferences(schema); err != nil {
 			return nil, fmt.Errorf("resolve group references: %w", err)
 		}
 
-		// Phase 2: Resolve all type references (two-phase resolution)
+		// phase 2: Resolve all type references (two-phase resolution)
 		if err := resolveTypeReferences(schema); err != nil {
 			return nil, fmt.Errorf("resolve type references: %w", err)
 		}
@@ -135,23 +135,23 @@ func (l *SchemaLoader) loadWithValidation(location string, validate bool) (*sche
 
 // loadImport loads a schema for import, allowing mutual imports between different namespaces.
 func (l *SchemaLoader) loadImport(location string, importNamespace string, currentNamespace types.NamespaceURI) (*schema.Schema, error) {
-	// The location passed to loadImport is already resolved via resolveIncludeLocation
-	// Load will call resolveLocation on it, which might produce a different path
-	// To ensure the import context key matches what Load will use, we need to resolve it the same way
-	// Resolve it the way Load will to get the exact key that Load will use
+	// the location passed to loadImport is already resolved via resolveIncludeLocation
+	// load will call resolveLocation on it, which might produce a different path
+	// to ensure the import context key matches what Load will use, we need to resolve it the same way
+	// resolve it the way Load will to get the exact key that Load will use
 	absLocForContext := l.resolveLocation(location)
 
-	// If already loaded, reuse it
+	// if already loaded, reuse it
 	if schema, ok := l.loaded[absLocForContext]; ok {
 		return schema, nil
 	}
-	// Also check the original location in case it's stored differently
+	// also check the original location in case it's stored differently
 	if schema, ok := l.loaded[location]; ok {
 		return schema, nil
 	}
 
-	// Store the IMPORTING schema's namespace (currentNamespace), not the imported schema's namespace.
-	// This allows mutual import detection: when we detect a cycle, we can check if the
+	// store the IMPORTING schema's namespace (currentNamespace), not the imported schema's namespace.
+	// this allows mutual import detection: when we detect a cycle, we can check if the
 	// importing schema has a different namespace than the schema being imported.
 	currentNS := string(currentNamespace)
 	if currentNS != "" {
@@ -159,8 +159,8 @@ func (l *SchemaLoader) loadImport(location string, importNamespace string, curre
 		defer clearImportContext()
 	}
 
-	// Normal loading - skip validation for imported schemas.
-	// They will be validated after merging into the main schema.
+	// normal loading - skip validation for imported schemas.
+	// they will be validated after merging into the main schema.
 	return l.loadWithValidation(location, false)
 }
 
@@ -168,19 +168,19 @@ func (l *SchemaLoader) loadImport(location string, importNamespace string, curre
 // Returns a CompiledSchema ready for validation.
 // This is the new multi-phase architecture: Parse → Resolve → Compile.
 func (l *SchemaLoader) LoadCompiled(location string) (*grammar.CompiledSchema, error) {
-	// Phase 1: Parse (and load includes/imports/redefines)
+	// phase 1: Parse (and load includes/imports/redefines)
 	schema, err := l.Load(location)
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", location, err)
 	}
 
-	// Phase 2: Resolve all QName references
+	// phase 2: Resolve all QName references
 	resolver := NewResolver(schema)
 	if err := resolver.Resolve(); err != nil {
 		return nil, fmt.Errorf("resolve %s: %w", location, err)
 	}
 
-	// Phase 3: Compile to grammar
+	// phase 3: Compile to grammar
 	compiler := NewCompiler(schema)
 	compiled, err := compiler.Compile()
 	if err != nil {
@@ -217,11 +217,11 @@ func (l *SchemaLoader) resolveLocation(location string) string {
 
 // resolveIncludeLocation resolves an include/import location relative to a base location
 func (l *SchemaLoader) resolveIncludeLocation(baseLoc, includeLoc string) string {
-	// If include location is absolute, use it as-is
+	// if include location is absolute, use it as-is
 	if path.IsAbs(includeLoc) {
 		return includeLoc
 	}
-	// Otherwise, resolve relative to the base location's directory
+	// otherwise, resolve relative to the base location's directory
 	baseDir := path.Dir(baseLoc)
 	return path.Join(baseDir, includeLoc)
 }
@@ -389,15 +389,15 @@ func isNotFound(err error) bool {
 // - If including schema has a target namespace, included schema must have the same namespace OR no namespace
 // - If including schema has no target namespace, included schema must also have no target namespace
 func (l *SchemaLoader) isIncludeNamespaceCompatible(includingNS, includedNS types.NamespaceURI) bool {
-	// Same namespace - always compatible
+	// same namespace - always compatible
 	if includingNS == includedNS {
 		return true
 	}
-	// Including schema has namespace, included schema has no namespace - compatible
+	// including schema has namespace, included schema has no namespace - compatible
 	if !includingNS.IsEmpty() && includedNS.IsEmpty() {
 		return true
 	}
-	// All other cases are incompatible
+	// all other cases are incompatible
 	return false
 }
 

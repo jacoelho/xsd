@@ -25,17 +25,17 @@ func validateElementDeclarationsConsistent(schema *schema.Schema, ct *types.Comp
 	baseQName := content.BaseTypeQName()
 	baseType, ok := schema.TypeDefs[baseQName]
 	if !ok {
-		return nil // Base type not found - might be builtin or forward reference
+		return nil // base type not found - might be builtin or forward reference
 	}
 
 	baseCT, ok := baseType.(*types.ComplexType)
 	if !ok {
-		return nil // Base type is not complex - no elements to check
+		return nil // base type is not complex - no elements to check
 	}
 
 	baseElements := collectAllElementDeclarationsFromType(schema, baseCT)
 
-	// SimpleContent extensions don't have particles
+	// simpleContent extensions don't have particles
 	if ext.Particle == nil {
 		return nil
 	}
@@ -43,10 +43,10 @@ func validateElementDeclarationsConsistent(schema *schema.Schema, ct *types.Comp
 
 	for _, extElem := range extElements {
 		for _, baseElem := range baseElements {
-			// Check if names match (same local name and namespace)
+			// check if names match (same local name and namespace)
 			if extElem.Name == baseElem.Name {
-				// Names match - types must also match
-				// Compare types by checking if they're the same object or have the same QName
+				// names match - types must also match
+				// compare types by checking if they're the same object or have the same QName
 				extTypeQName := getTypeQName(extElem.Type)
 				baseTypeQName := getTypeQName(baseElem.Type)
 				if extTypeQName != baseTypeQName {
@@ -68,7 +68,7 @@ func collectAllElementDeclarationsFromType(schema *schema.Schema, ct *types.Comp
 
 // collectElementDeclarationsRecursive recursively collects element declarations from a type and its base types
 func collectElementDeclarationsRecursive(schema *schema.Schema, ct *types.ComplexType, visited map[types.QName]bool) []*types.ElementDecl {
-	// Avoid infinite loops
+	// avoid infinite loops
 	if visited[ct.QName] {
 		return nil
 	}
@@ -76,7 +76,7 @@ func collectElementDeclarationsRecursive(schema *schema.Schema, ct *types.Comple
 
 	var result []*types.ElementDecl
 
-	// Collect from this type's content
+	// collect from this type's content
 	content := ct.Content()
 	switch c := content.(type) {
 	case *types.ElementContent:
@@ -84,15 +84,15 @@ func collectElementDeclarationsRecursive(schema *schema.Schema, ct *types.Comple
 			result = append(result, collectElementDeclarationsFromParticle(c.Particle)...)
 		}
 	case *types.ComplexContent:
-		// For extensions, collect from extension particles
+		// for extensions, collect from extension particles
 		if c.Extension != nil && c.Extension.Particle != nil {
 			result = append(result, collectElementDeclarationsFromParticle(c.Extension.Particle)...)
 		}
-		// For restrictions, collect from restriction particles (which restrict base)
+		// for restrictions, collect from restriction particles (which restrict base)
 		if c.Restriction != nil && c.Restriction.Particle != nil {
 			result = append(result, collectElementDeclarationsFromParticle(c.Restriction.Particle)...)
 		}
-		// Also collect from base type recursively
+		// also collect from base type recursively
 		var baseQName types.QName
 		if c.Extension != nil {
 			baseQName = c.Extension.Base
@@ -115,14 +115,14 @@ func collectElementDeclarationsFromParticle(particle types.Particle) []*types.El
 	var result []*types.ElementDecl
 	switch p := particle.(type) {
 	case *types.ModelGroup:
-		// Recursively collect from all particles in the group
+		// recursively collect from all particles in the group
 		for _, child := range p.Particles {
 			result = append(result, collectElementDeclarationsFromParticle(child)...)
 		}
 	case *types.ElementDecl:
 		result = append(result, p)
 	case *types.AnyElement:
-		// Wildcards don't have element declarations
+		// wildcards don't have element declarations
 	}
 	return result
 }

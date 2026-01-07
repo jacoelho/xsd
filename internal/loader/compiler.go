@@ -50,34 +50,30 @@ func NewCompiler(schema *xsdschema.Schema) *Compiler {
 
 // Compile compiles the resolved schema into a CompiledSchema.
 func (c *Compiler) Compile() (*grammar.CompiledSchema, error) {
-	// 1. Compile all types (builds derivation chains)
 	for qname, typ := range c.schema.TypeDefs {
 		if _, err := c.compileType(qname, typ); err != nil {
 			return nil, err
 		}
 	}
 
-	// 2. Compile all top-level elements (links to compiled types)
 	for qname, elem := range c.schema.ElementDecls {
 		if _, err := c.compileElement(qname, elem, true); err != nil {
 			return nil, err
 		}
 	}
 
-	// 3. Compile top-level attributes (for anyAttribute processContents validation)
+	// compile top-level attributes (for anyAttribute processContents validation)
 	for qname, attr := range c.schema.AttributeDecls {
 		if _, err := c.compileTopLevelAttribute(qname, attr); err != nil {
 			return nil, err
 		}
 	}
 
-	// 3.5. Copy notation declarations (notations are not compiled, just copied)
+	// copy notation declarations (notations are not compiled, just copied)
 	maps.Copy(c.grammar.NotationDecls, c.schema.NotationDecls)
 
-	// 4. Compute substitution group transitive closure
 	c.computeSubstitutionGroups()
 
-	// 5. Build automata for all complex type content models (named types)
 	for _, ct := range c.grammar.Types {
 		if ct.Kind == grammar.TypeKindComplex && ct.ContentModel != nil && !ct.ContentModel.Empty {
 			if err := c.buildAutomaton(ct); err != nil {
@@ -86,7 +82,6 @@ func (c *Compiler) Compile() (*grammar.CompiledSchema, error) {
 		}
 	}
 
-	// 6. Build automata for anonymous complex types
 	for _, ct := range c.anonymousTypes {
 		if ct.Kind == grammar.TypeKindComplex && ct.ContentModel != nil && !ct.ContentModel.Empty {
 			if err := c.buildAutomaton(ct); err != nil {
@@ -95,10 +90,10 @@ func (c *Compiler) Compile() (*grammar.CompiledSchema, error) {
 		}
 	}
 
-	// 7. Collect all elements with identity constraints (precomputed for validation)
+	// collect all elements with identity constraints (precomputed for validation)
 	c.collectElementsWithConstraints()
 
-	// 8. Index all local elements (non-top-level) for XPath evaluation
+	// index all local elements (non-top-level) for XPath evaluation
 	c.indexLocalElements()
 
 	return c.grammar, nil
@@ -124,12 +119,12 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, is
 		Block:    elem.Block,
 	}
 
-	// Link to compiled type
-	// Per XSD spec, if element is in a substitution group and has no explicit type,
+	// link to compiled type
+	// per XSD spec, if element is in a substitution group and has no explicit type,
 	// it inherits the type from the head element
 	typeToCompile := elem.Type
 	if typeToCompile != nil && c.isDefaultAnyType(typeToCompile) && !elem.SubstitutionGroup.IsZero() {
-		// Check if we can inherit from substitution group head
+		// check if we can inherit from substitution group head
 		if headDecl, ok := c.schema.ElementDecls[elem.SubstitutionGroup]; ok && headDecl.Type != nil {
 			typeToCompile = headDecl.Type
 		}
@@ -152,7 +147,7 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, is
 		}
 	}
 
-	// Only add top-level elements to the global map/cache.
+	// only add top-level elements to the global map/cache.
 	if isTopLevel {
 		c.elements[qname] = compiled
 		c.grammar.Elements[qname] = compiled
@@ -164,14 +159,14 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, is
 // isDefaultAnyType checks if a type is the default anyType (assigned by parser when no explicit type)
 func (c *Compiler) isDefaultAnyType(typ types.Type) bool {
 	if ct, ok := typ.(*types.ComplexType); ok {
-		// Check if it's the anonymous anyType created by makeAnyType()
+		// check if it's the anonymous anyType created by makeAnyType()
 		return ct.QName.Local == "anyType" && ct.QName.Namespace == "http://www.w3.org/2001/XMLSchema"
 	}
 	return false
 }
 
 func (c *Compiler) compileTopLevelAttribute(qname types.QName, attr *types.AttributeDecl) (*grammar.CompiledAttribute, error) {
-	// Check if already compiled
+	// check if already compiled
 	if compiled, ok := c.grammar.Attributes[qname]; ok {
 		return compiled, nil
 	}
@@ -205,7 +200,7 @@ func (c *Compiler) computeSubstitutionGroups() {
 			if headElem, ok := c.grammar.Elements[head]; ok {
 				elem.SubstitutionHead = headElem
 
-				// Add to head's substitutes
+				// add to head's substitutes
 				if c.grammar.SubstitutionGroups[head] == nil {
 					c.grammar.SubstitutionGroups[head] = make([]*grammar.CompiledElement, 0)
 				}
@@ -228,7 +223,7 @@ func (c *Compiler) expandSubstitutes(subs []*grammar.CompiledElement, visited ma
 		visited[elem.QName] = true
 		result = append(result, elem)
 
-		// Recursively add substitutes of this element
+		// recursively add substitutes of this element
 		if transSubs, ok := c.grammar.SubstitutionGroups[elem.QName]; ok {
 			result = append(result, c.expandSubstitutes(transSubs, visited)...)
 		}
@@ -264,16 +259,16 @@ func (c *Compiler) collectElementsWithConstraints() {
 			c.grammar.ElementsWithConstraints = append(c.grammar.ElementsWithConstraints, elem)
 			seen[elem] = true
 		}
-		// Also traverse element's type for local elements with constraints
+		// also traverse element's type for local elements with constraints
 		c.collectConstraintElementsFromType(elem.Type, seen, visitedTypes)
 	}
 
-	// Collect from all named types (for types not reachable from elements)
+	// collect from all named types (for types not reachable from elements)
 	for _, ct := range c.grammar.Types {
 		c.collectConstraintElementsFromType(ct, seen, visitedTypes)
 	}
 
-	// Also check anonymous types
+	// also check anonymous types
 	for _, ct := range c.anonymousTypes {
 		c.collectConstraintElementsFromType(ct, seen, visitedTypes)
 	}
@@ -332,7 +327,7 @@ func (c *Compiler) indexLocalElements() {
 		}
 	}
 
-	// Index local elements from all top-level element types (for anonymous types)
+	// index local elements from all top-level element types (for anonymous types)
 	for _, elem := range c.grammar.Elements {
 		if elem.Type != nil && elem.Type.ContentModel != nil {
 			if !visitedTypes[elem.Type] {
@@ -356,12 +351,12 @@ func (c *Compiler) indexLocalElementsFromParticles(particles []*grammar.Compiled
 		switch p.Kind {
 		case grammar.ParticleElement:
 			if p.Element != nil {
-				// Check if this element is not already a top-level element
+				// check if this element is not already a top-level element
 				if _, isTopLevel := c.grammar.Elements[p.Element.QName]; !isTopLevel {
 					effectiveQName := c.effectiveElementQName(p.Element)
 					c.grammar.LocalElements[effectiveQName] = p.Element
 				}
-				// Recursively index elements from this element's type
+				// recursively index elements from this element's type
 				if p.Element.Type != nil && p.Element.Type.ContentModel != nil {
 					if !visitedTypes[p.Element.Type] {
 						visitedTypes[p.Element.Type] = true

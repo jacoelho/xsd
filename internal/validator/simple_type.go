@@ -40,7 +40,7 @@ func (r *validationRun) checkSimpleValue(value string, st *grammar.CompiledType,
 		}
 	}
 
-	// Special validation for NOTATION types: must reference a declared notation
+	// special validation for NOTATION types: must reference a declared notation
 	if r.isNotationType(st) {
 		if violations := r.validateNotationReference(normalizedValue, elem, path); len(violations) > 0 {
 			return violations
@@ -72,9 +72,9 @@ func (r *validationRun) validateListValue(value string, st *grammar.CompiledType
 		violations = append(violations, itemViolations...)
 	}
 
-	// Apply list-level facets (e.g., minLength, maxLength, enumeration on the list itself)
+	// apply list-level facets (e.g., minLength, maxLength, enumeration on the list itself)
 	if len(st.Facets) > 0 {
-		// For list facets, the value is the list itself (for length facets, it's the number of items)
+		// for list facets, the value is the list itself (for length facets, it's the number of items)
 		typedValue := facets.TypedValueForFacet(value, st.Original)
 		for _, facet := range st.Facets {
 			if shouldSkipLengthFacet(st, facet) {
@@ -120,7 +120,7 @@ func (r *validationRun) validateListItem(item string, itemType *grammar.Compiled
 		}
 	}
 
-	// Special validation for NOTATION types in list items
+	// special validation for NOTATION types in list items
 	if r.isNotationType(itemType) {
 		if itemViolations := r.validateNotationReference(normalizedItem, elem, path); len(itemViolations) > 0 {
 			violations = append(violations, itemViolations...)
@@ -334,8 +334,8 @@ func (r *validationRun) isNotationType(st *grammar.CompiledType) bool {
 // validateNotationReference validates that a NOTATION value references a declared notation.
 func (r *validationRun) validateNotationReference(value string, elem xml.Element, path string) []errors.Validation {
 	if elem == nil {
-		// Without element context, we can't resolve namespace prefixes
-		// This shouldn't happen in practice, but return a violation if it does
+		// without element context, we can't resolve namespace prefixes
+		// this shouldn't happen in practice, but return a violation if it does
 		return []errors.Validation{errors.NewValidation(errors.ErrDatatypeInvalid,
 			"NOTATION validation requires element context for namespace resolution", path)}
 	}
@@ -346,7 +346,7 @@ func (r *validationRun) validateNotationReference(value string, elem xml.Element
 			"Invalid NOTATION value '%s': %v", value, err)}
 	}
 
-	// Check if the notation is declared in the schema
+	// check if the notation is declared in the schema
 	if r.schema.Notation(notationQName) == nil {
 		return []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, path,
 			"NOTATION value '%s' does not reference a declared notation", value)}

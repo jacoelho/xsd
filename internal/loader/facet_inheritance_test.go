@@ -10,13 +10,13 @@ import (
 )
 
 func TestFacetInheritance_SimpleType(t *testing.T) {
-	// Test that facets are inherited from base type
+	// test that facets are inherited from base type
 	schema := &schema.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Base type with maxInclusive=100
+	// base type with maxInclusive=100
 	decimalBaseType := types.GetBuiltin(types.TypeNameDecimal)
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
@@ -30,7 +30,7 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: types.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
@@ -45,8 +45,8 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 	baseType.SetVariety(types.AtomicVariety)
 	schema.TypeDefs[baseType.QName] = baseType
 
-	// Derived type with maxInclusive=50 (stricter - should be valid)
-	// Use the primitive type (decimal) for facet creation
+	// derived type with maxInclusive=50 (stricter - should be valid)
+	// use the primitive type (decimal) for facet creation
 	maxInclusive50, err := facets.NewMaxInclusive("50", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMaxInclusive() error = %v", err)
@@ -56,7 +56,7 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
@@ -67,12 +67,12 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 	derivedType.ResolvedBase = baseType
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// Validate - should pass (50 < 100, so it's stricter)
+	// validate - should pass (50 < 100, so it's stricter)
 	errs := ValidateSchema(schema)
 	for _, err := range errs {
 		t.Logf("Validation error: %v", err)
 	}
-	// Should not have errors about facet restriction
+	// should not have errors about facet restriction
 	hasFacetError := false
 	for _, err := range errs {
 		if err.Error() != "" && (strings.Contains(err.Error(), "maxInclusive") || strings.Contains(err.Error(), "facet")) {
@@ -86,13 +86,13 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 }
 
 func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
-	// Test that relaxing facets is rejected
+	// test that relaxing facets is rejected
 	schema := &schema.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Base type with maxInclusive=100
+	// base type with maxInclusive=100
 	decimalBaseType := types.GetBuiltin(types.TypeNameDecimal)
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
@@ -106,7 +106,7 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: types.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
@@ -121,8 +121,8 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 	baseType.SetVariety(types.AtomicVariety)
 	schema.TypeDefs[baseType.QName] = baseType
 
-	// Derived type with maxInclusive=200 (relaxed - should be invalid)
-	// Use the primitive type (decimal) for facet creation
+	// derived type with maxInclusive=200 (relaxed - should be invalid)
+	// use the primitive type (decimal) for facet creation
 	maxInclusive200, err := facets.NewMaxInclusive("200", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMaxInclusive() error = %v", err)
@@ -132,7 +132,7 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
@@ -143,7 +143,7 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 	derivedType.ResolvedBase = baseType
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// Validate - should fail (200 > 100, so it's relaxed)
+	// validate - should fail (200 > 100, so it's relaxed)
 	errs := ValidateSchema(schema)
 	hasFacetError := false
 	for _, err := range errs {
@@ -158,13 +158,13 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 }
 
 func TestFacetInheritance_MinInclusive(t *testing.T) {
-	// Test minInclusive facet inheritance
+	// test minInclusive facet inheritance
 	schema := &schema.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Base type with minInclusive=10
+	// base type with minInclusive=10
 	decimalBaseType := types.GetBuiltin(types.TypeNameDecimal)
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
@@ -178,7 +178,7 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: types.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
@@ -193,8 +193,8 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 	baseType.SetVariety(types.AtomicVariety)
 	schema.TypeDefs[baseType.QName] = baseType
 
-	// Derived type with minInclusive=20 (stricter - should be valid)
-	// Use the primitive type (decimal) for facet creation
+	// derived type with minInclusive=20 (stricter - should be valid)
+	// use the primitive type (decimal) for facet creation
 	minInclusive20, err := facets.NewMinInclusive("20", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMinInclusive() error = %v", err)
@@ -204,7 +204,7 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
@@ -215,7 +215,7 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 	derivedType.ResolvedBase = baseType
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// Validate - should pass (20 > 10, so it's stricter)
+	// validate - should pass (20 > 10, so it's stricter)
 	errs := ValidateSchema(schema)
 	hasFacetError := false
 	for _, err := range errs {
@@ -228,8 +228,8 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 		t.Error("Should not have facet restriction errors for valid restriction (minInclusive 20 > 10)")
 	}
 
-	// Test invalid relaxation: minInclusive=5 (relaxed - should be invalid)
-	// Use the primitive type (decimal) for facet creation
+	// test invalid relaxation: minInclusive=5 (relaxed - should be invalid)
+	// use the primitive type (decimal) for facet creation
 	minInclusive5, err := facets.NewMinInclusive("5", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMinInclusive() error = %v", err)
@@ -239,7 +239,7 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "InvalidDerived",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
@@ -325,19 +325,19 @@ func TestFacetInheritance_DigitsRelaxation(t *testing.T) {
 }
 
 func TestFacetInheritance_MaxLength(t *testing.T) {
-	// Test maxLength facet inheritance
+	// test maxLength facet inheritance
 	schema := &schema.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Base type with maxLength=100
+	// base type with maxLength=100
 	baseType := &types.SimpleType{
 		QName: types.QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: types.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
@@ -350,13 +350,13 @@ func TestFacetInheritance_MaxLength(t *testing.T) {
 	}
 	schema.TypeDefs[baseType.QName] = baseType
 
-	// Derived type with maxLength=50 (stricter - should be valid)
+	// derived type with maxLength=50 (stricter - should be valid)
 	derivedType := &types.SimpleType{
 		QName: types.QName{
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
@@ -367,7 +367,7 @@ func TestFacetInheritance_MaxLength(t *testing.T) {
 	derivedType.ResolvedBase = baseType
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// Validate - should pass
+	// validate - should pass
 	errs := ValidateSchema(schema)
 	hasFacetError := false
 	for _, err := range errs {

@@ -6,7 +6,7 @@ import (
 )
 
 func TestFacetApplicability_ListTypes_W3CTestCases(t *testing.T) {
-	// Test the actual W3C test cases mentioned in the issue
+	// test the actual W3C test cases mentioned in the issue
 	testDataDir := "../../testdata/xsdtests"
 	if _, err := os.Stat(testDataDir); os.IsNotExist(err) {
 		t.Skip("testdata directory not found")
@@ -20,17 +20,17 @@ func TestFacetApplicability_ListTypes_W3CTestCases(t *testing.T) {
 		{
 			name:       "stF001 - length facet on list of integer",
 			schemaPath: "msData/simpleType/stF001.xsd",
-			shouldLoad: true, // Expected: valid schema
+			shouldLoad: true, // expected: valid schema
 		},
 		{
 			name:       "stG002 - maxLength facet on list of integer",
 			schemaPath: "msData/simpleType/stG002.xsd",
-			shouldLoad: true, // Expected: valid schema
+			shouldLoad: true, // expected: valid schema
 		},
 		{
 			name:       "stJ004 - length facet on list of integer",
 			schemaPath: "msData/simpleType/stJ004.xsd",
-			shouldLoad: true, // Expected: valid schema
+			shouldLoad: true, // expected: valid schema
 		},
 	}
 

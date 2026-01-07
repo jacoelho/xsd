@@ -13,8 +13,8 @@ func validateReferences(schema *schema.Schema) []error {
 	elementRefsInContent := collectElementReferencesInSchema(schema)
 	allConstraints := collectAllIdentityConstraints(schema)
 
-	// Per XSD spec 3.11.2: "Constraint definition identities must be unique within an XML Schema"
-	// Constraints are identified by (name, target namespace)
+	// per XSD spec 3.11.2: "Constraint definition identities must be unique within an XML Schema"
+	// constraints are identified by (name, target namespace)
 	if uniquenessErrors := validateIdentityConstraintUniqueness(schema); len(uniquenessErrors) > 0 {
 		errors = append(errors, uniquenessErrors...)
 	}
@@ -208,8 +208,8 @@ func validateLocalIdentityConstraintResolution(schema *schema.Schema) []error {
 func validateAttributeDeclarations(schema *schema.Schema) []error {
 	var errors []error
 
-	// Note: Attribute references are stored in complex types, not as top-level declarations
-	// We validate attribute type references when validating complex types
+	// note: Attribute references are stored in complex types, not as top-level declarations
+	// we validate attribute type references when validating complex types
 	for qname, decl := range schema.AttributeDecls {
 		if decl.Type != nil {
 			if err := validateTypeReferenceFromType(schema, decl.Type, qname.Namespace); err != nil {
@@ -217,8 +217,8 @@ func validateAttributeDeclarations(schema *schema.Schema) []error {
 			}
 		}
 
-		// Validate default/fixed values against the resolved type (including facets)
-		// This is done here after type resolution because during structure validation
+		// validate default/fixed values against the resolved type (including facets)
+		// this is done here after type resolution because during structure validation
 		// the type might be a placeholder and facets might not be available
 		resolvedType := resolveTypeForFinalValidation(schema, decl.Type)
 		if _, ok := resolvedType.(*types.ComplexType); ok {
@@ -256,12 +256,12 @@ func validateInlineTypeReferences(schema *schema.Schema) []error {
 
 	for qname, decl := range schema.ElementDecls {
 		if decl.Type != nil && !decl.Type.IsBuiltin() {
-			// Skip if the type is a reference to a named type (already validated above)
+			// skip if the type is a reference to a named type (already validated above)
 			if _, exists := schema.TypeDefs[decl.Type.Name()]; !exists {
 				if err := validateTypeReferences(schema, qname, decl.Type); err != nil {
 					errors = append(errors, fmt.Errorf("element %s inline type: %w", qname, err))
 				}
-				// Also validate attribute group references for inline complex types
+				// also validate attribute group references for inline complex types
 				if ct, ok := decl.Type.(*types.ComplexType); ok {
 					for _, agRef := range ct.AttrGroups {
 						if err := validateAttributeGroupReference(schema, agRef, qname); err != nil {

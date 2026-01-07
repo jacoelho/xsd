@@ -112,12 +112,12 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 			}
 			return fmt.Errorf("duplicate element declaration %s", targetQName)
 		}
-		// For imports, use shallow copy to avoid unnecessary type remapping
+		// for imports, use shallow copy to avoid unnecessary type remapping
 		if isImport {
 			declCopy := *decl
 			declCopy.Name = remapQName(decl.Name)
 			declCopy.SourceNamespace = source.TargetNamespace
-			// Types and constraints are not remapped for imports
+			// types and constraints are not remapped for imports
 			target.ElementDecls[targetQName] = &declCopy
 		} else {
 			target.ElementDecls[targetQName] = decl.Copy(opts)
@@ -139,7 +139,7 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 			}
 			return fmt.Errorf("duplicate type definition %s", targetQName)
 		}
-		// For imports, use shallow copy to avoid unnecessary remapping
+		// for imports, use shallow copy to avoid unnecessary remapping
 		if isImport {
 			if complexType, ok := typ.(*types.ComplexType); ok {
 				typeCopy := *complexType
@@ -179,12 +179,12 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 			}
 			return fmt.Errorf("duplicate attribute declaration %s", targetQName)
 		}
-		// For imports, use shallow copy to avoid unnecessary type remapping
+		// for imports, use shallow copy to avoid unnecessary type remapping
 		if isImport {
 			declCopy := *decl
 			declCopy.Name = remapQName(decl.Name)
 			declCopy.SourceNamespace = source.TargetNamespace
-			// Types are not remapped for imports
+			// types are not remapped for imports
 			target.AttributeDecls[targetQName] = &declCopy
 		} else {
 			target.AttributeDecls[targetQName] = decl.Copy(opts)
@@ -234,8 +234,8 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 			}
 			return fmt.Errorf("duplicate group %s", targetQName)
 		}
-		// For chameleon includes (needsNamespaceRemap), Copy handles remapping particles
-		// For imports, just preserve SourceNamespace (handled by Copy)
+		// for chameleon includes (needsNamespaceRemap), Copy handles remapping particles
+		// for imports, just preserve SourceNamespace (handled by Copy)
 		target.Groups[targetQName] = group.Copy(opts)
 		target.GroupOrigins[targetQName] = origin
 	}
@@ -271,7 +271,7 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 		target.NotationOrigins[targetQName] = origin
 	}
 
-	// Merge id attributes (per XSD spec, id uniqueness is per schema document, not across merged schemas)
+	// merge id attributes (per XSD spec, id uniqueness is per schema document, not across merged schemas)
 	for id, component := range source.IDAttributes {
 		if _, exists := target.IDAttributes[id]; !exists {
 			target.IDAttributes[id] = component

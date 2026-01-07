@@ -77,7 +77,7 @@ func TestWildcardUPA_ChoiceWildcardOverlapsWildcard(t *testing.T) {
 }
 
 func TestWildcardUPA_SequenceWildcardOverlapsElement_Valid(t *testing.T) {
-	// Valid: wildcard in sequence can overlap with explicit element (not a UPA violation)
+	// valid: wildcard in sequence can overlap with explicit element (not a UPA violation)
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com"
@@ -110,7 +110,7 @@ func TestWildcardUPA_SequenceWildcardOverlapsElement_Valid(t *testing.T) {
 }
 
 func TestWildcardUPA_SequenceWildcardOverlapsWildcard_Valid(t *testing.T) {
-	// Valid: overlapping wildcards in sequence are allowed (not a UPA violation)
+	// valid: overlapping wildcards in sequence are allowed (not a UPA violation)
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com"
@@ -180,7 +180,7 @@ func TestWildcardUPA_NestedChoiceWildcardOverlapsElement(t *testing.T) {
 }
 
 func TestWildcardDerivation_RestrictionSubset_Valid(t *testing.T) {
-	// Valid: derived wildcard is a subset of base wildcard
+	// valid: derived wildcard is a subset of base wildcard
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com"
@@ -219,7 +219,7 @@ func TestWildcardDerivation_RestrictionSubset_Valid(t *testing.T) {
 }
 
 func TestWildcardDerivation_RestrictionSubset_Invalid(t *testing.T) {
-	// Invalid: derived wildcard is not a subset of base wildcard
+	// invalid: derived wildcard is not a subset of base wildcard
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com"
@@ -260,7 +260,7 @@ func TestWildcardDerivation_RestrictionSubset_Invalid(t *testing.T) {
 }
 
 func TestWildcardDerivation_RestrictionProcessContentsWeaker_Invalid(t *testing.T) {
-	// Invalid: restriction cannot weaken processContents
+	// invalid: restriction cannot weaken processContents
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com"
@@ -301,7 +301,7 @@ func TestWildcardDerivation_RestrictionProcessContentsWeaker_Invalid(t *testing.
 }
 
 func TestWildcardDerivation_RestrictionElementNamespace_Invalid(t *testing.T) {
-	// Invalid: element namespace must be allowed by base wildcard
+	// invalid: element namespace must be allowed by base wildcard
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com"
@@ -342,7 +342,7 @@ func TestWildcardDerivation_RestrictionElementNamespace_Invalid(t *testing.T) {
 }
 
 func TestWildcardDerivation_RestrictionAddWildcard_Invalid(t *testing.T) {
-	// Invalid: cannot add wildcard in restriction when base has no wildcard
+	// invalid: cannot add wildcard in restriction when base has no wildcard
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com"
@@ -383,7 +383,7 @@ func TestWildcardDerivation_RestrictionAddWildcard_Invalid(t *testing.T) {
 }
 
 func TestWildcardDerivation_ExtensionUPA_Invalid(t *testing.T) {
-	// Invalid: repeating base wildcard overlaps extension wildcard (UPA violation)
+	// invalid: repeating base wildcard overlaps extension wildcard (UPA violation)
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com"
@@ -424,7 +424,7 @@ func TestWildcardDerivation_ExtensionUPA_Invalid(t *testing.T) {
 }
 
 func TestWildcardDerivation_ExtensionUPA_Valid(t *testing.T) {
-	// Valid: extension wildcard doesn't overlap with base element
+	// valid: extension wildcard doesn't overlap with base element
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com"
@@ -535,7 +535,7 @@ func TestWildcardUPA_ChoiceListWildcardOverlapsElement(t *testing.T) {
 }
 
 func TestWildcardDerivation_RestrictionListSubset_Valid(t *testing.T) {
-	// Valid: derived wildcard list is a subset of base wildcard list
+	// valid: derived wildcard list is a subset of base wildcard list
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com"
@@ -574,7 +574,7 @@ func TestWildcardDerivation_RestrictionListSubset_Valid(t *testing.T) {
 }
 
 func TestWildcardDerivation_RestrictionListSubset_Invalid(t *testing.T) {
-	// Invalid: derived wildcard list is not a subset of base wildcard list
+	// invalid: derived wildcard list is not a subset of base wildcard list
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com"
@@ -741,7 +741,7 @@ func TestAnyAttributeDerivation_RestrictionProcessContentsWeaker_Invalid(t *test
 }
 
 func TestWildcardUPA_ValidChoiceWithNonOverlappingWildcards(t *testing.T) {
-	// Valid: non-overlapping wildcards in choice group
+	// valid: non-overlapping wildcards in choice group
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com"

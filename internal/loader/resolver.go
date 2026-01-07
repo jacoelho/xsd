@@ -33,7 +33,7 @@ func NewResolver(schema *schema.Schema) *Resolver {
 // Resolve resolves all references in the schema.
 // Returns an error if there are unresolvable references or invalid cycles.
 func (r *Resolver) Resolve() error {
-	// Order matters: resolve in dependency order
+	// order matters: resolve in dependency order
 
 	// 1. Simple types (only depend on built-ins or other simple types)
 	for qname, typ := range r.schema.TypeDefs {
@@ -107,7 +107,7 @@ func (r *Resolver) doResolveSimpleType(qname types.QName, st *types.SimpleType) 
 				st.SetVariety(baseST.Variety())
 			}
 		}
-		// Inherit whiteSpace from base type if not explicitly set
+		// inherit whiteSpace from base type if not explicitly set
 		if st.WhiteSpace() == types.WhiteSpacePreserve && base != nil {
 			st.SetWhiteSpace(base.WhiteSpace())
 		}
@@ -127,7 +127,7 @@ func (r *Resolver) doResolveSimpleType(qname types.QName, st *types.SimpleType) 
 	}
 
 	if st.Union != nil {
-		// First add QName-referenced member types
+		// first add QName-referenced member types
 		if len(st.Union.MemberTypes) > 0 {
 			st.MemberTypes = make([]types.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
 			for i, memberQName := range st.Union.MemberTypes {
@@ -143,13 +143,13 @@ func (r *Resolver) doResolveSimpleType(qname types.QName, st *types.SimpleType) 
 			}
 		}
 
-		// Then add inline member types
+		// then add inline member types
 		if len(st.Union.InlineTypes) > 0 {
 			if st.MemberTypes == nil {
 				st.MemberTypes = make([]types.Type, 0, len(st.Union.InlineTypes))
 			}
 			for i, inlineType := range st.Union.InlineTypes {
-				// Resolve inline type if it has restrictions
+				// resolve inline type if it has restrictions
 				if err := r.resolveSimpleType(inlineType.QName, inlineType); err != nil {
 					return fmt.Errorf("type %s union inline member %d: %w", qname, i, err)
 				}
@@ -162,7 +162,7 @@ func (r *Resolver) doResolveSimpleType(qname types.QName, st *types.SimpleType) 
 }
 
 func (r *Resolver) resolveComplexType(qname types.QName, ct *types.ComplexType) error {
-	// For anonymous types (empty QName), use pointer-based tracking
+	// for anonymous types (empty QName), use pointer-based tracking
 	if qname.IsZero() {
 		if r.resolvedPtrs[ct] {
 			return nil
@@ -209,7 +209,7 @@ func (r *Resolver) doResolveComplexType(qname types.QName, ct *types.ComplexType
 		if err := r.resolveAttributeGroup(agRef, ag); err != nil {
 			return fmt.Errorf("type %s attribute group %s: %w", qname, agRef, err)
 		}
-		// Store resolved reference (we'll expand it during compilation)
+		// store resolved reference (we'll expand it during compilation)
 		_ = i // TODO: store resolved attribute group for compilation phase
 	}
 
@@ -227,12 +227,12 @@ func (r *Resolver) lookupType(qname types.QName, referrer types.QName) (types.Ty
 		return bt, nil
 	}
 
-	// Self-referencing types are circular definitions
+	// self-referencing types are circular definitions
 	if qname == referrer {
 		return nil, fmt.Errorf("circular type definition: %s references itself", qname)
 	}
 
-	// Look up in schema
+	// look up in schema
 	typ, ok := r.schema.TypeDefs[qname]
 	if !ok {
 		return nil, fmt.Errorf("type %s not found", qname)
@@ -240,7 +240,7 @@ func (r *Resolver) lookupType(qname types.QName, referrer types.QName) (types.Ty
 
 	if r.detector.IsResolving(qname) {
 		if referrer.IsZero() {
-			// Allow recursive references from anonymous contexts (content models).
+			// allow recursive references from anonymous contexts (content models).
 			return typ, nil
 		}
 		return nil, fmt.Errorf("circular reference detected: %v", qname)
@@ -270,15 +270,15 @@ func (r *Resolver) resolveGroup(qname types.QName, mg *types.ModelGroup) error {
 	}
 
 	return r.detector.WithScope(qname, func() error {
-		// Resolve group particles (expand GroupRefs)
+		// resolve group particles (expand GroupRefs)
 		return r.resolveParticles(mg.Particles)
 	})
 }
 
 func (r *Resolver) resolveParticles(particles []types.Particle) error {
-	// Use iterative approach with work queue to avoid stack overflow
-	// Inline ModelGroups are tree-structured (no pointer cycles)
-	// Named groups (GroupRef) have cycle detection via r.detector
+	// use iterative approach with work queue to avoid stack overflow
+	// inline ModelGroups are tree-structured (no pointer cycles)
+	// named groups (GroupRef) have cycle detection via r.detector
 	queue := make([]types.Particle, len(particles))
 	copy(queue, particles)
 
@@ -288,12 +288,12 @@ func (r *Resolver) resolveParticles(particles []types.Particle) error {
 
 		switch particle := p.(type) {
 		case *types.GroupRef:
-			// Verify the group exists
+			// verify the group exists
 			group, ok := r.schema.Groups[particle.RefQName]
 			if !ok {
 				return fmt.Errorf("group %s not found", particle.RefQName)
 			}
-			// Resolve the referenced group (cycle detection via r.detector)
+			// resolve the referenced group (cycle detection via r.detector)
 			if err := r.resolveGroup(particle.RefQName, group); err != nil {
 				return err
 			}
@@ -303,11 +303,11 @@ func (r *Resolver) resolveParticles(particles []types.Particle) error {
 			queue = append(queue, particle.Particles...)
 
 		case *types.ElementDecl:
-			// Resolve local element types (not top-level elements which are handled separately)
+			// resolve local element types (not top-level elements which are handled separately)
 			if !particle.IsReference && particle.Type != nil {
-				// Check if type is a placeholder SimpleType (created during parsing for unresolved types)
+				// check if type is a placeholder SimpleType (created during parsing for unresolved types)
 				if st, ok := particle.Type.(*types.SimpleType); ok {
-					// If it's a placeholder (has QName but no content), resolve it
+					// if it's a placeholder (has QName but no content), resolve it
 					if st.Restriction == nil && st.List == nil && st.Union == nil && !st.QName.IsZero() {
 						if r.detector.IsResolving(st.QName) {
 							actualType, ok := r.schema.TypeDefs[st.QName]
@@ -330,7 +330,7 @@ func (r *Resolver) resolveParticles(particles []types.Particle) error {
 					if !ct.QName.IsZero() && r.detector.IsResolving(ct.QName) {
 						continue
 					}
-					// Anonymous complex type - resolve it (includes attributeGroup refs, nested types, etc.)
+					// anonymous complex type - resolve it (includes attributeGroup refs, nested types, etc.)
 					if !ct.QName.IsZero() && r.detector.IsResolving(ct.QName) {
 						continue
 					}
@@ -341,27 +341,27 @@ func (r *Resolver) resolveParticles(particles []types.Particle) error {
 			}
 
 		case *types.AnyElement:
-			// Wildcards don't need resolution
+			// wildcards don't need resolution
 		}
 	}
 	return nil
 }
 
 func (r *Resolver) resolveElement(qname types.QName, elem *types.ElementDecl) error {
-	// Elements may have inline anonymous types - those are already attached
-	// Elements with type attribute need lookup
+	// elements may have inline anonymous types - those are already attached
+	// elements with type attribute need lookup
 	if elem.Type == nil {
-		// This shouldn't happen if parsing is correct
+		// this shouldn't happen if parsing is correct
 		return nil
 	}
 
-	// Check if type is a placeholder SimpleType (created during parsing for unresolved types)
+	// check if type is a placeholder SimpleType (created during parsing for unresolved types)
 	if st, ok := elem.Type.(*types.SimpleType); ok {
-		// If it's a placeholder (has QName but no content), resolve it
+		// if it's a placeholder (has QName but no content), resolve it
 		if st.Restriction == nil && st.List == nil && st.Union == nil && !st.QName.IsZero() {
-			// This is a placeholder - resolve the actual type
-			// Pass empty referrer because element type lookup is not type derivation.
-			// Self-reference detection is for types referencing themselves as base types,
+			// this is a placeholder - resolve the actual type
+			// pass empty referrer because element type lookup is not type derivation.
+			// self-reference detection is for types referencing themselves as base types,
 			// not for elements with the same name as their type (which is valid).
 			actualType, err := r.lookupType(st.QName, types.QName{})
 			if err != nil {
@@ -372,13 +372,13 @@ func (r *Resolver) resolveElement(qname types.QName, elem *types.ElementDecl) er
 			}
 			elem.Type = actualType
 		} else {
-			// It's a real SimpleType - resolve it
+			// it's a real SimpleType - resolve it
 			if err := r.resolveSimpleType(st.QName, st); err != nil {
 				return fmt.Errorf("element %s type: %w", qname, err)
 			}
 		}
 	} else if ct, ok := elem.Type.(*types.ComplexType); ok {
-		// Complex type - resolve it (handles anonymous types via pointer tracking)
+		// complex type - resolve it (handles anonymous types via pointer tracking)
 		if err := r.resolveComplexType(ct.QName, ct); err != nil {
 			return fmt.Errorf("element %s type: %w", qname, err)
 		}
@@ -431,7 +431,7 @@ func (r *Resolver) resolveAttributeType(attr *types.AttributeDecl) error {
 	}
 
 	if st, ok := attr.Type.(*types.SimpleType); ok {
-		// If it's a placeholder (has QName but no content), resolve it
+		// if it's a placeholder (has QName but no content), resolve it
 		if st.Restriction == nil && st.List == nil && st.Union == nil && !st.QName.IsZero() {
 			actualType, err := r.lookupType(st.QName, types.QName{})
 			if err != nil {

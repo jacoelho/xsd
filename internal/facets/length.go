@@ -19,7 +19,7 @@ func isQNameOrNotationType(t types.Type) bool {
 		return local == string(types.TypeNameQName) || local == string(types.TypeNameNOTATION)
 	}
 
-	// List types should still honor length facets on list size.
+	// list types should still honor length facets on list size.
 	if st, ok := t.(*types.SimpleType); ok && st.Variety() == types.ListVariety {
 		return false
 	}
@@ -52,7 +52,7 @@ func isQNameOrNotationType(t types.Type) bool {
 		return true
 	}
 
-	// Walk base types for restriction chains that didn't resolve primitive type.
+	// walk base types for restriction chains that didn't resolve primitive type.
 	visited := make(map[types.Type]bool)
 	current := t
 	for current != nil && !visited[current] {
@@ -83,7 +83,7 @@ func (l *Length) GetIntValue() int {
 
 // Validate checks if the value has the exact length (unified Facet interface)
 func (l *Length) Validate(value types.TypedValue, baseType types.Type) error {
-	// Per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
+	// per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
 	if isQNameOrNotationType(baseType) {
 		return nil
 	}
@@ -112,7 +112,7 @@ func (m *MinLength) GetIntValue() int {
 
 // Validate checks if the value meets minimum length (unified Facet interface)
 func (m *MinLength) Validate(value types.TypedValue, baseType types.Type) error {
-	// Per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
+	// per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
 	if isQNameOrNotationType(baseType) {
 		return nil
 	}
@@ -141,7 +141,7 @@ func (m *MaxLength) GetIntValue() int {
 
 // Validate checks if the value meets maximum length (unified Facet interface)
 func (m *MaxLength) Validate(value types.TypedValue, baseType types.Type) error {
-	// Per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
+	// per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
 	if isQNameOrNotationType(baseType) {
 		return nil
 	}
@@ -160,15 +160,15 @@ func (m *MaxLength) Validate(value types.TypedValue, baseType types.Type) error 
 //   - string types: characters (Unicode code points) - XSD 1.0 Part 2, sections 3.2.1.1-3.2.1.3
 func getLength(value string, baseType types.Type) int {
 	if baseType == nil {
-		// No type information - use character count as default
+		// no type information - use character count as default
 		return utf8.RuneCountInString(value)
 	}
 
-	// Use LengthMeasurable interface if available
+	// use LengthMeasurable interface if available
 	if lm, ok := baseType.(types.LengthMeasurable); ok {
 		return lm.MeasureLength(value)
 	}
 
-	// Fallback: character count for types that don't implement LengthMeasurable
+	// fallback: character count for types that don't implement LengthMeasurable
 	return utf8.RuneCountInString(value)
 }

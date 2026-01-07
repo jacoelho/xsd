@@ -100,7 +100,7 @@ func TestLoader_MutualImport(t *testing.T) {
 		FS: testFS,
 	})
 
-	// Load schemaA - this should succeed even though schemaB imports schemaA back
+	// load schemaA - this should succeed even though schemaB imports schemaA back
 	schema, err := loader.Load("schemaA.xsd")
 	if err != nil {
 		t.Fatalf("Load() should succeed for mutual imports between different namespaces, got error: %v", err)
@@ -114,7 +114,7 @@ func TestLoader_MutualImport(t *testing.T) {
 		t.Errorf("TargetNamespace = %v, want %v", schema.TargetNamespace, "http://namespaceA")
 	}
 
-	// Verify that TypeA was loaded
+	// verify that TypeA was loaded
 	typeAQName := types.QName{Namespace: "http://namespaceA", Local: "TypeA"}
 	if _, ok := schema.TypeDefs[typeAQName]; !ok {
 		t.Error("TypeA should be in schema.TypeDefs")
@@ -193,7 +193,7 @@ func TestLoader_CircularInclude(t *testing.T) {
 		FS: testFS,
 	})
 
-	// Circular includes should fail because they're in the same namespace
+	// circular includes should fail because they're in the same namespace
 	_, err := loader.Load("schemaA.xsd")
 	if err == nil {
 		t.Error("Load() should return error for circular includes")
@@ -379,7 +379,7 @@ func TestLoader_IncludeNamespaceMismatch(t *testing.T) {
 }
 
 func TestLoader_IncludeWithNoNamespaceIncluded(t *testing.T) {
-	// Including schema has namespace, included schema has no namespace - should succeed
+	// including schema has namespace, included schema has no namespace - should succeed
 	testFS := fstest.MapFS{
 		"main.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -417,7 +417,7 @@ func TestLoader_IncludeWithNoNamespaceIncluded(t *testing.T) {
 		t.Error("element 'root' not found in schema")
 	}
 
-	// The included element should be in the including schema's namespace
+	// the included element should be in the including schema's namespace
 	commonQName := types.QName{
 		Namespace: "http://example.com",
 		Local:     "common",
@@ -428,7 +428,7 @@ func TestLoader_IncludeWithNoNamespaceIncluded(t *testing.T) {
 }
 
 func TestLoader_IncludeBothNoNamespace(t *testing.T) {
-	// Both schemas have no namespace - should succeed
+	// both schemas have no namespace - should succeed
 	testFS := fstest.MapFS{
 		"main.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -456,7 +456,7 @@ func TestLoader_IncludeBothNoNamespace(t *testing.T) {
 		t.Fatalf("Load() error = %v (should allow include when both have no namespace)", err)
 	}
 
-	// Check that both elements are present (both in no namespace)
+	// check that both elements are present (both in no namespace)
 	rootQName := types.QName{
 		Namespace: "",
 		Local:     "root",
@@ -475,7 +475,7 @@ func TestLoader_IncludeBothNoNamespace(t *testing.T) {
 }
 
 func TestSchemaValidation_ListTypeMissingItemType(t *testing.T) {
-	// List type missing itemType attribute (invalid)
+	// list type missing itemType attribute (invalid)
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -503,7 +503,7 @@ func TestSchemaValidation_ListTypeMissingItemType(t *testing.T) {
 }
 
 func TestSchemaValidation_InvalidListType(t *testing.T) {
-	// List type with itemType that is itself a list (invalid)
+	// list type with itemType that is itself a list (invalid)
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -534,7 +534,7 @@ func TestSchemaValidation_InvalidListType(t *testing.T) {
 }
 
 func TestSchemaValidation_ValidListTypeWithUnion(t *testing.T) {
-	// List type with itemType that is a union (valid per XSD 1.0 spec)
+	// list type with itemType that is a union (valid per XSD 1.0 spec)
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -562,7 +562,7 @@ func TestSchemaValidation_ValidListTypeWithUnion(t *testing.T) {
 }
 
 func TestSchemaValidation_ValidListTypeWithInlineSimpleType(t *testing.T) {
-	// List type with inline simpleType child (valid per XSD 1.0 spec)
+	// list type with inline simpleType child (valid per XSD 1.0 spec)
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -590,7 +590,7 @@ func TestSchemaValidation_ValidListTypeWithInlineSimpleType(t *testing.T) {
 		return
 	}
 
-	// Verify the list type was parsed correctly
+	// verify the list type was parsed correctly
 	qname := types.QName{
 		Namespace: "http://example.com",
 		Local:     "IntegerList",
@@ -609,7 +609,7 @@ func TestSchemaValidation_ValidListTypeWithInlineSimpleType(t *testing.T) {
 		t.Fatal("IntegerList should have List definition")
 	}
 
-	// For inline simpleType, InlineItemType should be set and List.ItemType should be zero
+	// for inline simpleType, InlineItemType should be set and List.ItemType should be zero
 	if st.List.InlineItemType == nil {
 		t.Error("List.InlineItemType should be set for inline simpleType")
 	}
@@ -623,7 +623,7 @@ func TestSchemaValidation_ValidListTypeWithInlineSimpleType(t *testing.T) {
 }
 
 func TestSchemaValidation_InvalidListTypeWithBothItemTypeAndInlineSimpleType(t *testing.T) {
-	// List type cannot have both itemType attribute and inline simpleType child (invalid per XSD spec)
+	// list type cannot have both itemType attribute and inline simpleType child (invalid per XSD spec)
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -655,7 +655,7 @@ func TestSchemaValidation_InvalidListTypeWithBothItemTypeAndInlineSimpleType(t *
 }
 
 func TestSchemaValidation_InvalidUnionType(t *testing.T) {
-	// Union type with no member types (invalid)
+	// union type with no member types (invalid)
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -683,7 +683,7 @@ func TestSchemaValidation_InvalidUnionType(t *testing.T) {
 }
 
 func TestSchemaValidation_UnionWithInlineTypes(t *testing.T) {
-	// Union type with inline simpleType children (valid)
+	// union type with inline simpleType children (valid)
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -717,7 +717,7 @@ func TestSchemaValidation_UnionWithInlineTypes(t *testing.T) {
 		t.Fatalf("Load() failed: %v", err)
 	}
 
-	// Verify the union type was parsed correctly
+	// verify the union type was parsed correctly
 	qname := types.QName{
 		Namespace: "http://example.com",
 		Local:     "StringOrInteger",
@@ -739,7 +739,7 @@ func TestSchemaValidation_UnionWithInlineTypes(t *testing.T) {
 		t.Errorf("Union should have 0 memberTypes (QNames), got %d", len(st.Union.MemberTypes))
 	}
 
-	// Verify inline types are parsed correctly
+	// verify inline types are parsed correctly
 	if st.Union.InlineTypes[0].Variety() != types.AtomicVariety {
 		t.Errorf("First inline type should be atomic, got %v", st.Union.InlineTypes[0].Variety())
 	}
@@ -750,7 +750,7 @@ func TestSchemaValidation_UnionWithInlineTypes(t *testing.T) {
 
 func TestSchemaValidation_InvalidFacetCombination_LengthWithMinMax(t *testing.T) {
 	// length facet cannot be used with minLength or maxLength
-	// Per XSD 1.0 Errata E1-17, they are mutually exclusive regardless of derivation step
+	// per XSD 1.0 Errata E1-17, they are mutually exclusive regardless of derivation step
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -812,7 +812,7 @@ func TestSchemaValidation_InvalidFacetCombination_MinLengthGreaterThanMaxLength(
 }
 
 func TestSchemaValidation_InvalidRangeFacet_OnNonOrderedType(t *testing.T) {
-	// Range facets (minInclusive, etc.) are only applicable to ordered types
+	// range facets (minInclusive, etc.) are only applicable to ordered types
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -874,9 +874,9 @@ func TestSchemaValidation_InvalidRangeFacet_ConflictingValues(t *testing.T) {
 }
 
 func TestLoader_ImportNoTargetNamespaceWithoutNamespaceAttr(t *testing.T) {
-	// Schema without targetNamespace cannot use import without namespace attribute
-	// Per XSD 1.0 spec constraint: "if namespace is absent, schema must have targetNamespace"
-	// By contrapositive: if schema has no targetNamespace, namespace attribute must be present
+	// schema without targetNamespace cannot use import without namespace attribute
+	// per XSD 1.0 spec constraint: "if namespace is absent, schema must have targetNamespace"
+	// by contrapositive: if schema has no targetNamespace, namespace attribute must be present
 	testFS := fstest.MapFS{
 		"main.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -909,9 +909,9 @@ func TestLoader_ImportNoTargetNamespaceWithoutNamespaceAttr(t *testing.T) {
 }
 
 func TestLoader_ImportNoTargetNamespaceWithNamespaceAttr(t *testing.T) {
-	// Schema without targetNamespace can use import WITH namespace attribute (required)
-	// Per XSD 1.0 spec constraint: "if namespace is absent, schema must have targetNamespace"
-	// By contrapositive: if schema has no targetNamespace, namespace attribute must be present
+	// schema without targetNamespace can use import WITH namespace attribute (required)
+	// per XSD 1.0 spec constraint: "if namespace is absent, schema must have targetNamespace"
+	// by contrapositive: if schema has no targetNamespace, namespace attribute must be present
 	testFS := fstest.MapFS{
 		"main.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -958,8 +958,8 @@ func TestLoader_ImportNoTargetNamespaceWithNamespaceAttr(t *testing.T) {
 }
 
 func TestLoader_LocalUntypedAttribute(t *testing.T) {
-	// Test that local untyped attributes (attributes with name but no type) are accepted.
-	// Per XSD spec, local untyped attributes implicitly have type xs:anySimpleType
+	// test that local untyped attributes (attributes with name but no type) are accepted.
+	// per XSD spec, local untyped attributes implicitly have type xs:anySimpleType
 	// and are always in the empty namespace (not target namespace).
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
@@ -987,7 +987,7 @@ func TestLoader_LocalUntypedAttribute(t *testing.T) {
 		t.Fatalf("Load() error = %v (local untyped attributes should be valid)", err)
 	}
 
-	// Verify the element exists
+	// verify the element exists
 	rootQName := types.QName{
 		Namespace: "http://example.com",
 		Local:     "root",
@@ -997,7 +997,7 @@ func TestLoader_LocalUntypedAttribute(t *testing.T) {
 		t.Fatal("element 'root' not found in schema")
 	}
 
-	// Verify the complex type has both attributes
+	// verify the complex type has both attributes
 	ct, ok := rootElem.Type.(*types.ComplexType)
 	if !ok {
 		t.Fatal("root element type is not a ComplexType")
@@ -1026,7 +1026,7 @@ func TestLoader_LocalUntypedAttribute(t *testing.T) {
 		t.Fatal("typedAttr not found")
 	}
 
-	// Verify untyped attribute has Type=nil and empty namespace
+	// verify untyped attribute has Type=nil and empty namespace
 	if untypedAttr.Type != nil {
 		t.Errorf("untypedAttr should have Type=nil, got %v", untypedAttr.Type)
 	}
@@ -1034,18 +1034,18 @@ func TestLoader_LocalUntypedAttribute(t *testing.T) {
 		t.Errorf("untypedAttr should have empty namespace (local attributes are always unqualified), got %q", untypedAttr.Name.Namespace)
 	}
 
-	// Verify typed attribute has a type
+	// verify typed attribute has a type
 	if typedAttr.Type == nil {
 		t.Error("typedAttr should have a type")
 	}
 }
 
 func TestLoader_AttributeReference(t *testing.T) {
-	// Test that attribute references (ref attribute) are validated correctly.
-	// An attribute reference should exist in the schema's AttributeDecls.
-	// Note: Unprefixed attribute references resolve to empty namespace, which makes it
+	// test that attribute references (ref attribute) are validated correctly.
+	// an attribute reference should exist in the schema's AttributeDecls.
+	// note: Unprefixed attribute references resolve to empty namespace, which makes it
 	// impossible to distinguish them from local untyped attributes after parsing.
-	// So we test with a prefixed reference that resolves to target namespace.
+	// so we test with a prefixed reference that resolves to target namespace.
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -1078,7 +1078,7 @@ func TestLoader_AttributeReference(t *testing.T) {
 }
 
 func TestLoader_LocalUntypedAttributeInType(t *testing.T) {
-	// Test that local untyped attributes are accepted in named complex types.
+	// test that local untyped attributes are accepted in named complex types.
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -1103,7 +1103,7 @@ func TestLoader_LocalUntypedAttributeInType(t *testing.T) {
 		t.Fatalf("Load() error = %v (local untyped attributes in named types should be valid)", err)
 	}
 
-	// Verify the type exists and has the untyped attribute
+	// verify the type exists and has the untyped attribute
 	typeQName := types.QName{
 		Namespace: "http://example.com",
 		Local:     "TestType",

@@ -5,13 +5,13 @@ import (
 )
 
 func TestBaseType_ForRestriction(t *testing.T) {
-	// Test that base type is resolved for restriction
+	// test that base type is resolved for restriction
 	baseType := &SimpleType{
 		QName: QName{
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     string(TypeNameDecimal),
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	baseType.MarkBuiltin()
 	baseType.SetVariety(AtomicVariety)
@@ -22,7 +22,7 @@ func TestBaseType_ForRestriction(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "MyDecimal",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Restriction: &Restriction{
 			Base: baseType.QName,
 		},
@@ -39,13 +39,13 @@ func TestBaseType_ForRestriction(t *testing.T) {
 }
 
 func TestBaseType_ForListType(t *testing.T) {
-	// List types don't have a base type in the same way, but itemType should be resolved
+	// list types don't have a base type in the same way, but itemType should be resolved
 	itemType := &SimpleType{
 		QName: QName{
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     string(TypeNameString),
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	itemType.MarkBuiltin()
 	itemType.SetVariety(AtomicVariety)
@@ -56,7 +56,7 @@ func TestBaseType_ForListType(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "StringList",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		List: &ListType{
 			ItemType: itemType.QName,
 		},
@@ -72,13 +72,13 @@ func TestBaseType_ForListType(t *testing.T) {
 }
 
 func TestBaseType_ForUnionType(t *testing.T) {
-	// Union types have member types, not a single base type
+	// union types have member types, not a single base type
 	member1 := &SimpleType{
 		QName: QName{
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     string(TypeNameString),
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	member1.MarkBuiltin()
 	member1.SetVariety(AtomicVariety)
@@ -89,7 +89,7 @@ func TestBaseType_ForUnionType(t *testing.T) {
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     "integer",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	member2.MarkBuiltin()
 	member2.SetVariety(AtomicVariety)
@@ -99,7 +99,7 @@ func TestBaseType_ForUnionType(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "StringOrInteger",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 		Union: &UnionType{
 			MemberTypes: []QName{
 				member1.QName,

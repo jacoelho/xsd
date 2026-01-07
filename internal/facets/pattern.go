@@ -46,9 +46,9 @@ func (p *Pattern) Name() string {
 // ValidateSyntax validates that the pattern value is a valid XSD regex pattern
 // and translates it to Go regex. This should be called during schema validation.
 func (p *Pattern) ValidateSyntax() error {
-	// Empty pattern is valid per XSD spec (matches only empty string)
+	// empty pattern is valid per XSD spec (matches only empty string)
 	if p.Value == "" {
-		// Empty pattern translates to ^(?:)$
+		// empty pattern translates to ^(?:)$
 		goPattern, err := TranslateXSDPatternToGo("")
 		if err != nil {
 			return fmt.Errorf("pattern facet: %w", err)
@@ -62,7 +62,7 @@ func (p *Pattern) ValidateSyntax() error {
 		return nil
 	}
 
-	// Translate XSD pattern to Go regex
+	// translate XSD pattern to Go regex
 	goPattern, err := TranslateXSDPatternToGo(p.Value)
 	if err != nil {
 		return fmt.Errorf("pattern facet: %w", err)
@@ -126,17 +126,17 @@ func (ps *PatternSet) Validate(value types.TypedValue, _ types.Type) error {
 
 	lexical := value.Lexical()
 
-	// Value must match at least one pattern (OR)
+	// value must match at least one pattern (OR)
 	var lastErr error
 	for _, p := range ps.Patterns {
 		if err := p.validateLexical(lexical); err == nil {
-			return nil // Matched at least one pattern
+			return nil // matched at least one pattern
 		} else {
 			lastErr = err
 		}
 	}
 
-	// None matched - return an error listing all patterns
+	// none matched - return an error listing all patterns
 	if len(ps.Patterns) == 1 {
 		return lastErr
 	}
@@ -151,7 +151,7 @@ func (ps *PatternSet) Validate(value types.TypedValue, _ types.Type) error {
 // TranslateXSDPatternToGo translates an XSD 1.0 pattern to Go regexp (RE2) syntax.
 // Returns an error for unsupported features (fail-closed approach).
 func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
-	// Empty pattern matches only empty string
+	// empty pattern matches only empty string
 	if xsdPattern == "" {
 		return `^(?:)$`, nil
 	}
@@ -160,15 +160,15 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 	result.Grow(len(xsdPattern) * 2)
 
 	i := 0
-	charClassDepth := 0 // Track nested character class depth (for proper parsing)
+	charClassDepth := 0 // track nested character class depth (for proper parsing)
 
-	// For character class validation: track the last character/range endpoint
-	var charClassStart int     // Position where current char class started
-	var lastCharClassItem rune // Last character added to the class (for range validation)
-	var lastWasRange bool      // Was the last item a range (so next - must be literal or start new range)
-	var lastWasDash bool       // Was the last character a dash (for detecting invalid patterns)
-	lastItemIsChar := false    // Was the last item a single character (ranges only apply then)
-	isFirstInClass := false    // Is this the first item after [ or [^
+	// for character class validation: track the last character/range endpoint
+	var charClassStart int     // position where current char class started
+	var lastCharClassItem rune // last character added to the class (for range validation)
+	var lastWasRange bool      // was the last item a range (so next - must be literal or start new range)
+	var lastWasDash bool       // was the last character a dash (for detecting invalid patterns)
+	lastItemIsChar := false    // was the last item a single character (ranges only apply then)
+	isFirstInClass := false    // is this the first item after [ or [^
 
 	var classBuf strings.Builder
 	classNegated := false
@@ -179,7 +179,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 	classHasNotNameChar := false
 	groupDepth := 0
 
-	// Track if we just wrote a quantifier (to detect non-greedy quantifiers)
+	// track if we just wrote a quantifier (to detect non-greedy quantifiers)
 	justWroteQuantifier := false
 
 	for i < len(xsdPattern) {
@@ -191,12 +191,12 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 			}
 			nextChar := xsdPattern[i+1]
 
-			// Handle Unicode escapes: reject \u (not valid XSD syntax)
+			// handle Unicode escapes: reject \u (not valid XSD syntax)
 			if nextChar == 'u' {
 				return "", fmt.Errorf("pattern-syntax-error: \\u escape is not valid XSD 1.0 syntax (use XML character reference &#x; instead)")
 			}
 
-			// Handle Unicode property escapes: \p{...} or \P{...}
+			// handle Unicode property escapes: \p{...} or \P{...}
 			if nextChar == 'p' || nextChar == 'P' {
 				translated, newIdx, err := translateUnicodePropertyEscape(xsdPattern, i, charClassDepth > 0)
 				if err != nil {
@@ -212,11 +212,11 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteString(translated)
 				}
 				i = newIdx
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 			}
 
-			// Handle XSD-specific escapes
+			// handle XSD-specific escapes
 			switch nextChar {
 			case 'i':
 				// XML NameStartChar escape
@@ -233,7 +233,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				justWroteQuantifier = false
 				continue
 			case 'I':
-				// Negated XML NameStartChar escape
+				// negated XML NameStartChar escape
 				if charClassDepth > 0 {
 					classHasNotNameStart = true
 					lastWasDash = false
@@ -261,7 +261,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				justWroteQuantifier = false
 				continue
 			case 'C':
-				// Negated XML NameChar escape
+				// negated XML NameChar escape
 				if charClassDepth > 0 {
 					classHasNotNameChar = true
 					lastWasDash = false
@@ -276,7 +276,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				continue
 
 			case 'd':
-				// Digit shorthand - Unicode decimal digits
+				// digit shorthand - Unicode decimal digits
 				if charClassDepth > 0 {
 					classBuf.WriteString(xsdDigitClassContent)
 					lastWasDash = false
@@ -287,11 +287,11 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteString(xsdDigitClass)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 'D':
-				// Non-digit shorthand
+				// non-digit shorthand
 				if charClassDepth > 0 {
 					classHasNotD = true
 					lastWasDash = false
@@ -302,11 +302,11 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteString(xsdNotDigitClass)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 's':
-				// Whitespace shorthand - XSD defines exactly these 4 chars
+				// whitespace shorthand - XSD defines exactly these 4 chars
 				if charClassDepth > 0 {
 					classBuf.WriteString(`\x20\t\n\r`)
 					lastWasDash = false
@@ -317,11 +317,11 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteString(`[\x20\t\n\r]`)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 'S':
-				// Non-whitespace shorthand
+				// non-whitespace shorthand
 				if charClassDepth > 0 {
 					if classNegated {
 						return "", fmt.Errorf("pattern-unsupported: \\S inside negated character class not expressible in RE2")
@@ -337,11 +337,11 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				}
 				result.WriteString(`[^\x20\t\n\r]`)
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 'w':
-				// Word character shorthand
+				// word character shorthand
 				if charClassDepth > 0 {
 					if classNegated {
 						return "", fmt.Errorf("pattern-unsupported: \\w inside negated character class not expressible in RE2")
@@ -357,11 +357,11 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				}
 				result.WriteString(xsdWordClass)
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 'W':
-				// Non-word character shorthand
+				// non-word character shorthand
 				if charClassDepth > 0 {
 					classBuf.WriteString(`\p{P}\p{Z}\p{C}`)
 					lastWasDash = false
@@ -372,7 +372,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteString(xsdNotWordClass)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 'n':
@@ -387,7 +387,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteByte(nextChar)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 'r':
@@ -402,7 +402,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteByte(nextChar)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 't':
@@ -417,7 +417,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteByte(nextChar)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 'f':
@@ -432,7 +432,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteByte(nextChar)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 'v':
@@ -447,7 +447,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteByte(nextChar)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 'a':
@@ -462,12 +462,12 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteByte(nextChar)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 'b':
 				// \b is only valid inside character class (backspace)
-				// Outside character class, it's NOT valid XSD syntax (no word boundary in XSD)
+				// outside character class, it's NOT valid XSD syntax (no word boundary in XSD)
 				if charClassDepth > 0 {
 					if err := handleCharClassChar('\b', &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
 						return "", err
@@ -478,7 +478,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					return "", fmt.Errorf("pattern-syntax-error: \\b (word boundary) is not valid XSD 1.0 syntax")
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case 'A', 'Z', 'z', 'B':
@@ -490,7 +490,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				return "", fmt.Errorf("pattern-syntax-error: \\%c is not valid XSD 1.0 syntax (XSD patterns are implicitly anchored)", nextChar)
 
 			case '\\':
-				// Escaped backslash - can be range endpoint
+				// escaped backslash - can be range endpoint
 				if charClassDepth > 0 {
 					if err := handleCharClassChar('\\', &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
 						return "", err
@@ -500,11 +500,11 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteString(`\\`)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case '[', ']', '(', ')', '{', '}', '*', '+', '?', '|', '^', '$', '.':
-				// Escaped metacharacters - pass through
+				// escaped metacharacters - pass through
 				if charClassDepth > 0 {
 					if err := handleCharClassChar(rune(nextChar), &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
 						return "", err
@@ -516,11 +516,11 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteByte(nextChar)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			case '-':
-				// Escaped dash - literal dash character
+				// escaped dash - literal dash character
 				if charClassDepth > 0 {
 					if err := handleCharClassChar('-', &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
 						return "", err
@@ -530,14 +530,14 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 					result.WriteString(`\-`)
 				}
 				i += 2
-				justWroteQuantifier = false // Escape sequences are not quantifiers
+				justWroteQuantifier = false // escape sequences are not quantifiers
 				continue
 
 			default:
 				// XSD only allows specific escape sequences. Unknown escapes are syntax errors.
-				// Valid escapes: \n, \r, \t, \d, \D, \s, \S, \w, \W, \p{}, \P{}, \i, \I, \c, \C,
+				// valid escapes: \n, \r, \t, \d, \D, \s, \S, \w, \W, \p{}, \P{}, \i, \I, \c, \C,
 				// and escaped metacharacters: \\, \[, \], \(, \), \{, \}, \*, \+, \?, \|, \^, \$, \., \-
-				// Digit escapes (\0-\9) could be backreferences but XSD doesn't support them
+				// digit escapes (\0-\9) could be backreferences but XSD doesn't support them
 				if nextChar >= '0' && nextChar <= '9' {
 					return "", fmt.Errorf("pattern-syntax-error: \\%c backreference is not valid XSD 1.0 syntax", nextChar)
 				}
@@ -545,7 +545,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 			}
 		}
 
-		// Handle character class boundaries (only for non-escaped [ and ])
+		// handle character class boundaries (only for non-escaped [ and ])
 		if char == '[' {
 			if charClassDepth > 0 {
 				return "", fmt.Errorf("pattern-unsupported: nested character classes not supported")
@@ -627,13 +627,13 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 			continue
 		}
 
-		// Check for character class subtraction: -[...]
+		// check for character class subtraction: -[...]
 		if charClassDepth > 0 && char == '-' && i+1 < len(xsdPattern) && xsdPattern[i+1] == '[' {
 			return "", fmt.Errorf("pattern-unsupported: character-class subtraction (-[) not supported in %q", xsdPattern)
 		}
 
 		if charClassDepth > 0 && char == '-' {
-			// Dash at the very start of class (after [ or [^) is literal
+			// dash at the very start of class (after [ or [^) is literal
 			if isFirstInClass {
 				lastCharClassItem = '-'
 				lastWasRange = false
@@ -644,7 +644,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				i++
 				continue
 			}
-			// Dash at the very end of class is literal
+			// dash at the very end of class is literal
 			if i+1 < len(xsdPattern) && xsdPattern[i+1] == ']' {
 				lastCharClassItem = '-'
 				lastWasRange = false
@@ -655,19 +655,19 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				i++
 				continue
 			}
-			// Dash immediately after a completed range is not allowed in XSD 1.0.
+			// dash immediately after a completed range is not allowed in XSD 1.0.
 			if lastWasRange {
 				return "", fmt.Errorf("pattern-syntax-error: '-' cannot follow a range in character class at position %d in %q", i, xsdPattern)
 			}
-			// Dash after another dash is invalid
+			// dash after another dash is invalid
 			if lastWasDash {
 				return "", fmt.Errorf("pattern-syntax-error: consecutive dashes in character class at position %d in %q", i, xsdPattern)
 			}
-			// Dash after a non-character item is invalid (can't start a range).
+			// dash after a non-character item is invalid (can't start a range).
 			if !lastItemIsChar {
 				return "", fmt.Errorf("pattern-syntax-error: '-' cannot follow a non-character item in character class at position %d in %q", i, xsdPattern)
 			}
-			// Otherwise, dash after a single character starts a potential range
+			// otherwise, dash after a single character starts a potential range
 			lastWasDash = true
 			classBuf.WriteByte('-')
 			i++
@@ -677,8 +677,8 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 		if charClassDepth > 0 {
 			currentChar := rune(char)
 			if lastWasDash {
-				// This completes a range: lastCharClassItem - currentChar
-				// Validate that the range is valid (start <= end)
+				// this completes a range: lastCharClassItem - currentChar
+				// validate that the range is valid (start <= end)
 				if lastCharClassItem > currentChar {
 					return "", fmt.Errorf("pattern-syntax-error: invalid range '%c-%c' (start > end) in character class starting at position %d in %q",
 						lastCharClassItem, currentChar, charClassStart, xsdPattern)
@@ -698,7 +698,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 			continue
 		}
 
-		// Check for non-greedy quantifier: ? after +, *, ?, or {m,n}
+		// check for non-greedy quantifier: ? after +, *, ?, or {m,n}
 		if justWroteQuantifier && char == '?' {
 			start := max(i-2, 0)
 			end := min(i+1, len(xsdPattern))
@@ -706,16 +706,16 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 		}
 		justWroteQuantifier = false
 
-		// Handle quantifiers and validate repeat counts (outside character classes)
+		// handle quantifiers and validate repeat counts (outside character classes)
 		if charClassDepth == 0 && char == '{' {
-			// Check for counted repeat: {m} or {m,} or {m,n}
+			// check for counted repeat: {m} or {m,} or {m,n}
 			repeatPattern, newPos, err := parseAndValidateRepeat(xsdPattern, i)
 			if err != nil {
 				return "", err
 			}
 			result.WriteString(repeatPattern)
 			i = newPos
-			// Check if next character is ? (non-greedy quantifier)
+			// check if next character is ? (non-greedy quantifier)
 			if i < len(xsdPattern) && xsdPattern[i] == '?' {
 				start := max(i-10, 0)
 				end := min(i+1, len(xsdPattern))
@@ -749,19 +749,19 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				justWroteQuantifier = false
 				continue
 			case '*':
-				// Kleene star quantifier
+				// kleene star quantifier
 				result.WriteByte('*')
 				i++
 				justWroteQuantifier = true
 				continue
 			case '+':
-				// One-or-more quantifier
+				// one-or-more quantifier
 				result.WriteByte('+')
 				i++
 				justWroteQuantifier = true
 				continue
 			case '?':
-				// Zero-or-one quantifier (but check if it's after another quantifier first)
+				// zero-or-one quantifier (but check if it's after another quantifier first)
 				if justWroteQuantifier {
 					start := max(i-2, 0)
 					end := min(i+1, len(xsdPattern))
@@ -806,7 +806,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 		return "", fmt.Errorf("pattern-syntax-error: unclosed '(' in pattern")
 	}
 
-	// Wrap in ^(?:...)$ for whole-string matching
+	// wrap in ^(?:...)$ for whole-string matching
 	translated := result.String()
 	return `^(?:` + translated + `)$`, nil
 }
@@ -814,8 +814,8 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 // handleCharClassChar handles a character inside a character class for range validation
 func handleCharClassChar(char rune, lastItem *rune, lastWasRange *bool, lastWasDash *bool, lastItemIsChar *bool, isFirst *bool, classStart int, pattern string) error {
 	if *lastWasDash {
-		// This completes a range: lastItem - char
-		// Validate that the range is valid (start <= end)
+		// this completes a range: lastItem - char
+		// validate that the range is valid (start <= end)
 		if *lastItem > char {
 			return fmt.Errorf("pattern-syntax-error: invalid range '%c-%c' (start > end) in character class starting at position %d in %q",
 				*lastItem, char, classStart, pattern)
@@ -849,12 +849,12 @@ func translateUnicodePropertyEscape(pattern string, startIdx int, inCharClass bo
 
 	propName := pattern[startIdx+3 : closeIdx]
 
-	// Reject block-style names (Is... or In...)
+	// reject block-style names (Is... or In...)
 	if strings.HasPrefix(propName, "Is") || strings.HasPrefix(propName, "In") {
 		return "", startIdx, fmt.Errorf("pattern-unsupported: Unicode block escape %q not supported (Go regexp limitation)", `\p{`+propName+`}`)
 	}
 
-	// Verify Go supports this property by trying to compile it
+	// verify Go supports this property by trying to compile it
 	testPattern := `\p{` + propName + `}`
 	if inCharClass {
 		testPattern = `[` + testPattern + `]`
@@ -863,7 +863,7 @@ func translateUnicodePropertyEscape(pattern string, startIdx int, inCharClass bo
 		return "", startIdx, fmt.Errorf("pattern-unsupported: Unicode property %q not supported by Go regexp", propName)
 	}
 
-	// Pass through unchanged (Go supports it)
+	// pass through unchanged (Go supports it)
 	negated := pattern[startIdx+1] == 'P'
 	if negated {
 		return `\P{` + propName + `}`, closeIdx + 1, nil
@@ -887,7 +887,7 @@ func parseAndValidateRepeat(pattern string, startIdx int) (string, int, error) {
 
 	content := pattern[startIdx+1 : closeIdx]
 
-	// Parse {m} or {m,} or {m,n}
+	// parse {m} or {m,} or {m,n}
 	var min, max int
 	var hasMax bool
 
@@ -940,6 +940,6 @@ func parseAndValidateRepeat(pattern string, startIdx int) (string, int, error) {
 		return "", startIdx, fmt.Errorf("pattern-unsupported: repeat {%d,%d} exceeds RE2 limit of %d", min, max, re2MaxRepeat)
 	}
 
-	// Return the original pattern (it's valid)
+	// return the original pattern (it's valid)
 	return pattern[startIdx : closeIdx+1], closeIdx + 1, nil
 }

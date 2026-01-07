@@ -26,7 +26,7 @@ func WalkParticles(particles []Particle, h ParticleHandlers) error {
 					return err
 				}
 			}
-			// Recurse into children
+			// recurse into children
 			if err := WalkParticles(v.Particles, h); err != nil {
 				return err
 			}

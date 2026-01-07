@@ -14,7 +14,7 @@ import (
 func (r *validationRun) checkIdentityConstraints(root xml.Element) []errors.Validation {
 	var violations []errors.Validation
 
-	// Use precomputed list of elements with constraints (computed during compilation)
+	// use precomputed list of elements with constraints (computed during compilation)
 	for _, decl := range r.schema.ElementsWithConstraints() {
 		matchingElements := r.findAllMatchingElements(root, decl)
 		for _, elem := range matchingElements {
@@ -29,7 +29,7 @@ func (r *validationRun) checkIdentityConstraints(root xml.Element) []errors.Vali
 func (r *validationRun) checkIdentityConstraintsOnElement(elem xml.Element, decl *grammar.CompiledElement) []errors.Validation {
 	var violations []errors.Validation
 
-	// First pass: collect key and unique values
+	// first pass: collect key and unique values
 	localKeyTables := make(map[string]map[string]bool)
 
 	for _, constraint := range decl.Constraints {
@@ -45,7 +45,7 @@ func (r *validationRun) checkIdentityConstraintsOnElement(elem xml.Element, decl
 		}
 	}
 
-	// Second pass: validate keyref constraints
+	// second pass: validate keyref constraints
 	for _, constraint := range decl.Constraints {
 		if constraint.Original.Type == types.KeyRefConstraint {
 			violations = append(violations, r.checkKeyRef(elem, constraint, localKeyTables)...)
@@ -68,8 +68,8 @@ func (r *validationRun) checkKey(elem xml.Element, constraint *grammar.CompiledC
 		keyResult := r.extractKeyValueWithNS(selectedElem, ic.Fields, ic.NamespaceContext)
 		elemPath := r.elementPath(selectedElem)
 
-		// Key constraint requires all key values to be present (not absent)
-		// Note: Empty string "" is a valid value; KeyAbsent means no node selected
+		// key constraint requires all key values to be present (not absent)
+		// note: Empty string "" is a valid value; KeyAbsent means no node selected
 		if keyResult.State == KeyInvalid {
 			violations = append(violations, errors.NewValidationf(errors.ErrIdentityAbsent, elemPath,
 				"key '%s': field selects non-simple content for element at %s", ic.Name, elemPath))
@@ -123,7 +123,7 @@ func (r *validationRun) checkUnique(elem xml.Element, constraint *grammar.Compil
 				"unique '%s': field selects multiple nodes for element at %s", ic.Name, elemPath))
 			continue
 		}
-		// Unique constraint allows absent values (when no node is selected)
+		// unique constraint allows absent values (when no node is selected)
 		if keyResult.State == KeyAbsent {
 			continue
 		}
@@ -179,14 +179,14 @@ func (r *validationRun) checkKeyRef(elem xml.Element, constraint *grammar.Compil
 				"keyref '%s': field selects multiple nodes for element at %s", ic.Name, elemPath))
 			continue
 		}
-		// Keyref with absent value is allowed (per XSD spec) - just skip
+		// keyref with absent value is allowed (per XSD spec) - just skip
 		if keyResult.State == KeyAbsent {
 			continue
 		}
 
 		elemPath := r.elementPath(selectedElem)
 
-		// Check if value exists in referenced key table
+		// check if value exists in referenced key table
 		if !keyTable[keyResult.Value] {
 			violations = append(violations, errors.NewValidationf(errors.ErrIdentityKeyRefFailed, elemPath,
 				"keyref '%s': value '%s' not found in referenced key '%s' at %s",
@@ -209,7 +209,7 @@ func (r *validationRun) collectMatchingElements(elem xml.Element, decl *grammar.
 		Local:     elem.LocalName(),
 	}
 
-	// Direct match
+	// direct match
 	if decl.QName == elemQName {
 		results = append(results, elem)
 	} else {
@@ -221,7 +221,7 @@ func (r *validationRun) collectMatchingElements(elem xml.Element, decl *grammar.
 		}
 	}
 
-	// Recursively check children
+	// recursively check children
 	for _, child := range elem.Children() {
 		results = r.collectMatchingElements(child, decl, results)
 	}

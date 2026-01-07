@@ -49,7 +49,7 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 		return nil, fmt.Errorf("attribute cannot have both 'default' and 'fixed' attributes")
 	}
 
-	// Check if it's a reference
+	// check if it's a reference
 	if ref != "" {
 		if elem.HasAttribute("type") {
 			return nil, fmt.Errorf("attribute reference cannot have 'type' attribute")
@@ -60,8 +60,8 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 		if err := validateOnlyAnnotationChildren(elem, "attribute"); err != nil {
 			return nil, err
 		}
-		// For attribute references, use resolveAttributeRefQName
-		// Per XSD spec, unprefixed attribute refs refer to no namespace
+		// for attribute references, use resolveAttributeRefQName
+		// per XSD spec, unprefixed attribute refs refer to no namespace
 		refQName, err := resolveAttributeRefQName(ref, elem, schema)
 		if err != nil {
 			return nil, fmt.Errorf("resolve ref %s: %w", ref, err)
@@ -74,7 +74,7 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 			IsReference: true,
 		}
 
-		// Parse use attribute (can override referenced attribute's use)
+		// parse use attribute (can override referenced attribute's use)
 		use, err := parseAttributeUse(elem)
 		if err != nil {
 			return nil, err
@@ -104,7 +104,7 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 		return parsed, nil
 	}
 
-	// Local attribute declaration
+	// local attribute declaration
 	name := getAttr(elem, "name")
 	if name == "" {
 		return nil, fmt.Errorf("attribute missing name and ref")
@@ -118,7 +118,7 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 
 	attr := &types.AttributeDecl{
 		Name: types.QName{
-			// Attributes without a namespace prefix are in the empty namespace
+			// attributes without a namespace prefix are in the empty namespace
 			// (unlike elements which are in the target namespace)
 			Namespace: "",
 			Local:     name,
@@ -127,7 +127,7 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 		SourceNamespace: schema.TargetNamespace,
 	}
 
-	// Attribute can have either 'type' attribute OR inline simpleType, but not both
+	// attribute can have either 'type' attribute OR inline simpleType, but not both
 	typeName := elem.GetAttribute("type")
 	simpleTypeCount := 0
 	for _, child := range elem.Children() {
@@ -138,7 +138,7 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 			case "key", "keyref", "unique":
 				return nil, fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", child.LocalName())
 			case "annotation":
-				// Allowed; ordering handled by validateAnnotationOrder.
+				// allowed; ordering handled by validateAnnotationOrder.
 			default:
 				return nil, fmt.Errorf("invalid child element <%s> in <attribute> declaration", child.LocalName())
 			}
@@ -204,7 +204,7 @@ func parseAttribute(elem xml.Element, schema *xsdschema.Schema) (*types.Attribut
 		attr.HasFixed = true
 	}
 
-	// Parse form attribute - must be exactly "qualified" or "unqualified"
+	// parse form attribute - must be exactly "qualified" or "unqualified"
 	if elem.HasAttribute("form") {
 		formAttr := elem.GetAttribute("form")
 		switch formAttr {
@@ -265,18 +265,18 @@ func parseTopLevelAttribute(elem xml.Element, schema *xsdschema.Schema) error {
 		return err
 	}
 
-	// Top-level attributes are always in the target namespace
+	// top-level attributes are always in the target namespace
 	attrQName := types.QName{
 		Local:     name,
 		Namespace: schema.TargetNamespace,
 	}
 
-	// Update the attribute's name to reflect the correct namespace
+	// update the attribute's name to reflect the correct namespace
 	attr.Name = attrQName
 
 	attr.SourceNamespace = schema.TargetNamespace
 
-	// Store in schema's global attribute declarations
+	// store in schema's global attribute declarations
 	if _, exists := schema.AttributeDecls[attrQName]; exists {
 		return fmt.Errorf("attribute %s already defined", attrQName)
 	}

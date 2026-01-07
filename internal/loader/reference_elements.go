@@ -35,7 +35,7 @@ func collectElementReferencesFromParticlesWithVisited(particles []types.Particle
 				refs = append(refs, p)
 			}
 		case *types.ModelGroup:
-			// Skip if already visited (prevents infinite recursion in cyclic groups).
+			// skip if already visited (prevents infinite recursion in cyclic groups).
 			if visited[p] {
 				continue
 			}
@@ -55,7 +55,7 @@ func validateElementValueConstraints(schema *schema.Schema, decl *types.ElementD
 	}
 
 	resolvedType := resolveTypeForFinalValidation(schema, decl.Type)
-	// Per XSD spec 3.3.5.2, elements can have default/fixed values only if content type is:
+	// per XSD spec 3.3.5.2, elements can have default/fixed values only if content type is:
 	// simple type, simpleContent, or mixed content.
 	if ct, ok := resolvedType.(*types.ComplexType); ok {
 		_, isSimpleContent := ct.Content().(*types.SimpleContent)
@@ -83,31 +83,31 @@ func validateElementValueConstraints(schema *schema.Schema, decl *types.ElementD
 // validateSubstitutionGroupFinal validates that the substitution group member's derivation
 // method is not blocked by the head element's final attribute.
 func validateSubstitutionGroupFinal(schema *schema.Schema, memberQName types.QName, memberDecl *types.ElementDecl, headDecl *types.ElementDecl) error {
-	// If head element has no final constraints, any derivation is allowed.
+	// if head element has no final constraints, any derivation is allowed.
 	if headDecl.Final == 0 {
 		return nil
 	}
 
-	// We need to check if the member's type is derived from the head's type.
+	// we need to check if the member's type is derived from the head's type.
 	memberType := memberDecl.Type
 	headType := headDecl.Type
 
 	if memberType == nil || headType == nil {
-		return nil // Can't validate without types.
+		return nil // can't validate without types.
 	}
 
-	// Resolve types if they are placeholders.
+	// resolve types if they are placeholders.
 	memberType = resolveTypeForFinalValidation(schema, memberType)
 	headType = resolveTypeForFinalValidation(schema, headType)
 
 	if memberType == nil || headType == nil {
-		return nil // Can't validate without resolved types.
+		return nil // can't validate without resolved types.
 	}
 
-	// Check if member type is a complex type with derivation.
+	// check if member type is a complex type with derivation.
 	memberCT, ok := memberType.(*types.ComplexType)
 	if !ok {
-		// Simple type derivation - check restriction.
+		// simple type derivation - check restriction.
 		if headDecl.Final.Has(types.DerivationRestriction) {
 			return fmt.Errorf("element %s cannot substitute for %s: head element is final for restriction", memberQName, headDecl.Name)
 		}
@@ -118,7 +118,7 @@ func validateSubstitutionGroupFinal(schema *schema.Schema, memberQName types.QNa
 	switch c := content.(type) {
 	case *types.ComplexContent:
 		if c.Extension != nil {
-			// Check if the base type matches the head's type.
+			// check if the base type matches the head's type.
 			baseQName := c.Extension.Base
 			if typesAreEqual(baseQName, headType) || isTypeInDerivationChain(schema, baseQName, headType) {
 				if headDecl.Final.Has(types.DerivationExtension) {
@@ -205,10 +205,10 @@ func typesAreEqual(qname types.QName, typ types.Type) bool {
 
 // isTypeInDerivationChain checks if the given QName is anywhere in the derivation chain of the target type.
 func isTypeInDerivationChain(schema *schema.Schema, qname types.QName, targetType types.Type) bool {
-	// Get the target type's name.
+	// get the target type's name.
 	targetQName := targetType.Name()
 
-	// Walk up the derivation chain from qname to see if we reach targetQName.
+	// walk up the derivation chain from qname to see if we reach targetQName.
 	current := qname
 	visited := make(map[types.QName]bool)
 
@@ -237,7 +237,7 @@ func isTypeInDerivationChain(schema *schema.Schema, qname types.QName, targetTyp
 
 // validateNoCyclicSubstitutionGroups checks for cycles in substitution group chains.
 func validateNoCyclicSubstitutionGroups(schema *schema.Schema) error {
-	// For each element with a substitution group, follow the chain and check for cycles.
+	// for each element with a substitution group, follow the chain and check for cycles.
 	for startQName, decl := range schema.ElementDecls {
 		if decl.SubstitutionGroup.IsZero() {
 			continue
@@ -255,7 +255,7 @@ func validateNoCyclicSubstitutionGroups(schema *schema.Schema) error {
 
 			nextDecl, exists := schema.ElementDecls[current]
 			if !exists {
-				// Referenced element doesn't exist - already reported elsewhere.
+				// referenced element doesn't exist - already reported elsewhere.
 				break
 			}
 			current = nextDecl.SubstitutionGroup

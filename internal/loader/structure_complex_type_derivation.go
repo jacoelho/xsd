@@ -18,36 +18,36 @@ func validateNoCircularDerivation(schema *schema.Schema, ct *types.ComplexType) 
 func checkCircularDerivation(schema *schema.Schema, originalQName types.QName, ct *types.ComplexType, visited map[types.QName]bool) error {
 	baseQName := ct.Content().BaseTypeQName()
 
-	// If we've already seen this type in the derivation chain, it's a cycle
-	// EXCEPT: if this type extends itself directly (baseQName == ct.QName), allow it for redefine cases
+	// if we've already seen this type in the derivation chain, it's a cycle
+	// except: if this type extends itself directly (baseQName == ct.QName), allow it for redefine cases
 	if visited[ct.QName] {
 		if baseQName.IsZero() || baseQName == ct.QName {
-			return nil // No derivation or self-reference (valid in redefine context)
+			return nil // no derivation or self-reference (valid in redefine context)
 		}
 		return fmt.Errorf("complex type '%s' has circular derivation through '%s'", originalQName, ct.QName)
 	}
 
 	if baseQName.IsZero() {
-		return nil // No derivation
+		return nil // no derivation
 	}
 
 	visited[ct.QName] = true
 	defer delete(visited, ct.QName)
 
-	// Check if base type exists and is complex
+	// check if base type exists and is complex
 	baseType, ok := schema.TypeDefs[baseQName]
 	if !ok {
-		// Base type not found - might be builtin or forward reference, skip cycle check
+		// base type not found - might be builtin or forward reference, skip cycle check
 		return nil
 	}
 
 	baseCT, ok := baseType.(*types.ComplexType)
 	if !ok {
-		// Base type is not complex - no cycle possible
+		// base type is not complex - no cycle possible
 		return nil
 	}
 
-	// Recursively check base type
+	// recursively check base type
 	return checkCircularDerivation(schema, originalQName, baseCT, visited)
 }
 
@@ -57,20 +57,20 @@ func validateDerivationConstraints(schema *schema.Schema, ct *types.ComplexType)
 	content := ct.Content()
 	baseQName := content.BaseTypeQName()
 	if baseQName.IsZero() {
-		return nil // No derivation
+		return nil // no derivation
 	}
 
 	baseType, ok := schema.TypeDefs[baseQName]
 	if !ok {
-		return nil // Base type not found - might be builtin or forward reference
+		return nil // base type not found - might be builtin or forward reference
 	}
 
 	baseCT, ok := baseType.(*types.ComplexType)
 	if !ok {
-		return nil // Base type is not complex
+		return nil // base type is not complex
 	}
 
-	// Check final constraint: base type cannot be final for the derivation method being used
+	// check final constraint: base type cannot be final for the derivation method being used
 	if ext := content.ExtensionDef(); ext != nil && baseCT.Final.Has(types.DerivationExtension) {
 		return fmt.Errorf("cannot extend type '%s': base type is final for extension", baseQName)
 	}
@@ -90,7 +90,7 @@ func validateMixedContentDerivation(schema *schema.Schema, ct *types.ComplexType
 		return nil
 	}
 
-	// SimpleContent doesn't have mixed content
+	// simpleContent doesn't have mixed content
 	cc, isComplexContent := ct.Content().(*types.ComplexContent)
 	if !isComplexContent {
 		return nil
@@ -103,12 +103,12 @@ func validateMixedContentDerivation(schema *schema.Schema, ct *types.ComplexType
 
 	baseType, ok := schema.TypeDefs[baseQName]
 	if !ok {
-		return nil // Base type not found
+		return nil // base type not found
 	}
 
 	baseCT, ok := baseType.(*types.ComplexType)
 	if !ok {
-		return nil // Base type is not complex
+		return nil // base type is not complex
 	}
 
 	baseMixed := baseCT.Mixed()
@@ -129,12 +129,12 @@ func validateMixedContentDerivation(schema *schema.Schema, ct *types.ComplexType
 			return fmt.Errorf("cannot extend element-only content type '%s' to mixed content", baseCT.QName.Local)
 		}
 	} else if ct.IsRestriction() {
-		// Restriction: base mixed=false, derived mixed=true → INVALID (cannot add mixed)
-		// Restriction: base mixed=true, derived mixed=false → VALID (can remove mixed)
+		// restriction: base mixed=false, derived mixed=true → INVALID (cannot add mixed)
+		// restriction: base mixed=true, derived mixed=false → VALID (can remove mixed)
 		if !baseMixed && derivedMixed {
 			return fmt.Errorf("cannot restrict element-only content type '%s' to mixed content", baseCT.QName.Local)
 		}
-		// All other restriction combinations are valid
+		// all other restriction combinations are valid
 	}
 
 	return nil

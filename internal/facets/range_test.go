@@ -25,12 +25,12 @@ func TestGenericMinInclusive_BigRat(t *testing.T) {
 	testVal, _ := lexicalparser.ParseDecimal("150")
 	typedValue := types.NewDecimalValue(types.NewParsedValue("150", testVal), decimalType)
 
-	// Should pass (150 >= 100)
+	// should pass (150 >= 100)
 	if err := facet.Validate(typedValue, decimalType); err != nil {
 		t.Errorf("Validate() error = %v, want nil", err)
 	}
 
-	// Should fail (50 < 100)
+	// should fail (50 < 100)
 	failVal, _ := lexicalparser.ParseDecimal("50")
 	failTypedValue := types.NewDecimalValue(types.NewParsedValue("50", failVal), decimalType)
 	if err := facet.Validate(failTypedValue, decimalType); err == nil {
@@ -55,12 +55,12 @@ func TestGenericMaxInclusive_BigRat(t *testing.T) {
 	testVal, _ := lexicalparser.ParseDecimal("50")
 	typedValue := types.NewDecimalValue(types.NewParsedValue("50", testVal), decimalType)
 
-	// Should pass (50 <= 100)
+	// should pass (50 <= 100)
 	if err := facet.Validate(typedValue, decimalType); err != nil {
 		t.Errorf("Validate() error = %v, want nil", err)
 	}
 
-	// Should fail (150 > 100)
+	// should fail (150 > 100)
 	failVal, _ := lexicalparser.ParseDecimal("150")
 	failTypedValue := types.NewDecimalValue(types.NewParsedValue("150", failVal), decimalType)
 	if err := facet.Validate(failTypedValue, decimalType); err == nil {
@@ -85,12 +85,12 @@ func TestGenericMinInclusive_Time(t *testing.T) {
 	testTime, _ := lexicalparser.ParseDateTime("2001-06-01T00:00:00")
 	typedValue := types.NewDateTimeValue(types.NewParsedValue("2001-06-01T00:00:00", testTime), dateTimeType)
 
-	// Should pass (testTime >= minTime)
+	// should pass (testTime >= minTime)
 	if err := facet.Validate(typedValue, dateTimeType); err != nil {
 		t.Errorf("Validate() error = %v, want nil", err)
 	}
 
-	// Should fail (beforeTime < minTime)
+	// should fail (beforeTime < minTime)
 	beforeTime, _ := lexicalparser.ParseDateTime("2000-01-01T00:00:00")
 	failTypedValue := types.NewDateTimeValue(types.NewParsedValue("2000-01-01T00:00:00", beforeTime), dateTimeType)
 	if err := facet.Validate(failTypedValue, dateTimeType); err == nil {
@@ -115,7 +115,7 @@ func TestGenericMinInclusive_BigInt(t *testing.T) {
 	testVal, _ := lexicalparser.ParseInteger("150")
 	typedValue := types.NewIntegerValue(types.NewParsedValue("150", testVal), integerType)
 
-	// Should pass (150 >= 100)
+	// should pass (150 >= 100)
 	if err := facet.Validate(typedValue, integerType); err != nil {
 		t.Errorf("Validate() error = %v, want nil", err)
 	}
@@ -135,14 +135,14 @@ func TestGenericMinExclusive(t *testing.T) {
 		errOp:   ">",
 	}
 
-	// Should pass (150 > 100)
+	// should pass (150 > 100)
 	testVal, _ := lexicalparser.ParseDecimal("150")
 	typedValue := types.NewDecimalValue(types.NewParsedValue("150", testVal), decimalType)
 	if err := facet.Validate(typedValue, decimalType); err != nil {
 		t.Errorf("Validate() error = %v, want nil", err)
 	}
 
-	// Should fail (100 is not > 100)
+	// should fail (100 is not > 100)
 	equalVal, _ := lexicalparser.ParseDecimal("100")
 	equalTypedValue := types.NewDecimalValue(types.NewParsedValue("100", equalVal), decimalType)
 	if err := facet.Validate(equalTypedValue, decimalType); err == nil {
@@ -164,14 +164,14 @@ func TestGenericMaxExclusive(t *testing.T) {
 		errOp:   "<",
 	}
 
-	// Should pass (50 < 100)
+	// should pass (50 < 100)
 	testVal, _ := lexicalparser.ParseDecimal("50")
 	typedValue := types.NewDecimalValue(types.NewParsedValue("50", testVal), decimalType)
 	if err := facet.Validate(typedValue, decimalType); err != nil {
 		t.Errorf("Validate() error = %v, want nil", err)
 	}
 
-	// Should fail (100 is not < 100)
+	// should fail (100 is not < 100)
 	equalVal, _ := lexicalparser.ParseDecimal("100")
 	equalTypedValue := types.NewDecimalValue(types.NewParsedValue("100", equalVal), decimalType)
 	if err := facet.Validate(equalTypedValue, decimalType); err == nil {
@@ -196,11 +196,11 @@ func TestGenericFacet_TypeMismatch(t *testing.T) {
 		errOp:   ">=",
 	}
 
-	// Try to validate with wrong type (boolean instead of decimal)
+	// try to validate with wrong type (boolean instead of decimal)
 	boolVal, _ := lexicalparser.ParseBoolean("true")
 	boolTypedValue := types.NewBooleanValue(types.NewParsedValue("true", boolVal), boolType)
 
-	// Should fail with type mismatch error
+	// should fail with type mismatch error
 	if err := facet.Validate(boolTypedValue, boolType); err == nil {
 		t.Error("Validate() should return error for type mismatch")
 	}
@@ -226,19 +226,19 @@ func TestGenericFacet_StringTypedValue_Decimal(t *testing.T) {
 		errOp:   "<",
 	}
 
-	// Create StringTypedValue (simulating fallback when parseToTypedValue fails)
-	// This is the scenario that causes the conversion error
+	// create StringTypedValue (simulating fallback when parseToTypedValue fails)
+	// this is the scenario that causes the conversion error
 	stringTypedValue := &StringTypedValue{
 		Value: "50",
 		Typ:   decimalType,
 	}
 
-	// Should pass (50 < 100) - the string should be parsed to *big.Rat
+	// should pass (50 < 100) - the string should be parsed to *big.Rat
 	if err := facet.Validate(stringTypedValue, decimalType); err != nil {
 		t.Errorf("Validate() error = %v, want nil (string '50' should be parsed and compared)", err)
 	}
 
-	// Should fail (150 > 100)
+	// should fail (150 > 100)
 	failStringTypedValue := &StringTypedValue{
 		Value: "150",
 		Typ:   decimalType,
@@ -267,7 +267,7 @@ func TestGenericFacet_StringTypedValue_Decimal_MinInclusive(t *testing.T) {
 		errOp:   ">=",
 	}
 
-	// Should pass (150 >= 100)
+	// should pass (150 >= 100)
 	stringTypedValue := &StringTypedValue{
 		Value: "150",
 		Typ:   decimalType,
@@ -276,7 +276,7 @@ func TestGenericFacet_StringTypedValue_Decimal_MinInclusive(t *testing.T) {
 		t.Errorf("Validate() error = %v, want nil", err)
 	}
 
-	// Should fail (50 < 100)
+	// should fail (50 < 100)
 	failStringTypedValue := &StringTypedValue{
 		Value: "50",
 		Typ:   decimalType,
@@ -305,7 +305,7 @@ func TestGenericFacet_StringTypedValue_Decimal_MinExclusive(t *testing.T) {
 		errOp:   ">",
 	}
 
-	// Should pass (150 > 100)
+	// should pass (150 > 100)
 	stringTypedValue := &StringTypedValue{
 		Value: "150",
 		Typ:   decimalType,
@@ -314,7 +314,7 @@ func TestGenericFacet_StringTypedValue_Decimal_MinExclusive(t *testing.T) {
 		t.Errorf("Validate() error = %v, want nil", err)
 	}
 
-	// Should fail (100 is not > 100)
+	// should fail (100 is not > 100)
 	failStringTypedValue := &StringTypedValue{
 		Value: "100",
 		Typ:   decimalType,
@@ -326,7 +326,7 @@ func TestGenericFacet_StringTypedValue_Decimal_MinExclusive(t *testing.T) {
 
 // TestGenericFacet_StringTypedValue_Integer tests facet validation with StringTypedValue for integer type
 func TestGenericFacet_StringTypedValue_Integer(t *testing.T) {
-	// Create an integer type (primitive is decimal)
+	// create an integer type (primitive is decimal)
 	decimalType := &types.SimpleType{
 		QName: types.QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
 	}
@@ -341,7 +341,7 @@ func TestGenericFacet_StringTypedValue_Integer(t *testing.T) {
 	integerType.SetVariety(types.AtomicVariety)
 	integerType.SetPrimitiveType(decimalType)
 
-	// Create facet with maxInclusive on integer (uses ComparableBigInt)
+	// create facet with maxInclusive on integer (uses ComparableBigInt)
 	maxVal, _ := lexicalparser.ParseInteger("100")
 	compMax := types.ComparableBigInt{Value: maxVal, Typ: integerType}
 	facet := &RangeFacet{
@@ -357,7 +357,7 @@ func TestGenericFacet_StringTypedValue_Integer(t *testing.T) {
 		Typ:   integerType,
 	}
 
-	// Should pass (50 <= 100) - the string should be parsed to *big.Int
+	// should pass (50 <= 100) - the string should be parsed to *big.Int
 	if err := facet.Validate(stringTypedValue, integerType); err != nil {
 		t.Errorf("Validate() error = %v, want nil (string '50' should be parsed and compared)", err)
 	}
@@ -370,7 +370,7 @@ func TestGenericFacet_ValueSpaceComparison_Decimal(t *testing.T) {
 		QName: types.QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
 	}
 
-	// Create facet with value "1.0"
+	// create facet with value "1.0"
 	facetVal, _ := lexicalparser.ParseDecimal("1.0")
 	compFacet := types.ComparableBigRat{Value: facetVal, Typ: decimalType}
 	facet := &RangeFacet{
@@ -381,14 +381,14 @@ func TestGenericFacet_ValueSpaceComparison_Decimal(t *testing.T) {
 		errOp:   "<=",
 	}
 
-	// Value "1.000" should pass (same value space as "1.0")
+	// value "1.000" should pass (same value space as "1.0")
 	testVal, _ := lexicalparser.ParseDecimal("1.000")
 	typedValue := types.NewDecimalValue(types.NewParsedValue("1.000", testVal), decimalType)
 	if err := facet.Validate(typedValue, decimalType); err != nil {
 		t.Errorf("Validate() error = %v, want nil (1.000 should equal 1.0 in value space)", err)
 	}
 
-	// Value "1" should also pass (same value space)
+	// value "1" should also pass (same value space)
 	testVal2, _ := lexicalparser.ParseDecimal("1")
 	typedValue2 := types.NewDecimalValue(types.NewParsedValue("1", testVal2), decimalType)
 	if err := facet.Validate(typedValue2, decimalType); err != nil {
@@ -406,7 +406,7 @@ func TestGenericFacet_Duration(t *testing.T) {
 	durationType.SetPrimitiveType(durationType)
 	durationType.SetFundamentalFacets(types.ComputeFundamentalFacets(types.TypeNameDuration))
 
-	// Test minInclusive with duration
+	// test minInclusive with duration
 	minDur, err := types.ParseDurationToTimeDuration("P1D")
 	if err != nil {
 		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
@@ -420,7 +420,7 @@ func TestGenericFacet_Duration(t *testing.T) {
 		errOp:   ">=",
 	}
 
-	// Should pass (P2D >= P1D)
+	// should pass (P2D >= P1D)
 	testDur, err := types.ParseDurationToTimeDuration("P2D")
 	if err != nil {
 		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
@@ -434,7 +434,7 @@ func TestGenericFacet_Duration(t *testing.T) {
 		t.Errorf("Validate() error = %v, want nil (P2D should be >= P1D)", err)
 	}
 
-	// Should fail (PT12H < P1D, since 12 hours < 1 day)
+	// should fail (PT12H < P1D, since 12 hours < 1 day)
 	failDur, err := types.ParseDurationToTimeDuration("PT12H")
 	if err != nil {
 		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
@@ -448,7 +448,7 @@ func TestGenericFacet_Duration(t *testing.T) {
 		t.Error("Validate() should return error for PT12H < P1D")
 	}
 
-	// Test maxInclusive with duration
+	// test maxInclusive with duration
 	maxDur, err := types.ParseDurationToTimeDuration("P30D")
 	if err != nil {
 		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
@@ -462,7 +462,7 @@ func TestGenericFacet_Duration(t *testing.T) {
 		errOp:   "<=",
 	}
 
-	// Should pass (P7D <= P30D)
+	// should pass (P7D <= P30D)
 	testDur2, err := types.ParseDurationToTimeDuration("P7D")
 	if err != nil {
 		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
@@ -505,8 +505,8 @@ func (d *DurationTypedValue) String() string {
 // value is an integer (ComparableBigInt), or vice versa. Since integers are a subset of decimals
 // in XSD's value space, these should be comparable.
 func TestRangeFacet_CrossTypeNumeric(t *testing.T) {
-	// Scenario: maxExclusive facet on a decimal type with value "100", but instance value is integer
-	// This simulates cases like Boeing IPO test where quantity field has maxExclusive on decimal
+	// scenario: maxExclusive facet on a decimal type with value "100", but instance value is integer
+	// this simulates cases like Boeing IPO test where quantity field has maxExclusive on decimal
 	// but the instance value is parsed as integer
 	decimalType := &types.SimpleType{
 		QName: types.QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
@@ -522,7 +522,7 @@ func TestRangeFacet_CrossTypeNumeric(t *testing.T) {
 	integerType.SetVariety(types.AtomicVariety)
 	integerType.SetPrimitiveType(decimalType)
 
-	// Create maxExclusive facet with decimal value (ComparableBigRat)
+	// create maxExclusive facet with decimal value (ComparableBigRat)
 	maxVal, _ := lexicalparser.ParseDecimal("100")
 	compMax := types.ComparableBigRat{Value: maxVal, Typ: decimalType}
 	maxFacet := &RangeFacet{
@@ -557,8 +557,8 @@ func TestRangeFacet_CrossTypeNumeric(t *testing.T) {
 		}
 	})
 
-	// Create minInclusive facet with integer value (ComparableBigInt)
-	// This tests the reverse: facet has integer value, instance has decimal value
+	// create minInclusive facet with integer value (ComparableBigInt)
+	// this tests the reverse: facet has integer value, instance has decimal value
 	minVal, _ := lexicalparser.ParseInteger("100")
 	compMin := types.ComparableBigInt{Value: minVal, Typ: integerType}
 	minFacet := &RangeFacet{

@@ -781,7 +781,7 @@ func TestAllGroupValidation(t *testing.T) {
   <c>unexpected</c>
 </root>`,
 			shouldErr: true,
-			errCode:   errUnexpectedElement, // Element not in content model
+			errCode:   errUnexpectedElement, // element not in content model
 		},
 	}
 
@@ -881,7 +881,7 @@ func TestContentModelRequiredElements(t *testing.T) {
   <c>value3</c>
 </root>`,
 			shouldErr: true,
-			// When encountering 'c' while expecting 'b', the sequence fails
+			// when encountering 'c' while expecting 'b', the sequence fails
 			errCode: errRequiredElementMissing,
 		},
 		{
@@ -1002,7 +1002,7 @@ func TestContentModelUnexpectedElements(t *testing.T) {
   <b>value2</b>
 </root>`,
 			shouldErr: true,
-			errCode:   errUnexpectedElement, // Element 'c' is not allowed (not in content model)
+			errCode:   errUnexpectedElement, // element 'c' is not allowed (not in content model)
 		},
 		{
 			name: "empty sequence with unexpected element",
@@ -1097,7 +1097,7 @@ func TestContentModelOutOfOrder(t *testing.T) {
   <b>value2</b>
 </root>`,
 			shouldErr: true,
-			errCode:   errRequiredElementMissing, // Sequence fails because expected element not in order
+			errCode:   errRequiredElementMissing, // sequence fails because expected element not in order
 		},
 		{
 			name: "sequence with optional element skipped, then later element appears",
@@ -1196,7 +1196,7 @@ func TestContentModelChoiceRequired(t *testing.T) {
 			errCode:   errRequiredElementMissing,
 		},
 		// TODO: Choice with minOccurs > 1 requires more sophisticated occurrence counting
-		// The current automaton counts per-symbol, not per-group occurrence
+		// the current automaton counts per-symbol, not per-group occurrence
 		// {
 		// 	name: "choice with minOccurs=2, only one present",
 		// 	schemaXML: `...`,

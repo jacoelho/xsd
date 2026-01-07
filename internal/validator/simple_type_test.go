@@ -18,7 +18,7 @@ func TestUnionTypeValidation(t *testing.T) {
 		t.Skip("W3C test suite not found at", testSuiteDir)
 	}
 
-	// Test case: stZ071 - union with memberTypes and inline types
+	// test case: stZ071 - union with memberTypes and inline types
 	t.Run("stZ071", func(t *testing.T) {
 		schemaPath := filepath.Join(testSuiteDir, "msData/simpleType/test298668_a.xsd")
 		instancePath := filepath.Join(testSuiteDir, "msData/simpleType/test298668.xml")
@@ -56,7 +56,7 @@ func TestUnionTypeValidation(t *testing.T) {
 		}
 	})
 
-	// Test case: stZ072 - list with enumeration, itemType is union
+	// test case: stZ072 - list with enumeration, itemType is union
 	t.Run("stZ072", func(t *testing.T) {
 		schemaPath := filepath.Join(testSuiteDir, "msData/simpleType/stZ072.xsd")
 		instancePath := filepath.Join(testSuiteDir, "msData/simpleType/stZ072.xml")
@@ -94,7 +94,7 @@ func TestUnionTypeValidation(t *testing.T) {
 		}
 	})
 
-	// Test case: stZ074 - union of list types
+	// test case: stZ074 - union of list types
 	t.Run("stZ074", func(t *testing.T) {
 		schemaPath := filepath.Join(testSuiteDir, "msData/simpleType/stZ074_a.xsd")
 		instancePath := filepath.Join(testSuiteDir, "msData/simpleType/stZ074.xml")
@@ -135,17 +135,17 @@ func TestUnionTypeValidation(t *testing.T) {
 
 // TestUnionTypeWithFacets tests union types with pattern and enumeration facets
 func TestUnionTypeWithFacets(t *testing.T) {
-	// Test that union-level facets are applied before member type validation
-	// This is a unit test for the validateUnionType function
+	// test that union-level facets are applied before member type validation
+	// this is a unit test for the validateUnionType function
 	t.Run("union_with_enumeration_facet", func(t *testing.T) {
 		// TODO: Create a minimal test case for union with enumeration
-		// This will be implemented after fixing the main validation logic
+		// this will be implemented after fixing the main validation logic
 		t.Skip("To be implemented after fixing union validation")
 	})
 
 	t.Run("union_with_pattern_facet", func(t *testing.T) {
 		// TODO: Create a minimal test case for union with pattern
-		// This will be implemented after fixing the main validation logic
+		// this will be implemented after fixing the main validation logic
 		t.Skip("To be implemented after fixing union validation")
 	})
 }

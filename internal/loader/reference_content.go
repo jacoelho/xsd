@@ -24,12 +24,12 @@ func validateParticleReferences(schema *schema.Schema, particle types.Particle, 
 func validateParticleReferencesWithVisited(schema *schema.Schema, particle types.Particle, visited map[*types.ModelGroup]bool, originLocation string) error {
 	switch p := particle.(type) {
 	case *types.ModelGroup:
-		// Skip if already visited (prevents infinite recursion in cyclic groups).
+		// skip if already visited (prevents infinite recursion in cyclic groups).
 		if visited[p] {
 			return nil
 		}
 		visited[p] = true
-		// Recursively validate particles in the group.
+		// recursively validate particles in the group.
 		for _, childParticle := range p.Particles {
 			if err := validateParticleReferencesWithVisited(schema, childParticle, visited, originLocation); err != nil {
 				return err
@@ -43,7 +43,7 @@ func validateParticleReferencesWithVisited(schema *schema.Schema, particle types
 			return nil
 		}
 		if p.Type != nil {
-			// Use SourceNamespace (the declaring schema's namespace) as context,
+			// use SourceNamespace (the declaring schema's namespace) as context,
 			// not p.Name.Namespace which may be empty for unqualified local elements.
 			contextNS := p.SourceNamespace
 			if contextNS.IsEmpty() {
@@ -57,7 +57,7 @@ func validateParticleReferencesWithVisited(schema *schema.Schema, particle types
 			}
 		}
 	case *types.AnyElement:
-		// Wildcards don't have references.
+		// wildcards don't have references.
 	}
 	return nil
 }
@@ -66,7 +66,7 @@ func validateParticleReferencesWithVisited(schema *schema.Schema, particle types
 func validateGroupReferences(schema *schema.Schema, qname types.QName, group *types.ModelGroup) error {
 	visited := make(map[*types.ModelGroup]bool)
 	origin := schema.GroupOrigins[qname]
-	// Recursively validate particles in the group.
+	// recursively validate particles in the group.
 	for _, particle := range group.Particles {
 		if err := validateParticleReferencesWithVisited(schema, particle, visited, origin); err != nil {
 			return err

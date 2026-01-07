@@ -14,7 +14,7 @@ func TestTypedValue_Decimal(t *testing.T) {
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     "decimal",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	typ.MarkBuiltin()
 	typ.SetVariety(AtomicVariety)
@@ -40,7 +40,7 @@ func TestTypedValue_Decimal(t *testing.T) {
 		t.Error("String() should not be empty")
 	}
 
-	// Test type-safe extraction
+	// test type-safe extraction
 	extracted, err := ValueAs[*big.Rat](value)
 	if err != nil {
 		t.Errorf("ValueAs[*big.Rat]() error = %v", err)
@@ -49,7 +49,7 @@ func TestTypedValue_Decimal(t *testing.T) {
 		t.Errorf("ValueAs[*big.Rat]() = %v, want %v", extracted, native)
 	}
 
-	// Test type mismatch
+	// test type mismatch
 	_, err = ValueAs[bool](value)
 	if err == nil {
 		t.Error("ValueAs[bool]() should return error for type mismatch")
@@ -62,7 +62,7 @@ func TestTypedValue_Boolean(t *testing.T) {
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     "boolean",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	typ.MarkBuiltin()
 	typ.SetVariety(AtomicVariety)
@@ -88,7 +88,7 @@ func TestTypedValue_Boolean(t *testing.T) {
 		t.Errorf("String() = %v, want 'true'", value.String())
 	}
 
-	// Test type-safe extraction
+	// test type-safe extraction
 	extracted, err := ValueAs[bool](value)
 	if err != nil {
 		t.Errorf("ValueAs[bool]() error = %v", err)
@@ -104,7 +104,7 @@ func TestTypedValue_DateTime(t *testing.T) {
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     "dateTime",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	typ.MarkBuiltin()
 	typ.SetVariety(AtomicVariety)
@@ -130,7 +130,7 @@ func TestTypedValue_DateTime(t *testing.T) {
 		t.Error("String() should not be empty")
 	}
 
-	// Test type-safe extraction
+	// test type-safe extraction
 	extracted, err := ValueAs[time.Time](value)
 	if err != nil {
 		t.Errorf("ValueAs[time.Time]() error = %v", err)
@@ -146,7 +146,7 @@ func TestTypedValue_Integer(t *testing.T) {
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     "integer",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	typ.MarkBuiltin()
 	typ.SetVariety(AtomicVariety)
@@ -172,7 +172,7 @@ func TestTypedValue_Integer(t *testing.T) {
 		t.Error("String() should not be empty")
 	}
 
-	// Test type-safe extraction
+	// test type-safe extraction
 	extracted, err := ValueAs[*big.Int](value)
 	if err != nil {
 		t.Errorf("ValueAs[*big.Int]() error = %v", err)
@@ -188,7 +188,7 @@ func TestTypedValue_Float(t *testing.T) {
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     "float",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	typ.MarkBuiltin()
 	typ.SetVariety(AtomicVariety)
@@ -214,7 +214,7 @@ func TestTypedValue_Float(t *testing.T) {
 		t.Error("String() should not be empty")
 	}
 
-	// Test type-safe extraction
+	// test type-safe extraction
 	extracted, err := ValueAs[float32](value)
 	if err != nil {
 		t.Errorf("ValueAs[float32]() error = %v", err)
@@ -230,7 +230,7 @@ func TestTypedValue_String(t *testing.T) {
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     "string",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	typ.MarkBuiltin()
 	typ.SetVariety(AtomicVariety)
@@ -256,7 +256,7 @@ func TestTypedValue_String(t *testing.T) {
 		t.Errorf("String() = %v, want %v", value.String(), lexical)
 	}
 
-	// Test type-safe extraction
+	// test type-safe extraction
 	extracted, err := ValueAs[string](value)
 	if err != nil {
 		t.Errorf("ValueAs[string]() error = %v", err)
@@ -267,7 +267,7 @@ func TestTypedValue_String(t *testing.T) {
 }
 
 func TestValueAs_WithComparableWrappers(t *testing.T) {
-	// Test ComparableBigRat - unwrap to *big.Rat
+	// test ComparableBigRat - unwrap to *big.Rat
 	rat := &big.Rat{}
 	rat.SetString("1.5")
 	typ := &SimpleType{
@@ -275,13 +275,13 @@ func TestValueAs_WithComparableWrappers(t *testing.T) {
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     "decimal",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	typ.MarkBuiltin()
 	typ.SetVariety(AtomicVariety)
 	val := NewDecimalValue(NewParsedValue("1.5", rat), typ)
 
-	// Test direct unwrap to *big.Rat
+	// test direct unwrap to *big.Rat
 	result, err := ValueAs[*big.Rat](val)
 	if err != nil {
 		t.Errorf("ValueAs[*big.Rat]() error = %v", err)
@@ -290,14 +290,14 @@ func TestValueAs_WithComparableWrappers(t *testing.T) {
 		t.Errorf("ValueAs[*big.Rat]() = %v, want %v", result, rat)
 	}
 
-	// Test ComparableBigInt - unwrap to *big.Int
+	// test ComparableBigInt - unwrap to *big.Int
 	bigInt := big.NewInt(123)
 	typInt := &SimpleType{
 		QName: QName{
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     "integer",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	typInt.MarkBuiltin()
 	typInt.SetVariety(AtomicVariety)
@@ -311,7 +311,7 @@ func TestValueAs_WithComparableWrappers(t *testing.T) {
 		t.Errorf("ValueAs[*big.Int]() = %v, want %v", resultInt, bigInt)
 	}
 
-	// Test ComparableTime - unwrap to time.Time
+	// test ComparableTime - unwrap to time.Time
 	dt, err := lexicalparser.ParseDateTime("2001-10-26T21:32:52")
 	if err != nil {
 		t.Fatalf("ParseDateTime() error = %v", err)
@@ -321,7 +321,7 @@ func TestValueAs_WithComparableWrappers(t *testing.T) {
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     "dateTime",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	typTime.MarkBuiltin()
 	typTime.SetVariety(AtomicVariety)
@@ -335,13 +335,13 @@ func TestValueAs_WithComparableWrappers(t *testing.T) {
 		t.Errorf("ValueAs[time.Time]() = %v, want %v", resultTime, dt)
 	}
 
-	// Test ComparableFloat64 - unwrap to float64
+	// test ComparableFloat64 - unwrap to float64
 	typFloat := &SimpleType{
 		QName: QName{
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     "float",
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	typFloat.MarkBuiltin()
 	typFloat.SetVariety(AtomicVariety)
@@ -357,18 +357,18 @@ func TestValueAs_WithComparableWrappers(t *testing.T) {
 }
 
 func TestValueAs_UnwrappableInterface(t *testing.T) {
-	// Test that Unwrappable interface works correctly
+	// test that Unwrappable interface works correctly
 	rat := &big.Rat{}
 	rat.SetString("1.5")
 	cbr := ComparableBigRat{Value: rat}
 
-	// Test Unwrap method
+	// test Unwrap method
 	unwrapped := cbr.Unwrap()
 	if unwrapped != rat {
 		t.Errorf("Unwrap() = %v, want %v", unwrapped, rat)
 	}
 
-	// Test that all Comparable types implement Unwrappable
+	// test that all Comparable types implement Unwrappable
 	var _ Unwrappable = ComparableBigRat{}
 	var _ Unwrappable = ComparableBigInt{}
 	var _ Unwrappable = ComparableTime{}

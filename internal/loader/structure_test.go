@@ -16,7 +16,7 @@ func TestCircularDerivation_TrueCycle(t *testing.T) {
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Type A extends Type B
+	// type A extends Type B
 	typeA := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -33,7 +33,7 @@ func TestCircularDerivation_TrueCycle(t *testing.T) {
 	})
 	schema.TypeDefs[typeA.QName] = typeA
 
-	// Type B extends Type A (circular)
+	// type B extends Type A (circular)
 	typeB := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -50,7 +50,7 @@ func TestCircularDerivation_TrueCycle(t *testing.T) {
 	})
 	schema.TypeDefs[typeB.QName] = typeB
 
-	// Should detect circular derivation
+	// should detect circular derivation
 	err := validateNoCircularDerivation(schema, typeA)
 	if err == nil {
 		t.Error("Should detect circular derivation for TypeA -> TypeB -> TypeA")
@@ -67,7 +67,7 @@ func TestCircularDerivation_ValidDeepHierarchy(t *testing.T) {
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Type C extends anyType (built-in)
+	// type C extends anyType (built-in)
 	typeC := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -84,7 +84,7 @@ func TestCircularDerivation_ValidDeepHierarchy(t *testing.T) {
 	})
 	schema.TypeDefs[typeC.QName] = typeC
 
-	// Type B extends Type C
+	// type B extends Type C
 	typeB := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -101,7 +101,7 @@ func TestCircularDerivation_ValidDeepHierarchy(t *testing.T) {
 	})
 	schema.TypeDefs[typeB.QName] = typeB
 
-	// Type A extends Type B
+	// type A extends Type B
 	typeA := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -118,7 +118,7 @@ func TestCircularDerivation_ValidDeepHierarchy(t *testing.T) {
 	})
 	schema.TypeDefs[typeA.QName] = typeA
 
-	// Should NOT detect circular derivation
+	// should NOT detect circular derivation
 	err := validateNoCircularDerivation(schema, typeA)
 	if err != nil {
 		t.Errorf("Should NOT detect circular derivation for valid hierarchy A -> B -> C -> anyType, got: %v", err)
@@ -132,7 +132,7 @@ func TestCircularDerivation_MultipleTypesFromSameBase(t *testing.T) {
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Base type extends anyType
+	// base type extends anyType
 	baseType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -149,7 +149,7 @@ func TestCircularDerivation_MultipleTypesFromSameBase(t *testing.T) {
 	})
 	schema.TypeDefs[baseType.QName] = baseType
 
-	// Type A extends BaseType
+	// type A extends BaseType
 	typeA := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -166,7 +166,7 @@ func TestCircularDerivation_MultipleTypesFromSameBase(t *testing.T) {
 	})
 	schema.TypeDefs[typeA.QName] = typeA
 
-	// Type B extends BaseType (same base as TypeA)
+	// type B extends BaseType (same base as TypeA)
 	typeB := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -183,7 +183,7 @@ func TestCircularDerivation_MultipleTypesFromSameBase(t *testing.T) {
 	})
 	schema.TypeDefs[typeB.QName] = typeB
 
-	// Should NOT detect circular derivation for either type
+	// should NOT detect circular derivation for either type
 	err := validateNoCircularDerivation(schema, typeA)
 	if err != nil {
 		t.Errorf("Should NOT detect circular derivation for TypeA -> BaseType, got: %v", err)
@@ -203,7 +203,7 @@ func TestCircularDerivation_RedefineSelfExtension(t *testing.T) {
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Original AddressType (from base schema)
+	// original AddressType (from base schema)
 	originalAddressType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -223,7 +223,7 @@ func TestCircularDerivation_RedefineSelfExtension(t *testing.T) {
 	})
 	schema.TypeDefs[originalAddressType.QName] = originalAddressType
 
-	// Redefined AddressType extends itself (valid in redefine context)
+	// redefined AddressType extends itself (valid in redefine context)
 	redefinedAddressType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -238,16 +238,16 @@ func TestCircularDerivation_RedefineSelfExtension(t *testing.T) {
 			},
 		},
 	})
-	// Replace the original with the redefined version
+	// replace the original with the redefined version
 	schema.TypeDefs[redefinedAddressType.QName] = redefinedAddressType
 
-	// Should NOT detect circular derivation (in redefine, extending self is valid)
+	// should NOT detect circular derivation (in redefine, extending self is valid)
 	err := validateNoCircularDerivation(schema, redefinedAddressType)
 	if err != nil {
 		t.Errorf("Should NOT detect circular derivation for redefined type extending itself, got: %v", err)
 	}
 
-	// Also test that types extending the redefined AddressType work correctly
+	// also test that types extending the redefined AddressType work correctly
 	usAddress := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -279,7 +279,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnly(t *testing.T) {
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Base type with mixed content
+	// base type with mixed content
 	baseType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -300,7 +300,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnly(t *testing.T) {
 	})
 	schema.TypeDefs[baseType.QName] = baseType
 
-	// Derived type extending base with element-only content (removing mixed)
+	// derived type extending base with element-only content (removing mixed)
 	derivedType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -308,7 +308,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnly(t *testing.T) {
 		},
 		DerivationMethod: types.DerivationExtension,
 	}
-	derivedType.SetMixed(false) // Element-only
+	derivedType.SetMixed(false) // element-only
 	derivedType.SetContent(&types.ComplexContent{
 		Extension: &types.Extension{
 			Base: types.QName{
@@ -328,7 +328,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnly(t *testing.T) {
 	})
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// Should be INVALID - extension must preserve mixed content
+	// should be INVALID - extension must preserve mixed content
 	err := validateMixedContentDerivation(schema, derivedType)
 	if err == nil {
 		t.Error("Extension from mixed to element-only should be INVALID, but got no error")
@@ -395,7 +395,7 @@ func TestMixedContentDerivation_RestrictionFromElementOnlyToMixed(t *testing.T) 
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Base type with element-only content
+	// base type with element-only content
 	baseType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -416,7 +416,7 @@ func TestMixedContentDerivation_RestrictionFromElementOnlyToMixed(t *testing.T) 
 	})
 	schema.TypeDefs[baseType.QName] = baseType
 
-	// Derived type restricting base to mixed content (adding mixed)
+	// derived type restricting base to mixed content (adding mixed)
 	derivedType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -424,7 +424,7 @@ func TestMixedContentDerivation_RestrictionFromElementOnlyToMixed(t *testing.T) 
 		},
 		DerivationMethod: types.DerivationRestriction,
 	}
-	derivedType.SetMixed(true) // Mixed
+	derivedType.SetMixed(true) // mixed
 	derivedType.SetContent(&types.ComplexContent{
 		Mixed: true,
 		Restriction: &types.Restriction{
@@ -436,7 +436,7 @@ func TestMixedContentDerivation_RestrictionFromElementOnlyToMixed(t *testing.T) 
 	})
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// Should be INVALID - restriction cannot add mixed content
+	// should be INVALID - restriction cannot add mixed content
 	err := validateMixedContentDerivation(schema, derivedType)
 	if err == nil {
 		t.Error("Restriction from element-only to mixed should be INVALID, but got no error")
@@ -453,7 +453,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToElementOnly(t *testing
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Base type with element-only content
+	// base type with element-only content
 	baseType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -474,7 +474,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToElementOnly(t *testing
 	})
 	schema.TypeDefs[baseType.QName] = baseType
 
-	// Derived type extending base with element-only content
+	// derived type extending base with element-only content
 	derivedType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -482,7 +482,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToElementOnly(t *testing
 		},
 		DerivationMethod: types.DerivationExtension,
 	}
-	derivedType.SetMixed(false) // Element-only
+	derivedType.SetMixed(false) // element-only
 	derivedType.SetContent(&types.ComplexContent{
 		Extension: &types.Extension{
 			Base: types.QName{
@@ -493,7 +493,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToElementOnly(t *testing
 	})
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// Should be VALID
+	// should be VALID
 	err := validateMixedContentDerivation(schema, derivedType)
 	if err != nil {
 		t.Errorf("Extension from element-only to element-only should be VALID, got error: %v", err)
@@ -507,7 +507,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToMixed(t *testing.T) {
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Base type with mixed content
+	// base type with mixed content
 	baseType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -528,7 +528,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToMixed(t *testing.T) {
 	})
 	schema.TypeDefs[baseType.QName] = baseType
 
-	// Derived type extending base with mixed content
+	// derived type extending base with mixed content
 	derivedType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -536,7 +536,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToMixed(t *testing.T) {
 		},
 		DerivationMethod: types.DerivationExtension,
 	}
-	derivedType.SetMixed(true) // Mixed
+	derivedType.SetMixed(true) // mixed
 	derivedType.SetContent(&types.ComplexContent{
 		Mixed: true,
 		Extension: &types.Extension{
@@ -548,7 +548,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToMixed(t *testing.T) {
 	})
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// Should be VALID
+	// should be VALID
 	err := validateMixedContentDerivation(schema, derivedType)
 	if err != nil {
 		t.Errorf("Extension from mixed to mixed should be VALID, got error: %v", err)
@@ -562,7 +562,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToMixed(t *testing.T) {
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Base type with element-only content
+	// base type with element-only content
 	baseType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -583,7 +583,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToMixed(t *testing.T) {
 	})
 	schema.TypeDefs[baseType.QName] = baseType
 
-	// Derived type extending base with mixed content (adding mixed)
+	// derived type extending base with mixed content (adding mixed)
 	derivedType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -591,7 +591,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToMixed(t *testing.T) {
 		},
 		DerivationMethod: types.DerivationExtension,
 	}
-	derivedType.SetMixed(true) // Mixed
+	derivedType.SetMixed(true) // mixed
 	derivedType.SetContent(&types.ComplexContent{
 		Mixed: true,
 		Extension: &types.Extension{
@@ -603,7 +603,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToMixed(t *testing.T) {
 	})
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// Should be INVALID - extension cannot add mixed content (would allow text that base disallows)
+	// should be INVALID - extension cannot add mixed content (would allow text that base disallows)
 	err := validateMixedContentDerivation(schema, derivedType)
 	if err == nil {
 		t.Error("Extension from element-only to mixed should be INVALID, but got no error")
@@ -620,7 +620,7 @@ func TestMixedContentDerivation_RestrictionFromMixedToElementOnly(t *testing.T) 
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
 
-	// Base type with mixed content
+	// base type with mixed content
 	baseType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -641,7 +641,7 @@ func TestMixedContentDerivation_RestrictionFromMixedToElementOnly(t *testing.T) 
 	})
 	schema.TypeDefs[baseType.QName] = baseType
 
-	// Derived type restricting base to element-only content (removing mixed)
+	// derived type restricting base to element-only content (removing mixed)
 	derivedType := &types.ComplexType{
 		QName: types.QName{
 			Namespace: "http://example.com",
@@ -649,7 +649,7 @@ func TestMixedContentDerivation_RestrictionFromMixedToElementOnly(t *testing.T) 
 		},
 		DerivationMethod: types.DerivationRestriction,
 	}
-	derivedType.SetMixed(false) // Element-only
+	derivedType.SetMixed(false) // element-only
 	derivedType.SetContent(&types.ComplexContent{
 		Restriction: &types.Restriction{
 			Base: types.QName{
@@ -660,7 +660,7 @@ func TestMixedContentDerivation_RestrictionFromMixedToElementOnly(t *testing.T) 
 	})
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// Should be VALID - restriction can remove mixed content (remove constraint)
+	// should be VALID - restriction can remove mixed content (remove constraint)
 	err := validateMixedContentDerivation(schema, derivedType)
 	if err != nil {
 		t.Errorf("Restriction from mixed to element-only should be VALID, got error: %v", err)

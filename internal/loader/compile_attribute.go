@@ -7,10 +7,10 @@ import (
 )
 
 func (c *Compiler) mergeAttributes(ct *types.ComplexType, chain []*grammar.CompiledType) []*grammar.CompiledAttribute {
-	// Later types override earlier ones (restriction) or add to them (extension)
+	// later types override earlier ones (restriction) or add to them (extension)
 	attrMap := make(map[types.QName]*grammar.CompiledAttribute)
 
-	// Process from base to derived (reverse order)
+	// process from base to derived (reverse order)
 	for i := len(chain) - 1; i >= 0; i-- {
 		compiledType := chain[i]
 		if compiledType.Kind != grammar.TypeKindComplex {
@@ -100,15 +100,15 @@ func (c *Compiler) addCompiledAttribute(attr *types.AttributeDecl, attrMap map[t
 		HasFixed: attr.HasFixed,
 	}
 
-	// Get the type either from the attribute itself or by resolving the reference
+	// get the type either from the attribute itself or by resolving the reference
 	attrType := attr.Type
 	if attr.IsReference {
-		// Attribute reference - look up the global attribute declaration
+		// attribute reference - look up the global attribute declaration
 		if globalAttr, ok := c.schema.AttributeDecls[attr.Name]; ok {
 			if attrType == nil {
 				attrType = globalAttr.Type
 			}
-			// Also inherit default/fixed from global if not set locally
+			// also inherit default/fixed from global if not set locally
 			if compiled.Default == "" {
 				compiled.Default = globalAttr.Default
 			}
@@ -131,22 +131,22 @@ func (c *Compiler) addCompiledAttribute(attr *types.AttributeDecl, attrMap map[t
 // effectiveAttributeQName computes the namespace-qualified name for an attribute
 // based on its form attribute and the schema's attributeFormDefault.
 func (c *Compiler) effectiveAttributeQName(attr *types.AttributeDecl) types.QName {
-	// References use the namespace of the referenced global attribute
+	// references use the namespace of the referenced global attribute
 	if attr.IsReference {
 		return attr.Name
 	}
 
-	// Local attributes need form-based adjustment
+	// local attributes need form-based adjustment
 	switch attr.Form {
 	case types.FormQualified:
-		// Qualified local attributes use the schema's target namespace
+		// qualified local attributes use the schema's target namespace
 		ns := c.schema.TargetNamespace
 		if !attr.SourceNamespace.IsEmpty() {
 			ns = attr.SourceNamespace
 		}
 		return types.QName{Namespace: ns, Local: attr.Name.Local}
 	case types.FormUnqualified:
-		// Unqualified local attributes have no namespace
+		// unqualified local attributes have no namespace
 		return types.QName{Namespace: "", Local: attr.Name.Local}
 	default: // FormDefault - use schema's attributeFormDefault
 		if c.grammar.AttributeFormDefault == xsdschema.Qualified {
@@ -161,8 +161,8 @@ func (c *Compiler) effectiveAttributeQName(attr *types.AttributeDecl) types.QNam
 }
 
 func (c *Compiler) mergeAttributesFromGroup(ag *types.AttributeGroup, attrMap map[types.QName]*grammar.CompiledAttribute) {
-	// Iterative approach with work queue
-	// Use pointer-based cycle detection since the same QName can refer to different
+	// iterative approach with work queue
+	// use pointer-based cycle detection since the same QName can refer to different
 	// attribute group instances (redefined vs original in redefine context)
 	visited := make(map[*types.AttributeGroup]bool)
 	queue := []*types.AttributeGroup{ag}
@@ -192,16 +192,16 @@ func (c *Compiler) mergeAttributesFromGroup(ag *types.AttributeGroup, attrMap ma
 }
 
 func (c *Compiler) mergeAnyAttribute(chain []*grammar.CompiledType) *types.AnyAttribute {
-	// For extension: union of namespace constraints with base
-	// For restriction: derived type's anyAttribute replaces base's (no inheritance)
-	// Within a single type, anyAttribute from the type and attribute groups are intersected
-	// Process from derived (first) to base (last) in chain
+	// for extension: union of namespace constraints with base
+	// for restriction: derived type's anyAttribute replaces base's (no inheritance)
+	// within a single type, anyAttribute from the type and attribute groups are intersected
+	// process from derived (first) to base (last) in chain
 
 	if len(chain) == 0 {
 		return nil
 	}
 
-	// Process the most derived type first
+	// process the most derived type first
 	derivedCT := chain[0]
 	if derivedCT.Kind != grammar.TypeKindComplex {
 		return nil
@@ -211,10 +211,10 @@ func (c *Compiler) mergeAnyAttribute(chain []*grammar.CompiledType) *types.AnyAt
 		return nil
 	}
 
-	// Collect anyAttributes for the derived type (to be intersected within type)
+	// collect anyAttributes for the derived type (to be intersected within type)
 	typeAnyAttrs := c.collectTypeAnyAttributes(origCT)
 
-	// Determine if this is an extension or restriction
+	// determine if this is an extension or restriction
 	isExtension := false
 	isRestriction := false
 	if cc, ok := origCT.Content().(*types.ComplexContent); ok {
@@ -234,13 +234,13 @@ func (c *Compiler) mergeAnyAttribute(chain []*grammar.CompiledType) *types.AnyAt
 		}
 	}
 
-	// For restriction: ONLY use derived type's anyAttribute (don't inherit from base)
-	// If restriction has no anyAttribute, the wildcard is removed entirely
+	// for restriction: ONLY use derived type's anyAttribute (don't inherit from base)
+	// if restriction has no anyAttribute, the wildcard is removed entirely
 	if isRestriction {
 		if len(typeAnyAttrs) == 0 {
-			return nil // Restriction with no anyAttribute removes the wildcard
+			return nil // restriction with no anyAttribute removes the wildcard
 		}
-		// Intersect wildcards within this type
+		// intersect wildcards within this type
 		result := typeAnyAttrs[0]
 		for i := 1; i < len(typeAnyAttrs); i++ {
 			result = types.IntersectAnyAttribute(result, typeAnyAttrs[i])
@@ -251,14 +251,14 @@ func (c *Compiler) mergeAnyAttribute(chain []*grammar.CompiledType) *types.AnyAt
 		return result
 	}
 
-	// For extension: union with base type's anyAttribute
-	// Recursively get base type's anyAttribute
+	// for extension: union with base type's anyAttribute
+	// recursively get base type's anyAttribute
 	var baseWildcard *types.AnyAttribute
 	if len(chain) > 1 {
 		baseWildcard = c.mergeAnyAttribute(chain[1:])
 	}
 
-	// Intersect wildcards within this derived type
+	// intersect wildcards within this derived type
 	var derivedWildcard *types.AnyAttribute
 	if len(typeAnyAttrs) > 0 {
 		derivedWildcard = typeAnyAttrs[0]
@@ -270,7 +270,7 @@ func (c *Compiler) mergeAnyAttribute(chain []*grammar.CompiledType) *types.AnyAt
 		}
 	}
 
-	// For extension: union derived with base
+	// for extension: union derived with base
 	if isExtension {
 		if derivedWildcard == nil {
 			return baseWildcard
@@ -281,7 +281,7 @@ func (c *Compiler) mergeAnyAttribute(chain []*grammar.CompiledType) *types.AnyAt
 		return types.UnionAnyAttribute(derivedWildcard, baseWildcard)
 	}
 
-	// Not extension or restriction (top-level type with no derivation)
+	// not extension or restriction (top-level type with no derivation)
 	if derivedWildcard != nil {
 		return derivedWildcard
 	}
@@ -297,7 +297,7 @@ func (c *Compiler) collectTypeAnyAttributes(ct *types.ComplexType) []*types.AnyA
 
 	result = append(result, c.collectAnyAttributeFromGroups(ct.AttrGroups)...)
 
-	// Also check for anyAttribute in ComplexContent extension/restriction
+	// also check for anyAttribute in ComplexContent extension/restriction
 	if cc, ok := ct.Content().(*types.ComplexContent); ok {
 		if cc.Extension != nil {
 			if cc.Extension.AnyAttribute != nil {
@@ -313,7 +313,7 @@ func (c *Compiler) collectTypeAnyAttributes(ct *types.ComplexType) []*types.AnyA
 		}
 	}
 
-	// Also check SimpleContent
+	// also check SimpleContent
 	if sc, ok := ct.Content().(*types.SimpleContent); ok {
 		if sc.Extension != nil {
 			if sc.Extension.AnyAttribute != nil {
@@ -354,7 +354,7 @@ func (c *Compiler) collectAnyAttributeFromGroups(agRefs []types.QName) []*types.
 				result = append(result, ag.AnyAttribute)
 			}
 
-			// Recursively process nested attribute groups
+			// recursively process nested attribute groups
 			collect(ag.AttrGroups)
 		}
 	}

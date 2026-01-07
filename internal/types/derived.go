@@ -14,7 +14,7 @@ func IsDerivedFrom(derived, base Type) bool {
 		return false
 	}
 
-	// Check if derived implements DerivedType
+	// check if derived implements DerivedType
 	dt, ok := as[DerivedType](derived)
 	if !ok {
 		return false

@@ -19,23 +19,23 @@ import (
 //
 // contextType should be "element" or "type" for error message formatting.
 func validateAttributeReference(schema *schema.Schema, contextQName types.QName, attr *types.AttributeDecl, contextType string) error {
-	// Skip local attribute declarations - they're not references.
+	// skip local attribute declarations - they're not references.
 	if !attr.IsReference {
 		return nil
 	}
 
-	// Skip built-in XML namespace attributes (xml:base, xml:lang, xml:space).
+	// skip built-in XML namespace attributes (xml:base, xml:lang, xml:space).
 	if isBuiltinXMLAttribute(attr) {
 		return nil
 	}
 
-	// This is a reference, so it must exist.
+	// this is a reference, so it must exist.
 	target, exists := schema.AttributeDecls[attr.Name]
 	if !exists {
 		return fmt.Errorf("%s %s: attribute reference %s does not exist", contextType, contextQName, attr.Name)
 	}
 
-	// Per XSD spec "Attribute Use Correct": if the reference specifies a fixed value,
+	// per XSD spec "Attribute Use Correct": if the reference specifies a fixed value,
 	// it must match the referenced attribute's fixed value.
 	if attr.HasFixed && target.HasFixed {
 		if attr.Fixed != target.Fixed {
@@ -59,8 +59,8 @@ func isBuiltinXMLAttribute(attr *types.AttributeDecl) bool {
 // are referenced without a prefix (resolved to target namespace).
 func validateAttributeGroupReference(schema *schema.Schema, agRef types.QName, contextQName types.QName) error {
 	if _, exists := schema.AttributeGroups[agRef]; !exists {
-		// If reference has target namespace and not found, also check no-namespace.
-		// This handles cases where attribute groups from imported schemas with no
+		// if reference has target namespace and not found, also check no-namespace.
+		// this handles cases where attribute groups from imported schemas with no
 		// target namespace are referenced without a prefix (resolved to target namespace).
 		if agRef.Namespace == schema.TargetNamespace && !schema.TargetNamespace.IsEmpty() {
 			noNSRef := types.QName{

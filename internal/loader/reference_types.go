@@ -41,18 +41,18 @@ func validateTypeReferenceFromTypeWithVisited(schema *schema.Schema, typ types.T
 			}
 		}
 	}
-	// Built-in types are always valid.
+	// built-in types are always valid.
 	if typ.IsBuiltin() {
 		return nil
 	}
 
-	// Check if it's a placeholder SimpleType (has QName but not builtin and no Restriction/List/Union).
+	// check if it's a placeholder SimpleType (has QName but not builtin and no Restriction/List/Union).
 	if st, ok := typ.(*types.SimpleType); ok {
-		// Check if it's a placeholder: not builtin, has QName, but no Restriction/List/Union.
+		// check if it's a placeholder: not builtin, has QName, but no Restriction/List/Union.
 		if !st.IsBuiltin() && st.Restriction == nil && st.List == nil && st.Union == nil {
-			// This is a placeholder - check if type exists.
+			// this is a placeholder - check if type exists.
 			if _, exists := schema.TypeDefs[st.QName]; !exists {
-				// Check if it's a built-in type in xsd namespace.
+				// check if it's a built-in type in xsd namespace.
 				if st.QName.Namespace == types.XSDNamespace {
 					if types.GetBuiltin(types.TypeName(st.QName.Local)) == nil {
 						return fmt.Errorf("type '%s' not found in XSD namespace", st.QName.Local)
@@ -67,7 +67,7 @@ func validateTypeReferenceFromTypeWithVisited(schema *schema.Schema, typ types.T
 		}
 	}
 
-	// Check inline complex type's content model for references.
+	// check inline complex type's content model for references.
 	if ct, ok := typ.(*types.ComplexType); ok {
 		if content := ct.Content(); content != nil {
 			if ec, ok := content.(*types.ElementContent); ok && ec.Particle != nil {
@@ -86,17 +86,17 @@ func validateTypeReferences(schema *schema.Schema, qname types.QName, typ types.
 	switch t := typ.(type) {
 	case *types.SimpleType:
 		if t.Restriction != nil {
-			// Validate base type reference (skip if Base is zero, which indicates inline simpleType base).
+			// validate base type reference (skip if Base is zero, which indicates inline simpleType base).
 			if !t.Restriction.Base.IsZero() {
 				if err := validateTypeQNameReference(schema, t.Restriction.Base, qname.Namespace); err != nil {
 					return fmt.Errorf("restriction base type: %w", err)
 				}
-				// Check if base type's final attribute blocks restriction derivation.
+				// check if base type's final attribute blocks restriction derivation.
 				if err := validateSimpleTypeFinalRestriction(schema, t.Restriction.Base); err != nil {
 					return err
 				}
 			}
-			// Also check if we have an inline base type with final attribute.
+			// also check if we have an inline base type with final attribute.
 			if t.ResolvedBase != nil {
 				if baseST, ok := t.ResolvedBase.(*types.SimpleType); ok && baseST.Final.Has(types.DerivationRestriction) {
 					return fmt.Errorf("cannot derive by restriction from type '%s' which is final for restriction", baseST.QName)
@@ -107,7 +107,7 @@ func validateTypeReferences(schema *schema.Schema, qname types.QName, typ types.
 			if err := validateTypeQNameReferenceWithSchemaPolicy(schema, t.List.ItemType, qname.Namespace); err != nil {
 				return fmt.Errorf("list itemType: %w", err)
 			}
-			// Check if item type's final attribute blocks list derivation.
+			// check if item type's final attribute blocks list derivation.
 			if err := validateSimpleTypeFinalList(schema, t.List.ItemType); err != nil {
 				return err
 			}
@@ -117,14 +117,14 @@ func validateTypeReferences(schema *schema.Schema, qname types.QName, typ types.
 				if err := validateTypeQNameReferenceWithSchemaPolicy(schema, memberType, qname.Namespace); err != nil {
 					return fmt.Errorf("union memberType %d: %w", i+1, err)
 				}
-				// Check if member type's final attribute blocks union derivation.
+				// check if member type's final attribute blocks union derivation.
 				if err := validateSimpleTypeFinalUnion(schema, memberType); err != nil {
 					return fmt.Errorf("union memberType %d: %w", i+1, err)
 				}
 			}
 		}
 	case *types.ComplexType:
-		// Complex types don't have direct type references, but may have base types in complexContent.
+		// complex types don't have direct type references, but may have base types in complexContent.
 		if cc, ok := t.Content().(*types.ComplexContent); ok {
 			if cc.Extension != nil {
 				if err := validateTypeQNameReference(schema, cc.Extension.Base, qname.Namespace); err != nil {
@@ -176,16 +176,16 @@ func validateTypeQNameReferenceWithSchemaPolicy(schema *schema.Schema, qname typ
 
 func validateTypeQNameReferenceWithPolicy(schema *schema.Schema, qname types.QName, policy typeReferencePolicy, contextNamespace types.NamespaceURI) error {
 	allowMissing := policy == typeReferenceAllowMissing
-	// Empty QName is not valid.
+	// empty QName is not valid.
 	if qname.IsZero() {
-		return nil // This case is handled elsewhere (e.g., inline types).
+		return nil // this case is handled elsewhere (e.g., inline types).
 	}
 
 	if err := validateImportForNamespace(schema, contextNamespace, qname.Namespace); err != nil {
 		return err
 	}
 
-	// Built-in types are always valid.
+	// built-in types are always valid.
 	if qname.Namespace == types.XSDNamespace {
 		if types.GetBuiltin(types.TypeName(qname.Local)) == nil {
 			return fmt.Errorf("type '%s' not found in XSD namespace", qname.Local)
@@ -193,7 +193,7 @@ func validateTypeQNameReferenceWithPolicy(schema *schema.Schema, qname types.QNa
 		return nil
 	}
 
-	// Check if type exists in schema.
+	// check if type exists in schema.
 	if _, exists := schema.TypeDefs[qname]; !exists {
 		if allowMissing && allowMissingTypeReference(schema, qname) {
 			return nil
@@ -253,18 +253,18 @@ func validateSimpleTypeFinalRestriction(schema *schema.Schema, baseQName types.Q
 		return nil
 	}
 
-	// Built-in types don't have final attribute.
+	// built-in types don't have final attribute.
 	if baseQName.Namespace == types.XSDNamespace {
 		return nil
 	}
 
-	// Look up the type.
+	// look up the type.
 	baseType, exists := schema.TypeDefs[baseQName]
 	if !exists {
-		return nil // Type not found - already validated elsewhere.
+		return nil // type not found - already validated elsewhere.
 	}
 
-	// Check if it's a simple type with final="restriction".
+	// check if it's a simple type with final="restriction".
 	if st, ok := baseType.(*types.SimpleType); ok {
 		if st.Final.Has(types.DerivationRestriction) {
 			return fmt.Errorf("cannot derive by restriction from type '%s' which is final for restriction", baseQName)
@@ -280,18 +280,18 @@ func validateSimpleTypeFinalList(schema *schema.Schema, itemTypeQName types.QNam
 		return nil
 	}
 
-	// Built-in types don't have final attribute.
+	// built-in types don't have final attribute.
 	if itemTypeQName.Namespace == types.XSDNamespace {
 		return nil
 	}
 
-	// Look up the type.
+	// look up the type.
 	itemType, exists := schema.TypeDefs[itemTypeQName]
 	if !exists {
-		return nil // Type not found - already validated elsewhere.
+		return nil // type not found - already validated elsewhere.
 	}
 
-	// Check if it's a simple type with final="list".
+	// check if it's a simple type with final="list".
 	if st, ok := itemType.(*types.SimpleType); ok {
 		if st.Final.Has(types.DerivationList) {
 			return fmt.Errorf("cannot use type '%s' as list item type because it is final for list", itemTypeQName)
@@ -307,18 +307,18 @@ func validateSimpleTypeFinalUnion(schema *schema.Schema, memberTypeQName types.Q
 		return nil
 	}
 
-	// Built-in types don't have final attribute.
+	// built-in types don't have final attribute.
 	if memberTypeQName.Namespace == types.XSDNamespace {
 		return nil
 	}
 
-	// Look up the type.
+	// look up the type.
 	memberType, exists := schema.TypeDefs[memberTypeQName]
 	if !exists {
-		return nil // Type not found - already validated elsewhere.
+		return nil // type not found - already validated elsewhere.
 	}
 
-	// Check if it's a simple type with final="union".
+	// check if it's a simple type with final="union".
 	if st, ok := memberType.(*types.SimpleType); ok {
 		if st.Final.Has(types.DerivationUnion) {
 			return fmt.Errorf("cannot use type '%s' as union member type because it is final for union", memberTypeQName)

@@ -7,13 +7,13 @@ import (
 )
 
 func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.CompiledType, error) {
-	// Check pointer-based cache first (handles all types including anonymous)
-	// This prevents infinite recursion for circular references
+	// check pointer-based cache first (handles all types including anonymous)
+	// this prevents infinite recursion for circular references
 	if compiled, ok := c.typesByPtr[typ]; ok {
 		return compiled, nil
 	}
 
-	// Check QName cache for named types (for cross-schema references)
+	// check QName cache for named types (for cross-schema references)
 	if !qname.IsZero() {
 		if compiled, ok := c.types[qname]; ok {
 			return compiled, nil
@@ -25,10 +25,10 @@ func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.Comp
 		Original: typ,
 	}
 
-	// Add to pointer cache immediately (before recursive compilation)
+	// add to pointer cache immediately (before recursive compilation)
 	c.typesByPtr[typ] = compiled
 
-	// Add to QName-based caches only for the first compilation of a QName
+	// add to QName-based caches only for the first compilation of a QName
 	// (in redefine context, we want the redefined type in the grammar, not the original)
 	if !qname.IsZero() {
 		if _, exists := c.types[qname]; !exists {
@@ -58,9 +58,9 @@ func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.Comp
 		} else {
 			compiled.DerivationChain = []*grammar.CompiledType{compiled}
 		}
-		// Check if this is the NOTATION built-in type
+		// check if this is the NOTATION built-in type
 		compiled.IsNotationType = t.Name().Local == string(types.TypeNameNOTATION)
-		// Precompute ID type name for ID/IDREF/IDREFS tracking
+		// precompute ID type name for ID/IDREF/IDREFS tracking
 		compiled.IDTypeName = getIDTypeName(t.Name().Local)
 
 	case *types.SimpleType:
@@ -98,23 +98,23 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, st *types.S
 		}
 		compiled.BaseType = baseCompiled
 		compiled.DerivationChain = append([]*grammar.CompiledType{compiled}, baseCompiled.DerivationChain...)
-		// Simple types derived from a base are always restrictions
+		// simple types derived from a base are always restrictions
 		compiled.DerivationMethod = types.DerivationRestriction
-		// Propagate NOTATION type flag from base
+		// propagate NOTATION type flag from base
 		compiled.IsNotationType = baseCompiled.IsNotationType
-		// Propagate ID type name from base
+		// propagate ID type name from base
 		compiled.IDTypeName = baseCompiled.IDTypeName
 	} else {
 		compiled.DerivationChain = []*grammar.CompiledType{compiled}
 	}
 
-	// Compute primitive type (for atomic types)
+	// compute primitive type (for atomic types)
 	compiled.PrimitiveType = c.findPrimitiveType(compiled)
 	if compiled.PrimitiveType != nil && compiled.PrimitiveType.QName.Local == string(types.TypeNameNOTATION) {
 		compiled.IsNotationType = true
 	}
 
-	// Compile item type (for list)
+	// compile item type (for list)
 	if st.ItemType != nil {
 		itemCompiled, err := c.compileType(st.ItemType.Name(), st.ItemType)
 		if err != nil {
@@ -127,7 +127,7 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, st *types.S
 		compiled.ItemType = compiled.BaseType.ItemType
 	}
 
-	// Compile member types (for union)
+	// compile member types (for union)
 	if len(st.MemberTypes) > 0 {
 		compiled.MemberTypes = make([]*grammar.CompiledType, len(st.MemberTypes))
 		for i, member := range st.MemberTypes {
@@ -170,7 +170,7 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, ct *types.
 		compiled.DerivationChain = []*grammar.CompiledType{compiled}
 	}
 
-	// Pre-merge all attributes from derivation chain
+	// pre-merge all attributes from derivation chain
 	compiled.AllAttributes = c.mergeAttributes(ct, compiled.DerivationChain)
 
 	compiled.AnyAttribute = c.mergeAnyAttribute(compiled.DerivationChain)
@@ -178,23 +178,23 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, ct *types.
 	if ct.Content() != nil {
 		compiled.ContentModel = c.compileContentModel(ct)
 
-		// For complexContent extension, prepend base type's content model
+		// for complexContent extension, prepend base type's content model
 		if cc, ok := ct.Content().(*types.ComplexContent); ok {
 			if cc.Extension != nil && compiled.BaseType != nil &&
 				compiled.BaseType.ContentModel != nil &&
 				!compiled.BaseType.ContentModel.Empty {
-				// Combine base content + extension content
+				// combine base content + extension content
 				baseParticles := compiled.BaseType.ContentModel.Particles
 				if len(baseParticles) > 0 {
 					if compiled.ContentModel == nil || compiled.ContentModel.Empty {
-						// Extension with no new content - use base content model
+						// extension with no new content - use base content model
 						compiled.ContentModel = &grammar.CompiledContentModel{
 							Kind:      compiled.BaseType.ContentModel.Kind,
 							Particles: baseParticles,
 							Mixed:     compiled.Mixed,
 						}
 					} else {
-						// Combine: base particles + extension particles
+						// combine: base particles + extension particles
 						combined := make([]*grammar.CompiledParticle, 0, len(baseParticles)+len(compiled.ContentModel.Particles))
 						combined = append(combined, baseParticles...)
 						combined = append(combined, compiled.ContentModel.Particles...)
@@ -206,7 +206,7 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, ct *types.
 		}
 	}
 
-	// For simpleContent, set up text content validation type
+	// for simpleContent, set up text content validation type
 	if sc, ok := ct.Content().(*types.SimpleContent); ok {
 		c.setupSimpleContentType(compiled, sc)
 	}
@@ -221,15 +221,15 @@ func (c *Compiler) setupSimpleContentType(compiled *grammar.CompiledType, sc *ty
 	}
 
 	if sc.Extension != nil {
-		// Extension: inherit base type's simple content type or use base directly if simple
+		// extension: inherit base type's simple content type or use base directly if simple
 		if baseType.Kind == grammar.TypeKindSimple || baseType.Kind == grammar.TypeKindBuiltin {
 			compiled.SimpleContentType = baseType
 		} else if baseType.SimpleContentType != nil {
-			// Base is complex with simpleContent - inherit its SimpleContentType
+			// base is complex with simpleContent - inherit its SimpleContentType
 			compiled.SimpleContentType = baseType.SimpleContentType
 		}
 	} else if sc.Restriction != nil {
-		// Restriction: use base's SimpleContentType and add our facets
+		// restriction: use base's SimpleContentType and add our facets
 		if baseType.SimpleContentType != nil {
 			compiled.SimpleContentType = baseType.SimpleContentType
 		} else if baseType.Kind == grammar.TypeKindSimple || baseType.Kind == grammar.TypeKindBuiltin {
@@ -257,8 +257,8 @@ func (c *Compiler) findPrimitiveType(ct *grammar.CompiledType) *grammar.Compiled
 func (c *Compiler) collectFacets(st *types.SimpleType) []facets.Facet {
 	var result []facets.Facet
 
-	// Collect facets from base type first (inherited facets)
-	// Per XSD spec, patterns from different derivation steps are ANDed together,
+	// collect facets from base type first (inherited facets)
+	// per XSD spec, patterns from different derivation steps are ANDed together,
 	// so inherited patterns become separate entries in the result.
 	if st.ResolvedBase != nil {
 		if baseST, ok := st.ResolvedBase.(*types.SimpleType); ok {
@@ -266,23 +266,23 @@ func (c *Compiler) collectFacets(st *types.SimpleType) []facets.Facet {
 		}
 	}
 
-	// Collect facets from this type's restriction
-	// Per XSD spec, patterns from the SAME derivation step are ORed together.
-	// We group all pattern facets from this step into a PatternSet.
+	// collect facets from this type's restriction
+	// per XSD spec, patterns from the SAME derivation step are ORed together.
+	// we group all pattern facets from this step into a PatternSet.
 	if st.Restriction != nil {
 		var stepPatterns []*facets.Pattern
 
 		for _, f := range st.Restriction.Facets {
 			if facet, ok := f.(facets.Facet); ok {
-				// Check if this is a pattern facet
+				// check if this is a pattern facet
 				if patternFacet, ok := facet.(*facets.Pattern); ok {
 					if err := patternFacet.ValidateSyntax(); err != nil {
-						// Skip invalid patterns (schema validation should have caught this)
+						// skip invalid patterns (schema validation should have caught this)
 						continue
 					}
 					stepPatterns = append(stepPatterns, patternFacet)
 				} else {
-					// Non-pattern facet: compile if needed and add directly
+					// non-pattern facet: compile if needed and add directly
 					if compilable, ok := facet.(interface{ ValidateSyntax() error }); ok {
 						if err := compilable.ValidateSyntax(); err != nil {
 							continue
@@ -291,7 +291,7 @@ func (c *Compiler) collectFacets(st *types.SimpleType) []facets.Facet {
 					result = append(result, facet)
 				}
 			} else if df, ok := f.(*facets.DeferredFacet); ok {
-				// Convert deferred facets to real facets now that base type is resolved
+				// convert deferred facets to real facets now that base type is resolved
 				realFacet := c.constructDeferredFacet(df, st)
 				if realFacet != nil {
 					result = append(result, realFacet)
@@ -299,12 +299,12 @@ func (c *Compiler) collectFacets(st *types.SimpleType) []facets.Facet {
 			}
 		}
 
-		// Group patterns from this step into a PatternSet (OR semantics)
+		// group patterns from this step into a PatternSet (OR semantics)
 		if len(stepPatterns) == 1 {
-			// Single pattern - no need for PatternSet
+			// single pattern - no need for PatternSet
 			result = append(result, stepPatterns[0])
 		} else if len(stepPatterns) > 1 {
-			// Multiple patterns - group into PatternSet for OR semantics
+			// multiple patterns - group into PatternSet for OR semantics
 			result = append(result, &facets.PatternSet{Patterns: stepPatterns})
 		}
 	}
@@ -333,8 +333,8 @@ func (c *Compiler) constructDeferredFacet(df *facets.DeferredFacet, st *types.Si
 	}
 
 	if err != nil {
-		// Log or handle error - facet construction failed even with resolved type
-		// This could happen for genuinely invalid schemas
+		// log or handle error - facet construction failed even with resolved type
+		// this could happen for genuinely invalid schemas
 		return nil
 	}
 

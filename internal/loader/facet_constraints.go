@@ -22,7 +22,7 @@ func validateFacetConstraints(facetList []facets.Facet, baseType types.Type, bas
 		bt = types.GetBuiltin(types.TypeName(baseTypeName))
 	}
 
-	// Valid XSD 1.0 facets
+	// valid XSD 1.0 facets
 	validFacets := map[string]bool{
 		"length":         true,
 		"minLength":      true,
@@ -41,14 +41,14 @@ func validateFacetConstraints(facetList []facets.Facet, baseType types.Type, bas
 	for _, facet := range facetList {
 		name := facet.Name()
 
-		// Validate that the facet is a known XSD facet
+		// validate that the facet is a known XSD facet
 		if !validFacets[name] {
 			return fmt.Errorf("unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", name)
 		}
 
 		switch name {
 		case "minExclusive", "maxExclusive", "minInclusive", "maxInclusive":
-			// All range facets are generic and implement LexicalFacet
+			// all range facets are generic and implement LexicalFacet
 			if lf, ok := facet.(facets.LexicalFacet); ok {
 				val := lf.GetLexical()
 				if val != "" {
@@ -126,7 +126,7 @@ func validateFacetConstraints(facetList []facets.Facet, baseType types.Type, bas
 		}
 	}
 
-	// Built-in list types require at least one item.
+	// built-in list types require at least one item.
 	if isBuiltinListTypeName(baseTypeName) {
 		if length != nil && *length < 1 {
 			return fmt.Errorf("length (%d) must be >= 1 for list type %s", *length, baseTypeName)
@@ -143,25 +143,25 @@ func validateFacetConstraints(facetList []facets.Facet, baseType types.Type, bas
 		return err
 	}
 
-	// Validate that range facet values are within the base type's value space
+	// validate that range facet values are within the base type's value space
 	if err := validateRangeFacetValues(minExclusive, maxExclusive, minInclusive, maxInclusive, baseType, bt); err != nil {
 		return err
 	}
 
-	// Per XSD spec: fractionDigits must be <= totalDigits
+	// per XSD spec: fractionDigits must be <= totalDigits
 	if totalDigits != nil && fractionDigits != nil {
 		if *fractionDigits > *totalDigits {
 			return fmt.Errorf("fractionDigits (%d) must be <= totalDigits (%d)", *fractionDigits, *totalDigits)
 		}
 	}
 
-	// Per XSD spec: fractionDigits must be 0 for integer-derived types
-	// Integer types are derived from decimal with fractionDigits=0 fixed
+	// per XSD spec: fractionDigits must be 0 for integer-derived types
+	// integer types are derived from decimal with fractionDigits=0 fixed
 	if fractionDigits != nil && *fractionDigits != 0 {
 		if isBuiltin && isIntegerTypeName(baseTypeName) {
 			return fmt.Errorf("fractionDigits must be 0 for integer type %s, got %d", baseTypeName, *fractionDigits)
 		}
-		// Also check user-defined types derived from integer types
+		// also check user-defined types derived from integer types
 		if baseType != nil {
 			effectiveTypeName := getEffectiveIntegerTypeName(baseType)
 			if effectiveTypeName != "" {
@@ -170,7 +170,7 @@ func validateFacetConstraints(facetList []facets.Facet, baseType types.Type, bas
 		}
 	}
 
-	// Validate enumeration values if base type is known
+	// validate enumeration values if base type is known
 	if hasEnumeration && baseType != nil {
 		if err := validateEnumerationValues(facetList, baseType); err != nil {
 			return err
@@ -199,7 +199,7 @@ func validateFacetApplicability(facetName, baseTypeName string, bt *types.Builti
 			if baseST.Variety() == types.UnionVariety {
 				switch facetName {
 				case "pattern", "enumeration":
-					// Allowed on union types
+					// allowed on union types
 				default:
 					return fmt.Errorf("facet %s is not applicable to union type %s", facetName, baseTypeName)
 				}
@@ -207,13 +207,13 @@ func validateFacetApplicability(facetName, baseTypeName string, bt *types.Builti
 		}
 	}
 
-	// Range facets (min/max) are applicable to ordered types (OrderedTotal or OrderedPartial)
-	// Per XSD 1.0 spec: range facets apply to types with ordered != none
-	// Range facets are NOT applicable to list types (lists don't have ordered value space)
+	// range facets (min/max) are applicable to ordered types (OrderedTotal or OrderedPartial)
+	// per XSD 1.0 spec: range facets apply to types with ordered != none
+	// range facets are NOT applicable to list types (lists don't have ordered value space)
 	rangeFacets := []string{"minExclusive", "maxExclusive", "minInclusive", "maxInclusive"}
 	for _, rf := range rangeFacets {
 		if facetName == rf {
-			// Check if the base type is a list type - range facets are NOT applicable to list types
+			// check if the base type is a list type - range facets are NOT applicable to list types
 			if baseType != nil {
 				if baseST, ok := baseType.(*types.SimpleType); ok {
 					if baseST.Variety() == types.ListVariety {
@@ -225,10 +225,10 @@ func validateFacetApplicability(facetName, baseTypeName string, bt *types.Builti
 			var facets *types.FundamentalFacets
 
 			if isBuiltin && bt != nil {
-				// Built-in type: use its fundamental facets directly
+				// built-in type: use its fundamental facets directly
 				facets = bt.FundamentalFacets()
 			} else if baseType != nil {
-				// User-defined type: get fundamental facets from primitive type
+				// user-defined type: get fundamental facets from primitive type
 				primitive := baseType.PrimitiveType()
 				if primitive != nil {
 					facets = primitive.FundamentalFacets()
@@ -253,38 +253,38 @@ func validateFacetApplicability(facetName, baseTypeName string, bt *types.Builti
 		}
 	}
 
-	// Length facets (length, minLength, maxLength) don't apply to certain types
-	// According to XSD spec: length doesn't apply to boolean, numeric types, or date/time types
-	// Length applies to: string types, list types, and binary types (hexBinary, base64Binary)
-	// IMPORTANT: For list types, length facets ARE applicable (they count list items, not string length)
+	// length facets (length, minLength, maxLength) don't apply to certain types
+	// according to XSD spec: length doesn't apply to boolean, numeric types, or date/time types
+	// length applies to: string types, list types, and binary types (hexBinary, base64Binary)
+	// important: For list types, length facets ARE applicable (they count list items, not string length)
 	lengthFacets := []string{"length", "minLength", "maxLength"}
 	for _, lf := range lengthFacets {
 		if facetName == lf {
-			// First check if the base type is a list type - length facets ARE applicable to list types
+			// first check if the base type is a list type - length facets ARE applicable to list types
 			if baseType != nil {
 				if baseST, ok := baseType.(*types.SimpleType); ok {
 					if baseST.Variety() == types.ListVariety {
-						// List types support length facets (they count list items)
+						// list types support length facets (they count list items)
 						continue
 					}
 				}
 			}
 
 			if isBuiltin && bt != nil {
-				// Check if type doesn't support length facets
+				// check if type doesn't support length facets
 				if baseTypeName == "boolean" {
 					return fmt.Errorf("facet %s is not applicable to boolean type", facetName)
 				}
-				// Check if it's a numeric type (doesn't support length)
+				// check if it's a numeric type (doesn't support length)
 				if isNumericTypeName(baseTypeName) {
 					return fmt.Errorf("facet %s is not applicable to numeric type %s", facetName, baseTypeName)
 				}
-				// Check if it's a date/time type (doesn't support length)
+				// check if it's a date/time type (doesn't support length)
 				if isDateTimeTypeName(baseTypeName) {
 					return fmt.Errorf("facet %s is not applicable to date/time type %s", facetName, baseTypeName)
 				}
 			} else if baseType != nil {
-				// For user-defined types, check the primitive type
+				// for user-defined types, check the primitive type
 				primitive := baseType.PrimitiveType()
 				if primitive != nil {
 					primitiveName := primitive.Name().Local
@@ -330,7 +330,7 @@ func isIntegerTypeName(typeName string) bool {
 // is derived from an integer type (including user-defined types). Returns empty string
 // if not derived from integer.
 func getEffectiveIntegerTypeName(t types.Type) string {
-	// Walk up the type hierarchy to find if it's derived from an integer type
+	// walk up the type hierarchy to find if it's derived from an integer type
 	visited := make(map[types.Type]bool)
 	current := t
 	for current != nil && !visited[current] {
@@ -391,10 +391,10 @@ func validateEnumerationValues(facetList []facets.Facet, baseType types.Type) er
 	}
 
 	if len(enumValues) == 0 {
-		return nil // No enumeration to validate
+		return nil // no enumeration to validate
 	}
 
-	// For list types, enumeration values are space-separated lists of item values
+	// for list types, enumeration values are space-separated lists of item values
 	if st, ok := baseType.(*types.SimpleType); ok {
 		if st.Variety() == types.ListVariety {
 			itemType := st.ItemType
@@ -419,9 +419,9 @@ func validateEnumerationValues(facetList []facets.Facet, baseType types.Type) er
 		}
 	}
 
-	// Note: empty string is a valid enumeration value per XSD spec for string-based types
+	// note: empty string is a valid enumeration value per XSD spec for string-based types
 
-	// Try to get the built-in type validator
+	// try to get the built-in type validator
 	var bt *types.BuiltinType
 	var typeName string
 
@@ -452,7 +452,7 @@ func validateEnumerationValues(facetList []facets.Facet, baseType types.Type) er
 			bt = types.GetBuiltinNS(t.QName.Namespace, t.QName.Local)
 			typeName = t.QName.Local
 		} else {
-			// For user-defined types, try to get the primitive type for validation
+			// for user-defined types, try to get the primitive type for validation
 			primitive := t.PrimitiveType()
 			if primitive != nil {
 				if pbt, ok := primitive.(*types.BuiltinType); ok {
@@ -463,7 +463,7 @@ func validateEnumerationValues(facetList []facets.Facet, baseType types.Type) er
 		}
 	}
 
-	// If we found a built-in type, validate enumeration values against it
+	// if we found a built-in type, validate enumeration values against it
 	if bt != nil {
 		for i, val := range enumValues {
 			if err := bt.Validate(val); err != nil {

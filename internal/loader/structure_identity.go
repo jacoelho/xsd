@@ -17,7 +17,7 @@ func validateSelectorXPath(xpath string) error {
 		return fmt.Errorf("selector xpath cannot be empty")
 	}
 
-	// Selector cannot select text nodes
+	// selector cannot select text nodes
 	if strings.Contains(xpath, "/text()") || strings.HasSuffix(xpath, "text()") {
 		return fmt.Errorf("selector xpath cannot select text nodes: %s", xpath)
 	}
@@ -26,17 +26,17 @@ func validateSelectorXPath(xpath string) error {
 		return fmt.Errorf("selector xpath cannot use functions or parentheses: %s", xpath)
 	}
 
-	// Selector cannot select attributes (@ is not allowed anywhere in selector XPath per BNF grammar)
+	// selector cannot select attributes (@ is not allowed anywhere in selector XPath per BNF grammar)
 	if strings.Contains(xpath, "@") {
 		return fmt.Errorf("selector xpath cannot select attributes: %s", xpath)
 	}
 
-	// Selector cannot use parent navigation (upward navigation not allowed)
+	// selector cannot use parent navigation (upward navigation not allowed)
 	if strings.Contains(xpath, "..") || strings.Contains(xpath, "parent::") {
 		return fmt.Errorf("selector xpath cannot use parent navigation: %s", xpath)
 	}
 
-	// Note: attribute:: and namespace:: axes are checked in validateSelectorXPathRestrictions()
+	// note: attribute:: and namespace:: axes are checked in validateSelectorXPathRestrictions()
 	// to avoid duplication and maintain separation of concerns
 
 	return nil
@@ -63,7 +63,7 @@ func validateFieldXPath(xpath string) error {
 		return fmt.Errorf("field xpath cannot use functions or parentheses: %s", xpath)
 	}
 
-	// Fields can only use child and attribute axes (abbreviated forms allowed).
+	// fields can only use child and attribute axes (abbreviated forms allowed).
 	disallowedAxes := []string{
 		"parent::", "ancestor::", "ancestor-or-self::",
 		"following::", "following-sibling::",
@@ -77,15 +77,15 @@ func validateFieldXPath(xpath string) error {
 		}
 	}
 
-	// Validate allowed axes only
-	// Allowed: child::, attribute::, or abbreviated (@, .//)
+	// validate allowed axes only
+	// allowed: child::, attribute::, or abbreviated (@, .//)
 	hasAllowedAxis := false
 	allowedPatterns := []string{
 		"child::", "attribute::",
-		"@", // Attribute abbreviation
+		"@", // attribute abbreviation
 	}
 
-	// If starts with @, it's an attribute (allowed)
+	// if starts with @, it's an attribute (allowed)
 	if strings.HasPrefix(xpath, "@") {
 		hasAllowedAxis = true
 	} else {
@@ -95,7 +95,7 @@ func validateFieldXPath(xpath string) error {
 				break
 			}
 		}
-		// If no axis specified, default is child (allowed)
+		// if no axis specified, default is child (allowed)
 		if !strings.Contains(axisCheck, "::") && !strings.HasPrefix(axisCheck, "//") {
 			hasAllowedAxis = true
 		}
@@ -114,12 +114,12 @@ func validateFieldXPath(xpath string) error {
 func validateSelectorXPathRestrictions(xpath string) error {
 	xpath = strings.TrimSpace(xpath)
 
-	// Selector XPath must be a relative path expression.
+	// selector XPath must be a relative path expression.
 	if strings.HasPrefix(xpath, "/") {
 		return fmt.Errorf("selector xpath must be a relative path: %s", xpath)
 	}
 
-	// Selectors can use wildcards, but check for disallowed axes
+	// selectors can use wildcards, but check for disallowed axes
 	disallowedAxes := []string{
 		"parent::", "ancestor::", "ancestor-or-self::",
 		"following::", "following-sibling::",
@@ -138,27 +138,27 @@ func validateSelectorXPathRestrictions(xpath string) error {
 
 // validateIdentityConstraint validates an identity constraint (key, keyref, unique)
 func validateIdentityConstraint(schema *schema.Schema, constraint *types.IdentityConstraint, decl *types.ElementDecl) error {
-	// Note: Identity constraints can be placed on elements with either simple or complex types.
-	// For simple types, the selector/field XPath expressions typically target "." (the element itself).
-	// The XSD spec does not restrict identity constraints to complex types only.
+	// note: Identity constraints can be placed on elements with either simple or complex types.
+	// for simple types, the selector/field XPath expressions typically target "." (the element itself).
+	// the XSD spec does not restrict identity constraints to complex types only.
 
-	// Per XSD spec section 3.11.1, identity constraint name must be an NCName
+	// per XSD spec section 3.11.1, identity constraint name must be an NCName
 	if !isValidNCName(constraint.Name) {
 		return fmt.Errorf("identity constraint name '%s' must be a valid NCName (no colons)", constraint.Name)
 	}
 
-	// Per XSD spec, 'refer' attribute is only allowed on keyref constraints
-	// If present on unique or key, the schema is invalid
+	// per XSD spec, 'refer' attribute is only allowed on keyref constraints
+	// if present on unique or key, the schema is invalid
 	if constraint.Type != types.KeyRefConstraint && !constraint.ReferQName.IsZero() {
 		return fmt.Errorf("'refer' attribute is only allowed on keyref constraints, not on %s", constraint.Type)
 	}
 
-	// Selector must be present and non-empty
+	// selector must be present and non-empty
 	if constraint.Selector.XPath == "" {
 		return fmt.Errorf("identity constraint selector xpath is required")
 	}
 
-	// Validate selector selects elements (not attributes or text)
+	// validate selector selects elements (not attributes or text)
 	if err := validateSelectorXPath(constraint.Selector.XPath); err != nil {
 		return fmt.Errorf("identity constraint selector: %w", err)
 	}
@@ -170,12 +170,12 @@ func validateIdentityConstraint(schema *schema.Schema, constraint *types.Identit
 		return fmt.Errorf("identity constraint selector: %w", err)
 	}
 
-	// At least one field must be present
+	// at least one field must be present
 	if len(constraint.Fields) == 0 {
 		return fmt.Errorf("identity constraint must have at least one field")
 	}
 
-	// All fields must have non-empty xpath
+	// all fields must have non-empty xpath
 	for i, field := range constraint.Fields {
 		if field.XPath == "" {
 			return fmt.Errorf("identity constraint field %d xpath is required", i+1)
@@ -189,12 +189,12 @@ func validateIdentityConstraint(schema *schema.Schema, constraint *types.Identit
 		}
 	}
 
-	// Keyref must have a refer attribute
+	// keyref must have a refer attribute
 	if constraint.Type == types.KeyRefConstraint {
 		if constraint.ReferQName.IsZero() {
 			return fmt.Errorf("keyref constraint must have a refer attribute")
 		}
-		// Refer attribute is a QName (can have namespace prefix) - validation happens during resolution
+		// refer attribute is a QName (can have namespace prefix) - validation happens during resolution
 	}
 
 	return nil

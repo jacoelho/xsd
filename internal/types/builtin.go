@@ -131,7 +131,7 @@ func (b *BuiltinType) ParseValue(lexical string) (TypedValue, error) {
 		return result, nil
 	}
 
-	// Fallback for types not in registry: create a string value
+	// fallback for types not in registry: create a string value
 	st := &SimpleType{
 		QName:   b.qname,
 		variety: AtomicVariety,
@@ -160,9 +160,9 @@ func (b *BuiltinType) Ordered() bool {
 func (b *BuiltinType) MeasureLength(value string) int {
 	name := b.Name().Local
 
-	// Check if it's a built-in list type (NMTOKENS, IDREFS, ENTITIES)
+	// check if it's a built-in list type (NMTOKENS, IDREFS, ENTITIES)
 	if isBuiltinListType(name) {
-		// List type: length is number of items (space-separated)
+		// list type: length is number of items (space-separated)
 		if len(strings.TrimSpace(value)) == 0 {
 			return 0
 		}
@@ -174,7 +174,7 @@ func (b *BuiltinType) MeasureLength(value string) int {
 		return measureLengthForPrimitive(value, TypeName(primitiveType.Name().Local))
 	}
 
-	// Fallback: character count
+	// fallback: character count
 	return utf8.RuneCountInString(value)
 }
 
@@ -184,16 +184,16 @@ func (b *BuiltinType) FundamentalFacets() *FundamentalFacets {
 		return b.fundamentalFacetsCache
 	}
 
-	// For primitive types, compute directly
+	// for primitive types, compute directly
 	if isPrimitiveName(TypeName(b.name)) {
 		b.fundamentalFacetsCache = ComputeFundamentalFacets(TypeName(b.name))
 		return b.fundamentalFacetsCache
 	}
 
-	// For derived types, get facets from primitive type
+	// for derived types, get facets from primitive type
 	primitive := b.PrimitiveType()
 	if primitive == nil {
-		// Fallback: try computing from name (may return nil for unknown types)
+		// fallback: try computing from name (may return nil for unknown types)
 		b.fundamentalFacetsCache = ComputeFundamentalFacets(TypeName(b.name))
 		return b.fundamentalFacetsCache
 	}
@@ -203,7 +203,7 @@ func (b *BuiltinType) FundamentalFacets() *FundamentalFacets {
 		return b.fundamentalFacetsCache
 	}
 
-	// If primitive is not BuiltinType, try to get facets from it
+	// if primitive is not BuiltinType, try to get facets from it
 	facets := primitive.FundamentalFacets()
 	b.fundamentalFacetsCache = facets
 	return facets
@@ -220,12 +220,12 @@ func (b *BuiltinType) BaseType() Type {
 		return GetBuiltin(TypeNameAnyType)
 	}
 
-	// Primitive types have anySimpleType as base
+	// primitive types have anySimpleType as base
 	if isPrimitiveName(TypeName(b.name)) {
 		return GetBuiltin(TypeNameAnySimpleType)
 	}
 
-	// For derived types, compute base type from type hierarchy
+	// for derived types, compute base type from type hierarchy
 	return computeBaseType(b.name)
 }
 
@@ -247,17 +247,17 @@ func isPrimitive(name string) bool {
 
 // computeBaseType computes the base type for a derived built-in type
 func computeBaseType(name string) Type {
-	// Map derived types to their bases according to XSD 1.0 type hierarchy
+	// map derived types to their bases according to XSD 1.0 type hierarchy
 	if baseName, ok := builtinBaseTypes[TypeName(name)]; ok {
 		return GetBuiltin(baseName)
 	}
-	// If not found in map, return anySimpleType as fallback (base of all simple types)
+	// if not found in map, return anySimpleType as fallback (base of all simple types)
 	return GetBuiltin(TypeNameAnySimpleType)
 }
 
 // PrimitiveType returns the primitive type for this built-in type
 func (b *BuiltinType) PrimitiveType() Type {
-	// Return cached value if available
+	// return cached value if available
 	if b.primitiveTypeCache != nil {
 		return b.primitiveTypeCache
 	}
@@ -267,13 +267,13 @@ func (b *BuiltinType) PrimitiveType() Type {
 		return nil
 	}
 
-	// For primitive types, return self
+	// for primitive types, return self
 	if isPrimitive(b.name) {
 		b.primitiveTypeCache = b
 		return b
 	}
 
-	// For derived types, follow base type chain
+	// for derived types, follow base type chain
 	base := b.BaseType()
 	if base == nil {
 		return nil
@@ -284,13 +284,13 @@ func (b *BuiltinType) PrimitiveType() Type {
 }
 
 func init() {
-	// Built-in complex type
+	// built-in complex type
 	registerBuiltin(TypeNameAnyType, validateAnyType, WhiteSpacePreserve, false)
 
-	// Base simple type (base of all simple types, must be registered before primitives)
+	// base simple type (base of all simple types, must be registered before primitives)
 	registerBuiltin(TypeNameAnySimpleType, validateAnySimpleType, WhiteSpacePreserve, false)
 
-	// Primitive types (19 total)
+	// primitive types (19 total)
 	registerBuiltin(TypeNameString, validateString, WhiteSpacePreserve, false)
 	registerBuiltin(TypeNameBoolean, validateBoolean, WhiteSpaceCollapse, false)
 	registerBuiltin(TypeNameDecimal, validateDecimal, WhiteSpaceCollapse, true)
@@ -311,7 +311,7 @@ func init() {
 	registerBuiltin(TypeNameQName, validateQName, WhiteSpaceCollapse, false)
 	registerBuiltin(TypeNameNOTATION, validateNOTATION, WhiteSpaceCollapse, false)
 
-	// Derived string types
+	// derived string types
 	registerBuiltin(TypeNameNormalizedString, validateNormalizedString, WhiteSpaceReplace, false)
 	registerBuiltin(TypeNameToken, validateToken, WhiteSpaceCollapse, false)
 	registerBuiltin(TypeNameLanguage, validateLanguage, WhiteSpaceCollapse, false)
@@ -325,7 +325,7 @@ func init() {
 	registerBuiltin(TypeNameNMTOKEN, validateNMTOKEN, WhiteSpaceCollapse, false)
 	registerBuiltin(TypeNameNMTOKENS, validateNMTOKENS, WhiteSpaceCollapse, false)
 
-	// Derived numeric types
+	// derived numeric types
 	registerBuiltin(TypeNameInteger, validateInteger, WhiteSpaceCollapse, true)
 	registerBuiltin(TypeNameLong, validateLong, WhiteSpaceCollapse, true)
 	registerBuiltin(TypeNameInt, validateInt, WhiteSpaceCollapse, true)

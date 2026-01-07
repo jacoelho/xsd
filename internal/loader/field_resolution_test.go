@@ -67,7 +67,7 @@ func TestFieldResolution_AttributeField(t *testing.T) {
 		t.Error("field type should be resolved")
 	}
 
-	// Verify it's integer type
+	// verify it's integer type
 	if field.ResolvedType.Name().Local != "integer" {
 		t.Errorf("field type should be integer, got %s", field.ResolvedType.Name().Local)
 	}
@@ -135,7 +135,7 @@ func TestFieldResolution_ChildElementField(t *testing.T) {
 		t.Fatal("field type should be resolved")
 	}
 
-	// Verify it's integer type
+	// verify it's integer type
 	if field.ResolvedType.Name().Local != "integer" {
 		t.Errorf("field type should be integer, got %s", field.ResolvedType.Name().Local)
 	}
@@ -213,7 +213,7 @@ func TestFieldResolution_DescendantElementField(t *testing.T) {
 		t.Fatal("field type should be resolved for nested path part/@number")
 	}
 
-	// Verify it's integer type
+	// verify it's integer type
 	if field.ResolvedType.Name().Local != "integer" {
 		t.Errorf("field type should be integer, got %s", field.ResolvedType.Name().Local)
 	}

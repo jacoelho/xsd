@@ -77,17 +77,17 @@ func NewMaxExclusive(lexical string, baseType types.Type) (Facet, error) {
 
 // newRangeFacet is a helper that parses the lexical value and creates the appropriate ComparableValue
 func newRangeFacet(facetName, lexical string, baseType types.Type) (types.ComparableValue, error) {
-	// Check if base type is ordered (range facets apply to OrderedTotal or OrderedPartial)
-	// Per XSD 1.0 spec: range facets apply to types with ordered != none
+	// check if base type is ordered (range facets apply to OrderedTotal or OrderedPartial)
+	// per XSD 1.0 spec: range facets apply to types with ordered != none
 	var facets *types.FundamentalFacets
 
-	// Try to get fundamental facets from the base type
-	// Per spec: "for derived types, the ultimate primitive base"
-	// Use PrimitiveType() uniformly - it handles both ResolvedBase and Restriction.Base cases
+	// try to get fundamental facets from the base type
+	// per spec: "for derived types, the ultimate primitive base"
+	// use PrimitiveType() uniformly - it handles both ResolvedBase and Restriction.Base cases
 	if baseType != nil {
 		facets = baseType.FundamentalFacets()
 
-		// If base type doesn't have facets yet, get them from primitive type
+		// if base type doesn't have facets yet, get them from primitive type
 		if facets == nil {
 			primitive := baseType.PrimitiveType()
 			if primitive != nil && primitive != baseType {
@@ -96,12 +96,12 @@ func newRangeFacet(facetName, lexical string, baseType types.Type) (types.Compar
 		}
 	}
 
-	// If we still can't determine facets, be lenient during parsing
-	// Schema validation will catch issues after all types are resolved
+	// if we still can't determine facets, be lenient during parsing
+	// schema validation will catch issues after all types are resolved
 	if facets == nil {
-		// During parsing, if we can't determine facets, allow it
-		// Full validation will happen during schema validation phase
-		// This handles cases where user-defined types chain (e.g., s2 -> s1 -> s -> int)
+		// during parsing, if we can't determine facets, allow it
+		// full validation will happen during schema validation phase
+		// this handles cases where user-defined types chain (e.g., s2 -> s1 -> s -> int)
 	} else if facets.Ordered != types.OrderedTotal && facets.Ordered != types.OrderedPartial {
 		typeName := "unknown"
 		if bt, ok := baseType.(*types.BuiltinType); ok {
@@ -113,7 +113,7 @@ func newRangeFacet(facetName, lexical string, baseType types.Type) (types.Compar
 	}
 
 	typeName := baseType.Name().Local
-	// Parse based on actual type name first (for built-in types)
+	// parse based on actual type name first (for built-in types)
 	switch typeName {
 	case "integer":
 		intVal, err := lexicalparser.ParseInteger(lexical)
@@ -123,7 +123,7 @@ func newRangeFacet(facetName, lexical string, baseType types.Type) (types.Compar
 		return types.ComparableBigInt{Value: intVal, Typ: baseType}, nil
 
 	case "long":
-		// For long, parse as integer (big.Int) since long values can be large
+		// for long, parse as integer (big.Int) since long values can be large
 		intVal, err := lexicalparser.ParseInteger(lexical)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", facetName, err)
@@ -131,7 +131,7 @@ func newRangeFacet(facetName, lexical string, baseType types.Type) (types.Compar
 		return types.ComparableBigInt{Value: intVal, Typ: baseType}, nil
 
 	case "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
-		// For these, parse as integer (big.Int) since they're all integer types
+		// for these, parse as integer (big.Int) since they're all integer types
 		intVal, err := lexicalparser.ParseInteger(lexical)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", facetName, err)
@@ -139,25 +139,25 @@ func newRangeFacet(facetName, lexical string, baseType types.Type) (types.Compar
 		return types.ComparableBigInt{Value: intVal, Typ: baseType}, nil
 	}
 
-	// If not a built-in integer type, use primitive type
-	// Per spec: "for derived types, the ultimate primitive base"
+	// if not a built-in integer type, use primitive type
+	// per spec: "for derived types, the ultimate primitive base"
 	primitiveType := baseType.PrimitiveType()
 	if primitiveType == nil {
-		// Can't determine primitive type - this can happen during parsing
+		// can't determine primitive type - this can happen during parsing
 		// for user-defined type chains (e.g., s2 -> s1 -> s -> int)
-		// Schema validation will catch this later
+		// schema validation will catch this later
 		return nil, fmt.Errorf("%s: %w", facetName, ErrCannotDeterminePrimitiveType)
 	}
 
 	primitiveName := primitiveType.Name().Local
 
-	// Check if type is integer-derived (integer and its derived types)
-	// This is needed because integer's primitive is decimal, but integer facets should use ComparableBigInt
+	// check if type is integer-derived (integer and its derived types)
+	// this is needed because integer's primitive is decimal, but integer facets should use ComparableBigInt
 	isIntegerDerived := isIntegerDerivedType(baseType)
 
 	switch primitiveName {
 	case "decimal":
-		// If type is integer-derived, parse as integer (ComparableBigInt) instead of decimal (ComparableBigRat)
+		// if type is integer-derived, parse as integer (ComparableBigInt) instead of decimal (ComparableBigRat)
 		if isIntegerDerived {
 			intVal, err := lexicalparser.ParseInteger(lexical)
 			if err != nil {
@@ -200,7 +200,7 @@ func newRangeFacet(facetName, lexical string, baseType types.Type) (types.Compar
 		return types.ComparableFloat64{Value: doubleVal, Typ: baseType}, nil
 
 	case "duration":
-		// Parse duration as full XSD duration (supports years/months)
+		// parse duration as full XSD duration (supports years/months)
 		xsdDur, err := types.ParseXSDDuration(lexical)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", facetName, err)
@@ -208,8 +208,8 @@ func newRangeFacet(facetName, lexical string, baseType types.Type) (types.Compar
 		return types.ComparableXSDDuration{Value: xsdDur, Typ: baseType}, nil
 
 	default:
-		// For types without Comparable wrappers, return error
-		// This will fall back to string-based validation
+		// for types without Comparable wrappers, return error
+		// this will fall back to string-based validation
 		return nil, fmt.Errorf("%s: no parser available for primitive type %s", facetName, primitiveName)
 	}
 }

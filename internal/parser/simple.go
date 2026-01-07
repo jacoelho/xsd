@@ -49,7 +49,7 @@ func parseSimpleType(elem xml.Element, schema *xsdschema.Schema) error {
 			st.Final = final
 		}
 	} else if schema.FinalDefault != 0 {
-		// Apply finalDefault (restriction, list, union only)
+		// apply finalDefault (restriction, list, union only)
 		st.Final = schema.FinalDefault & types.DerivationSet(types.DerivationRestriction|types.DerivationList|types.DerivationUnion)
 	}
 
@@ -106,7 +106,7 @@ func parseSimpleTypeDefinition(elem xml.Element, schema *xsdschema.Schema) (*typ
 			if err := validateAnnotationOrder(child); err != nil {
 				return nil, err
 			}
-			// Validate id attribute if present
+			// validate id attribute if present
 			if hasIDAttribute(child) {
 				idAttr := child.GetAttribute("id")
 				if err := validateIDAttribute(idAttr, "restriction", schema); err != nil {
@@ -119,7 +119,7 @@ func parseSimpleTypeDefinition(elem xml.Element, schema *xsdschema.Schema) (*typ
 			restriction := &types.Restriction{}
 
 			if base == "" {
-				// Restriction without base attribute must have an inline simpleType child
+				// restriction without base attribute must have an inline simpleType child
 				var inlineBaseType *types.SimpleType
 				for _, grandchild := range child.Children() {
 					if grandchild.NamespaceURI() == xml.XSDNamespace && grandchild.LocalName() == "simpleType" {
@@ -138,9 +138,9 @@ func parseSimpleTypeDefinition(elem xml.Element, schema *xsdschema.Schema) (*typ
 				}
 				st.ResolvedBase = inlineBaseType
 				restriction.SimpleType = inlineBaseType
-				// Leave restriction.Base as zero QName (empty)
+				// leave restriction.Base as zero QName (empty)
 			} else {
-				// Base attribute is present - check that there's no inline simpleType child
+				// base attribute is present - check that there's no inline simpleType child
 				// (per XSD spec: "Either the base attribute or the simpleType child must be present, but not both")
 				for _, grandchild := range child.Children() {
 					if grandchild.NamespaceURI() == xml.XSDNamespace && grandchild.LocalName() == "simpleType" {
@@ -154,7 +154,7 @@ func parseSimpleTypeDefinition(elem xml.Element, schema *xsdschema.Schema) (*typ
 				restriction.Base = baseQName
 			}
 
-			// Parse facets (including whiteSpace) - this will skip the simpleType child since it's not a facet
+			// parse facets (including whiteSpace) - this will skip the simpleType child since it's not a facet
 			if err := parseFacets(child, restriction, st, schema); err != nil {
 				return nil, fmt.Errorf("parse facets: %w", err)
 			}
@@ -169,7 +169,7 @@ func parseSimpleTypeDefinition(elem xml.Element, schema *xsdschema.Schema) (*typ
 			if err := validateAnnotationOrder(child); err != nil {
 				return nil, err
 			}
-			// Validate id attribute if present
+			// validate id attribute if present
 			if hasIDAttribute(child) {
 				idAttr := child.GetAttribute("id")
 				if err := validateIDAttribute(idAttr, "list", schema); err != nil {
@@ -197,8 +197,8 @@ func parseSimpleTypeDefinition(elem xml.Element, schema *xsdschema.Schema) (*typ
 						return nil, fmt.Errorf("parse inline simpleType in list: %w", err)
 					}
 				} else if grandchild.LocalName() == "restriction" {
-					// List can have a restriction child with facets (like pattern)
-					// This allows facets to be applied to the list type
+					// list can have a restriction child with facets (like pattern)
+					// this allows facets to be applied to the list type
 					if restriction != nil {
 						return nil, fmt.Errorf("list cannot have multiple restriction children")
 					}
@@ -210,7 +210,7 @@ func parseSimpleTypeDefinition(elem xml.Element, schema *xsdschema.Schema) (*typ
 				}
 			}
 
-			// Per XSD spec: Either itemType attribute or inline simpleType child must be present, but not both
+			// per XSD spec: Either itemType attribute or inline simpleType child must be present, but not both
 			if itemType != "" && inlineItemType != nil {
 				return nil, fmt.Errorf("list cannot have both itemType attribute and inline simpleType child")
 			}
@@ -220,10 +220,10 @@ func parseSimpleTypeDefinition(elem xml.Element, schema *xsdschema.Schema) (*typ
 			}
 
 			if inlineItemType != nil {
-				// Inline simpleType child - store it in ListType.InlineItemType
-				st.ItemType = inlineItemType // Also store in st.ItemType for resolution
+				// inline simpleType child - store it in ListType.InlineItemType
+				st.ItemType = inlineItemType // also store in st.ItemType for resolution
 				st.List = &types.ListType{
-					ItemType:       types.QName{}, // Zero QName indicates inline type
+					ItemType:       types.QName{}, // zero QName indicates inline type
 					InlineItemType: inlineItemType,
 				}
 			} else {
@@ -243,7 +243,7 @@ func parseSimpleTypeDefinition(elem xml.Element, schema *xsdschema.Schema) (*typ
 			if err := validateAnnotationOrder(child); err != nil {
 				return nil, err
 			}
-			// Validate id attribute if present
+			// validate id attribute if present
 			if hasIDAttribute(child) {
 				idAttr := child.GetAttribute("id")
 				if err := validateIDAttribute(idAttr, "union", schema); err != nil {
@@ -258,7 +258,7 @@ func parseSimpleTypeDefinition(elem xml.Element, schema *xsdschema.Schema) (*typ
 				InlineTypes: []*types.SimpleType{},
 			}
 
-			// Parse memberTypes attribute (space-separated list of QNames)
+			// parse memberTypes attribute (space-separated list of QNames)
 			if memberTypesAttr != "" {
 				memberTypeNames := strings.FieldsSeq(memberTypesAttr)
 				for memberTypeName := range memberTypeNames {
@@ -300,18 +300,18 @@ func parseSimpleTypeDefinition(elem xml.Element, schema *xsdschema.Schema) (*typ
 // tryResolveBaseType attempts to resolve the base type for a restriction
 // Returns the Type if it can be resolved (built-in or already parsed), nil otherwise
 func tryResolveBaseType(restriction *types.Restriction, schema *xsdschema.Schema) types.Type {
-	// If BaseType is already set (from two-phase resolution), use it
+	// if BaseType is already set (from two-phase resolution), use it
 	if restriction.Base.IsZero() {
 		return nil
 	}
 
-	// Try built-in types first
+	// try built-in types first
 	if builtinType := types.GetBuiltinNS(restriction.Base.Namespace, restriction.Base.Local); builtinType != nil {
-		// Return BuiltinType directly - it implements types.Type and is in same package
+		// return BuiltinType directly - it implements types.Type and is in same package
 		return builtinType
 	}
 
-	// Try schema types (may not be available yet during parsing)
+	// try schema types (may not be available yet during parsing)
 	if typeDef, ok := schema.TypeDefs[restriction.Base]; ok {
 		if ct, ok := typeDef.(*types.ComplexType); ok {
 			if _, ok := ct.Content().(*types.SimpleContent); ok {
@@ -342,15 +342,15 @@ func parseFacetsWithAttributes(restrictionElem xml.Element, restriction *types.R
 
 // parseFacetsWithPolicy parses facet elements from a restriction element.
 func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restriction, st *types.SimpleType, schema *xsdschema.Schema, policy facetAttributePolicy) error {
-	// Try to resolve base type for use with constructors
-	// If a nested simpleType is provided (e.g., in complex type restrictions with simpleContent),
+	// try to resolve base type for use with constructors
+	// if a nested simpleType is provided (e.g., in complex type restrictions with simpleContent),
 	// use its base type instead of the restriction's base type
 	var baseType types.Type
 	if st != nil && st.Restriction != nil {
-		// Use the nested simpleType's base type
+		// use the nested simpleType's base type
 		baseType = tryResolveBaseType(st.Restriction, schema)
 	} else {
-		// Use the restriction's base type (normal case)
+		// use the restriction's base type (normal case)
 		baseType = tryResolveBaseType(restriction, schema)
 	}
 
@@ -375,7 +375,7 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			if err := validateOnlyAnnotationChildren(child, "pattern"); err != nil {
 				return err
 			}
-			// Empty pattern is valid per XSD spec (matches only empty string)
+			// empty pattern is valid per XSD spec (matches only empty string)
 			value := child.GetAttribute("value")
 			facet = &facets.Pattern{Value: value}
 
@@ -383,13 +383,13 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			if err := validateOnlyAnnotationChildren(child, "enumeration"); err != nil {
 				return err
 			}
-			// Empty string is a valid enumeration value per XSD spec
-			// We check if attribute is present, not if value is empty
+			// empty string is a valid enumeration value per XSD spec
+			// we check if attribute is present, not if value is empty
 			if !child.HasAttribute("value") {
 				return fmt.Errorf("enumeration facet missing value attribute")
 			}
 			value := child.GetAttribute("value")
-			// Check if we already have an enumeration facet
+			// check if we already have an enumeration facet
 			var enum *facets.Enumeration
 			for _, f := range restriction.Facets {
 				if e, ok := f.(*facets.Enumeration); ok {
@@ -402,7 +402,7 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 				facet = enum
 			} else {
 				enum.Values = append(enum.Values, value)
-				continue // Skip adding duplicate
+				continue // skip adding duplicate
 			}
 
 		case "length":
@@ -417,7 +417,7 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			if err != nil {
 				return fmt.Errorf("invalid length value: %w", err)
 			}
-			// Per XSD spec, length must be a non-negative integer
+			// per XSD spec, length must be a non-negative integer
 			if length < 0 {
 				return fmt.Errorf("length value must be non-negative, got %d", length)
 			}
@@ -435,7 +435,7 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			if err != nil {
 				return fmt.Errorf("invalid minLength value: %w", err)
 			}
-			// Per XSD spec, minLength must be a non-negative integer
+			// per XSD spec, minLength must be a non-negative integer
 			if length < 0 {
 				return fmt.Errorf("minLength value must be non-negative, got %d", length)
 			}
@@ -453,7 +453,7 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			if err != nil {
 				return fmt.Errorf("invalid maxLength value: %w", err)
 			}
-			// Per XSD spec, maxLength must be a non-negative integer
+			// per XSD spec, maxLength must be a non-negative integer
 			if length < 0 {
 				return fmt.Errorf("maxLength value must be non-negative, got %d", length)
 			}
@@ -467,12 +467,12 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			if value == "" {
 				return fmt.Errorf("minInclusive facet missing value")
 			}
-			// Try to use type-safe constructor if base type is available
+			// try to use type-safe constructor if base type is available
 			if baseType != nil {
 				if f, err := facets.NewMinInclusive(value, baseType); err == nil && f != nil {
 					facet = f
 				} else {
-					// If constructor fails due to undetermined primitive type during parsing,
+					// if constructor fails due to undetermined primitive type during parsing,
 					if errors.Is(err, facets.ErrCannotDeterminePrimitiveType) {
 						restriction.Facets = append(restriction.Facets, &facets.DeferredFacet{
 							FacetName:  "minInclusive",
@@ -480,11 +480,11 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 						})
 						continue
 					}
-					// For other errors (e.g., non-ordered type), return error
+					// for other errors (e.g., non-ordered type), return error
 					return fmt.Errorf("minInclusive facet: %w", err)
 				}
 			} else {
-				// Base type not available yet, store as deferred facet
+				// base type not available yet, store as deferred facet
 				restriction.Facets = append(restriction.Facets, &facets.DeferredFacet{
 					FacetName:  "minInclusive",
 					FacetValue: value,
@@ -500,12 +500,12 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			if value == "" {
 				return fmt.Errorf("maxInclusive facet missing value")
 			}
-			// Try to use type-safe constructor if base type is available
+			// try to use type-safe constructor if base type is available
 			if baseType != nil {
 				if f, err := facets.NewMaxInclusive(value, baseType); err == nil && f != nil {
 					facet = f
 				} else {
-					// If constructor fails due to undetermined primitive type during parsing,
+					// if constructor fails due to undetermined primitive type during parsing,
 					if errors.Is(err, facets.ErrCannotDeterminePrimitiveType) {
 						restriction.Facets = append(restriction.Facets, &facets.DeferredFacet{
 							FacetName:  "maxInclusive",
@@ -513,11 +513,11 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 						})
 						continue
 					}
-					// For other errors (e.g., non-ordered type), return error
+					// for other errors (e.g., non-ordered type), return error
 					return fmt.Errorf("maxInclusive facet: %w", err)
 				}
 			} else {
-				// Base type not available yet, store as deferred facet
+				// base type not available yet, store as deferred facet
 				restriction.Facets = append(restriction.Facets, &facets.DeferredFacet{
 					FacetName:  "maxInclusive",
 					FacetValue: value,
@@ -533,12 +533,12 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			if value == "" {
 				return fmt.Errorf("minExclusive facet missing value")
 			}
-			// Try to use type-safe constructor if base type is available
+			// try to use type-safe constructor if base type is available
 			if baseType != nil {
 				if f, err := facets.NewMinExclusive(value, baseType); err == nil && f != nil {
 					facet = f
 				} else {
-					// If constructor fails due to undetermined primitive type during parsing,
+					// if constructor fails due to undetermined primitive type during parsing,
 					if errors.Is(err, facets.ErrCannotDeterminePrimitiveType) {
 						restriction.Facets = append(restriction.Facets, &facets.DeferredFacet{
 							FacetName:  "minExclusive",
@@ -546,11 +546,11 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 						})
 						continue
 					}
-					// For other errors (e.g., non-ordered type), return error
+					// for other errors (e.g., non-ordered type), return error
 					return fmt.Errorf("minExclusive facet: %w", err)
 				}
 			} else {
-				// Base type not available yet, store as deferred facet
+				// base type not available yet, store as deferred facet
 				restriction.Facets = append(restriction.Facets, &facets.DeferredFacet{
 					FacetName:  "minExclusive",
 					FacetValue: value,
@@ -566,12 +566,12 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			if value == "" {
 				return fmt.Errorf("maxExclusive facet missing value")
 			}
-			// Try to use type-safe constructor if base type is available
+			// try to use type-safe constructor if base type is available
 			if baseType != nil {
 				if f, err := facets.NewMaxExclusive(value, baseType); err == nil && f != nil {
 					facet = f
 				} else {
-					// If constructor fails due to undetermined primitive type during parsing,
+					// if constructor fails due to undetermined primitive type during parsing,
 					if errors.Is(err, facets.ErrCannotDeterminePrimitiveType) {
 						restriction.Facets = append(restriction.Facets, &facets.DeferredFacet{
 							FacetName:  "maxExclusive",
@@ -579,11 +579,11 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 						})
 						continue
 					}
-					// For other errors (e.g., non-ordered type), return error
+					// for other errors (e.g., non-ordered type), return error
 					return fmt.Errorf("maxExclusive facet: %w", err)
 				}
 			} else {
-				// Base type not available yet, store as deferred facet
+				// base type not available yet, store as deferred facet
 				restriction.Facets = append(restriction.Facets, &facets.DeferredFacet{
 					FacetName:  "maxExclusive",
 					FacetValue: value,
@@ -603,7 +603,7 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			if err != nil {
 				return fmt.Errorf("invalid totalDigits value: %w", err)
 			}
-			// Per XSD spec, totalDigits must be a positive integer (>0)
+			// per XSD spec, totalDigits must be a positive integer (>0)
 			if digits <= 0 {
 				return fmt.Errorf("totalDigits value must be positive, got %d", digits)
 			}
@@ -621,7 +621,7 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			if err != nil {
 				return fmt.Errorf("invalid fractionDigits value: %w", err)
 			}
-			// Per XSD spec, fractionDigits must be a non-negative integer
+			// per XSD spec, fractionDigits must be a non-negative integer
 			if digits < 0 {
 				return fmt.Errorf("fractionDigits value must be non-negative, got %d", digits)
 			}
@@ -631,16 +631,16 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			if err := validateOnlyAnnotationChildren(child, "whiteSpace"); err != nil {
 				return err
 			}
-			// Parse whiteSpace facet and set it on the SimpleType (if present)
+			// parse whiteSpace facet and set it on the SimpleType (if present)
 			if st == nil {
-				// Complex content restrictions don't have SimpleType
+				// complex content restrictions don't have SimpleType
 				continue
 			}
 			value := child.GetAttribute("value")
 			if value == "" {
 				return fmt.Errorf("whiteSpace facet missing value")
 			}
-			// This allows validation to detect invalid relaxations of the constraint
+			// this allows validation to detect invalid relaxations of the constraint
 			switch value {
 			case "preserve":
 				st.SetWhiteSpaceExplicit(types.WhiteSpacePreserve)
@@ -654,7 +654,7 @@ func parseFacetsWithPolicy(restrictionElem xml.Element, restriction *types.Restr
 			continue
 
 		default:
-			// Unknown facet - reject it as invalid
+			// unknown facet - reject it as invalid
 			return fmt.Errorf("unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", child.LocalName())
 		}
 
@@ -683,7 +683,7 @@ func validateIDAttribute(id string, elementName string, schema *xsdschema.Schema
 	if !types.IsValidNCName(id) {
 		return fmt.Errorf("%s element has invalid id attribute '%s': must be a valid NCName", elementName, id)
 	}
-	// Register id for uniqueness validation
+	// register id for uniqueness validation
 	if existing, exists := schema.IDAttributes[id]; exists {
 		return fmt.Errorf("%s element has duplicate id attribute '%s' (already used by %s)", elementName, id, existing)
 	}

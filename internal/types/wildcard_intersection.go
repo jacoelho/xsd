@@ -11,19 +11,19 @@ func UnionAnyAttribute(w1, w2 *AnyAttribute) *AnyAttribute {
 		return w1
 	}
 
-	// Union namespace constraints
+	// union namespace constraints
 	unionedNS := unionNamespaceConstraints(
 		w1.Namespace, w1.NamespaceList, w1.TargetNamespace,
 		w2.Namespace, w2.NamespaceList, w2.TargetNamespace,
 		w1.TargetNamespace,
 	)
 	if unionedNS.Constraint == NSCInvalid {
-		// Union is not expressible
+		// union is not expressible
 		return nil
 	}
 
 	// ProcessContents: according to spec (line 3332-3333), use the complete wildcard's processContents
-	// For union (extension case), w1 is the complete wildcard, w2 is the base wildcard
+	// for union (extension case), w1 is the complete wildcard, w2 is the base wildcard
 	processContents := w1.ProcessContents
 	return &AnyAttribute{
 		Namespace:       unionedNS.Constraint,
@@ -44,13 +44,13 @@ func IntersectAnyAttribute(w1, w2 *AnyAttribute) *AnyAttribute {
 		return w1
 	}
 
-	// Intersect namespace constraints
+	// intersect namespace constraints
 	intersectedNS := intersectNamespaceConstraints(
 		w1.Namespace, w1.NamespaceList, w1.TargetNamespace,
 		w2.Namespace, w2.NamespaceList, w2.TargetNamespace,
 	)
 	if intersectedNS.Constraint == NSCInvalid {
-		// Intersection is empty
+		// intersection is empty
 		return nil
 	}
 
@@ -77,13 +77,13 @@ func IntersectAnyElement(w1, w2 *AnyElement) *AnyElement {
 		return w1
 	}
 
-	// Intersect namespace constraints
+	// intersect namespace constraints
 	intersectedNS := intersectNamespaceConstraints(
 		w1.Namespace, w1.NamespaceList, w1.TargetNamespace,
 		w2.Namespace, w2.NamespaceList, w2.TargetNamespace,
 	)
 	if intersectedNS.Constraint == NSCInvalid {
-		// Intersection is empty
+		// intersection is empty
 		return nil
 	}
 
@@ -105,7 +105,7 @@ func IntersectAnyElement(w1, w2 *AnyElement) *AnyElement {
 		// w1 is unbounded, use w2's limit
 		maxOccurs = w2.MaxOccurs
 	} else {
-		// Both bounded, use minimum
+		// both bounded, use minimum
 		if w2.MaxOccurs < maxOccurs {
 			maxOccurs = w2.MaxOccurs
 		}

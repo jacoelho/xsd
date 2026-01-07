@@ -16,7 +16,7 @@ func validateParticleStructure(schema *schema.Schema, particle types.Particle, p
 
 // validateParticleStructureWithVisited validates structural constraints with cycle detection
 func validateParticleStructureWithVisited(schema *schema.Schema, particle types.Particle, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
-	// Per XSD spec "Particle Correct":
+	// per XSD spec "Particle Correct":
 	// 1. maxOccurs must be >= 1 (cannot be 0), EXCEPT when minOccurs=0 and maxOccurs=0
 	//    (which effectively means the particle cannot appear - used in restrictions)
 	// 2. when maxOccurs >= 1, it must be >= minOccurs
@@ -24,7 +24,7 @@ func validateParticleStructureWithVisited(schema *schema.Schema, particle types.
 	minOcc := particle.MinOcc()
 
 	// maxOccurs can be -1 (unbounded) or a positive integer >= 1, or 0 if minOccurs=0
-	// Note: W3C test suite includes schemas with maxOccurs=0 and minOccurs=0, which
+	// note: W3C test suite includes schemas with maxOccurs=0 and minOccurs=0, which
 	// we accept for compatibility even though the spec says maxOccurs >= 1
 	if maxOcc == 0 && minOcc != 0 {
 		return fmt.Errorf("maxOccurs cannot be 0 when minOccurs > 0")
@@ -35,13 +35,13 @@ func validateParticleStructureWithVisited(schema *schema.Schema, particle types.
 
 	switch p := particle.(type) {
 	case *types.ModelGroup:
-		// Cycle detection: skip if already visited
+		// cycle detection: skip if already visited
 		if visited[p] {
 			return nil
 		}
 		visited[p] = true
-		// Check for duplicate local element declarations within the same model group.
-		// Per XSD 1.0 "Element Declarations Consistent", declarations with the same
+		// check for duplicate local element declarations within the same model group.
+		// per XSD 1.0 "Element Declarations Consistent", declarations with the same
 		// QName must have consistent type definitions.
 		localElementTypes := make(map[types.QName]types.Type)
 		for _, childParticle := range p.Particles {
@@ -58,7 +58,7 @@ func validateParticleStructureWithVisited(schema *schema.Schema, particle types.
 				}
 			}
 		}
-		// Check if xs:all is nested inside xs:sequence or xs:choice
+		// check if xs:all is nested inside xs:sequence or xs:choice
 		if p.Kind == types.AllGroup {
 			if parentKind != nil {
 				if *parentKind == types.Sequence || *parentKind == types.Choice {
@@ -66,7 +66,7 @@ func validateParticleStructureWithVisited(schema *schema.Schema, particle types.
 				}
 			}
 			// xs:all requires unique element declarations (no duplicate element names)
-			// Per XSD 1.0 Structures spec section 3.8.6: all group particles must be distinct.
+			// per XSD 1.0 Structures spec section 3.8.6: all group particles must be distinct.
 			seenElements := make(map[types.QName]bool)
 			for _, childParticle := range p.Particles {
 				if childElem, ok := childParticle.(*types.ElementDecl); ok {
@@ -77,20 +77,20 @@ func validateParticleStructureWithVisited(schema *schema.Schema, particle types.
 				}
 			}
 			// xs:all must have minOccurs="0" or "1", and maxOccurs="1" (the defaults)
-			// It cannot have any other occurrence values
+			// it cannot have any other occurrence values
 			if p.MinOccurs != 0 && p.MinOccurs != 1 {
 				return fmt.Errorf("xs:all must have minOccurs='0' or '1' (got %d)", p.MinOccurs)
 			}
 			if p.MaxOccurs != 1 {
 				return fmt.Errorf("xs:all must have maxOccurs='1' (got %d)", p.MaxOccurs)
 			}
-			// All particles in xs:all must have maxOccurs <= 1
+			// all particles in xs:all must have maxOccurs <= 1
 			for _, childParticle := range p.Particles {
 				if childParticle.MaxOcc() > 1 {
 					return fmt.Errorf("xs:all: all particles must have maxOccurs <= 1 (got %d)", childParticle.MaxOcc())
 				}
 			}
-			// No nested xs:all with minOccurs > 0
+			// no nested xs:all with minOccurs > 0
 			for _, childParticle := range p.Particles {
 				if childMG, ok := childParticle.(*types.ModelGroup); ok {
 					if childMG.Kind == types.AllGroup && childMG.MinOccurs > 0 {
@@ -100,18 +100,18 @@ func validateParticleStructureWithVisited(schema *schema.Schema, particle types.
 			}
 		}
 
-		// Recursively validate particles with this group as parent
+		// recursively validate particles with this group as parent
 		for _, childParticle := range p.Particles {
 			if err := validateParticleStructureWithVisited(schema, childParticle, &p.Kind, visited); err != nil {
 				return err
 			}
 		}
 	case *types.GroupRef:
-		// Group references are particles that reference a named model group
-		// The actual group validation happens when the referenced group is defined
-		// No additional structural validation needed here beyond occurrence constraints (checked above)
+		// group references are particles that reference a named model group
+		// the actual group validation happens when the referenced group is defined
+		// no additional structural validation needed here beyond occurrence constraints (checked above)
 	case *types.AnyElement:
-		// Wildcard elements don't have additional structural constraints beyond occurrence
+		// wildcard elements don't have additional structural constraints beyond occurrence
 	case *types.ElementDecl:
 		for _, constraint := range p.Constraints {
 			if err := validateIdentityConstraint(schema, constraint, p); err != nil {
@@ -126,28 +126,28 @@ func validateParticleStructureWithVisited(schema *schema.Schema, particle types.
 			}
 			constraintNames[constraint.Name] = true
 		}
-		// Element references don't need their own type - they inherit from the referenced element
+		// element references don't need their own type - they inherit from the referenced element
 		if p.IsReference {
-			// This is an element reference - check that the referenced element exists and has a type
+			// this is an element reference - check that the referenced element exists and has a type
 			if refDecl, exists := schema.ElementDecls[p.Name]; exists {
 				if refDecl.Type == nil {
 					return fmt.Errorf("referenced element '%s' must have a type", p.Name)
 				}
 			}
-			// If referenced element doesn't exist, that's a different error (forward reference or missing import)
-			// Don't validate type here for references
+			// if referenced element doesn't exist, that's a different error (forward reference or missing import)
+			// don't validate type here for references
 		} else if p.Type == nil {
-			// Elements without explicit types default to anyType (handled by parser)
-			// This should not happen, but if it does, it's not a structural error
+			// elements without explicit types default to anyType (handled by parser)
+			// this should not happen, but if it does, it's not a structural error
 			// (the parser should have set anyType as default)
 		} else {
-			// Validate inline types (simpleType or complexType defined inline in the element)
+			// validate inline types (simpleType or complexType defined inline in the element)
 			if st, ok := p.Type.(*types.SimpleType); ok && st.QName.IsZero() {
 				if err := validateSimpleTypeStructure(schema, st); err != nil {
 					return fmt.Errorf("inline simpleType in element '%s': %w", p.Name, err)
 				}
 			} else if ct, ok := p.Type.(*types.ComplexType); ok && ct.QName.IsZero() {
-				// This is a local element (particle in content model), so isInline=true
+				// this is a local element (particle in content model), so isInline=true
 				if err := validateComplexTypeStructure(schema, ct, true); err != nil {
 					return fmt.Errorf("inline complexType in element '%s': %w", p.Name, err)
 				}
@@ -208,13 +208,13 @@ func validateElementDeclarationsConsistentWithVisited(schema *schema.Schema, par
 // validateGroupStructure validates structural constraints of a group definition
 // Does not validate references (which might be forward references or imports)
 func validateGroupStructure(schema *schema.Schema, qname types.QName, group *types.ModelGroup) error {
-	// This is a structural constraint that is definitely invalid if violated
+	// this is a structural constraint that is definitely invalid if violated
 	if !isValidNCName(qname.Local) {
 		return fmt.Errorf("invalid group name '%s': must be a valid NCName", qname.Local)
 	}
 
-	// According to XSD spec: groups cannot have minOccurs="0" or maxOccurs="unbounded" directly
-	// Groups must have minOccurs="1" and maxOccurs="1" (the defaults)
+	// according to XSD spec: groups cannot have minOccurs="0" or maxOccurs="unbounded" directly
+	// groups must have minOccurs="1" and maxOccurs="1" (the defaults)
 	if group.MinOccurs == 0 {
 		return fmt.Errorf("group '%s' cannot have minOccurs='0'", qname.Local)
 	}
@@ -225,6 +225,6 @@ func validateGroupStructure(schema *schema.Schema, qname types.QName, group *typ
 		return fmt.Errorf("group '%s' must have minOccurs='1' and maxOccurs='1' (got minOccurs=%d, maxOccurs=%d)", qname.Local, group.MinOccurs, group.MaxOccurs)
 	}
 
-	// Don't validate content model references - they might be forward references
+	// don't validate content model references - they might be forward references
 	return nil
 }

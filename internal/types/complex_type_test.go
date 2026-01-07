@@ -5,13 +5,13 @@ import (
 )
 
 func TestComplexType_BaseType_ForExtension(t *testing.T) {
-	// Test base type for complex type with extension
+	// test base type for complex type with extension
 	baseType := &ComplexType{
 		QName: QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// Content set via SetContent
+		// content set via SetContent
 	}
 	baseType.SetContent(&ElementContent{})
 
@@ -20,7 +20,7 @@ func TestComplexType_BaseType_ForExtension(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// Content set via SetContent
+		// content set via SetContent
 	}
 	derivedType.SetContent(&ComplexContent{
 		Base: baseType.QName,
@@ -40,13 +40,13 @@ func TestComplexType_BaseType_ForExtension(t *testing.T) {
 }
 
 func TestComplexType_BaseType_ForRestriction(t *testing.T) {
-	// Test base type for complex type with restriction
+	// test base type for complex type with restriction
 	baseType := &ComplexType{
 		QName: QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// Content set via SetContent
+		// content set via SetContent
 	}
 	baseType.SetContent(&ElementContent{})
 
@@ -55,7 +55,7 @@ func TestComplexType_BaseType_ForRestriction(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// Content set via SetContent
+		// content set via SetContent
 	}
 	derivedType.SetContent(&ComplexContent{
 		Base: baseType.QName,
@@ -75,13 +75,13 @@ func TestComplexType_BaseType_ForRestriction(t *testing.T) {
 }
 
 func TestComplexType_BaseType_ForSimpleContent(t *testing.T) {
-	// Test base type for simpleContent (base is a simple type)
+	// test base type for simpleContent (base is a simple type)
 	baseSimpleType := &SimpleType{
 		QName: QName{
 			Namespace: "http://www.w3.org/2001/XMLSchema",
 			Local:     string(TypeNameString),
 		},
-		// Variety set via SetVariety
+		// variety set via SetVariety
 	}
 	baseSimpleType.MarkBuiltin()
 	baseSimpleType.SetVariety(AtomicVariety)
@@ -91,7 +91,7 @@ func TestComplexType_BaseType_ForSimpleContent(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "StringWithAttr",
 		},
-		// Content set via SetContent
+		// content set via SetContent
 	}
 	complexType.SetContent(&SimpleContent{
 		Base: baseSimpleType.QName,
@@ -111,13 +111,13 @@ func TestComplexType_BaseType_ForSimpleContent(t *testing.T) {
 }
 
 func TestComplexType_BaseType(t *testing.T) {
-	// Test BaseType method
+	// test BaseType method
 	baseType := &ComplexType{
 		QName: QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// Content set via SetContent
+		// content set via SetContent
 	}
 	baseType.SetContent(&ElementContent{})
 
@@ -126,7 +126,7 @@ func TestComplexType_BaseType(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// Content set via SetContent
+		// content set via SetContent
 	}
 	derivedType.SetContent(&ComplexContent{
 		Base: baseType.QName,

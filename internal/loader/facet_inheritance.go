@@ -40,18 +40,18 @@ func validateFacetInheritance(derivedFacets []facets.Facet, baseType types.Type)
 // validateFacetInheritanceWithVisited validates facet inheritance with cycle detection
 func validateFacetInheritanceWithVisited(derivedFacets []facets.Facet, baseType types.Type, visited map[types.Type]bool) error {
 	if baseType == nil {
-		return nil // No base type, nothing to inherit
+		return nil // no base type, nothing to inherit
 	}
 
 	if visited[baseType] {
-		return nil // Already visited, skip to avoid infinite recursion
+		return nil // already visited, skip to avoid infinite recursion
 	}
 	visited[baseType] = true
 
-	// Get base type facets if it's a user-defined simple type with restrictions
+	// get base type facets if it's a user-defined simple type with restrictions
 	var baseFacets []facets.Facet
 	if baseST, ok := baseType.(*types.SimpleType); ok && baseST.Restriction != nil {
-		// Convert []interface{} to []facets.Facet
+		// convert []interface{} to []facets.Facet
 		baseFacets = make([]facets.Facet, 0, len(baseST.Restriction.Facets))
 		for _, f := range baseST.Restriction.Facets {
 			if facet, ok := f.(facets.Facet); ok {
@@ -66,18 +66,18 @@ func validateFacetInheritanceWithVisited(derivedFacets []facets.Facet, baseType 
 				}
 			}
 		}
-		// Note: We don't recursively validate base type's base type here
-		// That validation happens when the base type itself is validated
+		// note: We don't recursively validate base type's base type here
+		// that validation happens when the base type itself is validated
 	} else if bt, ok := baseType.(*types.BuiltinType); ok {
 		baseFacets = implicitRangeFacetsForBuiltin(bt)
 	} else {
-		// Built-in types don't have explicit facets in Restriction.Facets
-		// They have implicit facets defined by the type itself
+		// built-in types don't have explicit facets in Restriction.Facets
+		// they have implicit facets defined by the type itself
 		return nil
 	}
 
 	if len(baseFacets) == 0 {
-		return nil // No base facets to inherit
+		return nil // no base facets to inherit
 	}
 
 	baseFacetMap := make(map[string]facets.Facet)
@@ -92,12 +92,12 @@ func validateFacetInheritanceWithVisited(derivedFacets []facets.Facet, baseType 
 	for _, derivedFacet := range derivedFacets {
 		facetName := derivedFacet.Name()
 		if baseFacet, exists := baseFacetMap[facetName]; exists {
-			// Facet exists in base - validate that derived is stricter
+			// facet exists in base - validate that derived is stricter
 			if err := validateFacetRestriction(facetName, baseFacet, derivedFacet, baseType); err != nil {
 				return err
 			}
 		}
-		// If facet doesn't exist in base, it's a new facet (allowed if applicable)
+		// if facet doesn't exist in base, it's a new facet (allowed if applicable)
 	}
 
 	return nil
@@ -195,7 +195,7 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []facets.Facet, bas
 		}
 	}
 
-	// Ensure derived min does not exceed base max (inherited constraint).
+	// ensure derived min does not exceed base max (inherited constraint).
 	if base.maxValue != nil && derived.minValue != nil {
 		cmp, err := compareFacetValues(*derived.minValue, *base.maxValue, baseType)
 		if errors.Is(err, errDurationNotComparable) {
@@ -212,7 +212,7 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []facets.Facet, bas
 		}
 	}
 
-	// Ensure derived max does not fall below base min (inherited constraint).
+	// ensure derived max does not fall below base min (inherited constraint).
 	if base.minValue != nil && derived.maxValue != nil {
 		cmp, err := compareFacetValues(*derived.maxValue, *base.minValue, baseType)
 		if errors.Is(err, errDurationNotComparable) {
@@ -236,7 +236,7 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []facets.Facet, bas
 func validateFacetRestriction(facetName string, baseFacet, derivedFacet facets.Facet, baseType types.Type) error {
 	switch facetName {
 	case "maxInclusive", "maxExclusive":
-		// For max facets, derived value must be <= base value (stricter = smaller)
+		// for max facets, derived value must be <= base value (stricter = smaller)
 		baseLexical, baseOk := baseFacet.(facets.LexicalFacet)
 		derivedLexical, derivedOk := derivedFacet.(facets.LexicalFacet)
 		if !baseOk || !derivedOk {
@@ -259,7 +259,7 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet facets.F
 		}
 
 	case "minInclusive", "minExclusive":
-		// For min facets, derived value must be >= base value (stricter = larger)
+		// for min facets, derived value must be >= base value (stricter = larger)
 		baseLexical, baseOk := baseFacet.(facets.LexicalFacet)
 		derivedLexical, derivedOk := derivedFacet.(facets.LexicalFacet)
 		if !baseOk || !derivedOk {
@@ -282,7 +282,7 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet facets.F
 		}
 
 	case "maxLength":
-		// For maxLength, derived value must be <= base value
+		// for maxLength, derived value must be <= base value
 		baseIntValue, baseOk := baseFacet.(facets.IntValueFacet)
 		derivedIntValue, derivedOk := derivedFacet.(facets.IntValueFacet)
 		if baseOk && derivedOk {
@@ -294,7 +294,7 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet facets.F
 		}
 
 	case "minLength":
-		// For minLength, derived value must be >= base value
+		// for minLength, derived value must be >= base value
 		baseIntValue, baseOk := baseFacet.(facets.IntValueFacet)
 		derivedIntValue, derivedOk := derivedFacet.(facets.IntValueFacet)
 		if baseOk && derivedOk {
@@ -306,7 +306,7 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet facets.F
 		}
 
 	case "length":
-		// For length, derived value must equal base value (can't change length in restriction)
+		// for length, derived value must equal base value (can't change length in restriction)
 		baseIntValue, baseOk := baseFacet.(facets.IntValueFacet)
 		derivedIntValue, derivedOk := derivedFacet.(facets.IntValueFacet)
 		if baseOk && derivedOk {
@@ -318,7 +318,7 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet facets.F
 		}
 
 	case "totalDigits", "fractionDigits":
-		// For digit facets, derived value must be <= base value
+		// for digit facets, derived value must be <= base value
 		baseIntValue, baseOk := baseFacet.(facets.IntValueFacet)
 		derivedIntValue, derivedOk := derivedFacet.(facets.IntValueFacet)
 		if baseOk && derivedOk {
@@ -330,12 +330,12 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet facets.F
 		}
 
 	case "pattern":
-		// Pattern facets: derived pattern must be a subset of base pattern
-		// This is complex to validate, so for now we'll allow it
+		// pattern facets: derived pattern must be a subset of base pattern
+		// this is complex to validate, so for now we'll allow it
 		// (pattern validation is done separately)
 
 	case "enumeration":
-		// Enumeration: derived values must be a subset of base values
+		// enumeration: derived values must be a subset of base values
 		baseEnum, baseOk := baseFacet.(*facets.Enumeration)
 		derivedEnum, derivedOk := derivedFacet.(*facets.Enumeration)
 		if baseOk && derivedOk {
@@ -351,8 +351,8 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet facets.F
 		}
 
 	case "whiteSpace":
-		// WhiteSpace: can only be made stricter (preserve -> replace -> collapse)
-		// Note: whiteSpace is stored on SimpleType, not as a Facet, so this case is
+		// whiteSpace: can only be made stricter (preserve -> replace -> collapse)
+		// note: whiteSpace is stored on SimpleType, not as a Facet, so this case is
 		// handled in validateWhiteSpaceRestriction separately.
 	}
 
@@ -366,14 +366,14 @@ func compareFacetValues(val1, val2 string, baseType types.Type) (int, error) {
 	if st, ok := baseType.(*types.SimpleType); ok {
 		primitiveType = st.PrimitiveType()
 		if primitiveType == nil {
-			// Fall back to base type
+			// fall back to base type
 			primitiveType = baseType
 		}
 	} else {
 		primitiveType = baseType
 	}
 
-	// Check if it's a numeric type by checking the primitive type name
+	// check if it's a numeric type by checking the primitive type name
 	if st, ok := primitiveType.(*types.SimpleType); ok {
 		typeName := st.QName.Local
 		if typeName == "duration" {
@@ -385,7 +385,7 @@ func compareFacetValues(val1, val2 string, baseType types.Type) (int, error) {
 		if facets := st.FundamentalFacets(); facets != nil && facets.Numeric {
 			return compareNumericFacetValues(val1, val2)
 		}
-		// For date/time, use timezone-aware comparison.
+		// for date/time, use timezone-aware comparison.
 		if facets := st.FundamentalFacets(); facets != nil && facets.Ordered == types.OrderedTotal {
 			if isDateTimeTypeName(typeName) {
 				return compareDateTimeValues(val1, val2, typeName)
@@ -406,8 +406,8 @@ func compareFacetValues(val1, val2 string, baseType types.Type) (int, error) {
 		}
 	}
 
-	// Default: try numeric comparison first (many types are numeric)
-	// If that fails, use string comparison
+	// default: try numeric comparison first (many types are numeric)
+	// if that fails, use string comparison
 	if cmp, err := compareNumericFacetValues(val1, val2); err == nil {
 		return cmp, nil
 	}
@@ -416,7 +416,7 @@ func compareFacetValues(val1, val2 string, baseType types.Type) (int, error) {
 		return cmp, nil
 	}
 
-	// Default: string comparison
+	// default: string comparison
 	return strings.Compare(val1, val2), nil
 }
 

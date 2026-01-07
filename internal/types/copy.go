@@ -23,7 +23,7 @@ func CopyType(typ Type, opts CopyOptions) Type {
 	case *ComplexType:
 		return t.Copy(opts)
 	case *BuiltinType:
-		// Built-in types don't need remapping (they're in XSD namespace)
+		// built-in types don't need remapping (they're in XSD namespace)
 		return t
 	default:
 		return typ

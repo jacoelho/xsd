@@ -225,7 +225,7 @@ func TestElementWithoutTypeDefaultsToAnyType(t *testing.T) {
 				t.Fatalf("Parse() error = %v", err)
 			}
 
-			// For top-level elements, check ElementDecls
+			// for top-level elements, check ElementDecls
 			if tt.name == "top-level element without type defaults to anyType" || tt.name == "element with explicit xs:anyType type" {
 				qname := types.QName{
 					Namespace: types.NamespaceURI("http://example.com/test"),
@@ -248,7 +248,7 @@ func TestElementWithoutTypeDefaultsToAnyType(t *testing.T) {
 					t.Errorf("element type Namespace = %q, want %q", typeQName.Namespace, tt.wantTypeNS)
 				}
 
-				// Verify it's the expected type kind and has the correct name
+				// verify it's the expected type kind and has the correct name
 				switch tt.wantTypeKind {
 				case "ComplexType":
 					ct, ok := decl.Type.(*types.ComplexType)
@@ -468,8 +468,8 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 }
 
 func TestComplexContentRestrictionWithAttributesOnly(t *testing.T) {
-	// Test that a restriction can have attributes without a particle
-	// This is valid XSD 1.0 - attributes can exist without particles
+	// test that a restriction can have attributes without a particle
+	// this is valid XSD 1.0 - attributes can exist without particles
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="BaseType">
@@ -526,7 +526,7 @@ func TestComplexContentRestrictionWithAttributesOnly(t *testing.T) {
 }
 
 func TestComplexContentRestrictionOrderValidation(t *testing.T) {
-	// Test that attributes must come after particles if both are present
+	// test that attributes must come after particles if both are present
 	tests := []struct {
 		name    string
 		schema  string
@@ -789,7 +789,7 @@ func TestParseXMLErrorHandling(t *testing.T) {
 					t.Errorf("Parse() error code = %q, want %q", parseErr.Code, tt.wantCode)
 				}
 			} else {
-				// Check if error message contains the code (for wrapped errors)
+				// check if error message contains the code (for wrapped errors)
 				errStr := err.Error()
 				if !strings.Contains(errStr, tt.wantCode) {
 					t.Errorf("Parse() error = %q, want error containing code %q", errStr, tt.wantCode)

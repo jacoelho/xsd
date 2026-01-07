@@ -208,11 +208,11 @@ func (a *Automaton) ValidateWithMatches(children []xml.Element, matcher SymbolMa
 	groupRemainders := make(map[int]int)
 
 	for i, child := range children {
-		// Find the best matching symbol - one that has a valid transition
+		// find the best matching symbol - one that has a valid transition
 		symIdx, isWildcard, next := a.findBestMatch(child, state, matcher)
 
 		if symIdx < 0 {
-			// Element is not part of the content model at all - not allowed (.d)
+			// element is not part of the content model at all - not allowed (.d)
 			return nil, &ValidationError{
 				Index:   i,
 				Message: fmt.Sprintf("element %q not allowed", child.LocalName()),
@@ -228,9 +228,9 @@ func (a *Automaton) ValidateWithMatches(children []xml.Element, matcher SymbolMa
 		}
 
 		if next < 0 {
-			// Element IS in the model but no valid transition exists
-			// If we're in an accepting state, this is extra content (.d)
-			// Otherwise, a required element is missing before this one (.b)
+			// element IS in the model but no valid transition exists
+			// if we're in an accepting state, this is extra content (.d)
+			// otherwise, a required element is missing before this one (.b)
 			isAccepting := (state < len(a.accepting) && a.accepting[state]) ||
 				(state == 0 && a.emptyOK)
 			if isAccepting {
@@ -284,14 +284,14 @@ func (a *Automaton) findBestMatch(elem xml.Element, state int, matcher SymbolMat
 
 	var candidates []symbolCandidate
 
-	// Exact element match
+	// exact element match
 	for i, sym := range a.symbols {
 		if sym.Kind == KindElement && sym.QName.Equal(qname) {
 			candidates = append(candidates, symbolCandidate{i, false})
 		}
 	}
 
-	// Substitution group match
+	// substitution group match
 	if matcher != nil {
 		for i, sym := range a.symbols {
 			if sym.Kind == KindElement && sym.AllowSubstitution && matcher.IsSubstitutable(qname, sym.QName) {
@@ -300,7 +300,7 @@ func (a *Automaton) findBestMatch(elem xml.Element, state int, matcher SymbolMat
 		}
 	}
 
-	// Wildcard matches
+	// wildcard matches
 	for i, sym := range a.symbols {
 		switch sym.Kind {
 		case KindAny:
@@ -327,7 +327,7 @@ func (a *Automaton) findBestMatch(elem xml.Element, state int, matcher SymbolMat
 		return -1, false, -1
 	}
 
-	// Try to find a candidate with a valid transition
+	// try to find a candidate with a valid transition
 	for _, c := range candidates {
 		nextState := a.trans[state][c.idx]
 		if nextState >= 0 {
@@ -335,14 +335,14 @@ func (a *Automaton) findBestMatch(elem xml.Element, state int, matcher SymbolMat
 		}
 	}
 
-	// No valid transition, return the first candidate (for error reporting)
+	// no valid transition, return the first candidate (for error reporting)
 	return candidates[0].idx, candidates[0].isWildcard, a.trans[state][candidates[0].idx]
 }
 
 // findWildcardProcessContents finds the processContents for a wildcard match.
 func (a *Automaton) findWildcardProcessContents(elem xml.Element, wildcards []*types.AnyElement) types.ProcessContents {
 	if len(wildcards) == 0 {
-		return types.Strict // Default to strict if no wildcards available
+		return types.Strict // default to strict if no wildcards available
 	}
 
 	qname := types.QName{
@@ -356,7 +356,7 @@ func (a *Automaton) findWildcardProcessContents(elem xml.Element, wildcards []*t
 		}
 	}
 
-	return types.Strict // Default
+	return types.Strict // default
 }
 
 // matchesWildcard checks if a QName matches a wildcard.

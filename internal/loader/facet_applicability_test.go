@@ -9,10 +9,10 @@ import (
 )
 
 func TestFacetApplicability_LengthOnListType(t *testing.T) {
-	// Length facets are applicable to list types, even if itemType is numeric
-	// Per XSD spec: for list types, length counts list items, not string length
+	// length facets are applicable to list types, even if itemType is numeric
+	// per XSD spec: for list types, length counts list items, not string length
 
-	// Create a list type with numeric itemType (integer)
+	// create a list type with numeric itemType (integer)
 	integerType := types.GetBuiltin(types.TypeNameInteger)
 	if integerType == nil {
 		t.Fatal("integer type not found")
@@ -30,7 +30,7 @@ func TestFacetApplicability_LengthOnListType(t *testing.T) {
 	listType.SetVariety(types.ListVariety)
 	listType.ItemType = integerType
 
-	// Test length facet on list type
+	// test length facet on list type
 	lengthFacet := &facets.Length{Value: 5}
 	facetList := []facets.Facet{lengthFacet}
 	baseQName := listType.QName
@@ -61,7 +61,7 @@ func TestFacetApplicability_MaxLengthOnListType(t *testing.T) {
 	listType.SetVariety(types.ListVariety)
 	listType.ItemType = integerType
 
-	// Test maxLength facet on list type
+	// test maxLength facet on list type
 	maxLengthFacet := &facets.MaxLength{Value: 3}
 	facetList := []facets.Facet{maxLengthFacet}
 	baseQName := listType.QName
@@ -92,7 +92,7 @@ func TestFacetApplicability_MinLengthOnListType(t *testing.T) {
 	listType.SetVariety(types.ListVariety)
 	listType.ItemType = decimalType
 
-	// Test minLength facet on list type
+	// test minLength facet on list type
 	minLengthFacet := &facets.MinLength{Value: 2}
 	facetList := []facets.Facet{minLengthFacet}
 	baseQName := listType.QName
@@ -104,7 +104,7 @@ func TestFacetApplicability_MinLengthOnListType(t *testing.T) {
 }
 
 func TestFacetApplicability_LengthOnAtomicNumericType(t *testing.T) {
-	// Length facets are NOT applicable to atomic numeric types (should fail)
+	// length facets are NOT applicable to atomic numeric types (should fail)
 
 	integerType := types.GetBuiltin(types.TypeNameInteger)
 	if integerType == nil {

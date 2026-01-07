@@ -97,15 +97,15 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 
 	schema := xsdschema.NewSchema()
 
-	// Check if targetNamespace attribute is present and validate it
-	// According to XSD 1.0 spec, targetNamespace cannot be an empty string
-	// It must either be absent (no namespace) or have a non-empty value
-	// Also, schema attributes must be unprefixed (not in XSD namespace)
+	// check if targetNamespace attribute is present and validate it
+	// according to XSD 1.0 spec, targetNamespace cannot be an empty string
+	// it must either be absent (no namespace) or have a non-empty value
+	// also, schema attributes must be unprefixed (not in XSD namespace)
 	targetNSAttr := ""
 	targetNSFound := false
 	for _, attr := range root.Attributes() {
-		// Schema attributes must be unprefixed (empty namespace)
-		// Prefixed attributes like xsd:targetNamespace are invalid
+		// schema attributes must be unprefixed (empty namespace)
+		// prefixed attributes like xsd:targetNamespace are invalid
 		if attr.LocalName() == "targetNamespace" {
 			if attr.NamespaceURI() != "" {
 				return nil, fmt.Errorf("schema attribute 'targetNamespace' must be unprefixed (found '%s:targetNamespace')", attr.NamespaceURI())
@@ -116,17 +116,17 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		}
 	}
 	if !targetNSFound {
-		// Attribute is absent - this is valid (means no target namespace)
+		// attribute is absent - this is valid (means no target namespace)
 		schema.TargetNamespace = types.NamespaceEmpty
 	} else {
-		// Attribute is present - validate it's not empty
+		// attribute is present - validate it's not empty
 		if targetNSAttr == "" {
 			return nil, fmt.Errorf("targetNamespace attribute cannot be empty (must be absent or have a non-empty value)")
 		}
 		schema.TargetNamespace = types.NamespaceURI(targetNSAttr)
 	}
 
-	// Note: Go's encoding/xml represents xmlns:prefix attributes with NamespaceURI="xmlns"
+	// note: Go's encoding/xml represents xmlns:prefix attributes with NamespaceURI="xmlns"
 	// and the local name is the prefix
 	for _, attr := range root.Attributes() {
 		if attr.LocalName() == "xmlns" && (attr.NamespaceURI() == "" || attr.NamespaceURI() == xml.XMLNSNamespace) {
@@ -207,7 +207,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 
 		switch child.LocalName() {
 		case "annotation":
-			// Allowed at top-level; nothing to parse.
+			// allowed at top-level; nothing to parse.
 		case "import":
 			if hasIDAttribute(child) {
 				idAttr := child.GetAttribute("id")
@@ -295,7 +295,7 @@ func parseTopLevelNotation(elem xml.Element, schema *xsdschema.Schema) error {
 		return fmt.Errorf("notation must not contain character data")
 	}
 
-	// Notation must have a name attribute
+	// notation must have a name attribute
 	name := elem.GetAttribute("name")
 	if name == "" {
 		return fmt.Errorf("notation must have a 'name' attribute")
@@ -312,9 +312,9 @@ func parseTopLevelNotation(elem xml.Element, schema *xsdschema.Schema) error {
 		}
 	}
 
-	// Notation must have either public or system attribute
-	// Per XSD spec, both public and system can be empty strings (they're URIs)
-	// The requirement is that at least ONE attribute must be present
+	// notation must have either public or system attribute
+	// per XSD spec, both public and system can be empty strings (they're URIs)
+	// the requirement is that at least ONE attribute must be present
 	public := elem.GetAttribute("public")
 	system := elem.GetAttribute("system")
 	hasPublic := elem.HasAttribute("public")
@@ -323,7 +323,7 @@ func parseTopLevelNotation(elem xml.Element, schema *xsdschema.Schema) error {
 		return fmt.Errorf("notation must have either 'public' or 'system' attribute")
 	}
 
-	// Validate annotation constraints: at most one annotation, must be first
+	// validate annotation constraints: at most one annotation, must be first
 	hasAnnotation := false
 	for _, child := range elem.Children() {
 		if child.NamespaceURI() != xml.XSDNamespace {
@@ -337,13 +337,13 @@ func parseTopLevelNotation(elem xml.Element, schema *xsdschema.Schema) error {
 			}
 			hasAnnotation = true
 		default:
-			// Notation can only have annotation as child
+			// notation can only have annotation as child
 			return fmt.Errorf("notation '%s': unexpected child element '%s'", name, child.LocalName())
 		}
 	}
 
-	// Top-level notation names are NCNames, not QNames.
-	// The component is always in the schema's target namespace.
+	// top-level notation names are NCNames, not QNames.
+	// the component is always in the schema's target namespace.
 	notationQName := types.QName{
 		Local:     name,
 		Namespace: schema.TargetNamespace,
@@ -360,7 +360,7 @@ func parseTopLevelNotation(elem xml.Element, schema *xsdschema.Schema) error {
 		SourceNamespace: schema.TargetNamespace,
 	}
 
-	// Store in schema's global notation declarations
+	// store in schema's global notation declarations
 	schema.NotationDecls[notationQName] = notation
 
 	return nil

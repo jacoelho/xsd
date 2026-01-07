@@ -9,7 +9,7 @@ import (
 )
 
 func TestParser_UsesFacetConstructors(t *testing.T) {
-	// Test that parser uses type-safe facet constructors when base type is available
+	// test that parser uses type-safe facet constructors when base type is available
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com"
@@ -45,7 +45,7 @@ func TestParser_UsesFacetConstructors(t *testing.T) {
 		t.Fatal("Restriction is nil")
 	}
 
-	// Check that facets are Facet instances (from constructors)
+	// check that facets are Facet instances (from constructors)
 	foundMinInclusive := false
 	foundMaxInclusive := false
 
@@ -70,7 +70,7 @@ func TestParser_UsesFacetConstructors(t *testing.T) {
 }
 
 func TestParser_UsesFacetConstructors_Integer(t *testing.T) {
-	// Test with integer base type
+	// test with integer base type
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com"
@@ -105,7 +105,7 @@ func TestParser_UsesFacetConstructors_Integer(t *testing.T) {
 	for _, f := range st.Restriction.Facets {
 		if facet, ok := f.(facets.Facet); ok {
 			if facet.Name() == "minInclusive" || facet.Name() == "maxInclusive" {
-				// Good - using constructor
+				// good - using constructor
 				return
 			}
 		}
@@ -115,7 +115,7 @@ func TestParser_UsesFacetConstructors_Integer(t *testing.T) {
 }
 
 func TestParser_FallbackToStringFacets_UserDefinedType(t *testing.T) {
-	// Test that parser falls back to string-based facets when base type is not available
+	// test that parser falls back to string-based facets when base type is not available
 	// (user-defined types defined later in the schema)
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -136,9 +136,9 @@ func TestParser_FallbackToStringFacets_UserDefinedType(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	// During parsing, baseType might not be available yet, so facets won't be created
-	// After two-phase resolution in the loader, facets should be created
-	// For now, we just verify it doesn't crash and the type is parsed correctly
+	// during parsing, baseType might not be available yet, so facets won't be created
+	// after two-phase resolution in the loader, facets should be created
+	// for now, we just verify it doesn't crash and the type is parsed correctly
 	qname := types.QName{
 		Namespace: "http://example.com",
 		Local:     "restrictedType",
@@ -153,17 +153,17 @@ func TestParser_FallbackToStringFacets_UserDefinedType(t *testing.T) {
 		t.Fatal("type is not a SimpleType")
 	}
 
-	// Facets may not be created during parsing if baseType is not available
-	// They will be created during two-phase resolution in the loader
-	// So we just verify the type structure is correct
+	// facets may not be created during parsing if baseType is not available
+	// they will be created during two-phase resolution in the loader
+	// so we just verify the type structure is correct
 	if st.Restriction == nil {
 		t.Error("Restriction should not be nil")
 	}
 }
 
 func TestParser_RestrictionWithInlineSimpleType(t *testing.T) {
-	// Test restriction without base attribute but with inline simpleType child
-	// This is a valid XSD pattern where the base type is defined inline
+	// test restriction without base attribute but with inline simpleType child
+	// this is a valid XSD pattern where the base type is defined inline
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com"
@@ -203,7 +203,7 @@ func TestParser_RestrictionWithInlineSimpleType(t *testing.T) {
 		t.Fatal("Restriction is nil")
 	}
 
-	// Restriction.Base should be zero (empty) since it's an inline base
+	// restriction.Base should be zero (empty) since it's an inline base
 	if !st.Restriction.Base.IsZero() {
 		t.Errorf("Restriction.Base should be zero for inline simpleType base, got %v", st.Restriction.Base)
 	}
@@ -213,13 +213,13 @@ func TestParser_RestrictionWithInlineSimpleType(t *testing.T) {
 		t.Fatal("ResolvedBase should be set to the inline simpleType")
 	}
 
-	// Verify the inline base type is a SimpleType
+	// verify the inline base type is a SimpleType
 	baseST, ok := st.ResolvedBase.(*types.SimpleType)
 	if !ok {
 		t.Fatalf("ResolvedBase should be a SimpleType, got %T", st.ResolvedBase)
 	}
 
-	// The inline base should have its own restriction with base="xs:string"
+	// the inline base should have its own restriction with base="xs:string"
 	if baseST.Restriction == nil {
 		t.Fatal("Inline base type should have a restriction")
 	}
@@ -230,14 +230,14 @@ func TestParser_RestrictionWithInlineSimpleType(t *testing.T) {
 		t.Errorf("Inline base type should restrict xs:string, got %v", baseST.Restriction.Base)
 	}
 
-	// Verify whiteSpace facet is set on the outer type (value="replace")
+	// verify whiteSpace facet is set on the outer type (value="replace")
 	if st.WhiteSpace() != types.WhiteSpaceReplace {
 		t.Errorf("WhiteSpace should be Replace, got %v", st.WhiteSpace())
 	}
 }
 
 func TestParser_RestrictionWithInlineSimpleTypeUnion(t *testing.T) {
-	// Test restriction with inline simpleType containing a union
+	// test restriction with inline simpleType containing a union
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com"
@@ -276,7 +276,7 @@ func TestParser_RestrictionWithInlineSimpleTypeUnion(t *testing.T) {
 		t.Fatal("Restriction is nil")
 	}
 
-	// Restriction.Base should be zero (empty) since it's an inline base
+	// restriction.Base should be zero (empty) since it's an inline base
 	if !st.Restriction.Base.IsZero() {
 		t.Errorf("Restriction.Base should be zero for inline simpleType base, got %v", st.Restriction.Base)
 	}
@@ -286,7 +286,7 @@ func TestParser_RestrictionWithInlineSimpleTypeUnion(t *testing.T) {
 		t.Fatal("ResolvedBase should be set to the inline simpleType")
 	}
 
-	// Verify the inline base type is a SimpleType with Union variety
+	// verify the inline base type is a SimpleType with Union variety
 	baseST, ok := st.ResolvedBase.(*types.SimpleType)
 	if !ok {
 		t.Fatalf("ResolvedBase should be a SimpleType, got %T", st.ResolvedBase)
@@ -300,7 +300,7 @@ func TestParser_RestrictionWithInlineSimpleTypeUnion(t *testing.T) {
 		t.Fatal("Inline base type should have a Union")
 	}
 
-	// Verify enumeration facet is present
+	// verify enumeration facet is present
 	foundEnum := false
 	for _, f := range st.Restriction.Facets {
 		if facet, ok := f.(facets.Facet); ok {
@@ -323,7 +323,7 @@ func TestParser_RestrictionWithInlineSimpleTypeUnion(t *testing.T) {
 }
 
 func TestParser_RestrictionCannotHaveBothBaseAndSimpleType(t *testing.T) {
-	// Test that restriction cannot have both base attribute and inline simpleType child
+	// test that restriction cannot have both base attribute and inline simpleType child
 	// (per XSD spec: "Either the base attribute or the simpleType child must be present, but not both")
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

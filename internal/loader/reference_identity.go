@@ -21,7 +21,7 @@ func collectAllIdentityConstraints(schema *schema.Schema) []*types.IdentityConst
 
 	for _, decl := range schema.ElementDecls {
 		all = append(all, decl.Constraints...)
-		// Also check inline type's content model.
+		// also check inline type's content model.
 		if ct, ok := decl.Type.(*types.ComplexType); ok {
 			collectFromContent(ct.Content())
 		}
@@ -73,9 +73,9 @@ func collectIdentityConstraintsFromParticlesWithVisited(particles []types.Partic
 		switch p := particle.(type) {
 		case *types.ElementDecl:
 			constraints = append(constraints, p.Constraints...)
-			// Also check inline type's content model (for nested local elements).
+			// also check inline type's content model (for nested local elements).
 			if ct, ok := p.Type.(*types.ComplexType); ok {
-				// Skip if already visited (prevents infinite recursion).
+				// skip if already visited (prevents infinite recursion).
 				if visitedTypes[ct] {
 					continue
 				}
@@ -83,7 +83,7 @@ func collectIdentityConstraintsFromParticlesWithVisited(particles []types.Partic
 				constraints = append(constraints, collectIdentityConstraintsFromContentWithVisited(ct.Content(), visited, visitedTypes)...)
 			}
 		case *types.ModelGroup:
-			// Skip if already visited (prevents infinite recursion in cyclic groups).
+			// skip if already visited (prevents infinite recursion in cyclic groups).
 			if visited[p] {
 				continue
 			}
@@ -100,11 +100,11 @@ func collectIdentityConstraintsFromParticlesWithVisited(particles []types.Partic
 func validateIdentityConstraintUniqueness(schema *schema.Schema) []error {
 	var errors []error
 
-	// Identity constraints are identified by (name, targetNamespace) per XSD spec.
-	// The targetNamespace comes from the enclosing <xs:schema> element, stored in
+	// identity constraints are identified by (name, targetNamespace) per XSD spec.
+	// the targetNamespace comes from the enclosing <xs:schema> element, stored in
 	// IdentityConstraint.TargetNamespace during parsing.
 	//
-	// Map: (constraint name, target namespace) -> list of constraints with that identity.
+	// map: (constraint name, target namespace) -> list of constraints with that identity.
 	type constraintKey struct {
 		name      string
 		namespace types.NamespaceURI
@@ -120,7 +120,7 @@ func validateIdentityConstraintUniqueness(schema *schema.Schema) []error {
 		constraintsByKey[key] = append(constraintsByKey[key], constraint)
 	}
 
-	// Check for duplicates (more than one constraint with same identity).
+	// check for duplicates (more than one constraint with same identity).
 	for key, constraints := range constraintsByKey {
 		if len(constraints) > 1 {
 			errors = append(errors, fmt.Errorf("identity constraint name '%s' is not unique within target namespace '%s' (%d definitions)",
@@ -174,7 +174,7 @@ func validateKeyrefConstraints(contextQName types.QName, constraints []*types.Id
 			continue
 		}
 
-		// Validate field type compatibility (if types can be resolved).
+		// validate field type compatibility (if types can be resolved).
 		for i := 0; i < len(constraint.Fields); i++ {
 			keyrefField := constraint.Fields[i]
 			refField := referencedConstraint.Fields[i]
@@ -204,8 +204,8 @@ func validateIdentityConstraintResolution(schema *schema.Schema, constraint *typ
 
 		_, err = resolveFieldType(schema, &field, decl, constraint.Selector.XPath)
 		if err != nil {
-			// Only fail on definitively invalid cases: field '.' on element-only complex content.
-			// Per XSD spec Section 13.2: fields must select attributes or elements with simple content.
+			// only fail on definitively invalid cases: field '.' on element-only complex content.
+			// per XSD spec Section 13.2: fields must select attributes or elements with simple content.
 			if errors.Is(err, ErrFieldSelectsComplexContent) {
 				if ct, ok := selectedElementType.(*types.ComplexType); ok && !ct.Mixed() {
 					return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
@@ -226,12 +226,12 @@ func areFieldTypesCompatible(field1Type, field2Type types.Type) bool {
 		return false
 	}
 
-	// Same type is always compatible.
+	// same type is always compatible.
 	if field1Type.Name() == field2Type.Name() {
 		return true
 	}
 
-	// Check if one is derived from the other.
+	// check if one is derived from the other.
 	if isDerivedFrom(field1Type, field2Type) {
 		return true
 	}
@@ -239,7 +239,7 @@ func areFieldTypesCompatible(field1Type, field2Type types.Type) bool {
 		return true
 	}
 
-	// Check if both derive from the same primitive type.
+	// check if both derive from the same primitive type.
 	prim1 := getPrimitiveType(field1Type)
 	prim2 := getPrimitiveType(field2Type)
 	if prim1 != nil && prim2 != nil && prim1.Name() == prim2.Name() {
@@ -265,7 +265,7 @@ func getPrimitiveType(typ types.Type) types.Type {
 		return st.PrimitiveType()
 	}
 
-	// Built-in types have PrimitiveType() method via Type interface.
+	// built-in types have PrimitiveType() method via Type interface.
 	primitive := typ.PrimitiveType()
 	if primitive != nil {
 		return primitive

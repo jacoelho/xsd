@@ -284,7 +284,7 @@ func validateName(value string) error {
 		return fmt.Errorf("Name cannot be empty")
 	}
 
-	// Iterate through runes (not bytes) to handle UTF-8 properly
+	// iterate through runes (not bytes) to handle UTF-8 properly
 	runes := []rune(value)
 	if !isNameStartChar(runes[0]) {
 		return fmt.Errorf("invalid Name start character: %c", runes[0])
@@ -309,7 +309,7 @@ func validateNCName(value string) error {
 		return fmt.Errorf("NCName cannot contain colons")
 	}
 
-	// Iterate through runes (not bytes) to handle UTF-8 properly
+	// iterate through runes (not bytes) to handle UTF-8 properly
 	runes := []rune(value)
 	if !isNameStartChar(runes[0]) {
 		return fmt.Errorf("invalid NCName start character: %c", runes[0])
@@ -379,7 +379,7 @@ func validateIDREF(value string) error {
 // validateIDREFS validates xs:IDREFS (space-separated list of IDREFs)
 func validateIDREFS(value string) error {
 	if len(value) == 0 {
-		return nil // Empty is valid
+		return nil // empty is valid
 	}
 
 	parts := strings.FieldsSeq(value)
@@ -400,7 +400,7 @@ func validateENTITY(value string) error {
 // validateENTITIES validates xs:ENTITIES (space-separated list of ENTITYs)
 func validateENTITIES(value string) error {
 	if len(value) == 0 {
-		return nil // Empty is valid
+		return nil // empty is valid
 	}
 
 	parts := strings.FieldsSeq(value)
@@ -432,7 +432,7 @@ func validateNMTOKEN(value string) error {
 // validateNMTOKENS validates xs:NMTOKENS (space-separated list of NMTOKENs)
 func validateNMTOKENS(value string) error {
 	if len(value) == 0 {
-		return nil // Empty is valid
+		return nil // empty is valid
 	}
 
 	parts := strings.FieldsSeq(value)
@@ -451,8 +451,8 @@ func validateNMTOKENS(value string) error {
 var languagePattern = regexp.MustCompile(`^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$`)
 
 func validateLanguage(value string) error {
-	// Per XSD spec, language pattern is [a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*
-	// Empty string is not valid (pattern requires at least one character)
+	// per XSD spec, language pattern is [a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*
+	// empty string is not valid (pattern requires at least one character)
 	if !languagePattern.MatchString(value) {
 		return fmt.Errorf("invalid language format: %s", value)
 	}
@@ -463,7 +463,7 @@ func validateLanguage(value string) error {
 // validateDuration validates xs:duration
 // Format: PnYnMnDTnHnMnS or -PnYnMnDTnHnMnS
 func validateDuration(value string) error {
-	// Basic format check
+	// basic format check
 	durationPattern := regexp.MustCompile(`^-?P(\d+Y)?(\d+M)?(\d+D)?(T(\d+H)?(\d+M)?(\d+(\.\d+)?S)?)?$`)
 	if !durationPattern.MatchString(value) {
 		return fmt.Errorf("invalid duration format: %s", value)
@@ -475,8 +475,8 @@ func validateDuration(value string) error {
 		}
 	}
 
-	// Try to parse with Go's time.ParseDuration (simplified)
-	// For full compliance, we'd need a custom parser
+	// try to parse with Go's time.ParseDuration (simplified)
+	// for full compliance, we'd need a custom parser
 	_, err := parseDuration(value)
 	return err
 }
@@ -510,7 +510,7 @@ func parseDuration(s string) (time.Duration, error) {
 		timePart = parts[1]
 	}
 
-	// Parse date part (years, months, days)
+	// parse date part (years, months, days)
 	datePattern := regexp.MustCompile(`(\d+)Y|(\d+)M|(\d+)D`)
 	matches := datePattern.FindAllStringSubmatch(datePart, -1)
 	for _, match := range matches {
@@ -528,7 +528,7 @@ func parseDuration(s string) (time.Duration, error) {
 		}
 	}
 
-	// Parse time part (hours, minutes, seconds)
+	// parse time part (hours, minutes, seconds)
 	if timePart != "" {
 		timePattern := regexp.MustCompile(`(\d+)H|(\d+)M|(\d+(\.\d+)?)S`)
 		matches := timePattern.FindAllStringSubmatch(timePart, -1)
@@ -548,18 +548,18 @@ func parseDuration(s string) (time.Duration, error) {
 		}
 	}
 
-	// Duration must have at least one component specified
+	// duration must have at least one component specified
 	// "P" alone is invalid, but "P0Y" is valid (0 years is a valid component)
 	if !hasDateComponent && !hasTimeComponent {
 		return 0, fmt.Errorf("duration must have at least one component")
 	}
 
-	// If T is present but no time components, that's invalid
+	// if T is present but no time components, that's invalid
 	if hasTimeDesignator && !hasTimeComponent {
 		return 0, fmt.Errorf("time designator present but no time components specified")
 	}
 
-	// In real validation, we'd need to handle years/months specially
+	// in real validation, we'd need to handle years/months specially
 	dur := time.Duration(days)*24*time.Hour +
 		time.Duration(hours)*time.Hour +
 		time.Duration(minutes)*time.Minute +
@@ -906,21 +906,21 @@ func isValidDate(year, month, day int) bool {
 // Format: hexadecimal digits (0-9, a-f, A-F) in pairs
 func validateHexBinary(value string) error {
 	if len(value) == 0 {
-		return nil // Empty is valid
+		return nil // empty is valid
 	}
 
-	// Must be even number of characters
+	// must be even number of characters
 	if len(value)%2 != 0 {
 		return fmt.Errorf("hexBinary must have even number of characters")
 	}
 
-	// Must contain only hex digits
+	// must contain only hex digits
 	hexPattern := regexp.MustCompile(`^[0-9A-Fa-f]+$`)
 	if !hexPattern.MatchString(value) {
 		return fmt.Errorf("hexBinary must contain only hexadecimal digits (0-9, A-F, a-f)")
 	}
 
-	// Try to decode to verify it's valid hex
+	// try to decode to verify it's valid hex
 	_, err := hex.DecodeString(value)
 	if err != nil {
 		return fmt.Errorf("invalid hexBinary: %v", err)
@@ -933,16 +933,16 @@ func validateHexBinary(value string) error {
 // Format: base64 encoded string
 func validateBase64Binary(value string) error {
 	if len(value) == 0 {
-		return nil // Empty is valid
+		return nil // empty is valid
 	}
 
-	// Remove whitespace (base64 can contain whitespace in XML)
+	// remove whitespace (base64 can contain whitespace in XML)
 	value = strings.ReplaceAll(value, " ", "")
 	value = strings.ReplaceAll(value, "\t", "")
 	value = strings.ReplaceAll(value, "\n", "")
 	value = strings.ReplaceAll(value, "\r", "")
 
-	// Try to decode to verify it's valid base64 (strict padding/charset).
+	// try to decode to verify it's valid base64 (strict padding/charset).
 	if _, err := base64.StdEncoding.Strict().DecodeString(value); err != nil {
 		return fmt.Errorf("invalid base64Binary: %v", err)
 	}
@@ -954,10 +954,10 @@ func validateBase64Binary(value string) error {
 // Format: URI/IRI reference (RFC 2396 and RFC 2732)
 func validateAnyURI(value string) error {
 	if len(value) == 0 {
-		return nil // Empty URI is valid
+		return nil // empty URI is valid
 	}
 
-	// Reject control characters and whitespace.
+	// reject control characters and whitespace.
 	for _, r := range value {
 		if r < 0x20 || r == 0x7f {
 			return fmt.Errorf("anyURI contains control characters")
@@ -967,12 +967,12 @@ func validateAnyURI(value string) error {
 		}
 	}
 
-	// Backslashes and a few prohibited delimiters are not valid in URI references.
+	// backslashes and a few prohibited delimiters are not valid in URI references.
 	if strings.ContainsAny(value, "\\{}|^`") {
 		return fmt.Errorf("anyURI contains invalid characters")
 	}
 
-	// Validate percent-encoding: every '%' must be followed by two hex digits.
+	// validate percent-encoding: every '%' must be followed by two hex digits.
 	for i := 0; i < len(value); i++ {
 		if value[i] != '%' {
 			continue
@@ -983,7 +983,7 @@ func validateAnyURI(value string) error {
 		i += 2
 	}
 
-	// Validate scheme if present (scheme must precede any '/', '?', or '#').
+	// validate scheme if present (scheme must precede any '/', '?', or '#').
 	if idx := strings.Index(value, ":"); idx != -1 {
 		delimiter := strings.IndexAny(value, "/?#")
 		if delimiter == -1 || idx < delimiter {
@@ -1012,7 +1012,7 @@ func validateQName(value string) error {
 		return fmt.Errorf("QName cannot be empty")
 	}
 
-	// Check for prefix (local:name format)
+	// check for prefix (local:name format)
 	parts := strings.Split(value, ":")
 	if len(parts) > 2 {
 		return fmt.Errorf("QName can have at most one colon")
@@ -1038,6 +1038,6 @@ func validateQName(value string) error {
 // We can only validate the QName format here; notation reference validation
 // must be done at the schema level
 func validateNOTATION(value string) error {
-	// Format is the same as QName
+	// format is the same as QName
 	return validateQName(value)
 }
