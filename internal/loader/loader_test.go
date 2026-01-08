@@ -208,6 +208,43 @@ func TestLoader_CircularInclude(t *testing.T) {
 	}
 }
 
+func TestLoader_RestrictionAttributesIncludeBaseChain(t *testing.T) {
+	testFS := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:attribute name="id" type="xs:ID"/>
+  <xs:complexType name="Base">
+    <xs:attribute ref="tns:id" use="optional"/>
+  </xs:complexType>
+  <xs:complexType name="Intermediate">
+    <xs:complexContent>
+      <xs:extension base="tns:Base"/>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="Restricted">
+    <xs:complexContent>
+      <xs:restriction base="tns:Intermediate">
+        <xs:attribute ref="tns:id" use="required"/>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	if _, err := loader.Load("schema.xsd"); err != nil {
+		t.Fatalf("Load() should succeed for restriction inheriting base attributes, got error: %v", err)
+	}
+}
+
 func TestLoader_IncludeDuplicateFromDifferentPaths(t *testing.T) {
 	testFS := fstest.MapFS{
 		"main.xsd": &fstest.MapFile{

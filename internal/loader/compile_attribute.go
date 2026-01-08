@@ -38,8 +38,8 @@ func (c *Compiler) mergeAttributes(ct *types.ComplexType, chain []*grammar.Compi
 // - Attributes from attribute groups
 //
 // Per XSD 1.0 spec section 3.4.2, "prohibited" attribute uses are NOT included in
-// the {attribute uses} property of the complex type. They serve only to exclude
-// attributes inherited from a base type.
+// the {attribute uses} property of the complex type. The XSD 1.0 W3C tests treat
+// use="prohibited" with fixed as a valid use, so we keep those for validation.
 func (c *Compiler) collectAttributesFromComplexType(ct *types.ComplexType, attrMap map[types.QName]*grammar.CompiledAttribute) {
 	// 1. Direct attributes on the type
 	for _, attr := range ct.Attributes() {
