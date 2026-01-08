@@ -194,6 +194,13 @@ func (r *streamRun) constraintDeclsForQName(qname types.QName) []*grammar.Compil
 	if cached, ok := r.constraintDecls[qname]; ok {
 		return cached
 	}
+	if r.validator != nil && r.validator.grammar != nil {
+		if base := r.validator.grammar.ConstraintDeclsByQName; base != nil {
+			if cached, ok := base[qname]; ok {
+				return cached
+			}
+		}
+	}
 	var matches []*grammar.CompiledElement
 	for _, decl := range r.schema.ElementsWithConstraints() {
 		if decl.QName == qname {
@@ -206,6 +213,9 @@ func (r *streamRun) constraintDeclsForQName(qname types.QName) []*grammar.Compil
 				break
 			}
 		}
+	}
+	if r.constraintDecls == nil {
+		r.constraintDecls = make(map[types.QName][]*grammar.CompiledElement)
 	}
 	r.constraintDecls[qname] = matches
 	return matches

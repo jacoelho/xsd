@@ -94,6 +94,7 @@ func (c *Compiler) Compile() (*grammar.CompiledSchema, error) {
 
 	// collect all elements with identity constraints (precomputed for validation)
 	c.collectElementsWithConstraints()
+	c.buildConstraintDeclsByQName()
 
 	// index all local elements (non-top-level) for XPath evaluation
 	c.indexLocalElements()
@@ -289,6 +290,27 @@ func (c *Compiler) collectElementsWithConstraints() {
 	for _, ct := range c.anonymousTypes {
 		c.collectConstraintElementsFromType(ct, seen, visitedTypes)
 	}
+}
+
+func (c *Compiler) buildConstraintDeclsByQName() {
+	if len(c.grammar.ElementsWithConstraints) == 0 {
+		return
+	}
+
+	lookup := make(map[types.QName][]*grammar.CompiledElement, len(c.grammar.ElementsWithConstraints))
+	for _, decl := range c.grammar.ElementsWithConstraints {
+		if decl == nil {
+			continue
+		}
+		lookup[decl.QName] = append(lookup[decl.QName], decl)
+		for _, sub := range c.grammar.SubstitutionGroups[decl.QName] {
+			if sub == nil {
+				continue
+			}
+			lookup[sub.QName] = append(lookup[sub.QName], decl)
+		}
+	}
+	c.grammar.ConstraintDeclsByQName = lookup
 }
 
 // collectConstraintElementsFromType traverses a type's content model to find elements with constraints.

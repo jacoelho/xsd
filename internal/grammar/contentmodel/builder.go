@@ -357,6 +357,16 @@ func (b *Builder) construct() (*Automaton, error) {
 	}
 	a.posElements = posElements
 	a.stateSymbolPos = make([][]int, len(a.trans))
+	if len(a.groupCounters) > 0 {
+		a.groupIndexByID = make(map[int]int)
+		for _, info := range a.groupCounters {
+			if _, ok := a.groupIndexByID[info.GroupID]; ok {
+				continue
+			}
+			a.groupIndexByID[info.GroupID] = len(a.groupIndexByID)
+		}
+		a.groupCount = len(a.groupIndexByID)
+	}
 
 	nextBySymbol := make([]*bitset, len(b.symbols))
 	usedSymbols := make([]int, 0, len(b.symbols))
