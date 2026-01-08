@@ -49,7 +49,7 @@ func validateParticleReferencesWithVisited(schema *schema.Schema, particle types
 			if contextNS.IsEmpty() {
 				contextNS = p.Name.Namespace
 			}
-			if err := validateTypeReferenceFromTypeWithVisited(schema, p.Type, visited, typeReferenceAllowMissing, contextNS); err != nil {
+			if err := validateTypeReferenceFromTypeWithVisited(schema, p.Type, visited, typeReferenceAllowMissing, contextNS, originLocation); err != nil {
 				return fmt.Errorf("element %s: %w", p.Name, err)
 			}
 			if err := validateAttributeValueConstraintsForType(schema, p.Type); err != nil {

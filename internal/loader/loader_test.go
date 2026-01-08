@@ -174,6 +174,7 @@ func TestLoader_CircularInclude(t *testing.T) {
            xmlns:tns="http://example.com"
            targetNamespace="http://example.com">
   <xs:include schemaLocation="schemaB.xsd"/>
+  <xs:element name="elemA" type="xs:string"/>
 </xs:schema>`),
 		},
 		"schemaB.xsd": &fstest.MapFile{
@@ -182,6 +183,7 @@ func TestLoader_CircularInclude(t *testing.T) {
            xmlns:tns="http://example.com"
            targetNamespace="http://example.com">
   <xs:include schemaLocation="schemaA.xsd"/>
+  <xs:element name="elemB" type="xs:string"/>
 </xs:schema>`),
 		},
 	}
@@ -190,14 +192,159 @@ func TestLoader_CircularInclude(t *testing.T) {
 		FS: testFS,
 	})
 
-	// circular includes should fail because they're in the same namespace
-	_, err := loader.Load("schemaA.xsd")
-	if err == nil {
-		t.Error("Load() should return error for circular includes")
+	schema, err := loader.Load("schemaA.xsd")
+	if err != nil {
+		t.Fatalf("Load() should succeed for circular includes, got error: %v", err)
 	}
 
-	if !strings.Contains(err.Error(), "circular") {
-		t.Errorf("error should mention circular dependency, got: %v", err)
+	elemAQName := types.QName{Namespace: "http://example.com", Local: "elemA"}
+	if _, ok := schema.ElementDecls[elemAQName]; !ok {
+		t.Error("elemA should be in schema.ElementDecls")
+	}
+
+	elemBQName := types.QName{Namespace: "http://example.com", Local: "elemB"}
+	if _, ok := schema.ElementDecls[elemBQName]; !ok {
+		t.Error("elemB should be in schema.ElementDecls")
+	}
+}
+
+func TestLoader_RestrictionAttributesIncludeBaseChain(t *testing.T) {
+	testFS := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:attribute name="id" type="xs:ID"/>
+  <xs:complexType name="Base">
+    <xs:attribute ref="tns:id" use="optional"/>
+  </xs:complexType>
+  <xs:complexType name="Intermediate">
+    <xs:complexContent>
+      <xs:extension base="tns:Base"/>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="Restricted">
+    <xs:complexContent>
+      <xs:restriction base="tns:Intermediate">
+        <xs:attribute ref="tns:id" use="required"/>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	if _, err := loader.Load("schema.xsd"); err != nil {
+		t.Fatalf("Load() should succeed for restriction inheriting base attributes, got error: %v", err)
+	}
+}
+
+func TestLoader_InlineTypeUsesImportContext(t *testing.T) {
+	testFS := fstest.MapFS{
+		"root.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:mid="urn:mid"
+           targetNamespace="urn:root"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:mid" schemaLocation="mid.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`),
+		},
+		"mid.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:leaf="urn:leaf"
+           targetNamespace="urn:mid"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:leaf" schemaLocation="leaf.xsd"/>
+  <xs:element name="mid" type="xs:string"/>
+</xs:schema>`),
+		},
+		"leaf.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:leaf="urn:leaf"
+           targetNamespace="urn:leaf"
+           elementFormDefault="qualified">
+  <xs:element name="title" type="xs:string"/>
+  <xs:element name="locator">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="leaf:title"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	if _, err := loader.Load("root.xsd"); err != nil {
+		t.Fatalf("Load() should succeed with inline types referencing same-namespace elements, got error: %v", err)
+	}
+}
+
+func TestLoader_IncludeDuplicateFromDifferentPaths(t *testing.T) {
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
+           targetNamespace="http://example.com">
+  <xs:include schemaLocation="a.xsd"/>
+  <xs:include schemaLocation="b.xsd"/>
+</xs:schema>`),
+		},
+		"a.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
+           targetNamespace="http://example.com">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`),
+		},
+		"b.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
+           targetNamespace="http://example.com">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`),
+		},
+		"common.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
+           targetNamespace="http://example.com">
+  <xs:simpleType name="T">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	schema, err := loader.Load("main.xsd")
+	if err != nil {
+		t.Fatalf("Load() should succeed for repeated include of same schema, got error: %v", err)
+	}
+
+	typeQName := types.QName{Namespace: "http://example.com", Local: "T"}
+	if _, ok := schema.TypeDefs[typeQName]; !ok {
+		t.Errorf("type %s should be in schema.TypeDefs", typeQName)
 	}
 }
 
