@@ -3,6 +3,7 @@ package validator
 import (
 	"path"
 	"slices"
+	"sync"
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
@@ -12,9 +13,10 @@ import (
 
 // Validator validates XML documents against a CompiledSchema.
 type Validator struct {
-	grammar      *grammar.CompiledSchema
-	baseView     *baseSchemaView
-	builtinTypes map[types.QName]*grammar.CompiledType
+	grammar                *grammar.CompiledSchema
+	baseView               *baseSchemaView
+	builtinTypes           map[types.QName]*grammar.CompiledType
+	automatonValidatorPool sync.Pool
 }
 
 type validationRun struct {
@@ -224,7 +226,7 @@ func (v *Validator) prebuildBuiltinTypes() {
 		if bt == nil {
 			continue
 		}
-		v.getBuiltinCompiledType(bt)
+		buildBuiltinCompiledType(bt, v.builtinTypes)
 	}
 }
 
@@ -280,10 +282,27 @@ func builtinTypeNames() []types.TypeName {
 }
 
 func (v *Validator) getBuiltinCompiledType(bt *types.BuiltinType) *grammar.CompiledType {
+	if bt == nil {
+		return nil
+	}
 	qname := bt.Name()
 
 	if ct := v.builtinTypes[qname]; ct != nil {
 		return ct
+	}
+
+	return buildBuiltinCompiledType(bt, nil)
+}
+
+func buildBuiltinCompiledType(bt *types.BuiltinType, cache map[types.QName]*grammar.CompiledType) *grammar.CompiledType {
+	if bt == nil {
+		return nil
+	}
+	qname := bt.Name()
+	if cache != nil {
+		if ct := cache[qname]; ct != nil {
+			return ct
+		}
 	}
 
 	ct := &grammar.CompiledType{
@@ -291,12 +310,14 @@ func (v *Validator) getBuiltinCompiledType(bt *types.BuiltinType) *grammar.Compi
 		Original: bt,
 		Kind:     grammar.TypeKindBuiltin,
 	}
-	v.builtinTypes[qname] = ct
+	if cache != nil {
+		cache[qname] = ct
+	}
 
 	base := bt.BaseType()
 	if base != nil {
 		if baseBuiltin, ok := base.(*types.BuiltinType); ok {
-			baseCompiled := v.getBuiltinCompiledType(baseBuiltin)
+			baseCompiled := buildBuiltinCompiledType(baseBuiltin, cache)
 			ct.BaseType = baseCompiled
 			ct.DerivationMethod = types.DerivationRestriction
 			ct.DerivationChain = append([]*grammar.CompiledType{ct}, baseCompiled.DerivationChain...)

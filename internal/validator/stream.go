@@ -118,8 +118,47 @@ func (v *Validator) newStreamRun() *streamRun {
 		schemaHintCache: make(map[string]*grammar.CompiledSchema),
 	}
 	return &streamRun{
-		validationRun:   base,
-		constraintDecls: make(map[types.QName][]*grammar.CompiledElement),
+		validationRun: base,
+	}
+}
+
+func (v *Validator) acquireAutomatonStreamValidator(a *contentmodel.Automaton, matcher contentmodel.SymbolMatcher, wildcards []*types.AnyElement) *contentmodel.AutomatonStreamValidator {
+	if v == nil || a == nil {
+		return nil
+	}
+	pooled, _ := v.automatonValidatorPool.Get().(*contentmodel.AutomatonStreamValidator)
+	if pooled == nil {
+		pooled = &contentmodel.AutomatonStreamValidator{}
+	}
+	pooled.Reset(a, matcher, wildcards)
+	return pooled
+}
+
+func (v *Validator) releaseAutomatonStreamValidator(stream *contentmodel.AutomatonStreamValidator) {
+	if v == nil || stream == nil {
+		return
+	}
+	stream.Release()
+	v.automatonValidatorPool.Put(stream)
+}
+
+func (r *streamRun) newAutomatonValidator(a *contentmodel.Automaton, wildcards []*types.AnyElement) *contentmodel.AutomatonStreamValidator {
+	if r == nil || a == nil {
+		return nil
+	}
+	if r.validator == nil {
+		return a.NewStreamValidator(r.matcher(), wildcards)
+	}
+	return r.validator.acquireAutomatonStreamValidator(a, r.matcher(), wildcards)
+}
+
+func (r *streamRun) releaseFrameResources(frame *streamFrame) {
+	if frame == nil || r == nil || r.validator == nil {
+		return
+	}
+	if frame.automaton != nil {
+		r.validator.releaseAutomatonStreamValidator(frame.automaton)
+		frame.automaton = nil
 	}
 }
 
@@ -324,6 +363,7 @@ func (r *streamRun) handleEnd(ev xml.Event) error {
 		return nil
 	}
 	defer r.path.pop()
+	defer r.releaseFrameResources(frame)
 	defer r.handleIdentityEnd(frame)
 
 	if frame.invalid {
@@ -531,7 +571,7 @@ func (r *streamRun) newFrame(ev xml.Event, decl *grammar.CompiledElement, ct *gr
 				frame.allGroup = contentmodel.NewAllGroupValidator(allElements, ct.ContentModel.Mixed, ct.ContentModel.MinOccurs).NewStreamValidator(r.matcher())
 			case ct.ContentModel.Automaton != nil:
 				frame.contentKind = streamContentAutomaton
-				frame.automaton = ct.ContentModel.Automaton.NewStreamValidator(r.matcher(), ct.ContentModel.Wildcards())
+				frame.automaton = r.newAutomatonValidator(ct.ContentModel.Automaton, ct.ContentModel.Wildcards())
 			case ct.ContentModel.Empty:
 				frame.contentKind = streamContentEmpty
 			}

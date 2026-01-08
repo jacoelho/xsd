@@ -16,6 +16,10 @@ type Automaton struct {
 	targetNamespace string
 	// Group counter info: position index -> group counter info for groups that need counting
 	groupCounters map[int]*GroupCounterInfo
+	// groupIndexByID maps group IDs to compact indices for counter slices.
+	groupIndexByID map[int]int
+	// groupCount is the number of unique groups that need counting.
+	groupCount int
 	// posElements maps position indices to compiled elements for match resolution.
 	posElements []any
 	// stateSymbolPos maps [state][symbol] to a position index (or negative if none/ambiguous).

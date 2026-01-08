@@ -8,26 +8,49 @@ import (
 
 // AutomatonStreamValidator validates content models incrementally.
 type AutomatonStreamValidator struct {
-	automaton       *Automaton
-	matcher         SymbolMatcher
-	wildcards       []*types.AnyElement
-	state           int
-	childIndex      int
-	symbolCounts    map[int]int
-	groupCounts     map[int]int
-	groupRemainders map[int]int
+	automaton    *Automaton
+	matcher      SymbolMatcher
+	wildcards    []*types.AnyElement
+	state        int
+	childIndex   int
+	symbolCounts []int
+	groupState   groupCounterState
 }
 
 // NewStreamValidator creates a streaming validator for the automaton.
 func (a *Automaton) NewStreamValidator(matcher SymbolMatcher, wildcards []*types.AnyElement) *AutomatonStreamValidator {
-	return &AutomatonStreamValidator{
-		automaton:       a,
-		matcher:         matcher,
-		wildcards:       wildcards,
-		symbolCounts:    make(map[int]int),
-		groupCounts:     make(map[int]int),
-		groupRemainders: make(map[int]int),
+	validator := &AutomatonStreamValidator{}
+	validator.Reset(a, matcher, wildcards)
+	return validator
+}
+
+// Reset reinitializes the validator for reuse.
+func (v *AutomatonStreamValidator) Reset(a *Automaton, matcher SymbolMatcher, wildcards []*types.AnyElement) {
+	v.automaton = a
+	v.matcher = matcher
+	v.wildcards = wildcards
+	v.state = 0
+	v.childIndex = 0
+	if a == nil {
+		v.symbolCounts = v.symbolCounts[:0]
+		v.groupState.reset(0)
+		return
 	}
+	v.symbolCounts = ensureIntSlice(v.symbolCounts, len(a.symbols))
+	clear(v.symbolCounts)
+	v.groupState.reset(a.groupCount)
+}
+
+// Release clears references before returning the validator to a pool.
+func (v *AutomatonStreamValidator) Release() {
+	if v == nil {
+		return
+	}
+	v.automaton = nil
+	v.matcher = nil
+	v.wildcards = nil
+	v.state = 0
+	v.childIndex = 0
 }
 
 // Feed validates a single child element and advances the automaton state.
@@ -70,7 +93,7 @@ func (v *AutomatonStreamValidator) Feed(child types.QName) (MatchResult, error) 
 		}
 	}
 
-	if err := v.automaton.handleGroupCounters(v.state, next, symIdx, childIdx, v.groupCounts, v.groupRemainders); err != nil {
+	if err := v.automaton.handleGroupCounters(v.state, next, symIdx, childIdx, &v.groupState); err != nil {
 		return result, err
 	}
 	if err := v.automaton.handleElementCounter(v.state, next, symIdx, childIdx, v.symbolCounts, child.Local); err != nil {
@@ -102,7 +125,7 @@ func (v *AutomatonStreamValidator) Close() error {
 		}
 	}
 
-	if err := v.automaton.validateFinalCounts(v.symbolCounts, v.groupCounts, v.groupRemainders, v.childIndex); err != nil {
+	if err := v.automaton.validateFinalCounts(v.symbolCounts, &v.groupState, v.childIndex); err != nil {
 		return err
 	}
 

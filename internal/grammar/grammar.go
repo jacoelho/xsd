@@ -28,6 +28,9 @@ type CompiledSchema struct {
 	// ElementsWithConstraints contains all elements (top-level and local) that have
 	// identity constraints. Precomputed during compilation for O(1) access at validation time.
 	ElementsWithConstraints []*CompiledElement
+	// ConstraintDeclsByQName maps element QNames to the elements that declare
+	// identity constraints affecting that QName (including substitution groups).
+	ConstraintDeclsByQName map[types.QName][]*CompiledElement
 
 	// Schema-level defaults
 	ElementFormDefault   internal.Form
