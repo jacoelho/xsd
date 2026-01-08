@@ -1,11 +1,13 @@
 package loader
 
 import (
+	"fmt"
 	"maps"
 
 	"github.com/jacoelho/xsd/internal/grammar"
 	xsdschema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 // Compiler transforms a resolved schema into a CompiledSchema (grammar).
@@ -92,6 +94,7 @@ func (c *Compiler) Compile() (*grammar.CompiledSchema, error) {
 
 	// collect all elements with identity constraints (precomputed for validation)
 	c.collectElementsWithConstraints()
+	c.buildConstraintDeclsByQName()
 
 	// index all local elements (non-top-level) for XPath evaluation
 	c.indexLocalElements()
@@ -142,8 +145,22 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, is
 	if len(elem.Constraints) > 0 {
 		compiled.Constraints = make([]*grammar.CompiledConstraint, len(elem.Constraints))
 		for i, constraint := range elem.Constraints {
+			selectorExpr, err := xpath.Parse(constraint.Selector.XPath, constraint.NamespaceContext, false)
+			if err != nil {
+				return nil, fmt.Errorf("identity constraint %q selector %q: %w", constraint.Name, constraint.Selector.XPath, err)
+			}
+			fieldPaths := make([][]xpath.Path, len(constraint.Fields))
+			for fieldIndex, field := range constraint.Fields {
+				fieldExpr, err := xpath.Parse(field.XPath, constraint.NamespaceContext, true)
+				if err != nil {
+					return nil, fmt.Errorf("identity constraint %q field %d %q: %w", constraint.Name, fieldIndex+1, field.XPath, err)
+				}
+				fieldPaths[fieldIndex] = fieldExpr.Paths
+			}
 			compiled.Constraints[i] = &grammar.CompiledConstraint{
-				Original: constraint,
+				Original:      constraint,
+				SelectorPaths: selectorExpr.Paths,
+				FieldPaths:    fieldPaths,
 			}
 		}
 	}
@@ -275,6 +292,27 @@ func (c *Compiler) collectElementsWithConstraints() {
 	}
 }
 
+func (c *Compiler) buildConstraintDeclsByQName() {
+	if len(c.grammar.ElementsWithConstraints) == 0 {
+		return
+	}
+
+	lookup := make(map[types.QName][]*grammar.CompiledElement, len(c.grammar.ElementsWithConstraints))
+	for _, decl := range c.grammar.ElementsWithConstraints {
+		if decl == nil {
+			continue
+		}
+		lookup[decl.QName] = append(lookup[decl.QName], decl)
+		for _, sub := range c.grammar.SubstitutionGroups[decl.QName] {
+			if sub == nil {
+				continue
+			}
+			lookup[sub.QName] = append(lookup[sub.QName], decl)
+		}
+	}
+	c.grammar.ConstraintDeclsByQName = lookup
+}
+
 // collectConstraintElementsFromType traverses a type's content model to find elements with constraints.
 func (c *Compiler) collectConstraintElementsFromType(ct *grammar.CompiledType, seen map[*grammar.CompiledElement]bool, visitedTypes map[*grammar.CompiledType]bool) {
 	if ct == nil || visitedTypes[ct] {
@@ -385,7 +423,7 @@ func (c *Compiler) effectiveElementQName(elem *grammar.CompiledElement) types.QN
 		return elem.QName
 	case types.FormUnqualified:
 		return types.QName{Namespace: "", Local: elem.QName.Local}
-	default: // FormDefault - use schema's elementFormDefault
+	default: // formDefault uses schema's elementFormDefault
 		if c.grammar.ElementFormDefault == xsdschema.Qualified {
 			return elem.QName
 		}

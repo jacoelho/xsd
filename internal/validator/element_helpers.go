@@ -1,6 +1,9 @@
 package validator
 
 import (
+	"unicode"
+	"unicode/utf8"
+
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
@@ -59,7 +62,25 @@ func isWhitespaceOnlyBytes(b []byte) bool {
 	return true
 }
 
-// getElementChildren returns element children of an element.
-func getElementChildren(doc *xml.Document, elem xml.NodeID) []xml.NodeID {
-	return doc.Children(elem)
+func isWhitespaceOnly(b []byte) bool {
+	for i := 0; i < len(b); {
+		if b[i] < utf8.RuneSelf {
+			switch b[i] {
+			case ' ', '\t', '\n', '\r':
+				i++
+				continue
+			default:
+				return false
+			}
+		}
+		r, size := utf8.DecodeRune(b[i:])
+		if r == utf8.RuneError && size == 1 {
+			return false
+		}
+		if !unicode.IsSpace(r) {
+			return false
+		}
+		i += size
+	}
+	return true
 }

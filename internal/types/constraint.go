@@ -28,8 +28,9 @@ func (c ConstraintType) String() string {
 
 // IdentityConstraint represents key, keyref, or unique constraints
 type IdentityConstraint struct {
-	Name            string
-	TargetNamespace NamespaceURI // From enclosing <xs:schema targetNamespace="...">
+	Name string
+	// From enclosing <xs:schema targetNamespace="...">
+	TargetNamespace NamespaceURI
 	Type            ConstraintType
 	Selector        Selector
 	Fields          []Field
@@ -46,7 +47,9 @@ type Selector struct {
 
 // Field represents a field XPath expression
 type Field struct {
-	XPath        string
-	Type         Type // Optional: type hint from schema
-	ResolvedType Type // Resolved during schema loading
+	XPath string
+	// Optional: type hint from schema
+	Type Type
+	// Resolved during schema loading
+	ResolvedType Type
 }

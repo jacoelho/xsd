@@ -6,7 +6,6 @@ import (
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/xml"
 )
 
 const (
@@ -111,13 +110,8 @@ func TestEmptyContentValidation(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			if tt.shouldErr {
 				if len(violations) == 0 {
@@ -146,10 +140,8 @@ func TestEmptyContentValidation(t *testing.T) {
 	}
 }
 
-// TestElementOnlyContentTextValidation tests that non-whitespace text in element-only
-// content is flagged as invalid per XSD spec section 5.2
-// Spec: "If CT is element-only (not mixed) and the type is not a simple content,
-// any non-whitespace text in the element should be flagged as invalid."
+// TestElementOnlyContentTextValidation checks non-whitespace text in element-only content.
+// It expects ErrTextInElementOnly per XSD 1.0 section 5.2.
 func TestElementOnlyContentTextValidation(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -247,13 +239,8 @@ func TestElementOnlyContentTextValidation(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			if tt.shouldErr {
 				if len(violations) == 0 {
@@ -387,13 +374,8 @@ func TestEndOfContentValidation(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			if tt.shouldErr {
 				if len(violations) == 0 {
@@ -520,13 +502,8 @@ func TestMinOccursMaxOccursValidation(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			if tt.shouldErr {
 				if len(violations) == 0 {
@@ -651,13 +628,8 @@ func TestChoiceGroupValidation(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			if tt.shouldErr {
 				if len(violations) == 0 {
@@ -792,13 +764,8 @@ func TestAllGroupValidation(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			if tt.shouldErr {
 				if len(violations) == 0 {
@@ -913,13 +880,8 @@ func TestContentModelRequiredElements(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			if tt.shouldErr {
 				if len(violations) == 0 {
@@ -1031,13 +993,8 @@ func TestContentModelUnexpectedElements(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			if tt.shouldErr {
 				if len(violations) == 0 {
@@ -1132,13 +1089,8 @@ func TestContentModelOutOfOrder(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			if tt.shouldErr {
 				if len(violations) == 0 {
@@ -1213,13 +1165,8 @@ func TestContentModelChoiceRequired(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			if tt.shouldErr {
 				if len(violations) == 0 {
@@ -1284,12 +1231,8 @@ func TestEmptyChoiceRejectsAll(t *testing.T) {
 	v := New(mustCompile(t, schema))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
 
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 			if len(violations) == 0 {
 				t.Fatalf("Expected violation code %s, got none", tt.errCode)
 			}
@@ -1352,12 +1295,8 @@ func TestGroupFixedOccurrenceCounts(t *testing.T) {
 	v := New(mustCompile(t, schema))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
 
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 			if tt.shouldErr {
 				if len(violations) == 0 {
 					t.Fatalf("Expected validation error, got none")

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/loader"
-	xsdxml "github.com/jacoelho/xsd/internal/xml"
 )
 
 // TestUnionTypeValidation tests union type validation issues from Category 8
@@ -40,13 +39,11 @@ func TestUnionTypeValidation(t *testing.T) {
 			t.Fatalf("Failed to read instance: %v", err)
 		}
 
-		doc, err := xsdxml.Parse(bytes.NewReader(instanceData))
-		if err != nil {
-			t.Fatalf("Failed to parse instance: %v", err)
-		}
-
 		v := New(mustCompile(t, schema))
-		violations := v.Validate(doc)
+		violations, err := v.ValidateStream(bytes.NewReader(instanceData))
+		if err != nil {
+			t.Fatalf("ValidateStream() error: %v", err)
+		}
 
 		if len(violations) > 0 {
 			t.Errorf("Expected no violations, got %d:", len(violations))
@@ -78,13 +75,11 @@ func TestUnionTypeValidation(t *testing.T) {
 			t.Fatalf("Failed to read instance: %v", err)
 		}
 
-		doc, err := xsdxml.Parse(bytes.NewReader(instanceData))
-		if err != nil {
-			t.Fatalf("Failed to parse instance: %v", err)
-		}
-
 		v := New(mustCompile(t, schema))
-		violations := v.Validate(doc)
+		violations, err := v.ValidateStream(bytes.NewReader(instanceData))
+		if err != nil {
+			t.Fatalf("ValidateStream() error: %v", err)
+		}
 
 		if len(violations) > 0 {
 			t.Errorf("Expected no violations, got %d:", len(violations))
@@ -116,13 +111,11 @@ func TestUnionTypeValidation(t *testing.T) {
 			t.Fatalf("Failed to read instance: %v", err)
 		}
 
-		doc, err := xsdxml.Parse(bytes.NewReader(instanceData))
-		if err != nil {
-			t.Fatalf("Failed to parse instance: %v", err)
-		}
-
 		v := New(mustCompile(t, schema))
-		violations := v.Validate(doc)
+		violations, err := v.ValidateStream(bytes.NewReader(instanceData))
+		if err != nil {
+			t.Fatalf("ValidateStream() error: %v", err)
+		}
 
 		if len(violations) > 0 {
 			t.Errorf("Expected no violations, got %d:", len(violations))

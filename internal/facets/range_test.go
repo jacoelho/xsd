@@ -500,10 +500,8 @@ func (d *DurationTypedValue) String() string {
 	return d.Value
 }
 
-// TestRangeFacet_CrossTypeNumeric tests range facet validation with cross-type numeric comparison
-// This tests the scenario where a facet has a decimal (ComparableBigRat) value but the instance
-// value is an integer (ComparableBigInt), or vice versa. Since integers are a subset of decimals
-// in XSD's value space, these should be comparable.
+// TestRangeFacet_CrossTypeNumeric checks cross-type numeric comparisons.
+// It covers decimal facet values against integer instance values.
 func TestRangeFacet_CrossTypeNumeric(t *testing.T) {
 	// scenario: maxExclusive facet on a decimal type with value "100", but instance value is integer
 	// this simulates cases like Boeing IPO test where quantity field has maxExclusive on decimal

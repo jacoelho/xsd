@@ -8,9 +8,10 @@ import (
 
 func TestParseDecimal(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		want    string // expected decimal value as string (for comparison)
+		name  string
+		input string
+		// expected decimal value as string (for comparison)
+		want    string
 		wantErr bool
 	}{
 		{"positive integer", "123", "123", false},
@@ -48,9 +49,10 @@ func TestParseDecimal(t *testing.T) {
 
 func TestParseInteger(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		want    string // expected string representation
+		name  string
+		input string
+		// expected string representation
+		want    string
 		wantErr bool
 	}{
 		{"positive", "123", "123", false},

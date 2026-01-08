@@ -12,25 +12,22 @@ import (
 // Note: Elements with maxOccurs=0 are filtered out during compilation per XSD spec.
 type AllGroupElementInfo interface {
 	ElementQName() types.QName
+	ElementDecl() any
 	IsOptional() bool
 	AllowsSubstitution() bool
 }
 
-// AllGroupValidator validates all group content models.
-// Uses simple array-based validation instead of DFA.
-// This correctly handles:
-// - Missing required elements
-// - Duplicate elements
-// - Any order
-// - Optional vs required elements
+// AllGroupValidator validates all-group content models with array-based checks.
+// It enforces required elements, uniqueness, and order-insensitivity.
 type AllGroupValidator struct {
 	elements    []AllGroupElementInfo
 	numRequired int
 	mixed       bool
+	minOccurs   int
 }
 
 // NewAllGroupValidator creates a validator for an all group.
-func NewAllGroupValidator(elements []AllGroupElementInfo, mixed bool) *AllGroupValidator {
+func NewAllGroupValidator(elements []AllGroupElementInfo, mixed bool, minOccurs int) *AllGroupValidator {
 	numRequired := 0
 	for _, e := range elements {
 		if !e.IsOptional() {
@@ -41,18 +38,20 @@ func NewAllGroupValidator(elements []AllGroupElementInfo, mixed bool) *AllGroupV
 		elements:    elements,
 		numRequired: numRequired,
 		mixed:       mixed,
+		minOccurs:   minOccurs,
 	}
 }
 
 // Validate checks that children satisfy the all group content model.
 // Returns nil if valid, or a ValidationError describing the violation.
 func (v *AllGroupValidator) Validate(doc *xml.Document, children []xml.NodeID, matcher SymbolMatcher) error {
-	// if all group is empty and there are no children, it's valid
+	if len(children) == 0 && v.minOccurs == 0 {
+		return nil
+	}
 	if len(v.elements) == 0 {
 		if len(children) == 0 {
 			return nil
 		}
-		// no elements allowed but got some
 		return &ValidationError{
 			Index:   0,
 			Message: fmt.Sprintf("element %q not allowed", doc.LocalName(children[0])),

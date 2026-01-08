@@ -9,6 +9,7 @@ This validator implements W3C XML Schema 1.0 validation with the following prior
 - Pure Go with no CGO dependencies
 - io/fs integration for flexible schema loading
 - W3C compliance tested against the W3C XSD Test Suite
+- Streaming validation with constant memory use
 - Multi-phase processing for clean separation of concerns
 
 
@@ -37,6 +38,8 @@ Schema loading and validation follows four distinct phases:
 |  Phase 4: VALIDATE                                                     |
 |  -----------------                                                     |
 |                                                                        |
+|  - Stream XML tokens (no DOM)                                          |
+|  - Optional schemaLocation prepass (seekable readers only)             |
 |  - Traverse pre-resolved structures                                    |
 |  - NO cycle detection needed                                           |
 |  - NO visited maps                                                     |
@@ -102,6 +105,8 @@ xsd/
     |
     +-- validator/            Phase 4: Validation engine
     |   +-- validator.go      Main validator
+    |   +-- stream.go         Streaming validation entry
+    |   +-- stream_schema_location.go  schemaLocation hint handling
     |   +-- element.go        Element validation
     |   +-- attribute.go      Attribute validation
     |   +-- content.go        Content model validation
@@ -111,10 +116,11 @@ xsd/
     +-- schema/               Parsed schema structure
     |   +-- schema.go         Schema type (phase 1 output)
     |
-    +-- xml/                  Minimal DOM abstraction
+    +-- xml/                  Minimal XML abstraction
         +-- dom.go            Document, Element, Attr interfaces
         +-- parse.go          XML parsing via encoding/xml
         +-- namespace.go      Namespace handling
+        +-- stream.go         Streaming decoder
 ```
 
 
@@ -149,8 +155,8 @@ xsd/
 |   |                            |                            |     |
 |   v                            v                            v     |
 | validator/              grammar/                xml/               |
-| element.go              CompiledType           Document           |
-| attribute.go            CompiledElement        Element            |
+| stream.go               CompiledType           StreamDecoder      |
+| attribute.go            CompiledElement        Event              |
 | content.go              contentmodel/          Attr               |
 | simple_type.go          Automaton                                 |
 +------------------------------------------------------------------+
@@ -248,42 +254,43 @@ type CompiledType struct {
 
 ## Phase 4: Validate
 
-Validation traverses pre-resolved structures with no dynamic lookups.
+Validation streams tokens and validates incrementally with no DOM build.
 
 ```
-Input XML Document
+Input XML Reader
         |
         v
-+------------------+
-| Parse to DOM     | xml/parse.go
-+------------------+
++---------------------+
+| StreamDecoder.Next  | xml/stream.go
+| (start/end/char)    |
++---------------------+
         |
         v
-+------------------+
-| Find root decl   | Direct lookup in grammar.Elements
-+------------------+
-        |
-        v
-+------------------+
-| Validate element | Check type, attributes, content
-+------------------+
++---------------------+
+| Start element       | Lookup decl, attrs, content model
+| Push frame          | Track identity scopes
++---------------------+
         |
         +-----> Validate attributes (pre-merged list)
         |
         +-----> Validate content model (DFA)
         |
-        +-----> Recurse into children
+        +-----> Collect text/ID/IDREFs
         |
         v
-+------------------+
-| Check IDREFs     | Post-validation phase
-+------------------+
++---------------------+
+| End element         | Close content model, finalize scopes
+| Pop frame           | Apply identity constraints
++---------------------+
         |
         v
-+------------------+
-| Identity constr. | Key, keyref, unique validation
-+------------------+
++---------------------+
+| Check IDREFs        | Post-stream phase
++---------------------+
 ```
+
+schemaLocation hints are applied per policy. Document-wide scans require
+a seekable reader; otherwise hints are ignored or reported.
 
 
 ## DFA Content Model Validation
@@ -349,7 +356,7 @@ State is final if it contains the end-of-content position
 ```go
 type Automaton struct {
     symbols   []Symbol      // Alphabet (element QNames, wildcards)
-    trans     [][]int       // [state][symbol] -> next state (-1 = invalid)
+    trans     []int         // [state*symbolCount + symbol] -> next state (-1)
     accepting []bool        // Final states
     counting  []*Counter    // Occurrence constraints per state
     emptyOK   bool          // Can content be empty?
@@ -365,7 +372,7 @@ for each child element:
     if symbolIdx < 0:
         return error: element not allowed
     
-    nextState = trans[state][symbolIdx]
+    nextState = trans[state*symbolCount+symbolIdx]
     if nextState < 0:
         return error: element not expected here
     
@@ -380,14 +387,12 @@ if not accepting[state]:
 
 ### All Groups
 
-All groups allow children in any order. Compiled by expanding to all permutations:
-
-```
-all(a, b, c) --> (a.b.c) | (a.c.b) | (b.a.c) | (b.c.a) | (c.a.b) | (c.b.a)
-```
+All groups allow children in any order. The validator uses a dedicated
+array-based check instead of DFA expansion, tracking seen elements and
+required counts.
 
 XSD 1.0 limits all groups to simple particles (no nested groups, maxOccurs <= 1),
-which keeps the permutation count manageable.
+which keeps validation deterministic.
 
 
 ## Pattern Facet (Regex Translation)

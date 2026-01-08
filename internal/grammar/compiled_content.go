@@ -20,16 +20,23 @@ const (
 // CompiledContentModel is a pre-compiled content model.
 // All group references are expanded. The automaton is pre-built for O(n) validation.
 type CompiledContentModel struct {
-	Kind      types.GroupKind         // Sequence, Choice, All
-	Particles []*CompiledParticle     // Flattened (no GroupRefs)
-	Automaton *contentmodel.Automaton // Pre-compiled DFA (not used for AllGroup)
-	Empty     bool                    // True if content can be empty
-	RejectAll bool                    // True if content model accepts no instances
-	Mixed     bool                    // True if mixed content allowed
-	MinOccurs int                     // MinOccurs of the top-level group (default 1)
+	// Sequence, Choice, All
+	Kind types.GroupKind
+	// Flattened (no GroupRefs)
+	Particles []*CompiledParticle
+	// Pre-compiled DFA (not used for AllGroup)
+	Automaton *contentmodel.Automaton
+	// True if content can be empty
+	Empty bool
+	// True if content model accepts no instances
+	RejectAll bool
+	// True if mixed content allowed
+	Mixed bool
+	// MinOccurs of the top-level group (default 1)
+	MinOccurs int
 
-	// For AllGroup - uses simple array-based validation instead of DFA
-	AllElements []*AllGroupElement // Elements in the all group
+	// AllElements holds all-group elements for array-based validation.
+	AllElements []*AllGroupElement
 
 	// Cached validation data (precomputed during compilation)
 	ElementIndex     map[types.QName]*CompiledElement
@@ -41,14 +48,30 @@ type CompiledContentModel struct {
 // Implements contentmodel.AllGroupElementInfo interface.
 // Note: Elements with maxOccurs=0 are filtered out during compilation per XSD spec.
 type AllGroupElement struct {
-	Element           *CompiledElement
-	Optional          bool // true if minOccurs=0
-	AllowSubstitution bool // true if this element is a ref="..."
+	Element *CompiledElement
+	// true if minOccurs=0
+	Optional bool
+	// true if this element is a ref="..."
+	AllowSubstitution bool
 }
 
 // ElementQName returns the QName of the element.
 func (e *AllGroupElement) ElementQName() types.QName {
+	if e.Element == nil {
+		return types.QName{}
+	}
+	if !e.Element.EffectiveQName.IsZero() {
+		return e.Element.EffectiveQName
+	}
 	return e.Element.QName
+}
+
+// ElementDecl returns the compiled element for this all-group entry.
+func (e *AllGroupElement) ElementDecl() any {
+	if e == nil {
+		return nil
+	}
+	return e.Element
 }
 
 // IsOptional returns true if minOccurs=0.

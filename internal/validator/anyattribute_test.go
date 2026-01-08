@@ -7,7 +7,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/loader"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/xml"
 )
 
 // TestAnyAttributeNamespaceMatching tests namespace matching for anyAttribute
@@ -210,13 +209,8 @@ func TestAnyAttributeNamespaceMatching(t *testing.T) {
 				t.Fatalf("Validate schema: %v", validationErrors)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			valid := len(violations) == 0
 			if valid != tt.expectValid {
@@ -388,13 +382,8 @@ func TestAnyAttributeProcessContents(t *testing.T) {
 				t.Fatalf("Validate schema: %v", validationErrors)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			valid := len(violations) == 0
 			if valid != tt.expectValid {
@@ -528,13 +517,8 @@ func TestAnyAttributeDerivationExtension(t *testing.T) {
 				t.Fatalf("Validate schema: %v", validationErrors)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			valid := len(violations) == 0
 			if valid != tt.expectValid {
@@ -711,13 +695,8 @@ func TestAnyAttributeFixedValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			valid := len(violations) == 0
 			if valid != tt.expectValid {
@@ -763,14 +742,8 @@ func TestAnyAttributeWithExplicitAttributes(t *testing.T) {
       xmlns:other="http://example.com/other"
       tns:explicit="value1"
       other:wildcard="value2"/>`
-
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 
 	// should be valid - explicit attribute and wildcard attribute both allowed
 	if len(violations) > 0 {
@@ -811,14 +784,8 @@ func TestProhibitedAttributeWithAnyAttribute(t *testing.T) {
 	// 2. anyAttribute namespace="##local" allows local (no-namespace) attributes
 	// 3. attr="123" is a local attribute, so it matches the wildcard
 	xmlDoc := `<root attr="123"/>`
-
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 
 	// should be valid - anyAttribute allows this attribute
 	if len(violations) > 0 {

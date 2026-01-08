@@ -7,6 +7,7 @@ Pure Go implementation of XSD 1.0 (XML Schema Definition) validation.
 
 - Pure Go implementation
 - io/fs integration for flexible schema loading
+- Streaming validation with constant memory for large documents
 - Built-in type validators for all XSD primitive and derived types
 - Facet validation (pattern, enumeration, length, min/max, digits)
 - Complex type validation with content models
@@ -113,6 +114,22 @@ var schemas embed.FS
 schema, err := xsd.Load(schemas, "schemas/order.xsd")
 ```
 
+Validation options (schemaLocation hints):
+
+```go
+opts := xsd.ValidateOptions{
+    SchemaLocationPolicy: xsd.SchemaLocationDocument,
+}
+if err := schema.ValidateWithOptions(xmlReader, opts); err != nil {
+    // handle validation errors
+}
+```
+
+Policies:
+- `SchemaLocationRootOnly` (default): only root element hints are applied.
+- `SchemaLocationDocument`: pre-scans the document for hints; requires a
+  seekable reader when hints are present.
+- `SchemaLocationIgnore`: ignore all schemaLocation hints.
 
 ## Testing
 

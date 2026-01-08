@@ -7,6 +7,12 @@ export GOBIN = $(CURDIR)/bin
 $(GOBIN)/staticcheck:
 	go install honnef.co/go/tools/cmd/staticcheck@latest
 
+.PHONY: xmllint
+xmllint: $(GOBIN)/xmllint
+
+$(GOBIN)/xmllint:
+	go build -o $(GOBIN)/xmllint ./cmd/xmllint
+
 .PHONY: staticcheck
 staticcheck: $(GOBIN)/staticcheck
 	$(GOBIN)/staticcheck ./...
