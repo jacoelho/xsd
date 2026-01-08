@@ -3,7 +3,6 @@ package validator
 import (
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
@@ -353,7 +352,7 @@ func (r *streamRun) handleCharData(ev xml.Event) {
 	}
 
 	if frame.nilled {
-		if !isWhitespaceOnlyBytes(ev.Text) && strings.TrimSpace(string(ev.Text)) != "" {
+		if !isWhitespaceOnly(ev.Text) {
 			r.addViolation(errors.NewValidation(errors.ErrNilElementNotEmpty,
 				"Element with xsi:nil='true' must be empty", r.path.String()))
 			frame.invalid = true
