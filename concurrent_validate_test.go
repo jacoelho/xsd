@@ -45,10 +45,10 @@ func TestSchemaValidateConcurrent(t *testing.T) {
 	errCh := make(chan error, goroutines*iterations)
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
-	for i := 0; i < goroutines; i++ {
+	for range goroutines {
 		go func() {
 			defer wg.Done()
-			for j := 0; j < iterations; j++ {
+			for range iterations {
 				if err := schema.Validate(strings.NewReader(docXML)); err != nil {
 					errCh <- err
 					return
