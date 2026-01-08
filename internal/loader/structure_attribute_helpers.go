@@ -28,6 +28,117 @@ func collectAllAttributesForValidation(schema *schema.Schema, ct *types.ComplexT
 	return allAttrs
 }
 
+func collectEffectiveAttributeUses(schema *schema.Schema, ct *types.ComplexType) map[types.QName]*types.AttributeDecl {
+	if ct == nil {
+		return nil
+	}
+	chain := collectComplexTypeChain(schema, ct)
+	attrMap := make(map[types.QName]*types.AttributeDecl)
+	for i := len(chain) - 1; i >= 0; i-- {
+		mergeAttributesFromTypeForValidation(schema, chain[i], attrMap)
+	}
+	return attrMap
+}
+
+func collectComplexTypeChain(schema *schema.Schema, ct *types.ComplexType) []*types.ComplexType {
+	var chain []*types.ComplexType
+	visited := make(map[*types.ComplexType]bool)
+	for current := ct; current != nil; {
+		if visited[current] {
+			break
+		}
+		visited[current] = true
+		chain = append(chain, current)
+		var next *types.ComplexType
+		if baseCT, ok := current.ResolvedBase.(*types.ComplexType); ok {
+			next = baseCT
+		} else if current.ResolvedBase == nil {
+			baseQName := types.QName{}
+			if content := current.Content(); content != nil {
+				baseQName = content.BaseTypeQName()
+			}
+			if !baseQName.IsZero() {
+				if baseType, ok := schema.TypeDefs[baseQName]; ok {
+					if baseCT, ok := baseType.(*types.ComplexType); ok {
+						next = baseCT
+					}
+				}
+			}
+		}
+		if next == nil {
+			break
+		}
+		current = next
+	}
+	return chain
+}
+
+func mergeAttributesFromTypeForValidation(schema *schema.Schema, ct *types.ComplexType, attrMap map[types.QName]*types.AttributeDecl) {
+	addAttr := func(attr *types.AttributeDecl) {
+		key := effectiveAttributeQNameForValidation(schema, attr)
+		if attr.Use == types.Prohibited && !attr.HasFixed {
+			delete(attrMap, key)
+			return
+		}
+		attrMap[key] = attr
+	}
+
+	for _, attr := range ct.Attributes() {
+		addAttr(attr)
+	}
+	mergeAttributesFromGroupsForValidation(schema, ct.AttrGroups, attrMap)
+
+	content := ct.Content()
+	if ext := content.ExtensionDef(); ext != nil {
+		for _, attr := range ext.Attributes {
+			addAttr(attr)
+		}
+		mergeAttributesFromGroupsForValidation(schema, ext.AttrGroups, attrMap)
+	}
+	if restr := content.RestrictionDef(); restr != nil {
+		for _, attr := range restr.Attributes {
+			addAttr(attr)
+		}
+		mergeAttributesFromGroupsForValidation(schema, restr.AttrGroups, attrMap)
+	}
+}
+
+func mergeAttributesFromGroupsForValidation(schema *schema.Schema, agRefs []types.QName, attrMap map[types.QName]*types.AttributeDecl) {
+	for _, agRef := range agRefs {
+		ag, ok := schema.AttributeGroups[agRef]
+		if !ok {
+			continue
+		}
+		mergeAttributesFromGroupForValidation(schema, ag, attrMap)
+	}
+}
+
+func mergeAttributesFromGroupForValidation(schema *schema.Schema, ag *types.AttributeGroup, attrMap map[types.QName]*types.AttributeDecl) {
+	visited := make(map[*types.AttributeGroup]bool)
+	queue := []*types.AttributeGroup{ag}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		if visited[current] {
+			continue
+		}
+		visited[current] = true
+		for _, attr := range current.Attributes {
+			key := effectiveAttributeQNameForValidation(schema, attr)
+			if attr.Use == types.Prohibited && !attr.HasFixed {
+				delete(attrMap, key)
+				continue
+			}
+			attrMap[key] = attr
+		}
+		for _, ref := range current.AttrGroups {
+			if refAG, ok := schema.AttributeGroups[ref]; ok {
+				queue = append(queue, refAG)
+			}
+		}
+	}
+}
+
 // collectAttributesFromGroups collects attributes from attribute group references
 func collectAttributesFromGroups(schema *schema.Schema, agRefs []types.QName, visited map[types.QName]bool) []*types.AttributeDecl {
 	if visited == nil {

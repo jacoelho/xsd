@@ -31,10 +31,6 @@ func (s *loadSession) handleCircularLoad() (*schema.Schema, error) {
 		return schema, nil
 	}
 
-	if s.loader.includeContext[s.absLoc] {
-		return nil, fmt.Errorf("circular dependency detected in include: %s", s.absLoc)
-	}
-
 	importingNS, ok := s.importingNamespaceFor(s.absLoc)
 	if !ok {
 		return nil, fmt.Errorf("circular dependency detected: %s", s.absLoc)
@@ -98,9 +94,19 @@ func (s *loadSession) processIncludes(schema *schema.Schema, includes []parser.I
 		if s.loader.alreadyMergedInclude(s.absLoc, absIncludeLoc) {
 			continue
 		}
-		s.loader.includeContext[absIncludeLoc] = true
+		if s.loader.loading[absIncludeLoc] {
+			inProgress := s.loader.loadingSchemas[absIncludeLoc]
+			if inProgress == nil {
+				// loadingSchemas should be set before includes are processed; nil means loader state is inconsistent.
+				return fmt.Errorf("circular dependency detected in include: %s", absIncludeLoc)
+			}
+			if !s.loader.isIncludeNamespaceCompatible(schema.TargetNamespace, inProgress.TargetNamespace) {
+				return fmt.Errorf("included schema %s has different target namespace: %s != %s",
+					include.SchemaLocation, inProgress.TargetNamespace, schema.TargetNamespace)
+			}
+			continue
+		}
 		includedSchema, err := s.loader.loadWithValidation(includeLoc, false)
-		delete(s.loader.includeContext, absIncludeLoc)
 		if err != nil {
 			if isNotFound(err) {
 				continue
