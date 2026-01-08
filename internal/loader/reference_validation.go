@@ -113,7 +113,8 @@ func validateElementDeclarationReferences(schema *schema.Schema, allConstraints 
 
 	for qname, decl := range schema.ElementDecls {
 		if decl.Type != nil {
-			if err := validateTypeReferenceFromTypeAllowMissing(schema, decl.Type, qname.Namespace); err != nil {
+			origin := schema.ElementOrigins[qname]
+			if err := validateTypeReferenceFromTypeAllowMissingAtLocation(schema, decl.Type, qname.Namespace, origin); err != nil {
 				errors = append(errors, fmt.Errorf("element %s: %w", qname, err))
 			}
 		}
