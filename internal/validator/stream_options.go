@@ -4,7 +4,11 @@ package validator
 type SchemaLocationPolicy int
 
 const (
-	SchemaLocationError SchemaLocationPolicy = iota
+	// SchemaLocationRootOnly applies only schemaLocation hints found on the root element.
+	SchemaLocationRootOnly SchemaLocationPolicy = iota
+	// SchemaLocationDocument scans the entire document for schemaLocation hints before validation.
+	SchemaLocationDocument
+	// SchemaLocationIgnore ignores all schemaLocation hints.
 	SchemaLocationIgnore
 )
 

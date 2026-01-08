@@ -38,5 +38,5 @@ func collectSchemaLocationHintsFromStream(dec *xml.StreamDecoder) (schemaLocatio
 
 func schemaLocationPolicyError(path string) error {
 	return errors.ValidationList{errors.NewValidation(errors.ErrSchemaLocationHint,
-		"schemaLocation hints present but reader is not seekable; set SchemaLocationIgnore to proceed", path)}
+		"schemaLocation hints present but reader is not seekable; use SchemaLocationRootOnly or SchemaLocationIgnore", path)}
 }

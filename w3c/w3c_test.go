@@ -1051,7 +1051,9 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 
 		schemaForInstance := r.schemaForInstance(schema, fullInstancePath)
 		v := validator.New(schemaForInstance)
-		violations, err := v.ValidateStream(file)
+		violations, err := v.ValidateStreamWithOptions(file, validator.StreamOptions{
+			SchemaLocationPolicy: validator.SchemaLocationDocument,
+		})
 		if err != nil {
 			if expected.Validity == "invalid" {
 				return

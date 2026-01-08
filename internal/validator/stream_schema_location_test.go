@@ -60,7 +60,7 @@ func TestStreamSchemaLocationSeekableMerge(t *testing.T) {
 	}
 }
 
-func TestStreamSchemaLocationNonSeekableError(t *testing.T) {
+func TestStreamSchemaLocationNonSeekableRootOnly(t *testing.T) {
 	baseSchema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:base"
@@ -95,6 +95,43 @@ func TestStreamSchemaLocationNonSeekableError(t *testing.T) {
 
 	reader := nonSeekableReader{r: strings.NewReader(doc)}
 	violations, err := v.ValidateStream(reader)
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got %d", len(violations))
+	}
+}
+
+func TestStreamSchemaLocationNonSeekableDocumentError(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+
+	fs := fstest.MapFS{
+		"base.xsd": {Data: []byte(schemaXML)},
+	}
+
+	l := loader.NewLoader(loader.Config{FS: fs})
+	compiled, err := l.LoadCompiled("base.xsd")
+	if err != nil {
+		t.Fatalf("load compiled schema: %v", err)
+	}
+
+	v := New(compiled)
+
+	doc := `<?xml version="1.0"?>
+<root xmlns="urn:test"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="urn:test base.xsd">value</root>`
+
+	reader := nonSeekableReader{r: strings.NewReader(doc)}
+	violations, err := v.ValidateStreamWithOptions(reader, StreamOptions{
+		SchemaLocationPolicy: SchemaLocationDocument,
+	})
 	if err == nil {
 		t.Fatal("expected error for non-seekable reader with schemaLocation hints")
 	}

@@ -52,6 +52,8 @@ type streamRun struct {
 	rootSeen                bool
 	rootClosed              bool
 	schemaLocationHintError bool
+	schemaLocationPolicy    SchemaLocationPolicy
+	schemaLocationRootReady bool
 	identityScopes          []*identityScope
 	constraintDecls         map[types.QName][]*grammar.CompiledElement
 }
@@ -71,9 +73,10 @@ func (v *Validator) ValidateStreamWithOptions(r io.Reader, opts StreamOptions) (
 	}
 
 	run := v.newStreamRun()
+	run.schemaLocationPolicy = opts.SchemaLocationPolicy
 	var prepassViolations []errors.Validation
 
-	if opts.SchemaLocationPolicy != SchemaLocationIgnore && run.canUseSchemaLocationHints() {
+	if opts.SchemaLocationPolicy == SchemaLocationDocument && run.canUseSchemaLocationHints() {
 		if seeker, ok := r.(io.ReadSeeker); ok {
 			pos, err := seeker.Seek(0, io.SeekCurrent)
 			if err != nil {
@@ -169,6 +172,7 @@ func (r *streamRun) validate(dec *xml.StreamDecoder, initial []errors.Validation
 	r.violations = append(r.violations[:0], initial...)
 	r.rootSeen = false
 	r.rootClosed = false
+	r.schemaLocationRootReady = false
 	r.identityScopes = r.identityScopes[:0]
 	r.constraintDecls = make(map[types.QName][]*grammar.CompiledElement)
 
@@ -230,6 +234,18 @@ func (r *streamRun) handleStart(dec *xml.StreamDecoder, ev xml.Event) error {
 	if r.schemaLocationHintError && hasSchemaLocationHint(ev.Attrs) {
 		path := r.childPath(ev.Name.Local)
 		return schemaLocationPolicyError(path)
+	}
+
+	if r.schemaLocationPolicy == SchemaLocationRootOnly && !r.schemaLocationRootReady && len(r.frames) == 0 && r.canUseSchemaLocationHints() {
+		hints := schemaLocationHintsFromAttrs(ev.Attrs)
+		if len(hints) > 0 {
+			rootPath := "/"
+			if ev.Name.Local != "" {
+				rootPath = "/" + ev.Name.Local
+			}
+			r.violations = append(r.violations, r.mergeSchemaLocationHintsWithRoot(rootPath, hints)...)
+		}
+		r.schemaLocationRootReady = true
 	}
 
 	parent := r.currentFrame()
