@@ -1,6 +1,9 @@
 package grammar
 
-import "github.com/jacoelho/xsd/internal/types"
+import (
+	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/xpath"
+)
 
 // CompiledElement is a fully-resolved element declaration.
 type CompiledElement struct {
@@ -27,5 +30,7 @@ type CompiledElement struct {
 
 // CompiledConstraint represents a resolved identity constraint.
 type CompiledConstraint struct {
-	Original *types.IdentityConstraint
+	Original      *types.IdentityConstraint
+	SelectorPaths []xpath.Path
+	FieldPaths    [][]xpath.Path
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/loader"
 	"github.com/jacoelho/xsd/internal/validator"
-	"github.com/jacoelho/xsd/internal/xml"
 )
 
 // Schema wraps a compiled schema with convenience methods.
@@ -53,15 +52,14 @@ func (s *Schema) Validate(r io.Reader) error {
 		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, "nil reader", "")}
 	}
 
-	doc := xml.AcquireDocument()
-	defer xml.ReleaseDocument(doc)
-
-	if err := xml.ParseInto(r, doc); err != nil {
+	v := s.getValidator()
+	violations, err := v.ValidateStream(r)
+	if err != nil {
+		if list, ok := errors.AsValidations(err); ok {
+			return errors.ValidationList(list)
+		}
 		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, err.Error(), "")}
 	}
-
-	v := s.getValidator()
-	violations := v.Validate(doc)
 	if len(violations) == 0 {
 		return nil
 	}

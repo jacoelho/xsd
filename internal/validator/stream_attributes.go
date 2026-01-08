@@ -7,33 +7,49 @@ import (
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
-func (r *validationRun) checkAttributes(elem xml.NodeID, attrs []*grammar.CompiledAttribute, anyAttr *types.AnyAttribute) []errors.Validation {
+type attributeIndex struct {
+	values map[types.QName]string
+	attrs  []xml.Attr
+}
+
+func newAttributeIndex(attrs []xml.Attr) attributeIndex {
+	values := make(map[types.QName]string, len(attrs))
+	for _, attr := range attrs {
+		values[types.QName{
+			Namespace: types.NamespaceURI(attr.NamespaceURI()),
+			Local:     attr.LocalName(),
+		}] = attr.Value()
+	}
+	return attributeIndex{values: values, attrs: attrs}
+}
+
+func (a attributeIndex) Value(ns, local string) (string, bool) {
+	value, ok := a.values[types.QName{Namespace: types.NamespaceURI(ns), Local: local}]
+	return value, ok
+}
+
+func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar.CompiledAttribute, anyAttr *types.AnyAttribute, scopeDepth int) []errors.Validation {
 	var violations []errors.Validation
 
 	declared := make(map[types.QName]bool)
 	idCount := 0
 
-	for _, attr := range attrs {
+	for _, attr := range decls {
 		if attr.Use == types.Prohibited && !attr.HasFixed {
 			continue
 		}
 		declared[attr.QName] = true
 
 		if attr.Use == types.Required {
-			attrValue := r.doc.GetAttributeNS(elem, attr.QName.Namespace.String(), attr.QName.Local)
-			if attrValue == "" {
+			if _, ok := attrs.Value(attr.QName.Namespace.String(), attr.QName.Local); !ok {
 				violations = append(violations, errors.NewValidationf(errors.ErrRequiredAttributeMissing, r.path.String(),
 					"Required attribute '%s' is missing", attr.QName.Local))
 			}
 		}
 
-		// validate attribute value only if the attribute is actually present in the XML.
-		// an absent optional attribute should not be validated against type facets.
-		// note: We validate even empty values (attr="") because facets must validate empty strings.
-		if r.doc.HasAttributeNS(elem, attr.QName.Namespace.String(), attr.QName.Local) {
-			value := r.doc.GetAttributeNS(elem, attr.QName.Namespace.String(), attr.QName.Local)
+		if value, ok := attrs.Value(attr.QName.Namespace.String(), attr.QName.Local); ok {
 			if attr.Type != nil {
-				violations = append(violations, r.checkSimpleValue(value, attr.Type, elem)...)
+				violations = append(violations, r.checkSimpleValue(value, attr.Type, scopeDepth)...)
 				if value != "" {
 					violations = append(violations, r.collectIDRefs(value, attr.Type)...)
 				}
@@ -42,7 +58,6 @@ func (r *validationRun) checkAttributes(elem xml.NodeID, attrs []*grammar.Compil
 				}
 			}
 
-			// both values must be normalized according to the type's whitespace facet before comparison
 			if attr.Fixed != "" {
 				var typ types.Type
 				if attr.Type != nil {
@@ -59,7 +74,7 @@ func (r *validationRun) checkAttributes(elem xml.NodeID, attrs []*grammar.Compil
 				value = attr.Fixed
 			}
 			if attr.Type != nil {
-				violations = append(violations, r.checkSimpleValue(value, attr.Type, elem)...)
+				violations = append(violations, r.checkSimpleValue(value, attr.Type, scopeDepth)...)
 				violations = append(violations, r.collectIDRefs(value, attr.Type)...)
 				if attr.Type.IDTypeName == "ID" {
 					idCount++
@@ -68,7 +83,7 @@ func (r *validationRun) checkAttributes(elem xml.NodeID, attrs []*grammar.Compil
 		}
 	}
 
-	for _, xmlAttr := range r.doc.Attributes(elem) {
+	for _, xmlAttr := range attrs.attrs {
 		if isXMLNSAttribute(xmlAttr) {
 			continue
 		}
@@ -83,7 +98,7 @@ func (r *validationRun) checkAttributes(elem xml.NodeID, attrs []*grammar.Compil
 				violations = append(violations, errors.NewValidationf(errors.ErrAttributeNotDeclared, r.path.String(),
 					"Attribute '%s' is not declared", attrQName.Local))
 			} else {
-				violations = append(violations, r.checkWildcardAttribute(xmlAttr, anyAttr, elem)...)
+				violations = append(violations, r.checkWildcardAttributeStream(xmlAttr, anyAttr, scopeDepth)...)
 				if anyAttr.ProcessContents != types.Skip {
 					if attrDecl := r.schema.Attribute(attrQName); attrDecl != nil && attrDecl.Type != nil {
 						if attrDecl.Type.IDTypeName == "ID" {
@@ -103,9 +118,7 @@ func (r *validationRun) checkAttributes(elem xml.NodeID, attrs []*grammar.Compil
 	return violations
 }
 
-// checkWildcardAttribute validates an attribute matched by anyAttribute wildcard.
-// elem is the element containing the attribute, needed for NOTATION validation.
-func (r *validationRun) checkWildcardAttribute(xmlAttr xml.Attr, anyAttr *types.AnyAttribute, elem xml.NodeID) []errors.Validation {
+func (r *streamRun) checkWildcardAttributeStream(xmlAttr xml.Attr, anyAttr *types.AnyAttribute, scopeDepth int) []errors.Validation {
 	if anyAttr.ProcessContents == types.Skip {
 		return nil
 	}
@@ -121,23 +134,19 @@ func (r *validationRun) checkWildcardAttribute(xmlAttr xml.Attr, anyAttr *types.
 			return []errors.Validation{errors.NewValidationf(errors.ErrWildcardNotDeclared, r.path.String(),
 				"Attribute '%s' is not declared (strict wildcard requires declaration)", attrQName.Local)}
 		}
-		// lax mode: no error when not found
 		return nil
 	}
 
-	return r.checkDeclaredAttributeValue(xmlAttr.Value(), attrDecl, elem)
+	return r.checkDeclaredAttributeValueStream(xmlAttr.Value(), attrDecl, scopeDepth)
 }
 
-// checkDeclaredAttributeValue validates an attribute value against its declaration.
-// elem is optional and only needed for NOTATION validation.
-func (r *validationRun) checkDeclaredAttributeValue(value string, decl *grammar.CompiledAttribute, elem xml.NodeID) []errors.Validation {
+func (r *streamRun) checkDeclaredAttributeValueStream(value string, decl *grammar.CompiledAttribute, scopeDepth int) []errors.Validation {
 	var violations []errors.Validation
 
 	if decl.Type != nil {
-		violations = append(violations, r.checkSimpleValue(value, decl.Type, elem)...)
+		violations = append(violations, r.checkSimpleValue(value, decl.Type, scopeDepth)...)
 	}
 
-	// check fixed constraint - both values must be normalized per type's whitespace facet
 	if decl.HasFixed {
 		var typ types.Type
 		if decl.Type != nil {

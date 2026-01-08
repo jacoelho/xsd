@@ -6,7 +6,6 @@ import (
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/xml"
 )
 
 // TestAttributeWildcard_NamespaceAny tests that ##any matches any namespace
@@ -78,13 +77,8 @@ func TestAttributeWildcard_NamespaceAny(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			hasError := len(violations) > 0
 			if hasError != tt.shouldErr {
@@ -170,13 +164,8 @@ func TestAttributeWildcard_NamespaceTargetNamespace(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			hasError := len(violations) > 0
 			if hasError != tt.shouldErr {
@@ -262,13 +251,8 @@ func TestAttributeWildcard_NamespaceOther(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			hasError := len(violations) > 0
 			if hasError != tt.shouldErr {
@@ -336,13 +320,8 @@ func TestAttributeWildcard_NamespaceLocal(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			hasError := len(violations) > 0
 			if hasError != tt.shouldErr {
@@ -412,13 +391,8 @@ func TestAttributeWildcard_NamespaceList(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			hasError := len(violations) > 0
 			if hasError != tt.shouldErr {
@@ -520,13 +494,8 @@ func TestAttributeWildcard_ProcessContentsStrict(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			hasError := len(violations) > 0
 			if hasError != tt.shouldErr {
@@ -610,13 +579,8 @@ func TestAttributeWildcard_ProcessContentsLax(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			hasError := len(violations) > 0
 			if hasError != tt.shouldErr {
@@ -668,13 +632,8 @@ func TestAttributeWildcard_ProcessContentsSkip(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			hasError := len(violations) > 0
 			if hasError != tt.shouldErr {

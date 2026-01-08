@@ -6,7 +6,6 @@ import (
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/xml"
 )
 
 func TestXsiTypeBlockedByRestrictionInChain(t *testing.T) {
@@ -44,13 +43,8 @@ func TestXsiTypeBlockedByRestrictionInChain(t *testing.T) {
 		t.Fatalf("Parse schema: %v", err)
 	}
 
-	doc, err := xml.Parse(strings.NewReader(docXML))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, docXML)
 	if len(violations) == 0 {
 		t.Fatalf("Expected xsi:type violation, got none")
 	}
