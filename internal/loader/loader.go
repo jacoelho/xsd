@@ -29,14 +29,13 @@ type SchemaLoader struct {
 	config  Config
 	loaded  map[string]*schema.Schema
 	loading map[string]bool
+	// Track in-progress schemas to validate include cycles.
+	loadingSchemas map[string]*schema.Schema
 	// Track import context: map[location]importingNamespace for mutual import detection
 	// When schema A imports schema B, we store importContext["B"] = A's namespace
 	// This allows us to detect mutual imports: if B then imports A, and A's namespace
 	// differs from B's namespace, the cycle is allowed.
 	importContext map[string]string
-	// Track include contexts: these operations require same namespace
-	// and circular dependencies are always errors (unlike imports)
-	includeContext map[string]bool
 	// Track include merges per including schema to avoid duplicate merges
 	// when the same schemaLocation is included multiple times.
 	mergedIncludes map[string]map[string]bool
@@ -55,8 +54,8 @@ func NewLoader(cfg Config) *SchemaLoader {
 		config:         cfg,
 		loaded:         make(map[string]*schema.Schema),
 		loading:        make(map[string]bool),
+		loadingSchemas: make(map[string]*schema.Schema),
 		importContext:  make(map[string]string),
-		includeContext: make(map[string]bool),
 		mergedIncludes: make(map[string]map[string]bool),
 		mergedImports:  make(map[string]map[string]bool),
 	}
@@ -96,6 +95,8 @@ func (l *SchemaLoader) loadWithValidation(location string, validate bool) (*sche
 
 	schema := result.Schema
 	initSchemaOrigins(schema, absLoc)
+	l.loadingSchemas[absLoc] = schema
+	defer delete(l.loadingSchemas, absLoc)
 	registerImports(schema, result.Imports)
 
 	if err := validateImportConstraints(schema, result.Imports); err != nil {
