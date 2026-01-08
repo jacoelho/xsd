@@ -45,6 +45,11 @@ func LoadFile(path string) (*Schema, error) {
 
 // Validate validates a document against the schema.
 func (s *Schema) Validate(r io.Reader) error {
+	return s.ValidateWithOptions(r, ValidateOptions{})
+}
+
+// ValidateWithOptions validates a document against the schema with options.
+func (s *Schema) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
 	if s == nil || s.compiled == nil {
 		return errors.ValidationList{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}
 	}
@@ -53,7 +58,7 @@ func (s *Schema) Validate(r io.Reader) error {
 	}
 
 	v := s.getValidator()
-	violations, err := v.ValidateStream(r)
+	violations, err := v.ValidateStreamWithOptions(r, toStreamOptions(opts))
 	if err != nil {
 		if list, ok := errors.AsValidations(err); ok {
 			return errors.ValidationList(list)
@@ -78,11 +83,16 @@ func (s *Schema) getValidator() *validator.Validator {
 
 // ValidateFile validates an XML file against the schema.
 func (s *Schema) ValidateFile(path string) error {
+	return s.ValidateFileWithOptions(path, ValidateOptions{})
+}
+
+// ValidateFileWithOptions validates an XML file against the schema with options.
+func (s *Schema) ValidateFileWithOptions(path string, opts ValidateOptions) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open xml file %s: %w", path, err)
 	}
 	defer f.Close()
 
-	return s.Validate(f)
+	return s.ValidateWithOptions(f, opts)
 }
