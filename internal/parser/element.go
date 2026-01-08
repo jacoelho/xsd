@@ -744,10 +744,12 @@ func namespaceContextForElement(doc *xml.Document, elem xml.NodeID, schema *xsds
 	context := make(map[string]string)
 	for current := elem; current != xml.InvalidNode; current = doc.Parent(current) {
 		for _, attr := range doc.Attributes(current) {
-			if attr.NamespaceURI() != xml.XMLNSNamespace && !(attr.NamespaceURI() == "" && attr.LocalName() == "xmlns") {
+			ns := attr.NamespaceURI()
+			local := attr.LocalName()
+			if ns != xml.XMLNSNamespace && (ns != "" || local != "xmlns") {
 				continue
 			}
-			prefix := attr.LocalName()
+			prefix := local
 			if prefix == "xmlns" {
 				prefix = ""
 			}
