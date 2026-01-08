@@ -17,13 +17,8 @@ type AllGroupElementInfo interface {
 	AllowsSubstitution() bool
 }
 
-// AllGroupValidator validates all group content models.
-// Uses simple array-based validation instead of DFA.
-// This correctly handles:
-// - Missing required elements
-// - Duplicate elements
-// - Any order
-// - Optional vs required elements
+// AllGroupValidator validates all-group content models with array-based checks.
+// It enforces required elements, uniqueness, and order-insensitivity.
 type AllGroupValidator struct {
 	elements    []AllGroupElementInfo
 	numRequired int
@@ -53,12 +48,10 @@ func (v *AllGroupValidator) Validate(doc *xml.Document, children []xml.NodeID, m
 	if len(children) == 0 && v.minOccurs == 0 {
 		return nil
 	}
-	// if all group is empty and there are no children, it's valid
 	if len(v.elements) == 0 {
 		if len(children) == 0 {
 			return nil
 		}
-		// no elements allowed but got some
 		return &ValidationError{
 			Index:   0,
 			Message: fmt.Sprintf("element %q not allowed", doc.LocalName(children[0])),

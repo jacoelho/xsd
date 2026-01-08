@@ -57,13 +57,34 @@ func replaceWhiteSpace(value string) string {
 }
 
 func collapseWhiteSpace(value string) string {
+	if value == "" {
+		return value
+	}
+
+	prevSpace := false
+	needsCollapse := false
+	for i, r := range value {
+		if unicode.IsSpace(r) {
+			if r != ' ' || i == 0 || prevSpace {
+				needsCollapse = true
+				break
+			}
+			prevSpace = true
+			continue
+		}
+		prevSpace = false
+	}
+	if !needsCollapse && !prevSpace {
+		return value
+	}
+
 	value = replaceWhiteSpace(value)
 	value = strings.TrimSpace(value)
 
 	var result strings.Builder
 	result.Grow(len(value))
 
-	prevSpace := false
+	prevSpace = false
 	for _, r := range value {
 		if unicode.IsSpace(r) {
 			if !prevSpace {

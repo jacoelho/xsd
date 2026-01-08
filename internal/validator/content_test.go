@@ -110,7 +110,6 @@ func TestEmptyContentValidation(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-
 			v := New(mustCompile(t, schema))
 			violations := validateStream(t, v, tt.xmlDoc)
 
@@ -141,10 +140,8 @@ func TestEmptyContentValidation(t *testing.T) {
 	}
 }
 
-// TestElementOnlyContentTextValidation tests that non-whitespace text in element-only
-// content is flagged as invalid per XSD spec section 5.2
-// Spec: "If CT is element-only (not mixed) and the type is not a simple content,
-// any non-whitespace text in the element should be flagged as invalid."
+// TestElementOnlyContentTextValidation checks non-whitespace text in element-only content.
+// It expects ErrTextInElementOnly per XSD 1.0 section 5.2.
 func TestElementOnlyContentTextValidation(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -241,7 +238,6 @@ func TestElementOnlyContentTextValidation(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Parse schema: %v", err)
 			}
-
 
 			v := New(mustCompile(t, schema))
 			violations := validateStream(t, v, tt.xmlDoc)
@@ -378,7 +374,6 @@ func TestEndOfContentValidation(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-
 			v := New(mustCompile(t, schema))
 			violations := validateStream(t, v, tt.xmlDoc)
 
@@ -507,7 +502,6 @@ func TestMinOccursMaxOccursValidation(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-
 			v := New(mustCompile(t, schema))
 			violations := validateStream(t, v, tt.xmlDoc)
 
@@ -633,7 +627,6 @@ func TestChoiceGroupValidation(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Parse schema: %v", err)
 			}
-
 
 			v := New(mustCompile(t, schema))
 			violations := validateStream(t, v, tt.xmlDoc)
@@ -771,7 +764,6 @@ func TestAllGroupValidation(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-
 			v := New(mustCompile(t, schema))
 			violations := validateStream(t, v, tt.xmlDoc)
 
@@ -888,7 +880,6 @@ func TestContentModelRequiredElements(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-
 			v := New(mustCompile(t, schema))
 			violations := validateStream(t, v, tt.xmlDoc)
 
@@ -1002,7 +993,6 @@ func TestContentModelUnexpectedElements(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-
 			v := New(mustCompile(t, schema))
 			violations := validateStream(t, v, tt.xmlDoc)
 
@@ -1099,7 +1089,6 @@ func TestContentModelOutOfOrder(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-
 			v := New(mustCompile(t, schema))
 			violations := validateStream(t, v, tt.xmlDoc)
 
@@ -1175,7 +1164,6 @@ func TestContentModelChoiceRequired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Parse schema: %v", err)
 			}
-
 
 			v := New(mustCompile(t, schema))
 			violations := validateStream(t, v, tt.xmlDoc)

@@ -191,14 +191,30 @@ func (r *streamRun) openIdentityScopes(frame *streamFrame) {
 }
 
 func (r *streamRun) constraintDeclsForQName(qname types.QName) []*grammar.CompiledElement {
-	if cached, ok := r.constraintDecls[qname]; ok {
-		return cached
+	if r.constraintDecls != nil {
+		if cached, ok := r.constraintDecls[qname]; ok {
+			return cached
+		}
+	}
+	if r.schema == nil || len(r.schema.ElementsWithConstraints()) == 0 {
+		return nil
 	}
 	if r.validator != nil && r.validator.grammar != nil {
 		if base := r.validator.grammar.ConstraintDeclsByQName; base != nil {
 			if cached, ok := base[qname]; ok {
 				return cached
 			}
+			if _, ok := r.schema.(*overlaySchemaView); !ok {
+				return nil
+			}
+		}
+	}
+	if overlay, ok := r.schema.(*overlaySchemaView); ok {
+		if lookup := overlay.constraintDeclsByQNameMap(); lookup != nil {
+			if cached, ok := lookup[qname]; ok {
+				return cached
+			}
+			return nil
 		}
 	}
 	var matches []*grammar.CompiledElement
@@ -213,6 +229,9 @@ func (r *streamRun) constraintDeclsForQName(qname types.QName) []*grammar.Compil
 				break
 			}
 		}
+	}
+	if matches == nil {
+		return nil
 	}
 	if r.constraintDecls == nil {
 		r.constraintDecls = make(map[types.QName][]*grammar.CompiledElement)

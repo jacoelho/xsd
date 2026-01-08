@@ -282,10 +282,8 @@ func TestValidateGroupOccurrenceConstraints(t *testing.T) {
 	}
 }
 
-// TestValidateMixedContentDerivation tests mixed content derivation constraints.
-// According to XSD spec: when extending a complex type, the mixed content property
-// must be consistent. You cannot extend a mixed content type to element-only content,
-// or extend an element-only type to mixed content.
+// TestValidateMixedContentDerivation checks mixed-content derivation constraints.
+// It rejects element-only and mixed-content mismatches per XSD rules.
 func TestValidateMixedContentDerivation(t *testing.T) {
 	tests := []struct {
 		name    string

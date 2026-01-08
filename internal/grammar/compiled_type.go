@@ -21,39 +21,42 @@ const (
 // All base types, attributes, and content models are pre-resolved.
 type CompiledType struct {
 	QName    types.QName
-	Original types.Type // The parsed type
+	Original types.Type
 	Kind     TypeKind
 
-	// Pre-resolved derivation (no QName lookups)
-	BaseType         *CompiledType   // Direct pointer to base
-	DerivationChain  []*CompiledType // [self, base, grandbase, ...]
+	// Pre-resolved derivation (no QName lookups).
+	BaseType *CompiledType
+	// DerivationChain is ordered [self, base, grandbase, ...].
+	DerivationChain  []*CompiledType
 	DerivationMethod types.DerivationMethod
 
-	// Pre-merged attributes (for complex types)
-	AllAttributes []*CompiledAttribute // Merged from all ancestors
-	AnyAttribute  *types.AnyAttribute  // Combined wildcard
+	// Pre-merged attributes (for complex types).
+	AllAttributes []*CompiledAttribute
+	// Combined wildcard.
+	AnyAttribute *types.AnyAttribute
 
-	// Pre-compiled content model (for complex types)
+	// Pre-compiled content model (for complex types).
 	ContentModel *CompiledContentModel
 
-	// For complex types with simpleContent: the simple type to validate text against
+	// For complex types with simpleContent.
 	SimpleContentType *CompiledType
 
-	// Simple type specifics
-	PrimitiveType *CompiledType   // For atomic types
-	ItemType      *CompiledType   // For list types
-	MemberTypes   []*CompiledType // For union types
-	Facets        []facets.Facet  // All applicable facets
+	// Simple type specifics.
+	PrimitiveType *CompiledType
+	ItemType      *CompiledType
+	MemberTypes   []*CompiledType
+	Facets        []facets.Facet
 
-	// Derivation control
+	// Derivation control.
 	Final    types.DerivationSet
 	Block    types.DerivationSet
 	Abstract bool
 	Mixed    bool
 
-	// Precomputed type properties
-	IsNotationType bool   // True if this type is or derives from xs:NOTATION
-	IDTypeName     string // "ID", "IDREF", or "IDREFS" if this type is or derives from one of these, empty otherwise
+	// Precomputed type properties.
+	IsNotationType bool
+	// "ID", "IDREF", or "IDREFS" if this type derives from those.
+	IDTypeName string
 }
 
 // TextType returns the simple type used to validate text content, or nil if no text validation.

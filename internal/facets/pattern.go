@@ -33,9 +33,12 @@ const (
 
 // Pattern represents a pattern facet (regex)
 type Pattern struct {
-	Value     string         // Original XSD pattern (for error messages)
-	GoPattern string         // Translated Go regex pattern
-	regex     *regexp.Regexp // Compiled regex (set during ValidateSyntax)
+	// Original XSD pattern (for error messages)
+	Value string
+	// Translated Go regex pattern
+	GoPattern string
+	// Compiled regex (set during ValidateSyntax)
+	regex *regexp.Regexp
 }
 
 // Name returns the facet name
@@ -100,7 +103,8 @@ func (p *Pattern) validateLexical(lexical string) error {
 // PatternSet groups multiple patterns from the same derivation step.
 // Per XSD spec, patterns from the same step are ORed together.
 type PatternSet struct {
-	Patterns []*Pattern // All patterns from the same derivation step
+	// All patterns from the same derivation step
+	Patterns []*Pattern
 }
 
 // Name returns the facet name
@@ -157,7 +161,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 	}
 
 	var result strings.Builder
-	result.Grow(len(xsdPattern) * 2)
+	result.Grow(len(xsdPattern) * 4)
 
 	i := 0
 	charClassDepth := 0 // track nested character class depth (for proper parsing)

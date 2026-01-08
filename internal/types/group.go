@@ -20,11 +20,12 @@ const (
 
 // ModelGroup represents sequence, choice, or all groups
 type ModelGroup struct {
-	Kind            GroupKind
-	Particles       []Particle
-	MinOccurs       int
-	MaxOccurs       int
-	SourceNamespace NamespaceURI // targetNamespace of the schema where this model group was originally declared
+	Kind      GroupKind
+	Particles []Particle
+	MinOccurs int
+	MaxOccurs int
+	// targetNamespace of the schema where this model group was originally declared
+	SourceNamespace NamespaceURI
 }
 
 // MinOcc implements Particle interface

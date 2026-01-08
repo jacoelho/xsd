@@ -128,6 +128,7 @@ func (r *validationRun) mergeSchemaOverlay(extra *grammar.CompiledSchema) {
 		return
 	}
 	overlay := r.ensureOverlay()
+	overlay.invalidateConstraintDecls()
 
 	for qname, elem := range extra.Elements {
 		if overlay.Element(qname) == nil {
@@ -209,7 +210,6 @@ func (r *validationRun) findElementDeclaration(qname types.QName) *grammar.Compi
 		return decl
 	}
 
-	// check local elements index (precomputed during compilation)
 	return r.schema.LocalElement(qname)
 }
 

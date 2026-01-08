@@ -16,15 +16,19 @@ const (
 
 // AttributeDecl represents an attribute declaration
 type AttributeDecl struct {
-	Name            QName
-	Type            Type
-	Use             AttributeUse
-	Default         string
-	Fixed           string
-	HasFixed        bool         // True if fixed attribute was explicitly set (even if empty)
-	SourceNamespace NamespaceURI // targetNamespace of the schema where this attribute was originally declared
-	Form            FormChoice   // Attribute's form attribute (qualified/unqualified)
-	IsReference     bool         // True if this came from ref="...", false if from name="..."
+	Name    QName
+	Type    Type
+	Use     AttributeUse
+	Default string
+	Fixed   string
+	// True if fixed attribute was explicitly set (even if empty)
+	HasFixed bool
+	// targetNamespace of the schema where this attribute was originally declared
+	SourceNamespace NamespaceURI
+	// Attribute's form attribute (qualified/unqualified)
+	Form FormChoice
+	// True if this came from ref="...", false if from name="..."
+	IsReference bool
 }
 
 // NewAttributeDeclFromParsed validates a parsed attribute declaration and returns it if valid.
@@ -63,11 +67,12 @@ func (a *AttributeDecl) Copy(opts CopyOptions) *AttributeDecl {
 
 // AttributeGroup represents an attribute group definition
 type AttributeGroup struct {
-	Name            QName
-	Attributes      []*AttributeDecl
-	AttrGroups      []QName
-	AnyAttribute    *AnyAttribute
-	SourceNamespace NamespaceURI // targetNamespace of the schema where this attribute group was originally declared
+	Name         QName
+	Attributes   []*AttributeDecl
+	AttrGroups   []QName
+	AnyAttribute *AnyAttribute
+	// targetNamespace of the schema where this attribute group was originally declared
+	SourceNamespace NamespaceURI
 }
 
 // ComponentName returns the QName of this component.

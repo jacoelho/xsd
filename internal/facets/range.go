@@ -134,6 +134,24 @@ func extractComparableValue(value types.TypedValue, baseType types.Type) (types.
 		return compVal, nil
 	}
 
+	switch v := native.(type) {
+	case *big.Rat:
+		return types.ComparableBigRat{Value: v, Typ: typ}, nil
+	case *big.Int:
+		return types.ComparableBigInt{Value: v, Typ: typ}, nil
+	case time.Time:
+		return types.ComparableTime{Value: v, Typ: typ}, nil
+	case time.Duration:
+		xsdDur := durationToXSD(v)
+		return types.ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
+	case float64:
+		return types.ComparableFloat64{Value: v, Typ: typ}, nil
+	case float32:
+		return types.ComparableFloat32{Value: v, Typ: typ}, nil
+	case string:
+		return parseStringToComparableValue(value, v, typ)
+	}
+
 	// try to extract using ValueAs helper for known types
 	if rat, err := types.ValueAs[*big.Rat](value); err == nil {
 		return types.ComparableBigRat{Value: rat, Typ: typ}, nil
@@ -153,28 +171,6 @@ func extractComparableValue(value types.TypedValue, baseType types.Type) (types.
 	if durVal, err := types.ValueAs[time.Duration](value); err == nil {
 		xsdDur := durationToXSD(durVal)
 		return types.ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
-	}
-
-	// if native is a string, try to parse it according to the type
-	if strVal, ok := native.(string); ok {
-		return parseStringToComparableValue(value, strVal, typ)
-	}
-
-	// try to wrap the native value in a Comparable type
-	switch v := native.(type) {
-	case *big.Rat:
-		return types.ComparableBigRat{Value: v, Typ: typ}, nil
-	case *big.Int:
-		return types.ComparableBigInt{Value: v, Typ: typ}, nil
-	case time.Time:
-		return types.ComparableTime{Value: v, Typ: typ}, nil
-	case time.Duration:
-		xsdDur := durationToXSD(v)
-		return types.ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
-	case float64:
-		return types.ComparableFloat64{Value: v, Typ: typ}, nil
-	case float32:
-		return types.ComparableFloat32{Value: v, Typ: typ}, nil
 	}
 
 	// all conversion attempts failed
@@ -272,11 +268,16 @@ func parseStringToComparableValue(value types.TypedValue, lexical string, typ ty
 
 // RangeFacet is a unified implementation for all range facets.
 type RangeFacet struct {
-	name    string                // Facet name (minInclusive, maxInclusive, etc.)
-	lexical string                // Keep lexical for schema/error messages
-	value   types.ComparableValue // Comparable value
-	cmpFunc func(cmp int) bool    // Comparison function: returns true if validation passes
-	errOp   string                // Error operator string (">=", "<=", ">", "<")
+	// Facet name (minInclusive, maxInclusive, etc.)
+	name string
+	// Keep lexical for schema/error messages
+	lexical string
+	// Comparable value
+	value types.ComparableValue
+	// Comparison function: returns true if validation passes
+	cmpFunc func(cmp int) bool
+	// Error operator string (">=", "<=", ">", "<")
+	errOp string
 }
 
 // Name returns the facet name
