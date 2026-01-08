@@ -15,23 +15,24 @@ const (
 	typeReferenceAllowMissing
 )
 
+const noOriginLocation = ""
+
 // validateTypeReferenceFromType validates that a type reference exists (from a Type interface).
 func validateTypeReferenceFromType(schema *schema.Schema, typ types.Type, contextNamespace types.NamespaceURI) error {
-	return validateTypeReferenceFromTypeWithPolicy(schema, typ, contextNamespace, typeReferenceRequired)
+	return validateTypeReferenceFromTypeWithPolicy(schema, typ, contextNamespace, noOriginLocation, typeReferenceRequired)
 }
 
-// validateTypeReferenceFromTypeAllowMissing validates a type reference that may be absent.
-func validateTypeReferenceFromTypeAllowMissing(schema *schema.Schema, typ types.Type, contextNamespace types.NamespaceURI) error {
-	return validateTypeReferenceFromTypeWithPolicy(schema, typ, contextNamespace, typeReferenceAllowMissing)
+func validateTypeReferenceFromTypeAllowMissingAtLocation(schema *schema.Schema, typ types.Type, contextNamespace types.NamespaceURI, originLocation string) error {
+	return validateTypeReferenceFromTypeWithPolicy(schema, typ, contextNamespace, originLocation, typeReferenceAllowMissing)
 }
 
-func validateTypeReferenceFromTypeWithPolicy(schema *schema.Schema, typ types.Type, contextNamespace types.NamespaceURI, policy typeReferencePolicy) error {
+func validateTypeReferenceFromTypeWithPolicy(schema *schema.Schema, typ types.Type, contextNamespace types.NamespaceURI, originLocation string, policy typeReferencePolicy) error {
 	visited := make(map[*types.ModelGroup]bool)
-	return validateTypeReferenceFromTypeWithVisited(schema, typ, visited, policy, contextNamespace)
+	return validateTypeReferenceFromTypeWithVisited(schema, typ, visited, policy, contextNamespace, originLocation)
 }
 
 // validateTypeReferenceFromTypeWithVisited validates type reference with cycle detection.
-func validateTypeReferenceFromTypeWithVisited(schema *schema.Schema, typ types.Type, visited map[*types.ModelGroup]bool, policy typeReferencePolicy, contextNamespace types.NamespaceURI) error {
+func validateTypeReferenceFromTypeWithVisited(schema *schema.Schema, typ types.Type, visited map[*types.ModelGroup]bool, policy typeReferencePolicy, contextNamespace types.NamespaceURI, originLocation string) error {
 	allowMissing := policy == typeReferenceAllowMissing
 	if typ != nil {
 		qname := typ.Name()
@@ -71,7 +72,7 @@ func validateTypeReferenceFromTypeWithVisited(schema *schema.Schema, typ types.T
 	if ct, ok := typ.(*types.ComplexType); ok {
 		if content := ct.Content(); content != nil {
 			if ec, ok := content.(*types.ElementContent); ok && ec.Particle != nil {
-				if err := validateParticleReferencesWithVisited(schema, ec.Particle, visited, ""); err != nil {
+				if err := validateParticleReferencesWithVisited(schema, ec.Particle, visited, originLocation); err != nil {
 					return err
 				}
 			}

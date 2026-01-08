@@ -245,6 +245,55 @@ func TestLoader_RestrictionAttributesIncludeBaseChain(t *testing.T) {
 	}
 }
 
+func TestLoader_InlineTypeUsesImportContext(t *testing.T) {
+	testFS := fstest.MapFS{
+		"root.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:mid="urn:mid"
+           targetNamespace="urn:root"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:mid" schemaLocation="mid.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`),
+		},
+		"mid.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:leaf="urn:leaf"
+           targetNamespace="urn:mid"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:leaf" schemaLocation="leaf.xsd"/>
+  <xs:element name="mid" type="xs:string"/>
+</xs:schema>`),
+		},
+		"leaf.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:leaf="urn:leaf"
+           targetNamespace="urn:leaf"
+           elementFormDefault="qualified">
+  <xs:element name="title" type="xs:string"/>
+  <xs:element name="locator">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="leaf:title"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	if _, err := loader.Load("root.xsd"); err != nil {
+		t.Fatalf("Load() should succeed with inline types referencing same-namespace elements, got error: %v", err)
+	}
+}
+
 func TestLoader_IncludeDuplicateFromDifferentPaths(t *testing.T) {
 	testFS := fstest.MapFS{
 		"main.xsd": &fstest.MapFile{
