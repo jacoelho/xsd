@@ -19,10 +19,13 @@ const (
 
 // ValidationError describes a content model violation.
 type ValidationError struct {
-	Index      int // child index where error occurred
-	Message    string
-	SubCode    string // Sub-code suffix like "b" or "d" for content model violations.
-	IsAllGroup bool   // Set to true if this is from an all group
+	// child index where error occurred
+	Index   int
+	Message string
+	// Sub-code suffix like "b" or "d" for content model violations.
+	SubCode string
+	// Set to true if this is from an all group
+	IsAllGroup bool
 }
 
 // Error returns the formatted validation error.
@@ -53,9 +56,14 @@ type SymbolMatcher interface {
 
 // MatchResult describes what a child element matched in the content model.
 type MatchResult struct {
-	IsWildcard      bool                  // true if matched a wildcard (xs:any)
-	ProcessContents types.ProcessContents // processContents from the wildcard (only valid if IsWildcard)
-	MatchedQName    types.QName           // matched declaration name (for non-wildcard matches)
+	// true if matched a wildcard (xs:any)
+	IsWildcard bool
+	// processContents from the wildcard (only valid if IsWildcard)
+	ProcessContents types.ProcessContents
+	// matched declaration name (for non-wildcard matches)
+	MatchedQName types.QName
+	// compiled element pointer for the matched symbol (if available)
+	MatchedElement any
 }
 
 // symbolCandidate represents a potential symbol match during content model validation.
@@ -74,53 +82,61 @@ func (a *Automaton) Validate(doc *xml.Document, children []xml.NodeID, matcher S
 
 // handleGroupCounters processes group iteration counting for the current transition.
 // Returns an error if maxOccurs is exceeded.
-func (a *Automaton) handleGroupCounters(state, next, symIdx, childIdx int, groupCounts, groupRemainders map[int]int) error {
+func (a *Automaton) handleGroupCounters(state, next, symIdx, childIdx int, groups *groupCounterState) error {
+	if a == nil || a.groupCount == 0 || groups == nil {
+		return nil
+	}
 	lastProcessedGroupID := -1
 	for _, checkState := range []int{state, next} {
 		if c := a.counting[checkState]; c != nil && c.IsGroupCounter {
 			if c.GroupID == lastProcessedGroupID {
 				continue
 			}
-			isStartSymbol := slices.Contains(c.GroupStartSymbols, symIdx)
-			if isStartSymbol {
-				lastProcessedGroupID = c.GroupID
-				if c.UnitSize > 0 {
-					if c.Max >= 0 && groupCounts[c.GroupID] >= c.Max {
+			if !slices.Contains(c.GroupStartSymbols, symIdx) {
+				continue
+			}
+			idx, ok := a.groupIndexByID[c.GroupID]
+			if !ok {
+				continue
+			}
+			lastProcessedGroupID = c.GroupID
+			groups.seen[idx] = true
+			if c.UnitSize > 0 {
+				if c.Max >= 0 && groups.counts[idx] >= c.Max {
+					return &ValidationError{
+						Index:   childIdx,
+						Message: fmt.Sprintf("group exceeds maxOccurs=%d", c.Max),
+						SubCode: ErrorCodeNotExpectedHere,
+					}
+				}
+				groups.remainders[idx]++
+				if groups.remainders[idx] == c.UnitSize {
+					groups.counts[idx]++
+					groups.remainders[idx] = 0
+					if c.Max >= 0 && groups.counts[idx] > c.Max {
 						return &ValidationError{
 							Index:   childIdx,
 							Message: fmt.Sprintf("group exceeds maxOccurs=%d", c.Max),
 							SubCode: ErrorCodeNotExpectedHere,
 						}
 					}
-					groupRemainders[c.GroupID]++
-					if groupRemainders[c.GroupID] == c.UnitSize {
-						groupCounts[c.GroupID]++
-						groupRemainders[c.GroupID] = 0
-						if c.Max >= 0 && groupCounts[c.GroupID] > c.Max {
-							return &ValidationError{
-								Index:   childIdx,
-								Message: fmt.Sprintf("group exceeds maxOccurs=%d", c.Max),
-								SubCode: ErrorCodeNotExpectedHere,
-							}
-						}
-					}
-					continue
 				}
+				continue
+			}
 
-				groupCounts[c.GroupID]++
-				startCount := groupCounts[c.GroupID]
-				minIterations := startCount
-				if startCount > 0 && c.FirstPosMaxOccurs == types.UnboundedOccurs {
-					minIterations = 1
-				} else if c.FirstPosMaxOccurs > 1 {
-					minIterations = (startCount + c.FirstPosMaxOccurs - 1) / c.FirstPosMaxOccurs
-				}
-				if c.Max >= 0 && minIterations > c.Max {
-					return &ValidationError{
-						Index:   childIdx,
-						Message: fmt.Sprintf("group exceeds maxOccurs=%d", c.Max),
-						SubCode: ErrorCodeNotExpectedHere,
-					}
+			groups.counts[idx]++
+			startCount := groups.counts[idx]
+			minIterations := startCount
+			if startCount > 0 && c.FirstPosMaxOccurs == types.UnboundedOccurs {
+				minIterations = 1
+			} else if c.FirstPosMaxOccurs > 1 {
+				minIterations = (startCount + c.FirstPosMaxOccurs - 1) / c.FirstPosMaxOccurs
+			}
+			if c.Max >= 0 && minIterations > c.Max {
+				return &ValidationError{
+					Index:   childIdx,
+					Message: fmt.Sprintf("group exceeds maxOccurs=%d", c.Max),
+					SubCode: ErrorCodeNotExpectedHere,
 				}
 			}
 		}
@@ -130,13 +146,15 @@ func (a *Automaton) handleGroupCounters(state, next, symIdx, childIdx int, group
 
 // handleElementCounter processes element occurrence counting for the current match.
 // Returns an error if maxOccurs is exceeded.
-func (a *Automaton) handleElementCounter(state, next, symIdx, childIdx int, symbolCounts map[int]int, childName string) error {
-	symbolCounts[symIdx]++
+func (a *Automaton) handleElementCounter(state, next, symIdx, childIdx int, symbolCounts []int, childName string) error {
+	if symIdx >= 0 && symIdx < len(symbolCounts) {
+		symbolCounts[symIdx]++
+	}
 	max := types.UnboundedOccurs
 	if symIdx >= 0 && symIdx < len(a.symbolMax) {
 		max = a.symbolMax[symIdx]
 	}
-	if max >= 0 && symbolCounts[symIdx] > max {
+	if symIdx >= 0 && symIdx < len(symbolCounts) && max >= 0 && symbolCounts[symIdx] > max {
 		return &ValidationError{
 			Index:   childIdx,
 			Message: fmt.Sprintf("element %q exceeds maxOccurs=%d", childName, max),
@@ -147,28 +165,29 @@ func (a *Automaton) handleElementCounter(state, next, symIdx, childIdx int, symb
 }
 
 // validateFinalCounts checks all counters satisfy minOccurs at end of validation.
-func (a *Automaton) validateFinalCounts(symbolCounts, groupCounts, groupRemainders map[int]int, childCount int) error {
-	checkedGroupIDs := make(map[int]bool)
-	for stateID, c := range a.counting {
-		if c == nil {
-			continue
-		}
-		if c.IsGroupCounter {
-			if checkedGroupIDs[c.GroupID] {
+func (a *Automaton) validateFinalCounts(symbolCounts []int, groups *groupCounterState, childCount int) error {
+	if a != nil && a.groupCount > 0 && groups != nil {
+		clear(groups.checked)
+		for stateID, c := range a.counting {
+			if c == nil || !c.IsGroupCounter {
 				continue
 			}
-			checkedGroupIDs[c.GroupID] = true
-			if c.UnitSize > 0 && groupRemainders[c.GroupID] != 0 {
+			idx, ok := a.groupIndexByID[c.GroupID]
+			if !ok || groups.checked[idx] {
+				continue
+			}
+			groups.checked[idx] = true
+			if c.UnitSize > 0 && groups.remainders[idx] != 0 {
 				return &ValidationError{
 					Index:   childCount,
 					Message: fmt.Sprintf("group incomplete: expected %d occurrences per iteration", c.UnitSize),
 					SubCode: ErrorCodeMissing,
 				}
 			}
-			if count, hasCount := groupCounts[c.GroupID]; hasCount && count < c.Min {
+			if groups.seen[idx] && groups.counts[idx] < c.Min {
 				return &ValidationError{
 					Index:   childCount,
-					Message: fmt.Sprintf("minOccurs=%d not satisfied (state=%d, group=%d, count=%d)", c.Min, stateID, c.GroupID, count),
+					Message: fmt.Sprintf("minOccurs=%d not satisfied (state=%d, group=%d, count=%d)", c.Min, stateID, c.GroupID, groups.counts[idx]),
 					SubCode: ErrorCodeMissing,
 				}
 			}
@@ -178,7 +197,10 @@ func (a *Automaton) validateFinalCounts(symbolCounts, groupCounts, groupRemainde
 		if min <= 0 {
 			continue
 		}
-		count := symbolCounts[symIdx]
+		count := 0
+		if symIdx >= 0 && symIdx < len(symbolCounts) {
+			count = symbolCounts[symIdx]
+		}
 		if count < min {
 			return &ValidationError{
 				Index:   childCount,
@@ -203,13 +225,17 @@ func (a *Automaton) ValidateWithMatches(doc *xml.Document, children []xml.NodeID
 	}
 
 	state := 0
-	symbolCounts := make(map[int]int)
-	groupCounts := make(map[int]int)
-	groupRemainders := make(map[int]int)
+	symbolCounts := make([]int, len(a.symbols))
+	var groupState groupCounterState
+	groupState.reset(a.groupCount)
 
 	for i, child := range children {
-		// find the best matching symbol - one that has a valid transition
-		symIdx, isWildcard, next := a.findBestMatch(doc, child, state, matcher)
+		qname := types.QName{
+			Namespace: types.NamespaceURI(doc.NamespaceURI(child)),
+			Local:     doc.LocalName(child),
+		}
+
+		symIdx, isWildcard, next := a.findBestMatchQName(qname, state, matcher)
 
 		if symIdx < 0 {
 			// element is not part of the content model at all - not allowed (.d)
@@ -222,9 +248,10 @@ func (a *Automaton) ValidateWithMatches(doc *xml.Document, children []xml.NodeID
 
 		matches[i].IsWildcard = isWildcard
 		if isWildcard && len(wildcards) > 0 {
-			matches[i].ProcessContents = a.findWildcardProcessContents(doc, child, wildcards)
+			matches[i].ProcessContents = a.findWildcardProcessContentsQName(qname, wildcards)
 		} else if !isWildcard && symIdx >= 0 && symIdx < len(a.symbols) {
 			matches[i].MatchedQName = a.symbols[symIdx].QName
+			matches[i].MatchedElement = a.matchedElement(state, symIdx)
 		}
 
 		if next < 0 {
@@ -247,7 +274,7 @@ func (a *Automaton) ValidateWithMatches(doc *xml.Document, children []xml.NodeID
 			}
 		}
 
-		if err := a.handleGroupCounters(state, next, symIdx, i, groupCounts, groupRemainders); err != nil {
+		if err := a.handleGroupCounters(state, next, symIdx, i, &groupState); err != nil {
 			return nil, err
 		}
 
@@ -266,32 +293,26 @@ func (a *Automaton) ValidateWithMatches(doc *xml.Document, children []xml.NodeID
 		}
 	}
 
-	if err := a.validateFinalCounts(symbolCounts, groupCounts, groupRemainders, len(children)); err != nil {
+	if err := a.validateFinalCounts(symbolCounts, &groupState, len(children)); err != nil {
 		return nil, err
 	}
 
 	return matches, nil
 }
 
-// findBestMatch finds the best matching symbol for an element at the given state.
+// findBestMatchQName finds the best matching symbol for an element at the given state.
 // It returns the symbol index, whether it's a wildcard match, and the next state.
 // If an element can match multiple symbols, it prefers the one with a valid transition.
-func (a *Automaton) findBestMatch(doc *xml.Document, elem xml.NodeID, state int, matcher SymbolMatcher) (symIdx int, isWildcard bool, next int) {
-	qname := types.QName{
-		Namespace: types.NamespaceURI(doc.NamespaceURI(elem)),
-		Local:     doc.LocalName(elem),
-	}
+func (a *Automaton) findBestMatchQName(qname types.QName, state int, matcher SymbolMatcher) (symIdx int, isWildcard bool, next int) {
+	var candidatesBuf [8]symbolCandidate
+	candidates := candidatesBuf[:0]
 
-	var candidates []symbolCandidate
-
-	// exact element match
 	for i, sym := range a.symbols {
 		if sym.Kind == KindElement && sym.QName.Equal(qname) {
 			candidates = append(candidates, symbolCandidate{i, false})
 		}
 	}
 
-	// substitution group match
 	if matcher != nil {
 		for i, sym := range a.symbols {
 			if sym.Kind == KindElement && sym.AllowSubstitution && matcher.IsSubstitutable(qname, sym.QName) {
@@ -300,7 +321,6 @@ func (a *Automaton) findBestMatch(doc *xml.Document, elem xml.NodeID, state int,
 		}
 	}
 
-	// wildcard matches
 	for i, sym := range a.symbols {
 		switch sym.Kind {
 		case KindAny:
@@ -328,25 +348,38 @@ func (a *Automaton) findBestMatch(doc *xml.Document, elem xml.NodeID, state int,
 
 	// try to find a candidate with a valid transition
 	for _, c := range candidates {
-		nextState := a.trans[state][c.idx]
+		nextState := a.transition(state, c.idx)
 		if nextState >= 0 {
 			return c.idx, c.isWildcard, nextState
 		}
 	}
 
 	// no valid transition, return the first candidate (for error reporting)
-	return candidates[0].idx, candidates[0].isWildcard, a.trans[state][candidates[0].idx]
+	return candidates[0].idx, candidates[0].isWildcard, a.transition(state, candidates[0].idx)
 }
 
-// findWildcardProcessContents finds the processContents for a wildcard match.
-func (a *Automaton) findWildcardProcessContents(doc *xml.Document, elem xml.NodeID, wildcards []*types.AnyElement) types.ProcessContents {
+func (a *Automaton) matchedElement(state, symIdx int) any {
+	if a == nil || state < 0 || symIdx < 0 {
+		return nil
+	}
+	if state >= len(a.stateSymbolPos) {
+		return nil
+	}
+	row := a.stateSymbolPos[state]
+	if symIdx >= len(row) {
+		return nil
+	}
+	pos := row[symIdx]
+	if pos < 0 || pos >= len(a.posElements) {
+		return nil
+	}
+	return a.posElements[pos]
+}
+
+// findWildcardProcessContentsQName finds the processContents for a wildcard match.
+func (a *Automaton) findWildcardProcessContentsQName(qname types.QName, wildcards []*types.AnyElement) types.ProcessContents {
 	if len(wildcards) == 0 {
 		return types.Strict // default to strict if no wildcards available
-	}
-
-	qname := types.QName{
-		Namespace: types.NamespaceURI(doc.NamespaceURI(elem)),
-		Local:     doc.LocalName(elem),
 	}
 
 	for _, w := range wildcards {

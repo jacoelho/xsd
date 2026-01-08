@@ -12,7 +12,6 @@ import (
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/loader"
 	"github.com/jacoelho/xsd/internal/validator"
-	"github.com/jacoelho/xsd/internal/xml"
 )
 
 // Schema wraps a compiled schema with convenience methods.
@@ -46,6 +45,11 @@ func LoadFile(path string) (*Schema, error) {
 
 // Validate validates a document against the schema.
 func (s *Schema) Validate(r io.Reader) error {
+	return s.ValidateWithOptions(r, ValidateOptions{})
+}
+
+// ValidateWithOptions validates a document against the schema with options.
+func (s *Schema) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
 	if s == nil || s.compiled == nil {
 		return errors.ValidationList{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}
 	}
@@ -53,15 +57,14 @@ func (s *Schema) Validate(r io.Reader) error {
 		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, "nil reader", "")}
 	}
 
-	doc := xml.AcquireDocument()
-	defer xml.ReleaseDocument(doc)
-
-	if err := xml.ParseInto(r, doc); err != nil {
+	v := s.getValidator()
+	violations, err := v.ValidateStreamWithOptions(r, toStreamOptions(opts))
+	if err != nil {
+		if list, ok := errors.AsValidations(err); ok {
+			return errors.ValidationList(list)
+		}
 		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, err.Error(), "")}
 	}
-
-	v := s.getValidator()
-	violations := v.Validate(doc)
 	if len(violations) == 0 {
 		return nil
 	}
@@ -80,11 +83,20 @@ func (s *Schema) getValidator() *validator.Validator {
 
 // ValidateFile validates an XML file against the schema.
 func (s *Schema) ValidateFile(path string) error {
+	return s.ValidateFileWithOptions(path, ValidateOptions{})
+}
+
+// ValidateFileWithOptions validates an XML file against the schema with options.
+func (s *Schema) ValidateFileWithOptions(path string, opts ValidateOptions) (err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open xml file %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close xml file %s: %w", path, closeErr)
+		}
+	}()
 
-	return s.Validate(f)
+	return s.ValidateWithOptions(f, opts)
 }

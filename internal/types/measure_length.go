@@ -25,10 +25,14 @@ func measureLengthForPrimitive(value string, primitiveName TypeName) int {
 		if len(value) == 0 {
 			return 0
 		}
-		cleaned := strings.ReplaceAll(value, " ", "")
-		cleaned = strings.ReplaceAll(cleaned, "\t", "")
-		cleaned = strings.ReplaceAll(cleaned, "\n", "")
-		cleaned = strings.ReplaceAll(cleaned, "\r", "")
+		cleaned := strings.Map(func(r rune) rune {
+			switch r {
+			case ' ', '\t', '\n', '\r':
+				return -1
+			default:
+				return r
+			}
+		}, value)
 
 		// decode to get actual byte length
 		decoded, err := base64.StdEncoding.DecodeString(cleaned)

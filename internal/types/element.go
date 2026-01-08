@@ -27,14 +27,18 @@ type ElementDecl struct {
 	Abstract          bool
 	SubstitutionGroup QName
 	Block             DerivationSet
-	Final             DerivationSet // Derivation methods blocked for this element
-	Default           string
-	Fixed             string
-	HasFixed          bool // True if fixed attribute was explicitly set (even if empty)
-	Constraints       []*IdentityConstraint
-	IsReference       bool
-	SourceNamespace   NamespaceURI // targetNamespace of the schema where this element was originally declared
-	Form              FormChoice   // Element's form attribute (qualified/unqualified)
+	// Derivation methods blocked for this element
+	Final   DerivationSet
+	Default string
+	Fixed   string
+	// True if fixed attribute was explicitly set (even if empty)
+	HasFixed    bool
+	Constraints []*IdentityConstraint
+	IsReference bool
+	// targetNamespace of the schema where this element was originally declared
+	SourceNamespace NamespaceURI
+	// Element's form attribute (qualified/unqualified)
+	Form FormChoice
 }
 
 // NewElementDeclFromParsed validates a parsed element declaration and returns it if valid.

@@ -14,7 +14,6 @@ func IsDerivedFrom(derived, base Type) bool {
 		return false
 	}
 
-	// check if derived implements DerivedType
 	dt, ok := as[DerivedType](derived)
 	if !ok {
 		return false
@@ -36,11 +35,8 @@ func IsDerivedFrom(derived, base Type) bool {
 	return false
 }
 
-// IsValidlyDerivedFrom returns true if derived is validly derived from base for
-// the purposes of particle restriction validation. This is more permissive than
-// IsDerivedFrom because it also handles:
-// - Union types: derived is valid if it's one of the union's member types or derived from one
-// - Same type comparison by QName
+// IsValidlyDerivedFrom returns true when particle restriction rules allow the derivation.
+// It extends IsDerivedFrom to handle unions and QName equality checks.
 func IsValidlyDerivedFrom(derived, base Type) bool {
 	for _, rule := range derivationRules() {
 		if rule.when(derived, base) {

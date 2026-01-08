@@ -53,14 +53,18 @@ func (s *loadSession) handleCircularLoad() (*schema.Schema, error) {
 	return result.Schema, nil
 }
 
-func (s *loadSession) parseSchema() (*parser.ParseResult, error) {
+func (s *loadSession) parseSchema() (result *parser.ParseResult, err error) {
 	f, err := s.loader.openFile(s.absLoc)
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", s.absLoc, err)
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close %s: %w", s.absLoc, closeErr)
+		}
+	}()
 
-	result, err := parser.ParseWithImports(f)
+	result, err = parser.ParseWithImports(f)
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", s.absLoc, err)
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 // validateSelectorXPath validates that a selector XPath selects element nodes
@@ -63,11 +64,12 @@ func validateFieldXPath(xpath string) error {
 		return fmt.Errorf("field xpath cannot use functions or parentheses: %s", xpath)
 	}
 
-	// fields can only use child and attribute axes (abbreviated forms allowed).
+	// fields can only use child/attribute axes; descendant-or-self is allowed only via ".//".
 	disallowedAxes := []string{
 		"parent::", "ancestor::", "ancestor-or-self::",
 		"following::", "following-sibling::",
 		"preceding::", "preceding-sibling::",
+		"self::", "descendant::", "descendant-or-self::",
 		"namespace::",
 	}
 
@@ -78,7 +80,6 @@ func validateFieldXPath(xpath string) error {
 	}
 
 	// validate allowed axes only
-	// allowed: child::, attribute::, or abbreviated (@, .//)
 	hasAllowedAxis := false
 	allowedPatterns := []string{
 		"child::", "attribute::",
@@ -89,6 +90,9 @@ func validateFieldXPath(xpath string) error {
 	if strings.HasPrefix(xpath, "@") {
 		hasAllowedAxis = true
 	} else {
+		if strings.HasPrefix(axisCheck, "//") || strings.HasPrefix(axisCheck, ".//") {
+			hasAllowedAxis = true
+		}
 		for _, pattern := range allowedPatterns {
 			if strings.Contains(axisCheck, pattern) {
 				hasAllowedAxis = true
@@ -125,6 +129,7 @@ func validateSelectorXPathRestrictions(xpath string) error {
 		"following::", "following-sibling::",
 		"preceding::", "preceding-sibling::",
 		"namespace::", "attribute::",
+		"self::", "descendant::", "descendant-or-self::",
 	}
 
 	for _, axis := range disallowedAxes {
@@ -207,318 +212,16 @@ const (
 	xpathAttributesAllowed
 )
 
-func validateRestrictedSelectorXPathGrammar(xpath string, nsContext map[string]string) error {
-	return validateRestrictedXPathGrammar(xpath, nsContext, xpathAttributesDisallowed)
+func validateRestrictedSelectorXPathGrammar(expr string, nsContext map[string]string) error {
+	return validateRestrictedXPathGrammar(expr, nsContext, xpathAttributesDisallowed)
 }
 
-func validateRestrictedFieldXPathGrammar(xpath string, nsContext map[string]string) error {
-	return validateRestrictedXPathGrammar(xpath, nsContext, xpathAttributesAllowed)
+func validateRestrictedFieldXPathGrammar(expr string, nsContext map[string]string) error {
+	return validateRestrictedXPathGrammar(expr, nsContext, xpathAttributesAllowed)
 }
 
-func validateRestrictedXPathGrammar(xpath string, nsContext map[string]string, policy xpathAttributePolicy) error {
-	xpath = strings.TrimSpace(xpath)
-	if xpath == "" {
-		return fmt.Errorf("xpath cannot be empty")
-	}
-
-	parts := strings.SplitSeq(xpath, "|")
-	for part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			return fmt.Errorf("xpath contains empty union branch: %s", xpath)
-		}
-		parser := xpathParser{
-			input:     part,
-			nsContext: nsContext,
-			policy:    policy,
-		}
-		if err := parser.parsePath(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-type xpathParser struct {
-	input     string
-	pos       int
-	nsContext map[string]string
-	policy    xpathAttributePolicy
-}
-
-func (p *xpathParser) parsePath() error {
-	p.skipSpace()
-	if p.atEnd() {
-		return fmt.Errorf("xpath must contain at least one step")
-	}
-
-	var attrStep bool
-	if p.consumeDotSlashSlashPrefix() {
-		parsedAttrStep, err := p.parseStep()
-		if err != nil {
-			return err
-		}
-		attrStep = parsedAttrStep
-	} else {
-		parsedAttrStep, err := p.parseStep()
-		if err != nil {
-			return err
-		}
-		attrStep = parsedAttrStep
-	}
-
-	for {
-		p.skipSpace()
-		if attrStep {
-			if p.peekDoubleSlash() || p.peekSlash() {
-				return fmt.Errorf("xpath attribute step must be final: %s", p.input)
-			}
-		}
-		if p.consumeDoubleSlash() {
-			return fmt.Errorf("xpath cannot use '//' in restricted xpath: %s", p.input)
-		}
-		if !p.consumeSlash() {
-			break
-		}
-
-		parsedAttrStep, err := p.parseStep()
-		if err != nil {
-			return err
-		}
-		attrStep = parsedAttrStep
-	}
-
-	p.skipSpace()
-	if !p.atEnd() {
-		return fmt.Errorf("xpath has invalid trailing content: %s", p.input)
-	}
-
-	return nil
-}
-
-func (p *xpathParser) parseStep() (bool, error) {
-	p.skipSpace()
-	if p.atEnd() {
-		return false, fmt.Errorf("xpath step is missing a node test: %s", p.input)
-	}
-	if p.peekDoubleSlash() || p.peekSlash() {
-		return false, fmt.Errorf("xpath step is missing a node test: %s", p.input)
-	}
-
-	if p.consumeAt() {
-		if p.policy == xpathAttributesDisallowed {
-			return false, fmt.Errorf("xpath cannot select attributes: %s", p.input)
-		}
-		node := p.readToken()
-		if node == "" {
-			return false, fmt.Errorf("xpath step is missing a node test: %s", p.input)
-		}
-		if err := validateXPathNodeTest(node, p.nsContext); err != nil {
-			return false, err
-		}
-		if node == "." {
-			return false, fmt.Errorf("xpath step is missing a node test: %s", p.input)
-		}
-		return true, nil
-	}
-
-	token := p.readToken()
-	if token == "" {
-		return false, fmt.Errorf("xpath step is missing a node test: %s", p.input)
-	}
-
-	axis, node, hasAxis := splitAxisToken(token)
-	if hasAxis {
-		if axis == "" {
-			return false, fmt.Errorf("xpath step has invalid axis: %s", p.input)
-		}
-		if node == "" {
-			node = p.readToken()
-			if node == "" {
-				return false, fmt.Errorf("xpath step is missing a node test: %s", p.input)
-			}
-		}
-		return p.parseAxisStep(axis, node)
-	}
-
-	p.skipSpace()
-	if p.consumeDoubleColon() {
-		node = p.readToken()
-		if node == "" {
-			return false, fmt.Errorf("xpath step is missing a node test: %s", p.input)
-		}
-		return p.parseAxisStep(token, node)
-	}
-
-	if err := validateXPathNodeTest(token, p.nsContext); err != nil {
-		return false, err
-	}
-	return false, nil
-}
-
-func splitAxisToken(token string) (axis, node string, ok bool) {
-	before, after, ok0 := strings.Cut(token, "::")
-	if !ok0 {
-		return "", "", false
-	}
-	axis = strings.TrimSpace(before)
-	node = strings.TrimSpace(after)
-	return axis, node, true
-}
-
-func (p *xpathParser) parseAxisStep(axis, node string) (bool, error) {
-	if node == "." {
-		return false, fmt.Errorf("xpath step is missing a node test: %s", p.input)
-	}
-	if strings.Contains(node, "::") {
-		return false, fmt.Errorf("xpath step has invalid axis: %s", p.input)
-	}
-
-	switch axis {
-	case "child":
-		if err := validateXPathNodeTest(node, p.nsContext); err != nil {
-			return false, err
-		}
-		return false, nil
-	case "attribute":
-		if p.policy == xpathAttributesDisallowed {
-			return false, fmt.Errorf("xpath cannot select attributes: %s", p.input)
-		}
-		if err := validateXPathNodeTest(node, p.nsContext); err != nil {
-			return false, err
-		}
-		return true, nil
-	default:
-		return false, fmt.Errorf("xpath uses disallowed axis '%s::': %s", axis, p.input)
-	}
-}
-
-func (p *xpathParser) readToken() string {
-	p.skipSpace()
-	start := p.pos
-	for p.pos < len(p.input) {
-		ch := p.input[p.pos]
-		if isXPathWhitespace(ch) || ch == '/' || ch == '|' || ch == '@' {
-			break
-		}
-		p.pos++
-	}
-	return strings.TrimSpace(p.input[start:p.pos])
-}
-
-func (p *xpathParser) consumeDotSlashSlashPrefix() bool {
-	start := p.pos
-	p.skipSpace()
-	if p.pos >= len(p.input) || p.input[p.pos] != '.' {
-		p.pos = start
-		return false
-	}
-	p.pos++
-	p.skipSpace()
-	if p.pos+1 >= len(p.input) || p.input[p.pos] != '/' || p.input[p.pos+1] != '/' {
-		p.pos = start
-		return false
-	}
-	p.pos += 2
-	return true
-}
-
-func (p *xpathParser) consumeDoubleSlash() bool {
-	p.skipSpace()
-	if p.peekDoubleSlash() {
-		p.pos += 2
-		return true
-	}
-	return false
-}
-
-func (p *xpathParser) consumeSlash() bool {
-	p.skipSpace()
-	if p.peekSlash() && !p.peekDoubleSlash() {
-		p.pos++
-		return true
-	}
-	return false
-}
-
-func (p *xpathParser) consumeDoubleColon() bool {
-	p.skipSpace()
-	if p.pos+1 < len(p.input) && p.input[p.pos] == ':' && p.input[p.pos+1] == ':' {
-		p.pos += 2
-		return true
-	}
-	return false
-}
-
-func (p *xpathParser) consumeAt() bool {
-	p.skipSpace()
-	if p.pos < len(p.input) && p.input[p.pos] == '@' {
-		p.pos++
-		return true
-	}
-	return false
-}
-
-func (p *xpathParser) peekSlash() bool {
-	return p.pos < len(p.input) && p.input[p.pos] == '/'
-}
-
-func (p *xpathParser) peekDoubleSlash() bool {
-	return p.pos+1 < len(p.input) && p.input[p.pos] == '/' && p.input[p.pos+1] == '/'
-}
-
-func (p *xpathParser) skipSpace() {
-	for p.pos < len(p.input) && isXPathWhitespace(p.input[p.pos]) {
-		p.pos++
-	}
-}
-
-func (p *xpathParser) atEnd() bool {
-	return p.pos >= len(p.input)
-}
-
-func validateXPathNodeTest(node string, nsContext map[string]string) error {
-	if node == "*" || node == "." {
-		return nil
-	}
-	if before, ok := strings.CutSuffix(node, ":*"); ok {
-		prefix := strings.TrimSpace(before)
-		if prefix == "" {
-			return fmt.Errorf("xpath step has empty prefix: %s", node)
-		}
-		if !types.IsValidNCName(prefix) {
-			return fmt.Errorf("xpath step has invalid prefix %q", node)
-		}
-		if nsContext != nil {
-			if _, ok := nsContext[prefix]; !ok {
-				return fmt.Errorf("xpath step uses undeclared prefix %q", prefix)
-			}
-		}
-		return nil
-	}
-	if !types.IsValidQName(node) {
-		return fmt.Errorf("xpath step has invalid QName %q", node)
-	}
-	if before, _, ok := strings.Cut(node, ":"); ok {
-		prefix := before
-		if prefix == "" {
-			return fmt.Errorf("xpath step has empty prefix: %s", node)
-		}
-		if nsContext != nil {
-			if _, ok := nsContext[prefix]; !ok {
-				return fmt.Errorf("xpath step uses undeclared prefix %q", prefix)
-			}
-		}
-	}
-	return nil
-}
-
-func isXPathWhitespace(b byte) bool {
-	switch b {
-	case ' ', '\t', '\n', '\r':
-		return true
-	default:
-		return false
-	}
+func validateRestrictedXPathGrammar(expr string, nsContext map[string]string, policy xpathAttributePolicy) error {
+	allowAttributes := policy == xpathAttributesAllowed
+	_, err := xpath.Parse(expr, nsContext, allowAttributes)
+	return err
 }

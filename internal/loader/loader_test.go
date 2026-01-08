@@ -62,11 +62,8 @@ func TestLoader_CircularDependency(t *testing.T) {
 	}
 }
 
-// TestLoader_MutualImport tests that mutual imports between different namespaces are allowed.
-// This is the scenario from W3C test particlesDa001:
-// - Schema A (namespace X) imports Schema B (namespace Y)
-// - Schema B (namespace Y) imports Schema A (namespace X) back
-// This should NOT be treated as a circular dependency because the namespaces differ.
+// TestLoader_MutualImport checks that mutual imports across namespaces are allowed.
+// It mirrors W3C particlesDa001 and should not count as circular.
 func TestLoader_MutualImport(t *testing.T) {
 	testFS := fstest.MapFS{
 		"schemaA.xsd": &fstest.MapFile{

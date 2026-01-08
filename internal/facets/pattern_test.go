@@ -8,11 +8,12 @@ import (
 
 func TestTranslateXSDPatternToGo(t *testing.T) {
 	tests := []struct {
-		name     string
-		xsd      string
-		wantErr  bool
-		errMsg   string
-		re2      string // expected Go pattern (without ^(?:...)$ wrapper)
+		name    string
+		xsd     string
+		wantErr bool
+		errMsg  string
+		// expected Go pattern (without ^(?:...)$ wrapper)
+		re2      string
 		matches  []string
 		nonMatch []string
 	}{

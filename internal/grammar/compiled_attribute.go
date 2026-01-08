@@ -6,9 +6,10 @@ import "github.com/jacoelho/xsd/internal/types"
 type CompiledAttribute struct {
 	QName    types.QName
 	Original *types.AttributeDecl
-	Type     *CompiledType      // Direct pointer to simple type
-	Use      types.AttributeUse // Required, Optional, Prohibited
+	Type     *CompiledType
+	Use      types.AttributeUse
 	Default  string
 	Fixed    string
-	HasFixed bool // true if fixed="" was explicitly present (even if empty)
+	// true if fixed="" was explicitly present (even if empty)
+	HasFixed bool
 }

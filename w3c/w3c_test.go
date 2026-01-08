@@ -3,6 +3,7 @@ package w3c
 import (
 	"encoding/xml"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -512,7 +513,8 @@ type W3CInstanceTest struct {
 // W3CSchemaDoc references a schema document
 type W3CSchemaDoc struct {
 	Href string `xml:"href,attr"`
-	Role string `xml:"role,attr"` // "principal", "imported", "included", "redefined", "overridden"
+	// "principal", "imported", "included", "redefined", "overridden"
+	Role string `xml:"role,attr"`
 }
 
 // W3CInstanceDoc references an instance document
@@ -522,13 +524,16 @@ type W3CInstanceDoc struct {
 
 // W3CExpected indicates expected validity
 type W3CExpected struct {
-	Validity string `xml:"validity,attr"` // "valid", "invalid", or "notKnown"
-	Version  string `xml:"version,attr"`  // Version attribute for version-specific outcomes
+	// "valid", "invalid", or "notKnown"
+	Validity string `xml:"validity,attr"`
+	// Version attribute for version-specific outcomes
+	Version string `xml:"version,attr"`
 }
 
 // W3CCurrentStatus tracks test acceptance status
 type W3CCurrentStatus struct {
-	Status string `xml:"status,attr"` // "accepted", "disputed", etc.
+	// "accepted", "disputed", etc.
+	Status string `xml:"status,attr"`
 	Date   string `xml:"date,attr"`
 }
 
@@ -1008,7 +1013,7 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 			}
 		}()
 
-		doc, err := xsdxml.Parse(file)
+		info, err := readInstanceInfo(file)
 		if err != nil {
 			// if XML parsing fails and the test expects "invalid", this is a pass
 			// (malformed XML is invalid, which matches the expected result)
@@ -1018,8 +1023,12 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 			t.Fatalf("parse instance %s: %v", test.InstanceDocument.Href, err)
 			return
 		}
+		if _, err := file.Seek(0, io.SeekStart); err != nil {
+			t.Fatalf("seek instance %s: %v", test.InstanceDocument.Href, err)
+			return
+		}
 
-		schemaPath, schema = r.loadSchemaForInstance(t, group, doc, metadataDir, fullInstancePath)
+		schemaPath, schema = r.loadSchemaForInstance(t, group, info, metadataDir, fullInstancePath)
 
 		// if schema is nil but schemaPath is set, schema loading failed
 		// if the test expects "invalid", this is actually a pass (invalid schema = invalid instance)
@@ -1046,7 +1055,16 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 
 		schemaForInstance := r.schemaForInstance(schema, fullInstancePath)
 		v := validator.New(schemaForInstance)
-		violations := v.Validate(doc)
+		violations, err := v.ValidateStreamWithOptions(file, validator.StreamOptions{
+			SchemaLocationPolicy: validator.SchemaLocationDocument,
+		})
+		if err != nil {
+			if expected.Validity == "invalid" {
+				return
+			}
+			t.Fatalf("validate instance %s: %v", test.InstanceDocument.Href, err)
+			return
+		}
 
 		var actual string
 		if len(violations) > 0 {
@@ -1074,16 +1092,63 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 	})
 }
 
+type instanceInfo struct {
+	rootLocal                 string
+	rootNS                    string
+	schemaLocation            string
+	noNamespaceSchemaLocation string
+}
+
+func readInstanceInfo(r io.Reader) (instanceInfo, error) {
+	dec, err := xsdxml.NewStreamDecoder(r)
+	if err != nil {
+		return instanceInfo{}, err
+	}
+
+	for {
+		ev, err := dec.Next()
+		if err == io.EOF {
+			return instanceInfo{}, fmt.Errorf("document has no root element")
+		}
+		if err != nil {
+			return instanceInfo{}, err
+		}
+		if ev.Kind != xsdxml.EventStartElement {
+			continue
+		}
+
+		info := instanceInfo{
+			rootLocal: ev.Name.Local,
+			rootNS:    string(ev.Name.Namespace),
+		}
+		for _, attr := range ev.Attrs {
+			if attr.NamespaceURI() != xsdxml.XSINamespace {
+				continue
+			}
+			switch attr.LocalName() {
+			case "schemaLocation":
+				info.schemaLocation = attr.Value()
+			case "noNamespaceSchemaLocation":
+				info.noNamespaceSchemaLocation = attr.Value()
+			}
+		}
+		return info, nil
+	}
+}
+
 // loadSchemaForInstance finds and loads the schema for an instance test.
 // Returns the schema path (for error messages) and compiled schema, or nil if not found.
-func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, doc *xsdxml.Document, metadataDir, instancePath string) (string, *grammar.CompiledSchema) {
-	root := doc.DocumentElement()
-	rootNS := doc.NamespaceURI(root)
+func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, info instanceInfo, metadataDir, instancePath string) (string, *grammar.CompiledSchema) {
+	rootNS := info.rootNS
+	rootQName := types.QName{
+		Namespace: types.NamespaceURI(rootNS),
+		Local:     info.rootLocal,
+	}
 
 	// option 1: use xsi:schemaLocation to find schemas
 	// load all schemas from xsi:schemaLocation using a single loader instance
 	// so that imports between schemas are properly resolved
-	if schemaLoc := doc.GetAttributeNS(root, xsdxml.XSINamespace, "schemaLocation"); schemaLoc != "" {
+	if schemaLoc := info.schemaLocation; schemaLoc != "" {
 		schemaPaths := parseSchemaLocations(schemaLoc)
 		if len(schemaPaths) > 0 {
 			instanceDir := filepath.Dir(instancePath)
@@ -1097,10 +1162,6 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 				schema, err := r.loadSchemaFromPath(schemaPath)
 				if err == nil {
 					// verify this schema has the root element (it should if it imports the root's schema)
-					rootQName := types.QName{
-						Namespace: types.NamespaceURI(rootNS),
-						Local:     doc.LocalName(root),
-					}
 					if schema.Elements[rootQName] != nil {
 						return schemaPaths[i], schema
 					}
@@ -1124,11 +1185,6 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 		if len(schemaTest.SchemaDocuments) == 0 {
 			t.Fatalf("schemaTest '%s' has no schema documents", schemaTest.Name)
 			return "", nil
-		}
-
-		rootQName := types.QName{
-			Namespace: types.NamespaceURI(rootNS),
-			Local:     doc.LocalName(root),
 		}
 
 		var principalDoc *W3CSchemaDoc
@@ -1174,13 +1230,15 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 	}
 
 	// option 3: use xsi:noNamespaceSchemaLocation hint
-	if hint := doc.GetAttributeNS(root, xsdxml.XSINamespace, "noNamespaceSchemaLocation"); hint != "" {
-		schemaFullPath := filepath.Join(filepath.Dir(instancePath), hint)
+	if hint := info.noNamespaceSchemaLocation; hint != "" && rootNS == "" {
+		schemaFullPath := resolveSchemaPath(filepath.Dir(instancePath), hint)
 		schema, err := r.loadSchemaFromPath(schemaFullPath)
 		if err != nil {
 			return hint, nil
 		}
-		return hint, schema
+		if schema.Elements[rootQName] != nil {
+			return hint, schema
+		}
 	}
 
 	t.Skip("no schema available for instance test")

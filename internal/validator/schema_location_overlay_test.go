@@ -1,13 +1,11 @@
 package validator
 
 import (
-	"strings"
 	"testing"
 	"testing/fstest"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/loader"
-	"github.com/jacoelho/xsd/internal/xml"
 )
 
 func TestValidatorReuseWithSchemaLocationHints(t *testing.T) {
@@ -38,26 +36,18 @@ func TestValidatorReuseWithSchemaLocationHints(t *testing.T) {
 
 	v := New(compiled)
 
-	docWithHint, err := xml.Parse(strings.NewReader(`<?xml version="1.0"?>
+	docWithHint := `<?xml version="1.0"?>
 <root xmlns="urn:hint"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      xsi:schemaLocation="urn:hint hint.xsd">value</root>`))
-	if err != nil {
-		t.Fatalf("parse XML with hint: %v", err)
-	}
-
-	violations := v.Validate(docWithHint)
+      xsi:schemaLocation="urn:hint hint.xsd">value</root>`
+	violations := validateStream(t, v, docWithHint)
 	if len(violations) > 0 {
 		t.Fatalf("expected no violations with schemaLocation hint, got %d: %s", len(violations), violations[0].Error())
 	}
 
-	docWithoutHint, err := xml.Parse(strings.NewReader(`<?xml version="1.0"?>
-<root xmlns="urn:hint">value</root>`))
-	if err != nil {
-		t.Fatalf("parse XML without hint: %v", err)
-	}
-
-	violations = v.Validate(docWithoutHint)
+	docWithoutHint := `<?xml version="1.0"?>
+<root xmlns="urn:hint">value</root>`
+	violations = validateStream(t, v, docWithoutHint)
 	if len(violations) == 0 {
 		t.Fatal("expected violations without schemaLocation hint, got none")
 	}

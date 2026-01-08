@@ -4,18 +4,21 @@ import "fmt"
 
 // ComplexType represents a complex type definition
 type ComplexType struct {
-	QName            QName
-	content          Content
-	attributes       []*AttributeDecl
-	AttrGroups       []QName
-	anyAttribute     *AnyAttribute
-	mixed            bool
-	Abstract         bool
-	Final            DerivationSet
-	Block            DerivationSet
-	ResolvedBase     Type             // Resolved base type (can be set in struct literal or assigned directly)
-	DerivationMethod DerivationMethod // Explicit derivation method (extension or restriction)
-	SourceNamespace  NamespaceURI     // targetNamespace of the schema where this type was originally declared
+	QName        QName
+	content      Content
+	attributes   []*AttributeDecl
+	AttrGroups   []QName
+	anyAttribute *AnyAttribute
+	mixed        bool
+	Abstract     bool
+	Final        DerivationSet
+	Block        DerivationSet
+	// Resolved base type (can be set in struct literal or assigned directly)
+	ResolvedBase Type
+	// Explicit derivation method (extension or restriction)
+	DerivationMethod DerivationMethod
+	// targetNamespace of the schema where this type was originally declared
+	SourceNamespace NamespaceURI
 }
 
 // NewComplexType creates a new complex type with the provided name and namespace.
@@ -115,10 +118,8 @@ func (c *ComplexType) FundamentalFacets() *FundamentalFacets {
 	return nil
 }
 
-// WhiteSpace returns the whitespace normalization for this complex type
-// Note: According to XSD spec, whiteSpace is a facet for simple types only.
-// Complex types don't have whiteSpace. Returning WhiteSpacePreserve as a
-// default that won't be used in practice.
+// WhiteSpace returns the whitespace normalization for this complex type.
+// Complex types do not define whiteSpace, so this returns WhiteSpacePreserve.
 func (c *ComplexType) WhiteSpace() WhiteSpace {
 	return WhiteSpacePreserve
 }

@@ -96,6 +96,8 @@ type overlaySchemaView struct {
 	notationDecls           map[types.QName]*types.NotationDecl
 	substitutionGroups      map[types.QName][]*grammar.CompiledElement
 	elementsWithConstraints []*grammar.CompiledElement
+	constraintDeclsByQName  map[types.QName][]*grammar.CompiledElement
+	constraintDeclsReady    bool
 }
 
 func newOverlaySchemaView(base schemaView) *overlaySchemaView {
@@ -174,4 +176,39 @@ func (v *overlaySchemaView) ElementsWithConstraints() []*grammar.CompiledElement
 		return v.elementsWithConstraints
 	}
 	return v.base.ElementsWithConstraints()
+}
+
+func (v *overlaySchemaView) constraintDeclsByQNameMap() map[types.QName][]*grammar.CompiledElement {
+	if v.constraintDeclsReady {
+		return v.constraintDeclsByQName
+	}
+	v.constraintDeclsReady = true
+
+	decls := v.ElementsWithConstraints()
+	if len(decls) == 0 {
+		v.constraintDeclsByQName = nil
+		return nil
+	}
+
+	lookup := make(map[types.QName][]*grammar.CompiledElement, len(decls))
+	for _, decl := range decls {
+		if decl == nil {
+			continue
+		}
+		lookup[decl.QName] = append(lookup[decl.QName], decl)
+		for _, sub := range v.SubstitutionGroup(decl.QName) {
+			if sub == nil {
+				continue
+			}
+			lookup[sub.QName] = append(lookup[sub.QName], decl)
+		}
+	}
+
+	v.constraintDeclsByQName = lookup
+	return lookup
+}
+
+func (v *overlaySchemaView) invalidateConstraintDecls() {
+	v.constraintDeclsByQName = nil
+	v.constraintDeclsReady = false
 }
