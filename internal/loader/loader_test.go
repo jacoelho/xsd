@@ -174,6 +174,7 @@ func TestLoader_CircularInclude(t *testing.T) {
            xmlns:tns="http://example.com"
            targetNamespace="http://example.com">
   <xs:include schemaLocation="schemaB.xsd"/>
+  <xs:element name="elemA" type="xs:string"/>
 </xs:schema>`),
 		},
 		"schemaB.xsd": &fstest.MapFile{
@@ -182,6 +183,7 @@ func TestLoader_CircularInclude(t *testing.T) {
            xmlns:tns="http://example.com"
            targetNamespace="http://example.com">
   <xs:include schemaLocation="schemaA.xsd"/>
+  <xs:element name="elemB" type="xs:string"/>
 </xs:schema>`),
 		},
 	}
@@ -190,14 +192,73 @@ func TestLoader_CircularInclude(t *testing.T) {
 		FS: testFS,
 	})
 
-	// circular includes should fail because they're in the same namespace
-	_, err := loader.Load("schemaA.xsd")
-	if err == nil {
-		t.Error("Load() should return error for circular includes")
+	schema, err := loader.Load("schemaA.xsd")
+	if err != nil {
+		t.Fatalf("Load() should succeed for circular includes, got error: %v", err)
 	}
 
-	if !strings.Contains(err.Error(), "circular") {
-		t.Errorf("error should mention circular dependency, got: %v", err)
+	elemAQName := types.QName{Namespace: "http://example.com", Local: "elemA"}
+	if _, ok := schema.ElementDecls[elemAQName]; !ok {
+		t.Error("elemA should be in schema.ElementDecls")
+	}
+
+	elemBQName := types.QName{Namespace: "http://example.com", Local: "elemB"}
+	if _, ok := schema.ElementDecls[elemBQName]; !ok {
+		t.Error("elemB should be in schema.ElementDecls")
+	}
+}
+
+func TestLoader_IncludeDuplicateFromDifferentPaths(t *testing.T) {
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
+           targetNamespace="http://example.com">
+  <xs:include schemaLocation="a.xsd"/>
+  <xs:include schemaLocation="b.xsd"/>
+</xs:schema>`),
+		},
+		"a.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
+           targetNamespace="http://example.com">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`),
+		},
+		"b.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
+           targetNamespace="http://example.com">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`),
+		},
+		"common.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
+           targetNamespace="http://example.com">
+  <xs:simpleType name="T">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	schema, err := loader.Load("main.xsd")
+	if err != nil {
+		t.Fatalf("Load() should succeed for repeated include of same schema, got error: %v", err)
+	}
+
+	typeQName := types.QName{Namespace: "http://example.com", Local: "T"}
+	if _, ok := schema.TypeDefs[typeQName]; !ok {
+		t.Errorf("type %s should be in schema.TypeDefs", typeQName)
 	}
 }
 

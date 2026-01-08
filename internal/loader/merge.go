@@ -90,10 +90,8 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 			origin = source.Location
 		}
 		if _, exists := target.ElementDecls[targetQName]; exists {
-			if isImport {
-				if target.ElementOrigins[targetQName] == origin {
-					continue
-				}
+			if target.ElementOrigins[targetQName] == origin {
+				continue
 			}
 			existing := target.ElementDecls[targetQName]
 			var candidate *types.ElementDecl
@@ -132,10 +130,8 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 			origin = source.Location
 		}
 		if _, exists := target.TypeDefs[targetQName]; exists {
-			if isImport {
-				if target.TypeOrigins[targetQName] == origin {
-					continue
-				}
+			if target.TypeOrigins[targetQName] == origin {
+				continue
 			}
 			return fmt.Errorf("duplicate type definition %s", targetQName)
 		}
@@ -172,10 +168,8 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 			origin = source.Location
 		}
 		if _, exists := target.AttributeDecls[targetQName]; exists {
-			if isImport {
-				if target.AttributeOrigins[targetQName] == origin {
-					continue
-				}
+			if target.AttributeOrigins[targetQName] == origin {
+				continue
 			}
 			return fmt.Errorf("duplicate attribute declaration %s", targetQName)
 		}
@@ -199,10 +193,8 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 			origin = source.Location
 		}
 		if _, exists := target.AttributeGroups[targetQName]; exists {
-			if isImport {
-				if target.AttributeGroupOrigins[targetQName] == origin {
-					continue
-				}
+			if target.AttributeGroupOrigins[targetQName] == origin {
+				continue
 			}
 			return fmt.Errorf("duplicate attributeGroup %s", targetQName)
 		}
@@ -227,10 +219,8 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 			origin = source.Location
 		}
 		if _, exists := target.Groups[targetQName]; exists {
-			if isImport {
-				if target.GroupOrigins[targetQName] == origin {
-					continue
-				}
+			if target.GroupOrigins[targetQName] == origin {
+				continue
 			}
 			return fmt.Errorf("duplicate group %s", targetQName)
 		}
@@ -260,10 +250,8 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 			origin = source.Location
 		}
 		if _, exists := target.NotationDecls[targetQName]; exists {
-			if isImport {
-				if target.NotationOrigins[targetQName] == origin {
-					continue
-				}
+			if target.NotationOrigins[targetQName] == origin {
+				continue
 			}
 			return fmt.Errorf("duplicate notation %s", targetQName)
 		}
