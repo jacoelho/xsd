@@ -15,8 +15,9 @@ type TypeValidator func(value string) error
 
 // BuiltinType represents a built-in XSD type
 type BuiltinType struct {
-	name                   string
-	qname                  QName // Cached QName for performance
+	name string
+	// Cached QName for performance
+	qname                  QName
 	validator              TypeValidator
 	whiteSpace             WhiteSpace
 	ordered                bool

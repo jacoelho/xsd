@@ -9,9 +9,7 @@ import (
 )
 
 // ErrCannotDeterminePrimitiveType is returned when the primitive type cannot be
-// determined during parsing (e.g., for user-defined types whose full hierarchy
-// isn't resolved yet). This is expected during parsing and will be validated
-// during the schema validation phase.
+// determined during parsing; schema validation handles this later.
 var ErrCannotDeterminePrimitiveType = errors.New("cannot determine primitive type")
 
 // NewMinInclusive creates a minInclusive facet based on the base type

@@ -198,23 +198,17 @@ func ParseGDay(lexical string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("invalid gDay: %s", lexical)
 }
 
-// ParseDuration parses a duration string
-// XSD duration format: PnYnMnDTnHnMnS
-// Note: This is different from Go's time.Duration
-// For now, we'll return a simple representation
-// A full implementation would need a custom Duration type
+// ParseDuration parses an XSD duration string and returns the lexical value.
+// It does not map to time.Duration and leaves full parsing to callers.
 func ParseDuration(lexical string) (string, error) {
 	lexical = strings.TrimSpace(lexical)
 	if lexical == "" {
 		return "", fmt.Errorf("invalid duration: empty string")
 	}
 
-	// basic validation: must start with P
 	if len(lexical) == 0 || lexical[0] != 'P' {
 		return "", fmt.Errorf("invalid duration: must start with 'P': %s", lexical)
 	}
 
-	// for now, just return the lexical form
-	// a full implementation would parse into a Duration struct
 	return lexical, nil
 }

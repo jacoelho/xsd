@@ -12,11 +12,15 @@ type node interface {
 
 // leafNode represents a terminal (element or wildcard).
 type leafNode struct {
-	pos      int // position index
+	// position index
+	pos      int
 	particle types.Particle
-	min, max int     // occurrence constraints (1,1 for simple leaves)
-	size     int     // total position count for bitset sizing
-	first    *bitset // cached firstPos (lazily computed)
+	// occurrence constraints (1,1 for simple leaves)
+	min, max int
+	// total position count for bitset sizing
+	size int
+	// cached firstPos (lazily computed)
+	first *bitset
 }
 
 func newLeaf(pos int, particle types.Particle, min, max, size int) *leafNode {
@@ -43,7 +47,8 @@ func (n *leafNode) lastPos() *bitset {
 type seqNode struct {
 	left, right node
 	size        int
-	first, last *bitset // cached (lazily computed)
+	// cached (lazily computed)
+	first, last *bitset
 }
 
 func newSeq(left, right node, size int) *seqNode {

@@ -10,18 +10,22 @@ type CompiledElement struct {
 	QName          types.QName
 	EffectiveQName types.QName
 	Original       *types.ElementDecl
-	Type           *CompiledType // Direct pointer (not QName)
+	// Direct pointer (not QName)
+	Type *CompiledType
 
 	// Substitution group membership (pre-computed transitive closure)
-	SubstitutionHead *CompiledElement   // What this element substitutes
-	Substitutes      []*CompiledElement // Elements that can substitute this
+	// What this element substitutes
+	SubstitutionHead *CompiledElement
+	// Elements that can substitute this
+	Substitutes []*CompiledElement
 
 	// Element properties
 	Nillable bool
 	Abstract bool
 	Default  string
 	Fixed    string
-	HasFixed bool // true if fixed="" was explicitly present (even if empty)
+	// true if fixed="" was explicitly present (even if empty)
+	HasFixed bool
 	Block    types.DerivationSet
 
 	// Identity constraints (resolved)

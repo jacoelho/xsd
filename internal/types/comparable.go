@@ -36,7 +36,8 @@ type Unwrappable interface {
 // ComparableBigRat wraps *big.Rat to implement ComparableValue
 type ComparableBigRat struct {
 	Value *big.Rat
-	Typ   Type // XSD type this value represents
+	// XSD type this value represents
+	Typ Type
 }
 
 // Compare compares with another ComparableValue (implements ComparableValue)
@@ -71,7 +72,8 @@ func (c ComparableBigRat) Unwrap() any {
 // ComparableBigInt wraps *big.Int to implement ComparableValue
 type ComparableBigInt struct {
 	Value *big.Int
-	Typ   Type // XSD type this value represents
+	// XSD type this value represents
+	Typ Type
 }
 
 // Compare compares with another ComparableValue (implements ComparableValue)
@@ -106,7 +108,8 @@ func (c ComparableBigInt) Unwrap() any {
 // ComparableTime wraps time.Time to implement ComparableValue
 type ComparableTime struct {
 	Value time.Time
-	Typ   Type // XSD type this value represents
+	// XSD type this value represents
+	Typ Type
 }
 
 // Compare compares with another ComparableValue (implements ComparableValue)
@@ -142,7 +145,8 @@ func (c ComparableTime) Unwrap() any {
 // ComparableFloat64 wraps float64 to implement ComparableValue with NaN/INF handling
 type ComparableFloat64 struct {
 	Value float64
-	Typ   Type // XSD type this value represents
+	// XSD type this value represents
+	Typ Type
 }
 
 // Compare compares with another ComparableValue (implements ComparableValue)
@@ -214,7 +218,8 @@ func (c ComparableFloat64) Unwrap() any {
 // ComparableFloat32 wraps float32 to implement ComparableValue with NaN/INF handling
 type ComparableFloat32 struct {
 	Value float32
-	Typ   Type // XSD type this value represents
+	// XSD type this value represents
+	Typ Type
 }
 
 // Compare compares with another ComparableValue (implements ComparableValue)
@@ -247,7 +252,8 @@ func (c ComparableFloat32) Unwrap() any {
 // Note: Durations are partially ordered, so comparison is limited to pure day/time durations
 type ComparableDuration struct {
 	Value time.Duration
-	Typ   Type // XSD type this value represents
+	// XSD type this value represents
+	Typ Type
 }
 
 // ParseDurationToTimeDuration parses an XSD duration string into a time.Duration
@@ -455,7 +461,8 @@ type XSDDuration struct {
 // This supports full XSD durations including years and months
 type ComparableXSDDuration struct {
 	Value XSDDuration
-	Typ   Type // XSD type this value represents
+	// XSD type this value represents
+	Typ Type
 }
 
 // ParseXSDDuration parses an XSD duration string into an XSDDuration struct
@@ -574,10 +581,8 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 	}, nil
 }
 
-// Compare compares with another ComparableValue (implements ComparableValue)
-// Per XSD spec, durations are partially ordered. We compare component-wise:
-// years, then months, then days, then hours, then minutes, then seconds.
-// Negative durations are less than positive durations.
+// Compare orders durations component-wise per XSD's partial order.
+// It compares years, months, days, hours, minutes, then seconds.
 func (c ComparableXSDDuration) Compare(other ComparableValue) (int, error) {
 	otherDur, ok := other.(ComparableXSDDuration)
 	if !ok {

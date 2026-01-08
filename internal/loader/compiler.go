@@ -423,7 +423,7 @@ func (c *Compiler) effectiveElementQName(elem *grammar.CompiledElement) types.QN
 		return elem.QName
 	case types.FormUnqualified:
 		return types.QName{Namespace: "", Local: elem.QName.Local}
-	default: // FormDefault - use schema's elementFormDefault
+	default: // formDefault uses schema's elementFormDefault
 		if c.grammar.ElementFormDefault == xsdschema.Qualified {
 			return elem.QName
 		}

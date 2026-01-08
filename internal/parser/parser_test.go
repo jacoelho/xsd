@@ -176,7 +176,8 @@ func TestElementWithoutTypeDefaultsToAnyType(t *testing.T) {
 		elementName  string
 		wantTypeName string
 		wantTypeNS   types.NamespaceURI
-		wantTypeKind string // "ComplexType" or "SimpleType"
+		// "ComplexType" or "SimpleType"
+		wantTypeKind string
 	}{
 		{
 			name: "top-level element without type defaults to anyType",

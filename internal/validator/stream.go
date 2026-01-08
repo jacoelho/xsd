@@ -32,16 +32,16 @@ type streamFrame struct {
 	contentModel       *grammar.CompiledContentModel
 	automaton          *contentmodel.AutomatonStreamValidator
 	allGroup           *contentmodel.AllGroupStreamValidator
-	contentKind        streamContentKind
+	textBuf            []byte
+	fieldCaptures      []fieldCapture
 	minOccurs          int
 	scopeDepth         int
+	contentKind        streamContentKind
 	hasChildElements   bool
 	nilled             bool
 	skipChildren       bool
 	invalid            bool
 	collectStringValue bool
-	textBuf            []byte
-	fieldCaptures      []fieldCapture
 }
 
 type streamRun struct {
@@ -174,7 +174,7 @@ func (r *streamRun) validate(dec *xml.StreamDecoder, initial []errors.Validation
 	r.rootClosed = false
 	r.schemaLocationRootReady = false
 	r.identityScopes = r.identityScopes[:0]
-	r.constraintDecls = make(map[types.QName][]*grammar.CompiledElement)
+	r.constraintDecls = nil
 
 	for {
 		ev, err := dec.Next()

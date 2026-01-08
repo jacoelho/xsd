@@ -116,14 +116,18 @@ const (
 
 // ListType represents a list type
 type ListType struct {
-	ItemType       QName       // From itemType attribute (QName to resolve)
-	InlineItemType *SimpleType // From inline <simpleType> child (already parsed)
+	// From itemType attribute (QName to resolve)
+	ItemType QName
+	// From inline <simpleType> child (already parsed)
+	InlineItemType *SimpleType
 }
 
 // UnionType represents a union type
 type UnionType struct {
-	MemberTypes []QName       // From memberTypes attribute (QNames to resolve)
-	InlineTypes []*SimpleType // From inline <simpleType> children (already parsed)
+	// From memberTypes attribute (QNames to resolve)
+	MemberTypes []QName
+	// From inline <simpleType> children (already parsed)
+	InlineTypes []*SimpleType
 }
 
 // IsFacetApplicable determines if a facet is applicable to a type based on its fundamental facets

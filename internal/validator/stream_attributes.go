@@ -31,7 +31,7 @@ func (a attributeIndex) Value(ns, local string) (string, bool) {
 func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar.CompiledAttribute, anyAttr *types.AnyAttribute, scopeDepth int) []errors.Validation {
 	var violations []errors.Validation
 
-	declared := make(map[types.QName]bool)
+	declared := make(map[types.QName]bool, len(decls))
 	idCount := 0
 
 	for _, attr := range decls {

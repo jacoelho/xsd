@@ -2,10 +2,13 @@ package types
 
 // NotationDecl represents a notation declaration
 type NotationDecl struct {
-	Name            QName
-	Public          string       // public identifier (optional)
-	System          string       // system identifier (optional)
-	SourceNamespace NamespaceURI // targetNamespace of the schema where this notation was originally declared
+	Name QName
+	// public identifier (optional)
+	Public string
+	// system identifier (optional)
+	System string
+	// targetNamespace of the schema where this notation was originally declared
+	SourceNamespace NamespaceURI
 }
 
 // ComponentName returns the QName of this component.

@@ -513,7 +513,8 @@ type W3CInstanceTest struct {
 // W3CSchemaDoc references a schema document
 type W3CSchemaDoc struct {
 	Href string `xml:"href,attr"`
-	Role string `xml:"role,attr"` // "principal", "imported", "included", "redefined", "overridden"
+	// "principal", "imported", "included", "redefined", "overridden"
+	Role string `xml:"role,attr"`
 }
 
 // W3CInstanceDoc references an instance document
@@ -523,13 +524,16 @@ type W3CInstanceDoc struct {
 
 // W3CExpected indicates expected validity
 type W3CExpected struct {
-	Validity string `xml:"validity,attr"` // "valid", "invalid", or "notKnown"
-	Version  string `xml:"version,attr"`  // Version attribute for version-specific outcomes
+	// "valid", "invalid", or "notKnown"
+	Validity string `xml:"validity,attr"`
+	// Version attribute for version-specific outcomes
+	Version string `xml:"version,attr"`
 }
 
 // W3CCurrentStatus tracks test acceptance status
 type W3CCurrentStatus struct {
-	Status string `xml:"status,attr"` // "accepted", "disputed", etc.
+	// "accepted", "disputed", etc.
+	Status string `xml:"status,attr"`
 	Date   string `xml:"date,attr"`
 }
 

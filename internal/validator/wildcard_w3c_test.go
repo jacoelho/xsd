@@ -56,10 +56,8 @@ func composeSchemasForTest(testDataDir string, schemaFiles []string) (*xsdschema
 	return composedSchema, nil
 }
 
-// TestWildO016 tests W3C test case wildO016
-// Schema has anyAttribute with namespace="##any" (strict mode by default)
-// Instance has attribute from namespace "http://foo" which is declared in merged schema
-// Expected: valid
+// TestWildO016 covers W3C wildO016 for anyAttribute with ##any.
+// It expects validation to succeed with merged schema declarations.
 func TestWildO016(t *testing.T) {
 	testDataDir := "../../testdata/xsdtests"
 
@@ -97,10 +95,8 @@ func TestWildO016(t *testing.T) {
 	}
 }
 
-// TestWildO018 tests W3C test case wildO018
-// Schema has anyAttribute with namespace="##other" (strict mode by default)
-// Instance has attribute from namespace "http://foo" which is declared in merged schema
-// Expected: valid
+// TestWildO018 covers W3C wildO018 for anyAttribute with ##other.
+// It expects validation to succeed with merged schema declarations.
 func TestWildO018(t *testing.T) {
 	testDataDir := "../../testdata/xsdtests"
 
@@ -136,10 +132,8 @@ func TestWildO018(t *testing.T) {
 	}
 }
 
-// TestWildO037 tests W3C test case wildO037
-// Schema has anyAttribute with namespace="##local http://www.w3.org/1999/xhtml" (namespace list, strict mode by default)
-// Instance has attribute from namespace "http://www.w3.org/1999/xhtml" which is declared in merged schema
-// Expected: valid
+// TestWildO037 covers W3C wildO037 for anyAttribute with a namespace list.
+// It expects validation to succeed with merged schema declarations.
 func TestWildO037(t *testing.T) {
 	testDataDir := "../../testdata/xsdtests"
 

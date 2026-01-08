@@ -14,13 +14,15 @@ type ParticleAdapter struct {
 	Kind      int
 	MinOccurs int
 	MaxOccurs int
-	Element   any // *grammar.CompiledElement
+	// *grammar.CompiledElement
+	Element any
 	// AllowSubstitution indicates that substitution groups are allowed (element ref).
 	AllowSubstitution bool
 	Children          []*ParticleAdapter
 	GroupKind         types.GroupKind
 	Wildcard          *types.AnyElement
-	Original          types.Particle // For symbol matching
+	// For symbol matching
+	Original types.Particle
 }
 
 // Particle kind constants - must match grammar.ParticleKind values.
@@ -34,27 +36,34 @@ const (
 // Builder constructs an Automaton from content model particles using
 // Glushkov construction followed by subset construction.
 type Builder struct {
-	particles          []*ParticleAdapter
-	subGroups          map[types.QName]any // []*grammar.CompiledElement
-	targetNamespace    string              // Schema target namespace for wildcard matching
-	elementFormDefault bool                // true if elementFormDefault="qualified"
+	particles []*ParticleAdapter
+	// []*grammar.CompiledElement
+	subGroups map[types.QName]any
+	// Schema target namespace for wildcard matching
+	targetNamespace string
+	// true if elementFormDefault="qualified"
+	elementFormDefault bool
 	symbolIndexByKey   map[symbolKey]int
 
 	// Construction state
-	root                 node
-	size                 int // total position count (including end marker)
-	endPos               int // position index of end-of-content marker
-	positions            []*Position
-	followPos            []*bitset
-	symbols              []Symbol
-	posSymbol            []int // position → symbol index
+	root node
+	// total position count (including end marker)
+	size int
+	// position index of end-of-content marker
+	endPos    int
+	positions []*Position
+	followPos []*bitset
+	symbols   []Symbol
+	// position → symbol index
+	posSymbol            []int
 	symbolMin            []int
 	symbolMax            []int
 	symbolPositionCounts []int
-	groupCounters        map[int]*GroupCounterInfo // position index -> group counter info
-	rangeMapPool         []map[int]occRange
-	countMapPool         []map[int]int
-	bitsetPool           []*bitset
+	// position index -> group counter info
+	groupCounters map[int]*GroupCounterInfo
+	rangeMapPool  []map[int]occRange
+	countMapPool  []map[int]int
+	bitsetPool    []*bitset
 }
 
 // NewBuilder creates a builder for the given content model.
@@ -223,7 +232,6 @@ func (b *Builder) buildNode(p *ParticleAdapter, nextPos *int) node {
 				}
 			}
 		}
-		// wrap the group with its minOccurs/maxOccurs to allow repetition
 		return b.wrapOccurs(child, p.MinOccurs, p.MaxOccurs)
 	}
 	return nil
@@ -332,8 +340,8 @@ func (b *Builder) construct() (*Automaton, error) {
 	worklist := make([]workItem, 1, b.size)
 	worklist[0] = workItem{set: initial, id: 0}
 
-	trans := make([][]int, 1, b.size)
-	trans[0] = b.newTransRow()
+	trans := make([]int, 0, len(b.symbols)*b.size)
+	trans = append(trans, b.newTransRow()...)
 	accepting := make([]bool, 1, b.size)
 	accepting[0] = initial.test(b.endPos)
 	counting := make([]*Counter, 1, b.size)
@@ -356,7 +364,7 @@ func (b *Builder) construct() (*Automaton, error) {
 		}
 	}
 	a.posElements = posElements
-	a.stateSymbolPos = make([][]int, len(a.trans))
+	a.stateSymbolPos = make([][]int, len(a.accepting))
 	if len(a.groupCounters) > 0 {
 		a.groupIndexByID = make(map[int]int)
 		for _, info := range a.groupCounters {
@@ -422,9 +430,9 @@ func (b *Builder) construct() (*Automaton, error) {
 			key := next.key()
 			nextID, exists := stateIDs[key]
 			if !exists {
-				nextID = len(a.trans)
+				nextID = len(a.accepting)
 				stateIDs[key] = nextID
-				a.trans = append(a.trans, b.newTransRow())
+				a.trans = append(a.trans, b.newTransRow()...)
 				a.accepting = append(a.accepting, next.test(b.endPos))
 				a.counting = append(a.counting, nil)
 				a.stateSymbolPos = append(a.stateSymbolPos, nil)
@@ -433,7 +441,7 @@ func (b *Builder) construct() (*Automaton, error) {
 				b.putWorkBitset(next)
 			}
 
-			a.trans[curID][symIdx] = nextID
+			a.setTransition(curID, symIdx, nextID)
 			nextBySymbol[symIdx] = nil
 		}
 
@@ -830,7 +838,7 @@ func (b *Builder) isElementQualified(elem *types.ElementDecl) bool {
 		return true
 	case types.FormUnqualified:
 		return false
-	default: // FormDefault - use schema's elementFormDefault
+	default: // formDefault uses schema's elementFormDefault
 		return b.elementFormDefault
 	}
 }

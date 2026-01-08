@@ -19,10 +19,13 @@ const (
 
 // ValidationError describes a content model violation.
 type ValidationError struct {
-	Index      int // child index where error occurred
-	Message    string
-	SubCode    string // Sub-code suffix like "b" or "d" for content model violations.
-	IsAllGroup bool   // Set to true if this is from an all group
+	// child index where error occurred
+	Index   int
+	Message string
+	// Sub-code suffix like "b" or "d" for content model violations.
+	SubCode string
+	// Set to true if this is from an all group
+	IsAllGroup bool
 }
 
 // Error returns the formatted validation error.
@@ -53,10 +56,14 @@ type SymbolMatcher interface {
 
 // MatchResult describes what a child element matched in the content model.
 type MatchResult struct {
-	IsWildcard      bool                  // true if matched a wildcard (xs:any)
-	ProcessContents types.ProcessContents // processContents from the wildcard (only valid if IsWildcard)
-	MatchedQName    types.QName           // matched declaration name (for non-wildcard matches)
-	MatchedElement  any                   // compiled element pointer for the matched symbol (if available)
+	// true if matched a wildcard (xs:any)
+	IsWildcard bool
+	// processContents from the wildcard (only valid if IsWildcard)
+	ProcessContents types.ProcessContents
+	// matched declaration name (for non-wildcard matches)
+	MatchedQName types.QName
+	// compiled element pointer for the matched symbol (if available)
+	MatchedElement any
 }
 
 // symbolCandidate represents a potential symbol match during content model validation.
@@ -228,7 +235,6 @@ func (a *Automaton) ValidateWithMatches(doc *xml.Document, children []xml.NodeID
 			Local:     doc.LocalName(child),
 		}
 
-		// find the best matching symbol - one that has a valid transition
 		symIdx, isWildcard, next := a.findBestMatchQName(qname, state, matcher)
 
 		if symIdx < 0 {
@@ -298,16 +304,15 @@ func (a *Automaton) ValidateWithMatches(doc *xml.Document, children []xml.NodeID
 // It returns the symbol index, whether it's a wildcard match, and the next state.
 // If an element can match multiple symbols, it prefers the one with a valid transition.
 func (a *Automaton) findBestMatchQName(qname types.QName, state int, matcher SymbolMatcher) (symIdx int, isWildcard bool, next int) {
-	var candidates []symbolCandidate
+	var candidatesBuf [8]symbolCandidate
+	candidates := candidatesBuf[:0]
 
-	// exact element match
 	for i, sym := range a.symbols {
 		if sym.Kind == KindElement && sym.QName.Equal(qname) {
 			candidates = append(candidates, symbolCandidate{i, false})
 		}
 	}
 
-	// substitution group match
 	if matcher != nil {
 		for i, sym := range a.symbols {
 			if sym.Kind == KindElement && sym.AllowSubstitution && matcher.IsSubstitutable(qname, sym.QName) {
@@ -316,7 +321,6 @@ func (a *Automaton) findBestMatchQName(qname types.QName, state int, matcher Sym
 		}
 	}
 
-	// wildcard matches
 	for i, sym := range a.symbols {
 		switch sym.Kind {
 		case KindAny:
@@ -344,14 +348,14 @@ func (a *Automaton) findBestMatchQName(qname types.QName, state int, matcher Sym
 
 	// try to find a candidate with a valid transition
 	for _, c := range candidates {
-		nextState := a.trans[state][c.idx]
+		nextState := a.transition(state, c.idx)
 		if nextState >= 0 {
 			return c.idx, c.isWildcard, nextState
 		}
 	}
 
 	// no valid transition, return the first candidate (for error reporting)
-	return candidates[0].idx, candidates[0].isWildcard, a.trans[state][candidates[0].idx]
+	return candidates[0].idx, candidates[0].isWildcard, a.transition(state, candidates[0].idx)
 }
 
 func (a *Automaton) matchedElement(state, symIdx int) any {

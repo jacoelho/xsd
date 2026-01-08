@@ -10,7 +10,8 @@ import (
 // bitset is a compact set of non-negative integers.
 type bitset struct {
 	words []uint64
-	n     int // capacity
+	// capacity
+	n int
 }
 
 func newBitset(n int) *bitset {
