@@ -5,34 +5,6 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (r *validationRun) isSubstitutableQName(actual, declared types.QName) bool {
-	if actual == declared {
-		return true
-	}
-	if subs := r.schema.SubstitutionGroup(declared); len(subs) > 0 {
-		for _, sub := range subs {
-			if sub.QName == actual {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (r *validationRun) substitutionDeclForQName(declared, actual types.QName, declaredElem *grammar.CompiledElement) *grammar.CompiledElement {
-	if actual == declared {
-		return declaredElem
-	}
-	if subs := r.schema.SubstitutionGroup(declared); len(subs) > 0 {
-		for _, sub := range subs {
-			if sub.QName == actual {
-				return sub
-			}
-		}
-	}
-	return declaredElem
-}
-
 func (r *validationRun) resolveSubstitutionDecl(actualQName types.QName, declared *grammar.CompiledElement) *grammar.CompiledElement {
 	if actualQName == declared.QName {
 		return declared

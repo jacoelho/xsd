@@ -87,12 +87,16 @@ func (s *Schema) ValidateFile(path string) error {
 }
 
 // ValidateFileWithOptions validates an XML file against the schema with options.
-func (s *Schema) ValidateFileWithOptions(path string, opts ValidateOptions) error {
+func (s *Schema) ValidateFileWithOptions(path string, opts ValidateOptions) (err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open xml file %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close xml file %s: %w", path, closeErr)
+		}
+	}()
 
 	return s.ValidateWithOptions(f, opts)
 }

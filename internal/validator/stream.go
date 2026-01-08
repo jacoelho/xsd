@@ -433,7 +433,7 @@ func (r *streamRun) handleEnd(ev xml.Event) error {
 			r.addContentModelError(err)
 		}
 	case streamContentRejectAll:
-		if frame.minOccurs > 0 && frame.hasChildElements == false {
+		if frame.minOccurs > 0 && !frame.hasChildElements {
 			r.addViolation(errors.NewValidation(errors.ErrRequiredElementMissing,
 				"content does not satisfy empty choice", r.path.String()))
 		}
