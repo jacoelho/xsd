@@ -8,7 +8,6 @@ import (
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/loader"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/xml"
 )
 
 // TestWildcardNamespaceMatching tests namespace constraint matching
@@ -248,13 +247,8 @@ func TestWildcardNamespaceMatching(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			hasError := len(violations) > 0
 			if hasError != tt.shouldErr {
@@ -440,13 +434,8 @@ func TestWildcardProcessContents(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			hasError := len(violations) > 0
 			if hasError != tt.shouldErr {
@@ -595,13 +584,8 @@ func TestWildcardMinMaxOccurs(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			doc, err := xml.Parse(strings.NewReader(tt.xmlDoc))
-			if err != nil {
-				t.Fatalf("Parse XML: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations := validateStream(t, v, tt.xmlDoc)
 
 			hasError := len(violations) > 0
 			if hasError != tt.shouldErr {

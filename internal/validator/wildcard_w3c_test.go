@@ -7,7 +7,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/loader"
 	xsdschema "github.com/jacoelho/xsd/internal/schema"
-	"github.com/jacoelho/xsd/internal/xml"
 )
 
 // composeSchemasForTest composes multiple schema documents into a single schema
@@ -84,13 +83,11 @@ func TestWildO016(t *testing.T) {
 		}
 	}()
 
-	doc, err := xml.Parse(instanceFile)
-	if err != nil {
-		t.Fatalf("Failed to parse instance: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations, err := v.ValidateStream(instanceFile)
+	if err != nil {
+		t.Fatalf("ValidateStream() error: %v", err)
+	}
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))
@@ -125,13 +122,11 @@ func TestWildO018(t *testing.T) {
 		}
 	}()
 
-	doc, err := xml.Parse(instanceFile)
-	if err != nil {
-		t.Fatalf("Failed to parse instance: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations, err := v.ValidateStream(instanceFile)
+	if err != nil {
+		t.Fatalf("ValidateStream() error: %v", err)
+	}
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))
@@ -166,13 +161,11 @@ func TestWildO037(t *testing.T) {
 		}
 	}()
 
-	doc, err := xml.Parse(instanceFile)
-	if err != nil {
-		t.Fatalf("Failed to parse instance: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations, err := v.ValidateStream(instanceFile)
+	if err != nil {
+		t.Fatalf("ValidateStream() error: %v", err)
+	}
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))

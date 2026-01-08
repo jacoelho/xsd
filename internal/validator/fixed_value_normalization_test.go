@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/xml"
 )
 
 func TestFixedValueNormalization_Boolean(t *testing.T) {
@@ -27,13 +26,9 @@ func TestFixedValueNormalization_Boolean(t *testing.T) {
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">true</root>`
 
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
 
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))
@@ -62,13 +57,9 @@ func TestFixedValueNormalization_Decimal(t *testing.T) {
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">1.000</root>`
 
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
 
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))
@@ -97,13 +88,9 @@ func TestFixedValueNormalization_StringWhitespace(t *testing.T) {
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">abcd edfgh</root>`
 
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
 
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))
@@ -132,13 +119,9 @@ func TestFixedValueNormalization_StringTrailingWhitespace(t *testing.T) {
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">ENU</root>`
 
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
 
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))
@@ -168,13 +151,9 @@ func TestFixedValueNormalization_DateWhitespace(t *testing.T) {
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">  2004-04-05  </root>`
 
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
 
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))
@@ -207,13 +186,9 @@ func TestFixedValueNormalization_UnionBoolean(t *testing.T) {
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">true</root>`
 
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
 
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))
@@ -246,13 +221,9 @@ func TestFixedValueNormalization_UnionDecimal(t *testing.T) {
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">1.000</root>`
 
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
 
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))

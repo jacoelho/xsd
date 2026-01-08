@@ -48,7 +48,21 @@ type AllGroupElement struct {
 
 // ElementQName returns the QName of the element.
 func (e *AllGroupElement) ElementQName() types.QName {
+	if e.Element == nil {
+		return types.QName{}
+	}
+	if !e.Element.EffectiveQName.IsZero() {
+		return e.Element.EffectiveQName
+	}
 	return e.Element.QName
+}
+
+// ElementDecl returns the compiled element for this all-group entry.
+func (e *AllGroupElement) ElementDecl() any {
+	if e == nil {
+		return nil
+	}
+	return e.Element
 }
 
 // IsOptional returns true if minOccurs=0.

@@ -16,6 +16,10 @@ type Automaton struct {
 	targetNamespace string
 	// Group counter info: position index -> group counter info for groups that need counting
 	groupCounters map[int]*GroupCounterInfo
+	// posElements maps position indices to compiled elements for match resolution.
+	posElements []any
+	// stateSymbolPos maps [state][symbol] to a position index (or negative if none/ambiguous).
+	stateSymbolPos [][]int
 }
 
 // GroupCounterInfo tracks information about a group that needs counting
@@ -80,4 +84,10 @@ type Position struct {
 	Min, Max int // occurrence constraints
 	// AllowSubstitution indicates if substitution groups apply for this position.
 	AllowSubstitution bool
+	Element           any // *grammar.CompiledElement
 }
+
+const (
+	symbolPosNone      = -1
+	symbolPosAmbiguous = -2
+)

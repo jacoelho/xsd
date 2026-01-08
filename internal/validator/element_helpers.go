@@ -58,8 +58,3 @@ func isWhitespaceOnlyBytes(b []byte) bool {
 	}
 	return true
 }
-
-// getElementChildren returns element children of an element.
-func getElementChildren(doc *xml.Document, elem xml.NodeID) []xml.NodeID {
-	return doc.Children(elem)
-}

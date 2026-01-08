@@ -56,6 +56,7 @@ type MatchResult struct {
 	IsWildcard      bool                  // true if matched a wildcard (xs:any)
 	ProcessContents types.ProcessContents // processContents from the wildcard (only valid if IsWildcard)
 	MatchedQName    types.QName           // matched declaration name (for non-wildcard matches)
+	MatchedElement  any                   // compiled element pointer for the matched symbol (if available)
 }
 
 // symbolCandidate represents a potential symbol match during content model validation.
@@ -208,8 +209,13 @@ func (a *Automaton) ValidateWithMatches(doc *xml.Document, children []xml.NodeID
 	groupRemainders := make(map[int]int)
 
 	for i, child := range children {
+		qname := types.QName{
+			Namespace: types.NamespaceURI(doc.NamespaceURI(child)),
+			Local:     doc.LocalName(child),
+		}
+
 		// find the best matching symbol - one that has a valid transition
-		symIdx, isWildcard, next := a.findBestMatch(doc, child, state, matcher)
+		symIdx, isWildcard, next := a.findBestMatchQName(qname, state, matcher)
 
 		if symIdx < 0 {
 			// element is not part of the content model at all - not allowed (.d)
@@ -222,9 +228,10 @@ func (a *Automaton) ValidateWithMatches(doc *xml.Document, children []xml.NodeID
 
 		matches[i].IsWildcard = isWildcard
 		if isWildcard && len(wildcards) > 0 {
-			matches[i].ProcessContents = a.findWildcardProcessContents(doc, child, wildcards)
+			matches[i].ProcessContents = a.findWildcardProcessContentsQName(qname, wildcards)
 		} else if !isWildcard && symIdx >= 0 && symIdx < len(a.symbols) {
 			matches[i].MatchedQName = a.symbols[symIdx].QName
+			matches[i].MatchedElement = a.matchedElement(state, symIdx)
 		}
 
 		if next < 0 {
@@ -273,15 +280,10 @@ func (a *Automaton) ValidateWithMatches(doc *xml.Document, children []xml.NodeID
 	return matches, nil
 }
 
-// findBestMatch finds the best matching symbol for an element at the given state.
+// findBestMatchQName finds the best matching symbol for an element at the given state.
 // It returns the symbol index, whether it's a wildcard match, and the next state.
 // If an element can match multiple symbols, it prefers the one with a valid transition.
-func (a *Automaton) findBestMatch(doc *xml.Document, elem xml.NodeID, state int, matcher SymbolMatcher) (symIdx int, isWildcard bool, next int) {
-	qname := types.QName{
-		Namespace: types.NamespaceURI(doc.NamespaceURI(elem)),
-		Local:     doc.LocalName(elem),
-	}
-
+func (a *Automaton) findBestMatchQName(qname types.QName, state int, matcher SymbolMatcher) (symIdx int, isWildcard bool, next int) {
 	var candidates []symbolCandidate
 
 	// exact element match
@@ -338,15 +340,28 @@ func (a *Automaton) findBestMatch(doc *xml.Document, elem xml.NodeID, state int,
 	return candidates[0].idx, candidates[0].isWildcard, a.trans[state][candidates[0].idx]
 }
 
-// findWildcardProcessContents finds the processContents for a wildcard match.
-func (a *Automaton) findWildcardProcessContents(doc *xml.Document, elem xml.NodeID, wildcards []*types.AnyElement) types.ProcessContents {
+func (a *Automaton) matchedElement(state, symIdx int) any {
+	if a == nil || state < 0 || symIdx < 0 {
+		return nil
+	}
+	if state >= len(a.stateSymbolPos) {
+		return nil
+	}
+	row := a.stateSymbolPos[state]
+	if symIdx >= len(row) {
+		return nil
+	}
+	pos := row[symIdx]
+	if pos < 0 || pos >= len(a.posElements) {
+		return nil
+	}
+	return a.posElements[pos]
+}
+
+// findWildcardProcessContentsQName finds the processContents for a wildcard match.
+func (a *Automaton) findWildcardProcessContentsQName(qname types.QName, wildcards []*types.AnyElement) types.ProcessContents {
 	if len(wildcards) == 0 {
 		return types.Strict // default to strict if no wildcards available
-	}
-
-	qname := types.QName{
-		Namespace: types.NamespaceURI(doc.NamespaceURI(elem)),
-		Local:     doc.LocalName(elem),
 	}
 
 	for _, w := range wildcards {

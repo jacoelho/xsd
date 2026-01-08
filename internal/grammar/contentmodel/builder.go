@@ -147,6 +147,7 @@ func (b *Builder) buildNode(p *ParticleAdapter, nextPos *int) node {
 			Min:               p.MinOccurs,
 			Max:               p.MaxOccurs,
 			AllowSubstitution: p.AllowSubstitution,
+			Element:           p.Element,
 		}
 
 		leaf := newLeaf(pos, particle, p.MinOccurs, p.MaxOccurs, b.size)
@@ -348,6 +349,14 @@ func (b *Builder) construct() (*Automaton, error) {
 		targetNamespace: b.targetNamespace,
 		groupCounters:   b.groupCounters,
 	}
+	posElements := make([]any, len(b.positions))
+	for i, pos := range b.positions {
+		if pos != nil {
+			posElements[i] = pos.Element
+		}
+	}
+	a.posElements = posElements
+	a.stateSymbolPos = make([][]int, len(a.trans))
 
 	nextBySymbol := make([]*bitset, len(b.symbols))
 	usedSymbols := make([]int, 0, len(b.symbols))
@@ -359,6 +368,10 @@ func (b *Builder) construct() (*Automaton, error) {
 		curID := cur.id
 
 		usedSymbols = usedSymbols[:0]
+		posRow := make([]int, len(b.symbols))
+		for i := range posRow {
+			posRow[i] = symbolPosNone
+		}
 		for wordIdx, w := range curSet.words {
 			for w != 0 {
 				bit := bits.TrailingZeros64(w)
@@ -366,6 +379,15 @@ func (b *Builder) construct() (*Automaton, error) {
 				if pos < len(b.positions) && b.positions[pos] != nil {
 					symIdx := b.posSymbol[pos]
 					if symIdx >= 0 && symIdx < len(nextBySymbol) {
+						switch posRow[symIdx] {
+						case symbolPosNone:
+							posRow[symIdx] = pos
+						case symbolPosAmbiguous:
+						default:
+							if posRow[symIdx] != pos {
+								posRow[symIdx] = symbolPosAmbiguous
+							}
+						}
 						next := nextBySymbol[symIdx]
 						if next == nil {
 							next = newBitset(b.size)
@@ -395,6 +417,7 @@ func (b *Builder) construct() (*Automaton, error) {
 				a.trans = append(a.trans, b.newTransRow())
 				a.accepting = append(a.accepting, next.test(b.endPos))
 				a.counting = append(a.counting, nil)
+				a.stateSymbolPos = append(a.stateSymbolPos, nil)
 				worklist = append(worklist, workItem{set: next, id: nextID})
 			} else {
 				b.putWorkBitset(next)
@@ -404,6 +427,7 @@ func (b *Builder) construct() (*Automaton, error) {
 			nextBySymbol[symIdx] = nil
 		}
 
+		a.stateSymbolPos[curID] = posRow
 		b.setCounter(a, curID, curSet)
 		b.putWorkBitset(curSet)
 	}

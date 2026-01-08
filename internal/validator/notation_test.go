@@ -7,7 +7,6 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd/internal/loader"
-	xsdxml "github.com/jacoelho/xsd/internal/xml"
 )
 
 func TestNotationValidation(t *testing.T) {
@@ -126,13 +125,11 @@ func TestNotationValidation(t *testing.T) {
 				t.Fatalf("Failed to load schema: %v", err)
 			}
 
-			doc, err := xsdxml.Parse(bytes.NewReader([]byte(tt.instance)))
-			if err != nil {
-				t.Fatalf("Failed to parse instance: %v", err)
-			}
-
 			v := New(mustCompile(t, schema))
-			violations := v.Validate(doc)
+			violations, err := v.ValidateStream(bytes.NewReader([]byte(tt.instance)))
+			if err != nil {
+				t.Fatalf("ValidateStream() error: %v", err)
+			}
 
 			if tt.wantValid {
 				if len(violations) > 0 {

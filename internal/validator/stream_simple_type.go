@@ -1,0 +1,268 @@
+package validator
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/grammar"
+	"github.com/jacoelho/xsd/internal/types"
+)
+
+// checkSimpleValue validates a string value against a simple type using namespace scope.
+func (r *streamRun) checkSimpleValue(value string, st *grammar.CompiledType, scopeDepth int) []errors.Validation {
+	_, violations := r.checkSimpleValueInternal(value, st, scopeDepth, true)
+	return violations
+}
+
+func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledType, scopeDepth int, reportErrors bool) (bool, []errors.Validation) {
+	if st == nil || st.Original == nil {
+		return true, nil
+	}
+
+	if unresolvedName, ok := unresolvedSimpleType(st.Original); ok {
+		if reportErrors {
+			return false, []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+				"type '%s' is not resolved", unresolvedName)}
+		}
+		return false, nil
+	}
+
+	normalizedValue := types.NormalizeWhiteSpace(value, st.Original)
+
+	if len(st.MemberTypes) > 0 {
+		if !r.validateUnionValue(normalizedValue, st.MemberTypes, scopeDepth) {
+			if reportErrors {
+				return false, []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+					"value '%s' does not match any member type of union", normalizedValue)}
+			}
+			return false, nil
+		}
+		return true, nil
+	}
+
+	if st.ItemType != nil {
+		return r.validateListValueInternal(normalizedValue, st, scopeDepth, reportErrors)
+	}
+
+	if stInterface, ok := st.Original.(types.SimpleTypeDefinition); ok {
+		if err := stInterface.Validate(normalizedValue); err != nil {
+			if reportErrors {
+				return false, []errors.Validation{errors.NewValidation(errors.ErrDatatypeInvalid, err.Error(), r.path.String())}
+			}
+			return false, nil
+		}
+	}
+
+	if r.isNotationType(st) {
+		if reportErrors {
+			if violations := r.validateNotationReference(normalizedValue, scopeDepth); len(violations) > 0 {
+				return false, violations
+			}
+		} else if !r.isValidNotationReference(normalizedValue, scopeDepth) {
+			return false, nil
+		}
+	}
+
+	typedValue := typedValueForFacets(normalizedValue, st.Original, st.Facets)
+	var violations []errors.Validation
+	for _, facet := range st.Facets {
+		if shouldSkipLengthFacet(st, facet) {
+			continue
+		}
+		if err := facet.Validate(typedValue, st.Original); err != nil {
+			if !reportErrors {
+				return false, nil
+			}
+			violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+		}
+	}
+
+	if len(violations) > 0 {
+		return false, violations
+	}
+	return true, nil
+}
+
+func (r *streamRun) validateListValueInternal(value string, st *grammar.CompiledType, scopeDepth int, reportErrors bool) (bool, []errors.Validation) {
+	valid := true
+	var violations []errors.Validation
+	abort := false
+	index := 0
+	splitWhitespaceSeq(value, func(item string) bool {
+		itemValid, itemViolations := r.validateListItemInternal(item, st.ItemType, index, scopeDepth, reportErrors)
+		index++
+		if !itemValid {
+			valid = false
+			if reportErrors {
+				violations = append(violations, itemViolations...)
+				return true
+			}
+			abort = true
+			return false
+		}
+		return true
+	})
+	if abort {
+		return false, nil
+	}
+
+	if len(st.Facets) > 0 {
+		typedValue := typedValueForFacets(value, st.Original, st.Facets)
+		for _, facet := range st.Facets {
+			if shouldSkipLengthFacet(st, facet) {
+				continue
+			}
+			if err := facet.Validate(typedValue, st.Original); err != nil {
+				valid = false
+				if !reportErrors {
+					return false, nil
+				}
+				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+			}
+		}
+	}
+
+	if len(violations) > 0 {
+		return false, violations
+	}
+	return valid, nil
+}
+
+func (r *streamRun) validateListItemInternal(item string, itemType *grammar.CompiledType, index int, scopeDepth int, reportErrors bool) (bool, []errors.Validation) {
+	if itemType == nil || itemType.Original == nil {
+		return true, nil
+	}
+
+	if unresolvedName, ok := unresolvedSimpleType(itemType.Original); ok {
+		if reportErrors {
+			return false, []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+				"list item[%d]: type '%s' is not resolved", index, unresolvedName)}
+		}
+		return false, nil
+	}
+
+	normalizedItem := types.NormalizeWhiteSpace(item, itemType.Original)
+
+	var violations []errors.Validation
+
+	if len(itemType.MemberTypes) > 0 {
+		if !r.validateUnionValue(normalizedItem, itemType.MemberTypes, scopeDepth) {
+			if reportErrors {
+				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+					"list item[%d] '%s' does not match any member type of union", index, normalizedItem))
+				return false, violations
+			}
+			return false, nil
+		}
+		return true, nil
+	}
+
+	if stInterface, ok := itemType.Original.(types.SimpleTypeDefinition); ok {
+		if err := stInterface.Validate(normalizedItem); err != nil {
+			if reportErrors {
+				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+					"list item[%d]: %s", index, err.Error()))
+				return false, violations
+			}
+			return false, nil
+		}
+	}
+
+	if r.isNotationType(itemType) {
+		if reportErrors {
+			if itemViolations := r.validateNotationReference(normalizedItem, scopeDepth); len(itemViolations) > 0 {
+				violations = append(violations, itemViolations...)
+				return false, violations
+			}
+		} else if !r.isValidNotationReference(normalizedItem, scopeDepth) {
+			return false, nil
+		}
+	}
+
+	typedValue := typedValueForFacets(normalizedItem, itemType.Original, itemType.Facets)
+	for _, facet := range itemType.Facets {
+		if shouldSkipLengthFacet(itemType, facet) {
+			continue
+		}
+		if err := facet.Validate(typedValue, itemType.Original); err != nil {
+			if !reportErrors {
+				return false, nil
+			}
+			violations = append(violations, errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
+				"list item[%d]: %s", index, err.Error()))
+		}
+	}
+
+	if len(violations) > 0 {
+		return false, violations
+	}
+	return true, nil
+}
+
+func (r *streamRun) validateUnionValue(value string, memberTypes []*grammar.CompiledType, scopeDepth int) bool {
+	for _, memberType := range memberTypes {
+		if r.validateUnionMemberType(value, memberType, scopeDepth) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *streamRun) validateUnionMemberType(value string, mt *grammar.CompiledType, scopeDepth int) bool {
+	if mt == nil || mt.Original == nil {
+		return false
+	}
+
+	valid, _ := r.checkSimpleValueInternal(value, mt, scopeDepth, false)
+	return valid
+}
+
+func (r *streamRun) validateNotationReference(value string, scopeDepth int) []errors.Validation {
+	notationQName, err := r.parseQNameValue(value, scopeDepth)
+	if err != nil {
+		return []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+			"Invalid NOTATION value '%s': %v", value, err)}
+	}
+
+	if r.schema.Notation(notationQName) == nil {
+		return []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+			"NOTATION value '%s' does not reference a declared notation", value)}
+	}
+
+	return nil
+}
+
+func (r *streamRun) isValidNotationReference(value string, scopeDepth int) bool {
+	notationQName, err := r.parseQNameValue(value, scopeDepth)
+	if err != nil {
+		return false
+	}
+	return r.schema.Notation(notationQName) != nil
+}
+
+func (r *streamRun) parseQNameValue(value string, scopeDepth int) (types.QName, error) {
+	value = strings.TrimSpace(value)
+	var prefix, local string
+	if before, after, ok := strings.Cut(value, ":"); ok {
+		prefix = strings.TrimSpace(before)
+		local = strings.TrimSpace(after)
+	} else {
+		local = value
+	}
+
+	var ns types.NamespaceURI
+	if prefix != "" {
+		nsStr, ok := r.dec.LookupNamespace(prefix, scopeDepth)
+		if !ok {
+			return types.QName{}, fmt.Errorf("undefined namespace prefix '%s'", prefix)
+		}
+		ns = types.NamespaceURI(nsStr)
+	} else {
+		if nsStr, ok := r.dec.LookupNamespace("", scopeDepth); ok && nsStr != "" {
+			ns = types.NamespaceURI(nsStr)
+		}
+	}
+
+	return types.QName{Namespace: ns, Local: local}, nil
+}

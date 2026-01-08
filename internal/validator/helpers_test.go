@@ -1,8 +1,10 @@
 package validator
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/loader"
 	xsdschema "github.com/jacoelho/xsd/internal/schema"
@@ -25,4 +27,14 @@ func mustCompile(t *testing.T, schema *xsdschema.Schema) *grammar.CompiledSchema
 	}
 
 	return compiled
+}
+
+func validateStream(t *testing.T, v *Validator, docXML string) []errors.Validation {
+	t.Helper()
+
+	violations, err := v.ValidateStream(strings.NewReader(docXML))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	return violations
 }

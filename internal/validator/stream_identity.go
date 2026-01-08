@@ -1,0 +1,769 @@
+package validator
+
+import (
+	"math"
+	"strconv"
+	"strings"
+
+	"github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/grammar"
+	"github.com/jacoelho/xsd/internal/parser/lexical"
+	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/xml"
+	xpathcomp "github.com/jacoelho/xsd/internal/xpath"
+)
+
+type fieldNodeKind int
+
+const (
+	fieldNodeElement fieldNodeKind = iota
+	fieldNodeAttribute
+)
+
+type fieldNodeKey struct {
+	kind          fieldNodeKind
+	elemID        uint64
+	attrNamespace types.NamespaceURI
+	attrLocal     string
+}
+
+type fieldCapture struct {
+	match      *selectorMatch
+	fieldIndex int
+}
+
+type fieldState struct {
+	nodes    map[fieldNodeKey]struct{}
+	count    int
+	multiple bool
+	invalid  bool
+	value    string
+	display  string
+	hasValue bool
+}
+
+func (s *fieldState) addNode(key fieldNodeKey) bool {
+	if s.nodes == nil {
+		s.nodes = make(map[fieldNodeKey]struct{})
+	}
+	if _, ok := s.nodes[key]; ok {
+		return false
+	}
+	s.nodes[key] = struct{}{}
+	s.count++
+	if s.count > 1 {
+		s.multiple = true
+	}
+	return true
+}
+
+type selectorMatch struct {
+	id         uint64
+	depth      int
+	constraint *constraintState
+	fields     []fieldState
+	invalid    bool
+}
+
+type constraintState struct {
+	constraint      *grammar.CompiledConstraint
+	selectorMatches map[uint64]*selectorMatch
+}
+
+type keyRefEntry struct {
+	constraint *grammar.CompiledConstraint
+	value      string
+	display    string
+	path       string
+}
+
+type identityScope struct {
+	rootID      uint64
+	rootDepth   int
+	decl        *grammar.CompiledElement
+	constraints []*constraintState
+	keyTables   map[string]map[string]string
+	keyRefs     []keyRefEntry
+	invalid     bool
+}
+
+func (r *streamRun) handleIdentityStart(frame *streamFrame, attrs []xml.Attr) {
+	if frame == nil {
+		return
+	}
+	r.openIdentityScopes(frame)
+	currentDepth := len(r.frames) - 1
+
+	for _, scope := range r.identityScopes {
+		if scope.invalid {
+			continue
+		}
+		for _, state := range scope.constraints {
+			if _, ok := state.selectorMatches[frame.id]; !ok {
+				for _, path := range state.constraint.SelectorPaths {
+					if matchPath(path, r.frames, scope.rootDepth, currentDepth) {
+						state.selectorMatches[frame.id] = &selectorMatch{
+							id:         frame.id,
+							depth:      currentDepth,
+							constraint: state,
+							fields:     make([]fieldState, len(state.constraint.FieldPaths)),
+						}
+						break
+					}
+				}
+			}
+		}
+	}
+
+	for _, scope := range r.identityScopes {
+		if scope.invalid {
+			continue
+		}
+		for _, state := range scope.constraints {
+			for _, match := range state.selectorMatches {
+				if match.invalid {
+					continue
+				}
+				for fieldIndex := range match.fields {
+					fieldState := &match.fields[fieldIndex]
+					if fieldState.multiple {
+						continue
+					}
+					for _, path := range state.constraint.FieldPaths[fieldIndex] {
+						if path.Attribute != nil {
+							if matchPath(path, r.frames, match.depth, currentDepth) {
+								r.applyAttributeSelection(fieldState, *path.Attribute, frame, attrs, match, fieldIndex)
+							}
+						} else if matchPath(path, r.frames, match.depth, currentDepth) {
+							r.applyElementSelection(fieldState, frame, match, fieldIndex)
+						}
+						if fieldState.multiple {
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func (r *streamRun) handleIdentityEnd(frame *streamFrame) {
+	if frame == nil || len(r.identityScopes) == 0 {
+		return
+	}
+	if frame.invalid {
+		r.abortIdentityFrame(frame)
+		return
+	}
+
+	r.applyFieldCaptures(frame)
+	r.finalizeSelectorMatches(frame)
+	r.closeIdentityScopes(frame)
+}
+
+func (r *streamRun) openIdentityScopes(frame *streamFrame) {
+	decls := r.constraintDeclsForQName(frame.qname)
+	if len(decls) == 0 {
+		return
+	}
+	currentDepth := len(r.frames) - 1
+	for _, decl := range decls {
+		scope := &identityScope{
+			rootID:      frame.id,
+			rootDepth:   currentDepth,
+			decl:        decl,
+			constraints: make([]*constraintState, len(decl.Constraints)),
+			keyTables:   make(map[string]map[string]string),
+		}
+		for i, constraint := range decl.Constraints {
+			scope.constraints[i] = &constraintState{
+				constraint:      constraint,
+				selectorMatches: make(map[uint64]*selectorMatch),
+			}
+			if constraint.Original.Type == types.KeyConstraint || constraint.Original.Type == types.UniqueConstraint {
+				if _, ok := scope.keyTables[constraint.Original.Name]; !ok {
+					scope.keyTables[constraint.Original.Name] = make(map[string]string)
+				}
+			}
+		}
+		r.identityScopes = append(r.identityScopes, scope)
+	}
+}
+
+func (r *streamRun) constraintDeclsForQName(qname types.QName) []*grammar.CompiledElement {
+	if cached, ok := r.constraintDecls[qname]; ok {
+		return cached
+	}
+	var matches []*grammar.CompiledElement
+	for _, decl := range r.schema.ElementsWithConstraints() {
+		if decl.QName == qname {
+			matches = append(matches, decl)
+			continue
+		}
+		for _, sub := range r.schema.SubstitutionGroup(decl.QName) {
+			if sub.QName == qname {
+				matches = append(matches, decl)
+				break
+			}
+		}
+	}
+	r.constraintDecls[qname] = matches
+	return matches
+}
+
+func (r *streamRun) applyElementSelection(state *fieldState, frame *streamFrame, match *selectorMatch, fieldIndex int) {
+	if state.multiple {
+		return
+	}
+	key := fieldNodeKey{kind: fieldNodeElement, elemID: frame.id}
+	if !state.addNode(key) {
+		return
+	}
+	if state.count > 1 {
+		state.multiple = true
+		return
+	}
+	if frame.decl != nil && frame.decl.Type != nil && !frame.decl.Type.AllowsText() {
+		state.invalid = true
+		return
+	}
+	frame.collectStringValue = true
+	frame.fieldCaptures = append(frame.fieldCaptures, fieldCapture{match: match, fieldIndex: fieldIndex})
+}
+
+func (r *streamRun) applyAttributeSelection(state *fieldState, test xpathcomp.NodeTest, frame *streamFrame, attrs []xml.Attr, match *selectorMatch, fieldIndex int) {
+	if state.multiple {
+		return
+	}
+	field := match.constraint.constraint.Original.Fields[fieldIndex]
+
+	if test.Any {
+		for _, attr := range attrs {
+			attrQName := types.QName{
+				Namespace: types.NamespaceURI(attr.NamespaceURI()),
+				Local:     attr.LocalName(),
+			}
+			r.addAttributeValue(state, field, frame, attrQName, attr.Value())
+			if state.multiple {
+				return
+			}
+		}
+		return
+	}
+
+	if test.Local == "*" && test.NamespaceSpecified {
+		for _, attr := range attrs {
+			attrNamespace := types.NamespaceURI(attr.NamespaceURI())
+			if attrNamespace != test.Namespace {
+				continue
+			}
+			attrQName := types.QName{
+				Namespace: attrNamespace,
+				Local:     attr.LocalName(),
+			}
+			r.addAttributeValue(state, field, frame, attrQName, attr.Value())
+			if state.multiple {
+				return
+			}
+		}
+		return
+	}
+
+	if test.NamespaceSpecified {
+		if attr, ok := findAttrByNamespace(attrs, test.Namespace, test.Local); ok {
+			attrQName := types.QName{
+				Namespace: test.Namespace,
+				Local:     test.Local,
+			}
+			r.addAttributeValue(state, field, frame, attrQName, attr.Value())
+			return
+		}
+		if value, ok := r.lookupAttributeDefault(frame, types.QName{Namespace: test.Namespace, Local: test.Local}); ok {
+			attrQName := types.QName{Namespace: test.Namespace, Local: test.Local}
+			r.addAttributeValue(state, field, frame, attrQName, value)
+		}
+		return
+	}
+
+	if attr, ok := findAttrByLocal(attrs, test.Local); ok {
+		attrQName := types.QName{
+			Namespace: types.NamespaceURI(attr.NamespaceURI()),
+			Local:     test.Local,
+		}
+		r.addAttributeValue(state, field, frame, attrQName, attr.Value())
+		return
+	}
+	if value, ok := r.lookupAttributeDefault(frame, types.QName{Local: test.Local}); ok {
+		attrQName := types.QName{Local: test.Local}
+		r.addAttributeValue(state, field, frame, attrQName, value)
+	}
+}
+
+func (r *streamRun) addAttributeValue(state *fieldState, field types.Field, frame *streamFrame, attrQName types.QName, value string) {
+	if state.multiple {
+		return
+	}
+	key := fieldNodeKey{
+		kind:          fieldNodeAttribute,
+		elemID:        frame.id,
+		attrNamespace: attrQName.Namespace,
+		attrLocal:     attrQName.Local,
+	}
+	if !state.addNode(key) {
+		return
+	}
+	if state.count > 1 {
+		state.multiple = true
+		return
+	}
+	normalized, keyState := r.normalizeAttributeValue(value, field, frame, attrQName)
+	if keyState == KeyInvalid {
+		state.invalid = true
+		return
+	}
+	state.value = normalized
+	state.display = strings.TrimSpace(value)
+	state.hasValue = true
+}
+
+func (r *streamRun) applyFieldCaptures(frame *streamFrame) {
+	for _, capture := range frame.fieldCaptures {
+		match := capture.match
+		if match.invalid {
+			continue
+		}
+		fieldState := &match.fields[capture.fieldIndex]
+		if fieldState.multiple || fieldState.invalid {
+			continue
+		}
+		field := match.constraint.constraint.Original.Fields[capture.fieldIndex]
+		raw := strings.TrimSpace(string(frame.textBuf))
+		normalized, keyState := r.normalizeElementValue(raw, field, frame)
+		if keyState == KeyInvalid {
+			fieldState.invalid = true
+			continue
+		}
+		fieldState.value = normalized
+		fieldState.display = strings.TrimSpace(raw)
+		fieldState.hasValue = true
+	}
+}
+
+func (r *streamRun) finalizeSelectorMatches(frame *streamFrame) {
+	for _, scope := range r.identityScopes {
+		if scope.invalid {
+			continue
+		}
+		for _, state := range scope.constraints {
+			match, ok := state.selectorMatches[frame.id]
+			if !ok {
+				continue
+			}
+			delete(state.selectorMatches, frame.id)
+			if match.invalid {
+				continue
+			}
+			r.finalizeSelectorMatch(scope, state, match)
+		}
+	}
+}
+
+func (r *streamRun) finalizeSelectorMatch(scope *identityScope, state *constraintState, match *selectorMatch) {
+	constraint := state.constraint
+	fields := constraint.Original.Fields
+	normalizedValues := make([]string, 0, len(fields))
+	displayValues := make([]string, 0, len(fields))
+	elemPath := r.path.String()
+
+	for i := range fields {
+		fieldState := match.fields[i]
+		switch {
+		case fieldState.multiple:
+			r.addIdentityFieldError(constraint, errors.ErrIdentityAbsent, errors.ErrIdentityDuplicate, errors.ErrIdentityKeyRefFailed, elemPath,
+				"field selects multiple nodes for element at %s", constraint.Original.Name)
+			return
+		case fieldState.count == 0:
+			if constraint.Original.Type == types.KeyConstraint {
+				r.addViolation(errors.NewValidationf(errors.ErrIdentityAbsent, elemPath,
+					"key '%s': field value is absent for element at %s", constraint.Original.Name, elemPath))
+			}
+			return
+		case fieldState.invalid || !fieldState.hasValue:
+			r.addIdentityFieldError(constraint, errors.ErrIdentityAbsent, errors.ErrIdentityDuplicate, errors.ErrIdentityKeyRefFailed, elemPath,
+				"field selects non-simple content for element at %s", constraint.Original.Name)
+			return
+		default:
+			normalizedValues = append(normalizedValues, fieldState.value)
+			displayValues = append(displayValues, fieldState.display)
+		}
+	}
+
+	tuple := strings.Join(normalizedValues, "\x00")
+	display := strings.Join(displayValues, ", ")
+
+	switch constraint.Original.Type {
+	case types.KeyConstraint, types.UniqueConstraint:
+		table := scope.keyTables[constraint.Original.Name]
+		if table == nil {
+			table = make(map[string]string)
+			scope.keyTables[constraint.Original.Name] = table
+		}
+		if firstPath, exists := table[tuple]; exists {
+			code := errors.ErrIdentityDuplicate
+			label := "unique"
+			if constraint.Original.Type == types.KeyConstraint {
+				label = "key"
+			}
+			r.addViolation(errors.NewValidationf(code, elemPath,
+				"%s '%s': duplicate value '%s' at %s (first occurrence at %s)",
+				label, constraint.Original.Name, display, elemPath, firstPath))
+			return
+		}
+		table[tuple] = elemPath
+	case types.KeyRefConstraint:
+		scope.keyRefs = append(scope.keyRefs, keyRefEntry{
+			constraint: constraint,
+			value:      tuple,
+			display:    display,
+			path:       elemPath,
+		})
+	}
+}
+
+func (r *streamRun) closeIdentityScopes(frame *streamFrame) {
+	for i := 0; i < len(r.identityScopes); {
+		scope := r.identityScopes[i]
+		if scope.rootID != frame.id {
+			i++
+			continue
+		}
+		if !scope.invalid {
+			r.finalizeKeyRefs(scope)
+		}
+		r.identityScopes = append(r.identityScopes[:i], r.identityScopes[i+1:]...)
+	}
+}
+
+func (r *streamRun) finalizeKeyRefs(scope *identityScope) {
+	if scope == nil {
+		return
+	}
+	entriesByConstraint := make(map[*grammar.CompiledConstraint][]keyRefEntry)
+	for _, entry := range scope.keyRefs {
+		entriesByConstraint[entry.constraint] = append(entriesByConstraint[entry.constraint], entry)
+	}
+
+	for _, state := range scope.constraints {
+		constraint := state.constraint
+		if constraint.Original.Type != types.KeyRefConstraint {
+			continue
+		}
+		referName := constraint.Original.ReferQName.String()
+		refLocal := constraint.Original.ReferQName.Local
+		keyTable := scope.keyTables[refLocal]
+		if keyTable == nil {
+			keyTable = scope.keyTables[referName]
+		}
+		if keyTable == nil {
+			elemPath := r.path.String()
+			r.addViolation(errors.NewValidationf(errors.ErrIdentityKeyRefFailed, elemPath,
+				"keyref '%s' refers to undefined key '%s'", constraint.Original.Name, referName))
+			continue
+		}
+
+		for _, entry := range entriesByConstraint[constraint] {
+			if _, ok := keyTable[entry.value]; !ok {
+				r.addViolation(errors.NewValidationf(errors.ErrIdentityKeyRefFailed, entry.path,
+					"keyref '%s': value '%s' not found in referenced key '%s' at %s",
+					constraint.Original.Name, entry.display, referName, entry.path))
+			}
+		}
+	}
+}
+
+func (r *streamRun) abortIdentityFrame(frame *streamFrame) {
+	for _, capture := range frame.fieldCaptures {
+		capture.match.invalid = true
+	}
+	for _, scope := range r.identityScopes {
+		for _, state := range scope.constraints {
+			delete(state.selectorMatches, frame.id)
+		}
+		if scope.rootID == frame.id {
+			scope.invalid = true
+		}
+	}
+	r.closeIdentityScopes(frame)
+}
+
+func (r *streamRun) addIdentityFieldError(constraint *grammar.CompiledConstraint, keyCode, uniqueCode, keyrefCode errors.ErrorCode, path, message, name string) {
+	switch constraint.Original.Type {
+	case types.KeyConstraint:
+		r.addViolation(errors.NewValidationf(keyCode, path, "key '%s': "+message, name, path))
+	case types.UniqueConstraint:
+		r.addViolation(errors.NewValidationf(uniqueCode, path, "unique '%s': "+message, name, path))
+	case types.KeyRefConstraint:
+		r.addViolation(errors.NewValidationf(keyrefCode, path, "keyref '%s': "+message, name, path))
+	}
+}
+
+func (r *streamRun) normalizeElementValue(value string, field types.Field, frame *streamFrame) (string, KeyState) {
+	if value == "" {
+		return "", KeyValid
+	}
+	fieldType := field.ResolvedType
+	if fieldType == nil {
+		fieldType = field.Type
+	}
+	if (fieldType == nil || isAnySimpleOrAnyType(fieldType)) && frame != nil {
+		if frame.textType != nil && frame.textType.Original != nil {
+			fieldType = frame.textType.Original
+		} else if frame.typ != nil && frame.typ.Original != nil {
+			fieldType = frame.typ.Original
+		} else if frame.decl != nil && frame.decl.Type != nil {
+			fieldType = frame.decl.Type.Original
+		}
+	}
+	if fieldType == nil {
+		fieldType = types.GetBuiltin(types.TypeName("string"))
+	}
+	if _, ok := fieldType.(types.ComplexTypeDefinition); ok {
+		fieldType = types.GetBuiltin(types.TypeName("string"))
+	}
+	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth), KeyValid
+}
+
+func isAnySimpleOrAnyType(fieldType types.Type) bool {
+	if fieldType == nil {
+		return false
+	}
+	name := fieldType.Name()
+	if name.Namespace != xml.XSDNamespace {
+		return false
+	}
+	return name.Local == "anySimpleType" || name.Local == "anyType"
+}
+
+func (r *streamRun) normalizeAttributeValue(value string, field types.Field, frame *streamFrame, attrQName types.QName) (string, KeyState) {
+	if value == "" {
+		return "", KeyValid
+	}
+	fieldType := field.ResolvedType
+	if fieldType == nil {
+		fieldType = field.Type
+	}
+
+	attrDeclared := false
+	if frame != nil && frame.decl != nil && frame.decl.Type != nil {
+		for _, attr := range frame.decl.Type.AllAttributes {
+			if attr.QName.Local != attrQName.Local {
+				continue
+			}
+			if !attrQName.Namespace.IsEmpty() && attr.QName.Namespace != attrQName.Namespace {
+				continue
+			}
+			attrDeclared = true
+			if attr.Type != nil && attr.Type.Original != nil {
+				return r.normalizeValueByTypeStream(value, attr.Type.Original, frame.scopeDepth), KeyValid
+			}
+		}
+		if fieldType == nil && !attrDeclared && frame.decl.Type.AnyAttribute != nil && frame.decl.Type.AnyAttribute.AllowsQName(attrQName) {
+			return "", KeyInvalid
+		}
+	}
+
+	if fieldType == nil {
+		fieldType = types.GetBuiltin(types.TypeName("string"))
+	}
+	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth), KeyValid
+}
+
+func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Type, scopeDepth int) string {
+	var primitiveName string
+	if bt, ok := fieldType.(*types.BuiltinType); ok {
+		if pt := bt.PrimitiveType(); pt != nil {
+			if pbt, ok := pt.(*types.BuiltinType); ok {
+				primitiveName = pbt.Name().Local
+			} else if pst, ok := pt.(*types.SimpleType); ok {
+				primitiveName = pst.QName.Local
+			}
+		} else {
+			primitiveName = bt.Name().Local
+		}
+	} else if pt := fieldType.PrimitiveType(); pt != nil {
+		if st, ok := pt.(*types.SimpleType); ok {
+			primitiveName = st.QName.Local
+		} else if bt, ok := pt.(*types.BuiltinType); ok {
+			primitiveName = bt.Name().Local
+		}
+	}
+
+	typePrefix := primitiveName
+	if typePrefix == "" && fieldType != nil {
+		typePrefix = fieldType.Name().String()
+	}
+
+	switch primitiveName {
+	case "decimal", "integer", "nonPositiveInteger", "negativeInteger",
+		"nonNegativeInteger", "positiveInteger", "long", "int", "short", "byte",
+		"unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
+		rat, err := lexical.ParseDecimal(value)
+		if err == nil {
+			return typePrefix + "\x01" + rat.String()
+		}
+	case "float", "double":
+		trimmed := strings.TrimSpace(value)
+		bitSize := 64
+		if primitiveName == "float" {
+			bitSize = 32
+		}
+		floatValue, err := strconv.ParseFloat(trimmed, bitSize)
+		if err == nil {
+			if math.IsNaN(floatValue) {
+				return typePrefix + "\x01" + "NaN"
+			}
+			return typePrefix + "\x01" + strconv.FormatFloat(floatValue, 'g', -1, bitSize)
+		}
+		return typePrefix + "\x01" + trimmed
+	case "QName":
+		return typePrefix + "\x01" + r.normalizeQNameValue(value, scopeDepth)
+	}
+
+	return typePrefix + "\x01" + value
+}
+
+func (r *streamRun) normalizeQNameValue(value string, scopeDepth int) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	prefix := ""
+	local := value
+	if before, after, ok := strings.Cut(value, ":"); ok {
+		prefix = before
+		local = after
+	}
+	namespaceURI, _ := r.dec.LookupNamespace(prefix, scopeDepth)
+	return "{" + namespaceURI + "}" + local
+}
+
+func (r *streamRun) lookupAttributeDefault(frame *streamFrame, attrQName types.QName) (string, bool) {
+	if frame == nil || frame.decl == nil || frame.decl.Type == nil {
+		return "", false
+	}
+	for _, attr := range frame.decl.Type.AllAttributes {
+		if attr.QName.Local != attrQName.Local {
+			continue
+		}
+		if !attrQName.Namespace.IsEmpty() && attr.QName.Namespace != attrQName.Namespace {
+			continue
+		}
+		if attr.HasFixed {
+			return attr.Fixed, true
+		}
+		if attr.Default != "" {
+			return attr.Default, true
+		}
+		return "", false
+	}
+	return "", false
+}
+
+func findAttrByLocal(attrs []xml.Attr, local string) (xml.Attr, bool) {
+	for _, attr := range attrs {
+		if attr.LocalName() == local {
+			return attr, true
+		}
+	}
+	return xml.Attr{}, false
+}
+
+func findAttrByNamespace(attrs []xml.Attr, namespace types.NamespaceURI, local string) (xml.Attr, bool) {
+	for _, attr := range attrs {
+		if types.NamespaceURI(attr.NamespaceURI()) != namespace {
+			continue
+		}
+		if attr.LocalName() == local {
+			return attr, true
+		}
+	}
+	return xml.Attr{}, false
+}
+
+func matchPath(path xpathcomp.Path, frames []streamFrame, startDepth, currentDepth int) bool {
+	if startDepth < 0 || currentDepth < 0 || currentDepth >= len(frames) {
+		return false
+	}
+	if len(path.Steps) == 0 {
+		return currentDepth == startDepth
+	}
+	return matchSteps(path.Steps, frames, startDepth, currentDepth)
+}
+
+func matchSteps(steps []xpathcomp.Step, frames []streamFrame, startDepth, currentDepth int) bool {
+	var match func(stepIndex, nodeDepth int) bool
+	match = func(stepIndex, nodeDepth int) bool {
+		if nodeDepth < startDepth || nodeDepth >= len(frames) || stepIndex < 0 {
+			return false
+		}
+		step := steps[stepIndex]
+		if !nodeTestMatches(step.Test, frames[nodeDepth].qname) {
+			return false
+		}
+		if stepIndex == 0 {
+			return axisMatchesStart(step.Axis, startDepth, nodeDepth)
+		}
+		switch step.Axis {
+		case xpathcomp.AxisChild:
+			return match(stepIndex-1, nodeDepth-1)
+		case xpathcomp.AxisSelf:
+			return match(stepIndex-1, nodeDepth)
+		case xpathcomp.AxisDescendant:
+			for prev := nodeDepth - 1; prev >= startDepth; prev-- {
+				if match(stepIndex-1, prev) {
+					return true
+				}
+			}
+			return false
+		case xpathcomp.AxisDescendantOrSelf:
+			for prev := nodeDepth; prev >= startDepth; prev-- {
+				if match(stepIndex-1, prev) {
+					return true
+				}
+			}
+			return false
+		default:
+			return false
+		}
+	}
+
+	return match(len(steps)-1, currentDepth)
+}
+
+func axisMatchesStart(axis xpathcomp.Axis, startDepth, nodeDepth int) bool {
+	switch axis {
+	case xpathcomp.AxisChild:
+		return nodeDepth == startDepth+1
+	case xpathcomp.AxisSelf:
+		return nodeDepth == startDepth
+	case xpathcomp.AxisDescendant:
+		return nodeDepth > startDepth
+	case xpathcomp.AxisDescendantOrSelf:
+		return nodeDepth >= startDepth
+	default:
+		return false
+	}
+}
+
+func nodeTestMatches(test xpathcomp.NodeTest, qname types.QName) bool {
+	if test.Any {
+		return true
+	}
+	if test.Local != "*" && qname.Local != test.Local {
+		return false
+	}
+	if test.NamespaceSpecified && qname.Namespace != test.Namespace {
+		return false
+	}
+	return true
+}

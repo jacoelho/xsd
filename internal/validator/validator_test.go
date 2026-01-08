@@ -7,7 +7,6 @@ import (
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/loader"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/xml"
 )
 
 func TestValidateSimpleElement(t *testing.T) {
@@ -27,13 +26,8 @@ func TestValidateSimpleElement(t *testing.T) {
 	xmlDoc := `<?xml version="1.0"?>
 <message xmlns="http://example.com/simple">Hello, World!</message>`
 
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))
@@ -70,13 +64,8 @@ func TestValidateComplexElement(t *testing.T) {
   <age>30</age>
 </person>`
 
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations, got %d:", len(violations))
@@ -109,14 +98,8 @@ func TestValidateAttributeDefault(t *testing.T) {
 	xmlWithoutAttr := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test"/>
 `
-
-	doc1, err := xml.Parse(strings.NewReader(xmlWithoutAttr))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc1)
+	violations := validateStream(t, v, xmlWithoutAttr)
 
 	// should be valid - default value will be validated
 	if len(violations) > 0 {
@@ -131,12 +114,7 @@ func TestValidateAttributeDefault(t *testing.T) {
 <root xmlns="http://example.com/test" status="inactive"/>
 `
 
-	doc2, err := xml.Parse(strings.NewReader(xmlWithAttr))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
-	violations = v.Validate(doc2)
+	violations = validateStream(t, v, xmlWithAttr)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for present attribute, got %d:", len(violations))
 		for _, v := range violations {
@@ -174,13 +152,8 @@ func TestValidateSubstitutionGroup(t *testing.T) {
   <head>value</head>
 </root>`
 
-	doc1, err := xml.Parse(strings.NewReader(xmlWithHead))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc1)
+	violations := validateStream(t, v, xmlWithHead)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for head element, got %d:", len(violations))
 		for _, v := range violations {
@@ -194,12 +167,7 @@ func TestValidateSubstitutionGroup(t *testing.T) {
   <member>value</member>
 </root>`
 
-	doc2, err := xml.Parse(strings.NewReader(xmlWithMember))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
-	violations = v.Validate(doc2)
+	violations = validateStream(t, v, xmlWithMember)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for member element (substitution group), got %d:", len(violations))
 		for _, v := range violations {
@@ -237,13 +205,8 @@ func TestValidateXsiAttributes(t *testing.T) {
   <child>value</child>
 </root>`
 
-	doc1, err := xml.Parse(strings.NewReader(xmlWithSchemaLocation))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc1)
+	violations := validateStream(t, v, xmlWithSchemaLocation)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for xsi:schemaLocation attribute, got %d:", len(violations))
 		for _, v := range violations {
@@ -258,13 +221,7 @@ func TestValidateXsiAttributes(t *testing.T) {
       xsi:noNamespaceSchemaLocation="schema.xsd">
   <child>value</child>
 </root>`
-
-	doc2, err := xml.Parse(strings.NewReader(xmlWithNoNamespaceSchemaLocation))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
-	violations = v.Validate(doc2)
+	violations = validateStream(t, v, xmlWithNoNamespaceSchemaLocation)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for xsi:noNamespaceSchemaLocation attribute, got %d:", len(violations))
 		for _, v := range violations {
@@ -281,12 +238,7 @@ func TestValidateXsiAttributes(t *testing.T) {
   <child>value</child>
 </root>`
 
-	doc3, err := xml.Parse(strings.NewReader(xmlWithBoth))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
-	violations = v.Validate(doc3)
+	violations = validateStream(t, v, xmlWithBoth)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for both xsi attributes, got %d:", len(violations))
 		for _, v := range violations {
@@ -364,14 +316,8 @@ func TestValidateAllGroupMinOccursZero(t *testing.T) {
 	xmlEmpty := `<?xml version="1.0"?>
 <elt1 xmlns="http://example.com/test"/>
 `
-
-	doc1, err := xml.Parse(strings.NewReader(xmlEmpty))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc1)
+	violations := validateStream(t, v, xmlEmpty)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for empty element with all group minOccurs=0, got %d:", len(violations))
 		for _, v := range violations {
@@ -385,13 +331,7 @@ func TestValidateAllGroupMinOccursZero(t *testing.T) {
   <elt2>value2</elt2>
 </elt1>
 `
-
-	doc2, err := xml.Parse(strings.NewReader(xmlPartial))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
-	violations = v.Validate(doc2)
+	violations = validateStream(t, v, xmlPartial)
 	if len(violations) == 0 {
 		t.Fatalf("Expected violations for partial elements with all group minOccurs=0, got none")
 	}
@@ -414,13 +354,7 @@ func TestValidateAllGroupMinOccursZero(t *testing.T) {
   <elt4>value4</elt4>
 </elt1>
 `
-
-	doc3, err := xml.Parse(strings.NewReader(xmlAll))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
-	violations = v.Validate(doc3)
+	violations = validateStream(t, v, xmlAll)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for all elements with all group minOccurs=0, got %d:", len(violations))
 		for _, v := range violations {
@@ -457,14 +391,8 @@ func TestValidateWildcardElement(t *testing.T) {
 <root xmlns="http://example.com/test">
   <foo xmlns="http://other.com/ns">value</foo>
 </root>`
-
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for element matching wildcard with processContents=skip, got %d:", len(violations))
 		for _, v := range violations {
@@ -500,14 +428,8 @@ func TestValidateWildcardElementLax(t *testing.T) {
 <root xmlns="http://example.com/test">
   <foo xmlns="http://other.com/ns">value</foo>
 </root>`
-
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for element matching wildcard with processContents=lax, got %d:", len(violations))
 		for _, v := range violations {
@@ -541,14 +463,8 @@ func TestValidateWildcardAsTopLevelParticle(t *testing.T) {
 <root xmlns="http://example.com/test">
   <foo xmlns="http://other.com/ns">value</foo>
 </root>`
-
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for element matching top-level wildcard, got %d:", len(violations))
 		for _, v := range violations {
@@ -583,14 +499,8 @@ func TestValidateWildcardWithMinOccursMaxOccurs(t *testing.T) {
 <root xmlns="http://example.com/test">
   <foo xmlns="http://other.com/ns">value</foo>
 </root>`
-
-	doc1, err := xml.Parse(strings.NewReader(xmlDoc1))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc1)
+	violations := validateStream(t, v, xmlDoc1)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for one wildcard element, got %d:", len(violations))
 		for _, v := range violations {
@@ -604,13 +514,7 @@ func TestValidateWildcardWithMinOccursMaxOccurs(t *testing.T) {
   <foo xmlns="http://other.com/ns">value1</foo>
   <bar xmlns="http://other.com/ns">value2</bar>
 </root>`
-
-	doc2, err := xml.Parse(strings.NewReader(xmlDoc2))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
-	violations = v.Validate(doc2)
+	violations = validateStream(t, v, xmlDoc2)
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for two wildcard elements, got %d:", len(violations))
 		for _, v := range violations {
@@ -622,13 +526,7 @@ func TestValidateWildcardWithMinOccursMaxOccurs(t *testing.T) {
 	xmlDoc3 := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test"/>
 `
-
-	doc3, err := xml.Parse(strings.NewReader(xmlDoc3))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
-	violations = v.Validate(doc3)
+	violations = validateStream(t, v, xmlDoc3)
 	if len(violations) == 0 {
 		t.Error("Expected violation for missing required wildcard element (minOccurs=1), got none")
 	} else {
@@ -687,14 +585,8 @@ func TestAttributeWildcardInheritance(t *testing.T) {
       xmlns:other="http://example.com/other"
       localAttr="value"
       other:wildcardAttr="allowed"/>`
-
-	doc, err := xml.Parse(strings.NewReader(xmlDoc))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc)
+	violations := validateStream(t, v, xmlDoc)
 
 	// should have no violations - other:wildcardAttr should be allowed by inherited wildcard
 	if len(violations) > 0 {
@@ -749,14 +641,8 @@ func TestAttributeWildcardOverride(t *testing.T) {
       xmlns:tns="http://example.com/test"
       xmlns:other="http://example.com/other"
       tns:localAttr="value"/>`
-
-	doc1, err := xml.Parse(strings.NewReader(xmlDoc1))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc1)
+	violations := validateStream(t, v, xmlDoc1)
 
 	// should have no violations - localAttr in target namespace should be allowed
 	if len(violations) > 0 {
@@ -771,13 +657,7 @@ func TestAttributeWildcardOverride(t *testing.T) {
 <root xmlns="http://example.com/test"
       xmlns:other="http://example.com/other"
       other:wildcardAttr="allowed"/>`
-
-	doc2, err := xml.Parse(strings.NewReader(xmlDoc2))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
-	violations = v.Validate(doc2)
+	violations = validateStream(t, v, xmlDoc2)
 
 	// should have no violations - other namespace attribute should be allowed because union = ##any
 	if len(violations) > 0 {
@@ -825,14 +705,8 @@ func TestValidateUnionWithInlineTypes(t *testing.T) {
 	// test valid string value (matches first inline type)
 	xmlDoc1 := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">hello</root>`
-
-	doc1, err := xml.Parse(strings.NewReader(xmlDoc1))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
 	v := New(mustCompile(t, schema))
-	violations := v.Validate(doc1)
+	violations := validateStream(t, v, xmlDoc1)
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for valid string value, got %d:", len(violations))
@@ -844,13 +718,7 @@ func TestValidateUnionWithInlineTypes(t *testing.T) {
 	// test valid integer value (matches second inline type)
 	xmlDoc2 := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">42</root>`
-
-	doc2, err := xml.Parse(strings.NewReader(xmlDoc2))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
-	violations = v.Validate(doc2)
+	violations = validateStream(t, v, xmlDoc2)
 
 	if len(violations) > 0 {
 		t.Errorf("Expected no violations for valid integer value, got %d:", len(violations))
@@ -862,13 +730,7 @@ func TestValidateUnionWithInlineTypes(t *testing.T) {
 	// test invalid value (too long string)
 	xmlDoc3 := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">this string is too long</root>`
-
-	doc3, err := xml.Parse(strings.NewReader(xmlDoc3))
-	if err != nil {
-		t.Fatalf("Parse XML: %v", err)
-	}
-
-	violations = v.Validate(doc3)
+	violations = validateStream(t, v, xmlDoc3)
 
 	if len(violations) == 0 {
 		t.Error("Expected violation for string exceeding maxLength, got none")
