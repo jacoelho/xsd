@@ -233,10 +233,10 @@ func validateImportForNamespaceAtLocation(schema *parser.Schema, location string
 	if referenceNamespace.IsEmpty() || referenceNamespace == types.XSDNamespace || referenceNamespace == xsdxml.XMLNamespace {
 		return nil
 	}
-	if location == "" || parser.ImportContexts == nil {
+	if location == "" || schema.ImportContexts == nil {
 		return validateImportForNamespace(schema, schema.TargetNamespace, referenceNamespace)
 	}
-	ctx, ok := parser.ImportContexts[location]
+	ctx, ok := schema.ImportContexts[location]
 	if !ok {
 		return validateImportForNamespace(schema, schema.TargetNamespace, referenceNamespace)
 	}
