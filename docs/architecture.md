@@ -81,12 +81,12 @@ xsd/
     |   +-- type_lookup.go    Type lookup helpers
     |   +-- reference*.go     Reference resolution routines
     |
-    +-- validation/           Phase 3: Schema structure validation
-    |   +-- structure.go      Validation entry point
+    +-- schemacheck/          Phase 3: Schema structure validation
+    |   +-- schema_validator.go  Validation entry point
     |   +-- element_*.go      Element checks
-    |   +-- complex_type_*.go Complex type checks
-    |   +-- simple_type_*.go  Simple type checks
-    |   +-- facet_*.go        Facet validation
+    |   +-- complex_types.go  Complex type checks
+    |   +-- simple_types.go   Simple type checks
+    |   +-- facets.go         Facet validation
     |
     +-- compiler/             Phase 4: Grammar compilation
     |   +-- compiler.go       Compilation entry point
@@ -109,10 +109,9 @@ xsd/
     |   +-- compiled_element.go
     |   +-- compiled_attribute.go
     |   +-- compiled_content.go
-    |   +-- contentmodel/     DFA-based content model validation
-    |       +-- automaton.go  Compiled DFA
-    |       +-- builder.go    Glushkov construction
-    |       +-- validate.go   O(n) validation
+    |   +-- automaton.go      DFA-based content model validation
+    |   +-- automaton_build.go    Glushkov construction
+    |   +-- automaton_validate.go O(n) validation
     |
     +-- validator/            Phase 5: Validation engine
     |   +-- validator.go      Main validator
@@ -145,7 +144,7 @@ xsd/
 |                        loader.LoadCompiled()                       |
 |                                |                                  |
 |                                v                                  |
-| parser.Parse -> resolver.Resolve -> validation.ValidateStructure  |
+| parser.Parse -> resolver.Resolve -> schemacheck.ValidateStructure |
 |                                |                                  |
 |                                v                                  |
 |                       compiler.Compile()                          |
@@ -166,7 +165,7 @@ xsd/
 | validator/              grammar/                xml/               |
 | stream.go               CompiledType           StreamDecoder      |
 | attribute.go            CompiledElement        Event              |
-| content.go              contentmodel/          Attr               |
+| content.go              grammar/               Attr               |
 | simple_type.go          Automaton                                 |
 +------------------------------------------------------------------+
 ```
