@@ -1,5 +1,7 @@
 package types
 
+import "slices"
+
 // Particle represents a content model particle
 type Particle interface {
 	MinOcc() int
@@ -223,7 +225,7 @@ func copyRestriction(restriction *Restriction, opts CopyOptions) *Restriction {
 	}
 	clone.AttrGroups = copyQNameSlice(restriction.AttrGroups, opts.RemapQName)
 	if len(restriction.Facets) > 0 {
-		clone.Facets = append([]any(nil), restriction.Facets...)
+		clone.Facets = slices.Clone(restriction.Facets)
 	}
 	if restriction.Particle != nil {
 		clone.Particle = copyParticle(restriction.Particle, opts)

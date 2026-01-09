@@ -72,7 +72,9 @@ func (c *Compiler) Compile() (*grammar.CompiledSchema, error) {
 	}
 
 	// copy notation declarations (notations are not compiled, just copied)
-	maps.Copy(c.grammar.NotationDecls, c.schema.NotationDecls)
+	if len(c.schema.NotationDecls) > 0 {
+		c.grammar.NotationDecls = maps.Clone(c.schema.NotationDecls)
+	}
 
 	c.computeSubstitutionGroups()
 

@@ -1,6 +1,9 @@
 package types
 
-import "maps"
+import (
+	"maps"
+	"slices"
+)
 
 // CopyOptions configures how schema components are copied during merge.
 type CopyOptions struct {
@@ -36,7 +39,7 @@ func copyAnyElement(elem *AnyElement) *AnyElement {
 	}
 	clone := *elem
 	if len(elem.NamespaceList) > 0 {
-		clone.NamespaceList = append([]NamespaceURI(nil), elem.NamespaceList...)
+		clone.NamespaceList = slices.Clone(elem.NamespaceList)
 	}
 	return &clone
 }
@@ -47,7 +50,7 @@ func copyAnyAttribute(attr *AnyAttribute) *AnyAttribute {
 	}
 	clone := *attr
 	if len(attr.NamespaceList) > 0 {
-		clone.NamespaceList = append([]NamespaceURI(nil), attr.NamespaceList...)
+		clone.NamespaceList = slices.Clone(attr.NamespaceList)
 	}
 	return &clone
 }
@@ -75,21 +78,11 @@ func copyAttributeDecls(attrs []*AttributeDecl, opts CopyOptions) []*AttributeDe
 }
 
 func copyFields(fields []Field) []Field {
-	if len(fields) == 0 {
-		return nil
-	}
-	out := make([]Field, len(fields))
-	copy(out, fields)
-	return out
+	return slices.Clone(fields)
 }
 
 func copyNamespaceContext(src map[string]string) map[string]string {
-	if src == nil {
-		return nil
-	}
-	out := make(map[string]string, len(src))
-	maps.Copy(out, src)
-	return out
+	return maps.Clone(src)
 }
 
 func copyIdentityConstraints(constraints []*IdentityConstraint, opts CopyOptions) []*IdentityConstraint {

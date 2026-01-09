@@ -1,6 +1,8 @@
 package validation
 
 import (
+	"slices"
+
 	schema "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -10,7 +12,7 @@ import (
 // Note: We don't recursively collect from base types since they might not be fully resolved
 // during schema validation. This checks for duplicates within the same type definition.
 func collectAllAttributesForValidation(schema *schema.Schema, ct *types.ComplexType) []*types.AttributeDecl {
-	allAttrs := append([]*types.AttributeDecl(nil), ct.Attributes()...)
+	allAttrs := slices.Clone(ct.Attributes())
 	allAttrs = append(allAttrs, collectAttributesFromGroups(schema, ct.AttrGroups, nil)...)
 
 	content := ct.Content()
