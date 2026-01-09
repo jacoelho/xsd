@@ -36,12 +36,6 @@ func resolveTypeReference(schema *schema.Schema, typ types.Type, allowMissing bo
 	return typ
 }
 
-// resolveTypeForValidation resolves a type reference for validation purposes.
-// Similar to validator.resolveType but for schema validation context.
-func resolveTypeForValidation(schema *schema.Schema, typ types.Type) types.Type {
-	return resolveTypeReference(schema, typ, false)
-}
-
 // resolveTypeForFinalValidation resolves a type reference for substitution group final checks.
 func resolveTypeForFinalValidation(schema *schema.Schema, typ types.Type) types.Type {
 	return resolveTypeReference(schema, typ, true)
