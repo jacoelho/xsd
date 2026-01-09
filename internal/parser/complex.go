@@ -68,7 +68,7 @@ var (
 )
 
 // parseComplexType parses a top-level complexType definition
-func parseComplexType(doc *xml.Document, elem xml.NodeID, schema *Schema) error {
+func parseComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("complexType missing name attribute")
@@ -102,7 +102,7 @@ func parseComplexType(doc *xml.Document, elem xml.NodeID, schema *Schema) error 
 }
 
 // parseInlineComplexType parses a complexType definition (inline or named)
-func parseInlineComplexType(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.ComplexType, error) {
+func parseInlineComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.ComplexType, error) {
 	ct := &types.ComplexType{}
 
 	if doc.HasAttribute(elem, "id") && doc.GetAttribute(elem, "name") == "" {
@@ -170,7 +170,7 @@ func parseInlineComplexType(doc *xml.Document, elem xml.NodeID, schema *Schema) 
 	hasAttributeLike := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -420,7 +420,7 @@ func resolveBaseTypeForComplex(schema *Schema, baseQName types.QName) types.Type
 	return nil
 }
 
-func parseModelGroup(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.ModelGroup, error) {
+func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.ModelGroup, error) {
 	var kind types.GroupKind
 	switch doc.LocalName(elem) {
 	case "sequence":
@@ -526,7 +526,7 @@ func parseModelGroup(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types
 	hasNonAnnotation := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -627,7 +627,7 @@ func parseModelGroup(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types
 	return mg, nil
 }
 
-func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.SimpleContent, error) {
+func parseSimpleContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleContent, error) {
 	sc := &types.SimpleContent{}
 
 	// validate id attribute if present on simpleContent
@@ -642,7 +642,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*ty
 	seenAnnotation := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -687,7 +687,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*ty
 			seenAttributeLike := false
 			seenFacet := false
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) != xml.XSDNamespace {
+				if doc.NamespaceURI(grandchild) != xsdxml.XSDNamespace {
 					continue
 				}
 				switch doc.LocalName(grandchild) {
@@ -712,7 +712,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*ty
 
 			var nestedSimpleType *types.SimpleType
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) == xml.XSDNamespace && doc.LocalName(grandchild) == "simpleType" {
+				if doc.NamespaceURI(grandchild) == xsdxml.XSDNamespace && doc.LocalName(grandchild) == "simpleType" {
 					nestedSimpleType, err = parseInlineSimpleType(doc, grandchild, schema)
 					if err != nil {
 						return nil, fmt.Errorf("parse nested simpleType: %w", err)
@@ -731,7 +731,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*ty
 
 			hasAnyAttribute := false
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) != xml.XSDNamespace {
+				if doc.NamespaceURI(grandchild) != xsdxml.XSDNamespace {
 					continue
 				}
 
@@ -813,7 +813,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*ty
 
 			hasAnyAttribute := false
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) != xml.XSDNamespace {
+				if doc.NamespaceURI(grandchild) != xsdxml.XSDNamespace {
 					continue
 				}
 
@@ -880,7 +880,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*ty
 	return sc, nil
 }
 
-func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.ComplexContent, error) {
+func parseComplexContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.ComplexContent, error) {
 	cc := &types.ComplexContent{}
 
 	if doc.HasAttribute(elem, "id") {
@@ -900,7 +900,7 @@ func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*t
 	seenAnnotation := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -945,9 +945,9 @@ func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*t
 			// attributes can exist without particles
 
 			// collect all XSD namespace children
-			var children []xml.NodeID
+			var children []xsdxml.NodeID
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) == xml.XSDNamespace {
+				if doc.NamespaceURI(grandchild) == xsdxml.XSDNamespace {
 					children = append(children, grandchild)
 				}
 			}
@@ -1118,9 +1118,9 @@ func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*t
 			// the order must be: particle first (if present), then attributes
 			// attributes can exist without particles
 
-			var children []xml.NodeID
+			var children []xsdxml.NodeID
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) == xml.XSDNamespace {
+				if doc.NamespaceURI(grandchild) == xsdxml.XSDNamespace {
 					children = append(children, grandchild)
 				}
 			}
@@ -1285,7 +1285,7 @@ func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*t
 
 // parseTopLevelGroup parses a top-level <group> definition
 // Content model: (annotation?, (all | choice | sequence))
-func parseTopLevelGroup(doc *xml.Document, elem xml.NodeID, schema *Schema) error {
+func parseTopLevelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("group missing name attribute")
@@ -1325,7 +1325,7 @@ func parseTopLevelGroup(doc *xml.Document, elem xml.NodeID, schema *Schema) erro
 
 	// parse the group content (sequence, choice, or all)
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -1365,7 +1365,7 @@ func parseTopLevelGroup(doc *xml.Document, elem xml.NodeID, schema *Schema) erro
 
 // parseTopLevelAttributeGroup parses a top-level <attributeGroup> definition
 // Content model: (annotation?, ((attribute | attributeGroup)*, anyAttribute?))
-func parseTopLevelAttributeGroup(doc *xml.Document, elem xml.NodeID, schema *Schema) error {
+func parseTopLevelAttributeGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("attributeGroup missing name attribute")
@@ -1394,7 +1394,7 @@ func parseTopLevelAttributeGroup(doc *xml.Document, elem xml.NodeID, schema *Sch
 	hasAnyAttribute := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -1473,7 +1473,7 @@ func parseTopLevelAttributeGroup(doc *xml.Document, elem xml.NodeID, schema *Sch
 
 // parseAnyElement parses an <any> wildcard element
 // Content model: (annotation?)
-func parseAnyElement(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.AnyElement, error) {
+func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.AnyElement, error) {
 	// validate that <any> doesn't have invalid attributes
 	// in XSD 1.0, <any> allows: namespace, processContents, minOccurs, maxOccurs, id
 	for _, attr := range doc.Attributes(elem) {
@@ -1499,7 +1499,7 @@ func parseAnyElement(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types
 	// validate annotation constraints: at most one annotation, must be first
 	hasAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -1631,7 +1631,7 @@ func validateOccursInteger(value string) error {
 
 // parseAnyAttribute parses an <anyAttribute> wildcard
 // Content model: (annotation?)
-func parseAnyAttribute(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.AnyAttribute, error) {
+func parseAnyAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.AnyAttribute, error) {
 	// reject XSD 1.1 features (notNamespace, notQName) - these are not supported in XSD 1.0
 	if doc.GetAttribute(elem, "notNamespace") != "" {
 		return nil, fmt.Errorf("notNamespace attribute is not supported in XSD 1.0 (XSD 1.1 feature)")
@@ -1663,7 +1663,7 @@ func parseAnyAttribute(doc *xml.Document, elem xml.NodeID, schema *Schema) (*typ
 	// validate annotation constraints: at most one annotation, must be first
 	hasAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -1797,7 +1797,7 @@ func parseNamespaceConstraint(value string, schema *Schema) (types.NamespaceCons
 }
 
 // parseIdentityConstraint parses a key, keyref, or unique constraint
-func parseIdentityConstraint(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.IdentityConstraint, error) {
+func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.IdentityConstraint, error) {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return nil, fmt.Errorf("identity constraint missing name attribute")
@@ -1852,7 +1852,7 @@ func parseIdentityConstraint(doc *xml.Document, elem xml.NodeID, schema *Schema)
 	seenField := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -1927,13 +1927,13 @@ func parseIdentityConstraint(doc *xml.Document, elem xml.NodeID, schema *Schema)
 	return constraint, nil
 }
 
-func validateAllowedAttributes(doc *xml.Document, elem xml.NodeID, elementName string, allowed map[string]bool) error {
+func validateAllowedAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, elementName string, allowed map[string]bool) error {
 	for _, attr := range doc.Attributes(elem) {
-		if attr.NamespaceURI() == xml.XMLNSNamespace || attr.LocalName() == "xmlns" {
+		if attr.NamespaceURI() == xsdxml.XMLNSNamespace || attr.LocalName() == "xmlns" {
 			continue
 		}
 		if attr.NamespaceURI() != "" {
-			if attr.NamespaceURI() == xml.XSDNamespace {
+			if attr.NamespaceURI() == xsdxml.XSDNamespace {
 				return fmt.Errorf("%s: attribute '%s' must be unprefixed", elementName, attr.LocalName())
 			}
 			continue

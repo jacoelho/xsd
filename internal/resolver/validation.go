@@ -3,12 +3,12 @@ package resolver
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validation"
 )
 
-func validateReferences(schema *schema.Schema) []error {
+func validateReferences(schema *parser.Schema) []error {
 	var errors []error
 
 	elementRefsInContent := collectElementReferencesInSchema(schema)
@@ -46,11 +46,11 @@ func validateReferences(schema *schema.Schema) []error {
 }
 
 // ValidateReferences exposes reference validation for schema loading.
-func ValidateReferences(schema *schema.Schema) []error {
+func ValidateReferences(schema *parser.Schema) []error {
 	return validateReferences(schema)
 }
 
-func collectElementReferencesInSchema(schema *schema.Schema) []*types.ElementDecl {
+func collectElementReferencesInSchema(schema *parser.Schema) []*types.ElementDecl {
 	var elementRefsInContent []*types.ElementDecl
 
 	for _, decl := range schema.ElementDecls {
@@ -78,7 +78,7 @@ func collectElementReferencesInSchema(schema *schema.Schema) []*types.ElementDec
 	return elementRefsInContent
 }
 
-func validateTopLevelElementReferences(schema *schema.Schema) []error {
+func validateTopLevelElementReferences(schema *parser.Schema) []error {
 	var errors []error
 
 	for qname, decl := range schema.ElementDecls {
@@ -97,7 +97,7 @@ func validateTopLevelElementReferences(schema *schema.Schema) []error {
 	return errors
 }
 
-func validateContentElementReferences(schema *schema.Schema, elementRefsInContent []*types.ElementDecl) []error {
+func validateContentElementReferences(schema *parser.Schema, elementRefsInContent []*types.ElementDecl) []error {
 	var errors []error
 
 	for _, elemRef := range elementRefsInContent {
@@ -114,7 +114,7 @@ func validateContentElementReferences(schema *schema.Schema, elementRefsInConten
 	return errors
 }
 
-func validateElementDeclarationReferences(schema *schema.Schema, allConstraints []*types.IdentityConstraint) []error {
+func validateElementDeclarationReferences(schema *parser.Schema, allConstraints []*types.IdentityConstraint) []error {
 	var errors []error
 
 	for qname, decl := range schema.ElementDecls {
@@ -156,7 +156,7 @@ func validateElementDeclarationReferences(schema *schema.Schema, allConstraints 
 	return errors
 }
 
-func validateLocalIdentityConstraintKeyrefs(schema *schema.Schema, allConstraints []*types.IdentityConstraint) []error {
+func validateLocalIdentityConstraintKeyrefs(schema *parser.Schema, allConstraints []*types.IdentityConstraint) []error {
 	var errors []error
 
 	for qname, decl := range schema.ElementDecls {
@@ -183,7 +183,7 @@ func validateLocalIdentityConstraintKeyrefs(schema *schema.Schema, allConstraint
 	return errors
 }
 
-func validateLocalIdentityConstraintResolution(schema *schema.Schema) []error {
+func validateLocalIdentityConstraintResolution(schema *parser.Schema) []error {
 	var errors []error
 
 	for qname, decl := range schema.ElementDecls {
@@ -212,7 +212,7 @@ func validateLocalIdentityConstraintResolution(schema *schema.Schema) []error {
 	return errors
 }
 
-func validateAttributeDeclarations(schema *schema.Schema) []error {
+func validateAttributeDeclarations(schema *parser.Schema) []error {
 	var errors []error
 
 	// note: Attribute references are stored in complex types, not as top-level declarations
@@ -246,7 +246,7 @@ func validateAttributeDeclarations(schema *schema.Schema) []error {
 	return errors
 }
 
-func validateTypeDefinitionReferences(schema *schema.Schema) []error {
+func validateTypeDefinitionReferences(schema *parser.Schema) []error {
 	var errors []error
 
 	for qname, typ := range schema.TypeDefs {
@@ -258,7 +258,7 @@ func validateTypeDefinitionReferences(schema *schema.Schema) []error {
 	return errors
 }
 
-func validateInlineTypeReferences(schema *schema.Schema) []error {
+func validateInlineTypeReferences(schema *parser.Schema) []error {
 	var errors []error
 
 	for qname, decl := range schema.ElementDecls {
@@ -290,7 +290,7 @@ func validateInlineTypeReferences(schema *schema.Schema) []error {
 	return errors
 }
 
-func validateComplexTypeReferences(schema *schema.Schema) []error {
+func validateComplexTypeReferences(schema *parser.Schema) []error {
 	var errors []error
 
 	for qname, typ := range schema.TypeDefs {
@@ -349,7 +349,7 @@ func validateComplexTypeReferences(schema *schema.Schema) []error {
 	return errors
 }
 
-func validateAttributeGroupReferencesInSchema(schema *schema.Schema) []error {
+func validateAttributeGroupReferencesInSchema(schema *parser.Schema) []error {
 	var errors []error
 
 	for qname, ag := range schema.AttributeGroups {
@@ -379,7 +379,7 @@ func validateAttributeGroupReferencesInSchema(schema *schema.Schema) []error {
 	return errors
 }
 
-func validateLocalElementValueConstraints(schema *schema.Schema) []error {
+func validateLocalElementValueConstraints(schema *parser.Schema) []error {
 	var errors []error
 
 	seenLocal := make(map[*types.ElementDecl]bool)
@@ -411,7 +411,7 @@ func validateLocalElementValueConstraints(schema *schema.Schema) []error {
 	return errors
 }
 
-func validateGroupReferencesInSchema(schema *schema.Schema) []error {
+func validateGroupReferencesInSchema(schema *parser.Schema) []error {
 	var errors []error
 
 	for qname, group := range schema.Groups {

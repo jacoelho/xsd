@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
-func parseBoolAttribute(doc *xml.Document, elem xml.NodeID, name string) (bool, bool, error) {
+func parseBoolAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, name string) (bool, bool, error) {
 	if !doc.HasAttribute(elem, name) {
 		return false, false, nil
 	}

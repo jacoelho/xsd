@@ -8,7 +8,7 @@ import (
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
-func parseOccursAttr(doc *xml.Document, elem xml.NodeID, attr string, defaultValue int) (int, error) {
+func parseOccursAttr(doc *xsdxml.Document, elem xsdxml.NodeID, attr string, defaultValue int) (int, error) {
 	if !doc.HasAttribute(elem, attr) {
 		return defaultValue, nil
 	}

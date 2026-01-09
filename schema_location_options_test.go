@@ -7,7 +7,7 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd"
-	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/errors"
 )
 
 type nonSeekableReader struct {
@@ -83,12 +83,12 @@ func TestValidateDocumentSchemaLocationNonSeekableError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for non-seekable reader with schemaLocation hints")
 	}
-	list, ok := xsderrors.AsValidations(err)
+	list, ok := errors.AsValidations(err)
 	if !ok {
 		t.Fatalf("expected validation error, got %v", err)
 	}
 	for _, v := range list {
-		if v.Code == string(xsderrors.ErrSchemaLocationHint) {
+		if v.Code == string(errors.ErrSchemaLocationHint) {
 			return
 		}
 	}

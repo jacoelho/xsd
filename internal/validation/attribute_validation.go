@@ -3,14 +3,14 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
 // validateAttributeDeclStructure validates structural constraints of an attribute declaration
 // Does not validate references (which might be forward references or imports)
-func validateAttributeDeclStructure(schemaDef *schema.Schema, qname types.QName, decl *types.AttributeDecl) error {
+func validateAttributeDeclStructure(schemaDef *parser.Schema, qname types.QName, decl *types.AttributeDecl) error {
 	// this is a structural constraint that is definitely invalid if violated
 	if !isValidNCName(qname.Local) {
 		return fmt.Errorf("invalid attribute name '%s': must be a valid NCName", qname.Local)
@@ -26,12 +26,12 @@ func validateAttributeDeclStructure(schemaDef *schema.Schema, qname types.QName,
 		case types.FormUnqualified:
 			effectiveNamespace = ""
 		default:
-			if schemaDef.AttributeFormDefault == schema.Qualified {
+			if schemaDef.AttributeFormDefault == parser.Qualified {
 				effectiveNamespace = schemaDef.TargetNamespace
 			}
 		}
 	}
-	if effectiveNamespace == xml.XSINamespace {
+	if effectiveNamespace == xsdxml.XSINamespace {
 		return fmt.Errorf("invalid attribute name '%s': attributes in the xsi namespace are not allowed", qname.Local)
 	}
 
@@ -75,7 +75,7 @@ func validateAttributeDeclStructure(schemaDef *schema.Schema, qname types.QName,
 }
 
 // validateAttributeGroupStructure validates structural constraints of an attribute group
-func validateAttributeGroupStructure(schema *schema.Schema, qname types.QName, ag *types.AttributeGroup) error {
+func validateAttributeGroupStructure(schema *parser.Schema, qname types.QName, ag *types.AttributeGroup) error {
 	// this is a structural constraint that is definitely invalid if violated
 	if !isValidNCName(qname.Local) {
 		return fmt.Errorf("invalid attributeGroup name '%s': must be a valid NCName", qname.Local)

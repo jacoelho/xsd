@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -16,7 +16,7 @@ var ErrFieldSelectsComplexContent = errors.New("field selects element with compl
 // resolveFieldType resolves the type of a field XPath expression
 // Returns the type of the attribute or element selected by the field
 // The selectorXPath is used to determine the context element (the element selected by the selector)
-func resolveFieldType(schema *schema.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string) (types.Type, error) {
+func resolveFieldType(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string) (types.Type, error) {
 	xpath := normalizeXPathForResolution(field.XPath)
 
 	// handle union expressions (path1|path2|path3)
@@ -138,7 +138,7 @@ func resolveFieldType(schema *schema.Schema, field *types.Field, constraintEleme
 }
 
 // resolveSelectorElementType resolves the type of the element selected by the selector XPath
-func resolveSelectorElementType(schema *schema.Schema, constraintElement *types.ElementDecl, selectorXPath string) (types.Type, error) {
+func resolveSelectorElementType(schema *parser.Schema, constraintElement *types.ElementDecl, selectorXPath string) (types.Type, error) {
 	selectorXPath = normalizeXPathForResolution(selectorXPath)
 
 	// handle "." selector - selects the constraint element itself
@@ -186,7 +186,7 @@ func resolveSelectorElementType(schema *schema.Schema, constraintElement *types.
 
 // findElementTypeDescendant searches for an element at any depth in the content model
 // This is used for descendant axis selectors
-func findElementTypeDescendant(schema *schema.Schema, elementDecl *types.ElementDecl, elementName string) (types.Type, error) {
+func findElementTypeDescendant(schema *parser.Schema, elementDecl *types.ElementDecl, elementName string) (types.Type, error) {
 	// resolve element's type
 	elementType := ResolveTypeForValidation(schema, elementDecl.Type)
 	if elementType == nil {
@@ -203,7 +203,7 @@ func findElementTypeDescendant(schema *schema.Schema, elementDecl *types.Element
 }
 
 // findElementInContentDescendant searches for an element at any depth in content
-func findElementInContentDescendant(schema *schema.Schema, content types.Content, elementName string) (types.Type, error) {
+func findElementInContentDescendant(schema *parser.Schema, content types.Content, elementName string) (types.Type, error) {
 	switch c := content.(type) {
 	case *types.ElementContent:
 		if c.Particle != nil {
@@ -229,7 +229,7 @@ func findElementInContentDescendant(schema *schema.Schema, content types.Content
 
 // findElementInParticleDescendant searches for an element at any depth in a particle tree
 // This recursively searches through all nested particles
-func findElementInParticleDescendant(schema *schema.Schema, particle types.Particle, elementName string) (types.Type, error) {
+func findElementInParticleDescendant(schema *parser.Schema, particle types.Particle, elementName string) (types.Type, error) {
 	// handle namespace prefix in element name (e.g., "tn:key" -> "key")
 	localName := elementName
 	if _, after, ok := strings.Cut(elementName, ":"); ok {
@@ -273,7 +273,7 @@ func findElementInParticleDescendant(schema *schema.Schema, particle types.Parti
 }
 
 // resolveNestedSelectorElementType resolves nested selector paths like "orders/order/part" or "./number"
-func resolveNestedSelectorElementType(schema *schema.Schema, constraintElement *types.ElementDecl, selectorXPath string) (types.Type, error) {
+func resolveNestedSelectorElementType(schema *parser.Schema, constraintElement *types.ElementDecl, selectorXPath string) (types.Type, error) {
 	parts := strings.Split(selectorXPath, "/")
 	if len(parts) == 0 {
 		return nil, fmt.Errorf("empty selector path")
@@ -330,7 +330,7 @@ func resolveNestedSelectorElementType(schema *schema.Schema, constraintElement *
 }
 
 // findAttributeType finds the type of an attribute in an element's type
-func findAttributeType(schema *schema.Schema, elementDecl *types.ElementDecl, attrName string) (types.Type, error) {
+func findAttributeType(schema *parser.Schema, elementDecl *types.ElementDecl, attrName string) (types.Type, error) {
 	if idx := strings.Index(attrName, ":"); idx >= 0 {
 		attrName = attrName[idx+1:]
 	}
@@ -394,7 +394,7 @@ func findAttributeType(schema *schema.Schema, elementDecl *types.ElementDecl, at
 
 // resolveFieldElementType resolves the element type from a field element path
 // Handles both simple element names and nested paths like "part" or "orders/order"
-func resolveFieldElementType(schema *schema.Schema, elementDecl *types.ElementDecl, elementPath string) (types.Type, error) {
+func resolveFieldElementType(schema *parser.Schema, elementDecl *types.ElementDecl, elementPath string) (types.Type, error) {
 	elementPath = normalizeXPathForResolution(elementPath)
 
 	// handle nested paths (paths with "/")
@@ -465,7 +465,7 @@ func normalizeXPathForResolution(xpath string) string {
 }
 
 // findElementType finds the type of an element in an element's content model
-func findElementType(schema *schema.Schema, elementDecl *types.ElementDecl, elementName string) (types.Type, error) {
+func findElementType(schema *parser.Schema, elementDecl *types.ElementDecl, elementName string) (types.Type, error) {
 	// resolve element's type
 	elementType := ResolveTypeForValidation(schema, elementDecl.Type)
 	if elementType == nil {
@@ -483,7 +483,7 @@ func findElementType(schema *schema.Schema, elementDecl *types.ElementDecl, elem
 }
 
 // findElementInContent searches for an element in a content model
-func findElementInContent(schema *schema.Schema, content types.Content, elementName string) (types.Type, error) {
+func findElementInContent(schema *parser.Schema, content types.Content, elementName string) (types.Type, error) {
 	// handle content types that don't have particles
 	switch content.(type) {
 	case *types.SimpleContent:
@@ -522,7 +522,7 @@ func findElementInContent(schema *schema.Schema, content types.Content, elementN
 // findElementInParticle searches for an element in a particle tree
 // This handles basic cases: direct element declarations and model groups (sequence, choice, all).
 // For more complex cases with group references and nested structures, this may need enhancement.
-func findElementInParticle(schema *schema.Schema, particle types.Particle, elementName string) (types.Type, error) {
+func findElementInParticle(schema *parser.Schema, particle types.Particle, elementName string) (types.Type, error) {
 	// handle namespace prefix in element name (e.g., "tn:key" -> "key")
 	localName := elementName
 	if _, after, ok := strings.Cut(elementName, ":"); ok {

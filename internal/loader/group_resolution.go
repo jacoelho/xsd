@@ -3,14 +3,14 @@ package loader
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolver"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // resolveGroupReferences resolves all GroupRef placeholders in a schema
 // This must be called after all schemas (including imports/includes) are loaded
-func (l *SchemaLoader) resolveGroupReferences(schema *schema.Schema) error {
+func (l *SchemaLoader) resolveGroupReferences(schema *parser.Schema) error {
 	// first, resolve all top-level groups (they may reference each other)
 	detector := resolver.NewCycleDetector[types.QName]()
 
@@ -44,7 +44,7 @@ func (l *SchemaLoader) resolveGroupReferences(schema *schema.Schema) error {
 }
 
 // resolveGroupRefsInContentWithVisited resolves GroupRef placeholders in content with cycle detector
-func (l *SchemaLoader) resolveGroupRefsInContentWithVisited(content types.Content, schema *schema.Schema, detector *resolver.CycleDetector[types.QName]) error {
+func (l *SchemaLoader) resolveGroupRefsInContentWithVisited(content types.Content, schema *parser.Schema, detector *resolver.CycleDetector[types.QName]) error {
 	switch c := content.(type) {
 	case *types.ElementContent:
 		if c.Particle != nil {
@@ -81,7 +81,7 @@ func (l *SchemaLoader) resolveGroupRefsInContentWithVisited(content types.Conten
 
 // resolveGroupRefsInParticleWithVisited resolves GroupRef placeholders in a particle with cycle detector
 // Returns the resolved particle if it was a GroupRef, nil otherwise
-func (l *SchemaLoader) resolveGroupRefsInParticleWithVisited(particle types.Particle, schema *schema.Schema, detector *resolver.CycleDetector[types.QName]) (types.Particle, error) {
+func (l *SchemaLoader) resolveGroupRefsInParticleWithVisited(particle types.Particle, schema *parser.Schema, detector *resolver.CycleDetector[types.QName]) (types.Particle, error) {
 	// check if this particle is a GroupRef that needs resolution
 	if groupRef, ok := particle.(*types.GroupRef); ok {
 		// look up the actual group
@@ -111,12 +111,12 @@ func (l *SchemaLoader) resolveGroupRefsInParticleWithVisited(particle types.Part
 }
 
 // resolveGroupRefsInModelGroupWithCycleDetection resolves GroupRef placeholders with cycle detection
-func (l *SchemaLoader) resolveGroupRefsInModelGroupWithCycleDetection(mg *types.ModelGroup, schema *schema.Schema, detector *resolver.CycleDetector[types.QName]) error {
+func (l *SchemaLoader) resolveGroupRefsInModelGroupWithCycleDetection(mg *types.ModelGroup, schema *parser.Schema, detector *resolver.CycleDetector[types.QName]) error {
 	return l.resolveGroupRefsInModelGroupWithPointerCycleDetection(mg, schema, detector, make(map[*types.ModelGroup]bool))
 }
 
 // resolveGroupRefsInModelGroupWithPointerCycleDetection resolves GroupRef placeholders with both QName and pointer-based cycle detection
-func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg *types.ModelGroup, schema *schema.Schema, detector *resolver.CycleDetector[types.QName], visitedMGs map[*types.ModelGroup]bool) error {
+func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg *types.ModelGroup, schema *parser.Schema, detector *resolver.CycleDetector[types.QName], visitedMGs map[*types.ModelGroup]bool) error {
 	// pointer-based cycle detection for ModelGroup structures
 	if visitedMGs[mg] {
 		return nil // already processed this ModelGroup

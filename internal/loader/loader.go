@@ -11,7 +11,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/compiler"
 	"github.com/jacoelho/xsd/internal/grammar"
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolver"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -28,10 +28,10 @@ type Config struct {
 // SchemaLoader loads XML schemas with import/include resolution
 type SchemaLoader struct {
 	config  Config
-	loaded  map[string]*schema.Schema
+	loaded  map[string]*parser.Schema
 	loading map[string]bool
 	// Track in-progress schemas to validate include cycles.
-	loadingSchemas map[string]*schema.Schema
+	loadingSchemas map[string]*parser.Schema
 	// Track import context: map[location]importingNamespace for mutual import detection
 	// When schema A imports schema B, we store importContext["B"] = A's namespace
 	// This allows us to detect mutual imports: if B then imports A, and A's namespace
@@ -53,9 +53,9 @@ func NewLoader(cfg Config) *SchemaLoader {
 
 	return &SchemaLoader{
 		config:         cfg,
-		loaded:         make(map[string]*schema.Schema),
+		loaded:         make(map[string]*parser.Schema),
 		loading:        make(map[string]bool),
-		loadingSchemas: make(map[string]*schema.Schema),
+		loadingSchemas: make(map[string]*parser.Schema),
 		importContext:  make(map[string]string),
 		mergedIncludes: make(map[string]map[string]bool),
 		mergedImports:  make(map[string]map[string]bool),
@@ -64,12 +64,12 @@ func NewLoader(cfg Config) *SchemaLoader {
 
 // Load loads a schema from the given location
 // If skipValidation is true, skips schema validation (used for included schemas that will be validated after merging)
-func (l *SchemaLoader) Load(location string) (*schema.Schema, error) {
+func (l *SchemaLoader) Load(location string) (*parser.Schema, error) {
 	return l.loadWithValidation(location, true)
 }
 
 // loadWithValidation loads a schema, optionally skipping validation
-func (l *SchemaLoader) loadWithValidation(location string, validate bool) (*schema.Schema, error) {
+func (l *SchemaLoader) loadWithValidation(location string, validate bool) (*parser.Schema, error) {
 	absLoc := l.resolveLocation(location)
 	session := newLoadSession(l, absLoc)
 
@@ -136,7 +136,7 @@ func (l *SchemaLoader) loadWithValidation(location string, validate bool) (*sche
 }
 
 // loadImport loads a schema for import, allowing mutual imports between different namespaces.
-func (l *SchemaLoader) loadImport(location string, importNamespace string, currentNamespace types.NamespaceURI) (*schema.Schema, error) {
+func (l *SchemaLoader) loadImport(location string, importNamespace string, currentNamespace types.NamespaceURI) (*parser.Schema, error) {
 	// the location passed to loadImport is already resolved via resolveIncludeLocation
 	// load will call resolveLocation on it, which might produce a different path
 	// to ensure the import context key matches what Load will use, we need to resolve it the same way
@@ -196,7 +196,7 @@ func (l *SchemaLoader) LoadCompiled(location string) (*grammar.CompiledSchema, e
 }
 
 // GetLoaded returns a loaded schema by location, if it exists
-func (l *SchemaLoader) GetLoaded(location string) (*schema.Schema, bool) {
+func (l *SchemaLoader) GetLoaded(location string) (*parser.Schema, bool) {
 	absLoc := l.resolveLocation(location)
 	schema, ok := l.loaded[absLoc]
 	return schema, ok
@@ -272,7 +272,7 @@ func (l *SchemaLoader) markMergedImport(baseLoc, importLoc string) {
 	l.mergedImports[baseLoc][importLoc] = true
 }
 
-func registerImports(sch *schema.Schema, imports []schema.ImportInfo) {
+func registerImports(sch *parser.Schema, imports []parser.ImportInfo) {
 	if sch == nil {
 		return
 	}
@@ -291,7 +291,7 @@ func registerImports(sch *schema.Schema, imports []schema.ImportInfo) {
 	}
 
 	if sch.ImportContexts == nil {
-		sch.ImportContexts = make(map[string]schema.ImportContext)
+		sch.ImportContexts = make(map[string]parser.ImportContext)
 	}
 	if sch.Location != "" {
 		ctx := sch.ImportContexts[sch.Location]
@@ -309,7 +309,7 @@ func registerImports(sch *schema.Schema, imports []schema.ImportInfo) {
 	}
 }
 
-func validateImportConstraints(schema *schema.Schema, imports []schema.ImportInfo) error {
+func validateImportConstraints(schema *parser.Schema, imports []parser.ImportInfo) error {
 	if schema.TargetNamespace.IsEmpty() {
 		for _, imp := range imports {
 			if imp.Namespace == "" {
@@ -328,7 +328,7 @@ func validateImportConstraints(schema *schema.Schema, imports []schema.ImportInf
 	return nil
 }
 
-func validateSchemaConstraints(schema *schema.Schema) error {
+func validateSchemaConstraints(schema *parser.Schema) error {
 	validationErrors := ValidateSchema(schema)
 	if len(validationErrors) == 0 {
 		return nil
@@ -342,7 +342,7 @@ func validateSchemaConstraints(schema *schema.Schema) error {
 	return errors.New(errMsg.String())
 }
 
-func initSchemaOrigins(schema *schema.Schema, location string) {
+func initSchemaOrigins(schema *parser.Schema, location string) {
 	if schema == nil {
 		return
 	}

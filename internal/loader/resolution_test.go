@@ -3,14 +3,14 @@ package loader
 import (
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolver"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestTwoPhaseResolution_SimpleType(t *testing.T) {
 	// test that simple type base types are resolved in phase 2
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -53,7 +53,7 @@ func TestTwoPhaseResolution_SimpleType(t *testing.T) {
 
 func TestTwoPhaseResolution_ComplexType(t *testing.T) {
 	// test that complex type base types are resolved in phase 2
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -99,7 +99,7 @@ func TestTwoPhaseResolution_ComplexType(t *testing.T) {
 
 func TestTwoPhaseResolution_ForwardReference(t *testing.T) {
 	// test that forward references work (type A can reference type B defined later)
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -145,7 +145,7 @@ func TestTwoPhaseResolution_ForwardReference(t *testing.T) {
 
 func TestTwoPhaseResolution_CircularDependency(t *testing.T) {
 	// test that circular dependencies are detected
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -194,7 +194,7 @@ func TestTwoPhaseResolution_CircularDependency(t *testing.T) {
 
 func TestTwoPhaseResolution_MissingBaseType(t *testing.T) {
 	// test that missing base types are detected
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -225,7 +225,7 @@ func TestTwoPhaseResolution_MissingBaseType(t *testing.T) {
 func TestTwoPhaseResolution_ValidCircularUnion(t *testing.T) {
 	// test that union types can have circular member references (this is valid in XSD)
 	// this is based on MS-SimpleType2006-07-15/ste110 test case
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}

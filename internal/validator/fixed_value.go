@@ -1,7 +1,6 @@
 package validator
 
 import (
-	stderrors "errors"
 	"fmt"
 
 	"github.com/jacoelho/xsd/errors"
@@ -140,7 +139,7 @@ func (r *validationRun) compareFixedValueAsType(actualValue, fixedValue string, 
 }
 
 // errNoMatchingMemberType indicates no union member type could parse the value
-var errNoMatchingMemberType = stderrors.New("no matching member type")
+var errNoMatchingMemberType = fmt.Errorf("no matching member type")
 
 func (r *validationRun) parseUnionValue(value string, memberTypes []*grammar.CompiledType) (types.TypedValue, *grammar.CompiledType, error) {
 	for _, member := range memberTypes {

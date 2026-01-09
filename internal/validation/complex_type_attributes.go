@@ -3,11 +3,11 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func validateIDAttributeCount(schema *schema.Schema, ct *types.ComplexType) error {
+func validateIDAttributeCount(schema *parser.Schema, ct *types.ComplexType) error {
 	attrs := collectAllAttributesForValidation(schema, ct)
 	idCount := 0
 	for _, attr := range attrs {

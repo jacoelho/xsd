@@ -2,7 +2,7 @@ package compiler
 
 import (
 	"github.com/jacoelho/xsd/internal/grammar"
-	xsdschema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -149,7 +149,7 @@ func (c *Compiler) effectiveAttributeQName(attr *types.AttributeDecl) types.QNam
 		// unqualified local attributes have no namespace
 		return types.QName{Namespace: "", Local: attr.Name.Local}
 	default: // FormDefault - use schema's attributeFormDefault
-		if c.grammar.AttributeFormDefault == xsdschema.Qualified {
+		if c.grammar.AttributeFormDefault == parser.Qualified {
 			ns := c.schema.TargetNamespace
 			if !attr.SourceNamespace.IsEmpty() {
 				ns = attr.SourceNamespace

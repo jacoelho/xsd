@@ -75,7 +75,7 @@ type symbolCandidate struct {
 // Validate checks that children satisfy the content model.
 // Returns nil if valid, or a ValidationError describing the first violation.
 // Runs in O(n) time with no backtracking.
-func (a *Automaton) Validate(doc *xml.Document, children []xml.NodeID, matcher SymbolMatcher) error {
+func (a *Automaton) Validate(doc *xsdxml.Document, children []xsdxml.NodeID, matcher SymbolMatcher) error {
 	_, err := a.ValidateWithMatches(doc, children, matcher, nil)
 	return err
 }
@@ -214,7 +214,7 @@ func (a *Automaton) validateFinalCounts(symbolCounts []int, groups *groupCounter
 
 // ValidateWithMatches validates children and returns match results for each child.
 // This allows the caller to determine how each child was matched (element vs wildcard).
-func (a *Automaton) ValidateWithMatches(doc *xml.Document, children []xml.NodeID, matcher SymbolMatcher, wildcards []*types.AnyElement) ([]MatchResult, error) {
+func (a *Automaton) ValidateWithMatches(doc *xsdxml.Document, children []xsdxml.NodeID, matcher SymbolMatcher, wildcards []*types.AnyElement) ([]MatchResult, error) {
 	matches := make([]MatchResult, len(children))
 
 	if len(children) == 0 {

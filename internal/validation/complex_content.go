@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"slices"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateComplexContentStructure validates structural constraints of complex content
-func validateComplexContentStructure(schema *schema.Schema, cc *types.ComplexContent) error {
+func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexContent) error {
 	if cc.Extension != nil {
 		if baseType, ok := schema.TypeDefs[cc.Extension.Base]; ok {
 			if _, isSimple := baseType.(*types.SimpleType); isSimple {

@@ -3,19 +3,19 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateParticleStructure validates structural constraints of particles
 // parentKind is the kind of the parent model group (nil if no parent)
-func validateParticleStructure(schema *schema.Schema, particle types.Particle, parentKind *types.GroupKind) error {
+func validateParticleStructure(schema *parser.Schema, particle types.Particle, parentKind *types.GroupKind) error {
 	visited := make(map[*types.ModelGroup]bool)
 	return validateParticleStructureWithVisited(schema, particle, parentKind, visited)
 }
 
 // validateParticleStructureWithVisited validates structural constraints with cycle detection
-func validateParticleStructureWithVisited(schema *schema.Schema, particle types.Particle, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
+func validateParticleStructureWithVisited(schema *parser.Schema, particle types.Particle, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
 	// per XSD spec "Particle Correct":
 	// 1. maxOccurs must be >= 1 (cannot be 0), EXCEPT when minOccurs=0 and maxOccurs=0
 	//    (which effectively means the particle cannot appear - used in restrictions)
@@ -159,13 +159,13 @@ func validateParticleStructureWithVisited(schema *schema.Schema, particle types.
 
 // validateElementDeclarationsConsistentInParticle validates "Element Declarations Consistent"
 // across a particle tree, including nested model groups and group references.
-func validateElementDeclarationsConsistentInParticle(schema *schema.Schema, particle types.Particle) error {
+func validateElementDeclarationsConsistentInParticle(schema *parser.Schema, particle types.Particle) error {
 	seen := make(map[types.QName]types.Type)
 	visited := make(map[*types.ModelGroup]bool)
 	return validateElementDeclarationsConsistentWithVisited(schema, particle, seen, visited)
 }
 
-func validateElementDeclarationsConsistentWithVisited(schema *schema.Schema, particle types.Particle, seen map[types.QName]types.Type, visited map[*types.ModelGroup]bool) error {
+func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, particle types.Particle, seen map[types.QName]types.Type, visited map[*types.ModelGroup]bool) error {
 	switch p := particle.(type) {
 	case *types.ModelGroup:
 		if visited[p] {
@@ -207,7 +207,7 @@ func validateElementDeclarationsConsistentWithVisited(schema *schema.Schema, par
 
 // validateGroupStructure validates structural constraints of a group definition
 // Does not validate references (which might be forward references or imports)
-func validateGroupStructure(schema *schema.Schema, qname types.QName, group *types.ModelGroup) error {
+func validateGroupStructure(schema *parser.Schema, qname types.QName, group *types.ModelGroup) error {
 	// this is a structural constraint that is definitely invalid if violated
 	if !isValidNCName(qname.Local) {
 		return fmt.Errorf("invalid group name '%s': must be a valid NCName", qname.Local)

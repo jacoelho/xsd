@@ -18,7 +18,7 @@ var validAttributeAttributes = map[string]bool{
 	"id":      true,
 }
 
-func parseAttribute(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.AttributeDecl, error) {
+func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.AttributeDecl, error) {
 	if hasIDAttribute(doc, elem) {
 		idAttr := doc.GetAttribute(elem, "id")
 		if err := validateIDAttribute(idAttr, "attribute", schema); err != nil {
@@ -131,9 +131,9 @@ func parseAttribute(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.
 	typeName := doc.GetAttribute(elem, "type")
 	simpleTypeCount := 0
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) == xml.XSDNamespace && doc.LocalName(child) == "simpleType" {
+		if doc.NamespaceURI(child) == xsdxml.XSDNamespace && doc.LocalName(child) == "simpleType" {
 			simpleTypeCount++
-		} else if doc.NamespaceURI(child) == xml.XSDNamespace {
+		} else if doc.NamespaceURI(child) == xsdxml.XSDNamespace {
 			switch doc.LocalName(child) {
 			case "key", "keyref", "unique":
 				return nil, fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(child))
@@ -167,7 +167,7 @@ func parseAttribute(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.
 		}
 	} else {
 		for _, child := range doc.Children(elem) {
-			if doc.NamespaceURI(child) != xml.XSDNamespace {
+			if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 				continue
 			}
 
@@ -224,7 +224,7 @@ func parseAttribute(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.
 	return parsed, nil
 }
 
-func parseAttributeUse(doc *xml.Document, elem xml.NodeID) (types.AttributeUse, error) {
+func parseAttributeUse(doc *xsdxml.Document, elem xsdxml.NodeID) (types.AttributeUse, error) {
 	if doc.HasAttribute(elem, "use") {
 		useAttr := doc.GetAttribute(elem, "use")
 		switch useAttr {
@@ -243,7 +243,7 @@ func parseAttributeUse(doc *xml.Document, elem xml.NodeID) (types.AttributeUse, 
 }
 
 // parseTopLevelAttribute parses a top-level attribute declaration
-func parseTopLevelAttribute(doc *xml.Document, elem xml.NodeID, schema *Schema) error {
+func parseTopLevelAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("attribute missing name attribute")

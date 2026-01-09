@@ -44,7 +44,7 @@ func NewAllGroupValidator(elements []AllGroupElementInfo, mixed bool, minOccurs 
 
 // Validate checks that children satisfy the all group content model.
 // Returns nil if valid, or a ValidationError describing the violation.
-func (v *AllGroupValidator) Validate(doc *xml.Document, children []xml.NodeID, matcher SymbolMatcher) error {
+func (v *AllGroupValidator) Validate(doc *xsdxml.Document, children []xsdxml.NodeID, matcher SymbolMatcher) error {
 	if len(children) == 0 && v.minOccurs == 0 {
 		return nil
 	}

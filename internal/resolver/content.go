@@ -3,26 +3,26 @@ package resolver
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validation"
 )
 
 // validateContentReferences validates references within content models.
-func validateContentReferences(schema *schema.Schema, typeQName types.QName, content types.Content, originLocation string) error {
+func validateContentReferences(schema *parser.Schema, typeQName types.QName, content types.Content, originLocation string) error {
 	return validation.WalkContentParticles(content, func(particle types.Particle) error {
 		return validateParticleReferences(schema, particle, originLocation)
 	})
 }
 
 // validateParticleReferences validates references within particles.
-func validateParticleReferences(schema *schema.Schema, particle types.Particle, originLocation string) error {
+func validateParticleReferences(schema *parser.Schema, particle types.Particle, originLocation string) error {
 	visited := make(map[*types.ModelGroup]bool)
 	return validateParticleReferencesWithVisited(schema, particle, visited, originLocation)
 }
 
 // validateParticleReferencesWithVisited validates references with cycle detection.
-func validateParticleReferencesWithVisited(schema *schema.Schema, particle types.Particle, visited map[*types.ModelGroup]bool, originLocation string) error {
+func validateParticleReferencesWithVisited(schema *parser.Schema, particle types.Particle, visited map[*types.ModelGroup]bool, originLocation string) error {
 	switch p := particle.(type) {
 	case *types.ModelGroup:
 		// skip if already visited (prevents infinite recursion in cyclic groups).
@@ -64,7 +64,7 @@ func validateParticleReferencesWithVisited(schema *schema.Schema, particle types
 }
 
 // validateGroupReferences validates references within group definitions.
-func validateGroupReferences(schema *schema.Schema, qname types.QName, group *types.ModelGroup) error {
+func validateGroupReferences(schema *parser.Schema, qname types.QName, group *types.ModelGroup) error {
 	visited := make(map[*types.ModelGroup]bool)
 	origin := schema.GroupOrigins[qname]
 	// recursively validate particles in the group.

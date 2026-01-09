@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validation"
 )
@@ -17,15 +17,15 @@ const (
 )
 
 // validateDefaultOrFixedValueWithResolvedType validates a default/fixed value after type resolution.
-func validateDefaultOrFixedValueWithResolvedType(schema *schema.Schema, value string, typ types.Type) error {
+func validateDefaultOrFixedValueWithResolvedType(schema *parser.Schema, value string, typ types.Type) error {
 	return validateDefaultOrFixedValueWithResolvedTypeVisited(schema, value, typ, make(map[types.Type]bool))
 }
 
-func validateDefaultOrFixedValueWithResolvedTypeVisited(schema *schema.Schema, value string, typ types.Type, visited map[types.Type]bool) error {
+func validateDefaultOrFixedValueWithResolvedTypeVisited(schema *parser.Schema, value string, typ types.Type, visited map[types.Type]bool) error {
 	return validateDefaultOrFixedValueResolved(schema, value, typ, visited, idValuesDisallowed)
 }
 
-func validateDefaultOrFixedValueResolved(schema *schema.Schema, value string, typ types.Type, visited map[types.Type]bool, policy idValuePolicy) error {
+func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, typ types.Type, visited map[types.Type]bool, policy idValuePolicy) error {
 	if typ == nil {
 		return nil
 	}
@@ -99,7 +99,7 @@ func validateDefaultOrFixedValueResolved(schema *schema.Schema, value string, ty
 	return nil
 }
 
-func resolveUnionMemberTypes(schema *schema.Schema, st *types.SimpleType) []types.Type {
+func resolveUnionMemberTypes(schema *parser.Schema, st *types.SimpleType) []types.Type {
 	if st == nil || st.Union == nil {
 		return nil
 	}
@@ -118,7 +118,7 @@ func resolveUnionMemberTypes(schema *schema.Schema, st *types.SimpleType) []type
 	return memberTypes
 }
 
-func resolveListItemType(schema *schema.Schema, st *types.SimpleType) types.Type {
+func resolveListItemType(schema *parser.Schema, st *types.SimpleType) types.Type {
 	if st == nil || st.List == nil {
 		return nil
 	}
@@ -135,7 +135,7 @@ func resolveListItemType(schema *schema.Schema, st *types.SimpleType) types.Type
 }
 
 // validateValueAgainstFacets validates a value against all facets of a simple type.
-func validateValueAgainstFacets(value string, st *types.SimpleType, schema *schema.Schema) error {
+func validateValueAgainstFacets(value string, st *types.SimpleType, schema *parser.Schema) error {
 	if st == nil || st.Restriction == nil {
 		return nil
 	}
@@ -157,7 +157,7 @@ func validateValueAgainstFacets(value string, st *types.SimpleType, schema *sche
 }
 
 // getComplexTypeTextType returns the text content type for a complex type with simple content.
-func getComplexTypeTextType(schema *schema.Schema, ct *types.ComplexType) types.Type {
+func getComplexTypeTextType(schema *parser.Schema, ct *types.ComplexType) types.Type {
 	content := ct.Content()
 	sc, ok := content.(*types.SimpleContent)
 	if !ok {

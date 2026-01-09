@@ -45,7 +45,7 @@ type streamFrame struct {
 
 type streamRun struct {
 	*validationRun
-	dec                     *xml.StreamDecoder
+	dec                     *xsdxml.StreamDecoder
 	frames                  []streamFrame
 	violations              []errors.Validation
 	rootSeen                bool
@@ -82,7 +82,7 @@ func (v *Validator) ValidateStreamWithOptions(r io.Reader, opts StreamOptions) (
 				return nil, err
 			}
 
-			prepassDec, err := xml.NewStreamDecoder(seeker)
+			prepassDec, err := xsdxml.NewStreamDecoder(seeker)
 			if err != nil {
 				return nil, err
 			}
@@ -105,7 +105,7 @@ func (v *Validator) ValidateStreamWithOptions(r io.Reader, opts StreamOptions) (
 		}
 	}
 
-	dec, err := xml.NewStreamDecoder(r)
+	dec, err := xsdxml.NewStreamDecoder(r)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (r *streamRun) releaseFrameResources(frame *streamFrame) {
 	}
 }
 
-func (r *streamRun) validate(dec *xml.StreamDecoder, initial []errors.Validation) ([]errors.Validation, error) {
+func (r *streamRun) validate(dec *xsdxml.StreamDecoder, initial []errors.Validation) ([]errors.Validation, error) {
 	r.reset()
 	r.dec = dec
 	r.frames = r.frames[:0]
@@ -185,7 +185,7 @@ func (r *streamRun) validate(dec *xml.StreamDecoder, initial []errors.Validation
 		}
 
 		switch ev.Kind {
-		case xml.EventStartElement:
+		case xsdxml.EventStartElement:
 			if r.rootClosed {
 				return r.violations, fmt.Errorf("unexpected element %s after document end", ev.Name.Local)
 			}
@@ -196,7 +196,7 @@ func (r *streamRun) validate(dec *xml.StreamDecoder, initial []errors.Validation
 				return r.violations, err
 			}
 
-		case xml.EventEndElement:
+		case xsdxml.EventEndElement:
 			if len(r.frames) == 0 {
 				return r.violations, fmt.Errorf("unexpected end element %s", ev.Name.Local)
 			}
@@ -207,7 +207,7 @@ func (r *streamRun) validate(dec *xml.StreamDecoder, initial []errors.Validation
 				r.rootClosed = true
 			}
 
-		case xml.EventCharData:
+		case xsdxml.EventCharData:
 			if len(r.frames) == 0 {
 				if !isIgnorableOutsideRoot(ev.Text) {
 					return r.violations, fmt.Errorf("unexpected character data outside root element")
@@ -229,7 +229,7 @@ func (r *streamRun) validate(dec *xml.StreamDecoder, initial []errors.Validation
 	return r.violations, nil
 }
 
-func (r *streamRun) handleStart(dec *xml.StreamDecoder, ev xml.Event) error {
+func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) error {
 	if r.schemaLocationHintError && hasSchemaLocationHint(ev.Attrs) {
 		path := r.childPath(ev.Name.Local)
 		return schemaLocationPolicyError(path)
@@ -345,7 +345,7 @@ func (r *streamRun) handleStart(dec *xml.StreamDecoder, ev xml.Event) error {
 	return nil
 }
 
-func (r *streamRun) handleCharData(ev xml.Event) {
+func (r *streamRun) handleCharData(ev xsdxml.Event) {
 	frame := r.currentFrame()
 	if frame == nil || frame.invalid {
 		return
@@ -372,7 +372,7 @@ func (r *streamRun) handleCharData(ev xml.Event) {
 	}
 }
 
-func (r *streamRun) handleEnd(ev xml.Event) error {
+func (r *streamRun) handleEnd(ev xsdxml.Event) error {
 	frame := r.popFrame()
 	if frame == nil {
 		return nil
@@ -450,7 +450,7 @@ func (r *streamRun) handleEnd(ev xml.Event) error {
 	return nil
 }
 
-func (r *streamRun) startFrame(ev xml.Event, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, fromWildcard bool) (streamFrame, bool) {
+func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, fromWildcard bool) (streamFrame, bool) {
 	attrs := newAttributeIndex(ev.Attrs)
 	decl := r.resolveMatchedDecl(parent, ev.Name, matchedDecl, matchedQName)
 
@@ -459,7 +459,7 @@ func (r *streamRun) startFrame(ev xml.Event, parent *streamFrame, processContent
 		missingCode = errors.ErrWildcardNotDeclared
 	}
 
-	xsiTypeValue, hasXsiType := attrs.Value(xml.XSINamespace, "type")
+	xsiTypeValue, hasXsiType := attrs.Value(xsdxml.XSINamespace, "type")
 
 	if decl == nil {
 		if hasXsiType {
@@ -487,7 +487,7 @@ func (r *streamRun) startFrame(ev xml.Event, parent *streamFrame, processContent
 		return streamFrame{}, true
 	}
 
-	nilValue, hasNil := attrs.Value(xml.XSINamespace, "nil")
+	nilValue, hasNil := attrs.Value(xsdxml.XSINamespace, "nil")
 	isNil := hasNil && (nilValue == "true" || nilValue == "1")
 	if hasNil && !decl.Nillable {
 		r.addViolation(errors.NewValidationf(errors.ErrElementNotNillable, r.path.String(),
@@ -558,7 +558,7 @@ func (r *streamRun) startFrame(ev xml.Event, parent *streamFrame, processContent
 	return frame, false
 }
 
-func (r *streamRun) newFrame(ev xml.Event, decl *grammar.CompiledElement, ct *grammar.CompiledType, parent *streamFrame) streamFrame {
+func (r *streamRun) newFrame(ev xsdxml.Event, decl *grammar.CompiledElement, ct *grammar.CompiledType, parent *streamFrame) streamFrame {
 	frame := streamFrame{
 		id:         uint64(ev.ID),
 		qname:      ev.Name,

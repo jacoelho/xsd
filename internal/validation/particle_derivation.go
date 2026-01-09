@@ -1,11 +1,11 @@
 package validation
 
 import (
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func isSubstitutableElement(schema *schema.Schema, head, member types.QName) bool {
+func isSubstitutableElement(schema *parser.Schema, head, member types.QName) bool {
 	if schema == nil || head == member {
 		return true
 	}
@@ -38,7 +38,7 @@ func isSubstitutableElement(schema *schema.Schema, head, member types.QName) boo
 	return true
 }
 
-func isSubstitutionGroupMember(schema *schema.Schema, head, member types.QName) bool {
+func isSubstitutionGroupMember(schema *parser.Schema, head, member types.QName) bool {
 	if schema == nil {
 		return false
 	}

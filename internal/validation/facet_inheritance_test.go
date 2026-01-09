@@ -4,13 +4,13 @@ import (
 	"strings"
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestFacetInheritance_SimpleType(t *testing.T) {
 	// test that facets are inherited from base type
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -86,7 +86,7 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 
 func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 	// test that relaxing facets is rejected
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -158,7 +158,7 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 
 func TestFacetInheritance_MinInclusive(t *testing.T) {
 	// test minInclusive facet inheritance
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -263,7 +263,7 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 }
 
 func TestFacetInheritance_DigitsRelaxation(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -325,7 +325,7 @@ func TestFacetInheritance_DigitsRelaxation(t *testing.T) {
 
 func TestFacetInheritance_MaxLength(t *testing.T) {
 	// test maxLength facet inheritance
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}

@@ -3,9 +3,9 @@ package resolver
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
-	xsdxml "github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xml"
 )
 
 // validateAttributeReference validates that an attribute reference exists.
@@ -18,7 +18,7 @@ import (
 // - IsReference=false: came from name="..." in XSD, local declaration that doesn't need to exist
 //
 // contextType should be "element" or "type" for error message formatting.
-func validateAttributeReference(schema *schema.Schema, contextQName types.QName, attr *types.AttributeDecl, contextType string) error {
+func validateAttributeReference(schema *parser.Schema, contextQName types.QName, attr *types.AttributeDecl, contextType string) error {
 	// skip local attribute declarations - they're not references.
 	if !attr.IsReference {
 		return nil
@@ -57,7 +57,7 @@ func isBuiltinXMLAttribute(attr *types.AttributeDecl) bool {
 // If the reference has the target namespace and is not found, also checks the no-namespace.
 // This handles cases where attribute groups from imported schemas with no target namespace
 // are referenced without a prefix (resolved to target namespace).
-func validateAttributeGroupReference(schema *schema.Schema, agRef types.QName, contextQName types.QName) error {
+func validateAttributeGroupReference(schema *parser.Schema, agRef types.QName, contextQName types.QName) error {
 	if _, exists := schema.AttributeGroups[agRef]; !exists {
 		// if reference has target namespace and not found, also check no-namespace.
 		// this handles cases where attribute groups from imported schemas with no
@@ -78,7 +78,7 @@ func validateAttributeGroupReference(schema *schema.Schema, agRef types.QName, c
 }
 
 // validateNoCyclicAttributeGroups detects cycles between attribute group definitions.
-func validateNoCyclicAttributeGroups(schema *schema.Schema) error {
+func validateNoCyclicAttributeGroups(schema *parser.Schema) error {
 	visiting := make(map[types.QName]bool)
 	visited := make(map[types.QName]bool)
 
@@ -117,7 +117,7 @@ func validateNoCyclicAttributeGroups(schema *schema.Schema) error {
 	return nil
 }
 
-func validateAttributeValueConstraintsForType(schema *schema.Schema, typ types.Type) error {
+func validateAttributeValueConstraintsForType(schema *parser.Schema, typ types.Type) error {
 	ct, ok := typ.(*types.ComplexType)
 	if !ok {
 		return nil
@@ -146,7 +146,7 @@ func validateAttributeValueConstraintsForType(schema *schema.Schema, typ types.T
 	return nil
 }
 
-func validateAttributeValueConstraints(schema *schema.Schema, decl *types.AttributeDecl) error {
+func validateAttributeValueConstraints(schema *parser.Schema, decl *types.AttributeDecl) error {
 	resolvedType := resolveTypeForFinalValidation(schema, decl.Type)
 	if _, ok := resolvedType.(*types.ComplexType); ok {
 		return fmt.Errorf("type must be a simple type")

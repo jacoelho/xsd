@@ -4,7 +4,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/loader"
 )
 
@@ -51,12 +51,12 @@ func TestValidatorReuseWithSchemaLocationHints(t *testing.T) {
 	if len(violations) == 0 {
 		t.Fatal("expected violations without schemaLocation hint, got none")
 	}
-	if !hasValidationCode(violations, xsderrors.ErrElementNotDeclared) {
+	if !hasValidationCode(violations, errors.ErrElementNotDeclared) {
 		t.Fatalf("expected ErrElementNotDeclared without hint, got %s", violations[0].Error())
 	}
 }
 
-func hasValidationCode(violations []xsderrors.Validation, code xsderrors.ErrorCode) bool {
+func hasValidationCode(violations []errors.Validation, code errors.ErrorCode) bool {
 	for _, violation := range violations {
 		if violation.Code == string(code) {
 			return true

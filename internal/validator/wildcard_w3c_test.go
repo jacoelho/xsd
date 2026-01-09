@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/loader"
-	xsdschema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 // composeSchemasForTest composes multiple schema documents into a single schema
 // This mimics what the W3C test runner does
-func composeSchemasForTest(testDataDir string, schemaFiles []string) (*xsdschema.Schema, error) {
+func composeSchemasForTest(testDataDir string, schemaFiles []string) (*parser.Schema, error) {
 	if len(schemaFiles) == 0 {
 		return nil, nil
 	}

@@ -5,7 +5,7 @@ import (
 	"path"
 	"strings"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -21,7 +21,7 @@ func newLoadSession(loader *SchemaLoader, absLoc string) *loadSession {
 	}
 }
 
-func (s *loadSession) handleCircularLoad() (*schema.Schema, error) {
+func (s *loadSession) handleCircularLoad() (*parser.Schema, error) {
 	if !s.loader.loading[s.absLoc] {
 		return nil, nil
 	}
@@ -48,7 +48,7 @@ func (s *loadSession) handleCircularLoad() (*schema.Schema, error) {
 	return result.Schema, nil
 }
 
-func (s *loadSession) parseSchema() (result *schema.ParseResult, err error) {
+func (s *loadSession) parseSchema() (result *parser.ParseResult, err error) {
 	f, err := s.loader.openFile(s.absLoc)
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", s.absLoc, err)
@@ -59,7 +59,7 @@ func (s *loadSession) parseSchema() (result *schema.ParseResult, err error) {
 		}
 	}()
 
-	result, err = schema.ParseWithImports(f)
+	result, err = parser.ParseWithImports(f)
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", s.absLoc, err)
 	}
@@ -86,7 +86,7 @@ func (s *loadSession) importingNamespaceFor(location string) (string, bool) {
 	return "", false
 }
 
-func (s *loadSession) processIncludes(schema *schema.Schema, includes []schema.IncludeInfo) error {
+func (s *loadSession) processIncludes(schema *parser.Schema, includes []parser.IncludeInfo) error {
 	for _, include := range includes {
 		includeLoc := s.loader.resolveIncludeLocation(s.absLoc, include.SchemaLocation)
 		absIncludeLoc := s.loader.resolveLocation(includeLoc)
@@ -126,7 +126,7 @@ func (s *loadSession) processIncludes(schema *schema.Schema, includes []schema.I
 	return nil
 }
 
-func (s *loadSession) processImports(schema *schema.Schema, imports []schema.ImportInfo) error {
+func (s *loadSession) processImports(schema *parser.Schema, imports []parser.ImportInfo) error {
 	for _, imp := range imports {
 		if imp.SchemaLocation == "" {
 			continue

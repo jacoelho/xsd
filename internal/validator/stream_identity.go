@@ -9,7 +9,7 @@ import (
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
-	xpathcomp "github.com/jacoelho/xsd/internal/xpath"
+	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 type fieldNodeKind int
@@ -86,7 +86,7 @@ type identityScope struct {
 	invalid     bool
 }
 
-func (r *streamRun) handleIdentityStart(frame *streamFrame, attrs []xml.Attr) {
+func (r *streamRun) handleIdentityStart(frame *streamFrame, attrs []xsdxml.Attr) {
 	if frame == nil {
 		return
 	}
@@ -259,7 +259,7 @@ func (r *streamRun) applyElementSelection(state *fieldState, frame *streamFrame,
 	frame.fieldCaptures = append(frame.fieldCaptures, fieldCapture{match: match, fieldIndex: fieldIndex})
 }
 
-func (r *streamRun) applyAttributeSelection(state *fieldState, test xpathcomp.NodeTest, frame *streamFrame, attrs []xml.Attr, match *selectorMatch, fieldIndex int) {
+func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTest, frame *streamFrame, attrs []xsdxml.Attr, match *selectorMatch, fieldIndex int) {
 	if state.multiple {
 		return
 	}
@@ -566,7 +566,7 @@ func isAnySimpleOrAnyType(fieldType types.Type) bool {
 		return false
 	}
 	name := fieldType.Name()
-	if name.Namespace != xml.XSDNamespace {
+	if name.Namespace != xsdxml.XSDNamespace {
 		return false
 	}
 	return name.Local == "anySimpleType" || name.Local == "anyType"
@@ -697,16 +697,16 @@ func (r *streamRun) lookupAttributeDefault(frame *streamFrame, attrQName types.Q
 	return "", false
 }
 
-func findAttrByLocal(attrs []xml.Attr, local string) (xml.Attr, bool) {
+func findAttrByLocal(attrs []xsdxml.Attr, local string) (xsdxml.Attr, bool) {
 	for _, attr := range attrs {
 		if attr.LocalName() == local {
 			return attr, true
 		}
 	}
-	return xml.Attr{}, false
+	return xsdxml.Attr{}, false
 }
 
-func findAttrByNamespace(attrs []xml.Attr, namespace types.NamespaceURI, local string) (xml.Attr, bool) {
+func findAttrByNamespace(attrs []xsdxml.Attr, namespace types.NamespaceURI, local string) (xsdxml.Attr, bool) {
 	for _, attr := range attrs {
 		if types.NamespaceURI(attr.NamespaceURI()) != namespace {
 			continue
@@ -715,10 +715,10 @@ func findAttrByNamespace(attrs []xml.Attr, namespace types.NamespaceURI, local s
 			return attr, true
 		}
 	}
-	return xml.Attr{}, false
+	return xsdxml.Attr{}, false
 }
 
-func matchPath(path xpathcomp.Path, frames []streamFrame, startDepth, currentDepth int) bool {
+func matchPath(path xpath.Path, frames []streamFrame, startDepth, currentDepth int) bool {
 	if startDepth < 0 || currentDepth < 0 || currentDepth >= len(frames) {
 		return false
 	}
@@ -728,7 +728,7 @@ func matchPath(path xpathcomp.Path, frames []streamFrame, startDepth, currentDep
 	return matchSteps(path.Steps, frames, startDepth, currentDepth)
 }
 
-func matchSteps(steps []xpathcomp.Step, frames []streamFrame, startDepth, currentDepth int) bool {
+func matchSteps(steps []xpath.Step, frames []streamFrame, startDepth, currentDepth int) bool {
 	var match func(stepIndex, nodeDepth int) bool
 	match = func(stepIndex, nodeDepth int) bool {
 		if nodeDepth < startDepth || nodeDepth >= len(frames) || stepIndex < 0 {
@@ -742,18 +742,18 @@ func matchSteps(steps []xpathcomp.Step, frames []streamFrame, startDepth, curren
 			return axisMatchesStart(step.Axis, startDepth, nodeDepth)
 		}
 		switch step.Axis {
-		case xpathcomp.AxisChild:
+		case xpath.AxisChild:
 			return match(stepIndex-1, nodeDepth-1)
-		case xpathcomp.AxisSelf:
+		case xpath.AxisSelf:
 			return match(stepIndex-1, nodeDepth)
-		case xpathcomp.AxisDescendant:
+		case xpath.AxisDescendant:
 			for prev := nodeDepth - 1; prev >= startDepth; prev-- {
 				if match(stepIndex-1, prev) {
 					return true
 				}
 			}
 			return false
-		case xpathcomp.AxisDescendantOrSelf:
+		case xpath.AxisDescendantOrSelf:
 			for prev := nodeDepth; prev >= startDepth; prev-- {
 				if match(stepIndex-1, prev) {
 					return true
@@ -768,22 +768,22 @@ func matchSteps(steps []xpathcomp.Step, frames []streamFrame, startDepth, curren
 	return match(len(steps)-1, currentDepth)
 }
 
-func axisMatchesStart(axis xpathcomp.Axis, startDepth, nodeDepth int) bool {
+func axisMatchesStart(axis xpath.Axis, startDepth, nodeDepth int) bool {
 	switch axis {
-	case xpathcomp.AxisChild:
+	case xpath.AxisChild:
 		return nodeDepth == startDepth+1
-	case xpathcomp.AxisSelf:
+	case xpath.AxisSelf:
 		return nodeDepth == startDepth
-	case xpathcomp.AxisDescendant:
+	case xpath.AxisDescendant:
 		return nodeDepth > startDepth
-	case xpathcomp.AxisDescendantOrSelf:
+	case xpath.AxisDescendantOrSelf:
 		return nodeDepth >= startDepth
 	default:
 		return false
 	}
 }
 
-func nodeTestMatches(test xpathcomp.NodeTest, qname types.QName) bool {
+func nodeTestMatches(test xpath.NodeTest, qname types.QName) bool {
 	if test.Any {
 		return true
 	}

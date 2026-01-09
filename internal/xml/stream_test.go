@@ -1,4 +1,4 @@
-package xml
+package xsdxml
 
 import (
 	"io"

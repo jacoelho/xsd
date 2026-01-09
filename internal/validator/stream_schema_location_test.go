@@ -6,7 +6,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/loader"
 )
 
@@ -138,11 +138,11 @@ func TestStreamSchemaLocationNonSeekableDocumentError(t *testing.T) {
 	if len(violations) != 0 {
 		t.Fatalf("expected no violations, got %d", len(violations))
 	}
-	list, ok := xsderrors.AsValidations(err)
+	list, ok := errors.AsValidations(err)
 	if !ok {
 		t.Fatalf("expected validation error, got %v", err)
 	}
-	if !hasValidationCode(list, xsderrors.ErrSchemaLocationHint) {
+	if !hasValidationCode(list, errors.ErrSchemaLocationHint) {
 		t.Fatalf("expected ErrSchemaLocationHint, got %v", err)
 	}
 }

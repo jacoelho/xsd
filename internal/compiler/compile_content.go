@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/grammar"
-	xsdschema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -213,7 +213,7 @@ func (c *Compiler) buildAutomaton(ct *grammar.CompiledType) error {
 		return nil
 	}
 
-	elementFormQualified := c.grammar.ElementFormDefault == xsdschema.Qualified
+	elementFormQualified := c.grammar.ElementFormDefault == parser.Qualified
 	automaton, err := grammar.BuildAutomaton(ct.ContentModel.Particles, c.grammar.TargetNamespace, elementFormQualified)
 	if err != nil {
 		return fmt.Errorf("type %s: automaton build failed: %w", ct.QName, err)

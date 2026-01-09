@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validation"
 )
@@ -12,7 +12,7 @@ import (
 // Resolver resolves all QName references in a schema.
 // Runs exactly once after parsing. Detects cycles during resolution.
 type Resolver struct {
-	schema *schema.Schema
+	schema *parser.Schema
 
 	// Cycle detection during resolution (cleared after resolution)
 	detector *CycleDetector[types.QName]
@@ -23,7 +23,7 @@ type Resolver struct {
 }
 
 // NewResolver creates a new resolver for the given schema.
-func NewResolver(schema *schema.Schema) *Resolver {
+func NewResolver(schema *parser.Schema) *Resolver {
 	return &Resolver{
 		schema:        schema,
 		detector:      NewCycleDetector[types.QName](),

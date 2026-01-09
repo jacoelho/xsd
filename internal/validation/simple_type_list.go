@@ -3,12 +3,12 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateListType validates a list type definition
-func validateListType(schema *schema.Schema, listType *types.ListType) error {
+func validateListType(schema *parser.Schema, listType *types.ListType) error {
 	// list type must have itemType (either via itemType attribute or inline simpleType child per XSD spec)
 	if listType.ItemType.IsZero() {
 		if listType.InlineItemType == nil {

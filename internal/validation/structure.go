@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // resolveTypeReference resolves a type reference in schema validation contexts.
-func resolveTypeReference(schema *schema.Schema, typ types.Type, allowMissing bool) types.Type {
+func resolveTypeReference(schema *parser.Schema, typ types.Type, allowMissing bool) types.Type {
 	if typ == nil {
 		return nil
 	}
@@ -37,13 +37,13 @@ func resolveTypeReference(schema *schema.Schema, typ types.Type, allowMissing bo
 }
 
 // resolveTypeForFinalValidation resolves a type reference for substitution group final checks.
-func resolveTypeForFinalValidation(schema *schema.Schema, typ types.Type) types.Type {
+func resolveTypeForFinalValidation(schema *parser.Schema, typ types.Type) types.Type {
 	return resolveTypeReference(schema, typ, true)
 }
 
 // validateTypeDefStructure validates structural constraints of a type definition
 // Does not validate references (which might be forward references or imports)
-func validateTypeDefStructure(schema *schema.Schema, qname types.QName, typ types.Type) error {
+func validateTypeDefStructure(schema *parser.Schema, qname types.QName, typ types.Type) error {
 	// this is a structural constraint that is definitely invalid if violated
 	if !isValidNCName(qname.Local) {
 		return fmt.Errorf("invalid type name '%s': must be a valid NCName", qname.Local)
@@ -103,7 +103,7 @@ func validateWhiteSpaceRestriction(derivedType *types.SimpleType, baseType types
 
 // validateNotationEnumeration validates that enumeration values for NOTATION types
 // reference declared notations in the schema
-func validateNotationEnumeration(schema *schema.Schema, facetList []types.Facet, targetNS types.NamespaceURI) error {
+func validateNotationEnumeration(schema *parser.Schema, facetList []types.Facet, targetNS types.NamespaceURI) error {
 	var enumValues []string
 	for _, f := range facetList {
 		if enum, ok := f.(*types.Enumeration); ok {

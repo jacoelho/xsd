@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -208,7 +208,7 @@ func isEmptiableParticle(p types.Particle) bool {
 
 // effectiveContentParticle returns the effective element particle for a complex type.
 // For derived types, this resolves restriction/extension content.
-func effectiveContentParticle(schema *schema.Schema, typ types.Type) types.Particle {
+func effectiveContentParticle(schema *parser.Schema, typ types.Type) types.Particle {
 	ct, ok := typ.(*types.ComplexType)
 	if !ok || ct == nil {
 		return nil
@@ -217,7 +217,7 @@ func effectiveContentParticle(schema *schema.Schema, typ types.Type) types.Parti
 	return effectiveContentParticleForComplexType(schema, ct, visited)
 }
 
-func effectiveContentParticleForComplexType(schema *schema.Schema, ct *types.ComplexType, visited map[*types.ComplexType]bool) types.Particle {
+func effectiveContentParticleForComplexType(schema *parser.Schema, ct *types.ComplexType, visited map[*types.ComplexType]bool) types.Particle {
 	if ct == nil {
 		return nil
 	}
@@ -246,7 +246,7 @@ func effectiveContentParticleForComplexType(schema *schema.Schema, ct *types.Com
 	return nil
 }
 
-func resolveBaseComplexType(schema *schema.Schema, ct *types.ComplexType, baseQName types.QName) *types.ComplexType {
+func resolveBaseComplexType(schema *parser.Schema, ct *types.ComplexType, baseQName types.QName) *types.ComplexType {
 	if ct != nil && ct.ResolvedBase != nil {
 		if baseCT, ok := ct.ResolvedBase.(*types.ComplexType); ok {
 			return baseCT

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validation"
 )
@@ -173,7 +173,7 @@ func TestDuplicateConstraintNameValidation(t *testing.T) {
 
 // TestDuplicateConstraintNameDirect tests validation.ValidateElementDeclStructure directly
 func TestDuplicateConstraintNameDirect(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 		ElementDecls:    make(map[types.QName]*types.ElementDecl),

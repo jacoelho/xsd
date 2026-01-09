@@ -3,7 +3,7 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -11,7 +11,7 @@ import (
 // in extensions. According to XSD spec "Element Declarations Consistent": when extending
 // a complex type, elements in the extension cannot have the same name as elements in the
 // base type with different types.
-func validateElementDeclarationsConsistent(schema *schema.Schema, ct *types.ComplexType) error {
+func validateElementDeclarationsConsistent(schema *parser.Schema, ct *types.ComplexType) error {
 	if !ct.IsExtension() {
 		return nil
 	}
@@ -61,13 +61,13 @@ func validateElementDeclarationsConsistent(schema *schema.Schema, ct *types.Comp
 
 // collectAllElementDeclarationsFromType collects all element declarations from a complex type
 // This recursively collects from the type's content model and its base types
-func collectAllElementDeclarationsFromType(schema *schema.Schema, ct *types.ComplexType) []*types.ElementDecl {
+func collectAllElementDeclarationsFromType(schema *parser.Schema, ct *types.ComplexType) []*types.ElementDecl {
 	visited := make(map[types.QName]bool)
 	return collectElementDeclarationsRecursive(schema, ct, visited)
 }
 
 // collectElementDeclarationsRecursive recursively collects element declarations from a type and its base types
-func collectElementDeclarationsRecursive(schema *schema.Schema, ct *types.ComplexType, visited map[types.QName]bool) []*types.ElementDecl {
+func collectElementDeclarationsRecursive(schema *parser.Schema, ct *types.ComplexType, visited map[types.QName]bool) []*types.ElementDecl {
 	// avoid infinite loops
 	if visited[ct.QName] {
 		return nil

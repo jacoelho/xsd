@@ -3,19 +3,19 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateNoCircularDerivation validates that a complex type doesn't have circular derivation
 // A type cannot (even indirectly) be its own base
-func validateNoCircularDerivation(schema *schema.Schema, ct *types.ComplexType) error {
+func validateNoCircularDerivation(schema *parser.Schema, ct *types.ComplexType) error {
 	visited := make(map[types.QName]bool)
 	return checkCircularDerivation(schema, ct.QName, ct, visited)
 }
 
 // checkCircularDerivation recursively checks for circular derivation
-func checkCircularDerivation(schema *schema.Schema, originalQName types.QName, ct *types.ComplexType, visited map[types.QName]bool) error {
+func checkCircularDerivation(schema *parser.Schema, originalQName types.QName, ct *types.ComplexType, visited map[types.QName]bool) error {
 	baseQName := ct.Content().BaseTypeQName()
 
 	// if we've already seen this type in the derivation chain, it's a cycle
@@ -53,7 +53,7 @@ func checkCircularDerivation(schema *schema.Schema, originalQName types.QName, c
 
 // validateDerivationConstraints validates final/block constraints on type derivation
 // According to XSD spec: "Proper Derivation"
-func validateDerivationConstraints(schema *schema.Schema, ct *types.ComplexType) error {
+func validateDerivationConstraints(schema *parser.Schema, ct *types.ComplexType) error {
 	content := ct.Content()
 	baseQName := content.BaseTypeQName()
 	if baseQName.IsZero() {
@@ -85,7 +85,7 @@ func validateDerivationConstraints(schema *schema.Schema, ct *types.ComplexType)
 //   - Extension must preserve the mixed/element-only content kind.
 //     If the extension adds no particle, it inherits the base content (including mixedness).
 //   - Restriction cannot introduce mixed content when base is element-only.
-func validateMixedContentDerivation(schema *schema.Schema, ct *types.ComplexType) error {
+func validateMixedContentDerivation(schema *parser.Schema, ct *types.ComplexType) error {
 	if !ct.IsDerived() {
 		return nil
 	}

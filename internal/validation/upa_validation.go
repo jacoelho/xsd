@@ -3,14 +3,14 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateUPA validates Unique Particle Attribution for a content model
 // UPA requires that no element can be matched by more than one particle
 // UPA violations occur when particles in a choice group can both match the same element
-func validateUPA(schema *schema.Schema, content types.Content, targetNS types.NamespaceURI) error {
+func validateUPA(schema *parser.Schema, content types.Content, targetNS types.NamespaceURI) error {
 	var particle types.Particle
 	var baseParticle types.Particle
 
@@ -70,13 +70,13 @@ func validateUPA(schema *schema.Schema, content types.Content, targetNS types.Na
 
 // validateUPAInParticle validates UPA violations in a particle structure
 // parentKind indicates the kind of parent model group (nil if top-level)
-func validateUPAInParticle(schema *schema.Schema, particle types.Particle, baseParticle types.Particle, targetNS types.NamespaceURI, parentKind *types.GroupKind) error {
+func validateUPAInParticle(schema *parser.Schema, particle types.Particle, baseParticle types.Particle, targetNS types.NamespaceURI, parentKind *types.GroupKind) error {
 	visited := make(map[*types.ModelGroup]bool)
 	return validateUPAInParticleWithVisited(schema, particle, baseParticle, targetNS, parentKind, visited)
 }
 
 // validateUPAInParticleWithVisited validates UPA violations with cycle detection
-func validateUPAInParticleWithVisited(schema *schema.Schema, particle types.Particle, baseParticle types.Particle, targetNS types.NamespaceURI, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
+func validateUPAInParticleWithVisited(schema *parser.Schema, particle types.Particle, baseParticle types.Particle, targetNS types.NamespaceURI, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
 	switch p := particle.(type) {
 	case *types.GroupRef:
 		// GroupRef should be resolved before UPA validation, but handle it just in case

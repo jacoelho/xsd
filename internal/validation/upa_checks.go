@@ -3,12 +3,12 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // checkChoiceUPAViolation checks for UPA violations in choice groups by comparing first sets.
-func checkChoiceUPAViolation(schema *schema.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI) error {
+func checkChoiceUPAViolation(schema *parser.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI) error {
 	first1 := collectPossibleFirstLeafParticles(p1, make(map[*types.ModelGroup]bool))
 	first2 := collectPossibleFirstLeafParticles(p2, make(map[*types.ModelGroup]bool))
 
@@ -31,7 +31,7 @@ func checkChoiceUPAViolation(schema *schema.Schema, p1, p2 types.Particle, targe
 // that must be matched, there's no UPA violation. However, if p1 can repeat, it can potentially
 // match elements that p2 should match, creating ambiguity.
 // parentParticles, i, j provide context about the parent sequence to check for separators
-func checkSequenceUPAViolationWithVisitedAndContext(schema *schema.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI, visited map[*types.ModelGroup]bool, parentParticles []types.Particle, i, j int) error {
+func checkSequenceUPAViolationWithVisitedAndContext(schema *parser.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI, visited map[*types.ModelGroup]bool, parentParticles []types.Particle, i, j int) error {
 	// check if p1 and p2 are separated by required particles in the parent sequence
 	// a required separator creates a deterministic transition point, eliminating ambiguity
 	// between elements in p1 and p2, regardless of whether they overlap.
@@ -161,7 +161,7 @@ func checkSequenceUPAViolationWithVisitedAndContext(schema *schema.Schema, p1, p
 }
 
 // checkUPAViolationWithVisited checks UPA violations with cycle detection
-func checkUPAViolationWithVisited(schema *schema.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI, visited map[*types.ModelGroup]bool) error {
+func checkUPAViolationWithVisited(schema *parser.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI, visited map[*types.ModelGroup]bool) error {
 	// particles with maxOccurs=0 are effectively absent and can't cause UPA violations
 	if p1.MaxOcc() == 0 || p2.MaxOcc() == 0 {
 		return nil
@@ -265,7 +265,7 @@ func checkUPAViolationWithVisited(schema *schema.Schema, p1, p2 types.Particle, 
 
 // checkModelGroupUPA checks if two model groups can both match the same element
 // checkModelGroupUPAWithVisited checks model group UPA with cycle detection
-func checkModelGroupUPAWithVisited(schema *schema.Schema, mg1, mg2 *types.ModelGroup, targetNS types.NamespaceURI, visited map[*types.ModelGroup]bool) error {
+func checkModelGroupUPAWithVisited(schema *parser.Schema, mg1, mg2 *types.ModelGroup, targetNS types.NamespaceURI, visited map[*types.ModelGroup]bool) error {
 	// cycle detection
 	if visited[mg1] || visited[mg2] {
 		return nil
@@ -342,7 +342,7 @@ func checkModelGroupUPAWithVisited(schema *schema.Schema, mg1, mg2 *types.ModelG
 }
 
 // validateExtensionUPA checks UPA violations between extension particles and base particles
-func validateExtensionUPA(schema *schema.Schema, extParticle types.Particle, baseParticle types.Particle, targetNS types.NamespaceURI) error {
+func validateExtensionUPA(schema *parser.Schema, extParticle types.Particle, baseParticle types.Particle, targetNS types.NamespaceURI) error {
 	if baseParticle == nil || extParticle == nil {
 		return nil
 	}
