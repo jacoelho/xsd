@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"fmt"
+	"slices"
 
 	schema "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
@@ -280,8 +281,7 @@ func (r *Resolver) resolveParticles(particles []types.Particle) error {
 	// use iterative approach with work queue to avoid stack overflow
 	// inline ModelGroups are tree-structured (no pointer cycles)
 	// named groups (GroupRef) have cycle detection via r.detector
-	queue := make([]types.Particle, len(particles))
-	copy(queue, particles)
+	queue := slices.Clone(particles)
 
 	for len(queue) > 0 {
 		p := queue[0]

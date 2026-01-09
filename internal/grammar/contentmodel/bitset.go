@@ -3,6 +3,7 @@ package contentmodel
 import (
 	"encoding/binary"
 	"math/bits"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -33,9 +34,10 @@ func (b *bitset) or(other *bitset) {
 }
 
 func (b *bitset) clone() *bitset {
-	c := newBitset(b.n)
-	copy(c.words, b.words)
-	return c
+	return &bitset{
+		words: slices.Clone(b.words),
+		n:     b.n,
+	}
 }
 
 func (b *bitset) empty() bool {

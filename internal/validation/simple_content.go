@@ -2,6 +2,7 @@ package validation
 
 import (
 	"fmt"
+	"slices"
 
 	schema "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
@@ -77,7 +78,7 @@ func validateSimpleContentStructure(schema *schema.Schema, sc *types.SimpleConte
 		}
 		if ok {
 			if baseCT, ok := baseType.(*types.ComplexType); ok {
-				restrictionAttrs := append([]*types.AttributeDecl(nil), sc.Restriction.Attributes...)
+				restrictionAttrs := slices.Clone(sc.Restriction.Attributes)
 				restrictionAttrs = append(restrictionAttrs, collectAttributesFromGroups(schema, sc.Restriction.AttrGroups, nil)...)
 				if err := validateRestrictionAttributes(schema, baseCT, restrictionAttrs, "simpleContent restriction"); err != nil {
 					return err

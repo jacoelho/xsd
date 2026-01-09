@@ -198,7 +198,7 @@ func (r *validationRun) mergeSchemaOverlay(extra *grammar.CompiledSchema) {
 	}
 
 	for head, subs := range extra.SubstitutionGroups {
-		combined := append([]*grammar.CompiledElement(nil), overlay.SubstitutionGroup(head)...)
+		combined := slices.Clone(overlay.SubstitutionGroup(head))
 		for _, sub := range subs {
 			if !containsCompiledElement(combined, sub) {
 				combined = append(combined, sub)
@@ -214,7 +214,7 @@ func (r *validationRun) mergeSchemaOverlay(extra *grammar.CompiledSchema) {
 	}
 
 	if overlay.elementsWithConstraints == nil {
-		overlay.elementsWithConstraints = append([]*grammar.CompiledElement(nil), overlay.base.ElementsWithConstraints()...)
+		overlay.elementsWithConstraints = slices.Clone(overlay.base.ElementsWithConstraints())
 	}
 	for _, elem := range extra.ElementsWithConstraints {
 		if !containsCompiledElement(overlay.elementsWithConstraints, elem) {
