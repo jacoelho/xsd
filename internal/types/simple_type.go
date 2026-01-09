@@ -388,7 +388,7 @@ func countFields(value string) int {
 	return count
 }
 
-// Variety returns the simple type variety (implements SimpleTypeDefinition)
+// Variety returns the simple type variety.
 func (s *SimpleType) Variety() SimpleTypeVariety {
 	return s.variety
 }

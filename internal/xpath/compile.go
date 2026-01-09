@@ -252,13 +252,13 @@ func parseNodeTest(token string, nsContext map[string]string, attribute bool) (N
 		if !types.IsValidNCName(prefix) {
 			return NodeTest{}, fmt.Errorf("xpath step has invalid prefix %q", token)
 		}
-		nsURI, ok := resolvePrefix(prefix, nsContext)
+		nsURI, ok := types.ResolveNamespace(prefix, nsContext)
 		if !ok {
 			return NodeTest{}, fmt.Errorf("xpath step uses undeclared prefix %q", prefix)
 		}
 		return NodeTest{
 			Local:              "*",
-			Namespace:          types.NamespaceURI(nsURI),
+			Namespace:          nsURI,
 			NamespaceSpecified: true,
 		}, nil
 	}
@@ -267,15 +267,15 @@ func parseNodeTest(token string, nsContext map[string]string, attribute bool) (N
 		return NodeTest{}, fmt.Errorf("xpath step has invalid QName %q", token)
 	}
 
-	prefix, local, hasPrefix := splitQName(token)
+	prefix, local, hasPrefix := types.SplitQName(token)
 	if hasPrefix {
-		nsURI, ok := resolvePrefix(prefix, nsContext)
+		nsURI, ok := types.ResolveNamespace(prefix, nsContext)
 		if !ok {
 			return NodeTest{}, fmt.Errorf("xpath step uses undeclared prefix %q", prefix)
 		}
 		return NodeTest{
 			Local:              local,
-			Namespace:          types.NamespaceURI(nsURI),
+			Namespace:          nsURI,
 			NamespaceSpecified: true,
 		}, nil
 	}
@@ -373,21 +373,6 @@ func (r *pathReader) skipSpace() {
 func (r *pathReader) atEnd() bool {
 	r.skipSpace()
 	return r.pos >= len(r.input)
-}
-
-func splitQName(name string) (string, string, bool) {
-	if before, after, ok := strings.Cut(name, ":"); ok {
-		return before, after, true
-	}
-	return "", name, false
-}
-
-func resolvePrefix(prefix string, nsContext map[string]string) (string, bool) {
-	if nsContext == nil {
-		return "", false
-	}
-	nsURI, ok := nsContext[prefix]
-	return nsURI, ok
 }
 
 func isXPathWhitespace(b byte) bool {

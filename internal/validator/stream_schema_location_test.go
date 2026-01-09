@@ -44,7 +44,7 @@ func TestStreamSchemaLocationSeekableMerge(t *testing.T) {
 		t.Fatalf("load compiled schema: %v", err)
 	}
 
-	v := New(compiled)
+	v := New(compiled, WithSchemaLocationLoader(l))
 
 	doc := `<?xml version="1.0"?>
 <root xmlns="urn:hint"
@@ -86,7 +86,7 @@ func TestStreamSchemaLocationNonSeekableRootOnly(t *testing.T) {
 		t.Fatalf("load compiled schema: %v", err)
 	}
 
-	v := New(compiled)
+	v := New(compiled, WithSchemaLocationLoader(l))
 
 	doc := `<?xml version="1.0"?>
 <root xmlns="urn:hint"
@@ -121,7 +121,7 @@ func TestStreamSchemaLocationNonSeekableDocumentError(t *testing.T) {
 		t.Fatalf("load compiled schema: %v", err)
 	}
 
-	v := New(compiled)
+	v := New(compiled, WithSchemaLocationLoader(l))
 
 	doc := `<?xml version="1.0"?>
 <root xmlns="urn:test"
@@ -165,7 +165,7 @@ func TestStreamSchemaLocationIgnoreNonSeekable(t *testing.T) {
 		t.Fatalf("load compiled schema: %v", err)
 	}
 
-	v := New(compiled)
+	v := New(compiled, WithSchemaLocationLoader(l))
 
 	doc := `<?xml version="1.0"?>
 <root xmlns="urn:test"

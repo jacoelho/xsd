@@ -3,7 +3,6 @@ package parser
 import (
 	"fmt"
 
-	xsdschema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
@@ -19,7 +18,7 @@ var validAttributeAttributes = map[string]bool{
 	"id":      true,
 }
 
-func parseAttribute(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.AttributeDecl, error) {
+func parseAttribute(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.AttributeDecl, error) {
 	if hasIDAttribute(doc, elem) {
 		idAttr := doc.GetAttribute(elem, "id")
 		if err := validateIDAttribute(idAttr, "attribute", schema); err != nil {
@@ -244,7 +243,7 @@ func parseAttributeUse(doc *xml.Document, elem xml.NodeID) (types.AttributeUse, 
 }
 
 // parseTopLevelAttribute parses a top-level attribute declaration
-func parseTopLevelAttribute(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+func parseTopLevelAttribute(doc *xml.Document, elem xml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("attribute missing name attribute")

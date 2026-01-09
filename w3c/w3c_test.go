@@ -1054,7 +1054,15 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 		}
 
 		schemaForInstance := r.schemaForInstance(schema, fullInstancePath)
-		v := validator.New(schemaForInstance)
+		var opts []validator.Option
+		if schemaForInstance != nil && schemaForInstance.SourceFS != nil {
+			l := loader.NewLoader(loader.Config{
+				FS:       schemaForInstance.SourceFS,
+				BasePath: schemaForInstance.BasePath,
+			})
+			opts = append(opts, validator.WithSchemaLocationLoader(l))
+		}
+		v := validator.New(schemaForInstance, opts...)
 		violations, err := v.ValidateStreamWithOptions(file, validator.StreamOptions{
 			SchemaLocationPolicy: validator.SchemaLocationDocument,
 		})

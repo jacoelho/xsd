@@ -26,7 +26,6 @@ func TestFixedValueNormalization_Boolean(t *testing.T) {
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">true</root>`
 
-
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
 
@@ -56,7 +55,6 @@ func TestFixedValueNormalization_Decimal(t *testing.T) {
 	// instance with '1.000' should match fixed '1.0'
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">1.000</root>`
-
 
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
@@ -88,7 +86,6 @@ func TestFixedValueNormalization_StringWhitespace(t *testing.T) {
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">abcd edfgh</root>`
 
-
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
 
@@ -118,7 +115,6 @@ func TestFixedValueNormalization_StringTrailingWhitespace(t *testing.T) {
 	// instance with 'ENU' should match fixed 'ENU ' after normalization
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">ENU</root>`
-
 
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
@@ -150,7 +146,6 @@ func TestFixedValueNormalization_DateWhitespace(t *testing.T) {
 	// instance with whitespace around valid date should match fixed value after normalization
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">  2004-04-05  </root>`
-
 
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
@@ -186,7 +181,6 @@ func TestFixedValueNormalization_UnionBoolean(t *testing.T) {
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">true</root>`
 
-
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
 
@@ -220,7 +214,6 @@ func TestFixedValueNormalization_UnionDecimal(t *testing.T) {
 	// instance with '1.000' should match fixed '1.0' (both are the same decimal value)
 	xmlDoc := `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">1.000</root>`
-
 
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)

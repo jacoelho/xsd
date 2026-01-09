@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	xsdschema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
@@ -69,7 +68,7 @@ var (
 )
 
 // parseComplexType parses a top-level complexType definition
-func parseComplexType(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+func parseComplexType(doc *xml.Document, elem xml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("complexType missing name attribute")
@@ -103,7 +102,7 @@ func parseComplexType(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sche
 }
 
 // parseInlineComplexType parses a complexType definition (inline or named)
-func parseInlineComplexType(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.ComplexType, error) {
+func parseInlineComplexType(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.ComplexType, error) {
 	ct := &types.ComplexType{}
 
 	if doc.HasAttribute(elem, "id") && doc.GetAttribute(elem, "name") == "" {
@@ -396,7 +395,7 @@ func parseInlineComplexType(doc *xml.Document, elem xml.NodeID, schema *xsdschem
 // resolveBaseTypeForComplex resolves a base type QName to a Type for complex types
 // This is a simple resolution that works if the type is already available.
 // Full two-phase resolution will be implemented in A7.
-func resolveBaseTypeForComplex(schema *xsdschema.Schema, baseQName types.QName) types.Type {
+func resolveBaseTypeForComplex(schema *Schema, baseQName types.QName) types.Type {
 	// check if it's a built-in type
 	if builtinType := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local); builtinType != nil {
 		if baseQName.Local == "anyType" {
@@ -421,7 +420,7 @@ func resolveBaseTypeForComplex(schema *xsdschema.Schema, baseQName types.QName) 
 	return nil
 }
 
-func parseModelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.ModelGroup, error) {
+func parseModelGroup(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.ModelGroup, error) {
 	var kind types.GroupKind
 	switch doc.LocalName(elem) {
 	case "sequence":
@@ -628,7 +627,7 @@ func parseModelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schem
 	return mg, nil
 }
 
-func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.SimpleContent, error) {
+func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.SimpleContent, error) {
 	sc := &types.SimpleContent{}
 
 	// validate id attribute if present on simpleContent
@@ -881,7 +880,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 	return sc, nil
 }
 
-func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.ComplexContent, error) {
+func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.ComplexContent, error) {
 	cc := &types.ComplexContent{}
 
 	if doc.HasAttribute(elem, "id") {
@@ -1286,7 +1285,7 @@ func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.S
 
 // parseTopLevelGroup parses a top-level <group> definition
 // Content model: (annotation?, (all | choice | sequence))
-func parseTopLevelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+func parseTopLevelGroup(doc *xml.Document, elem xml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("group missing name attribute")
@@ -1366,7 +1365,7 @@ func parseTopLevelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 
 // parseTopLevelAttributeGroup parses a top-level <attributeGroup> definition
 // Content model: (annotation?, ((attribute | attributeGroup)*, anyAttribute?))
-func parseTopLevelAttributeGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+func parseTopLevelAttributeGroup(doc *xml.Document, elem xml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("attributeGroup missing name attribute")
@@ -1474,7 +1473,7 @@ func parseTopLevelAttributeGroup(doc *xml.Document, elem xml.NodeID, schema *xsd
 
 // parseAnyElement parses an <any> wildcard element
 // Content model: (annotation?)
-func parseAnyElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.AnyElement, error) {
+func parseAnyElement(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.AnyElement, error) {
 	// validate that <any> doesn't have invalid attributes
 	// in XSD 1.0, <any> allows: namespace, processContents, minOccurs, maxOccurs, id
 	for _, attr := range doc.Attributes(elem) {
@@ -1632,7 +1631,7 @@ func validateOccursInteger(value string) error {
 
 // parseAnyAttribute parses an <anyAttribute> wildcard
 // Content model: (annotation?)
-func parseAnyAttribute(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.AnyAttribute, error) {
+func parseAnyAttribute(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.AnyAttribute, error) {
 	// reject XSD 1.1 features (notNamespace, notQName) - these are not supported in XSD 1.0
 	if doc.GetAttribute(elem, "notNamespace") != "" {
 		return nil, fmt.Errorf("notNamespace attribute is not supported in XSD 1.0 (XSD 1.1 feature)")
@@ -1750,7 +1749,7 @@ func parseAnyAttribute(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sch
 //   - "##targetNamespace" is replaced with the actual targetNamespace value
 //   - "##local" is replaced with absent (empty namespace)
 //   - "##any" and "##other" CANNOT appear in lists
-func parseNamespaceConstraint(value string, schema *xsdschema.Schema) (types.NamespaceConstraint, []types.NamespaceURI, error) {
+func parseNamespaceConstraint(value string, schema *Schema) (types.NamespaceConstraint, []types.NamespaceURI, error) {
 	// check for exact match of special tokens that must be alone
 	switch value {
 	case "##any":
@@ -1798,7 +1797,7 @@ func parseNamespaceConstraint(value string, schema *xsdschema.Schema) (types.Nam
 }
 
 // parseIdentityConstraint parses a key, keyref, or unique constraint
-func parseIdentityConstraint(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.IdentityConstraint, error) {
+func parseIdentityConstraint(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.IdentityConstraint, error) {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return nil, fmt.Errorf("identity constraint missing name attribute")

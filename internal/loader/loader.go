@@ -9,9 +9,10 @@ import (
 	"path"
 	"strings"
 
+	"github.com/jacoelho/xsd/internal/compiler"
 	"github.com/jacoelho/xsd/internal/grammar"
-	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/schema"
+	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/resolver"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -120,7 +121,7 @@ func (l *SchemaLoader) loadWithValidation(location string, validate bool) (*sche
 		}
 
 		// phase 2: Resolve all type references (two-phase resolution)
-		if err := resolveTypeReferences(schema); err != nil {
+		if err := resolver.ResolveTypeReferences(schema); err != nil {
 			return nil, fmt.Errorf("resolve type references: %w", err)
 		}
 
@@ -176,13 +177,13 @@ func (l *SchemaLoader) LoadCompiled(location string) (*grammar.CompiledSchema, e
 	}
 
 	// phase 2: Resolve all QName references
-	resolver := NewResolver(schema)
+	resolver := resolver.NewResolver(schema)
 	if err := resolver.Resolve(); err != nil {
 		return nil, fmt.Errorf("resolve %s: %w", location, err)
 	}
 
 	// phase 3: Compile to grammar
-	compiler := NewCompiler(schema)
+	compiler := compiler.NewCompiler(schema)
 	compiled, err := compiler.Compile()
 	if err != nil {
 		return nil, fmt.Errorf("compile %s: %w", location, err)
@@ -271,7 +272,7 @@ func (l *SchemaLoader) markMergedImport(baseLoc, importLoc string) {
 	l.mergedImports[baseLoc][importLoc] = true
 }
 
-func registerImports(sch *schema.Schema, imports []parser.ImportInfo) {
+func registerImports(sch *schema.Schema, imports []schema.ImportInfo) {
 	if sch == nil {
 		return
 	}
@@ -308,7 +309,7 @@ func registerImports(sch *schema.Schema, imports []parser.ImportInfo) {
 	}
 }
 
-func validateImportConstraints(schema *schema.Schema, imports []parser.ImportInfo) error {
+func validateImportConstraints(schema *schema.Schema, imports []schema.ImportInfo) error {
 	if schema.TargetNamespace.IsEmpty() {
 		for _, imp := range imports {
 			if imp.Namespace == "" {

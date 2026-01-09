@@ -3,7 +3,6 @@ package types_test
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -63,7 +62,7 @@ func TestNewSimpleTypeFromParsed_FacetNotApplicable(t *testing.T) {
 				Local:     string(types.TypeNameString),
 			},
 			Facets: []any{
-				&facets.FractionDigits{Value: 2},
+				&types.FractionDigits{Value: 2},
 			},
 		},
 	}

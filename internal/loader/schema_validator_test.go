@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/validation"
 )
 
 func TestGYearMinInclusive003Schema(t *testing.T) {
@@ -38,14 +38,14 @@ func TestCompareGYearValues(t *testing.T) {
 		t.Fatal("builtin.Get(\"gYear\") returned nil")
 	}
 
-	result := compareNumericOrString("2002", "1998", "gYear", bt)
+	result := validation.CompareNumericOrString("2002", "1998", "gYear", bt)
 	if result != 1 {
-		t.Errorf("compareNumericOrString(\"2002\", \"1998\", \"gYear\", bt) = %d, want 1", result)
+		t.Errorf("validation.CompareNumericOrString(\"2002\", \"1998\", \"gYear\", bt) = %d, want 1", result)
 	}
 
-	result = compareNumericOrString("2002", "1998", "gYear", nil)
+	result = validation.CompareNumericOrString("2002", "1998", "gYear", nil)
 	if result != 1 {
-		t.Errorf("compareNumericOrString(\"2002\", \"1998\", \"gYear\", nil) = %d, want 1", result)
+		t.Errorf("validation.CompareNumericOrString(\"2002\", \"1998\", \"gYear\", nil) = %d, want 1", result)
 	}
 }
 
@@ -55,9 +55,9 @@ func TestValidateRangeFacetsGYear(t *testing.T) {
 	baseTypeName := "gYear"
 	bt := types.GetBuiltin(types.TypeNameGYear)
 
-	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, baseTypeName, bt)
+	err := validation.ValidateRangeFacets(nil, nil, &minInclusive, &maxInclusive, baseTypeName, bt)
 	if err == nil {
-		t.Error("validateRangeFacets should return error for minInclusive > maxInclusive")
+		t.Error("validation.ValidateRangeFacets should return error for minInclusive > maxInclusive")
 	} else {
 		t.Logf("Got expected error: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestValidatePatternFacetSyntax(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			patternFacet := &facets.Pattern{Value: tt.pattern}
+			patternFacet := &types.Pattern{Value: tt.pattern}
 			baseQName := types.QName{Namespace: types.XSDNamespace, Local: "string"}
 
 			bt := types.GetBuiltin(types.TypeNameString)
@@ -106,8 +106,8 @@ func TestValidatePatternFacetSyntax(t *testing.T) {
 				baseType.(*types.SimpleType).MarkBuiltin()
 			}
 
-			facetList := []facets.Facet{patternFacet}
-			err := validateFacetConstraints(facetList, baseType, baseQName)
+			facetList := []types.Facet{patternFacet}
+			err := validation.ValidateFacetConstraints(facetList, baseType, baseQName)
 			if tt.valid && err != nil {
 				t.Errorf("Pattern %q should be valid but got error: %v", tt.pattern, err)
 			}

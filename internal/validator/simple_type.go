@@ -2,7 +2,6 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -29,7 +28,7 @@ func (r *validationRun) checkComplexTypeFacets(text string, ct *grammar.Compiled
 	return violations
 }
 
-func shouldSkipLengthFacet(ct *grammar.CompiledType, facet facets.Facet) bool {
+func shouldSkipLengthFacet(ct *grammar.CompiledType, facet types.Facet) bool {
 	if ct == nil || ct.ItemType != nil {
 		return false
 	}
@@ -61,19 +60,19 @@ func shouldSkipLengthFacet(ct *grammar.CompiledType, facet facets.Facet) bool {
 	return false
 }
 
-func typedValueForFacets(value string, typ types.Type, facetList []facets.Facet) types.TypedValue {
+func typedValueForFacets(value string, typ types.Type, facetList []types.Facet) types.TypedValue {
 	if facetsRequireTypedValue(facetList) {
-		return facets.TypedValueForFacet(value, typ)
+		return types.TypedValueForFacet(value, typ)
 	}
-	return &facets.StringTypedValue{Value: value, Typ: typ}
+	return &types.StringTypedValue{Value: value, Typ: typ}
 }
 
-func facetsRequireTypedValue(facetList []facets.Facet) bool {
+func facetsRequireTypedValue(facetList []types.Facet) bool {
 	for _, facet := range facetList {
 		switch facet.(type) {
-		case *facets.Pattern, *facets.PatternSet, *facets.Enumeration,
-			*facets.Length, *facets.MinLength, *facets.MaxLength,
-			*facets.TotalDigits, *facets.FractionDigits:
+		case *types.Pattern, *types.PatternSet, *types.Enumeration,
+			*types.Length, *types.MinLength, *types.MaxLength,
+			*types.TotalDigits, *types.FractionDigits:
 			continue
 		default:
 			return true
@@ -82,9 +81,9 @@ func facetsRequireTypedValue(facetList []facets.Facet) bool {
 	return false
 }
 
-func isLengthFacet(facet facets.Facet) bool {
+func isLengthFacet(facet types.Facet) bool {
 	switch facet.(type) {
-	case *facets.Length, *facets.MinLength, *facets.MaxLength:
+	case *types.Length, *types.MinLength, *types.MaxLength:
 		return true
 	default:
 		return false
