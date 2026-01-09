@@ -60,6 +60,11 @@ func resolveTypeReference(schema *parser.Schema, typ types.Type, allowMissing bo
 	return typ
 }
 
+// resolveTypeForValidation resolves a type reference without allowing missing types.
+func resolveTypeForValidation(schema *parser.Schema, typ types.Type) types.Type {
+	return resolveTypeReference(schema, typ, false)
+}
+
 // resolveTypeForFinalValidation resolves a type reference for substitution group final checks.
 func resolveTypeForFinalValidation(schema *parser.Schema, typ types.Type) types.Type {
 	return resolveTypeReference(schema, typ, true)
