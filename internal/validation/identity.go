@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
@@ -142,7 +142,7 @@ func validateSelectorXPathRestrictions(xpath string) error {
 }
 
 // validateIdentityConstraint validates an identity constraint (key, keyref, unique)
-func validateIdentityConstraint(schema *schema.Schema, constraint *types.IdentityConstraint, decl *types.ElementDecl) error {
+func validateIdentityConstraint(schema *parser.Schema, constraint *types.IdentityConstraint, decl *types.ElementDecl) error {
 	// note: Identity constraints can be placed on elements with either simple or complex types.
 	// for simple types, the selector/field XPath expressions typically target "." (the element itself).
 	// the XSD spec does not restrict identity constraints to complex types only.

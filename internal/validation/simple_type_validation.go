@@ -3,13 +3,13 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateSimpleTypeStructure validates structural constraints of a simple type
 // Does not validate type references (which might be forward references or imports)
-func validateSimpleTypeStructure(schema *schema.Schema, st *types.SimpleType) error {
+func validateSimpleTypeStructure(schema *parser.Schema, st *types.SimpleType) error {
 	switch st.Variety() {
 	case types.AtomicVariety:
 		if st.Restriction != nil {
@@ -56,7 +56,7 @@ func validateSimpleTypeStructure(schema *schema.Schema, st *types.SimpleType) er
 }
 
 // validateSimpleTypeDerivationConstraints validates final constraints on simple type derivation
-func validateSimpleTypeDerivationConstraints(schema *schema.Schema, st *types.SimpleType) error {
+func validateSimpleTypeDerivationConstraints(schema *parser.Schema, st *types.SimpleType) error {
 	if st == nil {
 		return nil
 	}

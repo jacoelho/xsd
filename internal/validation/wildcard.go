@@ -3,12 +3,12 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateWildcardDerivation validates wildcard constraints in type derivation
-func validateWildcardDerivation(schema *schema.Schema, ct *types.ComplexType) error {
+func validateWildcardDerivation(schema *parser.Schema, ct *types.ComplexType) error {
 	baseQName := ct.Content().BaseTypeQName()
 	if baseQName.IsZero() {
 		return nil // no derivation
@@ -147,7 +147,7 @@ func wildcardNamespaceSubset(w1, w2 *types.AnyElement) bool {
 // According to XSD 1.0 spec:
 // - For extension: anyAttribute must union with base type's anyAttribute (cos-aw-union)
 // - For restriction: anyAttribute namespace constraint must be a subset of base type's anyAttribute (cos-aw-subset)
-func validateAnyAttributeDerivation(schema *schema.Schema, ct *types.ComplexType) error {
+func validateAnyAttributeDerivation(schema *parser.Schema, ct *types.ComplexType) error {
 	baseQName := ct.Content().BaseTypeQName()
 	if baseQName.IsZero() {
 		return nil // no derivation
@@ -200,7 +200,7 @@ func validateAnyAttributeDerivation(schema *schema.Schema, ct *types.ComplexType
 
 // collectAnyAttributeFromType collects anyAttribute from a complex type
 // Checks both direct anyAttribute and anyAttribute in extension/restriction
-func collectAnyAttributeFromType(schema *schema.Schema, ct *types.ComplexType) *types.AnyAttribute {
+func collectAnyAttributeFromType(schema *parser.Schema, ct *types.ComplexType) *types.AnyAttribute {
 	var anyAttrs []*types.AnyAttribute
 
 	if ct.AnyAttribute() != nil {
@@ -237,7 +237,7 @@ func collectAnyAttributeFromType(schema *schema.Schema, ct *types.ComplexType) *
 }
 
 // collectAnyAttributeFromGroups collects anyAttribute from attribute groups (recursively)
-func collectAnyAttributeFromGroups(schema *schema.Schema, agRefs []types.QName, visited map[types.QName]bool) []*types.AnyAttribute {
+func collectAnyAttributeFromGroups(schema *parser.Schema, agRefs []types.QName, visited map[types.QName]bool) []*types.AnyAttribute {
 	if visited == nil {
 		visited = make(map[types.QName]bool)
 	}

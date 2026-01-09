@@ -5,12 +5,12 @@ import (
 	"slices"
 	"strings"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateParticleRestriction validates that particles in a restriction are valid restrictions of base particles
-func validateParticleRestriction(schema *schema.Schema, baseMG, restrictionMG *types.ModelGroup) error {
+func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *types.ModelGroup) error {
 	// if both model groups have maxOccurs=0, the content never occurs, so children
 	// constraints are irrelevant. Skip child validation in this case.
 	if baseMG.MaxOcc() == 0 && restrictionMG.MaxOcc() == 0 {
@@ -143,7 +143,7 @@ func validateParticleRestriction(schema *schema.Schema, baseMG, restrictionMG *t
 	return nil
 }
 
-func validateAllGroupRestriction(schema *schema.Schema, baseMG, restrictionMG *types.ModelGroup) error {
+func validateAllGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *types.ModelGroup) error {
 	baseChildren := derivationChildren(baseMG)
 	restrictionChildren := derivationChildren(restrictionMG)
 
@@ -218,7 +218,7 @@ func validateOccurrenceConstraints(baseMinOcc, baseMaxOcc, restrictionMinOcc, re
 // When base is a wildcard and restriction is an element, this is valid if:
 // - Element's namespace is allowed by wildcard's namespace constraint
 // - Element's occurrence constraints are within wildcard's constraints
-func validateWildcardToElementRestriction(schema *schema.Schema, baseAny *types.AnyElement, restrictionElem *types.ElementDecl) error {
+func validateWildcardToElementRestriction(schema *parser.Schema, baseAny *types.AnyElement, restrictionElem *types.ElementDecl) error {
 	if restrictionElem.MinOcc() == 0 && restrictionElem.MaxOcc() == 0 {
 		return validateOccurrenceConstraints(baseAny.MinOccurs, baseAny.MaxOccurs, restrictionElem.MinOcc(), restrictionElem.MaxOcc())
 	}
@@ -255,7 +255,7 @@ func validateWildcardToElementRestriction(schema *schema.Schema, baseAny *types.
 // validateWildcardToModelGroupRestriction validates ModelGroup:Wildcard derivation
 // When base is a wildcard and restriction is a model group, we calculate the effective
 // occurrence of the model group's content and validate against the wildcard constraints.
-func validateWildcardToModelGroupRestriction(schema *schema.Schema, baseAny *types.AnyElement, restrictionMG *types.ModelGroup) error {
+func validateWildcardToModelGroupRestriction(schema *parser.Schema, baseAny *types.AnyElement, restrictionMG *types.ModelGroup) error {
 	if err := validateWildcardNamespaceRestriction(schema, baseAny, restrictionMG, make(map[*types.ModelGroup]bool), make(map[types.QName]bool)); err != nil {
 		return err
 	}
@@ -265,7 +265,7 @@ func validateWildcardToModelGroupRestriction(schema *schema.Schema, baseAny *typ
 	return validateOccurrenceConstraints(baseAny.MinOccurs, baseAny.MaxOccurs, effectiveMinOcc, effectiveMaxOcc)
 }
 
-func validateWildcardNamespaceRestriction(schema *schema.Schema, baseAny *types.AnyElement, particle types.Particle, visitedMG map[*types.ModelGroup]bool, visitedGroups map[types.QName]bool) error {
+func validateWildcardNamespaceRestriction(schema *parser.Schema, baseAny *types.AnyElement, particle types.Particle, visitedMG map[*types.ModelGroup]bool, visitedGroups map[types.QName]bool) error {
 	if particle != nil && particle.MinOcc() == 0 && particle.MaxOcc() == 0 {
 		return nil
 	}
@@ -308,7 +308,7 @@ func validateWildcardNamespaceRestriction(schema *schema.Schema, baseAny *types.
 // treat the derived element as if it were wrapped in a group of the same kind
 // as the base with minOccurs=maxOccurs=1, then apply recurse mapping.
 // Returns false if no matching element is found (to allow fall-through).
-func validateModelGroupToElementRestriction(schema *schema.Schema, baseMG *types.ModelGroup, restrictionElem *types.ElementDecl) (bool, error) {
+func validateModelGroupToElementRestriction(schema *parser.Schema, baseMG *types.ModelGroup, restrictionElem *types.ElementDecl) (bool, error) {
 	baseChildren := derivationChildren(baseMG)
 	if len(baseChildren) == 0 {
 		return false, nil
@@ -369,7 +369,7 @@ func validateModelGroupToElementRestriction(schema *schema.Schema, baseMG *types
 	return true, nil
 }
 
-func validateGroupChildElementRestriction(schema *schema.Schema, baseMG *types.ModelGroup, baseChildren []types.Particle, baseParticle types.Particle, restrictionElem *types.ElementDecl) (bool, error) {
+func validateGroupChildElementRestriction(schema *parser.Schema, baseMG *types.ModelGroup, baseChildren []types.Particle, baseParticle types.Particle, restrictionElem *types.ElementDecl) (bool, error) {
 	switch typed := baseParticle.(type) {
 	case *types.ElementDecl:
 		return validateElementRestrictionWithGroupOccurrence(schema, baseMG, baseChildren, typed, restrictionElem)
@@ -383,7 +383,7 @@ func validateGroupChildElementRestriction(schema *schema.Schema, baseMG *types.M
 	}
 }
 
-func validateElementRestrictionWithGroupOccurrence(schema *schema.Schema, baseMG *types.ModelGroup, baseChildren []types.Particle, baseElem, restrictionElem *types.ElementDecl) (bool, error) {
+func validateElementRestrictionWithGroupOccurrence(schema *parser.Schema, baseMG *types.ModelGroup, baseChildren []types.Particle, baseElem, restrictionElem *types.ElementDecl) (bool, error) {
 	if baseElem.Name != restrictionElem.Name {
 		if !isSubstitutableElement(schema, baseElem.Name, restrictionElem.Name) {
 			return false, nil
@@ -473,7 +473,7 @@ func validateWildcardToWildcardRestriction(baseAny, restrictionAny *types.AnyEle
 }
 
 // validateParticlePairRestriction validates that a restriction particle is a valid restriction of a base particle
-func validateParticlePairRestriction(schema *schema.Schema, baseParticle, restrictionParticle types.Particle) error {
+func validateParticlePairRestriction(schema *parser.Schema, baseParticle, restrictionParticle types.Particle) error {
 	baseParticle = normalizePointlessParticle(baseParticle)
 	restrictionParticle = normalizePointlessParticle(restrictionParticle)
 
@@ -601,7 +601,7 @@ func validateParticlePairRestriction(schema *schema.Schema, baseParticle, restri
 // - fixed: If base has fixed value, restriction must have same fixed value
 // - block: Restriction block must be superset of base block (cannot allow more derivations)
 // - type: Restriction type must be same as or derived from base type
-func validateElementRestriction(schema *schema.Schema, baseElem, restrictionElem *types.ElementDecl) error {
+func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem *types.ElementDecl) error {
 	// validate nillable: cannot change from false to true
 	if !baseElem.Nillable && restrictionElem.Nillable {
 		return fmt.Errorf("ComplexContent restriction: element '%s' nillable cannot be true when base element nillable is false", restrictionElem.Name)
@@ -686,7 +686,7 @@ func validateElementRestriction(schema *schema.Schema, baseElem, restrictionElem
 // - sequence -> choice: INVALID (cannot loosen order constraint), unless base has wildcards
 // - sequence -> all: Generally invalid, but valid if base contains wildcards
 // - all -> sequence/choice: INVALID (cannot change all's unique semantics), unless base has wildcards
-func validateParticleRestrictionWithKindChange(schema *schema.Schema, baseMG, restrictionMG *types.ModelGroup) error {
+func validateParticleRestrictionWithKindChange(schema *parser.Schema, baseMG, restrictionMG *types.ModelGroup) error {
 	baseChildren := derivationChildren(baseMG)
 	restrictionChildren := derivationChildren(restrictionMG)
 	// special case: if base contains a wildcard, the restriction can use any compositor

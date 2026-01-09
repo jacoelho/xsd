@@ -3,14 +3,14 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateComplexTypeStructure validates structural constraints of a complex type
 // Does not validate references (which might be forward references or imports)
 // isInline indicates if this complexType is defined inline in an element (local element)
-func validateComplexTypeStructure(schema *schema.Schema, ct *types.ComplexType, isInline bool) error {
+func validateComplexTypeStructure(schema *parser.Schema, ct *types.ComplexType, isInline bool) error {
 	if err := validateContentStructure(schema, ct.Content(), isInline); err != nil {
 		return fmt.Errorf("content: %w", err)
 	}

@@ -3,13 +3,13 @@ package resolver
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // lookupType finds a type by QName in schema or builtins.
 // Returns an error if type is not found.
-func lookupType(schema *schema.Schema, qname types.QName) (types.Type, error) {
+func lookupType(schema *parser.Schema, qname types.QName) (types.Type, error) {
 	if builtinType := types.GetBuiltinNS(qname.Namespace, qname.Local); builtinType != nil {
 		if qname.Local == "anyType" {
 			// anyType is a complex type

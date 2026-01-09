@@ -5,7 +5,7 @@ import (
 	"maps"
 
 	"github.com/jacoelho/xsd/internal/grammar"
-	xsdschema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
@@ -13,7 +13,7 @@ import (
 // Compiler transforms a resolved schema into a CompiledSchema (grammar).
 // All group references are flattened, derivation chains computed, DFAs built.
 type Compiler struct {
-	schema  *xsdschema.Schema
+	schema  *parser.Schema
 	grammar *grammar.CompiledSchema
 
 	// Compiled component cache (by QName for named types)
@@ -28,7 +28,7 @@ type Compiler struct {
 }
 
 // NewCompiler creates a new compiler for the given schema.
-func NewCompiler(schema *xsdschema.Schema) *Compiler {
+func NewCompiler(schema *parser.Schema) *Compiler {
 	return &Compiler{
 		schema: schema,
 		grammar: &grammar.CompiledSchema{
@@ -426,7 +426,7 @@ func (c *Compiler) effectiveElementQName(elem *grammar.CompiledElement) types.QN
 	case types.FormUnqualified:
 		return types.QName{Namespace: "", Local: elem.QName.Local}
 	default: // formDefault uses schema's elementFormDefault
-		if c.grammar.ElementFormDefault == xsdschema.Qualified {
+		if c.grammar.ElementFormDefault == parser.Qualified {
 			return elem.QName
 		}
 		return types.QName{Namespace: "", Local: elem.QName.Local}

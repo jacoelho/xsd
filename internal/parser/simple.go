@@ -11,7 +11,7 @@ import (
 )
 
 // parseSimpleType parses a top-level simpleType definition
-func parseSimpleType(doc *xml.Document, elem xml.NodeID, schema *Schema) error {
+func parseSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("simpleType missing name attribute")
@@ -66,7 +66,7 @@ func parseSimpleTypeFinal(value string) (types.DerivationSet, error) {
 }
 
 // parseInlineSimpleType parses an inline simpleType definition.
-func parseInlineSimpleType(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.SimpleType, error) {
+func parseInlineSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleType, error) {
 	if doc.GetAttribute(elem, "name") != "" {
 		return nil, fmt.Errorf("inline simpleType cannot have 'name' attribute")
 	}
@@ -80,7 +80,7 @@ func parseInlineSimpleType(doc *xml.Document, elem xml.NodeID, schema *Schema) (
 }
 
 // parseSimpleTypeDefinition parses the derivation content of a simpleType element.
-func parseSimpleTypeDefinition(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.SimpleType, error) {
+func parseSimpleTypeDefinition(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleType, error) {
 	st := &types.SimpleType{}
 	seenDerivation := false
 
@@ -89,7 +89,7 @@ func parseSimpleTypeDefinition(doc *xml.Document, elem xml.NodeID, schema *Schem
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -120,7 +120,7 @@ func parseSimpleTypeDefinition(doc *xml.Document, elem xml.NodeID, schema *Schem
 				// restriction without base attribute must have an inline simpleType child
 				var inlineBaseType *types.SimpleType
 				for _, grandchild := range doc.Children(child) {
-					if doc.NamespaceURI(grandchild) == xml.XSDNamespace && doc.LocalName(grandchild) == "simpleType" {
+					if doc.NamespaceURI(grandchild) == xsdxml.XSDNamespace && doc.LocalName(grandchild) == "simpleType" {
 						if inlineBaseType != nil {
 							return nil, fmt.Errorf("restriction cannot have multiple simpleType children")
 						}
@@ -141,7 +141,7 @@ func parseSimpleTypeDefinition(doc *xml.Document, elem xml.NodeID, schema *Schem
 				// base attribute is present - check that there's no inline simpleType child
 				// (per XSD spec: "Either the base attribute or the simpleType child must be present, but not both")
 				for _, grandchild := range doc.Children(child) {
-					if doc.NamespaceURI(grandchild) == xml.XSDNamespace && doc.LocalName(grandchild) == "simpleType" {
+					if doc.NamespaceURI(grandchild) == xsdxml.XSDNamespace && doc.LocalName(grandchild) == "simpleType" {
 						return nil, fmt.Errorf("restriction cannot have both base attribute and inline simpleType child")
 					}
 				}
@@ -182,7 +182,7 @@ func parseSimpleTypeDefinition(doc *xml.Document, elem xml.NodeID, schema *Schem
 			var inlineItemType *types.SimpleType
 			var restriction *types.Restriction
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) != xml.XSDNamespace {
+				if doc.NamespaceURI(grandchild) != xsdxml.XSDNamespace {
 					continue
 				}
 				if doc.LocalName(grandchild) == "simpleType" {
@@ -269,7 +269,7 @@ func parseSimpleTypeDefinition(doc *xml.Document, elem xml.NodeID, schema *Schem
 			}
 
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) != xml.XSDNamespace {
+				if doc.NamespaceURI(grandchild) != xsdxml.XSDNamespace {
 					continue
 				}
 				if doc.LocalName(grandchild) == "simpleType" {
@@ -330,16 +330,16 @@ const (
 	facetAttributesAllowed
 )
 
-func parseFacets(doc *xml.Document, restrictionElem xml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema) error {
+func parseFacets(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema) error {
 	return parseFacetsWithPolicy(doc, restrictionElem, restriction, st, schema, facetAttributesDisallowed)
 }
 
-func parseFacetsWithAttributes(doc *xml.Document, restrictionElem xml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema) error {
+func parseFacetsWithAttributes(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema) error {
 	return parseFacetsWithPolicy(doc, restrictionElem, restriction, st, schema, facetAttributesAllowed)
 }
 
 // parseFacetsWithPolicy parses facet elements from a restriction element.
-func parseFacetsWithPolicy(doc *xml.Document, restrictionElem xml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema, policy facetAttributePolicy) error {
+func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema, policy facetAttributePolicy) error {
 	// try to resolve base type for use with constructors
 	// if a nested simpleType is provided (e.g., in complex type restrictions with simpleContent),
 	// use its base type instead of the restriction's base type
@@ -353,7 +353,7 @@ func parseFacetsWithPolicy(doc *xml.Document, restrictionElem xml.NodeID, restri
 	}
 
 	for _, child := range doc.Children(restrictionElem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -665,7 +665,7 @@ func parseFacetsWithPolicy(doc *xml.Document, restrictionElem xml.NodeID, restri
 }
 
 // hasIDAttribute checks if an element has an id attribute (even if empty)
-func hasIDAttribute(doc *xml.Document, elem xml.NodeID) bool {
+func hasIDAttribute(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
 	for _, attr := range doc.Attributes(elem) {
 		if attr.LocalName() == "id" && attr.NamespaceURI() == "" {
 			return true

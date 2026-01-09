@@ -3,7 +3,7 @@ package validation
 import (
 	"slices"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -11,7 +11,7 @@ import (
 // This includes attributes from extensions, restrictions, and attribute groups
 // Note: We don't recursively collect from base types since they might not be fully resolved
 // during schema validation. This checks for duplicates within the same type definition.
-func collectAllAttributesForValidation(schema *schema.Schema, ct *types.ComplexType) []*types.AttributeDecl {
+func collectAllAttributesForValidation(schema *parser.Schema, ct *types.ComplexType) []*types.AttributeDecl {
 	allAttrs := slices.Clone(ct.Attributes())
 	allAttrs = append(allAttrs, collectAttributesFromGroups(schema, ct.AttrGroups, nil)...)
 
@@ -30,7 +30,7 @@ func collectAllAttributesForValidation(schema *schema.Schema, ct *types.ComplexT
 	return allAttrs
 }
 
-func collectEffectiveAttributeUses(schema *schema.Schema, ct *types.ComplexType) map[types.QName]*types.AttributeDecl {
+func collectEffectiveAttributeUses(schema *parser.Schema, ct *types.ComplexType) map[types.QName]*types.AttributeDecl {
 	if ct == nil {
 		return nil
 	}
@@ -42,7 +42,7 @@ func collectEffectiveAttributeUses(schema *schema.Schema, ct *types.ComplexType)
 	return attrMap
 }
 
-func collectComplexTypeChain(schema *schema.Schema, ct *types.ComplexType) []*types.ComplexType {
+func collectComplexTypeChain(schema *parser.Schema, ct *types.ComplexType) []*types.ComplexType {
 	var chain []*types.ComplexType
 	visited := make(map[*types.ComplexType]bool)
 	for current := ct; current != nil; {
@@ -75,7 +75,7 @@ func collectComplexTypeChain(schema *schema.Schema, ct *types.ComplexType) []*ty
 	return chain
 }
 
-func mergeAttributesFromTypeForValidation(schema *schema.Schema, ct *types.ComplexType, attrMap map[types.QName]*types.AttributeDecl) {
+func mergeAttributesFromTypeForValidation(schema *parser.Schema, ct *types.ComplexType, attrMap map[types.QName]*types.AttributeDecl) {
 	addAttr := func(attr *types.AttributeDecl) {
 		key := effectiveAttributeQNameForValidation(schema, attr)
 		if attr.Use == types.Prohibited && !attr.HasFixed {
@@ -105,7 +105,7 @@ func mergeAttributesFromTypeForValidation(schema *schema.Schema, ct *types.Compl
 	}
 }
 
-func mergeAttributesFromGroupsForValidation(schema *schema.Schema, agRefs []types.QName, attrMap map[types.QName]*types.AttributeDecl) {
+func mergeAttributesFromGroupsForValidation(schema *parser.Schema, agRefs []types.QName, attrMap map[types.QName]*types.AttributeDecl) {
 	for _, agRef := range agRefs {
 		ag, ok := schema.AttributeGroups[agRef]
 		if !ok {
@@ -115,7 +115,7 @@ func mergeAttributesFromGroupsForValidation(schema *schema.Schema, agRefs []type
 	}
 }
 
-func mergeAttributesFromGroupForValidation(schema *schema.Schema, ag *types.AttributeGroup, attrMap map[types.QName]*types.AttributeDecl) {
+func mergeAttributesFromGroupForValidation(schema *parser.Schema, ag *types.AttributeGroup, attrMap map[types.QName]*types.AttributeDecl) {
 	visited := make(map[*types.AttributeGroup]bool)
 	queue := []*types.AttributeGroup{ag}
 	for len(queue) > 0 {
@@ -142,7 +142,7 @@ func mergeAttributesFromGroupForValidation(schema *schema.Schema, ag *types.Attr
 }
 
 // collectAttributesFromGroups collects attributes from attribute group references
-func collectAttributesFromGroups(schema *schema.Schema, agRefs []types.QName, visited map[types.QName]bool) []*types.AttributeDecl {
+func collectAttributesFromGroups(schema *parser.Schema, agRefs []types.QName, visited map[types.QName]bool) []*types.AttributeDecl {
 	if visited == nil {
 		visited = make(map[types.QName]bool)
 	}
@@ -164,13 +164,13 @@ func collectAttributesFromGroups(schema *schema.Schema, agRefs []types.QName, vi
 
 // effectiveAttributeQNameForValidation returns the effective QName for an attribute
 // considering form defaults and namespace qualification
-func effectiveAttributeQNameForValidation(sch *schema.Schema, attr *types.AttributeDecl) types.QName {
+func effectiveAttributeQNameForValidation(sch *parser.Schema, attr *types.AttributeDecl) types.QName {
 	if attr.IsReference {
 		return attr.Name
 	}
 	form := attr.Form
 	if form == types.FormDefault {
-		if sch.AttributeFormDefault == schema.Qualified {
+		if sch.AttributeFormDefault == parser.Qualified {
 			form = types.FormQualified
 		} else {
 			form = types.FormUnqualified

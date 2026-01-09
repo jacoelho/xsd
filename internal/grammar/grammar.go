@@ -3,7 +3,7 @@ package grammar
 import (
 	"io/fs"
 
-	internal "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -33,8 +33,8 @@ type CompiledSchema struct {
 	ConstraintDeclsByQName map[types.QName][]*CompiledElement
 
 	// Schema-level defaults
-	ElementFormDefault   internal.Form
-	AttributeFormDefault internal.Form
+	ElementFormDefault   parser.Form
+	AttributeFormDefault parser.Form
 	BlockDefault         types.DerivationSet
 	FinalDefault         types.DerivationSet
 

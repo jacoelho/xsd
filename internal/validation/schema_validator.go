@@ -3,12 +3,12 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 // ValidateStructure validates that a parsed schema conforms to XSD structural constraints.
 // Reference validation is handled separately during the resolver phase.
-func ValidateStructure(schema *schema.Schema) []error {
+func ValidateStructure(schema *parser.Schema) []error {
 	var errors []error
 
 	for qname, decl := range schema.ElementDecls {

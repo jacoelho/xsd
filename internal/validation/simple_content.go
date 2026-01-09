@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"slices"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateSimpleContentStructure validates structural constraints of simple content
-func validateSimpleContentStructure(schema *schema.Schema, sc *types.SimpleContent, isInline bool) error {
+func validateSimpleContentStructure(schema *parser.Schema, sc *types.SimpleContent, isInline bool) error {
 	// simple content doesn't have model groups
 	if sc.Restriction != nil {
 		// check if base type is valid for simpleContent restriction

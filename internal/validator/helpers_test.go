@@ -7,13 +7,13 @@ import (
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/compiler"
 	"github.com/jacoelho/xsd/internal/grammar"
-	xsdschema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolver"
 )
 
 // mustCompile compiles an *xsd.Schema to *grammar.CompiledSchema.
 // It fails the test if compilation fails.
-func mustCompile(t *testing.T, schema *xsdschema.Schema) *grammar.CompiledSchema {
+func mustCompile(t *testing.T, schema *parser.Schema) *grammar.CompiledSchema {
 	t.Helper()
 
 	resolver := resolver.NewResolver(schema)

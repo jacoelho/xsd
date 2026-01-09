@@ -61,7 +61,7 @@ type IncludeInfo struct {
 
 // getAttr returns an attribute value with whitespace trimmed.
 // XSD attribute values should be normalized per XML spec, so we always trim.
-func getAttr(doc *xml.Document, elem xml.NodeID, name string) string {
+func getAttr(doc *xsdxml.Document, elem xsdxml.NodeID, name string) string {
 	return strings.TrimSpace(doc.GetAttribute(elem, name))
 }
 
@@ -83,19 +83,19 @@ func Parse(r io.Reader) (*Schema, error) {
 
 // ParseWithImports parses an XSD schema and returns import/include information
 func ParseWithImports(r io.Reader) (*ParseResult, error) {
-	doc := xml.AcquireDocument()
-	defer xml.ReleaseDocument(doc)
+	doc := xsdxml.AcquireDocument()
+	defer xsdxml.ReleaseDocument(doc)
 
-	if err := xml.ParseInto(r, doc); err != nil {
+	if err := xsdxml.ParseInto(r, doc); err != nil {
 		return nil, newParseError("parse XML", err)
 	}
 
 	root := doc.DocumentElement()
-	if root == xml.InvalidNode {
+	if root == xsdxml.InvalidNode {
 		return nil, fmt.Errorf("empty document")
 	}
 
-	if doc.LocalName(root) != "schema" || doc.NamespaceURI(root) != xml.XSDNamespace {
+	if doc.LocalName(root) != "schema" || doc.NamespaceURI(root) != xsdxml.XSDNamespace {
 		return nil, fmt.Errorf("root element must be xs:schema, got {%s}%s",
 			doc.NamespaceURI(root), doc.LocalName(root))
 	}
@@ -138,10 +138,10 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	// note: Go's encoding/xml represents xmlns:prefix attributes with NamespaceURI="xmlns"
 	// and the local name is the prefix
 	for _, attr := range doc.Attributes(root) {
-		if attr.LocalName() == "xmlns" && (attr.NamespaceURI() == "" || attr.NamespaceURI() == xml.XMLNSNamespace) {
+		if attr.LocalName() == "xmlns" && (attr.NamespaceURI() == "" || attr.NamespaceURI() == xsdxml.XMLNSNamespace) {
 			// xmlns="namespace" - default namespace (no prefix)
 			schema.NamespaceDecls[""] = attr.Value()
-		} else if attr.NamespaceURI() == "xmlns" || attr.NamespaceURI() == xml.XMLNSNamespace {
+		} else if attr.NamespaceURI() == "xmlns" || attr.NamespaceURI() == xsdxml.XMLNSNamespace {
 			// xmlns:prefix="namespace" - prefix is the local name
 			prefix := attr.LocalName()
 			if attr.Value() == "" {
@@ -210,7 +210,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	}
 
 	for _, child := range doc.Children(root) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -290,7 +290,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 }
 
 // parseTopLevelNotation parses a top-level notation declaration
-func parseTopLevelNotation(doc *xml.Document, elem xml.NodeID, schema *Schema) error {
+func parseTopLevelNotation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
 	if err := validateAllowedAttributes(doc, elem, "notation", validNotationAttributes); err != nil {
 		return err
 	}
@@ -330,7 +330,7 @@ func parseTopLevelNotation(doc *xml.Document, elem xml.NodeID, schema *Schema) e
 	// validate annotation constraints: at most one annotation, must be first
 	hasAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			return fmt.Errorf("notation '%s': unexpected child element '%s'", name, doc.LocalName(child))
 		}
 

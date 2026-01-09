@@ -5,7 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validation"
 )
@@ -600,7 +600,7 @@ func TestValidateComplexTypeStructureIntegration(t *testing.T) {
 // TestCollectElementDeclarationsFromType tests the element collection logic
 // to ensure it correctly collects elements from base types recursively.
 func TestCollectElementDeclarationsFromType(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}

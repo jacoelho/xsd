@@ -3,7 +3,7 @@ package resolver
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validation"
 )
@@ -47,7 +47,7 @@ func collectElementReferencesFromParticlesWithVisited(particles []types.Particle
 	return refs
 }
 
-func validateElementValueConstraints(schema *schema.Schema, decl *types.ElementDecl) error {
+func validateElementValueConstraints(schema *parser.Schema, decl *types.ElementDecl) error {
 	if decl == nil {
 		return nil
 	}
@@ -83,7 +83,7 @@ func validateElementValueConstraints(schema *schema.Schema, decl *types.ElementD
 
 // validateSubstitutionGroupFinal validates that the substitution group member's derivation
 // method is not blocked by the head element's final attribute.
-func validateSubstitutionGroupFinal(schema *schema.Schema, memberQName types.QName, memberDecl *types.ElementDecl, headDecl *types.ElementDecl) error {
+func validateSubstitutionGroupFinal(schema *parser.Schema, memberQName types.QName, memberDecl *types.ElementDecl, headDecl *types.ElementDecl) error {
 	// if head element has no final constraints, any derivation is allowed.
 	if headDecl.Final == 0 {
 		return nil
@@ -152,7 +152,7 @@ func validateSubstitutionGroupFinal(schema *schema.Schema, memberQName types.QNa
 }
 
 // validateSubstitutionGroupDerivation validates that the member element's type is derived from the head element's type.
-func validateSubstitutionGroupDerivation(schema *schema.Schema, memberQName types.QName, memberDecl *types.ElementDecl, headDecl *types.ElementDecl) error {
+func validateSubstitutionGroupDerivation(schema *parser.Schema, memberQName types.QName, memberDecl *types.ElementDecl, headDecl *types.ElementDecl) error {
 	memberType := resolveTypeForFinalValidation(schema, memberDecl.Type)
 	headType := resolveTypeForFinalValidation(schema, headDecl.Type)
 	if memberType == nil || headType == nil {
@@ -206,7 +206,7 @@ func typesAreEqual(qname types.QName, typ types.Type) bool {
 }
 
 // isTypeInDerivationChain checks if the given QName is anywhere in the derivation chain of the target type.
-func isTypeInDerivationChain(schema *schema.Schema, qname types.QName, targetType types.Type) bool {
+func isTypeInDerivationChain(schema *parser.Schema, qname types.QName, targetType types.Type) bool {
 	// get the target type's name.
 	targetQName := targetType.Name()
 
@@ -238,7 +238,7 @@ func isTypeInDerivationChain(schema *schema.Schema, qname types.QName, targetTyp
 }
 
 // validateNoCyclicSubstitutionGroups checks for cycles in substitution group chains.
-func validateNoCyclicSubstitutionGroups(schema *schema.Schema) error {
+func validateNoCyclicSubstitutionGroups(schema *parser.Schema) error {
 	// for each element with a substitution group, follow the chain and check for cycles.
 	for startQName, decl := range schema.ElementDecls {
 		if decl.SubstitutionGroup.IsZero() {

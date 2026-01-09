@@ -3,13 +3,13 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateElementDeclStructure validates structural constraints of an element declaration
 // Does not validate references (which might be forward references or imports)
-func validateElementDeclStructure(schema *schema.Schema, qname types.QName, decl *types.ElementDecl) error {
+func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl *types.ElementDecl) error {
 	// validate element name is a valid NCName (no spaces, valid XML name)
 	// this is a structural constraint that is definitely invalid if violated
 	if !isValidNCName(qname.Local) {

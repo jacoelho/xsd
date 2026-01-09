@@ -4,14 +4,14 @@ import (
 	"errors"
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validation"
 )
 
 // collectAllIdentityConstraints collects all identity constraints from the schema
 // including constraints on local elements in content models.
-func collectAllIdentityConstraints(schema *schema.Schema) []*types.IdentityConstraint {
+func collectAllIdentityConstraints(schema *parser.Schema) []*types.IdentityConstraint {
 	var all []*types.IdentityConstraint
 	visitedGroups := make(map[*types.ModelGroup]bool)
 	visitedTypes := make(map[*types.ComplexType]bool)
@@ -98,7 +98,7 @@ func collectIdentityConstraintsFromParticlesWithVisited(particles []types.Partic
 // validateIdentityConstraintUniqueness validates that identity constraint names are unique within the target namespace.
 // Per XSD spec 3.11.2: "Constraint definition identities must be unique within an XML Schema"
 // Constraints are identified by (name, target namespace).
-func validateIdentityConstraintUniqueness(schema *schema.Schema) []error {
+func validateIdentityConstraintUniqueness(schema *parser.Schema) []error {
 	var errors []error
 
 	// identity constraints are identified by (name, targetNamespace) per XSD spec.
@@ -196,7 +196,7 @@ func validateKeyrefConstraints(contextQName types.QName, constraints []*types.Id
 // validateIdentityConstraintResolution validates that identity constraint selector and fields can be resolved.
 // This validation is lenient - only definitively invalid cases are rejected.
 // Resolution failures due to namespace handling, wildcards, or implementation limitations are ignored.
-func validateIdentityConstraintResolution(schema *schema.Schema, constraint *types.IdentityConstraint, decl *types.ElementDecl) error {
+func validateIdentityConstraintResolution(schema *parser.Schema, constraint *types.IdentityConstraint, decl *types.ElementDecl) error {
 	for i, field := range constraint.Fields {
 		selectedElementType, err := validation.ResolveSelectorElementType(schema, decl, constraint.Selector.XPath)
 		if err != nil || selectedElementType == nil {

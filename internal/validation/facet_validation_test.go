@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -230,7 +230,7 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 				}
 			}
 
-			schema := &schema.Schema{
+			schema := &parser.Schema{
 				TargetNamespace: "http://example.com",
 				TypeDefs:        make(map[types.QName]types.Type),
 			}

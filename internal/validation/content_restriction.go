@@ -3,11 +3,11 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func validateRestrictionAttributes(schema *schema.Schema, baseCT *types.ComplexType, restrictionAttrs []*types.AttributeDecl, context string) error {
+func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexType, restrictionAttrs []*types.AttributeDecl, context string) error {
 	if baseCT == nil {
 		return nil
 	}
@@ -58,7 +58,7 @@ func validateRestrictionAttributes(schema *schema.Schema, baseCT *types.ComplexT
 	return nil
 }
 
-func effectiveAttributeUse(schema *schema.Schema, attr *types.AttributeDecl) *types.AttributeDecl {
+func effectiveAttributeUse(schema *parser.Schema, attr *types.AttributeDecl) *types.AttributeDecl {
 	if attr == nil || !attr.IsReference {
 		return attr
 	}

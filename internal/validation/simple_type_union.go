@@ -3,12 +3,12 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateUnionType validates a union type definition
-func validateUnionType(schema *schema.Schema, unionType *types.UnionType) error {
+func validateUnionType(schema *parser.Schema, unionType *types.UnionType) error {
 	// union must have at least one member type (from attribute or inline)
 	if len(unionType.MemberTypes) == 0 && len(unionType.InlineTypes) == 0 {
 		return fmt.Errorf("union type must have at least one member type")

@@ -3,12 +3,12 @@ package validation
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateRestriction validates a simple type restriction
-func validateRestriction(schema *schema.Schema, st *types.SimpleType, restriction *types.Restriction) error {
+func validateRestriction(schema *parser.Schema, st *types.SimpleType, restriction *types.Restriction) error {
 	var baseType types.Type
 
 	// use ResolvedBase if available (handles inline simpleType bases)
@@ -142,7 +142,7 @@ func validateRestriction(schema *schema.Schema, st *types.SimpleType, restrictio
 }
 
 // validateSimpleContentRestrictionFacets validates facets in a simpleContent restriction
-func validateSimpleContentRestrictionFacets(schema *schema.Schema, restriction *types.Restriction) error {
+func validateSimpleContentRestrictionFacets(schema *parser.Schema, restriction *types.Restriction) error {
 	if restriction == nil {
 		return nil
 	}

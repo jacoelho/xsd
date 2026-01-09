@@ -5,14 +5,14 @@ import (
 	"testing"
 	"testing/fstest"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validation"
 )
 
 // TestCircularDerivation_TrueCycle tests that a true circular derivation (A -> B -> A) is correctly detected
 func TestCircularDerivation_TrueCycle(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -63,7 +63,7 @@ func TestCircularDerivation_TrueCycle(t *testing.T) {
 
 // TestCircularDerivation_ValidDeepHierarchy tests that a valid deep hierarchy (A -> B -> C -> anyType) is NOT flagged as circular
 func TestCircularDerivation_ValidDeepHierarchy(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -128,7 +128,7 @@ func TestCircularDerivation_ValidDeepHierarchy(t *testing.T) {
 
 // TestCircularDerivation_MultipleTypesFromSameBase tests that multiple types deriving from the same base is NOT flagged as circular
 func TestCircularDerivation_MultipleTypesFromSameBase(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -199,7 +199,7 @@ func TestCircularDerivation_MultipleTypesFromSameBase(t *testing.T) {
 // TestCircularDerivation_RedefineSelfExtension tests that a type extending itself in a redefine context is NOT flagged as circular
 // This is the ipo4 case: AddressType is redefined to extend itself (referring to the old definition)
 func TestCircularDerivation_RedefineSelfExtension(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -275,7 +275,7 @@ func TestCircularDerivation_RedefineSelfExtension(t *testing.T) {
 // TestMixedContentDerivation_ExtensionFromMixedToElementOnly tests that extension from mixed content
 // to element-only content with additional particles is INVALID.
 func TestMixedContentDerivation_ExtensionFromMixedToElementOnly(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -340,7 +340,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnly(t *testing.T) {
 }
 
 func TestMixedContentDerivation_ExtensionFromMixedToElementOnlyNoParticle(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -391,7 +391,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnlyNoParticle(t *tes
 
 // TestMixedContentDerivation_RestrictionFromElementOnlyToMixed tests that restriction from element-only to mixed content is INVALID
 func TestMixedContentDerivation_RestrictionFromElementOnlyToMixed(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -449,7 +449,7 @@ func TestMixedContentDerivation_RestrictionFromElementOnlyToMixed(t *testing.T) 
 
 // TestMixedContentDerivation_ExtensionFromElementOnlyToElementOnly tests that extension from element-only to element-only is VALID
 func TestMixedContentDerivation_ExtensionFromElementOnlyToElementOnly(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -503,7 +503,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToElementOnly(t *testing
 
 // TestMixedContentDerivation_ExtensionFromMixedToMixed tests that extension from mixed to mixed is VALID
 func TestMixedContentDerivation_ExtensionFromMixedToMixed(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -558,7 +558,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToMixed(t *testing.T) {
 
 // TestMixedContentDerivation_ExtensionFromElementOnlyToMixed tests that extension from element-only to mixed is INVALID
 func TestMixedContentDerivation_ExtensionFromElementOnlyToMixed(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}
@@ -616,7 +616,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToMixed(t *testing.T) {
 
 // TestMixedContentDerivation_RestrictionFromMixedToElementOnly tests that restriction from mixed to element-only is VALID
 func TestMixedContentDerivation_RestrictionFromMixedToElementOnly(t *testing.T) {
-	schema := &schema.Schema{
+	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
 	}

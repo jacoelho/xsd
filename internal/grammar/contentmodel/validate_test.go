@@ -86,7 +86,7 @@ func buildTestAutomaton(t *testing.T) *Automaton {
 	return automaton
 }
 
-func makeElements(t *testing.T, names []string) (*xml.Document, []xml.NodeID) {
+func makeElements(t *testing.T, names []string) (*xsdxml.Document, []xsdxml.NodeID) {
 	t.Helper()
 
 	var sb strings.Builder
@@ -98,7 +98,7 @@ func makeElements(t *testing.T, names []string) (*xml.Document, []xml.NodeID) {
 	}
 	sb.WriteString("</root>")
 
-	doc, err := xml.Parse(strings.NewReader(sb.String()))
+	doc, err := xsdxml.Parse(strings.NewReader(sb.String()))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}

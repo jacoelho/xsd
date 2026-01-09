@@ -1,7 +1,6 @@
 package errors
 
 import (
-	stderrors "errors"
 	"fmt"
 	"strings"
 )
@@ -127,9 +126,33 @@ func NewValidationf(code ErrorCode, path, format string, args ...any) Validation
 
 // AsValidations extracts validation errors from an error returned by validation helpers.
 func AsValidations(err error) ([]Validation, bool) {
-	var list ValidationList
-	if stderrors.As(err, &list) {
-		return []Validation(list), true
+	list, ok := asValidationList(err)
+	if !ok {
+		return nil, false
+	}
+	return []Validation(list), true
+}
+
+func asValidationList(err error) (ValidationList, bool) {
+	if err == nil {
+		return nil, false
+	}
+	switch v := err.(type) {
+	case ValidationList:
+		return v, true
+	case *ValidationList:
+		if v == nil {
+			return nil, false
+		}
+		return *v, true
+	case interface{ Unwrap() error }:
+		return asValidationList(v.Unwrap())
+	case interface{ Unwrap() []error }:
+		for _, child := range v.Unwrap() {
+			if list, ok := asValidationList(child); ok {
+				return list, true
+			}
+		}
 	}
 	return nil, false
 }

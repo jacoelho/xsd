@@ -12,7 +12,7 @@ type schemaLocationPrepass struct {
 	hints     []schemaLocationHint
 }
 
-func collectSchemaLocationHintsFromStream(dec *xml.StreamDecoder) (schemaLocationPrepass, error) {
+func collectSchemaLocationHintsFromStream(dec *xsdxml.StreamDecoder) (schemaLocationPrepass, error) {
 	var result schemaLocationPrepass
 	for {
 		ev, err := dec.Next()
@@ -22,7 +22,7 @@ func collectSchemaLocationHintsFromStream(dec *xml.StreamDecoder) (schemaLocatio
 		if err != nil {
 			return result, err
 		}
-		if ev.Kind != xml.EventStartElement {
+		if ev.Kind != xsdxml.EventStartElement {
 			continue
 		}
 		if result.rootLocal == "" {

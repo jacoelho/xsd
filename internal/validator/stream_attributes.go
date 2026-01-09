@@ -9,10 +9,10 @@ import (
 
 type attributeIndex struct {
 	values map[types.QName]string
-	attrs  []xml.Attr
+	attrs  []xsdxml.Attr
 }
 
-func newAttributeIndex(attrs []xml.Attr) attributeIndex {
+func newAttributeIndex(attrs []xsdxml.Attr) attributeIndex {
 	values := make(map[types.QName]string, len(attrs))
 	for _, attr := range attrs {
 		values[types.QName{
@@ -118,7 +118,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 	return violations
 }
 
-func (r *streamRun) checkWildcardAttributeStream(xmlAttr xml.Attr, anyAttr *types.AnyAttribute, scopeDepth int) []errors.Validation {
+func (r *streamRun) checkWildcardAttributeStream(xmlAttr xsdxml.Attr, anyAttr *types.AnyAttribute, scopeDepth int) []errors.Validation {
 	if anyAttr.ProcessContents == types.Skip {
 		return nil
 	}

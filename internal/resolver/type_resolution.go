@@ -3,13 +3,13 @@ package resolver
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // resolveTypeReferences implements two-phase type resolution (Phase 2)
 // Resolves all QName references to Type objects after all types are parsed
-func resolveTypeReferences(schema *schema.Schema) error {
+func resolveTypeReferences(schema *parser.Schema) error {
 	detector := NewCycleDetector[types.QName]()
 	visitedPtrs := make(map[types.Type]bool) // track anonymous types by pointer
 
@@ -56,11 +56,11 @@ func resolveTypeReferences(schema *schema.Schema) error {
 }
 
 // ResolveTypeReferences resolves all type references after schema parsing.
-func ResolveTypeReferences(schema *schema.Schema) error {
+func ResolveTypeReferences(schema *parser.Schema) error {
 	return resolveTypeReferences(schema)
 }
 
-func resolveAttributeTypes(schema *schema.Schema) error {
+func resolveAttributeTypes(schema *parser.Schema) error {
 	resolveAttr := func(attr *types.AttributeDecl) error {
 		if attr == nil || attr.Type == nil {
 			return nil
@@ -151,7 +151,7 @@ func resolveAttributeTypes(schema *schema.Schema) error {
 	return nil
 }
 
-func resolveElementAnonymousTypes(elem *types.ElementDecl, schema *schema.Schema, detector *CycleDetector[types.QName], visitedPtrs map[types.Type]bool) error {
+func resolveElementAnonymousTypes(elem *types.ElementDecl, schema *parser.Schema, detector *CycleDetector[types.QName], visitedPtrs map[types.Type]bool) error {
 	if elem.Type == nil {
 		return nil
 	}
@@ -213,7 +213,7 @@ func resolveElementAnonymousTypes(elem *types.ElementDecl, schema *schema.Schema
 	return nil
 }
 
-func resolveContentModelAnonymousTypes(content types.Content, schema *schema.Schema, detector *CycleDetector[types.QName], visitedPtrs map[types.Type]bool) error {
+func resolveContentModelAnonymousTypes(content types.Content, schema *parser.Schema, detector *CycleDetector[types.QName], visitedPtrs map[types.Type]bool) error {
 	switch c := content.(type) {
 	case *types.ElementContent:
 		if c.Particle != nil {
@@ -236,7 +236,7 @@ func resolveContentModelAnonymousTypes(content types.Content, schema *schema.Sch
 	return nil
 }
 
-func resolveParticleAnonymousTypes(particle types.Particle, schema *schema.Schema, detector *CycleDetector[types.QName], visitedPtrs map[types.Type]bool) error {
+func resolveParticleAnonymousTypes(particle types.Particle, schema *parser.Schema, detector *CycleDetector[types.QName], visitedPtrs map[types.Type]bool) error {
 	switch p := particle.(type) {
 	case *types.ElementDecl:
 		return resolveElementAnonymousTypes(p, schema, detector, visitedPtrs)
@@ -251,7 +251,7 @@ func resolveParticleAnonymousTypes(particle types.Particle, schema *schema.Schem
 }
 
 // resolveType resolves a single type and all its references
-func resolveType(qname types.QName, typeDef types.Type, schema *schema.Schema, detector *CycleDetector[types.QName]) error {
+func resolveType(qname types.QName, typeDef types.Type, schema *parser.Schema, detector *CycleDetector[types.QName]) error {
 	if detector.IsVisited(qname) {
 		return nil // already resolved
 	}
@@ -281,7 +281,7 @@ func resolveType(qname types.QName, typeDef types.Type, schema *schema.Schema, d
 }
 
 // resolveSimpleType resolves all references in a SimpleType
-func resolveSimpleType(st *types.SimpleType, schema *schema.Schema, detector *CycleDetector[types.QName]) error {
+func resolveSimpleType(st *types.SimpleType, schema *parser.Schema, detector *CycleDetector[types.QName]) error {
 	if st.Restriction != nil {
 		// if base is specified as a QName, resolve it
 		if !st.Restriction.Base.IsZero() {
@@ -492,7 +492,7 @@ func resolveSimpleType(st *types.SimpleType, schema *schema.Schema, detector *Cy
 }
 
 // resolveComplexType resolves all references in a ComplexType
-func resolveComplexType(ct *types.ComplexType, schema *schema.Schema, detector *CycleDetector[types.QName]) error {
+func resolveComplexType(ct *types.ComplexType, schema *parser.Schema, detector *CycleDetector[types.QName]) error {
 	// check for self-reference (circular dependency)
 	if sc, ok := ct.Content().(*types.SimpleContent); ok {
 		baseQName := sc.BaseTypeQName()
