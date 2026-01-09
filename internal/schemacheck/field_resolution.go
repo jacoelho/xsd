@@ -143,7 +143,7 @@ func resolveSelectorElementType(schema *parser.Schema, constraintElement *types.
 
 	// handle "." selector - selects the constraint element itself
 	if selectorXPath == "." {
-		elementType := ResolveTypeForValidation(schema, constraintElement.Type)
+		elementType := resolveTypeForValidation(schema, constraintElement.Type)
 		if elementType == nil {
 			return nil, fmt.Errorf("cannot resolve constraint element type")
 		}
@@ -188,7 +188,7 @@ func resolveSelectorElementType(schema *parser.Schema, constraintElement *types.
 // This is used for descendant axis selectors
 func findElementTypeDescendant(schema *parser.Schema, elementDecl *types.ElementDecl, elementName string) (types.Type, error) {
 	// resolve element's type
-	elementType := ResolveTypeForValidation(schema, elementDecl.Type)
+	elementType := resolveTypeForValidation(schema, elementDecl.Type)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
 	}
@@ -240,7 +240,7 @@ func findElementInParticleDescendant(schema *parser.Schema, particle types.Parti
 	case *types.ElementDecl:
 		// found an element declaration
 		if p.Name.Local == localName {
-			resolvedType := ResolveTypeForValidation(schema, p.Type)
+			resolvedType := resolveTypeForValidation(schema, p.Type)
 			if resolvedType == nil {
 				return nil, fmt.Errorf("cannot resolve element type for '%s'", elementName)
 			}
@@ -248,7 +248,7 @@ func findElementInParticleDescendant(schema *parser.Schema, particle types.Parti
 		}
 		// even if name doesn't match, if this element has complex type, search its content
 		if p.Type != nil {
-			if resolvedType := ResolveTypeForValidation(schema, p.Type); resolvedType != nil {
+			if resolvedType := resolveTypeForValidation(schema, p.Type); resolvedType != nil {
 				if ct, ok := resolvedType.(*types.ComplexType); ok {
 					if typ, err := findElementInContentDescendant(schema, ct.Content(), elementName); err == nil {
 						return typ, nil
@@ -335,7 +335,7 @@ func findAttributeType(schema *parser.Schema, elementDecl *types.ElementDecl, at
 		attrName = attrName[idx+1:]
 	}
 	// resolve element's type
-	elementType := ResolveTypeForValidation(schema, elementDecl.Type)
+	elementType := resolveTypeForValidation(schema, elementDecl.Type)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
 	}
@@ -348,7 +348,7 @@ func findAttributeType(schema *parser.Schema, elementDecl *types.ElementDecl, at
 	// search attribute uses
 	for _, attrUse := range ct.Attributes() {
 		if attrUse.Name.Local == attrName {
-			resolvedType := ResolveTypeForValidation(schema, attrUse.Type)
+			resolvedType := resolveTypeForValidation(schema, attrUse.Type)
 			if resolvedType == nil {
 				return nil, fmt.Errorf("cannot resolve attribute type for '%s'", attrName)
 			}
@@ -362,7 +362,7 @@ func findAttributeType(schema *parser.Schema, elementDecl *types.ElementDecl, at
 		if attrGroup, ok := schema.AttributeGroups[attrGroupQName]; ok {
 			for _, attr := range attrGroup.Attributes {
 				if attr.Name.Local == attrName {
-					resolvedType := ResolveTypeForValidation(schema, attr.Type)
+					resolvedType := resolveTypeForValidation(schema, attr.Type)
 					if resolvedType == nil {
 						return nil, fmt.Errorf("cannot resolve attribute type for '%s' in attribute group", attrName)
 					}
@@ -374,7 +374,7 @@ func findAttributeType(schema *parser.Schema, elementDecl *types.ElementDecl, at
 				if nestedAttrGroup, ok := schema.AttributeGroups[nestedAttrGroupQName]; ok {
 					for _, attr := range nestedAttrGroup.Attributes {
 						if attr.Name.Local == attrName {
-							resolvedType := ResolveTypeForValidation(schema, attr.Type)
+							resolvedType := resolveTypeForValidation(schema, attr.Type)
 							if resolvedType == nil {
 								return nil, fmt.Errorf("cannot resolve attribute type for '%s' in nested attribute group", attrName)
 							}
@@ -467,7 +467,7 @@ func normalizeXPathForResolution(xpath string) string {
 // findElementType finds the type of an element in an element's content model
 func findElementType(schema *parser.Schema, elementDecl *types.ElementDecl, elementName string) (types.Type, error) {
 	// resolve element's type
-	elementType := ResolveTypeForValidation(schema, elementDecl.Type)
+	elementType := resolveTypeForValidation(schema, elementDecl.Type)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
 	}
@@ -533,7 +533,7 @@ func findElementInParticle(schema *parser.Schema, particle types.Particle, eleme
 	case *types.ElementDecl:
 		// found an element declaration
 		if p.Name.Local == localName {
-			resolvedType := ResolveTypeForValidation(schema, p.Type)
+			resolvedType := resolveTypeForValidation(schema, p.Type)
 			if resolvedType == nil {
 				return nil, fmt.Errorf("cannot resolve element type for '%s'", elementName)
 			}
