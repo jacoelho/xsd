@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/validation"
 )
 
 type idValuePolicy int
@@ -48,7 +48,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 	if typ.IsBuiltin() {
 		bt := types.GetBuiltinNS(typ.Name().Namespace, typ.Name().Local)
 		if bt != nil {
-			if policy == idValuesDisallowed && validation.IsIDOnlyType(typ.Name()) {
+			if policy == idValuesDisallowed && schemacheck.IsIDOnlyType(typ.Name()) {
 				return fmt.Errorf("type '%s' cannot have default or fixed values", typ.Name().Local)
 			}
 			if err := bt.Validate(normalizedValue); err != nil {
@@ -59,7 +59,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 	}
 
 	if st, ok := typ.(*types.SimpleType); ok {
-		if policy == idValuesDisallowed && validation.IsIDOnlyDerivedType(st) {
+		if policy == idValuesDisallowed && schemacheck.IsIDOnlyDerivedType(st) {
 			return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 		}
 		switch st.Variety() {
@@ -111,7 +111,7 @@ func resolveUnionMemberTypes(schema *parser.Schema, st *types.SimpleType) []type
 		memberTypes = append(memberTypes, inline)
 	}
 	for _, memberQName := range st.Union.MemberTypes {
-		if member := validation.ResolveSimpleTypeReference(schema, memberQName); member != nil {
+		if member := schemacheck.ResolveSimpleTypeReference(schema, memberQName); member != nil {
 			memberTypes = append(memberTypes, member)
 		}
 	}
@@ -129,7 +129,7 @@ func resolveListItemType(schema *parser.Schema, st *types.SimpleType) types.Type
 		return st.List.InlineItemType
 	}
 	if !st.List.ItemType.IsZero() {
-		return validation.ResolveSimpleTypeReference(schema, st.List.ItemType)
+		return schemacheck.ResolveSimpleTypeReference(schema, st.List.ItemType)
 	}
 	return nil
 }

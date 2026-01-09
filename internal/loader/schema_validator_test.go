@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/validation"
 )
 
 func TestGYearMinInclusive003Schema(t *testing.T) {
@@ -38,14 +38,14 @@ func TestCompareGYearValues(t *testing.T) {
 		t.Fatal("builtin.Get(\"gYear\") returned nil")
 	}
 
-	result := validation.CompareNumericOrString("2002", "1998", "gYear", bt)
+	result := schemacheck.CompareNumericOrString("2002", "1998", "gYear", bt)
 	if result != 1 {
-		t.Errorf("validation.CompareNumericOrString(\"2002\", \"1998\", \"gYear\", bt) = %d, want 1", result)
+		t.Errorf("schemacheck.CompareNumericOrString(\"2002\", \"1998\", \"gYear\", bt) = %d, want 1", result)
 	}
 
-	result = validation.CompareNumericOrString("2002", "1998", "gYear", nil)
+	result = schemacheck.CompareNumericOrString("2002", "1998", "gYear", nil)
 	if result != 1 {
-		t.Errorf("validation.CompareNumericOrString(\"2002\", \"1998\", \"gYear\", nil) = %d, want 1", result)
+		t.Errorf("schemacheck.CompareNumericOrString(\"2002\", \"1998\", \"gYear\", nil) = %d, want 1", result)
 	}
 }
 
@@ -55,9 +55,9 @@ func TestValidateRangeFacetsGYear(t *testing.T) {
 	baseTypeName := "gYear"
 	bt := types.GetBuiltin(types.TypeNameGYear)
 
-	err := validation.ValidateRangeFacets(nil, nil, &minInclusive, &maxInclusive, baseTypeName, bt)
+	err := schemacheck.ValidateRangeFacets(nil, nil, &minInclusive, &maxInclusive, baseTypeName, bt)
 	if err == nil {
-		t.Error("validation.ValidateRangeFacets should return error for minInclusive > maxInclusive")
+		t.Error("schemacheck.ValidateRangeFacets should return error for minInclusive > maxInclusive")
 	} else {
 		t.Logf("Got expected error: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestValidatePatternFacetSyntax(t *testing.T) {
 			}
 
 			facetList := []types.Facet{patternFacet}
-			err := validation.ValidateFacetConstraints(facetList, baseType, baseQName)
+			err := schemacheck.ValidateFacetConstraints(facetList, baseType, baseQName)
 			if tt.valid && err != nil {
 				t.Errorf("Pattern %q should be valid but got error: %v", tt.pattern, err)
 			}

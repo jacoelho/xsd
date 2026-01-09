@@ -6,8 +6,8 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/validation"
 )
 
 func TestDuplicateConstraintNameValidation(t *testing.T) {
@@ -171,7 +171,7 @@ func TestDuplicateConstraintNameValidation(t *testing.T) {
 	}
 }
 
-// TestDuplicateConstraintNameDirect tests validation.ValidateElementDeclStructure directly
+// TestDuplicateConstraintNameDirect tests schemacheck.ValidateElementDeclStructure directly
 func TestDuplicateConstraintNameDirect(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
@@ -233,9 +233,9 @@ func TestDuplicateConstraintNameDirect(t *testing.T) {
 		Local:     "purchaseReport",
 	}
 
-	err := validation.ValidateElementDeclStructure(schema, elementQName, elementDecl)
+	err := schemacheck.ValidateElementDeclStructure(schema, elementQName, elementDecl)
 	if err == nil {
-		t.Error("validation.ValidateElementDeclStructure should have failed for duplicate constraint names")
+		t.Error("schemacheck.ValidateElementDeclStructure should have failed for duplicate constraint names")
 	} else {
 		if !strings.Contains(err.Error(), "duplicate") {
 			t.Errorf("Expected error to mention 'duplicate', got: %v", err)
@@ -281,8 +281,8 @@ func TestDuplicateConstraintNameDirect(t *testing.T) {
 		Local:     "purchaseReport2",
 	}
 
-	err = validation.ValidateElementDeclStructure(schema, elementQName2, elementDecl2)
+	err = schemacheck.ValidateElementDeclStructure(schema, elementQName2, elementDecl2)
 	if err != nil {
-		t.Errorf("validation.ValidateElementDeclStructure should have passed for unique constraint names, got error: %v", err)
+		t.Errorf("schemacheck.ValidateElementDeclStructure should have passed for unique constraint names, got error: %v", err)
 	}
 }

@@ -167,7 +167,7 @@ func (l *SchemaLoader) loadImport(location string, importNamespace string, curre
 }
 
 // LoadCompiled loads and compiles a schema from the given location.
-// Returns a CompiledSchema ready for validation.
+// Returns a CompiledSchema ready for schemacheck.
 // This is the new multi-phase architecture: Parse → Resolve → Compile.
 func (l *SchemaLoader) LoadCompiled(location string) (*grammar.CompiledSchema, error) {
 	// phase 1: Parse (and load includes/imports/redefines)

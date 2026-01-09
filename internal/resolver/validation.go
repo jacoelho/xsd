@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/validation"
 )
 
 func validateReferences(schema *parser.Schema) []error {
@@ -384,7 +384,7 @@ func validateLocalElementValueConstraints(schema *parser.Schema) []error {
 
 	seenLocal := make(map[*types.ElementDecl]bool)
 	validateLocals := func(ct *types.ComplexType) {
-		for _, elem := range validation.CollectAllElementDeclarationsFromType(schema, ct) {
+		for _, elem := range schemacheck.CollectAllElementDeclarationsFromType(schema, ct) {
 			if elem == nil || elem.IsReference {
 				continue
 			}

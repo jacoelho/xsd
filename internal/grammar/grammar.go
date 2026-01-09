@@ -7,7 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-// CompiledSchema is the fully-resolved, validated schema ready for validation.
+// CompiledSchema is the fully-resolved, validated schema ready for schemacheck.
 // All references are resolved to direct pointers. No QName lookups needed.
 type CompiledSchema struct {
 	TargetNamespace types.NamespaceURI

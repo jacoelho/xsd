@@ -1834,7 +1834,7 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 	refer := doc.GetAttribute(elem, "refer")
 	if refer != "" {
 		// for keyref, refer is required and must be resolved.
-		// for key/unique, refer is invalid but we store it for validation.
+		// for key/unique, refer is invalid but we store it for schemacheck.
 		referQName, err := resolveIdentityConstraintQName(doc, refer, elem, schema)
 		if err != nil {
 			return nil, fmt.Errorf("resolve refer QName %s: %w", refer, err)

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/validation"
 )
 
 // collectAllIdentityConstraints collects all identity constraints from the schema
@@ -198,16 +198,16 @@ func validateKeyrefConstraints(contextQName types.QName, constraints []*types.Id
 // Resolution failures due to namespace handling, wildcards, or implementation limitations are ignored.
 func validateIdentityConstraintResolution(schema *parser.Schema, constraint *types.IdentityConstraint, decl *types.ElementDecl) error {
 	for i, field := range constraint.Fields {
-		selectedElementType, err := validation.ResolveSelectorElementType(schema, decl, constraint.Selector.XPath)
+		selectedElementType, err := schemacheck.ResolveSelectorElementType(schema, decl, constraint.Selector.XPath)
 		if err != nil || selectedElementType == nil {
 			continue
 		}
 
-		_, err = validation.ResolveFieldType(schema, &field, decl, constraint.Selector.XPath)
+		_, err = schemacheck.ResolveFieldType(schema, &field, decl, constraint.Selector.XPath)
 		if err != nil {
 			// only fail on definitively invalid cases: field '.' on element-only complex content.
 			// per XSD spec Section 13.2: fields must select attributes or elements with simple content.
-			if errors.Is(err, validation.ErrFieldSelectsComplexContent) {
+			if errors.Is(err, schemacheck.ErrFieldSelectsComplexContent) {
 				if ct, ok := selectedElementType.(*types.ComplexType); ok && !ct.Mixed() {
 					return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
 				}
@@ -217,7 +217,7 @@ func validateIdentityConstraintResolution(schema *parser.Schema, constraint *typ
 	return nil
 }
 
-// areFieldTypesCompatible checks if two field types are compatible for keyref validation.
+// areFieldTypesCompatible checks if two field types are compatible for keyref schemacheck.
 // Types are compatible if:
 // 1. They are identical
 // 2. One is derived from the other

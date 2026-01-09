@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/validation"
 )
 
 // collectElementReferences collects element references from content models.
 func collectElementReferences(content types.Content) []*types.ElementDecl {
 	var refs []*types.ElementDecl
-	if err := validation.WalkContentParticles(content, func(particle types.Particle) error {
+	if err := schemacheck.WalkContentParticles(content, func(particle types.Particle) error {
 		refs = append(refs, collectElementReferencesFromParticles([]types.Particle{particle})...)
 		return nil
 	}); err != nil {

@@ -20,7 +20,7 @@ func (r *validationRun) resolveSubstitutionDecl(actualQName types.QName, declare
 	return declared
 }
 
-// substitutionMatcher implements contentmodel.SymbolMatcher for substitution groups.
+// substitutionMatcher implements grammar.SymbolMatcher for substitution groups.
 type substitutionMatcher struct {
 	view schemaView
 }

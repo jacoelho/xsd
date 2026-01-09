@@ -45,7 +45,7 @@ func (p *Pattern) Name() string {
 }
 
 // ValidateSyntax validates that the pattern value is a valid XSD regex pattern
-// and translates it to Go regex. This should be called during schema validation.
+// and translates it to Go regex. This should be called during schema schemacheck.
 func (p *Pattern) ValidateSyntax() error {
 	// empty pattern is valid per XSD spec (matches only empty string)
 	if p.Value == "" {

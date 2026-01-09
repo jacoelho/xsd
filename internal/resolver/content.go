@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/validation"
 )
 
 // validateContentReferences validates references within content models.
 func validateContentReferences(schema *parser.Schema, typeQName types.QName, content types.Content, originLocation string) error {
-	return validation.WalkContentParticles(content, func(particle types.Particle) error {
+	return schemacheck.WalkContentParticles(content, func(particle types.Particle) error {
 		return validateParticleReferences(schema, particle, originLocation)
 	})
 }

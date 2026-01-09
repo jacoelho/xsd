@@ -46,7 +46,7 @@ type validationRun struct {
 	subMatcher      substitutionMatcher
 }
 
-// idrefEntry tracks an IDREF value and where it was found during validation.
+// idrefEntry tracks an IDREF value and where it was found during schemacheck.
 type idrefEntry struct {
 	ref  string
 	path string

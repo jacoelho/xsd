@@ -6,8 +6,8 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/validation"
 )
 
 func TestSelectorXPathValidation(t *testing.T) {
@@ -359,7 +359,7 @@ func TestSelectorXPathValidation(t *testing.T) {
 	}
 }
 
-// TestValidateSelectorXPathDirect tests validation.ValidateSelectorXPath function directly
+// TestValidateSelectorXPathDirect tests schemacheck.ValidateSelectorXPath function directly
 func TestValidateSelectorXPathDirect(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -456,11 +456,11 @@ func TestValidateSelectorXPathDirect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validation.ValidateSelectorXPath(tt.xpath)
+			err := schemacheck.ValidateSelectorXPath(tt.xpath)
 
 			if tt.shouldErr {
 				if err == nil {
-					t.Errorf("validation.ValidateSelectorXPath(%q) should have failed but succeeded", tt.xpath)
+					t.Errorf("schemacheck.ValidateSelectorXPath(%q) should have failed but succeeded", tt.xpath)
 				} else {
 					if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
 						t.Errorf("Expected error to contain %q, got: %v", tt.errorMsg, err)
@@ -468,7 +468,7 @@ func TestValidateSelectorXPathDirect(t *testing.T) {
 				}
 			} else {
 				if err != nil {
-					t.Errorf("validation.ValidateSelectorXPath(%q) should have succeeded but got error: %v", tt.xpath, err)
+					t.Errorf("schemacheck.ValidateSelectorXPath(%q) should have succeeded but got error: %v", tt.xpath, err)
 				}
 			}
 		})
@@ -528,9 +528,9 @@ func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 		Local:     "purchaseReport",
 	}
 
-	err := validation.ValidateElementDeclStructure(schema, elementQName, elementDecl)
+	err := schemacheck.ValidateElementDeclStructure(schema, elementQName, elementDecl)
 	if err == nil {
-		t.Error("validation.ValidateElementDeclStructure should have failed for attribute selector")
+		t.Error("schemacheck.ValidateElementDeclStructure should have failed for attribute selector")
 	} else {
 		if !strings.Contains(err.Error(), "selector xpath cannot select attributes") {
 			t.Errorf("Expected error to mention attribute selection, got: %v", err)
@@ -563,9 +563,9 @@ func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 		Local:     "purchaseReport2",
 	}
 
-	err = validation.ValidateElementDeclStructure(schema, elementQName2, elementDecl2)
+	err = schemacheck.ValidateElementDeclStructure(schema, elementQName2, elementDecl2)
 	if err == nil {
-		t.Error("validation.ValidateElementDeclStructure should have failed for text node selector")
+		t.Error("schemacheck.ValidateElementDeclStructure should have failed for text node selector")
 	} else {
 		if !strings.Contains(err.Error(), "selector xpath cannot select text nodes") {
 			t.Errorf("Expected error to mention text node selection, got: %v", err)
@@ -598,13 +598,13 @@ func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 		Local:     "purchaseReport3",
 	}
 
-	err = validation.ValidateElementDeclStructure(schema, elementQName3, elementDecl3)
+	err = schemacheck.ValidateElementDeclStructure(schema, elementQName3, elementDecl3)
 	if err != nil {
-		t.Errorf("validation.ValidateElementDeclStructure should have passed for valid element selector, got error: %v", err)
+		t.Errorf("schemacheck.ValidateElementDeclStructure should have passed for valid element selector, got error: %v", err)
 	}
 }
 
-// TestValidateFieldXPathDirect tests validation.ValidateFieldXPath function directly
+// TestValidateFieldXPathDirect tests schemacheck.ValidateFieldXPath function directly
 func TestValidateFieldXPathDirect(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -746,11 +746,11 @@ func TestValidateFieldXPathDirect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validation.ValidateFieldXPath(tt.xpath)
+			err := schemacheck.ValidateFieldXPath(tt.xpath)
 
 			if tt.shouldErr {
 				if err == nil {
-					t.Errorf("validation.ValidateFieldXPath(%q) should have failed but succeeded", tt.xpath)
+					t.Errorf("schemacheck.ValidateFieldXPath(%q) should have failed but succeeded", tt.xpath)
 				} else {
 					if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
 						t.Errorf("Expected error to contain %q, got: %v", tt.errorMsg, err)
@@ -758,7 +758,7 @@ func TestValidateFieldXPathDirect(t *testing.T) {
 				}
 			} else {
 				if err != nil {
-					t.Errorf("validation.ValidateFieldXPath(%q) should have succeeded but got error: %v", tt.xpath, err)
+					t.Errorf("schemacheck.ValidateFieldXPath(%q) should have succeeded but got error: %v", tt.xpath, err)
 				}
 			}
 		})
