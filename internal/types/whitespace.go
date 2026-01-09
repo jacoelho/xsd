@@ -45,11 +45,12 @@ func NormalizeWhiteSpace(value string, typ Type) string {
 	if typ == nil {
 		return value
 	}
-	st, ok := typ.(SimpleTypeDefinition)
-	if !ok {
+	switch typ.(type) {
+	case *SimpleType, *BuiltinType:
+		return ApplyWhiteSpace(value, typ.WhiteSpace())
+	default:
 		return value
 	}
-	return ApplyWhiteSpace(value, st.WhiteSpace())
 }
 
 func replaceWhiteSpace(value string) string {

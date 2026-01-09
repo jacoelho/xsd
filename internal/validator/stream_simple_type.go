@@ -45,8 +45,16 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 		return r.validateListValueInternal(normalizedValue, st, scopeDepth, reportErrors)
 	}
 
-	if stInterface, ok := st.Original.(types.SimpleTypeDefinition); ok {
-		if err := stInterface.Validate(normalizedValue); err != nil {
+	switch orig := st.Original.(type) {
+	case *types.SimpleType:
+		if err := orig.Validate(normalizedValue); err != nil {
+			if reportErrors {
+				return false, []errors.Validation{errors.NewValidation(errors.ErrDatatypeInvalid, err.Error(), r.path.String())}
+			}
+			return false, nil
+		}
+	case *types.BuiltinType:
+		if err := orig.Validate(normalizedValue); err != nil {
 			if reportErrors {
 				return false, []errors.Validation{errors.NewValidation(errors.ErrDatatypeInvalid, err.Error(), r.path.String())}
 			}
@@ -158,8 +166,18 @@ func (r *streamRun) validateListItemInternal(item string, itemType *grammar.Comp
 		return true, nil
 	}
 
-	if stInterface, ok := itemType.Original.(types.SimpleTypeDefinition); ok {
-		if err := stInterface.Validate(normalizedItem); err != nil {
+	switch orig := itemType.Original.(type) {
+	case *types.SimpleType:
+		if err := orig.Validate(normalizedItem); err != nil {
+			if reportErrors {
+				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+					"list item[%d]: %s", index, err.Error()))
+				return false, violations
+			}
+			return false, nil
+		}
+	case *types.BuiltinType:
+		if err := orig.Validate(normalizedItem); err != nil {
 			if reportErrors {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d]: %s", index, err.Error()))

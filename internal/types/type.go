@@ -10,52 +10,6 @@ type Type interface {
 	WhiteSpace() WhiteSpace
 }
 
-// HasBaseType exposes a base type relationship.
-type HasBaseType interface {
-	BaseType() Type
-}
-
-// FacetCarrier exposes fundamental facets and whitespace handling.
-type FacetCarrier interface {
-	FundamentalFacets() *FundamentalFacets
-	WhiteSpace() WhiteSpace
-}
-
-// ValueSpace exposes lexical validation and parsing behavior.
-type ValueSpace interface {
-	// Validate checks if a lexical value is valid for this type.
-	Validate(lexical string) error
-
-	// ParseValue converts a lexical value to a TypedValue.
-	ParseValue(lexical string) (TypedValue, error)
-}
-
-// SimpleTypeDefinition extends Type with validation capabilities.
-type SimpleTypeDefinition interface {
-	Type
-	ValueSpace
-
-	// Variety returns the simple type variety (atomic, list, union).
-	Variety() SimpleTypeVariety
-}
-
-// ComplexTypeDefinition extends Type with content model information.
-type ComplexTypeDefinition interface {
-	Type
-
-	// Content returns the content model (empty, simple, element-only, mixed).
-	Content() Content
-
-	// Attributes returns the attribute declarations.
-	Attributes() []*AttributeDecl
-
-	// AnyAttribute returns the wildcard attribute if present.
-	AnyAttribute() *AnyAttribute
-
-	// Mixed returns true if this type allows mixed content.
-	Mixed() bool
-}
-
 // LengthMeasurable types know how to measure their length for facet validation.
 type LengthMeasurable interface {
 	Type

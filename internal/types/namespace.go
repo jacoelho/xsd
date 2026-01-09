@@ -21,3 +21,15 @@ func (ns NamespaceURI) IsEmpty() bool {
 func (ns NamespaceURI) Equal(other NamespaceURI) bool {
 	return ns == other
 }
+
+// ResolveNamespace looks up a prefix in a namespace context map.
+func ResolveNamespace(prefix string, context map[string]string) (NamespaceURI, bool) {
+	if context == nil {
+		return NamespaceEmpty, false
+	}
+	uri, ok := context[prefix]
+	if !ok {
+		return NamespaceEmpty, false
+	}
+	return NamespaceURI(uri), true
+}

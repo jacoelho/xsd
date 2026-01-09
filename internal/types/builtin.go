@@ -99,9 +99,6 @@ func registerBuiltin(name TypeName, validator TypeValidator, ws WhiteSpace, orde
 // Compile-time check that BuiltinType implements Type interface
 var _ Type = (*BuiltinType)(nil)
 
-// Compile-time check that BuiltinType implements SimpleTypeDefinition
-var _ SimpleTypeDefinition = (*BuiltinType)(nil)
-
 // Compile-time check that BuiltinType implements DerivedType
 var _ DerivedType = (*BuiltinType)(nil)
 

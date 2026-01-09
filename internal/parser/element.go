@@ -2,9 +2,7 @@ package parser
 
 import (
 	"fmt"
-	"strings"
 
-	xsdschema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
@@ -171,7 +169,7 @@ func makeAnyType() types.Type {
 }
 
 // parseTopLevelElement parses a top-level element declaration
-func parseTopLevelElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+func parseTopLevelElement(doc *xml.Document, elem xml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("element missing name attribute")
@@ -397,7 +395,7 @@ func parseTopLevelElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.
 }
 
 // parseElement parses an element reference or declaration within a content model
-func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.ElementDecl, error) {
+func parseElement(doc *xml.Document, elem xml.NodeID, schema *Schema) (*types.ElementDecl, error) {
 	attrs := scanElementAttributes(doc, elem)
 	ref := attrs.ref
 	name := attrs.name
@@ -535,13 +533,13 @@ func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) 
 
 	// per XSD spec: local elements use the form attribute if present,
 	// otherwise use schema's elementFormDefault (which defaults to unqualified)
-	var effectiveForm xsdschema.Form
+	var effectiveForm Form
 	if formAttr := attrs.form; formAttr != "" {
 		switch formAttr {
 		case "qualified":
-			effectiveForm = xsdschema.Qualified
+			effectiveForm = Qualified
 		case "unqualified":
-			effectiveForm = xsdschema.Unqualified
+			effectiveForm = Unqualified
 		default:
 			return nil, fmt.Errorf("invalid form attribute value '%s': must be 'qualified' or 'unqualified'", formAttr)
 		}
@@ -552,7 +550,7 @@ func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) 
 	// for unqualified elements, the namespace is empty (no namespace)
 	// for qualified elements, the namespace is the target namespace
 	var elementNamespace types.NamespaceURI
-	if effectiveForm == xsdschema.Qualified {
+	if effectiveForm == Qualified {
 		elementNamespace = schema.TargetNamespace
 	}
 
@@ -574,7 +572,7 @@ func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) 
 	decl.MinOccurs = minOccurs
 	decl.MaxOccurs = maxOccurs
 
-	if effectiveForm == xsdschema.Qualified {
+	if effectiveForm == Qualified {
 		decl.Form = types.FormQualified
 	} else {
 		decl.Form = types.FormUnqualified
@@ -700,7 +698,7 @@ func validateElementAttributes(doc *xml.Document, elem xml.NodeID, validAttribut
 	return nil
 }
 
-func namespaceForPrefix(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema, prefix string) string {
+func namespaceForPrefix(doc *xml.Document, elem xml.NodeID, schema *Schema, prefix string) string {
 	for current := elem; current != xml.InvalidNode; current = doc.Parent(current) {
 		for _, attr := range doc.Attributes(current) {
 			isXMLNSAttr := attr.NamespaceURI() == xml.XMLNSNamespace ||
@@ -740,7 +738,7 @@ func namespaceForPrefix(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 	}
 }
 
-func namespaceContextForElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) map[string]string {
+func namespaceContextForElement(doc *xml.Document, elem xml.NodeID, schema *Schema) map[string]string {
 	context := make(map[string]string)
 	for current := elem; current != xml.InvalidNode; current = doc.Parent(current) {
 		for _, attr := range doc.Attributes(current) {
@@ -780,29 +778,14 @@ func namespaceContextForElement(doc *xml.Document, elem xml.NodeID, schema *xsds
 // 2. If a default namespace (xmlns="...") is declared -> use that namespace
 // 3. Otherwise -> empty namespace (no namespace)
 // This follows the XSD spec's QName resolution rules.
-func resolveQName(doc *xml.Document, qname string, elem xml.NodeID, schema *xsdschema.Schema) (types.QName, error) {
-	if qname == "" {
-		return types.QName{}, fmt.Errorf("empty qname")
-	}
-
-	// trim whitespace from the QName value per XSD spec
-	qname = strings.TrimSpace(qname)
-	if !types.IsValidQName(qname) {
-		return types.QName{}, fmt.Errorf("invalid QName '%s'", qname)
-	}
-
-	prefix := ""
-	local := qname
-	for i, r := range qname {
-		if r == ':' {
-			prefix = strings.TrimSpace(qname[:i])
-			local = strings.TrimSpace(qname[i+1:])
-			break
-		}
+func resolveQName(doc *xml.Document, qname string, elem xml.NodeID, schema *Schema) (types.QName, error) {
+	prefix, local, hasPrefix, err := types.ParseQName(qname)
+	if err != nil {
+		return types.QName{}, err
 	}
 
 	var namespace types.NamespaceURI
-	if prefix == "" {
+	if !hasPrefix {
 		// no prefix - check if it's a built-in type first
 		if types.GetBuiltin(types.TypeName(local)) != nil {
 			// built-in type - use XSD namespace
@@ -845,29 +828,14 @@ func resolveQName(doc *xml.Document, qname string, elem xml.NodeID, schema *xsds
 
 // resolveQNameWithoutBuiltin resolves a QName using namespace prefixes without
 // applying built-in type shortcuts.
-func resolveQNameWithoutBuiltin(doc *xml.Document, qname string, elem xml.NodeID, schema *xsdschema.Schema) (types.QName, error) {
-	if qname == "" {
-		return types.QName{}, fmt.Errorf("empty qname")
-	}
-
-	// trim whitespace from the QName value per XSD spec
-	qname = strings.TrimSpace(qname)
-	if !types.IsValidQName(qname) {
-		return types.QName{}, fmt.Errorf("invalid QName '%s'", qname)
-	}
-
-	prefix := ""
-	local := qname
-	for i, r := range qname {
-		if r == ':' {
-			prefix = strings.TrimSpace(qname[:i])
-			local = strings.TrimSpace(qname[i+1:])
-			break
-		}
+func resolveQNameWithoutBuiltin(doc *xml.Document, qname string, elem xml.NodeID, schema *Schema) (types.QName, error) {
+	prefix, local, hasPrefix, err := types.ParseQName(qname)
+	if err != nil {
+		return types.QName{}, err
 	}
 
 	var namespace types.NamespaceURI
-	if prefix == "" {
+	if !hasPrefix {
 		// no prefix - check for default namespace (xmlns="...") in scope
 		defaultNS := namespaceForPrefix(doc, elem, schema, "")
 		// if default namespace is XSD namespace, treat as no namespace
@@ -896,13 +864,13 @@ func resolveQNameWithoutBuiltin(doc *xml.Document, qname string, elem xml.NodeID
 // resolveElementQName resolves a QName for ELEMENT references (ref, substitutionGroup).
 // Unlike resolveQName for types, this does NOT check for built-in type names
 // because element references never refer to built-in types.
-func resolveElementQName(doc *xml.Document, qname string, elem xml.NodeID, schema *xsdschema.Schema) (types.QName, error) {
+func resolveElementQName(doc *xml.Document, qname string, elem xml.NodeID, schema *Schema) (types.QName, error) {
 	return resolveQNameWithoutBuiltin(doc, qname, elem, schema)
 }
 
 // resolveIdentityConstraintQName resolves a QName for identity constraint references.
 // Identity constraints use standard QName resolution without built-in type shortcuts.
-func resolveIdentityConstraintQName(doc *xml.Document, qname string, elem xml.NodeID, schema *xsdschema.Schema) (types.QName, error) {
+func resolveIdentityConstraintQName(doc *xml.Document, qname string, elem xml.NodeID, schema *Schema) (types.QName, error) {
 	return resolveQNameWithoutBuiltin(doc, qname, elem, schema)
 }
 
@@ -910,29 +878,14 @@ func resolveIdentityConstraintQName(doc *xml.Document, qname string, elem xml.No
 // QName values in schema attributes use standard XML namespace resolution:
 // - Prefixed names use the declared namespace for that prefix
 // - Unprefixed names use the default namespace if declared, otherwise no namespace
-func resolveAttributeRefQName(doc *xml.Document, qname string, elem xml.NodeID, schema *xsdschema.Schema) (types.QName, error) {
-	if qname == "" {
-		return types.QName{}, fmt.Errorf("empty qname")
-	}
-
-	// trim whitespace from the QName value per XSD spec
-	qname = strings.TrimSpace(qname)
-	if !types.IsValidQName(qname) {
-		return types.QName{}, fmt.Errorf("invalid QName '%s'", qname)
-	}
-
-	prefix := ""
-	local := qname
-	for i, r := range qname {
-		if r == ':' {
-			prefix = strings.TrimSpace(qname[:i])
-			local = strings.TrimSpace(qname[i+1:])
-			break
-		}
+func resolveAttributeRefQName(doc *xml.Document, qname string, elem xml.NodeID, schema *Schema) (types.QName, error) {
+	prefix, local, hasPrefix, err := types.ParseQName(qname)
+	if err != nil {
+		return types.QName{}, err
 	}
 
 	var namespace types.NamespaceURI
-	if prefix == "" {
+	if !hasPrefix {
 		// no prefix - check for default namespace (xmlns="...")
 		defaultNS := namespaceForPrefix(doc, elem, schema, "")
 		// if default namespace is XSD namespace, treat as no namespace

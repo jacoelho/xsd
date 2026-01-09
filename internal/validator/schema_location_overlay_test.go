@@ -34,7 +34,7 @@ func TestValidatorReuseWithSchemaLocationHints(t *testing.T) {
 		t.Fatalf("load compiled schema: %v", err)
 	}
 
-	v := New(compiled)
+	v := New(compiled, WithSchemaLocationLoader(l))
 
 	docWithHint := `<?xml version="1.0"?>
 <root xmlns="urn:hint"

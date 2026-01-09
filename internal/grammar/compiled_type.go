@@ -1,9 +1,6 @@
 package grammar
 
-import (
-	"github.com/jacoelho/xsd/internal/facets"
-	"github.com/jacoelho/xsd/internal/types"
-)
+import "github.com/jacoelho/xsd/internal/types"
 
 // TypeKind classifies compiled types.
 type TypeKind int
@@ -45,7 +42,7 @@ type CompiledType struct {
 	PrimitiveType *CompiledType
 	ItemType      *CompiledType
 	MemberTypes   []*CompiledType
-	Facets        []facets.Facet
+	Facets        []types.Facet
 
 	// Derivation control.
 	Final    types.DerivationSet

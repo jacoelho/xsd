@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/parser"
+	schema "github.com/jacoelho/xsd/internal/parser"
 )
 
 // TestSimpleTypeConstraintViolations tests that schemas with invalid simple type constraints
@@ -24,7 +24,7 @@ func TestFacetLengthWithMinMaxLength(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := schema.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
 		// parser may reject this during parse-time facet checks.
 		return
@@ -61,7 +61,7 @@ func TestFacetLengthWithMaxLength(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := schema.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
 		// parser may reject this during parse-time facet checks.
 		return
@@ -85,7 +85,7 @@ func TestFacetLengthOnBoolean(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := schema.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
 		// parser may reject this during parse-time facet checks.
 		return
@@ -109,7 +109,7 @@ func TestFacetTotalDigitsOnNonDecimal(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := schema.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
 		// parser may reject this during parse-time facet checks.
 		return
@@ -134,7 +134,7 @@ func TestFacetRangeOnNonOrderedType(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := schema.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
 		// parser might reject this - that's fine, it's still a constraint violation
 		return
@@ -169,7 +169,7 @@ func TestAttributeDefaultValueValidation(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := schema.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestAttributeFixedValueValidation(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := schema.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestElementDefaultValueValidation(t *testing.T) {
   <xs:element name="count" type="xs:integer" default="not-a-number"/>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := schema.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestElementFixedValueUnionValidation(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := schema.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -336,7 +336,7 @@ func TestIDTypeDefaultValueRejection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := parser.ParseWithImports(strings.NewReader(tt.schemaXML))
+			result, err := schema.ParseWithImports(strings.NewReader(tt.schemaXML))
 			if err != nil {
 				t.Fatalf("Parse schema: %v", err)
 			}
@@ -384,7 +384,7 @@ func TestWildcardInvalidNamespace(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := schema.ParseWithImports(strings.NewReader(schemaXML))
 	if err != nil {
 		// parser might reject this - that's fine, it's still a constraint violation
 		return

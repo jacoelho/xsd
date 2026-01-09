@@ -3,7 +3,7 @@ package grammar
 import (
 	"io/fs"
 
-	internal "github.com/jacoelho/xsd/internal/schema"
+	internal "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 

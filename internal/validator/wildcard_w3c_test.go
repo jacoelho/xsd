@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/loader"
-	xsdschema "github.com/jacoelho/xsd/internal/schema"
+	xsdschema "github.com/jacoelho/xsd/internal/parser"
 )
 
 // composeSchemasForTest composes multiple schema documents into a single schema

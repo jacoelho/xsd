@@ -1,10 +1,6 @@
 package types
 
-import (
-	"fmt"
-
-	lexicalparser "github.com/jacoelho/xsd/internal/parser/lexical"
-)
+import "fmt"
 
 // ValueParserFunc parses a lexical value and returns a TypedValue.
 // The typ parameter is the type that should be used in the resulting TypedValue.
@@ -27,21 +23,21 @@ func parserFor[T any](parse func(string) (T, error), newValue func(ParsedValue[T
 // valueParsers maps type names to their parser functions.
 // Compiled at initialization time - no init() function needed.
 var valueParsers = map[TypeName]ValueParserFunc{
-	TypeNameDecimal:       parserFor(lexicalparser.ParseDecimal, NewDecimalValue),
-	TypeNameInteger:       parserFor(lexicalparser.ParseInteger, NewIntegerValue),
-	TypeNameDateTime:      parserFor(lexicalparser.ParseDateTime, NewDateTimeValue),
-	TypeNameBoolean:       parserFor(lexicalparser.ParseBoolean, NewBooleanValue),
-	TypeNameFloat:         parserFor(lexicalparser.ParseFloat, NewFloatValue),
-	TypeNameDouble:        parserFor(lexicalparser.ParseDouble, NewDoubleValue),
-	TypeNameString:        parserFor(lexicalparser.ParseString, NewStringValue),
-	TypeNameLong:          parserFor(lexicalparser.ParseLong, NewLongValue),
-	TypeNameInt:           parserFor(lexicalparser.ParseInt, NewIntValue),
-	TypeNameShort:         parserFor(lexicalparser.ParseShort, NewShortValue),
-	TypeNameByte:          parserFor(lexicalparser.ParseByte, NewByteValue),
-	TypeNameUnsignedLong:  parserFor(lexicalparser.ParseUnsignedLong, NewUnsignedLongValue),
-	TypeNameUnsignedInt:   parserFor(lexicalparser.ParseUnsignedInt, NewUnsignedIntValue),
-	TypeNameUnsignedShort: parserFor(lexicalparser.ParseUnsignedShort, NewUnsignedShortValue),
-	TypeNameUnsignedByte:  parserFor(lexicalparser.ParseUnsignedByte, NewUnsignedByteValue),
+	TypeNameDecimal:       parserFor(ParseDecimal, NewDecimalValue),
+	TypeNameInteger:       parserFor(ParseInteger, NewIntegerValue),
+	TypeNameDateTime:      parserFor(ParseDateTime, NewDateTimeValue),
+	TypeNameBoolean:       parserFor(ParseBoolean, NewBooleanValue),
+	TypeNameFloat:         parserFor(ParseFloat, NewFloatValue),
+	TypeNameDouble:        parserFor(ParseDouble, NewDoubleValue),
+	TypeNameString:        parserFor(ParseString, NewStringValue),
+	TypeNameLong:          parserFor(ParseLong, NewLongValue),
+	TypeNameInt:           parserFor(ParseInt, NewIntValue),
+	TypeNameShort:         parserFor(ParseShort, NewShortValue),
+	TypeNameByte:          parserFor(ParseByte, NewByteValue),
+	TypeNameUnsignedLong:  parserFor(ParseUnsignedLong, NewUnsignedLongValue),
+	TypeNameUnsignedInt:   parserFor(ParseUnsignedInt, NewUnsignedIntValue),
+	TypeNameUnsignedShort: parserFor(ParseUnsignedShort, NewUnsignedShortValue),
+	TypeNameUnsignedByte:  parserFor(ParseUnsignedByte, NewUnsignedByteValue),
 }
 
 // ParseValueForType parses a lexical value using the registry for the given type name.

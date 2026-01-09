@@ -5,14 +5,12 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	lexicalparser "github.com/jacoelho/xsd/internal/parser/lexical"
 )
 
 func TestComparable_BigRat(t *testing.T) {
-	rat1, _ := lexicalparser.ParseDecimal("123.456")
-	rat2, _ := lexicalparser.ParseDecimal("789.012")
-	rat3, _ := lexicalparser.ParseDecimal("123.456")
+	rat1, _ := ParseDecimal("123.456")
+	rat2, _ := ParseDecimal("789.012")
+	rat3, _ := ParseDecimal("123.456")
 
 	decimalType := &SimpleType{
 		QName: QName{Namespace: XSDNamespace, Local: "decimal"},
@@ -47,9 +45,9 @@ func TestComparable_BigRat(t *testing.T) {
 }
 
 func TestComparable_BigInt(t *testing.T) {
-	int1, _ := lexicalparser.ParseInteger("123")
-	int2, _ := lexicalparser.ParseInteger("789")
-	int3, _ := lexicalparser.ParseInteger("123")
+	int1, _ := ParseInteger("123")
+	int2, _ := ParseInteger("789")
+	int3, _ := ParseInteger("123")
 
 	integerType := &SimpleType{
 		QName: QName{Namespace: XSDNamespace, Local: "integer"},
@@ -94,8 +92,8 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 		QName: QName{Namespace: XSDNamespace, Local: "integer"},
 	}
 
-	int100, _ := lexicalparser.ParseInteger("100")
-	decimal100, _ := lexicalparser.ParseDecimal("100.0")
+	int100, _ := ParseInteger("100")
+	decimal100, _ := ParseDecimal("100.0")
 	compInt := ComparableBigInt{Value: int100, Typ: integerType}
 	compDecimal := ComparableBigRat{Value: decimal100, Typ: decimalType}
 
@@ -120,7 +118,7 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 	})
 
 	t.Run("integer_50_less_than_decimal_100.0", func(t *testing.T) {
-		int50, _ := lexicalparser.ParseInteger("50")
+		int50, _ := ParseInteger("50")
 		compInt50 := ComparableBigInt{Value: int50, Typ: integerType}
 		cmp, err := compInt50.Compare(compDecimal)
 		if err != nil {
@@ -132,7 +130,7 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 	})
 
 	t.Run("decimal_150.0_greater_than_integer_100", func(t *testing.T) {
-		decimal150, _ := lexicalparser.ParseDecimal("150.0")
+		decimal150, _ := ParseDecimal("150.0")
 		compDecimal150 := ComparableBigRat{Value: decimal150, Typ: decimalType}
 		cmp, err := compDecimal150.Compare(compInt)
 		if err != nil {
@@ -144,7 +142,7 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 	})
 
 	t.Run("integer_100_greater_than_decimal_99.9", func(t *testing.T) {
-		decimal999, _ := lexicalparser.ParseDecimal("99.9")
+		decimal999, _ := ParseDecimal("99.9")
 		compDecimal999 := ComparableBigRat{Value: decimal999, Typ: decimalType}
 		cmp, err := compInt.Compare(compDecimal999)
 		if err != nil {
@@ -156,7 +154,7 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 	})
 
 	t.Run("decimal_100.1_greater_than_integer_100", func(t *testing.T) {
-		decimal1001, _ := lexicalparser.ParseDecimal("100.1")
+		decimal1001, _ := ParseDecimal("100.1")
 		compDecimal1001 := ComparableBigRat{Value: decimal1001, Typ: decimalType}
 		cmp, err := compDecimal1001.Compare(compInt)
 		if err != nil {
@@ -169,9 +167,9 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 }
 
 func TestComparable_Time(t *testing.T) {
-	time1, _ := lexicalparser.ParseDateTime("2001-10-26T21:32:52")
-	time2, _ := lexicalparser.ParseDateTime("2002-10-26T21:32:52")
-	time3, _ := lexicalparser.ParseDateTime("2001-10-26T21:32:52")
+	time1, _ := ParseDateTime("2001-10-26T21:32:52")
+	time2, _ := ParseDateTime("2002-10-26T21:32:52")
+	time3, _ := ParseDateTime("2001-10-26T21:32:52")
 
 	dateTimeType := &SimpleType{
 		QName: QName{Namespace: XSDNamespace, Local: "dateTime"},

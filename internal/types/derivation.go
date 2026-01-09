@@ -37,7 +37,7 @@ func AllDerivations() DerivationSet {
 // Restriction represents a type restriction
 type Restriction struct {
 	Base QName
-	// For simple type restrictions (contains facets.Facet instances)
+	// For simple type restrictions (contains Facet instances)
 	Facets []any
 	// For complex content restrictions
 	Particle     Particle

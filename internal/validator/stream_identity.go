@@ -7,7 +7,6 @@ import (
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
-	"github.com/jacoelho/xsd/internal/parser/lexical"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 	xpathcomp "github.com/jacoelho/xsd/internal/xpath"
@@ -556,7 +555,7 @@ func (r *streamRun) normalizeElementValue(value string, field types.Field, frame
 	if fieldType == nil {
 		fieldType = types.GetBuiltin(types.TypeName("string"))
 	}
-	if _, ok := fieldType.(types.ComplexTypeDefinition); ok {
+	if _, ok := fieldType.(*types.ComplexType); ok {
 		fieldType = types.GetBuiltin(types.TypeName("string"))
 	}
 	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth), KeyValid
@@ -636,7 +635,7 @@ func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Typ
 	case "decimal", "integer", "nonPositiveInteger", "negativeInteger",
 		"nonNegativeInteger", "positiveInteger", "long", "int", "short", "byte",
 		"unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
-		rat, err := lexical.ParseDecimal(value)
+		rat, err := types.ParseDecimal(value)
 		if err == nil {
 			return typePrefix + "\x01" + rat.String()
 		}

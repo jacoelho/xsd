@@ -41,7 +41,8 @@ func textTypeForFixedValue(decl *grammar.CompiledElement) *grammar.CompiledType 
 	}
 	// for mixed content without explicit text type, use the type itself if it's a simple type.
 	if decl.Type.Original != nil {
-		if _, ok := decl.Type.Original.(types.SimpleTypeDefinition); ok {
+		switch decl.Type.Original.(type) {
+		case *types.SimpleType, *types.BuiltinType:
 			return decl.Type
 		}
 	}

@@ -6,7 +6,6 @@ import (
 	"io"
 	"strings"
 
-	xsdschema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
@@ -68,13 +67,13 @@ func getAttr(doc *xml.Document, elem xml.NodeID, name string) string {
 
 // ParseResult contains the parsed schema and import/include directives
 type ParseResult struct {
-	Schema   *xsdschema.Schema
+	Schema   *Schema
 	Imports  []ImportInfo
 	Includes []IncludeInfo
 }
 
 // Parse parses an XSD schema from a reader
-func Parse(r io.Reader) (*xsdschema.Schema, error) {
+func Parse(r io.Reader) (*Schema, error) {
 	result, err := ParseWithImports(r)
 	if err != nil {
 		return nil, err
@@ -105,7 +104,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		return nil, err
 	}
 
-	schema := xsdschema.NewSchema()
+	schema := NewSchema()
 
 	// check if targetNamespace attribute is present and validate it
 	// according to XSD 1.0 spec, targetNamespace cannot be an empty string
@@ -159,9 +158,9 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		}
 		switch elemForm {
 		case "qualified":
-			schema.ElementFormDefault = xsdschema.Qualified
+			schema.ElementFormDefault = Qualified
 		case "unqualified":
-			schema.ElementFormDefault = xsdschema.Unqualified
+			schema.ElementFormDefault = Unqualified
 		default:
 			return nil, fmt.Errorf("invalid elementFormDefault attribute value '%s': must be 'qualified' or 'unqualified'", elemForm)
 		}
@@ -174,9 +173,9 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		}
 		switch attrForm {
 		case "qualified":
-			schema.AttributeFormDefault = xsdschema.Qualified
+			schema.AttributeFormDefault = Qualified
 		case "unqualified":
-			schema.AttributeFormDefault = xsdschema.Unqualified
+			schema.AttributeFormDefault = Unqualified
 		default:
 			return nil, fmt.Errorf("invalid attributeFormDefault attribute value '%s': must be 'qualified' or 'unqualified'", attrForm)
 		}
@@ -291,7 +290,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 }
 
 // parseTopLevelNotation parses a top-level notation declaration
-func parseTopLevelNotation(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+func parseTopLevelNotation(doc *xml.Document, elem xml.NodeID, schema *Schema) error {
 	if err := validateAllowedAttributes(doc, elem, "notation", validNotationAttributes); err != nil {
 		return err
 	}

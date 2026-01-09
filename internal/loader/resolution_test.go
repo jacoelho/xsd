@@ -3,7 +3,8 @@ package loader
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/schema"
+	schema "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/resolver"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -38,8 +39,8 @@ func TestTwoPhaseResolution_SimpleType(t *testing.T) {
 	schema.TypeDefs[derivedType.QName] = derivedType
 
 	// phase 2: Resolve base types
-	if err := resolveTypeReferences(schema); err != nil {
-		t.Fatalf("resolveTypeReferences failed: %v", err)
+	if err := resolver.ResolveTypeReferences(schema); err != nil {
+		t.Fatalf("resolver.ResolveTypeReferences failed: %v", err)
 	}
 
 	if derivedType.ResolvedBase == nil {
@@ -84,8 +85,8 @@ func TestTwoPhaseResolution_ComplexType(t *testing.T) {
 	schema.TypeDefs[derivedType.QName] = derivedType
 
 	// phase 2: Resolve base types
-	if err := resolveTypeReferences(schema); err != nil {
-		t.Fatalf("resolveTypeReferences failed: %v", err)
+	if err := resolver.ResolveTypeReferences(schema); err != nil {
+		t.Fatalf("resolver.ResolveTypeReferences failed: %v", err)
 	}
 
 	if derivedType.ResolvedBase == nil {
@@ -130,8 +131,8 @@ func TestTwoPhaseResolution_ForwardReference(t *testing.T) {
 	schema.TypeDefs[typeB.QName] = typeB
 
 	// phase 2: Resolve base types (should work even though B is defined after A)
-	if err := resolveTypeReferences(schema); err != nil {
-		t.Fatalf("resolveTypeReferences failed: %v", err)
+	if err := resolver.ResolveTypeReferences(schema); err != nil {
+		t.Fatalf("resolver.ResolveTypeReferences failed: %v", err)
 	}
 
 	if typeA.ResolvedBase == nil {
@@ -182,7 +183,7 @@ func TestTwoPhaseResolution_CircularDependency(t *testing.T) {
 	schema.TypeDefs[typeB.QName] = typeB
 
 	// phase 2: Should detect circular dependency
-	err := resolveTypeReferences(schema)
+	err := resolver.ResolveTypeReferences(schema)
 	if err == nil {
 		t.Fatal("Should detect circular dependency")
 	}
@@ -215,7 +216,7 @@ func TestTwoPhaseResolution_MissingBaseType(t *testing.T) {
 	schema.TypeDefs[derivedType.QName] = derivedType
 
 	// phase 2: Should detect missing base type
-	err := resolveTypeReferences(schema)
+	err := resolver.ResolveTypeReferences(schema)
 	if err == nil {
 		t.Fatal("Should detect missing base type")
 	}
@@ -262,9 +263,9 @@ func TestTwoPhaseResolution_ValidCircularUnion(t *testing.T) {
 	schema.TypeDefs[st2.QName] = st2
 
 	// phase 2: Should NOT detect this as a circular dependency (union circular references are valid)
-	err := resolveTypeReferences(schema)
+	err := resolver.ResolveTypeReferences(schema)
 	if err != nil {
-		t.Fatalf("resolveTypeReferences should not fail for valid circular union: %v", err)
+		t.Fatalf("resolver.ResolveTypeReferences should not fail for valid circular union: %v", err)
 	}
 
 	if len(st.MemberTypes) != 3 {
