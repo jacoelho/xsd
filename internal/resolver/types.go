@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/validation"
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
@@ -330,7 +330,7 @@ func validateSimpleTypeFinalUnion(schema *parser.Schema, memberTypeQName types.Q
 	return nil
 }
 
-// resolveTypeForFinalValidation resolves a type reference for substitution group final validation.
+// resolveTypeForFinalValidation resolves a type reference for substitution group final schemacheck.
 func resolveTypeForFinalValidation(schema *parser.Schema, typ types.Type) types.Type {
-	return validation.ResolveTypeReference(schema, typ, true)
+	return schemacheck.ResolveTypeReference(schema, typ, true)
 }

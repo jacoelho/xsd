@@ -1,2 +1,3 @@
-// Package grammar defines the compiled schema representation used by validation.
+// Package grammar defines the compiled schema representation and content model
+// automata used by schemacheck.
 package grammar

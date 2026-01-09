@@ -676,7 +676,7 @@ func hasIDAttribute(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
 
 // validateIDAttribute validates that an id attribute is a valid NCName.
 // Per XSD spec, id attributes on schema components must be valid NCNames.
-// Also registers the id for uniqueness validation.
+// Also registers the id for uniqueness schemacheck.
 func validateIDAttribute(id string, elementName string, schema *Schema) error {
 	if !types.IsValidNCName(id) {
 		return fmt.Errorf("%s element has invalid id attribute '%s': must be a valid NCName", elementName, id)

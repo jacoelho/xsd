@@ -6,8 +6,8 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/validation"
 )
 
 // TestCircularDerivation_TrueCycle tests that a true circular derivation (A -> B -> A) is correctly detected
@@ -52,7 +52,7 @@ func TestCircularDerivation_TrueCycle(t *testing.T) {
 	schema.TypeDefs[typeB.QName] = typeB
 
 	// should detect circular derivation
-	err := validation.ValidateNoCircularDerivation(schema, typeA)
+	err := schemacheck.ValidateNoCircularDerivation(schema, typeA)
 	if err == nil {
 		t.Error("Should detect circular derivation for TypeA -> TypeB -> TypeA")
 	}
@@ -120,7 +120,7 @@ func TestCircularDerivation_ValidDeepHierarchy(t *testing.T) {
 	schema.TypeDefs[typeA.QName] = typeA
 
 	// should NOT detect circular derivation
-	err := validation.ValidateNoCircularDerivation(schema, typeA)
+	err := schemacheck.ValidateNoCircularDerivation(schema, typeA)
 	if err != nil {
 		t.Errorf("Should NOT detect circular derivation for valid hierarchy A -> B -> C -> anyType, got: %v", err)
 	}
@@ -185,12 +185,12 @@ func TestCircularDerivation_MultipleTypesFromSameBase(t *testing.T) {
 	schema.TypeDefs[typeB.QName] = typeB
 
 	// should NOT detect circular derivation for either type
-	err := validation.ValidateNoCircularDerivation(schema, typeA)
+	err := schemacheck.ValidateNoCircularDerivation(schema, typeA)
 	if err != nil {
 		t.Errorf("Should NOT detect circular derivation for TypeA -> BaseType, got: %v", err)
 	}
 
-	err = validation.ValidateNoCircularDerivation(schema, typeB)
+	err = schemacheck.ValidateNoCircularDerivation(schema, typeB)
 	if err != nil {
 		t.Errorf("Should NOT detect circular derivation for TypeB -> BaseType, got: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestCircularDerivation_RedefineSelfExtension(t *testing.T) {
 	schema.TypeDefs[redefinedAddressType.QName] = redefinedAddressType
 
 	// should NOT detect circular derivation (in redefine, extending self is valid)
-	err := validation.ValidateNoCircularDerivation(schema, redefinedAddressType)
+	err := schemacheck.ValidateNoCircularDerivation(schema, redefinedAddressType)
 	if err != nil {
 		t.Errorf("Should NOT detect circular derivation for redefined type extending itself, got: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestCircularDerivation_RedefineSelfExtension(t *testing.T) {
 	})
 	schema.TypeDefs[usAddress.QName] = usAddress
 
-	err = validation.ValidateNoCircularDerivation(schema, usAddress)
+	err = schemacheck.ValidateNoCircularDerivation(schema, usAddress)
 	if err != nil {
 		t.Errorf("Should NOT detect circular derivation for USAddress -> AddressType, got: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnly(t *testing.T) {
 	schema.TypeDefs[derivedType.QName] = derivedType
 
 	// should be INVALID - extension must preserve mixed content
-	err := validation.ValidateMixedContentDerivation(schema, derivedType)
+	err := schemacheck.ValidateMixedContentDerivation(schema, derivedType)
 	if err == nil {
 		t.Error("Extension from mixed to element-only should be INVALID, but got no error")
 	}
@@ -383,7 +383,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnlyNoParticle(t *tes
 	})
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	err := validation.ValidateMixedContentDerivation(schema, derivedType)
+	err := schemacheck.ValidateMixedContentDerivation(schema, derivedType)
 	if err != nil {
 		t.Errorf("Extension with no particle should inherit mixed content, got error: %v", err)
 	}
@@ -438,7 +438,7 @@ func TestMixedContentDerivation_RestrictionFromElementOnlyToMixed(t *testing.T) 
 	schema.TypeDefs[derivedType.QName] = derivedType
 
 	// should be INVALID - restriction cannot add mixed content
-	err := validation.ValidateMixedContentDerivation(schema, derivedType)
+	err := schemacheck.ValidateMixedContentDerivation(schema, derivedType)
 	if err == nil {
 		t.Error("Restriction from element-only to mixed should be INVALID, but got no error")
 	}
@@ -495,7 +495,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToElementOnly(t *testing
 	schema.TypeDefs[derivedType.QName] = derivedType
 
 	// should be VALID
-	err := validation.ValidateMixedContentDerivation(schema, derivedType)
+	err := schemacheck.ValidateMixedContentDerivation(schema, derivedType)
 	if err != nil {
 		t.Errorf("Extension from element-only to element-only should be VALID, got error: %v", err)
 	}
@@ -550,7 +550,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToMixed(t *testing.T) {
 	schema.TypeDefs[derivedType.QName] = derivedType
 
 	// should be VALID
-	err := validation.ValidateMixedContentDerivation(schema, derivedType)
+	err := schemacheck.ValidateMixedContentDerivation(schema, derivedType)
 	if err != nil {
 		t.Errorf("Extension from mixed to mixed should be VALID, got error: %v", err)
 	}
@@ -605,7 +605,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToMixed(t *testing.T) {
 	schema.TypeDefs[derivedType.QName] = derivedType
 
 	// should be INVALID - extension cannot add mixed content (would allow text that base disallows)
-	err := validation.ValidateMixedContentDerivation(schema, derivedType)
+	err := schemacheck.ValidateMixedContentDerivation(schema, derivedType)
 	if err == nil {
 		t.Error("Extension from element-only to mixed should be INVALID, but got no error")
 	}
@@ -662,7 +662,7 @@ func TestMixedContentDerivation_RestrictionFromMixedToElementOnly(t *testing.T) 
 	schema.TypeDefs[derivedType.QName] = derivedType
 
 	// should be VALID - restriction can remove mixed content (remove constraint)
-	err := validation.ValidateMixedContentDerivation(schema, derivedType)
+	err := schemacheck.ValidateMixedContentDerivation(schema, derivedType)
 	if err != nil {
 		t.Errorf("Restriction from mixed to element-only should be VALID, got error: %v", err)
 	}

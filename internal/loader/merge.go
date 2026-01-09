@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/validation"
 )
 
 // mergeSchema merges a source schema into a target schema.
@@ -289,7 +289,7 @@ func elementDeclEquivalent(a, b *types.ElementDecl) bool {
 	if a.Form != b.Form {
 		return false
 	}
-	if !validation.ElementTypesCompatible(a.Type, b.Type) {
+	if !schemacheck.ElementTypesCompatible(a.Type, b.Type) {
 		return false
 	}
 	if len(a.Constraints) != len(b.Constraints) {

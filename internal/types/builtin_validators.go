@@ -372,19 +372,6 @@ func isNameChar(r rune) bool {
 		(r >= 0x203F && r <= 0x2040)
 }
 
-// IsValidNCName returns true if the string is a valid NCName (non-colonized name)
-// NCName must not be empty, must not contain colons, must start with a NameStartChar,
-// and subsequent characters must be NameChars (XML 1.0 spec)
-func IsValidNCName(s string) bool {
-	return validateNCName(s) == nil
-}
-
-// IsValidQName returns true if the string is a valid QName.
-// QName must not be empty, may contain at most one colon, and each part must be a valid NCName.
-func IsValidQName(s string) bool {
-	return validateQName(s) == nil
-}
-
 // validateID validates xs:ID (same as NCName)
 func validateID(value string) error {
 	return validateNCName(value)

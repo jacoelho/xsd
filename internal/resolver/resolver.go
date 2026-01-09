@@ -5,8 +5,8 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/validation"
 )
 
 // Resolver resolves all QName references in a schema.
@@ -458,7 +458,7 @@ func (r *Resolver) lookupAttributeGroup(qname types.QName) (*types.AttributeGrou
 }
 
 func (r *Resolver) resolveContentParticles(content types.Content) error {
-	return validation.WalkContentParticles(content, func(particle types.Particle) error {
+	return schemacheck.WalkContentParticles(content, func(particle types.Particle) error {
 		return r.resolveParticles([]types.Particle{particle})
 	})
 }

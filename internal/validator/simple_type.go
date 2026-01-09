@@ -137,7 +137,7 @@ func (r *validationRun) trackID(id, path string) []errors.Validation {
 	return nil
 }
 
-// trackIDREF records an IDREF value for later validation.
+// trackIDREF records an IDREF value for later schemacheck.
 func (r *validationRun) trackIDREF(idref, path string) {
 	if idref == "" {
 		return
@@ -145,7 +145,7 @@ func (r *validationRun) trackIDREF(idref, path string) {
 	r.idrefs = append(r.idrefs, idrefEntry{ref: idref, path: path})
 }
 
-// trackIDREFS records IDREFS values for later validation.
+// trackIDREFS records IDREFS values for later schemacheck.
 func (r *validationRun) trackIDREFS(idrefs, path string) {
 	if idrefs == "" {
 		return
