@@ -978,3 +978,16 @@ func validateOnlyAnnotationChildren(doc *xsdxml.Document, elem xsdxml.NodeID, el
 	}
 	return nil
 }
+
+func validateElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, elementName string, schema *Schema) error {
+	if hasIDAttribute(doc, elem) {
+		idAttr := doc.GetAttribute(elem, "id")
+		if err := validateIDAttribute(idAttr, elementName, schema); err != nil {
+			return err
+		}
+	}
+	if err := validateOnlyAnnotationChildren(doc, elem, elementName); err != nil {
+		return err
+	}
+	return nil
+}

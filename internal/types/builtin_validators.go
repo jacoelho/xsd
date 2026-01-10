@@ -48,6 +48,7 @@ var (
 	durationTimeComponentPattern = regexp.MustCompile(`T(\d+H|\d+M|\d+(\.\d+)?S)`)
 	hexBinaryPattern             = regexp.MustCompile(`^[0-9A-Fa-f]+$`)
 	uriSchemePattern             = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*$`)
+	base64WhitespaceReplacer     = strings.NewReplacer(" ", "", "\t", "", "\n", "", "\r", "")
 )
 
 var fractionalLayouts = [...]string{
@@ -391,7 +392,7 @@ func validateIDREFS(value string) error {
 	parts := strings.FieldsSeq(value)
 	for part := range parts {
 		if err := validateIDREF(part); err != nil {
-			return fmt.Errorf("invalid IDREFS: %v", err)
+			return fmt.Errorf("invalid IDREFS: %w", err)
 		}
 	}
 
@@ -412,7 +413,7 @@ func validateENTITIES(value string) error {
 	parts := strings.FieldsSeq(value)
 	for part := range parts {
 		if err := validateENTITY(part); err != nil {
-			return fmt.Errorf("invalid ENTITIES: %v", err)
+			return fmt.Errorf("invalid ENTITIES: %w", err)
 		}
 	}
 
@@ -444,7 +445,7 @@ func validateNMTOKENS(value string) error {
 	parts := strings.FieldsSeq(value)
 	for part := range parts {
 		if err := validateNMTOKEN(part); err != nil {
-			return fmt.Errorf("invalid NMTOKENS: %v", err)
+			return fmt.Errorf("invalid NMTOKENS: %w", err)
 		}
 	}
 
@@ -659,6 +660,37 @@ func parseTimeParts(value string) (int, int, int, int, bool) {
 	return hour, minute, second, fractionLength, true
 }
 
+func appendTimezoneSuffix(value, tz string) string {
+	switch tz {
+	case "Z":
+		return value + "Z"
+	case "":
+		return value
+	default:
+		return value + tz
+	}
+}
+
+func applyTimezoneLayout(layout, tz string) string {
+	switch tz {
+	case "Z":
+		return layout + "Z"
+	case "":
+		return layout
+	default:
+		return layout + "-07:00"
+	}
+}
+
+func validateTemporalValue(kind, layout, baseValue, tz, original string) error {
+	parseValue := appendTimezoneSuffix(baseValue, tz)
+	layout = applyTimezoneLayout(layout, tz)
+	if _, err := time.Parse(layout, parseValue); err != nil {
+		return fmt.Errorf("invalid %s format: %s", kind, original)
+	}
+	return nil
+}
+
 // validateDateTime validates xs:dateTime
 // Format: CCYY-MM-DDThh:mm:ss[.sss][Z|(+|-)hh:mm]
 func validateDateTime(value string) error {
@@ -697,13 +729,8 @@ func validateDateTime(value string) error {
 
 	layout := "2006-01-02T15:04:05"
 	layout += fractionalLayouts[fractionLength]
-	if tz == "Z" {
-		layout += "Z"
-	} else if tz != "" {
-		layout += "-07:00"
-	}
-	if _, err := time.Parse(layout, value); err != nil {
-		return fmt.Errorf("invalid dateTime format: %s", value)
+	if err := validateTemporalValue("dateTime", layout, main, tz, value); err != nil {
+		return err
 	}
 
 	return nil
@@ -729,13 +756,8 @@ func validateDate(value string) error {
 	}
 
 	layout := "2006-01-02"
-	if tz == "Z" {
-		layout += "Z"
-	} else if tz != "" {
-		layout += "-07:00"
-	}
-	if _, err := time.Parse(layout, value); err != nil {
-		return fmt.Errorf("invalid date format: %s", value)
+	if err := validateTemporalValue("date", layout, main, tz, value); err != nil {
+		return err
 	}
 
 	return nil
@@ -762,13 +784,8 @@ func validateTime(value string) error {
 
 	layout := "15:04:05"
 	layout += fractionalLayouts[fractionLength]
-	if tz == "Z" {
-		layout += "Z"
-	} else if tz != "" {
-		layout += "-07:00"
-	}
-	if _, err := time.Parse(layout, value); err != nil {
-		return fmt.Errorf("invalid time format: %s", value)
+	if err := validateTemporalValue("time", layout, main, tz, value); err != nil {
+		return err
 	}
 
 	return nil
@@ -792,13 +809,8 @@ func validateGYear(value string) error {
 	}
 
 	layout := "2006"
-	if tz == "Z" {
-		layout += "Z"
-	} else if tz != "" {
-		layout += "-07:00"
-	}
-	if _, err := time.Parse(layout, value); err != nil {
-		return fmt.Errorf("invalid gYear format: %s", value)
+	if err := validateTemporalValue("gYear", layout, main, tz, value); err != nil {
+		return err
 	}
 
 	return nil
@@ -832,13 +844,8 @@ func validateGYearMonth(value string) error {
 	}
 
 	layout := "2006-01"
-	if tz == "Z" {
-		layout += "Z"
-	} else if tz != "" {
-		layout += "-07:00"
-	}
-	if _, err := time.Parse(layout, value); err != nil {
-		return fmt.Errorf("invalid gYearMonth format: %s", value)
+	if err := validateTemporalValue("gYearMonth", layout, main, tz, value); err != nil {
+		return err
 	}
 
 	return nil
@@ -864,15 +871,8 @@ func validateGMonth(value string) error {
 
 	layout := "2006-01"
 	testValue := "2000-" + main[2:]
-	if tz == "Z" {
-		layout += "Z"
-		testValue += "Z"
-	} else if tz != "" {
-		layout += "-07:00"
-		testValue += tz
-	}
-	if _, err := time.Parse(layout, testValue); err != nil {
-		return fmt.Errorf("invalid gMonth format: %s", value)
+	if err := validateTemporalValue("gMonth", layout, testValue, tz, value); err != nil {
+		return err
 	}
 
 	return nil
@@ -905,15 +905,8 @@ func validateGMonthDay(value string) error {
 
 	layout := "2006-01-02"
 	testValue := "2000-" + main[2:4] + "-" + main[5:7]
-	if tz == "Z" {
-		layout += "Z"
-		testValue += "Z"
-	} else if tz != "" {
-		layout += "-07:00"
-		testValue += tz
-	}
-	if _, err := time.Parse(layout, testValue); err != nil {
-		return fmt.Errorf("invalid gMonthDay format: %s", value)
+	if err := validateTemporalValue("gMonthDay", layout, testValue, tz, value); err != nil {
+		return err
 	}
 
 	return nil
@@ -939,15 +932,8 @@ func validateGDay(value string) error {
 
 	layout := "2006-01-02"
 	testValue := "2000-01-" + main[3:5]
-	if tz == "Z" {
-		layout += "Z"
-		testValue += "Z"
-	} else if tz != "" {
-		layout += "-07:00"
-		testValue += tz
-	}
-	if _, err := time.Parse(layout, testValue); err != nil {
-		return fmt.Errorf("invalid gDay format: %s", value)
+	if err := validateTemporalValue("gDay", layout, testValue, tz, value); err != nil {
+		return err
 	}
 
 	return nil
@@ -1011,7 +997,7 @@ func validateHexBinary(value string) error {
 	// try to decode to verify it's valid hex
 	_, err := hex.DecodeString(value)
 	if err != nil {
-		return fmt.Errorf("invalid hexBinary: %v", err)
+		return fmt.Errorf("invalid hexBinary: %w", err)
 	}
 
 	return nil
@@ -1025,14 +1011,11 @@ func validateBase64Binary(value string) error {
 	}
 
 	// remove whitespace (base64 can contain whitespace in XML)
-	value = strings.ReplaceAll(value, " ", "")
-	value = strings.ReplaceAll(value, "\t", "")
-	value = strings.ReplaceAll(value, "\n", "")
-	value = strings.ReplaceAll(value, "\r", "")
+	value = base64WhitespaceReplacer.Replace(value)
 
 	// try to decode to verify it's valid base64 (strict padding/charset).
 	if _, err := base64.StdEncoding.Strict().DecodeString(value); err != nil {
-		return fmt.Errorf("invalid base64Binary: %v", err)
+		return fmt.Errorf("invalid base64Binary: %w", err)
 	}
 
 	return nil
@@ -1103,7 +1086,7 @@ func validateQName(value string) error {
 	colon := strings.IndexByte(value, ':')
 	if colon == -1 {
 		if err := validateNCName(value); err != nil {
-			return fmt.Errorf("invalid QName part '%s': %v", value, err)
+			return fmt.Errorf("invalid QName part '%s': %w", value, err)
 		}
 		return nil
 	}
@@ -1119,10 +1102,10 @@ func validateQName(value string) error {
 		return fmt.Errorf("QName cannot use reserved prefix 'xmlns'")
 	}
 	if err := validateNCName(prefix); err != nil {
-		return fmt.Errorf("invalid QName part '%s': %v", prefix, err)
+		return fmt.Errorf("invalid QName part '%s': %w", prefix, err)
 	}
 	if err := validateNCName(local); err != nil {
-		return fmt.Errorf("invalid QName part '%s': %v", local, err)
+		return fmt.Errorf("invalid QName part '%s': %w", local, err)
 	}
 
 	return nil
