@@ -6,7 +6,6 @@ import (
 	"io"
 	"strings"
 
-	xsdschema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
@@ -62,19 +61,19 @@ type IncludeInfo struct {
 
 // getAttr returns an attribute value with whitespace trimmed.
 // XSD attribute values should be normalized per XML spec, so we always trim.
-func getAttr(doc *xml.Document, elem xml.NodeID, name string) string {
+func getAttr(doc *xsdxml.Document, elem xsdxml.NodeID, name string) string {
 	return strings.TrimSpace(doc.GetAttribute(elem, name))
 }
 
 // ParseResult contains the parsed schema and import/include directives
 type ParseResult struct {
-	Schema   *xsdschema.Schema
+	Schema   *Schema
 	Imports  []ImportInfo
 	Includes []IncludeInfo
 }
 
 // Parse parses an XSD schema from a reader
-func Parse(r io.Reader) (*xsdschema.Schema, error) {
+func Parse(r io.Reader) (*Schema, error) {
 	result, err := ParseWithImports(r)
 	if err != nil {
 		return nil, err
@@ -84,19 +83,19 @@ func Parse(r io.Reader) (*xsdschema.Schema, error) {
 
 // ParseWithImports parses an XSD schema and returns import/include information
 func ParseWithImports(r io.Reader) (*ParseResult, error) {
-	doc := xml.AcquireDocument()
-	defer xml.ReleaseDocument(doc)
+	doc := xsdxml.AcquireDocument()
+	defer xsdxml.ReleaseDocument(doc)
 
-	if err := xml.ParseInto(r, doc); err != nil {
+	if err := xsdxml.ParseInto(r, doc); err != nil {
 		return nil, newParseError("parse XML", err)
 	}
 
 	root := doc.DocumentElement()
-	if root == xml.InvalidNode {
+	if root == xsdxml.InvalidNode {
 		return nil, fmt.Errorf("empty document")
 	}
 
-	if doc.LocalName(root) != "schema" || doc.NamespaceURI(root) != xml.XSDNamespace {
+	if doc.LocalName(root) != "schema" || doc.NamespaceURI(root) != xsdxml.XSDNamespace {
 		return nil, fmt.Errorf("root element must be xs:schema, got {%s}%s",
 			doc.NamespaceURI(root), doc.LocalName(root))
 	}
@@ -105,7 +104,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		return nil, err
 	}
 
-	schema := xsdschema.NewSchema()
+	schema := NewSchema()
 
 	// check if targetNamespace attribute is present and validate it
 	// according to XSD 1.0 spec, targetNamespace cannot be an empty string
@@ -139,10 +138,10 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	// note: Go's encoding/xml represents xmlns:prefix attributes with NamespaceURI="xmlns"
 	// and the local name is the prefix
 	for _, attr := range doc.Attributes(root) {
-		if attr.LocalName() == "xmlns" && (attr.NamespaceURI() == "" || attr.NamespaceURI() == xml.XMLNSNamespace) {
+		if attr.LocalName() == "xmlns" && (attr.NamespaceURI() == "" || attr.NamespaceURI() == xsdxml.XMLNSNamespace) {
 			// xmlns="namespace" - default namespace (no prefix)
 			schema.NamespaceDecls[""] = attr.Value()
-		} else if attr.NamespaceURI() == "xmlns" || attr.NamespaceURI() == xml.XMLNSNamespace {
+		} else if attr.NamespaceURI() == "xmlns" || attr.NamespaceURI() == xsdxml.XMLNSNamespace {
 			// xmlns:prefix="namespace" - prefix is the local name
 			prefix := attr.LocalName()
 			if attr.Value() == "" {
@@ -159,9 +158,9 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		}
 		switch elemForm {
 		case "qualified":
-			schema.ElementFormDefault = xsdschema.Qualified
+			schema.ElementFormDefault = Qualified
 		case "unqualified":
-			schema.ElementFormDefault = xsdschema.Unqualified
+			schema.ElementFormDefault = Unqualified
 		default:
 			return nil, fmt.Errorf("invalid elementFormDefault attribute value '%s': must be 'qualified' or 'unqualified'", elemForm)
 		}
@@ -174,9 +173,9 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		}
 		switch attrForm {
 		case "qualified":
-			schema.AttributeFormDefault = xsdschema.Qualified
+			schema.AttributeFormDefault = Qualified
 		case "unqualified":
-			schema.AttributeFormDefault = xsdschema.Unqualified
+			schema.AttributeFormDefault = Unqualified
 		default:
 			return nil, fmt.Errorf("invalid attributeFormDefault attribute value '%s': must be 'qualified' or 'unqualified'", attrForm)
 		}
@@ -211,7 +210,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	}
 
 	for _, child := range doc.Children(root) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -219,13 +218,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		case "annotation":
 			// allowed at top-level; nothing to parse.
 		case "import":
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "import", schema); err != nil {
-					return nil, err
-				}
-			}
-			if err := validateOnlyAnnotationChildren(doc, child, "import"); err != nil {
+			if err := validateElementConstraints(doc, child, "import", schema); err != nil {
 				return nil, err
 			}
 			importInfo := ImportInfo{
@@ -234,13 +227,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 			}
 			result.Imports = append(result.Imports, importInfo)
 		case "include":
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "include", schema); err != nil {
-					return nil, err
-				}
-			}
-			if err := validateOnlyAnnotationChildren(doc, child, "include"); err != nil {
+			if err := validateElementConstraints(doc, child, "include", schema); err != nil {
 				return nil, err
 			}
 			includeInfo := IncludeInfo{
@@ -291,7 +278,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 }
 
 // parseTopLevelNotation parses a top-level notation declaration
-func parseTopLevelNotation(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+func parseTopLevelNotation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
 	if err := validateAllowedAttributes(doc, elem, "notation", validNotationAttributes); err != nil {
 		return err
 	}
@@ -331,7 +318,7 @@ func parseTopLevelNotation(doc *xml.Document, elem xml.NodeID, schema *xsdschema
 	// validate annotation constraints: at most one annotation, must be first
 	hasAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			return fmt.Errorf("notation '%s': unexpected child element '%s'", name, doc.LocalName(child))
 		}
 

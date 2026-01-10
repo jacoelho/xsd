@@ -6,7 +6,6 @@ import (
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
-	"github.com/jacoelho/xsd/internal/grammar/contentmodel"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
@@ -29,8 +28,8 @@ type streamFrame struct {
 	typ                *grammar.CompiledType
 	textType           *grammar.CompiledType
 	contentModel       *grammar.CompiledContentModel
-	automaton          *contentmodel.AutomatonStreamValidator
-	allGroup           *contentmodel.AllGroupStreamValidator
+	automaton          *grammar.AutomatonStreamValidator
+	allGroup           *grammar.AllGroupStreamValidator
 	textBuf            []byte
 	fieldCaptures      []fieldCapture
 	minOccurs          int
@@ -45,7 +44,7 @@ type streamFrame struct {
 
 type streamRun struct {
 	*validationRun
-	dec                     *xml.StreamDecoder
+	dec                     *xsdxml.StreamDecoder
 	frames                  []streamFrame
 	violations              []errors.Validation
 	rootSeen                bool
@@ -57,7 +56,7 @@ type streamRun struct {
 	constraintDecls         map[types.QName][]*grammar.CompiledElement
 }
 
-// ValidateStream validates an XML document using streaming validation.
+// ValidateStream validates an XML document using streaming schemacheck.
 func (v *Validator) ValidateStream(r io.Reader) ([]errors.Validation, error) {
 	return v.ValidateStreamWithOptions(r, StreamOptions{})
 }
@@ -82,7 +81,7 @@ func (v *Validator) ValidateStreamWithOptions(r io.Reader, opts StreamOptions) (
 				return nil, err
 			}
 
-			prepassDec, err := xml.NewStreamDecoder(seeker)
+			prepassDec, err := xsdxml.NewStreamDecoder(seeker)
 			if err != nil {
 				return nil, err
 			}
@@ -105,7 +104,7 @@ func (v *Validator) ValidateStreamWithOptions(r io.Reader, opts StreamOptions) (
 		}
 	}
 
-	dec, err := xml.NewStreamDecoder(r)
+	dec, err := xsdxml.NewStreamDecoder(r)
 	if err != nil {
 		return nil, err
 	}
@@ -124,19 +123,19 @@ func (v *Validator) newStreamRun() *streamRun {
 	}
 }
 
-func (v *Validator) acquireAutomatonStreamValidator(a *contentmodel.Automaton, matcher contentmodel.SymbolMatcher, wildcards []*types.AnyElement) *contentmodel.AutomatonStreamValidator {
+func (v *Validator) acquireAutomatonStreamValidator(a *grammar.Automaton, matcher grammar.SymbolMatcher, wildcards []*types.AnyElement) *grammar.AutomatonStreamValidator {
 	if v == nil || a == nil {
 		return nil
 	}
-	pooled, _ := v.automatonValidatorPool.Get().(*contentmodel.AutomatonStreamValidator)
+	pooled, _ := v.automatonValidatorPool.Get().(*grammar.AutomatonStreamValidator)
 	if pooled == nil {
-		pooled = &contentmodel.AutomatonStreamValidator{}
+		pooled = &grammar.AutomatonStreamValidator{}
 	}
 	pooled.Reset(a, matcher, wildcards)
 	return pooled
 }
 
-func (v *Validator) releaseAutomatonStreamValidator(stream *contentmodel.AutomatonStreamValidator) {
+func (v *Validator) releaseAutomatonStreamValidator(stream *grammar.AutomatonStreamValidator) {
 	if v == nil || stream == nil {
 		return
 	}
@@ -144,7 +143,7 @@ func (v *Validator) releaseAutomatonStreamValidator(stream *contentmodel.Automat
 	v.automatonValidatorPool.Put(stream)
 }
 
-func (r *streamRun) newAutomatonValidator(a *contentmodel.Automaton, wildcards []*types.AnyElement) *contentmodel.AutomatonStreamValidator {
+func (r *streamRun) newAutomatonValidator(a *grammar.Automaton, wildcards []*types.AnyElement) *grammar.AutomatonStreamValidator {
 	if r == nil || a == nil {
 		return nil
 	}
@@ -164,7 +163,7 @@ func (r *streamRun) releaseFrameResources(frame *streamFrame) {
 	}
 }
 
-func (r *streamRun) validate(dec *xml.StreamDecoder, initial []errors.Validation) ([]errors.Validation, error) {
+func (r *streamRun) validate(dec *xsdxml.StreamDecoder, initial []errors.Validation) ([]errors.Validation, error) {
 	r.reset()
 	r.dec = dec
 	r.frames = r.frames[:0]
@@ -185,7 +184,7 @@ func (r *streamRun) validate(dec *xml.StreamDecoder, initial []errors.Validation
 		}
 
 		switch ev.Kind {
-		case xml.EventStartElement:
+		case xsdxml.EventStartElement:
 			if r.rootClosed {
 				return r.violations, fmt.Errorf("unexpected element %s after document end", ev.Name.Local)
 			}
@@ -196,7 +195,7 @@ func (r *streamRun) validate(dec *xml.StreamDecoder, initial []errors.Validation
 				return r.violations, err
 			}
 
-		case xml.EventEndElement:
+		case xsdxml.EventEndElement:
 			if len(r.frames) == 0 {
 				return r.violations, fmt.Errorf("unexpected end element %s", ev.Name.Local)
 			}
@@ -207,7 +206,7 @@ func (r *streamRun) validate(dec *xml.StreamDecoder, initial []errors.Validation
 				r.rootClosed = true
 			}
 
-		case xml.EventCharData:
+		case xsdxml.EventCharData:
 			if len(r.frames) == 0 {
 				if !isIgnorableOutsideRoot(ev.Text) {
 					return r.violations, fmt.Errorf("unexpected character data outside root element")
@@ -229,7 +228,7 @@ func (r *streamRun) validate(dec *xml.StreamDecoder, initial []errors.Validation
 	return r.violations, nil
 }
 
-func (r *streamRun) handleStart(dec *xml.StreamDecoder, ev xml.Event) error {
+func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) error {
 	if r.schemaLocationHintError && hasSchemaLocationHint(ev.Attrs) {
 		path := r.childPath(ev.Name.Local)
 		return schemaLocationPolicyError(path)
@@ -310,9 +309,7 @@ func (r *streamRun) handleStart(dec *xml.StreamDecoder, ev xml.Event) error {
 			}
 			matchedQName = match.MatchedQName
 			if match.MatchedElement != nil {
-				if decl, ok := match.MatchedElement.(*grammar.CompiledElement); ok {
-					matchedDecl = decl
-				}
+				matchedDecl = match.MatchedElement
 			}
 		case streamContentAllGroup:
 			match, err := parent.allGroup.Feed(ev.Name)
@@ -323,9 +320,7 @@ func (r *streamRun) handleStart(dec *xml.StreamDecoder, ev xml.Event) error {
 			}
 			matchedQName = match.MatchedQName
 			if match.MatchedElement != nil {
-				if decl, ok := match.MatchedElement.(*grammar.CompiledElement); ok {
-					matchedDecl = decl
-				}
+				matchedDecl = match.MatchedElement
 			}
 		}
 	}
@@ -345,7 +340,7 @@ func (r *streamRun) handleStart(dec *xml.StreamDecoder, ev xml.Event) error {
 	return nil
 }
 
-func (r *streamRun) handleCharData(ev xml.Event) {
+func (r *streamRun) handleCharData(ev xsdxml.Event) {
 	frame := r.currentFrame()
 	if frame == nil || frame.invalid {
 		return
@@ -372,7 +367,7 @@ func (r *streamRun) handleCharData(ev xml.Event) {
 	}
 }
 
-func (r *streamRun) handleEnd(ev xml.Event) error {
+func (r *streamRun) handleEnd(ev xsdxml.Event) error {
 	frame := r.popFrame()
 	if frame == nil {
 		return nil
@@ -450,7 +445,7 @@ func (r *streamRun) handleEnd(ev xml.Event) error {
 	return nil
 }
 
-func (r *streamRun) startFrame(ev xml.Event, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, fromWildcard bool) (streamFrame, bool) {
+func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, fromWildcard bool) (streamFrame, bool) {
 	attrs := newAttributeIndex(ev.Attrs)
 	decl := r.resolveMatchedDecl(parent, ev.Name, matchedDecl, matchedQName)
 
@@ -459,7 +454,7 @@ func (r *streamRun) startFrame(ev xml.Event, parent *streamFrame, processContent
 		missingCode = errors.ErrWildcardNotDeclared
 	}
 
-	xsiTypeValue, hasXsiType := attrs.Value(xml.XSINamespace, "type")
+	xsiTypeValue, hasXsiType := attrs.Value(xsdxml.XSINamespace, "type")
 
 	if decl == nil {
 		if hasXsiType {
@@ -487,7 +482,7 @@ func (r *streamRun) startFrame(ev xml.Event, parent *streamFrame, processContent
 		return streamFrame{}, true
 	}
 
-	nilValue, hasNil := attrs.Value(xml.XSINamespace, "nil")
+	nilValue, hasNil := attrs.Value(xsdxml.XSINamespace, "nil")
 	isNil := hasNil && (nilValue == "true" || nilValue == "1")
 	if hasNil && !decl.Nillable {
 		r.addViolation(errors.NewValidationf(errors.ErrElementNotNillable, r.path.String(),
@@ -558,7 +553,7 @@ func (r *streamRun) startFrame(ev xml.Event, parent *streamFrame, processContent
 	return frame, false
 }
 
-func (r *streamRun) newFrame(ev xml.Event, decl *grammar.CompiledElement, ct *grammar.CompiledType, parent *streamFrame) streamFrame {
+func (r *streamRun) newFrame(ev xsdxml.Event, decl *grammar.CompiledElement, ct *grammar.CompiledType, parent *streamFrame) streamFrame {
 	frame := streamFrame{
 		id:         uint64(ev.ID),
 		qname:      ev.Name,
@@ -579,11 +574,11 @@ func (r *streamRun) newFrame(ev xml.Event, decl *grammar.CompiledElement, ct *gr
 				frame.minOccurs = ct.ContentModel.MinOccurs
 			case ct.ContentModel.AllElements != nil:
 				frame.contentKind = streamContentAllGroup
-				allElements := make([]contentmodel.AllGroupElementInfo, len(ct.ContentModel.AllElements))
+				allElements := make([]grammar.AllGroupElementInfo, len(ct.ContentModel.AllElements))
 				for i := range ct.ContentModel.AllElements {
 					allElements[i] = ct.ContentModel.AllElements[i]
 				}
-				frame.allGroup = contentmodel.NewAllGroupValidator(allElements, ct.ContentModel.Mixed, ct.ContentModel.MinOccurs).NewStreamValidator(r.matcher())
+				frame.allGroup = grammar.NewAllGroupValidator(allElements, ct.ContentModel.Mixed, ct.ContentModel.MinOccurs).NewStreamValidator(r.matcher())
 			case ct.ContentModel.Automaton != nil:
 				frame.contentKind = streamContentAutomaton
 				frame.automaton = r.newAutomatonValidator(ct.ContentModel.Automaton, ct.ContentModel.Wildcards())
@@ -636,7 +631,7 @@ func (r *streamRun) addMissingDeclViolation(local string, code errors.ErrorCode)
 }
 
 func (r *streamRun) addContentModelError(err error) {
-	if ve, ok := err.(*contentmodel.ValidationError); ok {
+	if ve, ok := err.(*grammar.ValidationError); ok {
 		r.addViolation(errors.NewValidation(errors.ErrorCode(ve.FullCode()), ve.Message, r.path.String()))
 	}
 }

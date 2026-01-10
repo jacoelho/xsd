@@ -1,7 +1,11 @@
 package xsd_test
 
 import (
+	"bytes"
+	"io"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 
@@ -88,6 +92,277 @@ func TestSchemaValidateNilReader(t *testing.T) {
 	s := loadSchema(t)
 
 	requireSingleViolation(t, s.Validate(nil), errors.ErrXMLParse)
+}
+
+func TestSchemaValidateConcurrent(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="xs:int" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<root xmlns="urn:test">
+  <item>1</item>
+  <item>2</item>
+  <item>3</item>
+</root>`
+
+	fsys := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
+	}
+	schema, err := xsd.Load(fsys, "schema.xsd")
+	if err != nil {
+		t.Fatalf("Load schema: %v", err)
+	}
+
+	const goroutines = 8
+	const iterations = 25
+
+	errCh := make(chan error, goroutines*iterations)
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for range goroutines {
+		go func() {
+			defer wg.Done()
+			for range iterations {
+				if err := schema.Validate(strings.NewReader(docXML)); err != nil {
+					errCh <- err
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Fatalf("concurrent Validate error: %v", err)
+	}
+}
+
+type nonSeekableReader struct {
+	r io.Reader
+}
+
+func (n nonSeekableReader) Read(p []byte) (int, error) {
+	return n.r.Read(p)
+}
+
+func TestValidateRootOnlySchemaLocationNonSeekable(t *testing.T) {
+	baseSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:base"
+           elementFormDefault="qualified">
+  <xs:element name="baseRoot" type="xs:string"/>
+</xs:schema>`
+
+	hintSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:hint"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+
+	fs := fstest.MapFS{
+		"base.xsd": {Data: []byte(baseSchema)},
+		"hint.xsd": {Data: []byte(hintSchema)},
+	}
+
+	schema, err := xsd.Load(fs, "base.xsd")
+	if err != nil {
+		t.Fatalf("Load schema: %v", err)
+	}
+
+	doc := `<?xml version="1.0"?>
+<root xmlns="urn:hint"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="urn:hint hint.xsd">value</root>`
+
+	reader := nonSeekableReader{r: strings.NewReader(doc)}
+	if err := schema.Validate(reader); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
+func TestValidateDocumentSchemaLocationNonSeekableError(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+
+	fs := fstest.MapFS{
+		"base.xsd": {Data: []byte(schemaXML)},
+	}
+
+	schema, err := xsd.Load(fs, "base.xsd")
+	if err != nil {
+		t.Fatalf("Load schema: %v", err)
+	}
+
+	doc := `<?xml version="1.0"?>
+<root xmlns="urn:test"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="urn:test base.xsd">value</root>`
+
+	reader := nonSeekableReader{r: strings.NewReader(doc)}
+	err = schema.ValidateWithOptions(reader, xsd.ValidateOptions{
+		SchemaLocationPolicy: xsd.SchemaLocationDocument,
+	})
+	if err == nil {
+		t.Fatal("expected error for non-seekable reader with schemaLocation hints")
+	}
+	list, ok := errors.AsValidations(err)
+	if !ok {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	for _, v := range list {
+		if v.Code == string(errors.ErrSchemaLocationHint) {
+			return
+		}
+	}
+	t.Fatalf("expected ErrSchemaLocationHint, got %v", err)
+}
+
+var (
+	streamRootStart = []byte(`<root xmlns="urn:test">`)
+	streamItem      = []byte(`<item>1</item>`)
+	streamRootEnd   = []byte(`</root>`)
+)
+
+type itemStream struct {
+	remaining int
+	state     int
+	buf       []byte
+	offset    int
+}
+
+const (
+	streamStateStart = iota
+	streamStateItems
+	streamStateEnd
+	streamStateDone
+)
+
+func newItemStream(count int) io.Reader {
+	return &itemStream{
+		remaining: count,
+		state:     streamStateStart,
+	}
+}
+
+func (s *itemStream) Read(p []byte) (int, error) {
+	if s.state == streamStateDone {
+		return 0, io.EOF
+	}
+	if len(p) == 0 {
+		return 0, nil
+	}
+
+	if s.offset >= len(s.buf) {
+		switch s.state {
+		case streamStateStart:
+			s.buf = streamRootStart
+		case streamStateItems:
+			if s.remaining == 0 {
+				s.state = streamStateEnd
+				s.buf = streamRootEnd
+			} else {
+				s.buf = streamItem
+				s.remaining--
+			}
+		case streamStateEnd:
+			s.state = streamStateDone
+			return 0, io.EOF
+		}
+		s.offset = 0
+	}
+
+	n := copy(p, s.buf[s.offset:])
+	s.offset += n
+	if s.offset >= len(s.buf) {
+		switch s.state {
+		case streamStateStart:
+			s.state = streamStateItems
+		case streamStateEnd:
+			s.state = streamStateDone
+		}
+	}
+	return n, nil
+}
+
+func TestStreamValidatorConstantMemory(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="xs:int" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	fsys := fstest.MapFS{
+		"stream.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
+	}
+	schema, err := xsd.Load(fsys, "stream.xsd")
+	if err != nil {
+		t.Fatalf("Load schema: %v", err)
+	}
+
+	runStreamValidation(t, schema, 5)
+	runtime.GC()
+
+	heap10 := measureStreamHeapDelta(t, schema, 10)
+	heap1000 := measureStreamHeapDelta(t, schema, 1000)
+
+	const maxDelta = 512 * 1024
+	if heap1000 > heap10+maxDelta {
+		t.Fatalf("heap usage grew: 10 items=%d bytes, 1000 items=%d bytes (delta=%d)",
+			heap10, heap1000, heap1000-heap10)
+	}
+}
+
+func runStreamValidation(t *testing.T, schema *xsd.Schema, count int) {
+	t.Helper()
+
+	err := schema.Validate(newItemStream(count))
+	if err != nil {
+		t.Fatalf("Validate() error: %v", err)
+	}
+}
+
+func measureStreamHeapDelta(t *testing.T, schema *xsd.Schema, count int) uint64 {
+	t.Helper()
+
+	runtime.GC()
+	var before runtime.MemStats
+	runtime.ReadMemStats(&before)
+
+	runStreamValidation(t, schema, count)
+
+	runtime.GC()
+	var after runtime.MemStats
+	runtime.ReadMemStats(&after)
+
+	if after.HeapAlloc < before.HeapAlloc {
+		return 0
+	}
+	return after.HeapAlloc - before.HeapAlloc
 }
 
 const pain008Schema = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -1097,5 +1372,60 @@ func TestSchemaValidatePain008(t *testing.T) {
 			t.Fatalf("Validate() violations = %d, want 0", len(violations))
 		}
 		t.Fatalf("Validate() err = %v, want nil", err)
+	}
+}
+
+var (
+	pain008SchemaOnce     sync.Once
+	pain008SchemaInstance *xsd.Schema
+	pain008SchemaErr      error
+)
+
+func loadPain008Schema(tb testing.TB) *xsd.Schema {
+	tb.Helper()
+
+	pain008SchemaOnce.Do(func() {
+		fsys := fstest.MapFS{
+			"pain.008.001.02.xsd": &fstest.MapFile{Data: []byte(pain008Schema)},
+		}
+
+		pain008SchemaInstance, pain008SchemaErr = xsd.Load(fsys, "pain.008.001.02.xsd")
+	})
+
+	if pain008SchemaErr != nil {
+		tb.Fatalf("load pain008 schema: %v", pain008SchemaErr)
+	}
+
+	return pain008SchemaInstance
+}
+
+func BenchmarkPain008Validate(b *testing.B) {
+	schema := loadPain008Schema(b)
+	xmlBytes := []byte(pain008XML)
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(xmlBytes)))
+
+	reader := bytes.NewReader(nil)
+	for b.Loop() {
+		reader.Reset(xmlBytes)
+		if err := schema.Validate(reader); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkPain008Load(b *testing.B) {
+	schemaBytes := []byte(pain008Schema)
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		fsys := fstest.MapFS{
+			"pain.008.001.02.xsd": &fstest.MapFile{Data: schemaBytes},
+		}
+		if _, err := xsd.Load(fsys, "pain.008.001.02.xsd"); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

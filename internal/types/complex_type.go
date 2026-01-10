@@ -124,7 +124,7 @@ func (c *ComplexType) WhiteSpace() WhiteSpace {
 	return WhiteSpacePreserve
 }
 
-// Content returns the content model (implements ComplexTypeDefinition)
+// Content returns the content model.
 func (c *ComplexType) Content() Content {
 	return c.content
 }
@@ -134,7 +134,7 @@ func (c *ComplexType) SetContent(content Content) {
 	c.content = content
 }
 
-// Attributes returns the attribute declarations (implements ComplexTypeDefinition)
+// Attributes returns the attribute declarations.
 func (c *ComplexType) Attributes() []*AttributeDecl {
 	return c.attributes
 }
@@ -144,7 +144,7 @@ func (c *ComplexType) SetAttributes(attributes []*AttributeDecl) {
 	c.attributes = attributes
 }
 
-// AnyAttribute returns the wildcard attribute if present (implements ComplexTypeDefinition)
+// AnyAttribute returns the wildcard attribute if present.
 func (c *ComplexType) AnyAttribute() *AnyAttribute {
 	return c.anyAttribute
 }
@@ -154,7 +154,7 @@ func (c *ComplexType) SetAnyAttribute(anyAttr *AnyAttribute) {
 	c.anyAttribute = anyAttr
 }
 
-// Mixed returns true if this type allows mixed content (implements ComplexTypeDefinition)
+// Mixed returns true if this type allows mixed content.
 func (c *ComplexType) Mixed() bool {
 	return c.mixed
 }

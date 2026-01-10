@@ -1,6 +1,7 @@
 package xpath
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -42,30 +43,38 @@ type Expression struct {
 	Paths []Path
 }
 
+// ErrInvalidXPath reports that the expression does not conform to the restricted XPath syntax.
+var ErrInvalidXPath = errors.New("invalid xpath")
+
+func xpathErrorf(format string, args ...any) error {
+	return fmt.Errorf("%w: "+format, append([]any{ErrInvalidXPath}, args...)...)
+}
+
 // Parse compiles an XPath expression into a set of paths.
 func Parse(expr string, nsContext map[string]string, allowAttributes bool) (Expression, error) {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
-		return Expression{}, fmt.Errorf("xpath cannot be empty")
+		return Expression{}, xpathErrorf("xpath cannot be empty")
 	}
 	if strings.HasPrefix(expr, "/") {
-		return Expression{}, fmt.Errorf("xpath must be a relative path: %s", expr)
+		return Expression{}, xpathErrorf("xpath must be a relative path: %s", expr)
 	}
 	if strings.Contains(expr, "[") || strings.Contains(expr, "]") {
-		return Expression{}, fmt.Errorf("xpath cannot use predicates: %s", expr)
+		return Expression{}, xpathErrorf("xpath cannot use predicates: %s", expr)
 	}
 	if strings.Contains(expr, "(") || strings.Contains(expr, ")") {
-		return Expression{}, fmt.Errorf("xpath cannot use functions or parentheses: %s", expr)
+		return Expression{}, xpathErrorf("xpath cannot use functions or parentheses: %s", expr)
 	}
 
 	parts := strings.Split(expr, "|")
 	paths := make([]Path, 0, len(parts))
+	opts := parseOptions{allowAttributes: allowAttributes}
 	for _, raw := range parts {
 		part := strings.TrimSpace(raw)
 		if part == "" {
-			return Expression{}, fmt.Errorf("xpath contains empty union branch: %s", expr)
+			return Expression{}, xpathErrorf("xpath contains empty union branch: %s", expr)
 		}
-		path, err := parsePath(part, nsContext, allowAttributes)
+		path, err := parsePath(part, nsContext, opts)
 		if err != nil {
 			return Expression{}, err
 		}
@@ -75,128 +84,150 @@ func Parse(expr string, nsContext map[string]string, allowAttributes bool) (Expr
 	return Expression{Paths: paths}, nil
 }
 
-func parsePath(expr string, nsContext map[string]string, allowAttributes bool) (Path, error) {
+type parseOptions struct {
+	allowAttributes bool
+}
+
+type pathParseState struct {
+	usedDescendantPrefix bool
+	sawSuffix            bool
+}
+
+type axisToken struct {
+	axis     Axis
+	explicit bool
+	token    string
+}
+
+func parsePath(expr string, nsContext map[string]string, opts parseOptions) (Path, error) {
 	var path Path
 	reader := &pathReader{input: expr}
-	usedDescendantPrefix := reader.consumeDotSlashSlashPrefix()
-	sawSuffix := false
+	state := &pathParseState{usedDescendantPrefix: reader.consumeDotSlashSlashPrefix()}
 
-	if usedDescendantPrefix {
+	if state.usedDescendantPrefix {
 		path.Steps = append(path.Steps, Step{Axis: AxisDescendantOrSelf, Test: NodeTest{Any: true}})
 	}
 
 	for {
-		reader.skipSpace()
-		if reader.atEnd() {
-			if usedDescendantPrefix && !sawSuffix {
-				return Path{}, fmt.Errorf("xpath step is missing a node test: %s", expr)
-			}
-			if len(path.Steps) == 0 && path.Attribute == nil {
-				return Path{}, fmt.Errorf("xpath must contain at least one step: %s", expr)
-			}
+		done, err := parseNextStep(reader, &path, expr, nsContext, opts, state)
+		if err != nil {
+			return Path{}, err
+		}
+		if done {
 			return path, nil
 		}
-
-		if reader.peekSlash() {
-			if len(path.Steps) == 0 && path.Attribute == nil && !usedDescendantPrefix {
-				return Path{}, fmt.Errorf("xpath must be a relative path: %s", expr)
-			}
-			return Path{}, fmt.Errorf("xpath step is missing a node test: %s", expr)
-		}
-
-		token := reader.readToken()
-		stepAxis, explicitAxis, stepToken, err := parseAxisToken(reader, token)
-		if err != nil {
-			return Path{}, err
-		}
-
-		addedSteps, attr, err := parseStep(stepAxis, stepToken, explicitAxis, nsContext, allowAttributes)
-		if err != nil {
-			return Path{}, err
-		}
-		sawSuffix = true
-		path.Steps = append(path.Steps, addedSteps...)
-		if attr != nil {
-			path.Attribute = attr
-		}
-
-		reader.skipSpace()
-		if reader.atEnd() {
-			break
-		}
-		if path.Attribute != nil {
-			return Path{}, fmt.Errorf("xpath attribute step must be final: %s", expr)
-		}
-		if reader.consumeSlash() {
-			continue
-		}
-		if reader.peekDoubleSlash() {
-			return Path{}, fmt.Errorf("xpath step has invalid axis: %s", expr)
-		}
-		return Path{}, fmt.Errorf("xpath has invalid trailing content: %s", expr)
 	}
-
-	return path, nil
 }
 
-func parseAxisToken(reader *pathReader, token string) (Axis, bool, string, error) {
+func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[string]string, opts parseOptions, state *pathParseState) (bool, error) {
+	reader.skipSpace()
+	if reader.atEnd() {
+		if state.usedDescendantPrefix && !state.sawSuffix {
+			return true, xpathErrorf("xpath step is missing a node test: %s", expr)
+		}
+		if len(path.Steps) == 0 && path.Attribute == nil {
+			return true, xpathErrorf("xpath must contain at least one step: %s", expr)
+		}
+		return true, nil
+	}
+
+	if reader.peekSlash() {
+		if len(path.Steps) == 0 && path.Attribute == nil && !state.usedDescendantPrefix {
+			return false, xpathErrorf("xpath must be a relative path: %s", expr)
+		}
+		return false, xpathErrorf("xpath step is missing a node test: %s", expr)
+	}
+
+	token := reader.readToken()
+	axisInfo, err := parseAxisToken(reader, token)
+	if err != nil {
+		return false, err
+	}
+
+	addedSteps, attr, err := parseStep(axisInfo, nsContext, opts)
+	if err != nil {
+		return false, err
+	}
+	state.sawSuffix = true
+	path.Steps = append(path.Steps, addedSteps...)
+	if attr != nil {
+		path.Attribute = attr
+	}
+
+	reader.skipSpace()
+	if reader.atEnd() {
+		return true, nil
+	}
+	if path.Attribute != nil {
+		return false, xpathErrorf("xpath attribute step must be final: %s", expr)
+	}
+	if reader.consumeSlash() {
+		return false, nil
+	}
+	if reader.peekDoubleSlash() {
+		return false, xpathErrorf("xpath step has invalid axis: %s", expr)
+	}
+	return false, xpathErrorf("xpath has invalid trailing content: %s", expr)
+}
+
+func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
-		return AxisChild, false, "", fmt.Errorf("xpath step is missing a node test")
+		return axisToken{}, xpathErrorf("xpath step is missing a node test")
 	}
 
 	if token == "@" {
 		node := reader.readToken()
 		if node == "" {
-			return AxisChild, false, "", fmt.Errorf("xpath step is missing a node test")
+			return axisToken{}, xpathErrorf("xpath step is missing a node test")
 		}
-		return AxisChild, false, "@" + node, nil
+		return axisToken{axis: AxisChild, token: "@" + node}, nil
 	}
 
 	if before, after, ok := strings.Cut(token, "::"); ok {
 		name := strings.TrimSpace(before)
 		if name == "" {
-			return AxisChild, false, "", fmt.Errorf("xpath step has invalid axis")
+			return axisToken{}, xpathErrorf("xpath step has invalid axis")
 		}
 		explicitAxis, err := axisFromName(name)
 		if err != nil {
-			return AxisChild, false, "", err
+			return axisToken{}, err
 		}
 		node := strings.TrimSpace(after)
 		if node == "" {
 			node = reader.readToken()
 			if node == "" {
-				return AxisChild, false, "", fmt.Errorf("xpath step is missing a node test")
+				return axisToken{}, xpathErrorf("xpath step is missing a node test")
 			}
 		}
-		return explicitAxis, true, node, nil
+		return axisToken{axis: explicitAxis, explicit: true, token: node}, nil
 	}
 
 	if reader.peekAxisSeparator() {
 		explicitAxis, err := axisFromName(token)
 		if err != nil {
-			return AxisChild, false, "", err
+			return axisToken{}, err
 		}
 		reader.consumeAxisSeparator()
 		node := reader.readToken()
 		if node == "" {
-			return AxisChild, false, "", fmt.Errorf("xpath step is missing a node test")
+			return axisToken{}, xpathErrorf("xpath step is missing a node test")
 		}
-		return explicitAxis, true, node, nil
+		return axisToken{axis: explicitAxis, explicit: true, token: node}, nil
 	}
 
-	return AxisChild, false, token, nil
+	return axisToken{axis: AxisChild, token: token}, nil
 }
 
-func parseStep(axis Axis, token string, explicitAxis bool, nsContext map[string]string, allowAttributes bool) ([]Step, *NodeTest, error) {
-	token = strings.TrimSpace(token)
+func parseStep(axisInfo axisToken, nsContext map[string]string, opts parseOptions) ([]Step, *NodeTest, error) {
+	token := strings.TrimSpace(axisInfo.token)
 	if token == "" {
-		return nil, nil, fmt.Errorf("xpath step is missing a node test")
+		return nil, nil, xpathErrorf("xpath step is missing a node test")
 	}
 
-	if axis == AxisAttribute {
-		if !allowAttributes {
-			return nil, nil, fmt.Errorf("xpath cannot select attributes: %s", token)
+	if axisInfo.axis == AxisAttribute {
+		if !opts.allowAttributes {
+			return nil, nil, xpathErrorf("xpath cannot select attributes: %s", token)
 		}
 		parsed, err := parseNodeTest(token, nsContext, true)
 		if err != nil {
@@ -206,20 +237,20 @@ func parseStep(axis Axis, token string, explicitAxis bool, nsContext map[string]
 	}
 
 	if token == "." {
-		if axis != AxisChild || explicitAxis {
-			return nil, nil, fmt.Errorf("xpath step has invalid axis")
+		if axisInfo.axis != AxisChild || axisInfo.explicit {
+			return nil, nil, xpathErrorf("xpath step has invalid axis")
 		}
 		return []Step{{Axis: AxisSelf, Test: NodeTest{Any: true}}}, nil, nil
 	}
 
 	if strings.HasPrefix(token, "@") {
-		if !allowAttributes {
-			return nil, nil, fmt.Errorf("xpath cannot select attributes: %s", token)
+		if !opts.allowAttributes {
+			return nil, nil, xpathErrorf("xpath cannot select attributes: %s", token)
 		}
 		name := strings.TrimPrefix(token, "@")
 		name = strings.TrimSpace(name)
 		if name == "" {
-			return nil, nil, fmt.Errorf("xpath step is missing a node test: %s", token)
+			return nil, nil, xpathErrorf("xpath step is missing a node test: %s", token)
 		}
 		attr, err := parseNodeTest(name, nsContext, true)
 		if err != nil {
@@ -232,13 +263,13 @@ func parseStep(axis Axis, token string, explicitAxis bool, nsContext map[string]
 	if err != nil {
 		return nil, nil, err
 	}
-	return []Step{{Axis: axis, Test: parsed}}, nil, nil
+	return []Step{{Axis: axisInfo.axis, Test: parsed}}, nil, nil
 }
 
 func parseNodeTest(token string, nsContext map[string]string, attribute bool) (NodeTest, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
-		return NodeTest{}, fmt.Errorf("xpath step is missing a node test")
+		return NodeTest{}, xpathErrorf("xpath step is missing a node test")
 	}
 	if token == "*" {
 		return NodeTest{Any: true}, nil
@@ -247,35 +278,35 @@ func parseNodeTest(token string, nsContext map[string]string, attribute bool) (N
 	if before, ok := strings.CutSuffix(token, ":*"); ok {
 		prefix := strings.TrimSpace(before)
 		if prefix == "" {
-			return NodeTest{}, fmt.Errorf("xpath step has empty prefix: %s", token)
+			return NodeTest{}, xpathErrorf("xpath step has empty prefix: %s", token)
 		}
 		if !types.IsValidNCName(prefix) {
-			return NodeTest{}, fmt.Errorf("xpath step has invalid prefix %q", token)
+			return NodeTest{}, xpathErrorf("xpath step has invalid prefix %q", token)
 		}
-		nsURI, ok := resolvePrefix(prefix, nsContext)
+		nsURI, ok := types.ResolveNamespace(prefix, nsContext)
 		if !ok {
-			return NodeTest{}, fmt.Errorf("xpath step uses undeclared prefix %q", prefix)
+			return NodeTest{}, xpathErrorf("xpath step uses undeclared prefix %q", prefix)
 		}
 		return NodeTest{
 			Local:              "*",
-			Namespace:          types.NamespaceURI(nsURI),
+			Namespace:          nsURI,
 			NamespaceSpecified: true,
 		}, nil
 	}
 
 	if !types.IsValidQName(token) {
-		return NodeTest{}, fmt.Errorf("xpath step has invalid QName %q", token)
+		return NodeTest{}, xpathErrorf("xpath step has invalid QName %q", token)
 	}
 
-	prefix, local, hasPrefix := splitQName(token)
+	prefix, local, hasPrefix := types.SplitQName(token)
 	if hasPrefix {
-		nsURI, ok := resolvePrefix(prefix, nsContext)
+		nsURI, ok := types.ResolveNamespace(prefix, nsContext)
 		if !ok {
-			return NodeTest{}, fmt.Errorf("xpath step uses undeclared prefix %q", prefix)
+			return NodeTest{}, xpathErrorf("xpath step uses undeclared prefix %q", prefix)
 		}
 		return NodeTest{
 			Local:              local,
-			Namespace:          types.NamespaceURI(nsURI),
+			Namespace:          nsURI,
 			NamespaceSpecified: true,
 		}, nil
 	}
@@ -296,7 +327,7 @@ func axisFromName(name string) (Axis, error) {
 	case "attribute":
 		return AxisAttribute, nil
 	default:
-		return AxisChild, fmt.Errorf("xpath uses disallowed axis '%s::'", name)
+		return AxisChild, xpathErrorf("xpath uses disallowed axis '%s::'", name)
 	}
 }
 
@@ -373,21 +404,6 @@ func (r *pathReader) skipSpace() {
 func (r *pathReader) atEnd() bool {
 	r.skipSpace()
 	return r.pos >= len(r.input)
-}
-
-func splitQName(name string) (string, string, bool) {
-	if before, after, ok := strings.Cut(name, ":"); ok {
-		return before, after, true
-	}
-	return "", name, false
-}
-
-func resolvePrefix(prefix string, nsContext map[string]string) (string, bool) {
-	if nsContext == nil {
-		return "", false
-	}
-	nsURI, ok := nsContext[prefix]
-	return nsURI, ok
 }
 
 func isXPathWhitespace(b byte) bool {

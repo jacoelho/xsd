@@ -11,20 +11,20 @@ import (
 
 // isSpecialAttribute checks if an attribute is a special XSI or XMLNS attribute.
 func isSpecialAttribute(qname types.QName) bool {
-	return qname.Namespace == xml.XSINamespace ||
-		qname.Namespace == xml.XMLNSNamespace
+	return qname.Namespace == xsdxml.XSINamespace ||
+		qname.Namespace == xsdxml.XMLNSNamespace
 }
 
 // isXMLNSAttribute checks if an attribute is an XML namespace declaration.
-func isXMLNSAttribute(attr xml.Attr) bool {
+func isXMLNSAttribute(attr xsdxml.Attr) bool {
 	return attr.NamespaceURI() == "xmlns" ||
-		attr.NamespaceURI() == xml.XMLNSNamespace ||
+		attr.NamespaceURI() == xsdxml.XMLNSNamespace ||
 		attr.LocalName() == "xmlns"
 }
 
 // isAnyType checks if a compiled type is xs:anyType.
 func isAnyType(ct *grammar.CompiledType) bool {
-	return ct.QName.Local == "anyType" && ct.QName.Namespace == xml.XSDNamespace
+	return ct.QName.Local == "anyType" && ct.QName.Namespace == xsdxml.XSDNamespace
 }
 
 // textTypeForFixedValue returns the type to use for normalizing fixed value comparisons.
@@ -41,7 +41,8 @@ func textTypeForFixedValue(decl *grammar.CompiledElement) *grammar.CompiledType 
 	}
 	// for mixed content without explicit text type, use the type itself if it's a simple type.
 	if decl.Type.Original != nil {
-		if _, ok := decl.Type.Original.(types.SimpleTypeDefinition); ok {
+		switch decl.Type.Original.(type) {
+		case *types.SimpleType, *types.BuiltinType:
 			return decl.Type
 		}
 	}
@@ -50,7 +51,7 @@ func textTypeForFixedValue(decl *grammar.CompiledElement) *grammar.CompiledType 
 
 // isAnySimpleType checks if a compiled type is xs:anySimpleType.
 func isAnySimpleType(ct *grammar.CompiledType) bool {
-	return ct.QName.Local == "anySimpleType" && ct.QName.Namespace == xml.XSDNamespace
+	return ct.QName.Local == "anySimpleType" && ct.QName.Namespace == xsdxml.XSDNamespace
 }
 
 func isWhitespaceOnlyBytes(b []byte) bool {

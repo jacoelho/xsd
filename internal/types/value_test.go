@@ -4,8 +4,6 @@ import (
 	"math/big"
 	"testing"
 	"time"
-
-	lexicalparser "github.com/jacoelho/xsd/internal/parser/lexical"
 )
 
 func TestTypedValue_Decimal(t *testing.T) {
@@ -20,7 +18,7 @@ func TestTypedValue_Decimal(t *testing.T) {
 	typ.SetVariety(AtomicVariety)
 
 	lexical := "123.456"
-	native, err := lexicalparser.ParseDecimal(lexical)
+	native, err := ParseDecimal(lexical)
 	if err != nil {
 		t.Fatalf("ParseDecimal() error = %v", err)
 	}
@@ -68,7 +66,7 @@ func TestTypedValue_Boolean(t *testing.T) {
 	typ.SetVariety(AtomicVariety)
 
 	lexical := "true"
-	native, err := lexicalparser.ParseBoolean(lexical)
+	native, err := ParseBoolean(lexical)
 	if err != nil {
 		t.Fatalf("ParseBoolean() error = %v", err)
 	}
@@ -110,7 +108,7 @@ func TestTypedValue_DateTime(t *testing.T) {
 	typ.SetVariety(AtomicVariety)
 
 	lexical := "2001-10-26T21:32:52"
-	native, err := lexicalparser.ParseDateTime(lexical)
+	native, err := ParseDateTime(lexical)
 	if err != nil {
 		t.Fatalf("ParseDateTime() error = %v", err)
 	}
@@ -152,7 +150,7 @@ func TestTypedValue_Integer(t *testing.T) {
 	typ.SetVariety(AtomicVariety)
 
 	lexical := "12345678901234567890"
-	native, err := lexicalparser.ParseInteger(lexical)
+	native, err := ParseInteger(lexical)
 	if err != nil {
 		t.Fatalf("ParseInteger() error = %v", err)
 	}
@@ -194,7 +192,7 @@ func TestTypedValue_Float(t *testing.T) {
 	typ.SetVariety(AtomicVariety)
 
 	lexical := "123.456"
-	native, err := lexicalparser.ParseFloat(lexical)
+	native, err := ParseFloat(lexical)
 	if err != nil {
 		t.Fatalf("ParseFloat() error = %v", err)
 	}
@@ -236,7 +234,7 @@ func TestTypedValue_String(t *testing.T) {
 	typ.SetVariety(AtomicVariety)
 
 	lexical := "hello world"
-	native, err := lexicalparser.ParseString(lexical)
+	native, err := ParseString(lexical)
 	if err != nil {
 		t.Fatalf("ParseString() error = %v", err)
 	}
@@ -312,7 +310,7 @@ func TestValueAs_WithComparableWrappers(t *testing.T) {
 	}
 
 	// test ComparableTime - unwrap to time.Time
-	dt, err := lexicalparser.ParseDateTime("2001-10-26T21:32:52")
+	dt, err := ParseDateTime("2001-10-26T21:32:52")
 	if err != nil {
 		t.Fatalf("ParseDateTime() error = %v", err)
 	}

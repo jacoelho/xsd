@@ -3,14 +3,15 @@ package loader
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // mergeSchema merges a source schema into a target schema.
 // For imports (isImport=true), preserves source namespace.
 // For includes (isImport=false), uses chameleon namespace remapping if needed.
-func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, needsNamespaceRemap bool) error {
+func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, isImport, needsNamespaceRemap bool) error {
 	remapQName := func(qname types.QName) types.QName {
 		if needsNamespaceRemap && qname.Namespace.IsEmpty() {
 			return types.QName{
@@ -56,7 +57,7 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 
 	if source.ImportContexts != nil {
 		if target.ImportContexts == nil {
-			target.ImportContexts = make(map[string]schema.ImportContext)
+			target.ImportContexts = make(map[string]parser.ImportContext)
 		}
 		for location, ctx := range source.ImportContexts {
 			merged := ctx
@@ -201,7 +202,7 @@ func (l *SchemaLoader) mergeSchema(target, source *schema.Schema, isImport, need
 		groupCopy := group.Copy(opts)
 		for _, attr := range groupCopy.Attributes {
 			if attr.Form == types.FormDefault {
-				if source.AttributeFormDefault == schema.Qualified {
+				if source.AttributeFormDefault == parser.Qualified {
 					attr.Form = types.FormQualified
 				} else {
 					attr.Form = types.FormUnqualified
@@ -288,7 +289,7 @@ func elementDeclEquivalent(a, b *types.ElementDecl) bool {
 	if a.Form != b.Form {
 		return false
 	}
-	if !elementTypesCompatible(a.Type, b.Type) {
+	if !schemacheck.ElementTypesCompatible(a.Type, b.Type) {
 		return false
 	}
 	if len(a.Constraints) != len(b.Constraints) {
@@ -319,10 +320,10 @@ func elementDeclEquivalent(a, b *types.ElementDecl) bool {
 // based on the source schema's attributeFormDefault. This ensures that when types from
 // imported or chameleon-included schemas are merged into a main schema, the attributes
 // retain their original form semantics regardless of the main schema's attributeFormDefault.
-func normalizeAttributeForms(ct *types.ComplexType, sourceAttrFormDefault schema.Form) {
+func normalizeAttributeForms(ct *types.ComplexType, sourceAttrFormDefault parser.Form) {
 	normalizeAttr := func(attr *types.AttributeDecl) {
 		if attr.Form == types.FormDefault {
-			if sourceAttrFormDefault == schema.Qualified {
+			if sourceAttrFormDefault == parser.Qualified {
 				attr.Form = types.FormQualified
 			} else {
 				attr.Form = types.FormUnqualified

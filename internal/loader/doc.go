@@ -1,2 +1,3 @@
-// Package loader loads, resolves, and compiles XSD schemas for validation.
+// Package loader loads schema documents with include/import resolution.
+// It orchestrates parsing, resolution, validation, and compilation.
 package loader

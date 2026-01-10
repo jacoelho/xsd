@@ -6,7 +6,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/loader"
 )
 
@@ -44,7 +44,7 @@ func TestStreamSchemaLocationSeekableMerge(t *testing.T) {
 		t.Fatalf("load compiled schema: %v", err)
 	}
 
-	v := New(compiled)
+	v := New(compiled, WithSchemaLocationLoader(l))
 
 	doc := `<?xml version="1.0"?>
 <root xmlns="urn:hint"
@@ -86,7 +86,7 @@ func TestStreamSchemaLocationNonSeekableRootOnly(t *testing.T) {
 		t.Fatalf("load compiled schema: %v", err)
 	}
 
-	v := New(compiled)
+	v := New(compiled, WithSchemaLocationLoader(l))
 
 	doc := `<?xml version="1.0"?>
 <root xmlns="urn:hint"
@@ -121,7 +121,7 @@ func TestStreamSchemaLocationNonSeekableDocumentError(t *testing.T) {
 		t.Fatalf("load compiled schema: %v", err)
 	}
 
-	v := New(compiled)
+	v := New(compiled, WithSchemaLocationLoader(l))
 
 	doc := `<?xml version="1.0"?>
 <root xmlns="urn:test"
@@ -138,11 +138,11 @@ func TestStreamSchemaLocationNonSeekableDocumentError(t *testing.T) {
 	if len(violations) != 0 {
 		t.Fatalf("expected no violations, got %d", len(violations))
 	}
-	list, ok := xsderrors.AsValidations(err)
+	list, ok := errors.AsValidations(err)
 	if !ok {
 		t.Fatalf("expected validation error, got %v", err)
 	}
-	if !hasValidationCode(list, xsderrors.ErrSchemaLocationHint) {
+	if !hasValidationCode(list, errors.ErrSchemaLocationHint) {
 		t.Fatalf("expected ErrSchemaLocationHint, got %v", err)
 	}
 }
@@ -165,7 +165,7 @@ func TestStreamSchemaLocationIgnoreNonSeekable(t *testing.T) {
 		t.Fatalf("load compiled schema: %v", err)
 	}
 
-	v := New(compiled)
+	v := New(compiled, WithSchemaLocationLoader(l))
 
 	doc := `<?xml version="1.0"?>
 <root xmlns="urn:test"

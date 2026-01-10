@@ -26,7 +26,63 @@ type BuiltinType struct {
 	simpleWrapper          *SimpleType
 }
 
-var builtinRegistry = make(map[string]*BuiltinType)
+var builtinRegistry = map[string]*BuiltinType{
+	// built-in complex type
+	string(TypeNameAnyType): newBuiltin(TypeNameAnyType, validateAnyType, WhiteSpacePreserve, false),
+
+	// base simple type (base of all simple types, must be registered before primitives)
+	string(TypeNameAnySimpleType): newBuiltin(TypeNameAnySimpleType, validateAnySimpleType, WhiteSpacePreserve, false),
+
+	// primitive types (19 total)
+	string(TypeNameString):       newBuiltin(TypeNameString, validateString, WhiteSpacePreserve, false),
+	string(TypeNameBoolean):      newBuiltin(TypeNameBoolean, validateBoolean, WhiteSpaceCollapse, false),
+	string(TypeNameDecimal):      newBuiltin(TypeNameDecimal, validateDecimal, WhiteSpaceCollapse, true),
+	string(TypeNameFloat):        newBuiltin(TypeNameFloat, validateFloat, WhiteSpaceCollapse, true),
+	string(TypeNameDouble):       newBuiltin(TypeNameDouble, validateDouble, WhiteSpaceCollapse, true),
+	string(TypeNameDuration):     newBuiltin(TypeNameDuration, validateDuration, WhiteSpaceCollapse, false),
+	string(TypeNameDateTime):     newBuiltin(TypeNameDateTime, validateDateTime, WhiteSpaceCollapse, true),
+	string(TypeNameTime):         newBuiltin(TypeNameTime, validateTime, WhiteSpaceCollapse, true),
+	string(TypeNameDate):         newBuiltin(TypeNameDate, validateDate, WhiteSpaceCollapse, true),
+	string(TypeNameGYearMonth):   newBuiltin(TypeNameGYearMonth, validateGYearMonth, WhiteSpaceCollapse, true),
+	string(TypeNameGYear):        newBuiltin(TypeNameGYear, validateGYear, WhiteSpaceCollapse, true),
+	string(TypeNameGMonthDay):    newBuiltin(TypeNameGMonthDay, validateGMonthDay, WhiteSpaceCollapse, true),
+	string(TypeNameGDay):         newBuiltin(TypeNameGDay, validateGDay, WhiteSpaceCollapse, true),
+	string(TypeNameGMonth):       newBuiltin(TypeNameGMonth, validateGMonth, WhiteSpaceCollapse, true),
+	string(TypeNameHexBinary):    newBuiltin(TypeNameHexBinary, validateHexBinary, WhiteSpaceCollapse, false),
+	string(TypeNameBase64Binary): newBuiltin(TypeNameBase64Binary, validateBase64Binary, WhiteSpaceCollapse, false),
+	string(TypeNameAnyURI):       newBuiltin(TypeNameAnyURI, validateAnyURI, WhiteSpaceCollapse, false),
+	string(TypeNameQName):        newBuiltin(TypeNameQName, validateQName, WhiteSpaceCollapse, false),
+	string(TypeNameNOTATION):     newBuiltin(TypeNameNOTATION, validateNOTATION, WhiteSpaceCollapse, false),
+
+	// derived string types
+	string(TypeNameNormalizedString): newBuiltin(TypeNameNormalizedString, validateNormalizedString, WhiteSpaceReplace, false),
+	string(TypeNameToken):            newBuiltin(TypeNameToken, validateToken, WhiteSpaceCollapse, false),
+	string(TypeNameLanguage):         newBuiltin(TypeNameLanguage, validateLanguage, WhiteSpaceCollapse, false),
+	string(TypeNameName):             newBuiltin(TypeNameName, validateName, WhiteSpaceCollapse, false),
+	string(TypeNameNCName):           newBuiltin(TypeNameNCName, validateNCName, WhiteSpaceCollapse, false),
+	string(TypeNameID):               newBuiltin(TypeNameID, validateID, WhiteSpaceCollapse, false),
+	string(TypeNameIDREF):            newBuiltin(TypeNameIDREF, validateIDREF, WhiteSpaceCollapse, false),
+	string(TypeNameIDREFS):           newBuiltin(TypeNameIDREFS, validateIDREFS, WhiteSpaceCollapse, false),
+	string(TypeNameENTITY):           newBuiltin(TypeNameENTITY, validateENTITY, WhiteSpaceCollapse, false),
+	string(TypeNameENTITIES):         newBuiltin(TypeNameENTITIES, validateENTITIES, WhiteSpaceCollapse, false),
+	string(TypeNameNMTOKEN):          newBuiltin(TypeNameNMTOKEN, validateNMTOKEN, WhiteSpaceCollapse, false),
+	string(TypeNameNMTOKENS):         newBuiltin(TypeNameNMTOKENS, validateNMTOKENS, WhiteSpaceCollapse, false),
+
+	// derived numeric types
+	string(TypeNameInteger):            newBuiltin(TypeNameInteger, validateInteger, WhiteSpaceCollapse, true),
+	string(TypeNameLong):               newBuiltin(TypeNameLong, validateLong, WhiteSpaceCollapse, true),
+	string(TypeNameInt):                newBuiltin(TypeNameInt, validateInt, WhiteSpaceCollapse, true),
+	string(TypeNameShort):              newBuiltin(TypeNameShort, validateShort, WhiteSpaceCollapse, true),
+	string(TypeNameByte):               newBuiltin(TypeNameByte, validateByte, WhiteSpaceCollapse, true),
+	string(TypeNameNonNegativeInteger): newBuiltin(TypeNameNonNegativeInteger, validateNonNegativeInteger, WhiteSpaceCollapse, true),
+	string(TypeNamePositiveInteger):    newBuiltin(TypeNamePositiveInteger, validatePositiveInteger, WhiteSpaceCollapse, true),
+	string(TypeNameUnsignedLong):       newBuiltin(TypeNameUnsignedLong, validateUnsignedLong, WhiteSpaceCollapse, true),
+	string(TypeNameUnsignedInt):        newBuiltin(TypeNameUnsignedInt, validateUnsignedInt, WhiteSpaceCollapse, true),
+	string(TypeNameUnsignedShort):      newBuiltin(TypeNameUnsignedShort, validateUnsignedShort, WhiteSpaceCollapse, true),
+	string(TypeNameUnsignedByte):       newBuiltin(TypeNameUnsignedByte, validateUnsignedByte, WhiteSpaceCollapse, true),
+	string(TypeNameNonPositiveInteger): newBuiltin(TypeNameNonPositiveInteger, validateNonPositiveInteger, WhiteSpaceCollapse, true),
+	string(TypeNameNegativeInteger):    newBuiltin(TypeNameNegativeInteger, validateNegativeInteger, WhiteSpaceCollapse, true),
+}
 
 var primitiveTypeNames = map[TypeName]struct{}{
 	TypeNameString: {}, TypeNameBoolean: {}, TypeNameDecimal: {}, TypeNameFloat: {}, TypeNameDouble: {},
@@ -78,7 +134,7 @@ func GetBuiltinNS(namespace NamespaceURI, local string) *BuiltinType {
 	return builtinRegistry[local]
 }
 
-func registerBuiltin(name TypeName, validator TypeValidator, ws WhiteSpace, ordered bool) {
+func newBuiltin(name TypeName, validator TypeValidator, ws WhiteSpace, ordered bool) *BuiltinType {
 	nameStr := string(name)
 	builtin := &BuiltinType{
 		name:       nameStr,
@@ -90,17 +146,14 @@ func registerBuiltin(name TypeName, validator TypeValidator, ws WhiteSpace, orde
 	simple := &SimpleType{
 		QName:   builtin.qname,
 		variety: AtomicVariety,
+		builtin: true,
 	}
-	simple.MarkBuiltin()
 	builtin.simpleWrapper = simple
-	builtinRegistry[nameStr] = builtin
+	return builtin
 }
 
 // Compile-time check that BuiltinType implements Type interface
 var _ Type = (*BuiltinType)(nil)
-
-// Compile-time check that BuiltinType implements SimpleTypeDefinition
-var _ SimpleTypeDefinition = (*BuiltinType)(nil)
 
 // Compile-time check that BuiltinType implements DerivedType
 var _ DerivedType = (*BuiltinType)(nil)
@@ -289,62 +342,4 @@ func (b *BuiltinType) PrimitiveType() Type {
 	primitive := base.PrimitiveType()
 	b.primitiveTypeCache = primitive
 	return primitive
-}
-
-func init() {
-	// built-in complex type
-	registerBuiltin(TypeNameAnyType, validateAnyType, WhiteSpacePreserve, false)
-
-	// base simple type (base of all simple types, must be registered before primitives)
-	registerBuiltin(TypeNameAnySimpleType, validateAnySimpleType, WhiteSpacePreserve, false)
-
-	// primitive types (19 total)
-	registerBuiltin(TypeNameString, validateString, WhiteSpacePreserve, false)
-	registerBuiltin(TypeNameBoolean, validateBoolean, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameDecimal, validateDecimal, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameFloat, validateFloat, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameDouble, validateDouble, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameDuration, validateDuration, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameDateTime, validateDateTime, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameTime, validateTime, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameDate, validateDate, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameGYearMonth, validateGYearMonth, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameGYear, validateGYear, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameGMonthDay, validateGMonthDay, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameGDay, validateGDay, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameGMonth, validateGMonth, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameHexBinary, validateHexBinary, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameBase64Binary, validateBase64Binary, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameAnyURI, validateAnyURI, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameQName, validateQName, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameNOTATION, validateNOTATION, WhiteSpaceCollapse, false)
-
-	// derived string types
-	registerBuiltin(TypeNameNormalizedString, validateNormalizedString, WhiteSpaceReplace, false)
-	registerBuiltin(TypeNameToken, validateToken, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameLanguage, validateLanguage, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameName, validateName, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameNCName, validateNCName, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameID, validateID, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameIDREF, validateIDREF, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameIDREFS, validateIDREFS, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameENTITY, validateENTITY, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameENTITIES, validateENTITIES, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameNMTOKEN, validateNMTOKEN, WhiteSpaceCollapse, false)
-	registerBuiltin(TypeNameNMTOKENS, validateNMTOKENS, WhiteSpaceCollapse, false)
-
-	// derived numeric types
-	registerBuiltin(TypeNameInteger, validateInteger, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameLong, validateLong, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameInt, validateInt, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameShort, validateShort, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameByte, validateByte, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameNonNegativeInteger, validateNonNegativeInteger, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNamePositiveInteger, validatePositiveInteger, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameUnsignedLong, validateUnsignedLong, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameUnsignedInt, validateUnsignedInt, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameUnsignedShort, validateUnsignedShort, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameUnsignedByte, validateUnsignedByte, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameNonPositiveInteger, validateNonPositiveInteger, WhiteSpaceCollapse, true)
-	registerBuiltin(TypeNameNegativeInteger, validateNegativeInteger, WhiteSpaceCollapse, true)
 }
