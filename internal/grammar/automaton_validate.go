@@ -63,7 +63,7 @@ type MatchResult struct {
 	// matched declaration name (for non-wildcard matches)
 	MatchedQName types.QName
 	// compiled element pointer for the matched symbol (if available)
-	MatchedElement any
+	MatchedElement *CompiledElement
 }
 
 // symbolCandidate represents a potential symbol match during content model schemacheck.
@@ -358,7 +358,7 @@ func (a *Automaton) findBestMatchQName(qname types.QName, state int, matcher Sym
 	return candidates[0].idx, candidates[0].isWildcard, a.transition(state, candidates[0].idx)
 }
 
-func (a *Automaton) matchedElement(state, symIdx int) any {
+func (a *Automaton) matchedElement(state, symIdx int) *CompiledElement {
 	if a == nil || state < 0 || symIdx < 0 {
 		return nil
 	}

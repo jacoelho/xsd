@@ -16,7 +16,7 @@ func (e testAllGroupElement) ElementQName() types.QName {
 	return e.qname
 }
 
-func (e testAllGroupElement) ElementDecl() any {
+func (e testAllGroupElement) ElementDecl() *CompiledElement {
 	return nil
 }
 
@@ -84,7 +84,7 @@ func TestAutomatonStreamValidatorWildcardMatch(t *testing.T) {
 		Original:  wildcard,
 	}
 
-	builder := NewBuilder([]*ParticleAdapter{particle}, nil, "", false)
+	builder := NewBuilder([]*ParticleAdapter{particle}, "", false)
 	automaton, err := builder.Build()
 	if err != nil {
 		t.Fatalf("build automaton: %v", err)
