@@ -561,97 +561,93 @@ func (s *SimpleType) getPrimitiveTypeWithVisited(visited map[*SimpleType]bool) T
 	visited[s] = true
 	defer delete(visited, s)
 
-	// primitive types: self
-	if s.builtin && s.Variety() == AtomicVariety {
-		if isPrimitiveName(TypeName(s.QName.Local)) && s.QName.Namespace == XSDNamespace {
-			s.primitiveType = s
-			return s.primitiveType
-		}
+	if primitive := s.primitiveFromSelf(); primitive != nil {
+		s.primitiveType = primitive
+		return primitive
 	}
 
-	// derived by restriction: follow base chain
-	if s.Restriction != nil {
-		// first try ResolvedBase if available (after type resolution)
-		if s.ResolvedBase != nil {
-			if baseSimple, ok := as[*SimpleType](s.ResolvedBase); ok {
-				primitive := baseSimple.getPrimitiveTypeWithVisited(visited)
-				if primitive != nil {
-					s.primitiveType = primitive
-					return primitive
-				}
-			} else if baseBuiltin, ok := as[*BuiltinType](s.ResolvedBase); ok {
-				// base is a built-in type, get its primitive type
-				primitive := baseBuiltin.PrimitiveType()
-				if primitive != nil {
-					s.primitiveType = primitive
-					return primitive
-				}
-			}
-		} else if !s.Restriction.Base.IsZero() {
-			// ResolvedBase not set yet (during parsing), try to resolve from Restriction.Base
-			// for built-in types, we can resolve directly
-			if s.Restriction.Base.Namespace == XSDNamespace {
-				if bt := GetBuiltin(TypeName(s.Restriction.Base.Local)); bt != nil {
-					primitive := bt.PrimitiveType()
-					if primitive != nil {
-						s.primitiveType = primitive
-						return primitive
-					}
-				}
-			}
-			// for user-defined types, we can't resolve without schema context
-			// this will be resolved during schema validation phase
-		}
+	if primitive := s.primitiveFromRestriction(visited); primitive != nil {
+		s.primitiveType = primitive
+		return primitive
 	}
 
-	// list types: item type's primitive
-	if s.List != nil && s.ItemType != nil {
-		if itemSimple, ok := as[*SimpleType](s.ItemType); ok {
-			primitive := itemSimple.getPrimitiveTypeWithVisited(visited)
-			if primitive != nil {
-				s.primitiveType = primitive
-				return primitive
-			}
-		} else if itemBuiltin, ok := as[*BuiltinType](s.ItemType); ok {
-			// item type is a built-in type, get its primitive type
-			primitive := itemBuiltin.PrimitiveType()
-			if primitive != nil {
-				s.primitiveType = primitive
-				return primitive
-			}
-		}
+	if primitive := s.primitiveFromList(visited); primitive != nil {
+		s.primitiveType = primitive
+		return primitive
 	}
 
-	// union types: common primitive or anySimpleType
-	// for now, if we can't determine, return nil
-	// this will be resolved during schema compilation
-	if s.Union != nil {
-		// try to find common primitive
-		var commonPrimitive Type
-		for _, memberType := range s.MemberTypes {
-			var memberPrimitive Type
-			if memberSimple, ok := as[*SimpleType](memberType); ok {
-				memberPrimitive = memberSimple.getPrimitiveTypeWithVisited(visited)
-			} else if memberBuiltin, ok := as[*BuiltinType](memberType); ok {
-				// member type is a built-in type, get its primitive type
-				memberPrimitive = memberBuiltin.PrimitiveType()
-			}
-			if memberPrimitive == nil {
-				continue
-			}
-			if commonPrimitive == nil {
-				commonPrimitive = memberPrimitive
-			} else if commonPrimitive != memberPrimitive {
-				// different primitives, return anySimpleType or nil
-				// for now, return nil (will be resolved later)
-				return nil
-			}
-		}
-		if commonPrimitive != nil {
-			s.primitiveType = commonPrimitive
-			return commonPrimitive
-		}
+	if primitive := s.primitiveFromUnion(visited); primitive != nil {
+		s.primitiveType = primitive
+		return primitive
 	}
 
 	return nil
+}
+
+func (s *SimpleType) primitiveFromSelf() Type {
+	if s.builtin && s.Variety() == AtomicVariety {
+		if isPrimitiveName(TypeName(s.QName.Local)) && s.QName.Namespace == XSDNamespace {
+			return s
+		}
+	}
+	return nil
+}
+
+func (s *SimpleType) primitiveFromRestriction(visited map[*SimpleType]bool) Type {
+	if s.Restriction == nil {
+		return nil
+	}
+	if s.ResolvedBase != nil {
+		return primitiveFromBaseType(s.ResolvedBase, visited)
+	}
+	if s.Restriction.Base.IsZero() {
+		return nil
+	}
+	if s.Restriction.Base.Namespace != XSDNamespace {
+		return nil
+	}
+	bt := GetBuiltin(TypeName(s.Restriction.Base.Local))
+	if bt == nil {
+		return nil
+	}
+	return bt.PrimitiveType()
+}
+
+func (s *SimpleType) primitiveFromList(visited map[*SimpleType]bool) Type {
+	if s.List == nil || s.ItemType == nil {
+		return nil
+	}
+	return primitiveFromBaseType(s.ItemType, visited)
+}
+
+func (s *SimpleType) primitiveFromUnion(visited map[*SimpleType]bool) Type {
+	if s.Union == nil {
+		return nil
+	}
+	var commonPrimitive Type
+	for _, memberType := range s.MemberTypes {
+		memberPrimitive := primitiveFromBaseType(memberType, visited)
+		if memberPrimitive == nil {
+			continue
+		}
+		if commonPrimitive == nil {
+			commonPrimitive = memberPrimitive
+			continue
+		}
+		if commonPrimitive != memberPrimitive {
+			return nil
+		}
+	}
+	return commonPrimitive
+}
+
+func primitiveFromBaseType(base Type, visited map[*SimpleType]bool) Type {
+	switch typed := base.(type) {
+	case *SimpleType:
+		return typed.getPrimitiveTypeWithVisited(visited)
+	case *BuiltinType:
+		return typed.PrimitiveType()
+	default:
+		return nil
+	}
 }

@@ -123,6 +123,10 @@ func isIntegerDerivedType(t Type) bool {
 // extractComparableValue extracts a ComparableValue from a TypedValue.
 // This is the shared logic used by all range facet validators.
 func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, error) {
+	if value == nil {
+		return nil, fmt.Errorf("cannot compare nil value")
+	}
+
 	native := value.Native()
 	typ := value.Type()
 	if typ == nil {
@@ -132,6 +136,9 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 	// try to convert native to ComparableValue directly
 	if compVal, ok := native.(ComparableValue); ok {
 		return compVal, nil
+	}
+	if unwrappable, ok := native.(Unwrappable); ok {
+		native = unwrappable.Unwrap()
 	}
 
 	switch v := native.(type) {
@@ -150,27 +157,6 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 		return ComparableFloat32{Value: v, Typ: typ}, nil
 	case string:
 		return parseStringToComparableValue(value, v, typ)
-	}
-
-	// try to extract using ValueAs helper for known types
-	if rat, err := ValueAs[*big.Rat](value); err == nil {
-		return ComparableBigRat{Value: rat, Typ: typ}, nil
-	}
-	if intVal, err := ValueAs[*big.Int](value); err == nil {
-		return ComparableBigInt{Value: intVal, Typ: typ}, nil
-	}
-	if timeVal, err := ValueAs[time.Time](value); err == nil {
-		return ComparableTime{Value: timeVal, Typ: typ}, nil
-	}
-	if float64Val, err := ValueAs[float64](value); err == nil {
-		return ComparableFloat64{Value: float64Val, Typ: typ}, nil
-	}
-	if float32Val, err := ValueAs[float32](value); err == nil {
-		return ComparableFloat32{Value: float32Val, Typ: typ}, nil
-	}
-	if durVal, err := ValueAs[time.Duration](value); err == nil {
-		xsdDur := durationToXSD(durVal)
-		return ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
 	}
 
 	// all conversion attempts failed

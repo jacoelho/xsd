@@ -615,17 +615,6 @@ func (r *streamRun) propagateText(frame *streamFrame) {
 	parent.textBuf = append(parent.textBuf, frame.textBuf...)
 }
 
-func (r *streamRun) childPath(local string) string {
-	if local == "" {
-		return r.path.String()
-	}
-	current := r.path.String()
-	if current == "/" {
-		return "/" + local
-	}
-	return current + "/" + local
-}
-
 func isIgnorableOutsideRoot(data []byte) bool {
 	for _, r := range string(data) {
 		if r == '\uFEFF' {
