@@ -43,7 +43,7 @@ func (c *Compiler) mergeAttributes(ct *types.ComplexType, chain []*grammar.Compi
 func (c *Compiler) collectAttributesFromComplexType(ct *types.ComplexType, attrMap map[types.QName]*grammar.CompiledAttribute) {
 	// 1. Direct attributes on the type
 	for _, attr := range ct.Attributes() {
-		if attr.Use == types.Prohibited && !attr.HasFixed {
+		if !shouldIncludeAttribute(attr) {
 			continue
 		}
 		c.addCompiledAttribute(attr, attrMap)
@@ -60,7 +60,7 @@ func (c *Compiler) collectAttributesFromComplexType(ct *types.ComplexType, attrM
 	content := ct.Content()
 	if ext := content.ExtensionDef(); ext != nil {
 		for _, attr := range ext.Attributes {
-			if attr.Use == types.Prohibited && !attr.HasFixed {
+			if !shouldIncludeAttribute(attr) {
 				continue
 			}
 			c.addCompiledAttribute(attr, attrMap)
@@ -73,8 +73,8 @@ func (c *Compiler) collectAttributesFromComplexType(ct *types.ComplexType, attrM
 	}
 	if restr := content.RestrictionDef(); restr != nil {
 		for _, attr := range restr.Attributes {
-			if attr.Use == types.Prohibited && !attr.HasFixed {
-				delete(attrMap, c.effectiveAttributeQName(attr))
+			if !shouldIncludeAttribute(attr) {
+				c.removeCompiledAttribute(attr, attrMap)
 				continue
 			}
 			c.addCompiledAttribute(attr, attrMap)
@@ -85,6 +85,10 @@ func (c *Compiler) collectAttributesFromComplexType(ct *types.ComplexType, attrM
 			}
 		}
 	}
+}
+
+func (c *Compiler) removeCompiledAttribute(attr *types.AttributeDecl, attrMap map[types.QName]*grammar.CompiledAttribute) {
+	delete(attrMap, c.effectiveAttributeQName(attr))
 }
 
 // addCompiledAttribute adds a single attribute to the map
@@ -136,28 +140,35 @@ func (c *Compiler) effectiveAttributeQName(attr *types.AttributeDecl) types.QNam
 		return attr.Name
 	}
 
-	// local attributes need form-based adjustment
-	switch attr.Form {
-	case types.FormQualified:
-		// qualified local attributes use the schema's target namespace
-		ns := c.schema.TargetNamespace
-		if !attr.SourceNamespace.IsEmpty() {
-			ns = attr.SourceNamespace
-		}
-		return types.QName{Namespace: ns, Local: attr.Name.Local}
-	case types.FormUnqualified:
-		// unqualified local attributes have no namespace
-		return types.QName{Namespace: "", Local: attr.Name.Local}
-	default: // FormDefault - use schema's attributeFormDefault
-		if c.grammar.AttributeFormDefault == parser.Qualified {
-			ns := c.schema.TargetNamespace
-			if !attr.SourceNamespace.IsEmpty() {
-				ns = attr.SourceNamespace
-			}
-			return types.QName{Namespace: ns, Local: attr.Name.Local}
-		}
+	if !c.isAttributeQualified(attr) {
 		return types.QName{Namespace: "", Local: attr.Name.Local}
 	}
+
+	ns := c.attributeNamespace(attr)
+	return types.QName{Namespace: ns, Local: attr.Name.Local}
+}
+
+func shouldIncludeAttribute(attr *types.AttributeDecl) bool {
+	return attr.Use != types.Prohibited || attr.HasFixed
+}
+
+func (c *Compiler) isAttributeQualified(attr *types.AttributeDecl) bool {
+	switch attr.Form {
+	case types.FormQualified:
+		return true
+	case types.FormUnqualified:
+		return false
+	default:
+		return c.grammar.AttributeFormDefault == parser.Qualified
+	}
+}
+
+func (c *Compiler) attributeNamespace(attr *types.AttributeDecl) types.NamespaceURI {
+	ns := c.schema.TargetNamespace
+	if !attr.SourceNamespace.IsEmpty() {
+		ns = attr.SourceNamespace
+	}
+	return ns
 }
 
 func (c *Compiler) mergeAttributesFromGroup(ag *types.AttributeGroup, attrMap map[types.QName]*grammar.CompiledAttribute) {
@@ -177,7 +188,7 @@ func (c *Compiler) mergeAttributesFromGroup(ag *types.AttributeGroup, attrMap ma
 		visited[current] = true
 
 		for _, attr := range current.Attributes {
-			if attr.Use == types.Prohibited && !attr.HasFixed {
+			if !shouldIncludeAttribute(attr) {
 				continue
 			}
 			c.addCompiledAttribute(attr, attrMap)
