@@ -244,6 +244,14 @@ func (s *SimpleType) IsBuiltin() bool {
 	return s.builtin
 }
 
+// IsPlaceholderSimpleType reports whether st represents an unresolved type reference.
+func IsPlaceholderSimpleType(st *SimpleType) bool {
+	if st == nil || st.IsBuiltin() || st.QName.IsZero() {
+		return false
+	}
+	return st.Restriction == nil && st.List == nil && st.Union == nil
+}
+
 // BaseType returns the base type for this simple type
 // If ResolvedBase is nil, returns anySimpleType (the base of all simple types)
 func (s *SimpleType) BaseType() Type {
@@ -388,7 +396,7 @@ func countFields(value string) int {
 	return count
 }
 
-// Variety returns the simple type variety (implements SimpleTypeDefinition)
+// Variety returns the simple type variety.
 func (s *SimpleType) Variety() SimpleTypeVariety {
 	return s.variety
 }

@@ -12,13 +12,13 @@ type schemaLocationHint struct {
 	attribute string
 }
 
-func schemaLocationHintsFromAttrs(attrs []xml.Attr) []schemaLocationHint {
+func schemaLocationHintsFromAttrs(attrs []xsdxml.Attr) []schemaLocationHint {
 	if len(attrs) == 0 {
 		return nil
 	}
 	var hints []schemaLocationHint
 	for _, attr := range attrs {
-		if attr.NamespaceURI() != xml.XSINamespace {
+		if attr.NamespaceURI() != xsdxml.XSINamespace {
 			continue
 		}
 		switch attr.LocalName() {
@@ -53,9 +53,9 @@ func schemaLocationHintsFromSchemaLocation(value string) []schemaLocationHint {
 	return hints
 }
 
-func hasSchemaLocationHint(attrs []xml.Attr) bool {
+func hasSchemaLocationHint(attrs []xsdxml.Attr) bool {
 	for _, attr := range attrs {
-		if attr.NamespaceURI() != xml.XSINamespace {
+		if attr.NamespaceURI() != xsdxml.XSINamespace {
 			continue
 		}
 		switch attr.LocalName() {

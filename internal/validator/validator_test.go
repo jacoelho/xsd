@@ -7,6 +7,7 @@ import (
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/loader"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/resolver"
 )
 
 func TestValidateSimpleElement(t *testing.T) {
@@ -277,7 +278,7 @@ func TestCircularAttributeGroupReference(t *testing.T) {
 	}
 
 	// resolve schema - this should detect the circular reference
-	resolver := loader.NewResolver(schema)
+	resolver := resolver.NewResolver(schema)
 	err = resolver.Resolve()
 
 	// circular attribute group references should be detected as an error

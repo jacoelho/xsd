@@ -10,53 +10,32 @@ type Type interface {
 	WhiteSpace() WhiteSpace
 }
 
-// HasBaseType exposes a base type relationship.
-type HasBaseType interface {
-	BaseType() Type
+func as[T any](value any) (T, bool) {
+	v, ok := value.(T)
+	return v, ok
 }
 
-// FacetCarrier exposes fundamental facets and whitespace handling.
-type FacetCarrier interface {
-	FundamentalFacets() *FundamentalFacets
-	WhiteSpace() WhiteSpace
+// AsSimpleType performs a type assertion to *SimpleType.
+func AsSimpleType(t Type) (*SimpleType, bool) {
+	return as[*SimpleType](t)
 }
 
-// ValueSpace exposes lexical validation and parsing behavior.
-type ValueSpace interface {
-	// Validate checks if a lexical value is valid for this type.
-	Validate(lexical string) error
-
-	// ParseValue converts a lexical value to a TypedValue.
-	ParseValue(lexical string) (TypedValue, error)
+// AsComplexType performs a type assertion to *ComplexType.
+func AsComplexType(t Type) (*ComplexType, bool) {
+	return as[*ComplexType](t)
 }
 
-// SimpleTypeDefinition extends Type with validation capabilities.
-type SimpleTypeDefinition interface {
-	Type
-	ValueSpace
-
-	// Variety returns the simple type variety (atomic, list, union).
-	Variety() SimpleTypeVariety
+// AsBuiltinType performs a type assertion to *BuiltinType.
+func AsBuiltinType(t Type) (*BuiltinType, bool) {
+	return as[*BuiltinType](t)
 }
 
-// ComplexTypeDefinition extends Type with content model information.
-type ComplexTypeDefinition interface {
-	Type
-
-	// Content returns the content model (empty, simple, element-only, mixed).
-	Content() Content
-
-	// Attributes returns the attribute declarations.
-	Attributes() []*AttributeDecl
-
-	// AnyAttribute returns the wildcard attribute if present.
-	AnyAttribute() *AnyAttribute
-
-	// Mixed returns true if this type allows mixed content.
-	Mixed() bool
+// AsDerivedType performs a type assertion to DerivedType.
+func AsDerivedType(t Type) (DerivedType, bool) {
+	return as[DerivedType](t)
 }
 
-// LengthMeasurable types know how to measure their length for facet validation.
+// LengthMeasurable types know how to measure their length for facet schemacheck.
 type LengthMeasurable interface {
 	Type
 

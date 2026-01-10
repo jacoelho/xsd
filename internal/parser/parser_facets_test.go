@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -50,7 +49,7 @@ func TestParser_UsesFacetConstructors(t *testing.T) {
 	foundMaxInclusive := false
 
 	for _, f := range st.Restriction.Facets {
-		if facet, ok := f.(facets.Facet); ok {
+		if facet, ok := f.(types.Facet); ok {
 			name := facet.Name()
 			switch name {
 			case "minInclusive":
@@ -103,7 +102,7 @@ func TestParser_UsesFacetConstructors_Integer(t *testing.T) {
 	}
 
 	for _, f := range st.Restriction.Facets {
-		if facet, ok := f.(facets.Facet); ok {
+		if facet, ok := f.(types.Facet); ok {
 			if facet.Name() == "minInclusive" || facet.Name() == "maxInclusive" {
 				// good - using constructor
 				return
@@ -303,12 +302,12 @@ func TestParser_RestrictionWithInlineSimpleTypeUnion(t *testing.T) {
 	// verify enumeration facet is present
 	foundEnum := false
 	for _, f := range st.Restriction.Facets {
-		if facet, ok := f.(facets.Facet); ok {
+		if facet, ok := f.(types.Facet); ok {
 			if facet.Name() == "enumeration" {
 				foundEnum = true
-				enum, ok := facet.(*facets.Enumeration)
+				enum, ok := facet.(*types.Enumeration)
 				if !ok {
-					t.Fatal("enumeration facet should be *facets.Enumeration")
+					t.Fatal("enumeration facet should be *types.Enumeration")
 				}
 				if len(enum.Values) != 1 || enum.Values[0] != "a" {
 					t.Errorf("enumeration should have value 'a', got %v", enum.Values)

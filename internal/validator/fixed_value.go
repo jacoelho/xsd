@@ -1,7 +1,7 @@
 package validator
 
 import (
-	stderrors "errors"
+	"fmt"
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
@@ -47,7 +47,7 @@ func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType
 	}
 
 	// try value space comparison for simple types
-	if st, ok := textType.Original.(types.SimpleTypeDefinition); ok {
+	if st, ok := valueSpaceType(textType.Original); ok {
 		if match, err := r.compareFixedValueAsType(actualValue, fixedValue, st); err == nil {
 			if !match {
 				return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
@@ -124,18 +124,13 @@ func (r *validationRun) compareFixedValueInUnionTypes(actualValue, fixedValue st
 
 // compareFixedValueAsType compares two values in the value space of a type.
 // Returns (equal, nil) if both values can be parsed, or (false, error) if parsing fails.
-func (r *validationRun) compareFixedValueAsType(actualValue, fixedValue string, st types.SimpleTypeDefinition) (bool, error) {
-	if st.IsBuiltin() {
-		actualValue = types.ApplyWhiteSpace(actualValue, st.WhiteSpace())
-		fixedValue = types.ApplyWhiteSpace(fixedValue, st.WhiteSpace())
-	}
-
-	actualTyped, actualErr := st.ParseValue(actualValue)
+func (r *validationRun) compareFixedValueAsType(actualValue, fixedValue string, typ types.Type) (bool, error) {
+	actualTyped, actualErr := r.parseValueAsType(actualValue, typ)
 	if actualErr != nil {
 		return false, actualErr
 	}
 
-	fixedTyped, fixedErr := st.ParseValue(fixedValue)
+	fixedTyped, fixedErr := r.parseValueAsType(fixedValue, typ)
 	if fixedErr != nil {
 		return false, fixedErr
 	}
@@ -144,18 +139,18 @@ func (r *validationRun) compareFixedValueAsType(actualValue, fixedValue string, 
 }
 
 // errNoMatchingMemberType indicates no union member type could parse the value
-var errNoMatchingMemberType = stderrors.New("no matching member type")
+var errNoMatchingMemberType = fmt.Errorf("no matching member type")
 
 func (r *validationRun) parseUnionValue(value string, memberTypes []*grammar.CompiledType) (types.TypedValue, *grammar.CompiledType, error) {
 	for _, member := range memberTypes {
 		if member == nil || member.Original == nil {
 			continue
 		}
-		st, ok := member.Original.(types.SimpleTypeDefinition)
+		memberType, ok := valueSpaceType(member.Original)
 		if !ok {
 			continue
 		}
-		typedValue, err := r.parseValueAsType(value, st)
+		typedValue, err := r.parseValueAsType(value, memberType)
 		if err == nil {
 			return typedValue, member, nil
 		}
@@ -168,11 +163,11 @@ func (r *validationRun) parseUnionValueTypes(value string, memberTypes []types.T
 		if member == nil {
 			continue
 		}
-		st, ok := member.(types.SimpleTypeDefinition)
+		memberType, ok := valueSpaceType(member)
 		if !ok {
 			continue
 		}
-		typedValue, err := r.parseValueAsType(value, st)
+		typedValue, err := r.parseValueAsType(value, memberType)
 		if err == nil {
 			return typedValue, member, nil
 		}
@@ -180,9 +175,26 @@ func (r *validationRun) parseUnionValueTypes(value string, memberTypes []types.T
 	return nil, nil, errNoMatchingMemberType
 }
 
-func (r *validationRun) parseValueAsType(value string, st types.SimpleTypeDefinition) (types.TypedValue, error) {
-	if st.IsBuiltin() {
-		value = types.ApplyWhiteSpace(value, st.WhiteSpace())
+func (r *validationRun) parseValueAsType(value string, typ types.Type) (types.TypedValue, error) {
+	switch t := typ.(type) {
+	case *types.SimpleType:
+		if t.IsBuiltin() {
+			value = types.ApplyWhiteSpace(value, t.WhiteSpace())
+		}
+		return t.ParseValue(value)
+	case *types.BuiltinType:
+		value = types.ApplyWhiteSpace(value, t.WhiteSpace())
+		return t.ParseValue(value)
+	default:
+		return nil, fmt.Errorf("cannot parse value for type %T", typ)
 	}
-	return st.ParseValue(value)
+}
+
+func valueSpaceType(typ types.Type) (types.Type, bool) {
+	switch typ.(type) {
+	case *types.SimpleType, *types.BuiltinType:
+		return typ, true
+	default:
+		return nil, false
+	}
 }

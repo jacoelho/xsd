@@ -1,4 +1,4 @@
-package xml
+package xsdxml
 
 import "strings"
 
@@ -160,42 +160,39 @@ func (d *Document) collectText(id NodeID, sb *strings.Builder) {
 	}
 }
 
+func (d *Document) findAttribute(id NodeID, match func(Attr) bool) (Attr, bool) {
+	for _, attr := range d.Attributes(id) {
+		if match(attr) {
+			return attr, true
+		}
+	}
+	return Attr{}, false
+}
+
 // GetAttribute returns the value of a local attribute name.
 func (d *Document) GetAttribute(id NodeID, name string) string {
-	for _, attr := range d.Attributes(id) {
-		if attr.local == name {
-			return attr.value
-		}
+	if attr, ok := d.findAttribute(id, func(a Attr) bool { return a.local == name }); ok {
+		return attr.value
 	}
 	return ""
 }
 
 // GetAttributeNS returns the value of a namespaced attribute.
 func (d *Document) GetAttributeNS(id NodeID, ns, local string) string {
-	for _, attr := range d.Attributes(id) {
-		if attr.namespace == ns && attr.local == local {
-			return attr.value
-		}
+	if attr, ok := d.findAttribute(id, func(a Attr) bool { return a.namespace == ns && a.local == local }); ok {
+		return attr.value
 	}
 	return ""
 }
 
 // HasAttribute reports whether the element has a local attribute name.
 func (d *Document) HasAttribute(id NodeID, name string) bool {
-	for _, attr := range d.Attributes(id) {
-		if attr.local == name {
-			return true
-		}
-	}
-	return false
+	_, ok := d.findAttribute(id, func(a Attr) bool { return a.local == name })
+	return ok
 }
 
 // HasAttributeNS reports whether the element has a namespaced attribute.
 func (d *Document) HasAttributeNS(id NodeID, ns, local string) bool {
-	for _, attr := range d.Attributes(id) {
-		if attr.namespace == ns && attr.local == local {
-			return true
-		}
-	}
-	return false
+	_, ok := d.findAttribute(id, func(a Attr) bool { return a.namespace == ns && a.local == local })
+	return ok
 }

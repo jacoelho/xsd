@@ -1,9 +1,6 @@
 package grammar
 
-import (
-	"github.com/jacoelho/xsd/internal/facets"
-	"github.com/jacoelho/xsd/internal/types"
-)
+import "github.com/jacoelho/xsd/internal/types"
 
 // TypeKind classifies compiled types.
 type TypeKind int
@@ -45,7 +42,7 @@ type CompiledType struct {
 	PrimitiveType *CompiledType
 	ItemType      *CompiledType
 	MemberTypes   []*CompiledType
-	Facets        []facets.Facet
+	Facets        []types.Facet
 
 	// Derivation control.
 	Final    types.DerivationSet
@@ -59,7 +56,7 @@ type CompiledType struct {
 	IDTypeName string
 }
 
-// TextType returns the simple type used to validate text content, or nil if no text validation.
+// TextType returns the simple type used to validate text content, or nil if no text schemacheck.
 // For simple types, returns self. For complex types with simpleContent, returns the base simple type.
 // For mixed content, returns nil (text is unrestricted xs:string).
 func (ct *CompiledType) TextType() *CompiledType {

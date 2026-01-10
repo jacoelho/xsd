@@ -2,11 +2,8 @@ package loader
 
 import (
 	"fmt"
-	"path"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -22,12 +19,12 @@ func newLoadSession(loader *SchemaLoader, absLoc string) *loadSession {
 	}
 }
 
-func (s *loadSession) handleCircularLoad() (*schema.Schema, error) {
-	if !s.loader.loading[s.absLoc] {
+func (s *loadSession) handleCircularLoad() (*parser.Schema, error) {
+	if !s.loader.state.loading[s.absLoc] {
 		return nil, nil
 	}
 
-	if schema, ok := s.loader.loaded[s.absLoc]; ok {
+	if schema, ok := s.loader.state.loaded[s.absLoc]; ok {
 		return schema, nil
 	}
 
@@ -69,33 +66,18 @@ func (s *loadSession) parseSchema() (result *parser.ParseResult, err error) {
 }
 
 func (s *loadSession) importingNamespaceFor(location string) (string, bool) {
-	if ns, ok := s.loader.importContext[location]; ok {
-		return ns, true
-	}
-
-	locationBase := path.Base(location)
-	if ns, ok := s.loader.importContext[locationBase]; ok {
-		return ns, true
-	}
-
-	for loc, ns := range s.loader.importContext {
-		if strings.HasSuffix(loc, locationBase) || strings.HasSuffix(location, path.Base(loc)) {
-			return ns, true
-		}
-	}
-
-	return "", false
+	return s.loader.imports.namespaceFor(location)
 }
 
-func (s *loadSession) processIncludes(schema *schema.Schema, includes []parser.IncludeInfo) error {
+func (s *loadSession) processIncludes(schema *parser.Schema, includes []parser.IncludeInfo) error {
 	for _, include := range includes {
 		includeLoc := s.loader.resolveIncludeLocation(s.absLoc, include.SchemaLocation)
 		absIncludeLoc := s.loader.resolveLocation(includeLoc)
 		if s.loader.alreadyMergedInclude(s.absLoc, absIncludeLoc) {
 			continue
 		}
-		if s.loader.loading[absIncludeLoc] {
-			inProgress := s.loader.loadingSchemas[absIncludeLoc]
+		if s.loader.state.loading[absIncludeLoc] {
+			inProgress := s.loader.state.loadingSchemas[absIncludeLoc]
 			if inProgress == nil {
 				// loadingSchemas should be set before includes are processed; nil means loader state is inconsistent.
 				return fmt.Errorf("circular dependency detected in include: %s", absIncludeLoc)
@@ -127,7 +109,7 @@ func (s *loadSession) processIncludes(schema *schema.Schema, includes []parser.I
 	return nil
 }
 
-func (s *loadSession) processImports(schema *schema.Schema, imports []parser.ImportInfo) error {
+func (s *loadSession) processImports(schema *parser.Schema, imports []parser.ImportInfo) error {
 	for _, imp := range imports {
 		if imp.SchemaLocation == "" {
 			continue

@@ -1,0 +1,626 @@
+package types
+
+import (
+	"fmt"
+	"math/big"
+	"slices"
+	"strings"
+	"time"
+	"unicode/utf8"
+)
+
+// getXSDTypeName returns a user-friendly XSD type name for error messages
+func getXSDTypeName(value TypedValue) string {
+	if value == nil {
+		return "unknown"
+	}
+	typ := value.Type()
+	if typ == nil {
+		return "unknown"
+	}
+	return typ.Name().Local
+}
+
+// parseTemporalValue parses a lexical value according to its primitive type name.
+func parseTemporalValue(primitiveName, lexical string) (time.Time, error) {
+	switch primitiveName {
+	case "dateTime":
+		return ParseDateTime(lexical)
+	case "date":
+		return ParseDate(lexical)
+	case "time":
+		return ParseTime(lexical)
+	case "gYear":
+		return ParseGYear(lexical)
+	case "gYearMonth":
+		return ParseGYearMonth(lexical)
+	case "gMonth":
+		return ParseGMonth(lexical)
+	case "gMonthDay":
+		return ParseGMonthDay(lexical)
+	case "gDay":
+		return ParseGDay(lexical)
+	default:
+		return time.Time{}, fmt.Errorf("unsupported date/time type: %s", primitiveName)
+	}
+}
+
+// durationToXSD converts a time.Duration to XSDDuration.
+func durationToXSD(d time.Duration) XSDDuration {
+	negative := d < 0
+	if negative {
+		d = -d
+	}
+	hours := int(d / time.Hour)
+	d %= time.Hour
+	minutes := int(d / time.Minute)
+	d %= time.Minute
+	seconds := float64(d) / float64(time.Second)
+	return XSDDuration{
+		Negative: negative,
+		Years:    0,
+		Months:   0,
+		Days:     0,
+		Hours:    hours,
+		Minutes:  minutes,
+		Seconds:  seconds,
+	}
+}
+
+// integerDerivedTypeNames is a lookup table for types derived from xs:integer.
+// Package-level var avoids repeated allocation.
+var integerDerivedTypeNames = map[string]bool{
+	"integer":            true,
+	"long":               true,
+	"int":                true,
+	"short":              true,
+	"byte":               true,
+	"unsignedLong":       true,
+	"unsignedInt":        true,
+	"unsignedShort":      true,
+	"unsignedByte":       true,
+	"nonNegativeInteger": true,
+	"positiveInteger":    true,
+	"negativeInteger":    true,
+	"nonPositiveInteger": true,
+}
+
+// isIntegerDerivedType checks if t derives from xs:integer by walking the derivation chain.
+func isIntegerDerivedType(t Type) bool {
+	if t == nil {
+		return false
+	}
+
+	typeName := t.Name().Local
+
+	// check if the type name itself is integer-derived
+	if integerDerivedTypeNames[typeName] {
+		return true
+	}
+
+	// for SimpleType, walk the derivation chain
+	if st, ok := t.(*SimpleType); ok {
+		current := st.ResolvedBase
+		for current != nil {
+			// use Name() interface method instead of type assertions
+			currentName := current.Name().Local
+			if integerDerivedTypeNames[currentName] {
+				return true
+			}
+			// continue walking the chain if it's a SimpleType
+			if currentST, ok := current.(*SimpleType); ok {
+				current = currentST.ResolvedBase
+			} else {
+				// BuiltinType or other type - stop here
+				break
+			}
+		}
+	}
+
+	return false
+}
+
+// extractComparableValue extracts a ComparableValue from a TypedValue.
+// This is the shared logic used by all range facet validators.
+func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, error) {
+	native := value.Native()
+	typ := value.Type()
+	if typ == nil {
+		typ = baseType
+	}
+
+	// try to convert native to ComparableValue directly
+	if compVal, ok := native.(ComparableValue); ok {
+		return compVal, nil
+	}
+
+	switch v := native.(type) {
+	case *big.Rat:
+		return ComparableBigRat{Value: v, Typ: typ}, nil
+	case *big.Int:
+		return ComparableBigInt{Value: v, Typ: typ}, nil
+	case time.Time:
+		return ComparableTime{Value: v, Typ: typ}, nil
+	case time.Duration:
+		xsdDur := durationToXSD(v)
+		return ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
+	case float64:
+		return ComparableFloat64{Value: v, Typ: typ}, nil
+	case float32:
+		return ComparableFloat32{Value: v, Typ: typ}, nil
+	case string:
+		return parseStringToComparableValue(value, v, typ)
+	}
+
+	// try to extract using ValueAs helper for known types
+	if rat, err := ValueAs[*big.Rat](value); err == nil {
+		return ComparableBigRat{Value: rat, Typ: typ}, nil
+	}
+	if intVal, err := ValueAs[*big.Int](value); err == nil {
+		return ComparableBigInt{Value: intVal, Typ: typ}, nil
+	}
+	if timeVal, err := ValueAs[time.Time](value); err == nil {
+		return ComparableTime{Value: timeVal, Typ: typ}, nil
+	}
+	if float64Val, err := ValueAs[float64](value); err == nil {
+		return ComparableFloat64{Value: float64Val, Typ: typ}, nil
+	}
+	if float32Val, err := ValueAs[float32](value); err == nil {
+		return ComparableFloat32{Value: float32Val, Typ: typ}, nil
+	}
+	if durVal, err := ValueAs[time.Duration](value); err == nil {
+		xsdDur := durationToXSD(durVal)
+		return ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
+	}
+
+	// all conversion attempts failed
+	xsdTypeName := getXSDTypeName(value)
+	return nil, fmt.Errorf("value type %s cannot be compared with facet value", xsdTypeName)
+}
+
+// parseStringToComparableValue parses a string value according to the TypedValue's type
+// and converts it to the appropriate ComparableValue.
+func parseStringToComparableValue(value TypedValue, lexical string, typ Type) (ComparableValue, error) {
+	if typ == nil {
+		typ = value.Type()
+	}
+	if typ == nil {
+		return nil, fmt.Errorf("cannot parse string: value has no type")
+	}
+
+	typeName := typ.Name().Local
+
+	// check if the actual type is integer (even though primitive is decimal)
+	if typeName == "integer" {
+		intVal, err := ParseInteger(lexical)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse integer: %w", err)
+		}
+		return ComparableBigInt{Value: intVal, Typ: typ}, nil
+	}
+
+	var primitiveType Type
+	if st, ok := typ.(*SimpleType); ok {
+		primitiveType = st.PrimitiveType()
+	} else if bt, ok := typ.(*BuiltinType); ok {
+		primitiveType = bt.PrimitiveType()
+	} else {
+		return nil, fmt.Errorf("cannot parse string: unsupported type %T", typ)
+	}
+
+	if primitiveType == nil {
+		return nil, fmt.Errorf("cannot parse string: cannot determine primitive type")
+	}
+
+	primitiveName := primitiveType.Name().Local
+
+	// check if type is integer-derived
+	isIntegerDerived := isIntegerDerivedType(typ)
+
+	switch primitiveName {
+	case "decimal":
+		// if type is integer-derived, parse as integer
+		if isIntegerDerived {
+			intVal, err := ParseInteger(lexical)
+			if err != nil {
+				return nil, fmt.Errorf("cannot parse integer: %w", err)
+			}
+			return ComparableBigInt{Value: intVal, Typ: typ}, nil
+		}
+		rat, err := ParseDecimal(lexical)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse decimal: %w", err)
+		}
+		return ComparableBigRat{Value: rat, Typ: typ}, nil
+
+	case "dateTime", "date", "time", "gYear", "gYearMonth", "gMonth", "gMonthDay", "gDay":
+		timeVal, err := parseTemporalValue(primitiveName, lexical)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse date/time: %w", err)
+		}
+		return ComparableTime{Value: timeVal, Typ: typ}, nil
+
+	case "float":
+		floatVal, err := ParseFloat(lexical)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse float: %w", err)
+		}
+		return ComparableFloat32{Value: floatVal, Typ: typ}, nil
+
+	case "double":
+		doubleVal, err := ParseDouble(lexical)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse double: %w", err)
+		}
+		return ComparableFloat64{Value: doubleVal, Typ: typ}, nil
+
+	case "duration":
+		xsdDur, err := ParseXSDDuration(lexical)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse duration: %w", err)
+		}
+		return ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
+
+	default:
+		return nil, fmt.Errorf("cannot parse string: unsupported primitive type %s for Comparable conversion", primitiveName)
+	}
+}
+
+// RangeFacet is a unified implementation for all range facets.
+type RangeFacet struct {
+	// Facet name (minInclusive, maxInclusive, etc.)
+	name string
+	// Keep lexical for schema/error messages
+	lexical string
+	// Comparable value
+	value ComparableValue
+	// Comparison function: returns true if validation passes
+	cmpFunc func(cmp int) bool
+	// Error operator string (">=", "<=", ">", "<")
+	errOp string
+}
+
+// Name returns the facet name
+func (r *RangeFacet) Name() string {
+	return r.name
+}
+
+// GetLexical returns the lexical value (implements LexicalFacet)
+func (r *RangeFacet) GetLexical() string {
+	return r.lexical
+}
+
+// Validate validates a TypedValue using ComparableValue comparison
+func (r *RangeFacet) Validate(value TypedValue, baseType Type) error {
+	compVal, err := extractComparableValue(value, baseType)
+	if err != nil {
+		return fmt.Errorf("%s: %w", r.name, err)
+	}
+
+	// compare using ComparableValue interface
+	cmp, err := compVal.Compare(r.value)
+	if err != nil {
+		return fmt.Errorf("%s: cannot compare values: %w", r.name, err)
+	}
+
+	if !r.cmpFunc(cmp) {
+		return fmt.Errorf("value %s must be %s %s", value.String(), r.errOp, r.lexical)
+	}
+
+	return nil
+}
+
+// isQNameOrNotationType checks if a type is QName, NOTATION, or restricts either.
+// Per XSD 1.0 errata, length facets should be ignored for QName and NOTATION types
+// because their value space length depends on namespace context, not lexical form.
+func isQNameOrNotationType(t Type) bool {
+	if t == nil {
+		return false
+	}
+
+	qnameOrNotation := func(local string) bool {
+		return local == string(TypeNameQName) || local == string(TypeNameNOTATION)
+	}
+
+	// list types should still honor length facets on list size.
+	if st, ok := t.(*SimpleType); ok && st.Variety() == ListVariety {
+		return false
+	}
+
+	if st, ok := t.(*SimpleType); ok {
+		visited := make(map[*SimpleType]bool)
+		current := st
+		for current != nil && !visited[current] {
+			visited[current] = true
+			if current.Restriction != nil && !current.Restriction.Base.IsZero() {
+				if qnameOrNotation(current.Restriction.Base.Local) {
+					ns := current.Restriction.Base.Namespace
+					if ns == XSDNamespace || ns.IsEmpty() {
+						return true
+					}
+				}
+			}
+			next, ok := current.ResolvedBase.(*SimpleType)
+			if !ok {
+				break
+			}
+			current = next
+		}
+	}
+
+	if qnameOrNotation(t.Name().Local) {
+		return true
+	}
+	if primitive := t.PrimitiveType(); primitive != nil && qnameOrNotation(primitive.Name().Local) {
+		return true
+	}
+
+	// walk base types for restriction chains that didn't resolve primitive type.
+	visited := make(map[Type]bool)
+	current := t
+	for current != nil && !visited[current] {
+		visited[current] = true
+		if qnameOrNotation(current.Name().Local) {
+			return true
+		}
+		current = current.BaseType()
+	}
+
+	return false
+}
+
+// Length represents a length facet
+type Length struct {
+	Value int
+}
+
+// Name returns the facet name
+func (l *Length) Name() string {
+	return "length"
+}
+
+// GetIntValue returns the integer value (implements IntValueFacet)
+func (l *Length) GetIntValue() int {
+	return l.Value
+}
+
+// Validate checks if the value has the exact length (unified Facet interface)
+func (l *Length) Validate(value TypedValue, baseType Type) error {
+	// per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
+	if isQNameOrNotationType(baseType) {
+		return nil
+	}
+	lexical := value.Lexical()
+	length := getLength(lexical, baseType)
+	if length != l.Value {
+		return fmt.Errorf("length must be %d, got %d", l.Value, length)
+	}
+	return nil
+}
+
+// MinLength represents a minLength facet
+type MinLength struct {
+	Value int
+}
+
+// Name returns the facet name
+func (m *MinLength) Name() string {
+	return "minLength"
+}
+
+// GetIntValue returns the integer value (implements IntValueFacet)
+func (m *MinLength) GetIntValue() int {
+	return m.Value
+}
+
+// Validate checks if the value meets minimum length (unified Facet interface)
+func (m *MinLength) Validate(value TypedValue, baseType Type) error {
+	// per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
+	if isQNameOrNotationType(baseType) {
+		return nil
+	}
+	lexical := value.Lexical()
+	length := getLength(lexical, baseType)
+	if length < m.Value {
+		return fmt.Errorf("length must be at least %d, got %d", m.Value, length)
+	}
+	return nil
+}
+
+// MaxLength represents a maxLength facet
+type MaxLength struct {
+	Value int
+}
+
+// Name returns the facet name
+func (m *MaxLength) Name() string {
+	return "maxLength"
+}
+
+// GetIntValue returns the integer value (implements IntValueFacet)
+func (m *MaxLength) GetIntValue() int {
+	return m.Value
+}
+
+// Validate checks if the value meets maximum length (unified Facet interface)
+func (m *MaxLength) Validate(value TypedValue, baseType Type) error {
+	// per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
+	if isQNameOrNotationType(baseType) {
+		return nil
+	}
+	lexical := value.Lexical()
+	length := getLength(lexical, baseType)
+	if length > m.Value {
+		return fmt.Errorf("length must be at most %d, got %d", m.Value, length)
+	}
+	return nil
+}
+
+// getLength calculates the length of a value according to XSD 1.0 specification.
+// The unit of length varies by type:
+//   - hexBinary/base64Binary: octets (bytes) - XSD 1.0 Part 2, sections 3.2.1.1-3.2.1.3
+//   - list types: number of list items - XSD 1.0 Part 2, section 3.2.1
+//   - string types: characters (Unicode code points) - XSD 1.0 Part 2, sections 3.2.1.1-3.2.1.3
+func getLength(value string, baseType Type) int {
+	if baseType == nil {
+		// no type information - use character count as default
+		return utf8.RuneCountInString(value)
+	}
+
+	// use LengthMeasurable interface if available
+	if lm, ok := baseType.(LengthMeasurable); ok {
+		return lm.MeasureLength(value)
+	}
+
+	// fallback: character count for types that don't implement LengthMeasurable
+	return utf8.RuneCountInString(value)
+}
+
+// Enumeration represents an enumeration facet
+type Enumeration struct {
+	Values []string
+}
+
+// Name returns the facet name
+func (e *Enumeration) Name() string {
+	return "enumeration"
+}
+
+// Validate checks if the value is in the enumeration (unified Facet interface)
+func (e *Enumeration) Validate(value TypedValue, baseType Type) error {
+	lexical := value.Lexical()
+	if isDateTimeType(baseType) {
+		for _, allowed := range e.Values {
+			if dateTimeValuesEqual(lexical, allowed, baseType) {
+				return nil
+			}
+		}
+		return fmt.Errorf("value %s not in enumeration: %v", lexical, e.Values)
+	}
+	if slices.Contains(e.Values, lexical) {
+		return nil
+	}
+	return fmt.Errorf("value %s not in enumeration: %v", lexical, e.Values)
+}
+
+func isDateTimeType(baseType Type) bool {
+	if baseType == nil {
+		return false
+	}
+	primitive := baseType.PrimitiveType()
+	if primitive == nil {
+		primitive = baseType
+	}
+	name := primitive.Name().Local
+	return name == "dateTime" || name == "date" || name == "time"
+}
+
+func dateTimeValuesEqual(v1, v2 string, baseType Type) bool {
+	primitive := baseType.PrimitiveType()
+	if primitive == nil {
+		primitive = baseType
+	}
+	switch primitive.Name().Local {
+	case "dateTime":
+		t1, err1 := ParseDateTime(v1)
+		t2, err2 := ParseDateTime(v2)
+		if err1 != nil || err2 != nil {
+			return v1 == v2
+		}
+		return t1.Equal(t2)
+	case "date":
+		t1, err1 := ParseDate(v1)
+		t2, err2 := ParseDate(v2)
+		if err1 != nil || err2 != nil {
+			return v1 == v2
+		}
+		return t1.Equal(t2)
+	case "time":
+		t1, err1 := ParseTime(v1)
+		t2, err2 := ParseTime(v2)
+		if err1 != nil || err2 != nil {
+			return v1 == v2
+		}
+		return t1.Equal(t2)
+	default:
+		return v1 == v2
+	}
+}
+
+// TotalDigits represents a totalDigits facet
+type TotalDigits struct {
+	Value int
+}
+
+// Name returns the facet name
+func (t *TotalDigits) Name() string {
+	return "totalDigits"
+}
+
+// GetIntValue returns the integer value (implements IntValueFacet)
+func (t *TotalDigits) GetIntValue() int {
+	return t.Value
+}
+
+// Validate checks if the total number of digits doesn't exceed the limit (unified Facet interface)
+func (t *TotalDigits) Validate(value TypedValue, baseType Type) error {
+	lexical := strings.TrimSpace(value.Lexical())
+	digitCount := countDigits(lexical)
+	if digitCount > t.Value {
+		return fmt.Errorf("total number of digits (%d) exceeds limit (%d)", digitCount, t.Value)
+	}
+	return nil
+}
+
+// FractionDigits represents a fractionDigits facet
+type FractionDigits struct {
+	Value int
+}
+
+// Name returns the facet name
+func (f *FractionDigits) Name() string {
+	return "fractionDigits"
+}
+
+// GetIntValue returns the integer value (implements IntValueFacet)
+func (f *FractionDigits) GetIntValue() int {
+	return f.Value
+}
+
+// Validate checks if the number of fractional digits doesn't exceed the limit (unified Facet interface)
+func (f *FractionDigits) Validate(value TypedValue, baseType Type) error {
+	lexical := strings.TrimSpace(value.Lexical())
+	fractionDigits := countFractionDigits(lexical)
+	if fractionDigits > f.Value {
+		return fmt.Errorf("number of fraction digits (%d) exceeds limit (%d)", fractionDigits, f.Value)
+	}
+	return nil
+}
+
+// countDigits counts the total number of digits in a string
+func countDigits(value string) int {
+	count := 0
+	for _, r := range value {
+		if r >= '0' && r <= '9' {
+			count++
+		}
+	}
+	return count
+}
+
+// countFractionDigits counts digits after the decimal point
+func countFractionDigits(value string) int {
+	_, after, ok := strings.Cut(value, ".")
+	if !ok {
+		return 0 // no decimal point, so no fraction digits
+	}
+
+	fractionPart := after
+
+	// remove exponent if present (e.g., "1.23E4" -> "1.23")
+	if eIdx := strings.IndexAny(fractionPart, "Ee"); eIdx >= 0 {
+		fractionPart = fractionPart[:eIdx]
+	}
+
+	return countDigits(fractionPart)
+}

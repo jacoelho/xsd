@@ -1,4 +1,4 @@
-package xml
+package xsdxml
 
 // Common XML namespaces.
 const (

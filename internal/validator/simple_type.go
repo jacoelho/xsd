@@ -2,7 +2,6 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -29,62 +28,69 @@ func (r *validationRun) checkComplexTypeFacets(text string, ct *grammar.Compiled
 	return violations
 }
 
-func shouldSkipLengthFacet(ct *grammar.CompiledType, facet facets.Facet) bool {
-	if ct == nil || ct.ItemType != nil {
+// shouldSkipLengthFacet returns true when length facets do not apply to a type.
+// QName and NOTATION do not have a meaningful character-length value space.
+func shouldSkipLengthFacet(ct *grammar.CompiledType, facet types.Facet) bool {
+	if ct == nil {
 		return false
 	}
 	if !isLengthFacet(facet) {
 		return false
 	}
+	if ct.ItemType != nil {
+		return false
+	}
+	return isQNameOrNotationDerived(ct)
+}
+
+func isQNameOrNotation(name types.QName) bool {
+	return name.Local == string(types.TypeNameQName) || name.Local == string(types.TypeNameNOTATION)
+}
+
+func isQNameOrNotationDerived(ct *grammar.CompiledType) bool {
 	if ct.IsNotationType {
 		return true
 	}
-	if ct.PrimitiveType != nil {
-		if ct.PrimitiveType.QName.Local == string(types.TypeNameQName) ||
-			ct.PrimitiveType.QName.Local == string(types.TypeNameNOTATION) {
-			return true
-		}
+	if ct.PrimitiveType != nil && isQNameOrNotation(ct.PrimitiveType.QName) {
+		return true
 	}
 	if st, ok := ct.Original.(*types.SimpleType); ok {
-		if primitive := st.PrimitiveType(); primitive != nil {
-			if primitive.Name().Local == string(types.TypeNameQName) ||
-				primitive.Name().Local == string(types.TypeNameNOTATION) {
-				return true
-			}
+		if primitive := st.PrimitiveType(); primitive != nil && isQNameOrNotation(primitive.Name()) {
+			return true
 		}
 	}
 	for _, base := range ct.DerivationChain {
-		if base.QName.Local == string(types.TypeNameNOTATION) || base.QName.Local == string(types.TypeNameQName) {
+		if isQNameOrNotation(base.QName) {
 			return true
 		}
 	}
 	return false
 }
 
-func typedValueForFacets(value string, typ types.Type, facetList []facets.Facet) types.TypedValue {
-	if facetsRequireTypedValue(facetList) {
-		return facets.TypedValueForFacet(value, typ)
+func typedValueForFacets(value string, typ types.Type, facetList []types.Facet) types.TypedValue {
+	if facetsAllowSimpleValue(facetList) {
+		return &types.StringTypedValue{Value: value, Typ: typ}
 	}
-	return &facets.StringTypedValue{Value: value, Typ: typ}
+	return types.TypedValueForFacet(value, typ)
 }
 
-func facetsRequireTypedValue(facetList []facets.Facet) bool {
+func facetsAllowSimpleValue(facetList []types.Facet) bool {
 	for _, facet := range facetList {
 		switch facet.(type) {
-		case *facets.Pattern, *facets.PatternSet, *facets.Enumeration,
-			*facets.Length, *facets.MinLength, *facets.MaxLength,
-			*facets.TotalDigits, *facets.FractionDigits:
+		case *types.Pattern, *types.PatternSet, *types.Enumeration,
+			*types.Length, *types.MinLength, *types.MaxLength,
+			*types.TotalDigits, *types.FractionDigits:
 			continue
 		default:
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }
 
-func isLengthFacet(facet facets.Facet) bool {
+func isLengthFacet(facet types.Facet) bool {
 	switch facet.(type) {
-	case *facets.Length, *facets.MinLength, *facets.MaxLength:
+	case *types.Length, *types.MinLength, *types.MaxLength:
 		return true
 	default:
 		return false
@@ -93,13 +99,10 @@ func isLengthFacet(facet facets.Facet) bool {
 
 func unresolvedSimpleType(typ types.Type) (types.QName, bool) {
 	st, ok := typ.(*types.SimpleType)
-	if !ok || st.IsBuiltin() {
+	if !ok || !types.IsPlaceholderSimpleType(st) {
 		return types.QName{}, false
 	}
-	if st.Restriction == nil && st.List == nil && st.Union == nil {
-		return st.QName, true
-	}
-	return types.QName{}, false
+	return st.QName, true
 }
 
 // collectIDRefs tracks ID/IDREF values for later validation and returns violations for duplicate IDs.
@@ -138,7 +141,7 @@ func (r *validationRun) trackID(id, path string) []errors.Validation {
 	return nil
 }
 
-// trackIDREF records an IDREF value for later validation.
+// trackIDREF records an IDREF value for later schemacheck.
 func (r *validationRun) trackIDREF(idref, path string) {
 	if idref == "" {
 		return
@@ -146,7 +149,7 @@ func (r *validationRun) trackIDREF(idref, path string) {
 	r.idrefs = append(r.idrefs, idrefEntry{ref: idref, path: path})
 }
 
-// trackIDREFS records IDREFS values for later validation.
+// trackIDREFS records IDREFS values for later schemacheck.
 func (r *validationRun) trackIDREFS(idrefs, path string) {
 	if idrefs == "" {
 		return

@@ -50,7 +50,7 @@ func TestLoader_CircularDependency(t *testing.T) {
 		},
 	})
 
-	loader.loading["test.xsd"] = true
+	loader.state.loading["test.xsd"] = true
 
 	_, err := loader.Load("test.xsd")
 	if err == nil {

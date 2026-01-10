@@ -1,9 +1,6 @@
 package grammar
 
-import (
-	"github.com/jacoelho/xsd/internal/grammar/contentmodel"
-	"github.com/jacoelho/xsd/internal/types"
-)
+import "github.com/jacoelho/xsd/internal/types"
 
 // ParticleKind classifies compiled particles.
 type ParticleKind int
@@ -18,14 +15,14 @@ const (
 )
 
 // CompiledContentModel is a pre-compiled content model.
-// All group references are expanded. The automaton is pre-built for O(n) validation.
+// All group references are expanded. The automaton is pre-built for O(n) schemacheck.
 type CompiledContentModel struct {
 	// Sequence, Choice, All
 	Kind types.GroupKind
 	// Flattened (no GroupRefs)
 	Particles []*CompiledParticle
 	// Pre-compiled DFA (not used for AllGroup)
-	Automaton *contentmodel.Automaton
+	Automaton *Automaton
 	// True if content can be empty
 	Empty bool
 	// True if content model accepts no instances
@@ -35,7 +32,7 @@ type CompiledContentModel struct {
 	// MinOccurs of the top-level group (default 1)
 	MinOccurs int
 
-	// AllElements holds all-group elements for array-based validation.
+	// AllElements holds all-group elements for array-based schemacheck.
 	AllElements []*AllGroupElement
 
 	// Cached validation data (precomputed during compilation)
@@ -45,7 +42,7 @@ type CompiledContentModel struct {
 }
 
 // AllGroupElement represents an element in an all group.
-// Implements contentmodel.AllGroupElementInfo interface.
+// Implements AllGroupElementInfo interface.
 // Note: Elements with maxOccurs=0 are filtered out during compilation per XSD spec.
 type AllGroupElement struct {
 	Element *CompiledElement
@@ -67,7 +64,7 @@ func (e *AllGroupElement) ElementQName() types.QName {
 }
 
 // ElementDecl returns the compiled element for this all-group entry.
-func (e *AllGroupElement) ElementDecl() any {
+func (e *AllGroupElement) ElementDecl() *CompiledElement {
 	if e == nil {
 		return nil
 	}

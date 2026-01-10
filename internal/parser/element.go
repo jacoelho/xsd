@@ -2,9 +2,7 @@ package parser
 
 import (
 	"fmt"
-	"strings"
 
-	xsdschema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
@@ -74,10 +72,10 @@ type elementAttrScan struct {
 	invalidLocalAttr string
 }
 
-func scanElementAttributes(doc *xml.Document, elem xml.NodeID) elementAttrScan {
+func scanElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) elementAttrScan {
 	var attrs elementAttrScan
 	for _, attr := range doc.Attributes(elem) {
-		if attr.NamespaceURI() == xml.XMLNSNamespace || attr.NamespaceURI() == "xmlns" || attr.LocalName() == "xmlns" {
+		if attr.NamespaceURI() == xsdxml.XMLNSNamespace || attr.NamespaceURI() == "xmlns" || attr.LocalName() == "xmlns" {
 			continue
 		}
 		attrName := attr.LocalName()
@@ -161,7 +159,7 @@ func scanElementAttributes(doc *xml.Document, elem xml.NodeID) elementAttrScan {
 func makeAnyType() types.Type {
 	ct := &types.ComplexType{
 		QName: types.QName{
-			Namespace: xml.XSDNamespace,
+			Namespace: xsdxml.XSDNamespace,
 			Local:     "anyType",
 		},
 	}
@@ -171,7 +169,7 @@ func makeAnyType() types.Type {
 }
 
 // parseTopLevelElement parses a top-level element declaration
-func parseTopLevelElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("element missing name attribute")
@@ -202,7 +200,7 @@ func parseTopLevelElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -220,7 +218,7 @@ func parseTopLevelElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.
 
 	var hasInlineType bool
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) == xml.XSDNamespace {
+		if doc.NamespaceURI(child) == xsdxml.XSDNamespace {
 			if doc.LocalName(child) == "complexType" || doc.LocalName(child) == "simpleType" {
 				hasInlineType = true
 				break
@@ -267,7 +265,7 @@ func parseTopLevelElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.
 		}
 	} else {
 		for _, child := range doc.Children(elem) {
-			if doc.NamespaceURI(child) != xml.XSDNamespace {
+			if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 				continue
 			}
 
@@ -370,7 +368,7 @@ func parseTopLevelElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.
 
 	// parse identity constraints (key, keyref, unique)
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -397,7 +395,7 @@ func parseTopLevelElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.
 }
 
 // parseElement parses an element reference or declaration within a content model
-func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.ElementDecl, error) {
+func parseElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.ElementDecl, error) {
 	attrs := scanElementAttributes(doc, elem)
 	ref := attrs.ref
 	name := attrs.name
@@ -491,7 +489,7 @@ func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) 
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -520,7 +518,7 @@ func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) 
 
 	var hasInlineType bool
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) == xml.XSDNamespace {
+		if doc.NamespaceURI(child) == xsdxml.XSDNamespace {
 			if doc.LocalName(child) == "complexType" || doc.LocalName(child) == "simpleType" {
 				hasInlineType = true
 				break
@@ -535,13 +533,13 @@ func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) 
 
 	// per XSD spec: local elements use the form attribute if present,
 	// otherwise use schema's elementFormDefault (which defaults to unqualified)
-	var effectiveForm xsdschema.Form
+	var effectiveForm Form
 	if formAttr := attrs.form; formAttr != "" {
 		switch formAttr {
 		case "qualified":
-			effectiveForm = xsdschema.Qualified
+			effectiveForm = Qualified
 		case "unqualified":
-			effectiveForm = xsdschema.Unqualified
+			effectiveForm = Unqualified
 		default:
 			return nil, fmt.Errorf("invalid form attribute value '%s': must be 'qualified' or 'unqualified'", formAttr)
 		}
@@ -552,7 +550,7 @@ func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) 
 	// for unqualified elements, the namespace is empty (no namespace)
 	// for qualified elements, the namespace is the target namespace
 	var elementNamespace types.NamespaceURI
-	if effectiveForm == xsdschema.Qualified {
+	if effectiveForm == Qualified {
 		elementNamespace = schema.TargetNamespace
 	}
 
@@ -574,7 +572,7 @@ func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) 
 	decl.MinOccurs = minOccurs
 	decl.MaxOccurs = maxOccurs
 
-	if effectiveForm == xsdschema.Qualified {
+	if effectiveForm == Qualified {
 		decl.Form = types.FormQualified
 	} else {
 		decl.Form = types.FormUnqualified
@@ -600,7 +598,7 @@ func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) 
 		}
 	} else {
 		for _, child := range doc.Children(elem) {
-			if doc.NamespaceURI(child) != xml.XSDNamespace {
+			if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 				continue
 			}
 
@@ -664,7 +662,7 @@ func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) 
 
 	// parse identity constraints (key, keyref, unique) for local elements
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -685,9 +683,9 @@ func parseElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) 
 	return parsed, nil
 }
 
-func validateElementAttributes(doc *xml.Document, elem xml.NodeID, validAttributes map[string]bool, context string) error {
+func validateElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, validAttributes map[string]bool, context string) error {
 	for _, attr := range doc.Attributes(elem) {
-		if attr.NamespaceURI() == xml.XMLNSNamespace || attr.NamespaceURI() == "xmlns" || attr.LocalName() == "xmlns" {
+		if attr.NamespaceURI() == xsdxml.XMLNSNamespace || attr.NamespaceURI() == "xmlns" || attr.LocalName() == "xmlns" {
 			continue
 		}
 		if attr.NamespaceURI() != "" {
@@ -700,10 +698,10 @@ func validateElementAttributes(doc *xml.Document, elem xml.NodeID, validAttribut
 	return nil
 }
 
-func namespaceForPrefix(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema, prefix string) string {
-	for current := elem; current != xml.InvalidNode; current = doc.Parent(current) {
+func namespaceForPrefix(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, prefix string) string {
+	for current := elem; current != xsdxml.InvalidNode; current = doc.Parent(current) {
 		for _, attr := range doc.Attributes(current) {
-			isXMLNSAttr := attr.NamespaceURI() == xml.XMLNSNamespace ||
+			isXMLNSAttr := attr.NamespaceURI() == xsdxml.XMLNSNamespace ||
 				(attr.NamespaceURI() == "" && attr.LocalName() == "xmlns")
 			if !isXMLNSAttr {
 				continue
@@ -732,21 +730,21 @@ func namespaceForPrefix(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 
 	switch prefix {
 	case "xs", "xsd":
-		return xml.XSDNamespace
+		return xsdxml.XSDNamespace
 	case "xml":
-		return xml.XMLNamespace
+		return xsdxml.XMLNamespace
 	default:
 		return ""
 	}
 }
 
-func namespaceContextForElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) map[string]string {
+func namespaceContextForElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) map[string]string {
 	context := make(map[string]string)
-	for current := elem; current != xml.InvalidNode; current = doc.Parent(current) {
+	for current := elem; current != xsdxml.InvalidNode; current = doc.Parent(current) {
 		for _, attr := range doc.Attributes(current) {
 			ns := attr.NamespaceURI()
 			local := attr.LocalName()
-			if ns != xml.XMLNSNamespace && (ns != "" || local != "xmlns") {
+			if ns != xsdxml.XMLNSNamespace && (ns != "" || local != "xmlns") {
 				continue
 			}
 			prefix := local
@@ -768,7 +766,7 @@ func namespaceContextForElement(doc *xml.Document, elem xml.NodeID, schema *xsds
 	}
 
 	if _, exists := context["xml"]; !exists {
-		context["xml"] = xml.XMLNamespace
+		context["xml"] = xsdxml.XMLNamespace
 	}
 
 	return context
@@ -780,29 +778,14 @@ func namespaceContextForElement(doc *xml.Document, elem xml.NodeID, schema *xsds
 // 2. If a default namespace (xmlns="...") is declared -> use that namespace
 // 3. Otherwise -> empty namespace (no namespace)
 // This follows the XSD spec's QName resolution rules.
-func resolveQName(doc *xml.Document, qname string, elem xml.NodeID, schema *xsdschema.Schema) (types.QName, error) {
-	if qname == "" {
-		return types.QName{}, fmt.Errorf("empty qname")
-	}
-
-	// trim whitespace from the QName value per XSD spec
-	qname = strings.TrimSpace(qname)
-	if !types.IsValidQName(qname) {
-		return types.QName{}, fmt.Errorf("invalid QName '%s'", qname)
-	}
-
-	prefix := ""
-	local := qname
-	for i, r := range qname {
-		if r == ':' {
-			prefix = strings.TrimSpace(qname[:i])
-			local = strings.TrimSpace(qname[i+1:])
-			break
-		}
+func resolveQName(doc *xsdxml.Document, qname string, elem xsdxml.NodeID, schema *Schema) (types.QName, error) {
+	prefix, local, hasPrefix, err := types.ParseQName(qname)
+	if err != nil {
+		return types.QName{}, err
 	}
 
 	var namespace types.NamespaceURI
-	if prefix == "" {
+	if !hasPrefix {
 		// no prefix - check if it's a built-in type first
 		if types.GetBuiltin(types.TypeName(local)) != nil {
 			// built-in type - use XSD namespace
@@ -813,7 +796,7 @@ func resolveQName(doc *xml.Document, qname string, elem xml.NodeID, schema *xsds
 			// if default namespace is XSD namespace, treat as no namespace
 			// (XSD types are handled above, non-XSD names in XSD namespace don't exist)
 			// this is the strict spec behavior that W3C tests expect.
-			if defaultNS == xml.XSDNamespace {
+			if defaultNS == xsdxml.XSDNamespace {
 				namespace = ""
 			} else if defaultNS != "" {
 				namespace = types.NamespaceURI(defaultNS)
@@ -845,33 +828,18 @@ func resolveQName(doc *xml.Document, qname string, elem xml.NodeID, schema *xsds
 
 // resolveQNameWithoutBuiltin resolves a QName using namespace prefixes without
 // applying built-in type shortcuts.
-func resolveQNameWithoutBuiltin(doc *xml.Document, qname string, elem xml.NodeID, schema *xsdschema.Schema) (types.QName, error) {
-	if qname == "" {
-		return types.QName{}, fmt.Errorf("empty qname")
-	}
-
-	// trim whitespace from the QName value per XSD spec
-	qname = strings.TrimSpace(qname)
-	if !types.IsValidQName(qname) {
-		return types.QName{}, fmt.Errorf("invalid QName '%s'", qname)
-	}
-
-	prefix := ""
-	local := qname
-	for i, r := range qname {
-		if r == ':' {
-			prefix = strings.TrimSpace(qname[:i])
-			local = strings.TrimSpace(qname[i+1:])
-			break
-		}
+func resolveQNameWithoutBuiltin(doc *xsdxml.Document, qname string, elem xsdxml.NodeID, schema *Schema) (types.QName, error) {
+	prefix, local, hasPrefix, err := types.ParseQName(qname)
+	if err != nil {
+		return types.QName{}, err
 	}
 
 	var namespace types.NamespaceURI
-	if prefix == "" {
+	if !hasPrefix {
 		// no prefix - check for default namespace (xmlns="...") in scope
 		defaultNS := namespaceForPrefix(doc, elem, schema, "")
 		// if default namespace is XSD namespace, treat as no namespace
-		if defaultNS == xml.XSDNamespace {
+		if defaultNS == xsdxml.XSDNamespace {
 			namespace = ""
 		} else if defaultNS != "" {
 			namespace = types.NamespaceURI(defaultNS)
@@ -896,13 +864,13 @@ func resolveQNameWithoutBuiltin(doc *xml.Document, qname string, elem xml.NodeID
 // resolveElementQName resolves a QName for ELEMENT references (ref, substitutionGroup).
 // Unlike resolveQName for types, this does NOT check for built-in type names
 // because element references never refer to built-in types.
-func resolveElementQName(doc *xml.Document, qname string, elem xml.NodeID, schema *xsdschema.Schema) (types.QName, error) {
+func resolveElementQName(doc *xsdxml.Document, qname string, elem xsdxml.NodeID, schema *Schema) (types.QName, error) {
 	return resolveQNameWithoutBuiltin(doc, qname, elem, schema)
 }
 
 // resolveIdentityConstraintQName resolves a QName for identity constraint references.
 // Identity constraints use standard QName resolution without built-in type shortcuts.
-func resolveIdentityConstraintQName(doc *xml.Document, qname string, elem xml.NodeID, schema *xsdschema.Schema) (types.QName, error) {
+func resolveIdentityConstraintQName(doc *xsdxml.Document, qname string, elem xsdxml.NodeID, schema *Schema) (types.QName, error) {
 	return resolveQNameWithoutBuiltin(doc, qname, elem, schema)
 }
 
@@ -910,33 +878,18 @@ func resolveIdentityConstraintQName(doc *xml.Document, qname string, elem xml.No
 // QName values in schema attributes use standard XML namespace resolution:
 // - Prefixed names use the declared namespace for that prefix
 // - Unprefixed names use the default namespace if declared, otherwise no namespace
-func resolveAttributeRefQName(doc *xml.Document, qname string, elem xml.NodeID, schema *xsdschema.Schema) (types.QName, error) {
-	if qname == "" {
-		return types.QName{}, fmt.Errorf("empty qname")
-	}
-
-	// trim whitespace from the QName value per XSD spec
-	qname = strings.TrimSpace(qname)
-	if !types.IsValidQName(qname) {
-		return types.QName{}, fmt.Errorf("invalid QName '%s'", qname)
-	}
-
-	prefix := ""
-	local := qname
-	for i, r := range qname {
-		if r == ':' {
-			prefix = strings.TrimSpace(qname[:i])
-			local = strings.TrimSpace(qname[i+1:])
-			break
-		}
+func resolveAttributeRefQName(doc *xsdxml.Document, qname string, elem xsdxml.NodeID, schema *Schema) (types.QName, error) {
+	prefix, local, hasPrefix, err := types.ParseQName(qname)
+	if err != nil {
+		return types.QName{}, err
 	}
 
 	var namespace types.NamespaceURI
-	if prefix == "" {
+	if !hasPrefix {
 		// no prefix - check for default namespace (xmlns="...")
 		defaultNS := namespaceForPrefix(doc, elem, schema, "")
 		// if default namespace is XSD namespace, treat as no namespace
-		if defaultNS == xml.XSDNamespace {
+		if defaultNS == xsdxml.XSDNamespace {
 			namespace = ""
 		} else if defaultNS != "" {
 			namespace = types.NamespaceURI(defaultNS)
@@ -958,11 +911,11 @@ func resolveAttributeRefQName(doc *xml.Document, qname string, elem xml.NodeID, 
 
 // validateAnnotationOrder checks that annotation (if present) is the first XSD child element.
 // Per XSD spec, annotation must appear first in element, attribute, complexType, simpleType, etc.
-func validateAnnotationOrder(doc *xml.Document, elem xml.NodeID) error {
+func validateAnnotationOrder(doc *xsdxml.Document, elem xsdxml.NodeID) error {
 	seenNonAnnotation := false
 	annotationCount := 0
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -983,11 +936,11 @@ func validateAnnotationOrder(doc *xml.Document, elem xml.NodeID) error {
 
 // validateElementChildrenOrder checks that identity constraints follow any inline type definition.
 // Per XSD 1.0, element content model is: (annotation?, (simpleType|complexType)?, (unique|key|keyref)*).
-func validateElementChildrenOrder(doc *xml.Document, elem xml.NodeID) error {
+func validateElementChildrenOrder(doc *xsdxml.Document, elem xsdxml.NodeID) error {
 	seenType := false
 	seenConstraint := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -1008,10 +961,10 @@ func validateElementChildrenOrder(doc *xml.Document, elem xml.NodeID) error {
 	return nil
 }
 
-func validateOnlyAnnotationChildren(doc *xml.Document, elem xml.NodeID, elementName string) error {
+func validateOnlyAnnotationChildren(doc *xsdxml.Document, elem xsdxml.NodeID, elementName string) error {
 	seenAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 		if doc.LocalName(child) == "annotation" {
@@ -1022,6 +975,19 @@ func validateOnlyAnnotationChildren(doc *xml.Document, elem xml.NodeID, elementN
 			continue
 		}
 		return fmt.Errorf("%s: unexpected child element '%s'", elementName, doc.LocalName(child))
+	}
+	return nil
+}
+
+func validateElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, elementName string, schema *Schema) error {
+	if hasIDAttribute(doc, elem) {
+		idAttr := doc.GetAttribute(elem, "id")
+		if err := validateIDAttribute(idAttr, elementName, schema); err != nil {
+			return err
+		}
+	}
+	if err := validateOnlyAnnotationChildren(doc, elem, elementName); err != nil {
+		return err
 	}
 	return nil
 }

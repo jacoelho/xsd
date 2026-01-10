@@ -5,71 +5,85 @@ import (
 	"strconv"
 	"strings"
 
-	xsdschema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
+const (
+	attrSetAnyElement         = "any"
+	attrSetAnyAttribute       = "anyAttribute"
+	attrSetModelGroup         = "modelGroup"
+	attrSetTopLevelGroup      = "topLevelGroup"
+	attrSetIdentityConstraint = "identityConstraint"
+
+	childSetSimpleContentFacet  = "simpleContentFacet"
+	childSetComplexContentChild = "complexContentChild"
+)
+
 var (
-	validAnyElementAttributes = map[string]bool{
-		"namespace":       true,
-		"processContents": true,
-		"minOccurs":       true,
-		"maxOccurs":       true,
-		"id":              true,
+	validAttributeNames = map[string]map[string]bool{
+		attrSetAnyElement: {
+			"namespace":       true,
+			"processContents": true,
+			"minOccurs":       true,
+			"maxOccurs":       true,
+			"id":              true,
+		},
+		attrSetAnyAttribute: {
+			"namespace":       true,
+			"processContents": true,
+			"id":              true,
+		},
+		attrSetModelGroup: {
+			"id":        true,
+			"minOccurs": true,
+			"maxOccurs": true,
+		},
+		attrSetTopLevelGroup: {
+			"id":   true,
+			"name": true,
+		},
+		attrSetIdentityConstraint: {
+			"xpath": true,
+			"id":    true,
+		},
 	}
-	validAnyAttributeAttributes = map[string]bool{
-		"namespace":       true,
-		"processContents": true,
-		"id":              true,
-	}
-	validModelGroupAttributes = map[string]bool{
-		"id":        true,
-		"minOccurs": true,
-		"maxOccurs": true,
-	}
-	validSimpleContentFacetElements = map[string]bool{
-		"length":         true,
-		"minLength":      true,
-		"maxLength":      true,
-		"pattern":        true,
-		"enumeration":    true,
-		"whiteSpace":     true,
-		"maxInclusive":   true,
-		"maxExclusive":   true,
-		"minInclusive":   true,
-		"minExclusive":   true,
-		"totalDigits":    true,
-		"fractionDigits": true,
-	}
-	validComplexContentChildren = map[string]bool{
-		"annotation":     true,
-		"sequence":       true,
-		"choice":         true,
-		"all":            true,
-		"group":          true,
-		"element":        true,
-		"any":            true,
-		"attribute":      true,
-		"attributeGroup": true,
-		"anyAttribute":   true,
-	}
-	validTopLevelGroupAttributes = map[string]bool{
-		"id":   true,
-		"name": true,
+	validChildElementNames = map[string]map[string]bool{
+		childSetSimpleContentFacet: {
+			"length":         true,
+			"minLength":      true,
+			"maxLength":      true,
+			"pattern":        true,
+			"enumeration":    true,
+			"whiteSpace":     true,
+			"maxInclusive":   true,
+			"maxExclusive":   true,
+			"minInclusive":   true,
+			"minExclusive":   true,
+			"totalDigits":    true,
+			"fractionDigits": true,
+		},
+		childSetComplexContentChild: {
+			"annotation":     true,
+			"sequence":       true,
+			"choice":         true,
+			"all":            true,
+			"group":          true,
+			"element":        true,
+			"any":            true,
+			"attribute":      true,
+			"attributeGroup": true,
+			"anyAttribute":   true,
+		},
 	}
 	validNamespaceConstraintTokens = map[string]bool{
 		"##targetNamespace": true,
 		"##local":           true,
 	}
-	validIdentityConstraintAttributes = map[string]bool{
-		"xpath": true,
-		"id":    true,
-	}
 )
 
 // parseComplexType parses a top-level complexType definition
-func parseComplexType(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+func parseComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("complexType missing name attribute")
@@ -102,8 +116,251 @@ func parseComplexType(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sche
 	return nil
 }
 
+type complexTypeParseState struct {
+	doc    *xsdxml.Document
+	schema *Schema
+	ct     *types.ComplexType
+
+	hasAnnotation     bool
+	hasNonAnnotation  bool
+	hasAnyAttribute   bool
+	hasParticle       bool
+	hasSimpleContent  bool
+	hasComplexContent bool
+	hasAttributeLike  bool
+}
+
+func (s *complexTypeParseState) handleChild(child xsdxml.NodeID) error {
+	switch s.doc.LocalName(child) {
+	case "annotation":
+		return s.handleAnnotation()
+	case "sequence", "choice", "all":
+		return s.handleModelGroup(child)
+	case "any":
+		return s.handleAny(child)
+	case "group":
+		return s.handleGroupRef(child)
+	case "attribute":
+		return s.handleAttribute(child)
+	case "attributeGroup":
+		return s.handleAttributeGroup(child)
+	case "anyAttribute":
+		return s.handleAnyAttribute(child)
+	case "simpleContent":
+		return s.handleSimpleContent(child)
+	case "complexContent":
+		return s.handleComplexContent(child)
+	case "key", "keyref", "unique":
+		return fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", s.doc.LocalName(child))
+	default:
+		return fmt.Errorf("complexType: unexpected child element '%s'", s.doc.LocalName(child))
+	}
+}
+
+func (s *complexTypeParseState) handleAnnotation() error {
+	if s.hasAnnotation {
+		return fmt.Errorf("complexType: at most one annotation is allowed")
+	}
+	if s.hasNonAnnotation {
+		return fmt.Errorf("complexType: annotation must appear before other elements")
+	}
+	s.hasAnnotation = true
+	return nil
+}
+
+func (s *complexTypeParseState) handleModelGroup(child xsdxml.NodeID) error {
+	s.hasNonAnnotation = true
+	if s.hasSimpleContent || s.hasComplexContent {
+		return fmt.Errorf("complexType: element content cannot appear with simpleContent or complexContent")
+	}
+	if s.hasAttributeLike {
+		return fmt.Errorf("complexType: content model must appear before attributes")
+	}
+	if s.hasParticle {
+		return fmt.Errorf("complexType: only one content model is allowed")
+	}
+	s.hasParticle = true
+	mg, err := parseModelGroup(s.doc, child, s.schema)
+	if err != nil {
+		return fmt.Errorf("parse model group: %w", err)
+	}
+	s.ct.SetContent(&types.ElementContent{Particle: mg})
+	return nil
+}
+
+func (s *complexTypeParseState) handleAny(child xsdxml.NodeID) error {
+	s.hasNonAnnotation = true
+	if s.hasSimpleContent || s.hasComplexContent {
+		return fmt.Errorf("complexType: element content cannot appear with simpleContent or complexContent")
+	}
+	if s.hasAttributeLike {
+		return fmt.Errorf("complexType: content model must appear before attributes")
+	}
+	if s.hasParticle {
+		return fmt.Errorf("complexType: only one content model is allowed")
+	}
+	s.hasParticle = true
+	anyElem, err := parseAnyElement(s.doc, child, s.schema)
+	if err != nil {
+		return fmt.Errorf("parse any element: %w", err)
+	}
+	s.ct.SetContent(&types.ElementContent{Particle: anyElem})
+	return nil
+}
+
+func (s *complexTypeParseState) handleGroupRef(child xsdxml.NodeID) error {
+	s.hasNonAnnotation = true
+	if s.hasSimpleContent || s.hasComplexContent {
+		return fmt.Errorf("complexType: element content cannot appear with simpleContent or complexContent")
+	}
+	if s.hasAttributeLike {
+		return fmt.Errorf("complexType: content model must appear before attributes")
+	}
+	if s.hasParticle {
+		return fmt.Errorf("complexType: only one content model is allowed")
+	}
+	s.hasParticle = true
+	if err := validateElementConstraints(s.doc, child, "group", s.schema); err != nil {
+		return err
+	}
+	ref := s.doc.GetAttribute(child, "ref")
+	if ref == "" {
+		return fmt.Errorf("group reference missing ref attribute")
+	}
+	refQName, err := resolveQName(s.doc, ref, child, s.schema)
+	if err != nil {
+		return fmt.Errorf("resolve group ref %s: %w", ref, err)
+	}
+	minOccurs, err := parseOccursAttr(s.doc, child, "minOccurs", 1)
+	if err != nil {
+		return err
+	}
+	maxOccurs, err := parseOccursAttr(s.doc, child, "maxOccurs", 1)
+	if err != nil {
+		return err
+	}
+	groupRef := &types.GroupRef{
+		RefQName:  refQName,
+		MinOccurs: minOccurs,
+		MaxOccurs: maxOccurs,
+	}
+	s.ct.SetContent(&types.ElementContent{Particle: groupRef})
+	return nil
+}
+
+func (s *complexTypeParseState) handleAttribute(child xsdxml.NodeID) error {
+	s.hasNonAnnotation = true
+	s.hasAttributeLike = true
+	if s.hasSimpleContent || s.hasComplexContent {
+		return fmt.Errorf("complexType: attributes must be declared within simpleContent or complexContent")
+	}
+	if s.hasAnyAttribute {
+		return fmt.Errorf("complexType: anyAttribute must appear after all attributes")
+	}
+	attr, err := parseAttribute(s.doc, child, s.schema)
+	if err != nil {
+		return fmt.Errorf("complexType: parse attribute: %w", err)
+	}
+	s.ct.SetAttributes(append(s.ct.Attributes(), attr))
+	return nil
+}
+
+func (s *complexTypeParseState) handleAttributeGroup(child xsdxml.NodeID) error {
+	s.hasNonAnnotation = true
+	s.hasAttributeLike = true
+	if s.hasSimpleContent || s.hasComplexContent {
+		return fmt.Errorf("complexType: attributes must be declared within simpleContent or complexContent")
+	}
+	if s.hasAnyAttribute {
+		return fmt.Errorf("complexType: anyAttribute must appear after all attributes")
+	}
+	if err := validateElementConstraints(s.doc, child, "attributeGroup", s.schema); err != nil {
+		return err
+	}
+	ref := s.doc.GetAttribute(child, "ref")
+	if ref == "" {
+		return fmt.Errorf("attributeGroup reference missing ref attribute")
+	}
+	refQName, err := resolveQName(s.doc, ref, child, s.schema)
+	if err != nil {
+		return fmt.Errorf("resolve attributeGroup ref %s: %w", ref, err)
+	}
+	s.ct.AttrGroups = append(s.ct.AttrGroups, refQName)
+	return nil
+}
+
+func (s *complexTypeParseState) handleAnyAttribute(child xsdxml.NodeID) error {
+	s.hasNonAnnotation = true
+	s.hasAttributeLike = true
+	if s.hasSimpleContent || s.hasComplexContent {
+		return fmt.Errorf("complexType: attributes must be declared within simpleContent or complexContent")
+	}
+	if s.hasAnyAttribute {
+		return fmt.Errorf("complexType: at most one anyAttribute is allowed")
+	}
+	s.hasAnyAttribute = true
+	anyAttr, err := parseAnyAttribute(s.doc, child, s.schema)
+	if err != nil {
+		return fmt.Errorf("parse anyAttribute: %w", err)
+	}
+	s.ct.SetAnyAttribute(anyAttr)
+	return nil
+}
+
+func (s *complexTypeParseState) handleSimpleContent(child xsdxml.NodeID) error {
+	s.hasNonAnnotation = true
+	if s.hasParticle || s.hasAttributeLike {
+		return fmt.Errorf("complexType: simpleContent must be the only content model")
+	}
+	if s.hasSimpleContent || s.hasComplexContent {
+		return fmt.Errorf("complexType: only one content model is allowed")
+	}
+	s.hasSimpleContent = true
+	sc, err := parseSimpleContent(s.doc, child, s.schema)
+	if err != nil {
+		return fmt.Errorf("parse simpleContent: %w", err)
+	}
+	s.ct.SetContent(sc)
+	// set base type if available (fully resolved during schema resolution)
+	if !sc.Base.IsZero() {
+		s.ct.ResolvedBase = resolveBaseTypeForComplex(s.schema, sc.Base)
+	}
+	if sc.Extension != nil {
+		s.ct.DerivationMethod = types.DerivationExtension
+	} else if sc.Restriction != nil {
+		s.ct.DerivationMethod = types.DerivationRestriction
+	}
+	return nil
+}
+
+func (s *complexTypeParseState) handleComplexContent(child xsdxml.NodeID) error {
+	s.hasNonAnnotation = true
+	if s.hasParticle || s.hasAttributeLike {
+		return fmt.Errorf("complexType: complexContent must be the only content model")
+	}
+	if s.hasSimpleContent || s.hasComplexContent {
+		return fmt.Errorf("complexType: only one content model is allowed")
+	}
+	s.hasComplexContent = true
+	cc, err := parseComplexContent(s.doc, child, s.schema)
+	if err != nil {
+		return fmt.Errorf("parse complexContent: %w", err)
+	}
+	s.ct.SetContent(cc)
+	// set base type if available (fully resolved during schema resolution)
+	if !cc.Base.IsZero() {
+		s.ct.ResolvedBase = resolveBaseTypeForComplex(s.schema, cc.Base)
+	}
+	if cc.Extension != nil {
+		s.ct.DerivationMethod = types.DerivationExtension
+	} else if cc.Restriction != nil {
+		s.ct.DerivationMethod = types.DerivationRestriction
+	}
+	return nil
+}
+
 // parseInlineComplexType parses a complexType definition (inline or named)
-func parseInlineComplexType(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.ComplexType, error) {
+func parseInlineComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.ComplexType, error) {
 	ct := &types.ComplexType{}
 
 	if doc.HasAttribute(elem, "id") && doc.GetAttribute(elem, "name") == "" {
@@ -162,223 +419,19 @@ func parseInlineComplexType(doc *xml.Document, elem xml.NodeID, schema *xsdschem
 
 	// track annotation constraints: at most one, must be first
 	// content model: (annotation?, (simpleContent | complexContent | ((group | all | choice | sequence)?, ((attribute | attributeGroup)*, anyAttribute?))))
-	hasAnnotation := false
-	hasNonAnnotation := false
-	hasAnyAttribute := false
-	hasParticle := false
-	hasSimpleContent := false
-	hasComplexContent := false
-	hasAttributeLike := false
+	state := complexTypeParseState{
+		doc:    doc,
+		schema: schema,
+		ct:     ct,
+	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
-		switch doc.LocalName(child) {
-		case "annotation":
-			if hasAnnotation {
-				return nil, fmt.Errorf("complexType: at most one annotation is allowed")
-			}
-			if hasNonAnnotation {
-				return nil, fmt.Errorf("complexType: annotation must appear before other elements")
-			}
-			hasAnnotation = true
-
-		case "sequence", "choice", "all":
-			hasNonAnnotation = true
-			if hasSimpleContent || hasComplexContent {
-				return nil, fmt.Errorf("complexType: element content cannot appear with simpleContent or complexContent")
-			}
-			if hasAttributeLike {
-				return nil, fmt.Errorf("complexType: content model must appear before attributes")
-			}
-			if hasParticle {
-				return nil, fmt.Errorf("complexType: only one content model is allowed")
-			}
-			hasParticle = true
-			mg, err := parseModelGroup(doc, child, schema)
-			if err != nil {
-				return nil, fmt.Errorf("parse model group: %w", err)
-			}
-			ct.SetContent(&types.ElementContent{Particle: mg})
-
-		case "any":
-			hasNonAnnotation = true
-			if hasSimpleContent || hasComplexContent {
-				return nil, fmt.Errorf("complexType: element content cannot appear with simpleContent or complexContent")
-			}
-			if hasAttributeLike {
-				return nil, fmt.Errorf("complexType: content model must appear before attributes")
-			}
-			if hasParticle {
-				return nil, fmt.Errorf("complexType: only one content model is allowed")
-			}
-			hasParticle = true
-			// xs:any as a direct child of complexType (single particle content)
-			anyElem, err := parseAnyElement(doc, child, schema)
-			if err != nil {
-				return nil, fmt.Errorf("parse any element: %w", err)
-			}
-			ct.SetContent(&types.ElementContent{Particle: anyElem})
-
-		case "group":
-			hasNonAnnotation = true
-			if hasSimpleContent || hasComplexContent {
-				return nil, fmt.Errorf("complexType: element content cannot appear with simpleContent or complexContent")
-			}
-			if hasAttributeLike {
-				return nil, fmt.Errorf("complexType: content model must appear before attributes")
-			}
-			if hasParticle {
-				return nil, fmt.Errorf("complexType: only one content model is allowed")
-			}
-			hasParticle = true
-			// reference to a named group as direct child of complexType
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "group", schema); err != nil {
-					return nil, err
-				}
-			}
-			if err := validateOnlyAnnotationChildren(doc, child, "group"); err != nil {
-				return nil, err
-			}
-			ref := doc.GetAttribute(child, "ref")
-			if ref == "" {
-				return nil, fmt.Errorf("group reference missing ref attribute")
-			}
-			refQName, err := resolveQName(doc, ref, child, schema)
-			if err != nil {
-				return nil, fmt.Errorf("resolve group ref %s: %w", ref, err)
-			}
-			minOccurs, err := parseOccursAttr(doc, child, "minOccurs", 1)
-			if err != nil {
-				return nil, err
-			}
-			maxOccurs, err := parseOccursAttr(doc, child, "maxOccurs", 1)
-			if err != nil {
-				return nil, err
-			}
-			groupRef := &types.GroupRef{
-				RefQName:  refQName,
-				MinOccurs: minOccurs,
-				MaxOccurs: maxOccurs,
-			}
-			ct.SetContent(&types.ElementContent{Particle: groupRef})
-
-		case "attribute":
-			hasNonAnnotation = true
-			hasAttributeLike = true
-			if hasSimpleContent || hasComplexContent {
-				return nil, fmt.Errorf("complexType: attributes must be declared within simpleContent or complexContent")
-			}
-			if hasAnyAttribute {
-				return nil, fmt.Errorf("complexType: anyAttribute must appear after all attributes")
-			}
-			attr, err := parseAttribute(doc, child, schema)
-			if err != nil {
-				return nil, fmt.Errorf("parse attribute: %w", err)
-			}
-			ct.SetAttributes(append(ct.Attributes(), attr))
-
-		case "attributeGroup":
-			hasNonAnnotation = true
-			hasAttributeLike = true
-			if hasSimpleContent || hasComplexContent {
-				return nil, fmt.Errorf("complexType: attributes must be declared within simpleContent or complexContent")
-			}
-			if hasAnyAttribute {
-				return nil, fmt.Errorf("complexType: anyAttribute must appear after all attributes")
-			}
-			// reference to an attributeGroup
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "attributeGroup", schema); err != nil {
-					return nil, err
-				}
-			}
-			if err := validateOnlyAnnotationChildren(doc, child, "attributeGroup"); err != nil {
-				return nil, err
-			}
-			ref := doc.GetAttribute(child, "ref")
-			if ref == "" {
-				return nil, fmt.Errorf("attributeGroup reference missing ref attribute")
-			}
-			refQName, err := resolveQName(doc, ref, child, schema)
-			if err != nil {
-				return nil, fmt.Errorf("resolve attributeGroup ref %s: %w", ref, err)
-			}
-			ct.AttrGroups = append(ct.AttrGroups, refQName)
-
-		case "anyAttribute":
-			hasNonAnnotation = true
-			hasAttributeLike = true
-			if hasSimpleContent || hasComplexContent {
-				return nil, fmt.Errorf("complexType: attributes must be declared within simpleContent or complexContent")
-			}
-			if hasAnyAttribute {
-				return nil, fmt.Errorf("complexType: at most one anyAttribute is allowed")
-			}
-			hasAnyAttribute = true
-			anyAttr, err := parseAnyAttribute(doc, child, schema)
-			if err != nil {
-				return nil, fmt.Errorf("parse anyAttribute: %w", err)
-			}
-			ct.SetAnyAttribute(anyAttr)
-
-		case "simpleContent":
-			hasNonAnnotation = true
-			if hasParticle || hasAttributeLike {
-				return nil, fmt.Errorf("complexType: simpleContent must be the only content model")
-			}
-			if hasSimpleContent || hasComplexContent {
-				return nil, fmt.Errorf("complexType: only one content model is allowed")
-			}
-			hasSimpleContent = true
-			sc, err := parseSimpleContent(doc, child, schema)
-			if err != nil {
-				return nil, fmt.Errorf("parse simpleContent: %w", err)
-			}
-			ct.SetContent(sc)
-			// set base type if available (will be fully resolved in A7)
-			if !sc.Base.IsZero() {
-				ct.ResolvedBase = resolveBaseTypeForComplex(schema, sc.Base)
-			}
-			if sc.Extension != nil {
-				ct.DerivationMethod = types.DerivationExtension
-			} else if sc.Restriction != nil {
-				ct.DerivationMethod = types.DerivationRestriction
-			}
-
-		case "complexContent":
-			hasNonAnnotation = true
-			if hasParticle || hasAttributeLike {
-				return nil, fmt.Errorf("complexType: complexContent must be the only content model")
-			}
-			if hasSimpleContent || hasComplexContent {
-				return nil, fmt.Errorf("complexType: only one content model is allowed")
-			}
-			hasComplexContent = true
-			cc, err := parseComplexContent(doc, child, schema)
-			if err != nil {
-				return nil, fmt.Errorf("parse complexContent: %w", err)
-			}
-			ct.SetContent(cc)
-			// set base type if available (will be fully resolved in A7)
-			if !cc.Base.IsZero() {
-				ct.ResolvedBase = resolveBaseTypeForComplex(schema, cc.Base)
-			}
-			if cc.Extension != nil {
-				ct.DerivationMethod = types.DerivationExtension
-			} else if cc.Restriction != nil {
-				ct.DerivationMethod = types.DerivationRestriction
-			}
-
-		case "key", "keyref", "unique":
-			return nil, fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(child))
-		default:
-			return nil, fmt.Errorf("complexType: unexpected child element '%s'", doc.LocalName(child))
+		if err := state.handleChild(child); err != nil {
+			return nil, err
 		}
 	}
 
@@ -393,10 +446,9 @@ func parseInlineComplexType(doc *xml.Document, elem xml.NodeID, schema *xsdschem
 	return parsed, nil
 }
 
-// resolveBaseTypeForComplex resolves a base type QName to a Type for complex types
-// This is a simple resolution that works if the type is already available.
-// Full two-phase resolution will be implemented in A7.
-func resolveBaseTypeForComplex(schema *xsdschema.Schema, baseQName types.QName) types.Type {
+// resolveBaseTypeForComplex resolves a base type QName to a Type for complex types.
+// This is a simple resolution that works when the type is already available.
+func resolveBaseTypeForComplex(schema *Schema, baseQName types.QName) types.Type {
 	// check if it's a built-in type
 	if builtinType := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local); builtinType != nil {
 		if baseQName.Local == "anyType" {
@@ -417,11 +469,11 @@ func resolveBaseTypeForComplex(schema *xsdschema.Schema, baseQName types.QName) 
 		return baseType
 	}
 
-	// not found yet - will be resolved in two-phase resolution (A7)
+	// not found yet - will be resolved during schema resolution
 	return nil
 }
 
-func parseModelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.ModelGroup, error) {
+func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.ModelGroup, error) {
 	var kind types.GroupKind
 	switch doc.LocalName(elem) {
 	case "sequence":
@@ -446,7 +498,7 @@ func parseModelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schem
 	for _, attr := range doc.Attributes(elem) {
 		attrName := attr.LocalName()
 		if attr.NamespaceURI() == "" {
-			if !validModelGroupAttributes[attrName] {
+			if !validAttributeNames[attrSetModelGroup][attrName] {
 				return nil, fmt.Errorf("invalid attribute '%s' on <%s> (only id, minOccurs, maxOccurs allowed)", attrName, doc.LocalName(elem))
 			}
 			switch attrName {
@@ -527,7 +579,7 @@ func parseModelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schem
 	hasNonAnnotation := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -568,13 +620,7 @@ func parseModelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schem
 				return nil, fmt.Errorf("xs:all cannot contain group references (only element declarations are allowed)")
 			}
 			// reference to a named group - create placeholder for later resolution
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "group", schema); err != nil {
-					return nil, err
-				}
-			}
-			if err := validateOnlyAnnotationChildren(doc, child, "group"); err != nil {
+			if err := validateElementConstraints(doc, child, "group", schema); err != nil {
 				return nil, err
 			}
 			ref := doc.GetAttribute(child, "ref")
@@ -628,7 +674,7 @@ func parseModelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schem
 	return mg, nil
 }
 
-func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.SimpleContent, error) {
+func parseSimpleContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleContent, error) {
 	sc := &types.SimpleContent{}
 
 	// validate id attribute if present on simpleContent
@@ -643,7 +689,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 	seenAnnotation := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -688,7 +734,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 			seenAttributeLike := false
 			seenFacet := false
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) != xml.XSDNamespace {
+				if doc.NamespaceURI(grandchild) != xsdxml.XSDNamespace {
 					continue
 				}
 				switch doc.LocalName(grandchild) {
@@ -702,7 +748,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 				case "attribute", "attributeGroup", "anyAttribute":
 					seenAttributeLike = true
 				default:
-					if validSimpleContentFacetElements[doc.LocalName(grandchild)] {
+					if validChildElementNames[childSetSimpleContentFacet][doc.LocalName(grandchild)] {
 						if seenAttributeLike {
 							return nil, fmt.Errorf("simpleContent restriction: facets must appear before attributes")
 						}
@@ -713,7 +759,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 
 			var nestedSimpleType *types.SimpleType
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) == xml.XSDNamespace && doc.LocalName(grandchild) == "simpleType" {
+				if doc.NamespaceURI(grandchild) == xsdxml.XSDNamespace && doc.LocalName(grandchild) == "simpleType" {
 					nestedSimpleType, err = parseInlineSimpleType(doc, grandchild, schema)
 					if err != nil {
 						return nil, fmt.Errorf("parse nested simpleType: %w", err)
@@ -732,7 +778,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 
 			hasAnyAttribute := false
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) != xml.XSDNamespace {
+				if doc.NamespaceURI(grandchild) != xsdxml.XSDNamespace {
 					continue
 				}
 
@@ -752,13 +798,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 					if hasAnyAttribute {
 						return nil, fmt.Errorf("restriction: anyAttribute must appear after all attributes")
 					}
-					if hasIDAttribute(doc, grandchild) {
-						idAttr := doc.GetAttribute(grandchild, "id")
-						if err := validateIDAttribute(idAttr, "attributeGroup", schema); err != nil {
-							return nil, err
-						}
-					}
-					if err := validateOnlyAnnotationChildren(doc, grandchild, "attributeGroup"); err != nil {
+					if err := validateElementConstraints(doc, grandchild, "attributeGroup", schema); err != nil {
 						return nil, err
 					}
 					ref := doc.GetAttribute(grandchild, "ref")
@@ -814,7 +854,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 
 			hasAnyAttribute := false
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) != xml.XSDNamespace {
+				if doc.NamespaceURI(grandchild) != xsdxml.XSDNamespace {
 					continue
 				}
 
@@ -835,13 +875,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 						return nil, fmt.Errorf("extension: anyAttribute must appear after all attributes")
 					}
 					// reference to an attributeGroup in extension
-					if hasIDAttribute(doc, grandchild) {
-						idAttr := doc.GetAttribute(grandchild, "id")
-						if err := validateIDAttribute(idAttr, "attributeGroup", schema); err != nil {
-							return nil, err
-						}
-					}
-					if err := validateOnlyAnnotationChildren(doc, grandchild, "attributeGroup"); err != nil {
+					if err := validateElementConstraints(doc, grandchild, "attributeGroup", schema); err != nil {
 						return nil, err
 					}
 					ref := doc.GetAttribute(grandchild, "ref")
@@ -881,7 +915,7 @@ func parseSimpleContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 	return sc, nil
 }
 
-func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.ComplexContent, error) {
+func parseComplexContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.ComplexContent, error) {
 	cc := &types.ComplexContent{}
 
 	if doc.HasAttribute(elem, "id") {
@@ -901,7 +935,7 @@ func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.S
 	seenAnnotation := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -946,16 +980,16 @@ func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.S
 			// attributes can exist without particles
 
 			// collect all XSD namespace children
-			var children []xml.NodeID
+			var children []xsdxml.NodeID
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) == xml.XSDNamespace {
+				if doc.NamespaceURI(grandchild) == xsdxml.XSDNamespace {
 					children = append(children, grandchild)
 				}
 			}
 
 			// reject unexpected children (facets are not allowed in complexContent restrictions).
 			for _, grandchild := range children {
-				if !validComplexContentChildren[doc.LocalName(grandchild)] {
+				if !validChildElementNames[childSetComplexContentChild][doc.LocalName(grandchild)] {
 					return nil, fmt.Errorf("complexContent restriction has unexpected child element '%s'", doc.LocalName(grandchild))
 				}
 			}
@@ -1056,13 +1090,7 @@ func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.S
 						return nil, fmt.Errorf("restriction: anyAttribute must appear after all attributes")
 					}
 					// reference to an attributeGroup in restriction
-					if hasIDAttribute(doc, grandchild) {
-						idAttr := doc.GetAttribute(grandchild, "id")
-						if err := validateIDAttribute(idAttr, "attributeGroup", schema); err != nil {
-							return nil, err
-						}
-					}
-					if err := validateOnlyAnnotationChildren(doc, grandchild, "attributeGroup"); err != nil {
+					if err := validateElementConstraints(doc, grandchild, "attributeGroup", schema); err != nil {
 						return nil, err
 					}
 					ref := doc.GetAttribute(grandchild, "ref")
@@ -1119,15 +1147,15 @@ func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.S
 			// the order must be: particle first (if present), then attributes
 			// attributes can exist without particles
 
-			var children []xml.NodeID
+			var children []xsdxml.NodeID
 			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) == xml.XSDNamespace {
+				if doc.NamespaceURI(grandchild) == xsdxml.XSDNamespace {
 					children = append(children, grandchild)
 				}
 			}
 
 			for _, grandchild := range children {
-				if !validComplexContentChildren[doc.LocalName(grandchild)] {
+				if !validChildElementNames[childSetComplexContentChild][doc.LocalName(grandchild)] {
 					return nil, fmt.Errorf("complexContent extension has unexpected child element '%s'", doc.LocalName(grandchild))
 				}
 			}
@@ -1240,13 +1268,7 @@ func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.S
 						return nil, fmt.Errorf("extension: anyAttribute must appear after all attributes")
 					}
 					// reference to an attributeGroup in extension
-					if hasIDAttribute(doc, grandchild) {
-						idAttr := doc.GetAttribute(grandchild, "id")
-						if err := validateIDAttribute(idAttr, "attributeGroup", schema); err != nil {
-							return nil, err
-						}
-					}
-					if err := validateOnlyAnnotationChildren(doc, grandchild, "attributeGroup"); err != nil {
+					if err := validateElementConstraints(doc, grandchild, "attributeGroup", schema); err != nil {
 						return nil, err
 					}
 					ref := doc.GetAttribute(grandchild, "ref")
@@ -1286,7 +1308,7 @@ func parseComplexContent(doc *xml.Document, elem xml.NodeID, schema *xsdschema.S
 
 // parseTopLevelGroup parses a top-level <group> definition
 // Content model: (annotation?, (all | choice | sequence))
-func parseTopLevelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+func parseTopLevelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("group missing name attribute")
@@ -1299,7 +1321,7 @@ func parseTopLevelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 			continue // allow namespace-qualified attributes
 		}
 		attrName := attr.LocalName()
-		if !validTopLevelGroupAttributes[attrName] {
+		if !validAttributeNames[attrSetTopLevelGroup][attrName] {
 			return fmt.Errorf("invalid attribute '%s' on top-level group (only id, name allowed)", attrName)
 		}
 	}
@@ -1326,7 +1348,7 @@ func parseTopLevelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 
 	// parse the group content (sequence, choice, or all)
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -1366,7 +1388,7 @@ func parseTopLevelGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sc
 
 // parseTopLevelAttributeGroup parses a top-level <attributeGroup> definition
 // Content model: (annotation?, ((attribute | attributeGroup)*, anyAttribute?))
-func parseTopLevelAttributeGroup(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) error {
+func parseTopLevelAttributeGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return fmt.Errorf("attributeGroup missing name attribute")
@@ -1395,7 +1417,7 @@ func parseTopLevelAttributeGroup(doc *xml.Document, elem xml.NodeID, schema *xsd
 	hasAnyAttribute := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -1413,7 +1435,7 @@ func parseTopLevelAttributeGroup(doc *xml.Document, elem xml.NodeID, schema *xsd
 			hasNonAnnotation = true
 			attr, err := parseAttribute(doc, child, schema)
 			if err != nil {
-				return fmt.Errorf("parse attribute: %w", err)
+				return fmt.Errorf("attributeGroup: parse attribute: %w", err)
 			}
 			attrGroup.Attributes = append(attrGroup.Attributes, attr)
 
@@ -1423,13 +1445,7 @@ func parseTopLevelAttributeGroup(doc *xml.Document, elem xml.NodeID, schema *xsd
 			if doc.HasAttribute(child, "name") {
 				return fmt.Errorf("attributeGroup reference cannot have 'name' attribute")
 			}
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "attributeGroup", schema); err != nil {
-					return err
-				}
-			}
-			if err := validateOnlyAnnotationChildren(doc, child, "attributeGroup"); err != nil {
+			if err := validateElementConstraints(doc, child, "attributeGroup", schema); err != nil {
 				return err
 			}
 			ref := doc.GetAttribute(child, "ref")
@@ -1474,7 +1490,7 @@ func parseTopLevelAttributeGroup(doc *xml.Document, elem xml.NodeID, schema *xsd
 
 // parseAnyElement parses an <any> wildcard element
 // Content model: (annotation?)
-func parseAnyElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.AnyElement, error) {
+func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.AnyElement, error) {
 	// validate that <any> doesn't have invalid attributes
 	// in XSD 1.0, <any> allows: namespace, processContents, minOccurs, maxOccurs, id
 	for _, attr := range doc.Attributes(elem) {
@@ -1484,7 +1500,7 @@ func parseAnyElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schem
 			continue
 		}
 		// check if it's an invalid attribute (not in validAttributes and not a namespace declaration)
-		if attr.NamespaceURI() == "" && !validAnyElementAttributes[attrName] {
+		if attr.NamespaceURI() == "" && !validAttributeNames[attrSetAnyElement][attrName] {
 			// invalid attribute on <any> element
 			return nil, fmt.Errorf("invalid attribute '%s' on <any> element (XSD 1.0 only allows: namespace, processContents, minOccurs, maxOccurs)", attrName)
 		}
@@ -1500,7 +1516,7 @@ func parseAnyElement(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schem
 	// validate annotation constraints: at most one annotation, must be first
 	hasAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -1632,7 +1648,7 @@ func validateOccursInteger(value string) error {
 
 // parseAnyAttribute parses an <anyAttribute> wildcard
 // Content model: (annotation?)
-func parseAnyAttribute(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.AnyAttribute, error) {
+func parseAnyAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.AnyAttribute, error) {
 	// reject XSD 1.1 features (notNamespace, notQName) - these are not supported in XSD 1.0
 	if doc.GetAttribute(elem, "notNamespace") != "" {
 		return nil, fmt.Errorf("notNamespace attribute is not supported in XSD 1.0 (XSD 1.1 feature)")
@@ -1649,7 +1665,7 @@ func parseAnyAttribute(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sch
 		if attrName == "xmlns" || strings.HasPrefix(attrName, "xmlns:") {
 			continue
 		}
-		if attr.NamespaceURI() == "" && !validAnyAttributeAttributes[attrName] {
+		if attr.NamespaceURI() == "" && !validAttributeNames[attrSetAnyAttribute][attrName] {
 			return nil, fmt.Errorf("invalid attribute '%s' on <anyAttribute> element (XSD 1.0 only allows: namespace, processContents)", attrName)
 		}
 	}
@@ -1664,7 +1680,7 @@ func parseAnyAttribute(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sch
 	// validate annotation constraints: at most one annotation, must be first
 	hasAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -1750,7 +1766,7 @@ func parseAnyAttribute(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Sch
 //   - "##targetNamespace" is replaced with the actual targetNamespace value
 //   - "##local" is replaced with absent (empty namespace)
 //   - "##any" and "##other" CANNOT appear in lists
-func parseNamespaceConstraint(value string, schema *xsdschema.Schema) (types.NamespaceConstraint, []types.NamespaceURI, error) {
+func parseNamespaceConstraint(value string, schema *Schema) (types.NamespaceConstraint, []types.NamespaceURI, error) {
 	// check for exact match of special tokens that must be alone
 	switch value {
 	case "##any":
@@ -1798,7 +1814,7 @@ func parseNamespaceConstraint(value string, schema *xsdschema.Schema) (types.Nam
 }
 
 // parseIdentityConstraint parses a key, keyref, or unique constraint
-func parseIdentityConstraint(doc *xml.Document, elem xml.NodeID, schema *xsdschema.Schema) (*types.IdentityConstraint, error) {
+func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.IdentityConstraint, error) {
 	name := getAttr(doc, elem, "name")
 	if name == "" {
 		return nil, fmt.Errorf("identity constraint missing name attribute")
@@ -1835,7 +1851,7 @@ func parseIdentityConstraint(doc *xml.Document, elem xml.NodeID, schema *xsdsche
 	refer := doc.GetAttribute(elem, "refer")
 	if refer != "" {
 		// for keyref, refer is required and must be resolved.
-		// for key/unique, refer is invalid but we store it for validation.
+		// for key/unique, refer is invalid but we store it for schemacheck.
 		referQName, err := resolveIdentityConstraintQName(doc, refer, elem, schema)
 		if err != nil {
 			return nil, fmt.Errorf("resolve refer QName %s: %w", refer, err)
@@ -1853,7 +1869,7 @@ func parseIdentityConstraint(doc *xml.Document, elem xml.NodeID, schema *xsdsche
 	seenField := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xml.XSDNamespace {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
@@ -1876,17 +1892,11 @@ func parseIdentityConstraint(doc *xml.Document, elem xml.NodeID, schema *xsdsche
 			if xpath == "" {
 				return nil, fmt.Errorf("selector missing xpath attribute")
 			}
-			if err := validateAllowedAttributes(doc, child, "selector", validIdentityConstraintAttributes); err != nil {
+			if err := validateAllowedAttributes(doc, child, "selector", validAttributeNames[attrSetIdentityConstraint]); err != nil {
 				return nil, err
 			}
-			if err := validateOnlyAnnotationChildren(doc, child, "selector"); err != nil {
+			if err := validateElementConstraints(doc, child, "selector", schema); err != nil {
 				return nil, err
-			}
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "selector", schema); err != nil {
-					return nil, err
-				}
 			}
 			constraint.Selector = types.Selector{XPath: xpath}
 			seenSelector = true
@@ -1900,17 +1910,11 @@ func parseIdentityConstraint(doc *xml.Document, elem xml.NodeID, schema *xsdsche
 			if xpath == "" {
 				return nil, fmt.Errorf("field missing xpath attribute")
 			}
-			if err := validateAllowedAttributes(doc, child, "field", validIdentityConstraintAttributes); err != nil {
+			if err := validateAllowedAttributes(doc, child, "field", validAttributeNames[attrSetIdentityConstraint]); err != nil {
 				return nil, err
 			}
-			if err := validateOnlyAnnotationChildren(doc, child, "field"); err != nil {
+			if err := validateElementConstraints(doc, child, "field", schema); err != nil {
 				return nil, err
-			}
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "field", schema); err != nil {
-					return nil, err
-				}
 			}
 			constraint.Fields = append(constraint.Fields, types.Field{XPath: xpath})
 			seenField = true
@@ -1928,13 +1932,13 @@ func parseIdentityConstraint(doc *xml.Document, elem xml.NodeID, schema *xsdsche
 	return constraint, nil
 }
 
-func validateAllowedAttributes(doc *xml.Document, elem xml.NodeID, elementName string, allowed map[string]bool) error {
+func validateAllowedAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, elementName string, allowed map[string]bool) error {
 	for _, attr := range doc.Attributes(elem) {
-		if attr.NamespaceURI() == xml.XMLNSNamespace || attr.LocalName() == "xmlns" {
+		if attr.NamespaceURI() == xsdxml.XMLNSNamespace || attr.LocalName() == "xmlns" {
 			continue
 		}
 		if attr.NamespaceURI() != "" {
-			if attr.NamespaceURI() == xml.XSDNamespace {
+			if attr.NamespaceURI() == xsdxml.XSDNamespace {
 				return fmt.Errorf("%s: attribute '%s' must be unprefixed", elementName, attr.LocalName())
 			}
 			continue

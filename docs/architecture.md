@@ -15,27 +15,33 @@ This validator implements W3C XML Schema 1.0 validation with the following prior
 
 ## Processing Pipeline
 
-Schema loading and validation follows four distinct phases:
+Schema loading and validation follows five distinct phases:
 
 ```
                            SCHEMA LOADING
 +------------------------------------------------------------------------+
 |                                                                        |
-|  Phase 1: PARSE          Phase 2: RESOLVE        Phase 3: COMPILE      |
-|  ----------------        ----------------        ----------------      |
+|  Phase 1: PARSE          Phase 2: RESOLVE        Phase 3: VALIDATE     |
+|  ----------------        ----------------        ----------------     |
 |                                                                        |
-|  - Parse XSD XML         - Resolve QName refs    - Build DFAs          |
-|  - Create components     - Detect cycles ONCE    - Pre-compute         |
-|  - Record QName refs     - Handle redefine         derivation chains   |
-|  - No type lookups       - Populate Resolved*    - Expand groups       |
-|                            fields                - Merge attributes    |
+|  - Parse XSD XML         - Resolve QName refs    - Validate structure  |
+|  - Create components     - Detect cycles ONCE    - Check UPA, facets   |
+|  - Record QName refs     - Populate Resolved*    - Enforce consistency |
+|  - No type lookups       - fields                - No compilation yet  |
+|                                                                        |
+|  Phase 4: COMPILE                                                     |
+|  ----------------                                                     |
+|  - Build DFAs                                                         |
+|  - Pre-compute derivations                                            |
+|  - Expand groups                                                      |
+|  - Merge attributes                                                   |
 |                                                                        |
 +------------------------------------------------------------------------+
 
                              VALIDATION
 +------------------------------------------------------------------------+
 |                                                                        |
-|  Phase 4: VALIDATE                                                     |
+|  Phase 5: VALIDATE                                                     |
 |  -----------------                                                     |
 |                                                                        |
 |  - Stream XML tokens (no DOM)                                          |
@@ -58,13 +64,10 @@ xsd/
 +-- errors/
 |   +-- validation.go         Validation type and W3C error codes
 +-- internal/
-    +-- loader/               Schema loading phases 1-3
+    +-- loader/               Include/import resolution and orchestration
     |   +-- loader.go         Parse with import/include resolution
-    |   +-- resolver.go       Phase 2: Resolve QName references
-    |   +-- compiler.go       Phase 3: Compile to grammar
-    |   +-- structure*.go     Schema structure validation
-    |   +-- reference*.go     Reference validation
-    |   +-- facet*.go         Facet validation
+    |   +-- schema_validator.go  Schema validation orchestration
+    |   +-- group_resolution.go  Group resolution helpers
     |
     +-- parser/               Phase 1: XSD parsing
     |   +-- parser.go         Schema parsing entry point
@@ -73,37 +76,44 @@ xsd/
     |   +-- simple.go         Simple type parsing
     |   +-- complex.go        Complex type parsing
     |
-    +-- types/                Schema component definitions
+    +-- resolver/             Phase 2: QName resolution
+    |   +-- resolver.go       Reference resolution entry point
+    |   +-- type_lookup.go    Type lookup helpers
+    |   +-- reference*.go     Reference resolution routines
+    |
+    +-- schemacheck/          Phase 3: Schema structure validation
+    |   +-- schema_validator.go  Validation entry point
+    |   +-- element_*.go      Element checks
+    |   +-- complex_types.go  Complex type checks
+    |   +-- simple_types.go   Simple type checks
+    |   +-- facets.go         Facet validation
+    |
+    +-- compiler/             Phase 4: Grammar compilation
+    |   +-- compiler.go       Compilation entry point
+    |   +-- compile_*.go      Grammar construction
+    |
+    +-- types/                Schema component definitions and facets
     |   +-- type.go           Type interface
     |   +-- qname.go          Qualified names
     |   +-- element.go        ElementDecl
     |   +-- attribute.go      AttributeDecl, AttributeGroup
     |   +-- simple_type.go    SimpleType implementation
     |   +-- complex_type.go   ComplexType implementation
-    |   +-- group.go          ModelGroup, Particle interface
+    |   +-- facet_*.go        Facet implementations
     |   +-- builtin.go        Built-in XSD types registry
     |   +-- builtin_validators.go
     |
-    +-- facets/               Facet validators
-    |   +-- facet.go          FacetValidator interface
-    |   +-- pattern.go        Pattern facet (regex)
-    |   +-- length.go         Length facets
-    |   +-- range.go          Min/max range facets
-    |   +-- enumeration.go    Enumeration facet
-    |   +-- digits.go         Digits facets
-    |
-    +-- grammar/              Compiled schema (output of phase 3)
+    +-- grammar/              Compiled schema (output of phase 4)
     |   +-- grammar.go        CompiledSchema type
     |   +-- compiled_type.go  Pre-resolved type definitions
     |   +-- compiled_element.go
     |   +-- compiled_attribute.go
     |   +-- compiled_content.go
-    |   +-- contentmodel/     DFA-based content model validation
-    |       +-- automaton.go  Compiled DFA
-    |       +-- builder.go    Glushkov construction
-    |       +-- validate.go   O(n) validation
+    |   +-- automaton.go      DFA-based content model validation
+    |   +-- automaton_build.go    Glushkov construction
+    |   +-- automaton_validate.go O(n) validation
     |
-    +-- validator/            Phase 4: Validation engine
+    +-- validator/            Phase 5: Validation engine
     |   +-- validator.go      Main validator
     |   +-- stream.go         Streaming validation entry
     |   +-- stream_schema_location.go  schemaLocation hint handling
@@ -112,9 +122,6 @@ xsd/
     |   +-- content.go        Content model validation
     |   +-- simple_type.go    Simple type validation
     |   +-- identity.go       Identity constraints
-    |
-    +-- schema/               Parsed schema structure
-    |   +-- schema.go         Schema type (phase 1 output)
     |
     +-- xml/                  Minimal XML abstraction
         +-- dom.go            Document, Element, Attr interfaces
@@ -133,16 +140,17 @@ xsd/
 +------------------------------------------------------------------+
 |                            xsd.Load()                             |
 |                                |                                  |
-|   +----------------------------+----------------------------+     |
-|   |                            |                            |     |
-|   v                            v                            v     |
-| loader.Parse()          loader.Resolve()           loader.Compile()|
-|   |                            |                            |     |
-|   | parser/*                   | types/*                    |     |
-|   |                            |                            |     |
-|   v                            v                            v     |
-| schema.Schema   --->   schema.Schema   --->   grammar.CompiledSchema
-| (QName refs)           (resolved refs)        (DFAs, merged attrs)
+|                                v                                  |
+|                        loader.LoadCompiled()                       |
+|                                |                                  |
+|                                v                                  |
+| parser.Parse -> resolver.Resolve -> schemacheck.ValidateStructure |
+|                                |                                  |
+|                                v                                  |
+|                       compiler.Compile()                          |
+|                                |                                  |
+|                                v                                  |
+|                      grammar.CompiledSchema                       |
 +------------------------------------------------------------------+
 
                               VALIDATION
@@ -157,7 +165,7 @@ xsd/
 | validator/              grammar/                xml/               |
 | stream.go               CompiledType           StreamDecoder      |
 | attribute.go            CompiledElement        Event              |
-| content.go              contentmodel/          Attr               |
+| content.go              grammar/               Attr               |
 | simple_type.go          Automaton                                 |
 +------------------------------------------------------------------+
 ```
@@ -226,8 +234,18 @@ Resolution order matters due to dependencies:
 Cycle detection happens once during resolution. After phase 2 completes,
 no visited maps are needed anywhere in the codebase.
 
+Cycle detection uses QName-based tracking for named components and
+pointer-based tracking for anonymous types and attribute group instances
+to avoid false positives in redefine contexts.
 
-## Phase 3: Compile
+
+## Phase 3: Validate Schema
+
+Schema validation checks structural rules before compilation. This phase enforces
+UPA constraints, derivation rules, and facet applicability with all references resolved.
+
+
+## Phase 4: Compile
 
 The compiler transforms the resolved schema into an optimized grammar structure.
 
@@ -247,12 +265,12 @@ type CompiledType struct {
     DerivationChain []*CompiledType    // [self, base, grandbase, ...]
     AllAttributes   []*CompiledAttribute  // Merged from all ancestors
     ContentModel    *CompiledContentModel // Pre-compiled DFA
-    Facets          []facets.Facet     // All applicable facets
+    Facets          []types.Facet      // All applicable facets
 }
 ```
 
 
-## Phase 4: Validate
+## Phase 5: Validate
 
 Validation streams tokens and validates incrementally with no DOM build.
 

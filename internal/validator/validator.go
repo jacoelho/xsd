@@ -7,9 +7,25 @@ import (
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
-	"github.com/jacoelho/xsd/internal/loader"
 	"github.com/jacoelho/xsd/internal/types"
 )
+
+// SchemaLocationLoader loads compiled schemas for schemaLocation hints.
+type SchemaLocationLoader interface {
+	LoadCompiled(location string) (*grammar.CompiledSchema, error)
+}
+
+// Option configures a Validator.
+type Option func(*Validator)
+
+// WithSchemaLocationLoader sets the loader used for xsi:schemaLocation hints.
+func WithSchemaLocationLoader(loader SchemaLocationLoader) Option {
+	return func(v *Validator) {
+		if v != nil {
+			v.schemaLocationLoader = loader
+		}
+	}
+}
 
 // Validator validates XML documents against a CompiledSchema.
 type Validator struct {
@@ -17,6 +33,7 @@ type Validator struct {
 	baseView               *baseSchemaView
 	builtinTypes           map[types.QName]*grammar.CompiledType
 	automatonValidatorPool sync.Pool
+	schemaLocationLoader   SchemaLocationLoader
 }
 
 type validationRun struct {
@@ -29,17 +46,22 @@ type validationRun struct {
 	subMatcher      substitutionMatcher
 }
 
-// idrefEntry tracks an IDREF value and where it was found during validation.
+// idrefEntry tracks an IDREF value and where it was found during schemacheck.
 type idrefEntry struct {
 	ref  string
 	path string
 }
 
 // New creates a new validator for the given compiled schema.
-func New(g *grammar.CompiledSchema) *Validator {
+func New(g *grammar.CompiledSchema, opts ...Option) *Validator {
 	v := &Validator{
 		grammar:      g,
 		builtinTypes: make(map[types.QName]*grammar.CompiledType),
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(v)
+		}
 	}
 	v.baseView = newBaseSchemaView(g)
 	v.prebuildBuiltinTypes()
@@ -62,10 +84,10 @@ func (r *validationRun) mergeSchemaLocationHintsWithRoot(rootPath string, hints 
 		rootPath = "/"
 	}
 
-	l := loader.NewLoader(loader.Config{
-		FS:       r.validator.grammar.SourceFS,
-		BasePath: r.validator.grammar.BasePath,
-	})
+	schemaLoader := r.validator.schemaLocationLoader
+	if schemaLoader == nil {
+		return nil
+	}
 
 	var warnings []errors.Validation
 	seen := make(map[string]bool)
@@ -89,7 +111,7 @@ func (r *validationRun) mergeSchemaLocationHintsWithRoot(rootPath string, hints 
 		if cached, ok := r.schemaHintCache[schemaPath]; ok {
 			extra = cached
 		} else {
-			loaded, err := l.LoadCompiled(schemaPath)
+			loaded, err := schemaLoader.LoadCompiled(schemaPath)
 			if err != nil {
 				warnings = append(warnings, errors.NewValidationf(errors.ErrSchemaLocationHint, rootPath,
 					"%s hint %q could not be loaded: %v", hint.attribute, hint.location, err))
@@ -111,7 +133,7 @@ func (r *validationRun) canUseSchemaLocationHints() bool {
 	if r == nil || r.validator == nil || r.validator.grammar == nil {
 		return false
 	}
-	return r.validator.grammar.SourceFS != nil
+	return r.validator.schemaLocationLoader != nil
 }
 
 func (r *validationRun) ensureOverlay() *overlaySchemaView {
@@ -176,7 +198,7 @@ func (r *validationRun) mergeSchemaOverlay(extra *grammar.CompiledSchema) {
 	}
 
 	for head, subs := range extra.SubstitutionGroups {
-		combined := append([]*grammar.CompiledElement(nil), overlay.SubstitutionGroup(head)...)
+		combined := slices.Clone(overlay.SubstitutionGroup(head))
 		for _, sub := range subs {
 			if !containsCompiledElement(combined, sub) {
 				combined = append(combined, sub)
@@ -192,7 +214,7 @@ func (r *validationRun) mergeSchemaOverlay(extra *grammar.CompiledSchema) {
 	}
 
 	if overlay.elementsWithConstraints == nil {
-		overlay.elementsWithConstraints = append([]*grammar.CompiledElement(nil), overlay.base.ElementsWithConstraints()...)
+		overlay.elementsWithConstraints = slices.Clone(overlay.base.ElementsWithConstraints())
 	}
 	for _, elem := range extra.ElementsWithConstraints {
 		if !containsCompiledElement(overlay.elementsWithConstraints, elem) {

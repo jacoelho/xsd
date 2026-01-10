@@ -1,10 +1,6 @@
 package types
 
-import (
-	"testing"
-
-	lexicalparser "github.com/jacoelho/xsd/internal/parser/lexical"
-)
+import "testing"
 
 func TestParseDecimal(t *testing.T) {
 	tests := []struct {
@@ -29,7 +25,7 @@ func TestParseDecimal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := lexicalparser.ParseDecimal(tt.input)
+			got, err := ParseDecimal(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseDecimal() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -37,7 +33,7 @@ func TestParseDecimal(t *testing.T) {
 			if !tt.wantErr {
 				// compare as float64 for decimal values
 				gotFloat, _ := got.Float64()
-				wantRat, _ := lexicalparser.ParseDecimal(tt.want)
+				wantRat, _ := ParseDecimal(tt.want)
 				wantFloat, _ := wantRat.Float64()
 				if gotFloat != wantFloat {
 					t.Errorf("ParseDecimal() = %v (%v), want %v (%v)", got, gotFloat, tt.want, wantFloat)
@@ -68,7 +64,7 @@ func TestParseInteger(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := lexicalparser.ParseInteger(tt.input)
+			got, err := ParseInteger(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseInteger() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -100,7 +96,7 @@ func TestParseBoolean(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := lexicalparser.ParseBoolean(tt.input)
+			got, err := ParseBoolean(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseBoolean() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -131,7 +127,7 @@ func TestParseFloat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := lexicalparser.ParseFloat(tt.input)
+			got, err := ParseFloat(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseFloat() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -168,7 +164,7 @@ func TestParseDouble(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := lexicalparser.ParseDouble(tt.input)
+			got, err := ParseDouble(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseDouble() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -202,7 +198,7 @@ func TestParseDateTime(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := lexicalparser.ParseDateTime(tt.input)
+			got, err := ParseDateTime(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseDateTime() error = %v, wantErr %v", err, tt.wantErr)
 				return
