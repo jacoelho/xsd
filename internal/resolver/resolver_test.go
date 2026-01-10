@@ -186,3 +186,44 @@ func TestValidateReferencesInlineTypes(t *testing.T) {
 	schema := resolveW3CSchema(t, "sunData/combined/xsd001/xsd001.xsd")
 	requireNoReferenceErrors(t, schema)
 }
+
+func TestResolveW3CInlineUnionAnonymousTypes(t *testing.T) {
+	schema := resolveW3CSchema(t, "msData/identityConstraint/idK015.xsd")
+	requireNoReferenceErrors(t, schema)
+
+	uid := schema.ElementDecls[types.QName{Local: "uid"}]
+	if uid == nil {
+		t.Fatalf("expected uid element declaration")
+	}
+	ct, ok := uid.Type.(*types.ComplexType)
+	if !ok || ct == nil {
+		t.Fatalf("expected uid to have a complex type")
+	}
+
+	particle := schemacheck.GetContentParticle(ct.Content())
+	if particle == nil {
+		t.Fatalf("expected uid content particle")
+	}
+	var pid *types.ElementDecl
+	for _, elem := range schemacheck.CollectElements(particle) {
+		if elem.Name.Local == "pid" {
+			pid = elem
+			break
+		}
+	}
+	if pid == nil {
+		t.Fatalf("expected pid element in uid content")
+	}
+	st, ok := pid.Type.(*types.SimpleType)
+	if !ok || st == nil {
+		t.Fatalf("expected pid to have a simple type")
+	}
+	if st.Union == nil || len(st.Union.InlineTypes) == 0 {
+		t.Fatalf("expected pid to use union with inline member types")
+	}
+	for i, inline := range st.Union.InlineTypes {
+		if inline.ResolvedBase == nil {
+			t.Fatalf("expected union inline member %d to resolve base type", i)
+		}
+	}
+}
