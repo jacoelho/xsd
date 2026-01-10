@@ -12,7 +12,7 @@ import (
 // Note: Elements with maxOccurs=0 are filtered out during compilation per XSD spec.
 type AllGroupElementInfo interface {
 	ElementQName() types.QName
-	ElementDecl() any
+	ElementDecl() *CompiledElement
 	IsOptional() bool
 	AllowsSubstitution() bool
 }

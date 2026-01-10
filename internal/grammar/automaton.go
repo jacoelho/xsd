@@ -28,7 +28,7 @@ type Automaton struct {
 	// groupCount is the number of unique groups that need counting.
 	groupCount int
 	// posElements maps position indices to compiled elements for match resolution.
-	posElements []any
+	posElements []*CompiledElement
 	// stateSymbolPos maps [state][symbol] to a position index (or negative if none/ambiguous).
 	stateSymbolPos [][]int
 }
@@ -120,8 +120,7 @@ type Position struct {
 	Min, Max int
 	// AllowSubstitution indicates if substitution groups apply for this position.
 	AllowSubstitution bool
-	// *grammar.CompiledElement
-	Element any
+	Element           *CompiledElement
 }
 
 const (

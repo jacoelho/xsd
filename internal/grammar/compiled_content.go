@@ -64,7 +64,7 @@ func (e *AllGroupElement) ElementQName() types.QName {
 }
 
 // ElementDecl returns the compiled element for this all-group entry.
-func (e *AllGroupElement) ElementDecl() any {
+func (e *AllGroupElement) ElementDecl() *CompiledElement {
 	if e == nil {
 		return nil
 	}

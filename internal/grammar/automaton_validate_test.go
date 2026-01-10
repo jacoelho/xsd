@@ -52,6 +52,8 @@ func buildTestAutomaton(t *testing.T) *Automaton {
 
 	elemA := &types.ElementDecl{Name: types.QName{Local: "a"}}
 	elemB := &types.ElementDecl{Name: types.QName{Local: "b"}}
+	compiledA := &CompiledElement{QName: elemA.Name, Original: elemA}
+	compiledB := &CompiledElement{QName: elemB.Name, Original: elemB}
 
 	group := func() *ParticleAdapter {
 		return &ParticleAdapter{
@@ -64,21 +66,21 @@ func buildTestAutomaton(t *testing.T) *Automaton {
 					Kind:      ParticleElement,
 					MinOccurs: 1,
 					MaxOccurs: 2,
-					Element:   elemA,
+					Element:   compiledA,
 					Original:  elemA,
 				},
 				{
 					Kind:      ParticleElement,
 					MinOccurs: 0,
 					MaxOccurs: 1,
-					Element:   elemB,
+					Element:   compiledB,
 					Original:  elemB,
 				},
 			},
 		}
 	}
 
-	builder := NewBuilder([]*ParticleAdapter{group(), group()}, nil, "", false)
+	builder := NewBuilder([]*ParticleAdapter{group(), group()}, "", false)
 	automaton, err := builder.Build()
 	if err != nil {
 		t.Fatalf("build automaton: %v", err)

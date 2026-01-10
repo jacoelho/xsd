@@ -13,8 +13,7 @@ type ParticleAdapter struct {
 	Kind      ParticleKind
 	MinOccurs int
 	MaxOccurs int
-	// *grammar.CompiledElement
-	Element any
+	Element   *CompiledElement
 	// AllowSubstitution indicates that substitution groups are allowed (element ref).
 	AllowSubstitution bool
 	Children          []*ParticleAdapter
@@ -28,8 +27,6 @@ type ParticleAdapter struct {
 // Glushkov construction followed by subset construction.
 type Builder struct {
 	particles []*ParticleAdapter
-	// []*grammar.CompiledElement
-	subGroups map[types.QName]any
 	// Schema target namespace for wildcard matching
 	targetNamespace string
 	// true if elementFormDefault="qualified"
@@ -58,10 +55,9 @@ type Builder struct {
 }
 
 // NewBuilder creates a builder for the given content model.
-func NewBuilder(particles []*ParticleAdapter, subGroups map[types.QName]any, targetNamespace string, elementFormDefault bool) *Builder {
+func NewBuilder(particles []*ParticleAdapter, targetNamespace string, elementFormDefault bool) *Builder {
 	return &Builder{
 		particles:          particles,
-		subGroups:          subGroups,
 		targetNamespace:    targetNamespace,
 		elementFormDefault: elementFormDefault,
 		groupCounters:      make(map[int]*GroupCounterInfo),
@@ -119,7 +115,7 @@ func BuildAutomaton(particles []*CompiledParticle, targetNamespace types.Namespa
 		adapters[i] = convertParticle(p)
 	}
 
-	builder := NewBuilder(adapters, nil, string(targetNamespace), elementFormQualified)
+	builder := NewBuilder(adapters, string(targetNamespace), elementFormQualified)
 	return builder.Build()
 }
 
@@ -390,7 +386,7 @@ func (b *Builder) construct() (*Automaton, error) {
 		targetNamespace: b.targetNamespace,
 		groupCounters:   b.groupCounters,
 	}
-	posElements := make([]any, len(b.positions))
+	posElements := make([]*CompiledElement, len(b.positions))
 	for i, pos := range b.positions {
 		if pos != nil {
 			posElements[i] = pos.Element

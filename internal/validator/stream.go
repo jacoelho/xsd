@@ -309,9 +309,7 @@ func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) erro
 			}
 			matchedQName = match.MatchedQName
 			if match.MatchedElement != nil {
-				if decl, ok := match.MatchedElement.(*grammar.CompiledElement); ok {
-					matchedDecl = decl
-				}
+				matchedDecl = match.MatchedElement
 			}
 		case streamContentAllGroup:
 			match, err := parent.allGroup.Feed(ev.Name)
@@ -322,9 +320,7 @@ func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) erro
 			}
 			matchedQName = match.MatchedQName
 			if match.MatchedElement != nil {
-				if decl, ok := match.MatchedElement.(*grammar.CompiledElement); ok {
-					matchedDecl = decl
-				}
+				matchedDecl = match.MatchedElement
 			}
 		}
 	}
