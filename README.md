@@ -15,7 +15,7 @@ Pure Go implementation of XSD 1.0 (XML Schema Definition) validation.
 - Attribute validation with use and default/fixed value handling
 - W3C error codes for validation failures
 
-W3C test suite status: 51,119 pass, 868 skipped
+W3C test suite status: 14,088 pass, 23,344 skipped
 
 ## Design Decisions
 
