@@ -1,8 +1,6 @@
 package grammar
 
 import (
-	"io/fs"
-
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -37,9 +35,4 @@ type CompiledSchema struct {
 	AttributeFormDefault parser.Form
 	BlockDefault         types.DerivationSet
 	FinalDefault         types.DerivationSet
-
-	// SourceFS provides optional filesystem access for schemaLocation hints.
-	SourceFS fs.FS
-	// BasePath is an optional base path for resolving schemaLocation entries.
-	BasePath string
 }

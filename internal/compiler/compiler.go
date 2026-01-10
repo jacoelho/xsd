@@ -52,6 +52,7 @@ func NewCompiler(schema *parser.Schema) *Compiler {
 
 // Compile compiles the resolved schema into a CompiledSchema.
 func (c *Compiler) Compile() (*grammar.CompiledSchema, error) {
+	types.PrecomputeBuiltinCaches()
 	for qname, typ := range c.schema.TypeDefs {
 		if _, err := c.compileType(qname, typ); err != nil {
 			return nil, err
@@ -147,13 +148,13 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, is
 	if len(elem.Constraints) > 0 {
 		compiled.Constraints = make([]*grammar.CompiledConstraint, len(elem.Constraints))
 		for i, constraint := range elem.Constraints {
-			selectorExpr, err := xpath.Parse(constraint.Selector.XPath, constraint.NamespaceContext, false)
+			selectorExpr, err := xpath.Parse(constraint.Selector.XPath, constraint.NamespaceContext, xpath.AttributesDisallowed)
 			if err != nil {
 				return nil, fmt.Errorf("identity constraint %q selector %q: %w", constraint.Name, constraint.Selector.XPath, err)
 			}
 			fieldPaths := make([][]xpath.Path, len(constraint.Fields))
 			for fieldIndex, field := range constraint.Fields {
-				fieldExpr, err := xpath.Parse(field.XPath, constraint.NamespaceContext, true)
+				fieldExpr, err := xpath.Parse(field.XPath, constraint.NamespaceContext, xpath.AttributesAllowed)
 				if err != nil {
 					return nil, fmt.Errorf("identity constraint %q field %d %q: %w", constraint.Name, fieldIndex+1, field.XPath, err)
 				}

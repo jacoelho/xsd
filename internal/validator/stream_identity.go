@@ -199,21 +199,8 @@ func (r *streamRun) constraintDeclsForQName(qname types.QName) []*grammar.Compil
 		return nil
 	}
 	if r.validator != nil && r.validator.grammar != nil {
-		if base := r.validator.grammar.ConstraintDeclsByQName; base != nil {
-			if cached, ok := base[qname]; ok {
-				return cached
-			}
-			if _, ok := r.schema.(*overlaySchemaView); !ok {
-				return nil
-			}
-		}
-	}
-	if overlay, ok := r.schema.(*overlaySchemaView); ok {
-		if lookup := overlay.constraintDeclsByQNameMap(); lookup != nil {
-			if cached, ok := lookup[qname]; ok {
-				return cached
-			}
-			return nil
+		if lookup := r.validator.grammar.ConstraintDeclsByQName; lookup != nil {
+			return lookup[qname]
 		}
 	}
 	var matches []*grammar.CompiledElement
