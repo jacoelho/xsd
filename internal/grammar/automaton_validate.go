@@ -107,60 +107,70 @@ func (a *Automaton) handleGroupCounters(state, next, symIdx, childIdx int, group
 	}
 	lastProcessedGroupID := -1
 	for _, checkState := range []int{state, next} {
-		if c := a.counting[checkState]; c != nil && c.IsGroupCounter {
-			if c.GroupID == lastProcessedGroupID {
-				continue
-			}
-			if !slices.Contains(c.GroupStartSymbols, symIdx) {
-				continue
-			}
-			idx, ok := a.groupIndexByID[c.GroupID]
-			if !ok {
-				continue
-			}
-			lastProcessedGroupID = c.GroupID
-			groups.seen[idx] = true
-			if c.UnitSize > 0 {
-				if c.Max >= 0 && groups.counts[idx] >= c.Max {
-					return &ValidationError{
-						Index:   childIdx,
-						Message: fmt.Sprintf("group exceeds maxOccurs=%d", c.Max),
-						SubCode: ErrorCodeNotExpectedHere,
-					}
-				}
-				groups.remainders[idx]++
-				if groups.remainders[idx] == c.UnitSize {
-					groups.counts[idx]++
-					groups.remainders[idx] = 0
-					if c.Max >= 0 && groups.counts[idx] > c.Max {
-						return &ValidationError{
-							Index:   childIdx,
-							Message: fmt.Sprintf("group exceeds maxOccurs=%d", c.Max),
-							SubCode: ErrorCodeNotExpectedHere,
-						}
-					}
-				}
-				continue
-			}
-
-			groups.counts[idx]++
-			startCount := groups.counts[idx]
-			minIterations := startCount
-			if startCount > 0 && c.FirstPosMaxOccurs == types.UnboundedOccurs {
-				minIterations = 1
-			} else if c.FirstPosMaxOccurs > 1 {
-				minIterations = (startCount + c.FirstPosMaxOccurs - 1) / c.FirstPosMaxOccurs
-			}
-			if c.Max >= 0 && minIterations > c.Max {
-				return &ValidationError{
-					Index:   childIdx,
-					Message: fmt.Sprintf("group exceeds maxOccurs=%d", c.Max),
-					SubCode: ErrorCodeNotExpectedHere,
-				}
-			}
+		c := a.counting[checkState]
+		if c == nil || !c.IsGroupCounter || c.GroupID == lastProcessedGroupID {
+			continue
+		}
+		if !slices.Contains(c.GroupStartSymbols, symIdx) {
+			continue
+		}
+		idx, ok := a.groupIndexByID[c.GroupID]
+		if !ok {
+			continue
+		}
+		lastProcessedGroupID = c.GroupID
+		if err := a.incrementGroupCounter(c, idx, childIdx, groups); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (a *Automaton) incrementGroupCounter(c *Counter, idx, childIdx int, groups *groupCounterState) error {
+	groups.seen[idx] = true
+	if c.UnitSize > 0 {
+		return a.incrementGroupCounterUnit(c, idx, childIdx, groups)
+	}
+	groups.counts[idx]++
+	minIterations := minGroupIterations(groups.counts[idx], c.FirstPosMaxOccurs)
+	if c.Max >= 0 && minIterations > c.Max {
+		return groupMaxOccursError(childIdx, c.Max)
+	}
+	return nil
+}
+
+func (a *Automaton) incrementGroupCounterUnit(c *Counter, idx, childIdx int, groups *groupCounterState) error {
+	if c.Max >= 0 && groups.counts[idx] >= c.Max {
+		return groupMaxOccursError(childIdx, c.Max)
+	}
+	groups.remainders[idx]++
+	if groups.remainders[idx] != c.UnitSize {
+		return nil
+	}
+	groups.counts[idx]++
+	groups.remainders[idx] = 0
+	if c.Max >= 0 && groups.counts[idx] > c.Max {
+		return groupMaxOccursError(childIdx, c.Max)
+	}
+	return nil
+}
+
+func groupMaxOccursError(childIdx, max int) error {
+	return &ValidationError{
+		Index:   childIdx,
+		Message: fmt.Sprintf("group exceeds maxOccurs=%d", max),
+		SubCode: ErrorCodeNotExpectedHere,
+	}
+}
+
+func minGroupIterations(startCount, firstPosMaxOccurs int) int {
+	if startCount > 0 && firstPosMaxOccurs == types.UnboundedOccurs {
+		return 1
+	}
+	if firstPosMaxOccurs > 1 {
+		return (startCount + firstPosMaxOccurs - 1) / firstPosMaxOccurs
+	}
+	return startCount
 }
 
 // handleElementCounter processes element occurrence counting for the current match.
@@ -185,33 +195,45 @@ func (a *Automaton) handleElementCounter(state, next, symIdx, childIdx int, symb
 
 // validateFinalCounts checks all counters satisfy minOccurs at end of schemacheck.
 func (a *Automaton) validateFinalCounts(symbolCounts []int, groups *groupCounterState, childCount int) error {
-	if hasGroupCounters(a, groups) {
-		clear(groups.checked)
-		for stateID, c := range a.counting {
-			if c == nil || !c.IsGroupCounter {
-				continue
+	if err := a.validateGroupCounts(groups, childCount); err != nil {
+		return err
+	}
+	return a.validateSymbolCounts(symbolCounts, childCount)
+}
+
+func (a *Automaton) validateGroupCounts(groups *groupCounterState, childCount int) error {
+	if !hasGroupCounters(a, groups) {
+		return nil
+	}
+	clear(groups.checked)
+	for stateID, c := range a.counting {
+		if c == nil || !c.IsGroupCounter {
+			continue
+		}
+		idx, ok := a.groupIndexByID[c.GroupID]
+		if !ok || groups.checked[idx] {
+			continue
+		}
+		groups.checked[idx] = true
+		if c.UnitSize > 0 && groups.remainders[idx] != 0 {
+			return &ValidationError{
+				Index:   childCount,
+				Message: fmt.Sprintf("group incomplete: expected %d occurrences per iteration", c.UnitSize),
+				SubCode: ErrorCodeMissing,
 			}
-			idx, ok := a.groupIndexByID[c.GroupID]
-			if !ok || groups.checked[idx] {
-				continue
-			}
-			groups.checked[idx] = true
-			if c.UnitSize > 0 && groups.remainders[idx] != 0 {
-				return &ValidationError{
-					Index:   childCount,
-					Message: fmt.Sprintf("group incomplete: expected %d occurrences per iteration", c.UnitSize),
-					SubCode: ErrorCodeMissing,
-				}
-			}
-			if groups.seen[idx] && groups.counts[idx] < c.Min {
-				return &ValidationError{
-					Index:   childCount,
-					Message: fmt.Sprintf("minOccurs=%d not satisfied (state=%d, group=%d, count=%d)", c.Min, stateID, c.GroupID, groups.counts[idx]),
-					SubCode: ErrorCodeMissing,
-				}
+		}
+		if groups.seen[idx] && groups.counts[idx] < c.Min {
+			return &ValidationError{
+				Index:   childCount,
+				Message: fmt.Sprintf("minOccurs=%d not satisfied (state=%d, group=%d, count=%d)", c.Min, stateID, c.GroupID, groups.counts[idx]),
+				SubCode: ErrorCodeMissing,
 			}
 		}
 	}
+	return nil
+}
+
+func (a *Automaton) validateSymbolCounts(symbolCounts []int, childCount int) error {
 	for symIdx, min := range a.symbolMin {
 		if min <= 0 {
 			continue

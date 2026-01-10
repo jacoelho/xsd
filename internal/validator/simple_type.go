@@ -38,26 +38,24 @@ func shouldSkipLengthFacet(ct *grammar.CompiledType, facet types.Facet) bool {
 	if ct.IsNotationType {
 		return true
 	}
-	if ct.PrimitiveType != nil {
-		if ct.PrimitiveType.QName.Local == string(types.TypeNameQName) ||
-			ct.PrimitiveType.QName.Local == string(types.TypeNameNOTATION) {
+	if ct.PrimitiveType != nil && isQNameOrNotation(ct.PrimitiveType.QName) {
+		return true
+	}
+	if st, ok := ct.Original.(*types.SimpleType); ok {
+		if primitive := st.PrimitiveType(); primitive != nil && isQNameOrNotation(primitive.Name()) {
 			return true
 		}
 	}
-	if st, ok := ct.Original.(*types.SimpleType); ok {
-		if primitive := st.PrimitiveType(); primitive != nil {
-			if primitive.Name().Local == string(types.TypeNameQName) ||
-				primitive.Name().Local == string(types.TypeNameNOTATION) {
-				return true
-			}
-		}
-	}
 	for _, base := range ct.DerivationChain {
-		if base.QName.Local == string(types.TypeNameNOTATION) || base.QName.Local == string(types.TypeNameQName) {
+		if isQNameOrNotation(base.QName) {
 			return true
 		}
 	}
 	return false
+}
+
+func isQNameOrNotation(name types.QName) bool {
+	return name.Local == string(types.TypeNameQName) || name.Local == string(types.TypeNameNOTATION)
 }
 
 func typedValueForFacets(value string, typ types.Type, facetList []types.Facet) types.TypedValue {

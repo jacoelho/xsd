@@ -154,12 +154,13 @@ func convertParticle(p *CompiledParticle) *ParticleAdapter {
 		AllowSubstitution: p.IsReference,
 	}
 
-	if p.Element != nil {
+	switch p.Kind {
+	case ParticleElement:
 		adapter.Element = p.Element
-		if p.Element.Original != nil {
+		if p.Element != nil && p.Element.Original != nil {
 			adapter.Original = p.Element.Original
 		}
-	} else if p.Wildcard != nil {
+	case ParticleWildcard:
 		adapter.Original = p.Wildcard
 	}
 
@@ -577,42 +578,59 @@ func (b *Builder) setCounter(a *Automaton, stateID int, state *bitset) {
 		if pos >= len(b.positions) || b.positions[pos] == nil {
 			return
 		}
-		// check if this is a group completion position
-		if groupInfo, isGroupCompletion := b.groupCounters[pos]; isGroupCompletion {
-			// collect the symbol indices for completion positions (lastPos)
-			var completionSymbols []int
-			for _, completionPos := range groupInfo.LastPositions {
-				if completionPos < len(b.posSymbol) {
-					completionSymbols = append(completionSymbols, b.posSymbol[completionPos])
-				}
-			}
-			// collect the symbol indices for start positions (firstPos)
-			var startSymbols []int
-			for _, startPos := range groupInfo.FirstPositions {
-				if startPos < len(b.posSymbol) {
-					startSymbols = append(startSymbols, b.posSymbol[startPos])
-				}
-			}
-			// use GroupID as the counter key so all states share the same counter
-			unitSize := 0
-			if groupInfo.UnitSize > 0 && len(startSymbols) == 1 && len(completionSymbols) == 1 && startSymbols[0] == completionSymbols[0] {
-				if startSymbols[0] >= 0 && startSymbols[0] < len(b.symbolPositionCounts) && b.symbolPositionCounts[startSymbols[0]] == 1 {
-					unitSize = groupInfo.UnitSize
-				}
-			}
-			a.counting[stateID] = &Counter{
-				Min:                    groupInfo.Min,
-				Max:                    groupInfo.Max,
-				SymbolIdx:              b.posSymbol[pos],
-				IsGroupCounter:         true,
-				GroupCompletionSymbols: completionSymbols,
-				GroupStartSymbols:      startSymbols,
-				GroupID:                groupInfo.GroupID,
-				FirstPosMaxOccurs:      groupInfo.FirstPosMaxOccurs,
-				UnitSize:               unitSize,
-			}
+		groupInfo, ok := b.groupCounters[pos]
+		if !ok {
+			return
 		}
+		a.counting[stateID] = b.groupCounterForPosition(pos, groupInfo)
 	})
+}
+
+func (b *Builder) groupCounterForPosition(pos int, groupInfo *GroupCounterInfo) *Counter {
+	completionSymbols := b.symbolsForPositions(groupInfo.LastPositions)
+	startSymbols := b.symbolsForPositions(groupInfo.FirstPositions)
+	unitSize := b.groupUnitSize(groupInfo, startSymbols, completionSymbols)
+	return &Counter{
+		Min:                    groupInfo.Min,
+		Max:                    groupInfo.Max,
+		SymbolIdx:              b.posSymbol[pos],
+		IsGroupCounter:         true,
+		GroupCompletionSymbols: completionSymbols,
+		GroupStartSymbols:      startSymbols,
+		GroupID:                groupInfo.GroupID,
+		FirstPosMaxOccurs:      groupInfo.FirstPosMaxOccurs,
+		UnitSize:               unitSize,
+	}
+}
+
+func (b *Builder) symbolsForPositions(positions []int) []int {
+	if len(positions) == 0 {
+		return nil
+	}
+	symbols := make([]int, 0, len(positions))
+	for _, pos := range positions {
+		if pos < len(b.posSymbol) {
+			symbols = append(symbols, b.posSymbol[pos])
+		}
+	}
+	return symbols
+}
+
+func (b *Builder) groupUnitSize(groupInfo *GroupCounterInfo, startSymbols, completionSymbols []int) int {
+	if groupInfo.UnitSize <= 0 {
+		return 0
+	}
+	if len(startSymbols) != 1 || len(completionSymbols) != 1 {
+		return 0
+	}
+	if startSymbols[0] != completionSymbols[0] {
+		return 0
+	}
+	symIdx := startSymbols[0]
+	if !inBounds(symIdx, len(b.symbolPositionCounts)) || b.symbolPositionCounts[symIdx] != 1 {
+		return 0
+	}
+	return groupInfo.UnitSize
 }
 
 func (b *Builder) countLeaves(particles []*ParticleAdapter) int {

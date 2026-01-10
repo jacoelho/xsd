@@ -164,35 +164,35 @@ func (c *Compiler) compileComplexContent(cc *types.ComplexContent, mixed bool) *
 		Mixed: mixed || cc.Mixed,
 	}
 
-	if cc.Extension != nil && cc.Extension.Particle != nil {
-		cm.Kind = c.getGroupKind(cc.Extension.Particle)
-		cm.Particles = c.flattenParticles(cc.Extension.Particle)
-		// if flattening produces no particles (e.g., empty group), mark as empty
-		if len(cm.Particles) == 0 {
-			if mg, ok := cc.Extension.Particle.(*types.ModelGroup); ok && mg.Kind == types.Choice && len(mg.Particles) == 0 {
-				cm.RejectAll = true
-				cm.MinOccurs = mg.MinOccurs
-			} else {
-				cm.Empty = true
-			}
-		}
-	} else if cc.Restriction != nil && cc.Restriction.Particle != nil {
-		cm.Kind = c.getGroupKind(cc.Restriction.Particle)
-		cm.Particles = c.flattenParticles(cc.Restriction.Particle)
-		// if flattening produces no particles (e.g., empty group), mark as empty
-		if len(cm.Particles) == 0 {
-			if mg, ok := cc.Restriction.Particle.(*types.ModelGroup); ok && mg.Kind == types.Choice && len(mg.Particles) == 0 {
-				cm.RejectAll = true
-				cm.MinOccurs = mg.MinOccurs
-			} else {
-				cm.Empty = true
-			}
-		}
-	} else {
+	particle := c.contentParticle(cc)
+	if particle == nil {
 		cm.Empty = true
+		return cm
 	}
 
+	cm.Kind = c.getGroupKind(particle)
+	cm.Particles = c.flattenParticles(particle)
+	if len(cm.Particles) > 0 {
+		return cm
+	}
+	if mg, ok := particle.(*types.ModelGroup); ok && mg.Kind == types.Choice && len(mg.Particles) == 0 {
+		cm.RejectAll = true
+		cm.MinOccurs = mg.MinOccurs
+		return cm
+	}
+	cm.Empty = true
+
 	return cm
+}
+
+func (c *Compiler) contentParticle(cc *types.ComplexContent) types.Particle {
+	if cc.Extension != nil && cc.Extension.Particle != nil {
+		return cc.Extension.Particle
+	}
+	if cc.Restriction != nil && cc.Restriction.Particle != nil {
+		return cc.Restriction.Particle
+	}
+	return nil
 }
 
 func (c *Compiler) buildAutomaton(ct *grammar.CompiledType) error {
@@ -203,7 +203,7 @@ func (c *Compiler) buildAutomaton(ct *grammar.CompiledType) error {
 	// for all groups, use simple array-based validation instead of DFA
 	// this correctly handles missing required elements, duplicates, and any order
 	if ct.ContentModel.Kind == types.AllGroup {
-		elements := c.buildAllGroupElements(ct.ContentModel.Particles)
+		elements := c.collectAllGroupElements(ct.ContentModel.Particles)
 		if len(elements) == 0 {
 			ct.ContentModel.Empty = true
 			ct.ContentModel.AllElements = nil
@@ -221,10 +221,6 @@ func (c *Compiler) buildAutomaton(ct *grammar.CompiledType) error {
 	ct.ContentModel.Automaton = automaton
 
 	return nil
-}
-
-func (c *Compiler) buildAllGroupElements(particles []*grammar.CompiledParticle) []*grammar.AllGroupElement {
-	return c.collectAllGroupElements(particles)
 }
 
 func (c *Compiler) collectAllGroupElements(particles []*grammar.CompiledParticle) []*grammar.AllGroupElement {
@@ -257,7 +253,7 @@ func (c *Compiler) populateContentModelCaches(cm *grammar.CompiledContentModel) 
 }
 
 func (c *Compiler) indexContentModelElements(particles []*grammar.CompiledParticle) map[types.QName]*grammar.CompiledElement {
-	var decls map[types.QName]*grammar.CompiledElement
+	decls := make(map[types.QName]*grammar.CompiledElement)
 	var walk func(items []*grammar.CompiledParticle)
 	walk = func(items []*grammar.CompiledParticle) {
 		for _, particle := range items {
@@ -273,9 +269,6 @@ func (c *Compiler) indexContentModelElements(particles []*grammar.CompiledPartic
 				if qname.IsZero() {
 					qname = particle.Element.QName
 				}
-				if decls == nil {
-					decls = make(map[types.QName]*grammar.CompiledElement)
-				}
 				if existing, ok := decls[qname]; ok && existing != particle.Element {
 					decls[qname] = nil
 					continue
@@ -287,6 +280,9 @@ func (c *Compiler) indexContentModelElements(particles []*grammar.CompiledPartic
 		}
 	}
 	walk(particles)
+	if len(decls) == 0 {
+		return nil
+	}
 	return decls
 }
 
