@@ -52,6 +52,8 @@ type CompiledType struct {
 
 	// Precomputed type properties.
 	IsNotationType bool
+	// IsQNameOrNotationType reports whether this type derives from QName or NOTATION.
+	IsQNameOrNotationType bool
 	// "ID", "IDREF", or "IDREFS" if this type derives from those.
 	IDTypeName string
 }

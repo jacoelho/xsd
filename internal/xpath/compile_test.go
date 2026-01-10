@@ -10,7 +10,7 @@ func TestParseRestrictedXPath(t *testing.T) {
 	tests := []struct {
 		name           string
 		expr           string
-		allowAttrs     bool
+		policy         AttributePolicy
 		wantErr        bool
 		verifySteps    bool
 		wantStepCount  int
@@ -20,7 +20,7 @@ func TestParseRestrictedXPath(t *testing.T) {
 		{
 			name:          "child axis with space before ::",
 			expr:          "child ::imp:iid",
-			allowAttrs:    false,
+			policy:        AttributesDisallowed,
 			wantErr:       false,
 			verifySteps:   true,
 			wantStepCount: 1,
@@ -29,7 +29,7 @@ func TestParseRestrictedXPath(t *testing.T) {
 		{
 			name:          "child axis with space after ::",
 			expr:          "child:: imp:iid",
-			allowAttrs:    false,
+			policy:        AttributesDisallowed,
 			wantErr:       false,
 			verifySteps:   true,
 			wantStepCount: 1,
@@ -38,7 +38,7 @@ func TestParseRestrictedXPath(t *testing.T) {
 		{
 			name:          "attribute axis with space before ::",
 			expr:          "attribute ::imp:sid",
-			allowAttrs:    true,
+			policy:        AttributesAllowed,
 			wantErr:       false,
 			verifySteps:   true,
 			wantStepCount: 0,
@@ -46,7 +46,7 @@ func TestParseRestrictedXPath(t *testing.T) {
 		{
 			name:           "descendant prefix with dot",
 			expr:           ".//.",
-			allowAttrs:     false,
+			policy:         AttributesDisallowed,
 			wantErr:        false,
 			verifySteps:    true,
 			wantStepCount:  2,
@@ -54,46 +54,46 @@ func TestParseRestrictedXPath(t *testing.T) {
 			wantSecondAxis: AxisSelf,
 		},
 		{
-			name:       "descendant prefix without node test",
-			expr:       ".//",
-			allowAttrs: false,
-			wantErr:    true,
+			name:    "descendant prefix without node test",
+			expr:    ".//",
+			policy:  AttributesDisallowed,
+			wantErr: true,
 		},
 		{
-			name:       "descendant prefix mid-path",
-			expr:       ".//imp:iid1/.//imp:iid2",
-			allowAttrs: false,
-			wantErr:    true,
+			name:    "descendant prefix mid-path",
+			expr:    ".//imp:iid1/.//imp:iid2",
+			policy:  AttributesDisallowed,
+			wantErr: true,
 		},
 		{
-			name:       "explicit self axis disallowed",
-			expr:       "self::*",
-			allowAttrs: false,
-			wantErr:    true,
+			name:    "explicit self axis disallowed",
+			expr:    "self::*",
+			policy:  AttributesDisallowed,
+			wantErr: true,
 		},
 		{
-			name:       "explicit descendant axis disallowed",
-			expr:       "descendant::*",
-			allowAttrs: false,
-			wantErr:    true,
+			name:    "explicit descendant axis disallowed",
+			expr:    "descendant::*",
+			policy:  AttributesDisallowed,
+			wantErr: true,
 		},
 		{
-			name:       "relative path required",
-			expr:       "//",
-			allowAttrs: false,
-			wantErr:    true,
+			name:    "relative path required",
+			expr:    "//",
+			policy:  AttributesDisallowed,
+			wantErr: true,
 		},
 		{
-			name:       "invalid axis separator",
-			expr:       "child: :imp:iid",
-			allowAttrs: false,
-			wantErr:    true,
+			name:    "invalid axis separator",
+			expr:    "child: :imp:iid",
+			policy:  AttributesDisallowed,
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			parsed, err := Parse(tt.expr, ns, tt.allowAttrs)
+			parsed, err := Parse(tt.expr, ns, tt.policy)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("Parse(%q) expected error, got nil", tt.expr)
@@ -124,7 +124,7 @@ func TestParseRestrictedXPath(t *testing.T) {
 }
 
 func TestParseAttributeDefaultNamespaceBehavior(t *testing.T) {
-	parsed, err := Parse("@id", nil, true)
+	parsed, err := Parse("@id", nil, AttributesAllowed)
 	if err != nil {
 		t.Fatalf("Parse(@id) unexpected error: %v", err)
 	}

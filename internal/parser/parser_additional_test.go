@@ -382,17 +382,17 @@ func TestValidateOnlyAnnotationChildren(t *testing.T) {
 }
 
 func TestParseBoolAndOccursValues(t *testing.T) {
-	if _, _, err := parseBoolValue("nillable", "true", true); err != nil {
+	if _, err := parseBoolValue("nillable", "true"); err != nil {
 		t.Fatalf("parseBoolValue error = %v", err)
 	}
-	if _, _, err := parseBoolValue("nillable", "yes", true); err == nil {
+	if _, err := parseBoolValue("nillable", "yes"); err == nil {
 		t.Fatalf("expected invalid bool error")
 	}
 
-	if _, err := parseOccursValue("maxOccurs", "unbounded", true, 1); err != nil {
+	if _, err := parseOccursValue("maxOccurs", "unbounded"); err != nil {
 		t.Fatalf("parseOccursValue error = %v", err)
 	}
-	if _, err := parseOccursValue("minOccurs", "unbounded", true, 1); err == nil {
+	if _, err := parseOccursValue("minOccurs", "unbounded"); err == nil {
 		t.Fatalf("expected minOccurs unbounded error")
 	}
 	if err := validateOccursValue("unbounded"); err == nil {

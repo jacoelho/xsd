@@ -205,23 +205,15 @@ func validateIdentityConstraint(schema *parser.Schema, constraint *types.Identit
 	return nil
 }
 
-type xpathAttributePolicy int
-
-const (
-	xpathAttributesDisallowed xpathAttributePolicy = iota
-	xpathAttributesAllowed
-)
-
 func validateRestrictedSelectorXPathGrammar(expr string, nsContext map[string]string) error {
-	return validateRestrictedXPathGrammar(expr, nsContext, xpathAttributesDisallowed)
+	return validateRestrictedXPathGrammar(expr, nsContext, xpath.AttributesDisallowed)
 }
 
 func validateRestrictedFieldXPathGrammar(expr string, nsContext map[string]string) error {
-	return validateRestrictedXPathGrammar(expr, nsContext, xpathAttributesAllowed)
+	return validateRestrictedXPathGrammar(expr, nsContext, xpath.AttributesAllowed)
 }
 
-func validateRestrictedXPathGrammar(expr string, nsContext map[string]string, policy xpathAttributePolicy) error {
-	allowAttributes := policy == xpathAttributesAllowed
-	_, err := xpath.Parse(expr, nsContext, allowAttributes)
+func validateRestrictedXPathGrammar(expr string, nsContext map[string]string, policy xpath.AttributePolicy) error {
+	_, err := xpath.Parse(expr, nsContext, policy)
 	return err
 }

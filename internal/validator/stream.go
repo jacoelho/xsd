@@ -21,6 +21,13 @@ const (
 	streamContentRejectAll
 )
 
+type matchOrigin int
+
+const (
+	matchFromDeclaration matchOrigin = iota
+	matchFromWildcard
+)
+
 type streamFrame struct {
 	id                 uint64
 	qname              types.QName
@@ -44,25 +51,17 @@ type streamFrame struct {
 
 type streamRun struct {
 	*validationRun
-	dec                     *xsdxml.StreamDecoder
-	frames                  []streamFrame
-	violations              []errors.Validation
-	rootSeen                bool
-	rootClosed              bool
-	schemaLocationHintError bool
-	schemaLocationPolicy    SchemaLocationPolicy
-	schemaLocationRootReady bool
-	identityScopes          []*identityScope
-	constraintDecls         map[types.QName][]*grammar.CompiledElement
+	dec             *xsdxml.StreamDecoder
+	frames          []streamFrame
+	violations      []errors.Validation
+	rootSeen        bool
+	rootClosed      bool
+	identityScopes  []*identityScope
+	constraintDecls map[types.QName][]*grammar.CompiledElement
 }
 
 // ValidateStream validates an XML document using streaming schemacheck.
 func (v *Validator) ValidateStream(r io.Reader) ([]errors.Validation, error) {
-	return v.ValidateStreamWithOptions(r, StreamOptions{})
-}
-
-// ValidateStreamWithOptions validates an XML document using streaming validation and options.
-func (v *Validator) ValidateStreamWithOptions(r io.Reader, opts StreamOptions) ([]errors.Validation, error) {
 	if v == nil || v.grammar == nil {
 		return []errors.Validation{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}, nil
 	}
@@ -71,52 +70,19 @@ func (v *Validator) ValidateStreamWithOptions(r io.Reader, opts StreamOptions) (
 	}
 
 	run := v.newStreamRun()
-	run.schemaLocationPolicy = opts.SchemaLocationPolicy
-	var prepassViolations []errors.Validation
-
-	if opts.SchemaLocationPolicy == SchemaLocationDocument && run.canUseSchemaLocationHints() {
-		if seeker, ok := r.(io.ReadSeeker); ok {
-			pos, err := seeker.Seek(0, io.SeekCurrent)
-			if err != nil {
-				return nil, err
-			}
-
-			prepassDec, err := xsdxml.NewStreamDecoder(seeker)
-			if err != nil {
-				return nil, err
-			}
-			prepass, err := collectSchemaLocationHintsFromStream(prepassDec)
-			if err != nil {
-				return nil, err
-			}
-			if len(prepass.hints) > 0 {
-				rootPath := "/"
-				if prepass.rootLocal != "" {
-					rootPath = "/" + prepass.rootLocal
-				}
-				prepassViolations = append(prepassViolations, run.mergeSchemaLocationHintsWithRoot(rootPath, prepass.hints)...)
-			}
-			if _, err := seeker.Seek(pos, io.SeekStart); err != nil {
-				return nil, err
-			}
-		} else {
-			run.schemaLocationHintError = true
-		}
-	}
 
 	dec, err := xsdxml.NewStreamDecoder(r)
 	if err != nil {
 		return nil, err
 	}
 
-	return run.validate(dec, prepassViolations)
+	return run.validate(dec)
 }
 
 func (v *Validator) newStreamRun() *streamRun {
 	base := &validationRun{
-		validator:       v,
-		schema:          v.baseView,
-		schemaHintCache: make(map[string]*grammar.CompiledSchema),
+		validator: v,
+		schema:    v.baseView,
 	}
 	return &streamRun{
 		validationRun: base,
@@ -163,14 +129,13 @@ func (r *streamRun) releaseFrameResources(frame *streamFrame) {
 	}
 }
 
-func (r *streamRun) validate(dec *xsdxml.StreamDecoder, initial []errors.Validation) ([]errors.Validation, error) {
+func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, error) {
 	r.reset()
 	r.dec = dec
 	r.frames = r.frames[:0]
-	r.violations = append(r.violations[:0], initial...)
+	r.violations = r.violations[:0]
 	r.rootSeen = false
 	r.rootClosed = false
-	r.schemaLocationRootReady = false
 	r.identityScopes = r.identityScopes[:0]
 	r.constraintDecls = nil
 
@@ -229,23 +194,6 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder, initial []errors.Validat
 }
 
 func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) error {
-	if r.schemaLocationHintError && hasSchemaLocationHint(ev.Attrs) {
-		path := r.childPath(ev.Name.Local)
-		return schemaLocationPolicyError(path)
-	}
-
-	if r.schemaLocationPolicy == SchemaLocationRootOnly && !r.schemaLocationRootReady && len(r.frames) == 0 && r.canUseSchemaLocationHints() {
-		hints := schemaLocationHintsFromAttrs(ev.Attrs)
-		if len(hints) > 0 {
-			rootPath := "/"
-			if ev.Name.Local != "" {
-				rootPath = "/" + ev.Name.Local
-			}
-			r.violations = append(r.violations, r.mergeSchemaLocationHintsWithRoot(rootPath, hints)...)
-		}
-		r.schemaLocationRootReady = true
-	}
-
 	parent := r.currentFrame()
 	if parent != nil {
 		parent.hasChildElements = true
@@ -290,7 +238,7 @@ func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) erro
 	processContents := types.Strict
 	var matchedQName types.QName
 	var matchedDecl *grammar.CompiledElement
-	fromWildcard := false
+	origin := matchFromDeclaration
 
 	if parent != nil {
 		switch parent.contentKind {
@@ -305,7 +253,7 @@ func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) erro
 			}
 			if match.IsWildcard {
 				processContents = match.ProcessContents
-				fromWildcard = true
+				origin = matchFromWildcard
 			}
 			matchedQName = match.MatchedQName
 			if match.MatchedElement != nil {
@@ -330,7 +278,7 @@ func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) erro
 	}
 
 	r.path.push(ev.Name.Local)
-	frame, skipSubtree := r.startFrame(ev, parent, processContents, matchedDecl, matchedQName, fromWildcard)
+	frame, skipSubtree := r.startFrame(ev, parent, processContents, matchedDecl, matchedQName, origin)
 	if skipSubtree {
 		r.path.pop()
 		return dec.SkipSubtree()
@@ -445,12 +393,12 @@ func (r *streamRun) handleEnd(ev xsdxml.Event) error {
 	return nil
 }
 
-func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, fromWildcard bool) (streamFrame, bool) {
+func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, origin matchOrigin) (streamFrame, bool) {
 	attrs := newAttributeIndex(ev.Attrs)
 	decl := r.resolveMatchedDecl(parent, ev.Name, matchedDecl, matchedQName)
 
 	missingCode := errors.ErrElementNotDeclared
-	if fromWildcard && processContents == types.Strict {
+	if origin == matchFromWildcard && processContents == types.Strict {
 		missingCode = errors.ErrWildcardNotDeclared
 	}
 
@@ -665,17 +613,6 @@ func (r *streamRun) propagateText(frame *streamFrame) {
 		return
 	}
 	parent.textBuf = append(parent.textBuf, frame.textBuf...)
-}
-
-func (r *streamRun) childPath(local string) string {
-	if local == "" {
-		return r.path.String()
-	}
-	current := r.path.String()
-	if current == "/" {
-		return "/" + local
-	}
-	return current + "/" + local
 }
 
 func isIgnorableOutsideRoot(data []byte) bool {

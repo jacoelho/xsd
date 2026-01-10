@@ -558,13 +558,21 @@ func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 		}
 	}
 
-	minOccurs, err := parseOccursValue("minOccurs", minOccursAttr, hasMinOccurs, 1)
-	if err != nil {
-		return nil, err
+	minOccurs := 1
+	if hasMinOccurs {
+		var err error
+		minOccurs, err = parseOccursValue("minOccurs", minOccursAttr)
+		if err != nil {
+			return nil, err
+		}
 	}
-	maxOccurs, err := parseOccursValue("maxOccurs", maxOccursAttr, hasMaxOccurs, 1)
-	if err != nil {
-		return nil, err
+	maxOccurs := 1
+	if hasMaxOccurs {
+		var err error
+		maxOccurs, err = parseOccursValue("maxOccurs", maxOccursAttr)
+		if err != nil {
+			return nil, err
+		}
 	}
 	mg := &types.ModelGroup{
 		Kind:      kind,

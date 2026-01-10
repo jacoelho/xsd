@@ -9,19 +9,26 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
+type errorPolicy int
+
+const (
+	errorPolicyReport errorPolicy = iota
+	errorPolicySuppress
+)
+
 // checkSimpleValue validates a string value against a simple type using namespace scope.
 func (r *streamRun) checkSimpleValue(value string, st *grammar.CompiledType, scopeDepth int) []errors.Validation {
-	_, violations := r.checkSimpleValueInternal(value, st, scopeDepth, true)
+	_, violations := r.checkSimpleValueInternal(value, st, scopeDepth, errorPolicyReport)
 	return violations
 }
 
-func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledType, scopeDepth int, reportErrors bool) (bool, []errors.Validation) {
+func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy) (bool, []errors.Validation) {
 	if st == nil || st.Original == nil {
 		return true, nil
 	}
 
 	if unresolvedName, ok := unresolvedSimpleType(st.Original); ok {
-		if reportErrors {
+		if policy == errorPolicyReport {
 			return false, []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 				"type '%s' is not resolved", unresolvedName)}
 		}
@@ -32,7 +39,7 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 
 	if len(st.MemberTypes) > 0 {
 		if !r.validateUnionValue(normalizedValue, st.MemberTypes, scopeDepth) {
-			if reportErrors {
+			if policy == errorPolicyReport {
 				return false, []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"value '%s' does not match any member type of union", normalizedValue)}
 			}
@@ -42,20 +49,20 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 	}
 
 	if st.ItemType != nil {
-		return r.validateListValueInternal(normalizedValue, st, scopeDepth, reportErrors)
+		return r.validateListValueInternal(normalizedValue, st, scopeDepth, policy)
 	}
 
 	switch orig := st.Original.(type) {
 	case *types.SimpleType:
 		if err := orig.Validate(normalizedValue); err != nil {
-			if reportErrors {
+			if policy == errorPolicyReport {
 				return false, []errors.Validation{errors.NewValidation(errors.ErrDatatypeInvalid, err.Error(), r.path.String())}
 			}
 			return false, nil
 		}
 	case *types.BuiltinType:
 		if err := orig.Validate(normalizedValue); err != nil {
-			if reportErrors {
+			if policy == errorPolicyReport {
 				return false, []errors.Validation{errors.NewValidation(errors.ErrDatatypeInvalid, err.Error(), r.path.String())}
 			}
 			return false, nil
@@ -63,7 +70,7 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 	}
 
 	if r.isNotationType(st) {
-		if reportErrors {
+		if policy == errorPolicyReport {
 			if violations := r.validateNotationReference(normalizedValue, scopeDepth); len(violations) > 0 {
 				return false, violations
 			}
@@ -79,7 +86,7 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 			continue
 		}
 		if err := facet.Validate(typedValue, st.Original); err != nil {
-			if !reportErrors {
+			if policy == errorPolicySuppress {
 				return false, nil
 			}
 			violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
@@ -92,17 +99,17 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 	return true, nil
 }
 
-func (r *streamRun) validateListValueInternal(value string, st *grammar.CompiledType, scopeDepth int, reportErrors bool) (bool, []errors.Validation) {
+func (r *streamRun) validateListValueInternal(value string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy) (bool, []errors.Validation) {
 	valid := true
 	var violations []errors.Validation
 	abort := false
 	index := 0
 	splitWhitespaceSeq(value, func(item string) bool {
-		itemValid, itemViolations := r.validateListItemInternal(item, st.ItemType, index, scopeDepth, reportErrors)
+		itemValid, itemViolations := r.validateListItemInternal(item, st.ItemType, index, scopeDepth, policy)
 		index++
 		if !itemValid {
 			valid = false
-			if reportErrors {
+			if policy == errorPolicyReport {
 				violations = append(violations, itemViolations...)
 				return true
 			}
@@ -123,7 +130,7 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 			}
 			if err := facet.Validate(typedValue, st.Original); err != nil {
 				valid = false
-				if !reportErrors {
+				if policy == errorPolicySuppress {
 					return false, nil
 				}
 				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
@@ -137,13 +144,13 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 	return valid, nil
 }
 
-func (r *streamRun) validateListItemInternal(item string, itemType *grammar.CompiledType, index int, scopeDepth int, reportErrors bool) (bool, []errors.Validation) {
+func (r *streamRun) validateListItemInternal(item string, itemType *grammar.CompiledType, index int, scopeDepth int, policy errorPolicy) (bool, []errors.Validation) {
 	if itemType == nil || itemType.Original == nil {
 		return true, nil
 	}
 
 	if unresolvedName, ok := unresolvedSimpleType(itemType.Original); ok {
-		if reportErrors {
+		if policy == errorPolicyReport {
 			return false, []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 				"list item[%d]: type '%s' is not resolved", index, unresolvedName)}
 		}
@@ -156,7 +163,7 @@ func (r *streamRun) validateListItemInternal(item string, itemType *grammar.Comp
 
 	if len(itemType.MemberTypes) > 0 {
 		if !r.validateUnionValue(normalizedItem, itemType.MemberTypes, scopeDepth) {
-			if reportErrors {
+			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d] '%s' does not match any member type of union", index, normalizedItem))
 				return false, violations
@@ -169,7 +176,7 @@ func (r *streamRun) validateListItemInternal(item string, itemType *grammar.Comp
 	switch orig := itemType.Original.(type) {
 	case *types.SimpleType:
 		if err := orig.Validate(normalizedItem); err != nil {
-			if reportErrors {
+			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d]: %s", index, err.Error()))
 				return false, violations
@@ -178,7 +185,7 @@ func (r *streamRun) validateListItemInternal(item string, itemType *grammar.Comp
 		}
 	case *types.BuiltinType:
 		if err := orig.Validate(normalizedItem); err != nil {
-			if reportErrors {
+			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d]: %s", index, err.Error()))
 				return false, violations
@@ -188,7 +195,7 @@ func (r *streamRun) validateListItemInternal(item string, itemType *grammar.Comp
 	}
 
 	if r.isNotationType(itemType) {
-		if reportErrors {
+		if policy == errorPolicyReport {
 			if itemViolations := r.validateNotationReference(normalizedItem, scopeDepth); len(itemViolations) > 0 {
 				violations = append(violations, itemViolations...)
 				return false, violations
@@ -204,7 +211,7 @@ func (r *streamRun) validateListItemInternal(item string, itemType *grammar.Comp
 			continue
 		}
 		if err := facet.Validate(typedValue, itemType.Original); err != nil {
-			if !reportErrors {
+			if policy == errorPolicySuppress {
 				return false, nil
 			}
 			violations = append(violations, errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
@@ -232,7 +239,7 @@ func (r *streamRun) validateUnionMemberType(value string, mt *grammar.CompiledTy
 		return false
 	}
 
-	valid, _ := r.checkSimpleValueInternal(value, mt, scopeDepth, false)
+	valid, _ := r.checkSimpleValueInternal(value, mt, scopeDepth, errorPolicySuppress)
 	return valid
 }
 

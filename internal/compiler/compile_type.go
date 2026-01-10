@@ -41,24 +41,19 @@ func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.Comp
 	switch t := typ.(type) {
 	case *types.BuiltinType:
 		compiled.Kind = grammar.TypeKindBuiltin
-		base := t.BaseType()
-		if base != nil {
-			if baseBuiltin, ok := base.(*types.BuiltinType); ok {
-				baseCompiled, err := c.compileType(baseBuiltin.Name(), baseBuiltin)
-				if err != nil {
-					return nil, err
-				}
-				compiled.BaseType = baseCompiled
-				compiled.DerivationMethod = types.DerivationRestriction
-				compiled.DerivationChain = append([]*grammar.CompiledType{compiled}, baseCompiled.DerivationChain...)
-			} else {
-				compiled.DerivationChain = []*grammar.CompiledType{compiled}
+		compiled.DerivationChain = []*grammar.CompiledType{compiled}
+		if baseBuiltin, ok := t.BaseType().(*types.BuiltinType); ok {
+			baseCompiled, err := c.compileType(baseBuiltin.Name(), baseBuiltin)
+			if err != nil {
+				return nil, err
 			}
-		} else {
-			compiled.DerivationChain = []*grammar.CompiledType{compiled}
+			compiled.BaseType = baseCompiled
+			compiled.DerivationMethod = types.DerivationRestriction
+			compiled.DerivationChain = append([]*grammar.CompiledType{compiled}, baseCompiled.DerivationChain...)
 		}
 		// check if this is the NOTATION built-in type
 		compiled.IsNotationType = t.Name().Local == string(types.TypeNameNOTATION)
+		compiled.IsQNameOrNotationType = types.IsQNameOrNotation(t.Name())
 		// precompute ID type name for ID/IDREF/IDREFS tracking
 		compiled.IDTypeName = getIDTypeName(t.Name().Local)
 
@@ -139,7 +134,14 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, st *types.S
 		compiled.DerivationMethod = types.DerivationUnion
 	}
 
+	compiled.IsQNameOrNotationType = c.isQNameOrNotationType(compiled)
+	st.SetQNameOrNotationType(compiled.IsQNameOrNotationType)
+
 	compiled.Facets = c.collectFacets(st)
+
+	// precompute caches to avoid lazy writes during validation.
+	st.PrimitiveType()
+	st.FundamentalFacets()
 
 	return nil
 }
@@ -176,33 +178,7 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, ct *types.
 
 	if ct.Content() != nil {
 		compiled.ContentModel = c.compileContentModel(ct)
-
-		// for complexContent extension, prepend base type's content model
-		if cc, ok := ct.Content().(*types.ComplexContent); ok {
-			if cc.Extension != nil && compiled.BaseType != nil &&
-				compiled.BaseType.ContentModel != nil &&
-				!compiled.BaseType.ContentModel.Empty {
-				// combine base content + extension content
-				baseParticles := compiled.BaseType.ContentModel.Particles
-				if len(baseParticles) > 0 {
-					if compiled.ContentModel == nil || compiled.ContentModel.Empty {
-						// extension with no new content - use base content model
-						compiled.ContentModel = &grammar.CompiledContentModel{
-							Kind:      compiled.BaseType.ContentModel.Kind,
-							Particles: baseParticles,
-							Mixed:     compiled.Mixed,
-						}
-					} else {
-						// combine: base particles + extension particles
-						combined := make([]*grammar.CompiledParticle, 0, len(baseParticles)+len(compiled.ContentModel.Particles))
-						combined = append(combined, baseParticles...)
-						combined = append(combined, compiled.ContentModel.Particles...)
-						compiled.ContentModel.Particles = combined
-						compiled.ContentModel.Kind = types.Sequence
-					}
-				}
-			}
-		}
+		c.applyComplexContentExtension(compiled, ct)
 	}
 
 	if compiled.ContentModel != nil {
@@ -215,6 +191,33 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, ct *types.
 	}
 
 	return nil
+}
+
+func (c *Compiler) applyComplexContentExtension(compiled *grammar.CompiledType, ct *types.ComplexType) {
+	cc, ok := ct.Content().(*types.ComplexContent)
+	if !ok || cc.Extension == nil {
+		return
+	}
+	if compiled.BaseType == nil || compiled.BaseType.ContentModel == nil || compiled.BaseType.ContentModel.Empty {
+		return
+	}
+	baseParticles := compiled.BaseType.ContentModel.Particles
+	if len(baseParticles) == 0 {
+		return
+	}
+	if compiled.ContentModel == nil || compiled.ContentModel.Empty {
+		compiled.ContentModel = &grammar.CompiledContentModel{
+			Kind:      compiled.BaseType.ContentModel.Kind,
+			Particles: baseParticles,
+			Mixed:     compiled.Mixed,
+		}
+		return
+	}
+	combined := make([]*grammar.CompiledParticle, 0, len(baseParticles)+len(compiled.ContentModel.Particles))
+	combined = append(combined, baseParticles...)
+	combined = append(combined, compiled.ContentModel.Particles...)
+	compiled.ContentModel.Particles = combined
+	compiled.ContentModel.Kind = types.Sequence
 }
 
 func (c *Compiler) setupSimpleContentType(compiled *grammar.CompiledType, sc *types.SimpleContent) {
@@ -255,6 +258,19 @@ func (c *Compiler) findPrimitiveType(ct *grammar.CompiledType) *grammar.Compiled
 		}
 	}
 	return nil
+}
+
+func (c *Compiler) isQNameOrNotationType(ct *grammar.CompiledType) bool {
+	if ct == nil || ct.ItemType != nil {
+		return false
+	}
+	if ct.PrimitiveType != nil && types.IsQNameOrNotation(ct.PrimitiveType.QName) {
+		return true
+	}
+	if ct.BaseType != nil {
+		return ct.BaseType.IsQNameOrNotationType
+	}
+	return types.IsQNameOrNotation(ct.QName)
 }
 
 func (c *Compiler) collectFacets(st *types.SimpleType) []types.Facet {
