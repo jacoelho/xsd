@@ -141,6 +141,10 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, st *types.S
 
 	compiled.Facets = c.collectFacets(st)
 
+	// precompute caches to avoid lazy writes during validation.
+	st.PrimitiveType()
+	st.FundamentalFacets()
+
 	return nil
 }
 

@@ -450,13 +450,21 @@ func parseElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*ty
 			return nil, fmt.Errorf("resolve ref %s: %w", ref, err)
 		}
 
-		minOccurs, err := parseOccursValue("minOccurs", attrs.minOccurs, attrs.hasMinOccurs, 1)
-		if err != nil {
-			return nil, err
+		minOccurs := 1
+		if attrs.hasMinOccurs {
+			var err error
+			minOccurs, err = parseOccursValue("minOccurs", attrs.minOccurs)
+			if err != nil {
+				return nil, err
+			}
 		}
-		maxOccurs, err := parseOccursValue("maxOccurs", attrs.maxOccurs, attrs.hasMaxOccurs, 1)
-		if err != nil {
-			return nil, err
+		maxOccurs := 1
+		if attrs.hasMaxOccurs {
+			var err error
+			maxOccurs, err = parseOccursValue("maxOccurs", attrs.maxOccurs)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		decl := &types.ElementDecl{
@@ -561,13 +569,21 @@ func parseElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*ty
 		},
 		SourceNamespace: schema.TargetNamespace,
 	}
-	minOccurs, err := parseOccursValue("minOccurs", attrs.minOccurs, attrs.hasMinOccurs, 1)
-	if err != nil {
-		return nil, err
+	minOccurs := 1
+	if attrs.hasMinOccurs {
+		var err error
+		minOccurs, err = parseOccursValue("minOccurs", attrs.minOccurs)
+		if err != nil {
+			return nil, err
+		}
 	}
-	maxOccurs, err := parseOccursValue("maxOccurs", attrs.maxOccurs, attrs.hasMaxOccurs, 1)
-	if err != nil {
-		return nil, err
+	maxOccurs := 1
+	if attrs.hasMaxOccurs {
+		var err error
+		maxOccurs, err = parseOccursValue("maxOccurs", attrs.maxOccurs)
+		if err != nil {
+			return nil, err
+		}
 	}
 	decl.MinOccurs = minOccurs
 	decl.MaxOccurs = maxOccurs
@@ -628,9 +644,11 @@ func parseElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*ty
 		}
 	}
 
-	if ok, value, err := parseBoolValue("nillable", attrs.nillable, attrs.hasNillable); err != nil {
-		return nil, err
-	} else if ok {
+	if attrs.hasNillable {
+		value, err := parseBoolValue("nillable", attrs.nillable)
+		if err != nil {
+			return nil, err
+		}
 		decl.Nillable = value
 	}
 

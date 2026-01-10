@@ -10,19 +10,20 @@ func parseBoolAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, name string) (
 	if !doc.HasAttribute(elem, name) {
 		return false, false, nil
 	}
-	return parseBoolValue(name, doc.GetAttribute(elem, name), true)
+	value, err := parseBoolValue(name, doc.GetAttribute(elem, name))
+	if err != nil {
+		return false, false, err
+	}
+	return true, value, nil
 }
 
-func parseBoolValue(name, value string, present bool) (bool, bool, error) {
-	if !present {
-		return false, false, nil
-	}
+func parseBoolValue(name, value string) (bool, error) {
 	switch value {
 	case "true", "1":
-		return true, true, nil
+		return true, nil
 	case "false", "0":
-		return true, false, nil
+		return false, nil
 	default:
-		return false, false, fmt.Errorf("invalid %s attribute value '%s': must be 'true', 'false', '1', or '0'", name, value)
+		return false, fmt.Errorf("invalid %s attribute value '%s': must be 'true', 'false', '1', or '0'", name, value)
 	}
 }

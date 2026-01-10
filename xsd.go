@@ -45,11 +45,6 @@ func LoadFile(path string) (*Schema, error) {
 
 // Validate validates a document against the schema.
 func (s *Schema) Validate(r io.Reader) error {
-	return s.ValidateWithOptions(r, ValidateOptions{})
-}
-
-// ValidateWithOptions validates a document against the schema with options.
-func (s *Schema) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
 	if s == nil || s.compiled == nil {
 		return errors.ValidationList{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}
 	}
@@ -58,7 +53,7 @@ func (s *Schema) ValidateWithOptions(r io.Reader, opts ValidateOptions) error {
 	}
 
 	v := s.getValidator()
-	violations, err := v.ValidateStreamWithOptions(r, toStreamOptions(opts))
+	violations, err := v.ValidateStream(r)
 	if err != nil {
 		if list, ok := errors.AsValidations(err); ok {
 			return errors.ValidationList(list)
@@ -76,26 +71,13 @@ func (s *Schema) getValidator() *validator.Validator {
 		return nil
 	}
 	s.validatorOnce.Do(func() {
-		var opts []validator.Option
-		if s.compiled != nil && s.compiled.SourceFS != nil {
-			l := loader.NewLoader(loader.Config{
-				FS:       s.compiled.SourceFS,
-				BasePath: s.compiled.BasePath,
-			})
-			opts = append(opts, validator.WithSchemaLocationLoader(l))
-		}
-		s.validatorInstance = validator.New(s.compiled, opts...)
+		s.validatorInstance = validator.New(s.compiled)
 	})
 	return s.validatorInstance
 }
 
 // ValidateFile validates an XML file against the schema.
 func (s *Schema) ValidateFile(path string) error {
-	return s.ValidateFileWithOptions(path, ValidateOptions{})
-}
-
-// ValidateFileWithOptions validates an XML file against the schema with options.
-func (s *Schema) ValidateFileWithOptions(path string, opts ValidateOptions) (err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open xml file %s: %w", path, err)
@@ -106,5 +88,5 @@ func (s *Schema) ValidateFileWithOptions(path string, opts ValidateOptions) (err
 		}
 	}()
 
-	return s.ValidateWithOptions(f, opts)
+	return s.Validate(f)
 }

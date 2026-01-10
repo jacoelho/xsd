@@ -267,9 +267,6 @@ func (l *SchemaLoader) LoadCompiled(location string) (*grammar.CompiledSchema, e
 		return nil, fmt.Errorf("compile %s: %w", location, err)
 	}
 
-	compiled.SourceFS = l.config.FS
-	compiled.BasePath = l.config.BasePath
-
 	return compiled, nil
 }
 
