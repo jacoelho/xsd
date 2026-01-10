@@ -8,7 +8,7 @@ type Automaton struct {
 	// alphabet of the automaton
 	symbols []Symbol
 	// transition table: [state*symbolCount + symbol] → next state (-1 = invalid)
-	trans []int
+	transitions []int
 	// accepting[i] = true if state i is a final state
 	accepting []bool
 	// occurrence constraints per state (nil if not counting)
@@ -33,16 +33,16 @@ type Automaton struct {
 	stateSymbolPos [][]int
 }
 
-func (a *Automaton) transIndex(state, symIdx int) int {
-	return state*len(a.symbols) + symIdx
+func (a *Automaton) transitionIndex(state, symbolIndex int) int {
+	return state*len(a.symbols) + symbolIndex
 }
 
-func (a *Automaton) transition(state, symIdx int) int {
-	return a.trans[a.transIndex(state, symIdx)]
+func (a *Automaton) transition(state, symbolIndex int) int {
+	return a.transitions[a.transitionIndex(state, symbolIndex)]
 }
 
-func (a *Automaton) setTransition(state, symIdx, next int) {
-	a.trans[a.transIndex(state, symIdx)] = next
+func (a *Automaton) setTransition(state, symbolIndex, next int) {
+	a.transitions[a.transitionIndex(state, symbolIndex)] = next
 }
 
 // GroupCounterInfo tracks information about a group that needs counting
@@ -97,7 +97,7 @@ type Counter struct {
 	// maximum occurrences allowed (-1 = unbounded)
 	Max int
 	// which symbol is being counted (for element counters)
-	SymbolIdx int
+	SymbolIndex int
 	// For groups: tracks if this counter is for a group completion (not individual element)
 	IsGroupCounter bool
 	// For groups: symbol indices that indicate group completion (symbols for last positions of the group)

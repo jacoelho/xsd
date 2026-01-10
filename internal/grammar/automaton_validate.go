@@ -68,23 +68,23 @@ type MatchResult struct {
 
 // symbolCandidate represents a potential symbol match during content model schemacheck.
 type symbolCandidate struct {
-	idx        int
-	isWildcard bool
+	symbolIndex int
+	isWildcard  bool
 }
 
 func inBounds(idx, length int) bool {
 	return idx >= 0 && idx < length
 }
 
-func symbolCountExceeded(symIdx int, counts []int, max int) bool {
-	return max >= 0 && inBounds(symIdx, len(counts)) && counts[symIdx] > max
+func symbolCountExceeded(symbolIndex int, counts []int, max int) bool {
+	return max >= 0 && inBounds(symbolIndex, len(counts)) && counts[symbolIndex] > max
 }
 
-func symbolCount(counts []int, symIdx int) int {
-	if !inBounds(symIdx, len(counts)) {
+func symbolCount(counts []int, symbolIndex int) int {
+	if !inBounds(symbolIndex, len(counts)) {
 		return 0
 	}
-	return counts[symIdx]
+	return counts[symbolIndex]
 }
 
 func hasGroupCounters(a *Automaton, groups *groupCounterState) bool {
@@ -101,7 +101,7 @@ func (a *Automaton) Validate(doc *xsdxml.Document, children []xsdxml.NodeID, mat
 
 // handleGroupCounters processes group iteration counting for the current transition.
 // Returns an error if maxOccurs is exceeded.
-func (a *Automaton) handleGroupCounters(state, next, symIdx, childIdx int, groups *groupCounterState) error {
+func (a *Automaton) handleGroupCounters(state, next, symbolIndex, childIdx int, groups *groupCounterState) error {
 	if a == nil || a.groupCount == 0 || groups == nil {
 		return nil
 	}
@@ -112,7 +112,7 @@ func (a *Automaton) handleGroupCounters(state, next, symIdx, childIdx int, group
 		if c == nil || !c.IsGroupCounter || c.GroupID == lastProcessedGroupID {
 			continue
 		}
-		if !slices.Contains(c.GroupStartSymbols, symIdx) {
+		if !slices.Contains(c.GroupStartSymbols, symbolIndex) {
 			continue
 		}
 		idx, ok := a.groupIndexByID[c.GroupID]
@@ -177,15 +177,15 @@ func minGroupIterations(startCount, firstPosMaxOccurs int) int {
 
 // handleElementCounter processes element occurrence counting for the current match.
 // Returns an error if maxOccurs is exceeded.
-func (a *Automaton) handleElementCounter(state, next, symIdx, childIdx int, symbolCounts []int, childName string) error {
-	if inBounds(symIdx, len(symbolCounts)) {
-		symbolCounts[symIdx]++
+func (a *Automaton) handleElementCounter(state, next, symbolIndex, childIdx int, symbolCounts []int, childName string) error {
+	if inBounds(symbolIndex, len(symbolCounts)) {
+		symbolCounts[symbolIndex]++
 	}
 	max := types.UnboundedOccurs
-	if inBounds(symIdx, len(a.symbolMax)) {
-		max = a.symbolMax[symIdx]
+	if inBounds(symbolIndex, len(a.symbolMax)) {
+		max = a.symbolMax[symbolIndex]
 	}
-	if symbolCountExceeded(symIdx, symbolCounts, max) {
+	if symbolCountExceeded(symbolIndex, symbolCounts, max) {
 		return &ValidationError{
 			Index:   childIdx,
 			Message: fmt.Sprintf("element %q exceeds maxOccurs=%d", childName, max),
@@ -236,15 +236,15 @@ func (a *Automaton) validateGroupCounts(groups *groupCounterState, childCount in
 }
 
 func (a *Automaton) validateSymbolCounts(symbolCounts []int, childCount int) error {
-	for symIdx, min := range a.symbolMin {
+	for symbolIndex, min := range a.symbolMin {
 		if min <= 0 {
 			continue
 		}
-		count := symbolCount(symbolCounts, symIdx)
+		count := symbolCount(symbolCounts, symbolIndex)
 		if count < min {
 			return &ValidationError{
 				Index:   childCount,
-				Message: fmt.Sprintf("minOccurs=%d not satisfied (symbol=%d, count=%d)", min, symIdx, count),
+				Message: fmt.Sprintf("minOccurs=%d not satisfied (symbol=%d, count=%d)", min, symbolIndex, count),
 				SubCode: ErrorCodeMissing,
 			}
 		}
@@ -309,36 +309,36 @@ func (a *Automaton) processChild(doc *xsdxml.Document, child xsdxml.NodeID, chil
 		Local:     doc.LocalName(child),
 	}
 
-	symIdx, isWildcard, nextState := a.findBestMatchQName(qname, state.currentState, matcher)
-	if symIdx < 0 {
+	symbolIndex, isWildcard, nextState := a.findBestMatchQName(qname, state.currentState, matcher)
+	if symbolIndex < 0 {
 		return a.elementNotAllowedError(doc.LocalName(child), childIdx)
 	}
 
-	a.recordMatch(match, symIdx, isWildcard, qname, state.currentState, wildcards)
+	a.recordMatch(match, symbolIndex, isWildcard, qname, state.currentState, wildcards)
 
 	if nextState < 0 {
 		return a.noValidTransitionError(doc.LocalName(child), childIdx, state.currentState)
 	}
 
-	if err := a.handleGroupCounters(state.currentState, nextState, symIdx, childIdx, &state.groups); err != nil {
+	if err := a.handleGroupCounters(state.currentState, nextState, symbolIndex, childIdx, &state.groups); err != nil {
 		return err
 	}
-	if err := a.handleElementCounter(state.currentState, nextState, symIdx, childIdx, state.symbolCounts, doc.LocalName(child)); err != nil {
+	if err := a.handleElementCounter(state.currentState, nextState, symbolIndex, childIdx, state.symbolCounts, doc.LocalName(child)); err != nil {
 		return err
 	}
 	state.currentState = nextState
 	return nil
 }
 
-func (a *Automaton) recordMatch(match *MatchResult, symIdx int, isWildcard bool, qname types.QName, state int, wildcards []*types.AnyElement) {
+func (a *Automaton) recordMatch(match *MatchResult, symbolIndex int, isWildcard bool, qname types.QName, state int, wildcards []*types.AnyElement) {
 	match.IsWildcard = isWildcard
 	if isWildcard && len(wildcards) > 0 {
 		match.ProcessContents = a.findWildcardProcessContentsQName(qname, wildcards)
 		return
 	}
-	if !isWildcard && inBounds(symIdx, len(a.symbols)) {
-		match.MatchedQName = a.symbols[symIdx].QName
-		match.MatchedElement = a.matchedElement(state, symIdx)
+	if !isWildcard && inBounds(symbolIndex, len(a.symbols)) {
+		match.MatchedQName = a.symbols[symbolIndex].QName
+		match.MatchedElement = a.matchedElement(state, symbolIndex)
 	}
 }
 
@@ -381,7 +381,7 @@ func (a *Automaton) validateEndState(state *validationState, childCount int) err
 // findBestMatchQName finds the best matching symbol for an element at the given state.
 // It returns the symbol index, whether it's a wildcard match, and the next state.
 // If an element can match multiple symbols, it prefers the one with a valid transition.
-func (a *Automaton) findBestMatchQName(qname types.QName, state int, matcher SymbolMatcher) (symIdx int, isWildcard bool, next int) {
+func (a *Automaton) findBestMatchQName(qname types.QName, state int, matcher SymbolMatcher) (symbolIndex int, isWildcard bool, next int) {
 	var candidatesBuf [8]symbolCandidate
 	candidates := candidatesBuf[:0]
 
@@ -443,29 +443,29 @@ func (a *Automaton) wildcardMatches(sym Symbol, qname types.QName) bool {
 	}
 }
 
-func (a *Automaton) selectBestCandidate(candidates []symbolCandidate, state int) (symIdx int, isWildcard bool, next int) {
+func (a *Automaton) selectBestCandidate(candidates []symbolCandidate, state int) (symbolIndex int, isWildcard bool, next int) {
 	for _, c := range candidates {
-		nextState := a.transition(state, c.idx)
+		nextState := a.transition(state, c.symbolIndex)
 		if nextState >= 0 {
-			return c.idx, c.isWildcard, nextState
+			return c.symbolIndex, c.isWildcard, nextState
 		}
 	}
 	first := candidates[0]
-	return first.idx, first.isWildcard, a.transition(state, first.idx)
+	return first.symbolIndex, first.isWildcard, a.transition(state, first.symbolIndex)
 }
 
-func (a *Automaton) matchedElement(state, symIdx int) *CompiledElement {
-	if a == nil || state < 0 || symIdx < 0 {
+func (a *Automaton) matchedElement(state, symbolIndex int) *CompiledElement {
+	if a == nil || state < 0 || symbolIndex < 0 {
 		return nil
 	}
 	if !inBounds(state, len(a.stateSymbolPos)) {
 		return nil
 	}
 	row := a.stateSymbolPos[state]
-	if !inBounds(symIdx, len(row)) {
+	if !inBounds(symbolIndex, len(row)) {
 		return nil
 	}
-	pos := row[symIdx]
+	pos := row[symbolIndex]
 	if !inBounds(pos, len(a.posElements)) {
 		return nil
 	}

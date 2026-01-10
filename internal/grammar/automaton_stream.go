@@ -59,8 +59,8 @@ func (v *AutomatonStreamValidator) Feed(child types.QName) (MatchResult, error) 
 	childIdx := v.childIndex
 	v.childIndex++
 
-	symIdx, isWildcard, next := v.automaton.findBestMatchQName(child, v.state, v.matcher)
-	if symIdx < 0 {
+	symbolIndex, isWildcard, next := v.automaton.findBestMatchQName(child, v.state, v.matcher)
+	if symbolIndex < 0 {
 		return result, &ValidationError{
 			Index:   childIdx,
 			Message: fmt.Sprintf("element %q not allowed", child.Local),
@@ -71,9 +71,9 @@ func (v *AutomatonStreamValidator) Feed(child types.QName) (MatchResult, error) 
 	result.IsWildcard = isWildcard
 	if isWildcard && len(v.wildcards) > 0 {
 		result.ProcessContents = v.automaton.findWildcardProcessContentsQName(child, v.wildcards)
-	} else if !isWildcard && symIdx >= 0 && symIdx < len(v.automaton.symbols) {
-		result.MatchedQName = v.automaton.symbols[symIdx].QName
-		result.MatchedElement = v.automaton.matchedElement(v.state, symIdx)
+	} else if !isWildcard && symbolIndex >= 0 && symbolIndex < len(v.automaton.symbols) {
+		result.MatchedQName = v.automaton.symbols[symbolIndex].QName
+		result.MatchedElement = v.automaton.matchedElement(v.state, symbolIndex)
 	}
 
 	if next < 0 {
@@ -93,10 +93,10 @@ func (v *AutomatonStreamValidator) Feed(child types.QName) (MatchResult, error) 
 		}
 	}
 
-	if err := v.automaton.handleGroupCounters(v.state, next, symIdx, childIdx, &v.groupState); err != nil {
+	if err := v.automaton.handleGroupCounters(v.state, next, symbolIndex, childIdx, &v.groupState); err != nil {
 		return result, err
 	}
-	if err := v.automaton.handleElementCounter(v.state, next, symIdx, childIdx, v.symbolCounts, child.Local); err != nil {
+	if err := v.automaton.handleElementCounter(v.state, next, symbolIndex, childIdx, v.symbolCounts, child.Local); err != nil {
 		return result, err
 	}
 
