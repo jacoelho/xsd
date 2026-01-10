@@ -314,59 +314,14 @@ func (r *RangeFacet) Validate(value TypedValue, baseType Type) error {
 // Per XSD 1.0 errata, length facets should be ignored for QName and NOTATION types
 // because their value space length depends on namespace context, not lexical form.
 func isQNameOrNotationType(t Type) bool {
-	if t == nil {
+	switch typ := t.(type) {
+	case *BuiltinType:
+		return typ.IsQNameOrNotationType()
+	case *SimpleType:
+		return typ.IsQNameOrNotationType()
+	default:
 		return false
 	}
-
-	qnameOrNotation := func(local string) bool {
-		return local == string(TypeNameQName) || local == string(TypeNameNOTATION)
-	}
-
-	// list types should still honor length facets on list size.
-	if st, ok := t.(*SimpleType); ok && st.Variety() == ListVariety {
-		return false
-	}
-
-	if st, ok := t.(*SimpleType); ok {
-		visited := make(map[*SimpleType]bool)
-		current := st
-		for current != nil && !visited[current] {
-			visited[current] = true
-			if current.Restriction != nil && !current.Restriction.Base.IsZero() {
-				if qnameOrNotation(current.Restriction.Base.Local) {
-					ns := current.Restriction.Base.Namespace
-					if ns == XSDNamespace || ns.IsEmpty() {
-						return true
-					}
-				}
-			}
-			next, ok := current.ResolvedBase.(*SimpleType)
-			if !ok {
-				break
-			}
-			current = next
-		}
-	}
-
-	if qnameOrNotation(t.Name().Local) {
-		return true
-	}
-	if primitive := t.PrimitiveType(); primitive != nil && qnameOrNotation(primitive.Name().Local) {
-		return true
-	}
-
-	// walk base types for restriction chains that didn't resolve primitive type.
-	visited := make(map[Type]bool)
-	current := t
-	for current != nil && !visited[current] {
-		visited[current] = true
-		if qnameOrNotation(current.Name().Local) {
-			return true
-		}
-		current = current.BaseType()
-	}
-
-	return false
 }
 
 // Length represents a length facet

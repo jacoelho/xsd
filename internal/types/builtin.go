@@ -171,6 +171,14 @@ func (b *BuiltinType) IsBuiltin() bool {
 	return true
 }
 
+// IsQNameOrNotationType reports whether this built-in type is QName or NOTATION.
+func (b *BuiltinType) IsQNameOrNotationType() bool {
+	if b == nil {
+		return false
+	}
+	return IsQNameOrNotation(b.Name())
+}
+
 // Validate validates a value against this type
 func (b *BuiltinType) Validate(value string) error {
 	return b.validator(value)

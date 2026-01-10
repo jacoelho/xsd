@@ -19,6 +19,10 @@ type SimpleType struct {
 	primitiveType Type
 	// Cached fundamental facets
 	fundamentalFacetsCache *FundamentalFacets
+	// True if this type derives from QName or NOTATION.
+	qnameOrNotation bool
+	// True if qnameOrNotation has been computed.
+	qnameOrNotationReady bool
 	// Resolved item type for list types
 	ItemType Type
 	// Resolved member types for union types
@@ -488,6 +492,59 @@ func (s *SimpleType) PrimitiveType() Type {
 // SetPrimitiveType sets the cached primitive type for this simple type
 func (s *SimpleType) SetPrimitiveType(primitive Type) {
 	s.primitiveType = primitive
+}
+
+// IsQNameOrNotationType reports whether this type derives from QName or NOTATION.
+func (s *SimpleType) IsQNameOrNotationType() bool {
+	if s == nil {
+		return false
+	}
+	if s.qnameOrNotationReady {
+		return s.qnameOrNotation
+	}
+	value := s.computeQNameOrNotationType()
+	s.qnameOrNotation = value
+	s.qnameOrNotationReady = true
+	return value
+}
+
+// SetQNameOrNotationType stores the precomputed QName/NOTATION derivation flag.
+func (s *SimpleType) SetQNameOrNotationType(value bool) {
+	if s == nil {
+		return
+	}
+	s.qnameOrNotation = value
+	s.qnameOrNotationReady = true
+}
+
+func (s *SimpleType) computeQNameOrNotationType() bool {
+	if s == nil || s.Variety() == ListVariety {
+		return false
+	}
+	if IsQNameOrNotation(s.QName) {
+		return true
+	}
+	if s.Restriction != nil && !s.Restriction.Base.IsZero() {
+		base := s.Restriction.Base
+		if (base.Namespace == XSDNamespace || base.Namespace.IsEmpty()) &&
+			(base.Local == string(TypeNameQName) || base.Local == string(TypeNameNOTATION)) {
+			return true
+		}
+	}
+	switch base := s.ResolvedBase.(type) {
+	case *SimpleType:
+		if base.IsQNameOrNotationType() {
+			return true
+		}
+	case *BuiltinType:
+		if base.IsQNameOrNotationType() {
+			return true
+		}
+	}
+	if s.primitiveType != nil && IsQNameOrNotation(s.primitiveType.Name()) {
+		return true
+	}
+	return false
 }
 
 // getPrimitiveTypeWithVisited is the internal implementation with cycle detection
