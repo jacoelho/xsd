@@ -149,89 +149,70 @@ func TestSchemaValidateConcurrent(t *testing.T) {
 	}
 }
 
-type nonSeekableReader struct {
-	r io.Reader
-}
-
-func (n nonSeekableReader) Read(p []byte) (int, error) {
-	return n.r.Read(p)
-}
-
-func TestValidateRootOnlySchemaLocationNonSeekable(t *testing.T) {
-	baseSchema := `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           targetNamespace="urn:base"
-           elementFormDefault="qualified">
-  <xs:element name="baseRoot" type="xs:string"/>
-</xs:schema>`
-
-	hintSchema := `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           targetNamespace="urn:hint"
-           elementFormDefault="qualified">
-  <xs:element name="root" type="xs:string"/>
-</xs:schema>`
-
-	fs := fstest.MapFS{
-		"base.xsd": {Data: []byte(baseSchema)},
-		"hint.xsd": {Data: []byte(hintSchema)},
-	}
-
-	schema, err := xsd.Load(fs, "base.xsd")
-	if err != nil {
-		t.Fatalf("Load schema: %v", err)
-	}
-
-	doc := `<?xml version="1.0"?>
-<root xmlns="urn:hint"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      xsi:schemaLocation="urn:hint hint.xsd">value</root>`
-
-	reader := nonSeekableReader{r: strings.NewReader(doc)}
-	if err := schema.Validate(reader); err != nil {
-		t.Fatalf("Validate() error = %v", err)
-	}
-}
-
-func TestValidateDocumentSchemaLocationNonSeekableError(t *testing.T) {
+func TestSchemaValidateConcurrentIdentityConstraints(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:test"
+           xmlns:tns="urn:test"
            elementFormDefault="qualified">
-  <xs:element name="root" type="xs:string"/>
+  <xs:simpleType name="ItemID">
+    <xs:restriction base="xs:int"/>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="tns:ItemID" use="required"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueItemIDs">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@id"/>
+    </xs:unique>
+  </xs:element>
 </xs:schema>`
 
-	fs := fstest.MapFS{
-		"base.xsd": {Data: []byte(schemaXML)},
-	}
+	docXML := `<?xml version="1.0"?>
+<root xmlns="urn:test">
+  <item id="1"/>
+  <item id="2"/>
+  <item id="3"/>
+</root>`
 
-	schema, err := xsd.Load(fs, "base.xsd")
+	fsys := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
+	}
+	schema, err := xsd.Load(fsys, "schema.xsd")
 	if err != nil {
 		t.Fatalf("Load schema: %v", err)
 	}
 
-	doc := `<?xml version="1.0"?>
-<root xmlns="urn:test"
-      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      xsi:schemaLocation="urn:test base.xsd">value</root>`
+	const goroutines = 8
+	const iterations = 25
 
-	reader := nonSeekableReader{r: strings.NewReader(doc)}
-	err = schema.ValidateWithOptions(reader, xsd.ValidateOptions{
-		SchemaLocationPolicy: xsd.SchemaLocationDocument,
-	})
-	if err == nil {
-		t.Fatal("expected error for non-seekable reader with schemaLocation hints")
+	errCh := make(chan error, goroutines*iterations)
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for range goroutines {
+		go func() {
+			defer wg.Done()
+			for range iterations {
+				if err := schema.Validate(strings.NewReader(docXML)); err != nil {
+					errCh <- err
+					return
+				}
+			}
+		}()
 	}
-	list, ok := errors.AsValidations(err)
-	if !ok {
-		t.Fatalf("expected validation error, got %v", err)
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Fatalf("concurrent Validate error: %v", err)
 	}
-	for _, v := range list {
-		if v.Code == string(errors.ErrSchemaLocationHint) {
-			return
-		}
-	}
-	t.Fatalf("expected ErrSchemaLocationHint, got %v", err)
 }
 
 var (

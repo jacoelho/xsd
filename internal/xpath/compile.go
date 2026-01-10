@@ -50,8 +50,18 @@ func xpathErrorf(format string, args ...any) error {
 	return fmt.Errorf("%w: "+format, append([]any{ErrInvalidXPath}, args...)...)
 }
 
+// AttributePolicy controls whether parsing allows attribute selection.
+type AttributePolicy int
+
+const (
+	// AttributesDisallowed rejects attribute axes and attribute node tests.
+	AttributesDisallowed AttributePolicy = iota
+	// AttributesAllowed accepts attribute axes and attribute node tests.
+	AttributesAllowed
+)
+
 // Parse compiles an XPath expression into a set of paths.
-func Parse(expr string, nsContext map[string]string, allowAttributes bool) (Expression, error) {
+func Parse(expr string, nsContext map[string]string, policy AttributePolicy) (Expression, error) {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
 		return Expression{}, xpathErrorf("xpath cannot be empty")
@@ -68,13 +78,12 @@ func Parse(expr string, nsContext map[string]string, allowAttributes bool) (Expr
 
 	parts := strings.Split(expr, "|")
 	paths := make([]Path, 0, len(parts))
-	opts := parseOptions{allowAttributes: allowAttributes}
 	for _, raw := range parts {
 		part := strings.TrimSpace(raw)
 		if part == "" {
 			return Expression{}, xpathErrorf("xpath contains empty union branch: %s", expr)
 		}
-		path, err := parsePath(part, nsContext, opts)
+		path, err := parsePath(part, nsContext, policy)
 		if err != nil {
 			return Expression{}, err
 		}
@@ -82,10 +91,6 @@ func Parse(expr string, nsContext map[string]string, allowAttributes bool) (Expr
 	}
 
 	return Expression{Paths: paths}, nil
-}
-
-type parseOptions struct {
-	allowAttributes bool
 }
 
 type pathParseState struct {
@@ -99,7 +104,7 @@ type axisToken struct {
 	token    string
 }
 
-func parsePath(expr string, nsContext map[string]string, opts parseOptions) (Path, error) {
+func parsePath(expr string, nsContext map[string]string, policy AttributePolicy) (Path, error) {
 	var path Path
 	reader := &pathReader{input: expr}
 	state := &pathParseState{usedDescendantPrefix: reader.consumeDotSlashSlashPrefix()}
@@ -109,7 +114,7 @@ func parsePath(expr string, nsContext map[string]string, opts parseOptions) (Pat
 	}
 
 	for {
-		done, err := parseNextStep(reader, &path, expr, nsContext, opts, state)
+		done, err := parseNextStep(reader, &path, expr, nsContext, policy, state)
 		if err != nil {
 			return Path{}, err
 		}
@@ -119,7 +124,7 @@ func parsePath(expr string, nsContext map[string]string, opts parseOptions) (Pat
 	}
 }
 
-func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[string]string, opts parseOptions, state *pathParseState) (bool, error) {
+func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[string]string, policy AttributePolicy, state *pathParseState) (bool, error) {
 	reader.skipSpace()
 	if reader.atEnd() {
 		if state.usedDescendantPrefix && !state.sawSuffix {
@@ -144,7 +149,7 @@ func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[st
 		return false, err
 	}
 
-	addedSteps, attr, err := parseStep(axisInfo, nsContext, opts)
+	addedSteps, attr, err := parseStep(axisInfo, nsContext, policy)
 	if err != nil {
 		return false, err
 	}
@@ -219,17 +224,17 @@ func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
 	return axisToken{axis: AxisChild, token: token}, nil
 }
 
-func parseStep(axisInfo axisToken, nsContext map[string]string, opts parseOptions) ([]Step, *NodeTest, error) {
+func parseStep(axisInfo axisToken, nsContext map[string]string, policy AttributePolicy) ([]Step, *NodeTest, error) {
 	token := strings.TrimSpace(axisInfo.token)
 	if token == "" {
 		return nil, nil, xpathErrorf("xpath step is missing a node test")
 	}
 
 	if axisInfo.axis == AxisAttribute {
-		if !opts.allowAttributes {
+		if policy != AttributesAllowed {
 			return nil, nil, xpathErrorf("xpath cannot select attributes: %s", token)
 		}
-		parsed, err := parseNodeTest(token, nsContext, true)
+		parsed, err := parseNodeTest(token, nsContext, nodeTestAttribute)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -244,7 +249,7 @@ func parseStep(axisInfo axisToken, nsContext map[string]string, opts parseOption
 	}
 
 	if strings.HasPrefix(token, "@") {
-		if !opts.allowAttributes {
+		if policy != AttributesAllowed {
 			return nil, nil, xpathErrorf("xpath cannot select attributes: %s", token)
 		}
 		name := strings.TrimPrefix(token, "@")
@@ -252,21 +257,28 @@ func parseStep(axisInfo axisToken, nsContext map[string]string, opts parseOption
 		if name == "" {
 			return nil, nil, xpathErrorf("xpath step is missing a node test: %s", token)
 		}
-		attr, err := parseNodeTest(name, nsContext, true)
+		attr, err := parseNodeTest(name, nsContext, nodeTestAttribute)
 		if err != nil {
 			return nil, nil, err
 		}
 		return nil, &attr, nil
 	}
 
-	parsed, err := parseNodeTest(token, nsContext, false)
+	parsed, err := parseNodeTest(token, nsContext, nodeTestElement)
 	if err != nil {
 		return nil, nil, err
 	}
 	return []Step{{Axis: axisInfo.axis, Test: parsed}}, nil, nil
 }
 
-func parseNodeTest(token string, nsContext map[string]string, attribute bool) (NodeTest, error) {
+type nodeTestKind int
+
+const (
+	nodeTestElement nodeTestKind = iota
+	nodeTestAttribute
+)
+
+func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind) (NodeTest, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return NodeTest{}, xpathErrorf("xpath step is missing a node test")
@@ -311,7 +323,7 @@ func parseNodeTest(token string, nsContext map[string]string, attribute bool) (N
 		}, nil
 	}
 
-	if attribute {
+	if kind == nodeTestAttribute {
 		return NodeTest{Local: local, NamespaceSpecified: true}, nil
 	}
 	if nsContext == nil {

@@ -996,7 +996,6 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 		// schema resolution per XSTS spec:
 		// - if schemaTest is present in the group, use its schema
 		// - if no schemaTest, validate against built-in components only
-		// - fallback to instance document schema location hints as last resort
 		var schema *grammar.CompiledSchema
 		var schemaPath string
 		var err error
@@ -1027,6 +1026,10 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 			t.Fatalf("seek instance %s: %v", test.InstanceDocument.Href, err)
 			return
 		}
+		if info.hasSchemaHints {
+			t.Skip("instance schemaLocation hints are ignored")
+			return
+		}
 
 		schemaPath, schema = r.loadSchemaForInstance(t, group, info, metadataDir, fullInstancePath)
 
@@ -1053,19 +1056,8 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 			return
 		}
 
-		schemaForInstance := r.schemaForInstance(schema, fullInstancePath)
-		var opts []validator.Option
-		if schemaForInstance != nil && schemaForInstance.SourceFS != nil {
-			l := loader.NewLoader(loader.Config{
-				FS:       schemaForInstance.SourceFS,
-				BasePath: schemaForInstance.BasePath,
-			})
-			opts = append(opts, validator.WithSchemaLocationLoader(l))
-		}
-		v := validator.New(schemaForInstance, opts...)
-		violations, err := v.ValidateStreamWithOptions(file, validator.StreamOptions{
-			SchemaLocationPolicy: validator.SchemaLocationDocument,
-		})
+		v := validator.New(schema)
+		violations, err := v.ValidateStream(file)
 		if err != nil {
 			if expected.Validity == "invalid" {
 				return
@@ -1101,10 +1093,9 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 }
 
 type instanceInfo struct {
-	rootLocal                 string
-	rootNS                    string
-	schemaLocation            string
-	noNamespaceSchemaLocation string
+	rootLocal      string
+	rootNS         string
+	hasSchemaHints bool
 }
 
 func readInstanceInfo(r io.Reader) (instanceInfo, error) {
@@ -1134,10 +1125,8 @@ func readInstanceInfo(r io.Reader) (instanceInfo, error) {
 				continue
 			}
 			switch attr.LocalName() {
-			case "schemaLocation":
-				info.schemaLocation = attr.Value()
-			case "noNamespaceSchemaLocation":
-				info.noNamespaceSchemaLocation = attr.Value()
+			case "schemaLocation", "noNamespaceSchemaLocation":
+				info.hasSchemaHints = true
 			}
 		}
 		return info, nil
@@ -1153,41 +1142,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 		Local:     info.rootLocal,
 	}
 
-	// option 1: use xsi:schemaLocation to find schemas
-	// load all schemas from xsi:schemaLocation using a single loader instance
-	// so that imports between schemas are properly resolved
-	if schemaLoc := info.schemaLocation; schemaLoc != "" {
-		schemaPaths := parseSchemaLocations(schemaLoc)
-		if len(schemaPaths) > 0 {
-			instanceDir := filepath.Dir(instancePath)
-
-			// strategy: load schemas in reverse order first (importing schemas are usually listed last).
-			// an importing schema will have all imported schemas merged into it, so it will contain
-			// elements from all namespaces. this is important for cases where schema B imports schema A,
-			// and the instance uses elements from both namespaces.
-			for i := len(schemaPaths) - 1; i >= 0; i-- {
-				schemaPath := resolveSchemaPath(instanceDir, schemaPaths[i])
-				schema, err := r.loadSchemaFromPath(schemaPath)
-				if err == nil {
-					// verify this schema has the root element (it should if it imports the root's schema)
-					if schema.Elements[rootQName] != nil {
-						return schemaPaths[i], schema
-					}
-				}
-			}
-
-			// fallback: try the root schema directly (in case it doesn't import others)
-			if schemaPath, found := findSchemaForNamespace(schemaLoc, rootNS); found {
-				fullSchemaPath := resolveSchemaPath(instanceDir, schemaPath)
-				schema, err := r.loadSchemaFromPath(fullSchemaPath)
-				if err == nil {
-					return schemaPath, schema
-				}
-			}
-		}
-	}
-
-	// option 2: use schema from schemaTest in the same group
+	// use schema from schemaTest in the same group
 	if len(group.SchemaTests) > 0 {
 		schemaTest := group.SchemaTests[0]
 		if len(schemaTest.SchemaDocuments) == 0 {
@@ -1221,32 +1176,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, 
 				return schemaDoc.Href, schema
 			}
 		}
-
-		// fallback: principal role or last document
-		entryDoc := schemaTest.SchemaDocuments[len(schemaTest.SchemaDocuments)-1]
-		if principalDoc != nil {
-			entryDoc = *principalDoc
-		}
-		entryPath := r.resolvePath(metadataDir, entryDoc.Href)
-		schema, err := r.loadSchemaFromPath(entryPath)
-		if err != nil {
-			// schema failed to load - return path with nil schema
-			// the calling code will handle this (check expected validity)
-			return entryDoc.Href, nil
-		}
-		return entryDoc.Href, schema
-	}
-
-	// option 3: use xsi:noNamespaceSchemaLocation hint
-	if hint := info.noNamespaceSchemaLocation; hint != "" && rootNS == "" {
-		schemaFullPath := resolveSchemaPath(filepath.Dir(instancePath), hint)
-		schema, err := r.loadSchemaFromPath(schemaFullPath)
-		if err != nil {
-			return hint, nil
-		}
-		if schema.Elements[rootQName] != nil {
-			return hint, schema
-		}
+		t.Skip("no schema in schemaTest declares the instance root element")
 	}
 
 	t.Skip("no schema available for instance test")
@@ -1265,55 +1195,6 @@ func (r *W3CTestRunner) loadSchemaFromPath(schemaPath string) (*grammar.Compiled
 	}
 	l := loader.NewLoader(loader.Config{FS: os.DirFS(filepath.Dir(schemaPath))})
 	return l.LoadCompiled(filepath.Base(schemaPath))
-}
-
-func resolveSchemaPath(baseDir, schemaPath string) string {
-	if filepath.IsAbs(schemaPath) {
-		return schemaPath
-	}
-	return filepath.Join(baseDir, schemaPath)
-}
-
-func (r *W3CTestRunner) schemaForInstance(schema *grammar.CompiledSchema, instancePath string) *grammar.CompiledSchema {
-	if schema == nil {
-		return nil
-	}
-	if r.TestSuiteDir == "" {
-		return schema
-	}
-	relDir, err := filepath.Rel(r.TestSuiteDir, filepath.Dir(instancePath))
-	if err != nil || relDir == ".." || strings.HasPrefix(relDir, ".."+string(filepath.Separator)) {
-		return schema
-	}
-	schemaCopy := *schema
-	schemaCopy.BasePath = filepath.ToSlash(relDir)
-	if schemaCopy.SourceFS == nil {
-		schemaCopy.SourceFS = os.DirFS(r.TestSuiteDir)
-	}
-	return &schemaCopy
-}
-
-// findSchemaForNamespace finds the schema location for a given namespace in xsi:schemaLocation.
-// Returns the schema path and true if found, empty string and false otherwise.
-func findSchemaForNamespace(schemaLoc string, namespace string) (string, bool) {
-	fields := strings.Fields(schemaLoc)
-	for i := 0; i+1 < len(fields); i += 2 {
-		if fields[i] == namespace {
-			return fields[i+1], true
-		}
-	}
-	return "", false
-}
-
-// parseSchemaLocations extracts all schema paths from xsi:schemaLocation.
-// The schemaLocation attribute contains pairs of (namespace, schema-path).
-func parseSchemaLocations(schemaLoc string) []string {
-	fields := strings.Fields(schemaLoc)
-	var paths []string
-	for i := 1; i < len(fields); i += 2 {
-		paths = append(paths, fields[i])
-	}
-	return paths
 }
 
 func (r *W3CTestRunner) resolvePath(metadataDir, href string) string {

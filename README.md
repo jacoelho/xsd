@@ -15,7 +15,7 @@ Pure Go implementation of XSD 1.0 (XML Schema Definition) validation.
 - Attribute validation with use and default/fixed value handling
 - W3C error codes for validation failures
 
-W3C test suite status: 51,119 pass, 868 skipped
+W3C test suite status: 14,088 pass, 23,344 skipped
 
 ## Design Decisions
 
@@ -23,6 +23,7 @@ W3C test suite status: 51,119 pass, 868 skipped
 - Only regex patterns compatible with Go's `regexp` package
 - `xs:redefine` is not supported
 - DateTime types use Go's `time.Parse` (years 0001-9999; no year 0, BCE dates, or years >9999)
+- Instance-document schema hints (`xsi:schemaLocation`, `xsi:noNamespaceSchemaLocation`) are ignored; schema selection is explicit via `Load`/`LoadFile`
 
 
 ## Architecture
@@ -113,23 +114,6 @@ var schemas embed.FS
 
 schema, err := xsd.Load(schemas, "schemas/order.xsd")
 ```
-
-Validation options (schemaLocation hints):
-
-```go
-opts := xsd.ValidateOptions{
-    SchemaLocationPolicy: xsd.SchemaLocationDocument,
-}
-if err := schema.ValidateWithOptions(xmlReader, opts); err != nil {
-    // handle validation errors
-}
-```
-
-Policies:
-- `SchemaLocationRootOnly` (default): only root element hints are applied.
-- `SchemaLocationDocument`: pre-scans the document for hints; requires a
-  seekable reader when hints are present.
-- `SchemaLocationIgnore`: ignore all schemaLocation hints.
 
 ## Testing
 

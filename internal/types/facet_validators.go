@@ -123,6 +123,10 @@ func isIntegerDerivedType(t Type) bool {
 // extractComparableValue extracts a ComparableValue from a TypedValue.
 // This is the shared logic used by all range facet validators.
 func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, error) {
+	if value == nil {
+		return nil, fmt.Errorf("cannot compare nil value")
+	}
+
 	native := value.Native()
 	typ := value.Type()
 	if typ == nil {
@@ -132,6 +136,9 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 	// try to convert native to ComparableValue directly
 	if compVal, ok := native.(ComparableValue); ok {
 		return compVal, nil
+	}
+	if unwrappable, ok := native.(Unwrappable); ok {
+		native = unwrappable.Unwrap()
 	}
 
 	switch v := native.(type) {
@@ -150,27 +157,6 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 		return ComparableFloat32{Value: v, Typ: typ}, nil
 	case string:
 		return parseStringToComparableValue(value, v, typ)
-	}
-
-	// try to extract using ValueAs helper for known types
-	if rat, err := ValueAs[*big.Rat](value); err == nil {
-		return ComparableBigRat{Value: rat, Typ: typ}, nil
-	}
-	if intVal, err := ValueAs[*big.Int](value); err == nil {
-		return ComparableBigInt{Value: intVal, Typ: typ}, nil
-	}
-	if timeVal, err := ValueAs[time.Time](value); err == nil {
-		return ComparableTime{Value: timeVal, Typ: typ}, nil
-	}
-	if float64Val, err := ValueAs[float64](value); err == nil {
-		return ComparableFloat64{Value: float64Val, Typ: typ}, nil
-	}
-	if float32Val, err := ValueAs[float32](value); err == nil {
-		return ComparableFloat32{Value: float32Val, Typ: typ}, nil
-	}
-	if durVal, err := ValueAs[time.Duration](value); err == nil {
-		xsdDur := durationToXSD(durVal)
-		return ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
 	}
 
 	// all conversion attempts failed
@@ -314,59 +300,14 @@ func (r *RangeFacet) Validate(value TypedValue, baseType Type) error {
 // Per XSD 1.0 errata, length facets should be ignored for QName and NOTATION types
 // because their value space length depends on namespace context, not lexical form.
 func isQNameOrNotationType(t Type) bool {
-	if t == nil {
+	switch typ := t.(type) {
+	case *BuiltinType:
+		return typ.IsQNameOrNotationType()
+	case *SimpleType:
+		return typ.IsQNameOrNotationType()
+	default:
 		return false
 	}
-
-	qnameOrNotation := func(local string) bool {
-		return local == string(TypeNameQName) || local == string(TypeNameNOTATION)
-	}
-
-	// list types should still honor length facets on list size.
-	if st, ok := t.(*SimpleType); ok && st.Variety() == ListVariety {
-		return false
-	}
-
-	if st, ok := t.(*SimpleType); ok {
-		visited := make(map[*SimpleType]bool)
-		current := st
-		for current != nil && !visited[current] {
-			visited[current] = true
-			if current.Restriction != nil && !current.Restriction.Base.IsZero() {
-				if qnameOrNotation(current.Restriction.Base.Local) {
-					ns := current.Restriction.Base.Namespace
-					if ns == XSDNamespace || ns.IsEmpty() {
-						return true
-					}
-				}
-			}
-			next, ok := current.ResolvedBase.(*SimpleType)
-			if !ok {
-				break
-			}
-			current = next
-		}
-	}
-
-	if qnameOrNotation(t.Name().Local) {
-		return true
-	}
-	if primitive := t.PrimitiveType(); primitive != nil && qnameOrNotation(primitive.Name().Local) {
-		return true
-	}
-
-	// walk base types for restriction chains that didn't resolve primitive type.
-	visited := make(map[Type]bool)
-	current := t
-	for current != nil && !visited[current] {
-		visited[current] = true
-		if qnameOrNotation(current.Name().Local) {
-			return true
-		}
-		current = current.BaseType()
-	}
-
-	return false
 }
 
 // Length represents a length facet

@@ -16,8 +16,6 @@ const (
 	ErrSchemaNotLoaded ErrorCode = "xsd-schema-not-loaded"
 	// ErrXMLParse indicates the XML document could not be parsed.
 	ErrXMLParse ErrorCode = "xml-parse-error"
-	// ErrSchemaLocationHint reports a schemaLocation hint issue.
-	ErrSchemaLocationHint ErrorCode = "xsd-schema-location"
 
 	// ErrElementNotDeclared indicates an element has no declaration.
 	ErrElementNotDeclared ErrorCode = "cvc-elt.1"

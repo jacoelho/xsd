@@ -138,45 +138,8 @@ func TestSchemaViewLookup(t *testing.T) {
 		t.Fatalf("expected substitution group head lookup")
 	}
 
-	overlay := newOverlaySchemaView(base)
-	override := &grammar.CompiledElement{QName: headQName}
-	overlay.elements = map[types.QName]*grammar.CompiledElement{headQName: override}
-	overlay.elementsWithConstraints = []*grammar.CompiledElement{headElem}
-	if overlay.Element(headQName) != override {
-		t.Fatalf("expected overlay element override")
-	}
-
-	lookup := overlay.constraintDeclsByQNameMap()
-	if len(lookup[subQName]) != 1 || lookup[subQName][0] != headElem {
-		t.Fatalf("expected constraint lookup by substitution")
-	}
-	overlay.invalidateConstraintDecls()
-	if overlay.constraintDeclsByQName != nil || overlay.constraintDeclsReady {
-		t.Fatalf("expected constraint cache to be reset")
-	}
-
 	if !containsCompiledElement([]*grammar.CompiledElement{headElem}, headElem) {
 		t.Fatalf("expected containsCompiledElement to return true")
-	}
-}
-
-func TestSchemaLocationPrepass(t *testing.T) {
-	xmlStr := `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="urn:a a.xsd urn:b b.xsd"
-  xsi:noNamespaceSchemaLocation="none.xsd"></root>`
-	dec, err := xsdxml.NewStreamDecoder(strings.NewReader(xmlStr))
-	if err != nil {
-		t.Fatalf("NewStreamDecoder error = %v", err)
-	}
-	prepass, err := collectSchemaLocationHintsFromStream(dec)
-	if err != nil {
-		t.Fatalf("collectSchemaLocationHintsFromStream error = %v", err)
-	}
-	if prepass.rootLocal != "root" {
-		t.Fatalf("unexpected rootLocal: %s", prepass.rootLocal)
-	}
-	if len(prepass.hints) != 3 {
-		t.Fatalf("expected 3 schemaLocation hints, got %d", len(prepass.hints))
 	}
 }
 
@@ -287,6 +250,7 @@ func TestLengthFacetHelpers(t *testing.T) {
 	}
 
 	ct := &grammar.CompiledType{
+		IsQNameOrNotationType: true,
 		PrimitiveType: &grammar.CompiledType{
 			QName: types.QName{Namespace: types.XSDNamespace, Local: "QName"},
 		},

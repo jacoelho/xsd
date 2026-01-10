@@ -68,6 +68,14 @@ const (
 	TypeNameNonPositiveInteger TypeName = "nonPositiveInteger"
 )
 
+// IsQNameOrNotation reports whether the QName is the XSD QName or NOTATION type.
+func IsQNameOrNotation(name QName) bool {
+	if name.Namespace != XSDNamespace {
+		return false
+	}
+	return name.Local == string(TypeNameQName) || name.Local == string(TypeNameNOTATION)
+}
+
 // String returns the string representation of the type name
 func (tn TypeName) String() string {
 	return string(tn)

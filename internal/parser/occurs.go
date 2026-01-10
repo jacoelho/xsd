@@ -13,13 +13,10 @@ func parseOccursAttr(doc *xsdxml.Document, elem xsdxml.NodeID, attr string, defa
 		return defaultValue, nil
 	}
 
-	return parseOccursValue(attr, doc.GetAttribute(elem, attr), true, defaultValue)
+	return parseOccursValue(attr, doc.GetAttribute(elem, attr))
 }
 
-func parseOccursValue(attr, value string, present bool, defaultValue int) (int, error) {
-	if !present {
-		return defaultValue, nil
-	}
+func parseOccursValue(attr, value string) (int, error) {
 	if value == "" {
 		return 0, fmt.Errorf("%s attribute cannot be empty", attr)
 	}
