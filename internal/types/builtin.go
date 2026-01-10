@@ -253,27 +253,29 @@ func (b *BuiltinType) FundamentalFacets() *FundamentalFacets {
 		return b.fundamentalFacetsCache
 	}
 
+	typeName := TypeName(b.name)
+
 	// for primitive types, compute directly
-	if isPrimitiveName(TypeName(b.name)) {
-		b.fundamentalFacetsCache = ComputeFundamentalFacets(TypeName(b.name))
-		return b.fundamentalFacetsCache
+	if isPrimitiveName(typeName) {
+		return b.setFundamentalFacets(ComputeFundamentalFacets(typeName))
 	}
 
 	// for derived types, get facets from primitive type
 	primitive := b.PrimitiveType()
 	if primitive == nil {
 		// fallback: try computing from name (may return nil for unknown types)
-		b.fundamentalFacetsCache = ComputeFundamentalFacets(TypeName(b.name))
-		return b.fundamentalFacetsCache
+		return b.setFundamentalFacets(ComputeFundamentalFacets(typeName))
 	}
 
 	if bt, ok := as[*BuiltinType](primitive); ok {
-		b.fundamentalFacetsCache = bt.FundamentalFacets()
-		return b.fundamentalFacetsCache
+		return b.setFundamentalFacets(bt.FundamentalFacets())
 	}
 
 	// if primitive is not BuiltinType, try to get facets from it
-	facets := primitive.FundamentalFacets()
+	return b.setFundamentalFacets(primitive.FundamentalFacets())
+}
+
+func (b *BuiltinType) setFundamentalFacets(facets *FundamentalFacets) *FundamentalFacets {
 	b.fundamentalFacetsCache = facets
 	return facets
 }
