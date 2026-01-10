@@ -2,7 +2,6 @@ package grammar
 
 import (
 	"fmt"
-	"math/bits"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/types"
@@ -52,6 +51,31 @@ type Builder struct {
 	rangeMapPool  []map[int]occRange
 	countMapPool  []map[int]int
 	bitsetPool    []*bitset
+}
+
+type workItem struct {
+	set *bitset
+	id  int
+}
+
+type constructionState struct {
+	automaton    *Automaton
+	stateIDs     map[string]int
+	worklist     []workItem
+	nextBySymbol []*bitset
+}
+
+func recordSymbolPosition(posRow []int, symIdx, pos int) {
+	switch posRow[symIdx] {
+	case symbolPosNone:
+		posRow[symIdx] = pos
+	case symbolPosAmbiguous:
+		return
+	default:
+		if posRow[symIdx] != pos {
+			posRow[symIdx] = symbolPosAmbiguous
+		}
+	}
 }
 
 // NewBuilder creates a builder for the given content model.
@@ -192,78 +216,117 @@ func (b *Builder) buildNode(p *ParticleAdapter, nextPos *int) node {
 		return b.wrapOccurs(leaf, p.MinOccurs, p.MaxOccurs)
 
 	case ParticleGroup:
-		var child node
-		switch p.GroupKind {
-		case types.Sequence:
-			child = b.buildTree(p.Children, nextPos)
-		case types.Choice:
-			child = b.buildChoice(p.Children, nextPos)
-		case types.AllGroup:
-			// all groups are handled by AllGroupValidator, not the DFA automaton.
-			// the compiler skips automaton building for all groups.
-			return nil
-		}
+		child := b.buildGroupChild(p, nextPos)
 		if child == nil {
 			return nil
 		}
-		// for groups with non-trivial minOccurs/maxOccurs, track the positions
-		// for counting group iterations
-		if (p.MinOccurs > 1) || (p.MaxOccurs != 1 && p.MaxOccurs != types.UnboundedOccurs) {
-			// collect first positions (start of iteration) and last positions (end of iteration)
-			firstPositions := child.firstPos()
-			lastPositions := child.lastPos()
-
-			var firstPosList []int
-			var lastPosList []int
-			groupID := -1
-			firstPosMaxOccurs := 1 // default: each start symbol is one iteration
-
-			firstPositions.forEach(func(pos int) {
-				firstPosList = append(firstPosList, pos)
-				if groupID < 0 || pos < groupID {
-					groupID = pos // use minimum first position as GroupID
-				}
-				// this is used to compute minimum iterations needed
-				if pos < len(b.positions) && b.positions[pos] != nil {
-					if b.positions[pos].Max == types.UnboundedOccurs {
-						firstPosMaxOccurs = types.UnboundedOccurs
-						return
-					}
-					if firstPosMaxOccurs != types.UnboundedOccurs && b.positions[pos].Max > firstPosMaxOccurs {
-						firstPosMaxOccurs = b.positions[pos].Max
-					}
-				}
-			})
-			lastPositions.forEach(func(pos int) {
-				lastPosList = append(lastPosList, pos)
-			})
-
-			// assign GroupCounterInfo to all last positions (states that can be "done")
-			unitSize := 0
-			if len(firstPosList) == 1 && len(lastPosList) == 1 && firstPosList[0] == lastPosList[0] {
-				pos := firstPosList[0]
-				if pos < len(b.positions) && b.positions[pos] != nil {
-					if b.positions[pos].Min == b.positions[pos].Max && b.positions[pos].Min > 1 {
-						unitSize = b.positions[pos].Min
-					}
-				}
-			}
-			for _, pos := range lastPosList {
-				b.groupCounters[pos] = &GroupCounterInfo{
-					Min:               p.MinOccurs,
-					Max:               p.MaxOccurs,
-					LastPositions:     lastPosList,
-					FirstPositions:    firstPosList,
-					GroupKind:         p.GroupKind,
-					GroupID:           groupID,
-					FirstPosMaxOccurs: firstPosMaxOccurs,
-					UnitSize:          unitSize,
-				}
-			}
-		}
+		b.attachGroupCounter(child, p)
 		return b.wrapOccurs(child, p.MinOccurs, p.MaxOccurs)
 	}
 	return nil
+}
+
+func (b *Builder) buildGroupChild(p *ParticleAdapter, nextPos *int) node {
+	switch p.GroupKind {
+	case types.Sequence:
+		return b.buildTree(p.Children, nextPos)
+	case types.Choice:
+		return b.buildChoice(p.Children, nextPos)
+	case types.AllGroup:
+		// all groups are handled by AllGroupValidator, not the DFA automaton.
+		// the compiler skips automaton building for all groups.
+		return nil
+	default:
+		return nil
+	}
+}
+
+func (b *Builder) attachGroupCounter(child node, p *ParticleAdapter) {
+	if !b.needsGroupCounter(p) {
+		return
+	}
+
+	firstPosList := b.collectPositions(child.firstPos())
+	lastPosList := b.collectPositions(child.lastPos())
+	firstPosMaxOccurs := b.computeFirstPosMaxOccurs(firstPosList)
+
+	info := &GroupCounterInfo{
+		Min:               p.MinOccurs,
+		Max:               p.MaxOccurs,
+		LastPositions:     lastPosList,
+		FirstPositions:    firstPosList,
+		GroupKind:         p.GroupKind,
+		GroupID:           b.computeGroupID(firstPosList),
+		FirstPosMaxOccurs: firstPosMaxOccurs,
+		UnitSize:          b.computeUnitSize(firstPosList, lastPosList),
+	}
+
+	for _, pos := range lastPosList {
+		b.groupCounters[pos] = info
+	}
+}
+
+func (b *Builder) needsGroupCounter(p *ParticleAdapter) bool {
+	return (p.MinOccurs > 1) || (p.MaxOccurs != 1 && p.MaxOccurs != types.UnboundedOccurs)
+}
+
+func (b *Builder) collectPositions(positions *bitset) []int {
+	if positions == nil {
+		return nil
+	}
+	result := make([]int, 0, positions.n)
+	positions.forEach(func(pos int) {
+		result = append(result, pos)
+	})
+	return result
+}
+
+func (b *Builder) computeGroupID(firstPosList []int) int {
+	if len(firstPosList) == 0 {
+		return -1
+	}
+	groupID := firstPosList[0]
+	for _, pos := range firstPosList[1:] {
+		if pos < groupID {
+			groupID = pos
+		}
+	}
+	return groupID
+}
+
+func (b *Builder) computeFirstPosMaxOccurs(firstPosList []int) int {
+	maxOccurs := 1
+	for _, pos := range firstPosList {
+		if pos >= len(b.positions) || b.positions[pos] == nil {
+			continue
+		}
+		posMax := b.positions[pos].Max
+		if posMax == types.UnboundedOccurs {
+			return types.UnboundedOccurs
+		}
+		if maxOccurs != types.UnboundedOccurs && posMax > maxOccurs {
+			maxOccurs = posMax
+		}
+	}
+	return maxOccurs
+}
+
+func (b *Builder) computeUnitSize(firstPosList, lastPosList []int) int {
+	if len(firstPosList) != 1 || len(lastPosList) != 1 {
+		return 0
+	}
+	if firstPosList[0] != lastPosList[0] {
+		return 0
+	}
+	pos := firstPosList[0]
+	if pos >= len(b.positions) || b.positions[pos] == nil {
+		return 0
+	}
+	position := b.positions[pos]
+	if position.Min == position.Max && position.Min > 1 {
+		return position.Min
+	}
+	return 0
 }
 
 // buildChoice builds alternation: a | b | c
@@ -354,38 +417,72 @@ func (b *Builder) buildSymbols() {
 	b.symbolIndexByKey = seen
 }
 
-// construct performs subset construction to build the DFA.
-func (b *Builder) construct() (*Automaton, error) {
+func (b *Builder) scanPositionsForTransitions(state *bitset, nextBySymbol []*bitset) ([]int, []int) {
+	posRow := make([]int, len(b.symbols))
+	for i := range posRow {
+		posRow[i] = symbolPosNone
+	}
+	usedSymbols := make([]int, 0, len(b.symbols))
+
+	state.forEach(func(pos int) {
+		if pos >= len(b.positions) || b.positions[pos] == nil {
+			return
+		}
+		symIdx := b.posSymbol[pos]
+		if !inBounds(symIdx, len(nextBySymbol)) {
+			return
+		}
+
+		recordSymbolPosition(posRow, symIdx, pos)
+		usedSymbols = b.accumulateFollowSet(nextBySymbol, usedSymbols, symIdx, pos)
+	})
+
+	return posRow, usedSymbols
+}
+
+func (b *Builder) accumulateFollowSet(nextBySymbol []*bitset, usedSymbols []int, symIdx, pos int) []int {
+	next := nextBySymbol[symIdx]
+	if next == nil {
+		next = newBitset(b.size)
+		nextBySymbol[symIdx] = next
+		usedSymbols = append(usedSymbols, symIdx)
+	}
+	next.or(b.followPos[pos])
+	return usedSymbols
+}
+
+func (b *Builder) initializeConstruction() *constructionState {
 	initial := b.getWorkBitset()
 	initial.or(b.root.firstPos())
-
-	type workItem struct {
-		set *bitset
-		id  int
-	}
 
 	stateIDs := make(map[string]int, b.size)
 	stateIDs[initial.key()] = 0
 	worklist := make([]workItem, 1, b.size)
 	worklist[0] = workItem{set: initial, id: 0}
 
-	trans := make([]int, 0, len(b.symbols)*b.size)
-	trans = append(trans, b.newTransRow()...)
-	accepting := make([]bool, 1, b.size)
-	accepting[0] = initial.test(b.endPos)
-	counting := make([]*Counter, 1, b.size)
-
 	a := &Automaton{
 		symbols:         b.symbols,
-		trans:           trans,
-		accepting:       accepting,
-		counting:        counting,
-		emptyOK:         initial.test(b.endPos), // empty is OK if initial state is accepting
+		trans:           append([]int(nil), b.newTransRow()...),
+		accepting:       []bool{initial.test(b.endPos)},
+		counting:        make([]*Counter, 1, b.size),
+		emptyOK:         initial.test(b.endPos),
 		symbolMin:       b.symbolMin,
 		symbolMax:       b.symbolMax,
 		targetNamespace: b.targetNamespace,
 		groupCounters:   b.groupCounters,
+		stateSymbolPos:  make([][]int, 1, b.size),
 	}
+	b.initializeAutomatonMaps(a)
+
+	return &constructionState{
+		automaton:    a,
+		stateIDs:     stateIDs,
+		worklist:     worklist,
+		nextBySymbol: make([]*bitset, len(b.symbols)),
+	}
+}
+
+func (b *Builder) initializeAutomatonMaps(a *Automaton) {
 	posElements := make([]*CompiledElement, len(b.positions))
 	for i, pos := range b.positions {
 		if pos != nil {
@@ -393,7 +490,6 @@ func (b *Builder) construct() (*Automaton, error) {
 		}
 	}
 	a.posElements = posElements
-	a.stateSymbolPos = make([][]int, len(a.accepting))
 	if len(a.groupCounters) > 0 {
 		a.groupIndexByID = make(map[int]int)
 		for _, info := range a.groupCounters {
@@ -404,82 +500,68 @@ func (b *Builder) construct() (*Automaton, error) {
 		}
 		a.groupCount = len(a.groupIndexByID)
 	}
+}
 
-	nextBySymbol := make([]*bitset, len(b.symbols))
-	usedSymbols := make([]int, 0, len(b.symbols))
-
-	for len(worklist) > 0 {
-		cur := worklist[0]
-		worklist = worklist[1:]
-		curSet := cur.set
-		curID := cur.id
-
-		usedSymbols = usedSymbols[:0]
-		posRow := make([]int, len(b.symbols))
-		for i := range posRow {
-			posRow[i] = symbolPosNone
-		}
-		for wordIdx, w := range curSet.words {
-			for w != 0 {
-				bit := bits.TrailingZeros64(w)
-				pos := wordIdx*64 + bit
-				if pos < len(b.positions) && b.positions[pos] != nil {
-					symIdx := b.posSymbol[pos]
-					if symIdx >= 0 && symIdx < len(nextBySymbol) {
-						switch posRow[symIdx] {
-						case symbolPosNone:
-							posRow[symIdx] = pos
-						case symbolPosAmbiguous:
-						default:
-							if posRow[symIdx] != pos {
-								posRow[symIdx] = symbolPosAmbiguous
-							}
-						}
-						next := nextBySymbol[symIdx]
-						if next == nil {
-							next = newBitset(b.size)
-							nextBySymbol[symIdx] = next
-							usedSymbols = append(usedSymbols, symIdx)
-						}
-						next.or(b.followPos[pos])
-					}
-				}
-				w &^= 1 << bit
-			}
-		}
-
-		for _, symIdx := range usedSymbols {
-			next := nextBySymbol[symIdx]
-			if next.empty() {
-				b.putWorkBitset(next)
-				nextBySymbol[symIdx] = nil
-				continue
-			}
-
-			key := next.key()
-			nextID, exists := stateIDs[key]
-			if !exists {
-				nextID = len(a.accepting)
-				stateIDs[key] = nextID
-				a.trans = append(a.trans, b.newTransRow()...)
-				a.accepting = append(a.accepting, next.test(b.endPos))
-				a.counting = append(a.counting, nil)
-				a.stateSymbolPos = append(a.stateSymbolPos, nil)
-				worklist = append(worklist, workItem{set: next, id: nextID})
-			} else {
-				b.putWorkBitset(next)
-			}
-
-			a.setTransition(curID, symIdx, nextID)
+func (b *Builder) processSymbolTransitions(a *Automaton, currentStateID int, usedSymbols []int, nextBySymbol []*bitset, stateIDs map[string]int, worklist []workItem) []workItem {
+	var nextID int
+	for _, symIdx := range usedSymbols {
+		next := nextBySymbol[symIdx]
+		if next.empty() {
+			b.putWorkBitset(next)
 			nextBySymbol[symIdx] = nil
+			continue
 		}
 
-		a.stateSymbolPos[curID] = posRow
-		b.setCounter(a, curID, curSet)
-		b.putWorkBitset(curSet)
+		nextID, worklist = b.getOrCreateState(a, next, stateIDs, worklist)
+		a.setTransition(currentStateID, symIdx, nextID)
+		nextBySymbol[symIdx] = nil
+	}
+	return worklist
+}
+
+func (b *Builder) getOrCreateState(a *Automaton, stateSet *bitset, stateIDs map[string]int, worklist []workItem) (int, []workItem) {
+	key := stateSet.key()
+	stateID, exists := stateIDs[key]
+	if exists {
+		b.putWorkBitset(stateSet)
+		return stateID, worklist
 	}
 
-	return a, nil
+	stateID = len(a.accepting)
+	stateIDs[key] = stateID
+	a.trans = append(a.trans, b.newTransRow()...)
+	a.accepting = append(a.accepting, stateSet.test(b.endPos))
+	a.counting = append(a.counting, nil)
+	a.stateSymbolPos = append(a.stateSymbolPos, nil)
+	worklist = append(worklist, workItem{set: stateSet, id: stateID})
+	return stateID, worklist
+}
+
+// construct performs subset construction to build the DFA.
+func (b *Builder) construct() (*Automaton, error) {
+	cs := b.initializeConstruction()
+
+	for len(cs.worklist) > 0 {
+		cur := cs.worklist[0]
+		cs.worklist = cs.worklist[1:]
+
+		posRow, usedSymbols := b.scanPositionsForTransitions(cur.set, cs.nextBySymbol)
+
+		cs.worklist = b.processSymbolTransitions(
+			cs.automaton,
+			cur.id,
+			usedSymbols,
+			cs.nextBySymbol,
+			cs.stateIDs,
+			cs.worklist,
+		)
+
+		cs.automaton.stateSymbolPos[cur.id] = posRow
+		b.setCounter(cs.automaton, cur.id, cur.set)
+		b.putWorkBitset(cur.set)
+	}
+
+	return cs.automaton, nil
 }
 
 func (b *Builder) newTransRow() []int {
@@ -637,56 +719,66 @@ func (b *Builder) symbolBoundsForParticles(particles []*ParticleAdapter) map[int
 func (b *Builder) symbolBoundsForParticle(p *ParticleAdapter) map[int]occRange {
 	switch p.Kind {
 	case ParticleElement, ParticleWildcard:
-		idx, ok := b.symbolIndexForParticle(p)
-		if !ok {
-			return nil
-		}
-		result := b.getRangeMap()
-		result[idx] = occRange{min: p.MinOccurs, max: p.MaxOccurs}
-		return result
+		return b.boundsForLeafParticle(p)
 	case ParticleGroup:
-		var combined map[int]occRange
-		switch p.GroupKind {
-		case types.Sequence, types.AllGroup:
-			combined = b.getRangeMap()
-			for _, child := range p.Children {
-				childRanges := b.symbolBoundsForParticle(child)
-				if childRanges == nil {
-					continue
-				}
-				mergeSequenceRanges(combined, childRanges)
-				b.putRangeMap(childRanges)
-			}
-		case types.Choice:
-			combined = b.getRangeMap()
-			counts := b.getCountMap()
-			childCount := 0
-			for _, child := range p.Children {
-				childCount++
-				childRanges := b.symbolBoundsForParticle(child)
-				if childRanges == nil {
-					continue
-				}
-				mergeChoiceRanges(combined, counts, childRanges)
-				b.putRangeMap(childRanges)
-			}
-			finalizeChoiceRanges(combined, counts, childCount)
-			b.putCountMap(counts)
-		default:
-			combined = b.getRangeMap()
-			for _, child := range p.Children {
-				childRanges := b.symbolBoundsForParticle(child)
-				if childRanges == nil {
-					continue
-				}
-				mergeSequenceRanges(combined, childRanges)
-				b.putRangeMap(childRanges)
-			}
-		}
-		return applyGroupOccursInPlace(combined, p.MinOccurs, p.MaxOccurs)
+		return b.boundsForGroupParticle(p)
 	default:
 		return nil
 	}
+}
+
+func (b *Builder) boundsForLeafParticle(p *ParticleAdapter) map[int]occRange {
+	idx, ok := b.symbolIndexForParticle(p)
+	if !ok {
+		return nil
+	}
+	result := b.getRangeMap()
+	result[idx] = occRange{min: p.MinOccurs, max: p.MaxOccurs}
+	return result
+}
+
+func (b *Builder) boundsForGroupParticle(p *ParticleAdapter) map[int]occRange {
+	var combined map[int]occRange
+	switch p.GroupKind {
+	case types.Sequence, types.AllGroup:
+		combined = b.mergeChildRangesSequentially(p.Children)
+	case types.Choice:
+		combined = b.mergeChildRangesAsChoice(p.Children)
+	default:
+		combined = b.mergeChildRangesSequentially(p.Children)
+	}
+	return applyGroupOccursInPlace(combined, p.MinOccurs, p.MaxOccurs)
+}
+
+func (b *Builder) mergeChildRangesSequentially(children []*ParticleAdapter) map[int]occRange {
+	combined := b.getRangeMap()
+	for _, child := range children {
+		childRanges := b.symbolBoundsForParticle(child)
+		if childRanges == nil {
+			continue
+		}
+		mergeSequenceRanges(combined, childRanges)
+		b.putRangeMap(childRanges)
+	}
+	return combined
+}
+
+func (b *Builder) mergeChildRangesAsChoice(children []*ParticleAdapter) map[int]occRange {
+	combined := b.getRangeMap()
+	counts := b.getCountMap()
+	childCount := 0
+	for _, child := range children {
+		childCount++
+		childRanges := b.symbolBoundsForParticle(child)
+		if childRanges == nil {
+			continue
+		}
+		mergeChoiceRanges(combined, counts, childRanges)
+		b.putRangeMap(childRanges)
+	}
+	finalizeChoiceRanges(combined, counts, childCount)
+	b.putCountMap(counts)
+	return combined
 }
 
 func (b *Builder) symbolIndexForParticle(p *ParticleAdapter) (int, bool) {

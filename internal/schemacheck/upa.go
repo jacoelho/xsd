@@ -199,64 +199,16 @@ func checkSequenceUPAViolationWithVisitedAndContext(schema *parser.Schema, p1, p
 	// between elements in p1 and p2, regardless of whether they overlap.
 	// per XSD 1.0 spec, UPA is about whether an incoming element can be uniquely
 	// attributed to a particle - a required separator provides this uniqueness.
-	if parentParticles != nil && i >= 0 && j >= 0 && i < j {
-		hasRequiredSeparator := false
-		for k := i + 1; k < j; k++ {
-			if k < len(parentParticles) {
-				separator := parentParticles[k]
-				if separator.MinOcc() > 0 {
-					hasRequiredSeparator = true
-					break
-				}
-			}
-		}
-		// if there's a required separator and p1 cannot repeat unboundedly to consume
-		// elements past the separator, there's no UPA violation.
-		// the separator creates a deterministic boundary: elements before the separator
-		// belong to p1, the separator itself is matched, and elements after belong to p2.
-		if hasRequiredSeparator {
-			// only check for overlap issues if p1 can repeat past the separator.
-			// if p1 has maxOccurs=1 (or finite), it can't "steal" elements from p2.
-			p1MaxOcc := p1.MaxOcc()
-			if p1MaxOcc != types.UnboundedOccurs && p1MaxOcc <= 1 {
-				// p1 cannot repeat - separator prevents any UPA violation
-				return nil
-			}
-			// p1 can repeat - need to check if its last particles could overlap with the separator
-			// or with p2's first particles, creating ambiguity
-			// for now, be lenient: if there's a separator and p1 doesn't have unbounded
-			// repeating elements that could consume the separator, we're safe
-			lastParticles := collectPossibleLastLeafParticles(p1, make(map[*types.ModelGroup]bool))
-			separatorSafe := true
-			for k := i + 1; k < j && separatorSafe; k++ {
-				if k < len(parentParticles) {
-					sep := parentParticles[k]
-					if sep.MinOcc() > 0 {
-						// check if any last particle of p1 could match the separator
-						for _, last := range lastParticles {
-							if err := checkUPAViolationWithVisited(schema, last, sep, targetNS, make(map[*types.ModelGroup]bool)); err != nil {
-								// last particle overlaps with separator - could be ambiguous
-								separatorSafe = false
-								break
-							}
-						}
-						break
-					}
-				}
-			}
-			if separatorSafe {
-				return nil
-			}
+	if separator := findRequiredSeparator(parentParticles, i, j); separator != nil {
+		if sequenceSeparatorDisambiguates(schema, p1, separator, targetNS) {
+			return nil
 		}
 	}
-	if elem1, ok1 := p1.(*types.ElementDecl); ok1 {
-		if elem2, ok2 := p2.(*types.ElementDecl); ok2 && elem1.Name == elem2.Name {
-			fixed := p1.MaxOcc() != types.UnboundedOccurs && p1.MinOcc() == p1.MaxOcc()
-			if p1.MinOcc() == 0 || ((p1.MaxOcc() > 1 || p1.MaxOcc() == types.UnboundedOccurs) && !fixed) {
-				return fmt.Errorf("duplicate element name '%s'", elem1.Name)
-			}
-		}
+
+	if err := checkSequenceDuplicateElementName(p1, p2); err != nil {
+		return err
 	}
+
 	// if p1 is optional, it can be skipped, so p2 may match the same element.
 	if p1.MinOcc() == 0 {
 		if err := checkUPAViolationWithVisited(schema, p1, p2, targetNS, visited); err != nil {
@@ -305,20 +257,70 @@ func checkSequenceUPAViolationWithVisitedAndContext(schema *parser.Schema, p1, p
 		}
 	}
 
+	if err := checkSequenceTailRepeats(schema, p1, p2, targetNS); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func findRequiredSeparator(parentParticles []types.Particle, i, j int) types.Particle {
+	if parentParticles == nil || i < 0 || j < 0 || i >= j {
+		return nil
+	}
+	for k := i + 1; k < j && k < len(parentParticles); k++ {
+		if parentParticles[k].MinOcc() > 0 {
+			return parentParticles[k]
+		}
+	}
+	return nil
+}
+
+func sequenceSeparatorDisambiguates(schema *parser.Schema, p1, separator types.Particle, targetNS types.NamespaceURI) bool {
+	p1MaxOcc := p1.MaxOcc()
+	if p1MaxOcc != types.UnboundedOccurs && p1MaxOcc <= 1 {
+		return true
+	}
+	lastParticles := collectPossibleLastLeafParticles(p1, make(map[*types.ModelGroup]bool))
+	for _, last := range lastParticles {
+		if err := checkUPAViolationWithVisited(schema, last, separator, targetNS, make(map[*types.ModelGroup]bool)); err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func checkSequenceDuplicateElementName(p1, p2 types.Particle) error {
+	elem1, ok1 := p1.(*types.ElementDecl)
+	if !ok1 {
+		return nil
+	}
+	elem2, ok2 := p2.(*types.ElementDecl)
+	if !ok2 || elem1.Name != elem2.Name {
+		return nil
+	}
+	fixed := p1.MaxOcc() != types.UnboundedOccurs && p1.MinOcc() == p1.MaxOcc()
+	if p1.MinOcc() == 0 || ((p1.MaxOcc() > 1 || p1.MaxOcc() == types.UnboundedOccurs) && !fixed) {
+		return fmt.Errorf("duplicate element name '%s'", elem1.Name)
+	}
+	return nil
+}
+
+func checkSequenceTailRepeats(schema *parser.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI) error {
 	// if p1 itself can't repeat, but its possible last particles can repeat, they can
 	// still overlap with p2 and cause ambiguity in the sequence.
-	if p1.MaxOcc() <= 1 {
-		lastParticles := collectPossibleLastLeafParticles(p1, make(map[*types.ModelGroup]bool))
-		for _, last := range lastParticles {
-			maxOcc := last.MaxOcc()
-			if maxOcc > 1 || maxOcc == types.UnboundedOccurs {
-				if err := checkUPAViolationWithVisited(schema, last, p2, targetNS, make(map[*types.ModelGroup]bool)); err != nil {
-					return fmt.Errorf("overlapping repeating particle at sequence end: %w", err)
-				}
+	if p1.MaxOcc() > 1 || p1.MaxOcc() == types.UnboundedOccurs {
+		return nil
+	}
+	lastParticles := collectPossibleLastLeafParticles(p1, make(map[*types.ModelGroup]bool))
+	for _, last := range lastParticles {
+		maxOcc := last.MaxOcc()
+		if maxOcc > 1 || maxOcc == types.UnboundedOccurs {
+			if err := checkUPAViolationWithVisited(schema, last, p2, targetNS, make(map[*types.ModelGroup]bool)); err != nil {
+				return fmt.Errorf("overlapping repeating particle at sequence end: %w", err)
 			}
 		}
 	}
-
 	return nil
 }
 

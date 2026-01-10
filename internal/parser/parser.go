@@ -218,13 +218,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		case "annotation":
 			// allowed at top-level; nothing to parse.
 		case "import":
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "import", schema); err != nil {
-					return nil, err
-				}
-			}
-			if err := validateOnlyAnnotationChildren(doc, child, "import"); err != nil {
+			if err := validateElementConstraints(doc, child, "import", schema); err != nil {
 				return nil, err
 			}
 			importInfo := ImportInfo{
@@ -233,13 +227,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 			}
 			result.Imports = append(result.Imports, importInfo)
 		case "include":
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "include", schema); err != nil {
-					return nil, err
-				}
-			}
-			if err := validateOnlyAnnotationChildren(doc, child, "include"); err != nil {
+			if err := validateElementConstraints(doc, child, "include", schema); err != nil {
 				return nil, err
 			}
 			includeInfo := IncludeInfo{

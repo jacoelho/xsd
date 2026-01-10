@@ -23,7 +23,7 @@ func TestResolveLocationAndGetLoaded(t *testing.T) {
 		t.Fatalf("expected base path join, got %q", rel)
 	}
 
-	loader.loaded[rel] = schema
+	loader.state.loaded[rel] = schema
 	loaded, ok := loader.GetLoaded("a/b.xsd")
 	if !ok || loaded != schema {
 		t.Fatalf("expected GetLoaded to return cached schema")
