@@ -28,13 +28,26 @@ func (r *validationRun) checkComplexTypeFacets(text string, ct *grammar.Compiled
 	return violations
 }
 
+// shouldSkipLengthFacet returns true when length facets do not apply to a type.
+// QName and NOTATION do not have a meaningful character-length value space.
 func shouldSkipLengthFacet(ct *grammar.CompiledType, facet types.Facet) bool {
-	if ct == nil || ct.ItemType != nil {
+	if ct == nil {
 		return false
 	}
 	if !isLengthFacet(facet) {
 		return false
 	}
+	if ct.ItemType != nil {
+		return false
+	}
+	return isQNameOrNotationDerived(ct)
+}
+
+func isQNameOrNotation(name types.QName) bool {
+	return name.Local == string(types.TypeNameQName) || name.Local == string(types.TypeNameNOTATION)
+}
+
+func isQNameOrNotationDerived(ct *grammar.CompiledType) bool {
 	if ct.IsNotationType {
 		return true
 	}
@@ -52,10 +65,6 @@ func shouldSkipLengthFacet(ct *grammar.CompiledType, facet types.Facet) bool {
 		}
 	}
 	return false
-}
-
-func isQNameOrNotation(name types.QName) bool {
-	return name.Local == string(types.TypeNameQName) || name.Local == string(types.TypeNameNOTATION)
 }
 
 func typedValueForFacets(value string, typ types.Type, facetList []types.Facet) types.TypedValue {

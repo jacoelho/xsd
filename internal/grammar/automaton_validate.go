@@ -250,92 +250,130 @@ func (a *Automaton) validateSymbolCounts(symbolCounts []int, childCount int) err
 	return nil
 }
 
+type validationState struct {
+	currentState int
+	symbolCounts []int
+	groups       groupCounterState
+}
+
 // ValidateWithMatches validates children and returns match results for each child.
 // This allows the caller to determine how each child was matched (element vs wildcard).
 func (a *Automaton) ValidateWithMatches(doc *xsdxml.Document, children []xsdxml.NodeID, matcher SymbolMatcher, wildcards []*types.AnyElement) ([]MatchResult, error) {
 	matches := make([]MatchResult, len(children))
 
-	if len(children) == 0 {
-		if a.emptyOK {
-			return matches, nil
+	if done, err := a.validateEmptyContent(len(children)); done {
+		if err != nil {
+			return nil, err
 		}
-		return nil, &ValidationError{Index: 0, Message: "content required but none found", SubCode: ErrorCodeMissing}
+		return matches, nil
 	}
 
-	state := 0
-	symbolCounts := make([]int, len(a.symbols))
-	var groupState groupCounterState
-	groupState.reset(a.groupCount)
+	state := a.initValidationState()
 
 	for i, child := range children {
-		qname := types.QName{
-			Namespace: types.NamespaceURI(doc.NamespaceURI(child)),
-			Local:     doc.LocalName(child),
-		}
-
-		symIdx, isWildcard, next := a.findBestMatchQName(qname, state, matcher)
-
-		if symIdx < 0 {
-			// element is not part of the content model at all - not allowed (.d)
-			return nil, &ValidationError{
-				Index:   i,
-				Message: fmt.Sprintf("element %q not allowed", doc.LocalName(child)),
-				SubCode: ErrorCodeNotExpectedHere,
-			}
-		}
-
-		matches[i].IsWildcard = isWildcard
-		if isWildcard && len(wildcards) > 0 {
-			matches[i].ProcessContents = a.findWildcardProcessContentsQName(qname, wildcards)
-		} else if !isWildcard && inBounds(symIdx, len(a.symbols)) {
-			matches[i].MatchedQName = a.symbols[symIdx].QName
-			matches[i].MatchedElement = a.matchedElement(state, symIdx)
-		}
-
-		if next < 0 {
-			// element IS in the model but no valid transition exists
-			// if we're in an accepting state, this is extra content (.d)
-			// otherwise, a required element is missing before this one (.b)
-			isAccepting := (state < len(a.accepting) && a.accepting[state]) ||
-				(state == 0 && a.emptyOK)
-			if isAccepting {
-				return nil, &ValidationError{
-					Index:   i,
-					Message: fmt.Sprintf("element %q not expected here", doc.LocalName(child)),
-					SubCode: ErrorCodeNotExpectedHere,
-				}
-			}
-			return nil, &ValidationError{
-				Index:   i,
-				Message: fmt.Sprintf("element %q not expected here", doc.LocalName(child)),
-				SubCode: ErrorCodeMissing,
-			}
-		}
-
-		if err := a.handleGroupCounters(state, next, symIdx, i, &groupState); err != nil {
+		if err := a.processChild(doc, child, i, matcher, wildcards, state, &matches[i]); err != nil {
 			return nil, err
 		}
-
-		if err := a.handleElementCounter(state, next, symIdx, i, symbolCounts, doc.LocalName(child)); err != nil {
-			return nil, err
-		}
-
-		state = next
 	}
 
-	if !a.accepting[state] {
-		return nil, &ValidationError{
-			Index:   len(children),
+	if err := a.validateEndState(state, len(children)); err != nil {
+		return nil, err
+	}
+	return matches, nil
+}
+
+func (a *Automaton) validateEmptyContent(childCount int) (bool, error) {
+	if childCount > 0 {
+		return false, nil
+	}
+	if a.emptyOK {
+		return true, nil
+	}
+	return true, &ValidationError{Index: 0, Message: "content required but none found", SubCode: ErrorCodeMissing}
+}
+
+func (a *Automaton) initValidationState() *validationState {
+	state := &validationState{
+		currentState: 0,
+		symbolCounts: make([]int, len(a.symbols)),
+	}
+	state.groups.reset(a.groupCount)
+	return state
+}
+
+func (a *Automaton) processChild(doc *xsdxml.Document, child xsdxml.NodeID, childIdx int, matcher SymbolMatcher, wildcards []*types.AnyElement, state *validationState, match *MatchResult) error {
+	qname := types.QName{
+		Namespace: types.NamespaceURI(doc.NamespaceURI(child)),
+		Local:     doc.LocalName(child),
+	}
+
+	symIdx, isWildcard, nextState := a.findBestMatchQName(qname, state.currentState, matcher)
+	if symIdx < 0 {
+		return a.elementNotAllowedError(doc.LocalName(child), childIdx)
+	}
+
+	a.recordMatch(match, symIdx, isWildcard, qname, state.currentState, wildcards)
+
+	if nextState < 0 {
+		return a.noValidTransitionError(doc.LocalName(child), childIdx, state.currentState)
+	}
+
+	if err := a.handleGroupCounters(state.currentState, nextState, symIdx, childIdx, &state.groups); err != nil {
+		return err
+	}
+	if err := a.handleElementCounter(state.currentState, nextState, symIdx, childIdx, state.symbolCounts, doc.LocalName(child)); err != nil {
+		return err
+	}
+	state.currentState = nextState
+	return nil
+}
+
+func (a *Automaton) recordMatch(match *MatchResult, symIdx int, isWildcard bool, qname types.QName, state int, wildcards []*types.AnyElement) {
+	match.IsWildcard = isWildcard
+	if isWildcard && len(wildcards) > 0 {
+		match.ProcessContents = a.findWildcardProcessContentsQName(qname, wildcards)
+		return
+	}
+	if !isWildcard && inBounds(symIdx, len(a.symbols)) {
+		match.MatchedQName = a.symbols[symIdx].QName
+		match.MatchedElement = a.matchedElement(state, symIdx)
+	}
+}
+
+func (a *Automaton) elementNotAllowedError(localName string, childIdx int) error {
+	return &ValidationError{
+		Index:   childIdx,
+		Message: fmt.Sprintf("element %q not allowed", localName),
+		SubCode: ErrorCodeNotExpectedHere,
+	}
+}
+
+func (a *Automaton) noValidTransitionError(localName string, childIdx int, state int) error {
+	isAccepting := (state < len(a.accepting) && a.accepting[state]) ||
+		(state == 0 && a.emptyOK)
+	if isAccepting {
+		return &ValidationError{
+			Index:   childIdx,
+			Message: fmt.Sprintf("element %q not expected here", localName),
+			SubCode: ErrorCodeNotExpectedHere,
+		}
+	}
+	return &ValidationError{
+		Index:   childIdx,
+		Message: fmt.Sprintf("element %q not expected here", localName),
+		SubCode: ErrorCodeMissing,
+	}
+}
+
+func (a *Automaton) validateEndState(state *validationState, childCount int) error {
+	if !a.accepting[state.currentState] {
+		return &ValidationError{
+			Index:   childCount,
 			Message: "content incomplete: required elements missing",
 			SubCode: ErrorCodeMissing,
 		}
 	}
-
-	if err := a.validateFinalCounts(symbolCounts, &groupState, len(children)); err != nil {
-		return nil, err
-	}
-
-	return matches, nil
+	return a.validateFinalCounts(state.symbolCounts, &state.groups, childCount)
 }
 
 // findBestMatchQName finds the best matching symbol for an element at the given state.
@@ -345,55 +383,73 @@ func (a *Automaton) findBestMatchQName(qname types.QName, state int, matcher Sym
 	var candidatesBuf [8]symbolCandidate
 	candidates := candidatesBuf[:0]
 
-	for i, sym := range a.symbols {
-		if sym.Kind == KindElement && sym.QName.Equal(qname) {
-			candidates = append(candidates, symbolCandidate{i, false})
-		}
-	}
-
-	if matcher != nil {
-		for i, sym := range a.symbols {
-			if sym.Kind == KindElement && sym.AllowSubstitution && matcher.IsSubstitutable(qname, sym.QName) {
-				candidates = append(candidates, symbolCandidate{i, false})
-			}
-		}
-	}
-
-	for i, sym := range a.symbols {
-		switch sym.Kind {
-		case KindAny:
-			candidates = append(candidates, symbolCandidate{i, true})
-		case KindAnyNS:
-			if string(qname.Namespace) == sym.NS {
-				candidates = append(candidates, symbolCandidate{i, true})
-			}
-		case KindAnyOther:
-			// ##other matches any namespace other than target namespace AND not empty
-			elemNS := string(qname.Namespace)
-			if elemNS != sym.NS && elemNS != "" {
-				candidates = append(candidates, symbolCandidate{i, true})
-			}
-		case KindAnyNSList:
-			if slices.Contains(sym.NSList, qname.Namespace) {
-				candidates = append(candidates, symbolCandidate{i, true})
-			}
-		}
-	}
+	candidates = a.collectExactMatches(qname, candidates)
+	candidates = a.collectSubstitutionMatches(qname, matcher, candidates)
+	candidates = a.collectWildcardMatches(qname, candidates)
 
 	if len(candidates) == 0 {
 		return -1, false, -1
 	}
 
-	// try to find a candidate with a valid transition
+	return a.selectBestCandidate(candidates, state)
+}
+
+func (a *Automaton) collectExactMatches(qname types.QName, candidates []symbolCandidate) []symbolCandidate {
+	for i, sym := range a.symbols {
+		if sym.Kind == KindElement && sym.QName.Equal(qname) {
+			candidates = append(candidates, symbolCandidate{i, false})
+		}
+	}
+	return candidates
+}
+
+func (a *Automaton) collectSubstitutionMatches(qname types.QName, matcher SymbolMatcher, candidates []symbolCandidate) []symbolCandidate {
+	if matcher == nil {
+		return candidates
+	}
+	for i, sym := range a.symbols {
+		if sym.Kind == KindElement && sym.AllowSubstitution && matcher.IsSubstitutable(qname, sym.QName) {
+			candidates = append(candidates, symbolCandidate{i, false})
+		}
+	}
+	return candidates
+}
+
+func (a *Automaton) collectWildcardMatches(qname types.QName, candidates []symbolCandidate) []symbolCandidate {
+	for i, sym := range a.symbols {
+		if a.wildcardMatches(sym, qname) {
+			candidates = append(candidates, symbolCandidate{i, true})
+		}
+	}
+	return candidates
+}
+
+func (a *Automaton) wildcardMatches(sym Symbol, qname types.QName) bool {
+	switch sym.Kind {
+	case KindAny:
+		return true
+	case KindAnyNS:
+		return string(qname.Namespace) == sym.NS
+	case KindAnyOther:
+		// ##other matches any namespace other than target namespace AND not empty
+		elemNS := string(qname.Namespace)
+		return elemNS != sym.NS && elemNS != ""
+	case KindAnyNSList:
+		return slices.Contains(sym.NSList, qname.Namespace)
+	default:
+		return false
+	}
+}
+
+func (a *Automaton) selectBestCandidate(candidates []symbolCandidate, state int) (symIdx int, isWildcard bool, next int) {
 	for _, c := range candidates {
 		nextState := a.transition(state, c.idx)
 		if nextState >= 0 {
 			return c.idx, c.isWildcard, nextState
 		}
 	}
-
-	// no valid transition, return the first candidate (for error reporting)
-	return candidates[0].idx, candidates[0].isWildcard, a.transition(state, candidates[0].idx)
+	first := candidates[0]
+	return first.idx, first.isWildcard, a.transition(state, first.idx)
 }
 
 func (a *Automaton) matchedElement(state, symIdx int) *CompiledElement {

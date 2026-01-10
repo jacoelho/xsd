@@ -98,69 +98,101 @@ func (r *Resolver) resolveSimpleType(qname types.QName, st *types.SimpleType) er
 }
 
 func (r *Resolver) doResolveSimpleType(qname types.QName, st *types.SimpleType) error {
+	if err := r.resolveSimpleTypeRestriction(qname, st); err != nil {
+		return err
+	}
+	if err := r.resolveSimpleTypeList(qname, st); err != nil {
+		return err
+	}
+	if err := r.resolveSimpleTypeUnion(qname, st); err != nil {
+		return err
+	}
+	return nil
+}
 
-	if st.Restriction != nil && !st.Restriction.Base.IsZero() {
-		base, err := r.lookupType(st.Restriction.Base, st.QName)
+func (r *Resolver) resolveSimpleTypeRestriction(qname types.QName, st *types.SimpleType) error {
+	if st.Restriction == nil || st.Restriction.Base.IsZero() {
+		return nil
+	}
+	base, err := r.lookupType(st.Restriction.Base, st.QName)
+	if err != nil {
+		return fmt.Errorf("type %s: %w", qname, err)
+	}
+	st.ResolvedBase = base
+	if baseST, ok := base.(*types.SimpleType); ok {
+		if baseST.Variety() == types.ListVariety || baseST.Variety() == types.UnionVariety {
+			st.SetVariety(baseST.Variety())
+		}
+	}
+	// inherit whiteSpace from base type if not explicitly set
+	if st.WhiteSpace() == types.WhiteSpacePreserve && base != nil {
+		st.SetWhiteSpace(base.WhiteSpace())
+	}
+	return nil
+}
+
+func (r *Resolver) resolveSimpleTypeList(qname types.QName, st *types.SimpleType) error {
+	if st.List == nil || st.List.ItemType.IsZero() {
+		return nil
+	}
+	item, err := r.lookupType(st.List.ItemType, st.QName)
+	if err != nil {
+		if allowMissingTypeReference(r.schema, st.List.ItemType) {
+			st.ItemType = &types.SimpleType{QName: st.List.ItemType}
+			return nil
+		}
+		return fmt.Errorf("type %s list item: %w", qname, err)
+	}
+	st.ItemType = item
+	return nil
+}
+
+func (r *Resolver) resolveSimpleTypeUnion(qname types.QName, st *types.SimpleType) error {
+	if st.Union == nil {
+		return nil
+	}
+	if err := r.resolveUnionNamedMembers(qname, st); err != nil {
+		return err
+	}
+	if err := r.resolveUnionInlineMembers(qname, st); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Resolver) resolveUnionNamedMembers(qname types.QName, st *types.SimpleType) error {
+	if len(st.Union.MemberTypes) == 0 {
+		return nil
+	}
+	st.MemberTypes = make([]types.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
+	for i, memberQName := range st.Union.MemberTypes {
+		member, err := r.lookupType(memberQName, st.QName)
 		if err != nil {
-			return fmt.Errorf("type %s: %w", qname, err)
-		}
-		st.ResolvedBase = base
-		if baseST, ok := base.(*types.SimpleType); ok {
-			if baseST.Variety() == types.ListVariety || baseST.Variety() == types.UnionVariety {
-				st.SetVariety(baseST.Variety())
+			if allowMissingTypeReference(r.schema, memberQName) {
+				st.MemberTypes = append(st.MemberTypes, &types.SimpleType{QName: memberQName})
+				continue
 			}
+			return fmt.Errorf("type %s union member %d: %w", qname, i, err)
 		}
-		// inherit whiteSpace from base type if not explicitly set
-		if st.WhiteSpace() == types.WhiteSpacePreserve && base != nil {
-			st.SetWhiteSpace(base.WhiteSpace())
-		}
+		st.MemberTypes = append(st.MemberTypes, member)
 	}
+	return nil
+}
 
-	if st.List != nil && !st.List.ItemType.IsZero() {
-		item, err := r.lookupType(st.List.ItemType, st.QName)
-		if err != nil {
-			if allowMissingTypeReference(r.schema, st.List.ItemType) {
-				st.ItemType = &types.SimpleType{QName: st.List.ItemType}
-			} else {
-				return fmt.Errorf("type %s list item: %w", qname, err)
-			}
-		} else {
-			st.ItemType = item
-		}
+func (r *Resolver) resolveUnionInlineMembers(qname types.QName, st *types.SimpleType) error {
+	if len(st.Union.InlineTypes) == 0 {
+		return nil
 	}
-
-	if st.Union != nil {
-		// first add QName-referenced member types
-		if len(st.Union.MemberTypes) > 0 {
-			st.MemberTypes = make([]types.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
-			for i, memberQName := range st.Union.MemberTypes {
-				member, err := r.lookupType(memberQName, st.QName)
-				if err != nil {
-					if allowMissingTypeReference(r.schema, memberQName) {
-						st.MemberTypes = append(st.MemberTypes, &types.SimpleType{QName: memberQName})
-						continue
-					}
-					return fmt.Errorf("type %s union member %d: %w", qname, i, err)
-				}
-				st.MemberTypes = append(st.MemberTypes, member)
-			}
-		}
-
-		// then add inline member types
-		if len(st.Union.InlineTypes) > 0 {
-			if st.MemberTypes == nil {
-				st.MemberTypes = make([]types.Type, 0, len(st.Union.InlineTypes))
-			}
-			for i, inlineType := range st.Union.InlineTypes {
-				// resolve inline type if it has restrictions
-				if err := r.resolveSimpleType(inlineType.QName, inlineType); err != nil {
-					return fmt.Errorf("type %s union inline member %d: %w", qname, i, err)
-				}
-				st.MemberTypes = append(st.MemberTypes, inlineType)
-			}
-		}
+	if st.MemberTypes == nil {
+		st.MemberTypes = make([]types.Type, 0, len(st.Union.InlineTypes))
 	}
-
+	for i, inlineType := range st.Union.InlineTypes {
+		// resolve inline type if it has restrictions
+		if err := r.resolveSimpleType(inlineType.QName, inlineType); err != nil {
+			return fmt.Errorf("type %s union inline member %d: %w", qname, i, err)
+		}
+		st.MemberTypes = append(st.MemberTypes, inlineType)
+	}
 	return nil
 }
 

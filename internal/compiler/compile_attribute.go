@@ -41,54 +41,34 @@ func (c *Compiler) mergeAttributes(ct *types.ComplexType, chain []*grammar.Compi
 // the {attribute uses} property of the complex type. The XSD 1.0 W3C tests treat
 // use="prohibited" with fixed as a valid use, so we keep those for schemacheck.
 func (c *Compiler) collectAttributesFromComplexType(ct *types.ComplexType, attrMap map[types.QName]*grammar.CompiledAttribute) {
-	// 1. Direct attributes on the type
-	for _, attr := range ct.Attributes() {
+	c.collectAttributes(ct.Attributes(), ct.AttrGroups, attrMap, false)
+
+	// 3. Check content for extension/restriction attributes
+	content := ct.Content()
+	if ext := content.ExtensionDef(); ext != nil {
+		c.collectAttributes(ext.Attributes, ext.AttrGroups, attrMap, false)
+	}
+	if restr := content.RestrictionDef(); restr != nil {
+		c.collectAttributes(restr.Attributes, restr.AttrGroups, attrMap, true)
+	}
+}
+
+func (c *Compiler) collectAttributes(attrs []*types.AttributeDecl, attrGroups []types.QName, attrMap map[types.QName]*grammar.CompiledAttribute, isRestriction bool) {
+	for _, attr := range attrs {
 		if !shouldIncludeAttribute(attr) {
+			if isRestriction {
+				delete(attrMap, c.effectiveAttributeQName(attr))
+			}
 			continue
 		}
 		c.addCompiledAttribute(attr, attrMap)
 	}
 
-	// 2. Expand top-level attribute groups
-	for _, agRef := range ct.AttrGroups {
+	for _, agRef := range attrGroups {
 		if ag, ok := c.schema.AttributeGroups[agRef]; ok {
 			c.mergeAttributesFromGroup(ag, attrMap)
 		}
 	}
-
-	// 3. Check content for extension/restriction attributes
-	content := ct.Content()
-	if ext := content.ExtensionDef(); ext != nil {
-		for _, attr := range ext.Attributes {
-			if !shouldIncludeAttribute(attr) {
-				continue
-			}
-			c.addCompiledAttribute(attr, attrMap)
-		}
-		for _, agRef := range ext.AttrGroups {
-			if ag, ok := c.schema.AttributeGroups[agRef]; ok {
-				c.mergeAttributesFromGroup(ag, attrMap)
-			}
-		}
-	}
-	if restr := content.RestrictionDef(); restr != nil {
-		for _, attr := range restr.Attributes {
-			if !shouldIncludeAttribute(attr) {
-				c.removeCompiledAttribute(attr, attrMap)
-				continue
-			}
-			c.addCompiledAttribute(attr, attrMap)
-		}
-		for _, agRef := range restr.AttrGroups {
-			if ag, ok := c.schema.AttributeGroups[agRef]; ok {
-				c.mergeAttributesFromGroup(ag, attrMap)
-			}
-		}
-	}
-}
-
-func (c *Compiler) removeCompiledAttribute(attr *types.AttributeDecl, attrMap map[types.QName]*grammar.CompiledAttribute) {
-	delete(attrMap, c.effectiveAttributeQName(attr))
 }
 
 // addCompiledAttribute adds a single attribute to the map
@@ -207,96 +187,110 @@ func (c *Compiler) mergeAnyAttribute(chain []*grammar.CompiledType) *types.AnyAt
 	// for restriction: derived type's anyAttribute replaces base's (no inheritance)
 	// within a single type, anyAttribute from the type and attribute groups are intersected
 	// process from derived (first) to base (last) in chain
-
-	if len(chain) == 0 {
+	derivedCT, typeAnyAttrs := c.extractDerivedWildcards(chain)
+	if derivedCT == nil {
 		return nil
 	}
 
-	// process the most derived type first
+	switch c.getDerivationKind(derivedCT) {
+	case restrictionDerivation:
+		return c.mergeAnyAttributeRestriction(typeAnyAttrs)
+	case extensionDerivation:
+		return c.mergeAnyAttributeExtension(typeAnyAttrs, chain)
+	default:
+		return c.mergeAnyAttributeFallback(typeAnyAttrs, chain)
+	}
+}
+
+type derivationKind int
+
+const (
+	unknownDerivation derivationKind = iota
+	restrictionDerivation
+	extensionDerivation
+)
+
+func (c *Compiler) extractDerivedWildcards(chain []*grammar.CompiledType) (*types.ComplexType, []*types.AnyAttribute) {
+	if len(chain) == 0 {
+		return nil, nil
+	}
 	derivedCT := chain[0]
 	if derivedCT.Kind != grammar.TypeKindComplex {
-		return nil
+		return nil, nil
 	}
 	origCT, ok := derivedCT.Original.(*types.ComplexType)
 	if !ok {
+		return nil, nil
+	}
+	return origCT, c.collectTypeAnyAttributes(origCT)
+}
+
+func (c *Compiler) getDerivationKind(ct *types.ComplexType) derivationKind {
+	if cc, ok := ct.Content().(*types.ComplexContent); ok {
+		if cc.Restriction != nil {
+			return restrictionDerivation
+		}
+		if cc.Extension != nil {
+			return extensionDerivation
+		}
+	}
+	if sc, ok := ct.Content().(*types.SimpleContent); ok {
+		if sc.Restriction != nil {
+			return restrictionDerivation
+		}
+		if sc.Extension != nil {
+			return extensionDerivation
+		}
+	}
+	return unknownDerivation
+}
+
+func (c *Compiler) mergeAnyAttributeRestriction(typeAnyAttrs []*types.AnyAttribute) *types.AnyAttribute {
+	if len(typeAnyAttrs) == 0 {
 		return nil
 	}
+	return c.intersectWildcards(typeAnyAttrs)
+}
 
-	// collect anyAttributes for the derived type (to be intersected within type)
-	typeAnyAttrs := c.collectTypeAnyAttributes(origCT)
-
-	// determine if this is an extension or restriction
-	isExtension := false
-	isRestriction := false
-	if cc, ok := origCT.Content().(*types.ComplexContent); ok {
-		if cc.Extension != nil {
-			isExtension = true
-		}
-		if cc.Restriction != nil {
-			isRestriction = true
-		}
+func (c *Compiler) mergeAnyAttributeExtension(typeAnyAttrs []*types.AnyAttribute, chain []*grammar.CompiledType) *types.AnyAttribute {
+	derivedWildcard := c.intersectWildcards(typeAnyAttrs)
+	baseWildcard := c.mergeAnyAttributeBase(chain)
+	if derivedWildcard == nil {
+		return baseWildcard
 	}
-	if sc, ok := origCT.Content().(*types.SimpleContent); ok {
-		if sc.Extension != nil {
-			isExtension = true
-		}
-		if sc.Restriction != nil {
-			isRestriction = true
-		}
+	if baseWildcard == nil {
+		return derivedWildcard
 	}
+	return types.UnionAnyAttribute(derivedWildcard, baseWildcard)
+}
 
-	// for restriction: ONLY use derived type's anyAttribute (don't inherit from base)
-	// if restriction has no anyAttribute, the wildcard is removed entirely
-	if isRestriction {
-		if len(typeAnyAttrs) == 0 {
-			return nil // restriction with no anyAttribute removes the wildcard
-		}
-		// intersect wildcards within this type
-		result := typeAnyAttrs[0]
-		for i := 1; i < len(typeAnyAttrs); i++ {
-			result = types.IntersectAnyAttribute(result, typeAnyAttrs[i])
-			if result == nil {
-				return nil
-			}
-		}
-		return result
-	}
-
-	// for extension: union with base type's anyAttribute
-	// recursively get base type's anyAttribute
-	var baseWildcard *types.AnyAttribute
-	if len(chain) > 1 {
-		baseWildcard = c.mergeAnyAttribute(chain[1:])
-	}
-
-	// intersect wildcards within this derived type
-	var derivedWildcard *types.AnyAttribute
-	if len(typeAnyAttrs) > 0 {
-		derivedWildcard = typeAnyAttrs[0]
-		for i := 1; i < len(typeAnyAttrs); i++ {
-			derivedWildcard = types.IntersectAnyAttribute(derivedWildcard, typeAnyAttrs[i])
-			if derivedWildcard == nil {
-				break
-			}
-		}
-	}
-
-	// for extension: union derived with base
-	if isExtension {
-		if derivedWildcard == nil {
-			return baseWildcard
-		}
-		if baseWildcard == nil {
-			return derivedWildcard
-		}
-		return types.UnionAnyAttribute(derivedWildcard, baseWildcard)
-	}
-
-	// not extension or restriction (top-level type with no derivation)
+func (c *Compiler) mergeAnyAttributeFallback(typeAnyAttrs []*types.AnyAttribute, chain []*grammar.CompiledType) *types.AnyAttribute {
+	derivedWildcard := c.intersectWildcards(typeAnyAttrs)
 	if derivedWildcard != nil {
 		return derivedWildcard
 	}
-	return baseWildcard
+	return c.mergeAnyAttributeBase(chain)
+}
+
+func (c *Compiler) mergeAnyAttributeBase(chain []*grammar.CompiledType) *types.AnyAttribute {
+	if len(chain) <= 1 {
+		return nil
+	}
+	return c.mergeAnyAttribute(chain[1:])
+}
+
+func (c *Compiler) intersectWildcards(wildcards []*types.AnyAttribute) *types.AnyAttribute {
+	if len(wildcards) == 0 {
+		return nil
+	}
+	result := wildcards[0]
+	for i := 1; i < len(wildcards); i++ {
+		result = types.IntersectAnyAttribute(result, wildcards[i])
+		if result == nil {
+			return nil
+		}
+	}
+	return result
 }
 
 func (c *Compiler) collectTypeAnyAttributes(ct *types.ComplexType) []*types.AnyAttribute {
