@@ -42,8 +42,8 @@ func resolveTypeReference(schema *parser.Schema, typ types.Type, allowMissing bo
 	if st, ok := typ.(*types.SimpleType); ok {
 		// check if it's a placeholder: not builtin, has QName, but no Restriction/List/Union
 		if !st.IsBuiltin() && st.Restriction == nil && st.List == nil && st.Union == nil {
-			// this is a placeholder - resolve from schema.TypeDefs
-			if resolvedType, ok := schema.TypeDefs[st.QName]; ok {
+			// this is a placeholder - resolve from schema type definitions
+			if resolvedType, ok := lookupTypeDef(schema, st.QName); ok {
 				return resolvedType
 			}
 			if allowMissing {

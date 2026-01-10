@@ -72,6 +72,25 @@ type symbolCandidate struct {
 	isWildcard bool
 }
 
+func inBounds(idx, length int) bool {
+	return idx >= 0 && idx < length
+}
+
+func symbolCountExceeded(symIdx int, counts []int, max int) bool {
+	return max >= 0 && inBounds(symIdx, len(counts)) && counts[symIdx] > max
+}
+
+func symbolCount(counts []int, symIdx int) int {
+	if !inBounds(symIdx, len(counts)) {
+		return 0
+	}
+	return counts[symIdx]
+}
+
+func hasGroupCounters(a *Automaton, groups *groupCounterState) bool {
+	return a != nil && a.groupCount > 0 && groups != nil
+}
+
 // Validate checks that children satisfy the content model.
 // Returns nil if valid, or a ValidationError describing the first violation.
 // Runs in O(n) time with no backtracking.
@@ -147,14 +166,14 @@ func (a *Automaton) handleGroupCounters(state, next, symIdx, childIdx int, group
 // handleElementCounter processes element occurrence counting for the current match.
 // Returns an error if maxOccurs is exceeded.
 func (a *Automaton) handleElementCounter(state, next, symIdx, childIdx int, symbolCounts []int, childName string) error {
-	if symIdx >= 0 && symIdx < len(symbolCounts) {
+	if inBounds(symIdx, len(symbolCounts)) {
 		symbolCounts[symIdx]++
 	}
 	max := types.UnboundedOccurs
-	if symIdx >= 0 && symIdx < len(a.symbolMax) {
+	if inBounds(symIdx, len(a.symbolMax)) {
 		max = a.symbolMax[symIdx]
 	}
-	if symIdx >= 0 && symIdx < len(symbolCounts) && max >= 0 && symbolCounts[symIdx] > max {
+	if symbolCountExceeded(symIdx, symbolCounts, max) {
 		return &ValidationError{
 			Index:   childIdx,
 			Message: fmt.Sprintf("element %q exceeds maxOccurs=%d", childName, max),
@@ -166,7 +185,7 @@ func (a *Automaton) handleElementCounter(state, next, symIdx, childIdx int, symb
 
 // validateFinalCounts checks all counters satisfy minOccurs at end of schemacheck.
 func (a *Automaton) validateFinalCounts(symbolCounts []int, groups *groupCounterState, childCount int) error {
-	if a != nil && a.groupCount > 0 && groups != nil {
+	if hasGroupCounters(a, groups) {
 		clear(groups.checked)
 		for stateID, c := range a.counting {
 			if c == nil || !c.IsGroupCounter {
@@ -197,10 +216,7 @@ func (a *Automaton) validateFinalCounts(symbolCounts []int, groups *groupCounter
 		if min <= 0 {
 			continue
 		}
-		count := 0
-		if symIdx >= 0 && symIdx < len(symbolCounts) {
-			count = symbolCounts[symIdx]
-		}
+		count := symbolCount(symbolCounts, symIdx)
 		if count < min {
 			return &ValidationError{
 				Index:   childCount,
@@ -249,7 +265,7 @@ func (a *Automaton) ValidateWithMatches(doc *xsdxml.Document, children []xsdxml.
 		matches[i].IsWildcard = isWildcard
 		if isWildcard && len(wildcards) > 0 {
 			matches[i].ProcessContents = a.findWildcardProcessContentsQName(qname, wildcards)
-		} else if !isWildcard && symIdx >= 0 && symIdx < len(a.symbols) {
+		} else if !isWildcard && inBounds(symIdx, len(a.symbols)) {
 			matches[i].MatchedQName = a.symbols[symIdx].QName
 			matches[i].MatchedElement = a.matchedElement(state, symIdx)
 		}
@@ -362,15 +378,15 @@ func (a *Automaton) matchedElement(state, symIdx int) *CompiledElement {
 	if a == nil || state < 0 || symIdx < 0 {
 		return nil
 	}
-	if state >= len(a.stateSymbolPos) {
+	if !inBounds(state, len(a.stateSymbolPos)) {
 		return nil
 	}
 	row := a.stateSymbolPos[state]
-	if symIdx >= len(row) {
+	if !inBounds(symIdx, len(row)) {
 		return nil
 	}
 	pos := row[symIdx]
-	if pos < 0 || pos >= len(a.posElements) {
+	if !inBounds(pos, len(a.posElements)) {
 		return nil
 	}
 	return a.posElements[pos]

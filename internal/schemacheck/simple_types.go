@@ -130,10 +130,8 @@ func resolveSimpleTypeReference(schema *parser.Schema, qname types.QName) types.
 			return bt
 		}
 	}
-	if schema != nil {
-		if typ, ok := schema.TypeDefs[qname]; ok {
-			return typ
-		}
+	if typ, ok := lookupTypeDef(schema, qname); ok {
+		return typ
 	}
 	return nil
 }
@@ -150,7 +148,7 @@ func resolveSimpleContentBaseType(schema *parser.Schema, baseQName types.QName) 
 		}
 	}
 
-	baseType, ok := schema.TypeDefs[baseQName]
+	baseType, ok := lookupTypeDef(schema, baseQName)
 	if !ok || baseType == nil {
 		return nil, baseQName
 	}
@@ -190,7 +188,7 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 			}
 		} else {
 			// check if it's a user-defined type in this schema
-			if defType, ok := schema.TypeDefs[restriction.Base]; ok {
+			if defType, ok := lookupTypeDef(schema, restriction.Base); ok {
 				baseType = defType
 			}
 		}
@@ -288,7 +286,7 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 		if baseType != nil {
 			isNotation = isNotationType(baseType)
 		} else if !baseQName.IsZero() {
-			if defType, ok := schema.TypeDefs[baseQName]; ok {
+			if defType, ok := lookupTypeDef(schema, baseQName); ok {
 				isNotation = isNotationType(defType)
 			}
 		}
@@ -450,7 +448,7 @@ func validateUnionType(schema *parser.Schema, unionType *types.UnionType) error 
 			continue
 		}
 
-		if memberType, ok := schema.TypeDefs[memberQName]; ok {
+		if memberType, ok := lookupTypeDef(schema, memberQName); ok {
 			// union members must be simple types, not complex types
 			if _, isComplex := memberType.(*types.ComplexType); isComplex {
 				return fmt.Errorf("union memberType %d: '%s' is a complex type (union types can only have simple types as members)", i+1, memberQName.Local)
@@ -502,15 +500,15 @@ func validateListType(schema *parser.Schema, listType *types.ListType) error {
 	}
 
 	// check if it's a user-defined type in this schema
-	if defType, ok := schema.TypeDefs[listType.ItemType]; ok {
-		if st, ok := defType.(*types.SimpleType); ok {
-			// list itemType must be atomic or union
-			variety := st.Variety()
-			if variety != types.AtomicVariety && variety != types.UnionVariety {
-				return fmt.Errorf("list itemType must be atomic or union, got %v", variety)
-			}
-		} else {
+	if defType, ok := lookupTypeDef(schema, listType.ItemType); ok {
+		st, ok := defType.(*types.SimpleType)
+		if !ok {
 			return fmt.Errorf("list itemType must be a simple type, got %T", defType)
+		}
+		// list itemType must be atomic or union
+		variety := st.Variety()
+		if variety != types.AtomicVariety && variety != types.UnionVariety {
+			return fmt.Errorf("list itemType must be atomic or union, got %v", variety)
 		}
 	}
 	// if type not found, might be forward reference - skip validation

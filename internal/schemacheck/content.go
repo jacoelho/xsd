@@ -106,26 +106,24 @@ func effectiveAttributeUse(schema *parser.Schema, attr *types.AttributeDecl) *ty
 // validateComplexContentStructure validates structural constraints of complex content
 func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexContent) error {
 	if cc.Extension != nil {
-		if baseType, ok := schema.TypeDefs[cc.Extension.Base]; ok {
+		baseType, baseOK := lookupTypeDef(schema, cc.Extension.Base)
+		if baseOK {
 			if _, isSimple := baseType.(*types.SimpleType); isSimple {
 				return fmt.Errorf("complexContent extension cannot derive from simpleType '%s'", cc.Extension.Base)
 			}
 		}
 		if cc.Extension.Particle != nil {
 			// cannot add particles when extending a simpleContent type
-			baseType, ok := schema.TypeDefs[cc.Extension.Base]
-			if ok {
-				if baseCT, ok := baseType.(*types.ComplexType); ok {
-					if _, isSimpleContent := baseCT.Content().(*types.SimpleContent); isSimpleContent {
-						return fmt.Errorf("cannot extend simpleContent type '%s' with particles", cc.Extension.Base)
-					}
-					// XSD 1.0: Cannot extend a type with xs:all content model
-					// per Errata E1-21: Can extend if base xs:all is emptiable
-					if baseParticle := effectiveContentParticle(schema, baseCT); baseParticle != nil {
-						if baseMG, ok := baseParticle.(*types.ModelGroup); ok && baseMG.Kind == types.AllGroup {
-							if !isEmptiableParticle(baseMG) {
-								return fmt.Errorf("cannot extend type with non-emptiable xs:all content model (XSD 1.0)")
-							}
+			if baseCT, ok := baseType.(*types.ComplexType); ok {
+				if _, isSimpleContent := baseCT.Content().(*types.SimpleContent); isSimpleContent {
+					return fmt.Errorf("cannot extend simpleContent type '%s' with particles", cc.Extension.Base)
+				}
+				// XSD 1.0: Cannot extend a type with xs:all content model
+				// per Errata E1-21: Can extend if base xs:all is emptiable
+				if baseParticle := effectiveContentParticle(schema, baseCT); baseParticle != nil {
+					if baseMG, ok := baseParticle.(*types.ModelGroup); ok && baseMG.Kind == types.AllGroup {
+						if !isEmptiableParticle(baseMG) {
+							return fmt.Errorf("cannot extend type with non-emptiable xs:all content model (XSD 1.0)")
 						}
 					}
 				}
@@ -152,11 +150,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 				// check if base type's content is emptiable
 				// per XSD 1.0 Errata E1-21: emptiable means minOccurs=0 or no content or empty content
 				baseIsEmptiable := false
-				if baseType, ok := schema.TypeDefs[cc.Extension.Base]; ok {
-					// cannot extend simpleType with particles
-					if _, isSimpleType := baseType.(*types.SimpleType); isSimpleType {
-						return fmt.Errorf("cannot extend simpleType with complex content containing xs:all")
-					}
+				if baseOK {
 					if baseCT, ok := baseType.(*types.ComplexType); ok {
 						if baseParticle := effectiveContentParticle(schema, baseCT); baseParticle != nil {
 							baseIsEmptiable = isEmptiableParticle(baseParticle)
@@ -182,7 +176,8 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 		}
 	}
 	if cc.Restriction != nil {
-		if baseType, ok := schema.TypeDefs[cc.Restriction.Base]; ok {
+		baseType, baseOK := lookupTypeDef(schema, cc.Restriction.Base)
+		if baseOK {
 			if _, isSimple := baseType.(*types.SimpleType); isSimple {
 				return fmt.Errorf("complexContent restriction cannot derive from simpleType '%s'", cc.Restriction.Base)
 			}
@@ -193,7 +188,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 			}
 		}
 		if cc.Restriction.Particle != nil {
-			if baseType, ok := schema.TypeDefs[cc.Restriction.Base]; ok {
+			if baseOK {
 				if baseParticle := effectiveContentParticle(schema, baseType); baseParticle != nil {
 					if err := validateParticlePairRestriction(schema, baseParticle, cc.Restriction.Particle); err != nil {
 						return err
@@ -209,14 +204,11 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 		}
 		// validate that attributes in restriction match base type's attributes (only use can differ)
 		// per XSD spec (cos-ct-derived-ok): in complexContent restriction, attributes must have the same type as base attributes
-		baseType, ok := schema.TypeDefs[cc.Restriction.Base]
-		if ok {
-			if baseCT, ok := baseType.(*types.ComplexType); ok {
-				restrictionAttrs := slices.Clone(cc.Restriction.Attributes)
-				restrictionAttrs = append(restrictionAttrs, collectAttributesFromGroups(schema, cc.Restriction.AttrGroups, nil)...)
-				if err := validateRestrictionAttributes(schema, baseCT, restrictionAttrs, "complexContent restriction"); err != nil {
-					return err
-				}
+		if baseCT, ok := baseType.(*types.ComplexType); ok {
+			restrictionAttrs := slices.Clone(cc.Restriction.Attributes)
+			restrictionAttrs = append(restrictionAttrs, collectAttributesFromGroups(schema, cc.Restriction.AttrGroups, nil)...)
+			if err := validateRestrictionAttributes(schema, baseCT, restrictionAttrs, "complexContent restriction"); err != nil {
+				return err
 			}
 		}
 	}
@@ -228,8 +220,8 @@ func validateSimpleContentStructure(schema *parser.Schema, sc *types.SimpleConte
 	// simple content doesn't have model groups
 	if sc.Restriction != nil {
 		// check if base type is valid for simpleContent restriction
-		baseType, ok := schema.TypeDefs[sc.Restriction.Base]
-		if ok {
+		baseType, baseOK := lookupTypeDef(schema, sc.Restriction.Base)
+		if baseOK {
 			if _, isSimpleType := baseType.(*types.SimpleType); isSimpleType {
 				return fmt.Errorf("simpleContent restriction cannot have simpleType base '%s'", sc.Restriction.Base)
 			}
@@ -243,7 +235,7 @@ func validateSimpleContentStructure(schema *parser.Schema, sc *types.SimpleConte
 		// empty restrictions (no facets) are not allowed in this context.
 		if isInline {
 			// check if base is a simpleType (not a complexType)
-			if !ok || baseType == nil {
+			if !baseOK || baseType == nil {
 				// base type not found in schema - check if it's a built-in simpleType
 				if sc.Restriction.Base.Namespace == types.XSDNamespace {
 					// built-in type - check if it's a simpleType by checking if it's not a complex type name
@@ -262,17 +254,15 @@ func validateSimpleContentStructure(schema *parser.Schema, sc *types.SimpleConte
 				}
 			}
 		}
-		if ok {
-			if baseCT, ok := baseType.(*types.ComplexType); ok {
-				// base must have simpleContent or be anyType
-				if baseCT.QName.Local != "anyType" {
-					if _, isSimpleContent := baseCT.Content().(*types.SimpleContent); !isSimpleContent {
-						return fmt.Errorf("simpleContent restriction cannot derive from complexType '%s' which does not have simpleContent", sc.Restriction.Base)
-					}
+		if baseCT, ok := baseType.(*types.ComplexType); ok {
+			// base must have simpleContent or be anyType
+			if baseCT.QName.Local != "anyType" {
+				if _, isSimpleContent := baseCT.Content().(*types.SimpleContent); !isSimpleContent {
+					return fmt.Errorf("simpleContent restriction cannot derive from complexType '%s' which does not have simpleContent", sc.Restriction.Base)
 				}
 			}
-			// if it's a SimpleType, that's always valid for simpleContent restriction (unless inline with no facets, checked above)
 		}
+		// if it's a SimpleType, that's always valid for simpleContent restriction (unless inline with no facets, checked above)
 		if sc.Restriction.SimpleType != nil {
 			baseSimpleType, baseQName := resolveSimpleContentBaseType(schema, sc.Restriction.Base)
 			if baseSimpleType != nil {
@@ -291,28 +281,24 @@ func validateSimpleContentStructure(schema *parser.Schema, sc *types.SimpleConte
 		if err := validateSimpleContentRestrictionFacets(schema, sc.Restriction); err != nil {
 			return err
 		}
-		if ok {
-			if baseCT, ok := baseType.(*types.ComplexType); ok {
-				restrictionAttrs := slices.Clone(sc.Restriction.Attributes)
-				restrictionAttrs = append(restrictionAttrs, collectAttributesFromGroups(schema, sc.Restriction.AttrGroups, nil)...)
-				if err := validateRestrictionAttributes(schema, baseCT, restrictionAttrs, "simpleContent restriction"); err != nil {
-					return err
-				}
+		if baseCT, ok := baseType.(*types.ComplexType); ok {
+			restrictionAttrs := slices.Clone(sc.Restriction.Attributes)
+			restrictionAttrs = append(restrictionAttrs, collectAttributesFromGroups(schema, sc.Restriction.AttrGroups, nil)...)
+			if err := validateRestrictionAttributes(schema, baseCT, restrictionAttrs, "simpleContent restriction"); err != nil {
+				return err
 			}
 		}
 	}
 	if sc.Extension != nil {
 		// check if base type is valid for simpleContent extension
-		baseType, ok := schema.TypeDefs[sc.Extension.Base]
-		if ok {
-			if baseCT, ok := baseType.(*types.ComplexType); ok {
-				// base must have simpleContent
-				if _, isSimpleContent := baseCT.Content().(*types.SimpleContent); !isSimpleContent {
-					return fmt.Errorf("simpleContent extension cannot derive from complexType '%s' which does not have simpleContent", sc.Extension.Base)
-				}
+		baseType, _ := lookupTypeDef(schema, sc.Extension.Base)
+		if baseCT, ok := baseType.(*types.ComplexType); ok {
+			// base must have simpleContent
+			if _, isSimpleContent := baseCT.Content().(*types.SimpleContent); !isSimpleContent {
+				return fmt.Errorf("simpleContent extension cannot derive from complexType '%s' which does not have simpleContent", sc.Extension.Base)
 			}
-			// if it's a SimpleType, that's always valid for simpleContent extension
 		}
+		// if it's a SimpleType, that's always valid for simpleContent extension
 		if sc.Extension.Base.Namespace == types.XSDNamespace && sc.Extension.Base.Local == string(types.TypeNameAnyType) {
 			return fmt.Errorf("simpleContent extension cannot have base type anyType")
 		}

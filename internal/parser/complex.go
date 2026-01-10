@@ -9,61 +9,76 @@ import (
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
+const (
+	attrSetAnyElement         = "any"
+	attrSetAnyAttribute       = "anyAttribute"
+	attrSetModelGroup         = "modelGroup"
+	attrSetTopLevelGroup      = "topLevelGroup"
+	attrSetIdentityConstraint = "identityConstraint"
+
+	childSetSimpleContentFacet  = "simpleContentFacet"
+	childSetComplexContentChild = "complexContentChild"
+)
+
 var (
-	validAnyElementAttributes = map[string]bool{
-		"namespace":       true,
-		"processContents": true,
-		"minOccurs":       true,
-		"maxOccurs":       true,
-		"id":              true,
+	validAttributeNames = map[string]map[string]bool{
+		attrSetAnyElement: {
+			"namespace":       true,
+			"processContents": true,
+			"minOccurs":       true,
+			"maxOccurs":       true,
+			"id":              true,
+		},
+		attrSetAnyAttribute: {
+			"namespace":       true,
+			"processContents": true,
+			"id":              true,
+		},
+		attrSetModelGroup: {
+			"id":        true,
+			"minOccurs": true,
+			"maxOccurs": true,
+		},
+		attrSetTopLevelGroup: {
+			"id":   true,
+			"name": true,
+		},
+		attrSetIdentityConstraint: {
+			"xpath": true,
+			"id":    true,
+		},
 	}
-	validAnyAttributeAttributes = map[string]bool{
-		"namespace":       true,
-		"processContents": true,
-		"id":              true,
-	}
-	validModelGroupAttributes = map[string]bool{
-		"id":        true,
-		"minOccurs": true,
-		"maxOccurs": true,
-	}
-	validSimpleContentFacetElements = map[string]bool{
-		"length":         true,
-		"minLength":      true,
-		"maxLength":      true,
-		"pattern":        true,
-		"enumeration":    true,
-		"whiteSpace":     true,
-		"maxInclusive":   true,
-		"maxExclusive":   true,
-		"minInclusive":   true,
-		"minExclusive":   true,
-		"totalDigits":    true,
-		"fractionDigits": true,
-	}
-	validComplexContentChildren = map[string]bool{
-		"annotation":     true,
-		"sequence":       true,
-		"choice":         true,
-		"all":            true,
-		"group":          true,
-		"element":        true,
-		"any":            true,
-		"attribute":      true,
-		"attributeGroup": true,
-		"anyAttribute":   true,
-	}
-	validTopLevelGroupAttributes = map[string]bool{
-		"id":   true,
-		"name": true,
+	validChildElementNames = map[string]map[string]bool{
+		childSetSimpleContentFacet: {
+			"length":         true,
+			"minLength":      true,
+			"maxLength":      true,
+			"pattern":        true,
+			"enumeration":    true,
+			"whiteSpace":     true,
+			"maxInclusive":   true,
+			"maxExclusive":   true,
+			"minInclusive":   true,
+			"minExclusive":   true,
+			"totalDigits":    true,
+			"fractionDigits": true,
+		},
+		childSetComplexContentChild: {
+			"annotation":     true,
+			"sequence":       true,
+			"choice":         true,
+			"all":            true,
+			"group":          true,
+			"element":        true,
+			"any":            true,
+			"attribute":      true,
+			"attributeGroup": true,
+			"anyAttribute":   true,
+		},
 	}
 	validNamespaceConstraintTokens = map[string]bool{
 		"##targetNamespace": true,
 		"##local":           true,
-	}
-	validIdentityConstraintAttributes = map[string]bool{
-		"xpath": true,
-		"id":    true,
 	}
 )
 
@@ -445,7 +460,7 @@ func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 	for _, attr := range doc.Attributes(elem) {
 		attrName := attr.LocalName()
 		if attr.NamespaceURI() == "" {
-			if !validModelGroupAttributes[attrName] {
+			if !validAttributeNames[attrSetModelGroup][attrName] {
 				return nil, fmt.Errorf("invalid attribute '%s' on <%s> (only id, minOccurs, maxOccurs allowed)", attrName, doc.LocalName(elem))
 			}
 			switch attrName {
@@ -701,7 +716,7 @@ func parseSimpleContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 				case "attribute", "attributeGroup", "anyAttribute":
 					seenAttributeLike = true
 				default:
-					if validSimpleContentFacetElements[doc.LocalName(grandchild)] {
+					if validChildElementNames[childSetSimpleContentFacet][doc.LocalName(grandchild)] {
 						if seenAttributeLike {
 							return nil, fmt.Errorf("simpleContent restriction: facets must appear before attributes")
 						}
@@ -954,7 +969,7 @@ func parseComplexContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 
 			// reject unexpected children (facets are not allowed in complexContent restrictions).
 			for _, grandchild := range children {
-				if !validComplexContentChildren[doc.LocalName(grandchild)] {
+				if !validChildElementNames[childSetComplexContentChild][doc.LocalName(grandchild)] {
 					return nil, fmt.Errorf("complexContent restriction has unexpected child element '%s'", doc.LocalName(grandchild))
 				}
 			}
@@ -1126,7 +1141,7 @@ func parseComplexContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 			}
 
 			for _, grandchild := range children {
-				if !validComplexContentChildren[doc.LocalName(grandchild)] {
+				if !validChildElementNames[childSetComplexContentChild][doc.LocalName(grandchild)] {
 					return nil, fmt.Errorf("complexContent extension has unexpected child element '%s'", doc.LocalName(grandchild))
 				}
 			}
@@ -1298,7 +1313,7 @@ func parseTopLevelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 			continue // allow namespace-qualified attributes
 		}
 		attrName := attr.LocalName()
-		if !validTopLevelGroupAttributes[attrName] {
+		if !validAttributeNames[attrSetTopLevelGroup][attrName] {
 			return fmt.Errorf("invalid attribute '%s' on top-level group (only id, name allowed)", attrName)
 		}
 	}
@@ -1483,7 +1498,7 @@ func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 			continue
 		}
 		// check if it's an invalid attribute (not in validAttributes and not a namespace declaration)
-		if attr.NamespaceURI() == "" && !validAnyElementAttributes[attrName] {
+		if attr.NamespaceURI() == "" && !validAttributeNames[attrSetAnyElement][attrName] {
 			// invalid attribute on <any> element
 			return nil, fmt.Errorf("invalid attribute '%s' on <any> element (XSD 1.0 only allows: namespace, processContents, minOccurs, maxOccurs)", attrName)
 		}
@@ -1648,7 +1663,7 @@ func parseAnyAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema)
 		if attrName == "xmlns" || strings.HasPrefix(attrName, "xmlns:") {
 			continue
 		}
-		if attr.NamespaceURI() == "" && !validAnyAttributeAttributes[attrName] {
+		if attr.NamespaceURI() == "" && !validAttributeNames[attrSetAnyAttribute][attrName] {
 			return nil, fmt.Errorf("invalid attribute '%s' on <anyAttribute> element (XSD 1.0 only allows: namespace, processContents)", attrName)
 		}
 	}
@@ -1875,7 +1890,7 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 			if xpath == "" {
 				return nil, fmt.Errorf("selector missing xpath attribute")
 			}
-			if err := validateAllowedAttributes(doc, child, "selector", validIdentityConstraintAttributes); err != nil {
+			if err := validateAllowedAttributes(doc, child, "selector", validAttributeNames[attrSetIdentityConstraint]); err != nil {
 				return nil, err
 			}
 			if err := validateOnlyAnnotationChildren(doc, child, "selector"); err != nil {
@@ -1899,7 +1914,7 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 			if xpath == "" {
 				return nil, fmt.Errorf("field missing xpath attribute")
 			}
-			if err := validateAllowedAttributes(doc, child, "field", validIdentityConstraintAttributes); err != nil {
+			if err := validateAllowedAttributes(doc, child, "field", validAttributeNames[attrSetIdentityConstraint]); err != nil {
 				return nil, err
 			}
 			if err := validateOnlyAnnotationChildren(doc, child, "field"); err != nil {

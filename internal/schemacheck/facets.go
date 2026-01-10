@@ -13,12 +13,35 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func validateFacetConstraints(facetList []types.Facet, baseType types.Type, baseQName types.QName) error {
-	var minExclusive, maxExclusive, minInclusive, maxInclusive *string
-	var length, minLength, maxLength *int
-	var totalDigits, fractionDigits *int
-	var hasEnumeration bool
+type facetConstraintState struct {
+	minExclusive   *string
+	maxExclusive   *string
+	minInclusive   *string
+	maxInclusive   *string
+	length         *int
+	minLength      *int
+	maxLength      *int
+	totalDigits    *int
+	fractionDigits *int
+	hasEnumeration bool
+}
 
+var validFacetNames = map[string]bool{
+	"length":         true,
+	"minLength":      true,
+	"maxLength":      true,
+	"pattern":        true,
+	"enumeration":    true,
+	"whiteSpace":     true,
+	"maxInclusive":   true,
+	"maxExclusive":   true,
+	"minInclusive":   true,
+	"minExclusive":   true,
+	"totalDigits":    true,
+	"fractionDigits": true,
+}
+
+func validateFacetConstraints(facetList []types.Facet, baseType types.Type, baseQName types.QName) error {
 	baseTypeName := baseQName.Local
 	isBuiltin := baseQName.Namespace == types.XSDNamespace
 	var bt *types.BuiltinType
@@ -26,88 +49,18 @@ func validateFacetConstraints(facetList []types.Facet, baseType types.Type, base
 		bt = types.GetBuiltin(types.TypeName(baseTypeName))
 	}
 
-	// valid XSD 1.0 facets
-	validFacets := map[string]bool{
-		"length":         true,
-		"minLength":      true,
-		"maxLength":      true,
-		"pattern":        true,
-		"enumeration":    true,
-		"whiteSpace":     true,
-		"maxInclusive":   true,
-		"maxExclusive":   true,
-		"minInclusive":   true,
-		"minExclusive":   true,
-		"totalDigits":    true,
-		"fractionDigits": true,
-	}
+	state := facetConstraintState{}
 
 	for _, facet := range facetList {
 		name := facet.Name()
 
 		// validate that the facet is a known XSD facet
-		if !validFacets[name] {
+		if !validFacetNames[name] {
 			return fmt.Errorf("unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", name)
 		}
 
-		switch name {
-		case "minExclusive", "maxExclusive", "minInclusive", "maxInclusive":
-			// all range facets are generic and implement LexicalFacet
-			if lf, ok := facet.(types.LexicalFacet); ok {
-				val := lf.GetLexical()
-				if val != "" {
-					switch name {
-					case "minExclusive":
-						minExclusive = &val
-					case "maxExclusive":
-						maxExclusive = &val
-					case "minInclusive":
-						minInclusive = &val
-					case "maxInclusive":
-						maxInclusive = &val
-					}
-				}
-			}
-
-		case "length":
-			if ivf, ok := facet.(types.IntValueFacet); ok {
-				val := ivf.GetIntValue()
-				length = &val
-			}
-
-		case "minLength":
-			if ivf, ok := facet.(types.IntValueFacet); ok {
-				val := ivf.GetIntValue()
-				minLength = &val
-			}
-
-		case "maxLength":
-			if ivf, ok := facet.(types.IntValueFacet); ok {
-				val := ivf.GetIntValue()
-				maxLength = &val
-			}
-
-		case "enumeration":
-			hasEnumeration = true
-
-		case "totalDigits":
-			if ivf, ok := facet.(types.IntValueFacet); ok {
-				val := ivf.GetIntValue()
-				totalDigits = &val
-			}
-
-		case "fractionDigits":
-			if ivf, ok := facet.(types.IntValueFacet); ok {
-				val := ivf.GetIntValue()
-				fractionDigits = &val
-			}
-
-		case "pattern":
-			if patternFacet, ok := facet.(interface{ ValidateSyntax() error }); ok {
-				if err := patternFacet.ValidateSyntax(); err != nil {
-					return fmt.Errorf("pattern facet: %w", err)
-				}
-			}
+		if err := state.captureFacet(name, facet); err != nil {
+			return err
 		}
 
 		if err := validateFacetApplicability(name, baseTypeName, bt, isBuiltin, baseType); err != nil {
@@ -115,69 +68,143 @@ func validateFacetConstraints(facetList []types.Facet, baseType types.Type, base
 		}
 	}
 
-	if length != nil && (minLength != nil || maxLength != nil) {
+	if err := validateLengthFacetConstraints(&state, baseType, baseQName, baseTypeName); err != nil {
+		return err
+	}
+
+	if err := validateRangeFacets(state.minExclusive, state.maxExclusive, state.minInclusive, state.maxInclusive, baseTypeName, bt); err != nil {
+		return err
+	}
+
+	// validate that range facet values are within the base type's value space
+	if err := validateRangeFacetValues(state.minExclusive, state.maxExclusive, state.minInclusive, state.maxInclusive, baseType, bt); err != nil {
+		return err
+	}
+
+	// per XSD spec: fractionDigits must be <= totalDigits
+	if err := validateDigitsConstraints(&state, baseType, baseTypeName, isBuiltin); err != nil {
+		return err
+	}
+
+	// validate enumeration values if base type is known
+	if state.hasEnumeration && baseType != nil {
+		if err := validateEnumerationValues(facetList, baseType); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *facetConstraintState) captureFacet(name string, facet types.Facet) error {
+	switch name {
+	case "minExclusive", "maxExclusive", "minInclusive", "maxInclusive":
+		// all range facets are generic and implement LexicalFacet
+		if lf, ok := facet.(types.LexicalFacet); ok {
+			val := lf.GetLexical()
+			if val == "" {
+				return nil
+			}
+			switch name {
+			case "minExclusive":
+				s.minExclusive = &val
+			case "maxExclusive":
+				s.maxExclusive = &val
+			case "minInclusive":
+				s.minInclusive = &val
+			case "maxInclusive":
+				s.maxInclusive = &val
+			}
+		}
+	case "length":
+		if ivf, ok := facet.(types.IntValueFacet); ok {
+			val := ivf.GetIntValue()
+			s.length = &val
+		}
+	case "minLength":
+		if ivf, ok := facet.(types.IntValueFacet); ok {
+			val := ivf.GetIntValue()
+			s.minLength = &val
+		}
+	case "maxLength":
+		if ivf, ok := facet.(types.IntValueFacet); ok {
+			val := ivf.GetIntValue()
+			s.maxLength = &val
+		}
+	case "enumeration":
+		s.hasEnumeration = true
+	case "totalDigits":
+		if ivf, ok := facet.(types.IntValueFacet); ok {
+			val := ivf.GetIntValue()
+			s.totalDigits = &val
+		}
+	case "fractionDigits":
+		if ivf, ok := facet.(types.IntValueFacet); ok {
+			val := ivf.GetIntValue()
+			s.fractionDigits = &val
+		}
+	case "pattern":
+		if patternFacet, ok := facet.(interface{ ValidateSyntax() error }); ok {
+			if err := patternFacet.ValidateSyntax(); err != nil {
+				return fmt.Errorf("pattern facet: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func validateLengthFacetConstraints(state *facetConstraintState, baseType types.Type, baseQName types.QName, baseTypeName string) error {
+	if state.length != nil && (state.minLength != nil || state.maxLength != nil) {
 		if !isListTypeForFacets(baseType, baseQName) {
 			return fmt.Errorf("length facet cannot be used together with minLength or maxLength")
 		}
-		if maxLength != nil {
+		if state.maxLength != nil {
 			return fmt.Errorf("length facet cannot be used together with maxLength for list types")
 		}
 	}
 
-	if minLength != nil && maxLength != nil {
-		if *minLength > *maxLength {
-			return fmt.Errorf("minLength (%d) must be <= maxLength (%d)", *minLength, *maxLength)
+	if state.minLength != nil && state.maxLength != nil {
+		if *state.minLength > *state.maxLength {
+			return fmt.Errorf("minLength (%d) must be <= maxLength (%d)", *state.minLength, *state.maxLength)
 		}
 	}
 
 	// built-in list types require at least one item.
 	if isBuiltinListTypeName(baseTypeName) {
-		if length != nil && *length < 1 {
-			return fmt.Errorf("length (%d) must be >= 1 for list type %s", *length, baseTypeName)
+		if state.length != nil && *state.length < 1 {
+			return fmt.Errorf("length (%d) must be >= 1 for list type %s", *state.length, baseTypeName)
 		}
-		if minLength != nil && *minLength < 1 {
-			return fmt.Errorf("minLength (%d) must be >= 1 for list type %s", *minLength, baseTypeName)
+		if state.minLength != nil && *state.minLength < 1 {
+			return fmt.Errorf("minLength (%d) must be >= 1 for list type %s", *state.minLength, baseTypeName)
 		}
-		if maxLength != nil && *maxLength < 1 {
-			return fmt.Errorf("maxLength (%d) must be >= 1 for list type %s", *maxLength, baseTypeName)
+		if state.maxLength != nil && *state.maxLength < 1 {
+			return fmt.Errorf("maxLength (%d) must be >= 1 for list type %s", *state.maxLength, baseTypeName)
 		}
 	}
 
-	if err := validateRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive, baseTypeName, bt); err != nil {
-		return err
-	}
+	return nil
+}
 
-	// validate that range facet values are within the base type's value space
-	if err := validateRangeFacetValues(minExclusive, maxExclusive, minInclusive, maxInclusive, baseType, bt); err != nil {
-		return err
-	}
-
+func validateDigitsConstraints(state *facetConstraintState, baseType types.Type, baseTypeName string, isBuiltin bool) error {
 	// per XSD spec: fractionDigits must be <= totalDigits
-	if totalDigits != nil && fractionDigits != nil {
-		if *fractionDigits > *totalDigits {
-			return fmt.Errorf("fractionDigits (%d) must be <= totalDigits (%d)", *fractionDigits, *totalDigits)
+	if state.totalDigits != nil && state.fractionDigits != nil {
+		if *state.fractionDigits > *state.totalDigits {
+			return fmt.Errorf("fractionDigits (%d) must be <= totalDigits (%d)", *state.fractionDigits, *state.totalDigits)
 		}
 	}
 
 	// per XSD spec: fractionDigits must be 0 for integer-derived types
 	// integer types are derived from decimal with fractionDigits=0 fixed
-	if fractionDigits != nil && *fractionDigits != 0 {
+	if state.fractionDigits != nil && *state.fractionDigits != 0 {
 		if isBuiltin && isIntegerTypeName(baseTypeName) {
-			return fmt.Errorf("fractionDigits must be 0 for integer type %s, got %d", baseTypeName, *fractionDigits)
+			return fmt.Errorf("fractionDigits must be 0 for integer type %s, got %d", baseTypeName, *state.fractionDigits)
 		}
 		// also check user-defined types derived from integer types
 		if baseType != nil {
 			effectiveTypeName := getEffectiveIntegerTypeName(baseType)
 			if effectiveTypeName != "" {
-				return fmt.Errorf("fractionDigits must be 0 for type derived from %s, got %d", effectiveTypeName, *fractionDigits)
+				return fmt.Errorf("fractionDigits must be 0 for type derived from %s, got %d", effectiveTypeName, *state.fractionDigits)
 			}
-		}
-	}
-
-	// validate enumeration values if base type is known
-	if hasEnumeration && baseType != nil {
-		if err := validateEnumerationValues(facetList, baseType); err != nil {
-			return err
 		}
 	}
 
