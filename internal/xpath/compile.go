@@ -68,12 +68,13 @@ func Parse(expr string, nsContext map[string]string, allowAttributes bool) (Expr
 
 	parts := strings.Split(expr, "|")
 	paths := make([]Path, 0, len(parts))
+	opts := parseOptions{allowAttributes: allowAttributes}
 	for _, raw := range parts {
 		part := strings.TrimSpace(raw)
 		if part == "" {
 			return Expression{}, xpathErrorf("xpath contains empty union branch: %s", expr)
 		}
-		path, err := parsePath(part, nsContext, allowAttributes)
+		path, err := parsePath(part, nsContext, opts)
 		if err != nil {
 			return Expression{}, err
 		}
@@ -83,18 +84,32 @@ func Parse(expr string, nsContext map[string]string, allowAttributes bool) (Expr
 	return Expression{Paths: paths}, nil
 }
 
-func parsePath(expr string, nsContext map[string]string, allowAttributes bool) (Path, error) {
+type parseOptions struct {
+	allowAttributes bool
+}
+
+type pathParseState struct {
+	usedDescendantPrefix bool
+	sawSuffix            bool
+}
+
+type axisToken struct {
+	axis     Axis
+	explicit bool
+	token    string
+}
+
+func parsePath(expr string, nsContext map[string]string, opts parseOptions) (Path, error) {
 	var path Path
 	reader := &pathReader{input: expr}
-	usedDescendantPrefix := reader.consumeDotSlashSlashPrefix()
-	sawSuffix := false
+	state := &pathParseState{usedDescendantPrefix: reader.consumeDotSlashSlashPrefix()}
 
-	if usedDescendantPrefix {
+	if state.usedDescendantPrefix {
 		path.Steps = append(path.Steps, Step{Axis: AxisDescendantOrSelf, Test: NodeTest{Any: true}})
 	}
 
 	for {
-		done, err := parseNextStep(reader, &path, expr, nsContext, allowAttributes, usedDescendantPrefix, &sawSuffix)
+		done, err := parseNextStep(reader, &path, expr, nsContext, opts, state)
 		if err != nil {
 			return Path{}, err
 		}
@@ -104,10 +119,10 @@ func parsePath(expr string, nsContext map[string]string, allowAttributes bool) (
 	}
 }
 
-func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[string]string, allowAttributes bool, usedDescendantPrefix bool, sawSuffix *bool) (bool, error) {
+func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[string]string, opts parseOptions, state *pathParseState) (bool, error) {
 	reader.skipSpace()
 	if reader.atEnd() {
-		if usedDescendantPrefix && !*sawSuffix {
+		if state.usedDescendantPrefix && !state.sawSuffix {
 			return true, xpathErrorf("xpath step is missing a node test: %s", expr)
 		}
 		if len(path.Steps) == 0 && path.Attribute == nil {
@@ -117,23 +132,23 @@ func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[st
 	}
 
 	if reader.peekSlash() {
-		if len(path.Steps) == 0 && path.Attribute == nil && !usedDescendantPrefix {
+		if len(path.Steps) == 0 && path.Attribute == nil && !state.usedDescendantPrefix {
 			return false, xpathErrorf("xpath must be a relative path: %s", expr)
 		}
 		return false, xpathErrorf("xpath step is missing a node test: %s", expr)
 	}
 
 	token := reader.readToken()
-	stepAxis, explicitAxis, stepToken, err := parseAxisToken(reader, token)
+	axisInfo, err := parseAxisToken(reader, token)
 	if err != nil {
 		return false, err
 	}
 
-	addedSteps, attr, err := parseStep(stepAxis, stepToken, explicitAxis, nsContext, allowAttributes)
+	addedSteps, attr, err := parseStep(axisInfo, nsContext, opts)
 	if err != nil {
 		return false, err
 	}
-	*sawSuffix = true
+	state.sawSuffix = true
 	path.Steps = append(path.Steps, addedSteps...)
 	if attr != nil {
 		path.Attribute = attr
@@ -155,63 +170,63 @@ func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[st
 	return false, xpathErrorf("xpath has invalid trailing content: %s", expr)
 }
 
-func parseAxisToken(reader *pathReader, token string) (Axis, bool, string, error) {
+func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
-		return AxisChild, false, "", xpathErrorf("xpath step is missing a node test")
+		return axisToken{}, xpathErrorf("xpath step is missing a node test")
 	}
 
 	if token == "@" {
 		node := reader.readToken()
 		if node == "" {
-			return AxisChild, false, "", xpathErrorf("xpath step is missing a node test")
+			return axisToken{}, xpathErrorf("xpath step is missing a node test")
 		}
-		return AxisChild, false, "@" + node, nil
+		return axisToken{axis: AxisChild, token: "@" + node}, nil
 	}
 
 	if before, after, ok := strings.Cut(token, "::"); ok {
 		name := strings.TrimSpace(before)
 		if name == "" {
-			return AxisChild, false, "", xpathErrorf("xpath step has invalid axis")
+			return axisToken{}, xpathErrorf("xpath step has invalid axis")
 		}
 		explicitAxis, err := axisFromName(name)
 		if err != nil {
-			return AxisChild, false, "", err
+			return axisToken{}, err
 		}
 		node := strings.TrimSpace(after)
 		if node == "" {
 			node = reader.readToken()
 			if node == "" {
-				return AxisChild, false, "", xpathErrorf("xpath step is missing a node test")
+				return axisToken{}, xpathErrorf("xpath step is missing a node test")
 			}
 		}
-		return explicitAxis, true, node, nil
+		return axisToken{axis: explicitAxis, explicit: true, token: node}, nil
 	}
 
 	if reader.peekAxisSeparator() {
 		explicitAxis, err := axisFromName(token)
 		if err != nil {
-			return AxisChild, false, "", err
+			return axisToken{}, err
 		}
 		reader.consumeAxisSeparator()
 		node := reader.readToken()
 		if node == "" {
-			return AxisChild, false, "", xpathErrorf("xpath step is missing a node test")
+			return axisToken{}, xpathErrorf("xpath step is missing a node test")
 		}
-		return explicitAxis, true, node, nil
+		return axisToken{axis: explicitAxis, explicit: true, token: node}, nil
 	}
 
-	return AxisChild, false, token, nil
+	return axisToken{axis: AxisChild, token: token}, nil
 }
 
-func parseStep(axis Axis, token string, explicitAxis bool, nsContext map[string]string, allowAttributes bool) ([]Step, *NodeTest, error) {
-	token = strings.TrimSpace(token)
+func parseStep(axisInfo axisToken, nsContext map[string]string, opts parseOptions) ([]Step, *NodeTest, error) {
+	token := strings.TrimSpace(axisInfo.token)
 	if token == "" {
 		return nil, nil, xpathErrorf("xpath step is missing a node test")
 	}
 
-	if axis == AxisAttribute {
-		if !allowAttributes {
+	if axisInfo.axis == AxisAttribute {
+		if !opts.allowAttributes {
 			return nil, nil, xpathErrorf("xpath cannot select attributes: %s", token)
 		}
 		parsed, err := parseNodeTest(token, nsContext, true)
@@ -222,14 +237,14 @@ func parseStep(axis Axis, token string, explicitAxis bool, nsContext map[string]
 	}
 
 	if token == "." {
-		if axis != AxisChild || explicitAxis {
+		if axisInfo.axis != AxisChild || axisInfo.explicit {
 			return nil, nil, xpathErrorf("xpath step has invalid axis")
 		}
 		return []Step{{Axis: AxisSelf, Test: NodeTest{Any: true}}}, nil, nil
 	}
 
 	if strings.HasPrefix(token, "@") {
-		if !allowAttributes {
+		if !opts.allowAttributes {
 			return nil, nil, xpathErrorf("xpath cannot select attributes: %s", token)
 		}
 		name := strings.TrimPrefix(token, "@")
@@ -248,7 +263,7 @@ func parseStep(axis Axis, token string, explicitAxis bool, nsContext map[string]
 	if err != nil {
 		return nil, nil, err
 	}
-	return []Step{{Axis: axis, Test: parsed}}, nil, nil
+	return []Step{{Axis: axisInfo.axis, Test: parsed}}, nil, nil
 }
 
 func parseNodeTest(token string, nsContext map[string]string, attribute bool) (NodeTest, error) {

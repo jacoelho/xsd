@@ -150,6 +150,50 @@ func (ps *PatternSet) Validate(value TypedValue, _ Type) error {
 	return fmt.Errorf("does not match any pattern in set: %s", strings.Join(patterns, ", "))
 }
 
+type charClassState struct {
+	lastItem       rune
+	lastWasRange   bool
+	lastWasDash    bool
+	lastItemIsChar bool
+	isFirst        bool
+}
+
+func (s *charClassState) reset() {
+	s.lastItem = 0
+	s.lastWasRange = false
+	s.lastWasDash = false
+	s.lastItemIsChar = false
+	s.isFirst = true
+}
+
+func (s *charClassState) markNonChar() {
+	s.lastWasDash = false
+	s.lastWasRange = false
+	s.lastItemIsChar = false
+	s.isFirst = false
+}
+
+func (s *charClassState) handleChar(char rune, classStart int, pattern string) error {
+	if s.lastWasDash {
+		// this completes a range: lastItem - char
+		// validate that the range is valid (start <= end)
+		if s.lastItem > char {
+			return fmt.Errorf("pattern-syntax-error: invalid range '%c-%c' (start > end) in character class starting at position %d in %q",
+				s.lastItem, char, classStart, pattern)
+		}
+		s.lastWasRange = true
+		s.lastWasDash = false
+		s.lastItem = char
+		s.lastItemIsChar = true
+	} else {
+		s.lastItem = char
+		s.lastWasRange = false
+		s.lastItemIsChar = true
+	}
+	s.isFirst = false
+	return nil
+}
+
 // TranslateXSDPatternToGo translates an XSD 1.0 pattern to Go regexp (RE2) syntax.
 // Returns an error for unsupported features (fail-closed approach).
 func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
@@ -165,12 +209,8 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 	charClassDepth := 0 // track nested character class depth (for proper parsing)
 
 	// for character class validation: track the last character/range endpoint
-	var charClassStart int     // position where current char class started
-	var lastCharClassItem rune // last character added to the class (for range validation)
-	var lastWasRange bool      // was the last item a range (so next - must be literal or start new range)
-	var lastWasDash bool       // was the last character a dash (for detecting invalid patterns)
-	lastItemIsChar := false    // was the last item a single character (ranges only apply then)
-	isFirstInClass := false    // is this the first item after [ or [^
+	var charClassStart int // position where current char class started
+	var classState charClassState
 
 	var classBuf strings.Builder
 	classNegated := false
@@ -206,10 +246,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				}
 				if charClassDepth > 0 {
 					classBuf.WriteString(translated)
-					lastWasDash = false
-					lastWasRange = false
-					lastItemIsChar = false
-					isFirstInClass = false
+					classState.markNonChar()
 				} else {
 					result.WriteString(translated)
 				}
@@ -224,10 +261,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				// XML NameStartChar escape
 				if charClassDepth > 0 {
 					classBuf.WriteString(nameStartCharClassContent)
-					lastWasDash = false
-					lastWasRange = false
-					lastItemIsChar = false
-					isFirstInClass = false
+					classState.markNonChar()
 				} else {
 					result.WriteString(nameStartCharClass)
 				}
@@ -238,10 +272,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				// negated XML NameStartChar escape
 				if charClassDepth > 0 {
 					classHasNotNameStart = true
-					lastWasDash = false
-					lastWasRange = false
-					lastItemIsChar = false
-					isFirstInClass = false
+					classState.markNonChar()
 				} else {
 					result.WriteString(nameNotStartCharClass)
 				}
@@ -252,10 +283,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				// XML NameChar escape
 				if charClassDepth > 0 {
 					classBuf.WriteString(nameCharClassContent)
-					lastWasDash = false
-					lastWasRange = false
-					lastItemIsChar = false
-					isFirstInClass = false
+					classState.markNonChar()
 				} else {
 					result.WriteString(nameCharClass)
 				}
@@ -266,10 +294,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				// negated XML NameChar escape
 				if charClassDepth > 0 {
 					classHasNotNameChar = true
-					lastWasDash = false
-					lastWasRange = false
-					lastItemIsChar = false
-					isFirstInClass = false
+					classState.markNonChar()
 				} else {
 					result.WriteString(nameNotCharClass)
 				}
@@ -281,10 +306,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				// digit shorthand - Unicode decimal digits
 				if charClassDepth > 0 {
 					classBuf.WriteString(xsdDigitClassContent)
-					lastWasDash = false
-					lastWasRange = false
-					lastItemIsChar = false
-					isFirstInClass = false
+					classState.markNonChar()
 				} else {
 					result.WriteString(xsdDigitClass)
 				}
@@ -296,10 +318,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				// non-digit shorthand
 				if charClassDepth > 0 {
 					classHasNotD = true
-					lastWasDash = false
-					lastWasRange = false
-					lastItemIsChar = false
-					isFirstInClass = false
+					classState.markNonChar()
 				} else {
 					result.WriteString(xsdNotDigitClass)
 				}
@@ -311,10 +330,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				// whitespace shorthand - XSD defines exactly these 4 chars
 				if charClassDepth > 0 {
 					classBuf.WriteString(`\x20\t\n\r`)
-					lastWasDash = false
-					lastWasRange = false
-					lastItemIsChar = false
-					isFirstInClass = false
+					classState.markNonChar()
 				} else {
 					result.WriteString(`[\x20\t\n\r]`)
 				}
@@ -329,10 +345,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 						return "", fmt.Errorf("pattern-unsupported: \\S inside negated character class not expressible in RE2")
 					}
 					classHasS = true
-					lastWasDash = false
-					lastWasRange = false
-					lastItemIsChar = false
-					isFirstInClass = false
+					classState.markNonChar()
 					i += 2
 					justWroteQuantifier = false
 					continue
@@ -349,10 +362,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 						return "", fmt.Errorf("pattern-unsupported: \\w inside negated character class not expressible in RE2")
 					}
 					classHasW = true
-					lastWasDash = false
-					lastWasRange = false
-					lastItemIsChar = false
-					isFirstInClass = false
+					classState.markNonChar()
 					i += 2
 					justWroteQuantifier = false
 					continue
@@ -366,10 +376,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				// non-word character shorthand
 				if charClassDepth > 0 {
 					classBuf.WriteString(`\p{P}\p{Z}\p{C}`)
-					lastWasDash = false
-					lastWasRange = false
-					lastItemIsChar = false
-					isFirstInClass = false
+					classState.markNonChar()
 				} else {
 					result.WriteString(xsdNotWordClass)
 				}
@@ -379,7 +386,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 
 			case 'n':
 				if charClassDepth > 0 {
-					if err := handleCharClassChar('\n', &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
+					if err := classState.handleChar('\n', charClassStart, xsdPattern); err != nil {
 						return "", err
 					}
 					classBuf.WriteByte('\\')
@@ -394,7 +401,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 
 			case 'r':
 				if charClassDepth > 0 {
-					if err := handleCharClassChar('\r', &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
+					if err := classState.handleChar('\r', charClassStart, xsdPattern); err != nil {
 						return "", err
 					}
 					classBuf.WriteByte('\\')
@@ -409,7 +416,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 
 			case 't':
 				if charClassDepth > 0 {
-					if err := handleCharClassChar('\t', &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
+					if err := classState.handleChar('\t', charClassStart, xsdPattern); err != nil {
 						return "", err
 					}
 					classBuf.WriteByte('\\')
@@ -424,7 +431,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 
 			case 'f':
 				if charClassDepth > 0 {
-					if err := handleCharClassChar('\f', &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
+					if err := classState.handleChar('\f', charClassStart, xsdPattern); err != nil {
 						return "", err
 					}
 					classBuf.WriteByte('\\')
@@ -439,7 +446,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 
 			case 'v':
 				if charClassDepth > 0 {
-					if err := handleCharClassChar('\v', &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
+					if err := classState.handleChar('\v', charClassStart, xsdPattern); err != nil {
 						return "", err
 					}
 					classBuf.WriteByte('\\')
@@ -454,7 +461,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 
 			case 'a':
 				if charClassDepth > 0 {
-					if err := handleCharClassChar('\a', &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
+					if err := classState.handleChar('\a', charClassStart, xsdPattern); err != nil {
 						return "", err
 					}
 					classBuf.WriteByte('\\')
@@ -471,7 +478,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 				// \b is only valid inside character class (backspace)
 				// outside character class, it's NOT valid XSD syntax (no word boundary in XSD)
 				if charClassDepth > 0 {
-					if err := handleCharClassChar('\b', &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
+					if err := classState.handleChar('\b', charClassStart, xsdPattern); err != nil {
 						return "", err
 					}
 					classBuf.WriteByte('\\')
@@ -494,7 +501,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 			case '\\':
 				// escaped backslash - can be range endpoint
 				if charClassDepth > 0 {
-					if err := handleCharClassChar('\\', &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
+					if err := classState.handleChar('\\', charClassStart, xsdPattern); err != nil {
 						return "", err
 					}
 					classBuf.WriteString(`\\`)
@@ -508,7 +515,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 			case '[', ']', '(', ')', '{', '}', '*', '+', '?', '|', '^', '$', '.':
 				// escaped metacharacters - pass through
 				if charClassDepth > 0 {
-					if err := handleCharClassChar(rune(nextChar), &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
+					if err := classState.handleChar(rune(nextChar), charClassStart, xsdPattern); err != nil {
 						return "", err
 					}
 					classBuf.WriteByte('\\')
@@ -524,7 +531,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 			case '-':
 				// escaped dash - literal dash character
 				if charClassDepth > 0 {
-					if err := handleCharClassChar('-', &lastCharClassItem, &lastWasRange, &lastWasDash, &lastItemIsChar, &isFirstInClass, charClassStart, xsdPattern); err != nil {
+					if err := classState.handleChar('-', charClassStart, xsdPattern); err != nil {
 						return "", err
 					}
 					classBuf.WriteString(`\-`)
@@ -554,11 +561,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 			}
 			charClassDepth++
 			charClassStart = i
-			lastCharClassItem = 0
-			lastWasRange = false
-			lastWasDash = false
-			lastItemIsChar = false
-			isFirstInClass = true
+			classState.reset()
 			classBuf.Reset()
 			classNegated = false
 			classHasW = false
@@ -575,7 +578,7 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 		}
 
 		if char == ']' && charClassDepth > 0 {
-			if isFirstInClass && !classHasW && !classHasS && !classHasNotD {
+			if classState.isFirst && !classHasW && !classHasS && !classHasNotD {
 				return "", fmt.Errorf("pattern-syntax-error: empty character class")
 			}
 			classContent := classBuf.String()
@@ -636,41 +639,41 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 
 		if charClassDepth > 0 && char == '-' {
 			// dash at the very start of class (after [ or [^) is literal
-			if isFirstInClass {
-				lastCharClassItem = '-'
-				lastWasRange = false
-				lastWasDash = false
-				lastItemIsChar = true
-				isFirstInClass = false
+			if classState.isFirst {
+				classState.lastItem = '-'
+				classState.lastWasRange = false
+				classState.lastWasDash = false
+				classState.lastItemIsChar = true
+				classState.isFirst = false
 				classBuf.WriteByte('-')
 				i++
 				continue
 			}
 			// dash at the very end of class is literal
 			if i+1 < len(xsdPattern) && xsdPattern[i+1] == ']' {
-				lastCharClassItem = '-'
-				lastWasRange = false
-				lastWasDash = false
-				lastItemIsChar = true
-				isFirstInClass = false
+				classState.lastItem = '-'
+				classState.lastWasRange = false
+				classState.lastWasDash = false
+				classState.lastItemIsChar = true
+				classState.isFirst = false
 				classBuf.WriteByte('-')
 				i++
 				continue
 			}
 			// dash immediately after a completed range is not allowed in XSD 1.0.
-			if lastWasRange {
+			if classState.lastWasRange {
 				return "", fmt.Errorf("pattern-syntax-error: '-' cannot follow a range in character class at position %d in %q", i, xsdPattern)
 			}
 			// dash after another dash is invalid
-			if lastWasDash {
+			if classState.lastWasDash {
 				return "", fmt.Errorf("pattern-syntax-error: consecutive dashes in character class at position %d in %q", i, xsdPattern)
 			}
 			// dash after a non-character item is invalid (can't start a range).
-			if !lastItemIsChar {
+			if !classState.lastItemIsChar {
 				return "", fmt.Errorf("pattern-syntax-error: '-' cannot follow a non-character item in character class at position %d in %q", i, xsdPattern)
 			}
 			// otherwise, dash after a single character starts a potential range
-			lastWasDash = true
+			classState.lastWasDash = true
 			classBuf.WriteByte('-')
 			i++
 			continue
@@ -678,23 +681,23 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 
 		if charClassDepth > 0 {
 			currentChar := rune(char)
-			if lastWasDash {
-				// this completes a range: lastCharClassItem - currentChar
+			if classState.lastWasDash {
+				// this completes a range: classState.lastItem - currentChar
 				// validate that the range is valid (start <= end)
-				if lastCharClassItem > currentChar {
+				if classState.lastItem > currentChar {
 					return "", fmt.Errorf("pattern-syntax-error: invalid range '%c-%c' (start > end) in character class starting at position %d in %q",
-						lastCharClassItem, currentChar, charClassStart, xsdPattern)
+						classState.lastItem, currentChar, charClassStart, xsdPattern)
 				}
-				lastWasRange = true
-				lastWasDash = false
-				lastCharClassItem = currentChar
-				lastItemIsChar = true
+				classState.lastWasRange = true
+				classState.lastWasDash = false
+				classState.lastItem = currentChar
+				classState.lastItemIsChar = true
 			} else {
-				lastCharClassItem = currentChar
-				lastWasRange = false
-				lastItemIsChar = true
+				classState.lastItem = currentChar
+				classState.lastWasRange = false
+				classState.lastItemIsChar = true
 			}
-			isFirstInClass = false
+			classState.isFirst = false
 			classBuf.WriteByte(char)
 			i++
 			continue
@@ -811,28 +814,6 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 	// wrap in ^(?:...)$ for whole-string matching
 	translated := result.String()
 	return `^(?:` + translated + `)$`, nil
-}
-
-// handleCharClassChar handles a character inside a character class for range validation
-func handleCharClassChar(char rune, lastItem *rune, lastWasRange *bool, lastWasDash *bool, lastItemIsChar *bool, isFirst *bool, classStart int, pattern string) error {
-	if *lastWasDash {
-		// this completes a range: lastItem - char
-		// validate that the range is valid (start <= end)
-		if *lastItem > char {
-			return fmt.Errorf("pattern-syntax-error: invalid range '%c-%c' (start > end) in character class starting at position %d in %q",
-				*lastItem, char, classStart, pattern)
-		}
-		*lastWasRange = true
-		*lastWasDash = false
-		*lastItem = char
-		*lastItemIsChar = true
-	} else {
-		*lastItem = char
-		*lastWasRange = false
-		*lastItemIsChar = true
-	}
-	*isFirst = false
-	return nil
 }
 
 // translateUnicodePropertyEscape translates \p{...} or \P{...} escapes
