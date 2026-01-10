@@ -124,7 +124,7 @@ func (r *Resolver) resolveSimpleTypeRestriction(qname types.QName, st *types.Sim
 			st.SetVariety(baseST.Variety())
 		}
 	}
-	// inherit whiteSpace from base type if not explicitly set
+	// inherit whiteSpace when this type keeps the default preserve behavior
 	if st.WhiteSpace() == types.WhiteSpacePreserve && base != nil {
 		st.SetWhiteSpace(base.WhiteSpace())
 	}
@@ -236,7 +236,7 @@ func (r *Resolver) doResolveComplexType(qname types.QName, ct *types.ComplexType
 		return fmt.Errorf("type %s content: %w", qname, err)
 	}
 
-	for i, agRef := range ct.AttrGroups {
+	for _, agRef := range ct.AttrGroups {
 		ag, err := r.lookupAttributeGroup(agRef)
 		if err != nil {
 			return fmt.Errorf("type %s attribute group %s: %w", qname, agRef, err)
@@ -244,8 +244,6 @@ func (r *Resolver) doResolveComplexType(qname types.QName, ct *types.ComplexType
 		if err := r.resolveAttributeGroup(agRef, ag); err != nil {
 			return fmt.Errorf("type %s attribute group %s: %w", qname, agRef, err)
 		}
-		// store resolved reference (we'll expand it during compilation)
-		_ = i // TODO: store resolved attribute group for compilation phase
 	}
 
 	for _, attr := range ct.Attributes() {
@@ -379,7 +377,7 @@ type elementTypeOptions struct {
 func (r *Resolver) resolveElementType(elem *types.ElementDecl, elemName types.QName, opts elementTypeOptions) error {
 	switch t := elem.Type.(type) {
 	case *types.SimpleType:
-		if isPlaceholderType(t) {
+		if types.IsPlaceholderSimpleType(t) {
 			// pass empty referrer because element type lookup is not type derivation.
 			// self-reference detection is for types referencing themselves as base types,
 			// not for elements with the same name as their type (which is valid).
@@ -452,7 +450,7 @@ func (r *Resolver) resolveAttributeType(attr *types.AttributeDecl) error {
 
 	if st, ok := attr.Type.(*types.SimpleType); ok {
 		// if it's a placeholder (has QName but no content), resolve it
-		if isPlaceholderType(st) {
+		if types.IsPlaceholderSimpleType(st) {
 			actualType, err := r.lookupType(st.QName, types.QName{})
 			if err != nil {
 				return fmt.Errorf("attribute %s type: %w", attr.Name, err)
@@ -466,13 +464,6 @@ func (r *Resolver) resolveAttributeType(attr *types.AttributeDecl) error {
 	}
 
 	return nil
-}
-
-func isPlaceholderType(st *types.SimpleType) bool {
-	if st == nil {
-		return false
-	}
-	return st.Restriction == nil && st.List == nil && st.Union == nil && !st.QName.IsZero()
 }
 
 func (r *Resolver) lookupAttributeGroup(qname types.QName) (*types.AttributeGroup, error) {

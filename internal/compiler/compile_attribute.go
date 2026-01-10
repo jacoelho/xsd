@@ -302,58 +302,49 @@ func (c *Compiler) collectTypeAnyAttributes(ct *types.ComplexType) []*types.AnyA
 
 	result = append(result, c.collectAnyAttributeFromGroups(ct.AttrGroups)...)
 
-	// also check for anyAttribute in ComplexContent extension/restriction
 	if cc, ok := ct.Content().(*types.ComplexContent); ok {
-		if cc.Extension != nil {
-			if cc.Extension.AnyAttribute != nil {
-				result = append(result, cc.Extension.AnyAttribute)
-			}
-			result = append(result, c.collectAnyAttributeFromGroups(cc.Extension.AttrGroups)...)
-		}
-		if cc.Restriction != nil {
-			if cc.Restriction.AnyAttribute != nil {
-				result = append(result, cc.Restriction.AnyAttribute)
-			}
-			result = append(result, c.collectAnyAttributeFromGroups(cc.Restriction.AttrGroups)...)
-		}
+		result = append(result, c.collectContentAnyAttributes(cc.Extension, cc.Restriction)...)
 	}
-
-	// also check SimpleContent
 	if sc, ok := ct.Content().(*types.SimpleContent); ok {
-		if sc.Extension != nil {
-			if sc.Extension.AnyAttribute != nil {
-				result = append(result, sc.Extension.AnyAttribute)
-			}
-			result = append(result, c.collectAnyAttributeFromGroups(sc.Extension.AttrGroups)...)
-		}
-		if sc.Restriction != nil {
-			if sc.Restriction.AnyAttribute != nil {
-				result = append(result, sc.Restriction.AnyAttribute)
-			}
-			result = append(result, c.collectAnyAttributeFromGroups(sc.Restriction.AttrGroups)...)
-		}
+		result = append(result, c.collectContentAnyAttributes(sc.Extension, sc.Restriction)...)
 	}
 
+	return result
+}
+
+func (c *Compiler) collectContentAnyAttributes(ext *types.Extension, restr *types.Restriction) []*types.AnyAttribute {
+	var result []*types.AnyAttribute
+	if ext != nil {
+		if ext.AnyAttribute != nil {
+			result = append(result, ext.AnyAttribute)
+		}
+		result = append(result, c.collectAnyAttributeFromGroups(ext.AttrGroups)...)
+	}
+	if restr != nil {
+		if restr.AnyAttribute != nil {
+			result = append(result, restr.AnyAttribute)
+		}
+		result = append(result, c.collectAnyAttributeFromGroups(restr.AttrGroups)...)
+	}
 	return result
 }
 
 // collectAnyAttributeFromGroups collects anyAttribute from attribute groups recursively
 func (c *Compiler) collectAnyAttributeFromGroups(agRefs []types.QName) []*types.AnyAttribute {
 	var result []*types.AnyAttribute
-	visited := make(map[types.QName]bool)
+	visited := make(map[*types.AttributeGroup]bool)
 
 	var collect func(refs []types.QName)
 	collect = func(refs []types.QName) {
 		for _, agRef := range refs {
-			if visited[agRef] {
-				continue
-			}
-			visited[agRef] = true
-
 			ag, ok := c.schema.AttributeGroups[agRef]
 			if !ok {
 				continue
 			}
+			if visited[ag] {
+				continue
+			}
+			visited[ag] = true
 
 			if ag.AnyAttribute != nil {
 				result = append(result, ag.AnyAttribute)

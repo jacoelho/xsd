@@ -106,6 +106,7 @@ func (a *Automaton) handleGroupCounters(state, next, symIdx, childIdx int, group
 		return nil
 	}
 	lastProcessedGroupID := -1
+	// avoid double-counting when both states reference the same group counter
 	for _, checkState := range []int{state, next} {
 		c := a.counting[checkState]
 		if c == nil || !c.IsGroupCounter || c.GroupID == lastProcessedGroupID {
@@ -168,6 +169,7 @@ func minGroupIterations(startCount, firstPosMaxOccurs int) int {
 		return 1
 	}
 	if firstPosMaxOccurs > 1 {
+		// ceil(startCount / firstPosMaxOccurs) using integer math
 		return (startCount + firstPosMaxOccurs - 1) / firstPosMaxOccurs
 	}
 	return startCount

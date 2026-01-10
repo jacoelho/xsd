@@ -295,14 +295,14 @@ func TestLengthFacetHelpers(t *testing.T) {
 		t.Fatalf("expected length facet to be skipped for QName")
 	}
 
-	if facetsRequireTypedValue([]types.Facet{length}) {
-		t.Fatalf("length facets should not require typed values")
+	if !facetsAllowSimpleValue([]types.Facet{length}) {
+		t.Fatalf("length facets should allow simple values")
 	}
 	minInclusive, err := types.NewMinInclusive("1", types.GetBuiltin(types.TypeNameDecimal))
 	if err != nil {
 		t.Fatalf("NewMinInclusive error: %v", err)
 	}
-	if !facetsRequireTypedValue([]types.Facet{minInclusive}) {
+	if facetsAllowSimpleValue([]types.Facet{minInclusive}) {
 		t.Fatalf("expected range facets to require typed values")
 	}
 }

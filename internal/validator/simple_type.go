@@ -68,13 +68,13 @@ func isQNameOrNotationDerived(ct *grammar.CompiledType) bool {
 }
 
 func typedValueForFacets(value string, typ types.Type, facetList []types.Facet) types.TypedValue {
-	if facetsRequireTypedValue(facetList) {
-		return types.TypedValueForFacet(value, typ)
+	if facetsAllowSimpleValue(facetList) {
+		return &types.StringTypedValue{Value: value, Typ: typ}
 	}
-	return &types.StringTypedValue{Value: value, Typ: typ}
+	return types.TypedValueForFacet(value, typ)
 }
 
-func facetsRequireTypedValue(facetList []types.Facet) bool {
+func facetsAllowSimpleValue(facetList []types.Facet) bool {
 	for _, facet := range facetList {
 		switch facet.(type) {
 		case *types.Pattern, *types.PatternSet, *types.Enumeration,
@@ -82,10 +82,10 @@ func facetsRequireTypedValue(facetList []types.Facet) bool {
 			*types.TotalDigits, *types.FractionDigits:
 			continue
 		default:
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func isLengthFacet(facet types.Facet) bool {
@@ -99,13 +99,10 @@ func isLengthFacet(facet types.Facet) bool {
 
 func unresolvedSimpleType(typ types.Type) (types.QName, bool) {
 	st, ok := typ.(*types.SimpleType)
-	if !ok || st.IsBuiltin() {
+	if !ok || !types.IsPlaceholderSimpleType(st) {
 		return types.QName{}, false
 	}
-	if st.Restriction == nil && st.List == nil && st.Union == nil {
-		return st.QName, true
-	}
-	return types.QName{}, false
+	return st.QName, true
 }
 
 // collectIDRefs tracks ID/IDREF values for later validation and returns violations for duplicate IDs.

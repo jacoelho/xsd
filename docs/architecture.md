@@ -234,6 +234,10 @@ Resolution order matters due to dependencies:
 Cycle detection happens once during resolution. After phase 2 completes,
 no visited maps are needed anywhere in the codebase.
 
+Cycle detection uses QName-based tracking for named components and
+pointer-based tracking for anonymous types and attribute group instances
+to avoid false positives in redefine contexts.
+
 
 ## Phase 3: Validate Schema
 
