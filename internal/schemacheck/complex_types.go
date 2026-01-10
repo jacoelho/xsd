@@ -105,15 +105,9 @@ func checkCircularDerivation(schema *parser.Schema, originalQName types.QName, c
 	defer delete(visited, ct.QName)
 
 	// check if base type exists and is complex
-	baseType, ok := schema.TypeDefs[baseQName]
+	baseCT, ok := lookupComplexType(schema, baseQName)
 	if !ok {
-		// base type not found - might be builtin or forward reference, skip cycle check
-		return nil
-	}
-
-	baseCT, ok := baseType.(*types.ComplexType)
-	if !ok {
-		// base type is not complex - no cycle possible
+		// base type not found or not complex - no cycle possible
 		return nil
 	}
 
@@ -130,14 +124,9 @@ func validateDerivationConstraints(schema *parser.Schema, ct *types.ComplexType)
 		return nil // no derivation
 	}
 
-	baseType, ok := schema.TypeDefs[baseQName]
+	baseCT, ok := lookupComplexType(schema, baseQName)
 	if !ok {
-		return nil // base type not found - might be builtin or forward reference
-	}
-
-	baseCT, ok := baseType.(*types.ComplexType)
-	if !ok {
-		return nil // base type is not complex
+		return nil // base type not found or not complex
 	}
 
 	// check final constraint: base type cannot be final for the derivation method being used
@@ -171,14 +160,9 @@ func validateMixedContentDerivation(schema *parser.Schema, ct *types.ComplexType
 		return nil
 	}
 
-	baseType, ok := schema.TypeDefs[baseQName]
+	baseCT, ok := lookupComplexType(schema, baseQName)
 	if !ok {
-		return nil // base type not found
-	}
-
-	baseCT, ok := baseType.(*types.ComplexType)
-	if !ok {
-		return nil // base type is not complex
+		return nil // base type not found or not complex
 	}
 
 	baseMixed := baseCT.Mixed()
@@ -226,14 +210,9 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, ct *types.Comp
 	}
 
 	baseQName := content.BaseTypeQName()
-	baseType, ok := schema.TypeDefs[baseQName]
+	baseCT, ok := lookupComplexType(schema, baseQName)
 	if !ok {
-		return nil // base type not found - might be builtin or forward reference
-	}
-
-	baseCT, ok := baseType.(*types.ComplexType)
-	if !ok {
-		return nil // base type is not complex - no elements to check
+		return nil // base type not found or not complex
 	}
 
 	baseElements := collectAllElementDeclarationsFromType(schema, baseCT)
@@ -303,10 +282,8 @@ func collectElementDeclarationsRecursive(schema *parser.Schema, ct *types.Comple
 			baseQName = c.Restriction.Base
 		}
 		if !baseQName.IsZero() {
-			if baseType, ok := schema.TypeDefs[baseQName]; ok {
-				if baseCT, ok := baseType.(*types.ComplexType); ok {
-					result = append(result, collectElementDeclarationsRecursive(schema, baseCT, visited)...)
-				}
+			if baseCT, ok := lookupComplexType(schema, baseQName); ok {
+				result = append(result, collectElementDeclarationsRecursive(schema, baseCT, visited)...)
 			}
 		}
 	}

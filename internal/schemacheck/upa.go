@@ -26,12 +26,9 @@ func validateUPA(schema *parser.Schema, content types.Content, targetNS types.Na
 			particle = c.Extension.Particle
 			// for extensions, also get base type particle to check for UPA violations
 			if !c.Extension.Base.IsZero() {
-				if baseType, ok := schema.TypeDefs[c.Extension.Base]; ok {
-					if baseCT, ok := baseType.(*types.ComplexType); ok {
-						baseContent := baseCT.Content()
-						if baseEC, ok := baseContent.(*types.ElementContent); ok {
-							baseParticle = baseEC.Particle
-						}
+				if baseCT, ok := lookupComplexType(schema, c.Extension.Base); ok {
+					if baseEC, ok := baseCT.Content().(*types.ElementContent); ok {
+						baseParticle = baseEC.Particle
 					}
 				}
 			}

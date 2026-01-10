@@ -182,10 +182,8 @@ func collectComplexTypeChain(schema *parser.Schema, ct *types.ComplexType) []*ty
 				baseQName = content.BaseTypeQName()
 			}
 			if !baseQName.IsZero() {
-				if baseType, ok := schema.TypeDefs[baseQName]; ok {
-					if baseCT, ok := baseType.(*types.ComplexType); ok {
-						next = baseCT
-					}
+				if baseCT, ok := lookupComplexType(schema, baseQName); ok {
+					next = baseCT
 				}
 			}
 		}

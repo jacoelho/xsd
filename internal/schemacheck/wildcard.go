@@ -15,15 +15,9 @@ func validateWildcardDerivation(schema *parser.Schema, ct *types.ComplexType) er
 	}
 
 	// check if base type exists
-	baseType, ok := schema.TypeDefs[baseQName]
+	baseCT, ok := lookupComplexType(schema, baseQName)
 	if !ok {
-		// base type not found - might be builtin or forward reference
-		return nil
-	}
-
-	baseCT, ok := baseType.(*types.ComplexType)
-	if !ok {
-		// base type is not complex - no wildcard to check
+		// base type not found or not complex
 		return nil
 	}
 
@@ -154,15 +148,9 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *types.ComplexType
 	}
 
 	// check if base type exists
-	baseType, ok := schema.TypeDefs[baseQName]
+	baseCT, ok := lookupComplexType(schema, baseQName)
 	if !ok {
-		// base type not found - might be builtin or forward reference
-		return nil
-	}
-
-	baseCT, ok := baseType.(*types.ComplexType)
-	if !ok {
-		// base type is not complex - no anyAttribute to check
+		// base type not found or not complex
 		return nil
 	}
 

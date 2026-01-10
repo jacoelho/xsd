@@ -47,6 +47,32 @@ func effectiveContentParticleForComplexType(schema *parser.Schema, ct *types.Com
 	return nil
 }
 
+func lookupTypeDef(schema *parser.Schema, qname types.QName) (types.Type, bool) {
+	if schema == nil {
+		return nil, false
+	}
+	typ, ok := schema.TypeDefs[qname]
+	return typ, ok
+}
+
+func lookupComplexType(schema *parser.Schema, qname types.QName) (*types.ComplexType, bool) {
+	typ, ok := lookupTypeDef(schema, qname)
+	if !ok {
+		return nil, false
+	}
+	ct, ok := typ.(*types.ComplexType)
+	return ct, ok
+}
+
+func lookupSimpleType(schema *parser.Schema, qname types.QName) (*types.SimpleType, bool) {
+	typ, ok := lookupTypeDef(schema, qname)
+	if !ok {
+		return nil, false
+	}
+	st, ok := typ.(*types.SimpleType)
+	return st, ok
+}
+
 func resolveBaseComplexType(schema *parser.Schema, ct *types.ComplexType, baseQName types.QName) *types.ComplexType {
 	if ct != nil && ct.ResolvedBase != nil {
 		if baseCT, ok := ct.ResolvedBase.(*types.ComplexType); ok {
@@ -54,10 +80,8 @@ func resolveBaseComplexType(schema *parser.Schema, ct *types.ComplexType, baseQN
 		}
 	}
 	if schema != nil && !baseQName.IsZero() {
-		if baseType, ok := schema.TypeDefs[baseQName]; ok {
-			if baseCT, ok := baseType.(*types.ComplexType); ok {
-				return baseCT
-			}
+		if baseCT, ok := lookupComplexType(schema, baseQName); ok {
+			return baseCT
 		}
 	}
 	return nil
