@@ -64,15 +64,6 @@ func lookupComplexType(schema *parser.Schema, qname types.QName) (*types.Complex
 	return ct, ok
 }
 
-func lookupSimpleType(schema *parser.Schema, qname types.QName) (*types.SimpleType, bool) {
-	typ, ok := lookupTypeDef(schema, qname)
-	if !ok {
-		return nil, false
-	}
-	st, ok := typ.(*types.SimpleType)
-	return st, ok
-}
-
 func resolveBaseComplexType(schema *parser.Schema, ct *types.ComplexType, baseQName types.QName) *types.ComplexType {
 	if ct != nil && ct.ResolvedBase != nil {
 		if baseCT, ok := ct.ResolvedBase.(*types.ComplexType); ok {
