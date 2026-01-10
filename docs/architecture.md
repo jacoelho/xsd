@@ -12,6 +12,12 @@ This validator implements W3C XML Schema 1.0 validation with the following prior
 - Streaming validation with constant memory use
 - Multi-phase processing for clean separation of concerns
 
+## Schema Location Hints
+
+Instance-document schema hints (`xsi:schemaLocation`, `xsi:noNamespaceSchemaLocation`) are ignored.
+Validation always uses the compiled schema provided to `xsd.Load`/`xsd.LoadFile`, keeping
+validation deterministic and goroutine-safe.
+
 
 ## Processing Pipeline
 
@@ -45,7 +51,6 @@ Schema loading and validation follows five distinct phases:
 |  -----------------                                                     |
 |                                                                        |
 |  - Stream XML tokens (no DOM)                                          |
-|  - Optional schemaLocation prepass (seekable readers only)             |
 |  - Traverse pre-resolved structures                                    |
 |  - NO cycle detection needed                                           |
 |  - NO visited maps                                                     |
@@ -116,7 +121,6 @@ xsd/
     +-- validator/            Phase 5: Validation engine
     |   +-- validator.go      Main validator
     |   +-- stream.go         Streaming validation entry
-    |   +-- stream_schema_location.go  schemaLocation hint handling
     |   +-- element.go        Element validation
     |   +-- attribute.go      Attribute validation
     |   +-- content.go        Content model validation
@@ -306,9 +310,6 @@ Input XML Reader
 | Check IDREFs        | Post-stream phase
 +---------------------+
 ```
-
-schemaLocation hints are applied per policy. Document-wide scans require
-a seekable reader; otherwise hints are ignored or reported.
 
 
 ## DFA Content Model Validation
