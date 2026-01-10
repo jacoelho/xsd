@@ -58,7 +58,7 @@ func TestGetOrCreateState(t *testing.T) {
 	}
 	automaton := &Automaton{
 		symbols:        builder.symbols,
-		trans:          append([]int(nil), builder.newTransRow()...),
+		transitions:    append([]int(nil), builder.newTransitionRow()...),
 		accepting:      []bool{false},
 		counting:       []*Counter{nil},
 		stateSymbolPos: [][]int{nil},

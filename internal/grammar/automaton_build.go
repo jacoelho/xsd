@@ -65,15 +65,15 @@ type constructionState struct {
 	nextBySymbol []*bitset
 }
 
-func recordSymbolPosition(posRow []int, symIdx, pos int) {
-	switch posRow[symIdx] {
+func recordSymbolPosition(posRow []int, symbolIndex, pos int) {
+	switch posRow[symbolIndex] {
 	case symbolPosNone:
-		posRow[symIdx] = pos
+		posRow[symbolIndex] = pos
 	case symbolPosAmbiguous:
 		return
 	default:
-		if posRow[symIdx] != pos {
-			posRow[symIdx] = symbolPosAmbiguous
+		if posRow[symbolIndex] != pos {
+			posRow[symbolIndex] = symbolPosAmbiguous
 		}
 	}
 }
@@ -119,10 +119,10 @@ func (b *Builder) Build() (*Automaton, error) {
 	b.buildSymbols()
 	b.symbolMin, b.symbolMax = b.computeSymbolBounds()
 	b.symbolPositionCounts = make([]int, len(b.symbols))
-	for pos, symIdx := range b.posSymbol {
+	for pos, symbolIndex := range b.posSymbol {
 		if pos < len(b.positions) && b.positions[pos] != nil {
-			if symIdx >= 0 && symIdx < len(b.symbolPositionCounts) {
-				b.symbolPositionCounts[symIdx]++
+			if symbolIndex >= 0 && symbolIndex < len(b.symbolPositionCounts) {
+				b.symbolPositionCounts[symbolIndex]++
 			}
 		}
 	}
@@ -429,24 +429,24 @@ func (b *Builder) scanPositionsForTransitions(state *bitset, nextBySymbol []*bit
 		if pos >= len(b.positions) || b.positions[pos] == nil {
 			return
 		}
-		symIdx := b.posSymbol[pos]
-		if !inBounds(symIdx, len(nextBySymbol)) {
+		symbolIndex := b.posSymbol[pos]
+		if !inBounds(symbolIndex, len(nextBySymbol)) {
 			return
 		}
 
-		recordSymbolPosition(posRow, symIdx, pos)
-		usedSymbols = b.accumulateFollowSet(nextBySymbol, usedSymbols, symIdx, pos)
+		recordSymbolPosition(posRow, symbolIndex, pos)
+		usedSymbols = b.accumulateFollowSet(nextBySymbol, usedSymbols, symbolIndex, pos)
 	})
 
 	return posRow, usedSymbols
 }
 
-func (b *Builder) accumulateFollowSet(nextBySymbol []*bitset, usedSymbols []int, symIdx, pos int) []int {
-	next := nextBySymbol[symIdx]
+func (b *Builder) accumulateFollowSet(nextBySymbol []*bitset, usedSymbols []int, symbolIndex, pos int) []int {
+	next := nextBySymbol[symbolIndex]
 	if next == nil {
 		next = newBitset(b.size)
-		nextBySymbol[symIdx] = next
-		usedSymbols = append(usedSymbols, symIdx)
+		nextBySymbol[symbolIndex] = next
+		usedSymbols = append(usedSymbols, symbolIndex)
 	}
 	next.or(b.followPos[pos])
 	return usedSymbols
@@ -463,7 +463,7 @@ func (b *Builder) initializeConstruction() *constructionState {
 
 	a := &Automaton{
 		symbols:         b.symbols,
-		trans:           append([]int(nil), b.newTransRow()...),
+		transitions:     append([]int(nil), b.newTransitionRow()...),
 		accepting:       []bool{initial.test(b.endPos)},
 		counting:        make([]*Counter, 1, b.size),
 		emptyOK:         initial.test(b.endPos),
@@ -505,17 +505,17 @@ func (b *Builder) initializeAutomatonMaps(a *Automaton) {
 
 func (b *Builder) processSymbolTransitions(a *Automaton, currentStateID int, usedSymbols []int, nextBySymbol []*bitset, stateIDs map[string]int, worklist []workItem) []workItem {
 	var nextID int
-	for _, symIdx := range usedSymbols {
-		next := nextBySymbol[symIdx]
+	for _, symbolIndex := range usedSymbols {
+		next := nextBySymbol[symbolIndex]
 		if next.empty() {
 			b.putWorkBitset(next)
-			nextBySymbol[symIdx] = nil
+			nextBySymbol[symbolIndex] = nil
 			continue
 		}
 
 		nextID, worklist = b.getOrCreateState(a, next, stateIDs, worklist)
-		a.setTransition(currentStateID, symIdx, nextID)
-		nextBySymbol[symIdx] = nil
+		a.setTransition(currentStateID, symbolIndex, nextID)
+		nextBySymbol[symbolIndex] = nil
 	}
 	return worklist
 }
@@ -530,7 +530,7 @@ func (b *Builder) getOrCreateState(a *Automaton, stateSet *bitset, stateIDs map[
 
 	stateID = len(a.accepting)
 	stateIDs[key] = stateID
-	a.trans = append(a.trans, b.newTransRow()...)
+	a.transitions = append(a.transitions, b.newTransitionRow()...)
 	a.accepting = append(a.accepting, stateSet.test(b.endPos))
 	a.counting = append(a.counting, nil)
 	a.stateSymbolPos = append(a.stateSymbolPos, nil)
@@ -565,7 +565,7 @@ func (b *Builder) construct() (*Automaton, error) {
 	return cs.automaton, nil
 }
 
-func (b *Builder) newTransRow() []int {
+func (b *Builder) newTransitionRow() []int {
 	row := make([]int, len(b.symbols))
 	for i := range row {
 		row[i] = -1 // invalid transition
@@ -593,7 +593,7 @@ func (b *Builder) groupCounterForPosition(pos int, groupInfo *GroupCounterInfo) 
 	return &Counter{
 		Min:                    groupInfo.Min,
 		Max:                    groupInfo.Max,
-		SymbolIdx:              b.posSymbol[pos],
+		SymbolIndex:            b.posSymbol[pos],
 		IsGroupCounter:         true,
 		GroupCompletionSymbols: completionSymbols,
 		GroupStartSymbols:      startSymbols,
@@ -626,8 +626,8 @@ func (b *Builder) groupUnitSize(groupInfo *GroupCounterInfo, startSymbols, compl
 	if startSymbols[0] != completionSymbols[0] {
 		return 0
 	}
-	symIdx := startSymbols[0]
-	if !inBounds(symIdx, len(b.symbolPositionCounts)) || b.symbolPositionCounts[symIdx] != 1 {
+	symbolIndex := startSymbols[0]
+	if !inBounds(symbolIndex, len(b.symbolPositionCounts)) || b.symbolPositionCounts[symbolIndex] != 1 {
 		return 0
 	}
 	return groupInfo.UnitSize
@@ -713,9 +713,9 @@ func (b *Builder) computeSymbolBounds() ([]int, []int) {
 	for i := range maxs {
 		maxs[i] = types.UnboundedOccurs
 	}
-	for symIdx, r := range bounds {
-		mins[symIdx] = r.min
-		maxs[symIdx] = r.max
+	for symbolIndex, r := range bounds {
+		mins[symbolIndex] = r.min
+		maxs[symbolIndex] = r.max
 	}
 	b.putRangeMap(bounds)
 	return mins, maxs
