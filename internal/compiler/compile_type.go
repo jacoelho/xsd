@@ -59,6 +59,7 @@ func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.Comp
 		}
 		// check if this is the NOTATION built-in type
 		compiled.IsNotationType = t.Name().Local == string(types.TypeNameNOTATION)
+		compiled.IsQNameOrNotationType = types.IsQNameOrNotation(t.Name())
 		// precompute ID type name for ID/IDREF/IDREFS tracking
 		compiled.IDTypeName = getIDTypeName(t.Name().Local)
 
@@ -138,6 +139,9 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, st *types.S
 		}
 		compiled.DerivationMethod = types.DerivationUnion
 	}
+
+	compiled.IsQNameOrNotationType = c.isQNameOrNotationType(compiled)
+	st.SetQNameOrNotationType(compiled.IsQNameOrNotationType)
 
 	compiled.Facets = c.collectFacets(st)
 
@@ -259,6 +263,19 @@ func (c *Compiler) findPrimitiveType(ct *grammar.CompiledType) *grammar.Compiled
 		}
 	}
 	return nil
+}
+
+func (c *Compiler) isQNameOrNotationType(ct *grammar.CompiledType) bool {
+	if ct == nil || ct.ItemType != nil {
+		return false
+	}
+	if ct.PrimitiveType != nil && types.IsQNameOrNotation(ct.PrimitiveType.QName) {
+		return true
+	}
+	if ct.BaseType != nil {
+		return ct.BaseType.IsQNameOrNotationType
+	}
+	return types.IsQNameOrNotation(ct.QName)
 }
 
 func (c *Compiler) collectFacets(st *types.SimpleType) []types.Facet {

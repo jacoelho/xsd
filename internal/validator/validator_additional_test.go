@@ -250,6 +250,7 @@ func TestLengthFacetHelpers(t *testing.T) {
 	}
 
 	ct := &grammar.CompiledType{
+		IsQNameOrNotationType: true,
 		PrimitiveType: &grammar.CompiledType{
 			QName: types.QName{Namespace: types.XSDNamespace, Local: "QName"},
 		},

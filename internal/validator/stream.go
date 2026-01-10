@@ -21,6 +21,13 @@ const (
 	streamContentRejectAll
 )
 
+type matchOrigin int
+
+const (
+	matchFromDeclaration matchOrigin = iota
+	matchFromWildcard
+)
+
 type streamFrame struct {
 	id                 uint64
 	qname              types.QName
@@ -231,7 +238,7 @@ func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) erro
 	processContents := types.Strict
 	var matchedQName types.QName
 	var matchedDecl *grammar.CompiledElement
-	fromWildcard := false
+	origin := matchFromDeclaration
 
 	if parent != nil {
 		switch parent.contentKind {
@@ -246,7 +253,7 @@ func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) erro
 			}
 			if match.IsWildcard {
 				processContents = match.ProcessContents
-				fromWildcard = true
+				origin = matchFromWildcard
 			}
 			matchedQName = match.MatchedQName
 			if match.MatchedElement != nil {
@@ -271,7 +278,7 @@ func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) erro
 	}
 
 	r.path.push(ev.Name.Local)
-	frame, skipSubtree := r.startFrame(ev, parent, processContents, matchedDecl, matchedQName, fromWildcard)
+	frame, skipSubtree := r.startFrame(ev, parent, processContents, matchedDecl, matchedQName, origin)
 	if skipSubtree {
 		r.path.pop()
 		return dec.SkipSubtree()
@@ -386,12 +393,12 @@ func (r *streamRun) handleEnd(ev xsdxml.Event) error {
 	return nil
 }
 
-func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, fromWildcard bool) (streamFrame, bool) {
+func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, origin matchOrigin) (streamFrame, bool) {
 	attrs := newAttributeIndex(ev.Attrs)
 	decl := r.resolveMatchedDecl(parent, ev.Name, matchedDecl, matchedQName)
 
 	missingCode := errors.ErrElementNotDeclared
-	if fromWildcard && processContents == types.Strict {
+	if origin == matchFromWildcard && processContents == types.Strict {
 		missingCode = errors.ErrWildcardNotDeclared
 	}
 
