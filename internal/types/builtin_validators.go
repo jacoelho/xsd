@@ -43,12 +43,11 @@ var (
 	floatPattern   = regexp.MustCompile(`^[+-]?((\d+(\.\d*)?)|(\.\d+))([eE][+-]?\d+)?$`)
 	integerPattern = regexp.MustCompile(`^[+-]?\d+$`)
 
-	languagePattern              = regexp.MustCompile(`^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$`)
-	durationPattern              = regexp.MustCompile(`^-?P(\d+Y)?(\d+M)?(\d+D)?(T(\d+H)?(\d+M)?(\d+(\.\d+)?S)?)?$`)
-	durationTimeComponentPattern = regexp.MustCompile(`T(\d+H|\d+M|\d+(\.\d+)?S)`)
-	hexBinaryPattern             = regexp.MustCompile(`^[0-9A-Fa-f]+$`)
-	uriSchemePattern             = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*$`)
-	base64WhitespaceReplacer     = strings.NewReplacer(" ", "", "\t", "", "\n", "", "\r", "")
+	languagePattern          = regexp.MustCompile(`^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$`)
+	durationPattern          = regexp.MustCompile(`^-?P(\d+Y)?(\d+M)?(\d+D)?(T(\d+H)?(\d+M)?(\d+(\.\d+)?S)?)?$`)
+	hexBinaryPattern         = regexp.MustCompile(`^[0-9A-Fa-f]+$`)
+	uriSchemePattern         = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*$`)
+	base64WhitespaceReplacer = strings.NewReplacer(" ", "", "\t", "", "\n", "", "\r", "")
 )
 
 var fractionalLayouts = [...]string{
@@ -469,112 +468,8 @@ func validateLanguage(value string) error {
 // validateDuration validates xs:duration
 // Format: PnYnMnDTnHnMnS or -PnYnMnDTnHnMnS
 func validateDuration(value string) error {
-	// basic format check
-	if !durationPattern.MatchString(value) {
-		return fmt.Errorf("invalid duration format: %s", value)
-	}
-	if strings.Contains(value, "T") {
-		if !durationTimeComponentPattern.MatchString(value) {
-			return fmt.Errorf("time designator present but no time components specified")
-		}
-	}
-
-	// try to parse with Go's time.ParseDuration (simplified)
-	// for full compliance, we'd need a custom parser
-	_, err := parseDuration(value)
+	_, err := ParseXSDDuration(value)
 	return err
-}
-
-func parseDuration(s string) (time.Duration, error) {
-	if len(s) == 0 {
-		return 0, fmt.Errorf("empty duration")
-	}
-
-	negative := s[0] == '-'
-	if negative {
-		s = s[1:]
-	}
-
-	if s[0] != 'P' {
-		return 0, fmt.Errorf("duration must start with P")
-	}
-	s = s[1:]
-	hasTimeDesignator := strings.Contains(s, "T")
-
-	var days, hours, minutes int
-	var seconds float64
-
-	hasDateComponent := false
-	hasTimeComponent := false
-
-	datePart := s
-	timePart := ""
-	if before, after, ok := strings.Cut(s, "T"); ok {
-		datePart = before
-		timePart = after
-		if extra := strings.IndexByte(timePart, 'T'); extra != -1 {
-			timePart = timePart[:extra]
-		}
-	}
-
-	// parse date part (years, months, days)
-	matches := durationDatePattern.FindAllStringSubmatch(datePart, -1)
-	for _, match := range matches {
-		if match[1] != "" {
-			// years component found (value may be 0)
-			hasDateComponent = true
-		}
-		if match[2] != "" {
-			// months component found (value may be 0)
-			hasDateComponent = true
-		}
-		if match[3] != "" {
-			days, _ = strconv.Atoi(match[3])
-			hasDateComponent = true
-		}
-	}
-
-	// parse time part (hours, minutes, seconds)
-	if timePart != "" {
-		matches := durationTimePattern.FindAllStringSubmatch(timePart, -1)
-		for _, match := range matches {
-			if match[1] != "" {
-				hours, _ = strconv.Atoi(match[1])
-				hasTimeComponent = true
-			}
-			if match[2] != "" {
-				minutes, _ = strconv.Atoi(match[2])
-				hasTimeComponent = true
-			}
-			if match[3] != "" {
-				seconds, _ = strconv.ParseFloat(match[3], 64)
-				hasTimeComponent = true
-			}
-		}
-	}
-
-	// duration must have at least one component specified
-	// "P" alone is invalid, but "P0Y" is valid (0 years is a valid component)
-	if !hasDateComponent && !hasTimeComponent {
-		return 0, fmt.Errorf("duration must have at least one component")
-	}
-
-	// if T is present but no time components, that's invalid
-	if hasTimeDesignator && !hasTimeComponent {
-		return 0, fmt.Errorf("time designator present but no time components specified")
-	}
-
-	// in real validation, we'd need to handle years/months specially
-	dur := time.Duration(days)*24*time.Hour +
-		time.Duration(hours)*time.Hour +
-		time.Duration(minutes)*time.Minute +
-		time.Duration(seconds)*time.Second
-
-	if negative {
-		dur = -dur
-	}
-
-	return dur, nil
 }
 
 func splitTimezone(value string) (string, string) {
