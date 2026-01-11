@@ -31,12 +31,9 @@ const (
 
 // Pattern represents a pattern facet (regex)
 type Pattern struct {
-	// Original XSD pattern (for error messages)
-	Value string
-	// Translated Go regex pattern
+	regex     *regexp.Regexp
+	Value     string
 	GoPattern string
-	// Compiled regex (set during ValidateSyntax)
-	regex *regexp.Regexp
 }
 
 // Name returns the facet name
@@ -81,7 +78,11 @@ func (p *Pattern) ValidateSyntax() error {
 
 // Validate checks if the value matches the pattern
 func (p *Pattern) Validate(value TypedValue, _ Type) error {
-	lexical := value.Lexical()
+	return p.ValidateLexical(value.Lexical(), nil)
+}
+
+// ValidateLexical validates a lexical value against the pattern.
+func (p *Pattern) ValidateLexical(lexical string, _ Type) error {
 	return p.validateLexical(lexical)
 }
 
@@ -122,11 +123,14 @@ func (ps *PatternSet) ValidateSyntax() error {
 
 // Validate checks if the value matches ANY pattern in the set (OR semantics)
 func (ps *PatternSet) Validate(value TypedValue, _ Type) error {
+	return ps.ValidateLexical(value.Lexical(), nil)
+}
+
+// ValidateLexical validates a lexical value against a pattern set.
+func (ps *PatternSet) ValidateLexical(lexical string, _ Type) error {
 	if len(ps.Patterns) == 0 {
 		return nil
 	}
-
-	lexical := value.Lexical()
 
 	// value must match at least one pattern (OR)
 	var lastErr error

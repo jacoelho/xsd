@@ -20,8 +20,8 @@ var (
 // StringTypedValue is a simple TypedValue wrapper for string values
 // Used when parsing to native type fails but we still need to validate facets
 type StringTypedValue struct {
-	Value string
 	Typ   Type
+	Value string
 }
 
 // DeferredFacet stores raw facet data when the base type is not available during parsing.
@@ -69,6 +69,12 @@ type Facet interface {
 type LexicalFacet interface {
 	Facet
 	GetLexical() string
+}
+
+// LexicalValidator validates a lexical value without a TypedValue.
+type LexicalValidator interface {
+	Facet
+	ValidateLexical(lexical string, baseType Type) error
 }
 
 // IntValueFacet is a facet that has an integer value.

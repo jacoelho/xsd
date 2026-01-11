@@ -8,34 +8,23 @@ import (
 
 // SimpleType represents a simple type definition
 type SimpleType struct {
-	QName       QName
-	variety     SimpleTypeVariety
-	Restriction *Restriction
-	List        *ListType
-	Union       *UnionType
-	// Resolved base type (can be set in struct literal or assigned directly)
-	ResolvedBase Type
-	// Ultimate primitive base type (cached)
-	primitiveType Type
-	// Cached fundamental facets
+	ItemType               Type
+	ResolvedBase           Type
+	primitiveType          Type
+	Restriction            *Restriction
+	List                   *ListType
+	Union                  *UnionType
 	fundamentalFacetsCache *FundamentalFacets
-	// True if this type derives from QName or NOTATION.
-	qnameOrNotation bool
-	// True if qnameOrNotation has been computed.
-	qnameOrNotationReady bool
-	// Resolved item type for list types
-	ItemType Type
-	// Resolved member types for union types
-	MemberTypes []Type
-	// WhiteSpace normalization (cached)
-	whiteSpace WhiteSpace
-	// True if whiteSpace was explicitly set in restriction
-	whiteSpaceExplicit bool
-	builtin            bool
-	// targetNamespace of the schema where this type was originally declared
-	SourceNamespace NamespaceURI
-	// Derivation methods blocked for this type (restriction, list, union)
-	Final DerivationSet
+	QName                  QName
+	SourceNamespace        NamespaceURI
+	MemberTypes            []Type
+	whiteSpace             WhiteSpace
+	variety                SimpleTypeVariety
+	Final                  DerivationSet
+	qnameOrNotationReady   bool
+	qnameOrNotation        bool
+	whiteSpaceExplicit     bool
+	builtin                bool
 }
 
 // NewSimpleType creates a new simple type with the provided name and namespace.
@@ -394,7 +383,18 @@ func (s *SimpleType) MeasureLength(value string) int {
 
 func countFields(value string) int {
 	count := 0
-	for range strings.FieldsSeq(value) {
+	inField := false
+	for i := 0; i < len(value); i++ {
+		if isXMLWhitespaceByte(value[i]) {
+			if inField {
+				count++
+				inField = false
+			}
+			continue
+		}
+		inField = true
+	}
+	if inField {
 		count++
 	}
 	return count
