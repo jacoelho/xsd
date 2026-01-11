@@ -124,23 +124,14 @@ func validateRestrictionFacetApplicability(facets []any, baseType Type) error {
 	if isNilType(baseType) {
 		return nil
 	}
-	baseFacets := baseType.FundamentalFacets()
-	if baseFacets == nil {
-		if primitive := baseType.PrimitiveType(); primitive != nil {
-			baseFacets = primitive.FundamentalFacets()
-		}
-	}
-	if baseFacets == nil {
-		return nil
-	}
 	for _, facet := range facets {
 		namer, ok := facet.(facetNamer)
 		if !ok {
 			continue
 		}
 		facetName := namer.Name()
-		if !IsFacetApplicable(facetName, baseFacets) {
-			return fmt.Errorf("facet %q is not applicable to base type %s", facetName, baseType.Name())
+		if err := ValidateFacetApplicability(facetName, baseType, baseType.Name()); err != nil {
+			return err
 		}
 	}
 	return nil

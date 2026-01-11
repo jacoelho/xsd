@@ -115,42 +115,40 @@ func TestFundamentalFacets_Inheritance(t *testing.T) {
 
 func TestFundamentalFacets_FacetApplicability(t *testing.T) {
 	tests := []struct {
-		name        string
-		facets      *FundamentalFacets
-		facetName   string
-		shouldApply bool
+		name      string
+		typeName  string
+		facetName string
+		wantErr   bool
 	}{
 		{
-			name: "maxInclusive with ordered total",
-			facets: &FundamentalFacets{
-				Ordered: OrderedTotal,
-			},
-			facetName:   "maxInclusive",
-			shouldApply: true,
+			name:      "maxInclusive with ordered total",
+			typeName:  "decimal",
+			facetName: "maxInclusive",
+			wantErr:   false,
 		},
 		{
-			name: "maxInclusive with ordered none",
-			facets: &FundamentalFacets{
-				Ordered: OrderedNone,
-			},
-			facetName:   "maxInclusive",
-			shouldApply: false,
+			name:      "maxInclusive with ordered none",
+			typeName:  "string",
+			facetName: "maxInclusive",
+			wantErr:   true,
 		},
 		{
-			name: "length with ordered none",
-			facets: &FundamentalFacets{
-				Ordered: OrderedNone,
-			},
-			facetName:   "length",
-			shouldApply: true,
+			name:      "length with ordered none",
+			typeName:  "string",
+			facetName: "length",
+			wantErr:   false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			applies := IsFacetApplicable(tt.facetName, tt.facets)
-			if applies != tt.shouldApply {
-				t.Errorf("IsFacetApplicable(%q, facets) = %v, want %v", tt.facetName, applies, tt.shouldApply)
+			bt := GetBuiltin(TypeName(tt.typeName))
+			if bt == nil {
+				t.Fatalf("missing builtin type %s", tt.typeName)
+			}
+			err := ValidateFacetApplicability(tt.facetName, bt, bt.Name())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateFacetApplicability(%q, %s) = %v, wantErr=%v", tt.facetName, tt.typeName, err, tt.wantErr)
 			}
 		})
 	}
