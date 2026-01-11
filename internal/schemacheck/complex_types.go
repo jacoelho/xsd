@@ -7,41 +7,40 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-// validateComplexTypeStructure validates structural constraints of a complex type
-// Does not validate references (which might be forward references or imports)
-// isInline indicates if this complexType is defined inline in an element (local element)
-func validateComplexTypeStructure(schema *parser.Schema, ct *types.ComplexType, isInline bool) error {
-	if err := validateContentStructure(schema, ct.Content(), isInline); err != nil {
+// validateComplexTypeStructure validates structural constraints of a complex type.
+// Does not validate references (which might be forward references or imports).
+func validateComplexTypeStructure(schema *parser.Schema, complexType *types.ComplexType, context typeDefinitionContext) error {
+	if err := validateContentStructure(schema, complexType.Content(), context); err != nil {
 		return fmt.Errorf("content: %w", err)
 	}
 
-	if err := validateUPA(schema, ct.Content(), schema.TargetNamespace); err != nil {
+	if err := validateUPA(schema, complexType.Content(), schema.TargetNamespace); err != nil {
 		return fmt.Errorf("UPA violation: %w", err)
 	}
 
-	if err := validateElementDeclarationsConsistent(schema, ct); err != nil {
+	if err := validateElementDeclarationsConsistent(schema, complexType); err != nil {
 		return fmt.Errorf("element declarations consistent: %w", err)
 	}
 
-	if err := validateMixedContentDerivation(schema, ct); err != nil {
+	if err := validateMixedContentDerivation(schema, complexType); err != nil {
 		return fmt.Errorf("mixed content derivation: %w", err)
 	}
 
-	if err := validateWildcardDerivation(schema, ct); err != nil {
+	if err := validateWildcardDerivation(schema, complexType); err != nil {
 		return fmt.Errorf("wildcard derivation: %w", err)
 	}
 
-	if err := validateAnyAttributeDerivation(schema, ct); err != nil {
+	if err := validateAnyAttributeDerivation(schema, complexType); err != nil {
 		return fmt.Errorf("anyAttribute derivation: %w", err)
 	}
 
-	for _, attr := range ct.Attributes() {
+	for _, attr := range complexType.Attributes() {
 		if err := validateAttributeDeclStructure(schema, attr.Name, attr); err != nil {
 			return fmt.Errorf("attribute %s: %w", attr.Name, err)
 		}
 	}
 
-	if content := ct.Content(); content != nil {
+	if content := complexType.Content(); content != nil {
 		if ext := content.ExtensionDef(); ext != nil {
 			for _, attr := range ext.Attributes {
 				if err := validateAttributeDeclStructure(schema, attr.Name, attr); err != nil {
@@ -58,19 +57,19 @@ func validateComplexTypeStructure(schema *parser.Schema, ct *types.ComplexType, 
 		}
 	}
 
-	if err := validateAttributeUniqueness(schema, ct); err != nil {
+	if err := validateAttributeUniqueness(schema, complexType); err != nil {
 		return fmt.Errorf("attributes: %w", err)
 	}
 
-	if err := validateIDAttributeCount(schema, ct); err != nil {
+	if err := validateIDAttributeCount(schema, complexType); err != nil {
 		return fmt.Errorf("attributes: %w", err)
 	}
 
-	if err := validateNoCircularDerivation(schema, ct); err != nil {
+	if err := validateNoCircularDerivation(schema, complexType); err != nil {
 		return fmt.Errorf("circular derivation: %w", err)
 	}
 
-	if err := validateDerivationConstraints(schema, ct); err != nil {
+	if err := validateDerivationConstraints(schema, complexType); err != nil {
 		return fmt.Errorf("derivation constraints: %w", err)
 	}
 
@@ -79,46 +78,46 @@ func validateComplexTypeStructure(schema *parser.Schema, ct *types.ComplexType, 
 
 // validateNoCircularDerivation validates that a complex type doesn't have circular derivation
 // A type cannot (even indirectly) be its own base
-func validateNoCircularDerivation(schema *parser.Schema, ct *types.ComplexType) error {
+func validateNoCircularDerivation(schema *parser.Schema, complexType *types.ComplexType) error {
 	visited := make(map[types.QName]bool)
-	return checkCircularDerivation(schema, ct.QName, ct, visited)
+	return checkCircularDerivation(schema, complexType.QName, complexType, visited)
 }
 
 // checkCircularDerivation recursively checks for circular derivation
-func checkCircularDerivation(schema *parser.Schema, originalQName types.QName, ct *types.ComplexType, visited map[types.QName]bool) error {
-	baseQName := ct.Content().BaseTypeQName()
+func checkCircularDerivation(schema *parser.Schema, originalQName types.QName, complexType *types.ComplexType, visited map[types.QName]bool) error {
+	baseQName := complexType.Content().BaseTypeQName()
 
 	// if we've already seen this type in the derivation chain, it's a cycle
-	// except: if this type extends itself directly (baseQName == ct.QName), allow it for redefine cases
-	if visited[ct.QName] {
-		if baseQName.IsZero() || baseQName == ct.QName {
+	// except: if this type extends itself directly (baseQName == complexType.QName), allow it for redefine cases
+	if visited[complexType.QName] {
+		if baseQName.IsZero() || baseQName == complexType.QName {
 			return nil // no derivation or self-reference (valid in redefine context)
 		}
-		return fmt.Errorf("complex type '%s' has circular derivation through '%s'", originalQName, ct.QName)
+		return fmt.Errorf("complex type '%s' has circular derivation through '%s'", originalQName, complexType.QName)
 	}
 
 	if baseQName.IsZero() {
 		return nil // no derivation
 	}
 
-	visited[ct.QName] = true
-	defer delete(visited, ct.QName)
+	visited[complexType.QName] = true
+	defer delete(visited, complexType.QName)
 
 	// check if base type exists and is complex
-	baseCT, ok := lookupComplexType(schema, baseQName)
+	baseComplexType, ok := lookupComplexType(schema, baseQName)
 	if !ok {
 		// base type not found or not complex - no cycle possible
 		return nil
 	}
 
 	// recursively check base type
-	return checkCircularDerivation(schema, originalQName, baseCT, visited)
+	return checkCircularDerivation(schema, originalQName, baseComplexType, visited)
 }
 
 // validateDerivationConstraints validates final/block constraints on type derivation
 // According to XSD spec: "Proper Derivation"
-func validateDerivationConstraints(schema *parser.Schema, ct *types.ComplexType) error {
-	content := ct.Content()
+func validateDerivationConstraints(schema *parser.Schema, complexType *types.ComplexType) error {
+	content := complexType.Content()
 	baseQName := content.BaseTypeQName()
 	if baseQName.IsZero() {
 		return nil // no derivation
@@ -144,49 +143,49 @@ func validateDerivationConstraints(schema *parser.Schema, ct *types.ComplexType)
 //   - Extension must preserve the mixed/element-only content kind.
 //     If the extension adds no particle, it inherits the base content (including mixedness).
 //   - Restriction cannot introduce mixed content when base is element-only.
-func validateMixedContentDerivation(schema *parser.Schema, ct *types.ComplexType) error {
-	if !ct.IsDerived() {
+func validateMixedContentDerivation(schema *parser.Schema, complexType *types.ComplexType) error {
+	if !complexType.IsDerived() {
 		return nil
 	}
 
 	// simpleContent doesn't have mixed content
-	cc, isComplexContent := ct.Content().(*types.ComplexContent)
+	cc, isComplexContent := complexType.Content().(*types.ComplexContent)
 	if !isComplexContent {
 		return nil
 	}
 
-	baseQName := ct.Content().BaseTypeQName()
+	baseQName := complexType.Content().BaseTypeQName()
 	if baseQName.IsZero() {
 		return nil
 	}
 
-	baseCT, ok := lookupComplexType(schema, baseQName)
+	baseComplexType, ok := lookupComplexType(schema, baseQName)
 	if !ok {
 		return nil // base type not found or not complex
 	}
 
-	baseMixed := baseCT.Mixed()
-	if baseCC, ok := baseCT.Content().(*types.ComplexContent); ok && baseCC.Mixed {
+	baseMixed := baseComplexType.Mixed()
+	if baseCC, ok := baseComplexType.Content().(*types.ComplexContent); ok && baseCC.Mixed {
 		baseMixed = true
 	}
 
-	derivedMixed := ct.Mixed() || cc.Mixed
+	derivedMixed := complexType.Mixed() || cc.Mixed
 
-	if ct.IsExtension() {
+	if complexType.IsExtension() {
 		if baseMixed && !derivedMixed {
 			if cc.Extension != nil && cc.Extension.Particle == nil {
 				return nil
 			}
-			return fmt.Errorf("cannot extend mixed content type '%s' to element-only content", baseCT.QName.Local)
+			return fmt.Errorf("cannot extend mixed content type '%s' to element-only content", baseComplexType.QName.Local)
 		}
 		if !baseMixed && derivedMixed {
-			return fmt.Errorf("cannot extend element-only content type '%s' to mixed content", baseCT.QName.Local)
+			return fmt.Errorf("cannot extend element-only content type '%s' to mixed content", baseComplexType.QName.Local)
 		}
-	} else if ct.IsRestriction() {
+	} else if complexType.IsRestriction() {
 		// restriction: base mixed=false, derived mixed=true → INVALID (cannot add mixed)
 		// restriction: base mixed=true, derived mixed=false → VALID (can remove mixed)
 		if !baseMixed && derivedMixed {
-			return fmt.Errorf("cannot restrict element-only content type '%s' to mixed content", baseCT.QName.Local)
+			return fmt.Errorf("cannot restrict element-only content type '%s' to mixed content", baseComplexType.QName.Local)
 		}
 		// all other restriction combinations are valid
 	}
@@ -198,24 +197,24 @@ func validateMixedContentDerivation(schema *parser.Schema, ct *types.ComplexType
 // in extensions. According to XSD spec "Element Declarations Consistent": when extending
 // a complex type, elements in the extension cannot have the same name as elements in the
 // base type with different types.
-func validateElementDeclarationsConsistent(schema *parser.Schema, ct *types.ComplexType) error {
-	if !ct.IsExtension() {
+func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *types.ComplexType) error {
+	if !complexType.IsExtension() {
 		return nil
 	}
 
-	content := ct.Content()
+	content := complexType.Content()
 	ext := content.ExtensionDef()
 	if ext == nil {
 		return nil
 	}
 
 	baseQName := content.BaseTypeQName()
-	baseCT, ok := lookupComplexType(schema, baseQName)
+	baseComplexType, ok := lookupComplexType(schema, baseQName)
 	if !ok {
 		return nil // base type not found or not complex
 	}
 
-	baseElements := collectAllElementDeclarationsFromType(schema, baseCT)
+	baseElements := collectAllElementDeclarationsFromType(schema, baseComplexType)
 
 	// simpleContent extensions don't have particles
 	if ext.Particle == nil {
@@ -243,23 +242,23 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, ct *types.Comp
 
 // collectAllElementDeclarationsFromType collects all element declarations from a complex type
 // This recursively collects from the type's content model and its base types
-func collectAllElementDeclarationsFromType(schema *parser.Schema, ct *types.ComplexType) []*types.ElementDecl {
+func collectAllElementDeclarationsFromType(schema *parser.Schema, complexType *types.ComplexType) []*types.ElementDecl {
 	visited := make(map[types.QName]bool)
-	return collectElementDeclarationsRecursive(schema, ct, visited)
+	return collectElementDeclarationsRecursive(schema, complexType, visited)
 }
 
 // collectElementDeclarationsRecursive recursively collects element declarations from a type and its base types
-func collectElementDeclarationsRecursive(schema *parser.Schema, ct *types.ComplexType, visited map[types.QName]bool) []*types.ElementDecl {
+func collectElementDeclarationsRecursive(schema *parser.Schema, complexType *types.ComplexType, visited map[types.QName]bool) []*types.ElementDecl {
 	// avoid infinite loops
-	if visited[ct.QName] {
+	if visited[complexType.QName] {
 		return nil
 	}
-	visited[ct.QName] = true
+	visited[complexType.QName] = true
 
 	var result []*types.ElementDecl
 
 	// collect from this type's content
-	content := ct.Content()
+	content := complexType.Content()
 	switch c := content.(type) {
 	case *types.ElementContent:
 		if c.Particle != nil {
@@ -307,8 +306,8 @@ func collectElementDeclarationsFromParticle(particle types.Particle) []*types.El
 	return result
 }
 
-func validateIDAttributeCount(schema *parser.Schema, ct *types.ComplexType) error {
-	attrs := collectAllAttributesForValidation(schema, ct)
+func validateIDAttributeCount(schema *parser.Schema, complexType *types.ComplexType) error {
+	attrs := collectAllAttributesForValidation(schema, complexType)
 	idCount := 0
 	for _, attr := range attrs {
 		if attr.Use == types.Prohibited {
@@ -322,14 +321,14 @@ func validateIDAttributeCount(schema *parser.Schema, ct *types.ComplexType) erro
 			idCount++
 			continue
 		}
-		if st, ok := attr.Type.(*types.SimpleType); ok {
-			if isIDOnlyDerivedType(st) {
+		if simpleType, ok := attr.Type.(*types.SimpleType); ok {
+			if isIDOnlyDerivedType(simpleType) {
 				idCount++
 			}
 		}
 	}
 	if idCount > 1 {
-		return fmt.Errorf("type %s has multiple ID attributes", ct.QName.Local)
+		return fmt.Errorf("type %s has multiple ID attributes", complexType.QName.Local)
 	}
 	return nil
 }

@@ -62,7 +62,22 @@ type MatchResult struct {
 // symbolCandidate represents a potential symbol match during content model schemacheck.
 type symbolCandidate struct {
 	symbolIndex int
-	isWildcard  bool
+	kind        candidateKind
+}
+
+type candidateKind int
+
+const (
+	candidateElement candidateKind = iota
+	candidateWildcard
+)
+
+func elementCandidate(symbolIndex int) symbolCandidate {
+	return symbolCandidate{symbolIndex: symbolIndex, kind: candidateElement}
+}
+
+func wildcardCandidate(symbolIndex int) symbolCandidate {
+	return symbolCandidate{symbolIndex: symbolIndex, kind: candidateWildcard}
 }
 
 func inBounds(idx, length int) bool {
@@ -157,6 +172,15 @@ func groupMaxOccursError(childIdx, max int) error {
 	}
 }
 
+// minGroupIterations maps first-position counts to completed group iterations.
+// For single-position groups with fixed repeats, UnitSize converts occurrences
+// into one logical iteration.
+//
+// Example (positions):
+//
+//	first ---> last
+//	^          |
+//	+----------+  (iteration boundary)
 func minGroupIterations(startCount, firstPosMaxOccurs int) int {
 	if startCount > 0 && firstPosMaxOccurs == types.UnboundedOccurs {
 		return 1
@@ -390,9 +414,9 @@ func (a *Automaton) findBestMatchQName(qname types.QName, state int, matcher Sym
 }
 
 func (a *Automaton) collectExactMatches(qname types.QName, candidates []symbolCandidate) []symbolCandidate {
-	for i, sym := range a.symbols {
-		if sym.Kind == KindElement && sym.QName.Equal(qname) {
-			candidates = append(candidates, symbolCandidate{i, false})
+	for i, symbol := range a.symbols {
+		if symbol.Kind == KindElement && symbol.QName.Equal(qname) {
+			candidates = append(candidates, elementCandidate(i))
 		}
 	}
 	return candidates
@@ -402,18 +426,18 @@ func (a *Automaton) collectSubstitutionMatches(qname types.QName, matcher Symbol
 	if matcher == nil {
 		return candidates
 	}
-	for i, sym := range a.symbols {
-		if sym.Kind == KindElement && sym.AllowSubstitution && matcher.IsSubstitutable(qname, sym.QName) {
-			candidates = append(candidates, symbolCandidate{i, false})
+	for i, symbol := range a.symbols {
+		if symbol.Kind == KindElement && symbol.AllowSubstitution && matcher.IsSubstitutable(qname, symbol.QName) {
+			candidates = append(candidates, elementCandidate(i))
 		}
 	}
 	return candidates
 }
 
 func (a *Automaton) collectWildcardMatches(qname types.QName, candidates []symbolCandidate) []symbolCandidate {
-	for i, sym := range a.symbols {
-		if a.wildcardMatches(sym, qname) {
-			candidates = append(candidates, symbolCandidate{i, true})
+	for i, symbol := range a.symbols {
+		if a.wildcardMatches(symbol, qname) {
+			candidates = append(candidates, wildcardCandidate(i))
 		}
 	}
 	return candidates
@@ -440,11 +464,11 @@ func (a *Automaton) selectBestCandidate(candidates []symbolCandidate, state int)
 	for _, c := range candidates {
 		nextState := a.transition(state, c.symbolIndex)
 		if nextState >= 0 {
-			return c.symbolIndex, c.isWildcard, nextState
+			return c.symbolIndex, c.kind == candidateWildcard, nextState
 		}
 	}
 	first := candidates[0]
-	return first.symbolIndex, first.isWildcard, a.transition(state, first.symbolIndex)
+	return first.symbolIndex, first.kind == candidateWildcard, a.transition(state, first.symbolIndex)
 }
 
 func (a *Automaton) matchedElement(state, symbolIndex int) *CompiledElement {

@@ -84,7 +84,7 @@ func TestAutomatonStreamValidatorWildcardMatch(t *testing.T) {
 		Original:  wildcard,
 	}
 
-	builder := NewBuilder([]*ParticleAdapter{particle}, "", false)
+	builder := NewBuilder([]*ParticleAdapter{particle}, "", types.FormUnqualified)
 	automaton, err := builder.Build()
 	if err != nil {
 		t.Fatalf("build automaton: %v", err)

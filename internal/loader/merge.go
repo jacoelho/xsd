@@ -8,10 +8,26 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
+type mergeKind int
+
+const (
+	mergeInclude mergeKind = iota
+	mergeImport
+)
+
+type namespaceRemapMode int
+
+const (
+	remapNamespace namespaceRemapMode = iota
+	keepNamespace
+)
+
 // mergeSchema merges a source schema into a target schema.
-// For imports (isImport=true), preserves source namespace.
-// For includes (isImport=false), uses chameleon namespace remapping if needed.
-func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, isImport, needsNamespaceRemap bool) error {
+// For imports, preserves source namespace.
+// For includes, uses chameleon namespace remapping if needed.
+func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind, remap namespaceRemapMode) error {
+	isImport := kind == mergeImport
+	needsNamespaceRemap := remap == remapNamespace
 	remapQName := func(qname types.QName) types.QName {
 		if needsNamespaceRemap && qname.Namespace.IsEmpty() {
 			return types.QName{
@@ -320,7 +336,7 @@ func elementDeclEquivalent(a, b *types.ElementDecl) bool {
 // based on the source schema's attributeFormDefault. This ensures that when types from
 // imported or chameleon-included schemas are merged into a main schema, the attributes
 // retain their original form semantics regardless of the main schema's attributeFormDefault.
-func normalizeAttributeForms(ct *types.ComplexType, sourceAttrFormDefault parser.Form) {
+func normalizeAttributeForms(complexType *types.ComplexType, sourceAttrFormDefault parser.Form) {
 	normalizeAttr := func(attr *types.AttributeDecl) {
 		if attr.Form == types.FormDefault {
 			if sourceAttrFormDefault == parser.Qualified {
@@ -331,11 +347,11 @@ func normalizeAttributeForms(ct *types.ComplexType, sourceAttrFormDefault parser
 		}
 	}
 
-	for _, attr := range ct.Attributes() {
+	for _, attr := range complexType.Attributes() {
 		normalizeAttr(attr)
 	}
 
-	content := ct.Content()
+	content := complexType.Content()
 	if ext := content.ExtensionDef(); ext != nil {
 		for _, attr := range ext.Attributes {
 			normalizeAttr(attr)

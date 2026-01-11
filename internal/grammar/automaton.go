@@ -32,7 +32,8 @@ func (a *Automaton) setTransition(state, symbolIndex, next int) {
 	a.transitions[a.transitionIndex(state, symbolIndex)] = next
 }
 
-// GroupCounterInfo tracks information about a group that needs counting
+// GroupCounterInfo tracks how repeating groups are counted by the automaton.
+// It captures first/last positions and the per-iteration unit size.
 type GroupCounterInfo struct {
 	LastPositions     []int
 	FirstPositions    []int

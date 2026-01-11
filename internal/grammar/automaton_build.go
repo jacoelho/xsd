@@ -40,7 +40,7 @@ type Builder struct {
 	rangeMapPool         []map[int]occRange
 	size                 int
 	endPos               int
-	elementFormDefault   bool
+	elementFormDefault   types.FormChoice
 }
 
 type workItem struct {
@@ -69,7 +69,7 @@ func recordSymbolPosition(posRow []int, symbolIndex, pos int) {
 }
 
 // NewBuilder creates a builder for the given content model.
-func NewBuilder(particles []*ParticleAdapter, targetNamespace string, elementFormDefault bool) *Builder {
+func NewBuilder(particles []*ParticleAdapter, targetNamespace string, elementFormDefault types.FormChoice) *Builder {
 	return &Builder{
 		particles:          particles,
 		targetNamespace:    targetNamespace,
@@ -122,14 +122,14 @@ func (b *Builder) Build() (*Automaton, error) {
 }
 
 // BuildAutomaton builds an automaton from compiled particles.
-// elementFormQualified should be true if elementFormDefault="qualified" in the schema.
-func BuildAutomaton(particles []*CompiledParticle, targetNamespace types.NamespaceURI, elementFormQualified bool) (*Automaton, error) {
+// BuildAutomaton constructs an automaton using the schema's elementFormDefault.
+func BuildAutomaton(particles []*CompiledParticle, targetNamespace types.NamespaceURI, elementFormDefault types.FormChoice) (*Automaton, error) {
 	adapters := make([]*ParticleAdapter, len(particles))
 	for i, p := range particles {
 		adapters[i] = convertParticle(p)
 	}
 
-	builder := NewBuilder(adapters, string(targetNamespace), elementFormQualified)
+	builder := NewBuilder(adapters, string(targetNamespace), elementFormDefault)
 	return builder.Build()
 }
 
@@ -387,7 +387,7 @@ func (b *Builder) buildSymbols() {
 			// this is a group completion position - use unique key
 			key = symbolKey{kind: symbolKeyGroupCompletion, groupID: i}
 		} else {
-			key = symbolKeyForParticle(p.Particle, p.AllowSubstitution)
+			key = symbolKeyForParticle(p.Particle, substitutionPolicyFor(p.AllowSubstitution))
 		}
 		idx, ok := seen[key]
 		if !ok {
@@ -400,7 +400,7 @@ func (b *Builder) buildSymbols() {
 					QName: types.QName{Local: fmt.Sprintf("__group_completion_%d", i)},
 				})
 			} else {
-				b.symbols = append(b.symbols, b.makeSymbol(p.Particle, p.AllowSubstitution))
+				b.symbols = append(b.symbols, b.makeSymbol(p.Particle, substitutionPolicyFor(p.AllowSubstitution)))
 			}
 		}
 		b.posSymbol[i] = idx
@@ -793,7 +793,7 @@ func (b *Builder) symbolIndexForParticle(p *ParticleAdapter) (int, bool) {
 	if p.Original == nil {
 		return 0, false
 	}
-	key := symbolKeyForParticle(p.Original, p.AllowSubstitution)
+	key := symbolKeyForParticle(p.Original, substitutionPolicyFor(p.AllowSubstitution))
 	idx, ok := b.symbolIndexByKey[key]
 	return idx, ok
 }
@@ -877,24 +877,31 @@ const (
 	symbolKeyGroupCompletion
 )
 
+type substitutionPolicy int
+
+const (
+	substitutionDisallowed substitutionPolicy = iota
+	substitutionAllowed
+)
+
 type symbolKey struct {
-	qname             types.QName
-	wildcardTarget    types.NamespaceURI
-	wildcardList      string
-	wildcardNS        types.NamespaceConstraint
-	groupID           int
-	kind              symbolKeyKind
-	allowSubstitution bool
+	qname          types.QName
+	wildcardTarget types.NamespaceURI
+	wildcardList   string
+	wildcardNS     types.NamespaceConstraint
+	groupID        int
+	kind           symbolKeyKind
+	substitution   substitutionPolicy
 }
 
 // Symbol helpers
-func symbolKeyForParticle(p types.Particle, allowSubstitution bool) symbolKey {
+func symbolKeyForParticle(p types.Particle, substitution substitutionPolicy) symbolKey {
 	switch v := p.(type) {
 	case *types.ElementDecl:
 		return symbolKey{
-			kind:              symbolKeyElement,
-			allowSubstitution: allowSubstitution,
-			qname:             v.Name,
+			kind:         symbolKeyElement,
+			substitution: substitution,
+			qname:        v.Name,
 		}
 	case *types.AnyElement:
 		key := symbolKey{
@@ -911,6 +918,13 @@ func symbolKeyForParticle(p types.Particle, allowSubstitution bool) symbolKey {
 	}
 }
 
+func substitutionPolicyFor(allow bool) substitutionPolicy {
+	if allow {
+		return substitutionAllowed
+	}
+	return substitutionDisallowed
+}
+
 func namespaceListKey(list []types.NamespaceURI) string {
 	if len(list) == 0 {
 		return ""
@@ -925,7 +939,7 @@ func namespaceListKey(list []types.NamespaceURI) string {
 	return sb.String()
 }
 
-func (b *Builder) makeSymbol(p types.Particle, allowSubstitution bool) Symbol {
+func (b *Builder) makeSymbol(p types.Particle, substitution substitutionPolicy) Symbol {
 	switch v := p.(type) {
 	case *types.ElementDecl:
 		qname := v.Name
@@ -933,7 +947,7 @@ func (b *Builder) makeSymbol(p types.Particle, allowSubstitution bool) Symbol {
 			// unqualified local elements should match elements with no namespace
 			qname = types.QName{Namespace: "", Local: v.Name.Local}
 		}
-		return Symbol{Kind: KindElement, QName: qname, AllowSubstitution: allowSubstitution}
+		return Symbol{Kind: KindElement, QName: qname, AllowSubstitution: substitution == substitutionAllowed}
 	case *types.AnyElement:
 		switch v.Namespace {
 		case types.NSCAny:
@@ -968,6 +982,6 @@ func (b *Builder) isElementQualified(elem *types.ElementDecl) bool {
 	case types.FormUnqualified:
 		return false
 	default: // formDefault uses schema's elementFormDefault
-		return b.elementFormDefault
+		return b.elementFormDefault == types.FormQualified
 	}
 }
