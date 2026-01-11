@@ -7,12 +7,12 @@ import (
 func TestFundamentalFacets_Ordered(t *testing.T) {
 	tests := []struct {
 		name     string
-		ordered  Ordered
 		expected string
+		ordered  Ordered
 	}{
-		{"total", OrderedTotal, "total"},
-		{"partial", OrderedPartial, "partial"},
-		{"none", OrderedNone, "none"},
+		{name: "total", ordered: OrderedTotal, expected: "total"},
+		{name: "partial", ordered: OrderedPartial, expected: "partial"},
+		{name: "none", ordered: OrderedNone, expected: "none"},
 	}
 
 	for _, tt := range tests {
@@ -28,30 +28,30 @@ func TestFundamentalFacets_ForPrimitiveTypes(t *testing.T) {
 	tests := []struct {
 		typeName    string
 		ordered     Ordered
-		bounded     bool
 		cardinality Cardinality
+		bounded     bool
 		numeric     bool
 	}{
 		// primitive types
-		{"decimal", OrderedTotal, false, CardinalityUncountablyInfinite, true},
-		{"float", OrderedTotal, false, CardinalityUncountablyInfinite, true},
-		{"double", OrderedTotal, false, CardinalityUncountablyInfinite, true},
-		{"duration", OrderedPartial, false, CardinalityUncountablyInfinite, false},
-		{"dateTime", OrderedTotal, false, CardinalityUncountablyInfinite, false},
-		{"time", OrderedTotal, false, CardinalityUncountablyInfinite, false},
-		{"date", OrderedTotal, false, CardinalityUncountablyInfinite, false},
-		{"gYearMonth", OrderedTotal, false, CardinalityUncountablyInfinite, false},
-		{"gYear", OrderedTotal, false, CardinalityUncountablyInfinite, false},
-		{"gMonthDay", OrderedTotal, false, CardinalityUncountablyInfinite, false},
-		{"gDay", OrderedTotal, false, CardinalityUncountablyInfinite, false},
-		{"gMonth", OrderedTotal, false, CardinalityUncountablyInfinite, false},
-		{"string", OrderedNone, false, CardinalityCountablyInfinite, false},
-		{"boolean", OrderedNone, false, CardinalityFinite, false},
-		{"hexBinary", OrderedNone, false, CardinalityCountablyInfinite, false},
-		{"base64Binary", OrderedNone, false, CardinalityCountablyInfinite, false},
-		{"anyURI", OrderedNone, false, CardinalityCountablyInfinite, false},
-		{"QName", OrderedNone, false, CardinalityCountablyInfinite, false},
-		{"NOTATION", OrderedNone, false, CardinalityCountablyInfinite, false},
+		{typeName: "decimal", ordered: OrderedTotal, cardinality: CardinalityUncountablyInfinite, bounded: false, numeric: true},
+		{typeName: "float", ordered: OrderedTotal, cardinality: CardinalityUncountablyInfinite, bounded: false, numeric: true},
+		{typeName: "double", ordered: OrderedTotal, cardinality: CardinalityUncountablyInfinite, bounded: false, numeric: true},
+		{typeName: "duration", ordered: OrderedPartial, cardinality: CardinalityUncountablyInfinite, bounded: false, numeric: false},
+		{typeName: "dateTime", ordered: OrderedTotal, cardinality: CardinalityUncountablyInfinite, bounded: false, numeric: false},
+		{typeName: "time", ordered: OrderedTotal, cardinality: CardinalityUncountablyInfinite, bounded: false, numeric: false},
+		{typeName: "date", ordered: OrderedTotal, cardinality: CardinalityUncountablyInfinite, bounded: false, numeric: false},
+		{typeName: "gYearMonth", ordered: OrderedTotal, cardinality: CardinalityUncountablyInfinite, bounded: false, numeric: false},
+		{typeName: "gYear", ordered: OrderedTotal, cardinality: CardinalityUncountablyInfinite, bounded: false, numeric: false},
+		{typeName: "gMonthDay", ordered: OrderedTotal, cardinality: CardinalityUncountablyInfinite, bounded: false, numeric: false},
+		{typeName: "gDay", ordered: OrderedTotal, cardinality: CardinalityUncountablyInfinite, bounded: false, numeric: false},
+		{typeName: "gMonth", ordered: OrderedTotal, cardinality: CardinalityUncountablyInfinite, bounded: false, numeric: false},
+		{typeName: "string", ordered: OrderedNone, cardinality: CardinalityCountablyInfinite, bounded: false, numeric: false},
+		{typeName: "boolean", ordered: OrderedNone, cardinality: CardinalityFinite, bounded: false, numeric: false},
+		{typeName: "hexBinary", ordered: OrderedNone, cardinality: CardinalityCountablyInfinite, bounded: false, numeric: false},
+		{typeName: "base64Binary", ordered: OrderedNone, cardinality: CardinalityCountablyInfinite, bounded: false, numeric: false},
+		{typeName: "anyURI", ordered: OrderedNone, cardinality: CardinalityCountablyInfinite, bounded: false, numeric: false},
+		{typeName: "QName", ordered: OrderedNone, cardinality: CardinalityCountablyInfinite, bounded: false, numeric: false},
+		{typeName: "NOTATION", ordered: OrderedNone, cardinality: CardinalityCountablyInfinite, bounded: false, numeric: false},
 	}
 
 	for _, tt := range tests {

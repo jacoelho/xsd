@@ -4,32 +4,32 @@ import "testing"
 
 func TestValidateNumericRanges(t *testing.T) {
 	tests := []struct {
+		fn    func(string) error
 		name  string
 		value string
 		valid bool
-		fn    func(string) error
 	}{
-		{"long max", "9223372036854775807", true, validateLong},
-		{"long overflow", "9223372036854775808", false, validateLong},
-		{"short min", "-32768", true, validateShort},
-		{"short overflow", "32768", false, validateShort},
-		{"byte min", "-128", true, validateByte},
-		{"byte overflow", "128", false, validateByte},
-		{"nonNegative zero", "0", true, validateNonNegativeInteger},
-		{"nonNegative -0", "-0", true, validateNonNegativeInteger},
-		{"nonNegative neg", "-1", false, validateNonNegativeInteger},
-		{"unsignedLong max", "18446744073709551615", true, validateUnsignedLong},
-		{"unsignedLong overflow", "18446744073709551616", false, validateUnsignedLong},
-		{"unsignedInt max", "4294967295", true, validateUnsignedInt},
-		{"unsignedInt overflow", "4294967296", false, validateUnsignedInt},
-		{"unsignedShort max", "65535", true, validateUnsignedShort},
-		{"unsignedShort overflow", "65536", false, validateUnsignedShort},
-		{"unsignedByte max", "255", true, validateUnsignedByte},
-		{"unsignedByte overflow", "256", false, validateUnsignedByte},
-		{"nonPositive zero", "0", true, validateNonPositiveInteger},
-		{"nonPositive positive", "1", false, validateNonPositiveInteger},
-		{"negative -1", "-1", true, validateNegativeInteger},
-		{"negative zero", "0", false, validateNegativeInteger},
+		{name: "long max", value: "9223372036854775807", valid: true, fn: validateLong},
+		{name: "long overflow", value: "9223372036854775808", valid: false, fn: validateLong},
+		{name: "short min", value: "-32768", valid: true, fn: validateShort},
+		{name: "short overflow", value: "32768", valid: false, fn: validateShort},
+		{name: "byte min", value: "-128", valid: true, fn: validateByte},
+		{name: "byte overflow", value: "128", valid: false, fn: validateByte},
+		{name: "nonNegative zero", value: "0", valid: true, fn: validateNonNegativeInteger},
+		{name: "nonNegative -0", value: "-0", valid: true, fn: validateNonNegativeInteger},
+		{name: "nonNegative neg", value: "-1", valid: false, fn: validateNonNegativeInteger},
+		{name: "unsignedLong max", value: "18446744073709551615", valid: true, fn: validateUnsignedLong},
+		{name: "unsignedLong overflow", value: "18446744073709551616", valid: false, fn: validateUnsignedLong},
+		{name: "unsignedInt max", value: "4294967295", valid: true, fn: validateUnsignedInt},
+		{name: "unsignedInt overflow", value: "4294967296", valid: false, fn: validateUnsignedInt},
+		{name: "unsignedShort max", value: "65535", valid: true, fn: validateUnsignedShort},
+		{name: "unsignedShort overflow", value: "65536", valid: false, fn: validateUnsignedShort},
+		{name: "unsignedByte max", value: "255", valid: true, fn: validateUnsignedByte},
+		{name: "unsignedByte overflow", value: "256", valid: false, fn: validateUnsignedByte},
+		{name: "nonPositive zero", value: "0", valid: true, fn: validateNonPositiveInteger},
+		{name: "nonPositive positive", value: "1", valid: false, fn: validateNonPositiveInteger},
+		{name: "negative -1", value: "-1", valid: true, fn: validateNegativeInteger},
+		{name: "negative zero", value: "0", valid: false, fn: validateNegativeInteger},
 	}
 
 	for _, tt := range tests {
