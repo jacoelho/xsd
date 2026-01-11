@@ -260,7 +260,7 @@ func resolveType(qname types.QName, typeDef types.Type, schema *parser.Schema, d
 			// complex types can be recursive via element content; skip re-entry.
 			return nil
 		}
-		return fmt.Errorf("circular reference detected: %v", qname)
+		return fmt.Errorf("circular reference detected: %s", qname.String())
 	}
 
 	// use CycleDetector's WithScope for automatic cycle detection and cleanup
@@ -485,6 +485,13 @@ func resolveSimpleType(st *types.SimpleType, schema *parser.Schema, detector *Cy
 				st.MemberTypes = make([]types.Type, 0, len(st.Union.InlineTypes))
 			}
 			st.MemberTypes = append(st.MemberTypes, inlineType)
+		}
+	}
+	if st.Union == nil && st.Variety() == types.UnionVariety && len(st.MemberTypes) == 0 {
+		if baseST, ok := st.BaseType().(*types.SimpleType); ok && baseST.Variety() == types.UnionVariety {
+			if len(baseST.MemberTypes) > 0 {
+				st.MemberTypes = append([]types.Type(nil), baseST.MemberTypes...)
+			}
 		}
 	}
 
