@@ -80,7 +80,7 @@ func buildTestAutomaton(t *testing.T) *Automaton {
 		}
 	}
 
-	builder := NewBuilder([]*ParticleAdapter{group(), group()}, "", false)
+	builder := NewBuilder([]*ParticleAdapter{group(), group()}, "", types.FormUnqualified)
 	automaton, err := builder.Build()
 	if err != nil {
 		t.Fatalf("build automaton: %v", err)

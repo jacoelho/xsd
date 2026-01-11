@@ -134,8 +134,8 @@ func TestBoundsForGroupParticleChoice(t *testing.T) {
 
 	builder := &Builder{
 		symbolIndexByKey: map[symbolKey]int{
-			symbolKeyForParticle(elemA, false): 0,
-			symbolKeyForParticle(elemB, false): 1,
+			symbolKeyForParticle(elemA, substitutionDisallowed): 0,
+			symbolKeyForParticle(elemB, substitutionDisallowed): 1,
 		},
 	}
 

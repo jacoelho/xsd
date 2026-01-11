@@ -59,9 +59,8 @@ func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl
 			if err := validateSimpleTypeStructure(schema, st); err != nil {
 				return fmt.Errorf("inline simpleType: %w", err)
 			}
-		} else if ct, ok := decl.Type.(*types.ComplexType); ok {
-			// global elements use isInline=false; the facet restriction constraint only applies to local elements
-			if err := validateComplexTypeStructure(schema, ct, false); err != nil {
+		} else if complexType, ok := decl.Type.(*types.ComplexType); ok {
+			if err := validateComplexTypeStructure(schema, complexType, typeDefinitionGlobal); err != nil {
 				return fmt.Errorf("inline complexType: %w", err)
 			}
 		}

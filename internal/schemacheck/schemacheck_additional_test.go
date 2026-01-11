@@ -130,7 +130,7 @@ func TestSimpleAndComplexContentStructure(t *testing.T) {
 	sc := &types.SimpleContent{
 		Restriction: &types.Restriction{Base: baseCT.QName},
 	}
-	if err := validateSimpleContentStructure(schema, sc, false); err == nil {
+	if err := validateSimpleContentStructure(schema, sc, typeDefinitionGlobal); err == nil {
 		t.Fatalf("expected simpleContent restriction to reject non-simpleContent base")
 	}
 }
@@ -325,9 +325,9 @@ func TestParticleHelpers(t *testing.T) {
 	}
 
 	any := &types.AnyElement{
-		Namespace:  types.NSCAny,
-		MinOccurs:  1,
-		MaxOccurs:  1,
+		Namespace:       types.NSCAny,
+		MinOccurs:       1,
+		MaxOccurs:       1,
 		ProcessContents: types.Strict,
 	}
 	if err := validateParticleRestrictionWithKindChange(schema, &types.ModelGroup{
@@ -739,7 +739,7 @@ func TestPublicWrappers(t *testing.T) {
 
 	root := &types.ElementDecl{Name: types.QName{Local: "root"}, Type: rootType}
 
-	if ResolveTypeReference(schema, stringType, false) != stringType {
+	if ResolveTypeReference(schema, stringType, TypeReferenceMustExist) != stringType {
 		t.Fatalf("expected ResolveTypeReference to return same type")
 	}
 	if !ElementTypesCompatible(stringType, stringType) {
@@ -1207,7 +1207,7 @@ func TestResolveTypeReferencePlaceholder(t *testing.T) {
 	schema.TypeDefs[qname] = resolved
 
 	placeholder := &types.SimpleType{QName: qname}
-	if got := ResolveTypeReference(schema, placeholder, false); got == nil || got == placeholder {
+	if got := ResolveTypeReference(schema, placeholder, TypeReferenceMustExist); got == nil || got == placeholder {
 		t.Fatalf("expected placeholder to resolve to schema type")
 	}
 }
@@ -1328,7 +1328,7 @@ func TestSimpleContentStructureValid(t *testing.T) {
 		Facets: []any{&types.Length{Value: 1}},
 	}
 	sc := &types.SimpleContent{Restriction: restriction}
-	if err := validateSimpleContentStructure(schema, sc, false); err != nil {
+	if err := validateSimpleContentStructure(schema, sc, typeDefinitionGlobal); err != nil {
 		t.Fatalf("unexpected simpleContent restriction error: %v", err)
 	}
 }

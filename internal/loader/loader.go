@@ -116,6 +116,13 @@ func (t *importTracker) markMergedImport(baseLoc, importLoc string) {
 	t.mergedImports[baseLoc][importLoc] = true
 }
 
+type validationMode int
+
+const (
+	validateSchema validationMode = iota
+	skipSchemaValidation
+)
+
 // SchemaLoader loads XML schemas with import/include resolution
 type SchemaLoader struct {
 	state   loadState
@@ -136,14 +143,13 @@ func NewLoader(cfg Config) *SchemaLoader {
 	}
 }
 
-// Load loads a schema from the given location
-// If skipValidation is true, skips schema validation (used for included schemas that will be validated after merging)
+// Load loads a schema from the given location and validates it.
 func (l *SchemaLoader) Load(location string) (*parser.Schema, error) {
-	return l.loadWithValidation(location, true)
+	return l.loadWithValidation(location, validateSchema)
 }
 
-// loadWithValidation loads a schema, optionally skipping validation
-func (l *SchemaLoader) loadWithValidation(location string, validate bool) (*parser.Schema, error) {
+// loadWithValidation loads a schema with the requested validation mode.
+func (l *SchemaLoader) loadWithValidation(location string, mode validationMode) (*parser.Schema, error) {
 	absLoc := l.resolveLocation(location)
 	session := newLoadSession(l, absLoc)
 
@@ -189,7 +195,7 @@ func (l *SchemaLoader) loadWithValidation(location string, validate bool) (*pars
 	// resolve group and type references only when validating the full schema.
 	// included/imported schemas may reference components defined in other files
 	// that are only available after merging.
-	if validate {
+	if mode == validateSchema {
 		if err := l.resolveGroupReferences(schema); err != nil {
 			return nil, fmt.Errorf("resolve group references: %w", err)
 		}
@@ -237,7 +243,7 @@ func (l *SchemaLoader) loadImport(location string, importNamespace string, curre
 
 	// normal loading - skip validation for imported schemas.
 	// they will be validated after merging into the main schema.
-	return l.loadWithValidation(location, false)
+	return l.loadWithValidation(location, skipSchemaValidation)
 }
 
 // LoadCompiled loads and compiles a schema from the given location.

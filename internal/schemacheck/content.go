@@ -8,10 +8,17 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
+type typeDefinitionContext int
+
+const (
+	typeDefinitionGlobal typeDefinitionContext = iota
+	typeDefinitionInline
+)
+
 // validateContentStructure validates structural constraints of content
 // Does not validate references (which might be forward references or imports)
-// isInline indicates if this content is part of an inline complexType (local element)
-func validateContentStructure(schema *parser.Schema, content types.Content, isInline bool) error {
+// context indicates if this content is part of an inline complexType (local element)
+func validateContentStructure(schema *parser.Schema, content types.Content, context typeDefinitionContext) error {
 	switch c := content.(type) {
 	case *types.ElementContent:
 		if err := validateParticleStructure(schema, c.Particle, nil); err != nil {
@@ -21,7 +28,7 @@ func validateContentStructure(schema *parser.Schema, content types.Content, isIn
 			return err
 		}
 	case *types.SimpleContent:
-		return validateSimpleContentStructure(schema, c, isInline)
+		return validateSimpleContentStructure(schema, c, context)
 	case *types.ComplexContent:
 		return validateComplexContentStructure(schema, c)
 	case *types.EmptyContent:
@@ -215,8 +222,8 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 	return nil
 }
 
-// validateSimpleContentStructure validates structural constraints of simple content
-func validateSimpleContentStructure(schema *parser.Schema, sc *types.SimpleContent, isInline bool) error {
+// validateSimpleContentStructure validates structural constraints of simple content.
+func validateSimpleContentStructure(schema *parser.Schema, sc *types.SimpleContent, context typeDefinitionContext) error {
 	// simple content doesn't have model groups
 	if sc.Restriction != nil {
 		// check if base type is valid for simpleContent restriction
@@ -233,7 +240,7 @@ func validateSimpleContentStructure(schema *parser.Schema, sc *types.SimpleConte
 		// per XSD spec: when a complexType is defined locally to an element (inline),
 		// a simpleContent restriction with a simpleType base must have at least one facet.
 		// empty restrictions (no facets) are not allowed in this context.
-		if isInline {
+		if context == typeDefinitionInline {
 			// check if base is a simpleType (not a complexType)
 			if !baseOK || baseType == nil {
 				// base type not found in schema - check if it's a built-in simpleType

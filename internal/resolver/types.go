@@ -332,5 +332,5 @@ func validateSimpleTypeFinalUnion(schema *parser.Schema, memberTypeQName types.Q
 
 // resolveTypeForFinalValidation resolves a type reference for substitution group final schemacheck.
 func resolveTypeForFinalValidation(schema *parser.Schema, typ types.Type) types.Type {
-	return schemacheck.ResolveTypeReference(schema, typ, true)
+	return schemacheck.ResolveTypeReference(schema, typ, schemacheck.TypeReferenceAllowMissing)
 }
