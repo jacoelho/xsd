@@ -28,6 +28,9 @@ const (
 	matchFromWildcard
 )
 
+// streamFrame groups per-element validation state kept on the streaming stack.
+// it keeps declaration/type info, content-model validators, and text/list buffers
+// together to avoid extra allocations during streaming validation.
 type streamFrame struct {
 	allGroup           *grammar.AllGroupStreamValidator
 	decl               *grammar.CompiledElement
@@ -207,89 +210,26 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) error {
 	parent := r.currentFrame()
 	if parent != nil {
-		parent.hasChildElements = true
-		if parent.invalid || parent.skipChildren {
-			return dec.SkipSubtree()
+		skipSubtree, err := r.prevalidateParentForChild(parent, ev.Name.Local)
+		if err != nil {
+			return err
 		}
-		if parent.nilled {
-			r.addViolation(errors.NewValidation(errors.ErrNilElementNotEmpty,
-				"Element with xsi:nil='true' must be empty", r.path.String()))
-			parent.invalid = true
-			return dec.SkipSubtree()
-		}
-		if parent.decl != nil && parent.decl.HasFixed {
-			r.addViolation(errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
-				"Element '%s' has a fixed value constraint and cannot have element children", parent.decl.QName.Local))
-			parent.invalid = true
-			return dec.SkipSubtree()
-		}
-		if parent.textType != nil && (parent.typ == nil || (!isAnyType(parent.typ) && !parent.typ.HasContentModel())) {
-			r.path.push(ev.Name.Local)
-			r.addViolation(errors.NewValidationf(errors.ErrTextInElementOnly, r.path.String(),
-				"Element '%s' is not allowed in simple content", ev.Name.Local))
-			r.path.pop()
-			parent.invalid = true
-			return dec.SkipSubtree()
-		}
-		if parent.contentKind == streamContentEmpty {
-			r.path.push(ev.Name.Local)
-			r.addViolation(errors.NewValidationf(errors.ErrUnexpectedElement, r.path.String(),
-				"Element '%s' is not allowed. No element declaration found for it in the empty content model.", ev.Name.Local))
-			r.path.pop()
-			parent.invalid = true
-			return dec.SkipSubtree()
-		}
-		if parent.contentKind == streamContentRejectAll {
-			r.addViolation(errors.NewValidation(errors.ErrUnexpectedElement, "element not allowed by empty choice", r.path.String()))
-			parent.invalid = true
+		if skipSubtree {
 			return dec.SkipSubtree()
 		}
 	}
 
-	processContents := types.Strict
-	var matchedQName types.QName
-	var matchedDecl *grammar.CompiledElement
-	origin := matchFromDeclaration
-
-	if parent != nil {
-		switch parent.contentKind {
-		case streamContentAny:
-			processContents = types.Lax
-		case streamContentAutomaton:
-			match, err := parent.automaton.Feed(ev.Name)
-			if err != nil {
-				r.addContentModelError(err)
-				parent.invalid = true
-				return dec.SkipSubtree()
-			}
-			if match.IsWildcard {
-				processContents = match.ProcessContents
-				origin = matchFromWildcard
-			}
-			matchedQName = match.MatchedQName
-			if match.MatchedElement != nil {
-				matchedDecl = match.MatchedElement
-			}
-		case streamContentAllGroup:
-			match, err := parent.allGroup.Feed(ev.Name)
-			if err != nil {
-				r.addContentModelError(err)
-				parent.invalid = true
-				return dec.SkipSubtree()
-			}
-			matchedQName = match.MatchedQName
-			if match.MatchedElement != nil {
-				matchedDecl = match.MatchedElement
-			}
-		}
+	match, skipSubtree := r.resolveChildMatch(parent, ev.Name)
+	if skipSubtree {
+		return dec.SkipSubtree()
 	}
 
-	if processContents == types.Skip {
+	if match.processContents == types.Skip {
 		return dec.SkipSubtree()
 	}
 
 	r.path.push(ev.Name.Local)
-	frame, skipSubtree := r.startFrame(ev, parent, processContents, matchedDecl, matchedQName, origin)
+	frame, skipSubtree := r.startFrame(ev, parent, match.processContents, match.matchedDecl, match.matchedQName, match.origin)
 	if skipSubtree {
 		r.path.pop()
 		return dec.SkipSubtree()
@@ -298,6 +238,95 @@ func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) erro
 	r.handleIdentityStart(&r.frames[len(r.frames)-1], ev.Attrs)
 	r.maybeEnableListStreaming(len(r.frames) - 1)
 	return nil
+}
+
+type startMatch struct {
+	processContents types.ProcessContents
+	matchedQName    types.QName
+	matchedDecl     *grammar.CompiledElement
+	origin          matchOrigin
+}
+
+func (r *streamRun) prevalidateParentForChild(parent *streamFrame, childName string) (bool, error) {
+	parent.hasChildElements = true
+	if parent.invalid || parent.skipChildren {
+		return true, nil
+	}
+	if parent.nilled {
+		r.addViolation(errors.NewValidation(errors.ErrNilElementNotEmpty,
+			"Element with xsi:nil='true' must be empty", r.path.String()))
+		parent.invalid = true
+		return true, nil
+	}
+	if parent.decl != nil && parent.decl.HasFixed {
+		r.addViolation(errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
+			"Element '%s' has a fixed value constraint and cannot have element children", parent.decl.QName.Local))
+		parent.invalid = true
+		return true, nil
+	}
+	if parent.textType != nil && (parent.typ == nil || (!isAnyType(parent.typ) && !parent.typ.HasContentModel())) {
+		r.addChildViolationf(errors.ErrTextInElementOnly, childName,
+			"Element '%s' is not allowed in simple content", childName)
+		parent.invalid = true
+		return true, nil
+	}
+	if parent.contentKind == streamContentEmpty {
+		r.addChildViolationf(errors.ErrUnexpectedElement, childName,
+			"Element '%s' is not allowed. No element declaration found for it in the empty content model.", childName)
+		parent.invalid = true
+		return true, nil
+	}
+	if parent.contentKind == streamContentRejectAll {
+		r.addViolation(errors.NewValidation(errors.ErrUnexpectedElement, "element not allowed by empty choice", r.path.String()))
+		parent.invalid = true
+		return true, nil
+	}
+	return false, nil
+}
+
+func (r *streamRun) resolveChildMatch(parent *streamFrame, name types.QName) (startMatch, bool) {
+	match := startMatch{
+		processContents: types.Strict,
+		origin:          matchFromDeclaration,
+	}
+	if parent == nil {
+		return match, false
+	}
+
+	switch parent.contentKind {
+	case streamContentAny:
+		match.processContents = types.Lax
+	case streamContentAutomaton:
+		automatonMatch, err := parent.automaton.Feed(name)
+		if err != nil {
+			r.addContentModelError(err)
+			parent.invalid = true
+			return match, true
+		}
+		if automatonMatch.IsWildcard {
+			match.processContents = automatonMatch.ProcessContents
+			match.origin = matchFromWildcard
+		}
+		match.matchedQName = automatonMatch.MatchedQName
+		match.matchedDecl = automatonMatch.MatchedElement
+	case streamContentAllGroup:
+		groupMatch, err := parent.allGroup.Feed(name)
+		if err != nil {
+			r.addContentModelError(err)
+			parent.invalid = true
+			return match, true
+		}
+		match.matchedQName = groupMatch.MatchedQName
+		match.matchedDecl = groupMatch.MatchedElement
+	}
+
+	return match, false
+}
+
+func (r *streamRun) addChildViolationf(code errors.ErrorCode, childName, format string, args ...any) {
+	r.path.push(childName)
+	r.addViolation(errors.NewValidationf(code, r.path.String(), format, args...))
+	r.path.pop()
 }
 
 func (r *streamRun) handleCharData(ev xsdxml.Event) {
@@ -524,36 +553,36 @@ func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processCont
 	return frame, false
 }
 
-func (r *streamRun) newFrame(ev xsdxml.Event, decl *grammar.CompiledElement, ct *grammar.CompiledType, parent *streamFrame) streamFrame {
+func (r *streamRun) newFrame(ev xsdxml.Event, decl *grammar.CompiledElement, compiledType *grammar.CompiledType, parent *streamFrame) streamFrame {
 	frame := streamFrame{
 		id:         uint64(ev.ID),
 		qname:      ev.Name,
 		decl:       decl,
-		typ:        ct,
+		typ:        compiledType,
 		scopeDepth: ev.ScopeDepth,
 	}
 
-	if ct != nil {
-		frame.textType = ct.TextType()
-		frame.contentModel = ct.ContentModel
-		if isAnyType(ct) {
+	if compiledType != nil {
+		frame.textType = compiledType.TextType()
+		frame.contentModel = compiledType.ContentModel
+		if isAnyType(compiledType) {
 			frame.contentKind = streamContentAny
-		} else if ct.ContentModel != nil {
+		} else if compiledType.ContentModel != nil {
 			switch {
-			case ct.ContentModel.RejectAll:
+			case compiledType.ContentModel.RejectAll:
 				frame.contentKind = streamContentRejectAll
-				frame.minOccurs = ct.ContentModel.MinOccurs
-			case ct.ContentModel.AllElements != nil:
+				frame.minOccurs = compiledType.ContentModel.MinOccurs
+			case compiledType.ContentModel.AllElements != nil:
 				frame.contentKind = streamContentAllGroup
-				allElements := make([]grammar.AllGroupElementInfo, len(ct.ContentModel.AllElements))
-				for i := range ct.ContentModel.AllElements {
-					allElements[i] = ct.ContentModel.AllElements[i]
+				allElements := make([]grammar.AllGroupElementInfo, len(compiledType.ContentModel.AllElements))
+				for i := range compiledType.ContentModel.AllElements {
+					allElements[i] = compiledType.ContentModel.AllElements[i]
 				}
-				frame.allGroup = grammar.NewAllGroupValidator(allElements, ct.ContentModel.Mixed, ct.ContentModel.MinOccurs).NewStreamValidator(r.matcher())
-			case ct.ContentModel.Automaton != nil:
+				frame.allGroup = grammar.NewAllGroupValidator(allElements, compiledType.ContentModel.Mixed, compiledType.ContentModel.MinOccurs).NewStreamValidator(r.matcher())
+			case compiledType.ContentModel.Automaton != nil:
 				frame.contentKind = streamContentAutomaton
-				frame.automaton = r.newAutomatonValidator(ct.ContentModel.Automaton, ct.ContentModel.Wildcards())
-			case ct.ContentModel.Empty:
+				frame.automaton = r.newAutomatonValidator(compiledType.ContentModel.Automaton, compiledType.ContentModel.Wildcards())
+			case compiledType.ContentModel.Empty:
 				frame.contentKind = streamContentEmpty
 			}
 		}
@@ -664,11 +693,11 @@ func listItemValidationSkippable(itemType *grammar.CompiledType) bool {
 }
 
 func listItemNoopBuiltin(typ types.Type) bool {
-	bt, ok := typ.(*types.BuiltinType)
-	if !ok || bt == nil {
+	builtinType, ok := types.AsBuiltinType(typ)
+	if !ok || builtinType == nil {
 		return false
 	}
-	switch bt.Name().Local {
+	switch builtinType.Name().Local {
 	case "anySimpleType", "string", "normalizedString", "token":
 		return true
 	default:
@@ -832,8 +861,8 @@ func (r *streamRun) processListItemBytes(frame *streamFrame, itemBytes []byte) {
 	r.trackListIDRefs(item, frame.textType)
 }
 
-func (r *streamRun) applyListStreamingFacets(ct *grammar.CompiledType, state *listStreamState) {
-	if ct == nil || state == nil {
+func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType, state *listStreamState) {
+	if compiledType == nil || state == nil {
 		return
 	}
 	lexicalValue := ""
@@ -842,8 +871,8 @@ func (r *streamRun) applyListStreamingFacets(ct *grammar.CompiledType, state *li
 	}
 	var typedValue types.TypedValue
 
-	for _, facet := range ct.Facets {
-		if shouldSkipLengthFacet(ct, facet) {
+	for _, facet := range compiledType.Facets {
+		if shouldSkipLengthFacet(compiledType, facet) {
 			continue
 		}
 		var err error
@@ -862,16 +891,16 @@ func (r *streamRun) applyListStreamingFacets(ct *grammar.CompiledType, state *li
 			}
 		default:
 			if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
-				err = lexicalFacet.ValidateLexical(lexicalValue, ct.Original)
+				err = lexicalFacet.ValidateLexical(lexicalValue, compiledType.Original)
 				break
 			}
 			if typedValue == nil {
 				if !state.needLexical {
 					continue
 				}
-				typedValue = typedValueForFacets(lexicalValue, ct.Original, ct.Facets)
+				typedValue = typedValueForFacets(lexicalValue, compiledType.Original, compiledType.Facets)
 			}
-			if facetErr := facet.Validate(typedValue, ct.Original); facetErr != nil {
+			if facetErr := facet.Validate(typedValue, compiledType.Original); facetErr != nil {
 				err = facetErr
 			}
 		}
@@ -881,8 +910,8 @@ func (r *streamRun) applyListStreamingFacets(ct *grammar.CompiledType, state *li
 	}
 }
 
-func (r *streamRun) trackListIDRefs(item string, ct *grammar.CompiledType) {
-	if ct == nil || ct.IDTypeName != "IDREFS" {
+func (r *streamRun) trackListIDRefs(item string, compiledType *grammar.CompiledType) {
+	if compiledType == nil || compiledType.IDTypeName != "IDREFS" {
 		return
 	}
 	r.trackIDREF(item, r.path.String())
