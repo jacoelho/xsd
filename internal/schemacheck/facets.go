@@ -510,8 +510,8 @@ func validateEnumerationValues(facetList []types.Facet, baseType types.Type) err
 
 type rangeFacetInfo struct {
 	minValue     *string
-	minInclusive bool
 	maxValue     *string
+	minInclusive bool
 	maxInclusive bool
 }
 

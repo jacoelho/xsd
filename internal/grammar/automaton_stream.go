@@ -8,13 +8,13 @@ import (
 
 // AutomatonStreamValidator validates content models incrementally.
 type AutomatonStreamValidator struct {
-	automaton    *Automaton
-	state        int
-	childIndex   int
 	matcher      SymbolMatcher
+	automaton    *Automaton
+	groupState   groupCounterState
 	wildcards    []*types.AnyElement
 	symbolCounts []int
-	groupState   groupCounterState
+	state        int
+	childIndex   int
 }
 
 // NewStreamValidator creates a streaming validator for the automaton.

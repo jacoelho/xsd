@@ -118,13 +118,9 @@ func (t *importTracker) markMergedImport(baseLoc, importLoc string) {
 
 // SchemaLoader loads XML schemas with import/include resolution
 type SchemaLoader struct {
-	config Config
-	state  loadState
-	// Track import context: map[location]importingNamespace for mutual import detection
-	// When schema A imports schema B, we store context["B"] = A's namespace.
-	// This allows us to detect mutual imports: if B then imports A, and A's namespace
-	// differs from B's namespace, the cycle is allowed.
+	state   loadState
 	imports importTracker
+	config  Config
 }
 
 // NewLoader creates a new schema loader with the given configuration

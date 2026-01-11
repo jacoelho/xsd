@@ -4,21 +4,18 @@ import "fmt"
 
 // ComplexType represents a complex type definition
 type ComplexType struct {
-	QName        QName
-	content      Content
-	attributes   []*AttributeDecl
-	AttrGroups   []QName
-	anyAttribute *AnyAttribute
-	mixed        bool
-	Abstract     bool
-	Final        DerivationSet
-	Block        DerivationSet
-	// Resolved base type (can be set in struct literal or assigned directly)
-	ResolvedBase Type
-	// Explicit derivation method (extension or restriction)
+	content          Content
+	ResolvedBase     Type
+	anyAttribute     *AnyAttribute
+	QName            QName
+	SourceNamespace  NamespaceURI
+	attributes       []*AttributeDecl
+	AttrGroups       []QName
+	Final            DerivationSet
+	Block            DerivationSet
 	DerivationMethod DerivationMethod
-	// targetNamespace of the schema where this type was originally declared
-	SourceNamespace NamespaceURI
+	mixed            bool
+	Abstract         bool
 }
 
 // NewComplexType creates a new complex type with the provided name and namespace.

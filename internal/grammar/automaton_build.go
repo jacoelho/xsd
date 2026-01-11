@@ -9,48 +9,38 @@ import (
 
 // ParticleAdapter adapts CompiledParticle for automaton construction.
 type ParticleAdapter struct {
-	Kind      ParticleKind
-	MinOccurs int
-	MaxOccurs int
-	Element   *CompiledElement
-	// AllowSubstitution indicates that substitution groups are allowed (element ref).
-	AllowSubstitution bool
-	Children          []*ParticleAdapter
-	GroupKind         types.GroupKind
+	Original          types.Particle
+	Element           *CompiledElement
 	Wildcard          *types.AnyElement
-	// For symbol matching
-	Original types.Particle
+	Children          []*ParticleAdapter
+	Kind              ParticleKind
+	MinOccurs         int
+	MaxOccurs         int
+	GroupKind         types.GroupKind
+	AllowSubstitution bool
 }
 
 // Builder constructs an Automaton from content model particles using
 // Glushkov construction followed by subset construction.
 type Builder struct {
-	particles []*ParticleAdapter
-	// Schema target namespace for wildcard matching
-	targetNamespace string
-	// true if elementFormDefault="qualified"
-	elementFormDefault bool
-	symbolIndexByKey   map[symbolKey]int
-
-	// Construction state
-	root node
-	// total position count (including end marker)
-	size int
-	// position index of end-of-content marker
-	endPos    int
-	positions []*Position
-	followPos []*bitset
-	symbols   []Symbol
-	// position → symbol index
-	posSymbol            []int
+	root                 node
+	groupCounters        map[int]*GroupCounterInfo
+	symbolIndexByKey     map[symbolKey]int
+	targetNamespace      string
+	followPos            []*bitset
 	symbolMin            []int
+	bitsetPool           []*bitset
+	positions            []*Position
+	particles            []*ParticleAdapter
+	symbols              []Symbol
+	posSymbol            []int
+	countMapPool         []map[int]int
 	symbolMax            []int
 	symbolPositionCounts []int
-	// position index -> group counter info
-	groupCounters map[int]*GroupCounterInfo
-	rangeMapPool  []map[int]occRange
-	countMapPool  []map[int]int
-	bitsetPool    []*bitset
+	rangeMapPool         []map[int]occRange
+	size                 int
+	endPos               int
+	elementFormDefault   bool
 }
 
 type workItem struct {
@@ -888,13 +878,13 @@ const (
 )
 
 type symbolKey struct {
-	kind              symbolKeyKind
-	allowSubstitution bool
 	qname             types.QName
-	wildcardNS        types.NamespaceConstraint
 	wildcardTarget    types.NamespaceURI
 	wildcardList      string
+	wildcardNS        types.NamespaceConstraint
 	groupID           int
+	kind              symbolKeyKind
+	allowSubstitution bool
 }
 
 // Symbol helpers

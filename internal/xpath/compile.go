@@ -20,22 +20,22 @@ const (
 
 // NodeTest matches element or attribute names.
 type NodeTest struct {
-	Any                bool
 	Local              string
 	Namespace          types.NamespaceURI
+	Any                bool
 	NamespaceSpecified bool
 }
 
 // Step represents a single element step in a path.
 type Step struct {
-	Axis Axis
 	Test NodeTest
+	Axis Axis
 }
 
 // Path represents a compiled XPath path (with optional attribute selection).
 type Path struct {
-	Steps     []Step
 	Attribute *NodeTest
+	Steps     []Step
 }
 
 // Expression represents a union of paths.
@@ -99,9 +99,9 @@ type pathParseState struct {
 }
 
 type axisToken struct {
+	token    string
 	axis     Axis
 	explicit bool
-	token    string
 }
 
 func parsePath(expr string, nsContext map[string]string, policy AttributePolicy) (Path, error) {

@@ -56,23 +56,25 @@ func isAnySimpleType(ct *grammar.CompiledType) bool {
 
 func isWhitespaceOnlyBytes(b []byte) bool {
 	for _, r := range b {
-		if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
+		if !isXMLWhitespaceByte(r) {
 			return false
 		}
 	}
 	return true
 }
 
+func isXMLWhitespaceByte(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
+}
+
 func isWhitespaceOnly(b []byte) bool {
 	for i := 0; i < len(b); {
 		if b[i] < utf8.RuneSelf {
-			switch b[i] {
-			case ' ', '\t', '\n', '\r':
+			if isXMLWhitespaceByte(b[i]) {
 				i++
 				continue
-			default:
-				return false
 			}
+			return false
 		}
 		r, size := utf8.DecodeRune(b[i:])
 		if r == utf8.RuneError && size == 1 {

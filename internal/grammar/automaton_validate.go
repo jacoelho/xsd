@@ -19,12 +19,9 @@ const (
 
 // ValidationError describes a content model violation.
 type ValidationError struct {
-	// child index where error occurred
-	Index   int
-	Message string
-	// Sub-code suffix like "b" or "d" for content model violations.
-	SubCode string
-	// Set to true if this is from an all group
+	Message    string
+	SubCode    string
+	Index      int
 	IsAllGroup bool
 }
 
@@ -56,14 +53,10 @@ type SymbolMatcher interface {
 
 // MatchResult describes what a child element matched in the content model.
 type MatchResult struct {
-	// true if matched a wildcard (xs:any)
-	IsWildcard bool
-	// processContents from the wildcard (only valid if IsWildcard)
+	MatchedElement  *CompiledElement
+	MatchedQName    types.QName
 	ProcessContents types.ProcessContents
-	// matched declaration name (for non-wildcard matches)
-	MatchedQName types.QName
-	// compiled element pointer for the matched symbol (if available)
-	MatchedElement *CompiledElement
+	IsWildcard      bool
 }
 
 // symbolCandidate represents a potential symbol match during content model schemacheck.
@@ -253,9 +246,9 @@ func (a *Automaton) validateSymbolCounts(symbolCounts []int, childCount int) err
 }
 
 type validationState struct {
-	currentState int
-	symbolCounts []int
 	groups       groupCounterState
+	symbolCounts []int
+	currentState int
 }
 
 // ValidateWithMatches validates children and returns match results for each child.

@@ -3,8 +3,8 @@ package types
 // FundamentalFacets represents the fundamental facets of a simple type
 type FundamentalFacets struct {
 	Ordered     Ordered
-	Bounded     bool
 	Cardinality Cardinality
+	Bounded     bool
 	Numeric     bool
 }
 

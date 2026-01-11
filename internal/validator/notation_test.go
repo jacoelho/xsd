@@ -11,12 +11,11 @@ import (
 
 func TestNotationValidation(t *testing.T) {
 	tests := []struct {
-		name      string
-		schema    string
-		instance  string
-		wantValid bool
-		// substring expected in violation message (if wantValid=false)
+		name       string
+		schema     string
+		instance   string
 		wantErrMsg string
+		wantValid  bool
 	}{
 		{
 			name: "valid notation reference",

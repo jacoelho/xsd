@@ -415,8 +415,8 @@ func TestAttributeWildcard_ProcessContentsStrict(t *testing.T) {
 		name      string
 		schemaXML string
 		xmlDoc    string
-		shouldErr bool
 		errorCode string
+		shouldErr bool
 	}{
 		{
 			name: "strict requires declaration",
