@@ -22,8 +22,8 @@ func TestEmptyContentValidation(t *testing.T) {
 		name      string
 		schemaXML string
 		xmlDoc    string
-		shouldErr bool
 		errCode   string
+		shouldErr bool
 	}{
 		{
 			name: "empty content with no children and no text - valid",
@@ -147,8 +147,8 @@ func TestElementOnlyContentTextValidation(t *testing.T) {
 		name      string
 		schemaXML string
 		xmlDoc    string
-		shouldErr bool
 		errCode   string
+		shouldErr bool
 	}{
 		{
 			name: "element-only with valid children - valid",
@@ -277,8 +277,8 @@ func TestEndOfContentValidation(t *testing.T) {
 		name      string
 		schemaXML string
 		xmlDoc    string
-		shouldErr bool
 		errCode   string
+		shouldErr bool
 	}{
 		{
 			name: "sequence with all required elements - valid",
@@ -410,8 +410,8 @@ func TestMinOccursMaxOccursValidation(t *testing.T) {
 		name      string
 		schemaXML string
 		xmlDoc    string
-		shouldErr bool
 		errCode   string
+		shouldErr bool
 	}{
 		{
 			name: "element with minOccurs=0 maxOccurs=1, absent - valid",
@@ -538,8 +538,8 @@ func TestChoiceGroupValidation(t *testing.T) {
 		name      string
 		schemaXML string
 		xmlDoc    string
-		shouldErr bool
 		errCode   string
+		shouldErr bool
 	}{
 		{
 			name: "choice with one valid option - valid",
@@ -664,8 +664,8 @@ func TestAllGroupValidation(t *testing.T) {
 		name      string
 		schemaXML string
 		xmlDoc    string
-		shouldErr bool
 		errCode   string
+		shouldErr bool
 	}{
 		{
 			name: "all group with all elements in any order - valid",
@@ -801,8 +801,8 @@ func TestContentModelRequiredElements(t *testing.T) {
 		name      string
 		schemaXML string
 		xmlDoc    string
-		shouldErr bool
 		errCode   string
+		shouldErr bool
 	}{
 		{
 			name: "sequence with required element missing at end",
@@ -917,8 +917,8 @@ func TestContentModelUnexpectedElements(t *testing.T) {
 		name      string
 		schemaXML string
 		xmlDoc    string
-		shouldErr bool
 		errCode   string
+		shouldErr bool
 	}{
 		{
 			name: "sequence with unexpected element at end",
@@ -1029,8 +1029,8 @@ func TestContentModelOutOfOrder(t *testing.T) {
 		name      string
 		schemaXML string
 		xmlDoc    string
-		shouldErr bool
 		errCode   string
+		shouldErr bool
 	}{
 		{
 			name: "sequence with elements out of order",
@@ -1125,8 +1125,8 @@ func TestContentModelChoiceRequired(t *testing.T) {
 		name      string
 		schemaXML string
 		xmlDoc    string
-		shouldErr bool
 		errCode   string
+		shouldErr bool
 	}{
 		{
 			name: "choice with minOccurs=1, absent",
@@ -1147,15 +1147,43 @@ func TestContentModelChoiceRequired(t *testing.T) {
 			shouldErr: true,
 			errCode:   errRequiredElementMissing,
 		},
-		// TODO: Choice with minOccurs > 1 requires more sophisticated occurrence counting
-		// the current automaton counts per-symbol, not per-group occurrence
-		// {
-		// 	name: "choice with minOccurs=2, only one present",
-		// 	schemaXML: `...`,
-		// 	xmlDoc: `...`,
-		// 	shouldErr: true,
-		// 	errCode:   errRequiredElementMissing,
-		// },
+		{
+			name: "choice with minOccurs=2, only one present",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test" elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:choice minOccurs="2" maxOccurs="2">
+        <xs:element name="a" type="xs:string"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`,
+			xmlDoc: `<?xml version="1.0"?>
+<root xmlns="http://example.com/test"><a>one</a></root>`,
+			shouldErr: true,
+			errCode:   errRequiredElementMissing,
+		},
+		{
+			name: "choice with minOccurs=2, two present",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test" elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:choice minOccurs="2" maxOccurs="2">
+        <xs:element name="a" type="xs:string"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`,
+			xmlDoc: `<?xml version="1.0"?>
+<root xmlns="http://example.com/test"><a>one</a><b>two</b></root>`,
+			shouldErr: false,
+		},
 	}
 
 	for _, tt := range tests {

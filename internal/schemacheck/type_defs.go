@@ -33,20 +33,20 @@ func elementTypesCompatible(a, b types.Type) bool {
 }
 
 // resolveTypeReference resolves a type reference in schema validation contexts.
-func resolveTypeReference(schema *parser.Schema, typ types.Type, allowMissing bool) types.Type {
+func resolveTypeReference(schema *parser.Schema, typ types.Type, policy TypeReferencePolicy) types.Type {
 	if typ == nil {
 		return nil
 	}
 
 	// if it's a placeholder SimpleType (has QName but not builtin and no Restriction/List/Union),
-	if st, ok := typ.(*types.SimpleType); ok {
+	if simpleType, ok := typ.(*types.SimpleType); ok {
 		// check if it's a placeholder: not builtin, has QName, but no Restriction/List/Union
-		if !st.IsBuiltin() && st.Restriction == nil && st.List == nil && st.Union == nil {
+		if !simpleType.IsBuiltin() && simpleType.Restriction == nil && simpleType.List == nil && simpleType.Union == nil {
 			// this is a placeholder - resolve from schema type definitions
-			if resolvedType, ok := lookupTypeDef(schema, st.QName); ok {
+			if resolvedType, ok := lookupTypeDef(schema, simpleType.QName); ok {
 				return resolvedType
 			}
-			if allowMissing {
+			if policy == TypeReferenceAllowMissing {
 				return typ
 			}
 			// type not found - return nil to indicate error
@@ -62,12 +62,12 @@ func resolveTypeReference(schema *parser.Schema, typ types.Type, allowMissing bo
 
 // resolveTypeForValidation resolves a type reference without allowing missing types.
 func resolveTypeForValidation(schema *parser.Schema, typ types.Type) types.Type {
-	return resolveTypeReference(schema, typ, false)
+	return resolveTypeReference(schema, typ, TypeReferenceMustExist)
 }
 
 // resolveTypeForFinalValidation resolves a type reference for substitution group final checks.
 func resolveTypeForFinalValidation(schema *parser.Schema, typ types.Type) types.Type {
-	return resolveTypeReference(schema, typ, true)
+	return resolveTypeReference(schema, typ, TypeReferenceAllowMissing)
 }
 
 // validateTypeDefStructure validates structural constraints of a type definition
@@ -83,7 +83,7 @@ func validateTypeDefStructure(schema *parser.Schema, qname types.QName, typ type
 		return validateSimpleTypeStructure(schema, t)
 	case *types.ComplexType:
 		// named type definitions (top-level types), so isInline=false
-		return validateComplexTypeStructure(schema, t, false)
+		return validateComplexTypeStructure(schema, t, typeDefinitionGlobal)
 	default:
 		return fmt.Errorf("unknown type kind")
 	}
@@ -115,9 +115,9 @@ func validateWhiteSpaceRestriction(derivedType *types.SimpleType, baseType types
 		}
 	} else if !baseQName.IsZero() && baseQName.Namespace == types.XSDNamespace {
 		// built-in type by QName
-		bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local)
-		if bt != nil {
-			baseWS = bt.WhiteSpace()
+		builtinType := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local)
+		if builtinType != nil {
+			baseWS = builtinType.WhiteSpace()
 		}
 	}
 

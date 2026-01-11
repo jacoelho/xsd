@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/loader"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 // TestUnionTypeValidation tests union type validation issues from Category 8
@@ -131,14 +133,81 @@ func TestUnionTypeWithFacets(t *testing.T) {
 	// test that union-level facets are applied before member type validation
 	// this is a unit test for the validateUnionType function
 	t.Run("union_with_enumeration_facet", func(t *testing.T) {
-		// TODO: Create a minimal test case for union with enumeration
-		// this will be implemented after fixing the main validation logic
-		t.Skip("To be implemented after fixing union validation")
+		schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test"
+           xmlns:tns="http://example.com/test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="BaseUnion">
+    <xs:union memberTypes="xs:int xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="RestrictedUnion">
+    <xs:restriction base="tns:BaseUnion">
+      <xs:enumeration value="foo"/>
+      <xs:enumeration value="42"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:RestrictedUnion"/>
+</xs:schema>`
+
+		schema, err := parser.Parse(strings.NewReader(schemaXML))
+		if err != nil {
+			t.Fatalf("Parse schema: %v", err)
+		}
+
+		v := New(mustCompile(t, schema))
+		okDoc := `<?xml version="1.0"?>
+<root xmlns="http://example.com/test">foo</root>`
+		if violations := validateStream(t, v, okDoc); len(violations) > 0 {
+			t.Errorf("Expected no violations, got %d:", len(violations))
+			for _, v := range violations {
+				t.Errorf("  [%s] %s at %s", v.Code, v.Message, v.Path)
+			}
+		}
+
+		badDoc := `<?xml version="1.0"?>
+<root xmlns="http://example.com/test">43</root>`
+		if violations := validateStream(t, v, badDoc); len(violations) == 0 {
+			t.Errorf("Expected enumeration violation, got none")
+		}
 	})
 
 	t.Run("union_with_pattern_facet", func(t *testing.T) {
-		// TODO: Create a minimal test case for union with pattern
-		// this will be implemented after fixing the main validation logic
-		t.Skip("To be implemented after fixing union validation")
+		schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test"
+           xmlns:tns="http://example.com/test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="BaseUnion">
+    <xs:union memberTypes="xs:string xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="RestrictedUnion">
+    <xs:restriction base="tns:BaseUnion">
+      <xs:pattern value="A[0-9]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:RestrictedUnion"/>
+</xs:schema>`
+
+		schema, err := parser.Parse(strings.NewReader(schemaXML))
+		if err != nil {
+			t.Fatalf("Parse schema: %v", err)
+		}
+
+		v := New(mustCompile(t, schema))
+		okDoc := `<?xml version="1.0"?>
+<root xmlns="http://example.com/test">A12</root>`
+		if violations := validateStream(t, v, okDoc); len(violations) > 0 {
+			t.Errorf("Expected no violations, got %d:", len(violations))
+			for _, v := range violations {
+				t.Errorf("  [%s] %s at %s", v.Code, v.Message, v.Path)
+			}
+		}
+
+		badDoc := `<?xml version="1.0"?>
+<root xmlns="http://example.com/test">B12</root>`
+		if violations := validateStream(t, v, badDoc); len(violations) == 0 {
+			t.Errorf("Expected pattern violation, got none")
+		}
 	})
 }

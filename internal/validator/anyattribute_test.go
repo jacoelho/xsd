@@ -15,8 +15,8 @@ func TestAnyAttributeNamespaceMatching(t *testing.T) {
 		name        string
 		schemaXML   string
 		xmlDoc      string
-		expectValid bool
 		description string
+		expectValid bool
 	}{
 		{
 			name: "##any allows any namespace",
@@ -233,8 +233,8 @@ func TestAnyAttributeProcessContents(t *testing.T) {
 		name        string
 		schemaXML   string
 		xmlDoc      string
-		expectValid bool
 		description string
+		expectValid bool
 	}{
 		{
 			name: "strict requires declaration",
@@ -449,8 +449,8 @@ func TestAnyAttributeDerivationExtension(t *testing.T) {
 		name        string
 		schemaXML   string
 		xmlDoc      string
-		expectValid bool
 		description string
+		expectValid bool
 	}{
 		{
 			name: "extension unions anyAttribute",
@@ -540,9 +540,9 @@ func TestAnyAttributeDerivationRestriction(t *testing.T) {
 	tests := []struct {
 		name          string
 		schemaXML     string
-		expectValid   bool
 		errorContains string
 		description   string
+		expectValid   bool
 	}{
 		{
 			name: "restriction allows subset",
@@ -676,8 +676,8 @@ func TestAnyAttributeFixedValue(t *testing.T) {
 	tests := []struct {
 		name        string
 		xmlDoc      string
-		expectValid bool
 		description string
+		expectValid bool
 	}{
 		{
 			name:        "fixed value matches",

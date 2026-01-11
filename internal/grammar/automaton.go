@@ -5,32 +5,19 @@ import "github.com/jacoelho/xsd/internal/types"
 // Automaton is a compiled deterministic finite automaton for content model schemacheck.
 // It validates element sequences in O(n) time with no backtracking.
 type Automaton struct {
-	// alphabet of the automaton
-	symbols []Symbol
-	// transition table: [state*symbolCount + symbol] → next state (-1 = invalid)
-	transitions []int
-	// accepting[i] = true if state i is a final state
-	accepting []bool
-	// occurrence constraints per state (nil if not counting)
-	counting []*Counter
-	// true if empty content is valid
-	emptyOK bool
-	// min occurrences per symbol across the content model
-	symbolMin []int
-	// max occurrences per symbol across the content model
-	symbolMax []int
-	// targetNamespace is used for resolving ##targetNamespace and ##other wildcards.
+	groupIndexByID  map[int]int
+	groupCounters   map[int]*GroupCounterInfo
 	targetNamespace string
-	// Group counter info: position index -> group counter info for groups that need counting
-	groupCounters map[int]*GroupCounterInfo
-	// groupIndexByID maps group IDs to compact indices for counter slices.
-	groupIndexByID map[int]int
-	// groupCount is the number of unique groups that need counting.
-	groupCount int
-	// posElements maps position indices to compiled elements for match resolution.
-	posElements []*CompiledElement
-	// stateSymbolPos maps [state][symbol] to a position index (or negative if none/ambiguous).
-	stateSymbolPos [][]int
+	counting        []*Counter
+	symbolMin       []int
+	symbolMax       []int
+	symbols         []Symbol
+	accepting       []bool
+	transitions     []int
+	posElements     []*CompiledElement
+	stateSymbolPos  [][]int
+	groupCount      int
+	emptyOK         bool
 }
 
 func (a *Automaton) transitionIndex(state, symbolIndex int) int {
@@ -45,32 +32,25 @@ func (a *Automaton) setTransition(state, symbolIndex, next int) {
 	a.transitions[a.transitionIndex(state, symbolIndex)] = next
 }
 
-// GroupCounterInfo tracks information about a group that needs counting
+// GroupCounterInfo tracks how repeating groups are counted by the automaton.
+// It captures first/last positions and the per-iteration unit size.
 type GroupCounterInfo struct {
-	// minOccurs, maxOccurs of the group
-	Min, Max int
-	// positions that indicate group completion
-	LastPositions []int
-	// positions that indicate group start (for counting iterations)
-	FirstPositions []int
-	GroupKind      types.GroupKind
-	// unique ID for this group (first position in firstPos)
-	GroupID int
-	// maxOccurs of the element at firstPos (for computing min iterations)
+	LastPositions     []int
+	FirstPositions    []int
+	Min               int
+	Max               int
+	GroupKind         types.GroupKind
+	GroupID           int
 	FirstPosMaxOccurs int
-	// fixed element occurrences per group iteration (0 if not fixed)
-	UnitSize int
+	UnitSize          int
 }
 
 // Symbol represents an input symbol in the automaton's alphabet.
 type Symbol struct {
-	Kind SymbolKind
-	// for KindElement
-	QName types.QName
-	// for KindAnyNS, KindAnyOther
-	NS     string
-	NSList []types.NamespaceURI
-	// only for KindElement
+	QName             types.QName
+	NS                string
+	NSList            []types.NamespaceURI
+	Kind              SymbolKind
 	AllowSubstitution bool
 }
 
@@ -92,35 +72,25 @@ const (
 
 // Counter tracks occurrence constraints for repeating particles.
 type Counter struct {
-	// minimum occurrences required
-	Min int
-	// maximum occurrences allowed (-1 = unbounded)
-	Max int
-	// which symbol is being counted (for element counters)
-	SymbolIndex int
-	// For groups: tracks if this counter is for a group completion (not individual element)
-	IsGroupCounter bool
-	// For groups: symbol indices that indicate group completion (symbols for last positions of the group)
 	GroupCompletionSymbols []int
-	// For groups: symbol indices that indicate group start (symbols for first positions of the group)
-	GroupStartSymbols []int
-	// For groups: unique ID shared by all counters tracking the same group
-	GroupID int
-	// For groups: maxOccurs of the element at firstPos (for computing minimum iterations)
-	FirstPosMaxOccurs int
-	// For groups: fixed element occurrences per group iteration (0 if not fixed)
-	UnitSize int
+	GroupStartSymbols      []int
+	Min                    int
+	Max                    int
+	SymbolIndex            int
+	GroupID                int
+	FirstPosMaxOccurs      int
+	UnitSize               int
+	IsGroupCounter         bool
 }
 
 // Position represents a leaf node position in the Glushkov syntax tree.
 type Position struct {
-	Index    int
-	Particle types.Particle
-	// occurrence constraints
-	Min, Max int
-	// AllowSubstitution indicates if substitution groups apply for this position.
-	AllowSubstitution bool
+	Particle          types.Particle
 	Element           *CompiledElement
+	Index             int
+	Min               int
+	Max               int
+	AllowSubstitution bool
 }
 
 const (

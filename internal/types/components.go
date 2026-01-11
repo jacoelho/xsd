@@ -37,26 +37,22 @@ const UnboundedOccurs = -1
 
 // ElementDecl represents an element declaration
 type ElementDecl struct {
-	Name              QName
 	Type              Type
-	MinOccurs         int
-	MaxOccurs         int
-	Nillable          bool
-	Abstract          bool
+	Name              QName
 	SubstitutionGroup QName
+	SourceNamespace   NamespaceURI
+	Fixed             string
+	Default           string
+	Constraints       []*IdentityConstraint
+	Final             DerivationSet
 	Block             DerivationSet
-	// Derivation methods blocked for this element
-	Final   DerivationSet
-	Default string
-	Fixed   string
-	// True if fixed attribute was explicitly set (even if empty)
-	HasFixed    bool
-	Constraints []*IdentityConstraint
-	IsReference bool
-	// targetNamespace of the schema where this element was originally declared
-	SourceNamespace NamespaceURI
-	// Element's form attribute (qualified/unqualified)
-	Form FormChoice
+	MaxOccurs         int
+	MinOccurs         int
+	Form              FormChoice
+	Abstract          bool
+	Nillable          bool
+	HasFixed          bool
+	IsReference       bool
 }
 
 // NewElementDeclFromParsed validates a parsed element declaration and returns it if valid.
@@ -130,19 +126,15 @@ const (
 
 // AttributeDecl represents an attribute declaration
 type AttributeDecl struct {
-	Name    QName
-	Type    Type
-	Use     AttributeUse
-	Default string
-	Fixed   string
-	// True if fixed attribute was explicitly set (even if empty)
-	HasFixed bool
-	// targetNamespace of the schema where this attribute was originally declared
+	Type            Type
+	Name            QName
+	Default         string
+	Fixed           string
 	SourceNamespace NamespaceURI
-	// Attribute's form attribute (qualified/unqualified)
-	Form FormChoice
-	// True if this came from ref="...", false if from name="..."
-	IsReference bool
+	Use             AttributeUse
+	Form            FormChoice
+	HasFixed        bool
+	IsReference     bool
 }
 
 // NewAttributeDeclFromParsed validates a parsed attribute declaration and returns it if valid.
@@ -181,12 +173,11 @@ func (a *AttributeDecl) Copy(opts CopyOptions) *AttributeDecl {
 
 // AttributeGroup represents an attribute group definition
 type AttributeGroup struct {
-	Name         QName
-	Attributes   []*AttributeDecl
-	AttrGroups   []QName
-	AnyAttribute *AnyAttribute
-	// targetNamespace of the schema where this attribute group was originally declared
+	AnyAttribute    *AnyAttribute
+	Name            QName
 	SourceNamespace NamespaceURI
+	Attributes      []*AttributeDecl
+	AttrGroups      []QName
 }
 
 // ComponentName returns the QName of this component.
@@ -240,16 +231,13 @@ func (c ConstraintType) String() string {
 
 // IdentityConstraint represents key, keyref, or unique constraints
 type IdentityConstraint struct {
-	Name string
-	// From enclosing <xs:schema targetNamespace="...">
-	TargetNamespace NamespaceURI
-	Type            ConstraintType
-	Selector        Selector
-	Fields          []Field
-	ReferQName      QName
-	// NamespaceContext maps namespace prefixes to URIs from the XSD schema.
-	// Used to resolve prefixed QNames in selector/field XPath expressions.
 	NamespaceContext map[string]string
+	ReferQName       QName
+	Name             string
+	TargetNamespace  NamespaceURI
+	Selector         Selector
+	Fields           []Field
+	Type             ConstraintType
 }
 
 // Selector represents a selector XPath expression
@@ -259,11 +247,9 @@ type Selector struct {
 
 // Field represents a field XPath expression
 type Field struct {
-	XPath string
-	// Optional: type hint from schema
-	Type Type
-	// Resolved during schema loading
+	Type         Type
 	ResolvedType Type
+	XPath        string
 }
 
 // NotationDecl represents a notation declaration

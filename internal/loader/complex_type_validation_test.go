@@ -13,8 +13,8 @@ func TestValidateElementDeclarationsConsistent(t *testing.T) {
 	tests := []struct {
 		name    string
 		schema  string
-		wantErr bool
 		errMsg  string
+		wantErr bool
 	}{
 		{
 			name: "valid extension with different element names",
@@ -187,8 +187,8 @@ func TestValidateGroupOccurrenceConstraints(t *testing.T) {
 	tests := []struct {
 		name    string
 		schema  string
-		wantErr bool
 		errMsg  string
+		wantErr bool
 	}{
 		{
 			name: "valid group with default occurrences",
@@ -285,8 +285,8 @@ func TestValidateMixedContentDerivation(t *testing.T) {
 	tests := []struct {
 		name    string
 		schema  string
-		wantErr bool
 		errMsg  string
+		wantErr bool
 	}{
 		{
 			name: "valid extension - both element-only",
@@ -472,8 +472,8 @@ func TestValidateComplexTypeStructureIntegration(t *testing.T) {
 	tests := []struct {
 		name    string
 		schema  string
-		wantErr bool
 		errMsg  string
+		wantErr bool
 	}{
 		{
 			name: "valid complex type with all constraints satisfied",
@@ -598,8 +598,8 @@ func TestAllGroupConstraints(t *testing.T) {
 	tests := []struct {
 		name    string
 		schema  string
-		wantErr bool
 		errMsg  string
+		wantErr bool
 	}{
 		{
 			name: "valid xs:all with default occurrences",

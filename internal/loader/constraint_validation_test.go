@@ -268,8 +268,8 @@ func TestIDTypeDefaultValueRejection(t *testing.T) {
 	tests := []struct {
 		name      string
 		schemaXML string
-		wantError bool
 		errMsg    string
+		wantError bool
 	}{
 		{
 			name: "ID element with default value - invalid",

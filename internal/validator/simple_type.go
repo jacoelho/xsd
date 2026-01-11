@@ -13,12 +13,20 @@ func (r *validationRun) checkComplexTypeFacets(text string, ct *grammar.Compiled
 	}
 
 	normalizedValue := types.NormalizeWhiteSpace(text, ct.SimpleContentType.Original)
-	typedValue := typedValueForFacets(normalizedValue, ct.SimpleContentType.Original, ct.Facets)
-
 	var violations []errors.Validation
+	var typedValue types.TypedValue
 	for _, facet := range ct.Facets {
 		if shouldSkipLengthFacet(ct.SimpleContentType, facet) {
 			continue
+		}
+		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
+			if err := lexicalFacet.ValidateLexical(normalizedValue, ct.SimpleContentType.Original); err != nil {
+				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+			}
+			continue
+		}
+		if typedValue == nil {
+			typedValue = typedValueForFacets(normalizedValue, ct.SimpleContentType.Original, ct.Facets)
 		}
 		if err := facet.Validate(typedValue, ct.SimpleContentType.Original); err != nil {
 			violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
@@ -141,7 +149,7 @@ func splitWhitespaceSeq(s string, yield func(string) bool) {
 	start := -1
 	for i := 0; i < len(s); i++ {
 		b := s[i]
-		if b == ' ' || b == '\t' || b == '\n' || b == '\r' {
+		if isXMLWhitespaceByte(b) {
 			if start >= 0 {
 				if !yield(s[start:i]) {
 					return

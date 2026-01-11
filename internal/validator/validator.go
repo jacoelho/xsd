@@ -17,12 +17,12 @@ type Validator struct {
 }
 
 type validationRun struct {
-	validator  *Validator
 	schema     schemaView
+	subMatcher substitutionMatcher
+	validator  *Validator
 	ids        map[string]bool
 	idrefs     []idrefEntry
 	path       pathStack
-	subMatcher substitutionMatcher
 }
 
 // idrefEntry tracks an IDREF value and where it was found during schemacheck.

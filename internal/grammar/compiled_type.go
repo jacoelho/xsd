@@ -17,45 +17,27 @@ const (
 // CompiledType is a fully-resolved type definition.
 // All base types, attributes, and content models are pre-resolved.
 type CompiledType struct {
-	QName    types.QName
-	Original types.Type
-	Kind     TypeKind
-
-	// Pre-resolved derivation (no QName lookups).
-	BaseType *CompiledType
-	// DerivationChain is ordered [self, base, grandbase, ...].
-	DerivationChain  []*CompiledType
-	DerivationMethod types.DerivationMethod
-
-	// Pre-merged attributes (for complex types).
-	AllAttributes []*CompiledAttribute
-	// Combined wildcard.
-	AnyAttribute *types.AnyAttribute
-
-	// Pre-compiled content model (for complex types).
-	ContentModel *CompiledContentModel
-
-	// For complex types with simpleContent.
-	SimpleContentType *CompiledType
-
-	// Simple type specifics.
-	PrimitiveType *CompiledType
-	ItemType      *CompiledType
-	MemberTypes   []*CompiledType
-	Facets        []types.Facet
-
-	// Derivation control.
-	Final    types.DerivationSet
-	Block    types.DerivationSet
-	Abstract bool
-	Mixed    bool
-
-	// Precomputed type properties.
-	IsNotationType bool
-	// IsQNameOrNotationType reports whether this type derives from QName or NOTATION.
+	Original              types.Type
+	SimpleContentType     *CompiledType
+	BaseType              *CompiledType
+	AnyAttribute          *types.AnyAttribute
+	ContentModel          *CompiledContentModel
+	PrimitiveType         *CompiledType
+	ItemType              *CompiledType
+	QName                 types.QName
+	IDTypeName            string
+	DerivationChain       []*CompiledType
+	AllAttributes         []*CompiledAttribute
+	Facets                []types.Facet
+	MemberTypes           []*CompiledType
+	DerivationMethod      types.DerivationMethod
+	Final                 types.DerivationSet
+	Block                 types.DerivationSet
+	Kind                  TypeKind
+	Abstract              bool
+	Mixed                 bool
+	IsNotationType        bool
 	IsQNameOrNotationType bool
-	// "ID", "IDREF", or "IDREFS" if this type derives from those.
-	IDTypeName string
 }
 
 // TextType returns the simple type used to validate text content, or nil if no text schemacheck.

@@ -8,7 +8,6 @@ import (
 )
 
 func TestFixedValueNormalization_Boolean(t *testing.T) {
-	t.Skip("TODO: implement value-space comparison for fixed values")
 	// test that fixed '1' matches 'true' after normalization
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -38,7 +37,6 @@ func TestFixedValueNormalization_Boolean(t *testing.T) {
 }
 
 func TestFixedValueNormalization_Decimal(t *testing.T) {
-	t.Skip("TODO: implement value-space comparison for fixed values")
 	// test that fixed '1.0' matches '1.000' after normalization
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -68,13 +66,12 @@ func TestFixedValueNormalization_Decimal(t *testing.T) {
 }
 
 func TestFixedValueNormalization_StringWhitespace(t *testing.T) {
-	t.Skip("TODO: implement value-space comparison for fixed values")
 	// test that fixed 'abcd edfgh ' matches 'abcd edfgh' after whitespace normalization
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/test"
            elementFormDefault="qualified">
-  <xs:element name="root" type="xs:string" fixed="abcd edfgh "/>
+  <xs:element name="root" type="xs:token" fixed="abcd edfgh "/>
 </xs:schema>`
 
 	schema, err := parser.Parse(strings.NewReader(schemaXML))
@@ -98,13 +95,12 @@ func TestFixedValueNormalization_StringWhitespace(t *testing.T) {
 }
 
 func TestFixedValueNormalization_StringTrailingWhitespace(t *testing.T) {
-	t.Skip("TODO: implement value-space comparison for fixed values")
 	// test that fixed 'ENU ' matches 'ENU' after whitespace normalization
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/test"
            elementFormDefault="qualified">
-  <xs:element name="root" type="xs:string" fixed="ENU "/>
+  <xs:element name="root" type="xs:token" fixed="ENU "/>
 </xs:schema>`
 
 	schema, err := parser.Parse(strings.NewReader(schemaXML))
@@ -128,7 +124,6 @@ func TestFixedValueNormalization_StringTrailingWhitespace(t *testing.T) {
 }
 
 func TestFixedValueNormalization_DateWhitespace(t *testing.T) {
-	t.Skip("TODO: implement value-space comparison for fixed values")
 	// test that xs:date with valid format works with whitespace normalization
 	// note: xs:date uses 'collapse' whitespace which removes leading/trailing whitespace
 	schemaXML := `<?xml version="1.0"?>
@@ -159,7 +154,6 @@ func TestFixedValueNormalization_DateWhitespace(t *testing.T) {
 }
 
 func TestFixedValueNormalization_UnionBoolean(t *testing.T) {
-	t.Skip("TODO: implement value-space comparison for fixed values")
 	// test that fixed '1' matches 'true' in a union type (stE050 case)
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -193,7 +187,6 @@ func TestFixedValueNormalization_UnionBoolean(t *testing.T) {
 }
 
 func TestFixedValueNormalization_UnionDecimal(t *testing.T) {
-	t.Skip("TODO: implement value-space comparison for fixed values")
 	// test that fixed '1.0' matches '1.000' in a union type (stE055 case)
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

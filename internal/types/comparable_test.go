@@ -271,9 +271,9 @@ func TestParseDurationToTimeDuration(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
+		errMsg  string
 		want    time.Duration
 		wantErr bool
-		errMsg  string
 	}{
 		// valid pure day/time durations
 		{

@@ -8,8 +8,8 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *Compiler) compileContentModel(ct *types.ComplexType) *grammar.CompiledContentModel {
-	content := ct.Content()
+func (c *Compiler) compileContentModel(complexType *types.ComplexType) *grammar.CompiledContentModel {
+	content := complexType.Content()
 	if content == nil {
 		return &grammar.CompiledContentModel{Empty: true}
 	}
@@ -35,21 +35,21 @@ func (c *Compiler) compileContentModel(ct *types.ComplexType) *grammar.CompiledC
 				return &grammar.CompiledContentModel{
 					Kind:      mg.Kind,
 					RejectAll: true,
-					Mixed:     ct.Mixed(),
+					Mixed:     complexType.Mixed(),
 					MinOccurs: minOccurs,
 				}
 			}
-			return &grammar.CompiledContentModel{Empty: true, Mixed: ct.Mixed()}
+			return &grammar.CompiledContentModel{Empty: true, Mixed: complexType.Mixed()}
 		}
 		return &grammar.CompiledContentModel{
 			Kind:      c.getGroupKind(cnt.Particle),
 			Particles: particles,
-			Mixed:     ct.Mixed(),
+			Mixed:     complexType.Mixed(),
 			MinOccurs: minOccurs,
 		}
 
 	case *types.ComplexContent:
-		return c.compileComplexContent(cnt, ct.Mixed())
+		return c.compileComplexContent(cnt, complexType.Mixed())
 
 	case *types.SimpleContent:
 		// simple content - no element content model
@@ -104,13 +104,13 @@ func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[t
 			if elem, ok := c.elements[p.Name]; ok {
 				compiled.Element = elem
 			} else if elemDecl, ok := c.schema.ElementDecls[p.Name]; ok {
-				if compiledElem, err := c.compileElement(p.Name, elemDecl, true); err == nil {
+				if compiledElem, err := c.compileElement(p.Name, elemDecl, elementScopeTopLevel); err == nil {
 					compiled.Element = compiledElem
 				}
 			}
 		} else {
 			// local element - compile directly from the particle's ElementDecl.
-			if compiledElem, err := c.compileElement(p.Name, p, false); err == nil {
+			if compiledElem, err := c.compileElement(p.Name, p, elementScopeLocal); err == nil {
 				compiled.Element = compiledElem
 			}
 		}
@@ -195,30 +195,33 @@ func (c *Compiler) contentParticle(cc *types.ComplexContent) types.Particle {
 	return nil
 }
 
-func (c *Compiler) buildAutomaton(ct *grammar.CompiledType) error {
-	if ct.ContentModel == nil || ct.ContentModel.Empty || ct.ContentModel.RejectAll {
+func (c *Compiler) buildAutomaton(compiledType *grammar.CompiledType) error {
+	if compiledType.ContentModel == nil || compiledType.ContentModel.Empty || compiledType.ContentModel.RejectAll {
 		return nil
 	}
 
 	// for all groups, use simple array-based validation instead of DFA
 	// this correctly handles missing required elements, duplicates, and any order
-	if ct.ContentModel.Kind == types.AllGroup {
-		elements := c.collectAllGroupElements(ct.ContentModel.Particles)
+	if compiledType.ContentModel.Kind == types.AllGroup {
+		elements := c.collectAllGroupElements(compiledType.ContentModel.Particles)
 		if len(elements) == 0 {
-			ct.ContentModel.Empty = true
-			ct.ContentModel.AllElements = nil
+			compiledType.ContentModel.Empty = true
+			compiledType.ContentModel.AllElements = nil
 			return nil
 		}
-		ct.ContentModel.AllElements = elements
+		compiledType.ContentModel.AllElements = elements
 		return nil
 	}
 
-	elementFormQualified := c.grammar.ElementFormDefault == parser.Qualified
-	automaton, err := grammar.BuildAutomaton(ct.ContentModel.Particles, c.grammar.TargetNamespace, elementFormQualified)
-	if err != nil {
-		return fmt.Errorf("type %s: automaton build failed: %w", ct.QName, err)
+	elementFormDefault := types.FormUnqualified
+	if c.grammar.ElementFormDefault == parser.Qualified {
+		elementFormDefault = types.FormQualified
 	}
-	ct.ContentModel.Automaton = automaton
+	automaton, err := grammar.BuildAutomaton(compiledType.ContentModel.Particles, c.grammar.TargetNamespace, elementFormDefault)
+	if err != nil {
+		return fmt.Errorf("type %s: automaton build failed: %w", compiledType.QName, err)
+	}
+	compiledType.ContentModel.Automaton = automaton
 
 	return nil
 }

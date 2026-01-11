@@ -340,26 +340,15 @@ func parseFacetsWithAttributes(doc *xsdxml.Document, restrictionElem xsdxml.Node
 
 // parseFacetsWithPolicy parses facet elements from a restriction element.
 func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema, policy facetAttributePolicy) error {
-	// try to resolve base type for use with constructors
-	// if a nested simpleType is provided (e.g., in complex type restrictions with simpleContent),
-	// use its base type instead of the restriction's base type
-	var baseType types.Type
-	if st != nil && st.Restriction != nil {
-		// use the nested simpleType's base type
-		baseType = tryResolveBaseType(st.Restriction, schema)
-	} else {
-		// use the restriction's base type (normal case)
-		baseType = tryResolveBaseType(restriction, schema)
-	}
+	baseType := resolveFacetBaseType(restriction, st, schema)
 
 	for _, child := range doc.Children(restrictionElem) {
 		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
-		var facet types.Facet
-
-		switch doc.LocalName(child) {
+		localName := doc.LocalName(child)
+		switch localName {
 		case "annotation":
 			continue
 		case "simpleType":
@@ -368,300 +357,238 @@ func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, 
 			if policy == facetAttributesAllowed {
 				continue
 			}
-			return fmt.Errorf("unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", doc.LocalName(child))
+			return fmt.Errorf("unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", localName)
+		}
+
+		var (
+			facet types.Facet
+			err   error
+		)
+
+		switch localName {
 		case "pattern":
-			if err := validateOnlyAnnotationChildren(doc, child, "pattern"); err != nil {
-				return err
-			}
-			// empty pattern is valid per XSD spec (matches only empty string)
-			value := doc.GetAttribute(child, "value")
-			facet = &types.Pattern{Value: value}
+			facet, err = parsePatternFacet(doc, child)
 
 		case "enumeration":
-			if err := validateOnlyAnnotationChildren(doc, child, "enumeration"); err != nil {
-				return err
-			}
-			// empty string is a valid enumeration value per XSD spec
-			// we check if attribute is present, not if value is empty
-			if !doc.HasAttribute(child, "value") {
-				return fmt.Errorf("enumeration facet missing value attribute")
-			}
-			value := doc.GetAttribute(child, "value")
-			// check if we already have an enumeration facet
-			var enum *types.Enumeration
-			for _, f := range restriction.Facets {
-				if e, ok := f.(*types.Enumeration); ok {
-					enum = e
-					break
-				}
-			}
-			if enum == nil {
-				enum = &types.Enumeration{Values: []string{value}}
-				facet = enum
-			} else {
-				enum.Values = append(enum.Values, value)
-				continue // skip adding duplicate
-			}
+			facet, err = parseEnumerationFacet(doc, child, restriction)
 
 		case "length":
-			if err := validateOnlyAnnotationChildren(doc, child, "length"); err != nil {
-				return err
-			}
-			value := doc.GetAttribute(child, "value")
-			if value == "" {
-				return fmt.Errorf("length facet missing value")
-			}
-			length, err := strconv.Atoi(value)
-			if err != nil {
-				return fmt.Errorf("invalid length value: %w", err)
-			}
-			// per XSD spec, length must be a non-negative integer
-			if length < 0 {
-				return fmt.Errorf("length value must be non-negative, got %d", length)
-			}
-			facet = &types.Length{Value: length}
+			facet, err = parseLengthFacet(doc, child)
 
 		case "minLength":
-			if err := validateOnlyAnnotationChildren(doc, child, "minLength"); err != nil {
-				return err
-			}
-			value := doc.GetAttribute(child, "value")
-			if value == "" {
-				return fmt.Errorf("minLength facet missing value")
-			}
-			length, err := strconv.Atoi(value)
-			if err != nil {
-				return fmt.Errorf("invalid minLength value: %w", err)
-			}
-			// per XSD spec, minLength must be a non-negative integer
-			if length < 0 {
-				return fmt.Errorf("minLength value must be non-negative, got %d", length)
-			}
-			facet = &types.MinLength{Value: length}
+			facet, err = parseMinLengthFacet(doc, child)
 
 		case "maxLength":
-			if err := validateOnlyAnnotationChildren(doc, child, "maxLength"); err != nil {
-				return err
-			}
-			value := doc.GetAttribute(child, "value")
-			if value == "" {
-				return fmt.Errorf("maxLength facet missing value")
-			}
-			length, err := strconv.Atoi(value)
-			if err != nil {
-				return fmt.Errorf("invalid maxLength value: %w", err)
-			}
-			// per XSD spec, maxLength must be a non-negative integer
-			if length < 0 {
-				return fmt.Errorf("maxLength value must be non-negative, got %d", length)
-			}
-			facet = &types.MaxLength{Value: length}
+			facet, err = parseMaxLengthFacet(doc, child)
 
 		case "minInclusive":
-			if err := validateOnlyAnnotationChildren(doc, child, "minInclusive"); err != nil {
-				return err
-			}
-			value := doc.GetAttribute(child, "value")
-			if value == "" {
-				return fmt.Errorf("minInclusive facet missing value")
-			}
-			// try to use type-safe constructor if base type is available
-			if baseType != nil {
-				if f, err := types.NewMinInclusive(value, baseType); err == nil && f != nil {
-					facet = f
-				} else {
-					// if constructor fails due to undetermined primitive type during parsing,
-					if errors.Is(err, types.ErrCannotDeterminePrimitiveType) {
-						restriction.Facets = append(restriction.Facets, &types.DeferredFacet{
-							FacetName:  "minInclusive",
-							FacetValue: value,
-						})
-						continue
-					}
-					// for other errors (e.g., non-ordered type), return error
-					return fmt.Errorf("minInclusive facet: %w", err)
-				}
-			} else {
-				// base type not available yet, store as deferred facet
-				restriction.Facets = append(restriction.Facets, &types.DeferredFacet{
-					FacetName:  "minInclusive",
-					FacetValue: value,
-				})
-				continue
-			}
+			facet, err = parseOrderedFacet(doc, child, restriction, baseType, "minInclusive", types.NewMinInclusive)
 
 		case "maxInclusive":
-			if err := validateOnlyAnnotationChildren(doc, child, "maxInclusive"); err != nil {
-				return err
-			}
-			value := doc.GetAttribute(child, "value")
-			if value == "" {
-				return fmt.Errorf("maxInclusive facet missing value")
-			}
-			// try to use type-safe constructor if base type is available
-			if baseType != nil {
-				if f, err := types.NewMaxInclusive(value, baseType); err == nil && f != nil {
-					facet = f
-				} else {
-					// if constructor fails due to undetermined primitive type during parsing,
-					if errors.Is(err, types.ErrCannotDeterminePrimitiveType) {
-						restriction.Facets = append(restriction.Facets, &types.DeferredFacet{
-							FacetName:  "maxInclusive",
-							FacetValue: value,
-						})
-						continue
-					}
-					// for other errors (e.g., non-ordered type), return error
-					return fmt.Errorf("maxInclusive facet: %w", err)
-				}
-			} else {
-				// base type not available yet, store as deferred facet
-				restriction.Facets = append(restriction.Facets, &types.DeferredFacet{
-					FacetName:  "maxInclusive",
-					FacetValue: value,
-				})
-				continue
-			}
+			facet, err = parseOrderedFacet(doc, child, restriction, baseType, "maxInclusive", types.NewMaxInclusive)
 
 		case "minExclusive":
-			if err := validateOnlyAnnotationChildren(doc, child, "minExclusive"); err != nil {
-				return err
-			}
-			value := doc.GetAttribute(child, "value")
-			if value == "" {
-				return fmt.Errorf("minExclusive facet missing value")
-			}
-			// try to use type-safe constructor if base type is available
-			if baseType != nil {
-				if f, err := types.NewMinExclusive(value, baseType); err == nil && f != nil {
-					facet = f
-				} else {
-					// if constructor fails due to undetermined primitive type during parsing,
-					if errors.Is(err, types.ErrCannotDeterminePrimitiveType) {
-						restriction.Facets = append(restriction.Facets, &types.DeferredFacet{
-							FacetName:  "minExclusive",
-							FacetValue: value,
-						})
-						continue
-					}
-					// for other errors (e.g., non-ordered type), return error
-					return fmt.Errorf("minExclusive facet: %w", err)
-				}
-			} else {
-				// base type not available yet, store as deferred facet
-				restriction.Facets = append(restriction.Facets, &types.DeferredFacet{
-					FacetName:  "minExclusive",
-					FacetValue: value,
-				})
-				continue
-			}
+			facet, err = parseOrderedFacet(doc, child, restriction, baseType, "minExclusive", types.NewMinExclusive)
 
 		case "maxExclusive":
-			if err := validateOnlyAnnotationChildren(doc, child, "maxExclusive"); err != nil {
-				return err
-			}
-			value := doc.GetAttribute(child, "value")
-			if value == "" {
-				return fmt.Errorf("maxExclusive facet missing value")
-			}
-			// try to use type-safe constructor if base type is available
-			if baseType != nil {
-				if f, err := types.NewMaxExclusive(value, baseType); err == nil && f != nil {
-					facet = f
-				} else {
-					// if constructor fails due to undetermined primitive type during parsing,
-					if errors.Is(err, types.ErrCannotDeterminePrimitiveType) {
-						restriction.Facets = append(restriction.Facets, &types.DeferredFacet{
-							FacetName:  "maxExclusive",
-							FacetValue: value,
-						})
-						continue
-					}
-					// for other errors (e.g., non-ordered type), return error
-					return fmt.Errorf("maxExclusive facet: %w", err)
-				}
-			} else {
-				// base type not available yet, store as deferred facet
-				restriction.Facets = append(restriction.Facets, &types.DeferredFacet{
-					FacetName:  "maxExclusive",
-					FacetValue: value,
-				})
-				continue
-			}
+			facet, err = parseOrderedFacet(doc, child, restriction, baseType, "maxExclusive", types.NewMaxExclusive)
 
 		case "totalDigits":
-			if err := validateOnlyAnnotationChildren(doc, child, "totalDigits"); err != nil {
-				return err
-			}
-			value := doc.GetAttribute(child, "value")
-			if value == "" {
-				return fmt.Errorf("totalDigits facet missing value")
-			}
-			digits, err := strconv.Atoi(value)
-			if err != nil {
-				return fmt.Errorf("invalid totalDigits value: %w", err)
-			}
-			// per XSD spec, totalDigits must be a positive integer (>0)
-			if digits <= 0 {
-				return fmt.Errorf("totalDigits value must be positive, got %d", digits)
-			}
-			facet = &types.TotalDigits{Value: digits}
+			facet, err = parseTotalDigitsFacet(doc, child)
 
 		case "fractionDigits":
-			if err := validateOnlyAnnotationChildren(doc, child, "fractionDigits"); err != nil {
-				return err
-			}
-			value := doc.GetAttribute(child, "value")
-			if value == "" {
-				return fmt.Errorf("fractionDigits facet missing value")
-			}
-			digits, err := strconv.Atoi(value)
-			if err != nil {
-				return fmt.Errorf("invalid fractionDigits value: %w", err)
-			}
-			// per XSD spec, fractionDigits must be a non-negative integer
-			if digits < 0 {
-				return fmt.Errorf("fractionDigits value must be non-negative, got %d", digits)
-			}
-			facet = &types.FractionDigits{Value: digits}
+			facet, err = parseFractionDigitsFacet(doc, child)
 
 		case "whiteSpace":
-			if err := validateOnlyAnnotationChildren(doc, child, "whiteSpace"); err != nil {
-				return err
-			}
-			// parse whiteSpace facet and set it on the SimpleType (if present)
 			if st == nil {
 				// complex content restrictions don't have SimpleType
 				continue
 			}
-			value := doc.GetAttribute(child, "value")
-			if value == "" {
-				return fmt.Errorf("whiteSpace facet missing value")
-			}
-			// this allows validation to detect invalid relaxations of the constraint
-			switch value {
-			case "preserve":
-				st.SetWhiteSpaceExplicit(types.WhiteSpacePreserve)
-			case "replace":
-				st.SetWhiteSpaceExplicit(types.WhiteSpaceReplace)
-			case "collapse":
-				st.SetWhiteSpaceExplicit(types.WhiteSpaceCollapse)
-			default:
-				return fmt.Errorf("invalid whiteSpace value: %s", value)
+			if err := applyWhiteSpaceFacet(doc, child, st); err != nil {
+				return err
 			}
 			continue
 
 		default:
 			// unknown facet - reject it as invalid
-			return fmt.Errorf("unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", doc.LocalName(child))
+			return fmt.Errorf("unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", localName)
 		}
 
+		if err != nil {
+			return err
+		}
 		if facet != nil {
 			restriction.Facets = append(restriction.Facets, facet)
 		}
 	}
 
 	return nil
+}
+
+func resolveFacetBaseType(restriction *types.Restriction, st *types.SimpleType, schema *Schema) types.Type {
+	if st != nil && st.Restriction != nil {
+		return tryResolveBaseType(st.Restriction, schema)
+	}
+	return tryResolveBaseType(restriction, schema)
+}
+
+func parsePatternFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (types.Facet, error) {
+	if err := validateOnlyAnnotationChildren(doc, elem, "pattern"); err != nil {
+		return nil, err
+	}
+	value := doc.GetAttribute(elem, "value")
+	return &types.Pattern{Value: value}, nil
+}
+
+func parseEnumerationFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction *types.Restriction) (types.Facet, error) {
+	if err := validateOnlyAnnotationChildren(doc, elem, "enumeration"); err != nil {
+		return nil, err
+	}
+	if !doc.HasAttribute(elem, "value") {
+		return nil, fmt.Errorf("enumeration facet missing value attribute")
+	}
+	value := doc.GetAttribute(elem, "value")
+	if enum := findEnumerationFacet(restriction.Facets); enum != nil {
+		enum.Values = append(enum.Values, value)
+		return nil, nil
+	}
+	return &types.Enumeration{Values: []string{value}}, nil
+}
+
+func findEnumerationFacet(facets []any) *types.Enumeration {
+	for _, facet := range facets {
+		if enum, ok := facet.(*types.Enumeration); ok {
+			return enum
+		}
+	}
+	return nil
+}
+
+func parseLengthFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (types.Facet, error) {
+	length, err := parseFacetValueInt(doc, elem, "length")
+	if err != nil {
+		return nil, err
+	}
+	if length < 0 {
+		return nil, fmt.Errorf("length value must be non-negative, got %d", length)
+	}
+	return &types.Length{Value: length}, nil
+}
+
+func parseMinLengthFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (types.Facet, error) {
+	length, err := parseFacetValueInt(doc, elem, "minLength")
+	if err != nil {
+		return nil, err
+	}
+	if length < 0 {
+		return nil, fmt.Errorf("minLength value must be non-negative, got %d", length)
+	}
+	return &types.MinLength{Value: length}, nil
+}
+
+func parseMaxLengthFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (types.Facet, error) {
+	length, err := parseFacetValueInt(doc, elem, "maxLength")
+	if err != nil {
+		return nil, err
+	}
+	if length < 0 {
+		return nil, fmt.Errorf("maxLength value must be non-negative, got %d", length)
+	}
+	return &types.MaxLength{Value: length}, nil
+}
+
+type orderedFacetConstructor func(string, types.Type) (types.Facet, error)
+
+func parseOrderedFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction *types.Restriction, baseType types.Type, facetName string, constructor orderedFacetConstructor) (types.Facet, error) {
+	if err := validateOnlyAnnotationChildren(doc, elem, facetName); err != nil {
+		return nil, err
+	}
+	value := doc.GetAttribute(elem, "value")
+	if value == "" {
+		return nil, fmt.Errorf("%s facet missing value", facetName)
+	}
+	if baseType == nil {
+		deferFacet(restriction, facetName, value)
+		return nil, nil
+	}
+
+	facet, err := constructor(value, baseType)
+	if err == nil && facet != nil {
+		return facet, nil
+	}
+	if errors.Is(err, types.ErrCannotDeterminePrimitiveType) {
+		deferFacet(restriction, facetName, value)
+		return nil, nil
+	}
+	if err == nil {
+		return nil, fmt.Errorf("%s facet: %s", facetName, "missing facet")
+	}
+	return nil, fmt.Errorf("%s facet: %w", facetName, err)
+}
+
+func parseTotalDigitsFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (types.Facet, error) {
+	digits, err := parseFacetValueInt(doc, elem, "totalDigits")
+	if err != nil {
+		return nil, err
+	}
+	if digits <= 0 {
+		return nil, fmt.Errorf("totalDigits value must be positive, got %d", digits)
+	}
+	return &types.TotalDigits{Value: digits}, nil
+}
+
+func parseFractionDigitsFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (types.Facet, error) {
+	digits, err := parseFacetValueInt(doc, elem, "fractionDigits")
+	if err != nil {
+		return nil, err
+	}
+	if digits < 0 {
+		return nil, fmt.Errorf("fractionDigits value must be non-negative, got %d", digits)
+	}
+	return &types.FractionDigits{Value: digits}, nil
+}
+
+func parseFacetValueInt(doc *xsdxml.Document, elem xsdxml.NodeID, facetName string) (int, error) {
+	if err := validateOnlyAnnotationChildren(doc, elem, facetName); err != nil {
+		return 0, err
+	}
+	value := doc.GetAttribute(elem, "value")
+	if value == "" {
+		return 0, fmt.Errorf("%s facet missing value", facetName)
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s value: %w", facetName, err)
+	}
+	return parsed, nil
+}
+
+func applyWhiteSpaceFacet(doc *xsdxml.Document, elem xsdxml.NodeID, st *types.SimpleType) error {
+	if err := validateOnlyAnnotationChildren(doc, elem, "whiteSpace"); err != nil {
+		return err
+	}
+	value := doc.GetAttribute(elem, "value")
+	if value == "" {
+		return fmt.Errorf("whiteSpace facet missing value")
+	}
+	switch value {
+	case "preserve":
+		st.SetWhiteSpaceExplicit(types.WhiteSpacePreserve)
+	case "replace":
+		st.SetWhiteSpaceExplicit(types.WhiteSpaceReplace)
+	case "collapse":
+		st.SetWhiteSpaceExplicit(types.WhiteSpaceCollapse)
+	default:
+		return fmt.Errorf("invalid whiteSpace value: %s", value)
+	}
+	return nil
+}
+
+func deferFacet(restriction *types.Restriction, facetName, facetValue string) {
+	restriction.Facets = append(restriction.Facets, &types.DeferredFacet{
+		FacetName:  facetName,
+		FacetValue: facetValue,
+	})
 }
 
 // hasIDAttribute checks if an element has an id attribute (even if empty)

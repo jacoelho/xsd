@@ -133,7 +133,7 @@ func TestBuildAutomatonChoiceAndWildcard(t *testing.T) {
 		},
 	}
 
-	automaton, err := BuildAutomaton([]*CompiledParticle{choice}, "urn:test", true)
+	automaton, err := BuildAutomaton([]*CompiledParticle{choice}, "urn:test", types.FormQualified)
 	if err != nil {
 		t.Fatalf("build automaton: %v", err)
 	}

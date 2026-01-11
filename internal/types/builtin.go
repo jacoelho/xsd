@@ -15,80 +15,101 @@ type TypeValidator func(value string) error
 
 // BuiltinType represents a built-in XSD type
 type BuiltinType struct {
-	name string
-	// Cached QName for performance
-	qname                  QName
-	validator              TypeValidator
-	whiteSpace             WhiteSpace
-	ordered                bool
 	primitiveTypeCache     Type
+	validator              TypeValidator
 	fundamentalFacetsCache *FundamentalFacets
 	simpleWrapper          *SimpleType
+	qname                  QName
+	name                   string
+	whiteSpace             WhiteSpace
+	ordered                bool
 }
+
+type orderingFlag bool
+
+const (
+	unordered orderingFlag = false
+	ordered   orderingFlag = true
+)
 
 var builtinRegistry = map[string]*BuiltinType{
 	// built-in complex type
-	string(TypeNameAnyType): newBuiltin(TypeNameAnyType, validateAnyType, WhiteSpacePreserve, false),
+	string(TypeNameAnyType): newBuiltin(TypeNameAnyType, validateAnyType, WhiteSpacePreserve, unordered),
 
 	// base simple type (base of all simple types, must be registered before primitives)
-	string(TypeNameAnySimpleType): newBuiltin(TypeNameAnySimpleType, validateAnySimpleType, WhiteSpacePreserve, false),
+	string(TypeNameAnySimpleType): newBuiltin(TypeNameAnySimpleType, validateAnySimpleType, WhiteSpacePreserve, unordered),
 
 	// primitive types (19 total)
-	string(TypeNameString):       newBuiltin(TypeNameString, validateString, WhiteSpacePreserve, false),
-	string(TypeNameBoolean):      newBuiltin(TypeNameBoolean, validateBoolean, WhiteSpaceCollapse, false),
-	string(TypeNameDecimal):      newBuiltin(TypeNameDecimal, validateDecimal, WhiteSpaceCollapse, true),
-	string(TypeNameFloat):        newBuiltin(TypeNameFloat, validateFloat, WhiteSpaceCollapse, true),
-	string(TypeNameDouble):       newBuiltin(TypeNameDouble, validateDouble, WhiteSpaceCollapse, true),
-	string(TypeNameDuration):     newBuiltin(TypeNameDuration, validateDuration, WhiteSpaceCollapse, false),
-	string(TypeNameDateTime):     newBuiltin(TypeNameDateTime, validateDateTime, WhiteSpaceCollapse, true),
-	string(TypeNameTime):         newBuiltin(TypeNameTime, validateTime, WhiteSpaceCollapse, true),
-	string(TypeNameDate):         newBuiltin(TypeNameDate, validateDate, WhiteSpaceCollapse, true),
-	string(TypeNameGYearMonth):   newBuiltin(TypeNameGYearMonth, validateGYearMonth, WhiteSpaceCollapse, true),
-	string(TypeNameGYear):        newBuiltin(TypeNameGYear, validateGYear, WhiteSpaceCollapse, true),
-	string(TypeNameGMonthDay):    newBuiltin(TypeNameGMonthDay, validateGMonthDay, WhiteSpaceCollapse, true),
-	string(TypeNameGDay):         newBuiltin(TypeNameGDay, validateGDay, WhiteSpaceCollapse, true),
-	string(TypeNameGMonth):       newBuiltin(TypeNameGMonth, validateGMonth, WhiteSpaceCollapse, true),
-	string(TypeNameHexBinary):    newBuiltin(TypeNameHexBinary, validateHexBinary, WhiteSpaceCollapse, false),
-	string(TypeNameBase64Binary): newBuiltin(TypeNameBase64Binary, validateBase64Binary, WhiteSpaceCollapse, false),
-	string(TypeNameAnyURI):       newBuiltin(TypeNameAnyURI, validateAnyURI, WhiteSpaceCollapse, false),
-	string(TypeNameQName):        newBuiltin(TypeNameQName, validateQName, WhiteSpaceCollapse, false),
-	string(TypeNameNOTATION):     newBuiltin(TypeNameNOTATION, validateNOTATION, WhiteSpaceCollapse, false),
+	string(TypeNameString):       newBuiltin(TypeNameString, validateString, WhiteSpacePreserve, unordered),
+	string(TypeNameBoolean):      newBuiltin(TypeNameBoolean, validateBoolean, WhiteSpaceCollapse, unordered),
+	string(TypeNameDecimal):      newBuiltin(TypeNameDecimal, validateDecimal, WhiteSpaceCollapse, ordered),
+	string(TypeNameFloat):        newBuiltin(TypeNameFloat, validateFloat, WhiteSpaceCollapse, ordered),
+	string(TypeNameDouble):       newBuiltin(TypeNameDouble, validateDouble, WhiteSpaceCollapse, ordered),
+	string(TypeNameDuration):     newBuiltin(TypeNameDuration, validateDuration, WhiteSpaceCollapse, unordered),
+	string(TypeNameDateTime):     newBuiltin(TypeNameDateTime, validateDateTime, WhiteSpaceCollapse, ordered),
+	string(TypeNameTime):         newBuiltin(TypeNameTime, validateTime, WhiteSpaceCollapse, ordered),
+	string(TypeNameDate):         newBuiltin(TypeNameDate, validateDate, WhiteSpaceCollapse, ordered),
+	string(TypeNameGYearMonth):   newBuiltin(TypeNameGYearMonth, validateGYearMonth, WhiteSpaceCollapse, ordered),
+	string(TypeNameGYear):        newBuiltin(TypeNameGYear, validateGYear, WhiteSpaceCollapse, ordered),
+	string(TypeNameGMonthDay):    newBuiltin(TypeNameGMonthDay, validateGMonthDay, WhiteSpaceCollapse, ordered),
+	string(TypeNameGDay):         newBuiltin(TypeNameGDay, validateGDay, WhiteSpaceCollapse, ordered),
+	string(TypeNameGMonth):       newBuiltin(TypeNameGMonth, validateGMonth, WhiteSpaceCollapse, ordered),
+	string(TypeNameHexBinary):    newBuiltin(TypeNameHexBinary, validateHexBinary, WhiteSpaceCollapse, unordered),
+	string(TypeNameBase64Binary): newBuiltin(TypeNameBase64Binary, validateBase64Binary, WhiteSpaceCollapse, unordered),
+	string(TypeNameAnyURI):       newBuiltin(TypeNameAnyURI, validateAnyURI, WhiteSpaceCollapse, unordered),
+	string(TypeNameQName):        newBuiltin(TypeNameQName, validateQName, WhiteSpaceCollapse, unordered),
+	string(TypeNameNOTATION):     newBuiltin(TypeNameNOTATION, validateNOTATION, WhiteSpaceCollapse, unordered),
 
 	// derived string types
-	string(TypeNameNormalizedString): newBuiltin(TypeNameNormalizedString, validateNormalizedString, WhiteSpaceReplace, false),
-	string(TypeNameToken):            newBuiltin(TypeNameToken, validateToken, WhiteSpaceCollapse, false),
-	string(TypeNameLanguage):         newBuiltin(TypeNameLanguage, validateLanguage, WhiteSpaceCollapse, false),
-	string(TypeNameName):             newBuiltin(TypeNameName, validateName, WhiteSpaceCollapse, false),
-	string(TypeNameNCName):           newBuiltin(TypeNameNCName, validateNCName, WhiteSpaceCollapse, false),
-	string(TypeNameID):               newBuiltin(TypeNameID, validateID, WhiteSpaceCollapse, false),
-	string(TypeNameIDREF):            newBuiltin(TypeNameIDREF, validateIDREF, WhiteSpaceCollapse, false),
-	string(TypeNameIDREFS):           newBuiltin(TypeNameIDREFS, validateIDREFS, WhiteSpaceCollapse, false),
-	string(TypeNameENTITY):           newBuiltin(TypeNameENTITY, validateENTITY, WhiteSpaceCollapse, false),
-	string(TypeNameENTITIES):         newBuiltin(TypeNameENTITIES, validateENTITIES, WhiteSpaceCollapse, false),
-	string(TypeNameNMTOKEN):          newBuiltin(TypeNameNMTOKEN, validateNMTOKEN, WhiteSpaceCollapse, false),
-	string(TypeNameNMTOKENS):         newBuiltin(TypeNameNMTOKENS, validateNMTOKENS, WhiteSpaceCollapse, false),
+	string(TypeNameNormalizedString): newBuiltin(TypeNameNormalizedString, validateNormalizedString, WhiteSpaceReplace, unordered),
+	string(TypeNameToken):            newBuiltin(TypeNameToken, validateToken, WhiteSpaceCollapse, unordered),
+	string(TypeNameLanguage):         newBuiltin(TypeNameLanguage, validateLanguage, WhiteSpaceCollapse, unordered),
+	string(TypeNameName):             newBuiltin(TypeNameName, validateName, WhiteSpaceCollapse, unordered),
+	string(TypeNameNCName):           newBuiltin(TypeNameNCName, validateNCName, WhiteSpaceCollapse, unordered),
+	string(TypeNameID):               newBuiltin(TypeNameID, validateID, WhiteSpaceCollapse, unordered),
+	string(TypeNameIDREF):            newBuiltin(TypeNameIDREF, validateIDREF, WhiteSpaceCollapse, unordered),
+	string(TypeNameIDREFS):           newBuiltin(TypeNameIDREFS, validateIDREFS, WhiteSpaceCollapse, unordered),
+	string(TypeNameENTITY):           newBuiltin(TypeNameENTITY, validateENTITY, WhiteSpaceCollapse, unordered),
+	string(TypeNameENTITIES):         newBuiltin(TypeNameENTITIES, validateENTITIES, WhiteSpaceCollapse, unordered),
+	string(TypeNameNMTOKEN):          newBuiltin(TypeNameNMTOKEN, validateNMTOKEN, WhiteSpaceCollapse, unordered),
+	string(TypeNameNMTOKENS):         newBuiltin(TypeNameNMTOKENS, validateNMTOKENS, WhiteSpaceCollapse, unordered),
 
 	// derived numeric types
-	string(TypeNameInteger):            newBuiltin(TypeNameInteger, validateInteger, WhiteSpaceCollapse, true),
-	string(TypeNameLong):               newBuiltin(TypeNameLong, validateLong, WhiteSpaceCollapse, true),
-	string(TypeNameInt):                newBuiltin(TypeNameInt, validateInt, WhiteSpaceCollapse, true),
-	string(TypeNameShort):              newBuiltin(TypeNameShort, validateShort, WhiteSpaceCollapse, true),
-	string(TypeNameByte):               newBuiltin(TypeNameByte, validateByte, WhiteSpaceCollapse, true),
-	string(TypeNameNonNegativeInteger): newBuiltin(TypeNameNonNegativeInteger, validateNonNegativeInteger, WhiteSpaceCollapse, true),
-	string(TypeNamePositiveInteger):    newBuiltin(TypeNamePositiveInteger, validatePositiveInteger, WhiteSpaceCollapse, true),
-	string(TypeNameUnsignedLong):       newBuiltin(TypeNameUnsignedLong, validateUnsignedLong, WhiteSpaceCollapse, true),
-	string(TypeNameUnsignedInt):        newBuiltin(TypeNameUnsignedInt, validateUnsignedInt, WhiteSpaceCollapse, true),
-	string(TypeNameUnsignedShort):      newBuiltin(TypeNameUnsignedShort, validateUnsignedShort, WhiteSpaceCollapse, true),
-	string(TypeNameUnsignedByte):       newBuiltin(TypeNameUnsignedByte, validateUnsignedByte, WhiteSpaceCollapse, true),
-	string(TypeNameNonPositiveInteger): newBuiltin(TypeNameNonPositiveInteger, validateNonPositiveInteger, WhiteSpaceCollapse, true),
-	string(TypeNameNegativeInteger):    newBuiltin(TypeNameNegativeInteger, validateNegativeInteger, WhiteSpaceCollapse, true),
+	string(TypeNameInteger):            newBuiltin(TypeNameInteger, validateInteger, WhiteSpaceCollapse, ordered),
+	string(TypeNameLong):               newBuiltin(TypeNameLong, validateLong, WhiteSpaceCollapse, ordered),
+	string(TypeNameInt):                newBuiltin(TypeNameInt, validateInt, WhiteSpaceCollapse, ordered),
+	string(TypeNameShort):              newBuiltin(TypeNameShort, validateShort, WhiteSpaceCollapse, ordered),
+	string(TypeNameByte):               newBuiltin(TypeNameByte, validateByte, WhiteSpaceCollapse, ordered),
+	string(TypeNameNonNegativeInteger): newBuiltin(TypeNameNonNegativeInteger, validateNonNegativeInteger, WhiteSpaceCollapse, ordered),
+	string(TypeNamePositiveInteger):    newBuiltin(TypeNamePositiveInteger, validatePositiveInteger, WhiteSpaceCollapse, ordered),
+	string(TypeNameUnsignedLong):       newBuiltin(TypeNameUnsignedLong, validateUnsignedLong, WhiteSpaceCollapse, ordered),
+	string(TypeNameUnsignedInt):        newBuiltin(TypeNameUnsignedInt, validateUnsignedInt, WhiteSpaceCollapse, ordered),
+	string(TypeNameUnsignedShort):      newBuiltin(TypeNameUnsignedShort, validateUnsignedShort, WhiteSpaceCollapse, ordered),
+	string(TypeNameUnsignedByte):       newBuiltin(TypeNameUnsignedByte, validateUnsignedByte, WhiteSpaceCollapse, ordered),
+	string(TypeNameNonPositiveInteger): newBuiltin(TypeNameNonPositiveInteger, validateNonPositiveInteger, WhiteSpaceCollapse, ordered),
+	string(TypeNameNegativeInteger):    newBuiltin(TypeNameNegativeInteger, validateNegativeInteger, WhiteSpaceCollapse, ordered),
 }
 
 var primitiveTypeNames = map[TypeName]struct{}{
-	TypeNameString: {}, TypeNameBoolean: {}, TypeNameDecimal: {}, TypeNameFloat: {}, TypeNameDouble: {},
-	TypeNameDuration: {}, TypeNameDateTime: {}, TypeNameTime: {}, TypeNameDate: {},
-	TypeNameGYearMonth: {}, TypeNameGYear: {}, TypeNameGMonthDay: {}, TypeNameGDay: {}, TypeNameGMonth: {},
-	TypeNameHexBinary: {}, TypeNameBase64Binary: {}, TypeNameAnyURI: {}, TypeNameQName: {}, TypeNameNOTATION: {},
+	TypeNameString:       {},
+	TypeNameBoolean:      {},
+	TypeNameDecimal:      {},
+	TypeNameFloat:        {},
+	TypeNameDouble:       {},
+	TypeNameDuration:     {},
+	TypeNameDateTime:     {},
+	TypeNameTime:         {},
+	TypeNameDate:         {},
+	TypeNameGYearMonth:   {},
+	TypeNameGYear:        {},
+	TypeNameGMonthDay:    {},
+	TypeNameGDay:         {},
+	TypeNameGMonth:       {},
+	TypeNameHexBinary:    {},
+	TypeNameBase64Binary: {},
+	TypeNameAnyURI:       {},
+	TypeNameQName:        {},
+	TypeNameNOTATION:     {},
 }
 
 var builtinBaseTypes = map[TypeName]TypeName{
@@ -134,14 +155,14 @@ func GetBuiltinNS(namespace NamespaceURI, local string) *BuiltinType {
 	return builtinRegistry[local]
 }
 
-func newBuiltin(name TypeName, validator TypeValidator, ws WhiteSpace, ordered bool) *BuiltinType {
+func newBuiltin(name TypeName, validator TypeValidator, ws WhiteSpace, ordering orderingFlag) *BuiltinType {
 	nameStr := string(name)
 	builtin := &BuiltinType{
 		name:       nameStr,
 		qname:      QName{Namespace: XSDNamespace, Local: nameStr},
 		validator:  validator,
 		whiteSpace: ws,
-		ordered:    ordered,
+		ordered:    bool(ordering),
 	}
 	simple := &SimpleType{
 		QName:   builtin.qname,

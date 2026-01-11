@@ -476,8 +476,8 @@ func TestGenericFacet_Duration(t *testing.T) {
 
 // DurationTypedValue is a helper type for testing duration facets
 type DurationTypedValue struct {
-	Value string
 	Typ   Type
+	Value string
 	dur   time.Duration
 }
 

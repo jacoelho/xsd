@@ -22,12 +22,11 @@ const (
 
 // ModelGroup represents sequence, choice, or all groups
 type ModelGroup struct {
-	Kind      GroupKind
-	Particles []Particle
-	MinOccurs int
-	MaxOccurs int
-	// targetNamespace of the schema where this model group was originally declared
 	SourceNamespace NamespaceURI
+	Particles       []Particle
+	Kind            GroupKind
+	MinOccurs       int
+	MaxOccurs       int
 }
 
 // MinOcc implements Particle interface
@@ -65,9 +64,9 @@ type Content interface {
 
 // SimpleContent represents simple content in a complex type
 type SimpleContent struct {
-	Base        QName
 	Extension   *Extension
 	Restriction *Restriction
+	Base        QName
 }
 
 func (s *SimpleContent) isContent() {}
@@ -111,10 +110,10 @@ func (s *SimpleContent) Copy(opts CopyOptions) Content {
 
 // ComplexContent represents complex content
 type ComplexContent struct {
-	Mixed       bool
-	Base        QName
 	Extension   *Extension
 	Restriction *Restriction
+	Base        QName
+	Mixed       bool
 }
 
 func (c *ComplexContent) isContent() {}

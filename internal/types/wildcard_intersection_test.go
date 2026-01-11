@@ -7,11 +7,11 @@ import (
 
 func TestUnionAnyAttribute_TargetNamespace(t *testing.T) {
 	tests := []struct {
-		name           string
 		w1             *AnyAttribute
 		w2             *AnyAttribute
-		wantConstraint NamespaceConstraint
+		name           string
 		wantList       []NamespaceURI
+		wantConstraint NamespaceConstraint
 		wantNil        bool
 	}{
 		{
@@ -116,11 +116,11 @@ func TestUnionAnyAttribute_TargetNamespace(t *testing.T) {
 
 func TestIntersectAnyAttribute_Table(t *testing.T) {
 	tests := []struct {
-		name           string
 		w1             *AnyAttribute
 		w2             *AnyAttribute
-		wantConstraint NamespaceConstraint
+		name           string
 		wantList       []NamespaceURI
+		wantConstraint NamespaceConstraint
 		wantProcess    ProcessContents
 		checkProcess   bool
 		wantNil        bool
@@ -230,11 +230,11 @@ func TestIntersectAnyAttribute_Table(t *testing.T) {
 
 func TestIntersectAnyElement_Table(t *testing.T) {
 	tests := []struct {
-		name           string
 		w1             *AnyElement
 		w2             *AnyElement
-		wantConstraint NamespaceConstraint
+		name           string
 		wantList       []NamespaceURI
+		wantConstraint NamespaceConstraint
 		wantMin        int
 		wantMax        int
 		wantProcess    ProcessContents

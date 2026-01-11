@@ -198,16 +198,16 @@ func ParseGDay(lexical string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("invalid gDay: %s", lexical)
 }
 
-// ParseDuration parses an XSD duration string and returns the lexical value.
-// It does not map to time.Duration and leaves full parsing to callers.
+// ParseDuration validates an XSD duration string and returns the lexical value.
+// It does not map to time.Duration.
 func ParseDuration(lexical string) (string, error) {
 	lexical = strings.TrimSpace(lexical)
 	if lexical == "" {
 		return "", fmt.Errorf("invalid duration: empty string")
 	}
 
-	if len(lexical) == 0 || lexical[0] != 'P' {
-		return "", fmt.Errorf("invalid duration: must start with 'P': %s", lexical)
+	if _, err := ParseXSDDuration(lexical); err != nil {
+		return "", err
 	}
 
 	return lexical, nil

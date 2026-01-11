@@ -292,7 +292,7 @@ func (r *Resolver) lookupType(qname types.QName, referrer types.QName) (types.Ty
 			// allow recursive references from anonymous contexts (content models).
 			return typ, nil
 		}
-		return nil, fmt.Errorf("circular reference detected: %v", qname)
+		return nil, fmt.Errorf("circular reference detected: %s", qname.String())
 	}
 
 	switch t := typ.(type) {

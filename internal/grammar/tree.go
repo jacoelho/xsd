@@ -12,15 +12,12 @@ type node interface {
 
 // leafNode represents a terminal (element or wildcard).
 type leafNode struct {
-	// position index
-	pos      int
 	particle types.Particle
-	// occurrence constraints (1,1 for simple leaves)
-	min, max int
-	// total position count for bitset sizing
-	size int
-	// cached firstPos (lazily computed)
-	first *bitset
+	first    *bitset
+	pos      int
+	min      int
+	max      int
+	size     int
 }
 
 func newLeaf(pos int, particle types.Particle, min, max, size int) *leafNode {
@@ -45,10 +42,11 @@ func (n *leafNode) lastPos() *bitset {
 
 // seqNode represents a sequence (concatenation) of two nodes.
 type seqNode struct {
-	left, right node
-	size        int
-	// cached (lazily computed)
-	first, last *bitset
+	left  node
+	right node
+	first *bitset
+	last  *bitset
+	size  int
 }
 
 func newSeq(left, right node, size int) *seqNode {
@@ -85,9 +83,11 @@ func (n *seqNode) lastPos() *bitset {
 
 // altNode represents a choice (alternation) between two nodes.
 type altNode struct {
-	left, right node
-	size        int
-	first, last *bitset
+	left  node
+	right node
+	first *bitset
+	last  *bitset
+	size  int
 }
 
 func newAlt(left, right node, size int) *altNode {
@@ -134,9 +134,10 @@ func ensureLastPos(child node, cached *bitset) *bitset {
 
 // starNode represents zero-or-more repetition (Kleene star).
 type starNode struct {
-	child       node
-	size        int
-	first, last *bitset
+	child node
+	first *bitset
+	last  *bitset
+	size  int
 }
 
 func newStar(child node, size int) *starNode {
@@ -157,9 +158,10 @@ func (n *starNode) lastPos() *bitset {
 
 // plusNode represents one-or-more repetition.
 type plusNode struct {
-	child       node
-	size        int
-	first, last *bitset
+	child node
+	first *bitset
+	last  *bitset
+	size  int
 }
 
 func newPlus(child node, size int) *plusNode {
@@ -182,9 +184,10 @@ func (n *plusNode) lastPos() *bitset {
 
 // optNode represents zero-or-one (optional).
 type optNode struct {
-	child       node
-	size        int
-	first, last *bitset
+	child node
+	first *bitset
+	last  *bitset
+	size  int
 }
 
 func newOpt(child node, size int) *optNode {
