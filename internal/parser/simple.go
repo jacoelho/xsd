@@ -404,7 +404,9 @@ func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, 
 				// complex content restrictions don't have SimpleType
 				continue
 			}
-			err = applyWhiteSpaceFacet(doc, child, st)
+			if err := applyWhiteSpaceFacet(doc, child, st); err != nil {
+				return err
+			}
 			continue
 
 		default:
