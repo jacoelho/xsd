@@ -1147,15 +1147,43 @@ func TestContentModelChoiceRequired(t *testing.T) {
 			shouldErr: true,
 			errCode:   errRequiredElementMissing,
 		},
-		// TODO: Choice with minOccurs > 1 requires more sophisticated occurrence counting
-		// the current automaton counts per-symbol, not per-group occurrence
-		// {
-		// 	name: "choice with minOccurs=2, only one present",
-		// 	schemaXML: `...`,
-		// 	xmlDoc: `...`,
-		// 	shouldErr: true,
-		// 	errCode:   errRequiredElementMissing,
-		// },
+		{
+			name: "choice with minOccurs=2, only one present",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test" elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:choice minOccurs="2" maxOccurs="2">
+        <xs:element name="a" type="xs:string"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`,
+			xmlDoc: `<?xml version="1.0"?>
+<root xmlns="http://example.com/test"><a>one</a></root>`,
+			shouldErr: true,
+			errCode:   errRequiredElementMissing,
+		},
+		{
+			name: "choice with minOccurs=2, two present",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test" elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:choice minOccurs="2" maxOccurs="2">
+        <xs:element name="a" type="xs:string"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`,
+			xmlDoc: `<?xml version="1.0"?>
+<root xmlns="http://example.com/test"><a>one</a><b>two</b></root>`,
+			shouldErr: false,
+		},
 	}
 
 	for _, tt := range tests {

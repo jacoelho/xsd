@@ -53,10 +53,10 @@ func TestComplexTypeMethods(t *testing.T) {
 
 func TestComponentConstructorsAndCopy(t *testing.T) {
 	elem := &ElementDecl{
-		Name:           QName{Namespace: "urn:src", Local: "e"},
-		Type:           GetBuiltin(TypeNameString),
-		MinOccurs:      0,
-		MaxOccurs:      1,
+		Name:            QName{Namespace: "urn:src", Local: "e"},
+		Type:            GetBuiltin(TypeNameString),
+		MinOccurs:       0,
+		MaxOccurs:       1,
 		SourceNamespace: "urn:src",
 	}
 	if _, err := NewElementDeclFromParsed(elem); err != nil {
@@ -76,8 +76,8 @@ func TestComponentConstructorsAndCopy(t *testing.T) {
 	}
 
 	attr := &AttributeDecl{
-		Name:           QName{Namespace: "urn:src", Local: "a"},
-		Type:           GetBuiltin(TypeNameString),
+		Name:            QName{Namespace: "urn:src", Local: "a"},
+		Type:            GetBuiltin(TypeNameString),
 		SourceNamespace: "urn:src",
 	}
 	if _, err := NewAttributeDeclFromParsed(attr); err != nil {
@@ -102,9 +102,9 @@ func TestComponentConstructorsAndCopy(t *testing.T) {
 	elem.SubstitutionGroup = QName{Local: "head"}
 	elem.Constraints = []*IdentityConstraint{
 		{
-			Name:           "c1",
-			Type:           KeyRefConstraint,
-			ReferQName:     QName{Local: "ref"},
+			Name:             "c1",
+			Type:             KeyRefConstraint,
+			ReferQName:       QName{Local: "ref"},
 			NamespaceContext: map[string]string{"p": "urn:src"},
 		},
 	}
@@ -123,10 +123,10 @@ func TestComponentConstructorsAndCopy(t *testing.T) {
 	}
 
 	group := &AttributeGroup{
-		Name:         QName{Namespace: "urn:src", Local: "ag"},
-		Attributes:   []*AttributeDecl{attr},
-		AttrGroups:   []QName{{Local: "base"}},
-		AnyAttribute: &AnyAttribute{NamespaceList: []NamespaceURI{"##any"}},
+		Name:            QName{Namespace: "urn:src", Local: "ag"},
+		Attributes:      []*AttributeDecl{attr},
+		AttrGroups:      []QName{{Local: "base"}},
+		AnyAttribute:    &AnyAttribute{NamespaceList: []NamespaceURI{"##any"}},
 		SourceNamespace: "urn:src",
 	}
 	groupCopy := group.Copy(opts)
