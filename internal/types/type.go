@@ -93,6 +93,19 @@ const (
 	UnionVariety
 )
 
+func (v SimpleTypeVariety) String() string {
+	switch v {
+	case AtomicVariety:
+		return "atomic"
+	case ListVariety:
+		return "list"
+	case UnionVariety:
+		return "union"
+	default:
+		return "unknown"
+	}
+}
+
 // ListType represents a list type
 type ListType struct {
 	InlineItemType *SimpleType

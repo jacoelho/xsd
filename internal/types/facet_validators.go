@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -452,12 +453,23 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 				return nil
 			}
 		}
-		return fmt.Errorf("value %s not in enumeration: %v", lexical, e.Values)
+		return fmt.Errorf("value %s not in enumeration: %s", lexical, formatEnumerationValues(e.Values))
 	}
 	if slices.Contains(e.Values, lexical) {
 		return nil
 	}
-	return fmt.Errorf("value %s not in enumeration: %v", lexical, e.Values)
+	return fmt.Errorf("value %s not in enumeration: %s", lexical, formatEnumerationValues(e.Values))
+}
+
+func formatEnumerationValues(values []string) string {
+	if len(values) == 0 {
+		return "[]"
+	}
+	quoted := make([]string, len(values))
+	for i, value := range values {
+		quoted[i] = strconv.Quote(value)
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
 }
 
 func isDateTimeType(baseType Type) bool {
