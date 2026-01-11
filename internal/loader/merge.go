@@ -22,10 +22,16 @@ const (
 	keepNamespace
 )
 
-// mergeSchema merges a source schema into a target schema.
-// For imports, preserves source namespace.
-// For includes, uses chameleon namespace remapping if needed.
-func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind, remap namespaceRemapMode) error {
+type mergeContext struct {
+	target              *parser.Schema
+	source              *parser.Schema
+	isImport            bool
+	needsNamespaceRemap bool
+	remapQName          func(types.QName) types.QName
+	opts                types.CopyOptions
+}
+
+func newMergeContext(target, source *parser.Schema, kind mergeKind, remap namespaceRemapMode) mergeContext {
 	isImport := kind == mergeImport
 	needsNamespaceRemap := remap == remapNamespace
 	remapQName := func(qname types.QName) types.QName {
@@ -38,252 +44,310 @@ func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind
 		return qname
 	}
 
-	computeSourceNamespace := func() types.NamespaceURI {
-		if isImport {
-			return source.TargetNamespace
-		}
-		if needsNamespaceRemap {
-			return target.TargetNamespace
-		}
-		return source.TargetNamespace
+	sourceNamespace := source.TargetNamespace
+	if !isImport && needsNamespaceRemap {
+		sourceNamespace = target.TargetNamespace
 	}
 
 	opts := types.CopyOptions{
-		SourceNamespace: computeSourceNamespace(),
+		SourceNamespace: sourceNamespace,
 		RemapQName:      remapQName,
 	}
 
-	if source.ImportedNamespaces != nil {
-		if target.ImportedNamespaces == nil {
-			target.ImportedNamespaces = make(map[types.NamespaceURI]map[types.NamespaceURI]bool)
+	return mergeContext{
+		target:              target,
+		source:              source,
+		isImport:            isImport,
+		needsNamespaceRemap: needsNamespaceRemap,
+		remapQName:          remapQName,
+		opts:                opts,
+	}
+}
+
+// mergeSchema merges a source schema into a target schema.
+// For imports, preserves source namespace.
+// For includes, uses chameleon namespace remapping if needed.
+func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind, remap namespaceRemapMode) error {
+	ctx := newMergeContext(target, source, kind, remap)
+	ctx.mergeImportedNamespaces()
+	ctx.mergeImportContexts()
+	if err := ctx.mergeElementDecls(); err != nil {
+		return err
+	}
+	if err := ctx.mergeTypeDefs(); err != nil {
+		return err
+	}
+	if err := ctx.mergeAttributeDecls(); err != nil {
+		return err
+	}
+	if err := ctx.mergeAttributeGroups(); err != nil {
+		return err
+	}
+	if err := ctx.mergeGroups(); err != nil {
+		return err
+	}
+	ctx.mergeSubstitutionGroups()
+	if err := ctx.mergeNotationDecls(); err != nil {
+		return err
+	}
+	ctx.mergeIDAttributes()
+	return nil
+}
+
+func (c *mergeContext) mergeImportedNamespaces() {
+	if c.source.ImportedNamespaces == nil {
+		return
+	}
+	if c.target.ImportedNamespaces == nil {
+		c.target.ImportedNamespaces = make(map[types.NamespaceURI]map[types.NamespaceURI]bool)
+	}
+	for fromNS, imports := range c.source.ImportedNamespaces {
+		mappedFrom := fromNS
+		if c.needsNamespaceRemap && fromNS.IsEmpty() {
+			mappedFrom = c.target.TargetNamespace
 		}
-		for fromNS, imports := range source.ImportedNamespaces {
-			mappedFrom := fromNS
-			if needsNamespaceRemap && fromNS.IsEmpty() {
-				mappedFrom = target.TargetNamespace
-			}
-			if _, ok := target.ImportedNamespaces[mappedFrom]; !ok {
-				target.ImportedNamespaces[mappedFrom] = make(map[types.NamespaceURI]bool)
-			}
-			for ns := range imports {
-				target.ImportedNamespaces[mappedFrom][ns] = true
-			}
+		if _, ok := c.target.ImportedNamespaces[mappedFrom]; !ok {
+			c.target.ImportedNamespaces[mappedFrom] = make(map[types.NamespaceURI]bool)
+		}
+		for ns := range imports {
+			c.target.ImportedNamespaces[mappedFrom][ns] = true
 		}
 	}
+}
 
-	if source.ImportContexts != nil {
-		if target.ImportContexts == nil {
-			target.ImportContexts = make(map[string]parser.ImportContext)
-		}
-		for location, ctx := range source.ImportContexts {
-			merged := ctx
-			if needsNamespaceRemap && merged.TargetNamespace.IsEmpty() {
-				merged.TargetNamespace = target.TargetNamespace
-			}
-			if merged.Imports == nil {
-				merged.Imports = make(map[types.NamespaceURI]bool)
-			}
-			if existing, ok := target.ImportContexts[location]; ok {
-				if existing.Imports == nil {
-					existing.Imports = make(map[types.NamespaceURI]bool)
-				}
-				for ns := range merged.Imports {
-					existing.Imports[ns] = true
-				}
-				if existing.TargetNamespace.IsEmpty() {
-					existing.TargetNamespace = merged.TargetNamespace
-				}
-				target.ImportContexts[location] = existing
-				continue
-			}
-			target.ImportContexts[location] = merged
-		}
+func (c *mergeContext) mergeImportContexts() {
+	if c.source.ImportContexts == nil {
+		return
 	}
-
-	for qname, decl := range source.ElementDecls {
-		targetQName := remapQName(qname)
-		origin := source.ElementOrigins[qname]
-		if origin == "" {
-			origin = source.Location
+	if c.target.ImportContexts == nil {
+		c.target.ImportContexts = make(map[string]parser.ImportContext)
+	}
+	for location, ctx := range c.source.ImportContexts {
+		merged := ctx
+		if c.needsNamespaceRemap && merged.TargetNamespace.IsEmpty() {
+			merged.TargetNamespace = c.target.TargetNamespace
 		}
-		if _, exists := target.ElementDecls[targetQName]; exists {
-			if target.ElementOrigins[targetQName] == origin {
+		if merged.Imports == nil {
+			merged.Imports = make(map[types.NamespaceURI]bool)
+		}
+		if existing, ok := c.target.ImportContexts[location]; ok {
+			if existing.Imports == nil {
+				existing.Imports = make(map[types.NamespaceURI]bool)
+			}
+			for ns := range merged.Imports {
+				existing.Imports[ns] = true
+			}
+			if existing.TargetNamespace.IsEmpty() {
+				existing.TargetNamespace = merged.TargetNamespace
+			}
+			c.target.ImportContexts[location] = existing
+			continue
+		}
+		c.target.ImportContexts[location] = merged
+	}
+}
+
+func (c *mergeContext) mergeElementDecls() error {
+	for qname, decl := range c.source.ElementDecls {
+		targetQName := c.remapQName(qname)
+		origin := c.originFor(c.source.ElementOrigins, qname)
+		if existing, exists := c.target.ElementDecls[targetQName]; exists {
+			if c.target.ElementOrigins[targetQName] == origin {
 				continue
 			}
-			existing := target.ElementDecls[targetQName]
-			var candidate *types.ElementDecl
-			if isImport {
-				declCopy := *decl
-				declCopy.Name = remapQName(decl.Name)
-				declCopy.SourceNamespace = source.TargetNamespace
-				candidate = &declCopy
-			} else if needsNamespaceRemap {
-				candidate = decl.Copy(opts)
-			} else {
-				candidate = decl
-			}
+			candidate := c.elementDeclCandidate(decl)
 			if elementDeclEquivalent(existing, candidate) {
 				continue
 			}
 			return fmt.Errorf("duplicate element declaration %s", targetQName)
 		}
-		// for imports, use shallow copy to avoid unnecessary type remapping
-		if isImport {
-			declCopy := *decl
-			declCopy.Name = remapQName(decl.Name)
-			declCopy.SourceNamespace = source.TargetNamespace
-			// types and constraints are not remapped for imports
-			target.ElementDecls[targetQName] = &declCopy
-		} else {
-			target.ElementDecls[targetQName] = decl.Copy(opts)
-		}
-		target.ElementOrigins[targetQName] = origin
+		c.target.ElementDecls[targetQName] = c.elementDeclForInsert(decl)
+		c.target.ElementOrigins[targetQName] = origin
 	}
+	return nil
+}
 
-	for qname, typ := range source.TypeDefs {
-		targetQName := remapQName(qname)
-		origin := source.TypeOrigins[qname]
-		if origin == "" {
-			origin = source.Location
-		}
-		if _, exists := target.TypeDefs[targetQName]; exists {
-			if target.TypeOrigins[targetQName] == origin {
+func (c *mergeContext) elementDeclCandidate(decl *types.ElementDecl) *types.ElementDecl {
+	if c.isImport {
+		declCopy := *decl
+		declCopy.Name = c.remapQName(decl.Name)
+		declCopy.SourceNamespace = c.source.TargetNamespace
+		return &declCopy
+	}
+	if c.needsNamespaceRemap {
+		return decl.Copy(c.opts)
+	}
+	return decl
+}
+
+func (c *mergeContext) elementDeclForInsert(decl *types.ElementDecl) *types.ElementDecl {
+	if c.isImport {
+		declCopy := *decl
+		declCopy.Name = c.remapQName(decl.Name)
+		declCopy.SourceNamespace = c.source.TargetNamespace
+		return &declCopy
+	}
+	return decl.Copy(c.opts)
+}
+
+func (c *mergeContext) mergeTypeDefs() error {
+	for qname, typ := range c.source.TypeDefs {
+		targetQName := c.remapQName(qname)
+		origin := c.originFor(c.source.TypeOrigins, qname)
+		if _, exists := c.target.TypeDefs[targetQName]; exists {
+			if c.target.TypeOrigins[targetQName] == origin {
 				continue
 			}
 			return fmt.Errorf("duplicate type definition %s", targetQName)
 		}
-		// for imports, use shallow copy to avoid unnecessary remapping
-		if isImport {
-			if complexType, ok := typ.(*types.ComplexType); ok {
-				typeCopy := *complexType
-				typeCopy.QName = remapQName(complexType.QName)
-				typeCopy.SourceNamespace = source.TargetNamespace
-				normalizeAttributeForms(&typeCopy, source.AttributeFormDefault)
-				target.TypeDefs[targetQName] = &typeCopy
-			} else if simpleType, ok := typ.(*types.SimpleType); ok {
-				typeCopy := *simpleType
-				typeCopy.QName = remapQName(simpleType.QName)
-				typeCopy.SourceNamespace = source.TargetNamespace
-				target.TypeDefs[targetQName] = &typeCopy
-			} else {
-				target.TypeDefs[targetQName] = typ
-			}
+		if c.isImport {
+			c.target.TypeDefs[targetQName] = c.copyTypeForImport(typ)
 		} else {
-			copiedType := types.CopyType(typ, opts)
-			if complexType, ok := copiedType.(*types.ComplexType); ok {
-				normalizeAttributeForms(complexType, source.AttributeFormDefault)
-			}
-			target.TypeDefs[targetQName] = copiedType
+			c.target.TypeDefs[targetQName] = c.copyTypeForInclude(typ)
 		}
-		target.TypeOrigins[targetQName] = origin
+		c.target.TypeOrigins[targetQName] = origin
 	}
+	return nil
+}
 
-	for qname, decl := range source.AttributeDecls {
-		targetQName := remapQName(qname)
-		origin := source.AttributeOrigins[qname]
-		if origin == "" {
-			origin = source.Location
-		}
-		if _, exists := target.AttributeDecls[targetQName]; exists {
-			if target.AttributeOrigins[targetQName] == origin {
+func (c *mergeContext) copyTypeForImport(typ types.Type) types.Type {
+	if complexType, ok := typ.(*types.ComplexType); ok {
+		typeCopy := *complexType
+		typeCopy.QName = c.remapQName(complexType.QName)
+		typeCopy.SourceNamespace = c.source.TargetNamespace
+		normalizeAttributeForms(&typeCopy, c.source.AttributeFormDefault)
+		return &typeCopy
+	}
+	if simpleType, ok := typ.(*types.SimpleType); ok {
+		typeCopy := *simpleType
+		typeCopy.QName = c.remapQName(simpleType.QName)
+		typeCopy.SourceNamespace = c.source.TargetNamespace
+		return &typeCopy
+	}
+	return typ
+}
+
+func (c *mergeContext) copyTypeForInclude(typ types.Type) types.Type {
+	copiedType := types.CopyType(typ, c.opts)
+	if complexType, ok := copiedType.(*types.ComplexType); ok {
+		normalizeAttributeForms(complexType, c.source.AttributeFormDefault)
+	}
+	return copiedType
+}
+
+func (c *mergeContext) mergeAttributeDecls() error {
+	for qname, decl := range c.source.AttributeDecls {
+		targetQName := c.remapQName(qname)
+		origin := c.originFor(c.source.AttributeOrigins, qname)
+		if _, exists := c.target.AttributeDecls[targetQName]; exists {
+			if c.target.AttributeOrigins[targetQName] == origin {
 				continue
 			}
 			return fmt.Errorf("duplicate attribute declaration %s", targetQName)
 		}
-		// for imports, use shallow copy to avoid unnecessary type remapping
-		if isImport {
-			declCopy := *decl
-			declCopy.Name = remapQName(decl.Name)
-			declCopy.SourceNamespace = source.TargetNamespace
-			// types are not remapped for imports
-			target.AttributeDecls[targetQName] = &declCopy
-		} else {
-			target.AttributeDecls[targetQName] = decl.Copy(opts)
-		}
-		target.AttributeOrigins[targetQName] = origin
+		c.target.AttributeDecls[targetQName] = c.copyAttributeDecl(decl)
+		c.target.AttributeOrigins[targetQName] = origin
 	}
+	return nil
+}
 
-	for qname, group := range source.AttributeGroups {
-		targetQName := remapQName(qname)
-		origin := source.AttributeGroupOrigins[qname]
-		if origin == "" {
-			origin = source.Location
-		}
-		if _, exists := target.AttributeGroups[targetQName]; exists {
-			if target.AttributeGroupOrigins[targetQName] == origin {
+func (c *mergeContext) copyAttributeDecl(decl *types.AttributeDecl) *types.AttributeDecl {
+	if c.isImport {
+		declCopy := *decl
+		declCopy.Name = c.remapQName(decl.Name)
+		declCopy.SourceNamespace = c.source.TargetNamespace
+		return &declCopy
+	}
+	return decl.Copy(c.opts)
+}
+
+func (c *mergeContext) mergeAttributeGroups() error {
+	for qname, group := range c.source.AttributeGroups {
+		targetQName := c.remapQName(qname)
+		origin := c.originFor(c.source.AttributeGroupOrigins, qname)
+		if _, exists := c.target.AttributeGroups[targetQName]; exists {
+			if c.target.AttributeGroupOrigins[targetQName] == origin {
 				continue
 			}
 			return fmt.Errorf("duplicate attributeGroup %s", targetQName)
 		}
-		groupCopy := group.Copy(opts)
+		groupCopy := group.Copy(c.opts)
 		for _, attr := range groupCopy.Attributes {
 			if attr.Form == types.FormDefault {
-				if source.AttributeFormDefault == parser.Qualified {
+				if c.source.AttributeFormDefault == parser.Qualified {
 					attr.Form = types.FormQualified
 				} else {
 					attr.Form = types.FormUnqualified
 				}
 			}
 		}
-		target.AttributeGroups[targetQName] = groupCopy
-		target.AttributeGroupOrigins[targetQName] = origin
+		c.target.AttributeGroups[targetQName] = groupCopy
+		c.target.AttributeGroupOrigins[targetQName] = origin
 	}
+	return nil
+}
 
-	for qname, group := range source.Groups {
-		targetQName := remapQName(qname)
-		origin := source.GroupOrigins[qname]
-		if origin == "" {
-			origin = source.Location
-		}
-		if _, exists := target.Groups[targetQName]; exists {
-			if target.GroupOrigins[targetQName] == origin {
+func (c *mergeContext) mergeGroups() error {
+	for qname, group := range c.source.Groups {
+		targetQName := c.remapQName(qname)
+		origin := c.originFor(c.source.GroupOrigins, qname)
+		if _, exists := c.target.Groups[targetQName]; exists {
+			if c.target.GroupOrigins[targetQName] == origin {
 				continue
 			}
 			return fmt.Errorf("duplicate group %s", targetQName)
 		}
-		// for chameleon includes (needsNamespaceRemap), Copy handles remapping particles
-		// for imports, just preserve SourceNamespace (handled by Copy)
-		target.Groups[targetQName] = group.Copy(opts)
-		target.GroupOrigins[targetQName] = origin
+		c.target.Groups[targetQName] = group.Copy(c.opts)
+		c.target.GroupOrigins[targetQName] = origin
 	}
+	return nil
+}
 
-	for head, members := range source.SubstitutionGroups {
-		targetHead := remapQName(head)
+func (c *mergeContext) mergeSubstitutionGroups() {
+	for head, members := range c.source.SubstitutionGroups {
+		targetHead := c.remapQName(head)
 		remappedMembers := make([]types.QName, len(members))
 		for i, member := range members {
-			remappedMembers[i] = remapQName(member)
+			remappedMembers[i] = c.remapQName(member)
 		}
-		if existing, exists := target.SubstitutionGroups[targetHead]; exists {
-			target.SubstitutionGroups[targetHead] = append(existing, remappedMembers...)
+		if existing, exists := c.target.SubstitutionGroups[targetHead]; exists {
+			c.target.SubstitutionGroups[targetHead] = append(existing, remappedMembers...)
 		} else {
-			target.SubstitutionGroups[targetHead] = remappedMembers
+			c.target.SubstitutionGroups[targetHead] = remappedMembers
 		}
 	}
+}
 
-	for qname, notation := range source.NotationDecls {
-		targetQName := remapQName(qname)
-		origin := source.NotationOrigins[qname]
-		if origin == "" {
-			origin = source.Location
-		}
-		if _, exists := target.NotationDecls[targetQName]; exists {
-			if target.NotationOrigins[targetQName] == origin {
+func (c *mergeContext) mergeNotationDecls() error {
+	for qname, notation := range c.source.NotationDecls {
+		targetQName := c.remapQName(qname)
+		origin := c.originFor(c.source.NotationOrigins, qname)
+		if _, exists := c.target.NotationDecls[targetQName]; exists {
+			if c.target.NotationOrigins[targetQName] == origin {
 				continue
 			}
 			return fmt.Errorf("duplicate notation %s", targetQName)
 		}
-		target.NotationDecls[targetQName] = notation.Copy(opts)
-		target.NotationOrigins[targetQName] = origin
+		c.target.NotationDecls[targetQName] = notation.Copy(c.opts)
+		c.target.NotationOrigins[targetQName] = origin
 	}
+	return nil
+}
 
-	// merge id attributes (per XSD spec, id uniqueness is per schema document, not across merged schemas)
-	for id, component := range source.IDAttributes {
-		if _, exists := target.IDAttributes[id]; !exists {
-			target.IDAttributes[id] = component
+func (c *mergeContext) mergeIDAttributes() {
+	for id, component := range c.source.IDAttributes {
+		if _, exists := c.target.IDAttributes[id]; !exists {
+			c.target.IDAttributes[id] = component
 		}
 	}
+}
 
-	return nil
+func (c *mergeContext) originFor(origins map[types.QName]string, qname types.QName) string {
+	origin := origins[qname]
+	if origin == "" {
+		origin = c.source.Location
+	}
+	return origin
 }
 
 func elementDeclEquivalent(a, b *types.ElementDecl) bool {
