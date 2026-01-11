@@ -55,6 +55,9 @@ func GetOption[T any](opts Options, constructor func(T) Options) (T, bool) {
 		}
 		rv := reflect.ValueOf(value)
 		if rv.Type().AssignableTo(want) {
+			if rv.Type() != want {
+				return rv.Convert(want).Interface().(T), true
+			}
 			return rv.Interface().(T), true
 		}
 		if rv.Type().ConvertibleTo(want) {
