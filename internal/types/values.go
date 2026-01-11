@@ -549,131 +549,24 @@ type ComparableDuration struct {
 // Returns an error if the duration contains years or months (which cannot be converted to time.Duration)
 // or if the duration string is invalid.
 func ParseDurationToTimeDuration(s string) (time.Duration, error) {
-	if len(s) == 0 {
-		return 0, fmt.Errorf("empty duration")
+	xsdDur, err := ParseXSDDuration(s)
+	if err != nil {
+		return 0, err
 	}
-
-	negative := s[0] == '-'
-	if negative {
-		s = s[1:]
-	}
-
-	if len(s) == 0 || s[0] != 'P' {
-		return 0, fmt.Errorf("duration must start with P")
-	}
-	s = s[1:]
-
-	datePart := s
-	timePart := ""
-	if before, after, ok := strings.Cut(s, "T"); ok {
-		datePart = before
-		timePart = after
-		if strings.IndexByte(timePart, 'T') != -1 {
-			return 0, fmt.Errorf("invalid duration format: multiple T separators")
-		}
-	}
-
-	var years, months, days, hours, minutes int
-	var seconds float64
-
-	// parse date part (years, months, days)
-	if datePart != "" {
-		matches := durationDatePattern.FindAllStringSubmatch(datePart, -1)
-		for _, match := range matches {
-			if match[1] != "" {
-				val, err := strconv.Atoi(match[1])
-				if err != nil {
-					return 0, fmt.Errorf("invalid year value: %w", err)
-				}
-				years = val
-			}
-			if match[2] != "" {
-				val, err := strconv.Atoi(match[2])
-				if err != nil {
-					return 0, fmt.Errorf("invalid month value: %w", err)
-				}
-				months = val
-			}
-			if match[3] != "" {
-				val, err := strconv.Atoi(match[3])
-				if err != nil {
-					return 0, fmt.Errorf("invalid day value: %w", err)
-				}
-				days = val
-			}
-		}
-	}
-
-	// parse time part (hours, minutes, seconds)
-	if timePart != "" {
-		matches := durationTimePattern.FindAllStringSubmatch(timePart, -1)
-		for _, match := range matches {
-			if match[1] != "" {
-				val, err := strconv.Atoi(match[1])
-				if err != nil {
-					return 0, fmt.Errorf("invalid hour value: %w", err)
-				}
-				hours = val
-			}
-			if match[2] != "" {
-				val, err := strconv.Atoi(match[2])
-				if err != nil {
-					return 0, fmt.Errorf("invalid minute value: %w", err)
-				}
-				minutes = val
-			}
-			if match[3] != "" {
-				val, err := strconv.ParseFloat(match[3], 64)
-				if err != nil {
-					return 0, fmt.Errorf("invalid second value: %w", err)
-				}
-				if val < 0 {
-					return 0, fmt.Errorf("second value cannot be negative")
-				}
-				// max seconds that fit: ~292 years
-				if val > 9223372036.854775807 {
-					return 0, fmt.Errorf("second value too large: %v", val)
-				}
-				seconds = val
-			}
-		}
-	}
-
-	// check if duration has years or months (cannot convert to time.Duration)
-	if years != 0 || months != 0 {
+	if xsdDur.Years != 0 || xsdDur.Months != 0 {
 		return 0, fmt.Errorf("durations with years or months cannot be converted to time.Duration (indeterminate)")
 	}
-
-	// check if we actually parsed any components
-	// "P" and "PT" without any components are invalid
-	// but "PT0S" or "P0D" are valid (explicit zero)
-	hasAnyComponent := false
-	if datePart != "" {
-		// check if datePart contains any component markers
-		if strings.Contains(datePart, "Y") || strings.Contains(datePart, "M") || strings.Contains(datePart, "D") {
-			hasAnyComponent = true
-		}
-	}
-	if timePart != "" {
-		// check if timePart contains any component markers
-		if strings.Contains(timePart, "H") || strings.Contains(timePart, "M") || strings.Contains(timePart, "S") {
-			hasAnyComponent = true
-		}
-	}
-	if !hasAnyComponent {
-		return 0, fmt.Errorf("duration must have at least one component")
+	if xsdDur.Seconds > 9223372036.854775807 {
+		return 0, fmt.Errorf("second value too large: %g", xsdDur.Seconds)
 	}
 
-	// note: PT0S is a valid XSD duration representing zero, so we allow all zeros
-	dur := time.Duration(days)*24*time.Hour +
-		time.Duration(hours)*time.Hour +
-		time.Duration(minutes)*time.Minute +
-		time.Duration(seconds*float64(time.Second))
-
-	if negative {
+	dur := time.Duration(xsdDur.Days)*24*time.Hour +
+		time.Duration(xsdDur.Hours)*time.Hour +
+		time.Duration(xsdDur.Minutes)*time.Minute +
+		time.Duration(xsdDur.Seconds*float64(time.Second))
+	if xsdDur.Negative {
 		dur = -dur
 	}
-
 	return dur, nil
 }
 
@@ -759,6 +652,7 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 		return XSDDuration{}, fmt.Errorf("empty duration")
 	}
 
+	input := s
 	negative := s[0] == '-'
 	if negative {
 		s = s[1:]
@@ -771,7 +665,9 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 
 	datePart := s
 	timePart := ""
+	sawTimeDesignator := false
 	if before, after, ok := strings.Cut(s, "T"); ok {
+		sawTimeDesignator = true
 		datePart = before
 		timePart = after
 		if strings.IndexByte(timePart, 'T') != -1 {
@@ -779,8 +675,14 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 		}
 	}
 
+	if !durationPattern.MatchString(input) {
+		return XSDDuration{}, fmt.Errorf("invalid duration format: %s", input)
+	}
+
 	var years, months, days, hours, minutes int
 	var seconds float64
+	hasDateComponent := false
+	hasTimeComponent := false
 
 	// parse date part (years, months, days)
 	if datePart != "" {
@@ -792,6 +694,7 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 					return XSDDuration{}, fmt.Errorf("invalid year value: %w", err)
 				}
 				years = val
+				hasDateComponent = true
 			}
 			if match[2] != "" {
 				val, err := strconv.Atoi(match[2])
@@ -799,6 +702,7 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 					return XSDDuration{}, fmt.Errorf("invalid month value: %w", err)
 				}
 				months = val
+				hasDateComponent = true
 			}
 			if match[3] != "" {
 				val, err := strconv.Atoi(match[3])
@@ -806,6 +710,7 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 					return XSDDuration{}, fmt.Errorf("invalid day value: %w", err)
 				}
 				days = val
+				hasDateComponent = true
 			}
 		}
 	}
@@ -820,6 +725,7 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 					return XSDDuration{}, fmt.Errorf("invalid hour value: %w", err)
 				}
 				hours = val
+				hasTimeComponent = true
 			}
 			if match[2] != "" {
 				val, err := strconv.Atoi(match[2])
@@ -827,6 +733,7 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 					return XSDDuration{}, fmt.Errorf("invalid minute value: %w", err)
 				}
 				minutes = val
+				hasTimeComponent = true
 			}
 			if match[3] != "" {
 				val, err := strconv.ParseFloat(match[3], 64)
@@ -837,24 +744,18 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 					return XSDDuration{}, fmt.Errorf("second value cannot be negative")
 				}
 				seconds = val
+				hasTimeComponent = true
 			}
 		}
 	}
 
 	// check if we actually parsed any components
-	hasAnyComponent := false
-	if datePart != "" {
-		if strings.Contains(datePart, "Y") || strings.Contains(datePart, "M") || strings.Contains(datePart, "D") {
-			hasAnyComponent = true
-		}
-	}
-	if timePart != "" {
-		if strings.Contains(timePart, "H") || strings.Contains(timePart, "M") || strings.Contains(timePart, "S") {
-			hasAnyComponent = true
-		}
-	}
+	hasAnyComponent := hasDateComponent || hasTimeComponent
 	if !hasAnyComponent {
 		return XSDDuration{}, fmt.Errorf("duration must have at least one component")
+	}
+	if sawTimeDesignator && !hasTimeComponent {
+		return XSDDuration{}, fmt.Errorf("time designator present but no time components specified")
 	}
 
 	return XSDDuration{

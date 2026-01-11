@@ -112,11 +112,11 @@ func TestValidateDateTimeFamily(t *testing.T) {
 	if err := validateDuration("P"); err == nil {
 		t.Fatalf("expected duration error")
 	}
-	if _, err := parseDuration("PT1H"); err != nil {
-		t.Fatalf("unexpected parseDuration error: %v", err)
+	if _, err := ParseXSDDuration("PT1H"); err != nil {
+		t.Fatalf("unexpected ParseXSDDuration error: %v", err)
 	}
-	if _, err := parseDuration(""); err == nil {
-		t.Fatalf("expected parseDuration error")
+	if _, err := ParseXSDDuration(""); err == nil {
+		t.Fatalf("expected ParseXSDDuration error")
 	}
 
 	main, tz := splitTimezone("2024-01-01Z")
