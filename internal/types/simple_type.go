@@ -36,59 +36,59 @@ func NewSimpleType(name QName, sourceNamespace NamespaceURI) *SimpleType {
 }
 
 // NewSimpleTypeFromParsed validates a parsed simple type and returns it if valid.
-func NewSimpleTypeFromParsed(st *SimpleType) (*SimpleType, error) {
-	if st == nil {
+func NewSimpleTypeFromParsed(simpleType *SimpleType) (*SimpleType, error) {
+	if simpleType == nil {
 		return nil, fmt.Errorf("simpleType is nil")
 	}
-	if err := validateSimpleTypeDefinition(st); err != nil {
+	if err := validateSimpleTypeDefinition(simpleType); err != nil {
 		return nil, err
 	}
-	return st, nil
+	return simpleType, nil
 }
 
-func validateSimpleTypeDefinition(st *SimpleType) error {
-	switch st.Variety() {
+func validateSimpleTypeDefinition(simpleType *SimpleType) error {
+	switch simpleType.Variety() {
 	case AtomicVariety:
-		if !st.IsBuiltin() && st.Restriction == nil {
+		if !simpleType.IsBuiltin() && simpleType.Restriction == nil {
 			return fmt.Errorf("atomic simpleType must have a restriction")
 		}
 	case ListVariety:
-		if st.List == nil && st.Restriction == nil {
+		if simpleType.List == nil && simpleType.Restriction == nil {
 			return fmt.Errorf("list simpleType must have a list definition or restriction")
 		}
 	case UnionVariety:
-		if st.Union == nil && st.Restriction == nil {
+		if simpleType.Union == nil && simpleType.Restriction == nil {
 			return fmt.Errorf("union simpleType must have a union definition or restriction")
 		}
 	default:
-		if !st.IsBuiltin() && st.Restriction == nil && st.List == nil && st.Union == nil {
+		if !simpleType.IsBuiltin() && simpleType.Restriction == nil && simpleType.List == nil && simpleType.Union == nil {
 			return fmt.Errorf("simpleType must have a derivation")
 		}
 	}
 
-	if st.Restriction != nil {
-		if st.Restriction.Base.IsZero() && st.ResolvedBase == nil {
+	if simpleType.Restriction != nil {
+		if simpleType.Restriction.Base.IsZero() && simpleType.ResolvedBase == nil {
 			return fmt.Errorf("simpleType restriction must have a base type")
 		}
-		baseType := restrictionBaseType(st)
+		baseType := restrictionBaseType(simpleType)
 		if baseType != nil {
-			if err := validateRestrictionFacetApplicability(st.Restriction.Facets, baseType); err != nil {
+			if err := validateRestrictionFacetApplicability(simpleType.Restriction.Facets, baseType); err != nil {
 				return err
 			}
 		}
 	}
 
-	if st.List != nil {
-		if st.List.InlineItemType != nil && !st.List.ItemType.IsZero() {
+	if simpleType.List != nil {
+		if simpleType.List.InlineItemType != nil && !simpleType.List.ItemType.IsZero() {
 			return fmt.Errorf("list simpleType cannot have both inline and named item types")
 		}
-		if st.List.InlineItemType == nil && st.List.ItemType.IsZero() && st.ItemType == nil {
+		if simpleType.List.InlineItemType == nil && simpleType.List.ItemType.IsZero() && simpleType.ItemType == nil {
 			return fmt.Errorf("list simpleType must declare an item type")
 		}
 	}
 
-	if st.Union != nil {
-		if len(st.Union.InlineTypes) == 0 && len(st.Union.MemberTypes) == 0 && len(st.MemberTypes) == 0 {
+	if simpleType.Union != nil {
+		if len(simpleType.Union.InlineTypes) == 0 && len(simpleType.Union.MemberTypes) == 0 && len(simpleType.MemberTypes) == 0 {
 			return fmt.Errorf("union simpleType must declare member types")
 		}
 	}
@@ -96,20 +96,20 @@ func validateSimpleTypeDefinition(st *SimpleType) error {
 	return nil
 }
 
-func restrictionBaseType(st *SimpleType) Type {
-	if st == nil || st.Restriction == nil {
+func restrictionBaseType(simpleType *SimpleType) Type {
+	if simpleType == nil || simpleType.Restriction == nil {
 		return nil
 	}
-	if st.ResolvedBase != nil {
-		if isNilType(st.ResolvedBase) {
+	if simpleType.ResolvedBase != nil {
+		if isNilType(simpleType.ResolvedBase) {
 			return nil
 		}
-		return st.ResolvedBase
+		return simpleType.ResolvedBase
 	}
-	if st.Restriction.Base.IsZero() {
+	if simpleType.Restriction.Base.IsZero() {
 		return nil
 	}
-	base := GetBuiltinNS(st.Restriction.Base.Namespace, st.Restriction.Base.Local)
+	base := GetBuiltinNS(simpleType.Restriction.Base.Namespace, simpleType.Restriction.Base.Local)
 	if base == nil {
 		return nil
 	}
@@ -147,10 +147,10 @@ func validateRestrictionFacetApplicability(facets []any, baseType Type) error {
 }
 
 func isNilType(typ Type) bool {
-	if typ == nil {
-		return true
-	}
+	// interface-typed nils need a type switch to detect nil pointers.
 	switch value := typ.(type) {
+	case nil:
+		return true
 	case *BuiltinType:
 		return value == nil
 	case *SimpleType:
@@ -237,12 +237,12 @@ func (s *SimpleType) IsBuiltin() bool {
 	return s.builtin
 }
 
-// IsPlaceholderSimpleType reports whether st represents an unresolved type reference.
-func IsPlaceholderSimpleType(st *SimpleType) bool {
-	if st == nil || st.IsBuiltin() || st.QName.IsZero() {
+// IsPlaceholderSimpleType reports whether simpleType represents an unresolved type reference.
+func IsPlaceholderSimpleType(simpleType *SimpleType) bool {
+	if simpleType == nil || simpleType.IsBuiltin() || simpleType.QName.IsZero() {
 		return false
 	}
-	return st.Restriction == nil && st.List == nil && st.Union == nil
+	return simpleType.Restriction == nil && simpleType.List == nil && simpleType.Union == nil
 }
 
 // BaseType returns the base type for this simple type
@@ -273,16 +273,16 @@ func (s *SimpleType) FundamentalFacets() *FundamentalFacets {
 	}
 
 	// for built-in types accessed as Type interface
-	if bt, ok := as[*BuiltinType](primitive); ok {
-		facets := bt.FundamentalFacets()
+	if builtinType, ok := AsBuiltinType(primitive); ok {
+		facets := builtinType.FundamentalFacets()
 		s.fundamentalFacetsCache = facets
 		return facets
 	}
 
 	// for SimpleType that is built-in
-	if st, ok := as[*SimpleType](primitive); ok {
-		if st.IsBuiltin() {
-			facets := ComputeFundamentalFacets(TypeName(st.QName.Local))
+	if simpleType, ok := AsSimpleType(primitive); ok {
+		if simpleType.IsBuiltin() {
+			facets := ComputeFundamentalFacets(TypeName(simpleType.QName.Local))
 			s.fundamentalFacetsCache = facets
 			return facets
 		}
@@ -327,31 +327,31 @@ func (s *SimpleType) MeasureLength(value string) int {
 		if len(strings.TrimSpace(value)) == 0 {
 			return 0
 		}
-		return countFields(value)
+		return countXMLFields(value)
 	}
 
 	// check if this type restricts a list type
 	if s.Restriction != nil {
 		// first check ResolvedBase if available
 		if s.ResolvedBase != nil {
-			if lm, ok := as[LengthMeasurable](s.ResolvedBase); ok {
+			if lengthMeasurer, ok := as[LengthMeasurable](s.ResolvedBase); ok {
 				// check if base is a list type
-				if baseST, ok := as[*SimpleType](s.ResolvedBase); ok && baseST.List != nil {
+				if baseSimpleType, ok := AsSimpleType(s.ResolvedBase); ok && baseSimpleType.List != nil {
 					// restriction of list type: length is number of items
 					if len(strings.TrimSpace(value)) == 0 {
 						return 0
 					}
-					return countFields(value)
+					return countXMLFields(value)
 				}
-				if bt, ok := as[*BuiltinType](s.ResolvedBase); ok && isBuiltinListType(bt.Name().Local) {
+				if builtinType, ok := AsBuiltinType(s.ResolvedBase); ok && isBuiltinListType(builtinType.Name().Local) {
 					// restriction of built-in list type: length is number of items
 					if len(strings.TrimSpace(value)) == 0 {
 						return 0
 					}
-					return countFields(value)
+					return countXMLFields(value)
 				}
 				// otherwise delegate to base type
-				return lm.MeasureLength(value)
+				return lengthMeasurer.MeasureLength(value)
 			}
 		}
 		// fallback: check if Restriction.Base QName suggests it's a list type
@@ -363,7 +363,7 @@ func (s *SimpleType) MeasureLength(value string) int {
 				if len(strings.TrimSpace(value)) == 0 {
 					return 0
 				}
-				return countFields(value)
+				return countXMLFields(value)
 			}
 		}
 	}
@@ -371,8 +371,8 @@ func (s *SimpleType) MeasureLength(value string) int {
 	// for user-defined types, delegate to primitive type
 	primitiveType := s.PrimitiveType()
 	if primitiveType != nil {
-		if lm, ok := as[LengthMeasurable](primitiveType); ok {
-			return lm.MeasureLength(value)
+		if lengthMeasurer, ok := as[LengthMeasurable](primitiveType); ok {
+			return lengthMeasurer.MeasureLength(value)
 		}
 		// fallback: use primitive name directly
 		return measureLengthForPrimitive(value, TypeName(primitiveType.Name().Local))
@@ -381,7 +381,8 @@ func (s *SimpleType) MeasureLength(value string) int {
 	return utf8.RuneCountInString(value)
 }
 
-func countFields(value string) int {
+func countXMLFields(value string) int {
+	// count fields delimited by XML whitespace (#x20/#x9/#xD/#xA) without allocations.
 	count := 0
 	inField := false
 	for i := 0; i < len(value); i++ {
@@ -419,8 +420,8 @@ func (s *SimpleType) Validate(lexical string) error {
 
 	// for built-in types, use built-in validator
 	if s.IsBuiltin() {
-		if bt := GetBuiltinNS(s.QName.Namespace, s.QName.Local); bt != nil {
-			return bt.Validate(normalized)
+		if builtinType := GetBuiltinNS(s.QName.Namespace, s.QName.Local); builtinType != nil {
+			return builtinType.Validate(normalized)
 		}
 	}
 
@@ -462,8 +463,8 @@ func (s *SimpleType) ParseValue(lexical string) (TypedValue, error) {
 	primitiveST, ok := as[*SimpleType](primitiveType)
 	if !ok {
 		// try BuiltinType
-		if bt, ok := as[*BuiltinType](primitiveType); ok {
-			return bt.ParseValue(normalized)
+		if builtinType, ok := AsBuiltinType(primitiveType); ok {
+			return builtinType.ParseValue(normalized)
 		}
 		return nil, fmt.Errorf("primitive type is not a SimpleType or BuiltinType")
 	}
@@ -606,11 +607,11 @@ func (s *SimpleType) primitiveFromRestriction(visited map[*SimpleType]bool) Type
 	if s.Restriction.Base.Namespace != XSDNamespace {
 		return nil
 	}
-	bt := GetBuiltin(TypeName(s.Restriction.Base.Local))
-	if bt == nil {
+	builtinType := GetBuiltin(TypeName(s.Restriction.Base.Local))
+	if builtinType == nil {
 		return nil
 	}
-	return bt.PrimitiveType()
+	return builtinType.PrimitiveType()
 }
 
 func (s *SimpleType) primitiveFromList(visited map[*SimpleType]bool) Type {
