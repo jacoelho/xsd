@@ -17,6 +17,10 @@ $(GOBIN)/xmllint:
 staticcheck: $(GOBIN)/staticcheck
 	$(GOBIN)/staticcheck ./...
 
+.PHONY: fieldalignment
+fieldalignment:
+	go run golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest ./...
+
 testdata/xsdtests:
 	git clone --depth 1 https://github.com/w3c/xsdtests.git testdata/xsdtests
 
