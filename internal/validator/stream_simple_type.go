@@ -45,7 +45,7 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 			}
 			return false, nil
 		}
-		return true, nil
+		return r.validateSimpleTypeFacets(normalizedValue, st, policy)
 	}
 
 	if st.ItemType != nil {
@@ -79,31 +79,37 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 		}
 	}
 
+	return r.validateSimpleTypeFacets(normalizedValue, st, policy)
+}
+
+func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar.CompiledType, policy errorPolicy) (bool, []errors.Validation) {
+	if st == nil || len(st.Facets) == 0 {
+		return true, nil
+	}
+
 	var violations []errors.Validation
-	if len(st.Facets) > 0 {
-		var typedValue types.TypedValue
-		for _, facet := range st.Facets {
-			if shouldSkipLengthFacet(st, facet) {
-				continue
-			}
-			if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
-				if err := lexicalFacet.ValidateLexical(normalizedValue, st.Original); err != nil {
-					if policy == errorPolicySuppress {
-						return false, nil
-					}
-					violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
-				}
-				continue
-			}
-			if typedValue == nil {
-				typedValue = typedValueForFacets(normalizedValue, st.Original, st.Facets)
-			}
-			if err := facet.Validate(typedValue, st.Original); err != nil {
+	var typedValue types.TypedValue
+	for _, facet := range st.Facets {
+		if shouldSkipLengthFacet(st, facet) {
+			continue
+		}
+		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
+			if err := lexicalFacet.ValidateLexical(normalizedValue, st.Original); err != nil {
 				if policy == errorPolicySuppress {
 					return false, nil
 				}
 				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
 			}
+			continue
+		}
+		if typedValue == nil {
+			typedValue = typedValueForFacets(normalizedValue, st.Original, st.Facets)
+		}
+		if err := facet.Validate(typedValue, st.Original); err != nil {
+			if policy == errorPolicySuppress {
+				return false, nil
+			}
+			violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
 		}
 	}
 
