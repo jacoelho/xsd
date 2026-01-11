@@ -119,27 +119,3 @@ type UnionType struct {
 	// From inline <simpleType> children (already parsed)
 	InlineTypes []*SimpleType
 }
-
-// IsFacetApplicable determines if a facet is applicable to a type based on its fundamental facets
-func IsFacetApplicable(facetName string, facets *FundamentalFacets) bool {
-	if facets == nil {
-		return false
-	}
-
-	switch facetName {
-	case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive":
-		// range facets require ordered types.
-		return facets.Ordered == OrderedTotal || facets.Ordered == OrderedPartial
-
-	case "length", "minLength", "maxLength", "pattern", "enumeration", "whiteSpace":
-		// length and lexical facets apply to all types.
-		return true
-
-	case "fractionDigits", "totalDigits":
-		// digit facets apply to numeric types.
-		return facets.Numeric
-	}
-
-	// default: assume applicable
-	return true
-}
