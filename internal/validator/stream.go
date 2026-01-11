@@ -28,17 +28,21 @@ const (
 	matchFromWildcard
 )
 
+// streamFrame groups per-element validation state kept on the streaming stack.
+// it keeps declaration/type info, content-model validators, and text/list buffers
+// together to avoid extra allocations during streaming validation.
 type streamFrame struct {
-	id                 uint64
-	qname              types.QName
+	allGroup           *grammar.AllGroupStreamValidator
 	decl               *grammar.CompiledElement
 	typ                *grammar.CompiledType
 	textType           *grammar.CompiledType
 	contentModel       *grammar.CompiledContentModel
 	automaton          *grammar.AutomatonStreamValidator
-	allGroup           *grammar.AllGroupStreamValidator
+	qname              types.QName
 	textBuf            []byte
 	fieldCaptures      []fieldCapture
+	listStream         listStreamState
+	id                 uint64
 	minOccurs          int
 	scopeDepth         int
 	contentKind        streamContentKind
@@ -49,15 +53,25 @@ type streamFrame struct {
 	collectStringValue bool
 }
 
+type listStreamState struct {
+	itemBuf      []byte
+	collapsedBuf []byte
+	itemIndex    int
+	active       bool
+	sawContent   bool
+	needLexical  bool
+	skipValidate bool
+}
+
 type streamRun struct {
 	*validationRun
 	dec             *xsdxml.StreamDecoder
+	constraintDecls map[types.QName][]*grammar.CompiledElement
 	frames          []streamFrame
 	violations      []errors.Validation
+	identityScopes  []*identityScope
 	rootSeen        bool
 	rootClosed      bool
-	identityScopes  []*identityScope
-	constraintDecls map[types.QName][]*grammar.CompiledElement
 }
 
 // ValidateStream validates an XML document using streaming schemacheck.
@@ -196,96 +210,123 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) error {
 	parent := r.currentFrame()
 	if parent != nil {
-		parent.hasChildElements = true
-		if parent.invalid || parent.skipChildren {
-			return dec.SkipSubtree()
+		skipSubtree, err := r.prevalidateParentForChild(parent, ev.Name.Local)
+		if err != nil {
+			return err
 		}
-		if parent.nilled {
-			r.addViolation(errors.NewValidation(errors.ErrNilElementNotEmpty,
-				"Element with xsi:nil='true' must be empty", r.path.String()))
-			parent.invalid = true
-			return dec.SkipSubtree()
-		}
-		if parent.decl != nil && parent.decl.HasFixed {
-			r.addViolation(errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
-				"Element '%s' has a fixed value constraint and cannot have element children", parent.decl.QName.Local))
-			parent.invalid = true
-			return dec.SkipSubtree()
-		}
-		if parent.textType != nil && (parent.typ == nil || (!isAnyType(parent.typ) && !parent.typ.HasContentModel())) {
-			r.path.push(ev.Name.Local)
-			r.addViolation(errors.NewValidationf(errors.ErrTextInElementOnly, r.path.String(),
-				"Element '%s' is not allowed in simple content", ev.Name.Local))
-			r.path.pop()
-			parent.invalid = true
-			return dec.SkipSubtree()
-		}
-		if parent.contentKind == streamContentEmpty {
-			r.path.push(ev.Name.Local)
-			r.addViolation(errors.NewValidationf(errors.ErrUnexpectedElement, r.path.String(),
-				"Element '%s' is not allowed. No element declaration found for it in the empty content model.", ev.Name.Local))
-			r.path.pop()
-			parent.invalid = true
-			return dec.SkipSubtree()
-		}
-		if parent.contentKind == streamContentRejectAll {
-			r.addViolation(errors.NewValidation(errors.ErrUnexpectedElement, "element not allowed by empty choice", r.path.String()))
-			parent.invalid = true
+		if skipSubtree {
 			return dec.SkipSubtree()
 		}
 	}
 
-	processContents := types.Strict
-	var matchedQName types.QName
-	var matchedDecl *grammar.CompiledElement
-	origin := matchFromDeclaration
-
-	if parent != nil {
-		switch parent.contentKind {
-		case streamContentAny:
-			processContents = types.Lax
-		case streamContentAutomaton:
-			match, err := parent.automaton.Feed(ev.Name)
-			if err != nil {
-				r.addContentModelError(err)
-				parent.invalid = true
-				return dec.SkipSubtree()
-			}
-			if match.IsWildcard {
-				processContents = match.ProcessContents
-				origin = matchFromWildcard
-			}
-			matchedQName = match.MatchedQName
-			if match.MatchedElement != nil {
-				matchedDecl = match.MatchedElement
-			}
-		case streamContentAllGroup:
-			match, err := parent.allGroup.Feed(ev.Name)
-			if err != nil {
-				r.addContentModelError(err)
-				parent.invalid = true
-				return dec.SkipSubtree()
-			}
-			matchedQName = match.MatchedQName
-			if match.MatchedElement != nil {
-				matchedDecl = match.MatchedElement
-			}
-		}
+	match, skipSubtree := r.resolveChildMatch(parent, ev.Name)
+	if skipSubtree {
+		return dec.SkipSubtree()
 	}
 
-	if processContents == types.Skip {
+	if match.processContents == types.Skip {
 		return dec.SkipSubtree()
 	}
 
 	r.path.push(ev.Name.Local)
-	frame, skipSubtree := r.startFrame(ev, parent, processContents, matchedDecl, matchedQName, origin)
+	frame, skipSubtree := r.startFrame(ev, parent, match.processContents, match.matchedDecl, match.matchedQName, match.origin)
 	if skipSubtree {
 		r.path.pop()
 		return dec.SkipSubtree()
 	}
 	r.frames = append(r.frames, frame)
 	r.handleIdentityStart(&r.frames[len(r.frames)-1], ev.Attrs)
+	r.maybeEnableListStreaming(len(r.frames) - 1)
 	return nil
+}
+
+type startMatch struct {
+	processContents types.ProcessContents
+	matchedQName    types.QName
+	matchedDecl     *grammar.CompiledElement
+	origin          matchOrigin
+}
+
+func (r *streamRun) prevalidateParentForChild(parent *streamFrame, childName string) (bool, error) {
+	parent.hasChildElements = true
+	if parent.invalid || parent.skipChildren {
+		return true, nil
+	}
+	if parent.nilled {
+		r.addViolation(errors.NewValidation(errors.ErrNilElementNotEmpty,
+			"Element with xsi:nil='true' must be empty", r.path.String()))
+		parent.invalid = true
+		return true, nil
+	}
+	if parent.decl != nil && parent.decl.HasFixed {
+		r.addViolation(errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
+			"Element '%s' has a fixed value constraint and cannot have element children", parent.decl.QName.Local))
+		parent.invalid = true
+		return true, nil
+	}
+	if parent.textType != nil && (parent.typ == nil || (!isAnyType(parent.typ) && !parent.typ.HasContentModel())) {
+		r.addChildViolationf(errors.ErrTextInElementOnly, childName,
+			"Element '%s' is not allowed in simple content", childName)
+		parent.invalid = true
+		return true, nil
+	}
+	if parent.contentKind == streamContentEmpty {
+		r.addChildViolationf(errors.ErrUnexpectedElement, childName,
+			"Element '%s' is not allowed. No element declaration found for it in the empty content model.", childName)
+		parent.invalid = true
+		return true, nil
+	}
+	if parent.contentKind == streamContentRejectAll {
+		r.addViolation(errors.NewValidation(errors.ErrUnexpectedElement, "element not allowed by empty choice", r.path.String()))
+		parent.invalid = true
+		return true, nil
+	}
+	return false, nil
+}
+
+func (r *streamRun) resolveChildMatch(parent *streamFrame, name types.QName) (startMatch, bool) {
+	match := startMatch{
+		processContents: types.Strict,
+		origin:          matchFromDeclaration,
+	}
+	if parent == nil {
+		return match, false
+	}
+
+	switch parent.contentKind {
+	case streamContentAny:
+		match.processContents = types.Lax
+	case streamContentAutomaton:
+		automatonMatch, err := parent.automaton.Feed(name)
+		if err != nil {
+			r.addContentModelError(err)
+			parent.invalid = true
+			return match, true
+		}
+		if automatonMatch.IsWildcard {
+			match.processContents = automatonMatch.ProcessContents
+			match.origin = matchFromWildcard
+		}
+		match.matchedQName = automatonMatch.MatchedQName
+		match.matchedDecl = automatonMatch.MatchedElement
+	case streamContentAllGroup:
+		groupMatch, err := parent.allGroup.Feed(name)
+		if err != nil {
+			r.addContentModelError(err)
+			parent.invalid = true
+			return match, true
+		}
+		match.matchedQName = groupMatch.MatchedQName
+		match.matchedDecl = groupMatch.MatchedElement
+	}
+
+	return match, false
+}
+
+func (r *streamRun) addChildViolationf(code errors.ErrorCode, childName, format string, args ...any) {
+	r.path.push(childName)
+	r.addViolation(errors.NewValidationf(code, r.path.String(), format, args...))
+	r.path.pop()
 }
 
 func (r *streamRun) handleCharData(ev xsdxml.Event) {
@@ -307,6 +348,12 @@ func (r *streamRun) handleCharData(ev xsdxml.Event) {
 		r.addViolation(errors.NewValidation(errors.ErrTextInElementOnly,
 			"Element content cannot have character children (non-whitespace text found)", r.path.String()))
 		frame.invalid = true
+		return
+	}
+
+	if frame.listStream.active {
+		frame.listStream.sawContent = true
+		r.feedListStream(frame, ev.Text)
 		return
 	}
 
@@ -344,6 +391,11 @@ func (r *streamRun) handleEnd(ev xsdxml.Event) error {
 	}
 
 	if frame.textType != nil {
+		if frame.listStream.active {
+			r.finishListStream(frame)
+			r.propagateText(frame)
+			return nil
+		}
 		text := string(frame.textBuf)
 		hadContent := text != ""
 		if text == "" && frame.decl != nil {
@@ -501,36 +553,36 @@ func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processCont
 	return frame, false
 }
 
-func (r *streamRun) newFrame(ev xsdxml.Event, decl *grammar.CompiledElement, ct *grammar.CompiledType, parent *streamFrame) streamFrame {
+func (r *streamRun) newFrame(ev xsdxml.Event, decl *grammar.CompiledElement, compiledType *grammar.CompiledType, parent *streamFrame) streamFrame {
 	frame := streamFrame{
 		id:         uint64(ev.ID),
 		qname:      ev.Name,
 		decl:       decl,
-		typ:        ct,
+		typ:        compiledType,
 		scopeDepth: ev.ScopeDepth,
 	}
 
-	if ct != nil {
-		frame.textType = ct.TextType()
-		frame.contentModel = ct.ContentModel
-		if isAnyType(ct) {
+	if compiledType != nil {
+		frame.textType = compiledType.TextType()
+		frame.contentModel = compiledType.ContentModel
+		if isAnyType(compiledType) {
 			frame.contentKind = streamContentAny
-		} else if ct.ContentModel != nil {
+		} else if compiledType.ContentModel != nil {
 			switch {
-			case ct.ContentModel.RejectAll:
+			case compiledType.ContentModel.RejectAll:
 				frame.contentKind = streamContentRejectAll
-				frame.minOccurs = ct.ContentModel.MinOccurs
-			case ct.ContentModel.AllElements != nil:
+				frame.minOccurs = compiledType.ContentModel.MinOccurs
+			case compiledType.ContentModel.AllElements != nil:
 				frame.contentKind = streamContentAllGroup
-				allElements := make([]grammar.AllGroupElementInfo, len(ct.ContentModel.AllElements))
-				for i := range ct.ContentModel.AllElements {
-					allElements[i] = ct.ContentModel.AllElements[i]
+				allElements := make([]grammar.AllGroupElementInfo, len(compiledType.ContentModel.AllElements))
+				for i := range compiledType.ContentModel.AllElements {
+					allElements[i] = compiledType.ContentModel.AllElements[i]
 				}
-				frame.allGroup = grammar.NewAllGroupValidator(allElements, ct.ContentModel.Mixed, ct.ContentModel.MinOccurs).NewStreamValidator(r.matcher())
-			case ct.ContentModel.Automaton != nil:
+				frame.allGroup = grammar.NewAllGroupValidator(allElements, compiledType.ContentModel.Mixed, compiledType.ContentModel.MinOccurs).NewStreamValidator(r.matcher())
+			case compiledType.ContentModel.Automaton != nil:
 				frame.contentKind = streamContentAutomaton
-				frame.automaton = r.newAutomatonValidator(ct.ContentModel.Automaton, ct.ContentModel.Wildcards())
-			case ct.ContentModel.Empty:
+				frame.automaton = r.newAutomatonValidator(compiledType.ContentModel.Automaton, compiledType.ContentModel.Wildcards())
+			case compiledType.ContentModel.Empty:
 				frame.contentKind = streamContentEmpty
 			}
 		}
@@ -551,6 +603,106 @@ func frameNeedsStringValue(frame streamFrame, parent *streamFrame) bool {
 		return true
 	}
 	return false
+}
+
+func (r *streamRun) maybeEnableListStreaming(frameIndex int) {
+	if r == nil || frameIndex < 0 || frameIndex >= len(r.frames) {
+		return
+	}
+	frame := &r.frames[frameIndex]
+	if !listStreamingAllowed(frame) {
+		return
+	}
+	if frameIndex > 0 && r.frames[frameIndex-1].collectStringValue {
+		return
+	}
+	if frame.decl != nil && frame.decl.HasFixed {
+		return
+	}
+	if len(frame.fieldCaptures) > 0 {
+		return
+	}
+	frame.collectStringValue = false
+	frame.listStream.active = true
+	frame.listStream.needLexical = listFacetsNeedLexical(frame.textType.Facets)
+	frame.listStream.skipValidate = listItemValidationSkippable(frame.textType.ItemType)
+}
+
+func listStreamingAllowed(frame *streamFrame) bool {
+	if frame == nil || frame.textType == nil || frame.textType.ItemType == nil {
+		return false
+	}
+	if len(frame.textType.MemberTypes) > 0 {
+		return false
+	}
+	if frame.textType.Original == nil || frame.textType.Original.WhiteSpace() != types.WhiteSpaceCollapse {
+		return false
+	}
+	if _, ok := unresolvedSimpleType(frame.textType.Original); ok {
+		return false
+	}
+	if frame.textType.IDTypeName != "" && frame.textType.IDTypeName != "IDREFS" {
+		return false
+	}
+	if frame.typ != nil && frame.typ.Kind == grammar.TypeKindComplex && len(frame.typ.Facets) > 0 {
+		return false
+	}
+	return listFacetsAllowStreaming(frame.textType.Facets)
+}
+
+func listFacetsAllowStreaming(facets []types.Facet) bool {
+	return facetsAllowSimpleValue(facets)
+}
+
+func listFacetsNeedLexical(facets []types.Facet) bool {
+	for _, facet := range facets {
+		switch facet.(type) {
+		case *types.Length, *types.MinLength, *types.MaxLength:
+			continue
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+func listItemValidationSkippable(itemType *grammar.CompiledType) bool {
+	if itemType == nil || itemType.Original == nil {
+		return false
+	}
+	if len(itemType.MemberTypes) > 0 || len(itemType.Facets) > 0 {
+		return false
+	}
+	if itemType.ItemType != nil || itemType.IsNotationType {
+		return false
+	}
+	if _, ok := unresolvedSimpleType(itemType.Original); ok {
+		return false
+	}
+	if itemType.Kind == grammar.TypeKindBuiltin {
+		return listItemNoopBuiltin(itemType.Original)
+	}
+	base := itemType.BaseType
+	for base != nil && base.Kind != grammar.TypeKindBuiltin {
+		base = base.BaseType
+	}
+	if base == nil || base.Original == nil {
+		return false
+	}
+	return listItemNoopBuiltin(base.Original)
+}
+
+func listItemNoopBuiltin(typ types.Type) bool {
+	builtinType, ok := types.AsBuiltinType(typ)
+	if !ok || builtinType == nil {
+		return false
+	}
+	switch builtinType.Name().Local {
+	case "anySimpleType", "string", "normalizedString", "token":
+		return true
+	default:
+		return false
+	}
 }
 
 func (r *streamRun) resolveMatchedDecl(parent *streamFrame, actual types.QName, matchedDecl *grammar.CompiledElement, matchedQName types.QName) *grammar.CompiledElement {
@@ -613,6 +765,156 @@ func (r *streamRun) propagateText(frame *streamFrame) {
 		return
 	}
 	parent.textBuf = append(parent.textBuf, frame.textBuf...)
+}
+
+func (r *streamRun) feedListStream(frame *streamFrame, data []byte) {
+	if frame == nil || frame.textType == nil || frame.textType.ItemType == nil {
+		return
+	}
+	state := &frame.listStream
+	for i := 0; i < len(data); {
+		if isXMLWhitespaceByte(data[i]) {
+			if len(state.itemBuf) > 0 {
+				r.flushListItem(frame)
+			}
+			i++
+			continue
+		}
+		start := i
+		for i < len(data) && !isXMLWhitespaceByte(data[i]) {
+			i++
+		}
+		if len(state.itemBuf) == 0 && i < len(data) {
+			r.processListItemBytes(frame, data[start:i])
+			continue
+		}
+		state.itemBuf = append(state.itemBuf, data[start:i]...)
+		if i < len(data) {
+			r.flushListItem(frame)
+		}
+	}
+}
+
+func (r *streamRun) finishListStream(frame *streamFrame) {
+	if frame == nil || frame.textType == nil || frame.textType.ItemType == nil {
+		return
+	}
+	state := &frame.listStream
+	if !state.sawContent {
+		value := ""
+		if frame.decl != nil {
+			if frame.decl.Default != "" {
+				value = frame.decl.Default
+			} else if frame.decl.HasFixed {
+				value = frame.decl.Fixed
+			}
+		}
+		r.violations = append(r.violations, r.checkSimpleValue(value, frame.textType, frame.scopeDepth)...)
+		r.violations = append(r.violations, r.collectIDRefs(value, frame.textType)...)
+		return
+	}
+
+	r.flushListItem(frame)
+	r.applyListStreamingFacets(frame.textType, state)
+}
+
+func (r *streamRun) flushListItem(frame *streamFrame) {
+	if frame == nil || frame.textType == nil || frame.textType.ItemType == nil {
+		return
+	}
+	state := &frame.listStream
+	if len(state.itemBuf) == 0 {
+		return
+	}
+	itemBytes := state.itemBuf
+	state.itemBuf = state.itemBuf[:0]
+	r.processListItemBytes(frame, itemBytes)
+}
+
+func (r *streamRun) processListItemBytes(frame *streamFrame, itemBytes []byte) {
+	if frame == nil || frame.textType == nil || frame.textType.ItemType == nil {
+		return
+	}
+	if len(itemBytes) == 0 {
+		return
+	}
+	state := &frame.listStream
+	if state.needLexical {
+		if len(state.collapsedBuf) > 0 {
+			state.collapsedBuf = append(state.collapsedBuf, ' ')
+		}
+		state.collapsedBuf = append(state.collapsedBuf, itemBytes...)
+	}
+	index := state.itemIndex
+	state.itemIndex++
+	if state.skipValidate {
+		if frame.textType.IDTypeName == "IDREFS" {
+			r.trackListIDRefs(string(itemBytes), frame.textType)
+		}
+		return
+	}
+	item := string(itemBytes)
+	valid, violations := r.validateListItemNormalized(item, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport)
+	if !valid {
+		r.violations = append(r.violations, violations...)
+	}
+	r.trackListIDRefs(item, frame.textType)
+}
+
+func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType, state *listStreamState) {
+	if compiledType == nil || state == nil {
+		return
+	}
+	lexicalValue := ""
+	if state.needLexical {
+		lexicalValue = string(state.collapsedBuf)
+	}
+	var typedValue types.TypedValue
+
+	for _, facet := range compiledType.Facets {
+		if shouldSkipLengthFacet(compiledType, facet) {
+			continue
+		}
+		var err error
+		switch f := facet.(type) {
+		case *types.Length:
+			if state.itemIndex != f.Value {
+				err = fmt.Errorf("length must be %d, got %d", f.Value, state.itemIndex)
+			}
+		case *types.MinLength:
+			if state.itemIndex < f.Value {
+				err = fmt.Errorf("length must be at least %d, got %d", f.Value, state.itemIndex)
+			}
+		case *types.MaxLength:
+			if state.itemIndex > f.Value {
+				err = fmt.Errorf("length must be at most %d, got %d", f.Value, state.itemIndex)
+			}
+		default:
+			if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
+				err = lexicalFacet.ValidateLexical(lexicalValue, compiledType.Original)
+				break
+			}
+			if typedValue == nil {
+				if !state.needLexical {
+					continue
+				}
+				typedValue = typedValueForFacets(lexicalValue, compiledType.Original, compiledType.Facets)
+			}
+			if facetErr := facet.Validate(typedValue, compiledType.Original); facetErr != nil {
+				err = facetErr
+			}
+		}
+		if err != nil {
+			r.violations = append(r.violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+		}
+	}
+}
+
+func (r *streamRun) trackListIDRefs(item string, compiledType *grammar.CompiledType) {
+	if compiledType == nil || compiledType.IDTypeName != "IDREFS" {
+		return
+	}
+	r.trackIDREF(item, r.path.String())
 }
 
 func isIgnorableOutsideRoot(data []byte) bool {

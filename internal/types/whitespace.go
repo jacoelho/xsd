@@ -1,9 +1,6 @@
 package types
 
-import (
-	"strings"
-	"unicode"
-)
+import "strings"
 
 // WhiteSpace represents whitespace normalization
 type WhiteSpace int
@@ -15,8 +12,6 @@ const (
 )
 
 type whiteSpaceNormalizer struct{}
-
-var whiteSpaceReplacer = strings.NewReplacer("\t", " ", "\r", " ", "\n", " ")
 
 func (n whiteSpaceNormalizer) Normalize(value string, typ Type) (string, error) {
 	if typ == nil {
@@ -54,7 +49,32 @@ func NormalizeWhiteSpace(value string, typ Type) string {
 }
 
 func replaceWhiteSpace(value string) string {
-	return whiteSpaceReplacer.Replace(value)
+	if value == "" {
+		return value
+	}
+	needsReplace := false
+	for i := 0; i < len(value); i++ {
+		b := value[i]
+		if b == '\t' || b == '\n' || b == '\r' {
+			needsReplace = true
+			break
+		}
+	}
+	if !needsReplace {
+		return value
+	}
+
+	var builder strings.Builder
+	builder.Grow(len(value))
+	for i := 0; i < len(value); i++ {
+		b := value[i]
+		if isXMLWhitespaceByte(b) {
+			builder.WriteByte(' ')
+			continue
+		}
+		builder.WriteByte(b)
+	}
+	return builder.String()
 }
 
 func collapseWhiteSpace(value string) string {
@@ -62,41 +82,47 @@ func collapseWhiteSpace(value string) string {
 		return value
 	}
 
+	if !needsCollapseXML(value) {
+		return value
+	}
+
+	buf := make([]byte, 0, len(value))
+	inSpace := true
+	for i := 0; i < len(value); i++ {
+		b := value[i]
+		if isXMLWhitespaceByte(b) {
+			if !inSpace {
+				buf = append(buf, ' ')
+				inSpace = true
+			}
+			continue
+		}
+		buf = append(buf, b)
+		inSpace = false
+	}
+	if len(buf) > 0 && buf[len(buf)-1] == ' ' {
+		buf = buf[:len(buf)-1]
+	}
+	return string(buf)
+}
+
+func needsCollapseXML(value string) bool {
 	prevSpace := false
-	needsCollapse := false
-	for i, r := range value {
-		if unicode.IsSpace(r) {
-			if r != ' ' || i == 0 || prevSpace {
-				needsCollapse = true
-				break
+	last := len(value) - 1
+	for i := 0; i < len(value); i++ {
+		b := value[i]
+		if isXMLWhitespaceByte(b) {
+			if b != ' ' || i == 0 || prevSpace || i == last {
+				return true
 			}
 			prevSpace = true
 			continue
 		}
 		prevSpace = false
 	}
-	if !needsCollapse && !prevSpace {
-		return value
-	}
+	return false
+}
 
-	value = replaceWhiteSpace(value)
-	value = strings.TrimSpace(value)
-
-	var result strings.Builder
-	result.Grow(len(value))
-
-	prevSpace = false
-	for _, r := range value {
-		if unicode.IsSpace(r) {
-			if !prevSpace {
-				result.WriteRune(' ')
-				prevSpace = true
-			}
-		} else {
-			result.WriteRune(r)
-			prevSpace = false
-		}
-	}
-
-	return result.String()
+func isXMLWhitespaceByte(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
 }

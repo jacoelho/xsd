@@ -20,10 +20,10 @@ const (
 )
 
 type fieldNodeKey struct {
-	kind          fieldNodeKind
-	elemID        uint64
 	attrNamespace types.NamespaceURI
 	attrLocal     string
+	kind          fieldNodeKind
+	elemID        uint64
 }
 
 type fieldCapture struct {
@@ -33,11 +33,11 @@ type fieldCapture struct {
 
 type fieldState struct {
 	nodes    map[fieldNodeKey]struct{}
+	value    string
+	display  string
 	count    int
 	multiple bool
 	invalid  bool
-	value    string
-	display  string
 	hasValue bool
 }
 
@@ -57,10 +57,10 @@ func (s *fieldState) addNode(key fieldNodeKey) bool {
 }
 
 type selectorMatch struct {
-	id         uint64
-	depth      int
 	constraint *constraintState
 	fields     []fieldState
+	id         uint64
+	depth      int
 	invalid    bool
 }
 
@@ -77,12 +77,12 @@ type keyRefEntry struct {
 }
 
 type identityScope struct {
+	decl        *grammar.CompiledElement
+	keyTables   map[string]map[string]string
+	constraints []*constraintState
+	keyRefs     []keyRefEntry
 	rootID      uint64
 	rootDepth   int
-	decl        *grammar.CompiledElement
-	constraints []*constraintState
-	keyTables   map[string]map[string]string
-	keyRefs     []keyRefEntry
 	invalid     bool
 }
 

@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *Compiler) mergeAttributes(ct *types.ComplexType, chain []*grammar.CompiledType) []*grammar.CompiledAttribute {
+func (c *Compiler) mergeAttributes(complexType *types.ComplexType, chain []*grammar.CompiledType) []*grammar.CompiledAttribute {
 	// later types override earlier ones (restriction) or add to them (extension)
 	attrMap := make(map[types.QName]*grammar.CompiledAttribute)
 
@@ -16,12 +16,12 @@ func (c *Compiler) mergeAttributes(ct *types.ComplexType, chain []*grammar.Compi
 		if compiledType.Kind != grammar.TypeKindComplex {
 			continue
 		}
-		origCT, ok := compiledType.Original.(*types.ComplexType)
+		originalComplexType, ok := compiledType.Original.(*types.ComplexType)
 		if !ok {
 			continue
 		}
 
-		c.collectAttributesFromComplexType(origCT, attrMap)
+		c.collectAttributesFromComplexType(originalComplexType, attrMap)
 	}
 
 	result := make([]*grammar.CompiledAttribute, 0, len(attrMap))
@@ -30,6 +30,13 @@ func (c *Compiler) mergeAttributes(ct *types.ComplexType, chain []*grammar.Compi
 	}
 	return result
 }
+
+type attributeCollectionMode int
+
+const (
+	attributeCollectionMerge attributeCollectionMode = iota
+	attributeCollectionRestriction
+)
 
 // collectAttributesFromComplexType collects attributes from all sources in a complex type:
 // - Direct attributes on the type
@@ -40,23 +47,23 @@ func (c *Compiler) mergeAttributes(ct *types.ComplexType, chain []*grammar.Compi
 // Per XSD 1.0 spec section 3.4.2, "prohibited" attribute uses are NOT included in
 // the {attribute uses} property of the complex type. The XSD 1.0 W3C tests treat
 // use="prohibited" with fixed as a valid use, so we keep those for schemacheck.
-func (c *Compiler) collectAttributesFromComplexType(ct *types.ComplexType, attrMap map[types.QName]*grammar.CompiledAttribute) {
-	c.collectAttributes(ct.Attributes(), ct.AttrGroups, attrMap, false)
+func (c *Compiler) collectAttributesFromComplexType(complexType *types.ComplexType, attrMap map[types.QName]*grammar.CompiledAttribute) {
+	c.collectAttributes(complexType.Attributes(), complexType.AttrGroups, attrMap, attributeCollectionMerge)
 
 	// 3. Check content for extension/restriction attributes
-	content := ct.Content()
+	content := complexType.Content()
 	if ext := content.ExtensionDef(); ext != nil {
-		c.collectAttributes(ext.Attributes, ext.AttrGroups, attrMap, false)
+		c.collectAttributes(ext.Attributes, ext.AttrGroups, attrMap, attributeCollectionMerge)
 	}
 	if restr := content.RestrictionDef(); restr != nil {
-		c.collectAttributes(restr.Attributes, restr.AttrGroups, attrMap, true)
+		c.collectAttributes(restr.Attributes, restr.AttrGroups, attrMap, attributeCollectionRestriction)
 	}
 }
 
-func (c *Compiler) collectAttributes(attrs []*types.AttributeDecl, attrGroups []types.QName, attrMap map[types.QName]*grammar.CompiledAttribute, isRestriction bool) {
+func (c *Compiler) collectAttributes(attrs []*types.AttributeDecl, attrGroups []types.QName, attrMap map[types.QName]*grammar.CompiledAttribute, mode attributeCollectionMode) {
 	for _, attr := range attrs {
 		if !shouldIncludeAttribute(attr) {
-			if isRestriction {
+			if mode == attributeCollectionRestriction {
 				delete(attrMap, c.effectiveAttributeQName(attr))
 			}
 			continue
@@ -225,8 +232,8 @@ func (c *Compiler) extractDerivedWildcards(chain []*grammar.CompiledType) (*type
 	return origCT, c.collectTypeAnyAttributes(origCT)
 }
 
-func (c *Compiler) getDerivationKind(ct *types.ComplexType) derivationKind {
-	if cc, ok := ct.Content().(*types.ComplexContent); ok {
+func (c *Compiler) getDerivationKind(complexType *types.ComplexType) derivationKind {
+	if cc, ok := complexType.Content().(*types.ComplexContent); ok {
 		if cc.Restriction != nil {
 			return restrictionDerivation
 		}
@@ -234,7 +241,7 @@ func (c *Compiler) getDerivationKind(ct *types.ComplexType) derivationKind {
 			return extensionDerivation
 		}
 	}
-	if sc, ok := ct.Content().(*types.SimpleContent); ok {
+	if sc, ok := complexType.Content().(*types.SimpleContent); ok {
 		if sc.Restriction != nil {
 			return restrictionDerivation
 		}
@@ -293,19 +300,19 @@ func (c *Compiler) intersectWildcards(wildcards []*types.AnyAttribute) *types.An
 	return result
 }
 
-func (c *Compiler) collectTypeAnyAttributes(ct *types.ComplexType) []*types.AnyAttribute {
+func (c *Compiler) collectTypeAnyAttributes(complexType *types.ComplexType) []*types.AnyAttribute {
 	var result []*types.AnyAttribute
 
-	if anyAttr := ct.AnyAttribute(); anyAttr != nil {
+	if anyAttr := complexType.AnyAttribute(); anyAttr != nil {
 		result = append(result, anyAttr)
 	}
 
-	result = append(result, c.collectAnyAttributeFromGroups(ct.AttrGroups)...)
+	result = append(result, c.collectAnyAttributeFromGroups(complexType.AttrGroups)...)
 
-	if cc, ok := ct.Content().(*types.ComplexContent); ok {
+	if cc, ok := complexType.Content().(*types.ComplexContent); ok {
 		result = append(result, c.collectContentAnyAttributes(cc.Extension, cc.Restriction)...)
 	}
-	if sc, ok := ct.Content().(*types.SimpleContent); ok {
+	if sc, ok := complexType.Content().(*types.SimpleContent); ok {
 		result = append(result, c.collectContentAnyAttributes(sc.Extension, sc.Restriction)...)
 	}
 

@@ -781,8 +781,8 @@ func versionMatchesAND(versionAttr, processorVersion string) bool {
 
 // W3CTestRunner runs W3C XSD conformance tests
 type W3CTestRunner struct {
-	TestSuiteDir string
 	filter       *Filter
+	TestSuiteDir string
 }
 
 // NewW3CTestRunner creates a test runner for the W3C test suite

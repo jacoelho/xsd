@@ -4,13 +4,19 @@ import "fmt"
 
 // CycleDetector manages visited/resolving state for graph traversal.
 // Prevents infinite recursion by detecting cycles during resolution.
-type CycleDetector[K comparable] struct {
+type CycleDetector[K interface {
+	comparable
+	fmt.Stringer
+}] struct {
 	visited   map[K]bool
 	resolving map[K]bool
 }
 
 // NewCycleDetector creates a new cycle detector.
-func NewCycleDetector[K comparable]() *CycleDetector[K] {
+func NewCycleDetector[K interface {
+	comparable
+	fmt.Stringer
+}]() *CycleDetector[K] {
 	return &CycleDetector[K]{
 		visited:   make(map[K]bool),
 		resolving: make(map[K]bool),
@@ -20,7 +26,7 @@ func NewCycleDetector[K comparable]() *CycleDetector[K] {
 // Enter marks key as resolving and returns an error if already resolving (cycle detected).
 func (c *CycleDetector[K]) Enter(key K) error {
 	if c.resolving[key] {
-		return fmt.Errorf("circular reference detected: %v", key)
+		return fmt.Errorf("circular reference detected: %s", key.String())
 	}
 	c.resolving[key] = true
 	return nil

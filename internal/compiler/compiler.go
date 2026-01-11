@@ -27,6 +27,13 @@ type Compiler struct {
 	anonymousTypes []*grammar.CompiledType
 }
 
+type elementScope int
+
+const (
+	elementScopeLocal elementScope = iota
+	elementScopeTopLevel
+)
+
 // NewCompiler creates a new compiler for the given schema.
 func NewCompiler(schema *parser.Schema) *Compiler {
 	return &Compiler{
@@ -60,7 +67,7 @@ func (c *Compiler) Compile() (*grammar.CompiledSchema, error) {
 	}
 
 	for qname, elem := range c.schema.ElementDecls {
-		if _, err := c.compileElement(qname, elem, true); err != nil {
+		if _, err := c.compileElement(qname, elem, elementScopeTopLevel); err != nil {
 			return nil, err
 		}
 	}
@@ -79,17 +86,17 @@ func (c *Compiler) Compile() (*grammar.CompiledSchema, error) {
 
 	c.computeSubstitutionGroups()
 
-	for _, ct := range c.grammar.Types {
-		if ct.Kind == grammar.TypeKindComplex && ct.ContentModel != nil && !ct.ContentModel.Empty {
-			if err := c.buildAutomaton(ct); err != nil {
+	for _, compiledType := range c.grammar.Types {
+		if compiledType.Kind == grammar.TypeKindComplex && compiledType.ContentModel != nil && !compiledType.ContentModel.Empty {
+			if err := c.buildAutomaton(compiledType); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	for _, ct := range c.anonymousTypes {
-		if ct.Kind == grammar.TypeKindComplex && ct.ContentModel != nil && !ct.ContentModel.Empty {
-			if err := c.buildAutomaton(ct); err != nil {
+	for _, compiledType := range c.anonymousTypes {
+		if compiledType.Kind == grammar.TypeKindComplex && compiledType.ContentModel != nil && !compiledType.ContentModel.Empty {
+			if err := c.buildAutomaton(compiledType); err != nil {
 				return nil, err
 			}
 		}
@@ -105,10 +112,9 @@ func (c *Compiler) Compile() (*grammar.CompiledSchema, error) {
 	return c.grammar, nil
 }
 
-// compileElement compiles an element declaration. If isTopLevel is true, the element
-// is added to the global Elements map.
-func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, isTopLevel bool) (*grammar.CompiledElement, error) {
-	if isTopLevel {
+// compileElement compiles an element declaration for the requested scope.
+func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, scope elementScope) (*grammar.CompiledElement, error) {
+	if scope == elementScopeTopLevel {
 		if compiled, ok := c.elements[qname]; ok {
 			return compiled, nil
 		}
@@ -169,7 +175,7 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, is
 	}
 
 	// only add top-level elements to the global map/cache.
-	if isTopLevel {
+	if scope == elementScopeTopLevel {
 		c.elements[qname] = compiled
 		c.grammar.Elements[qname] = compiled
 	}
@@ -179,9 +185,9 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, is
 
 // isDefaultAnyType checks if a type is the default anyType (assigned by parser when no explicit type)
 func (c *Compiler) isDefaultAnyType(typ types.Type) bool {
-	if ct, ok := typ.(*types.ComplexType); ok {
+	if complexType, ok := types.AsComplexType(typ); ok {
 		// check if it's the anonymous anyType created by makeAnyType()
-		return ct.QName.Local == "anyType" && ct.QName.Namespace == "http://www.w3.org/2001/XMLSchema"
+		return complexType.QName.Local == "anyType" && complexType.QName.Namespace == "http://www.w3.org/2001/XMLSchema"
 	}
 	return false
 }
@@ -285,13 +291,13 @@ func (c *Compiler) collectElementsWithConstraints() {
 	}
 
 	// collect from all named types (for types not reachable from elements)
-	for _, ct := range c.grammar.Types {
-		c.collectConstraintElementsFromType(ct, seen, visitedTypes)
+	for _, compiledType := range c.grammar.Types {
+		c.collectConstraintElementsFromType(compiledType, seen, visitedTypes)
 	}
 
 	// also check anonymous types
-	for _, ct := range c.anonymousTypes {
-		c.collectConstraintElementsFromType(ct, seen, visitedTypes)
+	for _, compiledType := range c.anonymousTypes {
+		c.collectConstraintElementsFromType(compiledType, seen, visitedTypes)
 	}
 }
 
@@ -317,17 +323,17 @@ func (c *Compiler) buildConstraintDeclsByQName() {
 }
 
 // collectConstraintElementsFromType traverses a type's content model to find elements with constraints.
-func (c *Compiler) collectConstraintElementsFromType(ct *grammar.CompiledType, seen map[*grammar.CompiledElement]bool, visitedTypes map[*grammar.CompiledType]bool) {
-	if ct == nil || visitedTypes[ct] {
+func (c *Compiler) collectConstraintElementsFromType(compiledType *grammar.CompiledType, seen map[*grammar.CompiledElement]bool, visitedTypes map[*grammar.CompiledType]bool) {
+	if compiledType == nil || visitedTypes[compiledType] {
 		return
 	}
-	visitedTypes[ct] = true
+	visitedTypes[compiledType] = true
 
-	if ct.ContentModel == nil {
+	if compiledType.ContentModel == nil {
 		return
 	}
 
-	for _, elem := range ct.ContentModel.AllElements {
+	for _, elem := range compiledType.ContentModel.AllElements {
 		if elem != nil && elem.Element != nil {
 			if len(elem.Element.Constraints) > 0 && !seen[elem.Element] {
 				c.grammar.ElementsWithConstraints = append(c.grammar.ElementsWithConstraints, elem.Element)
@@ -337,7 +343,7 @@ func (c *Compiler) collectConstraintElementsFromType(ct *grammar.CompiledType, s
 		}
 	}
 
-	c.collectConstraintElementsFromParticles(ct.ContentModel.Particles, seen, visitedTypes)
+	c.collectConstraintElementsFromParticles(compiledType.ContentModel.Particles, seen, visitedTypes)
 }
 
 // collectConstraintElementsFromParticles traverses particles to find elements with constraints.
@@ -363,9 +369,9 @@ func (c *Compiler) collectConstraintElementsFromParticles(particles []*grammar.C
 func (c *Compiler) indexLocalElements() {
 	visitedTypes := make(map[*grammar.CompiledType]bool)
 
-	for _, ct := range c.grammar.Types {
-		if ct.ContentModel != nil {
-			c.indexLocalElementsFromParticles(ct.ContentModel.Particles, visitedTypes)
+	for _, compiledType := range c.grammar.Types {
+		if compiledType.ContentModel != nil {
+			c.indexLocalElementsFromParticles(compiledType.ContentModel.Particles, visitedTypes)
 		}
 	}
 
@@ -379,10 +385,10 @@ func (c *Compiler) indexLocalElements() {
 		}
 	}
 
-	for _, ct := range c.anonymousTypes {
-		if ct.ContentModel != nil && !visitedTypes[ct] {
-			visitedTypes[ct] = true
-			c.indexLocalElementsFromParticles(ct.ContentModel.Particles, visitedTypes)
+	for _, compiledType := range c.anonymousTypes {
+		if compiledType.ContentModel != nil && !visitedTypes[compiledType] {
+			visitedTypes[compiledType] = true
+			c.indexLocalElementsFromParticles(compiledType.ContentModel.Particles, visitedTypes)
 		}
 	}
 }

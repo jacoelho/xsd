@@ -8,14 +8,13 @@ import (
 
 func TestTranslateXSDPatternToGo(t *testing.T) {
 	tests := []struct {
-		name    string
-		xsd     string
-		wantErr bool
-		errMsg  string
-		// expected Go pattern (without ^(?:...)$ wrapper)
+		name     string
+		xsd      string
+		errMsg   string
 		re2      string
 		matches  []string
 		nonMatch []string
+		wantErr  bool
 	}{
 		{
 			name:     "empty pattern",
@@ -367,8 +366,8 @@ func TestPatternValidateSyntax(t *testing.T) {
 	tests := []struct {
 		name    string
 		pattern string
-		wantErr bool
 		errMsg  string
+		wantErr bool
 	}{
 		{
 			name:    "valid pattern",
@@ -506,8 +505,8 @@ func TestPatternValidate(t *testing.T) {
 		name    string
 		pattern string
 		value   string
-		wantErr bool
 		errMsg  string
+		wantErr bool
 	}{
 		{
 			name:    "matches pattern",

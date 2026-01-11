@@ -88,7 +88,7 @@ func (s *loadSession) processIncludes(schema *parser.Schema, includes []parser.I
 			}
 			continue
 		}
-		includedSchema, err := s.loader.loadWithValidation(includeLoc, false)
+		includedSchema, err := s.loader.loadWithValidation(includeLoc, skipSchemaValidation)
 		if err != nil {
 			if isNotFound(err) {
 				continue
@@ -100,7 +100,11 @@ func (s *loadSession) processIncludes(schema *parser.Schema, includes []parser.I
 				include.SchemaLocation, includedSchema.TargetNamespace, schema.TargetNamespace)
 		}
 		needsNamespaceRemap := !schema.TargetNamespace.IsEmpty() && includedSchema.TargetNamespace.IsEmpty()
-		if err := s.loader.mergeSchema(schema, includedSchema, false, needsNamespaceRemap); err != nil {
+		remapMode := keepNamespace
+		if needsNamespaceRemap {
+			remapMode = remapNamespace
+		}
+		if err := s.loader.mergeSchema(schema, includedSchema, mergeInclude, remapMode); err != nil {
 			return fmt.Errorf("merge included schema %s: %w", include.SchemaLocation, err)
 		}
 		s.loader.markMergedInclude(s.absLoc, absIncludeLoc)
@@ -130,7 +134,7 @@ func (s *loadSession) processImports(schema *parser.Schema, imports []parser.Imp
 			return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
 				imp.SchemaLocation, imp.Namespace, importedSchema.TargetNamespace)
 		}
-		if err := s.loader.mergeSchema(schema, importedSchema, true, false); err != nil {
+		if err := s.loader.mergeSchema(schema, importedSchema, mergeImport, keepNamespace); err != nil {
 			return fmt.Errorf("merge imported schema %s: %w", imp.SchemaLocation, err)
 		}
 		s.loader.markMergedImport(s.absLoc, absImportLoc)

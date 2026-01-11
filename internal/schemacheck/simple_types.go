@@ -488,7 +488,7 @@ func validateListType(schema *parser.Schema, listType *types.ListType) error {
 		// list itemType must be atomic or union (NOT list)
 		variety := listType.InlineItemType.Variety()
 		if variety != types.AtomicVariety && variety != types.UnionVariety {
-			return fmt.Errorf("list itemType must be atomic or union, got %v", variety)
+			return fmt.Errorf("list itemType must be atomic or union, got %s", variety)
 		}
 		return nil // inline simpleType is valid
 	}
@@ -508,7 +508,7 @@ func validateListType(schema *parser.Schema, listType *types.ListType) error {
 		// list itemType must be atomic or union
 		variety := st.Variety()
 		if variety != types.AtomicVariety && variety != types.UnionVariety {
-			return fmt.Errorf("list itemType must be atomic or union, got %v", variety)
+			return fmt.Errorf("list itemType must be atomic or union, got %s", variety)
 		}
 	}
 	// if type not found, might be forward reference - skip validation

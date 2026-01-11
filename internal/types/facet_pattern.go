@@ -31,12 +31,9 @@ const (
 
 // Pattern represents a pattern facet (regex)
 type Pattern struct {
-	// Original XSD pattern (for error messages)
-	Value string
-	// Translated Go regex pattern
+	regex     *regexp.Regexp
+	Value     string
 	GoPattern string
-	// Compiled regex (set during ValidateSyntax)
-	regex *regexp.Regexp
 }
 
 // Name returns the facet name
@@ -81,7 +78,11 @@ func (p *Pattern) ValidateSyntax() error {
 
 // Validate checks if the value matches the pattern
 func (p *Pattern) Validate(value TypedValue, _ Type) error {
-	lexical := value.Lexical()
+	return p.ValidateLexical(value.Lexical(), nil)
+}
+
+// ValidateLexical validates a lexical value against the pattern.
+func (p *Pattern) ValidateLexical(lexical string, _ Type) error {
 	return p.validateLexical(lexical)
 }
 
@@ -122,11 +123,14 @@ func (ps *PatternSet) ValidateSyntax() error {
 
 // Validate checks if the value matches ANY pattern in the set (OR semantics)
 func (ps *PatternSet) Validate(value TypedValue, _ Type) error {
+	return ps.ValidateLexical(value.Lexical(), nil)
+}
+
+// ValidateLexical validates a lexical value against a pattern set.
+func (ps *PatternSet) ValidateLexical(lexical string, _ Type) error {
 	if len(ps.Patterns) == 0 {
 		return nil
 	}
-
-	lexical := value.Lexical()
 
 	// value must match at least one pattern (OR)
 	var lastErr error
@@ -194,6 +198,33 @@ func (s *charClassState) handleChar(char rune, classStart int, pattern string) e
 	return nil
 }
 
+type patternTranslator struct {
+	pattern string
+	i       int
+	result  strings.Builder
+
+	classDepth int
+	classStart int
+	classState charClassState
+
+	classBuf             strings.Builder
+	classNegated         bool
+	classHasW            bool
+	classHasS            bool
+	classHasNotD         bool
+	classHasNotNameStart bool
+	classHasNotNameChar  bool
+
+	groupDepth          int
+	justWroteQuantifier bool
+}
+
+func newPatternTranslator(pattern string) *patternTranslator {
+	t := &patternTranslator{pattern: pattern}
+	t.result.Grow(len(pattern) * 4)
+	return t
+}
+
 // TranslateXSDPatternToGo translates an XSD 1.0 pattern to Go regexp (RE2) syntax.
 // Returns an error for unsupported features (fail-closed approach).
 func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
@@ -201,619 +232,629 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 	if xsdPattern == "" {
 		return `^(?:)$`, nil
 	}
+	return newPatternTranslator(xsdPattern).translate()
+}
 
-	var result strings.Builder
-	result.Grow(len(xsdPattern) * 4)
-
-	i := 0
-	charClassDepth := 0 // track nested character class depth (for proper parsing)
-
-	// for character class validation: track the last character/range endpoint
-	var charClassStart int // position where current char class started
-	var classState charClassState
-
-	var classBuf strings.Builder
-	classNegated := false
-	classHasW := false
-	classHasS := false
-	classHasNotD := false
-	classHasNotNameStart := false
-	classHasNotNameChar := false
-	groupDepth := 0
-
-	// track if we just wrote a quantifier (to detect non-greedy quantifiers)
-	justWroteQuantifier := false
-
-	for i < len(xsdPattern) {
-		char := xsdPattern[i]
-
-		if char == '\\' {
-			if i+1 >= len(xsdPattern) {
-				return "", fmt.Errorf("pattern-syntax-error: escape sequence at end of pattern")
-			}
-			nextChar := xsdPattern[i+1]
-
-			// handle Unicode escapes: reject \u (not valid XSD syntax)
-			if nextChar == 'u' {
-				return "", fmt.Errorf("pattern-syntax-error: \\u escape is not valid XSD 1.0 syntax (use XML character reference &#x; instead)")
-			}
-
-			// handle Unicode property escapes: \p{...} or \P{...}
-			if nextChar == 'p' || nextChar == 'P' {
-				translated, newIdx, err := translateUnicodePropertyEscape(xsdPattern, i, charClassDepth > 0)
-				if err != nil {
-					return "", err
-				}
-				if charClassDepth > 0 {
-					classBuf.WriteString(translated)
-					classState.markNonChar()
-				} else {
-					result.WriteString(translated)
-				}
-				i = newIdx
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-			}
-
-			// handle XSD-specific escapes
-			switch nextChar {
-			case 'i':
-				// XML NameStartChar escape
-				if charClassDepth > 0 {
-					classBuf.WriteString(nameStartCharClassContent)
-					classState.markNonChar()
-				} else {
-					result.WriteString(nameStartCharClass)
-				}
-				i += 2
-				justWroteQuantifier = false
-				continue
-			case 'I':
-				// negated XML NameStartChar escape
-				if charClassDepth > 0 {
-					classHasNotNameStart = true
-					classState.markNonChar()
-				} else {
-					result.WriteString(nameNotStartCharClass)
-				}
-				i += 2
-				justWroteQuantifier = false
-				continue
-			case 'c':
-				// XML NameChar escape
-				if charClassDepth > 0 {
-					classBuf.WriteString(nameCharClassContent)
-					classState.markNonChar()
-				} else {
-					result.WriteString(nameCharClass)
-				}
-				i += 2
-				justWroteQuantifier = false
-				continue
-			case 'C':
-				// negated XML NameChar escape
-				if charClassDepth > 0 {
-					classHasNotNameChar = true
-					classState.markNonChar()
-				} else {
-					result.WriteString(nameNotCharClass)
-				}
-				i += 2
-				justWroteQuantifier = false
-				continue
-
-			case 'd':
-				// digit shorthand - Unicode decimal digits
-				if charClassDepth > 0 {
-					classBuf.WriteString(xsdDigitClassContent)
-					classState.markNonChar()
-				} else {
-					result.WriteString(xsdDigitClass)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 'D':
-				// non-digit shorthand
-				if charClassDepth > 0 {
-					classHasNotD = true
-					classState.markNonChar()
-				} else {
-					result.WriteString(xsdNotDigitClass)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 's':
-				// whitespace shorthand - XSD defines exactly these 4 chars
-				if charClassDepth > 0 {
-					classBuf.WriteString(`\x20\t\n\r`)
-					classState.markNonChar()
-				} else {
-					result.WriteString(`[\x20\t\n\r]`)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 'S':
-				// non-whitespace shorthand
-				if charClassDepth > 0 {
-					if classNegated {
-						return "", fmt.Errorf("pattern-unsupported: \\S inside negated character class not expressible in RE2")
-					}
-					classHasS = true
-					classState.markNonChar()
-					i += 2
-					justWroteQuantifier = false
-					continue
-				}
-				result.WriteString(`[^\x20\t\n\r]`)
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 'w':
-				// word character shorthand
-				if charClassDepth > 0 {
-					if classNegated {
-						return "", fmt.Errorf("pattern-unsupported: \\w inside negated character class not expressible in RE2")
-					}
-					classHasW = true
-					classState.markNonChar()
-					i += 2
-					justWroteQuantifier = false
-					continue
-				}
-				result.WriteString(xsdWordClass)
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 'W':
-				// non-word character shorthand
-				if charClassDepth > 0 {
-					classBuf.WriteString(`\p{P}\p{Z}\p{C}`)
-					classState.markNonChar()
-				} else {
-					result.WriteString(xsdNotWordClass)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 'n':
-				if charClassDepth > 0 {
-					if err := classState.handleChar('\n', charClassStart, xsdPattern); err != nil {
-						return "", err
-					}
-					classBuf.WriteByte('\\')
-					classBuf.WriteByte(nextChar)
-				} else {
-					result.WriteByte('\\')
-					result.WriteByte(nextChar)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 'r':
-				if charClassDepth > 0 {
-					if err := classState.handleChar('\r', charClassStart, xsdPattern); err != nil {
-						return "", err
-					}
-					classBuf.WriteByte('\\')
-					classBuf.WriteByte(nextChar)
-				} else {
-					result.WriteByte('\\')
-					result.WriteByte(nextChar)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 't':
-				if charClassDepth > 0 {
-					if err := classState.handleChar('\t', charClassStart, xsdPattern); err != nil {
-						return "", err
-					}
-					classBuf.WriteByte('\\')
-					classBuf.WriteByte(nextChar)
-				} else {
-					result.WriteByte('\\')
-					result.WriteByte(nextChar)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 'f':
-				if charClassDepth > 0 {
-					if err := classState.handleChar('\f', charClassStart, xsdPattern); err != nil {
-						return "", err
-					}
-					classBuf.WriteByte('\\')
-					classBuf.WriteByte(nextChar)
-				} else {
-					result.WriteByte('\\')
-					result.WriteByte(nextChar)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 'v':
-				if charClassDepth > 0 {
-					if err := classState.handleChar('\v', charClassStart, xsdPattern); err != nil {
-						return "", err
-					}
-					classBuf.WriteByte('\\')
-					classBuf.WriteByte(nextChar)
-				} else {
-					result.WriteByte('\\')
-					result.WriteByte(nextChar)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 'a':
-				if charClassDepth > 0 {
-					if err := classState.handleChar('\a', charClassStart, xsdPattern); err != nil {
-						return "", err
-					}
-					classBuf.WriteByte('\\')
-					classBuf.WriteByte(nextChar)
-				} else {
-					result.WriteByte('\\')
-					result.WriteByte(nextChar)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 'b':
-				// \b is only valid inside character class (backspace)
-				// outside character class, it's NOT valid XSD syntax (no word boundary in XSD)
-				if charClassDepth > 0 {
-					if err := classState.handleChar('\b', charClassStart, xsdPattern); err != nil {
-						return "", err
-					}
-					classBuf.WriteByte('\\')
-					classBuf.WriteByte('b')
-				} else {
-					return "", fmt.Errorf("pattern-syntax-error: \\b (word boundary) is not valid XSD 1.0 syntax")
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case 'A', 'Z', 'z', 'B':
-				// XSD does not support these anchor escapes:
-				// \A - beginning of string (Perl/PCRE)
-				// \Z - end of string before newline (Perl/PCRE)
-				// \z - end of string (Perl/PCRE)
-				// \B - non-word boundary (Perl/PCRE)
-				return "", fmt.Errorf("pattern-syntax-error: \\%c is not valid XSD 1.0 syntax (XSD patterns are implicitly anchored)", nextChar)
-
-			case '\\':
-				// escaped backslash - can be range endpoint
-				if charClassDepth > 0 {
-					if err := classState.handleChar('\\', charClassStart, xsdPattern); err != nil {
-						return "", err
-					}
-					classBuf.WriteString(`\\`)
-				} else {
-					result.WriteString(`\\`)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case '[', ']', '(', ')', '{', '}', '*', '+', '?', '|', '^', '$', '.':
-				// escaped metacharacters - pass through
-				if charClassDepth > 0 {
-					if err := classState.handleChar(rune(nextChar), charClassStart, xsdPattern); err != nil {
-						return "", err
-					}
-					classBuf.WriteByte('\\')
-					classBuf.WriteByte(nextChar)
-				} else {
-					result.WriteByte('\\')
-					result.WriteByte(nextChar)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			case '-':
-				// escaped dash - literal dash character
-				if charClassDepth > 0 {
-					if err := classState.handleChar('-', charClassStart, xsdPattern); err != nil {
-						return "", err
-					}
-					classBuf.WriteString(`\-`)
-				} else {
-					result.WriteString(`\-`)
-				}
-				i += 2
-				justWroteQuantifier = false // escape sequences are not quantifiers
-				continue
-
-			default:
-				// XSD only allows specific escape sequences. Unknown escapes are syntax errors.
-				// valid escapes: \n, \r, \t, \d, \D, \s, \S, \w, \W, \p{}, \P{}, \i, \I, \c, \C,
-				// and escaped metacharacters: \\, \[, \], \(, \), \{, \}, \*, \+, \?, \|, \^, \$, \., \-
-				// digit escapes (\0-\9) could be backreferences but XSD doesn't support them
-				if nextChar >= '0' && nextChar <= '9' {
-					return "", fmt.Errorf("pattern-syntax-error: \\%c backreference is not valid XSD 1.0 syntax", nextChar)
-				}
-				return "", fmt.Errorf("pattern-syntax-error: \\%c is not a valid XSD 1.0 escape sequence", nextChar)
-			}
-		}
-
-		// handle character class boundaries (only for non-escaped [ and ])
-		if char == '[' {
-			if charClassDepth > 0 {
-				return "", fmt.Errorf("pattern-unsupported: nested character classes not supported")
-			}
-			charClassDepth++
-			charClassStart = i
-			classState.reset()
-			classBuf.Reset()
-			classNegated = false
-			classHasW = false
-			classHasS = false
-			classHasNotD = false
-			classHasNotNameStart = false
-			classHasNotNameChar = false
-			i++
-			if i < len(xsdPattern) && xsdPattern[i] == '^' {
-				classNegated = true
-				i++
-			}
-			continue
-		}
-
-		if char == ']' && charClassDepth > 0 {
-			if classState.isFirst && !classHasW && !classHasS && !classHasNotD {
-				return "", fmt.Errorf("pattern-syntax-error: empty character class")
-			}
-			classContent := classBuf.String()
-			if classHasNotD && classNegated {
-				if classHasW || classHasS || classHasNotNameStart || classHasNotNameChar || classContent != "" {
-					return "", fmt.Errorf("pattern-unsupported: \\D inside negated character class not expressible in RE2")
-				}
-				result.WriteString(xsdDigitClass)
-				charClassDepth--
-				i++
-				continue
-			}
-
-			if classHasW || classHasS || classHasNotD || classHasNotNameStart || classHasNotNameChar {
-				if classNegated {
-					return "", fmt.Errorf("pattern-unsupported: negated character class with \\w, \\S, \\I, or \\C is not expressible in RE2")
-				}
-				var parts []string
-				if classHasNotD {
-					parts = append(parts, xsdNotDigitClass)
-				}
-				if classHasNotNameStart {
-					parts = append(parts, nameNotStartCharClass)
-				}
-				if classHasNotNameChar {
-					parts = append(parts, nameNotCharClass)
-				}
-				if classHasS {
-					parts = append(parts, `[^\x20\t\n\r]`)
-				}
-				if classHasW {
-					parts = append(parts, xsdWordClass)
-				}
-				if classContent != "" {
-					parts = append(parts, "["+classContent+"]")
-				}
-				if len(parts) == 1 {
-					result.WriteString(parts[0])
-				} else {
-					result.WriteString(`(?:` + strings.Join(parts, "|") + `)`)
-				}
-			} else {
-				if classNegated {
-					result.WriteString(`[^` + classContent + `]`)
-				} else {
-					result.WriteString(`[` + classContent + `]`)
-				}
-			}
-			charClassDepth--
-			i++
-			continue
-		}
-
-		// check for character class subtraction: -[...]
-		if charClassDepth > 0 && char == '-' && i+1 < len(xsdPattern) && xsdPattern[i+1] == '[' {
-			return "", fmt.Errorf("pattern-unsupported: character-class subtraction (-[) not supported in %q", xsdPattern)
-		}
-
-		if charClassDepth > 0 && char == '-' {
-			// dash at the very start of class (after [ or [^) is literal
-			if classState.isFirst {
-				classState.lastItem = '-'
-				classState.lastWasRange = false
-				classState.lastWasDash = false
-				classState.lastItemIsChar = true
-				classState.isFirst = false
-				classBuf.WriteByte('-')
-				i++
-				continue
-			}
-			// dash at the very end of class is literal
-			if i+1 < len(xsdPattern) && xsdPattern[i+1] == ']' {
-				classState.lastItem = '-'
-				classState.lastWasRange = false
-				classState.lastWasDash = false
-				classState.lastItemIsChar = true
-				classState.isFirst = false
-				classBuf.WriteByte('-')
-				i++
-				continue
-			}
-			// dash immediately after a completed range is not allowed in XSD 1.0.
-			if classState.lastWasRange {
-				return "", fmt.Errorf("pattern-syntax-error: '-' cannot follow a range in character class at position %d in %q", i, xsdPattern)
-			}
-			// dash after another dash is invalid
-			if classState.lastWasDash {
-				return "", fmt.Errorf("pattern-syntax-error: consecutive dashes in character class at position %d in %q", i, xsdPattern)
-			}
-			// dash after a non-character item is invalid (can't start a range).
-			if !classState.lastItemIsChar {
-				return "", fmt.Errorf("pattern-syntax-error: '-' cannot follow a non-character item in character class at position %d in %q", i, xsdPattern)
-			}
-			// otherwise, dash after a single character starts a potential range
-			classState.lastWasDash = true
-			classBuf.WriteByte('-')
-			i++
-			continue
-		}
-
-		if charClassDepth > 0 {
-			currentChar := rune(char)
-			if classState.lastWasDash {
-				// this completes a range: classState.lastItem - currentChar
-				// validate that the range is valid (start <= end)
-				if classState.lastItem > currentChar {
-					return "", fmt.Errorf("pattern-syntax-error: invalid range '%c-%c' (start > end) in character class starting at position %d in %q",
-						classState.lastItem, currentChar, charClassStart, xsdPattern)
-				}
-				classState.lastWasRange = true
-				classState.lastWasDash = false
-				classState.lastItem = currentChar
-				classState.lastItemIsChar = true
-			} else {
-				classState.lastItem = currentChar
-				classState.lastWasRange = false
-				classState.lastItemIsChar = true
-			}
-			classState.isFirst = false
-			classBuf.WriteByte(char)
-			i++
-			continue
-		}
-
-		// check for non-greedy quantifier: ? after +, *, ?, or {m,n}
-		if justWroteQuantifier && char == '?' {
-			start := max(i-2, 0)
-			end := min(i+1, len(xsdPattern))
-			return "", fmt.Errorf("pattern-unsupported: non-greedy quantifier (lazy quantifier) not supported in XSD 1.0 (e.g., %q)", xsdPattern[start:end])
-		}
-		justWroteQuantifier = false
-
-		// handle quantifiers and validate repeat counts (outside character classes)
-		if charClassDepth == 0 && char == '{' {
-			// check for counted repeat: {m} or {m,} or {m,n}
-			repeatPattern, newPos, err := parseAndValidateRepeat(xsdPattern, i)
+func (t *patternTranslator) translate() (string, error) {
+	for t.i < len(t.pattern) {
+		if handled, err := t.handleEscape(); handled {
 			if err != nil {
 				return "", err
 			}
-			result.WriteString(repeatPattern)
-			i = newPos
-			// check if next character is ? (non-greedy quantifier)
-			if i < len(xsdPattern) && xsdPattern[i] == '?' {
-				start := max(i-10, 0)
-				end := min(i+1, len(xsdPattern))
-				return "", fmt.Errorf("pattern-unsupported: non-greedy quantifier (lazy quantifier) not supported in XSD 1.0 (e.g., %q)", xsdPattern[start:end])
-			}
-			justWroteQuantifier = true
 			continue
 		}
 
-		if charClassDepth == 0 {
-			switch char {
-			case '^':
-				// ^ is literal in XSD, but anchor in Go - escape it
-				result.WriteString(`\^`)
-				i++
-				justWroteQuantifier = false
-				continue
-			case '$':
-				// $ is literal in XSD, but anchor in Go - escape it
-				result.WriteString(`\$`)
-				i++
-				justWroteQuantifier = false
-				continue
-			case ']':
-				// ']' is only valid to close a character class in XSD.
-				return "", fmt.Errorf("pattern-syntax-error: ']' is not valid outside a character class")
-			case '.':
-				// . in XSD matches any char except \n and \r
-				result.WriteString(`[^\n\r]`)
-				i++
-				justWroteQuantifier = false
-				continue
-			case '*':
-				// kleene star quantifier
-				result.WriteByte('*')
-				i++
-				justWroteQuantifier = true
-				continue
-			case '+':
-				// one-or-more quantifier
-				result.WriteByte('+')
-				i++
-				justWroteQuantifier = true
-				continue
-			case '?':
-				// zero-or-one quantifier (but check if it's after another quantifier first)
-				if justWroteQuantifier {
-					start := max(i-2, 0)
-					end := min(i+1, len(xsdPattern))
-					return "", fmt.Errorf("pattern-unsupported: non-greedy quantifier (lazy quantifier) not supported in XSD 1.0 (e.g., %q)", xsdPattern[start:end])
+		if t.classDepth > 0 {
+			if handled, err := t.handleCharClassEnd(); handled {
+				if err != nil {
+					return "", err
 				}
-				result.WriteByte('?')
-				i++
-				justWroteQuantifier = true
 				continue
 			}
-		}
-
-		// XSD 1.0 does not support Perl-style group prefixes like (?:...) or (?m).
-		if charClassDepth == 0 && char == '(' && i+1 < len(xsdPattern) && xsdPattern[i+1] == '?' {
-			end := i + 2
-			for end < len(xsdPattern) && xsdPattern[end] != ')' && xsdPattern[end] != ':' {
-				end++
+			if handled, err := t.handleCharClassSubtraction(); handled {
+				if err != nil {
+					return "", err
+				}
+				continue
 			}
-			modifier := xsdPattern[i+2 : end]
-			return "", fmt.Errorf("pattern-syntax-error: group prefix (?%s) is not valid XSD 1.0 syntax", modifier)
-		}
-
-		if charClassDepth == 0 && char == '(' {
-			groupDepth++
-		}
-		if charClassDepth == 0 && char == ')' {
-			if groupDepth == 0 {
-				return "", fmt.Errorf("pattern-syntax-error: unbalanced ')' in pattern")
+			if handled, err := t.handleCharClassDash(); handled {
+				if err != nil {
+					return "", err
+				}
+				continue
 			}
-			groupDepth--
+			if _, err := t.handleCharClassChar(); err != nil {
+				return "", err
+			}
+			continue
 		}
 
-		result.WriteByte(char)
-		i++
-		justWroteQuantifier = false
+		if handled, err := t.handleCharClassStart(); handled {
+			if err != nil {
+				return "", err
+			}
+			continue
+		}
+
+		if err := t.checkLazyQuantifier(); err != nil {
+			return "", err
+		}
+
+		if handled, err := t.handleRepeatQuantifier(); handled {
+			if err != nil {
+				return "", err
+			}
+			continue
+		}
+
+		if handled, err := t.handleOutsideMeta(); handled {
+			if err != nil {
+				return "", err
+			}
+			continue
+		}
+
+		if handled, err := t.handleGroupPrefix(); handled {
+			if err != nil {
+				return "", err
+			}
+			continue
+		}
+
+		if err := t.handleGroupDepth(); err != nil {
+			return "", err
+		}
+
+		t.result.WriteByte(t.pattern[t.i])
+		t.i++
+		t.justWroteQuantifier = false
 	}
 
-	if charClassDepth > 0 {
+	if t.classDepth > 0 {
 		return "", fmt.Errorf("pattern-syntax-error: unclosed character class")
 	}
-	if groupDepth > 0 {
+	if t.groupDepth > 0 {
 		return "", fmt.Errorf("pattern-syntax-error: unclosed '(' in pattern")
 	}
 
-	// wrap in ^(?:...)$ for whole-string matching
-	translated := result.String()
-	return `^(?:` + translated + `)$`, nil
+	return `^(?:` + t.result.String() + `)$`, nil
+}
+
+func (t *patternTranslator) handleEscape() (bool, error) {
+	if t.pattern[t.i] != '\\' {
+		return false, nil
+	}
+	if t.i+1 >= len(t.pattern) {
+		return true, fmt.Errorf("pattern-syntax-error: escape sequence at end of pattern")
+	}
+	nextChar := t.pattern[t.i+1]
+
+	if nextChar == 'u' {
+		return true, fmt.Errorf("pattern-syntax-error: \\u escape is not valid XSD 1.0 syntax (use XML character reference &#x; instead)")
+	}
+
+	if nextChar == 'p' || nextChar == 'P' {
+		translated, newIdx, err := translateUnicodePropertyEscape(t.pattern, t.i, t.inCharClass())
+		if err != nil {
+			return true, err
+		}
+		if t.inCharClass() {
+			t.classBuf.WriteString(translated)
+			t.classState.markNonChar()
+		} else {
+			t.result.WriteString(translated)
+		}
+		t.i = newIdx
+		t.justWroteQuantifier = false
+		return true, nil
+	}
+
+	if handled, err := t.handleNameEscape(nextChar); handled {
+		return true, err
+	}
+	if handled, err := t.handleDigitEscape(nextChar); handled {
+		return true, err
+	}
+	if handled, err := t.handleWhitespaceEscape(nextChar); handled {
+		return true, err
+	}
+	if handled, err := t.handleWordEscape(nextChar); handled {
+		return true, err
+	}
+	if handled, err := t.handleControlEscape(nextChar); handled {
+		return true, err
+	}
+	if handled, err := t.handleUnsupportedAnchorEscape(nextChar); handled {
+		return true, err
+	}
+	if handled, err := t.handleEscapedBackslash(nextChar); handled {
+		return true, err
+	}
+	if handled, err := t.handleEscapedMetachar(nextChar); handled {
+		return true, err
+	}
+	if handled, err := t.handleEscapedDash(nextChar); handled {
+		return true, err
+	}
+
+	if nextChar >= '0' && nextChar <= '9' {
+		return true, fmt.Errorf("pattern-syntax-error: \\%c backreference is not valid XSD 1.0 syntax", nextChar)
+	}
+	return true, fmt.Errorf("pattern-syntax-error: \\%c is not a valid XSD 1.0 escape sequence", nextChar)
+}
+
+func (t *patternTranslator) handleNameEscape(nextChar byte) (bool, error) {
+	switch nextChar {
+	case 'i':
+		if t.inCharClass() {
+			t.classBuf.WriteString(nameStartCharClassContent)
+			t.classState.markNonChar()
+		} else {
+			t.result.WriteString(nameStartCharClass)
+		}
+	case 'I':
+		if t.inCharClass() {
+			t.classHasNotNameStart = true
+			t.classState.markNonChar()
+		} else {
+			t.result.WriteString(nameNotStartCharClass)
+		}
+	case 'c':
+		if t.inCharClass() {
+			t.classBuf.WriteString(nameCharClassContent)
+			t.classState.markNonChar()
+		} else {
+			t.result.WriteString(nameCharClass)
+		}
+	case 'C':
+		if t.inCharClass() {
+			t.classHasNotNameChar = true
+			t.classState.markNonChar()
+		} else {
+			t.result.WriteString(nameNotCharClass)
+		}
+	default:
+		return false, nil
+	}
+
+	t.i += 2
+	t.justWroteQuantifier = false
+	return true, nil
+}
+
+func (t *patternTranslator) handleDigitEscape(nextChar byte) (bool, error) {
+	switch nextChar {
+	case 'd':
+		if t.inCharClass() {
+			t.classBuf.WriteString(xsdDigitClassContent)
+			t.classState.markNonChar()
+		} else {
+			t.result.WriteString(xsdDigitClass)
+		}
+	case 'D':
+		if t.inCharClass() {
+			t.classHasNotD = true
+			t.classState.markNonChar()
+		} else {
+			t.result.WriteString(xsdNotDigitClass)
+		}
+	default:
+		return false, nil
+	}
+
+	t.i += 2
+	t.justWroteQuantifier = false
+	return true, nil
+}
+
+func (t *patternTranslator) handleWhitespaceEscape(nextChar byte) (bool, error) {
+	switch nextChar {
+	case 's':
+		if t.inCharClass() {
+			t.classBuf.WriteString(`\x20\t\n\r`)
+			t.classState.markNonChar()
+		} else {
+			t.result.WriteString(`[\x20\t\n\r]`)
+		}
+	case 'S':
+		if t.inCharClass() {
+			if t.classNegated {
+				return true, fmt.Errorf("pattern-unsupported: \\S inside negated character class not expressible in RE2")
+			}
+			t.classHasS = true
+			t.classState.markNonChar()
+		} else {
+			t.result.WriteString(`[^\x20\t\n\r]`)
+		}
+	default:
+		return false, nil
+	}
+
+	t.i += 2
+	t.justWroteQuantifier = false
+	return true, nil
+}
+
+func (t *patternTranslator) handleWordEscape(nextChar byte) (bool, error) {
+	switch nextChar {
+	case 'w':
+		if t.inCharClass() {
+			if t.classNegated {
+				return true, fmt.Errorf("pattern-unsupported: \\w inside negated character class not expressible in RE2")
+			}
+			t.classHasW = true
+			t.classState.markNonChar()
+		} else {
+			t.result.WriteString(xsdWordClass)
+		}
+	case 'W':
+		if t.inCharClass() {
+			t.classBuf.WriteString(`\p{P}\p{Z}\p{C}`)
+			t.classState.markNonChar()
+		} else {
+			t.result.WriteString(xsdNotWordClass)
+		}
+	default:
+		return false, nil
+	}
+
+	t.i += 2
+	t.justWroteQuantifier = false
+	return true, nil
+}
+
+func (t *patternTranslator) handleControlEscape(nextChar byte) (bool, error) {
+	var char rune
+	switch nextChar {
+	case 'n':
+		char = '\n'
+	case 'r':
+		char = '\r'
+	case 't':
+		char = '\t'
+	case 'f':
+		char = '\f'
+	case 'v':
+		char = '\v'
+	case 'a':
+		char = '\a'
+	case 'b':
+		if !t.inCharClass() {
+			return true, fmt.Errorf("pattern-syntax-error: \\b (word boundary) is not valid XSD 1.0 syntax")
+		}
+		char = '\b'
+	default:
+		return false, nil
+	}
+
+	if t.inCharClass() {
+		if err := t.appendClassEscaped(char, `\`+string(nextChar)); err != nil {
+			return true, err
+		}
+	} else {
+		t.writeEscapedLiteral(nextChar)
+	}
+
+	t.i += 2
+	t.justWroteQuantifier = false
+	return true, nil
+}
+
+func (t *patternTranslator) handleUnsupportedAnchorEscape(nextChar byte) (bool, error) {
+	switch nextChar {
+	case 'A', 'Z', 'z', 'B':
+		return true, fmt.Errorf("pattern-syntax-error: \\%c is not valid XSD 1.0 syntax (XSD patterns are implicitly anchored)", nextChar)
+	default:
+		return false, nil
+	}
+}
+
+func (t *patternTranslator) handleEscapedBackslash(nextChar byte) (bool, error) {
+	if nextChar != '\\' {
+		return false, nil
+	}
+	if t.inCharClass() {
+		if err := t.appendClassEscaped('\\', `\\`); err != nil {
+			return true, err
+		}
+	} else {
+		t.result.WriteString(`\\`)
+	}
+	t.i += 2
+	t.justWroteQuantifier = false
+	return true, nil
+}
+
+func (t *patternTranslator) handleEscapedMetachar(nextChar byte) (bool, error) {
+	switch nextChar {
+	case '[', ']', '(', ')', '{', '}', '*', '+', '?', '|', '^', '$', '.':
+	default:
+		return false, nil
+	}
+
+	if t.inCharClass() {
+		if err := t.appendClassEscaped(rune(nextChar), `\`+string(nextChar)); err != nil {
+			return true, err
+		}
+	} else {
+		t.writeEscapedLiteral(nextChar)
+	}
+	t.i += 2
+	t.justWroteQuantifier = false
+	return true, nil
+}
+
+func (t *patternTranslator) handleEscapedDash(nextChar byte) (bool, error) {
+	if nextChar != '-' {
+		return false, nil
+	}
+	if t.inCharClass() {
+		if err := t.appendClassEscaped('-', `\-`); err != nil {
+			return true, err
+		}
+	} else {
+		t.result.WriteString(`\-`)
+	}
+	t.i += 2
+	t.justWroteQuantifier = false
+	return true, nil
+}
+
+func (t *patternTranslator) handleCharClassStart() (bool, error) {
+	if t.pattern[t.i] != '[' {
+		return false, nil
+	}
+	if t.classDepth > 0 {
+		return true, fmt.Errorf("pattern-unsupported: nested character classes not supported")
+	}
+
+	t.classDepth++
+	t.classStart = t.i
+	t.classState.reset()
+	t.classBuf.Reset()
+	t.classNegated = false
+	t.classHasW = false
+	t.classHasS = false
+	t.classHasNotD = false
+	t.classHasNotNameStart = false
+	t.classHasNotNameChar = false
+
+	t.i++
+	if t.i < len(t.pattern) && t.pattern[t.i] == '^' {
+		t.classNegated = true
+		t.i++
+	}
+	return true, nil
+}
+
+func (t *patternTranslator) handleCharClassEnd() (bool, error) {
+	if t.pattern[t.i] != ']' || t.classDepth == 0 {
+		return false, nil
+	}
+	if t.classState.isFirst && !t.classHasW && !t.classHasS && !t.classHasNotD {
+		return true, fmt.Errorf("pattern-syntax-error: empty character class")
+	}
+	classContent := t.classBuf.String()
+	if t.classHasNotD && t.classNegated {
+		if t.classHasW || t.classHasS || t.classHasNotNameStart || t.classHasNotNameChar || classContent != "" {
+			return true, fmt.Errorf("pattern-unsupported: \\D inside negated character class not expressible in RE2")
+		}
+		t.result.WriteString(xsdDigitClass)
+		t.classDepth--
+		t.i++
+		return true, nil
+	}
+
+	if t.classHasW || t.classHasS || t.classHasNotD || t.classHasNotNameStart || t.classHasNotNameChar {
+		if t.classNegated {
+			return true, fmt.Errorf("pattern-unsupported: negated character class with \\w, \\S, \\I, or \\C is not expressible in RE2")
+		}
+		var parts []string
+		if t.classHasNotD {
+			parts = append(parts, xsdNotDigitClass)
+		}
+		if t.classHasNotNameStart {
+			parts = append(parts, nameNotStartCharClass)
+		}
+		if t.classHasNotNameChar {
+			parts = append(parts, nameNotCharClass)
+		}
+		if t.classHasS {
+			parts = append(parts, `[^\x20\t\n\r]`)
+		}
+		if t.classHasW {
+			parts = append(parts, xsdWordClass)
+		}
+		if classContent != "" {
+			parts = append(parts, "["+classContent+"]")
+		}
+		if len(parts) == 1 {
+			t.result.WriteString(parts[0])
+		} else {
+			t.result.WriteString(`(?:` + strings.Join(parts, "|") + `)`)
+		}
+	} else {
+		if t.classNegated {
+			t.result.WriteString(`[^` + classContent + `]`)
+		} else {
+			t.result.WriteString(`[` + classContent + `]`)
+		}
+	}
+	t.classDepth--
+	t.i++
+	return true, nil
+}
+
+func (t *patternTranslator) handleCharClassSubtraction() (bool, error) {
+	if t.classDepth > 0 && t.pattern[t.i] == '-' && t.i+1 < len(t.pattern) && t.pattern[t.i+1] == '[' {
+		return true, fmt.Errorf("pattern-unsupported: character-class subtraction (-[) not supported in %q", t.pattern)
+	}
+	return false, nil
+}
+
+func (t *patternTranslator) handleCharClassDash() (bool, error) {
+	if t.pattern[t.i] != '-' {
+		return false, nil
+	}
+	if t.classState.isFirst {
+		t.classState.lastItem = '-'
+		t.classState.lastWasRange = false
+		t.classState.lastWasDash = false
+		t.classState.lastItemIsChar = true
+		t.classState.isFirst = false
+		t.classBuf.WriteByte('-')
+		t.i++
+		return true, nil
+	}
+	if t.i+1 < len(t.pattern) && t.pattern[t.i+1] == ']' {
+		t.classState.lastItem = '-'
+		t.classState.lastWasRange = false
+		t.classState.lastWasDash = false
+		t.classState.lastItemIsChar = true
+		t.classState.isFirst = false
+		t.classBuf.WriteByte('-')
+		t.i++
+		return true, nil
+	}
+	if t.classState.lastWasRange {
+		return true, fmt.Errorf("pattern-syntax-error: '-' cannot follow a range in character class at position %d in %q", t.i, t.pattern)
+	}
+	if t.classState.lastWasDash {
+		return true, fmt.Errorf("pattern-syntax-error: consecutive dashes in character class at position %d in %q", t.i, t.pattern)
+	}
+	if !t.classState.lastItemIsChar {
+		return true, fmt.Errorf("pattern-syntax-error: '-' cannot follow a non-character item in character class at position %d in %q", t.i, t.pattern)
+	}
+	t.classState.lastWasDash = true
+	t.classBuf.WriteByte('-')
+	t.i++
+	return true, nil
+}
+
+func (t *patternTranslator) handleCharClassChar() (bool, error) {
+	if t.pattern[t.i] == '[' {
+		return true, fmt.Errorf("pattern-unsupported: nested character classes not supported")
+	}
+	if err := t.classState.handleChar(rune(t.pattern[t.i]), t.classStart, t.pattern); err != nil {
+		return true, err
+	}
+	t.classBuf.WriteByte(t.pattern[t.i])
+	t.i++
+	return true, nil
+}
+
+func (t *patternTranslator) checkLazyQuantifier() error {
+	if !t.justWroteQuantifier {
+		return nil
+	}
+	if t.pattern[t.i] == '?' {
+		start := max(t.i-2, 0)
+		end := min(t.i+1, len(t.pattern))
+		return fmt.Errorf("pattern-unsupported: non-greedy quantifier (lazy quantifier) not supported in XSD 1.0 (e.g., %q)", t.pattern[start:end])
+	}
+	t.justWroteQuantifier = false
+	return nil
+}
+
+func (t *patternTranslator) handleRepeatQuantifier() (bool, error) {
+	if t.pattern[t.i] != '{' {
+		return false, nil
+	}
+	repeatPattern, newPos, err := parseAndValidateRepeat(t.pattern, t.i)
+	if err != nil {
+		return true, err
+	}
+	t.result.WriteString(repeatPattern)
+	t.i = newPos
+	if t.i < len(t.pattern) && t.pattern[t.i] == '?' {
+		start := max(t.i-10, 0)
+		end := min(t.i+1, len(t.pattern))
+		return true, fmt.Errorf("pattern-unsupported: non-greedy quantifier (lazy quantifier) not supported in XSD 1.0 (e.g., %q)", t.pattern[start:end])
+	}
+	t.justWroteQuantifier = true
+	return true, nil
+}
+
+func (t *patternTranslator) handleOutsideMeta() (bool, error) {
+	switch t.pattern[t.i] {
+	case '^':
+		t.result.WriteString(`\^`)
+		t.i++
+		t.justWroteQuantifier = false
+		return true, nil
+	case '$':
+		t.result.WriteString(`\$`)
+		t.i++
+		t.justWroteQuantifier = false
+		return true, nil
+	case ']':
+		return true, fmt.Errorf("pattern-syntax-error: ']' is not valid outside a character class")
+	case '.':
+		t.result.WriteString(`[^\n\r]`)
+		t.i++
+		t.justWroteQuantifier = false
+		return true, nil
+	case '*':
+		t.result.WriteByte('*')
+		t.i++
+		t.justWroteQuantifier = true
+		return true, nil
+	case '+':
+		t.result.WriteByte('+')
+		t.i++
+		t.justWroteQuantifier = true
+		return true, nil
+	case '?':
+		t.result.WriteByte('?')
+		t.i++
+		t.justWroteQuantifier = true
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
+func (t *patternTranslator) handleGroupPrefix() (bool, error) {
+	if t.pattern[t.i] != '(' || t.i+1 >= len(t.pattern) || t.pattern[t.i+1] != '?' {
+		return false, nil
+	}
+	end := t.i + 2
+	for end < len(t.pattern) && t.pattern[end] != ')' && t.pattern[end] != ':' {
+		end++
+	}
+	modifier := t.pattern[t.i+2 : end]
+	return true, fmt.Errorf("pattern-syntax-error: group prefix (?%s) is not valid XSD 1.0 syntax", modifier)
+}
+
+func (t *patternTranslator) handleGroupDepth() error {
+	if t.pattern[t.i] == '(' {
+		t.groupDepth++
+		return nil
+	}
+	if t.pattern[t.i] == ')' {
+		if t.groupDepth == 0 {
+			return fmt.Errorf("pattern-syntax-error: unbalanced ')' in pattern")
+		}
+		t.groupDepth--
+	}
+	return nil
+}
+
+func (t *patternTranslator) inCharClass() bool {
+	return t.classDepth > 0
+}
+
+func (t *patternTranslator) appendClassEscaped(char rune, escapeText string) error {
+	if err := t.classState.handleChar(char, t.classStart, t.pattern); err != nil {
+		return err
+	}
+	t.classBuf.WriteString(escapeText)
+	return nil
+}
+
+func (t *patternTranslator) writeEscapedLiteral(ch byte) {
+	t.result.WriteByte('\\')
+	t.result.WriteByte(ch)
 }
 
 // translateUnicodePropertyEscape translates \p{...} or \P{...} escapes

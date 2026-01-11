@@ -1,6 +1,7 @@
 package xsdxml
 
 import (
+	"bufio"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -17,16 +18,18 @@ const (
 	EventCharData
 )
 
+const streamDecoderBufferSize = 256 * 1024
+
 // elementID is a monotonic identifier assigned per document.
 type elementID uint64
 
 // Event represents a single streaming XML token.
 // Attrs and Text are only valid until the next Next call.
 type Event struct {
-	Kind       EventKind
 	Name       types.QName
 	Attrs      []Attr
 	Text       []byte
+	Kind       EventKind
 	Line       int
 	Column     int
 	ID         elementID
@@ -34,9 +37,9 @@ type Event struct {
 }
 
 type nsScope struct {
+	prefixes   map[string]string
 	defaultNS  string
 	defaultSet bool
-	prefixes   map[string]string
 }
 
 type nsStack struct {
@@ -90,6 +93,7 @@ func (s *nsStack) lookup(prefix string, depth int) (string, bool) {
 // StreamDecoder provides a streaming XML event interface with namespace tracking.
 type StreamDecoder struct {
 	dec        *xml.Decoder
+	interner   *qnameInterner
 	ns         nsStack
 	attrBuf    []Attr
 	textBuf    []byte
@@ -102,17 +106,20 @@ func NewStreamDecoder(r io.Reader) (*StreamDecoder, error) {
 	if r == nil {
 		return nil, fmt.Errorf("nil XML reader")
 	}
-	dec := xml.NewDecoder(r)
+	dec := xml.NewDecoder(bufio.NewReaderSize(r, streamDecoderBufferSize))
 	if dec == nil {
 		return nil, fmt.Errorf("nil XML decoder")
 	}
-	return &StreamDecoder{dec: dec}, nil
+	return &StreamDecoder{dec: dec, interner: newQNameInterner()}, nil
 }
 
 // Next returns the next XML event.
 func (d *StreamDecoder) Next() (Event, error) {
 	if d == nil || d.dec == nil {
 		return Event{}, fmt.Errorf("nil XML decoder")
+	}
+	if d.interner == nil {
+		d.interner = newQNameInterner()
 	}
 	if d.pendingPop {
 		d.ns.pop()
@@ -145,7 +152,7 @@ func (d *StreamDecoder) Next() (Event, error) {
 			d.nextID++
 			return Event{
 				Kind:       EventStartElement,
-				Name:       types.QName{Namespace: types.NamespaceURI(t.Name.Space), Local: t.Name.Local},
+				Name:       d.interner.intern(t.Name.Space, t.Name.Local),
 				Attrs:      d.attrBuf,
 				Line:       line,
 				Column:     column,
@@ -157,7 +164,7 @@ func (d *StreamDecoder) Next() (Event, error) {
 			d.pendingPop = true
 			return Event{
 				Kind:       EventEndElement,
-				Name:       types.QName{Namespace: types.NamespaceURI(t.Name.Space), Local: t.Name.Local},
+				Name:       d.interner.intern(t.Name.Space, t.Name.Local),
 				Line:       line,
 				Column:     column,
 				ScopeDepth: d.ns.depth() - 1,

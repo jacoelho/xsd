@@ -75,9 +75,9 @@ func GetDerivationChain(t Type) []Type {
 }
 
 type derivationRule struct {
-	name string
 	when func(derived, base Type) bool
 	then func(derived, base Type) bool
+	name string
 }
 
 func derivationRules() []derivationRule {

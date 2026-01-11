@@ -8,24 +8,37 @@ import (
 )
 
 type attributeIndex struct {
-	values map[types.QName]string
-	attrs  []xsdxml.Attr
+	mapValues map[types.QName]string
+	attrs     []xsdxml.Attr
 }
 
+const attributeMapThreshold = 8
+
 func newAttributeIndex(attrs []xsdxml.Attr) attributeIndex {
-	values := make(map[types.QName]string, len(attrs))
-	for _, attr := range attrs {
-		values[types.QName{
-			Namespace: types.NamespaceURI(attr.NamespaceURI()),
-			Local:     attr.LocalName(),
-		}] = attr.Value()
+	if len(attrs) > attributeMapThreshold {
+		values := make(map[types.QName]string, len(attrs))
+		for _, attr := range attrs {
+			values[types.QName{
+				Namespace: types.NamespaceURI(attr.NamespaceURI()),
+				Local:     attr.LocalName(),
+			}] = attr.Value()
+		}
+		return attributeIndex{attrs: attrs, mapValues: values}
 	}
-	return attributeIndex{values: values, attrs: attrs}
+	return attributeIndex{attrs: attrs}
 }
 
 func (a attributeIndex) Value(ns, local string) (string, bool) {
-	value, ok := a.values[types.QName{Namespace: types.NamespaceURI(ns), Local: local}]
-	return value, ok
+	if a.mapValues != nil {
+		value, ok := a.mapValues[types.QName{Namespace: types.NamespaceURI(ns), Local: local}]
+		return value, ok
+	}
+	for _, attr := range a.attrs {
+		if attr.NamespaceURI() == ns && attr.LocalName() == local {
+			return attr.Value(), true
+		}
+	}
+	return "", false
 }
 
 func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar.CompiledAttribute, anyAttr *types.AnyAttribute, scopeDepth int) []errors.Validation {

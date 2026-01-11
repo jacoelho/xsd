@@ -70,8 +70,8 @@ func TestParseAllMinOccursConstraint(t *testing.T) {
 	tests := []struct {
 		name    string
 		schema  string
-		wantErr bool
 		errMsg  string
+		wantErr bool
 	}{
 		{
 			name: "xs:all with minOccurs=0 should succeed",
@@ -531,8 +531,8 @@ func TestComplexContentRestrictionOrderValidation(t *testing.T) {
 	tests := []struct {
 		name    string
 		schema  string
-		wantErr bool
 		errMsg  string
+		wantErr bool
 	}{
 		{
 			name: "attributes before particle should fail",
@@ -604,8 +604,8 @@ func TestParseInvalidNamespaceConstraints(t *testing.T) {
 	tests := []struct {
 		name    string
 		schema  string
-		wantErr bool
 		errMsg  string
+		wantErr bool
 	}{
 		{
 			name: "##any ##other combination is invalid",

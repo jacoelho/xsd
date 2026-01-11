@@ -8,8 +8,8 @@ import (
 func TestValidationErrorFormatting(t *testing.T) {
 	tests := []struct {
 		name string
-		v    Validation
 		want string
+		v    Validation
 	}{
 		{
 			name: "message only",
@@ -93,8 +93,8 @@ func TestValidationListError(t *testing.T) {
 
 	tests := []struct {
 		name string
-		list ValidationList
 		want string
+		list ValidationList
 	}{
 		{
 			name: "single",

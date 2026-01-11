@@ -10,8 +10,8 @@ func TestSelectorXPathValidation(t *testing.T) {
 	tests := []struct {
 		name       string
 		schema     string
-		shouldFail bool
 		errorMsg   string
+		shouldFail bool
 	}{
 		{
 			name: "selector selecting attribute should fail",
@@ -360,8 +360,8 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
 	tests := []struct {
 		name       string
 		schema     string
-		shouldFail bool
 		errorMsg   string
+		shouldFail bool
 	}{
 		{
 			name: "field with wildcard should succeed",

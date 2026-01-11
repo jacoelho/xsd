@@ -13,8 +13,8 @@ func TestValidateSelectorXPathDirect(t *testing.T) {
 	tests := []struct {
 		name      string
 		xpath     string
-		shouldErr bool
 		errorMsg  string
+		shouldErr bool
 	}{
 		{
 			name:      "empty xpath should fail",
@@ -250,8 +250,8 @@ func TestValidateFieldXPathDirect(t *testing.T) {
 	tests := []struct {
 		name      string
 		xpath     string
-		shouldErr bool
 		errorMsg  string
+		shouldErr bool
 	}{
 		{
 			name:      "empty xpath should fail",

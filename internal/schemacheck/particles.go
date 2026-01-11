@@ -234,9 +234,8 @@ func validateInlineElementType(schema *parser.Schema, elem *types.ElementDecl) e
 		}
 		return nil
 	}
-	if ct, ok := elem.Type.(*types.ComplexType); ok && ct.QName.IsZero() {
-		// this is a local element (particle in content model), so isInline=true
-		if err := validateComplexTypeStructure(schema, ct, true); err != nil {
+	if complexType, ok := elem.Type.(*types.ComplexType); ok && complexType.QName.IsZero() {
+		if err := validateComplexTypeStructure(schema, complexType, typeDefinitionInline); err != nil {
 			return fmt.Errorf("inline complexType in element '%s': %w", elem.Name, err)
 		}
 	}

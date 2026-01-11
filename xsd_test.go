@@ -222,9 +222,9 @@ var (
 )
 
 type itemStream struct {
+	buf       []byte
 	remaining int
 	state     int
-	buf       []byte
 	offset    int
 }
 

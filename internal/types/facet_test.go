@@ -342,9 +342,9 @@ func TestFractionDigits(t *testing.T) {
 // TestLengthCalculation tests the getLength function for different types
 func TestLengthCalculation(t *testing.T) {
 	tests := []struct {
+		baseType   Type
 		name       string
 		value      string
-		baseType   Type
 		wantLength int
 	}{
 		// string types - length in characters
@@ -494,9 +494,9 @@ func TestLengthFacetsWithHexBinary(t *testing.T) {
 	hexBinaryType := GetBuiltin(TypeNameHexBinary)
 
 	tests := []struct {
+		facet     Facet
 		name      string
 		value     string
-		facet     Facet
 		wantValid bool
 	}{
 		{
@@ -571,9 +571,9 @@ func TestLengthFacetsWithBase64Binary(t *testing.T) {
 	base64BinaryType := GetBuiltin(TypeNameBase64Binary)
 
 	tests := []struct {
+		facet     Facet
 		name      string
 		value     string
-		facet     Facet
 		wantValid bool
 	}{
 		{
@@ -636,9 +636,9 @@ func TestLengthFacetsWithListType(t *testing.T) {
 	listType.ItemType = itemType
 
 	tests := []struct {
+		facet     Facet
 		name      string
 		value     string
-		facet     Facet
 		wantValid bool
 	}{
 		{
@@ -709,9 +709,9 @@ func TestLengthFacetsWithQName(t *testing.T) {
 	qnameType := GetBuiltin(TypeNameQName)
 
 	tests := []struct {
+		facet     Facet
 		name      string
 		value     string
-		facet     Facet
 		wantValid bool
 	}{
 		{
@@ -803,9 +803,9 @@ func TestLengthFacetsWithQNameRestriction(t *testing.T) {
 	restrictedType.SetVariety(AtomicVariety)
 
 	tests := []struct {
+		facet     Facet
 		name      string
 		value     string
-		facet     Facet
 		wantValid bool
 	}{
 		{

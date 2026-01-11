@@ -5,9 +5,19 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
+// TypeReferencePolicy controls how missing type references are handled.
+type TypeReferencePolicy int
+
+const (
+	// TypeReferenceMustExist requires referenced types to be resolved.
+	TypeReferenceMustExist TypeReferencePolicy = iota
+	// TypeReferenceAllowMissing allows unresolved placeholders to pass through.
+	TypeReferenceAllowMissing
+)
+
 // ResolveTypeReference resolves a type reference for validation callers.
-func ResolveTypeReference(schema *parser.Schema, typ types.Type, allowMissing bool) types.Type {
-	return resolveTypeReference(schema, typ, allowMissing)
+func ResolveTypeReference(schema *parser.Schema, typ types.Type, policy TypeReferencePolicy) types.Type {
+	return resolveTypeReference(schema, typ, policy)
 }
 
 // ResolveFieldType resolves a field XPath to its selected type.

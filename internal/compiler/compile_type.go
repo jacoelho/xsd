@@ -73,12 +73,12 @@ func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.Comp
 	return compiled, nil
 }
 
-func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, st *types.SimpleType) error {
-	resolvedBase := st.ResolvedBase
-	if resolvedBase == nil && st.Restriction != nil && !st.Restriction.Base.IsZero() {
-		if bt := types.GetBuiltinNS(st.Restriction.Base.Namespace, st.Restriction.Base.Local); bt != nil {
-			resolvedBase = bt
-		} else if base, ok := c.schema.TypeDefs[st.Restriction.Base]; ok {
+func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, simpleType *types.SimpleType) error {
+	resolvedBase := simpleType.ResolvedBase
+	if resolvedBase == nil && simpleType.Restriction != nil && !simpleType.Restriction.Base.IsZero() {
+		if builtinType := types.GetBuiltinNS(simpleType.Restriction.Base.Namespace, simpleType.Restriction.Base.Local); builtinType != nil {
+			resolvedBase = builtinType
+		} else if base, ok := c.schema.TypeDefs[simpleType.Restriction.Base]; ok {
 			resolvedBase = base
 		}
 	}
@@ -109,22 +109,22 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, st *types.S
 	}
 
 	// compile item type (for list)
-	if st.ItemType != nil {
-		itemCompiled, err := c.compileType(st.ItemType.Name(), st.ItemType)
+	if simpleType.ItemType != nil {
+		itemCompiled, err := c.compileType(simpleType.ItemType.Name(), simpleType.ItemType)
 		if err != nil {
 			return err
 		}
 		compiled.ItemType = itemCompiled
 		compiled.DerivationMethod = types.DerivationList
 	}
-	if compiled.ItemType == nil && st.Variety() == types.ListVariety && compiled.BaseType != nil {
+	if compiled.ItemType == nil && simpleType.Variety() == types.ListVariety && compiled.BaseType != nil {
 		compiled.ItemType = compiled.BaseType.ItemType
 	}
 
 	// compile member types (for union)
-	if len(st.MemberTypes) > 0 {
-		compiled.MemberTypes = make([]*grammar.CompiledType, len(st.MemberTypes))
-		for i, member := range st.MemberTypes {
+	if len(simpleType.MemberTypes) > 0 {
+		compiled.MemberTypes = make([]*grammar.CompiledType, len(simpleType.MemberTypes))
+		for i, member := range simpleType.MemberTypes {
 			memberCompiled, err := c.compileType(member.Name(), member)
 			if err != nil {
 				return err
@@ -135,25 +135,25 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, st *types.S
 	}
 
 	compiled.IsQNameOrNotationType = c.isQNameOrNotationType(compiled)
-	st.SetQNameOrNotationType(compiled.IsQNameOrNotationType)
+	simpleType.SetQNameOrNotationType(compiled.IsQNameOrNotationType)
 
-	compiled.Facets = c.collectFacets(st)
+	compiled.Facets = c.collectFacets(simpleType)
 
 	// precompute caches to avoid lazy writes during validation.
-	st.PrimitiveType()
-	st.FundamentalFacets()
+	simpleType.PrimitiveType()
+	simpleType.FundamentalFacets()
 
 	return nil
 }
 
-func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, ct *types.ComplexType) error {
-	compiled.Abstract = ct.Abstract
-	compiled.Mixed = ct.Mixed()
-	compiled.Final = ct.Final
-	compiled.Block = ct.Block
-	compiled.DerivationMethod = ct.DerivationMethod
+func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, complexType *types.ComplexType) error {
+	compiled.Abstract = complexType.Abstract
+	compiled.Mixed = complexType.Mixed()
+	compiled.Final = complexType.Final
+	compiled.Block = complexType.Block
+	compiled.DerivationMethod = complexType.DerivationMethod
 
-	resolvedBase := ct.ResolvedBase
+	resolvedBase := complexType.ResolvedBase
 	if resolvedBase == nil {
 		resolvedBase = types.GetBuiltin(types.TypeNameAnyType)
 	}
@@ -163,7 +163,7 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, ct *types.
 			return err
 		}
 		compiled.BaseType = baseCompiled
-		if ct.ResolvedBase == nil && compiled.DerivationMethod == 0 {
+		if complexType.ResolvedBase == nil && compiled.DerivationMethod == 0 {
 			compiled.DerivationMethod = types.DerivationRestriction
 		}
 		compiled.DerivationChain = append([]*grammar.CompiledType{compiled}, baseCompiled.DerivationChain...)
@@ -172,13 +172,13 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, ct *types.
 	}
 
 	// pre-merge all attributes from derivation chain
-	compiled.AllAttributes = c.mergeAttributes(ct, compiled.DerivationChain)
+	compiled.AllAttributes = c.mergeAttributes(complexType, compiled.DerivationChain)
 
 	compiled.AnyAttribute = c.mergeAnyAttribute(compiled.DerivationChain)
 
-	if ct.Content() != nil {
-		compiled.ContentModel = c.compileContentModel(ct)
-		c.applyComplexContentExtension(compiled, ct)
+	if complexType.Content() != nil {
+		compiled.ContentModel = c.compileContentModel(complexType)
+		c.applyComplexContentExtension(compiled, complexType)
 	}
 
 	if compiled.ContentModel != nil {
@@ -186,15 +186,15 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, ct *types.
 	}
 
 	// for simpleContent, set up text content validation type
-	if sc, ok := ct.Content().(*types.SimpleContent); ok {
+	if sc, ok := complexType.Content().(*types.SimpleContent); ok {
 		c.setupSimpleContentType(compiled, sc)
 	}
 
 	return nil
 }
 
-func (c *Compiler) applyComplexContentExtension(compiled *grammar.CompiledType, ct *types.ComplexType) {
-	cc, ok := ct.Content().(*types.ComplexContent)
+func (c *Compiler) applyComplexContentExtension(compiled *grammar.CompiledType, complexType *types.ComplexType) {
+	cc, ok := complexType.Content().(*types.ComplexContent)
 	if !ok || cc.Extension == nil {
 		return
 	}
@@ -251,8 +251,8 @@ func (c *Compiler) setupSimpleContentType(compiled *grammar.CompiledType, sc *ty
 	}
 }
 
-func (c *Compiler) findPrimitiveType(ct *grammar.CompiledType) *grammar.CompiledType {
-	for _, t := range ct.DerivationChain {
+func (c *Compiler) findPrimitiveType(compiledType *grammar.CompiledType) *grammar.CompiledType {
+	for _, t := range compiledType.DerivationChain {
 		if t.Kind == grammar.TypeKindBuiltin {
 			return t
 		}
@@ -260,38 +260,38 @@ func (c *Compiler) findPrimitiveType(ct *grammar.CompiledType) *grammar.Compiled
 	return nil
 }
 
-func (c *Compiler) isQNameOrNotationType(ct *grammar.CompiledType) bool {
-	if ct == nil || ct.ItemType != nil {
+func (c *Compiler) isQNameOrNotationType(compiledType *grammar.CompiledType) bool {
+	if compiledType == nil || compiledType.ItemType != nil {
 		return false
 	}
-	if ct.PrimitiveType != nil && types.IsQNameOrNotation(ct.PrimitiveType.QName) {
+	if compiledType.PrimitiveType != nil && types.IsQNameOrNotation(compiledType.PrimitiveType.QName) {
 		return true
 	}
-	if ct.BaseType != nil {
-		return ct.BaseType.IsQNameOrNotationType
+	if compiledType.BaseType != nil {
+		return compiledType.BaseType.IsQNameOrNotationType
 	}
-	return types.IsQNameOrNotation(ct.QName)
+	return types.IsQNameOrNotation(compiledType.QName)
 }
 
-func (c *Compiler) collectFacets(st *types.SimpleType) []types.Facet {
+func (c *Compiler) collectFacets(simpleType *types.SimpleType) []types.Facet {
 	var result []types.Facet
 
 	// collect facets from base type first (inherited facets)
 	// per XSD spec, patterns from different derivation steps are ANDed together,
 	// so inherited patterns become separate entries in the result.
-	if st.ResolvedBase != nil {
-		if baseST, ok := st.ResolvedBase.(*types.SimpleType); ok {
-			result = append(result, c.collectFacets(baseST)...)
+	if simpleType.ResolvedBase != nil {
+		if baseSimpleType, ok := simpleType.ResolvedBase.(*types.SimpleType); ok {
+			result = append(result, c.collectFacets(baseSimpleType)...)
 		}
 	}
 
 	// collect facets from this type's restriction
 	// per XSD spec, patterns from the SAME derivation step are ORed together.
 	// we group all pattern facets from this step into a PatternSet.
-	if st.Restriction != nil {
+	if simpleType.Restriction != nil {
 		var stepPatterns []*types.Pattern
 
-		for _, f := range st.Restriction.Facets {
+		for _, f := range simpleType.Restriction.Facets {
 			if facet, ok := f.(types.Facet); ok {
 				// check if this is a pattern facet
 				if patternFacet, ok := facet.(*types.Pattern); ok {
@@ -311,7 +311,7 @@ func (c *Compiler) collectFacets(st *types.SimpleType) []types.Facet {
 				}
 			} else if df, ok := f.(*types.DeferredFacet); ok {
 				// convert deferred facets to real facets now that base type is resolved
-				realFacet := c.constructDeferredFacet(df, st)
+				realFacet := c.constructDeferredFacet(df, simpleType)
 				if realFacet != nil {
 					result = append(result, realFacet)
 				}
@@ -331,8 +331,8 @@ func (c *Compiler) collectFacets(st *types.SimpleType) []types.Facet {
 }
 
 // constructDeferredFacet converts a DeferredFacet to a real Facet using the resolved base type.
-func (c *Compiler) constructDeferredFacet(df *types.DeferredFacet, st *types.SimpleType) types.Facet {
-	baseType := st.ResolvedBase
+func (c *Compiler) constructDeferredFacet(df *types.DeferredFacet, simpleType *types.SimpleType) types.Facet {
+	baseType := simpleType.ResolvedBase
 	if baseType == nil {
 		return nil
 	}

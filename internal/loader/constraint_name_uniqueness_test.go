@@ -10,8 +10,8 @@ func TestDuplicateConstraintNameValidation(t *testing.T) {
 	tests := []struct {
 		name       string
 		schema     string
-		shouldFail bool
 		errorMsg   string
+		shouldFail bool
 	}{
 		{
 			name: "duplicate key constraint names",

@@ -93,12 +93,23 @@ const (
 	UnionVariety
 )
 
+func (v SimpleTypeVariety) String() string {
+	switch v {
+	case AtomicVariety:
+		return "atomic"
+	case ListVariety:
+		return "list"
+	case UnionVariety:
+		return "union"
+	default:
+		return "unknown"
+	}
+}
+
 // ListType represents a list type
 type ListType struct {
-	// From itemType attribute (QName to resolve)
-	ItemType QName
-	// From inline <simpleType> child (already parsed)
 	InlineItemType *SimpleType
+	ItemType       QName
 }
 
 // UnionType represents a union type
@@ -107,28 +118,4 @@ type UnionType struct {
 	MemberTypes []QName
 	// From inline <simpleType> children (already parsed)
 	InlineTypes []*SimpleType
-}
-
-// IsFacetApplicable determines if a facet is applicable to a type based on its fundamental facets
-func IsFacetApplicable(facetName string, facets *FundamentalFacets) bool {
-	if facets == nil {
-		return false
-	}
-
-	switch facetName {
-	case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive":
-		// range facets require ordered types.
-		return facets.Ordered == OrderedTotal || facets.Ordered == OrderedPartial
-
-	case "length", "minLength", "maxLength", "pattern", "enumeration", "whiteSpace":
-		// length and lexical facets apply to all types.
-		return true
-
-	case "fractionDigits", "totalDigits":
-		// digit facets apply to numeric types.
-		return facets.Numeric
-	}
-
-	// default: assume applicable
-	return true
 }
