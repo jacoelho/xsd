@@ -29,16 +29,17 @@ const (
 )
 
 type streamFrame struct {
-	id                 uint64
-	qname              types.QName
+	allGroup           *grammar.AllGroupStreamValidator
 	decl               *grammar.CompiledElement
 	typ                *grammar.CompiledType
 	textType           *grammar.CompiledType
 	contentModel       *grammar.CompiledContentModel
 	automaton          *grammar.AutomatonStreamValidator
-	allGroup           *grammar.AllGroupStreamValidator
+	qname              types.QName
 	textBuf            []byte
 	fieldCaptures      []fieldCapture
+	listStream         listStreamState
+	id                 uint64
 	minOccurs          int
 	scopeDepth         int
 	contentKind        streamContentKind
@@ -49,15 +50,25 @@ type streamFrame struct {
 	collectStringValue bool
 }
 
+type listStreamState struct {
+	itemBuf      []byte
+	collapsedBuf []byte
+	itemIndex    int
+	active       bool
+	sawContent   bool
+	needLexical  bool
+	skipValidate bool
+}
+
 type streamRun struct {
 	*validationRun
 	dec             *xsdxml.StreamDecoder
+	constraintDecls map[types.QName][]*grammar.CompiledElement
 	frames          []streamFrame
 	violations      []errors.Validation
+	identityScopes  []*identityScope
 	rootSeen        bool
 	rootClosed      bool
-	identityScopes  []*identityScope
-	constraintDecls map[types.QName][]*grammar.CompiledElement
 }
 
 // ValidateStream validates an XML document using streaming schemacheck.
@@ -285,6 +296,7 @@ func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) erro
 	}
 	r.frames = append(r.frames, frame)
 	r.handleIdentityStart(&r.frames[len(r.frames)-1], ev.Attrs)
+	r.maybeEnableListStreaming(len(r.frames) - 1)
 	return nil
 }
 
@@ -307,6 +319,12 @@ func (r *streamRun) handleCharData(ev xsdxml.Event) {
 		r.addViolation(errors.NewValidation(errors.ErrTextInElementOnly,
 			"Element content cannot have character children (non-whitespace text found)", r.path.String()))
 		frame.invalid = true
+		return
+	}
+
+	if frame.listStream.active {
+		frame.listStream.sawContent = true
+		r.feedListStream(frame, ev.Text)
 		return
 	}
 
@@ -344,6 +362,11 @@ func (r *streamRun) handleEnd(ev xsdxml.Event) error {
 	}
 
 	if frame.textType != nil {
+		if frame.listStream.active {
+			r.finishListStream(frame)
+			r.propagateText(frame)
+			return nil
+		}
 		text := string(frame.textBuf)
 		hadContent := text != ""
 		if text == "" && frame.decl != nil {
@@ -553,6 +576,106 @@ func frameNeedsStringValue(frame streamFrame, parent *streamFrame) bool {
 	return false
 }
 
+func (r *streamRun) maybeEnableListStreaming(frameIndex int) {
+	if r == nil || frameIndex < 0 || frameIndex >= len(r.frames) {
+		return
+	}
+	frame := &r.frames[frameIndex]
+	if !listStreamingAllowed(frame) {
+		return
+	}
+	if frameIndex > 0 && r.frames[frameIndex-1].collectStringValue {
+		return
+	}
+	if frame.decl != nil && frame.decl.HasFixed {
+		return
+	}
+	if len(frame.fieldCaptures) > 0 {
+		return
+	}
+	frame.collectStringValue = false
+	frame.listStream.active = true
+	frame.listStream.needLexical = listFacetsNeedLexical(frame.textType.Facets)
+	frame.listStream.skipValidate = listItemValidationSkippable(frame.textType.ItemType)
+}
+
+func listStreamingAllowed(frame *streamFrame) bool {
+	if frame == nil || frame.textType == nil || frame.textType.ItemType == nil {
+		return false
+	}
+	if len(frame.textType.MemberTypes) > 0 {
+		return false
+	}
+	if frame.textType.Original == nil || frame.textType.Original.WhiteSpace() != types.WhiteSpaceCollapse {
+		return false
+	}
+	if _, ok := unresolvedSimpleType(frame.textType.Original); ok {
+		return false
+	}
+	if frame.textType.IDTypeName != "" && frame.textType.IDTypeName != "IDREFS" {
+		return false
+	}
+	if frame.typ != nil && frame.typ.Kind == grammar.TypeKindComplex && len(frame.typ.Facets) > 0 {
+		return false
+	}
+	return listFacetsAllowStreaming(frame.textType.Facets)
+}
+
+func listFacetsAllowStreaming(facets []types.Facet) bool {
+	return facetsAllowSimpleValue(facets)
+}
+
+func listFacetsNeedLexical(facets []types.Facet) bool {
+	for _, facet := range facets {
+		switch facet.(type) {
+		case *types.Length, *types.MinLength, *types.MaxLength:
+			continue
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+func listItemValidationSkippable(itemType *grammar.CompiledType) bool {
+	if itemType == nil || itemType.Original == nil {
+		return false
+	}
+	if len(itemType.MemberTypes) > 0 || len(itemType.Facets) > 0 {
+		return false
+	}
+	if itemType.ItemType != nil || itemType.IsNotationType {
+		return false
+	}
+	if _, ok := unresolvedSimpleType(itemType.Original); ok {
+		return false
+	}
+	if itemType.Kind == grammar.TypeKindBuiltin {
+		return listItemNoopBuiltin(itemType.Original)
+	}
+	base := itemType.BaseType
+	for base != nil && base.Kind != grammar.TypeKindBuiltin {
+		base = base.BaseType
+	}
+	if base == nil || base.Original == nil {
+		return false
+	}
+	return listItemNoopBuiltin(base.Original)
+}
+
+func listItemNoopBuiltin(typ types.Type) bool {
+	bt, ok := typ.(*types.BuiltinType)
+	if !ok || bt == nil {
+		return false
+	}
+	switch bt.Name().Local {
+	case "anySimpleType", "string", "normalizedString", "token":
+		return true
+	default:
+		return false
+	}
+}
+
 func (r *streamRun) resolveMatchedDecl(parent *streamFrame, actual types.QName, matchedDecl *grammar.CompiledElement, matchedQName types.QName) *grammar.CompiledElement {
 	if matchedDecl != nil {
 		return r.resolveSubstitutionDecl(actual, matchedDecl)
@@ -613,6 +736,156 @@ func (r *streamRun) propagateText(frame *streamFrame) {
 		return
 	}
 	parent.textBuf = append(parent.textBuf, frame.textBuf...)
+}
+
+func (r *streamRun) feedListStream(frame *streamFrame, data []byte) {
+	if frame == nil || frame.textType == nil || frame.textType.ItemType == nil {
+		return
+	}
+	state := &frame.listStream
+	for i := 0; i < len(data); {
+		if isXMLWhitespaceByte(data[i]) {
+			if len(state.itemBuf) > 0 {
+				r.flushListItem(frame)
+			}
+			i++
+			continue
+		}
+		start := i
+		for i < len(data) && !isXMLWhitespaceByte(data[i]) {
+			i++
+		}
+		if len(state.itemBuf) == 0 && i < len(data) {
+			r.processListItemBytes(frame, data[start:i])
+			continue
+		}
+		state.itemBuf = append(state.itemBuf, data[start:i]...)
+		if i < len(data) {
+			r.flushListItem(frame)
+		}
+	}
+}
+
+func (r *streamRun) finishListStream(frame *streamFrame) {
+	if frame == nil || frame.textType == nil || frame.textType.ItemType == nil {
+		return
+	}
+	state := &frame.listStream
+	if !state.sawContent {
+		value := ""
+		if frame.decl != nil {
+			if frame.decl.Default != "" {
+				value = frame.decl.Default
+			} else if frame.decl.HasFixed {
+				value = frame.decl.Fixed
+			}
+		}
+		r.violations = append(r.violations, r.checkSimpleValue(value, frame.textType, frame.scopeDepth)...)
+		r.violations = append(r.violations, r.collectIDRefs(value, frame.textType)...)
+		return
+	}
+
+	r.flushListItem(frame)
+	r.applyListStreamingFacets(frame.textType, state)
+}
+
+func (r *streamRun) flushListItem(frame *streamFrame) {
+	if frame == nil || frame.textType == nil || frame.textType.ItemType == nil {
+		return
+	}
+	state := &frame.listStream
+	if len(state.itemBuf) == 0 {
+		return
+	}
+	itemBytes := state.itemBuf
+	state.itemBuf = state.itemBuf[:0]
+	r.processListItemBytes(frame, itemBytes)
+}
+
+func (r *streamRun) processListItemBytes(frame *streamFrame, itemBytes []byte) {
+	if frame == nil || frame.textType == nil || frame.textType.ItemType == nil {
+		return
+	}
+	if len(itemBytes) == 0 {
+		return
+	}
+	state := &frame.listStream
+	if state.needLexical {
+		if len(state.collapsedBuf) > 0 {
+			state.collapsedBuf = append(state.collapsedBuf, ' ')
+		}
+		state.collapsedBuf = append(state.collapsedBuf, itemBytes...)
+	}
+	index := state.itemIndex
+	state.itemIndex++
+	if state.skipValidate {
+		if frame.textType.IDTypeName == "IDREFS" {
+			r.trackListIDRefs(string(itemBytes), frame.textType)
+		}
+		return
+	}
+	item := string(itemBytes)
+	valid, violations := r.validateListItemNormalized(item, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport)
+	if !valid {
+		r.violations = append(r.violations, violations...)
+	}
+	r.trackListIDRefs(item, frame.textType)
+}
+
+func (r *streamRun) applyListStreamingFacets(ct *grammar.CompiledType, state *listStreamState) {
+	if ct == nil || state == nil {
+		return
+	}
+	lexicalValue := ""
+	if state.needLexical {
+		lexicalValue = string(state.collapsedBuf)
+	}
+	var typedValue types.TypedValue
+
+	for _, facet := range ct.Facets {
+		if shouldSkipLengthFacet(ct, facet) {
+			continue
+		}
+		var err error
+		switch f := facet.(type) {
+		case *types.Length:
+			if state.itemIndex != f.Value {
+				err = fmt.Errorf("length must be %d, got %d", f.Value, state.itemIndex)
+			}
+		case *types.MinLength:
+			if state.itemIndex < f.Value {
+				err = fmt.Errorf("length must be at least %d, got %d", f.Value, state.itemIndex)
+			}
+		case *types.MaxLength:
+			if state.itemIndex > f.Value {
+				err = fmt.Errorf("length must be at most %d, got %d", f.Value, state.itemIndex)
+			}
+		default:
+			if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
+				err = lexicalFacet.ValidateLexical(lexicalValue, ct.Original)
+				break
+			}
+			if typedValue == nil {
+				if !state.needLexical {
+					continue
+				}
+				typedValue = typedValueForFacets(lexicalValue, ct.Original, ct.Facets)
+			}
+			if facetErr := facet.Validate(typedValue, ct.Original); facetErr != nil {
+				err = facetErr
+			}
+		}
+		if err != nil {
+			r.violations = append(r.violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+		}
+	}
+}
+
+func (r *streamRun) trackListIDRefs(item string, ct *grammar.CompiledType) {
+	if ct == nil || ct.IDTypeName != "IDREFS" {
+		return
+	}
+	r.trackIDREF(item, r.path.String())
 }
 
 func isIgnorableOutsideRoot(data []byte) bool {

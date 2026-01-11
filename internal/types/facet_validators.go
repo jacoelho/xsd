@@ -327,11 +327,15 @@ func (l *Length) GetIntValue() int {
 
 // Validate checks if the value has the exact length (unified Facet interface)
 func (l *Length) Validate(value TypedValue, baseType Type) error {
+	return l.ValidateLexical(value.Lexical(), baseType)
+}
+
+// ValidateLexical checks if the lexical value has the exact length.
+func (l *Length) ValidateLexical(lexical string, baseType Type) error {
 	// per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
 	if isQNameOrNotationType(baseType) {
 		return nil
 	}
-	lexical := value.Lexical()
 	length := getLength(lexical, baseType)
 	if length != l.Value {
 		return fmt.Errorf("length must be %d, got %d", l.Value, length)
@@ -356,11 +360,15 @@ func (m *MinLength) GetIntValue() int {
 
 // Validate checks if the value meets minimum length (unified Facet interface)
 func (m *MinLength) Validate(value TypedValue, baseType Type) error {
+	return m.ValidateLexical(value.Lexical(), baseType)
+}
+
+// ValidateLexical checks if the lexical value meets minimum length.
+func (m *MinLength) ValidateLexical(lexical string, baseType Type) error {
 	// per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
 	if isQNameOrNotationType(baseType) {
 		return nil
 	}
-	lexical := value.Lexical()
 	length := getLength(lexical, baseType)
 	if length < m.Value {
 		return fmt.Errorf("length must be at least %d, got %d", m.Value, length)
@@ -385,11 +393,15 @@ func (m *MaxLength) GetIntValue() int {
 
 // Validate checks if the value meets maximum length (unified Facet interface)
 func (m *MaxLength) Validate(value TypedValue, baseType Type) error {
+	return m.ValidateLexical(value.Lexical(), baseType)
+}
+
+// ValidateLexical checks if the lexical value meets maximum length.
+func (m *MaxLength) ValidateLexical(lexical string, baseType Type) error {
 	// per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
 	if isQNameOrNotationType(baseType) {
 		return nil
 	}
-	lexical := value.Lexical()
 	length := getLength(lexical, baseType)
 	if length > m.Value {
 		return fmt.Errorf("length must be at most %d, got %d", m.Value, length)
@@ -429,7 +441,11 @@ func (e *Enumeration) Name() string {
 
 // Validate checks if the value is in the enumeration (unified Facet interface)
 func (e *Enumeration) Validate(value TypedValue, baseType Type) error {
-	lexical := value.Lexical()
+	return e.ValidateLexical(value.Lexical(), baseType)
+}
+
+// ValidateLexical checks if the lexical value is in the enumeration.
+func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 	if isDateTimeType(baseType) {
 		for _, allowed := range e.Values {
 			if dateTimeValuesEqual(lexical, allowed, baseType) {
@@ -505,7 +521,12 @@ func (t *TotalDigits) GetIntValue() int {
 
 // Validate checks if the total number of digits doesn't exceed the limit (unified Facet interface)
 func (t *TotalDigits) Validate(value TypedValue, baseType Type) error {
-	lexical := strings.TrimSpace(value.Lexical())
+	return t.ValidateLexical(value.Lexical(), baseType)
+}
+
+// ValidateLexical checks if the lexical value respects totalDigits.
+func (t *TotalDigits) ValidateLexical(lexical string, _ Type) error {
+	lexical = strings.TrimSpace(lexical)
 	digitCount := countDigits(lexical)
 	if digitCount > t.Value {
 		return fmt.Errorf("total number of digits (%d) exceeds limit (%d)", digitCount, t.Value)
@@ -530,7 +551,12 @@ func (f *FractionDigits) GetIntValue() int {
 
 // Validate checks if the number of fractional digits doesn't exceed the limit (unified Facet interface)
 func (f *FractionDigits) Validate(value TypedValue, baseType Type) error {
-	lexical := strings.TrimSpace(value.Lexical())
+	return f.ValidateLexical(value.Lexical(), baseType)
+}
+
+// ValidateLexical checks if the lexical value respects fractionDigits.
+func (f *FractionDigits) ValidateLexical(lexical string, _ Type) error {
+	lexical = strings.TrimSpace(lexical)
 	fractionDigits := countFractionDigits(lexical)
 	if fractionDigits > f.Value {
 		return fmt.Errorf("number of fraction digits (%d) exceeds limit (%d)", fractionDigits, f.Value)

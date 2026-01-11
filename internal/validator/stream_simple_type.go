@@ -79,17 +79,31 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 		}
 	}
 
-	typedValue := typedValueForFacets(normalizedValue, st.Original, st.Facets)
 	var violations []errors.Validation
-	for _, facet := range st.Facets {
-		if shouldSkipLengthFacet(st, facet) {
-			continue
-		}
-		if err := facet.Validate(typedValue, st.Original); err != nil {
-			if policy == errorPolicySuppress {
-				return false, nil
+	if len(st.Facets) > 0 {
+		var typedValue types.TypedValue
+		for _, facet := range st.Facets {
+			if shouldSkipLengthFacet(st, facet) {
+				continue
 			}
-			violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+			if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
+				if err := lexicalFacet.ValidateLexical(normalizedValue, st.Original); err != nil {
+					if policy == errorPolicySuppress {
+						return false, nil
+					}
+					violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+				}
+				continue
+			}
+			if typedValue == nil {
+				typedValue = typedValueForFacets(normalizedValue, st.Original, st.Facets)
+			}
+			if err := facet.Validate(typedValue, st.Original); err != nil {
+				if policy == errorPolicySuppress {
+					return false, nil
+				}
+				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+			}
 		}
 	}
 
@@ -105,7 +119,7 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 	abort := false
 	index := 0
 	splitWhitespaceSeq(value, func(item string) bool {
-		itemValid, itemViolations := r.validateListItemInternal(item, st.ItemType, index, scopeDepth, policy)
+		itemValid, itemViolations := r.validateListItemNormalized(item, st.ItemType, index, scopeDepth, policy)
 		index++
 		if !itemValid {
 			valid = false
@@ -123,10 +137,23 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 	}
 
 	if len(st.Facets) > 0 {
-		typedValue := typedValueForFacets(value, st.Original, st.Facets)
+		var typedValue types.TypedValue
 		for _, facet := range st.Facets {
 			if shouldSkipLengthFacet(st, facet) {
 				continue
+			}
+			if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
+				if err := lexicalFacet.ValidateLexical(value, st.Original); err != nil {
+					valid = false
+					if policy == errorPolicySuppress {
+						return false, nil
+					}
+					violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+				}
+				continue
+			}
+			if typedValue == nil {
+				typedValue = typedValueForFacets(value, st.Original, st.Facets)
 			}
 			if err := facet.Validate(typedValue, st.Original); err != nil {
 				valid = false
@@ -144,7 +171,7 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 	return valid, nil
 }
 
-func (r *streamRun) validateListItemInternal(item string, itemType *grammar.CompiledType, index int, scopeDepth int, policy errorPolicy) (bool, []errors.Validation) {
+func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.CompiledType, index int, scopeDepth int, policy errorPolicy) (bool, []errors.Validation) {
 	if itemType == nil || itemType.Original == nil {
 		return true, nil
 	}
@@ -157,15 +184,13 @@ func (r *streamRun) validateListItemInternal(item string, itemType *grammar.Comp
 		return false, nil
 	}
 
-	normalizedItem := types.NormalizeWhiteSpace(item, itemType.Original)
-
 	var violations []errors.Validation
 
 	if len(itemType.MemberTypes) > 0 {
-		if !r.validateUnionValue(normalizedItem, itemType.MemberTypes, scopeDepth) {
+		if !r.validateUnionValue(item, itemType.MemberTypes, scopeDepth) {
 			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
-					"list item[%d] '%s' does not match any member type of union", index, normalizedItem))
+					"list item[%d] '%s' does not match any member type of union", index, item))
 				return false, violations
 			}
 			return false, nil
@@ -175,7 +200,7 @@ func (r *streamRun) validateListItemInternal(item string, itemType *grammar.Comp
 
 	switch orig := itemType.Original.(type) {
 	case *types.SimpleType:
-		if err := orig.Validate(normalizedItem); err != nil {
+		if err := validateSimpleTypeNormalized(orig, item); err != nil {
 			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d]: %s", index, err.Error()))
@@ -184,7 +209,7 @@ func (r *streamRun) validateListItemInternal(item string, itemType *grammar.Comp
 			return false, nil
 		}
 	case *types.BuiltinType:
-		if err := orig.Validate(normalizedItem); err != nil {
+		if err := orig.Validate(item); err != nil {
 			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d]: %s", index, err.Error()))
@@ -196,26 +221,41 @@ func (r *streamRun) validateListItemInternal(item string, itemType *grammar.Comp
 
 	if r.isNotationType(itemType) {
 		if policy == errorPolicyReport {
-			if itemViolations := r.validateNotationReference(normalizedItem, scopeDepth); len(itemViolations) > 0 {
+			if itemViolations := r.validateNotationReference(item, scopeDepth); len(itemViolations) > 0 {
 				violations = append(violations, itemViolations...)
 				return false, violations
 			}
-		} else if !r.isValidNotationReference(normalizedItem, scopeDepth) {
+		} else if !r.isValidNotationReference(item, scopeDepth) {
 			return false, nil
 		}
 	}
 
-	typedValue := typedValueForFacets(normalizedItem, itemType.Original, itemType.Facets)
-	for _, facet := range itemType.Facets {
-		if shouldSkipLengthFacet(itemType, facet) {
-			continue
-		}
-		if err := facet.Validate(typedValue, itemType.Original); err != nil {
-			if policy == errorPolicySuppress {
-				return false, nil
+	if len(itemType.Facets) > 0 {
+		var typedValue types.TypedValue
+		for _, facet := range itemType.Facets {
+			if shouldSkipLengthFacet(itemType, facet) {
+				continue
 			}
-			violations = append(violations, errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
-				"list item[%d]: %s", index, err.Error()))
+			if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
+				if err := lexicalFacet.ValidateLexical(item, itemType.Original); err != nil {
+					if policy == errorPolicySuppress {
+						return false, nil
+					}
+					violations = append(violations, errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
+						"list item[%d]: %s", index, err.Error()))
+				}
+				continue
+			}
+			if typedValue == nil {
+				typedValue = typedValueForFacets(item, itemType.Original, itemType.Facets)
+			}
+			if err := facet.Validate(typedValue, itemType.Original); err != nil {
+				if policy == errorPolicySuppress {
+					return false, nil
+				}
+				violations = append(violations, errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
+					"list item[%d]: %s", index, err.Error()))
+			}
 		}
 	}
 
@@ -223,6 +263,24 @@ func (r *streamRun) validateListItemInternal(item string, itemType *grammar.Comp
 		return false, violations
 	}
 	return true, nil
+}
+
+func validateSimpleTypeNormalized(st *types.SimpleType, normalized string) error {
+	if st == nil {
+		return nil
+	}
+	if st.IsBuiltin() {
+		if bt := types.GetBuiltinNS(st.QName.Namespace, st.QName.Local); bt != nil {
+			return bt.Validate(normalized)
+		}
+	}
+	if st.Restriction != nil {
+		baseType := types.GetBuiltinNS(st.Restriction.Base.Namespace, st.Restriction.Base.Local)
+		if baseType != nil {
+			return baseType.Validate(normalized)
+		}
+	}
+	return nil
 }
 
 func (r *streamRun) validateUnionValue(value string, memberTypes []*grammar.CompiledType, scopeDepth int) bool {

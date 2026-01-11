@@ -139,3 +139,23 @@ func TestNormalizeValue_WhiteSpace(t *testing.T) {
 		t.Errorf("NormalizeValue() = %q, want %q", normalized, "alpha beta")
 	}
 }
+
+func TestNormalizeValue_XMLWhitespaceOnly(t *testing.T) {
+	typ := &SimpleType{
+		QName: QName{
+			Namespace: "http://example.com",
+			Local:     "NormalizedString",
+		},
+	}
+	typ.SetVariety(AtomicVariety)
+	typ.SetWhiteSpace(WhiteSpaceCollapse)
+
+	input := "alpha\u00a0beta"
+	normalized, err := NormalizeValue(input, typ)
+	if err != nil {
+		t.Fatalf("NormalizeValue() error = %v", err)
+	}
+	if normalized != input {
+		t.Errorf("NormalizeValue() = %q, want %q", normalized, input)
+	}
+}
