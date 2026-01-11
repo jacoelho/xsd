@@ -11,8 +11,8 @@ func TestNotationEnumerationValidation(t *testing.T) {
 	tests := []struct {
 		name      string
 		schema    string
-		wantError bool
 		errMsg    string
+		wantError bool
 	}{
 		{
 			name: "valid - enumeration references declared notation",
@@ -135,8 +135,8 @@ func TestInvalidParticleOccurrenceConstraints(t *testing.T) {
 	tests := []struct {
 		name      string
 		schema    string
-		wantError bool
 		errMsg    string
+		wantError bool
 	}{
 		{
 			name: "minOccurs > maxOccurs should be invalid (maxOccurs=0 case)",
@@ -259,8 +259,8 @@ func TestExtensionOfAllGroup(t *testing.T) {
 	tests := []struct {
 		name      string
 		schema    string
-		wantError bool
 		errMsg    string
+		wantError bool
 	}{
 		{
 			name: "extension of xs:all base type should be invalid",
@@ -351,8 +351,8 @@ func TestAttributeReferenceFixedValueConflict(t *testing.T) {
 	tests := []struct {
 		name      string
 		schema    string
-		wantError bool
 		errMsg    string
+		wantError bool
 	}{
 		{
 			name: "attribute reference with conflicting fixed value should be invalid",

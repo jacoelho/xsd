@@ -318,9 +318,9 @@ func TestWildcardProcessContents(t *testing.T) {
 		name        string
 		schemaXML   string
 		xmlDoc      string
-		shouldErr   bool
 		errorCode   string
 		description string
+		shouldErr   bool
 	}{
 		{
 			name: "strict requires declaration",

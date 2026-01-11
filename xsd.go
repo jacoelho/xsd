@@ -17,8 +17,8 @@ import (
 // Schema wraps a compiled schema with convenience methods.
 type Schema struct {
 	compiled          *grammar.CompiledSchema
-	validatorOnce     sync.Once
 	validatorInstance *validator.Validator
+	validatorOnce     sync.Once
 }
 
 // Load loads and compiles a schema from the given filesystem and location.

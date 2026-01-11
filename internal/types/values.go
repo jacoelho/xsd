@@ -31,8 +31,8 @@ type TypedValue interface {
 
 // ParsedValue captures a normalized lexical value and its parsed native form.
 type ParsedValue[T any] struct {
-	Lexical string
 	Native  T
+	Lexical string
 }
 
 // NewParsedValue constructs a ParsedValue from lexical and native values.
@@ -93,10 +93,10 @@ func normalizerForType(typ Type) ValueNormalizer {
 }
 
 type simpleValue[T any] struct {
-	lexical  string
 	native   T
 	typ      *SimpleType
 	toString func(T) string
+	lexical  string
 }
 
 func newSimpleValue[T any](parsed ParsedValue[T], typ *SimpleType, toString func(T) string) simpleValue[T] {
@@ -436,9 +436,8 @@ func (c ComparableTime) Unwrap() any {
 
 // ComparableFloat64 wraps float64 to implement ComparableValue with NaN/INF handling
 type ComparableFloat64 struct {
+	Typ   Type
 	Value float64
-	// XSD type this value represents
-	Typ Type
 }
 
 // Compare compares with another ComparableValue (implements ComparableValue)
@@ -509,9 +508,8 @@ func (c ComparableFloat64) Unwrap() any {
 
 // ComparableFloat32 wraps float32 to implement ComparableValue with NaN/INF handling
 type ComparableFloat32 struct {
+	Typ   Type
 	Value float32
-	// XSD type this value represents
-	Typ Type
 }
 
 // Compare compares with another ComparableValue (implements ComparableValue)
@@ -543,9 +541,8 @@ func (c ComparableFloat32) Unwrap() any {
 // ComparableDuration wraps time.Duration to implement ComparableValue
 // Note: Durations are partially ordered, so comparison is limited to pure day/time durations
 type ComparableDuration struct {
+	Typ   Type
 	Value time.Duration
-	// XSD type this value represents
-	Typ Type
 }
 
 // ParseDurationToTimeDuration parses an XSD duration string into a time.Duration
@@ -751,9 +748,8 @@ type XSDDuration struct {
 // ComparableXSDDuration wraps XSDDuration to implement ComparableValue
 // This supports full XSD durations including years and months
 type ComparableXSDDuration struct {
+	Typ   Type
 	Value XSDDuration
-	// XSD type this value represents
-	Typ Type
 }
 
 // ParseXSDDuration parses an XSD duration string into an XSDDuration struct

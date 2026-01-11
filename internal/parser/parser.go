@@ -19,9 +19,9 @@ var validNotationAttributes = map[string]bool{
 
 // ParseError represents a schema parsing error with an error code
 type ParseError struct {
+	Err     error
 	Code    string
 	Message string
-	Err     error
 }
 
 // Error implements the error interface.

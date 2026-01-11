@@ -31,12 +31,12 @@ const (
 
 // AnyElement represents an <any> wildcard
 type AnyElement struct {
-	Namespace       NamespaceConstraint
+	TargetNamespace NamespaceURI
 	NamespaceList   []NamespaceURI
+	Namespace       NamespaceConstraint
 	ProcessContents ProcessContents
 	MinOccurs       int
 	MaxOccurs       int
-	TargetNamespace NamespaceURI
 }
 
 // MinOcc implements Particle interface
@@ -51,10 +51,10 @@ func (a *AnyElement) MaxOcc() int {
 
 // AnyAttribute represents an <anyAttribute> wildcard
 type AnyAttribute struct {
-	Namespace       NamespaceConstraint
-	NamespaceList   []NamespaceURI
-	ProcessContents ProcessContents
 	TargetNamespace NamespaceURI
+	NamespaceList   []NamespaceURI
+	Namespace       NamespaceConstraint
+	ProcessContents ProcessContents
 }
 
 // AllowsQName reports whether the anyAttribute wildcard allows the given QName.
@@ -69,14 +69,14 @@ func (a *AnyAttribute) AllowsQName(qname QName) bool {
 const NSCInvalid NamespaceConstraint = -1
 
 type intersectedNamespace struct {
-	Constraint    NamespaceConstraint
 	NamespaceList []NamespaceURI
+	Constraint    NamespaceConstraint
 }
 
 type wildcardConstraint struct {
-	constraint NamespaceConstraint
-	list       []NamespaceURI
 	target     NamespaceURI
+	list       []NamespaceURI
+	constraint NamespaceConstraint
 }
 
 // AllowsNamespace reports whether a namespace is permitted by a wildcard constraint.

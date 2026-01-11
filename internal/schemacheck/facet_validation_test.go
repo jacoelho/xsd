@@ -16,8 +16,8 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 		baseTypeName  string
 		facetName     string
 		facetValue    string
-		shouldAccept  bool
 		expectedError string
+		shouldAccept  bool
 	}{
 		// numeric types (OrderedTotal) - should accept range facets
 		{

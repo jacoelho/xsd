@@ -7,8 +7,8 @@ import (
 
 // CopyOptions configures how schema components are copied during merge.
 type CopyOptions struct {
-	SourceNamespace NamespaceURI
 	RemapQName      func(QName) QName
+	SourceNamespace NamespaceURI
 }
 
 // NilRemap returns qname unchanged (for non-chameleon merges)

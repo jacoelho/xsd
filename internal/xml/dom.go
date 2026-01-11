@@ -20,12 +20,12 @@ type Document struct {
 type node struct {
 	namespace   string
 	local       string
+	text        []byte
 	attrsOff    int
 	attrsLen    int
 	childrenOff int
 	childrenLen int
 	parent      NodeID
-	text        []byte
 }
 
 // Attr exposes attribute name, namespace, and value.

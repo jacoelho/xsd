@@ -42,34 +42,32 @@ var (
 )
 
 type elementAttrScan struct {
-	id         string
-	ref        string
-	name       string
-	typ        string
-	minOccurs  string
-	maxOccurs  string
-	defaultVal string
-	fixedVal   string
-	nillable   string
-	block      string
-	form       string
-
-	hasID        bool
-	hasRef       bool
-	hasName      bool
-	hasType      bool
-	hasMinOccurs bool
-	hasMaxOccurs bool
-	hasDefault   bool
-	hasFixed     bool
-	hasNillable  bool
-	hasBlock     bool
-	hasForm      bool
-	hasAbstract  bool
-	hasFinal     bool
-
+	defaultVal       string
+	ref              string
+	name             string
+	typ              string
+	minOccurs        string
+	maxOccurs        string
 	invalidRefAttr   string
+	fixedVal         string
+	nillable         string
+	block            string
+	form             string
 	invalidLocalAttr string
+	id               string
+	hasRef           bool
+	hasType          bool
+	hasMinOccurs     bool
+	hasMaxOccurs     bool
+	hasDefault       bool
+	hasFixed         bool
+	hasNillable      bool
+	hasBlock         bool
+	hasForm          bool
+	hasAbstract      bool
+	hasFinal         bool
+	hasName          bool
+	hasID            bool
 }
 
 func scanElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) elementAttrScan {

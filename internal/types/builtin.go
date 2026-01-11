@@ -15,15 +15,14 @@ type TypeValidator func(value string) error
 
 // BuiltinType represents a built-in XSD type
 type BuiltinType struct {
-	name string
-	// Cached QName for performance
-	qname                  QName
-	validator              TypeValidator
-	whiteSpace             WhiteSpace
-	ordered                bool
 	primitiveTypeCache     Type
+	validator              TypeValidator
 	fundamentalFacetsCache *FundamentalFacets
 	simpleWrapper          *SimpleType
+	qname                  QName
+	name                   string
+	whiteSpace             WhiteSpace
+	ordered                bool
 }
 
 var builtinRegistry = map[string]*BuiltinType{

@@ -77,8 +77,8 @@ type Validation struct {
 	Code     string
 	Message  string
 	Path     string
-	Expected []string
 	Actual   string
+	Expected []string
 }
 
 // ValidationList is an error that wraps one or more validation errors.

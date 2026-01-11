@@ -95,10 +95,8 @@ const (
 
 // ListType represents a list type
 type ListType struct {
-	// From itemType attribute (QName to resolve)
-	ItemType QName
-	// From inline <simpleType> child (already parsed)
 	InlineItemType *SimpleType
+	ItemType       QName
 }
 
 // UnionType represents a union type

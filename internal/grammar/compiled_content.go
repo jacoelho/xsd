@@ -17,27 +17,16 @@ const (
 // CompiledContentModel is a pre-compiled content model.
 // All group references are expanded. The automaton is pre-built for O(n) schemacheck.
 type CompiledContentModel struct {
-	// Sequence, Choice, All
-	Kind types.GroupKind
-	// Flattened (no GroupRefs)
-	Particles []*CompiledParticle
-	// Pre-compiled DFA (not used for AllGroup)
-	Automaton *Automaton
-	// True if content can be empty
-	Empty bool
-	// True if content model accepts no instances
-	RejectAll bool
-	// True if mixed content allowed
-	Mixed bool
-	// MinOccurs of the top-level group (default 1)
-	MinOccurs int
-
-	// AllElements holds all-group elements for array-based schemacheck.
-	AllElements []*AllGroupElement
-
-	// Cached validation data (precomputed during compilation)
+	Automaton        *Automaton
 	ElementIndex     map[types.QName]*CompiledElement
+	Particles        []*CompiledParticle
+	AllElements      []*AllGroupElement
 	SimpleSequence   []*CompiledParticle
+	Kind             types.GroupKind
+	MinOccurs        int
+	Empty            bool
+	RejectAll        bool
+	Mixed            bool
 	IsSimpleSequence bool
 }
 
@@ -83,22 +72,14 @@ func (e *AllGroupElement) AllowsSubstitution() bool {
 
 // CompiledParticle is a particle with resolved element type.
 type CompiledParticle struct {
-	Kind      ParticleKind
-	MinOccurs int
-	MaxOccurs int
-	// IsReference is true when this particle is from a ref="..." element.
-	// Substitution groups are only allowed for references.
+	Element     *CompiledElement
+	Wildcard    *types.AnyElement
+	Children    []*CompiledParticle
+	Kind        ParticleKind
+	MinOccurs   int
+	MaxOccurs   int
+	GroupKind   types.GroupKind
 	IsReference bool
-
-	// For element particles
-	Element *CompiledElement
-
-	// For group particles (sequence/choice/all)
-	Children  []*CompiledParticle
-	GroupKind types.GroupKind
-
-	// For wildcard particles
-	Wildcard *types.AnyElement
 }
 
 // Wildcards returns all wildcards in the content model.
