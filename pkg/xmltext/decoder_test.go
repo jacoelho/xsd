@@ -941,6 +941,449 @@ func TestNormalizeLimit(t *testing.T) {
 	}
 }
 
+func TestDecoderUtilities(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<root>\n<child attr=\"v\"/></root>"), ResolveEntities(true))
+	if value, ok := GetOption(dec.Options(), ResolveEntities); !ok || !value {
+		t.Fatalf("Options ResolveEntities = %v, want true", value)
+	}
+
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken root error = %v", err)
+	}
+	if tok.Line != 1 || tok.Column != 1 {
+		t.Fatalf("root line/column = %d/%d, want 1/1", tok.Line, tok.Column)
+	}
+	if got := string(dec.UnreadBuffer()); !strings.HasPrefix(got, "\n<child") {
+		t.Fatalf("UnreadBuffer = %q, want prefix \\n<child", got)
+	}
+	if dec.InputOffset() != int64(len("<root>")) {
+		t.Fatalf("InputOffset = %d, want %d", dec.InputOffset(), len("<root>"))
+	}
+	if tok.Clone().Kind != tok.Kind {
+		t.Fatalf("Clone kind = %v, want %v", tok.Clone().Kind, tok.Kind)
+	}
+
+	tok, err = dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken child error = %v", err)
+	}
+	if tok.Kind == KindCharData {
+		tok, err = dec.ReadToken()
+		if err != nil {
+			t.Fatalf("ReadToken child start error = %v", err)
+		}
+	}
+	if tok.Kind != KindStartElement {
+		t.Fatalf("child kind = %v, want %v", tok.Kind, KindStartElement)
+	}
+	if tok.Line != 2 || tok.Column != 1 {
+		t.Fatalf("child line/column = %d/%d, want 2/1", tok.Line, tok.Column)
+	}
+	if got := dec.StackIndex(0); string(dec.SpanBytes(got.Name.Local)) != "root" {
+		t.Fatalf("StackIndex(0) name = %q, want root", dec.SpanBytes(got.Name.Local))
+	}
+	if got := dec.StackIndex(1); string(dec.SpanBytes(got.Name.Local)) != "child" {
+		t.Fatalf("StackIndex(1) name = %q, want child", dec.SpanBytes(got.Name.Local))
+	}
+	if got := dec.StackIndex(2); got.Name.Full.buf != nil {
+		t.Fatalf("StackIndex(2) = %v, want zero value", got)
+	}
+	if got := dec.StackPointer(); got != "/root[1]/child[1]" {
+		t.Fatalf("StackPointer = %q, want /root[1]/child[1]", got)
+	}
+
+	dst := []AttrSpan{{}}
+	attrs := append(dst, tok.Attrs...)
+	if len(attrs) != 2 {
+		t.Fatalf("AttrsInto len = %d, want 2", len(attrs))
+	}
+
+	for {
+		_, err := dec.ReadToken()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("ReadToken error = %v", err)
+		}
+	}
+	if dec.UnreadBuffer() != nil {
+		t.Fatalf("UnreadBuffer at EOF = %v, want nil", dec.UnreadBuffer())
+	}
+}
+
+func TestDebugPoisonSpans(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<root><child/></root>"), DebugPoisonSpans(true))
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken root error = %v", err)
+	}
+	if dec.SpanBytes(tok.Name.Local) == nil {
+		t.Fatalf("SpanBytes returned nil for current token")
+	}
+	if _, err := dec.ReadToken(); err != nil {
+		t.Fatalf("ReadToken child error = %v", err)
+	}
+	if tok.Raw.bytes() != nil {
+		t.Fatalf("SpanBytes returned data for stale token")
+	}
+}
+
+func TestSpanStringStableAndUnstable(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<root>text</root>"))
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken root error = %v", err)
+	}
+	if tok.Name.Local.buf == nil || !tok.Name.Local.buf.stable {
+		t.Fatalf("expected stable name buffer")
+	}
+	if got := dec.SpanString(tok.Name.Local); got != "root" {
+		t.Fatalf("SpanString root = %q, want root", got)
+	}
+
+	tok, err = dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken text error = %v", err)
+	}
+	if tok.Kind != KindCharData {
+		t.Fatalf("text kind = %v, want %v", tok.Kind, KindCharData)
+	}
+	if tok.Text.buf == nil || tok.Text.buf.stable {
+		t.Fatalf("expected unstable text buffer")
+	}
+	if got := dec.SpanString(tok.Text); got != "text" {
+		t.Fatalf("SpanString text = %q, want text", got)
+	}
+}
+
+func TestReadTokenIntoWithBuffers(t *testing.T) {
+	dec := NewDecoder(strings.NewReader(`<root a="1" b="2"></root>`))
+	tok := Token{
+		Attrs:        make([]AttrSpan, 0, 2),
+		AttrNeeds:    make([]bool, 0, 2),
+		AttrRaw:      make([]Span, 0, 2),
+		AttrRawNeeds: make([]bool, 0, 2),
+	}
+	if err := dec.ReadTokenInto(&tok); err != nil {
+		t.Fatalf("ReadTokenInto error = %v", err)
+	}
+	if tok.Kind != KindStartElement {
+		t.Fatalf("kind = %v, want %v", tok.Kind, KindStartElement)
+	}
+	if got := len(tok.Attrs); got != 2 {
+		t.Fatalf("attrs len = %d, want 2", got)
+	}
+	if len(tok.AttrNeeds) != 2 || len(tok.AttrRaw) != 2 || len(tok.AttrRawNeeds) != 2 {
+		t.Fatalf("attr slices len = %d/%d/%d, want 2/2/2", len(tok.AttrNeeds), len(tok.AttrRaw), len(tok.AttrRawNeeds))
+	}
+	if got := string(dec.SpanBytes(tok.Attrs[0].Name.Local)); got != "a" {
+		t.Fatalf("attr[0] name = %q, want a", got)
+	}
+	if got := string(dec.SpanBytes(tok.Attrs[0].ValueSpan)); got != "1" {
+		t.Fatalf("attr[0] value = %q, want 1", got)
+	}
+}
+
+func TestDecoderSkipValueBranches(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<root/>"))
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken root error = %v", err)
+	}
+	if tok.Kind != KindStartElement {
+		t.Fatalf("root kind = %v, want %v", tok.Kind, KindStartElement)
+	}
+	if err := dec.SkipValue(); err != nil {
+		t.Fatalf("SkipValue self-closing error = %v", err)
+	}
+	if _, err := dec.ReadToken(); err != io.EOF {
+		t.Fatalf("ReadToken EOF = %v, want io.EOF", err)
+	}
+	if err := dec.SkipValue(); err != io.EOF {
+		t.Fatalf("SkipValue EOF = %v, want io.EOF", err)
+	}
+
+	dec = NewDecoder(strings.NewReader("<root><child/></root>"))
+	if _, err := dec.ReadToken(); err != nil {
+		t.Fatalf("ReadToken root start error = %v", err)
+	}
+	if err := dec.SkipValue(); err != nil {
+		t.Fatalf("SkipValue element error = %v", err)
+	}
+	if _, err := dec.ReadToken(); err != io.EOF {
+		t.Fatalf("ReadToken EOF after skip = %v, want io.EOF", err)
+	}
+
+	dec = NewDecoder(strings.NewReader("<root>text</root>"))
+	if _, err := dec.ReadToken(); err != nil {
+		t.Fatalf("ReadToken root start error = %v", err)
+	}
+	if _, err := dec.ReadToken(); err != nil {
+		t.Fatalf("ReadToken text error = %v", err)
+	}
+	if err := dec.SkipValue(); err != nil {
+		t.Fatalf("SkipValue after text error = %v", err)
+	}
+	tok, err = dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken end error = %v", err)
+	}
+	if tok.Kind != KindEndElement {
+		t.Fatalf("end kind = %v, want %v", tok.Kind, KindEndElement)
+	}
+
+	dec = NewDecoder(strings.NewReader("<root><!--a--><!--b--></root>"), EmitComments(true))
+	if _, err := dec.ReadToken(); err != nil {
+		t.Fatalf("ReadToken root start error = %v", err)
+	}
+	if _, err := dec.ReadToken(); err != nil {
+		t.Fatalf("ReadToken comment error = %v", err)
+	}
+	if err := dec.SkipValue(); err != nil {
+		t.Fatalf("SkipValue comment error = %v", err)
+	}
+	tok, err = dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken end error = %v", err)
+	}
+	if tok.Kind != KindEndElement {
+		t.Fatalf("end kind = %v, want %v", tok.Kind, KindEndElement)
+	}
+}
+
+func TestCharDataInvalidSequence(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<root>]]></root>"))
+	if _, err := dec.ReadToken(); err != nil {
+		t.Fatalf("ReadToken root error = %v", err)
+	}
+	_, err := dec.ReadToken()
+	if !errors.Is(err, errInvalidToken) {
+		t.Fatalf("char data error = %v, want %v", err, errInvalidToken)
+	}
+}
+
+func TestWhitespaceEntityOutsideRoot(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("&#x20;<root/>"))
+	if _, err := dec.ReadToken(); err != nil {
+		t.Fatalf("ReadToken whitespace error = %v", err)
+	}
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken root error = %v", err)
+	}
+	if tok.Kind != KindStartElement {
+		t.Fatalf("root kind = %v, want %v", tok.Kind, KindStartElement)
+	}
+}
+
+func TestCharDataEOF(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<root>text"))
+	if _, err := dec.ReadToken(); err != nil {
+		t.Fatalf("ReadToken root error = %v", err)
+	}
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken text error = %v", err)
+	}
+	if tok.Kind != KindCharData {
+		t.Fatalf("text kind = %v, want %v", tok.Kind, KindCharData)
+	}
+	_, err = dec.ReadToken()
+	if !errors.Is(err, errUnexpectedEOF) {
+		t.Fatalf("ReadToken EOF error = %v, want %v", err, errUnexpectedEOF)
+	}
+}
+
+func TestCharDataMaxTokenSize(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<root>abcdefgh</root>"), MaxTokenSize(6))
+	if _, err := dec.ReadToken(); err != nil {
+		t.Fatalf("ReadToken root error = %v", err)
+	}
+	_, err := dec.ReadToken()
+	if !errors.Is(err, errTokenTooLarge) {
+		t.Fatalf("ReadToken error = %v, want %v", err, errTokenTooLarge)
+	}
+}
+
+func TestUnicodeNameWithChunkReader(t *testing.T) {
+	reader := &chunkReader{data: []byte("<\u00e9/>")}
+	dec := NewDecoder(reader)
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken error = %v", err)
+	}
+	if got := string(dec.SpanBytes(tok.Name.Local)); got != "\u00e9" {
+		t.Fatalf("name = %q, want \u00e9", got)
+	}
+}
+
+func TestUnterminatedPI(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<?pi"))
+	_, err := dec.ReadToken()
+	if !errors.Is(err, errUnexpectedEOF) {
+		t.Fatalf("ReadToken error = %v, want %v", err, errUnexpectedEOF)
+	}
+}
+
+func TestUnterminatedComment(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<!--oops"))
+	_, err := dec.ReadToken()
+	if !errors.Is(err, errUnexpectedEOF) {
+		t.Fatalf("ReadToken error = %v, want %v", err, errUnexpectedEOF)
+	}
+}
+
+func TestPIWithoutData(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<?pi?><root/>"), EmitPI(true))
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken PI error = %v", err)
+	}
+	if tok.Kind != KindPI {
+		t.Fatalf("PI kind = %v, want %v", tok.Kind, KindPI)
+	}
+	if got := string(dec.SpanBytes(tok.Text)); got != "pi" {
+		t.Fatalf("PI text = %q, want pi", got)
+	}
+}
+
+func TestInvalidQNames(t *testing.T) {
+	tests := []string{
+		"<:a/>",
+		"<a:/>",
+		"<a:b:c/>",
+	}
+	for _, input := range tests {
+		dec := NewDecoder(strings.NewReader(input))
+		_, err := dec.ReadToken()
+		if !errors.Is(err, errInvalidName) {
+			t.Fatalf("ReadToken(%q) error = %v, want %v", input, err, errInvalidName)
+		}
+	}
+}
+
+func TestInvalidUTF8Name(t *testing.T) {
+	reader := &chunkReader{data: []byte("<\xc3/>")}
+	dec := NewDecoder(reader)
+	_, err := dec.ReadToken()
+	if !errors.Is(err, errInvalidChar) {
+		t.Fatalf("ReadToken error = %v, want %v", err, errInvalidChar)
+	}
+}
+
+func TestDirectiveToken(t *testing.T) {
+	dec := NewDecoder(strings.NewReader(`<!DOCTYPE root [<!ELEMENT root EMPTY>]><root/>`), EmitDirectives(true))
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken directive error = %v", err)
+	}
+	if tok.Kind != KindDirective {
+		t.Fatalf("directive kind = %v, want %v", tok.Kind, KindDirective)
+	}
+	if got := string(dec.SpanBytes(tok.Text)); !strings.HasPrefix(got, "DOCTYPE root") {
+		t.Fatalf("directive text = %q, want DOCTYPE root...", got)
+	}
+}
+
+func TestCharsetReader(t *testing.T) {
+	reader, err := wrapCharsetReader(strings.NewReader("\ufeff<root/>"), nil, defaultBufferSize)
+	if err != nil {
+		t.Fatalf("wrapCharsetReader BOM error = %v", err)
+	}
+	out, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("ReadAll error = %v", err)
+	}
+	if string(out) != "<root/>" {
+		t.Fatalf("ReadAll = %q, want <root/>", out)
+	}
+
+	_, err = wrapCharsetReader(bytes.NewReader([]byte{0xFE, 0xFF, 0x00, 0x3C}), nil, defaultBufferSize)
+	if !errors.Is(err, errUnsupportedEncoding) {
+		t.Fatalf("wrapCharsetReader error = %v, want %v", err, errUnsupportedEncoding)
+	}
+
+	called := false
+	reader, err = wrapCharsetReader(bytes.NewReader([]byte{0xFE, 0xFF, 0x00, 0x3C}), func(label string, r io.Reader) (io.Reader, error) {
+		called = true
+		if label == "" {
+			t.Fatalf("label is empty")
+		}
+		return strings.NewReader("<root/>"), nil
+	}, defaultBufferSize)
+	if err != nil {
+		t.Fatalf("wrapCharsetReader custom error = %v", err)
+	}
+	if !called {
+		t.Fatalf("charset reader not called")
+	}
+	out, err = io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("ReadAll custom error = %v", err)
+	}
+	if string(out) != "<root/>" {
+		t.Fatalf("ReadAll custom = %q, want <root/>", out)
+	}
+}
+
+func TestDetectEncoding(t *testing.T) {
+	reader := bufio.NewReader(bytes.NewReader([]byte{0x00, 0x3C, 0x00, 0x3F}))
+	label, err := detectEncoding(reader)
+	if err != nil {
+		t.Fatalf("detectEncoding error = %v", err)
+	}
+	if label != "utf-16be" {
+		t.Fatalf("label = %q, want utf-16be", label)
+	}
+}
+
+func TestDetectEncodingBufferFull(t *testing.T) {
+	reader := bufio.NewReaderSize(bytes.NewReader([]byte{0xFF, 0xFE, 0x00, 0x00}), 2)
+	label, err := detectEncoding(reader)
+	if err != nil {
+		t.Fatalf("detectEncoding error = %v", err)
+	}
+	if label != "utf-16" {
+		t.Fatalf("label = %q, want utf-16", label)
+	}
+}
+
+func TestDetectXMLDeclEncodingTruncated(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader(`<?xml version="1.0" encoding="ISO-8859-1"`))
+	label, err := detectXMLDeclEncoding(reader)
+	if err != nil {
+		t.Fatalf("detectXMLDeclEncoding error = %v", err)
+	}
+	if label != "" {
+		t.Fatalf("detectXMLDeclEncoding label = %q, want empty", label)
+	}
+}
+
+func TestWrapCharsetReaderDefaultBuffer(t *testing.T) {
+	reader, err := wrapCharsetReader(bytes.NewReader([]byte("<root/>")), nil, 0)
+	if err != nil {
+		t.Fatalf("wrapCharsetReader error = %v", err)
+	}
+	if _, ok := reader.(*bufio.Reader); !ok {
+		t.Fatalf("wrapCharsetReader reader = %T, want *bufio.Reader", reader)
+	}
+}
+
+type chunkReader struct {
+	data []byte
+}
+
+func (r *chunkReader) Read(p []byte) (int, error) {
+	if len(r.data) == 0 {
+		return 0, io.EOF
+	}
+	p[0] = r.data[0]
+	r.data = r.data[1:]
+	return 1, nil
+}
+
 type errReader struct {
 	err error
 }

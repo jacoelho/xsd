@@ -50,3 +50,15 @@ func TestParseNumericEntityErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestParseNumericEntity(t *testing.T) {
+	if _, err := parseNumericEntity([]byte("#9")); err != nil {
+		t.Fatalf("parseNumericEntity decimal error = %v", err)
+	}
+	if _, err := parseNumericEntity([]byte("#xA")); err != nil {
+		t.Fatalf("parseNumericEntity hex error = %v", err)
+	}
+	if _, err := parseNumericEntity([]byte("#x110000")); err == nil {
+		t.Fatalf("expected error for out of range value")
+	}
+}

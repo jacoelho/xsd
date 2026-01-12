@@ -33,3 +33,13 @@ func TestInterningHelpers(t *testing.T) {
 		t.Fatalf("intern count = %d, want 1", limit.stats.Count)
 	}
 }
+
+func TestInternerSetMax(t *testing.T) {
+	interner := newNameInterner(0)
+	interner.setMax(1)
+	_ = interner.intern([]byte("a"))
+	_ = interner.intern([]byte("b"))
+	if interner.stats.Count != 1 {
+		t.Fatalf("intern count = %d, want 1", interner.stats.Count)
+	}
+}
