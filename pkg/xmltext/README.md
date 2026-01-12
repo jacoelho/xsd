@@ -145,4 +145,7 @@ Common options include:
 - EmitComments, EmitPI, EmitDirectives
 - MaxDepth, MaxAttrs, MaxTokenSize
 
+MaxTokenSize is unlimited by default. Set it when parsing untrusted input to
+cap memory growth; FastValidation does not set this limit.
+
 See docs/xmltext-architecture.md for the design and buffer model.

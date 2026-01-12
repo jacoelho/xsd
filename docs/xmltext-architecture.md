@@ -76,6 +76,8 @@ Common options:
 - MaxQNameInternEntries(int)
 
 Limits are enforced during parsing to guard against hostile inputs.
+MaxTokenSize defaults to unlimited; set it for untrusted inputs to cap memory
+growth. FastValidation leaves MaxTokenSize unset.
 
 ## Performance notes
 
