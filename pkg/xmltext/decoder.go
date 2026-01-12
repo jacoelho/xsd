@@ -4,75 +4,73 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"unsafe"
 )
 
 const defaultBufferSize = 32 * 1024
+const attrSeenSmallMax = 8
 
 // Decoder streams XML tokens with zero-copy spans.
 type Decoder struct {
-	r       io.Reader
-	optsRaw Options
-	opts    decoderOptions
-
-	entities entityResolver
-
-	buf          spanBuffer
-	scratch      spanBuffer
-	coalesce     spanBuffer
-	valueBuf     spanBuffer
-	attrValueBuf spanBuffer
-
-	pos        int
-	baseOffset int64
-	eof        bool
-	err        error
-
-	line   int
-	column int
-
-	attrBuf      []AttrSpan
-	attrNeeds    []bool
-	attrRaw      []Span
-	attrRawNeeds []bool
-	attrSeen     map[uint64][]Span
-	attrSeenKeys []uint64
-
-	stack          []stackEntry
-	rootCount      int64
-	rootSeen       bool
-	afterRoot      bool
-	xmlDeclSeen    bool
-	seenNonXMLDecl bool
-	directiveSeen  bool
-
-	interner *nameInterner
-
+	buf                spanBuffer
+	attrValueBuf       spanBuffer
+	valueBuf           spanBuffer
+	coalesce           spanBuffer
+	scratch            spanBuffer
+	r                  io.Reader
+	err                error
+	attrSeen           map[uint64]attrBucket
+	interner           *nameInterner
+	bufioReader        *bufio.Reader
+	attrSeenSmall      [attrSeenSmallMax]Span
+	entities           entityResolver
 	pendingToken       Token
+	pendingEndToken    Token
+	optsRaw            Options
+	stack              []stackEntry
+	attrBuf            []AttrSpan
+	attrNeeds          []bool
+	attrRaw            []Span
+	attrRawNeeds       []bool
+	opts               decoderOptions
+	pos                int
+	attrSeenSmallCount int
+	compactFloorAbs    int64
+	baseOffset         int64
+	column             int
+	rootCount          int64
+	line               int
+	attrSeenGen        uint32
+	xmlDeclSeen        bool
+	afterRoot          bool
+	seenNonXMLDecl     bool
+	directiveSeen      bool
+	rootSeen           bool
+	eof                bool
 	pendingSelfClosing bool
 	pendingTokenValid  bool
-
-	pendingEnd      bool
-	pendingEndToken Token
-
-	lastKind        Kind
-	lastSelfClosing bool
+	pendingEnd         bool
+	compactFloorSet    bool
+	lastKind           Kind
+	lastSelfClosing    bool
 }
 
 type decoderOptions struct {
-	charsetReader             func(label string, r io.Reader) (io.Reader, error)
 	entityMap                 map[string]string
-	resolveEntities           bool
-	emitComments              bool
-	emitPI                    bool
-	emitDirectives            bool
-	trackLineColumn           bool
-	coalesceCharData          bool
+	charsetReader             func(label string, r io.Reader) (io.Reader, error)
 	maxDepth                  int
-	maxAttrs                  int
-	maxTokenSize              int
-	maxQNameInternEntries     int
+	bufferSize                int
 	maxNamespaceInternEntries int
+	maxQNameInternEntries     int
+	maxTokenSize              int
+	maxAttrs                  int
+	emitComments              bool
+	coalesceCharData          bool
+	trackLineColumn           bool
+	emitDirectives            bool
+	emitPI                    bool
 	debugPoisonSpans          bool
+	resolveEntities           bool
 }
 
 // NewDecoder creates a new XML decoder for the reader.
@@ -117,8 +115,7 @@ func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 	d.attrNeeds = d.attrNeeds[:0]
 	d.attrRaw = d.attrRaw[:0]
 	d.attrRawNeeds = d.attrRawNeeds[:0]
-	d.attrSeenKeys = d.attrSeenKeys[:0]
-	d.attrSeen = nil
+	d.attrSeenSmallCount = 0
 	d.stack = d.stack[:0]
 	d.rootCount = 0
 	d.rootSeen = false
@@ -134,6 +131,8 @@ func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 	d.pendingEndToken = Token{}
 	d.lastKind = KindNone
 	d.lastSelfClosing = false
+	d.compactFloorSet = false
+	d.compactFloorAbs = 0
 
 	if d.opts.trackLineColumn {
 		d.line = 1
@@ -160,7 +159,23 @@ func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 		d.err = errNilReader
 		return
 	}
-	wrapped, err := wrapCharsetReader(r, d.opts.charsetReader)
+	var reader *bufio.Reader
+	if bufioReader, ok := r.(*bufio.Reader); ok {
+		reader = bufioReader
+	} else {
+		// reuse the internal bufio.Reader to avoid per-reset allocations.
+		bufferSize := d.opts.bufferSize
+		if bufferSize <= 0 {
+			bufferSize = defaultBufferSize
+		}
+		if d.bufioReader == nil || d.bufioReader.Size() != bufferSize {
+			d.bufioReader = bufio.NewReaderSize(r, bufferSize)
+		} else {
+			d.bufioReader.Reset(r)
+		}
+		reader = d.bufioReader
+	}
+	wrapped, err := wrapCharsetReaderFromBufio(reader, d.opts.charsetReader)
 	if err != nil {
 		d.err = err
 		return
@@ -183,7 +198,7 @@ func (d *Decoder) PeekKind() Kind {
 		return KindNone
 	}
 	if d.pendingTokenValid {
-		return d.pendingToken.kind
+		return d.pendingToken.Kind
 	}
 	if d.pendingEnd {
 		return KindEndElement
@@ -198,82 +213,150 @@ func (d *Decoder) PeekKind() Kind {
 	return kind
 }
 
-// ReadToken returns the next XML token.
-func (d *Decoder) ReadToken() (Token, error) {
+// ReadTokenInto reads the next XML token into dst.
+// Spans in dst are only valid until the next read call.
+func (d *Decoder) ReadTokenInto(dst *Token) error {
+	if dst == nil {
+		return errNilToken
+	}
 	if d == nil {
-		return Token{}, errNilReader
+		return errNilReader
 	}
 	if d.err != nil {
-		return Token{}, d.err
+		return d.err
 	}
+	useTokenBuffers := dst.Attrs != nil || dst.AttrNeeds != nil || dst.AttrRaw != nil || dst.AttrRawNeeds != nil
+	var (
+		origAttrs        []AttrSpan
+		origAttrNeeds    []bool
+		origAttrRaw      []Span
+		origAttrRawNeeds []bool
+	)
+	if useTokenBuffers {
+		origAttrs = d.attrBuf
+		origAttrNeeds = d.attrNeeds
+		origAttrRaw = d.attrRaw
+		origAttrRawNeeds = d.attrRawNeeds
+
+		d.attrBuf = dst.Attrs[:0]
+		d.attrNeeds = dst.AttrNeeds[:0]
+		d.attrRaw = dst.AttrRaw[:0]
+		d.attrRawNeeds = dst.AttrRawNeeds[:0]
+	}
+	err := d.readTokenInto(dst)
+	if useTokenBuffers {
+		d.attrBuf = origAttrs
+		d.attrNeeds = origAttrNeeds
+		d.attrRaw = origAttrRaw
+		d.attrRawNeeds = origAttrRawNeeds
+	}
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// ReadToken returns the next XML token.
+func (d *Decoder) ReadToken() (Token, error) {
+	var tok Token
+	if err := d.ReadTokenInto(&tok); err != nil {
+		return Token{}, err
+	}
+	return tok, nil
+}
+
+func (d *Decoder) readTokenInto(dst *Token) error {
 	d.bumpGen()
 	if !d.opts.coalesceCharData {
-		tok, selfClosing, err := d.nextToken(true)
+		selfClosing, err := d.nextTokenInto(dst, true)
 		if err != nil {
-			return Token{}, d.fail(err)
+			return d.fail(err)
 		}
 		if d.opts.debugPoisonSpans {
-			d.refreshToken(&tok)
+			d.refreshToken(dst)
 		}
-		d.lastKind = tok.kind
-		d.lastSelfClosing = tok.kind == KindStartElement && selfClosing
-		return tok, nil
+		d.lastKind = dst.Kind
+		d.lastSelfClosing = dst.Kind == KindStartElement && selfClosing
+		return nil
 	}
 
-	first, firstSelfClosing, err := d.nextToken(true)
+	firstSelfClosing, err := d.nextTokenInto(dst, true)
 	if err != nil {
-		return Token{}, d.fail(err)
+		return d.fail(err)
 	}
-	if first.kind != KindCharData && first.kind != KindCDATA {
+	if dst.Kind != KindCharData && dst.Kind != KindCDATA {
 		if d.opts.debugPoisonSpans {
-			d.refreshToken(&first)
+			d.refreshToken(dst)
 		}
-		d.lastKind = first.kind
-		d.lastSelfClosing = first.kind == KindStartElement && firstSelfClosing
-		return first, nil
+		d.lastKind = dst.Kind
+		d.lastSelfClosing = dst.Kind == KindStartElement && firstSelfClosing
+		return nil
+	}
+
+	nextKind, err := d.peekKind()
+	if err != nil {
+		if err != io.EOF {
+			return d.fail(err)
+		}
+		setCharDataToken(dst, dst.Text, dst.TextNeeds, dst.TextRawNeeds, dst.Line, dst.Column, dst.Raw)
+		if d.opts.debugPoisonSpans {
+			d.refreshToken(dst)
+		}
+		d.lastKind = KindCharData
+		d.lastSelfClosing = false
+		return nil
+	}
+	if nextKind != KindCharData && nextKind != KindCDATA {
+		setCharDataToken(dst, dst.Text, dst.TextNeeds, dst.TextRawNeeds, dst.Line, dst.Column, dst.Raw)
+		if d.opts.debugPoisonSpans {
+			d.refreshToken(dst)
+		}
+		d.lastKind = KindCharData
+		d.lastSelfClosing = false
+		return nil
 	}
 
 	d.coalesce.data = d.coalesce.data[:0]
-	needs := first.textNeeds
-	rawNeeds := first.textRawNeeds
-	startLine, startColumn := first.line, first.column
-	d.coalesce.data = append(d.coalesce.data, first.text.bytes()...)
+	needs := dst.TextNeeds
+	rawNeeds := dst.TextRawNeeds
+	startLine, startColumn := dst.Line, dst.Column
+	rawStartAbs := d.baseOffset + int64(dst.Raw.Start)
+	rawEndAbs := d.baseOffset + int64(dst.Raw.End)
+	d.coalesce.data = append(d.coalesce.data, dst.Text.bytes()...)
+
+	d.setCompactFloorAbs(rawStartAbs)
+	defer d.clearCompactFloor()
 
 	for {
-		next, nextSelfClosing, err := d.nextToken(true)
+		nextSelfClosing, err := d.nextTokenInto(&d.pendingToken, true)
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
-			return Token{}, d.fail(err)
+			return d.fail(err)
 		}
-		if next.kind != KindCharData && next.kind != KindCDATA {
-			d.pendingToken = next
+		if d.pendingToken.Kind != KindCharData && d.pendingToken.Kind != KindCDATA {
 			d.pendingSelfClosing = nextSelfClosing
 			d.pendingTokenValid = true
 			break
 		}
-		needs = needs || next.textNeeds
-		rawNeeds = rawNeeds || next.textRawNeeds
-		d.coalesce.data = append(d.coalesce.data, next.text.bytes()...)
+		needs = needs || d.pendingToken.TextNeeds
+		rawNeeds = rawNeeds || d.pendingToken.TextRawNeeds
+		rawEndAbs = d.baseOffset + int64(d.pendingToken.Raw.End)
+		d.coalesce.data = append(d.coalesce.data, d.pendingToken.Text.bytes()...)
 	}
 
 	span := makeSpan(&d.coalesce, 0, len(d.coalesce.data))
-	coalesced := Token{
-		kind:         KindCharData,
-		text:         span,
-		textNeeds:    needs,
-		textRawNeeds: rawNeeds,
-		line:         startLine,
-		column:       startColumn,
-		raw:          span,
-	}
+	rawStart := int(rawStartAbs - d.baseOffset)
+	rawEnd := int(rawEndAbs - d.baseOffset)
+	rawSpan := makeSpan(&d.buf, rawStart, rawEnd)
+	setCharDataToken(dst, span, needs, rawNeeds, startLine, startColumn, rawSpan)
 	if d.opts.debugPoisonSpans {
-		d.refreshToken(&coalesced)
+		d.refreshToken(dst)
 	}
 	d.lastKind = KindCharData
 	d.lastSelfClosing = false
-	return coalesced, nil
+	return nil
 }
 
 // ReadValue returns the raw bytes for the next element subtree or token.
@@ -290,31 +373,31 @@ func (d *Decoder) ReadValue() (Value, error) {
 	if err != nil {
 		return nil, d.fail(err)
 	}
-	if first.kind != KindStartElement {
-		switch first.kind {
+	if first.Kind != KindStartElement {
+		switch first.Kind {
 		case KindCharData:
 			if d.opts.resolveEntities {
-				return Value(first.text.bytes()), nil
+				return Value(first.Text.bytes()), nil
 			}
-			return Value(first.raw.bytes()), nil
+			return Value(first.Raw.bytes()), nil
 		case KindCDATA:
-			return Value(first.raw.bytes()), nil
+			return Value(first.Raw.bytes()), nil
 		default:
-			return Value(first.raw.bytes()), nil
+			return Value(first.Raw.bytes()), nil
 		}
 	}
 
-	rawStart := first.raw.Start
-	rawEnd := first.raw.End
+	rawStart := first.Raw.Start
+	rawEnd := first.Raw.End
 	depth := 1
 	needsCopy := d.opts.resolveEntities && tokenNeedsExpansion(first)
 	var out []byte
 	cursor := rawStart
 	if needsCopy {
 		out = d.valueBuf.data[:0]
-		if first.raw.buf != nil && first.raw.Start > cursor {
-			out = append(out, d.buf.data[cursor:first.raw.Start]...)
-			cursor = first.raw.Start
+		if first.Raw.buf != nil && first.Raw.Start > cursor {
+			out = append(out, d.buf.data[cursor:first.Raw.Start]...)
+			cursor = first.Raw.Start
 		}
 		var appendErr error
 		out, appendErr = d.appendTokenValue(out, first, &cursor)
@@ -328,10 +411,10 @@ func (d *Decoder) ReadValue() (Value, error) {
 		if err != nil {
 			return nil, d.fail(err)
 		}
-		if next.raw.buf != nil && next.raw.End > rawEnd {
-			rawEnd = next.raw.End
+		if next.Raw.buf != nil && next.Raw.End > rawEnd {
+			rawEnd = next.Raw.End
 		}
-		switch next.kind {
+		switch next.Kind {
 		case KindStartElement:
 			depth++
 		case KindEndElement:
@@ -344,9 +427,9 @@ func (d *Decoder) ReadValue() (Value, error) {
 			needsCopy = true
 			out = d.valueBuf.data[:0]
 			cursor = rawStart
-			if next.raw.buf != nil && next.raw.Start > cursor {
-				out = append(out, d.buf.data[cursor:next.raw.Start]...)
-				cursor = next.raw.Start
+			if next.Raw.buf != nil && next.Raw.Start > cursor {
+				out = append(out, d.buf.data[cursor:next.Raw.Start]...)
+				cursor = next.Raw.Start
 			}
 			var appendErr error
 			out, appendErr = d.appendTokenValue(out, next, &cursor)
@@ -356,12 +439,12 @@ func (d *Decoder) ReadValue() (Value, error) {
 			continue
 		}
 		if needsCopy {
-			if next.raw.buf == nil {
+			if next.Raw.buf == nil {
 				continue
 			}
-			if next.raw.Start > cursor {
-				out = append(out, d.buf.data[cursor:next.raw.Start]...)
-				cursor = next.raw.Start
+			if next.Raw.Start > cursor {
+				out = append(out, d.buf.data[cursor:next.Raw.Start]...)
+				cursor = next.Raw.Start
 			}
 			var appendErr error
 			out, appendErr = d.appendTokenValue(out, next, &cursor)
@@ -385,11 +468,11 @@ func (d *Decoder) ReadValue() (Value, error) {
 }
 
 func tokenNeedsExpansion(tok Token) bool {
-	switch tok.kind {
+	switch tok.Kind {
 	case KindCharData:
-		return tok.textRawNeeds
+		return tok.TextRawNeeds
 	case KindStartElement:
-		for _, needs := range tok.attrRawNeeds {
+		for _, needs := range tok.AttrRawNeeds {
 			if needs {
 				return true
 			}
@@ -399,33 +482,33 @@ func tokenNeedsExpansion(tok Token) bool {
 }
 
 func (d *Decoder) appendTokenValue(dst []byte, tok Token, cursor *int) ([]byte, error) {
-	if tok.raw.buf == nil {
+	if tok.Raw.buf == nil {
 		return dst, nil
 	}
-	rawStart := tok.raw.Start
-	rawEnd := tok.raw.End
+	rawStart := tok.Raw.Start
+	rawEnd := tok.Raw.End
 	if rawStart < *cursor {
 		return nil, errInvalidToken
 	}
-	switch tok.kind {
+	switch tok.Kind {
 	case KindCharData:
-		if tok.textRawNeeds {
-			dst = append(dst, tok.text.bytes()...)
+		if tok.TextRawNeeds {
+			dst = append(dst, tok.Text.bytes()...)
 			*cursor = rawEnd
 			return dst, nil
 		}
 	case KindStartElement:
-		if len(tok.attrRaw) != len(tok.attrs) {
+		if len(tok.AttrRaw) != len(tok.Attrs) {
 			return nil, errInvalidToken
 		}
 		if hasAttrExpansion(tok) {
 			pos := rawStart
-			for i, rawSpan := range tok.attrRaw {
+			for i, rawSpan := range tok.AttrRaw {
 				if rawSpan.Start < pos || rawSpan.End > rawEnd {
 					return nil, errInvalidToken
 				}
 				dst = append(dst, d.buf.data[pos:rawSpan.Start]...)
-				dst = append(dst, tok.attrs[i].ValueSpan.bytes()...)
+				dst = append(dst, tok.Attrs[i].ValueSpan.bytes()...)
 				pos = rawSpan.End
 			}
 			dst = append(dst, d.buf.data[pos:rawEnd]...)
@@ -439,7 +522,7 @@ func (d *Decoder) appendTokenValue(dst []byte, tok Token, cursor *int) ([]byte, 
 }
 
 func hasAttrExpansion(tok Token) bool {
-	for _, needs := range tok.attrRawNeeds {
+	for _, needs := range tok.AttrRawNeeds {
 		if needs {
 			return true
 		}
@@ -466,7 +549,7 @@ func (d *Decoder) SkipValue() error {
 			if err != nil {
 				return err
 			}
-			switch next.kind {
+			switch next.Kind {
 			case KindStartElement:
 				depth++
 			case KindEndElement:
@@ -487,7 +570,7 @@ func (d *Decoder) SkipValue() error {
 	if err != nil {
 		return err
 	}
-	if tok.kind != KindStartElement {
+	if tok.Kind != KindStartElement {
 		return nil
 	}
 	depth := 1
@@ -496,7 +579,7 @@ func (d *Decoder) SkipValue() error {
 		if err != nil {
 			return err
 		}
-		switch next.kind {
+		switch next.Kind {
 		case KindStartElement:
 			depth++
 		case KindEndElement:
@@ -517,6 +600,18 @@ func (d *Decoder) UnreadBuffer() []byte {
 // SpanBytes returns the bytes referenced by the span.
 func (d *Decoder) SpanBytes(s Span) []byte {
 	return s.bytes()
+}
+
+// SpanString returns a string view of the span when the backing buffer is stable.
+func (d *Decoder) SpanString(s Span) string {
+	data := s.bytes()
+	if len(data) == 0 {
+		return ""
+	}
+	if s.buf != nil && s.buf.stable {
+		return unsafe.String(unsafe.SliceData(data), len(data))
+	}
+	return string(data)
 }
 
 // InputOffset reports the absolute byte offset of the next read position.
@@ -574,7 +669,7 @@ func (d *Decoder) InternStats() InternStats {
 }
 
 func resolveOptions(opts Options) decoderOptions {
-	resolved := decoderOptions{trackLineColumn: true}
+	resolved := decoderOptions{trackLineColumn: true, bufferSize: defaultBufferSize}
 	if value, ok := GetOption(opts, WithCharsetReader); ok {
 		resolved.charsetReader = value
 	}
@@ -617,6 +712,12 @@ func resolveOptions(opts Options) decoderOptions {
 	if value, ok := GetOption(opts, DebugPoisonSpans); ok {
 		resolved.debugPoisonSpans = value
 	}
+	if value, ok := GetOption(opts, BufferSize); ok {
+		resolved.bufferSize = normalizeLimit(value)
+	}
+	if resolved.bufferSize == 0 {
+		resolved.bufferSize = defaultBufferSize
+	}
 	return resolved
 }
 
@@ -627,8 +728,18 @@ func normalizeLimit(value int) int {
 	return value
 }
 
-func wrapCharsetReader(r io.Reader, charsetReader func(label string, r io.Reader) (io.Reader, error)) (io.Reader, error) {
-	reader := bufio.NewReader(r)
+func wrapCharsetReader(r io.Reader, charsetReader func(label string, r io.Reader) (io.Reader, error), bufferSize int) (io.Reader, error) {
+	reader, ok := r.(*bufio.Reader)
+	if !ok {
+		if bufferSize <= 0 {
+			bufferSize = defaultBufferSize
+		}
+		reader = bufio.NewReaderSize(r, bufferSize)
+	}
+	return wrapCharsetReaderFromBufio(reader, charsetReader)
+}
+
+func wrapCharsetReaderFromBufio(reader *bufio.Reader, charsetReader func(label string, r io.Reader) (io.Reader, error)) (io.Reader, error) {
 	if err := discardUTF8BOM(reader); err != nil {
 		return nil, err
 	}
@@ -663,9 +774,11 @@ func discardUTF8BOM(r *bufio.Reader) error {
 	return nil
 }
 
+const maxDeclScan = 1024
+
 func detectEncoding(r *bufio.Reader) (string, error) {
 	peek, err := r.Peek(4)
-	if err != nil && err != io.EOF {
+	if err != nil && err != io.EOF && err != bufio.ErrBufferFull {
 		return "", err
 	}
 	if len(peek) >= 2 {
@@ -684,5 +797,87 @@ func detectEncoding(r *bufio.Reader) (string, error) {
 			return "utf-16le", nil
 		}
 	}
-	return "", nil
+	return detectXMLDeclEncoding(r)
+}
+
+func detectXMLDeclEncoding(r *bufio.Reader) (string, error) {
+	const prefix = "<?xml"
+	peek, err := r.Peek(len(prefix))
+	if err != nil && err != io.EOF && err != bufio.ErrBufferFull {
+		return "", err
+	}
+	if len(peek) < len(prefix) || !bytes.Equal(peek, []byte(prefix)) {
+		return "", nil
+	}
+	decl, err := r.Peek(maxDeclScan)
+	if err != nil && err != io.EOF && err != bufio.ErrBufferFull {
+		return "", err
+	}
+	end := bytes.Index(decl, []byte("?>"))
+	if end < 0 {
+		return "", nil
+	}
+	label := parseXMLDeclEncoding(decl[:end])
+	if label == "" {
+		return "", nil
+	}
+	if isUTF8Label(label) {
+		return "", nil
+	}
+	return label, nil
+}
+
+func parseXMLDeclEncoding(decl []byte) string {
+	const prefix = "<?xml"
+	if !bytes.HasPrefix(decl, []byte(prefix)) {
+		return ""
+	}
+	data := decl[len(prefix):]
+	for {
+		data = bytes.TrimLeft(data, " \t\r\n")
+		if len(data) == 0 {
+			return ""
+		}
+		name, rest := scanXMLDeclName(data)
+		if len(name) == 0 {
+			return ""
+		}
+		data = bytes.TrimLeft(rest, " \t\r\n")
+		if len(data) == 0 || data[0] != '=' {
+			return ""
+		}
+		data = bytes.TrimLeft(data[1:], " \t\r\n")
+		if len(data) == 0 {
+			return ""
+		}
+		quote := data[0]
+		if quote != '\'' && quote != '"' {
+			return ""
+		}
+		data = data[1:]
+		end := bytes.IndexByte(data, quote)
+		if end < 0 {
+			return ""
+		}
+		value := data[:end]
+		data = data[end+1:]
+		if bytes.EqualFold(name, []byte("encoding")) {
+			return string(value)
+		}
+	}
+}
+
+func scanXMLDeclName(data []byte) ([]byte, []byte) {
+	if len(data) == 0 || !isNameStartByte(data[0]) {
+		return nil, data
+	}
+	i := 1
+	for i < len(data) && isNameByte(data[i]) {
+		i++
+	}
+	return data[:i], data[i:]
+}
+
+func isUTF8Label(label string) bool {
+	return bytes.EqualFold([]byte(label), []byte("utf-8")) || bytes.EqualFold([]byte(label), []byte("utf8"))
 }

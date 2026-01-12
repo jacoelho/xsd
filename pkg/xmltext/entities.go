@@ -3,6 +3,7 @@ package xmltext
 import (
 	"bytes"
 	"unicode/utf8"
+	"unsafe"
 )
 
 type entityResolver struct {
@@ -10,29 +11,30 @@ type entityResolver struct {
 	maxTokenSize int
 }
 
-var standardEntities = map[string]string{
-	"lt":   "<",
-	"gt":   ">",
-	"amp":  "&",
-	"apos": "'",
-	"quot": "\"",
-}
-
-func (r *entityResolver) resolve(name string) (string, bool) {
-	if value, ok := standardEntities[name]; ok {
-		return value, true
-	}
-	if r == nil || r.custom == nil {
-		return "", false
-	}
-	value, ok := r.custom[name]
-	return value, ok
-}
-
 func unescapeInto(dst []byte, data []byte, resolver *entityResolver, maxTokenSize int) ([]byte, error) {
-	for i := 0; i < len(data); i++ {
-		if data[i] != '&' {
-			dst = append(dst, data[i])
+	required := len(dst) + len(data)
+	if cap(dst) < required {
+		next := make([]byte, len(dst), required)
+		copy(next, dst)
+		dst = next
+	}
+	for i := 0; i < len(data); {
+		ampIdx := bytes.IndexByte(data[i:], '&')
+		if ampIdx < 0 {
+			dst = append(dst, data[i:]...)
+			if maxTokenSize > 0 && len(dst) > maxTokenSize {
+				return nil, errTokenTooLarge
+			}
+			return dst, nil
+		}
+		if ampIdx > 0 {
+			dst = append(dst, data[i:i+ampIdx]...)
+			if maxTokenSize > 0 && len(dst) > maxTokenSize {
+				return nil, errTokenTooLarge
+			}
+			i += ampIdx
+		}
+		if i >= len(data) || data[i] != '&' {
 			continue
 		}
 		consumed, replacement, r, isNumeric, err := parseEntityRef(data, i, resolver)
@@ -47,7 +49,7 @@ func unescapeInto(dst []byte, data []byte, resolver *entityResolver, maxTokenSiz
 		if maxTokenSize > 0 && len(dst) > maxTokenSize {
 			return nil, errTokenTooLarge
 		}
-		i += consumed - 1
+		i += consumed
 	}
 	return dst, nil
 }
@@ -72,8 +74,14 @@ func parseEntityRef(data []byte, start int, resolver *entityResolver) (int, stri
 		}
 		return semi - start + 1, "", r, true, nil
 	}
-	name := string(ref)
-	replacement, ok := resolver.resolve(name)
+	if replacement, ok := resolveStandardEntity(ref); ok {
+		return semi - start + 1, replacement, 0, false, nil
+	}
+	if resolver == nil || len(resolver.custom) == 0 {
+		return 0, "", 0, false, errInvalidEntity
+	}
+	name := unsafe.String(unsafe.SliceData(ref), len(ref))
+	replacement, ok := resolver.custom[name]
 	if !ok {
 		return 0, "", 0, false, errInvalidEntity
 	}
@@ -123,4 +131,28 @@ func parseNumericEntity(ref []byte) (rune, error) {
 		return 0, errInvalidCharRef
 	}
 	return r, nil
+}
+
+func resolveStandardEntity(ref []byte) (string, bool) {
+	switch len(ref) {
+	case 2:
+		if ref[0] == 'l' && ref[1] == 't' {
+			return "<", true
+		}
+		if ref[0] == 'g' && ref[1] == 't' {
+			return ">", true
+		}
+	case 3:
+		if ref[0] == 'a' && ref[1] == 'm' && ref[2] == 'p' {
+			return "&", true
+		}
+	case 4:
+		if ref[0] == 'a' && ref[1] == 'p' && ref[2] == 'o' && ref[3] == 's' {
+			return "'", true
+		}
+		if ref[0] == 'q' && ref[1] == 'u' && ref[2] == 'o' && ref[3] == 't' {
+			return "\"", true
+		}
+	}
+	return "", false
 }

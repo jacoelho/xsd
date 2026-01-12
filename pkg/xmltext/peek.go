@@ -24,27 +24,27 @@ func (d *Decoder) peekKind() (Kind, error) {
 			if d.opts.emitPI {
 				return KindPI, nil
 			}
-			next, err := d.peekSkipUntil(pos+2, []byte("?>"))
+			next, err := d.peekSkipUntil(pos+2, litPIEnd)
 			if err != nil {
 				return KindNone, err
 			}
 			pos = next
 			continue
 		case '!':
-			if ok, err := d.peekMatchLiteral(pos, []byte("<!--")); err != nil {
+			if ok, err := d.peekMatchLiteral(pos, litComStart); err != nil {
 				return KindNone, err
 			} else if ok {
 				if d.opts.emitComments {
 					return KindComment, nil
 				}
-				next, err := d.peekSkipUntil(pos+len("<!--"), []byte("-->"))
+				next, err := d.peekSkipUntil(pos+len("<!--"), litComEnd)
 				if err != nil {
 					return KindNone, err
 				}
 				pos = next
 				continue
 			}
-			if ok, err := d.peekMatchLiteral(pos, []byte("<![CDATA[")); err != nil {
+			if ok, err := d.peekMatchLiteral(pos, litCDStart); err != nil {
 				return KindNone, err
 			} else if ok {
 				return KindCDATA, nil

@@ -20,8 +20,8 @@ func TestDecoderUtilities(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken root error = %v", err)
 	}
-	if tok.Line() != 1 || tok.Column() != 1 {
-		t.Fatalf("root line/column = %d/%d, want 1/1", tok.Line(), tok.Column())
+	if tok.Line != 1 || tok.Column != 1 {
+		t.Fatalf("root line/column = %d/%d, want 1/1", tok.Line, tok.Column)
 	}
 	if got := string(dec.UnreadBuffer()); !strings.HasPrefix(got, "\n<child") {
 		t.Fatalf("UnreadBuffer = %q, want prefix \\n<child", got)
@@ -29,25 +29,25 @@ func TestDecoderUtilities(t *testing.T) {
 	if dec.InputOffset() != int64(len("<root>")) {
 		t.Fatalf("InputOffset = %d, want %d", dec.InputOffset(), len("<root>"))
 	}
-	if tok.Clone().Kind() != tok.Kind() {
-		t.Fatalf("Clone kind = %v, want %v", tok.Clone().Kind(), tok.Kind())
+	if tok.Clone().Kind != tok.Kind {
+		t.Fatalf("Clone kind = %v, want %v", tok.Clone().Kind, tok.Kind)
 	}
 
 	tok, err = dec.ReadToken()
 	if err != nil {
 		t.Fatalf("ReadToken child error = %v", err)
 	}
-	if tok.Kind() == KindCharData {
+	if tok.Kind == KindCharData {
 		tok, err = dec.ReadToken()
 		if err != nil {
 			t.Fatalf("ReadToken child start error = %v", err)
 		}
 	}
-	if tok.Kind() != KindStartElement {
-		t.Fatalf("child kind = %v, want %v", tok.Kind(), KindStartElement)
+	if tok.Kind != KindStartElement {
+		t.Fatalf("child kind = %v, want %v", tok.Kind, KindStartElement)
 	}
-	if tok.Line() != 2 || tok.Column() != 1 {
-		t.Fatalf("child line/column = %d/%d, want 2/1", tok.Line(), tok.Column())
+	if tok.Line != 2 || tok.Column != 1 {
+		t.Fatalf("child line/column = %d/%d, want 2/1", tok.Line, tok.Column)
 	}
 	if got := dec.StackIndex(0); string(dec.SpanBytes(got.Name.Local)) != "root" {
 		t.Fatalf("StackIndex(0) name = %q, want root", dec.SpanBytes(got.Name.Local))
@@ -63,7 +63,7 @@ func TestDecoderUtilities(t *testing.T) {
 	}
 
 	dst := []AttrSpan{{}}
-	attrs := tok.AttrsInto(dst)
+	attrs := append(dst, tok.Attrs...)
 	if len(attrs) != 2 {
 		t.Fatalf("AttrsInto len = %d, want 2", len(attrs))
 	}
@@ -88,13 +88,13 @@ func TestDebugPoisonSpans(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken root error = %v", err)
 	}
-	if dec.SpanBytes(tok.Name().Local) == nil {
+	if dec.SpanBytes(tok.Name.Local) == nil {
 		t.Fatalf("SpanBytes returned nil for current token")
 	}
 	if _, err := dec.ReadToken(); err != nil {
 		t.Fatalf("ReadToken child error = %v", err)
 	}
-	if tok.raw.bytes() != nil {
+	if tok.Raw.bytes() != nil {
 		t.Fatalf("SpanBytes returned data for stale token")
 	}
 }
@@ -119,7 +119,7 @@ func TestSpanHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken error = %v", err)
 	}
-	attr := tok.Attrs()[0]
+	attr := tok.Attrs[0]
 	if got := string(CopyAttrValue(nil, attr)); got != "a&amp;b" {
 		t.Fatalf("CopyAttrValue = %q, want a&amp;b", got)
 	}
@@ -127,10 +127,10 @@ func TestSpanHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken text error = %v", err)
 	}
-	if got := string(CopySpan(nil, tok.TextSpan())); got != "x&amp;y" {
+	if got := string(CopySpan(nil, tok.Text)); got != "x&amp;y" {
 		t.Fatalf("CopySpan = %q, want x&amp;y", got)
 	}
-	unescaped, err := UnescapeInto(nil, tok.TextSpan())
+	unescaped, err := UnescapeInto(nil, tok.Text)
 	if err != nil {
 		t.Fatalf("UnescapeInto error = %v", err)
 	}
@@ -210,16 +210,16 @@ func TestDirectiveToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken directive error = %v", err)
 	}
-	if tok.Kind() != KindDirective {
-		t.Fatalf("directive kind = %v, want %v", tok.Kind(), KindDirective)
+	if tok.Kind != KindDirective {
+		t.Fatalf("directive kind = %v, want %v", tok.Kind, KindDirective)
 	}
-	if got := string(dec.SpanBytes(tok.TextSpan())); !strings.HasPrefix(got, "DOCTYPE root") {
+	if got := string(dec.SpanBytes(tok.Text)); !strings.HasPrefix(got, "DOCTYPE root") {
 		t.Fatalf("directive text = %q, want DOCTYPE root...", got)
 	}
 }
 
 func TestCharsetReader(t *testing.T) {
-	reader, err := wrapCharsetReader(strings.NewReader("\ufeff<root/>"), nil)
+	reader, err := wrapCharsetReader(strings.NewReader("\ufeff<root/>"), nil, defaultBufferSize)
 	if err != nil {
 		t.Fatalf("wrapCharsetReader BOM error = %v", err)
 	}
@@ -231,7 +231,7 @@ func TestCharsetReader(t *testing.T) {
 		t.Fatalf("ReadAll = %q, want <root/>", out)
 	}
 
-	_, err = wrapCharsetReader(bytes.NewReader([]byte{0xFE, 0xFF, 0x00, 0x3C}), nil)
+	_, err = wrapCharsetReader(bytes.NewReader([]byte{0xFE, 0xFF, 0x00, 0x3C}), nil, defaultBufferSize)
 	if !errors.Is(err, errUnsupportedEncoding) {
 		t.Fatalf("wrapCharsetReader error = %v, want %v", err, errUnsupportedEncoding)
 	}
@@ -243,7 +243,7 @@ func TestCharsetReader(t *testing.T) {
 			t.Fatalf("label is empty")
 		}
 		return strings.NewReader("<root/>"), nil
-	})
+	}, defaultBufferSize)
 	if err != nil {
 		t.Fatalf("wrapCharsetReader custom error = %v", err)
 	}
@@ -276,8 +276,8 @@ func TestDecoderSkipValueBranches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken root error = %v", err)
 	}
-	if tok.Kind() != KindStartElement {
-		t.Fatalf("root kind = %v, want %v", tok.Kind(), KindStartElement)
+	if tok.Kind != KindStartElement {
+		t.Fatalf("root kind = %v, want %v", tok.Kind, KindStartElement)
 	}
 	if err := dec.SkipValue(); err != nil {
 		t.Fatalf("SkipValue self-closing error = %v", err)
@@ -314,8 +314,8 @@ func TestDecoderSkipValueBranches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken end error = %v", err)
 	}
-	if tok.Kind() != KindEndElement {
-		t.Fatalf("end kind = %v, want %v", tok.Kind(), KindEndElement)
+	if tok.Kind != KindEndElement {
+		t.Fatalf("end kind = %v, want %v", tok.Kind, KindEndElement)
 	}
 
 	dec = NewDecoder(strings.NewReader("<root><!--a--><!--b--></root>"), EmitComments(true))
@@ -332,8 +332,8 @@ func TestDecoderSkipValueBranches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken end error = %v", err)
 	}
-	if tok.Kind() != KindEndElement {
-		t.Fatalf("end kind = %v, want %v", tok.Kind(), KindEndElement)
+	if tok.Kind != KindEndElement {
+		t.Fatalf("end kind = %v, want %v", tok.Kind, KindEndElement)
 	}
 }
 
@@ -426,8 +426,8 @@ func TestWhitespaceEntityOutsideRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken root error = %v", err)
 	}
-	if tok.Kind() != KindStartElement {
-		t.Fatalf("root kind = %v, want %v", tok.Kind(), KindStartElement)
+	if tok.Kind != KindStartElement {
+		t.Fatalf("root kind = %v, want %v", tok.Kind, KindStartElement)
 	}
 }
 
@@ -440,8 +440,8 @@ func TestCharDataEOF(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken text error = %v", err)
 	}
-	if tok.Kind() != KindCharData {
-		t.Fatalf("text kind = %v, want %v", tok.Kind(), KindCharData)
+	if tok.Kind != KindCharData {
+		t.Fatalf("text kind = %v, want %v", tok.Kind, KindCharData)
 	}
 	_, err = dec.ReadToken()
 	if !errors.Is(err, errUnexpectedEOF) {
@@ -480,7 +480,7 @@ func TestUnicodeNameWithChunkReader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken error = %v", err)
 	}
-	if got := string(dec.SpanBytes(tok.Name().Local)); got != "\u00e9" {
+	if got := string(dec.SpanBytes(tok.Name.Local)); got != "\u00e9" {
 		t.Fatalf("name = %q, want \u00e9", got)
 	}
 }
@@ -507,10 +507,10 @@ func TestPIWithoutData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken PI error = %v", err)
 	}
-	if tok.Kind() != KindPI {
-		t.Fatalf("PI kind = %v, want %v", tok.Kind(), KindPI)
+	if tok.Kind != KindPI {
+		t.Fatalf("PI kind = %v, want %v", tok.Kind, KindPI)
 	}
-	if got := string(dec.SpanBytes(tok.TextSpan())); got != "pi" {
+	if got := string(dec.SpanBytes(tok.Text)); got != "pi" {
 		t.Fatalf("PI text = %q, want pi", got)
 	}
 }
@@ -559,7 +559,7 @@ func TestEntityMapCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken text error = %v", err)
 	}
-	if got := string(dec.SpanBytes(tok.TextSpan())); got != "bar" {
+	if got := string(dec.SpanBytes(tok.Text)); got != "bar" {
 		t.Fatalf("entity value = %q, want bar", got)
 	}
 }
@@ -612,10 +612,10 @@ func TestEncodingXMLParity(t *testing.T) {
 }
 
 type simpleToken struct {
-	kind  Kind
 	name  string
 	text  string
 	attrs []simpleAttr
+	kind  Kind
 }
 
 type simpleAttr struct {
@@ -647,23 +647,23 @@ func readXMLTextTokens(input string) ([]simpleToken, error) {
 }
 
 func simplifyXMLTextToken(dec *Decoder, tok Token) simpleToken {
-	kind := tok.Kind()
+	kind := tok.Kind
 	if kind == KindCDATA {
 		kind = KindCharData
 	}
 	out := simpleToken{kind: kind}
 	switch kind {
 	case KindStartElement, KindEndElement:
-		out.name = string(dec.SpanBytes(tok.Name().Local))
+		out.name = string(dec.SpanBytes(tok.Name.Local))
 	case KindCharData, KindComment, KindDirective:
-		out.text = string(dec.SpanBytes(tok.TextSpan()))
+		out.text = string(dec.SpanBytes(tok.Text))
 	case KindPI:
-		target, inst := splitPIText(tok.TextSpan().bytes())
+		target, inst := splitPIText(tok.Text.bytes())
 		out.name = target
 		out.text = string(inst)
 	}
-	if tok.Kind() == KindStartElement {
-		for _, attr := range tok.Attrs() {
+	if tok.Kind == KindStartElement {
+		for _, attr := range tok.Attrs {
 			out.attrs = append(out.attrs, simpleAttr{
 				name:  string(dec.SpanBytes(attr.Name.Local)),
 				value: string(dec.SpanBytes(attr.ValueSpan)),

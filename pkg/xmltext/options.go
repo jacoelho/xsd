@@ -47,6 +47,8 @@ type maxNamespaceInternEntriesOption int
 
 type debugPoisonSpansOption bool
 
+type bufferSizeOption int
+
 // WithCharsetReader registers a decoder for non-UTF-8/UTF-16 encodings.
 func WithCharsetReader(fn func(label string, r io.Reader) (io.Reader, error)) Options {
 	return xmlopts.New(charsetReaderOption(fn))
@@ -122,6 +124,11 @@ func MaxNamespaceInternEntries(value int) Options {
 // DebugPoisonSpans invalidates spans after the next decoder call.
 func DebugPoisonSpans(value bool) Options {
 	return xmlopts.New(debugPoisonSpansOption(value))
+}
+
+// BufferSize sets the initial decoder buffer capacity in bytes.
+func BufferSize(value int) Options {
+	return xmlopts.New(bufferSizeOption(value))
 }
 
 // FastValidation is a preset tuned for validation throughput.
