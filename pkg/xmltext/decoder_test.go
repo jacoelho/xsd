@@ -14,16 +14,16 @@ func TestDecoderTokensBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken start error = %v", err)
 	}
-	if tok.Kind() != KindStartElement {
-		t.Fatalf("start kind = %v, want %v", tok.Kind(), KindStartElement)
+	if tok.Kind != KindStartElement {
+		t.Fatalf("start kind = %v, want %v", tok.Kind, KindStartElement)
 	}
-	if got := string(dec.SpanBytes(tok.Name().Local)); got != "root" {
+	if got := string(dec.SpanBytes(tok.Name.Local)); got != "root" {
 		t.Fatalf("start name = %q, want root", got)
 	}
-	if tok.AttrCount() != 1 {
-		t.Fatalf("attr count = %d, want 1", tok.AttrCount())
+	if len(tok.Attrs) != 1 {
+		t.Fatalf("attr count = %d, want 1", len(tok.Attrs))
 	}
-	attr := tok.Attrs()[0]
+	attr := tok.Attrs[0]
 	if got := string(dec.SpanBytes(attr.Name.Local)); got != "attr" {
 		t.Fatalf("attr name = %q, want attr", got)
 	}
@@ -35,10 +35,10 @@ func TestDecoderTokensBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken text error = %v", err)
 	}
-	if tok.Kind() != KindCharData {
-		t.Fatalf("text kind = %v, want %v", tok.Kind(), KindCharData)
+	if tok.Kind != KindCharData {
+		t.Fatalf("text kind = %v, want %v", tok.Kind, KindCharData)
 	}
-	if got := string(dec.SpanBytes(tok.TextSpan())); got != "text" {
+	if got := string(dec.SpanBytes(tok.Text)); got != "text" {
 		t.Fatalf("text = %q, want text", got)
 	}
 
@@ -46,10 +46,10 @@ func TestDecoderTokensBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken end error = %v", err)
 	}
-	if tok.Kind() != KindEndElement {
-		t.Fatalf("end kind = %v, want %v", tok.Kind(), KindEndElement)
+	if tok.Kind != KindEndElement {
+		t.Fatalf("end kind = %v, want %v", tok.Kind, KindEndElement)
 	}
-	if got := string(dec.SpanBytes(tok.Name().Local)); got != "root" {
+	if got := string(dec.SpanBytes(tok.Name.Local)); got != "root" {
 		t.Fatalf("end name = %q, want root", got)
 	}
 
@@ -66,17 +66,17 @@ func TestDecoderResolveEntities(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken start error = %v", err)
 	}
-	if !tok.AttrNeedsUnescape(0) {
+	if len(tok.AttrNeeds) == 0 || !tok.AttrNeeds[0] {
 		t.Fatalf("AttrNeedsUnescape = false, want true")
 	}
-	if got := string(dec.SpanBytes(tok.Attrs()[0].ValueSpan)); got != "a&amp;b" {
+	if got := string(dec.SpanBytes(tok.Attrs[0].ValueSpan)); got != "a&amp;b" {
 		t.Fatalf("raw attr value = %q, want a&amp;b", got)
 	}
 	tok, err = dec.ReadToken()
 	if err != nil {
 		t.Fatalf("ReadToken text error = %v", err)
 	}
-	if !tok.TextNeedsUnescape() {
+	if !tok.TextNeeds {
 		t.Fatalf("TextNeedsUnescape = false, want true")
 	}
 
@@ -85,20 +85,20 @@ func TestDecoderResolveEntities(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken start resolve error = %v", err)
 	}
-	if tok.AttrNeedsUnescape(0) {
+	if len(tok.AttrNeeds) > 0 && tok.AttrNeeds[0] {
 		t.Fatalf("AttrNeedsUnescape = true, want false")
 	}
-	if got := string(dec.SpanBytes(tok.Attrs()[0].ValueSpan)); got != "a&b" {
+	if got := string(dec.SpanBytes(tok.Attrs[0].ValueSpan)); got != "a&b" {
 		t.Fatalf("unescaped attr value = %q, want a&b", got)
 	}
 	tok, err = dec.ReadToken()
 	if err != nil {
 		t.Fatalf("ReadToken text resolve error = %v", err)
 	}
-	if tok.TextNeedsUnescape() {
+	if tok.TextNeeds {
 		t.Fatalf("TextNeedsUnescape = true, want false")
 	}
-	if got := string(dec.SpanBytes(tok.TextSpan())); got != "x&y" {
+	if got := string(dec.SpanBytes(tok.Text)); got != "x&y" {
 		t.Fatalf("unescaped text = %q, want x&y", got)
 	}
 }
@@ -109,10 +109,10 @@ func TestDecoderAttrValueBuffer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken error = %v", err)
 	}
-	if tok.AttrCount() != 2 {
-		t.Fatalf("attr count = %d, want 2", tok.AttrCount())
+	if len(tok.Attrs) != 2 {
+		t.Fatalf("attr count = %d, want 2", len(tok.Attrs))
 	}
-	attrs := tok.Attrs()
+	attrs := tok.Attrs
 	if got := string(dec.SpanBytes(attrs[0].ValueSpan)); got != "1&2" {
 		t.Fatalf("attr a = %q, want 1&2", got)
 	}
@@ -128,8 +128,8 @@ func TestDecoderStackPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start root error = %v", err)
 	}
-	if tok.Kind() != KindStartElement {
-		t.Fatalf("root kind = %v, want %v", tok.Kind(), KindStartElement)
+	if tok.Kind != KindStartElement {
+		t.Fatalf("root kind = %v, want %v", tok.Kind, KindStartElement)
 	}
 	if dec.StackDepth() != 1 {
 		t.Fatalf("root depth = %d, want 1", dec.StackDepth())
@@ -153,8 +153,8 @@ func TestDecoderStackPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("child1 end error = %v", err)
 	}
-	if tok.Kind() != KindEndElement {
-		t.Fatalf("child1 end kind = %v, want %v", tok.Kind(), KindEndElement)
+	if tok.Kind != KindEndElement {
+		t.Fatalf("child1 end kind = %v, want %v", tok.Kind, KindEndElement)
 	}
 	if dec.StackDepth() != 1 {
 		t.Fatalf("after child1 depth = %d, want 1", dec.StackDepth())
@@ -204,11 +204,11 @@ func TestDecoderSkipValue(t *testing.T) {
 	dec := NewDecoder(strings.NewReader(`<root><skip><inner/></skip><after/></root>`))
 
 	tok, err := dec.ReadToken()
-	if err != nil || tok.Kind() != KindStartElement {
+	if err != nil || tok.Kind != KindStartElement {
 		t.Fatalf("root start error = %v", err)
 	}
 	tok, err = dec.ReadToken()
-	if err != nil || tok.Kind() != KindStartElement {
+	if err != nil || tok.Kind != KindStartElement {
 		t.Fatalf("skip start error = %v", err)
 	}
 	if err := dec.SkipValue(); err != nil {
@@ -218,7 +218,7 @@ func TestDecoderSkipValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("after start error = %v", err)
 	}
-	if got := string(dec.SpanBytes(tok.Name().Local)); got != "after" {
+	if got := string(dec.SpanBytes(tok.Name.Local)); got != "after" {
 		t.Fatalf("after name = %q, want after", got)
 	}
 }
@@ -236,7 +236,7 @@ func TestDecoderCommentsPIAndCDATA(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ReadToken error = %v", err)
 		}
-		kinds = append(kinds, tok.Kind())
+		kinds = append(kinds, tok.Kind)
 	}
 	want := []Kind{KindPI, KindStartElement, KindComment, KindCDATA, KindEndElement}
 	if len(kinds) != len(want) {
@@ -253,15 +253,15 @@ func TestDecoderCommentsPIAndCDATA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadToken start error = %v", err)
 	}
-	if tok.Kind() != KindStartElement {
-		t.Fatalf("start kind = %v, want %v", tok.Kind(), KindStartElement)
+	if tok.Kind != KindStartElement {
+		t.Fatalf("start kind = %v, want %v", tok.Kind, KindStartElement)
 	}
 	tok, err = dec.ReadToken()
 	if err != nil {
 		t.Fatalf("ReadToken cdata error = %v", err)
 	}
-	if tok.Kind() != KindCDATA {
-		t.Fatalf("cdata kind = %v, want %v", tok.Kind(), KindCDATA)
+	if tok.Kind != KindCDATA {
+		t.Fatalf("cdata kind = %v, want %v", tok.Kind, KindCDATA)
 	}
 }
 
@@ -275,10 +275,10 @@ func TestDecoderCoalesceCharData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("text error = %v", err)
 	}
-	if tok.Kind() != KindCharData {
-		t.Fatalf("text kind = %v, want %v", tok.Kind(), KindCharData)
+	if tok.Kind != KindCharData {
+		t.Fatalf("text kind = %v, want %v", tok.Kind, KindCharData)
 	}
-	if got := string(dec.SpanBytes(tok.TextSpan())); got != "foobar" {
+	if got := string(dec.SpanBytes(tok.Text)); got != "foobar" {
 		t.Fatalf("text = %q, want foobar", got)
 	}
 }
@@ -299,7 +299,7 @@ func TestDecoderReadValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("after value error = %v", err)
 	}
-	if got := string(dec.SpanBytes(tok.Name().Local)); got != "b" {
+	if got := string(dec.SpanBytes(tok.Name.Local)); got != "b" {
 		t.Fatalf("after value name = %q, want b", got)
 	}
 }
@@ -315,6 +315,112 @@ func TestDecoderReadValueResolveEntities(t *testing.T) {
 	}
 	if got := string(value); got != `<a attr="x&y">1 < 2</a>` {
 		t.Fatalf("ReadValue = %q, want <a attr=\"x&y\">1 < 2</a>", got)
+	}
+}
+
+func TestDecoderCoalesceCharDataResolveEntitiesScenarios(t *testing.T) {
+	longText := strings.Repeat("x", 64)
+	tests := []struct {
+		name      string
+		input     string
+		wantText  string
+		wantRaw   string
+		nextLocal string
+		opts      []Options
+	}{
+		{
+			name:     "cdata-then-entity",
+			input:    `<root><a><![CDATA[foo]]>&amp;bar</a></root>`,
+			wantText: `foo&bar`,
+			wantRaw:  `<![CDATA[foo]]>&amp;bar`,
+		},
+		{
+			name:     "entity-then-cdata",
+			input:    `<root><a>foo&amp;bar<![CDATA[baz]]></a></root>`,
+			wantText: `foo&barbaz`,
+			wantRaw:  `foo&amp;bar<![CDATA[baz]]>`,
+		},
+		{
+			name:     "multi-segment",
+			input:    `<root><a><![CDATA[foo]]>bar&amp;baz<![CDATA[qux]]></a></root>`,
+			wantText: `foobar&bazqux`,
+			wantRaw:  `<![CDATA[foo]]>bar&amp;baz<![CDATA[qux]]>`,
+		},
+		{
+			name:     "buffer-boundary",
+			input:    `<root><a><![CDATA[` + longText + `]]>&amp;` + longText + `</a></root>`,
+			wantText: longText + `&` + longText,
+			wantRaw:  `<![CDATA[` + longText + `]]>&amp;` + longText,
+			opts:     []Options{BufferSize(32)},
+		},
+		{
+			name:      "sibling-after",
+			input:     `<root><a><![CDATA[foo]]>&amp;bar</a><b/></root>`,
+			wantText:  `foo&bar`,
+			wantRaw:   `<![CDATA[foo]]>&amp;bar`,
+			nextLocal: "b",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := []Options{ResolveEntities(true), CoalesceCharData(true)}
+			opts = append(opts, tt.opts...)
+			dec := NewDecoder(strings.NewReader(tt.input), opts...)
+			tok, err := dec.ReadToken()
+			if err != nil {
+				t.Fatalf("root start error = %v", err)
+			}
+			if tok.Kind != KindStartElement {
+				t.Fatalf("root start kind = %v, want %v", tok.Kind, KindStartElement)
+			}
+			if got := string(dec.SpanBytes(tok.Name.Local)); got != "root" {
+				t.Fatalf("root start name = %q, want root", got)
+			}
+			tok, err = dec.ReadToken()
+			if err != nil {
+				t.Fatalf("a start error = %v", err)
+			}
+			if tok.Kind != KindStartElement {
+				t.Fatalf("a start kind = %v, want %v", tok.Kind, KindStartElement)
+			}
+			if got := string(dec.SpanBytes(tok.Name.Local)); got != "a" {
+				t.Fatalf("a start name = %q, want a", got)
+			}
+			tok, err = dec.ReadToken()
+			if err != nil {
+				t.Fatalf("text error = %v", err)
+			}
+			if tok.Kind != KindCharData {
+				t.Fatalf("text kind = %v, want %v", tok.Kind, KindCharData)
+			}
+			if tok.Raw.buf != &dec.buf {
+				t.Fatalf("raw buffer mismatch")
+			}
+			if got := string(dec.SpanBytes(tok.Text)); got != tt.wantText {
+				t.Fatalf("text = %q, want %s", got, tt.wantText)
+			}
+			if got := string(dec.SpanBytes(tok.Raw)); got != tt.wantRaw {
+				t.Fatalf("raw = %q, want %s", got, tt.wantRaw)
+			}
+			if tt.nextLocal == "" {
+				return
+			}
+			tok, err = dec.ReadToken()
+			if err != nil {
+				t.Fatalf("a end error = %v", err)
+			}
+			if tok.Kind != KindEndElement {
+				t.Fatalf("a end kind = %v, want %v", tok.Kind, KindEndElement)
+			}
+			tok, err = dec.ReadToken()
+			if err != nil {
+				t.Fatalf("after text error = %v", err)
+			}
+			if got := string(dec.SpanBytes(tok.Name.Local)); got != tt.nextLocal {
+				t.Fatalf("after text name = %q, want %s", got, tt.nextLocal)
+			}
+		})
 	}
 }
 
@@ -344,8 +450,8 @@ func TestDecoderContentOutsideRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("whitespace token error = %v", err)
 	}
-	if tok.Kind() != KindCharData {
-		t.Fatalf("whitespace kind = %v, want %v", tok.Kind(), KindCharData)
+	if tok.Kind != KindCharData {
+		t.Fatalf("whitespace kind = %v, want %v", tok.Kind, KindCharData)
 	}
 	if _, err := dec.ReadToken(); err != nil {
 		t.Fatalf("root start error = %v", err)

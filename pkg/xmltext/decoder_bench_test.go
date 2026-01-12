@@ -48,6 +48,34 @@ func BenchmarkXMLTextDecoder(b *testing.B) {
 	}
 }
 
+func BenchmarkXMLTextDecoderEncodingXML(b *testing.B) {
+	data := loadBenchData(b)
+	b.SetBytes(int64(len(data)))
+	b.ReportAllocs()
+
+	opts := JoinOptions(
+		ResolveEntities(true),
+		EmitComments(true),
+		EmitPI(true),
+		EmitDirectives(true),
+		CoalesceCharData(true),
+	)
+	dec := NewDecoder(bytes.NewReader(data), opts)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		dec.Reset(bytes.NewReader(data), opts)
+		for {
+			_, err := dec.ReadToken()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				b.Fatalf("ReadToken error = %v", err)
+			}
+		}
+	}
+}
+
 func BenchmarkEncodingXMLDecoder(b *testing.B) {
 	data := loadBenchData(b)
 	b.SetBytes(int64(len(data)))

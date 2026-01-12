@@ -22,7 +22,7 @@ func isValidXMLChar(r rune) bool {
 func validateXMLChars(data []byte) error {
 	for len(data) > 0 {
 		if data[0] < utf8.RuneSelf {
-			if !isValidXMLChar(rune(data[0])) {
+			if data[0] < 0x20 && data[0] != 0x9 && data[0] != 0xA && data[0] != 0xD {
 				return errInvalidChar
 			}
 			data = data[1:]
@@ -54,7 +54,7 @@ func validateXMLText(data []byte, resolver *entityResolver) error {
 			continue
 		}
 		if data[i] < utf8.RuneSelf {
-			if !isValidXMLChar(rune(data[i])) {
+			if data[i] < 0x20 && data[i] != 0x9 && data[i] != 0xA && data[i] != 0xD {
 				return errInvalidChar
 			}
 			i++
@@ -74,7 +74,7 @@ func validateXMLText(data []byte, resolver *entityResolver) error {
 
 func isWhitespaceBytes(data []byte) bool {
 	for _, b := range data {
-		if !isWhitespace(b) {
+		if b != ' ' && b != '\t' && b != '\n' && b != '\r' {
 			return false
 		}
 	}

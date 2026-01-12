@@ -2,9 +2,9 @@ package xmltext
 
 // Span identifies a half-open byte range within a decoder buffer.
 type Span struct {
+	buf   *spanBuffer
 	Start int
 	End   int
-	buf   *spanBuffer
 	gen   uint32
 }
 
@@ -18,15 +18,16 @@ type QNameSpan struct {
 
 // AttrSpan holds span offsets for a parsed attribute.
 type AttrSpan struct {
-	Name      QNameSpan
 	ValueSpan Span
+	Name      QNameSpan
 }
 
 type spanBuffer struct {
+	entities *entityResolver
 	data     []byte
 	gen      uint32
 	poison   bool
-	entities *entityResolver
+	stable   bool
 }
 
 func makeSpan(buf *spanBuffer, start, end int) Span {
