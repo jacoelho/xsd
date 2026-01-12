@@ -337,7 +337,7 @@ func (r *streamRun) addAttributeValue(state *fieldState, field types.Field, fram
 		return
 	}
 	state.value = normalized
-	state.display = strings.TrimSpace(value)
+	state.display = strings.Clone(strings.TrimSpace(value))
 	state.hasValue = true
 }
 
