@@ -250,10 +250,7 @@ func (d *Decoder) ReadTokenInto(dst *Token) error {
 		d.attrRaw = origAttrRaw
 		d.attrRawNeeds = origAttrRawNeeds
 	}
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ReadToken returns the next XML token.
@@ -294,19 +291,10 @@ func (d *Decoder) readTokenInto(dst *Token) error {
 	}
 
 	nextKind, err := d.peekKind()
-	if err != nil {
-		if err != io.EOF {
-			return d.fail(err)
-		}
-		setCharDataToken(dst, dst.Text, dst.TextNeeds, dst.TextRawNeeds, dst.Line, dst.Column, dst.Raw)
-		if d.opts.debugPoisonSpans {
-			d.refreshToken(dst)
-		}
-		d.lastKind = KindCharData
-		d.lastSelfClosing = false
-		return nil
+	if err != nil && err != io.EOF {
+		return d.fail(err)
 	}
-	if nextKind != KindCharData && nextKind != KindCDATA {
+	if err == io.EOF || (nextKind != KindCharData && nextKind != KindCDATA) {
 		setCharDataToken(dst, dst.Text, dst.TextNeeds, dst.TextRawNeeds, dst.Line, dst.Column, dst.Raw)
 		if d.opts.debugPoisonSpans {
 			d.refreshToken(dst)
