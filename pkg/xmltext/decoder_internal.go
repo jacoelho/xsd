@@ -1156,7 +1156,6 @@ func (d *Decoder) scanUntil(seq []byte, allowCompact bool) (int, error) {
 
 func (d *Decoder) scanQName(allowCompact bool) (QNameSpan, error) {
 	start := d.pos
-	colonIndex := -1
 	first := true
 	for {
 		if err := d.ensureIndex(d.pos, allowCompact); err != nil {
@@ -1180,12 +1179,6 @@ func (d *Decoder) scanQName(allowCompact bool) (QNameSpan, error) {
 				b = buf[i]
 				if b >= utf8.RuneSelf || !nameByteLUT[b] {
 					break
-				}
-				if b == ':' {
-					if colonIndex >= 0 {
-						return QNameSpan{}, errInvalidName
-					}
-					colonIndex = i
 				}
 				i++
 			}
@@ -1213,18 +1206,20 @@ func (d *Decoder) scanQName(allowCompact bool) (QNameSpan, error) {
 		} else if !isNameRune(r) {
 			break
 		}
-		if r == ':' {
-			if colonIndex >= 0 {
-				return QNameSpan{}, errInvalidName
-			}
-			colonIndex = d.pos
-		}
 		d.advanceName(size)
 		first = false
 	}
 	end := d.pos
-	if colonIndex == start || colonIndex == end-1 {
-		return QNameSpan{}, errInvalidName
+	colonIndex := -1
+	data := d.buf.data[start:end]
+	if offset := bytes.IndexByte(data, ':'); offset >= 0 {
+		if offset == 0 || offset == len(data)-1 {
+			return QNameSpan{}, errInvalidName
+		}
+		if bytes.IndexByte(data[offset+1:], ':') >= 0 {
+			return QNameSpan{}, errInvalidName
+		}
+		colonIndex = start + offset
 	}
 	return makeQNameSpan(&d.buf, start, end, colonIndex), nil
 }
@@ -1506,12 +1501,9 @@ func (d *Decoder) advance(n int) {
 	}
 	if d.opts.trackLineColumn {
 		data := d.buf.data[d.pos : d.pos+n]
-		// Single scan for newlines (fast path)
-		for _, b := range data {
-			if b == '\n' || b == '\r' {
-				d.advanceWithNewlines(data)
-				return
-			}
+		if bytes.IndexByte(data, '\n') >= 0 || bytes.IndexByte(data, '\r') >= 0 {
+			d.advanceWithNewlines(data)
+			return
 		}
 		// No newlines - just update column
 		d.column += n
