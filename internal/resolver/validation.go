@@ -340,7 +340,7 @@ func validateComplexTypeReferences(schema *parser.Schema) []error {
 			}
 
 			origin := schema.TypeOrigins[qname]
-			if err := validateContentReferences(schema, qname, ct.Content(), origin); err != nil {
+			if err := validateContentReferences(schema, ct.Content(), origin); err != nil {
 				errors = append(errors, fmt.Errorf("type %s: %w", qname, err))
 			}
 		}

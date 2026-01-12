@@ -56,7 +56,7 @@ func TestDecoderTokensBasic(t *testing.T) {
 		t.Fatalf("end name = %q, want root", got)
 	}
 
-	if _, err := dec.ReadToken(); err != io.EOF {
+	if _, err := dec.ReadToken(); !errors.Is(err, io.EOF) {
 		t.Fatalf("ReadToken EOF = %v, want io.EOF", err)
 	}
 }
@@ -233,7 +233,7 @@ func TestDecoderCommentsPIAndCDATA(t *testing.T) {
 	kinds := []Kind{}
 	for {
 		tok, err := dec.ReadToken()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -677,7 +677,7 @@ func TestDecoderInternStats(t *testing.T) {
 	dec := NewDecoder(strings.NewReader(`<root><root/></root>`))
 	for {
 		_, err := dec.ReadToken()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -710,7 +710,7 @@ func TestDecoderNilAccessors(t *testing.T) {
 	if err := dec.SkipValue(); !errors.Is(err, errNilReader) {
 		t.Fatalf("SkipValue error = %v, want %v", err, errNilReader)
 	}
-	if _, ok := GetOption(dec.Options(), ResolveEntities); ok {
+	if _, ok := dec.Options().ResolveEntities(); ok {
 		t.Fatalf("Options ResolveEntities = true, want false")
 	}
 }
@@ -801,7 +801,7 @@ func TestSkipValueExtraBranches(t *testing.T) {
 	if err := dec.SkipValue(); err != nil {
 		t.Fatalf("SkipValue root error = %v", err)
 	}
-	if _, err := dec.ReadToken(); err != io.EOF {
+	if _, err := dec.ReadToken(); !errors.Is(err, io.EOF) {
 		t.Fatalf("ReadToken after SkipValue = %v, want io.EOF", err)
 	}
 }
@@ -943,7 +943,7 @@ func TestNormalizeLimit(t *testing.T) {
 
 func TestDecoderUtilities(t *testing.T) {
 	dec := NewDecoder(strings.NewReader("<root>\n<child attr=\"v\"/></root>"), ResolveEntities(true))
-	if value, ok := GetOption(dec.Options(), ResolveEntities); !ok || !value {
+	if value, ok := dec.Options().ResolveEntities(); !ok || !value {
 		t.Fatalf("Options ResolveEntities = %v, want true", value)
 	}
 
@@ -994,14 +994,14 @@ func TestDecoderUtilities(t *testing.T) {
 	}
 
 	dst := []AttrSpan{{}}
-	attrs := append(dst, tok.Attrs...)
-	if len(attrs) != 2 {
-		t.Fatalf("AttrsInto len = %d, want 2", len(attrs))
+	dst = append(dst, tok.Attrs...)
+	if len(dst) != 2 {
+		t.Fatalf("AttrsInto len = %d, want 2", len(dst))
 	}
 
 	for {
 		_, err := dec.ReadToken()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -1098,10 +1098,10 @@ func TestDecoderSkipValueBranches(t *testing.T) {
 	if err := dec.SkipValue(); err != nil {
 		t.Fatalf("SkipValue self-closing error = %v", err)
 	}
-	if _, err := dec.ReadToken(); err != io.EOF {
+	if _, err := dec.ReadToken(); !errors.Is(err, io.EOF) {
 		t.Fatalf("ReadToken EOF = %v, want io.EOF", err)
 	}
-	if err := dec.SkipValue(); err != io.EOF {
+	if err := dec.SkipValue(); !errors.Is(err, io.EOF) {
 		t.Fatalf("SkipValue EOF = %v, want io.EOF", err)
 	}
 
@@ -1112,7 +1112,7 @@ func TestDecoderSkipValueBranches(t *testing.T) {
 	if err := dec.SkipValue(); err != nil {
 		t.Fatalf("SkipValue element error = %v", err)
 	}
-	if _, err := dec.ReadToken(); err != io.EOF {
+	if _, err := dec.ReadToken(); !errors.Is(err, io.EOF) {
 		t.Fatalf("ReadToken EOF after skip = %v, want io.EOF", err)
 	}
 

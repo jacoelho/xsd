@@ -9,11 +9,10 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-// validateParticleStructure validates structural constraints of particles
-// parentKind is the kind of the parent model group (nil if no parent)
-func validateParticleStructure(schema *parser.Schema, particle types.Particle, parentKind *types.GroupKind) error {
+// validateParticleStructure validates structural constraints of particles.
+func validateParticleStructure(schema *parser.Schema, particle types.Particle) error {
 	visited := make(map[*types.ModelGroup]bool)
-	return validateParticleStructureWithVisited(schema, particle, parentKind, visited)
+	return validateParticleStructureWithVisited(schema, particle, nil, visited)
 }
 
 // validateParticleStructureWithVisited validates structural constraints with cycle detection
@@ -178,7 +177,7 @@ func validateAllGroupNested(particles []types.Particle) error {
 }
 
 func validateElementParticle(schema *parser.Schema, elem *types.ElementDecl) error {
-	if err := validateElementConstraints(schema, elem); err != nil {
+	if err := validateElementConstraints(elem); err != nil {
 		return err
 	}
 	if err := validateElementConstraintNames(elem); err != nil {
@@ -193,9 +192,9 @@ func validateElementParticle(schema *parser.Schema, elem *types.ElementDecl) err
 	return validateInlineElementType(schema, elem)
 }
 
-func validateElementConstraints(schema *parser.Schema, elem *types.ElementDecl) error {
+func validateElementConstraints(elem *types.ElementDecl) error {
 	for _, constraint := range elem.Constraints {
-		if err := validateIdentityConstraint(schema, constraint, elem); err != nil {
+		if err := validateIdentityConstraint(constraint); err != nil {
 			return fmt.Errorf("element '%s' identity constraint '%s': %w", elem.Name, constraint.Name, err)
 		}
 	}
@@ -292,7 +291,7 @@ func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, par
 
 // validateGroupStructure validates structural constraints of a group definition
 // Does not validate references (which might be forward references or imports)
-func validateGroupStructure(schema *parser.Schema, qname types.QName, group *types.ModelGroup) error {
+func validateGroupStructure(qname types.QName, group *types.ModelGroup) error {
 	// this is a structural constraint that is definitely invalid if violated
 	if !isValidNCName(qname.Local) {
 		return fmt.Errorf("invalid group name '%s': must be a valid NCName", qname.Local)
@@ -477,7 +476,8 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 	baseChildren := derivationChildren(baseMG)
 	restrictionChildren := derivationChildren(restrictionMG)
 	// same kind - validate normally
-	if baseMG.Kind == types.Sequence {
+	switch baseMG.Kind {
+	case types.Sequence:
 		// for sequence, particles must match in order
 		// optional particles (minOccurs=0) can be removed, but required particles must be present
 		baseIdx := 0
@@ -556,7 +556,7 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 				return fmt.Errorf("ComplexContent restriction: required particle at position %d is missing", i)
 			}
 		}
-	} else if baseMG.Kind == types.Choice {
+	case types.Choice:
 		// choice uses RecurseLax: match restriction particles to base particles in order.
 		baseIdx := 0
 		for _, restrictionParticle := range restrictionChildren {
@@ -576,7 +576,7 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 				return fmt.Errorf("ComplexContent restriction: restriction particle does not match any base particle in choice")
 			}
 		}
-	} else if baseMG.Kind == types.AllGroup {
+	case types.AllGroup:
 		if err := validateAllGroupRestriction(schema, baseMG, restrictionMG); err != nil {
 			return err
 		}
@@ -852,7 +852,7 @@ func validateElementRestrictionWithGroupOccurrence(schema *parser.Schema, baseMG
 	if restrictionElem.MinOcc() == 0 && restrictionElem.MaxOcc() == 0 {
 		return true, nil
 	}
-	if err := validateElementRestriction(schema, baseElem, restrictionElem); err != nil {
+	if err := validateElementRestriction(baseElem, restrictionElem); err != nil {
 		return true, err
 	}
 	return true, nil
@@ -964,16 +964,17 @@ func validateParticlePairRestriction(schema *parser.Schema, baseParticle, restri
 	// note: baseAny and baseIsAny already declared above for Element:Wildcard check
 	baseAny, baseIsAny = baseParticle.(*types.AnyElement)
 	restrictionAny, restrictionIsAny := restrictionParticle.(*types.AnyElement)
-	if baseIsAny && restrictionIsAny {
+	switch {
+	case baseIsAny && restrictionIsAny:
 		return validateWildcardToWildcardRestriction(baseAny, restrictionAny)
-	} else if baseIsAny && !restrictionIsAny {
+	case baseIsAny && !restrictionIsAny:
 		// base is a wildcard, restriction is not - this is valid (restricting wildcard to specific elements)
 		// the restriction element must have valid occurrence constraints relative to the wildcard
 		return nil
-	} else if !baseIsAny && restrictionIsAny {
+	case !baseIsAny && restrictionIsAny:
 		// base is not a wildcard, restriction is - this is invalid (can't restrict element to wildcard)
 		return fmt.Errorf("ComplexContent restriction: cannot restrict non-wildcard to wildcard")
-	} else {
+	default:
 		// neither is a wildcard - check if they're the same type
 		// for element declarations, they must match
 		baseElem, baseIsElem := baseParticle.(*types.ElementDecl)
@@ -991,7 +992,7 @@ func validateParticlePairRestriction(schema *parser.Schema, baseParticle, restri
 					return fmt.Errorf("ComplexContent restriction: element name mismatch (%s vs %s)", baseElem.Name, restrictionElem.Name)
 				}
 			}
-			if err := validateElementRestriction(schema, baseElem, restrictionElem); err != nil {
+			if err := validateElementRestriction(baseElem, restrictionElem); err != nil {
 				return err
 			}
 		}
@@ -1042,7 +1043,7 @@ func validateParticlePairRestriction(schema *parser.Schema, baseParticle, restri
 // - fixed: If base has fixed value, restriction must have same fixed value
 // - block: Restriction block must be superset of base block (cannot allow more derivations)
 // - type: Restriction type must be same as or derived from base type
-func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem *types.ElementDecl) error {
+func validateElementRestriction(baseElem, restrictionElem *types.ElementDecl) error {
 	// validate nillable: cannot change from false to true
 	if !baseElem.Nillable && restrictionElem.Nillable {
 		return fmt.Errorf("ComplexContent restriction: element '%s' nillable cannot be true when base element nillable is false", restrictionElem.Name)

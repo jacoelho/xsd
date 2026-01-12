@@ -1,6 +1,7 @@
 package xsdxml
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -34,7 +35,7 @@ func ParseInto(r io.Reader, doc *Document) error {
 	rootClosed := false
 	for {
 		event, err := decoder.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

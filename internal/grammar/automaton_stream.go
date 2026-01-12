@@ -96,7 +96,7 @@ func (v *AutomatonStreamValidator) Feed(child types.QName) (MatchResult, error) 
 	if err := v.automaton.handleGroupCounters(v.state, next, symbolIndex, childIdx, &v.groupState); err != nil {
 		return result, err
 	}
-	if err := v.automaton.handleElementCounter(v.state, next, symbolIndex, childIdx, v.symbolCounts, child.Local); err != nil {
+	if err := v.automaton.handleElementCounter(symbolIndex, childIdx, v.symbolCounts, child.Local); err != nil {
 		return result, err
 	}
 

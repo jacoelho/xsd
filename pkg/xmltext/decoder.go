@@ -3,6 +3,7 @@ package xmltext
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"io"
 	"unsafe"
 )
@@ -22,7 +23,7 @@ type Decoder struct {
 	attrSeen           map[uint64]attrBucket
 	interner           *nameInterner
 	bufioReader        *bufio.Reader
-	attrSeenSmall      [attrSeenSmallMax]Span
+	attrSeenSmall      [attrSeenSmallMax]attrSeenEntry
 	entities           entityResolver
 	pendingToken       Token
 	pendingEndToken    Token
@@ -89,7 +90,7 @@ func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 	d.optsRaw = joined
 	d.opts = resolveOptions(joined)
 
-	d.entities = entityResolver{custom: d.opts.entityMap, maxTokenSize: d.opts.maxTokenSize}
+	d.entities = newEntityResolver(d.opts.entityMap, d.opts.maxTokenSize)
 
 	d.buf.poison = d.opts.debugPoisonSpans
 	d.scratch.poison = d.opts.debugPoisonSpans
@@ -291,10 +292,10 @@ func (d *Decoder) readTokenInto(dst *Token) error {
 	}
 
 	nextKind, err := d.peekKind()
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return d.fail(err)
 	}
-	if err == io.EOF || (nextKind != KindCharData && nextKind != KindCDATA) {
+	if errors.Is(err, io.EOF) || (nextKind != KindCharData && nextKind != KindCDATA) {
 		setCharDataToken(dst, dst.Text, dst.TextNeeds, dst.TextRawNeeds, dst.Line, dst.Column, dst.Raw)
 		if d.opts.debugPoisonSpans {
 			d.refreshToken(dst)
@@ -318,7 +319,7 @@ func (d *Decoder) readTokenInto(dst *Token) error {
 	for {
 		nextSelfClosing, err := d.nextTokenInto(&d.pendingToken, true)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return d.fail(err)
@@ -357,7 +358,7 @@ func (d *Decoder) ReadValue() (Value, error) {
 	}
 	d.bumpGen()
 
-	first, _, err := d.nextToken(false)
+	first, err := d.nextToken(false)
 	if err != nil {
 		return nil, d.fail(err)
 	}
@@ -395,7 +396,7 @@ func (d *Decoder) ReadValue() (Value, error) {
 	}
 
 	for depth > 0 {
-		next, _, err := d.nextToken(false)
+		next, err := d.nextToken(false)
 		if err != nil {
 			return nil, d.fail(err)
 		}
@@ -658,49 +659,49 @@ func (d *Decoder) InternStats() InternStats {
 
 func resolveOptions(opts Options) decoderOptions {
 	resolved := decoderOptions{trackLineColumn: true, bufferSize: defaultBufferSize}
-	if value, ok := GetOption(opts, WithCharsetReader); ok {
+	if value, ok := opts.CharsetReader(); ok {
 		resolved.charsetReader = value
 	}
-	if value, ok := GetOption(opts, WithEntityMap); ok {
+	if value, ok := opts.EntityMap(); ok {
 		resolved.entityMap = value
 	}
-	if value, ok := GetOption(opts, ResolveEntities); ok {
+	if value, ok := opts.ResolveEntities(); ok {
 		resolved.resolveEntities = value
 	}
-	if value, ok := GetOption(opts, EmitComments); ok {
+	if value, ok := opts.EmitComments(); ok {
 		resolved.emitComments = value
 	}
-	if value, ok := GetOption(opts, EmitPI); ok {
+	if value, ok := opts.EmitPI(); ok {
 		resolved.emitPI = value
 	}
-	if value, ok := GetOption(opts, EmitDirectives); ok {
+	if value, ok := opts.EmitDirectives(); ok {
 		resolved.emitDirectives = value
 	}
-	if value, ok := GetOption(opts, TrackLineColumn); ok {
+	if value, ok := opts.TrackLineColumn(); ok {
 		resolved.trackLineColumn = value
 	}
-	if value, ok := GetOption(opts, CoalesceCharData); ok {
+	if value, ok := opts.CoalesceCharData(); ok {
 		resolved.coalesceCharData = value
 	}
-	if value, ok := GetOption(opts, MaxDepth); ok {
+	if value, ok := opts.MaxDepth(); ok {
 		resolved.maxDepth = normalizeLimit(value)
 	}
-	if value, ok := GetOption(opts, MaxAttrs); ok {
+	if value, ok := opts.MaxAttrs(); ok {
 		resolved.maxAttrs = normalizeLimit(value)
 	}
-	if value, ok := GetOption(opts, MaxTokenSize); ok {
+	if value, ok := opts.MaxTokenSize(); ok {
 		resolved.maxTokenSize = normalizeLimit(value)
 	}
-	if value, ok := GetOption(opts, MaxQNameInternEntries); ok {
+	if value, ok := opts.MaxQNameInternEntries(); ok {
 		resolved.maxQNameInternEntries = normalizeLimit(value)
 	}
-	if value, ok := GetOption(opts, MaxNamespaceInternEntries); ok {
+	if value, ok := opts.MaxNamespaceInternEntries(); ok {
 		resolved.maxNamespaceInternEntries = normalizeLimit(value)
 	}
-	if value, ok := GetOption(opts, DebugPoisonSpans); ok {
+	if value, ok := opts.DebugPoisonSpans(); ok {
 		resolved.debugPoisonSpans = value
 	}
-	if value, ok := GetOption(opts, BufferSize); ok {
+	if value, ok := opts.BufferSize(); ok {
 		resolved.bufferSize = normalizeLimit(value)
 	}
 	if resolved.bufferSize == 0 {
@@ -753,7 +754,7 @@ func wrapCharsetReaderFromBufio(reader *bufio.Reader, charsetReader func(label s
 
 func discardUTF8BOM(r *bufio.Reader) error {
 	peek, err := r.Peek(3)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
 	if len(peek) >= 3 && peek[0] == 0xEF && peek[1] == 0xBB && peek[2] == 0xBF {
@@ -766,7 +767,7 @@ const maxDeclScan = 1024
 
 func detectEncoding(r *bufio.Reader) (string, error) {
 	peek, err := r.Peek(4)
-	if err != nil && err != io.EOF && err != bufio.ErrBufferFull {
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, bufio.ErrBufferFull) {
 		return "", err
 	}
 	if len(peek) >= 2 {
@@ -791,14 +792,14 @@ func detectEncoding(r *bufio.Reader) (string, error) {
 func detectXMLDeclEncoding(r *bufio.Reader) (string, error) {
 	const prefix = "<?xml"
 	peek, err := r.Peek(len(prefix))
-	if err != nil && err != io.EOF && err != bufio.ErrBufferFull {
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, bufio.ErrBufferFull) {
 		return "", err
 	}
 	if len(peek) < len(prefix) || !bytes.Equal(peek, []byte(prefix)) {
 		return "", nil
 	}
 	decl, err := r.Peek(maxDeclScan)
-	if err != nil && err != io.EOF && err != bufio.ErrBufferFull {
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, bufio.ErrBufferFull) {
 		return "", err
 	}
 	end := bytes.Index(decl, []byte("?>"))

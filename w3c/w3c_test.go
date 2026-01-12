@@ -2,6 +2,7 @@ package w3c
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,7 +13,7 @@ import (
 	"testing"
 	"unicode"
 
-	"github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/loader"
 	"github.com/jacoelho/xsd/internal/types"
@@ -1031,7 +1032,7 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 			return
 		}
 
-		schemaPath, schema = r.loadSchemaForInstance(t, group, info, metadataDir, fullInstancePath)
+		schemaPath, schema = r.loadSchemaForInstance(t, group, info, metadataDir)
 
 		// if schema is nil but schemaPath is set, schema loading failed
 		// if the test expects "invalid", this is actually a pass (invalid schema = invalid instance)
@@ -1106,7 +1107,7 @@ func readInstanceInfo(r io.Reader) (instanceInfo, error) {
 
 	for {
 		ev, err := dec.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return instanceInfo{}, fmt.Errorf("document has no root element")
 		}
 		if err != nil {
@@ -1135,7 +1136,7 @@ func readInstanceInfo(r io.Reader) (instanceInfo, error) {
 
 // loadSchemaForInstance finds and loads the schema for an instance test.
 // Returns the schema path (for error messages) and compiled schema, or nil if not found.
-func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, info instanceInfo, metadataDir, instancePath string) (string, *grammar.CompiledSchema) {
+func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, info instanceInfo, metadataDir string) (string, *grammar.CompiledSchema) {
 	rootNS := info.rootNS
 	rootQName := types.QName{
 		Namespace: types.NamespaceURI(rootNS),
@@ -1212,7 +1213,7 @@ func (r *W3CTestRunner) resolvePath(metadataDir, href string) string {
 }
 
 // formatViolations formats validation violations for readable error output
-func (r *W3CTestRunner) formatViolations(violations []errors.Validation) string {
+func (r *W3CTestRunner) formatViolations(violations []xsdErrors.Validation) string {
 	if len(violations) == 0 {
 		return "  Violations: (none - document is valid)"
 	}

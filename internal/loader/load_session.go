@@ -123,7 +123,7 @@ func (s *loadSession) processImports(schema *parser.Schema, imports []parser.Imp
 		if s.loader.alreadyMergedImport(s.absLoc, absImportLoc) {
 			continue
 		}
-		importedSchema, err := s.loader.loadImport(importLoc, imp.Namespace, schema.TargetNamespace)
+		importedSchema, err := s.loader.loadImport(importLoc, schema.TargetNamespace)
 		if err != nil {
 			if isNotFound(err) {
 				continue

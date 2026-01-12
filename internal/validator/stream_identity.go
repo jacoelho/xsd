@@ -353,11 +353,7 @@ func (r *streamRun) applyFieldCaptures(frame *streamFrame) {
 		}
 		field := match.constraint.constraint.Original.Fields[capture.fieldIndex]
 		raw := strings.TrimSpace(string(frame.textBuf))
-		normalized, keyState := r.normalizeElementValue(raw, field, frame)
-		if keyState == KeyInvalid {
-			fieldState.invalid = true
-			continue
-		}
+		normalized := r.normalizeElementValue(raw, field, frame)
 		fieldState.value = normalized
 		fieldState.display = strings.TrimSpace(raw)
 		fieldState.hasValue = true
@@ -522,20 +518,21 @@ func (r *streamRun) addIdentityFieldError(constraint *grammar.CompiledConstraint
 	}
 }
 
-func (r *streamRun) normalizeElementValue(value string, field types.Field, frame *streamFrame) (string, KeyState) {
+func (r *streamRun) normalizeElementValue(value string, field types.Field, frame *streamFrame) string {
 	if value == "" {
-		return "", KeyValid
+		return ""
 	}
 	fieldType := field.ResolvedType
 	if fieldType == nil {
 		fieldType = field.Type
 	}
 	if (fieldType == nil || isAnySimpleOrAnyType(fieldType)) && frame != nil {
-		if frame.textType != nil && frame.textType.Original != nil {
+		switch {
+		case frame.textType != nil && frame.textType.Original != nil:
 			fieldType = frame.textType.Original
-		} else if frame.typ != nil && frame.typ.Original != nil {
+		case frame.typ != nil && frame.typ.Original != nil:
 			fieldType = frame.typ.Original
-		} else if frame.decl != nil && frame.decl.Type != nil {
+		case frame.decl != nil && frame.decl.Type != nil:
 			fieldType = frame.decl.Type.Original
 		}
 	}
@@ -545,7 +542,7 @@ func (r *streamRun) normalizeElementValue(value string, field types.Field, frame
 	if _, ok := fieldType.(*types.ComplexType); ok {
 		fieldType = types.GetBuiltin(types.TypeName("string"))
 	}
-	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth), KeyValid
+	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth)
 }
 
 func isAnySimpleOrAnyType(fieldType types.Type) bool {

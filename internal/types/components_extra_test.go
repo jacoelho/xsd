@@ -198,10 +198,10 @@ func TestCopyTypeAndParticles(t *testing.T) {
 	}
 
 	elem := &ElementDecl{Name: QName{Namespace: "", Local: "e"}}
-	any := &AnyElement{NamespaceList: []NamespaceURI{"##any"}, MinOccurs: 1, MaxOccurs: 1}
+	anyElem := &AnyElement{NamespaceList: []NamespaceURI{"##any"}, MinOccurs: 1, MaxOccurs: 1}
 	group := &ModelGroup{
 		Kind:      Sequence,
-		Particles: []Particle{elem, any},
+		Particles: []Particle{elem, anyElem},
 		MinOccurs: 1,
 		MaxOccurs: 1,
 	}
@@ -216,7 +216,7 @@ func TestCopyTypeAndParticles(t *testing.T) {
 	if copiedGroupRef := copyParticle(groupRef, opts); copiedGroupRef.(*GroupRef).RefQName.Namespace != "urn:dst" {
 		t.Fatalf("expected groupRef remap")
 	}
-	if copiedAny := copyParticle(any, opts); copiedAny.(*AnyElement) == nil {
+	if copiedAny := copyParticle(anyElem, opts); copiedAny.(*AnyElement) == nil {
 		t.Fatalf("expected any element copy")
 	}
 }

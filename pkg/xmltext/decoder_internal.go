@@ -2,6 +2,7 @@ package xmltext
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"unicode/utf8"
 )
@@ -67,6 +68,11 @@ type attrBucket struct {
 	gen   uint32
 }
 
+type attrSeenEntry struct {
+	span Span
+	hash uint64
+}
+
 func (d *Decoder) bumpGen() {
 	if !d.opts.debugPoisonSpans {
 		return
@@ -81,11 +87,12 @@ func (d *Decoder) fail(err error) error {
 	if err == nil {
 		return nil
 	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		d.err = io.EOF
 		return io.EOF
 	}
-	if _, ok := err.(*SyntaxError); ok {
+	var syntaxErr *SyntaxError
+	if errors.As(err, &syntaxErr) {
 		d.err = err
 		return err
 	}
@@ -164,13 +171,12 @@ func refreshSpan(span *Span) {
 	span.gen = span.buf.gen
 }
 
-func (d *Decoder) nextToken(allowCompact bool) (Token, bool, error) {
+func (d *Decoder) nextToken(allowCompact bool) (Token, error) {
 	var tok Token
-	selfClosing, err := d.nextTokenInto(&tok, allowCompact)
-	if err != nil {
-		return Token{}, false, err
+	if _, err := d.nextTokenInto(&tok, allowCompact); err != nil {
+		return Token{}, err
 	}
-	return tok, selfClosing, nil
+	return tok, nil
 }
 
 func (d *Decoder) nextTokenInto(dst *Token, allowCompact bool) (bool, error) {
@@ -192,7 +198,7 @@ func (d *Decoder) nextTokenInto(dst *Token, allowCompact bool) (bool, error) {
 	for {
 		selfClosing, err := d.scanTokenInto(dst, allowCompact)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				if len(d.stack) > 0 {
 					return false, errUnexpectedEOF
 				}
@@ -406,7 +412,7 @@ func (d *Decoder) scanTokenInto(dst *Token, allowCompact bool) (bool, error) {
 	}
 
 	if err := d.ensureIndex(d.pos+1, allowCompact); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return false, errUnexpectedEOF
 		}
 		return false, err
@@ -512,7 +518,7 @@ func (d *Decoder) scanCharDataInto(dst *Token, allowCompact bool) (bool, error) 
 			return false, nil
 		}
 		if err := d.readMore(allowCompact); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				d.eof = true
 				continue
 			}
@@ -522,6 +528,10 @@ func (d *Decoder) scanCharDataInto(dst *Token, allowCompact bool) (bool, error) 
 }
 
 func scanCharDataSpanUntilEntity(data []byte, start int) (int, error) {
+	if start >= len(data) {
+		return -1, nil
+	}
+	_ = data[len(data)-1]
 	bracketRun := 0
 	for i := start; i < len(data); {
 		switch charDataByteClassLUT[data[i]] {
@@ -696,7 +706,7 @@ func (d *Decoder) scanStartTagInto(dst *Token, allowCompact bool) (bool, error) 
 	space := d.skipWhitespace(allowCompact)
 	for {
 		if err := d.ensureIndex(d.pos, allowCompact); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return false, errUnexpectedEOF
 			}
 			return false, err
@@ -722,7 +732,7 @@ func (d *Decoder) scanStartTagInto(dst *Token, allowCompact bool) (bool, error) 
 		}
 		d.skipWhitespace(allowCompact)
 		if err := d.ensureIndex(d.pos, allowCompact); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return false, errUnexpectedEOF
 			}
 			return false, err
@@ -749,15 +759,16 @@ func (d *Decoder) scanStartTagInto(dst *Token, allowCompact bool) (bool, error) 
 	}
 
 	selfClosing := false
-	if d.buf.data[d.pos] == '/' {
+	switch d.buf.data[d.pos] {
+	case '/':
 		selfClosing = true
 		d.advance(1)
 		if err := d.expectByte('>', allowCompact); err != nil {
 			return false, err
 		}
-	} else if d.buf.data[d.pos] == '>' {
+	case '>':
 		d.advance(1)
-	} else {
+	default:
 		return false, errInvalidToken
 	}
 
@@ -786,7 +797,7 @@ func (d *Decoder) scanAttrValue(quote byte, allowCompact bool) (Span, Span, bool
 	start := d.pos
 	for {
 		if err := d.ensureIndex(d.pos, allowCompact); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return Span{}, Span{}, false, false, errUnexpectedEOF
 			}
 			return Span{}, Span{}, false, false, err
@@ -816,7 +827,7 @@ func (d *Decoder) scanAttrValue(quote byte, allowCompact bool) (Span, Span, bool
 		}
 
 		if err := d.readMore(allowCompact); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return Span{}, Span{}, false, false, errUnexpectedEOF
 			}
 			return Span{}, Span{}, false, false, err
@@ -827,11 +838,11 @@ func (d *Decoder) scanAttrValue(quote byte, allowCompact bool) (Span, Span, bool
 	d.advanceRaw(1)
 	rawSpan := makeSpan(&d.buf, start, end)
 	data := rawSpan.bytes()
-	rawNeeds := bytes.IndexByte(data, '&') >= 0
+	rawNeeds, err := scanXMLCharsUntilEntity(data)
+	if err != nil {
+		return Span{}, Span{}, false, false, err
+	}
 	if !rawNeeds {
-		if err := validateXMLChars(data); err != nil {
-			return Span{}, Span{}, false, false, err
-		}
 		return rawSpan, rawSpan, false, false, nil
 	}
 	if d.opts.resolveEntities {
@@ -880,11 +891,12 @@ func (d *Decoder) markAttrSeen(name QNameSpan) (uint64, error) {
 	hash := hashBytes(data)
 	if d.attrSeenSmallCount < attrSeenSmallMax {
 		for i := 0; i < d.attrSeenSmallCount; i++ {
-			if bytes.Equal(d.attrSeenSmall[i].bytes(), data) {
+			entry := d.attrSeenSmall[i]
+			if entry.hash == hash && bytes.Equal(entry.span.bytes(), data) {
 				return 0, errDuplicateAttr
 			}
 		}
-		d.attrSeenSmall[d.attrSeenSmallCount] = name.Full
+		d.attrSeenSmall[d.attrSeenSmallCount] = attrSeenEntry{span: name.Full, hash: hash}
 		d.attrSeenSmallCount++
 		return hash, nil
 	}
@@ -893,19 +905,17 @@ func (d *Decoder) markAttrSeen(name QNameSpan) (uint64, error) {
 			d.attrSeen = make(map[uint64]attrBucket, attrSeenSmallMax*2)
 		}
 		for i := 0; i < d.attrSeenSmallCount; i++ {
-			span := d.attrSeenSmall[i]
-			spanData := span.bytes()
-			if len(spanData) == 0 {
+			entry := d.attrSeenSmall[i]
+			if len(entry.span.bytes()) == 0 {
 				continue
 			}
-			spanHash := hashBytes(spanData)
-			bucket := d.attrSeen[spanHash]
+			bucket := d.attrSeen[entry.hash]
 			if bucket.gen != d.attrSeenGen {
 				bucket.gen = d.attrSeenGen
 				bucket.spans = bucket.spans[:0]
 			}
-			bucket.spans = append(bucket.spans, span)
-			d.attrSeen[spanHash] = bucket
+			bucket.spans = append(bucket.spans, entry.span)
+			d.attrSeen[entry.hash] = bucket
 		}
 		d.attrSeenSmallCount++
 	}
@@ -1085,7 +1095,7 @@ func (d *Decoder) scanDirectiveInto(dst *Token, allowCompact bool) (bool, error)
 	quote := byte(0)
 	for {
 		if err := d.ensureIndex(d.pos, allowCompact); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return false, errUnexpectedEOF
 			}
 			return false, err
@@ -1145,7 +1155,7 @@ func (d *Decoder) scanUntil(seq []byte, allowCompact bool) (int, error) {
 			return 0, errUnexpectedEOF
 		}
 		if err := d.readMore(allowCompact); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				d.eof = true
 				continue
 			}
@@ -1159,7 +1169,7 @@ func (d *Decoder) scanQName(allowCompact bool) (QNameSpan, error) {
 	first := true
 	for {
 		if err := d.ensureIndex(d.pos, allowCompact); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return QNameSpan{}, errUnexpectedEOF
 			}
 			return QNameSpan{}, err
@@ -1194,7 +1204,7 @@ func (d *Decoder) scanQName(allowCompact bool) (QNameSpan, error) {
 		}
 		r, size, err := d.peekRune(allowCompact)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return QNameSpan{}, errUnexpectedEOF
 			}
 			return QNameSpan{}, err
@@ -1226,7 +1236,7 @@ func (d *Decoder) scanQName(allowCompact bool) (QNameSpan, error) {
 
 func (d *Decoder) scanName(allowCompact bool) (Span, error) {
 	if err := d.ensureIndex(d.pos, allowCompact); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return Span{}, errUnexpectedEOF
 		}
 		return Span{}, err
@@ -1253,7 +1263,7 @@ func (d *Decoder) scanName(allowCompact bool) (Span, error) {
 	} else {
 		r, size, err := d.peekRune(allowCompact)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return Span{}, errUnexpectedEOF
 			}
 			return Span{}, err
@@ -1265,7 +1275,7 @@ func (d *Decoder) scanName(allowCompact bool) (Span, error) {
 	}
 	for {
 		if err := d.ensureIndex(d.pos, allowCompact); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return Span{}, errUnexpectedEOF
 			}
 			return Span{}, err
@@ -1280,7 +1290,7 @@ func (d *Decoder) scanName(allowCompact bool) (Span, error) {
 		}
 		r, size, err := d.peekRune(allowCompact)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return Span{}, errUnexpectedEOF
 			}
 			return Span{}, err
@@ -1314,7 +1324,7 @@ func (d *Decoder) peekRune(allowCompact bool) (rune, int, error) {
 			return 0, 0, errInvalidChar
 		}
 		if err := d.readMore(allowCompact); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				d.eof = true
 				continue
 			}
@@ -1347,7 +1357,7 @@ func (d *Decoder) skipWhitespace(allowCompact bool) bool {
 
 func (d *Decoder) expectByte(value byte, allowCompact bool) error {
 	if err := d.ensureIndex(d.pos, allowCompact); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return errUnexpectedEOF
 		}
 		return err
@@ -1363,7 +1373,7 @@ func (d *Decoder) matchLiteral(lit []byte, allowCompact bool) (bool, error) {
 	end := d.pos + len(lit)
 	for end > len(d.buf.data) {
 		if err := d.readMore(allowCompact); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return false, errUnexpectedEOF
 			}
 			return false, err
@@ -1388,6 +1398,9 @@ func (d *Decoder) readMore(allowCompact bool) error {
 	if d.eof {
 		return io.EOF
 	}
+	if allowCompact {
+		d.compactIfNeeded()
+	}
 	if len(d.buf.data) == cap(d.buf.data) {
 		if err := d.growBuffer(); err != nil {
 			return err
@@ -1403,7 +1416,7 @@ func (d *Decoder) readMore(allowCompact bool) error {
 		d.buf.data = buf[:len(buf)+n]
 		return nil
 	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		d.eof = true
 		return io.EOF
 	}

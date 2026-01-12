@@ -324,7 +324,7 @@ func TestParticleHelpers(t *testing.T) {
 		t.Fatalf("validateParticleRestrictionWithKindChange error = %v", err)
 	}
 
-	any := &types.AnyElement{
+	anyElem := &types.AnyElement{
 		Namespace:       types.NSCAny,
 		MinOccurs:       1,
 		MaxOccurs:       1,
@@ -334,7 +334,7 @@ func TestParticleHelpers(t *testing.T) {
 		Kind:      types.Sequence,
 		MinOccurs: 1,
 		MaxOccurs: 1,
-		Particles: []types.Particle{any},
+		Particles: []types.Particle{anyElem},
 	}, &types.ModelGroup{
 		Kind:      types.Choice,
 		MinOccurs: 1,
@@ -424,13 +424,12 @@ func TestAttributeGroupStructure(t *testing.T) {
 }
 
 func TestGroupStructure(t *testing.T) {
-	schema := parser.NewSchema()
 	good := &types.ModelGroup{
 		Kind:      types.Sequence,
 		MinOccurs: 1,
 		MaxOccurs: 1,
 	}
-	if err := validateGroupStructure(schema, types.QName{Local: "g"}, good); err != nil {
+	if err := validateGroupStructure(types.QName{Local: "g"}, good); err != nil {
 		t.Fatalf("validateGroupStructure error = %v", err)
 	}
 
@@ -439,7 +438,7 @@ func TestGroupStructure(t *testing.T) {
 		MinOccurs: 0,
 		MaxOccurs: 1,
 	}
-	if err := validateGroupStructure(schema, types.QName{Local: "g"}, bad); err == nil {
+	if err := validateGroupStructure(types.QName{Local: "g"}, bad); err == nil {
 		t.Fatalf("expected invalid group occurrence error")
 	}
 }
@@ -697,9 +696,9 @@ func TestSimpleTypeHelpers(t *testing.T) {
 		t.Fatalf("expected XSD 1.1 union type error")
 	}
 
-	complex := types.NewComplexType(types.QName{Namespace: "urn:simple", Local: "ct"}, "urn:simple")
-	schema.TypeDefs[complex.QName] = complex
-	union = &types.UnionType{MemberTypes: []types.QName{complex.QName}}
+	complexType := types.NewComplexType(types.QName{Namespace: "urn:simple", Local: "ct"}, "urn:simple")
+	schema.TypeDefs[complexType.QName] = complexType
+	union = &types.UnionType{MemberTypes: []types.QName{complexType.QName}}
 	if err := validateUnionType(schema, union); err == nil {
 		t.Fatalf("expected complex member type error")
 	}
@@ -835,9 +834,9 @@ func TestListTypeValidation(t *testing.T) {
 		t.Fatalf("unexpected list type error: %v", err)
 	}
 
-	complex := types.NewComplexType(types.QName{Namespace: "urn:list", Local: "ct"}, "urn:list")
-	schema.TypeDefs[complex.QName] = complex
-	if err := validateListType(schema, &types.ListType{ItemType: complex.QName}); err == nil {
+	complexType := types.NewComplexType(types.QName{Namespace: "urn:list", Local: "ct"}, "urn:list")
+	schema.TypeDefs[complexType.QName] = complexType
+	if err := validateListType(schema, &types.ListType{ItemType: complexType.QName}); err == nil {
 		t.Fatalf("expected complex list item type error")
 	}
 }
@@ -1178,7 +1177,7 @@ func TestParticleStructureValidation(t *testing.T) {
 		MaxOccurs: 1,
 		Particles: []types.Particle{elemA, elemB},
 	}
-	if err := validateParticleStructure(schema, allGroup, nil); err == nil {
+	if err := validateParticleStructure(schema, allGroup); err == nil {
 		t.Fatalf("expected all-group duplicate element error")
 	}
 
@@ -1334,7 +1333,6 @@ func TestSimpleContentStructureValid(t *testing.T) {
 }
 
 func TestElementRestrictionValidation(t *testing.T) {
-	schema := parser.NewSchema()
 	stringType := types.GetBuiltin(types.TypeName("string"))
 	intType := types.GetBuiltin(types.TypeName("int"))
 
@@ -1352,7 +1350,7 @@ func TestElementRestrictionValidation(t *testing.T) {
 		MinOccurs: 1,
 		MaxOccurs: 1,
 	}
-	if err := validateElementRestriction(schema, base, restr); err == nil {
+	if err := validateElementRestriction(base, restr); err == nil {
 		t.Fatalf("expected fixed value restriction error")
 	}
 
@@ -1362,7 +1360,7 @@ func TestElementRestrictionValidation(t *testing.T) {
 		MinOccurs: 1,
 		MaxOccurs: 1,
 	}
-	if err := validateElementRestriction(schema, &types.ElementDecl{Name: base.Name, Type: stringType}, restr2); err == nil {
+	if err := validateElementRestriction(&types.ElementDecl{Name: base.Name, Type: stringType}, restr2); err == nil {
 		t.Fatalf("expected type restriction error")
 	}
 }

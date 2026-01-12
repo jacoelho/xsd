@@ -3,6 +3,7 @@ package xmltext
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,16 +14,16 @@ import (
 var (
 	benchOnce sync.Once
 	benchData []byte
-	benchErr  error
+	errBench  error
 )
 
 func loadBenchData(tb testing.TB) []byte {
 	benchOnce.Do(func() {
 		path := filepath.Join("..", "..", "testdata", "gml", "xsd", "gml.xsd")
-		benchData, benchErr = os.ReadFile(path)
+		benchData, errBench = os.ReadFile(path)
 	})
-	if benchErr != nil {
-		tb.Fatalf("read benchmark data error = %v", benchErr)
+	if errBench != nil {
+		tb.Fatalf("read benchmark data error = %v", errBench)
 	}
 	return benchData
 }
@@ -38,7 +39,7 @@ func BenchmarkXMLTextDecoder(b *testing.B) {
 		dec.Reset(bytes.NewReader(data))
 		for {
 			_, err := dec.ReadToken()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {
@@ -66,7 +67,7 @@ func BenchmarkXMLTextDecoderEncodingXML(b *testing.B) {
 		dec.Reset(bytes.NewReader(data), opts)
 		for {
 			_, err := dec.ReadToken()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {
@@ -86,7 +87,7 @@ func BenchmarkEncodingXMLDecoder(b *testing.B) {
 		dec := xml.NewDecoder(bytes.NewReader(data))
 		for {
 			_, err := dec.Token()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {

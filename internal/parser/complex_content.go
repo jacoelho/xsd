@@ -228,11 +228,11 @@ func parseComplexContentParticle(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 		if err != nil {
 			return nil, fmt.Errorf("resolve group ref %s: %w", ref, err)
 		}
-		minOccurs, err := parseOccursAttr(doc, elem, "minOccurs", 1)
+		minOccurs, err := parseOccursAttr(doc, elem, "minOccurs")
 		if err != nil {
 			return nil, err
 		}
-		maxOccurs, err := parseOccursAttr(doc, elem, "maxOccurs", 1)
+		maxOccurs, err := parseOccursAttr(doc, elem, "maxOccurs")
 		if err != nil {
 			return nil, err
 		}

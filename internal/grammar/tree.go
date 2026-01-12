@@ -20,8 +20,8 @@ type leafNode struct {
 	size     int
 }
 
-func newLeaf(pos int, particle types.Particle, min, max, size int) *leafNode {
-	return &leafNode{pos: pos, particle: particle, min: min, max: max, size: size}
+func newLeaf(pos int, particle types.Particle, minOccurs, maxOccurs, size int) *leafNode {
+	return &leafNode{pos: pos, particle: particle, min: minOccurs, max: maxOccurs, size: size}
 }
 
 func (n *leafNode) nullable() bool {

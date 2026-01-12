@@ -2,6 +2,7 @@ package xsdxml
 
 import (
 	"encoding/xml"
+	"errors"
 	"io"
 	"reflect"
 	"strings"
@@ -57,7 +58,7 @@ func streamEvents(xmlData string) ([]normEvent, error) {
 	for {
 		ev, err := dec.Next()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, err
@@ -93,7 +94,7 @@ func encodingXMLEvents(xmlData string) ([]normEvent, error) {
 	for {
 		tok, err := dec.Token()
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, err

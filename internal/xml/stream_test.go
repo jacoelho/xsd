@@ -18,7 +18,7 @@ func TestStreamDecoderNamespaceLookup(t *testing.T) {
 		t.Fatalf("NewStreamDecoder() error = %v", err)
 	}
 
-	event, err := nextEvent(dec, EventStartElement)
+	event, err := nextStartEvent(dec)
 	if err != nil {
 		t.Fatalf("next start root error = %v", err)
 	}
@@ -32,7 +32,7 @@ func TestStreamDecoderNamespaceLookup(t *testing.T) {
 		t.Fatalf("default namespace = %q (ok=%v), want urn:root", ns, ok)
 	}
 
-	event, err = nextEvent(dec, EventStartElement)
+	event, err = nextStartEvent(dec)
 	if err != nil {
 		t.Fatalf("next start child error = %v", err)
 	}
@@ -65,7 +65,7 @@ func TestStreamDecoderDefaultNamespaceUndeclare(t *testing.T) {
 		t.Fatalf("NewStreamDecoder() error = %v", err)
 	}
 
-	event, err := nextEvent(dec, EventStartElement)
+	event, err := nextStartEvent(dec)
 	if err != nil {
 		t.Fatalf("next start root error = %v", err)
 	}
@@ -73,7 +73,7 @@ func TestStreamDecoderDefaultNamespaceUndeclare(t *testing.T) {
 		t.Fatalf("root default namespace = %q (ok=%v), want urn:root", ns, ok)
 	}
 
-	event, err = nextEvent(dec, EventStartElement)
+	event, err = nextStartEvent(dec)
 	if err != nil {
 		t.Fatalf("next start child error = %v", err)
 	}
@@ -81,7 +81,7 @@ func TestStreamDecoderDefaultNamespaceUndeclare(t *testing.T) {
 		t.Fatalf("child default namespace = %q (ok=%v), want empty", ns, ok)
 	}
 
-	event, err = nextEvent(dec, EventStartElement)
+	event, err = nextStartEvent(dec)
 	if err != nil {
 		t.Fatalf("next start grand error = %v", err)
 	}
@@ -97,7 +97,7 @@ func TestStreamDecoderSkipSubtree(t *testing.T) {
 		t.Fatalf("NewStreamDecoder() error = %v", err)
 	}
 
-	event, err := nextEvent(dec, EventStartElement)
+	event, err := nextStartEvent(dec)
 	if err != nil {
 		t.Fatalf("next start root error = %v", err)
 	}
@@ -105,7 +105,7 @@ func TestStreamDecoderSkipSubtree(t *testing.T) {
 		t.Fatalf("first element = %q, want root", event.Name.Local)
 	}
 
-	event, err = nextEvent(dec, EventStartElement)
+	event, err = nextStartEvent(dec)
 	if err != nil {
 		t.Fatalf("next start skip error = %v", err)
 	}
@@ -116,7 +116,7 @@ func TestStreamDecoderSkipSubtree(t *testing.T) {
 		t.Fatalf("SkipSubtree() error = %v", err)
 	}
 
-	event, err = nextEvent(dec, EventStartElement)
+	event, err = nextStartEvent(dec)
 	if err != nil {
 		t.Fatalf("next start after error = %v", err)
 	}
@@ -125,13 +125,13 @@ func TestStreamDecoderSkipSubtree(t *testing.T) {
 	}
 }
 
-func nextEvent(dec *StreamDecoder, kind EventKind) (Event, error) {
+func nextStartEvent(dec *StreamDecoder) (Event, error) {
 	for {
 		event, err := dec.Next()
 		if err != nil {
 			return Event{}, err
 		}
-		if event.Kind == kind {
+		if event.Kind == EventStartElement {
 			return event, nil
 		}
 	}
@@ -144,7 +144,7 @@ func TestStreamDecoderEOF(t *testing.T) {
 	}
 	for {
 		_, err := dec.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return
 		}
 		if err != nil {

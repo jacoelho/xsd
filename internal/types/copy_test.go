@@ -5,7 +5,7 @@ import "testing"
 func TestElementDeclCopy_ConstraintsAreIndependent(t *testing.T) {
 	orig := &ElementDecl{
 		Name: QName{Local: "elem"},
-		Constraints: []*IdentityConstraint{&IdentityConstraint{
+		Constraints: []*IdentityConstraint{{
 			Name:             "idc",
 			Fields:           []Field{{XPath: "a"}},
 			NamespaceContext: map[string]string{"p": "urn:test"},

@@ -171,7 +171,7 @@ func readXMLTextTokensWithOptions(input string, opts ...Options) ([]simpleToken,
 	var tokens []simpleToken
 	for {
 		tok, err := dec.ReadToken()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -211,7 +211,7 @@ func readEncodingXMLTokensWithOptions(input string, opts encodingXMLTokenOptions
 	}
 	for {
 		tok, err := readToken()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -547,7 +547,7 @@ func TestEncodingXMLInputOffset(t *testing.T) {
 	for {
 		start := dec.InputOffset()
 		tok, err := dec.ReadToken()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -581,7 +581,7 @@ func TestEncodingXMLLineColumns(t *testing.T) {
 	for {
 		start := dec.InputOffset()
 		tok, err := dec.ReadToken()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

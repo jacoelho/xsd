@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -369,7 +370,8 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 				t.Fatalf("Parse() error = %v", err)
 			}
 
-			if strings.Contains(tt.name, "element") {
+			switch {
+			case strings.Contains(tt.name, "element"):
 				qname := types.QName{
 					Namespace: types.NamespaceURI("http://example.com/test"),
 					Local:     tt.elementName,
@@ -390,7 +392,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 				if typeQName.Namespace != tt.wantTypeNS {
 					t.Errorf("element type Namespace = %q, want %q", typeQName.Namespace, tt.wantTypeNS)
 				}
-			} else if strings.Contains(tt.name, "attribute") {
+			case strings.Contains(tt.name, "attribute"):
 				qname := types.QName{
 					Namespace: types.NamespaceURI("http://example.com/test"),
 					Local:     tt.elementName,
@@ -413,10 +415,10 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 				if typeQName.Local != tt.wantTypeName {
 					t.Errorf("attribute type Local = %q, want %q", typeQName.Local, tt.wantTypeName)
 				}
-				if typeQName.Namespace != types.NamespaceURI(tt.wantTypeNS) {
+				if typeQName.Namespace != tt.wantTypeNS {
 					t.Errorf("attribute type Namespace = %q, want %q", typeQName.Namespace, tt.wantTypeNS)
 				}
-			} else if strings.Contains(tt.name, "simpleType") {
+			case strings.Contains(tt.name, "simpleType"):
 				qname := types.QName{
 					Namespace: types.NamespaceURI("http://example.com/test"),
 					Local:     tt.elementName,
@@ -434,10 +436,10 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 				if baseQName.Local != tt.wantTypeName {
 					t.Errorf("simpleType base Local = %q, want %q", baseQName.Local, tt.wantTypeName)
 				}
-				if baseQName.Namespace != types.NamespaceURI(tt.wantTypeNS) {
+				if baseQName.Namespace != tt.wantTypeNS {
 					t.Errorf("simpleType base Namespace = %q, want %q", baseQName.Namespace, tt.wantTypeNS)
 				}
-			} else if strings.Contains(tt.name, "extension") {
+			case strings.Contains(tt.name, "extension"):
 				qname := types.QName{
 					Namespace: types.NamespaceURI("http://example.com/test"),
 					Local:     tt.elementName,
@@ -460,7 +462,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 				if baseQName.Local != tt.wantTypeName {
 					t.Errorf("extension base Local = %q, want %q", baseQName.Local, tt.wantTypeName)
 				}
-				if baseQName.Namespace != types.NamespaceURI(tt.wantTypeNS) {
+				if baseQName.Namespace != tt.wantTypeNS {
 					t.Errorf("extension base Namespace = %q, want %q", baseQName.Namespace, tt.wantTypeNS)
 				}
 			}
@@ -781,11 +783,7 @@ func TestParseXMLErrorHandling(t *testing.T) {
 			}
 
 			var parseErr *ParseError
-			if pe, ok := err.(*ParseError); ok {
-				parseErr = pe
-			}
-
-			if parseErr != nil {
+			if errors.As(err, &parseErr) {
 				if parseErr.Code != tt.wantCode {
 					t.Errorf("Parse() error code = %q, want %q", parseErr.Code, tt.wantCode)
 				}
