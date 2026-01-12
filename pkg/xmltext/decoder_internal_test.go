@@ -68,6 +68,11 @@ func TestScanCharDataSpanUntilEntity(t *testing.T) {
 		t.Fatalf("scanCharDataSpanUntilEntity idx = %d, want -1", idx)
 	}
 
+	_, err = scanCharDataSpanUntilEntity([]byte("abc"), -1)
+	if !errors.Is(err, errInvalidChar) {
+		t.Fatalf("scanCharDataSpanUntilEntity negative error = %v, want %v", err, errInvalidChar)
+	}
+
 	_, err = scanCharDataSpanUntilEntity([]byte("]]>"), 0)
 	if !errors.Is(err, errInvalidToken) {
 		t.Fatalf("scanCharDataSpanUntilEntity token error = %v, want %v", err, errInvalidToken)
@@ -274,6 +279,26 @@ func TestAdvanceHelpers(t *testing.T) {
 	dec.advanceRaw(1)
 	if dec.pos != 3 || dec.column != 4 {
 		t.Fatalf("advanceRaw pos/column = %d/%d, want 3/4", dec.pos, dec.column)
+	}
+}
+
+func TestAdvanceCRLFAcrossChunks(t *testing.T) {
+	dec := &Decoder{opts: decoderOptions{trackLineColumn: true}, line: 1, column: 1}
+	dec.buf.data = []byte("\r\nx")
+
+	dec.advance(1)
+	if dec.pos != 1 || dec.line != 2 || dec.column != 1 {
+		t.Fatalf("after CR pos/line/column = %d/%d/%d, want 1/2/1", dec.pos, dec.line, dec.column)
+	}
+
+	dec.advance(1)
+	if dec.pos != 2 || dec.line != 2 || dec.column != 1 {
+		t.Fatalf("after LF pos/line/column = %d/%d/%d, want 2/2/1", dec.pos, dec.line, dec.column)
+	}
+
+	dec.advance(1)
+	if dec.pos != 3 || dec.line != 2 || dec.column != 2 {
+		t.Fatalf("after char pos/line/column = %d/%d/%d, want 3/2/2", dec.pos, dec.line, dec.column)
 	}
 }
 
@@ -537,6 +562,28 @@ func TestScanQNameAcrossBuffer(t *testing.T) {
 	}
 	if got := string(span.Local.bytes()); got != "\u03c0" {
 		t.Fatalf("local = %q, want \\u03c0", got)
+	}
+}
+
+func TestScanQNameReadMoreWithoutCompaction(t *testing.T) {
+	const bufLen = 64 * 1024
+	const prefix = "prefix"
+	const suffix = "suffix"
+
+	buf := bytes.Repeat([]byte{'x'}, bufLen)
+	start := bufLen - len(prefix)
+	copy(buf[start:], prefix)
+
+	dec := NewDecoder(bytes.NewReader([]byte(suffix + ">")))
+	dec.buf.data = buf
+	dec.pos = start
+
+	span, err := dec.scanQName(true)
+	if err != nil {
+		t.Fatalf("scanQName error = %v", err)
+	}
+	if got := string(span.Full.bytes()); got != prefix+suffix {
+		t.Fatalf("scanQName = %q, want %q", got, prefix+suffix)
 	}
 }
 
