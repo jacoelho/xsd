@@ -199,24 +199,21 @@ func (s *charClassState) handleChar(char rune, classStart int, pattern string) e
 }
 
 type patternTranslator struct {
-	pattern string
-	i       int
-	result  strings.Builder
-
-	classDepth int
-	classStart int
-	classState charClassState
-
+	pattern              string
 	classBuf             strings.Builder
+	result               strings.Builder
+	classDepth           int
+	classStart           int
+	i                    int
+	groupDepth           int
+	classState           charClassState
 	classNegated         bool
 	classHasW            bool
 	classHasS            bool
 	classHasNotD         bool
 	classHasNotNameStart bool
 	classHasNotNameChar  bool
-
-	groupDepth          int
-	justWroteQuantifier bool
+	justWroteQuantifier  bool
 }
 
 func newPatternTranslator(pattern string) *patternTranslator {

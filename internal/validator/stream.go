@@ -28,6 +28,13 @@ const (
 	matchFromWildcard
 )
 
+type listItemMode int
+
+const (
+	listItemModeString listItemMode = iota
+	listItemModeBytes
+)
+
 // streamFrame groups per-element validation state kept on the streaming stack.
 // it keeps declaration/type info, content-model validators, and text/list buffers
 // together to avoid extra allocations during streaming validation.
@@ -54,8 +61,10 @@ type streamFrame struct {
 }
 
 type listStreamState struct {
+	itemBuiltin  *types.BuiltinType
 	itemBuf      []byte
 	collapsedBuf []byte
+	itemMode     listItemMode
 	itemIndex    int
 	active       bool
 	sawContent   bool
@@ -241,9 +250,9 @@ func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) erro
 }
 
 type startMatch struct {
-	processContents types.ProcessContents
-	matchedQName    types.QName
 	matchedDecl     *grammar.CompiledElement
+	matchedQName    types.QName
+	processContents types.ProcessContents
 	origin          matchOrigin
 }
 
@@ -622,10 +631,11 @@ func (r *streamRun) maybeEnableListStreaming(frameIndex int) {
 	if len(frame.fieldCaptures) > 0 {
 		return
 	}
+	frame.listStream.skipValidate = listItemValidationSkippable(frame.textType.ItemType)
 	frame.collectStringValue = false
 	frame.listStream.active = true
 	frame.listStream.needLexical = listFacetsNeedLexical(frame.textType.Facets)
-	frame.listStream.skipValidate = listItemValidationSkippable(frame.textType.ItemType)
+	frame.listStream.itemMode, frame.listStream.itemBuiltin = listItemModeFor(frame.textType.ItemType)
 }
 
 func listStreamingAllowed(frame *streamFrame) bool {
@@ -703,6 +713,44 @@ func listItemNoopBuiltin(typ types.Type) bool {
 	default:
 		return false
 	}
+}
+
+func listItemModeFor(itemType *grammar.CompiledType) (listItemMode, *types.BuiltinType) {
+	if itemType == nil || itemType.Original == nil {
+		return listItemModeString, nil
+	}
+	if len(itemType.MemberTypes) > 0 || len(itemType.Facets) > 0 {
+		return listItemModeString, nil
+	}
+	if itemType.ItemType != nil || itemType.IsNotationType {
+		return listItemModeString, nil
+	}
+	if _, ok := unresolvedSimpleType(itemType.Original); ok {
+		return listItemModeString, nil
+	}
+	builtin := listItemBuiltinBase(itemType)
+	if builtin == nil || !builtin.HasByteValidator() {
+		return listItemModeString, nil
+	}
+	return listItemModeBytes, builtin
+}
+
+func listItemBuiltinBase(itemType *grammar.CompiledType) *types.BuiltinType {
+	if itemType == nil || itemType.Original == nil {
+		return nil
+	}
+	if builtin, ok := types.AsBuiltinType(itemType.Original); ok {
+		return builtin
+	}
+	base := itemType.BaseType
+	for base != nil && base.Kind != grammar.TypeKindBuiltin {
+		base = base.BaseType
+	}
+	if base == nil || base.Original == nil {
+		return nil
+	}
+	builtin, _ := types.AsBuiltinType(base.Original)
+	return builtin
 }
 
 func (r *streamRun) resolveMatchedDecl(parent *streamFrame, actual types.QName, matchedDecl *grammar.CompiledElement, matchedQName types.QName) *grammar.CompiledElement {
@@ -853,12 +901,38 @@ func (r *streamRun) processListItemBytes(frame *streamFrame, itemBytes []byte) {
 		}
 		return
 	}
-	item := string(itemBytes)
-	valid, violations := r.validateListItemNormalized(item, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport)
-	if !valid {
-		r.violations = append(r.violations, violations...)
+	var (
+		itemString    string
+		hasItemString bool
+	)
+	if state.itemMode == listItemModeBytes && state.itemBuiltin != nil {
+		if validated, err := state.itemBuiltin.ValidateBytes(itemBytes); validated {
+			if err != nil {
+				r.violations = append(r.violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+					"list item[%d]: %s", index, err.Error()))
+			}
+		} else {
+			itemString = string(itemBytes)
+			hasItemString = true
+			valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport)
+			if !valid {
+				r.violations = append(r.violations, violations...)
+			}
+		}
+	} else {
+		itemString = string(itemBytes)
+		hasItemString = true
+		valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport)
+		if !valid {
+			r.violations = append(r.violations, violations...)
+		}
 	}
-	r.trackListIDRefs(item, frame.textType)
+	if frame.textType.IDTypeName == "IDREFS" {
+		if !hasItemString {
+			itemString = string(itemBytes)
+		}
+		r.trackListIDRefs(itemString, frame.textType)
+	}
 }
 
 func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType, state *listStreamState) {

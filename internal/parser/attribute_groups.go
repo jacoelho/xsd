@@ -9,9 +9,9 @@ import (
 )
 
 type attributeUses struct {
+	anyAttribute *types.AnyAttribute
 	attributes   []*types.AttributeDecl
 	attrGroups   []types.QName
-	anyAttribute *types.AnyAttribute
 }
 
 func parseAttributeUses(doc *xsdxml.Document, children []xsdxml.NodeID, schema *Schema, context string) (attributeUses, error) {

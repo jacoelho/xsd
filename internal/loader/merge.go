@@ -25,10 +25,10 @@ const (
 type mergeContext struct {
 	target              *parser.Schema
 	source              *parser.Schema
-	isImport            bool
-	needsNamespaceRemap bool
 	remapQName          func(types.QName) types.QName
 	opts                types.CopyOptions
+	isImport            bool
+	needsNamespaceRemap bool
 }
 
 func newMergeContext(target, source *parser.Schema, kind mergeKind, remap namespaceRemapMode) mergeContext {
