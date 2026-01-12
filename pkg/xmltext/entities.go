@@ -34,9 +34,6 @@ func unescapeInto(dst []byte, data []byte, resolver *entityResolver, maxTokenSiz
 			}
 			i += ampIdx
 		}
-		if i >= len(data) || data[i] != '&' {
-			continue
-		}
 		consumed, replacement, r, isNumeric, err := parseEntityRef(data, i, resolver)
 		if err != nil {
 			return nil, err
