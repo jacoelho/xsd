@@ -5,37 +5,35 @@ import "io"
 // Options holds decoder configuration values.
 // The zero value means no overrides.
 type Options struct {
-	charsetReader             func(label string, r io.Reader) (io.Reader, error)
-	entityMap                 map[string]string
-	resolveEntities           bool
-	emitComments              bool
-	emitPI                    bool
-	emitDirectives            bool
-	trackLineColumn           bool
-	coalesceCharData          bool
-	maxDepth                  int
-	maxAttrs                  int
-	maxTokenSize              int
-	maxQNameInternEntries     int
-	maxNamespaceInternEntries int
-	debugPoisonSpans          bool
-	bufferSize                int
+	charsetReader         func(label string, r io.Reader) (io.Reader, error)
+	entityMap             map[string]string
+	resolveEntities       bool
+	emitComments          bool
+	emitPI                bool
+	emitDirectives        bool
+	trackLineColumn       bool
+	coalesceCharData      bool
+	maxDepth              int
+	maxAttrs              int
+	maxTokenSize          int
+	maxQNameInternEntries int
+	debugPoisonSpans      bool
+	bufferSize            int
 
-	charsetReaderSet             bool
-	entityMapSet                 bool
-	resolveEntitiesSet           bool
-	emitCommentsSet              bool
-	emitPISet                    bool
-	emitDirectivesSet            bool
-	trackLineColumnSet           bool
-	coalesceCharDataSet          bool
-	maxDepthSet                  bool
-	maxAttrsSet                  bool
-	maxTokenSizeSet              bool
-	maxQNameInternEntriesSet     bool
-	maxNamespaceInternEntriesSet bool
-	debugPoisonSpansSet          bool
-	bufferSizeSet                bool
+	charsetReaderSet         bool
+	entityMapSet             bool
+	resolveEntitiesSet       bool
+	emitCommentsSet          bool
+	emitPISet                bool
+	emitDirectivesSet        bool
+	trackLineColumnSet       bool
+	coalesceCharDataSet      bool
+	maxDepthSet              bool
+	maxAttrsSet              bool
+	maxTokenSizeSet          bool
+	maxQNameInternEntriesSet bool
+	debugPoisonSpansSet      bool
+	bufferSizeSet            bool
 }
 
 // JoinOptions combines multiple option sets into one in declaration order.
@@ -96,10 +94,6 @@ func (opts *Options) merge(src Options) {
 	if src.maxQNameInternEntriesSet {
 		opts.maxQNameInternEntries = src.maxQNameInternEntries
 		opts.maxQNameInternEntriesSet = true
-	}
-	if src.maxNamespaceInternEntriesSet {
-		opts.maxNamespaceInternEntries = src.maxNamespaceInternEntries
-		opts.maxNamespaceInternEntriesSet = true
 	}
 	if src.debugPoisonSpansSet {
 		opts.debugPoisonSpans = src.debugPoisonSpans
@@ -178,11 +172,6 @@ func MaxQNameInternEntries(value int) Options {
 	return Options{maxQNameInternEntries: value, maxQNameInternEntriesSet: true}
 }
 
-// MaxNamespaceInternEntries limits the namespace interner cache size.
-func MaxNamespaceInternEntries(value int) Options {
-	return Options{maxNamespaceInternEntries: value, maxNamespaceInternEntriesSet: true}
-}
-
 // DebugPoisonSpans invalidates spans after the next decoder call.
 func DebugPoisonSpans(value bool) Options {
 	return Options{debugPoisonSpans: value, debugPoisonSpansSet: true}
@@ -251,11 +240,6 @@ func (opts Options) MaxTokenSize() (int, bool) {
 // MaxQNameInternEntries reports whether a max QName interner size is configured.
 func (opts Options) MaxQNameInternEntries() (int, bool) {
 	return opts.maxQNameInternEntries, opts.maxQNameInternEntriesSet
-}
-
-// MaxNamespaceInternEntries reports whether a max namespace interner size is configured.
-func (opts Options) MaxNamespaceInternEntries() (int, bool) {
-	return opts.maxNamespaceInternEntries, opts.maxNamespaceInternEntriesSet
 }
 
 // DebugPoisonSpans reports whether span poisoning is configured.

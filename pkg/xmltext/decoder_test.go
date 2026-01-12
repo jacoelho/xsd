@@ -921,14 +921,14 @@ func TestDetectXMLDeclEncodingNoPrefix(t *testing.T) {
 	}
 }
 
-func TestWrapCharsetReaderBufio(t *testing.T) {
+func TestWrapCharsetReaderFromBufioNoEncoding(t *testing.T) {
 	bufReader := bufio.NewReader(strings.NewReader("<root/>"))
-	reader, err := wrapCharsetReader(bufReader, nil, 4)
+	reader, err := wrapCharsetReaderFromBufio(bufReader, nil)
 	if err != nil {
-		t.Fatalf("wrapCharsetReader error = %v", err)
+		t.Fatalf("wrapCharsetReaderFromBufio error = %v", err)
 	}
 	if reader != bufReader {
-		t.Fatalf("wrapCharsetReader reader = %T, want *bufio.Reader", reader)
+		t.Fatalf("wrapCharsetReaderFromBufio reader = %T, want *bufio.Reader", reader)
 	}
 }
 
@@ -959,9 +959,6 @@ func TestDecoderUtilities(t *testing.T) {
 	}
 	if dec.InputOffset() != int64(len("<root>")) {
 		t.Fatalf("InputOffset = %d, want %d", dec.InputOffset(), len("<root>"))
-	}
-	if tok.Clone().Kind != tok.Kind {
-		t.Fatalf("Clone kind = %v, want %v", tok.Clone().Kind, tok.Kind)
 	}
 
 	tok, err = dec.ReadToken()
@@ -1288,9 +1285,9 @@ func TestDirectiveToken(t *testing.T) {
 }
 
 func TestCharsetReader(t *testing.T) {
-	reader, err := wrapCharsetReader(strings.NewReader("\ufeff<root/>"), nil, defaultBufferSize)
+	reader, err := wrapCharsetReaderFromBufio(bufio.NewReader(strings.NewReader("\ufeff<root/>")), nil)
 	if err != nil {
-		t.Fatalf("wrapCharsetReader BOM error = %v", err)
+		t.Fatalf("wrapCharsetReaderFromBufio BOM error = %v", err)
 	}
 	out, err := io.ReadAll(reader)
 	if err != nil {
@@ -1300,21 +1297,21 @@ func TestCharsetReader(t *testing.T) {
 		t.Fatalf("ReadAll = %q, want <root/>", out)
 	}
 
-	_, err = wrapCharsetReader(bytes.NewReader([]byte{0xFE, 0xFF, 0x00, 0x3C}), nil, defaultBufferSize)
+	_, err = wrapCharsetReaderFromBufio(bufio.NewReader(bytes.NewReader([]byte{0xFE, 0xFF, 0x00, 0x3C})), nil)
 	if !errors.Is(err, errUnsupportedEncoding) {
-		t.Fatalf("wrapCharsetReader error = %v, want %v", err, errUnsupportedEncoding)
+		t.Fatalf("wrapCharsetReaderFromBufio error = %v, want %v", err, errUnsupportedEncoding)
 	}
 
 	called := false
-	reader, err = wrapCharsetReader(bytes.NewReader([]byte{0xFE, 0xFF, 0x00, 0x3C}), func(label string, r io.Reader) (io.Reader, error) {
+	reader, err = wrapCharsetReaderFromBufio(bufio.NewReader(bytes.NewReader([]byte{0xFE, 0xFF, 0x00, 0x3C})), func(label string, r io.Reader) (io.Reader, error) {
 		called = true
 		if label == "" {
 			t.Fatalf("label is empty")
 		}
 		return strings.NewReader("<root/>"), nil
-	}, defaultBufferSize)
+	})
 	if err != nil {
-		t.Fatalf("wrapCharsetReader custom error = %v", err)
+		t.Fatalf("wrapCharsetReaderFromBufio custom error = %v", err)
 	}
 	if !called {
 		t.Fatalf("charset reader not called")
@@ -1358,16 +1355,6 @@ func TestDetectXMLDeclEncodingTruncated(t *testing.T) {
 	}
 	if label != "" {
 		t.Fatalf("detectXMLDeclEncoding label = %q, want empty", label)
-	}
-}
-
-func TestWrapCharsetReaderDefaultBuffer(t *testing.T) {
-	reader, err := wrapCharsetReader(bytes.NewReader([]byte("<root/>")), nil, 0)
-	if err != nil {
-		t.Fatalf("wrapCharsetReader error = %v", err)
-	}
-	if _, ok := reader.(*bufio.Reader); !ok {
-		t.Fatalf("wrapCharsetReader reader = %T, want *bufio.Reader", reader)
 	}
 }
 

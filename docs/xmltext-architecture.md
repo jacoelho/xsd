@@ -73,7 +73,7 @@ Common options:
 - TrackLineColumn(bool)
 - EmitComments(bool), EmitPI(bool), EmitDirectives(bool)
 - MaxDepth(int), MaxAttrs(int), MaxTokenSize(int)
-- MaxQNameInternEntries(int), MaxNamespaceInternEntries(int)
+- MaxQNameInternEntries(int)
 
 Limits are enforced during parsing to guard against hostile inputs.
 
