@@ -1,11 +1,13 @@
 package xsdxml
 
 import (
+	"errors"
 	"io"
 	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/pkg/xmltext"
 )
 
 func TestStreamDecoderNamespaceLookup(t *testing.T) {
@@ -148,5 +150,49 @@ func TestStreamDecoderEOF(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Next() error = %v", err)
 		}
+	}
+}
+
+func TestStreamDecoderUnboundPrefixElement(t *testing.T) {
+	xmlData := `<root><p:child/></root>`
+	dec, err := NewStreamDecoder(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("NewStreamDecoder() error = %v", err)
+	}
+	for {
+		_, err := dec.Next()
+		if err == nil {
+			continue
+		}
+		var syntax *xmltext.SyntaxError
+		if !errors.As(err, &syntax) {
+			t.Fatalf("Next() error type = %T, want *xmltext.SyntaxError", err)
+		}
+		if !errors.Is(err, errUnboundPrefix) {
+			t.Fatalf("Next() error = %v, want unbound prefix", err)
+		}
+		return
+	}
+}
+
+func TestStreamDecoderUnboundPrefixAttr(t *testing.T) {
+	xmlData := `<root><child p:attr="v"/></root>`
+	dec, err := NewStreamDecoder(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("NewStreamDecoder() error = %v", err)
+	}
+	for {
+		_, err := dec.Next()
+		if err == nil {
+			continue
+		}
+		var syntax *xmltext.SyntaxError
+		if !errors.As(err, &syntax) {
+			t.Fatalf("Next() error type = %T, want *xmltext.SyntaxError", err)
+		}
+		if !errors.Is(err, errUnboundPrefix) {
+			t.Fatalf("Next() error = %v, want unbound prefix", err)
+		}
+		return
 	}
 }

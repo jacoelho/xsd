@@ -2,11 +2,11 @@ package xsdxml
 
 import (
 	"bufio"
-	"encoding/xml"
 	"fmt"
 	"io"
 
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/pkg/xmltext"
 )
 
 // EventKind identifies the kind of streaming XML event.
@@ -19,6 +19,7 @@ const (
 )
 
 const streamDecoderBufferSize = 256 * 1024
+const streamDecoderAttrCapacity = 8
 
 // elementID is a monotonic identifier assigned per document.
 type elementID uint64
@@ -36,69 +37,20 @@ type Event struct {
 	ScopeDepth int
 }
 
-type nsScope struct {
-	prefixes   map[string]string
-	defaultNS  string
-	defaultSet bool
-}
-
-type nsStack struct {
-	scopes []nsScope
-}
-
-func (s *nsStack) push(scope nsScope) int {
-	s.scopes = append(s.scopes, scope)
-	return len(s.scopes) - 1
-}
-
-func (s *nsStack) pop() {
-	if len(s.scopes) == 0 {
-		return
-	}
-	s.scopes = s.scopes[:len(s.scopes)-1]
-}
-
-func (s *nsStack) depth() int {
-	return len(s.scopes)
-}
-
-func (s *nsStack) lookup(prefix string, depth int) (string, bool) {
-	if prefix == "xml" {
-		return XMLNamespace, true
-	}
-	if prefix == "" {
-		for i := depth; i >= 0; i-- {
-			if i >= len(s.scopes) {
-				continue
-			}
-			scope := s.scopes[i]
-			if scope.defaultSet {
-				return scope.defaultNS, true
-			}
-		}
-		return "", true
-	}
-	for i := depth; i >= 0; i-- {
-		if i >= len(s.scopes) {
-			continue
-		}
-		scope := s.scopes[i]
-		if ns, ok := scope.prefixes[prefix]; ok {
-			return ns, true
-		}
-	}
-	return "", false
-}
-
 // StreamDecoder provides a streaming XML event interface with namespace tracking.
 type StreamDecoder struct {
-	dec        *xml.Decoder
-	interner   *qnameInterner
+	dec        *xmltext.Decoder
+	names      *qnameCache
 	ns         nsStack
 	attrBuf    []Attr
-	textBuf    []byte
+	elemStack  []types.QName
+	valueBuf   []byte
+	nsBuf      []byte
+	tok        xmltext.Token
 	nextID     elementID
 	pendingPop bool
+	lastLine   int
+	lastColumn int
 }
 
 // NewStreamDecoder creates a new streaming decoder for the reader.
@@ -106,11 +58,31 @@ func NewStreamDecoder(r io.Reader) (*StreamDecoder, error) {
 	if r == nil {
 		return nil, fmt.Errorf("nil XML reader")
 	}
-	dec := xml.NewDecoder(bufio.NewReaderSize(r, streamDecoderBufferSize))
+	reader := bufio.NewReaderSize(r, streamDecoderBufferSize)
+	dec := xmltext.NewDecoder(reader,
+		xmltext.ResolveEntities(false),
+		xmltext.CoalesceCharData(true),
+		xmltext.EmitComments(false),
+		xmltext.EmitPI(false),
+		xmltext.EmitDirectives(false),
+		xmltext.TrackLineColumn(true),
+		xmltext.BufferSize(streamDecoderBufferSize),
+	)
 	if dec == nil {
 		return nil, fmt.Errorf("nil XML decoder")
 	}
-	return &StreamDecoder{dec: dec, interner: newQNameInterner()}, nil
+	return &StreamDecoder{
+		dec:      dec,
+		names:    newQNameCache(),
+		valueBuf: make([]byte, 0, 256),
+		nsBuf:    make([]byte, 0, 128),
+		tok: xmltext.Token{
+			Attrs:        make([]xmltext.AttrSpan, 0, streamDecoderAttrCapacity),
+			AttrNeeds:    make([]bool, 0, streamDecoderAttrCapacity),
+			AttrRaw:      make([]xmltext.Span, 0, streamDecoderAttrCapacity),
+			AttrRawNeeds: make([]bool, 0, streamDecoderAttrCapacity),
+		},
+	}, nil
 }
 
 // Next returns the next XML event.
@@ -118,8 +90,8 @@ func (d *StreamDecoder) Next() (Event, error) {
 	if d == nil || d.dec == nil {
 		return Event{}, fmt.Errorf("nil XML decoder")
 	}
-	if d.interner == nil {
-		d.interner = newQNameInterner()
+	if d.names == nil {
+		d.names = newQNameCache()
 	}
 	if d.pendingPop {
 		d.ns.pop()
@@ -127,54 +99,85 @@ func (d *StreamDecoder) Next() (Event, error) {
 	}
 
 	for {
-		tok, err := d.dec.Token()
-		if err != nil {
+		if err := d.dec.ReadTokenInto(&d.tok); err != nil {
 			return Event{}, err
 		}
-		line, column := d.dec.InputPos()
+		tok := &d.tok
+		line, column := tok.Line, tok.Column
+		d.lastLine = line
+		d.lastColumn = column
+		d.valueBuf = d.valueBuf[:0]
 
-		switch t := tok.(type) {
-		case xml.StartElement:
-			scope := d.collectNamespaceScope(t.Attr)
-			d.ns.push(scope)
+		switch tok.Kind {
+		case xmltext.KindStartElement:
+			scope, err := collectNamespaceScope(d, tok)
+			if err != nil {
+				return Event{}, wrapSyntaxError(d.dec, line, column, err)
+			}
+			scopeDepth := d.ns.push(scope)
+			name, err := d.resolveElementName(tok.Name, scopeDepth, line, column)
+			if err != nil {
+				return Event{}, err
+			}
 
-			d.attrBuf = d.attrBuf[:0]
-			for _, a := range t.Attr {
-				namespace := normalizeAttrNamespace(a.Name.Space, a.Name.Local)
+			attrs := tok.Attrs
+			if cap(d.attrBuf) < len(attrs) {
+				d.attrBuf = make([]Attr, 0, len(attrs))
+			} else {
+				d.attrBuf = d.attrBuf[:0]
+			}
+			for i, attr := range attrs {
+				attrNamespace, attrLocal, err := resolveAttrName(d.dec, &d.ns, attr.Name, scopeDepth, line, column)
+				if err != nil {
+					return Event{}, err
+				}
+				value, err := d.attrValueString(attr.ValueSpan, attrDecodeMode(tok, i))
+				if err != nil {
+					return Event{}, wrapSyntaxError(d.dec, line, column, err)
+				}
 				d.attrBuf = append(d.attrBuf, Attr{
-					namespace: namespace,
-					local:     a.Name.Local,
-					value:     a.Value,
+					namespace: attrNamespace,
+					local:     attrLocal,
+					value:     value,
 				})
 			}
 
 			id := d.nextID
 			d.nextID++
+			d.elemStack = append(d.elemStack, name)
 			return Event{
 				Kind:       EventStartElement,
-				Name:       d.interner.intern(t.Name.Space, t.Name.Local),
+				Name:       name,
 				Attrs:      d.attrBuf,
 				Line:       line,
 				Column:     column,
 				ID:         id,
-				ScopeDepth: d.ns.depth() - 1,
+				ScopeDepth: scopeDepth,
 			}, nil
 
-		case xml.EndElement:
+		case xmltext.KindEndElement:
+			scopeDepth := d.ns.depth() - 1
+			name, err := d.popElementName()
+			if err != nil {
+				return Event{}, err
+			}
 			d.pendingPop = true
 			return Event{
 				Kind:       EventEndElement,
-				Name:       d.interner.intern(t.Name.Space, t.Name.Local),
+				Name:       name,
 				Line:       line,
 				Column:     column,
-				ScopeDepth: d.ns.depth() - 1,
+				ScopeDepth: scopeDepth,
 			}, nil
 
-		case xml.CharData:
-			d.textBuf = append(d.textBuf[:0], t...)
+		case xmltext.KindCharData, xmltext.KindCDATA:
+			text, err := d.textBytes(tok)
+			if err != nil {
+				return Event{}, wrapSyntaxError(d.dec, line, column, err)
+			}
 			return Event{
 				Kind:       EventCharData,
-				Text:       d.textBuf,
+				Text:       text,
 				Line:       line,
 				Column:     column,
 				ScopeDepth: d.ns.depth() - 1,
@@ -192,8 +195,11 @@ func (d *StreamDecoder) SkipSubtree() error {
 		d.ns.pop()
 		d.pendingPop = false
 	}
-	if err := d.dec.Skip(); err != nil {
+	if err := d.dec.SkipValue(); err != nil {
 		return err
+	}
+	if len(d.elemStack) > 0 {
+		d.elemStack = d.elemStack[:len(d.elemStack)-1]
 	}
 	d.ns.pop()
 	return nil
@@ -201,10 +207,10 @@ func (d *StreamDecoder) SkipSubtree() error {
 
 // CurrentPos returns the line and column of the most recent token.
 func (d *StreamDecoder) CurrentPos() (line, column int) {
-	if d == nil || d.dec == nil {
+	if d == nil {
 		return 0, 0
 	}
-	return d.dec.InputPos()
+	return d.lastLine, d.lastColumn
 }
 
 // LookupNamespace resolves a prefix at a given scope depth.
@@ -215,41 +221,91 @@ func (d *StreamDecoder) LookupNamespace(prefix string, depth int) (string, bool)
 	return d.ns.lookup(prefix, depth)
 }
 
-func (d *StreamDecoder) collectNamespaceScope(attrs []xml.Attr) nsScope {
-	scope := nsScope{}
-	for _, a := range attrs {
-		if isDefaultNamespaceDecl(a.Name.Space, a.Name.Local) {
-			scope.defaultNS = a.Value
-			scope.defaultSet = true
-			continue
+func (d *StreamDecoder) resolveElementName(name xmltext.QNameSpan, depth, line, column int) (types.QName, error) {
+	local := spanString(d.dec, name.Local)
+	if name.HasPrefix {
+		prefix := spanString(d.dec, name.Prefix)
+		namespace, ok := d.ns.lookup(prefix, depth)
+		if !ok {
+			return types.QName{}, unboundPrefixError(d.dec, line, column)
 		}
-		if isPrefixedNamespaceDecl(a.Name.Space) && a.Name.Local != "" {
-			prefix := a.Name.Local
-			if prefix == "xml" || prefix == "xmlns" {
-				continue
-			}
-			if scope.prefixes == nil {
-				scope.prefixes = make(map[string]string, 1)
-			}
-			scope.prefixes[prefix] = a.Value
+		return d.names.intern(namespace, local), nil
+	}
+	namespace, _ := d.ns.lookup("", depth)
+	return d.names.intern(namespace, local), nil
+}
+
+func (d *StreamDecoder) popElementName() (types.QName, error) {
+	if len(d.elemStack) == 0 {
+		return types.QName{}, fmt.Errorf("unexpected end element")
+	}
+	name := d.elemStack[len(d.elemStack)-1]
+	d.elemStack = d.elemStack[:len(d.elemStack)-1]
+	return name, nil
+}
+
+func (d *StreamDecoder) attrValueString(span xmltext.Span, mode spanDecodeMode) (string, error) {
+	if mode == spanDecodeCopy {
+		if d.dec == nil {
+			return "", nil
 		}
+		data := d.dec.SpanBytes(span)
+		if len(data) == 0 {
+			return "", nil
+		}
+		return unsafeString(data), nil
 	}
-	return scope
+	var value string
+	var err error
+	d.valueBuf, value, err = appendSpanString(d.valueBuf, span, mode)
+	return value, err
 }
 
-func isDefaultNamespaceDecl(space, local string) bool {
-	return (space == "" && local == "xmlns") ||
-		(space == "xmlns" && local == "") ||
-		(space == XMLNSNamespace && local == "xmlns")
+func (d *StreamDecoder) namespaceValueString(span xmltext.Span, mode spanDecodeMode) (string, error) {
+	var value string
+	var err error
+	d.nsBuf, value, err = appendSpanString(d.nsBuf, span, mode)
+	return value, err
 }
 
-func isPrefixedNamespaceDecl(space string) bool {
-	return space == "xmlns" || space == XMLNSNamespace
-}
-
-func normalizeAttrNamespace(space, local string) string {
-	if isDefaultNamespaceDecl(space, local) || isPrefixedNamespaceDecl(space) {
-		return XMLNSNamespace
+func (d *StreamDecoder) textBytes(tok *xmltext.Token) ([]byte, error) {
+	if !tok.TextNeeds {
+		return d.dec.SpanBytes(tok.Text), nil
 	}
-	return space
+	out, err := xmltext.UnescapeInto(d.valueBuf, tok.Text)
+	if err != nil {
+		d.valueBuf = d.valueBuf[:0]
+		return nil, err
+	}
+	d.valueBuf = out
+	return d.valueBuf, nil
+}
+
+func attrDecodeMode(tok *xmltext.Token, index int) spanDecodeMode {
+	if index < 0 || index >= len(tok.AttrNeeds) {
+		return spanDecodeCopy
+	}
+	if tok.AttrNeeds[index] {
+		return spanDecodeUnescape
+	}
+	return spanDecodeCopy
+}
+
+func wrapSyntaxError(dec *xmltext.Decoder, line, column int, err error) error {
+	if err == nil {
+		return nil
+	}
+	if _, ok := err.(*xmltext.SyntaxError); ok {
+		return err
+	}
+	if dec == nil {
+		return err
+	}
+	return &xmltext.SyntaxError{
+		Offset: dec.InputOffset(),
+		Line:   line,
+		Column: column,
+		Path:   dec.StackPath(nil),
+		Err:    err,
+	}
 }
