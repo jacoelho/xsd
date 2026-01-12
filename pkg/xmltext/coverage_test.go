@@ -139,6 +139,111 @@ func TestSpanHelpers(t *testing.T) {
 	}
 }
 
+func TestSpanStringStableAndUnstable(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<root>text</root>"))
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken root error = %v", err)
+	}
+	if tok.Name.Local.buf == nil || !tok.Name.Local.buf.stable {
+		t.Fatalf("expected stable name buffer")
+	}
+	if got := dec.SpanString(tok.Name.Local); got != "root" {
+		t.Fatalf("SpanString root = %q, want root", got)
+	}
+
+	tok, err = dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken text error = %v", err)
+	}
+	if tok.Kind != KindCharData {
+		t.Fatalf("text kind = %v, want %v", tok.Kind, KindCharData)
+	}
+	if tok.Text.buf == nil || tok.Text.buf.stable {
+		t.Fatalf("expected unstable text buffer")
+	}
+	if got := dec.SpanString(tok.Text); got != "text" {
+		t.Fatalf("SpanString text = %q, want text", got)
+	}
+}
+
+func TestReadTokenIntoWithBuffers(t *testing.T) {
+	dec := NewDecoder(strings.NewReader(`<root a="1" b="2"></root>`))
+	tok := Token{
+		Attrs:        make([]AttrSpan, 0, 2),
+		AttrNeeds:    make([]bool, 0, 2),
+		AttrRaw:      make([]Span, 0, 2),
+		AttrRawNeeds: make([]bool, 0, 2),
+	}
+	if err := dec.ReadTokenInto(&tok); err != nil {
+		t.Fatalf("ReadTokenInto error = %v", err)
+	}
+	if tok.Kind != KindStartElement {
+		t.Fatalf("kind = %v, want %v", tok.Kind, KindStartElement)
+	}
+	if got := len(tok.Attrs); got != 2 {
+		t.Fatalf("attrs len = %d, want 2", got)
+	}
+	if len(tok.AttrNeeds) != 2 || len(tok.AttrRaw) != 2 || len(tok.AttrRawNeeds) != 2 {
+		t.Fatalf("attr slices len = %d/%d/%d, want 2/2/2", len(tok.AttrNeeds), len(tok.AttrRaw), len(tok.AttrRawNeeds))
+	}
+	if got := string(dec.SpanBytes(tok.Attrs[0].Name.Local)); got != "a" {
+		t.Fatalf("attr[0] name = %q, want a", got)
+	}
+	if got := string(dec.SpanBytes(tok.Attrs[0].ValueSpan)); got != "1" {
+		t.Fatalf("attr[0] value = %q, want 1", got)
+	}
+}
+
+func TestPeekKindSkipsLargeTokens(t *testing.T) {
+	comment := strings.Repeat("x", 64)
+	pi := strings.Repeat("y", 64)
+	input := "<!--" + comment + "--><?pi " + pi + "?><!DOCTYPE root [<!ENTITY x 'y'>]><root/>"
+	dec := NewDecoder(strings.NewReader(input), BufferSize(8))
+	if got := dec.PeekKind(); got != KindStartElement {
+		t.Fatalf("PeekKind = %v, want %v", got, KindStartElement)
+	}
+}
+
+func TestValidateXMLCharsAndText(t *testing.T) {
+	if err := validateXMLChars([]byte("ok")); err != nil {
+		t.Fatalf("validateXMLChars valid error = %v", err)
+	}
+	if err := validateXMLChars([]byte{0x00}); !errors.Is(err, errInvalidChar) {
+		t.Fatalf("validateXMLChars control error = %v, want %v", err, errInvalidChar)
+	}
+	if err := validateXMLChars([]byte{0xff}); !errors.Is(err, errInvalidChar) {
+		t.Fatalf("validateXMLChars utf8 error = %v, want %v", err, errInvalidChar)
+	}
+	if err := validateXMLText([]byte("a&amp;b"), nil); err != nil {
+		t.Fatalf("validateXMLText valid error = %v", err)
+	}
+	if err := validateXMLText([]byte("a&bogus;"), nil); !errors.Is(err, errInvalidEntity) {
+		t.Fatalf("validateXMLText entity error = %v, want %v", err, errInvalidEntity)
+	}
+	if err := validateXMLText([]byte("a\x00"), nil); !errors.Is(err, errInvalidChar) {
+		t.Fatalf("validateXMLText char error = %v, want %v", err, errInvalidChar)
+	}
+}
+
+func TestNameRuneClassification(t *testing.T) {
+	if !isNameStartRune('\u00e9') {
+		t.Fatalf("isNameStartRune(\\u00e9) = false, want true")
+	}
+	if !isNameRune('\u03c0') {
+		t.Fatalf("isNameRune(\\u03c0) = false, want true")
+	}
+	if isNameStartRune('0') {
+		t.Fatalf("isNameStartRune('0') = true, want false")
+	}
+	if !isNameRune('0') {
+		t.Fatalf("isNameRune('0') = false, want true")
+	}
+	if isNameRune('\u2603') {
+		t.Fatalf("isNameRune(\\u2603) = true, want false")
+	}
+}
+
 func TestSyntaxErrorFormatting(t *testing.T) {
 	syntax := &SyntaxError{Line: 2, Column: 3, Err: errInvalidToken}
 	if got := syntax.Error(); !strings.Contains(got, "line 2") {
@@ -173,11 +278,25 @@ func TestInternerSetMax(t *testing.T) {
 }
 
 func TestKindString(t *testing.T) {
-	if KindStartElement.String() != "StartElement" {
-		t.Fatalf("KindStartElement = %q, want StartElement", KindStartElement.String())
+	tests := []struct {
+		kind Kind
+		want string
+	}{
+		{KindNone, "None"},
+		{KindStartElement, "StartElement"},
+		{KindEndElement, "EndElement"},
+		{KindCharData, "CharData"},
+		{KindComment, "Comment"},
+		{KindPI, "PI"},
+		{KindDirective, "Directive"},
+		{KindCDATA, "CDATA"},
+		{Kind(99), "Unknown"},
 	}
-	if Kind(99).String() != "Unknown" {
-		t.Fatalf("Kind(99) = %q, want Unknown", Kind(99).String())
+
+	for _, tt := range tests {
+		if got := tt.kind.String(); got != tt.want {
+			t.Fatalf("Kind(%d) = %q, want %s", tt.kind, got, tt.want)
+		}
 	}
 }
 

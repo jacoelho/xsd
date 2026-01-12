@@ -3,6 +3,7 @@ package xmltext
 import (
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -472,6 +473,94 @@ func TestDecoderMultipleRoots(t *testing.T) {
 	}
 	if !errors.Is(err, errMultipleRoots) {
 		t.Fatalf("error = %v, want %v", err, errMultipleRoots)
+	}
+}
+
+func TestDecoderDuplicateAttrsLarge(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("<root")
+	for i := 0; i < attrSeenSmallMax+1; i++ {
+		b.WriteString(" a")
+		b.WriteString(strconv.Itoa(i))
+		b.WriteString("=\"")
+		b.WriteString(strconv.Itoa(i))
+		b.WriteString("\"")
+	}
+	b.WriteString(" a0=\"dup\"/>")
+
+	dec := NewDecoder(strings.NewReader(b.String()))
+	_, err := dec.ReadToken()
+	if err == nil {
+		t.Fatalf("expected duplicate attribute error")
+	}
+	if !errors.Is(err, errDuplicateAttr) {
+		t.Fatalf("error = %v, want %v", err, errDuplicateAttr)
+	}
+}
+
+func TestDecoderPINonASCIIName(t *testing.T) {
+	input := "<?\u00e9\u03c0 data?><root/>"
+	dec := NewDecoder(strings.NewReader(input), EmitPI(true), BufferSize(1))
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken PI error = %v", err)
+	}
+	if tok.Kind != KindPI {
+		t.Fatalf("PI kind = %v, want %v", tok.Kind, KindPI)
+	}
+	if got := string(dec.SpanBytes(tok.Text)); !strings.HasPrefix(got, "\u00e9\u03c0") {
+		t.Fatalf("PI text = %q, want prefix \\u00e9\\u03c0", got)
+	}
+}
+
+func TestDecoderSkipValueScenarios(t *testing.T) {
+	dec := NewDecoder(strings.NewReader(`<root><a/><b><c/></b><d>text</d></root>`))
+	if _, err := dec.ReadToken(); err != nil {
+		t.Fatalf("ReadToken root error = %v", err)
+	}
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken a error = %v", err)
+	}
+	if tok.Kind != KindStartElement {
+		t.Fatalf("a kind = %v, want %v", tok.Kind, KindStartElement)
+	}
+	if err := dec.SkipValue(); err != nil {
+		t.Fatalf("SkipValue a error = %v", err)
+	}
+	tok, err = dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken b error = %v", err)
+	}
+	if got := string(dec.SpanBytes(tok.Name.Local)); got != "b" {
+		t.Fatalf("b name = %q, want b", got)
+	}
+	if err := dec.SkipValue(); err != nil {
+		t.Fatalf("SkipValue b error = %v", err)
+	}
+	tok, err = dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken d error = %v", err)
+	}
+	if got := string(dec.SpanBytes(tok.Name.Local)); got != "d" {
+		t.Fatalf("d name = %q, want d", got)
+	}
+	tok, err = dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken text error = %v", err)
+	}
+	if tok.Kind != KindCharData {
+		t.Fatalf("text kind = %v, want %v", tok.Kind, KindCharData)
+	}
+	if err := dec.SkipValue(); err != nil {
+		t.Fatalf("SkipValue text error = %v", err)
+	}
+	tok, err = dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken d end error = %v", err)
+	}
+	if tok.Kind != KindEndElement {
+		t.Fatalf("d end kind = %v, want %v", tok.Kind, KindEndElement)
 	}
 }
 
