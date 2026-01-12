@@ -245,6 +245,8 @@ func (d *StreamDecoder) popElementName() (types.QName, error) {
 }
 
 func (d *StreamDecoder) attrValueString(span xmltext.Span, mode spanDecodeMode) (string, error) {
+	var value string
+	var err error
 	if mode == spanDecodeCopy {
 		if d.dec == nil {
 			return "", nil
@@ -255,8 +257,6 @@ func (d *StreamDecoder) attrValueString(span xmltext.Span, mode spanDecodeMode) 
 		}
 		return unsafeString(data), nil
 	}
-	var value string
-	var err error
 	d.valueBuf, value, err = appendSpanString(d.valueBuf, span, mode)
 	return value, err
 }
@@ -282,10 +282,7 @@ func (d *StreamDecoder) textBytes(tok *xmltext.Token) ([]byte, error) {
 }
 
 func attrDecodeMode(tok *xmltext.Token, index int) spanDecodeMode {
-	if index < 0 || index >= len(tok.AttrNeeds) {
-		return spanDecodeCopy
-	}
-	if tok.AttrNeeds[index] {
+	if index >= 0 && index < len(tok.AttrNeeds) && tok.AttrNeeds[index] {
 		return spanDecodeUnescape
 	}
 	return spanDecodeCopy
