@@ -50,7 +50,7 @@ func (i *nameInterner) intern(name []byte) QNameSpan {
 }
 
 func (i *nameInterner) internQName(name QNameSpan) QNameSpan {
-	data := name.Full.bytes()
+	data := name.Full.bytesUnsafe()
 	if len(data) == 0 {
 		return QNameSpan{}
 	}
@@ -62,7 +62,7 @@ func (i *nameInterner) internQName(name QNameSpan) QNameSpan {
 }
 
 func (i *nameInterner) internQNameHash(name QNameSpan, hash uint64) QNameSpan {
-	data := name.Full.bytes()
+	data := name.Full.bytesUnsafe()
 	if len(data) == 0 {
 		return QNameSpan{}
 	}
@@ -86,7 +86,7 @@ func (i *nameInterner) lookupRecent(name []byte, hash uint64) (QNameSpan, bool) 
 		if i.recentHashes[idx] != hash {
 			continue
 		}
-		if bytes.Equal(i.recentNames[idx].Full.bytes(), name) {
+		if bytes.Equal(i.recentNames[idx].Full.bytesUnsafe(), name) {
 			return i.recentNames[idx], true
 		}
 	}
@@ -122,7 +122,7 @@ func (i *nameInterner) internBytesHash(name []byte, prefixLen int, hash uint64) 
 	}
 	if bucket, ok := i.entries[hash]; ok {
 		for _, entry := range bucket {
-			if bytes.Equal(entry.name.Full.bytes(), name) {
+			if bytes.Equal(entry.name.Full.bytesUnsafe(), name) {
 				i.stats.Hits++
 				i.rememberRecent(entry.name, entry.hash)
 				return entry.name
@@ -157,7 +157,7 @@ func (i *nameInterner) internBytesHash(name []byte, prefixLen int, hash uint64) 
 
 func newQNameSpan(buf *spanBuffer, start, end int) QNameSpan {
 	full := makeSpan(buf, start, end)
-	colon := bytes.IndexByte(full.bytes(), ':')
+	colon := bytes.IndexByte(full.bytesUnsafe(), ':')
 	if colon < 0 {
 		return QNameSpan{Full: full, Local: full}
 	}

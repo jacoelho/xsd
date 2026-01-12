@@ -42,9 +42,19 @@ func (s Span) bytes() []byte {
 		return nil
 	}
 	if s.buf.poison && s.gen != s.buf.gen {
-		return nil
+		panic("xmltext: span is invalid after buffer reuse")
 	}
 	if s.Start < 0 || s.End < s.Start || s.End > len(s.buf.data) {
+		if s.buf.poison {
+			panic("xmltext: span bounds are invalid")
+		}
+		return nil
+	}
+	return s.buf.data[s.Start:s.End]
+}
+
+func (s Span) bytesUnsafe() []byte {
+	if s.buf == nil {
 		return nil
 	}
 	return s.buf.data[s.Start:s.End]
