@@ -17,8 +17,3 @@ type Token struct {
 	TextRawNeeds bool
 	IsXMLDecl    bool
 }
-
-// Clone returns a copy of the token header without extending span lifetimes.
-func (t Token) Clone() Token {
-	return t
-}

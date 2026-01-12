@@ -131,7 +131,6 @@ set, entity expansion is applied while preserving original raw spans internally.
 ## Footguns
 
 - spans and token slices are reused; do not keep them after the next call
-- Token.Clone does not extend span lifetimes; it only copies the header
 - Text spans can point at scratch buffers when ResolveEntities(true) or
   CoalesceCharData(true) are enabled; Raw spans always point at the input buffer
 - CDATA and CharData merge into a single CharData token when coalescing is on

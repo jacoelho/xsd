@@ -59,21 +59,20 @@ type Decoder struct {
 }
 
 type decoderOptions struct {
-	entityMap                 map[string]string
-	charsetReader             func(label string, r io.Reader) (io.Reader, error)
-	maxDepth                  int
-	bufferSize                int
-	maxNamespaceInternEntries int
-	maxQNameInternEntries     int
-	maxTokenSize              int
-	maxAttrs                  int
-	emitComments              bool
-	coalesceCharData          bool
-	trackLineColumn           bool
-	emitDirectives            bool
-	emitPI                    bool
-	debugPoisonSpans          bool
-	resolveEntities           bool
+	entityMap             map[string]string
+	charsetReader         func(label string, r io.Reader) (io.Reader, error)
+	maxDepth              int
+	bufferSize            int
+	maxQNameInternEntries int
+	maxTokenSize          int
+	maxAttrs              int
+	emitComments          bool
+	coalesceCharData      bool
+	trackLineColumn       bool
+	emitDirectives        bool
+	emitPI                bool
+	debugPoisonSpans      bool
+	resolveEntities       bool
 }
 
 // NewDecoder creates a new XML decoder for the reader.
@@ -698,9 +697,6 @@ func resolveOptions(opts Options) decoderOptions {
 	if value, ok := opts.MaxQNameInternEntries(); ok {
 		resolved.maxQNameInternEntries = normalizeLimit(value)
 	}
-	if value, ok := opts.MaxNamespaceInternEntries(); ok {
-		resolved.maxNamespaceInternEntries = normalizeLimit(value)
-	}
 	if value, ok := opts.DebugPoisonSpans(); ok {
 		resolved.debugPoisonSpans = value
 	}
@@ -718,17 +714,6 @@ func normalizeLimit(value int) int {
 		return 0
 	}
 	return value
-}
-
-func wrapCharsetReader(r io.Reader, charsetReader func(label string, r io.Reader) (io.Reader, error), bufferSize int) (io.Reader, error) {
-	reader, ok := r.(*bufio.Reader)
-	if !ok {
-		if bufferSize <= 0 {
-			bufferSize = defaultBufferSize
-		}
-		reader = bufio.NewReaderSize(r, bufferSize)
-	}
-	return wrapCharsetReaderFromBufio(reader, charsetReader)
 }
 
 func wrapCharsetReaderFromBufio(reader *bufio.Reader, charsetReader func(label string, r io.Reader) (io.Reader, error)) (io.Reader, error) {
