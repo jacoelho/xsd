@@ -1,6 +1,9 @@
 package xmltext
 
-import "bytes"
+import (
+	"bytes"
+	"hash/maphash"
+)
 
 // InternStats reports QName interning activity.
 type InternStats struct {
@@ -11,19 +14,22 @@ type InternStats struct {
 
 const nameInternerRecentSize = 8
 
+var hashSeed = maphash.MakeSeed()
+
 type internEntry struct {
 	name QNameSpan
 	hash uint64
 }
 
 type nameInterner struct {
-	buf         spanBuffer
-	entries     map[uint64][]internEntry
-	recent      [nameInternerRecentSize]internEntry
-	stats       InternStats
-	maxEntries  int
-	recentCount int
-	recentIndex int
+	buf          spanBuffer
+	entries      map[uint64][]internEntry
+	recentHashes [nameInternerRecentSize]uint64
+	recentNames  [nameInternerRecentSize]QNameSpan
+	stats        InternStats
+	maxEntries   int
+	recentCount  int
+	recentIndex  int
 }
 
 func newNameInterner(maxEntries int) *nameInterner {
@@ -77,24 +83,25 @@ func (i *nameInterner) internBytes(name []byte, prefixLen int) QNameSpan {
 
 func (i *nameInterner) lookupRecent(name []byte, hash uint64) (QNameSpan, bool) {
 	for idx := 0; idx < i.recentCount; idx++ {
-		entry := i.recent[idx]
-		if entry.hash != hash {
+		if i.recentHashes[idx] != hash {
 			continue
 		}
-		if bytes.Equal(entry.name.Full.bytes(), name) {
-			return entry.name, true
+		if bytes.Equal(i.recentNames[idx].Full.bytes(), name) {
+			return i.recentNames[idx], true
 		}
 	}
 	return QNameSpan{}, false
 }
 
-func (i *nameInterner) rememberRecent(entry internEntry) {
+func (i *nameInterner) rememberRecent(name QNameSpan, hash uint64) {
 	if i.recentCount < nameInternerRecentSize {
-		i.recent[i.recentCount] = entry
+		i.recentHashes[i.recentCount] = hash
+		i.recentNames[i.recentCount] = name
 		i.recentCount++
 		return
 	}
-	i.recent[i.recentIndex] = entry
+	i.recentHashes[i.recentIndex] = hash
+	i.recentNames[i.recentIndex] = name
 	i.recentIndex++
 	if i.recentIndex >= nameInternerRecentSize {
 		i.recentIndex = 0
@@ -117,7 +124,7 @@ func (i *nameInterner) internBytesHash(name []byte, prefixLen int, hash uint64) 
 		for _, entry := range bucket {
 			if bytes.Equal(entry.name.Full.bytes(), name) {
 				i.stats.Hits++
-				i.rememberRecent(entry)
+				i.rememberRecent(entry.name, entry.hash)
 				return entry.name
 			}
 		}
@@ -144,7 +151,7 @@ func (i *nameInterner) internBytesHash(name []byte, prefixLen int, hash uint64) 
 	entry := internEntry{hash: hash, name: qname}
 	i.entries[hash] = append(i.entries[hash], entry)
 	i.stats.Count++
-	i.rememberRecent(entry)
+	i.rememberRecent(entry.name, entry.hash)
 	return qname
 }
 
@@ -168,14 +175,5 @@ func makeQNameSpan(buf *spanBuffer, start, end, colon int) QNameSpan {
 }
 
 func hashBytes(data []byte) uint64 {
-	const (
-		offset = 14695981039346656037
-		prime  = 1099511628211
-	)
-	hash := uint64(offset)
-	for _, b := range data {
-		hash ^= uint64(b)
-		hash *= prime
-	}
-	return hash
+	return maphash.Bytes(hashSeed, data)
 }
