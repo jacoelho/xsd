@@ -528,6 +528,9 @@ func (d *Decoder) scanCharDataInto(dst *Token, allowCompact bool) (bool, error) 
 }
 
 func scanCharDataSpanUntilEntity(data []byte, start int) (int, error) {
+	if start < 0 {
+		return -1, errInvalidChar
+	}
 	if start >= len(data) {
 		return -1, nil
 	}
@@ -803,22 +806,20 @@ func (d *Decoder) scanAttrValue(quote byte, allowCompact bool) (Span, Span, bool
 			return Span{}, Span{}, false, false, err
 		}
 		data := d.buf.data[d.pos:]
-		quoteIdx := bytes.IndexByte(data, quote)
-		ltIdx := bytes.IndexByte(data, '<')
-
-		if quoteIdx >= 0 {
-			if ltIdx >= 0 && ltIdx < quoteIdx {
-				return Span{}, Span{}, false, false, errInvalidToken
-			}
-			if d.opts.maxTokenSize > 0 && d.pos-start+quoteIdx > d.opts.maxTokenSize {
-				return Span{}, Span{}, false, false, errTokenTooLarge
-			}
-			d.advanceTo(d.pos + quoteIdx)
-			break
+		termIdx := bytes.IndexAny(data, "'<")
+		if quote == '"' {
+			termIdx = bytes.IndexAny(data, "\"<")
 		}
 
-		if ltIdx >= 0 {
-			return Span{}, Span{}, false, false, errInvalidToken
+		if termIdx >= 0 {
+			if data[termIdx] == '<' {
+				return Span{}, Span{}, false, false, errInvalidToken
+			}
+			if d.opts.maxTokenSize > 0 && d.pos-start+termIdx > d.opts.maxTokenSize {
+				return Span{}, Span{}, false, false, errTokenTooLarge
+			}
+			d.advanceTo(d.pos + termIdx)
+			break
 		}
 
 		d.advanceTo(len(d.buf.data))
@@ -1398,7 +1399,7 @@ func (d *Decoder) readMore(allowCompact bool) error {
 	if d.eof {
 		return io.EOF
 	}
-	if allowCompact {
+	if allowCompact && d.pos == 0 {
 		d.compactIfNeeded()
 	}
 	if len(d.buf.data) == cap(d.buf.data) {
@@ -1514,10 +1515,11 @@ func (d *Decoder) advance(n int) {
 	}
 	if d.opts.trackLineColumn {
 		data := d.buf.data[d.pos : d.pos+n]
-		if bytes.IndexByte(data, '\n') >= 0 || bytes.IndexByte(data, '\r') >= 0 {
+		if bytes.ContainsAny(data, "\n\r") {
 			d.advanceWithNewlines(data)
 			return
 		}
+		d.pendingCR = false
 		// No newlines - just update column
 		d.column += n
 	}
@@ -1526,7 +1528,14 @@ func (d *Decoder) advance(n int) {
 
 // advanceWithNewlines handles line tracking when newlines are present (slow path).
 func (d *Decoder) advanceWithNewlines(data []byte) {
-	for i := 0; i < len(data); i++ {
+	i := 0
+	if d.pendingCR {
+		d.pendingCR = false
+		if len(data) > 0 && data[0] == '\n' {
+			i = 1
+		}
+	}
+	for ; i < len(data); i++ {
 		switch data[i] {
 		case '\n':
 			d.line++
@@ -1536,6 +1545,8 @@ func (d *Decoder) advanceWithNewlines(data []byte) {
 			d.column = 1
 			if i+1 < len(data) && data[i+1] == '\n' {
 				i++
+			} else if i+1 == len(data) {
+				d.pendingCR = true
 			}
 		default:
 			d.column++
@@ -1561,13 +1572,12 @@ func (d *Decoder) advanceTo(pos int) {
 
 // advanceRaw increments position without line tracking.
 // Use only for content known not to contain newlines (delimiters, tags, etc).
-//
-//go:inline
 func (d *Decoder) advanceRaw(n int) {
 	if n <= 0 {
 		return
 	}
 	if d.opts.trackLineColumn {
+		d.pendingCR = false
 		d.column += n
 	}
 	d.pos += n

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"strings"
 	"unsafe"
 )
 
@@ -41,6 +42,7 @@ type Decoder struct {
 	column             int
 	rootCount          int64
 	line               int
+	pendingCR          bool
 	attrSeenGen        uint32
 	xmlDeclSeen        bool
 	afterRoot          bool
@@ -142,6 +144,7 @@ func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 		d.line = 0
 		d.column = 0
 	}
+	d.pendingCR = false
 
 	if d.opts.debugPoisonSpans {
 		d.buf.gen++
@@ -868,5 +871,5 @@ func scanXMLDeclName(data []byte) ([]byte, []byte) {
 }
 
 func isUTF8Label(label string) bool {
-	return bytes.EqualFold([]byte(label), []byte("utf-8")) || bytes.EqualFold([]byte(label), []byte("utf8"))
+	return strings.EqualFold(label, "utf-8") || strings.EqualFold(label, "utf8")
 }
