@@ -129,7 +129,7 @@ xsd/
     |
     +-- xml/                  Minimal XML abstraction
         +-- dom.go            Document, Element, Attr interfaces
-        +-- parse.go          XML parsing via encoding/xml
+        +-- parse.go          XML parsing via xmltext-backed decoder
         +-- namespace.go      Namespace handling
         +-- stream.go         Streaming decoder
 ```

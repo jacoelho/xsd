@@ -1359,7 +1359,7 @@ func TestSchemaValidatePain008(t *testing.T) {
 var (
 	pain008SchemaOnce     sync.Once
 	pain008SchemaInstance *xsd.Schema
-	pain008SchemaErr      error
+	errPain008Schema      error
 )
 
 func loadPain008Schema(tb testing.TB) *xsd.Schema {
@@ -1370,11 +1370,11 @@ func loadPain008Schema(tb testing.TB) *xsd.Schema {
 			"pain.008.001.02.xsd": &fstest.MapFile{Data: []byte(pain008Schema)},
 		}
 
-		pain008SchemaInstance, pain008SchemaErr = xsd.Load(fsys, "pain.008.001.02.xsd")
+		pain008SchemaInstance, errPain008Schema = xsd.Load(fsys, "pain.008.001.02.xsd")
 	})
 
-	if pain008SchemaErr != nil {
-		tb.Fatalf("load pain008 schema: %v", pain008SchemaErr)
+	if errPain008Schema != nil {
+		tb.Fatalf("load pain008 schema: %v", errPain008Schema)
 	}
 
 	return pain008SchemaInstance

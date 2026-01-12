@@ -22,11 +22,17 @@ func (r *validationRun) resolveSubstitutionDecl(actualQName types.QName, declare
 
 // substitutionMatcher implements grammar.SymbolMatcher for substitution groups.
 type substitutionMatcher struct {
-	view schemaView
+	view         schemaView
+	headByMember map[types.QName]*grammar.CompiledElement
 }
 
 func (r *validationRun) matcher() *substitutionMatcher {
 	r.subMatcher.view = r.schema
+	if base, ok := r.schema.(*baseSchemaView); ok {
+		r.subMatcher.headByMember = base.substitutionHeadByMember
+	} else {
+		r.subMatcher.headByMember = nil
+	}
 	return &r.subMatcher
 }
 
@@ -39,7 +45,11 @@ func (m *substitutionMatcher) IsSubstitutable(actual, declared types.QName) bool
 	// find the head element - declared might be a substitute itself, so check substitution groups
 	head := m.view.Element(declared)
 	if head == nil {
-		head = m.view.SubstitutionGroupHead(declared)
+		if m.headByMember != nil {
+			head = m.headByMember[declared]
+		} else {
+			head = m.view.SubstitutionGroupHead(declared)
+		}
 		if head == nil {
 			return false
 		}
@@ -53,7 +63,7 @@ func (m *substitutionMatcher) IsSubstitutable(actual, declared types.QName) bool
 	if subs := m.view.SubstitutionGroup(declared); len(subs) > 0 {
 		for _, sub := range subs {
 			if sub.QName == actual {
-				return !m.isDerivationBlocked(sub, head)
+				return !isDerivationBlocked(sub, head)
 			}
 		}
 	}
@@ -64,7 +74,7 @@ func (m *substitutionMatcher) IsSubstitutable(actual, declared types.QName) bool
 // Per XSD spec, blocking can come from:
 // 1. Element's block attribute
 // 2. Type's block attribute (the head element's type)
-func (m *substitutionMatcher) isDerivationBlocked(sub, head *grammar.CompiledElement) bool {
+func isDerivationBlocked(sub, head *grammar.CompiledElement) bool {
 	if sub.Type == nil || head.Type == nil {
 		return false
 	}

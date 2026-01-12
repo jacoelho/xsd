@@ -89,7 +89,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 			if err := st.Validate(normalizedValue); err != nil {
 				return err
 			}
-			if err := validateValueAgainstFacets(normalizedValue, st, schema); err != nil {
+			if err := validateValueAgainstFacets(normalizedValue, st); err != nil {
 				return err
 			}
 			return nil
@@ -135,7 +135,7 @@ func resolveListItemType(schema *parser.Schema, st *types.SimpleType) types.Type
 }
 
 // validateValueAgainstFacets validates a value against all facets of a simple type.
-func validateValueAgainstFacets(value string, st *types.SimpleType, schema *parser.Schema) error {
+func validateValueAgainstFacets(value string, st *types.SimpleType) error {
 	if st == nil || st.Restriction == nil {
 		return nil
 	}

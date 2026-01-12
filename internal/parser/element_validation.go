@@ -120,11 +120,12 @@ func resolveQName(doc *xsdxml.Document, qname string, elem xsdxml.NodeID, schema
 			// if default namespace is XSD namespace, treat as no namespace
 			// (XSD types are handled above, non-XSD names in XSD namespace don't exist)
 			// this is the strict spec behavior that W3C tests expect.
-			if defaultNS == xsdxml.XSDNamespace {
+			switch {
+			case defaultNS == xsdxml.XSDNamespace:
 				namespace = ""
-			} else if defaultNS != "" {
+			case defaultNS != "":
 				namespace = types.NamespaceURI(defaultNS)
-			} else {
+			default:
 				// no default namespace - per XSD spec, unprefixed QNames resolve to no namespace
 				// (not target namespace). The spec explicitly states that targetNamespace is NOT
 				// used implicitly in QName resolution.
@@ -163,11 +164,12 @@ func resolveQNameWithoutBuiltin(doc *xsdxml.Document, qname string, elem xsdxml.
 		// no prefix - check for default namespace (xmlns="...") in scope
 		defaultNS := namespaceForPrefix(doc, elem, schema, "")
 		// if default namespace is XSD namespace, treat as no namespace
-		if defaultNS == xsdxml.XSDNamespace {
+		switch {
+		case defaultNS == xsdxml.XSDNamespace:
 			namespace = ""
-		} else if defaultNS != "" {
+		case defaultNS != "":
 			namespace = types.NamespaceURI(defaultNS)
-		} else {
+		default:
 			// no default namespace - per XSD spec, unprefixed QNames resolve to no namespace.
 			namespace = types.NamespaceEmpty
 		}

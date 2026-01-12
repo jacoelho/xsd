@@ -174,12 +174,10 @@ func deepCopyModelGroup(mg *types.ModelGroup) *types.ModelGroup {
 	if mg == nil {
 		return nil
 	}
-	copy := *mg
+	clone := *mg
 	if mg.Particles != nil {
-		copy.Particles = make([]types.Particle, len(mg.Particles))
-		for i, p := range mg.Particles {
-			copy.Particles[i] = p
-		}
+		clone.Particles = make([]types.Particle, len(mg.Particles))
+		copy(clone.Particles, mg.Particles)
 	}
-	return &copy
+	return &clone
 }

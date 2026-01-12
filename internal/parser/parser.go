@@ -59,10 +59,10 @@ type IncludeInfo struct {
 	SchemaLocation string
 }
 
-// getAttr returns an attribute value with whitespace trimmed.
+// getNameAttr returns the name attribute value with whitespace trimmed.
 // XSD attribute values should be normalized per XML spec, so we always trim.
-func getAttr(doc *xsdxml.Document, elem xsdxml.NodeID, name string) string {
-	return strings.TrimSpace(doc.GetAttribute(elem, name))
+func getNameAttr(doc *xsdxml.Document, elem xsdxml.NodeID) string {
+	return strings.TrimSpace(doc.GetAttribute(elem, "name"))
 }
 
 // ParseResult contains the parsed schema and import/include directives
@@ -135,8 +135,8 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		schema.TargetNamespace = types.NamespaceURI(targetNSAttr)
 	}
 
-	// note: Go's encoding/xml represents xmlns:prefix attributes with NamespaceURI="xmlns"
-	// and the local name is the prefix
+	// note: internal/xml represents xmlns declarations in the XMLNS namespace,
+	// with the local name set to the prefix (or "xmlns" for the default).
 	for _, attr := range doc.Attributes(root) {
 		if attr.LocalName() == "xmlns" && (attr.NamespaceURI() == "" || attr.NamespaceURI() == xsdxml.XMLNSNamespace) {
 			// xmlns="namespace" - default namespace (no prefix)

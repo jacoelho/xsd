@@ -21,7 +21,11 @@ func parseW3CSchema(t *testing.T, relPath string) *parser.Schema {
 	if err != nil {
 		t.Fatalf("open schema %s: %v", schemaPath, err)
 	}
-	defer file.Close()
+	t.Cleanup(func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Errorf("close schema %s: %v", schemaPath, closeErr)
+		}
+	})
 
 	schema, err := parser.Parse(file)
 	if err != nil {

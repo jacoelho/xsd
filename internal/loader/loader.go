@@ -216,7 +216,7 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode) 
 }
 
 // loadImport loads a schema for import, allowing mutual imports between different namespaces.
-func (l *SchemaLoader) loadImport(location string, importNamespace string, currentNamespace types.NamespaceURI) (*parser.Schema, error) {
+func (l *SchemaLoader) loadImport(location string, currentNamespace types.NamespaceURI) (*parser.Schema, error) {
 	// the location passed to loadImport is already resolved via resolveIncludeLocation
 	// load will call resolveLocation on it, which might produce a different path
 	// to ensure the import context key matches what Load will use, we need to resolve it the same way

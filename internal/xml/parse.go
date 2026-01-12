@@ -1,11 +1,13 @@
 package xsdxml
 
 import (
-	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Parse builds the minimal DOM used by the validator from XML input.
@@ -23,40 +25,40 @@ func ParseInto(r io.Reader, doc *Document) error {
 		return fmt.Errorf("nil XML document")
 	}
 
-	decoder := xml.NewDecoder(r)
-	if decoder == nil {
-		return fmt.Errorf("nil XML decoder")
+	decoder, err := NewStreamDecoder(r)
+	if err != nil {
+		return err
 	}
 
 	doc.reset()
 	var stack []NodeID
 	rootClosed := false
 	for {
-		tok, err := decoder.Token()
-		if err == io.EOF {
+		event, err := decoder.Next()
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			return err
 		}
 
-		switch t := tok.(type) {
-		case xml.StartElement:
+		switch event.Kind {
+		case EventStartElement:
 			if rootClosed {
-				return fmt.Errorf("unexpected element %s after document end", t.Name.Local)
+				return fmt.Errorf("unexpected element %s after document end", event.Name.Local)
 			}
 
 			parent := InvalidNode
 			if len(stack) > 0 {
 				parent = stack[len(stack)-1]
 			}
-			id := doc.addNode(t.Name, t.Attr, parent)
+			id := doc.addNode(event.Name.Namespace.String(), event.Name.Local, event.Attrs, parent)
 			if parent == InvalidNode {
 				doc.root = id
 			}
 			stack = append(stack, id)
 
-		case xml.EndElement:
+		case EventEndElement:
 			if len(stack) > 0 {
 				stack = stack[:len(stack)-1]
 				if len(stack) == 0 && doc.root != InvalidNode {
@@ -64,15 +66,15 @@ func ParseInto(r io.Reader, doc *Document) error {
 				}
 			}
 
-		case xml.CharData:
+		case EventCharData:
 			if len(stack) == 0 {
-				if !isIgnorableOutsideRoot(string(t)) {
+				if !isIgnorableOutsideRoot(event.Text) {
 					return fmt.Errorf("unexpected character data outside root element")
 				}
 				continue
 			}
 			nodeID := stack[len(stack)-1]
-			doc.nodes[nodeID].text = append(doc.nodes[nodeID].text, t...)
+			doc.nodes[nodeID].text = append(doc.nodes[nodeID].text, event.Text...)
 		}
 	}
 
@@ -84,29 +86,23 @@ func ParseInto(r io.Reader, doc *Document) error {
 	return nil
 }
 
-func (d *Document) addNode(name xml.Name, attrs []xml.Attr, parent NodeID) NodeID {
+func (d *Document) addNode(namespace, local string, attrs []Attr, parent NodeID) NodeID {
 	id := NodeID(len(d.nodes))
 
 	attrsOff := len(d.attrs)
 	if len(attrs) > 0 {
 		d.attrs = slices.Grow(d.attrs, len(attrs))
 		d.attrs = d.attrs[:attrsOff+len(attrs)]
-		for i, a := range attrs {
-			namespace := a.Name.Space
-			if namespace == "xmlns" || (namespace == "" && a.Name.Local == "xmlns") {
-				namespace = XMLNSNamespace
-			}
-			d.attrs[attrsOff+i] = Attr{
-				namespace: namespace,
-				local:     a.Name.Local,
-				value:     a.Value,
-			}
+		for i, attr := range attrs {
+			copied := attr
+			copied.value = strings.Clone(attr.value)
+			d.attrs[attrsOff+i] = copied
 		}
 	}
 
 	d.nodes = append(d.nodes, node{
-		namespace: name.Space,
-		local:     name.Local,
+		namespace: namespace,
+		local:     local,
 		attrsOff:  attrsOff,
 		attrsLen:  len(attrs),
 		parent:    parent,
@@ -166,14 +162,16 @@ func (d *Document) buildChildren() {
 	}
 }
 
-func isIgnorableOutsideRoot(data string) bool {
-	for _, r := range data {
-		if r == '\uFEFF' {
-			continue
-		}
-		if !unicode.IsSpace(r) {
+func isIgnorableOutsideRoot(data []byte) bool {
+	for len(data) > 0 {
+		r, size := utf8.DecodeRune(data)
+		if r == utf8.RuneError && size == 1 {
 			return false
 		}
+		if r != '\uFEFF' && !unicode.IsSpace(r) {
+			return false
+		}
+		data = data[size:]
 	}
 	return true
 }
