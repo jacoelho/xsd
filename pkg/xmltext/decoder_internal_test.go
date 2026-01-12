@@ -1,6 +1,7 @@
 package xmltext
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"strings"
@@ -473,6 +474,72 @@ func TestScanDirectiveInto(t *testing.T) {
 	}
 }
 
+func TestCompactIfNeededFloor(t *testing.T) {
+	dec := &Decoder{
+		buf:             spanBuffer{data: []byte("abcd")},
+		pos:             2,
+		baseOffset:      10,
+		compactFloorSet: true,
+		compactFloorAbs: 5,
+	}
+	dec.compactIfNeeded()
+	if dec.pos != 2 {
+		t.Fatalf("pos = %d, want 2", dec.pos)
+	}
+	if string(dec.buf.data) != "abcd" {
+		t.Fatalf("data = %q, want abcd", dec.buf.data)
+	}
+	if dec.baseOffset != 10 {
+		t.Fatalf("baseOffset = %d, want 10", dec.baseOffset)
+	}
+}
+
+func TestCompactIfNeededClear(t *testing.T) {
+	dec := &Decoder{
+		buf:        spanBuffer{data: []byte("abcd")},
+		pos:        4,
+		baseOffset: 7,
+	}
+	dec.compactIfNeeded()
+	if dec.pos != 0 {
+		t.Fatalf("pos = %d, want 0", dec.pos)
+	}
+	if dec.baseOffset != 11 {
+		t.Fatalf("baseOffset = %d, want 11", dec.baseOffset)
+	}
+	if len(dec.buf.data) != 0 {
+		t.Fatalf("data len = %d, want 0", len(dec.buf.data))
+	}
+}
+
+func TestScanNameAcrossBuffer(t *testing.T) {
+	dec := newStreamingDecoder([]byte{0xCF}, []byte{0x80, 'x', ' '})
+	span, err := dec.scanName(false)
+	if err != nil {
+		t.Fatalf("scanName error = %v", err)
+	}
+	if got := string(span.bytes()); got != "\u03c0x" {
+		t.Fatalf("scanName = %q, want \\u03c0x", got)
+	}
+}
+
+func TestScanQNameAcrossBuffer(t *testing.T) {
+	dec := newStreamingDecoder([]byte("p:"), []byte{0xCF, 0x80, ' '})
+	span, err := dec.scanQName(false)
+	if err != nil {
+		t.Fatalf("scanQName error = %v", err)
+	}
+	if got := string(span.Full.bytes()); got != "p:\u03c0" {
+		t.Fatalf("scanQName = %q, want p:\\u03c0", got)
+	}
+	if got := string(span.Prefix.bytes()); got != "p" {
+		t.Fatalf("prefix = %q, want p", got)
+	}
+	if got := string(span.Local.bytes()); got != "\u03c0" {
+		t.Fatalf("local = %q, want \\u03c0", got)
+	}
+}
+
 func TestDecoderInternQNameHelpers(t *testing.T) {
 	buf := spanBuffer{data: []byte("ns:local")}
 	name := makeQNameSpan(&buf, 0, len(buf.data), 2)
@@ -491,6 +558,15 @@ func TestDecoderInternQNameHelpers(t *testing.T) {
 	interned = dec.internQNameHash(name, hash)
 	if got := string(interned.Prefix.bytes()); got != "ns" {
 		t.Fatalf("internQNameHash prefix = %q, want ns", got)
+	}
+}
+
+func newStreamingDecoder(prefix, rest []byte) *Decoder {
+	data := make([]byte, len(prefix), len(prefix)+len(rest))
+	copy(data, prefix)
+	return &Decoder{
+		buf: spanBuffer{data: data},
+		r:   bytes.NewReader(rest),
 	}
 }
 

@@ -1,6 +1,7 @@
 package xmltext
 
 import (
+	"bytes"
 	"encoding/xml"
 	"errors"
 	"io"
@@ -642,4 +643,114 @@ func TestEncodingXMLCharacterRanges(t *testing.T) {
 			t.Fatalf("rune %U considered valid", r)
 		}
 	}
+}
+
+func TestEncodingXMLParity(t *testing.T) {
+	cases := []string{
+		`<root/>`,
+		`<root attr="v">text</root>`,
+		`<root attr="x&amp;y">a&lt;b<![CDATA[c]]>d</root>`,
+		`<?pi data?><root><!--c--><child/></root>`,
+		`<!DOCTYPE root><root/>`,
+	}
+
+	for _, input := range cases {
+		tokens, err := readXMLTextTokens(input)
+		if err != nil {
+			t.Fatalf("readXMLTextTokens(%q) error = %v", input, err)
+		}
+		encTokens, err := readEncodingXMLTokens(input)
+		if err != nil {
+			t.Fatalf("readEncodingXMLTokens(%q) error = %v", input, err)
+		}
+		if !tokensEqual(tokens, encTokens) {
+			t.Fatalf("tokens mismatch for %q:\nxmltext=%v\nencoding=%v", input, tokens, encTokens)
+		}
+	}
+
+	invalid := `<root><child></root>`
+	if _, err := readXMLTextTokens(invalid); err == nil {
+		t.Fatalf("expected xmltext error for mismatched tags")
+	}
+	if _, err := readEncodingXMLTokens(invalid); err == nil {
+		t.Fatalf("expected encoding/xml error for mismatched tags")
+	}
+}
+
+type simpleToken struct {
+	name  string
+	text  string
+	attrs []simpleAttr
+	kind  Kind
+}
+
+type simpleAttr struct {
+	name  string
+	value string
+}
+
+func readXMLTextTokens(input string) ([]simpleToken, error) {
+	return readXMLTextTokensWithOptions(input)
+}
+
+func readEncodingXMLTokens(input string) ([]simpleToken, error) {
+	return readEncodingXMLTokensWithOptions(input, encodingXMLTokenOptions{})
+}
+
+func simplifyXMLTextToken(dec *Decoder, tok Token) simpleToken {
+	kind := tok.Kind
+	if kind == KindCDATA {
+		kind = KindCharData
+	}
+	out := simpleToken{kind: kind}
+	switch kind {
+	case KindStartElement, KindEndElement:
+		out.name = string(dec.SpanBytes(tok.Name.Local))
+	case KindCharData, KindComment, KindDirective:
+		out.text = string(dec.SpanBytes(tok.Text))
+	case KindPI:
+		target, inst := splitPIText(tok.Text.bytes())
+		out.name = target
+		out.text = string(inst)
+	}
+	if tok.Kind == KindStartElement {
+		for _, attr := range tok.Attrs {
+			out.attrs = append(out.attrs, simpleAttr{
+				name:  string(dec.SpanBytes(attr.Name.Local)),
+				value: string(dec.SpanBytes(attr.ValueSpan)),
+			})
+		}
+	}
+	return out
+}
+
+func splitPIText(data []byte) (string, []byte) {
+	for i := 0; i < len(data); i++ {
+		if isWhitespace(data[i]) {
+			target := string(data[:i])
+			inst := bytes.TrimLeft(data[i:], " \t\r\n")
+			return target, inst
+		}
+	}
+	return string(data), nil
+}
+
+func tokensEqual(a, b []simpleToken) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].kind != b[i].kind || a[i].name != b[i].name || a[i].text != b[i].text {
+			return false
+		}
+		if len(a[i].attrs) != len(b[i].attrs) {
+			return false
+		}
+		for j := range a[i].attrs {
+			if a[i].attrs[j] != b[i].attrs[j] {
+				return false
+			}
+		}
+	}
+	return true
 }

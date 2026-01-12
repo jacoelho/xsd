@@ -2,6 +2,7 @@ package xmltext
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -9,6 +10,17 @@ func TestSyntaxErrorNil(t *testing.T) {
 	var err *SyntaxError
 	if got := err.Error(); got != "<nil>" {
 		t.Fatalf("SyntaxError.Error = %q, want <nil>", got)
+	}
+}
+
+func TestSyntaxErrorFormatting(t *testing.T) {
+	syntax := &SyntaxError{Line: 2, Column: 3, Err: errInvalidToken}
+	if got := syntax.Error(); !strings.Contains(got, "line 2") {
+		t.Fatalf("Error = %q, want line 2", got)
+	}
+	syntax = &SyntaxError{Offset: 10, Err: errInvalidToken}
+	if got := syntax.Error(); !strings.Contains(got, "offset 10") {
+		t.Fatalf("Error = %q, want offset 10", got)
 	}
 }
 
