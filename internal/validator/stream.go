@@ -901,38 +901,36 @@ func (r *streamRun) processListItemBytes(frame *streamFrame, itemBytes []byte) {
 		}
 		return
 	}
-	var (
-		itemString    string
-		hasItemString bool
-	)
-	if state.itemMode == listItemModeBytes && state.itemBuiltin != nil {
-		if validated, err := state.itemBuiltin.ValidateBytes(itemBytes); validated {
-			if err != nil {
-				r.violations = append(r.violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
-					"list item[%d]: %s", index, err.Error()))
-			}
-		} else {
-			itemString = string(itemBytes)
-			hasItemString = true
-			valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport)
-			if !valid {
-				r.violations = append(r.violations, violations...)
-			}
+	if r.validateListItemBytes(frame, itemBytes, index) {
+		if frame.textType.IDTypeName == "IDREFS" {
+			r.trackListIDRefs(string(itemBytes), frame.textType)
 		}
-	} else {
-		itemString = string(itemBytes)
-		hasItemString = true
-		valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport)
-		if !valid {
-			r.violations = append(r.violations, violations...)
-		}
+		return
+	}
+	itemString := string(itemBytes)
+	valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport)
+	if !valid {
+		r.violations = append(r.violations, violations...)
 	}
 	if frame.textType.IDTypeName == "IDREFS" {
-		if !hasItemString {
-			itemString = string(itemBytes)
-		}
 		r.trackListIDRefs(itemString, frame.textType)
 	}
+}
+
+func (r *streamRun) validateListItemBytes(frame *streamFrame, itemBytes []byte, index int) bool {
+	state := &frame.listStream
+	if state.itemMode != listItemModeBytes || state.itemBuiltin == nil {
+		return false
+	}
+	validated, err := state.itemBuiltin.ValidateBytes(itemBytes)
+	if !validated {
+		return false
+	}
+	if err != nil {
+		r.violations = append(r.violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+			"list item[%d]: %s", index, err.Error()))
+	}
+	return true
 }
 
 func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType, state *listStreamState) {

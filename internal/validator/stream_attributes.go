@@ -14,6 +14,42 @@ type attributeIndex struct {
 
 const attributeMapThreshold = 8
 
+type declaredAttrSet struct {
+	mapValues map[types.QName]struct{}
+	list      []types.QName
+}
+
+func newDeclaredAttrSet(size int) declaredAttrSet {
+	if size > attributeMapThreshold {
+		return declaredAttrSet{mapValues: make(map[types.QName]struct{}, size)}
+	}
+	if size == 0 {
+		return declaredAttrSet{}
+	}
+	return declaredAttrSet{list: make([]types.QName, 0, size)}
+}
+
+func (s *declaredAttrSet) add(name types.QName) {
+	if s.mapValues != nil {
+		s.mapValues[name] = struct{}{}
+		return
+	}
+	s.list = append(s.list, name)
+}
+
+func (s declaredAttrSet) contains(name types.QName) bool {
+	if s.mapValues != nil {
+		_, ok := s.mapValues[name]
+		return ok
+	}
+	for _, candidate := range s.list {
+		if candidate == name {
+			return true
+		}
+	}
+	return false
+}
+
 func newAttributeIndex(attrs []xsdxml.Attr) attributeIndex {
 	if len(attrs) > attributeMapThreshold {
 		values := make(map[types.QName]string, len(attrs))
@@ -44,25 +80,14 @@ func (a attributeIndex) Value(ns, local string) (string, bool) {
 func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar.CompiledAttribute, anyAttr *types.AnyAttribute, scopeDepth int) []errors.Validation {
 	var violations []errors.Validation
 
-	useDeclaredMap := len(decls) > attributeMapThreshold
-	var declaredMap map[types.QName]struct{}
-	var declaredSmall []types.QName
-	if useDeclaredMap {
-		declaredMap = make(map[types.QName]struct{}, len(decls))
-	} else if len(decls) > 0 {
-		declaredSmall = make([]types.QName, 0, len(decls))
-	}
+	declared := newDeclaredAttrSet(len(decls))
 	idCount := 0
 
 	for _, attr := range decls {
 		if attr.Use == types.Prohibited && !attr.HasFixed {
 			continue
 		}
-		if useDeclaredMap {
-			declaredMap[attr.QName] = struct{}{}
-		} else {
-			declaredSmall = append(declaredSmall, attr.QName)
-		}
+		declared.add(attr.QName)
 
 		if attr.Use == types.Required {
 			if _, ok := attrs.Value(attr.QName.Namespace.String(), attr.QName.Local); !ok {
@@ -117,18 +142,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 			Local:     xmlAttr.LocalName(),
 		}
 
-		declared := false
-		if useDeclaredMap {
-			_, declared = declaredMap[attrQName]
-		} else {
-			for _, candidate := range declaredSmall {
-				if candidate == attrQName {
-					declared = true
-					break
-				}
-			}
-		}
-		if !declared && !isSpecialAttribute(attrQName) {
+		if !declared.contains(attrQName) && !isSpecialAttribute(attrQName) {
 			if anyAttr == nil || !anyAttr.AllowsQName(attrQName) {
 				violations = append(violations, errors.NewValidationf(errors.ErrAttributeNotDeclared, r.path.String(),
 					"Attribute '%s' is not declared", attrQName.Local))
