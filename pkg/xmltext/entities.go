@@ -96,12 +96,8 @@ func parseEntityRef(data []byte, start int, resolver *entityResolver) (int, stri
 		return 0, "", 0, false, errInvalidEntity
 	}
 	if resolver.customValid != nil {
-		if valid, ok := resolver.customValid[name]; ok {
-			if !valid {
-				return 0, "", 0, false, errInvalidChar
-			}
-		} else if err := validateXMLChars([]byte(replacement)); err != nil {
-			return 0, "", 0, false, err
+		if !resolver.customValid[name] {
+			return 0, "", 0, false, errInvalidChar
 		}
 	} else if err := validateXMLChars([]byte(replacement)); err != nil {
 		return 0, "", 0, false, err
@@ -123,6 +119,8 @@ func parseNumericEntity(ref []byte) (rune, error) {
 		return 0, errInvalidCharRef
 	}
 	var value uint64
+	maxValue := uint64(utf8.MaxRune)
+	baseValue := uint64(base)
 	for i := start; i < len(ref); i++ {
 		b := ref[i]
 		var digit byte
@@ -136,8 +134,11 @@ func parseNumericEntity(ref []byte) (rune, error) {
 		default:
 			return 0, errInvalidCharRef
 		}
-		value = value*uint64(base) + uint64(digit)
-		if value > utf8.MaxRune {
+		if value > maxValue/baseValue {
+			return 0, errInvalidCharRef
+		}
+		value = value*baseValue + uint64(digit)
+		if value > maxValue {
 			return 0, errInvalidCharRef
 		}
 	}

@@ -62,3 +62,10 @@ func TestParseNumericEntity(t *testing.T) {
 		t.Fatalf("expected error for out of range value")
 	}
 }
+
+func TestParseNumericEntityOverflow(t *testing.T) {
+	input := []byte("#999999999999999999999999999999999999999999999999")
+	if _, err := parseNumericEntity(input); !errors.Is(err, errInvalidCharRef) {
+		t.Fatalf("parseNumericEntity overflow = %v, want %v", err, errInvalidCharRef)
+	}
+}
