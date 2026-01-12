@@ -3,7 +3,6 @@ package types
 import (
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -81,12 +80,6 @@ func validateFloat(value string) error {
 	if !floatPattern.MatchString(value) {
 		return fmt.Errorf("invalid float: %s", value)
 	}
-	if _, err := strconv.ParseFloat(value, 32); err != nil {
-		if errors.Is(err, strconv.ErrRange) {
-			return nil
-		}
-		return fmt.Errorf("invalid float: %s", value)
-	}
 	return nil
 }
 
@@ -96,12 +89,6 @@ func validateDouble(value string) error {
 		return nil
 	}
 	if !floatPattern.MatchString(value) {
-		return fmt.Errorf("invalid double: %s", value)
-	}
-	if _, err := strconv.ParseFloat(value, 64); err != nil {
-		if errors.Is(err, strconv.ErrRange) {
-			return nil
-		}
 		return fmt.Errorf("invalid double: %s", value)
 	}
 	return nil

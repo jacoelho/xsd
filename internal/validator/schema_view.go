@@ -17,11 +17,14 @@ type schemaView interface {
 }
 
 type baseSchemaView struct {
-	schema *grammar.CompiledSchema
+	schema                   *grammar.CompiledSchema
+	substitutionHeadByMember map[types.QName]*grammar.CompiledElement
 }
 
 func newBaseSchemaView(schema *grammar.CompiledSchema) *baseSchemaView {
-	return &baseSchemaView{schema: schema}
+	view := &baseSchemaView{schema: schema}
+	view.buildSubstitutionCaches()
+	return view
 }
 
 func (v *baseSchemaView) Element(qname types.QName) *grammar.CompiledElement {
@@ -70,6 +73,9 @@ func (v *baseSchemaView) SubstitutionGroupHead(member types.QName) *grammar.Comp
 	if v.schema == nil {
 		return nil
 	}
+	if v.substitutionHeadByMember != nil {
+		return v.substitutionHeadByMember[member]
+	}
 	for head, subs := range v.schema.SubstitutionGroups {
 		for _, sub := range subs {
 			if sub.QName == member {
@@ -85,4 +91,31 @@ func (v *baseSchemaView) ElementsWithConstraints() []*grammar.CompiledElement {
 		return nil
 	}
 	return v.schema.ElementsWithConstraints
+}
+
+func (v *baseSchemaView) buildSubstitutionCaches() {
+	if v.schema == nil {
+		return
+	}
+	if len(v.schema.SubstitutionGroups) == 0 {
+		return
+	}
+	v.substitutionHeadByMember = make(map[types.QName]*grammar.CompiledElement, len(v.schema.SubstitutionGroups))
+	for headQName, subs := range v.schema.SubstitutionGroups {
+		head := v.schema.Elements[headQName]
+		if head == nil {
+			continue
+		}
+		for _, sub := range subs {
+			if sub == nil {
+				continue
+			}
+			if _, exists := v.substitutionHeadByMember[sub.QName]; !exists {
+				v.substitutionHeadByMember[sub.QName] = head
+			}
+		}
+	}
+	if len(v.substitutionHeadByMember) == 0 {
+		v.substitutionHeadByMember = nil
+	}
 }
