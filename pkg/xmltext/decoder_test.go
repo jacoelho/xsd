@@ -1,6 +1,8 @@
 package xmltext
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
 	"io"
 	"strconv"
@@ -689,4 +691,260 @@ func TestDecoderInternStats(t *testing.T) {
 	if stats.Hits == 0 {
 		t.Fatalf("intern hits = 0, want > 0")
 	}
+}
+
+func TestDecoderNilAccessors(t *testing.T) {
+	var dec *Decoder
+	if got := dec.PeekKind(); got != KindNone {
+		t.Fatalf("PeekKind = %v, want %v", got, KindNone)
+	}
+	if got := dec.InputOffset(); got != 0 {
+		t.Fatalf("InputOffset = %d, want 0", got)
+	}
+	if got := dec.StackDepth(); got != 0 {
+		t.Fatalf("StackDepth = %d, want 0", got)
+	}
+	if got := dec.InternStats(); got != (InternStats{}) {
+		t.Fatalf("InternStats = %v, want zero", got)
+	}
+	if err := dec.SkipValue(); !errors.Is(err, errNilReader) {
+		t.Fatalf("SkipValue error = %v, want %v", err, errNilReader)
+	}
+	if _, ok := GetOption(dec.Options(), ResolveEntities); ok {
+		t.Fatalf("Options ResolveEntities = true, want false")
+	}
+}
+
+func TestPeekKindBranches(t *testing.T) {
+	dec := &Decoder{pendingTokenValid: true, pendingToken: Token{Kind: KindPI}}
+	if got := dec.PeekKind(); got != KindPI {
+		t.Fatalf("PeekKind pending = %v, want %v", got, KindPI)
+	}
+
+	dec = &Decoder{pendingEnd: true}
+	if got := dec.PeekKind(); got != KindEndElement {
+		t.Fatalf("PeekKind pending end = %v, want %v", got, KindEndElement)
+	}
+
+	dec = &Decoder{err: errInvalidToken}
+	if got := dec.PeekKind(); got != KindNone {
+		t.Fatalf("PeekKind error = %v, want %v", got, KindNone)
+	}
+
+	dec = NewDecoder(strings.NewReader("<root><![CDATA[x]]></root>"), CoalesceCharData(true))
+	if _, err := dec.ReadToken(); err != nil {
+		t.Fatalf("ReadToken root error = %v", err)
+	}
+	if got := dec.PeekKind(); got != KindCharData {
+		t.Fatalf("PeekKind CDATA = %v, want %v", got, KindCharData)
+	}
+}
+
+func TestPeekKindTokens(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<!--c--><root/>"), EmitComments(true))
+	if got := dec.PeekKind(); got != KindComment {
+		t.Fatalf("PeekKind comment = %v, want %v", got, KindComment)
+	}
+
+	dec = NewDecoder(strings.NewReader("<?pi?><root/>"), EmitPI(true))
+	if got := dec.PeekKind(); got != KindPI {
+		t.Fatalf("PeekKind PI = %v, want %v", got, KindPI)
+	}
+
+	dec = NewDecoder(strings.NewReader("<!DOCTYPE root><root/>"), EmitDirectives(true))
+	if got := dec.PeekKind(); got != KindDirective {
+		t.Fatalf("PeekKind directive = %v, want %v", got, KindDirective)
+	}
+
+	dec = NewDecoder(strings.NewReader("<![CDATA[x]]><root/>"))
+	if got := dec.PeekKind(); got != KindCDATA {
+		t.Fatalf("PeekKind CDATA = %v, want %v", got, KindCDATA)
+	}
+}
+
+func TestHasAttrExpansion(t *testing.T) {
+	tok := Token{AttrRawNeeds: []bool{false, false}}
+	if hasAttrExpansion(tok) {
+		t.Fatalf("hasAttrExpansion = true, want false")
+	}
+	tok.AttrRawNeeds[1] = true
+	if !hasAttrExpansion(tok) {
+		t.Fatalf("hasAttrExpansion = false, want true")
+	}
+}
+
+func TestSpanStringEmpty(t *testing.T) {
+	dec := &Decoder{}
+	if got := dec.SpanString(Span{}); got != "" {
+		t.Fatalf("SpanString = %q, want empty", got)
+	}
+}
+
+func TestSkipValueExtraBranches(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<root/>"))
+	dec.err = errInvalidToken
+	if err := dec.SkipValue(); !errors.Is(err, errInvalidToken) {
+		t.Fatalf("SkipValue error = %v, want %v", err, errInvalidToken)
+	}
+
+	dec = NewDecoder(strings.NewReader(""))
+	if err := dec.SkipValue(); !errors.Is(err, errMissingRoot) {
+		t.Fatalf("SkipValue empty error = %v, want %v", err, errMissingRoot)
+	}
+
+	dec = NewDecoder(strings.NewReader("<!--c-->"), EmitComments(true))
+	if err := dec.SkipValue(); err != nil {
+		t.Fatalf("SkipValue comment error = %v, want nil", err)
+	}
+
+	dec = NewDecoder(strings.NewReader("<root><child/></root>"))
+	if err := dec.SkipValue(); err != nil {
+		t.Fatalf("SkipValue root error = %v", err)
+	}
+	if _, err := dec.ReadToken(); err != io.EOF {
+		t.Fatalf("ReadToken after SkipValue = %v, want io.EOF", err)
+	}
+}
+
+func TestXMLDeclEncodingHelpers(t *testing.T) {
+	decl := []byte(`<?xml version="1.0" encoding="ISO-8859-1"?>`)
+	if got := parseXMLDeclEncoding(decl); got != "ISO-8859-1" {
+		t.Fatalf("parseXMLDeclEncoding = %q, want ISO-8859-1", got)
+	}
+	if got := parseXMLDeclEncoding([]byte(`<?xml version="1.0"?>`)); got != "" {
+		t.Fatalf("parseXMLDeclEncoding = %q, want empty", got)
+	}
+	if got := parseXMLDeclEncoding([]byte(`<?xml version="1.0" encoding=UTF-8?>`)); got != "" {
+		t.Fatalf("parseXMLDeclEncoding = %q, want empty", got)
+	}
+
+	bufReader := bufio.NewReader(strings.NewReader(`<?xml version="1.0" encoding="ISO-8859-1"?><root/>`))
+	label, err := detectXMLDeclEncoding(bufReader)
+	if err != nil {
+		t.Fatalf("detectXMLDeclEncoding error = %v", err)
+	}
+	if label != "ISO-8859-1" {
+		t.Fatalf("detectXMLDeclEncoding label = %q, want ISO-8859-1", label)
+	}
+
+	bufReader = bufio.NewReader(strings.NewReader(`<?xml version="1.0" encoding="UTF-8"?><root/>`))
+	label, err = detectXMLDeclEncoding(bufReader)
+	if err != nil {
+		t.Fatalf("detectXMLDeclEncoding UTF-8 error = %v", err)
+	}
+	if label != "" {
+		t.Fatalf("detectXMLDeclEncoding UTF-8 label = %q, want empty", label)
+	}
+
+	name, rest := scanXMLDeclName([]byte("version=\"1.0\""))
+	if string(name) != "version" {
+		t.Fatalf("scanXMLDeclName name = %q, want version", name)
+	}
+	if len(rest) == 0 || rest[0] != '=' {
+		t.Fatalf("scanXMLDeclName rest = %q, want prefix '='", rest)
+	}
+	name, _ = scanXMLDeclName([]byte("1bad"))
+	if len(name) != 0 {
+		t.Fatalf("scanXMLDeclName invalid = %q, want empty", name)
+	}
+
+	input := `<?xml version="1.0" encoding="ISO-8859-1"?><root/>`
+	bufioReader := bufio.NewReader(strings.NewReader(input))
+	called := false
+	wrapped, err := wrapCharsetReaderFromBufio(bufioReader, func(label string, r io.Reader) (io.Reader, error) {
+		called = true
+		if label != "ISO-8859-1" {
+			t.Fatalf("charset label = %q, want ISO-8859-1", label)
+		}
+		return r, nil
+	})
+	if err != nil {
+		t.Fatalf("wrapCharsetReaderFromBufio error = %v", err)
+	}
+	if !called {
+		t.Fatalf("charset reader not called")
+	}
+	out, err := io.ReadAll(wrapped)
+	if err != nil {
+		t.Fatalf("ReadAll error = %v", err)
+	}
+	if !bytes.HasPrefix(out, []byte("<?xml")) {
+		t.Fatalf("ReadAll prefix = %q, want xml decl", out)
+	}
+}
+
+func TestWrapCharsetReaderFromBufioError(t *testing.T) {
+	sentinel := errors.New("boom")
+	reader := bufio.NewReader(errReader{err: sentinel})
+	if _, err := wrapCharsetReaderFromBufio(reader, nil); !errors.Is(err, sentinel) {
+		t.Fatalf("wrapCharsetReaderFromBufio error = %v, want %v", err, sentinel)
+	}
+}
+
+func TestWrapCharsetReaderFromBufioErrors(t *testing.T) {
+	input := `<?xml version="1.0" encoding="ISO-8859-1"?><root/>`
+	reader := bufio.NewReader(strings.NewReader(input))
+	sentinel := errors.New("decode")
+	if _, err := wrapCharsetReaderFromBufio(reader, func(label string, r io.Reader) (io.Reader, error) {
+		return nil, sentinel
+	}); !errors.Is(err, sentinel) {
+		t.Fatalf("wrapCharsetReaderFromBufio decode error = %v, want %v", err, sentinel)
+	}
+
+	reader = bufio.NewReader(strings.NewReader(input))
+	if _, err := wrapCharsetReaderFromBufio(reader, func(label string, r io.Reader) (io.Reader, error) {
+		return nil, nil
+	}); !errors.Is(err, errUnsupportedEncoding) {
+		t.Fatalf("wrapCharsetReaderFromBufio nil error = %v, want %v", err, errUnsupportedEncoding)
+	}
+}
+
+func TestDetectEncodingBOM(t *testing.T) {
+	reader := bufio.NewReader(bytes.NewReader([]byte{0xFF, 0xFE, 0x00, 0x00}))
+	label, err := detectEncoding(reader)
+	if err != nil {
+		t.Fatalf("detectEncoding error = %v", err)
+	}
+	if label != "utf-16" {
+		t.Fatalf("detectEncoding label = %q, want utf-16", label)
+	}
+}
+
+func TestDetectXMLDeclEncodingNoPrefix(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("<root/>"))
+	label, err := detectXMLDeclEncoding(reader)
+	if err != nil {
+		t.Fatalf("detectXMLDeclEncoding error = %v", err)
+	}
+	if label != "" {
+		t.Fatalf("detectXMLDeclEncoding label = %q, want empty", label)
+	}
+}
+
+func TestWrapCharsetReaderBufio(t *testing.T) {
+	bufReader := bufio.NewReader(strings.NewReader("<root/>"))
+	reader, err := wrapCharsetReader(bufReader, nil, 4)
+	if err != nil {
+		t.Fatalf("wrapCharsetReader error = %v", err)
+	}
+	if reader != bufReader {
+		t.Fatalf("wrapCharsetReader reader = %T, want *bufio.Reader", reader)
+	}
+}
+
+func TestNormalizeLimit(t *testing.T) {
+	if got := normalizeLimit(-1); got != 0 {
+		t.Fatalf("normalizeLimit(-1) = %d, want 0", got)
+	}
+	if got := normalizeLimit(3); got != 3 {
+		t.Fatalf("normalizeLimit(3) = %d, want 3", got)
+	}
+}
+
+type errReader struct {
+	err error
+}
+
+func (r errReader) Read(p []byte) (int, error) {
+	return 0, r.err
 }
