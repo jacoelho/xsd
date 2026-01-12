@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -73,7 +74,7 @@ const (
 
 // Validation describes a schema validation error with a W3C or local error code
 // and an optional instance path for context.
-type Validation struct {
+type Validation struct { //nolint:errname // public API name, keep for compatibility.
 	Code     string
 	Message  string
 	Path     string
@@ -82,7 +83,7 @@ type Validation struct {
 }
 
 // ValidationList is an error that wraps one or more validation errors.
-type ValidationList []Validation
+type ValidationList []Validation //nolint:errname // public API name, keep for compatibility.
 
 // Error returns a compact summary of the validation errors.
 func (v ValidationList) Error() string {
@@ -135,22 +136,15 @@ func asValidationList(err error) (ValidationList, bool) {
 	if err == nil {
 		return nil, false
 	}
-	switch v := err.(type) {
-	case ValidationList:
-		return v, true
-	case *ValidationList:
-		if v == nil {
-			return nil, false
-		}
-		return *v, true
-	case interface{ Unwrap() error }:
-		return asValidationList(v.Unwrap())
-	case interface{ Unwrap() []error }:
-		for _, child := range v.Unwrap() {
-			if list, ok := asValidationList(child); ok {
-				return list, true
-			}
-		}
+	var list ValidationList
+	if errors.As(err, &list) {
+		return list, true
 	}
+
+	var listPtr *ValidationList
+	if errors.As(err, &listPtr) && listPtr != nil {
+		return *listPtr, true
+	}
+
 	return nil, false
 }

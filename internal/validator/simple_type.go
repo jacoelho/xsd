@@ -1,6 +1,8 @@
 package validator
 
 import (
+	"strings"
+
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
@@ -121,7 +123,7 @@ func (r *validationRun) trackID(id, path string) []errors.Validation {
 		return []errors.Validation{errors.NewValidationf(errors.ErrDuplicateID, path,
 			"Duplicate ID value '%s'", id)}
 	}
-	r.ids[id] = true
+	r.ids[strings.Clone(id)] = true
 	return nil
 }
 
@@ -130,7 +132,7 @@ func (r *validationRun) trackIDREF(idref, path string) {
 	if idref == "" {
 		return
 	}
-	r.idrefs = append(r.idrefs, idrefEntry{ref: idref, path: path})
+	r.idrefs = append(r.idrefs, idrefEntry{ref: strings.Clone(idref), path: path})
 }
 
 // trackIDREFS records IDREFS values for later schemacheck.
@@ -139,7 +141,9 @@ func (r *validationRun) trackIDREFS(idrefs, path string) {
 		return
 	}
 	splitWhitespaceSeq(idrefs, func(ref string) bool {
-		r.idrefs = append(r.idrefs, idrefEntry{ref: ref, path: path})
+		if ref != "" {
+			r.idrefs = append(r.idrefs, idrefEntry{ref: strings.Clone(ref), path: path})
+		}
 		return true
 	})
 }

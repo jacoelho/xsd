@@ -12,7 +12,7 @@ import (
 
 // parseSimpleType parses a top-level simpleType definition
 func parseSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := getAttr(doc, elem, "name")
+	name := getNameAttr(doc, elem)
 	if name == "" {
 		return fmt.Errorf("simpleType missing name attribute")
 	}

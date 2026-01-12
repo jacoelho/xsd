@@ -318,17 +318,18 @@ func resolveSimpleType(st *types.SimpleType, schema *parser.Schema, detector *Cy
 		// set ResolvedBase to the original type above, so we need to resolve that
 		if st.BaseType() != nil && st.BaseType() != st {
 			if baseST, ok := st.BaseType().(*types.SimpleType); ok && !baseST.IsBuiltin() {
-				if baseST.QName.IsZero() {
+				switch {
+				case baseST.QName.IsZero():
 					// inline simpleType (no QName) - resolve directly
 					if err := resolveSimpleType(baseST, schema, detector); err != nil {
 						return err
 					}
-				} else if baseST.QName != st.QName {
+				case baseST.QName != st.QName:
 					// named type (but NOT a self-reference) - use resolveType for cycle detection
 					if err := resolveType(baseST.QName, baseST, schema, detector); err != nil {
 						return err
 					}
-				} else {
+				default:
 					// self-reference in redefine context - resolve the original directly
 					// without cycle detection (since it has the same QName but is a different type instance)
 					if err := resolveSimpleType(baseST, schema, detector); err != nil {

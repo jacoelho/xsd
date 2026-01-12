@@ -28,7 +28,7 @@ W3C test suite status: 14,088 pass, 23,344 skipped
 
 ## Architecture
 
-See docs/architecture.md for detailed documentation.
+See [docs/README.md](docs/README.md) for detailed documentation.
 
 ## Installation
 

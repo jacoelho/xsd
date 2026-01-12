@@ -133,12 +133,19 @@ func TestParseFloat(t *testing.T) {
 				return
 			}
 			if !tt.wantErr {
-				if tt.input == "INF" && !isInf32(got) {
-					t.Errorf("ParseFloat() = %v, want INF", got)
-				} else if tt.input == "-INF" && !isInf32(-got) {
-					t.Errorf("ParseFloat() = %v, want -INF", got)
-				} else if tt.input == "NaN" && !isNaN32(got) {
-					t.Errorf("ParseFloat() = %v, want NaN", got)
+				switch tt.input {
+				case "INF":
+					if !isInf32(got) {
+						t.Errorf("ParseFloat() = %v, want INF", got)
+					}
+				case "-INF":
+					if !isInf32(-got) {
+						t.Errorf("ParseFloat() = %v, want -INF", got)
+					}
+				case "NaN":
+					if !isNaN32(got) {
+						t.Errorf("ParseFloat() = %v, want NaN", got)
+					}
 				}
 			}
 		})
@@ -170,12 +177,19 @@ func TestParseDouble(t *testing.T) {
 				return
 			}
 			if !tt.wantErr {
-				if tt.input == "INF" && !isInf64(got) {
-					t.Errorf("ParseDouble() = %v, want INF", got)
-				} else if tt.input == "-INF" && !isInf64(-got) {
-					t.Errorf("ParseDouble() = %v, want -INF", got)
-				} else if tt.input == "NaN" && !isNaN64(got) {
-					t.Errorf("ParseDouble() = %v, want NaN", got)
+				switch tt.input {
+				case "INF":
+					if !isInf64(got) {
+						t.Errorf("ParseDouble() = %v, want INF", got)
+					}
+				case "-INF":
+					if !isInf64(-got) {
+						t.Errorf("ParseDouble() = %v, want -INF", got)
+					}
+				case "NaN":
+					if !isNaN64(got) {
+						t.Errorf("ParseDouble() = %v, want NaN", got)
+					}
 				}
 			}
 		})

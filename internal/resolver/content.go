@@ -9,7 +9,7 @@ import (
 )
 
 // validateContentReferences validates references within content models.
-func validateContentReferences(schema *parser.Schema, typeQName types.QName, content types.Content, originLocation string) error {
+func validateContentReferences(schema *parser.Schema, content types.Content, originLocation string) error {
 	return schemacheck.WalkContentParticles(content, func(particle types.Particle) error {
 		return validateParticleReferences(schema, particle, originLocation)
 	})

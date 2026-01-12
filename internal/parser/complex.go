@@ -82,7 +82,7 @@ var (
 
 // parseComplexType parses a top-level complexType definition
 func parseComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := getAttr(doc, elem, "name")
+	name := getNameAttr(doc, elem)
 	if name == "" {
 		return fmt.Errorf("complexType missing name attribute")
 	}
@@ -229,11 +229,11 @@ func (s *complexTypeParseState) handleGroupRef(child xsdxml.NodeID) error {
 	if err != nil {
 		return fmt.Errorf("resolve group ref %s: %w", ref, err)
 	}
-	minOccurs, err := parseOccursAttr(s.doc, child, "minOccurs", 1)
+	minOccurs, err := parseOccursAttr(s.doc, child, "minOccurs")
 	if err != nil {
 		return err
 	}
-	maxOccurs, err := parseOccursAttr(s.doc, child, "maxOccurs", 1)
+	maxOccurs, err := parseOccursAttr(s.doc, child, "maxOccurs")
 	if err != nil {
 		return err
 	}
