@@ -84,8 +84,8 @@ func inBounds(idx, length int) bool {
 	return idx >= 0 && idx < length
 }
 
-func symbolCountExceeded(symbolIndex int, counts []int, max int) bool {
-	return max >= 0 && inBounds(symbolIndex, len(counts)) && counts[symbolIndex] > max
+func symbolCountExceeded(symbolIndex int, counts []int, maxCount int) bool {
+	return maxCount >= 0 && inBounds(symbolIndex, len(counts)) && counts[symbolIndex] > maxCount
 }
 
 func symbolCount(counts []int, symbolIndex int) int {
@@ -164,10 +164,10 @@ func (a *Automaton) incrementGroupCounterUnit(c *Counter, idx, childIdx int, gro
 	return nil
 }
 
-func groupMaxOccursError(childIdx, max int) error {
+func groupMaxOccursError(childIdx, maxOccurs int) error {
 	return &ValidationError{
 		Index:   childIdx,
-		Message: fmt.Sprintf("group exceeds maxOccurs=%d", max),
+		Message: fmt.Sprintf("group exceeds maxOccurs=%d", maxOccurs),
 		SubCode: ErrorCodeNotExpectedHere,
 	}
 }
@@ -194,18 +194,18 @@ func minGroupIterations(startCount, firstPosMaxOccurs int) int {
 
 // handleElementCounter processes element occurrence counting for the current match.
 // Returns an error if maxOccurs is exceeded.
-func (a *Automaton) handleElementCounter(state, next, symbolIndex, childIdx int, symbolCounts []int, childName string) error {
+func (a *Automaton) handleElementCounter(symbolIndex, childIdx int, symbolCounts []int, childName string) error {
 	if inBounds(symbolIndex, len(symbolCounts)) {
 		symbolCounts[symbolIndex]++
 	}
-	max := types.UnboundedOccurs
+	maxOccurs := types.UnboundedOccurs
 	if inBounds(symbolIndex, len(a.symbolMax)) {
-		max = a.symbolMax[symbolIndex]
+		maxOccurs = a.symbolMax[symbolIndex]
 	}
-	if symbolCountExceeded(symbolIndex, symbolCounts, max) {
+	if symbolCountExceeded(symbolIndex, symbolCounts, maxOccurs) {
 		return &ValidationError{
 			Index:   childIdx,
-			Message: fmt.Sprintf("element %q exceeds maxOccurs=%d", childName, max),
+			Message: fmt.Sprintf("element %q exceeds maxOccurs=%d", childName, maxOccurs),
 			SubCode: ErrorCodeNotExpectedHere,
 		}
 	}
@@ -340,7 +340,7 @@ func (a *Automaton) processChild(doc *xsdxml.Document, child xsdxml.NodeID, chil
 	if err := a.handleGroupCounters(state.currentState, nextState, symbolIndex, childIdx, &state.groups); err != nil {
 		return err
 	}
-	if err := a.handleElementCounter(state.currentState, nextState, symbolIndex, childIdx, state.symbolCounts, doc.LocalName(child)); err != nil {
+	if err := a.handleElementCounter(symbolIndex, childIdx, state.symbolCounts, doc.LocalName(child)); err != nil {
 		return err
 	}
 	state.currentState = nextState

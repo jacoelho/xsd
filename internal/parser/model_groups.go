@@ -66,11 +66,11 @@ func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 		}
 	}
 
-	minOccurs, err := parseOccursAttr(doc, elem, "minOccurs", 1)
+	minOccurs, err := parseOccursAttr(doc, elem, "minOccurs")
 	if err != nil {
 		return nil, err
 	}
-	maxOccurs, err := parseOccursAttr(doc, elem, "maxOccurs", 1)
+	maxOccurs, err := parseOccursAttr(doc, elem, "maxOccurs")
 	if err != nil {
 		return nil, err
 	}
@@ -143,11 +143,11 @@ func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 			if err != nil {
 				return nil, fmt.Errorf("resolve group ref %s: %w", ref, err)
 			}
-			minOccurs, err := parseOccursAttr(doc, child, "minOccurs", 1)
+			minOccurs, err := parseOccursAttr(doc, child, "minOccurs")
 			if err != nil {
 				return nil, err
 			}
-			maxOccurs, err := parseOccursAttr(doc, child, "maxOccurs", 1)
+			maxOccurs, err := parseOccursAttr(doc, child, "maxOccurs")
 			if err != nil {
 				return nil, err
 			}
@@ -185,7 +185,7 @@ func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 // parseTopLevelGroup parses a top-level <group> definition
 // Content model: (annotation?, (all | choice | sequence))
 func parseTopLevelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := getAttr(doc, elem, "name")
+	name := getNameAttr(doc, elem)
 	if name == "" {
 		return fmt.Errorf("group missing name attribute")
 	}
@@ -311,11 +311,11 @@ func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 		return nil, fmt.Errorf("invalid maxOccurs value '%s': %w", maxOccursAttr, err)
 	}
 
-	minOccurs, err := parseOccursAttr(doc, elem, "minOccurs", 1)
+	minOccurs, err := parseOccursAttr(doc, elem, "minOccurs")
 	if err != nil {
 		return nil, err
 	}
-	maxOccurs, err := parseOccursAttr(doc, elem, "maxOccurs", 1)
+	maxOccurs, err := parseOccursAttr(doc, elem, "maxOccurs")
 	if err != nil {
 		return nil, err
 	}

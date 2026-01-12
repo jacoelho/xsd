@@ -21,7 +21,7 @@ const (
 func validateContentStructure(schema *parser.Schema, content types.Content, context typeDefinitionContext) error {
 	switch c := content.(type) {
 	case *types.ElementContent:
-		if err := validateParticleStructure(schema, c.Particle, nil); err != nil {
+		if err := validateParticleStructure(schema, c.Particle); err != nil {
 			return err
 		}
 		if err := validateElementDeclarationsConsistentInParticle(schema, c.Particle); err != nil {
@@ -174,7 +174,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 					return fmt.Errorf("xs:all cannot be used in complex content extensions unless base content is emptiable (XSD 1.0 Errata E1-21)")
 				}
 			}
-			if err := validateParticleStructure(schema, cc.Extension.Particle, nil); err != nil {
+			if err := validateParticleStructure(schema, cc.Extension.Particle); err != nil {
 				return err
 			}
 			if err := validateElementDeclarationsConsistentInParticle(schema, cc.Extension.Particle); err != nil {
@@ -202,7 +202,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 					}
 				}
 			}
-			if err := validateParticleStructure(schema, cc.Restriction.Particle, nil); err != nil {
+			if err := validateParticleStructure(schema, cc.Restriction.Particle); err != nil {
 				return err
 			}
 			if err := validateElementDeclarationsConsistentInParticle(schema, cc.Restriction.Particle); err != nil {

@@ -1,6 +1,7 @@
 package validator
 
 import (
+	stderrors "errors"
 	"fmt"
 	"io"
 
@@ -164,7 +165,7 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 
 	for {
 		ev, err := dec.Next()
-		if err == io.EOF {
+		if stderrors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -187,7 +188,7 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 			if len(r.frames) == 0 {
 				return r.violations, fmt.Errorf("unexpected end element %s", ev.Name.Local)
 			}
-			if err := r.handleEnd(ev); err != nil {
+			if err := r.handleEnd(); err != nil {
 				return r.violations, err
 			}
 			if len(r.frames) == 0 && r.rootSeen {
@@ -219,10 +220,7 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) error {
 	parent := r.currentFrame()
 	if parent != nil {
-		skipSubtree, err := r.prevalidateParentForChild(parent, ev.Name.Local)
-		if err != nil {
-			return err
-		}
+		skipSubtree := r.prevalidateParentForChild(parent, ev.Name.Local)
 		if skipSubtree {
 			return dec.SkipSubtree()
 		}
@@ -256,41 +254,41 @@ type startMatch struct {
 	origin          matchOrigin
 }
 
-func (r *streamRun) prevalidateParentForChild(parent *streamFrame, childName string) (bool, error) {
+func (r *streamRun) prevalidateParentForChild(parent *streamFrame, childName string) bool {
 	parent.hasChildElements = true
 	if parent.invalid || parent.skipChildren {
-		return true, nil
+		return true
 	}
 	if parent.nilled {
 		r.addViolation(errors.NewValidation(errors.ErrNilElementNotEmpty,
 			"Element with xsi:nil='true' must be empty", r.path.String()))
 		parent.invalid = true
-		return true, nil
+		return true
 	}
 	if parent.decl != nil && parent.decl.HasFixed {
 		r.addViolation(errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
 			"Element '%s' has a fixed value constraint and cannot have element children", parent.decl.QName.Local))
 		parent.invalid = true
-		return true, nil
+		return true
 	}
 	if parent.textType != nil && (parent.typ == nil || (!isAnyType(parent.typ) && !parent.typ.HasContentModel())) {
 		r.addChildViolationf(errors.ErrTextInElementOnly, childName,
 			"Element '%s' is not allowed in simple content", childName)
 		parent.invalid = true
-		return true, nil
+		return true
 	}
 	if parent.contentKind == streamContentEmpty {
 		r.addChildViolationf(errors.ErrUnexpectedElement, childName,
 			"Element '%s' is not allowed. No element declaration found for it in the empty content model.", childName)
 		parent.invalid = true
-		return true, nil
+		return true
 	}
 	if parent.contentKind == streamContentRejectAll {
 		r.addViolation(errors.NewValidation(errors.ErrUnexpectedElement, "element not allowed by empty choice", r.path.String()))
 		parent.invalid = true
-		return true, nil
+		return true
 	}
-	return false, nil
+	return false
 }
 
 func (r *streamRun) resolveChildMatch(parent *streamFrame, name types.QName) (startMatch, bool) {
@@ -371,7 +369,7 @@ func (r *streamRun) handleCharData(ev xsdxml.Event) {
 	}
 }
 
-func (r *streamRun) handleEnd(ev xsdxml.Event) error {
+func (r *streamRun) handleEnd() error {
 	frame := r.popFrame()
 	if frame == nil {
 		return nil
@@ -779,9 +777,11 @@ func (r *streamRun) addMissingDeclViolation(local string, code errors.ErrorCode)
 }
 
 func (r *streamRun) addContentModelError(err error) {
-	if ve, ok := err.(*grammar.ValidationError); ok {
-		r.addViolation(errors.NewValidation(errors.ErrorCode(ve.FullCode()), ve.Message, r.path.String()))
+	var ve *grammar.ValidationError
+	if !stderrors.As(err, &ve) {
+		return
 	}
+	r.addViolation(errors.NewValidation(errors.ErrorCode(ve.FullCode()), ve.Message, r.path.String()))
 }
 
 func (r *streamRun) addViolation(v errors.Validation) {

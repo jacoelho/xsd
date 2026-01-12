@@ -2,6 +2,7 @@ package xmltext
 
 import (
 	"bytes"
+	"errors"
 	"io"
 )
 
@@ -80,7 +81,7 @@ func (d *Decoder) peekMatchLiteral(pos int, lit []byte) (bool, error) {
 	end := pos + len(lit)
 	for end > len(d.buf.data) {
 		if err := d.readMore(false); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return false, errUnexpectedEOF
 			}
 			return false, err
@@ -99,7 +100,7 @@ func (d *Decoder) peekSkipUntil(pos int, seq []byte) (int, error) {
 			return 0, errUnexpectedEOF
 		}
 		if err := d.readMore(false); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				d.eof = true
 				continue
 			}
@@ -114,7 +115,7 @@ func (d *Decoder) peekSkipDirective(pos int) (int, error) {
 	quote := byte(0)
 	for {
 		if err := d.peekEnsureIndex(pos); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return 0, errUnexpectedEOF
 			}
 			return 0, err

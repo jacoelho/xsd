@@ -91,7 +91,7 @@ func startCPUProfile(path string) (func() error, error) {
 	}
 	if err := pprof.StartCPUProfile(f); err != nil {
 		if closeErr := f.Close(); closeErr != nil {
-			return nil, fmt.Errorf("start cpu profile %s: %w (close failed: %v)", path, err, closeErr)
+			return nil, fmt.Errorf("start cpu profile %s: %w (close failed: %w)", path, err, closeErr)
 		}
 		return nil, fmt.Errorf("start cpu profile %s: %w", path, err)
 	}

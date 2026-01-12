@@ -105,7 +105,7 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 	}
 
 	// local attribute declaration
-	name := getAttr(doc, elem, "name")
+	name := getNameAttr(doc, elem)
 	if name == "" {
 		return nil, fmt.Errorf("attribute missing name and ref")
 	}
@@ -171,8 +171,7 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 				continue
 			}
 
-			switch doc.LocalName(child) {
-			case "simpleType":
+			if doc.LocalName(child) == "simpleType" {
 				st, err := parseInlineSimpleType(doc, child, schema)
 				if err != nil {
 					return nil, fmt.Errorf("parse inline simpleType: %w", err)
@@ -244,7 +243,7 @@ func parseAttributeUse(doc *xsdxml.Document, elem xsdxml.NodeID) (types.Attribut
 
 // parseTopLevelAttribute parses a top-level attribute declaration
 func parseTopLevelAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := getAttr(doc, elem, "name")
+	name := getNameAttr(doc, elem)
 	if name == "" {
 		return fmt.Errorf("attribute missing name attribute")
 	}

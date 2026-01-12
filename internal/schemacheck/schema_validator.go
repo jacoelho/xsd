@@ -30,7 +30,7 @@ func ValidateStructure(schema *parser.Schema) []error {
 	}
 
 	for qname, group := range schema.Groups {
-		if err := validateGroupStructure(schema, qname, group); err != nil {
+		if err := validateGroupStructure(qname, group); err != nil {
 			errors = append(errors, fmt.Errorf("group %s: %w", qname, err))
 		}
 	}

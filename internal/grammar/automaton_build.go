@@ -341,26 +341,26 @@ func (b *Builder) buildChoice(particles []*ParticleAdapter, nextPos *int) node {
 }
 
 // wrapOccurs applies occurrence constraints to a node.
-func (b *Builder) wrapOccurs(n node, min, max int) node {
+func (b *Builder) wrapOccurs(n node, minOccurs, maxOccurs int) node {
 	if n == nil {
 		return nil
 	}
-	if max == 0 {
+	if maxOccurs == 0 {
 		return nil
 	}
 	switch {
-	case min == 1 && max == 1:
+	case minOccurs == 1 && maxOccurs == 1:
 		return n
-	case min == 0 && max == 1:
+	case minOccurs == 0 && maxOccurs == 1:
 		return newOpt(n, b.size)
-	case min == 0 && max == types.UnboundedOccurs:
+	case minOccurs == 0 && maxOccurs == types.UnboundedOccurs:
 		return newStar(n, b.size)
-	case min == 1 && max == types.UnboundedOccurs:
+	case minOccurs == 1 && maxOccurs == types.UnboundedOccurs:
 		return newPlus(n, b.size)
-	case min == 0:
+	case minOccurs == 0:
 		// min=0 with bounded max - treat as optional star
 		return newStar(n, b.size)
-	case min >= 1:
+	case minOccurs >= 1:
 		// min >= 1 with bounded max - use plus (not nullable)
 		// counting constraints handle the actual min/max
 		return newPlus(n, b.size)
@@ -845,7 +845,7 @@ func applyGroupOccursInPlace(ranges map[int]occRange, groupMin, groupMax int) ma
 		return ranges
 	}
 	for key, r := range ranges {
-		r.min = r.min * groupMin
+		r.min *= groupMin
 		r.max = multiplyMax(r.max, groupMax)
 		ranges[key] = r
 	}

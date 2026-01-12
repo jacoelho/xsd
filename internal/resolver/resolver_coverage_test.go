@@ -58,10 +58,10 @@ func TestValidateValueAgainstFacets(t *testing.T) {
 	if !ok || st == nil {
 		t.Fatalf("expected mytype simple type")
 	}
-	if err := validateValueAgainstFacets("abcd", st, schema); err != nil {
+	if err := validateValueAgainstFacets("abcd", st); err != nil {
 		t.Fatalf("expected valid facet value, got %v", err)
 	}
-	if err := validateValueAgainstFacets("ab", st, schema); err == nil {
+	if err := validateValueAgainstFacets("ab", st); err == nil {
 		t.Fatalf("expected facet violation for short value")
 	}
 }

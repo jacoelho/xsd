@@ -72,7 +72,7 @@ func parseAttributeUses(doc *xsdxml.Document, children []xsdxml.NodeID, schema *
 // parseTopLevelAttributeGroup parses a top-level <attributeGroup> definition
 // Content model: (annotation?, ((attribute | attributeGroup)*, anyAttribute?))
 func parseTopLevelAttributeGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := getAttr(doc, elem, "name")
+	name := getNameAttr(doc, elem)
 	if name == "" {
 		return fmt.Errorf("attributeGroup missing name attribute")
 	}
@@ -268,7 +268,7 @@ func parseAnyAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema)
 
 // parseIdentityConstraint parses a key, keyref, or unique constraint
 func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.IdentityConstraint, error) {
-	name := getAttr(doc, elem, "name")
+	name := getNameAttr(doc, elem)
 	if name == "" {
 		return nil, fmt.Errorf("identity constraint missing name attribute")
 	}

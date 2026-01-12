@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *Compiler) mergeAttributes(complexType *types.ComplexType, chain []*grammar.CompiledType) []*grammar.CompiledAttribute {
+func (c *Compiler) mergeAttributes(chain []*grammar.CompiledType) []*grammar.CompiledAttribute {
 	// later types override earlier ones (restriction) or add to them (extension)
 	attrMap := make(map[types.QName]*grammar.CompiledAttribute)
 

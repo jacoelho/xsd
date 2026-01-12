@@ -59,10 +59,10 @@ type IncludeInfo struct {
 	SchemaLocation string
 }
 
-// getAttr returns an attribute value with whitespace trimmed.
+// getNameAttr returns the name attribute value with whitespace trimmed.
 // XSD attribute values should be normalized per XML spec, so we always trim.
-func getAttr(doc *xsdxml.Document, elem xsdxml.NodeID, name string) string {
-	return strings.TrimSpace(doc.GetAttribute(elem, name))
+func getNameAttr(doc *xsdxml.Document, elem xsdxml.NodeID) string {
+	return strings.TrimSpace(doc.GetAttribute(elem, "name"))
 }
 
 // ParseResult contains the parsed schema and import/include directives

@@ -340,16 +340,11 @@ func TestSelectorXPathValidation(t *testing.T) {
 			if tt.shouldFail {
 				if err == nil {
 					t.Error("Schema loading should have failed but succeeded")
-				} else {
-					// verify the error message
-					if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
-						t.Errorf("Expected error to contain %q, got: %v", tt.errorMsg, err)
-					}
+				} else if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error to contain %q, got: %v", tt.errorMsg, err)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Schema should have loaded successfully but got error: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("Schema should have loaded successfully but got error: %v", err)
 			}
 		})
 	}
@@ -632,16 +627,11 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
 			if tt.shouldFail {
 				if err == nil {
 					t.Error("Schema loading should have failed but succeeded")
-				} else {
-					// verify the error message
-					if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
-						t.Errorf("Expected error to contain %q, got: %v", tt.errorMsg, err)
-					}
+				} else if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error to contain %q, got: %v", tt.errorMsg, err)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Schema should have loaded successfully but got error: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("Schema should have loaded successfully but got error: %v", err)
 			}
 		})
 	}

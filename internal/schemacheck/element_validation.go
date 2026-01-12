@@ -27,7 +27,7 @@ func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl
 	// validate identity constraints (key, keyref, unique)
 	// identity constraints can only be placed on elements with complex types
 	for _, constraint := range decl.Constraints {
-		if err := validateIdentityConstraint(schema, constraint, decl); err != nil {
+		if err := validateIdentityConstraint(constraint); err != nil {
 			return fmt.Errorf("identity constraint '%s': %w", constraint.Name, err)
 		}
 	}

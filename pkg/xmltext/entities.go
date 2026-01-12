@@ -8,7 +8,20 @@ import (
 
 type entityResolver struct {
 	custom       map[string]string
+	customValid  map[string]bool
 	maxTokenSize int
+}
+
+func newEntityResolver(custom map[string]string, maxTokenSize int) entityResolver {
+	resolver := entityResolver{custom: custom, maxTokenSize: maxTokenSize}
+	if len(custom) == 0 {
+		return resolver
+	}
+	resolver.customValid = make(map[string]bool, len(custom))
+	for name, replacement := range custom {
+		resolver.customValid[name] = validateXMLChars([]byte(replacement)) == nil
+	}
+	return resolver
 }
 
 func unescapeInto(dst []byte, data []byte, resolver *entityResolver, maxTokenSize int) ([]byte, error) {
@@ -82,7 +95,15 @@ func parseEntityRef(data []byte, start int, resolver *entityResolver) (int, stri
 	if !ok {
 		return 0, "", 0, false, errInvalidEntity
 	}
-	if err := validateXMLChars([]byte(replacement)); err != nil {
+	if resolver.customValid != nil {
+		if valid, ok := resolver.customValid[name]; ok {
+			if !valid {
+				return 0, "", 0, false, errInvalidChar
+			}
+		} else if err := validateXMLChars([]byte(replacement)); err != nil {
+			return 0, "", 0, false, err
+		}
+	} else if err := validateXMLChars([]byte(replacement)); err != nil {
 		return 0, "", 0, false, err
 	}
 	return semi - start + 1, replacement, 0, false, nil

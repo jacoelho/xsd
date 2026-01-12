@@ -260,7 +260,7 @@ func (t *patternTranslator) translate() (string, error) {
 				}
 				continue
 			}
-			if _, err := t.handleCharClassChar(); err != nil {
+			if err := t.handleCharClassChar(); err != nil {
 				return "", err
 			}
 			continue
@@ -346,11 +346,11 @@ func (t *patternTranslator) handleEscape() (bool, error) {
 		return true, nil
 	}
 
-	if handled, err := t.handleNameEscape(nextChar); handled {
-		return true, err
+	if t.handleNameEscape(nextChar) {
+		return true, nil
 	}
-	if handled, err := t.handleDigitEscape(nextChar); handled {
-		return true, err
+	if t.handleDigitEscape(nextChar) {
+		return true, nil
 	}
 	if handled, err := t.handleWhitespaceEscape(nextChar); handled {
 		return true, err
@@ -380,7 +380,7 @@ func (t *patternTranslator) handleEscape() (bool, error) {
 	return true, fmt.Errorf("pattern-syntax-error: \\%c is not a valid XSD 1.0 escape sequence", nextChar)
 }
 
-func (t *patternTranslator) handleNameEscape(nextChar byte) (bool, error) {
+func (t *patternTranslator) handleNameEscape(nextChar byte) bool {
 	switch nextChar {
 	case 'i':
 		if t.inCharClass() {
@@ -411,15 +411,15 @@ func (t *patternTranslator) handleNameEscape(nextChar byte) (bool, error) {
 			t.result.WriteString(nameNotCharClass)
 		}
 	default:
-		return false, nil
+		return false
 	}
 
 	t.i += 2
 	t.justWroteQuantifier = false
-	return true, nil
+	return true
 }
 
-func (t *patternTranslator) handleDigitEscape(nextChar byte) (bool, error) {
+func (t *patternTranslator) handleDigitEscape(nextChar byte) bool {
 	switch nextChar {
 	case 'd':
 		if t.inCharClass() {
@@ -436,12 +436,12 @@ func (t *patternTranslator) handleDigitEscape(nextChar byte) (bool, error) {
 			t.result.WriteString(xsdNotDigitClass)
 		}
 	default:
-		return false, nil
+		return false
 	}
 
 	t.i += 2
 	t.justWroteQuantifier = false
-	return true, nil
+	return true
 }
 
 func (t *patternTranslator) handleWhitespaceEscape(nextChar byte) (bool, error) {
@@ -728,16 +728,16 @@ func (t *patternTranslator) handleCharClassDash() (bool, error) {
 	return true, nil
 }
 
-func (t *patternTranslator) handleCharClassChar() (bool, error) {
+func (t *patternTranslator) handleCharClassChar() error {
 	if t.pattern[t.i] == '[' {
-		return true, fmt.Errorf("pattern-unsupported: nested character classes not supported")
+		return fmt.Errorf("pattern-unsupported: nested character classes not supported")
 	}
 	if err := t.classState.handleChar(rune(t.pattern[t.i]), t.classStart, t.pattern); err != nil {
-		return true, err
+		return err
 	}
 	t.classBuf.WriteByte(t.pattern[t.i])
 	t.i++
-	return true, nil
+	return nil
 }
 
 func (t *patternTranslator) checkLazyQuantifier() error {
@@ -909,7 +909,7 @@ func parseAndValidateRepeat(pattern string, startIdx int) (string, int, error) {
 	content := pattern[startIdx+1 : closeIdx]
 
 	// parse {m} or {m,} or {m,n}
-	var min, max int
+	var minCount, maxCount int
 	var hasMax bool
 
 	if strings.Contains(content, ",") {
@@ -919,7 +919,7 @@ func parseAndValidateRepeat(pattern string, startIdx int) (string, int, error) {
 		}
 
 		var err error
-		min, err = strconv.Atoi(strings.TrimSpace(parts[0]))
+		minCount, err = strconv.Atoi(strings.TrimSpace(parts[0]))
 		if err != nil {
 			return "", startIdx, fmt.Errorf("pattern-syntax-error: invalid repeat quantifier min value")
 		}
@@ -930,7 +930,7 @@ func parseAndValidateRepeat(pattern string, startIdx int) (string, int, error) {
 			hasMax = false
 		} else {
 			// {m,n}
-			max, err = strconv.Atoi(part2)
+			maxCount, err = strconv.Atoi(part2)
 			if err != nil {
 				return "", startIdx, fmt.Errorf("pattern-syntax-error: invalid repeat quantifier max value")
 			}
@@ -939,26 +939,26 @@ func parseAndValidateRepeat(pattern string, startIdx int) (string, int, error) {
 	} else {
 		// {m}
 		var err error
-		min, err = strconv.Atoi(content)
+		minCount, err = strconv.Atoi(content)
 		if err != nil {
 			return "", startIdx, fmt.Errorf("pattern-syntax-error: invalid repeat quantifier")
 		}
-		max = min
+		maxCount = minCount
 		hasMax = true
 	}
 
-	if min < 0 {
+	if minCount < 0 {
 		return "", startIdx, fmt.Errorf("pattern-syntax-error: repeat quantifier min must be non-negative")
 	}
-	if hasMax && max < min {
+	if hasMax && maxCount < minCount {
 		return "", startIdx, fmt.Errorf("pattern-syntax-error: repeat quantifier max must be >= min")
 	}
 
-	if min > re2MaxRepeat {
-		return "", startIdx, fmt.Errorf("pattern-unsupported: repeat {%d} exceeds RE2 limit of %d", min, re2MaxRepeat)
+	if minCount > re2MaxRepeat {
+		return "", startIdx, fmt.Errorf("pattern-unsupported: repeat {%d} exceeds RE2 limit of %d", minCount, re2MaxRepeat)
 	}
-	if hasMax && max > re2MaxRepeat {
-		return "", startIdx, fmt.Errorf("pattern-unsupported: repeat {%d,%d} exceeds RE2 limit of %d", min, max, re2MaxRepeat)
+	if hasMax && maxCount > re2MaxRepeat {
+		return "", startIdx, fmt.Errorf("pattern-unsupported: repeat {%d,%d} exceeds RE2 limit of %d", minCount, maxCount, re2MaxRepeat)
 	}
 
 	// return the original pattern (it's valid)

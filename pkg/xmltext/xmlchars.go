@@ -20,24 +20,48 @@ func isValidXMLChar(r rune) bool {
 }
 
 func validateXMLChars(data []byte) error {
-	for len(data) > 0 {
-		if data[0] < utf8.RuneSelf {
-			if data[0] < 0x20 && data[0] != 0x9 && data[0] != 0xA && data[0] != 0xD {
+	for i := 0; i < len(data); {
+		if data[i] < utf8.RuneSelf {
+			if data[i] < 0x20 && data[i] != 0x9 && data[i] != 0xA && data[i] != 0xD {
 				return errInvalidChar
 			}
-			data = data[1:]
+			i++
 			continue
 		}
-		r, size := utf8.DecodeRune(data)
+		r, size := utf8.DecodeRune(data[i:])
 		if r == utf8.RuneError && size == 1 {
 			return errInvalidChar
 		}
 		if !isValidXMLChar(r) {
 			return errInvalidChar
 		}
-		data = data[size:]
+		i += size
 	}
 	return nil
+}
+
+func scanXMLCharsUntilEntity(data []byte) (bool, error) {
+	for i := 0; i < len(data); {
+		if data[i] == '&' {
+			return true, nil
+		}
+		if data[i] < utf8.RuneSelf {
+			if data[i] < 0x20 && data[i] != 0x9 && data[i] != 0xA && data[i] != 0xD {
+				return false, errInvalidChar
+			}
+			i++
+			continue
+		}
+		r, size := utf8.DecodeRune(data[i:])
+		if r == utf8.RuneError && size == 1 {
+			return false, errInvalidChar
+		}
+		if !isValidXMLChar(r) {
+			return false, errInvalidChar
+		}
+		i += size
+	}
+	return false, nil
 }
 
 func validateXMLText(data []byte, resolver *entityResolver) error {

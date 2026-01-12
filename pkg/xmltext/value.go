@@ -2,6 +2,7 @@ package xmltext
 
 import (
 	"bytes"
+	"errors"
 	"io"
 )
 
@@ -26,7 +27,7 @@ func (v Value) IsValid(opts ...Options) bool {
 		if err == nil {
 			continue
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return true
 		}
 		return false

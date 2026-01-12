@@ -1,0 +1,61 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  default: none
+  enable:
+    - asciicheck
+    - bidichk
+    - copyloopvar
+    - errcheck
+    - errorlint
+    - errname
+    - gocheckcompilerdirectives
+    - govet
+    - ineffassign
+    - misspell
+    - nolintlint
+    - predeclared
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - gocritic
+
+  exclusions:
+    generated: strict
+    paths:
+      - "^testdata/"
+      - "^docs/"
+
+linters-settings:
+  govet:
+    enable-all: true
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+      - experimental
+      - opinionated
+    disabled-checks:
+      - regexpSimplify
+      - whyNoLint
+      - unnamedResult
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - govet
+      text: "fieldalignment"

@@ -49,14 +49,14 @@ func TestDeepCopyModelGroup(t *testing.T) {
 		},
 	}
 
-	copy := deepCopyModelGroup(original)
-	if copy == original {
+	clone := deepCopyModelGroup(original)
+	if clone == original {
 		t.Fatalf("expected a new model group instance")
 	}
-	if len(copy.Particles) != len(original.Particles) {
+	if len(clone.Particles) != len(original.Particles) {
 		t.Fatalf("expected copied particles length to match")
 	}
-	copy.Particles[0] = &types.ElementDecl{Name: types.QName{Local: "b"}}
+	clone.Particles[0] = &types.ElementDecl{Name: types.QName{Local: "b"}}
 	if original.Particles[0].(*types.ElementDecl).Name.Local != "a" {
 		t.Fatalf("expected original particles to remain unchanged")
 	}

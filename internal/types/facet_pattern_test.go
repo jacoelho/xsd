@@ -568,10 +568,8 @@ func TestPatternValidate(t *testing.T) {
 				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Validate(%q) error = %q, want error containing %q", tt.value, err.Error(), tt.errMsg)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Validate(%q) unexpected error: %v", tt.value, err)
-				}
+			} else if err != nil {
+				t.Errorf("Validate(%q) unexpected error: %v", tt.value, err)
 			}
 		})
 	}

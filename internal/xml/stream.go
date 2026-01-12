@@ -2,6 +2,7 @@ package xsdxml
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 
@@ -292,7 +293,8 @@ func wrapSyntaxError(dec *xmltext.Decoder, line, column int, err error) error {
 	if err == nil {
 		return nil
 	}
-	if _, ok := err.(*xmltext.SyntaxError); ok {
+	var syntaxErr *xmltext.SyntaxError
+	if errors.As(err, &syntaxErr) {
 		return err
 	}
 	if dec == nil {

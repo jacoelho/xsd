@@ -172,7 +172,7 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, complexTyp
 	}
 
 	// pre-merge all attributes from derivation chain
-	compiled.AllAttributes = c.mergeAttributes(complexType, compiled.DerivationChain)
+	compiled.AllAttributes = c.mergeAttributes(compiled.DerivationChain)
 
 	compiled.AnyAttribute = c.mergeAnyAttribute(compiled.DerivationChain)
 

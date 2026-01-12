@@ -581,9 +581,9 @@ func (c ComparableDuration) Compare(other ComparableValue) (int, error) {
 			durVal = -durVal
 		}
 		hours := int(durVal / time.Hour)
-		durVal = durVal % time.Hour
+		durVal %= time.Hour
 		minutes := int(durVal / time.Minute)
-		durVal = durVal % time.Minute
+		durVal %= time.Minute
 		seconds := float64(durVal) / float64(time.Second)
 		thisXSDDur := ComparableXSDDuration{
 			Value: XSDDuration{

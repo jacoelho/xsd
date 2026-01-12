@@ -232,7 +232,7 @@ func unionNamespaceConstraints(ns1 NamespaceConstraint, list1 []NamespaceURI, ta
 	}
 
 	if ns1 == NSCOther && ns2 == NSCOther {
-		if targetNS1 == targetNS2 && targetNS1 == resultTargetNS {
+		if targetNS1 == resultTargetNS && targetNS2 == resultTargetNS {
 			return intersectedNamespace{Constraint: NSCOther, NamespaceList: nil}
 		}
 		return intersectedNamespace{Constraint: NSCInvalid, NamespaceList: nil}
@@ -403,17 +403,16 @@ func IntersectAnyElement(w1, w2 *AnyElement) *AnyElement {
 
 	// MaxOccurs: use minimum (more restrictive), but handle unbounded (-1)
 	maxOccurs := w1.MaxOccurs
-	if w2.MaxOccurs == UnboundedOccurs {
+	switch {
+	case w2.MaxOccurs == UnboundedOccurs:
 		// w2 is unbounded, use w1's limit
 		// maxOccurs stays as w1.MaxOccurs
-	} else if w1.MaxOccurs == UnboundedOccurs {
+	case w1.MaxOccurs == UnboundedOccurs:
 		// w1 is unbounded, use w2's limit
 		maxOccurs = w2.MaxOccurs
-	} else {
+	case w2.MaxOccurs < maxOccurs:
 		// both bounded, use minimum
-		if w2.MaxOccurs < maxOccurs {
-			maxOccurs = w2.MaxOccurs
-		}
+		maxOccurs = w2.MaxOccurs
 	}
 
 	return &AnyElement{

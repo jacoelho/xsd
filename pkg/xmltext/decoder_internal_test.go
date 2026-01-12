@@ -15,19 +15,19 @@ func TestDecoderFailBehavior(t *testing.T) {
 	}
 
 	dec = &Decoder{}
-	if err := dec.fail(io.EOF); err != io.EOF {
+	if err := dec.fail(io.EOF); !errors.Is(err, io.EOF) {
 		t.Fatalf("fail(io.EOF) = %v, want io.EOF", err)
 	}
-	if dec.err != io.EOF {
+	if !errors.Is(dec.err, io.EOF) {
 		t.Fatalf("decoder err = %v, want io.EOF", dec.err)
 	}
 
 	dec = &Decoder{}
 	syntax := &SyntaxError{Err: errInvalidToken}
-	if err := dec.fail(syntax); err != syntax {
+	if err := dec.fail(syntax); !errors.Is(err, syntax) {
 		t.Fatalf("fail(SyntaxError) = %v, want %v", err, syntax)
 	}
-	if dec.err != syntax {
+	if !errors.Is(dec.err, syntax) {
 		t.Fatalf("decoder err = %v, want %v", dec.err, syntax)
 	}
 
@@ -168,7 +168,7 @@ func TestScanAttrValueBranches(t *testing.T) {
 	}
 
 	dec = newAttrValueDecoder([]byte("a&amp;b\""))
-	rawSpan, valueSpan, needs, rawNeeds, err = dec.scanAttrValue('"', false)
+	_, valueSpan, needs, rawNeeds, err = dec.scanAttrValue('"', false)
 	if err != nil {
 		t.Fatalf("scanAttrValue text error = %v", err)
 	}
