@@ -113,6 +113,122 @@ stable := xmltext.CopySpan(nil, tok.Name.Local)
 _ = stable
 ```
 
+## SAX-Style Struct Unmarshaling
+
+Unlike `encoding/xml.Unmarshal` which builds a DOM, xmltext streams tokens for
+manual struct population. Track element context and populate fields on events:
+
+```go
+type Book struct {
+    Title  string
+    Author string
+    Year   string
+}
+
+func UnmarshalBook(r io.Reader) (Book, error) {
+    dec := xmltext.NewDecoder(r,
+        xmltext.ResolveEntities(true),
+        xmltext.CoalesceCharData(true),
+    )
+
+    var book Book
+    var current string // tracks current element
+
+    for {
+        tok, err := dec.ReadToken()
+        if err == io.EOF {
+            break
+        }
+        if err != nil {
+            return Book{}, err
+        }
+
+        switch tok.Kind {
+        case xmltext.KindStartElement:
+            current = dec.SpanString(tok.Name.Local)
+        case xmltext.KindCharData:
+            text := dec.SpanString(tok.Text)
+            switch current {
+            case "title":
+                book.Title = text
+            case "author":
+                book.Author = text
+            case "year":
+                book.Year = text
+            }
+        case xmltext.KindEndElement:
+            current = ""
+        }
+    }
+    return book, nil
+}
+```
+
+For nested structures, use a stack or state machine to track depth:
+
+```go
+type Library struct {
+    Books []Book
+}
+
+func UnmarshalLibrary(r io.Reader) (Library, error) {
+    dec := xmltext.NewDecoder(r,
+        xmltext.ResolveEntities(true),
+        xmltext.CoalesceCharData(true),
+    )
+
+    var lib Library
+    var current Book
+    var inBook bool
+    var field string
+
+    for {
+        tok, err := dec.ReadToken()
+        if err == io.EOF {
+            break
+        }
+        if err != nil {
+            return Library{}, err
+        }
+
+        switch tok.Kind {
+        case xmltext.KindStartElement:
+            name := dec.SpanString(tok.Name.Local)
+            if name == "book" {
+                inBook = true
+                current = Book{}
+            } else if inBook {
+                field = name
+            }
+        case xmltext.KindCharData:
+            if !inBook {
+                continue
+            }
+            text := dec.SpanString(tok.Text)
+            switch field {
+            case "title":
+                current.Title = text
+            case "author":
+                current.Author = text
+            case "year":
+                current.Year = text
+            }
+        case xmltext.KindEndElement:
+            name := dec.SpanString(tok.Name.Local)
+            if name == "book" {
+                lib.Books = append(lib.Books, current)
+                inBook = false
+            }
+            field = ""
+        }
+    }
+    return lib, nil
+}
+```
+
+This approach avoids reflection and DOM allocation, giving full control over
+parsing. Use `SkipValue()` to skip unwanted subtrees efficiently.
+
 ## Span lifetimes
 
 Token spans are views into decoder buffers. They are valid only until the next
