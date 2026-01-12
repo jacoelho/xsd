@@ -22,7 +22,10 @@ func TestSpanBytesEdgeCases(t *testing.T) {
 	buf.poison = true
 	span = makeSpan(&buf, 0, 1)
 	buf.gen++
-	if span.bytes() != nil {
-		t.Fatalf("poisoned bytes = %v, want nil", span.bytes())
-	}
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected panic for poisoned span")
+		}
+	}()
+	_ = span.bytes()
 }

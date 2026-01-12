@@ -316,7 +316,7 @@ func (d *Decoder) isWhitespaceCharData(tok *Token) (bool, error) {
 	if tok == nil {
 		return true, nil
 	}
-	data := tok.Text.bytes()
+	data := tok.Text.bytesUnsafe()
 	if len(data) == 0 {
 		return true, nil
 	}
@@ -370,7 +370,7 @@ func (d *Decoder) popStackRaw(name QNameSpan) (QNameSpan, error) {
 		return QNameSpan{}, errMismatchedEndTag
 	}
 	top := d.stack[len(d.stack)-1]
-	if !bytes.Equal(name.Full.bytes(), top.Name.Full.bytes()) {
+	if !bytes.Equal(name.Full.bytesUnsafe(), top.Name.Full.bytesUnsafe()) {
 		return QNameSpan{}, errMismatchedEndTag
 	}
 	d.stack = d.stack[:len(d.stack)-1]
@@ -382,7 +382,7 @@ func (d *Decoder) popStackInterned(name QNameSpan) error {
 		return errMismatchedEndTag
 	}
 	top := d.stack[len(d.stack)-1]
-	if !bytes.Equal(name.Full.bytes(), top.Name.Full.bytes()) {
+	if !bytes.Equal(name.Full.bytesUnsafe(), top.Name.Full.bytesUnsafe()) {
 		return errMismatchedEndTag
 	}
 	d.stack = d.stack[:len(d.stack)-1]
@@ -531,12 +531,12 @@ func scanCharDataSpanUntilEntity(data []byte, start int) (int, error) {
 	if start < 0 {
 		return -1, errInvalidChar
 	}
-	if start >= len(data) {
+	size := len(data)
+	if start >= size {
 		return -1, nil
 	}
-	_ = data[len(data)-1]
 	bracketRun := 0
-	for i := start; i < len(data); {
+	for i := start; i < size; {
 		switch charDataByteClassLUT[data[i]] {
 		case charDataByteOK:
 			bracketRun = 0
@@ -671,7 +671,7 @@ func scanCharDataSpanParse(data []byte, resolver *entityResolver) (bool, error) 
 }
 
 func (d *Decoder) resolveText(span Span) (Span, bool, bool, error) {
-	data := span.bytes()
+	data := span.bytesUnsafe()
 	if len(data) == 0 {
 		return span, false, false, nil
 	}
@@ -806,9 +806,13 @@ func (d *Decoder) scanAttrValue(quote byte, allowCompact bool) (Span, Span, bool
 			return Span{}, Span{}, false, false, err
 		}
 		data := d.buf.data[d.pos:]
-		termIdx := bytes.IndexAny(data, "'<")
-		if quote == '"' {
-			termIdx = bytes.IndexAny(data, "\"<")
+		termIdx := -1
+		for i := 0; i < len(data); i++ {
+			b := data[i]
+			if b == '<' || b == quote {
+				termIdx = i
+				break
+			}
 		}
 
 		if termIdx >= 0 {
@@ -838,7 +842,7 @@ func (d *Decoder) scanAttrValue(quote byte, allowCompact bool) (Span, Span, bool
 	end := d.pos
 	d.advanceRaw(1)
 	rawSpan := makeSpan(&d.buf, start, end)
-	data := rawSpan.bytes()
+	data := rawSpan.bytesUnsafe()
 	rawNeeds, err := scanXMLCharsUntilEntity(data)
 	if err != nil {
 		return Span{}, Span{}, false, false, err
@@ -885,7 +889,7 @@ func (d *Decoder) resetAttrSeen() {
 }
 
 func (d *Decoder) markAttrSeen(name QNameSpan) (uint64, error) {
-	data := name.Full.bytes()
+	data := name.Full.bytesUnsafe()
 	if len(data) == 0 {
 		return 0, errInvalidName
 	}
@@ -893,7 +897,7 @@ func (d *Decoder) markAttrSeen(name QNameSpan) (uint64, error) {
 	if d.attrSeenSmallCount < attrSeenSmallMax {
 		for i := 0; i < d.attrSeenSmallCount; i++ {
 			entry := d.attrSeenSmall[i]
-			if entry.hash == hash && bytes.Equal(entry.span.bytes(), data) {
+			if entry.hash == hash && bytes.Equal(entry.span.bytesUnsafe(), data) {
 				return 0, errDuplicateAttr
 			}
 		}
@@ -907,7 +911,7 @@ func (d *Decoder) markAttrSeen(name QNameSpan) (uint64, error) {
 		}
 		for i := 0; i < d.attrSeenSmallCount; i++ {
 			entry := d.attrSeenSmall[i]
-			if len(entry.span.bytes()) == 0 {
+			if len(entry.span.bytesUnsafe()) == 0 {
 				continue
 			}
 			bucket := d.attrSeen[entry.hash]
@@ -929,7 +933,7 @@ func (d *Decoder) markAttrSeen(name QNameSpan) (uint64, error) {
 		bucket.spans = bucket.spans[:0]
 	}
 	for _, span := range bucket.spans {
-		if bytes.Equal(span.bytes(), data) {
+		if bytes.Equal(span.bytesUnsafe(), data) {
 			return 0, errDuplicateAttr
 		}
 	}
@@ -979,7 +983,7 @@ func (d *Decoder) scanPIInto(dst *Token, allowCompact bool) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	isXMLDecl := bytes.EqualFold(targetSpan.bytes(), litXML)
+	isXMLDecl := bytes.EqualFold(targetSpan.bytesUnsafe(), litXML)
 	hasSpace := d.skipWhitespace(allowCompact)
 	if !hasSpace {
 		ok, err := d.matchLiteral(litPIEnd, allowCompact)
@@ -999,7 +1003,7 @@ func (d *Decoder) scanPIInto(dst *Token, allowCompact bool) (bool, error) {
 			return false, errTokenTooLarge
 		}
 		textSpan := makeSpan(&d.buf, textStart, textEnd)
-		if err := validateXMLChars(textSpan.bytes()); err != nil {
+		if err := validateXMLChars(textSpan.bytesUnsafe()); err != nil {
 			return false, err
 		}
 		setTextToken(dst, KindPI, textSpan, startLine, startColumn, makeSpan(&d.buf, rawStart, rawEnd), isXMLDecl)
@@ -1016,7 +1020,7 @@ func (d *Decoder) scanPIInto(dst *Token, allowCompact bool) (bool, error) {
 		return false, errTokenTooLarge
 	}
 	textSpan := makeSpan(&d.buf, textStart, textEnd)
-	if err := validateXMLChars(textSpan.bytes()); err != nil {
+	if err := validateXMLChars(textSpan.bytesUnsafe()); err != nil {
 		return false, err
 	}
 	setTextToken(dst, KindPI, textSpan, startLine, startColumn, makeSpan(&d.buf, rawStart, rawEnd), isXMLDecl)
@@ -1053,7 +1057,7 @@ func (d *Decoder) scanCommentInto(dst *Token, allowCompact bool) (bool, error) {
 		return false, errTokenTooLarge
 	}
 	textSpan := makeSpan(&d.buf, textStart, textEnd)
-	textData := textSpan.bytes()
+	textData := textSpan.bytesUnsafe()
 	if bytes.Contains(textData, litDDash) || (len(textData) > 0 && textData[len(textData)-1] == '-') {
 		return false, errInvalidComment
 	}
@@ -1080,7 +1084,7 @@ func (d *Decoder) scanCDATAInto(dst *Token, allowCompact bool) (bool, error) {
 		return false, errTokenTooLarge
 	}
 	textSpan := makeSpan(&d.buf, textStart, textEnd)
-	if err := validateXMLChars(textSpan.bytes()); err != nil {
+	if err := validateXMLChars(textSpan.bytesUnsafe()); err != nil {
 		return false, err
 	}
 	setTextToken(dst, KindCDATA, textSpan, startLine, startColumn, makeSpan(&d.buf, rawStart, rawEnd), false)
@@ -1130,7 +1134,7 @@ func (d *Decoder) scanDirectiveInto(dst *Token, allowCompact bool) (bool, error)
 					return false, errTokenTooLarge
 				}
 				textSpan := makeSpan(&d.buf, textStart, textEnd)
-				if err := validateXMLChars(textSpan.bytes()); err != nil {
+				if err := validateXMLChars(textSpan.bytesUnsafe()); err != nil {
 					return false, err
 				}
 				setTextToken(dst, KindDirective, textSpan, startLine, startColumn, makeSpan(&d.buf, rawStart, rawEnd), false)
@@ -1195,12 +1199,11 @@ func (d *Decoder) scanQName(allowCompact bool) (QNameSpan, error) {
 			}
 			d.advanceName(i - d.pos)
 			first = false
-			if i < len(buf) {
-				if buf[i] < utf8.RuneSelf {
-					break
-				}
-			} else {
+			if i == len(buf) {
 				continue
+			}
+			if buf[i] < utf8.RuneSelf {
+				break
 			}
 		}
 		r, size, err := d.peekRune(allowCompact)
@@ -1515,9 +1518,12 @@ func (d *Decoder) advance(n int) {
 	}
 	if d.opts.trackLineColumn {
 		data := d.buf.data[d.pos : d.pos+n]
-		if bytes.ContainsAny(data, "\n\r") {
-			d.advanceWithNewlines(data)
-			return
+		for i := 0; i < len(data); i++ {
+			b := data[i]
+			if b == '\n' || b == '\r' {
+				d.advanceWithNewlines(data)
+				return
+			}
 		}
 		d.pendingCR = false
 		// No newlines - just update column
@@ -1577,6 +1583,15 @@ func (d *Decoder) advanceRaw(n int) {
 		return
 	}
 	if d.opts.trackLineColumn {
+		if d.opts.debugPoisonSpans {
+			end := d.pos + n
+			if end > len(d.buf.data) {
+				panic("xmltext: advanceRaw beyond buffer")
+			}
+			if bytes.ContainsAny(d.buf.data[d.pos:end], "\n\r") {
+				panic("xmltext: advanceRaw consumed newline")
+			}
+		}
 		d.pendingCR = false
 		d.column += n
 	}

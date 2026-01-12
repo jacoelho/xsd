@@ -313,7 +313,7 @@ func (d *Decoder) readTokenInto(dst *Token) error {
 	startLine, startColumn := dst.Line, dst.Column
 	rawStartAbs := d.baseOffset + int64(dst.Raw.Start)
 	rawEndAbs := d.baseOffset + int64(dst.Raw.End)
-	d.coalesce.data = append(d.coalesce.data, dst.Text.bytes()...)
+	d.coalesce.data = append(d.coalesce.data, dst.Text.bytesUnsafe()...)
 
 	d.setCompactFloorAbs(rawStartAbs)
 	defer d.clearCompactFloor()
@@ -334,7 +334,7 @@ func (d *Decoder) readTokenInto(dst *Token) error {
 		needs = needs || d.pendingToken.TextNeeds
 		rawNeeds = rawNeeds || d.pendingToken.TextRawNeeds
 		rawEndAbs = d.baseOffset + int64(d.pendingToken.Raw.End)
-		d.coalesce.data = append(d.coalesce.data, d.pendingToken.Text.bytes()...)
+		d.coalesce.data = append(d.coalesce.data, d.pendingToken.Text.bytesUnsafe()...)
 	}
 
 	span := makeSpan(&d.coalesce, 0, len(d.coalesce.data))
@@ -368,13 +368,13 @@ func (d *Decoder) ReadValue() (Value, error) {
 		switch first.Kind {
 		case KindCharData:
 			if d.opts.resolveEntities {
-				return Value(first.Text.bytes()), nil
+				return Value(first.Text.bytesUnsafe()), nil
 			}
-			return Value(first.Raw.bytes()), nil
+			return Value(first.Raw.bytesUnsafe()), nil
 		case KindCDATA:
-			return Value(first.Raw.bytes()), nil
+			return Value(first.Raw.bytesUnsafe()), nil
 		default:
-			return Value(first.Raw.bytes()), nil
+			return Value(first.Raw.bytesUnsafe()), nil
 		}
 	}
 
@@ -484,7 +484,7 @@ func (d *Decoder) appendTokenValue(dst []byte, tok Token, cursor *int) ([]byte, 
 	switch tok.Kind {
 	case KindCharData:
 		if tok.TextRawNeeds {
-			dst = append(dst, tok.Text.bytes()...)
+			dst = append(dst, tok.Text.bytesUnsafe()...)
 			*cursor = rawEnd
 			return dst, nil
 		}
@@ -499,7 +499,7 @@ func (d *Decoder) appendTokenValue(dst []byte, tok Token, cursor *int) ([]byte, 
 					return nil, errInvalidToken
 				}
 				dst = append(dst, d.buf.data[pos:rawSpan.Start]...)
-				dst = append(dst, tok.Attrs[i].ValueSpan.bytes()...)
+				dst = append(dst, tok.Attrs[i].ValueSpan.bytesUnsafe()...)
 				pos = rawSpan.End
 			}
 			dst = append(dst, d.buf.data[pos:rawEnd]...)

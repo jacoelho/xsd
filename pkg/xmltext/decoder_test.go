@@ -1022,9 +1022,12 @@ func TestDebugPoisonSpans(t *testing.T) {
 	if _, err := dec.ReadToken(); err != nil {
 		t.Fatalf("ReadToken child error = %v", err)
 	}
-	if tok.Raw.bytes() != nil {
-		t.Fatalf("SpanBytes returned data for stale token")
-	}
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected panic for stale token")
+		}
+	}()
+	_ = tok.Raw.bytes()
 }
 
 func TestSpanStringStableAndUnstable(t *testing.T) {
