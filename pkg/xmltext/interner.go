@@ -5,8 +5,7 @@ import (
 	"hash/maphash"
 )
 
-// InternStats reports QName interning activity.
-type InternStats struct {
+type internStats struct {
 	Count  int
 	Hits   int
 	Misses int
@@ -17,7 +16,7 @@ const nameInternerRecentSize = 8
 var hashSeed = maphash.MakeSeed()
 
 type internEntry struct {
-	name QNameSpan
+	name qnameSpan
 	hash uint64
 }
 
@@ -25,8 +24,8 @@ type nameInterner struct {
 	buf          spanBuffer
 	entries      map[uint64][]internEntry
 	recentHashes [nameInternerRecentSize]uint64
-	recentNames  [nameInternerRecentSize]QNameSpan
-	stats        InternStats
+	recentNames  [nameInternerRecentSize]qnameSpan
+	stats        internStats
 	maxEntries   int
 	recentCount  int
 	recentIndex  int
@@ -45,14 +44,14 @@ func (i *nameInterner) setMax(maxEntries int) {
 	i.maxEntries = maxEntries
 }
 
-func (i *nameInterner) intern(name []byte) QNameSpan {
+func (i *nameInterner) intern(name []byte) qnameSpan {
 	return i.internBytes(name, -1)
 }
 
-func (i *nameInterner) internQName(name QNameSpan) QNameSpan {
+func (i *nameInterner) internQName(name qnameSpan) qnameSpan {
 	data := name.Full.bytesUnsafe()
 	if len(data) == 0 {
-		return QNameSpan{}
+		return qnameSpan{}
 	}
 	prefixLen := -1
 	if name.HasPrefix {
@@ -61,10 +60,10 @@ func (i *nameInterner) internQName(name QNameSpan) QNameSpan {
 	return i.internBytes(data, prefixLen)
 }
 
-func (i *nameInterner) internQNameHash(name QNameSpan, hash uint64) QNameSpan {
+func (i *nameInterner) internQNameHash(name qnameSpan, hash uint64) qnameSpan {
 	data := name.Full.bytesUnsafe()
 	if len(data) == 0 {
-		return QNameSpan{}
+		return qnameSpan{}
 	}
 	prefixLen := -1
 	if name.HasPrefix {
@@ -73,15 +72,15 @@ func (i *nameInterner) internQNameHash(name QNameSpan, hash uint64) QNameSpan {
 	return i.internBytesHash(data, prefixLen, hash)
 }
 
-func (i *nameInterner) internBytes(name []byte, prefixLen int) QNameSpan {
+func (i *nameInterner) internBytes(name []byte, prefixLen int) qnameSpan {
 	if len(name) == 0 {
-		return QNameSpan{}
+		return qnameSpan{}
 	}
 	hash := hashBytes(name)
 	return i.internBytesHash(name, prefixLen, hash)
 }
 
-func (i *nameInterner) lookupRecent(name []byte, hash uint64) (QNameSpan, bool) {
+func (i *nameInterner) lookupRecent(name []byte, hash uint64) (qnameSpan, bool) {
 	for idx := 0; idx < i.recentCount; idx++ {
 		if i.recentHashes[idx] != hash {
 			continue
@@ -90,10 +89,10 @@ func (i *nameInterner) lookupRecent(name []byte, hash uint64) (QNameSpan, bool) 
 			return i.recentNames[idx], true
 		}
 	}
-	return QNameSpan{}, false
+	return qnameSpan{}, false
 }
 
-func (i *nameInterner) rememberRecent(name QNameSpan, hash uint64) {
+func (i *nameInterner) rememberRecent(name qnameSpan, hash uint64) {
 	if i.recentCount < nameInternerRecentSize {
 		i.recentHashes[i.recentCount] = hash
 		i.recentNames[i.recentCount] = name
@@ -108,7 +107,7 @@ func (i *nameInterner) rememberRecent(name QNameSpan, hash uint64) {
 	}
 }
 
-func (i *nameInterner) internBytesHash(name []byte, prefixLen int, hash uint64) QNameSpan {
+func (i *nameInterner) internBytesHash(name []byte, prefixLen int, hash uint64) qnameSpan {
 	if i.entries == nil {
 		i.entries = make(map[uint64][]internEntry, 64)
 	}
@@ -155,23 +154,23 @@ func (i *nameInterner) internBytesHash(name []byte, prefixLen int, hash uint64) 
 	return qname
 }
 
-func newQNameSpan(buf *spanBuffer, start, end int) QNameSpan {
+func newQNameSpan(buf *spanBuffer, start, end int) qnameSpan {
 	full := makeSpan(buf, start, end)
 	colon := bytes.IndexByte(full.bytesUnsafe(), ':')
 	if colon < 0 {
-		return QNameSpan{Full: full, Local: full}
+		return qnameSpan{Full: full, Local: full}
 	}
 	return makeQNameSpan(buf, start, end, start+colon)
 }
 
-func makeQNameSpan(buf *spanBuffer, start, end, colon int) QNameSpan {
+func makeQNameSpan(buf *spanBuffer, start, end, colon int) qnameSpan {
 	full := makeSpan(buf, start, end)
 	if colon < start || colon >= end {
-		return QNameSpan{Full: full, Local: full}
+		return qnameSpan{Full: full, Local: full}
 	}
 	prefix := makeSpan(buf, start, colon)
 	local := makeSpan(buf, colon+1, end)
-	return QNameSpan{Full: full, Prefix: prefix, Local: local, HasPrefix: true}
+	return qnameSpan{Full: full, Prefix: prefix, Local: local, HasPrefix: true}
 }
 
 func hashBytes(data []byte) uint64 {

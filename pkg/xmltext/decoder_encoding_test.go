@@ -169,15 +169,43 @@ func readXMLTextTokensWithOptions(input string, opts ...Options) ([]simpleToken,
 	base = append(base, opts...)
 	dec := NewDecoder(strings.NewReader(input), base...)
 	var tokens []simpleToken
+	var tok Token
+	var buf TokenBuffer
 	for {
-		tok, err := dec.ReadToken()
+		err := dec.ReadTokenInto(&tok, &buf)
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			return nil, err
 		}
-		tokens = append(tokens, simplifyXMLTextToken(dec, tok))
+		tokens = append(tokens, simplifyXMLTextToken(tok))
+	}
+	return tokens, nil
+}
+
+func readXMLTextTokensRawWithOptions(input string, opts ...Options) ([]simpleToken, error) {
+	base := []Options{
+		ResolveEntities(true),
+		EmitComments(true),
+		EmitPI(true),
+		EmitDirectives(true),
+		CoalesceCharData(true),
+	}
+	base = append(base, opts...)
+	dec := NewDecoder(strings.NewReader(input), base...)
+	var tokens []simpleToken
+	var tok Token
+	var buf TokenBuffer
+	for {
+		err := dec.ReadTokenInto(&tok, &buf)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		tokens = append(tokens, simplifyXMLTextTokenRaw(tok))
 	}
 	return tokens, nil
 }
@@ -200,6 +228,18 @@ func readEncodingXMLTokensWithOptions(input string, opts encodingXMLTokenOptions
 	if opts.tokenMode == encodingXMLTokenRaw {
 		readToken = dec.RawToken
 	}
+	nameValue := func(name xml.Name) string {
+		if opts.tokenMode != encodingXMLTokenRaw {
+			return name.Local
+		}
+		if name.Space == "" {
+			return name.Local
+		}
+		if name.Space == "xmlns" && name.Local == "xmlns" {
+			return "xmlns"
+		}
+		return name.Space + ":" + name.Local
+	}
 	var tokens []simpleToken
 	var textBuf []byte
 	flushText := func() {
@@ -220,17 +260,17 @@ func readEncodingXMLTokensWithOptions(input string, opts encodingXMLTokenOptions
 		switch value := tok.(type) {
 		case xml.StartElement:
 			flushText()
-			out := simpleToken{kind: KindStartElement, name: value.Name.Local}
+			out := simpleToken{kind: KindStartElement, name: nameValue(value.Name)}
 			for _, attr := range value.Attr {
 				out.attrs = append(out.attrs, simpleAttr{
-					name:  attr.Name.Local,
+					name:  nameValue(attr.Name),
 					value: attr.Value,
 				})
 			}
 			tokens = append(tokens, out)
 		case xml.EndElement:
 			flushText()
-			tokens = append(tokens, simpleToken{kind: KindEndElement, name: value.Name.Local})
+			tokens = append(tokens, simpleToken{kind: KindEndElement, name: nameValue(value.Name)})
 		case xml.CharData:
 			textBuf = append(textBuf, value...)
 		case xml.Comment:
@@ -399,6 +439,64 @@ func TestEncodingXMLParityCases(t *testing.T) {
 	}
 }
 
+func TestEncodingXMLRawTokenParityCases(t *testing.T) {
+	cases := []struct {
+		name    string
+		input   string
+		opts    []Options
+		encOpts encodingXMLTokenOptions
+	}{
+		{
+			name:  "testInputRaw",
+			input: testInputTrimmed,
+			opts:  []Options{WithEntityMap(testEntity)},
+			encOpts: encodingXMLTokenOptions{
+				entityMap: testEntity,
+				tokenMode: encodingXMLTokenRaw,
+			},
+		},
+		{
+			name:  "issue68387Raw",
+			input: issue68387Input,
+			encOpts: encodingXMLTokenOptions{
+				tokenMode: encodingXMLTokenRaw,
+			},
+		},
+		{
+			name:  "trailingWhitespaceRaw",
+			input: trailingInput,
+			encOpts: encodingXMLTokenOptions{
+				tokenMode: encodingXMLTokenRaw,
+			},
+		},
+		{
+			name:  "entityInsideCDATARaw",
+			input: entityInsideCDATAInput,
+			encOpts: encodingXMLTokenOptions{
+				tokenMode: encodingXMLTokenRaw,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tokens, err := readXMLTextTokensRawWithOptions(tc.input, tc.opts...)
+			if err != nil {
+				t.Fatalf("readXMLTextTokensRaw error = %v", err)
+			}
+			encTokens, err := readEncodingXMLTokensWithOptions(tc.input, tc.encOpts)
+			if err != nil {
+				t.Fatalf("readEncodingXMLTokens error = %v", err)
+			}
+			normalized := normalizeDirectiveTokens(tokens)
+			encNormalized := normalizeDirectiveTokens(encTokens)
+			if !tokensEqual(normalized, encNormalized) {
+				t.Fatalf("tokens mismatch for %q:\nxmltext=%v\nencoding=%v", tc.input, normalized, encNormalized)
+			}
+		})
+	}
+}
+
 func TestEncodingXMLAltEncoding(t *testing.T) {
 	called := false
 	reader := func(label string, input io.Reader) (io.Reader, error) {
@@ -434,7 +532,8 @@ func TestEncodingXMLAltEncoding(t *testing.T) {
 
 func TestEncodingXMLAltEncodingNoConverter(t *testing.T) {
 	dec := NewDecoder(strings.NewReader(testInputAltEncoding))
-	_, err := dec.ReadToken()
+	reader := newTokenReader(dec)
+	_, err := reader.Next()
 	if err == nil {
 		t.Fatalf("expected charset error")
 	}
@@ -451,8 +550,9 @@ func TestEncodingXMLDeclAfterWhitespaceRejected(t *testing.T) {
 	for _, input := range tests {
 		dec := NewDecoder(strings.NewReader(input))
 		var err error
+		reader := newTokenReader(dec)
 		for err == nil {
-			_, err = dec.ReadToken()
+			_, err = reader.Next()
 		}
 		var syntax *SyntaxError
 		if !errors.As(err, &syntax) {
@@ -469,8 +569,9 @@ func TestEncodingXMLDuplicateDirectivesRejected(t *testing.T) {
 	for _, input := range tests {
 		dec := NewDecoder(strings.NewReader(input))
 		var err error
+		reader := newTokenReader(dec)
 		for err == nil {
-			_, err = dec.ReadToken()
+			_, err = reader.Next()
 		}
 		var syntax *SyntaxError
 		if !errors.As(err, &syntax) {
@@ -486,8 +587,9 @@ func TestEncodingXMLDirectiveCommentsRejected(t *testing.T) {
 		}
 		dec := NewDecoder(strings.NewReader(wrapWithRoot(input)))
 		var err error
+		reader := newTokenReader(dec)
 		for err == nil {
-			_, err = dec.ReadToken()
+			_, err = reader.Next()
 		}
 		var syntax *SyntaxError
 		if !errors.As(err, &syntax) {
@@ -500,8 +602,9 @@ func TestEncodingXMLSyntaxErrors(t *testing.T) {
 	for _, input := range xmlInput {
 		dec := NewDecoder(strings.NewReader(input))
 		var err error
+		reader := newTokenReader(dec)
 		for err == nil {
-			_, err = dec.ReadToken()
+			_, err = reader.Next()
 		}
 		var syntax *SyntaxError
 		if !errors.As(err, &syntax) {
@@ -522,8 +625,9 @@ func TestEncodingXMLNonStrictInputsRejected(t *testing.T) {
 	for _, input := range tests {
 		dec := NewDecoder(strings.NewReader(input))
 		var err error
+		reader := newTokenReader(dec)
 		for err == nil {
-			_, err = dec.ReadToken()
+			_, err = reader.Next()
 		}
 		var syntax *SyntaxError
 		if !errors.As(err, &syntax) {
@@ -544,9 +648,11 @@ func TestEncodingXMLInputOffset(t *testing.T) {
 	)
 	inputBytes := []byte(testInputTrimmed)
 	var lastEnd int64
+	var tok Token
+	var buf TokenBuffer
 	for {
 		start := dec.InputOffset()
-		tok, err := dec.ReadToken()
+		err := dec.ReadTokenInto(&tok, &buf)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -578,9 +684,11 @@ func TestEncodingXMLLineColumns(t *testing.T) {
 		EmitDirectives(true),
 	)
 	inputBytes := []byte(linePosInput)
+	var tok Token
+	var buf TokenBuffer
 	for {
 		start := dec.InputOffset()
-		tok, err := dec.ReadToken()
+		err := dec.ReadTokenInto(&tok, &buf)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -621,8 +729,9 @@ func TestEncodingXMLDisallowedCharacters(t *testing.T) {
 	for _, test := range characterTests {
 		dec := NewDecoder(strings.NewReader(test.input))
 		var err error
+		reader := newTokenReader(dec)
 		for err == nil {
-			_, err = dec.ReadToken()
+			_, err = reader.Next()
 		}
 		var syntax *SyntaxError
 		if !errors.As(err, &syntax) {
@@ -697,7 +806,7 @@ func readEncodingXMLTokens(input string) ([]simpleToken, error) {
 	return readEncodingXMLTokensWithOptions(input, encodingXMLTokenOptions{})
 }
 
-func simplifyXMLTextToken(dec *Decoder, tok Token) simpleToken {
+func simplifyXMLTextToken(tok Token) simpleToken {
 	kind := tok.Kind
 	if kind == KindCDATA {
 		kind = KindCharData
@@ -705,23 +814,59 @@ func simplifyXMLTextToken(dec *Decoder, tok Token) simpleToken {
 	out := simpleToken{kind: kind}
 	switch kind {
 	case KindStartElement, KindEndElement:
-		out.name = string(dec.SpanBytes(tok.Name.Local))
+		out.name = localName(tok.Name)
 	case KindCharData, KindComment, KindDirective:
-		out.text = string(dec.SpanBytes(tok.Text))
+		out.text = string(tok.Text)
 	case KindPI:
-		target, inst := splitPIText(tok.Text.bytes())
+		target, inst := splitPIText(tok.Text)
 		out.name = target
 		out.text = string(inst)
 	}
 	if tok.Kind == KindStartElement {
 		for _, attr := range tok.Attrs {
 			out.attrs = append(out.attrs, simpleAttr{
-				name:  string(dec.SpanBytes(attr.Name.Local)),
-				value: string(dec.SpanBytes(attr.ValueSpan)),
+				name:  localName(attr.Name),
+				value: string(attr.Value),
 			})
 		}
 	}
 	return out
+}
+
+func simplifyXMLTextTokenRaw(tok Token) simpleToken {
+	kind := tok.Kind
+	if kind == KindCDATA {
+		kind = KindCharData
+	}
+	out := simpleToken{kind: kind}
+	switch kind {
+	case KindStartElement, KindEndElement:
+		out.name = string(tok.Name)
+	case KindCharData, KindComment, KindDirective:
+		out.text = string(tok.Text)
+	case KindPI:
+		target, inst := splitPIText(tok.Text)
+		out.name = target
+		out.text = string(inst)
+	}
+	if tok.Kind == KindStartElement {
+		for _, attr := range tok.Attrs {
+			out.attrs = append(out.attrs, simpleAttr{
+				name:  string(attr.Name),
+				value: string(attr.Value),
+			})
+		}
+	}
+	return out
+}
+
+func localName(name []byte) string {
+	for i, b := range name {
+		if b == ':' {
+			return string(name[i+1:])
+		}
+	}
+	return string(name)
 }
 
 func splitPIText(data []byte) (string, []byte) {

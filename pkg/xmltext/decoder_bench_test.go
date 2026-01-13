@@ -34,11 +34,13 @@ func BenchmarkXMLTextDecoder(b *testing.B) {
 	b.ReportAllocs()
 
 	dec := NewDecoder(bytes.NewReader(data))
+	var tok Token
+	var buf TokenBuffer
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		dec.Reset(bytes.NewReader(data))
 		for {
-			_, err := dec.ReadToken()
+			err := dec.ReadTokenInto(&tok, &buf)
 			if errors.Is(err, io.EOF) {
 				break
 			}
@@ -62,11 +64,13 @@ func BenchmarkXMLTextDecoderEncodingXML(b *testing.B) {
 		CoalesceCharData(true),
 	)
 	dec := NewDecoder(bytes.NewReader(data), opts)
+	var tok Token
+	var buf TokenBuffer
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		dec.Reset(bytes.NewReader(data), opts)
 		for {
-			_, err := dec.ReadToken()
+			err := dec.ReadTokenInto(&tok, &buf)
 			if errors.Is(err, io.EOF) {
 				break
 			}
