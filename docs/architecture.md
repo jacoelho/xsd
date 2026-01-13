@@ -194,12 +194,14 @@ type Restriction struct {
 }
 ```
 
-Import and include resolution happens during parsing to load all schema documents:
+Import and include resolution happens during parsing to load all schema documents.
+Missing include/import files are ignored when the filesystem returns fs.ErrNotExist,
+and imports without schemaLocation are skipped.
 
 ```
-Main Schema -----> Imports  (different namespace, may fail silently)
+Main Schema -----> Imports  (different namespace, skipped if missing)
      |
-     +-----------> Includes (same namespace, must succeed)
+     +-----------> Includes (same namespace, skipped if missing)
 ```
 
 
