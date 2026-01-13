@@ -238,25 +238,25 @@ func (d *Decoder) ReadTokenInto(dst *Token, buf *TokenBuffer) error {
 	dst.Column = raw.column
 	dst.IsXMLDecl = raw.isXMLDecl
 	dst.TextNeeds = raw.textNeeds
-	buf.Name, dst.Name = appendSpanBytes(buf.Name, raw.name.Full)
-	buf.Text, dst.Text = appendSpanBytes(buf.Text, raw.text)
+	buf.name, dst.Name = appendSpanBytes(buf.name, raw.name.Full)
+	buf.text, dst.Text = appendSpanBytes(buf.text, raw.text)
 	if raw.kind != KindStartElement {
 		dst.Attrs = nil
 		return nil
 	}
-	buf.Attrs = buf.Attrs[:0]
+	buf.attrs = buf.attrs[:0]
 	for i, attr := range raw.attrs {
 		var dstName []byte
 		var dstValue []byte
-		buf.AttrName, dstName = appendSpanBytes(buf.AttrName, attr.Name.Full)
-		buf.AttrValue, dstValue = appendSpanBytes(buf.AttrValue, attr.ValueSpan)
-		buf.Attrs = append(buf.Attrs, Attr{
+		buf.attrName, dstName = appendSpanBytes(buf.attrName, attr.Name.Full)
+		buf.attrValue, dstValue = appendSpanBytes(buf.attrValue, attr.ValueSpan)
+		buf.attrs = append(buf.attrs, Attr{
 			Name:       dstName,
 			Value:      dstValue,
 			ValueNeeds: raw.attrNeeds[i],
 		})
 	}
-	dst.Attrs = buf.Attrs
+	dst.Attrs = buf.attrs
 	return nil
 }
 

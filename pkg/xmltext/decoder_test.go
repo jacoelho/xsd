@@ -1311,11 +1311,8 @@ func TestSpanStringStableAndUnstable(t *testing.T) {
 func TestReadTokenIntoWithBuffers(t *testing.T) {
 	dec := NewDecoder(strings.NewReader(`<root a="1" b="2"></root>`))
 	var tok Token
-	buf := TokenBuffer{
-		Attrs:     make([]Attr, 0, 2),
-		AttrName:  make([]byte, 0, 8),
-		AttrValue: make([]byte, 0, 8),
-	}
+	var buf TokenBuffer
+	buf.Reserve(TokenBufferSizes{Attrs: 2, AttrName: 8, AttrValue: 8})
 	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
 		t.Fatalf("ReadTokenInto error = %v", err)
 	}

@@ -272,6 +272,7 @@ applied. It returns io.ErrShortBuffer if dst is too small.
 
 - token slices are reused; copy them if you need to keep data past the next call
 - ReadTokenInto overwrites the TokenBuffer contents every time
+- TokenBuffer retains its largest slices; allocate a new buffer to release memory
 - ReadValueInto writes into dst; use the returned length to slice the buffer
 - CDATA and CharData merge into a single CharData token when coalescing is on
 - ResolveEntities(false) leaves entity references in Text/Attr values
@@ -290,6 +291,9 @@ MaxTokenSize is unlimited by default. Set it when parsing untrusted input to
 cap memory growth; tokens exactly MaxTokenSize bytes long are allowed.
 FastValidation() does not set this limit.
 
-Strict enforces XML declaration attribute ordering and values when present.
+Strict validates XML declarations: version must be 1.0, and encoding and
+standalone (if present) must follow in that order with valid values. In
+non-strict mode, the declaration is treated like a PI and only checked for
+general PI well-formedness.
 
 See docs/xmltext-architecture.md for the design and buffer model.

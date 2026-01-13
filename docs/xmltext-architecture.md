@@ -80,7 +80,8 @@ MaxTokenSize defaults to unlimited; set it for untrusted inputs to cap memory
 growth. Tokens exactly MaxTokenSize bytes long are allowed. FastValidation()
 leaves MaxTokenSize unset.
 
-Strict validates XML declaration attribute ordering and values when present.
+Strict validates XML declarations: version must be 1.0, and encoding and
+standalone (if present) must follow in that order with valid values.
 
 ## Performance notes
 
