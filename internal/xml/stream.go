@@ -26,7 +26,8 @@ const streamDecoderAttrCapacity = 8
 type elementID uint64
 
 // Event represents a single streaming XML token.
-// Attrs and Text are only valid until the next Next call.
+// Attr values are copied, but the Attrs slice is reused by Next.
+// Text is only valid until the next Next call.
 type Event struct {
 	Name       types.QName
 	Attrs      []Attr
@@ -247,7 +248,7 @@ func (d *StreamDecoder) popElementName() (types.QName, error) {
 
 func (d *StreamDecoder) attrValueString(value []byte, needsUnescape bool) (string, error) {
 	if !needsUnescape {
-		return unsafeString(value), nil
+		return string(value), nil
 	}
 	start := len(d.valueBuf)
 	out, err := unescapeIntoBuffer(d.dec, d.valueBuf, start, value)
@@ -259,7 +260,7 @@ func (d *StreamDecoder) attrValueString(value []byte, needsUnescape bool) (strin
 	if len(out) == start {
 		return "", nil
 	}
-	return unsafeString(out[start:]), nil
+	return string(out[start:]), nil
 }
 
 func (d *StreamDecoder) namespaceValueString(value []byte, needsUnescape bool) (string, error) {
