@@ -1333,6 +1333,14 @@ func TestReadTokenIntoWithBuffers(t *testing.T) {
 	}
 }
 
+func TestReadTokenIntoNilBuffer(t *testing.T) {
+	dec := NewDecoder(strings.NewReader("<root/>"))
+	var tok Token
+	if err := dec.ReadTokenInto(&tok, nil); !errors.Is(err, errNilBuffer) {
+		t.Fatalf("ReadTokenInto error = %v, want %v", err, errNilBuffer)
+	}
+}
+
 func TestDecoderSkipValueBranches(t *testing.T) {
 	dec := NewDecoder(strings.NewReader("<root/>"))
 	reader := newTokenReader(dec)
