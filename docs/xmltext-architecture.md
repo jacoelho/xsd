@@ -1,7 +1,7 @@
 # xmltext architecture
 
-xmltext is the zero-copy XML tokenizer used by the repository. It focuses on
-XML 1.0 well-formedness and streaming performance and leaves namespace
+xmltext is the streaming XML 1.0 tokenizer used by the repository. It focuses
+on XML 1.0 well-formedness and streaming performance and leaves namespace
 resolution and semantic modeling to higher layers.
 
 ## Layering
@@ -9,7 +9,7 @@ resolution and semantic modeling to higher layers.
 io.Reader
   |
   v
-+xmltext.Decoder (syntax, spans, well-formedness)
++xmltext.Decoder (syntax and well-formedness)
   |
   v
 +internal/xml StreamDecoder (namespace resolution, events)
@@ -20,13 +20,15 @@ io.Reader
 The decoder is a low-level, allocation-light component. It does not resolve
 namespaces or build DOM nodes. It only tokenizes and validates syntax.
 
-## Buffer model and spans
+## Buffer model
 
-- The decoder owns a sliding buffer and returns spans into that buffer.
-- Spans are views: they are valid until the next decoder call.
-- When the buffer compacts or grows, previous spans are invalidated.
-- Scratch buffers are used for transformed text (entity expansion and
-  coalesced char data) to avoid copying into the main buffer.
+- The decoder owns a sliding buffer and uses internal spans into that buffer
+  while scanning.
+- `ReadTokenInto` copies token bytes into a caller-provided TokenBuffer. The
+  returned slices are valid until the next `ReadTokenInto` call that reuses the
+  buffer.
+- Scratch buffers are used for transformed text (entity expansion and coalesced
+  char data) to avoid copying into the main input buffer.
 
 Compaction details:
 - The buffer can compact to reclaim space once earlier bytes are no longer
@@ -36,20 +38,20 @@ Compaction details:
 
 ## Token model
 
-Token fields are spans into decoder buffers:
-- Raw spans are slices into the main input buffer and preserve original bytes.
-- Text spans may point at the main buffer or a scratch buffer if entity
-  expansion is enabled.
-- When CoalesceCharData(true) is set, adjacent CharData/CDATA tokens are merged
-  into a single CharData token; its Text span points to the coalesce buffer,
-  while Raw spans remain anchored to the main buffer.
+`ReadTokenInto` fills a `Token` struct with caller-owned slices:
+- Start/end element tokens populate `Token.Name` and `Token.Attrs`.
+- Text-like tokens (CharData/CDATA/PI/comment/directive) populate `Token.Text`.
+- `Token.TextNeeds` and `Attr.ValueNeeds` report unresolved entity references
+  when `ResolveEntities(false)` is configured.
+
+Internally the decoder still tracks raw spans into the input buffer for
+operations like `ReadValueInto` and for error snippets.
 
 ## Entity handling
 
-- ResolveEntities(false): Text spans point into the original buffer and retain
-  raw entity references. Raw spans match Text spans.
-- ResolveEntities(true): Text spans contain unescaped bytes in a scratch buffer.
-  Raw spans remain the original input bytes.
+- ResolveEntities(false): `Token.Text` and `Attr.Value` retain raw entity
+  references. Use `Decoder.UnescapeInto` when `TextNeeds`/`ValueNeeds` is true.
+- ResolveEntities(true): `Token.Text` and `Attr.Value` contain unescaped bytes.
 - Entity parsing applies to character data and attribute values. CDATA is never
   entity-expanded.
 
