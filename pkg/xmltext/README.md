@@ -20,6 +20,16 @@ values.
 dec := xmltext.NewDecoder(r, xmltext.Strict(true))
 ```
 
+## Encoding
+
+The decoder accepts UTF-8 by default. If the input indicates a non-UTF-8
+encoding (BOM or XML declaration), the decoder calls the configured charset
+reader. When no charset reader is set, it returns an "unsupported encoding"
+error.
+
+Use `WithCharsetReader` to provide a decoder; xmltext does not ship charset
+implementations.
+
 ## Usage
 
 ```go
@@ -279,6 +289,11 @@ ReadValueInto writes the next subtree or token payload into dst and returns the
 number of bytes written. When ResolveEntities(true) is set, entity expansion is
 applied. It returns io.ErrShortBuffer if dst is too small.
 
+## Error model
+
+Well-formedness errors return `*xmltext.SyntaxError`, which includes line and
+column information when `TrackLineColumn(true)` is enabled.
+
 ## Footguns
 
 - token slices are reused; copy them if you need to keep data past the next call
@@ -287,20 +302,24 @@ applied. It returns io.ErrShortBuffer if dst is too small.
 - ReadValueInto writes into dst; use the returned length to slice the buffer
 - CDATA and CharData merge into a single CharData token when coalescing is on
 - ResolveEntities(false) leaves entity references in Text/Attr values
+- non-UTF-8 encodings require `WithCharsetReader`
 
 ## Options
 
 Common options include:
+- WithCharsetReader (decode non-UTF-8 encodings)
+- WithEntityMap (custom named entity replacements)
 - ResolveEntities
 - Strict
 - CoalesceCharData
 - TrackLineColumn
 - EmitComments, EmitPI, EmitDirectives
 - MaxDepth, MaxAttrs, MaxTokenSize
+- FastValidation
 
-MaxTokenSize is unlimited by default. Set it when parsing untrusted input to
-cap memory growth; tokens exactly MaxTokenSize bytes long are allowed.
-FastValidation() does not set this limit.
+MaxDepth, MaxAttrs, and MaxTokenSize are unlimited by default (0). Set them when
+parsing untrusted input to cap memory growth; tokens exactly MaxTokenSize bytes
+long are allowed. FastValidation() does not set MaxTokenSize.
 
 Strict validates XML declarations: version must be 1.0, and encoding and
 standalone (if present) must follow in that order with valid values. In
