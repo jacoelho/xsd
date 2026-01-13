@@ -294,7 +294,7 @@ type downCaser struct {
 
 func splitDirectiveInputs(input string) []string {
 	var out []string
-	for _, line := range strings.Split(input, "\n") {
+	for line := range strings.SplitSeq(input, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
 			continue
@@ -870,7 +870,7 @@ func localName(name []byte) string {
 }
 
 func splitPIText(data []byte) (string, []byte) {
-	for i := 0; i < len(data); i++ {
+	for i := range data {
 		if isWhitespace(data[i]) {
 			target := string(data[:i])
 			inst := bytes.TrimLeft(data[i:], " \t\r\n")

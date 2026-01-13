@@ -1,6 +1,8 @@
 package validator
 
 import (
+	"slices"
+
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
@@ -42,12 +44,7 @@ func (s declaredAttrSet) contains(name types.QName) bool {
 		_, ok := s.mapValues[name]
 		return ok
 	}
-	for _, candidate := range s.list {
-		if candidate == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s.list, name)
 }
 
 func newAttributeIndex(attrs []xsdxml.Attr) attributeIndex {

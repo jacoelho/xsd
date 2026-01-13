@@ -56,10 +56,7 @@ func FuzzDecoderRawInput(f *testing.F) {
 		dec := NewDecoder(bytes.NewReader(data))
 		var tok Token
 		var buf TokenBuffer
-		maxTokens := len(data) + 8
-		if maxTokens > 10000 {
-			maxTokens = 10000
-		}
+		maxTokens := min(len(data)+8, 10000)
 		for i := 0; i < maxTokens; i++ {
 			if err := dec.ReadTokenInto(&tok, &buf); err != nil {
 				return
@@ -78,7 +75,7 @@ func buildFuzzXML(data []byte) string {
 	b.Grow(256)
 	b.WriteString("<root>")
 	items := int(nextFuzzByte(data, &idx)%fuzzMaxItems) + 1
-	for i := 0; i < items; i++ {
+	for range items {
 		if nextFuzzByte(data, &idx)%3 == 0 {
 			appendElement(&b, data, &idx, 0)
 		} else {
@@ -98,7 +95,7 @@ func appendElement(b *strings.Builder, data []byte, idx *int, depth int) {
 	b.WriteString(name)
 	attrCount := int(nextFuzzByte(data, idx) % fuzzMaxAttrs)
 	seenAttrs := make(map[string]struct{}, attrCount)
-	for i := 0; i < attrCount; i++ {
+	for range attrCount {
 		appendWhitespace(b, data, idx)
 		attrName := ensureUniqueName(buildName(data, idx, fuzzMaxNameLen), seenAttrs)
 		b.WriteString(attrName)
@@ -151,7 +148,7 @@ func buildName(data []byte, idx *int, maxLen int) string {
 
 func appendText(b *strings.Builder, data []byte, idx *int, maxLen int) {
 	length := int(nextFuzzByte(data, idx) % byte(maxLen))
-	for i := 0; i < length; i++ {
+	for range length {
 		switch nextFuzzByte(data, idx) % 12 {
 		case 0:
 			b.WriteString("&amp;")
@@ -173,7 +170,7 @@ func appendText(b *strings.Builder, data []byte, idx *int, maxLen int) {
 
 func appendAttrValue(b *strings.Builder, data []byte, idx *int, maxLen int) {
 	length := int(nextFuzzByte(data, idx) % byte(maxLen))
-	for i := 0; i < length; i++ {
+	for range length {
 		switch nextFuzzByte(data, idx) % 10 {
 		case 0:
 			b.WriteString("&amp;")

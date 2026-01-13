@@ -36,8 +36,8 @@ func BenchmarkXMLTextDecoder(b *testing.B) {
 	dec := NewDecoder(bytes.NewReader(data))
 	var tok Token
 	var buf TokenBuffer
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		dec.Reset(bytes.NewReader(data))
 		for {
 			err := dec.ReadTokenInto(&tok, &buf)
@@ -66,8 +66,8 @@ func BenchmarkXMLTextDecoderEncodingXML(b *testing.B) {
 	dec := NewDecoder(bytes.NewReader(data), opts)
 	var tok Token
 	var buf TokenBuffer
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		dec.Reset(bytes.NewReader(data), opts)
 		for {
 			err := dec.ReadTokenInto(&tok, &buf)
@@ -86,8 +86,7 @@ func BenchmarkEncodingXMLDecoder(b *testing.B) {
 	b.SetBytes(int64(len(data)))
 	b.ReportAllocs()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		dec := xml.NewDecoder(bytes.NewReader(data))
 		for {
 			_, err := dec.Token()

@@ -495,7 +495,7 @@ func TestDecoderMultipleRoots(t *testing.T) {
 func TestDecoderDuplicateAttrsLarge(t *testing.T) {
 	var b strings.Builder
 	b.WriteString("<root")
-	for i := 0; i < attrSeenSmallMax+1; i++ {
+	for i := range attrSeenSmallMax + 1 {
 		b.WriteString(" a")
 		b.WriteString(strconv.Itoa(i))
 		b.WriteString("=\"")

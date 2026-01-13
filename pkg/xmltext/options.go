@@ -1,6 +1,9 @@
 package xmltext
 
-import "io"
+import (
+	"io"
+	"maps"
+)
 
 // Options holds decoder configuration values.
 // The zero value means no overrides.
@@ -122,9 +125,7 @@ func WithEntityMap(values map[string]string) Options {
 		return Options{entityMapSet: true}
 	}
 	copyMap := make(map[string]string, len(values))
-	for key, value := range values {
-		copyMap[key] = value
-	}
+	maps.Copy(copyMap, values)
 	return Options{entityMap: copyMap, entityMapSet: true}
 }
 
