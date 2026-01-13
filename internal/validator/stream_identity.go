@@ -74,6 +74,8 @@ type keyRefEntry struct {
 	value      string
 	display    string
 	path       string
+	line       int
+	column     int
 }
 
 type identityScope struct {
@@ -437,6 +439,8 @@ func (r *streamRun) finalizeSelectorMatch(scope *identityScope, state *constrain
 			value:      tuple,
 			display:    display,
 			path:       elemPath,
+			line:       r.currentLine,
+			column:     r.currentColumn,
 		})
 	}
 }
@@ -484,9 +488,9 @@ func (r *streamRun) finalizeKeyRefs(scope *identityScope) {
 
 		for _, entry := range entriesByConstraint[constraint] {
 			if _, ok := keyTable[entry.value]; !ok {
-				r.addViolation(errors.NewValidationf(errors.ErrIdentityKeyRefFailed, entry.path,
+				r.addViolationAt(errors.NewValidationf(errors.ErrIdentityKeyRefFailed, entry.path,
 					"keyref '%s': value '%s' not found in referenced key '%s' at %s",
-					constraint.Original.Name, entry.display, referName, entry.path))
+					constraint.Original.Name, entry.display, referName, entry.path), entry.line, entry.column)
 			}
 		}
 	}

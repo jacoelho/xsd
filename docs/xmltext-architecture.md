@@ -6,16 +6,10 @@ resolution and semantic modeling to higher layers.
 
 ## Layering
 
-io.Reader
-  |
-  v
-+xmltext.Decoder (syntax and well-formedness)
-  |
-  v
-+internal/xml StreamDecoder (namespace resolution, events)
-  |
-  v
-+validator / DOM parsing
+```mermaid
+flowchart TD
+  Reader["io.Reader"] --> Decoder["xmltext.Decoder<br/>(syntax and well-formedness)"] --> Stream["internal/xml StreamDecoder<br/>(namespace resolution, events)"] --> Higher["validator / DOM parsing"]
+```
 
 The decoder is a low-level, allocation-light component. It does not resolve
 namespaces or build DOM nodes. It only tokenizes and validates syntax.
