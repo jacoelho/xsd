@@ -11,14 +11,15 @@ func TestEntityMapCopy(t *testing.T) {
 	opts := WithEntityMap(values)
 	values["foo"] = "baz"
 	dec := NewDecoder(strings.NewReader("<root>&foo;</root>"), ResolveEntities(true), opts)
-	if _, err := dec.ReadToken(); err != nil {
-		t.Fatalf("ReadToken root error = %v", err)
+	var tok Token
+	var buf TokenBuffer
+	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+		t.Fatalf("ReadTokenInto root error = %v", err)
 	}
-	tok, err := dec.ReadToken()
-	if err != nil {
-		t.Fatalf("ReadToken text error = %v", err)
+	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+		t.Fatalf("ReadTokenInto text error = %v", err)
 	}
-	if got := string(dec.SpanBytes(tok.Text)); got != "bar" {
+	if got := string(tok.Text); got != "bar" {
 		t.Fatalf("entity value = %q, want bar", got)
 	}
 }
@@ -32,20 +33,25 @@ func TestJoinOptionsOverrides(t *testing.T) {
 		ResolveEntities(true),
 		MaxDepth(1),
 		MaxDepth(2),
+		Strict(false),
+		Strict(true),
 		WithEntityMap(map[string]string{"foo": "bar"}),
 		WithEntityMap(nil),
 		WithCharsetReader(reader),
 	)
-	if value, ok := opts.ResolveEntities(); !ok || !value {
-		t.Fatalf("ResolveEntities = %v, want true", value)
+	if !opts.resolveEntitiesSet || !opts.resolveEntities {
+		t.Fatalf("ResolveEntities = %v, want true", opts.resolveEntities)
 	}
-	if value, ok := opts.MaxDepth(); !ok || value != 2 {
-		t.Fatalf("MaxDepth = %d, want 2", value)
+	if !opts.maxDepthSet || opts.maxDepth != 2 {
+		t.Fatalf("MaxDepth = %d, want 2", opts.maxDepth)
 	}
-	if value, ok := opts.EntityMap(); !ok || value != nil {
-		t.Fatalf("EntityMap = %v, want nil", value)
+	if !opts.entityMapSet || opts.entityMap != nil {
+		t.Fatalf("EntityMap = %v, want nil", opts.entityMap)
 	}
-	if value, ok := opts.CharsetReader(); !ok || value == nil {
-		t.Fatalf("CharsetReader ok = %v, want true", ok)
+	if !opts.charsetReaderSet || opts.charsetReader == nil {
+		t.Fatalf("CharsetReader set = %v, want true", opts.charsetReaderSet)
+	}
+	if !opts.strictSet || !opts.strict {
+		t.Fatalf("Strict = %v, want true", opts.strict)
 	}
 }

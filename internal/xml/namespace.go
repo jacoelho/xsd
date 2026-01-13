@@ -78,9 +78,9 @@ func (s *nsStack) lookup(prefix string, depth int) (string, bool) {
 
 func collectNamespaceScope(dec *StreamDecoder, tok *xmltext.Token) (nsScope, error) {
 	scope := nsScope{}
-	for i, attr := range tok.Attrs {
-		if isDefaultNamespaceDeclSpan(dec.dec, attr.Name) {
-			value, err := dec.namespaceValueString(attr.ValueSpan, attrDecodeMode(tok, i))
+	for _, attr := range tok.Attrs {
+		if isDefaultNamespaceDecl(attr.Name) {
+			value, err := dec.namespaceValueString(attr.Value, attr.ValueNeeds)
 			if err != nil {
 				return nsScope{}, err
 			}
@@ -88,73 +88,59 @@ func collectNamespaceScope(dec *StreamDecoder, tok *xmltext.Token) (nsScope, err
 			scope.defaultSet = true
 			continue
 		}
-		if isPrefixedNamespaceDeclSpan(dec.dec, attr.Name) {
-			local := spanString(dec.dec, attr.Name.Local)
-			if local == "xml" || local == "xmlns" {
+		if local, ok := prefixedNamespaceDecl(attr.Name); ok {
+			if bytes.Equal(local, xmlBytes) || bytes.Equal(local, xmlnsBytes) {
 				continue
 			}
-			value, err := dec.namespaceValueString(attr.ValueSpan, attrDecodeMode(tok, i))
+			value, err := dec.namespaceValueString(attr.Value, attr.ValueNeeds)
 			if err != nil {
 				return nsScope{}, err
 			}
 			if scope.prefixes == nil {
 				scope.prefixes = make(map[string]string, 1)
 			}
-			scope.prefixes[local] = value
+			scope.prefixes[string(local)] = value
 		}
 	}
 	return scope, nil
 }
 
-func resolveAttrName(dec *xmltext.Decoder, ns *nsStack, name xmltext.QNameSpan, depth, line, column int) (string, string, error) {
-	local := spanString(dec, name.Local)
-	if !name.HasPrefix {
-		if local == "xmlns" {
-			return XMLNSNamespace, local, nil
+func resolveAttrName(dec *xmltext.Decoder, ns *nsStack, name []byte, depth, line, column int) (string, string, error) {
+	prefix, local, hasPrefix := splitQName(name)
+	localName := string(local)
+	if !hasPrefix {
+		if localName == "xmlns" {
+			return XMLNSNamespace, localName, nil
 		}
-		return "", local, nil
+		return "", localName, nil
 	}
-	prefix := spanString(dec, name.Prefix)
-	if prefix == "xmlns" {
-		return XMLNSNamespace, local, nil
+	prefixName := string(prefix)
+	if prefixName == "xmlns" {
+		return XMLNSNamespace, localName, nil
 	}
-	namespace, ok := ns.lookup(prefix, depth)
+	namespace, ok := ns.lookup(prefixName, depth)
 	if !ok {
 		return "", "", unboundPrefixError(dec, line, column)
 	}
-	return namespace, local, nil
+	return namespace, localName, nil
 }
 
-func spanString(dec *xmltext.Decoder, span xmltext.Span) string {
-	if dec == nil {
-		return ""
-	}
-	return dec.SpanString(span)
+func isDefaultNamespaceDecl(name []byte) bool {
+	return bytes.Equal(name, xmlnsBytes)
 }
 
-func isDefaultNamespaceDeclSpan(dec *xmltext.Decoder, name xmltext.QNameSpan) bool {
-	if name.HasPrefix {
-		return false
+func prefixedNamespaceDecl(name []byte) ([]byte, bool) {
+	prefix, local, hasPrefix := splitQName(name)
+	if !hasPrefix {
+		return nil, false
 	}
-	return spanEquals(dec, name.Local, xmlnsBytes)
-}
-
-func isPrefixedNamespaceDeclSpan(dec *xmltext.Decoder, name xmltext.QNameSpan) bool {
-	if !name.HasPrefix {
-		return false
+	if !bytes.Equal(prefix, xmlnsBytes) {
+		return nil, false
 	}
-	if !spanEquals(dec, name.Prefix, xmlnsBytes) {
-		return false
+	if bytes.Equal(local, xmlBytes) {
+		return nil, false
 	}
-	return !spanEquals(dec, name.Local, xmlBytes)
-}
-
-func spanEquals(dec *xmltext.Decoder, span xmltext.Span, literal []byte) bool {
-	if dec == nil {
-		return false
-	}
-	data := dec.SpanBytes(span)
-	return bytes.Equal(data, literal)
+	return local, true
 }
 
 func unboundPrefixError(dec *xmltext.Decoder, line, column int) error {
@@ -165,7 +151,16 @@ func unboundPrefixError(dec *xmltext.Decoder, line, column int) error {
 		Offset: dec.InputOffset(),
 		Line:   line,
 		Column: column,
-		Path:   dec.StackPath(nil),
+		Path:   dec.StackPointer(),
 		Err:    errUnboundPrefix,
 	}
+}
+
+func splitQName(name []byte) (prefix, local []byte, hasPrefix bool) {
+	for i, b := range name {
+		if b == ':' {
+			return name[:i], name[i+1:], true
+		}
+	}
+	return nil, name, false
 }
