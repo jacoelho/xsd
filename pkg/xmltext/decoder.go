@@ -186,8 +186,7 @@ func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 	d.r = wrapped
 }
 
-// Options returns the immutable options snapshot.
-func (d *Decoder) Options() Options {
+func (d *Decoder) options() Options {
 	var zero Options
 	if d == nil {
 		return zero
@@ -195,8 +194,7 @@ func (d *Decoder) Options() Options {
 	return d.optsRaw
 }
 
-// PeekKind reports the kind of the next token without advancing input.
-func (d *Decoder) PeekKind() Kind {
+func (d *Decoder) peekNextKind() Kind {
 	if d == nil || d.err != nil {
 		return KindNone
 	}
@@ -606,7 +604,7 @@ func (d *Decoder) SkipValue() error {
 		}
 		return nil
 	}
-	switch d.PeekKind() {
+	switch d.peekNextKind() {
 	case KindNone:
 		_, err := d.readTokenRaw()
 		return err
@@ -689,50 +687,50 @@ func (d *Decoder) appendStackPointer(dst []byte) []byte {
 
 func resolveOptions(opts Options) decoderOptions {
 	resolved := decoderOptions{trackLineColumn: true, bufferSize: defaultBufferSize}
-	if value, ok := opts.CharsetReader(); ok {
-		resolved.charsetReader = value
+	if opts.charsetReaderSet {
+		resolved.charsetReader = opts.charsetReader
 	}
-	if value, ok := opts.EntityMap(); ok {
-		resolved.entityMap = value
+	if opts.entityMapSet {
+		resolved.entityMap = opts.entityMap
 	}
-	if value, ok := opts.ResolveEntities(); ok {
-		resolved.resolveEntities = value
+	if opts.resolveEntitiesSet {
+		resolved.resolveEntities = opts.resolveEntities
 	}
-	if value, ok := opts.EmitComments(); ok {
-		resolved.emitComments = value
+	if opts.emitCommentsSet {
+		resolved.emitComments = opts.emitComments
 	}
-	if value, ok := opts.EmitPI(); ok {
-		resolved.emitPI = value
+	if opts.emitPISet {
+		resolved.emitPI = opts.emitPI
 	}
-	if value, ok := opts.EmitDirectives(); ok {
-		resolved.emitDirectives = value
+	if opts.emitDirectivesSet {
+		resolved.emitDirectives = opts.emitDirectives
 	}
-	if value, ok := opts.TrackLineColumn(); ok {
-		resolved.trackLineColumn = value
+	if opts.trackLineColumnSet {
+		resolved.trackLineColumn = opts.trackLineColumn
 	}
-	if value, ok := opts.CoalesceCharData(); ok {
-		resolved.coalesceCharData = value
+	if opts.coalesceCharDataSet {
+		resolved.coalesceCharData = opts.coalesceCharData
 	}
-	if value, ok := opts.MaxDepth(); ok {
-		resolved.maxDepth = normalizeLimit(value)
+	if opts.maxDepthSet {
+		resolved.maxDepth = normalizeLimit(opts.maxDepth)
 	}
-	if value, ok := opts.MaxAttrs(); ok {
-		resolved.maxAttrs = normalizeLimit(value)
+	if opts.maxAttrsSet {
+		resolved.maxAttrs = normalizeLimit(opts.maxAttrs)
 	}
-	if value, ok := opts.MaxTokenSize(); ok {
-		resolved.maxTokenSize = normalizeLimit(value)
+	if opts.maxTokenSizeSet {
+		resolved.maxTokenSize = normalizeLimit(opts.maxTokenSize)
 	}
-	if value, ok := opts.MaxQNameInternEntries(); ok {
-		resolved.maxQNameInternEntries = normalizeLimit(value)
+	if opts.maxQNameInternEntriesSet {
+		resolved.maxQNameInternEntries = normalizeLimit(opts.maxQNameInternEntries)
 	}
-	if value, ok := opts.Strict(); ok {
-		resolved.strict = value
+	if opts.strictSet {
+		resolved.strict = opts.strict
 	}
-	if value, ok := opts.DebugPoisonSpans(); ok {
-		resolved.debugPoisonSpans = value
+	if opts.debugPoisonSpansSet {
+		resolved.debugPoisonSpans = opts.debugPoisonSpans
 	}
-	if value, ok := opts.BufferSize(); ok {
-		resolved.bufferSize = normalizeLimit(value)
+	if opts.bufferSizeSet {
+		resolved.bufferSize = normalizeLimit(opts.bufferSize)
 	}
 	if resolved.bufferSize == 0 {
 		resolved.bufferSize = defaultBufferSize

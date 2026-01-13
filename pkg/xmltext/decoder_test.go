@@ -192,19 +192,19 @@ func TestDecoderStackPath(t *testing.T) {
 func TestDecoderPeekKind(t *testing.T) {
 	dec := NewDecoder(strings.NewReader(`<root/>`))
 	reader := newTokenReader(dec)
-	if got := dec.PeekKind(); got != KindStartElement {
+	if got := dec.peekNextKind(); got != KindStartElement {
 		t.Fatalf("PeekKind = %v, want %v", got, KindStartElement)
 	}
 	if _, err := reader.Next(); err != nil {
 		t.Fatalf("ReadToken start error = %v", err)
 	}
-	if got := dec.PeekKind(); got != KindEndElement {
+	if got := dec.peekNextKind(); got != KindEndElement {
 		t.Fatalf("PeekKind = %v, want %v", got, KindEndElement)
 	}
 	if _, err := reader.Next(); err != nil {
 		t.Fatalf("ReadToken end error = %v", err)
 	}
-	if got := dec.PeekKind(); got != KindNone {
+	if got := dec.peekNextKind(); got != KindNone {
 		t.Fatalf("PeekKind = %v, want %v", got, KindNone)
 	}
 }
@@ -368,7 +368,7 @@ func TestDecoderCoalesceCharDataResolveEntitiesScenarios(t *testing.T) {
 			input:    `<root><a><![CDATA[` + longText + `]]>&amp;` + longText + `</a></root>`,
 			wantText: longText + `&` + longText,
 			wantRaw:  `<![CDATA[` + longText + `]]>&amp;` + longText,
-			opts:     []Options{BufferSize(32)},
+			opts:     []Options{bufferSize(32)},
 		},
 		{
 			name:      "sibling-after",
@@ -517,7 +517,7 @@ func TestDecoderDuplicateAttrsLarge(t *testing.T) {
 
 func TestDecoderPINonASCIIName(t *testing.T) {
 	input := "<?\u00e9\u03c0 data?><root/>"
-	dec := NewDecoder(strings.NewReader(input), EmitPI(true), BufferSize(1))
+	dec := NewDecoder(strings.NewReader(input), EmitPI(true), bufferSize(1))
 	reader := newTokenReader(dec)
 	tok, err := reader.Next()
 	if err != nil {
@@ -932,7 +932,7 @@ func TestDecoderInternStats(t *testing.T) {
 
 func TestDecoderNilAccessors(t *testing.T) {
 	var dec *Decoder
-	if got := dec.PeekKind(); got != KindNone {
+	if got := dec.peekNextKind(); got != KindNone {
 		t.Fatalf("PeekKind = %v, want %v", got, KindNone)
 	}
 	if got := dec.InputOffset(); got != 0 {
@@ -944,24 +944,24 @@ func TestDecoderNilAccessors(t *testing.T) {
 	if err := dec.SkipValue(); !errors.Is(err, errNilReader) {
 		t.Fatalf("SkipValue error = %v, want %v", err, errNilReader)
 	}
-	if _, ok := dec.Options().ResolveEntities(); ok {
-		t.Fatalf("Options ResolveEntities = true, want false")
+	if dec.options().resolveEntitiesSet {
+		t.Fatalf("Options ResolveEntities set = true, want false")
 	}
 }
 
 func TestPeekKindBranches(t *testing.T) {
 	dec := &Decoder{pendingTokenValid: true, pendingToken: rawToken{kind: KindPI}}
-	if got := dec.PeekKind(); got != KindPI {
+	if got := dec.peekNextKind(); got != KindPI {
 		t.Fatalf("PeekKind pending = %v, want %v", got, KindPI)
 	}
 
 	dec = &Decoder{pendingEnd: true}
-	if got := dec.PeekKind(); got != KindEndElement {
+	if got := dec.peekNextKind(); got != KindEndElement {
 		t.Fatalf("PeekKind pending end = %v, want %v", got, KindEndElement)
 	}
 
 	dec = &Decoder{err: errInvalidToken}
-	if got := dec.PeekKind(); got != KindNone {
+	if got := dec.peekNextKind(); got != KindNone {
 		t.Fatalf("PeekKind error = %v, want %v", got, KindNone)
 	}
 
@@ -970,29 +970,29 @@ func TestPeekKindBranches(t *testing.T) {
 	if _, err := reader.Next(); err != nil {
 		t.Fatalf("ReadToken root error = %v", err)
 	}
-	if got := dec.PeekKind(); got != KindCharData {
+	if got := dec.peekNextKind(); got != KindCharData {
 		t.Fatalf("PeekKind CDATA = %v, want %v", got, KindCharData)
 	}
 }
 
 func TestPeekKindTokens(t *testing.T) {
 	dec := NewDecoder(strings.NewReader("<!--c--><root/>"), EmitComments(true))
-	if got := dec.PeekKind(); got != KindComment {
+	if got := dec.peekNextKind(); got != KindComment {
 		t.Fatalf("PeekKind comment = %v, want %v", got, KindComment)
 	}
 
 	dec = NewDecoder(strings.NewReader("<?pi?><root/>"), EmitPI(true))
-	if got := dec.PeekKind(); got != KindPI {
+	if got := dec.peekNextKind(); got != KindPI {
 		t.Fatalf("PeekKind PI = %v, want %v", got, KindPI)
 	}
 
 	dec = NewDecoder(strings.NewReader("<!DOCTYPE root><root/>"), EmitDirectives(true))
-	if got := dec.PeekKind(); got != KindDirective {
+	if got := dec.peekNextKind(); got != KindDirective {
 		t.Fatalf("PeekKind directive = %v, want %v", got, KindDirective)
 	}
 
 	dec = NewDecoder(strings.NewReader("<![CDATA[x]]><root/>"))
-	if got := dec.PeekKind(); got != KindCDATA {
+	if got := dec.peekNextKind(); got != KindCDATA {
 		t.Fatalf("PeekKind CDATA = %v, want %v", got, KindCDATA)
 	}
 }
@@ -1197,8 +1197,9 @@ func TestNormalizeLimit(t *testing.T) {
 
 func TestDecoderUtilities(t *testing.T) {
 	dec := NewDecoder(strings.NewReader("<root>\n<child attr=\"v\"/></root>"), ResolveEntities(true))
-	if value, ok := dec.Options().ResolveEntities(); !ok || !value {
-		t.Fatalf("Options ResolveEntities = %v, want true", value)
+	opts := dec.options()
+	if !opts.resolveEntitiesSet || !opts.resolveEntities {
+		t.Fatalf("Options ResolveEntities = %v, want true", opts.resolveEntities)
 	}
 
 	reader := newTokenReader(dec)
@@ -1260,7 +1261,7 @@ func TestDecoderUtilities(t *testing.T) {
 }
 
 func TestDebugPoisonSpans(t *testing.T) {
-	dec := NewDecoder(strings.NewReader("<root><child/></root>"), DebugPoisonSpans(true))
+	dec := NewDecoder(strings.NewReader("<root><child/></root>"), debugPoisonSpans(true))
 	var tok rawToken
 	if err := dec.readTokenIntoRaw(&tok); err != nil {
 		t.Fatalf("ReadToken root error = %v", err)

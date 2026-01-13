@@ -288,7 +288,7 @@ Common options include:
 
 MaxTokenSize is unlimited by default. Set it when parsing untrusted input to
 cap memory growth; tokens exactly MaxTokenSize bytes long are allowed.
-FastValidation does not set this limit.
+FastValidation() does not set this limit.
 
 Strict enforces XML declaration attribute ordering and values when present.
 
