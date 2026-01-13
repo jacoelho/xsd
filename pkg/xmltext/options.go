@@ -174,7 +174,8 @@ func MaxTokenSize(value int) Options {
 	return Options{maxTokenSize: value, maxTokenSizeSet: true}
 }
 
-// Strict enables stricter XML well-formedness checks.
+// Strict enables XML declaration validation.
+// It enforces version and encoding/standalone ordering and values.
 func Strict(value bool) Options {
 	return Options{strict: value, strictSet: true}
 }

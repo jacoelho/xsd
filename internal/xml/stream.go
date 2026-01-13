@@ -73,16 +73,18 @@ func NewStreamDecoder(r io.Reader) (*StreamDecoder, error) {
 	if dec == nil {
 		return nil, fmt.Errorf("nil XML decoder")
 	}
+	var tokBuf xmltext.TokenBuffer
+	tokBuf.Reserve(xmltext.TokenBufferSizes{
+		Attrs:     streamDecoderAttrCapacity,
+		AttrName:  256,
+		AttrValue: 256,
+	})
 	return &StreamDecoder{
 		dec:      dec,
 		names:    newQNameCache(),
 		valueBuf: make([]byte, 0, 256),
 		nsBuf:    make([]byte, 0, 128),
-		tokBuf: xmltext.TokenBuffer{
-			Attrs:     make([]xmltext.Attr, 0, streamDecoderAttrCapacity),
-			AttrName:  make([]byte, 0, 256),
-			AttrValue: make([]byte, 0, 256),
-		},
+		tokBuf:   tokBuf,
 	}, nil
 }
 
