@@ -2,6 +2,7 @@ package xmltext
 
 import (
 	"bytes"
+	"io"
 	"unicode/utf8"
 	"unsafe"
 )
@@ -24,44 +25,96 @@ func newEntityResolver(custom map[string]string, maxTokenSize int) entityResolve
 	return resolver
 }
 
-func unescapeInto(dst []byte, data []byte, resolver *entityResolver, maxTokenSize int) ([]byte, error) {
-	required := len(dst) + len(data)
-	if cap(dst) < required {
-		next := make([]byte, len(dst), required)
-		copy(next, dst)
-		dst = next
+func unescapeInto(dst []byte, data []byte, resolver *entityResolver, maxTokenSize int) (int, error) {
+	if len(data) == 0 {
+		return 0, nil
 	}
+	wrote := 0
+	outLen := 0
+	short := false
+	var runeBuf [utf8.UTFMax]byte
+
+	writeBytes := func(p []byte) error {
+		if len(p) == 0 {
+			return nil
+		}
+		outLen += len(p)
+		if maxTokenSize > 0 && outLen > maxTokenSize {
+			return errTokenTooLarge
+		}
+		if short {
+			return nil
+		}
+		if wrote+len(p) > len(dst) {
+			avail := len(dst) - wrote
+			if avail > 0 {
+				wrote += copy(dst[wrote:], p[:avail])
+			}
+			short = true
+			return nil
+		}
+		wrote += copy(dst[wrote:], p)
+		return nil
+	}
+
+	writeString := func(s string) error {
+		if len(s) == 0 {
+			return nil
+		}
+		outLen += len(s)
+		if maxTokenSize > 0 && outLen > maxTokenSize {
+			return errTokenTooLarge
+		}
+		if short {
+			return nil
+		}
+		if wrote+len(s) > len(dst) {
+			avail := len(dst) - wrote
+			if avail > 0 {
+				wrote += copy(dst[wrote:], s[:avail])
+			}
+			short = true
+			return nil
+		}
+		wrote += copy(dst[wrote:], s)
+		return nil
+	}
+
 	for i := 0; i < len(data); {
 		ampIdx := bytes.IndexByte(data[i:], '&')
 		if ampIdx < 0 {
-			dst = append(dst, data[i:]...)
-			if maxTokenSize > 0 && len(dst) > maxTokenSize {
-				return nil, errTokenTooLarge
+			if err := writeBytes(data[i:]); err != nil {
+				return wrote, err
 			}
-			return dst, nil
+			break
 		}
 		if ampIdx > 0 {
-			dst = append(dst, data[i:i+ampIdx]...)
-			if maxTokenSize > 0 && len(dst) > maxTokenSize {
-				return nil, errTokenTooLarge
+			if err := writeBytes(data[i : i+ampIdx]); err != nil {
+				return wrote, err
 			}
 			i += ampIdx
 		}
 		consumed, replacement, r, isNumeric, err := parseEntityRef(data, i, resolver)
 		if err != nil {
-			return nil, err
+			return wrote, err
 		}
 		if isNumeric {
-			dst = utf8.AppendRune(dst, r)
+			n := utf8.EncodeRune(runeBuf[:], r)
+			if err := writeBytes(runeBuf[:n]); err != nil {
+				return wrote, err
+			}
 		} else {
-			dst = append(dst, replacement...)
-		}
-		if maxTokenSize > 0 && len(dst) > maxTokenSize {
-			return nil, errTokenTooLarge
+			if err := writeString(replacement); err != nil {
+				return wrote, err
+			}
 		}
 		i += consumed
 	}
-	return dst, nil
+
+	if short {
+		return wrote, io.ErrShortBuffer
+	}
+	return wrote, nil
 }
 
 func parseEntityRef(data []byte, start int, resolver *entityResolver) (int, string, rune, bool, error) {

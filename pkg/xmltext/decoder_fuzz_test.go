@@ -54,12 +54,14 @@ func FuzzDecoderRawInput(f *testing.F) {
 	f.Add([]byte("<root attr=\"1 &amp; 2\"/>"))
 	f.Fuzz(func(t *testing.T, data []byte) {
 		dec := NewDecoder(bytes.NewReader(data))
+		var tok Token
+		var buf TokenBuffer
 		maxTokens := len(data) + 8
 		if maxTokens > 10000 {
 			maxTokens = 10000
 		}
 		for i := 0; i < maxTokens; i++ {
-			if _, err := dec.ReadToken(); err != nil {
+			if err := dec.ReadTokenInto(&tok, &buf); err != nil {
 				return
 			}
 		}

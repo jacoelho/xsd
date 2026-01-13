@@ -8,6 +8,7 @@ import (
 var (
 	errNilReader           = errors.New("nil XML reader")
 	errNilToken            = errors.New("nil XML token")
+	errNilBuffer           = errors.New("nil XML token buffer")
 	errUnexpectedEOF       = errors.New("unexpected EOF")
 	errInvalidName         = errors.New("invalid XML name")
 	errInvalidEntity       = errors.New("invalid entity reference")
@@ -33,12 +34,18 @@ var (
 
 // SyntaxError reports a well-formedness error with location context.
 type SyntaxError struct {
-	Err     error
-	Path    Path
+	// Err is the underlying parser error.
+	Err error
+	// Path is the stack path at the error location.
+	Path string
+	// Snippet is a short input slice near the failure point.
 	Snippet []byte
-	Offset  int64
-	Line    int
-	Column  int
+	// Offset is the absolute byte offset in the input stream.
+	Offset int64
+	// Line is the 1-based line number when tracking is enabled.
+	Line int
+	// Column is the 1-based column number when tracking is enabled.
+	Column int
 }
 
 // Error formats the syntax error with location and cause.

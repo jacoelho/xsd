@@ -48,6 +48,7 @@ type StreamDecoder struct {
 	valueBuf   []byte
 	nsBuf      []byte
 	tok        xmltext.Token
+	tokBuf     xmltext.TokenBuffer
 	nextID     elementID
 	pendingPop bool
 	lastLine   int
@@ -77,11 +78,10 @@ func NewStreamDecoder(r io.Reader) (*StreamDecoder, error) {
 		names:    newQNameCache(),
 		valueBuf: make([]byte, 0, 256),
 		nsBuf:    make([]byte, 0, 128),
-		tok: xmltext.Token{
-			Attrs:        make([]xmltext.AttrSpan, 0, streamDecoderAttrCapacity),
-			AttrNeeds:    make([]bool, 0, streamDecoderAttrCapacity),
-			AttrRaw:      make([]xmltext.Span, 0, streamDecoderAttrCapacity),
-			AttrRawNeeds: make([]bool, 0, streamDecoderAttrCapacity),
+		tokBuf: xmltext.TokenBuffer{
+			Attrs:     make([]xmltext.Attr, 0, streamDecoderAttrCapacity),
+			AttrName:  make([]byte, 0, 256),
+			AttrValue: make([]byte, 0, 256),
 		},
 	}, nil
 }
@@ -100,7 +100,7 @@ func (d *StreamDecoder) Next() (Event, error) {
 	}
 
 	for {
-		if err := d.dec.ReadTokenInto(&d.tok); err != nil {
+		if err := d.dec.ReadTokenInto(&d.tok, &d.tokBuf); err != nil {
 			return Event{}, err
 		}
 		tok := &d.tok
@@ -127,12 +127,12 @@ func (d *StreamDecoder) Next() (Event, error) {
 			} else {
 				d.attrBuf = d.attrBuf[:0]
 			}
-			for i, attr := range attrs {
+			for _, attr := range attrs {
 				attrNamespace, attrLocal, err := resolveAttrName(d.dec, &d.ns, attr.Name, scopeDepth, line, column)
 				if err != nil {
 					return Event{}, err
 				}
-				value, err := d.attrValueString(attr.ValueSpan, attrDecodeMode(tok, i))
+				value, err := d.attrValueString(attr.Value, attr.ValueNeeds)
 				if err != nil {
 					return Event{}, wrapSyntaxError(d.dec, line, column, err)
 				}
@@ -222,18 +222,19 @@ func (d *StreamDecoder) LookupNamespace(prefix string, depth int) (string, bool)
 	return d.ns.lookup(prefix, depth)
 }
 
-func (d *StreamDecoder) resolveElementName(name xmltext.QNameSpan, depth, line, column int) (types.QName, error) {
-	local := spanString(d.dec, name.Local)
-	if name.HasPrefix {
-		prefix := spanString(d.dec, name.Prefix)
-		namespace, ok := d.ns.lookup(prefix, depth)
+func (d *StreamDecoder) resolveElementName(name []byte, depth, line, column int) (types.QName, error) {
+	prefix, local, hasPrefix := splitQName(name)
+	localName := string(local)
+	if hasPrefix {
+		prefixName := string(prefix)
+		namespace, ok := d.ns.lookup(prefixName, depth)
 		if !ok {
 			return types.QName{}, unboundPrefixError(d.dec, line, column)
 		}
-		return d.names.intern(namespace, local), nil
+		return d.names.intern(namespace, localName), nil
 	}
 	namespace, _ := d.ns.lookup("", depth)
-	return d.names.intern(namespace, local), nil
+	return d.names.intern(namespace, localName), nil
 }
 
 func (d *StreamDecoder) popElementName() (types.QName, error) {
@@ -245,48 +246,82 @@ func (d *StreamDecoder) popElementName() (types.QName, error) {
 	return name, nil
 }
 
-func (d *StreamDecoder) attrValueString(span xmltext.Span, mode spanDecodeMode) (string, error) {
-	var value string
-	var err error
-	if mode == spanDecodeCopy {
-		if d.dec == nil {
-			return "", nil
-		}
-		data := d.dec.SpanBytes(span)
-		if len(data) == 0 {
-			return "", nil
-		}
-		return unsafeString(data), nil
+func (d *StreamDecoder) attrValueString(value []byte, needsUnescape bool) (string, error) {
+	if !needsUnescape {
+		return unsafeString(value), nil
 	}
-	d.valueBuf, value, err = appendSpanString(d.valueBuf, span, mode)
-	return value, err
+	start := len(d.valueBuf)
+	out, err := unescapeIntoBuffer(d.dec, d.valueBuf, start, value)
+	if err != nil {
+		d.valueBuf = d.valueBuf[:start]
+		return "", err
+	}
+	d.valueBuf = out
+	if len(out) == start {
+		return "", nil
+	}
+	return unsafeString(out[start:]), nil
 }
 
-func (d *StreamDecoder) namespaceValueString(span xmltext.Span, mode spanDecodeMode) (string, error) {
-	var value string
-	var err error
-	d.nsBuf, value, err = appendSpanString(d.nsBuf, span, mode)
-	return value, err
+func (d *StreamDecoder) namespaceValueString(value []byte, needsUnescape bool) (string, error) {
+	start := len(d.nsBuf)
+	if needsUnescape {
+		out, err := unescapeIntoBuffer(d.dec, d.nsBuf, start, value)
+		if err != nil {
+			d.nsBuf = d.nsBuf[:start]
+			return "", err
+		}
+		d.nsBuf = out
+	} else {
+		d.nsBuf = append(d.nsBuf, value...)
+	}
+	if len(d.nsBuf) == start {
+		return "", nil
+	}
+	return unsafeString(d.nsBuf[start:]), nil
 }
 
 func (d *StreamDecoder) textBytes(tok *xmltext.Token) ([]byte, error) {
 	if !tok.TextNeeds {
-		return d.dec.SpanBytes(tok.Text), nil
+		return tok.Text, nil
 	}
-	out, err := xmltext.UnescapeInto(d.valueBuf, tok.Text)
+	start := len(d.valueBuf)
+	out, err := unescapeIntoBuffer(d.dec, d.valueBuf, start, tok.Text)
 	if err != nil {
-		d.valueBuf = d.valueBuf[:0]
+		d.valueBuf = d.valueBuf[:start]
 		return nil, err
 	}
 	d.valueBuf = out
-	return d.valueBuf, nil
+	if len(out) == start {
+		return nil, nil
+	}
+	return out[start:], nil
 }
 
-func attrDecodeMode(tok *xmltext.Token, index int) spanDecodeMode {
-	if index >= 0 && index < len(tok.AttrNeeds) && tok.AttrNeeds[index] {
-		return spanDecodeUnescape
+func unescapeIntoBuffer(dec *xmltext.Decoder, buf []byte, start int, data []byte) ([]byte, error) {
+	for {
+		scratch := buf[start:cap(buf)]
+		n, err := dec.UnescapeInto(scratch, data)
+		if err == nil {
+			end := start + n
+			buf = buf[:end]
+			return buf, nil
+		}
+		if !errors.Is(err, io.ErrShortBuffer) {
+			return buf[:start], err
+		}
+		newCap := cap(buf) * 2
+		minCap := start + len(data)
+		if newCap < minCap {
+			newCap = minCap
+		}
+		if newCap == 0 {
+			newCap = minCap
+		}
+		next := make([]byte, start, newCap)
+		copy(next, buf[:start])
+		buf = next
 	}
-	return spanDecodeCopy
 }
 
 func wrapSyntaxError(dec *xmltext.Decoder, line, column int, err error) error {
@@ -304,7 +339,7 @@ func wrapSyntaxError(dec *xmltext.Decoder, line, column int, err error) error {
 		Offset: dec.InputOffset(),
 		Line:   line,
 		Column: column,
-		Path:   dec.StackPath(nil),
+		Path:   dec.StackPointer(),
 		Err:    err,
 	}
 }
