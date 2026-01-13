@@ -22,6 +22,27 @@ func TestValidationErrorFormatting(t *testing.T) {
 			want: "[cvc-elt.1] missing element at /root/child",
 		},
 		{
+			name: "with path and position",
+			v: Validation{
+				Code:    "cvc-elt.1",
+				Message: "missing element",
+				Path:    "/root/child",
+				Line:    3,
+				Column:  5,
+			},
+			want: "[cvc-elt.1] missing element at /root/child (line 3, column 5)",
+		},
+		{
+			name: "with position only",
+			v: Validation{
+				Code:    "cvc-elt.1",
+				Message: "missing element",
+				Line:    3,
+				Column:  5,
+			},
+			want: "[cvc-elt.1] missing element at line 3, column 5",
+		},
+		{
 			name: "with expected",
 			v: Validation{
 				Code:     "cvc-elt.1",

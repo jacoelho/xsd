@@ -73,11 +73,13 @@ const (
 )
 
 // Validation describes a schema validation error with a W3C or local error code
-// and an optional instance path for context.
+// and optional instance path and line/column context.
 type Validation struct { //nolint:errname // public API name, keep for compatibility.
 	Code     string
 	Message  string
 	Path     string
+	Line     int
+	Column   int
 	Actual   string
 	Expected []string
 }
@@ -103,6 +105,13 @@ func (v Validation) Error() string {
 	b.WriteString(fmt.Sprintf("[%s] %s", v.Code, v.Message))
 	if v.Path != "" {
 		b.WriteString(fmt.Sprintf(" at %s", v.Path))
+	}
+	if v.Line > 0 && v.Column > 0 {
+		if v.Path == "" {
+			b.WriteString(fmt.Sprintf(" at line %d, column %d", v.Line, v.Column))
+		} else {
+			b.WriteString(fmt.Sprintf(" (line %d, column %d)", v.Line, v.Column))
+		}
 	}
 	if len(v.Expected) > 0 {
 		b.WriteString(fmt.Sprintf(" (expected: %s)", strings.Join(v.Expected, ", ")))
