@@ -1,13 +1,24 @@
 # xmltext
 
-xmltext is a streaming XML 1.0 tokenizer optimized for zero-copy parsing. It is
-used by internal/xml and the validator to parse XML without building a DOM.
+xmltext is a streaming XML 1.0 tokenizer optimized for low-allocation parsing
+with caller-owned buffers. It is used by internal/xml and the validator to
+parse XML without building a DOM.
 
 ## Goals
 
 - fast, streaming tokenization over io.Reader
 - minimal allocations with caller-owned buffers
 - explicit options for entity expansion and token emission
+
+## XML declaration validation
+
+`Strict(true)` validates XML declarations (`<?xml ...?>`): version must be 1.0,
+and encoding and standalone (if present) must follow in that order with valid
+values.
+
+```go
+dec := xmltext.NewDecoder(r, xmltext.Strict(true))
+```
 
 ## Usage
 
