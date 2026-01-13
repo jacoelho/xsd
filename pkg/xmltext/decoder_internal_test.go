@@ -219,21 +219,21 @@ func TestWhitespaceCharData(t *testing.T) {
 	}
 
 	buf := spanBuffer{data: []byte(" \t\r\n")}
-	tok := &Token{Text: makeSpan(&buf, 0, len(buf.data))}
+	tok := &rawToken{text: makeSpan(&buf, 0, len(buf.data))}
 	ok, err = dec.isWhitespaceCharData(tok)
 	if err != nil || !ok {
 		t.Fatalf("isWhitespaceCharData whitespace = %v/%v, want true/nil", ok, err)
 	}
 
 	buf = spanBuffer{data: []byte("&#x20;")}
-	tok = &Token{Text: makeSpan(&buf, 0, len(buf.data)), TextNeeds: true}
+	tok = &rawToken{text: makeSpan(&buf, 0, len(buf.data)), textNeeds: true}
 	ok, err = dec.isWhitespaceCharData(tok)
 	if err != nil || !ok {
 		t.Fatalf("isWhitespaceCharData entity = %v/%v, want true/nil", ok, err)
 	}
 
 	buf = spanBuffer{data: []byte("&bogus;")}
-	tok = &Token{Text: makeSpan(&buf, 0, len(buf.data)), TextNeeds: true}
+	tok = &rawToken{text: makeSpan(&buf, 0, len(buf.data)), textNeeds: true}
 	if _, err := dec.isWhitespaceCharData(tok); !errors.Is(err, errInvalidEntity) {
 		t.Fatalf("isWhitespaceCharData error = %v, want %v", err, errInvalidEntity)
 	}
@@ -304,12 +304,12 @@ func TestAdvanceCRLFAcrossChunks(t *testing.T) {
 
 func TestPopStackInterned(t *testing.T) {
 	dec := &Decoder{}
-	if err := dec.popStackInterned(QNameSpan{}); !errors.Is(err, errMismatchedEndTag) {
+	if err := dec.popStackInterned(qnameSpan{}); !errors.Is(err, errMismatchedEndTag) {
 		t.Fatalf("popStackInterned empty error = %v, want %v", err, errMismatchedEndTag)
 	}
 	buf := spanBuffer{data: []byte("root")}
 	name := newQNameSpan(&buf, 0, len(buf.data))
-	dec.stack = []stackEntry{{StackEntry: StackEntry{Name: name}}}
+	dec.stack = []stackEntry{{name: name}}
 	otherBuf := spanBuffer{data: []byte("other")}
 	other := newQNameSpan(&otherBuf, 0, len(otherBuf.data))
 	if err := dec.popStackInterned(other); !errors.Is(err, errMismatchedEndTag) {
@@ -371,7 +371,7 @@ func TestPeekRuneErrors(t *testing.T) {
 }
 
 func TestPeekRuneReadMore(t *testing.T) {
-	dec := NewDecoder(strings.NewReader("\u20ac"), BufferSize(1))
+	dec := NewDecoder(strings.NewReader("\u20ac"), bufferSize(1))
 	r, size, err := dec.peekRune(false)
 	if err != nil {
 		t.Fatalf("peekRune error = %v", err)
@@ -383,7 +383,7 @@ func TestPeekRuneReadMore(t *testing.T) {
 
 func TestPeekRuneIncompleteRead(t *testing.T) {
 	reader := io.LimitReader(strings.NewReader("\u20ac"), 1)
-	dec := NewDecoder(reader, BufferSize(1))
+	dec := NewDecoder(reader, bufferSize(1))
 	if _, _, err := dec.peekRune(false); !errors.Is(err, errInvalidChar) {
 		t.Fatalf("peekRune error = %v, want %v", err, errInvalidChar)
 	}
@@ -392,7 +392,7 @@ func TestPeekRuneIncompleteRead(t *testing.T) {
 func TestResetAttrSeenOverflow(t *testing.T) {
 	dec := &Decoder{}
 	dec.attrSeen = map[uint64]attrBucket{
-		1: {gen: 1, spans: []Span{{}}},
+		1: {gen: 1, spans: []span{{}}},
 	}
 	dec.attrSeenGen = ^uint32(0)
 	dec.resetAttrSeen()
@@ -409,26 +409,26 @@ func TestRefreshToken(t *testing.T) {
 	name := newQNameSpan(&buf, 0, 4)
 	attrName := newQNameSpan(&buf, 5, 9)
 	attrValue := makeSpan(&buf, 10, 13)
-	tok := Token{
-		Kind: KindStartElement,
-		Name: name,
-		Attrs: []AttrSpan{{
+	tok := rawToken{
+		kind: KindStartElement,
+		name: name,
+		attrs: []attrSpan{{
 			Name:      attrName,
 			ValueSpan: attrValue,
 		}},
 	}
-	tok.Name.Full.gen = 0
-	tok.Name.Local.gen = 0
-	tok.Attrs[0].Name.Full.gen = 0
-	tok.Attrs[0].ValueSpan.gen = 0
+	tok.name.Full.gen = 0
+	tok.name.Local.gen = 0
+	tok.attrs[0].Name.Full.gen = 0
+	tok.attrs[0].ValueSpan.gen = 0
 
 	dec := &Decoder{}
 	dec.refreshToken(&tok)
-	if tok.Name.Full.gen != buf.gen {
-		t.Fatalf("name gen = %d, want %d", tok.Name.Full.gen, buf.gen)
+	if tok.name.Full.gen != buf.gen {
+		t.Fatalf("name gen = %d, want %d", tok.name.Full.gen, buf.gen)
 	}
-	if tok.Attrs[0].ValueSpan.gen != buf.gen {
-		t.Fatalf("attr value gen = %d, want %d", tok.Attrs[0].ValueSpan.gen, buf.gen)
+	if tok.attrs[0].ValueSpan.gen != buf.gen {
+		t.Fatalf("attr value gen = %d, want %d", tok.attrs[0].ValueSpan.gen, buf.gen)
 	}
 }
 
@@ -462,19 +462,21 @@ func TestCompact(t *testing.T) {
 
 func TestScanPIInto(t *testing.T) {
 	dec := NewDecoder(strings.NewReader("<?pi?><root/>"), EmitPI(true))
-	tok, err := dec.ReadToken()
+	reader := newTokenReader(dec)
+	tok, err := reader.Next()
 	if err != nil {
 		t.Fatalf("ReadToken PI error = %v", err)
 	}
 	if tok.Kind != KindPI {
 		t.Fatalf("PI kind = %v, want %v", tok.Kind, KindPI)
 	}
-	if got := string(dec.SpanBytes(tok.Text)); got != "pi" {
+	if got := string(tok.Text); got != "pi" {
 		t.Fatalf("PI text = %q, want pi", got)
 	}
 
 	dec = NewDecoder(strings.NewReader("<?pi test?><root/>"), EmitPI(true))
-	tok, err = dec.ReadToken()
+	reader = newTokenReader(dec)
+	tok, err = reader.Next()
 	if err != nil {
 		t.Fatalf("ReadToken PI data error = %v", err)
 	}
@@ -483,14 +485,16 @@ func TestScanPIInto(t *testing.T) {
 	}
 
 	dec = NewDecoder(strings.NewReader("<?xml?>"), EmitPI(true))
-	if _, err := dec.ReadToken(); !errors.Is(err, errInvalidPI) {
+	reader = newTokenReader(dec)
+	if _, err := reader.Next(); !errors.Is(err, errInvalidPI) {
 		t.Fatalf("ReadToken xml PI error = %v, want %v", err, errInvalidPI)
 	}
 }
 
 func TestScanDirectiveInto(t *testing.T) {
 	dec := NewDecoder(strings.NewReader("<!DOCTYPE root><root/>"), EmitDirectives(true))
-	tok, err := dec.ReadToken()
+	reader := newTokenReader(dec)
+	tok, err := reader.Next()
 	if err != nil {
 		t.Fatalf("ReadToken directive error = %v", err)
 	}
