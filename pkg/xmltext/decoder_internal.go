@@ -9,13 +9,19 @@ import (
 
 // Pre-computed byte slices to avoid allocations in hot paths
 var (
-	litXML      = []byte("xml")
-	litPIEnd    = []byte("?>")
-	litComStart = []byte("<!--")
-	litComEnd   = []byte("-->")
-	litDDash    = []byte("--")
-	litCDStart  = []byte("<![CDATA[")
-	litCDEnd    = []byte("]]>")
+	litXML       = []byte("xml")
+	litVersion   = []byte("version")
+	litEncoding  = []byte("encoding")
+	litStand     = []byte("standalone")
+	litVersion10 = []byte("1.0")
+	litYes       = []byte("yes")
+	litNo        = []byte("no")
+	litPIEnd     = []byte("?>")
+	litComStart  = []byte("<!--")
+	litComEnd    = []byte("-->")
+	litDDash     = []byte("--")
+	litCDStart   = []byte("<![CDATA[")
+	litCDEnd     = []byte("]]>")
 )
 
 var whitespaceLUT = [256]bool{
@@ -1051,8 +1057,145 @@ func (d *Decoder) scanPIInto(dst *rawToken, allowCompact bool) (bool, error) {
 	if err := validateXMLChars(textSpan.bytesUnsafe()); err != nil {
 		return false, err
 	}
+	if isXMLDecl && d.opts.strict {
+		if err := validateXMLDecl(textSpan.bytesUnsafe()); err != nil {
+			return false, err
+		}
+	}
 	setTextToken(dst, KindPI, textSpan, startLine, startColumn, makeSpan(&d.buf, rawStart, rawEnd), isXMLDecl)
 	return false, nil
+}
+
+func validateXMLDecl(text []byte) error {
+	if len(text) < len(litXML) || !bytes.EqualFold(text[:len(litXML)], litXML) {
+		return errInvalidPI
+	}
+	data, ok := consumeXMLDeclSpace(text[len(litXML):])
+	if !ok {
+		return errInvalidPI
+	}
+	name, value, rest, err := scanXMLDeclAttr(data)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(name, litVersion) || !bytes.Equal(value, litVersion10) {
+		return errInvalidPI
+	}
+	if len(rest) == 0 {
+		return nil
+	}
+	data, ok = consumeXMLDeclSpace(rest)
+	if !ok {
+		return errInvalidPI
+	}
+	name, value, rest, err = scanXMLDeclAttr(data)
+	if err != nil {
+		return err
+	}
+	if bytes.Equal(name, litEncoding) {
+		if !isXMLDeclEncoding(value) {
+			return errInvalidPI
+		}
+		if len(rest) == 0 {
+			return nil
+		}
+		data, ok = consumeXMLDeclSpace(rest)
+		if !ok {
+			return errInvalidPI
+		}
+		name, value, rest, err = scanXMLDeclAttr(data)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(name, litStand) {
+			return errInvalidPI
+		}
+		if !isXMLDeclStandalone(value) {
+			return errInvalidPI
+		}
+		if len(trimXMLDeclSpace(rest)) != 0 {
+			return errInvalidPI
+		}
+		return nil
+	}
+	if !bytes.Equal(name, litStand) {
+		return errInvalidPI
+	}
+	if !isXMLDeclStandalone(value) {
+		return errInvalidPI
+	}
+	if len(trimXMLDeclSpace(rest)) != 0 {
+		return errInvalidPI
+	}
+	return nil
+}
+
+func scanXMLDeclAttr(data []byte) ([]byte, []byte, []byte, error) {
+	name, rest := scanXMLDeclName(data)
+	if len(name) == 0 {
+		return nil, nil, data, errInvalidPI
+	}
+	rest = trimXMLDeclSpace(rest)
+	if len(rest) == 0 || rest[0] != '=' {
+		return nil, nil, rest, errInvalidPI
+	}
+	rest = trimXMLDeclSpace(rest[1:])
+	if len(rest) == 0 {
+		return nil, nil, rest, errInvalidPI
+	}
+	quote := rest[0]
+	if quote != '"' && quote != '\'' {
+		return nil, nil, rest, errInvalidPI
+	}
+	rest = rest[1:]
+	end := bytes.IndexByte(rest, quote)
+	if end < 0 {
+		return nil, nil, rest, errInvalidPI
+	}
+	value := rest[:end]
+	rest = rest[end+1:]
+	return name, value, rest, nil
+}
+
+func consumeXMLDeclSpace(data []byte) ([]byte, bool) {
+	i := 0
+	for i < len(data) && isWhitespace(data[i]) {
+		i++
+	}
+	if i == 0 {
+		return data, false
+	}
+	return data[i:], true
+}
+
+func trimXMLDeclSpace(data []byte) []byte {
+	i := 0
+	for i < len(data) && isWhitespace(data[i]) {
+		i++
+	}
+	return data[i:]
+}
+
+func isXMLDeclEncoding(value []byte) bool {
+	if len(value) == 0 || !isASCIIAlpha(value[0]) {
+		return false
+	}
+	for i := 1; i < len(value); i++ {
+		b := value[i]
+		if isASCIIAlpha(b) || (b >= '0' && b <= '9') || b == '.' || b == '_' || b == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func isXMLDeclStandalone(value []byte) bool {
+	return bytes.Equal(value, litYes) || bytes.Equal(value, litNo)
+}
+
+func isASCIIAlpha(b byte) bool {
+	return (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')
 }
 
 func (d *Decoder) scanBangInto(dst *rawToken, allowCompact bool) (bool, error) {

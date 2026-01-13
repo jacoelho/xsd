@@ -280,12 +280,16 @@ applied. It returns io.ErrShortBuffer if dst is too small.
 
 Common options include:
 - ResolveEntities
+- Strict
 - CoalesceCharData
 - TrackLineColumn
 - EmitComments, EmitPI, EmitDirectives
 - MaxDepth, MaxAttrs, MaxTokenSize
 
 MaxTokenSize is unlimited by default. Set it when parsing untrusted input to
-cap memory growth; FastValidation does not set this limit.
+cap memory growth; tokens exactly MaxTokenSize bytes long are allowed.
+FastValidation does not set this limit.
+
+Strict enforces XML declaration attribute ordering and values when present.
 
 See docs/xmltext-architecture.md for the design and buffer model.

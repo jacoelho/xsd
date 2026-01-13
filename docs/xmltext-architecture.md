@@ -69,6 +69,7 @@ applies XML Namespaces rules.
 
 Common options:
 - ResolveEntities(bool)
+- Strict(bool)
 - CoalesceCharData(bool)
 - TrackLineColumn(bool)
 - EmitComments(bool), EmitPI(bool), EmitDirectives(bool)
@@ -77,7 +78,10 @@ Common options:
 
 Limits are enforced during parsing to guard against hostile inputs.
 MaxTokenSize defaults to unlimited; set it for untrusted inputs to cap memory
-growth. FastValidation leaves MaxTokenSize unset.
+growth. Tokens exactly MaxTokenSize bytes long are allowed. FastValidation
+leaves MaxTokenSize unset.
+
+Strict validates XML declaration attribute ordering and values when present.
 
 ## Performance notes
 

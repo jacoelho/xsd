@@ -617,6 +617,85 @@ func TestDecoderXMLDeclPlacement(t *testing.T) {
 	}
 }
 
+func TestDecoderXMLDeclStrict(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr error
+		opts    []Options
+	}{
+		{
+			name:  "version-only",
+			input: `<?xml version="1.0"?><root/>`,
+		},
+		{
+			name:  "version-encoding",
+			input: `<?xml version="1.0" encoding="UTF-8"?><root/>`,
+		},
+		{
+			name:  "version-encoding-standalone",
+			input: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><root/>`,
+		},
+		{
+			name:  "version-standalone",
+			input: `<?xml version="1.0" standalone="no"?><root/>`,
+		},
+		{
+			name:    "missing-version",
+			input:   `<?xml encoding="UTF-8"?><root/>`,
+			wantErr: errInvalidPI,
+		},
+		{
+			name:    "wrong-order",
+			input:   `<?xml encoding="UTF-8" version="1.0"?><root/>`,
+			wantErr: errInvalidPI,
+		},
+		{
+			name:    "invalid-version",
+			input:   `<?xml version="1.1"?><root/>`,
+			wantErr: errInvalidPI,
+		},
+		{
+			name:    "invalid-encoding",
+			input:   `<?xml version="1.0" encoding="1-UTF"?><root/>`,
+			wantErr: errInvalidPI,
+			opts: []Options{
+				WithCharsetReader(func(_ string, r io.Reader) (io.Reader, error) {
+					return r, nil
+				}),
+			},
+		},
+		{
+			name:    "invalid-standalone",
+			input:   `<?xml version="1.0" standalone="maybe"?><root/>`,
+			wantErr: errInvalidPI,
+		},
+		{
+			name:    "extra-attribute",
+			input:   `<?xml version="1.0" foo="bar"?><root/>`,
+			wantErr: errInvalidPI,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := append([]Options{Strict(true)}, tt.opts...)
+			dec := NewDecoder(strings.NewReader(tt.input), opts...)
+			reader := newTokenReader(dec)
+			_, err := reader.Next()
+			if tt.wantErr == nil {
+				if err != nil {
+					t.Fatalf("error = %v, want nil", err)
+				}
+				return
+			}
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("error = %v, want %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestDecoderInvalidCommentAndPI(t *testing.T) {
 	dec := NewDecoder(strings.NewReader(`<!--a--b--><root/>`))
 	reader := newTokenReader(dec)
