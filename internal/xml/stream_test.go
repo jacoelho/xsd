@@ -125,6 +125,39 @@ func TestStreamDecoderSkipSubtree(t *testing.T) {
 	}
 }
 
+func TestStreamDecoderAttrValueCopy(t *testing.T) {
+	xmlData := `<doc><root attr="foo"/><next attr="bar"/></doc>`
+	dec, err := NewStreamDecoder(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("NewStreamDecoder() error = %v", err)
+	}
+
+	_, err = nextStartEvent(dec)
+	if err != nil {
+		t.Fatalf("next start doc error = %v", err)
+	}
+
+	event, err := nextStartEvent(dec)
+	if err != nil {
+		t.Fatalf("next start root error = %v", err)
+	}
+	if len(event.Attrs) != 1 {
+		t.Fatalf("root attr count = %d, want 1", len(event.Attrs))
+	}
+	value := event.Attrs[0].Value()
+
+	event, err = nextStartEvent(dec)
+	if err != nil {
+		t.Fatalf("next start next error = %v", err)
+	}
+	if len(event.Attrs) != 1 {
+		t.Fatalf("next attr count = %d, want 1", len(event.Attrs))
+	}
+	if value != "foo" {
+		t.Fatalf("root attr value = %q, want foo", value)
+	}
+}
+
 func nextStartEvent(dec *StreamDecoder) (Event, error) {
 	for {
 		event, err := dec.Next()
