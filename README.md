@@ -136,13 +136,6 @@ make xmllint
 
 Options:
 - `--schema` (required): path to the XSD schema file
-- `--cpuprofile`: write a CPU profile to the given path
-- `--memprofile`: write a heap profile to the given path
-
-Exit codes:
-- `0` success
-- `1` validation or runtime error
-- `2` usage error
 
 ## Error handling
 - `Schema.Validate` returns `errors.ValidationList` for validation and XML parsing failures.
@@ -152,9 +145,11 @@ Each `errors.Validation` includes:
 - `Code` (W3C codes like `cvc-elt.1`, or local codes like `xsd-schema-not-loaded`)
 - `Message`
 - `Path` (best-effort instance path)
+- `Line` and `Column` when available
 - `Expected` and `Actual` when available
 
 ## Security considerations
+
 - Instance documents must be UTF-8. Non-UTF-8 encodings are rejected because xsd does not configure a charset reader.
 - DTDs and external entity resolution are not supported.
 - Limit input size for untrusted XML, for example with `io.LimitReader`.
@@ -168,7 +163,8 @@ make w3c
 ```
 
 ## Architecture
-See `docs/README.md` and `docs/architecture.md` for design details. The XML tokenizer is documented in `pkg/xmltext/README.md` and `docs/xmltext-architecture.md`.
+
+See [README](./docs/README.md)
 
 ## License
 
