@@ -74,11 +74,10 @@ Common options:
 - TrackLineColumn(bool)
 - EmitComments(bool), EmitPI(bool), EmitDirectives(bool)
 - MaxDepth(int), MaxAttrs(int), MaxTokenSize(int)
-- MaxQNameInternEntries(int)
 
 Limits are enforced during parsing to guard against hostile inputs.
 MaxTokenSize defaults to unlimited; set it for untrusted inputs to cap memory
-growth. Tokens exactly MaxTokenSize bytes long are allowed. FastValidation
+growth. Tokens exactly MaxTokenSize bytes long are allowed. FastValidation()
 leaves MaxTokenSize unset.
 
 Strict validates XML declaration attribute ordering and values when present.

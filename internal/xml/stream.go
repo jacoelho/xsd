@@ -68,7 +68,6 @@ func NewStreamDecoder(r io.Reader) (*StreamDecoder, error) {
 		xmltext.EmitPI(false),
 		xmltext.EmitDirectives(false),
 		xmltext.TrackLineColumn(true),
-		xmltext.BufferSize(streamDecoderBufferSize),
 	)
 	if dec == nil {
 		return nil, fmt.Errorf("nil XML decoder")

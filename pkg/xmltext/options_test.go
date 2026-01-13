@@ -39,19 +39,19 @@ func TestJoinOptionsOverrides(t *testing.T) {
 		WithEntityMap(nil),
 		WithCharsetReader(reader),
 	)
-	if value, ok := opts.ResolveEntities(); !ok || !value {
-		t.Fatalf("ResolveEntities = %v, want true", value)
+	if !opts.resolveEntitiesSet || !opts.resolveEntities {
+		t.Fatalf("ResolveEntities = %v, want true", opts.resolveEntities)
 	}
-	if value, ok := opts.MaxDepth(); !ok || value != 2 {
-		t.Fatalf("MaxDepth = %d, want 2", value)
+	if !opts.maxDepthSet || opts.maxDepth != 2 {
+		t.Fatalf("MaxDepth = %d, want 2", opts.maxDepth)
 	}
-	if value, ok := opts.EntityMap(); !ok || value != nil {
-		t.Fatalf("EntityMap = %v, want nil", value)
+	if !opts.entityMapSet || opts.entityMap != nil {
+		t.Fatalf("EntityMap = %v, want nil", opts.entityMap)
 	}
-	if value, ok := opts.CharsetReader(); !ok || value == nil {
-		t.Fatalf("CharsetReader ok = %v, want true", ok)
+	if !opts.charsetReaderSet || opts.charsetReader == nil {
+		t.Fatalf("CharsetReader set = %v, want true", opts.charsetReaderSet)
 	}
-	if value, ok := opts.Strict(); !ok || !value {
-		t.Fatalf("Strict = %v, want true", value)
+	if !opts.strictSet || !opts.strict {
+		t.Fatalf("Strict = %v, want true", opts.strict)
 	}
 }

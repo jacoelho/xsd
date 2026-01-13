@@ -371,7 +371,7 @@ func TestPeekRuneErrors(t *testing.T) {
 }
 
 func TestPeekRuneReadMore(t *testing.T) {
-	dec := NewDecoder(strings.NewReader("\u20ac"), BufferSize(1))
+	dec := NewDecoder(strings.NewReader("\u20ac"), bufferSize(1))
 	r, size, err := dec.peekRune(false)
 	if err != nil {
 		t.Fatalf("peekRune error = %v", err)
@@ -383,7 +383,7 @@ func TestPeekRuneReadMore(t *testing.T) {
 
 func TestPeekRuneIncompleteRead(t *testing.T) {
 	reader := io.LimitReader(strings.NewReader("\u20ac"), 1)
-	dec := NewDecoder(reader, BufferSize(1))
+	dec := NewDecoder(reader, bufferSize(1))
 	if _, _, err := dec.peekRune(false); !errors.Is(err, errInvalidChar) {
 		t.Fatalf("peekRune error = %v, want %v", err, errInvalidChar)
 	}

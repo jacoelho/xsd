@@ -174,104 +174,24 @@ func MaxTokenSize(value int) Options {
 	return Options{maxTokenSize: value, maxTokenSizeSet: true}
 }
 
-// MaxQNameInternEntries limits the QName interner cache size.
-func MaxQNameInternEntries(value int) Options {
-	return Options{maxQNameInternEntries: value, maxQNameInternEntriesSet: true}
-}
-
 // Strict enables stricter XML well-formedness checks.
 func Strict(value bool) Options {
 	return Options{strict: value, strictSet: true}
 }
 
-// DebugPoisonSpans invalidates spans after the next decoder call.
-func DebugPoisonSpans(value bool) Options {
+func debugPoisonSpans(value bool) Options {
 	return Options{debugPoisonSpans: value, debugPoisonSpansSet: true}
 }
 
-// BufferSize sets the initial decoder buffer capacity in bytes.
-func BufferSize(value int) Options {
+func bufferSize(value int) Options {
 	return Options{bufferSize: value, bufferSizeSet: true}
 }
 
-// CharsetReader returns the configured charset reader, if any.
-func (opts Options) CharsetReader() (func(label string, r io.Reader) (io.Reader, error), bool) {
-	return opts.charsetReader, opts.charsetReaderSet
+// FastValidation returns a preset tuned for validation throughput.
+func FastValidation() Options {
+	return JoinOptions(
+		TrackLineColumn(false),
+		ResolveEntities(false),
+		MaxDepth(256),
+	)
 }
-
-// EntityMap returns the configured custom entity map, if any.
-func (opts Options) EntityMap() (map[string]string, bool) {
-	return opts.entityMap, opts.entityMapSet
-}
-
-// ResolveEntities reports whether entity expansion is configured.
-func (opts Options) ResolveEntities() (bool, bool) {
-	return opts.resolveEntities, opts.resolveEntitiesSet
-}
-
-// EmitComments reports whether comment emission is configured.
-func (opts Options) EmitComments() (bool, bool) {
-	return opts.emitComments, opts.emitCommentsSet
-}
-
-// EmitPI reports whether processing instruction emission is configured.
-func (opts Options) EmitPI() (bool, bool) {
-	return opts.emitPI, opts.emitPISet
-}
-
-// EmitDirectives reports whether directive emission is configured.
-func (opts Options) EmitDirectives() (bool, bool) {
-	return opts.emitDirectives, opts.emitDirectivesSet
-}
-
-// TrackLineColumn reports whether line/column tracking is configured.
-func (opts Options) TrackLineColumn() (bool, bool) {
-	return opts.trackLineColumn, opts.trackLineColumnSet
-}
-
-// CoalesceCharData reports whether char data coalescing is configured.
-func (opts Options) CoalesceCharData() (bool, bool) {
-	return opts.coalesceCharData, opts.coalesceCharDataSet
-}
-
-// MaxDepth reports whether a max depth is configured.
-func (opts Options) MaxDepth() (int, bool) {
-	return opts.maxDepth, opts.maxDepthSet
-}
-
-// MaxAttrs reports whether a max attribute count is configured.
-func (opts Options) MaxAttrs() (int, bool) {
-	return opts.maxAttrs, opts.maxAttrsSet
-}
-
-// MaxTokenSize reports whether a max token size is configured.
-func (opts Options) MaxTokenSize() (int, bool) {
-	return opts.maxTokenSize, opts.maxTokenSizeSet
-}
-
-// MaxQNameInternEntries reports whether a max QName interner size is configured.
-func (opts Options) MaxQNameInternEntries() (int, bool) {
-	return opts.maxQNameInternEntries, opts.maxQNameInternEntriesSet
-}
-
-// Strict reports whether strict XML checks are configured.
-func (opts Options) Strict() (bool, bool) {
-	return opts.strict, opts.strictSet
-}
-
-// DebugPoisonSpans reports whether span poisoning is configured.
-func (opts Options) DebugPoisonSpans() (bool, bool) {
-	return opts.debugPoisonSpans, opts.debugPoisonSpansSet
-}
-
-// BufferSize reports whether a buffer size is configured.
-func (opts Options) BufferSize() (int, bool) {
-	return opts.bufferSize, opts.bufferSizeSet
-}
-
-// FastValidation is a preset tuned for validation throughput.
-var FastValidation = JoinOptions(
-	TrackLineColumn(false),
-	ResolveEntities(false),
-	MaxDepth(256),
-)

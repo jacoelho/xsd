@@ -65,7 +65,7 @@ func TestPeekSkipDirective(t *testing.T) {
 func TestPeekSkips(t *testing.T) {
 	input := `<!--c--><?pi data?><!DOCTYPE root><root/>`
 	dec := NewDecoder(strings.NewReader(input))
-	if got := dec.PeekKind(); got != KindStartElement {
+	if got := dec.peekNextKind(); got != KindStartElement {
 		t.Fatalf("PeekKind = %v, want %v", got, KindStartElement)
 	}
 	var tok Token
@@ -73,7 +73,7 @@ func TestPeekSkips(t *testing.T) {
 	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
 		t.Fatalf("ReadTokenInto start error = %v", err)
 	}
-	if got := dec.PeekKind(); got != KindEndElement {
+	if got := dec.peekNextKind(); got != KindEndElement {
 		t.Fatalf("PeekKind after start = %v, want %v", got, KindEndElement)
 	}
 }
@@ -81,7 +81,7 @@ func TestPeekSkips(t *testing.T) {
 func TestPeekSkipDirectiveQuotes(t *testing.T) {
 	input := `<!DOCTYPE root [<!ENTITY x "y">]><root/>`
 	dec := NewDecoder(strings.NewReader(input))
-	if got := dec.PeekKind(); got != KindStartElement {
+	if got := dec.peekNextKind(); got != KindStartElement {
 		t.Fatalf("PeekKind = %v, want %v", got, KindStartElement)
 	}
 }
@@ -90,8 +90,8 @@ func TestPeekKindSkipsLargeTokens(t *testing.T) {
 	comment := strings.Repeat("x", 64)
 	pi := strings.Repeat("y", 64)
 	input := "<!--" + comment + "--><?pi " + pi + "?><!DOCTYPE root [<!ENTITY x 'y'>]><root/>"
-	dec := NewDecoder(strings.NewReader(input), BufferSize(8))
-	if got := dec.PeekKind(); got != KindStartElement {
+	dec := NewDecoder(strings.NewReader(input), bufferSize(8))
+	if got := dec.peekNextKind(); got != KindStartElement {
 		t.Fatalf("PeekKind = %v, want %v", got, KindStartElement)
 	}
 }
@@ -102,7 +102,7 @@ func TestPeekKindReadError(t *testing.T) {
 		chunks: [][]byte{[]byte("<!--oops")},
 		err:    sentinel,
 	}
-	dec := NewDecoder(reader, BufferSize(4))
+	dec := NewDecoder(reader, bufferSize(4))
 	if _, err := dec.peekKind(); !errors.Is(err, sentinel) {
 		t.Fatalf("peekKind error = %v, want %v", err, sentinel)
 	}
