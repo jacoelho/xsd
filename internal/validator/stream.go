@@ -47,6 +47,10 @@ type streamFrame struct {
 	contentModel       *grammar.CompiledContentModel
 	automaton          *grammar.AutomatonStreamValidator
 	qname              types.QName
+	startLine          int
+	startColumn        int
+	textLine           int
+	textColumn         int
 	textBuf            []byte
 	fieldCaptures      []fieldCapture
 	listStream         listStreamState
@@ -76,6 +80,8 @@ type listStreamState struct {
 type streamRun struct {
 	*validationRun
 	dec             *xsdxml.StreamDecoder
+	currentLine     int
+	currentColumn   int
 	constraintDecls map[types.QName][]*grammar.CompiledElement
 	frames          []streamFrame
 	violations      []errors.Validation
@@ -160,6 +166,8 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 	r.violations = r.violations[:0]
 	r.rootSeen = false
 	r.rootClosed = false
+	r.currentLine = 0
+	r.currentColumn = 0
 	r.identityScopes = r.identityScopes[:0]
 	r.constraintDecls = nil
 
@@ -171,6 +179,7 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 		if err != nil {
 			return r.violations, err
 		}
+		r.setCurrentPos(ev.Line, ev.Column)
 
 		switch ev.Kind {
 		case xsdxml.EventStartElement:
@@ -213,7 +222,7 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 		return r.violations, io.ErrUnexpectedEOF
 	}
 
-	r.violations = append(r.violations, r.checkIDRefs()...)
+	r.addViolations(r.checkIDRefs())
 	return r.violations, nil
 }
 
@@ -358,6 +367,8 @@ func (r *streamRun) handleCharData(ev xsdxml.Event) {
 		return
 	}
 
+	r.captureTextPos(frame, ev)
+
 	if frame.listStream.active {
 		frame.listStream.sawContent = true
 		r.feedListStream(frame, ev.Text)
@@ -367,6 +378,28 @@ func (r *streamRun) handleCharData(ev xsdxml.Event) {
 	if frame.collectStringValue {
 		frame.textBuf = append(frame.textBuf, ev.Text...)
 	}
+}
+
+func (r *streamRun) captureTextPos(frame *streamFrame, ev xsdxml.Event) {
+	if frame == nil || frame.textLine > 0 || frame.textColumn > 0 {
+		return
+	}
+	line, column, ok := firstNonWhitespacePos(ev.Text, ev.Line, ev.Column)
+	if !ok {
+		return
+	}
+	frame.textLine = line
+	frame.textColumn = column
+}
+
+func (frame *streamFrame) textPos() (int, int) {
+	if frame == nil {
+		return 0, 0
+	}
+	if frame.textLine > 0 && frame.textColumn > 0 {
+		return frame.textLine, frame.textColumn
+	}
+	return frame.startLine, frame.startColumn
 }
 
 func (r *streamRun) handleEnd() error {
@@ -412,13 +445,14 @@ func (r *streamRun) handleEnd() error {
 				text = frame.decl.Fixed
 			}
 		}
-		r.violations = append(r.violations, r.checkSimpleValue(text, frame.textType, frame.scopeDepth)...)
-		r.violations = append(r.violations, r.collectIDRefs(text, frame.textType)...)
+		textLine, textColumn := frame.textPos()
+		r.addViolationsAt(r.checkSimpleValue(text, frame.textType, frame.scopeDepth), textLine, textColumn)
+		r.addViolationsAt(r.collectIDRefs(text, frame.textType, textLine, textColumn), textLine, textColumn)
 		if frame.typ != nil && frame.typ.Kind == grammar.TypeKindComplex && len(frame.typ.Facets) > 0 {
-			r.violations = append(r.violations, r.checkComplexTypeFacets(text, frame.typ)...)
+			r.addViolationsAt(r.checkComplexTypeFacets(text, frame.typ), textLine, textColumn)
 		}
 		if frame.decl != nil && frame.decl.HasFixed && hadContent {
-			r.violations = append(r.violations, r.checkFixedValue(text, frame.decl.Fixed, frame.textType)...)
+			r.addViolationsAt(r.checkFixedValue(text, frame.decl.Fixed, frame.textType), textLine, textColumn)
 		}
 		r.propagateText(frame)
 		return nil
@@ -445,7 +479,8 @@ func (r *streamRun) handleEnd() error {
 		if text == "" && !frame.hasChildElements {
 			text = frame.decl.Fixed
 		}
-		r.violations = append(r.violations, r.checkFixedValue(text, frame.decl.Fixed, textTypeForFixedValue(frame.decl))...)
+		textLine, textColumn := frame.textPos()
+		r.addViolationsAt(r.checkFixedValue(text, frame.decl.Fixed, textTypeForFixedValue(frame.decl)), textLine, textColumn)
 	}
 
 	r.propagateText(frame)
@@ -528,9 +563,9 @@ func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processCont
 				"Element '%s' has a fixed value constraint and cannot be nil", ev.Name.Local))
 			return streamFrame{}, true
 		}
-		violations := r.checkAttributesStream(attrs, effectiveType.AllAttributes, effectiveType.AnyAttribute, ev.ScopeDepth)
+		violations := r.checkAttributesStream(attrs, effectiveType.AllAttributes, effectiveType.AnyAttribute, ev.ScopeDepth, ev.Line, ev.Column)
 		if len(violations) > 0 {
-			r.violations = append(r.violations, violations...)
+			r.addViolations(violations)
 			return streamFrame{}, true
 		}
 		frame := r.newFrame(ev, decl, effectiveType, parent)
@@ -550,9 +585,9 @@ func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processCont
 		}
 	}
 
-	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, ev.ScopeDepth)
+	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, ev.ScopeDepth, ev.Line, ev.Column)
 	if len(violations) > 0 {
-		r.violations = append(r.violations, violations...)
+		r.addViolations(violations)
 		return streamFrame{}, true
 	}
 
@@ -562,11 +597,13 @@ func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processCont
 
 func (r *streamRun) newFrame(ev xsdxml.Event, decl *grammar.CompiledElement, compiledType *grammar.CompiledType, parent *streamFrame) streamFrame {
 	frame := streamFrame{
-		id:         uint64(ev.ID),
-		qname:      ev.Name,
-		decl:       decl,
-		typ:        compiledType,
-		scopeDepth: ev.ScopeDepth,
+		id:          uint64(ev.ID),
+		qname:       ev.Name,
+		decl:        decl,
+		typ:         compiledType,
+		scopeDepth:  ev.ScopeDepth,
+		startLine:   ev.Line,
+		startColumn: ev.Column,
 	}
 
 	if compiledType != nil {
@@ -784,8 +821,49 @@ func (r *streamRun) addContentModelError(err error) {
 	r.addViolation(errors.NewValidation(errors.ErrorCode(ve.FullCode()), ve.Message, r.path.String()))
 }
 
+func (r *streamRun) setCurrentPos(line, column int) {
+	if r == nil {
+		return
+	}
+	r.currentLine = line
+	r.currentColumn = column
+}
+
+func (r *streamRun) withPos(v errors.Validation, line, column int) errors.Validation {
+	if v.Line != 0 || v.Column != 0 {
+		return v
+	}
+	if line > 0 && column > 0 {
+		v.Line = line
+		v.Column = column
+	}
+	return v
+}
+
 func (r *streamRun) addViolation(v errors.Validation) {
-	r.violations = append(r.violations, v)
+	r.violations = append(r.violations, r.withPos(v, r.currentLine, r.currentColumn))
+}
+
+func (r *streamRun) addViolationAt(v errors.Validation, line, column int) {
+	r.violations = append(r.violations, r.withPos(v, line, column))
+}
+
+func (r *streamRun) addViolations(violations []errors.Validation) {
+	if len(violations) == 0 {
+		return
+	}
+	for _, violation := range violations {
+		r.violations = append(r.violations, r.withPos(violation, r.currentLine, r.currentColumn))
+	}
+}
+
+func (r *streamRun) addViolationsAt(violations []errors.Validation, line, column int) {
+	if len(violations) == 0 {
+		return
+	}
+	for _, violation := range violations {
+		r.violations = append(r.violations, r.withPos(violation, line, column))
+	}
 }
 
 func (r *streamRun) currentFrame() *streamFrame {
@@ -857,13 +935,15 @@ func (r *streamRun) finishListStream(frame *streamFrame) {
 				value = frame.decl.Fixed
 			}
 		}
-		r.violations = append(r.violations, r.checkSimpleValue(value, frame.textType, frame.scopeDepth)...)
-		r.violations = append(r.violations, r.collectIDRefs(value, frame.textType)...)
+		textLine, textColumn := frame.textPos()
+		r.addViolationsAt(r.checkSimpleValue(value, frame.textType, frame.scopeDepth), textLine, textColumn)
+		r.addViolationsAt(r.collectIDRefs(value, frame.textType, textLine, textColumn), textLine, textColumn)
 		return
 	}
 
 	r.flushListItem(frame)
-	r.applyListStreamingFacets(frame.textType, state)
+	textLine, textColumn := frame.textPos()
+	r.applyListStreamingFacets(frame.textType, state, textLine, textColumn)
 }
 
 func (r *streamRun) flushListItem(frame *streamFrame) {
@@ -910,7 +990,7 @@ func (r *streamRun) processListItemBytes(frame *streamFrame, itemBytes []byte) {
 	itemString := string(itemBytes)
 	valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport)
 	if !valid {
-		r.violations = append(r.violations, violations...)
+		r.addViolations(violations)
 	}
 	if frame.textType.IDTypeName == "IDREFS" {
 		r.trackListIDRefs(itemString, frame.textType)
@@ -927,13 +1007,13 @@ func (r *streamRun) validateListItemBytes(frame *streamFrame, itemBytes []byte, 
 		return false
 	}
 	if err != nil {
-		r.violations = append(r.violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+		r.addViolation(errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 			"list item[%d]: %s", index, err.Error()))
 	}
 	return true
 }
 
-func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType, state *listStreamState) {
+func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType, state *listStreamState, line, column int) {
 	if compiledType == nil || state == nil {
 		return
 	}
@@ -977,7 +1057,7 @@ func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType,
 			}
 		}
 		if err != nil {
-			r.violations = append(r.violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+			r.addViolationAt(errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()), line, column)
 		}
 	}
 }
@@ -986,7 +1066,7 @@ func (r *streamRun) trackListIDRefs(item string, compiledType *grammar.CompiledT
 	if compiledType == nil || compiledType.IDTypeName != "IDREFS" {
 		return
 	}
-	r.trackIDREF(item, r.path.String())
+	r.trackIDREF(item, r.path.String(), r.currentLine, r.currentColumn)
 }
 
 func isIgnorableOutsideRoot(data []byte) bool {
@@ -999,4 +1079,28 @@ func isIgnorableOutsideRoot(data []byte) bool {
 		}
 	}
 	return true
+}
+
+func firstNonWhitespacePos(data []byte, line, column int) (int, int, bool) {
+	if line <= 0 || column <= 0 {
+		return 0, 0, false
+	}
+	for i := 0; i < len(data); i++ {
+		switch data[i] {
+		case ' ', '\t':
+			column++
+		case '\n':
+			line++
+			column = 1
+		case '\r':
+			line++
+			column = 1
+			if i+1 < len(data) && data[i+1] == '\n' {
+				i++
+			}
+		default:
+			return line, column, true
+		}
+	}
+	return 0, 0, false
 }

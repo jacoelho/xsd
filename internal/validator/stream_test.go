@@ -126,6 +126,48 @@ func TestStreamValidatorNilledElement(t *testing.T) {
 	}
 }
 
+func TestStreamValidatorReportsLineColumn(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="age" type="xs:int"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	docXML := `<root xmlns="urn:test">
+  <age>30a</age>
+</root>`
+
+	violations, err := validateStreamDoc(t, schemaXML, docXML)
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if len(violations) == 0 {
+		t.Fatalf("expected violations")
+	}
+
+	var got *errors.Validation
+	for i := range violations {
+		if violations[i].Code == string(errors.ErrDatatypeInvalid) {
+			got = &violations[i]
+			break
+		}
+	}
+	if got == nil {
+		t.Fatalf("expected datatype violation")
+	}
+	if got.Line != 2 || got.Column != 8 {
+		t.Fatalf("line/column = %d/%d, want 2/8", got.Line, got.Column)
+	}
+}
+
 func validateStreamDoc(t *testing.T, schemaXML, docXML string) ([]errors.Validation, error) {
 	t.Helper()
 

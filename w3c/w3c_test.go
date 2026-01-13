@@ -1225,6 +1225,13 @@ func (r *W3CTestRunner) formatViolations(violations []xsdErrors.Validation) stri
 		if v.Path != "" {
 			b.WriteString(fmt.Sprintf(" at %s", v.Path))
 		}
+		if v.Line > 0 && v.Column > 0 {
+			if v.Path == "" {
+				b.WriteString(fmt.Sprintf(" at line %d, column %d", v.Line, v.Column))
+			} else {
+				b.WriteString(fmt.Sprintf(" (line %d, column %d)", v.Line, v.Column))
+			}
+		}
 		if len(v.Expected) > 0 {
 			b.WriteString(fmt.Sprintf(" (expected: %s)", strings.Join(v.Expected, ", ")))
 		}
