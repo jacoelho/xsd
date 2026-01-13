@@ -44,7 +44,7 @@ const (
 
 var charDataByteClassLUT = func() [256]charDataByteClass {
 	var lut [256]charDataByteClass
-	for i := 0; i < len(lut); i++ {
+	for i := range len(lut) {
 		b := byte(i)
 		switch {
 		case b >= utf8.RuneSelf:
@@ -134,14 +134,8 @@ func (d *Decoder) snippet(pos int) []byte {
 	if pos < 0 || pos > len(d.buf.data) {
 		return nil
 	}
-	start := pos - window
-	if start < 0 {
-		start = 0
-	}
-	end := pos + window
-	if end > len(d.buf.data) {
-		end = len(d.buf.data)
-	}
+	start := max(pos-window, 0)
+	end := min(pos+window, len(d.buf.data))
 	if start >= end {
 		return nil
 	}
@@ -846,7 +840,7 @@ func (d *Decoder) scanAttrValue(quote byte, allowCompact bool) (span, span, bool
 		}
 		data := d.buf.data[d.pos:]
 		termIdx := -1
-		for i := 0; i < len(data); i++ {
+		for i := range data {
 			b := data[i]
 			if b == '<' || b == quote {
 				termIdx = i
@@ -1689,7 +1683,7 @@ func (d *Decoder) advance(n int) {
 	}
 	if d.opts.trackLineColumn {
 		data := d.buf.data[d.pos : d.pos+n]
-		for i := 0; i < len(data); i++ {
+		for i := range data {
 			b := data[i]
 			if b == '\n' || b == '\r' {
 				d.advanceWithNewlines(data)

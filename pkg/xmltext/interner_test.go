@@ -16,7 +16,7 @@ func TestInterningHelpers(t *testing.T) {
 		t.Fatalf("intern hits = 0, want > 0")
 	}
 
-	for i := 0; i < nameInternerRecentSize+1; i++ {
+	for i := range nameInternerRecentSize + 1 {
 		name := []byte{byte('a' + i)}
 		_ = interner.intern(name)
 	}
