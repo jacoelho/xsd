@@ -74,7 +74,7 @@ func (a attributeIndex) Value(ns, local string) (string, bool) {
 	return "", false
 }
 
-func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar.CompiledAttribute, anyAttr *types.AnyAttribute, scopeDepth int) []errors.Validation {
+func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar.CompiledAttribute, anyAttr *types.AnyAttribute, scopeDepth, line, column int) []errors.Validation {
 	var violations []errors.Validation
 
 	declared := newDeclaredAttrSet(len(decls))
@@ -97,7 +97,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 			if attr.Type != nil {
 				violations = append(violations, r.checkSimpleValue(value, attr.Type, scopeDepth)...)
 				if value != "" {
-					violations = append(violations, r.collectIDRefs(value, attr.Type)...)
+					violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
 				}
 				if attr.Type.IDTypeName == "ID" {
 					idCount++
@@ -121,7 +121,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 			}
 			if attr.Type != nil {
 				violations = append(violations, r.checkSimpleValue(value, attr.Type, scopeDepth)...)
-				violations = append(violations, r.collectIDRefs(value, attr.Type)...)
+				violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
 				if attr.Type.IDTypeName == "ID" {
 					idCount++
 				}

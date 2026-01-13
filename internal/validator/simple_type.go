@@ -93,7 +93,7 @@ func unresolvedSimpleType(typ types.Type) (types.QName, bool) {
 
 // collectIDRefs tracks ID/IDREF values for later validation and returns violations for duplicate IDs.
 // Uses the precomputed IDTypeName field for O(1) lookup instead of traversing the type hierarchy.
-func (r *validationRun) collectIDRefs(value string, ct *grammar.CompiledType) []errors.Validation {
+func (r *validationRun) collectIDRefs(value string, ct *grammar.CompiledType, line, column int) []errors.Validation {
 	if value == "" || ct == nil {
 		return nil
 	}
@@ -105,44 +105,59 @@ func (r *validationRun) collectIDRefs(value string, ct *grammar.CompiledType) []
 
 	switch ct.IDTypeName {
 	case "ID":
-		return r.trackID(normalized, r.path.String())
+		return r.trackID(normalized, r.path.String(), line, column)
 	case "IDREF":
-		r.trackIDREF(normalized, r.path.String())
+		r.trackIDREF(normalized, r.path.String(), line, column)
 	case "IDREFS":
-		r.trackIDREFS(normalized, r.path.String())
+		r.trackIDREFS(normalized, r.path.String(), line, column)
 	}
 	return nil
 }
 
 // trackID records an ID value and checks for duplicates.
-func (r *validationRun) trackID(id, path string) []errors.Validation {
+func (r *validationRun) trackID(id, path string, line, column int) []errors.Validation {
 	if id == "" {
 		return nil
 	}
 	if r.ids[id] {
-		return []errors.Validation{errors.NewValidationf(errors.ErrDuplicateID, path,
-			"Duplicate ID value '%s'", id)}
+		violation := errors.NewValidationf(errors.ErrDuplicateID, path,
+			"Duplicate ID value '%s'", id)
+		if line > 0 && column > 0 {
+			violation.Line = line
+			violation.Column = column
+		}
+		return []errors.Validation{violation}
 	}
 	r.ids[strings.Clone(id)] = true
 	return nil
 }
 
 // trackIDREF records an IDREF value for later schemacheck.
-func (r *validationRun) trackIDREF(idref, path string) {
+func (r *validationRun) trackIDREF(idref, path string, line, column int) {
 	if idref == "" {
 		return
 	}
-	r.idrefs = append(r.idrefs, idrefEntry{ref: strings.Clone(idref), path: path})
+	r.idrefs = append(r.idrefs, idrefEntry{
+		ref:    strings.Clone(idref),
+		path:   path,
+		line:   line,
+		column: column,
+	})
 }
 
 // trackIDREFS records IDREFS values for later schemacheck.
-func (r *validationRun) trackIDREFS(idrefs, path string) {
+func (r *validationRun) trackIDREFS(idrefs, path string, line, column int) {
 	if idrefs == "" {
 		return
 	}
 	splitWhitespaceSeq(idrefs, func(ref string) bool {
 		if ref != "" {
-			r.idrefs = append(r.idrefs, idrefEntry{ref: strings.Clone(ref), path: path})
+			r.idrefs = append(r.idrefs, idrefEntry{
+				ref:    strings.Clone(ref),
+				path:   path,
+				line:   line,
+				column: column,
+			})
 		}
 		return true
 	})
@@ -176,8 +191,13 @@ func (r *validationRun) checkIDRefs() []errors.Validation {
 	var violations []errors.Validation
 	for _, entry := range r.idrefs {
 		if !r.ids[entry.ref] {
-			violations = append(violations, errors.NewValidationf(errors.ErrIDRefNotFound, entry.path,
-				"IDREF '%s' does not reference a valid ID", entry.ref))
+			violation := errors.NewValidationf(errors.ErrIDRefNotFound, entry.path,
+				"IDREF '%s' does not reference a valid ID", entry.ref)
+			if entry.line > 0 && entry.column > 0 {
+				violation.Line = entry.line
+				violation.Column = entry.column
+			}
+			violations = append(violations, violation)
 		}
 	}
 	return violations
