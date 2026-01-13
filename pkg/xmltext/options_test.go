@@ -33,6 +33,8 @@ func TestJoinOptionsOverrides(t *testing.T) {
 		ResolveEntities(true),
 		MaxDepth(1),
 		MaxDepth(2),
+		Strict(false),
+		Strict(true),
 		WithEntityMap(map[string]string{"foo": "bar"}),
 		WithEntityMap(nil),
 		WithCharsetReader(reader),
@@ -48,5 +50,8 @@ func TestJoinOptionsOverrides(t *testing.T) {
 	}
 	if value, ok := opts.CharsetReader(); !ok || value == nil {
 		t.Fatalf("CharsetReader ok = %v, want true", ok)
+	}
+	if value, ok := opts.Strict(); !ok || !value {
+		t.Fatalf("Strict = %v, want true", value)
 	}
 }

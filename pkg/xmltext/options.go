@@ -17,6 +17,7 @@ type Options struct {
 	maxAttrs              int
 	maxTokenSize          int
 	maxQNameInternEntries int
+	strict                bool
 	debugPoisonSpans      bool
 	bufferSize            int
 
@@ -32,6 +33,7 @@ type Options struct {
 	maxAttrsSet              bool
 	maxTokenSizeSet          bool
 	maxQNameInternEntriesSet bool
+	strictSet                bool
 	debugPoisonSpansSet      bool
 	bufferSizeSet            bool
 }
@@ -94,6 +96,10 @@ func (opts *Options) merge(src Options) {
 	if src.maxQNameInternEntriesSet {
 		opts.maxQNameInternEntries = src.maxQNameInternEntries
 		opts.maxQNameInternEntriesSet = true
+	}
+	if src.strictSet {
+		opts.strict = src.strict
+		opts.strictSet = true
 	}
 	if src.debugPoisonSpansSet {
 		opts.debugPoisonSpans = src.debugPoisonSpans
@@ -163,6 +169,7 @@ func MaxAttrs(value int) Options {
 }
 
 // MaxTokenSize limits the maximum size of a single token in bytes.
+// Tokens exactly MaxTokenSize bytes long are allowed.
 func MaxTokenSize(value int) Options {
 	return Options{maxTokenSize: value, maxTokenSizeSet: true}
 }
@@ -170,6 +177,11 @@ func MaxTokenSize(value int) Options {
 // MaxQNameInternEntries limits the QName interner cache size.
 func MaxQNameInternEntries(value int) Options {
 	return Options{maxQNameInternEntries: value, maxQNameInternEntriesSet: true}
+}
+
+// Strict enables stricter XML well-formedness checks.
+func Strict(value bool) Options {
+	return Options{strict: value, strictSet: true}
 }
 
 // DebugPoisonSpans invalidates spans after the next decoder call.
@@ -240,6 +252,11 @@ func (opts Options) MaxTokenSize() (int, bool) {
 // MaxQNameInternEntries reports whether a max QName interner size is configured.
 func (opts Options) MaxQNameInternEntries() (int, bool) {
 	return opts.maxQNameInternEntries, opts.maxQNameInternEntriesSet
+}
+
+// Strict reports whether strict XML checks are configured.
+func (opts Options) Strict() (bool, bool) {
+	return opts.strict, opts.strictSet
 }
 
 // DebugPoisonSpans reports whether span poisoning is configured.

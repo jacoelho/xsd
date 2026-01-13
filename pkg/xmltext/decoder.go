@@ -66,6 +66,7 @@ type decoderOptions struct {
 	maxQNameInternEntries int
 	maxTokenSize          int
 	maxAttrs              int
+	strict                bool
 	emitComments          bool
 	coalesceCharData      bool
 	trackLineColumn       bool
@@ -723,6 +724,9 @@ func resolveOptions(opts Options) decoderOptions {
 	}
 	if value, ok := opts.MaxQNameInternEntries(); ok {
 		resolved.maxQNameInternEntries = normalizeLimit(value)
+	}
+	if value, ok := opts.Strict(); ok {
+		resolved.strict = value
 	}
 	if value, ok := opts.DebugPoisonSpans(); ok {
 		resolved.debugPoisonSpans = value
