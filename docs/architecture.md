@@ -23,155 +23,102 @@ validation deterministic and goroutine-safe.
 
 Schema loading and validation follows five distinct phases:
 
-```
-                           SCHEMA LOADING
-+------------------------------------------------------------------------+
-|                                                                        |
-|  Phase 1: PARSE          Phase 2: RESOLVE        Phase 3: VALIDATE     |
-|  ----------------        ----------------        ----------------     |
-|                                                                        |
-|  - Parse XSD XML         - Resolve QName refs    - Validate structure  |
-|  - Create components     - Detect cycles ONCE    - Check UPA, facets   |
-|  - Record QName refs     - Populate Resolved*    - Enforce consistency |
-|  - No type lookups       - fields                - No compilation yet  |
-|                                                                        |
-|  Phase 4: COMPILE                                                     |
-|  ----------------                                                     |
-|  - Build DFAs                                                         |
-|  - Pre-compute derivations                                            |
-|  - Expand groups                                                      |
-|  - Merge attributes                                                   |
-|                                                                        |
-+------------------------------------------------------------------------+
-
-                             VALIDATION
-+------------------------------------------------------------------------+
-|                                                                        |
-|  Phase 5: VALIDATE                                                     |
-|  -----------------                                                     |
-|                                                                        |
-|  - Stream XML tokens (no DOM)                                          |
-|  - Traverse pre-resolved structures                                    |
-|  - NO cycle detection needed                                           |
-|  - NO visited maps                                                     |
-|  - NO QName lookups                                                    |
-|  - O(n) content model validation via DFA                               |
-|                                                                        |
-+------------------------------------------------------------------------+
+```mermaid
+flowchart TD
+  subgraph SchemaLoading["Schema Loading"]
+    direction LR
+    P1["Phase 1: Parse<br/>- Parse XSD XML<br/>- Create components<br/>- Record QName refs<br/>- No type lookups"]
+    P2["Phase 2: Resolve<br/>- Resolve QName refs<br/>- Detect cycles ONCE<br/>- Populate Resolved* fields"]
+    P3["Phase 3: Validate<br/>- Validate structure<br/>- Check UPA, facets<br/>- Enforce consistency<br/>- No compilation yet"]
+    P4["Phase 4: Compile<br/>- Build DFAs<br/>- Pre-compute derivations<br/>- Expand groups<br/>- Merge attributes"]
+    P1 --> P2 --> P3 --> P4
+  end
+  subgraph Validation
+    P5["Phase 5: Validate<br/>- Stream XML tokens (no DOM)<br/>- Traverse pre-resolved structures<br/>- NO cycle detection needed<br/>- NO visited maps<br/>- NO QName lookups<br/>- O(n) content model validation via DFA"]
+  end
+  P4 --> P5
 ```
 
 
 ## Package Structure
 
-```
-xsd/
-+-- xsd.go                    Public API: Load, Validate, Schema
-+-- errors/
-|   +-- validation.go         Validation type and W3C error codes
-+-- internal/
-    +-- loader/               Include/import resolution and orchestration
-    |   +-- loader.go         Parse with import/include resolution
-    |   +-- schema_validator.go  Schema validation orchestration
-    |   +-- group_resolution.go  Group resolution helpers
-    |
-    +-- parser/               Phase 1: XSD parsing
-    |   +-- parser.go         Schema parsing entry point
-    |   +-- element.go        Element declaration parsing
-    |   +-- attribute.go      Attribute declaration parsing
-    |   +-- simple.go         Simple type parsing
-    |   +-- complex.go        Complex type parsing
-    |
-    +-- resolver/             Phase 2: QName resolution
-    |   +-- resolver.go       Reference resolution entry point
-    |   +-- type_lookup.go    Type lookup helpers
-    |   +-- reference*.go     Reference resolution routines
-    |
-    +-- schemacheck/          Phase 3: Schema structure validation
-    |   +-- schema_validator.go  Validation entry point
-    |   +-- element_*.go      Element checks
-    |   +-- complex_types.go  Complex type checks
-    |   +-- simple_types.go   Simple type checks
-    |   +-- facets.go         Facet validation
-    |
-    +-- compiler/             Phase 4: Grammar compilation
-    |   +-- compiler.go       Compilation entry point
-    |   +-- compile_*.go      Grammar construction
-    |
-    +-- types/                Schema component definitions and facets
-    |   +-- type.go           Type interface
-    |   +-- qname.go          Qualified names
-    |   +-- element.go        ElementDecl
-    |   +-- attribute.go      AttributeDecl, AttributeGroup
-    |   +-- simple_type.go    SimpleType implementation
-    |   +-- complex_type.go   ComplexType implementation
-    |   +-- facet_*.go        Facet implementations
-    |   +-- builtin.go        Built-in XSD types registry
-    |   +-- builtin_validators.go
-    |
-    +-- grammar/              Compiled schema (output of phase 4)
-    |   +-- grammar.go        CompiledSchema type
-    |   +-- compiled_type.go  Pre-resolved type definitions
-    |   +-- compiled_element.go
-    |   +-- compiled_attribute.go
-    |   +-- compiled_content.go
-    |   +-- automaton.go      DFA-based content model validation
-    |   +-- automaton_build.go    Glushkov construction
-    |   +-- automaton_validate.go O(n) validation
-    |
-    +-- validator/            Phase 5: Validation engine
-    |   +-- validator.go      Main validator
-    |   +-- stream.go         Streaming validation entry
-    |   +-- element.go        Element validation
-    |   +-- attribute.go      Attribute validation
-    |   +-- content.go        Content model validation
-    |   +-- simple_type.go    Simple type validation
-    |   +-- identity.go       Identity constraints
-    |
-    +-- xml/                  Minimal XML abstraction
-        +-- dom.go            Document, Element, Attr interfaces
-        +-- parse.go          XML parsing via xmltext-backed decoder
-        +-- namespace.go      Namespace handling
-        +-- stream.go         Streaming decoder
+```mermaid
+flowchart TD
+  root["xsd/"]
+  root --> xsdgo["xsd.go<br/>Public API: Load, Validate, Schema"]
+  root --> errorsdir["errors/"]
+  errorsdir --> validationgo["validation.go<br/>Validation type and W3C error codes"]
+  root --> internaldir["internal/"]
+  internaldir --> loaderdir["loader/<br/>Include/import resolution and orchestration"]
+  loaderdir --> loadergo["loader.go<br/>Parse with import/include resolution"]
+  loaderdir --> schema_validator_go["schema_validator.go<br/>Schema validation orchestration"]
+  loaderdir --> group_resolution_go["group_resolution.go<br/>Group resolution helpers"]
+  internaldir --> parserdir["parser/<br/>Phase 1: XSD parsing"]
+  parserdir --> parser_go["parser.go<br/>Schema parsing entry point"]
+  parserdir --> element_go["element.go<br/>Element declaration parsing"]
+  parserdir --> attribute_go["attribute.go<br/>Attribute declaration parsing"]
+  parserdir --> simple_go["simple.go<br/>Simple type parsing"]
+  parserdir --> complex_go["complex.go<br/>Complex type parsing"]
+  internaldir --> resolverdir["resolver/<br/>Phase 2: QName resolution"]
+  resolverdir --> resolver_go["resolver.go<br/>Reference resolution entry point"]
+  resolverdir --> type_lookup_go["type_lookup.go<br/>Type lookup helpers"]
+  resolverdir --> reference_go["reference*.go<br/>Reference resolution routines"]
+  internaldir --> schemacheckdir["schemacheck/<br/>Phase 3: Schema structure validation"]
+  schemacheckdir --> schemacheck_validator_go["schema_validator.go<br/>Validation entry point"]
+  schemacheckdir --> element_checks_go["element_*.go<br/>Element checks"]
+  schemacheckdir --> complex_types_go["complex_types.go<br/>Complex type checks"]
+  schemacheckdir --> simple_types_go["simple_types.go<br/>Simple type checks"]
+  schemacheckdir --> facets_go["facets.go<br/>Facet validation"]
+  internaldir --> compilerdir["compiler/<br/>Phase 4: Grammar compilation"]
+  compilerdir --> compiler_go["compiler.go<br/>Compilation entry point"]
+  compilerdir --> compile_go["compile_*.go<br/>Grammar construction"]
+  internaldir --> typesdir["types/<br/>Schema component definitions and facets"]
+  typesdir --> type_go["type.go<br/>Type interface"]
+  typesdir --> qname_go["qname.go<br/>Qualified names"]
+  typesdir --> element_decl_go["element.go<br/>ElementDecl"]
+  typesdir --> attribute_decl_go["attribute.go<br/>AttributeDecl, AttributeGroup"]
+  typesdir --> simple_type_go["simple_type.go<br/>SimpleType implementation"]
+  typesdir --> complex_type_go["complex_type.go<br/>ComplexType implementation"]
+  typesdir --> facet_go["facet_*.go<br/>Facet implementations"]
+  typesdir --> builtin_go["builtin.go<br/>Built-in XSD types registry"]
+  typesdir --> builtin_validators_go["builtin_validators.go"]
+  internaldir --> grammardir["grammar/<br/>Compiled schema (output of phase 4)"]
+  grammardir --> grammar_go["grammar.go<br/>CompiledSchema type"]
+  grammardir --> compiled_type_go["compiled_type.go<br/>Pre-resolved type definitions"]
+  grammardir --> compiled_element_go["compiled_element.go"]
+  grammardir --> compiled_attribute_go["compiled_attribute.go"]
+  grammardir --> compiled_content_go["compiled_content.go"]
+  grammardir --> automaton_go["automaton.go<br/>DFA-based content model validation"]
+  grammardir --> automaton_build_go["automaton_build.go<br/>Glushkov construction"]
+  grammardir --> automaton_validate_go["automaton_validate.go<br/>O(n) validation"]
+  internaldir --> validatordir["validator/<br/>Phase 5: Validation engine"]
+  validatordir --> validator_go["validator.go<br/>Main validator"]
+  validatordir --> stream_go["stream.go<br/>Streaming validation entry"]
+  validatordir --> element_val_go["element.go<br/>Element validation"]
+  validatordir --> attribute_val_go["attribute.go<br/>Attribute validation"]
+  validatordir --> content_val_go["content.go<br/>Content model validation"]
+  validatordir --> simple_val_go["simple_type.go<br/>Simple type validation"]
+  validatordir --> identity_go["identity.go<br/>Identity constraints"]
+  internaldir --> xmldir["xml/<br/>Minimal XML abstraction"]
+  xmldir --> dom_go["dom.go<br/>Document, Element, Attr interfaces"]
+  xmldir --> parse_go["parse.go<br/>XML parsing via xmltext-backed decoder"]
+  xmldir --> namespace_go["namespace.go<br/>Namespace handling"]
+  xmldir --> stream_xml_go["stream.go<br/>Streaming decoder"]
 ```
 
 
 ## Component Relationships
 
-```
-                              PUBLIC API
-                                  |
-                                  v
-+------------------------------------------------------------------+
-|                            xsd.Load()                             |
-|                                |                                  |
-|                                v                                  |
-|                        loader.LoadCompiled()                       |
-|                                |                                  |
-|                                v                                  |
-| parser.Parse -> resolver.Resolve -> schemacheck.ValidateStructure |
-|                                |                                  |
-|                                v                                  |
-|                       compiler.Compile()                          |
-|                                |                                  |
-|                                v                                  |
-|                      grammar.CompiledSchema                       |
-+------------------------------------------------------------------+
-
-                              VALIDATION
-                                  |
-                                  v
-+------------------------------------------------------------------+
-|                         xsd.Validate()                            |
-|                                |                                  |
-|   +----------------------------+----------------------------+     |
-|   |                            |                            |     |
-|   v                            v                            v     |
-| validator/              grammar/                xml/               |
-| stream.go               CompiledType           StreamDecoder      |
-| attribute.go            CompiledElement        Event              |
-| content.go              grammar/               Attr               |
-| simple_type.go          Automaton                                 |
-+------------------------------------------------------------------+
+```mermaid
+flowchart TD
+  subgraph PublicAPI["Public API"]
+    Load["xsd.Load()"] --> LoadCompiled["loader.LoadCompiled()"] --> Parse["parser.Parse()"] --> Resolve["resolver.Resolve()"] --> SchemaCheck["schemacheck.ValidateStructure()"] --> Compile["compiler.Compile()"] --> Compiled["grammar.CompiledSchema"]
+  end
+  subgraph Validation
+    Validate["xsd.Validate()"] --> ValidatorPkg["validator/<br/>stream.go<br/>attribute.go<br/>content.go<br/>simple_type.go"]
+    Validate --> GrammarPkg["grammar/<br/>CompiledType<br/>CompiledElement<br/>Automaton"]
+    Validate --> XMLPkg["xml/<br/>StreamDecoder<br/>Event<br/>Attr"]
+  end
 ```
 
 
@@ -198,10 +145,10 @@ Import and include resolution happens during parsing to load all schema document
 Missing include/import files are ignored when the filesystem returns fs.ErrNotExist,
 and imports without schemaLocation are skipped.
 
-```
-Main Schema -----> Imports  (different namespace, skipped if missing)
-     |
-     +-----------> Includes (same namespace, skipped if missing)
+```mermaid
+flowchart TD
+  Main["Main Schema"] --> Imports["Imports<br/>(different namespace, skipped if missing)"]
+  Main --> Includes["Includes<br/>(same namespace, skipped if missing)"]
 ```
 
 
@@ -221,20 +168,9 @@ type SimpleType struct {
 
 Resolution order matters due to dependencies:
 
-```
-1. Simple types (depend only on built-ins or other simple types)
-       |
-       v
-2. Complex types (may depend on simple types)
-       |
-       v
-3. Groups (reference types and other groups)
-       |
-       v
-4. Elements (reference types and groups)
-       |
-       v
-5. Attribute groups
+```mermaid
+flowchart TD
+  Simple["1. Simple types<br/>(depend only on built-ins or other simple types)"] --> Complex["2. Complex types<br/>(may depend on simple types)"] --> Groups["3. Groups<br/>(reference types and other groups)"] --> Elements["4. Elements<br/>(reference types and groups)"] --> AttrGroups["5. Attribute groups"]
 ```
 
 Cycle detection happens once during resolution. After phase 2 completes,
@@ -280,37 +216,16 @@ type CompiledType struct {
 
 Validation streams tokens and validates incrementally with no DOM build.
 
-```
-Input XML Reader
-        |
-        v
-+---------------------+
-| StreamDecoder.Next  | xml/stream.go
-| (start/end/char)    |
-+---------------------+
-        |
-        v
-+---------------------+
-| Start element       | Lookup decl, attrs, content model
-| Push frame          | Track identity scopes
-+---------------------+
-        |
-        +-----> Validate attributes (pre-merged list)
-        |
-        +-----> Validate content model (DFA)
-        |
-        +-----> Collect text/ID/IDREFs
-        |
-        v
-+---------------------+
-| End element         | Close content model, finalize scopes
-| Pop frame           | Apply identity constraints
-+---------------------+
-        |
-        v
-+---------------------+
-| Check IDREFs        | Post-stream phase
-+---------------------+
+```mermaid
+flowchart TD
+  Reader["Input XML Reader"] --> Next["StreamDecoder.Next()<br/>xml/stream.go<br/>(start/end/char)"] --> Start["Start element<br/>Lookup decl, attrs, content model<br/>Push frame<br/>Track identity scopes"]
+  Start --> Attrs["Validate attributes (pre-merged list)"]
+  Start --> Content["Validate content model (DFA)"]
+  Start --> Collect["Collect text/ID/IDREFs"]
+  Attrs --> End["End element<br/>Close content model, finalize scopes<br/>Pop frame<br/>Apply identity constraints"]
+  Content --> End
+  Collect --> End
+  End --> Check["Check IDREFs<br/>Post-stream phase"]
 ```
 
 
@@ -319,10 +234,10 @@ Input XML Reader
 Content models are compiled to Deterministic Finite Automata using
 Glushkov construction followed by subset construction.
 
-```
-Content Model --> Syntax Tree --> Position NFA --> DFA
-                                                    |
-                                        Transition table for O(n) validation
+```mermaid
+flowchart LR
+  Content["Content Model"] --> Syntax["Syntax Tree"] --> NFA["Position NFA"] --> DFA["DFA"]
+  DFA --> Table["Transition table for O(n) validation"]
 ```
 
 ### Glushkov Construction
