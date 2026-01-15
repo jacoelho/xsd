@@ -278,8 +278,8 @@ func TestCircularAttributeGroupReference(t *testing.T) {
 	}
 
 	// resolve schema - this should detect the circular reference
-	resolver := resolver.NewResolver(schema)
-	err = resolver.Resolve()
+	res := resolver.NewResolver(schema)
+	err = res.Resolve()
 
 	// circular attribute group references should be detected as an error
 	if err == nil {

@@ -99,7 +99,7 @@ func collectIdentityConstraintsFromParticlesWithVisited(particles []types.Partic
 // Per XSD spec 3.11.2: "Constraint definition identities must be unique within an XML Schema"
 // Constraints are identified by (name, target namespace).
 func validateIdentityConstraintUniqueness(schema *parser.Schema) []error {
-	var errors []error
+	var errs []error
 
 	// identity constraints are identified by (name, targetNamespace) per XSD spec.
 	// the targetNamespace comes from the enclosing <xs:schema> element, stored in
@@ -124,17 +124,17 @@ func validateIdentityConstraintUniqueness(schema *parser.Schema) []error {
 	// check for duplicates (more than one constraint with same identity).
 	for key, constraints := range constraintsByKey {
 		if len(constraints) > 1 {
-			errors = append(errors, fmt.Errorf("identity constraint name '%s' is not unique within target namespace '%s' (%d definitions)",
+			errs = append(errs, fmt.Errorf("identity constraint name '%s' is not unique within target namespace '%s' (%d definitions)",
 				key.name, key.namespace, len(constraints)))
 		}
 	}
 
-	return errors
+	return errs
 }
 
 // validateKeyrefConstraints validates keyref constraints against all known constraints.
-func validateKeyrefConstraints(contextQName types.QName, constraints []*types.IdentityConstraint, allConstraints []*types.IdentityConstraint) []error {
-	var errors []error
+func validateKeyrefConstraints(contextQName types.QName, constraints, allConstraints []*types.IdentityConstraint) []error {
+	var errs []error
 
 	for _, constraint := range constraints {
 		if constraint.Type != types.KeyRefConstraint {
@@ -143,12 +143,12 @@ func validateKeyrefConstraints(contextQName types.QName, constraints []*types.Id
 
 		refQName := constraint.ReferQName
 		if refQName.IsZero() {
-			errors = append(errors, fmt.Errorf("element %s: keyref constraint '%s' is missing refer attribute",
+			errs = append(errs, fmt.Errorf("element %s: keyref constraint '%s' is missing refer attribute",
 				contextQName, constraint.Name))
 			continue
 		}
 		if refQName.Namespace != constraint.TargetNamespace {
-			errors = append(errors, fmt.Errorf("element %s: keyref constraint '%s' refers to '%s' in namespace '%s', which does not match target namespace '%s'",
+			errs = append(errs, fmt.Errorf("element %s: keyref constraint '%s' refers to '%s' in namespace '%s', which does not match target namespace '%s'",
 				contextQName, constraint.Name, refQName.Local, refQName.Namespace, constraint.TargetNamespace))
 			continue
 		}
@@ -164,13 +164,13 @@ func validateKeyrefConstraints(contextQName types.QName, constraints []*types.Id
 		}
 
 		if referencedConstraint == nil {
-			errors = append(errors, fmt.Errorf("element %s: keyref constraint '%s' references non-existent key/unique constraint '%s'",
+			errs = append(errs, fmt.Errorf("element %s: keyref constraint '%s' references non-existent key/unique constraint '%s'",
 				contextQName, constraint.Name, refQName.String()))
 			continue
 		}
 
 		if len(constraint.Fields) != len(referencedConstraint.Fields) {
-			errors = append(errors, fmt.Errorf("element %s: keyref constraint '%s' has %d fields but referenced constraint '%s' has %d fields",
+			errs = append(errs, fmt.Errorf("element %s: keyref constraint '%s' has %d fields but referenced constraint '%s' has %d fields",
 				contextQName, constraint.Name, len(constraint.Fields), refQName.String(), len(referencedConstraint.Fields)))
 			continue
 		}
@@ -182,7 +182,7 @@ func validateKeyrefConstraints(contextQName types.QName, constraints []*types.Id
 
 			if keyrefField.ResolvedType != nil && refField.ResolvedType != nil {
 				if !areFieldTypesCompatible(keyrefField.ResolvedType, refField.ResolvedType) {
-					errors = append(errors, fmt.Errorf("element %s: keyref constraint '%s' field %d type '%s' is not compatible with referenced constraint '%s' field %d type '%s'",
+					errs = append(errs, fmt.Errorf("element %s: keyref constraint '%s' field %d type '%s' is not compatible with referenced constraint '%s' field %d type '%s'",
 						contextQName, constraint.Name, i+1, keyrefField.ResolvedType.Name(),
 						refQName.String(), i+1, refField.ResolvedType.Name()))
 				}
@@ -190,7 +190,7 @@ func validateKeyrefConstraints(contextQName types.QName, constraints []*types.Id
 		}
 	}
 
-	return errors
+	return errs
 }
 
 // validateIdentityConstraintResolution validates that identity constraint selector and fields can be resolved.

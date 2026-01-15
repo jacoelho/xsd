@@ -435,14 +435,19 @@ func validateFacetInheritanceWithVisited(derivedFacets []types.Facet, baseType t
 
 	// get base type facets if it's a user-defined simple type with restrictions
 	var baseFacets []types.Facet
-	if baseST, ok := baseType.(*types.SimpleType); ok && baseST.Restriction != nil {
+	switch bt := baseType.(type) {
+	case *types.SimpleType:
+		if bt.Restriction == nil {
+			return nil
+		}
 		// convert []interface{} to []types.Facet
-		baseFacets = make([]types.Facet, 0, len(baseST.Restriction.Facets))
-		for _, f := range baseST.Restriction.Facets {
-			if facet, ok := f.(types.Facet); ok {
+		baseFacets = make([]types.Facet, 0, len(bt.Restriction.Facets))
+		for _, f := range bt.Restriction.Facets {
+			switch facet := f.(type) {
+			case types.Facet:
 				baseFacets = append(baseFacets, facet)
-			} else if df, ok := f.(*types.DeferredFacet); ok {
-				resolvedFacet, err := convertDeferredFacet(df, baseST.BaseType())
+			case *types.DeferredFacet:
+				resolvedFacet, err := convertDeferredFacet(facet, bt.BaseType())
 				if err != nil {
 					continue
 				}
@@ -453,9 +458,9 @@ func validateFacetInheritanceWithVisited(derivedFacets []types.Facet, baseType t
 		}
 		// note: We don't recursively validate base type's base type here
 		// that validation happens when the base type itself is validated
-	} else if bt, ok := baseType.(*types.BuiltinType); ok {
+	case *types.BuiltinType:
 		baseFacets = implicitRangeFacetsForBuiltin(bt)
-	} else {
+	default:
 		// built-in types don't have explicit facets in Restriction.Facets
 		// they have implicit facets defined by the type itself
 		return nil
@@ -1369,7 +1374,7 @@ func parseDurationParts(value string) (int, float64, error) {
 	if negative {
 		value = value[1:]
 	}
-	if len(value) == 0 || value[0] != 'P' {
+	if value == "" || value[0] != 'P' {
 		return 0, 0, fmt.Errorf("duration must start with P")
 	}
 	value = value[1:]

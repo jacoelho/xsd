@@ -6,13 +6,17 @@ import (
 )
 
 func TestParseEntityRefErrors(t *testing.T) {
-	if _, _, _, _, err := parseEntityRef([]byte("&"), 0, nil); !errors.Is(err, errInvalidEntity) {
+	var err error
+	_, _, _, _, err = parseEntityRef([]byte("&"), 0, nil)
+	if !errors.Is(err, errInvalidEntity) {
 		t.Fatalf("parseEntityRef short error = %v, want %v", err, errInvalidEntity)
 	}
-	if _, _, _, _, err := parseEntityRef([]byte("&x"), 0, nil); !errors.Is(err, errInvalidEntity) {
+	_, _, _, _, err = parseEntityRef([]byte("&x"), 0, nil)
+	if !errors.Is(err, errInvalidEntity) {
 		t.Fatalf("parseEntityRef no-semi error = %v, want %v", err, errInvalidEntity)
 	}
-	if _, _, _, _, err := parseEntityRef([]byte("&;"), 0, nil); !errors.Is(err, errInvalidEntity) {
+	_, _, _, _, err = parseEntityRef([]byte("&;"), 0, nil)
+	if !errors.Is(err, errInvalidEntity) {
 		t.Fatalf("parseEntityRef empty error = %v, want %v", err, errInvalidEntity)
 	}
 
@@ -24,7 +28,8 @@ func TestParseEntityRefErrors(t *testing.T) {
 	if consumed == 0 || isNumeric || replacement != "v" {
 		t.Fatalf("parseEntityRef custom = %d/%v/%q, want consumed and v", consumed, isNumeric, replacement)
 	}
-	if _, _, _, _, err := parseEntityRef([]byte("&bad;"), 0, resolver); !errors.Is(err, errInvalidChar) {
+	_, _, _, _, err = parseEntityRef([]byte("&bad;"), 0, resolver)
+	if !errors.Is(err, errInvalidChar) {
 		t.Fatalf("parseEntityRef bad error = %v, want %v", err, errInvalidChar)
 	}
 

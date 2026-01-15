@@ -8,26 +8,25 @@ import (
 // Options holds decoder configuration values.
 // The zero value means no overrides.
 type Options struct {
-	charsetReader         func(label string, r io.Reader) (io.Reader, error)
-	entityMap             map[string]string
-	resolveEntities       bool
-	emitComments          bool
-	emitPI                bool
-	emitDirectives        bool
-	trackLineColumn       bool
-	coalesceCharData      bool
-	maxDepth              int
-	maxAttrs              int
-	maxTokenSize          int
-	maxQNameInternEntries int
-	strict                bool
-	debugPoisonSpans      bool
-	bufferSize            int
-
+	charsetReader            func(label string, r io.Reader) (io.Reader, error)
+	entityMap                map[string]string
+	bufferSize               int
+	maxQNameInternEntries    int
+	maxTokenSize             int
+	maxAttrs                 int
+	maxDepth                 int
+	coalesceCharData         bool
+	emitCommentsSet          bool
+	emitDirectives           bool
+	emitPI                   bool
+	emitComments             bool
+	strict                   bool
+	debugPoisonSpans         bool
+	resolveEntities          bool
 	charsetReaderSet         bool
 	entityMapSet             bool
 	resolveEntitiesSet       bool
-	emitCommentsSet          bool
+	trackLineColumn          bool
 	emitPISet                bool
 	emitDirectivesSet        bool
 	trackLineColumnSet       bool
@@ -45,13 +44,16 @@ type Options struct {
 // Later options override earlier ones when set.
 func JoinOptions(srcs ...Options) Options {
 	var merged Options
-	for _, src := range srcs {
-		merged.merge(src)
+	for i := range srcs {
+		merged.merge(&srcs[i])
 	}
 	return merged
 }
 
-func (opts *Options) merge(src Options) {
+func (opts *Options) merge(src *Options) {
+	if src == nil {
+		return
+	}
 	if src.charsetReaderSet {
 		opts.charsetReader = src.charsetReader
 		opts.charsetReaderSet = true

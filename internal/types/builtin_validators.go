@@ -286,7 +286,7 @@ func validateToken(value string) error {
 
 // validateName validates xs:Name
 func validateName(value string) error {
-	if len(value) == 0 {
+	if value == "" {
 		return fmt.Errorf("Name cannot be empty")
 	}
 
@@ -307,7 +307,7 @@ func validateName(value string) error {
 
 // validateNCName validates xs:NCName (Name without colons)
 func validateNCName(value string) error {
-	if len(value) == 0 {
+	if value == "" {
 		return fmt.Errorf("NCName cannot be empty")
 	}
 
@@ -371,7 +371,7 @@ func validateIDREF(value string) error {
 
 // validateIDREFS validates xs:IDREFS (space-separated list of IDREFs)
 func validateIDREFS(value string) error {
-	if len(value) == 0 {
+	if value == "" {
 		return nil // empty is valid
 	}
 
@@ -392,7 +392,7 @@ func validateENTITY(value string) error {
 
 // validateENTITIES validates xs:ENTITIES (space-separated list of ENTITYs)
 func validateENTITIES(value string) error {
-	if len(value) == 0 {
+	if value == "" {
 		return nil // empty is valid
 	}
 
@@ -409,7 +409,7 @@ func validateENTITIES(value string) error {
 // validateNMTOKEN validates xs:NMTOKEN
 // NMTOKEN is any string matching NameChar+
 func validateNMTOKEN(value string) error {
-	if len(value) == 0 {
+	if value == "" {
 		return fmt.Errorf("NMTOKEN cannot be empty")
 	}
 
@@ -424,7 +424,7 @@ func validateNMTOKEN(value string) error {
 
 // validateNMTOKENS validates xs:NMTOKENS (space-separated list of NMTOKENs)
 func validateNMTOKENS(value string) error {
-	if len(value) == 0 {
+	if value == "" {
 		return nil // empty is valid
 	}
 
@@ -862,7 +862,7 @@ func isValidDate(year, month, day int) bool {
 // validateHexBinary validates xs:hexBinary
 // Format: hexadecimal digits (0-9, a-f, A-F) in pairs
 func validateHexBinary(value string) error {
-	if len(value) == 0 {
+	if value == "" {
 		return nil // empty is valid
 	}
 
@@ -888,7 +888,7 @@ func validateHexBinary(value string) error {
 // validateBase64Binary validates xs:base64Binary
 // Format: base64 encoded string
 func validateBase64Binary(value string) error {
-	if len(value) == 0 {
+	if value == "" {
 		return nil // empty is valid
 	}
 
@@ -906,7 +906,7 @@ func validateBase64Binary(value string) error {
 // validateAnyURI validates xs:anyURI
 // Format: URI/IRI reference (RFC 2396 and RFC 2732)
 func validateAnyURI(value string) error {
-	if len(value) == 0 {
+	if value == "" {
 		return nil // empty URI is valid
 	}
 
@@ -960,7 +960,7 @@ func isHexDigit(b byte) bool {
 // validateQName validates xs:QName
 // Format: NCName (possibly qualified with a prefix)
 func validateQName(value string) error {
-	if len(value) == 0 {
+	if value == "" {
 		return fmt.Errorf("QName cannot be empty")
 	}
 

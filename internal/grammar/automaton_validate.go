@@ -367,7 +367,7 @@ func (a *Automaton) elementNotAllowedError(localName string, childIdx int) error
 	}
 }
 
-func (a *Automaton) noValidTransitionError(localName string, childIdx int, state int) error {
+func (a *Automaton) noValidTransitionError(localName string, childIdx, state int) error {
 	isAccepting := (state < len(a.accepting) && a.accepting[state]) ||
 		(state == 0 && a.emptyOK)
 	if isAccepting {
@@ -435,7 +435,8 @@ func (a *Automaton) collectSubstitutionMatches(qname types.QName, matcher Symbol
 }
 
 func (a *Automaton) collectWildcardMatches(qname types.QName, candidates []symbolCandidate) []symbolCandidate {
-	for i, symbol := range a.symbols {
+	for i := range a.symbols {
+		symbol := &a.symbols[i]
 		if a.wildcardMatches(symbol, qname) {
 			candidates = append(candidates, wildcardCandidate(i))
 		}
@@ -443,7 +444,7 @@ func (a *Automaton) collectWildcardMatches(qname types.QName, candidates []symbo
 	return candidates
 }
 
-func (a *Automaton) wildcardMatches(sym Symbol, qname types.QName) bool {
+func (a *Automaton) wildcardMatches(sym *Symbol, qname types.QName) bool {
 	switch sym.Kind {
 	case KindAny:
 		return true

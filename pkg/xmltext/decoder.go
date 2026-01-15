@@ -15,38 +15,38 @@ const attrSeenSmallMax = 8
 
 // Decoder streams XML tokens and copies token bytes into caller-owned storage.
 type Decoder struct {
-	buf                spanBuffer
-	attrValueBuf       spanBuffer
-	coalesce           spanBuffer
-	scratch            spanBuffer
-	r                  io.Reader
 	err                error
-	attrSeen           map[uint64]attrBucket
-	interner           *nameInterner
+	r                  io.Reader
 	bufioReader        *bufio.Reader
-	attrSeenSmall      [attrSeenSmallMax]attrSeenEntry
+	interner           *nameInterner
+	attrSeen           map[uint64]attrBucket
 	entities           entityResolver
-	pendingToken       rawToken
-	pendingEndToken    rawToken
-	optsRaw            Options
-	stack              []stackEntry
 	attrBuf            []attrSpan
-	attrNeeds          []bool
-	attrRaw            []span
 	attrRawNeeds       []bool
+	attrRaw            []span
+	attrNeeds          []bool
+	stack              []stackEntry
+	coalesce           spanBuffer
+	attrValueBuf       spanBuffer
+	scratch            spanBuffer
+	buf                spanBuffer
+	attrSeenSmall      [attrSeenSmallMax]attrSeenEntry
+	pendingEndToken    rawToken
+	pendingToken       rawToken
 	opts               decoderOptions
+	optsRaw            Options
 	pos                int
-	attrSeenSmallCount int
 	compactFloorAbs    int64
 	baseOffset         int64
 	column             int
 	rootCount          int64
 	line               int
-	pendingCR          bool
+	attrSeenSmallCount int
 	attrSeenGen        uint32
+	seenNonXMLDecl     bool
 	xmlDeclSeen        bool
 	afterRoot          bool
-	seenNonXMLDecl     bool
+	pendingCR          bool
 	directiveSeen      bool
 	rootSeen           bool
 	eof                bool
@@ -90,7 +90,7 @@ func (d *Decoder) Reset(r io.Reader, opts ...Options) {
 	}
 	joined := JoinOptions(opts...)
 	d.optsRaw = joined
-	d.opts = resolveOptions(joined)
+	d.opts = resolveOptions(&joined)
 
 	d.entities = newEntityResolver(d.opts.entityMap, d.opts.maxTokenSize)
 
@@ -243,7 +243,8 @@ func (d *Decoder) ReadTokenInto(dst *Token) error {
 		return nil
 	}
 	dst.attrsBuf = dst.attrsBuf[:0]
-	for i, attr := range raw.attrs {
+	for i := range raw.attrs {
+		attr := &raw.attrs[i]
 		var dstName []byte
 		var dstValue []byte
 		dst.attrNameBuf, dstName = appendSpanBytes(dst.attrNameBuf, attr.Name.Full)
@@ -340,11 +341,11 @@ func (d *Decoder) readTokenIntoRaw(dst *rawToken) error {
 		d.coalesce.data = append(d.coalesce.data, d.pendingToken.text.bytesUnsafe()...)
 	}
 
-	span := makeSpan(&d.coalesce, 0, len(d.coalesce.data))
+	textSpan := makeSpan(&d.coalesce, 0, len(d.coalesce.data))
 	rawStart := int(rawStartAbs - d.baseOffset)
 	rawEnd := int(rawEndAbs - d.baseOffset)
 	rawSpan := makeSpan(&d.buf, rawStart, rawEnd)
-	setCharDataToken(dst, span, needs, rawNeeds, startLine, startColumn, rawSpan)
+	setCharDataToken(dst, textSpan, needs, rawNeeds, startLine, startColumn, rawSpan)
 	if d.opts.debugPoisonSpans {
 		d.refreshToken(dst)
 	}
@@ -425,14 +426,14 @@ func (d *Decoder) ReadValueInto(dst []byte) (int, error) {
 	rawEnd := first.raw.End
 	depth := 1
 	resolve := d.opts.resolveEntities
-	needsCopy := resolve && tokenNeedsExpansion(first)
+	needsCopy := resolve && tokenNeedsExpansion(&first)
 	cursor := rawStart
 	if resolve && needsCopy {
 		if first.raw.buf != nil && first.raw.Start > cursor {
 			writer.write(d.buf.data[cursor:first.raw.Start])
 			cursor = first.raw.Start
 		}
-		if appendErr := d.appendTokenValue(&writer, first, &cursor); appendErr != nil {
+		if appendErr := d.appendTokenValue(&writer, &first, &cursor); appendErr != nil {
 			return writer.n, d.fail(appendErr)
 		}
 	}
@@ -454,14 +455,14 @@ func (d *Decoder) ReadValueInto(dst []byte) (int, error) {
 		if !resolve {
 			continue
 		}
-		if !needsCopy && tokenNeedsExpansion(next) {
+		if !needsCopy && tokenNeedsExpansion(&next) {
 			needsCopy = true
 			cursor = rawStart
 			if next.raw.buf != nil && next.raw.Start > cursor {
 				writer.write(d.buf.data[cursor:next.raw.Start])
 				cursor = next.raw.Start
 			}
-			if appendErr := d.appendTokenValue(&writer, next, &cursor); appendErr != nil {
+			if appendErr := d.appendTokenValue(&writer, &next, &cursor); appendErr != nil {
 				return writer.n, d.fail(appendErr)
 			}
 			continue
@@ -474,7 +475,7 @@ func (d *Decoder) ReadValueInto(dst []byte) (int, error) {
 				writer.write(d.buf.data[cursor:next.raw.Start])
 				cursor = next.raw.Start
 			}
-			if appendErr := d.appendTokenValue(&writer, next, &cursor); appendErr != nil {
+			if appendErr := d.appendTokenValue(&writer, &next, &cursor); appendErr != nil {
 				return writer.n, d.fail(appendErr)
 			}
 		}
@@ -501,7 +502,7 @@ func (d *Decoder) ReadValueInto(dst []byte) (int, error) {
 
 // UnescapeInto expands entity references in data into dst and returns the
 // number of bytes written. It returns io.ErrShortBuffer if dst is too small.
-func (d *Decoder) UnescapeInto(dst []byte, data []byte) (int, error) {
+func (d *Decoder) UnescapeInto(dst, data []byte) (int, error) {
 	if d == nil {
 		return 0, errNilReader
 	}
@@ -511,7 +512,10 @@ func (d *Decoder) UnescapeInto(dst []byte, data []byte) (int, error) {
 	return unescapeInto(dst, data, &d.entities, d.opts.maxTokenSize)
 }
 
-func tokenNeedsExpansion(tok rawToken) bool {
+func tokenNeedsExpansion(tok *rawToken) bool {
+	if tok == nil {
+		return false
+	}
 	switch tok.kind {
 	case KindCharData:
 		return tok.textRawNeeds
@@ -525,8 +529,8 @@ func tokenNeedsExpansion(tok rawToken) bool {
 	return false
 }
 
-func (d *Decoder) appendTokenValue(writer *bufferWriter, tok rawToken, cursor *int) error {
-	if tok.raw.buf == nil {
+func (d *Decoder) appendTokenValue(writer *bufferWriter, tok *rawToken, cursor *int) error {
+	if tok == nil || tok.raw.buf == nil {
 		return nil
 	}
 	rawStart := tok.raw.Start
@@ -565,7 +569,10 @@ func (d *Decoder) appendTokenValue(writer *bufferWriter, tok rawToken, cursor *i
 	return nil
 }
 
-func hasAttrExpansion(tok rawToken) bool {
+func hasAttrExpansion(tok *rawToken) bool {
+	if tok == nil {
+		return false
+	}
 	for _, needs := range tok.attrRawNeeds {
 		if needs {
 			return true
@@ -683,8 +690,11 @@ func (d *Decoder) appendStackPointer(dst []byte) []byte {
 	return dst
 }
 
-func resolveOptions(opts Options) decoderOptions {
+func resolveOptions(opts *Options) decoderOptions {
 	resolved := decoderOptions{trackLineColumn: true, bufferSize: defaultBufferSize}
+	if opts == nil {
+		return resolved
+	}
 	if opts.charsetReaderSet {
 		resolved.charsetReader = opts.charsetReader
 	}

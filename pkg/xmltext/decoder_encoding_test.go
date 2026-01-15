@@ -178,7 +178,7 @@ func readXMLTextTokensWithOptions(input string, opts ...Options) ([]simpleToken,
 		if err != nil {
 			return nil, err
 		}
-		tokens = append(tokens, simplifyXMLTextToken(tok))
+		tokens = append(tokens, simplifyXMLTextToken(&tok))
 	}
 	return tokens, nil
 }
@@ -203,7 +203,7 @@ func readXMLTextTokensRawWithOptions(input string, opts ...Options) ([]simpleTok
 		if err != nil {
 			return nil, err
 		}
-		tokens = append(tokens, simplifyXMLTextTokenRaw(tok))
+		tokens = append(tokens, simplifyXMLTextTokenRaw(&tok))
 	}
 	return tokens, nil
 }
@@ -802,7 +802,10 @@ func readEncodingXMLTokens(input string) ([]simpleToken, error) {
 	return readEncodingXMLTokensWithOptions(input, encodingXMLTokenOptions{})
 }
 
-func simplifyXMLTextToken(tok Token) simpleToken {
+func simplifyXMLTextToken(tok *Token) simpleToken {
+	if tok == nil {
+		return simpleToken{}
+	}
 	kind := tok.Kind
 	if kind == KindCDATA {
 		kind = KindCharData
@@ -829,7 +832,10 @@ func simplifyXMLTextToken(tok Token) simpleToken {
 	return out
 }
 
-func simplifyXMLTextTokenRaw(tok Token) simpleToken {
+func simplifyXMLTextTokenRaw(tok *Token) simpleToken {
+	if tok == nil {
+		return simpleToken{}
+	}
 	kind := tok.Kind
 	if kind == KindCDATA {
 		kind = KindCharData

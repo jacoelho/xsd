@@ -124,44 +124,48 @@ func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg 
 	visitedMGs[mg] = true
 
 	for i, particle := range mg.Particles {
-		if groupRef, ok := particle.(*types.GroupRef); ok {
-			if err := detector.Enter(groupRef.RefQName); err != nil {
-				return fmt.Errorf("circular group reference detected: %s", groupRef.RefQName)
+		switch typed := particle.(type) {
+		case *types.GroupRef:
+			if err := detector.Enter(typed.RefQName); err != nil {
+				return fmt.Errorf("circular group reference detected: %s", typed.RefQName)
 			}
-			defer detector.Leave(groupRef.RefQName)
 
 			// look up the actual group
-			groupDef, ok := schema.Groups[groupRef.RefQName]
+			groupDef, ok := schema.Groups[typed.RefQName]
 			if !ok {
-				return fmt.Errorf("group '%s' not found", groupRef.RefQName)
+				detector.Leave(typed.RefQName)
+				return fmt.Errorf("group '%s' not found", typed.RefQName)
 			}
 
 			// if the group is already resolved (visited), just copy it
-			if detector.IsVisited(groupRef.RefQName) {
+			if detector.IsVisited(typed.RefQName) {
 				// create a deep copy of the already-resolved group with occurrence constraints from the reference
 				groupCopy := deepCopyModelGroup(groupDef)
-				groupCopy.MinOccurs = groupRef.MinOccurs
-				groupCopy.MaxOccurs = groupRef.MaxOccurs
+				groupCopy.MinOccurs = typed.MinOccurs
+				groupCopy.MaxOccurs = typed.MaxOccurs
 				mg.Particles[i] = groupCopy
+				detector.Leave(typed.RefQName)
 				continue
 			}
 
 			// create a deep copy of the group with occurrence constraints from the reference
 			groupCopy := deepCopyModelGroup(groupDef)
-			groupCopy.MinOccurs = groupRef.MinOccurs
-			groupCopy.MaxOccurs = groupRef.MaxOccurs
+			groupCopy.MinOccurs = typed.MinOccurs
+			groupCopy.MaxOccurs = typed.MaxOccurs
 
 			// recursively resolve any GroupRefs in the copied group
 			// use a fresh visitedMGs since this is a new copy
 			if err := l.resolveGroupRefsInModelGroupWithPointerCycleDetection(groupCopy, schema, detector, make(map[*types.ModelGroup]bool)); err != nil {
+				detector.Leave(typed.RefQName)
 				return err
 			}
 
 			// replace the GroupRef with the resolved group
 			mg.Particles[i] = groupCopy
-		} else if nestedMG, ok := particle.(*types.ModelGroup); ok {
+			detector.Leave(typed.RefQName)
+		case *types.ModelGroup:
 			// recursively resolve nested model groups
-			if err := l.resolveGroupRefsInModelGroupWithPointerCycleDetection(nestedMG, schema, detector, visitedMGs); err != nil {
+			if err := l.resolveGroupRefsInModelGroupWithPointerCycleDetection(typed, schema, detector, visitedMGs); err != nil {
 				return err
 			}
 		}

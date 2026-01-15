@@ -407,13 +407,13 @@ func parseElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*ty
 	}
 
 	if attrs.ref != "" {
-		return parseElementReference(doc, elem, schema, attrs)
+		return parseElementReference(doc, elem, schema, &attrs)
 	}
 
-	return parseLocalElement(doc, elem, schema, attrs)
+	return parseLocalElement(doc, elem, schema, &attrs)
 }
 
-func parseElementReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs elementAttrScan) (*types.ElementDecl, error) {
+func parseElementReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs *elementAttrScan) (*types.ElementDecl, error) {
 	if err := validateElementReferenceAttributes(doc, elem, attrs); err != nil {
 		return nil, err
 	}
@@ -441,7 +441,7 @@ func parseElementReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 	return parsed, nil
 }
 
-func parseLocalElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs elementAttrScan) (*types.ElementDecl, error) {
+func parseLocalElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs *elementAttrScan) (*types.ElementDecl, error) {
 	if attrs.name == "" {
 		return nil, fmt.Errorf("element missing name and ref")
 	}
@@ -491,7 +491,8 @@ func parseLocalElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema,
 	}
 	decl.Type = typ
 
-	if err := applyElementConstraints(doc, elem, schema, attrs, decl); err != nil {
+	err = applyElementConstraints(doc, elem, schema, attrs, decl)
+	if err != nil {
 		return nil, err
 	}
 
@@ -502,7 +503,7 @@ func parseLocalElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema,
 	return parsed, nil
 }
 
-func validateElementReferenceAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, attrs elementAttrScan) error {
+func validateElementReferenceAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, attrs *elementAttrScan) error {
 	if attrs.invalidRefAttr != "" {
 		return fmt.Errorf("invalid attribute '%s' on element reference", attrs.invalidRefAttr)
 	}
@@ -533,7 +534,7 @@ func validateElementReferenceAttributes(doc *xsdxml.Document, elem xsdxml.NodeID
 	return nil
 }
 
-func validateLocalElementAttributes(attrs elementAttrScan) error {
+func validateLocalElementAttributes(attrs *elementAttrScan) error {
 	if attrs.hasAbstract {
 		return fmt.Errorf("local element cannot have 'abstract' attribute (only global elements can be abstract)")
 	}
@@ -581,7 +582,7 @@ func elementHasInlineType(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
 	return false
 }
 
-func resolveLocalElementForm(attrs elementAttrScan, schema *Schema) (Form, types.NamespaceURI, error) {
+func resolveLocalElementForm(attrs *elementAttrScan, schema *Schema) (Form, types.NamespaceURI, error) {
 	var effectiveForm Form
 	if formAttr := attrs.form; formAttr != "" {
 		switch formAttr {
@@ -604,7 +605,7 @@ func resolveLocalElementForm(attrs elementAttrScan, schema *Schema) (Form, types
 	return effectiveForm, elementNamespace, nil
 }
 
-func parseElementOccurs(attrs elementAttrScan) (int, int, error) {
+func parseElementOccurs(attrs *elementAttrScan) (int, int, error) {
 	minOccurs := 1
 	if attrs.hasMinOccurs {
 		var err error
@@ -624,7 +625,7 @@ func parseElementOccurs(attrs elementAttrScan) (int, int, error) {
 	return minOccurs, maxOccurs, nil
 }
 
-func resolveElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs elementAttrScan) (types.Type, error) {
+func resolveElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs *elementAttrScan) (types.Type, error) {
 	if typeName := attrs.typ; typeName != "" {
 		typeQName, err := resolveQName(doc, typeName, elem, schema)
 		if err != nil {
@@ -675,7 +676,7 @@ func resolveElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 	return typ, nil
 }
 
-func applyElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs elementAttrScan, decl *types.ElementDecl) error {
+func applyElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs *elementAttrScan, decl *types.ElementDecl) error {
 	if attrs.hasNillable {
 		value, err := parseBoolValue("nillable", attrs.nillable)
 		if err != nil {

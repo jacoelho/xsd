@@ -13,22 +13,19 @@ type Attr struct {
 // Slices are backed by the Token's internal buffers and remain valid until the
 // next ReadTokenInto call that reuses the Token.
 type Token struct {
-	Name   []byte
-	Attrs  []Attr
-	Text   []byte
-	Line   int
-	Column int
-	Kind   Kind
-	// IsXMLDecl reports whether this token is the XML declaration.
-	IsXMLDecl bool
-	// TextNeeds reports whether Text includes unresolved entity references.
-	TextNeeds bool
-
 	nameBuf      []byte
-	textBuf      []byte
-	attrsBuf     []Attr
-	attrNameBuf  []byte
+	Attrs        []Attr
+	Text         []byte
+	Name         []byte
 	attrValueBuf []byte
+	attrNameBuf  []byte
+	attrsBuf     []Attr
+	textBuf      []byte
+	Line         int
+	Column       int
+	TextNeeds    bool
+	IsXMLDecl    bool
+	Kind         Kind
 }
 
 // TokenSizes controls initial buffer capacities.
