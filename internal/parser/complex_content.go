@@ -98,7 +98,8 @@ func parseComplexContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, sc
 	restriction := &types.Restriction{Base: baseQName}
 
 	children := collectXSDChildren(doc, elem)
-	if err := validateComplexContentChildren(doc, children, "restriction"); err != nil {
+	err = validateComplexContentChildren(doc, children, "restriction")
+	if err != nil {
 		return nil, baseQName, err
 	}
 	particleIndex, err := findComplexContentParticleIndex(doc, children, "restriction")
@@ -106,7 +107,8 @@ func parseComplexContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, sc
 		return nil, baseQName, err
 	}
 	if particleIndex != -1 {
-		particle, err := parseComplexContentParticle(doc, children[particleIndex], schema, "restriction")
+		var particle types.Particle
+		particle, err = parseComplexContentParticle(doc, children[particleIndex], schema, "restriction")
 		if err != nil {
 			return nil, baseQName, err
 		}
@@ -142,7 +144,8 @@ func parseComplexContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, sche
 	extension := &types.Extension{Base: baseQName}
 
 	children := collectXSDChildren(doc, elem)
-	if err := validateComplexContentChildren(doc, children, "extension"); err != nil {
+	err = validateComplexContentChildren(doc, children, "extension")
+	if err != nil {
 		return nil, baseQName, err
 	}
 	particleIndex, err := findComplexContentParticleIndex(doc, children, "extension")
@@ -150,7 +153,8 @@ func parseComplexContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, sche
 		return nil, baseQName, err
 	}
 	if particleIndex != -1 {
-		particle, err := parseComplexContentParticle(doc, children[particleIndex], schema, "extension")
+		var particle types.Particle
+		particle, err = parseComplexContentParticle(doc, children[particleIndex], schema, "extension")
 		if err != nil {
 			return nil, baseQName, err
 		}

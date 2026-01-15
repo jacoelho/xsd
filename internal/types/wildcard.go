@@ -80,7 +80,7 @@ type wildcardConstraint struct {
 }
 
 // AllowsNamespace reports whether a namespace is permitted by a wildcard constraint.
-func AllowsNamespace(constraint NamespaceConstraint, list []NamespaceURI, targetNS NamespaceURI, ns NamespaceURI) bool {
+func AllowsNamespace(constraint NamespaceConstraint, list []NamespaceURI, targetNS, ns NamespaceURI) bool {
 	switch constraint {
 	case NSCAny:
 		return true
@@ -194,7 +194,7 @@ func intersectNamespaceLists(list1, list2 []NamespaceURI) []NamespaceURI {
 }
 
 // unionNamespaceConstraints unions two namespace constraints according to cos-aw-union
-func unionNamespaceConstraints(ns1 NamespaceConstraint, list1 []NamespaceURI, targetNS1 NamespaceURI, ns2 NamespaceConstraint, list2 []NamespaceURI, targetNS2 NamespaceURI, resultTargetNS NamespaceURI) intersectedNamespace {
+func unionNamespaceConstraints(ns1 NamespaceConstraint, list1 []NamespaceURI, targetNS1 NamespaceURI, ns2 NamespaceConstraint, list2 []NamespaceURI, targetNS2, resultTargetNS NamespaceURI) intersectedNamespace {
 	if ns1 == NSCTargetNamespace {
 		ns1 = NSCList
 		list1 = []NamespaceURI{targetNS1}
@@ -243,7 +243,7 @@ func unionNamespaceConstraints(ns1 NamespaceConstraint, list1 []NamespaceURI, ta
 }
 
 // unionOtherWithList handles union of ##other with a list according to spec rules
-func unionOtherWithList(list []NamespaceURI, otherTargetNS NamespaceURI, resultTargetNS NamespaceURI) intersectedNamespace {
+func unionOtherWithList(list []NamespaceURI, otherTargetNS, resultTargetNS NamespaceURI) intersectedNamespace {
 	// according to spec: if set includes both the negated namespace name and absent, then ##any
 	hasTargetNS := false
 	hasEmpty := false

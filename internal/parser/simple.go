@@ -404,7 +404,8 @@ func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, 
 				// complex content restrictions don't have SimpleType
 				continue
 			}
-			if err := applyWhiteSpaceFacet(doc, child, st); err != nil {
+			err = applyWhiteSpaceFacet(doc, child, st)
+			if err != nil {
 				return err
 			}
 			continue
@@ -604,7 +605,7 @@ func hasIDAttribute(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
 // validateIDAttribute validates that an id attribute is a valid NCName.
 // Per XSD spec, id attributes on schema components must be valid NCNames.
 // Also registers the id for uniqueness schemacheck.
-func validateIDAttribute(id string, elementName string, schema *Schema) error {
+func validateIDAttribute(id, elementName string, schema *Schema) error {
 	if !types.IsValidNCName(id) {
 		return fmt.Errorf("%s element has invalid id attribute '%s': must be a valid NCName", elementName, id)
 	}

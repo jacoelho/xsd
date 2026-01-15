@@ -69,8 +69,7 @@ func TestPeekSkips(t *testing.T) {
 		t.Fatalf("PeekKind = %v, want %v", got, KindStartElement)
 	}
 	var tok Token
-	var buf TokenBuffer
-	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+	if err := dec.ReadTokenInto(&tok); err != nil {
 		t.Fatalf("ReadTokenInto start error = %v", err)
 	}
 	if got := dec.peekNextKind(); got != KindEndElement {
@@ -109,8 +108,8 @@ func TestPeekKindReadError(t *testing.T) {
 }
 
 type chunkErrorReader struct {
-	chunks [][]byte
 	err    error
+	chunks [][]byte
 }
 
 func (r *chunkErrorReader) Read(p []byte) (int, error) {

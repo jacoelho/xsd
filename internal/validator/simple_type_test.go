@@ -21,8 +21,8 @@ func TestUnionTypeValidation(t *testing.T) {
 
 	// test case: stZ071 - union with memberTypes and inline types
 	t.Run("stZ071", func(t *testing.T) {
-		schemaPath := filepath.Join(testSuiteDir, "msData/simpleType/test298668_a.xsd")
-		instancePath := filepath.Join(testSuiteDir, "msData/simpleType/test298668.xml")
+		schemaPath := filepath.Join(testSuiteDir, "msData", "simpleType", "test298668_a.xsd")
+		instancePath := filepath.Join(testSuiteDir, "msData", "simpleType", "test298668.xml")
 
 		schemaDir := filepath.Dir(schemaPath)
 		schemaFile := filepath.Base(schemaPath)
@@ -57,8 +57,8 @@ func TestUnionTypeValidation(t *testing.T) {
 
 	// test case: stZ072 - list with enumeration, itemType is union
 	t.Run("stZ072", func(t *testing.T) {
-		schemaPath := filepath.Join(testSuiteDir, "msData/simpleType/stZ072.xsd")
-		instancePath := filepath.Join(testSuiteDir, "msData/simpleType/stZ072.xml")
+		schemaPath := filepath.Join(testSuiteDir, "msData", "simpleType", "stZ072.xsd")
+		instancePath := filepath.Join(testSuiteDir, "msData", "simpleType", "stZ072.xml")
 
 		schemaDir := filepath.Dir(schemaPath)
 		schemaFile := filepath.Base(schemaPath)
@@ -93,8 +93,8 @@ func TestUnionTypeValidation(t *testing.T) {
 
 	// test case: stZ074 - union of list types
 	t.Run("stZ074", func(t *testing.T) {
-		schemaPath := filepath.Join(testSuiteDir, "msData/simpleType/stZ074_a.xsd")
-		instancePath := filepath.Join(testSuiteDir, "msData/simpleType/stZ074.xml")
+		schemaPath := filepath.Join(testSuiteDir, "msData", "simpleType", "stZ074_a.xsd")
+		instancePath := filepath.Join(testSuiteDir, "msData", "simpleType", "stZ074.xml")
 
 		schemaDir := filepath.Dir(schemaPath)
 		schemaFile := filepath.Base(schemaPath)

@@ -68,13 +68,13 @@ func validateUPA(schema *parser.Schema, content types.Content, targetNS types.Na
 
 // validateUPAInParticle validates UPA violations in a particle structure
 // parentKind indicates the kind of parent model group (nil if top-level)
-func validateUPAInParticle(schema *parser.Schema, particle types.Particle, baseParticle types.Particle, targetNS types.NamespaceURI, parentKind *types.GroupKind) error {
+func validateUPAInParticle(schema *parser.Schema, particle, baseParticle types.Particle, targetNS types.NamespaceURI, parentKind *types.GroupKind) error {
 	visited := make(map[*types.ModelGroup]bool)
 	return validateUPAInParticleWithVisited(schema, particle, baseParticle, targetNS, parentKind, visited)
 }
 
 // validateUPAInParticleWithVisited validates UPA violations with cycle detection
-func validateUPAInParticleWithVisited(schema *parser.Schema, particle types.Particle, baseParticle types.Particle, targetNS types.NamespaceURI, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
+func validateUPAInParticleWithVisited(schema *parser.Schema, particle, baseParticle types.Particle, targetNS types.NamespaceURI, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
 	switch p := particle.(type) {
 	case *types.GroupRef:
 		// GroupRef should be resolved before UPA validation, but handle it just in case
@@ -506,7 +506,7 @@ func checkModelGroupUPAWithVisited(schema *parser.Schema, mg1, mg2 *types.ModelG
 }
 
 // validateExtensionUPA checks UPA violations between extension particles and base particles
-func validateExtensionUPA(schema *parser.Schema, extParticle types.Particle, baseParticle types.Particle, targetNS types.NamespaceURI) error {
+func validateExtensionUPA(schema *parser.Schema, extParticle, baseParticle types.Particle, targetNS types.NamespaceURI) error {
 	if baseParticle == nil || extParticle == nil {
 		return nil
 	}

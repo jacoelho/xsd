@@ -289,7 +289,7 @@ func (c *Compiler) indexContentModelElements(particles []*grammar.CompiledPartic
 	return decls
 }
 
-func (c *Compiler) flattenSequenceParticles(particles []*grammar.CompiledParticle, out []*grammar.CompiledParticle) ([]*grammar.CompiledParticle, bool) {
+func (c *Compiler) flattenSequenceParticles(particles, out []*grammar.CompiledParticle) ([]*grammar.CompiledParticle, bool) {
 	for _, particle := range particles {
 		if particle == nil {
 			return nil, false

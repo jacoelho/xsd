@@ -257,14 +257,14 @@ func (l *SchemaLoader) LoadCompiled(location string) (*grammar.CompiledSchema, e
 	}
 
 	// phase 2: Resolve all QName references
-	resolver := resolver.NewResolver(schema)
-	if err := resolver.Resolve(); err != nil {
+	res := resolver.NewResolver(schema)
+	if err = res.Resolve(); err != nil {
 		return nil, fmt.Errorf("resolve %s: %w", location, err)
 	}
 
 	// phase 3: Compile to grammar
-	compiler := compiler.NewCompiler(schema)
-	compiled, err := compiler.Compile()
+	comp := compiler.NewCompiler(schema)
+	compiled, err := comp.Compile()
 	if err != nil {
 		return nil, fmt.Errorf("compile %s: %w", location, err)
 	}

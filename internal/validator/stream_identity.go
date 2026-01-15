@@ -397,8 +397,9 @@ func (r *streamRun) finalizeSelectorMatch(scope *identityScope, state *constrain
 			return
 		case fieldState.count == 0:
 			if constraint.Original.Type == types.KeyConstraint {
-				r.addViolation(errors.NewValidationf(errors.ErrIdentityAbsent, elemPath,
-					"key '%s': field value is absent for element at %s", constraint.Original.Name, elemPath))
+				violation := errors.NewValidationf(errors.ErrIdentityAbsent, elemPath,
+					"key '%s': field value is absent for element at %s", constraint.Original.Name, elemPath)
+				r.addViolation(&violation)
 			}
 			return
 		case fieldState.invalid || !fieldState.hasValue:
@@ -427,9 +428,10 @@ func (r *streamRun) finalizeSelectorMatch(scope *identityScope, state *constrain
 			if constraint.Original.Type == types.KeyConstraint {
 				label = "key"
 			}
-			r.addViolation(errors.NewValidationf(code, elemPath,
+			violation := errors.NewValidationf(code, elemPath,
 				"%s '%s': duplicate value '%s' at %s (first occurrence at %s)",
-				label, constraint.Original.Name, display, elemPath, firstPath))
+				label, constraint.Original.Name, display, elemPath, firstPath)
+			r.addViolation(&violation)
 			return
 		}
 		table[tuple] = elemPath
@@ -481,16 +483,18 @@ func (r *streamRun) finalizeKeyRefs(scope *identityScope) {
 		}
 		if keyTable == nil {
 			elemPath := r.path.String()
-			r.addViolation(errors.NewValidationf(errors.ErrIdentityKeyRefFailed, elemPath,
-				"keyref '%s' refers to undefined key '%s'", constraint.Original.Name, referName))
+			violation := errors.NewValidationf(errors.ErrIdentityKeyRefFailed, elemPath,
+				"keyref '%s' refers to undefined key '%s'", constraint.Original.Name, referName)
+			r.addViolation(&violation)
 			continue
 		}
 
 		for _, entry := range entriesByConstraint[constraint] {
 			if _, ok := keyTable[entry.value]; !ok {
-				r.addViolationAt(errors.NewValidationf(errors.ErrIdentityKeyRefFailed, entry.path,
+				violation := errors.NewValidationf(errors.ErrIdentityKeyRefFailed, entry.path,
 					"keyref '%s': value '%s' not found in referenced key '%s' at %s",
-					constraint.Original.Name, entry.display, referName, entry.path), entry.line, entry.column)
+					constraint.Original.Name, entry.display, referName, entry.path)
+				r.addViolationAt(&violation, entry.line, entry.column)
 			}
 		}
 	}
@@ -514,11 +518,14 @@ func (r *streamRun) abortIdentityFrame(frame *streamFrame) {
 func (r *streamRun) addIdentityFieldError(constraint *grammar.CompiledConstraint, keyCode, uniqueCode, keyrefCode errors.ErrorCode, path, message, name string) {
 	switch constraint.Original.Type {
 	case types.KeyConstraint:
-		r.addViolation(errors.NewValidationf(keyCode, path, "key '%s': "+message, name, path))
+		violation := errors.NewValidationf(keyCode, path, "key '%s': "+message, name, path)
+		r.addViolation(&violation)
 	case types.UniqueConstraint:
-		r.addViolation(errors.NewValidationf(uniqueCode, path, "unique '%s': "+message, name, path))
+		violation := errors.NewValidationf(uniqueCode, path, "unique '%s': "+message, name, path)
+		r.addViolation(&violation)
 	case types.KeyRefConstraint:
-		r.addViolation(errors.NewValidationf(keyrefCode, path, "keyref '%s': "+message, name, path))
+		violation := errors.NewValidationf(keyrefCode, path, "keyref '%s': "+message, name, path)
+		r.addViolation(&violation)
 	}
 }
 
@@ -598,19 +605,21 @@ func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Typ
 	var primitiveName string
 	if bt, ok := fieldType.(*types.BuiltinType); ok {
 		if pt := bt.PrimitiveType(); pt != nil {
-			if pbt, ok := pt.(*types.BuiltinType); ok {
-				primitiveName = pbt.Name().Local
-			} else if pst, ok := pt.(*types.SimpleType); ok {
-				primitiveName = pst.QName.Local
+			switch prim := pt.(type) {
+			case *types.BuiltinType:
+				primitiveName = prim.Name().Local
+			case *types.SimpleType:
+				primitiveName = prim.QName.Local
 			}
 		} else {
 			primitiveName = bt.Name().Local
 		}
 	} else if pt := fieldType.PrimitiveType(); pt != nil {
-		if st, ok := pt.(*types.SimpleType); ok {
-			primitiveName = st.QName.Local
-		} else if bt, ok := pt.(*types.BuiltinType); ok {
-			primitiveName = bt.Name().Local
+		switch prim := pt.(type) {
+		case *types.SimpleType:
+			primitiveName = prim.QName.Local
+		case *types.BuiltinType:
+			primitiveName = prim.Name().Local
 		}
 	}
 

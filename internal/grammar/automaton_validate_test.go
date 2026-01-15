@@ -106,5 +106,6 @@ func makeElements(t *testing.T, names []string) (*xsdxml.Document, []xsdxml.Node
 	}
 
 	root := doc.Root()
-	return doc, doc.Children(root)
+	children := doc.Children(root)
+	return doc, children
 }

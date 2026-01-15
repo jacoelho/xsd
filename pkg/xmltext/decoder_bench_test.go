@@ -35,12 +35,11 @@ func BenchmarkXMLTextDecoder(b *testing.B) {
 
 	dec := NewDecoder(bytes.NewReader(data))
 	var tok Token
-	var buf TokenBuffer
 
 	for b.Loop() {
 		dec.Reset(bytes.NewReader(data))
 		for {
-			err := dec.ReadTokenInto(&tok, &buf)
+			err := dec.ReadTokenInto(&tok)
 			if errors.Is(err, io.EOF) {
 				break
 			}
@@ -65,12 +64,11 @@ func BenchmarkXMLTextDecoderEncodingXML(b *testing.B) {
 	)
 	dec := NewDecoder(bytes.NewReader(data), opts)
 	var tok Token
-	var buf TokenBuffer
 
 	for b.Loop() {
 		dec.Reset(bytes.NewReader(data), opts)
 		for {
-			err := dec.ReadTokenInto(&tok, &buf)
+			err := dec.ReadTokenInto(&tok)
 			if errors.Is(err, io.EOF) {
 				break
 			}

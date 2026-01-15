@@ -25,7 +25,7 @@ func newEntityResolver(custom map[string]string, maxTokenSize int) entityResolve
 	return resolver
 }
 
-func unescapeInto(dst []byte, data []byte, resolver *entityResolver, maxTokenSize int) (int, error) {
+func unescapeInto(dst, data []byte, resolver *entityResolver, maxTokenSize int) (int, error) {
 	if len(data) == 0 {
 		return 0, nil
 	}
@@ -58,7 +58,7 @@ func unescapeInto(dst []byte, data []byte, resolver *entityResolver, maxTokenSiz
 	}
 
 	writeString := func(s string) error {
-		if len(s) == 0 {
+		if s == "" {
 			return nil
 		}
 		outLen += len(s)

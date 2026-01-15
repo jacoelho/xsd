@@ -74,14 +74,16 @@ const (
 
 // Validation describes a schema validation error with a W3C or local error code
 // and optional instance path and line/column context.
-type Validation struct { //nolint:errname // public API name, keep for compatibility.
+//
+//nolint:errname // public API name uses XSD domain term.
+type Validation struct {
 	Code     string
 	Message  string
 	Path     string
-	Line     int
-	Column   int
 	Actual   string
 	Expected []string
+	Line     int
+	Column   int
 }
 
 // ValidationList is an error that wraps one or more validation errors.
@@ -100,7 +102,11 @@ func (v ValidationList) Error() string {
 }
 
 // Error formats the validation for display, including code, message, and context.
-func (v Validation) Error() string {
+func (v *Validation) Error() string {
+	if v == nil {
+		return "validation <nil>"
+	}
+
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("[%s] %s", v.Code, v.Message))
 	if v.Path != "" {

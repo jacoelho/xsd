@@ -25,27 +25,25 @@ linters:
     - unparam
     - unused
     - gocritic
-
+  settings:
+    govet:
+      enable-all: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+        - experimental
+        - opinionated
+      disabled-checks:
+        - regexpSimplify
+        - whyNoLint
+        - unnamedResult
   exclusions:
     generated: strict
     paths:
       - "^testdata/"
       - "^docs/"
-
-linters-settings:
-  govet:
-    enable-all: true
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-      - performance
-      - experimental
-      - opinionated
-    disabled-checks:
-      - regexpSimplify
-      - whyNoLint
-      - unnamedResult
 
 formatters:
   enable:
