@@ -12,11 +12,10 @@ func TestEntityMapCopy(t *testing.T) {
 	values["foo"] = "baz"
 	dec := NewDecoder(strings.NewReader("<root>&foo;</root>"), ResolveEntities(true), opts)
 	var tok Token
-	var buf TokenBuffer
-	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+	if err := dec.ReadTokenInto(&tok); err != nil {
 		t.Fatalf("ReadTokenInto root error = %v", err)
 	}
-	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+	if err := dec.ReadTokenInto(&tok); err != nil {
 		t.Fatalf("ReadTokenInto text error = %v", err)
 	}
 	if got := string(tok.Text); got != "bar" {

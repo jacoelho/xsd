@@ -69,8 +69,7 @@ func TestPeekSkips(t *testing.T) {
 		t.Fatalf("PeekKind = %v, want %v", got, KindStartElement)
 	}
 	var tok Token
-	var buf TokenBuffer
-	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+	if err := dec.ReadTokenInto(&tok); err != nil {
 		t.Fatalf("ReadTokenInto start error = %v", err)
 	}
 	if got := dec.peekNextKind(); got != KindEndElement {

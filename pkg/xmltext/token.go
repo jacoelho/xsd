@@ -1,7 +1,7 @@
 package xmltext
 
 // Attr holds an attribute name and value for a start element token.
-// Name and Value are owned by the caller-provided TokenBuffer.
+// Name and Value are backed by the Token that produced them.
 type Attr struct {
 	Name  []byte
 	Value []byte
@@ -10,7 +10,8 @@ type Attr struct {
 }
 
 // Token is a decoded XML token with caller-owned byte slices.
-// Slices remain valid until the next ReadTokenInto call that reuses the buffer.
+// Slices are backed by the Token's internal buffers and remain valid until the
+// next ReadTokenInto call that reuses the Token.
 type Token struct {
 	Name   []byte
 	Attrs  []Attr
@@ -22,20 +23,16 @@ type Token struct {
 	IsXMLDecl bool
 	// TextNeeds reports whether Text includes unresolved entity references.
 	TextNeeds bool
+
+	nameBuf      []byte
+	textBuf      []byte
+	attrsBuf     []Attr
+	attrNameBuf  []byte
+	attrValueBuf []byte
 }
 
-// TokenBuffer holds reusable storage for ReadTokenInto results.
-// The zero value is ready; use Reserve to preallocate capacity.
-type TokenBuffer struct {
-	name      []byte
-	text      []byte
-	attrs     []Attr
-	attrName  []byte
-	attrValue []byte
-}
-
-// TokenBufferSizes controls initial buffer capacities.
-type TokenBufferSizes struct {
+// TokenSizes controls initial buffer capacities.
+type TokenSizes struct {
 	Name      int
 	Text      int
 	Attrs     int
@@ -43,30 +40,46 @@ type TokenBufferSizes struct {
 	AttrValue int
 }
 
-// Reset clears the buffer slices for reuse.
+// Reset clears the token slices for reuse.
 // It retains allocated capacity; assign a zero value to release memory.
-func (b *TokenBuffer) Reset() {
-	if b == nil {
+func (t *Token) Reset() {
+	if t == nil {
 		return
 	}
-	b.name = b.name[:0]
-	b.text = b.text[:0]
-	b.attrs = b.attrs[:0]
-	b.attrName = b.attrName[:0]
-	b.attrValue = b.attrValue[:0]
+	t.Name = nil
+	t.Attrs = nil
+	t.Text = nil
+	t.Line = 0
+	t.Column = 0
+	t.Kind = KindNone
+	t.IsXMLDecl = false
+	t.TextNeeds = false
+	t.resetBuffers()
 }
 
-// Reserve ensures the buffer has at least the requested capacities.
+// Reserve ensures the token has at least the requested capacities.
 // It resets the buffer lengths to zero.
-func (b *TokenBuffer) Reserve(sizes TokenBufferSizes) {
-	if b == nil {
+func (t *Token) Reserve(sizes TokenSizes) {
+	if t == nil {
 		return
 	}
-	b.name = reserveBytes(b.name, sizes.Name)
-	b.text = reserveBytes(b.text, sizes.Text)
-	b.attrs = reserveAttrs(b.attrs, sizes.Attrs)
-	b.attrName = reserveBytes(b.attrName, sizes.AttrName)
-	b.attrValue = reserveBytes(b.attrValue, sizes.AttrValue)
+	t.nameBuf = reserveBytes(t.nameBuf, sizes.Name)
+	t.textBuf = reserveBytes(t.textBuf, sizes.Text)
+	t.attrsBuf = reserveAttrs(t.attrsBuf, sizes.Attrs)
+	t.attrNameBuf = reserveBytes(t.attrNameBuf, sizes.AttrName)
+	t.attrValueBuf = reserveBytes(t.attrValueBuf, sizes.AttrValue)
+	t.Reset()
+}
+
+func (t *Token) resetBuffers() {
+	if t == nil {
+		return
+	}
+	t.nameBuf = t.nameBuf[:0]
+	t.textBuf = t.textBuf[:0]
+	t.attrsBuf = t.attrsBuf[:0]
+	t.attrNameBuf = t.attrNameBuf[:0]
+	t.attrValueBuf = t.attrValueBuf[:0]
 }
 
 func reserveBytes(buf []byte, size int) []byte {

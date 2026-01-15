@@ -10,9 +10,8 @@ import (
 func TestReadValueVariants(t *testing.T) {
 	dec := NewDecoder(strings.NewReader("<root>x&amp;y</root>"))
 	var tok Token
-	var buf TokenBuffer
 	scratch := make([]byte, 64)
-	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+	if err := dec.ReadTokenInto(&tok); err != nil {
 		t.Fatalf("ReadTokenInto root error = %v", err)
 	}
 	n, err := dec.ReadValueInto(scratch)
@@ -24,7 +23,7 @@ func TestReadValueVariants(t *testing.T) {
 	}
 
 	dec = NewDecoder(strings.NewReader("<root>x&amp;y</root>"), ResolveEntities(true))
-	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+	if err := dec.ReadTokenInto(&tok); err != nil {
 		t.Fatalf("ReadTokenInto root resolve error = %v", err)
 	}
 	n, err = dec.ReadValueInto(scratch)
@@ -36,7 +35,7 @@ func TestReadValueVariants(t *testing.T) {
 	}
 
 	dec = NewDecoder(strings.NewReader("<root><![CDATA[x]]></root>"), ResolveEntities(true))
-	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+	if err := dec.ReadTokenInto(&tok); err != nil {
 		t.Fatalf("ReadTokenInto root CDATA error = %v", err)
 	}
 	n, err = dec.ReadValueInto(scratch)
@@ -84,8 +83,7 @@ func TestReadValueNoExpansion(t *testing.T) {
 func TestReadValueIntoShortBuffer(t *testing.T) {
 	dec := NewDecoder(strings.NewReader("<root><a>123</a><b/></root>"))
 	var tok Token
-	var buf TokenBuffer
-	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+	if err := dec.ReadTokenInto(&tok); err != nil {
 		t.Fatalf("ReadTokenInto root error = %v", err)
 	}
 	scratch := make([]byte, 4)
@@ -96,7 +94,7 @@ func TestReadValueIntoShortBuffer(t *testing.T) {
 	if n != len(scratch) {
 		t.Fatalf("ReadValueInto n = %d, want %d", n, len(scratch))
 	}
-	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+	if err := dec.ReadTokenInto(&tok); err != nil {
 		t.Fatalf("ReadTokenInto after short buffer error = %v", err)
 	}
 	if tok.Kind != KindStartElement || string(tok.Name) != "b" {

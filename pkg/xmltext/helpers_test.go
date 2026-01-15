@@ -10,8 +10,7 @@ import (
 func TestUnescapeInto(t *testing.T) {
 	dec := NewDecoder(strings.NewReader(`<root attr="a&amp;b">x&amp;y</root>`))
 	var tok Token
-	var buf TokenBuffer
-	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+	if err := dec.ReadTokenInto(&tok); err != nil {
 		t.Fatalf("ReadTokenInto error = %v", err)
 	}
 	attr := tok.Attrs[0]
@@ -27,7 +26,7 @@ func TestUnescapeInto(t *testing.T) {
 		t.Fatalf("UnescapeInto attr = %q, want a&b", scratch[:n])
 	}
 
-	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+	if err := dec.ReadTokenInto(&tok); err != nil {
 		t.Fatalf("ReadTokenInto text error = %v", err)
 	}
 	if got := string(tok.Text); got != "x&amp;y" {

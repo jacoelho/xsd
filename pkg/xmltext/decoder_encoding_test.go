@@ -170,9 +170,8 @@ func readXMLTextTokensWithOptions(input string, opts ...Options) ([]simpleToken,
 	dec := NewDecoder(strings.NewReader(input), base...)
 	var tokens []simpleToken
 	var tok Token
-	var buf TokenBuffer
 	for {
-		err := dec.ReadTokenInto(&tok, &buf)
+		err := dec.ReadTokenInto(&tok)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -196,9 +195,8 @@ func readXMLTextTokensRawWithOptions(input string, opts ...Options) ([]simpleTok
 	dec := NewDecoder(strings.NewReader(input), base...)
 	var tokens []simpleToken
 	var tok Token
-	var buf TokenBuffer
 	for {
-		err := dec.ReadTokenInto(&tok, &buf)
+		err := dec.ReadTokenInto(&tok)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -649,10 +647,9 @@ func TestEncodingXMLInputOffset(t *testing.T) {
 	inputBytes := []byte(testInputTrimmed)
 	var lastEnd int64
 	var tok Token
-	var buf TokenBuffer
 	for {
 		start := dec.InputOffset()
-		err := dec.ReadTokenInto(&tok, &buf)
+		err := dec.ReadTokenInto(&tok)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -685,10 +682,9 @@ func TestEncodingXMLLineColumns(t *testing.T) {
 	)
 	inputBytes := []byte(linePosInput)
 	var tok Token
-	var buf TokenBuffer
 	for {
 		start := dec.InputOffset()
-		err := dec.ReadTokenInto(&tok, &buf)
+		err := dec.ReadTokenInto(&tok)
 		if errors.Is(err, io.EOF) {
 			break
 		}

@@ -13,7 +13,7 @@ import (
 const defaultBufferSize = 32 * 1024
 const attrSeenSmallMax = 8
 
-// Decoder streams XML tokens and copies token bytes into caller-provided buffers.
+// Decoder streams XML tokens and copies token bytes into caller-owned storage.
 type Decoder struct {
 	buf                spanBuffer
 	attrValueBuf       spanBuffer
@@ -214,13 +214,11 @@ func (d *Decoder) peekNextKind() Kind {
 	return kind
 }
 
-// ReadTokenInto reads the next XML token into dst using buf for storage.
-func (d *Decoder) ReadTokenInto(dst *Token, buf *TokenBuffer) error {
+// ReadTokenInto reads the next XML token into dst.
+// Slices in dst are overwritten on the next call that reuses dst.
+func (d *Decoder) ReadTokenInto(dst *Token) error {
 	if dst == nil {
 		return errNilToken
-	}
-	if buf == nil {
-		return errNilBuffer
 	}
 	if d == nil {
 		return errNilReader
@@ -232,31 +230,31 @@ func (d *Decoder) ReadTokenInto(dst *Token, buf *TokenBuffer) error {
 	if err := d.readTokenIntoRaw(&raw); err != nil {
 		return err
 	}
-	buf.Reset()
+	dst.resetBuffers()
 	dst.Kind = raw.kind
 	dst.Line = raw.line
 	dst.Column = raw.column
 	dst.IsXMLDecl = raw.isXMLDecl
 	dst.TextNeeds = raw.textNeeds
-	buf.name, dst.Name = appendSpanBytes(buf.name, raw.name.Full)
-	buf.text, dst.Text = appendSpanBytes(buf.text, raw.text)
+	dst.nameBuf, dst.Name = appendSpanBytes(dst.nameBuf, raw.name.Full)
+	dst.textBuf, dst.Text = appendSpanBytes(dst.textBuf, raw.text)
 	if raw.kind != KindStartElement {
 		dst.Attrs = nil
 		return nil
 	}
-	buf.attrs = buf.attrs[:0]
+	dst.attrsBuf = dst.attrsBuf[:0]
 	for i, attr := range raw.attrs {
 		var dstName []byte
 		var dstValue []byte
-		buf.attrName, dstName = appendSpanBytes(buf.attrName, attr.Name.Full)
-		buf.attrValue, dstValue = appendSpanBytes(buf.attrValue, attr.ValueSpan)
-		buf.attrs = append(buf.attrs, Attr{
+		dst.attrNameBuf, dstName = appendSpanBytes(dst.attrNameBuf, attr.Name.Full)
+		dst.attrValueBuf, dstValue = appendSpanBytes(dst.attrValueBuf, attr.ValueSpan)
+		dst.attrsBuf = append(dst.attrsBuf, Attr{
 			Name:       dstName,
 			Value:      dstValue,
 			ValueNeeds: raw.attrNeeds[i],
 		})
 	}
-	dst.Attrs = buf.attrs
+	dst.Attrs = dst.attrsBuf
 	return nil
 }
 
