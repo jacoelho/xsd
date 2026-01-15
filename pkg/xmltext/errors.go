@@ -8,7 +8,6 @@ import (
 var (
 	errNilReader           = errors.New("nil XML reader")
 	errNilToken            = errors.New("nil XML token")
-	errNilBuffer           = errors.New("nil XML token buffer")
 	errUnexpectedEOF       = errors.New("unexpected EOF")
 	errInvalidName         = errors.New("invalid XML name")
 	errInvalidEntity       = errors.New("invalid entity reference")

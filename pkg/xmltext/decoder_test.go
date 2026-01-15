@@ -1308,12 +1308,11 @@ func TestSpanStringStableAndUnstable(t *testing.T) {
 	}
 }
 
-func TestReadTokenIntoWithBuffers(t *testing.T) {
+func TestReadTokenIntoWithReserve(t *testing.T) {
 	dec := NewDecoder(strings.NewReader(`<root a="1" b="2"></root>`))
 	var tok Token
-	var buf TokenBuffer
-	buf.Reserve(TokenBufferSizes{Attrs: 2, AttrName: 8, AttrValue: 8})
-	if err := dec.ReadTokenInto(&tok, &buf); err != nil {
+	tok.Reserve(TokenSizes{Attrs: 2, AttrName: 8, AttrValue: 8})
+	if err := dec.ReadTokenInto(&tok); err != nil {
 		t.Fatalf("ReadTokenInto error = %v", err)
 	}
 	if tok.Kind != KindStartElement {
@@ -1330,11 +1329,10 @@ func TestReadTokenIntoWithBuffers(t *testing.T) {
 	}
 }
 
-func TestReadTokenIntoNilBuffer(t *testing.T) {
+func TestReadTokenIntoNilToken(t *testing.T) {
 	dec := NewDecoder(strings.NewReader("<root/>"))
-	var tok Token
-	if err := dec.ReadTokenInto(&tok, nil); !errors.Is(err, errNilBuffer) {
-		t.Fatalf("ReadTokenInto error = %v, want %v", err, errNilBuffer)
+	if err := dec.ReadTokenInto(nil); !errors.Is(err, errNilToken) {
+		t.Fatalf("ReadTokenInto error = %v, want %v", err, errNilToken)
 	}
 }
 
