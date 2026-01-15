@@ -55,12 +55,13 @@ func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl
 
 	// validate inline types (simpleType or complexType defined inline in the element)
 	if decl.Type != nil {
-		if st, ok := decl.Type.(*types.SimpleType); ok {
-			if err := validateSimpleTypeStructure(schema, st); err != nil {
+		switch typ := decl.Type.(type) {
+		case *types.SimpleType:
+			if err := validateSimpleTypeStructure(schema, typ); err != nil {
 				return fmt.Errorf("inline simpleType: %w", err)
 			}
-		} else if complexType, ok := decl.Type.(*types.ComplexType); ok {
-			if err := validateComplexTypeStructure(schema, complexType, typeDefinitionGlobal); err != nil {
+		case *types.ComplexType:
+			if err := validateComplexTypeStructure(schema, typ, typeDefinitionGlobal); err != nil {
 				return fmt.Errorf("inline complexType: %w", err)
 			}
 		}

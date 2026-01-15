@@ -108,10 +108,11 @@ func validateWhiteSpaceRestriction(derivedType *types.SimpleType, baseType types
 	// get base type's whiteSpace
 	var baseWS types.WhiteSpace
 	if baseType != nil {
-		if baseST, ok := baseType.(*types.SimpleType); ok {
-			baseWS = baseST.WhiteSpace()
-		} else if baseBT, ok := baseType.(*types.BuiltinType); ok {
-			baseWS = baseBT.WhiteSpace()
+		switch bt := baseType.(type) {
+		case *types.SimpleType:
+			baseWS = bt.WhiteSpace()
+		case *types.BuiltinType:
+			baseWS = bt.WhiteSpace()
 		}
 	} else if !baseQName.IsZero() && baseQName.Namespace == types.XSDNamespace {
 		// built-in type by QName

@@ -565,8 +565,11 @@ type Filter struct {
 }
 
 // NewFilter creates a new filter with the given options
-func NewFilter(opts FilterOptions) *Filter {
-	return &Filter{opts: opts}
+func NewFilter(opts *FilterOptions) *Filter {
+	if opts == nil {
+		return &Filter{}
+	}
+	return &Filter{opts: *opts}
 }
 
 // ShouldIncludeVersion returns true if the version string should be included
@@ -707,25 +710,27 @@ type unicodeExpectedEntry struct {
 
 func parseUnicodeVersion(version string) ([3]int, bool) {
 	for token := range strings.FieldsSeq(version) {
-		if after, ok := strings.CutPrefix(token, "Unicode_"); ok {
-			parts := strings.Split(after, ".")
-			if len(parts) != 3 {
-				return [3]int{}, false
-			}
-			major, err := strconv.Atoi(parts[0])
-			if err != nil {
-				return [3]int{}, false
-			}
-			minor, err := strconv.Atoi(parts[1])
-			if err != nil {
-				return [3]int{}, false
-			}
-			patch, err := strconv.Atoi(parts[2])
-			if err != nil {
-				return [3]int{}, false
-			}
-			return [3]int{major, minor, patch}, true
+		after, ok := strings.CutPrefix(token, "Unicode_")
+		if !ok {
+			continue
 		}
+		parts := strings.Split(after, ".")
+		if len(parts) != 3 {
+			return [3]int{}, false
+		}
+		major, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return [3]int{}, false
+		}
+		minor, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return [3]int{}, false
+		}
+		patch, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return [3]int{}, false
+		}
+		return [3]int{major, minor, patch}, true
 	}
 	return [3]int{}, false
 }
@@ -788,7 +793,7 @@ type W3CTestRunner struct {
 
 // NewW3CTestRunner creates a test runner for the W3C test suite
 func NewW3CTestRunner(testSuiteDir string) *W3CTestRunner {
-	filter := NewFilter(FilterOptions{
+	filter := NewFilter(&FilterOptions{
 		IncludeVersion:  processorVersion,
 		ExcludeVersion:  []string{"1.1"}, // exclude XSD 1.1 tests (we only support XSD 1.0)
 		ExcludePatterns: excludePatterns,
@@ -836,20 +841,23 @@ func (r *W3CTestRunner) LoadTestSet(metadataPath string) (*W3CTestSet, error) {
 
 // validateTestSet validates test set metadata according to XSTS schema constraints
 func (r *W3CTestRunner) validateTestSet(testSet *W3CTestSet) error {
-	for _, group := range testSet.TestGroups {
+	for i := range testSet.TestGroups {
+		group := &testSet.TestGroups[i]
 		// validate at most one schemaTest per group (per schema spec)
 		if len(group.SchemaTests) > 1 {
 			return fmt.Errorf("testGroup '%s' has %d schemaTest elements (max 1 allowed)", group.Name, len(group.SchemaTests))
 		}
 
 		testNames := make(map[string]string) // name -> test type
-		for _, schemaTest := range group.SchemaTests {
+		for i := range group.SchemaTests {
+			schemaTest := &group.SchemaTests[i]
 			if existingType, exists := testNames[schemaTest.Name]; exists {
 				return fmt.Errorf("testGroup '%s' has duplicate test name '%s' (already used as %s)", group.Name, schemaTest.Name, existingType)
 			}
 			testNames[schemaTest.Name] = "schemaTest"
 		}
-		for _, instanceTest := range group.InstanceTests {
+		for i := range group.InstanceTests {
+			instanceTest := &group.InstanceTests[i]
 			if existingType, exists := testNames[instanceTest.Name]; exists {
 				return fmt.Errorf("testGroup '%s' has duplicate test name '%s' (already used as %s)", group.Name, instanceTest.Name, existingType)
 			}
@@ -867,7 +875,8 @@ func (r *W3CTestRunner) RunTestSet(t *testing.T, testSet *W3CTestSet, metadataPa
 		return
 	}
 
-	for _, group := range testSet.TestGroups {
+	for i := range testSet.TestGroups {
+		group := &testSet.TestGroups[i]
 		if !r.filter.ShouldIncludeVersion(group.Version) {
 			continue
 		}
@@ -875,7 +884,8 @@ func (r *W3CTestRunner) RunTestSet(t *testing.T, testSet *W3CTestSet, metadataPa
 		groupName := group.Name
 		t.Run(groupName, func(t *testing.T) {
 			// run schema tests first (instance tests depend on them)
-			for _, test := range group.SchemaTests {
+			for i := range group.SchemaTests {
+				test := &group.SchemaTests[i]
 				if !r.filter.ShouldIncludeVersion(test.Version) {
 					continue
 				}
@@ -888,7 +898,8 @@ func (r *W3CTestRunner) RunTestSet(t *testing.T, testSet *W3CTestSet, metadataPa
 				r.runSchemaTest(t, testSet.Name, groupName, test, metadataDir)
 			}
 
-			for _, test := range group.InstanceTests {
+			for i := range group.InstanceTests {
+				test := &group.InstanceTests[i]
 				if !r.filter.ShouldIncludeVersion(test.Version) {
 					continue
 				}
@@ -905,7 +916,11 @@ func (r *W3CTestRunner) RunTestSet(t *testing.T, testSet *W3CTestSet, metadataPa
 }
 
 // runSchemaTest validates whether a schema is well-formed
-func (r *W3CTestRunner) runSchemaTest(t *testing.T, testSet, testGroup string, test W3CSchemaTest, metadataDir string) {
+func (r *W3CTestRunner) runSchemaTest(t *testing.T, testSet, testGroup string, test *W3CSchemaTest, metadataDir string) {
+	if test == nil {
+		t.Fatalf("schema test is nil")
+		return
+	}
 	testName := "schema:" + test.Name
 	t.Run(testName, func(t *testing.T) {
 		expected := r.filter.GetExpected(test.Expected, processorVersion)
@@ -980,7 +995,15 @@ func (r *W3CTestRunner) runSchemaTest(t *testing.T, testSet, testGroup string, t
 }
 
 // runInstanceTest validates an instance document against a schema
-func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string, test W3CInstanceTest, group W3CTestGroup, metadataDir string) {
+func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string, test *W3CInstanceTest, group *W3CTestGroup, metadataDir string) {
+	if test == nil {
+		t.Fatalf("instance test is nil")
+		return
+	}
+	if group == nil {
+		t.Fatalf("test group is nil")
+		return
+	}
 	testName := "instance:" + test.Name
 	t.Run(testName, func(t *testing.T) {
 		expected := r.filter.GetExpected(test.Expected, processorVersion)
@@ -1008,8 +1031,8 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 			return
 		}
 		defer func() {
-			if err := file.Close(); err != nil {
-				t.Fatalf("close instance %s: %v", test.InstanceDocument.Href, err)
+			if closeErr := file.Close(); closeErr != nil {
+				t.Fatalf("close instance %s: %v", test.InstanceDocument.Href, closeErr)
 			}
 		}()
 
@@ -1023,7 +1046,8 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 			t.Fatalf("parse instance %s: %v", test.InstanceDocument.Href, err)
 			return
 		}
-		if _, err := file.Seek(0, io.SeekStart); err != nil {
+		_, err = file.Seek(0, io.SeekStart)
+		if err != nil {
 			t.Fatalf("seek instance %s: %v", test.InstanceDocument.Href, err)
 			return
 		}
@@ -1136,7 +1160,11 @@ func readInstanceInfo(r io.Reader) (instanceInfo, error) {
 
 // loadSchemaForInstance finds and loads the schema for an instance test.
 // Returns the schema path (for error messages) and compiled schema, or nil if not found.
-func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group W3CTestGroup, info instanceInfo, metadataDir string) (string, *grammar.CompiledSchema) {
+func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup, info instanceInfo, metadataDir string) (string, *grammar.CompiledSchema) {
+	if group == nil {
+		t.Fatalf("test group is nil")
+		return "", nil
+	}
 	rootNS := info.rootNS
 	rootQName := types.QName{
 		Namespace: types.NamespaceURI(rootNS),

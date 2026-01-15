@@ -514,8 +514,8 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 				errMsg := err.Error()
 				skippable := baseParticle.MinOcc() == 0
 				if !skippable {
-					if baseMG, ok := baseParticle.(*types.ModelGroup); ok {
-						skippable = isEffectivelyOptional(baseMG)
+					if baseGroup, ok := baseParticle.(*types.ModelGroup); ok {
+						skippable = isEffectivelyOptional(baseGroup)
 					}
 				}
 				if strings.Contains(errMsg, "maxOccurs") || strings.Contains(errMsg, "minOccurs") ||

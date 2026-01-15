@@ -76,8 +76,8 @@ func TestWildO016(t *testing.T) {
 		t.Fatalf("Failed to open instance: %v", err)
 	}
 	defer func() {
-		if err := instanceFile.Close(); err != nil {
-			t.Fatalf("Failed to close instance: %v", err)
+		if closeErr := instanceFile.Close(); closeErr != nil {
+			t.Fatalf("Failed to close instance: %v", closeErr)
 		}
 	}()
 
@@ -113,8 +113,8 @@ func TestWildO018(t *testing.T) {
 		t.Fatalf("Failed to open instance: %v", err)
 	}
 	defer func() {
-		if err := instanceFile.Close(); err != nil {
-			t.Fatalf("Failed to close instance: %v", err)
+		if closeErr := instanceFile.Close(); closeErr != nil {
+			t.Fatalf("Failed to close instance: %v", closeErr)
 		}
 	}()
 
@@ -150,8 +150,8 @@ func TestWildO037(t *testing.T) {
 		t.Fatalf("Failed to open instance: %v", err)
 	}
 	defer func() {
-		if err := instanceFile.Close(); err != nil {
-			t.Fatalf("Failed to close instance: %v", err)
+		if closeErr := instanceFile.Close(); closeErr != nil {
+			t.Fatalf("Failed to close instance: %v", closeErr)
 		}
 	}()
 

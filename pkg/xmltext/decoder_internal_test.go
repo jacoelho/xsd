@@ -304,7 +304,7 @@ func TestAdvanceCRLFAcrossChunks(t *testing.T) {
 
 func TestPopStackInterned(t *testing.T) {
 	dec := &Decoder{}
-	if err := dec.popStackInterned(qnameSpan{}); !errors.Is(err, errMismatchedEndTag) {
+	if err := dec.popStackInterned(&qnameSpan{}); !errors.Is(err, errMismatchedEndTag) {
 		t.Fatalf("popStackInterned empty error = %v, want %v", err, errMismatchedEndTag)
 	}
 	buf := spanBuffer{data: []byte("root")}
@@ -312,32 +312,33 @@ func TestPopStackInterned(t *testing.T) {
 	dec.stack = []stackEntry{{name: name}}
 	otherBuf := spanBuffer{data: []byte("other")}
 	other := newQNameSpan(&otherBuf, 0, len(otherBuf.data))
-	if err := dec.popStackInterned(other); !errors.Is(err, errMismatchedEndTag) {
+	if err := dec.popStackInterned(&other); !errors.Is(err, errMismatchedEndTag) {
 		t.Fatalf("popStackInterned mismatch error = %v, want %v", err, errMismatchedEndTag)
 	}
 }
 
 func TestScanName(t *testing.T) {
 	dec := &Decoder{buf: spanBuffer{data: []byte("name rest")}}
-	span, err := dec.scanName(false)
+	nameSpan, err := dec.scanName(false)
 	if err != nil {
 		t.Fatalf("scanName error = %v", err)
 	}
-	if got := string(span.bytes()); got != "name" {
+	if got := string(nameSpan.bytes()); got != "name" {
 		t.Fatalf("scanName = %q, want name", got)
 	}
 
 	dec = &Decoder{buf: spanBuffer{data: []byte("1bad")}}
-	if _, err := dec.scanName(false); !errors.Is(err, errInvalidName) {
+	_, err = dec.scanName(false)
+	if !errors.Is(err, errInvalidName) {
 		t.Fatalf("scanName invalid error = %v, want %v", err, errInvalidName)
 	}
 
 	dec = &Decoder{buf: spanBuffer{data: []byte("\u00e9x ")}, eof: true}
-	span, err = dec.scanName(false)
+	nameSpan, err = dec.scanName(false)
 	if err != nil {
 		t.Fatalf("scanName unicode error = %v", err)
 	}
-	if got := string(span.bytes()); got != "\u00e9x" {
+	if got := string(nameSpan.bytes()); got != "\u00e9x" {
 		t.Fatalf("scanName unicode = %q, want \\u00e9x", got)
 	}
 }
@@ -543,28 +544,28 @@ func TestCompactIfNeededClear(t *testing.T) {
 
 func TestScanNameAcrossBuffer(t *testing.T) {
 	dec := newStreamingDecoder([]byte{0xCF}, []byte{0x80, 'x', ' '})
-	span, err := dec.scanName(false)
+	nameSpan, err := dec.scanName(false)
 	if err != nil {
 		t.Fatalf("scanName error = %v", err)
 	}
-	if got := string(span.bytes()); got != "\u03c0x" {
+	if got := string(nameSpan.bytes()); got != "\u03c0x" {
 		t.Fatalf("scanName = %q, want \\u03c0x", got)
 	}
 }
 
 func TestScanQNameAcrossBuffer(t *testing.T) {
 	dec := newStreamingDecoder([]byte("p:"), []byte{0xCF, 0x80, ' '})
-	span, err := dec.scanQName(false)
+	qname, err := dec.scanQName(false)
 	if err != nil {
 		t.Fatalf("scanQName error = %v", err)
 	}
-	if got := string(span.Full.bytes()); got != "p:\u03c0" {
+	if got := string(qname.Full.bytes()); got != "p:\u03c0" {
 		t.Fatalf("scanQName = %q, want p:\\u03c0", got)
 	}
-	if got := string(span.Prefix.bytes()); got != "p" {
+	if got := string(qname.Prefix.bytes()); got != "p" {
 		t.Fatalf("prefix = %q, want p", got)
 	}
-	if got := string(span.Local.bytes()); got != "\u03c0" {
+	if got := string(qname.Local.bytes()); got != "\u03c0" {
 		t.Fatalf("local = %q, want \\u03c0", got)
 	}
 }
@@ -596,7 +597,7 @@ func TestDecoderInternQNameHelpers(t *testing.T) {
 	name := makeQNameSpan(&buf, 0, len(buf.data), 2)
 
 	dec := &Decoder{}
-	interned := dec.internQName(name)
+	interned := dec.internQName(&name)
 	if got := string(interned.Full.bytes()); got != "ns:local" {
 		t.Fatalf("internQName full = %q, want ns:local", got)
 	}
@@ -606,7 +607,7 @@ func TestDecoderInternQNameHelpers(t *testing.T) {
 
 	hash := hashBytes(buf.data)
 	dec = &Decoder{}
-	interned = dec.internQNameHash(name, hash)
+	interned = dec.internQNameHash(&name, hash)
 	if got := string(interned.Prefix.bytes()); got != "ns" {
 		t.Fatalf("internQNameHash prefix = %q, want ns", got)
 	}

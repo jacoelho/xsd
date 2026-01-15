@@ -49,7 +49,6 @@ type StreamDecoder struct {
 	valueBuf   []byte
 	nsBuf      []byte
 	tok        xmltext.Token
-	tokBuf     xmltext.TokenBuffer
 	nextID     elementID
 	pendingPop bool
 	lastLine   int
@@ -73,8 +72,8 @@ func NewStreamDecoder(r io.Reader) (*StreamDecoder, error) {
 	if dec == nil {
 		return nil, fmt.Errorf("nil XML decoder")
 	}
-	var tokBuf xmltext.TokenBuffer
-	tokBuf.Reserve(xmltext.TokenBufferSizes{
+	var tok xmltext.Token
+	tok.Reserve(xmltext.TokenSizes{
 		Attrs:     streamDecoderAttrCapacity,
 		AttrName:  256,
 		AttrValue: 256,
@@ -84,7 +83,7 @@ func NewStreamDecoder(r io.Reader) (*StreamDecoder, error) {
 		names:    newQNameCache(),
 		valueBuf: make([]byte, 0, 256),
 		nsBuf:    make([]byte, 0, 128),
-		tokBuf:   tokBuf,
+		tok:      tok,
 	}, nil
 }
 
@@ -102,7 +101,7 @@ func (d *StreamDecoder) Next() (Event, error) {
 	}
 
 	for {
-		if err := d.dec.ReadTokenInto(&d.tok, &d.tokBuf); err != nil {
+		if err := d.dec.ReadTokenInto(&d.tok); err != nil {
 			return Event{}, err
 		}
 		tok := &d.tok

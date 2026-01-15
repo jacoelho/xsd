@@ -91,7 +91,8 @@ func parseSimpleContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, sch
 	}
 	restriction := &types.Restriction{Base: baseQName}
 
-	if err := validateSimpleContentRestrictionOrder(doc, elem); err != nil {
+	err = validateSimpleContentRestrictionOrder(doc, elem)
+	if err != nil {
 		return nil, baseQName, err
 	}
 
@@ -101,7 +102,8 @@ func parseSimpleContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, sch
 	}
 	restriction.SimpleType = nestedSimpleType
 
-	if err := parseFacetsWithAttributes(doc, elem, restriction, nestedSimpleType, schema); err != nil {
+	err = parseFacetsWithAttributes(doc, elem, restriction, nestedSimpleType, schema)
+	if err != nil {
 		return nil, baseQName, fmt.Errorf("parse facets: %w", err)
 	}
 
@@ -132,7 +134,8 @@ func parseSimpleContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 		return nil, types.QName{}, err
 	}
 
-	if err := validateSimpleContentExtensionChildren(doc, elem); err != nil {
+	err = validateSimpleContentExtensionChildren(doc, elem)
+	if err != nil {
 		return nil, baseQName, err
 	}
 

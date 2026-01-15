@@ -292,7 +292,8 @@ func (c *Compiler) collectFacets(simpleType *types.SimpleType) []types.Facet {
 		var stepPatterns []*types.Pattern
 
 		for _, f := range simpleType.Restriction.Facets {
-			if facet, ok := f.(types.Facet); ok {
+			switch facet := f.(type) {
+			case types.Facet:
 				// check if this is a pattern facet
 				if patternFacet, ok := facet.(*types.Pattern); ok {
 					if err := patternFacet.ValidateSyntax(); err != nil {
@@ -309,9 +310,9 @@ func (c *Compiler) collectFacets(simpleType *types.SimpleType) []types.Facet {
 					}
 					result = append(result, facet)
 				}
-			} else if df, ok := f.(*types.DeferredFacet); ok {
+			case *types.DeferredFacet:
 				// convert deferred facets to real facets now that base type is resolved
-				realFacet := c.constructDeferredFacet(df, simpleType)
+				realFacet := c.constructDeferredFacet(facet, simpleType)
 				if realFacet != nil {
 					result = append(result, realFacet)
 				}

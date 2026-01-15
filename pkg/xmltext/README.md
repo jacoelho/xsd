@@ -38,10 +38,9 @@ dec := xmltext.NewDecoder(r,
     xmltext.CoalesceCharData(true),
 )
 var tok xmltext.Token
-var buf xmltext.TokenBuffer
 
 for {
-    err := dec.ReadTokenInto(&tok, &buf)
+    err := dec.ReadTokenInto(&tok)
     if err == io.EOF {
         break
     }
@@ -67,11 +66,10 @@ dec := xmltext.NewDecoder(r,
     xmltext.CoalesceCharData(true),
 )
 var tok xmltext.Token
-var buf xmltext.TokenBuffer
 scratch := make([]byte, 256)
 
 for {
-    err := dec.ReadTokenInto(&tok, &buf)
+    err := dec.ReadTokenInto(&tok)
     if err == io.EOF {
         break
     }
@@ -106,11 +104,10 @@ Attribute values without forcing expansion:
 ```go
 dec := xmltext.NewDecoder(r, xmltext.ResolveEntities(false))
 var tok xmltext.Token
-var buf xmltext.TokenBuffer
 scratch := make([]byte, 256)
 
 for {
-    err := dec.ReadTokenInto(&tok, &buf)
+    err := dec.ReadTokenInto(&tok)
     if err == io.EOF {
         break
     }
@@ -148,8 +145,7 @@ Retaining token data beyond the next decoder call:
 
 ```go
 var tok xmltext.Token
-var buf xmltext.TokenBuffer
-err := dec.ReadTokenInto(&tok, &buf)
+err := dec.ReadTokenInto(&tok)
 if err != nil {
     return err
 }
@@ -178,10 +174,9 @@ func UnmarshalBook(r io.Reader) (Book, error) {
     var book Book
     var current string // tracks current element
     var tok xmltext.Token
-    var buf xmltext.TokenBuffer
 
     for {
-        err := dec.ReadTokenInto(&tok, &buf)
+        err := dec.ReadTokenInto(&tok)
         if err == io.EOF {
             break
         }
@@ -228,10 +223,9 @@ func UnmarshalLibrary(r io.Reader) (Library, error) {
     var inBook bool
     var field string
     var tok xmltext.Token
-    var buf xmltext.TokenBuffer
 
     for {
-        err := dec.ReadTokenInto(&tok, &buf)
+        err := dec.ReadTokenInto(&tok)
         if err == io.EOF {
             break
         }
@@ -277,10 +271,10 @@ func UnmarshalLibrary(r io.Reader) (Library, error) {
 This approach avoids reflection and DOM allocation, giving full control over
 parsing. Use `SkipValue()` to skip unwanted subtrees efficiently.
 
-## Buffer lifetimes
+## Token lifetimes
 
-Token slices are backed by the caller-provided TokenBuffer and are overwritten
-on the next ReadTokenInto call that reuses the buffer. Copy slices if you need
+Token slices are backed by the token's internal buffers and are overwritten
+on the next ReadTokenInto call that reuses the token. Copy slices if you need
 to keep them.
 
 ## ReadValueInto
@@ -297,8 +291,8 @@ column information when `TrackLineColumn(true)` is enabled.
 ## Footguns
 
 - token slices are reused; copy them if you need to keep data past the next call
-- ReadTokenInto overwrites the TokenBuffer contents every time
-- TokenBuffer retains its largest slices; allocate a new buffer to release memory
+- ReadTokenInto overwrites the Token contents every time
+- Token retains its largest slices; assign a zero value to release memory
 - ReadValueInto writes into dst; use the returned length to slice the buffer
 - CDATA and CharData merge into a single CharData token when coalescing is on
 - ResolveEntities(false) leaves entity references in Text/Attr values

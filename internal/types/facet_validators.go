@@ -187,11 +187,12 @@ func parseStringToComparableValue(value TypedValue, lexical string, typ Type) (C
 	}
 
 	var primitiveType Type
-	if st, ok := typ.(*SimpleType); ok {
-		primitiveType = st.PrimitiveType()
-	} else if bt, ok := typ.(*BuiltinType); ok {
-		primitiveType = bt.PrimitiveType()
-	} else {
+	switch t := typ.(type) {
+	case *SimpleType:
+		primitiveType = t.PrimitiveType()
+	case *BuiltinType:
+		primitiveType = t.PrimitiveType()
+	default:
 		return nil, fmt.Errorf("cannot parse string: unsupported type %T", typ)
 	}
 

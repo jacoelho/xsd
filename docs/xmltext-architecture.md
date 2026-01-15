@@ -18,9 +18,9 @@ namespaces or build DOM nodes. It only tokenizes and validates syntax.
 
 - The decoder owns a sliding buffer and uses internal spans into that buffer
   while scanning.
-- `ReadTokenInto` copies token bytes into a caller-provided TokenBuffer. The
+- `ReadTokenInto` copies token bytes into the caller-owned Token buffers. The
   returned slices are valid until the next `ReadTokenInto` call that reuses the
-  buffer.
+  Token.
 - Scratch buffers are used for transformed text (entity expansion and coalesced
   char data) to avoid copying into the main input buffer.
 

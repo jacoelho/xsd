@@ -112,7 +112,8 @@ func TestStreamDecoderSkipSubtree(t *testing.T) {
 	if event.Name.Local != "skip" {
 		t.Fatalf("second element = %q, want skip", event.Name.Local)
 	}
-	if err := dec.SkipSubtree(); err != nil {
+	err = dec.SkipSubtree()
+	if err != nil {
 		t.Fatalf("SkipSubtree() error = %v", err)
 	}
 

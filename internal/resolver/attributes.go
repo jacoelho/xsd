@@ -57,7 +57,7 @@ func isBuiltinXMLAttribute(attr *types.AttributeDecl) bool {
 // If the reference has the target namespace and is not found, also checks the no-namespace.
 // This handles cases where attribute groups from imported schemas with no target namespace
 // are referenced without a prefix (resolved to target namespace).
-func validateAttributeGroupReference(schema *parser.Schema, agRef types.QName, contextQName types.QName) error {
+func validateAttributeGroupReference(schema *parser.Schema, agRef, contextQName types.QName) error {
 	if _, exists := schema.AttributeGroups[agRef]; !exists {
 		// if reference has target namespace and not found, also check no-namespace.
 		// this handles cases where attribute groups from imported schemas with no
