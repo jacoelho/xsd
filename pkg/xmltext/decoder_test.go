@@ -221,7 +221,8 @@ func TestDecoderSkipValue(t *testing.T) {
 	if err != nil || tok.Kind != KindStartElement {
 		t.Fatalf("skip start error = %v", err)
 	}
-	if err := dec.SkipValue(); err != nil {
+	err = dec.SkipValue()
+	if err != nil {
 		t.Fatalf("SkipValue error = %v", err)
 	}
 	tok, err = reader.Next()
@@ -544,7 +545,8 @@ func TestDecoderSkipValueScenarios(t *testing.T) {
 	if tok.Kind != KindStartElement {
 		t.Fatalf("a kind = %v, want %v", tok.Kind, KindStartElement)
 	}
-	if err := dec.SkipValue(); err != nil {
+	err = dec.SkipValue()
+	if err != nil {
 		t.Fatalf("SkipValue a error = %v", err)
 	}
 	tok, err = reader.Next()
@@ -554,7 +556,8 @@ func TestDecoderSkipValueScenarios(t *testing.T) {
 	if got := string(tok.Name); got != "b" {
 		t.Fatalf("b name = %q, want b", got)
 	}
-	if err := dec.SkipValue(); err != nil {
+	err = dec.SkipValue()
+	if err != nil {
 		t.Fatalf("SkipValue b error = %v", err)
 	}
 	tok, err = reader.Next()
@@ -571,7 +574,8 @@ func TestDecoderSkipValueScenarios(t *testing.T) {
 	if tok.Kind != KindCharData {
 		t.Fatalf("text kind = %v, want %v", tok.Kind, KindCharData)
 	}
-	if err := dec.SkipValue(); err != nil {
+	err = dec.SkipValue()
+	if err != nil {
 		t.Fatalf("SkipValue text error = %v", err)
 	}
 	tok, err = reader.Next()
@@ -999,11 +1003,11 @@ func TestPeekKindTokens(t *testing.T) {
 
 func TestHasAttrExpansion(t *testing.T) {
 	tok := rawToken{attrRawNeeds: []bool{false, false}}
-	if hasAttrExpansion(tok) {
+	if hasAttrExpansion(&tok) {
 		t.Fatalf("hasAttrExpansion = true, want false")
 	}
 	tok.attrRawNeeds[1] = true
-	if !hasAttrExpansion(tok) {
+	if !hasAttrExpansion(&tok) {
 		t.Fatalf("hasAttrExpansion = false, want true")
 	}
 }
@@ -1346,37 +1350,46 @@ func TestDecoderSkipValueBranches(t *testing.T) {
 	if tok.Kind != KindStartElement {
 		t.Fatalf("root kind = %v, want %v", tok.Kind, KindStartElement)
 	}
-	if err := dec.SkipValue(); err != nil {
+	err = dec.SkipValue()
+	if err != nil {
 		t.Fatalf("SkipValue self-closing error = %v", err)
 	}
-	if _, err := reader.Next(); !errors.Is(err, io.EOF) {
+	_, err = reader.Next()
+	if !errors.Is(err, io.EOF) {
 		t.Fatalf("ReadToken EOF = %v, want io.EOF", err)
 	}
-	if err := dec.SkipValue(); !errors.Is(err, io.EOF) {
+	err = dec.SkipValue()
+	if !errors.Is(err, io.EOF) {
 		t.Fatalf("SkipValue EOF = %v, want io.EOF", err)
 	}
 
 	dec = NewDecoder(strings.NewReader("<root><child/></root>"))
 	reader = newTokenReader(dec)
-	if _, err := reader.Next(); err != nil {
+	_, err = reader.Next()
+	if err != nil {
 		t.Fatalf("ReadToken root start error = %v", err)
 	}
-	if err := dec.SkipValue(); err != nil {
+	err = dec.SkipValue()
+	if err != nil {
 		t.Fatalf("SkipValue element error = %v", err)
 	}
-	if _, err := reader.Next(); !errors.Is(err, io.EOF) {
+	_, err = reader.Next()
+	if !errors.Is(err, io.EOF) {
 		t.Fatalf("ReadToken EOF after skip = %v, want io.EOF", err)
 	}
 
 	dec = NewDecoder(strings.NewReader("<root>text</root>"))
 	reader = newTokenReader(dec)
-	if _, err := reader.Next(); err != nil {
+	_, err = reader.Next()
+	if err != nil {
 		t.Fatalf("ReadToken root start error = %v", err)
 	}
-	if _, err := reader.Next(); err != nil {
+	_, err = reader.Next()
+	if err != nil {
 		t.Fatalf("ReadToken text error = %v", err)
 	}
-	if err := dec.SkipValue(); err != nil {
+	err = dec.SkipValue()
+	if err != nil {
 		t.Fatalf("SkipValue after text error = %v", err)
 	}
 	tok, err = reader.Next()
@@ -1389,13 +1402,16 @@ func TestDecoderSkipValueBranches(t *testing.T) {
 
 	dec = NewDecoder(strings.NewReader("<root><!--a--><!--b--></root>"), EmitComments(true))
 	reader = newTokenReader(dec)
-	if _, err := reader.Next(); err != nil {
+	_, err = reader.Next()
+	if err != nil {
 		t.Fatalf("ReadToken root start error = %v", err)
 	}
-	if _, err := reader.Next(); err != nil {
+	_, err = reader.Next()
+	if err != nil {
 		t.Fatalf("ReadToken comment error = %v", err)
 	}
-	if err := dec.SkipValue(); err != nil {
+	err = dec.SkipValue()
+	if err != nil {
 		t.Fatalf("SkipValue comment error = %v", err)
 	}
 	tok, err = reader.Next()

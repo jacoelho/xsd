@@ -21,10 +21,10 @@ type internEntry struct {
 }
 
 type nameInterner struct {
-	buf          spanBuffer
 	entries      map[uint64][]internEntry
-	recentHashes [nameInternerRecentSize]uint64
+	buf          spanBuffer
 	recentNames  [nameInternerRecentSize]qnameSpan
+	recentHashes [nameInternerRecentSize]uint64
 	stats        internStats
 	maxEntries   int
 	recentCount  int
@@ -48,7 +48,10 @@ func (i *nameInterner) intern(name []byte) qnameSpan {
 	return i.internBytes(name, -1)
 }
 
-func (i *nameInterner) internQName(name qnameSpan) qnameSpan {
+func (i *nameInterner) internQName(name *qnameSpan) qnameSpan {
+	if name == nil {
+		return qnameSpan{}
+	}
 	data := name.Full.bytesUnsafe()
 	if len(data) == 0 {
 		return qnameSpan{}
@@ -60,7 +63,10 @@ func (i *nameInterner) internQName(name qnameSpan) qnameSpan {
 	return i.internBytes(data, prefixLen)
 }
 
-func (i *nameInterner) internQNameHash(name qnameSpan, hash uint64) qnameSpan {
+func (i *nameInterner) internQNameHash(name *qnameSpan, hash uint64) qnameSpan {
+	if name == nil {
+		return qnameSpan{}
+	}
 	data := name.Full.bytesUnsafe()
 	if len(data) == 0 {
 		return qnameSpan{}
@@ -92,15 +98,18 @@ func (i *nameInterner) lookupRecent(name []byte, hash uint64) (qnameSpan, bool) 
 	return qnameSpan{}, false
 }
 
-func (i *nameInterner) rememberRecent(name qnameSpan, hash uint64) {
+func (i *nameInterner) rememberRecent(name *qnameSpan, hash uint64) {
+	if name == nil {
+		return
+	}
 	if i.recentCount < nameInternerRecentSize {
 		i.recentHashes[i.recentCount] = hash
-		i.recentNames[i.recentCount] = name
+		i.recentNames[i.recentCount] = *name
 		i.recentCount++
 		return
 	}
 	i.recentHashes[i.recentIndex] = hash
-	i.recentNames[i.recentIndex] = name
+	i.recentNames[i.recentIndex] = *name
 	i.recentIndex++
 	if i.recentIndex >= nameInternerRecentSize {
 		i.recentIndex = 0
@@ -123,7 +132,7 @@ func (i *nameInterner) internBytesHash(name []byte, prefixLen int, hash uint64) 
 		for _, entry := range bucket {
 			if bytes.Equal(entry.name.Full.bytesUnsafe(), name) {
 				i.stats.Hits++
-				i.rememberRecent(entry.name, entry.hash)
+				i.rememberRecent(&entry.name, entry.hash)
 				return entry.name
 			}
 		}
@@ -150,7 +159,7 @@ func (i *nameInterner) internBytesHash(name []byte, prefixLen int, hash uint64) 
 	entry := internEntry{hash: hash, name: qname}
 	i.entries[hash] = append(i.entries[hash], entry)
 	i.stats.Count++
-	i.rememberRecent(entry.name, entry.hash)
+	i.rememberRecent(&entry.name, entry.hash)
 	return qname
 }
 

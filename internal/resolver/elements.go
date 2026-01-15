@@ -83,7 +83,7 @@ func validateElementValueConstraints(schema *parser.Schema, decl *types.ElementD
 
 // validateSubstitutionGroupFinal validates that the substitution group member's derivation
 // method is not blocked by the head element's final attribute.
-func validateSubstitutionGroupFinal(schema *parser.Schema, memberQName types.QName, memberDecl *types.ElementDecl, headDecl *types.ElementDecl) error {
+func validateSubstitutionGroupFinal(schema *parser.Schema, memberQName types.QName, memberDecl, headDecl *types.ElementDecl) error {
 	// if head element has no final constraints, any derivation is allowed.
 	if headDecl.Final == 0 {
 		return nil
@@ -152,7 +152,7 @@ func validateSubstitutionGroupFinal(schema *parser.Schema, memberQName types.QNa
 }
 
 // validateSubstitutionGroupDerivation validates that the member element's type is derived from the head element's type.
-func validateSubstitutionGroupDerivation(schema *parser.Schema, memberQName types.QName, memberDecl *types.ElementDecl, headDecl *types.ElementDecl) error {
+func validateSubstitutionGroupDerivation(schema *parser.Schema, memberQName types.QName, memberDecl, headDecl *types.ElementDecl) error {
 	memberType := resolveTypeForFinalValidation(schema, memberDecl.Type)
 	headType := resolveTypeForFinalValidation(schema, headDecl.Type)
 	if memberType == nil || headType == nil {

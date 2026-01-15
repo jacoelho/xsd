@@ -648,7 +648,7 @@ type ComparableXSDDuration struct {
 // ParseXSDDuration parses an XSD duration string into an XSDDuration struct
 // Supports all XSD duration components including years and months
 func ParseXSDDuration(s string) (XSDDuration, error) {
-	if len(s) == 0 {
+	if s == "" {
 		return XSDDuration{}, fmt.Errorf("empty duration")
 	}
 
@@ -658,7 +658,7 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 		s = s[1:]
 	}
 
-	if len(s) == 0 || s[0] != 'P' {
+	if s == "" || s[0] != 'P' {
 		return XSDDuration{}, fmt.Errorf("duration must start with P")
 	}
 	s = s[1:]
@@ -1234,7 +1234,7 @@ func measureLengthForPrimitive(value string, primitiveName TypeName) int {
 	switch primitiveName {
 	case TypeNameHexBinary:
 		// hexBinary: each pair of hex characters = 1 octet
-		if len(value) == 0 {
+		if value == "" {
 			return 0
 		}
 		if len(value)%2 != 0 {
@@ -1245,7 +1245,7 @@ func measureLengthForPrimitive(value string, primitiveName TypeName) int {
 
 	case TypeNameBase64Binary:
 		// base64Binary: length is the number of octets it contains
-		if len(value) == 0 {
+		if value == "" {
 			return 0
 		}
 		cleaned := strings.Map(func(r rune) rune {

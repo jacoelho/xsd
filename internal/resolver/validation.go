@@ -294,55 +294,57 @@ func validateComplexTypeReferences(schema *parser.Schema) []error {
 	var errors []error
 
 	for qname, typ := range schema.TypeDefs {
-		if ct, ok := typ.(*types.ComplexType); ok {
-			for _, agRef := range ct.AttrGroups {
-				if err := validateAttributeGroupReference(schema, agRef, qname); err != nil {
-					errors = append(errors, err)
-				}
+		ct, ok := typ.(*types.ComplexType)
+		if !ok {
+			continue
+		}
+		for _, agRef := range ct.AttrGroups {
+			if err := validateAttributeGroupReference(schema, agRef, qname); err != nil {
+				errors = append(errors, err)
 			}
+		}
 
-			if cc, ok := ct.Content().(*types.ComplexContent); ok {
-				if cc.Extension != nil {
-					for _, agRef := range cc.Extension.AttrGroups {
-						if err := validateAttributeGroupReference(schema, agRef, qname); err != nil {
-							errors = append(errors, err)
-						}
-					}
-				}
-				if cc.Restriction != nil {
-					for _, agRef := range cc.Restriction.AttrGroups {
-						if err := validateAttributeGroupReference(schema, agRef, qname); err != nil {
-							errors = append(errors, err)
-						}
-					}
-				}
-			}
-			if sc, ok := ct.Content().(*types.SimpleContent); ok {
-				if sc.Extension != nil {
-					for _, agRef := range sc.Extension.AttrGroups {
-						if err := validateAttributeGroupReference(schema, agRef, qname); err != nil {
-							errors = append(errors, err)
-						}
-					}
-				}
-			}
-
-			for _, attr := range ct.Attributes() {
-				if attr.IsReference {
-					if err := validateAttributeReference(schema, qname, attr, "type"); err != nil {
+		if cc, ok := ct.Content().(*types.ComplexContent); ok {
+			if cc.Extension != nil {
+				for _, agRef := range cc.Extension.AttrGroups {
+					if err := validateAttributeGroupReference(schema, agRef, qname); err != nil {
 						errors = append(errors, err)
 					}
-				} else if attr.Type != nil {
-					if err := validateTypeReferenceFromType(schema, attr.Type, qname.Namespace); err != nil {
-						errors = append(errors, fmt.Errorf("type %s attribute: %w", qname, err))
+				}
+			}
+			if cc.Restriction != nil {
+				for _, agRef := range cc.Restriction.AttrGroups {
+					if err := validateAttributeGroupReference(schema, agRef, qname); err != nil {
+						errors = append(errors, err)
 					}
 				}
 			}
-
-			origin := schema.TypeOrigins[qname]
-			if err := validateContentReferences(schema, ct.Content(), origin); err != nil {
-				errors = append(errors, fmt.Errorf("type %s: %w", qname, err))
+		}
+		if sc, ok := ct.Content().(*types.SimpleContent); ok {
+			if sc.Extension != nil {
+				for _, agRef := range sc.Extension.AttrGroups {
+					if err := validateAttributeGroupReference(schema, agRef, qname); err != nil {
+						errors = append(errors, err)
+					}
+				}
 			}
+		}
+
+		for _, attr := range ct.Attributes() {
+			if attr.IsReference {
+				if err := validateAttributeReference(schema, qname, attr, "type"); err != nil {
+					errors = append(errors, err)
+				}
+			} else if attr.Type != nil {
+				if err := validateTypeReferenceFromType(schema, attr.Type, qname.Namespace); err != nil {
+					errors = append(errors, fmt.Errorf("type %s attribute: %w", qname, err))
+				}
+			}
+		}
+
+		origin := schema.TypeOrigins[qname]
+		if err := validateContentReferences(schema, ct.Content(), origin); err != nil {
+			errors = append(errors, fmt.Errorf("type %s: %w", qname, err))
 		}
 	}
 

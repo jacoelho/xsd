@@ -47,13 +47,13 @@ type streamFrame struct {
 	contentModel       *grammar.CompiledContentModel
 	automaton          *grammar.AutomatonStreamValidator
 	qname              types.QName
-	startLine          int
-	startColumn        int
-	textLine           int
-	textColumn         int
-	textBuf            []byte
 	fieldCaptures      []fieldCapture
+	textBuf            []byte
 	listStream         listStreamState
+	textColumn         int
+	textLine           int
+	startColumn        int
+	startLine          int
 	id                 uint64
 	minOccurs          int
 	scopeDepth         int
@@ -80,12 +80,12 @@ type listStreamState struct {
 type streamRun struct {
 	*validationRun
 	dec             *xsdxml.StreamDecoder
-	currentLine     int
-	currentColumn   int
 	constraintDecls map[types.QName][]*grammar.CompiledElement
 	frames          []streamFrame
 	violations      []errors.Validation
 	identityScopes  []*identityScope
+	currentLine     int
+	currentColumn   int
 	rootSeen        bool
 	rootClosed      bool
 }
@@ -189,7 +189,7 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 			if !r.rootSeen {
 				r.rootSeen = true
 			}
-			if err := r.handleStart(dec, ev); err != nil {
+			if err := r.handleStart(dec, &ev); err != nil {
 				return r.violations, err
 			}
 
@@ -211,7 +211,7 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 				}
 				continue
 			}
-			r.handleCharData(ev)
+			r.handleCharData(&ev)
 		}
 	}
 
@@ -226,7 +226,7 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 	return r.violations, nil
 }
 
-func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev xsdxml.Event) error {
+func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev *xsdxml.Event) error {
 	parent := r.currentFrame()
 	if parent != nil {
 		skipSubtree := r.prevalidateParentForChild(parent, ev.Name.Local)
@@ -269,14 +269,16 @@ func (r *streamRun) prevalidateParentForChild(parent *streamFrame, childName str
 		return true
 	}
 	if parent.nilled {
-		r.addViolation(errors.NewValidation(errors.ErrNilElementNotEmpty,
-			"Element with xsi:nil='true' must be empty", r.path.String()))
+		violation := errors.NewValidation(errors.ErrNilElementNotEmpty,
+			"Element with xsi:nil='true' must be empty", r.path.String())
+		r.addViolation(&violation)
 		parent.invalid = true
 		return true
 	}
 	if parent.decl != nil && parent.decl.HasFixed {
-		r.addViolation(errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
-			"Element '%s' has a fixed value constraint and cannot have element children", parent.decl.QName.Local))
+		violation := errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
+			"Element '%s' has a fixed value constraint and cannot have element children", parent.decl.QName.Local)
+		r.addViolation(&violation)
 		parent.invalid = true
 		return true
 	}
@@ -293,7 +295,8 @@ func (r *streamRun) prevalidateParentForChild(parent *streamFrame, childName str
 		return true
 	}
 	if parent.contentKind == streamContentRejectAll {
-		r.addViolation(errors.NewValidation(errors.ErrUnexpectedElement, "element not allowed by empty choice", r.path.String()))
+		violation := errors.NewValidation(errors.ErrUnexpectedElement, "element not allowed by empty choice", r.path.String())
+		r.addViolation(&violation)
 		parent.invalid = true
 		return true
 	}
@@ -341,11 +344,12 @@ func (r *streamRun) resolveChildMatch(parent *streamFrame, name types.QName) (st
 
 func (r *streamRun) addChildViolationf(code errors.ErrorCode, childName, format string, args ...any) {
 	r.path.push(childName)
-	r.addViolation(errors.NewValidationf(code, r.path.String(), format, args...))
+	violation := errors.NewValidationf(code, r.path.String(), format, args...)
+	r.addViolation(&violation)
 	r.path.pop()
 }
 
-func (r *streamRun) handleCharData(ev xsdxml.Event) {
+func (r *streamRun) handleCharData(ev *xsdxml.Event) {
 	frame := r.currentFrame()
 	if frame == nil || frame.invalid {
 		return
@@ -353,16 +357,18 @@ func (r *streamRun) handleCharData(ev xsdxml.Event) {
 
 	if frame.nilled {
 		if !isWhitespaceOnly(ev.Text) {
-			r.addViolation(errors.NewValidation(errors.ErrNilElementNotEmpty,
-				"Element with xsi:nil='true' must be empty", r.path.String()))
+			violation := errors.NewValidation(errors.ErrNilElementNotEmpty,
+				"Element with xsi:nil='true' must be empty", r.path.String())
+			r.addViolation(&violation)
 			frame.invalid = true
 		}
 		return
 	}
 
 	if frame.typ != nil && !frame.typ.AllowsText() && !isWhitespaceOnlyBytes(ev.Text) {
-		r.addViolation(errors.NewValidation(errors.ErrTextInElementOnly,
-			"Element content cannot have character children (non-whitespace text found)", r.path.String()))
+		violation := errors.NewValidation(errors.ErrTextInElementOnly,
+			"Element content cannot have character children (non-whitespace text found)", r.path.String())
+		r.addViolation(&violation)
 		frame.invalid = true
 		return
 	}
@@ -380,7 +386,7 @@ func (r *streamRun) handleCharData(ev xsdxml.Event) {
 	}
 }
 
-func (r *streamRun) captureTextPos(frame *streamFrame, ev xsdxml.Event) {
+func (r *streamRun) captureTextPos(frame *streamFrame, ev *xsdxml.Event) {
 	if frame == nil || frame.textLine > 0 || frame.textColumn > 0 {
 		return
 	}
@@ -418,8 +424,9 @@ func (r *streamRun) handleEnd() error {
 
 	if frame.nilled {
 		if frame.hasChildElements {
-			r.addViolation(errors.NewValidation(errors.ErrNilElementNotEmpty,
-				"Element with xsi:nil='true' must be empty", r.path.String()))
+			violation := errors.NewValidation(errors.ErrNilElementNotEmpty,
+				"Element with xsi:nil='true' must be empty", r.path.String())
+			r.addViolation(&violation)
 		}
 		r.propagateText(frame)
 		return nil
@@ -469,8 +476,9 @@ func (r *streamRun) handleEnd() error {
 		}
 	case streamContentRejectAll:
 		if frame.minOccurs > 0 && !frame.hasChildElements {
-			r.addViolation(errors.NewValidation(errors.ErrRequiredElementMissing,
-				"content does not satisfy empty choice", r.path.String()))
+			violation := errors.NewValidation(errors.ErrRequiredElementMissing,
+				"content does not satisfy empty choice", r.path.String())
+			r.addViolation(&violation)
 		}
 	}
 
@@ -487,7 +495,7 @@ func (r *streamRun) handleEnd() error {
 	return nil
 }
 
-func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, origin matchOrigin) (streamFrame, bool) {
+func (r *streamRun) startFrame(ev *xsdxml.Event, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, origin matchOrigin) (streamFrame, bool) {
 	attrs := newAttributeIndex(ev.Attrs)
 	decl := r.resolveMatchedDecl(parent, ev.Name, matchedDecl, matchedQName)
 
@@ -519,16 +527,18 @@ func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processCont
 	}
 
 	if decl.Abstract {
-		r.addViolation(errors.NewValidationf(errors.ErrElementAbstract, r.path.String(),
-			"Element '%s' is abstract and cannot be used directly in instance documents", ev.Name.Local))
+		violation := errors.NewValidationf(errors.ErrElementAbstract, r.path.String(),
+			"Element '%s' is abstract and cannot be used directly in instance documents", ev.Name.Local)
+		r.addViolation(&violation)
 		return streamFrame{}, true
 	}
 
 	nilValue, hasNil := attrs.Value(xsdxml.XSINamespace, "nil")
 	isNil := hasNil && (nilValue == "true" || nilValue == "1")
 	if hasNil && !decl.Nillable {
-		r.addViolation(errors.NewValidationf(errors.ErrElementNotNillable, r.path.String(),
-			"Element '%s' is not nillable but has xsi:nil attribute", ev.Name.Local))
+		violation := errors.NewValidationf(errors.ErrElementNotNillable, r.path.String(),
+			"Element '%s' is not nillable but has xsi:nil attribute", ev.Name.Local)
+		r.addViolation(&violation)
 		return streamFrame{}, true
 	}
 
@@ -543,7 +553,8 @@ func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processCont
 	if hasXsiType {
 		xsiType, err := r.resolveXsiType(ev.ScopeDepth, xsiTypeValue, decl.Type, decl.Block)
 		if err != nil {
-			r.addViolation(errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String()))
+			violation := errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String())
+			r.addViolation(&violation)
 			return streamFrame{}, true
 		}
 		if xsiType != nil {
@@ -552,15 +563,17 @@ func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processCont
 	}
 
 	if effectiveType.Abstract {
-		r.addViolation(errors.NewValidationf(errors.ErrElementTypeAbstract, r.path.String(),
-			"Type '%s' is abstract and cannot be used for element '%s'", effectiveType.QName.String(), ev.Name.Local))
+		violation := errors.NewValidationf(errors.ErrElementTypeAbstract, r.path.String(),
+			"Type '%s' is abstract and cannot be used for element '%s'", effectiveType.QName.String(), ev.Name.Local)
+		r.addViolation(&violation)
 		return streamFrame{}, true
 	}
 
 	if isNil {
 		if decl.HasFixed {
-			r.addViolation(errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
-				"Element '%s' has a fixed value constraint and cannot be nil", ev.Name.Local))
+			violation := errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
+				"Element '%s' has a fixed value constraint and cannot be nil", ev.Name.Local)
+			r.addViolation(&violation)
 			return streamFrame{}, true
 		}
 		violations := r.checkAttributesStream(attrs, effectiveType.AllAttributes, effectiveType.AnyAttribute, ev.ScopeDepth, ev.Line, ev.Column)
@@ -595,7 +608,7 @@ func (r *streamRun) startFrame(ev xsdxml.Event, parent *streamFrame, processCont
 	return frame, false
 }
 
-func (r *streamRun) newFrame(ev xsdxml.Event, decl *grammar.CompiledElement, compiledType *grammar.CompiledType, parent *streamFrame) streamFrame {
+func (r *streamRun) newFrame(ev *xsdxml.Event, decl *grammar.CompiledElement, compiledType *grammar.CompiledType, parent *streamFrame) streamFrame {
 	frame := streamFrame{
 		id:          uint64(ev.ID),
 		qname:       ev.Name,
@@ -632,11 +645,14 @@ func (r *streamRun) newFrame(ev xsdxml.Event, decl *grammar.CompiledElement, com
 		}
 	}
 
-	frame.collectStringValue = frameNeedsStringValue(frame, parent)
+	frame.collectStringValue = frameNeedsStringValue(&frame, parent)
 	return frame
 }
 
-func frameNeedsStringValue(frame streamFrame, parent *streamFrame) bool {
+func frameNeedsStringValue(frame, parent *streamFrame) bool {
+	if frame == nil {
+		return false
+	}
 	if parent != nil && parent.collectStringValue {
 		return true
 	}
@@ -805,12 +821,14 @@ func (r *streamRun) resolveMatchedDecl(parent *streamFrame, actual types.QName, 
 
 func (r *streamRun) addMissingDeclViolation(local string, code errors.ErrorCode) {
 	if code == errors.ErrWildcardNotDeclared {
-		r.addViolation(errors.NewValidationf(code, r.path.String(),
-			"Element '%s' is not declared (strict wildcard requires declaration)", local))
+		violation := errors.NewValidationf(code, r.path.String(),
+			"Element '%s' is not declared (strict wildcard requires declaration)", local)
+		r.addViolation(&violation)
 		return
 	}
-	r.addViolation(errors.NewValidationf(code, r.path.String(),
-		"Cannot find declaration for element '%s'", local))
+	violation := errors.NewValidationf(code, r.path.String(),
+		"Cannot find declaration for element '%s'", local)
+	r.addViolation(&violation)
 }
 
 func (r *streamRun) addContentModelError(err error) {
@@ -818,7 +836,8 @@ func (r *streamRun) addContentModelError(err error) {
 	if !stderrors.As(err, &ve) {
 		return
 	}
-	r.addViolation(errors.NewValidation(errors.ErrorCode(ve.FullCode()), ve.Message, r.path.String()))
+	violation := errors.NewValidation(errors.ErrorCode(ve.FullCode()), ve.Message, r.path.String())
+	r.addViolation(&violation)
 }
 
 func (r *streamRun) setCurrentPos(line, column int) {
@@ -829,22 +848,32 @@ func (r *streamRun) setCurrentPos(line, column int) {
 	r.currentColumn = column
 }
 
-func (r *streamRun) withPos(v errors.Validation, line, column int) errors.Validation {
+func (r *streamRun) withPos(v *errors.Validation, line, column int) errors.Validation {
+	if v == nil {
+		return errors.Validation{}
+	}
 	if v.Line != 0 || v.Column != 0 {
-		return v
+		return *v
 	}
+	updated := *v
 	if line > 0 && column > 0 {
-		v.Line = line
-		v.Column = column
+		updated.Line = line
+		updated.Column = column
 	}
-	return v
+	return updated
 }
 
-func (r *streamRun) addViolation(v errors.Validation) {
+func (r *streamRun) addViolation(v *errors.Validation) {
+	if v == nil {
+		return
+	}
 	r.violations = append(r.violations, r.withPos(v, r.currentLine, r.currentColumn))
 }
 
-func (r *streamRun) addViolationAt(v errors.Validation, line, column int) {
+func (r *streamRun) addViolationAt(v *errors.Validation, line, column int) {
+	if v == nil {
+		return
+	}
 	r.violations = append(r.violations, r.withPos(v, line, column))
 }
 
@@ -852,8 +881,8 @@ func (r *streamRun) addViolations(violations []errors.Validation) {
 	if len(violations) == 0 {
 		return
 	}
-	for _, violation := range violations {
-		r.violations = append(r.violations, r.withPos(violation, r.currentLine, r.currentColumn))
+	for i := range violations {
+		r.violations = append(r.violations, r.withPos(&violations[i], r.currentLine, r.currentColumn))
 	}
 }
 
@@ -861,8 +890,8 @@ func (r *streamRun) addViolationsAt(violations []errors.Validation, line, column
 	if len(violations) == 0 {
 		return
 	}
-	for _, violation := range violations {
-		r.violations = append(r.violations, r.withPos(violation, line, column))
+	for i := range violations {
+		r.violations = append(r.violations, r.withPos(&violations[i], line, column))
 	}
 }
 
@@ -1007,8 +1036,9 @@ func (r *streamRun) validateListItemBytes(frame *streamFrame, itemBytes []byte, 
 		return false
 	}
 	if err != nil {
-		r.addViolation(errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
-			"list item[%d]: %s", index, err.Error()))
+		violation := errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+			"list item[%d]: %s", index, err.Error())
+		r.addViolation(&violation)
 	}
 	return true
 }
@@ -1057,7 +1087,8 @@ func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType,
 			}
 		}
 		if err != nil {
-			r.addViolationAt(errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()), line, column)
+			violation := errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String())
+			r.addViolationAt(&violation, line, column)
 		}
 	}
 }

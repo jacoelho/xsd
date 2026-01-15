@@ -16,13 +16,13 @@ import (
 func mustCompile(t *testing.T, schema *parser.Schema) *grammar.CompiledSchema {
 	t.Helper()
 
-	resolver := resolver.NewResolver(schema)
-	if err := resolver.Resolve(); err != nil {
+	res := resolver.NewResolver(schema)
+	if err := res.Resolve(); err != nil {
 		t.Fatalf("resolve schema: %v", err)
 	}
 
-	compiler := compiler.NewCompiler(schema)
-	compiled, err := compiler.Compile()
+	comp := compiler.NewCompiler(schema)
+	compiled, err := comp.Compile()
 	if err != nil {
 		t.Fatalf("compile schema: %v", err)
 	}

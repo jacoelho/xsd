@@ -232,7 +232,8 @@ func (b *BuiltinType) ParseValue(lexical string) (TypedValue, error) {
 		return nil, err
 	}
 
-	if err := b.Validate(normalized); err != nil {
+	err = b.Validate(normalized)
+	if err != nil {
 		return nil, err
 	}
 
@@ -269,7 +270,7 @@ func (b *BuiltinType) MeasureLength(value string) int {
 	// check if it's a built-in list type (NMTOKENS, IDREFS, ENTITIES)
 	if isBuiltinListType(name) {
 		// list type: length is number of items (space-separated)
-		if len(strings.TrimSpace(value)) == 0 {
+		if strings.TrimSpace(value) == "" {
 			return 0
 		}
 		count := 0

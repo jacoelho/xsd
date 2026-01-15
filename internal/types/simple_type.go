@@ -315,7 +315,7 @@ func (s *SimpleType) MeasureLength(value string) int {
 	// check if this type is itself a list type
 	if s.List != nil {
 		// list type: length is number of items (space-separated)
-		if len(strings.TrimSpace(value)) == 0 {
+		if strings.TrimSpace(value) == "" {
 			return 0
 		}
 		return countXMLFields(value)
@@ -329,14 +329,14 @@ func (s *SimpleType) MeasureLength(value string) int {
 				// check if base is a list type
 				if baseSimpleType, ok := AsSimpleType(s.ResolvedBase); ok && baseSimpleType.List != nil {
 					// restriction of list type: length is number of items
-					if len(strings.TrimSpace(value)) == 0 {
+					if strings.TrimSpace(value) == "" {
 						return 0
 					}
 					return countXMLFields(value)
 				}
 				if builtinType, ok := AsBuiltinType(s.ResolvedBase); ok && isBuiltinListType(builtinType.Name().Local) {
 					// restriction of built-in list type: length is number of items
-					if len(strings.TrimSpace(value)) == 0 {
+					if strings.TrimSpace(value) == "" {
 						return 0
 					}
 					return countXMLFields(value)
@@ -351,7 +351,7 @@ func (s *SimpleType) MeasureLength(value string) int {
 			if strings.HasPrefix(strings.ToLower(baseLocal), "list") ||
 				isBuiltinListType(baseLocal) {
 				// likely a list type - count items
-				if len(strings.TrimSpace(value)) == 0 {
+				if strings.TrimSpace(value) == "" {
 					return 0
 				}
 				return countXMLFields(value)

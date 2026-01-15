@@ -10,30 +10,30 @@ import (
 
 // validateSelectorXPath validates that a selector XPath selects element nodes
 // Selectors cannot select attributes or text nodes per XSD 1.0 spec
-func validateSelectorXPath(xpath string) error {
-	xpath = strings.TrimSpace(xpath)
+func validateSelectorXPath(expr string) error {
+	expr = strings.TrimSpace(expr)
 
-	if xpath == "" {
+	if expr == "" {
 		return fmt.Errorf("selector xpath cannot be empty")
 	}
 
 	// selector cannot select text nodes
-	if strings.Contains(xpath, "/text()") || strings.HasSuffix(xpath, "text()") {
-		return fmt.Errorf("selector xpath cannot select text nodes: %s", xpath)
+	if strings.Contains(expr, "/text()") || strings.HasSuffix(expr, "text()") {
+		return fmt.Errorf("selector xpath cannot select text nodes: %s", expr)
 	}
 
-	if strings.Contains(xpath, "(") || strings.Contains(xpath, ")") {
-		return fmt.Errorf("selector xpath cannot use functions or parentheses: %s", xpath)
+	if strings.Contains(expr, "(") || strings.Contains(expr, ")") {
+		return fmt.Errorf("selector xpath cannot use functions or parentheses: %s", expr)
 	}
 
 	// selector cannot select attributes (@ is not allowed anywhere in selector XPath per BNF grammar)
-	if strings.Contains(xpath, "@") {
-		return fmt.Errorf("selector xpath cannot select attributes: %s", xpath)
+	if strings.Contains(expr, "@") {
+		return fmt.Errorf("selector xpath cannot select attributes: %s", expr)
 	}
 
 	// selector cannot use parent navigation (upward navigation not allowed)
-	if strings.Contains(xpath, "..") || strings.Contains(xpath, "parent::") {
-		return fmt.Errorf("selector xpath cannot use parent navigation: %s", xpath)
+	if strings.Contains(expr, "..") || strings.Contains(expr, "parent::") {
+		return fmt.Errorf("selector xpath cannot use parent navigation: %s", expr)
 	}
 
 	// note: attribute:: and namespace:: axes are checked in validateSelectorXPathRestrictions()
@@ -44,8 +44,8 @@ func validateSelectorXPath(xpath string) error {
 
 // validateFieldXPath performs basic checks for field XPath expressions.
 // Restricted XPath grammar is enforced separately.
-func validateFieldXPath(xpath string) error {
-	xpath = strings.TrimSpace(xpath)
+func validateFieldXPath(expr string) error {
+	expr = strings.TrimSpace(expr)
 	axisCheck := strings.Map(func(r rune) rune {
 		switch r {
 		case ' ', '\t', '\n', '\r':
@@ -53,14 +53,14 @@ func validateFieldXPath(xpath string) error {
 		default:
 			return r
 		}
-	}, xpath)
+	}, expr)
 
-	if xpath == "" {
+	if expr == "" {
 		return fmt.Errorf("field xpath cannot be empty")
 	}
 
-	if strings.Contains(xpath, "(") || strings.Contains(xpath, ")") {
-		return fmt.Errorf("field xpath cannot use functions or parentheses: %s", xpath)
+	if strings.Contains(expr, "(") || strings.Contains(expr, ")") {
+		return fmt.Errorf("field xpath cannot use functions or parentheses: %s", expr)
 	}
 
 	// fields can only use child/attribute axes; descendant-or-self is allowed only via ".//".
@@ -74,7 +74,7 @@ func validateFieldXPath(xpath string) error {
 
 	for _, axis := range disallowedAxes {
 		if strings.Contains(axisCheck, axis) {
-			return fmt.Errorf("field xpath cannot use axis '%s': %s", axis, xpath)
+			return fmt.Errorf("field xpath cannot use axis '%s': %s", axis, expr)
 		}
 	}
 
@@ -86,7 +86,7 @@ func validateFieldXPath(xpath string) error {
 	}
 
 	// if starts with @, it's an attribute (allowed)
-	if strings.HasPrefix(xpath, "@") {
+	if strings.HasPrefix(expr, "@") {
 		hasAllowedAxis = true
 	} else {
 		if strings.HasPrefix(axisCheck, "//") || strings.HasPrefix(axisCheck, ".//") {
@@ -105,7 +105,7 @@ func validateFieldXPath(xpath string) error {
 	}
 
 	if !hasAllowedAxis && strings.Contains(axisCheck, "::") {
-		return fmt.Errorf("field xpath uses disallowed axis: %s", xpath)
+		return fmt.Errorf("field xpath uses disallowed axis: %s", expr)
 	}
 
 	return nil
@@ -114,12 +114,12 @@ func validateFieldXPath(xpath string) error {
 // validateSelectorXPathRestrictions validates selector XPath restrictions
 // Selectors can use wildcards but are still restricted to certain axes
 // Per XSD spec section 3.11.4.2, selector XPath must be a restricted subset
-func validateSelectorXPathRestrictions(xpath string) error {
-	xpath = strings.TrimSpace(xpath)
+func validateSelectorXPathRestrictions(expr string) error {
+	expr = strings.TrimSpace(expr)
 
 	// selector XPath must be a relative path expression.
-	if strings.HasPrefix(xpath, "/") {
-		return fmt.Errorf("selector xpath must be a relative path: %s", xpath)
+	if strings.HasPrefix(expr, "/") {
+		return fmt.Errorf("selector xpath must be a relative path: %s", expr)
 	}
 
 	// selectors can use wildcards, but check for disallowed axes
@@ -132,8 +132,8 @@ func validateSelectorXPathRestrictions(xpath string) error {
 	}
 
 	for _, axis := range disallowedAxes {
-		if strings.Contains(xpath, axis) {
-			return fmt.Errorf("selector xpath cannot use axis '%s': %s", axis, xpath)
+		if strings.Contains(expr, axis) {
+			return fmt.Errorf("selector xpath cannot use axis '%s': %s", axis, expr)
 		}
 	}
 

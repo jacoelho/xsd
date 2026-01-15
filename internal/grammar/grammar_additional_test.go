@@ -176,5 +176,6 @@ func makeXMLChildren(t *testing.T, xmlStr string) (*xsdxml.Document, []xsdxml.No
 		t.Fatalf("parse xml: %v", err)
 	}
 	root := doc.Root()
-	return doc, doc.Children(root)
+	children := doc.Children(root)
+	return doc, children
 }

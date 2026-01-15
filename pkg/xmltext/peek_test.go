@@ -108,8 +108,8 @@ func TestPeekKindReadError(t *testing.T) {
 }
 
 type chunkErrorReader struct {
-	chunks [][]byte
 	err    error
+	chunks [][]byte
 }
 
 func (r *chunkErrorReader) Read(p []byte) (int, error) {

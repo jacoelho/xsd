@@ -199,10 +199,11 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 	facetList := make([]types.Facet, 0, len(restriction.Facets))
 	var deferredFacets []*types.DeferredFacet
 	for _, f := range restriction.Facets {
-		if facet, ok := f.(types.Facet); ok {
+		switch facet := f.(type) {
+		case types.Facet:
 			facetList = append(facetList, facet)
-		} else if df, ok := f.(*types.DeferredFacet); ok {
-			deferredFacets = append(deferredFacets, df)
+		case *types.DeferredFacet:
+			deferredFacets = append(deferredFacets, facet)
 		}
 	}
 
@@ -328,10 +329,11 @@ func validateSimpleContentRestrictionFacets(schema *parser.Schema, restriction *
 	facetList := make([]types.Facet, 0, len(restriction.Facets))
 	var deferredFacets []*types.DeferredFacet
 	for _, f := range restriction.Facets {
-		if facet, ok := f.(types.Facet); ok {
+		switch facet := f.(type) {
+		case types.Facet:
 			facetList = append(facetList, facet)
-		} else if df, ok := f.(*types.DeferredFacet); ok {
-			deferredFacets = append(deferredFacets, df)
+		case *types.DeferredFacet:
+			deferredFacets = append(deferredFacets, facet)
 		}
 	}
 

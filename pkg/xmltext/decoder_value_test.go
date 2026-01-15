@@ -11,10 +11,13 @@ func TestReadValueVariants(t *testing.T) {
 	dec := NewDecoder(strings.NewReader("<root>x&amp;y</root>"))
 	var tok Token
 	scratch := make([]byte, 64)
-	if err := dec.ReadTokenInto(&tok); err != nil {
+	var err error
+	var n int
+	err = dec.ReadTokenInto(&tok)
+	if err != nil {
 		t.Fatalf("ReadTokenInto root error = %v", err)
 	}
-	n, err := dec.ReadValueInto(scratch)
+	n, err = dec.ReadValueInto(scratch)
 	if err != nil {
 		t.Fatalf("ReadValueInto raw error = %v", err)
 	}
@@ -23,7 +26,8 @@ func TestReadValueVariants(t *testing.T) {
 	}
 
 	dec = NewDecoder(strings.NewReader("<root>x&amp;y</root>"), ResolveEntities(true))
-	if err := dec.ReadTokenInto(&tok); err != nil {
+	err = dec.ReadTokenInto(&tok)
+	if err != nil {
 		t.Fatalf("ReadTokenInto root resolve error = %v", err)
 	}
 	n, err = dec.ReadValueInto(scratch)
@@ -35,7 +39,8 @@ func TestReadValueVariants(t *testing.T) {
 	}
 
 	dec = NewDecoder(strings.NewReader("<root><![CDATA[x]]></root>"), ResolveEntities(true))
-	if err := dec.ReadTokenInto(&tok); err != nil {
+	err = dec.ReadTokenInto(&tok)
+	if err != nil {
 		t.Fatalf("ReadTokenInto root CDATA error = %v", err)
 	}
 	n, err = dec.ReadValueInto(scratch)
@@ -111,7 +116,7 @@ func TestAppendTokenValueInvalidOrder(t *testing.T) {
 		text: makeSpan(&dec.buf, 2, 4),
 	}
 	writer := bufferWriter{dst: make([]byte, 0)}
-	if err := dec.appendTokenValue(&writer, tok, &cursor); !errors.Is(err, errInvalidToken) {
+	if err := dec.appendTokenValue(&writer, &tok, &cursor); !errors.Is(err, errInvalidToken) {
 		t.Fatalf("appendTokenValue error = %v, want %v", err, errInvalidToken)
 	}
 }
@@ -125,7 +130,7 @@ func TestAppendTokenValueAttrMismatch(t *testing.T) {
 		attrRaw: []span{{}},
 	}
 	writer := bufferWriter{dst: make([]byte, 0)}
-	if err := dec.appendTokenValue(&writer, tok, &cursor); !errors.Is(err, errInvalidToken) {
+	if err := dec.appendTokenValue(&writer, &tok, &cursor); !errors.Is(err, errInvalidToken) {
 		t.Fatalf("appendTokenValue error = %v, want %v", err, errInvalidToken)
 	}
 }
@@ -141,7 +146,7 @@ func TestAppendTokenValueAttrSpanOutOfRange(t *testing.T) {
 		attrs:        []attrSpan{{ValueSpan: makeSpan(&dec.buf, 0, 1)}},
 	}
 	writer := bufferWriter{dst: make([]byte, 0)}
-	if err := dec.appendTokenValue(&writer, tok, &cursor); !errors.Is(err, errInvalidToken) {
+	if err := dec.appendTokenValue(&writer, &tok, &cursor); !errors.Is(err, errInvalidToken) {
 		t.Fatalf("appendTokenValue error = %v, want %v", err, errInvalidToken)
 	}
 }
@@ -151,7 +156,7 @@ func TestAppendTokenValueNilRaw(t *testing.T) {
 	cursor := 1
 	tok := rawToken{kind: KindCharData}
 	writer := bufferWriter{dst: make([]byte, 0)}
-	err := dec.appendTokenValue(&writer, tok, &cursor)
+	err := dec.appendTokenValue(&writer, &tok, &cursor)
 	if err != nil {
 		t.Fatalf("appendTokenValue error = %v", err)
 	}

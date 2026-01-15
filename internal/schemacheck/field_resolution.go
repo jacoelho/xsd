@@ -54,7 +54,8 @@ func resolveFieldType(schema *parser.Schema, field *types.Field, constraintEleme
 			attrName = attrName[12:]
 		}
 
-		elementType, err := resolveFieldElementType(schema, selectedElementDecl, elementPath)
+		var elementType types.Type
+		elementType, err = resolveFieldElementType(schema, selectedElementDecl, elementPath)
 		if err != nil {
 			return nil, fmt.Errorf("resolve field element path '%s': %w", elementPath, err)
 		}
@@ -64,7 +65,8 @@ func resolveFieldType(schema *parser.Schema, field *types.Field, constraintEleme
 		}
 
 		// find attribute in that element's type
-		attrType, err := findAttributeType(schema, elementDecl, attrName)
+		var attrType types.Type
+		attrType, err = findAttributeType(schema, elementDecl, attrName)
 		if err != nil {
 			return nil, fmt.Errorf("resolve attribute field '%s' in element from path '%s': %w", attrName, elementPath, err)
 		}
@@ -107,7 +109,8 @@ func resolveFieldType(schema *parser.Schema, field *types.Field, constraintEleme
 		}
 
 		// find attribute declaration in selected element's type
-		attrType, err := findAttributeType(schema, selectedElementDecl, attrName)
+		var attrType types.Type
+		attrType, err = findAttributeType(schema, selectedElementDecl, attrName)
 		if err != nil {
 			return nil, fmt.Errorf("resolve attribute field '%s': %w", attrName, err)
 		}
@@ -117,7 +120,8 @@ func resolveFieldType(schema *parser.Schema, field *types.Field, constraintEleme
 	elementName, _ := parseXPathPatternForField(xpath)
 
 	// find element declaration in selected element's type
-	elementType, err := findElementType(schema, selectedElementDecl, elementName)
+	var elementType types.Type
+	elementType, err = findElementType(schema, selectedElementDecl, elementName)
 	if err != nil {
 		return nil, fmt.Errorf("resolve element field '%s': %w", elementName, err)
 	}
@@ -556,7 +560,7 @@ func findElementInParticle(schema *parser.Schema, particle types.Particle, eleme
 }
 
 // parseXPathPatternForField extracts element name from XPath pattern for field resolution
-func parseXPathPatternForField(xpath string) (elementName string, axis string) {
+func parseXPathPatternForField(xpath string) (elementName, axis string) {
 	// handle "child::elementName"
 	if strings.HasPrefix(xpath, "child::") {
 		return xpath[7:], "child"

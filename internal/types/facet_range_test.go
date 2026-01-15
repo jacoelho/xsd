@@ -427,7 +427,8 @@ func TestGenericFacet_Duration(t *testing.T) {
 		Typ:   durationType,
 		dur:   testDur,
 	}
-	if err := minFacet.Validate(testValue, durationType); err != nil {
+	err = minFacet.Validate(testValue, durationType)
+	if err != nil {
 		t.Errorf("Validate() error = %v, want nil (P2D should be >= P1D)", err)
 	}
 
@@ -441,7 +442,8 @@ func TestGenericFacet_Duration(t *testing.T) {
 		Typ:   durationType,
 		dur:   failDur,
 	}
-	if err := minFacet.Validate(failValue, durationType); err == nil {
+	err = minFacet.Validate(failValue, durationType)
+	if err == nil {
 		t.Error("Validate() should return error for PT12H < P1D")
 	}
 
