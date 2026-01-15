@@ -40,9 +40,7 @@ type TokenSizes struct {
 	AttrValue int
 }
 
-// Reset clears the token slices for reuse.
-// It retains allocated capacity; assign a zero value to release memory.
-func (t *Token) Reset() {
+func (t *Token) reset() {
 	if t == nil {
 		return
 	}
@@ -68,7 +66,7 @@ func (t *Token) Reserve(sizes TokenSizes) {
 	t.attrsBuf = reserveAttrs(t.attrsBuf, sizes.Attrs)
 	t.attrNameBuf = reserveBytes(t.attrNameBuf, sizes.AttrName)
 	t.attrValueBuf = reserveBytes(t.attrValueBuf, sizes.AttrValue)
-	t.Reset()
+	t.reset()
 }
 
 func (t *Token) resetBuffers() {
