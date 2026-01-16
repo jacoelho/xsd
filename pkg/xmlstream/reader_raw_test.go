@@ -16,7 +16,7 @@ func TestNextRawCharData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // root
+	if _, err = r.NextRaw(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.NextRaw()
@@ -67,7 +67,7 @@ func TestNextRawDoesNotInternAttrs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil {
+	if _, err = r.NextRaw(); err != nil {
 		t.Fatalf("NextRaw error = %v", err)
 	}
 	if got := len(r.names.table); got != 1 {
@@ -81,7 +81,7 @@ func TestNextRawUnboundPrefixAttr(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // root
+	if _, err = r.NextRaw(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	_, err = r.NextRaw()
@@ -155,7 +155,7 @@ func TestRawEventScopeDepthPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // root
+	if _, err = r.NextRaw(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.NextRaw()
@@ -221,8 +221,9 @@ func TestNextRawCommentNestedScopeDepth(t *testing.T) {
 }
 
 func TestNextRawNilReader(t *testing.T) {
+	var err error
 	var r *Reader
-	if _, err := r.NextRaw(); !errors.Is(err, errNilReader) {
+	if _, err = r.NextRaw(); !errors.Is(err, errNilReader) {
 		t.Fatalf("NextRaw nil error = %v, want %v", err, errNilReader)
 	}
 }
@@ -248,7 +249,7 @@ func TestNextRawCDATA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // root
+	if _, err = r.NextRaw(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.NextRaw()
@@ -270,15 +271,15 @@ func TestNextRawAfterEOF(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 	for {
-		_, err := r.NextRaw()
-		if err == io.EOF {
+		_, err = r.NextRaw()
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			t.Fatalf("NextRaw error = %v", err)
 		}
 	}
-	if _, err := r.NextRaw(); err != io.EOF {
+	if _, err = r.NextRaw(); !errors.Is(err, io.EOF) {
 		t.Fatalf("NextRaw after EOF = %v, want %v", err, io.EOF)
 	}
 }
@@ -289,7 +290,7 @@ func TestNextRawUnboundPrefix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // root
+	if _, err = r.NextRaw(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	_, err = r.NextRaw()
@@ -311,7 +312,7 @@ func TestNextRawInvalidEntity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // root
+	if _, err = r.NextRaw(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	_, err = r.NextRaw()
@@ -330,7 +331,7 @@ func TestNextRawCharDataInvalidEntity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // root
+	if _, err = r.NextRaw(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	_, err = r.NextRaw()
@@ -349,7 +350,7 @@ func TestNextRawAfterSkipSubtree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // root
+	if _, err = r.NextRaw(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.NextRaw()
@@ -359,7 +360,7 @@ func TestNextRawAfterSkipSubtree(t *testing.T) {
 	if ev.Kind != EventStartElement || string(ev.Name.Full) != "skip" {
 		t.Fatalf("skip start = %v %q, want skip start", ev.Kind, ev.Name.Full)
 	}
-	if err := r.SkipSubtree(); err != nil {
+	if err = r.SkipSubtree(); err != nil {
 		t.Fatalf("SkipSubtree error = %v", err)
 	}
 	ev, err = r.NextRaw()
@@ -377,7 +378,7 @@ func TestSkipSubtreeAfterNextThenNextRaw(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.Next() // skip
@@ -387,7 +388,7 @@ func TestSkipSubtreeAfterNextThenNextRaw(t *testing.T) {
 	if ev.Kind != EventStartElement || ev.Name.Local != "skip" {
 		t.Fatalf("skip start = %v %s, want skip start", ev.Kind, ev.Name.String())
 	}
-	if err := r.SkipSubtree(); err != nil {
+	if err = r.SkipSubtree(); err != nil {
 		t.Fatalf("SkipSubtree error = %v", err)
 	}
 	raw, err := r.NextRaw()
@@ -421,16 +422,16 @@ func TestNextRawAfterNextError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // child start
+	if _, err = r.Next(); err != nil { // child start
 		t.Fatalf("child start error = %v", err)
 	}
-	if _, err := r.Next(); err == nil {
+	if _, err = r.Next(); err == nil {
 		t.Fatalf("Next error = nil, want error")
 	}
-	if _, err := r.NextRaw(); err == nil {
+	if _, err = r.NextRaw(); err == nil {
 		t.Fatalf("NextRaw error = nil, want error")
 	}
 }

@@ -93,7 +93,7 @@ func TestCoalesceCharDataFalse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	var texts []string
@@ -155,8 +155,8 @@ func TestBuildOptionsEmpty(t *testing.T) {
 		t.Fatalf("buildOptions returned empty slice")
 	}
 	merged := xmltext.JoinOptions(opts...)
-	if max, ok := merged.QNameInternEntries(); !ok || max != qnameCacheMaxEntries {
-		t.Fatalf("QNameInternEntries = %d, ok=%v, want %d, true", max, ok, qnameCacheMaxEntries)
+	if limit, ok := merged.QNameInternEntries(); !ok || limit != qnameCacheMaxEntries {
+		t.Fatalf("QNameInternEntries = %d, ok=%v, want %d, true", limit, ok, qnameCacheMaxEntries)
 	}
 }
 
@@ -165,10 +165,10 @@ func TestReaderMaxDepth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil {
+	if _, err = r.Next(); err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err == nil {
+	if _, err = r.Next(); err == nil {
 		t.Fatalf("depth limit error = nil, want error")
 	} else {
 		var syntax *xmltext.SyntaxError
@@ -183,7 +183,7 @@ func TestReaderMaxAttrs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err == nil {
+	if _, err = r.Next(); err == nil {
 		t.Fatalf("attr limit error = nil, want error")
 	} else {
 		var syntax *xmltext.SyntaxError
@@ -198,10 +198,10 @@ func TestReaderMaxTokenSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil {
+	if _, err = r.Next(); err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err == nil {
+	if _, err = r.Next(); err == nil {
 		t.Fatalf("token size error = nil, want error")
 	} else {
 		var syntax *xmltext.SyntaxError
@@ -235,7 +235,7 @@ func TestWithCharsetReader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.Next()

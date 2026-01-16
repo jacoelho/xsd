@@ -16,7 +16,7 @@ func TestLookupNamespace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	if ns, ok := r.LookupNamespace(""); !ok || ns != "urn:root" {
@@ -35,7 +35,7 @@ func TestLookupNamespace(t *testing.T) {
 		t.Fatalf("LookupNamespaceBytes a = %q, ok=%v, want urn:a, true", ns, ok)
 	}
 
-	if _, err := r.Next(); err != nil { // child
+	if _, err = r.Next(); err != nil { // child
 		t.Fatalf("child start error = %v", err)
 	}
 	if ns, ok := r.LookupNamespace(""); !ok || ns != "" {
@@ -58,7 +58,7 @@ func TestNamespaceShadowing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.Next() // child
@@ -75,10 +75,10 @@ func TestNamespaceShadowing(t *testing.T) {
 	if ev.Name.Namespace != "urn:two" {
 		t.Fatalf("inner namespace = %q, want urn:two", ev.Name.Namespace)
 	}
-	if _, err := r.Next(); err != nil { // inner end
+	if _, err = r.Next(); err != nil { // inner end
 		t.Fatalf("inner end error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // child end
+	if _, err = r.Next(); err != nil { // child end
 		t.Fatalf("child end error = %v", err)
 	}
 	ev, err = r.Next() // after
@@ -125,7 +125,7 @@ func TestCollectNamespaceScopeAllocPrefixes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.Next()
@@ -203,7 +203,7 @@ func TestUnboundPrefixElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	_, err = r.Next()
@@ -224,7 +224,7 @@ func TestUnboundPrefixAttr(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	_, err = r.Next()
@@ -296,7 +296,7 @@ func TestNamespaceValueNumericEntities(t *testing.T) {
 
 func TestLargeNamespaceURI(t *testing.T) {
 	ns := "urn:test:" + strings.Repeat("x", 1024)
-	input := fmt.Sprintf(`<root xmlns="%s"><child/></root>`, ns)
+	input := fmt.Sprintf(`<root xmlns=%q><child/></root>`, ns)
 	r, err := NewReader(strings.NewReader(input))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
@@ -324,7 +324,7 @@ func TestEmptyPrefixDeclaration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err == nil {
+	if _, err = r.Next(); err == nil {
 		t.Fatalf("empty prefix decl error = nil, want error")
 	}
 }
@@ -420,7 +420,7 @@ func TestXMLNSXMLBindingIgnored(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil {
+	if _, err = r.Next(); err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
 	if ns, ok := r.LookupNamespace("xml"); !ok || ns != XMLNamespace {
@@ -434,7 +434,7 @@ func TestXMLNSXMLNSBindingIgnored(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil {
+	if _, err = r.Next(); err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
 	if _, ok := r.LookupNamespace("xmlns"); ok {
@@ -488,7 +488,7 @@ func TestNamespaceTruncatedNumericRef(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err == nil {
+	if _, err = r.Next(); err == nil {
 		t.Fatalf("truncated namespace ref error = nil, want error")
 	}
 }
@@ -499,7 +499,7 @@ func TestPrefixedNamespaceTruncatedEntity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err == nil {
+	if _, err = r.Next(); err == nil {
 		t.Fatalf("truncated prefixed namespace error = nil, want error")
 	}
 }

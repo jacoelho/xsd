@@ -3,6 +3,7 @@ package xmlstream
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"io"
 	"strconv"
 	"strings"
@@ -11,8 +12,10 @@ import (
 
 var rawItemLocal = []byte("item")
 
+const benchmarkItems = 500
+
 func BenchmarkXMLStream_UnmarshalStream(b *testing.B) {
-	data := benchmarkInput(500)
+	data := benchmarkInput()
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
 	for i := 0; i < b.N; i++ {
@@ -22,7 +25,7 @@ func BenchmarkXMLStream_UnmarshalStream(b *testing.B) {
 		}
 		for {
 			ev, err := r.Next()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {
@@ -39,7 +42,7 @@ func BenchmarkXMLStream_UnmarshalStream(b *testing.B) {
 }
 
 func BenchmarkXMLStream_NextRawScan(b *testing.B) {
-	data := benchmarkInput(500)
+	data := benchmarkInput()
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
 	for i := 0; i < b.N; i++ {
@@ -49,21 +52,21 @@ func BenchmarkXMLStream_NextRawScan(b *testing.B) {
 		}
 		for {
 			ev, err := r.NextRaw()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {
 				b.Fatalf("NextRaw error = %v", err)
 			}
 			if ev.Kind == EventStartElement && bytes.Equal(ev.Name.Local, rawItemLocal) {
-				// No-op; scanning only.
+				_ = ev.Name.Local
 			}
 		}
 	}
 }
 
 func BenchmarkXMLStream_SubtreeCopyUnmarshal(b *testing.B) {
-	data := benchmarkInput(500)
+	data := benchmarkInput()
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
 	for i := 0; i < b.N; i++ {
@@ -73,7 +76,7 @@ func BenchmarkXMLStream_SubtreeCopyUnmarshal(b *testing.B) {
 		}
 		for {
 			ev, err := r.Next()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {
@@ -94,14 +97,14 @@ func BenchmarkXMLStream_SubtreeCopyUnmarshal(b *testing.B) {
 }
 
 func BenchmarkEncodingXML_DecodeElement(b *testing.B) {
-	data := benchmarkInput(500)
+	data := benchmarkInput()
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
 	for i := 0; i < b.N; i++ {
 		dec := xml.NewDecoder(bytes.NewReader(data))
 		for {
 			tok, err := dec.Token()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {
@@ -128,6 +131,7 @@ type benchStreamItem struct {
 	Author string
 }
 
+//nolint:gocritic // keep value semantics for immutable start events.
 func (b *benchStreamItem) UnmarshalXMLStream(r *Reader, start Event) error {
 	if start.Kind != EventStartElement || start.Name.Local != "item" {
 		return errNoStartElement
@@ -166,11 +170,11 @@ type benchXMLItem struct {
 	Author string `xml:"author"`
 }
 
-func benchmarkInput(items int) []byte {
+func benchmarkInput() []byte {
 	var b strings.Builder
-	b.Grow(items * 64)
+	b.Grow(benchmarkItems * 64)
 	b.WriteString("<root>")
-	for i := 0; i < items; i++ {
+	for i := 0; i < benchmarkItems; i++ {
 		b.WriteString("<item id=\"")
 		b.WriteString(strconv.Itoa(i))
 		b.WriteString("\"><title>Title")
