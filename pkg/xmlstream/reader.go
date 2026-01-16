@@ -18,6 +18,7 @@ var errNilReader = errors.New("nil XML reader")
 type Reader struct {
 	dec          *xmltext.Decoder
 	names        *qnameCache
+	tok          xmltext.Token
 	ns           nsStack
 	attrBuf      []Attr
 	rawAttrBuf   []RawAttr
@@ -25,15 +26,14 @@ type Reader struct {
 	elemStack    []QName
 	valueBuf     []byte
 	nsBuf        []byte
-	tok          xmltext.Token
-	nextID       ElementID
-	pendingPop   bool
-	lastLine     int
-	lastColumn   int
-	lastStart    Event
-	lastWasStart bool
 	lastRawAttrs []RawAttr
 	lastRawInfo  []rawAttrInfo
+	lastStart    Event
+	nextID       ElementID
+	lastLine     int
+	lastColumn   int
+	pendingPop   bool
+	lastWasStart bool
 }
 
 type rawAttrInfo struct {
@@ -589,11 +589,11 @@ func wrapSyntaxError(dec *xmltext.Decoder, line, column int, err error) error {
 
 func qnameCacheLimit(opts []xmltext.Options) int {
 	merged := xmltext.JoinOptions(opts...)
-	if max, ok := merged.QNameInternEntries(); ok {
-		if max < 0 {
+	if limit, ok := merged.QNameInternEntries(); ok {
+		if limit < 0 {
 			return 0
 		}
-		return max
+		return limit
 	}
 	return qnameCacheMaxEntries
 }

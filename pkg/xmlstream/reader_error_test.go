@@ -10,7 +10,7 @@ import (
 
 func TestWrapSyntaxErrorNilDecoder(t *testing.T) {
 	base := errors.New("boom")
-	if got := wrapSyntaxError(nil, 1, 2, base); got != base {
+	if got := wrapSyntaxError(nil, 1, 2, base); !errors.Is(got, base) {
 		t.Fatalf("wrapSyntaxError nil = %v, want %v", got, base)
 	}
 }
@@ -23,7 +23,7 @@ func TestWrapSyntaxErrorNilError(t *testing.T) {
 
 func TestWrapSyntaxErrorAlreadySyntax(t *testing.T) {
 	base := &xmltext.SyntaxError{Line: 1, Column: 2, Err: errors.New("boom")}
-	if got := wrapSyntaxError(nil, 1, 2, base); got != base {
+	if got := wrapSyntaxError(nil, 1, 2, base); !errors.Is(got, base) {
 		t.Fatalf("wrapSyntaxError syntax = %v, want %v", got, base)
 	}
 }
@@ -49,13 +49,13 @@ func TestReaderResetAfterError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil {
+	if _, err = r.Next(); err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err == nil {
+	if _, err = r.Next(); err == nil {
 		t.Fatalf("malformed error = nil, want error")
 	}
-	if err := r.Reset(strings.NewReader("<good/>")); err != nil {
+	if err = r.Reset(strings.NewReader("<good/>")); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
 	ev, err := r.Next()

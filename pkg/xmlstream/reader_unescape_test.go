@@ -1,6 +1,7 @@
 package xmlstream
 
 import (
+	"bytes"
 	"errors"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ func TestReaderCharDataEntities(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.Next()
@@ -35,7 +36,7 @@ func TestReaderNumericCharRefs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.Next()
@@ -54,7 +55,7 @@ func TestReaderCharDataBufferGrowth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.Next()
@@ -109,7 +110,7 @@ func TestReaderCharDataInvalidEntity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	_, err = r.Next()
@@ -128,7 +129,7 @@ func TestCharDataTruncatedNumericRef(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	_, err = r.Next()
@@ -200,13 +201,13 @@ func TestAttrValueBytesResetOnError(t *testing.T) {
 	}
 	prefix := []byte("prefix")
 	r.valueBuf = append(r.valueBuf, prefix...)
-	if _, err := r.attrValueBytes([]byte("&bad;"), true); err == nil {
+	if _, err = r.attrValueBytes([]byte("&bad;"), true); err == nil {
 		t.Fatalf("attrValueBytes error = nil, want error")
 	}
 	if len(r.valueBuf) != len(prefix) {
 		t.Fatalf("valueBuf len = %d, want %d", len(r.valueBuf), len(prefix))
 	}
-	if string(r.valueBuf) != string(prefix) {
+	if !bytes.Equal(r.valueBuf, prefix) {
 		t.Fatalf("valueBuf = %q, want %q", r.valueBuf, prefix)
 	}
 }
@@ -234,13 +235,13 @@ func TestTextBytesResetOnError(t *testing.T) {
 	prefix := []byte("prefix")
 	r.valueBuf = append(r.valueBuf, prefix...)
 	tok := xmltext.Token{Text: []byte("&bad;"), TextNeeds: true}
-	if _, err := r.textBytes(&tok); err == nil {
+	if _, err = r.textBytes(&tok); err == nil {
 		t.Fatalf("textBytes error = nil, want error")
 	}
 	if len(r.valueBuf) != len(prefix) {
 		t.Fatalf("valueBuf len = %d, want %d", len(r.valueBuf), len(prefix))
 	}
-	if string(r.valueBuf) != string(prefix) {
+	if !bytes.Equal(r.valueBuf, prefix) {
 		t.Fatalf("valueBuf = %q, want %q", r.valueBuf, prefix)
 	}
 }
@@ -328,13 +329,13 @@ func TestNamespaceValueStringResetOnError(t *testing.T) {
 	}
 	prefix := []byte("prefix")
 	r.nsBuf = append(r.nsBuf, prefix...)
-	if _, err := r.namespaceValueString([]byte("&bad;"), true); err == nil {
+	if _, err = r.namespaceValueString([]byte("&bad;"), true); err == nil {
 		t.Fatalf("namespaceValueString error = nil, want error")
 	}
 	if len(r.nsBuf) != len(prefix) {
 		t.Fatalf("nsBuf len = %d, want %d", len(r.nsBuf), len(prefix))
 	}
-	if string(r.nsBuf) != string(prefix) {
+	if !bytes.Equal(r.nsBuf, prefix) {
 		t.Fatalf("nsBuf = %q, want %q", r.nsBuf, prefix)
 	}
 }

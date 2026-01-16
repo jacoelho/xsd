@@ -154,7 +154,7 @@ func TestNextRawMixedWithNext(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 
-	if _, err := r.NextRaw(); err != nil {
+	if _, err = r.NextRaw(); err != nil {
 		t.Fatalf("NextRaw root error = %v", err)
 	}
 	ev, err := r.Next()
@@ -164,7 +164,7 @@ func TestNextRawMixedWithNext(t *testing.T) {
 	if ev.Kind != EventStartElement || ev.Name.Local != "child" {
 		t.Fatalf("child start = %v %s", ev.Kind, ev.Name.String())
 	}
-	if _, err := r.Next(); err != nil { // child end
+	if _, err = r.Next(); err != nil { // child end
 		t.Fatalf("child end error = %v", err)
 	}
 	ev, err = r.Next()
@@ -177,24 +177,25 @@ func TestNextRawMixedWithNext(t *testing.T) {
 }
 
 func TestReaderNilErrors(t *testing.T) {
-	if _, err := NewReader(nil); err == nil {
+	var err error
+	if _, err = NewReader(nil); err == nil {
 		t.Fatalf("NewReader nil error = nil, want error")
 	}
 
 	var r *Reader
-	if _, err := r.Next(); !errors.Is(err, errNilReader) {
+	if _, err = r.Next(); !errors.Is(err, errNilReader) {
 		t.Fatalf("Next nil error = %v, want %v", err, errNilReader)
 	}
-	if err := r.Reset(nil); !errors.Is(err, errNilReader) {
+	if err = r.Reset(nil); !errors.Is(err, errNilReader) {
 		t.Fatalf("Reset nil error = %v, want %v", err, errNilReader)
 	}
-	if err := r.SkipSubtree(); !errors.Is(err, errNilReader) {
+	if err = r.SkipSubtree(); !errors.Is(err, errNilReader) {
 		t.Fatalf("SkipSubtree nil error = %v, want %v", err, errNilReader)
 	}
-	if _, err := r.ReadSubtreeBytes(); !errors.Is(err, errNoStartElement) {
+	if _, err = r.ReadSubtreeBytes(); !errors.Is(err, errNoStartElement) {
 		t.Fatalf("ReadSubtreeBytes nil error = %v, want %v", err, errNoStartElement)
 	}
-	if _, err := r.ReadSubtreeInto(nil); !errors.Is(err, errNoStartElement) {
+	if _, err = r.ReadSubtreeInto(nil); !errors.Is(err, errNoStartElement) {
 		t.Fatalf("ReadSubtreeInto nil error = %v, want %v", err, errNoStartElement)
 	}
 	if line, col := r.CurrentPos(); line != 0 || col != 0 {
@@ -210,7 +211,7 @@ func TestReaderResetNilSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if err := r.Reset(nil); !errors.Is(err, errNilReader) {
+	if err = r.Reset(nil); !errors.Is(err, errNilReader) {
 		t.Fatalf("Reset nil src error = %v, want %v", err, errNilReader)
 	}
 }
@@ -234,7 +235,7 @@ func TestReaderResetIDs(t *testing.T) {
 	if ev.ID != 1 {
 		t.Fatalf("a ID = %d, want 1", ev.ID)
 	}
-	if _, err := r.Next(); err != nil { // a end
+	if _, err = r.Next(); err != nil { // a end
 		t.Fatalf("a end error = %v", err)
 	}
 	ev, err = r.Next()
@@ -245,7 +246,7 @@ func TestReaderResetIDs(t *testing.T) {
 		t.Fatalf("b ID = %d, want 2", ev.ID)
 	}
 
-	if err := r.Reset(strings.NewReader("<root/>")); err != nil {
+	if err = r.Reset(strings.NewReader("<root/>")); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
 	ev, err = r.Next()
@@ -275,7 +276,7 @@ func TestCurrentPosAndInputOffset(t *testing.T) {
 	if offset == 0 {
 		t.Fatalf("InputOffset = 0, want > 0")
 	}
-	if _, err := r.Next(); err != nil { // child start
+	if _, err = r.Next(); err != nil { // child start
 		t.Fatalf("child start error = %v", err)
 	}
 	if r.InputOffset() <= offset {
@@ -355,7 +356,7 @@ func TestReaderCDATAEntityLiteral(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.Next()
@@ -376,7 +377,7 @@ func TestReaderCDATAEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.Next()
@@ -411,6 +412,7 @@ func TestReaderEmptyAttrValue(t *testing.T) {
 }
 
 func TestEmptyElementEquivalence(t *testing.T) {
+	//nolint:govet // small test helper.
 	type token struct {
 		kind EventKind
 		name string
@@ -457,10 +459,10 @@ func TestReaderResetOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil {
+	if _, err = r.Next(); err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
-	if err := r.Reset(strings.NewReader("<root/>"), TrackLineColumn(false)); err != nil {
+	if err = r.Reset(strings.NewReader("<root/>"), TrackLineColumn(false)); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
 	ev, err := r.Next()
@@ -477,26 +479,27 @@ func TestReaderResetMaxDepth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil {
+	if _, err = r.Next(); err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err == nil {
+	if _, err = r.Next(); err == nil {
 		t.Fatalf("depth error = nil, want error")
 	}
-	if err := r.Reset(strings.NewReader("<a><b/></a>"), MaxDepth(2)); err != nil {
+	if err = r.Reset(strings.NewReader("<a><b/></a>"), MaxDepth(2)); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
-	if _, err := r.Next(); err != nil {
+	if _, err = r.Next(); err != nil {
 		t.Fatalf("root start after reset error = %v", err)
 	}
-	if _, err := r.Next(); err != nil {
+	if _, err = r.Next(); err != nil {
 		t.Fatalf("child start after reset error = %v", err)
 	}
 }
 
 func TestReaderResetNilDecoder(t *testing.T) {
+	var err error
 	r := &Reader{}
-	if err := r.Reset(strings.NewReader("<root/>")); err != nil {
+	if err = r.Reset(strings.NewReader("<root/>")); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
 	ev, err := r.Next()
@@ -509,8 +512,9 @@ func TestReaderResetNilDecoder(t *testing.T) {
 }
 
 func TestReaderResetNilNames(t *testing.T) {
+	var err error
 	r := &Reader{names: nil}
-	if err := r.Reset(strings.NewReader("<root/>")); err != nil {
+	if err = r.Reset(strings.NewReader("<root/>")); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
 	if r.names == nil {
@@ -524,7 +528,7 @@ func TestReaderNextRecreatesNames(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 	r.names = nil
-	if _, err := r.Next(); err != nil {
+	if _, err = r.Next(); err != nil {
 		t.Fatalf("Next error = %v", err)
 	}
 	if r.names == nil {
@@ -540,7 +544,7 @@ func TestQNameCacheMaxEntriesOption(t *testing.T) {
 	if r.names.maxEntries != 7 {
 		t.Fatalf("maxEntries = %d, want 7", r.names.maxEntries)
 	}
-	if err := r.Reset(strings.NewReader("<root/>"), MaxQNameInternEntries(3)); err != nil {
+	if err = r.Reset(strings.NewReader("<root/>"), MaxQNameInternEntries(3)); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
 	if r.names.maxEntries != 3 {
@@ -579,7 +583,7 @@ func TestResetNamespaceIsolation(t *testing.T) {
 	if ev.Name.Namespace != "urn:one" {
 		t.Fatalf("first namespace = %q, want urn:one", ev.Name.Namespace)
 	}
-	if err := r.Reset(strings.NewReader(`<a xmlns="urn:two"><b/></a>`)); err != nil {
+	if err = r.Reset(strings.NewReader(`<a xmlns="urn:two"><b/></a>`)); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
 	ev, err = r.Next()
@@ -599,13 +603,13 @@ func TestReaderMultipleReset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil {
+	if _, err = r.Next(); err != nil {
 		t.Fatalf("a start error = %v", err)
 	}
-	if err := r.Reset(strings.NewReader("<b/>")); err != nil {
+	if err = r.Reset(strings.NewReader("<b/>")); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
-	if err := r.Reset(strings.NewReader("<c/>")); err != nil {
+	if err = r.Reset(strings.NewReader("<c/>")); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
 	ev, err := r.Next()
@@ -622,19 +626,19 @@ func TestReaderResetClearsPendingPop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // child
+	if _, err = r.Next(); err != nil { // child
 		t.Fatalf("child start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // child end
+	if _, err = r.Next(); err != nil { // child end
 		t.Fatalf("child end error = %v", err)
 	}
 	if !r.pendingPop {
 		t.Fatalf("pendingPop = false, want true")
 	}
-	if err := r.Reset(strings.NewReader("<root/>")); err != nil {
+	if err = r.Reset(strings.NewReader("<root/>")); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
 	if r.pendingPop {
@@ -655,13 +659,13 @@ func TestSkipSubtreeError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // item
+	if _, err = r.Next(); err != nil { // item
 		t.Fatalf("item start error = %v", err)
 	}
-	if err := r.SkipSubtree(); err == nil {
+	if err = r.SkipSubtree(); err == nil {
 		t.Fatalf("SkipSubtree error = nil, want error")
 	} else {
 		var syntax *xmltext.SyntaxError
@@ -677,7 +681,7 @@ func TestSkipSubtreeEmptyStack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if err := r.SkipSubtree(); !errors.Is(err, errNoStartElement) {
+	if err = r.SkipSubtree(); !errors.Is(err, errNoStartElement) {
 		t.Fatalf("SkipSubtree error = %v, want %v", err, errNoStartElement)
 	}
 }
@@ -688,10 +692,10 @@ func TestEndElementHasNoID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // child
+	if _, err = r.Next(); err != nil { // child
 		t.Fatalf("child start error = %v", err)
 	}
 	ev, err := r.Next() // child end
@@ -712,15 +716,15 @@ func TestSkipSubtreePendingPop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // skip
+	if _, err = r.Next(); err != nil { // skip
 		t.Fatalf("skip start error = %v", err)
 	}
 	r.pendingPop = true
 	r.ns.push(nsScope{})
-	if err := r.SkipSubtree(); err != nil {
+	if err = r.SkipSubtree(); err != nil {
 		t.Fatalf("SkipSubtree error = %v", err)
 	}
 	ev, err := r.Next()
@@ -738,7 +742,7 @@ func TestMultipleSkipSubtree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.Next()
@@ -748,7 +752,7 @@ func TestMultipleSkipSubtree(t *testing.T) {
 	if ev.Kind != EventStartElement || ev.Name.Local != "a" {
 		t.Fatalf("a start = %v %s, want a start", ev.Kind, ev.Name.String())
 	}
-	if err := r.SkipSubtree(); err != nil {
+	if err = r.SkipSubtree(); err != nil {
 		t.Fatalf("SkipSubtree a error = %v", err)
 	}
 	ev, err = r.Next()
@@ -758,7 +762,7 @@ func TestMultipleSkipSubtree(t *testing.T) {
 	if ev.Kind != EventStartElement || ev.Name.Local != "b" {
 		t.Fatalf("b start = %v %s, want b start", ev.Kind, ev.Name.String())
 	}
-	if err := r.SkipSubtree(); err != nil {
+	if err = r.SkipSubtree(); err != nil {
 		t.Fatalf("SkipSubtree b error = %v", err)
 	}
 	ev, err = r.Next()
@@ -776,23 +780,24 @@ func TestSkipSubtreeTwiceConsecutive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // a
+	if _, err = r.Next(); err != nil { // a
 		t.Fatalf("a start error = %v", err)
 	}
-	if err := r.SkipSubtree(); err != nil {
+	if err = r.SkipSubtree(); err != nil {
 		t.Fatalf("SkipSubtree error = %v", err)
 	}
-	if err := r.SkipSubtree(); !errors.Is(err, errNoStartElement) {
+	if err = r.SkipSubtree(); !errors.Is(err, errNoStartElement) {
 		t.Fatalf("second SkipSubtree error = %v, want %v", err, errNoStartElement)
 	}
 }
 
 func TestPopElementNameEmpty(t *testing.T) {
+	var err error
 	r := &Reader{}
-	if _, err := r.popElementName(); err == nil {
+	if _, err = r.popElementName(); err == nil {
 		t.Fatalf("popElementName error = nil, want error")
 	}
 }
@@ -851,7 +856,7 @@ func TestConcurrentReaderCreation(t *testing.T) {
 				return
 			}
 			for {
-				if _, err := r.Next(); errors.Is(err, io.EOF) {
+				if _, err = r.Next(); errors.Is(err, io.EOF) {
 					break
 				} else if err != nil {
 					errs <- err

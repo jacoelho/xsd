@@ -18,13 +18,13 @@ func TestReadSubtreeBytes(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // skip start
+	if _, err = r.Next(); err != nil { // skip start
 		t.Fatalf("skip start error = %v", err)
 	}
-	if err := r.SkipSubtree(); err != nil {
+	if err = r.SkipSubtree(); err != nil {
 		t.Fatalf("SkipSubtree error = %v", err)
 	}
 
@@ -43,7 +43,7 @@ func TestReadSubtreeBytes(t *testing.T) {
 	var got struct {
 		Title string `xml:"title"`
 	}
-	if err := xml.Unmarshal(data, &got); err != nil {
+	if err = xml.Unmarshal(data, &got); err != nil {
 		t.Fatalf("xml.Unmarshal error = %v", err)
 	}
 	if got.Title != "Go" {
@@ -66,10 +66,10 @@ func TestReadSubtreeBytesEmptyElement(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // item start
+	if _, err = r.Next(); err != nil { // item start
 		t.Fatalf("item start error = %v", err)
 	}
 
@@ -80,7 +80,7 @@ func TestReadSubtreeBytesEmptyElement(t *testing.T) {
 	var got struct {
 		XMLName xml.Name `xml:"item"`
 	}
-	if err := xml.Unmarshal(data, &got); err != nil {
+	if err = xml.Unmarshal(data, &got); err != nil {
 		t.Fatalf("xml.Unmarshal error = %v", err)
 	}
 	if got.XMLName.Local != "item" {
@@ -95,10 +95,10 @@ func TestReadSubtreeBytesWithCommentsAndPI(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // item start
+	if _, err = r.Next(); err != nil { // item start
 		t.Fatalf("item start error = %v", err)
 	}
 
@@ -117,13 +117,13 @@ func TestReadSubtreeBytesReadError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // item
+	if _, err = r.Next(); err != nil { // item
 		t.Fatalf("item start error = %v", err)
 	}
-	if _, err := r.ReadSubtreeBytes(); err == nil {
+	if _, err = r.ReadSubtreeBytes(); err == nil {
 		t.Fatalf("ReadSubtreeBytes error = nil, want error")
 	} else {
 		var syntax *xmltext.SyntaxError
@@ -139,16 +139,16 @@ func TestReadSubtreeBytesFollowedByDecode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // a
+	if _, err = r.Next(); err != nil { // a
 		t.Fatalf("a start error = %v", err)
 	}
-	if _, err := r.ReadSubtreeBytes(); err != nil {
+	if _, err = r.ReadSubtreeBytes(); err != nil {
 		t.Fatalf("ReadSubtreeBytes error = %v", err)
 	}
-	if err := r.Decode(noopUnmarshal{}); !errors.Is(err, errNoStartElement) {
+	if err = r.Decode(noopUnmarshal{}); !errors.Is(err, errNoStartElement) {
 		t.Fatalf("Decode after ReadSubtreeBytes error = %v, want %v", err, errNoStartElement)
 	}
 }
@@ -160,10 +160,10 @@ func TestReadSubtreeBytes_UnmarshalStruct(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // book start
+	if _, err = r.Next(); err != nil { // book start
 		t.Fatalf("book start error = %v", err)
 	}
 
@@ -177,7 +177,7 @@ func TestReadSubtreeBytes_UnmarshalStruct(t *testing.T) {
 		Title   string   `xml:"title"`
 		Author  string   `xml:"author"`
 	}
-	if err := xml.Unmarshal(data, &got); err != nil {
+	if err = xml.Unmarshal(data, &got); err != nil {
 		t.Fatalf("xml.Unmarshal error = %v", err)
 	}
 	if got.ID != "a&b" {
@@ -195,10 +195,10 @@ func TestReadSubtreeBytes_UnmarshalNestedPaths(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // book start
+	if _, err = r.Next(); err != nil { // book start
 		t.Fatalf("book start error = %v", err)
 	}
 
@@ -218,7 +218,7 @@ func TestReadSubtreeBytes_UnmarshalNestedPaths(t *testing.T) {
 		} `xml:"meta"`
 		ExtraNote string `xml:"extra>note"`
 	}
-	if err := xml.Unmarshal(data, &got); err != nil {
+	if err = xml.Unmarshal(data, &got); err != nil {
 		t.Fatalf("xml.Unmarshal error = %v", err)
 	}
 	if got.ID != "b1" {
@@ -242,10 +242,10 @@ func TestReadSubtreeBytes_UnmarshalPathOnly(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // book start
+	if _, err = r.Next(); err != nil { // book start
 		t.Fatalf("book start error = %v", err)
 	}
 
@@ -261,7 +261,7 @@ func TestReadSubtreeBytes_UnmarshalPathOnly(t *testing.T) {
 		PublisherName string   `xml:"meta>publisher>name"`
 		Note          string   `xml:"extra>note"`
 	}
-	if err := xml.Unmarshal(data, &got); err != nil {
+	if err = xml.Unmarshal(data, &got); err != nil {
 		t.Fatalf("xml.Unmarshal error = %v", err)
 	}
 	if got.ID != "b1" {
@@ -285,10 +285,10 @@ func TestReadSubtreeIntoShortBuffer(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // item start
+	if _, err = r.Next(); err != nil { // item start
 		t.Fatalf("item start error = %v", err)
 	}
 
@@ -308,14 +308,14 @@ func TestReadSubtreeIntoReadError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // item
+	if _, err = r.Next(); err != nil { // item
 		t.Fatalf("item start error = %v", err)
 	}
 	buf := make([]byte, 64)
-	if _, err := r.ReadSubtreeInto(buf); err == nil {
+	if _, err = r.ReadSubtreeInto(buf); err == nil {
 		t.Fatalf("ReadSubtreeInto error = nil, want error")
 	} else {
 		var syntax *xmltext.SyntaxError
@@ -331,10 +331,10 @@ func TestReadSubtreeIntoExactFit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // a start
+	if _, err = r.Next(); err != nil { // a start
 		t.Fatalf("a start error = %v", err)
 	}
 	data, err := r.ReadSubtreeBytes()
@@ -346,10 +346,10 @@ func TestReadSubtreeIntoExactFit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // a start
+	if _, err = r.Next(); err != nil { // a start
 		t.Fatalf("a start error = %v", err)
 	}
 	buf := make([]byte, len(data))
@@ -371,10 +371,10 @@ func TestReadSubtreeInto_UnmarshalNestedPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // book
+	if _, err = r.Next(); err != nil { // book
 		t.Fatalf("book start error = %v", err)
 	}
 
@@ -395,7 +395,7 @@ func TestReadSubtreeInto_UnmarshalNestedPaths(t *testing.T) {
 		} `xml:"meta"`
 		ExtraNote string `xml:"extra>note"`
 	}
-	if err := xml.Unmarshal(buf[:n], &got); err != nil {
+	if err = xml.Unmarshal(buf[:n], &got); err != nil {
 		t.Fatalf("xml.Unmarshal error = %v", err)
 	}
 	if got.ID != "b1" {
@@ -419,15 +419,15 @@ func TestDecode(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // item start
+	if _, err = r.Next(); err != nil { // item start
 		t.Fatalf("item start error = %v", err)
 	}
 
 	var got itemTitle
-	if err := r.Decode(&got); err != nil {
+	if err = r.Decode(&got); err != nil {
 		t.Fatalf("Decode error = %v", err)
 	}
 	if got.title != "Go" {
@@ -450,7 +450,7 @@ func TestDecodeElement(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	start, err := r.Next() // book start
@@ -459,7 +459,7 @@ func TestDecodeElement(t *testing.T) {
 	}
 
 	var got bookStream
-	if err := r.DecodeElement(&got, start); err != nil {
+	if err = r.DecodeElement(&got, start); err != nil {
 		t.Fatalf("DecodeElement error = %v", err)
 	}
 	if got.ID != "a&b" || got.Title != "Go" || got.Author != "Rob" {
@@ -481,14 +481,14 @@ func TestDecodeElementNilUnmarshaler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	start, err := r.Next()
 	if err != nil {
 		t.Fatalf("item start error = %v", err)
 	}
-	if err := r.DecodeElement(nil, start); !errors.Is(err, errNilUnmarshaler) {
+	if err = r.DecodeElement(nil, start); !errors.Is(err, errNilUnmarshaler) {
 		t.Fatalf("DecodeElement nil error = %v, want %v", err, errNilUnmarshaler)
 	}
 }
@@ -506,7 +506,7 @@ func TestDecodeElementClearsMatchingStart(t *testing.T) {
 	if !r.lastWasStart {
 		t.Fatalf("lastWasStart = false, want true")
 	}
-	if err := r.DecodeElement(noopUnmarshal{}, start); err != nil {
+	if err = r.DecodeElement(noopUnmarshal{}, start); err != nil {
 		t.Fatalf("DecodeElement error = %v", err)
 	}
 	if r.lastWasStart {
@@ -520,14 +520,14 @@ func TestDecodeElementKeepsMismatchedStart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil {
+	if _, err = r.Next(); err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
 	if !r.lastWasStart {
 		t.Fatalf("lastWasStart = false, want true")
 	}
 	mismatched := Event{Kind: EventStartElement, Name: QName{Local: "other"}, ID: 42}
-	if err := r.DecodeElement(noopUnmarshal{}, mismatched); err != nil {
+	if err = r.DecodeElement(noopUnmarshal{}, mismatched); err != nil {
 		t.Fatalf("DecodeElement error = %v", err)
 	}
 	if !r.lastWasStart {
@@ -549,7 +549,7 @@ func TestNextRawReadSubtreeBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // root
+	if _, err = r.NextRaw(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	ev, err := r.NextRaw()
@@ -566,7 +566,7 @@ func TestNextRawReadSubtreeBytes(t *testing.T) {
 	var got struct {
 		Title string `xml:"title"`
 	}
-	if err := xml.Unmarshal(data, &got); err != nil {
+	if err = xml.Unmarshal(data, &got); err != nil {
 		t.Fatalf("xml.Unmarshal error = %v", err)
 	}
 	if got.Title != "Go" {
@@ -580,14 +580,14 @@ func TestNextRawDecode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // root
+	if _, err = r.NextRaw(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // item start
+	if _, err = r.NextRaw(); err != nil { // item start
 		t.Fatalf("item start error = %v", err)
 	}
 	var got itemTitle
-	if err := r.Decode(&got); err != nil {
+	if err = r.Decode(&got); err != nil {
 		t.Fatalf("Decode error = %v", err)
 	}
 	if got.title != "Go" {
@@ -607,21 +607,22 @@ func TestDecodeErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if err := r.Decode(nil); !errors.Is(err, errNilUnmarshaler) {
+	if err = r.Decode(nil); !errors.Is(err, errNilUnmarshaler) {
 		t.Fatalf("Decode nil error = %v, want %v", err, errNilUnmarshaler)
 	}
-	if err := r.Decode(noopUnmarshal{}); !errors.Is(err, errNoStartElement) {
+	if err = r.Decode(noopUnmarshal{}); !errors.Is(err, errNoStartElement) {
 		t.Fatalf("Decode before start error = %v, want %v", err, errNoStartElement)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if err := r.DecodeElement(noopUnmarshal{}, Event{Kind: EventCharData}); !errors.Is(err, errNoStartElement) {
+	if err = r.DecodeElement(noopUnmarshal{}, Event{Kind: EventCharData}); !errors.Is(err, errNoStartElement) {
 		t.Fatalf("DecodeElement wrong kind error = %v, want %v", err, errNoStartElement)
 	}
 }
 
 func TestDecodeElementWrongKinds(t *testing.T) {
+	var err error
 	tests := []EventKind{
 		EventEndElement,
 		EventCharData,
@@ -632,7 +633,7 @@ func TestDecodeElementWrongKinds(t *testing.T) {
 	for _, kind := range tests {
 		ev := Event{Kind: kind}
 		var r *Reader
-		if err := r.DecodeElement(noopUnmarshal{}, ev); !errors.Is(err, errNoStartElement) {
+		if err = r.DecodeElement(noopUnmarshal{}, ev); !errors.Is(err, errNoStartElement) {
 			t.Fatalf("DecodeElement %v error = %v, want %v", kind, err, errNoStartElement)
 		}
 	}
@@ -644,11 +645,11 @@ func TestDecodeUnmarshalError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	want := errors.New("unmarshal error")
-	if err := r.Decode(errorUnmarshal{err: want}); !errors.Is(err, want) {
+	if err = r.Decode(errorUnmarshal{err: want}); !errors.Is(err, want) {
 		t.Fatalf("Decode error = %v, want %v", err, want)
 	}
 }
@@ -659,11 +660,11 @@ func TestNestedDecode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	var got parentStream
-	if err := r.Decode(&got); err != nil {
+	if err = r.Decode(&got); err != nil {
 		t.Fatalf("Decode error = %v", err)
 	}
 	if len(got.titles) != 2 || got.titles[0] != "Go" || got.titles[1] != "Rust" {
@@ -677,14 +678,14 @@ func TestNextRawDecodeWithAttrs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // root
+	if _, err = r.NextRaw(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // book
+	if _, err = r.NextRaw(); err != nil { // book
 		t.Fatalf("book start error = %v", err)
 	}
 	var got bookStream
-	if err := r.Decode(&got); err != nil {
+	if err = r.Decode(&got); err != nil {
 		t.Fatalf("Decode error = %v", err)
 	}
 	if got.ID != "a&b" {
@@ -715,9 +716,10 @@ func TestConsumeStartWithPreResolvedAttrs(t *testing.T) {
 }
 
 func TestDecodeElementNilReader(t *testing.T) {
+	var err error
 	var r *Reader
 	start := Event{Kind: EventStartElement, Name: QName{Local: "root"}, ID: 1}
-	if err := r.DecodeElement(noopUnmarshal{}, start); err != nil {
+	if err = r.DecodeElement(noopUnmarshal{}, start); err != nil {
 		t.Fatalf("DecodeElement nil reader error = %v", err)
 	}
 }
@@ -728,7 +730,7 @@ func TestDecodeElementConsumesStart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	start, err := r.Next()
@@ -736,7 +738,7 @@ func TestDecodeElementConsumesStart(t *testing.T) {
 		t.Fatalf("item start error = %v", err)
 	}
 	var got itemTitle
-	if err := r.DecodeElement(&got, start); err != nil {
+	if err = r.DecodeElement(&got, start); err != nil {
 		t.Fatalf("DecodeElement error = %v", err)
 	}
 	ev, err := r.Next()
@@ -754,14 +756,14 @@ func TestReadSubtreeIntoShortBufferConsumes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // item
+	if _, err = r.Next(); err != nil { // item
 		t.Fatalf("item start error = %v", err)
 	}
 	buf := make([]byte, 5)
-	if _, err := r.ReadSubtreeInto(buf); !errors.Is(err, io.ErrShortBuffer) {
+	if _, err = r.ReadSubtreeInto(buf); !errors.Is(err, io.ErrShortBuffer) {
 		t.Fatalf("ReadSubtreeInto error = %v, want %v", err, io.ErrShortBuffer)
 	}
 	ev, err := r.Next()
@@ -779,10 +781,10 @@ func TestReadSubtreeIntoEntities(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // item
+	if _, err = r.Next(); err != nil { // item
 		t.Fatalf("item start error = %v", err)
 	}
 	buf := make([]byte, 0, 64)
@@ -802,13 +804,13 @@ func TestReadSubtreeIntoZeroLengthBuffer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // item
+	if _, err = r.Next(); err != nil { // item
 		t.Fatalf("item start error = %v", err)
 	}
-	if _, err := r.ReadSubtreeInto(nil); !errors.Is(err, io.ErrShortBuffer) {
+	if _, err = r.ReadSubtreeInto(nil); !errors.Is(err, io.ErrShortBuffer) {
 		t.Fatalf("ReadSubtreeInto error = %v, want %v", err, io.ErrShortBuffer)
 	}
 }
@@ -819,12 +821,12 @@ func TestNextRawDecodeReusesAttrBuf(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.NextRaw(); err != nil { // root
+	if _, err = r.NextRaw(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	r.attrBuf = make([]Attr, 1, 10)
 	before := cap(r.attrBuf)
-	if _, err := r.ReadSubtreeBytes(); err != nil {
+	if _, err = r.ReadSubtreeBytes(); err != nil {
 		t.Fatalf("ReadSubtreeBytes error = %v", err)
 	}
 	if cap(r.attrBuf) != before {
@@ -856,18 +858,19 @@ func TestSplitPI(t *testing.T) {
 }
 
 func TestEncodeEventSpecialTokens(t *testing.T) {
+	var err error
 	var buf bytes.Buffer
 	enc := xml.NewEncoder(&buf)
-	if err := encodeEvent(enc, Event{Kind: EventDirective, Text: []byte("DOCTYPE root")}); err != nil {
+	if err = encodeEvent(enc, Event{Kind: EventDirective, Text: []byte("DOCTYPE root")}); err != nil {
 		t.Fatalf("encode directive error = %v", err)
 	}
-	if err := encodeEvent(enc, Event{Kind: EventPI, Text: []byte("pi data")}); err != nil {
+	if err = encodeEvent(enc, Event{Kind: EventPI, Text: []byte("pi data")}); err != nil {
 		t.Fatalf("encode PI error = %v", err)
 	}
-	if err := encodeEvent(enc, Event{Kind: EventComment, Text: []byte("comment")}); err != nil {
+	if err = encodeEvent(enc, Event{Kind: EventComment, Text: []byte("comment")}); err != nil {
 		t.Fatalf("encode comment error = %v", err)
 	}
-	if err := enc.Flush(); err != nil {
+	if err = enc.Flush(); err != nil {
 		t.Fatalf("encoder flush error = %v", err)
 	}
 	if got := buf.String(); got != "<!DOCTYPE root><?pi data?><!--comment-->" {
@@ -876,12 +879,13 @@ func TestEncodeEventSpecialTokens(t *testing.T) {
 }
 
 func TestEncodeEventEmptyDirective(t *testing.T) {
+	var err error
 	var buf bytes.Buffer
 	enc := xml.NewEncoder(&buf)
-	if err := encodeEvent(enc, Event{Kind: EventDirective, Text: nil}); err != nil {
+	if err = encodeEvent(enc, Event{Kind: EventDirective, Text: nil}); err != nil {
 		t.Fatalf("encode directive error = %v", err)
 	}
-	if err := enc.Flush(); err != nil {
+	if err = enc.Flush(); err != nil {
 		t.Fatalf("encoder flush error = %v", err)
 	}
 	if got := buf.String(); got != "<!>" {
@@ -920,15 +924,16 @@ func TestSubtreeWriterEmptyWrite(t *testing.T) {
 }
 
 func TestSubtreeWriterBufferFull(t *testing.T) {
+	var err error
 	dst := make([]byte, 1)
 	w := subtreeWriter{dst: dst}
-	if _, err := w.Write([]byte("a")); err != nil {
+	if _, err = w.Write([]byte("a")); err != nil {
 		t.Fatalf("Write error = %v", err)
 	}
 	if w.n != 1 || w.short {
 		t.Fatalf("writer state n=%d short=%v, want n=1 short=false", w.n, w.short)
 	}
-	if _, err := w.Write([]byte("b")); err != nil {
+	if _, err = w.Write([]byte("b")); err != nil {
 		t.Fatalf("Write error = %v", err)
 	}
 	if w.n != 1 || !w.short {
@@ -961,12 +966,13 @@ func TestSubtreeWriterPartialThenOverflow(t *testing.T) {
 }
 
 func TestEncodeEventUnknownKind(t *testing.T) {
+	var err error
 	var buf bytes.Buffer
 	enc := xml.NewEncoder(&buf)
-	if err := encodeEvent(enc, Event{Kind: EventKind(99)}); err != nil {
+	if err = encodeEvent(enc, Event{Kind: EventKind(99)}); err != nil {
 		t.Fatalf("encode unknown error = %v", err)
 	}
-	if err := enc.Flush(); err != nil {
+	if err = enc.Flush(); err != nil {
 		t.Fatalf("encoder flush error = %v", err)
 	}
 	if buf.Len() != 0 {
@@ -980,7 +986,7 @@ func TestWriteSubtreeEncodeErrorInCharData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	start, err := r.Next()
@@ -989,22 +995,23 @@ func TestWriteSubtreeEncodeErrorInCharData(t *testing.T) {
 	}
 	var buf bytes.Buffer
 	enc := xml.NewEncoder(&buf)
-	if err := encodeEvent(enc, start); err != nil {
+	if err = encodeEvent(enc, start); err != nil {
 		t.Fatalf("encode start error = %v", err)
 	}
-	if err := enc.Flush(); err != nil {
+	if err = enc.Flush(); err != nil {
 		t.Fatalf("encoder flush error = %v", err)
 	}
 	writer := &byteLimitWriter{limit: buf.Len()}
-	if err := r.writeSubtree(writer, start); err == nil {
+	if err = r.writeSubtree(writer, start); err == nil {
 		t.Fatalf("writeSubtree error = nil, want error")
 	}
 }
 
 func TestWriteSubtreeStartEncodeError(t *testing.T) {
+	var err error
 	r := &Reader{}
 	start := Event{Kind: EventStartElement, Name: QName{}}
-	if err := r.writeSubtree(io.Discard, start); err == nil {
+	if err = r.writeSubtree(io.Discard, start); err == nil {
 		t.Fatalf("writeSubtree error = nil, want error")
 	} else if errors.Is(err, errNilReader) {
 		t.Fatalf("writeSubtree error = %v, want encode error", err)
@@ -1017,7 +1024,7 @@ func TestWriteSubtreeWriterError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	start, err := r.Next()
@@ -1025,7 +1032,7 @@ func TestWriteSubtreeWriterError(t *testing.T) {
 		t.Fatalf("item start error = %v", err)
 	}
 	writer := &failingWriter{err: errors.New("write failed")}
-	if err := r.writeSubtree(writer, start); err == nil {
+	if err = r.writeSubtree(writer, start); err == nil {
 		t.Fatalf("writeSubtree error = nil, want error")
 	}
 }
@@ -1047,7 +1054,7 @@ func TestWriteSubtreeWriterErrorAfterStart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	start, err := r.Next()
@@ -1055,7 +1062,7 @@ func TestWriteSubtreeWriterErrorAfterStart(t *testing.T) {
 		t.Fatalf("item start error = %v", err)
 	}
 	writer := &byteLimitWriter{limit: 8}
-	if err := r.writeSubtree(writer, start); err == nil {
+	if err = r.writeSubtree(writer, start); err == nil {
 		t.Fatalf("writeSubtree error = nil, want error")
 	}
 }
@@ -1066,7 +1073,7 @@ func TestWriteSubtreeFlushError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err := r.Next(); err != nil { // root
+	if _, err = r.Next(); err != nil { // root
 		t.Fatalf("root start error = %v", err)
 	}
 	start, err := r.Next()
@@ -1074,7 +1081,7 @@ func TestWriteSubtreeFlushError(t *testing.T) {
 		t.Fatalf("item start error = %v", err)
 	}
 	writer := &flushFailWriter{err: errors.New("flush failed")}
-	if err := r.writeSubtree(writer, start); err == nil {
+	if err = r.writeSubtree(writer, start); err == nil {
 		t.Fatalf("writeSubtree error = nil, want error")
 	}
 	if writer.calls == 0 {
@@ -1114,6 +1121,7 @@ type itemTitle struct {
 	title string
 }
 
+//nolint:gocritic // test keeps value semantics for start events.
 func (i *itemTitle) UnmarshalXMLStream(r *Reader, start Event) error {
 	if start.Kind != EventStartElement || start.Name.Local != "item" {
 		return errNoStartElement
@@ -1146,6 +1154,7 @@ type bookStream struct {
 	Author string
 }
 
+//nolint:gocritic // test keeps value semantics for start events.
 func (b *bookStream) UnmarshalXMLStream(r *Reader, start Event) error {
 	if start.Kind != EventStartElement || start.Name.Local != "book" {
 		return errNoStartElement
@@ -1196,6 +1205,7 @@ type parentStream struct {
 	titles []string
 }
 
+//nolint:gocritic // test keeps value semantics for start events.
 func (p *parentStream) UnmarshalXMLStream(r *Reader, start Event) error {
 	if start.Kind != EventStartElement || start.Name.Local != "root" {
 		return errNoStartElement
@@ -1211,8 +1221,9 @@ func (p *parentStream) UnmarshalXMLStream(r *Reader, start Event) error {
 				continue
 			}
 			var item itemTitle
-			if err := r.Decode(&item); err != nil {
-				return err
+			itemErr := r.Decode(&item)
+			if itemErr != nil {
+				return itemErr
 			}
 			p.titles = append(p.titles, item.title)
 		case EventEndElement:
