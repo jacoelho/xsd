@@ -8,7 +8,8 @@ import (
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 type streamContentKind int
@@ -35,6 +36,17 @@ const (
 	listItemModeString listItemMode = iota
 	listItemModeBytes
 )
+
+type streamStart struct {
+	Name       types.QName
+	Attrs      []streamAttr
+	Line       int
+	Column     int
+	ID         uint64
+	ScopeDepth int
+}
+
+type streamAttr = xmlstream.StringAttr
 
 // streamFrame groups per-element validation state kept on the streaming stack.
 // it keeps declaration/type info, content-model validators, and text/list buffers
@@ -79,7 +91,7 @@ type listStreamState struct {
 
 type streamRun struct {
 	*validationRun
-	dec             *xsdxml.StreamDecoder
+	dec             *xmlstream.StringReader
 	constraintDecls map[types.QName][]*grammar.CompiledElement
 	frames          []streamFrame
 	violations      []errors.Validation
@@ -101,7 +113,7 @@ func (v *Validator) ValidateStream(r io.Reader) ([]errors.Validation, error) {
 
 	run := v.newStreamRun()
 
-	dec, err := xsdxml.NewStreamDecoder(r)
+	dec, err := xmlstream.NewStringReader(r, xmlstream.MaxQNameInternEntries(0))
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +171,7 @@ func (r *streamRun) releaseFrameResources(frame *streamFrame) {
 	}
 }
 
-func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, error) {
+func (r *streamRun) validate(dec *xmlstream.StringReader) ([]errors.Validation, error) {
 	r.reset()
 	r.dec = dec
 	r.frames = r.frames[:0]
@@ -182,7 +194,7 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 		r.setCurrentPos(ev.Line, ev.Column)
 
 		switch ev.Kind {
-		case xsdxml.EventStartElement:
+		case xmlstream.EventStartElement:
 			if r.rootClosed {
 				return r.violations, fmt.Errorf("unexpected element %s after document end", ev.Name.Local)
 			}
@@ -193,7 +205,7 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 				return r.violations, err
 			}
 
-		case xsdxml.EventEndElement:
+		case xmlstream.EventEndElement:
 			if len(r.frames) == 0 {
 				return r.violations, fmt.Errorf("unexpected end element %s", ev.Name.Local)
 			}
@@ -204,7 +216,7 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 				r.rootClosed = true
 			}
 
-		case xsdxml.EventCharData:
+		case xmlstream.EventCharData:
 			if len(r.frames) == 0 {
 				if !isIgnorableOutsideRoot(ev.Text) {
 					return r.violations, fmt.Errorf("unexpected character data outside root element")
@@ -226,16 +238,18 @@ func (r *streamRun) validate(dec *xsdxml.StreamDecoder) ([]errors.Validation, er
 	return r.violations, nil
 }
 
-func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev *xsdxml.Event) error {
+func (r *streamRun) handleStart(dec *xmlstream.StringReader, ev *xmlstream.StringEvent) error {
 	parent := r.currentFrame()
+	name := toTypesQName(ev.Name)
+	attrs := ev.Attrs
 	if parent != nil {
-		skipSubtree := r.prevalidateParentForChild(parent, ev.Name.Local)
+		skipSubtree := r.prevalidateParentForChild(parent, name.Local)
 		if skipSubtree {
 			return dec.SkipSubtree()
 		}
 	}
 
-	match, skipSubtree := r.resolveChildMatch(parent, ev.Name)
+	match, skipSubtree := r.resolveChildMatch(parent, name)
 	if skipSubtree {
 		return dec.SkipSubtree()
 	}
@@ -244,16 +258,31 @@ func (r *streamRun) handleStart(dec *xsdxml.StreamDecoder, ev *xsdxml.Event) err
 		return dec.SkipSubtree()
 	}
 
-	r.path.push(ev.Name.Local)
-	frame, skipSubtree := r.startFrame(ev, parent, match.processContents, match.matchedDecl, match.matchedQName, match.origin)
+	r.path.push(name.Local)
+	start := streamStart{
+		Name:       name,
+		Attrs:      attrs,
+		Line:       ev.Line,
+		Column:     ev.Column,
+		ID:         uint64(ev.ID),
+		ScopeDepth: ev.ScopeDepth,
+	}
+	frame, skipSubtree := r.startFrame(&start, parent, match.processContents, match.matchedDecl, match.matchedQName, match.origin)
 	if skipSubtree {
 		r.path.pop()
 		return dec.SkipSubtree()
 	}
 	r.frames = append(r.frames, frame)
-	r.handleIdentityStart(&r.frames[len(r.frames)-1], ev.Attrs)
+	r.handleIdentityStart(&r.frames[len(r.frames)-1], attrs)
 	r.maybeEnableListStreaming(len(r.frames) - 1)
 	return nil
+}
+
+func toTypesQName(name xmlstream.QName) types.QName {
+	return types.QName{
+		Namespace: types.NamespaceURI(name.Namespace),
+		Local:     name.Local,
+	}
 }
 
 type startMatch struct {
@@ -349,7 +378,7 @@ func (r *streamRun) addChildViolationf(code errors.ErrorCode, childName, format 
 	r.path.pop()
 }
 
-func (r *streamRun) handleCharData(ev *xsdxml.Event) {
+func (r *streamRun) handleCharData(ev *xmlstream.StringEvent) {
 	frame := r.currentFrame()
 	if frame == nil || frame.invalid {
 		return
@@ -386,7 +415,7 @@ func (r *streamRun) handleCharData(ev *xsdxml.Event) {
 	}
 }
 
-func (r *streamRun) captureTextPos(frame *streamFrame, ev *xsdxml.Event) {
+func (r *streamRun) captureTextPos(frame *streamFrame, ev *xmlstream.StringEvent) {
 	if frame == nil || frame.textLine > 0 || frame.textColumn > 0 {
 		return
 	}
@@ -495,7 +524,7 @@ func (r *streamRun) handleEnd() error {
 	return nil
 }
 
-func (r *streamRun) startFrame(ev *xsdxml.Event, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, origin matchOrigin) (streamFrame, bool) {
+func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, origin matchOrigin) (streamFrame, bool) {
 	attrs := newAttributeIndex(ev.Attrs)
 	decl := r.resolveMatchedDecl(parent, ev.Name, matchedDecl, matchedQName)
 
@@ -608,9 +637,9 @@ func (r *streamRun) startFrame(ev *xsdxml.Event, parent *streamFrame, processCon
 	return frame, false
 }
 
-func (r *streamRun) newFrame(ev *xsdxml.Event, decl *grammar.CompiledElement, compiledType *grammar.CompiledType, parent *streamFrame) streamFrame {
+func (r *streamRun) newFrame(ev *streamStart, decl *grammar.CompiledElement, compiledType *grammar.CompiledType, parent *streamFrame) streamFrame {
 	frame := streamFrame{
-		id:          uint64(ev.ID),
+		id:          ev.ID,
 		qname:       ev.Name,
 		decl:        decl,
 		typ:         compiledType,

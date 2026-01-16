@@ -52,6 +52,142 @@ func TestLookupNamespace(t *testing.T) {
 	}
 }
 
+func TestNamespaceDeclsAt(t *testing.T) {
+	input := `<root xmlns="urn:root" xmlns:a="urn:a"><a:child xmlns:b="urn:b"/></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	ev, err := r.Next() // root
+	if err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	rootDecls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth))
+	if rootDecls[""] != "urn:root" {
+		t.Fatalf("root default namespace = %q, want urn:root", rootDecls[""])
+	}
+	if rootDecls["a"] != "urn:a" {
+		t.Fatalf("root prefix a = %q, want urn:a", rootDecls["a"])
+	}
+
+	ev, err = r.Next() // child
+	if err != nil {
+		t.Fatalf("child start error = %v", err)
+	}
+	childDecls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth))
+	if childDecls["b"] != "urn:b" {
+		t.Fatalf("child prefix b = %q, want urn:b", childDecls["b"])
+	}
+}
+
+func TestNamespaceDeclsAtDepthOverflow(t *testing.T) {
+	input := `<root xmlns="urn:root" xmlns:a="urn:a"></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	ev, err := r.Next() // root
+	if err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	decls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth + 10))
+	if decls[""] != "urn:root" {
+		t.Fatalf("root default namespace = %q, want urn:root", decls[""])
+	}
+	if decls["a"] != "urn:a" {
+		t.Fatalf("root prefix a = %q, want urn:a", decls["a"])
+	}
+}
+
+func TestNamespaceDecls(t *testing.T) {
+	input := `<root xmlns="urn:root" xmlns:a="urn:a"></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	decls := declsToMap(r.NamespaceDecls())
+	if decls[""] != "urn:root" {
+		t.Fatalf("root default namespace = %q, want urn:root", decls[""])
+	}
+	if decls["a"] != "urn:a" {
+		t.Fatalf("root prefix a = %q, want urn:a", decls["a"])
+	}
+}
+
+func TestNamespaceDeclsOrder(t *testing.T) {
+	input := `<root xmlns="urn:default" xmlns:b="urn:b" xmlns:a="urn:a" xmlns:c="urn:c"></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	ev, err := r.Next()
+	if err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	decls := r.NamespaceDeclsAt(ev.ScopeDepth)
+	want := []NamespaceDecl{
+		{Prefix: "", URI: "urn:default"},
+		{Prefix: "b", URI: "urn:b"},
+		{Prefix: "a", URI: "urn:a"},
+		{Prefix: "c", URI: "urn:c"},
+	}
+	if len(decls) != len(want) {
+		t.Fatalf("decls len = %d, want %d", len(decls), len(want))
+	}
+	for i, decl := range want {
+		if decls[i] != decl {
+			t.Fatalf("decl %d = %v, want %v", i, decls[i], decl)
+		}
+	}
+}
+
+func TestNamespaceDeclsNilReader(t *testing.T) {
+	var r *Reader
+	if decls := r.NamespaceDecls(); decls != nil {
+		t.Fatalf("NamespaceDecls nil = %v, want nil", decls)
+	}
+	if decls := r.NamespaceDeclsAt(0); decls != nil {
+		t.Fatalf("NamespaceDeclsAt nil = %v, want nil", decls)
+	}
+}
+
+func TestNamespaceDeclsUndeclare(t *testing.T) {
+	input := `<root xmlns="urn:root"><child xmlns=""/></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	ev, err := r.Next() // child
+	if err != nil {
+		t.Fatalf("child start error = %v", err)
+	}
+	childDecls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth))
+	value, ok := childDecls[""]
+	if !ok {
+		t.Fatalf("child default namespace missing")
+	}
+	if value != "" {
+		t.Fatalf("child default namespace = %q, want empty", value)
+	}
+}
+
+func declsToMap(decls []NamespaceDecl) map[string]string {
+	if len(decls) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(decls))
+	for _, decl := range decls {
+		out[decl.Prefix] = decl.URI
+	}
+	return out
+}
+
 func TestNamespaceShadowing(t *testing.T) {
 	input := `<root xmlns:a="urn:one"><a:child xmlns:a="urn:two"><a:inner/></a:child><a:after/></root>`
 	r, err := NewReader(strings.NewReader(input))

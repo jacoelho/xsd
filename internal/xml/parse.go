@@ -8,6 +8,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 // Parse builds the minimal DOM used by the validator from XML input.
@@ -25,13 +27,14 @@ func ParseInto(r io.Reader, doc *Document) error {
 		return fmt.Errorf("nil XML document")
 	}
 
-	decoder, err := NewStreamDecoder(r)
+	decoder, err := xmlstream.NewReader(r)
 	if err != nil {
 		return err
 	}
 
 	doc.reset()
 	var stack []NodeID
+	var attrsScratch []Attr
 	rootClosed := false
 	for {
 		event, err := decoder.Next()
@@ -43,7 +46,7 @@ func ParseInto(r io.Reader, doc *Document) error {
 		}
 
 		switch event.Kind {
-		case EventStartElement:
+		case xmlstream.EventStartElement:
 			if rootClosed {
 				return fmt.Errorf("unexpected element %s after document end", event.Name.Local)
 			}
@@ -52,13 +55,32 @@ func ParseInto(r io.Reader, doc *Document) error {
 			if len(stack) > 0 {
 				parent = stack[len(stack)-1]
 			}
-			id := doc.addNode(event.Name.Namespace.String(), event.Name.Local, event.Attrs, parent)
+			attrsScratch = attrsScratch[:0]
+			for _, attr := range event.Attrs {
+				attrsScratch = append(attrsScratch, Attr{
+					namespace: attr.Name.Namespace,
+					local:     attr.Name.Local,
+					value:     string(attr.Value),
+				})
+			}
+			for _, decl := range decoder.NamespaceDeclsAt(event.ScopeDepth) {
+				local := decl.Prefix
+				if local == "" {
+					local = "xmlns"
+				}
+				attrsScratch = append(attrsScratch, Attr{
+					namespace: XMLNSNamespace,
+					local:     local,
+					value:     decl.URI,
+				})
+			}
+			id := doc.addNode(event.Name.Namespace, event.Name.Local, attrsScratch, parent)
 			if parent == InvalidNode {
 				doc.root = id
 			}
 			stack = append(stack, id)
 
-		case EventEndElement:
+		case xmlstream.EventEndElement:
 			if len(stack) > 0 {
 				stack = stack[:len(stack)-1]
 				if len(stack) == 0 && doc.root != InvalidNode {
@@ -66,7 +88,7 @@ func ParseInto(r io.Reader, doc *Document) error {
 				}
 			}
 
-		case EventCharData:
+		case xmlstream.EventCharData:
 			if len(stack) == 0 {
 				if !isIgnorableOutsideRoot(event.Text) {
 					return fmt.Errorf("unexpected character data outside root element")
