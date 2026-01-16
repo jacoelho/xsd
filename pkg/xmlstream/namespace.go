@@ -17,6 +17,15 @@ const (
 
 var errUnboundPrefix = errors.New("unbound namespace prefix")
 
+// ErrUnboundPrefix reports usage of an undeclared namespace prefix.
+var ErrUnboundPrefix = errUnboundPrefix
+
+// NamespaceDecl reports a namespace declaration on the current element.
+type NamespaceDecl struct {
+	Prefix string
+	URI    string
+}
+
 var (
 	xmlnsBytes = []byte("xmlns")
 	xmlBytes   = []byte("xml")
@@ -26,6 +35,7 @@ type nsScope struct {
 	prefixes   map[string]string
 	defaultNS  string
 	defaultSet bool
+	decls      []NamespaceDecl
 }
 
 type nsStack struct {
@@ -84,6 +94,7 @@ func collectNamespaceScope(dec *Reader, tok *xmltext.Token) (nsScope, error) {
 			}
 			scope.defaultNS = value
 			scope.defaultSet = true
+			scope.decls = append(scope.decls, NamespaceDecl{Prefix: "", URI: value})
 			continue
 		}
 		if local, ok := prefixedNamespaceDecl(attr.Name); ok {
@@ -97,7 +108,9 @@ func collectNamespaceScope(dec *Reader, tok *xmltext.Token) (nsScope, error) {
 			if scope.prefixes == nil {
 				scope.prefixes = make(map[string]string, 1)
 			}
-			scope.prefixes[string(local)] = value
+			prefix := string(local)
+			scope.prefixes[prefix] = value
+			scope.decls = append(scope.decls, NamespaceDecl{Prefix: prefix, URI: value})
 		}
 	}
 	return scope, nil

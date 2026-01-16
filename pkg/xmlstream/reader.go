@@ -446,6 +446,30 @@ func (r *Reader) LookupNamespaceAt(prefix string, depth int) (string, bool) {
 	return r.ns.lookup(prefix, depth)
 }
 
+// NamespaceDecls returns namespace declarations in the current scope.
+// The returned slice is valid until the next call to Next or NextRaw.
+func (r *Reader) NamespaceDecls() []NamespaceDecl {
+	if r == nil {
+		return nil
+	}
+	return r.NamespaceDeclsAt(r.ns.depth() - 1)
+}
+
+// NamespaceDeclsAt returns namespace declarations at the given scope depth.
+// The returned slice is valid until the next call to Next or NextRaw.
+func (r *Reader) NamespaceDeclsAt(depth int) []NamespaceDecl {
+	if r == nil {
+		return nil
+	}
+	if len(r.ns.scopes) == 0 || depth < 0 {
+		return nil
+	}
+	if depth >= len(r.ns.scopes) {
+		depth = len(r.ns.scopes) - 1
+	}
+	return r.ns.scopes[depth].decls
+}
+
 func (r *Reader) resolveElementName(name []byte, depth, line, column int) (QName, error) {
 	prefix, local, hasPrefix := splitQName(name)
 	if hasPrefix {
