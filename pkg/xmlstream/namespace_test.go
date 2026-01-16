@@ -52,6 +52,45 @@ func TestLookupNamespace(t *testing.T) {
 	}
 }
 
+func TestNamespaceDeclsAt(t *testing.T) {
+	input := `<root xmlns="urn:root" xmlns:a="urn:a"><a:child xmlns:b="urn:b"/></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	ev, err := r.Next() // root
+	if err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	rootDecls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth))
+	if rootDecls[""] != "urn:root" {
+		t.Fatalf("root default namespace = %q, want urn:root", rootDecls[""])
+	}
+	if rootDecls["a"] != "urn:a" {
+		t.Fatalf("root prefix a = %q, want urn:a", rootDecls["a"])
+	}
+
+	ev, err = r.Next() // child
+	if err != nil {
+		t.Fatalf("child start error = %v", err)
+	}
+	childDecls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth))
+	if childDecls["b"] != "urn:b" {
+		t.Fatalf("child prefix b = %q, want urn:b", childDecls["b"])
+	}
+}
+
+func declsToMap(decls []NamespaceDecl) map[string]string {
+	if len(decls) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(decls))
+	for _, decl := range decls {
+		out[decl.Prefix] = decl.URI
+	}
+	return out
+}
+
 func TestNamespaceShadowing(t *testing.T) {
 	input := `<root xmlns:a="urn:one"><a:child xmlns:a="urn:two"><a:inner/></a:child><a:after/></root>`
 	r, err := NewReader(strings.NewReader(input))
