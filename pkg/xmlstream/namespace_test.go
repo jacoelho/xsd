@@ -80,6 +80,25 @@ func TestNamespaceDeclsAt(t *testing.T) {
 	}
 }
 
+func TestNamespaceDeclsAtDepthOverflow(t *testing.T) {
+	input := `<root xmlns="urn:root" xmlns:a="urn:a"></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	ev, err := r.Next() // root
+	if err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	decls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth + 10))
+	if decls[""] != "urn:root" {
+		t.Fatalf("root default namespace = %q, want urn:root", decls[""])
+	}
+	if decls["a"] != "urn:a" {
+		t.Fatalf("root prefix a = %q, want urn:a", decls["a"])
+	}
+}
+
 func TestNamespaceDecls(t *testing.T) {
 	input := `<root xmlns="urn:root" xmlns:a="urn:a"></root>`
 	r, err := NewReader(strings.NewReader(input))
@@ -95,6 +114,33 @@ func TestNamespaceDecls(t *testing.T) {
 	}
 	if decls["a"] != "urn:a" {
 		t.Fatalf("root prefix a = %q, want urn:a", decls["a"])
+	}
+}
+
+func TestNamespaceDeclsOrder(t *testing.T) {
+	input := `<root xmlns="urn:default" xmlns:b="urn:b" xmlns:a="urn:a" xmlns:c="urn:c"></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	ev, err := r.Next()
+	if err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	decls := r.NamespaceDeclsAt(ev.ScopeDepth)
+	want := []NamespaceDecl{
+		{Prefix: "", URI: "urn:default"},
+		{Prefix: "b", URI: "urn:b"},
+		{Prefix: "a", URI: "urn:a"},
+		{Prefix: "c", URI: "urn:c"},
+	}
+	if len(decls) != len(want) {
+		t.Fatalf("decls len = %d, want %d", len(decls), len(want))
+	}
+	for i, decl := range want {
+		if decls[i] != decl {
+			t.Fatalf("decl %d = %v, want %v", i, decls[i], decl)
+		}
 	}
 }
 

@@ -108,6 +108,57 @@ func TestParseNamespaceDeclarations(t *testing.T) {
 	}
 }
 
+func TestParseNamespaceUndeclareRedeclare(t *testing.T) {
+	xmlData := `<root xmlns="a"><child xmlns=""><grand xmlns="b"/></child></root>`
+
+	doc, err := Parse(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	root := doc.DocumentElement()
+	children := doc.Children(root)
+	if len(children) != 1 {
+		t.Fatalf("root children = %d, want 1", len(children))
+	}
+	child := children[0]
+	grandChildren := doc.Children(child)
+	if len(grandChildren) != 1 {
+		t.Fatalf("child children = %d, want 1", len(grandChildren))
+	}
+	grand := grandChildren[0]
+
+	rootXMLNS := ""
+	for _, attr := range doc.Attributes(root) {
+		if attr.NamespaceURI() == XMLNSNamespace && attr.LocalName() == "xmlns" {
+			rootXMLNS = attr.Value()
+		}
+	}
+	if rootXMLNS != "a" {
+		t.Fatalf("root xmlns = %q, want a", rootXMLNS)
+	}
+
+	childXMLNS := ""
+	for _, attr := range doc.Attributes(child) {
+		if attr.NamespaceURI() == XMLNSNamespace && attr.LocalName() == "xmlns" {
+			childXMLNS = attr.Value()
+		}
+	}
+	if childXMLNS != "" {
+		t.Fatalf("child xmlns = %q, want empty", childXMLNS)
+	}
+
+	grandXMLNS := ""
+	for _, attr := range doc.Attributes(grand) {
+		if attr.NamespaceURI() == XMLNSNamespace && attr.LocalName() == "xmlns" {
+			grandXMLNS = attr.Value()
+		}
+	}
+	if grandXMLNS != "b" {
+		t.Fatalf("grand xmlns = %q, want b", grandXMLNS)
+	}
+}
+
 func TestTextContent(t *testing.T) {
 	xmlData := `<root>
 		text 1
