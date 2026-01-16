@@ -34,8 +34,8 @@ var (
 type nsScope struct {
 	prefixes   map[string]string
 	defaultNS  string
-	defaultSet bool
 	decls      []NamespaceDecl
+	defaultSet bool
 }
 
 type nsStack struct {
@@ -84,13 +84,19 @@ func (s *nsStack) lookup(prefix string, depth int) (string, bool) {
 	return "", false
 }
 
-func collectNamespaceScope(dec *Reader, tok *xmltext.Token) (nsScope, error) {
+func collectNamespaceScope(dec *xmltext.Decoder, nsBuf []byte, tok *xmltext.Token) (nsScope, []byte, error) {
 	scope := nsScope{}
 	for _, attr := range tok.Attrs {
 		if isDefaultNamespaceDecl(attr.Name) {
-			value, err := dec.namespaceValueString(attr.Value, attr.ValueNeeds)
-			if err != nil {
-				return nsScope{}, err
+			var value string
+			if attr.ValueNeeds {
+				var err error
+				nsBuf, value, err = decodeNamespaceValueString(dec, nsBuf, attr.Value)
+				if err != nil {
+					return nsScope{}, nsBuf, err
+				}
+			} else {
+				nsBuf, value = appendNamespaceValue(nsBuf, attr.Value)
 			}
 			scope.defaultNS = value
 			scope.defaultSet = true
@@ -101,9 +107,15 @@ func collectNamespaceScope(dec *Reader, tok *xmltext.Token) (nsScope, error) {
 			if bytes.Equal(local, xmlBytes) || bytes.Equal(local, xmlnsBytes) {
 				continue
 			}
-			value, err := dec.namespaceValueString(attr.Value, attr.ValueNeeds)
-			if err != nil {
-				return nsScope{}, err
+			var value string
+			if attr.ValueNeeds {
+				var err error
+				nsBuf, value, err = decodeNamespaceValueString(dec, nsBuf, attr.Value)
+				if err != nil {
+					return nsScope{}, nsBuf, err
+				}
+			} else {
+				nsBuf, value = appendNamespaceValue(nsBuf, attr.Value)
 			}
 			if scope.prefixes == nil {
 				scope.prefixes = make(map[string]string, 1)
@@ -113,7 +125,7 @@ func collectNamespaceScope(dec *Reader, tok *xmltext.Token) (nsScope, error) {
 			scope.decls = append(scope.decls, NamespaceDecl{Prefix: prefix, URI: value})
 		}
 	}
-	return scope, nil
+	return scope, nsBuf, nil
 }
 
 func resolveAttrName(dec *xmltext.Decoder, ns *nsStack, name []byte, depth, line, column int) (string, []byte, error) {

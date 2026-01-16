@@ -80,6 +80,34 @@ func TestElement_Attributes(t *testing.T) {
 	}
 }
 
+func TestParseNamespaceDeclarations(t *testing.T) {
+	xmlData := `<root xmlns="urn:default" xmlns:p="urn:prefix"><p:child/></root>`
+
+	doc, err := Parse(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	root := doc.DocumentElement()
+	attrs := doc.Attributes(root)
+	foundDefault := false
+	foundPrefix := false
+	for _, attr := range attrs {
+		if attr.NamespaceURI() != XMLNSNamespace {
+			continue
+		}
+		if attr.LocalName() == "xmlns" && attr.Value() == "urn:default" {
+			foundDefault = true
+		}
+		if attr.LocalName() == "p" && attr.Value() == "urn:prefix" {
+			foundPrefix = true
+		}
+	}
+	if !foundDefault || !foundPrefix {
+		t.Fatalf("xmlns attrs: default=%v prefix=%v, want true, true", foundDefault, foundPrefix)
+	}
+}
+
 func TestTextContent(t *testing.T) {
 	xmlData := `<root>
 		text 1

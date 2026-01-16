@@ -2,8 +2,6 @@ package xmlstream
 
 import (
 	"bufio"
-	"bytes"
-	"fmt"
 	"io"
 
 	"github.com/jacoelho/xsd/pkg/xmltext"
@@ -44,19 +42,21 @@ type StringEvent struct {
 }
 
 // StringReader provides a streaming XML event interface with string attributes.
+// It emits start/end/char events and retains xmlns attributes.
 type StringReader struct {
-	dec        *xmltext.Decoder
-	names      *qnameCache
-	ns         nsStack
-	attrBuf    []StringAttr
-	elemStack  []QName
-	valueBuf   []byte
-	nsBuf      []byte
-	tok        xmltext.Token
-	nextID     ElementID
-	pendingPop bool
-	lastLine   int
-	lastColumn int
+	dec          *xmltext.Decoder
+	names        *qnameCache
+	ns           nsStack
+	attrBuf      []StringAttr
+	elemStack    []QName
+	valueBuf     []byte
+	nsBuf        []byte
+	tok          xmltext.Token
+	nextID       ElementID
+	lastLine     int
+	lastColumn   int
+	pendingPop   bool
+	lastWasStart bool
 }
 
 // NewStringReader creates a new streaming reader for r that returns string attributes.
@@ -84,6 +84,45 @@ func NewStringReader(r io.Reader, opts ...Option) (*StringReader, error) {
 	}, nil
 }
 
+// Reset prepares the reader for a new input stream.
+func (r *StringReader) Reset(src io.Reader, opts ...Option) error {
+	if r == nil {
+		return errNilReader
+	}
+	if src == nil {
+		return errNilReader
+	}
+	reader := bufio.NewReaderSize(src, readerBufferSize)
+	options := buildOptions(opts...)
+	if r.dec == nil {
+		r.dec = xmltext.NewDecoder(reader, options...)
+	} else {
+		r.dec.Reset(reader, options...)
+	}
+	r.tok.Reserve(xmltext.TokenSizes{
+		Attrs:     readerAttrCapacity,
+		AttrName:  256,
+		AttrValue: 256,
+	})
+	if r.names == nil {
+		r.names = newQNameCache()
+	} else {
+		r.names.reset()
+	}
+	r.names.setMaxEntries(qnameCacheLimit(options))
+	r.ns = nsStack{}
+	r.attrBuf = r.attrBuf[:0]
+	r.elemStack = r.elemStack[:0]
+	r.valueBuf = r.valueBuf[:0]
+	r.nsBuf = r.nsBuf[:0]
+	r.nextID = 0
+	r.pendingPop = false
+	r.lastLine = 0
+	r.lastColumn = 0
+	r.lastWasStart = false
+	return nil
+}
+
 // Next returns the next XML event.
 func (r *StringReader) Next() (StringEvent, error) {
 	if r == nil || r.dec == nil {
@@ -96,6 +135,7 @@ func (r *StringReader) Next() (StringEvent, error) {
 		r.ns.pop()
 		r.pendingPop = false
 	}
+	r.lastWasStart = false
 
 	for {
 		if err := r.dec.ReadTokenInto(&r.tok); err != nil {
@@ -109,12 +149,14 @@ func (r *StringReader) Next() (StringEvent, error) {
 
 		switch tok.Kind {
 		case xmltext.KindStartElement:
-			scope, err := r.collectNamespaceScope(tok)
+			scope, nsBuf, err := collectNamespaceScope(r.dec, r.nsBuf, tok)
 			if err != nil {
+				r.nsBuf = nsBuf
 				return StringEvent{}, wrapSyntaxError(r.dec, line, column, err)
 			}
+			r.nsBuf = nsBuf
 			scopeDepth := r.ns.push(scope)
-			name, err := r.resolveElementName(tok.Name, scopeDepth, line, column)
+			name, err := resolveElementName(r.names, &r.ns, r.dec, tok.Name, scopeDepth, line, column)
 			if err != nil {
 				return StringEvent{}, err
 			}
@@ -144,6 +186,7 @@ func (r *StringReader) Next() (StringEvent, error) {
 			id := r.nextID
 			r.nextID++
 			r.elemStack = append(r.elemStack, name)
+			r.lastWasStart = true
 			return StringEvent{
 				Kind:       EventStartElement,
 				Name:       name,
@@ -190,6 +233,9 @@ func (r *StringReader) SkipSubtree() error {
 	if r == nil || r.dec == nil {
 		return errNilReader
 	}
+	if !r.lastWasStart {
+		return errNoStartElement
+	}
 	if r.pendingPop {
 		r.ns.pop()
 		r.pendingPop = false
@@ -201,6 +247,7 @@ func (r *StringReader) SkipSubtree() error {
 		r.elemStack = r.elemStack[:len(r.elemStack)-1]
 	}
 	r.ns.pop()
+	r.lastWasStart = false
 	return nil
 }
 
@@ -228,106 +275,59 @@ func (r *StringReader) LookupNamespaceAt(prefix string, depth int) (string, bool
 	return r.ns.lookup(prefix, depth)
 }
 
-func (r *StringReader) collectNamespaceScope(tok *xmltext.Token) (nsScope, error) {
-	scope := nsScope{}
-	for _, attr := range tok.Attrs {
-		if isDefaultNamespaceDecl(attr.Name) {
-			value, err := r.namespaceValueString(attr.Value, attr.ValueNeeds)
-			if err != nil {
-				return nsScope{}, err
-			}
-			scope.defaultNS = value
-			scope.defaultSet = true
-			continue
-		}
-		if local, ok := prefixedNamespaceDecl(attr.Name); ok {
-			if bytes.Equal(local, xmlBytes) || bytes.Equal(local, xmlnsBytes) {
-				continue
-			}
-			value, err := r.namespaceValueString(attr.Value, attr.ValueNeeds)
-			if err != nil {
-				return nsScope{}, err
-			}
-			if scope.prefixes == nil {
-				scope.prefixes = make(map[string]string, 1)
-			}
-			scope.prefixes[string(local)] = value
-		}
+// NamespaceDecls returns namespace declarations in the current scope.
+// The returned slice is valid until the next call to Next.
+func (r *StringReader) NamespaceDecls() []NamespaceDecl {
+	if r == nil {
+		return nil
 	}
-	return scope, nil
+	return r.NamespaceDeclsAt(r.ns.depth() - 1)
 }
 
-func (r *StringReader) resolveElementName(name []byte, depth, line, column int) (QName, error) {
-	prefix, local, hasPrefix := splitQName(name)
-	if hasPrefix {
-		prefixName := unsafeString(prefix)
-		namespace, ok := r.ns.lookup(prefixName, depth)
-		if !ok {
-			return QName{}, unboundPrefixError(r.dec, line, column)
-		}
-		return r.names.internBytes(namespace, local), nil
+// NamespaceDeclsAt returns namespace declarations at the given scope depth.
+// The returned slice is valid until the next call to Next.
+func (r *StringReader) NamespaceDeclsAt(depth int) []NamespaceDecl {
+	if r == nil {
+		return nil
 	}
-	namespace, _ := r.ns.lookup("", depth)
-	return r.names.internBytes(namespace, local), nil
+	if len(r.ns.scopes) == 0 || depth < 0 {
+		return nil
+	}
+	if depth >= len(r.ns.scopes) {
+		depth = len(r.ns.scopes) - 1
+	}
+	return r.ns.scopes[depth].decls
 }
 
 func (r *StringReader) popElementName() (QName, error) {
-	if len(r.elemStack) == 0 {
-		return QName{}, fmt.Errorf("unexpected end element at depth %d", r.ns.depth())
-	}
-	name := r.elemStack[len(r.elemStack)-1]
-	r.elemStack = r.elemStack[:len(r.elemStack)-1]
-	return name, nil
+	var name QName
+	var err error
+	name, r.elemStack, err = popQName(r.elemStack, r.ns.depth())
+	return name, err
 }
 
 func (r *StringReader) attrValueString(value []byte, needsUnescape bool) (string, error) {
 	if !needsUnescape {
 		return string(value), nil
 	}
-	start := len(r.valueBuf)
-	out, err := unescapeIntoBuffer(r.dec, r.valueBuf, start, value)
+	var bytes []byte
+	var err error
+	r.valueBuf, bytes, err = decodeAttrValueBytes(r.dec, r.valueBuf, value)
 	if err != nil {
-		r.valueBuf = r.valueBuf[:start]
 		return "", err
 	}
-	r.valueBuf = out
-	if len(out) == start {
-		return "", nil
-	}
-	return string(out[start:]), nil
-}
-
-func (r *StringReader) namespaceValueString(value []byte, needsUnescape bool) (string, error) {
-	start := len(r.nsBuf)
-	if needsUnescape {
-		out, err := unescapeIntoBuffer(r.dec, r.nsBuf, start, value)
-		if err != nil {
-			r.nsBuf = r.nsBuf[:start]
-			return "", err
-		}
-		r.nsBuf = out
-	} else {
-		r.nsBuf = append(r.nsBuf, value...)
-	}
-	if len(r.nsBuf) == start {
-		return "", nil
-	}
-	return unsafeString(r.nsBuf[start:]), nil
+	return string(bytes), nil
 }
 
 func (r *StringReader) textBytes(tok *xmltext.Token) ([]byte, error) {
 	if !tok.TextNeeds {
 		return tok.Text, nil
 	}
-	start := len(r.valueBuf)
-	out, err := unescapeIntoBuffer(r.dec, r.valueBuf, start, tok.Text)
+	var out []byte
+	var err error
+	r.valueBuf, out, err = decodeTextBytes(r.dec, r.valueBuf, tok.Text)
 	if err != nil {
-		r.valueBuf = r.valueBuf[:start]
 		return nil, err
 	}
-	r.valueBuf = out
-	if len(out) == start {
-		return nil, nil
-	}
-	return out[start:], nil
+	return out, nil
 }

@@ -80,6 +80,57 @@ func TestNamespaceDeclsAt(t *testing.T) {
 	}
 }
 
+func TestNamespaceDecls(t *testing.T) {
+	input := `<root xmlns="urn:root" xmlns:a="urn:a"></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	decls := declsToMap(r.NamespaceDecls())
+	if decls[""] != "urn:root" {
+		t.Fatalf("root default namespace = %q, want urn:root", decls[""])
+	}
+	if decls["a"] != "urn:a" {
+		t.Fatalf("root prefix a = %q, want urn:a", decls["a"])
+	}
+}
+
+func TestNamespaceDeclsNilReader(t *testing.T) {
+	var r *Reader
+	if decls := r.NamespaceDecls(); decls != nil {
+		t.Fatalf("NamespaceDecls nil = %v, want nil", decls)
+	}
+	if decls := r.NamespaceDeclsAt(0); decls != nil {
+		t.Fatalf("NamespaceDeclsAt nil = %v, want nil", decls)
+	}
+}
+
+func TestNamespaceDeclsUndeclare(t *testing.T) {
+	input := `<root xmlns="urn:root"><child xmlns=""/></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	ev, err := r.Next() // child
+	if err != nil {
+		t.Fatalf("child start error = %v", err)
+	}
+	childDecls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth))
+	value, ok := childDecls[""]
+	if !ok {
+		t.Fatalf("child default namespace missing")
+	}
+	if value != "" {
+		t.Fatalf("child default namespace = %q, want empty", value)
+	}
+}
+
 func declsToMap(decls []NamespaceDecl) map[string]string {
 	if len(decls) == 0 {
 		return nil

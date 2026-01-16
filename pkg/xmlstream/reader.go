@@ -3,7 +3,6 @@ package xmlstream
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"io"
 
 	"github.com/jacoelho/xsd/pkg/xmltext"
@@ -247,12 +246,14 @@ func (r *Reader) next(mode nextMode) (Event, RawEvent, error) {
 }
 
 func (r *Reader) startEvent(mode nextMode, tok *xmltext.Token, line, column int) (Event, RawEvent, error) {
-	scope, err := collectNamespaceScope(r, tok)
+	scope, nsBuf, err := collectNamespaceScope(r.dec, r.nsBuf, tok)
 	if err != nil {
+		r.nsBuf = nsBuf
 		return Event{}, RawEvent{}, wrapSyntaxError(r.dec, line, column, err)
 	}
+	r.nsBuf = nsBuf
 	scopeDepth := r.ns.push(scope)
-	name, err := r.resolveElementName(tok.Name, scopeDepth, line, column)
+	name, err := resolveElementName(r.names, &r.ns, r.dec, tok.Name, scopeDepth, line, column)
 	if err != nil {
 		return Event{}, RawEvent{}, err
 	}
@@ -470,27 +471,11 @@ func (r *Reader) NamespaceDeclsAt(depth int) []NamespaceDecl {
 	return r.ns.scopes[depth].decls
 }
 
-func (r *Reader) resolveElementName(name []byte, depth, line, column int) (QName, error) {
-	prefix, local, hasPrefix := splitQName(name)
-	if hasPrefix {
-		prefixName := unsafeString(prefix)
-		namespace, ok := r.ns.lookup(prefixName, depth)
-		if !ok {
-			return QName{}, unboundPrefixError(r.dec, line, column)
-		}
-		return r.names.internBytes(namespace, local), nil
-	}
-	namespace, _ := r.ns.lookup("", depth)
-	return r.names.internBytes(namespace, local), nil
-}
-
 func (r *Reader) popElementName() (QName, error) {
-	if len(r.elemStack) == 0 {
-		return QName{}, fmt.Errorf("unexpected end element at depth %d", r.ns.depth())
-	}
-	name := r.elemStack[len(r.elemStack)-1]
-	r.elemStack = r.elemStack[:len(r.elemStack)-1]
-	return name, nil
+	var name QName
+	var err error
+	name, r.elemStack, err = popQName(r.elemStack, r.ns.depth())
+	return name, err
 }
 
 func rawNameFromBytes(full []byte) RawName {
@@ -520,52 +505,38 @@ func (r *Reader) attrValueBytes(value []byte, needsUnescape bool) ([]byte, error
 	if !needsUnescape {
 		return value, nil
 	}
-	start := len(r.valueBuf)
-	out, err := unescapeIntoBuffer(r.dec, r.valueBuf, start, value)
+	var out []byte
+	var err error
+	r.valueBuf, out, err = decodeAttrValueBytes(r.dec, r.valueBuf, value)
 	if err != nil {
-		r.valueBuf = r.valueBuf[:start]
 		return nil, err
 	}
-	r.valueBuf = out
-	if len(out) == start {
-		return nil, nil
-	}
-	return out[start:], nil
+	return out, nil
 }
 
 func (r *Reader) namespaceValueString(value []byte, needsUnescape bool) (string, error) {
-	start := len(r.nsBuf)
 	if needsUnescape {
-		out, err := unescapeIntoBuffer(r.dec, r.nsBuf, start, value)
-		if err != nil {
-			r.nsBuf = r.nsBuf[:start]
-			return "", err
-		}
-		r.nsBuf = out
-	} else {
-		r.nsBuf = append(r.nsBuf, value...)
+		var out string
+		var err error
+		r.nsBuf, out, err = decodeNamespaceValueString(r.dec, r.nsBuf, value)
+		return out, err
 	}
-	if len(r.nsBuf) == start {
-		return "", nil
-	}
-	return unsafeString(r.nsBuf[start:]), nil
+	var out string
+	r.nsBuf, out = appendNamespaceValue(r.nsBuf, value)
+	return out, nil
 }
 
 func (r *Reader) textBytes(tok *xmltext.Token) ([]byte, error) {
 	if !tok.TextNeeds {
 		return tok.Text, nil
 	}
-	start := len(r.valueBuf)
-	out, err := unescapeIntoBuffer(r.dec, r.valueBuf, start, tok.Text)
+	var out []byte
+	var err error
+	r.valueBuf, out, err = decodeTextBytes(r.dec, r.valueBuf, tok.Text)
 	if err != nil {
-		r.valueBuf = r.valueBuf[:start]
 		return nil, err
 	}
-	r.valueBuf = out
-	if len(out) == start {
-		return nil, nil
-	}
-	return out[start:], nil
+	return out, nil
 }
 
 func unescapeIntoBuffer(dec *xmltext.Decoder, buf []byte, start int, data []byte) ([]byte, error) {

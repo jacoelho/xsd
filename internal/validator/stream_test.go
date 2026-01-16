@@ -6,6 +6,8 @@ import (
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 func TestStreamValidatorValidSequence(t *testing.T) {
@@ -123,6 +125,17 @@ func TestStreamValidatorNilledElement(t *testing.T) {
 	}
 	if violations[0].Code != string(errors.ErrNilElementNotEmpty) {
 		t.Fatalf("expected code %s, got %s", errors.ErrNilElementNotEmpty, violations[0].Code)
+	}
+}
+
+func TestToTypesQName(t *testing.T) {
+	got := toTypesQName(xmlstream.QName{Namespace: "urn:test", Local: "root"})
+	if got.Namespace != types.NamespaceURI("urn:test") || got.Local != "root" {
+		t.Fatalf("QName = %v, want {urn:test}root", got)
+	}
+	got = toTypesQName(xmlstream.QName{Namespace: "", Local: "local"})
+	if got.Namespace != types.NamespaceEmpty || got.Local != "local" {
+		t.Fatalf("QName empty = %v, want %q local", got, "local")
 	}
 }
 
