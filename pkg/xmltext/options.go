@@ -177,6 +177,12 @@ func MaxTokenSize(value int) Options {
 	return Options{maxTokenSize: value, maxTokenSizeSet: true}
 }
 
+// MaxQNameInternEntries limits the number of interned QNames.
+// Zero means no limit.
+func MaxQNameInternEntries(value int) Options {
+	return Options{maxQNameInternEntries: value, maxQNameInternEntriesSet: true}
+}
+
 // Strict enables XML declaration validation.
 // It enforces version and encoding/standalone ordering and values.
 func Strict(value bool) Options {
@@ -198,4 +204,11 @@ func FastValidation() Options {
 		ResolveEntities(false),
 		MaxDepth(256),
 	)
+}
+
+// QNameInternEntries reports the configured QName interner limit.
+//
+//nolint:gocritic // keep value receiver for fluent option usage.
+func (opts Options) QNameInternEntries() (int, bool) {
+	return opts.maxQNameInternEntries, opts.maxQNameInternEntriesSet
 }
