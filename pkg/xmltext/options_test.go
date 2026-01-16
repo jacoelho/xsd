@@ -32,6 +32,8 @@ func TestJoinOptionsOverrides(t *testing.T) {
 		ResolveEntities(true),
 		MaxDepth(1),
 		MaxDepth(2),
+		MaxQNameInternEntries(4),
+		MaxQNameInternEntries(7),
 		Strict(false),
 		Strict(true),
 		WithEntityMap(map[string]string{"foo": "bar"}),
@@ -43,6 +45,9 @@ func TestJoinOptionsOverrides(t *testing.T) {
 	}
 	if !opts.maxDepthSet || opts.maxDepth != 2 {
 		t.Fatalf("MaxDepth = %d, want 2", opts.maxDepth)
+	}
+	if !opts.maxQNameInternEntriesSet || opts.maxQNameInternEntries != 7 {
+		t.Fatalf("MaxQNameInternEntries = %d, want 7", opts.maxQNameInternEntries)
 	}
 	if !opts.entityMapSet || opts.entityMap != nil {
 		t.Fatalf("EntityMap = %v, want nil", opts.entityMap)
