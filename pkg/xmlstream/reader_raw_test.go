@@ -75,6 +75,27 @@ func TestNextRawDoesNotInternAttrs(t *testing.T) {
 	}
 }
 
+func TestNextRawSkipsNamespaceDecls(t *testing.T) {
+	input := `<root xmlns="urn:root" xmlns:p="urn:p" p:attr="v"/>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	ev, err := r.NextRaw()
+	if err != nil {
+		t.Fatalf("NextRaw error = %v", err)
+	}
+	if len(ev.Attrs) != 1 {
+		t.Fatalf("attrs len = %d, want 1", len(ev.Attrs))
+	}
+	if got := string(ev.Attrs[0].Name.Full); got != "p:attr" {
+		t.Fatalf("attr name = %q, want p:attr", got)
+	}
+	if got := string(ev.Attrs[0].Value); got != "v" {
+		t.Fatalf("attr value = %q, want v", got)
+	}
+}
+
 func TestNextRawUnboundPrefixAttr(t *testing.T) {
 	input := `<root><child p:attr="v"/></root>`
 	r, err := NewReader(strings.NewReader(input))

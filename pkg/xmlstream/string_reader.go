@@ -42,7 +42,7 @@ type StringEvent struct {
 }
 
 // StringReader provides a streaming XML event interface with string attributes.
-// It emits start/end/char events and retains xmlns attributes.
+// It emits start/end/char events and retains xmlns attributes, without raw APIs.
 type StringReader struct {
 	dec          *xmltext.Decoder
 	names        *qnameCache
@@ -259,6 +259,14 @@ func (r *StringReader) CurrentPos() (line, column int) {
 	return r.lastLine, r.lastColumn
 }
 
+// InputOffset returns the current byte position in the input stream.
+func (r *StringReader) InputOffset() int64 {
+	if r == nil || r.dec == nil {
+		return 0
+	}
+	return r.dec.InputOffset()
+}
+
 // LookupNamespace resolves a prefix in the current scope.
 func (r *StringReader) LookupNamespace(prefix string) (string, bool) {
 	if r == nil {
@@ -273,30 +281,6 @@ func (r *StringReader) LookupNamespaceAt(prefix string, depth int) (string, bool
 		return "", false
 	}
 	return r.ns.lookup(prefix, depth)
-}
-
-// NamespaceDecls returns namespace declarations in the current scope.
-// The returned slice is valid until the next call to Next.
-func (r *StringReader) NamespaceDecls() []NamespaceDecl {
-	if r == nil {
-		return nil
-	}
-	return r.NamespaceDeclsAt(r.ns.depth() - 1)
-}
-
-// NamespaceDeclsAt returns namespace declarations at the given scope depth.
-// The returned slice is valid until the next call to Next.
-func (r *StringReader) NamespaceDeclsAt(depth int) []NamespaceDecl {
-	if r == nil {
-		return nil
-	}
-	if len(r.ns.scopes) == 0 || depth < 0 {
-		return nil
-	}
-	if depth >= len(r.ns.scopes) {
-		depth = len(r.ns.scopes) - 1
-	}
-	return r.ns.scopes[depth].decls
 }
 
 func (r *StringReader) popElementName() (QName, error) {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/jacoelho/xsd/pkg/xmltext"
@@ -33,12 +34,6 @@ func TestStringReaderNil(t *testing.T) {
 	}
 	if ns, ok := r.LookupNamespaceAt("", 0); ok || ns != "" {
 		t.Fatalf("LookupNamespaceAt nil = %q, ok=%v, want empty, false", ns, ok)
-	}
-	if decls := r.NamespaceDecls(); decls != nil {
-		t.Fatalf("NamespaceDecls nil = %v, want nil", decls)
-	}
-	if decls := r.NamespaceDeclsAt(0); decls != nil {
-		t.Fatalf("NamespaceDeclsAt nil = %v, want nil", decls)
 	}
 }
 
@@ -101,6 +96,57 @@ func TestStringReaderResetOptions(t *testing.T) {
 	}
 }
 
+func TestStringReaderResetNilDecoder(t *testing.T) {
+	r, err := NewStringReader(strings.NewReader("<root/>"))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	r.dec = nil
+	if err = r.Reset(strings.NewReader("<root/>")); err != nil {
+		t.Fatalf("Reset error = %v", err)
+	}
+	ev, err := r.Next()
+	if err != nil {
+		t.Fatalf("Next error = %v", err)
+	}
+	if ev.Kind != EventStartElement || ev.Name.Local != "root" {
+		t.Fatalf("event = %v %s, want root start", ev.Kind, ev.Name.String())
+	}
+}
+
+func TestStringReaderResetClearsLastWasStart(t *testing.T) {
+	r, err := NewStringReader(strings.NewReader("<root/>"))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	if err = r.Reset(strings.NewReader("<root/>")); err != nil {
+		t.Fatalf("Reset error = %v", err)
+	}
+	if err = r.SkipSubtree(); !errors.Is(err, errNoStartElement) {
+		t.Fatalf("SkipSubtree error = %v, want %v", err, errNoStartElement)
+	}
+}
+
+func TestStringReaderInputOffset(t *testing.T) {
+	r, err := NewStringReader(strings.NewReader("<root><child/></root>"))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	ev, err := r.Next()
+	if err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	if ev.Kind != EventStartElement {
+		t.Fatalf("event = %v, want start", ev.Kind)
+	}
+	if offset := r.InputOffset(); offset == 0 {
+		t.Fatalf("InputOffset = 0, want > 0")
+	}
+}
+
 func TestStringReaderNamespaceLookup(t *testing.T) {
 	xmlData := `<root xmlns="urn:root" xmlns:r="urn:root2">
 <child xmlns:p="urn:child" p:attr="v"/></root>`
@@ -146,70 +192,6 @@ func TestStringReaderNamespaceLookup(t *testing.T) {
 	}
 	if !foundXMLNS {
 		t.Fatalf("expected xmlns:p attribute in child attributes")
-	}
-}
-
-func TestStringReaderNamespaceDecls(t *testing.T) {
-	input := `<root xmlns="urn:root" xmlns:a="urn:a"><a:child xmlns:b="urn:b"/></root>`
-	r, err := NewStringReader(strings.NewReader(input))
-	if err != nil {
-		t.Fatalf("NewStringReader error = %v", err)
-	}
-	ev, err := r.Next() // root
-	if err != nil {
-		t.Fatalf("root start error = %v", err)
-	}
-	rootDecls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth))
-	if rootDecls[""] != "urn:root" {
-		t.Fatalf("root default namespace = %q, want urn:root", rootDecls[""])
-	}
-	if rootDecls["a"] != "urn:a" {
-		t.Fatalf("root prefix a = %q, want urn:a", rootDecls["a"])
-	}
-
-	ev, err = r.Next() // child
-	if err != nil {
-		t.Fatalf("child start error = %v", err)
-	}
-	childDecls := declsToMap(r.NamespaceDecls())
-	if childDecls["b"] != "urn:b" {
-		t.Fatalf("child prefix b = %q, want urn:b", childDecls["b"])
-	}
-}
-
-func TestStringReaderNamespaceDeclsDepth(t *testing.T) {
-	input := `<root xmlns="urn:root"></root>`
-	r, err := NewStringReader(strings.NewReader(input))
-	if err != nil {
-		t.Fatalf("NewStringReader error = %v", err)
-	}
-	if decls := r.NamespaceDecls(); decls != nil {
-		t.Fatalf("NamespaceDecls before read = %v, want nil", decls)
-	}
-	ev, err := r.Next()
-	if err != nil {
-		t.Fatalf("root start error = %v", err)
-	}
-	if decls := r.NamespaceDeclsAt(-1); decls != nil {
-		t.Fatalf("NamespaceDeclsAt(-1) = %v, want nil", decls)
-	}
-	decls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth + 10))
-	if decls[""] != "urn:root" {
-		t.Fatalf("root default namespace = %q, want urn:root", decls[""])
-	}
-}
-
-func TestStringReaderNamespaceDeclsEmpty(t *testing.T) {
-	input := `<root><child/></root>`
-	r, err := NewStringReader(strings.NewReader(input))
-	if err != nil {
-		t.Fatalf("NewStringReader error = %v", err)
-	}
-	if _, err = r.Next(); err != nil {
-		t.Fatalf("root start error = %v", err)
-	}
-	if decls := r.NamespaceDecls(); decls != nil {
-		t.Fatalf("NamespaceDecls = %v, want nil", decls)
 	}
 }
 
@@ -303,6 +285,39 @@ func TestStringReaderNamespaceDepthShadowing(t *testing.T) {
 	}
 }
 
+func TestStringReaderVeryDeepNesting(t *testing.T) {
+	const depth = 1200
+	var b strings.Builder
+	b.WriteString("<root>")
+	for i := 0; i < depth; i++ {
+		b.WriteString("<a>")
+	}
+	for i := 0; i < depth; i++ {
+		b.WriteString("</a>")
+	}
+	b.WriteString("</root>")
+	r, err := NewStringReader(strings.NewReader(b.String()))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	var starts int
+	for {
+		ev, err := r.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Next error = %v", err)
+		}
+		if ev.Kind == EventStartElement {
+			starts++
+		}
+	}
+	if starts != depth+1 {
+		t.Fatalf("start elements = %d, want %d", starts, depth+1)
+	}
+}
+
 func TestStringReaderLookupNamespace(t *testing.T) {
 	input := `<root xmlns="urn:root"><child xmlns="urn:child"/></root>`
 	r, err := NewStringReader(strings.NewReader(input))
@@ -388,6 +403,57 @@ func TestStringReaderDefaultNamespaceUndeclare(t *testing.T) {
 	}
 }
 
+func TestStringReaderDefaultNamespaceUndeclareRedeclare(t *testing.T) {
+	xmlData := `<root xmlns="a"><child xmlns=""><grand xmlns="b"/></child></root>`
+	dec, err := NewStringReader(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	event, err := nextStringStartEvent(dec)
+	if err != nil {
+		t.Fatalf("next start root error = %v", err)
+	}
+	if event.Name.Namespace != "a" {
+		t.Fatalf("root namespace = %q, want a", event.Name.Namespace)
+	}
+	event, err = nextStringStartEvent(dec)
+	if err != nil {
+		t.Fatalf("next start child error = %v", err)
+	}
+	if event.Name.Namespace != "" {
+		t.Fatalf("child namespace = %q, want empty", event.Name.Namespace)
+	}
+	event, err = nextStringStartEvent(dec)
+	if err != nil {
+		t.Fatalf("next start grand error = %v", err)
+	}
+	if event.Name.Namespace != "b" {
+		t.Fatalf("grand namespace = %q, want b", event.Name.Namespace)
+	}
+}
+
+func TestStringReaderSelfClosingNamespace(t *testing.T) {
+	xmlData := `<p:root xmlns:p="urn:p"/>`
+	dec, err := NewStringReader(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	ev, err := dec.Next()
+	if err != nil {
+		t.Fatalf("Next error = %v", err)
+	}
+	if ev.Kind != EventStartElement || ev.Name.Namespace != "urn:p" || ev.Name.Local != "root" {
+		t.Fatalf("start = %v %s, want {urn:p}root", ev.Kind, ev.Name.String())
+	}
+	ev, err = dec.Next()
+	if err != nil {
+		t.Fatalf("Next error = %v", err)
+	}
+	if ev.Kind != EventEndElement || ev.Name.Local != "root" {
+		t.Fatalf("end = %v %s, want root end", ev.Kind, ev.Name.String())
+	}
+}
+
 func TestStringReaderSkipSubtree(t *testing.T) {
 	xmlData := `<root xmlns:a="urn:a"><skip xmlns:b="urn:b"><inner/></skip><after/></root>`
 	dec, err := NewStringReader(strings.NewReader(xmlData))
@@ -455,6 +521,23 @@ func TestStringReaderSkipSubtreeEmptyElement(t *testing.T) {
 	}
 	if event.Name.Local != "after" {
 		t.Fatalf("after element = %q, want after", event.Name.Local)
+	}
+}
+
+func TestStringReaderSkipSubtreeMalformed(t *testing.T) {
+	xmlData := `<root><skip>`
+	dec, err := NewStringReader(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	if _, err = nextStringStartEvent(dec); err != nil { // root
+		t.Fatalf("next start root error = %v", err)
+	}
+	if _, err = nextStringStartEvent(dec); err != nil { // skip
+		t.Fatalf("next start skip error = %v", err)
+	}
+	if err = dec.SkipSubtree(); err == nil {
+		t.Fatalf("SkipSubtree error = nil, want error")
 	}
 }
 
@@ -542,6 +625,71 @@ func TestStringReaderAttrValueUnescape(t *testing.T) {
 	}
 }
 
+func TestStringReaderEmptyAttrValue(t *testing.T) {
+	xmlData := `<root attr=""/>`
+	dec, err := NewStringReader(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	event, err := nextStringStartEvent(dec)
+	if err != nil {
+		t.Fatalf("next start root error = %v", err)
+	}
+	if len(event.Attrs) != 1 {
+		t.Fatalf("attr count = %d, want 1", len(event.Attrs))
+	}
+	if value := event.Attrs[0].Value(); value != "" {
+		t.Fatalf("attr value = %q, want empty", value)
+	}
+}
+
+func TestStringReaderAttrNamespacesSameLocal(t *testing.T) {
+	xmlData := `<root xmlns:a="urn:a" xmlns:b="urn:b" a:attr="1" b:attr="2"/>`
+	dec, err := NewStringReader(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	event, err := nextStringStartEvent(dec)
+	if err != nil {
+		t.Fatalf("next start root error = %v", err)
+	}
+	if len(event.Attrs) != 4 {
+		t.Fatalf("attr count = %d, want 4", len(event.Attrs))
+	}
+	var aValue string
+	var bValue string
+	for _, attr := range event.Attrs {
+		if attr.LocalName() != "attr" {
+			continue
+		}
+		switch attr.NamespaceURI() {
+		case "urn:a":
+			aValue = attr.Value()
+		case "urn:b":
+			bValue = attr.Value()
+		}
+	}
+	if aValue != "1" || bValue != "2" {
+		t.Fatalf("attr values = %q/%q, want 1/2", aValue, bValue)
+	}
+}
+
+func TestStringReaderAttrValueError(t *testing.T) {
+	xmlData := `<root attr="&bad;"></root>`
+	dec, err := NewStringReader(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	_, err = dec.Next()
+	if err == nil {
+		t.Fatalf("attr value error = nil, want error")
+	}
+	var syntax *xmltext.SyntaxError
+	if !errors.As(err, &syntax) {
+		t.Fatalf("attr value error type = %T, want *xmltext.SyntaxError", err)
+	}
+}
+
 func TestStringReaderAttrValueLarge(t *testing.T) {
 	value := strings.Repeat("x", 1024)
 	xmlData := `<root attr="` + value + `"/>`
@@ -558,6 +706,38 @@ func TestStringReaderAttrValueLarge(t *testing.T) {
 	}
 	if got := event.Attrs[0].Value(); got != value {
 		t.Fatalf("attr value len = %d, want %d", len(got), len(value))
+	}
+}
+
+func TestStringReaderNamespaceValueLarge(t *testing.T) {
+	value := "urn:" + strings.Repeat("long:", 300)
+	xmlData := `<root xmlns="` + value + `"><child/></root>`
+	dec, err := NewStringReader(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	ev, err := nextStringStartEvent(dec)
+	if err != nil {
+		t.Fatalf("next start root error = %v", err)
+	}
+	if ns, ok := dec.LookupNamespaceAt("", ev.ScopeDepth); !ok || ns != value {
+		t.Fatalf("default namespace len = %d, want %d", len(ns), len(value))
+	}
+}
+
+func TestStringReaderEmptyNamespacePrefixDecl(t *testing.T) {
+	xmlData := `<root xmlns:="urn:test"/>`
+	dec, err := NewStringReader(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	_, err = dec.Next()
+	if err == nil {
+		t.Fatalf("empty prefix error = nil, want error")
+	}
+	var syntax *xmltext.SyntaxError
+	if !errors.As(err, &syntax) {
+		t.Fatalf("empty prefix error type = %T, want *xmltext.SyntaxError", err)
 	}
 }
 
@@ -589,6 +769,85 @@ func TestStringReaderTextUnescapeGrowth(t *testing.T) {
 	want := strings.Repeat("&", 300)
 	if got := sb.String(); got != want {
 		t.Fatalf("text len = %d, want %d", len(got), len(want))
+	}
+}
+
+func TestStringReaderMixedContentCDATA(t *testing.T) {
+	xmlData := `<root>text<![CDATA[cdata]]>more</root>`
+	dec, err := NewStringReader(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	_, err = nextStringStartEvent(dec)
+	if err != nil {
+		t.Fatalf("next start root error = %v", err)
+	}
+	var sb strings.Builder
+	for {
+		ev, err := dec.Next()
+		if err != nil {
+			t.Fatalf("Next error = %v", err)
+		}
+		if ev.Kind == EventCharData {
+			_, _ = sb.Write(ev.Text)
+			continue
+		}
+		if ev.Kind == EventEndElement {
+			break
+		}
+	}
+	if got := sb.String(); got != "textcdatamore" {
+		t.Fatalf("text = %q, want %q", got, "textcdatamore")
+	}
+}
+
+func TestStringReaderSkipsCommentsAndPI(t *testing.T) {
+	input := `<!--comment--><?pi test?><root/>`
+	dec, err := NewStringReader(strings.NewReader(input), EmitComments(true), EmitPI(true))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	ev, err := dec.Next()
+	if err != nil {
+		t.Fatalf("Next error = %v", err)
+	}
+	if ev.Kind != EventStartElement || ev.Name.Local != "root" {
+		t.Fatalf("event = %v %s, want root start", ev.Kind, ev.Name.String())
+	}
+	for {
+		if _, err = dec.Next(); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			t.Fatalf("Next error = %v", err)
+		}
+	}
+}
+
+func TestStringReaderSkipsDirectives(t *testing.T) {
+	input := `<!DOCTYPE root><root/>`
+	dec, err := NewStringReader(strings.NewReader(input), EmitDirectives(true))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	ev, err := dec.Next()
+	if err != nil {
+		t.Fatalf("Next error = %v", err)
+	}
+	if ev.Kind != EventStartElement || ev.Name.Local != "root" {
+		t.Fatalf("event = %v %s, want root start", ev.Kind, ev.Name.String())
+	}
+}
+
+func TestStringReaderCommentOnly(t *testing.T) {
+	input := `<!--comment-->`
+	dec, err := NewStringReader(strings.NewReader(input), EmitComments(true))
+	if err != nil {
+		t.Fatalf("NewStringReader error = %v", err)
+	}
+	_, err = dec.Next()
+	var syntax *xmltext.SyntaxError
+	if !errors.As(err, &syntax) {
+		t.Fatalf("Next error = %v, want syntax error", err)
 	}
 }
 
@@ -722,6 +981,37 @@ func TestStringReaderMalformedXML(t *testing.T) {
 	var syntax *xmltext.SyntaxError
 	if !errors.As(err, &syntax) {
 		t.Fatalf("malformed XML error type = %T, want *xmltext.SyntaxError", err)
+	}
+}
+
+func TestConcurrentStringReaderCreation(t *testing.T) {
+	const goroutines = 8
+	input := `<root><child/></root>`
+	errs := make(chan error, goroutines)
+	var wg sync.WaitGroup
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r, err := NewStringReader(strings.NewReader(input))
+			if err != nil {
+				errs <- err
+				return
+			}
+			for {
+				if _, err = r.Next(); errors.Is(err, io.EOF) {
+					break
+				} else if err != nil {
+					errs <- err
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("concurrent reader error = %v", err)
 	}
 }
 
