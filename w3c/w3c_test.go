@@ -18,7 +18,8 @@ import (
 	"github.com/jacoelho/xsd/internal/loader"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validator"
-	"github.com/jacoelho/xsd/internal/xml"
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 // We support XSD 1.0
@@ -1124,7 +1125,7 @@ type instanceInfo struct {
 }
 
 func readInstanceInfo(r io.Reader) (instanceInfo, error) {
-	dec, err := xsdxml.NewStreamDecoder(r)
+	dec, err := xmlstream.NewReader(r)
 	if err != nil {
 		return instanceInfo{}, err
 	}
@@ -1137,19 +1138,19 @@ func readInstanceInfo(r io.Reader) (instanceInfo, error) {
 		if err != nil {
 			return instanceInfo{}, err
 		}
-		if ev.Kind != xsdxml.EventStartElement {
+		if ev.Kind != xmlstream.EventStartElement {
 			continue
 		}
 
 		info := instanceInfo{
 			rootLocal: ev.Name.Local,
-			rootNS:    string(ev.Name.Namespace),
+			rootNS:    ev.Name.Namespace,
 		}
 		for _, attr := range ev.Attrs {
-			if attr.NamespaceURI() != xsdxml.XSINamespace {
+			if attr.Name.Namespace != xsdxml.XSINamespace {
 				continue
 			}
-			switch attr.LocalName() {
+			switch attr.Name.Local {
 			case "schemaLocation", "noNamespaceSchemaLocation":
 				info.hasSchemaHints = true
 			}

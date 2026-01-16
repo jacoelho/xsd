@@ -16,7 +16,7 @@ func isSpecialAttribute(qname types.QName) bool {
 }
 
 // isXMLNSAttribute checks if an attribute is an XML namespace declaration.
-func isXMLNSAttribute(attr xsdxml.Attr) bool {
+func isXMLNSAttribute(attr streamAttr) bool {
 	return attr.NamespaceURI() == "xmlns" ||
 		attr.NamespaceURI() == xsdxml.XMLNSNamespace ||
 		attr.LocalName() == "xmlns"
