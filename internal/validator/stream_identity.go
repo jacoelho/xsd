@@ -256,6 +256,9 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 
 	if test.Any {
 		for _, attr := range attrs {
+			if isXMLNSAttribute(attr) {
+				continue
+			}
 			attrQName := types.QName{
 				Namespace: types.NamespaceURI(attr.NamespaceURI()),
 				Local:     attr.LocalName(),
@@ -270,6 +273,9 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 
 	if test.Local == "*" && test.NamespaceSpecified {
 		for _, attr := range attrs {
+			if isXMLNSAttribute(attr) {
+				continue
+			}
 			attrNamespace := types.NamespaceURI(attr.NamespaceURI())
 			if attrNamespace != test.Namespace {
 				continue
@@ -697,6 +703,9 @@ func (r *streamRun) lookupAttributeDefault(frame *streamFrame, attrQName types.Q
 
 func findAttrByLocal(attrs []streamAttr, local string) (streamAttr, bool) {
 	for _, attr := range attrs {
+		if isXMLNSAttribute(attr) {
+			continue
+		}
 		if attr.LocalName() == local {
 			return attr, true
 		}
@@ -706,6 +715,9 @@ func findAttrByLocal(attrs []streamAttr, local string) (streamAttr, bool) {
 
 func findAttrByNamespace(attrs []streamAttr, namespace types.NamespaceURI, local string) (streamAttr, bool) {
 	for _, attr := range attrs {
+		if isXMLNSAttribute(attr) {
+			continue
+		}
 		if types.NamespaceURI(attr.NamespaceURI()) != namespace {
 			continue
 		}
