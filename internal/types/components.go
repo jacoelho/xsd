@@ -32,9 +32,6 @@ const (
 	FormUnqualified
 )
 
-// UnboundedOccurs indicates no upper bound on occurrences (-1 per XSD spec).
-const UnboundedOccurs = -1
-
 // ElementDecl represents an element declaration
 type ElementDecl struct {
 	Type              Type
@@ -44,10 +41,10 @@ type ElementDecl struct {
 	Fixed             string
 	Default           string
 	Constraints       []*IdentityConstraint
+	MaxOccurs         Occurs
+	MinOccurs         Occurs
 	Final             DerivationSet
 	Block             DerivationSet
-	MaxOccurs         int
-	MinOccurs         int
 	Form              FormChoice
 	Abstract          bool
 	Nillable          bool
@@ -66,22 +63,22 @@ func NewElementDeclFromParsed(decl *ElementDecl) (*ElementDecl, error) {
 	if !decl.IsReference && decl.Type == nil {
 		return nil, fmt.Errorf("element %s must declare a type", decl.Name)
 	}
-	if decl.MinOccurs < 0 {
+	if decl.MinOccurs.CmpInt(0) < 0 {
 		return nil, fmt.Errorf("element %s has negative minOccurs", decl.Name)
 	}
-	if decl.MaxOccurs != UnboundedOccurs && decl.MaxOccurs < decl.MinOccurs {
+	if !decl.MaxOccurs.IsUnbounded() && decl.MaxOccurs.Cmp(decl.MinOccurs) < 0 {
 		return nil, fmt.Errorf("element %s has maxOccurs less than minOccurs", decl.Name)
 	}
 	return decl, nil
 }
 
 // MinOcc implements Particle interface
-func (e *ElementDecl) MinOcc() int {
+func (e *ElementDecl) MinOcc() Occurs {
 	return e.MinOccurs
 }
 
 // MaxOcc implements Particle interface
-func (e *ElementDecl) MaxOcc() int {
+func (e *ElementDecl) MaxOcc() Occurs {
 	return e.MaxOccurs
 }
 

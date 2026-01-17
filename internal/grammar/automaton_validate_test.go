@@ -58,21 +58,21 @@ func buildTestAutomaton(t *testing.T) *Automaton {
 	group := func() *ParticleAdapter {
 		return &ParticleAdapter{
 			Kind:      ParticleGroup,
-			MinOccurs: 1,
-			MaxOccurs: 1,
+			MinOccurs: types.OccursFromInt(1),
+			MaxOccurs: types.OccursFromInt(1),
 			GroupKind: types.Sequence,
 			Children: []*ParticleAdapter{
 				{
 					Kind:      ParticleElement,
-					MinOccurs: 1,
-					MaxOccurs: 2,
+					MinOccurs: types.OccursFromInt(1),
+					MaxOccurs: types.OccursFromInt(2),
 					Element:   compiledA,
 					Original:  elemA,
 				},
 				{
 					Kind:      ParticleElement,
-					MinOccurs: 0,
-					MaxOccurs: 1,
+					MinOccurs: types.OccursFromInt(0),
+					MaxOccurs: types.OccursFromInt(1),
 					Element:   compiledB,
 					Original:  elemB,
 				},

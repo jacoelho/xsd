@@ -14,18 +14,18 @@ type node interface {
 type leafNode struct {
 	particle types.Particle
 	first    *bitset
+	min      types.Occurs
+	max      types.Occurs
 	pos      int
-	min      int
-	max      int
 	size     int
 }
 
-func newLeaf(pos int, particle types.Particle, minOccurs, maxOccurs, size int) *leafNode {
+func newLeaf(pos int, particle types.Particle, minOccurs, maxOccurs types.Occurs, size int) *leafNode {
 	return &leafNode{pos: pos, particle: particle, min: minOccurs, max: maxOccurs, size: size}
 }
 
 func (n *leafNode) nullable() bool {
-	return n.min == 0
+	return n.min.IsZero()
 }
 
 func (n *leafNode) firstPos() *bitset {

@@ -4,8 +4,8 @@ import "slices"
 
 // Particle represents a content model particle
 type Particle interface {
-	MinOcc() int
-	MaxOcc() int
+	MinOcc() Occurs
+	MaxOcc() Occurs
 }
 
 // GroupKind represents the kind of model group in XSD content models.
@@ -24,18 +24,18 @@ const (
 type ModelGroup struct {
 	SourceNamespace NamespaceURI
 	Particles       []Particle
+	MinOccurs       Occurs
+	MaxOccurs       Occurs
 	Kind            GroupKind
-	MinOccurs       int
-	MaxOccurs       int
 }
 
 // MinOcc implements Particle interface
-func (m *ModelGroup) MinOcc() int {
+func (m *ModelGroup) MinOcc() Occurs {
 	return m.MinOccurs
 }
 
 // MaxOcc implements Particle interface
-func (m *ModelGroup) MaxOcc() int {
+func (m *ModelGroup) MaxOcc() Occurs {
 	return m.MaxOccurs
 }
 
@@ -240,16 +240,16 @@ func copyRestriction(restriction *Restriction, opts CopyOptions) *Restriction {
 // This allows forward references and references to groups in imported schemas
 type GroupRef struct {
 	RefQName  QName
-	MinOccurs int
-	MaxOccurs int
+	MinOccurs Occurs
+	MaxOccurs Occurs
 }
 
 // MinOcc implements Particle interface
-func (g *GroupRef) MinOcc() int {
+func (g *GroupRef) MinOcc() Occurs {
 	return g.MinOccurs
 }
 
 // MaxOcc implements Particle interface
-func (g *GroupRef) MaxOcc() int {
+func (g *GroupRef) MaxOcc() Occurs {
 	return g.MaxOccurs
 }

@@ -21,13 +21,13 @@ type AllGroupElementInfo interface {
 // It enforces required elements, uniqueness, and order-insensitivity.
 type AllGroupValidator struct {
 	elements    []AllGroupElementInfo
+	minOccurs   types.Occurs
 	numRequired int
 	mixed       bool
-	minOccurs   int
 }
 
 // NewAllGroupValidator creates a validator for an all group.
-func NewAllGroupValidator(elements []AllGroupElementInfo, mixed bool, minOccurs int) *AllGroupValidator {
+func NewAllGroupValidator(elements []AllGroupElementInfo, mixed bool, minOccurs types.Occurs) *AllGroupValidator {
 	numRequired := 0
 	for _, e := range elements {
 		if !e.IsOptional() {
@@ -45,7 +45,7 @@ func NewAllGroupValidator(elements []AllGroupElementInfo, mixed bool, minOccurs 
 // Validate checks that children satisfy the all group content model.
 // Returns nil if valid, or a ValidationError describing the violation.
 func (v *AllGroupValidator) Validate(doc *xsdxml.Document, children []xsdxml.NodeID, matcher SymbolMatcher) error {
-	if len(children) == 0 && v.minOccurs == 0 {
+	if len(children) == 0 && v.minOccurs.IsZero() {
 		return nil
 	}
 	if len(v.elements) == 0 {

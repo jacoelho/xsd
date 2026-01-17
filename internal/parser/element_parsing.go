@@ -234,8 +234,8 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 			Namespace: schema.TargetNamespace,
 			Local:     name,
 		},
-		MinOccurs:       1,
-		MaxOccurs:       1,
+		MinOccurs:       types.OccursFromInt(1),
+		MaxOccurs:       types.OccursFromInt(1),
 		SourceNamespace: schema.TargetNamespace,
 		Form:            types.FormQualified, // global elements are always qualified
 	}
@@ -605,21 +605,21 @@ func resolveLocalElementForm(attrs *elementAttrScan, schema *Schema) (Form, type
 	return effectiveForm, elementNamespace, nil
 }
 
-func parseElementOccurs(attrs *elementAttrScan) (int, int, error) {
-	minOccurs := 1
+func parseElementOccurs(attrs *elementAttrScan) (types.Occurs, types.Occurs, error) {
+	minOccurs := types.OccursFromInt(1)
 	if attrs.hasMinOccurs {
 		var err error
 		minOccurs, err = parseOccursValue("minOccurs", attrs.minOccurs)
 		if err != nil {
-			return 0, 0, err
+			return types.OccursFromInt(0), types.OccursFromInt(0), err
 		}
 	}
-	maxOccurs := 1
+	maxOccurs := types.OccursFromInt(1)
 	if attrs.hasMaxOccurs {
 		var err error
 		maxOccurs, err = parseOccursValue("maxOccurs", attrs.maxOccurs)
 		if err != nil {
-			return 0, 0, err
+			return types.OccursFromInt(0), types.OccursFromInt(0), err
 		}
 	}
 	return minOccurs, maxOccurs, nil

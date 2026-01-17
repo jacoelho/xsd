@@ -210,7 +210,7 @@ func checkSequenceUPAViolationWithVisitedAndContext(schema *parser.Schema, p1, p
 	}
 
 	// if p1 is optional, it can be skipped, so p2 may match the same element.
-	if p1.MinOcc() == 0 {
+	if p1.MinOcc().IsZero() {
 		if err := checkUPAViolationWithVisited(schema, p1, p2, targetNS, visited); err != nil {
 			return err
 		}
@@ -219,9 +219,9 @@ func checkSequenceUPAViolationWithVisitedAndContext(schema *parser.Schema, p1, p
 	// if p1 can repeat (maxOccurs > 1 or unbounded), it can match the same element as p2.
 	// this handles the case where p1 repeats and overlaps with p2
 	maxOcc := p1.MaxOcc()
-	if maxOcc > 1 || maxOcc == types.UnboundedOccurs {
+	if maxOcc.IsUnbounded() || maxOcc.CmpInt(1) > 0 {
 		// if p1 has a fixed, bounded occurrence count, the boundary is deterministic.
-		if maxOcc != types.UnboundedOccurs && p1.MinOcc() == maxOcc {
+		if !maxOcc.IsUnbounded() && p1.MinOcc().Equal(maxOcc) {
 			if elem1, ok1 := p1.(*types.ElementDecl); ok1 {
 				if elem2, ok2 := p2.(*types.ElementDecl); ok2 && elem1.Name == elem2.Name {
 					return nil
@@ -269,7 +269,7 @@ func findRequiredSeparator(parentParticles []types.Particle, i, j int) types.Par
 		return nil
 	}
 	for k := i + 1; k < j && k < len(parentParticles); k++ {
-		if parentParticles[k].MinOcc() > 0 {
+		if parentParticles[k].MinOcc().CmpInt(0) > 0 {
 			return parentParticles[k]
 		}
 	}
@@ -278,7 +278,7 @@ func findRequiredSeparator(parentParticles []types.Particle, i, j int) types.Par
 
 func sequenceSeparatorDisambiguates(schema *parser.Schema, p1, separator types.Particle, targetNS types.NamespaceURI) bool {
 	p1MaxOcc := p1.MaxOcc()
-	if p1MaxOcc != types.UnboundedOccurs && p1MaxOcc <= 1 {
+	if !p1MaxOcc.IsUnbounded() && p1MaxOcc.CmpInt(1) <= 0 {
 		return true
 	}
 	lastParticles := collectPossibleLastLeafParticles(p1, make(map[*types.ModelGroup]bool))
@@ -299,8 +299,9 @@ func checkSequenceDuplicateElementName(p1, p2 types.Particle) error {
 	if !ok2 || elem1.Name != elem2.Name {
 		return nil
 	}
-	fixed := p1.MaxOcc() != types.UnboundedOccurs && p1.MinOcc() == p1.MaxOcc()
-	if p1.MinOcc() == 0 || ((p1.MaxOcc() > 1 || p1.MaxOcc() == types.UnboundedOccurs) && !fixed) {
+	maxOcc := p1.MaxOcc()
+	fixed := !maxOcc.IsUnbounded() && p1.MinOcc().Equal(maxOcc)
+	if p1.MinOcc().IsZero() || ((maxOcc.IsUnbounded() || maxOcc.CmpInt(1) > 0) && !fixed) {
 		return fmt.Errorf("duplicate element name '%s'", elem1.Name)
 	}
 	return nil
@@ -309,13 +310,13 @@ func checkSequenceDuplicateElementName(p1, p2 types.Particle) error {
 func checkSequenceTailRepeats(schema *parser.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI) error {
 	// if p1 itself can't repeat, but its possible last particles can repeat, they can
 	// still overlap with p2 and cause ambiguity in the sequence.
-	if p1.MaxOcc() > 1 || p1.MaxOcc() == types.UnboundedOccurs {
+	if p1.MaxOcc().IsUnbounded() || p1.MaxOcc().CmpInt(1) > 0 {
 		return nil
 	}
 	lastParticles := collectPossibleLastLeafParticles(p1, make(map[*types.ModelGroup]bool))
 	for _, last := range lastParticles {
 		maxOcc := last.MaxOcc()
-		if maxOcc > 1 || maxOcc == types.UnboundedOccurs {
+		if maxOcc.IsUnbounded() || maxOcc.CmpInt(1) > 0 {
 			if err := checkUPAViolationWithVisited(schema, last, p2, targetNS, make(map[*types.ModelGroup]bool)); err != nil {
 				return fmt.Errorf("overlapping repeating particle at sequence end: %w", err)
 			}
@@ -327,7 +328,7 @@ func checkSequenceTailRepeats(schema *parser.Schema, p1, p2 types.Particle, targ
 // checkUPAViolationWithVisited checks UPA violations with cycle detection
 func checkUPAViolationWithVisited(schema *parser.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI, visited map[*types.ModelGroup]bool) error {
 	// particles with maxOccurs=0 are effectively absent and can't cause UPA violations
-	if p1.MaxOcc() == 0 || p2.MaxOcc() == 0 {
+	if p1.MaxOcc().IsZero() || p2.MaxOcc().IsZero() {
 		return nil
 	}
 
@@ -388,7 +389,7 @@ func checkUPAViolationWithVisited(schema *parser.Schema, p1, p2 types.Particle, 
 					}
 				}
 				// once we see a required particle, subsequent particles are disambiguated
-				if child.MinOcc() > 0 {
+				if child.MinOcc().CmpInt(0) > 0 {
 					hasSeenRequired = true
 				}
 			}
@@ -411,7 +412,7 @@ func checkUPAViolationWithVisited(schema *parser.Schema, p1, p2 types.Particle, 
 						return err
 					}
 				}
-				if child.MinOcc() > 0 {
+				if child.MinOcc().CmpInt(0) > 0 {
 					hasSeenRequired = true
 				}
 			}
@@ -467,11 +468,11 @@ func checkModelGroupUPAWithVisited(schema *parser.Schema, mg1, mg2 *types.ModelG
 		firstParticles := collectPossibleFirstLeafParticles(mg2, make(map[*types.ModelGroup]bool))
 
 		for _, last := range lastParticles {
-			repeatsOrOptional := last.MinOcc() == 0 || last.MaxOcc() > 1 || last.MaxOcc() == types.UnboundedOccurs
+			repeatsOrOptional := last.MinOcc().IsZero() || last.MaxOcc().IsUnbounded() || last.MaxOcc().CmpInt(1) > 0
 			if !repeatsOrOptional {
 				continue
 			}
-			if last.MaxOcc() != types.UnboundedOccurs && last.MinOcc() == last.MaxOcc() {
+			if !last.MaxOcc().IsUnbounded() && last.MinOcc().Equal(last.MaxOcc()) {
 				continue
 			}
 			for _, first := range firstParticles {
@@ -491,7 +492,7 @@ func checkModelGroupUPAWithVisited(schema *parser.Schema, mg1, mg2 *types.ModelG
 			choiceMG = mg1
 		}
 		// if the sequence can repeat, check for overlaps
-		if seqMG.MaxOcc() > 1 {
+		if seqMG.MaxOcc().CmpInt(1) > 0 {
 			for _, p1 := range seqMG.Particles {
 				for _, p2 := range choiceMG.Particles {
 					if err := checkUPAViolationWithVisited(schema, p1, p2, targetNS, visited); err != nil {
@@ -555,7 +556,7 @@ func collectPossibleLastLeafParticles(particle types.Particle, visited map[*type
 			for i := len(p.Particles) - 1; i >= 0; i-- {
 				child := p.Particles[i]
 				out = append(out, collectPossibleLastLeafParticles(child, visited)...)
-				if child.MinOcc() > 0 {
+				if child.MinOcc().CmpInt(0) > 0 {
 					break
 				}
 			}
@@ -585,7 +586,7 @@ func collectPossibleFirstLeafParticles(particle types.Particle, visited map[*typ
 		case types.Sequence:
 			for _, child := range p.Particles {
 				out = append(out, collectPossibleFirstLeafParticles(child, visited)...)
-				if child.MinOcc() > 0 {
+				if child.MinOcc().CmpInt(0) > 0 {
 					break
 				}
 			}

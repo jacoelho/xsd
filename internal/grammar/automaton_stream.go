@@ -210,7 +210,7 @@ func (v *AllGroupStreamValidator) Feed(child types.QName) (MatchResult, error) {
 
 // Close validates required elements after the last child.
 func (v *AllGroupStreamValidator) Close() error {
-	if v.childIndex == 0 && v.validator.minOccurs == 0 {
+	if v.childIndex == 0 && v.validator.minOccurs.IsZero() {
 		return nil
 	}
 	if v.numRequiredSeen == v.validator.numRequired {

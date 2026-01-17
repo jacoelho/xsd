@@ -13,9 +13,9 @@ type ParticleAdapter struct {
 	Element           *CompiledElement
 	Wildcard          *types.AnyElement
 	Children          []*ParticleAdapter
+	MinOccurs         types.Occurs
+	MaxOccurs         types.Occurs
 	Kind              ParticleKind
-	MinOccurs         int
-	MaxOccurs         int
 	GroupKind         types.GroupKind
 	AllowSubstitution bool
 }
@@ -28,14 +28,14 @@ type Builder struct {
 	symbolIndexByKey     map[symbolKey]int
 	targetNamespace      string
 	followPos            []*bitset
-	symbolMin            []int
+	symbolMin            []types.Occurs
 	bitsetPool           []*bitset
 	positions            []*Position
 	particles            []*ParticleAdapter
 	symbols              []Symbol
 	posSymbol            []int
 	countMapPool         []map[int]int
-	symbolMax            []int
+	symbolMax            []types.Occurs
 	symbolPositionCounts []int
 	rangeMapPool         []map[int]occRange
 	size                 int
@@ -96,7 +96,7 @@ func (b *Builder) Build() (*Automaton, error) {
 	}
 
 	// append end marker: content · end
-	endLeaf := newLeaf(b.endPos, nil, 1, 1, b.size)
+	endLeaf := newLeaf(b.endPos, nil, types.OccursFromInt(1), types.OccursFromInt(1), b.size)
 	b.root = newSeq(content, endLeaf, b.size)
 
 	// compute followPos (firstPos/lastPos computed lazily)
@@ -258,7 +258,13 @@ func (b *Builder) attachGroupCounter(child node, p *ParticleAdapter) {
 }
 
 func (b *Builder) needsGroupCounter(p *ParticleAdapter) bool {
-	return (p.MinOccurs > 1) || (p.MaxOccurs != 1 && p.MaxOccurs != types.UnboundedOccurs)
+	if p.MinOccurs.GreaterThanInt(1) {
+		return true
+	}
+	if p.MaxOccurs.IsUnbounded() {
+		return true
+	}
+	return !p.MaxOccurs.EqualInt(1)
 }
 
 func (b *Builder) collectPositions(positions *bitset) []int {
@@ -285,17 +291,17 @@ func (b *Builder) computeGroupID(firstPosList []int) int {
 	return groupID
 }
 
-func (b *Builder) computeFirstPosMaxOccurs(firstPosList []int) int {
-	maxOccurs := 1
+func (b *Builder) computeFirstPosMaxOccurs(firstPosList []int) types.Occurs {
+	maxOccurs := types.OccursFromInt(1)
 	for _, pos := range firstPosList {
 		if pos >= len(b.positions) || b.positions[pos] == nil {
 			continue
 		}
 		posMax := b.positions[pos].Max
-		if posMax == types.UnboundedOccurs {
-			return types.UnboundedOccurs
+		if posMax.IsUnbounded() {
+			return types.OccursUnbounded
 		}
-		if maxOccurs != types.UnboundedOccurs && posMax > maxOccurs {
+		if posMax.Cmp(maxOccurs) > 0 {
 			maxOccurs = posMax
 		}
 	}
@@ -314,8 +320,10 @@ func (b *Builder) computeUnitSize(firstPosList, lastPosList []int) int {
 		return 0
 	}
 	position := b.positions[pos]
-	if position.Min == position.Max && position.Min > 1 {
-		return position.Min
+	if position.Min.Equal(position.Max) {
+		if value, ok := position.Min.Int(); ok && value > 1 {
+			return value
+		}
 	}
 	return 0
 }
@@ -341,26 +349,26 @@ func (b *Builder) buildChoice(particles []*ParticleAdapter, nextPos *int) node {
 }
 
 // wrapOccurs applies occurrence constraints to a node.
-func (b *Builder) wrapOccurs(n node, minOccurs, maxOccurs int) node {
+func (b *Builder) wrapOccurs(n node, minOccurs, maxOccurs types.Occurs) node {
 	if n == nil {
 		return nil
 	}
-	if maxOccurs == 0 {
+	if maxOccurs.IsZero() {
 		return nil
 	}
 	switch {
-	case minOccurs == 1 && maxOccurs == 1:
+	case minOccurs.IsOne() && maxOccurs.IsOne():
 		return n
-	case minOccurs == 0 && maxOccurs == 1:
+	case minOccurs.IsZero() && maxOccurs.IsOne():
 		return newOpt(n, b.size)
-	case minOccurs == 0 && maxOccurs == types.UnboundedOccurs:
+	case minOccurs.IsZero() && maxOccurs.IsUnbounded():
 		return newStar(n, b.size)
-	case minOccurs == 1 && maxOccurs == types.UnboundedOccurs:
+	case minOccurs.IsOne() && maxOccurs.IsUnbounded():
 		return newPlus(n, b.size)
-	case minOccurs == 0:
+	case minOccurs.IsZero():
 		// min=0 with bounded max - treat as optional star
 		return newStar(n, b.size)
-	case minOccurs >= 1:
+	case minOccurs.CmpInt(1) >= 0:
 		// min >= 1 with bounded max - use plus (not nullable)
 		// counting constraints handle the actual min/max
 		return newPlus(n, b.size)
@@ -637,8 +645,8 @@ func (b *Builder) countLeaves(particles []*ParticleAdapter) int {
 }
 
 type occRange struct {
-	min int
-	max int
+	min types.Occurs
+	max types.Occurs
 }
 
 func (b *Builder) getRangeMap() map[int]occRange {
@@ -696,12 +704,12 @@ func (b *Builder) putWorkBitset(bs *bitset) {
 	b.bitsetPool = append(b.bitsetPool, bs)
 }
 
-func (b *Builder) computeSymbolBounds() ([]int, []int) {
+func (b *Builder) computeSymbolBounds() ([]types.Occurs, []types.Occurs) {
 	bounds := b.symbolBoundsForParticles(b.particles)
-	mins := make([]int, len(b.symbols))
-	maxs := make([]int, len(b.symbols))
+	mins := make([]types.Occurs, len(b.symbols))
+	maxs := make([]types.Occurs, len(b.symbols))
 	for i := range maxs {
-		maxs[i] = types.UnboundedOccurs
+		maxs[i] = types.OccursUnbounded
 	}
 	for symbolIndex, r := range bounds {
 		mins[symbolIndex] = r.min
@@ -802,8 +810,8 @@ func mergeSequenceRanges(dst, src map[int]occRange) {
 	for key, val := range src {
 		cur := dst[key]
 		dst[key] = occRange{
-			min: cur.min + val.min,
-			max: sumMax(cur.max, val.max),
+			min: types.AddOccurs(cur.min, val.min),
+			max: types.AddOccurs(cur.max, val.max),
 		}
 	}
 }
@@ -814,14 +822,10 @@ func mergeChoiceRanges(dst map[int]occRange, counts map[int]int, src map[int]occ
 		if !ok {
 			dst[key] = occRange{min: val.min, max: val.max}
 		} else {
-			if val.min < cur.min {
+			if val.min.Cmp(cur.min) < 0 {
 				cur.min = val.min
 			}
-			if cur.max == types.UnboundedOccurs || val.max == types.UnboundedOccurs {
-				cur.max = types.UnboundedOccurs
-			} else if val.max > cur.max {
-				cur.max = val.max
-			}
+			cur.max = types.MaxOccurs(cur.max, val.max)
 			dst[key] = cur
 		}
 		counts[key]++
@@ -834,39 +838,22 @@ func finalizeChoiceRanges(dst map[int]occRange, counts map[int]int, childCount i
 	}
 	for key, r := range dst {
 		if counts[key] < childCount {
-			r.min = 0
+			r.min = types.OccursFromInt(0)
 			dst[key] = r
 		}
 	}
 }
 
-func applyGroupOccursInPlace(ranges map[int]occRange, groupMin, groupMax int) map[int]occRange {
-	if ranges == nil || (groupMin == 1 && groupMax == 1) {
+func applyGroupOccursInPlace(ranges map[int]occRange, groupMin, groupMax types.Occurs) map[int]occRange {
+	if ranges == nil || (groupMin.IsOne() && groupMax.IsOne()) {
 		return ranges
 	}
 	for key, r := range ranges {
-		r.min *= groupMin
-		r.max = multiplyMax(r.max, groupMax)
+		r.min = types.MulOccurs(r.min, groupMin)
+		r.max = types.MulOccurs(r.max, groupMax)
 		ranges[key] = r
 	}
 	return ranges
-}
-
-func sumMax(a, b int) int {
-	if a == types.UnboundedOccurs || b == types.UnboundedOccurs {
-		return types.UnboundedOccurs
-	}
-	return a + b
-}
-
-func multiplyMax(a, b int) int {
-	if a == 0 || b == 0 {
-		return 0
-	}
-	if a == types.UnboundedOccurs || b == types.UnboundedOccurs {
-		return types.UnboundedOccurs
-	}
-	return a * b
 }
 
 type symbolKeyKind uint8
