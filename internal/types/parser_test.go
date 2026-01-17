@@ -117,6 +117,7 @@ func TestParseFloat(t *testing.T) {
 		{"positive", "123.456", false},
 		{"negative", "-123.456", false},
 		{"zero", "0", false},
+		{"plus INF", "+INF", true},
 		{"INF", "INF", false},
 		{"negative INF", "-INF", false},
 		{"NaN", "NaN", false},
@@ -161,6 +162,7 @@ func TestParseDouble(t *testing.T) {
 		{"positive", "123.456", false},
 		{"negative", "-123.456", false},
 		{"zero", "0", false},
+		{"plus INF", "+INF", true},
 		{"INF", "INF", false},
 		{"negative INF", "-INF", false},
 		{"NaN", "NaN", false},
@@ -202,10 +204,14 @@ func TestParseDateTime(t *testing.T) {
 		input   string
 		wantErr bool
 	}{
+		{"with 24:00:00", "2001-10-26T24:00:00", false},
 		{"valid datetime", "2001-10-26T21:32:52", false},
 		{"with timezone", "2001-10-26T21:32:52+02:00", false},
 		{"with Z", "2001-10-26T21:32:52Z", false},
 		{"with milliseconds", "2001-10-26T21:32:52.12679", false},
+		{"leading plus year", "+2001-10-26T21:32:52", true},
+		{"negative year", "-0001-10-26T21:32:52", true},
+		{"year zero", "0000-10-26T21:32:52", true},
 		{"invalid", "not-a-date", true},
 		{"empty", "", true},
 	}
