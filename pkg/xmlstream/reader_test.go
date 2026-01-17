@@ -736,6 +736,41 @@ func TestSkipSubtreePendingPop(t *testing.T) {
 	}
 }
 
+func TestNamespaceDeclsAfterSkipSubtree(t *testing.T) {
+	input := `<root xmlns:a="urn:a"><skip xmlns:b="urn:b"><inner/></skip><after/></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	ev, err := r.Next() // root
+	if err != nil {
+		t.Fatalf("root start error = %v", err)
+	}
+	rootDecls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth))
+	if rootDecls["a"] != "urn:a" {
+		t.Fatalf("root prefix a = %q, want urn:a", rootDecls["a"])
+	}
+	if _, err = r.Next(); err != nil { // skip
+		t.Fatalf("skip start error = %v", err)
+	}
+	if err = r.SkipSubtree(); err != nil {
+		t.Fatalf("SkipSubtree error = %v", err)
+	}
+	ev, err = r.Next() // after
+	if err != nil {
+		t.Fatalf("after start error = %v", err)
+	}
+	if decls := r.NamespaceDeclsAt(ev.ScopeDepth); decls != nil {
+		t.Fatalf("after decls = %v, want nil", decls)
+	}
+	if ns, ok := r.LookupNamespaceAt("b", ev.ScopeDepth); ok || ns != "" {
+		t.Fatalf("prefix b = %q (ok=%v), want empty, false", ns, ok)
+	}
+	if ns, ok := r.LookupNamespaceAt("a", ev.ScopeDepth); !ok || ns != "urn:a" {
+		t.Fatalf("prefix a = %q (ok=%v), want urn:a, true", ns, ok)
+	}
+}
+
 func TestMultipleSkipSubtree(t *testing.T) {
 	input := `<root><a><x/></a><b><y/></b><c/></root>`
 	r, err := NewReader(strings.NewReader(input))

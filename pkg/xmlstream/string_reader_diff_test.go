@@ -1,4 +1,4 @@
-package xsdxml
+package xmlstream
 
 import (
 	"encoding/xml"
@@ -27,7 +27,7 @@ type normEvent struct {
 	kind  EventKind
 }
 
-func TestStreamDecoderMatchesEncodingXML(t *testing.T) {
+func TestStringReaderMatchesEncodingXML(t *testing.T) {
 	tests := []string{
 		`<root attr="v">text</root>`,
 		`<root xmlns="urn:root" xmlns:p="urn:p"><p:child p:attr="v"/></root>`,
@@ -35,9 +35,9 @@ func TestStreamDecoderMatchesEncodingXML(t *testing.T) {
 	}
 
 	for _, xmlData := range tests {
-		got, err := streamEvents(xmlData)
+		got, err := stringReaderEvents(xmlData)
 		if err != nil {
-			t.Fatalf("stream events error for %q: %v", xmlData, err)
+			t.Fatalf("string reader events error for %q: %v", xmlData, err)
 		}
 		want, err := encodingXMLEvents(xmlData)
 		if err != nil {
@@ -49,8 +49,8 @@ func TestStreamDecoderMatchesEncodingXML(t *testing.T) {
 	}
 }
 
-func streamEvents(xmlData string) ([]normEvent, error) {
-	dec, err := NewStreamDecoder(strings.NewReader(xmlData))
+func stringReaderEvents(xmlData string) ([]normEvent, error) {
+	dec, err := NewStringReader(strings.NewReader(xmlData))
 	if err != nil {
 		return nil, err
 	}
@@ -68,16 +68,16 @@ func streamEvents(xmlData string) ([]normEvent, error) {
 			events = append(events, normEvent{
 				kind: EventStartElement,
 				name: normName{
-					namespace: ev.Name.Namespace.String(),
+					namespace: ev.Name.Namespace,
 					local:     ev.Name.Local,
 				},
-				attrs: normalizeAttrs(ev.Attrs),
+				attrs: normalizeStringAttrs(ev.Attrs),
 			})
 		case EventEndElement:
 			events = append(events, normEvent{
 				kind: EventEndElement,
 				name: normName{
-					namespace: ev.Name.Namespace.String(),
+					namespace: ev.Name.Namespace,
 					local:     ev.Name.Local,
 				},
 			})
@@ -124,7 +124,7 @@ func encodingXMLEvents(xmlData string) ([]normEvent, error) {
 	return events, nil
 }
 
-func normalizeAttrs(attrs []Attr) []normAttr {
+func normalizeStringAttrs(attrs []StringAttr) []normAttr {
 	if len(attrs) == 0 {
 		return nil
 	}

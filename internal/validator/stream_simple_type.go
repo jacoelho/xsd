@@ -342,13 +342,13 @@ func (r *streamRun) parseQNameValue(value string, scopeDepth int) (types.QName, 
 
 	var ns types.NamespaceURI
 	if prefix != "" {
-		nsStr, ok := r.dec.LookupNamespace(prefix, scopeDepth)
+		nsStr, ok := r.dec.LookupNamespaceAt(prefix, scopeDepth)
 		if !ok {
 			return types.QName{}, fmt.Errorf("undefined namespace prefix '%s'", prefix)
 		}
 		ns = types.NamespaceURI(nsStr)
 	} else {
-		if nsStr, ok := r.dec.LookupNamespace("", scopeDepth); ok && nsStr != "" {
+		if nsStr, ok := r.dec.LookupNamespaceAt("", scopeDepth); ok && nsStr != "" {
 			ns = types.NamespaceURI(nsStr)
 		}
 	}

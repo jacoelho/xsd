@@ -6,6 +6,8 @@ import (
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 func TestStreamValidatorValidSequence(t *testing.T) {
@@ -26,6 +28,32 @@ func TestStreamValidatorValidSequence(t *testing.T) {
 </xs:schema>`
 
 	docXML := `<root xmlns="urn:test" id="a1"><a>hi</a><b>1</b></root>`
+
+	violations, err := validateStreamDoc(t, schemaXML, docXML)
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got %d", len(violations))
+	}
+}
+
+func TestStreamValidatorPrefixedElements(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="child" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	docXML := `<t:root xmlns:t="urn:test"><t:child>ok</t:child></t:root>`
 
 	violations, err := validateStreamDoc(t, schemaXML, docXML)
 	if err != nil {
@@ -123,6 +151,17 @@ func TestStreamValidatorNilledElement(t *testing.T) {
 	}
 	if violations[0].Code != string(errors.ErrNilElementNotEmpty) {
 		t.Fatalf("expected code %s, got %s", errors.ErrNilElementNotEmpty, violations[0].Code)
+	}
+}
+
+func TestToTypesQName(t *testing.T) {
+	got := toTypesQName(xmlstream.QName{Namespace: "urn:test", Local: "root"})
+	if got.Namespace != types.NamespaceURI("urn:test") || got.Local != "root" {
+		t.Fatalf("QName = %v, want {urn:test}root", got)
+	}
+	got = toTypesQName(xmlstream.QName{Namespace: "", Local: "local"})
+	if got.Namespace != types.NamespaceEmpty || got.Local != "local" {
+		t.Fatalf("QName empty = %v, want %q local", got, "local")
 	}
 }
 

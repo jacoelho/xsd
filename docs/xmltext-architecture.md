@@ -8,7 +8,7 @@ resolution and semantic modeling to higher layers.
 
 ```mermaid
 flowchart TD
-  Reader["io.Reader"] --> Decoder["xmltext.Decoder<br/>(syntax and well-formedness)"] --> Stream["internal/xml StreamDecoder<br/>(namespace resolution, events)"] --> Higher["validator / DOM parsing"]
+  Reader["io.Reader"] --> Decoder["xmltext.Decoder<br/>(syntax and well-formedness)"] --> Stream["pkg/xmlstream Reader<br/>(namespace resolution, events)"] --> Higher["validator / DOM parsing"]
 ```
 
 The decoder is a low-level, allocation-light component. It does not resolve
