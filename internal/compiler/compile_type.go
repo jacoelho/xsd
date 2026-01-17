@@ -131,7 +131,14 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, simpleType 
 			}
 			compiled.MemberTypes[i] = memberCompiled
 		}
-		compiled.DerivationMethod = types.DerivationUnion
+		if simpleType.Union != nil {
+			compiled.DerivationMethod = types.DerivationUnion
+		}
+	}
+	if len(compiled.MemberTypes) == 0 && simpleType.Variety() == types.UnionVariety && compiled.BaseType != nil {
+		if len(compiled.BaseType.MemberTypes) > 0 {
+			compiled.MemberTypes = append([]*grammar.CompiledType(nil), compiled.BaseType.MemberTypes...)
+		}
 	}
 
 	compiled.IsQNameOrNotationType = c.isQNameOrNotationType(compiled)
