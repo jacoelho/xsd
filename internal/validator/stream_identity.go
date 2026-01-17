@@ -355,7 +355,11 @@ func (r *streamRun) applyFieldCaptures(frame *streamFrame) {
 		}
 		field := match.constraint.constraint.Original.Fields[capture.fieldIndex]
 		raw := string(frame.textBuf)
-		normalized := r.normalizeElementValue(raw, field, frame)
+		normalized, keyState := r.normalizeElementValue(raw, field, frame)
+		if keyState == KeyInvalid {
+			fieldState.invalid = true
+			continue
+		}
 		fieldState.value = normalized
 		fieldState.display = raw
 		fieldState.hasValue = true
@@ -529,9 +533,9 @@ func (r *streamRun) addIdentityFieldError(constraint *grammar.CompiledConstraint
 	}
 }
 
-func (r *streamRun) normalizeElementValue(value string, field types.Field, frame *streamFrame) string {
+func (r *streamRun) normalizeElementValue(value string, field types.Field, frame *streamFrame) (string, KeyState) {
 	if value == "" {
-		return ""
+		return "", KeyValid
 	}
 	fieldType := field.ResolvedType
 	if fieldType == nil {
@@ -587,7 +591,7 @@ func (r *streamRun) normalizeAttributeValue(value string, field types.Field, fra
 			}
 			attrDeclared = true
 			if attr.Type != nil && attr.Type.Original != nil {
-				return r.normalizeValueByTypeStream(value, attr.Type.Original, frame.scopeDepth), KeyValid
+				return r.normalizeValueByTypeStream(value, attr.Type.Original, frame.scopeDepth)
 			}
 		}
 		if fieldType == nil && !attrDeclared && frame.decl.Type.AnyAttribute != nil && frame.decl.Type.AnyAttribute.AllowsQName(attrQName) {
@@ -598,10 +602,10 @@ func (r *streamRun) normalizeAttributeValue(value string, field types.Field, fra
 	if fieldType == nil {
 		fieldType = types.GetBuiltin(types.TypeName("string"))
 	}
-	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth), KeyValid
+	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth)
 }
 
-func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Type, scopeDepth int) string {
+func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Type, scopeDepth int) (string, KeyState) {
 	var primitiveName string
 	if bt, ok := fieldType.(*types.BuiltinType); ok {
 		if pt := bt.PrimitiveType(); pt != nil {
@@ -634,7 +638,7 @@ func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Typ
 		"unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
 		rat, err := types.ParseDecimal(value)
 		if err == nil {
-			return typePrefix + "\x01" + rat.String()
+			return typePrefix + "\x01" + rat.String(), KeyValid
 		}
 	case "float", "double":
 		trimmed := strings.TrimSpace(value)
@@ -645,31 +649,28 @@ func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Typ
 		floatValue, err := strconv.ParseFloat(trimmed, bitSize)
 		if err == nil {
 			if math.IsNaN(floatValue) {
-				return typePrefix + "\x01" + "NaN"
+				return typePrefix + "\x01" + "NaN", KeyValid
 			}
-			return typePrefix + "\x01" + strconv.FormatFloat(floatValue, 'g', -1, bitSize)
+			return typePrefix + "\x01" + strconv.FormatFloat(floatValue, 'g', -1, bitSize), KeyValid
 		}
-		return typePrefix + "\x01" + trimmed
+		return typePrefix + "\x01" + trimmed, KeyValid
 	case "QName":
-		return typePrefix + "\x01" + r.normalizeQNameValue(value, scopeDepth)
+		normalized, err := r.normalizeQNameValue(value, scopeDepth)
+		if err != nil {
+			return "", KeyInvalid
+		}
+		return typePrefix + "\x01" + normalized, KeyValid
 	}
 
-	return typePrefix + "\x01" + value
+	return typePrefix + "\x01" + value, KeyValid
 }
 
-func (r *streamRun) normalizeQNameValue(value string, scopeDepth int) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
+func (r *streamRun) normalizeQNameValue(value string, scopeDepth int) (string, error) {
+	qname, err := r.parseQNameValue(value, scopeDepth)
+	if err != nil {
+		return "", err
 	}
-	prefix := ""
-	local := value
-	if before, after, ok := strings.Cut(value, ":"); ok {
-		prefix = before
-		local = after
-	}
-	namespaceURI, _ := r.dec.LookupNamespaceAt(prefix, scopeDepth)
-	return "{" + namespaceURI + "}" + local
+	return "{" + qname.Namespace.String() + "}" + qname.Local, nil
 }
 
 func (r *streamRun) lookupAttributeDefault(frame *streamFrame, attrQName types.QName) (string, bool) {
