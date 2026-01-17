@@ -120,8 +120,12 @@ func validateNonNegativeIntegerBytes(value []byte) error {
 	if err := validateIntegerBytes(value); err != nil {
 		return err
 	}
-	if len(value) > 0 && value[0] == '-' && (len(value) != 2 || value[1] != '0') {
-		return fmt.Errorf("nonNegativeInteger must be >= 0: %s", value)
+	if len(value) > 0 && value[0] == '-' {
+		for i := 1; i < len(value); i++ {
+			if value[i] != '0' {
+				return fmt.Errorf("nonNegativeInteger must be >= 0: %s", value)
+			}
+		}
 	}
 	return nil
 }
