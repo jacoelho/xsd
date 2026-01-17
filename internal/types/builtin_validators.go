@@ -163,8 +163,12 @@ func validateNonNegativeInteger(value string) error {
 	if err := validateInteger(value); err != nil {
 		return err
 	}
-	if strings.HasPrefix(value, "-") && value != "-0" {
-		return fmt.Errorf("nonNegativeInteger must be >= 0: %s", value)
+	if strings.HasPrefix(value, "-") {
+		for i := 1; i < len(value); i++ {
+			if value[i] != '0' {
+				return fmt.Errorf("nonNegativeInteger must be >= 0: %s", value)
+			}
+		}
 	}
 	return nil
 }
