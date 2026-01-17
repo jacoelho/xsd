@@ -15,6 +15,9 @@ func TestParseTime(t *testing.T) {
 		{"time with positive offset", "13:20:00+05:00", false},
 		{"time UTC", "13:20:00Z", false},
 		{"time no timezone", "13:20:00", false},
+		{"time 24:00:00", "24:00:00", false},
+		{"time 24:00:00 with zeros", "24:00:00.000", false},
+		{"time 24:00:00 with fraction", "24:00:00.001", true},
 		{"time with milliseconds and offset", "13:20:00.123-05:00", false},
 		{"time with nanoseconds and offset", "13:20:00.123456789-05:00", false},
 		{"time with milliseconds UTC", "13:20:00.123Z", false},
@@ -109,6 +112,74 @@ func TestParseGDay(t *testing.T) {
 			_, err := ParseGDay(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseGDay(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestParseDateYearConstraints(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"date basic", "2001-01-01", false},
+		{"date year zero", "0000-01-01", true},
+		{"date leading plus", "+2001-01-01", true},
+		{"date negative year", "-0001-01-01", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseDate(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseDate(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestParseGYearConstraints(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"gYear basic", "2001", false},
+		{"gYear UTC", "2001Z", false},
+		{"gYear year zero", "0000", true},
+		{"gYear leading plus", "+2001", true},
+		{"gYear negative year", "-0001", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseGYear(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseGYear(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestParseGYearMonthConstraints(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"gYearMonth basic", "2001-10", false},
+		{"gYearMonth UTC", "2001-10Z", false},
+		{"gYearMonth year zero", "0000-10", true},
+		{"gYearMonth leading plus", "+2001-10", true},
+		{"gYearMonth negative year", "-0001-10", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseGYearMonth(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseGYearMonth(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
 			}
 		})
 	}
