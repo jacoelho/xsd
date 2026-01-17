@@ -42,8 +42,8 @@ func TestIsNotFound(t *testing.T) {
 func TestDeepCopyModelGroup(t *testing.T) {
 	original := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{
 			&types.ElementDecl{Name: types.QName{Local: "a"}},
 		},

@@ -23,7 +23,7 @@ type CompiledContentModel struct {
 	AllElements      []*AllGroupElement
 	SimpleSequence   []*CompiledParticle
 	Kind             types.GroupKind
-	MinOccurs        int
+	MinOccurs        types.Occurs
 	Empty            bool
 	RejectAll        bool
 	Mixed            bool
@@ -76,8 +76,8 @@ type CompiledParticle struct {
 	Wildcard    *types.AnyElement
 	Children    []*CompiledParticle
 	Kind        ParticleKind
-	MinOccurs   int
-	MaxOccurs   int
+	MinOccurs   types.Occurs
+	MaxOccurs   types.Occurs
 	GroupKind   types.GroupKind
 	IsReference bool
 }
