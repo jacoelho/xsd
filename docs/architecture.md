@@ -50,7 +50,7 @@ flowchart TD
   subgraph Validation
     Validate["xsd.Validate()"] --> ValidatorPkg["validator/<br/>stream.go<br/>attribute.go<br/>content.go<br/>simple_type.go"]
     Validate --> GrammarPkg["grammar/<br/>CompiledType<br/>CompiledElement<br/>Automaton"]
-    Validate --> XMLPkg["xml/<br/>StreamDecoder<br/>Event<br/>Attr"]
+    Validate --> XMLPkg["xmlstream/<br/>Reader<br/>Event<br/>Attr"]
   end
 ```
 
@@ -151,7 +151,7 @@ Validation streams tokens and validates incrementally with no DOM build.
 
 ```mermaid
 flowchart TD
-  Reader["Input XML Reader"] --> Next["StreamDecoder.Next()<br/>xml/stream.go<br/>(start/end/char)"] --> Start["Start element<br/>Lookup decl, attrs, content model<br/>Push frame<br/>Track identity scopes"]
+  Reader["Input XML Reader"] --> Next["xmlstream.Reader.Next()<br/>pkg/xmlstream/reader.go<br/>(start/end/char)"] --> Start["Start element<br/>Lookup decl, attrs, content model<br/>Push frame<br/>Track identity scopes"]
   Start --> Attrs["Validate attributes (pre-merged list)"]
   Start --> Content["Validate content model (DFA)"]
   Start --> Collect["Collect text/ID/IDREFs"]

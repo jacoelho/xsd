@@ -88,7 +88,7 @@ type identityScope struct {
 	invalid     bool
 }
 
-func (r *streamRun) handleIdentityStart(frame *streamFrame, attrs []xsdxml.Attr) {
+func (r *streamRun) handleIdentityStart(frame *streamFrame, attrs []streamAttr) {
 	if frame == nil {
 		return
 	}
@@ -248,7 +248,7 @@ func (r *streamRun) applyElementSelection(state *fieldState, frame *streamFrame,
 	frame.fieldCaptures = append(frame.fieldCaptures, fieldCapture{match: match, fieldIndex: fieldIndex})
 }
 
-func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTest, frame *streamFrame, attrs []xsdxml.Attr, match *selectorMatch, fieldIndex int) {
+func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTest, frame *streamFrame, attrs []streamAttr, match *selectorMatch, fieldIndex int) {
 	if state.multiple {
 		return
 	}
@@ -668,7 +668,7 @@ func (r *streamRun) normalizeQNameValue(value string, scopeDepth int) string {
 		prefix = before
 		local = after
 	}
-	namespaceURI, _ := r.dec.LookupNamespace(prefix, scopeDepth)
+	namespaceURI, _ := r.dec.LookupNamespaceAt(prefix, scopeDepth)
 	return "{" + namespaceURI + "}" + local
 }
 
@@ -694,16 +694,16 @@ func (r *streamRun) lookupAttributeDefault(frame *streamFrame, attrQName types.Q
 	return "", false
 }
 
-func findAttrByLocal(attrs []xsdxml.Attr, local string) (xsdxml.Attr, bool) {
+func findAttrByLocal(attrs []streamAttr, local string) (streamAttr, bool) {
 	for _, attr := range attrs {
 		if attr.LocalName() == local {
 			return attr, true
 		}
 	}
-	return xsdxml.Attr{}, false
+	return streamAttr{}, false
 }
 
-func findAttrByNamespace(attrs []xsdxml.Attr, namespace types.NamespaceURI, local string) (xsdxml.Attr, bool) {
+func findAttrByNamespace(attrs []streamAttr, namespace types.NamespaceURI, local string) (streamAttr, bool) {
 	for _, attr := range attrs {
 		if types.NamespaceURI(attr.NamespaceURI()) != namespace {
 			continue
@@ -712,7 +712,7 @@ func findAttrByNamespace(attrs []xsdxml.Attr, namespace types.NamespaceURI, loca
 			return attr, true
 		}
 	}
-	return xsdxml.Attr{}, false
+	return streamAttr{}, false
 }
 
 func matchPath(path xpath.Path, frames []streamFrame, startDepth, currentDepth int) bool {

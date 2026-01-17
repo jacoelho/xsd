@@ -17,6 +17,15 @@ const (
 
 var errUnboundPrefix = errors.New("unbound namespace prefix")
 
+// ErrUnboundPrefix reports usage of an undeclared namespace prefix.
+var ErrUnboundPrefix = errUnboundPrefix
+
+// NamespaceDecl reports a namespace declaration on the current element.
+type NamespaceDecl struct {
+	Prefix string
+	URI    string
+}
+
 var (
 	xmlnsBytes = []byte("xmlns")
 	xmlBytes   = []byte("xml")
@@ -25,6 +34,7 @@ var (
 type nsScope struct {
 	prefixes   map[string]string
 	defaultNS  string
+	decls      []NamespaceDecl
 	defaultSet bool
 }
 
@@ -74,33 +84,48 @@ func (s *nsStack) lookup(prefix string, depth int) (string, bool) {
 	return "", false
 }
 
-func collectNamespaceScope(dec *Reader, tok *xmltext.Token) (nsScope, error) {
+func collectNamespaceScope(dec *xmltext.Decoder, nsBuf []byte, tok *xmltext.Token) (nsScope, []byte, error) {
 	scope := nsScope{}
 	for _, attr := range tok.Attrs {
 		if isDefaultNamespaceDecl(attr.Name) {
-			value, err := dec.namespaceValueString(attr.Value, attr.ValueNeeds)
-			if err != nil {
-				return nsScope{}, err
+			var value string
+			if attr.ValueNeeds {
+				var err error
+				nsBuf, value, err = decodeNamespaceValueString(dec, nsBuf, attr.Value)
+				if err != nil {
+					return nsScope{}, nsBuf, err
+				}
+			} else {
+				nsBuf, value = appendNamespaceValue(nsBuf, attr.Value)
 			}
 			scope.defaultNS = value
 			scope.defaultSet = true
+			scope.decls = append(scope.decls, NamespaceDecl{Prefix: "", URI: value})
 			continue
 		}
 		if local, ok := prefixedNamespaceDecl(attr.Name); ok {
 			if bytes.Equal(local, xmlBytes) || bytes.Equal(local, xmlnsBytes) {
 				continue
 			}
-			value, err := dec.namespaceValueString(attr.Value, attr.ValueNeeds)
-			if err != nil {
-				return nsScope{}, err
+			var value string
+			if attr.ValueNeeds {
+				var err error
+				nsBuf, value, err = decodeNamespaceValueString(dec, nsBuf, attr.Value)
+				if err != nil {
+					return nsScope{}, nsBuf, err
+				}
+			} else {
+				nsBuf, value = appendNamespaceValue(nsBuf, attr.Value)
 			}
 			if scope.prefixes == nil {
 				scope.prefixes = make(map[string]string, 1)
 			}
-			scope.prefixes[string(local)] = value
+			prefix := string(local)
+			scope.prefixes[prefix] = value
+			scope.decls = append(scope.decls, NamespaceDecl{Prefix: prefix, URI: value})
 		}
 	}
-	return scope, nil
+	return scope, nsBuf, nil
 }
 
 func resolveAttrName(dec *xmltext.Decoder, ns *nsStack, name []byte, depth, line, column int) (string, []byte, error) {

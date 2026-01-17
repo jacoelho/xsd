@@ -6,12 +6,11 @@ import (
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
 )
 
 type attributeIndex struct {
 	mapValues map[types.QName]string
-	attrs     []xsdxml.Attr
+	attrs     []streamAttr
 }
 
 const attributeMapThreshold = 8
@@ -47,7 +46,7 @@ func (s declaredAttrSet) contains(name types.QName) bool {
 	return slices.Contains(s.list, name)
 }
 
-func newAttributeIndex(attrs []xsdxml.Attr) attributeIndex {
+func newAttributeIndex(attrs []streamAttr) attributeIndex {
 	if len(attrs) > attributeMapThreshold {
 		values := make(map[types.QName]string, len(attrs))
 		for _, attr := range attrs {
@@ -164,7 +163,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 	return violations
 }
 
-func (r *streamRun) checkWildcardAttributeStream(xmlAttr xsdxml.Attr, anyAttr *types.AnyAttribute, scopeDepth int) []errors.Validation {
+func (r *streamRun) checkWildcardAttributeStream(xmlAttr streamAttr, anyAttr *types.AnyAttribute, scopeDepth int) []errors.Validation {
 	if anyAttr.ProcessContents == types.Skip {
 		return nil
 	}

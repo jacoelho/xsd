@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 func TestCheckFixedValueDecimal(t *testing.T) {
@@ -218,7 +218,7 @@ func TestElementHelpers(t *testing.T) {
 
 func TestStreamIdentityHelpers(t *testing.T) {
 	xmlStr := `<root xmlns:ex="urn:ex" ex:attr="v"></root>`
-	dec, err := xsdxml.NewStreamDecoder(strings.NewReader(xmlStr))
+	dec, err := xmlstream.NewStringReader(strings.NewReader(xmlStr))
 	if err != nil {
 		t.Fatalf("NewStreamDecoder error = %v", err)
 	}
