@@ -13,9 +13,9 @@ type ParticleAdapter struct {
 	Element           *CompiledElement
 	Wildcard          *types.AnyElement
 	Children          []*ParticleAdapter
-	Kind              ParticleKind
 	MinOccurs         types.Occurs
 	MaxOccurs         types.Occurs
+	Kind              ParticleKind
 	GroupKind         types.GroupKind
 	AllowSubstitution bool
 }

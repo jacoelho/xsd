@@ -33,10 +33,10 @@ const (
 type AnyElement struct {
 	TargetNamespace NamespaceURI
 	NamespaceList   []NamespaceURI
-	Namespace       NamespaceConstraint
-	ProcessContents ProcessContents
 	MinOccurs       Occurs
 	MaxOccurs       Occurs
+	Namespace       NamespaceConstraint
+	ProcessContents ProcessContents
 }
 
 // MinOcc implements Particle interface

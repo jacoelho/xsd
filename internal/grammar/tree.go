@@ -14,9 +14,9 @@ type node interface {
 type leafNode struct {
 	particle types.Particle
 	first    *bitset
-	pos      int
 	min      types.Occurs
 	max      types.Occurs
+	pos      int
 	size     int
 }
 

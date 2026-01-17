@@ -61,13 +61,13 @@ type streamFrame struct {
 	qname              types.QName
 	fieldCaptures      []fieldCapture
 	textBuf            []byte
+	minOccurs          types.Occurs
 	listStream         listStreamState
+	id                 uint64
 	textColumn         int
 	textLine           int
 	startColumn        int
 	startLine          int
-	id                 uint64
-	minOccurs          types.Occurs
 	scopeDepth         int
 	contentKind        streamContentKind
 	hasChildElements   bool
