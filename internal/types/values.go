@@ -961,7 +961,9 @@ func ParseFloat(lexical string) (float32, error) {
 	}
 
 	switch lexical {
-	case "INF", "+INF":
+	case "+INF":
+		return 0, fmt.Errorf("invalid float: %s", lexical)
+	case "INF":
 		return float32(math.Inf(1)), nil
 	case "-INF":
 		return float32(math.Inf(-1)), nil
@@ -985,7 +987,9 @@ func ParseDouble(lexical string) (float64, error) {
 	}
 
 	switch lexical {
-	case "INF", "+INF":
+	case "+INF":
+		return 0, fmt.Errorf("invalid double: %s", lexical)
+	case "INF":
 		return math.Inf(1), nil
 	case "-INF":
 		return math.Inf(-1), nil
@@ -1004,8 +1008,20 @@ func ParseDouble(lexical string) (float64, error) {
 // Supports various ISO 8601 formats with and without timezone
 func ParseDateTime(lexical string) (time.Time, error) {
 	lexical = strings.TrimSpace(lexical)
-	if lexical == "" {
-		return time.Time{}, fmt.Errorf("invalid dateTime: empty string")
+	if err := validateYearPrefix(lexical, "dateTime"); err != nil {
+		return time.Time{}, err
+	}
+
+	main, tz := splitTimezone(lexical)
+	timeIndex := strings.IndexByte(main, 'T')
+	if timeIndex == -1 {
+		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
+	}
+	timePart := main[timeIndex+1:]
+	needsDayOffset := is24HourZero(timePart)
+	if needsDayOffset {
+		main = main[:timeIndex+1] + "00:00:00"
+		lexical = main + tz
 	}
 
 	// try various ISO 8601 formats
@@ -1026,6 +1042,9 @@ func ParseDateTime(lexical string) (time.Time, error) {
 
 	for _, format := range formats {
 		if t, err := time.Parse(format, lexical); err == nil {
+			if needsDayOffset {
+				t = t.Add(24 * time.Hour)
+			}
 			return t, nil
 		}
 	}

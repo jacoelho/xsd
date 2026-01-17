@@ -17,12 +17,65 @@ func (n dateTimeNormalizer) Normalize(lexical string, typ Type) (string, error) 
 	return strings.TrimSpace(normalized), nil
 }
 
+func validateYearPrefix(lexical, kind string) error {
+	if lexical == "" {
+		return fmt.Errorf("invalid %s: empty string", kind)
+	}
+	if lexical[0] == '+' {
+		return fmt.Errorf("invalid %s: leading '+' is not allowed", kind)
+	}
+	if lexical[0] == '-' {
+		return fmt.Errorf("invalid %s: negative year is not supported", kind)
+	}
+	if len(lexical) < 4 {
+		return fmt.Errorf("invalid %s: year must have 4 digits", kind)
+	}
+	for i := 0; i < 4; i++ {
+		ch := lexical[i]
+		if ch < '0' || ch > '9' {
+			return fmt.Errorf("invalid %s: year must have 4 digits", kind)
+		}
+	}
+	if lexical[:4] == "0000" {
+		return fmt.Errorf("invalid %s: year 0000 is not allowed", kind)
+	}
+	if len(lexical) > 4 {
+		ch := lexical[4]
+		if ch >= '0' && ch <= '9' {
+			return fmt.Errorf("invalid %s: year must have 4 digits", kind)
+		}
+	}
+	return nil
+}
+
+func is24HourZero(timePart string) bool {
+	const prefix = "24:00:00"
+	if !strings.HasPrefix(timePart, prefix) {
+		return false
+	}
+	if len(timePart) == len(prefix) {
+		return true
+	}
+	if timePart[len(prefix)] != '.' || len(timePart) == len(prefix)+1 {
+		return false
+	}
+	if len(timePart)-len(prefix)-1 > 9 {
+		return false
+	}
+	for i := len(prefix) + 1; i < len(timePart); i++ {
+		if timePart[i] != '0' {
+			return false
+		}
+	}
+	return true
+}
+
 // ParseDate parses a date string into time.Time (date component only)
 // Format: YYYY-MM-DD with optional timezone
 func ParseDate(lexical string) (time.Time, error) {
 	lexical = strings.TrimSpace(lexical)
-	if lexical == "" {
-		return time.Time{}, fmt.Errorf("invalid date: empty string")
+	if err := validateYearPrefix(lexical, "date"); err != nil {
+		return time.Time{}, err
 	}
 
 	formats := []string{
@@ -48,6 +101,11 @@ func ParseTime(lexical string) (time.Time, error) {
 	if lexical == "" {
 		return time.Time{}, fmt.Errorf("invalid time: empty string")
 	}
+	main, tz := splitTimezone(lexical)
+	needsDayOffset := is24HourZero(main)
+	if needsDayOffset {
+		lexical = "00:00:00" + tz
+	}
 
 	// use a reference date (2000-01-01) for time-only parsing
 	formats := []string{
@@ -65,6 +123,9 @@ func ParseTime(lexical string) (time.Time, error) {
 	for _, format := range formats {
 		fullLexical := "2000-01-01T" + lexical
 		if t, err := time.Parse(format, fullLexical); err == nil {
+			if needsDayOffset {
+				t = t.Add(24 * time.Hour)
+			}
 			return t, nil
 		}
 	}
@@ -76,8 +137,8 @@ func ParseTime(lexical string) (time.Time, error) {
 // Format: YYYY with optional timezone
 func ParseGYear(lexical string) (time.Time, error) {
 	lexical = strings.TrimSpace(lexical)
-	if lexical == "" {
-		return time.Time{}, fmt.Errorf("invalid gYear: empty string")
+	if err := validateYearPrefix(lexical, "gYear"); err != nil {
+		return time.Time{}, err
 	}
 
 	formats := []string{
@@ -100,8 +161,8 @@ func ParseGYear(lexical string) (time.Time, error) {
 // Format: YYYY-MM with optional timezone
 func ParseGYearMonth(lexical string) (time.Time, error) {
 	lexical = strings.TrimSpace(lexical)
-	if lexical == "" {
-		return time.Time{}, fmt.Errorf("invalid gYearMonth: empty string")
+	if err := validateYearPrefix(lexical, "gYearMonth"); err != nil {
+		return time.Time{}, err
 	}
 
 	formats := []string{

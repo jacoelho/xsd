@@ -585,11 +585,12 @@ func validateDateTime(value string) error {
 		return fmt.Errorf("invalid dateTime format: %s", value)
 	}
 
+	timePart := main[11:]
 	year, month, day, ok := parseDateParts(main[:10])
 	if !ok {
 		return fmt.Errorf("invalid dateTime format: %s", value)
 	}
-	hour, minute, second, fractionLength, ok := parseTimeParts(main[11:])
+	hour, minute, second, fractionLength, ok := parseTimeParts(timePart)
 	if !ok {
 		return fmt.Errorf("invalid dateTime format: %s", value)
 	}
@@ -600,7 +601,11 @@ func validateDateTime(value string) error {
 	if month < 1 || month > 12 {
 		return fmt.Errorf("invalid dateTime: month out of range")
 	}
-	if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 {
+	if hour == 24 {
+		if minute != 0 || second != 0 || !is24HourZero(timePart) {
+			return fmt.Errorf("invalid dateTime: time out of range")
+		}
+	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 {
 		return fmt.Errorf("invalid dateTime: time out of range")
 	}
 	if fractionLength > 9 {
@@ -658,7 +663,11 @@ func validateTime(value string) error {
 		return fmt.Errorf("invalid time format: %s", value)
 	}
 
-	if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 {
+	if hour == 24 {
+		if minute != 0 || second != 0 || !is24HourZero(main) {
+			return fmt.Errorf("invalid time: time out of range")
+		}
+	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 {
 		return fmt.Errorf("invalid time: time out of range")
 	}
 	if fractionLength > 9 {
