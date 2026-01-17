@@ -17,6 +17,7 @@ func TestValidateNumericRanges(t *testing.T) {
 		{name: "byte overflow", value: "128", valid: false, fn: validateByte},
 		{name: "nonNegative zero", value: "0", valid: true, fn: validateNonNegativeInteger},
 		{name: "nonNegative -0", value: "-0", valid: true, fn: validateNonNegativeInteger},
+		{name: "nonNegative -00", value: "-00", valid: true, fn: validateNonNegativeInteger},
 		{name: "nonNegative neg", value: "-1", valid: false, fn: validateNonNegativeInteger},
 		{name: "unsignedLong max", value: "18446744073709551615", valid: true, fn: validateUnsignedLong},
 		{name: "unsignedLong overflow", value: "18446744073709551616", valid: false, fn: validateUnsignedLong},

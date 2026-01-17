@@ -354,10 +354,10 @@ func (r *streamRun) applyFieldCaptures(frame *streamFrame) {
 			continue
 		}
 		field := match.constraint.constraint.Original.Fields[capture.fieldIndex]
-		raw := strings.TrimSpace(string(frame.textBuf))
+		raw := string(frame.textBuf)
 		normalized := r.normalizeElementValue(raw, field, frame)
 		fieldState.value = normalized
-		fieldState.display = strings.TrimSpace(raw)
+		fieldState.display = raw
 		fieldState.hasValue = true
 	}
 }

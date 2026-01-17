@@ -156,6 +156,41 @@ func TestStreamIdentityConstraints(t *testing.T) {
 	}
 }
 
+func TestStreamIdentityConstraintWhitespacePreserve(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="xs:string" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueItem">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="."/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test"><item> A</item><item>A</item></root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got %v", violations)
+	}
+}
+
 func hasViolationCode(violations []errors.Validation, code errors.ErrorCode) bool {
 	for _, v := range violations {
 		if v.Code == string(code) {
