@@ -139,6 +139,9 @@ func (r *Resolver) resolveSimpleTypeRestriction(qname types.QName, st *types.Sim
 		if baseST.Variety() == types.ListVariety || baseST.Variety() == types.UnionVariety {
 			st.SetVariety(baseST.Variety())
 		}
+		if baseST.Variety() == types.UnionVariety && len(st.MemberTypes) == 0 && len(baseST.MemberTypes) > 0 {
+			st.MemberTypes = append([]types.Type(nil), baseST.MemberTypes...)
+		}
 	}
 	// inherit whiteSpace when this type keeps the default preserve behavior
 	if st.WhiteSpace() == types.WhiteSpacePreserve && base != nil {

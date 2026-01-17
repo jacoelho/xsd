@@ -147,7 +147,7 @@ func matchesUnionMember(derived, base Type, matches func(derived, base Type) boo
 
 func unionMemberTypes(base Type) []Type {
 	baseST, ok := as[*SimpleType](base)
-	if !ok || baseST.Union == nil || len(baseST.MemberTypes) == 0 {
+	if !ok || baseST.Variety() != UnionVariety || len(baseST.MemberTypes) == 0 {
 		return nil
 	}
 

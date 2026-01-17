@@ -54,6 +54,7 @@ func TestIsValidlyDerivedFrom_UnionMemberMatch(t *testing.T) {
 		},
 		MemberTypes: []Type{member},
 	}
+	unionBase.SetVariety(UnionVariety)
 	derived := &SimpleType{
 		QName: QName{
 			Namespace: "http://example.com",
@@ -90,6 +91,7 @@ func TestIsValidlyDerivedFrom_UnionMemberDerived(t *testing.T) {
 		},
 		MemberTypes: []Type{member},
 	}
+	unionBase.SetVariety(UnionVariety)
 
 	if !IsValidlyDerivedFrom(derived, unionBase) {
 		t.Fatal("expected derivation from union member to be valid")
@@ -106,6 +108,7 @@ func TestIsValidlyDerivedFrom_UnionNoMembers(t *testing.T) {
 			MemberTypes: nil,
 		},
 	}
+	unionBase.SetVariety(UnionVariety)
 	derived := &SimpleType{
 		QName: QName{
 			Namespace: "http://example.com",
@@ -115,5 +118,33 @@ func TestIsValidlyDerivedFrom_UnionNoMembers(t *testing.T) {
 
 	if IsValidlyDerivedFrom(derived, unionBase) {
 		t.Fatal("expected union without members to be invalid")
+	}
+}
+
+func TestIsValidlyDerivedFrom_UnionMembersWithoutUnionDef(t *testing.T) {
+	member := &SimpleType{
+		QName: QName{
+			Namespace: "http://example.com",
+			Local:     "Member",
+		},
+	}
+	unionBase := &SimpleType{
+		QName: QName{
+			Namespace: "http://example.com",
+			Local:     "UnionBase",
+		},
+		MemberTypes: []Type{member},
+	}
+	unionBase.SetVariety(UnionVariety)
+
+	derived := &SimpleType{
+		QName: QName{
+			Namespace: "http://example.com",
+			Local:     "Member",
+		},
+	}
+
+	if !IsValidlyDerivedFrom(derived, unionBase) {
+		t.Fatal("expected union member QName to be valid derivation without union definition")
 	}
 }

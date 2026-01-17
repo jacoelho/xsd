@@ -231,3 +231,83 @@ func TestResolveW3CInlineUnionAnonymousTypes(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveUnionRestrictionMemberTypes(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="BaseUnion">
+    <xs:union memberTypes="xs:int xs:boolean"/>
+  </xs:simpleType>
+  <xs:simpleType name="RestrictedUnion">
+    <xs:restriction base="BaseUnion">
+      <xs:pattern value="a+"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+
+	resolver := NewResolver(schema)
+	if err := resolver.Resolve(); err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+
+	base, ok := schema.TypeDefs[types.QName{Local: "BaseUnion"}].(*types.SimpleType)
+	if !ok || base == nil {
+		t.Fatalf("expected BaseUnion simple type")
+	}
+	if base.Variety() != types.UnionVariety {
+		t.Fatalf("expected BaseUnion to be a union type")
+	}
+	if len(base.MemberTypes) != 2 {
+		t.Fatalf("expected BaseUnion to have 2 member types, got %d", len(base.MemberTypes))
+	}
+
+	restricted, ok := schema.TypeDefs[types.QName{Local: "RestrictedUnion"}].(*types.SimpleType)
+	if !ok || restricted == nil {
+		t.Fatalf("expected RestrictedUnion simple type")
+	}
+	if restricted.Variety() != types.UnionVariety {
+		t.Fatalf("expected RestrictedUnion to be a union type")
+	}
+	if len(restricted.MemberTypes) != len(base.MemberTypes) {
+		t.Fatalf("expected RestrictedUnion to inherit %d member types, got %d", len(base.MemberTypes), len(restricted.MemberTypes))
+	}
+	for i, member := range restricted.MemberTypes {
+		if member == nil || member.Name() != base.MemberTypes[i].Name() {
+			t.Fatalf("member type %d = %v, want %v", i, member, base.MemberTypes[i].Name())
+		}
+	}
+}
+
+func TestValidateUnionRestrictionDefaultValue(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="BaseUnion">
+    <xs:union memberTypes="xs:int xs:boolean"/>
+  </xs:simpleType>
+  <xs:simpleType name="RestrictedUnion">
+    <xs:restriction base="BaseUnion">
+      <xs:enumeration value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="RestrictedUnion" default="1"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+
+	resolver := NewResolver(schema)
+	if err := resolver.Resolve(); err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+
+	if errs := ValidateReferences(schema); len(errs) > 0 {
+		t.Fatalf("validate references: %v", errs[0])
+	}
+}
