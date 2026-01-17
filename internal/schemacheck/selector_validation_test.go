@@ -137,8 +137,8 @@ func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 	complexType.SetContent(&types.ElementContent{
 		Particle: &types.ModelGroup{
 			Kind:      types.Sequence,
-			MinOccurs: 1,
-			MaxOccurs: 1,
+			MinOccurs: types.OccursFromInt(1),
+			MaxOccurs: types.OccursFromInt(1),
 		},
 	})
 	complexTypeQName := types.QName{

@@ -234,9 +234,9 @@ func TestIntersectAnyElement_Table(t *testing.T) {
 		w2             *AnyElement
 		name           string
 		wantList       []NamespaceURI
+		wantMin        Occurs
+		wantMax        Occurs
 		wantConstraint NamespaceConstraint
-		wantMin        int
-		wantMax        int
 		wantProcess    ProcessContents
 		checkMin       bool
 		checkMax       bool
@@ -247,17 +247,17 @@ func TestIntersectAnyElement_Table(t *testing.T) {
 			name: "min_max_uses_restrictive_values",
 			w1: &AnyElement{
 				Namespace: NSCAny,
-				MinOccurs: 1,
-				MaxOccurs: 5,
+				MinOccurs: OccursFromInt(1),
+				MaxOccurs: OccursFromInt(5),
 			},
 			w2: &AnyElement{
 				Namespace: NSCAny,
-				MinOccurs: 2,
-				MaxOccurs: 3,
+				MinOccurs: OccursFromInt(2),
+				MaxOccurs: OccursFromInt(3),
 			},
 			wantConstraint: NSCAny,
-			wantMin:        2,
-			wantMax:        3,
+			wantMin:        OccursFromInt(2),
+			wantMax:        OccursFromInt(3),
 			checkMin:       true,
 			checkMax:       true,
 		},
@@ -265,17 +265,17 @@ func TestIntersectAnyElement_Table(t *testing.T) {
 			name: "unbounded_max_occurs",
 			w1: &AnyElement{
 				Namespace: NSCAny,
-				MinOccurs: 0,
-				MaxOccurs: -1,
+				MinOccurs: OccursFromInt(0),
+				MaxOccurs: OccursUnbounded,
 			},
 			w2: &AnyElement{
 				Namespace: NSCAny,
-				MinOccurs: 1,
-				MaxOccurs: 4,
+				MinOccurs: OccursFromInt(1),
+				MaxOccurs: OccursFromInt(4),
 			},
 			wantConstraint: NSCAny,
-			wantMin:        1,
-			wantMax:        4,
+			wantMin:        OccursFromInt(1),
+			wantMax:        OccursFromInt(4),
 			checkMin:       true,
 			checkMax:       true,
 		},
@@ -337,11 +337,11 @@ func TestIntersectAnyElement_Table(t *testing.T) {
 			if tt.wantList != nil {
 				assertNamespaceList(t, got.NamespaceList, tt.wantList)
 			}
-			if tt.checkMin && got.MinOccurs != tt.wantMin {
-				t.Fatalf("intersection minOccurs = %d, want %d", got.MinOccurs, tt.wantMin)
+			if tt.checkMin && !got.MinOccurs.Equal(tt.wantMin) {
+				t.Fatalf("intersection minOccurs = %s, want %s", got.MinOccurs, tt.wantMin)
 			}
-			if tt.checkMax && got.MaxOccurs != tt.wantMax {
-				t.Fatalf("intersection maxOccurs = %d, want %d", got.MaxOccurs, tt.wantMax)
+			if tt.checkMax && !got.MaxOccurs.Equal(tt.wantMax) {
+				t.Fatalf("intersection maxOccurs = %s, want %s", got.MaxOccurs, tt.wantMax)
 			}
 			if tt.checkProcess && got.ProcessContents != tt.wantProcess {
 				t.Fatalf("intersection processContents = %v, want %v", got.ProcessContents, tt.wantProcess)

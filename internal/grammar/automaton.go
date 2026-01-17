@@ -9,8 +9,8 @@ type Automaton struct {
 	groupCounters   map[int]*GroupCounterInfo
 	targetNamespace string
 	counting        []*Counter
-	symbolMin       []int
-	symbolMax       []int
+	symbolMin       []types.Occurs
+	symbolMax       []types.Occurs
 	symbols         []Symbol
 	accepting       []bool
 	transitions     []int
@@ -37,11 +37,11 @@ func (a *Automaton) setTransition(state, symbolIndex, next int) {
 type GroupCounterInfo struct {
 	LastPositions     []int
 	FirstPositions    []int
-	Min               int
-	Max               int
+	Min               types.Occurs
+	Max               types.Occurs
+	FirstPosMaxOccurs types.Occurs
 	GroupKind         types.GroupKind
 	GroupID           int
-	FirstPosMaxOccurs int
 	UnitSize          int
 }
 
@@ -74,11 +74,11 @@ const (
 type Counter struct {
 	GroupCompletionSymbols []int
 	GroupStartSymbols      []int
-	Min                    int
-	Max                    int
+	Min                    types.Occurs
+	Max                    types.Occurs
+	FirstPosMaxOccurs      types.Occurs
 	SymbolIndex            int
 	GroupID                int
-	FirstPosMaxOccurs      int
 	UnitSize               int
 	IsGroupCounter         bool
 }
@@ -87,9 +87,9 @@ type Counter struct {
 type Position struct {
 	Particle          types.Particle
 	Element           *CompiledElement
+	Min               types.Occurs
+	Max               types.Occurs
 	Index             int
-	Min               int
-	Max               int
 	AllowSubstitution bool
 }
 

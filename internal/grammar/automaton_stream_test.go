@@ -78,8 +78,8 @@ func TestAutomatonStreamValidatorWildcardMatch(t *testing.T) {
 	}
 	particle := &ParticleAdapter{
 		Kind:      ParticleWildcard,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Wildcard:  wildcard,
 		Original:  wildcard,
 	}
@@ -112,7 +112,7 @@ func TestAllGroupStreamValidator(t *testing.T) {
 		testAllGroupElement{qname: types.QName{Local: "b"}, optional: true},
 		testAllGroupElement{qname: types.QName{Local: "c"}},
 	}
-	validator := NewAllGroupValidator(elements, false, 1)
+	validator := NewAllGroupValidator(elements, false, types.OccursFromInt(1))
 
 	tests := []struct {
 		name     string

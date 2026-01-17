@@ -55,14 +55,14 @@ func TestComponentConstructorsAndCopy(t *testing.T) {
 	elem := &ElementDecl{
 		Name:            QName{Namespace: "urn:src", Local: "e"},
 		Type:            GetBuiltin(TypeNameString),
-		MinOccurs:       0,
-		MaxOccurs:       1,
+		MinOccurs:       OccursFromInt(0),
+		MaxOccurs:       OccursFromInt(1),
 		SourceNamespace: "urn:src",
 	}
 	if _, err := NewElementDeclFromParsed(elem); err != nil {
 		t.Fatalf("unexpected element error: %v", err)
 	}
-	if elem.MinOcc() != 0 || elem.MaxOcc() != 1 {
+	if !elem.MinOcc().IsZero() || !elem.MaxOcc().IsOne() {
 		t.Fatalf("unexpected element occurrence bounds")
 	}
 	if elem.ComponentName() != elem.Name {
@@ -198,14 +198,14 @@ func TestCopyTypeAndParticles(t *testing.T) {
 	}
 
 	elem := &ElementDecl{Name: QName{Namespace: "", Local: "e"}}
-	anyElem := &AnyElement{NamespaceList: []NamespaceURI{"##any"}, MinOccurs: 1, MaxOccurs: 1}
+	anyElem := &AnyElement{NamespaceList: []NamespaceURI{"##any"}, MinOccurs: OccursFromInt(1), MaxOccurs: OccursFromInt(1)}
 	group := &ModelGroup{
 		Kind:      Sequence,
 		Particles: []Particle{elem, anyElem},
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: OccursFromInt(1),
+		MaxOccurs: OccursFromInt(1),
 	}
-	groupRef := &GroupRef{RefQName: QName{Namespace: "", Local: "g"}, MinOccurs: 1, MaxOccurs: 1}
+	groupRef := &GroupRef{RefQName: QName{Namespace: "", Local: "g"}, MinOccurs: OccursFromInt(1), MaxOccurs: OccursFromInt(1)}
 
 	if copiedElem := copyParticle(elem, opts); copiedElem.(*ElementDecl).Name.Namespace != "urn:dst" {
 		t.Fatalf("expected element particle remap")

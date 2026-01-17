@@ -121,8 +121,8 @@ func TestSimpleAndComplexContentStructure(t *testing.T) {
 	baseCT.SetContent(&types.ElementContent{
 		Particle: &types.ModelGroup{
 			Kind:      types.Sequence,
-			MinOccurs: 1,
-			MaxOccurs: 1,
+			MinOccurs: types.OccursFromInt(1),
+			MaxOccurs: types.OccursFromInt(1),
 		},
 	})
 	schema.TypeDefs[baseCT.QName] = baseCT
@@ -206,15 +206,15 @@ func TestFieldResolutionHelpers(t *testing.T) {
 	grand := &types.ElementDecl{
 		Name:      types.QName{Local: "grand"},
 		Type:      stringType,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 	childType := types.NewComplexType(types.QName{Namespace: "urn:field", Local: "childType"}, "urn:field")
 	childType.SetContent(&types.ElementContent{
 		Particle: &types.ModelGroup{
 			Kind:      types.Sequence,
-			MinOccurs: 1,
-			MaxOccurs: 1,
+			MinOccurs: types.OccursFromInt(1),
+			MaxOccurs: types.OccursFromInt(1),
 			Particles: []types.Particle{grand},
 		},
 	})
@@ -222,16 +222,16 @@ func TestFieldResolutionHelpers(t *testing.T) {
 	child := &types.ElementDecl{
 		Name:      types.QName{Local: "child"},
 		Type:      childType,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 
 	rootType := types.NewComplexType(types.QName{Namespace: "urn:field", Local: "rootType"}, "urn:field")
 	rootType.SetContent(&types.ElementContent{
 		Particle: &types.ModelGroup{
 			Kind:      types.Sequence,
-			MinOccurs: 1,
-			MaxOccurs: 1,
+			MinOccurs: types.OccursFromInt(1),
+			MaxOccurs: types.OccursFromInt(1),
 			Particles: []types.Particle{child},
 		},
 	})
@@ -247,8 +247,8 @@ func TestFieldResolutionHelpers(t *testing.T) {
 	root := &types.ElementDecl{
 		Name:      types.QName{Local: "root"},
 		Type:      rootType,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 
 	if got, err := findElementTypeDescendant(schema, root, "grand"); err != nil || got == nil {
@@ -272,26 +272,26 @@ func TestParticleHelpers(t *testing.T) {
 	elemA := &types.ElementDecl{
 		Name:      types.QName{Local: "a"},
 		Type:      stringType,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 	elemB := &types.ElementDecl{
 		Name:      types.QName{Local: "b"},
 		Type:      stringType,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 
 	nested := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemB},
 	}
 	seq := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemA, nested},
 	}
 
@@ -305,20 +305,20 @@ func TestParticleHelpers(t *testing.T) {
 	}
 
 	minOcc, maxOcc := calculateEffectiveOccurrence(seq)
-	if minOcc != 2 || maxOcc != 2 {
-		t.Fatalf("unexpected effective occurrence: %d..%d", minOcc, maxOcc)
+	if !minOcc.EqualInt(2) || !maxOcc.EqualInt(2) {
+		t.Fatalf("unexpected effective occurrence: %s..%s", minOcc, maxOcc)
 	}
 
 	choice := &types.ModelGroup{
 		Kind:      types.Choice,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemA, elemB},
 	}
 	if err := validateParticleRestrictionWithKindChange(schema, choice, &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemA},
 	}); err != nil {
 		t.Fatalf("validateParticleRestrictionWithKindChange error = %v", err)
@@ -326,19 +326,19 @@ func TestParticleHelpers(t *testing.T) {
 
 	anyElem := &types.AnyElement{
 		Namespace:       types.NSCAny,
-		MinOccurs:       1,
-		MaxOccurs:       1,
+		MinOccurs:       types.OccursFromInt(1),
+		MaxOccurs:       types.OccursFromInt(1),
 		ProcessContents: types.Strict,
 	}
 	if err := validateParticleRestrictionWithKindChange(schema, &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{anyElem},
 	}, &types.ModelGroup{
 		Kind:      types.Choice,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemA},
 	}); err != nil {
 		t.Fatalf("validateParticleRestrictionWithKindChange wildcard error = %v", err)
@@ -350,10 +350,10 @@ func TestParticleHelpers(t *testing.T) {
 
 	if !isEffectivelyOptional(&types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{
-			&types.ElementDecl{Name: types.QName{Local: "opt"}, MinOccurs: 0, MaxOccurs: 1},
+			&types.ElementDecl{Name: types.QName{Local: "opt"}, MinOccurs: types.OccursFromInt(0), MaxOccurs: types.OccursFromInt(1)},
 		},
 	}) {
 		t.Fatalf("expected group to be effectively optional")
@@ -361,10 +361,10 @@ func TestParticleHelpers(t *testing.T) {
 
 	if !isEmptiableParticle(&types.ModelGroup{
 		Kind:      types.Choice,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{
-			&types.ElementDecl{Name: types.QName{Local: "opt"}, MinOccurs: 0, MaxOccurs: 1},
+			&types.ElementDecl{Name: types.QName{Local: "opt"}, MinOccurs: types.OccursFromInt(0), MaxOccurs: types.OccursFromInt(1)},
 		},
 	}) {
 		t.Fatalf("expected choice with optional child to be emptiable")
@@ -426,8 +426,8 @@ func TestAttributeGroupStructure(t *testing.T) {
 func TestGroupStructure(t *testing.T) {
 	good := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 	if err := validateGroupStructure(types.QName{Local: "g"}, good); err != nil {
 		t.Fatalf("validateGroupStructure error = %v", err)
@@ -435,8 +435,8 @@ func TestGroupStructure(t *testing.T) {
 
 	bad := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 0,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(0),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 	if err := validateGroupStructure(types.QName{Local: "g"}, bad); err == nil {
 		t.Fatalf("expected invalid group occurrence error")
@@ -497,26 +497,26 @@ func TestParticleRestrictionPaths(t *testing.T) {
 	elemA := &types.ElementDecl{
 		Name:      types.QName{Namespace: "urn:particles", Local: "a"},
 		Type:      stringType,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 	elemB := &types.ElementDecl{
 		Name:      types.QName{Namespace: "urn:particles", Local: "b"},
 		Type:      stringType,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 
 	baseSeq := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemA, elemB},
 	}
 	restrSeq := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemA},
 	}
 	if err := validateParticleRestriction(schema, baseSeq, restrSeq); err == nil {
@@ -525,14 +525,14 @@ func TestParticleRestrictionPaths(t *testing.T) {
 
 	baseAll := &types.ModelGroup{
 		Kind:      types.AllGroup,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemA, elemB},
 	}
 	restrAll := &types.ModelGroup{
 		Kind:      types.AllGroup,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemA},
 	}
 	if err := validateParticleRestriction(schema, baseAll, restrAll); err == nil {
@@ -541,14 +541,14 @@ func TestParticleRestrictionPaths(t *testing.T) {
 
 	baseChoiceWildcard := &types.ModelGroup{
 		Kind:      types.Choice,
-		MinOccurs: 1,
-		MaxOccurs: 2,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(2),
 		Particles: []types.Particle{
 			&types.AnyElement{
 				Namespace:       types.NSCAny,
 				ProcessContents: types.Strict,
-				MinOccurs:       1,
-				MaxOccurs:       1,
+				MinOccurs:       types.OccursFromInt(1),
+				MaxOccurs:       types.OccursFromInt(1),
 				TargetNamespace: "urn:particles",
 			},
 			elemA,
@@ -557,8 +557,8 @@ func TestParticleRestrictionPaths(t *testing.T) {
 	restrElem := &types.ElementDecl{
 		Name:      elemA.Name,
 		Type:      elemA.Type,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 	if err := validateParticlePairRestriction(schema, baseChoiceWildcard, restrElem); err != nil {
 		t.Fatalf("validateParticlePairRestriction error = %v", err)
@@ -566,8 +566,8 @@ func TestParticleRestrictionPaths(t *testing.T) {
 
 	baseChoiceElement := &types.ModelGroup{
 		Kind:      types.Choice,
-		MinOccurs: 1,
-		MaxOccurs: 2,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(2),
 		Particles: []types.Particle{elemA, elemB},
 	}
 	if err := validateParticlePairRestriction(schema, baseChoiceElement, restrElem); err != nil {
@@ -577,15 +577,15 @@ func TestParticleRestrictionPaths(t *testing.T) {
 	baseAny := &types.AnyElement{
 		Namespace:       types.NSCAny,
 		ProcessContents: types.Strict,
-		MinOccurs:       1,
-		MaxOccurs:       2,
+		MinOccurs:       types.OccursFromInt(1),
+		MaxOccurs:       types.OccursFromInt(2),
 		TargetNamespace: "urn:particles",
 	}
 	restrAny := &types.AnyElement{
 		Namespace:       types.NSCTargetNamespace,
 		ProcessContents: types.Strict,
-		MinOccurs:       1,
-		MaxOccurs:       1,
+		MinOccurs:       types.OccursFromInt(1),
+		MaxOccurs:       types.OccursFromInt(1),
 		TargetNamespace: "urn:particles",
 	}
 	if err := validateParticlePairRestriction(schema, baseAny, restrAny); err != nil {
@@ -594,8 +594,8 @@ func TestParticleRestrictionPaths(t *testing.T) {
 
 	restrMG := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemA, elemB},
 	}
 	baseAny.Namespace = types.NSCList
@@ -609,15 +609,15 @@ func TestSchemaHelpers(t *testing.T) {
 	schema := parser.NewSchema()
 	schema.TargetNamespace = "urn:schema"
 
-	elemA := &types.ElementDecl{Name: types.QName{Local: "a"}, MinOccurs: 1, MaxOccurs: 1}
-	elemB := &types.ElementDecl{Name: types.QName{Local: "b"}, MinOccurs: 1, MaxOccurs: 1}
+	elemA := &types.ElementDecl{Name: types.QName{Local: "a"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
+	elemB := &types.ElementDecl{Name: types.QName{Local: "b"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
 
 	baseCT := types.NewComplexType(types.QName{Namespace: "urn:schema", Local: "base"}, "urn:schema")
 	baseCT.SetContent(&types.ElementContent{
 		Particle: &types.ModelGroup{
 			Kind:      types.Sequence,
-			MinOccurs: 1,
-			MaxOccurs: 1,
+			MinOccurs: types.OccursFromInt(1),
+			MaxOccurs: types.OccursFromInt(1),
 			Particles: []types.Particle{elemA},
 		},
 	})
@@ -627,7 +627,7 @@ func TestSchemaHelpers(t *testing.T) {
 	derivedCT.SetContent(&types.ComplexContent{
 		Extension: &types.Extension{
 			Base:     baseCT.QName,
-			Particle: &types.ModelGroup{Kind: types.Sequence, MinOccurs: 1, MaxOccurs: 1, Particles: []types.Particle{elemB}},
+			Particle: &types.ModelGroup{Kind: types.Sequence, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1), Particles: []types.Particle{elemB}},
 		},
 	})
 	schema.TypeDefs[baseCT.QName] = baseCT
@@ -722,16 +722,16 @@ func TestPublicWrappers(t *testing.T) {
 	childElem := &types.ElementDecl{
 		Name:      types.QName{Local: "child"},
 		Type:      childType,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 
 	rootType := types.NewComplexType(types.QName{Namespace: "urn:wrap", Local: "rootType"}, "urn:wrap")
 	rootType.SetContent(&types.ElementContent{
 		Particle: &types.ModelGroup{
 			Kind:      types.Sequence,
-			MinOccurs: 1,
-			MaxOccurs: 1,
+			MinOccurs: types.OccursFromInt(1),
+			MaxOccurs: types.OccursFromInt(1),
 			Particles: []types.Particle{childElem},
 		},
 	})
@@ -767,12 +767,12 @@ func TestPublicWrappers(t *testing.T) {
 }
 
 func TestTraversalHelpers(t *testing.T) {
-	elem := &types.ElementDecl{Name: types.QName{Local: "a"}, MinOccurs: 1, MaxOccurs: 1}
-	wild := &types.AnyElement{Namespace: types.NSCAny, MinOccurs: 1, MaxOccurs: 1}
+	elem := &types.ElementDecl{Name: types.QName{Local: "a"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
+	wild := &types.AnyElement{Namespace: types.NSCAny, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
 	group := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elem, wild},
 	}
 	content := &types.ElementContent{Particle: group}
@@ -869,12 +869,12 @@ func TestUPAChoiceOverlap(t *testing.T) {
 	schema := parser.NewSchema()
 	schema.TargetNamespace = "urn:upa"
 
-	elem1 := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: 1, MaxOccurs: 1}
-	elem2 := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: 1, MaxOccurs: 1}
+	elem1 := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
+	elem2 := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
 	choice := &types.ModelGroup{
 		Kind:      types.Choice,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elem1, elem2},
 	}
 	if err := validateUPA(schema, &types.ElementContent{Particle: choice}, schema.TargetNamespace); err == nil {
@@ -886,12 +886,12 @@ func TestUPASequenceOverlap(t *testing.T) {
 	schema := parser.NewSchema()
 	schema.TargetNamespace = "urn:upa"
 
-	elem1 := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: 1, MaxOccurs: 2}
-	elem2 := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: 1, MaxOccurs: 1}
+	elem1 := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(2)}
+	elem2 := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
 	seq := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elem1, elem2},
 	}
 	if err := validateUPA(schema, &types.ElementContent{Particle: seq}, schema.TargetNamespace); err == nil {
@@ -905,15 +905,15 @@ func TestUPAWildcardOverlap(t *testing.T) {
 
 	wild := &types.AnyElement{
 		Namespace:       types.NSCAny,
-		MinOccurs:       1,
-		MaxOccurs:       1,
+		MinOccurs:       types.OccursFromInt(1),
+		MaxOccurs:       types.OccursFromInt(1),
 		TargetNamespace: "urn:upa",
 	}
-	elem := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: 1, MaxOccurs: 1}
+	elem := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
 	choice := &types.ModelGroup{
 		Kind:      types.Choice,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{wild, elem},
 	}
 	if err := validateUPA(schema, &types.ElementContent{Particle: choice}, schema.TargetNamespace); err == nil {
@@ -925,16 +925,16 @@ func TestUPAExtensionOverlap(t *testing.T) {
 	schema := parser.NewSchema()
 	schema.TargetNamespace = "urn:upa"
 
-	baseElem := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: 1, MaxOccurs: 2}
+	baseElem := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(2)}
 	baseCT := types.NewComplexType(types.QName{Namespace: "urn:upa", Local: "base"}, "urn:upa")
 	baseCT.SetContent(&types.ElementContent{Particle: baseElem})
 	schema.TypeDefs[baseCT.QName] = baseCT
 
-	extElem := &types.ElementDecl{Name: baseElem.Name, MinOccurs: 1, MaxOccurs: 1}
+	extElem := &types.ElementDecl{Name: baseElem.Name, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
 	extGroup := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{extElem},
 	}
 	derivedCT := types.NewComplexType(types.QName{Namespace: "urn:upa", Local: "derived"}, "urn:upa")
@@ -953,8 +953,8 @@ func TestWildcardDerivation(t *testing.T) {
 	baseAny := &types.AnyElement{
 		Namespace:       types.NSCAny,
 		ProcessContents: types.Strict,
-		MinOccurs:       1,
-		MaxOccurs:       1,
+		MinOccurs:       types.OccursFromInt(1),
+		MaxOccurs:       types.OccursFromInt(1),
 		TargetNamespace: "urn:wild",
 	}
 	baseCT := types.NewComplexType(types.QName{Namespace: "urn:wild", Local: "base"}, "urn:wild")
@@ -964,8 +964,8 @@ func TestWildcardDerivation(t *testing.T) {
 	derivedAny := &types.AnyElement{
 		Namespace:       types.NSCTargetNamespace,
 		ProcessContents: types.Strict,
-		MinOccurs:       1,
-		MaxOccurs:       1,
+		MinOccurs:       types.OccursFromInt(1),
+		MaxOccurs:       types.OccursFromInt(1),
 		TargetNamespace: "urn:wild",
 	}
 	derivedCT := types.NewComplexType(types.QName{Namespace: "urn:wild", Local: "derived"}, "urn:wild")
@@ -1023,25 +1023,25 @@ func TestUPAHelperFunctions(t *testing.T) {
 
 	elemRepeat := &types.ElementDecl{
 		Name:      types.QName{Namespace: "urn:upa", Local: "a"},
-		MinOccurs: 0,
-		MaxOccurs: 2,
+		MinOccurs: types.OccursFromInt(0),
+		MaxOccurs: types.OccursFromInt(2),
 	}
 	elemSingle := &types.ElementDecl{
 		Name:      types.QName{Namespace: "urn:upa", Local: "a"},
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 
 	seq1 := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemRepeat},
 	}
 	seq2 := &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemSingle},
 	}
 
@@ -1168,13 +1168,13 @@ func TestParticleStructureValidation(t *testing.T) {
 	stringType := types.GetBuiltin(types.TypeName("string"))
 	intType := types.GetBuiltin(types.TypeName("int"))
 
-	elemA := &types.ElementDecl{Name: types.QName{Local: "a"}, Type: stringType, MinOccurs: 1, MaxOccurs: 1}
-	elemB := &types.ElementDecl{Name: types.QName{Local: "a"}, Type: intType, MinOccurs: 1, MaxOccurs: 1}
+	elemA := &types.ElementDecl{Name: types.QName{Local: "a"}, Type: stringType, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
+	elemB := &types.ElementDecl{Name: types.QName{Local: "a"}, Type: intType, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
 
 	allGroup := &types.ModelGroup{
 		Kind:      types.AllGroup,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elemA, elemB},
 	}
 	if err := validateParticleStructure(schema, allGroup); err == nil {
@@ -1265,8 +1265,8 @@ func TestResolveFieldTypeSelf(t *testing.T) {
 	child := &types.ElementDecl{
 		Name:      types.QName{Namespace: "urn:field", Local: "child"},
 		Type:      types.GetBuiltin(types.TypeName("string")),
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 	rootType := types.NewComplexType(types.QName{Namespace: "urn:field", Local: "rootType"}, "urn:field")
 	rootType.SetContent(&types.ElementContent{Particle: child})
@@ -1288,10 +1288,10 @@ func TestComplexContentStructureVariants(t *testing.T) {
 
 	allGroup := &types.ModelGroup{
 		Kind:      types.AllGroup,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{
-			&types.ElementDecl{Name: types.QName{Namespace: "urn:cc", Local: "a"}, MinOccurs: 1, MaxOccurs: 1},
+			&types.ElementDecl{Name: types.QName{Namespace: "urn:cc", Local: "a"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)},
 		},
 	}
 	ccExt := &types.ComplexContent{Extension: &types.Extension{Base: baseCT.QName, Particle: allGroup}}
@@ -1300,13 +1300,13 @@ func TestComplexContentStructureVariants(t *testing.T) {
 	}
 
 	stringType := types.GetBuiltin(types.TypeName("string"))
-	baseElem := &types.ElementDecl{Name: types.QName{Namespace: "urn:cc", Local: "b"}, Type: stringType, MinOccurs: 1, MaxOccurs: 1}
+	baseElem := &types.ElementDecl{Name: types.QName{Namespace: "urn:cc", Local: "b"}, Type: stringType, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
 	baseContent := &types.ElementContent{Particle: baseElem}
 	baseCT2 := types.NewComplexType(types.QName{Namespace: "urn:cc", Local: "base2"}, "urn:cc")
 	baseCT2.SetContent(baseContent)
 	schema.TypeDefs[baseCT2.QName] = baseCT2
 
-	restrElem := &types.ElementDecl{Name: baseElem.Name, Type: baseElem.Type, MinOccurs: 1, MaxOccurs: 1}
+	restrElem := &types.ElementDecl{Name: baseElem.Name, Type: baseElem.Type, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
 	ccRestr := &types.ComplexContent{Restriction: &types.Restriction{Base: baseCT2.QName, Particle: restrElem}}
 	if err := validateComplexContentStructure(schema, ccRestr); err != nil {
 		t.Fatalf("unexpected complexContent restriction error: %v", err)
@@ -1339,16 +1339,16 @@ func TestElementRestrictionValidation(t *testing.T) {
 	base := &types.ElementDecl{
 		Name:      types.QName{Namespace: "urn:elem", Local: "e"},
 		Type:      stringType,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		HasFixed:  true,
 		Fixed:     "fixed",
 	}
 	restr := &types.ElementDecl{
 		Name:      base.Name,
 		Type:      base.Type,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 	if err := validateElementRestriction(base, restr); err == nil {
 		t.Fatalf("expected fixed value restriction error")
@@ -1357,8 +1357,8 @@ func TestElementRestrictionValidation(t *testing.T) {
 	restr2 := &types.ElementDecl{
 		Name:      base.Name,
 		Type:      intType,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 	}
 	if err := validateElementRestriction(&types.ElementDecl{Name: base.Name, Type: stringType}, restr2); err == nil {
 		t.Fatalf("expected type restriction error")

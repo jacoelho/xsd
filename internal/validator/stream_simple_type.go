@@ -2,7 +2,6 @@ package validator
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
@@ -64,6 +63,16 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 		if err := orig.Validate(normalizedValue); err != nil {
 			if policy == errorPolicyReport {
 				return false, []errors.Validation{errors.NewValidation(errors.ErrDatatypeInvalid, err.Error(), r.path.String())}
+			}
+			return false, nil
+		}
+	}
+
+	if isQNameType(st) {
+		if err := r.validateQNameContext(normalizedValue, scopeDepth); err != nil {
+			if policy == errorPolicyReport {
+				return false, []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+					"invalid QName value '%s': %v", normalizedValue, err)}
 			}
 			return false, nil
 		}
@@ -225,6 +234,17 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 		}
 	}
 
+	if isQNameType(itemType) {
+		if err := r.validateQNameContext(item, scopeDepth); err != nil {
+			if policy == errorPolicyReport {
+				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+					"list item[%d]: invalid QName value '%s': %v", index, item, err))
+				return false, violations
+			}
+			return false, nil
+		}
+	}
+
 	if r.isNotationType(itemType) {
 		if policy == errorPolicyReport {
 			if itemViolations := r.validateNotationReference(item, scopeDepth); len(itemViolations) > 0 {
@@ -331,17 +351,15 @@ func (r *streamRun) isValidNotationReference(value string, scopeDepth int) bool 
 }
 
 func (r *streamRun) parseQNameValue(value string, scopeDepth int) (types.QName, error) {
-	value = strings.TrimSpace(value)
-	var prefix, local string
-	if before, after, ok := strings.Cut(value, ":"); ok {
-		prefix = strings.TrimSpace(before)
-		local = strings.TrimSpace(after)
-	} else {
-		local = value
+	if r == nil || r.dec == nil {
+		return types.QName{}, fmt.Errorf("namespace context unavailable")
 	}
-
+	prefix, local, hasPrefix, err := types.ParseQName(value)
+	if err != nil {
+		return types.QName{}, err
+	}
 	var ns types.NamespaceURI
-	if prefix != "" {
+	if hasPrefix {
 		nsStr, ok := r.dec.LookupNamespaceAt(prefix, scopeDepth)
 		if !ok {
 			return types.QName{}, fmt.Errorf("undefined namespace prefix '%s'", prefix)
@@ -354,4 +372,13 @@ func (r *streamRun) parseQNameValue(value string, scopeDepth int) (types.QName, 
 	}
 
 	return types.QName{Namespace: ns, Local: local}, nil
+}
+
+func (r *streamRun) validateQNameContext(value string, scopeDepth int) error {
+	_, err := r.parseQNameValue(value, scopeDepth)
+	return err
+}
+
+func isQNameType(ct *grammar.CompiledType) bool {
+	return ct != nil && ct.IsQNameOrNotationType && !ct.IsNotationType
 }

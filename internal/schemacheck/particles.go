@@ -43,14 +43,14 @@ func validateParticleOccurs(particle types.Particle) error {
 	maxOcc := particle.MaxOcc()
 	minOcc := particle.MinOcc()
 
-	// maxOccurs can be -1 (unbounded) or a positive integer >= 1, or 0 if minOccurs=0
+	// maxOccurs can be "unbounded" or a non-negative integer, with 0 only allowed when minOccurs=0
 	// note: W3C test suite includes schemas with maxOccurs=0 and minOccurs=0, which
 	// we accept for compatibility even though the spec says maxOccurs >= 1
-	if maxOcc == 0 && minOcc != 0 {
+	if maxOcc.IsZero() && !minOcc.IsZero() {
 		return fmt.Errorf("maxOccurs cannot be 0 when minOccurs > 0")
 	}
-	if maxOcc > 0 && minOcc > maxOcc {
-		return fmt.Errorf("minOccurs (%d) cannot be greater than maxOccurs (%d)", minOcc, maxOcc)
+	if !maxOcc.IsUnbounded() && !maxOcc.IsZero() && maxOcc.Cmp(minOcc) < 0 {
+		return fmt.Errorf("minOccurs (%s) cannot be greater than maxOccurs (%s)", minOcc, maxOcc)
 	}
 	return nil
 }
@@ -145,19 +145,19 @@ func validateAllGroupUniqueElements(particles []types.Particle) error {
 }
 
 func validateAllGroupOccurrence(group *types.ModelGroup) error {
-	if group.MinOccurs != 0 && group.MinOccurs != 1 {
-		return fmt.Errorf("xs:all must have minOccurs='0' or '1' (got %d)", group.MinOccurs)
+	if !group.MinOccurs.IsZero() && !group.MinOccurs.IsOne() {
+		return fmt.Errorf("xs:all must have minOccurs='0' or '1' (got %s)", group.MinOccurs)
 	}
-	if group.MaxOccurs != 1 {
-		return fmt.Errorf("xs:all must have maxOccurs='1' (got %d)", group.MaxOccurs)
+	if !group.MaxOccurs.IsOne() {
+		return fmt.Errorf("xs:all must have maxOccurs='1' (got %s)", group.MaxOccurs)
 	}
 	return nil
 }
 
 func validateAllGroupParticleOccurs(particles []types.Particle) error {
 	for _, childParticle := range particles {
-		if childParticle.MaxOcc() > 1 {
-			return fmt.Errorf("xs:all: all particles must have maxOccurs <= 1 (got %d)", childParticle.MaxOcc())
+		if childParticle.MaxOcc().CmpInt(1) > 0 {
+			return fmt.Errorf("xs:all: all particles must have maxOccurs <= 1 (got %s)", childParticle.MaxOcc())
 		}
 	}
 	return nil
@@ -169,8 +169,8 @@ func validateAllGroupNested(particles []types.Particle) error {
 		if !ok {
 			continue
 		}
-		if childMG.Kind == types.AllGroup && childMG.MinOccurs > 0 {
-			return fmt.Errorf("xs:all: nested xs:all cannot have minOccurs > 0 (got %d)", childMG.MinOccurs)
+		if childMG.Kind == types.AllGroup && childMG.MinOccurs.CmpInt(0) > 0 {
+			return fmt.Errorf("xs:all: nested xs:all cannot have minOccurs > 0 (got %s)", childMG.MinOccurs)
 		}
 	}
 	return nil
@@ -299,14 +299,14 @@ func validateGroupStructure(qname types.QName, group *types.ModelGroup) error {
 
 	// according to XSD spec: groups cannot have minOccurs="0" or maxOccurs="unbounded" directly
 	// groups must have minOccurs="1" and maxOccurs="1" (the defaults)
-	if group.MinOccurs == 0 {
+	if group.MinOccurs.IsZero() {
 		return fmt.Errorf("group '%s' cannot have minOccurs='0'", qname.Local)
 	}
-	if group.MaxOccurs == types.UnboundedOccurs {
+	if group.MaxOccurs.IsUnbounded() {
 		return fmt.Errorf("group '%s' cannot have maxOccurs='unbounded'", qname.Local)
 	}
-	if group.MinOccurs != 1 || group.MaxOccurs != 1 {
-		return fmt.Errorf("group '%s' must have minOccurs='1' and maxOccurs='1' (got minOccurs=%d, maxOccurs=%d)", qname.Local, group.MinOccurs, group.MaxOccurs)
+	if !group.MinOccurs.IsOne() || !group.MaxOccurs.IsOne() {
+		return fmt.Errorf("group '%s' must have minOccurs='1' and maxOccurs='1' (got minOccurs=%s, maxOccurs=%s)", qname.Local, group.MinOccurs, group.MaxOccurs)
 	}
 
 	// don't validate content model references - they might be forward references
@@ -453,7 +453,7 @@ func isRestrictionDerivedFromComplex(derived types.Type, base *types.ComplexType
 func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *types.ModelGroup) error {
 	// if both model groups have maxOccurs=0, the content never occurs, so children
 	// constraints are irrelevant. Skip child validation in this case.
-	if baseMG.MaxOcc() == 0 && restrictionMG.MaxOcc() == 0 {
+	if baseMG.MaxOcc().IsZero() && restrictionMG.MaxOcc().IsZero() {
 		return nil
 	}
 	if err := validateOccurrenceConstraints(baseMG.MinOcc(), baseMG.MaxOcc(), restrictionMG.MinOcc(), restrictionMG.MaxOcc()); err != nil {
@@ -483,7 +483,7 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 		baseIdx := 0
 		matchedBaseParticles := make(map[int]bool) // track which base particles have been matched
 		for _, restrictionParticle := range restrictionChildren {
-			if restrictionParticle.MaxOcc() == 0 && restrictionParticle.MinOcc() == 0 {
+			if restrictionParticle.MaxOcc().IsZero() && restrictionParticle.MinOcc().IsZero() {
 				continue
 			}
 			found := false
@@ -499,7 +499,7 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 					if baseAny, isWildcard := baseParticle.(*types.AnyElement); isWildcard {
 						// wildcard can match multiple restriction particles
 						// only advance past wildcard if maxOccurs=1
-						if baseAny.MaxOccurs == 1 {
+						if baseAny.MaxOccurs.IsOne() {
 							baseIdx++ // advance past wildcard with maxOccurs=1
 						}
 						// if maxOccurs > 1 or unbounded, stay on wildcard (don't increment baseIdx)
@@ -512,7 +512,7 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 				// check if this is a validation error (like maxOccurs, minOccurs) that should be returned immediately
 				// these errors mean the particles match but the restriction is invalid
 				errMsg := err.Error()
-				skippable := baseParticle.MinOcc() == 0
+				skippable := baseParticle.MinOcc().IsZero()
 				if !skippable {
 					if baseGroup, ok := baseParticle.(*types.ModelGroup); ok {
 						skippable = isEffectivelyOptional(baseGroup)
@@ -545,7 +545,7 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 			if matchedBaseParticles[i] {
 				continue
 			}
-			if baseParticle.MinOcc() > 0 {
+			if baseParticle.MinOcc().CmpInt(0) > 0 {
 				// check if it's effectively optional (contains only optional content)
 				if baseMG2, ok := baseParticle.(*types.ModelGroup); ok {
 					if isEffectivelyOptional(baseMG2) {
@@ -560,7 +560,7 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 		// choice uses RecurseLax: match restriction particles to base particles in order.
 		baseIdx := 0
 		for _, restrictionParticle := range restrictionChildren {
-			if restrictionParticle.MaxOcc() == 0 && restrictionParticle.MinOcc() == 0 {
+			if restrictionParticle.MaxOcc().IsZero() && restrictionParticle.MinOcc().IsZero() {
 				continue
 			}
 			found := false
@@ -590,7 +590,7 @@ func validateAllGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 
 	baseIdx := 0
 	for _, restrictionParticle := range restrictionChildren {
-		if restrictionParticle.MaxOcc() == 0 && restrictionParticle.MinOcc() == 0 {
+		if restrictionParticle.MaxOcc().IsZero() && restrictionParticle.MinOcc().IsZero() {
 			continue
 		}
 		found := false
@@ -602,7 +602,7 @@ func validateAllGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 				found = true
 				break
 			}
-			skippable := baseParticle.MinOcc() == 0
+			skippable := baseParticle.MinOcc().IsZero()
 			if !skippable {
 				if baseGroup, ok := baseParticle.(*types.ModelGroup); ok {
 					skippable = isEffectivelyOptional(baseGroup)
@@ -618,7 +618,7 @@ func validateAllGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 	}
 	for i := baseIdx; i < len(baseChildren); i++ {
 		baseParticle := baseChildren[i]
-		if baseParticle.MinOcc() > 0 {
+		if baseParticle.MinOcc().CmpInt(0) > 0 {
 			if baseGroup, ok := baseParticle.(*types.ModelGroup); ok {
 				if isEffectivelyOptional(baseGroup) {
 					continue
@@ -635,19 +635,19 @@ func validateAllGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 // - minOccurs must be >= base minOccurs (can require more)
 // - maxOccurs must be <= base maxOccurs (can allow fewer)
 // - minOccurs must be <= base maxOccurs (can't require more than base allows)
-func validateOccurrenceConstraints(baseMinOcc, baseMaxOcc, restrictionMinOcc, restrictionMaxOcc int) error {
-	if restrictionMinOcc < baseMinOcc {
-		return fmt.Errorf("ComplexContent restriction: minOccurs (%d) must be >= base minOccurs (%d)", restrictionMinOcc, baseMinOcc)
+func validateOccurrenceConstraints(baseMinOcc, baseMaxOcc, restrictionMinOcc, restrictionMaxOcc types.Occurs) error {
+	if restrictionMinOcc.Cmp(baseMinOcc) < 0 {
+		return fmt.Errorf("ComplexContent restriction: minOccurs (%s) must be >= base minOccurs (%s)", restrictionMinOcc, baseMinOcc)
 	}
-	if baseMaxOcc != types.UnboundedOccurs {
-		if restrictionMaxOcc == types.UnboundedOccurs {
-			return fmt.Errorf("ComplexContent restriction: maxOccurs cannot be unbounded when base maxOccurs is bounded (%d)", baseMaxOcc)
+	if !baseMaxOcc.IsUnbounded() {
+		if restrictionMaxOcc.IsUnbounded() {
+			return fmt.Errorf("ComplexContent restriction: maxOccurs cannot be unbounded when base maxOccurs is bounded (%s)", baseMaxOcc)
 		}
-		if restrictionMaxOcc > baseMaxOcc {
-			return fmt.Errorf("ComplexContent restriction: maxOccurs (%d) must be <= base maxOccurs (%d)", restrictionMaxOcc, baseMaxOcc)
+		if restrictionMaxOcc.Cmp(baseMaxOcc) > 0 {
+			return fmt.Errorf("ComplexContent restriction: maxOccurs (%s) must be <= base maxOccurs (%s)", restrictionMaxOcc, baseMaxOcc)
 		}
-		if restrictionMinOcc > baseMaxOcc {
-			return fmt.Errorf("ComplexContent restriction: minOccurs (%d) must be <= base maxOccurs (%d)", restrictionMinOcc, baseMaxOcc)
+		if restrictionMinOcc.Cmp(baseMaxOcc) > 0 {
+			return fmt.Errorf("ComplexContent restriction: minOccurs (%s) must be <= base maxOccurs (%s)", restrictionMinOcc, baseMaxOcc)
 		}
 	}
 	// base has unbounded maxOccurs, restriction can have any minOccurs >= base minOccurs
@@ -660,7 +660,7 @@ func validateOccurrenceConstraints(baseMinOcc, baseMaxOcc, restrictionMinOcc, re
 // - Element's namespace is allowed by wildcard's namespace constraint
 // - Element's occurrence constraints are within wildcard's constraints
 func validateWildcardToElementRestriction(schema *parser.Schema, baseAny *types.AnyElement, restrictionElem *types.ElementDecl) error {
-	if restrictionElem.MinOcc() == 0 && restrictionElem.MaxOcc() == 0 {
+	if restrictionElem.MinOcc().IsZero() && restrictionElem.MaxOcc().IsZero() {
 		return validateOccurrenceConstraints(baseAny.MinOccurs, baseAny.MaxOccurs, restrictionElem.MinOcc(), restrictionElem.MaxOcc())
 	}
 	// check namespace constraint: element namespace must be allowed by wildcard
@@ -707,7 +707,7 @@ func validateWildcardToModelGroupRestriction(schema *parser.Schema, baseAny *typ
 }
 
 func validateWildcardNamespaceRestriction(schema *parser.Schema, baseAny *types.AnyElement, particle types.Particle, visitedMG map[*types.ModelGroup]bool, visitedGroups map[types.QName]bool) error {
-	if particle != nil && particle.MinOcc() == 0 && particle.MaxOcc() == 0 {
+	if particle != nil && particle.MinOcc().IsZero() && particle.MaxOcc().IsZero() {
 		return nil
 	}
 	switch p := particle.(type) {
@@ -755,7 +755,7 @@ func validateModelGroupToElementRestriction(schema *parser.Schema, baseMG *types
 		return false, nil
 	}
 
-	if err := validateOccurrenceConstraints(baseMG.MinOcc(), baseMG.MaxOcc(), 1, 1); err != nil {
+	if err := validateOccurrenceConstraints(baseMG.MinOcc(), baseMG.MaxOcc(), types.OccursFromInt(1), types.OccursFromInt(1)); err != nil {
 		return false, err
 	}
 
@@ -790,7 +790,7 @@ func validateModelGroupToElementRestriction(schema *parser.Schema, baseMG *types
 		if childMatched && err != nil && constraintErr == nil {
 			constraintErr = err
 		}
-		if baseMG.MinOccurs > 0 && !isEmptiableParticle(baseParticle) {
+		if baseMG.MinOccurs.CmpInt(0) > 0 && !isEmptiableParticle(baseParticle) {
 			break
 		}
 	}
@@ -800,7 +800,7 @@ func validateModelGroupToElementRestriction(schema *parser.Schema, baseMG *types
 		}
 		return false, nil
 	}
-	if baseMG.MinOccurs > 0 {
+	if baseMG.MinOccurs.CmpInt(0) > 0 {
 		for ; current < len(baseChildren); current++ {
 			if !isEmptiableParticle(baseChildren[current]) {
 				return false, fmt.Errorf("ComplexContent restriction: required base particle not present in element restriction")
@@ -830,12 +830,12 @@ func validateElementRestrictionWithGroupOccurrence(schema *parser.Schema, baseMG
 			return false, nil
 		}
 	}
-	if schema != nil && baseMG != nil && baseMG.Kind == types.Choice && baseMG.MaxOcc() != 1 && len(baseChildren) > 1 {
+	if schema != nil && baseMG != nil && baseMG.Kind == types.Choice && !baseMG.MaxOcc().IsOne() && len(baseChildren) > 1 {
 		baseElemMax := baseElem.MaxOcc()
-		if baseElemMax >= 0 {
+		if !baseElemMax.IsUnbounded() {
 			restrictionMax := restrictionElem.MaxOcc()
-			if restrictionMax == types.UnboundedOccurs || restrictionMax > baseElemMax {
-				if existing, ok := schema.ParticleRestrictionCaps[restrictionElem]; !ok || baseElemMax < existing {
+			if restrictionMax.IsUnbounded() || restrictionMax.Cmp(baseElemMax) > 0 {
+				if existing, ok := schema.ParticleRestrictionCaps[restrictionElem]; !ok || baseElemMax.Cmp(existing) < 0 {
 					schema.ParticleRestrictionCaps[restrictionElem] = baseElemMax
 				}
 			}
@@ -843,13 +843,13 @@ func validateElementRestrictionWithGroupOccurrence(schema *parser.Schema, baseMG
 	}
 	baseMinOcc := baseElem.MinOcc()
 	baseMaxOcc := baseElem.MaxOcc()
-	if baseMG != nil && baseMG.Kind == types.Choice && baseMG.MaxOcc() != 1 {
+	if baseMG != nil && baseMG.Kind == types.Choice && !baseMG.MaxOcc().IsOne() {
 		baseMinOcc, baseMaxOcc = choiceChildOccurrenceRange(baseMG, baseChildren, baseElem)
 	}
 	if err := validateOccurrenceConstraints(baseMinOcc, baseMaxOcc, restrictionElem.MinOcc(), restrictionElem.MaxOcc()); err != nil {
 		return true, err
 	}
-	if restrictionElem.MinOcc() == 0 && restrictionElem.MaxOcc() == 0 {
+	if restrictionElem.MinOcc().IsZero() && restrictionElem.MaxOcc().IsZero() {
 		return true, nil
 	}
 	if err := validateElementRestriction(baseElem, restrictionElem); err != nil {
@@ -861,10 +861,10 @@ func validateElementRestrictionWithGroupOccurrence(schema *parser.Schema, baseMG
 func validateWildcardRestrictionWithGroupOccurrence(baseMG *types.ModelGroup, baseChildren []types.Particle, baseAny *types.AnyElement, restrictionElem *types.ElementDecl) (bool, error) {
 	baseMinOcc := baseAny.MinOccurs
 	baseMaxOcc := baseAny.MaxOccurs
-	if baseMG != nil && baseMG.Kind == types.Choice && baseMG.MaxOcc() != 1 {
+	if baseMG != nil && baseMG.Kind == types.Choice && !baseMG.MaxOcc().IsOne() {
 		baseMinOcc, baseMaxOcc = choiceChildOccurrenceRange(baseMG, baseChildren, baseAny)
 	}
-	if restrictionElem.MinOcc() == 0 && restrictionElem.MaxOcc() == 0 {
+	if restrictionElem.MinOcc().IsZero() && restrictionElem.MaxOcc().IsZero() {
 		if err := validateOccurrenceConstraints(baseMinOcc, baseMaxOcc, restrictionElem.MinOcc(), restrictionElem.MaxOcc()); err != nil {
 			return true, err
 		}
@@ -879,21 +879,21 @@ func validateWildcardRestrictionWithGroupOccurrence(baseMG *types.ModelGroup, ba
 	return true, nil
 }
 
-func choiceChildOccurrenceRange(baseMG *types.ModelGroup, baseChildren []types.Particle, child types.Particle) (int, int) {
+func choiceChildOccurrenceRange(baseMG *types.ModelGroup, baseChildren []types.Particle, child types.Particle) (types.Occurs, types.Occurs) {
 	childMin := child.MinOcc()
 	childMax := child.MaxOcc()
 	groupMin := baseMG.MinOcc()
 	groupMax := baseMG.MaxOcc()
 
-	minOcc := 0
+	minOcc := types.OccursFromInt(0)
 	if len(baseChildren) == 1 {
-		minOcc = groupMin * childMin
+		minOcc = types.MulOccurs(groupMin, childMin)
 	}
 
-	if groupMax == types.UnboundedOccurs || childMax == types.UnboundedOccurs {
-		return minOcc, types.UnboundedOccurs
+	if groupMax.IsUnbounded() || childMax.IsUnbounded() {
+		return minOcc, types.OccursUnbounded
 	}
-	return minOcc, groupMax * childMax
+	return minOcc, types.MulOccurs(groupMax, childMax)
 }
 
 // validateWildcardToWildcardRestriction validates Wildcard:Wildcard derivation
@@ -983,7 +983,7 @@ func validateParticlePairRestriction(schema *parser.Schema, baseParticle, restri
 			if err := validateOccurrenceConstraints(baseElem.MinOcc(), baseElem.MaxOcc(), restrictionElem.MinOcc(), restrictionElem.MaxOcc()); err != nil {
 				return err
 			}
-			if restrictionElem.MinOcc() == 0 && restrictionElem.MaxOcc() == 0 {
+			if restrictionElem.MinOcc().IsZero() && restrictionElem.MaxOcc().IsZero() {
 				return nil
 			}
 			// element declarations must match (same name)
@@ -1018,7 +1018,7 @@ func validateParticlePairRestriction(schema *parser.Schema, baseParticle, restri
 				return err
 			}
 			for _, p := range restrictionMG.Particles {
-				if p.MinOcc() == 0 && p.MaxOcc() == 0 {
+				if p.MinOcc().IsZero() && p.MaxOcc().IsZero() {
 					continue
 				}
 				childElem, ok := p.(*types.ElementDecl)
@@ -1205,11 +1205,9 @@ func validateParticleRestrictionWithKindChange(schema *parser.Schema, baseMG, re
 	// choice -> sequence: Valid if all sequence particles match some choice particle
 	if baseMG.Kind == types.Choice && restrictionMG.Kind == types.Sequence {
 		derivedCount := len(restrictionChildren)
-		derivedMin := restrictionMG.MinOccurs * derivedCount
-		derivedMax := restrictionMG.MaxOccurs
-		if derivedMax != types.UnboundedOccurs {
-			derivedMax *= derivedCount
-		}
+		countOccurs := types.OccursFromInt(derivedCount)
+		derivedMin := types.MulOccurs(restrictionMG.MinOccurs, countOccurs)
+		derivedMax := types.MulOccurs(restrictionMG.MaxOccurs, countOccurs)
 		if err := validateOccurrenceConstraints(baseMG.MinOcc(), baseMG.MaxOcc(), derivedMin, derivedMax); err != nil {
 			return err
 		}
@@ -1239,7 +1237,7 @@ func normalizePointlessParticle(p types.Particle) types.Particle {
 		if !ok || mg == nil {
 			return p
 		}
-		if mg.MinOccurs != 1 || mg.MaxOccurs != 1 {
+		if !mg.MinOccurs.IsOne() || !mg.MaxOccurs.IsOne() {
 			return p
 		}
 		children := derivationChildren(mg)
@@ -1266,7 +1264,7 @@ func gatherPointlessChildren(parentKind types.GroupKind, particle types.Particle
 	case *types.ElementDecl, *types.AnyElement:
 		return []types.Particle{p}
 	case *types.ModelGroup:
-		if p.MinOccurs != 1 || p.MaxOccurs != 1 {
+		if !p.MinOccurs.IsOne() || !p.MaxOccurs.IsOne() {
 			return []types.Particle{p}
 		}
 		if len(p.Particles) == 1 {
@@ -1305,85 +1303,59 @@ func isBlockSuperset(restrictionBlock, baseBlock types.DerivationSet) bool {
 // for a model group by considering the group's occurrence and its children.
 // For sequences: effective = group.occ * sum(children.occ)
 // For choices: effective = group.occ * max(children.occ) for max, group.occ * min(children.minOcc) for min
-func calculateEffectiveOccurrence(mg *types.ModelGroup) (minOcc, maxOcc int) {
+func calculateEffectiveOccurrence(mg *types.ModelGroup) (minOcc, maxOcc types.Occurs) {
 	groupMinOcc := mg.MinOcc()
 	groupMaxOcc := mg.MaxOcc()
 
 	if len(mg.Particles) == 0 {
-		return 0, 0
+		return types.OccursFromInt(0), types.OccursFromInt(0)
 	}
 
 	switch mg.Kind {
 	case types.Sequence:
 		// for sequences, sum all children's occurrences
-		sumMinOcc := 0
-		sumMaxOcc := 0
+		sumMinOcc := types.OccursFromInt(0)
+		sumMaxOcc := types.OccursFromInt(0)
 		for _, p := range mg.Particles {
 			childMin, childMax := getParticleEffectiveOccurrence(p)
-			sumMinOcc += childMin
-			if sumMaxOcc != types.UnboundedOccurs {
-				if childMax == types.UnboundedOccurs {
-					sumMaxOcc = types.UnboundedOccurs
-				} else {
-					sumMaxOcc += childMax
-				}
-			}
+			sumMinOcc = types.AddOccurs(sumMinOcc, childMin)
+			sumMaxOcc = types.AddOccurs(sumMaxOcc, childMax)
 		}
-		minOcc = groupMinOcc * sumMinOcc
-		if groupMaxOcc == types.UnboundedOccurs || sumMaxOcc == types.UnboundedOccurs {
-			maxOcc = types.UnboundedOccurs
-		} else {
-			maxOcc = groupMaxOcc * sumMaxOcc
-		}
+		minOcc = types.MulOccurs(groupMinOcc, sumMinOcc)
+		maxOcc = types.MulOccurs(groupMaxOcc, sumMaxOcc)
 	case types.Choice:
 		// for choices, take the min of children's minOccurs (since only one branch is taken)
 		// and max of children's maxOccurs
-		childMinOcc := -1 // will be set to actual min
-		childMaxOcc := 0
+		childMinOcc := types.OccursFromInt(0)
+		childMaxOcc := types.OccursFromInt(0)
+		childMinOccSet := false
 		for _, p := range mg.Particles {
 			childMin, childMax := getParticleEffectiveOccurrence(p)
-			if childMax == 0 {
+			if childMax.IsZero() {
 				continue
 			}
-			if childMinOcc == -1 || childMin < childMinOcc {
+			if !childMinOccSet || childMin.Cmp(childMinOcc) < 0 {
 				childMinOcc = childMin
+				childMinOccSet = true
 			}
-			if childMax == types.UnboundedOccurs {
-				childMaxOcc = types.UnboundedOccurs
-			} else if childMaxOcc != types.UnboundedOccurs && childMax > childMaxOcc {
-				childMaxOcc = childMax
-			}
+			childMaxOcc = types.MaxOccurs(childMaxOcc, childMax)
 		}
-		if childMinOcc == -1 {
-			childMinOcc = 0
+		if !childMinOccSet {
+			childMinOcc = types.OccursFromInt(0)
 		}
-		minOcc = groupMinOcc * childMinOcc
-		if groupMaxOcc == types.UnboundedOccurs || childMaxOcc == types.UnboundedOccurs {
-			maxOcc = types.UnboundedOccurs
-		} else {
-			maxOcc = groupMaxOcc * childMaxOcc
-		}
+		minOcc = types.MulOccurs(groupMinOcc, childMinOcc)
+		maxOcc = types.MulOccurs(groupMaxOcc, childMaxOcc)
 	case types.AllGroup:
 		// for all groups, sum all children (like sequence, all must appear)
-		sumMinOcc := 0
-		sumMaxOcc := 0
+		sumMinOcc := types.OccursFromInt(0)
+		sumMaxOcc := types.OccursFromInt(0)
 		for _, p := range mg.Particles {
 			childMin, childMax := getParticleEffectiveOccurrence(p)
-			sumMinOcc += childMin
-			if sumMaxOcc != types.UnboundedOccurs {
-				if childMax == types.UnboundedOccurs {
-					sumMaxOcc = types.UnboundedOccurs
-				} else {
-					sumMaxOcc += childMax
-				}
-			}
+			sumMinOcc = types.AddOccurs(sumMinOcc, childMin)
+			sumMaxOcc = types.AddOccurs(sumMaxOcc, childMax)
 		}
-		minOcc = groupMinOcc * sumMinOcc
-		if groupMaxOcc == types.UnboundedOccurs || sumMaxOcc == types.UnboundedOccurs {
-			maxOcc = types.UnboundedOccurs
-		} else {
-			maxOcc = groupMaxOcc * sumMaxOcc
-		}
+		minOcc = types.MulOccurs(groupMinOcc, sumMinOcc)
+		maxOcc = types.MulOccurs(groupMaxOcc, sumMaxOcc)
 	default:
 		minOcc = groupMinOcc
 		maxOcc = groupMaxOcc
@@ -1392,7 +1364,7 @@ func calculateEffectiveOccurrence(mg *types.ModelGroup) (minOcc, maxOcc int) {
 }
 
 // getParticleEffectiveOccurrence gets the effective occurrence of a single particle
-func getParticleEffectiveOccurrence(p types.Particle) (minOcc, maxOcc int) {
+func getParticleEffectiveOccurrence(p types.Particle) (minOcc, maxOcc types.Occurs) {
 	switch particle := p.(type) {
 	case *types.ModelGroup:
 		return calculateEffectiveOccurrence(particle)
@@ -1412,7 +1384,7 @@ func isEffectivelyOptional(mg *types.ModelGroup) bool {
 		return true
 	}
 	for _, particle := range mg.Particles {
-		if particle.MinOcc() > 0 {
+		if particle.MinOcc().CmpInt(0) > 0 {
 			return false
 		}
 		// recursively check nested model groups
@@ -1433,11 +1405,11 @@ func isEmptiableParticle(p types.Particle) bool {
 		return true
 	}
 	// maxOccurs=0 means the particle contributes nothing.
-	if p.MaxOcc() == 0 {
+	if p.MaxOcc().IsZero() {
 		return true
 	}
 	// minOccurs=0 means we can choose zero occurrences.
-	if p.MinOcc() == 0 {
+	if p.MinOcc().IsZero() {
 		return true
 	}
 
@@ -1459,6 +1431,6 @@ func isEmptiableParticle(p types.Particle) bool {
 	case *types.ElementDecl, *types.AnyElement:
 		return false
 	default:
-		return p.MinOcc() == 0
+		return p.MinOcc().IsZero()
 	}
 }

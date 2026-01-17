@@ -28,7 +28,7 @@ func TestAllGroupValidator(t *testing.T) {
 		&AllGroupElement{Element: elemA, Optional: false},
 		&AllGroupElement{Element: elemB, Optional: true},
 		&AllGroupElement{Element: elemHead, Optional: false, AllowSubstitution: true},
-	}, false, 1)
+	}, false, types.OccursFromInt(1))
 
 	doc, children := makeXMLChildren(t, `<root><a/><b/><sub/></root>`)
 	err := validator.Validate(doc, children, substitutionMatcher{
@@ -55,7 +55,7 @@ func TestAllGroupValidator(t *testing.T) {
 		t.Fatalf("expected unexpected element error")
 	}
 
-	empty := NewAllGroupValidator(nil, false, 0)
+	empty := NewAllGroupValidator(nil, false, types.OccursFromInt(0))
 	doc, children = makeXMLChildren(t, `<root></root>`)
 	if err := empty.Validate(doc, children, nil); err != nil {
 		t.Fatalf("expected empty all group to allow empty content: %v", err)
@@ -112,19 +112,19 @@ func TestBuildAutomatonChoiceAndWildcard(t *testing.T) {
 	choice := &CompiledParticle{
 		Kind:      ParticleGroup,
 		GroupKind: types.Choice,
-		MinOccurs: 1,
-		MaxOccurs: 2,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(2),
 		Children: []*CompiledParticle{
 			{
 				Kind:      ParticleElement,
-				MinOccurs: 1,
-				MaxOccurs: 1,
+				MinOccurs: types.OccursFromInt(1),
+				MaxOccurs: types.OccursFromInt(1),
 				Element:   elemA,
 			},
 			{
 				Kind:      ParticleWildcard,
-				MinOccurs: 0,
-				MaxOccurs: 1,
+				MinOccurs: types.OccursFromInt(0),
+				MaxOccurs: types.OccursFromInt(1),
 				Wildcard: &types.AnyElement{
 					Namespace:     types.NSCList,
 					NamespaceList: []types.NamespaceURI{"urn:a", "urn:b"},

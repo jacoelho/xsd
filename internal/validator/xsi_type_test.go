@@ -60,3 +60,36 @@ func TestXsiTypeBlockedByRestrictionInChain(t *testing.T) {
 		t.Fatalf("Expected violation code %s, got: %v", errors.ErrXsiTypeInvalid, violations)
 	}
 }
+
+func TestXsiTypeInvalidQName(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:type="bad::Type">value</root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if len(violations) == 0 {
+		t.Fatalf("Expected xsi:type violation, got none")
+	}
+
+	found := false
+	for _, viol := range violations {
+		if viol.Code == string(errors.ErrXsiTypeInvalid) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("Expected violation code %s, got: %v", errors.ErrXsiTypeInvalid, violations)
+	}
+}

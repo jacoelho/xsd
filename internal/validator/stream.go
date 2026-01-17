@@ -61,13 +61,13 @@ type streamFrame struct {
 	qname              types.QName
 	fieldCaptures      []fieldCapture
 	textBuf            []byte
+	minOccurs          types.Occurs
 	listStream         listStreamState
+	id                 uint64
 	textColumn         int
 	textLine           int
 	startColumn        int
 	startLine          int
-	id                 uint64
-	minOccurs          int
 	scopeDepth         int
 	contentKind        streamContentKind
 	hasChildElements   bool
@@ -504,7 +504,7 @@ func (r *streamRun) handleEnd() error {
 			r.addContentModelError(err)
 		}
 	case streamContentRejectAll:
-		if frame.minOccurs > 0 && !frame.hasChildElements {
+		if frame.minOccurs.CmpInt(0) > 0 && !frame.hasChildElements {
 			violation := errors.NewValidation(errors.ErrRequiredElementMissing,
 				"content does not satisfy empty choice", r.path.String())
 			r.addViolation(&violation)

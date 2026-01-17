@@ -29,7 +29,7 @@ type Schema struct {
 	ImportContexts          map[string]ImportContext
 	NotationOrigins         map[types.QName]string
 	ImportedNamespaces      map[types.NamespaceURI]map[types.NamespaceURI]bool
-	ParticleRestrictionCaps map[*types.ElementDecl]int
+	ParticleRestrictionCaps map[*types.ElementDecl]types.Occurs
 	IDAttributes            map[string]string
 	NamespaceDecls          map[string]string
 	TargetNamespace         types.NamespaceURI
@@ -58,7 +58,7 @@ func NewSchema() *Schema {
 		NotationOrigins:         make(map[types.QName]string),
 		NamespaceDecls:          make(map[string]string),
 		IDAttributes:            make(map[string]string),
-		ParticleRestrictionCaps: make(map[*types.ElementDecl]int),
+		ParticleRestrictionCaps: make(map[*types.ElementDecl]types.Occurs),
 		ImportedNamespaces:      make(map[types.NamespaceURI]map[types.NamespaceURI]bool),
 		ImportContexts:          make(map[string]ImportContext),
 	}

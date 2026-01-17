@@ -33,19 +33,19 @@ const (
 type AnyElement struct {
 	TargetNamespace NamespaceURI
 	NamespaceList   []NamespaceURI
+	MinOccurs       Occurs
+	MaxOccurs       Occurs
 	Namespace       NamespaceConstraint
 	ProcessContents ProcessContents
-	MinOccurs       int
-	MaxOccurs       int
 }
 
 // MinOcc implements Particle interface
-func (a *AnyElement) MinOcc() int {
+func (a *AnyElement) MinOcc() Occurs {
 	return a.MinOccurs
 }
 
 // MaxOcc implements Particle interface
-func (a *AnyElement) MaxOcc() int {
+func (a *AnyElement) MaxOcc() Occurs {
 	return a.MaxOccurs
 }
 
@@ -398,22 +398,11 @@ func IntersectAnyElement(w1, w2 *AnyElement) *AnyElement {
 		processContents = w2.ProcessContents
 	}
 
-	// MinOccurs: use maximum (more restrictive)
-	minOccurs := max(w2.MinOccurs, w1.MinOccurs)
+	// MinOccurs: use maximum (more restrictive).
+	minOccurs := MaxOccurs(w2.MinOccurs, w1.MinOccurs)
 
-	// MaxOccurs: use minimum (more restrictive), but handle unbounded (-1)
-	maxOccurs := w1.MaxOccurs
-	switch {
-	case w2.MaxOccurs == UnboundedOccurs:
-		// w2 is unbounded, use w1's limit
-		// maxOccurs stays as w1.MaxOccurs
-	case w1.MaxOccurs == UnboundedOccurs:
-		// w1 is unbounded, use w2's limit
-		maxOccurs = w2.MaxOccurs
-	case w2.MaxOccurs < maxOccurs:
-		// both bounded, use minimum
-		maxOccurs = w2.MaxOccurs
-	}
+	// MaxOccurs: use minimum (more restrictive), treating unbounded as infinity.
+	maxOccurs := MinOccurs(w2.MaxOccurs, w1.MaxOccurs)
 
 	return &AnyElement{
 		Namespace:       intersectedNS.Constraint,

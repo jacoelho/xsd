@@ -228,7 +228,11 @@ func TestStreamIdentityHelpers(t *testing.T) {
 	}
 
 	run := &streamRun{dec: dec}
-	if got := run.normalizeQNameValue("ex:val", ev.ScopeDepth); got != "{urn:ex}val" {
+	got, err := run.normalizeQNameValue("ex:val", ev.ScopeDepth)
+	if err != nil {
+		t.Fatalf("normalizeQNameValue error = %v", err)
+	}
+	if got != "{urn:ex}val" {
 		t.Fatalf("unexpected normalized QName: %s", got)
 	}
 	if attr, ok := findAttrByLocal(ev.Attrs, "attr"); !ok || attr.Value() != "v" {
