@@ -100,11 +100,14 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 }
 
 func resolveUnionMemberTypes(schema *parser.Schema, st *types.SimpleType) []types.Type {
-	if st == nil || st.Union == nil {
+	if st == nil {
 		return nil
 	}
 	if len(st.MemberTypes) > 0 {
 		return st.MemberTypes
+	}
+	if st.Union == nil {
+		return nil
 	}
 	memberTypes := make([]types.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
 	for _, inline := range st.Union.InlineTypes {
