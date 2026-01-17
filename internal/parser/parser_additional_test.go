@@ -2,6 +2,7 @@ package parser
 
 import (
 	"errors"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -395,6 +396,13 @@ func TestParseBoolAndOccursValues(t *testing.T) {
 	if _, err := parseOccursValue("minOccurs", "unbounded"); err == nil {
 		t.Fatalf("expected minOccurs unbounded error")
 	}
+	maxInt := int(^uint(0) >> 1)
+	tooLarge := new(big.Int).Add(big.NewInt(int64(maxInt)), big.NewInt(1)).String()
+	if got, err := parseOccursValue("maxOccurs", tooLarge); err != nil {
+		t.Fatalf("parseOccursValue error = %v", err)
+	} else if got.CmpInt(maxInt) <= 0 {
+		t.Fatalf("parseOccursValue overflow = %s, want > %d", got, maxInt)
+	}
 	if err := validateOccursValue("unbounded"); err == nil {
 		t.Fatalf("expected validateOccursValue error")
 	}
@@ -665,7 +673,7 @@ func TestParseElementReferenceAndLocal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseElement ref error = %v", err)
 	}
-	if !refDecl.IsReference || refDecl.MinOccurs != 0 || refDecl.MaxOccurs != 2 {
+	if !refDecl.IsReference || !refDecl.MinOccurs.IsZero() || !refDecl.MaxOccurs.EqualInt(2) {
 		t.Fatalf("unexpected ref element declaration")
 	}
 

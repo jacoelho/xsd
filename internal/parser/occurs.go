@@ -8,34 +8,34 @@ import (
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
-func parseOccursAttr(doc *xsdxml.Document, elem xsdxml.NodeID, attr string) (int, error) {
+func parseOccursAttr(doc *xsdxml.Document, elem xsdxml.NodeID, attr string) (types.Occurs, error) {
 	if !doc.HasAttribute(elem, attr) {
-		return 1, nil
+		return types.OccursFromInt(1), nil
 	}
 
 	return parseOccursValue(attr, doc.GetAttribute(elem, attr))
 }
 
-func parseOccursValue(attr, value string) (int, error) {
+func parseOccursValue(attr, value string) (types.Occurs, error) {
 	if value == "" {
-		return 0, fmt.Errorf("%s attribute cannot be empty", attr)
+		return types.OccursFromInt(0), fmt.Errorf("%s attribute cannot be empty", attr)
 	}
 	if value == "unbounded" {
 		if attr == "minOccurs" {
-			return 0, fmt.Errorf("minOccurs attribute cannot be 'unbounded'")
+			return types.OccursFromInt(0), fmt.Errorf("minOccurs attribute cannot be 'unbounded'")
 		}
-		return types.UnboundedOccurs, nil
+		return types.OccursUnbounded, nil
 	}
 	bi, ok := new(big.Int).SetString(value, 10)
 	if !ok {
-		return 0, fmt.Errorf("invalid %s attribute value '%s'", attr, value)
+		return types.OccursFromInt(0), fmt.Errorf("invalid %s attribute value '%s'", attr, value)
 	}
 	if bi.Sign() < 0 {
-		return 0, fmt.Errorf("invalid %s attribute value '%s'", attr, value)
+		return types.OccursFromInt(0), fmt.Errorf("invalid %s attribute value '%s'", attr, value)
 	}
-	maxInt := int(^uint(0) >> 1)
-	if bi.Cmp(big.NewInt(int64(maxInt))) > 0 {
-		return maxInt, nil
+	occurs, err := types.OccursFromBig(bi)
+	if err != nil {
+		return types.OccursFromInt(0), fmt.Errorf("invalid %s attribute value '%s'", attr, value)
 	}
-	return int(bi.Int64()), nil
+	return occurs, nil
 }

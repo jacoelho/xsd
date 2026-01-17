@@ -2,7 +2,7 @@ package parser
 
 import (
 	"fmt"
-	"strconv"
+	"math/big"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/types"
@@ -75,10 +75,10 @@ func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 		return nil, err
 	}
 	if kind == types.AllGroup {
-		if minOccurs != 0 && minOccurs != 1 {
+		if !minOccurs.IsZero() && !minOccurs.IsOne() {
 			return nil, fmt.Errorf("xs:all must have minOccurs='0' or '1'")
 		}
-		if maxOccurs != 1 {
+		if !maxOccurs.IsOne() {
 			return nil, fmt.Errorf("xs:all must have maxOccurs='1'")
 		}
 	}
@@ -396,8 +396,11 @@ func validateOccursInteger(value string) error {
 	if strings.HasPrefix(value, "-") {
 		return fmt.Errorf("occurs value must be a non-negative integer")
 	}
-	n, err := strconv.Atoi(value)
-	if err != nil || n < 0 {
+	if value == "" {
+		return fmt.Errorf("occurs value must be a non-negative integer")
+	}
+	bi, ok := new(big.Int).SetString(value, 10)
+	if !ok || bi.Sign() < 0 {
 		return fmt.Errorf("occurs value must be a non-negative integer")
 	}
 	return nil

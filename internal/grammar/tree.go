@@ -15,17 +15,17 @@ type leafNode struct {
 	particle types.Particle
 	first    *bitset
 	pos      int
-	min      int
-	max      int
+	min      types.Occurs
+	max      types.Occurs
 	size     int
 }
 
-func newLeaf(pos int, particle types.Particle, minOccurs, maxOccurs, size int) *leafNode {
+func newLeaf(pos int, particle types.Particle, minOccurs, maxOccurs types.Occurs, size int) *leafNode {
 	return &leafNode{pos: pos, particle: particle, min: minOccurs, max: maxOccurs, size: size}
 }
 
 func (n *leafNode) nullable() bool {
-	return n.min == 0
+	return n.min.IsZero()
 }
 
 func (n *leafNode) firstPos() *bitset {

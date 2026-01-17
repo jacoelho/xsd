@@ -87,8 +87,8 @@ func combineExtensionParticles(baseParticle, extParticle types.Particle) types.P
 	}
 	return &types.ModelGroup{
 		Kind:      types.Sequence,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{baseParticle, extParticle},
 	}
 }

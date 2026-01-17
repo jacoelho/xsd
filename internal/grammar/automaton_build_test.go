@@ -97,15 +97,15 @@ func TestGetOrCreateState(t *testing.T) {
 func TestAttachGroupCounter(t *testing.T) {
 	builder := &Builder{
 		size:          1,
-		positions:     []*Position{{Index: 0, Min: 2, Max: 2}},
+		positions:     []*Position{{Index: 0, Min: types.OccursFromInt(2), Max: types.OccursFromInt(2)}},
 		groupCounters: make(map[int]*GroupCounterInfo),
 	}
-	child := newLeaf(0, nil, 2, 2, builder.size)
+	child := newLeaf(0, nil, types.OccursFromInt(2), types.OccursFromInt(2), builder.size)
 	group := &ParticleAdapter{
 		Kind:      ParticleGroup,
 		GroupKind: types.Sequence,
-		MinOccurs: 2,
-		MaxOccurs: 5,
+		MinOccurs: types.OccursFromInt(2),
+		MaxOccurs: types.OccursFromInt(5),
 	}
 
 	builder.attachGroupCounter(child, group)
@@ -114,14 +114,14 @@ func TestAttachGroupCounter(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected group counter to be attached")
 	}
-	if info.Min != 2 || info.Max != 5 {
-		t.Fatalf("unexpected group bounds: min=%d max=%d", info.Min, info.Max)
+	if !info.Min.EqualInt(2) || !info.Max.EqualInt(5) {
+		t.Fatalf("unexpected group bounds: min=%s max=%s", info.Min, info.Max)
 	}
 	if info.GroupKind != types.Sequence || info.GroupID != 0 {
 		t.Fatalf("unexpected group identifiers: kind=%v id=%d", info.GroupKind, info.GroupID)
 	}
-	if info.FirstPosMaxOccurs != 2 || info.UnitSize != 2 {
-		t.Fatalf("unexpected group sizing: maxOccurs=%d unitSize=%d", info.FirstPosMaxOccurs, info.UnitSize)
+	if !info.FirstPosMaxOccurs.EqualInt(2) || info.UnitSize != 2 {
+		t.Fatalf("unexpected group sizing: maxOccurs=%s unitSize=%d", info.FirstPosMaxOccurs, info.UnitSize)
 	}
 	if len(info.FirstPositions) != 1 || len(info.LastPositions) != 1 {
 		t.Fatalf("expected single first/last position")
@@ -142,11 +142,11 @@ func TestBoundsForGroupParticleChoice(t *testing.T) {
 	group := &ParticleAdapter{
 		Kind:      ParticleGroup,
 		GroupKind: types.Choice,
-		MinOccurs: 1,
-		MaxOccurs: 1,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
 		Children: []*ParticleAdapter{
-			{Kind: ParticleElement, MinOccurs: 1, MaxOccurs: 1, Original: elemA},
-			{Kind: ParticleElement, MinOccurs: 1, MaxOccurs: 1, Original: elemB},
+			{Kind: ParticleElement, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1), Original: elemA},
+			{Kind: ParticleElement, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1), Original: elemB},
 		},
 	}
 
@@ -154,11 +154,11 @@ func TestBoundsForGroupParticleChoice(t *testing.T) {
 	if bounds == nil {
 		t.Fatalf("expected bounds to be computed")
 	}
-	if got := bounds[0]; got.min != 0 || got.max != 1 {
-		t.Fatalf("unexpected bounds for symbol 0: min=%d max=%d", got.min, got.max)
+	if got := bounds[0]; !got.min.IsZero() || !got.max.IsOne() {
+		t.Fatalf("unexpected bounds for symbol 0: min=%s max=%s", got.min, got.max)
 	}
-	if got := bounds[1]; got.min != 0 || got.max != 1 {
-		t.Fatalf("unexpected bounds for symbol 1: min=%d max=%d", got.min, got.max)
+	if got := bounds[1]; !got.min.IsZero() || !got.max.IsOne() {
+		t.Fatalf("unexpected bounds for symbol 1: min=%s max=%s", got.min, got.max)
 	}
 	builder.putRangeMap(bounds)
 }

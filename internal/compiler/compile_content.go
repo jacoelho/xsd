@@ -22,7 +22,7 @@ func (c *Compiler) compileContentModel(complexType *types.ComplexType) *grammar.
 		if cnt.Particle == nil {
 			return &grammar.CompiledContentModel{Empty: true}
 		}
-		minOccurs := 1
+		minOccurs := types.OccursFromInt(1)
 		var mg *types.ModelGroup
 		if typedMG, ok := cnt.Particle.(*types.ModelGroup); ok {
 			mg = typedMG
@@ -91,9 +91,9 @@ func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[t
 			IsReference: p.IsReference,
 		}
 		if c.schema != nil {
-			if capMax, ok := c.schema.ParticleRestrictionCaps[p]; ok && capMax >= 0 {
-				if compiled.MaxOccurs == types.UnboundedOccurs || compiled.MaxOccurs > capMax {
-					if compiled.MinOccurs <= capMax {
+			if capMax, ok := c.schema.ParticleRestrictionCaps[p]; ok {
+				if compiled.MaxOccurs.IsUnbounded() || compiled.MaxOccurs.Cmp(capMax) > 0 {
+					if compiled.MinOccurs.Cmp(capMax) <= 0 {
 						compiled.MaxOccurs = capMax
 					}
 				}
@@ -127,7 +127,7 @@ func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[t
 
 		// expand group reference
 		if group, ok := c.schema.Groups[p.RefQName]; ok {
-			if p.MaxOccurs == 0 {
+			if p.MaxOccurs.IsZero() {
 				return nil
 			}
 			var children []*grammar.CompiledParticle
@@ -233,10 +233,10 @@ func (c *Compiler) collectAllGroupElements(particles []*grammar.CompiledParticle
 		case grammar.ParticleElement:
 			// per XSD spec: maxOccurs="0" means the particle contributes no schema component
 			// and is ignored during validation (Section 5.4 of validation-rules.md)
-			if p.Element != nil && p.MaxOccurs != 0 {
+			if p.Element != nil && !p.MaxOccurs.IsZero() {
 				elements = append(elements, &grammar.AllGroupElement{
 					Element:           p.Element,
-					Optional:          p.MinOccurs == 0,
+					Optional:          p.MinOccurs.IsZero(),
 					AllowSubstitution: p.IsReference,
 				})
 			}
