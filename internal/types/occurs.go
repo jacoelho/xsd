@@ -23,9 +23,9 @@ var (
 
 // Occurs represents a non-negative occurrence bound or "unbounded".
 type Occurs struct {
-	kind  occursKind
-	small int
 	big   *big.Int
+	small int
+	kind  occursKind
 }
 
 // OccursFromInt returns an Occurs value from a non-negative integer.

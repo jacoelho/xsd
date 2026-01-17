@@ -24,9 +24,9 @@ const (
 type ModelGroup struct {
 	SourceNamespace NamespaceURI
 	Particles       []Particle
-	Kind            GroupKind
 	MinOccurs       Occurs
 	MaxOccurs       Occurs
+	Kind            GroupKind
 }
 
 // MinOcc implements Particle interface

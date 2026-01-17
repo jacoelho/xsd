@@ -39,9 +39,9 @@ type GroupCounterInfo struct {
 	FirstPositions    []int
 	Min               types.Occurs
 	Max               types.Occurs
+	FirstPosMaxOccurs types.Occurs
 	GroupKind         types.GroupKind
 	GroupID           int
-	FirstPosMaxOccurs types.Occurs
 	UnitSize          int
 }
 
@@ -76,9 +76,9 @@ type Counter struct {
 	GroupStartSymbols      []int
 	Min                    types.Occurs
 	Max                    types.Occurs
+	FirstPosMaxOccurs      types.Occurs
 	SymbolIndex            int
 	GroupID                int
-	FirstPosMaxOccurs      types.Occurs
 	UnitSize               int
 	IsGroupCounter         bool
 }
@@ -87,9 +87,9 @@ type Counter struct {
 type Position struct {
 	Particle          types.Particle
 	Element           *CompiledElement
-	Index             int
 	Min               types.Occurs
 	Max               types.Occurs
+	Index             int
 	AllowSubstitution bool
 }
 

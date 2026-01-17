@@ -21,9 +21,9 @@ type AllGroupElementInfo interface {
 // It enforces required elements, uniqueness, and order-insensitivity.
 type AllGroupValidator struct {
 	elements    []AllGroupElementInfo
+	minOccurs   types.Occurs
 	numRequired int
 	mixed       bool
-	minOccurs   types.Occurs
 }
 
 // NewAllGroupValidator creates a validator for an all group.

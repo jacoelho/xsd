@@ -41,10 +41,10 @@ type ElementDecl struct {
 	Fixed             string
 	Default           string
 	Constraints       []*IdentityConstraint
-	Final             DerivationSet
-	Block             DerivationSet
 	MaxOccurs         Occurs
 	MinOccurs         Occurs
+	Final             DerivationSet
+	Block             DerivationSet
 	Form              FormChoice
 	Abstract          bool
 	Nillable          bool
