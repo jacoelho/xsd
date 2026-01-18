@@ -166,6 +166,16 @@ func (r *streamRun) releaseFrameResources(frame *streamFrame) {
 	frame.automaton = nil
 }
 
+func (r *streamRun) releaseRemainingFrames() {
+	if r == nil {
+		return
+	}
+	for i := range r.frames {
+		r.releaseFrameResources(&r.frames[i])
+	}
+	r.frames = r.frames[:0]
+}
+
 func (r *streamRun) validate(dec *xmlstream.StringReader) ([]errors.Validation, error) {
 	r.reset()
 	r.dec = dec
@@ -178,6 +188,7 @@ func (r *streamRun) validate(dec *xmlstream.StringReader) ([]errors.Validation, 
 	r.currentColumn = 0
 	r.identityScopes = r.identityScopes[:0]
 	r.constraintDecls = nil
+	defer r.releaseRemainingFrames()
 	for {
 		ev, err := dec.Next()
 		if stderrors.Is(err, io.EOF) {
