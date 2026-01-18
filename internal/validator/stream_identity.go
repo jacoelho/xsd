@@ -32,13 +32,14 @@ type fieldCapture struct {
 }
 
 type fieldState struct {
-	nodes    map[fieldNodeKey]struct{}
-	value    string
-	display  string
-	count    int
-	multiple bool
-	invalid  bool
-	hasValue bool
+	nodes        map[fieldNodeKey]struct{}
+	value        string
+	display      string
+	count        int
+	multiple     bool
+	invalid      bool
+	valueInvalid bool
+	hasValue     bool
 }
 
 func (s *fieldState) addNode(key fieldNodeKey) bool {
@@ -340,7 +341,11 @@ func (r *streamRun) addAttributeValue(state *fieldState, field types.Field, fram
 		return
 	}
 	normalized, keyState := r.normalizeAttributeValue(value, field, frame, attrQName)
-	if keyState == KeyInvalid {
+	switch keyState {
+	case KeyInvalidValue:
+		state.valueInvalid = true
+		return
+	case KeyInvalidSelection:
 		state.invalid = true
 		return
 	}
@@ -360,9 +365,13 @@ func (r *streamRun) applyFieldCaptures(frame *streamFrame) {
 			continue
 		}
 		field := match.constraint.constraint.Original.Fields[capture.fieldIndex]
-		raw := string(frame.textBuf)
+		raw := effectiveElementValue(frame)
 		normalized, keyState := r.normalizeElementValue(raw, field, frame)
-		if keyState == KeyInvalid {
+		switch keyState {
+		case KeyInvalidValue:
+			fieldState.valueInvalid = true
+			continue
+		case KeyInvalidSelection:
 			fieldState.invalid = true
 			continue
 		}
@@ -370,6 +379,25 @@ func (r *streamRun) applyFieldCaptures(frame *streamFrame) {
 		fieldState.display = raw
 		fieldState.hasValue = true
 	}
+}
+
+func effectiveElementValue(frame *streamFrame) string {
+	if frame == nil {
+		return ""
+	}
+	if len(frame.textBuf) > 0 || frame.hasChildElements || frame.nilled || frame.textType == nil {
+		return string(frame.textBuf)
+	}
+	if frame.decl == nil {
+		return ""
+	}
+	if frame.decl.Default != "" {
+		return frame.decl.Default
+	}
+	if frame.decl.HasFixed {
+		return frame.decl.Fixed
+	}
+	return ""
 }
 
 func (r *streamRun) finalizeSelectorMatches(frame *streamFrame) {
@@ -409,6 +437,13 @@ func (r *streamRun) finalizeSelectorMatch(scope *identityScope, state *constrain
 			if constraint.Original.Type == types.KeyConstraint {
 				violation := errors.NewValidationf(errors.ErrIdentityAbsent, elemPath,
 					"key '%s': field value is absent for element at %s", constraint.Original.Name, elemPath)
+				r.addViolation(&violation)
+			}
+			return
+		case fieldState.valueInvalid:
+			if constraint.Original.Type == types.KeyConstraint {
+				violation := errors.NewValidationf(errors.ErrIdentityAbsent, elemPath,
+					"key '%s': field value is invalid for element at %s", constraint.Original.Name, elemPath)
 				r.addViolation(&violation)
 			}
 			return
@@ -601,7 +636,7 @@ func (r *streamRun) normalizeAttributeValue(value string, field types.Field, fra
 			}
 		}
 		if fieldType == nil && !attrDeclared && frame.decl.Type.AnyAttribute != nil && frame.decl.Type.AnyAttribute.AllowsQName(attrQName) {
-			return "", KeyInvalid
+			return "", KeyInvalidSelection
 		}
 	}
 
@@ -643,31 +678,40 @@ func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Typ
 		"nonNegativeInteger", "positiveInteger", "long", "int", "short", "byte",
 		"unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
 		rat, err := types.ParseDecimal(value)
-		if err == nil {
-			return typePrefix + "\x01" + rat.String(), KeyValid
+		if err != nil {
+			return "", KeyInvalidValue
 		}
-	case "float", "double":
-		trimmed := strings.TrimSpace(value)
-		bitSize := 64
-		if primitiveName == "float" {
-			bitSize = 32
+		return typePrefix + "\x01" + rat.String(), KeyValid
+	case "float":
+		floatValue, err := types.ParseFloat(value)
+		if err != nil {
+			return "", KeyInvalidValue
 		}
-		floatValue, err := strconv.ParseFloat(trimmed, bitSize)
-		if err == nil {
-			if math.IsNaN(floatValue) {
-				return typePrefix + "\x01" + "NaN", KeyValid
-			}
-			if floatValue == 0 && math.Signbit(floatValue) {
-				// normalize -0 to +0 to keep a single zero in the value space.
-				floatValue = 0
-			}
-			return typePrefix + "\x01" + strconv.FormatFloat(floatValue, 'g', -1, bitSize), KeyValid
+		if math.IsNaN(float64(floatValue)) {
+			return typePrefix + "\x01" + "NaN", KeyValid
 		}
-		return typePrefix + "\x01" + trimmed, KeyValid
+		if floatValue == 0 && math.Signbit(float64(floatValue)) {
+			// normalize -0 to +0 to keep a single zero in the value space.
+			floatValue = 0
+		}
+		return typePrefix + "\x01" + strconv.FormatFloat(float64(floatValue), 'g', -1, 32), KeyValid
+	case "double":
+		floatValue, err := types.ParseDouble(value)
+		if err != nil {
+			return "", KeyInvalidValue
+		}
+		if math.IsNaN(floatValue) {
+			return typePrefix + "\x01" + "NaN", KeyValid
+		}
+		if floatValue == 0 && math.Signbit(floatValue) {
+			// normalize -0 to +0 to keep a single zero in the value space.
+			floatValue = 0
+		}
+		return typePrefix + "\x01" + strconv.FormatFloat(floatValue, 'g', -1, 64), KeyValid
 	case "QName":
 		normalized, err := r.normalizeQNameValue(value, scopeDepth)
 		if err != nil {
-			return "", KeyInvalid
+			return "", KeyInvalidValue
 		}
 		return typePrefix + "\x01" + normalized, KeyValid
 	}

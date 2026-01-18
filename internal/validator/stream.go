@@ -182,6 +182,11 @@ func (r *streamRun) validate(dec *xmlstream.StringReader) ([]errors.Validation, 
 	r.currentColumn = 0
 	r.identityScopes = r.identityScopes[:0]
 	r.constraintDecls = nil
+	defer func() {
+		for i := range r.frames {
+			r.releaseFrameResources(&r.frames[i])
+		}
+	}()
 
 	for {
 		ev, err := dec.Next()
