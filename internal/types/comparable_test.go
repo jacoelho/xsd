@@ -1,6 +1,7 @@
 package types
 
 import (
+	"errors"
 	"math"
 	"strings"
 	"testing"
@@ -485,6 +486,71 @@ func TestComparableDuration(t *testing.T) {
 	}
 	if cmp >= 0 {
 		t.Error("negative duration should be less than positive")
+	}
+}
+
+func TestComparableXSDDuration_Compare(t *testing.T) {
+	durationType := &SimpleType{
+		QName: QName{Namespace: XSDNamespace, Local: "duration"},
+	}
+
+	left, err := ParseXSDDuration("PT26H")
+	if err != nil {
+		t.Fatalf("ParseXSDDuration() error = %v", err)
+	}
+	right, err := ParseXSDDuration("P1DT2H")
+	if err != nil {
+		t.Fatalf("ParseXSDDuration() error = %v", err)
+	}
+
+	cmp, err := ComparableXSDDuration{Value: left, Typ: durationType}.Compare(
+		ComparableXSDDuration{Value: right, Typ: durationType},
+	)
+	if err != nil {
+		t.Fatalf("Compare() error = %v", err)
+	}
+	if cmp != 0 {
+		t.Errorf("PT26H should equal P1DT2H, cmp=%d", cmp)
+	}
+
+	longer, err := ParseXSDDuration("P32D")
+	if err != nil {
+		t.Fatalf("ParseXSDDuration() error = %v", err)
+	}
+	month, err := ParseXSDDuration("P1M")
+	if err != nil {
+		t.Fatalf("ParseXSDDuration() error = %v", err)
+	}
+	cmp, err = ComparableXSDDuration{Value: month, Typ: durationType}.Compare(
+		ComparableXSDDuration{Value: longer, Typ: durationType},
+	)
+	if err != nil {
+		t.Fatalf("Compare() error = %v", err)
+	}
+	if cmp >= 0 {
+		t.Errorf("P1M should be less than P32D, cmp=%d", cmp)
+	}
+}
+
+func TestComparableXSDDuration_Indeterminate(t *testing.T) {
+	durationType := &SimpleType{
+		QName: QName{Namespace: XSDNamespace, Local: "duration"},
+	}
+
+	month, err := ParseXSDDuration("P1M")
+	if err != nil {
+		t.Fatalf("ParseXSDDuration() error = %v", err)
+	}
+	days, err := ParseXSDDuration("P30D")
+	if err != nil {
+		t.Fatalf("ParseXSDDuration() error = %v", err)
+	}
+
+	_, err = ComparableXSDDuration{Value: month, Typ: durationType}.Compare(
+		ComparableXSDDuration{Value: days, Typ: durationType},
+	)
+	if !errors.Is(err, errIndeterminateDurationComparison) {
+		t.Fatalf("expected indeterminate comparison error, got %v", err)
 	}
 }
 
