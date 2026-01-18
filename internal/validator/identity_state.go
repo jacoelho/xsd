@@ -5,5 +5,6 @@ type KeyState int
 
 const (
 	KeyValid KeyState = iota
-	KeyInvalid
+	KeyInvalidValue
+	KeyInvalidSelection
 )
