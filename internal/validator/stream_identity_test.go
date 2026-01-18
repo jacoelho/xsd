@@ -74,6 +74,27 @@ func TestStreamIdentityConstraints(t *testing.T) {
 			wantCode: errors.ErrIdentityAbsent,
 		},
 		{
+			name: "key field ignores qualified attribute defaults",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:attribute name="id" type="xs:string" default="DEF"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute ref="tns:id"/>
+    </xs:complexType>
+    <xs:key name="rootKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"/>`,
+			wantCode: errors.ErrIdentityAbsent,
+		},
+		{
 			name: "keyref not found",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

@@ -592,7 +592,7 @@ func (r *streamRun) normalizeAttributeValue(value string, field types.Field, fra
 			if attr.QName.Local != attrQName.Local {
 				continue
 			}
-			if !attrQName.Namespace.IsEmpty() && attr.QName.Namespace != attrQName.Namespace {
+			if attr.QName.Namespace != attrQName.Namespace {
 				continue
 			}
 			attrDeclared = true
@@ -691,7 +691,7 @@ func (r *streamRun) lookupAttributeDefault(frame *streamFrame, attrQName types.Q
 		if attr.QName.Local != attrQName.Local {
 			continue
 		}
-		if !attrQName.Namespace.IsEmpty() && attr.QName.Namespace != attrQName.Namespace {
+		if attr.QName.Namespace != attrQName.Namespace {
 			continue
 		}
 		if attr.HasFixed {
