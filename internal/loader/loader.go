@@ -20,65 +20,83 @@ import (
 type Config struct {
 	FS fs.FS
 
+	// NamespaceFS maps import namespaces to filesystems for schemaLocation resolution.
 	NamespaceFS map[string]fs.FS
 
 	BasePath string
 }
 
+const defaultFSKey = "default"
+
+type loadKey struct {
+	fsKey    string
+	location string
+}
+
+type fsContext struct {
+	fs  fs.FS
+	key string
+}
+
 type loadState struct {
-	loaded         map[string]*parser.Schema
-	loading        map[string]bool
-	loadingSchemas map[string]*parser.Schema
+	loaded         map[loadKey]*parser.Schema
+	loading        map[loadKey]bool
+	loadingSchemas map[loadKey]*parser.Schema
 }
 
 func newLoadState() loadState {
 	return loadState{
-		loaded:         make(map[string]*parser.Schema),
-		loading:        make(map[string]bool),
-		loadingSchemas: make(map[string]*parser.Schema),
+		loaded:         make(map[loadKey]*parser.Schema),
+		loading:        make(map[loadKey]bool),
+		loadingSchemas: make(map[loadKey]*parser.Schema),
 	}
 }
 
 type importTracker struct {
-	context        map[string]string
-	mergedIncludes map[string]map[string]bool
-	mergedImports  map[string]map[string]bool
+	context        map[loadKey]string
+	mergedIncludes map[loadKey]map[loadKey]bool
+	mergedImports  map[loadKey]map[loadKey]bool
 }
 
 func newImportTracker() importTracker {
 	return importTracker{
-		context:        make(map[string]string),
-		mergedIncludes: make(map[string]map[string]bool),
-		mergedImports:  make(map[string]map[string]bool),
+		context:        make(map[loadKey]string),
+		mergedIncludes: make(map[loadKey]map[loadKey]bool),
+		mergedImports:  make(map[loadKey]map[loadKey]bool),
 	}
 }
 
-func (t *importTracker) trackContext(resolvedLocation, originalLocation, namespace string) func() {
-	t.context[resolvedLocation] = namespace
+func (t *importTracker) trackContext(resolvedLocation, originalLocation, namespace, fsKey string) func() {
+	resolvedKey := loadKey{fsKey: fsKey, location: resolvedLocation}
+	originalKey := loadKey{fsKey: fsKey, location: originalLocation}
+	t.context[resolvedKey] = namespace
 	if resolvedLocation != originalLocation {
-		t.context[originalLocation] = namespace
+		t.context[originalKey] = namespace
 	}
 
 	return func() {
-		delete(t.context, resolvedLocation)
+		delete(t.context, resolvedKey)
 		if resolvedLocation != originalLocation {
-			delete(t.context, originalLocation)
+			delete(t.context, originalKey)
 		}
 	}
 }
 
-func (t *importTracker) namespaceFor(location string) (string, bool) {
-	if ns, ok := t.context[location]; ok {
+func (t *importTracker) namespaceFor(location, fsKey string) (string, bool) {
+	if ns, ok := t.context[loadKey{fsKey: fsKey, location: location}]; ok {
 		return ns, true
 	}
 
 	locationBase := path.Base(location)
-	if ns, ok := t.context[locationBase]; ok {
+	if ns, ok := t.context[loadKey{fsKey: fsKey, location: locationBase}]; ok {
 		return ns, true
 	}
 
-	for loc, ns := range t.context {
-		if strings.HasSuffix(loc, locationBase) || strings.HasSuffix(location, path.Base(loc)) {
+	for key, ns := range t.context {
+		if key.fsKey != fsKey {
+			continue
+		}
+		if strings.HasSuffix(key.location, locationBase) || strings.HasSuffix(location, path.Base(key.location)) {
 			return ns, true
 		}
 	}
@@ -86,34 +104,34 @@ func (t *importTracker) namespaceFor(location string) (string, bool) {
 	return "", false
 }
 
-func (t *importTracker) alreadyMergedInclude(baseLoc, includeLoc string) bool {
-	merged, ok := t.mergedIncludes[baseLoc]
+func (t *importTracker) alreadyMergedInclude(baseKey, includeKey loadKey) bool {
+	merged, ok := t.mergedIncludes[baseKey]
 	if !ok {
 		return false
 	}
-	return merged[includeLoc]
+	return merged[includeKey]
 }
 
-func (t *importTracker) markMergedInclude(baseLoc, includeLoc string) {
-	if t.mergedIncludes[baseLoc] == nil {
-		t.mergedIncludes[baseLoc] = make(map[string]bool)
+func (t *importTracker) markMergedInclude(baseKey, includeKey loadKey) {
+	if t.mergedIncludes[baseKey] == nil {
+		t.mergedIncludes[baseKey] = make(map[loadKey]bool)
 	}
-	t.mergedIncludes[baseLoc][includeLoc] = true
+	t.mergedIncludes[baseKey][includeKey] = true
 }
 
-func (t *importTracker) alreadyMergedImport(baseLoc, importLoc string) bool {
-	merged, ok := t.mergedImports[baseLoc]
+func (t *importTracker) alreadyMergedImport(baseKey, importKey loadKey) bool {
+	merged, ok := t.mergedImports[baseKey]
 	if !ok {
 		return false
 	}
-	return merged[importLoc]
+	return merged[importKey]
 }
 
-func (t *importTracker) markMergedImport(baseLoc, importLoc string) {
-	if t.mergedImports[baseLoc] == nil {
-		t.mergedImports[baseLoc] = make(map[string]bool)
+func (t *importTracker) markMergedImport(baseKey, importKey loadKey) {
+	if t.mergedImports[baseKey] == nil {
+		t.mergedImports[baseKey] = make(map[loadKey]bool)
 	}
-	t.mergedImports[baseLoc][importLoc] = true
+	t.mergedImports[baseKey][importKey] = true
 }
 
 type validationMode int
@@ -132,10 +150,6 @@ type SchemaLoader struct {
 
 // NewLoader creates a new schema loader with the given configuration
 func NewLoader(cfg Config) *SchemaLoader {
-	if cfg.NamespaceFS == nil {
-		cfg.NamespaceFS = make(map[string]fs.FS)
-	}
-
 	return &SchemaLoader{
 		config:  cfg,
 		state:   newLoadState(),
@@ -143,17 +157,48 @@ func NewLoader(cfg Config) *SchemaLoader {
 	}
 }
 
+func (l *SchemaLoader) defaultFSContext() fsContext {
+	return fsContext{fs: l.config.FS, key: defaultFSKey}
+}
+
+func (l *SchemaLoader) namespaceFSContext(namespace types.NamespaceURI) (fsContext, bool) {
+	if l.config.NamespaceFS == nil {
+		return fsContext{}, false
+	}
+	fsys, ok := l.config.NamespaceFS[namespace.String()]
+	if !ok {
+		return fsContext{}, false
+	}
+	return fsContext{fs: fsys, key: namespaceFSKey(namespace)}, true
+}
+
+func (l *SchemaLoader) importFSContext(namespace types.NamespaceURI) fsContext {
+	if ctx, ok := l.namespaceFSContext(namespace); ok {
+		return ctx
+	}
+	return l.defaultFSContext()
+}
+
+func namespaceFSKey(namespace types.NamespaceURI) string {
+	return "ns:" + namespace.String()
+}
+
+func (l *SchemaLoader) loadKey(ctx fsContext, location string) loadKey {
+	return loadKey{fsKey: ctx.key, location: location}
+}
+
 // Load loads a schema from the given location and validates it.
 func (l *SchemaLoader) Load(location string) (*parser.Schema, error) {
-	return l.loadWithValidation(location, validateSchema)
+	return l.loadWithValidation(location, validateSchema, l.defaultFSContext())
 }
 
 // loadWithValidation loads a schema with the requested validation mode.
-func (l *SchemaLoader) loadWithValidation(location string, mode validationMode) (*parser.Schema, error) {
+func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, ctx fsContext) (*parser.Schema, error) {
 	absLoc := l.resolveLocation(location)
-	session := newLoadSession(l, absLoc)
+	key := l.loadKey(ctx, absLoc)
+	session := newLoadSession(l, absLoc, ctx, key)
 
-	if schema, ok := l.state.loaded[absLoc]; ok {
+	if schema, ok := l.state.loaded[key]; ok {
 		return schema, nil
 	}
 
@@ -166,8 +211,8 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode) 
 	// this handles the case where we're loading a schema that's being imported
 	// the import context will be checked later when we detect a cycle
 
-	l.state.loading[absLoc] = true
-	defer delete(l.state.loading, absLoc)
+	l.state.loading[key] = true
+	defer delete(l.state.loading, key)
 
 	result, err := session.parseSchema()
 	if err != nil {
@@ -176,8 +221,8 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode) 
 
 	schema := result.Schema
 	initSchemaOrigins(schema, absLoc)
-	l.state.loadingSchemas[absLoc] = schema
-	defer delete(l.state.loadingSchemas, absLoc)
+	l.state.loadingSchemas[key] = schema
+	defer delete(l.state.loadingSchemas, key)
 	registerImports(schema, result.Imports)
 
 	if err := validateImportConstraints(schema, result.Imports); err != nil {
@@ -210,25 +255,26 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode) 
 		}
 	}
 
-	l.state.loaded[absLoc] = schema
+	l.state.loaded[key] = schema
 
 	return schema, nil
 }
 
 // loadImport loads a schema for import, allowing mutual imports between different namespaces.
-func (l *SchemaLoader) loadImport(location string, currentNamespace types.NamespaceURI) (*parser.Schema, error) {
+func (l *SchemaLoader) loadImport(location string, currentNamespace types.NamespaceURI, ctx fsContext) (*parser.Schema, error) {
 	// the location passed to loadImport is already resolved via resolveIncludeLocation
 	// load will call resolveLocation on it, which might produce a different path
 	// to ensure the import context key matches what Load will use, we need to resolve it the same way
 	// resolve it the way Load will to get the exact key that Load will use
 	absLocForContext := l.resolveLocation(location)
+	absKey := l.loadKey(ctx, absLocForContext)
 
 	// if already loaded, reuse it
-	if schema, ok := l.state.loaded[absLocForContext]; ok {
+	if schema, ok := l.state.loaded[absKey]; ok {
 		return schema, nil
 	}
 	// also check the original location in case it's stored differently
-	if schema, ok := l.state.loaded[location]; ok {
+	if schema, ok := l.state.loaded[l.loadKey(ctx, location)]; ok {
 		return schema, nil
 	}
 
@@ -237,13 +283,13 @@ func (l *SchemaLoader) loadImport(location string, currentNamespace types.Namesp
 	// importing schema has a different namespace than the schema being imported.
 	currentNS := string(currentNamespace)
 	if currentNS != "" {
-		clearImportContext := l.trackImportContext(absLocForContext, location, currentNS)
+		clearImportContext := l.trackImportContext(absLocForContext, location, currentNS, ctx.key)
 		defer clearImportContext()
 	}
 
 	// normal loading - skip validation for imported schemas.
 	// they will be validated after merging into the main schema.
-	return l.loadWithValidation(location, skipSchemaValidation)
+	return l.loadWithValidation(location, skipSchemaValidation, ctx)
 }
 
 // LoadCompiled loads and compiles a schema from the given location.
@@ -275,7 +321,8 @@ func (l *SchemaLoader) LoadCompiled(location string) (*grammar.CompiledSchema, e
 // GetLoaded returns a loaded schema by location, if it exists
 func (l *SchemaLoader) GetLoaded(location string) (*parser.Schema, bool) {
 	absLoc := l.resolveLocation(location)
-	schema, ok := l.state.loaded[absLoc]
+	key := l.loadKey(l.defaultFSContext(), absLoc)
+	schema, ok := l.state.loaded[key]
 	return schema, ok
 }
 
@@ -305,24 +352,24 @@ func (l *SchemaLoader) resolveIncludeLocation(baseLoc, includeLoc string) string
 	return path.Join(baseDir, includeLoc)
 }
 
-func (l *SchemaLoader) trackImportContext(resolvedLocation, originalLocation, namespace string) func() {
-	return l.imports.trackContext(resolvedLocation, originalLocation, namespace)
+func (l *SchemaLoader) trackImportContext(resolvedLocation, originalLocation, namespace, fsKey string) func() {
+	return l.imports.trackContext(resolvedLocation, originalLocation, namespace, fsKey)
 }
 
-func (l *SchemaLoader) alreadyMergedInclude(baseLoc, includeLoc string) bool {
-	return l.imports.alreadyMergedInclude(baseLoc, includeLoc)
+func (l *SchemaLoader) alreadyMergedInclude(baseKey, includeKey loadKey) bool {
+	return l.imports.alreadyMergedInclude(baseKey, includeKey)
 }
 
-func (l *SchemaLoader) markMergedInclude(baseLoc, includeLoc string) {
-	l.imports.markMergedInclude(baseLoc, includeLoc)
+func (l *SchemaLoader) markMergedInclude(baseKey, includeKey loadKey) {
+	l.imports.markMergedInclude(baseKey, includeKey)
 }
 
-func (l *SchemaLoader) alreadyMergedImport(baseLoc, importLoc string) bool {
-	return l.imports.alreadyMergedImport(baseLoc, importLoc)
+func (l *SchemaLoader) alreadyMergedImport(baseKey, importKey loadKey) bool {
+	return l.imports.alreadyMergedImport(baseKey, importKey)
 }
 
-func (l *SchemaLoader) markMergedImport(baseLoc, importLoc string) {
-	l.imports.markMergedImport(baseLoc, importLoc)
+func (l *SchemaLoader) markMergedImport(baseKey, importKey loadKey) {
+	l.imports.markMergedImport(baseKey, importKey)
 }
 
 func ensureNamespaceMap(m map[types.NamespaceURI]map[types.NamespaceURI]bool, key types.NamespaceURI) map[types.NamespaceURI]bool {
@@ -461,12 +508,12 @@ func (l *SchemaLoader) isIncludeNamespaceCompatible(includingNS, includedNS type
 	return false
 }
 
-func (l *SchemaLoader) openFile(location string) (io.ReadCloser, error) {
-	if l.config.FS == nil {
+func (l *SchemaLoader) openFile(fsys fs.FS, location string) (io.ReadCloser, error) {
+	if fsys == nil {
 		return nil, fmt.Errorf("no filesystem configured")
 	}
 
-	f, err := l.config.FS.Open(location)
+	f, err := fsys.Open(location)
 	if err != nil {
 		return nil, err
 	}
