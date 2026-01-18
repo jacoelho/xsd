@@ -1,6 +1,7 @@
 package types
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -443,6 +444,34 @@ func TestGenericFacet_Duration(t *testing.T) {
 	}
 }
 
+func TestRangeFacet_DurationIndeterminate(t *testing.T) {
+	durationType := mustBuiltinSimpleType(t, TypeNameDuration)
+
+	facet, err := NewMinInclusive("P1M", durationType)
+	if err != nil {
+		t.Fatalf("NewMinInclusive() error = %v", err)
+	}
+
+	valueDur, err := ParseXSDDuration("P30D")
+	if err != nil {
+		t.Fatalf("ParseXSDDuration() error = %v", err)
+	}
+
+	value := &XSDDurationTypedValue{
+		Value: "P30D",
+		Typ:   durationType,
+		dur:   valueDur,
+	}
+
+	err = facet.Validate(value, durationType)
+	if err == nil {
+		t.Fatal("Validate() should return error for indeterminate duration comparison")
+	}
+	if strings.Contains(err.Error(), "cannot compare") {
+		t.Fatalf("expected facet violation error, got %v", err)
+	}
+}
+
 // DurationTypedValue is a helper type for testing duration facets
 type DurationTypedValue struct {
 	Typ   Type
@@ -466,25 +495,37 @@ func (d *DurationTypedValue) String() string {
 	return d.Value
 }
 
+// XSDDurationTypedValue is a helper type for testing full XSD duration facets.
+type XSDDurationTypedValue struct {
+	Typ   Type
+	Value string
+	dur   XSDDuration
+}
+
+func (d *XSDDurationTypedValue) Type() Type {
+	return d.Typ
+}
+
+func (d *XSDDurationTypedValue) Lexical() string {
+	return d.Value
+}
+
+func (d *XSDDurationTypedValue) Native() any {
+	return ComparableXSDDuration{Value: d.dur, Typ: d.Typ}
+}
+
+func (d *XSDDurationTypedValue) String() string {
+	return d.Value
+}
+
 // TestRangeFacet_CrossTypeNumeric checks cross-type numeric comparisons.
 // It covers decimal facet values against integer instance values.
 func TestRangeFacet_CrossTypeNumeric(t *testing.T) {
 	// scenario: maxExclusive facet on a decimal type with value "100", but instance value is integer
 	// this simulates cases like Boeing IPO test where quantity field has maxExclusive on decimal
 	// but the instance value is parsed as integer
-	decimalType := &SimpleType{
-		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
-	}
-	decimalType.MarkBuiltin()
-	decimalType.SetVariety(AtomicVariety)
-	decimalType.SetPrimitiveType(decimalType)
-
-	integerType := &SimpleType{
-		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "integer"},
-	}
-	integerType.MarkBuiltin()
-	integerType.SetVariety(AtomicVariety)
-	integerType.SetPrimitiveType(decimalType)
+	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
+	integerType := mustBuiltinSimpleType(t, TypeNameInteger)
 
 	// create maxExclusive facet with decimal value (ComparableBigRat)
 	maxVal, _ := ParseDecimal("100")
