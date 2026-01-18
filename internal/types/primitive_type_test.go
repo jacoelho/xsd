@@ -15,15 +15,7 @@ func TestPrimitiveType_ForPrimitiveTypes(t *testing.T) {
 
 	for _, typeName := range primitiveTypes {
 		t.Run(typeName, func(t *testing.T) {
-			st := &SimpleType{
-				QName: QName{
-					Namespace: "http://www.w3.org/2001/XMLSchema",
-					Local:     typeName,
-				},
-				// variety set via SetVariety
-			}
-			st.MarkBuiltin()
-			st.SetVariety(AtomicVariety)
+			st := mustBuiltinSimpleType(t, TypeName(typeName))
 
 			primitive := st.PrimitiveType()
 			if primitive == nil {
@@ -38,32 +30,7 @@ func TestPrimitiveType_ForPrimitiveTypes(t *testing.T) {
 
 func TestPrimitiveType_ForDerivedTypes(t *testing.T) {
 	// integer is derived from decimal, so primitive should be decimal
-	decimalType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     string(TypeNameDecimal),
-		},
-		// variety set via SetVariety
-	}
-	decimalType.MarkBuiltin()
-	decimalType.SetVariety(AtomicVariety)
-	decimalType.SetFundamentalFacets(ComputeFundamentalFacets(TypeNameDecimal))
-
-	integerType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     string(TypeNameInteger),
-		},
-		// variety set via SetVariety
-		Restriction: &Restriction{
-			Base: decimalType.QName,
-		},
-	}
-	integerType.ResolvedBase = decimalType
-	integerType.MarkBuiltin()
-	integerType.SetVariety(AtomicVariety)
-	integerType.MarkBuiltin()
-	integerType.SetVariety(AtomicVariety)
+	integerType := mustBuiltinSimpleType(t, TypeNameInteger)
 
 	primitive := integerType.PrimitiveType()
 	if primitive == nil {
@@ -76,47 +43,7 @@ func TestPrimitiveType_ForDerivedTypes(t *testing.T) {
 
 func TestPrimitiveType_ForListTypes(t *testing.T) {
 	// list of IDREF should have primitive of string (IDREF's primitive)
-	stringType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     string(TypeNameString),
-		},
-		// variety set via SetVariety
-	}
-	stringType.MarkBuiltin()
-	stringType.SetVariety(AtomicVariety)
-	stringType.MarkBuiltin()
-	stringType.SetVariety(AtomicVariety)
-	stringType.SetFundamentalFacets(ComputeFundamentalFacets(TypeNameString))
-
-	idrefType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "IDREF",
-		},
-		// variety set via SetVariety
-		Restriction: &Restriction{
-			Base: stringType.QName,
-		},
-	}
-	idrefType.ResolvedBase = stringType
-	idrefType.MarkBuiltin()
-	idrefType.SetVariety(AtomicVariety)
-	idrefType.SetPrimitiveType(stringType)
-
-	listType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "IDREFS",
-		},
-		// variety set via SetVariety
-		List: &ListType{
-			ItemType: idrefType.QName,
-		},
-	}
-	listType.MarkBuiltin()
-	listType.SetVariety(ListVariety)
-	listType.ItemType = idrefType
+	listType := mustBuiltinSimpleType(t, TypeNameIDREFS)
 
 	primitive := listType.PrimitiveType()
 	if primitive == nil {
@@ -129,38 +56,14 @@ func TestPrimitiveType_ForListTypes(t *testing.T) {
 
 func TestPrimitiveType_ForUnionTypes(t *testing.T) {
 	// union types should return common primitive or anySimpleType
-	stringType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "string",
-		},
-		// variety set via SetVariety
-	}
-	stringType.MarkBuiltin()
-	stringType.SetVariety(AtomicVariety)
-	stringType.MarkBuiltin()
-	stringType.SetVariety(AtomicVariety)
-	stringType.SetFundamentalFacets(ComputeFundamentalFacets(TypeNameString))
-	stringType.SetPrimitiveType(stringType)
-
-	integerType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "integer",
-		},
-		// variety set via SetVariety
-	}
-	integerType.MarkBuiltin()
-	integerType.SetVariety(AtomicVariety)
-	integerType.MarkBuiltin()
-	integerType.SetVariety(AtomicVariety)
+	stringType := mustBuiltinSimpleType(t, TypeNameString)
+	integerType := mustBuiltinSimpleType(t, TypeNameInteger)
 
 	unionType := &SimpleType{
 		QName: QName{
 			Namespace: "http://example.com",
 			Local:     "StringOrInteger",
 		},
-		// variety set via SetVariety
 		Union: &UnionType{
 			MemberTypes: []QName{
 				stringType.QName,
@@ -187,7 +90,6 @@ func TestPrimitiveType_CircularReference(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "circular",
 		},
-		// variety set via SetVariety
 		Restriction: &Restriction{
 			Base: QName{
 				Namespace: "http://example.com",
@@ -211,7 +113,6 @@ func TestPrimitiveType_IndirectCircularReference(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "type1",
 		},
-		// variety set via SetVariety
 		Restriction: &Restriction{
 			Base: QName{
 				Namespace: "http://example.com",
@@ -225,7 +126,6 @@ func TestPrimitiveType_IndirectCircularReference(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "type2",
 		},
-		// variety set via SetVariety
 		Restriction: &Restriction{
 			Base: QName{
 				Namespace: "http://example.com",
@@ -268,7 +168,6 @@ func TestPrimitiveType_WithBuiltinBase(t *testing.T) {
 		},
 	}
 	derivedType.ResolvedBase = intBuiltin
-	derivedType.SetVariety(AtomicVariety)
 
 	// PrimitiveType should return the primitive of int (which is decimal)
 	primitive := derivedType.PrimitiveType()
@@ -301,7 +200,6 @@ func TestPrimitiveType_NestedDerivationWithBuiltin(t *testing.T) {
 		},
 	}
 	derivedType.ResolvedBase = intBuiltin
-	derivedType.SetVariety(AtomicVariety)
 
 	// second level: moreDerived restricts derived
 	moreDerivedType := &SimpleType{
@@ -314,7 +212,6 @@ func TestPrimitiveType_NestedDerivationWithBuiltin(t *testing.T) {
 		},
 	}
 	moreDerivedType.ResolvedBase = derivedType
-	moreDerivedType.SetVariety(AtomicVariety)
 
 	// PrimitiveType should traverse the chain: moreDerived -> derived -> int -> decimal
 	primitive := moreDerivedType.PrimitiveType()
@@ -346,7 +243,6 @@ func TestPrimitiveType_WithRestrictionBaseDuringParsing(t *testing.T) {
 				},
 			},
 		}
-		st.SetVariety(AtomicVariety)
 		// ResolvedBase is nil (simulating parsing phase)
 
 		primitive := st.PrimitiveType()
@@ -373,7 +269,6 @@ func TestPrimitiveType_WithRestrictionBaseDuringParsing(t *testing.T) {
 				},
 			},
 		}
-		st.SetVariety(AtomicVariety)
 		// ResolvedBase is nil (simulating parsing phase)
 
 		primitive := st.PrimitiveType()
@@ -401,7 +296,6 @@ func TestPrimitiveType_WithRestrictionBaseDuringParsing(t *testing.T) {
 				},
 			},
 		}
-		st.SetVariety(AtomicVariety)
 		// ResolvedBase is nil (simulating parsing phase)
 
 		primitive := st.PrimitiveType()
@@ -429,7 +323,6 @@ func TestPrimitiveType_WithRestrictionBaseDuringParsing(t *testing.T) {
 				},
 			},
 		}
-		st.SetVariety(AtomicVariety)
 		// ResolvedBase is nil (simulating parsing phase)
 
 		primitive := st.PrimitiveType()
@@ -457,7 +350,6 @@ func TestPrimitiveType_WithRestrictionBaseDuringParsing(t *testing.T) {
 				},
 			},
 		}
-		st.SetVariety(AtomicVariety)
 		// ResolvedBase is nil (simulating parsing phase)
 
 		primitive := st.PrimitiveType()
@@ -485,7 +377,6 @@ func TestPrimitiveType_WithRestrictionBaseDuringParsing(t *testing.T) {
 				},
 			},
 		}
-		st.SetVariety(AtomicVariety)
 		// ResolvedBase is nil (simulating parsing phase)
 
 		primitive := st.PrimitiveType()
@@ -513,7 +404,6 @@ func TestPrimitiveType_WithRestrictionBaseDuringParsing(t *testing.T) {
 				},
 			},
 		}
-		st.SetVariety(AtomicVariety)
 		// ResolvedBase is nil (simulating parsing phase)
 
 		primitive := st.PrimitiveType()
@@ -538,7 +428,6 @@ func TestPrimitiveType_WithRestrictionBaseDuringParsing(t *testing.T) {
 				},
 			},
 		}
-		st.SetVariety(AtomicVariety)
 		// ResolvedBase is nil (simulating parsing phase)
 
 		primitive := st.PrimitiveType()
@@ -569,7 +458,6 @@ func TestPrimitiveType_WithRestrictionBaseDuringParsing(t *testing.T) {
 			},
 		}
 		st.ResolvedBase = intBuiltin // set ResolvedBase (validation phase)
-		st.SetVariety(AtomicVariety)
 
 		primitive := st.PrimitiveType()
 		if primitive == nil {
@@ -605,7 +493,6 @@ func TestPrimitiveType_WithRestrictionBaseDuringParsing(t *testing.T) {
 				Base: intBuiltin.Name(),
 			},
 		}
-		derivedType.SetVariety(AtomicVariety)
 		// ResolvedBase is nil (parsing phase)
 
 		// second level: moreDerived restricts derived (has ResolvedBase set)
@@ -619,7 +506,6 @@ func TestPrimitiveType_WithRestrictionBaseDuringParsing(t *testing.T) {
 			},
 		}
 		moreDerivedType.ResolvedBase = derivedType
-		moreDerivedType.SetVariety(AtomicVariety)
 
 		// first level should resolve from Restriction.Base
 		derivedPrimitive := derivedType.PrimitiveType()

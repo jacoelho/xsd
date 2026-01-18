@@ -19,7 +19,6 @@ type SimpleType struct {
 	SourceNamespace        NamespaceURI
 	MemberTypes            []Type
 	whiteSpace             WhiteSpace
-	variety                SimpleTypeVariety
 	Final                  DerivationSet
 	qnameOrNotationReady   bool
 	qnameOrNotation        bool
@@ -27,23 +26,89 @@ type SimpleType struct {
 	builtin                bool
 }
 
-// NewSimpleType creates a new simple type with the provided name and namespace.
-func NewSimpleType(name QName, sourceNamespace NamespaceURI) *SimpleType {
-	return &SimpleType{
+// NewAtomicSimpleType creates a simple type derived by restriction.
+func NewAtomicSimpleType(name QName, sourceNamespace NamespaceURI, restriction *Restriction) (*SimpleType, error) {
+	st := &SimpleType{
 		QName:           name,
 		SourceNamespace: sourceNamespace,
+		Restriction:     restriction,
 	}
-}
-
-// NewSimpleTypeFromParsed validates a parsed simple type and returns it if valid.
-func NewSimpleTypeFromParsed(simpleType *SimpleType) (*SimpleType, error) {
-	if simpleType == nil {
-		return nil, fmt.Errorf("simpleType is nil")
+	if restriction != nil && restriction.SimpleType != nil {
+		st.ResolvedBase = restriction.SimpleType
 	}
-	if err := validateSimpleTypeDefinition(simpleType); err != nil {
+	if err := validateSimpleTypeDefinition(st); err != nil {
 		return nil, err
 	}
-	return simpleType, nil
+	return st, nil
+}
+
+// NewListSimpleType creates a simple type derived by list.
+func NewListSimpleType(name QName, sourceNamespace NamespaceURI, list *ListType, restriction *Restriction) (*SimpleType, error) {
+	if list == nil {
+		return nil, fmt.Errorf("list simpleType must have a list definition")
+	}
+	st := &SimpleType{
+		QName:           name,
+		SourceNamespace: sourceNamespace,
+		List:            list,
+		Restriction:     restriction,
+		whiteSpace:      WhiteSpaceCollapse,
+	}
+	if list.InlineItemType != nil {
+		st.ItemType = list.InlineItemType
+	}
+	if err := validateSimpleTypeDefinition(st); err != nil {
+		return nil, err
+	}
+	return st, nil
+}
+
+// NewUnionSimpleType creates a simple type derived by union.
+func NewUnionSimpleType(name QName, sourceNamespace NamespaceURI, union *UnionType) (*SimpleType, error) {
+	if union == nil {
+		return nil, fmt.Errorf("union simpleType must have a union definition")
+	}
+	st := &SimpleType{
+		QName:           name,
+		SourceNamespace: sourceNamespace,
+		Union:           union,
+	}
+	if err := validateSimpleTypeDefinition(st); err != nil {
+		return nil, err
+	}
+	return st, nil
+}
+
+// NewBuiltinSimpleType creates a SimpleType wrapper for a built-in type name.
+func NewBuiltinSimpleType(name TypeName) (*SimpleType, error) {
+	builtin := GetBuiltin(name)
+	if builtin == nil {
+		return nil, fmt.Errorf("unknown built-in type %s", name)
+	}
+	st := newBuiltinSimpleType(builtin)
+	if st == nil {
+		return nil, fmt.Errorf("failed to build built-in type %s", name)
+	}
+	if st.List != nil {
+		if itemName, ok := builtinListItemTypeName(string(name)); ok {
+			if itemType := GetBuiltin(itemName); itemType != nil {
+				st.ItemType = itemType
+			}
+		}
+	}
+	st.fundamentalFacetsCache = builtin.FundamentalFacets()
+	if err := validateSimpleTypeDefinition(st); err != nil {
+		return nil, err
+	}
+	return st, nil
+}
+
+// NewPlaceholderSimpleType creates a simple type placeholder for unresolved references.
+func NewPlaceholderSimpleType(name QName) *SimpleType {
+	return &SimpleType{
+		QName:           name,
+		SourceNamespace: name.Namespace,
+	}
 }
 
 func validateSimpleTypeDefinition(simpleType *SimpleType) error {
@@ -71,7 +136,7 @@ func validateSimpleTypeDefinition(simpleType *SimpleType) error {
 			return fmt.Errorf("simpleType restriction must have a base type")
 		}
 		baseType := restrictionBaseType(simpleType)
-		if baseType != nil {
+		if facetApplicabilityReady(baseType) {
 			if err := validateRestrictionFacetApplicability(simpleType.Restriction.Facets, baseType); err != nil {
 				return err
 			}
@@ -106,6 +171,12 @@ func restrictionBaseType(simpleType *SimpleType) Type {
 		}
 		return simpleType.ResolvedBase
 	}
+	if simpleType.Restriction.SimpleType != nil {
+		if isNilType(simpleType.Restriction.SimpleType) {
+			return nil
+		}
+		return simpleType.Restriction.SimpleType
+	}
 	if simpleType.Restriction.Base.IsZero() {
 		return nil
 	}
@@ -114,6 +185,21 @@ func restrictionBaseType(simpleType *SimpleType) Type {
 		return nil
 	}
 	return base
+}
+
+func facetApplicabilityReady(baseType Type) bool {
+	if isNilType(baseType) {
+		return false
+	}
+	if baseType.IsBuiltin() {
+		return true
+	}
+	if st, ok := as[*SimpleType](baseType); ok {
+		if st.List != nil || st.Union != nil {
+			return true
+		}
+	}
+	return baseType.PrimitiveType() != nil
 }
 
 type facetNamer interface {
@@ -282,11 +368,6 @@ func (s *SimpleType) FundamentalFacets() *FundamentalFacets {
 	return nil
 }
 
-// SetFundamentalFacets sets the cached fundamental facets for this simple type
-func (s *SimpleType) SetFundamentalFacets(facets *FundamentalFacets) {
-	s.fundamentalFacetsCache = facets
-}
-
 // WhiteSpace returns the whitespace normalization for this simple type
 func (s *SimpleType) WhiteSpace() WhiteSpace {
 	return s.whiteSpace
@@ -394,12 +475,36 @@ func countXMLFields(value string) int {
 
 // Variety returns the simple type variety.
 func (s *SimpleType) Variety() SimpleTypeVariety {
-	return s.variety
-}
-
-// SetVariety sets the simple type variety
-func (s *SimpleType) SetVariety(v SimpleTypeVariety) {
-	s.variety = v
+	if s == nil {
+		return AtomicVariety
+	}
+	if s.List != nil {
+		return ListVariety
+	}
+	if s.Union != nil {
+		return UnionVariety
+	}
+	if s.Restriction != nil {
+		if s.ResolvedBase != nil {
+			switch base := s.ResolvedBase.(type) {
+			case *SimpleType:
+				return base.Variety()
+			case *BuiltinType:
+				if isBuiltinListType(base.Name().Local) {
+					return ListVariety
+				}
+			}
+		}
+		if !s.Restriction.Base.IsZero() &&
+			s.Restriction.Base.Namespace == XSDNamespace &&
+			isBuiltinListType(s.Restriction.Base.Local) {
+			return ListVariety
+		}
+	}
+	if s.builtin && isBuiltinListType(s.QName.Local) {
+		return ListVariety
+	}
+	return AtomicVariety
 }
 
 // Validate checks if a lexical value is valid for this type
@@ -464,11 +569,6 @@ func (s *SimpleType) ParseValue(lexical string) (TypedValue, error) {
 	return ParseValueForType(normalized, primitiveName, s)
 }
 
-// MarkBuiltin marks the type as a built-in type
-func (s *SimpleType) MarkBuiltin() {
-	s.builtin = true
-}
-
 // PrimitiveType returns the ultimate primitive base type for this simple type
 func (s *SimpleType) PrimitiveType() Type {
 	// return cached value if available
@@ -479,11 +579,6 @@ func (s *SimpleType) PrimitiveType() Type {
 	primitive := s.getPrimitiveTypeWithVisited(make(map[*SimpleType]bool))
 	s.primitiveType = primitive
 	return primitive
-}
-
-// SetPrimitiveType sets the cached primitive type for this simple type
-func (s *SimpleType) SetPrimitiveType(primitive Type) {
-	s.primitiveType = primitive
 }
 
 // IsQNameOrNotationType reports whether this type derives from QName or NOTATION.
@@ -577,9 +672,9 @@ func (s *SimpleType) getPrimitiveTypeWithVisited(visited map[*SimpleType]bool) T
 }
 
 func (s *SimpleType) primitiveFromSelf() Type {
-	if s.builtin && s.Variety() == AtomicVariety {
-		if isPrimitiveName(TypeName(s.QName.Local)) && s.QName.Namespace == XSDNamespace {
-			return s
+	if s.builtin && s.QName.Namespace == XSDNamespace && s.Variety() == AtomicVariety {
+		if builtin := GetBuiltin(TypeName(s.QName.Local)); builtin != nil {
+			return builtin.PrimitiveType()
 		}
 	}
 	return nil
@@ -606,10 +701,18 @@ func (s *SimpleType) primitiveFromRestriction(visited map[*SimpleType]bool) Type
 }
 
 func (s *SimpleType) primitiveFromList(visited map[*SimpleType]bool) Type {
-	if s.List == nil || s.ItemType == nil {
+	if s.List == nil {
 		return nil
 	}
-	return primitiveFromBaseType(s.ItemType, visited)
+	if s.ItemType != nil {
+		return primitiveFromBaseType(s.ItemType, visited)
+	}
+	if !s.List.ItemType.IsZero() {
+		if builtin := GetBuiltinNS(s.List.ItemType.Namespace, s.List.ItemType.Local); builtin != nil {
+			return builtin.PrimitiveType()
+		}
+	}
+	return nil
 }
 
 func (s *SimpleType) primitiveFromUnion(visited map[*SimpleType]bool) Type {

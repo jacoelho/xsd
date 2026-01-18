@@ -136,9 +136,6 @@ func (r *Resolver) resolveSimpleTypeRestriction(qname types.QName, st *types.Sim
 	}
 	st.ResolvedBase = base
 	if baseST, ok := base.(*types.SimpleType); ok {
-		if baseST.Variety() == types.ListVariety || baseST.Variety() == types.UnionVariety {
-			st.SetVariety(baseST.Variety())
-		}
 		if baseST.Variety() == types.UnionVariety && len(st.MemberTypes) == 0 && len(baseST.MemberTypes) > 0 {
 			st.MemberTypes = append([]types.Type(nil), baseST.MemberTypes...)
 		}
@@ -157,7 +154,7 @@ func (r *Resolver) resolveSimpleTypeList(qname types.QName, st *types.SimpleType
 	item, err := r.lookupType(st.List.ItemType, st.QName)
 	if err != nil {
 		if allowMissingTypeReference(r.schema, st.List.ItemType) {
-			st.ItemType = &types.SimpleType{QName: st.List.ItemType}
+			st.ItemType = types.NewPlaceholderSimpleType(st.List.ItemType)
 			return nil
 		}
 		return fmt.Errorf("type %s list item: %w", qname, err)
@@ -188,7 +185,7 @@ func (r *Resolver) resolveUnionNamedMembers(qname types.QName, st *types.SimpleT
 		member, err := r.lookupType(memberQName, st.QName)
 		if err != nil {
 			if allowMissingTypeReference(r.schema, memberQName) {
-				st.MemberTypes = append(st.MemberTypes, &types.SimpleType{QName: memberQName})
+				st.MemberTypes = append(st.MemberTypes, types.NewPlaceholderSimpleType(memberQName))
 				continue
 			}
 			return fmt.Errorf("type %s union member %d: %w", qname, i, err)

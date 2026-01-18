@@ -6,15 +6,7 @@ import (
 
 func TestWhiteSpace_Inheritance(t *testing.T) {
 	// test that derived types inherit whitespace from base type
-	baseType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     string(TypeNameString),
-		},
-		// variety set via SetVariety
-	}
-	baseType.MarkBuiltin()
-	baseType.SetVariety(AtomicVariety)
+	baseType := mustBuiltinSimpleType(t, TypeNameString)
 	baseType.SetWhiteSpace(WhiteSpacePreserve)
 
 	derivedType := &SimpleType{
@@ -22,13 +14,11 @@ func TestWhiteSpace_Inheritance(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "MyString",
 		},
-		// variety set via SetVariety
 		Restriction: &Restriction{
 			Base: baseType.QName,
 		},
 	}
 	derivedType.ResolvedBase = baseType
-	derivedType.SetVariety(AtomicVariety)
 	derivedType.SetWhiteSpace(baseType.WhiteSpace()) // inherit from base
 
 	if derivedType.WhiteSpace() != WhiteSpacePreserve {
@@ -38,15 +28,7 @@ func TestWhiteSpace_Inheritance(t *testing.T) {
 
 func TestWhiteSpace_Override(t *testing.T) {
 	// test that whitespace can be overridden in restrictions
-	baseType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     string(TypeNameString),
-		},
-		// variety set via SetVariety
-	}
-	baseType.MarkBuiltin()
-	baseType.SetVariety(AtomicVariety)
+	baseType := mustBuiltinSimpleType(t, TypeNameString)
 	baseType.SetWhiteSpace(WhiteSpacePreserve)
 
 	derivedType := &SimpleType{
@@ -54,13 +36,11 @@ func TestWhiteSpace_Override(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "MyString",
 		},
-		// variety set via SetVariety
 		Restriction: &Restriction{
 			Base: baseType.QName,
 		},
 	}
 	derivedType.ResolvedBase = baseType
-	derivedType.SetVariety(AtomicVariety)
 	derivedType.SetWhiteSpace(WhiteSpaceCollapse) // override to collapse
 
 	if derivedType.WhiteSpace() != WhiteSpaceCollapse {
@@ -96,9 +76,7 @@ func TestWhiteSpace_StricterOnly(t *testing.T) {
 					Namespace: "http://example.com",
 					Local:     "Base",
 				},
-				// variety set via SetVariety
 			}
-			baseType.SetVariety(AtomicVariety)
 			baseType.SetWhiteSpace(tt.base)
 
 			derivedType := &SimpleType{
@@ -106,10 +84,8 @@ func TestWhiteSpace_StricterOnly(t *testing.T) {
 					Namespace: "http://example.com",
 					Local:     "Derived",
 				},
-				// variety set via SetVariety
 			}
 			derivedType.ResolvedBase = baseType
-			derivedType.SetVariety(AtomicVariety)
 			derivedType.SetWhiteSpace(tt.derived)
 
 			// check if the values are set correctly
@@ -128,7 +104,6 @@ func TestNormalizeValue_WhiteSpace(t *testing.T) {
 			Local:     "NormalizedString",
 		},
 	}
-	typ.SetVariety(AtomicVariety)
 	typ.SetWhiteSpace(WhiteSpaceCollapse)
 
 	normalized, err := NormalizeValue(" \talpha \n  beta\r\n", typ)
@@ -147,7 +122,6 @@ func TestNormalizeValue_XMLWhitespaceOnly(t *testing.T) {
 			Local:     "NormalizedString",
 		},
 	}
-	typ.SetVariety(AtomicVariety)
 	typ.SetWhiteSpace(WhiteSpaceCollapse)
 
 	input := "alpha\u00a0beta"

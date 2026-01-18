@@ -6,42 +6,11 @@ import (
 
 func TestSimpleType_IsDerivedFrom(t *testing.T) {
 	// create a type hierarchy: decimal -> integer -> long
-	decimalType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     string(TypeNameDecimal),
-		},
-		// variety set via SetVariety
-	}
-	decimalType.MarkBuiltin()
-	decimalType.SetVariety(AtomicVariety)
-	decimalType.SetFundamentalFacets(ComputeFundamentalFacets(TypeNameDecimal))
-
-	integerType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     string(TypeNameInteger),
-		},
-		// variety set via SetVariety
-		Restriction: &Restriction{
-			Base: decimalType.QName,
-		},
-	}
+	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
+	integerType := mustBuiltinSimpleType(t, TypeNameInteger)
 	integerType.ResolvedBase = decimalType
-	integerType.MarkBuiltin()
-
-	longType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "long",
-		},
-		// variety set via SetVariety
-		Restriction: &Restriction{
-			Base: integerType.QName,
-		},
-	}
+	longType := mustBuiltinSimpleType(t, TypeNameLong)
 	longType.ResolvedBase = integerType
-	longType.MarkBuiltin()
 
 	// test direct derivation
 	if !IsDerivedFrom(longType, integerType) {
@@ -59,15 +28,7 @@ func TestSimpleType_IsDerivedFrom(t *testing.T) {
 	}
 
 	// test unrelated type
-	unrelatedType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     string(TypeNameString),
-		},
-		// variety set via SetVariety
-	}
-	unrelatedType.MarkBuiltin()
-	unrelatedType.SetVariety(AtomicVariety)
+	unrelatedType := mustBuiltinSimpleType(t, TypeNameString)
 	if IsDerivedFrom(longType, unrelatedType) {
 		t.Error("long should not be derived from string")
 	}
@@ -112,42 +73,11 @@ func TestComplexType_IsDerivedFrom(t *testing.T) {
 
 func TestSimpleType_GetDerivationChain(t *testing.T) {
 	// create a type hierarchy: decimal -> integer -> long
-	decimalType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     string(TypeNameDecimal),
-		},
-		// variety set via SetVariety
-	}
-	decimalType.MarkBuiltin()
-	decimalType.SetVariety(AtomicVariety)
-	decimalType.SetFundamentalFacets(ComputeFundamentalFacets(TypeNameDecimal))
-
-	integerType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     string(TypeNameInteger),
-		},
-		// variety set via SetVariety
-		Restriction: &Restriction{
-			Base: decimalType.QName,
-		},
-	}
+	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
+	integerType := mustBuiltinSimpleType(t, TypeNameInteger)
 	integerType.ResolvedBase = decimalType
-	integerType.MarkBuiltin()
-
-	longType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "long",
-		},
-		// variety set via SetVariety
-		Restriction: &Restriction{
-			Base: integerType.QName,
-		},
-	}
+	longType := mustBuiltinSimpleType(t, TypeNameLong)
 	longType.ResolvedBase = integerType
-	longType.MarkBuiltin()
 
 	// test derivation chain
 	chain := GetDerivationChain(longType)
@@ -229,7 +159,6 @@ func TestSimpleType_GetDerivationChain_NilBase(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "MyType",
 		},
-		// variety set via SetVariety
 	}
 
 	chain := GetDerivationChain(st)

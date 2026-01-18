@@ -1299,3 +1299,16 @@ func isBuiltinListType(name string) bool {
 		name == string(TypeNameIDREFS) ||
 		name == string(TypeNameENTITIES)
 }
+
+func builtinListItemTypeName(name string) (TypeName, bool) {
+	switch name {
+	case string(TypeNameNMTOKENS):
+		return TypeNameNMTOKEN, true
+	case string(TypeNameIDREFS):
+		return TypeNameIDREF, true
+	case string(TypeNameENTITIES):
+		return TypeNameENTITY, true
+	default:
+		return "", false
+	}
+}

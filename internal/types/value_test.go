@@ -7,15 +7,7 @@ import (
 )
 
 func TestTypedValue_Decimal(t *testing.T) {
-	typ := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "decimal",
-		},
-		// variety set via SetVariety
-	}
-	typ.MarkBuiltin()
-	typ.SetVariety(AtomicVariety)
+	typ := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	lexical := "123.456"
 	native, err := ParseDecimal(lexical)
@@ -55,15 +47,7 @@ func TestTypedValue_Decimal(t *testing.T) {
 }
 
 func TestTypedValue_Boolean(t *testing.T) {
-	typ := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "boolean",
-		},
-		// variety set via SetVariety
-	}
-	typ.MarkBuiltin()
-	typ.SetVariety(AtomicVariety)
+	typ := mustBuiltinSimpleType(t, TypeNameBoolean)
 
 	lexical := "true"
 	native, err := ParseBoolean(lexical)
@@ -97,15 +81,7 @@ func TestTypedValue_Boolean(t *testing.T) {
 }
 
 func TestTypedValue_DateTime(t *testing.T) {
-	typ := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "dateTime",
-		},
-		// variety set via SetVariety
-	}
-	typ.MarkBuiltin()
-	typ.SetVariety(AtomicVariety)
+	typ := mustBuiltinSimpleType(t, TypeNameDateTime)
 
 	lexical := "2001-10-26T21:32:52"
 	native, err := ParseDateTime(lexical)
@@ -139,15 +115,7 @@ func TestTypedValue_DateTime(t *testing.T) {
 }
 
 func TestTypedValue_Integer(t *testing.T) {
-	typ := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "integer",
-		},
-		// variety set via SetVariety
-	}
-	typ.MarkBuiltin()
-	typ.SetVariety(AtomicVariety)
+	typ := mustBuiltinSimpleType(t, TypeNameInteger)
 
 	lexical := "12345678901234567890"
 	native, err := ParseInteger(lexical)
@@ -181,15 +149,7 @@ func TestTypedValue_Integer(t *testing.T) {
 }
 
 func TestTypedValue_Float(t *testing.T) {
-	typ := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "float",
-		},
-		// variety set via SetVariety
-	}
-	typ.MarkBuiltin()
-	typ.SetVariety(AtomicVariety)
+	typ := mustBuiltinSimpleType(t, TypeNameFloat)
 
 	lexical := "123.456"
 	native, err := ParseFloat(lexical)
@@ -223,15 +183,7 @@ func TestTypedValue_Float(t *testing.T) {
 }
 
 func TestTypedValue_String(t *testing.T) {
-	typ := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "string",
-		},
-		// variety set via SetVariety
-	}
-	typ.MarkBuiltin()
-	typ.SetVariety(AtomicVariety)
+	typ := mustBuiltinSimpleType(t, TypeNameString)
 
 	lexical := "hello world"
 	native, err := ParseString(lexical)
@@ -268,15 +220,7 @@ func TestValueAs_WithComparableWrappers(t *testing.T) {
 	// test ComparableBigRat - unwrap to *big.Rat
 	rat := &big.Rat{}
 	rat.SetString("1.5")
-	typ := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "decimal",
-		},
-		// variety set via SetVariety
-	}
-	typ.MarkBuiltin()
-	typ.SetVariety(AtomicVariety)
+	typ := mustBuiltinSimpleType(t, TypeNameDecimal)
 	val := NewDecimalValue(NewParsedValue("1.5", rat), typ)
 
 	// test direct unwrap to *big.Rat
@@ -290,15 +234,7 @@ func TestValueAs_WithComparableWrappers(t *testing.T) {
 
 	// test ComparableBigInt - unwrap to *big.Int
 	bigInt := big.NewInt(123)
-	typInt := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "integer",
-		},
-		// variety set via SetVariety
-	}
-	typInt.MarkBuiltin()
-	typInt.SetVariety(AtomicVariety)
+	typInt := mustBuiltinSimpleType(t, TypeNameInteger)
 	valInt := NewIntegerValue(NewParsedValue("123", bigInt), typInt)
 
 	resultInt, err := ValueAs[*big.Int](valInt)
@@ -314,15 +250,7 @@ func TestValueAs_WithComparableWrappers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseDateTime() error = %v", err)
 	}
-	typTime := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "dateTime",
-		},
-		// variety set via SetVariety
-	}
-	typTime.MarkBuiltin()
-	typTime.SetVariety(AtomicVariety)
+	typTime := mustBuiltinSimpleType(t, TypeNameDateTime)
 	valTime := NewDateTimeValue(NewParsedValue("2001-10-26T21:32:52", dt), typTime)
 
 	resultTime, err := ValueAs[time.Time](valTime)
@@ -334,15 +262,7 @@ func TestValueAs_WithComparableWrappers(t *testing.T) {
 	}
 
 	// test ComparableFloat64 - unwrap to float64
-	typFloat := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "float",
-		},
-		// variety set via SetVariety
-	}
-	typFloat.MarkBuiltin()
-	typFloat.SetVariety(AtomicVariety)
+	typFloat := mustBuiltinSimpleType(t, TypeNameFloat)
 	valFloat := NewFloatValue(NewParsedValue("123.456", float32(123.456)), typFloat)
 
 	resultFloat, err := ValueAs[float32](valFloat)

@@ -29,7 +29,6 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: types.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
@@ -41,7 +40,6 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 		},
 	}
 	baseType.ResolvedBase = decimalBaseType
-	baseType.SetVariety(types.AtomicVariety)
 	schema.TypeDefs[baseType.QName] = baseType
 
 	// derived type with maxInclusive=50 (stricter - should be valid)
@@ -55,7 +53,6 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
@@ -105,7 +102,6 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: types.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
@@ -117,7 +113,6 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 		},
 	}
 	baseType.ResolvedBase = decimalBaseType
-	baseType.SetVariety(types.AtomicVariety)
 	schema.TypeDefs[baseType.QName] = baseType
 
 	// derived type with maxInclusive=200 (relaxed - should be invalid)
@@ -131,7 +126,6 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
@@ -177,7 +171,6 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: types.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
@@ -189,7 +182,6 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 		},
 	}
 	baseType.ResolvedBase = decimalBaseType
-	baseType.SetVariety(types.AtomicVariety)
 	schema.TypeDefs[baseType.QName] = baseType
 
 	// derived type with minInclusive=20 (stricter - should be valid)
@@ -203,7 +195,6 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
@@ -238,7 +229,6 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "InvalidDerived",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
@@ -290,7 +280,6 @@ func TestFacetInheritance_DigitsRelaxation(t *testing.T) {
 		},
 	}
 	baseType.ResolvedBase = decimalBaseType
-	baseType.SetVariety(types.AtomicVariety)
 	schema.TypeDefs[baseType.QName] = baseType
 
 	derivedType := &types.SimpleType{
@@ -307,7 +296,6 @@ func TestFacetInheritance_DigitsRelaxation(t *testing.T) {
 		},
 	}
 	derivedType.ResolvedBase = baseType
-	derivedType.SetVariety(types.AtomicVariety)
 	schema.TypeDefs[derivedType.QName] = derivedType
 
 	errs := ValidateStructure(schema)
@@ -336,7 +324,6 @@ func TestFacetInheritance_MaxLength(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: types.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
@@ -355,7 +342,6 @@ func TestFacetInheritance_MaxLength(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: baseType.QName,
 			Facets: []any{

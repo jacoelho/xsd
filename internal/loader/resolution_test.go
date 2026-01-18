@@ -20,7 +20,6 @@ func TestTwoPhaseResolution_SimpleType(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		// variety set via SetVariety
 	}
 	schema.TypeDefs[baseType.QName] = baseType
 
@@ -30,7 +29,6 @@ func TestTwoPhaseResolution_SimpleType(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: baseType.QName,
 		},
@@ -110,7 +108,6 @@ func TestTwoPhaseResolution_ForwardReference(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "TypeA",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: types.QName{
 				Namespace: "http://example.com",
@@ -126,7 +123,6 @@ func TestTwoPhaseResolution_ForwardReference(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "TypeB",
 		},
-		// variety set via SetVariety
 	}
 	schema.TypeDefs[typeB.QName] = typeB
 
@@ -156,7 +152,6 @@ func TestTwoPhaseResolution_CircularDependency(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "TypeA",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: types.QName{
 				Namespace: "http://example.com",
@@ -172,7 +167,6 @@ func TestTwoPhaseResolution_CircularDependency(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "TypeB",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: types.QName{
 				Namespace: "http://example.com",
@@ -205,7 +199,6 @@ func TestTwoPhaseResolution_MissingBaseType(t *testing.T) {
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		// variety set via SetVariety
 		Restriction: &types.Restriction{
 			Base: types.QName{
 				Namespace: "http://example.com",
@@ -237,7 +230,6 @@ func TestTwoPhaseResolution_ValidCircularUnion(t *testing.T) {
 			Local:     "st",
 		},
 	}
-	st.SetVariety(types.UnionVariety)
 	st.Union = &types.UnionType{
 		MemberTypes: []types.QName{
 			{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "int"},
@@ -254,7 +246,6 @@ func TestTwoPhaseResolution_ValidCircularUnion(t *testing.T) {
 			Local:     "st2",
 		},
 	}
-	st2.SetVariety(types.UnionVariety)
 	st2.Union = &types.UnionType{
 		MemberTypes: []types.QName{
 			{Namespace: "", Local: "st"},

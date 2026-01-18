@@ -3,17 +3,7 @@ package types
 import "testing"
 
 func TestNewMinInclusive_Decimal(t *testing.T) {
-	decimalType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "decimal",
-		},
-		// variety set via SetVariety
-	}
-	decimalType.MarkBuiltin()
-	decimalType.SetVariety(AtomicVariety)
-	decimalType.SetPrimitiveType(decimalType)
-	decimalType.SetFundamentalFacets(ComputeFundamentalFacets(TypeNameDecimal))
+	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	facet, err := NewMinInclusive("100.5", decimalType)
 	if err != nil {
@@ -44,27 +34,7 @@ func TestNewMinInclusive_Decimal(t *testing.T) {
 }
 
 func TestNewMaxInclusive_Integer(t *testing.T) {
-	integerType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "integer",
-		},
-		// variety set via SetVariety
-	}
-	integerType.MarkBuiltin()
-	integerType.SetFundamentalFacets(ComputeFundamentalFacets(TypeNameInteger))
-	// integer's primitive is decimal
-	decimalType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "decimal",
-		},
-		// variety set via SetVariety
-	}
-	decimalType.MarkBuiltin()
-	decimalType.SetVariety(AtomicVariety)
-	decimalType.SetPrimitiveType(decimalType)
-	integerType.SetPrimitiveType(decimalType)
+	integerType := mustBuiltinSimpleType(t, TypeNameInteger)
 
 	facet, err := NewMaxInclusive("100", integerType)
 	if err != nil {
@@ -84,16 +54,7 @@ func TestNewMaxInclusive_Integer(t *testing.T) {
 }
 
 func TestNewMinInclusive_DateTime(t *testing.T) {
-	dateTimeType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "dateTime",
-		},
-		// variety set via SetVariety
-	}
-	dateTimeType.MarkBuiltin()
-	dateTimeType.SetPrimitiveType(dateTimeType)
-	dateTimeType.SetFundamentalFacets(ComputeFundamentalFacets("dateTime"))
+	dateTimeType := mustBuiltinSimpleType(t, TypeNameDateTime)
 
 	facet, err := NewMinInclusive("2001-01-01T00:00:00", dateTimeType)
 	if err != nil {
@@ -113,17 +74,7 @@ func TestNewMinInclusive_DateTime(t *testing.T) {
 }
 
 func TestNewMinExclusive(t *testing.T) {
-	decimalType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "decimal",
-		},
-		// variety set via SetVariety
-	}
-	decimalType.MarkBuiltin()
-	decimalType.SetVariety(AtomicVariety)
-	decimalType.SetPrimitiveType(decimalType)
-	decimalType.SetFundamentalFacets(ComputeFundamentalFacets(TypeNameDecimal))
+	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	facet, err := NewMinExclusive("100", decimalType)
 	if err != nil {
@@ -143,17 +94,7 @@ func TestNewMinExclusive(t *testing.T) {
 }
 
 func TestNewMaxExclusive(t *testing.T) {
-	decimalType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "decimal",
-		},
-		// variety set via SetVariety
-	}
-	decimalType.MarkBuiltin()
-	decimalType.SetVariety(AtomicVariety)
-	decimalType.SetPrimitiveType(decimalType)
-	decimalType.SetFundamentalFacets(ComputeFundamentalFacets(TypeNameDecimal))
+	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	facet, err := NewMaxExclusive("100", decimalType)
 	if err != nil {
@@ -174,16 +115,7 @@ func TestNewMaxExclusive(t *testing.T) {
 
 func TestNewMinInclusive_InvalidType(t *testing.T) {
 	// create a string type (not comparable for range facets)
-	stringType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     "string",
-		},
-		// variety set via SetVariety
-	}
-	stringType.MarkBuiltin()
-	stringType.SetPrimitiveType(stringType)
-	stringType.SetFundamentalFacets(ComputeFundamentalFacets(TypeNameString))
+	stringType := mustBuiltinSimpleType(t, TypeNameString)
 
 	// should return error for non-comparable type
 	_, err := NewMinInclusive("test", stringType)
@@ -211,7 +143,6 @@ func TestNewMinInclusive_WithBuiltinBase(t *testing.T) {
 		},
 	}
 	derivedType.ResolvedBase = intBuiltin
-	derivedType.SetVariety(AtomicVariety)
 
 	// create facet using constructor - should work now that PrimitiveType() handles BuiltinType
 	facet, err := NewMinInclusive("5", derivedType)
@@ -247,7 +178,6 @@ func TestNewMinInclusive_NestedDerivation(t *testing.T) {
 		},
 	}
 	derivedType.ResolvedBase = intBuiltin
-	derivedType.SetVariety(AtomicVariety)
 
 	// second level: moreDerived restricts derived
 	moreDerivedType := &SimpleType{
@@ -260,7 +190,6 @@ func TestNewMinInclusive_NestedDerivation(t *testing.T) {
 		},
 	}
 	moreDerivedType.ResolvedBase = derivedType
-	moreDerivedType.SetVariety(AtomicVariety)
 
 	// create facet using constructor - should work with nested derivation
 	facet, err := NewMinInclusive("10", moreDerivedType)
@@ -295,9 +224,7 @@ func TestNewMinInclusive_Date(t *testing.T) {
 
 	// test validation
 	testVal, _ := ParseDate("2000-06-01")
-	dateType := NewSimpleType(dateBuiltin.Name(), "")
-	dateType.SetVariety(AtomicVariety)
-	dateType.MarkBuiltin()
+	dateType := mustBuiltinSimpleType(t, TypeNameDate)
 	testTypedValue := NewDateTimeValue(NewParsedValue("2000-06-01", testVal), dateType)
 	if err := facet.Validate(testTypedValue, dateBuiltin); err != nil {
 		t.Errorf("Validate() error = %v, want nil", err)

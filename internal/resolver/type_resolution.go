@@ -87,7 +87,7 @@ func resolveAttributeTypes(schema *parser.Schema) error {
 				itemType, err := lookupType(schema, st.List.ItemType)
 				if err != nil {
 					if allowMissingTypeReference(schema, st.List.ItemType) {
-						st.ItemType = &types.SimpleType{QName: st.List.ItemType}
+						st.ItemType = types.NewPlaceholderSimpleType(st.List.ItemType)
 						return nil
 					}
 					return fmt.Errorf("attribute %s inline list itemType: %w", attr.Name, err)
@@ -296,15 +296,6 @@ func resolveSimpleType(st *types.SimpleType, schema *parser.Schema, detector *Cy
 				}
 				st.ResolvedBase = baseType
 			}
-			// inherit variety from base type when restricting a list or union type
-			// per XSD spec, restricting a list type produces a list type, etc.
-			if baseType := st.BaseType(); baseType != nil {
-				if baseST, ok := baseType.(*types.SimpleType); ok {
-					if baseST.Variety() == types.ListVariety || baseST.Variety() == types.UnionVariety {
-						st.SetVariety(baseST.Variety())
-					}
-				}
-			}
 			// inherit whiteSpace from base type if not explicitly set in this restriction
 			if !st.WhiteSpaceExplicit() {
 				if baseType := st.BaseType(); baseType != nil {
@@ -364,7 +355,7 @@ func resolveSimpleType(st *types.SimpleType, schema *parser.Schema, detector *Cy
 				itemType, err := lookupType(schema, st.List.ItemType)
 				if err != nil {
 					if allowMissingTypeReference(schema, st.List.ItemType) {
-						st.ItemType = &types.SimpleType{QName: st.List.ItemType}
+						st.ItemType = types.NewPlaceholderSimpleType(st.List.ItemType)
 						return nil
 					}
 					return fmt.Errorf("type %s: list itemType: %w", st.QName, err)
@@ -397,7 +388,7 @@ func resolveSimpleType(st *types.SimpleType, schema *parser.Schema, detector *Cy
 				memberType, err := lookupType(schema, memberQName)
 				if err != nil {
 					if allowMissingTypeReference(schema, memberQName) {
-						memberType = &types.SimpleType{QName: memberQName}
+						memberType = types.NewPlaceholderSimpleType(memberQName)
 					} else {
 						return fmt.Errorf("type %s: union memberType %d: %w", st.QName, i, err)
 					}
@@ -453,7 +444,7 @@ func resolveSimpleType(st *types.SimpleType, schema *parser.Schema, detector *Cy
 					itemType, err := lookupType(schema, inlineType.List.ItemType)
 					if err != nil {
 						if allowMissingTypeReference(schema, inlineType.List.ItemType) {
-							inlineType.ItemType = &types.SimpleType{QName: inlineType.List.ItemType}
+							inlineType.ItemType = types.NewPlaceholderSimpleType(inlineType.List.ItemType)
 							continue
 						}
 						return fmt.Errorf("type %s: union inline type list itemType: %w", st.QName, err)
