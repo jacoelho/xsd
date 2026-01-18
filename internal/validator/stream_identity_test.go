@@ -157,6 +157,50 @@ func TestStreamIdentityConstraints(t *testing.T) {
 			document: `<root xmlns="urn:test"><person><name>A</name></person><person><name>A</name></person></root>`,
 			wantCode: errors.ErrIdentityDuplicate,
 		},
+		{
+			name: "unique uses element default",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="xs:string" default="A" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueItem">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="."/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item/><item/></root>`,
+			wantCode: errors.ErrIdentityDuplicate,
+		},
+		{
+			name: "unique uses element fixed",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="xs:string" fixed="A" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueItem">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="."/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item/><item/></root>`,
+			wantCode: errors.ErrIdentityDuplicate,
+		},
 	}
 
 	for _, tt := range tests {
@@ -281,6 +325,82 @@ func TestStreamIdentityIgnoresXMLNSAttributes(t *testing.T) {
 	}
 	if len(violations) != 0 {
 		t.Fatalf("expected no violations, got %v", violations)
+	}
+}
+
+func TestStreamIdentityInvalidNumericValue(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="xs:integer" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueItem">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="."/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test"><item>nope</item><item>nope</item></root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if !hasViolationCode(violations, errors.ErrDatatypeInvalid) {
+		t.Fatalf("expected code %s, got %v", errors.ErrDatatypeInvalid, violations)
+	}
+	if hasViolationCode(violations, errors.ErrIdentityDuplicate) {
+		t.Fatalf("unexpected code %s, got %v", errors.ErrIdentityDuplicate, violations)
+	}
+}
+
+func TestStreamIdentityKeyInvalidValue(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="xs:integer" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="."/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test"><item>nope</item><item>nope</item></root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if !hasViolationCode(violations, errors.ErrDatatypeInvalid) {
+		t.Fatalf("expected code %s, got %v", errors.ErrDatatypeInvalid, violations)
+	}
+	if !hasViolationCode(violations, errors.ErrIdentityAbsent) {
+		t.Fatalf("expected code %s, got %v", errors.ErrIdentityAbsent, violations)
 	}
 }
 
