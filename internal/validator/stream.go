@@ -94,6 +94,7 @@ type streamRun struct {
 	dec             *xmlstream.StringReader
 	constraintDecls map[types.QName][]*grammar.CompiledElement
 	frames          []streamFrame
+	automatonFree   []*grammar.AutomatonStreamValidator
 	violations      []errors.Validation
 	identityScopes  []*identityScope
 	currentLine     int
@@ -135,13 +136,41 @@ func (r *streamRun) newAutomatonValidator(a *grammar.Automaton, wildcards []*typ
 	if r == nil || a == nil {
 		return nil
 	}
-	return a.NewStreamValidator(r.matcher(), wildcards)
+	if len(r.automatonFree) == 0 {
+		return a.NewStreamValidator(r.matcher(), wildcards)
+	}
+	index := len(r.automatonFree) - 1
+	validator := r.automatonFree[index]
+	r.automatonFree[index] = nil
+	r.automatonFree = r.automatonFree[:index]
+	validator.Reset(a, r.matcher(), wildcards)
+	return validator
+}
+
+func (r *streamRun) releaseAutomatonValidator(validator *grammar.AutomatonStreamValidator) {
+	if r == nil || validator == nil {
+		return
+	}
+	validator.Release()
+	r.automatonFree = append(r.automatonFree, validator)
+}
+
+func (r *streamRun) releaseFrameResources(frame *streamFrame) {
+	if r == nil || frame == nil {
+		return
+	}
+	if frame.automaton == nil {
+		return
+	}
+	r.releaseAutomatonValidator(frame.automaton)
+	frame.automaton = nil
 }
 
 func (r *streamRun) validate(dec *xmlstream.StringReader) ([]errors.Validation, error) {
 	r.reset()
 	r.dec = dec
 	r.frames = r.frames[:0]
+	r.automatonFree = nil
 	r.violations = r.violations[:0]
 	r.rootSeen = false
 	r.rootClosed = false
@@ -408,6 +437,7 @@ func (r *streamRun) handleEnd() error {
 	if frame == nil {
 		return nil
 	}
+	defer r.releaseFrameResources(frame)
 	defer r.path.pop()
 	defer r.handleIdentityEnd(frame)
 
