@@ -191,6 +191,41 @@ func TestStreamIdentityConstraintWhitespacePreserve(t *testing.T) {
 	}
 }
 
+func TestStreamIdentityConstraintZeroValueSpace(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="xs:double" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueItem">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="."/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test"><item>-0</item><item>0</item></root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if !hasViolationCode(violations, errors.ErrIdentityDuplicate) {
+		t.Fatalf("expected code %s, got %v", errors.ErrIdentityDuplicate, violations)
+	}
+}
+
 func TestStreamIdentityIgnoresXMLNSAttributes(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
