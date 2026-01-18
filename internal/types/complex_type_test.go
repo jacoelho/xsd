@@ -76,15 +76,7 @@ func TestComplexType_BaseType_ForRestriction(t *testing.T) {
 
 func TestComplexType_BaseType_ForSimpleContent(t *testing.T) {
 	// test base type for simpleContent (base is a simple type)
-	baseSimpleType := &SimpleType{
-		QName: QName{
-			Namespace: "http://www.w3.org/2001/XMLSchema",
-			Local:     string(TypeNameString),
-		},
-		// variety set via SetVariety
-	}
-	baseSimpleType.MarkBuiltin()
-	baseSimpleType.SetVariety(AtomicVariety)
+	baseSimpleType := mustBuiltinSimpleType(t, TypeNameString)
 
 	complexType := &ComplexType{
 		QName: QName{

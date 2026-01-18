@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -645,6 +646,8 @@ type ComparableXSDDuration struct {
 	Value XSDDuration
 }
 
+var errIndeterminateDurationComparison = errors.New("duration comparison indeterminate")
+
 // ParseXSDDuration parses an XSD duration string into an XSDDuration struct
 // Supports all XSD duration components including years and months
 func ParseXSDDuration(s string) (XSDDuration, error) {
@@ -769,101 +772,269 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 	}, nil
 }
 
-// Compare orders durations component-wise per XSD's partial order.
-// It compares years, months, days, hours, minutes, then seconds.
+type durationFields struct {
+	years   int
+	months  int
+	days    int
+	hours   int
+	minutes int
+	seconds float64
+}
+
+type dateTimeFields struct {
+	year   int
+	month  int
+	day    int
+	hour   int
+	minute int
+	second float64
+}
+
+// durationOrderReferenceTimes are the XSD 1.0 reference dateTimes for duration ordering.
+var durationOrderReferenceTimes = []dateTimeFields{
+	{year: 1696, month: 9, day: 1, hour: 0, minute: 0, second: 0},
+	{year: 1697, month: 2, day: 1, hour: 0, minute: 0, second: 0},
+	{year: 1903, month: 3, day: 1, hour: 0, minute: 0, second: 0},
+	{year: 1903, month: 7, day: 1, hour: 0, minute: 0, second: 0},
+}
+
+func durationFieldsFor(value XSDDuration) durationFields {
+	sign := 1
+	if value.Negative {
+		sign = -1
+	}
+	return durationFields{
+		years:   sign * value.Years,
+		months:  sign * value.Months,
+		days:    sign * value.Days,
+		hours:   sign * value.Hours,
+		minutes: sign * value.Minutes,
+		seconds: float64(sign) * value.Seconds,
+	}
+}
+
+func isDayTimeDuration(value XSDDuration) bool {
+	return value.Years == 0 && value.Months == 0
+}
+
+func durationTotalSeconds(value XSDDuration) float64 {
+	total := float64(value.Days)*86400 +
+		float64(value.Hours)*3600 +
+		float64(value.Minutes)*60 +
+		value.Seconds
+	if value.Negative {
+		return -total
+	}
+	return total
+}
+
+func compareDayTimeDurations(left, right XSDDuration) int {
+	leftSeconds := durationTotalSeconds(left)
+	rightSeconds := durationTotalSeconds(right)
+	switch {
+	case leftSeconds < rightSeconds:
+		return -1
+	case leftSeconds > rightSeconds:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func compareDateTimeFields(left, right dateTimeFields) int {
+	switch {
+	case left.year < right.year:
+		return -1
+	case left.year > right.year:
+		return 1
+	case left.month < right.month:
+		return -1
+	case left.month > right.month:
+		return 1
+	case left.day < right.day:
+		return -1
+	case left.day > right.day:
+		return 1
+	case left.hour < right.hour:
+		return -1
+	case left.hour > right.hour:
+		return 1
+	case left.minute < right.minute:
+		return -1
+	case left.minute > right.minute:
+		return 1
+	case left.second < right.second:
+		return -1
+	case left.second > right.second:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func addDurationToDateTime(start dateTimeFields, dur durationFields) dateTimeFields {
+	tempMonth := start.month + dur.months
+	month := moduloIntRange(tempMonth, 1, 13)
+	carry := fQuotientIntRange(tempMonth, 1, 13)
+
+	year := start.year + dur.years + carry
+
+	tempSecond := start.second + dur.seconds
+	second := moduloFloat(tempSecond, 60)
+	carry = fQuotientFloat(tempSecond, 60)
+
+	tempMinute := start.minute + dur.minutes + carry
+	minute := moduloInt(tempMinute, 60)
+	carry = fQuotientInt(tempMinute, 60)
+
+	tempHour := start.hour + dur.hours + carry
+	hour := moduloInt(tempHour, 24)
+	carry = fQuotientInt(tempHour, 24)
+
+	maxDay := maximumDayInMonthFor(year, month)
+	tempDay := start.day
+	switch {
+	case tempDay > maxDay:
+		tempDay = maxDay
+	case tempDay < 1:
+		tempDay = 1
+	}
+	day := tempDay + dur.days + carry
+
+loop:
+	for {
+		maxDay = maximumDayInMonthFor(year, month)
+		switch {
+		case day < 1:
+			day += maximumDayInMonthFor(year, month-1)
+			carry = -1
+		case day > maxDay:
+			day -= maxDay
+			carry = 1
+		default:
+			break loop
+		}
+		tempMonth = month + carry
+		month = moduloIntRange(tempMonth, 1, 13)
+		year += fQuotientIntRange(tempMonth, 1, 13)
+	}
+
+	return dateTimeFields{
+		year:   year,
+		month:  month,
+		day:    day,
+		hour:   hour,
+		minute: minute,
+		second: second,
+	}
+}
+
+func maximumDayInMonthFor(year, month int) int {
+	m := moduloIntRange(month, 1, 13)
+	y := year + fQuotientIntRange(month, 1, 13)
+	switch m {
+	case 1, 3, 5, 7, 8, 10, 12:
+		return 31
+	case 4, 6, 9, 11:
+		return 30
+	case 2:
+		if isLeapYear(y) {
+			return 29
+		}
+		return 28
+	default:
+		return 28
+	}
+}
+
+func isLeapYear(year int) bool {
+	if moduloInt(year, 400) == 0 {
+		return true
+	}
+	if moduloInt(year, 100) == 0 {
+		return false
+	}
+	return moduloInt(year, 4) == 0
+}
+
+func fQuotientInt(a, b int) int {
+	if b <= 0 {
+		return 0
+	}
+	if a >= 0 {
+		return a / b
+	}
+	return -(((-a) + b - 1) / b)
+}
+
+func fQuotientIntRange(a, low, high int) int {
+	return fQuotientInt(a-low, high-low)
+}
+
+func moduloInt(a, b int) int {
+	return a - fQuotientInt(a, b)*b
+}
+
+func moduloIntRange(a, low, high int) int {
+	return moduloInt(a-low, high-low) + low
+}
+
+func fQuotientFloat(a, b float64) int {
+	if b == 0 {
+		return 0
+	}
+	return int(math.Floor(a / b))
+}
+
+func moduloFloat(a, b float64) float64 {
+	return a - float64(fQuotientFloat(a, b))*b
+}
+
+// Compare orders durations using the XSD 1.0 order relation for duration.
 func (c ComparableXSDDuration) Compare(other ComparableValue) (int, error) {
 	otherDur, ok := other.(ComparableXSDDuration)
 	if !ok {
-		// try to compare with ComparableDuration (pure day/time durations)
 		if otherCompDur, ok := other.(ComparableDuration); ok {
-			// convert this XSD duration to time.Duration if possible (no years/months)
-			if c.Value.Years != 0 || c.Value.Months != 0 {
-				return 0, fmt.Errorf("cannot compare XSD duration with years/months to pure time.Duration")
+			otherDur = ComparableXSDDuration{Value: durationToXSD(otherCompDur.Value), Typ: otherCompDur.Typ}
+		} else {
+			return 0, fmt.Errorf("cannot compare ComparableXSDDuration with %T", other)
+		}
+	}
+
+	left := c.Value
+	right := otherDur.Value
+
+	if isDayTimeDuration(left) && isDayTimeDuration(right) {
+		return compareDayTimeDurations(left, right), nil
+	}
+
+	leftFields := durationFieldsFor(left)
+	rightFields := durationFieldsFor(right)
+	sign := 0
+	sawEqual := false
+	for _, ref := range durationOrderReferenceTimes {
+		leftEnd := addDurationToDateTime(ref, leftFields)
+		rightEnd := addDurationToDateTime(ref, rightFields)
+		cmp := compareDateTimeFields(leftEnd, rightEnd)
+		if cmp == 0 {
+			if sign != 0 {
+				return 0, errIndeterminateDurationComparison
 			}
-			thisDur := time.Duration(c.Value.Days)*24*time.Hour +
-				time.Duration(c.Value.Hours)*time.Hour +
-				time.Duration(c.Value.Minutes)*time.Minute +
-				time.Duration(c.Value.Seconds*float64(time.Second))
-			if c.Value.Negative {
-				thisDur = -thisDur
-			}
-			if thisDur < otherCompDur.Value {
-				return -1, nil
-			}
-			if thisDur > otherCompDur.Value {
-				return 1, nil
-			}
-			return 0, nil
+			sawEqual = true
+			continue
 		}
-		return 0, fmt.Errorf("cannot compare ComparableXSDDuration with %T", other)
-	}
-
-	cVal := c.Value
-	oVal := otherDur.Value
-
-	if cVal.Negative && !oVal.Negative {
-		return -1, nil
-	}
-	if !cVal.Negative && oVal.Negative {
-		return 1, nil
-	}
-
-	// both have same sign, compare component-wise
-	// for negative durations, reverse the comparison
-	multiplier := 1
-	if cVal.Negative {
-		multiplier = -1
-	}
-
-	// compare years
-	if cVal.Years != oVal.Years {
-		if cVal.Years < oVal.Years {
-			return -1 * multiplier, nil
+		if sawEqual {
+			return 0, errIndeterminateDurationComparison
 		}
-		return 1 * multiplier, nil
-	}
-
-	// compare months
-	if cVal.Months != oVal.Months {
-		if cVal.Months < oVal.Months {
-			return -1 * multiplier, nil
+		if sign == 0 {
+			sign = cmp
+			continue
 		}
-		return 1 * multiplier, nil
-	}
-
-	// compare days
-	if cVal.Days != oVal.Days {
-		if cVal.Days < oVal.Days {
-			return -1 * multiplier, nil
+		if sign != cmp {
+			return 0, errIndeterminateDurationComparison
 		}
-		return 1 * multiplier, nil
 	}
-
-	// compare hours
-	if cVal.Hours != oVal.Hours {
-		if cVal.Hours < oVal.Hours {
-			return -1 * multiplier, nil
-		}
-		return 1 * multiplier, nil
-	}
-
-	// compare minutes
-	if cVal.Minutes != oVal.Minutes {
-		if cVal.Minutes < oVal.Minutes {
-			return -1 * multiplier, nil
-		}
-		return 1 * multiplier, nil
-	}
-
-	// compare seconds
-	if cVal.Seconds < oVal.Seconds {
-		return -1 * multiplier, nil
-	}
-	if cVal.Seconds > oVal.Seconds {
-		return 1 * multiplier, nil
-	}
-
-	return 0, nil
+	return sign, nil
 }
 
 // String returns the string representation (implements ComparableValue)
@@ -1298,4 +1469,17 @@ func isBuiltinListType(name string) bool {
 	return name == string(TypeNameNMTOKENS) ||
 		name == string(TypeNameIDREFS) ||
 		name == string(TypeNameENTITIES)
+}
+
+func builtinListItemTypeName(name string) (TypeName, bool) {
+	switch name {
+	case string(TypeNameNMTOKENS):
+		return TypeNameNMTOKEN, true
+	case string(TypeNameIDREFS):
+		return TypeNameIDREF, true
+	case string(TypeNameENTITIES):
+		return TypeNameENTITY, true
+	default:
+		return "", false
+	}
 }

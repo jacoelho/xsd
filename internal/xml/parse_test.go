@@ -186,3 +186,10 @@ func TestTextContent(t *testing.T) {
 		t.Errorf("TextContent() = %q, should contain 'text 2'", content)
 	}
 }
+
+func TestParseRejectsNonXMLWhitespaceOutsideRoot(t *testing.T) {
+	xmlData := "\u00a0<root/>"
+	if _, err := Parse(strings.NewReader(xmlData)); err == nil {
+		t.Fatal("Parse() should reject non-XML whitespace outside root")
+	}
+}

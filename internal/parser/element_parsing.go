@@ -257,9 +257,7 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 		} else {
 			// will be resolved later in a second pass
 			// for now, create a placeholder
-			decl.Type = &types.SimpleType{
-				QName: typeQName,
-			}
+			decl.Type = types.NewPlaceholderSimpleType(typeQName)
 		}
 	} else {
 		for _, child := range doc.Children(elem) {
@@ -638,7 +636,7 @@ func resolveElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 			}
 			return builtinType, nil
 		}
-		return &types.SimpleType{QName: typeQName}, nil
+		return types.NewPlaceholderSimpleType(typeQName), nil
 	}
 
 	var typ types.Type

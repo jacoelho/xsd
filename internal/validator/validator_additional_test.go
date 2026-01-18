@@ -48,7 +48,6 @@ func TestCheckFixedValueUnionMemberTypes(t *testing.T) {
 func TestCheckFixedValueUnionSimpleType(t *testing.T) {
 	run := &validationRun{schema: newBaseSchemaView(nil)}
 	union := &types.SimpleType{}
-	union.SetVariety(types.UnionVariety)
 	union.Union = &types.UnionType{
 		MemberTypes: []types.QName{
 			{Namespace: types.XSDNamespace, Local: "string"},

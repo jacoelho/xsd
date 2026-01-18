@@ -78,16 +78,7 @@ func TestFundamentalFacets_ForPrimitiveTypes(t *testing.T) {
 
 func TestFundamentalFacets_Inheritance(t *testing.T) {
 	// test that derived types inherit fundamental facets from base type
-	baseType := &SimpleType{
-		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
-	}
-	baseType.SetVariety(AtomicVariety)
-	baseType.SetFundamentalFacets(&FundamentalFacets{
-		Ordered:     OrderedTotal,
-		Bounded:     false,
-		Cardinality: CardinalityUncountablyInfinite,
-		Numeric:     true,
-	})
+	baseType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	derivedType := &SimpleType{
 		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "integer"},
@@ -95,10 +86,7 @@ func TestFundamentalFacets_Inheritance(t *testing.T) {
 			Base: baseType.QName,
 		},
 	}
-	derivedType.SetVariety(AtomicVariety)
-
-	// inherit facets from base
-	derivedType.SetFundamentalFacets(baseType.FundamentalFacets())
+	derivedType.ResolvedBase = baseType
 
 	facets := derivedType.FundamentalFacets()
 	if facets == nil {
