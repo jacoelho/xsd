@@ -6,7 +6,6 @@ import (
 	"io"
 	"slices"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/jacoelho/xsd/pkg/xmlstream"
@@ -190,7 +189,11 @@ func isIgnorableOutsideRoot(data []byte) bool {
 		if r == utf8.RuneError && size == 1 {
 			return false
 		}
-		if r != '\uFEFF' && !unicode.IsSpace(r) {
+		if r == '\uFEFF' {
+			data = data[size:]
+			continue
+		}
+		if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
 			return false
 		}
 		data = data[size:]
