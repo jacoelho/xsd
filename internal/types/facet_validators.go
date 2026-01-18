@@ -1,6 +1,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -288,6 +289,9 @@ func (r *RangeFacet) Validate(value TypedValue, baseType Type) error {
 	// compare using ComparableValue interface
 	cmp, err := compVal.Compare(r.value)
 	if err != nil {
+		if errors.Is(err, errIndeterminateDurationComparison) {
+			return fmt.Errorf("value %s must be %s %s", value.String(), r.errOp, r.lexical)
+		}
 		return fmt.Errorf("%s: cannot compare values: %w", r.name, err)
 	}
 

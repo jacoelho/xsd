@@ -170,13 +170,26 @@ func newBuiltin(name TypeName, validator TypeValidator, validatorBytes TypeValid
 		whiteSpace:     ws,
 		ordered:        bool(ordering),
 	}
-	simple := &SimpleType{
-		QName:   builtin.qname,
-		variety: AtomicVariety,
-		builtin: true,
-	}
-	builtin.simpleWrapper = simple
+	builtin.simpleWrapper = newBuiltinSimpleType(builtin)
 	return builtin
+}
+
+func newBuiltinSimpleType(builtin *BuiltinType) *SimpleType {
+	if builtin == nil {
+		return nil
+	}
+	st := &SimpleType{
+		QName:           builtin.qname,
+		SourceNamespace: XSDNamespace,
+		builtin:         true,
+		whiteSpace:      builtin.whiteSpace,
+	}
+	if itemName, ok := builtinListItemTypeName(builtin.name); ok {
+		st.List = &ListType{
+			ItemType: QName{Namespace: XSDNamespace, Local: string(itemName)},
+		}
+	}
+	return st
 }
 
 // Compile-time check that BuiltinType implements Type interface

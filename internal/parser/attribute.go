@@ -161,9 +161,7 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 		if builtinType := types.GetBuiltinNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
 			attr.Type = builtinType
 		} else {
-			attr.Type = &types.SimpleType{
-				QName: typeQName,
-			}
+			attr.Type = types.NewPlaceholderSimpleType(typeQName)
 		}
 	} else {
 		for _, child := range doc.Children(elem) {

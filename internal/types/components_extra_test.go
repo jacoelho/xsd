@@ -179,7 +179,6 @@ func TestCopyTypeAndParticles(t *testing.T) {
 	st := &SimpleType{
 		QName: QName{Namespace: "", Local: "st"},
 	}
-	st.SetVariety(AtomicVariety)
 	st.Restriction = &Restriction{Base: QName{Namespace: XSDNamespace, Local: "string"}}
 	copied := CopyType(st, opts).(*SimpleType)
 	if copied.QName.Namespace != "urn:dst" {

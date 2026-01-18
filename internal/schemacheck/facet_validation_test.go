@@ -249,7 +249,6 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 				},
 			}
 			simpleType.ResolvedBase = bt
-			simpleType.SetVariety(types.AtomicVariety)
 			schema.TypeDefs[simpleType.QName] = simpleType
 
 			errs := ValidateStructure(schema)

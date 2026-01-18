@@ -137,8 +137,15 @@ func TestSimpleAndComplexContentStructure(t *testing.T) {
 
 func TestFacetListAndEnumeration(t *testing.T) {
 	itemType := types.GetBuiltin(types.TypeName("NCName"))
-	listType := types.NewSimpleType(types.QName{Namespace: "urn:facets", Local: "list"}, "urn:facets")
-	listType.SetVariety(types.ListVariety)
+	listType, err := types.NewListSimpleType(
+		types.QName{Namespace: "urn:facets", Local: "list"},
+		"urn:facets",
+		&types.ListType{ItemType: itemType.Name()},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewListSimpleType failed: %v", err)
+	}
 	listType.ItemType = itemType
 
 	enumFacet := &types.Enumeration{Values: []string{"alpha beta"}}
@@ -647,8 +654,15 @@ func TestSchemaHelpers(t *testing.T) {
 	}
 
 	df := &types.DeferredFacet{FacetName: "minInclusive", FacetValue: "1"}
-	listType := types.NewSimpleType(types.QName{Namespace: "urn:schema", Local: "list"}, "urn:schema")
-	listType.SetVariety(types.ListVariety)
+	listType, err := types.NewListSimpleType(
+		types.QName{Namespace: "urn:schema", Local: "list"},
+		"urn:schema",
+		&types.ListType{ItemType: types.QName{Namespace: types.XSDNamespace, Local: "string"}},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("NewListSimpleType failed: %v", err)
+	}
 	if err := validateDeferredFacetApplicability(df, listType, listType.QName); err == nil {
 		t.Fatalf("expected deferred facet applicability error for list type")
 	}
@@ -824,7 +838,6 @@ func TestListTypeValidation(t *testing.T) {
 	}
 
 	inline := &types.SimpleType{}
-	inline.SetVariety(types.ListVariety)
 	inline.List = &types.ListType{ItemType: types.QName{Namespace: types.XSDNamespace, Local: "string"}}
 	if err := validateListType(schema, &types.ListType{InlineItemType: inline}); err == nil {
 		t.Fatalf("expected list itemType variety error")
@@ -1201,11 +1214,17 @@ func TestSimpleContentRestrictionFacets(t *testing.T) {
 func TestResolveTypeReferencePlaceholder(t *testing.T) {
 	schema := parser.NewSchema()
 	qname := types.QName{Namespace: "urn:types", Local: "t"}
-	resolved := types.NewSimpleType(qname, "urn:types")
-	resolved.Restriction = &types.Restriction{Base: types.QName{Namespace: types.XSDNamespace, Local: "string"}}
+	resolved, err := types.NewAtomicSimpleType(
+		qname,
+		"urn:types",
+		&types.Restriction{Base: types.QName{Namespace: types.XSDNamespace, Local: "string"}},
+	)
+	if err != nil {
+		t.Fatalf("NewAtomicSimpleType failed: %v", err)
+	}
 	schema.TypeDefs[qname] = resolved
 
-	placeholder := &types.SimpleType{QName: qname}
+	placeholder := types.NewPlaceholderSimpleType(qname)
 	if got := ResolveTypeReference(schema, placeholder, TypeReferenceMustExist); got == nil || got == placeholder {
 		t.Fatalf("expected placeholder to resolve to schema type")
 	}

@@ -26,7 +26,6 @@ func TestFacetApplicability_LengthOnListType(t *testing.T) {
 			ItemType: integerType.Name(),
 		},
 	}
-	listType.SetVariety(types.ListVariety)
 	listType.ItemType = integerType
 
 	// test length facet on list type
@@ -57,7 +56,6 @@ func TestFacetApplicability_MaxLengthOnListType(t *testing.T) {
 			ItemType: integerType.Name(),
 		},
 	}
-	listType.SetVariety(types.ListVariety)
 	listType.ItemType = integerType
 
 	// test maxLength facet on list type
@@ -88,7 +86,6 @@ func TestFacetApplicability_MinLengthOnListType(t *testing.T) {
 			ItemType: decimalType.Name(),
 		},
 	}
-	listType.SetVariety(types.ListVariety)
 	listType.ItemType = decimalType
 
 	// test minLength facet on list type
@@ -105,28 +102,16 @@ func TestFacetApplicability_MinLengthOnListType(t *testing.T) {
 func TestFacetApplicability_LengthOnAtomicNumericType(t *testing.T) {
 	// length facets are NOT applicable to atomic numeric types (should fail)
 
-	integerType := types.GetBuiltin(types.TypeNameInteger)
-	if integerType == nil {
-		t.Fatal("integer type not found")
+	atomicType, err := types.NewBuiltinSimpleType(types.TypeNameInteger)
+	if err != nil {
+		t.Fatalf("NewBuiltinSimpleType(integer) failed: %v", err)
 	}
-
-	atomicType := &types.SimpleType{
-		QName: types.QName{
-			Namespace: types.XSDNamespace,
-			Local:     "integer",
-		},
-	}
-	atomicType.SetVariety(types.AtomicVariety)
-	atomicType.MarkBuiltin()
 
 	lengthFacet := &types.Length{Value: 5}
 	facetList := []types.Facet{lengthFacet}
-	baseQName := types.QName{
-		Namespace: types.XSDNamespace,
-		Local:     "integer",
-	}
+	baseQName := atomicType.Name()
 
-	err := validateFacetConstraints(facetList, atomicType, baseQName)
+	err = validateFacetConstraints(facetList, atomicType, baseQName)
 	if err == nil {
 		t.Error("length facet should NOT be applicable to atomic numeric type, but validation passed")
 	} else if !strings.Contains(err.Error(), "not applicable") {
