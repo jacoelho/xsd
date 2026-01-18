@@ -93,3 +93,52 @@ func TestXsiTypeInvalidQName(t *testing.T) {
 		t.Fatalf("Expected violation code %s, got: %v", errors.ErrXsiTypeInvalid, violations)
 	}
 }
+
+func TestXsiTypeBuiltinIDDuplicate(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyType"/>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <a xsi:type="xs:ID">dup</a>
+  <b xsi:type="xs:ID">dup</b>
+</root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if !hasViolationCode(violations, errors.ErrDuplicateID) {
+		t.Fatalf("Expected violation code %s, got: %v", errors.ErrDuplicateID, violations)
+	}
+}
+
+func TestXsiTypeBuiltinIDREFSUnresolved(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyType"/>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <ref xsi:type="xs:IDREFS">missing</ref>
+</root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if !hasViolationCode(violations, errors.ErrIDRefNotFound) {
+		t.Fatalf("Expected violation code %s, got: %v", errors.ErrIDRefNotFound, violations)
+	}
+}

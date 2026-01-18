@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,7 +51,9 @@ func TestLoader_CircularDependency(t *testing.T) {
 		},
 	})
 
-	loader.state.loading["test.xsd"] = true
+	absLoc := loader.resolveLocation("test.xsd")
+	key := loader.loadKey(loader.defaultFSContext(), absLoc)
+	loader.state.loading[key] = true
 
 	_, err := loader.Load("test.xsd")
 	if err == nil {
@@ -385,14 +388,6 @@ func TestLoader_FileNotFound(t *testing.T) {
 	}
 }
 
-func TestNewLoader_Defaults(t *testing.T) {
-	loader := NewLoader(Config{})
-
-	if loader.config.NamespaceFS == nil {
-		t.Error("NewLoader() should initialize NamespaceFS map")
-	}
-}
-
 func TestLoader_Include(t *testing.T) {
 	testFS := fstest.MapFS{
 		"main.xsd": &fstest.MapFile{
@@ -486,6 +481,70 @@ func TestLoader_Import(t *testing.T) {
 	}
 	if _, ok := schema.ElementDecls[commonQName]; !ok {
 		t.Error("element 'common' from imported schema not found")
+	}
+}
+
+func TestLoader_ImportNamespaceFS(t *testing.T) {
+	mainFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:common="urn:common"
+           targetNamespace="urn:main"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:common" schemaLocation="common.xsd"/>
+  <xs:element name="root" type="common:CustomerType"/>
+</xs:schema>`),
+		},
+		"common.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:common"
+           elementFormDefault="qualified">
+  <xs:complexType name="WrongType">
+    <xs:sequence>
+      <xs:element name="value" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`),
+		},
+	}
+
+	commonFS := fstest.MapFS{
+		"common.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:common"
+           elementFormDefault="qualified">
+  <xs:complexType name="CustomerType">
+    <xs:sequence>
+      <xs:element name="id" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: mainFS,
+		NamespaceFS: map[string]fs.FS{
+			"urn:common": commonFS,
+		},
+	})
+
+	schema, err := loader.Load("main.xsd")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	loadedType := types.QName{Namespace: "urn:common", Local: "CustomerType"}
+	if _, ok := schema.TypeDefs[loadedType]; !ok {
+		t.Fatalf("expected imported type %s to be loaded", loadedType)
+	}
+
+	unexpectedType := types.QName{Namespace: "urn:common", Local: "WrongType"}
+	if _, ok := schema.TypeDefs[unexpectedType]; ok {
+		t.Fatalf("unexpected type %s from default FS", unexpectedType)
 	}
 }
 

@@ -158,6 +158,9 @@ func buildBuiltinCompiledType(bt *types.BuiltinType, cache map[types.QName]*gram
 		Original: bt,
 		Kind:     grammar.TypeKindBuiltin,
 	}
+	ct.IDTypeName = builtinIDTypeName(qname)
+	ct.IsNotationType = qname.Namespace == types.XSDNamespace && qname.Local == string(types.TypeNameNOTATION)
+	ct.IsQNameOrNotationType = types.IsQNameOrNotation(qname)
 	if cache != nil {
 		cache[qname] = ct
 	}
@@ -177,6 +180,18 @@ func buildBuiltinCompiledType(bt *types.BuiltinType, cache map[types.QName]*gram
 	}
 
 	return ct
+}
+
+func builtinIDTypeName(qname types.QName) string {
+	if qname.Namespace != types.XSDNamespace {
+		return ""
+	}
+	switch qname.Local {
+	case string(types.TypeNameID), string(types.TypeNameIDREF), string(types.TypeNameIDREFS):
+		return qname.Local
+	default:
+		return ""
+	}
 }
 
 func containsCompiledElement(list []*grammar.CompiledElement, elem *grammar.CompiledElement) bool {
