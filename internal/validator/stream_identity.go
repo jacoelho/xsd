@@ -657,6 +657,10 @@ func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Typ
 			if math.IsNaN(floatValue) {
 				return typePrefix + "\x01" + "NaN", KeyValid
 			}
+			if floatValue == 0 && math.Signbit(floatValue) {
+				// normalize -0 to +0 to keep a single zero in the value space.
+				floatValue = 0
+			}
 			return typePrefix + "\x01" + strconv.FormatFloat(floatValue, 'g', -1, bitSize), KeyValid
 		}
 		return typePrefix + "\x01" + trimmed, KeyValid

@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"math"
 	"math/big"
 	"time"
 
@@ -69,12 +70,18 @@ func compareTypedValues(left, right types.TypedValue) bool {
 		if !ok {
 			return false
 		}
+		if math.IsNaN(float64(l)) || math.IsNaN(float64(r)) {
+			return math.IsNaN(float64(l)) && math.IsNaN(float64(r))
+		}
 		return l == r
 
 	case float64:
 		r, ok := rightNative.(float64)
 		if !ok {
 			return false
+		}
+		if math.IsNaN(l) || math.IsNaN(r) {
+			return math.IsNaN(l) && math.IsNaN(r)
 		}
 		return l == r
 
