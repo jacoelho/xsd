@@ -131,44 +131,11 @@ func (v *Validator) newStreamRun() *streamRun {
 	}
 }
 
-func (v *Validator) acquireAutomatonStreamValidator(a *grammar.Automaton, matcher grammar.SymbolMatcher, wildcards []*types.AnyElement) *grammar.AutomatonStreamValidator {
-	if v == nil || a == nil {
-		return nil
-	}
-	pooled, _ := v.automatonValidatorPool.Get().(*grammar.AutomatonStreamValidator)
-	if pooled == nil {
-		pooled = &grammar.AutomatonStreamValidator{}
-	}
-	pooled.Reset(a, matcher, wildcards)
-	return pooled
-}
-
-func (v *Validator) releaseAutomatonStreamValidator(stream *grammar.AutomatonStreamValidator) {
-	if v == nil || stream == nil {
-		return
-	}
-	stream.Release()
-	v.automatonValidatorPool.Put(stream)
-}
-
 func (r *streamRun) newAutomatonValidator(a *grammar.Automaton, wildcards []*types.AnyElement) *grammar.AutomatonStreamValidator {
 	if r == nil || a == nil {
 		return nil
 	}
-	if r.validator == nil {
-		return a.NewStreamValidator(r.matcher(), wildcards)
-	}
-	return r.validator.acquireAutomatonStreamValidator(a, r.matcher(), wildcards)
-}
-
-func (r *streamRun) releaseFrameResources(frame *streamFrame) {
-	if frame == nil || r == nil || r.validator == nil {
-		return
-	}
-	if frame.automaton != nil {
-		r.validator.releaseAutomatonStreamValidator(frame.automaton)
-		frame.automaton = nil
-	}
+	return a.NewStreamValidator(r.matcher(), wildcards)
 }
 
 func (r *streamRun) validate(dec *xmlstream.StringReader) ([]errors.Validation, error) {
@@ -182,12 +149,6 @@ func (r *streamRun) validate(dec *xmlstream.StringReader) ([]errors.Validation, 
 	r.currentColumn = 0
 	r.identityScopes = r.identityScopes[:0]
 	r.constraintDecls = nil
-	defer func() {
-		for i := range r.frames {
-			r.releaseFrameResources(&r.frames[i])
-		}
-	}()
-
 	for {
 		ev, err := dec.Next()
 		if stderrors.Is(err, io.EOF) {
@@ -448,7 +409,6 @@ func (r *streamRun) handleEnd() error {
 		return nil
 	}
 	defer r.path.pop()
-	defer r.releaseFrameResources(frame)
 	defer r.handleIdentityEnd(frame)
 
 	if frame.invalid {

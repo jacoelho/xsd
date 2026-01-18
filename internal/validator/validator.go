@@ -2,7 +2,6 @@ package validator
 
 import (
 	"slices"
-	"sync"
 
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
@@ -10,10 +9,9 @@ import (
 
 // Validator validates XML documents against a CompiledSchema.
 type Validator struct {
-	grammar                *grammar.CompiledSchema
-	baseView               *baseSchemaView
-	builtinTypes           map[types.QName]*grammar.CompiledType
-	automatonValidatorPool sync.Pool
+	grammar      *grammar.CompiledSchema
+	baseView     *baseSchemaView
+	builtinTypes map[types.QName]*grammar.CompiledType
 }
 
 type validationRun struct {
