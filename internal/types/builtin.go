@@ -1,9 +1,6 @@
 package types
 
-import (
-	"strings"
-	"unicode/utf8"
-)
+import "unicode/utf8"
 
 // XSDNamespace is the XML Schema namespace URI.
 const XSDNamespace NamespaceURI = "http://www.w3.org/2001/XMLSchema"
@@ -283,14 +280,7 @@ func (b *BuiltinType) MeasureLength(value string) int {
 	// check if it's a built-in list type (NMTOKENS, IDREFS, ENTITIES)
 	if isBuiltinListType(name) {
 		// list type: length is number of items (space-separated)
-		if strings.TrimSpace(value) == "" {
-			return 0
-		}
-		count := 0
-		for range strings.FieldsSeq(value) {
-			count++
-		}
-		return count
+		return countXMLFields(value)
 	}
 
 	primitiveType := b.PrimitiveType()

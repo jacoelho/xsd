@@ -123,6 +123,14 @@ func needsCollapseXML(value string) bool {
 	return false
 }
 
+func splitXMLWhitespaceFields(value string) []string {
+	return strings.FieldsFunc(value, isXMLWhitespaceRune)
+}
+
+func isXMLWhitespaceRune(r rune) bool {
+	return r == ' ' || r == '\t' || r == '\n' || r == '\r'
+}
+
 func isXMLWhitespaceByte(b byte) bool {
 	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
 }
