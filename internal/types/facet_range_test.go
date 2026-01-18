@@ -206,12 +206,7 @@ func TestGenericFacet_TypeMismatch(t *testing.T) {
 // TestGenericFacet_StringTypedValue_Decimal tests facet validation with StringTypedValue
 // This simulates the case where parseToTypedValue fails and falls back to string validation
 func TestGenericFacet_StringTypedValue_Decimal(t *testing.T) {
-	decimalType := &SimpleType{
-		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
-	}
-	decimalType.MarkBuiltin()
-	decimalType.SetVariety(AtomicVariety)
-	decimalType.SetPrimitiveType(decimalType)
+	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	maxVal, _ := ParseDecimal("100")
 	compMax := ComparableBigRat{Value: maxVal, Typ: decimalType}
@@ -247,12 +242,7 @@ func TestGenericFacet_StringTypedValue_Decimal(t *testing.T) {
 
 // TestGenericFacet_StringTypedValue_Decimal_MinInclusive tests minInclusive with StringTypedValue
 func TestGenericFacet_StringTypedValue_Decimal_MinInclusive(t *testing.T) {
-	decimalType := &SimpleType{
-		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
-	}
-	decimalType.MarkBuiltin()
-	decimalType.SetVariety(AtomicVariety)
-	decimalType.SetPrimitiveType(decimalType)
+	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	minVal, _ := ParseDecimal("100")
 	compMin := ComparableBigRat{Value: minVal, Typ: decimalType}
@@ -285,12 +275,7 @@ func TestGenericFacet_StringTypedValue_Decimal_MinInclusive(t *testing.T) {
 
 // TestGenericFacet_StringTypedValue_Decimal_MinExclusive tests minExclusive with StringTypedValue
 func TestGenericFacet_StringTypedValue_Decimal_MinExclusive(t *testing.T) {
-	decimalType := &SimpleType{
-		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
-	}
-	decimalType.MarkBuiltin()
-	decimalType.SetVariety(AtomicVariety)
-	decimalType.SetPrimitiveType(decimalType)
+	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	minVal, _ := ParseDecimal("100")
 	compMin := ComparableBigRat{Value: minVal, Typ: decimalType}
@@ -324,19 +309,7 @@ func TestGenericFacet_StringTypedValue_Decimal_MinExclusive(t *testing.T) {
 // TestGenericFacet_StringTypedValue_Integer tests facet validation with StringTypedValue for integer type
 func TestGenericFacet_StringTypedValue_Integer(t *testing.T) {
 	// create an integer type (primitive is decimal)
-	decimalType := &SimpleType{
-		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
-	}
-	decimalType.MarkBuiltin()
-	decimalType.SetVariety(AtomicVariety)
-	decimalType.SetPrimitiveType(decimalType)
-
-	integerType := &SimpleType{
-		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "integer"},
-	}
-	integerType.MarkBuiltin()
-	integerType.SetVariety(AtomicVariety)
-	integerType.SetPrimitiveType(decimalType)
+	integerType := mustBuiltinSimpleType(t, TypeNameInteger)
 
 	// create facet with maxInclusive on integer (uses ComparableBigInt)
 	maxVal, _ := ParseInteger("100")
@@ -395,13 +368,7 @@ func TestGenericFacet_ValueSpaceComparison_Decimal(t *testing.T) {
 
 // TestGenericFacet_Duration tests range facets on duration types (OrderedPartial)
 func TestGenericFacet_Duration(t *testing.T) {
-	durationType := &SimpleType{
-		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "duration"},
-	}
-	durationType.MarkBuiltin()
-	durationType.SetVariety(AtomicVariety)
-	durationType.SetPrimitiveType(durationType)
-	durationType.SetFundamentalFacets(ComputeFundamentalFacets(TypeNameDuration))
+	durationType := mustBuiltinSimpleType(t, TypeNameDuration)
 
 	// test minInclusive with duration
 	minDur, err := ParseDurationToTimeDuration("P1D")

@@ -116,13 +116,7 @@ func TestMaxLength(t *testing.T) {
 }
 
 func TestMinInclusive(t *testing.T) {
-	baseType := &SimpleType{
-		QName: QName{Local: "integer"},
-		Restriction: &Restriction{
-			Base: QName{Local: "integer"},
-		},
-	}
-	baseType.MarkBuiltin()
+	baseType := mustBuiltinSimpleType(t, TypeNameInteger)
 
 	m, err := NewMinInclusive("10", baseType)
 	if err != nil {
@@ -156,13 +150,7 @@ func TestMinInclusive(t *testing.T) {
 }
 
 func TestMaxInclusive(t *testing.T) {
-	baseType := &SimpleType{
-		QName: QName{Local: "integer"},
-		Restriction: &Restriction{
-			Base: QName{Local: "integer"},
-		},
-	}
-	baseType.MarkBuiltin()
+	baseType := mustBuiltinSimpleType(t, TypeNameInteger)
 
 	m, err := NewMaxInclusive("100", baseType)
 	if err != nil {
@@ -195,13 +183,7 @@ func TestMaxInclusive(t *testing.T) {
 }
 
 func TestMinExclusive(t *testing.T) {
-	baseType := &SimpleType{
-		QName: QName{Local: "integer"},
-		Restriction: &Restriction{
-			Base: QName{Local: "integer"},
-		},
-	}
-	baseType.MarkBuiltin()
+	baseType := mustBuiltinSimpleType(t, TypeNameInteger)
 
 	m, err := NewMinExclusive("10", baseType)
 	if err != nil {
@@ -233,13 +215,7 @@ func TestMinExclusive(t *testing.T) {
 }
 
 func TestMaxExclusive(t *testing.T) {
-	baseType := &SimpleType{
-		QName: QName{Local: "integer"},
-		Restriction: &Restriction{
-			Base: QName{Local: "integer"},
-		},
-	}
-	baseType.MarkBuiltin()
+	baseType := mustBuiltinSimpleType(t, TypeNameInteger)
 
 	m, err := NewMaxExclusive("100", baseType)
 	if err != nil {
@@ -271,13 +247,7 @@ func TestMaxExclusive(t *testing.T) {
 }
 
 func TestTotalDigits(t *testing.T) {
-	baseType := &SimpleType{
-		QName: QName{Local: "decimal"},
-		Restriction: &Restriction{
-			Base: QName{Local: "decimal"},
-		},
-	}
-	baseType.MarkBuiltin()
+	baseType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	td := &TotalDigits{Value: 5}
 
@@ -305,13 +275,7 @@ func TestTotalDigits(t *testing.T) {
 }
 
 func TestFractionDigits(t *testing.T) {
-	baseType := &SimpleType{
-		QName: QName{Local: "decimal"},
-		Restriction: &Restriction{
-			Base: QName{Local: "decimal"},
-		},
-	}
-	baseType.MarkBuiltin()
+	baseType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	fd := &FractionDigits{Value: 2}
 
@@ -632,7 +596,6 @@ func TestLengthFacetsWithListType(t *testing.T) {
 		QName: QName{Local: "integerList"},
 		List:  &ListType{ItemType: itemType.Name()},
 	}
-	listType.SetVariety(ListVariety)
 	listType.ItemType = itemType
 
 	tests := []struct {
@@ -800,7 +763,6 @@ func TestLengthFacetsWithQNameRestriction(t *testing.T) {
 		},
 	}
 	restrictedType.ResolvedBase = qnameBaseType
-	restrictedType.SetVariety(AtomicVariety)
 
 	tests := []struct {
 		facet     Facet

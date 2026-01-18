@@ -69,18 +69,13 @@ func TestValidatePatternFacetSyntax(t *testing.T) {
 			patternFacet := &types.Pattern{Value: tt.pattern}
 			baseQName := types.QName{Namespace: types.XSDNamespace, Local: "string"}
 
-			bt := types.GetBuiltin(types.TypeNameString)
-			var baseType types.Type
-			if bt != nil {
-				baseType = &types.SimpleType{
-					QName: baseQName,
-					// variety set via SetVariety
-				}
-				baseType.(*types.SimpleType).MarkBuiltin()
+			baseType, err := types.NewBuiltinSimpleType(types.TypeNameString)
+			if err != nil {
+				t.Fatalf("NewBuiltinSimpleType(string) failed: %v", err)
 			}
 
 			facetList := []types.Facet{patternFacet}
-			err := validateFacetConstraints(facetList, baseType, baseQName)
+			err = validateFacetConstraints(facetList, baseType, baseQName)
 			if tt.valid && err != nil {
 				t.Errorf("Pattern %q should be valid but got error: %v", tt.pattern, err)
 			}
