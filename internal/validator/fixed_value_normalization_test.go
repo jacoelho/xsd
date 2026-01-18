@@ -218,3 +218,59 @@ func TestFixedValueNormalization_UnionDecimal(t *testing.T) {
 		}
 	}
 }
+
+func TestFixedValueNormalization_FloatNaN(t *testing.T) {
+	// test that fixed NaN matches NaN in the float value space
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="xs:float" fixed="NaN"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	xmlDoc := `<?xml version="1.0"?>
+<root xmlns="http://example.com/test">NaN</root>`
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, xmlDoc)
+
+	if len(violations) > 0 {
+		t.Errorf("Expected no violations, got %d:", len(violations))
+		for _, v := range violations {
+			t.Errorf("  %s", v.Error())
+		}
+	}
+}
+
+func TestFixedValueNormalization_DoubleNaN(t *testing.T) {
+	// test that fixed NaN matches NaN in the double value space
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="xs:double" fixed="NaN"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	xmlDoc := `<?xml version="1.0"?>
+<root xmlns="http://example.com/test">NaN</root>`
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, xmlDoc)
+
+	if len(violations) > 0 {
+		t.Errorf("Expected no violations, got %d:", len(violations))
+		for _, v := range violations {
+			t.Errorf("  %s", v.Error())
+		}
+	}
+}
