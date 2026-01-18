@@ -56,4 +56,3 @@ issues:
     - path: _test\.go
       linters:
         - govet
-      text: "fieldalignment"
