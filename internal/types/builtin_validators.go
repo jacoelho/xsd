@@ -379,8 +379,7 @@ func validateIDREFS(value string) error {
 		return nil // empty is valid
 	}
 
-	parts := strings.FieldsSeq(value)
-	for part := range parts {
+	for _, part := range splitXMLWhitespaceFields(value) {
 		if err := validateIDREF(part); err != nil {
 			return fmt.Errorf("invalid IDREFS: %w", err)
 		}
@@ -400,8 +399,7 @@ func validateENTITIES(value string) error {
 		return nil // empty is valid
 	}
 
-	parts := strings.FieldsSeq(value)
-	for part := range parts {
+	for _, part := range splitXMLWhitespaceFields(value) {
 		if err := validateENTITY(part); err != nil {
 			return fmt.Errorf("invalid ENTITIES: %w", err)
 		}
@@ -432,8 +430,7 @@ func validateNMTOKENS(value string) error {
 		return nil // empty is valid
 	}
 
-	parts := strings.FieldsSeq(value)
-	for part := range parts {
+	for _, part := range splitXMLWhitespaceFields(value) {
 		if err := validateNMTOKEN(part); err != nil {
 			return fmt.Errorf("invalid NMTOKENS: %w", err)
 		}

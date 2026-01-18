@@ -605,6 +605,36 @@ func TestLengthFacetsWithListType(t *testing.T) {
 		wantValid bool
 	}{
 		{
+			name:      "maxLength 1 with NBSP-separated items - valid",
+			value:     "1\u00A02",
+			facet:     &MaxLength{Value: 1},
+			wantValid: true,
+		},
+		{
+			name:      "maxLength 1 with tab-separated items - invalid",
+			value:     "1\t2",
+			facet:     &MaxLength{Value: 1},
+			wantValid: false,
+		},
+		{
+			name:      "length 0 with xml whitespace only - valid",
+			value:     " \t\r\n",
+			facet:     &Length{Value: 0},
+			wantValid: true,
+		},
+		{
+			name:      "minLength 1 with xml whitespace only - invalid",
+			value:     " \t\r\n",
+			facet:     &MinLength{Value: 1},
+			wantValid: false,
+		},
+		{
+			name:      "length 2 with mixed xml whitespace - valid",
+			value:     "1\t2\n",
+			facet:     &Length{Value: 2},
+			wantValid: true,
+		},
+		{
 			name:      "maxLength 5 with 3 items - valid",
 			value:     "1 2 3",
 			facet:     &MaxLength{Value: 5},
