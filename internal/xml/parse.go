@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"slices"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/jacoelho/xsd/pkg/xmlstream"
@@ -115,9 +114,7 @@ func (d *Document) addNode(namespace, local string, attrs []Attr, parent NodeID)
 		d.attrs = slices.Grow(d.attrs, len(attrs))
 		d.attrs = d.attrs[:attrsOff+len(attrs)]
 		for i, attr := range attrs {
-			copied := attr
-			copied.value = strings.Clone(attr.value)
-			d.attrs[attrsOff+i] = copied
+			d.attrs[attrsOff+i] = attr
 		}
 	}
 
