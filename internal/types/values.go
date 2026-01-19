@@ -1409,6 +1409,10 @@ func ParseQNameValue(lexical string, nsContext map[string]string) (QName, error)
 		if !ok {
 			return QName{}, fmt.Errorf("prefix %s not found in namespace context", prefix)
 		}
+	} else {
+		if defaultNS, ok := ResolveNamespace("", nsContext); ok {
+			ns = defaultNS
+		}
 	}
 
 	return QName{Namespace: ns, Local: local}, nil

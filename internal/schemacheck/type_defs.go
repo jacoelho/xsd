@@ -2,7 +2,6 @@ package schemacheck
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
@@ -132,45 +131,25 @@ func validateWhiteSpaceRestriction(derivedType *types.SimpleType, baseType types
 }
 
 // validateNotationEnumeration validates that enumeration values for NOTATION types
-// reference declared notations in the schema
-func validateNotationEnumeration(schema *parser.Schema, facetList []types.Facet, targetNS types.NamespaceURI) error {
-	var enumValues []string
-	for _, f := range facetList {
-		if enum, ok := f.(*types.Enumeration); ok {
-			enumValues = append(enumValues, enum.Values...)
-		}
-	}
-
-	if len(enumValues) == 0 {
+// reference declared notations in the schema.
+func validateNotationEnumeration(schema *parser.Schema, facetList []types.Facet) error {
+	if schema == nil {
 		return nil
 	}
-
-	// per XSD spec, NOTATION enumeration values cannot be empty strings
-	for _, val := range enumValues {
-		if val == "" {
-			return fmt.Errorf("NOTATION enumeration value cannot be empty")
+	for _, facet := range facetList {
+		enum, ok := facet.(*types.Enumeration)
+		if !ok {
+			continue
 		}
-		// parse value as QName (may be prefixed like "ns:notation")
-		var qname types.QName
-		if before, after, ok := strings.Cut(val, ":"); ok {
-			// prefixed QName - resolve prefix to namespace
-			prefix := before
-			local := after
-
-			ns, ok := schema.NamespaceDecls[prefix]
-			if !ok {
-				return fmt.Errorf("enumeration value %q uses undeclared prefix %q", val, prefix)
+		qnames, err := enum.ResolveQNameValues()
+		if err != nil {
+			return err
+		}
+		for i, qname := range qnames {
+			if _, ok := schema.NotationDecls[qname]; !ok {
+				return fmt.Errorf("enumeration value %q does not reference a declared notation", enum.Values[i])
 			}
-			qname = types.QName{Local: local, Namespace: types.NamespaceURI(ns)}
-		} else {
-			// unprefixed - use target namespace
-			qname = types.QName{Local: val, Namespace: targetNS}
-		}
-
-		if _, ok := schema.NotationDecls[qname]; !ok {
-			return fmt.Errorf("enumeration value %q does not reference a declared notation", val)
 		}
 	}
-
 	return nil
 }

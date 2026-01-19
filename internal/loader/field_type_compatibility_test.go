@@ -15,6 +15,7 @@ func TestKeyRef_FieldCountMismatch(t *testing.T) {
 			Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns="http://example.com"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -52,12 +53,12 @@ func TestKeyRef_FieldCountMismatch(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts/part"/>
+      <xs:selector xpath="tns:parts/tns:part"/>
       <xs:field xpath="@number"/>
       <xs:field xpath="@name"/>
     </xs:key>
     <xs:keyref name="partRef" refer="partKey">
-      <xs:selector xpath="orders/order/part"/>
+      <xs:selector xpath="tns:orders/tns:order/tns:part"/>
       <xs:field xpath="@number"/>
       <!-- Missing second field - should fail -->
     </xs:keyref>
@@ -90,6 +91,7 @@ func TestKeyRef_IncompatibleFieldTypes(t *testing.T) {
 			Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns="http://example.com"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -126,11 +128,11 @@ func TestKeyRef_IncompatibleFieldTypes(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts/part"/>
+      <xs:selector xpath="tns:parts/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:key>
     <xs:keyref name="partRef" refer="partKey">
-      <xs:selector xpath="orders/order/part"/>
+      <xs:selector xpath="tns:orders/tns:order/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:keyref>
   </xs:element>
@@ -152,6 +154,48 @@ func TestKeyRef_IncompatibleFieldTypes(t *testing.T) {
 	}
 }
 
+// TestKeyRef_NamespaceContextMismatch tests that namespace context affects field type resolution.
+func TestKeyRef_NamespaceContextMismatch(t *testing.T) {
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="xs:int" form="unqualified"/>
+        <xs:element name="item" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="."/>
+    </xs:key>
+    <xs:keyref name="itemRef" refer="tns:itemKey">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="."/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	_, err := loader.Load("test.xsd")
+	if err == nil {
+		t.Fatal("Load() should return error for keyref with namespace-mismatched field types")
+	}
+	if !strings.Contains(err.Error(), "not compatible") {
+		t.Fatalf("error should mention type incompatibility, got: %v", err)
+	}
+}
+
 // TestKeyRef_CompatibleFieldTypes tests that keyref with compatible field types passes validation
 func TestKeyRef_CompatibleFieldTypes(t *testing.T) {
 	testFS := fstest.MapFS{
@@ -159,6 +203,7 @@ func TestKeyRef_CompatibleFieldTypes(t *testing.T) {
 			Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns="http://example.com"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -195,11 +240,11 @@ func TestKeyRef_CompatibleFieldTypes(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts/part"/>
+      <xs:selector xpath="tns:parts/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:key>
     <xs:keyref name="partRef" refer="partKey">
-      <xs:selector xpath="orders/order/part"/>
+      <xs:selector xpath="tns:orders/tns:order/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:keyref>
   </xs:element>
@@ -257,6 +302,7 @@ func TestKeyRef_SameFieldTypes(t *testing.T) {
 			Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns="http://example.com"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -293,11 +339,11 @@ func TestKeyRef_SameFieldTypes(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts/part"/>
+      <xs:selector xpath="tns:parts/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:key>
     <xs:keyref name="partRef" refer="partKey">
-      <xs:selector xpath="orders/order/part"/>
+      <xs:selector xpath="tns:orders/tns:order/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:keyref>
   </xs:element>
@@ -326,6 +372,7 @@ func TestKeyRef_UniqueConstraint(t *testing.T) {
 			Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns="http://example.com"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -362,11 +409,11 @@ func TestKeyRef_UniqueConstraint(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:unique name="partUnique">
-      <xs:selector xpath="parts/part"/>
+      <xs:selector xpath="tns:parts/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:unique>
     <xs:keyref name="partRef" refer="partUnique">
-      <xs:selector xpath="orders/order/part"/>
+      <xs:selector xpath="tns:orders/tns:order/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:keyref>
   </xs:element>
@@ -395,6 +442,7 @@ func TestKeyRef_DescendantOrSelfPrefix(t *testing.T) {
 			Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns="http://example.com"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="container">
@@ -425,11 +473,11 @@ func TestKeyRef_DescendantOrSelfPrefix(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="targetKey">
-      <xs:selector xpath=".//target"/>
+      <xs:selector xpath=".//tns:target"/>
       <xs:field xpath="@id"/>
     </xs:key>
     <xs:keyref name="targetRef" refer="targetKey">
-      <xs:selector xpath="references/ref"/>
+      <xs:selector xpath="tns:references/tns:ref"/>
       <xs:field xpath="@targetId"/>
     </xs:keyref>
   </xs:element>
@@ -487,6 +535,7 @@ func TestKeyRef_MultipleFields(t *testing.T) {
 			Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns="http://example.com"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="root">
@@ -519,12 +568,12 @@ func TestKeyRef_MultipleFields(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="itemKey">
-      <xs:selector xpath="items/item"/>
+      <xs:selector xpath="tns:items/tns:item"/>
       <xs:field xpath="@category"/>
       <xs:field xpath="@code"/>
     </xs:key>
     <xs:keyref name="itemRef" refer="itemKey">
-      <xs:selector xpath="references/ref"/>
+      <xs:selector xpath="tns:references/tns:ref"/>
       <xs:field xpath="@category"/>
       <xs:field xpath="@code"/>
     </xs:keyref>
@@ -554,6 +603,7 @@ func TestKeyRef_MultipleFieldsIncompatible(t *testing.T) {
 			Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns="http://example.com"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="root">
@@ -586,12 +636,12 @@ func TestKeyRef_MultipleFieldsIncompatible(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="itemKey">
-      <xs:selector xpath="items/item"/>
+      <xs:selector xpath="tns:items/tns:item"/>
       <xs:field xpath="@category"/>
       <xs:field xpath="@code"/>
     </xs:key>
     <xs:keyref name="itemRef" refer="itemKey">
-      <xs:selector xpath="references/ref"/>
+      <xs:selector xpath="tns:references/tns:ref"/>
       <xs:field xpath="@category"/>
       <xs:field xpath="@code"/>
     </xs:keyref>
@@ -621,6 +671,7 @@ func TestKeyRef_BuiltinTypeDerivation(t *testing.T) {
 			Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns="http://example.com"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="root">
@@ -651,11 +702,11 @@ func TestKeyRef_BuiltinTypeDerivation(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="itemKey">
-      <xs:selector xpath="items/item"/>
+      <xs:selector xpath="tns:items/tns:item"/>
       <xs:field xpath="@value"/>
     </xs:key>
     <xs:keyref name="itemRef" refer="itemKey">
-      <xs:selector xpath="references/ref"/>
+      <xs:selector xpath="tns:references/tns:ref"/>
       <xs:field xpath="@value"/>
     </xs:keyref>
   </xs:element>

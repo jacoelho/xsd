@@ -21,8 +21,13 @@ func ResolveTypeReference(schema *parser.Schema, typ types.Type, policy TypeRefe
 }
 
 // ResolveFieldType resolves a field XPath to its selected type.
-func ResolveFieldType(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string) (types.Type, error) {
-	return resolveFieldType(schema, field, constraintElement, selectorXPath)
+func ResolveFieldType(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (types.Type, error) {
+	return resolveFieldType(schema, field, constraintElement, selectorXPath, nsContext)
+}
+
+// ResolveFieldElementDecl resolves a field XPath to the selected element declaration.
+func ResolveFieldElementDecl(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (*types.ElementDecl, error) {
+	return resolveFieldElementDecl(schema, field, constraintElement, selectorXPath, nsContext)
 }
 
 // ElementTypesCompatible reports whether two element declaration types are consistent.
@@ -31,8 +36,8 @@ func ElementTypesCompatible(a, b types.Type) bool {
 }
 
 // ResolveSelectorElementType resolves a selector XPath to its element type.
-func ResolveSelectorElementType(schema *parser.Schema, constraintElement *types.ElementDecl, selectorXPath string) (types.Type, error) {
-	return resolveSelectorElementType(schema, constraintElement, selectorXPath)
+func ResolveSelectorElementType(schema *parser.Schema, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (types.Type, error) {
+	return resolveSelectorElementType(schema, constraintElement, selectorXPath, nsContext)
 }
 
 // CollectAllElementDeclarationsFromType collects element declarations from a complex type.

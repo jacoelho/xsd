@@ -151,6 +151,9 @@ func validateAttributeValueConstraints(schema *parser.Schema, decl *types.Attrib
 	if _, ok := resolvedType.(*types.ComplexType); ok {
 		return fmt.Errorf("type must be a simple type")
 	}
+	if isDirectNotationType(resolvedType) {
+		return fmt.Errorf("attribute cannot use NOTATION type")
+	}
 	if decl.Default != "" {
 		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Default, resolvedType); err != nil {
 			return fmt.Errorf("invalid default value '%s': %w", decl.Default, err)
