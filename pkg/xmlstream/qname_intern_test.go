@@ -39,8 +39,8 @@ func TestQNameCacheInternBytesStable(t *testing.T) {
 
 func TestQNameCacheRecentRingWrap(t *testing.T) {
 	cache := newQNameCache()
-	for i := 0; i < qnameCacheRecentSize+1; i++ {
-		local := []byte(fmt.Sprintf("n%d", i))
+	for i := range qnameCacheRecentSize + 1 {
+		local := fmt.Appendf(nil, "n%d", i)
 		cache.internBytes("urn:test", local)
 	}
 	if cache.recentCount != qnameCacheRecentSize {
@@ -53,8 +53,8 @@ func TestQNameCacheRecentRingWrap(t *testing.T) {
 
 func TestQNameCacheRecentWrapAtBoundary(t *testing.T) {
 	cache := newQNameCache()
-	for i := 0; i < qnameCacheRecentSize; i++ {
-		cache.internBytes("urn:test", []byte(fmt.Sprintf("n%d", i)))
+	for i := range qnameCacheRecentSize {
+		cache.internBytes("urn:test", fmt.Appendf(nil, "n%d", i))
 	}
 	if cache.recentCount != qnameCacheRecentSize {
 		t.Fatalf("recentCount = %d, want %d", cache.recentCount, qnameCacheRecentSize)
@@ -70,8 +70,8 @@ func TestQNameCacheRecentWrapAtBoundary(t *testing.T) {
 
 func TestQNameCacheRecentWrapToZero(t *testing.T) {
 	cache := newQNameCache()
-	for i := 0; i < qnameCacheRecentSize*2; i++ {
-		cache.internBytes("urn:test", []byte(fmt.Sprintf("n%d", i)))
+	for i := range qnameCacheRecentSize * 2 {
+		cache.internBytes("urn:test", fmt.Appendf(nil, "n%d", i))
 	}
 	if cache.recentIndex != 0 {
 		t.Fatalf("recentIndex = %d, want 0 after wrap", cache.recentIndex)
@@ -96,8 +96,8 @@ func TestQNameCacheRecentHit(t *testing.T) {
 func TestQNameCacheMaxEntries(t *testing.T) {
 	cache := newQNameCache()
 	total := qnameCacheMaxEntries + qnameCacheRecentSize + 10
-	for i := 0; i < total; i++ {
-		cache.internBytes("urn:test", []byte(fmt.Sprintf("n%d", i)))
+	for i := range total {
+		cache.internBytes("urn:test", fmt.Appendf(nil, "n%d", i))
 	}
 	if len(cache.table) > qnameCacheMaxEntries {
 		t.Fatalf("table size = %d, want <= %d", len(cache.table), qnameCacheMaxEntries)
@@ -107,8 +107,8 @@ func TestQNameCacheMaxEntries(t *testing.T) {
 func TestQNameCacheSetMaxEntriesZero(t *testing.T) {
 	cache := newQNameCache()
 	cache.setMaxEntries(0)
-	for i := 0; i < qnameCacheMaxEntries*2; i++ {
-		cache.internBytes("urn:test", []byte(fmt.Sprintf("n%d", i)))
+	for i := range qnameCacheMaxEntries * 2 {
+		cache.internBytes("urn:test", fmt.Appendf(nil, "n%d", i))
 	}
 	if len(cache.table) <= qnameCacheMaxEntries {
 		t.Fatalf("table size = %d, want > %d", len(cache.table), qnameCacheMaxEntries)
@@ -132,8 +132,8 @@ func TestQNameCacheCompactWrappedRing(t *testing.T) {
 	cache := newQNameCache()
 	cache.setMaxEntries(4)
 	total := qnameCacheRecentSize + 4
-	for i := 0; i < total; i++ {
-		cache.internBytes("urn:test", []byte(fmt.Sprintf("n%d", i)))
+	for i := range total {
+		cache.internBytes("urn:test", fmt.Appendf(nil, "n%d", i))
 	}
 	if cache.recentIndex == 0 {
 		t.Fatalf("recentIndex = 0, want wrapped ring")
@@ -157,8 +157,8 @@ func TestQNameCacheCompactNil(t *testing.T) {
 
 func TestQNameCacheCompactMaxEntriesLessThanRecent(t *testing.T) {
 	cache := newQNameCache()
-	for i := 0; i < qnameCacheRecentSize; i++ {
-		cache.internBytes("urn:test", []byte(fmt.Sprintf("n%d", i)))
+	for i := range qnameCacheRecentSize {
+		cache.internBytes("urn:test", fmt.Appendf(nil, "n%d", i))
 	}
 	cache.setMaxEntries(3)
 	if len(cache.table) > 3 {
@@ -178,8 +178,8 @@ func TestQNameCacheEmptyLocalCompactAtLimit(t *testing.T) {
 
 func TestQNameCacheMapHitNotRecent(t *testing.T) {
 	cache := newQNameCache()
-	for i := 0; i < qnameCacheRecentSize+1; i++ {
-		local := []byte(fmt.Sprintf("n%d", i))
+	for i := range qnameCacheRecentSize + 1 {
+		local := fmt.Appendf(nil, "n%d", i)
 		cache.internBytes("urn:test", local)
 	}
 	cache.internBytes("urn:test", []byte("n0"))
@@ -225,8 +225,8 @@ func TestQNameCacheEmptyLocalDifferentNamespaces(t *testing.T) {
 func TestQNameCacheEmptyLocalTableHit(t *testing.T) {
 	cache := newQNameCache()
 	first := cache.internBytes("urn:test", nil)
-	for i := 0; i < qnameCacheRecentSize+1; i++ {
-		cache.internBytes("urn:test", []byte(fmt.Sprintf("name%d", i)))
+	for i := range qnameCacheRecentSize + 1 {
+		cache.internBytes("urn:test", fmt.Appendf(nil, "name%d", i))
 	}
 	second := cache.internBytes("urn:test", nil)
 	if first != second {

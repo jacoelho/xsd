@@ -56,7 +56,7 @@ func FuzzDecoderRawInput(f *testing.F) {
 		dec := NewDecoder(bytes.NewReader(data))
 		var tok Token
 		maxTokens := min(len(data)+8, 10000)
-		for i := 0; i < maxTokens; i++ {
+		for range maxTokens {
 			if err := dec.ReadTokenInto(&tok); err != nil {
 				return
 			}
