@@ -152,8 +152,7 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, simpleType 
 	}
 
 	// precompute caches to avoid lazy writes during validation.
-	simpleType.PrimitiveType()
-	simpleType.FundamentalFacets()
+	types.PrecomputeSimpleTypeCaches(simpleType)
 
 	return nil
 }
