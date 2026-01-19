@@ -83,25 +83,8 @@ func (t *importTracker) trackContext(resolvedLocation, originalLocation, namespa
 }
 
 func (t *importTracker) namespaceFor(location, fsKey string) (string, bool) {
-	if ns, ok := t.context[loadKey{fsKey: fsKey, location: location}]; ok {
-		return ns, true
-	}
-
-	locationBase := path.Base(location)
-	if ns, ok := t.context[loadKey{fsKey: fsKey, location: locationBase}]; ok {
-		return ns, true
-	}
-
-	for key, ns := range t.context {
-		if key.fsKey != fsKey {
-			continue
-		}
-		if strings.HasSuffix(key.location, locationBase) || strings.HasSuffix(location, path.Base(key.location)) {
-			return ns, true
-		}
-	}
-
-	return "", false
+	ns, ok := t.context[loadKey{fsKey: fsKey, location: location}]
+	return ns, ok
 }
 
 func (t *importTracker) alreadyMergedInclude(baseKey, includeKey loadKey) bool {
@@ -194,7 +177,10 @@ func (l *SchemaLoader) Load(location string) (*parser.Schema, error) {
 
 // loadWithValidation loads a schema with the requested validation mode.
 func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, ctx fsContext) (*parser.Schema, error) {
-	absLoc := l.resolveLocation(location)
+	absLoc, err := l.resolveLocation(location)
+	if err != nil {
+		return nil, err
+	}
 	key := l.loadKey(ctx, absLoc)
 	session := newLoadSession(l, absLoc, ctx, key)
 
@@ -266,7 +252,10 @@ func (l *SchemaLoader) loadImport(location string, currentNamespace types.Namesp
 	// load will call resolveLocation on it, which might produce a different path
 	// to ensure the import context key matches what Load will use, we need to resolve it the same way
 	// resolve it the way Load will to get the exact key that Load will use
-	absLocForContext := l.resolveLocation(location)
+	absLocForContext, err := l.resolveLocation(location)
+	if err != nil {
+		return nil, err
+	}
 	absKey := l.loadKey(ctx, absLocForContext)
 
 	// if already loaded, reuse it
@@ -318,38 +307,63 @@ func (l *SchemaLoader) LoadCompiled(location string) (*grammar.CompiledSchema, e
 	return compiled, nil
 }
 
-// GetLoaded returns a loaded schema by location, if it exists
-func (l *SchemaLoader) GetLoaded(location string) (*parser.Schema, bool) {
-	absLoc := l.resolveLocation(location)
+// GetLoaded returns a loaded schema by location, if it exists.
+func (l *SchemaLoader) GetLoaded(location string) (*parser.Schema, bool, error) {
+	absLoc, err := l.resolveLocation(location)
+	if err != nil {
+		return nil, false, err
+	}
 	key := l.loadKey(l.defaultFSContext(), absLoc)
 	schema, ok := l.state.loaded[key]
-	return schema, ok
+	return schema, ok, nil
 }
 
-func (l *SchemaLoader) resolveLocation(location string) string {
+func (l *SchemaLoader) resolveLocation(location string) (string, error) {
 	if l.config.BasePath == "" {
-		return location
+		return location, nil
 	}
 	if path.IsAbs(location) {
-		return location
+		return location, nil
 	}
 	cleanBase := path.Clean(l.config.BasePath)
-	cleanLoc := path.Clean(location)
-	if cleanLoc == cleanBase || strings.HasPrefix(cleanLoc, cleanBase+"/") {
-		return cleanLoc
+	if cleanBase == "." {
+		return path.Clean(location), nil
 	}
-	return path.Join(cleanBase, cleanLoc)
+	cleanLoc := path.Clean(location)
+	if cleanLoc == "." {
+		return cleanBase, nil
+	}
+	if cleanLoc == cleanBase || strings.HasPrefix(cleanLoc, cleanBase+"/") {
+		return cleanLoc, nil
+	}
+	resolved := path.Join(cleanBase, cleanLoc)
+	if resolved != cleanBase && !strings.HasPrefix(resolved, cleanBase+"/") {
+		return "", fmt.Errorf("schema location %q escapes base path %q", location, cleanBase)
+	}
+	return resolved, nil
 }
 
 // resolveIncludeLocation resolves an include/import location relative to a base location
-func (l *SchemaLoader) resolveIncludeLocation(baseLoc, includeLoc string) string {
+func (l *SchemaLoader) resolveIncludeLocation(baseLoc, includeLoc string) (string, error) {
 	// if include location is absolute, use it as-is
 	if path.IsAbs(includeLoc) {
-		return includeLoc
+		return includeLoc, nil
 	}
 	// otherwise, resolve relative to the base location's directory
 	baseDir := path.Dir(baseLoc)
-	return path.Join(baseDir, includeLoc)
+	resolved := path.Join(baseDir, includeLoc)
+	if l.config.BasePath == "" {
+		return resolved, nil
+	}
+	cleanBase := path.Clean(l.config.BasePath)
+	if cleanBase == "." {
+		return resolved, nil
+	}
+	cleanResolved := path.Clean(resolved)
+	if cleanResolved == cleanBase || strings.HasPrefix(cleanResolved, cleanBase+"/") {
+		return resolved, nil
+	}
+	return "", fmt.Errorf("schema location %q escapes base path %q", includeLoc, cleanBase)
 }
 
 func (l *SchemaLoader) trackImportContext(resolvedLocation, originalLocation, namespace, fsKey string) func() {

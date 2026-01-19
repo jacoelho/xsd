@@ -11,8 +11,16 @@ func PrecomputeBuiltinCaches() {
 			if builtin == nil {
 				continue
 			}
-			_ = builtin.PrimitiveType()
-			_ = builtin.FundamentalFacets()
+			builtin.primitiveTypeCache = builtin.computePrimitiveType()
+			builtin.fundamentalFacetsCache = builtin.FundamentalFacets()
 		}
 	})
+}
+
+// PrecomputeSimpleTypeCaches initializes caches for a simple type.
+func PrecomputeSimpleTypeCaches(simpleType *SimpleType) {
+	if simpleType == nil {
+		return
+	}
+	simpleType.precomputeCaches()
 }

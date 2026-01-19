@@ -302,27 +302,22 @@ func (b *BuiltinType) FundamentalFacets() *FundamentalFacets {
 
 	// for primitive types, compute directly
 	if isPrimitiveName(typeName) {
-		return b.setFundamentalFacets(ComputeFundamentalFacets(typeName))
+		return ComputeFundamentalFacets(typeName)
 	}
 
 	// for derived types, get facets from primitive type
-	primitive := b.PrimitiveType()
+	primitive := b.computePrimitiveType()
 	if primitive == nil {
 		// fallback: try computing from name (may return nil for unknown types)
-		return b.setFundamentalFacets(ComputeFundamentalFacets(typeName))
+		return ComputeFundamentalFacets(typeName)
 	}
 
 	if bt, ok := as[*BuiltinType](primitive); ok {
-		return b.setFundamentalFacets(bt.FundamentalFacets())
+		return bt.FundamentalFacets()
 	}
 
 	// if primitive is not BuiltinType, try to get facets from it
-	return b.setFundamentalFacets(primitive.FundamentalFacets())
-}
-
-func (b *BuiltinType) setFundamentalFacets(facets *FundamentalFacets) *FundamentalFacets {
-	b.fundamentalFacetsCache = facets
-	return facets
+	return primitive.FundamentalFacets()
 }
 
 // BaseType returns the base type for this built-in type
@@ -378,6 +373,10 @@ func (b *BuiltinType) PrimitiveType() Type {
 		return b.primitiveTypeCache
 	}
 
+	return b.computePrimitiveType()
+}
+
+func (b *BuiltinType) computePrimitiveType() Type {
 	// anySimpleType and anyType have no primitive type (they are abstract roots)
 	if b.name == string(TypeNameAnySimpleType) || b.name == string(TypeNameAnyType) {
 		return nil
@@ -385,7 +384,6 @@ func (b *BuiltinType) PrimitiveType() Type {
 
 	// for primitive types, return self
 	if isPrimitive(b.name) {
-		b.primitiveTypeCache = b
 		return b
 	}
 
@@ -394,7 +392,5 @@ func (b *BuiltinType) PrimitiveType() Type {
 	if base == nil {
 		return nil
 	}
-	primitive := base.PrimitiveType()
-	b.primitiveTypeCache = primitive
-	return primitive
+	return base.PrimitiveType()
 }

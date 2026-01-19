@@ -75,8 +75,14 @@ func (s *loadSession) importingNamespaceFor(key loadKey) (string, bool) {
 
 func (s *loadSession) processIncludes(schema *parser.Schema, includes []parser.IncludeInfo) error {
 	for _, include := range includes {
-		includeLoc := s.loader.resolveIncludeLocation(s.absLoc, include.SchemaLocation)
-		absIncludeLoc := s.loader.resolveLocation(includeLoc)
+		includeLoc, err := s.loader.resolveIncludeLocation(s.absLoc, include.SchemaLocation)
+		if err != nil {
+			return err
+		}
+		absIncludeLoc, err := s.loader.resolveLocation(includeLoc)
+		if err != nil {
+			return err
+		}
 		includeKey := s.loader.loadKey(s.ctx, absIncludeLoc)
 		if s.loader.alreadyMergedInclude(s.key, includeKey) {
 			continue
@@ -123,8 +129,14 @@ func (s *loadSession) processImports(schema *parser.Schema, imports []parser.Imp
 		if imp.SchemaLocation == "" {
 			continue
 		}
-		importLoc := s.loader.resolveIncludeLocation(s.absLoc, imp.SchemaLocation)
-		absImportLoc := s.loader.resolveLocation(importLoc)
+		importLoc, err := s.loader.resolveIncludeLocation(s.absLoc, imp.SchemaLocation)
+		if err != nil {
+			return err
+		}
+		absImportLoc, err := s.loader.resolveLocation(importLoc)
+		if err != nil {
+			return err
+		}
 		importCtx := s.loader.importFSContext(types.NamespaceURI(imp.Namespace))
 		importKey := s.loader.loadKey(importCtx, absImportLoc)
 		if s.loader.alreadyMergedImport(s.key, importKey) {
