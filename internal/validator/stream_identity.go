@@ -37,6 +37,7 @@ type fieldState struct {
 	display      string
 	count        int
 	multiple     bool
+	missing      bool
 	invalid      bool
 	valueInvalid bool
 	hasValue     bool
@@ -365,7 +366,11 @@ func (r *streamRun) applyFieldCaptures(frame *streamFrame) {
 			continue
 		}
 		field := match.constraint.constraint.Original.Fields[capture.fieldIndex]
-		raw := effectiveElementValue(frame)
+		raw, hasValue := effectiveElementValue(frame)
+		if !hasValue {
+			fieldState.missing = true
+			continue
+		}
 		normalized, keyState := r.normalizeElementValue(raw, field, frame)
 		switch keyState {
 		case KeyInvalidValue:
@@ -381,23 +386,26 @@ func (r *streamRun) applyFieldCaptures(frame *streamFrame) {
 	}
 }
 
-func effectiveElementValue(frame *streamFrame) string {
+func effectiveElementValue(frame *streamFrame) (string, bool) {
 	if frame == nil {
-		return ""
+		return "", false
 	}
-	if len(frame.textBuf) > 0 || frame.hasChildElements || frame.nilled || frame.textType == nil {
-		return string(frame.textBuf)
+	if frame.nilled {
+		return "", false
+	}
+	if len(frame.textBuf) > 0 || frame.hasChildElements || frame.textType == nil {
+		return string(frame.textBuf), true
 	}
 	if frame.decl == nil {
-		return ""
+		return string(frame.textBuf), true
 	}
 	if frame.decl.Default != "" {
-		return frame.decl.Default
+		return frame.decl.Default, true
 	}
 	if frame.decl.HasFixed {
-		return frame.decl.Fixed
+		return frame.decl.Fixed, true
 	}
-	return ""
+	return "", true
 }
 
 func (r *streamRun) finalizeSelectorMatches(frame *streamFrame) {
@@ -433,7 +441,7 @@ func (r *streamRun) finalizeSelectorMatch(scope *identityScope, state *constrain
 			r.addIdentityFieldError(constraint, errors.ErrIdentityAbsent, errors.ErrIdentityDuplicate, errors.ErrIdentityKeyRefFailed, elemPath,
 				"field selects multiple nodes for element at %s", constraint.Original.Name)
 			return
-		case fieldState.count == 0:
+		case fieldState.count == 0 || fieldState.missing:
 			if constraint.Original.Type == types.KeyConstraint {
 				violation := errors.NewValidationf(errors.ErrIdentityAbsent, elemPath,
 					"key '%s': field value is absent for element at %s", constraint.Original.Name, elemPath)

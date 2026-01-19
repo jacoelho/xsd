@@ -94,6 +94,34 @@ func TestXsiTypeInvalidQName(t *testing.T) {
 	}
 }
 
+func TestXsiTypeUnprefixedUsesDefaultNamespace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test">
+  <xs:simpleType name="T">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:element name="root" type="xs:anyType"/>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<root xmlns="urn:test"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:type="T">value</root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if len(violations) > 0 {
+		t.Fatalf("Expected no violations, got: %v", violations)
+	}
+}
+
 func TestXsiTypeBuiltinIDDuplicate(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

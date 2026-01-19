@@ -491,7 +491,7 @@ func (r *streamRun) handleEnd() error {
 		r.addViolationsAt(r.checkSimpleValue(text, frame.textType, frame.scopeDepth), textLine, textColumn)
 		r.addViolationsAt(r.collectIDRefs(text, frame.textType, textLine, textColumn), textLine, textColumn)
 		if frame.typ != nil && frame.typ.Kind == grammar.TypeKindComplex && len(frame.typ.Facets) > 0 {
-			r.addViolationsAt(r.checkComplexTypeFacets(text, frame.typ), textLine, textColumn)
+			r.addViolationsAt(r.checkComplexTypeFacetsWithContext(text, frame.typ, frame.scopeDepth), textLine, textColumn)
 		}
 		if frame.decl != nil && frame.decl.HasFixed && hadContent {
 			r.addViolationsAt(r.checkFixedValue(text, frame.decl.Fixed, frame.textType), textLine, textColumn)

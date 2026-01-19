@@ -203,6 +203,47 @@ func TestAttributeFixedValueValidation(t *testing.T) {
 	}
 }
 
+func TestKeyFieldSelectsNillableElement(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="xs:string" nillable="true" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="."/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+
+	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	errors := ValidateSchema(result.Schema)
+	if len(errors) == 0 {
+		t.Fatal("Expected schema validation error for nillable key field, but got none")
+	}
+
+	found := false
+	for _, err := range errors {
+		if strings.Contains(err.Error(), "nillable") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("Expected nillable key field error, got: %v", errors)
+	}
+}
+
 // TestElementDefaultValueValidation tests that default element values must be valid for the type
 func TestElementDefaultValueValidation(t *testing.T) {
 	// schema with invalid default value for integer element - should be invalid

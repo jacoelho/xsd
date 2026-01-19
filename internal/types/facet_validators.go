@@ -438,6 +438,10 @@ func getLength(value string, baseType Type) int {
 // Enumeration represents an enumeration facet
 type Enumeration struct {
 	Values []string
+	// ValueContexts holds namespace contexts aligned with Values.
+	ValueContexts []map[string]string
+	// QNameValues holds resolved QName values for QName/NOTATION enumerations.
+	QNameValues []QName
 }
 
 // Name returns the facet name
@@ -458,15 +462,40 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 				return nil
 			}
 		}
-		return fmt.Errorf("value %s not in enumeration: %s", lexical, formatEnumerationValues(e.Values))
+		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
 	}
 	if slices.Contains(e.Values, lexical) {
 		return nil
 	}
-	return fmt.Errorf("value %s not in enumeration: %s", lexical, formatEnumerationValues(e.Values))
+	return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
 }
 
-func formatEnumerationValues(values []string) string {
+// ResolveQNameValues parses enumeration values as QNames using ValueContexts.
+// It returns a QName for each entry in Values or an error if any value cannot be resolved.
+func (e *Enumeration) ResolveQNameValues() ([]QName, error) {
+	if e == nil || len(e.Values) == 0 {
+		return nil, nil
+	}
+	if len(e.ValueContexts) != len(e.Values) {
+		return nil, fmt.Errorf("enumeration contexts %d do not match values %d", len(e.ValueContexts), len(e.Values))
+	}
+	qnames := make([]QName, len(e.Values))
+	for i, value := range e.Values {
+		context := e.ValueContexts[i]
+		if context == nil {
+			return nil, fmt.Errorf("missing namespace context for enumeration value %q", value)
+		}
+		qname, err := ParseQNameValue(value, context)
+		if err != nil {
+			return nil, fmt.Errorf("invalid QName enumeration value %q: %w", value, err)
+		}
+		qnames[i] = qname
+	}
+	return qnames, nil
+}
+
+// FormatEnumerationValues returns a quoted list for enumeration errors.
+func FormatEnumerationValues(values []string) string {
 	if len(values) == 0 {
 		return "[]"
 	}

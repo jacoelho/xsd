@@ -11,11 +11,13 @@ import (
 
 func TestNotationValidation(t *testing.T) {
 	tests := []struct {
-		name       string
-		schema     string
-		instance   string
-		wantErrMsg string
-		wantValid  bool
+		name              string
+		schema            string
+		instance          string
+		wantErrMsg        string
+		schemaErrContains string
+		wantValid         bool
+		wantSchemaErr     bool
 	}{
 		{
 			name: "valid notation reference",
@@ -106,6 +108,30 @@ func TestNotationValidation(t *testing.T) {
 <m:audio xmlns:m="http://example.com/media" format="m:mp3"/>`,
 			wantValid: true,
 		},
+		{
+			name: "notation without prefix uses default namespace",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+           targetNamespace="http://example.com/media"
+           xmlns:m="http://example.com/media">
+  <xs:notation name="mp3" public="audio/mpeg"/>
+  
+  <xs:simpleType name="audioFormat">
+    <xs:restriction base="xs:NOTATION">
+      <xs:enumeration value="m:mp3"/>
+    </xs:restriction>
+  </xs:simpleType>
+  
+  <xs:element name="audio">
+    <xs:complexType>
+      <xs:attribute name="format" type="m:audioFormat"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`,
+			instance: `<?xml version="1.0"?>
+<audio xmlns="http://example.com/media" format="mp3"/>`,
+			wantValid: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -121,6 +147,15 @@ func TestNotationValidation(t *testing.T) {
 			})
 
 			schema, err := l.Load("test.xsd")
+			if tt.wantSchemaErr {
+				if err == nil {
+					t.Fatalf("Expected schema load error, got nil")
+				}
+				if tt.schemaErrContains != "" && !strings.Contains(err.Error(), tt.schemaErrContains) {
+					t.Fatalf("Expected schema error containing %q, got: %v", tt.schemaErrContains, err)
+				}
+				return
+			}
 			if err != nil {
 				t.Fatalf("Failed to load schema: %v", err)
 			}

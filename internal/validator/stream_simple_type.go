@@ -44,7 +44,7 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 			}
 			return false, nil
 		}
-		return r.validateSimpleTypeFacets(normalizedValue, st, policy)
+		return r.validateSimpleTypeFacets(normalizedValue, st, scopeDepth, policy)
 	}
 
 	if st.ItemType != nil {
@@ -88,10 +88,10 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 		}
 	}
 
-	return r.validateSimpleTypeFacets(normalizedValue, st, policy)
+	return r.validateSimpleTypeFacets(normalizedValue, st, scopeDepth, policy)
 }
 
-func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar.CompiledType, policy errorPolicy) (bool, []errors.Validation) {
+func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy) (bool, []errors.Validation) {
 	if st == nil || len(st.Facets) == 0 {
 		return true, nil
 	}
@@ -100,6 +100,15 @@ func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar
 	var typedValue types.TypedValue
 	for _, facet := range st.Facets {
 		if shouldSkipLengthFacet(st, facet) {
+			continue
+		}
+		if enumFacet, ok := facet.(*types.Enumeration); ok && st.IsQNameOrNotationType {
+			if err := r.validateQNameEnumeration(normalizedValue, enumFacet, scopeDepth); err != nil {
+				if policy == errorPolicySuppress {
+					return false, nil
+				}
+				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+			}
 			continue
 		}
 		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
@@ -126,6 +135,41 @@ func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar
 		return false, violations
 	}
 	return true, nil
+}
+
+func (r *streamRun) checkComplexTypeFacetsWithContext(text string, ct *grammar.CompiledType, scopeDepth int) []errors.Validation {
+	if ct == nil || ct.SimpleContentType == nil || len(ct.Facets) == 0 {
+		return nil
+	}
+
+	normalizedValue := types.NormalizeWhiteSpace(text, ct.SimpleContentType.Original)
+	var violations []errors.Validation
+	var typedValue types.TypedValue
+	for _, facet := range ct.Facets {
+		if shouldSkipLengthFacet(ct.SimpleContentType, facet) {
+			continue
+		}
+		if enumFacet, ok := facet.(*types.Enumeration); ok && ct.SimpleContentType.IsQNameOrNotationType {
+			if err := r.validateQNameEnumeration(normalizedValue, enumFacet, scopeDepth); err != nil {
+				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+			}
+			continue
+		}
+		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
+			if err := lexicalFacet.ValidateLexical(normalizedValue, ct.SimpleContentType.Original); err != nil {
+				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+			}
+			continue
+		}
+		if typedValue == nil {
+			typedValue = typedValueForFacets(normalizedValue, ct.SimpleContentType.Original, ct.Facets)
+		}
+		if err := facet.Validate(typedValue, ct.SimpleContentType.Original); err != nil {
+			violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+		}
+	}
+
+	return violations
 }
 
 func (r *streamRun) validateListValueInternal(value string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy) (bool, []errors.Validation) {
@@ -262,6 +306,16 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 			if shouldSkipLengthFacet(itemType, facet) {
 				continue
 			}
+			if enumFacet, ok := facet.(*types.Enumeration); ok && itemType.IsQNameOrNotationType {
+				if err := r.validateQNameEnumeration(item, enumFacet, scopeDepth); err != nil {
+					if policy == errorPolicySuppress {
+						return false, nil
+					}
+					violations = append(violations, errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
+						"list item[%d]: %s", index, err.Error()))
+				}
+				continue
+			}
 			if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
 				if err := lexicalFacet.ValidateLexical(item, itemType.Original); err != nil {
 					if policy == errorPolicySuppress {
@@ -366,7 +420,7 @@ func (r *streamRun) parseQNameValue(value string, scopeDepth int) (types.QName, 
 		}
 		ns = types.NamespaceURI(nsStr)
 	} else {
-		if nsStr, ok := r.dec.LookupNamespaceAt("", scopeDepth); ok && nsStr != "" {
+		if nsStr, ok := r.dec.LookupNamespaceAt("", scopeDepth); ok {
 			ns = types.NamespaceURI(nsStr)
 		}
 	}

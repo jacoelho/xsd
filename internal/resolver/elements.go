@@ -51,11 +51,16 @@ func validateElementValueConstraints(schema *parser.Schema, decl *types.ElementD
 	if decl == nil {
 		return nil
 	}
+
+	resolvedType := resolveTypeForFinalValidation(schema, decl.Type)
+	if isDirectNotationType(resolvedType) {
+		return fmt.Errorf("element cannot use NOTATION type")
+	}
+
 	if decl.Default == "" && decl.Fixed == "" {
 		return nil
 	}
 
-	resolvedType := resolveTypeForFinalValidation(schema, decl.Type)
 	// per XSD spec 3.3.5.2, elements can have default/fixed values only if content type is:
 	// simple type, simpleContent, or mixed content.
 	if ct, ok := resolvedType.(*types.ComplexType); ok {

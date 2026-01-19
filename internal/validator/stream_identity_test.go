@@ -404,6 +404,97 @@ func TestStreamIdentityKeyInvalidValue(t *testing.T) {
 	}
 }
 
+func TestStreamIdentityUniqueIgnoresNilledElements(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="xs:string" nillable="true" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueItem">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="."/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <item xsi:nil="true"/>
+  <item xsi:nil="true"/>
+</root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got %v", violations)
+	}
+}
+
+func TestStreamIdentityKeyrefIgnoresNilledField(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:string" use="required"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="ref" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="target" type="xs:string" nillable="true"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+    <xs:keyref name="itemRef" refer="tns:itemKey">
+      <xs:selector xpath="tns:ref"/>
+      <xs:field xpath="tns:target"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <item id="a"/>
+  <ref><target xsi:nil="true"/></ref>
+</root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got %v", violations)
+	}
+}
+
 func hasViolationCode(violations []errors.Validation, code errors.ErrorCode) bool {
 	for _, v := range violations {
 		if v.Code == string(code) {
