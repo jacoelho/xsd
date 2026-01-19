@@ -338,7 +338,7 @@ Notation declarations identify non-XML data formats:
 
 ### Using Notations
 
-Types derived from `xs:NOTATION` restrict attribute values to declared notation names. Using `xs:NOTATION` directly is a schema error; the restriction must include `enumeration`.
+Types derived from `xs:NOTATION` restrict values to declared notation names. Using `xs:NOTATION` directly is a schema error; the restriction must include `enumeration`.
 
 ```xml
 <xs:simpleType name="ImageFormat">
@@ -354,7 +354,7 @@ Types derived from `xs:NOTATION` restrict attribute values to declared notation 
 ### Notation Constraints
 
 - Notation names must be unique within the schema
-- Types derived from `xs:NOTATION` can only be used for attributes (not elements)
+- Types derived from `xs:NOTATION` can be used for elements or attributes
 - Restriction from `xs:NOTATION` must include `enumeration`
 - Values must match a declared notation name
 - For compatibility, NOTATION should only be used in schemas with no target namespace

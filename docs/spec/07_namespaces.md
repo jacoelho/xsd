@@ -79,7 +79,7 @@ A schema declares its target namespace on the `<xs:schema>` element:
 
 - Global elements, attributes, types, groups are associated with the target namespace
 - A schema without `targetNamespace` defines components in "no namespace"
-- QName references to components in the target namespace must use a prefix (default namespaces do not apply to attribute values)
+- QName references resolve using in-scope namespaces; unprefixed values use the default namespace when present
 
 Spec refs: docs/spec/xml/structures.xml#declare-schema.
 
