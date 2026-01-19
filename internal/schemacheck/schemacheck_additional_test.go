@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 func TestAttributeGroupUniqueness(t *testing.T) {
@@ -258,15 +259,17 @@ func TestFieldResolutionHelpers(t *testing.T) {
 		MaxOccurs: types.OccursFromInt(1),
 	}
 
-	if got, err := findElementTypeDescendant(schema, root, "grand"); err != nil || got == nil {
+	grandTest := xpath.NodeTest{Local: "grand", NamespaceSpecified: true}
+	if got, err := findElementTypeDescendant(schema, root, grandTest); err != nil || got == nil {
 		t.Fatalf("findElementTypeDescendant error = %v", err)
 	}
 
-	if got, err := findAttributeType(schema, root, "id"); err != nil || got == nil {
+	idTest := xpath.NodeTest{Local: "id", NamespaceSpecified: true}
+	if got, err := findAttributeType(schema, root, idTest); err != nil || got == nil {
 		t.Fatalf("findAttributeType error = %v", err)
 	}
 
-	if got, err := resolveFieldElementType(schema, root, "child/grand"); err != nil || got == nil {
+	if got, err := resolveFieldElementType(schema, root, "child/grand", schema.NamespaceDecls); err != nil || got == nil {
 		t.Fatalf("resolveFieldElementType error = %v", err)
 	}
 }
@@ -769,10 +772,10 @@ func TestPublicWrappers(t *testing.T) {
 	}
 
 	field := &types.Field{XPath: "@id"}
-	if _, err := ResolveFieldType(schema, field, root, "child"); err != nil {
+	if _, err := ResolveFieldType(schema, field, root, "child", schema.NamespaceDecls); err != nil {
 		t.Fatalf("ResolveFieldType error = %v", err)
 	}
-	if _, err := ResolveSelectorElementType(schema, root, "child"); err != nil {
+	if _, err := ResolveSelectorElementType(schema, root, "child", schema.NamespaceDecls); err != nil {
 		t.Fatalf("ResolveSelectorElementType error = %v", err)
 	}
 	if len(CollectAllElementDeclarationsFromType(schema, rootType)) == 0 {
@@ -862,18 +865,28 @@ func TestNotationEnumeration(t *testing.T) {
 	noteQName := types.QName{Namespace: "urn:note", Local: "note"}
 	schema.NotationDecls[noteQName] = &types.NotationDecl{Name: noteQName}
 
-	good := &types.Enumeration{Values: []string{"p:note"}}
-	if err := validateNotationEnumeration(schema, []types.Facet{good}, schema.TargetNamespace); err != nil {
+	context := map[string]string{"p": "urn:note"}
+	good := &types.Enumeration{
+		Values:        []string{"p:note"},
+		ValueContexts: []map[string]string{context},
+	}
+	if err := validateNotationEnumeration(schema, []types.Facet{good}); err != nil {
 		t.Fatalf("validateNotationEnumeration error = %v", err)
 	}
 
-	empty := &types.Enumeration{Values: []string{""}}
-	if err := validateNotationEnumeration(schema, []types.Facet{empty}, schema.TargetNamespace); err == nil {
+	empty := &types.Enumeration{
+		Values:        []string{""},
+		ValueContexts: []map[string]string{context},
+	}
+	if err := validateNotationEnumeration(schema, []types.Facet{empty}); err == nil {
 		t.Fatalf("expected empty notation enumeration error")
 	}
 
-	badPrefix := &types.Enumeration{Values: []string{"x:note"}}
-	if err := validateNotationEnumeration(schema, []types.Facet{badPrefix}, schema.TargetNamespace); err == nil {
+	badPrefix := &types.Enumeration{
+		Values:        []string{"x:note"},
+		ValueContexts: []map[string]string{context},
+	}
+	if err := validateNotationEnumeration(schema, []types.Facet{badPrefix}); err == nil {
 		t.Fatalf("expected undeclared prefix error")
 	}
 }
@@ -1280,6 +1293,7 @@ func TestCollectAnyAttributeFromGroups(t *testing.T) {
 func TestResolveFieldTypeSelf(t *testing.T) {
 	schema := parser.NewSchema()
 	schema.TargetNamespace = "urn:field"
+	schema.NamespaceDecls["tns"] = "urn:field"
 
 	child := &types.ElementDecl{
 		Name:      types.QName{Namespace: "urn:field", Local: "child"},
@@ -1292,8 +1306,32 @@ func TestResolveFieldTypeSelf(t *testing.T) {
 	root := &types.ElementDecl{Name: types.QName{Namespace: "urn:field", Local: "root"}, Type: rootType}
 
 	field := &types.Field{XPath: "."}
-	if _, err := resolveFieldType(schema, field, root, "child"); err != nil {
+	if _, err := resolveFieldType(schema, field, root, "tns:child", schema.NamespaceDecls); err != nil {
 		t.Fatalf("resolveFieldType self error = %v", err)
+	}
+}
+
+func TestResolveSelectorElementTypeRecursiveDescendant(t *testing.T) {
+	schema := parser.NewSchema()
+	schema.TargetNamespace = "urn:test"
+	schema.NamespaceDecls["tns"] = "urn:test"
+
+	nodeType := types.NewComplexType(types.QName{Namespace: "urn:test", Local: "NodeType"}, "urn:test")
+	nodeDecl := &types.ElementDecl{
+		Name: types.QName{Namespace: "urn:test", Local: "node"},
+		Type: nodeType,
+	}
+	nodeType.SetContent(&types.ElementContent{
+		Particle: &types.ModelGroup{
+			Kind:      types.Sequence,
+			MinOccurs: types.OccursFromInt(1),
+			MaxOccurs: types.OccursFromInt(1),
+			Particles: []types.Particle{nodeDecl},
+		},
+	})
+
+	if _, err := ResolveSelectorElementType(schema, nodeDecl, ".//tns:missing", schema.NamespaceDecls); err == nil {
+		t.Fatalf("expected error for missing descendant element")
 	}
 }
 

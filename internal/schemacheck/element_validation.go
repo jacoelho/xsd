@@ -45,7 +45,7 @@ func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl
 	// so we don't fail validation if resolution fails - it will be caught later
 	for _, constraint := range decl.Constraints {
 		for i := range constraint.Fields {
-			resolvedType, err := resolveFieldType(schema, &constraint.Fields[i], decl, constraint.Selector.XPath)
+			resolvedType, err := resolveFieldType(schema, &constraint.Fields[i], decl, constraint.Selector.XPath, constraint.NamespaceContext)
 			if err == nil {
 				constraint.Fields[i].ResolvedType = resolvedType
 			}

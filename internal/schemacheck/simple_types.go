@@ -277,7 +277,7 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 		if !hasEnumerationFacet(facetList) {
 			return fmt.Errorf("NOTATION restriction must have enumeration facet")
 		}
-		if err := validateNotationEnumeration(schema, facetList, schema.TargetNamespace); err != nil {
+		if err := validateNotationEnumeration(schema, facetList); err != nil {
 			return err
 		}
 	} else if hasEnumerationFacet(facetList) {
@@ -292,7 +292,7 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 			}
 		}
 		if isNotation {
-			if err := validateNotationEnumeration(schema, facetList, schema.TargetNamespace); err != nil {
+			if err := validateNotationEnumeration(schema, facetList); err != nil {
 				return err
 			}
 		}

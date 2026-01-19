@@ -145,6 +145,11 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, simpleType 
 	simpleType.SetQNameOrNotationType(compiled.IsQNameOrNotationType)
 
 	compiled.Facets = c.collectFacets(simpleType)
+	if compiled.IsQNameOrNotationType {
+		if err := c.resolveQNameEnumerationFacets(compiled); err != nil {
+			return err
+		}
+	}
 
 	// precompute caches to avoid lazy writes during validation.
 	simpleType.PrimitiveType()
@@ -336,6 +341,27 @@ func (c *Compiler) collectFacets(simpleType *types.SimpleType) []types.Facet {
 		}
 	}
 	return result
+}
+
+func (c *Compiler) resolveQNameEnumerationFacets(compiled *grammar.CompiledType) error {
+	if compiled == nil || len(compiled.Facets) == 0 {
+		return nil
+	}
+	for _, facet := range compiled.Facets {
+		enum, ok := facet.(*types.Enumeration)
+		if !ok || len(enum.Values) == 0 {
+			continue
+		}
+		if len(enum.QNameValues) == len(enum.Values) {
+			continue
+		}
+		qnames, err := enum.ResolveQNameValues()
+		if err != nil {
+			return err
+		}
+		enum.QNameValues = qnames
+	}
+	return nil
 }
 
 // constructDeferredFacet converts a DeferredFacet to a real Facet using the resolved base type.

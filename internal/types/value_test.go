@@ -313,3 +313,34 @@ func TestNormalizerForType_BuiltinDispatch(t *testing.T) {
 		t.Errorf("normalizerForType(string) = %T, want whiteSpaceNormalizer", normalizer)
 	}
 }
+
+func TestParseQNameValue_DefaultNamespace(t *testing.T) {
+	context := map[string]string{
+		"":  "urn:default",
+		"p": "urn:pref",
+	}
+
+	qname, err := ParseQNameValue("local", context)
+	if err != nil {
+		t.Fatalf("ParseQNameValue() error = %v", err)
+	}
+	if qname.Namespace != "urn:default" || qname.Local != "local" {
+		t.Fatalf("ParseQNameValue() = %v, want {urn:default}local", qname)
+	}
+
+	qname, err = ParseQNameValue("p:local", context)
+	if err != nil {
+		t.Fatalf("ParseQNameValue() error = %v", err)
+	}
+	if qname.Namespace != "urn:pref" || qname.Local != "local" {
+		t.Fatalf("ParseQNameValue() = %v, want {urn:pref}local", qname)
+	}
+
+	qname, err = ParseQNameValue("local", map[string]string{"p": "urn:pref"})
+	if err != nil {
+		t.Fatalf("ParseQNameValue() error = %v", err)
+	}
+	if qname.Namespace != NamespaceEmpty || qname.Local != "local" {
+		t.Fatalf("ParseQNameValue() = %v, want local in no namespace", qname)
+	}
+}

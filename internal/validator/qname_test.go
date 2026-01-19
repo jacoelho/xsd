@@ -83,6 +83,35 @@ func TestQNameRequiresNamespaceBinding(t *testing.T) {
 	})
 }
 
+func TestQNameEnumerationResolvesLocalNamespace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:qname"
+           xmlns:tns="urn:qname"
+           elementFormDefault="qualified">
+  <xs:simpleType name="QNameEnum">
+    <xs:restriction base="xs:QName">
+      <xs:enumeration xmlns:ex="urn:example" value="ex:val"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:QNameEnum"/>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<tns:root xmlns:tns="urn:qname" xmlns:alt="urn:example">alt:val</tns:root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got: %v", violations)
+	}
+}
+
 func assertHasCode(t *testing.T, violations []errors.Validation, code errors.ErrorCode) {
 	t.Helper()
 	if len(violations) == 0 {
