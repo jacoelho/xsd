@@ -13,21 +13,37 @@ func TestResolveLocationAndGetLoaded(t *testing.T) {
 	loader := NewLoader(Config{BasePath: "schemas"})
 	schema := &parser.Schema{}
 
-	abs := loader.resolveLocation("/abs/schema.xsd")
+	abs, err := loader.resolveLocation("/abs/schema.xsd")
+	if err != nil {
+		t.Fatalf("resolveLocation absolute error = %v", err)
+	}
 	if abs != "/abs/schema.xsd" {
 		t.Fatalf("expected absolute path to remain unchanged, got %q", abs)
 	}
 
-	rel := loader.resolveLocation("a/b.xsd")
+	rel, err := loader.resolveLocation("a/b.xsd")
+	if err != nil {
+		t.Fatalf("resolveLocation relative error = %v", err)
+	}
 	if rel != "schemas/a/b.xsd" {
 		t.Fatalf("expected base path join, got %q", rel)
 	}
 
 	key := loader.loadKey(loader.defaultFSContext(), rel)
 	loader.state.loaded[key] = schema
-	loaded, ok := loader.GetLoaded("a/b.xsd")
+	loaded, ok, err := loader.GetLoaded("a/b.xsd")
+	if err != nil {
+		t.Fatalf("GetLoaded error = %v", err)
+	}
 	if !ok || loaded != schema {
 		t.Fatalf("expected GetLoaded to return cached schema")
+	}
+}
+
+func TestResolveLocationRejectsTraversal(t *testing.T) {
+	loader := NewLoader(Config{BasePath: "schemas"})
+	if _, err := loader.resolveLocation("../outside.xsd"); err == nil {
+		t.Fatal("expected traversal to be rejected")
 	}
 }
 
