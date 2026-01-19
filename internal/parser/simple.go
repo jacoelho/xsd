@@ -392,7 +392,7 @@ func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, 
 			facet, err = parsePatternFacet(doc, child)
 
 		case "enumeration":
-			facet, err = parseEnumerationFacet(doc, child, restriction)
+			facet, err = parseEnumerationFacet(doc, child, restriction, schema)
 
 		case "length":
 			facet, err = parseLengthFacet(doc, child)
@@ -463,7 +463,7 @@ func parsePatternFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (types.Facet, e
 	return &types.Pattern{Value: value}, nil
 }
 
-func parseEnumerationFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction *types.Restriction) (types.Facet, error) {
+func parseEnumerationFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction *types.Restriction, schema *Schema) (types.Facet, error) {
 	if err := validateOnlyAnnotationChildren(doc, elem, "enumeration"); err != nil {
 		return nil, err
 	}
@@ -471,11 +471,20 @@ func parseEnumerationFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction
 		return nil, fmt.Errorf("enumeration facet missing value attribute")
 	}
 	value := doc.GetAttribute(elem, "value")
+	context := namespaceContextForElement(doc, elem, schema)
 	if enum := findEnumerationFacet(restriction.Facets); enum != nil {
+		if len(enum.ValueContexts) < len(enum.Values) {
+			missing := len(enum.Values) - len(enum.ValueContexts)
+			enum.ValueContexts = append(enum.ValueContexts, make([]map[string]string, missing)...)
+		}
 		enum.Values = append(enum.Values, value)
+		enum.ValueContexts = append(enum.ValueContexts, context)
 		return nil, nil
 	}
-	return &types.Enumeration{Values: []string{value}}, nil
+	return &types.Enumeration{
+		Values:        []string{value},
+		ValueContexts: []map[string]string{context},
+	}, nil
 }
 
 func findEnumerationFacet(facets []any) *types.Enumeration {

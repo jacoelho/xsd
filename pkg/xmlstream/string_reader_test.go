@@ -256,7 +256,7 @@ func TestStringReaderNamespaceDepthShadowing(t *testing.T) {
 		t.Fatalf("NewStringReader error = %v", err)
 	}
 	expect := make([]string, 0, levels+1)
-	for i := 0; i < levels; i++ {
+	for i := range levels {
 		expect = append(expect, "urn:"+strconv.Itoa(i))
 	}
 	expect = append(expect, "urn:0")
@@ -289,10 +289,10 @@ func TestStringReaderVeryDeepNesting(t *testing.T) {
 	const depth = 1200
 	var b strings.Builder
 	b.WriteString("<root>")
-	for i := 0; i < depth; i++ {
+	for range depth {
 		b.WriteString("<a>")
 	}
-	for i := 0; i < depth; i++ {
+	for range depth {
 		b.WriteString("</a>")
 	}
 	b.WriteString("</root>")
@@ -989,10 +989,8 @@ func TestConcurrentStringReaderCreation(t *testing.T) {
 	input := `<root><child/></root>`
 	errs := make(chan error, goroutines)
 	var wg sync.WaitGroup
-	for i := 0; i < goroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutines {
+		wg.Go(func() {
 			r, err := NewStringReader(strings.NewReader(input))
 			if err != nil {
 				errs <- err
@@ -1006,7 +1004,7 @@ func TestConcurrentStringReaderCreation(t *testing.T) {
 					return
 				}
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)

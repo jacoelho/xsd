@@ -515,7 +515,7 @@ QName values require namespace context:
 1. Parse as `prefix:localpart` or `localpart`
 2. Resolve prefix to namespace URI (from instance document) when present
 3. Error if prefix is undeclared
-4. If no prefix is present, the namespace name is absent (no namespace); default namespaces do not apply to QName values
+4. If no prefix is present, use the in-scope default namespace when present; otherwise the namespace name is absent (no namespace)
 5. PSVI value is (namespace URI, local name) pair
 
 ### NOTATION Validation

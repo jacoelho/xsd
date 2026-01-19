@@ -198,12 +198,12 @@ func validateKeyrefConstraints(contextQName types.QName, constraints, allConstra
 // Resolution failures due to namespace handling, wildcards, or implementation limitations are ignored.
 func validateIdentityConstraintResolution(schema *parser.Schema, constraint *types.IdentityConstraint, decl *types.ElementDecl) error {
 	for i, field := range constraint.Fields {
-		selectedElementType, err := schemacheck.ResolveSelectorElementType(schema, decl, constraint.Selector.XPath)
+		selectedElementType, err := schemacheck.ResolveSelectorElementType(schema, decl, constraint.Selector.XPath, constraint.NamespaceContext)
 		if err != nil || selectedElementType == nil {
 			continue
 		}
 
-		_, err = schemacheck.ResolveFieldType(schema, &field, decl, constraint.Selector.XPath)
+		_, err = schemacheck.ResolveFieldType(schema, &field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
 		if err != nil {
 			// only fail on definitively invalid cases: field '.' on element-only complex content.
 			// per XSD spec Section 13.2: fields must select attributes or elements with simple content.
@@ -211,6 +211,13 @@ func validateIdentityConstraintResolution(schema *parser.Schema, constraint *typ
 				if ct, ok := selectedElementType.(*types.ComplexType); ok && !ct.Mixed() {
 					return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
 				}
+			}
+		}
+
+		if constraint.Type == types.KeyConstraint {
+			elemDecl, err := schemacheck.ResolveFieldElementDecl(schema, &field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
+			if err == nil && elemDecl != nil && elemDecl.Nillable {
+				return fmt.Errorf("field %d '%s' selects nillable element '%s'", i+1, field.XPath, elemDecl.Name)
 			}
 		}
 	}

@@ -17,7 +17,7 @@ func TestNotationEnumerationValidation(t *testing.T) {
 		{
 			name: "valid - enumeration references declared notation",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com" xmlns="http://example.com">
   <xs:notation name="png" public="image/png"/>
   <xs:complexType name="Picture">
     <xs:attribute name="type">
@@ -33,9 +33,38 @@ func TestNotationEnumerationValidation(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "invalid - enumeration references undeclared notation",
+			name: "valid - enumeration with local namespace declaration",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com">
+  <xs:notation name="png" public="image/png"/>
+  <xs:simpleType name="imageFormat">
+    <xs:restriction base="xs:NOTATION">
+      <xs:enumeration xmlns:ex="http://example.com" value="ex:png"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="a" type="xs:string"/>
+</xs:schema>`,
+			wantError: false,
+		},
+		{
+			name: "invalid - unprefixed enumeration without default namespace",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com">
+  <xs:notation name="png" public="image/png"/>
+  <xs:simpleType name="imageFormat">
+    <xs:restriction base="xs:NOTATION">
+      <xs:enumeration value="png"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="a" type="xs:string"/>
+</xs:schema>`,
+			wantError: true,
+			errMsg:    "does not reference a declared notation",
+		},
+		{
+			name: "invalid - enumeration references undeclared notation",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com" xmlns="http://example.com">
   <xs:notation name="png" public="image/png"/>
   <xs:complexType name="Picture">
     <xs:attribute name="type">
@@ -54,7 +83,7 @@ func TestNotationEnumerationValidation(t *testing.T) {
 		{
 			name: "valid - multiple enumerations all declared",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com" xmlns="http://example.com">
   <xs:notation name="png" public="image/png"/>
   <xs:notation name="gif" public="image/gif"/>
   <xs:notation name="jpeg" public="image/jpeg"/>
@@ -72,7 +101,7 @@ func TestNotationEnumerationValidation(t *testing.T) {
 		{
 			name: "invalid - one enumeration undeclared among many",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com" xmlns="http://example.com">
   <xs:notation name="png" public="image/png"/>
   <xs:notation name="gif" public="image/gif"/>
   <xs:simpleType name="imageFormat">
@@ -90,7 +119,7 @@ func TestNotationEnumerationValidation(t *testing.T) {
 		{
 			name: "invalid - NOTATION restriction without enumeration facet",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com" xmlns="http://example.com">
   <xs:simpleType name="BadNotation">
     <xs:restriction base="xs:NOTATION"/>
   </xs:simpleType>
@@ -127,6 +156,83 @@ func TestNotationEnumerationValidation(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestNotationElementUsageAllowed(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com"
+           xmlns:tns="http://example.com">
+  <xs:notation name="pdf" public="application/pdf"/>
+  <xs:simpleType name="DocFormat">
+    <xs:restriction base="xs:NOTATION">
+      <xs:enumeration value="tns:pdf"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="doc" type="tns:DocFormat"/>
+</xs:schema>`
+
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{Data: []byte(schema)},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	if _, err := loader.Load("test.xsd"); err != nil {
+		t.Fatalf("Unexpected schema validation error: %v", err)
+	}
+}
+
+func TestDirectNotationElementUsageInvalid(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="doc" type="xs:NOTATION"/>
+</xs:schema>`
+
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{Data: []byte(schema)},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	_, err := loader.Load("test.xsd")
+	if err == nil {
+		t.Fatal("Expected schema validation error for direct NOTATION element type, got nil")
+	}
+	if !strings.Contains(err.Error(), "NOTATION") {
+		t.Fatalf("Expected NOTATION error, got: %v", err)
+	}
+}
+
+func TestDirectNotationAttributeUsageInvalid(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="doc">
+    <xs:complexType>
+      <xs:attribute name="format" type="xs:NOTATION"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{Data: []byte(schema)},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	_, err := loader.Load("test.xsd")
+	if err == nil {
+		t.Fatal("Expected schema validation error for direct NOTATION attribute type, got nil")
+	}
+	if !strings.Contains(err.Error(), "NOTATION") {
+		t.Fatalf("Expected NOTATION error, got: %v", err)
 	}
 }
 

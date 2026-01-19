@@ -3,7 +3,6 @@ package xmlstream
 import "testing"
 
 func TestEventKindString(t *testing.T) {
-	//nolint:govet // keep table fields readable.
 	tests := []struct {
 		kind EventKind
 		want string
