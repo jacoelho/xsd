@@ -344,24 +344,27 @@ func (s *SimpleType) FundamentalFacets() *FundamentalFacets {
 		return s.fundamentalFacetsCache
 	}
 
-	primitive := s.PrimitiveType()
+	return s.computeFundamentalFacets()
+}
+
+func (s *SimpleType) computeFundamentalFacets() *FundamentalFacets {
+	primitive := s.primitiveType
+	if primitive == nil {
+		primitive = s.computePrimitiveType(make(map[*SimpleType]bool))
+	}
 	if primitive == nil {
 		return nil
 	}
 
 	// for built-in types accessed as Type interface
 	if builtinType, ok := AsBuiltinType(primitive); ok {
-		facets := builtinType.FundamentalFacets()
-		s.fundamentalFacetsCache = facets
-		return facets
+		return builtinType.FundamentalFacets()
 	}
 
 	// for SimpleType that is built-in
 	if simpleType, ok := AsSimpleType(primitive); ok {
 		if simpleType.IsBuiltin() {
-			facets := ComputeFundamentalFacets(TypeName(simpleType.QName.Local))
-			s.fundamentalFacetsCache = facets
-			return facets
+			return ComputeFundamentalFacets(TypeName(simpleType.QName.Local))
 		}
 	}
 
@@ -564,9 +567,19 @@ func (s *SimpleType) PrimitiveType() Type {
 		return s.primitiveType
 	}
 
-	primitive := s.getPrimitiveTypeWithVisited(make(map[*SimpleType]bool))
-	s.primitiveType = primitive
-	return primitive
+	return s.computePrimitiveType(make(map[*SimpleType]bool))
+}
+
+func (s *SimpleType) precomputeCaches() {
+	if s == nil {
+		return
+	}
+	if s.primitiveType == nil {
+		s.primitiveType = s.computePrimitiveType(make(map[*SimpleType]bool))
+	}
+	if s.fundamentalFacetsCache == nil {
+		s.fundamentalFacetsCache = s.computeFundamentalFacets()
+	}
 }
 
 // IsQNameOrNotationType reports whether this type derives from QName or NOTATION.
@@ -622,8 +635,8 @@ func (s *SimpleType) computeQNameOrNotationType() bool {
 	return false
 }
 
-// getPrimitiveTypeWithVisited is the internal implementation with cycle detection
-func (s *SimpleType) getPrimitiveTypeWithVisited(visited map[*SimpleType]bool) Type {
+// computePrimitiveType is the internal implementation with cycle detection.
+func (s *SimpleType) computePrimitiveType(visited map[*SimpleType]bool) Type {
 	// if already computed, return it
 	if s.primitiveType != nil {
 		return s.primitiveType
@@ -637,22 +650,18 @@ func (s *SimpleType) getPrimitiveTypeWithVisited(visited map[*SimpleType]bool) T
 	defer delete(visited, s)
 
 	if primitive := s.primitiveFromSelf(); primitive != nil {
-		s.primitiveType = primitive
 		return primitive
 	}
 
 	if primitive := s.primitiveFromRestriction(visited); primitive != nil {
-		s.primitiveType = primitive
 		return primitive
 	}
 
 	if primitive := s.primitiveFromList(visited); primitive != nil {
-		s.primitiveType = primitive
 		return primitive
 	}
 
 	if primitive := s.primitiveFromUnion(visited); primitive != nil {
-		s.primitiveType = primitive
 		return primitive
 	}
 
@@ -727,7 +736,7 @@ func (s *SimpleType) primitiveFromUnion(visited map[*SimpleType]bool) Type {
 func primitiveFromBaseType(base Type, visited map[*SimpleType]bool) Type {
 	switch typed := base.(type) {
 	case *SimpleType:
-		return typed.getPrimitiveTypeWithVisited(visited)
+		return typed.computePrimitiveType(visited)
 	case *BuiltinType:
 		return typed.PrimitiveType()
 	default:

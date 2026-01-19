@@ -51,11 +51,14 @@ func TestLoader_CircularDependency(t *testing.T) {
 		},
 	})
 
-	absLoc := loader.resolveLocation("test.xsd")
+	absLoc, err := loader.resolveLocation("test.xsd")
+	if err != nil {
+		t.Fatalf("resolveLocation error = %v", err)
+	}
 	key := loader.loadKey(loader.defaultFSContext(), absLoc)
 	loader.state.loading[key] = true
 
-	_, err := loader.Load("test.xsd")
+	_, err = loader.Load("test.xsd")
 	if err == nil {
 		t.Error("Load() should return error for circular dependency")
 	}
@@ -118,6 +121,54 @@ func TestLoader_MutualImport(t *testing.T) {
 	typeAQName := types.QName{Namespace: "http://namespaceA", Local: "TypeA"}
 	if _, ok := schema.TypeDefs[typeAQName]; !ok {
 		t.Error("TypeA should be in schema.TypeDefs")
+	}
+}
+
+func TestLoader_MutualImportSameBasename(t *testing.T) {
+	testFS := fstest.MapFS{
+		"a/common.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:a"
+           xmlns:b="urn:b"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:b" schemaLocation="../b/common.xsd"/>
+  <xs:simpleType name="TypeA">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`),
+		},
+		"b/common.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:b"
+           xmlns:a="urn:a"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:a" schemaLocation="../a/common.xsd"/>
+  <xs:simpleType name="TypeB">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	schema, err := loader.Load("a/common.xsd")
+	if err != nil {
+		t.Fatalf("Load() should succeed for mutual imports with same basename, got error: %v", err)
+	}
+
+	typeAQName := types.QName{Namespace: "urn:a", Local: "TypeA"}
+	if _, ok := schema.TypeDefs[typeAQName]; !ok {
+		t.Errorf("type %s should be in schema.TypeDefs", typeAQName)
+	}
+
+	typeBQName := types.QName{Namespace: "urn:b", Local: "TypeB"}
+	if _, ok := schema.TypeDefs[typeBQName]; !ok {
+		t.Errorf("type %s should be in schema.TypeDefs", typeBQName)
 	}
 }
 
@@ -208,6 +259,36 @@ func TestLoader_CircularInclude(t *testing.T) {
 	elemBQName := types.QName{Namespace: "http://example.com", Local: "elemB"}
 	if _, ok := schema.ElementDecls[elemBQName]; !ok {
 		t.Error("elemB should be in schema.ElementDecls")
+	}
+}
+
+func TestLoader_IncludeTraversalRejected(t *testing.T) {
+	testFS := fstest.MapFS{
+		"schemas/root.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:root"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="../outside.xsd"/>
+</xs:schema>`),
+		},
+		"outside.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS:       testFS,
+		BasePath: "schemas",
+	})
+
+	_, err := loader.Load("root.xsd")
+	if err == nil {
+		t.Fatal("Load() should reject traversal outside base path")
+	}
+	if !strings.Contains(err.Error(), "escapes base path") {
+		t.Fatalf("expected base path error, got: %v", err)
 	}
 }
 
