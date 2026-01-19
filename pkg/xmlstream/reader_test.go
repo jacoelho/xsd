@@ -412,7 +412,6 @@ func TestReaderEmptyAttrValue(t *testing.T) {
 }
 
 func TestEmptyElementEquivalence(t *testing.T) {
-	//nolint:govet // small test helper.
 	type token struct {
 		kind EventKind
 		name string
@@ -848,7 +847,7 @@ func TestEndEventRawEmptyStack(t *testing.T) {
 func TestDeeplyNestedElements(t *testing.T) {
 	const depth = 200
 	var b strings.Builder
-	for i := 0; i < depth; i++ {
+	for i := range depth {
 		fmt.Fprintf(&b, "<e%d>", i)
 	}
 	for i := depth - 1; i >= 0; i-- {
@@ -881,10 +880,8 @@ func TestConcurrentReaderCreation(t *testing.T) {
 	input := `<root><child/></root>`
 	errs := make(chan error, goroutines)
 	var wg sync.WaitGroup
-	for i := 0; i < goroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range goroutines {
+		wg.Go(func() {
 			r, err := NewReader(strings.NewReader(input))
 			if err != nil {
 				errs <- err
@@ -898,7 +895,7 @@ func TestConcurrentReaderCreation(t *testing.T) {
 					return
 				}
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)

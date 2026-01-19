@@ -18,7 +18,7 @@ func BenchmarkXMLStream_UnmarshalStream(b *testing.B) {
 	data := benchmarkInput()
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		r, err := NewReader(bytes.NewReader(data))
 		if err != nil {
 			b.Fatalf("NewReader error = %v", err)
@@ -45,7 +45,7 @@ func BenchmarkXMLStream_NextRawScan(b *testing.B) {
 	data := benchmarkInput()
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		r, err := NewReader(bytes.NewReader(data))
 		if err != nil {
 			b.Fatalf("NewReader error = %v", err)
@@ -69,7 +69,7 @@ func BenchmarkXMLStream_SubtreeCopyUnmarshal(b *testing.B) {
 	data := benchmarkInput()
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		r, err := NewReader(bytes.NewReader(data))
 		if err != nil {
 			b.Fatalf("NewReader error = %v", err)
@@ -100,7 +100,7 @@ func BenchmarkEncodingXML_DecodeElement(b *testing.B) {
 	data := benchmarkInput()
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		dec := xml.NewDecoder(bytes.NewReader(data))
 		for {
 			tok, err := dec.Token()
@@ -174,7 +174,7 @@ func benchmarkInput() []byte {
 	var b strings.Builder
 	b.Grow(benchmarkItems * 64)
 	b.WriteString("<root>")
-	for i := 0; i < benchmarkItems; i++ {
+	for i := range benchmarkItems {
 		b.WriteString("<item id=\"")
 		b.WriteString(strconv.Itoa(i))
 		b.WriteString("\"><title>Title")

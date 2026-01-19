@@ -305,7 +305,7 @@ func TestNamespaceDeepShadowing(t *testing.T) {
 		t.Fatalf("NewReader error = %v", err)
 	}
 	expect := make([]string, 0, levels+1)
-	for i := 0; i < levels; i++ {
+	for i := range levels {
 		expect = append(expect, fmt.Sprintf("urn:%d", i))
 	}
 	expect = append(expect, "urn:0")

@@ -41,7 +41,7 @@ func TestNextRawCharData(t *testing.T) {
 func TestNextRawManyAttributes(t *testing.T) {
 	var attrs strings.Builder
 	want := readerAttrCapacity + 4
-	for i := 0; i < want; i++ {
+	for i := range want {
 		fmt.Fprintf(&attrs, ` a%d="%d"`, i, i)
 	}
 	input := fmt.Sprintf("<root%s/>", attrs.String())

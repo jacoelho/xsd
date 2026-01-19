@@ -30,7 +30,7 @@ func validateYearPrefix(lexical, kind string) error {
 	if len(lexical) < 4 {
 		return fmt.Errorf("invalid %s: year must have 4 digits", kind)
 	}
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		ch := lexical[i]
 		if ch < '0' || ch > '9' {
 			return fmt.Errorf("invalid %s: year must have 4 digits", kind)
