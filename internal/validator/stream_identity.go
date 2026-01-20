@@ -1,9 +1,12 @@
 package validator
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
@@ -580,9 +583,6 @@ func (r *streamRun) addIdentityFieldError(constraint *grammar.CompiledConstraint
 }
 
 func (r *streamRun) normalizeElementValue(value string, field types.Field, frame *streamFrame) (string, KeyState) {
-	if value == "" {
-		return "", KeyValid
-	}
 	fieldType := field.ResolvedType
 	if fieldType == nil {
 		fieldType = field.Type
@@ -618,9 +618,6 @@ func isAnySimpleOrAnyType(fieldType types.Type) bool {
 }
 
 func (r *streamRun) normalizeAttributeValue(value string, field types.Field, frame *streamFrame, attrQName types.QName) (string, KeyState) {
-	if value == "" {
-		return "", KeyValid
-	}
 	fieldType := field.ResolvedType
 	if fieldType == nil {
 		fieldType = field.Type
@@ -651,32 +648,90 @@ func (r *streamRun) normalizeAttributeValue(value string, field types.Field, fra
 	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth)
 }
 
+const (
+	keyTypeSeparator = "\x01"
+	keyListSeparator = "\x02"
+)
+
 func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Type, scopeDepth int) (string, KeyState) {
-	var primitiveName string
-	if bt, ok := fieldType.(*types.BuiltinType); ok {
-		if pt := bt.PrimitiveType(); pt != nil {
-			switch prim := pt.(type) {
-			case *types.BuiltinType:
-				primitiveName = prim.Name().Local
-			case *types.SimpleType:
-				primitiveName = prim.QName.Local
-			}
-		} else {
-			primitiveName = bt.Name().Local
+	if fieldType == nil {
+		fieldType = types.GetBuiltin(types.TypeName("string"))
+	}
+	return r.normalizeValueByType(value, fieldType, scopeDepth, make(map[types.Type]bool))
+}
+
+func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, scopeDepth int, visited map[types.Type]bool) (string, KeyState) {
+	if fieldType == nil {
+		return value, KeyValid
+	}
+	if visited[fieldType] {
+		return value, KeyValid
+	}
+	visited[fieldType] = true
+	defer delete(visited, fieldType)
+
+	if itemType, ok := types.ListItemType(fieldType); ok {
+		normalized, err := types.NormalizeValue(value, fieldType)
+		if err != nil {
+			return "", KeyInvalidValue
 		}
-	} else if pt := fieldType.PrimitiveType(); pt != nil {
-		switch prim := pt.(type) {
-		case *types.SimpleType:
-			primitiveName = prim.QName.Local
-		case *types.BuiltinType:
-			primitiveName = prim.Name().Local
-		}
+		return r.normalizeListValue(normalized, itemType, fieldType, scopeDepth, visited)
 	}
 
-	typePrefix := primitiveName
-	if typePrefix == "" && fieldType != nil {
-		typePrefix = fieldType.Name().String()
+	if st, ok := types.AsSimpleType(fieldType); ok && st.Variety() == types.UnionVariety {
+		if len(st.MemberTypes) == 0 {
+			return "", KeyInvalidValue
+		}
+		for _, member := range st.MemberTypes {
+			if member == nil {
+				continue
+			}
+			normalized, state := r.normalizeValueByType(value, member, scopeDepth, visited)
+			if state == KeyValid {
+				return normalized, KeyValid
+			}
+		}
+		return "", KeyInvalidValue
 	}
+
+	normalized, err := types.NormalizeValue(value, fieldType)
+	if err != nil {
+		return "", KeyInvalidValue
+	}
+	return r.normalizeAtomicValue(normalized, fieldType, scopeDepth)
+}
+
+func (r *streamRun) normalizeListValue(value string, itemType, listType types.Type, scopeDepth int, visited map[types.Type]bool) (string, KeyState) {
+	var (
+		itemState KeyState
+		builder   strings.Builder
+		first     = true
+	)
+	itemState = KeyValid
+	builder.WriteString(listKeyPrefix(listType))
+	builder.WriteString(keyTypeSeparator)
+	splitWhitespaceSeq(value, func(item string) bool {
+		normalized, state := r.normalizeValueByType(item, itemType, scopeDepth, visited)
+		if state != KeyValid {
+			itemState = state
+			return false
+		}
+		if !first {
+			builder.WriteString(keyListSeparator)
+		}
+		first = false
+		builder.WriteString(normalized)
+		return true
+	})
+	if itemState != KeyValid {
+		return "", itemState
+	}
+	return builder.String(), KeyValid
+}
+
+func (r *streamRun) normalizeAtomicValue(value string, fieldType types.Type, scopeDepth int) (string, KeyState) {
+	primitiveName := primitiveTypeName(fieldType)
+	typePrefix := typeKeyPrefix(fieldType, primitiveName)
 
 	switch primitiveName {
 	case "decimal", "integer", "nonPositiveInteger", "negativeInteger",
@@ -686,42 +741,131 @@ func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Typ
 		if err != nil {
 			return "", KeyInvalidValue
 		}
-		return typePrefix + "\x01" + rat.String(), KeyValid
+		return typePrefix + keyTypeSeparator + rat.String(), KeyValid
 	case "float":
 		floatValue, err := types.ParseFloat(value)
 		if err != nil {
 			return "", KeyInvalidValue
 		}
 		if math.IsNaN(float64(floatValue)) {
-			return typePrefix + "\x01" + "NaN", KeyValid
+			return typePrefix + keyTypeSeparator + "NaN", KeyValid
 		}
 		if floatValue == 0 && math.Signbit(float64(floatValue)) {
 			// normalize -0 to +0 to keep a single zero in the value space.
 			floatValue = 0
 		}
-		return typePrefix + "\x01" + strconv.FormatFloat(float64(floatValue), 'g', -1, 32), KeyValid
+		return typePrefix + keyTypeSeparator + strconv.FormatFloat(float64(floatValue), 'g', -1, 32), KeyValid
 	case "double":
 		floatValue, err := types.ParseDouble(value)
 		if err != nil {
 			return "", KeyInvalidValue
 		}
 		if math.IsNaN(floatValue) {
-			return typePrefix + "\x01" + "NaN", KeyValid
+			return typePrefix + keyTypeSeparator + "NaN", KeyValid
 		}
 		if floatValue == 0 && math.Signbit(floatValue) {
 			// normalize -0 to +0 to keep a single zero in the value space.
 			floatValue = 0
 		}
-		return typePrefix + "\x01" + strconv.FormatFloat(floatValue, 'g', -1, 64), KeyValid
-	case "QName":
+		return typePrefix + keyTypeSeparator + strconv.FormatFloat(floatValue, 'g', -1, 64), KeyValid
+	case "boolean":
+		boolValue, err := types.ParseBoolean(value)
+		if err != nil {
+			return "", KeyInvalidValue
+		}
+		return typePrefix + keyTypeSeparator + strconv.FormatBool(boolValue), KeyValid
+	case "dateTime":
+		return normalizeTimeValue(typePrefix, value, types.ParseDateTime)
+	case "date":
+		return normalizeTimeValue(typePrefix, value, types.ParseDate)
+	case "time":
+		return normalizeTimeValue(typePrefix, value, types.ParseTime)
+	case "gYear":
+		return normalizeTimeValue(typePrefix, value, types.ParseGYear)
+	case "gYearMonth":
+		return normalizeTimeValue(typePrefix, value, types.ParseGYearMonth)
+	case "gMonth":
+		return normalizeTimeValue(typePrefix, value, types.ParseGMonth)
+	case "gMonthDay":
+		return normalizeTimeValue(typePrefix, value, types.ParseGMonthDay)
+	case "gDay":
+		return normalizeTimeValue(typePrefix, value, types.ParseGDay)
+	case "duration":
+		xsdDur, err := types.ParseXSDDuration(value)
+		if err != nil {
+			return "", KeyInvalidValue
+		}
+		normalized := types.ComparableXSDDuration{Value: xsdDur, Typ: fieldType}.String()
+		return typePrefix + keyTypeSeparator + normalized, KeyValid
+	case "hexBinary":
+		decoded, err := types.ParseHexBinary(value)
+		if err != nil {
+			return "", KeyInvalidValue
+		}
+		return typePrefix + keyTypeSeparator + hex.EncodeToString(decoded), KeyValid
+	case "base64Binary":
+		decoded, err := types.ParseBase64Binary(value)
+		if err != nil {
+			return "", KeyInvalidValue
+		}
+		return typePrefix + keyTypeSeparator + base64.StdEncoding.EncodeToString(decoded), KeyValid
+	case "QName", "NOTATION":
 		normalized, err := r.normalizeQNameValue(value, scopeDepth)
 		if err != nil {
 			return "", KeyInvalidValue
 		}
-		return typePrefix + "\x01" + normalized, KeyValid
+		return typePrefix + keyTypeSeparator + normalized, KeyValid
 	}
 
-	return typePrefix + "\x01" + value, KeyValid
+	return typePrefix + keyTypeSeparator + value, KeyValid
+}
+
+func primitiveTypeName(fieldType types.Type) string {
+	if fieldType == nil {
+		return ""
+	}
+	if bt, ok := fieldType.(*types.BuiltinType); ok {
+		if pt := bt.PrimitiveType(); pt != nil {
+			switch prim := pt.(type) {
+			case *types.BuiltinType:
+				return prim.Name().Local
+			case *types.SimpleType:
+				return prim.QName.Local
+			}
+		}
+		return bt.Name().Local
+	}
+	if pt := fieldType.PrimitiveType(); pt != nil {
+		switch prim := pt.(type) {
+		case *types.SimpleType:
+			return prim.QName.Local
+		case *types.BuiltinType:
+			return prim.Name().Local
+		}
+	}
+	return ""
+}
+
+func typeKeyPrefix(fieldType types.Type, primitiveName string) string {
+	if primitiveName != "" {
+		return primitiveName
+	}
+	if fieldType != nil {
+		return fieldType.Name().String()
+	}
+	return ""
+}
+
+func listKeyPrefix(fieldType types.Type) string {
+	return "list:" + typeKeyPrefix(fieldType, primitiveTypeName(fieldType))
+}
+
+func normalizeTimeValue(prefix, value string, parse func(string) (time.Time, error)) (string, KeyState) {
+	parsed, err := parse(value)
+	if err != nil {
+		return "", KeyInvalidValue
+	}
+	return prefix + keyTypeSeparator + parsed.UTC().Format(time.RFC3339Nano), KeyValid
 }
 
 func (r *streamRun) normalizeQNameValue(value string, scopeDepth int) (string, error) {

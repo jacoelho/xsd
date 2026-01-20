@@ -202,6 +202,139 @@ func TestStreamIdentityConstraints(t *testing.T) {
 			wantCode: errors.ErrIdentityDuplicate,
 		},
 		{
+			name: "unique compares boolean value space",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="flag" type="xs:boolean"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueFlag">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@flag"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item flag="true"/><item flag="1"/></root>`,
+			wantCode: errors.ErrIdentityDuplicate,
+		},
+		{
+			name: "unique compares dateTime value space",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="ts" type="xs:dateTime"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueTimestamp">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@ts"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item ts="2001-10-26T21:32:52+02:00"/><item ts="2001-10-26T19:32:52Z"/></root>`,
+			wantCode: errors.ErrIdentityDuplicate,
+		},
+		{
+			name: "unique compares list value space",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="stringList">
+    <xs:list itemType="xs:string"/>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="values" type="tns:stringList"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueList">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@values"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item values="a b"/><item values="a   b"/></root>`,
+			wantCode: errors.ErrIdentityDuplicate,
+		},
+		{
+			name: "unique compares base64Binary value space",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="bin" type="xs:base64Binary"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueBase64">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@bin"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item bin="AQID"/><item bin="A Q I D"/></root>`,
+			wantCode: errors.ErrIdentityDuplicate,
+		},
+		{
+			name: "unique compares hexBinary value space",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="hex" type="xs:hexBinary"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueHex">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@hex"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item hex="0A0B"/><item hex="0a0b"/></root>`,
+			wantCode: errors.ErrIdentityDuplicate,
+		},
+		{
 			name: "key rejects mixed content field",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -273,6 +406,54 @@ func TestStreamIdentityConstraints(t *testing.T) {
 				t.Fatalf("expected code %s, got %v", tt.wantCode, violations)
 			}
 		})
+	}
+}
+
+func TestStreamIdentityConstraintKeyrefValueSpace(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="flag" type="xs:boolean"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="ref" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="flag" type="xs:boolean"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@flag"/>
+    </xs:key>
+    <xs:keyref name="itemRef" refer="tns:itemKey">
+      <xs:selector xpath="tns:ref"/>
+      <xs:field xpath="@flag"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test"><item flag="true"/><ref flag="1"/></root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got %v", violations)
 	}
 }
 
