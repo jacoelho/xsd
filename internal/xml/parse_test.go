@@ -207,3 +207,27 @@ func TestParseRejectsNonXMLWhitespaceOutsideRoot(t *testing.T) {
 		t.Fatal("Parse() should reject non-XML whitespace outside root")
 	}
 }
+
+func TestIsIgnorableOutsideRoot(t *testing.T) {
+	tests := []struct {
+		name string
+		data []byte
+		want bool
+	}{
+		{"empty", nil, true},
+		{"whitespace", []byte(" \t\r\n"), true},
+		{"bom only", []byte{0xef, 0xbb, 0xbf}, true},
+		{"bom and whitespace", []byte{0xef, 0xbb, 0xbf, ' ', '\n'}, true},
+		{"non-whitespace", []byte("x"), false},
+		{"bom and non-whitespace", []byte{0xef, 0xbb, 0xbf, 'x'}, false},
+		{"invalid utf8", []byte{0xff}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsIgnorableOutsideRoot(tt.data); got != tt.want {
+				t.Fatalf("IsIgnorableOutsideRoot() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

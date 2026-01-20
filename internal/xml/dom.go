@@ -77,6 +77,7 @@ func (d *Document) reset() {
 	d.children = d.children[:0]
 	d.textSegments = d.textSegments[:0]
 	d.textScratch = d.textScratch[:0]
+	d.countsScratch = d.countsScratch[:0]
 	d.root = InvalidNode
 }
 

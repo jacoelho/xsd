@@ -94,7 +94,7 @@ func ParseInto(r io.Reader, doc *Document) error {
 
 		case xmlstream.EventCharData:
 			if len(stack) == 0 {
-				if !isIgnorableOutsideRoot(event.Text) {
+				if !IsIgnorableOutsideRoot(event.Text) {
 					return fmt.Errorf("unexpected character data outside root element")
 				}
 				continue
@@ -264,7 +264,8 @@ func (d *Document) buildTextSegments() {
 	}
 }
 
-func isIgnorableOutsideRoot(data []byte) bool {
+// IsIgnorableOutsideRoot reports whether data contains only BOM and XML whitespace.
+func IsIgnorableOutsideRoot(data []byte) bool {
 	for len(data) > 0 {
 		r, size := utf8.DecodeRune(data)
 		if r == utf8.RuneError && size == 1 {
