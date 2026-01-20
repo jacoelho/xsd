@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"testing"
+	"testing/fstest"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
@@ -133,5 +134,83 @@ func TestElementDeclEquivalent(t *testing.T) {
 	elemB.Default = "y"
 	if elementDeclEquivalent(elemA, elemB) {
 		t.Fatalf("expected default mismatch to be non-equivalent")
+	}
+}
+
+func TestElementDeclEquivalentNamespaceContext(t *testing.T) {
+	elemA := &types.ElementDecl{
+		Name: types.QName{Local: "a"},
+		Type: types.GetBuiltin(types.TypeNameString),
+		Form: types.FormQualified,
+		Constraints: []*types.IdentityConstraint{{
+			Name:             "c",
+			Type:             types.UniqueConstraint,
+			TargetNamespace:  types.NamespaceURI("urn:one"),
+			NamespaceContext: map[string]string{"p": "urn:one"},
+			Selector:         types.Selector{XPath: "p:el"},
+			Fields:           []types.Field{{XPath: "@p:attr"}},
+		}},
+	}
+	elemB := &types.ElementDecl{
+		Name: types.QName{Local: "a"},
+		Type: types.GetBuiltin(types.TypeNameString),
+		Form: types.FormQualified,
+		Constraints: []*types.IdentityConstraint{{
+			Name:             "c",
+			Type:             types.UniqueConstraint,
+			TargetNamespace:  types.NamespaceURI("urn:one"),
+			NamespaceContext: map[string]string{"p": "urn:two"},
+			Selector:         types.Selector{XPath: "p:el"},
+			Fields:           []types.Field{{XPath: "@p:attr"}},
+		}},
+	}
+
+	if elementDeclEquivalent(elemA, elemB) {
+		t.Fatalf("expected namespace context mismatch to be non-equivalent")
+	}
+}
+
+func TestLoadValidatesCachedSchema(t *testing.T) {
+	fsys := fstest.MapFS{
+		"a.xsd": {Data: []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:a"
+           xmlns:tns="urn:a"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:b" schemaLocation="b.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`)},
+		"b.xsd": {Data: []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:b"
+           xmlns:tns="urn:b"
+           elementFormDefault="qualified">
+  <xs:simpleType name="T">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:T"/>
+</xs:schema>`)},
+	}
+
+	loader := NewLoader(Config{FS: fsys})
+	if _, err := loader.Load("a.xsd"); err != nil {
+		t.Fatalf("load a.xsd: %v", err)
+	}
+
+	schema, err := loader.Load("b.xsd")
+	if err != nil {
+		t.Fatalf("load b.xsd: %v", err)
+	}
+
+	elem := schema.ElementDecls[types.QName{Namespace: types.NamespaceURI("urn:b"), Local: "root"}]
+	if elem == nil {
+		t.Fatalf("expected root element declaration to be present")
+	}
+	st, ok := elem.Type.(*types.SimpleType)
+	if !ok {
+		t.Fatalf("expected simple type, got %T", elem.Type)
+	}
+	if types.IsPlaceholderSimpleType(st) {
+		t.Fatalf("expected resolved type, got placeholder")
 	}
 }
