@@ -224,7 +224,7 @@ func (r *streamRun) validate(dec *xmlstream.StringReader) ([]errors.Validation, 
 
 		case xmlstream.EventCharData:
 			if len(r.frames) == 0 {
-				if !isIgnorableOutsideRoot(ev.Text) {
+				if !xsdxml.IsIgnorableOutsideRoot(ev.Text) {
 					return r.violations, fmt.Errorf("unexpected character data outside root element")
 				}
 				continue
@@ -1133,18 +1133,6 @@ func (r *streamRun) trackListIDRefs(item string, compiledType *grammar.CompiledT
 		return
 	}
 	r.trackIDREF(item, r.path.String(), r.currentLine, r.currentColumn)
-}
-
-func isIgnorableOutsideRoot(data []byte) bool {
-	for _, r := range string(data) {
-		if r == '\uFEFF' {
-			continue
-		}
-		if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
-			return false
-		}
-	}
-	return true
 }
 
 func firstNonWhitespacePos(data []byte, line, column int) (int, int, bool) {
