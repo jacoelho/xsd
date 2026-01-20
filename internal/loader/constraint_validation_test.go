@@ -244,6 +244,43 @@ func TestKeyFieldSelectsNillableElement(t *testing.T) {
 	}
 }
 
+func TestUniqueAllowsMixedContentField(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="sub">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="idelt">
+                <xs:complexType mixed="true">
+                  <xs:attribute name="attr"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="test">
+      <xs:selector xpath="sub"/>
+      <xs:field xpath="idelt"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`
+
+	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	errors := ValidateSchema(result.Schema)
+	if len(errors) != 0 {
+		t.Fatalf("expected schema to be valid, got: %v", errors)
+	}
+}
+
 // TestElementDefaultValueValidation tests that default element values must be valid for the type
 func TestElementDefaultValueValidation(t *testing.T) {
 	// schema with invalid default value for integer element - should be invalid

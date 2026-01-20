@@ -10,7 +10,7 @@ import (
 )
 
 // ErrFieldSelectsComplexContent indicates a field XPath selects an element with
-// element-only complex content, which is invalid per XSD spec Section 13.2.
+// complex content, which is invalid per XSD spec Section 13.2.
 var ErrFieldSelectsComplexContent = errors.New("field selects element with complex content")
 
 func parseXPathPath(expr string, nsContext map[string]string, policy xpath.AttributePolicy) (xpath.Path, error) {
@@ -134,11 +134,7 @@ func resolveFieldType(schema *parser.Schema, field *types.Field, constraintEleme
 				return baseType, nil
 			}
 		}
-		// complex types with mixed content can have text extracted
-		if ct.Mixed() {
-			return types.GetBuiltin(types.TypeNameString), nil
-		}
-		// complex types without simple or mixed content can't be used as field values
+		// complex types without simple content can't be used as field values
 		return nil, ErrFieldSelectsComplexContent
 	}
 
