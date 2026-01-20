@@ -101,36 +101,44 @@ func ParseTime(lexical string) (time.Time, error) {
 	if lexical == "" {
 		return time.Time{}, fmt.Errorf("invalid time: empty string")
 	}
+
 	main, tz := splitTimezone(lexical)
-	needsDayOffset := is24HourZero(main)
+	hour, minute, second, fractionLength, ok := parseTimeParts(main)
+	if !ok {
+		return time.Time{}, fmt.Errorf("invalid time: %s", lexical)
+	}
+
+	needsDayOffset := hour == 24
 	if needsDayOffset {
-		lexical = "00:00:00" + tz
-	}
-
-	// use a reference date (2000-01-01) for time-only parsing
-	formats := []string{
-		"2006-01-02T15:04:05.999999999Z",      // UTC with nanoseconds
-		"2006-01-02T15:04:05.999999999-07:00", // offset with nanoseconds (matches both + and -)
-		"2006-01-02T15:04:05.999999999",       // no timezone with nanoseconds
-		"2006-01-02T15:04:05.999Z",            // UTC with milliseconds
-		"2006-01-02T15:04:05.999-07:00",       // offset with milliseconds (matches both + and -)
-		"2006-01-02T15:04:05.999",             // no timezone with milliseconds
-		"2006-01-02T15:04:05Z",                // UTC
-		"2006-01-02T15:04:05-07:00",           // offset (matches both + and -)
-		"2006-01-02T15:04:05",                 // no timezone
-	}
-
-	for _, format := range formats {
-		fullLexical := "2000-01-01T" + lexical
-		if t, err := time.Parse(format, fullLexical); err == nil {
-			if needsDayOffset {
-				t = t.Add(24 * time.Hour)
-			}
-			return t, nil
+		if minute != 0 || second != 0 || !is24HourZero(main) {
+			return time.Time{}, fmt.Errorf("invalid time: %s", lexical)
 		}
+	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 {
+		return time.Time{}, fmt.Errorf("invalid time: %s", lexical)
 	}
 
-	return time.Time{}, fmt.Errorf("invalid time: %s", lexical)
+	if fractionLength > 9 {
+		return time.Time{}, fmt.Errorf("invalid time: %s", lexical)
+	}
+	if err := validateTimezoneOffset(tz); err != nil {
+		return time.Time{}, err
+	}
+
+	if needsDayOffset {
+		main = "00:00:00" + main[len("24:00:00"):]
+	}
+
+	layout := "2006-01-02T15:04:05" + fractionalLayouts[fractionLength]
+	layout = applyTimezoneLayout(layout, tz)
+	parseValue := appendTimezoneSuffix("2000-01-01T"+main, tz)
+	parsed, err := time.Parse(layout, parseValue)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid time: %s", lexical)
+	}
+	if needsDayOffset {
+		parsed = parsed.Add(24 * time.Hour)
+	}
+	return parsed, nil
 }
 
 // ParseGYear parses a gYear string into time.Time
