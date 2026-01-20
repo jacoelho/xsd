@@ -332,6 +332,12 @@ func TestParseDurationToTimeDuration(t *testing.T) {
 			input: "P365DT23H59M59S",
 			want:  365*24*time.Hour + 23*time.Hour + 59*time.Minute + 59*time.Second,
 		},
+		{
+			name:    "duration overflow days",
+			input:   "P1000000D",
+			wantErr: true,
+			errMsg:  "duration too large",
+		},
 		// invalid durations - with years/months
 		{
 			name:    "with years",
