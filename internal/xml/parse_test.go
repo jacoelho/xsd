@@ -187,6 +187,20 @@ func TestTextContent(t *testing.T) {
 	}
 }
 
+func TestTextContentOrder(t *testing.T) {
+	xmlData := `<root>a <child>b</child> c</root>`
+
+	doc, err := Parse(strings.NewReader(xmlData))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	got := doc.TextContent(doc.DocumentElement())
+	if got != "a b c" {
+		t.Errorf("TextContent() = %q, want %q", got, "a b c")
+	}
+}
+
 func TestParseRejectsNonXMLWhitespaceOutsideRoot(t *testing.T) {
 	xmlData := "\u00a0<root/>"
 	if _, err := Parse(strings.NewReader(xmlData)); err == nil {
