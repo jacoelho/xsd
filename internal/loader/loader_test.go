@@ -292,6 +292,37 @@ func TestLoader_IncludeTraversalRejected(t *testing.T) {
 	}
 }
 
+func TestLoader_IncludeMissingIgnored(t *testing.T) {
+	testFS := fstest.MapFS{
+		"root.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="missing.xsd"/>
+  <xs:include schemaLocation="included.xsd"/>
+</xs:schema>`),
+		},
+		"included.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="ok" type="xs:string"/>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	schema, err := loader.Load("root.xsd")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	okQName := types.QName{Namespace: types.NamespaceEmpty, Local: "ok"}
+	if _, ok := schema.ElementDecls[okQName]; !ok {
+		t.Error("element 'ok' from included schema not found")
+	}
+}
+
 func TestLoader_RestrictionAttributesIncludeBaseChain(t *testing.T) {
 	testFS := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{
