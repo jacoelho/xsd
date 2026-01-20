@@ -542,19 +542,19 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 	xsiTypeValue, hasXsiType := attrs.Value(xsdxml.XSINamespace, "type")
 
 	if decl == nil {
-		if hasXsiType {
-			xsiType, err := r.resolveXsiTypeOnly(ev.ScopeDepth, xsiTypeValue)
-			if err == nil && xsiType != nil {
-				frame := r.newFrame(ev, nil, xsiType, parent)
-				return frame, false
-			}
-		}
 		if processContents == types.Strict {
 			r.addMissingDeclViolation(ev.Name.Local, missingCode)
 			return streamFrame{}, true
 		}
 		if processContents == types.Skip {
 			return streamFrame{}, true
+		}
+		if hasXsiType {
+			xsiType, err := r.resolveXsiTypeOnly(ev.ScopeDepth, xsiTypeValue)
+			if err == nil && xsiType != nil {
+				frame := r.newFrame(ev, nil, xsiType, parent)
+				return frame, false
+			}
 		}
 		anyType := r.validator.getBuiltinCompiledType(types.GetBuiltin(types.TypeNameAnyType))
 		frame := r.newFrame(ev, nil, anyType, parent)

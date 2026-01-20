@@ -48,6 +48,14 @@ func validateYearPrefix(lexical, kind string) error {
 	return nil
 }
 
+func validateOptionalTimezone(lexical string) error {
+	_, tz := splitTimezone(lexical)
+	if tz == "" {
+		return nil
+	}
+	return validateTimezoneOffset(tz)
+}
+
 func is24HourZero(timePart string) bool {
 	const prefix = "24:00:00"
 	if !strings.HasPrefix(timePart, prefix) {
@@ -75,6 +83,9 @@ func is24HourZero(timePart string) bool {
 func ParseDate(lexical string) (time.Time, error) {
 	lexical = strings.TrimSpace(lexical)
 	if err := validateYearPrefix(lexical, "date"); err != nil {
+		return time.Time{}, err
+	}
+	if err := validateOptionalTimezone(lexical); err != nil {
 		return time.Time{}, err
 	}
 
@@ -148,6 +159,9 @@ func ParseGYear(lexical string) (time.Time, error) {
 	if err := validateYearPrefix(lexical, "gYear"); err != nil {
 		return time.Time{}, err
 	}
+	if err := validateOptionalTimezone(lexical); err != nil {
+		return time.Time{}, err
+	}
 
 	formats := []string{
 		"2006Z",      // UTC
@@ -170,6 +184,9 @@ func ParseGYear(lexical string) (time.Time, error) {
 func ParseGYearMonth(lexical string) (time.Time, error) {
 	lexical = strings.TrimSpace(lexical)
 	if err := validateYearPrefix(lexical, "gYearMonth"); err != nil {
+		return time.Time{}, err
+	}
+	if err := validateOptionalTimezone(lexical); err != nil {
 		return time.Time{}, err
 	}
 
@@ -195,6 +212,9 @@ func ParseGMonth(lexical string) (time.Time, error) {
 	lexical = strings.TrimSpace(lexical)
 	if lexical == "" {
 		return time.Time{}, fmt.Errorf("invalid gMonth: empty string")
+	}
+	if err := validateOptionalTimezone(lexical); err != nil {
+		return time.Time{}, err
 	}
 
 	// format strings must include the year placeholder (2006) to match the structure
@@ -222,6 +242,9 @@ func ParseGMonthDay(lexical string) (time.Time, error) {
 	if lexical == "" {
 		return time.Time{}, fmt.Errorf("invalid gMonthDay: empty string")
 	}
+	if err := validateOptionalTimezone(lexical); err != nil {
+		return time.Time{}, err
+	}
 
 	// format strings must include the year placeholder (2006) to match the structure
 	formats := []string{
@@ -247,6 +270,9 @@ func ParseGDay(lexical string) (time.Time, error) {
 	lexical = strings.TrimSpace(lexical)
 	if lexical == "" {
 		return time.Time{}, fmt.Errorf("invalid gDay: empty string")
+	}
+	if err := validateOptionalTimezone(lexical); err != nil {
+		return time.Time{}, err
 	}
 
 	// format strings must include the year and month placeholders (2006-01) to match the structure

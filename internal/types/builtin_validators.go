@@ -565,270 +565,62 @@ func applyTimezoneLayout(layout, tz string) string {
 	}
 }
 
-func validateTemporalValue(kind, layout, baseValue, tz, original string) error {
-	parseValue := appendTimezoneSuffix(baseValue, tz)
-	layout = applyTimezoneLayout(layout, tz)
-	if _, err := time.Parse(layout, parseValue); err != nil {
-		return fmt.Errorf("invalid %s format: %s", kind, original)
-	}
-	return nil
-}
-
 // validateDateTime validates xs:dateTime
 // Format: CCYY-MM-DDThh:mm:ss[.sss][Z|(+|-)hh:mm]
 func validateDateTime(value string) error {
-	main, tz := splitTimezone(value)
-	if len(main) < 19 || main[10] != 'T' {
-		return fmt.Errorf("invalid dateTime format: %s", value)
-	}
-
-	timePart := main[11:]
-	year, month, day, ok := parseDateParts(main[:10])
-	if !ok {
-		return fmt.Errorf("invalid dateTime format: %s", value)
-	}
-	hour, minute, second, fractionLength, ok := parseTimeParts(timePart)
-	if !ok {
-		return fmt.Errorf("invalid dateTime format: %s", value)
-	}
-
-	if year < 1 || year > 9999 {
-		return fmt.Errorf("invalid dateTime: year %04d is not valid in XSD 1.0", year)
-	}
-	if month < 1 || month > 12 {
-		return fmt.Errorf("invalid dateTime: month out of range")
-	}
-	if hour == 24 {
-		if minute != 0 || second != 0 || !is24HourZero(timePart) {
-			return fmt.Errorf("invalid dateTime: time out of range")
-		}
-	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 {
-		return fmt.Errorf("invalid dateTime: time out of range")
-	}
-	if fractionLength > 9 {
-		return fmt.Errorf("invalid dateTime: fractional seconds too long")
-	}
-	if err := validateTimezoneOffset(tz); err != nil {
-		return err
-	}
-	if !isValidDate(year, month, day) {
-		return fmt.Errorf("invalid dateTime: date out of range")
-	}
-
-	layout := "2006-01-02T15:04:05"
-	layout += fractionalLayouts[fractionLength]
-	if err := validateTemporalValue("dateTime", layout, main, tz, value); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := ParseDateTime(value)
+	return err
 }
 
 // validateDate validates xs:date
 // Format: CCYY-MM-DD[Z|(+|-)hh:mm]
 func validateDate(value string) error {
-	main, tz := splitTimezone(value)
-	year, month, day, ok := parseDateParts(main)
-	if !ok {
-		return fmt.Errorf("invalid date format: %s", value)
-	}
-
-	if year < 1 || year > 9999 {
-		return fmt.Errorf("invalid date: year %04d is not valid in XSD 1.0", year)
-	}
-	if month < 1 || month > 12 || !isValidDate(year, month, day) {
-		return fmt.Errorf("invalid date: date out of range")
-	}
-	if err := validateTimezoneOffset(tz); err != nil {
-		return err
-	}
-
-	layout := "2006-01-02"
-	if err := validateTemporalValue("date", layout, main, tz, value); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := ParseDate(value)
+	return err
 }
 
 // validateTime validates xs:time
 // Format: hh:mm:ss[.sss][Z|(+|-)hh:mm]
 func validateTime(value string) error {
-	main, tz := splitTimezone(value)
-	hour, minute, second, fractionLength, ok := parseTimeParts(main)
-	if !ok {
-		return fmt.Errorf("invalid time format: %s", value)
-	}
-
-	if hour == 24 {
-		if minute != 0 || second != 0 || !is24HourZero(main) {
-			return fmt.Errorf("invalid time: time out of range")
-		}
-	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 {
-		return fmt.Errorf("invalid time: time out of range")
-	}
-	if fractionLength > 9 {
-		return fmt.Errorf("invalid time: fractional seconds too long")
-	}
-	if err := validateTimezoneOffset(tz); err != nil {
-		return err
-	}
-
-	layout := "15:04:05"
-	layout += fractionalLayouts[fractionLength]
-	if err := validateTemporalValue("time", layout, main, tz, value); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := ParseTime(value)
+	return err
 }
 
 // validateGYear validates xs:gYear
 // Format: CCYY[Z|(+|-)hh:mm]
 // Note: Only years 0001-9999 are supported (Go time.Parse limitation + XSD 1.0 no year 0)
 func validateGYear(value string) error {
-	main, tz := splitTimezone(value)
-	year, ok := parseFixedDigits(main, 0, 4)
-	if !ok || len(main) != 4 {
-		return fmt.Errorf("invalid gYear format: %s", value)
-	}
-
-	if year < 1 || year > 9999 {
-		return fmt.Errorf("invalid gYear: year %04d is not valid in XSD 1.0", year)
-	}
-	if err := validateTimezoneOffset(tz); err != nil {
-		return err
-	}
-
-	layout := "2006"
-	if err := validateTemporalValue("gYear", layout, main, tz, value); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := ParseGYear(value)
+	return err
 }
 
 // validateGYearMonth validates xs:gYearMonth
 // Format: CCYY-MM[Z|(+|-)hh:mm]
 // Note: Only years 0001-9999 are supported (Go time.Parse limitation + XSD 1.0 no year 0)
 func validateGYearMonth(value string) error {
-	main, tz := splitTimezone(value)
-	if len(main) != 7 || main[4] != '-' {
-		return fmt.Errorf("invalid gYearMonth format: %s", value)
-	}
-
-	year, ok := parseFixedDigits(main, 0, 4)
-	if !ok {
-		return fmt.Errorf("invalid gYearMonth format: %s", value)
-	}
-	month, ok := parseFixedDigits(main, 5, 2)
-	if !ok {
-		return fmt.Errorf("invalid gYearMonth format: %s", value)
-	}
-	if year < 1 || year > 9999 {
-		return fmt.Errorf("invalid gYearMonth: year %04d is not valid in XSD 1.0", year)
-	}
-	if month < 1 || month > 12 {
-		return fmt.Errorf("invalid gYearMonth: month out of range")
-	}
-	if err := validateTimezoneOffset(tz); err != nil {
-		return err
-	}
-
-	layout := "2006-01"
-	if err := validateTemporalValue("gYearMonth", layout, main, tz, value); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := ParseGYearMonth(value)
+	return err
 }
 
 // validateGMonth validates xs:gMonth
 // Format: --MM[Z|(+|-)hh:mm]
 func validateGMonth(value string) error {
-	main, tz := splitTimezone(value)
-	if len(main) != 4 || main[0] != '-' || main[1] != '-' {
-		return fmt.Errorf("invalid gMonth format: %s", value)
-	}
-	month, ok := parseFixedDigits(main, 2, 2)
-	if !ok {
-		return fmt.Errorf("invalid gMonth format: %s", value)
-	}
-	if month < 1 || month > 12 {
-		return fmt.Errorf("invalid month value: %s", main[2:4])
-	}
-	if err := validateTimezoneOffset(tz); err != nil {
-		return err
-	}
-
-	layout := "2006-01"
-	testValue := "2000-" + main[2:]
-	if err := validateTemporalValue("gMonth", layout, testValue, tz, value); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := ParseGMonth(value)
+	return err
 }
 
 // validateGMonthDay validates xs:gMonthDay
 // Format: --MM-DD[Z|(+|-)hh:mm]
 func validateGMonthDay(value string) error {
-	main, tz := splitTimezone(value)
-	if len(main) != 7 || main[0] != '-' || main[1] != '-' || main[4] != '-' {
-		return fmt.Errorf("invalid gMonthDay format: %s", value)
-	}
-	month, ok := parseFixedDigits(main, 2, 2)
-	if !ok {
-		return fmt.Errorf("invalid gMonthDay format: %s", value)
-	}
-	day, ok := parseFixedDigits(main, 5, 2)
-	if !ok {
-		return fmt.Errorf("invalid gMonthDay format: %s", value)
-	}
-	if month < 1 || month > 12 {
-		return fmt.Errorf("invalid gMonthDay: month out of range")
-	}
-	if !isValidDate(2000, month, day) {
-		return fmt.Errorf("invalid gMonthDay: day out of range")
-	}
-	if err := validateTimezoneOffset(tz); err != nil {
-		return err
-	}
-
-	layout := "2006-01-02"
-	testValue := "2000-" + main[2:4] + "-" + main[5:7]
-	if err := validateTemporalValue("gMonthDay", layout, testValue, tz, value); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := ParseGMonthDay(value)
+	return err
 }
 
 // validateGDay validates xs:gDay
 // Format: ---DD[Z|(+|-)hh:mm]
 func validateGDay(value string) error {
-	main, tz := splitTimezone(value)
-	if len(main) != 5 || main[0] != '-' || main[1] != '-' || main[2] != '-' {
-		return fmt.Errorf("invalid gDay format: %s", value)
-	}
-	day, ok := parseFixedDigits(main, 3, 2)
-	if !ok {
-		return fmt.Errorf("invalid gDay format: %s", value)
-	}
-	if day < 1 || day > 31 {
-		return fmt.Errorf("invalid gDay: day out of range")
-	}
-	if err := validateTimezoneOffset(tz); err != nil {
-		return err
-	}
-
-	layout := "2006-01-02"
-	testValue := "2000-01-" + main[3:5]
-	if err := validateTemporalValue("gDay", layout, testValue, tz, value); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := ParseGDay(value)
+	return err
 }
 
 func validateTimezoneOffset(tz string) error {
