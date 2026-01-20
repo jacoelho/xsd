@@ -32,6 +32,7 @@ func ParseInto(r io.Reader, doc *Document) error {
 
 	doc.reset()
 	var stack []NodeID
+	var childCounts []int
 	var attrsScratch []Attr
 	rootClosed := false
 	for {
@@ -52,6 +53,9 @@ func ParseInto(r io.Reader, doc *Document) error {
 			parent := InvalidNode
 			if len(stack) > 0 {
 				parent = stack[len(stack)-1]
+			}
+			if parent != InvalidNode {
+				childCounts[len(childCounts)-1]++
 			}
 			attrsScratch = attrsScratch[:0]
 			for _, attr := range event.Attrs {
@@ -77,10 +81,12 @@ func ParseInto(r io.Reader, doc *Document) error {
 				doc.root = id
 			}
 			stack = append(stack, id)
+			childCounts = append(childCounts, 0)
 
 		case xmlstream.EventEndElement:
 			if len(stack) > 0 {
 				stack = stack[:len(stack)-1]
+				childCounts = childCounts[:len(childCounts)-1]
 				if len(stack) == 0 && doc.root != InvalidNode {
 					rootClosed = true
 				}
@@ -94,7 +100,10 @@ func ParseInto(r io.Reader, doc *Document) error {
 				continue
 			}
 			nodeID := stack[len(stack)-1]
-			doc.nodes[nodeID].text = append(doc.nodes[nodeID].text, event.Text...)
+			node := &doc.nodes[nodeID]
+			textOff := len(node.text)
+			node.text = append(node.text, event.Text...)
+			doc.addTextSegment(nodeID, childCounts[len(childCounts)-1], textOff, len(event.Text))
 		}
 	}
 
@@ -103,6 +112,7 @@ func ParseInto(r io.Reader, doc *Document) error {
 	}
 
 	doc.buildChildren()
+	doc.buildTextSegments()
 	return nil
 }
 
@@ -177,6 +187,80 @@ func (d *Document) buildChildren() {
 		idx := counts[parent]
 		d.children[idx] = NodeID(i)
 		counts[parent]++
+	}
+}
+
+func (d *Document) addTextSegment(parent NodeID, childIndex, textOff, textLen int) {
+	if textLen == 0 {
+		return
+	}
+	if len(d.textScratch) > 0 {
+		last := &d.textScratch[len(d.textScratch)-1]
+		if last.parent == parent && last.childIndex == childIndex && last.textOff+last.textLen == textOff {
+			last.textLen += textLen
+			return
+		}
+	}
+	d.textScratch = append(d.textScratch, textScratchEntry{
+		parent:     parent,
+		childIndex: childIndex,
+		textOff:    textOff,
+		textLen:    textLen,
+	})
+}
+
+func (d *Document) buildTextSegments() {
+	if len(d.nodes) == 0 || len(d.textScratch) == 0 {
+		d.textSegments = d.textSegments[:0]
+		return
+	}
+
+	counts := d.countsScratch
+	if cap(counts) < len(d.nodes) {
+		counts = make([]int, len(d.nodes))
+	} else {
+		counts = counts[:len(d.nodes)]
+		clear(counts)
+	}
+	d.countsScratch = counts
+
+	for _, entry := range d.textScratch {
+		if entry.parent == InvalidNode {
+			continue
+		}
+		counts[entry.parent]++
+	}
+
+	total := 0
+	for i := range counts {
+		count := counts[i]
+		d.nodes[i].textSegOff = total
+		d.nodes[i].textSegLen = count
+		counts[i] = total
+		total += count
+	}
+
+	if total == 0 {
+		d.textSegments = d.textSegments[:0]
+		return
+	}
+	if cap(d.textSegments) < total {
+		d.textSegments = make([]textSegment, total)
+	} else {
+		d.textSegments = d.textSegments[:total]
+	}
+
+	for _, entry := range d.textScratch {
+		if entry.parent == InvalidNode {
+			continue
+		}
+		idx := counts[entry.parent]
+		d.textSegments[idx] = textSegment{
+			childIndex: entry.childIndex,
+			textOff:    entry.textOff,
+			textLen:    entry.textLen,
+		}
+		counts[entry.parent]++
 	}
 }
 
