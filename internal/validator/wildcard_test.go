@@ -344,6 +344,29 @@ func TestWildcardProcessContents(t *testing.T) {
 			errorCode: string(errors.ErrWildcardNotDeclared),
 		},
 		{
+			name: "strict rejects undeclared element with xsi:type",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any namespace="##any" processContents="strict"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`,
+			xmlDoc: `<?xml version="1.0"?>
+<root xmlns="http://example.com/test"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <foo xmlns="http://other.com/ns" xsi:type="xs:string">value</foo>
+</root>`,
+			shouldErr: true,
+			errorCode: string(errors.ErrWildcardNotDeclared),
+		},
+		{
 			name: "strict validates declared element",
 			schemaXML: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
