@@ -234,7 +234,7 @@ func TestStreamIdentityHelpers(t *testing.T) {
 	if got != "{urn:ex}val" {
 		t.Fatalf("unexpected normalized QName: %s", got)
 	}
-	if attr, ok := findAttrByLocal(ev.Attrs, "attr"); !ok || attr.Value() != "v" {
+	if attr, ok := findAttrByNamespace(ev.Attrs, types.NamespaceURI("urn:ex"), "attr"); !ok || attr.Value() != "v" {
 		t.Fatalf("expected attr lookup to find value")
 	}
 
