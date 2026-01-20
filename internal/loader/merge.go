@@ -2,6 +2,7 @@ package loader
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemacheck"
@@ -381,7 +382,10 @@ func elementDeclEquivalent(a, b *types.ElementDecl) bool {
 		if ac.Name != bc.Name || ac.Type != bc.Type || ac.Selector.XPath != bc.Selector.XPath {
 			return false
 		}
-		if ac.ReferQName != bc.ReferQName {
+		if ac.ReferQName != bc.ReferQName || ac.TargetNamespace != bc.TargetNamespace {
+			return false
+		}
+		if !maps.Equal(ac.NamespaceContext, bc.NamespaceContext) {
 			return false
 		}
 		if len(ac.Fields) != len(bc.Fields) {

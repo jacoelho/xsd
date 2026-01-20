@@ -40,6 +40,7 @@ type fsContext struct {
 
 type loadState struct {
 	loaded         map[loadKey]*parser.Schema
+	validated      map[loadKey]bool
 	loading        map[loadKey]bool
 	loadingSchemas map[loadKey]*parser.Schema
 }
@@ -47,6 +48,7 @@ type loadState struct {
 func newLoadState() loadState {
 	return loadState{
 		loaded:         make(map[loadKey]*parser.Schema),
+		validated:      make(map[loadKey]bool),
 		loading:        make(map[loadKey]bool),
 		loadingSchemas: make(map[loadKey]*parser.Schema),
 	}
@@ -185,6 +187,12 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 	session := newLoadSession(l, absLoc, ctx, key)
 
 	if schema, ok := l.state.loaded[key]; ok {
+		if mode == validateSchema && !l.state.validated[key] {
+			if validateErr := l.validateLoadedSchema(schema); validateErr != nil {
+				return nil, validateErr
+			}
+			l.state.validated[key] = true
+		}
 		return schema, nil
 	}
 
@@ -211,39 +219,48 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 	defer delete(l.state.loadingSchemas, key)
 	registerImports(schema, result.Imports)
 
-	if err := validateImportConstraints(schema, result.Imports); err != nil {
-		return nil, err
+	if validateErr := validateImportConstraints(schema, result.Imports); validateErr != nil {
+		return nil, validateErr
 	}
 
-	if err := session.processIncludes(schema, result.Includes); err != nil {
-		return nil, err
+	if includeErr := session.processIncludes(schema, result.Includes); includeErr != nil {
+		return nil, includeErr
 	}
 
-	if err := session.processImports(schema, result.Imports); err != nil {
-		return nil, err
+	if importErr := session.processImports(schema, result.Imports); importErr != nil {
+		return nil, importErr
 	}
 
 	// resolve group and type references only when validating the full schema.
 	// included/imported schemas may reference components defined in other files
 	// that are only available after merging.
 	if mode == validateSchema {
-		if err := l.resolveGroupReferences(schema); err != nil {
-			return nil, fmt.Errorf("resolve group references: %w", err)
+		if validateErr := l.validateLoadedSchema(schema); validateErr != nil {
+			return nil, validateErr
 		}
-
-		// phase 2: Resolve all type references (two-phase resolution)
-		if err := resolver.ResolveTypeReferences(schema); err != nil {
-			return nil, fmt.Errorf("resolve type references: %w", err)
-		}
-
-		if err := validateSchemaConstraints(schema); err != nil {
-			return nil, err
-		}
+		l.state.validated[key] = true
 	}
 
 	l.state.loaded[key] = schema
 
 	return schema, nil
+}
+
+func (l *SchemaLoader) validateLoadedSchema(schema *parser.Schema) error {
+	if err := l.resolveGroupReferences(schema); err != nil {
+		return fmt.Errorf("resolve group references: %w", err)
+	}
+
+	// phase 2: Resolve all type references (two-phase resolution)
+	if err := resolver.ResolveTypeReferences(schema); err != nil {
+		return fmt.Errorf("resolve type references: %w", err)
+	}
+
+	if err := validateSchemaConstraints(schema); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // loadImport loads a schema for import, allowing mutual imports between different namespaces.
