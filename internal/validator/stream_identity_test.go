@@ -201,6 +201,61 @@ func TestStreamIdentityConstraints(t *testing.T) {
 			document: `<root xmlns="urn:test"><item/><item/></root>`,
 			wantCode: errors.ErrIdentityDuplicate,
 		},
+		{
+			name: "key rejects mixed content field",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType mixed="true">
+            <xs:sequence>
+              <xs:element name="child" type="xs:string" minOccurs="0"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="."/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item>text<child>v</child></item></root>`,
+			wantCode: errors.ErrIdentityAbsent,
+		},
+		{
+			name: "key ignores qualified attribute for unprefixed field",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified"
+           attributeFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:string" use="required"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test" xmlns:tns="urn:test"><item tns:id="a"/></root>`,
+			wantCode: errors.ErrIdentityAbsent,
+		},
 	}
 
 	for _, tt := range tests {

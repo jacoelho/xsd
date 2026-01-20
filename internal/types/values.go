@@ -1247,39 +1247,52 @@ func ParseDateTime(lexical string) (time.Time, error) {
 	if timeIndex == -1 {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
 	}
+	datePart := main[:timeIndex]
 	timePart := main[timeIndex+1:]
-	needsDayOffset := is24HourZero(timePart)
+	year, month, day, ok := parseDateParts(datePart)
+	if !ok {
+		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
+	}
+	hour, minute, second, fractionLength, ok := parseTimeParts(timePart)
+	if !ok {
+		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
+	}
+	if year < 1 || year > 9999 {
+		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
+	}
+	if month < 1 || month > 12 || !isValidDate(year, month, day) {
+		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
+	}
+	if err := validateTimezoneOffset(tz); err != nil {
+		return time.Time{}, err
+	}
+	if fractionLength > 9 {
+		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
+	}
+	needsDayOffset := hour == 24
 	if needsDayOffset {
-		main = main[:timeIndex+1] + "00:00:00"
-		lexical = main + tz
-	}
-
-	// try various ISO 8601 formats
-	formats := []string{
-		time.RFC3339Nano,                // 2006-01-02T15:04:05.999999999Z07:00
-		time.RFC3339,                    // 2006-01-02T15:04:05Z07:00
-		"2006-01-02T15:04:05.999999999", // with nanoseconds, no timezone
-		"2006-01-02T15:04:05.999999",    // with microseconds, no timezone
-		"2006-01-02T15:04:05.999",       // with milliseconds, no timezone
-		"2006-01-02T15:04:05",           // no fractional seconds, no timezone
-		"2006-01-02T15:04:05Z",          // no fractional seconds, UTC
-		"2006-01-02T15:04:05-07:00",     // no fractional seconds, with timezone
-		"2006-01-02T15:04:05+07:00",     // no fractional seconds, with timezone
-		"2006-01-02T15:04:05.999Z",      // with milliseconds, UTC
-		"2006-01-02T15:04:05.999-07:00", // with milliseconds, with timezone
-		"2006-01-02T15:04:05.999+07:00", // with milliseconds, with timezone
-	}
-
-	for _, format := range formats {
-		if t, err := time.Parse(format, lexical); err == nil {
-			if needsDayOffset {
-				t = t.Add(24 * time.Hour)
-			}
-			return t, nil
+		if minute != 0 || second != 0 || !is24HourZero(timePart) {
+			return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
 		}
+	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 {
+		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
 	}
 
-	return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
+	layout := "2006-01-02T15:04:05" + fractionalLayouts[fractionLength]
+	parseValue := main
+	if needsDayOffset {
+		parseValue = datePart + "T00:00:00" + timePart[len("24:00:00"):]
+	}
+	layout = applyTimezoneLayout(layout, tz)
+	parseValue = appendTimezoneSuffix(parseValue, tz)
+	parsed, err := time.Parse(layout, parseValue)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
+	}
+	if needsDayOffset {
+		parsed = parsed.Add(24 * time.Hour)
+	}
+	return parsed, nil
 }
 
 // ParseLong parses a long string into int64

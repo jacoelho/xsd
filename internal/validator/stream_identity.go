@@ -242,7 +242,7 @@ func (r *streamRun) applyElementSelection(state *fieldState, frame *streamFrame,
 		state.multiple = true
 		return
 	}
-	if frame.decl != nil && frame.decl.Type != nil && !frame.decl.Type.AllowsText() {
+	if frame.textType == nil {
 		state.invalid = true
 		return
 	}
@@ -310,16 +310,13 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 		return
 	}
 
-	if attr, ok := findAttrByLocal(attrs, test.Local); ok {
-		attrQName := types.QName{
-			Namespace: types.NamespaceURI(attr.NamespaceURI()),
-			Local:     test.Local,
-		}
+	if attr, ok := findAttrByNamespace(attrs, types.NamespaceEmpty, test.Local); ok {
+		attrQName := types.QName{Namespace: types.NamespaceEmpty, Local: test.Local}
 		r.addAttributeValue(state, field, frame, attrQName, attr.Value())
 		return
 	}
-	if value, ok := r.lookupAttributeDefault(frame, types.QName{Local: test.Local}); ok {
-		attrQName := types.QName{Local: test.Local}
+	if value, ok := r.lookupAttributeDefault(frame, types.QName{Namespace: types.NamespaceEmpty, Local: test.Local}); ok {
+		attrQName := types.QName{Namespace: types.NamespaceEmpty, Local: test.Local}
 		r.addAttributeValue(state, field, frame, attrQName, value)
 	}
 }
@@ -755,18 +752,6 @@ func (r *streamRun) lookupAttributeDefault(frame *streamFrame, attrQName types.Q
 		return "", false
 	}
 	return "", false
-}
-
-func findAttrByLocal(attrs []streamAttr, local string) (streamAttr, bool) {
-	for _, attr := range attrs {
-		if isXMLNSAttribute(attr) {
-			continue
-		}
-		if attr.LocalName() == local {
-			return attr, true
-		}
-	}
-	return streamAttr{}, false
 }
 
 func findAttrByNamespace(attrs []streamAttr, namespace types.NamespaceURI, local string) (streamAttr, bool) {
