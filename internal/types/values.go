@@ -560,11 +560,70 @@ func ParseDurationToTimeDuration(s string) (time.Duration, error) {
 	if xsdDur.Seconds > 9223372036.854775807 {
 		return 0, fmt.Errorf("second value too large: %g", xsdDur.Seconds)
 	}
+	const maxDuration = time.Duration(^uint64(0) >> 1)
 
-	dur := time.Duration(xsdDur.Days)*24*time.Hour +
-		time.Duration(xsdDur.Hours)*time.Hour +
-		time.Duration(xsdDur.Minutes)*time.Minute +
-		time.Duration(xsdDur.Seconds*float64(time.Second))
+	componentDuration := func(value int, unit time.Duration) (time.Duration, error) {
+		if value == 0 {
+			return 0, nil
+		}
+		if value < 0 {
+			return 0, fmt.Errorf("duration component out of range")
+		}
+		limit := int64(maxDuration / unit)
+		if int64(value) > limit {
+			return 0, fmt.Errorf("duration too large")
+		}
+		return time.Duration(value) * unit, nil
+	}
+
+	addDuration := func(total, delta time.Duration) (time.Duration, error) {
+		if delta < 0 {
+			return 0, fmt.Errorf("duration component out of range")
+		}
+		if total > maxDuration-delta {
+			return 0, fmt.Errorf("duration too large")
+		}
+		return total + delta, nil
+	}
+
+	dur := time.Duration(0)
+	var delta time.Duration
+
+	delta, err = componentDuration(xsdDur.Days, 24*time.Hour)
+	if err != nil {
+		return 0, err
+	}
+	dur, err = addDuration(dur, delta)
+	if err != nil {
+		return 0, err
+	}
+
+	delta, err = componentDuration(xsdDur.Hours, time.Hour)
+	if err != nil {
+		return 0, err
+	}
+	dur, err = addDuration(dur, delta)
+	if err != nil {
+		return 0, err
+	}
+
+	delta, err = componentDuration(xsdDur.Minutes, time.Minute)
+	if err != nil {
+		return 0, err
+	}
+	dur, err = addDuration(dur, delta)
+	if err != nil {
+		return 0, err
+	}
+
+	secondsDuration := time.Duration(xsdDur.Seconds * float64(time.Second))
+	if secondsDuration < 0 || secondsDuration > maxDuration {
+		return 0, fmt.Errorf("second value too large: %g", xsdDur.Seconds)
+	}
+	if dur, err = addDuration(dur, secondsDuration); err != nil {
+		return 0, err
+	}
+
 	if xsdDur.Negative {
 		dur = -dur
 	}
