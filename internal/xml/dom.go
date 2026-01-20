@@ -13,6 +13,8 @@ type Document struct {
 	nodes         []node
 	attrs         []Attr
 	children      []NodeID
+	textSegments  []textSegment
+	textScratch   []textScratchEntry
 	countsScratch []int
 	root          NodeID
 }
@@ -25,7 +27,22 @@ type node struct {
 	attrsLen    int
 	childrenOff int
 	childrenLen int
+	textSegOff  int
+	textSegLen  int
 	parent      NodeID
+}
+
+type textSegment struct {
+	childIndex int
+	textOff    int
+	textLen    int
+}
+
+type textScratchEntry struct {
+	parent     NodeID
+	childIndex int
+	textOff    int
+	textLen    int
 }
 
 // Attr exposes attribute name, namespace, and value.
@@ -58,6 +75,8 @@ func (d *Document) reset() {
 	d.nodes = d.nodes[:0]
 	d.attrs = d.attrs[:0]
 	d.children = d.children[:0]
+	d.textSegments = d.textSegments[:0]
+	d.textScratch = d.textScratch[:0]
 	d.root = InvalidNode
 }
 
@@ -154,9 +173,29 @@ func (d *Document) TextContent(id NodeID) string {
 
 func (d *Document) collectText(id NodeID, sb *strings.Builder) {
 	n := d.nodes[id]
-	_, _ = sb.Write(n.text)
-	for _, child := range d.Children(id) {
-		d.collectText(child, sb)
+	if n.childrenLen == 0 {
+		_, _ = sb.Write(n.text)
+		return
+	}
+	children := d.Children(id)
+	if n.textSegLen == 0 {
+		for _, child := range children {
+			d.collectText(child, sb)
+		}
+		return
+	}
+	segments := d.textSegments[n.textSegOff : n.textSegOff+n.textSegLen]
+	childIdx := 0
+	for _, segment := range segments {
+		for childIdx < segment.childIndex && childIdx < len(children) {
+			d.collectText(children[childIdx], sb)
+			childIdx++
+		}
+		_, _ = sb.Write(n.text[segment.textOff : segment.textOff+segment.textLen])
+	}
+	for childIdx < len(children) {
+		d.collectText(children[childIdx], sb)
+		childIdx++
 	}
 }
 
