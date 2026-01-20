@@ -102,6 +102,7 @@ func (s *loadSession) processIncludes(schema *parser.Schema, includes []parser.I
 		includedSchema, err := s.loader.loadWithValidation(includeLoc, skipSchemaValidation, s.ctx)
 		if err != nil {
 			if isNotFound(err) {
+				// per XSD 1.0, failure to resolve schemaLocation is not an error.
 				continue
 			}
 			return fmt.Errorf("load included schema %s: %w", include.SchemaLocation, err)
