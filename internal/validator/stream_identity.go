@@ -242,7 +242,7 @@ func (r *streamRun) applyElementSelection(state *fieldState, frame *streamFrame,
 		state.multiple = true
 		return
 	}
-	if frame.decl != nil && frame.decl.Type != nil && !frame.decl.Type.AllowsText() {
+	if frame.textType == nil {
 		state.invalid = true
 		return
 	}
