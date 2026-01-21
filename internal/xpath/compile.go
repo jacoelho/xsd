@@ -176,7 +176,7 @@ func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[st
 }
 
 func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
-		token = types.TrimXMLWhitespace(token)
+	token = types.TrimXMLWhitespace(token)
 	if token == "" {
 		return axisToken{}, xpathErrorf("xpath step is missing a node test")
 	}
@@ -225,7 +225,7 @@ func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
 }
 
 func parseStep(axisInfo axisToken, nsContext map[string]string, policy AttributePolicy) ([]Step, *NodeTest, error) {
-		token := types.TrimXMLWhitespace(axisInfo.token)
+	token := types.TrimXMLWhitespace(axisInfo.token)
 	if token == "" {
 		return nil, nil, xpathErrorf("xpath step is missing a node test")
 	}
@@ -279,7 +279,7 @@ const (
 )
 
 func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind) (NodeTest, error) {
-		token = types.TrimXMLWhitespace(token)
+	token = types.TrimXMLWhitespace(token)
 	if token == "" {
 		return NodeTest{}, xpathErrorf("xpath step is missing a node test")
 	}

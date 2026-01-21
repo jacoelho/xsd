@@ -217,10 +217,10 @@ func TestParseRejectsBOMAfterRoot(t *testing.T) {
 
 func TestIsIgnorableOutsideRoot(t *testing.T) {
 	tests := []struct {
-		name string
-		data []byte
+		name     string
+		data     []byte
 		allowBOM bool
-		want bool
+		want     bool
 	}{
 		{"empty", nil, true, true},
 		{"whitespace", []byte(" \t\r\n"), true, true},

@@ -35,27 +35,27 @@ const (
 // ElementDecl represents an element declaration
 type ElementDecl struct {
 	Type              Type
-	TypeExplicit      bool
 	Name              QName
 	SubstitutionGroup QName
 	SourceNamespace   NamespaceURI
 	Fixed             string
 	// FixedContext stores namespace bindings for resolving fixed QName/NOTATION values.
-	FixedContext      map[string]string
-	Default           string
+	FixedContext map[string]string
+	Default      string
 	// DefaultContext stores namespace bindings for resolving default QName/NOTATION values.
-	DefaultContext    map[string]string
-	HasDefault        bool
-	Constraints       []*IdentityConstraint
-	MaxOccurs         Occurs
-	MinOccurs         Occurs
-	Final             DerivationSet
-	Block             DerivationSet
-	Form              FormChoice
-	Abstract          bool
-	Nillable          bool
-	HasFixed          bool
-	IsReference       bool
+	DefaultContext map[string]string
+	MaxOccurs      Occurs
+	MinOccurs      Occurs
+	Constraints    []*IdentityConstraint
+	Final          DerivationSet
+	Block          DerivationSet
+	Form           FormChoice
+	TypeExplicit   bool
+	HasDefault     bool
+	Abstract       bool
+	Nillable       bool
+	HasFixed       bool
+	IsReference    bool
 }
 
 // NewElementDeclFromParsed validates a parsed element declaration and returns it if valid.
@@ -135,18 +135,18 @@ const (
 
 // AttributeDecl represents an attribute declaration
 type AttributeDecl struct {
-	Type            Type
-	Name            QName
-	Default         string
-	HasDefault      bool
-	Fixed           string
+	Type    Type
+	Name    QName
+	Default string
+	Fixed   string
 	// FixedContext stores namespace bindings for resolving fixed QName/NOTATION values.
-	FixedContext    map[string]string
+	FixedContext map[string]string
 	// DefaultContext stores namespace bindings for resolving default QName/NOTATION values.
 	DefaultContext  map[string]string
 	SourceNamespace NamespaceURI
 	Use             AttributeUse
 	Form            FormChoice
+	HasDefault      bool
 	HasFixed        bool
 	IsReference     bool
 }

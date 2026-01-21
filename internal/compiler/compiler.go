@@ -121,15 +121,15 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, sc
 	}
 
 	compiled := &grammar.CompiledElement{
-		QName:    qname,
-		Original: elem,
-		Nillable: elem.Nillable,
-		Abstract: elem.Abstract,
-		Default:  elem.Default,
+		QName:      qname,
+		Original:   elem,
+		Nillable:   elem.Nillable,
+		Abstract:   elem.Abstract,
+		Default:    elem.Default,
 		HasDefault: elem.HasDefault,
-		Fixed:    elem.Fixed,
-		HasFixed: elem.HasFixed,
-		Block:    elem.Block,
+		Fixed:      elem.Fixed,
+		HasFixed:   elem.HasFixed,
+		Block:      elem.Block,
 	}
 	compiled.EffectiveQName = c.effectiveElementQName(compiled)
 
@@ -200,13 +200,13 @@ func (c *Compiler) compileTopLevelAttribute(qname types.QName, attr *types.Attri
 	}
 
 	compiled := &grammar.CompiledAttribute{
-		QName:    qname,
-		Original: attr,
-		Use:      attr.Use,
-		Default:  attr.Default,
+		QName:      qname,
+		Original:   attr,
+		Use:        attr.Use,
+		Default:    attr.Default,
 		HasDefault: attr.HasDefault,
-		Fixed:    attr.Fixed,
-		HasFixed: attr.HasFixed,
+		Fixed:      attr.Fixed,
+		HasFixed:   attr.HasFixed,
 	}
 
 	if attr.Type != nil {

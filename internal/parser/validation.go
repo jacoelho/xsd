@@ -70,14 +70,14 @@ func validateAnnotationAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) erro
 		if attr.NamespaceURI() == "" && attr.LocalName() == "xmlns" {
 			continue
 		}
-			if attr.NamespaceURI() == "" {
-				if attr.LocalName() != "id" {
-					return fmt.Errorf("annotation: unexpected attribute '%s'", attr.LocalName())
-				}
-				if types.TrimXMLWhitespace(attr.Value()) == "" {
-					return fmt.Errorf("annotation: id attribute cannot be empty")
-				}
-				continue
+		if attr.NamespaceURI() == "" {
+			if attr.LocalName() != "id" {
+				return fmt.Errorf("annotation: unexpected attribute '%s'", attr.LocalName())
+			}
+			if types.TrimXMLWhitespace(attr.Value()) == "" {
+				return fmt.Errorf("annotation: id attribute cannot be empty")
+			}
+			continue
 		}
 		if attr.NamespaceURI() == xsdxml.XSDNamespace {
 			return fmt.Errorf("annotation: attribute '%s' must be unprefixed", attr.LocalName())
@@ -103,8 +103,8 @@ func validateAnnotationChildAttributes(doc *xsdxml.Document, elem xsdxml.NodeID)
 				return fmt.Errorf("appinfo: attribute '%s' must be unprefixed", attr.LocalName())
 			}
 		}
-		case "documentation":
-			for _, attr := range doc.Attributes(elem) {
+	case "documentation":
+		for _, attr := range doc.Attributes(elem) {
 			if attr.NamespaceURI() == "xmlns" {
 				continue
 			}
