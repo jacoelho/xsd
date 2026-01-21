@@ -312,6 +312,7 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 	if doc.HasAttribute(elem, "fixed") {
 		decl.Fixed = doc.GetAttribute(elem, "fixed")
 		decl.HasFixed = true
+		decl.FixedContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	// parse block attribute (space-separated list: substitution, extension, restriction, #all)
@@ -523,6 +524,9 @@ func validateElementReferenceAttributes(doc *xsdxml.Document, elem xsdxml.NodeID
 	if attrs.hasBlock {
 		return fmt.Errorf("element reference cannot have 'block' attribute")
 	}
+	if attrs.hasFinal {
+		return fmt.Errorf("element reference cannot have 'final' attribute")
+	}
 	if attrs.hasForm {
 		return fmt.Errorf("element reference cannot have 'form' attribute")
 	}
@@ -690,6 +694,7 @@ func applyElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 	if attrs.hasFixed {
 		decl.Fixed = attrs.fixedVal
 		decl.HasFixed = true
+		decl.FixedContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	if attrs.hasBlock {

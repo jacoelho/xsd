@@ -132,6 +132,59 @@ func NewDecimalValue(parsed ParsedValue[*big.Rat], typ *SimpleType) TypedValue {
 	return &DecimalValue{simpleValue: newSimpleValue(parsed, typ, nil)}
 }
 
+func (v *DecimalValue) String() string {
+	return canonicalDecimalString(v.lexical)
+}
+
+func canonicalDecimalString(lexical string) string {
+	s := strings.TrimSpace(lexical)
+	if s == "" {
+		return s
+	}
+	sign := ""
+	switch s[0] {
+	case '+':
+		s = s[1:]
+	case '-':
+		sign = "-"
+		s = s[1:]
+	}
+
+	intPart := s
+	fracPart := ""
+	if dot := strings.IndexByte(s, '.'); dot >= 0 {
+		intPart = s[:dot]
+		fracPart = s[dot+1:]
+	}
+
+	intPart = strings.TrimLeft(intPart, "0")
+	if intPart == "" {
+		intPart = "0"
+	}
+
+	fracPart = strings.TrimRight(fracPart, "0")
+	if fracPart == "" {
+		fracPart = "0"
+	}
+
+	if isAllZeros(intPart) && isAllZeros(fracPart) {
+		sign = ""
+		intPart = "0"
+		fracPart = "0"
+	}
+
+	return sign + intPart + "." + fracPart
+}
+
+func isAllZeros(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] != '0' {
+			return false
+		}
+	}
+	return true
+}
+
 // IntegerValue represents an integer value
 type IntegerValue struct {
 	simpleValue[*big.Int]
@@ -176,6 +229,10 @@ func NewFloatValue(parsed ParsedValue[float32], typ *SimpleType) TypedValue {
 	return &FloatValue{simpleValue: newSimpleValue(parsed, typ, nil)}
 }
 
+func (v *FloatValue) String() string {
+	return canonicalFloat(float64(v.native), 32)
+}
+
 // DoubleValue represents a double value
 type DoubleValue struct {
 	simpleValue[float64]
@@ -184,6 +241,49 @@ type DoubleValue struct {
 // NewDoubleValue creates a new DoubleValue
 func NewDoubleValue(parsed ParsedValue[float64], typ *SimpleType) TypedValue {
 	return &DoubleValue{simpleValue: newSimpleValue(parsed, typ, nil)}
+}
+
+func (v *DoubleValue) String() string {
+	return canonicalFloat(v.native, 64)
+}
+
+func canonicalFloat(value float64, bits int) string {
+	if math.IsNaN(value) {
+		return "NaN"
+	}
+	if math.IsInf(value, 1) {
+		return "INF"
+	}
+	if math.IsInf(value, -1) {
+		return "-INF"
+	}
+	if value == 0 {
+		return "0.0E0"
+	}
+	raw := strconv.FormatFloat(value, 'E', -1, bits)
+	parts := strings.SplitN(raw, "E", 2)
+	mantissa := parts[0]
+	exponent := "0"
+	if len(parts) == 2 {
+		exponent = parts[1]
+	}
+
+	if !strings.Contains(mantissa, ".") {
+		mantissa += ".0"
+	}
+	if dot := strings.IndexByte(mantissa, '.'); dot >= 0 {
+		i := len(mantissa) - 1
+		for i > dot+1 && mantissa[i] == '0' {
+			i--
+		}
+		mantissa = mantissa[:i+1]
+	}
+
+	expVal, err := strconv.Atoi(exponent)
+	if err != nil {
+		return mantissa + "E" + exponent
+	}
+	return mantissa + "E" + strconv.Itoa(expVal)
 }
 
 // StringValue represents a string value
@@ -400,10 +500,13 @@ func (c ComparableBigInt) Unwrap() any {
 
 // ComparableTime wraps time.Time to implement ComparableValue
 type ComparableTime struct {
-	Value time.Time
+	Value       time.Time
+	HasTimezone bool
 	// XSD type this value represents
 	Typ Type
 }
+
+var errIndeterminateTimeComparison = errors.New("time comparison indeterminate")
 
 // Compare compares with another ComparableValue (implements ComparableValue)
 func (c ComparableTime) Compare(other ComparableValue) (int, error) {
@@ -411,18 +514,45 @@ func (c ComparableTime) Compare(other ComparableValue) (int, error) {
 	if !ok {
 		return 0, fmt.Errorf("cannot compare ComparableTime with %T", other)
 	}
-	if c.Value.Before(otherTime.Value) {
-		return -1, nil
+	if c.HasTimezone == otherTime.HasTimezone {
+		if c.Value.Before(otherTime.Value) {
+			return -1, nil
+		}
+		if c.Value.After(otherTime.Value) {
+			return 1, nil
+		}
+		return 0, nil
 	}
-	if c.Value.After(otherTime.Value) {
-		return 1, nil
+	if c.HasTimezone {
+		return compareTimezonedToLocal(c.Value, otherTime.Value)
 	}
-	return 0, nil
+	cmp, err := compareTimezonedToLocal(otherTime.Value, c.Value)
+	if err != nil {
+		return 0, err
+	}
+	return -cmp, nil
 }
 
 // String returns the string representation (implements ComparableValue)
 func (c ComparableTime) String() string {
-	return c.Value.Format(time.RFC3339Nano)
+	if c.HasTimezone {
+		return c.Value.Format(time.RFC3339Nano)
+	}
+	return c.Value.Format("2006-01-02T15:04:05.999999999")
+}
+
+func compareTimezonedToLocal(timezoned, local time.Time) (int, error) {
+	tzUTC := timezoned.UTC()
+	localUTC := local.UTC()
+	localPlus14 := localUTC.Add(-14 * time.Hour)
+	localMinus14 := localUTC.Add(14 * time.Hour)
+	if tzUTC.Before(localPlus14) {
+		return -1, nil
+	}
+	if tzUTC.After(localMinus14) {
+		return 1, nil
+	}
+	return 0, errIndeterminateTimeComparison
 }
 
 // Type returns the XSD type (implements ComparableValue)

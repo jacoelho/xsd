@@ -198,3 +198,222 @@ func valueSpaceType(typ types.Type) (types.Type, bool) {
 		return nil, false
 	}
 }
+
+func isQNameOrNotationTypeValue(typ types.Type) bool {
+	if typ == nil {
+		return false
+	}
+	switch t := typ.(type) {
+	case *types.SimpleType:
+		return t.IsQNameOrNotationType()
+	case *types.BuiltinType:
+		return t.IsQNameOrNotationType()
+	default:
+		if prim := typ.PrimitiveType(); prim != nil {
+			switch p := prim.(type) {
+			case *types.SimpleType:
+				return p.IsQNameOrNotationType()
+			case *types.BuiltinType:
+				return p.IsQNameOrNotationType()
+			}
+		}
+		return false
+	}
+}
+
+func (r *streamRun) parseValueAsTypeWithScope(value string, typ types.Type, scopeDepth int) (types.TypedValue, error) {
+	if isQNameOrNotationTypeValue(typ) {
+		normalized := types.NormalizeWhiteSpace(value, typ)
+		qname, err := r.parseQNameValue(normalized, scopeDepth)
+		if err != nil {
+			return nil, err
+		}
+		return qnameTypedValue{typ: typ, lexical: normalized, value: qname}, nil
+	}
+	return r.parseValueAsType(value, typ)
+}
+
+func (r *streamRun) parseValueAsTypeWithContext(value string, typ types.Type, context map[string]string) (types.TypedValue, error) {
+	if isQNameOrNotationTypeValue(typ) {
+		normalized := types.NormalizeWhiteSpace(value, typ)
+		qname, err := types.ParseQNameValue(normalized, context)
+		if err != nil {
+			return nil, err
+		}
+		return qnameTypedValue{typ: typ, lexical: normalized, value: qname}, nil
+	}
+	return r.parseValueAsType(value, typ)
+}
+
+func (r *streamRun) parseUnionValueWithScope(value string, memberTypes []*grammar.CompiledType, scopeDepth int) (types.TypedValue, *grammar.CompiledType, error) {
+	for _, member := range memberTypes {
+		if member == nil || member.Original == nil {
+			continue
+		}
+		memberType, ok := valueSpaceType(member.Original)
+		if !ok {
+			continue
+		}
+		typedValue, err := r.parseValueAsTypeWithScope(value, memberType, scopeDepth)
+		if err == nil {
+			return typedValue, member, nil
+		}
+	}
+	return nil, nil, errNoMatchingMemberType
+}
+
+func (r *streamRun) parseUnionValueTypesWithScope(value string, memberTypes []types.Type, scopeDepth int) (types.TypedValue, types.Type, error) {
+	for _, member := range memberTypes {
+		if member == nil {
+			continue
+		}
+		memberType, ok := valueSpaceType(member)
+		if !ok {
+			continue
+		}
+		typedValue, err := r.parseValueAsTypeWithScope(value, memberType, scopeDepth)
+		if err == nil {
+			return typedValue, member, nil
+		}
+	}
+	return nil, nil, errNoMatchingMemberType
+}
+
+func (r *streamRun) parseUnionValueTypesWithContext(value string, memberTypes []types.Type, context map[string]string) (types.TypedValue, types.Type, error) {
+	for _, member := range memberTypes {
+		if member == nil {
+			continue
+		}
+		memberType, ok := valueSpaceType(member)
+		if !ok {
+			continue
+		}
+		typedValue, err := r.parseValueAsTypeWithContext(value, memberType, context)
+		if err == nil {
+			return typedValue, member, nil
+		}
+	}
+	return nil, nil, errNoMatchingMemberType
+}
+
+func (r *streamRun) compareFixedValueInUnionWithContext(actualValue, fixedValue string, memberTypes []*grammar.CompiledType, scopeDepth int, fixedContext map[string]string) (bool, error) {
+	actualTyped, actualType, err := r.parseUnionValueWithScope(actualValue, memberTypes, scopeDepth)
+	if err != nil {
+		return false, err
+	}
+	fixedTyped, fixedType, err := r.parseUnionValueWithContext(fixedValue, memberTypes, fixedContext)
+	if err != nil {
+		return false, err
+	}
+	if actualType != fixedType {
+		return false, nil
+	}
+	return compareTypedValues(actualTyped, fixedTyped), nil
+}
+
+func (r *streamRun) parseUnionValueWithContext(value string, memberTypes []*grammar.CompiledType, context map[string]string) (types.TypedValue, *grammar.CompiledType, error) {
+	for _, member := range memberTypes {
+		if member == nil || member.Original == nil {
+			continue
+		}
+		memberType, ok := valueSpaceType(member.Original)
+		if !ok {
+			continue
+		}
+		typedValue, err := r.parseValueAsTypeWithContext(value, memberType, context)
+		if err == nil {
+			return typedValue, member, nil
+		}
+	}
+	return nil, nil, errNoMatchingMemberType
+}
+
+func (r *streamRun) compareFixedValueInUnionTypesWithContext(actualValue, fixedValue string, memberTypes []types.Type, scopeDepth int, fixedContext map[string]string) (bool, error) {
+	actualTyped, actualType, err := r.parseUnionValueTypesWithScope(actualValue, memberTypes, scopeDepth)
+	if err != nil {
+		return false, err
+	}
+	fixedTyped, fixedType, err := r.parseUnionValueTypesWithContext(fixedValue, memberTypes, fixedContext)
+	if err != nil {
+		return false, err
+	}
+	if actualType != fixedType {
+		return false, nil
+	}
+	return compareTypedValues(actualTyped, fixedTyped), nil
+}
+
+func (r *streamRun) compareFixedValueAsTypeWithContext(actualValue, fixedValue string, typ types.Type, scopeDepth int, fixedContext map[string]string) (bool, error) {
+	actualTyped, actualErr := r.parseValueAsTypeWithScope(actualValue, typ, scopeDepth)
+	if actualErr != nil {
+		return false, actualErr
+	}
+
+	fixedTyped, fixedErr := r.parseValueAsTypeWithContext(fixedValue, typ, fixedContext)
+	if fixedErr != nil {
+		return false, fixedErr
+	}
+
+	return compareTypedValues(actualTyped, fixedTyped), nil
+}
+
+func (r *streamRun) compareFixedValueWithContext(actualValue, fixedValue string, textType *grammar.CompiledType, scopeDepth int, fixedContext map[string]string) (bool, error) {
+	if textType == nil || textType.Original == nil {
+		return actualValue == fixedValue, nil
+	}
+
+	if len(textType.MemberTypes) > 0 {
+		if match, err := r.compareFixedValueInUnionWithContext(actualValue, fixedValue, textType.MemberTypes, scopeDepth, fixedContext); err == nil {
+			return match, nil
+		}
+	}
+
+	if st, ok := textType.Original.(*types.SimpleType); ok && st.Variety() == types.UnionVariety {
+		memberTypes := r.resolveUnionMemberTypes(st)
+		if len(memberTypes) > 0 {
+			if match, err := r.compareFixedValueInUnionTypesWithContext(actualValue, fixedValue, memberTypes, scopeDepth, fixedContext); err == nil {
+				return match, nil
+			}
+		}
+	}
+
+	if st, ok := valueSpaceType(textType.Original); ok {
+		if match, err := r.compareFixedValueAsTypeWithContext(actualValue, fixedValue, st, scopeDepth, fixedContext); err == nil {
+			return match, nil
+		}
+	}
+
+	return fixedValueMatches(actualValue, fixedValue, textType.Original), nil
+}
+
+func (r *streamRun) checkElementFixedValue(actualValue string, decl *grammar.CompiledElement, textType *grammar.CompiledType, scopeDepth int) []errors.Validation {
+	if decl == nil || !decl.HasFixed {
+		return nil
+	}
+	var context map[string]string
+	if decl.Original != nil {
+		context = decl.Original.FixedContext
+	}
+	match, _ := r.compareFixedValueWithContext(actualValue, decl.Fixed, textType, scopeDepth, context)
+	if !match {
+		return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
+			"Element has fixed value '%s' but actual value is '%s'", decl.Fixed, actualValue)}
+	}
+	return nil
+}
+
+func (r *streamRun) checkAttributeFixedValue(actualValue string, decl *grammar.CompiledAttribute, scopeDepth int) []errors.Validation {
+	if decl == nil || !decl.HasFixed {
+		return nil
+	}
+	var context map[string]string
+	if decl.Original != nil {
+		context = decl.Original.FixedContext
+	}
+	match, _ := r.compareFixedValueWithContext(actualValue, decl.Fixed, decl.Type, scopeDepth, context)
+	if !match {
+		return []errors.Validation{errors.NewValidationf(errors.ErrAttributeFixedValue, r.path.String(),
+			"Attribute '%s' has fixed value '%s', but found '%s'", decl.QName.Local, decl.Fixed, actualValue)}
+	}
+	return nil
+}

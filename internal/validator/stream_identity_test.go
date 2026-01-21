@@ -731,6 +731,48 @@ func TestStreamIdentityKeyrefIgnoresNilledField(t *testing.T) {
 	}
 }
 
+func TestIdentityTimezoneDistinctValues(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="dt" type="xs:dateTime" use="required"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="itemTime">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@dt"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test">
+  <item dt="2000-01-01T00:00:00"/>
+  <item dt="2000-01-01T00:00:00Z"/>
+</root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if hasViolationCode(violations, errors.ErrIdentityDuplicate) {
+		t.Fatalf("unexpected code %s, got %v", errors.ErrIdentityDuplicate, violations)
+	}
+}
+
 func hasViolationCode(violations []errors.Validation, code errors.ErrorCode) bool {
 	for _, v := range violations {
 		if v.Code == string(code) {

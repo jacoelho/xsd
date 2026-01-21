@@ -80,7 +80,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 	idCount := 0
 
 	for _, attr := range decls {
-		if attr.Use == types.Prohibited && !attr.HasFixed {
+		if attr.Use == types.Prohibited {
 			continue
 		}
 		declared.add(attr.QName)
@@ -103,15 +103,8 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 				}
 			}
 
-			if attr.Fixed != "" {
-				var typ types.Type
-				if attr.Type != nil {
-					typ = attr.Type.Original
-				}
-				if !fixedValueMatches(value, attr.Fixed, typ) {
-					violations = append(violations, errors.NewValidationf(errors.ErrAttributeFixedValue, r.path.String(),
-						"Attribute '%s' has fixed value '%s', but found '%s'", attr.QName.Local, attr.Fixed, value))
-				}
+			if attr.HasFixed {
+				violations = append(violations, r.checkAttributeFixedValue(value, attr, scopeDepth)...)
 			}
 		} else if attr.Use == types.Optional && (attr.HasFixed || attr.Default != "") {
 			value := attr.Default
@@ -193,14 +186,7 @@ func (r *streamRun) checkDeclaredAttributeValueStream(value string, decl *gramma
 	}
 
 	if decl.HasFixed {
-		var typ types.Type
-		if decl.Type != nil {
-			typ = decl.Type.Original
-		}
-		if !fixedValueMatches(value, decl.Fixed, typ) {
-			violations = append(violations, errors.NewValidationf(errors.ErrAttributeFixedValue, r.path.String(),
-				"Attribute '%s' has fixed value '%s', but found '%s'", decl.QName.Local, decl.Fixed, value))
-		}
+		violations = append(violations, r.checkAttributeFixedValue(value, decl, scopeDepth)...)
 	}
 
 	return violations

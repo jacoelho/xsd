@@ -120,6 +120,9 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, simpleType 
 	if compiled.ItemType == nil && simpleType.Variety() == types.ListVariety && compiled.BaseType != nil {
 		compiled.ItemType = compiled.BaseType.ItemType
 	}
+	if compiled.ItemType != nil && compiled.ItemType.IDTypeName == "IDREF" {
+		compiled.IDTypeName = "IDREFS"
+	}
 
 	// compile member types (for union)
 	if len(simpleType.MemberTypes) > 0 {

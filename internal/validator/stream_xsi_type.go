@@ -60,5 +60,9 @@ func (r *streamRun) resolveXsiTypeOnly(scopeDepth int, xsiTypeValue string) (*gr
 		return nil, fmt.Errorf("type '%s' not found in schema", xsiTypeQName.String())
 	}
 
+	if xsiType.Abstract {
+		return nil, fmt.Errorf("type '%s' is abstract and cannot be used in xsi:type", xsiTypeQName.String())
+	}
+
 	return xsiType, nil
 }

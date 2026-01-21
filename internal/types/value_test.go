@@ -1,6 +1,7 @@
 package types
 
 import (
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -213,6 +214,63 @@ func TestTypedValue_String(t *testing.T) {
 	}
 	if extracted != native {
 		t.Errorf("ValueAs[string]() = %v, want %v", extracted, native)
+	}
+}
+
+func TestTypedValue_CanonicalNumericString(t *testing.T) {
+	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
+	decNative, err := ParseDecimal("1")
+	if err != nil {
+		t.Fatalf("ParseDecimal() error = %v", err)
+	}
+	decValue := NewDecimalValue(NewParsedValue("1", decNative), decimalType)
+	if decValue.String() != "1.0" {
+		t.Fatalf("decimal String() = %q, want %q", decValue.String(), "1.0")
+	}
+
+	decNative, err = ParseDecimal("001.500")
+	if err != nil {
+		t.Fatalf("ParseDecimal() error = %v", err)
+	}
+	decValue = NewDecimalValue(NewParsedValue("001.500", decNative), decimalType)
+	if decValue.String() != "1.5" {
+		t.Fatalf("decimal String() = %q, want %q", decValue.String(), "1.5")
+	}
+
+	floatType := mustBuiltinSimpleType(t, TypeNameFloat)
+	floatValue := NewFloatValue(NewParsedValue("1.5", float32(1.5)), floatType)
+	if floatValue.String() != "1.5E0" {
+		t.Fatalf("float String() = %q, want %q", floatValue.String(), "1.5E0")
+	}
+	floatInf := NewFloatValue(NewParsedValue("INF", float32(math.Inf(1))), floatType)
+	if floatInf.String() != "INF" {
+		t.Fatalf("float String() = %q, want %q", floatInf.String(), "INF")
+	}
+	floatNegInf := NewFloatValue(NewParsedValue("-INF", float32(math.Inf(-1))), floatType)
+	if floatNegInf.String() != "-INF" {
+		t.Fatalf("float String() = %q, want %q", floatNegInf.String(), "-INF")
+	}
+	floatNaN := NewFloatValue(NewParsedValue("NaN", float32(math.NaN())), floatType)
+	if floatNaN.String() != "NaN" {
+		t.Fatalf("float String() = %q, want %q", floatNaN.String(), "NaN")
+	}
+
+	doubleType := mustBuiltinSimpleType(t, TypeNameDouble)
+	doubleValue := NewDoubleValue(NewParsedValue("1.5", 1.5), doubleType)
+	if doubleValue.String() != "1.5E0" {
+		t.Fatalf("double String() = %q, want %q", doubleValue.String(), "1.5E0")
+	}
+	doubleInf := NewDoubleValue(NewParsedValue("INF", math.Inf(1)), doubleType)
+	if doubleInf.String() != "INF" {
+		t.Fatalf("double String() = %q, want %q", doubleInf.String(), "INF")
+	}
+	doubleNegInf := NewDoubleValue(NewParsedValue("-INF", math.Inf(-1)), doubleType)
+	if doubleNegInf.String() != "-INF" {
+		t.Fatalf("double String() = %q, want %q", doubleNegInf.String(), "-INF")
+	}
+	doubleNaN := NewDoubleValue(NewParsedValue("NaN", math.NaN()), doubleType)
+	if doubleNaN.String() != "NaN" {
+		t.Fatalf("double String() = %q, want %q", doubleNaN.String(), "NaN")
 	}
 }
 

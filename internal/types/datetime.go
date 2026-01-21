@@ -56,6 +56,13 @@ func validateOptionalTimezone(lexical string) error {
 	return validateTimezoneOffset(tz)
 }
 
+// HasTimezone reports whether a lexical date/time value includes a timezone indicator.
+func HasTimezone(lexical string) bool {
+	lexical = strings.TrimSpace(lexical)
+	_, tz := splitTimezone(lexical)
+	return tz != ""
+}
+
 func is24HourZero(timePart string) bool {
 	const prefix = "24:00:00"
 	if !strings.HasPrefix(timePart, prefix) {
