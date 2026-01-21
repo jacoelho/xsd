@@ -67,14 +67,14 @@ func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl
 		}
 	}
 
-	// validate default value if present (basic validation only - full type checking in reference_schemacheck.go)
+	// validate default value if present (basic validation only - full type checking after resolution)
 	if decl.HasDefault {
 		if err := validateDefaultOrFixedValue(decl.Default, decl.Type); err != nil {
 			return fmt.Errorf("invalid default value '%s': %w", decl.Default, err)
 		}
 	}
 
-	// validate fixed value if present (basic validation only - full type checking in reference_schemacheck.go)
+	// validate fixed value if present (basic validation only - full type checking after resolution)
 	if decl.HasFixed {
 		if err := validateDefaultOrFixedValue(decl.Fixed, decl.Type); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)

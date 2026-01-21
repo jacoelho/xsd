@@ -453,7 +453,7 @@ func countXMLFields(value string) int {
 	count := 0
 	inField := false
 	for i := 0; i < len(value); i++ {
-		if isXMLWhitespaceByte(value[i]) {
+		if IsXMLWhitespaceByte(value[i]) {
 			if inField {
 				count++
 				inField = false
@@ -516,15 +516,17 @@ func (s *SimpleType) Validate(lexical string) error {
 		}
 	}
 
-	// for user-defined types with restrictions, validate against base type and facets
-	if s.Restriction != nil {
-		baseType := GetBuiltinNS(s.Restriction.Base.Namespace, s.Restriction.Base.Local)
-		if baseType != nil {
-			if err := baseType.Validate(normalized); err != nil {
-				return err
+	// for user-defined atomic types with restrictions, validate against primitive base
+	if s.Restriction != nil && s.Variety() == AtomicVariety {
+		primitive := s.PrimitiveType()
+		if builtinType, ok := AsBuiltinType(primitive); ok {
+			return builtinType.Validate(normalized)
+		}
+		if primitiveST, ok := AsSimpleType(primitive); ok && primitiveST.IsBuiltin() {
+			if builtinType := GetBuiltinNS(primitiveST.QName.Namespace, primitiveST.QName.Local); builtinType != nil {
+				return builtinType.Validate(normalized)
 			}
 		}
-		// facet validation is done separately in the validator
 	}
 
 	return nil

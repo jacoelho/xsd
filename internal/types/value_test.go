@@ -47,6 +47,13 @@ func TestTypedValue_Decimal(t *testing.T) {
 	}
 }
 
+func TestValueAs_NilValue(t *testing.T) {
+	_, err := ValueAs[string](TypedValue(nil))
+	if err == nil {
+		t.Fatal("ValueAs should return error for nil value")
+	}
+}
+
 func TestTypedValue_Boolean(t *testing.T) {
 	typ := mustBuiltinSimpleType(t, TypeNameBoolean)
 

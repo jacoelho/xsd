@@ -91,6 +91,7 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 		if doc.HasAttribute(elem, "default") {
 			attr.Default = doc.GetAttribute(elem, "default")
 			attr.HasDefault = true
+			attr.DefaultContext = namespaceContextForElement(doc, elem, schema)
 		}
 
 		if doc.HasAttribute(elem, "fixed") {
@@ -197,6 +198,7 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 	if doc.HasAttribute(elem, "default") {
 		attr.Default = doc.GetAttribute(elem, "default")
 		attr.HasDefault = true
+		attr.DefaultContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	if doc.HasAttribute(elem, "fixed") {

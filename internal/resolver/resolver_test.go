@@ -213,6 +213,59 @@ func TestValidateReferencesListDefaultRejectsNonXMLWhitespace(t *testing.T) {
 	requireReferenceErrorContains(t, schema, "invalid default value")
 }
 
+func TestValidateReferencesDefaultFacetViolations(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema string
+	}{
+		{
+			name: "enumeration",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:enum"
+           xmlns:tns="urn:enum">
+  <xs:simpleType name="EnumType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="A"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:EnumType" default="B"/>
+</xs:schema>`,
+		},
+		{
+			name: "list minLength",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:listmin"
+           xmlns:tns="urn:listmin">
+  <xs:simpleType name="IntList">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="IntListMin2">
+    <xs:restriction base="tns:IntList">
+      <xs:minLength value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:IntListMin2" default="1"/>
+</xs:schema>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			schema, err := parser.Parse(strings.NewReader(tt.schema))
+			if err != nil {
+				t.Fatalf("parse schema: %v", err)
+			}
+			res := NewResolver(schema)
+			if err := res.Resolve(); err != nil {
+				t.Fatalf("resolve schema: %v", err)
+			}
+			requireReferenceErrorContains(t, schema, "invalid default value")
+		})
+	}
+}
+
 func TestValidateReferencesUnionFieldIncompatibleTypesAllowed(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

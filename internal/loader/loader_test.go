@@ -124,6 +124,41 @@ func TestLoader_MutualImport(t *testing.T) {
 	}
 }
 
+func TestLoader_MutualImportEmptyNamespace(t *testing.T) {
+	testFS := fstest.MapFS{
+		"schemaA.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import namespace="urn:ns" schemaLocation="schemaB.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`),
+		},
+		"schemaB.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:ns"
+           xmlns:tns="urn:ns"
+           elementFormDefault="qualified">
+  <xs:import namespace="" schemaLocation="schemaA.xsd"/>
+  <xs:element name="child" type="xs:string"/>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	schema, err := loader.Load("schemaA.xsd")
+	if err != nil {
+		t.Fatalf("Load() should succeed for mutual imports across empty namespace, got error: %v", err)
+	}
+
+	if schema.TargetNamespace != "" {
+		t.Fatalf("TargetNamespace = %q, want empty", schema.TargetNamespace)
+	}
+}
+
 func TestLoader_MutualImportSameBasename(t *testing.T) {
 	testFS := fstest.MapFS{
 		"a/common.xsd": &fstest.MapFile{

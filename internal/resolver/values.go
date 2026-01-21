@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemacheck"
@@ -16,15 +17,15 @@ const (
 )
 
 // validateDefaultOrFixedValueWithResolvedType validates a default/fixed value after type resolution.
-func validateDefaultOrFixedValueWithResolvedType(schema *parser.Schema, value string, typ types.Type) error {
-	return validateDefaultOrFixedValueWithResolvedTypeVisited(schema, value, typ, make(map[types.Type]bool))
+func validateDefaultOrFixedValueWithResolvedType(schema *parser.Schema, value string, typ types.Type, context map[string]string) error {
+	return validateDefaultOrFixedValueWithResolvedTypeVisited(schema, value, typ, context, make(map[types.Type]bool))
 }
 
-func validateDefaultOrFixedValueWithResolvedTypeVisited(schema *parser.Schema, value string, typ types.Type, visited map[types.Type]bool) error {
-	return validateDefaultOrFixedValueResolved(schema, value, typ, visited, idValuesDisallowed)
+func validateDefaultOrFixedValueWithResolvedTypeVisited(schema *parser.Schema, value string, typ types.Type, context map[string]string, visited map[types.Type]bool) error {
+	return validateDefaultOrFixedValueResolved(schema, value, typ, context, visited, idValuesDisallowed)
 }
 
-func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, typ types.Type, visited map[types.Type]bool, policy idValuePolicy) error {
+func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, typ types.Type, context map[string]string, visited map[types.Type]bool, policy idValuePolicy) error {
 	if typ == nil {
 		return nil
 	}
@@ -35,11 +36,23 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 	defer delete(visited, typ)
 
 	if ct, ok := typ.(*types.ComplexType); ok {
-		textType := getComplexTypeTextType(schema, ct)
-		if textType != nil {
-			return validateDefaultOrFixedValueResolved(schema, value, textType, visited, policy)
+		sc, ok := ct.Content().(*types.SimpleContent)
+		if !ok {
+			return nil
 		}
-		return nil
+		baseType := resolveSimpleContentBaseType(schema, sc)
+		if baseType == nil {
+			return nil
+		}
+		if sc.Restriction != nil {
+			if err := validateDefaultOrFixedValueResolved(schema, value, baseType, context, visited, policy); err != nil {
+				return err
+			}
+			normalized := types.NormalizeWhiteSpace(value, baseType)
+			facets := collectRestrictionFacets(schema, sc.Restriction, baseType)
+			return validateValueAgainstFacets(normalized, baseType, facets, context)
+		}
+		return validateDefaultOrFixedValueResolved(schema, value, baseType, context, visited, policy)
 	}
 
 	normalizedValue := types.NormalizeWhiteSpace(value, typ)
@@ -52,6 +65,11 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 			}
 			if err := bt.Validate(normalizedValue); err != nil {
 				return err
+			}
+			if isQNameOrNotationTypeValue(typ) {
+				if err := validateQNameContext(normalizedValue, context); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -68,30 +86,34 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 				return fmt.Errorf("union type '%s' has no member types", typ.Name().Local)
 			}
 			for _, member := range memberTypes {
-				if err := validateDefaultOrFixedValueResolved(schema, normalizedValue, member, visited, idValuesAllowed); err == nil {
-					return nil
+				if err := validateDefaultOrFixedValueResolved(schema, normalizedValue, member, context, visited, idValuesAllowed); err == nil {
+					facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
+					return validateValueAgainstFacets(normalizedValue, st, facets, context)
 				}
 			}
 			return fmt.Errorf("value '%s' does not match any member type of union '%s'", normalizedValue, typ.Name().Local)
 		case types.ListVariety:
 			itemType := resolveListItemType(schema, st)
-			if itemType == nil {
-				return nil
-			}
-			for item := range types.FieldsXMLWhitespaceSeq(normalizedValue) {
-				if err := validateDefaultOrFixedValueResolved(schema, item, itemType, visited, policy); err != nil {
-					return err
+			if itemType != nil {
+				for item := range types.FieldsXMLWhitespaceSeq(normalizedValue) {
+					if err := validateDefaultOrFixedValueResolved(schema, item, itemType, context, visited, policy); err != nil {
+						return err
+					}
 				}
 			}
-			return nil
+			facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
+			return validateValueAgainstFacets(normalizedValue, st, facets, context)
 		default:
 			if err := st.Validate(normalizedValue); err != nil {
 				return err
 			}
-			if err := validateValueAgainstFacets(normalizedValue, st); err != nil {
-				return err
+			if isQNameOrNotationTypeValue(st) {
+				if err := validateQNameContext(normalizedValue, context); err != nil {
+					return err
+				}
 			}
-			return nil
+			facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
+			return validateValueAgainstFacets(normalizedValue, st, facets, context)
 		}
 	}
 
@@ -136,21 +158,40 @@ func resolveListItemType(schema *parser.Schema, st *types.SimpleType) types.Type
 	return nil
 }
 
-// validateValueAgainstFacets validates a value against all facets of a simple type.
-func validateValueAgainstFacets(value string, st *types.SimpleType) error {
-	if st == nil || st.Restriction == nil {
+func validateValueAgainstFacets(value string, baseType types.Type, facets []types.Facet, context map[string]string) error {
+	if len(facets) == 0 {
 		return nil
 	}
 
-	for _, facetIface := range st.Restriction.Facets {
-		facet, ok := facetIface.(types.Facet)
-		if !ok {
+	var typedValue types.TypedValue
+	for _, facet := range facets {
+		if shouldSkipLengthFacet(baseType, facet) {
 			continue
 		}
-
-		typedValue := types.TypedValueForFacet(value, st)
-
-		if err := facet.Validate(typedValue, st); err != nil {
+		if enumFacet, ok := facet.(*types.Enumeration); ok && isQNameOrNotationTypeValue(baseType) && !isListType(baseType) {
+			qname, err := types.ParseQNameValue(value, context)
+			if err != nil {
+				return err
+			}
+			allowed, err := enumFacet.ResolveQNameValues()
+			if err != nil {
+				return err
+			}
+			if slices.Contains(allowed, qname) {
+				continue
+			}
+			return fmt.Errorf("value %s not in enumeration: %s", value, types.FormatEnumerationValues(enumFacet.Values))
+		}
+		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
+			if err := lexicalFacet.ValidateLexical(value, baseType); err != nil {
+				return fmt.Errorf("facet '%s' violation: %w", facet.Name(), err)
+			}
+			continue
+		}
+		if typedValue == nil {
+			typedValue = types.TypedValueForFacet(value, baseType)
+		}
+		if err := facet.Validate(typedValue, baseType); err != nil {
 			return fmt.Errorf("facet '%s' violation: %w", facet.Name(), err)
 		}
 	}
@@ -158,34 +199,184 @@ func validateValueAgainstFacets(value string, st *types.SimpleType) error {
 	return nil
 }
 
-// getComplexTypeTextType returns the text content type for a complex type with simple content.
-func getComplexTypeTextType(schema *parser.Schema, ct *types.ComplexType) types.Type {
-	content := ct.Content()
-	sc, ok := content.(*types.SimpleContent)
-	if !ok {
+func collectSimpleTypeFacets(schema *parser.Schema, st *types.SimpleType, visited map[*types.SimpleType]bool) []types.Facet {
+	if st == nil {
+		return nil
+	}
+	if visited[st] {
+		return nil
+	}
+	visited[st] = true
+	defer delete(visited, st)
+
+	var result []types.Facet
+	if st.ResolvedBase != nil {
+		if baseST, ok := st.ResolvedBase.(*types.SimpleType); ok {
+			result = append(result, collectSimpleTypeFacets(schema, baseST, visited)...)
+		}
+	} else if st.Restriction != nil && !st.Restriction.Base.IsZero() {
+		if base := schemacheck.ResolveSimpleTypeReference(schema, st.Restriction.Base); base != nil {
+			if baseST, ok := base.(*types.SimpleType); ok {
+				result = append(result, collectSimpleTypeFacets(schema, baseST, visited)...)
+			}
+		}
+	}
+
+	if st.Restriction != nil {
+		var baseType types.Type
+		if st.ResolvedBase != nil {
+			baseType = st.ResolvedBase
+		} else if !st.Restriction.Base.IsZero() {
+			baseType = schemacheck.ResolveSimpleTypeReference(schema, st.Restriction.Base)
+		}
+		result = append(result, collectRestrictionFacets(schema, st.Restriction, baseType)...)
+	}
+
+	return result
+}
+
+func collectRestrictionFacets(schema *parser.Schema, restriction *types.Restriction, baseType types.Type) []types.Facet {
+	if restriction == nil || len(restriction.Facets) == 0 {
 		return nil
 	}
 
+	var (
+		result       []types.Facet
+		stepPatterns []*types.Pattern
+	)
+
+	for _, facetIface := range restriction.Facets {
+		switch facet := facetIface.(type) {
+		case *types.Pattern:
+			if err := facet.ValidateSyntax(); err != nil {
+				continue
+			}
+			stepPatterns = append(stepPatterns, facet)
+		case types.Facet:
+			if compilable, ok := facet.(interface{ ValidateSyntax() error }); ok {
+				if err := compilable.ValidateSyntax(); err != nil {
+					continue
+				}
+			}
+			result = append(result, facet)
+		case *types.DeferredFacet:
+			if baseType == nil {
+				baseType = schemacheck.ResolveSimpleTypeReference(schema, restriction.Base)
+			}
+			if baseType == nil {
+				continue
+			}
+			resolved, err := convertDeferredFacet(facet, baseType)
+			if err != nil || resolved == nil {
+				continue
+			}
+			result = append(result, resolved)
+		}
+	}
+
+	if len(stepPatterns) == 1 {
+		result = append(result, stepPatterns[0])
+	} else if len(stepPatterns) > 1 {
+		result = append(result, &types.PatternSet{Patterns: stepPatterns})
+	}
+
+	return result
+}
+
+func resolveSimpleContentBaseType(schema *parser.Schema, sc *types.SimpleContent) types.Type {
+	if sc == nil {
+		return nil
+	}
 	var baseQName types.QName
 	if sc.Extension != nil {
 		baseQName = sc.Extension.Base
 	} else if sc.Restriction != nil {
 		baseQName = sc.Restriction.Base
 	}
-
 	if baseQName.IsZero() {
 		return nil
 	}
-
-	// check if base is a built-in type.
 	if bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local); bt != nil {
 		return bt
 	}
-
-	// try to resolve from schema.
 	if resolvedType, ok := schema.TypeDefs[baseQName]; ok {
 		return resolvedType
 	}
-
 	return nil
+}
+
+func convertDeferredFacet(df *types.DeferredFacet, baseType types.Type) (types.Facet, error) {
+	if df == nil || baseType == nil {
+		return nil, nil
+	}
+	switch df.FacetName {
+	case "minInclusive":
+		return types.NewMinInclusive(df.FacetValue, baseType)
+	case "maxInclusive":
+		return types.NewMaxInclusive(df.FacetValue, baseType)
+	case "minExclusive":
+		return types.NewMinExclusive(df.FacetValue, baseType)
+	case "maxExclusive":
+		return types.NewMaxExclusive(df.FacetValue, baseType)
+	default:
+		return nil, fmt.Errorf("unknown deferred facet type: %s", df.FacetName)
+	}
+}
+
+func validateQNameContext(value string, context map[string]string) error {
+	_, err := types.ParseQNameValue(value, context)
+	return err
+}
+
+func isQNameOrNotationTypeValue(typ types.Type) bool {
+	if typ == nil {
+		return false
+	}
+	switch t := typ.(type) {
+	case *types.SimpleType:
+		return t.IsQNameOrNotationType()
+	case *types.BuiltinType:
+		return t.IsQNameOrNotationType()
+	default:
+		if prim := typ.PrimitiveType(); prim != nil {
+			switch p := prim.(type) {
+			case *types.SimpleType:
+				return p.IsQNameOrNotationType()
+			case *types.BuiltinType:
+				return p.IsQNameOrNotationType()
+			}
+		}
+		return false
+	}
+}
+
+func isListType(typ types.Type) bool {
+	switch t := typ.(type) {
+	case *types.SimpleType:
+		return t.Variety() == types.ListVariety || t.List != nil
+	case *types.BuiltinType:
+		name := t.Name().Local
+		return name == "NMTOKENS" || name == "IDREFS" || name == "ENTITIES"
+	default:
+		return false
+	}
+}
+
+func shouldSkipLengthFacet(baseType types.Type, facet types.Facet) bool {
+	if !isLengthFacet(facet) {
+		return false
+	}
+	if isListType(baseType) {
+		return false
+	}
+	return isQNameOrNotationTypeValue(baseType)
+}
+
+func isLengthFacet(facet types.Facet) bool {
+	switch facet.(type) {
+	case *types.Length, *types.MinLength, *types.MaxLength:
+		return true
+	default:
+		return false
+	}
 }

@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -99,13 +100,13 @@ func (c *Compiler) addCompiledAttribute(attr *types.AttributeDecl, attrMap map[t
 	effectiveQName := c.effectiveAttributeQName(attr)
 
 	compiled := &grammar.CompiledAttribute{
-		QName:    effectiveQName,
-		Original: attr,
-		Use:      attr.Use,
-		Default:  attr.Default,
+		QName:      effectiveQName,
+		Original:   attr,
+		Use:        attr.Use,
+		Default:    attr.Default,
 		HasDefault: attr.HasDefault,
-		Fixed:    attr.Fixed,
-		HasFixed: attr.HasFixed,
+		Fixed:      attr.Fixed,
+		HasFixed:   attr.HasFixed,
 	}
 
 	// get the type either from the attribute itself or by resolving the reference
@@ -120,10 +121,16 @@ func (c *Compiler) addCompiledAttribute(attr *types.AttributeDecl, attrMap map[t
 			if !compiled.HasDefault && globalAttr.HasDefault {
 				compiled.Default = globalAttr.Default
 				compiled.HasDefault = true
+				if attr.DefaultContext == nil && globalAttr.DefaultContext != nil {
+					attr.DefaultContext = maps.Clone(globalAttr.DefaultContext)
+				}
 			}
 			if !compiled.HasFixed && globalAttr.HasFixed {
 				compiled.Fixed = globalAttr.Fixed
 				compiled.HasFixed = globalAttr.HasFixed
+				if attr.FixedContext == nil && globalAttr.FixedContext != nil {
+					attr.FixedContext = maps.Clone(globalAttr.FixedContext)
+				}
 			}
 		}
 	}
@@ -222,7 +229,7 @@ func (c *Compiler) mergeAnyAttribute(chain []*grammar.CompiledType) *types.AnyAt
 		return nil
 	}
 
-	switch c.getDerivationKind(derivedCT) {
+	switch c.getDerivationKind(derivedCT, chain[0]) {
 	case restrictionDerivation:
 		return c.mergeAnyAttributeRestriction(typeAnyAttrs)
 	case extensionDerivation:
@@ -255,7 +262,24 @@ func (c *Compiler) extractDerivedWildcards(chain []*grammar.CompiledType) (*type
 	return origCT, c.collectTypeAnyAttributes(origCT)
 }
 
-func (c *Compiler) getDerivationKind(complexType *types.ComplexType) derivationKind {
+func (c *Compiler) getDerivationKind(complexType *types.ComplexType, compiled *grammar.CompiledType) derivationKind {
+	if compiled != nil {
+		switch compiled.DerivationMethod {
+		case types.DerivationRestriction:
+			return restrictionDerivation
+		case types.DerivationExtension:
+			return extensionDerivation
+		}
+	}
+	if complexType == nil {
+		return unknownDerivation
+	}
+	switch complexType.DerivationMethod {
+	case types.DerivationRestriction:
+		return restrictionDerivation
+	case types.DerivationExtension:
+		return extensionDerivation
+	}
 	if cc, ok := complexType.Content().(*types.ComplexContent); ok {
 		if cc.Restriction != nil {
 			return restrictionDerivation

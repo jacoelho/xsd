@@ -380,6 +380,9 @@ func NewUnsignedByteValue(parsed ParsedValue[uint8], typ *SimpleType) TypedValue
 // Returns an error if the value type doesn't match the requested type.
 func ValueAs[T any](value TypedValue) (T, error) {
 	var zero T
+	if value == nil {
+		return zero, fmt.Errorf("cannot convert nil value")
+	}
 	native := value.Native()
 
 	// for Comparable wrapper types, extract the inner value

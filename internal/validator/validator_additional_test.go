@@ -210,9 +210,6 @@ func TestElementHelpers(t *testing.T) {
 	if !isWhitespaceOnlyBytes([]byte(" \t\r\n")) || isWhitespaceOnlyBytes([]byte("x")) {
 		t.Fatalf("unexpected whitespace-only bytes result")
 	}
-	if !isWhitespaceOnly([]byte(" \t\n")) || isWhitespaceOnly([]byte("x")) {
-		t.Fatalf("unexpected whitespace-only result")
-	}
 }
 
 func TestStreamIdentityHelpers(t *testing.T) {
@@ -227,7 +224,7 @@ func TestStreamIdentityHelpers(t *testing.T) {
 	}
 
 	run := &streamRun{dec: dec}
-	got, err := run.normalizeQNameValue("ex:val", ev.ScopeDepth)
+	got, err := run.normalizeQNameValue("ex:val", ev.ScopeDepth, nil)
 	if err != nil {
 		t.Fatalf("normalizeQNameValue error = %v", err)
 	}

@@ -35,21 +35,21 @@ func (c *Compiler) compileContentModel(complexType *types.ComplexType) *grammar.
 				return &grammar.CompiledContentModel{
 					Kind:      mg.Kind,
 					RejectAll: true,
-					Mixed:     complexType.Mixed(),
+					Mixed:     complexType.EffectiveMixed(),
 					MinOccurs: minOccurs,
 				}
 			}
-			return &grammar.CompiledContentModel{Empty: true, Mixed: complexType.Mixed()}
+			return &grammar.CompiledContentModel{Empty: true, Mixed: complexType.EffectiveMixed()}
 		}
 		return &grammar.CompiledContentModel{
 			Kind:      c.getGroupKind(cnt.Particle),
 			Particles: particles,
-			Mixed:     complexType.Mixed(),
+			Mixed:     complexType.EffectiveMixed(),
 			MinOccurs: minOccurs,
 		}
 
 	case *types.ComplexContent:
-		return c.compileComplexContent(cnt, complexType.Mixed())
+		return c.compileComplexContent(cnt, complexType.EffectiveMixed())
 
 	case *types.SimpleContent:
 		// simple content - no element content model
@@ -161,7 +161,7 @@ func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[t
 
 func (c *Compiler) compileComplexContent(cc *types.ComplexContent, mixed bool) *grammar.CompiledContentModel {
 	cm := &grammar.CompiledContentModel{
-		Mixed: mixed || cc.Mixed,
+		Mixed: mixed,
 	}
 
 	particle := c.contentParticle(cc)
