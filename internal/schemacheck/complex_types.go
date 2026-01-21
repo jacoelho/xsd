@@ -140,8 +140,9 @@ func validateDerivationConstraints(schema *parser.Schema, complexType *types.Com
 
 // validateMixedContentDerivation validates mixed content derivation constraints.
 // Per XSD 1.0 Structures spec section 3.4.2 (Derivation Valid for complex types):
-//   - Extension must preserve the mixed/element-only content kind.
-//     If the extension adds no particle, it inherits the base content (including mixedness).
+//   - Extension must preserve the mixed/element-only content kind when it adds
+//     explicit content; when the extension adds no particle and effective mixed
+//     is false, the base content type (and mixedness) is inherited.
 //   - Restriction cannot introduce mixed content when base is element-only.
 func validateMixedContentDerivation(schema *parser.Schema, complexType *types.ComplexType) error {
 	if !complexType.IsDerived() {
@@ -149,8 +150,7 @@ func validateMixedContentDerivation(schema *parser.Schema, complexType *types.Co
 	}
 
 	// simpleContent doesn't have mixed content
-	cc, isComplexContent := complexType.Content().(*types.ComplexContent)
-	if !isComplexContent {
+	if _, isComplexContent := complexType.Content().(*types.ComplexContent); !isComplexContent {
 		return nil
 	}
 
@@ -164,18 +164,21 @@ func validateMixedContentDerivation(schema *parser.Schema, complexType *types.Co
 		return nil // base type not found or not complex
 	}
 
-	baseMixed := baseComplexType.Mixed()
-	if baseCC, ok := baseComplexType.Content().(*types.ComplexContent); ok && baseCC.Mixed {
-		baseMixed = true
-	}
-
-	derivedMixed := complexType.Mixed() || cc.Mixed
+	baseMixed := baseComplexType.EffectiveMixed()
+	derivedMixed := complexType.EffectiveMixed()
 
 	if complexType.IsExtension() {
-		if baseMixed && !derivedMixed {
-			if cc.Extension != nil && cc.Extension.Particle == nil {
-				return nil
+		if cc, ok := complexType.Content().(*types.ComplexContent); ok {
+			if ext := cc.Extension; ext != nil {
+				if ext.Particle == nil && !derivedMixed {
+					return nil
+				}
+				if mg, ok := ext.Particle.(*types.ModelGroup); ok && len(mg.Particles) == 0 && !derivedMixed {
+					return nil
+				}
 			}
+		}
+		if baseMixed && !derivedMixed {
 			return fmt.Errorf("cannot extend mixed content type '%s' to element-only content", baseComplexType.QName.Local)
 		}
 		if !baseMixed && derivedMixed {

@@ -202,8 +202,8 @@ func TestFacetDateTimeHelpers(t *testing.T) {
 	if _, err := compareDurationValues("P1M", "P30D"); err == nil {
 		t.Fatalf("expected duration compare to be not comparable")
 	}
-	if _, _, err := parseDurationParts("bad"); err == nil {
-		t.Fatalf("expected parseDurationParts error")
+	if _, err := compareDurationValues("P", "P1D"); err == nil {
+		t.Fatalf("expected duration compare to reject invalid lexical value")
 	}
 }
 
@@ -1323,7 +1323,7 @@ func TestFacetComparisons(t *testing.T) {
 	}
 
 	intType := types.GetBuiltin(types.TypeName("integer"))
-	if cmp := compareNumericOrString("1", "2", "integer", intType); cmp >= 0 {
+	if cmp, err := compareFacetValues("1", "2", intType); err != nil || cmp >= 0 {
 		t.Fatalf("expected numeric comparison order")
 	}
 

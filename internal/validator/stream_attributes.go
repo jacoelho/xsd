@@ -94,8 +94,9 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 
 		if value, ok := attrs.Value(attr.QName.Namespace.String(), attr.QName.Local); ok {
 			if attr.Type != nil {
-				violations = append(violations, r.checkSimpleValue(value, attr.Type, scopeDepth)...)
-				if value != "" {
+				valueViolations := r.checkSimpleValue(value, attr.Type, scopeDepth)
+				violations = append(violations, valueViolations...)
+				if value != "" && len(valueViolations) == 0 {
 					violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
 				}
 				if attr.Type.IDTypeName == "ID" {
@@ -108,12 +109,26 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 			}
 		} else if attr.Use == types.Optional && (attr.HasFixed || attr.HasDefault) {
 			value := attr.Default
+			var valueContext map[string]string
 			if attr.HasFixed {
 				value = attr.Fixed
+				if attr.Original != nil {
+					valueContext = attr.Original.FixedContext
+				}
+			} else if attr.Original != nil {
+				valueContext = attr.Original.DefaultContext
 			}
 			if attr.Type != nil {
-				violations = append(violations, r.checkSimpleValue(value, attr.Type, scopeDepth)...)
-				violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
+				var valueViolations []errors.Validation
+				if valueContext != nil {
+					valueViolations = r.checkSimpleValueWithContext(value, attr.Type, valueContext)
+				} else {
+					valueViolations = r.checkSimpleValue(value, attr.Type, scopeDepth)
+				}
+				violations = append(violations, valueViolations...)
+				if value != "" && len(valueViolations) == 0 {
+					violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
+				}
 				if attr.Type.IDTypeName == "ID" {
 					idCount++
 				}
@@ -182,8 +197,9 @@ func (r *streamRun) checkDeclaredAttributeValueStream(value string, decl *gramma
 	var violations []errors.Validation
 
 	if decl.Type != nil {
-		violations = append(violations, r.checkSimpleValue(value, decl.Type, scopeDepth)...)
-		if value != "" {
+		valueViolations := r.checkSimpleValue(value, decl.Type, scopeDepth)
+		violations = append(violations, valueViolations...)
+		if value != "" && len(valueViolations) == 0 {
 			violations = append(violations, r.collectIDRefs(value, decl.Type, line, column)...)
 		}
 	}

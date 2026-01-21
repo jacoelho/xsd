@@ -11,6 +11,10 @@ func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.Comp
 	if st, ok := typ.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) {
 		return nil, fmt.Errorf("unresolved simple type %s", st.QName)
 	}
+	skipQNameCache := false
+	if bt, ok := typ.(*types.BuiltinType); ok && bt.Name().Local == string(types.TypeNameAnyType) {
+		skipQNameCache = true
+	}
 	// check pointer-based cache first (handles all types including anonymous)
 	// this prevents infinite recursion for circular references
 	if compiled, ok := c.typesByPtr[typ]; ok {
@@ -18,7 +22,7 @@ func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.Comp
 	}
 
 	// check QName cache for named types (for cross-schema references)
-	if !qname.IsZero() {
+	if !qname.IsZero() && !skipQNameCache {
 		if compiled, ok := c.types[qname]; ok {
 			return compiled, nil
 		}
@@ -34,7 +38,7 @@ func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.Comp
 
 	// add to QName-based caches only for the first compilation of a QName
 	// (in redefine context, we want the redefined type in the grammar, not the original)
-	if !qname.IsZero() {
+	if !qname.IsZero() && !skipQNameCache {
 		if _, exists := c.types[qname]; !exists {
 			c.types[qname] = compiled
 			c.grammar.Types[qname] = compiled
@@ -167,14 +171,18 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, simpleType 
 
 func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, complexType *types.ComplexType) error {
 	compiled.Abstract = complexType.Abstract
-	compiled.Mixed = complexType.Mixed()
+	compiled.Mixed = complexType.EffectiveMixed()
 	compiled.Final = complexType.Final
 	compiled.Block = complexType.Block
 	compiled.DerivationMethod = complexType.DerivationMethod
 
 	resolvedBase := complexType.ResolvedBase
 	if resolvedBase == nil {
-		resolvedBase = types.GetBuiltin(types.TypeNameAnyType)
+		if complexType.QName.Namespace == types.XSDNamespace && complexType.QName.Local == "anyType" {
+			resolvedBase = nil
+		} else {
+			resolvedBase = types.NewAnyTypeComplexType()
+		}
 	}
 	if resolvedBase != nil {
 		baseCompiled, err := c.compileType(resolvedBase.Name(), resolvedBase)

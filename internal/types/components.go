@@ -43,6 +43,8 @@ type ElementDecl struct {
 	// FixedContext stores namespace bindings for resolving fixed QName/NOTATION values.
 	FixedContext      map[string]string
 	Default           string
+	// DefaultContext stores namespace bindings for resolving default QName/NOTATION values.
+	DefaultContext    map[string]string
 	HasDefault        bool
 	Constraints       []*IdentityConstraint
 	MaxOccurs         Occurs
@@ -104,7 +106,10 @@ func (e *ElementDecl) Copy(opts CopyOptions) *ElementDecl {
 	clone.Name = opts.RemapQName(e.Name)
 	clone.SourceNamespace = opts.SourceNamespace
 	if e.FixedContext != nil {
-		clone.FixedContext = copyNamespaceContext(e.FixedContext)
+		clone.FixedContext = copyValueNamespaceContext(e.FixedContext, opts)
+	}
+	if e.DefaultContext != nil {
+		clone.DefaultContext = copyValueNamespaceContext(e.DefaultContext, opts)
 	}
 	if e.Type != nil {
 		clone.Type = CopyType(e.Type, opts)
@@ -137,6 +142,8 @@ type AttributeDecl struct {
 	Fixed           string
 	// FixedContext stores namespace bindings for resolving fixed QName/NOTATION values.
 	FixedContext    map[string]string
+	// DefaultContext stores namespace bindings for resolving default QName/NOTATION values.
+	DefaultContext  map[string]string
 	SourceNamespace NamespaceURI
 	Use             AttributeUse
 	Form            FormChoice
@@ -173,7 +180,10 @@ func (a *AttributeDecl) Copy(opts CopyOptions) *AttributeDecl {
 	clone.Name = opts.RemapQName(a.Name)
 	clone.SourceNamespace = opts.SourceNamespace
 	if a.FixedContext != nil {
-		clone.FixedContext = copyNamespaceContext(a.FixedContext)
+		clone.FixedContext = copyValueNamespaceContext(a.FixedContext, opts)
+	}
+	if a.DefaultContext != nil {
+		clone.DefaultContext = copyValueNamespaceContext(a.DefaultContext, opts)
 	}
 	if a.Type != nil {
 		clone.Type = CopyType(a.Type, opts)

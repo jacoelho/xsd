@@ -114,6 +114,8 @@ type ComplexContent struct {
 	Restriction *Restriction
 	Base        QName
 	Mixed       bool
+	// MixedSpecified reports whether mixed was explicitly set on complexContent.
+	MixedSpecified bool
 }
 
 func (c *ComplexContent) isContent() {}
@@ -224,7 +226,7 @@ func copyRestriction(restriction *Restriction, opts CopyOptions) *Restriction {
 	}
 	clone.AttrGroups = copyQNameSlice(restriction.AttrGroups, opts.RemapQName)
 	if len(restriction.Facets) > 0 {
-		clone.Facets = slices.Clone(restriction.Facets)
+		clone.Facets = copyRestrictionFacets(restriction.Facets, opts)
 	}
 	if restriction.Particle != nil {
 		clone.Particle = copyParticle(restriction.Particle, opts)
@@ -232,6 +234,45 @@ func copyRestriction(restriction *Restriction, opts CopyOptions) *Restriction {
 	clone.AnyAttribute = copyAnyAttribute(restriction.AnyAttribute)
 	if restriction.SimpleType != nil {
 		clone.SimpleType = restriction.SimpleType.Copy(opts)
+	}
+	return &clone
+}
+
+func copyRestrictionFacets(facets []any, opts CopyOptions) []any {
+	if len(facets) == 0 {
+		return nil
+	}
+	needsRemap := isChameleonRemap(opts)
+	if !needsRemap {
+		return slices.Clone(facets)
+	}
+	out := make([]any, len(facets))
+	for i, facet := range facets {
+		if enum, ok := facet.(*Enumeration); ok {
+			out[i] = copyEnumerationFacet(enum, opts)
+			continue
+		}
+		out[i] = facet
+	}
+	return out
+}
+
+func copyEnumerationFacet(enum *Enumeration, opts CopyOptions) *Enumeration {
+	if enum == nil {
+		return nil
+	}
+	clone := *enum
+	clone.Values = slices.Clone(enum.Values)
+	if len(enum.ValueContexts) > 0 {
+		clone.ValueContexts = make([]map[string]string, len(enum.ValueContexts))
+		for i, ctx := range enum.ValueContexts {
+			clone.ValueContexts[i] = copyValueNamespaceContext(ctx, opts)
+		}
+	}
+	if isChameleonRemap(opts) {
+		clone.QNameValues = nil
+	} else if len(enum.QNameValues) > 0 {
+		clone.QNameValues = slices.Clone(enum.QNameValues)
 	}
 	return &clone
 }

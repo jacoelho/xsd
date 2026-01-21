@@ -2,8 +2,8 @@ package parser
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
@@ -70,14 +70,14 @@ func validateAnnotationAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) erro
 		if attr.NamespaceURI() == "" && attr.LocalName() == "xmlns" {
 			continue
 		}
-		if attr.NamespaceURI() == "" {
-			if attr.LocalName() != "id" {
-				return fmt.Errorf("annotation: unexpected attribute '%s'", attr.LocalName())
-			}
-			if strings.TrimSpace(attr.Value()) == "" {
-				return fmt.Errorf("annotation: id attribute cannot be empty")
-			}
-			continue
+			if attr.NamespaceURI() == "" {
+				if attr.LocalName() != "id" {
+					return fmt.Errorf("annotation: unexpected attribute '%s'", attr.LocalName())
+				}
+				if types.TrimXMLWhitespace(attr.Value()) == "" {
+					return fmt.Errorf("annotation: id attribute cannot be empty")
+				}
+				continue
 		}
 		if attr.NamespaceURI() == xsdxml.XSDNamespace {
 			return fmt.Errorf("annotation: attribute '%s' must be unprefixed", attr.LocalName())
@@ -103,8 +103,8 @@ func validateAnnotationChildAttributes(doc *xsdxml.Document, elem xsdxml.NodeID)
 				return fmt.Errorf("appinfo: attribute '%s' must be unprefixed", attr.LocalName())
 			}
 		}
-	case "documentation":
-		for _, attr := range doc.Attributes(elem) {
+		case "documentation":
+			for _, attr := range doc.Attributes(elem) {
 			if attr.NamespaceURI() == "xmlns" {
 				continue
 			}
@@ -118,7 +118,7 @@ func validateAnnotationChildAttributes(doc *xsdxml.Document, elem xsdxml.NodeID)
 				continue
 			}
 			if attr.NamespaceURI() == xsdxml.XMLNamespace && attr.LocalName() == "lang" {
-				if strings.TrimSpace(attr.Value()) == "" {
+				if types.TrimXMLWhitespace(attr.Value()) == "" {
 					return fmt.Errorf("documentation: xml:lang must not be empty")
 				}
 				continue

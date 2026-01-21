@@ -65,7 +65,7 @@ func validateElementValueConstraints(schema *parser.Schema, decl *types.ElementD
 	// simple type, simpleContent, or mixed content.
 	if ct, ok := resolvedType.(*types.ComplexType); ok {
 		_, isSimpleContent := ct.Content().(*types.SimpleContent)
-		if !isSimpleContent && !ct.Mixed() {
+		if !isSimpleContent && !ct.EffectiveMixed() {
 			if decl.HasDefault {
 				return fmt.Errorf("element with element-only complex type cannot have default value")
 			}
@@ -74,12 +74,12 @@ func validateElementValueConstraints(schema *parser.Schema, decl *types.ElementD
 	}
 
 	if decl.HasDefault {
-		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Default, resolvedType); err != nil {
+		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Default, resolvedType, decl.DefaultContext); err != nil {
 			return fmt.Errorf("invalid default value '%s': %w", decl.Default, err)
 		}
 	}
 	if decl.HasFixed {
-		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Fixed, resolvedType); err != nil {
+		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Fixed, resolvedType, decl.FixedContext); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)
 		}
 	}

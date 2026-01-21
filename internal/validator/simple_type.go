@@ -168,7 +168,7 @@ func splitWhitespaceSeq(s string, yield func(string) bool) {
 	start := -1
 	for i := 0; i < len(s); i++ {
 		b := s[i]
-		if isXMLWhitespaceByte(b) {
+		if types.IsXMLWhitespaceByte(b) {
 			if start >= 0 {
 				if !yield(s[start:i]) {
 					return

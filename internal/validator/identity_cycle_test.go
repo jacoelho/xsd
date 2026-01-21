@@ -84,7 +84,7 @@ func TestIdentityNormalizationListCycle(t *testing.T) {
 	if listType == nil {
 		t.Fatalf("expected CycleList type")
 	}
-	_, state := run.normalizeValueByTypeStream("a", listType, 0)
+	_, state := run.normalizeValueByTypeStream("a", listType, 0, nil)
 	if state != KeyInvalidValue {
 		t.Fatalf("expected %v, got %v", KeyInvalidValue, state)
 	}

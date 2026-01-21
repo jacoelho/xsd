@@ -155,12 +155,12 @@ func validateAttributeValueConstraints(schema *parser.Schema, decl *types.Attrib
 		return fmt.Errorf("attribute cannot use NOTATION type")
 	}
 	if decl.HasDefault {
-		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Default, resolvedType); err != nil {
+		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Default, resolvedType, decl.DefaultContext); err != nil {
 			return fmt.Errorf("invalid default value '%s': %w", decl.Default, err)
 		}
 	}
 	if decl.HasFixed {
-		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Fixed, resolvedType); err != nil {
+		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Fixed, resolvedType, decl.FixedContext); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)
 		}
 	}

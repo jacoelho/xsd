@@ -75,3 +75,26 @@ func TestStreamListTypesRejectEmptyValue(t *testing.T) {
 		t.Fatalf("expected datatype violation, got %v", violations)
 	}
 }
+
+func TestStreamListDefaultQNameUsesSchemaContext(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:list"
+           xmlns:tns="urn:list"
+           elementFormDefault="qualified">
+  <xs:simpleType name="QNameList">
+    <xs:list itemType="xs:QName"/>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:QNameList" default="tns:val"/>
+</xs:schema>`
+
+	docXML := `<root xmlns="urn:list"/>`
+
+	violations, err := validateStreamDoc(t, schemaXML, docXML)
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got %v", violations)
+	}
+}

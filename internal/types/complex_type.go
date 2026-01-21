@@ -26,6 +26,28 @@ func NewComplexType(name QName, sourceNamespace NamespaceURI) *ComplexType {
 	}
 }
 
+// NewAnyTypeComplexType creates a complex type definition for xs:anyType.
+func NewAnyTypeComplexType() *ComplexType {
+	ct := &ComplexType{
+		QName:           QName{Namespace: XSDNamespace, Local: "anyType"},
+		SourceNamespace: XSDNamespace,
+	}
+	ct.SetMixed(true)
+	ct.SetContent(&ElementContent{
+		Particle: &AnyElement{
+			Namespace:       NSCAny,
+			ProcessContents: Lax,
+			MinOccurs:       OccursFromInt(0),
+			MaxOccurs:       OccursUnbounded,
+		},
+	})
+	ct.SetAnyAttribute(&AnyAttribute{
+		Namespace:       NSCAny,
+		ProcessContents: Lax,
+	})
+	return ct
+}
+
 // NewComplexTypeFromParsed validates a parsed complex type and returns it if valid.
 func NewComplexTypeFromParsed(ct *ComplexType) (*ComplexType, error) {
 	if ct == nil {
@@ -153,6 +175,17 @@ func (c *ComplexType) SetAnyAttribute(anyAttr *AnyAttribute) {
 
 // Mixed returns true if this type allows mixed content.
 func (c *ComplexType) Mixed() bool {
+	return c.mixed
+}
+
+// EffectiveMixed returns the mixed value after applying complexContent overrides.
+func (c *ComplexType) EffectiveMixed() bool {
+	if c == nil {
+		return false
+	}
+	if cc, ok := c.Content().(*ComplexContent); ok && cc.MixedSpecified {
+		return cc.Mixed
+	}
 	return c.mixed
 }
 

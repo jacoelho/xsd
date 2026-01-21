@@ -62,7 +62,7 @@ const (
 
 // Parse compiles an XPath expression into a set of paths.
 func Parse(expr string, nsContext map[string]string, policy AttributePolicy) (Expression, error) {
-	expr = strings.TrimSpace(expr)
+	expr = types.TrimXMLWhitespace(expr)
 	if expr == "" {
 		return Expression{}, xpathErrorf("xpath cannot be empty")
 	}
@@ -79,7 +79,7 @@ func Parse(expr string, nsContext map[string]string, policy AttributePolicy) (Ex
 	parts := strings.Split(expr, "|")
 	paths := make([]Path, 0, len(parts))
 	for _, raw := range parts {
-		part := strings.TrimSpace(raw)
+		part := types.TrimXMLWhitespace(raw)
 		if part == "" {
 			return Expression{}, xpathErrorf("xpath contains empty union branch: %s", expr)
 		}
@@ -176,7 +176,7 @@ func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[st
 }
 
 func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
-	token = strings.TrimSpace(token)
+		token = types.TrimXMLWhitespace(token)
 	if token == "" {
 		return axisToken{}, xpathErrorf("xpath step is missing a node test")
 	}
@@ -190,7 +190,7 @@ func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
 	}
 
 	if before, after, ok := strings.Cut(token, "::"); ok {
-		name := strings.TrimSpace(before)
+		name := types.TrimXMLWhitespace(before)
 		if name == "" {
 			return axisToken{}, xpathErrorf("xpath step has invalid axis")
 		}
@@ -198,7 +198,7 @@ func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
 		if err != nil {
 			return axisToken{}, err
 		}
-		node := strings.TrimSpace(after)
+		node := types.TrimXMLWhitespace(after)
 		if node == "" {
 			node = reader.readToken()
 			if node == "" {
@@ -225,7 +225,7 @@ func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
 }
 
 func parseStep(axisInfo axisToken, nsContext map[string]string, policy AttributePolicy) ([]Step, *NodeTest, error) {
-	token := strings.TrimSpace(axisInfo.token)
+		token := types.TrimXMLWhitespace(axisInfo.token)
 	if token == "" {
 		return nil, nil, xpathErrorf("xpath step is missing a node test")
 	}
@@ -253,7 +253,7 @@ func parseStep(axisInfo axisToken, nsContext map[string]string, policy Attribute
 			return nil, nil, xpathErrorf("xpath cannot select attributes: %s", token)
 		}
 		name := strings.TrimPrefix(token, "@")
-		name = strings.TrimSpace(name)
+		name = types.TrimXMLWhitespace(name)
 		if name == "" {
 			return nil, nil, xpathErrorf("xpath step is missing a node test: %s", token)
 		}
@@ -279,7 +279,7 @@ const (
 )
 
 func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind) (NodeTest, error) {
-	token = strings.TrimSpace(token)
+		token = types.TrimXMLWhitespace(token)
 	if token == "" {
 		return NodeTest{}, xpathErrorf("xpath step is missing a node test")
 	}
@@ -288,7 +288,7 @@ func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind)
 	}
 
 	if before, ok := strings.CutSuffix(token, ":*"); ok {
-		prefix := strings.TrimSpace(before)
+		prefix := types.TrimXMLWhitespace(before)
 		if prefix == "" {
 			return NodeTest{}, xpathErrorf("xpath step has empty prefix: %s", token)
 		}
@@ -333,7 +333,7 @@ func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind)
 }
 
 func axisFromName(name string) (Axis, error) {
-	switch strings.TrimSpace(name) {
+	switch types.TrimXMLWhitespace(name) {
 	case "child":
 		return AxisChild, nil
 	case "attribute":
@@ -358,7 +358,7 @@ func (r *pathReader) readToken() string {
 		}
 		r.pos++
 	}
-	return strings.TrimSpace(r.input[start:r.pos])
+	return types.TrimXMLWhitespace(r.input[start:r.pos])
 }
 
 func (r *pathReader) consumeSlash() bool {

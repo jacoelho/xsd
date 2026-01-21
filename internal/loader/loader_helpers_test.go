@@ -131,9 +131,25 @@ func TestElementDeclEquivalent(t *testing.T) {
 		t.Fatalf("expected equivalent element declarations")
 	}
 
+	elemA.HasDefault = true
+	elemB.HasDefault = true
+	elemA.Default = "x"
+	elemB.Default = "x"
+	if !elementDeclEquivalent(elemA, elemB) {
+		t.Fatalf("expected equivalent element declarations with defaults")
+	}
+
 	elemB.Default = "y"
 	if elementDeclEquivalent(elemA, elemB) {
 		t.Fatalf("expected default mismatch to be non-equivalent")
+	}
+
+	elemA.Default = ""
+	elemA.HasDefault = false
+	elemB.Default = ""
+	elemB.HasDefault = true
+	if elementDeclEquivalent(elemA, elemB) {
+		t.Fatalf("expected default presence mismatch to be non-equivalent")
 	}
 }
 

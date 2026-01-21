@@ -156,15 +156,7 @@ func scanElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) elementAttr
 // makeAnyType creates an anyType ComplexType.
 // Per XSD 1.0 spec, anyType has mixed content allowing any elements and text.
 func makeAnyType() types.Type {
-	ct := &types.ComplexType{
-		QName: types.QName{
-			Namespace: xsdxml.XSDNamespace,
-			Local:     "anyType",
-		},
-	}
-	ct.SetContent(&types.EmptyContent{})
-	ct.SetMixed(true)
-	return ct
+	return types.NewAnyTypeComplexType()
 }
 
 // parseTopLevelElement parses a top-level element declaration
@@ -311,6 +303,7 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 	if doc.HasAttribute(elem, "default") {
 		decl.Default = doc.GetAttribute(elem, "default")
 		decl.HasDefault = true
+		decl.DefaultContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	// fixed attribute may have an empty value (fixed=""), so check for presence
@@ -697,6 +690,7 @@ func applyElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 	if attrs.hasDefault {
 		decl.Default = attrs.defaultVal
 		decl.HasDefault = true
+		decl.DefaultContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	if attrs.hasFixed {

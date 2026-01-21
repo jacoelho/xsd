@@ -63,17 +63,9 @@ func isAnySimpleType(ct *grammar.CompiledType) bool {
 
 func isWhitespaceOnlyBytes(b []byte) bool {
 	for _, r := range b {
-		if !isXMLWhitespaceByte(r) {
+		if !types.IsXMLWhitespaceByte(r) {
 			return false
 		}
 	}
 	return true
-}
-
-func isXMLWhitespaceByte(b byte) bool {
-	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
-}
-
-func isWhitespaceOnly(b []byte) bool {
-	return isWhitespaceOnlyBytes(b)
 }

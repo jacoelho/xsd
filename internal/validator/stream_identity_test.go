@@ -435,6 +435,86 @@ func TestStreamIdentityConstraints(t *testing.T) {
 	}
 }
 
+func TestStreamIdentityUsesXsiTypeDefaults(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:complexType name="A">
+    <xs:sequence/>
+  </xs:complexType>
+  <xs:complexType name="B">
+    <xs:complexContent>
+      <xs:extension base="tns:A">
+        <xs:attribute name="code" type="xs:string" default="DEF"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="tns:A"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@code"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test" xmlns:tns="urn:test" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <item xsi:type="tns:B"/>
+</root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if hasViolationCode(violations, errors.ErrIdentityAbsent) {
+		t.Fatalf("expected xsi:type defaulted attribute to satisfy key, got %v", violations)
+	}
+}
+
+func TestStreamIdentityUsesDefaultQNameContext(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="code" type="xs:QName" default="tns:val"/>
+    </xs:complexType>
+    <xs:key name="codeKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="@code"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test"/>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if hasViolationCode(violations, errors.ErrIdentityAbsent) {
+		t.Fatalf("expected QName default to satisfy key, got %v", violations)
+	}
+}
+
 func TestStreamIdentityConstraintKeyrefValueSpace(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

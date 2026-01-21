@@ -21,6 +21,7 @@ func parseComplexContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 		return nil, err
 	} else if ok {
 		cc.Mixed = value
+		cc.MixedSpecified = true
 	}
 
 	seenDerivation := false

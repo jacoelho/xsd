@@ -288,10 +288,8 @@ func (l *SchemaLoader) loadImport(location string, currentNamespace types.Namesp
 	// this allows mutual import detection: when we detect a cycle, we can check if the
 	// importing schema has a different namespace than the schema being imported.
 	currentNS := string(currentNamespace)
-	if currentNS != "" {
-		clearImportContext := l.trackImportContext(absLocForContext, location, currentNS, ctx.key)
-		defer clearImportContext()
-	}
+	clearImportContext := l.trackImportContext(absLocForContext, location, currentNS, ctx.key)
+	defer clearImportContext()
 
 	// normal loading - skip validation for imported schemas.
 	// they will be validated after merging into the main schema.
