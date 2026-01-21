@@ -47,23 +47,23 @@ func validateAttributeDeclStructure(schemaDef *parser.Schema, qname types.QName,
 
 	// per XSD spec: cannot have both default and fixed on an attribute
 	// (au-props-correct constraint 2)
-	if decl.Default != "" && decl.Fixed != "" {
+	if decl.HasDefault && decl.HasFixed {
 		return fmt.Errorf("attribute cannot have both 'default' and 'fixed' values")
 	}
 
 	// per XSD spec: if use="required", default is not allowed
 	// (au-props-correct constraint 1)
-	if decl.Use == types.Required && decl.Default != "" {
+	if decl.Use == types.Required && decl.HasDefault {
 		return fmt.Errorf("attribute with use='required' cannot have a default value")
 	}
-	// validate default value if present
-	if decl.Default != "" {
+	// validate default value if present (basic validation only - full type checking after resolution)
+	if decl.HasDefault {
 		if err := validateDefaultOrFixedValue(decl.Default, decl.Type); err != nil {
 			return fmt.Errorf("invalid default value '%s': %w", decl.Default, err)
 		}
 	}
 
-	// validate fixed value if present
+	// validate fixed value if present (basic validation only - full type checking after resolution)
 	if decl.HasFixed {
 		if err := validateDefaultOrFixedValue(decl.Fixed, decl.Type); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)

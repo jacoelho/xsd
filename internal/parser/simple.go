@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
@@ -277,8 +276,7 @@ func parseSimpleTypeDefinition(doc *xsdxml.Document, elem xsdxml.NodeID, schema 
 
 			// parse memberTypes attribute (space-separated list of QNames)
 			if memberTypesAttr != "" {
-				memberTypeNames := strings.FieldsSeq(memberTypesAttr)
-				for memberTypeName := range memberTypeNames {
+				for memberTypeName := range types.FieldsXMLWhitespaceSeq(memberTypesAttr) {
 					memberTypeQName, err := resolveQName(doc, memberTypeName, child, schema)
 					if err != nil {
 						return nil, fmt.Errorf("resolve member type %s: %w", memberTypeName, err)

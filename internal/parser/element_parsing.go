@@ -76,13 +76,14 @@ func scanElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) elementAttr
 		if attr.NamespaceURI() == xsdxml.XMLNSNamespace || attr.NamespaceURI() == "xmlns" || attr.LocalName() == "xmlns" {
 			continue
 		}
+		if attr.NamespaceURI() != "" {
+			continue
+		}
 		attrName := attr.LocalName()
 		switch attrName {
 		case "id":
-			if attr.NamespaceURI() == "" {
-				attrs.hasID = true
-				attrs.id = attr.Value()
-			}
+			attrs.hasID = true
+			attrs.id = attr.Value()
 		case "ref":
 			if !attrs.hasRef {
 				attrs.hasRef = true
@@ -155,15 +156,7 @@ func scanElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) elementAttr
 // makeAnyType creates an anyType ComplexType.
 // Per XSD 1.0 spec, anyType has mixed content allowing any elements and text.
 func makeAnyType() types.Type {
-	ct := &types.ComplexType{
-		QName: types.QName{
-			Namespace: xsdxml.XSDNamespace,
-			Local:     "anyType",
-		},
-	}
-	ct.SetContent(&types.EmptyContent{})
-	ct.SetMixed(true)
-	return ct
+	return types.NewAnyTypeComplexType()
 }
 
 // parseTopLevelElement parses a top-level element declaration
@@ -210,7 +203,7 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 	}
 
 	// validate: cannot have both default and fixed
-	if doc.GetAttribute(elem, "default") != "" && doc.GetAttribute(elem, "fixed") != "" {
+	if doc.HasAttribute(elem, "default") && doc.HasAttribute(elem, "fixed") {
 		return fmt.Errorf("element cannot have both 'default' and 'fixed' attributes")
 	}
 
@@ -259,6 +252,7 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 			// for now, create a placeholder
 			decl.Type = types.NewPlaceholderSimpleType(typeQName)
 		}
+		decl.TypeExplicit = true
 	} else {
 		for _, child := range doc.Children(elem) {
 			if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
@@ -275,6 +269,7 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 					return fmt.Errorf("parse inline complexType: %w", err)
 				}
 				decl.Type = ct
+				decl.TypeExplicit = true
 			case "simpleType":
 				if doc.GetAttribute(child, "name") != "" {
 					return fmt.Errorf("inline simpleType cannot have 'name' attribute")
@@ -284,6 +279,7 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 					return fmt.Errorf("parse inline simpleType: %w", err)
 				}
 				decl.Type = st
+				decl.TypeExplicit = true
 			}
 		}
 		// if no inline type was found, default to anyType
@@ -304,14 +300,17 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 		decl.Abstract = value
 	}
 
-	if defaultVal := doc.GetAttribute(elem, "default"); defaultVal != "" {
-		decl.Default = defaultVal
+	if doc.HasAttribute(elem, "default") {
+		decl.Default = doc.GetAttribute(elem, "default")
+		decl.HasDefault = true
+		decl.DefaultContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	// fixed attribute may have an empty value (fixed=""), so check for presence
 	if doc.HasAttribute(elem, "fixed") {
 		decl.Fixed = doc.GetAttribute(elem, "fixed")
 		decl.HasFixed = true
+		decl.FixedContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	// parse block attribute (space-separated list: substitution, extension, restriction, #all)
@@ -477,6 +476,7 @@ func parseLocalElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema,
 		MinOccurs:       minOccurs,
 		MaxOccurs:       maxOccurs,
 	}
+	decl.TypeExplicit = attrs.hasType || hasInlineType
 	if effectiveForm == Qualified {
 		decl.Form = types.FormQualified
 	} else {
@@ -523,6 +523,9 @@ func validateElementReferenceAttributes(doc *xsdxml.Document, elem xsdxml.NodeID
 	if attrs.hasBlock {
 		return fmt.Errorf("element reference cannot have 'block' attribute")
 	}
+	if attrs.hasFinal {
+		return fmt.Errorf("element reference cannot have 'final' attribute")
+	}
 	if attrs.hasForm {
 		return fmt.Errorf("element reference cannot have 'form' attribute")
 	}
@@ -539,7 +542,7 @@ func validateLocalElementAttributes(attrs *elementAttrScan) error {
 	if attrs.hasFinal {
 		return fmt.Errorf("local element cannot have 'final' attribute (only global elements can be final)")
 	}
-	if attrs.defaultVal != "" && attrs.fixedVal != "" {
+	if attrs.hasDefault && attrs.hasFixed {
 		return fmt.Errorf("element cannot have both 'default' and 'fixed' attributes")
 	}
 	return nil
@@ -583,6 +586,7 @@ func elementHasInlineType(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
 func resolveLocalElementForm(attrs *elementAttrScan, schema *Schema) (Form, types.NamespaceURI, error) {
 	var effectiveForm Form
 	if formAttr := attrs.form; formAttr != "" {
+		formAttr = types.ApplyWhiteSpace(formAttr, types.WhiteSpaceCollapse)
 		switch formAttr {
 		case "qualified":
 			effectiveForm = Qualified
@@ -683,13 +687,16 @@ func applyElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 		decl.Nillable = value
 	}
 
-	if defaultVal := attrs.defaultVal; defaultVal != "" {
-		decl.Default = defaultVal
+	if attrs.hasDefault {
+		decl.Default = attrs.defaultVal
+		decl.HasDefault = true
+		decl.DefaultContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	if attrs.hasFixed {
 		decl.Fixed = attrs.fixedVal
 		decl.HasFixed = true
+		decl.FixedContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	if attrs.hasBlock {

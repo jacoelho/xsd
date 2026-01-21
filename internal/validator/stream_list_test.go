@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -44,5 +45,56 @@ func TestStreamListEnumerationWhitespaceCollapse(t *testing.T) {
 	}
 	if len(violations) == 0 {
 		t.Fatalf("expected violations for enumeration mismatch")
+	}
+}
+
+func TestStreamListTypesRejectEmptyValue(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:list"
+           xmlns:tns="urn:list"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="idrefs" type="xs:IDREFS"/>
+        <xs:element name="entities" type="xs:ENTITIES"/>
+        <xs:element name="nmtokens" type="xs:NMTOKENS"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	docXML := `<tns:root xmlns:tns="urn:list"><tns:idrefs></tns:idrefs><tns:entities></tns:entities><tns:nmtokens></tns:nmtokens></tns:root>`
+
+	violations, err := validateStreamDoc(t, schemaXML, docXML)
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if !hasViolationCode(violations, errors.ErrDatatypeInvalid) {
+		t.Fatalf("expected datatype violation, got %v", violations)
+	}
+}
+
+func TestStreamListDefaultQNameUsesSchemaContext(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:list"
+           xmlns:tns="urn:list"
+           elementFormDefault="qualified">
+  <xs:simpleType name="QNameList">
+    <xs:list itemType="xs:QName"/>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:QNameList" default="tns:val"/>
+</xs:schema>`
+
+	docXML := `<root xmlns="urn:list"/>`
+
+	violations, err := validateStreamDoc(t, schemaXML, docXML)
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got %v", violations)
 	}
 }

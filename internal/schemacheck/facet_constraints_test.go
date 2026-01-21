@@ -13,26 +13,51 @@ func TestCompareGYearValues(t *testing.T) {
 		t.Fatal("builtin.Get(\"gYear\") returned nil")
 	}
 
-	result := compareNumericOrString("2002", "1998", "gYear", bt)
-	if result != 1 {
-		t.Errorf("compareNumericOrString(\"2002\", \"1998\", \"gYear\", bt) = %d, want 1", result)
-	}
-
-	result = compareNumericOrString("2002", "1998", "gYear", nil)
-	if result != 1 {
-		t.Errorf("compareNumericOrString(\"2002\", \"1998\", \"gYear\", nil) = %d, want 1", result)
+	result, err := compareFacetValues("2002", "1998", bt)
+	if err != nil || result != 1 {
+		t.Errorf("compareFacetValues(\"2002\", \"1998\", gYear) = %d, %v; want 1, nil", result, err)
 	}
 }
 
 func TestValidateRangeFacetsGYear(t *testing.T) {
 	minInclusive := "2002"
 	maxInclusive := "1998"
-	baseTypeName := "gYear"
 	bt := types.GetBuiltin(types.TypeNameGYear)
 
-	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, baseTypeName, bt)
+	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
 		t.Error("validateRangeFacets should return error for minInclusive > maxInclusive")
+	}
+}
+
+func TestValidateRangeFacetsLargeIntegerPrecision(t *testing.T) {
+	minInclusive := "9007199254740993"
+	maxInclusive := "9007199254740992"
+	bt := types.GetBuiltin(types.TypeNameInteger)
+
+	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
+	if err == nil {
+		t.Fatal("expected range facet comparison to detect minInclusive > maxInclusive")
+	}
+}
+
+func TestValidateRangeFacetsDecimalPrecision(t *testing.T) {
+	minInclusive := "0.1234567890123456789012345678901"
+	maxInclusive := "0.1234567890123456789012345678900"
+	bt := types.GetBuiltin(types.TypeNameDecimal)
+
+	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
+	if err == nil {
+		t.Fatal("expected range facet comparison to detect minInclusive > maxInclusive")
+	}
+}
+
+func TestValidateDurationRangeFacetsInvalidLexical(t *testing.T) {
+	minExclusive := "P"
+	maxExclusive := "P1D"
+
+	if err := validateDurationRangeFacets(&minExclusive, &maxExclusive, nil, nil); err == nil {
+		t.Fatal("expected invalid duration lexical value to return error")
 	}
 }
 

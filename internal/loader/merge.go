@@ -364,7 +364,13 @@ func elementDeclEquivalent(a, b *types.ElementDecl) bool {
 	if a.Block != b.Block || a.Final != b.Final {
 		return false
 	}
-	if a.HasFixed != b.HasFixed || a.Fixed != b.Fixed || a.Default != b.Default {
+	if a.HasFixed != b.HasFixed || a.HasDefault != b.HasDefault {
+		return false
+	}
+	if a.HasFixed && a.Fixed != b.Fixed {
+		return false
+	}
+	if a.HasDefault && a.Default != b.Default {
 		return false
 	}
 	if a.Form != b.Form {

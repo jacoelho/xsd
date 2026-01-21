@@ -58,7 +58,7 @@ func (r *validationRun) findElementDeclaration(qname types.QName) *grammar.Compi
 		return decl
 	}
 
-	return r.schema.LocalElement(qname)
+	return nil
 }
 
 func (r *validationRun) findBySubstitution(qname types.QName) *grammar.CompiledElement {

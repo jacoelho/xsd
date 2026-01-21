@@ -273,6 +273,9 @@ func (r *Resolver) doResolveComplexType(qname types.QName, ct *types.ComplexType
 
 func (r *Resolver) lookupType(qname, referrer types.QName) (types.Type, error) {
 	if bt := types.GetBuiltinNS(qname.Namespace, qname.Local); bt != nil {
+		if qname.Local == "anyType" {
+			return types.NewAnyTypeComplexType(), nil
+		}
 		return bt, nil
 	}
 

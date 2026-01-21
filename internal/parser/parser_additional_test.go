@@ -242,6 +242,10 @@ func TestParseDerivationSetWithValidation(t *testing.T) {
 	if _, err := parseDerivationSetWithValidation("list", allowed); err == nil {
 		t.Fatalf("expected error for disallowed derivation method")
 	}
+
+	if _, err := parseDerivationSetWithValidation("extension\u00A0restriction", allowed); err == nil {
+		t.Fatalf("expected error for non-XML whitespace in derivation set")
+	}
 }
 
 func TestParseSimpleTypeFinal(t *testing.T) {
@@ -395,6 +399,21 @@ func TestParseBoolAndOccursValues(t *testing.T) {
 	}
 	if _, err := parseOccursValue("minOccurs", "unbounded"); err == nil {
 		t.Fatalf("expected minOccurs unbounded error")
+	}
+	if got, err := parseOccursValue("minOccurs", " 1 "); err != nil {
+		t.Fatalf("parseOccursValue whitespace error = %v", err)
+	} else if got.CmpInt(1) != 0 {
+		t.Fatalf("parseOccursValue whitespace = %s, want 1", got)
+	}
+	if got, err := parseOccursValue("maxOccurs", "\n2\t"); err != nil {
+		t.Fatalf("parseOccursValue whitespace error = %v", err)
+	} else if got.CmpInt(2) != 0 {
+		t.Fatalf("parseOccursValue whitespace = %s, want 2", got)
+	}
+	if got, err := parseOccursValue("maxOccurs", " unbounded "); err != nil {
+		t.Fatalf("parseOccursValue whitespace unbounded error = %v", err)
+	} else if !got.IsUnbounded() {
+		t.Fatalf("parseOccursValue whitespace unbounded = %s, want unbounded", got)
 	}
 	maxInt := int(^uint(0) >> 1)
 	tooLarge := new(big.Int).Add(big.NewInt(int64(maxInt)), big.NewInt(1)).String()
@@ -619,6 +638,32 @@ func TestParseSimpleTypeListAndUnion(t *testing.T) {
 	}
 	if len(unionType.Union.InlineTypes) != 1 {
 		t.Fatalf("expected union inline type")
+	}
+}
+
+func TestParseListAttributesRejectNonXMLWhitespace(t *testing.T) {
+	unionSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="badUnion">
+    <xs:union memberTypes="xs:string` + "\u00A0" + `xs:int"/>
+  </xs:simpleType>
+</xs:schema>`
+	if _, err := Parse(strings.NewReader(unionSchema)); err == nil {
+		t.Fatalf("expected memberTypes NBSP error")
+	}
+
+	anySchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any namespace="##targetNamespace` + "\u00A0" + `##local" processContents="lax"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+	if _, err := Parse(strings.NewReader(anySchema)); err == nil {
+		t.Fatalf("expected namespace list NBSP error")
 	}
 }
 
@@ -967,6 +1012,52 @@ func TestParseInlineSimpleTypeErrors(t *testing.T) {
 	schema := NewSchema()
 	if _, err := parseInlineSimpleType(doc, doc.DocumentElement(), schema); err == nil {
 		t.Fatalf("expected inline simpleType name error")
+	}
+}
+
+func TestParseElement_IgnoresNamespacedTypeAttribute(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:ex="urn:extra">
+  <xs:element name="root" ex:type="xs:string"/>
+</xs:schema>`
+
+	schema, err := Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	decl, ok := schema.ElementDecls[types.QName{Local: "root"}]
+	if !ok {
+		t.Fatalf("element 'root' not found in schema")
+	}
+
+	ct, ok := decl.Type.(*types.ComplexType)
+	if !ok {
+		t.Fatalf("element type = %T, want anyType complex type", decl.Type)
+	}
+	if ct.QName.Namespace != types.XSDNamespace || ct.QName.Local != "anyType" {
+		t.Fatalf("element type = %s, want xs:anyType", ct.QName)
+	}
+}
+
+func TestParseComplexContent_IgnoresXMLID(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:xml="http://www.w3.org/XML/1998/namespace">
+  <xs:complexType name="T">
+    <xs:complexContent xml:id="1bad">
+      <xs:extension base="xs:anyType"/>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>`
+
+	schema, err := Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if _, ok := schema.IDAttributes["1bad"]; ok {
+		t.Fatalf("xml:id value should not be registered as schema id attribute")
 	}
 }
 

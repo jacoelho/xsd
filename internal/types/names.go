@@ -151,7 +151,7 @@ func SplitQName(name string) (prefix, local string, hasPrefix bool) {
 
 // ParseQName trims and validates a QName, returning prefix/local parts.
 func ParseQName(name string) (prefix, local string, hasPrefix bool, err error) {
-	trimmed := strings.TrimSpace(name)
+	trimmed := TrimXMLWhitespace(name)
 	if trimmed == "" {
 		return "", "", false, fmt.Errorf("empty qname")
 	}
@@ -159,8 +159,8 @@ func ParseQName(name string) (prefix, local string, hasPrefix bool, err error) {
 		return "", "", false, fmt.Errorf("invalid QName '%s'", trimmed)
 	}
 	prefix, local, hasPrefix = SplitQName(trimmed)
-	prefix = strings.TrimSpace(prefix)
-	local = strings.TrimSpace(local)
+	prefix = TrimXMLWhitespace(prefix)
+	local = TrimXMLWhitespace(local)
 	return prefix, local, hasPrefix, nil
 }
 

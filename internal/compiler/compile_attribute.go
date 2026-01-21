@@ -1,12 +1,15 @@
 package compiler
 
 import (
+	"fmt"
+	"maps"
+
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *Compiler) mergeAttributes(chain []*grammar.CompiledType) []*grammar.CompiledAttribute {
+func (c *Compiler) mergeAttributes(chain []*grammar.CompiledType) ([]*grammar.CompiledAttribute, error) {
 	// later types override earlier ones (restriction) or add to them (extension)
 	attrMap := make(map[types.QName]*grammar.CompiledAttribute)
 
@@ -21,14 +24,16 @@ func (c *Compiler) mergeAttributes(chain []*grammar.CompiledType) []*grammar.Com
 			continue
 		}
 
-		c.collectAttributesFromComplexType(originalComplexType, attrMap)
+		if err := c.collectAttributesFromComplexType(originalComplexType, attrMap); err != nil {
+			return nil, err
+		}
 	}
 
 	result := make([]*grammar.CompiledAttribute, 0, len(attrMap))
 	for _, attr := range attrMap {
 		result = append(result, attr)
 	}
-	return result
+	return result, nil
 }
 
 type attributeCollectionMode int
@@ -47,20 +52,27 @@ const (
 // Per XSD 1.0 spec section 3.4.2, "prohibited" attribute uses are NOT included in
 // the {attribute uses} property of the complex type. The XSD 1.0 W3C tests treat
 // use="prohibited" with fixed as a valid use, so we keep those for schemacheck.
-func (c *Compiler) collectAttributesFromComplexType(complexType *types.ComplexType, attrMap map[types.QName]*grammar.CompiledAttribute) {
-	c.collectAttributes(complexType.Attributes(), complexType.AttrGroups, attrMap, attributeCollectionMerge)
+func (c *Compiler) collectAttributesFromComplexType(complexType *types.ComplexType, attrMap map[types.QName]*grammar.CompiledAttribute) error {
+	if err := c.collectAttributes(complexType.Attributes(), complexType.AttrGroups, attrMap, attributeCollectionMerge); err != nil {
+		return err
+	}
 
 	// 3. Check content for extension/restriction attributes
 	content := complexType.Content()
 	if ext := content.ExtensionDef(); ext != nil {
-		c.collectAttributes(ext.Attributes, ext.AttrGroups, attrMap, attributeCollectionMerge)
+		if err := c.collectAttributes(ext.Attributes, ext.AttrGroups, attrMap, attributeCollectionMerge); err != nil {
+			return err
+		}
 	}
 	if restr := content.RestrictionDef(); restr != nil {
-		c.collectAttributes(restr.Attributes, restr.AttrGroups, attrMap, attributeCollectionRestriction)
+		if err := c.collectAttributes(restr.Attributes, restr.AttrGroups, attrMap, attributeCollectionRestriction); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func (c *Compiler) collectAttributes(attrs []*types.AttributeDecl, attrGroups []types.QName, attrMap map[types.QName]*grammar.CompiledAttribute, mode attributeCollectionMode) {
+func (c *Compiler) collectAttributes(attrs []*types.AttributeDecl, attrGroups []types.QName, attrMap map[types.QName]*grammar.CompiledAttribute, mode attributeCollectionMode) error {
 	for _, attr := range attrs {
 		if !shouldIncludeAttribute(attr) {
 			if mode == attributeCollectionRestriction {
@@ -68,27 +80,33 @@ func (c *Compiler) collectAttributes(attrs []*types.AttributeDecl, attrGroups []
 			}
 			continue
 		}
-		c.addCompiledAttribute(attr, attrMap)
+		if err := c.addCompiledAttribute(attr, attrMap); err != nil {
+			return err
+		}
 	}
 
 	for _, agRef := range attrGroups {
 		if ag, ok := c.schema.AttributeGroups[agRef]; ok {
-			c.mergeAttributesFromGroup(ag, attrMap)
+			if err := c.mergeAttributesFromGroup(ag, attrMap); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 // addCompiledAttribute adds a single attribute to the map
-func (c *Compiler) addCompiledAttribute(attr *types.AttributeDecl, attrMap map[types.QName]*grammar.CompiledAttribute) {
+func (c *Compiler) addCompiledAttribute(attr *types.AttributeDecl, attrMap map[types.QName]*grammar.CompiledAttribute) error {
 	effectiveQName := c.effectiveAttributeQName(attr)
 
 	compiled := &grammar.CompiledAttribute{
-		QName:    effectiveQName,
-		Original: attr,
-		Use:      attr.Use,
-		Default:  attr.Default,
-		Fixed:    attr.Fixed,
-		HasFixed: attr.HasFixed,
+		QName:      effectiveQName,
+		Original:   attr,
+		Use:        attr.Use,
+		Default:    attr.Default,
+		HasDefault: attr.HasDefault,
+		Fixed:      attr.Fixed,
+		HasFixed:   attr.HasFixed,
 	}
 
 	// get the type either from the attribute itself or by resolving the reference
@@ -100,23 +118,32 @@ func (c *Compiler) addCompiledAttribute(attr *types.AttributeDecl, attrMap map[t
 				attrType = globalAttr.Type
 			}
 			// also inherit default/fixed from global if not set locally
-			if compiled.Default == "" {
+			if !compiled.HasDefault && globalAttr.HasDefault {
 				compiled.Default = globalAttr.Default
+				compiled.HasDefault = true
+				if attr.DefaultContext == nil && globalAttr.DefaultContext != nil {
+					attr.DefaultContext = maps.Clone(globalAttr.DefaultContext)
+				}
 			}
 			if !compiled.HasFixed && globalAttr.HasFixed {
 				compiled.Fixed = globalAttr.Fixed
 				compiled.HasFixed = globalAttr.HasFixed
+				if attr.FixedContext == nil && globalAttr.FixedContext != nil {
+					attr.FixedContext = maps.Clone(globalAttr.FixedContext)
+				}
 			}
 		}
 	}
 
 	if attrType != nil {
 		attrTypeCompiled, err := c.compileType(attrType.Name(), attrType)
-		if err == nil {
-			compiled.Type = attrTypeCompiled
+		if err != nil {
+			return fmt.Errorf("compile attribute %s: %w", effectiveQName, err)
 		}
+		compiled.Type = attrTypeCompiled
 	}
 	attrMap[effectiveQName] = compiled
+	return nil
 }
 
 // effectiveAttributeQName computes the namespace-qualified name for an attribute
@@ -158,7 +185,7 @@ func (c *Compiler) attributeNamespace(attr *types.AttributeDecl) types.Namespace
 	return ns
 }
 
-func (c *Compiler) mergeAttributesFromGroup(ag *types.AttributeGroup, attrMap map[types.QName]*grammar.CompiledAttribute) {
+func (c *Compiler) mergeAttributesFromGroup(ag *types.AttributeGroup, attrMap map[types.QName]*grammar.CompiledAttribute) error {
 	// iterative approach with work queue
 	// use pointer-based cycle detection since the same QName can refer to different
 	// attribute group instances (redefined vs original in redefine context)
@@ -178,7 +205,9 @@ func (c *Compiler) mergeAttributesFromGroup(ag *types.AttributeGroup, attrMap ma
 			if !shouldIncludeAttribute(attr) {
 				continue
 			}
-			c.addCompiledAttribute(attr, attrMap)
+			if err := c.addCompiledAttribute(attr, attrMap); err != nil {
+				return err
+			}
 		}
 
 		for _, agRef := range current.AttrGroups {
@@ -187,6 +216,7 @@ func (c *Compiler) mergeAttributesFromGroup(ag *types.AttributeGroup, attrMap ma
 			}
 		}
 	}
+	return nil
 }
 
 func (c *Compiler) mergeAnyAttribute(chain []*grammar.CompiledType) *types.AnyAttribute {
@@ -199,7 +229,7 @@ func (c *Compiler) mergeAnyAttribute(chain []*grammar.CompiledType) *types.AnyAt
 		return nil
 	}
 
-	switch c.getDerivationKind(derivedCT) {
+	switch c.getDerivationKind(derivedCT, chain[0]) {
 	case restrictionDerivation:
 		return c.mergeAnyAttributeRestriction(typeAnyAttrs)
 	case extensionDerivation:
@@ -232,7 +262,24 @@ func (c *Compiler) extractDerivedWildcards(chain []*grammar.CompiledType) (*type
 	return origCT, c.collectTypeAnyAttributes(origCT)
 }
 
-func (c *Compiler) getDerivationKind(complexType *types.ComplexType) derivationKind {
+func (c *Compiler) getDerivationKind(complexType *types.ComplexType, compiled *grammar.CompiledType) derivationKind {
+	if compiled != nil {
+		switch compiled.DerivationMethod {
+		case types.DerivationRestriction:
+			return restrictionDerivation
+		case types.DerivationExtension:
+			return extensionDerivation
+		}
+	}
+	if complexType == nil {
+		return unknownDerivation
+	}
+	switch complexType.DerivationMethod {
+	case types.DerivationRestriction:
+		return restrictionDerivation
+	case types.DerivationExtension:
+		return extensionDerivation
+	}
 	if cc, ok := complexType.Content().(*types.ComplexContent); ok {
 		if cc.Restriction != nil {
 			return restrictionDerivation

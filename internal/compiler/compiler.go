@@ -121,14 +121,15 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, sc
 	}
 
 	compiled := &grammar.CompiledElement{
-		QName:    qname,
-		Original: elem,
-		Nillable: elem.Nillable,
-		Abstract: elem.Abstract,
-		Default:  elem.Default,
-		Fixed:    elem.Fixed,
-		HasFixed: elem.HasFixed,
-		Block:    elem.Block,
+		QName:      qname,
+		Original:   elem,
+		Nillable:   elem.Nillable,
+		Abstract:   elem.Abstract,
+		Default:    elem.Default,
+		HasDefault: elem.HasDefault,
+		Fixed:      elem.Fixed,
+		HasFixed:   elem.HasFixed,
+		Block:      elem.Block,
 	}
 	compiled.EffectiveQName = c.effectiveElementQName(compiled)
 
@@ -136,7 +137,7 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, sc
 	// per XSD spec, if element is in a substitution group and has no explicit type,
 	// it inherits the type from the head element
 	typeToCompile := elem.Type
-	if typeToCompile != nil && c.isDefaultAnyType(typeToCompile) && !elem.SubstitutionGroup.IsZero() {
+	if typeToCompile != nil && c.isDefaultAnyType(typeToCompile) && !elem.SubstitutionGroup.IsZero() && !elem.TypeExplicit {
 		// check if we can inherit from substitution group head
 		if headDecl, ok := c.schema.ElementDecls[elem.SubstitutionGroup]; ok && headDecl.Type != nil {
 			typeToCompile = headDecl.Type
@@ -199,12 +200,13 @@ func (c *Compiler) compileTopLevelAttribute(qname types.QName, attr *types.Attri
 	}
 
 	compiled := &grammar.CompiledAttribute{
-		QName:    qname,
-		Original: attr,
-		Use:      attr.Use,
-		Default:  attr.Default,
-		Fixed:    attr.Fixed,
-		HasFixed: attr.HasFixed,
+		QName:      qname,
+		Original:   attr,
+		Use:        attr.Use,
+		Default:    attr.Default,
+		HasDefault: attr.HasDefault,
+		Fixed:      attr.Fixed,
+		HasFixed:   attr.HasFixed,
 	}
 
 	if attr.Type != nil {

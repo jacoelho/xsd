@@ -1,7 +1,9 @@
 package resolver
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemacheck"
@@ -197,7 +199,30 @@ func validateKeyrefConstraints(contextQName types.QName, constraints, allConstra
 // Simple-typed field requirements are enforced during instance validation.
 func validateIdentityConstraintResolution(schema *parser.Schema, constraint *types.IdentityConstraint, decl *types.ElementDecl) error {
 	for i, field := range constraint.Fields {
+		hasUnion := strings.Contains(field.XPath, "|") || strings.Contains(constraint.Selector.XPath, "|")
+		if hasUnion {
+			if _, err := schemacheck.ResolveFieldType(schema, &field, decl, constraint.Selector.XPath, constraint.NamespaceContext); err != nil {
+				if !errors.Is(err, schemacheck.ErrXPathUnresolvable) {
+					return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
+				}
+			}
+		}
 		if constraint.Type == types.KeyConstraint {
+			if hasUnion {
+				elemDecls, err := schemacheck.ResolveFieldElementDecls(schema, &field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
+				if err != nil {
+					if errors.Is(err, schemacheck.ErrXPathUnresolvable) {
+						continue
+					}
+					return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
+				}
+				for _, elemDecl := range elemDecls {
+					if elemDecl != nil && elemDecl.Nillable {
+						return fmt.Errorf("field %d '%s' selects nillable element '%s'", i+1, field.XPath, elemDecl.Name)
+					}
+				}
+				continue
+			}
 			elemDecl, err := schemacheck.ResolveFieldElementDecl(schema, &field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
 			if err == nil && elemDecl != nil && elemDecl.Nillable {
 				return fmt.Errorf("field %d '%s' selects nillable element '%s'", i+1, field.XPath, elemDecl.Name)

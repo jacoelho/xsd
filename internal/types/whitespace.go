@@ -1,6 +1,9 @@
 package types
 
-import "strings"
+import (
+	"iter"
+	"strings"
+)
 
 // WhiteSpace represents whitespace normalization
 type WhiteSpace int
@@ -68,7 +71,7 @@ func replaceWhiteSpace(value string) string {
 	builder.Grow(len(value))
 	for i := 0; i < len(value); i++ {
 		b := value[i]
-		if isXMLWhitespaceByte(b) {
+		if IsXMLWhitespaceByte(b) {
 			builder.WriteByte(' ')
 			continue
 		}
@@ -90,7 +93,7 @@ func collapseWhiteSpace(value string) string {
 	inSpace := true
 	for i := 0; i < len(value); i++ {
 		b := value[i]
-		if isXMLWhitespaceByte(b) {
+		if IsXMLWhitespaceByte(b) {
 			if !inSpace {
 				buf = append(buf, ' ')
 				inSpace = true
@@ -111,7 +114,7 @@ func needsCollapseXML(value string) bool {
 	last := len(value) - 1
 	for i := 0; i < len(value); i++ {
 		b := value[i]
-		if isXMLWhitespaceByte(b) {
+		if IsXMLWhitespaceByte(b) {
 			if b != ' ' || i == 0 || prevSpace || i == last {
 				return true
 			}
@@ -127,10 +130,50 @@ func splitXMLWhitespaceFields(value string) []string {
 	return strings.FieldsFunc(value, isXMLWhitespaceRune)
 }
 
+// TrimXMLWhitespace removes leading and trailing XML whitespace (space, tab, CR, LF).
+func TrimXMLWhitespace(value string) string {
+	start := 0
+	end := len(value)
+	for start < end && IsXMLWhitespaceByte(value[start]) {
+		start++
+	}
+	for end > start && IsXMLWhitespaceByte(value[end-1]) {
+		end--
+	}
+	if start == 0 && end == len(value) {
+		return value
+	}
+	return value[start:end]
+}
+
+// FieldsXMLWhitespaceSeq yields fields split on XML whitespace (space, tab, CR, LF).
+// It is equivalent to strings.FieldsSeq for XML whitespace only.
+func FieldsXMLWhitespaceSeq(value string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		i := 0
+		for i < len(value) {
+			for i < len(value) && IsXMLWhitespaceByte(value[i]) {
+				i++
+			}
+			if i >= len(value) {
+				return
+			}
+			start := i
+			for i < len(value) && !IsXMLWhitespaceByte(value[i]) {
+				i++
+			}
+			if !yield(value[start:i]) {
+				return
+			}
+		}
+	}
+}
+
 func isXMLWhitespaceRune(r rune) bool {
 	return r == ' ' || r == '\t' || r == '\n' || r == '\r'
 }
 
-func isXMLWhitespaceByte(b byte) bool {
+// IsXMLWhitespaceByte reports whether the byte is XML whitespace.
+func IsXMLWhitespaceByte(b byte) bool {
 	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
 }

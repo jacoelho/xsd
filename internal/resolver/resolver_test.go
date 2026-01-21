@@ -171,6 +171,132 @@ func TestValidateReferencesCyclicSubstitutionGroups(t *testing.T) {
 	requireReferenceErrorContains(t, schema, "cyclic substitution group")
 }
 
+func TestValidateReferencesSubstitutionGroupExplicitAnyType(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test">
+  <xs:element name="head" type="xs:string" abstract="true"/>
+  <xs:element name="member" type="xs:anyType" substitutionGroup="tns:head"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	res := NewResolver(schema)
+	if err := res.Resolve(); err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	requireReferenceErrorContains(t, schema, "not derived from substitution group head type")
+}
+
+func TestValidateReferencesListDefaultRejectsNonXMLWhitespace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:list"
+           xmlns:tns="urn:list">
+  <xs:simpleType name="listType">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:listType" default="1` + "\u00A0" + `2"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	res := NewResolver(schema)
+	if err := res.Resolve(); err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	requireReferenceErrorContains(t, schema, "invalid default value")
+}
+
+func TestValidateReferencesDefaultFacetViolations(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema string
+	}{
+		{
+			name: "enumeration",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:enum"
+           xmlns:tns="urn:enum">
+  <xs:simpleType name="EnumType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="A"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:EnumType" default="B"/>
+</xs:schema>`,
+		},
+		{
+			name: "list minLength",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:listmin"
+           xmlns:tns="urn:listmin">
+  <xs:simpleType name="IntList">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="IntListMin2">
+    <xs:restriction base="tns:IntList">
+      <xs:minLength value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:IntListMin2" default="1"/>
+</xs:schema>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			schema, err := parser.Parse(strings.NewReader(tt.schema))
+			if err != nil {
+				t.Fatalf("parse schema: %v", err)
+			}
+			res := NewResolver(schema)
+			if err := res.Resolve(); err != nil {
+				t.Fatalf("resolve schema: %v", err)
+			}
+			requireReferenceErrorContains(t, schema, "invalid default value")
+		})
+	}
+}
+
+func TestValidateReferencesUnionFieldIncompatibleTypesAllowed(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:union"
+           xmlns:tns="urn:union"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:int"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="unionKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="tns:a | tns:b"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	res := NewResolver(schema)
+	if err := res.Resolve(); err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	requireNoReferenceErrors(t, schema)
+}
+
 func TestValidateReferencesDuplicateIdentityConstraints(t *testing.T) {
 	schema := resolveW3CSchema(t, "sunData/IdConstrDefs/name/name00101m/name00101m2.xsd")
 	requireReferenceErrorContains(t, schema, "not unique")

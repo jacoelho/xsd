@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
@@ -18,6 +19,7 @@ func parseBoolAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, name string) (
 }
 
 func parseBoolValue(name, value string) (bool, error) {
+	value = types.ApplyWhiteSpace(value, types.WhiteSpaceCollapse)
 	switch value {
 	case "true", "1":
 		return true, nil

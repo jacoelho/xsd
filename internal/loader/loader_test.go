@@ -124,6 +124,41 @@ func TestLoader_MutualImport(t *testing.T) {
 	}
 }
 
+func TestLoader_MutualImportEmptyNamespace(t *testing.T) {
+	testFS := fstest.MapFS{
+		"schemaA.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import namespace="urn:ns" schemaLocation="schemaB.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`),
+		},
+		"schemaB.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:ns"
+           xmlns:tns="urn:ns"
+           elementFormDefault="qualified">
+  <xs:import namespace="" schemaLocation="schemaA.xsd"/>
+  <xs:element name="child" type="xs:string"/>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	schema, err := loader.Load("schemaA.xsd")
+	if err != nil {
+		t.Fatalf("Load() should succeed for mutual imports across empty namespace, got error: %v", err)
+	}
+
+	if schema.TargetNamespace != "" {
+		t.Fatalf("TargetNamespace = %q, want empty", schema.TargetNamespace)
+	}
+}
+
 func TestLoader_MutualImportSameBasename(t *testing.T) {
 	testFS := fstest.MapFS{
 		"a/common.xsd": &fstest.MapFile{
@@ -1269,6 +1304,75 @@ func TestLoader_ImportNoTargetNamespaceWithNamespaceAttr(t *testing.T) {
 	}
 	if _, ok := schema.ElementDecls[commonQName]; !ok {
 		t.Error("element 'common' from imported schema not found")
+	}
+}
+
+func TestLoader_ImportWithoutNamespaceRejectsNamespacedSchema(t *testing.T) {
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main"
+           xmlns:tns="urn:main"
+           elementFormDefault="qualified">
+  <xs:import schemaLocation="imported.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`),
+		},
+		"imported.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:other"
+           elementFormDefault="qualified">
+  <xs:element name="common" type="xs:string"/>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	_, err := loader.Load("main.xsd")
+	if err == nil {
+		t.Fatal("Load() should return error for import without namespace of namespaced schema")
+	}
+	if !strings.Contains(err.Error(), "expected no namespace") {
+		t.Fatalf("error should mention no-namespace import mismatch, got: %v", err)
+	}
+}
+
+func TestLoader_ImportWithoutNamespaceAcceptsNoNamespaceSchema(t *testing.T) {
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main"
+           xmlns:tns="urn:main"
+           elementFormDefault="qualified">
+  <xs:import schemaLocation="imported.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`),
+		},
+		"imported.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+  <xs:element name="common" type="xs:string"/>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	schema, err := loader.Load("main.xsd")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if _, ok := schema.ElementDecls[types.QName{Namespace: "", Local: "common"}]; !ok {
+		t.Error("element 'common' from imported no-namespace schema not found")
 	}
 }
 

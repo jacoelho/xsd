@@ -209,9 +209,9 @@ func (d *Document) findAttribute(id NodeID, match func(Attr) bool) (Attr, bool) 
 	return Attr{}, false
 }
 
-// GetAttribute returns the value of a local attribute name.
+// GetAttribute returns the value of an unqualified attribute name.
 func (d *Document) GetAttribute(id NodeID, name string) string {
-	if attr, ok := d.findAttribute(id, func(a Attr) bool { return a.local == name }); ok {
+	if attr, ok := d.findAttribute(id, func(a Attr) bool { return a.namespace == "" && a.local == name }); ok {
 		return attr.value
 	}
 	return ""
@@ -225,9 +225,9 @@ func (d *Document) GetAttributeNS(id NodeID, ns, local string) string {
 	return ""
 }
 
-// HasAttribute reports whether the element has a local attribute name.
+// HasAttribute reports whether the element has an unqualified attribute name.
 func (d *Document) HasAttribute(id NodeID, name string) bool {
-	_, ok := d.findAttribute(id, func(a Attr) bool { return a.local == name })
+	_, ok := d.findAttribute(id, func(a Attr) bool { return a.namespace == "" && a.local == name })
 	return ok
 }
 

@@ -12,13 +12,7 @@ import (
 func lookupType(schema *parser.Schema, qname types.QName) (types.Type, error) {
 	if builtinType := types.GetBuiltinNS(qname.Namespace, qname.Local); builtinType != nil {
 		if qname.Local == "anyType" {
-			// anyType is a complex type
-			ct := &types.ComplexType{
-				QName: qname,
-			}
-			ct.SetContent(&types.EmptyContent{})
-			ct.SetMixed(false)
-			return ct, nil
+			return types.NewAnyTypeComplexType(), nil
 		}
 		return builtinType, nil
 	}

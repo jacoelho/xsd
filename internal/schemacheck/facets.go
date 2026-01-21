@@ -3,8 +3,7 @@ package schemacheck
 import (
 	"errors"
 	"fmt"
-	"math/big"
-	"regexp"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -72,7 +71,7 @@ func validateFacetConstraints(facetList []types.Facet, baseType types.Type, base
 		return err
 	}
 
-	if err := validateRangeFacets(state.minExclusive, state.maxExclusive, state.minInclusive, state.maxInclusive, baseTypeName, bt); err != nil {
+	if err := validateRangeFacets(state.minExclusive, state.maxExclusive, state.minInclusive, state.maxInclusive, baseType, baseQName); err != nil {
 		return err
 	}
 
@@ -233,6 +232,20 @@ func isNumericTypeName(typeName string) bool {
 	return slices.Contains(numericTypes, typeName)
 }
 
+func isDurationType(baseType types.Type, baseQName types.QName) bool {
+	if baseQName.Namespace == types.XSDNamespace && baseQName.Local == "duration" {
+		return true
+	}
+	if baseType == nil {
+		return false
+	}
+	primitive := baseType.PrimitiveType()
+	if primitive == nil {
+		return false
+	}
+	return primitive.Name().Namespace == types.XSDNamespace && primitive.Name().Local == "duration"
+}
+
 // isIntegerTypeName checks if a type name represents an integer-derived type
 // Integer types are derived from decimal with fractionDigits=0 fixed
 func isIntegerTypeName(typeName string) bool {
@@ -319,12 +332,17 @@ func validateEnumerationValues(facetList []types.Facet, baseType types.Type) err
 			if itemType == nil && st.List != nil && st.List.InlineItemType != nil {
 				itemType = st.List.InlineItemType
 			}
+			if itemType == nil && st.List != nil && !st.List.ItemType.IsZero() {
+				if st.List.ItemType.Namespace == types.XSDNamespace {
+					itemType = types.GetBuiltinNS(st.List.ItemType.Namespace, st.List.ItemType.Local)
+				}
+			}
 			if itemType == nil {
 				return nil
 			}
 			for _, enumVal := range enumValues {
 				found := false
-				for item := range strings.FieldsSeq(enumVal) {
+				for item := range types.FieldsXMLWhitespaceSeq(enumVal) {
 					found = true
 					if err := validateListItemValue(itemType, item); err != nil {
 						return fmt.Errorf("enumeration value %q contains invalid list item %q: %w", enumVal, item, err)
@@ -355,7 +373,7 @@ func validateEnumerationValues(facetList []types.Facet, baseType types.Type) err
 			}
 			for _, enumVal := range enumValues {
 				found := false
-				for item := range strings.FieldsSeq(enumVal) {
+				for item := range types.FieldsXMLWhitespaceSeq(enumVal) {
 					found = true
 					if err := validateListItemValue(itemType, item); err != nil {
 						return fmt.Errorf("enumeration value %q contains invalid list item %q: %w", enumVal, item, err)
@@ -766,25 +784,40 @@ func compareFacetValues(val1, val2 string, baseType types.Type) (int, error) {
 	// check if it's a numeric type by checking the primitive type name
 	if st, ok := primitiveType.(*types.SimpleType); ok {
 		typeName := st.QName.Local
-		if typeName == "duration" {
+		switch typeName {
+		case "duration":
 			return compareDurationValues(val1, val2)
+		case "float":
+			return compareFloatFacetValues(val1, val2)
+		case "double":
+			return compareDoubleFacetValues(val1, val2)
 		}
 		if isNumericTypeName(typeName) {
 			return compareNumericFacetValues(val1, val2)
 		}
-		if facets := st.FundamentalFacets(); facets != nil && facets.Numeric {
-			return compareNumericFacetValues(val1, val2)
-		}
-		// for date/time, use timezone-aware comparison.
-		if facets := st.FundamentalFacets(); facets != nil && facets.Ordered == types.OrderedTotal {
+		if facets := st.FundamentalFacets(); facets != nil {
+			if facets.Numeric {
+				return compareNumericFacetValues(val1, val2)
+			}
+			// for date/time, use timezone-aware comparison.
 			if isDateTimeTypeName(typeName) {
 				return compareDateTimeValues(val1, val2, typeName)
 			}
-			return strings.Compare(val1, val2), nil
+			if facets.Ordered == types.OrderedTotal {
+				return strings.Compare(val1, val2), nil
+			}
 		}
 	}
 	if bt, ok := primitiveType.(*types.BuiltinType); ok {
 		typeName := bt.Name().Local
+		switch typeName {
+		case "duration":
+			return compareDurationValues(val1, val2)
+		case "float":
+			return compareFloatFacetValues(val1, val2)
+		case "double":
+			return compareDoubleFacetValues(val1, val2)
+		}
 		if isDateTimeTypeName(typeName) {
 			return compareDateTimeValues(val1, val2, typeName)
 		}
@@ -812,12 +845,52 @@ func compareFacetValues(val1, val2 string, baseType types.Type) (int, error) {
 
 // compareNumericFacetValues compares two numeric facet values
 func compareNumericFacetValues(val1, val2 string) (int, error) {
-	d1, _, err1 := big.ParseFloat(val1, 10, 256, big.ToNearestEven)
-	d2, _, err2 := big.ParseFloat(val2, 10, 256, big.ToNearestEven)
-	if err1 != nil || err2 != nil {
-		return 0, fmt.Errorf("invalid numeric values: %s, %s", val1, val2)
+	d1, err := types.ParseDecimal(val1)
+	if err != nil {
+		return 0, err
+	}
+	d2, err := types.ParseDecimal(val2)
+	if err != nil {
+		return 0, err
 	}
 	return d1.Cmp(d2), nil
+}
+
+func compareFloatFacetValues(val1, val2 string) (int, error) {
+	f1, err := types.ParseFloat(val1)
+	if err != nil {
+		return 0, err
+	}
+	f2, err := types.ParseFloat(val2)
+	if err != nil {
+		return 0, err
+	}
+	return compareFloatValues(float64(f1), float64(f2)), nil
+}
+
+func compareDoubleFacetValues(val1, val2 string) (int, error) {
+	f1, err := types.ParseDouble(val1)
+	if err != nil {
+		return 0, err
+	}
+	f2, err := types.ParseDouble(val2)
+	if err != nil {
+		return 0, err
+	}
+	return compareFloatValues(f1, f2), nil
+}
+
+func compareFloatValues(v1, v2 float64) int {
+	if math.IsNaN(v1) || math.IsNaN(v2) {
+		return 0
+	}
+	if v1 < v2 {
+		return -1
+	}
+	if v1 > v2 {
+		return 1
+	}
+	return 0
 }
 
 func stringPtr(val string) *string {
@@ -828,8 +901,8 @@ var errDateTimeNotComparable = errors.New("date/time values are not comparable")
 var errDurationNotComparable = errors.New("duration values are not comparable")
 
 // validateRangeFacets validates consistency of range facets
-func validateRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseTypeName string, bt *types.BuiltinType) error {
-	if baseTypeName == "duration" {
+func validateRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseType types.Type, baseQName types.QName) error {
+	if isDurationType(baseType, baseQName) {
 		return validateDurationRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive)
 	}
 	// per XSD spec: maxInclusive and maxExclusive cannot both be present
@@ -842,65 +915,63 @@ func validateRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive 
 		return fmt.Errorf("minInclusive and minExclusive cannot both be specified")
 	}
 
-	// minExclusive > maxInclusive is invalid
-	if minExclusive != nil && maxInclusive != nil {
-		if err := compareRangeValues(baseTypeName, bt); err == nil {
-			// values are comparable, check if minExclusive >= maxInclusive
-			if compareNumericOrString(*minExclusive, *maxInclusive, baseTypeName, bt) >= 0 {
-				return fmt.Errorf("minExclusive (%s) must be < maxInclusive (%s)", *minExclusive, *maxInclusive)
-			}
+	baseTypeForCompare := baseType
+	if baseTypeForCompare == nil {
+		if bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local); bt != nil {
+			baseTypeForCompare = bt
 		}
 	}
 
-	// minExclusive >= maxExclusive is invalid
+	compare := func(v1, v2 string) (int, bool, error) {
+		if baseTypeForCompare == nil {
+			return 0, false, nil
+		}
+		if facets := baseTypeForCompare.FundamentalFacets(); facets != nil && facets.Ordered == types.OrderedNone {
+			return 0, false, nil
+		}
+		cmp, err := compareFacetValues(v1, v2, baseTypeForCompare)
+		if errors.Is(err, errDateTimeNotComparable) || errors.Is(err, errDurationNotComparable) {
+			return 0, false, nil
+		}
+		if err != nil {
+			return 0, false, err
+		}
+		return cmp, true, nil
+	}
+
+	if minExclusive != nil && maxInclusive != nil {
+		if cmp, ok, err := compare(*minExclusive, *maxInclusive); err != nil {
+			return fmt.Errorf("minExclusive/maxInclusive: %w", err)
+		} else if ok && cmp >= 0 {
+			return fmt.Errorf("minExclusive (%s) must be < maxInclusive (%s)", *minExclusive, *maxInclusive)
+		}
+	}
 	if minExclusive != nil && maxExclusive != nil {
-		err := compareRangeValues(baseTypeName, bt)
-		if err == nil {
-			if compareNumericOrString(*minExclusive, *maxExclusive, baseTypeName, bt) >= 0 {
-				return fmt.Errorf("minExclusive (%s) must be < maxExclusive (%s)", *minExclusive, *maxExclusive)
-			}
-		} else {
-			// if compareRangeValues failed (e.g., bt is nil), try comparison anyway for known types
-			if isDateTimeTypeName(baseTypeName) || isNumericTypeName(baseTypeName) {
-				if compareNumericOrString(*minExclusive, *maxExclusive, baseTypeName, bt) >= 0 {
-					return fmt.Errorf("minExclusive (%s) must be < maxExclusive (%s)", *minExclusive, *maxExclusive)
-				}
-			}
+		if cmp, ok, err := compare(*minExclusive, *maxExclusive); err != nil {
+			return fmt.Errorf("minExclusive/maxExclusive: %w", err)
+		} else if ok && cmp >= 0 {
+			return fmt.Errorf("minExclusive (%s) must be < maxExclusive (%s)", *minExclusive, *maxExclusive)
 		}
 	}
-
-	// minInclusive > maxInclusive is invalid
 	if minInclusive != nil && maxInclusive != nil {
-		err := compareRangeValues(baseTypeName, bt)
-		if err == nil {
-			if compareNumericOrString(*minInclusive, *maxInclusive, baseTypeName, bt) > 0 {
-				return fmt.Errorf("minInclusive (%s) must be <= maxInclusive (%s)", *minInclusive, *maxInclusive)
-			}
-		} else {
-			// if compareRangeValues failed (e.g., bt is nil), try comparison anyway for known types
-			if isDateTimeTypeName(baseTypeName) || isNumericTypeName(baseTypeName) {
-				if compareNumericOrString(*minInclusive, *maxInclusive, baseTypeName, bt) > 0 {
-					return fmt.Errorf("minInclusive (%s) must be <= maxInclusive (%s)", *minInclusive, *maxInclusive)
-				}
-			}
+		if cmp, ok, err := compare(*minInclusive, *maxInclusive); err != nil {
+			return fmt.Errorf("minInclusive/maxInclusive: %w", err)
+		} else if ok && cmp > 0 {
+			return fmt.Errorf("minInclusive (%s) must be <= maxInclusive (%s)", *minInclusive, *maxInclusive)
 		}
 	}
-
-	// minInclusive >= maxExclusive is invalid
 	if minInclusive != nil && maxExclusive != nil {
-		if err := compareRangeValues(baseTypeName, bt); err == nil {
-			if compareNumericOrString(*minInclusive, *maxExclusive, baseTypeName, bt) >= 0 {
-				return fmt.Errorf("minInclusive (%s) must be < maxExclusive (%s)", *minInclusive, *maxExclusive)
-			}
+		if cmp, ok, err := compare(*minInclusive, *maxExclusive); err != nil {
+			return fmt.Errorf("minInclusive/maxExclusive: %w", err)
+		} else if ok && cmp >= 0 {
+			return fmt.Errorf("minInclusive (%s) must be < maxExclusive (%s)", *minInclusive, *maxExclusive)
 		}
 	}
-
-	// minExclusive >= maxInclusive is invalid (already checked above, but also check with inclusive)
 	if minExclusive != nil && maxInclusive != nil {
-		if err := compareRangeValues(baseTypeName, bt); err == nil {
-			if compareNumericOrString(*minExclusive, *maxInclusive, baseTypeName, bt) >= 0 {
-				return fmt.Errorf("minExclusive (%s) must be < maxInclusive (%s)", *minExclusive, *maxInclusive)
-			}
+		if cmp, ok, err := compare(*minExclusive, *maxInclusive); err != nil {
+			return fmt.Errorf("minExclusive/maxInclusive: %w", err)
+		} else if ok && cmp >= 0 {
+			return fmt.Errorf("minExclusive (%s) must be < maxInclusive (%s)", *minExclusive, *maxInclusive)
 		}
 	}
 
@@ -1015,7 +1086,7 @@ func validateRangeFacetValues(minExclusive, maxExclusive, minInclusive, maxInclu
 		switch whiteSpace {
 		case types.WhiteSpaceCollapse:
 			// collapse: replace sequences of whitespace with single space, trim leading/trailing
-			val = strings.TrimSpace(val)
+			val = types.TrimXMLWhitespace(val)
 			// replace multiple whitespace with single space
 			return joinFields(val)
 		case types.WhiteSpaceReplace:
@@ -1062,7 +1133,7 @@ func validateRangeFacetValues(minExclusive, maxExclusive, minInclusive, maxInclu
 func joinFields(value string) string {
 	var b strings.Builder
 	first := true
-	for field := range strings.FieldsSeq(value) {
+	for field := range types.FieldsXMLWhitespaceSeq(value) {
 		if !first {
 			b.WriteByte(' ')
 		}
@@ -1093,93 +1164,6 @@ func findBuiltinAncestor(t types.Type) *types.BuiltinType {
 		current = current.BaseType()
 	}
 	return nil
-}
-
-// compareRangeValues returns an error if range values cannot be compared for the base type.
-func compareRangeValues(baseTypeName string, bt *types.BuiltinType) error {
-	if baseTypeName == "duration" {
-		return nil
-	}
-	if bt == nil || !bt.Ordered() {
-		return fmt.Errorf("cannot compare values for non-ordered type")
-	}
-	return nil
-}
-
-// compareNumericOrString compares two values, returning -1, 0, or 1
-func compareNumericOrString(v1, v2, baseTypeName string, bt *types.BuiltinType) int {
-	// if bt is nil, try to compare anyway if it's a known date/time or numeric type
-	if bt == nil {
-		if baseTypeName == "duration" {
-			if cmp, err := compareDurationValues(v1, v2); err == nil {
-				return cmp
-			}
-			return 0
-		}
-		// for date/time types, we can still compare using string comparison
-		if isDateTimeTypeName(baseTypeName) {
-			if cmp, err := compareDateTimeValues(v1, v2, baseTypeName); err == nil {
-				return cmp
-			}
-			return 0
-		}
-		// for numeric types, try parsing
-		if isNumericTypeName(baseTypeName) {
-			val1, err1 := strconv.ParseFloat(v1, 64)
-			val2, err2 := strconv.ParseFloat(v2, 64)
-			if err1 == nil && err2 == nil {
-				if val1 < val2 {
-					return -1
-				}
-				if val1 > val2 {
-					return 1
-				}
-				return 0
-			}
-		}
-		return 0 // can't compare without type info
-	}
-
-	if !bt.Ordered() {
-		return 0 // can't compare
-	}
-
-	// try numeric comparison first
-	if isNumericTypeName(baseTypeName) {
-		val1, err1 := strconv.ParseFloat(v1, 64)
-		val2, err2 := strconv.ParseFloat(v2, 64)
-		if err1 == nil && err2 == nil {
-			if val1 < val2 {
-				return -1
-			}
-			if val1 > val2 {
-				return 1
-			}
-			return 0
-		}
-	}
-
-	if baseTypeName == "duration" {
-		if cmp, err := compareDurationValues(v1, v2); err == nil {
-			return cmp
-		}
-	}
-
-	// for date/time types, try to parse and compare as dates
-	if isDateTimeTypeName(baseTypeName) {
-		if result, err := compareDateTimeValues(v1, v2, baseTypeName); err == nil && result != 0 {
-			return result
-		}
-	}
-
-	// fall back to string comparison
-	if v1 < v2 {
-		return -1
-	}
-	if v1 > v2 {
-		return 1
-	}
-	return 0
 }
 
 // compareDateTimeValues compares two date/time values, returning -1, 0, or 1
@@ -1344,91 +1328,17 @@ func parseXSDTime(value string) (time.Time, bool, error) {
 }
 
 func compareDurationValues(v1, v2 string) (int, error) {
-	months1, seconds1, err := parseDurationParts(v1)
+	left, err := types.ParseXSDDuration(v1)
 	if err != nil {
 		return 0, err
 	}
-	months2, seconds2, err := parseDurationParts(v2)
+	right, err := types.ParseXSDDuration(v2)
 	if err != nil {
 		return 0, err
 	}
-
-	if months1 == months2 && seconds1 == seconds2 {
-		return 0, nil
+	cmp, err := types.ComparableXSDDuration{Value: left}.Compare(types.ComparableXSDDuration{Value: right})
+	if err != nil {
+		return 0, errDurationNotComparable
 	}
-	if months1 <= months2 && seconds1 <= seconds2 {
-		return -1, nil
-	}
-	if months1 >= months2 && seconds1 >= seconds2 {
-		return 1, nil
-	}
-	return 0, errDurationNotComparable
-}
-
-func parseDurationParts(value string) (int, float64, error) {
-	if value == "" {
-		return 0, 0, fmt.Errorf("empty duration")
-	}
-
-	negative := value[0] == '-'
-	if negative {
-		value = value[1:]
-	}
-	if value == "" || value[0] != 'P' {
-		return 0, 0, fmt.Errorf("duration must start with P")
-	}
-	value = value[1:]
-
-	var years, months, days, hours, minutes int
-	var seconds float64
-
-	datePart := value
-	timePart := ""
-	if before, after, ok := strings.Cut(value, "T"); ok {
-		datePart = before
-		timePart = after
-		if extra := strings.IndexByte(timePart, 'T'); extra != -1 {
-			timePart = timePart[:extra]
-		}
-	}
-
-	datePattern := regexp.MustCompile(`([0-9]+)Y|([0-9]+)M|([0-9]+)D`)
-	matches := datePattern.FindAllStringSubmatch(datePart, -1)
-	for _, match := range matches {
-		if match[1] != "" {
-			years, _ = strconv.Atoi(match[1])
-		}
-		if match[2] != "" {
-			months, _ = strconv.Atoi(match[2])
-		}
-		if match[3] != "" {
-			days, _ = strconv.Atoi(match[3])
-		}
-	}
-
-	if timePart != "" {
-		timePattern := regexp.MustCompile(`([0-9]+)H|([0-9]+)M|([0-9]+(?:\.[0-9]+)?)S`)
-		matches = timePattern.FindAllStringSubmatch(timePart, -1)
-		for _, match := range matches {
-			if match[1] != "" {
-				hours, _ = strconv.Atoi(match[1])
-			}
-			if match[2] != "" {
-				minutes, _ = strconv.Atoi(match[2])
-			}
-			if match[3] != "" {
-				seconds, _ = strconv.ParseFloat(match[3], 64)
-			}
-		}
-	}
-
-	totalMonths := years*12 + months
-	totalSeconds := float64(days*24*60*60+hours*60*60+minutes*60) + seconds
-
-	if negative {
-		totalMonths = -totalMonths
-		totalSeconds = -totalSeconds
-	}
-
-	return totalMonths, totalSeconds, nil
+	return cmp, nil
 }

@@ -132,6 +132,59 @@ func NewDecimalValue(parsed ParsedValue[*big.Rat], typ *SimpleType) TypedValue {
 	return &DecimalValue{simpleValue: newSimpleValue(parsed, typ, nil)}
 }
 
+func (v *DecimalValue) String() string {
+	return canonicalDecimalString(v.lexical)
+}
+
+func canonicalDecimalString(lexical string) string {
+	s := TrimXMLWhitespace(lexical)
+	if s == "" {
+		return s
+	}
+	sign := ""
+	switch s[0] {
+	case '+':
+		s = s[1:]
+	case '-':
+		sign = "-"
+		s = s[1:]
+	}
+
+	intPart := s
+	fracPart := ""
+	if dot := strings.IndexByte(s, '.'); dot >= 0 {
+		intPart = s[:dot]
+		fracPart = s[dot+1:]
+	}
+
+	intPart = strings.TrimLeft(intPart, "0")
+	if intPart == "" {
+		intPart = "0"
+	}
+
+	fracPart = strings.TrimRight(fracPart, "0")
+	if fracPart == "" {
+		fracPart = "0"
+	}
+
+	if isAllZeros(intPart) && isAllZeros(fracPart) {
+		sign = ""
+		intPart = "0"
+		fracPart = "0"
+	}
+
+	return sign + intPart + "." + fracPart
+}
+
+func isAllZeros(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] != '0' {
+			return false
+		}
+	}
+	return true
+}
+
 // IntegerValue represents an integer value
 type IntegerValue struct {
 	simpleValue[*big.Int]
@@ -176,6 +229,10 @@ func NewFloatValue(parsed ParsedValue[float32], typ *SimpleType) TypedValue {
 	return &FloatValue{simpleValue: newSimpleValue(parsed, typ, nil)}
 }
 
+func (v *FloatValue) String() string {
+	return canonicalFloat(float64(v.native), 32)
+}
+
 // DoubleValue represents a double value
 type DoubleValue struct {
 	simpleValue[float64]
@@ -184,6 +241,49 @@ type DoubleValue struct {
 // NewDoubleValue creates a new DoubleValue
 func NewDoubleValue(parsed ParsedValue[float64], typ *SimpleType) TypedValue {
 	return &DoubleValue{simpleValue: newSimpleValue(parsed, typ, nil)}
+}
+
+func (v *DoubleValue) String() string {
+	return canonicalFloat(v.native, 64)
+}
+
+func canonicalFloat(value float64, bits int) string {
+	if math.IsNaN(value) {
+		return "NaN"
+	}
+	if math.IsInf(value, 1) {
+		return "INF"
+	}
+	if math.IsInf(value, -1) {
+		return "-INF"
+	}
+	if value == 0 {
+		return "0.0E0"
+	}
+	raw := strconv.FormatFloat(value, 'E', -1, bits)
+	parts := strings.SplitN(raw, "E", 2)
+	mantissa := parts[0]
+	exponent := "0"
+	if len(parts) == 2 {
+		exponent = parts[1]
+	}
+
+	if !strings.Contains(mantissa, ".") {
+		mantissa += ".0"
+	}
+	if dot := strings.IndexByte(mantissa, '.'); dot >= 0 {
+		i := len(mantissa) - 1
+		for i > dot+1 && mantissa[i] == '0' {
+			i--
+		}
+		mantissa = mantissa[:i+1]
+	}
+
+	expVal, err := strconv.Atoi(exponent)
+	if err != nil {
+		return mantissa + "E" + exponent
+	}
+	return mantissa + "E" + strconv.Itoa(expVal)
 }
 
 // StringValue represents a string value
@@ -280,6 +380,9 @@ func NewUnsignedByteValue(parsed ParsedValue[uint8], typ *SimpleType) TypedValue
 // Returns an error if the value type doesn't match the requested type.
 func ValueAs[T any](value TypedValue) (T, error) {
 	var zero T
+	if value == nil {
+		return zero, fmt.Errorf("cannot convert nil value")
+	}
 	native := value.Native()
 
 	// for Comparable wrapper types, extract the inner value
@@ -294,11 +397,9 @@ func ValueAs[T any](value TypedValue) (T, error) {
 	}
 
 	// get XSD type name for user-friendly error message
-	var xsdTypeName string
-	if value != nil && value.Type() != nil {
-		xsdTypeName = value.Type().Name().Local
-	} else {
-		xsdTypeName = "unknown"
+	xsdTypeName := "unknown"
+	if typ := value.Type(); typ != nil {
+		xsdTypeName = typ.Name().Local
 	}
 	return zero, fmt.Errorf("cannot convert value of type %s", xsdTypeName)
 }
@@ -402,8 +503,11 @@ func (c ComparableBigInt) Unwrap() any {
 type ComparableTime struct {
 	Value time.Time
 	// XSD type this value represents
-	Typ Type
+	Typ         Type
+	HasTimezone bool
 }
+
+var errIndeterminateTimeComparison = errors.New("time comparison indeterminate")
 
 // Compare compares with another ComparableValue (implements ComparableValue)
 func (c ComparableTime) Compare(other ComparableValue) (int, error) {
@@ -411,18 +515,45 @@ func (c ComparableTime) Compare(other ComparableValue) (int, error) {
 	if !ok {
 		return 0, fmt.Errorf("cannot compare ComparableTime with %T", other)
 	}
-	if c.Value.Before(otherTime.Value) {
-		return -1, nil
+	if c.HasTimezone == otherTime.HasTimezone {
+		if c.Value.Before(otherTime.Value) {
+			return -1, nil
+		}
+		if c.Value.After(otherTime.Value) {
+			return 1, nil
+		}
+		return 0, nil
 	}
-	if c.Value.After(otherTime.Value) {
-		return 1, nil
+	if c.HasTimezone {
+		return compareTimezonedToLocal(c.Value, otherTime.Value)
 	}
-	return 0, nil
+	cmp, err := compareTimezonedToLocal(otherTime.Value, c.Value)
+	if err != nil {
+		return 0, err
+	}
+	return -cmp, nil
 }
 
 // String returns the string representation (implements ComparableValue)
 func (c ComparableTime) String() string {
-	return c.Value.Format(time.RFC3339Nano)
+	if c.HasTimezone {
+		return c.Value.Format(time.RFC3339Nano)
+	}
+	return c.Value.Format("2006-01-02T15:04:05.999999999")
+}
+
+func compareTimezonedToLocal(timezoned, local time.Time) (int, error) {
+	tzUTC := timezoned.UTC()
+	localUTC := local.UTC()
+	localPlus14 := localUTC.Add(-14 * time.Hour)
+	localMinus14 := localUTC.Add(14 * time.Hour)
+	if tzUTC.Before(localPlus14) {
+		return -1, nil
+	}
+	if tzUTC.After(localMinus14) {
+		return 1, nil
+	}
+	return 0, errIndeterminateTimeComparison
 }
 
 // Type returns the XSD type (implements ComparableValue)
@@ -1141,9 +1272,12 @@ func (c ComparableXSDDuration) Unwrap() any {
 // ParseDecimal parses a decimal string into *big.Rat
 // Handles leading/trailing whitespace and validates decimal format
 func ParseDecimal(lexical string) (*big.Rat, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return nil, fmt.Errorf("invalid decimal: empty string")
+	}
+	if !isValidDecimalLexical(lexical) {
+		return nil, fmt.Errorf("invalid decimal: %s", lexical)
 	}
 
 	rat := new(big.Rat)
@@ -1153,10 +1287,40 @@ func ParseDecimal(lexical string) (*big.Rat, error) {
 	return rat, nil
 }
 
+func isValidDecimalLexical(lexical string) bool {
+	if lexical == "" {
+		return false
+	}
+	i := 0
+	if lexical[0] == '+' || lexical[0] == '-' {
+		i++
+	}
+	if i >= len(lexical) {
+		return false
+	}
+	sawDigit := false
+	sawDot := false
+	for ; i < len(lexical); i++ {
+		ch := lexical[i]
+		switch {
+		case ch >= '0' && ch <= '9':
+			sawDigit = true
+		case ch == '.':
+			if sawDot {
+				return false
+			}
+			sawDot = true
+		default:
+			return false
+		}
+	}
+	return sawDigit
+}
+
 // ParseInteger parses an integer string into *big.Int
 // Handles leading/trailing whitespace and validates integer format
 func ParseInteger(lexical string) (*big.Int, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return nil, fmt.Errorf("invalid integer: empty string")
 	}
@@ -1171,7 +1335,7 @@ func ParseInteger(lexical string) (*big.Int, error) {
 // ParseBoolean parses a boolean string into bool
 // Accepts "true", "false", "1", "0" (XSD boolean lexical representation)
 func ParseBoolean(lexical string) (bool, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	switch lexical {
 	case "true", "1":
 		return true, nil
@@ -1185,7 +1349,7 @@ func ParseBoolean(lexical string) (bool, error) {
 // ParseFloat parses a float string into float32 with special value handling
 // Handles INF, -INF, and NaN special values
 func ParseFloat(lexical string) (float32, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid float: empty string")
 	}
@@ -1211,7 +1375,7 @@ func ParseFloat(lexical string) (float32, error) {
 // ParseDouble parses a double string into float64 with special value handling
 // Handles INF, -INF, and NaN special values
 func ParseDouble(lexical string) (float64, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid double: empty string")
 	}
@@ -1237,7 +1401,7 @@ func ParseDouble(lexical string) (float64, error) {
 // ParseDateTime parses a dateTime string into time.Time
 // Supports various ISO 8601 formats with and without timezone
 func ParseDateTime(lexical string) (time.Time, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if err := validateYearPrefix(lexical, "dateTime"); err != nil {
 		return time.Time{}, err
 	}
@@ -1297,7 +1461,7 @@ func ParseDateTime(lexical string) (time.Time, error) {
 
 // ParseLong parses a long string into int64
 func ParseLong(lexical string) (int64, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid long: empty string")
 	}
@@ -1311,7 +1475,7 @@ func ParseLong(lexical string) (int64, error) {
 
 // ParseInt parses an int string into int32
 func ParseInt(lexical string) (int32, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid int: empty string")
 	}
@@ -1325,7 +1489,7 @@ func ParseInt(lexical string) (int32, error) {
 
 // ParseShort parses a short string into int16
 func ParseShort(lexical string) (int16, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid short: empty string")
 	}
@@ -1339,7 +1503,7 @@ func ParseShort(lexical string) (int16, error) {
 
 // ParseByte parses a byte string into int8
 func ParseByte(lexical string) (int8, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid byte: empty string")
 	}
@@ -1353,7 +1517,7 @@ func ParseByte(lexical string) (int8, error) {
 
 // ParseUnsignedLong parses an unsignedLong string into uint64
 func ParseUnsignedLong(lexical string) (uint64, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid unsignedLong: empty string")
 	}
@@ -1367,7 +1531,7 @@ func ParseUnsignedLong(lexical string) (uint64, error) {
 
 // ParseUnsignedInt parses an unsignedInt string into uint32
 func ParseUnsignedInt(lexical string) (uint32, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid unsignedInt: empty string")
 	}
@@ -1381,7 +1545,7 @@ func ParseUnsignedInt(lexical string) (uint32, error) {
 
 // ParseUnsignedShort parses an unsignedShort string into uint16
 func ParseUnsignedShort(lexical string) (uint16, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid unsignedShort: empty string")
 	}
@@ -1395,7 +1559,7 @@ func ParseUnsignedShort(lexical string) (uint16, error) {
 
 // ParseUnsignedByte parses an unsignedByte string into uint8
 func ParseUnsignedByte(lexical string) (uint8, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid unsignedByte: empty string")
 	}
@@ -1414,7 +1578,7 @@ func ParseString(lexical string) (string, error) {
 
 // ParseHexBinary parses a hexBinary string into []byte
 func ParseHexBinary(lexical string) ([]byte, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return nil, nil
 	}
@@ -1447,24 +1611,21 @@ func ParseBase64Binary(lexical string) ([]byte, error) {
 		return nil, nil
 	}
 
-	decoded, err := base64.StdEncoding.DecodeString(cleaned)
+	decoded, err := base64.StdEncoding.Strict().DecodeString(cleaned)
 	if err != nil {
-		decoded, err = base64.URLEncoding.DecodeString(cleaned)
-		if err != nil {
-			return nil, fmt.Errorf("invalid base64Binary: %s", lexical)
-		}
+		return nil, fmt.Errorf("invalid base64Binary: %s", lexical)
 	}
 	return decoded, nil
 }
 
 // ParseAnyURI parses an anyURI string (no validation beyond trimming)
 func ParseAnyURI(lexical string) (string, error) {
-	return strings.TrimSpace(lexical), nil
+	return TrimXMLWhitespace(lexical), nil
 }
 
 // ParseQNameValue parses a QName value (lexical string) into a QName with namespace resolution.
 func ParseQNameValue(lexical string, nsContext map[string]string) (QName, error) {
-	trimmed := strings.TrimSpace(lexical)
+	trimmed := TrimXMLWhitespace(lexical)
 	if trimmed == "" {
 		return QName{}, fmt.Errorf("invalid QName: empty string")
 	}
@@ -1524,14 +1685,10 @@ func measureLengthForPrimitive(value string, primitiveName TypeName) int {
 		}, value)
 
 		// decode to get actual byte length
-		decoded, err := base64.StdEncoding.DecodeString(cleaned)
+		decoded, err := base64.StdEncoding.Strict().DecodeString(cleaned)
 		if err != nil {
-			// try URL encoding variant
-			decoded, err = base64.URLEncoding.DecodeString(cleaned)
-			if err != nil {
-				// invalid base64 - return character count as fallback
-				return utf8.RuneCountInString(value)
-			}
+			// invalid base64 - return character count as fallback
+			return utf8.RuneCountInString(value)
 		}
 		return len(decoded)
 	}

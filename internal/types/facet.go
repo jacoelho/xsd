@@ -268,7 +268,7 @@ func parseRangeTemporal(facetName, lexical string, baseType Type, primitiveName 
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", facetName, err)
 	}
-	return ComparableTime{Value: timeVal, Typ: baseType}, nil
+	return ComparableTime{Value: timeVal, Typ: baseType, HasTimezone: HasTimezone(lexical)}, nil
 }
 
 func parseRangeFloat(facetName, lexical string, baseType Type) (ComparableValue, error) {
