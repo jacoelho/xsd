@@ -57,7 +57,7 @@ func validateElementValueConstraints(schema *parser.Schema, decl *types.ElementD
 		return fmt.Errorf("element cannot use NOTATION type")
 	}
 
-	if decl.Default == "" && decl.Fixed == "" {
+	if !decl.HasDefault && !decl.HasFixed {
 		return nil
 	}
 
@@ -66,19 +66,19 @@ func validateElementValueConstraints(schema *parser.Schema, decl *types.ElementD
 	if ct, ok := resolvedType.(*types.ComplexType); ok {
 		_, isSimpleContent := ct.Content().(*types.SimpleContent)
 		if !isSimpleContent && !ct.Mixed() {
-			if decl.Default != "" {
+			if decl.HasDefault {
 				return fmt.Errorf("element with element-only complex type cannot have default value")
 			}
 			return fmt.Errorf("element with element-only complex type cannot have fixed value")
 		}
 	}
 
-	if decl.Default != "" {
+	if decl.HasDefault {
 		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Default, resolvedType); err != nil {
 			return fmt.Errorf("invalid default value '%s': %w", decl.Default, err)
 		}
 	}
-	if decl.Fixed != "" {
+	if decl.HasFixed {
 		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Fixed, resolvedType); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)
 		}
@@ -163,7 +163,7 @@ func validateSubstitutionGroupDerivation(schema *parser.Schema, memberQName type
 	if memberType == nil || headType == nil {
 		return nil
 	}
-	if !memberDecl.SubstitutionGroup.IsZero() && isDefaultAnyType(memberDecl.Type) {
+	if !memberDecl.SubstitutionGroup.IsZero() && !memberDecl.TypeExplicit && isDefaultAnyType(memberDecl.Type) {
 		memberType = headType
 	}
 

@@ -231,7 +231,7 @@ func validateAttributeDeclarations(schema *parser.Schema) []error {
 		if _, ok := resolvedType.(*types.ComplexType); ok {
 			errors = append(errors, fmt.Errorf("attribute %s: type must be a simple type", qname))
 		}
-		if decl.Default != "" {
+		if decl.HasDefault {
 			if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Default, resolvedType); err != nil {
 				errors = append(errors, fmt.Errorf("attribute %s: invalid default value '%s': %w", qname, decl.Default, err))
 			}

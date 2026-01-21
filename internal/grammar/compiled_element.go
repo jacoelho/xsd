@@ -14,6 +14,7 @@ type CompiledElement struct {
 	EffectiveQName   types.QName
 	Fixed            string
 	Default          string
+	HasDefault       bool
 	Substitutes      []*CompiledElement
 	Constraints      []*CompiledConstraint
 	Block            types.DerivationSet

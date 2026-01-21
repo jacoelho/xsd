@@ -8,6 +8,7 @@ type CompiledAttribute struct {
 	Type     *CompiledType
 	QName    types.QName
 	Default  string
+	HasDefault bool
 	Fixed    string
 	Use      types.AttributeUse
 	HasFixed bool

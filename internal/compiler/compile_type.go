@@ -1,11 +1,16 @@
 package compiler
 
 import (
+	"fmt"
+
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.CompiledType, error) {
+	if st, ok := typ.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) {
+		return nil, fmt.Errorf("unresolved simple type %s", st.QName)
+	}
 	// check pointer-based cache first (handles all types including anonymous)
 	// this prevents infinite recursion for circular references
 	if compiled, ok := c.typesByPtr[typ]; ok {
@@ -186,7 +191,11 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, complexTyp
 	}
 
 	// pre-merge all attributes from derivation chain
-	compiled.AllAttributes = c.mergeAttributes(compiled.DerivationChain)
+	attrs, err := c.mergeAttributes(compiled.DerivationChain)
+	if err != nil {
+		return err
+	}
+	compiled.AllAttributes = attrs
 
 	compiled.AnyAttribute = c.mergeAnyAttribute(compiled.DerivationChain)
 

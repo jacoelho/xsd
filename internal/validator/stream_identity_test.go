@@ -180,6 +180,32 @@ func TestStreamIdentityConstraints(t *testing.T) {
 			wantCode: errors.ErrIdentityDuplicate,
 		},
 		{
+			name: "unique uses empty attribute default",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="code" type="xs:string" default=""/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueCode">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@code"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item/><item/></root>`,
+			wantCode: errors.ErrIdentityDuplicate,
+		},
+		{
 			name: "unique uses element fixed",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

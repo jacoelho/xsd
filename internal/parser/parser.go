@@ -119,7 +119,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 			if attr.NamespaceURI() != "" {
 				return nil, fmt.Errorf("schema attribute 'targetNamespace' must be unprefixed (found '%s:targetNamespace')", attr.NamespaceURI())
 			}
-			targetNSAttr = attr.Value()
+			targetNSAttr = types.ApplyWhiteSpace(attr.Value(), types.WhiteSpaceCollapse)
 			targetNSFound = true
 			break
 		}
@@ -152,7 +152,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	}
 
 	if doc.HasAttribute(root, "elementFormDefault") {
-		elemForm := doc.GetAttribute(root, "elementFormDefault")
+		elemForm := types.ApplyWhiteSpace(doc.GetAttribute(root, "elementFormDefault"), types.WhiteSpaceCollapse)
 		if elemForm == "" {
 			return nil, fmt.Errorf("elementFormDefault attribute cannot be empty")
 		}
@@ -167,7 +167,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	}
 
 	if doc.HasAttribute(root, "attributeFormDefault") {
-		attrForm := doc.GetAttribute(root, "attributeFormDefault")
+		attrForm := types.ApplyWhiteSpace(doc.GetAttribute(root, "attributeFormDefault"), types.WhiteSpaceCollapse)
 		if attrForm == "" {
 			return nil, fmt.Errorf("attributeFormDefault attribute cannot be empty")
 		}

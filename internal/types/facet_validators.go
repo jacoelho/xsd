@@ -619,7 +619,7 @@ func (t *TotalDigits) Validate(value TypedValue, baseType Type) error {
 
 // ValidateLexical checks if the lexical value respects totalDigits.
 func (t *TotalDigits) ValidateLexical(lexical string, _ Type) error {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	digitCount := countDigits(lexical)
 	if digitCount > t.Value {
 		return fmt.Errorf("total number of digits (%d) exceeds limit (%d)", digitCount, t.Value)
@@ -649,7 +649,7 @@ func (f *FractionDigits) Validate(value TypedValue, baseType Type) error {
 
 // ValidateLexical checks if the lexical value respects fractionDigits.
 func (f *FractionDigits) ValidateLexical(lexical string, _ Type) error {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	fractionDigits := countFractionDigits(lexical)
 	if fractionDigits > f.Value {
 		return fmt.Errorf("number of fraction digits (%d) exceeds limit (%d)", fractionDigits, f.Value)

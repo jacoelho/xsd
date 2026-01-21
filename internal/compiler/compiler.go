@@ -126,6 +126,7 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, sc
 		Nillable: elem.Nillable,
 		Abstract: elem.Abstract,
 		Default:  elem.Default,
+		HasDefault: elem.HasDefault,
 		Fixed:    elem.Fixed,
 		HasFixed: elem.HasFixed,
 		Block:    elem.Block,
@@ -136,7 +137,7 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, sc
 	// per XSD spec, if element is in a substitution group and has no explicit type,
 	// it inherits the type from the head element
 	typeToCompile := elem.Type
-	if typeToCompile != nil && c.isDefaultAnyType(typeToCompile) && !elem.SubstitutionGroup.IsZero() {
+	if typeToCompile != nil && c.isDefaultAnyType(typeToCompile) && !elem.SubstitutionGroup.IsZero() && !elem.TypeExplicit {
 		// check if we can inherit from substitution group head
 		if headDecl, ok := c.schema.ElementDecls[elem.SubstitutionGroup]; ok && headDecl.Type != nil {
 			typeToCompile = headDecl.Type
@@ -203,6 +204,7 @@ func (c *Compiler) compileTopLevelAttribute(qname types.QName, attr *types.Attri
 		Original: attr,
 		Use:      attr.Use,
 		Default:  attr.Default,
+		HasDefault: attr.HasDefault,
 		Fixed:    attr.Fixed,
 		HasFixed: attr.HasFixed,
 	}

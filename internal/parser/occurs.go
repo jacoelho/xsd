@@ -17,6 +17,7 @@ func parseOccursAttr(doc *xsdxml.Document, elem xsdxml.NodeID, attr string) (typ
 }
 
 func parseOccursValue(attr, value string) (types.Occurs, error) {
+	value = types.ApplyWhiteSpace(value, types.WhiteSpaceCollapse)
 	if value == "" {
 		return types.OccursFromInt(0), fmt.Errorf("%s attribute cannot be empty", attr)
 	}

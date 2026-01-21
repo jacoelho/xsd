@@ -273,6 +273,7 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 				return
 			}
 		}
+		r.addWildcardAttributeDefaults(state, field, frame, test)
 		return
 	}
 
@@ -294,6 +295,7 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 				return
 			}
 		}
+		r.addWildcardAttributeDefaults(state, field, frame, test)
 		return
 	}
 
@@ -321,6 +323,28 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 	if value, ok := r.lookupAttributeDefault(frame, types.QName{Namespace: types.NamespaceEmpty, Local: test.Local}); ok {
 		attrQName := types.QName{Namespace: types.NamespaceEmpty, Local: test.Local}
 		r.addAttributeValue(state, field, frame, attrQName, value)
+	}
+}
+
+func (r *streamRun) addWildcardAttributeDefaults(state *fieldState, field types.Field, frame *streamFrame, test xpath.NodeTest) {
+	if state.multiple || frame == nil || frame.decl == nil || frame.decl.Type == nil {
+		return
+	}
+	for _, attr := range frame.decl.Type.AllAttributes {
+		if !attr.HasDefault && !attr.HasFixed {
+			continue
+		}
+		if !nodeTestMatches(test, attr.QName) {
+			continue
+		}
+		value := attr.Default
+		if attr.HasFixed {
+			value = attr.Fixed
+		}
+		r.addAttributeValue(state, field, frame, attr.QName, value)
+		if state.multiple {
+			return
+		}
 	}
 }
 
@@ -399,7 +423,7 @@ func effectiveElementValue(frame *streamFrame) (string, bool) {
 	if frame.decl == nil {
 		return string(frame.textBuf), true
 	}
-	if frame.decl.Default != "" {
+	if frame.decl.HasDefault {
 		return frame.decl.Default, true
 	}
 	if frame.decl.HasFixed {
@@ -894,7 +918,7 @@ func (r *streamRun) lookupAttributeDefault(frame *streamFrame, attrQName types.Q
 		if attr.HasFixed {
 			return attr.Fixed, true
 		}
-		if attr.Default != "" {
+		if attr.HasDefault {
 			return attr.Default, true
 		}
 		return "", false
