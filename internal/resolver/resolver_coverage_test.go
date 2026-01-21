@@ -58,21 +58,26 @@ func TestValidateValueAgainstFacets(t *testing.T) {
 	if !ok || st == nil {
 		t.Fatalf("expected mytype simple type")
 	}
-	if err := validateValueAgainstFacets("abcd", st); err != nil {
+	facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
+	if err := validateValueAgainstFacets("abcd", st, facets, nil); err != nil {
 		t.Fatalf("expected valid facet value, got %v", err)
 	}
-	if err := validateValueAgainstFacets("ab", st); err == nil {
+	if err := validateValueAgainstFacets("ab", st, facets, nil); err == nil {
 		t.Fatalf("expected facet violation for short value")
 	}
 }
 
-func TestGetComplexTypeTextType(t *testing.T) {
-	schema := parseW3CSchema(t, "sunData/CType/baseTD/baseTD00101m/baseTD00101m1.xsd")
+func TestResolveSimpleContentBaseType(t *testing.T) {
+	schema := resolveW3CSchema(t, "sunData/CType/baseTD/baseTD00101m/baseTD00101m1.xsd")
 	ct, ok := schema.TypeDefs[types.QName{Namespace: schema.TargetNamespace, Local: "Test2"}].(*types.ComplexType)
 	if !ok || ct == nil {
 		t.Fatalf("expected Test2 complex type")
 	}
-	textType := getComplexTypeTextType(schema, ct)
+	sc, ok := ct.Content().(*types.SimpleContent)
+	if !ok || sc == nil {
+		t.Fatalf("expected simpleContent on Test2")
+	}
+	textType := resolveSimpleContentBaseType(schema, sc)
 	if textType == nil || textType.Name().Local != "int" {
 		t.Fatalf("expected text content type xsd:int")
 	}

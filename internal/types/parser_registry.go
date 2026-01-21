@@ -26,6 +26,7 @@ var valueParsers = map[TypeName]ValueParserFunc{
 	TypeNameDecimal:       parserFor(ParseDecimal, NewDecimalValue),
 	TypeNameInteger:       parserFor(ParseInteger, NewIntegerValue),
 	TypeNameDateTime:      parserFor(ParseDateTime, NewDateTimeValue),
+	TypeNameTime:          parserFor(ParseTime, NewDateTimeValue),
 	TypeNameBoolean:       parserFor(ParseBoolean, NewBooleanValue),
 	TypeNameFloat:         parserFor(ParseFloat, NewFloatValue),
 	TypeNameDouble:        parserFor(ParseDouble, NewDoubleValue),

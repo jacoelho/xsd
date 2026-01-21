@@ -17,11 +17,16 @@ const (
 
 // checkSimpleValue validates a string value against a simple type using namespace scope.
 func (r *streamRun) checkSimpleValue(value string, st *grammar.CompiledType, scopeDepth int) []errors.Validation {
-	_, violations := r.checkSimpleValueInternal(value, st, scopeDepth, errorPolicyReport)
+	_, violations := r.checkSimpleValueInternal(value, st, scopeDepth, errorPolicyReport, nil)
 	return violations
 }
 
-func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy) (bool, []errors.Validation) {
+func (r *streamRun) checkSimpleValueWithContext(value string, st *grammar.CompiledType, context map[string]string) []errors.Validation {
+	_, violations := r.checkSimpleValueInternal(value, st, 0, errorPolicyReport, context)
+	return violations
+}
+
+func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy, context map[string]string) (bool, []errors.Validation) {
 	if st == nil || st.Original == nil {
 		return true, nil
 	}
@@ -37,18 +42,18 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 	normalizedValue := types.NormalizeWhiteSpace(value, st.Original)
 
 	if len(st.MemberTypes) > 0 {
-		if !r.validateUnionValue(normalizedValue, st.MemberTypes, scopeDepth) {
+		if !r.validateUnionValue(normalizedValue, st.MemberTypes, scopeDepth, context) {
 			if policy == errorPolicyReport {
 				return false, []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"value '%s' does not match any member type of union", normalizedValue)}
 			}
 			return false, nil
 		}
-		return r.validateSimpleTypeFacets(normalizedValue, st, scopeDepth, policy)
+		return r.validateSimpleTypeFacets(normalizedValue, st, scopeDepth, policy, context)
 	}
 
 	if st.ItemType != nil {
-		return r.validateListValueInternal(normalizedValue, st, scopeDepth, policy)
+		return r.validateListValueInternal(normalizedValue, st, scopeDepth, policy, context)
 	}
 
 	switch orig := st.Original.(type) {
@@ -69,7 +74,7 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 	}
 
 	if isQNameType(st) {
-		if err := r.validateQNameContext(normalizedValue, scopeDepth); err != nil {
+		if err := r.validateQNameContext(normalizedValue, scopeDepth, context); err != nil {
 			if policy == errorPolicyReport {
 				return false, []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"invalid QName value '%s': %v", normalizedValue, err)}
@@ -80,18 +85,18 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 
 	if r.isNotationType(st) {
 		if policy == errorPolicyReport {
-			if violations := r.validateNotationReference(normalizedValue, scopeDepth); len(violations) > 0 {
+			if violations := r.validateNotationReference(normalizedValue, scopeDepth, context); len(violations) > 0 {
 				return false, violations
 			}
-		} else if !r.isValidNotationReference(normalizedValue, scopeDepth) {
+		} else if !r.isValidNotationReference(normalizedValue, scopeDepth, context) {
 			return false, nil
 		}
 	}
 
-	return r.validateSimpleTypeFacets(normalizedValue, st, scopeDepth, policy)
+	return r.validateSimpleTypeFacets(normalizedValue, st, scopeDepth, policy, context)
 }
 
-func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy) (bool, []errors.Validation) {
+func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy, context map[string]string) (bool, []errors.Validation) {
 	if st == nil || len(st.Facets) == 0 {
 		return true, nil
 	}
@@ -103,7 +108,7 @@ func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar
 			continue
 		}
 		if enumFacet, ok := facet.(*types.Enumeration); ok && st.IsQNameOrNotationType {
-			if err := r.validateQNameEnumeration(normalizedValue, enumFacet, scopeDepth); err != nil {
+			if err := r.validateQNameEnumeration(normalizedValue, enumFacet, scopeDepth, context); err != nil {
 				if policy == errorPolicySuppress {
 					return false, nil
 				}
@@ -137,7 +142,7 @@ func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar
 	return true, nil
 }
 
-func (r *streamRun) checkComplexTypeFacetsWithContext(text string, ct *grammar.CompiledType, scopeDepth int) []errors.Validation {
+func (r *streamRun) checkComplexTypeFacetsWithContext(text string, ct *grammar.CompiledType, scopeDepth int, context map[string]string) []errors.Validation {
 	if ct == nil || ct.SimpleContentType == nil || len(ct.Facets) == 0 {
 		return nil
 	}
@@ -150,7 +155,7 @@ func (r *streamRun) checkComplexTypeFacetsWithContext(text string, ct *grammar.C
 			continue
 		}
 		if enumFacet, ok := facet.(*types.Enumeration); ok && ct.SimpleContentType.IsQNameOrNotationType {
-			if err := r.validateQNameEnumeration(normalizedValue, enumFacet, scopeDepth); err != nil {
+			if err := r.validateQNameEnumeration(normalizedValue, enumFacet, scopeDepth, context); err != nil {
 				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
 			}
 			continue
@@ -172,13 +177,13 @@ func (r *streamRun) checkComplexTypeFacetsWithContext(text string, ct *grammar.C
 	return violations
 }
 
-func (r *streamRun) validateListValueInternal(value string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy) (bool, []errors.Validation) {
+func (r *streamRun) validateListValueInternal(value string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy, context map[string]string) (bool, []errors.Validation) {
 	valid := true
 	var violations []errors.Validation
 	abort := false
 	index := 0
 	splitWhitespaceSeq(value, func(item string) bool {
-		itemValid, itemViolations := r.validateListItemNormalized(item, st.ItemType, index, scopeDepth, policy)
+		itemValid, itemViolations := r.validateListItemNormalized(item, st.ItemType, index, scopeDepth, policy, context)
 		index++
 		if !itemValid {
 			valid = false
@@ -230,7 +235,7 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 	return valid, nil
 }
 
-func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.CompiledType, index, scopeDepth int, policy errorPolicy) (bool, []errors.Validation) {
+func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.CompiledType, index, scopeDepth int, policy errorPolicy, context map[string]string) (bool, []errors.Validation) {
 	if itemType == nil || itemType.Original == nil {
 		return true, nil
 	}
@@ -246,7 +251,7 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 	var violations []errors.Validation
 
 	if len(itemType.MemberTypes) > 0 {
-		if !r.validateUnionValue(item, itemType.MemberTypes, scopeDepth) {
+		if !r.validateUnionValue(item, itemType.MemberTypes, scopeDepth, context) {
 			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d] '%s' does not match any member type of union", index, item))
@@ -279,7 +284,7 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 	}
 
 	if isQNameType(itemType) {
-		if err := r.validateQNameContext(item, scopeDepth); err != nil {
+		if err := r.validateQNameContext(item, scopeDepth, context); err != nil {
 			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d]: invalid QName value '%s': %v", index, item, err))
@@ -291,11 +296,11 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 
 	if r.isNotationType(itemType) {
 		if policy == errorPolicyReport {
-			if itemViolations := r.validateNotationReference(item, scopeDepth); len(itemViolations) > 0 {
+			if itemViolations := r.validateNotationReference(item, scopeDepth, context); len(itemViolations) > 0 {
 				violations = append(violations, itemViolations...)
 				return false, violations
 			}
-		} else if !r.isValidNotationReference(item, scopeDepth) {
+		} else if !r.isValidNotationReference(item, scopeDepth, context) {
 			return false, nil
 		}
 	}
@@ -307,7 +312,7 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 				continue
 			}
 			if enumFacet, ok := facet.(*types.Enumeration); ok && itemType.IsQNameOrNotationType {
-				if err := r.validateQNameEnumeration(item, enumFacet, scopeDepth); err != nil {
+				if err := r.validateQNameEnumeration(item, enumFacet, scopeDepth, context); err != nil {
 					if policy == errorPolicySuppress {
 						return false, nil
 					}
@@ -354,35 +359,40 @@ func validateSimpleTypeNormalized(st *types.SimpleType, normalized string) error
 			return bt.Validate(normalized)
 		}
 	}
-	if st.Restriction != nil {
-		baseType := types.GetBuiltinNS(st.Restriction.Base.Namespace, st.Restriction.Base.Local)
-		if baseType != nil {
-			return baseType.Validate(normalized)
+	if st.Restriction != nil && st.Variety() == types.AtomicVariety {
+		primitive := st.PrimitiveType()
+		if builtinType, ok := types.AsBuiltinType(primitive); ok {
+			return builtinType.Validate(normalized)
+		}
+		if primitiveST, ok := types.AsSimpleType(primitive); ok && primitiveST.IsBuiltin() {
+			if builtinType := types.GetBuiltinNS(primitiveST.QName.Namespace, primitiveST.QName.Local); builtinType != nil {
+				return builtinType.Validate(normalized)
+			}
 		}
 	}
 	return nil
 }
 
-func (r *streamRun) validateUnionValue(value string, memberTypes []*grammar.CompiledType, scopeDepth int) bool {
+func (r *streamRun) validateUnionValue(value string, memberTypes []*grammar.CompiledType, scopeDepth int, context map[string]string) bool {
 	for _, memberType := range memberTypes {
-		if r.validateUnionMemberType(value, memberType, scopeDepth) {
+		if r.validateUnionMemberType(value, memberType, scopeDepth, context) {
 			return true
 		}
 	}
 	return false
 }
 
-func (r *streamRun) validateUnionMemberType(value string, mt *grammar.CompiledType, scopeDepth int) bool {
+func (r *streamRun) validateUnionMemberType(value string, mt *grammar.CompiledType, scopeDepth int, context map[string]string) bool {
 	if mt == nil || mt.Original == nil {
 		return false
 	}
 
-	valid, _ := r.checkSimpleValueInternal(value, mt, scopeDepth, errorPolicySuppress)
+	valid, _ := r.checkSimpleValueInternal(value, mt, scopeDepth, errorPolicySuppress, context)
 	return valid
 }
 
-func (r *streamRun) validateNotationReference(value string, scopeDepth int) []errors.Validation {
-	notationQName, err := r.parseQNameValue(value, scopeDepth)
+func (r *streamRun) validateNotationReference(value string, scopeDepth int, context map[string]string) []errors.Validation {
+	notationQName, err := r.parseQNameValueWithContext(value, scopeDepth, context)
 	if err != nil {
 		return []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 			"Invalid NOTATION value '%s': %v", value, err)}
@@ -396,8 +406,8 @@ func (r *streamRun) validateNotationReference(value string, scopeDepth int) []er
 	return nil
 }
 
-func (r *streamRun) isValidNotationReference(value string, scopeDepth int) bool {
-	notationQName, err := r.parseQNameValue(value, scopeDepth)
+func (r *streamRun) isValidNotationReference(value string, scopeDepth int, context map[string]string) bool {
+	notationQName, err := r.parseQNameValueWithContext(value, scopeDepth, context)
 	if err != nil {
 		return false
 	}
@@ -428,8 +438,15 @@ func (r *streamRun) parseQNameValue(value string, scopeDepth int) (types.QName, 
 	return types.QName{Namespace: ns, Local: local}, nil
 }
 
-func (r *streamRun) validateQNameContext(value string, scopeDepth int) error {
-	_, err := r.parseQNameValue(value, scopeDepth)
+func (r *streamRun) parseQNameValueWithContext(value string, scopeDepth int, context map[string]string) (types.QName, error) {
+	if context != nil {
+		return types.ParseQNameValue(value, context)
+	}
+	return r.parseQNameValue(value, scopeDepth)
+}
+
+func (r *streamRun) validateQNameContext(value string, scopeDepth int, context map[string]string) error {
+	_, err := r.parseQNameValueWithContext(value, scopeDepth, context)
 	return err
 }
 

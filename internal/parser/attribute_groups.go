@@ -401,7 +401,7 @@ func validateAllowedAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, element
 func parseDerivationSetWithValidation(value string, allowed types.DerivationSet) (types.DerivationSet, error) {
 	var set types.DerivationSet
 	hasAll := false
-	for token := range strings.FieldsSeq(value) {
+	for token := range types.FieldsXMLWhitespaceSeq(value) {
 		if hasAll {
 			return set, fmt.Errorf("derivation set cannot combine '#all' with other values")
 		}

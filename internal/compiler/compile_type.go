@@ -1,11 +1,20 @@
 package compiler
 
 import (
+	"fmt"
+
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.CompiledType, error) {
+	if st, ok := typ.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) {
+		return nil, fmt.Errorf("unresolved simple type %s", st.QName)
+	}
+	skipQNameCache := false
+	if bt, ok := typ.(*types.BuiltinType); ok && bt.Name().Local == string(types.TypeNameAnyType) {
+		skipQNameCache = true
+	}
 	// check pointer-based cache first (handles all types including anonymous)
 	// this prevents infinite recursion for circular references
 	if compiled, ok := c.typesByPtr[typ]; ok {
@@ -13,7 +22,7 @@ func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.Comp
 	}
 
 	// check QName cache for named types (for cross-schema references)
-	if !qname.IsZero() {
+	if !qname.IsZero() && !skipQNameCache {
 		if compiled, ok := c.types[qname]; ok {
 			return compiled, nil
 		}
@@ -29,7 +38,7 @@ func (c *Compiler) compileType(qname types.QName, typ types.Type) (*grammar.Comp
 
 	// add to QName-based caches only for the first compilation of a QName
 	// (in redefine context, we want the redefined type in the grammar, not the original)
-	if !qname.IsZero() {
+	if !qname.IsZero() && !skipQNameCache {
 		if _, exists := c.types[qname]; !exists {
 			c.types[qname] = compiled
 			c.grammar.Types[qname] = compiled
@@ -120,6 +129,9 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, simpleType 
 	if compiled.ItemType == nil && simpleType.Variety() == types.ListVariety && compiled.BaseType != nil {
 		compiled.ItemType = compiled.BaseType.ItemType
 	}
+	if compiled.ItemType != nil && compiled.ItemType.IDTypeName == "IDREF" {
+		compiled.IDTypeName = "IDREFS"
+	}
 
 	// compile member types (for union)
 	if len(simpleType.MemberTypes) > 0 {
@@ -159,14 +171,18 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, simpleType 
 
 func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, complexType *types.ComplexType) error {
 	compiled.Abstract = complexType.Abstract
-	compiled.Mixed = complexType.Mixed()
+	compiled.Mixed = complexType.EffectiveMixed()
 	compiled.Final = complexType.Final
 	compiled.Block = complexType.Block
 	compiled.DerivationMethod = complexType.DerivationMethod
 
 	resolvedBase := complexType.ResolvedBase
 	if resolvedBase == nil {
-		resolvedBase = types.GetBuiltin(types.TypeNameAnyType)
+		if complexType.QName.Namespace == types.XSDNamespace && complexType.QName.Local == "anyType" {
+			resolvedBase = nil
+		} else {
+			resolvedBase = types.NewAnyTypeComplexType()
+		}
 	}
 	if resolvedBase != nil {
 		baseCompiled, err := c.compileType(resolvedBase.Name(), resolvedBase)
@@ -183,7 +199,11 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, complexTyp
 	}
 
 	// pre-merge all attributes from derivation chain
-	compiled.AllAttributes = c.mergeAttributes(compiled.DerivationChain)
+	attrs, err := c.mergeAttributes(compiled.DerivationChain)
+	if err != nil {
+		return err
+	}
+	compiled.AllAttributes = attrs
 
 	compiled.AnyAttribute = c.mergeAnyAttribute(compiled.DerivationChain)
 

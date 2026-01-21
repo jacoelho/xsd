@@ -6,9 +6,8 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-// validateDefaultOrFixedValue validates that a default or fixed value is valid for the given type
-// This is used during schema validation to ensure default/fixed values are valid
-// Basic validation only - full validation with facets happens in reference_schemacheck.go
+// validateDefaultOrFixedValue validates that a default or fixed value is valid for the given type.
+// This is used during structure validation; full facet validation happens after resolution.
 func validateDefaultOrFixedValue(value string, typ types.Type) error {
 	if typ == nil {
 		// type not resolved yet - might be forward reference, skip validation

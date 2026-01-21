@@ -208,24 +208,34 @@ func TestParseRejectsNonXMLWhitespaceOutsideRoot(t *testing.T) {
 	}
 }
 
+func TestParseRejectsBOMAfterRoot(t *testing.T) {
+	xmlData := "<root/>\uFEFF"
+	if _, err := Parse(strings.NewReader(xmlData)); err == nil {
+		t.Fatal("Parse() should reject BOM outside the document start")
+	}
+}
+
 func TestIsIgnorableOutsideRoot(t *testing.T) {
 	tests := []struct {
-		name string
-		data []byte
-		want bool
+		name     string
+		data     []byte
+		allowBOM bool
+		want     bool
 	}{
-		{"empty", nil, true},
-		{"whitespace", []byte(" \t\r\n"), true},
-		{"bom only", []byte{0xef, 0xbb, 0xbf}, true},
-		{"bom and whitespace", []byte{0xef, 0xbb, 0xbf, ' ', '\n'}, true},
-		{"non-whitespace", []byte("x"), false},
-		{"bom and non-whitespace", []byte{0xef, 0xbb, 0xbf, 'x'}, false},
-		{"invalid utf8", []byte{0xff}, false},
+		{"empty", nil, true, true},
+		{"whitespace", []byte(" \t\r\n"), true, true},
+		{"bom only allowed", []byte{0xef, 0xbb, 0xbf}, true, true},
+		{"bom only disallowed", []byte{0xef, 0xbb, 0xbf}, false, false},
+		{"bom and whitespace", []byte{0xef, 0xbb, 0xbf, ' ', '\n'}, true, true},
+		{"whitespace then bom", []byte{' ', 0xef, 0xbb, 0xbf}, true, false},
+		{"non-whitespace", []byte("x"), true, false},
+		{"bom and non-whitespace", []byte{0xef, 0xbb, 0xbf, 'x'}, true, false},
+		{"invalid utf8", []byte{0xff}, true, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsIgnorableOutsideRoot(tt.data); got != tt.want {
+			if got := IsIgnorableOutsideRoot(tt.data, tt.allowBOM); got != tt.want {
 				t.Fatalf("IsIgnorableOutsideRoot() = %v, want %v", got, tt.want)
 			}
 		})

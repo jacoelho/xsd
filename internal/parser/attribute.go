@@ -88,13 +88,16 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 			return nil, fmt.Errorf("attribute with use='required' cannot have default value")
 		}
 
-		if defaultVal := doc.GetAttribute(elem, "default"); defaultVal != "" {
-			attr.Default = defaultVal
+		if doc.HasAttribute(elem, "default") {
+			attr.Default = doc.GetAttribute(elem, "default")
+			attr.HasDefault = true
+			attr.DefaultContext = namespaceContextForElement(doc, elem, schema)
 		}
 
 		if doc.HasAttribute(elem, "fixed") {
 			attr.Fixed = doc.GetAttribute(elem, "fixed")
 			attr.HasFixed = true
+			attr.FixedContext = namespaceContextForElement(doc, elem, schema)
 		}
 
 		parsed, err := types.NewAttributeDeclFromParsed(attr)
@@ -192,18 +195,21 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 		return nil, fmt.Errorf("attribute with use='required' cannot have default value")
 	}
 
-	if defaultVal := doc.GetAttribute(elem, "default"); defaultVal != "" {
-		attr.Default = defaultVal
+	if doc.HasAttribute(elem, "default") {
+		attr.Default = doc.GetAttribute(elem, "default")
+		attr.HasDefault = true
+		attr.DefaultContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	if doc.HasAttribute(elem, "fixed") {
 		attr.Fixed = doc.GetAttribute(elem, "fixed")
 		attr.HasFixed = true
+		attr.FixedContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	// parse form attribute - must be exactly "qualified" or "unqualified"
 	if doc.HasAttribute(elem, "form") {
-		formAttr := doc.GetAttribute(elem, "form")
+		formAttr := types.ApplyWhiteSpace(doc.GetAttribute(elem, "form"), types.WhiteSpaceCollapse)
 		switch formAttr {
 		case "qualified":
 			attr.Form = types.FormQualified
@@ -223,7 +229,7 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 
 func parseAttributeUse(doc *xsdxml.Document, elem xsdxml.NodeID) (types.AttributeUse, error) {
 	if doc.HasAttribute(elem, "use") {
-		useAttr := doc.GetAttribute(elem, "use")
+		useAttr := types.ApplyWhiteSpace(doc.GetAttribute(elem, "use"), types.WhiteSpaceCollapse)
 		switch useAttr {
 		case "optional":
 			return types.Optional, nil

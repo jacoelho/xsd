@@ -30,6 +30,11 @@ func ResolveFieldElementDecl(schema *parser.Schema, field *types.Field, constrai
 	return resolveFieldElementDecl(schema, field, constraintElement, selectorXPath, nsContext)
 }
 
+// ResolveFieldElementDecls resolves a field XPath to the selected element declarations.
+func ResolveFieldElementDecls(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) ([]*types.ElementDecl, error) {
+	return resolveFieldElementDecls(schema, field, constraintElement, selectorXPath, nsContext)
+}
+
 // ElementTypesCompatible reports whether two element declaration types are consistent.
 func ElementTypesCompatible(a, b types.Type) bool {
 	return elementTypesCompatible(a, b)

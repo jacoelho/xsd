@@ -85,6 +85,28 @@ func copyNamespaceContext(src map[string]string) map[string]string {
 	return maps.Clone(src)
 }
 
+func copyValueNamespaceContext(src map[string]string, opts CopyOptions) map[string]string {
+	if src == nil {
+		return nil
+	}
+	clone := maps.Clone(src)
+	if !isChameleonRemap(opts) {
+		return clone
+	}
+	if defaultNS, ok := clone[""]; !ok || defaultNS == "" {
+		clone[""] = opts.SourceNamespace.String()
+	}
+	return clone
+}
+
+func isChameleonRemap(opts CopyOptions) bool {
+	if opts.RemapQName == nil || opts.SourceNamespace.IsEmpty() {
+		return false
+	}
+	remapped := opts.RemapQName(QName{Local: "x"})
+	return remapped.Namespace == opts.SourceNamespace && !remapped.Namespace.IsEmpty()
+}
+
 func copyIdentityConstraints(constraints []*IdentityConstraint, opts CopyOptions) []*IdentityConstraint {
 	if len(constraints) == 0 {
 		return nil

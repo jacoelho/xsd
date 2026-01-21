@@ -11,10 +11,10 @@ type dateTimeNormalizer struct{}
 // Normalize applies whitespace normalization for date/time lexical values.
 func (n dateTimeNormalizer) Normalize(lexical string, typ Type) (string, error) {
 	if typ == nil {
-		return strings.TrimSpace(lexical), nil
+		return TrimXMLWhitespace(lexical), nil
 	}
 	normalized := ApplyWhiteSpace(lexical, typ.WhiteSpace())
-	return strings.TrimSpace(normalized), nil
+	return TrimXMLWhitespace(normalized), nil
 }
 
 func validateYearPrefix(lexical, kind string) error {
@@ -56,6 +56,13 @@ func validateOptionalTimezone(lexical string) error {
 	return validateTimezoneOffset(tz)
 }
 
+// HasTimezone reports whether a lexical date/time value includes a timezone indicator.
+func HasTimezone(lexical string) bool {
+	lexical = TrimXMLWhitespace(lexical)
+	_, tz := splitTimezone(lexical)
+	return tz != ""
+}
+
 func is24HourZero(timePart string) bool {
 	const prefix = "24:00:00"
 	if !strings.HasPrefix(timePart, prefix) {
@@ -81,7 +88,7 @@ func is24HourZero(timePart string) bool {
 // ParseDate parses a date string into time.Time (date component only)
 // Format: YYYY-MM-DD with optional timezone
 func ParseDate(lexical string) (time.Time, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if err := validateYearPrefix(lexical, "date"); err != nil {
 		return time.Time{}, err
 	}
@@ -108,7 +115,7 @@ func ParseDate(lexical string) (time.Time, error) {
 // ParseTime parses a time string into time.Time (time component only)
 // Format: HH:MM:SS with optional fractional seconds and timezone
 func ParseTime(lexical string) (time.Time, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return time.Time{}, fmt.Errorf("invalid time: empty string")
 	}
@@ -119,8 +126,8 @@ func ParseTime(lexical string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("invalid time: %s", lexical)
 	}
 
-	needsDayOffset := hour == 24
-	if needsDayOffset {
+	is24Hour := hour == 24
+	if is24Hour {
 		if minute != 0 || second != 0 || !is24HourZero(main) {
 			return time.Time{}, fmt.Errorf("invalid time: %s", lexical)
 		}
@@ -135,7 +142,7 @@ func ParseTime(lexical string) (time.Time, error) {
 		return time.Time{}, err
 	}
 
-	if needsDayOffset {
+	if is24Hour {
 		main = "00:00:00" + main[len("24:00:00"):]
 	}
 
@@ -146,16 +153,13 @@ func ParseTime(lexical string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, fmt.Errorf("invalid time: %s", lexical)
 	}
-	if needsDayOffset {
-		parsed = parsed.Add(24 * time.Hour)
-	}
 	return parsed, nil
 }
 
 // ParseGYear parses a gYear string into time.Time
 // Format: YYYY with optional timezone
 func ParseGYear(lexical string) (time.Time, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if err := validateYearPrefix(lexical, "gYear"); err != nil {
 		return time.Time{}, err
 	}
@@ -182,7 +186,7 @@ func ParseGYear(lexical string) (time.Time, error) {
 // ParseGYearMonth parses a gYearMonth string into time.Time
 // Format: YYYY-MM with optional timezone
 func ParseGYearMonth(lexical string) (time.Time, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if err := validateYearPrefix(lexical, "gYearMonth"); err != nil {
 		return time.Time{}, err
 	}
@@ -209,7 +213,7 @@ func ParseGYearMonth(lexical string) (time.Time, error) {
 // ParseGMonth parses a gMonth string into time.Time
 // Format: --MM with optional timezone
 func ParseGMonth(lexical string) (time.Time, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return time.Time{}, fmt.Errorf("invalid gMonth: empty string")
 	}
@@ -238,7 +242,7 @@ func ParseGMonth(lexical string) (time.Time, error) {
 // ParseGMonthDay parses a gMonthDay string into time.Time
 // Format: --MM-DD with optional timezone
 func ParseGMonthDay(lexical string) (time.Time, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return time.Time{}, fmt.Errorf("invalid gMonthDay: empty string")
 	}
@@ -267,7 +271,7 @@ func ParseGMonthDay(lexical string) (time.Time, error) {
 // ParseGDay parses a gDay string into time.Time
 // Format: ---DD with optional timezone
 func ParseGDay(lexical string) (time.Time, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return time.Time{}, fmt.Errorf("invalid gDay: empty string")
 	}
@@ -296,7 +300,7 @@ func ParseGDay(lexical string) (time.Time, error) {
 // ParseDuration validates an XSD duration string and returns the lexical value.
 // It does not map to time.Duration.
 func ParseDuration(lexical string) (string, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return "", fmt.Errorf("invalid duration: empty string")
 	}

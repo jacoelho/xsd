@@ -35,6 +35,7 @@ func ParseInto(r io.Reader, doc *Document) error {
 	var childCounts []int
 	var attrsScratch []Attr
 	rootClosed := false
+	allowBOM := true
 	for {
 		event, err := decoder.Next()
 		if errors.Is(err, io.EOF) {
@@ -79,6 +80,7 @@ func ParseInto(r io.Reader, doc *Document) error {
 			id := doc.addNode(event.Name.Namespace, event.Name.Local, attrsScratch, parent)
 			if parent == InvalidNode {
 				doc.root = id
+				allowBOM = false
 			}
 			stack = append(stack, id)
 			childCounts = append(childCounts, 0)
@@ -94,9 +96,10 @@ func ParseInto(r io.Reader, doc *Document) error {
 
 		case xmlstream.EventCharData:
 			if len(stack) == 0 {
-				if !IsIgnorableOutsideRoot(event.Text) {
+				if !IsIgnorableOutsideRoot(event.Text, allowBOM) {
 					return fmt.Errorf("unexpected character data outside root element")
 				}
+				allowBOM = false
 				continue
 			}
 			nodeID := stack[len(stack)-1]
@@ -264,20 +267,28 @@ func (d *Document) buildTextSegments() {
 	}
 }
 
-// IsIgnorableOutsideRoot reports whether data contains only BOM and XML whitespace.
-func IsIgnorableOutsideRoot(data []byte) bool {
+// IsIgnorableOutsideRoot reports whether data contains only XML whitespace.
+// If allowBOM is true, a leading BOM is permitted before any other character.
+func IsIgnorableOutsideRoot(data []byte, allowBOM bool) bool {
+	sawNonBOM := false
 	for len(data) > 0 {
 		r, size := utf8.DecodeRune(data)
 		if r == utf8.RuneError && size == 1 {
 			return false
 		}
 		if r == '\uFEFF' {
+			if !allowBOM || sawNonBOM {
+				return false
+			}
+			allowBOM = false
 			data = data[size:]
 			continue
 		}
 		if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
 			return false
 		}
+		sawNonBOM = true
+		allowBOM = false
 		data = data[size:]
 	}
 	return true

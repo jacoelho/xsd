@@ -51,6 +51,89 @@ func TestParseSimpleSchema(t *testing.T) {
 	}
 }
 
+func TestParseBooleanAttributesWithWhitespace(t *testing.T) {
+	schemaXML := "<?xml version=\"1.0\"?>\n" +
+		"<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+		"  <xs:complexType name=\"T\" mixed=\" true \">\n" +
+		"    <xs:sequence>\n" +
+		"      <xs:element name=\"child\" type=\"xs:string\"/>\n" +
+		"    </xs:sequence>\n" +
+		"  </xs:complexType>\n" +
+		"  <xs:element name=\"root\" type=\"xs:string\" nillable=\"\t0\n\"/>\n" +
+		"</xs:schema>"
+
+	schema, err := Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	typ, ok := schema.TypeDefs[types.QName{Local: "T"}]
+	if !ok {
+		t.Fatalf("complexType 'T' not found in schema")
+	}
+	ct, ok := typ.(*types.ComplexType)
+	if !ok {
+		t.Fatalf("complexType 'T' = %T, want *types.ComplexType", typ)
+	}
+	if !ct.Mixed() {
+		t.Fatalf("complexType 'T' mixed = false, want true")
+	}
+
+	elem, ok := schema.ElementDecls[types.QName{Local: "root"}]
+	if !ok {
+		t.Fatalf("element 'root' not found in schema")
+	}
+	if elem.Nillable {
+		t.Fatalf("element 'root' nillable = true, want false")
+	}
+}
+
+func TestParseEnumAttributesWithWhitespace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:enum"
+           xmlns:tns="urn:enum"
+           elementFormDefault=" qualified ">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="a" type="xs:string" use=" required "/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	schema, err := Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if schema.ElementFormDefault != Qualified {
+		t.Fatalf("ElementFormDefault = %v, want Qualified", schema.ElementFormDefault)
+	}
+
+	root := schema.ElementDecls[types.QName{Namespace: "urn:enum", Local: "root"}]
+	if root == nil {
+		t.Fatalf("element 'root' not found in schema")
+	}
+	ct, ok := root.Type.(*types.ComplexType)
+	if !ok {
+		t.Fatalf("root type = %T, want *types.ComplexType", root.Type)
+	}
+	attrs := ct.Attributes()
+	if len(attrs) != 1 || attrs[0].Use != types.Required {
+		t.Fatalf("attribute use = %v, want Required", attrs)
+	}
+}
+
+func TestParseTargetNamespaceWhitespaceError(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="   ">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+	if _, err := Parse(strings.NewReader(schemaXML)); err == nil {
+		t.Fatalf("expected targetNamespace whitespace error")
+	}
+}
+
 func TestParseSchemaNamespacePrefixEmpty(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:bad="">

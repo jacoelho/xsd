@@ -1,9 +1,6 @@
 package validator
 
 import (
-	"unicode"
-	"unicode/utf8"
-
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
@@ -11,8 +8,18 @@ import (
 
 // isSpecialAttribute checks if an attribute is a special XSI or XMLNS attribute.
 func isSpecialAttribute(qname types.QName) bool {
-	return qname.Namespace == xsdxml.XSINamespace ||
-		qname.Namespace == xsdxml.XMLNSNamespace
+	if qname.Namespace == xsdxml.XMLNSNamespace {
+		return true
+	}
+	if qname.Namespace != xsdxml.XSINamespace {
+		return false
+	}
+	switch qname.Local {
+	case "type", "nil", "schemaLocation", "noNamespaceSchemaLocation":
+		return true
+	default:
+		return false
+	}
 }
 
 // isXMLNSAttribute checks if an attribute is an XML namespace declaration.
@@ -56,34 +63,9 @@ func isAnySimpleType(ct *grammar.CompiledType) bool {
 
 func isWhitespaceOnlyBytes(b []byte) bool {
 	for _, r := range b {
-		if !isXMLWhitespaceByte(r) {
+		if !types.IsXMLWhitespaceByte(r) {
 			return false
 		}
-	}
-	return true
-}
-
-func isXMLWhitespaceByte(b byte) bool {
-	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
-}
-
-func isWhitespaceOnly(b []byte) bool {
-	for i := 0; i < len(b); {
-		if b[i] < utf8.RuneSelf {
-			if isXMLWhitespaceByte(b[i]) {
-				i++
-				continue
-			}
-			return false
-		}
-		r, size := utf8.DecodeRune(b[i:])
-		if r == utf8.RuneError && size == 1 {
-			return false
-		}
-		if !unicode.IsSpace(r) {
-			return false
-		}
-		i += size
 	}
 	return true
 }

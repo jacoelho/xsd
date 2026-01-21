@@ -919,12 +919,12 @@ func parseAndValidateRepeat(pattern string, startIdx int) (string, int, error) {
 		}
 
 		var err error
-		minCount, err = strconv.Atoi(strings.TrimSpace(parts[0]))
+		minCount, err = strconv.Atoi(TrimXMLWhitespace(parts[0]))
 		if err != nil {
 			return "", startIdx, fmt.Errorf("pattern-syntax-error: invalid repeat quantifier min value")
 		}
 
-		part2 := strings.TrimSpace(parts[1])
+		part2 := TrimXMLWhitespace(parts[1])
 		if part2 == "" {
 			// {m,} - no max
 			hasMax = false

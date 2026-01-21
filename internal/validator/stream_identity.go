@@ -85,7 +85,7 @@ type keyRefEntry struct {
 
 type identityScope struct {
 	decl        *grammar.CompiledElement
-	keyTables   map[string]map[string]string
+	keyTables   map[types.QName]map[string]string
 	constraints []*constraintState
 	keyRefs     []keyRefEntry
 	rootID      uint64
@@ -179,7 +179,7 @@ func (r *streamRun) openIdentityScopes(frame *streamFrame) {
 			rootDepth:   currentDepth,
 			decl:        decl,
 			constraints: make([]*constraintState, len(decl.Constraints)),
-			keyTables:   make(map[string]map[string]string),
+			keyTables:   make(map[types.QName]map[string]string),
 		}
 		for i, constraint := range decl.Constraints {
 			scope.constraints[i] = &constraintState{
@@ -187,8 +187,9 @@ func (r *streamRun) openIdentityScopes(frame *streamFrame) {
 				selectorMatches: make(map[uint64]*selectorMatch),
 			}
 			if constraint.Original.Type == types.KeyConstraint || constraint.Original.Type == types.UniqueConstraint {
-				if _, ok := scope.keyTables[constraint.Original.Name]; !ok {
-					scope.keyTables[constraint.Original.Name] = make(map[string]string)
+				keyQName := constraint.QName(decl)
+				if _, ok := scope.keyTables[keyQName]; !ok {
+					scope.keyTables[keyQName] = make(map[string]string)
 				}
 			}
 		}
@@ -268,11 +269,12 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 				Namespace: types.NamespaceURI(attr.NamespaceURI()),
 				Local:     attr.LocalName(),
 			}
-			r.addAttributeValue(state, field, frame, attrQName, attr.Value())
+			r.addAttributeValue(state, field, frame, attrQName, attr.Value(), nil)
 			if state.multiple {
 				return
 			}
 		}
+		r.addWildcardAttributeDefaults(state, field, frame, test)
 		return
 	}
 
@@ -289,11 +291,12 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 				Namespace: attrNamespace,
 				Local:     attr.LocalName(),
 			}
-			r.addAttributeValue(state, field, frame, attrQName, attr.Value())
+			r.addAttributeValue(state, field, frame, attrQName, attr.Value(), nil)
 			if state.multiple {
 				return
 			}
 		}
+		r.addWildcardAttributeDefaults(state, field, frame, test)
 		return
 	}
 
@@ -303,28 +306,63 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 				Namespace: test.Namespace,
 				Local:     test.Local,
 			}
-			r.addAttributeValue(state, field, frame, attrQName, attr.Value())
+			r.addAttributeValue(state, field, frame, attrQName, attr.Value(), nil)
 			return
 		}
-		if value, ok := r.lookupAttributeDefault(frame, types.QName{Namespace: test.Namespace, Local: test.Local}); ok {
+		if value, valueContext, ok := r.lookupAttributeDefault(frame, types.QName{Namespace: test.Namespace, Local: test.Local}); ok {
 			attrQName := types.QName{Namespace: test.Namespace, Local: test.Local}
-			r.addAttributeValue(state, field, frame, attrQName, value)
+			r.addAttributeValue(state, field, frame, attrQName, value, valueContext)
 		}
 		return
 	}
 
 	if attr, ok := findAttrByNamespace(attrs, types.NamespaceEmpty, test.Local); ok {
 		attrQName := types.QName{Namespace: types.NamespaceEmpty, Local: test.Local}
-		r.addAttributeValue(state, field, frame, attrQName, attr.Value())
+		r.addAttributeValue(state, field, frame, attrQName, attr.Value(), nil)
 		return
 	}
-	if value, ok := r.lookupAttributeDefault(frame, types.QName{Namespace: types.NamespaceEmpty, Local: test.Local}); ok {
+	if value, valueContext, ok := r.lookupAttributeDefault(frame, types.QName{Namespace: types.NamespaceEmpty, Local: test.Local}); ok {
 		attrQName := types.QName{Namespace: types.NamespaceEmpty, Local: test.Local}
-		r.addAttributeValue(state, field, frame, attrQName, value)
+		r.addAttributeValue(state, field, frame, attrQName, value, valueContext)
 	}
 }
 
-func (r *streamRun) addAttributeValue(state *fieldState, field types.Field, frame *streamFrame, attrQName types.QName, value string) {
+func (r *streamRun) addWildcardAttributeDefaults(state *fieldState, field types.Field, frame *streamFrame, test xpath.NodeTest) {
+	if state.multiple || frame == nil {
+		return
+	}
+	typ := frame.typ
+	if typ == nil && frame.decl != nil {
+		typ = frame.decl.Type
+	}
+	if typ == nil {
+		return
+	}
+	for _, attr := range typ.AllAttributes {
+		if !attr.HasDefault && !attr.HasFixed {
+			continue
+		}
+		if !nodeTestMatches(test, attr.QName) {
+			continue
+		}
+		value := attr.Default
+		var valueContext map[string]string
+		if attr.HasFixed {
+			value = attr.Fixed
+			if attr.Original != nil {
+				valueContext = attr.Original.FixedContext
+			}
+		} else if attr.Original != nil {
+			valueContext = attr.Original.DefaultContext
+		}
+		r.addAttributeValue(state, field, frame, attr.QName, value, valueContext)
+		if state.multiple {
+			return
+		}
+	}
+}
+
+func (r *streamRun) addAttributeValue(state *fieldState, field types.Field, frame *streamFrame, attrQName types.QName, value string, context map[string]string) {
 	if state.multiple {
 		return
 	}
@@ -341,7 +379,7 @@ func (r *streamRun) addAttributeValue(state *fieldState, field types.Field, fram
 		state.multiple = true
 		return
 	}
-	normalized, keyState := r.normalizeAttributeValue(value, field, frame, attrQName)
+	normalized, keyState := r.normalizeAttributeValue(value, field, frame, attrQName, context)
 	switch keyState {
 	case KeyInvalidValue:
 		state.valueInvalid = true
@@ -351,7 +389,7 @@ func (r *streamRun) addAttributeValue(state *fieldState, field types.Field, fram
 		return
 	}
 	state.value = normalized
-	state.display = strings.Clone(strings.TrimSpace(value))
+	state.display = strings.Clone(types.TrimXMLWhitespace(value))
 	state.hasValue = true
 }
 
@@ -366,12 +404,12 @@ func (r *streamRun) applyFieldCaptures(frame *streamFrame) {
 			continue
 		}
 		field := match.constraint.constraint.Original.Fields[capture.fieldIndex]
-		raw, hasValue := effectiveElementValue(frame)
+		raw, valueContext, hasValue := effectiveElementValue(frame)
 		if !hasValue {
 			fieldState.missing = true
 			continue
 		}
-		normalized, keyState := r.normalizeElementValue(raw, field, frame)
+		normalized, keyState := r.normalizeElementValue(raw, field, frame, valueContext)
 		switch keyState {
 		case KeyInvalidValue:
 			fieldState.valueInvalid = true
@@ -386,26 +424,34 @@ func (r *streamRun) applyFieldCaptures(frame *streamFrame) {
 	}
 }
 
-func effectiveElementValue(frame *streamFrame) (string, bool) {
+func effectiveElementValue(frame *streamFrame) (string, map[string]string, bool) {
 	if frame == nil {
-		return "", false
+		return "", nil, false
 	}
 	if frame.nilled {
-		return "", false
+		return "", nil, false
 	}
 	if len(frame.textBuf) > 0 || frame.hasChildElements || frame.textType == nil {
-		return string(frame.textBuf), true
+		return string(frame.textBuf), nil, true
 	}
 	if frame.decl == nil {
-		return string(frame.textBuf), true
+		return string(frame.textBuf), nil, true
 	}
-	if frame.decl.Default != "" {
-		return frame.decl.Default, true
+	if frame.decl.HasDefault {
+		var ctx map[string]string
+		if frame.decl.Original != nil {
+			ctx = frame.decl.Original.DefaultContext
+		}
+		return frame.decl.Default, ctx, true
 	}
 	if frame.decl.HasFixed {
-		return frame.decl.Fixed, true
+		var ctx map[string]string
+		if frame.decl.Original != nil {
+			ctx = frame.decl.Original.FixedContext
+		}
+		return frame.decl.Fixed, ctx, true
 	}
-	return "", true
+	return "", nil, true
 }
 
 func (r *streamRun) finalizeSelectorMatches(frame *streamFrame) {
@@ -470,10 +516,11 @@ func (r *streamRun) finalizeSelectorMatch(scope *identityScope, state *constrain
 
 	switch constraint.Original.Type {
 	case types.KeyConstraint, types.UniqueConstraint:
-		table := scope.keyTables[constraint.Original.Name]
+		keyQName := constraint.QName(scope.decl)
+		table := scope.keyTables[keyQName]
 		if table == nil {
 			table = make(map[string]string)
-			scope.keyTables[constraint.Original.Name] = table
+			scope.keyTables[keyQName] = table
 		}
 		if firstPath, exists := table[tuple]; exists {
 			code := errors.ErrIdentityDuplicate
@@ -528,12 +575,9 @@ func (r *streamRun) finalizeKeyRefs(scope *identityScope) {
 		if constraint.Original.Type != types.KeyRefConstraint {
 			continue
 		}
-		referName := constraint.Original.ReferQName.String()
-		refLocal := constraint.Original.ReferQName.Local
-		keyTable := scope.keyTables[refLocal]
-		if keyTable == nil {
-			keyTable = scope.keyTables[referName]
-		}
+		referQName := constraint.Original.ReferQName
+		referName := referQName.String()
+		keyTable := scope.keyTables[referQName]
 		if keyTable == nil {
 			elemPath := r.path.String()
 			violation := errors.NewValidationf(errors.ErrIdentityKeyRefFailed, elemPath,
@@ -582,7 +626,7 @@ func (r *streamRun) addIdentityFieldError(constraint *grammar.CompiledConstraint
 	}
 }
 
-func (r *streamRun) normalizeElementValue(value string, field types.Field, frame *streamFrame) (string, KeyState) {
+func (r *streamRun) normalizeElementValue(value string, field types.Field, frame *streamFrame, context map[string]string) (string, KeyState) {
 	fieldType := field.ResolvedType
 	if fieldType == nil {
 		fieldType = field.Type
@@ -603,7 +647,7 @@ func (r *streamRun) normalizeElementValue(value string, field types.Field, frame
 	if _, ok := fieldType.(*types.ComplexType); ok {
 		fieldType = types.GetBuiltin(types.TypeName("string"))
 	}
-	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth)
+	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth, context)
 }
 
 func isAnySimpleOrAnyType(fieldType types.Type) bool {
@@ -617,35 +661,41 @@ func isAnySimpleOrAnyType(fieldType types.Type) bool {
 	return name.Local == "anySimpleType" || name.Local == "anyType"
 }
 
-func (r *streamRun) normalizeAttributeValue(value string, field types.Field, frame *streamFrame, attrQName types.QName) (string, KeyState) {
+func (r *streamRun) normalizeAttributeValue(value string, field types.Field, frame *streamFrame, attrQName types.QName, context map[string]string) (string, KeyState) {
 	fieldType := field.ResolvedType
 	if fieldType == nil {
 		fieldType = field.Type
 	}
 
 	attrDeclared := false
-	if frame != nil && frame.decl != nil && frame.decl.Type != nil {
-		for _, attr := range frame.decl.Type.AllAttributes {
-			if attr.QName.Local != attrQName.Local {
-				continue
-			}
-			if attr.QName.Namespace != attrQName.Namespace {
-				continue
-			}
-			attrDeclared = true
-			if attr.Type != nil && attr.Type.Original != nil {
-				return r.normalizeValueByTypeStream(value, attr.Type.Original, frame.scopeDepth)
-			}
+	if frame != nil {
+		typ := frame.typ
+		if typ == nil && frame.decl != nil {
+			typ = frame.decl.Type
 		}
-		if fieldType == nil && !attrDeclared && frame.decl.Type.AnyAttribute != nil && frame.decl.Type.AnyAttribute.AllowsQName(attrQName) {
-			return "", KeyInvalidSelection
+		if typ != nil {
+			for _, attr := range typ.AllAttributes {
+				if attr.QName.Local != attrQName.Local {
+					continue
+				}
+				if attr.QName.Namespace != attrQName.Namespace {
+					continue
+				}
+				attrDeclared = true
+				if attr.Type != nil && attr.Type.Original != nil {
+					return r.normalizeValueByTypeStream(value, attr.Type.Original, frame.scopeDepth, context)
+				}
+			}
+			if fieldType == nil && !attrDeclared && typ.AnyAttribute != nil && typ.AnyAttribute.AllowsQName(attrQName) {
+				return "", KeyInvalidSelection
+			}
 		}
 	}
 
 	if fieldType == nil {
 		fieldType = types.GetBuiltin(types.TypeName("string"))
 	}
-	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth)
+	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth, context)
 }
 
 const (
@@ -653,40 +703,39 @@ const (
 	keyListSeparator = "\x02"
 )
 
-func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Type, scopeDepth int) (string, KeyState) {
+func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Type, scopeDepth int, context map[string]string) (string, KeyState) {
 	if fieldType == nil {
 		fieldType = types.GetBuiltin(types.TypeName("string"))
 	}
-	return r.normalizeValueByType(value, fieldType, scopeDepth, make(map[types.Type]bool))
+	return r.normalizeValueByType(value, fieldType, scopeDepth, context)
 }
 
-func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, scopeDepth int, visited map[types.Type]bool) (string, KeyState) {
+func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, scopeDepth int, context map[string]string) (string, KeyState) {
 	if fieldType == nil {
 		return value, KeyValid
 	}
-	if visited[fieldType] {
-		return value, KeyValid
+	if !types.IdentityNormalizable(fieldType) {
+		return "", KeyInvalidValue
 	}
-	visited[fieldType] = true
-	defer delete(visited, fieldType)
 
-	if itemType, ok := types.ListItemType(fieldType); ok {
+	if itemType, ok := types.IdentityListItemType(fieldType); ok {
 		normalized, err := types.NormalizeValue(value, fieldType)
 		if err != nil {
 			return "", KeyInvalidValue
 		}
-		return r.normalizeListValue(normalized, itemType, fieldType, scopeDepth, visited)
+		return r.normalizeListValue(normalized, itemType, fieldType, scopeDepth, context)
 	}
 
 	if st, ok := types.AsSimpleType(fieldType); ok && st.Variety() == types.UnionVariety {
-		if len(st.MemberTypes) == 0 {
+		members := types.IdentityMemberTypes(fieldType)
+		if len(members) == 0 {
 			return "", KeyInvalidValue
 		}
-		for _, member := range st.MemberTypes {
+		for _, member := range members {
 			if member == nil {
 				continue
 			}
-			normalized, state := r.normalizeValueByType(value, member, scopeDepth, visited)
+			normalized, state := r.normalizeValueByType(value, member, scopeDepth, context)
 			if state == KeyValid {
 				return normalized, KeyValid
 			}
@@ -698,10 +747,10 @@ func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, sco
 	if err != nil {
 		return "", KeyInvalidValue
 	}
-	return r.normalizeAtomicValue(normalized, fieldType, scopeDepth)
+	return r.normalizeAtomicValue(normalized, fieldType, scopeDepth, context)
 }
 
-func (r *streamRun) normalizeListValue(value string, itemType, listType types.Type, scopeDepth int, visited map[types.Type]bool) (string, KeyState) {
+func (r *streamRun) normalizeListValue(value string, itemType, listType types.Type, scopeDepth int, context map[string]string) (string, KeyState) {
 	var (
 		itemState KeyState
 		builder   strings.Builder
@@ -711,7 +760,7 @@ func (r *streamRun) normalizeListValue(value string, itemType, listType types.Ty
 	builder.WriteString(listKeyPrefix(listType))
 	builder.WriteString(keyTypeSeparator)
 	splitWhitespaceSeq(value, func(item string) bool {
-		normalized, state := r.normalizeValueByType(item, itemType, scopeDepth, visited)
+		normalized, state := r.normalizeValueByType(item, itemType, scopeDepth, context)
 		if state != KeyValid {
 			itemState = state
 			return false
@@ -729,7 +778,7 @@ func (r *streamRun) normalizeListValue(value string, itemType, listType types.Ty
 	return builder.String(), KeyValid
 }
 
-func (r *streamRun) normalizeAtomicValue(value string, fieldType types.Type, scopeDepth int) (string, KeyState) {
+func (r *streamRun) normalizeAtomicValue(value string, fieldType types.Type, scopeDepth int, context map[string]string) (string, KeyState) {
 	primitiveName := primitiveTypeName(fieldType)
 	typePrefix := typeKeyPrefix(fieldType, primitiveName)
 
@@ -810,7 +859,7 @@ func (r *streamRun) normalizeAtomicValue(value string, fieldType types.Type, sco
 		}
 		return typePrefix + keyTypeSeparator + base64.StdEncoding.EncodeToString(decoded), KeyValid
 	case "QName", "NOTATION":
-		normalized, err := r.normalizeQNameValue(value, scopeDepth)
+		normalized, err := r.normalizeQNameValue(value, scopeDepth, context)
 		if err != nil {
 			return "", KeyInvalidValue
 		}
@@ -865,22 +914,34 @@ func normalizeTimeValue(prefix, value string, parse func(string) (time.Time, err
 	if err != nil {
 		return "", KeyInvalidValue
 	}
-	return prefix + keyTypeSeparator + parsed.UTC().Format(time.RFC3339Nano), KeyValid
+	tzMarker := "local"
+	if types.HasTimezone(value) {
+		tzMarker = "tz"
+	}
+	normalized := parsed.UTC().Format(time.RFC3339Nano)
+	return prefix + keyTypeSeparator + tzMarker + keyTypeSeparator + normalized, KeyValid
 }
 
-func (r *streamRun) normalizeQNameValue(value string, scopeDepth int) (string, error) {
-	qname, err := r.parseQNameValue(value, scopeDepth)
+func (r *streamRun) normalizeQNameValue(value string, scopeDepth int, context map[string]string) (string, error) {
+	qname, err := r.parseQNameValueWithContext(value, scopeDepth, context)
 	if err != nil {
 		return "", err
 	}
 	return "{" + qname.Namespace.String() + "}" + qname.Local, nil
 }
 
-func (r *streamRun) lookupAttributeDefault(frame *streamFrame, attrQName types.QName) (string, bool) {
-	if frame == nil || frame.decl == nil || frame.decl.Type == nil {
-		return "", false
+func (r *streamRun) lookupAttributeDefault(frame *streamFrame, attrQName types.QName) (string, map[string]string, bool) {
+	if frame == nil {
+		return "", nil, false
 	}
-	for _, attr := range frame.decl.Type.AllAttributes {
+	typ := frame.typ
+	if typ == nil && frame.decl != nil {
+		typ = frame.decl.Type
+	}
+	if typ == nil {
+		return "", nil, false
+	}
+	for _, attr := range typ.AllAttributes {
 		if attr.QName.Local != attrQName.Local {
 			continue
 		}
@@ -888,14 +949,22 @@ func (r *streamRun) lookupAttributeDefault(frame *streamFrame, attrQName types.Q
 			continue
 		}
 		if attr.HasFixed {
-			return attr.Fixed, true
+			var ctx map[string]string
+			if attr.Original != nil {
+				ctx = attr.Original.FixedContext
+			}
+			return attr.Fixed, ctx, true
 		}
-		if attr.Default != "" {
-			return attr.Default, true
+		if attr.HasDefault {
+			var ctx map[string]string
+			if attr.Original != nil {
+				ctx = attr.Original.DefaultContext
+			}
+			return attr.Default, ctx, true
 		}
-		return "", false
+		return "", nil, false
 	}
-	return "", false
+	return "", nil, false
 }
 
 func findAttrByNamespace(attrs []streamAttr, namespace types.NamespaceURI, local string) (streamAttr, bool) {

@@ -7,11 +7,11 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (r *streamRun) validateQNameEnumeration(value string, enum *types.Enumeration, scopeDepth int) error {
+func (r *streamRun) validateQNameEnumeration(value string, enum *types.Enumeration, scopeDepth int, context map[string]string) error {
 	if enum == nil {
 		return nil
 	}
-	qname, err := r.parseQNameValue(value, scopeDepth)
+	qname, err := r.parseQNameValueWithContext(value, scopeDepth, context)
 	if err != nil {
 		return err
 	}

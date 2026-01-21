@@ -1,10 +1,8 @@
 package parser
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
@@ -62,7 +60,7 @@ type IncludeInfo struct {
 // getNameAttr returns the name attribute value with whitespace trimmed.
 // XSD attribute values should be normalized per XML spec, so we always trim.
 func getNameAttr(doc *xsdxml.Document, elem xsdxml.NodeID) string {
-	return strings.TrimSpace(doc.GetAttribute(elem, "name"))
+	return types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 }
 
 // ParseResult contains the parsed schema and import/include directives
@@ -119,7 +117,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 			if attr.NamespaceURI() != "" {
 				return nil, fmt.Errorf("schema attribute 'targetNamespace' must be unprefixed (found '%s:targetNamespace')", attr.NamespaceURI())
 			}
-			targetNSAttr = attr.Value()
+			targetNSAttr = types.ApplyWhiteSpace(attr.Value(), types.WhiteSpaceCollapse)
 			targetNSFound = true
 			break
 		}
@@ -152,7 +150,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	}
 
 	if doc.HasAttribute(root, "elementFormDefault") {
-		elemForm := doc.GetAttribute(root, "elementFormDefault")
+		elemForm := types.ApplyWhiteSpace(doc.GetAttribute(root, "elementFormDefault"), types.WhiteSpaceCollapse)
 		if elemForm == "" {
 			return nil, fmt.Errorf("elementFormDefault attribute cannot be empty")
 		}
@@ -167,7 +165,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	}
 
 	if doc.HasAttribute(root, "attributeFormDefault") {
-		attrForm := doc.GetAttribute(root, "attributeFormDefault")
+		attrForm := types.ApplyWhiteSpace(doc.GetAttribute(root, "attributeFormDefault"), types.WhiteSpaceCollapse)
 		if attrForm == "" {
 			return nil, fmt.Errorf("attributeFormDefault attribute cannot be empty")
 		}
@@ -283,7 +281,7 @@ func parseTopLevelNotation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 		return err
 	}
 
-	if len(bytes.TrimSpace(doc.DirectTextContentBytes(elem))) != 0 {
+	if types.TrimXMLWhitespace(string(doc.DirectTextContentBytes(elem))) != "" {
 		return fmt.Errorf("notation must not contain character data")
 	}
 

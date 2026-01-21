@@ -180,6 +180,32 @@ func TestStreamIdentityConstraints(t *testing.T) {
 			wantCode: errors.ErrIdentityDuplicate,
 		},
 		{
+			name: "unique uses empty attribute default",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="code" type="xs:string" default=""/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueCode">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@code"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item/><item/></root>`,
+			wantCode: errors.ErrIdentityDuplicate,
+		},
+		{
 			name: "unique uses element fixed",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -406,6 +432,86 @@ func TestStreamIdentityConstraints(t *testing.T) {
 				t.Fatalf("expected code %s, got %v", tt.wantCode, violations)
 			}
 		})
+	}
+}
+
+func TestStreamIdentityUsesXsiTypeDefaults(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:complexType name="A">
+    <xs:sequence/>
+  </xs:complexType>
+  <xs:complexType name="B">
+    <xs:complexContent>
+      <xs:extension base="tns:A">
+        <xs:attribute name="code" type="xs:string" default="DEF"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="tns:A"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@code"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test" xmlns:tns="urn:test" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <item xsi:type="tns:B"/>
+</root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if hasViolationCode(violations, errors.ErrIdentityAbsent) {
+		t.Fatalf("expected xsi:type defaulted attribute to satisfy key, got %v", violations)
+	}
+}
+
+func TestStreamIdentityUsesDefaultQNameContext(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="code" type="xs:QName" default="tns:val"/>
+    </xs:complexType>
+    <xs:key name="codeKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="@code"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test"/>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if hasViolationCode(violations, errors.ErrIdentityAbsent) {
+		t.Fatalf("expected QName default to satisfy key, got %v", violations)
 	}
 }
 
@@ -728,6 +834,48 @@ func TestStreamIdentityKeyrefIgnoresNilledField(t *testing.T) {
 	}
 	if len(violations) != 0 {
 		t.Fatalf("expected no violations, got %v", violations)
+	}
+}
+
+func TestIdentityTimezoneDistinctValues(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="dt" type="xs:dateTime" use="required"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="itemTime">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@dt"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test">
+  <item dt="2000-01-01T00:00:00"/>
+  <item dt="2000-01-01T00:00:00Z"/>
+</root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if hasViolationCode(violations, errors.ErrIdentityDuplicate) {
+		t.Fatalf("unexpected code %s, got %v", errors.ErrIdentityDuplicate, violations)
 	}
 }
 

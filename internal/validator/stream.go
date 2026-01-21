@@ -114,7 +114,7 @@ func (v *Validator) ValidateStream(r io.Reader) ([]errors.Validation, error) {
 
 	run := v.newStreamRun()
 
-	dec, err := xmlstream.NewStringReader(r, xmlstream.MaxQNameInternEntries(0))
+	dec, err := xmlstream.NewStringReader(r)
 	if err != nil {
 		return nil, err
 	}
@@ -172,6 +172,7 @@ func (r *streamRun) releaseRemainingFrames() {
 	}
 	for i := range r.frames {
 		r.releaseFrameResources(&r.frames[i])
+		r.frames[i] = streamFrame{}
 	}
 	r.frames = r.frames[:0]
 }
@@ -184,6 +185,7 @@ func (r *streamRun) validate(dec *xmlstream.StringReader) ([]errors.Validation, 
 	r.violations = r.violations[:0]
 	r.rootSeen = false
 	r.rootClosed = false
+	allowBOM := true
 	r.currentLine = 0
 	r.currentColumn = 0
 	r.identityScopes = r.identityScopes[:0]
@@ -206,6 +208,7 @@ func (r *streamRun) validate(dec *xmlstream.StringReader) ([]errors.Validation, 
 			}
 			if !r.rootSeen {
 				r.rootSeen = true
+				allowBOM = false
 			}
 			if err := r.handleStart(dec, &ev); err != nil {
 				return r.violations, err
@@ -224,9 +227,10 @@ func (r *streamRun) validate(dec *xmlstream.StringReader) ([]errors.Validation, 
 
 		case xmlstream.EventCharData:
 			if len(r.frames) == 0 {
-				if !xsdxml.IsIgnorableOutsideRoot(ev.Text) {
+				if !xsdxml.IsIgnorableOutsideRoot(ev.Text, allowBOM) {
 					return r.violations, fmt.Errorf("unexpected character data outside root element")
 				}
+				allowBOM = false
 				continue
 			}
 			r.handleCharData(&ev)
@@ -353,7 +357,9 @@ func (r *streamRun) resolveChildMatch(parent *streamFrame, name types.QName) (st
 	case streamContentAutomaton:
 		automatonMatch, err := parent.automaton.Feed(name)
 		if err != nil {
+			r.path.push(name.Local)
 			r.addContentModelError(err)
+			r.path.pop()
 			parent.invalid = true
 			return match, true
 		}
@@ -366,7 +372,9 @@ func (r *streamRun) resolveChildMatch(parent *streamFrame, name types.QName) (st
 	case streamContentAllGroup:
 		groupMatch, err := parent.allGroup.Feed(name)
 		if err != nil {
+			r.path.push(name.Local)
 			r.addContentModelError(err)
+			r.path.pop()
 			parent.invalid = true
 			return match, true
 		}
@@ -391,12 +399,10 @@ func (r *streamRun) handleCharData(ev *xmlstream.StringEvent) {
 	}
 
 	if frame.nilled {
-		if !isWhitespaceOnly(ev.Text) {
-			violation := errors.NewValidation(errors.ErrNilElementNotEmpty,
-				"Element with xsi:nil='true' must be empty", r.path.String())
-			r.addViolation(&violation)
-			frame.invalid = true
-		}
+		violation := errors.NewValidation(errors.ErrNilElementNotEmpty,
+			"Element with xsi:nil='true' must be empty", r.path.String())
+		r.addViolation(&violation)
+		frame.invalid = true
 		return
 	}
 
@@ -480,21 +486,43 @@ func (r *streamRun) handleEnd() error {
 		}
 		text := string(frame.textBuf)
 		hadContent := text != ""
+		usedDefault := false
+		var defaultContext map[string]string
 		if text == "" && frame.decl != nil {
-			if frame.decl.Default != "" {
+			if frame.decl.HasDefault {
 				text = frame.decl.Default
+				usedDefault = true
+				if frame.decl.Original != nil {
+					defaultContext = frame.decl.Original.DefaultContext
+				}
 			} else if frame.decl.HasFixed {
 				text = frame.decl.Fixed
+				usedDefault = true
+				if frame.decl.Original != nil {
+					defaultContext = frame.decl.Original.FixedContext
+				}
 			}
 		}
 		textLine, textColumn := frame.textPos()
-		r.addViolationsAt(r.checkSimpleValue(text, frame.textType, frame.scopeDepth), textLine, textColumn)
-		r.addViolationsAt(r.collectIDRefs(text, frame.textType, textLine, textColumn), textLine, textColumn)
+		var violations []errors.Validation
+		if usedDefault && defaultContext != nil {
+			violations = r.checkSimpleValueWithContext(text, frame.textType, defaultContext)
+		} else {
+			violations = r.checkSimpleValue(text, frame.textType, frame.scopeDepth)
+		}
+		r.addViolationsAt(violations, textLine, textColumn)
+		if len(violations) == 0 {
+			r.addViolationsAt(r.collectIDRefs(text, frame.textType, textLine, textColumn), textLine, textColumn)
+		}
 		if frame.typ != nil && frame.typ.Kind == grammar.TypeKindComplex && len(frame.typ.Facets) > 0 {
-			r.addViolationsAt(r.checkComplexTypeFacetsWithContext(text, frame.typ, frame.scopeDepth), textLine, textColumn)
+			if usedDefault && defaultContext != nil {
+				r.addViolationsAt(r.checkComplexTypeFacetsWithContext(text, frame.typ, frame.scopeDepth, defaultContext), textLine, textColumn)
+			} else {
+				r.addViolationsAt(r.checkComplexTypeFacetsWithContext(text, frame.typ, frame.scopeDepth, nil), textLine, textColumn)
+			}
 		}
 		if frame.decl != nil && frame.decl.HasFixed && hadContent {
-			r.addViolationsAt(r.checkFixedValue(text, frame.decl.Fixed, frame.textType), textLine, textColumn)
+			r.addViolationsAt(r.checkElementFixedValue(text, frame.decl, frame.textType, frame.scopeDepth), textLine, textColumn)
 		}
 		r.propagateText(frame)
 		return nil
@@ -523,7 +551,7 @@ func (r *streamRun) handleEnd() error {
 			text = frame.decl.Fixed
 		}
 		textLine, textColumn := frame.textPos()
-		r.addViolationsAt(r.checkFixedValue(text, frame.decl.Fixed, textTypeForFixedValue(frame.decl)), textLine, textColumn)
+		r.addViolationsAt(r.checkElementFixedValue(text, frame.decl, textTypeForFixedValue(frame.decl), frame.scopeDepth), textLine, textColumn)
 	}
 
 	r.propagateText(frame)
@@ -551,7 +579,27 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 		}
 		if hasXsiType {
 			xsiType, err := r.resolveXsiTypeOnly(ev.ScopeDepth, xsiTypeValue)
-			if err == nil && xsiType != nil {
+			if err != nil {
+				violation := errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String())
+				r.addViolation(&violation)
+				return streamFrame{}, true
+			}
+			if xsiType != nil {
+				attrsToCheck := xsiType.AllAttributes
+				anyAttr := xsiType.AnyAttribute
+				if isAnyType(xsiType) {
+					attrsToCheck = nil
+					anyAttr = &types.AnyAttribute{
+						Namespace:       types.NSCAny,
+						ProcessContents: types.Lax,
+						TargetNamespace: types.NamespaceEmpty,
+					}
+				}
+				violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, ev.ScopeDepth, ev.Line, ev.Column)
+				if len(violations) > 0 {
+					r.addViolations(violations)
+					return streamFrame{}, true
+				}
 				frame := r.newFrame(ev, nil, xsiType, parent)
 				return frame, false
 			}
@@ -569,7 +617,17 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 	}
 
 	nilValue, hasNil := attrs.Value(xsdxml.XSINamespace, "nil")
-	isNil := hasNil && (nilValue == "true" || nilValue == "1")
+	isNil := false
+	if hasNil {
+		parsedNil, err := types.ParseBoolean(nilValue)
+		if err != nil {
+			violation := errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+				"xsi:nil has invalid value %q", nilValue)
+			r.addViolation(&violation)
+			return streamFrame{}, true
+		}
+		isNil = parsedNil
+	}
 	if hasNil && !decl.Nillable {
 		violation := errors.NewValidationf(errors.ErrElementNotNillable, r.path.String(),
 			"Element '%s' is not nillable but has xsi:nil attribute", ev.Name.Local)
@@ -941,9 +999,11 @@ func (r *streamRun) popFrame() *streamFrame {
 	if len(r.frames) == 0 {
 		return nil
 	}
-	frame := &r.frames[len(r.frames)-1]
-	r.frames = r.frames[:len(r.frames)-1]
-	return frame
+	last := len(r.frames) - 1
+	frame := r.frames[last]
+	r.frames[last] = streamFrame{}
+	r.frames = r.frames[:last]
+	return &frame
 }
 
 func (r *streamRun) propagateText(frame *streamFrame) {
@@ -963,7 +1023,7 @@ func (r *streamRun) feedListStream(frame *streamFrame, data []byte) {
 	}
 	state := &frame.listStream
 	for i := 0; i < len(data); {
-		if isXMLWhitespaceByte(data[i]) {
+		if types.IsXMLWhitespaceByte(data[i]) {
 			if len(state.itemBuf) > 0 {
 				r.flushListItem(frame)
 			}
@@ -971,7 +1031,7 @@ func (r *streamRun) feedListStream(frame *streamFrame, data []byte) {
 			continue
 		}
 		start := i
-		for i < len(data) && !isXMLWhitespaceByte(data[i]) {
+		for i < len(data) && !types.IsXMLWhitespaceByte(data[i]) {
 			i++
 		}
 		if len(state.itemBuf) == 0 && i < len(data) {
@@ -992,16 +1052,31 @@ func (r *streamRun) finishListStream(frame *streamFrame) {
 	state := &frame.listStream
 	if !state.sawContent {
 		value := ""
+		var valueContext map[string]string
 		if frame.decl != nil {
-			if frame.decl.Default != "" {
+			if frame.decl.HasDefault {
 				value = frame.decl.Default
+				if frame.decl.Original != nil {
+					valueContext = frame.decl.Original.DefaultContext
+				}
 			} else if frame.decl.HasFixed {
 				value = frame.decl.Fixed
+				if frame.decl.Original != nil {
+					valueContext = frame.decl.Original.FixedContext
+				}
 			}
 		}
 		textLine, textColumn := frame.textPos()
-		r.addViolationsAt(r.checkSimpleValue(value, frame.textType, frame.scopeDepth), textLine, textColumn)
-		r.addViolationsAt(r.collectIDRefs(value, frame.textType, textLine, textColumn), textLine, textColumn)
+		var violations []errors.Validation
+		if valueContext != nil {
+			violations = r.checkSimpleValueWithContext(value, frame.textType, valueContext)
+		} else {
+			violations = r.checkSimpleValue(value, frame.textType, frame.scopeDepth)
+		}
+		r.addViolationsAt(violations, textLine, textColumn)
+		if len(violations) == 0 {
+			r.addViolationsAt(r.collectIDRefs(value, frame.textType, textLine, textColumn), textLine, textColumn)
+		}
 		return
 	}
 
@@ -1045,37 +1120,38 @@ func (r *streamRun) processListItemBytes(frame *streamFrame, itemBytes []byte) {
 		}
 		return
 	}
-	if r.validateListItemBytes(frame, itemBytes, index) {
-		if frame.textType.IDTypeName == "IDREFS" {
+	if handled, valid := r.validateListItemBytes(frame, itemBytes, index); handled {
+		if valid && frame.textType.IDTypeName == "IDREFS" {
 			r.trackListIDRefs(string(itemBytes), frame.textType)
 		}
 		return
 	}
 	itemString := string(itemBytes)
-	valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport)
+	valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport, nil)
 	if !valid {
 		r.addViolations(violations)
 	}
-	if frame.textType.IDTypeName == "IDREFS" {
+	if valid && frame.textType.IDTypeName == "IDREFS" {
 		r.trackListIDRefs(itemString, frame.textType)
 	}
 }
 
-func (r *streamRun) validateListItemBytes(frame *streamFrame, itemBytes []byte, index int) bool {
+func (r *streamRun) validateListItemBytes(frame *streamFrame, itemBytes []byte, index int) (bool, bool) {
 	state := &frame.listStream
 	if state.itemMode != listItemModeBytes || state.itemBuiltin == nil {
-		return false
+		return false, false
 	}
 	validated, err := state.itemBuiltin.ValidateBytes(itemBytes)
 	if !validated {
-		return false
+		return false, false
 	}
 	if err != nil {
 		violation := errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 			"list item[%d]: %s", index, err.Error())
 		r.addViolation(&violation)
+		return true, false
 	}
-	return true
+	return true, true
 }
 
 func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType, state *listStreamState, line, column int) {

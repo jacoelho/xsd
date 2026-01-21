@@ -80,7 +80,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 	idCount := 0
 
 	for _, attr := range decls {
-		if attr.Use == types.Prohibited && !attr.HasFixed {
+		if attr.Use == types.Prohibited {
 			continue
 		}
 		declared.add(attr.QName)
@@ -94,8 +94,9 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 
 		if value, ok := attrs.Value(attr.QName.Namespace.String(), attr.QName.Local); ok {
 			if attr.Type != nil {
-				violations = append(violations, r.checkSimpleValue(value, attr.Type, scopeDepth)...)
-				if value != "" {
+				valueViolations := r.checkSimpleValue(value, attr.Type, scopeDepth)
+				violations = append(violations, valueViolations...)
+				if value != "" && len(valueViolations) == 0 {
 					violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
 				}
 				if attr.Type.IDTypeName == "ID" {
@@ -103,24 +104,31 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 				}
 			}
 
-			if attr.Fixed != "" {
-				var typ types.Type
-				if attr.Type != nil {
-					typ = attr.Type.Original
-				}
-				if !fixedValueMatches(value, attr.Fixed, typ) {
-					violations = append(violations, errors.NewValidationf(errors.ErrAttributeFixedValue, r.path.String(),
-						"Attribute '%s' has fixed value '%s', but found '%s'", attr.QName.Local, attr.Fixed, value))
-				}
+			if attr.HasFixed {
+				violations = append(violations, r.checkAttributeFixedValue(value, attr, scopeDepth)...)
 			}
-		} else if attr.Use == types.Optional && (attr.HasFixed || attr.Default != "") {
+		} else if attr.Use == types.Optional && (attr.HasFixed || attr.HasDefault) {
 			value := attr.Default
+			var valueContext map[string]string
 			if attr.HasFixed {
 				value = attr.Fixed
+				if attr.Original != nil {
+					valueContext = attr.Original.FixedContext
+				}
+			} else if attr.Original != nil {
+				valueContext = attr.Original.DefaultContext
 			}
 			if attr.Type != nil {
-				violations = append(violations, r.checkSimpleValue(value, attr.Type, scopeDepth)...)
-				violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
+				var valueViolations []errors.Validation
+				if valueContext != nil {
+					valueViolations = r.checkSimpleValueWithContext(value, attr.Type, valueContext)
+				} else {
+					valueViolations = r.checkSimpleValue(value, attr.Type, scopeDepth)
+				}
+				violations = append(violations, valueViolations...)
+				if value != "" && len(valueViolations) == 0 {
+					violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
+				}
 				if attr.Type.IDTypeName == "ID" {
 					idCount++
 				}
@@ -143,7 +151,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 				violations = append(violations, errors.NewValidationf(errors.ErrAttributeNotDeclared, r.path.String(),
 					"Attribute '%s' is not declared", attrQName.Local))
 			} else {
-				violations = append(violations, r.checkWildcardAttributeStream(xmlAttr, anyAttr, scopeDepth)...)
+				violations = append(violations, r.checkWildcardAttributeStream(xmlAttr, anyAttr, scopeDepth, line, column)...)
 				if anyAttr.ProcessContents != types.Skip {
 					if attrDecl := r.schema.Attribute(attrQName); attrDecl != nil && attrDecl.Type != nil {
 						if attrDecl.Type.IDTypeName == "ID" {
@@ -163,7 +171,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 	return violations
 }
 
-func (r *streamRun) checkWildcardAttributeStream(xmlAttr streamAttr, anyAttr *types.AnyAttribute, scopeDepth int) []errors.Validation {
+func (r *streamRun) checkWildcardAttributeStream(xmlAttr streamAttr, anyAttr *types.AnyAttribute, scopeDepth, line, column int) []errors.Validation {
 	if anyAttr.ProcessContents == types.Skip {
 		return nil
 	}
@@ -182,25 +190,22 @@ func (r *streamRun) checkWildcardAttributeStream(xmlAttr streamAttr, anyAttr *ty
 		return nil
 	}
 
-	return r.checkDeclaredAttributeValueStream(xmlAttr.Value(), attrDecl, scopeDepth)
+	return r.checkDeclaredAttributeValueStream(xmlAttr.Value(), attrDecl, scopeDepth, line, column)
 }
 
-func (r *streamRun) checkDeclaredAttributeValueStream(value string, decl *grammar.CompiledAttribute, scopeDepth int) []errors.Validation {
+func (r *streamRun) checkDeclaredAttributeValueStream(value string, decl *grammar.CompiledAttribute, scopeDepth, line, column int) []errors.Validation {
 	var violations []errors.Validation
 
 	if decl.Type != nil {
-		violations = append(violations, r.checkSimpleValue(value, decl.Type, scopeDepth)...)
+		valueViolations := r.checkSimpleValue(value, decl.Type, scopeDepth)
+		violations = append(violations, valueViolations...)
+		if value != "" && len(valueViolations) == 0 {
+			violations = append(violations, r.collectIDRefs(value, decl.Type, line, column)...)
+		}
 	}
 
 	if decl.HasFixed {
-		var typ types.Type
-		if decl.Type != nil {
-			typ = decl.Type.Original
-		}
-		if !fixedValueMatches(value, decl.Fixed, typ) {
-			violations = append(violations, errors.NewValidationf(errors.ErrAttributeFixedValue, r.path.String(),
-				"Attribute '%s' has fixed value '%s', but found '%s'", decl.QName.Local, decl.Fixed, value))
-		}
+		violations = append(violations, r.checkAttributeFixedValue(value, decl, scopeDepth)...)
 	}
 
 	return violations

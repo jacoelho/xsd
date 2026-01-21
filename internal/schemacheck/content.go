@@ -104,8 +104,9 @@ func effectiveAttributeUse(schema *parser.Schema, attr *types.AttributeDecl) *ty
 		merged.Fixed = target.Fixed
 		merged.HasFixed = true
 	}
-	if merged.Default == "" {
+	if !merged.HasDefault && target.HasDefault {
 		merged.Default = target.Default
+		merged.HasDefault = true
 	}
 	return &merged
 }

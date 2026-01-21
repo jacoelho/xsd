@@ -11,7 +11,7 @@ import (
 // validateSelectorXPath validates that a selector XPath selects element nodes
 // Selectors cannot select attributes or text nodes per XSD 1.0 spec
 func validateSelectorXPath(expr string) error {
-	expr = strings.TrimSpace(expr)
+	expr = types.TrimXMLWhitespace(expr)
 
 	if expr == "" {
 		return fmt.Errorf("selector xpath cannot be empty")
@@ -45,7 +45,7 @@ func validateSelectorXPath(expr string) error {
 // validateFieldXPath performs basic checks for field XPath expressions.
 // Restricted XPath grammar is enforced separately.
 func validateFieldXPath(expr string) error {
-	expr = strings.TrimSpace(expr)
+	expr = types.TrimXMLWhitespace(expr)
 	axisCheck := strings.Map(func(r rune) rune {
 		switch r {
 		case ' ', '\t', '\n', '\r':
@@ -115,7 +115,7 @@ func validateFieldXPath(expr string) error {
 // Selectors can use wildcards but are still restricted to certain axes
 // Per XSD spec section 3.11.4.2, selector XPath must be a restricted subset
 func validateSelectorXPathRestrictions(expr string) error {
-	expr = strings.TrimSpace(expr)
+	expr = types.TrimXMLWhitespace(expr)
 
 	// selector XPath must be a relative path expression.
 	if strings.HasPrefix(expr, "/") {
