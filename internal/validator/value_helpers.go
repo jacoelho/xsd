@@ -49,6 +49,9 @@ func compareTypedValues(left, right types.TypedValue) bool {
 		if !ok {
 			return false
 		}
+		if types.HasTimezone(left.Lexical()) != types.HasTimezone(right.Lexical()) {
+			return false
+		}
 		return l.Equal(r)
 
 	case bool:
@@ -64,6 +67,13 @@ func compareTypedValues(left, right types.TypedValue) bool {
 			return false
 		}
 		return l == r
+
+	case types.QName:
+		r, ok := rightNative.(types.QName)
+		if !ok {
+			return false
+		}
+		return l.Equal(r)
 
 	case float32:
 		r, ok := rightNative.(float32)

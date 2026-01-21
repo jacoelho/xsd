@@ -149,7 +149,11 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 	case *big.Int:
 		return ComparableBigInt{Value: v, Typ: typ}, nil
 	case time.Time:
-		return ComparableTime{Value: v, Typ: typ}, nil
+		hasTZ := false
+		if value != nil {
+			hasTZ = HasTimezone(value.Lexical())
+		}
+		return ComparableTime{Value: v, Typ: typ, HasTimezone: hasTZ}, nil
 	case time.Duration:
 		xsdDur := durationToXSD(v)
 		return ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
@@ -227,7 +231,7 @@ func parseStringToComparableValue(value TypedValue, lexical string, typ Type) (C
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse date/time: %w", err)
 		}
-		return ComparableTime{Value: timeVal, Typ: typ}, nil
+		return ComparableTime{Value: timeVal, Typ: typ, HasTimezone: HasTimezone(lexical)}, nil
 
 	case "float":
 		floatVal, err := ParseFloat(lexical)
@@ -289,7 +293,7 @@ func (r *RangeFacet) Validate(value TypedValue, baseType Type) error {
 	// compare using ComparableValue interface
 	cmp, err := compVal.Compare(r.value)
 	if err != nil {
-		if errors.Is(err, errIndeterminateDurationComparison) {
+		if errors.Is(err, errIndeterminateDurationComparison) || errors.Is(err, errIndeterminateTimeComparison) {
 			return fmt.Errorf("value %s must be %s %s", value.String(), r.errOp, r.lexical)
 		}
 		return fmt.Errorf("%s: cannot compare values: %w", r.name, err)
@@ -515,13 +519,21 @@ func isDateTimeType(baseType Type) bool {
 		primitive = baseType
 	}
 	name := primitive.Name().Local
-	return name == "dateTime" || name == "date" || name == "time"
+	switch name {
+	case "dateTime", "date", "time", "gYearMonth", "gYear", "gMonthDay", "gDay", "gMonth":
+		return true
+	default:
+		return false
+	}
 }
 
 func dateTimeValuesEqual(v1, v2 string, baseType Type) bool {
 	primitive := baseType.PrimitiveType()
 	if primitive == nil {
 		primitive = baseType
+	}
+	if HasTimezone(v1) != HasTimezone(v2) {
+		return false
 	}
 	switch primitive.Name().Local {
 	case "dateTime":
@@ -541,6 +553,41 @@ func dateTimeValuesEqual(v1, v2 string, baseType Type) bool {
 	case "time":
 		t1, err1 := ParseTime(v1)
 		t2, err2 := ParseTime(v2)
+		if err1 != nil || err2 != nil {
+			return v1 == v2
+		}
+		return t1.Equal(t2)
+	case "gYearMonth":
+		t1, err1 := ParseGYearMonth(v1)
+		t2, err2 := ParseGYearMonth(v2)
+		if err1 != nil || err2 != nil {
+			return v1 == v2
+		}
+		return t1.Equal(t2)
+	case "gYear":
+		t1, err1 := ParseGYear(v1)
+		t2, err2 := ParseGYear(v2)
+		if err1 != nil || err2 != nil {
+			return v1 == v2
+		}
+		return t1.Equal(t2)
+	case "gMonthDay":
+		t1, err1 := ParseGMonthDay(v1)
+		t2, err2 := ParseGMonthDay(v2)
+		if err1 != nil || err2 != nil {
+			return v1 == v2
+		}
+		return t1.Equal(t2)
+	case "gDay":
+		t1, err1 := ParseGDay(v1)
+		t2, err2 := ParseGDay(v2)
+		if err1 != nil || err2 != nil {
+			return v1 == v2
+		}
+		return t1.Equal(t2)
+	case "gMonth":
+		t1, err1 := ParseGMonth(v1)
+		t2, err2 := ParseGMonth(v2)
 		if err1 != nil || err2 != nil {
 			return v1 == v2
 		}

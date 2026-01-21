@@ -657,36 +657,35 @@ func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Typ
 	if fieldType == nil {
 		fieldType = types.GetBuiltin(types.TypeName("string"))
 	}
-	return r.normalizeValueByType(value, fieldType, scopeDepth, make(map[types.Type]bool))
+	return r.normalizeValueByType(value, fieldType, scopeDepth)
 }
 
-func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, scopeDepth int, visited map[types.Type]bool) (string, KeyState) {
+func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, scopeDepth int) (string, KeyState) {
 	if fieldType == nil {
 		return value, KeyValid
 	}
-	if visited[fieldType] {
-		return value, KeyValid
+	if !types.IdentityNormalizable(fieldType) {
+		return "", KeyInvalidValue
 	}
-	visited[fieldType] = true
-	defer delete(visited, fieldType)
 
-	if itemType, ok := types.ListItemType(fieldType); ok {
+	if itemType, ok := types.IdentityListItemType(fieldType); ok {
 		normalized, err := types.NormalizeValue(value, fieldType)
 		if err != nil {
 			return "", KeyInvalidValue
 		}
-		return r.normalizeListValue(normalized, itemType, fieldType, scopeDepth, visited)
+		return r.normalizeListValue(normalized, itemType, fieldType, scopeDepth)
 	}
 
 	if st, ok := types.AsSimpleType(fieldType); ok && st.Variety() == types.UnionVariety {
-		if len(st.MemberTypes) == 0 {
+		members := types.IdentityMemberTypes(fieldType)
+		if len(members) == 0 {
 			return "", KeyInvalidValue
 		}
-		for _, member := range st.MemberTypes {
+		for _, member := range members {
 			if member == nil {
 				continue
 			}
-			normalized, state := r.normalizeValueByType(value, member, scopeDepth, visited)
+			normalized, state := r.normalizeValueByType(value, member, scopeDepth)
 			if state == KeyValid {
 				return normalized, KeyValid
 			}
@@ -701,7 +700,7 @@ func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, sco
 	return r.normalizeAtomicValue(normalized, fieldType, scopeDepth)
 }
 
-func (r *streamRun) normalizeListValue(value string, itemType, listType types.Type, scopeDepth int, visited map[types.Type]bool) (string, KeyState) {
+func (r *streamRun) normalizeListValue(value string, itemType, listType types.Type, scopeDepth int) (string, KeyState) {
 	var (
 		itemState KeyState
 		builder   strings.Builder
@@ -711,7 +710,7 @@ func (r *streamRun) normalizeListValue(value string, itemType, listType types.Ty
 	builder.WriteString(listKeyPrefix(listType))
 	builder.WriteString(keyTypeSeparator)
 	splitWhitespaceSeq(value, func(item string) bool {
-		normalized, state := r.normalizeValueByType(item, itemType, scopeDepth, visited)
+		normalized, state := r.normalizeValueByType(item, itemType, scopeDepth)
 		if state != KeyValid {
 			itemState = state
 			return false
@@ -865,7 +864,12 @@ func normalizeTimeValue(prefix, value string, parse func(string) (time.Time, err
 	if err != nil {
 		return "", KeyInvalidValue
 	}
-	return prefix + keyTypeSeparator + parsed.UTC().Format(time.RFC3339Nano), KeyValid
+	tzMarker := "local"
+	if types.HasTimezone(value) {
+		tzMarker = "tz"
+	}
+	normalized := parsed.UTC().Format(time.RFC3339Nano)
+	return prefix + keyTypeSeparator + tzMarker + keyTypeSeparator + normalized, KeyValid
 }
 
 func (r *streamRun) normalizeQNameValue(value string, scopeDepth int) (string, error) {

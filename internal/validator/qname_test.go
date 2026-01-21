@@ -112,6 +112,62 @@ func TestQNameEnumerationResolvesLocalNamespace(t *testing.T) {
 	}
 }
 
+func TestFixedQNameValueResolvesNamespace(t *testing.T) {
+	t.Run("element_fixed", func(t *testing.T) {
+		schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:qname"
+           xmlns:tns="urn:qname"
+           xmlns:ex="urn:example"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="xs:QName" fixed="ex:code"/>
+</xs:schema>`
+
+		docXML := `<?xml version="1.0"?>
+<tns:root xmlns:tns="urn:qname" xmlns:alt="urn:example">alt:code</tns:root>`
+
+		schema, err := parser.Parse(strings.NewReader(schemaXML))
+		if err != nil {
+			t.Fatalf("Parse schema: %v", err)
+		}
+
+		v := New(mustCompile(t, schema))
+		violations := validateStream(t, v, docXML)
+		if len(violations) != 0 {
+			t.Fatalf("expected no violations, got: %v", violations)
+		}
+	})
+
+	t.Run("attribute_fixed", func(t *testing.T) {
+		schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:qname"
+           xmlns:tns="urn:qname"
+           xmlns:ex="urn:example"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="ref" type="xs:QName" fixed="ex:code"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+		docXML := `<?xml version="1.0"?>
+<tns:root xmlns:tns="urn:qname" xmlns:alt="urn:example" ref="alt:code"/>`
+
+		schema, err := parser.Parse(strings.NewReader(schemaXML))
+		if err != nil {
+			t.Fatalf("Parse schema: %v", err)
+		}
+
+		v := New(mustCompile(t, schema))
+		violations := validateStream(t, v, docXML)
+		if len(violations) != 0 {
+			t.Fatalf("expected no violations, got: %v", violations)
+		}
+	})
+}
+
 func assertHasCode(t *testing.T, violations []errors.Validation, code errors.ErrorCode) {
 	t.Helper()
 	if len(violations) == 0 {

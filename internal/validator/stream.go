@@ -114,7 +114,7 @@ func (v *Validator) ValidateStream(r io.Reader) ([]errors.Validation, error) {
 
 	run := v.newStreamRun()
 
-	dec, err := xmlstream.NewStringReader(r, xmlstream.MaxQNameInternEntries(0))
+	dec, err := xmlstream.NewStringReader(r)
 	if err != nil {
 		return nil, err
 	}
@@ -172,6 +172,7 @@ func (r *streamRun) releaseRemainingFrames() {
 	}
 	for i := range r.frames {
 		r.releaseFrameResources(&r.frames[i])
+		r.frames[i] = streamFrame{}
 	}
 	r.frames = r.frames[:0]
 }
@@ -494,7 +495,7 @@ func (r *streamRun) handleEnd() error {
 			r.addViolationsAt(r.checkComplexTypeFacetsWithContext(text, frame.typ, frame.scopeDepth), textLine, textColumn)
 		}
 		if frame.decl != nil && frame.decl.HasFixed && hadContent {
-			r.addViolationsAt(r.checkFixedValue(text, frame.decl.Fixed, frame.textType), textLine, textColumn)
+			r.addViolationsAt(r.checkElementFixedValue(text, frame.decl, frame.textType, frame.scopeDepth), textLine, textColumn)
 		}
 		r.propagateText(frame)
 		return nil
@@ -523,7 +524,7 @@ func (r *streamRun) handleEnd() error {
 			text = frame.decl.Fixed
 		}
 		textLine, textColumn := frame.textPos()
-		r.addViolationsAt(r.checkFixedValue(text, frame.decl.Fixed, textTypeForFixedValue(frame.decl)), textLine, textColumn)
+		r.addViolationsAt(r.checkElementFixedValue(text, frame.decl, textTypeForFixedValue(frame.decl), frame.scopeDepth), textLine, textColumn)
 	}
 
 	r.propagateText(frame)
@@ -551,7 +552,27 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 		}
 		if hasXsiType {
 			xsiType, err := r.resolveXsiTypeOnly(ev.ScopeDepth, xsiTypeValue)
-			if err == nil && xsiType != nil {
+			if err != nil {
+				violation := errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String())
+				r.addViolation(&violation)
+				return streamFrame{}, true
+			}
+			if xsiType != nil {
+				attrsToCheck := xsiType.AllAttributes
+				anyAttr := xsiType.AnyAttribute
+				if isAnyType(xsiType) {
+					attrsToCheck = nil
+					anyAttr = &types.AnyAttribute{
+						Namespace:       types.NSCAny,
+						ProcessContents: types.Lax,
+						TargetNamespace: types.NamespaceEmpty,
+					}
+				}
+				violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, ev.ScopeDepth, ev.Line, ev.Column)
+				if len(violations) > 0 {
+					r.addViolations(violations)
+					return streamFrame{}, true
+				}
 				frame := r.newFrame(ev, nil, xsiType, parent)
 				return frame, false
 			}

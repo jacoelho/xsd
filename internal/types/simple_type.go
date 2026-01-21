@@ -8,22 +8,26 @@ import (
 
 // SimpleType represents a simple type definition
 type SimpleType struct {
-	ItemType               Type
-	ResolvedBase           Type
-	primitiveType          Type
-	Restriction            *Restriction
-	List                   *ListType
-	Union                  *UnionType
-	fundamentalFacetsCache *FundamentalFacets
-	QName                  QName
-	SourceNamespace        NamespaceURI
-	MemberTypes            []Type
-	whiteSpace             WhiteSpace
-	Final                  DerivationSet
-	qnameOrNotationReady   bool
-	qnameOrNotation        bool
-	whiteSpaceExplicit     bool
-	builtin                bool
+	ItemType                   Type
+	ResolvedBase               Type
+	primitiveType              Type
+	Restriction                *Restriction
+	List                       *ListType
+	Union                      *UnionType
+	fundamentalFacetsCache     *FundamentalFacets
+	identityListItemType       Type
+	QName                      QName
+	SourceNamespace            NamespaceURI
+	MemberTypes                []Type
+	identityMemberTypes        []Type
+	whiteSpace                 WhiteSpace
+	Final                      DerivationSet
+	qnameOrNotationReady       bool
+	qnameOrNotation            bool
+	identityNormalizationReady bool
+	identityNormalizable       bool
+	whiteSpaceExplicit         bool
+	builtin                    bool
 }
 
 // NewAtomicSimpleType creates a simple type derived by restriction.
@@ -580,6 +584,7 @@ func (s *SimpleType) precomputeCaches() {
 	if s.fundamentalFacetsCache == nil {
 		s.fundamentalFacetsCache = s.computeFundamentalFacets()
 	}
+	s.precomputeIdentityNormalization()
 }
 
 // IsQNameOrNotationType reports whether this type derives from QName or NOTATION.
