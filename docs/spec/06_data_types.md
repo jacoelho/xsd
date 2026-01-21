@@ -538,12 +538,15 @@ NOTATION values must match declared notations:
 
 **NaN Comparison Semantics:**
 
-`NaN` has special behavior in comparisons:
+`NaN` has special behavior in XSD (different from IEEE 754):
 
-- `NaN` is not equal to itself (`NaN != NaN` is true, `NaN == NaN` is false)
-- Any comparison with `NaN` (except `!=`) returns false
-- `NaN` is neither less than nor greater than any value
-- For ordering facets (`minInclusive`, etc.), a `NaN` value fails all bound constraints
+- `NaN` equals itself in XSD (`NaN == NaN` is true for schema purposes)
+- `NaN` is incomparable with all other values (neither less than nor greater than)
+- For ordering facets (`minInclusive`, etc.), since no other values are comparable with `NaN`:
+  - A bound facet with `NaN` produces either a value space containing only `NaN` (inclusive) or empty (exclusive)
+  - Any other bound facet value excludes `NaN` from the restricted value space
+
+Note: XSD explicitly differs from IEEE 754 here. Per XSD 1.0 Datatypes: "This datatype differs from IEEE 754 in that there is only one NaN... for schema purposes NaN = NaN."
 
 **Boolean:**
 
