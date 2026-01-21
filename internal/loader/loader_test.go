@@ -1272,6 +1272,75 @@ func TestLoader_ImportNoTargetNamespaceWithNamespaceAttr(t *testing.T) {
 	}
 }
 
+func TestLoader_ImportWithoutNamespaceRejectsNamespacedSchema(t *testing.T) {
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main"
+           xmlns:tns="urn:main"
+           elementFormDefault="qualified">
+  <xs:import schemaLocation="imported.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`),
+		},
+		"imported.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:other"
+           elementFormDefault="qualified">
+  <xs:element name="common" type="xs:string"/>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	_, err := loader.Load("main.xsd")
+	if err == nil {
+		t.Fatal("Load() should return error for import without namespace of namespaced schema")
+	}
+	if !strings.Contains(err.Error(), "expected no namespace") {
+		t.Fatalf("error should mention no-namespace import mismatch, got: %v", err)
+	}
+}
+
+func TestLoader_ImportWithoutNamespaceAcceptsNoNamespaceSchema(t *testing.T) {
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main"
+           xmlns:tns="urn:main"
+           elementFormDefault="qualified">
+  <xs:import schemaLocation="imported.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`),
+		},
+		"imported.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified">
+  <xs:element name="common" type="xs:string"/>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS: testFS,
+	})
+
+	schema, err := loader.Load("main.xsd")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if _, ok := schema.ElementDecls[types.QName{Namespace: "", Local: "common"}]; !ok {
+		t.Error("element 'common' from imported no-namespace schema not found")
+	}
+}
+
 func TestLoader_LocalUntypedAttribute(t *testing.T) {
 	// test that local untyped attributes (attributes with name but no type) are accepted.
 	// per XSD spec, local untyped attributes implicitly have type xs:anySimpleType

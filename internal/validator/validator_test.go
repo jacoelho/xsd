@@ -178,7 +178,7 @@ func TestValidateSubstitutionGroup(t *testing.T) {
 }
 
 func TestValidateXsiAttributes(t *testing.T) {
-	// test that xsi:* attributes are allowed without explicit declaration
+	// test that standard xsi:* attributes are allowed without explicit declaration
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -245,6 +245,18 @@ func TestValidateXsiAttributes(t *testing.T) {
 		for _, v := range violations {
 			t.Errorf("  %s", v.Error())
 		}
+	}
+
+	// test XML with unknown xsi attribute (should be rejected)
+	xmlWithUnknown := `<?xml version="1.0"?>
+<root xmlns="http://example.com/test"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:foo="bar">
+  <child>value</child>
+</root>`
+	violations = validateStream(t, v, xmlWithUnknown)
+	if !hasViolationCode(violations, errors.ErrAttributeNotDeclared) {
+		t.Fatalf("Expected violation code %s, got: %v", errors.ErrAttributeNotDeclared, violations)
 	}
 }
 

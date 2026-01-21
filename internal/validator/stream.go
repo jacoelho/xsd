@@ -482,7 +482,7 @@ func (r *streamRun) handleEnd() error {
 		text := string(frame.textBuf)
 		hadContent := text != ""
 		if text == "" && frame.decl != nil {
-			if frame.decl.Default != "" {
+			if frame.decl.HasDefault {
 				text = frame.decl.Default
 			} else if frame.decl.HasFixed {
 				text = frame.decl.Fixed
@@ -590,7 +590,17 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 	}
 
 	nilValue, hasNil := attrs.Value(xsdxml.XSINamespace, "nil")
-	isNil := hasNil && (nilValue == "true" || nilValue == "1")
+	isNil := false
+	if hasNil {
+		parsedNil, err := types.ParseBoolean(nilValue)
+		if err != nil {
+			violation := errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+				"xsi:nil has invalid value %q", nilValue)
+			r.addViolation(&violation)
+			return streamFrame{}, true
+		}
+		isNil = parsedNil
+	}
 	if hasNil && !decl.Nillable {
 		violation := errors.NewValidationf(errors.ErrElementNotNillable, r.path.String(),
 			"Element '%s' is not nillable but has xsi:nil attribute", ev.Name.Local)
@@ -1014,7 +1024,7 @@ func (r *streamRun) finishListStream(frame *streamFrame) {
 	if !state.sawContent {
 		value := ""
 		if frame.decl != nil {
-			if frame.decl.Default != "" {
+			if frame.decl.HasDefault {
 				value = frame.decl.Default
 			} else if frame.decl.HasFixed {
 				value = frame.decl.Fixed

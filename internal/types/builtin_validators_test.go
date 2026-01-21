@@ -109,8 +109,8 @@ func TestValidateListTypesWhitespace(t *testing.T) {
 		value string
 		valid bool
 	}{
-		{name: "empty", value: "", valid: true},
-		{name: "whitespace only", value: " \t\r\n", valid: true},
+		{name: "empty", value: "", valid: false},
+		{name: "whitespace only", value: " \t\r\n", valid: false},
 		{name: "space separated", value: "a b", valid: true},
 		{name: "tab separated", value: "a\tb", valid: true},
 		{name: "lf separated", value: "a\nb", valid: true},

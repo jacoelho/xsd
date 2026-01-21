@@ -1,6 +1,9 @@
 package types
 
-import "strings"
+import (
+	"iter"
+	"strings"
+)
 
 // WhiteSpace represents whitespace normalization
 type WhiteSpace int
@@ -125,6 +128,45 @@ func needsCollapseXML(value string) bool {
 
 func splitXMLWhitespaceFields(value string) []string {
 	return strings.FieldsFunc(value, isXMLWhitespaceRune)
+}
+
+// TrimXMLWhitespace removes leading and trailing XML whitespace (space, tab, CR, LF).
+func TrimXMLWhitespace(value string) string {
+	start := 0
+	end := len(value)
+	for start < end && isXMLWhitespaceByte(value[start]) {
+		start++
+	}
+	for end > start && isXMLWhitespaceByte(value[end-1]) {
+		end--
+	}
+	if start == 0 && end == len(value) {
+		return value
+	}
+	return value[start:end]
+}
+
+// FieldsXMLWhitespaceSeq yields fields split on XML whitespace (space, tab, CR, LF).
+// It is equivalent to strings.FieldsSeq for XML whitespace only.
+func FieldsXMLWhitespaceSeq(value string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		i := 0
+		for i < len(value) {
+			for i < len(value) && isXMLWhitespaceByte(value[i]) {
+				i++
+			}
+			if i >= len(value) {
+				return
+			}
+			start := i
+			for i < len(value) && !isXMLWhitespaceByte(value[i]) {
+				i++
+			}
+			if !yield(value[start:i]) {
+				return
+			}
+		}
+	}
 }
 
 func isXMLWhitespaceRune(r rune) bool {

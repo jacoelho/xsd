@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemacheck"
@@ -79,7 +78,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 			if itemType == nil {
 				return nil
 			}
-			for item := range strings.FieldsSeq(normalizedValue) {
+			for item := range types.FieldsXMLWhitespaceSeq(normalizedValue) {
 				if err := validateDefaultOrFixedValueResolved(schema, item, itemType, visited, policy); err != nil {
 					return err
 				}

@@ -1,6 +1,7 @@
 package schemacheck
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
@@ -406,6 +407,69 @@ func TestDefaultOrFixedValueValidation(t *testing.T) {
 	})
 	if err := validateDefaultOrFixedValue("text", ct); err != nil {
 		t.Fatalf("unexpected simpleContent default value error: %v", err)
+	}
+}
+
+func TestElementDefaultEmptyValueRejected(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="count" type="xs:int" default=""/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	errs := ValidateStructure(schema)
+	if len(errs) == 0 {
+		t.Fatalf("expected default value validation error")
+	}
+	found := false
+	for _, err := range errs {
+		if strings.Contains(err.Error(), "invalid default value") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected invalid default value error, got: %v", errs)
+	}
+}
+
+func TestListEnumerationRejectsNonXMLWhitespace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:list"
+           xmlns:tns="urn:list">
+  <xs:simpleType name="listType">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="listEnum">
+    <xs:restriction base="tns:listType">
+      <xs:enumeration value="1` + "\u00A0" + `2"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	errs := ValidateStructure(schema)
+	if len(errs) == 0 {
+		t.Fatalf("expected enumeration list error")
+	}
+	found := false
+	for _, err := range errs {
+		if strings.Contains(err.Error(), "enumeration value") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected enumeration error, got: %v", errs)
 	}
 }
 

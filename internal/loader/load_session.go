@@ -150,7 +150,12 @@ func (s *loadSession) processImports(schema *parser.Schema, imports []parser.Imp
 			}
 			return fmt.Errorf("load imported schema %s: %w", imp.SchemaLocation, err)
 		}
-		if imp.Namespace != "" && importedSchema.TargetNamespace != types.NamespaceURI(imp.Namespace) {
+		if imp.Namespace == "" {
+			if !importedSchema.TargetNamespace.IsEmpty() {
+				return fmt.Errorf("imported schema %s namespace mismatch: expected no namespace, got %s",
+					imp.SchemaLocation, importedSchema.TargetNamespace)
+			}
+		} else if importedSchema.TargetNamespace != types.NamespaceURI(imp.Namespace) {
 			return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
 				imp.SchemaLocation, imp.Namespace, importedSchema.TargetNamespace)
 		}

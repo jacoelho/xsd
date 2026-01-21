@@ -319,12 +319,17 @@ func validateEnumerationValues(facetList []types.Facet, baseType types.Type) err
 			if itemType == nil && st.List != nil && st.List.InlineItemType != nil {
 				itemType = st.List.InlineItemType
 			}
+			if itemType == nil && st.List != nil && !st.List.ItemType.IsZero() {
+				if st.List.ItemType.Namespace == types.XSDNamespace {
+					itemType = types.GetBuiltinNS(st.List.ItemType.Namespace, st.List.ItemType.Local)
+				}
+			}
 			if itemType == nil {
 				return nil
 			}
 			for _, enumVal := range enumValues {
 				found := false
-				for item := range strings.FieldsSeq(enumVal) {
+				for item := range types.FieldsXMLWhitespaceSeq(enumVal) {
 					found = true
 					if err := validateListItemValue(itemType, item); err != nil {
 						return fmt.Errorf("enumeration value %q contains invalid list item %q: %w", enumVal, item, err)
@@ -355,7 +360,7 @@ func validateEnumerationValues(facetList []types.Facet, baseType types.Type) err
 			}
 			for _, enumVal := range enumValues {
 				found := false
-				for item := range strings.FieldsSeq(enumVal) {
+				for item := range types.FieldsXMLWhitespaceSeq(enumVal) {
 					found = true
 					if err := validateListItemValue(itemType, item); err != nil {
 						return fmt.Errorf("enumeration value %q contains invalid list item %q: %w", enumVal, item, err)
@@ -1062,7 +1067,7 @@ func validateRangeFacetValues(minExclusive, maxExclusive, minInclusive, maxInclu
 func joinFields(value string) string {
 	var b strings.Builder
 	first := true
-	for field := range strings.FieldsSeq(value) {
+	for field := range types.FieldsXMLWhitespaceSeq(value) {
 		if !first {
 			b.WriteByte(' ')
 		}

@@ -40,8 +40,8 @@ func TestStreamAttributeListWhitespace(t *testing.T) {
 		value string
 		valid bool
 	}{
-		{name: "empty", value: "", valid: true},
-		{name: "xml whitespace only", value: "&#x20;&#x9;&#xD;&#xA;", valid: true},
+		{name: "empty", value: "", valid: false},
+		{name: "xml whitespace only", value: "&#x20;&#x9;&#xD;&#xA;", valid: false},
 		{name: "space separated", value: "a b", valid: true},
 		{name: "tab separated", value: "a&#x9;b", valid: true},
 		{name: "lf separated", value: "a&#xA;b", valid: true},

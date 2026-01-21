@@ -3,6 +3,7 @@ package compiler_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/compiler"
@@ -157,5 +158,59 @@ func TestCompileW3CSimpleUnion(t *testing.T) {
 	}
 	if len(unionType.MemberTypes) != 1 || unionType.MemberTypes[0] == nil {
 		t.Fatalf("expected myUnion to have 1 member type")
+	}
+}
+
+func TestCompileAttributeQNameEnumUndefinedPrefix(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:qname"
+           xmlns:tns="urn:qname">
+  <xs:simpleType name="BadQName">
+    <xs:restriction base="xs:QName">
+      <xs:enumeration value="bad:val"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="T">
+    <xs:attribute name="a" type="tns:BadQName"/>
+  </xs:complexType>
+  <xs:element name="root" type="tns:T"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	res := resolver.NewResolver(schema)
+	if err := res.Resolve(); err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	if errs := resolver.ValidateReferences(schema); len(errs) > 0 {
+		t.Fatalf("validate references: %v", errs[0])
+	}
+
+	if _, err := compiler.NewCompiler(schema).Compile(); err == nil {
+		t.Fatalf("expected compile error for undefined QName prefix in enumeration")
+	}
+}
+
+func TestCompileAttributeUnresolvedTypeReference(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:missing"
+           xmlns:tns="urn:missing">
+  <xs:complexType name="T">
+    <xs:attribute name="a" type="tns:MissingType"/>
+  </xs:complexType>
+  <xs:element name="root" type="tns:T"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+
+	if _, err := compiler.NewCompiler(schema).Compile(); err == nil {
+		t.Fatalf("expected compile error for unresolved attribute type")
 	}
 }

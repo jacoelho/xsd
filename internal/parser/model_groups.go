@@ -421,7 +421,7 @@ func parseNamespaceConstraint(value string, schema *Schema) (types.NamespaceCons
 
 	var resultList []types.NamespaceURI
 	seen := false
-	for ns := range strings.FieldsSeq(value) {
+	for ns := range types.FieldsXMLWhitespaceSeq(value) {
 		seen = true
 		if strings.HasPrefix(ns, "##") && !validNamespaceConstraintTokens[ns] {
 			if ns == "##any" || ns == "##other" {

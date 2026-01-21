@@ -137,7 +137,7 @@ func (v *DecimalValue) String() string {
 }
 
 func canonicalDecimalString(lexical string) string {
-	s := strings.TrimSpace(lexical)
+	s := TrimXMLWhitespace(lexical)
 	if s == "" {
 		return s
 	}
@@ -1271,9 +1271,12 @@ func (c ComparableXSDDuration) Unwrap() any {
 // ParseDecimal parses a decimal string into *big.Rat
 // Handles leading/trailing whitespace and validates decimal format
 func ParseDecimal(lexical string) (*big.Rat, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return nil, fmt.Errorf("invalid decimal: empty string")
+	}
+	if !isValidDecimalLexical(lexical) {
+		return nil, fmt.Errorf("invalid decimal: %s", lexical)
 	}
 
 	rat := new(big.Rat)
@@ -1283,10 +1286,40 @@ func ParseDecimal(lexical string) (*big.Rat, error) {
 	return rat, nil
 }
 
+func isValidDecimalLexical(lexical string) bool {
+	if lexical == "" {
+		return false
+	}
+	i := 0
+	if lexical[0] == '+' || lexical[0] == '-' {
+		i++
+	}
+	if i >= len(lexical) {
+		return false
+	}
+	sawDigit := false
+	sawDot := false
+	for ; i < len(lexical); i++ {
+		ch := lexical[i]
+		switch {
+		case ch >= '0' && ch <= '9':
+			sawDigit = true
+		case ch == '.':
+			if sawDot {
+				return false
+			}
+			sawDot = true
+		default:
+			return false
+		}
+	}
+	return sawDigit
+}
+
 // ParseInteger parses an integer string into *big.Int
 // Handles leading/trailing whitespace and validates integer format
 func ParseInteger(lexical string) (*big.Int, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return nil, fmt.Errorf("invalid integer: empty string")
 	}
@@ -1301,7 +1334,7 @@ func ParseInteger(lexical string) (*big.Int, error) {
 // ParseBoolean parses a boolean string into bool
 // Accepts "true", "false", "1", "0" (XSD boolean lexical representation)
 func ParseBoolean(lexical string) (bool, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	switch lexical {
 	case "true", "1":
 		return true, nil
@@ -1315,7 +1348,7 @@ func ParseBoolean(lexical string) (bool, error) {
 // ParseFloat parses a float string into float32 with special value handling
 // Handles INF, -INF, and NaN special values
 func ParseFloat(lexical string) (float32, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid float: empty string")
 	}
@@ -1341,7 +1374,7 @@ func ParseFloat(lexical string) (float32, error) {
 // ParseDouble parses a double string into float64 with special value handling
 // Handles INF, -INF, and NaN special values
 func ParseDouble(lexical string) (float64, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid double: empty string")
 	}
@@ -1367,7 +1400,7 @@ func ParseDouble(lexical string) (float64, error) {
 // ParseDateTime parses a dateTime string into time.Time
 // Supports various ISO 8601 formats with and without timezone
 func ParseDateTime(lexical string) (time.Time, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if err := validateYearPrefix(lexical, "dateTime"); err != nil {
 		return time.Time{}, err
 	}
@@ -1427,7 +1460,7 @@ func ParseDateTime(lexical string) (time.Time, error) {
 
 // ParseLong parses a long string into int64
 func ParseLong(lexical string) (int64, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid long: empty string")
 	}
@@ -1441,7 +1474,7 @@ func ParseLong(lexical string) (int64, error) {
 
 // ParseInt parses an int string into int32
 func ParseInt(lexical string) (int32, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid int: empty string")
 	}
@@ -1455,7 +1488,7 @@ func ParseInt(lexical string) (int32, error) {
 
 // ParseShort parses a short string into int16
 func ParseShort(lexical string) (int16, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid short: empty string")
 	}
@@ -1469,7 +1502,7 @@ func ParseShort(lexical string) (int16, error) {
 
 // ParseByte parses a byte string into int8
 func ParseByte(lexical string) (int8, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid byte: empty string")
 	}
@@ -1483,7 +1516,7 @@ func ParseByte(lexical string) (int8, error) {
 
 // ParseUnsignedLong parses an unsignedLong string into uint64
 func ParseUnsignedLong(lexical string) (uint64, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid unsignedLong: empty string")
 	}
@@ -1497,7 +1530,7 @@ func ParseUnsignedLong(lexical string) (uint64, error) {
 
 // ParseUnsignedInt parses an unsignedInt string into uint32
 func ParseUnsignedInt(lexical string) (uint32, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid unsignedInt: empty string")
 	}
@@ -1511,7 +1544,7 @@ func ParseUnsignedInt(lexical string) (uint32, error) {
 
 // ParseUnsignedShort parses an unsignedShort string into uint16
 func ParseUnsignedShort(lexical string) (uint16, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid unsignedShort: empty string")
 	}
@@ -1525,7 +1558,7 @@ func ParseUnsignedShort(lexical string) (uint16, error) {
 
 // ParseUnsignedByte parses an unsignedByte string into uint8
 func ParseUnsignedByte(lexical string) (uint8, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid unsignedByte: empty string")
 	}
@@ -1544,7 +1577,7 @@ func ParseString(lexical string) (string, error) {
 
 // ParseHexBinary parses a hexBinary string into []byte
 func ParseHexBinary(lexical string) ([]byte, error) {
-	lexical = strings.TrimSpace(lexical)
+	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
 		return nil, nil
 	}
@@ -1577,24 +1610,21 @@ func ParseBase64Binary(lexical string) ([]byte, error) {
 		return nil, nil
 	}
 
-	decoded, err := base64.StdEncoding.DecodeString(cleaned)
+	decoded, err := base64.StdEncoding.Strict().DecodeString(cleaned)
 	if err != nil {
-		decoded, err = base64.URLEncoding.DecodeString(cleaned)
-		if err != nil {
-			return nil, fmt.Errorf("invalid base64Binary: %s", lexical)
-		}
+		return nil, fmt.Errorf("invalid base64Binary: %s", lexical)
 	}
 	return decoded, nil
 }
 
 // ParseAnyURI parses an anyURI string (no validation beyond trimming)
 func ParseAnyURI(lexical string) (string, error) {
-	return strings.TrimSpace(lexical), nil
+	return TrimXMLWhitespace(lexical), nil
 }
 
 // ParseQNameValue parses a QName value (lexical string) into a QName with namespace resolution.
 func ParseQNameValue(lexical string, nsContext map[string]string) (QName, error) {
-	trimmed := strings.TrimSpace(lexical)
+	trimmed := TrimXMLWhitespace(lexical)
 	if trimmed == "" {
 		return QName{}, fmt.Errorf("invalid QName: empty string")
 	}
@@ -1654,14 +1684,10 @@ func measureLengthForPrimitive(value string, primitiveName TypeName) int {
 		}, value)
 
 		// decode to get actual byte length
-		decoded, err := base64.StdEncoding.DecodeString(cleaned)
+		decoded, err := base64.StdEncoding.Strict().DecodeString(cleaned)
 		if err != nil {
-			// try URL encoding variant
-			decoded, err = base64.URLEncoding.DecodeString(cleaned)
-			if err != nil {
-				// invalid base64 - return character count as fallback
-				return utf8.RuneCountInString(value)
-			}
+			// invalid base64 - return character count as fallback
+			return utf8.RuneCountInString(value)
 		}
 		return len(decoded)
 	}

@@ -106,7 +106,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 			if attr.HasFixed {
 				violations = append(violations, r.checkAttributeFixedValue(value, attr, scopeDepth)...)
 			}
-		} else if attr.Use == types.Optional && (attr.HasFixed || attr.Default != "") {
+		} else if attr.Use == types.Optional && (attr.HasFixed || attr.HasDefault) {
 			value := attr.Default
 			if attr.HasFixed {
 				value = attr.Fixed
@@ -136,7 +136,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 				violations = append(violations, errors.NewValidationf(errors.ErrAttributeNotDeclared, r.path.String(),
 					"Attribute '%s' is not declared", attrQName.Local))
 			} else {
-				violations = append(violations, r.checkWildcardAttributeStream(xmlAttr, anyAttr, scopeDepth)...)
+				violations = append(violations, r.checkWildcardAttributeStream(xmlAttr, anyAttr, scopeDepth, line, column)...)
 				if anyAttr.ProcessContents != types.Skip {
 					if attrDecl := r.schema.Attribute(attrQName); attrDecl != nil && attrDecl.Type != nil {
 						if attrDecl.Type.IDTypeName == "ID" {
@@ -156,7 +156,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 	return violations
 }
 
-func (r *streamRun) checkWildcardAttributeStream(xmlAttr streamAttr, anyAttr *types.AnyAttribute, scopeDepth int) []errors.Validation {
+func (r *streamRun) checkWildcardAttributeStream(xmlAttr streamAttr, anyAttr *types.AnyAttribute, scopeDepth, line, column int) []errors.Validation {
 	if anyAttr.ProcessContents == types.Skip {
 		return nil
 	}
@@ -175,14 +175,17 @@ func (r *streamRun) checkWildcardAttributeStream(xmlAttr streamAttr, anyAttr *ty
 		return nil
 	}
 
-	return r.checkDeclaredAttributeValueStream(xmlAttr.Value(), attrDecl, scopeDepth)
+	return r.checkDeclaredAttributeValueStream(xmlAttr.Value(), attrDecl, scopeDepth, line, column)
 }
 
-func (r *streamRun) checkDeclaredAttributeValueStream(value string, decl *grammar.CompiledAttribute, scopeDepth int) []errors.Validation {
+func (r *streamRun) checkDeclaredAttributeValueStream(value string, decl *grammar.CompiledAttribute, scopeDepth, line, column int) []errors.Validation {
 	var violations []errors.Validation
 
 	if decl.Type != nil {
 		violations = append(violations, r.checkSimpleValue(value, decl.Type, scopeDepth)...)
+		if value != "" {
+			violations = append(violations, r.collectIDRefs(value, decl.Type, line, column)...)
+		}
 	}
 
 	if decl.HasFixed {

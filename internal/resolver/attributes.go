@@ -154,7 +154,7 @@ func validateAttributeValueConstraints(schema *parser.Schema, decl *types.Attrib
 	if isDirectNotationType(resolvedType) {
 		return fmt.Errorf("attribute cannot use NOTATION type")
 	}
-	if decl.Default != "" {
+	if decl.HasDefault {
 		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Default, resolvedType); err != nil {
 			return fmt.Errorf("invalid default value '%s': %w", decl.Default, err)
 		}

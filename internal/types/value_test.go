@@ -217,6 +217,20 @@ func TestTypedValue_String(t *testing.T) {
 	}
 }
 
+func TestParseDecimalRejectsFraction(t *testing.T) {
+	for _, value := range []string{"1/2", "3/7"} {
+		if _, err := ParseDecimal(value); err == nil {
+			t.Fatalf("expected decimal parse error for %q", value)
+		}
+	}
+}
+
+func TestParseBase64BinaryRejectsURLSafe(t *testing.T) {
+	if _, err := ParseBase64Binary("AA-_"); err == nil {
+		t.Fatalf("expected base64Binary parse error for URL-safe alphabet")
+	}
+}
+
 func TestTypedValue_CanonicalNumericString(t *testing.T) {
 	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 	decNative, err := ParseDecimal("1")

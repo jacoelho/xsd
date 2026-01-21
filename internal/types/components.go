@@ -35,6 +35,7 @@ const (
 // ElementDecl represents an element declaration
 type ElementDecl struct {
 	Type              Type
+	TypeExplicit      bool
 	Name              QName
 	SubstitutionGroup QName
 	SourceNamespace   NamespaceURI
@@ -42,6 +43,7 @@ type ElementDecl struct {
 	// FixedContext stores namespace bindings for resolving fixed QName/NOTATION values.
 	FixedContext      map[string]string
 	Default           string
+	HasDefault        bool
 	Constraints       []*IdentityConstraint
 	MaxOccurs         Occurs
 	MinOccurs         Occurs
@@ -131,6 +133,7 @@ type AttributeDecl struct {
 	Type            Type
 	Name            QName
 	Default         string
+	HasDefault      bool
 	Fixed           string
 	// FixedContext stores namespace bindings for resolving fixed QName/NOTATION values.
 	FixedContext    map[string]string
