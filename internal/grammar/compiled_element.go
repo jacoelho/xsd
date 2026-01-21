@@ -10,16 +10,16 @@ type CompiledElement struct {
 	Original         *types.ElementDecl
 	Type             *CompiledType
 	SubstitutionHead *CompiledElement
+	Substitutes      []*CompiledElement
 	QName            types.QName
 	EffectiveQName   types.QName
 	Fixed            string
 	Default          string
-	HasDefault       bool
-	Substitutes      []*CompiledElement
 	Constraints      []*CompiledConstraint
 	Block            types.DerivationSet
 	Nillable         bool
 	Abstract         bool
+	HasDefault       bool
 	HasFixed         bool
 }
 

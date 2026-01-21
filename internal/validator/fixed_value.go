@@ -357,14 +357,14 @@ func (r *streamRun) compareFixedValueAsTypeWithContext(actualValue, fixedValue s
 	return compareTypedValues(actualTyped, fixedTyped), nil
 }
 
-func (r *streamRun) compareFixedValueWithContext(actualValue, fixedValue string, textType *grammar.CompiledType, scopeDepth int, fixedContext map[string]string) (bool, error) {
+func (r *streamRun) compareFixedValueWithContext(actualValue, fixedValue string, textType *grammar.CompiledType, scopeDepth int, fixedContext map[string]string) bool {
 	if textType == nil || textType.Original == nil {
-		return actualValue == fixedValue, nil
+		return actualValue == fixedValue
 	}
 
 	if len(textType.MemberTypes) > 0 {
 		if match, err := r.compareFixedValueInUnionWithContext(actualValue, fixedValue, textType.MemberTypes, scopeDepth, fixedContext); err == nil {
-			return match, nil
+			return match
 		}
 	}
 
@@ -372,18 +372,18 @@ func (r *streamRun) compareFixedValueWithContext(actualValue, fixedValue string,
 		memberTypes := r.resolveUnionMemberTypes(st)
 		if len(memberTypes) > 0 {
 			if match, err := r.compareFixedValueInUnionTypesWithContext(actualValue, fixedValue, memberTypes, scopeDepth, fixedContext); err == nil {
-				return match, nil
+				return match
 			}
 		}
 	}
 
 	if st, ok := valueSpaceType(textType.Original); ok {
 		if match, err := r.compareFixedValueAsTypeWithContext(actualValue, fixedValue, st, scopeDepth, fixedContext); err == nil {
-			return match, nil
+			return match
 		}
 	}
 
-	return fixedValueMatches(actualValue, fixedValue, textType.Original), nil
+	return fixedValueMatches(actualValue, fixedValue, textType.Original)
 }
 
 func (r *streamRun) checkElementFixedValue(actualValue string, decl *grammar.CompiledElement, textType *grammar.CompiledType, scopeDepth int) []errors.Validation {
@@ -394,7 +394,7 @@ func (r *streamRun) checkElementFixedValue(actualValue string, decl *grammar.Com
 	if decl.Original != nil {
 		context = decl.Original.FixedContext
 	}
-	match, _ := r.compareFixedValueWithContext(actualValue, decl.Fixed, textType, scopeDepth, context)
+	match := r.compareFixedValueWithContext(actualValue, decl.Fixed, textType, scopeDepth, context)
 	if !match {
 		return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
 			"Element has fixed value '%s' but actual value is '%s'", decl.Fixed, actualValue)}
@@ -410,7 +410,7 @@ func (r *streamRun) checkAttributeFixedValue(actualValue string, decl *grammar.C
 	if decl.Original != nil {
 		context = decl.Original.FixedContext
 	}
-	match, _ := r.compareFixedValueWithContext(actualValue, decl.Fixed, decl.Type, scopeDepth, context)
+	match := r.compareFixedValueWithContext(actualValue, decl.Fixed, decl.Type, scopeDepth, context)
 	if !match {
 		return []errors.Validation{errors.NewValidationf(errors.ErrAttributeFixedValue, r.path.String(),
 			"Attribute '%s' has fixed value '%s', but found '%s'", decl.QName.Local, decl.Fixed, actualValue)}

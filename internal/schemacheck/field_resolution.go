@@ -206,13 +206,13 @@ func resolveFieldType(schema *parser.Schema, field *types.Field, constraintEleme
 	unresolved := false
 	for _, selectorDecl := range selectorDecls {
 		for _, fieldPath := range fieldExpr.Paths {
-			typ, err := resolveFieldPathType(schema, selectorDecl, fieldPath)
-			if err != nil {
+			typ, pathErr := resolveFieldPathType(schema, selectorDecl, fieldPath)
+			if pathErr != nil {
 				if hasUnion {
 					unresolved = true
 					continue
 				}
-				return nil, fmt.Errorf("resolve field xpath '%s': %w", field.XPath, err)
+				return nil, fmt.Errorf("resolve field xpath '%s': %w", field.XPath, pathErr)
 			}
 			resolvedTypes = append(resolvedTypes, typ)
 		}
@@ -300,19 +300,6 @@ func resolveSelectorElementType(schema *parser.Schema, constraintElement *types.
 		return nil, fmt.Errorf("cannot resolve constraint element type")
 	}
 	return elementType, nil
-}
-
-// resolveSelectorElementDecl resolves the element declaration selected by a selector XPath.
-func resolveSelectorElementDecl(schema *parser.Schema, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (*types.ElementDecl, error) {
-	decls, err := resolveSelectorElementDecls(schema, constraintElement, selectorXPath, nsContext)
-	if err != nil {
-		return nil, err
-	}
-	unique := uniqueElementDecls(decls)
-	if len(unique) != 1 {
-		return nil, fmt.Errorf("selector xpath '%s' resolves to multiple element declarations", selectorXPath)
-	}
-	return unique[0], nil
 }
 
 func resolveSelectorElementDecls(schema *parser.Schema, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) ([]*types.ElementDecl, error) {

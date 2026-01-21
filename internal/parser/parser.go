@@ -281,7 +281,7 @@ func parseTopLevelNotation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 		return err
 	}
 
-	if len(types.TrimXMLWhitespace(string(doc.DirectTextContentBytes(elem)))) != 0 {
+	if types.TrimXMLWhitespace(string(doc.DirectTextContentBytes(elem))) != "" {
 		return fmt.Errorf("notation must not contain character data")
 	}
 

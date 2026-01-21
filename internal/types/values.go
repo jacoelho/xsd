@@ -397,11 +397,9 @@ func ValueAs[T any](value TypedValue) (T, error) {
 	}
 
 	// get XSD type name for user-friendly error message
-	var xsdTypeName string
-	if value != nil && value.Type() != nil {
-		xsdTypeName = value.Type().Name().Local
-	} else {
-		xsdTypeName = "unknown"
+	xsdTypeName := "unknown"
+	if typ := value.Type(); typ != nil {
+		xsdTypeName = typ.Name().Local
 	}
 	return zero, fmt.Errorf("cannot convert value of type %s", xsdTypeName)
 }
@@ -503,10 +501,10 @@ func (c ComparableBigInt) Unwrap() any {
 
 // ComparableTime wraps time.Time to implement ComparableValue
 type ComparableTime struct {
-	Value       time.Time
-	HasTimezone bool
+	Value time.Time
 	// XSD type this value represents
-	Typ Type
+	Typ         Type
+	HasTimezone bool
 }
 
 var errIndeterminateTimeComparison = errors.New("time comparison indeterminate")

@@ -149,10 +149,7 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 	case *big.Int:
 		return ComparableBigInt{Value: v, Typ: typ}, nil
 	case time.Time:
-		hasTZ := false
-		if value != nil {
-			hasTZ = HasTimezone(value.Lexical())
-		}
+		hasTZ := HasTimezone(value.Lexical())
 		return ComparableTime{Value: v, Typ: typ, HasTimezone: hasTZ}, nil
 	case time.Duration:
 		xsdDur := durationToXSD(v)
