@@ -443,7 +443,7 @@ type Enumeration struct {
 	ValueContexts []map[string]string
 	// QNameValues holds resolved QName values for QName/NOTATION enumerations.
 	QNameValues []QName
-	cachedBase Type
+	cachedBase  Type
 	// cachedAtomicValues holds parsed values for atomic enumerations.
 	cachedAtomicValues []TypedValue
 	// cachedUnionValues holds parsed values for union enumerations (flattened across member types).
@@ -548,7 +548,7 @@ func (e *Enumeration) matchesUnionEnumeration(lexical string, baseType Type, mem
 	return false, nil
 }
 
-func (e *Enumeration) matchesListEnumeration(lexical string, baseType Type, itemType Type) (bool, error) {
+func (e *Enumeration) matchesListEnumeration(lexical string, baseType, itemType Type) (bool, error) {
 	actualItems, err := parseListValueVariants(lexical, itemType)
 	if err != nil {
 		return false, err
@@ -611,7 +611,7 @@ func (e *Enumeration) unionEnumerationValues(baseType Type, memberTypes []Type) 
 	return values, nil
 }
 
-func (e *Enumeration) listEnumerationValues(baseType Type, itemType Type) ([][][]TypedValue, error) {
+func (e *Enumeration) listEnumerationValues(baseType, itemType Type) ([][][]TypedValue, error) {
 	e.resetCacheIfNeeded(baseType)
 	if e.cachedListValues != nil {
 		return e.cachedListValues, nil

@@ -19,10 +19,6 @@ func (r *streamRun) checkFixedValue(actualValue, fixedValue string, textType *gr
 		"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
 }
 
-func (r *streamRun) fixedValueEqual(actualValue, fixedValue string, textType *grammar.CompiledType) bool {
-	return r.fixedValueEqualWithContext(actualValue, fixedValue, textType, -1, nil)
-}
-
 func (r *streamRun) fixedValueEqualWithContext(actualValue, fixedValue string, textType *grammar.CompiledType, scopeDepth int, fixedContext map[string]string) bool {
 	if textType == nil || textType.Original == nil {
 		return actualValue == fixedValue

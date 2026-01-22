@@ -35,9 +35,7 @@ const (
 // ElementDecl represents an element declaration
 type ElementDecl struct {
 	Type              Type
-	TypeExplicit      bool
 	ValueContext      map[string]string
-	Name              QName
 	SubstitutionGroup QName
 	SourceNamespace   NamespaceURI
 	Fixed             string

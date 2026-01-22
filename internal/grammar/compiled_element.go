@@ -7,6 +7,10 @@ import (
 
 // CompiledElement is a fully-resolved element declaration.
 type CompiledElement struct {
+	QName            types.QName
+	EffectiveQName   types.QName
+	Default          string
+	Fixed            string
 	Original         *types.ElementDecl
 	Type             *CompiledType
 	SubstitutionHead *CompiledElement
@@ -17,6 +21,8 @@ type CompiledElement struct {
 	Default          string
 	Constraints      []*CompiledConstraint
 	Block            types.DerivationSet
+	HasDefault       bool
+	HasFixed         bool
 	Nillable         bool
 	Abstract         bool
 	HasDefault       bool

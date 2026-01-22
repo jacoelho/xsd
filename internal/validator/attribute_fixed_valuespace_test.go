@@ -48,7 +48,7 @@ func TestValidateAttributeFixedValueSpace(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			xmlDoc := fmt.Sprintf(`<?xml version="1.0"?><root xmlns="http://example.com/test" attr="%s"/>`, tt.value)
+			xmlDoc := fmt.Sprintf(`<?xml version="1.0"?><root xmlns="http://example.com/test" attr=%q/>`, tt.value)
 			v := New(mustCompile(t, schema))
 			violations := validateStream(t, v, xmlDoc)
 			if len(violations) > 0 {

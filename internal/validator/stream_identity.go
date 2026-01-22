@@ -483,25 +483,25 @@ func (r *streamRun) finalizeSelectorMatch(scope *identityScope, state *constrain
 		fieldState := match.fields[i]
 		switch {
 		case fieldState.multiple:
-			r.addIdentityFieldError(constraint, errors.ErrIdentityAbsent, errors.ErrIdentityDuplicate, errors.ErrIdentityKeyRefFailed, elemPath,
+			r.addIdentityFieldError(constraint, elemPath,
 				"field selects multiple nodes for element at %s", constraint.Original.Name)
 			return
 		case fieldState.count == 0 || fieldState.missing:
 			if constraint.Original.Type == types.UniqueConstraint {
 				return
 			}
-			r.addIdentityFieldError(constraint, errors.ErrIdentityAbsent, errors.ErrIdentityDuplicate, errors.ErrIdentityKeyRefFailed, elemPath,
+			r.addIdentityFieldError(constraint, elemPath,
 				"field value is absent for element at %s", constraint.Original.Name)
 			return
 		case fieldState.valueInvalid:
 			if constraint.Original.Type == types.UniqueConstraint {
 				return
 			}
-			r.addIdentityFieldError(constraint, errors.ErrIdentityAbsent, errors.ErrIdentityDuplicate, errors.ErrIdentityKeyRefFailed, elemPath,
+			r.addIdentityFieldError(constraint, elemPath,
 				"field value is invalid for element at %s", constraint.Original.Name)
 			return
 		case fieldState.invalid || !fieldState.hasValue:
-			r.addIdentityFieldError(constraint, errors.ErrIdentityAbsent, errors.ErrIdentityDuplicate, errors.ErrIdentityKeyRefFailed, elemPath,
+			r.addIdentityFieldError(constraint, elemPath,
 				"field selects non-simple content for element at %s", constraint.Original.Name)
 			return
 		default:
@@ -611,16 +611,16 @@ func (r *streamRun) abortIdentityFrame(frame *streamFrame) {
 	r.closeIdentityScopes(frame)
 }
 
-func (r *streamRun) addIdentityFieldError(constraint *grammar.CompiledConstraint, keyCode, uniqueCode, keyrefCode errors.ErrorCode, path, message, name string) {
+func (r *streamRun) addIdentityFieldError(constraint *grammar.CompiledConstraint, path, message, name string) {
 	switch constraint.Original.Type {
 	case types.KeyConstraint:
-		violation := errors.NewValidationf(keyCode, path, "key '%s': "+message, name, path)
+		violation := errors.NewValidationf(errors.ErrIdentityAbsent, path, "key '%s': "+message, name, path)
 		r.addViolation(&violation)
 	case types.UniqueConstraint:
-		violation := errors.NewValidationf(uniqueCode, path, "unique '%s': "+message, name, path)
+		violation := errors.NewValidationf(errors.ErrIdentityDuplicate, path, "unique '%s': "+message, name, path)
 		r.addViolation(&violation)
 	case types.KeyRefConstraint:
-		violation := errors.NewValidationf(keyrefCode, path, "keyref '%s': "+message, name, path)
+		violation := errors.NewValidationf(errors.ErrIdentityKeyRefFailed, path, "keyref '%s': "+message, name, path)
 		r.addViolation(&violation)
 	}
 }

@@ -231,7 +231,7 @@ func parseAnyAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema)
 		namespaceAttr = "##local"
 	}
 
-	nsConstraint, nsList, err := parseNamespaceConstraint(namespaceAttr, schema)
+	nsConstraint, nsList, err := parseNamespaceConstraint(namespaceAttr)
 	if err != nil {
 		return nil, fmt.Errorf("parse namespace constraint: %w", err)
 	}

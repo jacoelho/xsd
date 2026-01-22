@@ -646,7 +646,7 @@ func validateOccurrenceConstraints(baseMinOcc, baseMaxOcc, restrictionMinOcc, re
 // When base is a wildcard and restriction is an element, this is valid if:
 // - Element's namespace is allowed by wildcard's namespace constraint
 // - Element's occurrence constraints are within wildcard's constraints
-func validateWildcardToElementRestriction(schema *parser.Schema, baseAny *types.AnyElement, restrictionElem *types.ElementDecl) error {
+func validateWildcardToElementRestriction(baseAny *types.AnyElement, restrictionElem *types.ElementDecl) error {
 	if restrictionElem.MinOcc().IsZero() && restrictionElem.MaxOcc().IsZero() {
 		return validateOccurrenceConstraints(baseAny.MinOccurs, baseAny.MaxOccurs, restrictionElem.MinOcc(), restrictionElem.MaxOcc())
 	}
@@ -888,7 +888,7 @@ func validateParticlePairRestriction(schema *parser.Schema, baseParticle, restri
 	baseAny, baseIsAny := baseParticle.(*types.AnyElement)
 	restrictionElem, restrictionIsElem := restrictionParticle.(*types.ElementDecl)
 	if baseIsAny && restrictionIsElem {
-		return validateWildcardToElementRestriction(schema, baseAny, restrictionElem)
+		return validateWildcardToElementRestriction(baseAny, restrictionElem)
 	}
 
 	// special case: ModelGroup:Wildcard derivation (Particle Derivation OK - NS:RecurseAsIfGroup)
