@@ -1,8 +1,6 @@
 package validator
 
 import (
-	"slices"
-
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
@@ -16,34 +14,52 @@ type attributeIndex struct {
 const attributeMapThreshold = 8
 
 type declaredAttrSet struct {
-	mapValues map[types.QName]struct{}
-	list      []types.QName
+	mapValues map[types.QName]bool
+	list      []declaredAttrEntry
 }
 
-func newDeclaredAttrSet(size int) declaredAttrSet {
-	if size > attributeMapThreshold {
-		return declaredAttrSet{mapValues: make(map[types.QName]struct{}, size)}
-	}
-	if size == 0 {
-		return declaredAttrSet{}
-	}
-	return declaredAttrSet{list: make([]types.QName, 0, size)}
+type declaredAttrEntry struct {
+	name       types.QName
+	prohibited bool
 }
 
-func (s *declaredAttrSet) add(name types.QName) {
+func (s *declaredAttrSet) reset(size int) {
 	if s.mapValues != nil {
-		s.mapValues[name] = struct{}{}
+		clear(s.mapValues)
+		s.list = s.list[:0]
 		return
 	}
-	s.list = append(s.list, name)
+	if size > attributeMapThreshold {
+		s.mapValues = make(map[types.QName]bool, size)
+		s.list = s.list[:0]
+		return
+	}
+	if cap(s.list) < size {
+		s.list = make([]declaredAttrEntry, 0, size)
+		return
+	}
+	s.list = s.list[:0]
 }
 
-func (s declaredAttrSet) contains(name types.QName) bool {
+func (s *declaredAttrSet) add(name types.QName, prohibited bool) {
 	if s.mapValues != nil {
-		_, ok := s.mapValues[name]
-		return ok
+		s.mapValues[name] = prohibited
+		return
 	}
-	return slices.Contains(s.list, name)
+	s.list = append(s.list, declaredAttrEntry{name: name, prohibited: prohibited})
+}
+
+func (s declaredAttrSet) lookup(name types.QName) (declared, prohibited bool) {
+	if s.mapValues != nil {
+		value, ok := s.mapValues[name]
+		return ok, value
+	}
+	for _, entry := range s.list {
+		if entry.name == name {
+			return true, entry.prohibited
+		}
+	}
+	return false, false
 }
 
 func newAttributeIndex(attrs []streamAttr) attributeIndex {
@@ -76,15 +92,14 @@ func (a attributeIndex) Value(ns, local string) (string, bool) {
 func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar.CompiledAttribute, anyAttr *types.AnyAttribute, scopeDepth, line, column int) []errors.Validation {
 	var violations []errors.Validation
 
-	declared := newDeclaredAttrSet(len(decls))
-	prohibited := newDeclaredAttrSet(len(decls))
+	declared := &r.declaredAttrs
+	declared.reset(len(decls))
 	idCount := 0
 
 	for _, attr := range decls {
 		if attr.Use == types.Prohibited {
 			continue
 		}
-		declared.add(attr.QName)
 
 		if attr.Use == types.Required {
 			if _, ok := attrs.Value(attr.QName.Namespace.String(), attr.QName.Local); !ok {
@@ -147,13 +162,14 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 			Local:     xmlAttr.LocalName(),
 		}
 
-		if prohibited.contains(attrQName) {
+		isDeclared, isProhibited := declared.lookup(attrQName)
+		if isProhibited {
 			violations = append(violations, errors.NewValidationf(errors.ErrAttributeProhibited, r.path.String(),
 				"Attribute '%s' is prohibited", attrQName.Local))
 			continue
 		}
 
-		if !declared.contains(attrQName) && !isSpecialAttribute(attrQName) {
+		if !isDeclared && !isSpecialAttribute(attrQName) {
 			if anyAttr == nil || !anyAttr.AllowsQName(attrQName) {
 				violations = append(violations, errors.NewValidationf(errors.ErrAttributeNotDeclared, r.path.String(),
 					"Attribute '%s' is not declared", attrQName.Local))

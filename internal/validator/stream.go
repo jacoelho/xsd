@@ -98,6 +98,7 @@ type streamRun struct {
 	automatonFree   []*grammar.AutomatonStreamValidator
 	violations      []errors.Validation
 	identityScopes  []*identityScope
+	declaredAttrs   declaredAttrSet
 	currentLine     int
 	currentColumn   int
 	rootSeen        bool
