@@ -8,7 +8,8 @@ import (
 )
 
 func (r *streamRun) resolveXsiType(scopeDepth int, xsiTypeValue string, declaredType *grammar.CompiledType, elemBlock types.DerivationSet) (*grammar.CompiledType, error) {
-	xsiTypeQName, err := r.parseQNameValue(xsiTypeValue, scopeDepth)
+	normalized := types.NormalizeWhiteSpace(xsiTypeValue, types.GetBuiltin(types.TypeName("QName")))
+	xsiTypeQName, err := r.parseQNameValue(normalized, scopeDepth)
 	if err != nil {
 		return nil, fmt.Errorf("invalid xsi:type value '%s': %w", types.TrimXMLWhitespace(xsiTypeValue), err)
 	}
@@ -49,7 +50,8 @@ func (r *streamRun) resolveXsiType(scopeDepth int, xsiTypeValue string, declared
 }
 
 func (r *streamRun) resolveXsiTypeOnly(scopeDepth int, xsiTypeValue string) (*grammar.CompiledType, error) {
-	xsiTypeQName, err := r.parseQNameValue(xsiTypeValue, scopeDepth)
+	normalized := types.NormalizeWhiteSpace(xsiTypeValue, types.GetBuiltin(types.TypeName("QName")))
+	xsiTypeQName, err := r.parseQNameValue(normalized, scopeDepth)
 	if err != nil {
 		return nil, fmt.Errorf("invalid xsi:type value '%s': %w", types.TrimXMLWhitespace(xsiTypeValue), err)
 	}

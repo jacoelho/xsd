@@ -2,7 +2,9 @@ package loader
 
 import (
 	"fmt"
-	"maps"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemacheck"
@@ -91,8 +93,7 @@ func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind
 	if err := ctx.mergeNotationDecls(); err != nil {
 		return err
 	}
-	ctx.mergeIDAttributes()
-	return nil
+	return ctx.mergeIDAttributes()
 }
 
 func (c *mergeContext) mergeImportedNamespaces() {
@@ -335,12 +336,17 @@ func (c *mergeContext) mergeNotationDecls() error {
 	return nil
 }
 
-func (c *mergeContext) mergeIDAttributes() {
-	for id, component := range c.source.IDAttributes {
-		if _, exists := c.target.IDAttributes[id]; !exists {
-			c.target.IDAttributes[id] = component
-		}
+func (c *mergeContext) mergeIDAttributes() error {
+	if c.target.IDAttributes == nil {
+		c.target.IDAttributes = make(map[string]string)
 	}
+	for id, component := range c.source.IDAttributes {
+		if _, exists := c.target.IDAttributes[id]; exists {
+			continue
+		}
+		c.target.IDAttributes[id] = component
+	}
+	return nil
 }
 
 func (c *mergeContext) originFor(origins map[types.QName]string, qname types.QName) string {
@@ -379,31 +385,69 @@ func elementDeclEquivalent(a, b *types.ElementDecl) bool {
 	if !schemacheck.ElementTypesCompatible(a.Type, b.Type) {
 		return false
 	}
-	if len(a.Constraints) != len(b.Constraints) {
+	return identityConstraintsEquivalent(a.Constraints, b.Constraints)
+}
+
+func identityConstraintsEquivalent(a, b []*types.IdentityConstraint) bool {
+	if len(a) != len(b) {
 		return false
 	}
-	for i := range a.Constraints {
-		ac := a.Constraints[i]
-		bc := b.Constraints[i]
-		if ac.Name != bc.Name || ac.Type != bc.Type || ac.Selector.XPath != bc.Selector.XPath {
+	if len(a) == 0 {
+		return true
+	}
+	keysA := make([]string, 0, len(a))
+	for _, constraint := range a {
+		keysA = append(keysA, identityConstraintKey(constraint))
+	}
+	keysB := make([]string, 0, len(b))
+	for _, constraint := range b {
+		keysB = append(keysB, identityConstraintKey(constraint))
+	}
+	sort.Strings(keysA)
+	sort.Strings(keysB)
+	for i := range keysA {
+		if keysA[i] != keysB[i] {
 			return false
-		}
-		if ac.ReferQName != bc.ReferQName || ac.TargetNamespace != bc.TargetNamespace {
-			return false
-		}
-		if !maps.Equal(ac.NamespaceContext, bc.NamespaceContext) {
-			return false
-		}
-		if len(ac.Fields) != len(bc.Fields) {
-			return false
-		}
-		for j := range ac.Fields {
-			if ac.Fields[j].XPath != bc.Fields[j].XPath {
-				return false
-			}
 		}
 	}
 	return true
+}
+
+func identityConstraintKey(constraint *types.IdentityConstraint) string {
+	if constraint == nil {
+		return "<nil>"
+	}
+	var builder strings.Builder
+	builder.WriteString(constraint.Name)
+	builder.WriteByte('|')
+	builder.WriteString(strconv.Itoa(int(constraint.Type)))
+	builder.WriteByte('|')
+	builder.WriteString(constraint.Selector.XPath)
+	builder.WriteByte('|')
+	builder.WriteString(constraint.ReferQName.String())
+	builder.WriteByte('|')
+	builder.WriteString(string(constraint.TargetNamespace))
+	builder.WriteByte('|')
+	for _, field := range constraint.Fields {
+		builder.WriteString(field.XPath)
+		builder.WriteByte('\x1f')
+	}
+	builder.WriteByte('|')
+	if len(constraint.NamespaceContext) == 0 {
+		return builder.String()
+	}
+	keys := make([]string, 0, len(constraint.NamespaceContext))
+	for key := range constraint.NamespaceContext {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		builder.WriteString(key)
+		builder.WriteByte('=')
+		builder.WriteString(constraint.NamespaceContext[key])
+		builder.WriteByte(';')
+	}
+	return builder.String()
 }
 
 // normalizeAttributeForms explicitly sets the Form on attributes that have FormDefault

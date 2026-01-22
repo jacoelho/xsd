@@ -3,7 +3,6 @@ package schemacheck
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
@@ -509,24 +508,12 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 					found = true
 					break
 				}
-				// check if this is a validation error (like maxOccurs, minOccurs) that should be returned immediately
-				// these errors mean the particles match but the restriction is invalid
-				errMsg := err.Error()
 				skippable := baseParticle.MinOcc().IsZero()
 				if !skippable {
 					if baseGroup, ok := baseParticle.(*types.ModelGroup); ok {
 						skippable = isEffectivelyOptional(baseGroup)
 					}
 				}
-				if strings.Contains(errMsg, "maxOccurs") || strings.Contains(errMsg, "minOccurs") ||
-					strings.Contains(errMsg, "model group kind") || strings.Contains(errMsg, "cannot restrict wildcard") {
-					if !skippable {
-						// validation errors should be returned immediately when base particle is required
-						return err
-					}
-				}
-				// "Element name mismatch" means these particles don't match - try next base particle
-				// no match - check if we can skip this base particle (if it's optional or effectively optional)
 				if skippable {
 					baseIdx++
 					continue
@@ -665,28 +652,7 @@ func validateWildcardToElementRestriction(schema *parser.Schema, baseAny *types.
 	}
 	// check namespace constraint: element namespace must be allowed by wildcard
 	elemNS := restrictionElem.Name.Namespace
-	wildcardAllows := false
-	switch baseAny.Namespace {
-	case types.NSCAny:
-		// ##any allows all namespaces
-		wildcardAllows = true
-	case types.NSCTargetNamespace:
-		// ##targetNamespace - check if element is in target namespace
-		wildcardAllows = (string(elemNS) == string(schema.TargetNamespace))
-	case types.NSCLocal:
-		// ##local - element must have no namespace
-		wildcardAllows = (elemNS == "")
-	case types.NSCOther:
-		// ##other - element must NOT be in target namespace
-		wildcardAllows = (string(elemNS) != string(schema.TargetNamespace) && elemNS != "")
-	case types.NSCList:
-		// element namespace must be in the allowed list
-		if slices.Contains(baseAny.NamespaceList, elemNS) {
-			wildcardAllows = true
-		}
-	}
-
-	if !wildcardAllows {
+	if !types.AllowsNamespace(baseAny.Namespace, baseAny.NamespaceList, baseAny.TargetNamespace, elemNS) {
 		return fmt.Errorf("ComplexContent restriction: element namespace %q not allowed by base wildcard", elemNS)
 	}
 

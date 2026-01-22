@@ -11,24 +11,41 @@ import (
 // checkFixedValue validates that element content matches the fixed value constraint.
 // Per XSD spec section 3.3.4, fixed values are compared in the value space of the type.
 // Both values must be normalized according to the type's whitespace facet before comparison.
-func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType *grammar.CompiledType) []errors.Validation {
-	if textType == nil || textType.Original == nil {
-		// no type information - compare as strings
-		if actualValue != fixedValue {
-			return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
-				"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
-		}
+func (r *streamRun) checkFixedValue(actualValue, fixedValue string, textType *grammar.CompiledType, scopeDepth int, fixedContext map[string]string) []errors.Validation {
+	if r.fixedValueEqualWithContext(actualValue, fixedValue, textType, scopeDepth, fixedContext) {
 		return nil
+	}
+	return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
+		"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
+}
+
+func (r *streamRun) fixedValueEqual(actualValue, fixedValue string, textType *grammar.CompiledType) bool {
+	return r.fixedValueEqualWithContext(actualValue, fixedValue, textType, -1, nil)
+}
+
+func (r *streamRun) fixedValueEqualWithContext(actualValue, fixedValue string, textType *grammar.CompiledType, scopeDepth int, fixedContext map[string]string) bool {
+	if textType == nil || textType.Original == nil {
+		return actualValue == fixedValue
+	}
+
+	if textType.IsQNameOrNotationType {
+		if match, err := r.compareFixedQNameValue(actualValue, fixedValue, textType.Original, scopeDepth, fixedContext); err == nil {
+			return match
+		}
+		return false
+	}
+
+	if textType.ItemType != nil && textType.ItemType.IsQNameOrNotationType {
+		if match, err := r.compareFixedValueListWithContext(actualValue, fixedValue, textType, scopeDepth, fixedContext); err == nil {
+			return match
+		}
+		return false
 	}
 
 	// try value space comparison for union types with compiled member types
 	if len(textType.MemberTypes) > 0 {
-		if match, err := r.compareFixedValueInUnion(actualValue, fixedValue, textType.MemberTypes); err == nil {
-			if !match {
-				return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
-					"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
-			}
-			return nil
+		if match, err := r.compareFixedValueInUnionWithContext(actualValue, fixedValue, textType.MemberTypes, scopeDepth, fixedContext); err == nil {
+			return match
 		}
 	}
 
@@ -36,12 +53,8 @@ func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType
 	if st, ok := textType.Original.(*types.SimpleType); ok && st.Variety() == types.UnionVariety {
 		memberTypes := r.resolveUnionMemberTypes(st)
 		if len(memberTypes) > 0 {
-			if match, err := r.compareFixedValueInUnionTypes(actualValue, fixedValue, memberTypes); err == nil {
-				if !match {
-					return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
-						"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
-				}
-				return nil
+			if match, err := r.compareFixedValueInUnionTypesWithContext(actualValue, fixedValue, memberTypes, scopeDepth, fixedContext); err == nil {
+				return match
 			}
 		}
 	}
@@ -49,24 +62,16 @@ func (r *validationRun) checkFixedValue(actualValue, fixedValue string, textType
 	// try value space comparison for simple types
 	if st, ok := valueSpaceType(textType.Original); ok {
 		if match, err := r.compareFixedValueAsType(actualValue, fixedValue, st); err == nil {
-			if !match {
-				return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
-					"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
-			}
-			return nil
+			return match
 		}
 	}
 
 	// fall back to normalized string comparison
-	if !fixedValueMatches(actualValue, fixedValue, textType.Original) {
-		return []errors.Validation{errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
-			"Element has fixed value '%s' but actual value is '%s'", fixedValue, actualValue)}
-	}
-	return nil
+	return fixedValueMatches(actualValue, fixedValue, textType.Original)
 }
 
 // resolveUnionMemberTypes resolves all member types from a union SimpleType.
-func (r *validationRun) resolveUnionMemberTypes(st *types.SimpleType) []types.Type {
+func (r *streamRun) resolveUnionMemberTypes(st *types.SimpleType) []types.Type {
 	if st.Union == nil {
 		return st.MemberTypes
 	}
@@ -90,41 +95,33 @@ func (r *validationRun) resolveUnionMemberTypes(st *types.SimpleType) []types.Ty
 	return memberTypes
 }
 
-// compareFixedValueInUnion compares values using compiled union member types.
-func (r *validationRun) compareFixedValueInUnion(actualValue, fixedValue string, memberTypes []*grammar.CompiledType) (bool, error) {
-	actualTyped, actualType, err := r.parseUnionValue(actualValue, memberTypes)
-	if err != nil {
-		return false, err
+func (r *streamRun) compareFixedValueInUnionWithContext(actualValue, fixedValue string, memberTypes []*grammar.CompiledType, scopeDepth int, fixedContext map[string]string) (bool, error) {
+	actualParsed, ok := r.parseUnionValueWithContext(actualValue, memberTypes, scopeDepth, nil)
+	if !ok {
+		return false, errNoMatchingMemberType
 	}
-	fixedTyped, fixedType, err := r.parseUnionValue(fixedValue, memberTypes)
-	if err != nil {
-		return false, err
+	fixedParsed, ok := r.parseUnionValueWithContext(fixedValue, memberTypes, -1, fixedContext)
+	if !ok {
+		return false, errNoMatchingMemberType
 	}
-	if actualType != fixedType {
-		return false, nil
-	}
-	return compareTypedValues(actualTyped, fixedTyped), nil
+	return actualParsed.equal(fixedParsed), nil
 }
 
-// compareFixedValueInUnionTypes compares values using resolved union member types.
-func (r *validationRun) compareFixedValueInUnionTypes(actualValue, fixedValue string, memberTypes []types.Type) (bool, error) {
-	actualTyped, actualType, err := r.parseUnionValueTypes(actualValue, memberTypes)
-	if err != nil {
-		return false, err
+func (r *streamRun) compareFixedValueInUnionTypesWithContext(actualValue, fixedValue string, memberTypes []types.Type, scopeDepth int, fixedContext map[string]string) (bool, error) {
+	actualParsed, ok := r.parseUnionValueTypesWithContext(actualValue, memberTypes, scopeDepth, nil)
+	if !ok {
+		return false, errNoMatchingMemberType
 	}
-	fixedTyped, fixedType, err := r.parseUnionValueTypes(fixedValue, memberTypes)
-	if err != nil {
-		return false, err
+	fixedParsed, ok := r.parseUnionValueTypesWithContext(fixedValue, memberTypes, -1, fixedContext)
+	if !ok {
+		return false, errNoMatchingMemberType
 	}
-	if actualType != fixedType {
-		return false, nil
-	}
-	return compareTypedValues(actualTyped, fixedTyped), nil
+	return actualParsed.equal(fixedParsed), nil
 }
 
 // compareFixedValueAsType compares two values in the value space of a type.
 // Returns (equal, nil) if both values can be parsed, or (false, error) if parsing fails.
-func (r *validationRun) compareFixedValueAsType(actualValue, fixedValue string, typ types.Type) (bool, error) {
+func (r *streamRun) compareFixedValueAsType(actualValue, fixedValue string, typ types.Type) (bool, error) {
 	actualTyped, actualErr := r.parseValueAsType(actualValue, typ)
 	if actualErr != nil {
 		return false, actualErr
@@ -141,7 +138,20 @@ func (r *validationRun) compareFixedValueAsType(actualValue, fixedValue string, 
 // errNoMatchingMemberType indicates no union member type could parse the value
 var errNoMatchingMemberType = fmt.Errorf("no matching member type")
 
-func (r *validationRun) parseUnionValue(value string, memberTypes []*grammar.CompiledType) (types.TypedValue, *grammar.CompiledType, error) {
+type fixedValueParsed struct {
+	typed   types.TypedValue
+	qname   types.QName
+	isQName bool
+}
+
+func (p fixedValueParsed) equal(other fixedValueParsed) bool {
+	if p.isQName || other.isQName {
+		return p.isQName && other.isQName && p.qname == other.qname
+	}
+	return compareTypedValues(p.typed, other.typed)
+}
+
+func (r *streamRun) parseUnionValueWithContext(value string, memberTypes []*grammar.CompiledType, scopeDepth int, fixedContext map[string]string) (fixedValueParsed, bool) {
 	for _, member := range memberTypes {
 		if member == nil || member.Original == nil {
 			continue
@@ -150,15 +160,22 @@ func (r *validationRun) parseUnionValue(value string, memberTypes []*grammar.Com
 		if !ok {
 			continue
 		}
+		if isQNameOrNotationType(memberType) {
+			qname, err := r.parseQNameWithContext(value, memberType, scopeDepth, fixedContext)
+			if err == nil {
+				return fixedValueParsed{qname: qname, isQName: true}, true
+			}
+			continue
+		}
 		typedValue, err := r.parseValueAsType(value, memberType)
 		if err == nil {
-			return typedValue, member, nil
+			return fixedValueParsed{typed: typedValue}, true
 		}
 	}
-	return nil, nil, errNoMatchingMemberType
+	return fixedValueParsed{}, false
 }
 
-func (r *validationRun) parseUnionValueTypes(value string, memberTypes []types.Type) (types.TypedValue, types.Type, error) {
+func (r *streamRun) parseUnionValueTypesWithContext(value string, memberTypes []types.Type, scopeDepth int, fixedContext map[string]string) (fixedValueParsed, bool) {
 	for _, member := range memberTypes {
 		if member == nil {
 			continue
@@ -167,15 +184,84 @@ func (r *validationRun) parseUnionValueTypes(value string, memberTypes []types.T
 		if !ok {
 			continue
 		}
+		if isQNameOrNotationType(memberType) {
+			qname, err := r.parseQNameWithContext(value, memberType, scopeDepth, fixedContext)
+			if err == nil {
+				return fixedValueParsed{qname: qname, isQName: true}, true
+			}
+			continue
+		}
 		typedValue, err := r.parseValueAsType(value, memberType)
 		if err == nil {
-			return typedValue, member, nil
+			return fixedValueParsed{typed: typedValue}, true
 		}
 	}
-	return nil, nil, errNoMatchingMemberType
+	return fixedValueParsed{}, false
 }
 
-func (r *validationRun) parseValueAsType(value string, typ types.Type) (types.TypedValue, error) {
+func (r *streamRun) compareFixedQNameValue(actualValue, fixedValue string, typ types.Type, scopeDepth int, fixedContext map[string]string) (bool, error) {
+	actualQName, err := r.parseQNameWithContext(actualValue, typ, scopeDepth, nil)
+	if err != nil {
+		return false, err
+	}
+	fixedQName, err := r.parseQNameWithContext(fixedValue, typ, -1, fixedContext)
+	if err != nil {
+		return false, err
+	}
+	return actualQName == fixedQName, nil
+}
+
+func (r *streamRun) parseQNameWithContext(value string, typ types.Type, scopeDepth int, fixedContext map[string]string) (types.QName, error) {
+	normalized := types.NormalizeWhiteSpace(value, typ)
+	if fixedContext != nil {
+		return types.ParseQNameValue(normalized, fixedContext)
+	}
+	return r.parseQNameValue(normalized, scopeDepth)
+}
+
+func (r *streamRun) compareFixedValueListWithContext(actualValue, fixedValue string, listType *grammar.CompiledType, scopeDepth int, fixedContext map[string]string) (bool, error) {
+	if listType == nil || listType.ItemType == nil || listType.Original == nil {
+		return false, errNoMatchingMemberType
+	}
+	itemType := listType.ItemType
+	normalizedActual := types.NormalizeWhiteSpace(actualValue, listType.Original)
+	normalizedFixed := types.NormalizeWhiteSpace(fixedValue, listType.Original)
+	actualItems := types.SplitXMLWhitespaceFields(normalizedActual)
+	fixedItems := types.SplitXMLWhitespaceFields(normalizedFixed)
+	if len(actualItems) != len(fixedItems) {
+		return false, nil
+	}
+	for i := range actualItems {
+		if itemType.IsQNameOrNotationType {
+			actualQName, err := r.parseQNameWithContext(actualItems[i], itemType.Original, scopeDepth, nil)
+			if err != nil {
+				return false, err
+			}
+			fixedQName, err := r.parseQNameWithContext(fixedItems[i], itemType.Original, -1, fixedContext)
+			if err != nil {
+				return false, err
+			}
+			if actualQName != fixedQName {
+				return false, nil
+			}
+			continue
+		}
+		actualTyped, err := r.parseValueAsType(actualItems[i], itemType.Original)
+		if err != nil {
+			return false, err
+		}
+		fixedTyped, err := r.parseValueAsType(fixedItems[i], itemType.Original)
+		if err != nil {
+			return false, err
+		}
+		if !compareTypedValues(actualTyped, fixedTyped) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (r *streamRun) parseValueAsType(value string, typ types.Type) (types.TypedValue, error) {
 	switch t := typ.(type) {
 	case *types.SimpleType:
 		if t.IsBuiltin() {

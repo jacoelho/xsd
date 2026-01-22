@@ -29,6 +29,7 @@ func TestPattern(t *testing.T) {
 
 func TestEnumeration(t *testing.T) {
 	e := &Enumeration{Values: []string{"red", "green", "blue"}}
+	base := GetBuiltin(TypeName("string"))
 
 	tests := []struct {
 		value string
@@ -43,7 +44,7 @@ func TestEnumeration(t *testing.T) {
 
 	for _, tt := range tests {
 		tv := &StringTypedValue{Value: tt.value, Typ: nil}
-		err := e.Validate(tv, nil)
+		err := e.Validate(tv, base)
 		if (err == nil) != tt.valid {
 			t.Errorf("Enumeration.Validate(%q) = %v, want valid=%v", tt.value, err, tt.valid)
 		}

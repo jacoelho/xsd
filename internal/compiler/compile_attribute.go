@@ -162,10 +162,6 @@ func (c *Compiler) effectiveAttributeQName(attr *types.AttributeDecl) types.QNam
 	return types.QName{Namespace: ns, Local: attr.Name.Local}
 }
 
-func shouldIncludeAttribute(attr *types.AttributeDecl) bool {
-	return attr.Use != types.Prohibited || attr.HasFixed
-}
-
 func (c *Compiler) isAttributeQualified(attr *types.AttributeDecl) bool {
 	switch attr.Form {
 	case types.FormQualified:
@@ -202,7 +198,7 @@ func (c *Compiler) mergeAttributesFromGroup(ag *types.AttributeGroup, attrMap ma
 		visited[current] = true
 
 		for _, attr := range current.Attributes {
-			if !shouldIncludeAttribute(attr) {
+			if attr.Use == types.Prohibited {
 				continue
 			}
 			if err := c.addCompiledAttribute(attr, attrMap); err != nil {

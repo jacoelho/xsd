@@ -99,6 +99,9 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 			attr.HasFixed = true
 			attr.FixedContext = namespaceContextForElement(doc, elem, schema)
 		}
+		if attr.HasDefault || attr.HasFixed {
+			attr.ValueContext = namespaceContextForElement(doc, elem, schema)
+		}
 
 		parsed, err := types.NewAttributeDeclFromParsed(attr)
 		if err != nil {
@@ -205,6 +208,9 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 		attr.Fixed = doc.GetAttribute(elem, "fixed")
 		attr.HasFixed = true
 		attr.FixedContext = namespaceContextForElement(doc, elem, schema)
+	}
+	if attr.HasDefault || attr.HasFixed {
+		attr.ValueContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	// parse form attribute - must be exactly "qualified" or "unqualified"

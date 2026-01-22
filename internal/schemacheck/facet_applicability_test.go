@@ -118,3 +118,21 @@ func TestFacetApplicability_LengthOnAtomicNumericType(t *testing.T) {
 		t.Errorf("expected error about facet not applicable, got: %v", err)
 	}
 }
+
+func TestFacetApplicability_LengthOnDurationType(t *testing.T) {
+	durationType, err := types.NewBuiltinSimpleType(types.TypeNameDuration)
+	if err != nil {
+		t.Fatalf("NewBuiltinSimpleType(duration) failed: %v", err)
+	}
+
+	lengthFacet := &types.Length{Value: 3}
+	facetList := []types.Facet{lengthFacet}
+	baseQName := durationType.Name()
+
+	err = validateFacetConstraints(facetList, durationType, baseQName)
+	if err == nil {
+		t.Error("length facet should NOT be applicable to duration type, but validation passed")
+	} else if !strings.Contains(err.Error(), "not applicable") {
+		t.Errorf("expected error about facet not applicable, got: %v", err)
+	}
+}

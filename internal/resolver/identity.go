@@ -243,7 +243,12 @@ func areFieldTypesCompatible(field1Type, field2Type types.Type) bool {
 	}
 
 	// same type is always compatible.
-	if field1Type.Name() == field2Type.Name() {
+	if field1Type == field2Type {
+		return true
+	}
+	name1 := field1Type.Name()
+	name2 := field2Type.Name()
+	if !name1.IsZero() && !name2.IsZero() && name1 == name2 {
 		return true
 	}
 

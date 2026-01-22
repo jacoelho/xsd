@@ -112,7 +112,11 @@ func wildcardNamespaceSubset(w1, w2 *types.AnyElement) bool {
 	switch w1.Namespace {
 	case types.NSCList:
 		for _, ns := range w1.NamespaceList {
-			if !namespaceMatchesWildcard(ns, w2.Namespace, w2.NamespaceList, w2.TargetNamespace) {
+			resolved := ns
+			if ns == types.NamespaceTargetPlaceholder {
+				resolved = w1.TargetNamespace
+			}
+			if !namespaceMatchesWildcard(resolved, w2.Namespace, w2.NamespaceList, w2.TargetNamespace) {
 				return false
 			}
 		}
@@ -122,7 +126,7 @@ func wildcardNamespaceSubset(w1, w2 *types.AnyElement) bool {
 	case types.NSCLocal:
 		return namespaceMatchesWildcard(types.NamespaceEmpty, w2.Namespace, w2.NamespaceList, w2.TargetNamespace)
 	case types.NSCOther:
-		if w2.Namespace == types.NSCAny {
+		if w2.Namespace == types.NSCAny || w2.Namespace == types.NSCNotAbsent {
 			return true
 		}
 		if w2.Namespace != types.NSCOther {
@@ -132,6 +136,15 @@ func wildcardNamespaceSubset(w1, w2 *types.AnyElement) bool {
 			return true
 		}
 		return w1.TargetNamespace == w2.TargetNamespace
+	case types.NSCNotAbsent:
+		switch w2.Namespace {
+		case types.NSCAny, types.NSCNotAbsent:
+			return true
+		case types.NSCOther:
+			return w2.TargetNamespace.IsEmpty()
+		default:
+			return false
+		}
 	default:
 		return false
 	}
@@ -267,7 +280,11 @@ func anyAttributeIsSubset(w1, w2 *types.AnyAttribute) bool {
 	switch w1.Namespace {
 	case types.NSCList:
 		for _, ns := range w1.NamespaceList {
-			if !namespaceMatchesWildcard(ns, w2.Namespace, w2.NamespaceList, w2.TargetNamespace) {
+			resolved := ns
+			if ns == types.NamespaceTargetPlaceholder {
+				resolved = w1.TargetNamespace
+			}
+			if !namespaceMatchesWildcard(resolved, w2.Namespace, w2.NamespaceList, w2.TargetNamespace) {
 				return false
 			}
 		}
@@ -277,7 +294,7 @@ func anyAttributeIsSubset(w1, w2 *types.AnyAttribute) bool {
 	case types.NSCLocal:
 		return namespaceMatchesWildcard(types.NamespaceEmpty, w2.Namespace, w2.NamespaceList, w2.TargetNamespace)
 	case types.NSCOther:
-		if w2.Namespace == types.NSCAny {
+		if w2.Namespace == types.NSCAny || w2.Namespace == types.NSCNotAbsent {
 			return true
 		}
 		if w2.Namespace != types.NSCOther {
@@ -287,6 +304,15 @@ func anyAttributeIsSubset(w1, w2 *types.AnyAttribute) bool {
 			return true
 		}
 		return w1.TargetNamespace == w2.TargetNamespace
+	case types.NSCNotAbsent:
+		switch w2.Namespace {
+		case types.NSCAny, types.NSCNotAbsent:
+			return true
+		case types.NSCOther:
+			return w2.TargetNamespace.IsEmpty()
+		default:
+			return false
+		}
 	default:
 		return false
 	}

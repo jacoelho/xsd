@@ -121,6 +121,105 @@ func TestFacetTotalDigitsOnNonDecimal(t *testing.T) {
 	}
 }
 
+func TestKeyrefAnonymousFieldTypesIncompatible(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:keys"
+           targetNamespace="urn:keys"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a">
+          <xs:simpleType>
+            <xs:restriction base="xs:int"/>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="b">
+          <xs:simpleType>
+            <xs:restriction base="xs:string"/>
+          </xs:simpleType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="k">
+      <xs:selector xpath="tns:a"/>
+      <xs:field xpath="."/>
+    </xs:key>
+    <xs:keyref name="kref" refer="tns:k">
+      <xs:selector xpath="tns:b"/>
+      <xs:field xpath="."/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`
+
+	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	errors := ValidateSchema(result.Schema)
+	if len(errors) == 0 {
+		t.Fatalf("expected keyref field type compatibility error")
+	}
+	found := false
+	for _, err := range errors {
+		if strings.Contains(err.Error(), "not compatible") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected keyref compatibility error, got %v", errors)
+	}
+}
+
+func TestElementDefaultEmptyViolatesMinLength(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" default="">
+    <xs:simpleType>
+      <xs:restriction base="xs:string">
+        <xs:minLength value="1"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`
+
+	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	errors := ValidateSchema(result.Schema)
+	if len(errors) == 0 {
+		t.Fatalf("expected invalid default value error for empty element default")
+	}
+}
+
+func TestAttributeDefaultEmptyViolatesMinLength(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="attr" default="">
+    <xs:simpleType>
+      <xs:restriction base="xs:string">
+        <xs:minLength value="1"/>
+      </xs:restriction>
+    </xs:simpleType>
+  </xs:attribute>
+</xs:schema>`
+
+	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	errors := ValidateSchema(result.Schema)
+	if len(errors) == 0 {
+		t.Fatalf("expected invalid default value error for empty attribute default")
+	}
+}
+
 // TestFacetRangeOnNonOrderedType tests that range facets are only applicable to ordered types
 func TestFacetRangeOnNonOrderedType(t *testing.T) {
 	// schema with maxInclusive on QName (not ordered) - should be invalid

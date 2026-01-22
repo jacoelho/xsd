@@ -65,7 +65,7 @@ func validateAttributeDeclStructure(schemaDef *parser.Schema, qname types.QName,
 
 	// validate fixed value if present (basic validation only - full type checking after resolution)
 	if decl.HasFixed {
-		if err := validateDefaultOrFixedValue(decl.Fixed, decl.Type); err != nil {
+		if err := validateDefaultOrFixedValue(decl.Fixed, decl.Type, decl.ValueContext); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)
 		}
 	}

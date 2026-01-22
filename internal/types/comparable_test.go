@@ -204,6 +204,21 @@ func TestComparable_Time(t *testing.T) {
 
 }
 
+func TestComparable_TimeTimezoneMismatch(t *testing.T) {
+	timeZ, _ := ParseDateTime("2001-10-26T21:32:52Z")
+	timeNoTZ, _ := ParseDateTime("2001-10-26T21:32:52")
+
+	dateTimeType := &SimpleType{
+		QName: QName{Namespace: XSDNamespace, Local: "dateTime"},
+	}
+	compZ := ComparableTime{Value: timeZ, Typ: dateTimeType, HasTimezone: true}
+	compNo := ComparableTime{Value: timeNoTZ, Typ: dateTimeType, HasTimezone: false}
+
+	if _, err := compZ.Compare(compNo); err == nil {
+		t.Fatalf("expected timezone mismatch comparison error")
+	}
+}
+
 func TestComparable_Float64(t *testing.T) {
 	doubleType := &SimpleType{
 		QName: QName{Namespace: XSDNamespace, Local: "double"},

@@ -1,12 +1,6 @@
 package validator
 
-import (
-	"math"
-	"math/big"
-	"time"
-
-	"github.com/jacoelho/xsd/internal/types"
-)
+import "github.com/jacoelho/xsd/internal/types"
 
 func fixedValueMatches(actualValue, fixedValue string, typ types.Type) bool {
 	normalizedValue := types.NormalizeWhiteSpace(actualValue, typ)

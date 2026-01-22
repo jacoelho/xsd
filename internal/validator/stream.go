@@ -4,6 +4,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
@@ -314,13 +315,6 @@ func (r *streamRun) prevalidateParentForChild(parent *streamFrame, childName str
 		parent.invalid = true
 		return true
 	}
-	if parent.decl != nil && parent.decl.HasFixed {
-		violation := errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
-			"Element '%s' has a fixed value constraint and cannot have element children", parent.decl.QName.Local)
-		r.addViolation(&violation)
-		parent.invalid = true
-		return true
-	}
 	if parent.textType != nil && (parent.typ == nil || (!isAnyType(parent.typ) && !parent.typ.HasContentModel())) {
 		r.addChildViolationf(errors.ErrTextInElementOnly, childName,
 			"Element '%s' is not allowed in simple content", childName)
@@ -560,6 +554,9 @@ func (r *streamRun) handleEnd() error {
 
 func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, origin matchOrigin) (streamFrame, bool) {
 	attrs := newAttributeIndex(ev.Attrs)
+	if origin == matchFromWildcard && processContents == types.Skip {
+		return streamFrame{}, true
+	}
 	decl := r.resolveMatchedDecl(parent, ev.Name, matchedDecl, matchedQName)
 
 	missingCode := errors.ErrElementNotDeclared
@@ -672,7 +669,6 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 		violations := r.checkAttributesStream(attrs, effectiveType.AllAttributes, effectiveType.AnyAttribute, ev.ScopeDepth, ev.Line, ev.Column)
 		if len(violations) > 0 {
 			r.addViolations(violations)
-			return streamFrame{}, true
 		}
 		frame := r.newFrame(ev, decl, effectiveType, parent)
 		frame.nilled = true
@@ -694,7 +690,6 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, ev.ScopeDepth, ev.Line, ev.Column)
 	if len(violations) > 0 {
 		r.addViolations(violations)
-		return streamFrame{}, true
 	}
 
 	frame := r.newFrame(ev, decl, effectiveType, parent)
@@ -1130,6 +1125,7 @@ func (r *streamRun) processListItemBytes(frame *streamFrame, itemBytes []byte) {
 	valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport, nil)
 	if !valid {
 		r.addViolations(violations)
+		return
 	}
 	if valid && frame.textType.IDTypeName == "IDREFS" {
 		r.trackListIDRefs(itemString, frame.textType)

@@ -77,6 +77,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 	var violations []errors.Validation
 
 	declared := newDeclaredAttrSet(len(decls))
+	prohibited := newDeclaredAttrSet(len(decls))
 	idCount := 0
 
 	for _, attr := range decls {
@@ -144,6 +145,12 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 		attrQName := types.QName{
 			Namespace: types.NamespaceURI(xmlAttr.NamespaceURI()),
 			Local:     xmlAttr.LocalName(),
+		}
+
+		if prohibited.contains(attrQName) {
+			violations = append(violations, errors.NewValidationf(errors.ErrAttributeProhibited, r.path.String(),
+				"Attribute '%s' is prohibited", attrQName.Local))
+			continue
 		}
 
 		if !declared.contains(attrQName) && !isSpecialAttribute(attrQName) {

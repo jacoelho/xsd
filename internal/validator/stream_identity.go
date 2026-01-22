@@ -261,6 +261,7 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 	field := match.constraint.constraint.Original.Fields[fieldIndex]
 
 	if test.Any {
+		present := make(map[types.QName]struct{}, len(attrs))
 		for _, attr := range attrs {
 			if isXMLNSAttribute(attr) {
 				continue
@@ -279,14 +280,12 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 	}
 
 	if test.Local == "*" && test.NamespaceSpecified {
+		present := make(map[types.QName]struct{}, len(attrs))
 		for _, attr := range attrs {
 			if isXMLNSAttribute(attr) {
 				continue
 			}
 			attrNamespace := types.NamespaceURI(attr.NamespaceURI())
-			if attrNamespace != test.Namespace {
-				continue
-			}
 			attrQName := types.QName{
 				Namespace: attrNamespace,
 				Local:     attr.LocalName(),
@@ -488,18 +487,18 @@ func (r *streamRun) finalizeSelectorMatch(scope *identityScope, state *constrain
 				"field selects multiple nodes for element at %s", constraint.Original.Name)
 			return
 		case fieldState.count == 0 || fieldState.missing:
-			if constraint.Original.Type == types.KeyConstraint {
-				violation := errors.NewValidationf(errors.ErrIdentityAbsent, elemPath,
-					"key '%s': field value is absent for element at %s", constraint.Original.Name, elemPath)
-				r.addViolation(&violation)
+			if constraint.Original.Type == types.UniqueConstraint {
+				return
 			}
+			r.addIdentityFieldError(constraint, errors.ErrIdentityAbsent, errors.ErrIdentityDuplicate, errors.ErrIdentityKeyRefFailed, elemPath,
+				"field value is absent for element at %s", constraint.Original.Name)
 			return
 		case fieldState.valueInvalid:
-			if constraint.Original.Type == types.KeyConstraint {
-				violation := errors.NewValidationf(errors.ErrIdentityAbsent, elemPath,
-					"key '%s': field value is invalid for element at %s", constraint.Original.Name, elemPath)
-				r.addViolation(&violation)
+			if constraint.Original.Type == types.UniqueConstraint {
+				return
 			}
+			r.addIdentityFieldError(constraint, errors.ErrIdentityAbsent, errors.ErrIdentityDuplicate, errors.ErrIdentityKeyRefFailed, elemPath,
+				"field value is invalid for element at %s", constraint.Original.Name)
 			return
 		case fieldState.invalid || !fieldState.hasValue:
 			r.addIdentityFieldError(constraint, errors.ErrIdentityAbsent, errors.ErrIdentityDuplicate, errors.ErrIdentityKeyRefFailed, elemPath,
@@ -645,7 +644,7 @@ func (r *streamRun) normalizeElementValue(value string, field types.Field, frame
 		fieldType = types.GetBuiltin(types.TypeName("string"))
 	}
 	if _, ok := fieldType.(*types.ComplexType); ok {
-		fieldType = types.GetBuiltin(types.TypeName("string"))
+		return "", KeyInvalidSelection
 	}
 	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth, context)
 }

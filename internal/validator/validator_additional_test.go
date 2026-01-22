@@ -10,26 +10,39 @@ import (
 )
 
 func TestCheckFixedValueDecimal(t *testing.T) {
-	run := &validationRun{schema: newBaseSchemaView(nil)}
+	run := &streamRun{validationRun: &validationRun{schema: newBaseSchemaView(nil)}}
 	decimalType := &grammar.CompiledType{
 		QName:    types.QName{Namespace: types.XSDNamespace, Local: "decimal"},
 		Original: types.GetBuiltin(types.TypeName("decimal")),
 		Kind:     grammar.TypeKindBuiltin,
 	}
 
-	if errs := run.checkFixedValue("1.0", "1.00", decimalType); len(errs) != 0 {
+	if errs := run.checkFixedValue("1.0", "1.00", decimalType, 0, nil); len(errs) != 0 {
 		t.Fatalf("expected decimal fixed values to match")
 	}
-	if errs := run.checkFixedValue("1.0", "2.0", decimalType); len(errs) == 0 {
+	if errs := run.checkFixedValue("1.0", "2.0", decimalType, 0, nil); len(errs) == 0 {
 		t.Fatalf("expected decimal fixed value mismatch")
 	}
-	if errs := run.checkFixedValue("a", "b", nil); len(errs) == 0 {
+	if errs := run.checkFixedValue("a", "b", nil, 0, nil); len(errs) == 0 {
 		t.Fatalf("expected string fallback mismatch")
 	}
 }
 
+func TestCheckFixedValueNaN(t *testing.T) {
+	run := &streamRun{validationRun: &validationRun{schema: newBaseSchemaView(nil)}}
+	doubleType := &grammar.CompiledType{
+		QName:    types.QName{Namespace: types.XSDNamespace, Local: "double"},
+		Original: types.GetBuiltin(types.TypeName("double")),
+		Kind:     grammar.TypeKindBuiltin,
+	}
+
+	if errs := run.checkFixedValue("NaN", "NaN", doubleType, 0, nil); len(errs) == 0 {
+		t.Fatalf("expected NaN fixed values to mismatch")
+	}
+}
+
 func TestCheckFixedValueUnionMemberTypes(t *testing.T) {
-	run := &validationRun{schema: newBaseSchemaView(nil)}
+	run := &streamRun{validationRun: &validationRun{schema: newBaseSchemaView(nil)}}
 	memberInt := &grammar.CompiledType{Original: types.GetBuiltin(types.TypeName("int")), Kind: grammar.TypeKindBuiltin}
 	memberBool := &grammar.CompiledType{Original: types.GetBuiltin(types.TypeName("boolean")), Kind: grammar.TypeKindBuiltin}
 	unionType := &grammar.CompiledType{
@@ -37,16 +50,39 @@ func TestCheckFixedValueUnionMemberTypes(t *testing.T) {
 		MemberTypes: []*grammar.CompiledType{memberInt, memberBool},
 	}
 
-	if errs := run.checkFixedValue("1", "1", unionType); len(errs) != 0 {
+	if errs := run.checkFixedValue("1", "1", unionType, 0, nil); len(errs) != 0 {
 		t.Fatalf("expected union fixed values to match")
 	}
-	if errs := run.checkFixedValue("1", "true", unionType); len(errs) == 0 {
+	if errs := run.checkFixedValue("true", "true", unionType, 0, nil); len(errs) != 0 {
+		t.Fatalf("expected union fixed values to match")
+	}
+	if errs := run.checkFixedValue("1", "true", unionType, 0, nil); len(errs) == 0 {
+		t.Fatalf("expected union fixed value mismatch")
+	}
+	if errs := run.checkFixedValue("1", "false", unionType, 0, nil); len(errs) == 0 {
 		t.Fatalf("expected union fixed value mismatch")
 	}
 }
 
+func TestCheckFixedValueUnionOverlappingMembers(t *testing.T) {
+	run := &streamRun{validationRun: &validationRun{schema: newBaseSchemaView(nil)}}
+	memberInt := &grammar.CompiledType{Original: types.GetBuiltin(types.TypeName("int")), Kind: grammar.TypeKindBuiltin}
+	memberDecimal := &grammar.CompiledType{Original: types.GetBuiltin(types.TypeName("decimal")), Kind: grammar.TypeKindBuiltin}
+	unionType := &grammar.CompiledType{
+		Original:    types.GetBuiltin(types.TypeName("string")),
+		MemberTypes: []*grammar.CompiledType{memberInt, memberDecimal},
+	}
+
+	if errs := run.checkFixedValue("1.0", "1.0", unionType, 0, nil); len(errs) != 0 {
+		t.Fatalf("expected union fixed values to match")
+	}
+	if errs := run.checkFixedValue("1", "1.0", unionType, 0, nil); len(errs) == 0 {
+		t.Fatalf("expected overlapping union fixed value mismatch")
+	}
+}
+
 func TestCheckFixedValueUnionSimpleType(t *testing.T) {
-	run := &validationRun{schema: newBaseSchemaView(nil)}
+	run := &streamRun{validationRun: &validationRun{schema: newBaseSchemaView(nil)}}
 	union := &types.SimpleType{}
 	union.Union = &types.UnionType{
 		MemberTypes: []types.QName{
@@ -56,10 +92,10 @@ func TestCheckFixedValueUnionSimpleType(t *testing.T) {
 	}
 	unionType := &grammar.CompiledType{Original: union}
 
-	if errs := run.checkFixedValue("10", "10", unionType); len(errs) != 0 {
+	if errs := run.checkFixedValue("10", "10", unionType, 0, nil); len(errs) != 0 {
 		t.Fatalf("expected union simpleType fixed values to match")
 	}
-	if errs := run.checkFixedValue("10", "true", unionType); len(errs) == 0 {
+	if errs := run.checkFixedValue("10", "true", unionType, 0, nil); len(errs) == 0 {
 		t.Fatalf("expected union simpleType mismatch")
 	}
 }

@@ -2,7 +2,6 @@ package schemacheck
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
@@ -611,19 +610,5 @@ func wildcardOverlapsElement(wildcard *types.AnyElement, elemDecl *types.Element
 // namespaceMatchesWildcard checks if a namespace matches a wildcard namespace constraint
 // This is used for schema validation (UPA checking), not instance validation
 func namespaceMatchesWildcard(ns types.NamespaceURI, constraint types.NamespaceConstraint, namespaceList []types.NamespaceURI, targetNS types.NamespaceURI) bool {
-	switch constraint {
-	case types.NSCAny:
-		return true // matches any namespace
-	case types.NSCOther:
-		return !ns.IsEmpty() && ns != targetNS // matches any non-empty namespace except target namespace
-	case types.NSCTargetNamespace:
-		return ns == targetNS // matches only target namespace
-	case types.NSCLocal:
-		return ns.IsEmpty() // matches only empty namespace
-	case types.NSCList:
-		// check if namespace is in the list
-		return slices.Contains(namespaceList, ns)
-	default:
-		return false
-	}
+	return types.AllowsNamespace(constraint, namespaceList, targetNS, ns)
 }

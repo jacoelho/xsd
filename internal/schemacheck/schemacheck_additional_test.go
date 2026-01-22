@@ -155,6 +155,11 @@ func TestFacetListAndEnumeration(t *testing.T) {
 		t.Fatalf("validateEnumerationValues error = %v", err)
 	}
 
+	nbspFacet := &types.Enumeration{Values: []string{"alpha\u00A0beta"}}
+	if err := validateEnumerationValues([]types.Facet{nbspFacet}, listType); err == nil {
+		t.Fatalf("expected enumeration value with NBSP separator to fail")
+	}
+
 	emptyFacet := &types.Enumeration{Values: []string{""}}
 	if err := validateEnumerationValues([]types.Facet{emptyFacet}, listType); err == nil {
 		t.Fatalf("expected enumeration list item error")
@@ -384,12 +389,12 @@ func TestParticleHelpers(t *testing.T) {
 
 func TestDefaultOrFixedValueValidation(t *testing.T) {
 	stringType := types.GetBuiltin(types.TypeName("string"))
-	if err := validateDefaultOrFixedValue("value", stringType); err != nil {
+	if err := validateDefaultOrFixedValue("value", stringType, nil); err != nil {
 		t.Fatalf("unexpected default value error: %v", err)
 	}
 
 	idType := types.GetBuiltin(types.TypeName("ID"))
-	if err := validateDefaultOrFixedValue("id", idType); err == nil {
+	if err := validateDefaultOrFixedValue("id", idType, nil); err == nil {
 		t.Fatalf("expected ID default value error")
 	}
 
@@ -397,7 +402,7 @@ func TestDefaultOrFixedValueValidation(t *testing.T) {
 		QName:       types.QName{Namespace: "urn:values", Local: "derivedID"},
 		Restriction: &types.Restriction{Base: types.QName{Namespace: types.XSDNamespace, Local: "ID"}},
 	}
-	if err := validateDefaultOrFixedValue("id", derivedID); err == nil {
+	if err := validateDefaultOrFixedValue("id", derivedID, nil); err == nil {
 		t.Fatalf("expected derived ID default value error")
 	}
 
@@ -405,7 +410,7 @@ func TestDefaultOrFixedValueValidation(t *testing.T) {
 	ct.SetContent(&types.SimpleContent{
 		Extension: &types.Extension{Base: types.QName{Namespace: types.XSDNamespace, Local: "string"}},
 	})
-	if err := validateDefaultOrFixedValue("text", ct); err != nil {
+	if err := validateDefaultOrFixedValue("text", ct, nil); err != nil {
 		t.Fatalf("unexpected simpleContent default value error: %v", err)
 	}
 }

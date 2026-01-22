@@ -184,15 +184,6 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, sc
 	return compiled, nil
 }
 
-// isDefaultAnyType checks if a type is the default anyType (assigned by parser when no explicit type)
-func (c *Compiler) isDefaultAnyType(typ types.Type) bool {
-	if complexType, ok := types.AsComplexType(typ); ok {
-		// check if it's the anonymous anyType created by makeAnyType()
-		return complexType.QName.Local == "anyType" && complexType.QName.Namespace == "http://www.w3.org/2001/XMLSchema"
-	}
-	return false
-}
-
 func (c *Compiler) compileTopLevelAttribute(qname types.QName, attr *types.AttributeDecl) (*grammar.CompiledAttribute, error) {
 	// check if already compiled
 	if compiled, ok := c.grammar.Attributes[qname]; ok {

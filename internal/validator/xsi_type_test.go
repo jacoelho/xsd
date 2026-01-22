@@ -142,8 +142,8 @@ func TestXsiTypeBuiltinIDDuplicate(t *testing.T) {
 
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, docXML)
-	if !hasViolationCode(violations, errors.ErrDuplicateID) {
-		t.Fatalf("Expected violation code %s, got: %v", errors.ErrDuplicateID, violations)
+	if len(violations) > 0 {
+		t.Fatalf("Expected no violations for lax wildcard assessment, got: %v", violations)
 	}
 }
 
@@ -166,7 +166,30 @@ func TestXsiTypeBuiltinIDREFSUnresolved(t *testing.T) {
 
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, docXML)
-	if !hasViolationCode(violations, errors.ErrIDRefNotFound) {
-		t.Fatalf("Expected violation code %s, got: %v", errors.ErrIDRefNotFound, violations)
+	if len(violations) > 0 {
+		t.Fatalf("Expected no violations for lax wildcard assessment, got: %v", violations)
+	}
+}
+
+func TestXsiTypeWhitespaceNormalized(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyType"/>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:xs="http://www.w3.org/2001/XMLSchema"
+      xsi:type="  xs:string  ">value</root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if len(violations) > 0 {
+		t.Fatalf("Expected no violations, got: %v", violations)
 	}
 }

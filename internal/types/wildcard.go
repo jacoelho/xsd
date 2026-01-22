@@ -1,7 +1,5 @@
 package types
 
-import "slices"
-
 // NamespaceConstraint represents a namespace constraint
 type NamespaceConstraint int
 
@@ -16,7 +14,13 @@ const (
 	NSCLocal
 	// NSCList allows an explicit namespace list.
 	NSCList
+	// NSCNotAbsent allows any namespace-qualified name (excludes no-namespace).
+	NSCNotAbsent
 )
+
+// NamespaceTargetPlaceholder marks a namespace list entry that represents ##targetNamespace.
+// It is resolved against the wildcard's TargetNamespace at validation time.
+const NamespaceTargetPlaceholder NamespaceURI = "##targetNamespace"
 
 // ProcessContents defines how to process wildcard elements
 type ProcessContents int
@@ -89,12 +93,43 @@ func AllowsNamespace(constraint NamespaceConstraint, list []NamespaceURI, target
 	case NSCTargetNamespace:
 		return ns == targetNS
 	case NSCOther:
-		return !ns.IsEmpty() && ns != targetNS
+		return ns != targetNS && !ns.IsEmpty()
+	case NSCNotAbsent:
+		return !ns.IsEmpty()
 	case NSCList:
-		return namespaceListContains(list, ns)
+		for _, allowed := range list {
+			if resolveNamespaceToken(allowed, targetNS) == ns {
+				return true
+			}
+		}
+		return false
 	default:
 		return false
 	}
+}
+
+func resolveNamespaceToken(ns, targetNS NamespaceURI) NamespaceURI {
+	if ns == NamespaceTargetPlaceholder {
+		return targetNS
+	}
+	return ns
+}
+
+func resolvedNamespaceList(list []NamespaceURI, targetNS NamespaceURI) []NamespaceURI {
+	if len(list) == 0 {
+		return nil
+	}
+	seen := make(map[NamespaceURI]bool, len(list))
+	out := make([]NamespaceURI, 0, len(list))
+	for _, ns := range list {
+		resolved := resolveNamespaceToken(ns, targetNS)
+		if seen[resolved] {
+			continue
+		}
+		seen[resolved] = true
+		out = append(out, resolved)
+	}
+	return out
 }
 
 func isWildcardSubset(a, b wildcardConstraint) bool {
@@ -102,14 +137,33 @@ func isWildcardSubset(a, b wildcardConstraint) bool {
 	case NSCAny:
 		return b.constraint == NSCAny
 	case NSCOther:
-		return b.constraint == NSCAny || (b.constraint == NSCOther && a.target == b.target)
+		if b.constraint == NSCAny {
+			return true
+		}
+		if b.constraint == NSCOther && a.target == b.target {
+			return true
+		}
+		if b.constraint == NSCNotAbsent {
+			return true
+		}
+		return false
+	case NSCNotAbsent:
+		switch b.constraint {
+		case NSCAny, NSCNotAbsent:
+			return true
+		case NSCOther:
+			return b.target.IsEmpty()
+		default:
+			return false
+		}
 	case NSCTargetNamespace:
 		return AllowsNamespace(b.constraint, b.list, b.target, a.target)
 	case NSCLocal:
 		return AllowsNamespace(b.constraint, b.list, b.target, NamespaceEmpty)
 	case NSCList:
 		for _, ns := range a.list {
-			if !AllowsNamespace(b.constraint, b.list, b.target, ns) {
+			resolved := resolveNamespaceToken(ns, a.target)
+			if !AllowsNamespace(b.constraint, b.list, b.target, resolved) {
 				return false
 			}
 		}
@@ -135,19 +189,31 @@ func intersectWildcards(a, b wildcardConstraint) (wildcardConstraint, bool) {
 
 	switch {
 	case a.constraint == NSCList && b.constraint == NSCList:
-		result := intersectNamespaceLists(a.list, b.list)
+		result := intersectNamespaceLists(a.list, b.list, a.target, b.target)
 		if len(result) == 0 {
 			return wildcardConstraint{}, false
 		}
 		return wildcardConstraint{constraint: NSCList, list: result, target: a.target}, true
 	case a.constraint == NSCList && b.constraint == NSCOther:
-		result := filterNamespaceList(a.list, b)
+		result := filterNamespaceList(a.list, a.target, b)
 		if len(result) == 0 {
 			return wildcardConstraint{}, false
 		}
 		return wildcardConstraint{constraint: NSCList, list: result, target: a.target}, true
 	case b.constraint == NSCList && a.constraint == NSCOther:
-		result := filterNamespaceList(b.list, a)
+		result := filterNamespaceList(b.list, b.target, a)
+		if len(result) == 0 {
+			return wildcardConstraint{}, false
+		}
+		return wildcardConstraint{constraint: NSCList, list: result, target: b.target}, true
+	case a.constraint == NSCList && b.constraint == NSCNotAbsent:
+		result := filterNamespaceList(a.list, a.target, b)
+		if len(result) == 0 {
+			return wildcardConstraint{}, false
+		}
+		return wildcardConstraint{constraint: NSCList, list: result, target: a.target}, true
+	case b.constraint == NSCList && a.constraint == NSCNotAbsent:
+		result := filterNamespaceList(b.list, b.target, a)
 		if len(result) == 0 {
 			return wildcardConstraint{}, false
 		}
@@ -169,25 +235,32 @@ func intersectNamespaceConstraints(ns1 NamespaceConstraint, list1 []NamespaceURI
 	return intersectedNamespace{Constraint: intersection.constraint, NamespaceList: intersection.list}
 }
 
-func namespaceListContains(list []NamespaceURI, target NamespaceURI) bool {
-	return slices.Contains(list, target)
+func namespaceListContains(list []NamespaceURI, target, listTargetNS NamespaceURI) bool {
+	for _, ns := range list {
+		if resolveNamespaceToken(ns, listTargetNS) == target {
+			return true
+		}
+	}
+	return false
 }
 
-func filterNamespaceList(list []NamespaceURI, constraint wildcardConstraint) []NamespaceURI {
+func filterNamespaceList(list []NamespaceURI, listTargetNS NamespaceURI, constraint wildcardConstraint) []NamespaceURI {
 	filtered := make([]NamespaceURI, 0, len(list))
 	for _, ns := range list {
-		if AllowsNamespace(constraint.constraint, constraint.list, constraint.target, ns) {
-			filtered = append(filtered, ns)
+		resolved := resolveNamespaceToken(ns, listTargetNS)
+		if AllowsNamespace(constraint.constraint, constraint.list, constraint.target, resolved) {
+			filtered = append(filtered, resolved)
 		}
 	}
 	return filtered
 }
 
-func intersectNamespaceLists(list1, list2 []NamespaceURI) []NamespaceURI {
+func intersectNamespaceLists(list1, list2 []NamespaceURI, targetNS1, targetNS2 NamespaceURI) []NamespaceURI {
 	result := make([]NamespaceURI, 0)
 	for _, ns1 := range list1 {
-		if namespaceListContains(list2, ns1) {
-			result = append(result, ns1)
+		resolved1 := resolveNamespaceToken(ns1, targetNS1)
+		if namespaceListContains(list2, resolved1, targetNS2) {
+			result = append(result, resolved1)
 		}
 	}
 	return result
@@ -195,6 +268,12 @@ func intersectNamespaceLists(list1, list2 []NamespaceURI) []NamespaceURI {
 
 // unionNamespaceConstraints unions two namespace constraints according to cos-aw-union
 func unionNamespaceConstraints(ns1 NamespaceConstraint, list1 []NamespaceURI, targetNS1 NamespaceURI, ns2 NamespaceConstraint, list2 []NamespaceURI, targetNS2, resultTargetNS NamespaceURI) intersectedNamespace {
+	if ns1 == NSCList {
+		list1 = resolvedNamespaceList(list1, targetNS1)
+	}
+	if ns2 == NSCList {
+		list2 = resolvedNamespaceList(list2, targetNS2)
+	}
 	if ns1 == NSCTargetNamespace {
 		ns1 = NSCList
 		list1 = []NamespaceURI{targetNS1}
@@ -231,11 +310,30 @@ func unionNamespaceConstraints(ns1 NamespaceConstraint, list1 []NamespaceURI, ta
 		return unionOtherWithList(list1, targetNS2, resultTargetNS)
 	}
 
+	// handle notAbsent with list (notAbsent + local => any, otherwise notAbsent)
+	if ns1 == NSCNotAbsent && ns2 == NSCList {
+		return unionNotAbsentWithList(list2)
+	}
+	if ns2 == NSCNotAbsent && ns1 == NSCList {
+		return unionNotAbsentWithList(list1)
+	}
+
+	// handle notAbsent with other/other-like
+	if ns1 == NSCNotAbsent && ns2 == NSCOther {
+		return intersectedNamespace{Constraint: NSCNotAbsent, NamespaceList: nil}
+	}
+	if ns2 == NSCNotAbsent && ns1 == NSCOther {
+		return intersectedNamespace{Constraint: NSCNotAbsent, NamespaceList: nil}
+	}
+	if ns1 == NSCNotAbsent && ns2 == NSCNotAbsent {
+		return intersectedNamespace{Constraint: NSCNotAbsent, NamespaceList: nil}
+	}
+
 	if ns1 == NSCOther && ns2 == NSCOther {
 		if targetNS1 == resultTargetNS && targetNS2 == resultTargetNS {
 			return intersectedNamespace{Constraint: NSCOther, NamespaceList: nil}
 		}
-		return intersectedNamespace{Constraint: NSCInvalid, NamespaceList: nil}
+		return intersectedNamespace{Constraint: NSCNotAbsent, NamespaceList: nil}
 	}
 
 	// default: not expressible
@@ -244,43 +342,42 @@ func unionNamespaceConstraints(ns1 NamespaceConstraint, list1 []NamespaceURI, ta
 
 // unionOtherWithList handles union of ##other with a list according to spec rules
 func unionOtherWithList(list []NamespaceURI, otherTargetNS, resultTargetNS NamespaceURI) intersectedNamespace {
-	// according to spec: if set includes both the negated namespace name and absent, then ##any
-	hasTargetNS := false
-	hasEmpty := false
+	if otherTargetNS != resultTargetNS {
+		return intersectedNamespace{Constraint: NSCInvalid, NamespaceList: nil}
+	}
+	hasTarget := false
+	hasLocal := false
 	for _, ns := range list {
-		if ns == otherTargetNS {
-			hasTargetNS = true
+		resolved := resolveNamespaceToken(ns, resultTargetNS)
+		if resolved == otherTargetNS {
+			hasTarget = true
 		}
+		if resolved.IsEmpty() {
+			hasLocal = true
+		}
+		if hasTarget && hasLocal {
+			break
+		}
+	}
+	switch {
+	case hasTarget && hasLocal:
+		return intersectedNamespace{Constraint: NSCAny, NamespaceList: nil}
+	case hasTarget && !hasLocal:
+		return intersectedNamespace{Constraint: NSCNotAbsent, NamespaceList: nil}
+	case hasLocal && !hasTarget:
+		return intersectedNamespace{Constraint: NSCInvalid, NamespaceList: nil}
+	default:
+		return intersectedNamespace{Constraint: NSCOther, NamespaceList: nil}
+	}
+}
+
+func unionNotAbsentWithList(list []NamespaceURI) intersectedNamespace {
+	for _, ns := range list {
 		if ns.IsEmpty() {
-			hasEmpty = true
+			return intersectedNamespace{Constraint: NSCAny, NamespaceList: nil}
 		}
 	}
-
-	if hasTargetNS && hasEmpty {
-		return intersectedNamespace{Constraint: NSCAny, NamespaceList: nil}
-	}
-
-	// if set includes negated namespace but not absent, return not and absent
-	if hasTargetNS && !hasEmpty {
-		// treat as ##any (##other plus target namespace covers all namespaces)
-		return intersectedNamespace{Constraint: NSCAny, NamespaceList: nil}
-	}
-
-	// if set includes absent but not negated namespace, union is not expressible
-	if hasEmpty && !hasTargetNS {
-		return intersectedNamespace{Constraint: NSCInvalid, NamespaceList: nil}
-	}
-
-	// if set doesn't include either, return ##other
-	if !hasTargetNS && !hasEmpty {
-		if otherTargetNS == resultTargetNS {
-			return intersectedNamespace{Constraint: NSCOther, NamespaceList: nil}
-		}
-		return intersectedNamespace{Constraint: NSCInvalid, NamespaceList: nil}
-	}
-
-	// should not reach here
-	return intersectedNamespace{Constraint: NSCInvalid, NamespaceList: nil}
+	return intersectedNamespace{Constraint: NSCNotAbsent, NamespaceList: nil}
 }
 
 // unionLists creates the union of two namespace lists (removes duplicates)

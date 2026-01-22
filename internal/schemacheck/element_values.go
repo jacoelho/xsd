@@ -18,6 +18,12 @@ func validateDefaultOrFixedValue(value string, typ types.Type) error {
 	// even for basic validation, we need to normalize to match XSD spec behavior
 	normalizedValue := types.NormalizeWhiteSpace(value, typ)
 
+	if isQNameOrNotationType(typ) {
+		if _, err := types.ParseQNameValue(normalizedValue, nsContext); err != nil {
+			return err
+		}
+	}
+
 	if typ.IsBuiltin() {
 		bt := types.GetBuiltinNS(typ.Name().Namespace, typ.Name().Local)
 		if bt != nil {
@@ -59,13 +65,10 @@ func validateDefaultOrFixedValue(value string, typ types.Type) error {
 				// check if base is a built-in type
 				bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local)
 				if bt != nil {
-					// ID types cannot have default or fixed values
-					if isIDOnlyType(baseQName) {
-						return fmt.Errorf("type '%s' (with simpleContent from ID) cannot have default or fixed values", typ.Name().Local)
-					}
-					// normalize for the base type's whitespace facet
-					baseNormalized := types.NormalizeWhiteSpace(value, bt)
-					if err := bt.Validate(baseNormalized); err != nil {
+					if err := validateDefaultOrFixedValue(value, bt, nsContext); err != nil {
+						if isIDOnlyType(baseQName) {
+							return fmt.Errorf("type '%s' (with simpleContent from ID) cannot have default or fixed values", typ.Name().Local)
+						}
 						return err
 					}
 				}
@@ -74,4 +77,18 @@ func validateDefaultOrFixedValue(value string, typ types.Type) error {
 	}
 
 	return nil
+}
+
+func isQNameOrNotationType(typ types.Type) bool {
+	if typ == nil {
+		return false
+	}
+	switch t := typ.(type) {
+	case *types.SimpleType:
+		return t.IsQNameOrNotationType()
+	case *types.BuiltinType:
+		return t.IsQNameOrNotationType()
+	default:
+		return types.IsQNameOrNotation(typ.Name())
+	}
 }

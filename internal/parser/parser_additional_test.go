@@ -427,6 +427,19 @@ func TestParseBoolAndOccursValues(t *testing.T) {
 	}
 }
 
+func TestParseUnionMemberTypesNBSP(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="BadUnion">
+    <xs:union memberTypes="xs:string` + "\u00A0" + `xs:int"/>
+  </xs:simpleType>
+</xs:schema>`
+
+	if _, err := Parse(strings.NewReader(schemaXML)); err == nil {
+		t.Fatalf("expected union memberTypes with NBSP to fail parsing")
+	}
+}
+
 func TestParseAttributeGroupWithAnyAttribute(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -866,8 +879,8 @@ func TestResolveBaseTypeForComplex(t *testing.T) {
 	schema := NewSchema()
 	anyQName := types.QName{Namespace: types.XSDNamespace, Local: "anyType"}
 	base := resolveBaseTypeForComplex(schema, anyQName)
-	if _, ok := base.(*types.ComplexType); !ok {
-		t.Fatalf("expected anyType to resolve to complex type")
+	if _, ok := base.(*types.BuiltinType); !ok {
+		t.Fatalf("expected anyType to resolve to builtin type")
 	}
 
 	stringQName := types.QName{Namespace: types.XSDNamespace, Local: "string"}
@@ -963,7 +976,7 @@ func TestResolveQNameWithoutBuiltin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveQNameWithoutBuiltin error = %v", err)
 	}
-	if qname.Namespace != "" || qname.Local != "string" {
+	if qname.Namespace != types.XSDNamespace || qname.Local != "string" {
 		t.Fatalf("unexpected QName result: %s", qname)
 	}
 	if _, err := resolveQNameWithoutBuiltin(doc, "bad:local", root, schema); err == nil {

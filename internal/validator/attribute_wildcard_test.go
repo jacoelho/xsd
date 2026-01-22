@@ -182,6 +182,73 @@ func TestAttributeWildcard_NamespaceTargetNamespace(t *testing.T) {
 	}
 }
 
+func TestAttributeWildcardTracksIDREF(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:attribute name="ref" type="xs:IDREF"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:anyAttribute namespace="##any" processContents="strict"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<root xmlns="urn:test" xmlns:tns="urn:test" tns:ref="missing"/>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if !hasViolationCode(violations, errors.ErrIDRefNotFound) {
+		t.Fatalf("expected IDREF violation, got %v", violations)
+	}
+}
+
+func TestAttributeWildcardTracksID(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:attribute name="id" type="xs:ID"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:anyAttribute namespace="##any" processContents="strict"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<root xmlns="urn:test" xmlns:tns="urn:test">
+  <item tns:id="dup"/>
+  <item tns:id="dup"/>
+</root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if !hasViolationCode(violations, errors.ErrDuplicateID) {
+		t.Fatalf("expected duplicate ID violation, got %v", violations)
+	}
+}
+
 // TestAttributeWildcard_NamespaceOther tests ##other matching
 func TestAttributeWildcard_NamespaceOther(t *testing.T) {
 	tests := []struct {
@@ -227,7 +294,7 @@ func TestAttributeWildcard_NamespaceOther(t *testing.T) {
 			shouldErr: true,
 		},
 		{
-			name: "##other rejects empty namespace (XSD 1.0 spec: ##other excludes no-namespace)",
+			name: "##other rejects empty namespace when target namespace is present",
 			schemaXML: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/test"

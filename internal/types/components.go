@@ -35,6 +35,8 @@ const (
 // ElementDecl represents an element declaration
 type ElementDecl struct {
 	Type              Type
+	TypeExplicit      bool
+	ValueContext      map[string]string
 	Name              QName
 	SubstitutionGroup QName
 	SourceNamespace   NamespaceURI
@@ -103,7 +105,10 @@ func (e *ElementDecl) DeclaredNamespace() NamespaceURI {
 // Copy creates a copy of the element declaration with remapped QNames.
 func (e *ElementDecl) Copy(opts CopyOptions) *ElementDecl {
 	clone := *e
-	clone.Name = opts.RemapQName(e.Name)
+	clone.Name = e.Name
+	if e.IsReference || e.Form != FormUnqualified {
+		clone.Name = opts.RemapQName(e.Name)
+	}
 	clone.SourceNamespace = opts.SourceNamespace
 	if e.FixedContext != nil {
 		clone.FixedContext = copyValueNamespaceContext(e.FixedContext, opts)
@@ -114,6 +119,8 @@ func (e *ElementDecl) Copy(opts CopyOptions) *ElementDecl {
 	if e.Type != nil {
 		clone.Type = CopyType(e.Type, opts)
 	}
+	clone.TypeExplicit = e.TypeExplicit
+	clone.ValueContext = copyStringMap(e.ValueContext)
 	if !e.SubstitutionGroup.IsZero() {
 		clone.SubstitutionGroup = opts.RemapQName(e.SubstitutionGroup)
 	}
@@ -177,7 +184,10 @@ func (a *AttributeDecl) DeclaredNamespace() NamespaceURI {
 // Copy creates a copy of the attribute declaration with remapped QNames.
 func (a *AttributeDecl) Copy(opts CopyOptions) *AttributeDecl {
 	clone := *a
-	clone.Name = opts.RemapQName(a.Name)
+	clone.Name = a.Name
+	if a.IsReference || a.Form != FormUnqualified {
+		clone.Name = opts.RemapQName(a.Name)
+	}
 	clone.SourceNamespace = opts.SourceNamespace
 	if a.FixedContext != nil {
 		clone.FixedContext = copyValueNamespaceContext(a.FixedContext, opts)
@@ -188,6 +198,7 @@ func (a *AttributeDecl) Copy(opts CopyOptions) *AttributeDecl {
 	if a.Type != nil {
 		clone.Type = CopyType(a.Type, opts)
 	}
+	clone.ValueContext = copyStringMap(a.ValueContext)
 	return &clone
 }
 
@@ -219,7 +230,7 @@ func (g *AttributeGroup) Copy(opts CopyOptions) *AttributeGroup {
 	clone.SourceNamespace = opts.SourceNamespace
 	clone.Attributes = copyAttributeDecls(g.Attributes, opts)
 	clone.AttrGroups = copyQNameSlice(g.AttrGroups, opts.RemapQName)
-	clone.AnyAttribute = copyAnyAttribute(g.AnyAttribute)
+	clone.AnyAttribute = copyAnyAttribute(g.AnyAttribute, opts)
 	return &clone
 }
 

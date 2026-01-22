@@ -432,7 +432,7 @@ func parseNamespaceConstraint(value string, schema *Schema) (types.NamespaceCons
 
 		switch ns {
 		case "##targetNamespace":
-			resultList = append(resultList, schema.TargetNamespace)
+			resultList = append(resultList, types.NamespaceTargetPlaceholder)
 		case "##local":
 			resultList = append(resultList, types.NamespaceEmpty)
 		default:

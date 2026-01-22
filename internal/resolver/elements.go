@@ -110,47 +110,24 @@ func validateSubstitutionGroupFinal(schema *parser.Schema, memberQName types.QNa
 		return nil // can't validate without resolved types.
 	}
 
-	// check if member type is a complex type with derivation.
-	memberCT, ok := memberType.(*types.ComplexType)
-	if !ok {
-		// simple type derivation - check restriction.
-		if headDecl.Final.Has(types.DerivationRestriction) {
-			return fmt.Errorf("element %s cannot substitute for %s: head element is final for restriction", memberQName, headDecl.Name)
-		}
+	if typesMatch(memberType, headType) {
 		return nil
 	}
 
-	content := memberCT.Content()
-	switch c := content.(type) {
-	case *types.ComplexContent:
-		if c.Extension != nil {
-			// check if the base type matches the head's type.
-			baseQName := c.Extension.Base
-			if typesAreEqual(baseQName, headType) || isTypeInDerivationChain(schema, baseQName, headType) {
-				if headDecl.Final.Has(types.DerivationExtension) {
-					return fmt.Errorf("element %s cannot substitute for %s: head element is final for extension", memberQName, headDecl.Name)
-				}
-			}
+	current := memberType
+	visited := make(map[types.Type]bool)
+	for current != nil && !typesMatch(current, headType) {
+		if visited[current] {
+			break
 		}
-		if c.Restriction != nil {
-			baseQName := c.Restriction.Base
-			if typesAreEqual(baseQName, headType) || isTypeInDerivationChain(schema, baseQName, headType) {
-				if headDecl.Final.Has(types.DerivationRestriction) {
-					return fmt.Errorf("element %s cannot substitute for %s: head element is final for restriction", memberQName, headDecl.Name)
-				}
-			}
+		visited[current] = true
+
+		base, method := derivationStep(schema, current)
+		if method != 0 && headDecl.Final.Has(method) {
+			return fmt.Errorf("element %s cannot substitute for %s: head element is final for %s",
+				memberQName, headDecl.Name, derivationMethodLabel(method))
 		}
-	case *types.SimpleContent:
-		if c.Extension != nil {
-			if headDecl.Final.Has(types.DerivationExtension) {
-				return fmt.Errorf("element %s cannot substitute for %s: head element is final for extension", memberQName, headDecl.Name)
-			}
-		}
-		if c.Restriction != nil {
-			if headDecl.Final.Has(types.DerivationRestriction) {
-				return fmt.Errorf("element %s cannot substitute for %s: head element is final for restriction", memberQName, headDecl.Name)
-			}
-		}
+		current = base
 	}
 
 	return nil
@@ -158,6 +135,9 @@ func validateSubstitutionGroupFinal(schema *parser.Schema, memberQName types.QNa
 
 // validateSubstitutionGroupDerivation validates that the member element's type is derived from the head element's type.
 func validateSubstitutionGroupDerivation(schema *parser.Schema, memberQName types.QName, memberDecl, headDecl *types.ElementDecl) error {
+	if isDefaultAnyType(memberDecl) && headDecl.Type != nil {
+		memberDecl.Type = headDecl.Type
+	}
 	memberType := resolveTypeForFinalValidation(schema, memberDecl.Type)
 	headType := resolveTypeForFinalValidation(schema, headDecl.Type)
 	if memberType == nil || headType == nil {
@@ -180,7 +160,14 @@ func validateSubstitutionGroupDerivation(schema *parser.Schema, memberQName type
 		}
 	}
 
-	derivedValid := memberType.Name() == headType.Name()
+	derivedValid := memberType == headType
+	if !derivedValid {
+		memberName := memberType.Name()
+		headName := headType.Name()
+		if !memberName.IsZero() && !headName.IsZero() && memberName == headName {
+			derivedValid = true
+		}
+	}
 	if !derivedValid && !types.IsValidlyDerivedFrom(memberType, headType) {
 		if memberCT, ok := memberType.(*types.ComplexType); ok {
 			baseQName := memberCT.Content().BaseTypeQName()
@@ -197,12 +184,19 @@ func validateSubstitutionGroupDerivation(schema *parser.Schema, memberQName type
 	return nil
 }
 
-func isDefaultAnyType(typ types.Type) bool {
-	ct, ok := typ.(*types.ComplexType)
-	if !ok {
+func isAnyType(typ types.Type) bool {
+	if typ == nil {
 		return false
 	}
-	return ct.QName.Namespace == types.XSDNamespace && ct.QName.Local == "anyType"
+	name := typ.Name()
+	return name.Namespace == types.XSDNamespace && name.Local == "anyType"
+}
+
+func isDefaultAnyType(decl *types.ElementDecl) bool {
+	if decl == nil || decl.TypeExplicit {
+		return false
+	}
+	return isAnyType(decl.Type)
 }
 
 // typesAreEqual checks if a QName refers to the same type.
@@ -240,6 +234,84 @@ func isTypeInDerivationChain(schema *parser.Schema, qname types.QName, targetTyp
 	}
 
 	return false
+}
+
+func typesMatch(a, b types.Type) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	if a == b {
+		return true
+	}
+	nameA := a.Name()
+	nameB := b.Name()
+	return !nameA.IsZero() && nameA == nameB
+}
+
+func derivationStep(schema *parser.Schema, typ types.Type) (types.Type, types.DerivationMethod) {
+	switch typed := typ.(type) {
+	case *types.BuiltinType:
+		name := typed.Name().Local
+		if name == string(types.TypeNameAnyType) {
+			return nil, 0
+		}
+		if name == string(types.TypeNameAnySimpleType) {
+			return types.GetBuiltin(types.TypeNameAnyType), types.DerivationRestriction
+		}
+		if st, ok := types.AsSimpleType(typed); ok && st.List != nil {
+			return types.GetBuiltin(types.TypeNameAnySimpleType), types.DerivationList
+		}
+		return typed.BaseType(), types.DerivationRestriction
+	case *types.ComplexType:
+		if typed.DerivationMethod == 0 {
+			return typed.ResolvedBase, 0
+		}
+		base := typed.ResolvedBase
+		if base == nil {
+			baseQName := typed.Content().BaseTypeQName()
+			if !baseQName.IsZero() {
+				if resolved, err := lookupType(schema, baseQName); err == nil {
+					base = resolved
+				}
+			}
+		}
+		return base, typed.DerivationMethod
+	case *types.SimpleType:
+		if typed.List != nil {
+			return types.GetBuiltin(types.TypeNameAnySimpleType), types.DerivationList
+		}
+		if typed.Union != nil {
+			return types.GetBuiltin(types.TypeNameAnySimpleType), types.DerivationUnion
+		}
+		if typed.Restriction != nil {
+			base := typed.ResolvedBase
+			if base == nil && typed.Restriction.SimpleType != nil {
+				base = typed.Restriction.SimpleType
+			}
+			if base == nil && !typed.Restriction.Base.IsZero() {
+				if resolved, err := lookupType(schema, typed.Restriction.Base); err == nil {
+					base = resolved
+				}
+			}
+			return base, types.DerivationRestriction
+		}
+	}
+	return nil, 0
+}
+
+func derivationMethodLabel(method types.DerivationMethod) string {
+	switch method {
+	case types.DerivationExtension:
+		return "extension"
+	case types.DerivationRestriction:
+		return "restriction"
+	case types.DerivationList:
+		return "list"
+	case types.DerivationUnion:
+		return "union"
+	default:
+		return "unknown"
+	}
 }
 
 // validateNoCyclicSubstitutionGroups checks for cycles in substitution group chains.
