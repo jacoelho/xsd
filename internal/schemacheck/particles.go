@@ -10,12 +10,12 @@ import (
 
 // validateParticleStructure validates structural constraints of particles.
 func validateParticleStructure(schema *parser.Schema, particle types.Particle) error {
-	visited := make(map[*types.ModelGroup]bool)
+	visited := newModelGroupVisit()
 	return validateParticleStructureWithVisited(schema, particle, nil, visited)
 }
 
 // validateParticleStructureWithVisited validates structural constraints with cycle detection
-func validateParticleStructureWithVisited(schema *parser.Schema, particle types.Particle, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
+func validateParticleStructureWithVisited(schema *parser.Schema, particle types.Particle, parentKind *types.GroupKind, visited modelGroupVisit) error {
 	if err := validateParticleOccurs(particle); err != nil {
 		return err
 	}
@@ -54,12 +54,11 @@ func validateParticleOccurs(particle types.Particle) error {
 	return nil
 }
 
-func validateModelGroupStructure(schema *parser.Schema, group *types.ModelGroup, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
+func validateModelGroupStructure(schema *parser.Schema, group *types.ModelGroup, parentKind *types.GroupKind, visited modelGroupVisit) error {
 	// cycle detection: skip if already visited
-	if visited[group] {
+	if !visited.enter(group) {
 		return nil
 	}
-	visited[group] = true
 
 	if err := validateLocalElementTypes(group.Particles); err != nil {
 		return err
@@ -244,17 +243,16 @@ func validateInlineElementType(schema *parser.Schema, elem *types.ElementDecl) e
 // across a particle tree, including nested model groups and group references.
 func validateElementDeclarationsConsistentInParticle(schema *parser.Schema, particle types.Particle) error {
 	seen := make(map[types.QName]types.Type)
-	visited := make(map[*types.ModelGroup]bool)
+	visited := newModelGroupVisit()
 	return validateElementDeclarationsConsistentWithVisited(schema, particle, seen, visited)
 }
 
-func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, particle types.Particle, seen map[types.QName]types.Type, visited map[*types.ModelGroup]bool) error {
+func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, particle types.Particle, seen map[types.QName]types.Type, visited modelGroupVisit) error {
 	switch p := particle.(type) {
 	case *types.ModelGroup:
-		if visited[p] {
+		if !visited.enter(p) {
 			return nil
 		}
-		visited[p] = true
 		for _, child := range p.Particles {
 			if err := validateElementDeclarationsConsistentWithVisited(schema, child, seen, visited); err != nil {
 				return err
@@ -663,7 +661,7 @@ func validateWildcardToElementRestriction(baseAny *types.AnyElement, restriction
 // When base is a wildcard and restriction is a model group, we calculate the effective
 // occurrence of the model group's content and validate against the wildcard constraints.
 func validateWildcardToModelGroupRestriction(schema *parser.Schema, baseAny *types.AnyElement, restrictionMG *types.ModelGroup) error {
-	if err := validateWildcardNamespaceRestriction(schema, baseAny, restrictionMG, make(map[*types.ModelGroup]bool), make(map[types.QName]bool)); err != nil {
+	if err := validateWildcardNamespaceRestriction(schema, baseAny, restrictionMG, newModelGroupVisit(), make(map[types.QName]bool)); err != nil {
 		return err
 	}
 	// calculate effective occurrence by recursively finding the total minOccurs/maxOccurs
@@ -672,16 +670,15 @@ func validateWildcardToModelGroupRestriction(schema *parser.Schema, baseAny *typ
 	return validateOccurrenceConstraints(baseAny.MinOccurs, baseAny.MaxOccurs, effectiveMinOcc, effectiveMaxOcc)
 }
 
-func validateWildcardNamespaceRestriction(schema *parser.Schema, baseAny *types.AnyElement, particle types.Particle, visitedMG map[*types.ModelGroup]bool, visitedGroups map[types.QName]bool) error {
+func validateWildcardNamespaceRestriction(schema *parser.Schema, baseAny *types.AnyElement, particle types.Particle, visitedMG modelGroupVisit, visitedGroups map[types.QName]bool) error {
 	if particle != nil && particle.MinOcc().IsZero() && particle.MaxOcc().IsZero() {
 		return nil
 	}
 	switch p := particle.(type) {
 	case *types.ModelGroup:
-		if visitedMG[p] {
+		if !visitedMG.enter(p) {
 			return nil
 		}
-		visitedMG[p] = true
 		for _, child := range p.Particles {
 			if err := validateWildcardNamespaceRestriction(schema, baseAny, child, visitedMG, visitedGroups); err != nil {
 				return err

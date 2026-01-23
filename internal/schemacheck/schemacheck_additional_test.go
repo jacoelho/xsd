@@ -1140,14 +1140,14 @@ func TestUPAHelperFunctions(t *testing.T) {
 		Particles: []types.Particle{elemSingle},
 	}
 
-	if err := checkModelGroupUPAWithVisited(schema, seq1, seq2, schema.TargetNamespace, make(map[*types.ModelGroup]bool)); err == nil {
+	if err := checkModelGroupUPAWithVisited(schema, seq1, seq2, schema.TargetNamespace, newModelGroupVisit()); err == nil {
 		t.Fatalf("expected model group UPA violation")
 	}
 
-	if len(collectPossibleLastLeafParticles(seq1, make(map[*types.ModelGroup]bool))) == 0 {
+	if len(collectPossibleLastLeafParticles(seq1, newModelGroupVisit())) == 0 {
 		t.Fatalf("expected last leaf particles")
 	}
-	if len(collectPossibleFirstLeafParticles(seq2, make(map[*types.ModelGroup]bool))) == 0 {
+	if len(collectPossibleFirstLeafParticles(seq2, newModelGroupVisit())) == 0 {
 		t.Fatalf("expected first leaf particles")
 	}
 
@@ -1277,7 +1277,7 @@ func TestParticleStructureValidation(t *testing.T) {
 	}
 
 	parentKind := types.Sequence
-	if err := validateParticleStructureWithVisited(schema, allGroup, &parentKind, make(map[*types.ModelGroup]bool)); err == nil {
+	if err := validateParticleStructureWithVisited(schema, allGroup, &parentKind, newModelGroupVisit()); err == nil {
 		t.Fatalf("expected nested all-group error")
 	}
 }

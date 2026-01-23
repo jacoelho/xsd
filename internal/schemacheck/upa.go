@@ -69,12 +69,12 @@ func validateUPA(schema *parser.Schema, content types.Content, targetNS types.Na
 // validateUPAInParticle validates UPA violations in a particle structure
 // parentKind indicates the kind of parent model group (nil if top-level)
 func validateUPAInParticle(schema *parser.Schema, particle, baseParticle types.Particle, targetNS types.NamespaceURI, parentKind *types.GroupKind) error {
-	visited := make(map[*types.ModelGroup]bool)
+	visited := newModelGroupVisit()
 	return validateUPAInParticleWithVisited(schema, particle, baseParticle, targetNS, parentKind, visited)
 }
 
 // validateUPAInParticleWithVisited validates UPA violations with cycle detection
-func validateUPAInParticleWithVisited(schema *parser.Schema, particle, baseParticle types.Particle, targetNS types.NamespaceURI, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
+func validateUPAInParticleWithVisited(schema *parser.Schema, particle, baseParticle types.Particle, targetNS types.NamespaceURI, parentKind *types.GroupKind, visited modelGroupVisit) error {
 	switch p := particle.(type) {
 	case *types.GroupRef:
 		expanded, err := expandGroupRefs(schema, p, make(map[types.QName]bool))
@@ -85,10 +85,9 @@ func validateUPAInParticleWithVisited(schema *parser.Schema, particle, baseParti
 
 	case *types.ModelGroup:
 		// cycle detection: skip if already visited
-		if visited[p] {
+		if !visited.enter(p) {
 			return nil
 		}
-		visited[p] = true
 
 		// for choice and all groups, check that no two particles can match the same element
 		// (all groups are unordered, so overlaps are always ambiguous)
@@ -102,7 +101,7 @@ func validateUPAInParticleWithVisited(schema *parser.Schema, particle, baseParti
 					if p.Kind == types.Choice {
 						err = checkChoiceUPAViolation(schema, child1, child2, targetNS)
 					} else {
-						err = checkUPAViolationWithVisited(schema, child1, child2, targetNS, make(map[*types.ModelGroup]bool))
+						err = checkUPAViolationWithVisited(schema, child1, child2, targetNS, newModelGroupVisit())
 					}
 					if err != nil {
 						return fmt.Errorf("UPA violation in choice group: %w", err)
@@ -126,7 +125,7 @@ func validateUPAInParticleWithVisited(schema *parser.Schema, particle, baseParti
 					// in a sequence, if child1 has maxOccurs > 1, it can repeat and potentially
 					// match the same element that child2 matches
 					// pass the parent sequence's particles to check for separators
-					if err := checkSequenceUPAViolationWithVisitedAndContext(schema, child1, child2, targetNS, make(map[*types.ModelGroup]bool), p.Particles, i, j); err != nil {
+					if err := checkSequenceUPAViolationWithVisitedAndContext(schema, child1, child2, targetNS, newModelGroupVisit(), p.Particles, i, j); err != nil {
 						return fmt.Errorf("UPA violation in sequence group: %w", err)
 					}
 				}
@@ -219,12 +218,12 @@ func expandGroupRefs(schema *parser.Schema, particle types.Particle, stack map[t
 
 // checkChoiceUPAViolation checks for UPA violations in choice groups by comparing first sets.
 func checkChoiceUPAViolation(schema *parser.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI) error {
-	first1 := collectPossibleFirstLeafParticles(p1, make(map[*types.ModelGroup]bool))
-	first2 := collectPossibleFirstLeafParticles(p2, make(map[*types.ModelGroup]bool))
+	first1 := collectPossibleFirstLeafParticles(p1, newModelGroupVisit())
+	first2 := collectPossibleFirstLeafParticles(p2, newModelGroupVisit())
 
 	for _, f1 := range first1 {
 		for _, f2 := range first2 {
-			if err := checkUPAViolationWithVisited(schema, f1, f2, targetNS, make(map[*types.ModelGroup]bool)); err != nil {
+			if err := checkUPAViolationWithVisited(schema, f1, f2, targetNS, newModelGroupVisit()); err != nil {
 				return err
 			}
 		}
@@ -241,7 +240,7 @@ func checkChoiceUPAViolation(schema *parser.Schema, p1, p2 types.Particle, targe
 // that must be matched, there's no UPA violation. However, if p1 can repeat, it can potentially
 // match elements that p2 should match, creating ambiguity.
 // parentParticles, i, j provide context about the parent sequence to check for separators
-func checkSequenceUPAViolationWithVisitedAndContext(schema *parser.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI, visited map[*types.ModelGroup]bool, parentParticles []types.Particle, i, j int) error {
+func checkSequenceUPAViolationWithVisitedAndContext(schema *parser.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI, visited modelGroupVisit, parentParticles []types.Particle, i, j int) error {
 	// check if p1 and p2 are separated by required particles in the parent sequence
 	// a required separator creates a deterministic transition point, eliminating ambiguity
 	// between elements in p1 and p2, regardless of whether they overlap.
@@ -329,9 +328,9 @@ func sequenceSeparatorDisambiguates(schema *parser.Schema, p1, separator types.P
 	if !p1MaxOcc.IsUnbounded() && p1MaxOcc.CmpInt(1) <= 0 {
 		return true
 	}
-	lastParticles := collectPossibleLastLeafParticles(p1, make(map[*types.ModelGroup]bool))
+	lastParticles := collectPossibleLastLeafParticles(p1, newModelGroupVisit())
 	for _, last := range lastParticles {
-		if err := checkUPAViolationWithVisited(schema, last, separator, targetNS, make(map[*types.ModelGroup]bool)); err != nil {
+		if err := checkUPAViolationWithVisited(schema, last, separator, targetNS, newModelGroupVisit()); err != nil {
 			return false
 		}
 	}
@@ -361,11 +360,11 @@ func checkSequenceTailRepeats(schema *parser.Schema, p1, p2 types.Particle, targ
 	if p1.MaxOcc().IsUnbounded() || p1.MaxOcc().CmpInt(1) > 0 {
 		return nil
 	}
-	lastParticles := collectPossibleLastLeafParticles(p1, make(map[*types.ModelGroup]bool))
+	lastParticles := collectPossibleLastLeafParticles(p1, newModelGroupVisit())
 	for _, last := range lastParticles {
 		maxOcc := last.MaxOcc()
 		if maxOcc.IsUnbounded() || maxOcc.CmpInt(1) > 0 {
-			if err := checkUPAViolationWithVisited(schema, last, p2, targetNS, make(map[*types.ModelGroup]bool)); err != nil {
+			if err := checkUPAViolationWithVisited(schema, last, p2, targetNS, newModelGroupVisit()); err != nil {
 				return fmt.Errorf("overlapping repeating particle at sequence end: %w", err)
 			}
 		}
@@ -374,7 +373,7 @@ func checkSequenceTailRepeats(schema *parser.Schema, p1, p2 types.Particle, targ
 }
 
 // checkUPAViolationWithVisited checks UPA violations with cycle detection
-func checkUPAViolationWithVisited(schema *parser.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI, visited map[*types.ModelGroup]bool) error {
+func checkUPAViolationWithVisited(schema *parser.Schema, p1, p2 types.Particle, targetNS types.NamespaceURI, visited modelGroupVisit) error {
 	// particles with maxOccurs=0 are effectively absent and can't cause UPA violations
 	if p1.MaxOcc().IsZero() || p2.MaxOcc().IsZero() {
 		return nil
@@ -478,13 +477,11 @@ func checkUPAViolationWithVisited(schema *parser.Schema, p1, p2 types.Particle, 
 
 // checkModelGroupUPA checks if two model groups can both match the same element
 // checkModelGroupUPAWithVisited checks model group UPA with cycle detection
-func checkModelGroupUPAWithVisited(schema *parser.Schema, mg1, mg2 *types.ModelGroup, targetNS types.NamespaceURI, visited map[*types.ModelGroup]bool) error {
+func checkModelGroupUPAWithVisited(schema *parser.Schema, mg1, mg2 *types.ModelGroup, targetNS types.NamespaceURI, visited modelGroupVisit) error {
 	// cycle detection
-	if visited[mg1] || visited[mg2] {
+	if !visited.enter(mg1) || !visited.enter(mg2) {
 		return nil
 	}
-	visited[mg1] = true
-	visited[mg2] = true
 
 	// if both are choice groups, check if any particle in mg1 overlaps with any particle in mg2
 	if mg1.Kind == types.Choice && mg2.Kind == types.Choice {
@@ -512,8 +509,8 @@ func checkModelGroupUPAWithVisited(schema *parser.Schema, mg1, mg2 *types.ModelG
 		if len(mg1.Particles) == 0 || len(mg2.Particles) == 0 {
 			return nil
 		}
-		lastParticles := collectPossibleLastLeafParticles(mg1, make(map[*types.ModelGroup]bool))
-		firstParticles := collectPossibleFirstLeafParticles(mg2, make(map[*types.ModelGroup]bool))
+		lastParticles := collectPossibleLastLeafParticles(mg1, newModelGroupVisit())
+		firstParticles := collectPossibleFirstLeafParticles(mg2, newModelGroupVisit())
 
 		for _, last := range lastParticles {
 			repeatsOrOptional := last.MinOcc().IsZero() || last.MaxOcc().IsUnbounded() || last.MaxOcc().CmpInt(1) > 0
@@ -524,7 +521,7 @@ func checkModelGroupUPAWithVisited(schema *parser.Schema, mg1, mg2 *types.ModelG
 				continue
 			}
 			for _, first := range firstParticles {
-				if err := checkUPAViolationWithVisited(schema, last, first, targetNS, make(map[*types.ModelGroup]bool)); err != nil {
+				if err := checkUPAViolationWithVisited(schema, last, first, targetNS, newModelGroupVisit()); err != nil {
 					return err
 				}
 			}
@@ -560,7 +557,7 @@ func validateExtensionUPA(schema *parser.Schema, extParticle, baseParticle types
 		return nil
 	}
 	parent := []types.Particle{baseParticle, extParticle}
-	if err := checkSequenceUPAViolationWithVisitedAndContext(schema, baseParticle, extParticle, targetNS, make(map[*types.ModelGroup]bool), parent, 0, 1); err != nil {
+	if err := checkSequenceUPAViolationWithVisitedAndContext(schema, baseParticle, extParticle, targetNS, newModelGroupVisit(), parent, 0, 1); err != nil {
 		return fmt.Errorf("extension content model is not deterministic: %w", err)
 	}
 	return nil
@@ -589,15 +586,14 @@ func wildcardsOverlap(w1, w2 *types.AnyElement) bool {
 
 // collectPossibleLastLeafParticles collects particles that could be the last leaf particles
 // in a particle structure (used for UPA validation in sequences)
-func collectPossibleLastLeafParticles(particle types.Particle, visited map[*types.ModelGroup]bool) []types.Particle {
+func collectPossibleLastLeafParticles(particle types.Particle, visited modelGroupVisit) []types.Particle {
 	switch p := particle.(type) {
 	case *types.ElementDecl, *types.AnyElement:
 		return []types.Particle{p}
 	case *types.ModelGroup:
-		if visited[p] {
+		if !visited.enter(p) {
 			return nil
 		}
-		visited[p] = true
 		var out []types.Particle
 		switch p.Kind {
 		case types.Sequence:
@@ -620,15 +616,14 @@ func collectPossibleLastLeafParticles(particle types.Particle, visited map[*type
 
 // collectPossibleFirstLeafParticles collects particles that could be the first leaf particles
 // in a particle structure (used for UPA validation in sequences).
-func collectPossibleFirstLeafParticles(particle types.Particle, visited map[*types.ModelGroup]bool) []types.Particle {
+func collectPossibleFirstLeafParticles(particle types.Particle, visited modelGroupVisit) []types.Particle {
 	switch p := particle.(type) {
 	case *types.ElementDecl, *types.AnyElement:
 		return []types.Particle{p}
 	case *types.ModelGroup:
-		if visited[p] {
+		if !visited.enter(p) {
 			return nil
 		}
-		visited[p] = true
 		var out []types.Particle
 		switch p.Kind {
 		case types.Sequence:
