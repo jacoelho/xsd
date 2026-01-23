@@ -33,6 +33,12 @@ func TestEnumerationValueSpaceTemporalEquivalent(t *testing.T) {
 			enumValue:     "2001-10Z",
 			instanceValue: "2001-10+00:00",
 		},
+		{
+			name:          "gYear",
+			baseType:      "gYear",
+			enumValue:     "2000Z",
+			instanceValue: "2000+00:00",
+		},
 	}
 
 	for _, tt := range tests {
@@ -89,6 +95,12 @@ func TestFixedValueTemporalEquivalent(t *testing.T) {
 			baseType:      "gYearMonth",
 			fixedValue:    "2001-10Z",
 			instanceValue: "2001-10+00:00",
+		},
+		{
+			name:          "gYear",
+			baseType:      "gYear",
+			fixedValue:    "2000Z",
+			instanceValue: "2000+00:00",
 		},
 	}
 
