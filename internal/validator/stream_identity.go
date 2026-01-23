@@ -11,7 +11,7 @@ import (
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
@@ -261,7 +261,6 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 	field := match.constraint.constraint.Original.Fields[fieldIndex]
 
 	if test.Any {
-		present := make(map[types.QName]struct{}, len(attrs))
 		for _, attr := range attrs {
 			if isXMLNSAttribute(attr) {
 				continue
@@ -280,7 +279,6 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 	}
 
 	if test.Local == "*" && test.NamespaceSpecified {
-		present := make(map[types.QName]struct{}, len(attrs))
 		for _, attr := range attrs {
 			if isXMLNSAttribute(attr) {
 				continue
@@ -740,12 +738,6 @@ func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, sco
 			}
 		}
 		return "", KeyInvalidValue
-	default:
-		normalized, err := types.NormalizeValue(value, plan.Type)
-		if err != nil {
-			return "", KeyInvalidValue
-		}
-		return r.normalizeAtomicValue(normalized, plan.Type, scopeDepth)
 	}
 
 	normalized, err := types.NormalizeValue(value, fieldType)

@@ -4,7 +4,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
@@ -593,7 +592,7 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 						TargetNamespace: types.NamespaceEmpty,
 					}
 				}
-				violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, ev.ScopeDepth, ev.Line, ev.Column)
+				violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, xsiType, ev.ScopeDepth, ev.Line, ev.Column)
 				if len(violations) > 0 {
 					r.addViolations(violations)
 					return streamFrame{}, true
@@ -627,7 +626,7 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 			}
 		}
 
-		violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, ev.ScopeDepth, ev.Line, ev.Column)
+		violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, anyType, ev.ScopeDepth, ev.Line, ev.Column)
 		if len(violations) > 0 {
 			r.addViolations(violations)
 		}
@@ -696,7 +695,7 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 			r.addViolation(&violation)
 			return streamFrame{}, true
 		}
-		violations := r.checkAttributesStream(attrs, effectiveType.AllAttributes, effectiveType.AnyAttribute, ev.ScopeDepth, ev.Line, ev.Column)
+		violations := r.checkAttributesStream(attrs, effectiveType.AllAttributes, effectiveType.AnyAttribute, effectiveType, ev.ScopeDepth, ev.Line, ev.Column)
 		if len(violations) > 0 {
 			r.addViolations(violations)
 		}
@@ -717,7 +716,7 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 		}
 	}
 
-	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, ev.ScopeDepth, ev.Line, ev.Column)
+	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, effectiveType, ev.ScopeDepth, ev.Line, ev.Column)
 	if len(violations) > 0 {
 		r.addViolations(violations)
 	}

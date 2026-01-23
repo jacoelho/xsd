@@ -10,6 +10,12 @@ import (
 // validateDefaultOrFixedValue validates that a default or fixed value is valid for the given type.
 // This is used during structure validation; full facet validation happens after resolution.
 func validateDefaultOrFixedValue(value string, typ types.Type) error {
+	return validateDefaultOrFixedValueWithContext(nil, value, typ, nil)
+}
+
+// validateDefaultOrFixedValueWithContext validates that a default or fixed value is valid for the given type.
+// This is used during structure validation; full facet validation happens after resolution.
+func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string, typ types.Type, nsContext map[string]string) error {
 	if typ == nil {
 		// type not resolved yet - might be forward reference, skip validation
 		return nil
@@ -20,6 +26,10 @@ func validateDefaultOrFixedValue(value string, typ types.Type) error {
 	normalizedValue := types.NormalizeWhiteSpace(value, typ)
 
 	if isQNameOrNotationType(typ) {
+		if nsContext == nil {
+			// Can't validate QName without context, skip for now
+			return nil
+		}
 		if _, err := types.ParseQNameValue(normalizedValue, nsContext); err != nil {
 			return err
 		}
@@ -41,7 +51,21 @@ func validateDefaultOrFixedValue(value string, typ types.Type) error {
 
 	if st, ok := typ.(*types.SimpleType); ok {
 		// check if derived from ID type
-		if isIDOnlyDerivedType(schema, st) {
+		// First check the direct base QName
+		if st.Restriction != nil && !st.Restriction.Base.IsZero() {
+			if isIDOnlyType(st.Restriction.Base) {
+				return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
+			}
+		}
+		// Also check resolved base if available
+		if st.ResolvedBase != nil {
+			if bt, ok := st.ResolvedBase.(*types.BuiltinType); ok && isIDOnlyType(bt.Name()) {
+				return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
+			}
+			if baseST, ok := st.ResolvedBase.(*types.SimpleType); ok && schema != nil && isIDOnlyDerivedType(schema, baseST) {
+				return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
+			}
+		} else if schema != nil && isIDOnlyDerivedType(schema, st) {
 			return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 		}
 		// SimpleType.Validate normalizes internally, but we pass normalized value for consistency
@@ -66,7 +90,7 @@ func validateDefaultOrFixedValue(value string, typ types.Type) error {
 				// check if base is a built-in type
 				bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local)
 				if bt != nil {
-					if err := validateDefaultOrFixedValue(schema, value, bt, nsContext); err != nil {
+					if err := validateDefaultOrFixedValueWithContext(schema, value, bt, nsContext); err != nil {
 						if isIDOnlyType(baseQName) {
 							return fmt.Errorf("type '%s' (with simpleContent from ID) cannot have default or fixed values", typ.Name().Local)
 						}
