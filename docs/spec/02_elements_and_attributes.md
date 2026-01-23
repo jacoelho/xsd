@@ -188,7 +188,9 @@ Attributes carry additional information on elements. Each attribute to be valida
 
 **Notes:**
 
-- When `use="prohibited"`, `default` is not allowed; `fixed` is allowed.
+- This implementation follows the W3C XSD 1.0 test suite: `use="prohibited"`
+  rejects `default` but allows `fixed`. Treat any fixed value as ignored since
+  the attribute must not appear in instances.
 
 ### Attribute Groups
 
