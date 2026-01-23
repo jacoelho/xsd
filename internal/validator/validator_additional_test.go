@@ -291,7 +291,7 @@ func TestStreamIdentityHelpers(t *testing.T) {
 
 func TestLengthFacetHelpers(t *testing.T) {
 	length := &types.Length{Value: 1}
-	if !isLengthFacet(length) {
+	if !types.IsLengthFacet(length) {
 		t.Fatalf("expected length facet to be detected")
 	}
 

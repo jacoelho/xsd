@@ -72,7 +72,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 			if err := bt.Validate(normalizedValue); err != nil {
 				return err
 			}
-			if isQNameOrNotationTypeValue(typ) {
+			if types.IsQNameOrNotationType(typ) {
 				if err := validateQNameContext(normalizedValue, context); err != nil {
 					return err
 				}
@@ -112,7 +112,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 			if err := st.Validate(normalizedValue); err != nil {
 				return err
 			}
-			if isQNameOrNotationTypeValue(st) {
+			if types.IsQNameOrNotationType(st) {
 				if err := validateQNameContext(normalizedValue, context); err != nil {
 					return err
 				}
@@ -206,7 +206,7 @@ func validateValueAgainstFacets(value string, baseType types.Type, facets []type
 		if shouldSkipLengthFacet(baseType, facet) {
 			continue
 		}
-		if enumFacet, ok := facet.(*types.Enumeration); ok && isQNameOrNotationTypeValue(baseType) && !isListType(baseType) {
+		if enumFacet, ok := facet.(*types.Enumeration); ok && types.IsQNameOrNotationType(baseType) && !isListType(baseType) {
 			qname, err := types.ParseQNameValue(value, context)
 			if err != nil {
 				return err
@@ -366,28 +366,6 @@ func validateQNameContext(value string, context map[string]string) error {
 	return err
 }
 
-func isQNameOrNotationTypeValue(typ types.Type) bool {
-	if typ == nil {
-		return false
-	}
-	switch t := typ.(type) {
-	case *types.SimpleType:
-		return t.IsQNameOrNotationType()
-	case *types.BuiltinType:
-		return t.IsQNameOrNotationType()
-	default:
-		if prim := typ.PrimitiveType(); prim != nil {
-			switch p := prim.(type) {
-			case *types.SimpleType:
-				return p.IsQNameOrNotationType()
-			case *types.BuiltinType:
-				return p.IsQNameOrNotationType()
-			}
-		}
-		return false
-	}
-}
-
 func isListType(typ types.Type) bool {
 	switch t := typ.(type) {
 	case *types.SimpleType:
@@ -401,20 +379,11 @@ func isListType(typ types.Type) bool {
 }
 
 func shouldSkipLengthFacet(baseType types.Type, facet types.Facet) bool {
-	if !isLengthFacet(facet) {
+	if !types.IsLengthFacet(facet) {
 		return false
 	}
 	if isListType(baseType) {
 		return false
 	}
-	return isQNameOrNotationTypeValue(baseType)
-}
-
-func isLengthFacet(facet types.Facet) bool {
-	switch facet.(type) {
-	case *types.Length, *types.MinLength, *types.MaxLength:
-		return true
-	default:
-		return false
-	}
+	return types.IsQNameOrNotationType(baseType)
 }

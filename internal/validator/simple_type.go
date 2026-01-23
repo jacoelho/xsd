@@ -81,7 +81,7 @@ func shouldSkipLengthFacet(ct *grammar.CompiledType, facet types.Facet) bool {
 	if ct == nil {
 		return false
 	}
-	if !isLengthFacet(facet) {
+	if !types.IsLengthFacet(facet) {
 		return false
 	}
 	if ct.ItemType != nil {
@@ -109,15 +109,6 @@ func facetsAllowSimpleValue(facetList []types.Facet) bool {
 		}
 	}
 	return true
-}
-
-func isLengthFacet(facet types.Facet) bool {
-	switch facet.(type) {
-	case *types.Length, *types.MinLength, *types.MaxLength:
-		return true
-	default:
-		return false
-	}
 }
 
 func unresolvedSimpleType(typ types.Type) (types.QName, bool) {
