@@ -37,17 +37,6 @@ func parseXPathExpression(expr string, nsContext map[string]string, policy xpath
 	return parsed, nil
 }
 
-func parseXPathPath(expr string, nsContext map[string]string, policy xpath.AttributePolicy) (xpath.Path, error) {
-	parsed, err := parseXPathExpression(expr, nsContext, policy)
-	if err != nil {
-		return xpath.Path{}, err
-	}
-	if len(parsed.Paths) != 1 {
-		return xpath.Path{}, fmt.Errorf("xpath contains %d paths", len(parsed.Paths))
-	}
-	return parsed.Paths[0], nil
-}
-
 type attributePathPolicy int
 
 const (

@@ -148,14 +148,6 @@ func (r *streamRun) checkComplexTypeFacetsWithContext(text string, ct *grammar.C
 	})
 }
 
-func (r *streamRun) validateQNameContextWithContext(value string, typ types.Type, scopeDepth int, valueContext map[string]string) error {
-	if valueContext == nil {
-		return r.validateQNameContext(value, scopeDepth, nil)
-	}
-	_, err := r.parseQNameTyped(value, typ, valueContext)
-	return err
-}
-
 func (r *streamRun) checkComplexTypeFacets(text string, ct *grammar.CompiledType, ns map[string]string) []errors.Validation {
 	return collectComplexTypeFacetViolations(text, ct, r.path.String(), func(normalized string, enum *types.Enumeration) error {
 		// Use scopeDepth -1 and context ns for QName enumeration validation

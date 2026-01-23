@@ -158,11 +158,9 @@ func validateSubstitutionGroupDerivation(schema *parser.Schema, memberQName type
 		if memberTypeName.Namespace == types.XSDNamespace && memberTypeName.Local == "anyType" {
 			// Check if head is also anyType (check resolved type first, then original)
 			headIsAnyType := false
-			headTypeName := types.QName{}
-			if headType != nil {
-				headTypeName = headType.Name()
-				headIsAnyType = headTypeName.Namespace == types.XSDNamespace && headTypeName.Local == "anyType"
-			}
+			// headType is guaranteed to be non-nil after the check above
+			headTypeName := headType.Name()
+			headIsAnyType = headTypeName.Namespace == types.XSDNamespace && headTypeName.Local == "anyType"
 			if !headIsAnyType && headDecl.Type != nil {
 				headTypeName = headDecl.Type.Name()
 				headIsAnyType = headTypeName.Namespace == types.XSDNamespace && headTypeName.Local == "anyType"
