@@ -202,7 +202,7 @@ func (c *Compiler) mergeAttributesFromGroup(ag *types.AttributeGroup, attrMap ma
 		visited[current] = true
 
 		for _, attr := range current.Attributes {
-			if attr.Use == types.Prohibited {
+			if !shouldIncludeAttribute(attr) {
 				continue
 			}
 			if err := c.addCompiledAttribute(attr, attrMap); err != nil {
