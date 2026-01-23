@@ -194,14 +194,11 @@ func (r *streamRun) validateQNameContextWithContext(value string, typ types.Type
 	return err
 }
 
-func (r *streamRun) validateQNameEnumerationWithContext(value string, enum *types.Enumeration, typ types.Type, scopeDepth int, valueContext map[string]string) error {
-	if valueContext == nil {
-		return r.validateQNameEnumeration(value, enum, scopeDepth)
-	}
+func (r *streamRun) validateQNameEnumeration(value string, enum *types.Enumeration, typ types.Type, ns NamespaceContext) error {
 	if enum == nil {
 		return nil
 	}
-	qname, err := r.parseQNameWithContext(value, typ, -1, valueContext)
+	qname, err := r.parseQNameTyped(value, typ, ns)
 	if err != nil {
 		return err
 	}
@@ -215,11 +212,8 @@ func (r *streamRun) validateQNameEnumerationWithContext(value string, enum *type
 	return fmt.Errorf("value %s not in enumeration: %s", value, types.FormatEnumerationValues(enum.Values))
 }
 
-func (r *streamRun) validateNotationReferenceWithContext(value string, typ types.Type, scopeDepth int, valueContext map[string]string) []errors.Validation {
-	if valueContext == nil {
-		return r.validateNotationReference(value, scopeDepth)
-	}
-	notationQName, err := r.parseQNameWithContext(value, typ, -1, valueContext)
+func (r *streamRun) validateNotationReference(value string, typ types.Type, ns NamespaceContext) []errors.Validation {
+	notationQName, err := r.parseQNameTyped(value, typ, ns)
 	if err != nil {
 		return []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 			"Invalid NOTATION value '%s': %v", value, err)}
@@ -231,20 +225,17 @@ func (r *streamRun) validateNotationReferenceWithContext(value string, typ types
 	return nil
 }
 
-func (r *streamRun) isValidNotationReferenceWithContext(value string, typ types.Type, scopeDepth int, valueContext map[string]string) bool {
-	if valueContext == nil {
-		return r.isValidNotationReference(value, scopeDepth)
-	}
-	notationQName, err := r.parseQNameWithContext(value, typ, -1, valueContext)
+func (r *streamRun) isValidNotationReference(value string, typ types.Type, ns NamespaceContext) bool {
+	notationQName, err := r.parseQNameTyped(value, typ, ns)
 	if err != nil {
 		return false
 	}
 	return r.schema.Notation(notationQName) != nil
 }
 
-func (r *streamRun) checkComplexTypeFacetsWithContext(text string, ct *grammar.CompiledType, scopeDepth int) []errors.Validation {
+func (r *streamRun) checkComplexTypeFacets(text string, ct *grammar.CompiledType, ns NamespaceContext) []errors.Validation {
 	return collectComplexTypeFacetViolations(text, ct, r.path.String(), func(normalized string, enum *types.Enumeration) error {
-		return r.validateQNameEnumeration(normalized, enum, scopeDepth)
+		return r.validateQNameEnumeration(normalized, enum, ct.SimpleContentType.Original, ns)
 	})
 }
 
@@ -436,7 +427,7 @@ func (r *streamRun) validateListItemNormalizedWithContext(item string, itemType 
 	var violations []errors.Validation
 
 	if len(itemType.MemberTypes) > 0 {
-		if !r.validateUnionValueWithContext(item, itemType.MemberTypes, scopeDepth, valueContext) {
+		if !r.validateUnionValue(item, itemType.MemberTypes, ns) {
 			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d] '%s' does not match any member type of union", index, item))
@@ -468,7 +459,7 @@ func (r *streamRun) validateListItemNormalizedWithContext(item string, itemType 
 	}
 
 	if isQNameType(itemType) {
-		if err := r.validateQNameContextWithContext(item, itemType.Original, scopeDepth, valueContext); err != nil {
+		if err := r.validateQNameContext(item, itemType.Original, ns); err != nil {
 			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d]: invalid QName value '%s': %v", index, item, err))
@@ -480,11 +471,11 @@ func (r *streamRun) validateListItemNormalizedWithContext(item string, itemType 
 
 	if r.isNotationType(itemType) {
 		if policy == errorPolicyReport {
-			if itemViolations := r.validateNotationReferenceWithContext(item, itemType.Original, scopeDepth, valueContext); len(itemViolations) > 0 {
+			if itemViolations := r.validateNotationReference(item, itemType.Original, ns); len(itemViolations) > 0 {
 				violations = append(violations, itemViolations...)
 				return false, violations
 			}
-		} else if !r.isValidNotationReferenceWithContext(item, itemType.Original, scopeDepth, valueContext) {
+		} else if !r.isValidNotationReference(item, itemType.Original, ns) {
 			return false, nil
 		}
 	}
@@ -496,7 +487,7 @@ func (r *streamRun) validateListItemNormalizedWithContext(item string, itemType 
 				continue
 			}
 			if enumFacet, ok := facet.(*types.Enumeration); ok && itemType.IsQNameOrNotationType {
-				if err := r.validateQNameEnumerationWithContext(item, enumFacet, itemType.Original, scopeDepth, valueContext); err != nil {
+				if err := r.validateQNameEnumeration(item, enumFacet, itemType.Original, ns); err != nil {
 					if policy == errorPolicySuppress {
 						return false, nil
 					}
@@ -633,6 +624,12 @@ func (r *streamRun) validateQNameContext(value string, scopeDepth int, context m
 	_, err := r.parseQNameValueWithContext(value, scopeDepth, context)
 	return err
 }
+
+func (r *streamRun) parseQNameTyped(value string, typ types.Type, ns NamespaceContext) (types.QName, error) {
+	normalized := types.NormalizeWhiteSpace(value, typ)
+	return r.parseQName(normalized, ns)
+}
+
 
 func isQNameType(ct *grammar.CompiledType) bool {
 	return ct != nil && ct.IsQNameOrNotationType && !ct.IsNotationType

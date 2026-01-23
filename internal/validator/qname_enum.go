@@ -1,9 +1,6 @@
 package validator
 
 import (
-	"fmt"
-	"slices"
-
 	"github.com/jacoelho/xsd/internal/types"
 )
 
