@@ -169,7 +169,7 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 	abort := false
 	index := 0
 	splitWhitespaceSeq(value, func(item string) bool {
-		itemValid, itemViolations := r.validateListItemNormalized(item, st.ItemType, index, scopeDepth, policy, context)
+		itemValid, itemViolations := r.validateListItemNormalized(item, st.ItemType, index, scopeDepth, policy, context, nil)
 		index++
 		if !itemValid {
 			valid = false
@@ -221,7 +221,7 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 	return valid, nil
 }
 
-func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.CompiledType, index, scopeDepth int, policy errorPolicy, context map[string]string) (bool, []errors.Validation) {
+func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.CompiledType, index, scopeDepth int, policy errorPolicy, context, valueContext map[string]string) (bool, []errors.Validation) {
 	if itemType == nil || itemType.Original == nil {
 		return true, nil
 	}
@@ -236,8 +236,14 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 
 	var violations []errors.Validation
 
+	// Use valueContext if provided, otherwise use context
+	nsContext := valueContext
+	if nsContext == nil {
+		nsContext = context
+	}
+
 	if len(itemType.MemberTypes) > 0 {
-		if !r.validateUnionValue(item, itemType.MemberTypes, scopeDepth, context) {
+		if !r.validateUnionValue(item, itemType.MemberTypes, scopeDepth, nsContext) {
 			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d] '%s' does not match any member type of union", index, item))
@@ -269,7 +275,7 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 	}
 
 	if isQNameType(itemType) {
-		if err := r.validateQNameContext(item, scopeDepth, context); err != nil {
+		if err := r.validateQNameContext(item, scopeDepth, nsContext); err != nil {
 			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d]: invalid QName value '%s': %v", index, item, err))
@@ -281,11 +287,11 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 
 	if r.isNotationType(itemType) {
 		if policy == errorPolicyReport {
-			if itemViolations := r.validateNotationReference(item, scopeDepth, context); len(itemViolations) > 0 {
+			if itemViolations := r.validateNotationReference(item, scopeDepth, nsContext); len(itemViolations) > 0 {
 				violations = append(violations, itemViolations...)
 				return false, violations
 			}
-		} else if !r.isValidNotationReference(item, scopeDepth, context) {
+		} else if !r.isValidNotationReference(item, scopeDepth, nsContext) {
 			return false, nil
 		}
 	}
@@ -297,121 +303,7 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 				continue
 			}
 			if enumFacet, ok := facet.(*types.Enumeration); ok && itemType.IsQNameOrNotationType {
-				if err := r.validateQNameEnumeration(item, enumFacet, scopeDepth, context); err != nil {
-					if policy == errorPolicySuppress {
-						return false, nil
-					}
-					violations = append(violations, errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
-						"list item[%d]: %s", index, err.Error()))
-				}
-				continue
-			}
-			if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
-				if err := lexicalFacet.ValidateLexical(item, itemType.Original); err != nil {
-					if policy == errorPolicySuppress {
-						return false, nil
-					}
-					violations = append(violations, errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
-						"list item[%d]: %s", index, err.Error()))
-				}
-				continue
-			}
-			if typedValue == nil {
-				typedValue = typedValueForFacets(item, itemType.Original, itemType.Facets)
-			}
-			if err := facet.Validate(typedValue, itemType.Original); err != nil {
-				if policy == errorPolicySuppress {
-					return false, nil
-				}
-				violations = append(violations, errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
-					"list item[%d]: %s", index, err.Error()))
-			}
-		}
-	}
-
-	if len(violations) > 0 {
-		return false, violations
-	}
-	return true, nil
-}
-
-func (r *streamRun) validateListItemNormalizedWithContext(item string, itemType *grammar.CompiledType, index, scopeDepth int, valueContext map[string]string, policy errorPolicy) (bool, []errors.Validation) {
-	if itemType == nil || itemType.Original == nil {
-		return true, nil
-	}
-
-	if unresolvedName, ok := unresolvedSimpleType(itemType.Original); ok {
-		if policy == errorPolicyReport {
-			return false, []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
-				"list item[%d]: type '%s' is not resolved", index, unresolvedName)}
-		}
-		return false, nil
-	}
-
-	var violations []errors.Validation
-
-	if len(itemType.MemberTypes) > 0 {
-		if !r.validateUnionValue(item, itemType.MemberTypes, scopeDepth, valueContext) {
-			if policy == errorPolicyReport {
-				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
-					"list item[%d] '%s' does not match any member type of union", index, item))
-				return false, violations
-			}
-			return false, nil
-		}
-	}
-
-	switch orig := itemType.Original.(type) {
-	case *types.SimpleType:
-		if err := validateSimpleTypeNormalized(orig, item); err != nil {
-			if policy == errorPolicyReport {
-				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
-					"list item[%d]: %s", index, err.Error()))
-				return false, violations
-			}
-			return false, nil
-		}
-	case *types.BuiltinType:
-		if err := orig.Validate(item); err != nil {
-			if policy == errorPolicyReport {
-				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
-					"list item[%d]: %s", index, err.Error()))
-				return false, violations
-			}
-			return false, nil
-		}
-	}
-
-	if isQNameType(itemType) {
-		if err := r.validateQNameContext(item, scopeDepth, valueContext); err != nil {
-			if policy == errorPolicyReport {
-				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
-					"list item[%d]: invalid QName value '%s': %v", index, item, err))
-				return false, violations
-			}
-			return false, nil
-		}
-	}
-
-	if r.isNotationType(itemType) {
-		if policy == errorPolicyReport {
-			if itemViolations := r.validateNotationReference(item, scopeDepth, valueContext); len(itemViolations) > 0 {
-				violations = append(violations, itemViolations...)
-				return false, violations
-			}
-		} else if !r.isValidNotationReference(item, scopeDepth, valueContext) {
-			return false, nil
-		}
-	}
-
-	if len(itemType.Facets) > 0 {
-		var typedValue types.TypedValue
-		for _, facet := range itemType.Facets {
-			if shouldSkipLengthFacet(itemType, facet) {
-				continue
-			}
-			if enumFacet, ok := facet.(*types.Enumeration); ok && itemType.IsQNameOrNotationType {
-				if err := r.validateQNameEnumeration(item, enumFacet, scopeDepth, valueContext); err != nil {
+				if err := r.validateQNameEnumeration(item, enumFacet, scopeDepth, nsContext); err != nil {
 					if policy == errorPolicySuppress {
 						return false, nil
 					}

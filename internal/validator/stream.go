@@ -1151,7 +1151,7 @@ func (r *streamRun) processListItemBytes(frame *streamFrame, itemBytes []byte) {
 		return
 	}
 	itemString := string(itemBytes)
-	valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport, nil)
+	valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport, nil, nil)
 	if !valid {
 		r.addViolations(violations)
 		return
