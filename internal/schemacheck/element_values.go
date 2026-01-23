@@ -25,7 +25,7 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 	// even for basic validation, we need to normalize to match XSD spec behavior
 	normalizedValue := types.NormalizeWhiteSpace(value, typ)
 
-	if isQNameOrNotationType(typ) {
+	if types.IsQNameOrNotationType(typ) {
 		if nsContext == nil {
 			// Can't validate QName without context, skip for now
 			return nil
@@ -102,18 +102,4 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 	}
 
 	return nil
-}
-
-func isQNameOrNotationType(typ types.Type) bool {
-	if typ == nil {
-		return false
-	}
-	switch t := typ.(type) {
-	case *types.SimpleType:
-		return t.IsQNameOrNotationType()
-	case *types.BuiltinType:
-		return t.IsQNameOrNotationType()
-	default:
-		return types.IsQNameOrNotation(typ.Name())
-	}
 }

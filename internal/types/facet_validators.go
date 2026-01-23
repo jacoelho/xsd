@@ -306,15 +306,9 @@ func (r *RangeFacet) Validate(value TypedValue, baseType Type) error {
 // isQNameOrNotationType checks if a type is QName, NOTATION, or restricts either.
 // Per XSD 1.0 errata, length facets should be ignored for QName and NOTATION types
 // because their value space length depends on namespace context, not lexical form.
+// This is a wrapper around IsQNameOrNotationType for consistency with existing code.
 func isQNameOrNotationType(t Type) bool {
-	switch typ := t.(type) {
-	case *BuiltinType:
-		return typ.IsQNameOrNotationType()
-	case *SimpleType:
-		return typ.IsQNameOrNotationType()
-	default:
-		return false
-	}
+	return IsQNameOrNotationType(t)
 }
 
 // Length represents a length facet

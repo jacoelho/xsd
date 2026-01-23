@@ -440,30 +440,8 @@ func valueSpaceType(typ types.Type) (types.Type, bool) {
 	}
 }
 
-func isQNameOrNotationTypeValue(typ types.Type) bool {
-	if typ == nil {
-		return false
-	}
-	switch t := typ.(type) {
-	case *types.SimpleType:
-		return t.IsQNameOrNotationType()
-	case *types.BuiltinType:
-		return t.IsQNameOrNotationType()
-	default:
-		if prim := typ.PrimitiveType(); prim != nil {
-			switch p := prim.(type) {
-			case *types.SimpleType:
-				return p.IsQNameOrNotationType()
-			case *types.BuiltinType:
-				return p.IsQNameOrNotationType()
-			}
-		}
-		return false
-	}
-}
-
 func (r *streamRun) parseValueAsTypeWithScope(value string, typ types.Type, scopeDepth int) (types.TypedValue, error) {
-	if isQNameOrNotationTypeValue(typ) {
+	if types.IsQNameOrNotationType(typ) {
 		normalized := types.NormalizeWhiteSpace(value, typ)
 		qname, err := r.parseQNameValue(normalized, scopeDepth)
 		if err != nil {
@@ -475,7 +453,7 @@ func (r *streamRun) parseValueAsTypeWithScope(value string, typ types.Type, scop
 }
 
 func (r *streamRun) parseValueAsTypeWithContext(value string, typ types.Type, context map[string]string) (types.TypedValue, error) {
-	if isQNameOrNotationTypeValue(typ) {
+	if types.IsQNameOrNotationType(typ) {
 		normalized := types.NormalizeWhiteSpace(value, typ)
 		qname, err := types.ParseQNameValue(normalized, context)
 		if err != nil {
