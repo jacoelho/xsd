@@ -39,6 +39,34 @@ func parseXPathPath(expr string, nsContext map[string]string, policy xpath.Attri
 	return parsed.Paths, nil
 }
 
+type attributePathPolicy int
+
+const (
+	attributeDisallow attributePathPolicy = iota
+	attributeIgnore
+)
+
+func resolveElementDeclsForPaths(schema *parser.Schema, startDecl *types.ElementDecl, paths []xpath.Path, expr string, policy attributePathPolicy, attrErrFmt string, errWrap func(error) error) ([]*types.ElementDecl, error) {
+	var decls []*types.ElementDecl
+	for _, path := range paths {
+		if path.Attribute != nil {
+			if policy == attributeIgnore {
+				continue
+			}
+			return nil, fmt.Errorf(attrErrFmt, expr)
+		}
+		decl, err := resolvePathElementDecl(schema, startDecl, path.Steps)
+		if err != nil {
+			if errWrap != nil {
+				return nil, errWrap(err)
+			}
+			return nil, err
+		}
+		decls = append(decls, decl)
+	}
+	return decls, nil
+}
+
 func isWildcardNodeTest(test xpath.NodeTest) bool {
 	return test.Any || test.Local == "*"
 }
@@ -852,14 +880,11 @@ func resolveFieldElementDeclPath(schema *parser.Schema, elementDecl *types.Eleme
 	}
 	var baseDecl *types.ElementDecl
 	var baseType types.Type
-	for _, path := range paths {
-		if path.Attribute != nil {
-			return nil, fmt.Errorf("field xpath cannot select attributes: %s", elementPath)
-		}
-		decl, err := resolvePathElementDecl(schema, elementDecl, path.Steps)
-		if err != nil {
-			return nil, err
-		}
+	decls, err := resolveElementDeclsForPaths(schema, elementDecl, paths, elementPath, attributeDisallow, "field xpath cannot select attributes: %s", nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, decl := range decls {
 		if baseDecl == nil {
 			baseDecl = decl
 			baseType = resolveTypeForValidation(schema, decl.Type)
