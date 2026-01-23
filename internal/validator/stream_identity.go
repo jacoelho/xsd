@@ -487,7 +487,7 @@ func (r *streamRun) finalizeSelectorMatch(scope *identityScope, state *constrain
 				"field selects multiple nodes for element at %s", constraint.Original.Name)
 			return
 		case fieldState.count == 0 || fieldState.missing:
-			if constraint.Original.Type == types.UniqueConstraint {
+			if constraint.Original.Type == types.UniqueConstraint || constraint.Original.Type == types.KeyRefConstraint {
 				return
 			}
 			r.addIdentityFieldError(constraint, elemPath,
@@ -704,14 +704,14 @@ const (
 
 func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Type, scopeDepth int, context map[string]string) (string, KeyState) {
 	if fieldType == nil {
-		fieldType = types.GetBuiltin(types.TypeName("string"))
+		fieldType = types.GetBuiltin(types.TypeNameString)
 	}
 	return r.normalizeValueByType(value, fieldType, scopeDepth, context)
 }
 
 func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, scopeDepth int, context map[string]string) (string, KeyState) {
 	if fieldType == nil {
-		return value, KeyValid
+		fieldType = types.GetBuiltin(types.TypeNameString)
 	}
 	if !types.IdentityNormalizable(fieldType) {
 		return "", KeyInvalidValue
@@ -740,6 +740,12 @@ func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, sco
 			}
 		}
 		return "", KeyInvalidValue
+	default:
+		normalized, err := types.NormalizeValue(value, plan.Type)
+		if err != nil {
+			return "", KeyInvalidValue
+		}
+		return r.normalizeAtomicValue(normalized, plan.Type, scopeDepth)
 	}
 
 	normalized, err := types.NormalizeValue(value, fieldType)

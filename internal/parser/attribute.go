@@ -81,11 +81,11 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 		}
 		attr.Use = use
 
-		if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
-			return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
-		}
 		if attr.Use == types.Required && doc.HasAttribute(elem, "default") {
 			return nil, fmt.Errorf("attribute with use='required' cannot have default value")
+		}
+		if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
+			return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
 		}
 
 		if doc.HasAttribute(elem, "default") {
@@ -191,11 +191,11 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 	}
 	attr.Use = use
 
-	if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
-		return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
-	}
 	if attr.Use == types.Required && doc.HasAttribute(elem, "default") {
 		return nil, fmt.Errorf("attribute with use='required' cannot have default value")
+	}
+	if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
+		return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
 	}
 
 	if doc.HasAttribute(elem, "default") {

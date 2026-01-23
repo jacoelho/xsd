@@ -37,18 +37,19 @@ func validateUPA(schema *parser.Schema, content types.Content, targetNS types.Na
 		}
 	}
 
-	// resolve GroupRef if present (should be resolved already, but handle it)
-	if groupRef, ok := particle.(*types.GroupRef); ok {
-		groupDef, exists := schema.Groups[groupRef.RefQName]
-		if !exists {
-			return fmt.Errorf("group '%s' not found", groupRef.RefQName)
+	if particle != nil {
+		expanded, err := expandGroupRefs(schema, particle, make(map[types.QName]bool))
+		if err != nil {
+			return err
 		}
-		// note: Group references with minOccurs > 1 are valid XSD. UPA validation will catch
-		// any actual UPA violations that arise from ambiguous content models.
-		groupCopy := *groupDef
-		groupCopy.MinOccurs = groupRef.MinOccurs
-		groupCopy.MaxOccurs = groupRef.MaxOccurs
-		particle = &groupCopy
+		particle = expanded
+	}
+	if baseParticle != nil {
+		expanded, err := expandGroupRefs(schema, baseParticle, make(map[types.QName]bool))
+		if err != nil {
+			return err
+		}
+		baseParticle = expanded
 	}
 
 	// note: A sequence group with minOccurs > 1 CAN be used directly as content in a complexType.
@@ -76,10 +77,11 @@ func validateUPAInParticle(schema *parser.Schema, particle, baseParticle types.P
 func validateUPAInParticleWithVisited(schema *parser.Schema, particle, baseParticle types.Particle, targetNS types.NamespaceURI, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
 	switch p := particle.(type) {
 	case *types.GroupRef:
-		// GroupRef should be resolved before UPA validation, but handle it just in case
-		// if we encounter an unresolved GroupRef, we can't validate UPA properly
-		// this should not happen in normal flow, but we'll skip validation for safety
-		return nil
+		expanded, err := expandGroupRefs(schema, p, make(map[types.QName]bool))
+		if err != nil {
+			return err
+		}
+		return validateUPAInParticleWithVisited(schema, expanded, baseParticle, targetNS, parentKind, visited)
 
 	case *types.ModelGroup:
 		// cycle detection: skip if already visited
@@ -166,6 +168,53 @@ func validateUPAInParticleWithVisited(schema *parser.Schema, particle, baseParti
 	}
 
 	return nil
+}
+
+func expandGroupRefs(schema *parser.Schema, particle types.Particle, stack map[types.QName]bool) (types.Particle, error) {
+	switch p := particle.(type) {
+	case *types.GroupRef:
+		if stack[p.RefQName] {
+			return nil, fmt.Errorf("circular group reference detected for %s", p.RefQName)
+		}
+		groupDef, exists := schema.Groups[p.RefQName]
+		if !exists {
+			return nil, fmt.Errorf("group '%s' not found", p.RefQName)
+		}
+		stack[p.RefQName] = true
+		defer delete(stack, p.RefQName)
+
+		groupCopy := &types.ModelGroup{
+			Kind:      groupDef.Kind,
+			MinOccurs: p.MinOccurs,
+			MaxOccurs: p.MaxOccurs,
+			Particles: make([]types.Particle, 0, len(groupDef.Particles)),
+		}
+		for _, child := range groupDef.Particles {
+			expanded, err := expandGroupRefs(schema, child, stack)
+			if err != nil {
+				return nil, err
+			}
+			groupCopy.Particles = append(groupCopy.Particles, expanded)
+		}
+		return groupCopy, nil
+	case *types.ModelGroup:
+		groupCopy := &types.ModelGroup{
+			Kind:      p.Kind,
+			MinOccurs: p.MinOccurs,
+			MaxOccurs: p.MaxOccurs,
+			Particles: make([]types.Particle, 0, len(p.Particles)),
+		}
+		for _, child := range p.Particles {
+			expanded, err := expandGroupRefs(schema, child, stack)
+			if err != nil {
+				return nil, err
+			}
+			groupCopy.Particles = append(groupCopy.Particles, expanded)
+		}
+		return groupCopy, nil
+	default:
+		return particle, nil
+	}
 }
 
 // checkChoiceUPAViolation checks for UPA violations in choice groups by comparing first sets.

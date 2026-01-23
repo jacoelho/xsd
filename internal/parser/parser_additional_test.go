@@ -828,6 +828,55 @@ func TestParseAttributeLocalAndReference(t *testing.T) {
 	}
 }
 
+func TestParseAttributeProhibitedFixedLocalAllowed(t *testing.T) {
+	xmlStr := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="a" type="xs:string" use="prohibited" fixed="x"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	doc := parseDoc(t, xmlStr)
+	schema := NewSchema()
+
+	root := doc.DocumentElement()
+	attrElem := findElementWithAttr(doc, root, "attribute", "fixed")
+	if attrElem == xsdxml.InvalidNode {
+		t.Fatalf("expected attribute with fixed to be found")
+	}
+	if _, err := parseAttribute(doc, attrElem, schema); err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+}
+
+func TestParseAttributeProhibitedFixedReferenceAllowed(t *testing.T) {
+	xmlStr := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:attr"
+           xmlns:tns="urn:attr">
+  <xs:attribute name="base" type="xs:string"/>
+  <xs:complexType name="t">
+    <xs:attribute ref="tns:base" use="prohibited" fixed="x"/>
+  </xs:complexType>
+</xs:schema>`
+
+	doc := parseDoc(t, xmlStr)
+	schema := NewSchema()
+	schema.TargetNamespace = "urn:attr"
+	schema.NamespaceDecls["tns"] = "urn:attr"
+
+	root := doc.DocumentElement()
+	attrElem := findElementWithAttr(doc, root, "attribute", "ref")
+	if attrElem == xsdxml.InvalidNode {
+		t.Fatalf("expected attribute ref to be found")
+	}
+	if _, err := parseAttribute(doc, attrElem, schema); err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+}
+
 func TestParseComplexContentExtension(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

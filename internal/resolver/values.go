@@ -82,15 +82,11 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 	}
 
 	if st, ok := typ.(*types.SimpleType); ok {
-		if policy == idValuesDisallowed && schemacheck.IsIDOnlyDerivedType(st) {
+		if policy == idValuesDisallowed && schemacheck.IsIDOnlyDerivedType(schema, st) {
 			return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 		}
-		switch st.Variety() {
-		case types.UnionVariety:
-			memberTypes := resolveUnionMemberTypes(schema, st)
-			if len(memberTypes) == 0 {
-				return fmt.Errorf("union type '%s' has no member types", typ.Name().Local)
-			}
+		if memberTypes := resolveUnionMemberTypes(schema, st); len(memberTypes) > 0 {
+			matched := false
 			for _, member := range memberTypes {
 				if err := validateDefaultOrFixedValueResolved(schema, normalizedValue, member, context, visited, idValuesAllowed); err == nil {
 					facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
@@ -121,35 +117,69 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 			facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
 			return validateValueAgainstFacets(normalizedValue, st, facets, context)
 		}
+
+		if err := st.Validate(normalizedValue); err != nil {
+			return err
+		}
+		if err := validateValueAgainstFacets(schema, normalizedValue, st, nsContext); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	return nil
 }
 
 func resolveUnionMemberTypes(schema *parser.Schema, st *types.SimpleType) []types.Type {
+	return resolveUnionMemberTypesVisited(schema, st, make(map[*types.SimpleType]bool))
+}
+
+func resolveUnionMemberTypesVisited(schema *parser.Schema, st *types.SimpleType, visited map[*types.SimpleType]bool) []types.Type {
 	if st == nil {
 		return nil
 	}
+	if visited[st] {
+		return nil
+	}
+	visited[st] = true
+	defer delete(visited, st)
+
 	if len(st.MemberTypes) > 0 {
 		return st.MemberTypes
 	}
-	if st.Union == nil {
-		return nil
-	}
-	memberTypes := make([]types.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
-	for _, inline := range st.Union.InlineTypes {
-		memberTypes = append(memberTypes, inline)
-	}
-	for _, memberQName := range st.Union.MemberTypes {
-		if member := schemacheck.ResolveSimpleTypeReference(schema, memberQName); member != nil {
-			memberTypes = append(memberTypes, member)
+	if st.Union != nil {
+		memberTypes := make([]types.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
+		for _, inline := range st.Union.InlineTypes {
+			memberTypes = append(memberTypes, inline)
 		}
+		for _, memberQName := range st.Union.MemberTypes {
+			if member := schemacheck.ResolveSimpleTypeReference(schema, memberQName); member != nil {
+				memberTypes = append(memberTypes, member)
+			}
+		}
+		return memberTypes
 	}
-	return memberTypes
+	if base := resolveBaseSimpleType(schema, st); base != nil {
+		return resolveUnionMemberTypesVisited(schema, base, visited)
+	}
+	return nil
 }
 
 func resolveListItemType(schema *parser.Schema, st *types.SimpleType) types.Type {
 	if st == nil || st.List == nil {
+		if st == nil {
+			return nil
+		}
+		if itemType, ok := types.ListItemType(st); ok {
+			return itemType
+		}
+		if st.Restriction != nil && !st.Restriction.Base.IsZero() {
+			if base := schemacheck.ResolveSimpleTypeReference(schema, st.Restriction.Base); base != nil {
+				if itemType, ok := types.ListItemType(base); ok {
+					return itemType
+				}
+			}
+		}
 		return nil
 	}
 	if st.ItemType != nil {
@@ -160,6 +190,9 @@ func resolveListItemType(schema *parser.Schema, st *types.SimpleType) types.Type
 	}
 	if !st.List.ItemType.IsZero() {
 		return schemacheck.ResolveSimpleTypeReference(schema, st.List.ItemType)
+	}
+	if itemType, ok := types.ListItemType(st); ok {
+		return itemType
 	}
 	return nil
 }

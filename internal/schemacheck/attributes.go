@@ -65,7 +65,7 @@ func validateAttributeDeclStructure(schemaDef *parser.Schema, qname types.QName,
 
 	// validate fixed value if present (basic validation only - full type checking after resolution)
 	if decl.HasFixed {
-		if err := validateDefaultOrFixedValue(decl.Fixed, decl.Type, decl.ValueContext); err != nil {
+		if err := validateDefaultOrFixedValue(schemaDef, decl.Fixed, decl.Type, decl.ValueContext); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)
 		}
 	}
@@ -112,6 +112,39 @@ func validateAttributeUniqueness(schema *parser.Schema, ct *types.ComplexType) e
 		seen[key] = true
 	}
 
+	return nil
+}
+
+func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *types.ComplexType) error {
+	if ct == nil {
+		return nil
+	}
+	content := ct.Content()
+	if content == nil {
+		return nil
+	}
+	ext := content.ExtensionDef()
+	if ext == nil || ext.Base.IsZero() {
+		return nil
+	}
+	baseCT, ok := lookupComplexType(schema, ext.Base)
+	if !ok || baseCT == nil {
+		return nil
+	}
+
+	baseAttrs := collectEffectiveAttributeUses(schema, baseCT)
+	if len(baseAttrs) == 0 {
+		return nil
+	}
+
+	attrs := append([]*types.AttributeDecl{}, ext.Attributes...)
+	attrs = append(attrs, collectAttributesFromGroups(schema, ext.AttrGroups, nil)...)
+	for _, attr := range attrs {
+		key := effectiveAttributeQNameForValidation(schema, attr)
+		if _, exists := baseAttrs[key]; exists {
+			return fmt.Errorf("extension attribute '%s' in namespace '%s' duplicates base attribute", attr.Name.Local, attr.Name.Namespace)
+		}
+	}
 	return nil
 }
 

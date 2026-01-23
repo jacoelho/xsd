@@ -174,52 +174,124 @@ func isWildcardSubset(a, b wildcardConstraint) bool {
 }
 
 func intersectWildcards(a, b wildcardConstraint) (wildcardConstraint, bool) {
+	intersection, ok, empty := intersectWildcardsDetailed(a, b)
+	if !ok || empty {
+		return wildcardConstraint{}, false
+	}
+	return intersection, true
+}
+
+func intersectWildcardsDetailed(a, b wildcardConstraint) (wildcardConstraint, bool, bool) {
 	if a.constraint == NSCAny {
-		return b, true
+		return b, true, false
 	}
 	if b.constraint == NSCAny {
-		return a, true
+		return a, true, false
 	}
 	if isWildcardSubset(a, b) {
-		return a, true
+		return a, true, false
 	}
 	if isWildcardSubset(b, a) {
-		return b, true
+		return b, true, false
 	}
 
 	switch {
+	case a.constraint == NSCTargetNamespace && b.constraint == NSCList:
+		if AllowsNamespace(b.constraint, b.list, b.target, a.target) {
+			return a, true, false
+		}
+		return wildcardConstraint{}, true, true
+	case b.constraint == NSCTargetNamespace && a.constraint == NSCList:
+		if AllowsNamespace(a.constraint, a.list, a.target, b.target) {
+			return b, true, false
+		}
+		return wildcardConstraint{}, true, true
+	case a.constraint == NSCLocal && b.constraint == NSCList:
+		if AllowsNamespace(b.constraint, b.list, b.target, NamespaceEmpty) {
+			return a, true, false
+		}
+		return wildcardConstraint{}, true, true
+	case b.constraint == NSCLocal && a.constraint == NSCList:
+		if AllowsNamespace(a.constraint, a.list, a.target, NamespaceEmpty) {
+			return b, true, false
+		}
+		return wildcardConstraint{}, true, true
 	case a.constraint == NSCList && b.constraint == NSCList:
 		result := intersectNamespaceLists(a.list, b.list, a.target, b.target)
 		if len(result) == 0 {
-			return wildcardConstraint{}, false
+			return wildcardConstraint{}, true, true
 		}
-		return wildcardConstraint{constraint: NSCList, list: result, target: a.target}, true
+		return wildcardConstraint{constraint: NSCList, list: result, target: a.target}, true, false
 	case a.constraint == NSCList && b.constraint == NSCOther:
 		result := filterNamespaceList(a.list, a.target, b)
 		if len(result) == 0 {
-			return wildcardConstraint{}, false
+			return wildcardConstraint{}, true, true
 		}
-		return wildcardConstraint{constraint: NSCList, list: result, target: a.target}, true
+		return wildcardConstraint{constraint: NSCList, list: result, target: a.target}, true, false
 	case b.constraint == NSCList && a.constraint == NSCOther:
 		result := filterNamespaceList(b.list, b.target, a)
 		if len(result) == 0 {
-			return wildcardConstraint{}, false
+			return wildcardConstraint{}, true, true
 		}
-		return wildcardConstraint{constraint: NSCList, list: result, target: b.target}, true
+		return wildcardConstraint{constraint: NSCList, list: result, target: b.target}, true, false
 	case a.constraint == NSCList && b.constraint == NSCNotAbsent:
 		result := filterNamespaceList(a.list, a.target, b)
 		if len(result) == 0 {
-			return wildcardConstraint{}, false
+			return wildcardConstraint{}, true, true
 		}
-		return wildcardConstraint{constraint: NSCList, list: result, target: a.target}, true
+		return wildcardConstraint{constraint: NSCList, list: result, target: a.target}, true, false
 	case b.constraint == NSCList && a.constraint == NSCNotAbsent:
 		result := filterNamespaceList(b.list, b.target, a)
 		if len(result) == 0 {
-			return wildcardConstraint{}, false
+			return wildcardConstraint{}, true, true
 		}
-		return wildcardConstraint{constraint: NSCList, list: result, target: b.target}, true
+		return wildcardConstraint{constraint: NSCList, list: result, target: b.target}, true, false
+	case a.constraint == NSCOther && b.constraint == NSCOther:
+		if a.target == b.target {
+			return a, true, false
+		}
+		if a.target.IsEmpty() {
+			return b, true, false
+		}
+		if b.target.IsEmpty() {
+			return a, true, false
+		}
+		return wildcardConstraint{}, false, false
+	case a.constraint == NSCOther && b.constraint == NSCTargetNamespace:
+		if b.target.IsEmpty() || b.target == a.target {
+			return wildcardConstraint{}, true, true
+		}
+		return b, true, false
+	case b.constraint == NSCOther && a.constraint == NSCTargetNamespace:
+		if a.target.IsEmpty() || a.target == b.target {
+			return wildcardConstraint{}, true, true
+		}
+		return a, true, false
+	case a.constraint == NSCOther && b.constraint == NSCLocal:
+		return wildcardConstraint{}, true, true
+	case b.constraint == NSCOther && a.constraint == NSCLocal:
+		return wildcardConstraint{}, true, true
+	case a.constraint == NSCNotAbsent && b.constraint == NSCLocal:
+		return wildcardConstraint{}, true, true
+	case b.constraint == NSCNotAbsent && a.constraint == NSCLocal:
+		return wildcardConstraint{}, true, true
+	case a.constraint == NSCTargetNamespace && b.constraint == NSCTargetNamespace:
+		if a.target == b.target {
+			return a, true, false
+		}
+		return wildcardConstraint{}, true, true
+	case a.constraint == NSCTargetNamespace && b.constraint == NSCNotAbsent:
+		if a.target.IsEmpty() {
+			return wildcardConstraint{}, true, true
+		}
+		return a, true, false
+	case b.constraint == NSCTargetNamespace && a.constraint == NSCNotAbsent:
+		if b.target.IsEmpty() {
+			return wildcardConstraint{}, true, true
+		}
+		return b, true, false
 	default:
-		return wildcardConstraint{}, false
+		return wildcardConstraint{}, false, false
 	}
 }
 
@@ -439,21 +511,30 @@ func UnionAnyAttribute(w1, w2 *AnyAttribute) *AnyAttribute {
 // The result represents the set of namespaces that match both wildcards
 // Returns nil if intersection is empty (no namespaces match both)
 func IntersectAnyAttribute(w1, w2 *AnyAttribute) *AnyAttribute {
+	result, expressible, empty := IntersectAnyAttributeDetailed(w1, w2)
+	if !expressible || empty {
+		return nil
+	}
+	return result
+}
+
+// IntersectAnyAttributeDetailed intersects two AnyAttribute wildcards and reports expressibility.
+// If expressible is true and empty is true, the intersection is empty.
+func IntersectAnyAttributeDetailed(w1, w2 *AnyAttribute) (*AnyAttribute, bool, bool) {
 	if w1 == nil {
-		return w2
+		return w2, true, false
 	}
 	if w2 == nil {
-		return w1
+		return w1, true, false
 	}
 
 	// intersect namespace constraints
-	intersectedNS := intersectNamespaceConstraints(
-		w1.Namespace, w1.NamespaceList, w1.TargetNamespace,
-		w2.Namespace, w2.NamespaceList, w2.TargetNamespace,
+	constraint, expressible, empty := intersectWildcardsDetailed(
+		wildcardConstraint{constraint: w1.Namespace, list: w1.NamespaceList, target: w1.TargetNamespace},
+		wildcardConstraint{constraint: w2.Namespace, list: w2.NamespaceList, target: w2.TargetNamespace},
 	)
-	if intersectedNS.Constraint == NSCInvalid {
-		// intersection is empty
-		return nil
+	if !expressible || empty {
+		return nil, expressible, empty
 	}
 
 	// ProcessContents: use most restrictive (strict > lax > skip)
@@ -463,11 +544,11 @@ func IntersectAnyAttribute(w1, w2 *AnyAttribute) *AnyAttribute {
 	}
 
 	return &AnyAttribute{
-		Namespace:       intersectedNS.Constraint,
-		NamespaceList:   intersectedNS.NamespaceList,
+		Namespace:       constraint.constraint,
+		NamespaceList:   constraint.list,
 		ProcessContents: processContents,
 		TargetNamespace: w1.TargetNamespace,
-	}
+	}, true, false
 }
 
 // IntersectAnyElement intersects two AnyElement wildcards according to XSD 1.0 spec

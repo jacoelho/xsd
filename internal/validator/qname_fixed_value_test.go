@@ -97,3 +97,55 @@ func TestNotationFixedValueElementPrefixAgnostic(t *testing.T) {
 		t.Fatalf("expected no violations, got %v", violations)
 	}
 }
+
+func TestQNameDefaultValueUsesSchemaContext(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:t"
+           xmlns:p="urn:t"
+           targetNamespace="urn:t"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="xs:QName" default="p:val"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+
+	xmlOK := `<?xml version="1.0"?><root xmlns="urn:t"/>`
+	violations := validateStream(t, v, xmlOK)
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got %v", violations)
+	}
+}
+
+func TestQNameFixedValueAttributeMissingUsesSchemaContext(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:t"
+           xmlns:p="urn:t"
+           targetNamespace="urn:t"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="attr" type="xs:QName" fixed="p:val"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+
+	xmlOK := `<?xml version="1.0"?><root xmlns="urn:t"/>`
+	violations := validateStream(t, v, xmlOK)
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got %v", violations)
+	}
+}

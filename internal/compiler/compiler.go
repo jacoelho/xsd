@@ -39,17 +39,18 @@ func NewCompiler(schema *parser.Schema) *Compiler {
 	return &Compiler{
 		schema: schema,
 		grammar: &grammar.CompiledSchema{
-			TargetNamespace:      schema.TargetNamespace,
-			Elements:             make(map[types.QName]*grammar.CompiledElement),
-			Types:                make(map[types.QName]*grammar.CompiledType),
-			Attributes:           make(map[types.QName]*grammar.CompiledAttribute),
-			NotationDecls:        make(map[types.QName]*types.NotationDecl),
-			LocalElements:        make(map[types.QName]*grammar.CompiledElement),
-			SubstitutionGroups:   make(map[types.QName][]*grammar.CompiledElement),
-			ElementFormDefault:   schema.ElementFormDefault,
-			AttributeFormDefault: schema.AttributeFormDefault,
-			BlockDefault:         schema.BlockDefault,
-			FinalDefault:         schema.FinalDefault,
+			TargetNamespace:       schema.TargetNamespace,
+			Elements:              make(map[types.QName]*grammar.CompiledElement),
+			Types:                 make(map[types.QName]*grammar.CompiledType),
+			Attributes:            make(map[types.QName]*grammar.CompiledAttribute),
+			NotationDecls:         make(map[types.QName]*types.NotationDecl),
+			LocalElements:         make(map[types.QName]*grammar.CompiledElement),
+			SubstitutionGroups:    make(map[types.QName][]*grammar.CompiledElement),
+			IdentityNormalization: make(map[types.Type]*grammar.IdentityNormalizationPlan),
+			ElementFormDefault:    schema.ElementFormDefault,
+			AttributeFormDefault:  schema.AttributeFormDefault,
+			BlockDefault:          schema.BlockDefault,
+			FinalDefault:          schema.FinalDefault,
 		},
 		types:      make(map[types.QName]*grammar.CompiledType),
 		elements:   make(map[types.QName]*grammar.CompiledElement),
@@ -104,6 +105,7 @@ func (c *Compiler) Compile() (*grammar.CompiledSchema, error) {
 
 	// collect all elements with identity constraints (precomputed for validation)
 	c.collectElementsWithConstraints()
+	c.buildIdentityNormalizationPlans()
 	c.buildConstraintDeclsByQName()
 
 	// index all local elements (non-top-level) for XPath evaluation
@@ -261,7 +263,7 @@ func (c *Compiler) getGroupKind(particle types.Particle) types.GroupKind {
 
 func getIDTypeName(typeName string) string {
 	switch typeName {
-	case "ID", "IDREF", "IDREFS":
+	case string(types.TypeNameID), string(types.TypeNameIDREF), string(types.TypeNameIDREFS):
 		return typeName
 	default:
 		return ""

@@ -740,6 +740,72 @@ func TestAnyAttributeDerivation_RestrictionProcessContentsWeaker_Invalid(t *test
 	}
 }
 
+func TestAnyAttributeAllowsIDAttributeWithDeclaredIDAttributeValid(t *testing.T) {
+	schemaMain := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:ext="urn:ext"
+           targetNamespace="urn:main"
+           elementFormDefault="qualified"
+           attributeFormDefault="qualified">
+  <xs:import namespace="urn:ext" schemaLocation="ext.xsd"/>
+  <xs:complexType name="CT">
+    <xs:attribute name="id" type="xs:ID"/>
+    <xs:anyAttribute namespace="##any" processContents="strict"/>
+  </xs:complexType>
+</xs:schema>`
+
+	schemaExt := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:ext"
+           xmlns:ext="urn:ext"
+           attributeFormDefault="qualified">
+  <xs:attribute name="id" type="xs:ID"/>
+</xs:schema>`
+
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{Data: []byte(schemaMain)},
+		"ext.xsd":  &fstest.MapFile{Data: []byte(schemaExt)},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("main.xsd"); err != nil {
+		t.Fatalf("expected schema to be valid, got error: %v", err)
+	}
+}
+
+func TestAnyAttributeAllowsIDAttributeWithNoIDGlobalsValid(t *testing.T) {
+	schemaMain := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:ext="urn:ext"
+           targetNamespace="urn:main"
+           elementFormDefault="qualified"
+           attributeFormDefault="qualified">
+  <xs:import namespace="urn:ext" schemaLocation="ext.xsd"/>
+  <xs:complexType name="CT">
+    <xs:attribute name="id" type="xs:ID"/>
+    <xs:anyAttribute namespace="##any" processContents="strict"/>
+  </xs:complexType>
+</xs:schema>`
+
+	schemaExt := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:ext"
+           xmlns:ext="urn:ext"
+           attributeFormDefault="qualified">
+  <xs:attribute name="code" type="xs:string"/>
+</xs:schema>`
+
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{Data: []byte(schemaMain)},
+		"ext.xsd":  &fstest.MapFile{Data: []byte(schemaExt)},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("main.xsd"); err != nil {
+		t.Fatalf("Expected schema to be valid, got error: %v", err)
+	}
+}
+
 func TestWildcardUPA_ValidChoiceWithNonOverlappingWildcards(t *testing.T) {
 	// valid: non-overlapping wildcards in choice group
 	schemaXML := `<?xml version="1.0"?>

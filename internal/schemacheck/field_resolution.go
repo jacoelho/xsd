@@ -36,7 +36,7 @@ func parseXPathPath(expr string, nsContext map[string]string, policy xpath.Attri
 	if len(parsed.Paths) != 1 {
 		return xpath.Path{}, fmt.Errorf("xpath contains %d paths", len(parsed.Paths))
 	}
-	return parsed.Paths[0], nil
+	return parsed.Paths, nil
 }
 
 func isWildcardNodeTest(test xpath.NodeTest) bool {
@@ -251,7 +251,10 @@ func resolveFieldElementDecl(schema *parser.Schema, field *types.Field, constrai
 
 	selectorDecls, err := resolveSelectorElementDecls(schema, constraintElement, selectorXPath, nsContext)
 	if err != nil {
-		return nil, fmt.Errorf("resolve selector '%s': %w", selectorXPath, err)
+		if errors.Is(err, ErrFieldXPathIncompatibleTypes) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("%w: resolve selector '%s': %w", ErrFieldXPathUnresolved, selectorXPath, err)
 	}
 
 	var decls []*types.ElementDecl
@@ -267,6 +270,16 @@ func resolveFieldElementDecl(schema *parser.Schema, field *types.Field, constrai
 			decls = append(decls, decl)
 		}
 	}
+	var baseType types.Type
+	var baseAttributeSelection *bool
+	var firstResolveErr error
+	for _, fieldPath := range fieldPaths {
+		isAttr := fieldPath.Attribute != nil
+		if baseAttributeSelection == nil {
+			baseAttributeSelection = &isAttr
+		} else if *baseAttributeSelection != isAttr {
+			return nil, fmt.Errorf("%w: %s", ErrFieldXPathMixedSelection, field.XPath)
+		}
 
 	unique := uniqueElementDecls(decls)
 	if len(unique) != 1 {
@@ -833,14 +846,34 @@ func findAttributeTypeInParticleDescendant(schema *parser.Schema, particle types
 
 // resolveFieldElementDeclPath resolves a field element path to an element declaration.
 func resolveFieldElementDeclPath(schema *parser.Schema, elementDecl *types.ElementDecl, elementPath string, nsContext map[string]string) (*types.ElementDecl, error) {
-	path, err := parseXPathPath(elementPath, nsContext, xpath.AttributesDisallowed)
+	paths, err := parseXPathPaths(elementPath, nsContext, xpath.AttributesDisallowed)
 	if err != nil {
 		return nil, err
 	}
-	if path.Attribute != nil {
-		return nil, fmt.Errorf("field xpath cannot select attributes: %s", elementPath)
+	var baseDecl *types.ElementDecl
+	var baseType types.Type
+	for _, path := range paths {
+		if path.Attribute != nil {
+			return nil, fmt.Errorf("field xpath cannot select attributes: %s", elementPath)
+		}
+		decl, err := resolvePathElementDecl(schema, elementDecl, path.Steps)
+		if err != nil {
+			return nil, err
+		}
+		if baseDecl == nil {
+			baseDecl = decl
+			baseType = resolveTypeForValidation(schema, decl.Type)
+			continue
+		}
+		declType := resolveTypeForValidation(schema, decl.Type)
+		if !elementTypesCompatible(baseType, declType) {
+			return nil, fmt.Errorf("%w: field xpath resolves to incompatible element types: %s", ErrFieldXPathIncompatibleTypes, elementPath)
+		}
 	}
-	return resolvePathElementDecl(schema, elementDecl, path.Steps)
+	if baseDecl == nil {
+		return nil, fmt.Errorf("cannot resolve field element")
+	}
+	return baseDecl, nil
 }
 
 // resolveFieldElementType resolves the element type from a field element path.

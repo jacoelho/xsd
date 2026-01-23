@@ -139,6 +139,63 @@ func TestFixedValueNormalization_DateWhitespace(t *testing.T) {
 	}
 }
 
+func TestFixedValueNormalization_ListValueSpace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="intList">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:intList" fixed="1 02"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	xmlDoc := `<?xml version="1.0"?>
+<root xmlns="urn:test">1 2</root>`
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, xmlDoc)
+	if len(violations) > 0 {
+		t.Fatalf("expected no violations, got %v", violations)
+	}
+}
+
+func TestFixedValueNormalization_ListValueSpaceMismatch(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="intList">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:intList" fixed="1 02"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	xmlDoc := `<?xml version="1.0"?>
+<root xmlns="urn:test">1 3</root>`
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, xmlDoc)
+	if len(violations) == 0 {
+		t.Fatalf("expected fixed-value violation, got none")
+	}
+	if !hasViolationCode(violations, errors.ErrElementFixedValue) {
+		t.Fatalf("expected code %s, got %v", errors.ErrElementFixedValue, violations)
+	}
+}
+
 func TestFixedValueNormalization_UnionBoolean(t *testing.T) {
 	// test that fixed '1' matches 'true' in a union type (stE050 case)
 	schemaXML := `<?xml version="1.0"?>

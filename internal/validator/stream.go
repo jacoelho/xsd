@@ -603,7 +603,36 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 			}
 		}
 		anyType := r.validator.getBuiltinCompiledType(types.GetBuiltin(types.TypeNameAnyType))
-		frame := r.newFrame(ev, nil, anyType, parent)
+		effectiveType := anyType
+		if hasXsiType {
+			xsiType, err := r.resolveXsiType(ev.ScopeDepth, xsiTypeValue, anyType, 0)
+			if err != nil {
+				violation := errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String())
+				r.addViolation(&violation)
+				return streamFrame{}, true
+			}
+			if xsiType != nil {
+				effectiveType = xsiType
+			}
+		}
+
+		attrsToCheck := effectiveType.AllAttributes
+		anyAttr := effectiveType.AnyAttribute
+		if isAnyType(effectiveType) {
+			attrsToCheck = nil
+			anyAttr = &types.AnyAttribute{
+				Namespace:       types.NSCAny,
+				ProcessContents: types.Lax,
+				TargetNamespace: types.NamespaceEmpty,
+			}
+		}
+
+		violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, ev.ScopeDepth, ev.Line, ev.Column)
+		if len(violations) > 0 {
+			r.addViolations(violations)
+		}
+
+		frame := r.newFrame(ev, nil, effectiveType, parent)
 		return frame, false
 	}
 
@@ -791,7 +820,7 @@ func listStreamingAllowed(frame *streamFrame) bool {
 	if _, ok := unresolvedSimpleType(frame.textType.Original); ok {
 		return false
 	}
-	if frame.textType.IDTypeName != "" && frame.textType.IDTypeName != "IDREFS" {
+	if frame.textType.IDTypeName != "" && frame.textType.IDTypeName != string(types.TypeNameIDREFS) {
 		return false
 	}
 	if frame.typ != nil && frame.typ.Kind == grammar.TypeKindComplex && len(frame.typ.Facets) > 0 {
@@ -1111,7 +1140,7 @@ func (r *streamRun) processListItemBytes(frame *streamFrame, itemBytes []byte) {
 	index := state.itemIndex
 	state.itemIndex++
 	if state.skipValidate {
-		if frame.textType.IDTypeName == "IDREFS" {
+		if frame.textType.IDTypeName == string(types.TypeNameIDREFS) {
 			r.trackListIDRefs(string(itemBytes), frame.textType)
 		}
 		return
@@ -1202,7 +1231,7 @@ func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType,
 }
 
 func (r *streamRun) trackListIDRefs(item string, compiledType *grammar.CompiledType) {
-	if compiledType == nil || compiledType.IDTypeName != "IDREFS" {
+	if compiledType == nil || compiledType.IDTypeName != string(types.TypeNameIDREFS) {
 		return
 	}
 	r.trackIDREF(item, r.path.String(), r.currentLine, r.currentColumn)

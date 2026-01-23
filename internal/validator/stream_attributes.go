@@ -115,7 +115,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 				if value != "" && len(valueViolations) == 0 {
 					violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
 				}
-				if attr.Type.IDTypeName == "ID" {
+				if attr.Type.IDTypeName == string(types.TypeNameID) {
 					idCount++
 				}
 			}
@@ -145,7 +145,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 				if value != "" && len(valueViolations) == 0 {
 					violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
 				}
-				if attr.Type.IDTypeName == "ID" {
+				if attr.Type.IDTypeName == string(types.TypeNameID) {
 					idCount++
 				}
 			}
@@ -177,7 +177,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 				violations = append(violations, r.checkWildcardAttributeStream(xmlAttr, anyAttr, scopeDepth, line, column)...)
 				if anyAttr.ProcessContents != types.Skip {
 					if attrDecl := r.schema.Attribute(attrQName); attrDecl != nil && attrDecl.Type != nil {
-						if attrDecl.Type.IDTypeName == "ID" {
+						if attrDecl.Type.IDTypeName == string(types.TypeNameID) {
 							idCount++
 						}
 					}

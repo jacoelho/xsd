@@ -31,7 +31,7 @@ func (r *streamRun) fixedValueEqualWithContext(actualValue, fixedValue string, t
 		return false
 	}
 
-	if textType.ItemType != nil && textType.ItemType.IsQNameOrNotationType {
+	if textType.ItemType != nil {
 		if match, err := r.compareFixedValueListWithContext(actualValue, fixedValue, textType, scopeDepth, fixedContext); err == nil {
 			return match
 		}
@@ -228,33 +228,58 @@ func (r *streamRun) compareFixedValueListWithContext(actualValue, fixedValue str
 		return false, nil
 	}
 	for i := range actualItems {
-		if itemType.IsQNameOrNotationType {
-			actualQName, err := r.parseQNameWithContext(actualItems[i], itemType.Original, scopeDepth, nil)
-			if err != nil {
-				return false, err
-			}
-			fixedQName, err := r.parseQNameWithContext(fixedItems[i], itemType.Original, -1, fixedContext)
-			if err != nil {
-				return false, err
-			}
-			if actualQName != fixedQName {
-				return false, nil
-			}
-			continue
-		}
-		actualTyped, err := r.parseValueAsType(actualItems[i], itemType.Original)
+		actualParsed, err := r.parseFixedListItemWithContext(actualItems[i], itemType, scopeDepth, nil)
 		if err != nil {
 			return false, err
 		}
-		fixedTyped, err := r.parseValueAsType(fixedItems[i], itemType.Original)
+		fixedParsed, err := r.parseFixedListItemWithContext(fixedItems[i], itemType, -1, fixedContext)
 		if err != nil {
 			return false, err
 		}
-		if !compareTypedValues(actualTyped, fixedTyped) {
+		if !actualParsed.equal(fixedParsed) {
 			return false, nil
 		}
 	}
 	return true, nil
+}
+
+func (r *streamRun) parseFixedListItemWithContext(value string, itemType *grammar.CompiledType, scopeDepth int, fixedContext map[string]string) (fixedValueParsed, error) {
+	if itemType == nil || itemType.Original == nil {
+		return fixedValueParsed{}, errNoMatchingMemberType
+	}
+
+	if len(itemType.MemberTypes) > 0 {
+		parsed, ok := r.parseUnionValueWithContext(value, itemType.MemberTypes, scopeDepth, fixedContext)
+		if !ok {
+			return fixedValueParsed{}, errNoMatchingMemberType
+		}
+		return parsed, nil
+	}
+
+	if st, ok := itemType.Original.(*types.SimpleType); ok && st.Variety() == types.UnionVariety {
+		memberTypes := r.resolveUnionMemberTypes(st)
+		if len(memberTypes) > 0 {
+			parsed, ok := r.parseUnionValueTypesWithContext(value, memberTypes, scopeDepth, fixedContext)
+			if !ok {
+				return fixedValueParsed{}, errNoMatchingMemberType
+			}
+			return parsed, nil
+		}
+	}
+
+	if itemType.IsQNameOrNotationType {
+		qname, err := r.parseQNameWithContext(value, itemType.Original, scopeDepth, fixedContext)
+		if err != nil {
+			return fixedValueParsed{}, err
+		}
+		return fixedValueParsed{qname: qname, isQName: true}, nil
+	}
+
+	typedValue, err := r.parseValueAsType(value, itemType.Original)
+	if err != nil {
+		return fixedValueParsed{}, err
+	}
+	return fixedValueParsed{typed: typedValue}, nil
 }
 
 func (r *streamRun) parseValueAsType(value string, typ types.Type) (types.TypedValue, error) {

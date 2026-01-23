@@ -33,6 +33,9 @@ func validateComplexTypeStructure(schema *parser.Schema, complexType *types.Comp
 	if err := validateAnyAttributeDerivation(schema, complexType); err != nil {
 		return fmt.Errorf("anyAttribute derivation: %w", err)
 	}
+	if _, err := collectAnyAttributeFromType(schema, complexType); err != nil {
+		return fmt.Errorf("anyAttribute: %w", err)
+	}
 
 	for _, attr := range complexType.Attributes() {
 		if err := validateAttributeDeclStructure(schema, attr.Name, attr); err != nil {
@@ -58,6 +61,9 @@ func validateComplexTypeStructure(schema *parser.Schema, complexType *types.Comp
 	}
 
 	if err := validateAttributeUniqueness(schema, complexType); err != nil {
+		return fmt.Errorf("attributes: %w", err)
+	}
+	if err := validateExtensionAttributeUniqueness(schema, complexType); err != nil {
 		return fmt.Errorf("attributes: %w", err)
 	}
 
@@ -319,13 +325,17 @@ func validateIDAttributeCount(schema *parser.Schema, complexType *types.ComplexT
 		if attr.Type == nil {
 			continue
 		}
-		typeName := attr.Type.Name()
-		if typeName.Namespace == types.XSDNamespace && typeName.Local == "ID" {
+		resolvedType := resolveTypeReference(schema, attr.Type, TypeReferenceAllowMissing)
+		if resolvedType == nil {
+			continue
+		}
+		typeName := resolvedType.Name()
+		if typeName.Namespace == types.XSDNamespace && typeName.Local == string(types.TypeNameID) {
 			idCount++
 			continue
 		}
-		if simpleType, ok := attr.Type.(*types.SimpleType); ok {
-			if isIDOnlyDerivedType(simpleType) {
+		if simpleType, ok := resolvedType.(*types.SimpleType); ok {
+			if isIDOnlyDerivedType(schema, simpleType) {
 				idCount++
 			}
 		}

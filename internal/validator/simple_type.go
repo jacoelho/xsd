@@ -10,20 +10,38 @@ import (
 
 // checkComplexTypeFacets validates additional facets on complex types with simpleContent.
 func (r *validationRun) checkComplexTypeFacets(text string, ct *grammar.CompiledType) []errors.Validation {
+	return collectComplexTypeFacetViolations(text, ct, r.path.String(), nil)
+}
+
+func collectComplexTypeFacetViolations(
+	text string,
+	ct *grammar.CompiledType,
+	path string,
+	validateQNameEnum func(string, *types.Enumeration) error,
+) []errors.Validation {
 	if ct == nil || ct.SimpleContentType == nil || len(ct.Facets) == 0 {
 		return nil
 	}
 
 	normalizedValue := types.NormalizeWhiteSpace(text, ct.SimpleContentType.Original)
+	if ws, ok := derivedSimpleContentWhiteSpace(ct); ok {
+		normalizedValue = types.ApplyWhiteSpace(text, ws)
+	}
 	var violations []errors.Validation
 	var typedValue types.TypedValue
 	for _, facet := range ct.Facets {
 		if shouldSkipLengthFacet(ct.SimpleContentType, facet) {
 			continue
 		}
+		if enumFacet, ok := facet.(*types.Enumeration); ok && validateQNameEnum != nil && ct.SimpleContentType.IsQNameOrNotationType {
+			if err := validateQNameEnum(normalizedValue, enumFacet); err != nil {
+				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), path))
+			}
+			continue
+		}
 		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
 			if err := lexicalFacet.ValidateLexical(normalizedValue, ct.SimpleContentType.Original); err != nil {
-				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), path))
 			}
 			continue
 		}
@@ -31,11 +49,30 @@ func (r *validationRun) checkComplexTypeFacets(text string, ct *grammar.Compiled
 			typedValue = typedValueForFacets(normalizedValue, ct.SimpleContentType.Original, ct.Facets)
 		}
 		if err := facet.Validate(typedValue, ct.SimpleContentType.Original); err != nil {
-			violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+			violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), path))
 		}
 	}
 
 	return violations
+}
+
+func derivedSimpleContentWhiteSpace(ct *grammar.CompiledType) (types.WhiteSpace, bool) {
+	if ct == nil || ct.Original == nil {
+		return 0, false
+	}
+	complexType, ok := ct.Original.(*types.ComplexType)
+	if !ok {
+		return 0, false
+	}
+	sc, ok := complexType.Content().(*types.SimpleContent)
+	if !ok || sc.Restriction == nil || sc.Restriction.SimpleType == nil {
+		return 0, false
+	}
+	derived := sc.Restriction.SimpleType
+	if !derived.WhiteSpaceExplicit() {
+		return 0, false
+	}
+	return derived.WhiteSpace(), true
 }
 
 // shouldSkipLengthFacet returns true when length facets do not apply to a type.
@@ -104,11 +141,11 @@ func (r *validationRun) collectIDRefs(value string, ct *grammar.CompiledType, li
 	}
 
 	switch ct.IDTypeName {
-	case "ID":
+	case string(types.TypeNameID):
 		return r.trackID(normalized, r.path.String(), line, column)
-	case "IDREF":
+	case string(types.TypeNameIDREF):
 		r.trackIDREF(normalized, r.path.String(), line, column)
-	case "IDREFS":
+	case string(types.TypeNameIDREFS):
 		r.trackIDREFS(normalized, r.path.String(), line, column)
 	}
 	return nil

@@ -470,7 +470,7 @@ func TestWildcardProcessContents(t *testing.T) {
 			shouldErr: false,
 		},
 		{
-			name: "lax ignores undeclared element with xsi:type",
+			name: "lax validates undeclared element with xsi:type",
 			schemaXML: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/test"
@@ -489,7 +489,37 @@ func TestWildcardProcessContents(t *testing.T) {
       xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <foo xmlns="http://other.com/ns" xsi:type="xs:int">not-an-int</foo>
 </root>`,
-			shouldErr: false,
+			shouldErr: true,
+			errorCode: string(errors.ErrDatatypeInvalid),
+		},
+		{
+			name: "lax validates undeclared element content via xsi:type",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:complexType name="ReqType">
+    <xs:sequence>
+      <xs:element name="req" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any namespace="##any" processContents="lax"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`,
+			xmlDoc: `<?xml version="1.0"?>
+<root xmlns="urn:test"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:tns="urn:test">
+  <u xsi:type="tns:ReqType"/>
+</root>`,
+			shouldErr: true,
+			errorCode: string(errors.ErrRequiredElementMissing),
 		},
 	}
 

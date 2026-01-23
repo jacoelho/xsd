@@ -421,7 +421,12 @@ func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, 
 
 		case "whiteSpace":
 			if st == nil {
-				// complex content restrictions don't have SimpleType
+				if restriction != nil && restriction.SimpleType == nil {
+					restriction.SimpleType = &types.SimpleType{}
+				}
+				st = restriction.SimpleType
+			}
+			if st == nil {
 				continue
 			}
 			err = applyWhiteSpaceFacet(doc, child, st)

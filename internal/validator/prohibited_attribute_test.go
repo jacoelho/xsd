@@ -41,7 +41,7 @@ func TestProhibitedAttributeRejected(t *testing.T) {
 	}
 }
 
-func TestProhibitedAttributeFixedStillRejected(t *testing.T) {
+func TestProhibitedAttributeFixedAllowedAtParse(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
@@ -51,16 +51,8 @@ func TestProhibitedAttributeFixedStillRejected(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	docXML := `<root a="x"/>`
-
-	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	_, err := parser.Parse(strings.NewReader(schemaXML))
 	if err != nil {
-		t.Fatalf("Parse schema: %v", err)
-	}
-
-	v := New(mustCompile(t, schema))
-	violations := validateStream(t, v, docXML)
-	if !hasViolationCode(violations, errors.ErrAttributeProhibited) {
-		t.Fatalf("expected prohibited attribute violation, got %v", violations)
+		t.Fatalf("unexpected parse error: %v", err)
 	}
 }

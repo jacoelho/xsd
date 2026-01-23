@@ -42,6 +42,71 @@ func TestLoader_Load(t *testing.T) {
 	}
 }
 
+func TestLoader_IgnoresHTTPImport(t *testing.T) {
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main"
+           xmlns:other="urn:other"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:other" schemaLocation="http://example.com/schema.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("main.xsd"); err != nil {
+		t.Fatalf("unexpected HTTP import error: %v", err)
+	}
+}
+
+func TestLoader_ImportMissingNamespaceRejectsTargetNamespace(t *testing.T) {
+	schemaMain := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main">
+  <xs:import schemaLocation="ext.xsd"/>
+</xs:schema>`
+
+	schemaExt := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:ext">
+</xs:schema>`
+
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{Data: []byte(schemaMain)},
+		"ext.xsd":  &fstest.MapFile{Data: []byte(schemaExt)},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("main.xsd"); err == nil {
+		t.Fatal("expected import without namespace to reject targetNamespace")
+	}
+}
+
+func TestLoader_ImportMissingNamespaceAllowsNoTargetNamespace(t *testing.T) {
+	schemaMain := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main">
+  <xs:import schemaLocation="ext.xsd"/>
+</xs:schema>`
+
+	schemaExt := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+</xs:schema>`
+
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{Data: []byte(schemaMain)},
+		"ext.xsd":  &fstest.MapFile{Data: []byte(schemaExt)},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("main.xsd"); err != nil {
+		t.Fatalf("expected import without namespace to allow no targetNamespace, got: %v", err)
+	}
+}
+
 func TestLoader_CircularDependency(t *testing.T) {
 	loader := NewLoader(Config{
 		FS: fstest.MapFS{

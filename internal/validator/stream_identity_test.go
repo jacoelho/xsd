@@ -132,41 +132,6 @@ func TestStreamIdentityConstraints(t *testing.T) {
 			wantCode: errors.ErrIdentityKeyRefFailed,
 		},
 		{
-			name: "keyref missing field",
-			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           targetNamespace="urn:test"
-           xmlns:tns="urn:test"
-           elementFormDefault="qualified">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element name="item">
-          <xs:complexType>
-            <xs:attribute name="id" type="xs:string" use="required"/>
-          </xs:complexType>
-        </xs:element>
-        <xs:element name="ref">
-          <xs:complexType>
-            <xs:attribute name="refid" type="xs:string"/>
-          </xs:complexType>
-        </xs:element>
-      </xs:sequence>
-    </xs:complexType>
-    <xs:key name="itemKey">
-      <xs:selector xpath="tns:item"/>
-      <xs:field xpath="@id"/>
-    </xs:key>
-    <xs:keyref name="itemRef" refer="tns:itemKey">
-      <xs:selector xpath="tns:ref"/>
-      <xs:field xpath="@refid"/>
-    </xs:keyref>
-  </xs:element>
-</xs:schema>`,
-			document: `<root xmlns="urn:test"><item id="a"/><ref/></root>`,
-			wantCode: errors.ErrIdentityKeyRefFailed,
-		},
-		{
 			name: "keyref invalid field value",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -378,6 +343,41 @@ func TestStreamIdentityConstraints(t *testing.T) {
   </xs:element>
 </xs:schema>`,
 			document: `<root xmlns="urn:test"><item values="a b"/><item values="a   b"/></root>`,
+			wantCode: errors.ErrIdentityDuplicate,
+		},
+		{
+			name: "unique compares nested union list value space",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="intList">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="unionList">
+    <xs:union memberTypes="tns:intList xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="unionNested">
+    <xs:union memberTypes="tns:unionList xs:decimal"/>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="values" type="tns:unionNested"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueUnionList">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@values"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item values="1 2"/><item values="1  2"/></root>`,
 			wantCode: errors.ErrIdentityDuplicate,
 		},
 		{
@@ -1010,8 +1010,8 @@ func TestStreamIdentityKeyrefIgnoresNilledField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValidateStream() error = %v", err)
 	}
-	if !hasViolationCode(violations, errors.ErrIdentityKeyRefFailed) {
-		t.Fatalf("expected keyref failure for nilled field, got %v", violations)
+	if hasViolationCode(violations, errors.ErrIdentityKeyRefFailed) {
+		t.Fatalf("unexpected keyref failure for nilled field, got %v", violations)
 	}
 }
 

@@ -389,12 +389,12 @@ func TestParticleHelpers(t *testing.T) {
 
 func TestDefaultOrFixedValueValidation(t *testing.T) {
 	stringType := types.GetBuiltin(types.TypeName("string"))
-	if err := validateDefaultOrFixedValue("value", stringType, nil); err != nil {
+	if err := validateDefaultOrFixedValue(nil, "value", stringType, nil); err != nil {
 		t.Fatalf("unexpected default value error: %v", err)
 	}
 
 	idType := types.GetBuiltin(types.TypeName("ID"))
-	if err := validateDefaultOrFixedValue("id", idType, nil); err == nil {
+	if err := validateDefaultOrFixedValue(nil, "id", idType, nil); err == nil {
 		t.Fatalf("expected ID default value error")
 	}
 
@@ -402,7 +402,7 @@ func TestDefaultOrFixedValueValidation(t *testing.T) {
 		QName:       types.QName{Namespace: "urn:values", Local: "derivedID"},
 		Restriction: &types.Restriction{Base: types.QName{Namespace: types.XSDNamespace, Local: "ID"}},
 	}
-	if err := validateDefaultOrFixedValue("id", derivedID, nil); err == nil {
+	if err := validateDefaultOrFixedValue(nil, "id", derivedID, nil); err == nil {
 		t.Fatalf("expected derived ID default value error")
 	}
 
@@ -410,7 +410,7 @@ func TestDefaultOrFixedValueValidation(t *testing.T) {
 	ct.SetContent(&types.SimpleContent{
 		Extension: &types.Extension{Base: types.QName{Namespace: types.XSDNamespace, Local: "string"}},
 	})
-	if err := validateDefaultOrFixedValue("text", ct, nil); err != nil {
+	if err := validateDefaultOrFixedValue(nil, "text", ct, nil); err != nil {
 		t.Fatalf("unexpected simpleContent default value error: %v", err)
 	}
 }
@@ -836,7 +836,7 @@ func TestPublicWrappers(t *testing.T) {
 	if !IsIDOnlyType(types.QName{Namespace: types.XSDNamespace, Local: "ID"}) {
 		t.Fatalf("expected IsIDOnlyType to return true")
 	}
-	if IsIDOnlyDerivedType(&types.SimpleType{}) {
+	if IsIDOnlyDerivedType(nil, &types.SimpleType{}) {
 		t.Fatalf("expected IsIDOnlyDerivedType to return false")
 	}
 

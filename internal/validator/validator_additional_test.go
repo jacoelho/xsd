@@ -331,3 +331,30 @@ func TestCheckComplexTypeFacets(t *testing.T) {
 		t.Fatalf("expected minInclusive to pass")
 	}
 }
+
+func TestCheckComplexTypeFacetsStreamParity(t *testing.T) {
+	run := &validationRun{}
+	stream := &streamRun{validationRun: run}
+
+	stringType := types.GetBuiltin(types.TypeName("string"))
+	ct := &grammar.CompiledType{
+		SimpleContentType: &grammar.CompiledType{Original: stringType},
+		Facets:            []types.Facet{&types.MinLength{Value: 2}},
+	}
+	if got, want := len(run.checkComplexTypeFacets("a", ct)), len(stream.checkComplexTypeFacetsWithContext("a", ct, 0)); got != want {
+		t.Fatalf("expected matching violations for minLength, got %d vs %d", got, want)
+	}
+
+	decimalType := types.GetBuiltin(types.TypeName("decimal"))
+	minInclusive, err := types.NewMinInclusive("10", decimalType)
+	if err != nil {
+		t.Fatalf("NewMinInclusive error: %v", err)
+	}
+	ct = &grammar.CompiledType{
+		SimpleContentType: &grammar.CompiledType{Original: decimalType},
+		Facets:            []types.Facet{minInclusive},
+	}
+	if got, want := len(run.checkComplexTypeFacets("9", ct)), len(stream.checkComplexTypeFacetsWithContext("9", ct, 0)); got != want {
+		t.Fatalf("expected matching violations for minInclusive, got %d vs %d", got, want)
+	}
+}

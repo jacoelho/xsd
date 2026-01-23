@@ -3,6 +3,7 @@ package schemacheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -40,7 +41,7 @@ func validateDefaultOrFixedValue(value string, typ types.Type) error {
 
 	if st, ok := typ.(*types.SimpleType); ok {
 		// check if derived from ID type
-		if isIDOnlyDerivedType(st) {
+		if isIDOnlyDerivedType(schema, st) {
 			return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 		}
 		// SimpleType.Validate normalizes internally, but we pass normalized value for consistency
@@ -65,7 +66,7 @@ func validateDefaultOrFixedValue(value string, typ types.Type) error {
 				// check if base is a built-in type
 				bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local)
 				if bt != nil {
-					if err := validateDefaultOrFixedValue(value, bt, nsContext); err != nil {
+					if err := validateDefaultOrFixedValue(schema, value, bt, nsContext); err != nil {
 						if isIDOnlyType(baseQName) {
 							return fmt.Errorf("type '%s' (with simpleContent from ID) cannot have default or fixed values", typ.Name().Local)
 						}

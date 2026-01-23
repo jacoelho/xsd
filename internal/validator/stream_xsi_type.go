@@ -27,14 +27,6 @@ func (r *streamRun) resolveXsiType(scopeDepth int, xsiTypeValue string, declared
 		return xsiType, nil
 	}
 
-	if len(declaredType.MemberTypes) > 0 {
-		if r.isUnionMemberType(xsiType, declaredType) {
-			return xsiType, nil
-		}
-		return nil, fmt.Errorf("type '%s' is not a member type of union '%s'",
-			xsiTypeQName.String(), declaredType.QName.Local)
-	}
-
 	if !r.typeDerivesFrom(xsiType, declaredType) {
 		return nil, fmt.Errorf("type '%s' is not derived from '%s'",
 			xsiTypeQName.String(), declaredType.QName.Local)
