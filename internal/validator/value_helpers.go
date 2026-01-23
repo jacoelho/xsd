@@ -1,6 +1,12 @@
 package validator
 
-import "github.com/jacoelho/xsd/internal/types"
+import (
+	"math"
+	"math/big"
+	"time"
+
+	"github.com/jacoelho/xsd/internal/types"
+)
 
 func fixedValueMatches(actualValue, fixedValue string, typ types.Type) bool {
 	normalizedValue := types.NormalizeWhiteSpace(actualValue, typ)
@@ -43,9 +49,21 @@ func compareTypedValues(left, right types.TypedValue) bool {
 		if !ok {
 			return false
 		}
-		if types.HasTimezone(left.Lexical()) != types.HasTimezone(right.Lexical()) {
+		// For temporal values, compare in value space
+		// Both "Z" and "+00:00" represent UTC and are equivalent
+		// If both have timezones, compare the UTC times
+		// If neither has timezone, compare the local times
+		// If one has timezone and one doesn't, they're not equal
+		leftHasTZ := types.HasTimezone(left.Lexical())
+		rightHasTZ := types.HasTimezone(right.Lexical())
+		if leftHasTZ != rightHasTZ {
 			return false
 		}
+		if leftHasTZ {
+			// Both have timezones - compare UTC times (Z and +00:00 are equivalent)
+			return l.UTC().Equal(r.UTC())
+		}
+		// Neither has timezone - compare local times
 		return l.Equal(r)
 
 	case bool:
@@ -74,8 +92,10 @@ func compareTypedValues(left, right types.TypedValue) bool {
 		if !ok {
 			return false
 		}
+		// Per XSD spec, NaN is not equal to itself in the value space
+		// This is used for fixed value comparison where NaN != NaN
 		if math.IsNaN(float64(l)) || math.IsNaN(float64(r)) {
-			return math.IsNaN(float64(l)) && math.IsNaN(float64(r))
+			return false
 		}
 		return l == r
 
@@ -84,8 +104,10 @@ func compareTypedValues(left, right types.TypedValue) bool {
 		if !ok {
 			return false
 		}
+		// Per XSD spec, NaN is not equal to itself in the value space
+		// This is used for fixed value comparison where NaN != NaN
 		if math.IsNaN(l) || math.IsNaN(r) {
-			return math.IsNaN(l) && math.IsNaN(r)
+			return false
 		}
 		return l == r
 

@@ -58,7 +58,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 	normalizedValue := types.NormalizeWhiteSpace(value, typ)
 
 	if types.IsQNameOrNotationType(typ) {
-		if _, err := types.ParseQNameValue(normalizedValue, nsContext); err != nil {
+		if _, err := types.ParseQNameValue(normalizedValue, context); err != nil {
 			return err
 		}
 	}
@@ -85,15 +85,18 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 		if policy == idValuesDisallowed && schemacheck.IsIDOnlyDerivedType(schema, st) {
 			return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 		}
-		if memberTypes := resolveUnionMemberTypes(schema, st); len(memberTypes) > 0 {
-			matched := false
-			for _, member := range memberTypes {
-				if err := validateDefaultOrFixedValueResolved(schema, normalizedValue, member, context, visited, idValuesAllowed); err == nil {
-					facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
-					return validateValueAgainstFacets(normalizedValue, st, facets, context)
+		switch st.Variety() {
+		case types.UnionVariety:
+			memberTypes := resolveUnionMemberTypes(schema, st)
+			if len(memberTypes) > 0 {
+				for _, member := range memberTypes {
+					if err := validateDefaultOrFixedValueResolved(schema, normalizedValue, member, context, visited, idValuesAllowed); err == nil {
+						facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
+						return validateValueAgainstFacets(normalizedValue, st, facets, context)
+					}
 				}
+				return fmt.Errorf("value '%s' does not match any member type of union '%s'", normalizedValue, typ.Name().Local)
 			}
-			return fmt.Errorf("value '%s' does not match any member type of union '%s'", normalizedValue, typ.Name().Local)
 		case types.ListVariety:
 			itemType := resolveListItemType(schema, st)
 			if itemType != nil {
@@ -116,13 +119,6 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 			}
 			facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
 			return validateValueAgainstFacets(normalizedValue, st, facets, context)
-		}
-
-		if err := st.Validate(normalizedValue); err != nil {
-			return err
-		}
-		if err := validateValueAgainstFacets(schema, normalizedValue, st, nsContext); err != nil {
-			return err
 		}
 		return nil
 	}
@@ -159,8 +155,11 @@ func resolveUnionMemberTypesVisited(schema *parser.Schema, st *types.SimpleType,
 		}
 		return memberTypes
 	}
-	if base := resolveBaseSimpleType(schema, st); base != nil {
-		return resolveUnionMemberTypesVisited(schema, base, visited)
+	if st.Restriction != nil && !st.Restriction.Base.IsZero() {
+		baseType := schema.TypeDefs[st.Restriction.Base]
+		if baseST, ok := baseType.(*types.SimpleType); ok {
+			return resolveUnionMemberTypesVisited(schema, baseST, visited)
+		}
 	}
 	return nil
 }
