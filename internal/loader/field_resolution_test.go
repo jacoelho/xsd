@@ -229,6 +229,69 @@ func TestFieldResolution_UnionCompatibleTypesPass(t *testing.T) {
 	}
 }
 
+func TestFieldResolution_FieldSelectsNillableKeyFails(t *testing.T) {
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:nillable"
+           xmlns:tns="urn:nillable"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:string" nillable="true"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="badKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="tns:a"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("test.xsd"); err == nil {
+		t.Fatal("expected key field selecting nillable element to fail")
+	}
+}
+
+func TestFieldResolution_FieldSelectsNillableKeyrefFails(t *testing.T) {
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:nillable"
+           xmlns:tns="urn:nillable"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:string" nillable="true"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="goodKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="tns:b"/>
+    </xs:key>
+    <xs:keyref name="badRef" refer="tns:goodKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="tns:a"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("test.xsd"); err == nil {
+		t.Fatal("expected keyref field selecting nillable element to fail")
+	}
+}
+
 // TestFieldResolution_DescendantAttributeField tests descendant attribute field resolution.
 func TestFieldResolution_DescendantAttributeField(t *testing.T) {
 	testFS := fstest.MapFS{

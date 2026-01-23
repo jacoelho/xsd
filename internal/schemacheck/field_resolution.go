@@ -421,6 +421,10 @@ func resolveFieldPathType(schema *parser.Schema, selectedElementDecl *types.Elem
 		return attrType, nil
 	}
 
+	if elementDecl.Nillable {
+		return nil, ErrFieldSelectsNillable
+	}
+
 	elementType := resolveTypeForValidation(schema, elementDecl.Type)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
@@ -885,6 +889,9 @@ func resolveFieldElementDeclPath(schema *parser.Schema, elementDecl *types.Eleme
 		return nil, err
 	}
 	for _, decl := range decls {
+		if decl.Nillable {
+			return nil, ErrFieldSelectsNillable
+		}
 		if baseDecl == nil {
 			baseDecl = decl
 			baseType = resolveTypeForValidation(schema, decl.Type)
