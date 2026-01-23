@@ -57,7 +57,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 
 	normalizedValue := types.NormalizeWhiteSpace(value, typ)
 
-	if isQNameOrNotationType(typ) {
+	if types.IsQNameOrNotationType(typ) {
 		if _, err := types.ParseQNameValue(normalizedValue, nsContext); err != nil {
 			return err
 		}

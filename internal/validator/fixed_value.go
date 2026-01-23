@@ -156,7 +156,7 @@ func (r *streamRun) parseUnionValueWithContext(value string, memberTypes []*gram
 		if !ok {
 			continue
 		}
-		if isQNameOrNotationType(memberType) {
+		if types.IsQNameOrNotationType(memberType) {
 			qname, err := r.parseQNameWithContext(value, memberType, scopeDepth, fixedContext)
 			if err == nil {
 				return fixedValueParsed{qname: qname, isQName: true}, true
@@ -180,7 +180,7 @@ func (r *streamRun) parseUnionValueTypesWithContext(value string, memberTypes []
 		if !ok {
 			continue
 		}
-		if isQNameOrNotationType(memberType) {
+		if types.IsQNameOrNotationType(memberType) {
 			qname, err := r.parseQNameWithContext(value, memberType, scopeDepth, fixedContext)
 			if err == nil {
 				return fixedValueParsed{qname: qname, isQName: true}, true
