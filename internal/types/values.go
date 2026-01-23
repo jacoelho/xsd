@@ -1364,6 +1364,9 @@ func ParseFloat(lexical string) (float32, error) {
 	case "NaN":
 		return float32(math.NaN()), nil
 	default:
+		if !floatPattern.MatchString(lexical) {
+			return 0, fmt.Errorf("invalid float: %s", lexical)
+		}
 		f, err := strconv.ParseFloat(lexical, 32)
 		if err != nil {
 			return 0, fmt.Errorf("invalid float: %s", lexical)
@@ -1390,6 +1393,9 @@ func ParseDouble(lexical string) (float64, error) {
 	case "NaN":
 		return math.NaN(), nil
 	default:
+		if !floatPattern.MatchString(lexical) {
+			return 0, fmt.Errorf("invalid double: %s", lexical)
+		}
 		f, err := strconv.ParseFloat(lexical, 64)
 		if err != nil {
 			return 0, fmt.Errorf("invalid double: %s", lexical)
@@ -1438,8 +1444,13 @@ func ParseDateTime(lexical string) (time.Time, error) {
 		if minute != 0 || second != 0 || !is24HourZero(timePart) {
 			return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
 		}
-	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 {
+	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 60 {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
+	}
+	leapSecond := second == 60
+	if leapSecond {
+		timePart = timePart[:6] + "59" + timePart[8:]
+		main = datePart + "T" + timePart
 	}
 
 	layout := "2006-01-02T15:04:05" + fractionalLayouts[fractionLength]
@@ -1452,6 +1463,9 @@ func ParseDateTime(lexical string) (time.Time, error) {
 	parsed, err := time.Parse(layout, parseValue)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
+	}
+	if leapSecond {
+		parsed = parsed.Add(time.Second)
 	}
 	if needsDayOffset {
 		parsed = parsed.Add(24 * time.Hour)

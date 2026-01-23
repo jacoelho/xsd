@@ -54,7 +54,7 @@ func TestWildcardNamespaceMatching(t *testing.T) {
 </xs:schema>`,
 			xmlDoc: `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">
-  <foo>value</foo>
+  <foo xmlns="">value</foo>
 </root>`,
 			shouldErr: false,
 		},
@@ -139,7 +139,7 @@ func TestWildcardNamespaceMatching(t *testing.T) {
 			shouldErr: true,
 		},
 		{
-			name: "##other rejects empty namespace",
+			name: "##other rejects empty namespace when target namespace is present",
 			schemaXML: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/test"
@@ -154,7 +154,7 @@ func TestWildcardNamespaceMatching(t *testing.T) {
 </xs:schema>`,
 			xmlDoc: `<?xml version="1.0"?>
 <root xmlns="http://example.com/test">
-  <foo>value</foo>
+  <foo xmlns="">value</foo>
 </root>`,
 			shouldErr: true,
 		},
@@ -447,6 +447,79 @@ func TestWildcardProcessContents(t *testing.T) {
   <foo xmlns="http://other.com/ns">value</foo>
 </root>`,
 			shouldErr: false,
+		},
+		{
+			name: "skip ignores declared element validation",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any namespace="##any" processContents="skip"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="foo" type="xs:int"/>
+</xs:schema>`,
+			xmlDoc: `<?xml version="1.0"?>
+<root xmlns="http://example.com/test">
+  <foo xmlns="http://example.com/test">not-an-int</foo>
+</root>`,
+			shouldErr: false,
+		},
+		{
+			name: "lax validates undeclared element with xsi:type",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any namespace="##any" processContents="lax"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`,
+			xmlDoc: `<?xml version="1.0"?>
+<root xmlns="http://example.com/test"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <foo xmlns="http://other.com/ns" xsi:type="xs:int">not-an-int</foo>
+</root>`,
+			shouldErr: true,
+			errorCode: string(errors.ErrDatatypeInvalid),
+		},
+		{
+			name: "lax validates undeclared element content via xsi:type",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:complexType name="ReqType">
+    <xs:sequence>
+      <xs:element name="req" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any namespace="##any" processContents="lax"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`,
+			xmlDoc: `<?xml version="1.0"?>
+<root xmlns="urn:test"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:tns="urn:test">
+  <u xsi:type="tns:ReqType"/>
+</root>`,
+			shouldErr: true,
+			errorCode: string(errors.ErrRequiredElementMissing),
 		},
 	}
 

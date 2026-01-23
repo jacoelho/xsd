@@ -97,6 +97,7 @@ type streamRun struct {
 	automatonFree   []*grammar.AutomatonStreamValidator
 	violations      []errors.Validation
 	identityScopes  []*identityScope
+	declaredAttrs   declaredAttrSet
 	currentLine     int
 	currentColumn   int
 	rootSeen        bool
@@ -310,13 +311,6 @@ func (r *streamRun) prevalidateParentForChild(parent *streamFrame, childName str
 	if parent.nilled {
 		violation := errors.NewValidation(errors.ErrNilElementNotEmpty,
 			"Element with xsi:nil='true' must be empty", r.path.String())
-		r.addViolation(&violation)
-		parent.invalid = true
-		return true
-	}
-	if parent.decl != nil && parent.decl.HasFixed {
-		violation := errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
-			"Element '%s' has a fixed value constraint and cannot have element children", parent.decl.QName.Local)
 		r.addViolation(&violation)
 		parent.invalid = true
 		return true
@@ -560,6 +554,9 @@ func (r *streamRun) handleEnd() error {
 
 func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processContents types.ProcessContents, matchedDecl *grammar.CompiledElement, matchedQName types.QName, origin matchOrigin) (streamFrame, bool) {
 	attrs := newAttributeIndex(ev.Attrs)
+	if origin == matchFromWildcard && processContents == types.Skip {
+		return streamFrame{}, true
+	}
 	decl := r.resolveMatchedDecl(parent, ev.Name, matchedDecl, matchedQName)
 
 	missingCode := errors.ErrElementNotDeclared
@@ -595,7 +592,7 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 						TargetNamespace: types.NamespaceEmpty,
 					}
 				}
-				violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, ev.ScopeDepth, ev.Line, ev.Column)
+				violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, xsiType, ev.ScopeDepth, ev.Line, ev.Column)
 				if len(violations) > 0 {
 					r.addViolations(violations)
 					return streamFrame{}, true
@@ -605,7 +602,36 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 			}
 		}
 		anyType := r.validator.getBuiltinCompiledType(types.GetBuiltin(types.TypeNameAnyType))
-		frame := r.newFrame(ev, nil, anyType, parent)
+		effectiveType := anyType
+		if hasXsiType {
+			xsiType, err := r.resolveXsiType(ev.ScopeDepth, xsiTypeValue, anyType, 0)
+			if err != nil {
+				violation := errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String())
+				r.addViolation(&violation)
+				return streamFrame{}, true
+			}
+			if xsiType != nil {
+				effectiveType = xsiType
+			}
+		}
+
+		attrsToCheck := effectiveType.AllAttributes
+		anyAttr := effectiveType.AnyAttribute
+		if isAnyType(effectiveType) {
+			attrsToCheck = nil
+			anyAttr = &types.AnyAttribute{
+				Namespace:       types.NSCAny,
+				ProcessContents: types.Lax,
+				TargetNamespace: types.NamespaceEmpty,
+			}
+		}
+
+		violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, anyType, ev.ScopeDepth, ev.Line, ev.Column)
+		if len(violations) > 0 {
+			r.addViolations(violations)
+		}
+
+		frame := r.newFrame(ev, nil, effectiveType, parent)
 		return frame, false
 	}
 
@@ -669,10 +695,9 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 			r.addViolation(&violation)
 			return streamFrame{}, true
 		}
-		violations := r.checkAttributesStream(attrs, effectiveType.AllAttributes, effectiveType.AnyAttribute, ev.ScopeDepth, ev.Line, ev.Column)
+		violations := r.checkAttributesStream(attrs, effectiveType.AllAttributes, effectiveType.AnyAttribute, effectiveType, ev.ScopeDepth, ev.Line, ev.Column)
 		if len(violations) > 0 {
 			r.addViolations(violations)
-			return streamFrame{}, true
 		}
 		frame := r.newFrame(ev, decl, effectiveType, parent)
 		frame.nilled = true
@@ -691,10 +716,9 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 		}
 	}
 
-	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, ev.ScopeDepth, ev.Line, ev.Column)
+	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, effectiveType, ev.ScopeDepth, ev.Line, ev.Column)
 	if len(violations) > 0 {
 		r.addViolations(violations)
-		return streamFrame{}, true
 	}
 
 	frame := r.newFrame(ev, decl, effectiveType, parent)
@@ -795,7 +819,7 @@ func listStreamingAllowed(frame *streamFrame) bool {
 	if _, ok := unresolvedSimpleType(frame.textType.Original); ok {
 		return false
 	}
-	if frame.textType.IDTypeName != "" && frame.textType.IDTypeName != "IDREFS" {
+	if frame.textType.IDTypeName != "" && frame.textType.IDTypeName != string(types.TypeNameIDREFS) {
 		return false
 	}
 	if frame.typ != nil && frame.typ.Kind == grammar.TypeKindComplex && len(frame.typ.Facets) > 0 {
@@ -1115,7 +1139,7 @@ func (r *streamRun) processListItemBytes(frame *streamFrame, itemBytes []byte) {
 	index := state.itemIndex
 	state.itemIndex++
 	if state.skipValidate {
-		if frame.textType.IDTypeName == "IDREFS" {
+		if frame.textType.IDTypeName == string(types.TypeNameIDREFS) {
 			r.trackListIDRefs(string(itemBytes), frame.textType)
 		}
 		return
@@ -1127,9 +1151,10 @@ func (r *streamRun) processListItemBytes(frame *streamFrame, itemBytes []byte) {
 		return
 	}
 	itemString := string(itemBytes)
-	valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport, nil)
+	valid, violations := r.validateListItemNormalized(itemString, frame.textType.ItemType, index, frame.scopeDepth, errorPolicyReport, nil, nil)
 	if !valid {
 		r.addViolations(violations)
+		return
 	}
 	if valid && frame.textType.IDTypeName == "IDREFS" {
 		r.trackListIDRefs(itemString, frame.textType)
@@ -1205,7 +1230,7 @@ func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType,
 }
 
 func (r *streamRun) trackListIDRefs(item string, compiledType *grammar.CompiledType) {
-	if compiledType == nil || compiledType.IDTypeName != "IDREFS" {
+	if compiledType == nil || compiledType.IDTypeName != string(types.TypeNameIDREFS) {
 		return
 	}
 	r.trackIDREF(item, r.path.String(), r.currentLine, r.currentColumn)

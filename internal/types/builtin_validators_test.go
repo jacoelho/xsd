@@ -272,6 +272,9 @@ func TestValidateBinaryURIAndQName(t *testing.T) {
 	if err := validateAnyURI("http://ex ample.com"); err == nil {
 		t.Fatalf("expected anyURI whitespace error")
 	}
+	if err := validateAnyURI("http://example.com/%G1"); err == nil {
+		t.Fatalf("expected anyURI percent-encoding error")
+	}
 	if err := validateQName("p:local"); err != nil {
 		t.Fatalf("unexpected QName error: %v", err)
 	}

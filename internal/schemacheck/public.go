@@ -56,8 +56,8 @@ func IsIDOnlyType(qname types.QName) bool {
 }
 
 // IsIDOnlyDerivedType reports whether a simple type is derived from ID only.
-func IsIDOnlyDerivedType(st *types.SimpleType) bool {
-	return isIDOnlyDerivedType(st)
+func IsIDOnlyDerivedType(schema *parser.Schema, st *types.SimpleType) bool {
+	return isIDOnlyDerivedType(schema, st)
 }
 
 // ResolveSimpleTypeReference resolves a simple type by QName.

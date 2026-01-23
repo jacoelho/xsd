@@ -15,6 +15,7 @@ type CompiledSchema struct {
 	NotationDecls           map[types.QName]*types.NotationDecl
 	LocalElements           map[types.QName]*CompiledElement
 	ConstraintDeclsByQName  map[types.QName][]*CompiledElement
+	IdentityNormalization   map[types.Type]*IdentityNormalizationPlan
 	TargetNamespace         types.NamespaceURI
 	ElementsWithConstraints []*CompiledElement
 	ElementFormDefault      parser.Form

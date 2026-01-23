@@ -1,6 +1,7 @@
 package schemacheck
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
@@ -46,10 +47,37 @@ func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl
 	for _, constraint := range decl.Constraints {
 		for i := range constraint.Fields {
 			resolvedType, err := resolveFieldType(schema, &constraint.Fields[i], decl, constraint.Selector.XPath, constraint.NamespaceContext)
-			if err == nil {
-				constraint.Fields[i].ResolvedType = resolvedType
+			if err != nil {
+				// Nillable element check only applies to xs:key constraints
+				// For xs:unique and xs:keyref, nillable elements are allowed (nil values are excluded)
+				if errors.Is(err, ErrFieldSelectsNillable) {
+					if constraint.Type == types.KeyConstraint {
+						return fmt.Errorf("element %s identity constraint '%s': field %d '%s' selects nillable element", decl.Name, constraint.Name, i+1, constraint.Fields[i].XPath)
+					}
+					// For unique/keyref, ignore nillable error and continue
+					continue
+				}
+				// For union fields with incompatible types, report the error during structure validation
+				// UNLESS it's due to selector union (which is allowed - field can have different types for different selector paths)
+				// (reference validation will allow them if needed)
+				if errors.Is(err, ErrFieldXPathIncompatibleTypes) {
+					// Check if error was converted to unresolvable (which means selector union allowed it)
+					if !errors.Is(err, ErrXPathUnresolvable) {
+						return fmt.Errorf("identity constraint '%s': field %d '%s': %w", constraint.Name, i+1, constraint.Fields[i].XPath, err)
+					}
+					// If it was converted to unresolvable, treat as unresolvable (allow it)
+				}
+				// For other errors (unresolvable), leave ResolvedType as nil - will be caught during reference validation
+				if errors.Is(err, ErrXPathUnresolvable) {
+					continue
+				}
+				// For incompatible types that weren't converted, report the error
+				if errors.Is(err, ErrFieldXPathIncompatibleTypes) {
+					return fmt.Errorf("identity constraint '%s': field %d '%s': %w", constraint.Name, i+1, constraint.Fields[i].XPath, err)
+				}
+				continue
 			}
-			// if resolution fails, leave ResolvedType as nil - will be caught during reference validation
+			constraint.Fields[i].ResolvedType = resolvedType
 		}
 	}
 
@@ -69,14 +97,14 @@ func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl
 
 	// validate default value if present (basic validation only - full type checking after resolution)
 	if decl.HasDefault {
-		if err := validateDefaultOrFixedValue(decl.Default, decl.Type); err != nil {
+		if err := validateDefaultOrFixedValueWithContext(schema, decl.Default, decl.Type, decl.DefaultContext); err != nil {
 			return fmt.Errorf("invalid default value '%s': %w", decl.Default, err)
 		}
 	}
 
 	// validate fixed value if present (basic validation only - full type checking after resolution)
 	if decl.HasFixed {
-		if err := validateDefaultOrFixedValue(decl.Fixed, decl.Type); err != nil {
+		if err := validateDefaultOrFixedValueWithContext(schema, decl.Fixed, decl.Type, decl.FixedContext); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)
 		}
 	}

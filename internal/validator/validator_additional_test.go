@@ -9,27 +9,47 @@ import (
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
+// nsCtx returns a namespace context map for testing
+func nsCtx(_ int) map[string]string {
+	return make(map[string]string)
+}
+
 func TestCheckFixedValueDecimal(t *testing.T) {
-	run := &validationRun{schema: newBaseSchemaView(nil)}
+	run := &streamRun{validationRun: &validationRun{schema: newBaseSchemaView(nil)}}
 	decimalType := &grammar.CompiledType{
 		QName:    types.QName{Namespace: types.XSDNamespace, Local: "decimal"},
 		Original: types.GetBuiltin(types.TypeName("decimal")),
 		Kind:     grammar.TypeKindBuiltin,
 	}
 
-	if errs := run.checkFixedValue("1.0", "1.00", decimalType); len(errs) != 0 {
+	ns := nsCtx(0)
+	if errs := run.checkFixedValue("1.0", "1.00", decimalType, ns, ns); len(errs) != 0 {
 		t.Fatalf("expected decimal fixed values to match")
 	}
-	if errs := run.checkFixedValue("1.0", "2.0", decimalType); len(errs) == 0 {
+	if errs := run.checkFixedValue("1.0", "2.0", decimalType, ns, ns); len(errs) == 0 {
 		t.Fatalf("expected decimal fixed value mismatch")
 	}
-	if errs := run.checkFixedValue("a", "b", nil); len(errs) == 0 {
+	if errs := run.checkFixedValue("a", "b", nil, ns, ns); len(errs) == 0 {
 		t.Fatalf("expected string fallback mismatch")
 	}
 }
 
+func TestCheckFixedValueNaN(t *testing.T) {
+	run := &streamRun{validationRun: &validationRun{schema: newBaseSchemaView(nil)}}
+	doubleType := &grammar.CompiledType{
+		QName:    types.QName{Namespace: types.XSDNamespace, Local: "double"},
+		Original: types.GetBuiltin(types.TypeName("double")),
+		Kind:     grammar.TypeKindBuiltin,
+	}
+
+	ns := nsCtx(0)
+	if errs := run.checkFixedValue("NaN", "NaN", doubleType, ns, ns); len(errs) == 0 {
+		t.Fatalf("expected NaN fixed values to mismatch")
+	}
+}
+
 func TestCheckFixedValueUnionMemberTypes(t *testing.T) {
-	run := &validationRun{schema: newBaseSchemaView(nil)}
+	run := &streamRun{validationRun: &validationRun{schema: newBaseSchemaView(nil)}}
 	memberInt := &grammar.CompiledType{Original: types.GetBuiltin(types.TypeName("int")), Kind: grammar.TypeKindBuiltin}
 	memberBool := &grammar.CompiledType{Original: types.GetBuiltin(types.TypeName("boolean")), Kind: grammar.TypeKindBuiltin}
 	unionType := &grammar.CompiledType{
@@ -37,16 +57,41 @@ func TestCheckFixedValueUnionMemberTypes(t *testing.T) {
 		MemberTypes: []*grammar.CompiledType{memberInt, memberBool},
 	}
 
-	if errs := run.checkFixedValue("1", "1", unionType); len(errs) != 0 {
+	ns := nsCtx(0)
+	if errs := run.checkFixedValue("1", "1", unionType, ns, ns); len(errs) != 0 {
 		t.Fatalf("expected union fixed values to match")
 	}
-	if errs := run.checkFixedValue("1", "true", unionType); len(errs) == 0 {
+	if errs := run.checkFixedValue("true", "true", unionType, ns, ns); len(errs) != 0 {
+		t.Fatalf("expected union fixed values to match")
+	}
+	if errs := run.checkFixedValue("1", "true", unionType, ns, ns); len(errs) == 0 {
+		t.Fatalf("expected union fixed value mismatch")
+	}
+	if errs := run.checkFixedValue("1", "false", unionType, ns, ns); len(errs) == 0 {
 		t.Fatalf("expected union fixed value mismatch")
 	}
 }
 
+func TestCheckFixedValueUnionOverlappingMembers(t *testing.T) {
+	run := &streamRun{validationRun: &validationRun{schema: newBaseSchemaView(nil)}}
+	memberInt := &grammar.CompiledType{Original: types.GetBuiltin(types.TypeName("int")), Kind: grammar.TypeKindBuiltin}
+	memberDecimal := &grammar.CompiledType{Original: types.GetBuiltin(types.TypeName("decimal")), Kind: grammar.TypeKindBuiltin}
+	unionType := &grammar.CompiledType{
+		Original:    types.GetBuiltin(types.TypeName("string")),
+		MemberTypes: []*grammar.CompiledType{memberInt, memberDecimal},
+	}
+
+	ns := nsCtx(0)
+	if errs := run.checkFixedValue("1.0", "1.0", unionType, ns, ns); len(errs) != 0 {
+		t.Fatalf("expected union fixed values to match")
+	}
+	if errs := run.checkFixedValue("1", "1.0", unionType, ns, ns); len(errs) == 0 {
+		t.Fatalf("expected overlapping union fixed value mismatch")
+	}
+}
+
 func TestCheckFixedValueUnionSimpleType(t *testing.T) {
-	run := &validationRun{schema: newBaseSchemaView(nil)}
+	run := &streamRun{validationRun: &validationRun{schema: newBaseSchemaView(nil)}}
 	union := &types.SimpleType{}
 	union.Union = &types.UnionType{
 		MemberTypes: []types.QName{
@@ -56,10 +101,11 @@ func TestCheckFixedValueUnionSimpleType(t *testing.T) {
 	}
 	unionType := &grammar.CompiledType{Original: union}
 
-	if errs := run.checkFixedValue("10", "10", unionType); len(errs) != 0 {
+	ns := nsCtx(0)
+	if errs := run.checkFixedValue("10", "10", unionType, ns, ns); len(errs) != 0 {
 		t.Fatalf("expected union simpleType fixed values to match")
 	}
-	if errs := run.checkFixedValue("10", "true", unionType); len(errs) == 0 {
+	if errs := run.checkFixedValue("10", "true", unionType, ns, ns); len(errs) == 0 {
 		t.Fatalf("expected union simpleType mismatch")
 	}
 }
@@ -245,7 +291,7 @@ func TestStreamIdentityHelpers(t *testing.T) {
 
 func TestLengthFacetHelpers(t *testing.T) {
 	length := &types.Length{Value: 1}
-	if !isLengthFacet(length) {
+	if !types.IsLengthFacet(length) {
 		t.Fatalf("expected length facet to be detected")
 	}
 
@@ -293,5 +339,33 @@ func TestCheckComplexTypeFacets(t *testing.T) {
 	}
 	if violations := run.checkComplexTypeFacets("12", ct); len(violations) != 0 {
 		t.Fatalf("expected minInclusive to pass")
+	}
+}
+
+func TestCheckComplexTypeFacetsStreamParity(t *testing.T) {
+	run := &validationRun{}
+	stream := &streamRun{validationRun: run}
+
+	stringType := types.GetBuiltin(types.TypeName("string"))
+	ct := &grammar.CompiledType{
+		SimpleContentType: &grammar.CompiledType{Original: stringType},
+		Facets:            []types.Facet{&types.MinLength{Value: 2}},
+	}
+	ns := nsCtx(0)
+	if got, want := len(run.checkComplexTypeFacets("a", ct)), len(stream.checkComplexTypeFacets("a", ct, ns)); got != want {
+		t.Fatalf("expected matching violations for minLength, got %d vs %d", got, want)
+	}
+
+	decimalType := types.GetBuiltin(types.TypeName("decimal"))
+	minInclusive, err := types.NewMinInclusive("10", decimalType)
+	if err != nil {
+		t.Fatalf("NewMinInclusive error: %v", err)
+	}
+	ct = &grammar.CompiledType{
+		SimpleContentType: &grammar.CompiledType{Original: decimalType},
+		Facets:            []types.Facet{minInclusive},
+	}
+	if got, want := len(run.checkComplexTypeFacets("9", ct)), len(stream.checkComplexTypeFacets("9", ct, ns)); got != want {
+		t.Fatalf("expected matching violations for minInclusive, got %d vs %d", got, want)
 	}
 }

@@ -260,24 +260,24 @@ func TestElementWithoutTypeDefaultsToAnyType(t *testing.T) {
 		elementName  string
 		wantTypeName string
 		wantTypeNS   types.NamespaceURI
-		// "ComplexType" or "SimpleType"
+		// "BuiltinType", "ComplexType", or "SimpleType"
 		wantTypeKind string
 	}{
 		{
 			name: "top-level element without type defaults to anyType",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
   <xs:element name="testElement"/>
 </xs:schema>`,
 			elementName:  "testElement",
 			wantTypeName: "anyType",
 			wantTypeNS:   types.XSDNamespace,
-			wantTypeKind: "ComplexType",
+			wantTypeKind: "BuiltinType",
 		},
 		{
 			name: "local element without type defaults to anyType",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
   <xs:complexType name="TestType">
     <xs:sequence>
       <xs:element name="child"/>
@@ -287,18 +287,18 @@ func TestElementWithoutTypeDefaultsToAnyType(t *testing.T) {
 			elementName:  "child",
 			wantTypeName: "anyType",
 			wantTypeNS:   types.XSDNamespace,
-			wantTypeKind: "ComplexType",
+			wantTypeKind: "BuiltinType",
 		},
 		{
 			name: "element with explicit xs:anyType type",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
   <xs:element name="testElement" type="xs:anyType"/>
 </xs:schema>`,
 			elementName:  "testElement",
 			wantTypeName: "anyType",
 			wantTypeNS:   types.XSDNamespace,
-			wantTypeKind: "ComplexType",
+			wantTypeKind: "BuiltinType",
 		},
 	}
 
@@ -335,6 +335,13 @@ func TestElementWithoutTypeDefaultsToAnyType(t *testing.T) {
 
 				// verify it's the expected type kind and has the correct name
 				switch tt.wantTypeKind {
+				case "BuiltinType":
+					bt, ok := decl.Type.(*types.BuiltinType)
+					if !ok {
+						t.Errorf("element type is %T, want *types.BuiltinType", decl.Type)
+					} else if bt.Name().Local != tt.wantTypeName {
+						t.Errorf("element type Local = %q, want %q", bt.Name().Local, tt.wantTypeName)
+					}
 				case "ComplexType":
 					ct, ok := decl.Type.(*types.ComplexType)
 					if !ok {
@@ -364,9 +371,19 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 		wantTypeNS   types.NamespaceURI
 	}{
 		{
-			name: "unqualified string type resolves to XSD namespace",
+			name: "unqualified type without default namespace resolves to no namespace",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
+  <xs:element name="testElement" type="string"/>
+</xs:schema>`,
+			elementName:  "testElement",
+			wantTypeName: "string",
+			wantTypeNS:   types.NamespaceEmpty,
+		},
+		{
+			name: "unqualified string type resolves to XSD namespace",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
   <xs:element name="testElement" type="string"/>
 </xs:schema>`,
 			elementName:  "testElement",
@@ -376,7 +393,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 		{
 			name: "unqualified integer type resolves to XSD namespace",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
   <xs:element name="testElement" type="integer"/>
 </xs:schema>`,
 			elementName:  "testElement",
@@ -386,7 +403,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 		{
 			name: "unqualified positiveInteger type resolves to XSD namespace",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
   <xs:element name="testElement" type="positiveInteger"/>
 </xs:schema>`,
 			elementName:  "testElement",
@@ -396,7 +413,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 		{
 			name: "unqualified boolean type resolves to XSD namespace",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
   <xs:element name="testElement" type="boolean"/>
 </xs:schema>`,
 			elementName:  "testElement",
@@ -406,7 +423,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 		{
 			name: "unqualified type in attribute resolves to XSD namespace",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
   <xs:complexType name="TestType">
     <xs:attribute name="testAttr" type="string"/>
   </xs:complexType>
@@ -418,7 +435,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 		{
 			name: "unqualified type in simpleType restriction resolves to XSD namespace",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
   <xs:simpleType name="MyString">
     <xs:restriction base="string"/>
   </xs:simpleType>
@@ -430,7 +447,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 		{
 			name: "unqualified type in complexType extension resolves to XSD namespace",
 			schema: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
   <xs:complexType name="TestType">
     <xs:simpleContent>
       <xs:extension base="string">

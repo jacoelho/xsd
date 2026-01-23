@@ -186,6 +186,12 @@ Attributes carry additional information on elements. Each attribute to be valida
 - `fixed="value"` — if present, must equal value; if absent, value is assumed
 - `default="value"` — if absent, value is supplied; can be overridden
 
+**Notes:**
+
+- This implementation follows the W3C XSD 1.0 test suite: `use="prohibited"`
+  rejects `default` but allows `fixed`. Treat any fixed value as ignored since
+  the attribute must not appear in instances.
+
 ### Attribute Groups
 
 Attribute groups name and reuse a common set of attributes:

@@ -306,15 +306,9 @@ func (r *RangeFacet) Validate(value TypedValue, baseType Type) error {
 // isQNameOrNotationType checks if a type is QName, NOTATION, or restricts either.
 // Per XSD 1.0 errata, length facets should be ignored for QName and NOTATION types
 // because their value space length depends on namespace context, not lexical form.
+// This is a wrapper around IsQNameOrNotationType for consistency with existing code.
 func isQNameOrNotationType(t Type) bool {
-	switch typ := t.(type) {
-	case *BuiltinType:
-		return typ.IsQNameOrNotationType()
-	case *SimpleType:
-		return typ.IsQNameOrNotationType()
-	default:
-		return false
-	}
+	return IsQNameOrNotationType(t)
 }
 
 // Length represents a length facet
@@ -443,6 +437,13 @@ type Enumeration struct {
 	ValueContexts []map[string]string
 	// QNameValues holds resolved QName values for QName/NOTATION enumerations.
 	QNameValues []QName
+	cachedBase  Type
+	// cachedAtomicValues holds parsed values for atomic enumerations.
+	cachedAtomicValues []TypedValue
+	// cachedUnionValues holds parsed values for union enumerations (flattened across member types).
+	cachedUnionValues []TypedValue
+	// cachedListValues holds parsed list values for list enumerations.
+	cachedListValues [][][]TypedValue
 }
 
 // Name returns the facet name
@@ -457,18 +458,258 @@ func (e *Enumeration) Validate(value TypedValue, baseType Type) error {
 
 // ValidateLexical checks if the lexical value is in the enumeration.
 func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
-	if isDateTimeType(baseType) {
-		for _, allowed := range e.Values {
-			if dateTimeValuesEqual(lexical, allowed, baseType) {
-				return nil
-			}
+	if e == nil {
+		return nil
+	}
+	if baseType == nil {
+		return fmt.Errorf("enumeration: missing base type")
+	}
+
+	normalized := NormalizeWhiteSpace(lexical, baseType)
+
+	if isQNameOrNotationType(baseType) {
+		if slices.Contains(e.Values, normalized) {
+			return nil
 		}
 		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
 	}
-	if slices.Contains(e.Values, lexical) {
+
+	if itemType, ok := ListItemType(baseType); ok {
+		match, err := e.matchesListEnumeration(normalized, baseType, itemType)
+		if err != nil {
+			return err
+		}
+		if match {
+			return nil
+		}
+		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
+	}
+
+	if memberTypes := unionMemberTypes(baseType); len(memberTypes) > 0 {
+		match, err := e.matchesUnionEnumeration(normalized, baseType, memberTypes)
+		if err != nil {
+			return err
+		}
+		if match {
+			return nil
+		}
+		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
+	}
+
+	match, err := e.matchesAtomicEnumeration(normalized, baseType)
+	if err != nil {
+		return err
+	}
+	if match {
 		return nil
 	}
 	return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
+}
+
+func (e *Enumeration) matchesAtomicEnumeration(lexical string, baseType Type) (bool, error) {
+	actual, err := parseTypedValue(lexical, baseType)
+	if err != nil {
+		return false, err
+	}
+	allowed, err := e.atomicEnumerationValues(baseType)
+	if err != nil {
+		return false, err
+	}
+	for _, candidate := range allowed {
+		if ValuesEqual(actual, candidate) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (e *Enumeration) matchesUnionEnumeration(lexical string, baseType Type, memberTypes []Type) (bool, error) {
+	actualValues, err := parseUnionValueVariants(lexical, memberTypes)
+	if err != nil {
+		return false, err
+	}
+	allowed, err := e.unionEnumerationValues(baseType, memberTypes)
+	if err != nil {
+		return false, err
+	}
+	for _, actual := range actualValues {
+		for _, candidate := range allowed {
+			if ValuesEqual(actual, candidate) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func (e *Enumeration) matchesListEnumeration(lexical string, baseType, itemType Type) (bool, error) {
+	actualItems, err := parseListValueVariants(lexical, itemType)
+	if err != nil {
+		return false, err
+	}
+	allowed, err := e.listEnumerationValues(baseType, itemType)
+	if err != nil {
+		return false, err
+	}
+	for _, candidate := range allowed {
+		if listValuesEqual(actualItems, candidate) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (e *Enumeration) resetCacheIfNeeded(baseType Type) {
+	if e.cachedBase == baseType {
+		return
+	}
+	e.cachedBase = baseType
+	e.cachedAtomicValues = nil
+	e.cachedUnionValues = nil
+	e.cachedListValues = nil
+}
+
+func (e *Enumeration) atomicEnumerationValues(baseType Type) ([]TypedValue, error) {
+	e.resetCacheIfNeeded(baseType)
+	if e.cachedAtomicValues != nil {
+		return e.cachedAtomicValues, nil
+	}
+	values := make([]TypedValue, 0, len(e.Values))
+	for _, val := range e.Values {
+		normalized := NormalizeWhiteSpace(val, baseType)
+		typed, err := parseTypedValue(normalized, baseType)
+		if err != nil {
+			return nil, fmt.Errorf("enumeration value %q: %w", val, err)
+		}
+		values = append(values, typed)
+	}
+	e.cachedAtomicValues = values
+	return values, nil
+}
+
+func (e *Enumeration) unionEnumerationValues(baseType Type, memberTypes []Type) ([]TypedValue, error) {
+	e.resetCacheIfNeeded(baseType)
+	if e.cachedUnionValues != nil {
+		return e.cachedUnionValues, nil
+	}
+	values := make([]TypedValue, 0, len(e.Values))
+	for _, val := range e.Values {
+		normalized := NormalizeWhiteSpace(val, baseType)
+		typed, err := parseUnionValueVariants(normalized, memberTypes)
+		if err != nil {
+			return nil, fmt.Errorf("enumeration value %q: %w", val, err)
+		}
+		values = append(values, typed...)
+	}
+	e.cachedUnionValues = values
+	return values, nil
+}
+
+func (e *Enumeration) listEnumerationValues(baseType, itemType Type) ([][][]TypedValue, error) {
+	e.resetCacheIfNeeded(baseType)
+	if e.cachedListValues != nil {
+		return e.cachedListValues, nil
+	}
+	values := make([][][]TypedValue, len(e.Values))
+	for i, val := range e.Values {
+		normalized := NormalizeWhiteSpace(val, baseType)
+		parsed, err := parseListValueVariants(normalized, itemType)
+		if err != nil {
+			return nil, fmt.Errorf("enumeration value %q: %w", val, err)
+		}
+		values[i] = parsed
+	}
+	e.cachedListValues = values
+	return values, nil
+}
+
+func parseTypedValue(lexical string, typ Type) (TypedValue, error) {
+	switch t := typ.(type) {
+	case *SimpleType:
+		return t.ParseValue(lexical)
+	case *BuiltinType:
+		return t.ParseValue(lexical)
+	default:
+		return nil, fmt.Errorf("unsupported type %T", typ)
+	}
+}
+
+func parseUnionValueVariants(lexical string, memberTypes []Type) ([]TypedValue, error) {
+	if len(memberTypes) == 0 {
+		return nil, fmt.Errorf("union has no member types")
+	}
+	values := make([]TypedValue, 0, len(memberTypes))
+	var firstErr error
+	for _, memberType := range memberTypes {
+		typed, err := parseTypedValue(lexical, memberType)
+		if err == nil {
+			values = append(values, typed)
+			continue
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	if len(values) == 0 {
+		if firstErr != nil {
+			return nil, firstErr
+		}
+		return nil, fmt.Errorf("value %q does not match any union member type", lexical)
+	}
+	return values, nil
+}
+
+func parseListValueVariants(lexical string, itemType Type) ([][]TypedValue, error) {
+	if itemType == nil {
+		return nil, fmt.Errorf("list item type is nil")
+	}
+	items := splitXMLWhitespaceFields(lexical)
+	if len(items) == 0 {
+		return nil, nil
+	}
+	parsed := make([][]TypedValue, len(items))
+	for i, item := range items {
+		values, err := parseValueVariants(item, itemType)
+		if err != nil {
+			return nil, fmt.Errorf("invalid list item %q: %w", item, err)
+		}
+		parsed[i] = values
+	}
+	return parsed, nil
+}
+
+func parseValueVariants(lexical string, typ Type) ([]TypedValue, error) {
+	if members := unionMemberTypes(typ); len(members) > 0 {
+		return parseUnionValueVariants(lexical, members)
+	}
+	typed, err := parseTypedValue(lexical, typ)
+	if err != nil {
+		return nil, err
+	}
+	return []TypedValue{typed}, nil
+}
+
+func listValuesEqual(left, right [][]TypedValue) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if !anyValueEqual(left[i], right[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func anyValueEqual(left, right []TypedValue) bool {
+	for _, l := range left {
+		for _, r := range right {
+			if ValuesEqual(l, r) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ResolveQNameValues parses enumeration values as QNames using ValueContexts.
@@ -505,93 +746,6 @@ func FormatEnumerationValues(values []string) string {
 		quoted[i] = strconv.Quote(value)
 	}
 	return "[" + strings.Join(quoted, ", ") + "]"
-}
-
-func isDateTimeType(baseType Type) bool {
-	if baseType == nil {
-		return false
-	}
-	primitive := baseType.PrimitiveType()
-	if primitive == nil {
-		primitive = baseType
-	}
-	name := primitive.Name().Local
-	switch name {
-	case "dateTime", "date", "time", "gYearMonth", "gYear", "gMonthDay", "gDay", "gMonth":
-		return true
-	default:
-		return false
-	}
-}
-
-func dateTimeValuesEqual(v1, v2 string, baseType Type) bool {
-	primitive := baseType.PrimitiveType()
-	if primitive == nil {
-		primitive = baseType
-	}
-	if HasTimezone(v1) != HasTimezone(v2) {
-		return false
-	}
-	switch primitive.Name().Local {
-	case "dateTime":
-		t1, err1 := ParseDateTime(v1)
-		t2, err2 := ParseDateTime(v2)
-		if err1 != nil || err2 != nil {
-			return v1 == v2
-		}
-		return t1.Equal(t2)
-	case "date":
-		t1, err1 := ParseDate(v1)
-		t2, err2 := ParseDate(v2)
-		if err1 != nil || err2 != nil {
-			return v1 == v2
-		}
-		return t1.Equal(t2)
-	case "time":
-		t1, err1 := ParseTime(v1)
-		t2, err2 := ParseTime(v2)
-		if err1 != nil || err2 != nil {
-			return v1 == v2
-		}
-		return t1.Equal(t2)
-	case "gYearMonth":
-		t1, err1 := ParseGYearMonth(v1)
-		t2, err2 := ParseGYearMonth(v2)
-		if err1 != nil || err2 != nil {
-			return v1 == v2
-		}
-		return t1.Equal(t2)
-	case "gYear":
-		t1, err1 := ParseGYear(v1)
-		t2, err2 := ParseGYear(v2)
-		if err1 != nil || err2 != nil {
-			return v1 == v2
-		}
-		return t1.Equal(t2)
-	case "gMonthDay":
-		t1, err1 := ParseGMonthDay(v1)
-		t2, err2 := ParseGMonthDay(v2)
-		if err1 != nil || err2 != nil {
-			return v1 == v2
-		}
-		return t1.Equal(t2)
-	case "gDay":
-		t1, err1 := ParseGDay(v1)
-		t2, err2 := ParseGDay(v2)
-		if err1 != nil || err2 != nil {
-			return v1 == v2
-		}
-		return t1.Equal(t2)
-	case "gMonth":
-		t1, err1 := ParseGMonth(v1)
-		t2, err2 := ParseGMonth(v2)
-		if err1 != nil || err2 != nil {
-			return v1 == v2
-		}
-		return t1.Equal(t2)
-	default:
-		return v1 == v2
-	}
 }
 
 // TotalDigits represents a totalDigits facet

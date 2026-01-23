@@ -1,10 +1,9 @@
 package validator
 
 import (
-	"slices"
-
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -16,34 +15,52 @@ type attributeIndex struct {
 const attributeMapThreshold = 8
 
 type declaredAttrSet struct {
-	mapValues map[types.QName]struct{}
-	list      []types.QName
+	mapValues map[types.QName]bool
+	list      []declaredAttrEntry
 }
 
-func newDeclaredAttrSet(size int) declaredAttrSet {
-	if size > attributeMapThreshold {
-		return declaredAttrSet{mapValues: make(map[types.QName]struct{}, size)}
-	}
-	if size == 0 {
-		return declaredAttrSet{}
-	}
-	return declaredAttrSet{list: make([]types.QName, 0, size)}
+type declaredAttrEntry struct {
+	name       types.QName
+	prohibited bool
 }
 
-func (s *declaredAttrSet) add(name types.QName) {
+func (s *declaredAttrSet) reset(size int) {
 	if s.mapValues != nil {
-		s.mapValues[name] = struct{}{}
+		clear(s.mapValues)
+		s.list = s.list[:0]
 		return
 	}
-	s.list = append(s.list, name)
+	if size > attributeMapThreshold {
+		s.mapValues = make(map[types.QName]bool, size)
+		s.list = s.list[:0]
+		return
+	}
+	if cap(s.list) < size {
+		s.list = make([]declaredAttrEntry, 0, size)
+		return
+	}
+	s.list = s.list[:0]
 }
 
-func (s declaredAttrSet) contains(name types.QName) bool {
+func (s *declaredAttrSet) add(name types.QName, prohibited bool) {
 	if s.mapValues != nil {
-		_, ok := s.mapValues[name]
-		return ok
+		s.mapValues[name] = prohibited
+		return
 	}
-	return slices.Contains(s.list, name)
+	s.list = append(s.list, declaredAttrEntry{name: name, prohibited: prohibited})
+}
+
+func (s declaredAttrSet) lookup(name types.QName) (declared, prohibited bool) {
+	if s.mapValues != nil {
+		value, ok := s.mapValues[name]
+		return ok, value
+	}
+	for _, entry := range s.list {
+		if entry.name == name {
+			return true, entry.prohibited
+		}
+	}
+	return false, false
 }
 
 func newAttributeIndex(attrs []streamAttr) attributeIndex {
@@ -73,17 +90,34 @@ func (a attributeIndex) Value(ns, local string) (string, bool) {
 	return "", false
 }
 
-func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar.CompiledAttribute, anyAttr *types.AnyAttribute, scopeDepth, line, column int) []errors.Validation {
+func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar.CompiledAttribute, anyAttr *types.AnyAttribute, effectiveType *grammar.CompiledType, scopeDepth, line, column int) []errors.Validation {
 	var violations []errors.Validation
 
-	declared := newDeclaredAttrSet(len(decls))
+	declared := &r.declaredAttrs
+	// Reserve space for declared attributes plus potentially prohibited ones from derivation chain
+	declared.reset(len(decls) + 10)
 	idCount := 0
+
+	// First, collect all prohibited attributes from the derivation chain
+	// We need to check the original types since prohibited attributes are excluded from AllAttributes
+	prohibitedAttrs := r.collectProhibitedAttributes(effectiveType)
+	// Add prohibited attributes to declared set first
+	for _, prohibitedQName := range prohibitedAttrs {
+		declared.add(prohibitedQName, true)
+	}
 
 	for _, attr := range decls {
 		if attr.Use == types.Prohibited {
+			// Prohibited attributes with fixed are included in AllAttributes for schema validation,
+			// but during instance validation they should not be in the declared set
+			// (so they fall through to wildcard check, or get "not declared" error)
+			// Only add them as prohibited if they don't have fixed
+			if !attr.HasFixed {
+				declared.add(attr.QName, true)
+			}
 			continue
 		}
-		declared.add(attr.QName)
+		declared.add(attr.QName, false)
 
 		if attr.Use == types.Required {
 			if _, ok := attrs.Value(attr.QName.Namespace.String(), attr.QName.Local); !ok {
@@ -99,7 +133,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 				if value != "" && len(valueViolations) == 0 {
 					violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
 				}
-				if attr.Type.IDTypeName == "ID" {
+				if attr.Type.IDTypeName == string(types.TypeNameID) {
 					idCount++
 				}
 			}
@@ -129,7 +163,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 				if value != "" && len(valueViolations) == 0 {
 					violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
 				}
-				if attr.Type.IDTypeName == "ID" {
+				if attr.Type.IDTypeName == string(types.TypeNameID) {
 					idCount++
 				}
 			}
@@ -146,7 +180,14 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 			Local:     xmlAttr.LocalName(),
 		}
 
-		if !declared.contains(attrQName) && !isSpecialAttribute(attrQName) {
+		isDeclared, isProhibited := declared.lookup(attrQName)
+		if isProhibited {
+			violations = append(violations, errors.NewValidationf(errors.ErrAttributeProhibited, r.path.String(),
+				"Attribute '%s' is prohibited", attrQName.Local))
+			continue
+		}
+
+		if !isDeclared && !isSpecialAttribute(attrQName) {
 			if anyAttr == nil || !anyAttr.AllowsQName(attrQName) {
 				violations = append(violations, errors.NewValidationf(errors.ErrAttributeNotDeclared, r.path.String(),
 					"Attribute '%s' is not declared", attrQName.Local))
@@ -154,7 +195,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 				violations = append(violations, r.checkWildcardAttributeStream(xmlAttr, anyAttr, scopeDepth, line, column)...)
 				if anyAttr.ProcessContents != types.Skip {
 					if attrDecl := r.schema.Attribute(attrQName); attrDecl != nil && attrDecl.Type != nil {
-						if attrDecl.Type.IDTypeName == "ID" {
+						if attrDecl.Type.IDTypeName == string(types.TypeNameID) {
 							idCount++
 						}
 					}
@@ -169,6 +210,84 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 	}
 
 	return violations
+}
+
+// collectProhibitedAttributes collects prohibited attributes from the type's derivation chain
+// by checking the original type definitions since prohibited attributes are excluded from AllAttributes
+func (r *streamRun) collectProhibitedAttributes(effectiveType *grammar.CompiledType) []types.QName {
+	var prohibited []types.QName
+	seen := make(map[types.QName]bool)
+
+	if effectiveType == nil {
+		return prohibited
+	}
+
+	// Get attributeFormDefault from grammar
+	attributeFormDefault := r.validator.grammar.AttributeFormDefault
+
+	// Walk the derivation chain to find prohibited attributes
+	for _, compiledType := range effectiveType.DerivationChain {
+		if compiledType.Original == nil {
+			continue
+		}
+		complexType, ok := compiledType.Original.(*types.ComplexType)
+		if !ok {
+			continue
+		}
+
+		// Helper to compute effective QName for an attribute
+		effectiveQName := func(attr *types.AttributeDecl) types.QName {
+			if attr.IsReference {
+				return attr.Name
+			}
+			isQualified := false
+			switch attr.Form {
+			case types.FormQualified:
+				isQualified = true
+			case types.FormUnqualified:
+				isQualified = false
+			default:
+				// Use schema default
+				isQualified = (attributeFormDefault == parser.Qualified)
+			}
+			if !isQualified {
+				return types.QName{Namespace: "", Local: attr.Name.Local}
+			}
+			ns := complexType.SourceNamespace
+			if !attr.SourceNamespace.IsEmpty() {
+				ns = attr.SourceNamespace
+			}
+			return types.QName{Namespace: ns, Local: attr.Name.Local}
+		}
+
+		// Check direct attributes
+		for _, attr := range complexType.Attributes() {
+			if attr.Use == types.Prohibited && !attr.HasFixed {
+				qname := effectiveQName(attr)
+				if !seen[qname] {
+					prohibited = append(prohibited, qname)
+					seen[qname] = true
+				}
+			}
+		}
+
+		// Check restriction attributes
+		if content, ok := complexType.Content().(*types.ComplexContent); ok {
+			if restr := content.RestrictionDef(); restr != nil {
+				for _, attr := range restr.Attributes {
+					if attr.Use == types.Prohibited && !attr.HasFixed {
+						qname := effectiveQName(attr)
+						if !seen[qname] {
+							prohibited = append(prohibited, qname)
+							seen[qname] = true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return prohibited
 }
 
 func (r *streamRun) checkWildcardAttributeStream(xmlAttr streamAttr, anyAttr *types.AnyAttribute, scopeDepth, line, column int) []errors.Validation {

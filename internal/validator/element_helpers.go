@@ -3,12 +3,16 @@ package validator
 import (
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
 )
 
-// isSpecialAttribute checks if an attribute is a special XSI or XMLNS attribute.
+// isSpecialAttribute checks if an attribute is a special XSI, XMLNS, or XML namespace attribute.
 func isSpecialAttribute(qname types.QName) bool {
 	if qname.Namespace == xsdxml.XMLNSNamespace {
+		return true
+	}
+	// XML namespace attributes (xml:lang, xml:space, xml:base) are always allowed
+	if qname.Namespace == xsdxml.XMLNamespace {
 		return true
 	}
 	if qname.Namespace != xsdxml.XSINamespace {

@@ -16,6 +16,8 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
+var errUnsupportedURL = errors.New("unsupported schema location")
+
 // Config holds configuration for the schema loader
 type Config struct {
 	FS fs.FS
@@ -39,19 +41,31 @@ type fsContext struct {
 }
 
 type loadState struct {
-	loaded         map[loadKey]*parser.Schema
-	validated      map[loadKey]bool
-	loading        map[loadKey]bool
-	loadingSchemas map[loadKey]*parser.Schema
+	loaded              map[loadKey]*parser.Schema
+	validated           map[loadKey]bool
+	validationRequested map[loadKey]bool
+	loading             map[loadKey]bool
+	loadingSchemas      map[loadKey]*parser.Schema
+	pendingImports      map[loadKey][]pendingImport
+	pendingCounts       map[loadKey]int
 }
 
 func newLoadState() loadState {
 	return loadState{
-		loaded:         make(map[loadKey]*parser.Schema),
-		validated:      make(map[loadKey]bool),
-		loading:        make(map[loadKey]bool),
-		loadingSchemas: make(map[loadKey]*parser.Schema),
+		loaded:              make(map[loadKey]*parser.Schema),
+		validated:           make(map[loadKey]bool),
+		validationRequested: make(map[loadKey]bool),
+		loading:             make(map[loadKey]bool),
+		loadingSchemas:      make(map[loadKey]*parser.Schema),
+		pendingImports:      make(map[loadKey][]pendingImport),
+		pendingCounts:       make(map[loadKey]int),
 	}
+}
+
+type pendingImport struct {
+	targetKey         loadKey
+	schemaLocation    string
+	expectedNamespace string
 }
 
 type importTracker struct {
@@ -187,11 +201,11 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 	session := newLoadSession(l, absLoc, ctx, key)
 
 	if schema, ok := l.state.loaded[key]; ok {
-		if mode == validateSchema && !l.state.validated[key] {
-			if validateErr := l.validateLoadedSchema(schema); validateErr != nil {
-				return nil, validateErr
+		if mode == validateSchema {
+			l.state.validationRequested[key] = true
+			if resolveErr := l.resolvePendingImportsFor(key); resolveErr != nil {
+				return nil, resolveErr
 			}
-			l.state.validated[key] = true
 		}
 		return schema, nil
 	}
@@ -231,17 +245,15 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 		return nil, importErr
 	}
 
-	// resolve group and type references only when validating the full schema.
-	// included/imported schemas may reference components defined in other files
-	// that are only available after merging.
 	if mode == validateSchema {
-		if validateErr := l.validateLoadedSchema(schema); validateErr != nil {
-			return nil, validateErr
-		}
-		l.state.validated[key] = true
+		l.state.validationRequested[key] = true
 	}
 
 	l.state.loaded[key] = schema
+
+	if err := l.resolvePendingImportsFor(key); err != nil {
+		return nil, err
+	}
 
 	return schema, nil
 }
@@ -334,6 +346,9 @@ func (l *SchemaLoader) GetLoaded(location string) (*parser.Schema, bool, error) 
 }
 
 func (l *SchemaLoader) resolveLocation(location string) (string, error) {
+	if err := rejectURLLocation(location); err != nil {
+		return "", err
+	}
 	if l.config.BasePath == "" {
 		return location, nil
 	}
@@ -360,6 +375,9 @@ func (l *SchemaLoader) resolveLocation(location string) (string, error) {
 
 // resolveIncludeLocation resolves an include/import location relative to a base location
 func (l *SchemaLoader) resolveIncludeLocation(baseLoc, includeLoc string) (string, error) {
+	if err := rejectURLLocation(includeLoc); err != nil {
+		return "", err
+	}
 	// if include location is absolute, use it as-is
 	if path.IsAbs(includeLoc) {
 		return includeLoc, nil
@@ -381,6 +399,18 @@ func (l *SchemaLoader) resolveIncludeLocation(baseLoc, includeLoc string) (strin
 	return "", fmt.Errorf("schema location %q escapes base path %q", includeLoc, cleanBase)
 }
 
+func rejectURLLocation(location string) error {
+	lower := strings.ToLower(location)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return fmt.Errorf("%w: schema location %q uses HTTP; remote resolution is not supported", errUnsupportedURL, location)
+	}
+	if idx := strings.Index(location, "://"); idx != -1 {
+		scheme := location[:idx]
+		return fmt.Errorf("%w: schema location %q uses URL scheme %q; only local filesystem paths are supported", errUnsupportedURL, location, scheme)
+	}
+	return nil
+}
+
 func (l *SchemaLoader) trackImportContext(resolvedLocation, originalLocation, namespace, fsKey string) func() {
 	return l.imports.trackContext(resolvedLocation, originalLocation, namespace, fsKey)
 }
@@ -399,6 +429,90 @@ func (l *SchemaLoader) alreadyMergedImport(baseKey, importKey loadKey) bool {
 
 func (l *SchemaLoader) markMergedImport(baseKey, importKey loadKey) {
 	l.imports.markMergedImport(baseKey, importKey)
+}
+
+func (l *SchemaLoader) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string) {
+	for _, pending := range l.state.pendingImports[sourceKey] {
+		if pending.targetKey == targetKey {
+			return
+		}
+	}
+	l.state.pendingImports[sourceKey] = append(l.state.pendingImports[sourceKey], pendingImport{
+		targetKey:         targetKey,
+		schemaLocation:    schemaLocation,
+		expectedNamespace: expectedNamespace,
+	})
+	l.state.pendingCounts[targetKey]++
+}
+
+func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
+	if l.state.pendingCounts[sourceKey] > 0 {
+		return nil
+	}
+	pending := l.state.pendingImports[sourceKey]
+	if len(pending) == 0 {
+		return l.validateIfRequested(sourceKey)
+	}
+	source := l.schemaForKey(sourceKey)
+	if source == nil {
+		return fmt.Errorf("pending import source not found: %s", sourceKey.location)
+	}
+	delete(l.state.pendingImports, sourceKey)
+
+	for _, entry := range pending {
+		target := l.schemaForKey(entry.targetKey)
+		if target == nil {
+			return fmt.Errorf("pending import target not found: %s", entry.targetKey.location)
+		}
+		if entry.expectedNamespace != "" && source.TargetNamespace != types.NamespaceURI(entry.expectedNamespace) {
+			return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
+				entry.schemaLocation, entry.expectedNamespace, source.TargetNamespace)
+		}
+		if err := l.mergeSchema(target, source, mergeImport, keepNamespace); err != nil {
+			return fmt.Errorf("merge imported schema %s: %w", entry.schemaLocation, err)
+		}
+		l.markMergedImport(entry.targetKey, sourceKey)
+
+		l.state.pendingCounts[entry.targetKey]--
+		if l.state.pendingCounts[entry.targetKey] < 0 {
+			l.state.pendingCounts[entry.targetKey] = 0
+		}
+		if l.state.pendingCounts[entry.targetKey] == 0 {
+			if err := l.resolvePendingImportsFor(entry.targetKey); err != nil {
+				return err
+			}
+		}
+	}
+
+	return l.validateIfRequested(sourceKey)
+}
+
+func (l *SchemaLoader) schemaForKey(key loadKey) *parser.Schema {
+	if schema, ok := l.state.loaded[key]; ok {
+		return schema
+	}
+	if schema, ok := l.state.loadingSchemas[key]; ok {
+		return schema
+	}
+	return nil
+}
+
+func (l *SchemaLoader) validateIfRequested(key loadKey) error {
+	if !l.state.validationRequested[key] || l.state.validated[key] {
+		return nil
+	}
+	if l.state.pendingCounts[key] > 0 {
+		return nil
+	}
+	schema := l.schemaForKey(key)
+	if schema == nil {
+		return fmt.Errorf("schema not available for validation: %s", key.location)
+	}
+	if err := l.validateLoadedSchema(schema); err != nil {
+		return err
+	}
+	l.state.validated[key] = true
+	return nil
 }
 
 func ensureNamespaceMap(m map[types.NamespaceURI]map[types.NamespaceURI]bool, key types.NamespaceURI) map[types.NamespaceURI]bool {
@@ -517,7 +631,7 @@ func isNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
-	return errors.Is(err, fs.ErrNotExist) || os.IsNotExist(err)
+	return errors.Is(err, fs.ErrNotExist) || os.IsNotExist(err) || errors.Is(err, errUnsupportedURL)
 }
 
 // isIncludeNamespaceCompatible checks if target namespaces are compatible for include

@@ -27,6 +27,7 @@ func TestParseTime(t *testing.T) {
 		{"time with nanoseconds and offset", "13:20:00.123456789-05:00", false},
 		{"time with milliseconds UTC", "13:20:00.123Z", false},
 		{"time with milliseconds no timezone", "13:20:00.123", false},
+		{"time leap second UTC", "23:59:60Z", false},
 		{"empty", "", true},
 		{"invalid format", "25:00:00", true},
 	}

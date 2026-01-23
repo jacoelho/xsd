@@ -211,7 +211,7 @@ func copyExtension(ext *Extension, opts CopyOptions) *Extension {
 		clone.Base = opts.RemapQName(ext.Base)
 	}
 	clone.AttrGroups = copyQNameSlice(ext.AttrGroups, opts.RemapQName)
-	clone.AnyAttribute = copyAnyAttribute(ext.AnyAttribute)
+	clone.AnyAttribute = copyAnyAttribute(ext.AnyAttribute, opts)
 	return &clone
 }
 
@@ -231,7 +231,7 @@ func copyRestriction(restriction *Restriction, opts CopyOptions) *Restriction {
 	if restriction.Particle != nil {
 		clone.Particle = copyParticle(restriction.Particle, opts)
 	}
-	clone.AnyAttribute = copyAnyAttribute(restriction.AnyAttribute)
+	clone.AnyAttribute = copyAnyAttribute(restriction.AnyAttribute, opts)
 	if restriction.SimpleType != nil {
 		clone.SimpleType = restriction.SimpleType.Copy(opts)
 	}

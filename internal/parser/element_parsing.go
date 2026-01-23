@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
 )
 
 var (
@@ -153,10 +153,11 @@ func scanElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) elementAttr
 	return attrs
 }
 
-// makeAnyType creates an anyType ComplexType.
-// Per XSD 1.0 spec, anyType has mixed content allowing any elements and text.
+// makeAnyType returns the canonical anyType instance.
+// anyType is treated as a built-in type throughout the system.
 func makeAnyType() types.Type {
-	return types.NewAnyTypeComplexType()
+	// Return the builtin anyType, not the complex type representation
+	return types.GetBuiltin(types.TypeNameAnyType)
 }
 
 // parseTopLevelElement parses a top-level element declaration
@@ -241,12 +242,7 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 
 		// check if it's a built-in type
 		if builtinType := types.GetBuiltinNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
-			// anyType is special - it's a complex type, not a simple type
-			if typeQName.Local == "anyType" {
-				decl.Type = makeAnyType()
-			} else {
-				decl.Type = builtinType
-			}
+			decl.Type = builtinType
 		} else {
 			// will be resolved later in a second pass
 			// for now, create a placeholder
@@ -311,6 +307,9 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 		decl.Fixed = doc.GetAttribute(elem, "fixed")
 		decl.HasFixed = true
 		decl.FixedContext = namespaceContextForElement(doc, elem, schema)
+	}
+	if decl.HasDefault || decl.HasFixed {
+		decl.ValueContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	// parse block attribute (space-separated list: substitution, extension, restriction, #all)
@@ -488,6 +487,7 @@ func parseLocalElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema,
 		return nil, err
 	}
 	decl.Type = typ
+	decl.TypeExplicit = attrs.hasType || hasInlineType
 
 	err = applyElementConstraints(doc, elem, schema, attrs, decl)
 	if err != nil {
@@ -635,9 +635,6 @@ func resolveElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 		}
 
 		if builtinType := types.GetBuiltinNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
-			if typeQName.Local == "anyType" {
-				return makeAnyType(), nil
-			}
 			return builtinType, nil
 		}
 		return types.NewPlaceholderSimpleType(typeQName), nil
@@ -697,6 +694,9 @@ func applyElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 		decl.Fixed = attrs.fixedVal
 		decl.HasFixed = true
 		decl.FixedContext = namespaceContextForElement(doc, elem, schema)
+	}
+	if decl.HasDefault || decl.HasFixed {
+		decl.ValueContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	if attrs.hasBlock {

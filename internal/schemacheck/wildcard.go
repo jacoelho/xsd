@@ -99,42 +99,10 @@ func wildcardIsSubset(w1, w2 *types.AnyElement) bool {
 }
 
 func wildcardNamespaceSubset(w1, w2 *types.AnyElement) bool {
-	// if w2 is ##any, w1 is always a subset (##any matches everything)
-	if w2.Namespace == types.NSCAny {
-		return true
-	}
-
-	// if w1 is ##any, it's only a subset if w2 is also ##any (handled above)
-	if w1.Namespace == types.NSCAny {
-		return false
-	}
-
-	switch w1.Namespace {
-	case types.NSCList:
-		for _, ns := range w1.NamespaceList {
-			if !namespaceMatchesWildcard(ns, w2.Namespace, w2.NamespaceList, w2.TargetNamespace) {
-				return false
-			}
-		}
-		return true
-	case types.NSCTargetNamespace:
-		return namespaceMatchesWildcard(w1.TargetNamespace, w2.Namespace, w2.NamespaceList, w2.TargetNamespace)
-	case types.NSCLocal:
-		return namespaceMatchesWildcard(types.NamespaceEmpty, w2.Namespace, w2.NamespaceList, w2.TargetNamespace)
-	case types.NSCOther:
-		if w2.Namespace == types.NSCAny {
-			return true
-		}
-		if w2.Namespace != types.NSCOther {
-			return false
-		}
-		if w2.TargetNamespace.IsEmpty() {
-			return true
-		}
-		return w1.TargetNamespace == w2.TargetNamespace
-	default:
-		return false
-	}
+	return namespaceConstraintSubset(
+		w1.Namespace, w1.NamespaceList, w1.TargetNamespace,
+		w2.Namespace, w2.NamespaceList, w2.TargetNamespace,
+	)
 }
 
 // validateAnyAttributeDerivation validates anyAttribute constraints in type derivation
@@ -154,8 +122,14 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *types.ComplexType
 		return nil
 	}
 
-	baseAnyAttr := collectAnyAttributeFromType(schema, baseCT)
-	derivedAnyAttr := collectAnyAttributeFromType(schema, ct)
+	baseAnyAttr, err := collectAnyAttributeFromType(schema, baseCT)
+	if err != nil {
+		return err
+	}
+	derivedAnyAttr, err := collectAnyAttributeFromType(schema, ct)
+	if err != nil {
+		return err
+	}
 
 	if ct.IsExtension() {
 		// extension: anyAttribute must union with base anyAttribute
@@ -188,7 +162,7 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *types.ComplexType
 
 // collectAnyAttributeFromType collects anyAttribute from a complex type
 // Checks both direct anyAttribute and anyAttribute in extension/restriction
-func collectAnyAttributeFromType(schema *parser.Schema, ct *types.ComplexType) *types.AnyAttribute {
+func collectAnyAttributeFromType(schema *parser.Schema, ct *types.ComplexType) (*types.AnyAttribute, error) {
 	var anyAttrs []*types.AnyAttribute
 
 	if ct.AnyAttribute() != nil {
@@ -211,17 +185,21 @@ func collectAnyAttributeFromType(schema *parser.Schema, ct *types.ComplexType) *
 	}
 
 	if len(anyAttrs) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	result := anyAttrs[0]
 	for i := 1; i < len(anyAttrs); i++ {
-		result = types.IntersectAnyAttribute(result, anyAttrs[i])
-		if result == nil {
-			return nil
+		intersected, expressible, empty := types.IntersectAnyAttributeDetailed(result, anyAttrs[i])
+		if !expressible {
+			return nil, fmt.Errorf("anyAttribute intersection is not expressible")
 		}
+		if empty {
+			return nil, nil
+		}
+		result = intersected
 	}
-	return result
+	return result, nil
 }
 
 // collectAnyAttributeFromGroups collects anyAttribute from attribute groups (recursively)
@@ -254,42 +232,10 @@ func anyAttributeIsSubset(w1, w2 *types.AnyAttribute) bool {
 	if !processContentsStrongerOrEqual(w1.ProcessContents, w2.ProcessContents) {
 		return false
 	}
-	// if w2 is ##any, w1 is always a subset (##any matches everything)
-	if w2.Namespace == types.NSCAny {
-		return true
-	}
-
-	// if w1 is ##any, it's only a subset if w2 is also ##any (handled above)
-	if w1.Namespace == types.NSCAny {
-		return false
-	}
-
-	switch w1.Namespace {
-	case types.NSCList:
-		for _, ns := range w1.NamespaceList {
-			if !namespaceMatchesWildcard(ns, w2.Namespace, w2.NamespaceList, w2.TargetNamespace) {
-				return false
-			}
-		}
-		return true
-	case types.NSCTargetNamespace:
-		return namespaceMatchesWildcard(w1.TargetNamespace, w2.Namespace, w2.NamespaceList, w2.TargetNamespace)
-	case types.NSCLocal:
-		return namespaceMatchesWildcard(types.NamespaceEmpty, w2.Namespace, w2.NamespaceList, w2.TargetNamespace)
-	case types.NSCOther:
-		if w2.Namespace == types.NSCAny {
-			return true
-		}
-		if w2.Namespace != types.NSCOther {
-			return false
-		}
-		if w2.TargetNamespace.IsEmpty() {
-			return true
-		}
-		return w1.TargetNamespace == w2.TargetNamespace
-	default:
-		return false
-	}
+	return namespaceConstraintSubset(
+		w1.Namespace, w1.NamespaceList, w1.TargetNamespace,
+		w2.Namespace, w2.NamespaceList, w2.TargetNamespace,
+	)
 }
 
 func processContentsStrongerOrEqual(derived, base types.ProcessContents) bool {
@@ -300,6 +246,65 @@ func processContentsStrongerOrEqual(derived, base types.ProcessContents) bool {
 		return derived == types.Lax || derived == types.Strict
 	case types.Skip:
 		return true
+	default:
+		return false
+	}
+}
+
+func namespaceConstraintSubset(
+	ns1 types.NamespaceConstraint,
+	list1 []types.NamespaceURI,
+	target1 types.NamespaceURI,
+	ns2 types.NamespaceConstraint,
+	list2 []types.NamespaceURI,
+	target2 types.NamespaceURI,
+) bool {
+	// if ns2 is ##any, ns1 is always a subset (##any matches everything)
+	if ns2 == types.NSCAny {
+		return true
+	}
+
+	// if ns1 is ##any, it's only a subset if ns2 is also ##any (handled above)
+	if ns1 == types.NSCAny {
+		return false
+	}
+
+	switch ns1 {
+	case types.NSCList:
+		for _, ns := range list1 {
+			resolved := ns
+			if ns == types.NamespaceTargetPlaceholder {
+				resolved = target1
+			}
+			if !namespaceMatchesWildcard(resolved, ns2, list2, target2) {
+				return false
+			}
+		}
+		return true
+	case types.NSCTargetNamespace:
+		return namespaceMatchesWildcard(target1, ns2, list2, target2)
+	case types.NSCLocal:
+		return namespaceMatchesWildcard(types.NamespaceEmpty, ns2, list2, target2)
+	case types.NSCOther:
+		if ns2 == types.NSCAny || ns2 == types.NSCNotAbsent {
+			return true
+		}
+		if ns2 != types.NSCOther {
+			return false
+		}
+		if target2.IsEmpty() {
+			return true
+		}
+		return target1 == target2
+	case types.NSCNotAbsent:
+		switch ns2 {
+		case types.NSCAny, types.NSCNotAbsent:
+			return true
+		case types.NSCOther:
+			return target2.IsEmpty()
+		default:
+			return false
+		}
 	default:
 		return false
 	}

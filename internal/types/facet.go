@@ -17,6 +17,17 @@ var (
 	_ Facet = (*RangeFacet)(nil)
 )
 
+// IsLengthFacet reports whether the facet is a length-related facet
+// (length, minLength, or maxLength).
+func IsLengthFacet(facet Facet) bool {
+	switch facet.(type) {
+	case *Length, *MinLength, *MaxLength:
+		return true
+	default:
+		return false
+	}
+}
+
 // StringTypedValue is a simple TypedValue wrapper for string values
 // Used when parsing to native type fails but we still need to validate facets
 type StringTypedValue struct {

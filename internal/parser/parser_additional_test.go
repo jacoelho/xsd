@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
 )
 
 func TestParseTopLevelDefinitions(t *testing.T) {
@@ -427,6 +427,19 @@ func TestParseBoolAndOccursValues(t *testing.T) {
 	}
 }
 
+func TestParseUnionMemberTypesNBSP(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="BadUnion">
+    <xs:union memberTypes="xs:string` + "\u00A0" + `xs:int"/>
+  </xs:simpleType>
+</xs:schema>`
+
+	if _, err := Parse(strings.NewReader(schemaXML)); err == nil {
+		t.Fatalf("expected union memberTypes with NBSP to fail parsing")
+	}
+}
+
 func TestParseAttributeGroupWithAnyAttribute(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -815,6 +828,55 @@ func TestParseAttributeLocalAndReference(t *testing.T) {
 	}
 }
 
+func TestParseAttributeProhibitedFixedLocalAllowed(t *testing.T) {
+	xmlStr := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="a" type="xs:string" use="prohibited" fixed="x"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	doc := parseDoc(t, xmlStr)
+	schema := NewSchema()
+
+	root := doc.DocumentElement()
+	attrElem := findElementWithAttr(doc, root, "attribute", "fixed")
+	if attrElem == xsdxml.InvalidNode {
+		t.Fatalf("expected attribute with fixed to be found")
+	}
+	if _, err := parseAttribute(doc, attrElem, schema); err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+}
+
+func TestParseAttributeProhibitedFixedReferenceAllowed(t *testing.T) {
+	xmlStr := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:attr"
+           xmlns:tns="urn:attr">
+  <xs:attribute name="base" type="xs:string"/>
+  <xs:complexType name="t">
+    <xs:attribute ref="tns:base" use="prohibited" fixed="x"/>
+  </xs:complexType>
+</xs:schema>`
+
+	doc := parseDoc(t, xmlStr)
+	schema := NewSchema()
+	schema.TargetNamespace = "urn:attr"
+	schema.NamespaceDecls["tns"] = "urn:attr"
+
+	root := doc.DocumentElement()
+	attrElem := findElementWithAttr(doc, root, "attribute", "ref")
+	if attrElem == xsdxml.InvalidNode {
+		t.Fatalf("expected attribute ref to be found")
+	}
+	if _, err := parseAttribute(doc, attrElem, schema); err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+}
+
 func TestParseComplexContentExtension(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -866,8 +928,8 @@ func TestResolveBaseTypeForComplex(t *testing.T) {
 	schema := NewSchema()
 	anyQName := types.QName{Namespace: types.XSDNamespace, Local: "anyType"}
 	base := resolveBaseTypeForComplex(schema, anyQName)
-	if _, ok := base.(*types.ComplexType); !ok {
-		t.Fatalf("expected anyType to resolve to complex type")
+	if _, ok := base.(*types.BuiltinType); !ok {
+		t.Fatalf("expected anyType to resolve to builtin type")
 	}
 
 	stringQName := types.QName{Namespace: types.XSDNamespace, Local: "string"}
@@ -963,7 +1025,7 @@ func TestResolveQNameWithoutBuiltin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveQNameWithoutBuiltin error = %v", err)
 	}
-	if qname.Namespace != "" || qname.Local != "string" {
+	if qname.Namespace != types.XSDNamespace || qname.Local != "string" {
 		t.Fatalf("unexpected QName result: %s", qname)
 	}
 	if _, err := resolveQNameWithoutBuiltin(doc, "bad:local", root, schema); err == nil {
@@ -1032,12 +1094,12 @@ func TestParseElement_IgnoresNamespacedTypeAttribute(t *testing.T) {
 		t.Fatalf("element 'root' not found in schema")
 	}
 
-	ct, ok := decl.Type.(*types.ComplexType)
+	bt, ok := decl.Type.(*types.BuiltinType)
 	if !ok {
-		t.Fatalf("element type = %T, want anyType complex type", decl.Type)
+		t.Fatalf("element type = %T, want anyType builtin type", decl.Type)
 	}
-	if ct.QName.Namespace != types.XSDNamespace || ct.QName.Local != "anyType" {
-		t.Fatalf("element type = %s, want xs:anyType", ct.QName)
+	if bt.Name().Namespace != types.XSDNamespace || bt.Name().Local != "anyType" {
+		t.Fatalf("element type = %s, want xs:anyType", bt.Name())
 	}
 }
 

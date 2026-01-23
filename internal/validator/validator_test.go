@@ -124,6 +124,52 @@ func TestValidateAttributeDefault(t *testing.T) {
 	}
 }
 
+func TestValidateAttributeFixedEmpty(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com/test"
+           targetNamespace="http://example.com/test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="flag" type="xs:string" fixed=""/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+
+	xmlBad := `<?xml version="1.0"?><root xmlns="http://example.com/test" flag="x"/>`
+	violations := validateStream(t, v, xmlBad)
+	found := false
+	for _, violation := range violations {
+		if violation.Code == string(errors.ErrAttributeFixedValue) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected fixed-value violation, got %v", violations)
+	}
+
+	xmlEmpty := `<?xml version="1.0"?><root xmlns="http://example.com/test" flag=""/>`
+	violations = validateStream(t, v, xmlEmpty)
+	if len(violations) > 0 {
+		t.Fatalf("expected empty fixed attribute to be valid, got %v", violations)
+	}
+
+	xmlMissing := `<?xml version="1.0"?><root xmlns="http://example.com/test"/>`
+	violations = validateStream(t, v, xmlMissing)
+	if len(violations) > 0 {
+		t.Fatalf("expected missing fixed attribute to be valid, got %v", violations)
+	}
+}
+
 func TestValidateSubstitutionGroup(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

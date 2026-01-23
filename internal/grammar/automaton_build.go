@@ -897,7 +897,7 @@ func symbolKeyForParticle(p types.Particle, substitution substitutionPolicy) sym
 			wildcardTarget: v.TargetNamespace,
 		}
 		if v.Namespace == types.NSCList {
-			key.wildcardList = namespaceListKey(v.NamespaceList)
+			key.wildcardList = namespaceListKey(resolvedNamespaceList(v.NamespaceList, v.TargetNamespace))
 		}
 		return key
 	default:
@@ -926,6 +926,25 @@ func namespaceListKey(list []types.NamespaceURI) string {
 	return sb.String()
 }
 
+func resolvedNamespaceList(list []types.NamespaceURI, target types.NamespaceURI) []types.NamespaceURI {
+	if len(list) == 0 {
+		return nil
+	}
+	seen := make(map[types.NamespaceURI]bool, len(list))
+	out := make([]types.NamespaceURI, 0, len(list))
+	for _, ns := range list {
+		if ns == types.NamespaceTargetPlaceholder {
+			ns = target
+		}
+		if seen[ns] {
+			continue
+		}
+		seen[ns] = true
+		out = append(out, ns)
+	}
+	return out
+}
+
 func (b *Builder) makeSymbol(p types.Particle, substitution substitutionPolicy) Symbol {
 	switch v := p.(type) {
 	case *types.ElementDecl:
@@ -942,6 +961,9 @@ func (b *Builder) makeSymbol(p types.Particle, substitution substitutionPolicy) 
 		case types.NSCOther:
 			// ##other - matches any namespace except target namespace
 			return Symbol{Kind: KindAnyOther, NS: v.TargetNamespace.String()}
+		case types.NSCNotAbsent:
+			// ##notAbsent - matches any namespace except no-namespace
+			return Symbol{Kind: KindAnyOther, NS: ""}
 		case types.NSCTargetNamespace:
 			// ##targetNamespace - matches only target namespace
 			return Symbol{Kind: KindAnyNS, NS: v.TargetNamespace.String()}
@@ -950,7 +972,7 @@ func (b *Builder) makeSymbol(p types.Particle, substitution substitutionPolicy) 
 			return Symbol{Kind: KindAnyNS, NS: ""}
 		case types.NSCList:
 			// explicit namespace list - only elements from listed namespaces match
-			return Symbol{Kind: KindAnyNSList, NSList: v.NamespaceList}
+			return Symbol{Kind: KindAnyNSList, NSList: resolvedNamespaceList(v.NamespaceList, v.TargetNamespace)}
 		default:
 			return Symbol{Kind: KindAny}
 		}

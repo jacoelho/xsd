@@ -15,7 +15,7 @@ func TestUnionAnyAttribute_TargetNamespace(t *testing.T) {
 		wantNil        bool
 	}{
 		{
-			name: "list_with_target_and_other_same_target_is_any",
+			name: "list_with_target_and_other_same_target_is_not_absent",
 			w1: &AnyAttribute{
 				Namespace:       NSCList,
 				NamespaceList:   []NamespaceURI{"a", "b", "c"},
@@ -25,7 +25,7 @@ func TestUnionAnyAttribute_TargetNamespace(t *testing.T) {
 				Namespace:       NSCOther,
 				TargetNamespace: "a",
 			},
-			wantConstraint: NSCAny,
+			wantConstraint: NSCNotAbsent,
 		},
 		{
 			name: "list_without_target_and_other_same_target_is_other",
@@ -89,6 +89,31 @@ func TestUnionAnyAttribute_TargetNamespace(t *testing.T) {
 				TargetNamespace: "a",
 			},
 			wantNil: true,
+		},
+		{
+			name: "list_with_target_and_local_unions_to_any",
+			w1: &AnyAttribute{
+				Namespace:       NSCList,
+				NamespaceList:   []NamespaceURI{NamespaceEmpty, "a"},
+				TargetNamespace: "a",
+			},
+			w2: &AnyAttribute{
+				Namespace:       NSCOther,
+				TargetNamespace: "a",
+			},
+			wantConstraint: NSCAny,
+		},
+		{
+			name: "other_with_different_targets_unions_to_not_absent",
+			w1: &AnyAttribute{
+				Namespace:       NSCOther,
+				TargetNamespace: "a",
+			},
+			w2: &AnyAttribute{
+				Namespace:       NSCOther,
+				TargetNamespace: "b",
+			},
+			wantConstraint: NSCNotAbsent,
 		},
 	}
 
@@ -294,7 +319,7 @@ func TestIntersectAnyElement_Table(t *testing.T) {
 			checkProcess:   true,
 		},
 		{
-			name: "other_and_local_empty_is_nil",
+			name: "other_and_local_is_empty",
 			w1: &AnyElement{
 				Namespace:       NSCOther,
 				TargetNamespace: "a",

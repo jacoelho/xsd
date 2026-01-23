@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestStreamIdentityConstraints(t *testing.T) {
@@ -127,6 +129,41 @@ func TestStreamIdentityConstraints(t *testing.T) {
   </xs:element>
 </xs:schema>`,
 			document: `<root xmlns="urn:test"><item id="a"/><ref refid="b"/></root>`,
+			wantCode: errors.ErrIdentityKeyRefFailed,
+		},
+		{
+			name: "keyref invalid field value",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:int" use="required"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="ref">
+          <xs:complexType>
+            <xs:attribute name="refid" type="xs:int" use="required"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+    <xs:keyref name="itemRef" refer="tns:itemKey">
+      <xs:selector xpath="tns:ref"/>
+      <xs:field xpath="@refid"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item id="1"/><ref refid="x"/></root>`,
 			wantCode: errors.ErrIdentityKeyRefFailed,
 		},
 		{
@@ -309,6 +346,41 @@ func TestStreamIdentityConstraints(t *testing.T) {
 			wantCode: errors.ErrIdentityDuplicate,
 		},
 		{
+			name: "unique compares nested union list value space",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="intList">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="unionList">
+    <xs:union memberTypes="tns:intList xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="unionNested">
+    <xs:union memberTypes="tns:unionList xs:decimal"/>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="values" type="tns:unionNested"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueUnionList">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@values"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item values="1 2"/><item values="1  2"/></root>`,
+			wantCode: errors.ErrIdentityDuplicate,
+		},
+		{
 			name: "unique compares base64Binary value space",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -386,6 +458,34 @@ func TestStreamIdentityConstraints(t *testing.T) {
   </xs:element>
 </xs:schema>`,
 			document: `<root xmlns="urn:test"><item>text<child>v</child></item></root>`,
+			wantCode: errors.ErrIdentityAbsent,
+		},
+		{
+			name: "key rejects element-only content field",
+			schema: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="child" type="xs:string"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="."/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`,
+			document: `<root xmlns="urn:test"><item><child>v</child></item></root>`,
 			wantCode: errors.ErrIdentityAbsent,
 		},
 		{
@@ -560,6 +660,84 @@ func TestStreamIdentityConstraintKeyrefValueSpace(t *testing.T) {
 	}
 	if len(violations) != 0 {
 		t.Fatalf("expected no violations, got %v", violations)
+	}
+}
+
+func TestStreamIdentityUniqueDateTimeTimezonePresence(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="ts" type="xs:dateTime"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="uniqueTimestamp">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@ts"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test"><item ts="2024-01-01T00:00:00"/><item ts="2024-01-01T00:00:00Z"/></root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got %v", violations)
+	}
+}
+
+func TestStreamIdentityBase64BinaryRejectsURLSafe(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="bin" type="xs:base64Binary" use="required"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@bin"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+
+	document := `<root xmlns="urn:test"><item bin="SGVsbG8_"/></root>`
+
+	parsed, err := parser.Parse(strings.NewReader(schema))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+	v := New(mustCompile(t, parsed))
+	violations, err := v.ValidateStream(strings.NewReader(document))
+	if err != nil {
+		t.Fatalf("ValidateStream() error = %v", err)
+	}
+	if !hasViolationCode(violations, errors.ErrIdentityAbsent) {
+		t.Fatalf("expected identity absent for invalid base64Binary, got %v", violations)
 	}
 }
 
@@ -832,8 +1010,33 @@ func TestStreamIdentityKeyrefIgnoresNilledField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ValidateStream() error = %v", err)
 	}
-	if len(violations) != 0 {
-		t.Fatalf("expected no violations, got %v", violations)
+	if hasViolationCode(violations, errors.ErrIdentityKeyRefFailed) {
+		t.Fatalf("unexpected keyref failure for nilled field, got %v", violations)
+	}
+}
+
+func TestLookupAttributeDefaultEmpty(t *testing.T) {
+	run := &streamRun{}
+	attrQName := types.QName{Local: "flag"}
+	attr := &grammar.CompiledAttribute{
+		QName:      attrQName,
+		Default:    "",
+		HasDefault: true,
+	}
+	elemType := &grammar.CompiledType{
+		AllAttributes: []*grammar.CompiledAttribute{attr},
+	}
+	elem := &grammar.CompiledElement{
+		Type: elemType,
+	}
+	frame := &streamFrame{decl: elem}
+
+	value, _, ok := run.lookupAttributeDefault(frame, attrQName)
+	if !ok {
+		t.Fatalf("expected default to be available")
+	}
+	if value != "" {
+		t.Fatalf("expected empty default value, got %q", value)
 	}
 }
 
