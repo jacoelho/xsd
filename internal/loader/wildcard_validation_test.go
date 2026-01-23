@@ -740,7 +740,7 @@ func TestAnyAttributeDerivation_RestrictionProcessContentsWeaker_Invalid(t *test
 	}
 }
 
-func TestAnyAttributeAllowsIDAttributeWithDeclaredIDAttributeValid(t *testing.T) {
+func TestAnyAttributeAllowsIDAttributeWithDeclaredIDAttributeInvalid(t *testing.T) {
 	schemaMain := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:ext="urn:ext"
@@ -768,8 +768,12 @@ func TestAnyAttributeAllowsIDAttributeWithDeclaredIDAttributeValid(t *testing.T)
 	}
 
 	loader := NewLoader(Config{FS: testFS})
-	if _, err := loader.Load("main.xsd"); err != nil {
-		t.Fatalf("expected schema to be valid, got error: %v", err)
+	_, err := loader.Load("main.xsd")
+	if err == nil {
+		t.Fatalf("expected schema validation to fail for ID attribute with anyAttribute that can admit ID-typed attributes")
+	}
+	if !strings.Contains(err.Error(), "ID attribute") || !strings.Contains(err.Error(), "anyAttribute") {
+		t.Fatalf("error message should mention ID attribute and anyAttribute, got: %v", err)
 	}
 }
 

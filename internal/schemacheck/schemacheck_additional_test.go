@@ -1490,3 +1490,117 @@ func TestElementRestrictionValidation(t *testing.T) {
 		t.Fatalf("expected type restriction error")
 	}
 }
+
+func TestWildcardIDAttributeValidation(t *testing.T) {
+	// Test case 1: Complex type with ID attribute + anyAttribute namespace="##any"
+	// where an imported namespace has an ID-typed global attribute - expect failure
+	t.Run("ID attribute with anyAttribute allowing ID-typed global attributes", func(t *testing.T) {
+		schema := parser.NewSchema()
+		schema.TargetNamespace = "urn:test"
+
+		// Create a global ID-typed attribute in an imported namespace
+		importedNS := types.NamespaceURI("urn:imported")
+		// Mark the namespace as imported
+		if schema.ImportedNamespaces == nil {
+			schema.ImportedNamespaces = make(map[types.NamespaceURI]map[types.NamespaceURI]bool)
+		}
+		schema.ImportedNamespaces[importedNS] = make(map[types.NamespaceURI]bool)
+
+		idType := types.GetBuiltin(types.TypeNameID)
+		globalIDAttr := &types.AttributeDecl{
+			Name: types.QName{Namespace: importedNS, Local: "extId"},
+			Type: idType,
+		}
+		schema.AttributeDecls[globalIDAttr.Name] = globalIDAttr
+
+		// Create complex type with ID attribute and anyAttribute namespace="##any"
+		idAttr := &types.AttributeDecl{
+			Name: types.QName{Namespace: "urn:test", Local: "id"},
+			Type: idType,
+			Use:  types.Required,
+		}
+		ct := types.NewComplexType(types.QName{Namespace: "urn:test", Local: "TestType"}, "urn:test")
+		ct.SetAttributes([]*types.AttributeDecl{idAttr})
+		ct.SetAnyAttribute(&types.AnyAttribute{
+			Namespace:       types.NSCAny,
+			ProcessContents: types.Strict,
+			TargetNamespace: "urn:test",
+		})
+		ct.SetContent(&types.EmptyContent{})
+
+		err := validateIDAttributeCount(schema, ct)
+		if err == nil {
+			t.Fatalf("expected error for ID attribute with anyAttribute that can admit ID-typed attributes")
+		}
+		if !strings.Contains(err.Error(), "ID attribute") || !strings.Contains(err.Error(), "anyAttribute") {
+			t.Fatalf("error message should mention ID attribute and anyAttribute, got: %v", err)
+		}
+	})
+
+	// Test case 2: Complex type with ID attribute + anyAttribute restricted to namespace
+	// with no ID-typed global attributes - expect success
+	t.Run("ID attribute with anyAttribute restricted to namespace without ID attributes", func(t *testing.T) {
+		schema := parser.NewSchema()
+		schema.TargetNamespace = "urn:test"
+
+		// Create a global non-ID attribute in another namespace
+		otherNS := types.NamespaceURI("urn:other")
+		stringType := types.GetBuiltin(types.TypeName("string"))
+		globalAttr := &types.AttributeDecl{
+			Name: types.QName{Namespace: otherNS, Local: "extAttr"},
+			Type: stringType,
+		}
+		schema.AttributeDecls[globalAttr.Name] = globalAttr
+
+		// Create complex type with ID attribute and anyAttribute restricted to otherNS
+		idType := types.GetBuiltin(types.TypeNameID)
+		idAttr := &types.AttributeDecl{
+			Name: types.QName{Namespace: "urn:test", Local: "id"},
+			Type: idType,
+			Use:  types.Required,
+		}
+		ct := types.NewComplexType(types.QName{Namespace: "urn:test", Local: "TestType"}, "urn:test")
+		ct.SetAttributes([]*types.AttributeDecl{idAttr})
+		ct.SetAnyAttribute(&types.AnyAttribute{
+			Namespace:       types.NSCList,
+			NamespaceList:   []types.NamespaceURI{otherNS},
+			ProcessContents: types.Strict,
+			TargetNamespace: "urn:test",
+		})
+		ct.SetContent(&types.EmptyContent{})
+
+		err := validateIDAttributeCount(schema, ct)
+		if err != nil {
+			t.Fatalf("expected no error when anyAttribute is restricted to namespace without ID attributes, got: %v", err)
+		}
+	})
+
+	// Test case 3: Complex type with anyAttribute allowing ID-typed attrs but no declared ID attribute - expect success
+	t.Run("anyAttribute allowing ID-typed attrs but no declared ID attribute", func(t *testing.T) {
+		schema := parser.NewSchema()
+		schema.TargetNamespace = "urn:test"
+
+		// Create a global ID-typed attribute
+		importedNS := types.NamespaceURI("urn:imported")
+		idType := types.GetBuiltin(types.TypeNameID)
+		globalIDAttr := &types.AttributeDecl{
+			Name: types.QName{Namespace: importedNS, Local: "extId"},
+			Type: idType,
+		}
+		schema.AttributeDecls[globalIDAttr.Name] = globalIDAttr
+
+		// Create complex type with anyAttribute but no declared ID attribute
+		ct := types.NewComplexType(types.QName{Namespace: "urn:test", Local: "TestType"}, "urn:test")
+		ct.SetAnyAttribute(&types.AnyAttribute{
+			Namespace:       types.NSCAny,
+			ProcessContents: types.Strict,
+			TargetNamespace: "urn:test",
+		})
+		ct.SetContent(&types.EmptyContent{})
+
+		err := validateIDAttributeCount(schema, ct)
+		if err != nil {
+			t.Fatalf("expected no error when no declared ID attribute, got: %v", err)
+		}
+	})
+}
