@@ -19,6 +19,31 @@ func TestCompareGYearValues(t *testing.T) {
 	}
 }
 
+func TestGYearTimezoneEquivalence(t *testing.T) {
+	// Test that "2000Z" and "2000+00:00" are considered equal in value space
+	bt := types.GetBuiltin(types.TypeNameGYear)
+	if bt == nil {
+		t.Fatal("builtin.Get(\"gYear\") returned nil")
+	}
+
+	result, err := compareFacetValues("2000Z", "2000+00:00", bt)
+	if err != nil {
+		t.Fatalf("compareFacetValues failed: %v", err)
+	}
+	if result != 0 {
+		t.Errorf("expected 0 (equal), got %d", result)
+	}
+
+	// Test reverse order
+	result, err = compareFacetValues("2000+00:00", "2000Z", bt)
+	if err != nil {
+		t.Fatalf("compareFacetValues failed: %v", err)
+	}
+	if result != 0 {
+		t.Errorf("expected 0 (equal), got %d", result)
+	}
+}
+
 func TestValidateRangeFacetsGYear(t *testing.T) {
 	minInclusive := "2002"
 	maxInclusive := "1998"

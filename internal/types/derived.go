@@ -120,7 +120,15 @@ func isMissingDerivationInput(derived, base Type) bool {
 }
 
 func hasSameQName(derived, base Type) bool {
-	return derived.Name() == base.Name()
+	if derived == base {
+		return true
+	}
+	nameA := derived.Name()
+	nameB := base.Name()
+	if nameA.IsZero() || nameB.IsZero() {
+		return false
+	}
+	return nameA == nameB
 }
 
 func isStandardDerivation(derived, base Type) bool {
@@ -128,7 +136,7 @@ func isStandardDerivation(derived, base Type) bool {
 }
 
 func isUnionMemberType(derived, base Type) bool {
-	return matchesUnionMember(derived, base, sameQName)
+	return matchesUnionMember(derived, base, hasSameQName)
 }
 
 func isDerivedFromUnionMember(derived, base Type) bool {
@@ -152,10 +160,6 @@ func unionMemberTypes(base Type) []Type {
 	}
 
 	return baseST.MemberTypes
-}
-
-func sameQName(derived, base Type) bool {
-	return derived.Name() == base.Name()
 }
 
 func alwaysTrue(Type, Type) bool {

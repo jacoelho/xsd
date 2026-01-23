@@ -43,6 +43,10 @@ const (
 	attributeCollectionRestriction
 )
 
+func shouldIncludeAttribute(attr *types.AttributeDecl) bool {
+	return attr.Use != types.Prohibited || attr.HasFixed
+}
+
 // collectAttributesFromComplexType collects attributes from all sources in a complex type:
 // - Direct attributes on the type
 // - Attributes from SimpleContent extension/restriction
@@ -160,10 +164,6 @@ func (c *Compiler) effectiveAttributeQName(attr *types.AttributeDecl) types.QNam
 
 	ns := c.attributeNamespace(attr)
 	return types.QName{Namespace: ns, Local: attr.Name.Local}
-}
-
-func shouldIncludeAttribute(attr *types.AttributeDecl) bool {
-	return attr.Use != types.Prohibited || attr.HasFixed
 }
 
 func (c *Compiler) isAttributeQualified(attr *types.AttributeDecl) bool {

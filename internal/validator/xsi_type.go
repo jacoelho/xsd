@@ -46,26 +46,6 @@ func (r *validationRun) typeDerivesFrom(derivedType, baseType *grammar.CompiledT
 	return false
 }
 
-// isUnionMemberType checks if xsiType is a member of the union type (recursively for nested unions).
-func (r *validationRun) isUnionMemberType(xsiType, unionType *grammar.CompiledType) bool {
-	if len(unionType.MemberTypes) == 0 {
-		return false
-	}
-
-	for _, memberType := range unionType.MemberTypes {
-		if memberType.QName == xsiType.QName || r.typeDerivesFrom(xsiType, memberType) {
-			return true
-		}
-		// recursively check nested unions
-		if len(memberType.MemberTypes) > 0 {
-			if r.isUnionMemberType(xsiType, memberType) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // isTypeSubstitutionBlocked checks if block prevents using xsiType to substitute declaredType.
 func (r *validationRun) isTypeSubstitutionBlocked(xsiType, declaredType *grammar.CompiledType, block types.DerivationSet) (bool, string) {
 	current := xsiType

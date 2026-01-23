@@ -39,17 +39,18 @@ func NewCompiler(schema *parser.Schema) *Compiler {
 	return &Compiler{
 		schema: schema,
 		grammar: &grammar.CompiledSchema{
-			TargetNamespace:      schema.TargetNamespace,
-			Elements:             make(map[types.QName]*grammar.CompiledElement),
-			Types:                make(map[types.QName]*grammar.CompiledType),
-			Attributes:           make(map[types.QName]*grammar.CompiledAttribute),
-			NotationDecls:        make(map[types.QName]*types.NotationDecl),
-			LocalElements:        make(map[types.QName]*grammar.CompiledElement),
-			SubstitutionGroups:   make(map[types.QName][]*grammar.CompiledElement),
-			ElementFormDefault:   schema.ElementFormDefault,
-			AttributeFormDefault: schema.AttributeFormDefault,
-			BlockDefault:         schema.BlockDefault,
-			FinalDefault:         schema.FinalDefault,
+			TargetNamespace:       schema.TargetNamespace,
+			Elements:              make(map[types.QName]*grammar.CompiledElement),
+			Types:                 make(map[types.QName]*grammar.CompiledType),
+			Attributes:            make(map[types.QName]*grammar.CompiledAttribute),
+			NotationDecls:         make(map[types.QName]*types.NotationDecl),
+			LocalElements:         make(map[types.QName]*grammar.CompiledElement),
+			SubstitutionGroups:    make(map[types.QName][]*grammar.CompiledElement),
+			IdentityNormalization: make(map[types.Type]*grammar.IdentityNormalizationPlan),
+			ElementFormDefault:    schema.ElementFormDefault,
+			AttributeFormDefault:  schema.AttributeFormDefault,
+			BlockDefault:          schema.BlockDefault,
+			FinalDefault:          schema.FinalDefault,
 		},
 		types:      make(map[types.QName]*grammar.CompiledType),
 		elements:   make(map[types.QName]*grammar.CompiledElement),
@@ -104,6 +105,7 @@ func (c *Compiler) Compile() (*grammar.CompiledSchema, error) {
 
 	// collect all elements with identity constraints (precomputed for validation)
 	c.collectElementsWithConstraints()
+	c.buildIdentityNormalizationPlans()
 	c.buildConstraintDeclsByQName()
 
 	// index all local elements (non-top-level) for XPath evaluation
@@ -184,15 +186,6 @@ func (c *Compiler) compileElement(qname types.QName, elem *types.ElementDecl, sc
 	return compiled, nil
 }
 
-// isDefaultAnyType checks if a type is the default anyType (assigned by parser when no explicit type)
-func (c *Compiler) isDefaultAnyType(typ types.Type) bool {
-	if complexType, ok := types.AsComplexType(typ); ok {
-		// check if it's the anonymous anyType created by makeAnyType()
-		return complexType.QName.Local == "anyType" && complexType.QName.Namespace == "http://www.w3.org/2001/XMLSchema"
-	}
-	return false
-}
-
 func (c *Compiler) compileTopLevelAttribute(qname types.QName, attr *types.AttributeDecl) (*grammar.CompiledAttribute, error) {
 	// check if already compiled
 	if compiled, ok := c.grammar.Attributes[qname]; ok {
@@ -270,7 +263,7 @@ func (c *Compiler) getGroupKind(particle types.Particle) types.GroupKind {
 
 func getIDTypeName(typeName string) string {
 	switch typeName {
-	case "ID", "IDREF", "IDREFS":
+	case string(types.TypeNameID), string(types.TypeNameIDREF), string(types.TypeNameIDREFS):
 		return typeName
 	default:
 		return ""
@@ -440,4 +433,13 @@ func (c *Compiler) effectiveElementQName(elem *grammar.CompiledElement) types.QN
 		}
 		return types.QName{Namespace: "", Local: elem.QName.Local}
 	}
+}
+
+// isDefaultAnyType checks if a type is the default anyType (assigned by parser when no explicit type)
+func (c *Compiler) isDefaultAnyType(typ types.Type) bool {
+	if typ == nil {
+		return false
+	}
+	name := typ.Name()
+	return name.Namespace == types.XSDNamespace && name.Local == "anyType"
 }

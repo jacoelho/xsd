@@ -170,3 +170,95 @@ func TestXsiTypeBuiltinIDREFSUnresolved(t *testing.T) {
 		t.Fatalf("Expected violation code %s, got: %v", errors.ErrIDRefNotFound, violations)
 	}
 }
+
+func TestXsiTypeWhitespaceNormalized(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyType"/>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:xs="http://www.w3.org/2001/XMLSchema"
+      xsi:type="  xs:string  ">value</root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if len(violations) > 0 {
+		t.Fatalf("Expected no violations, got: %v", violations)
+	}
+}
+
+func TestXsiTypeUnionMemberRejected(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:int xs:string"/>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:U"/>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<root xmlns="urn:test"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:xs="http://www.w3.org/2001/XMLSchema"
+      xsi:type="xs:int">1</root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if len(violations) == 0 {
+		t.Fatalf("Expected xsi:type violation, got none")
+	}
+
+	found := false
+	for _, viol := range violations {
+		if viol.Code == string(errors.ErrXsiTypeInvalid) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("Expected violation code %s, got: %v", errors.ErrXsiTypeInvalid, violations)
+	}
+}
+
+func TestXsiTypeAnySimpleTypeAllowsUnion(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:int xs:string"/>
+  </xs:simpleType>
+  <xs:element name="root" type="xs:anySimpleType"/>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<root xmlns="urn:test"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:tns="urn:test"
+      xsi:type="tns:U">1</root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if len(violations) > 0 {
+		t.Fatalf("Expected no violations, got: %v", violations)
+	}
+}

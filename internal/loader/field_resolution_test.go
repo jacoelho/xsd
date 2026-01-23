@@ -139,6 +139,163 @@ func TestFieldResolution_AttributeAxis(t *testing.T) {
 	}
 }
 
+func TestFieldResolution_UnionWithAttributeAllowed(t *testing.T) {
+	// Union fields can mix element and attribute selections.
+	// At runtime, only one branch will match, selecting either an element or an attribute.
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:union"
+           xmlns:tns="urn:union"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:string"/>
+      </xs:sequence>
+      <xs:attribute name="id" type="xs:string"/>
+    </xs:complexType>
+    <xs:key name="mixedKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="tns:a | @id"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("test.xsd"); err != nil {
+		t.Fatalf("expected union field mixing element and attribute to pass, got: %v", err)
+	}
+}
+
+func TestFieldResolution_UnionIncompatibleTypesFails(t *testing.T) {
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:union"
+           xmlns:tns="urn:union"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:string"/>
+        <xs:element name="b" type="xs:int"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="badKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="tns:a | tns:b"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("test.xsd"); err == nil {
+		t.Fatal("expected union field with incompatible types to fail")
+	}
+}
+
+func TestFieldResolution_UnionCompatibleTypesPass(t *testing.T) {
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:union"
+           xmlns:tns="urn:union"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:string"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="goodKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="tns:a | tns:b"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("test.xsd"); err != nil {
+		t.Fatalf("expected union field with compatible types to pass, got: %v", err)
+	}
+}
+
+func TestFieldResolution_FieldSelectsNillableKeyFails(t *testing.T) {
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:nillable"
+           xmlns:tns="urn:nillable"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:string" nillable="true"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="badKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="tns:a"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("test.xsd"); err == nil {
+		t.Fatal("expected key field selecting nillable element to fail")
+	}
+}
+
+func TestFieldResolution_FieldSelectsNillableKeyrefAllowed(t *testing.T) {
+	// Per XSD 1.0 spec, keyref fields CAN select nillable elements.
+	// Nil values in keyref fields cause the tuple to be excluded from the check.
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:nillable"
+           xmlns:tns="urn:nillable"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:string" nillable="true"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="goodKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="tns:b"/>
+    </xs:key>
+    <xs:keyref name="goodRef" refer="tns:goodKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="tns:a"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("test.xsd"); err != nil {
+		t.Fatalf("expected keyref field selecting nillable element to pass, got: %v", err)
+	}
+}
+
 // TestFieldResolution_DescendantAttributeField tests descendant attribute field resolution.
 func TestFieldResolution_DescendantAttributeField(t *testing.T) {
 	testFS := fstest.MapFS{

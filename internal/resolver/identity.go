@@ -202,19 +202,25 @@ func validateIdentityConstraintResolution(schema *parser.Schema, constraint *typ
 		hasUnion := strings.Contains(field.XPath, "|") || strings.Contains(constraint.Selector.XPath, "|")
 		if hasUnion {
 			if _, err := schemacheck.ResolveFieldType(schema, &field, decl, constraint.Selector.XPath, constraint.NamespaceContext); err != nil {
-				if !errors.Is(err, schemacheck.ErrXPathUnresolvable) {
+				// For union fields, treat incompatible types and unresolvable as allowed during reference validation
+				// (they will be caught during instance validation)
+				if !errors.Is(err, schemacheck.ErrXPathUnresolvable) && !errors.Is(err, schemacheck.ErrFieldXPathIncompatibleTypes) {
 					return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
 				}
 			}
 		}
+		// Key fields cannot select nillable elements (per spec Section 3.11.4 c-props-correct.4)
+		// For unique/keyref, nillable elements are allowed (nil values are excluded from the check)
 		if constraint.Type == types.KeyConstraint {
 			if hasUnion {
 				elemDecls, err := schemacheck.ResolveFieldElementDecls(schema, &field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
 				if err != nil {
+					// For union paths, resolution errors for some branches are allowed
 					if errors.Is(err, schemacheck.ErrXPathUnresolvable) {
 						continue
 					}
-					return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
+					// Other errors should also be treated as unresolvable for union paths
+					continue
 				}
 				for _, elemDecl := range elemDecls {
 					if elemDecl != nil && elemDecl.Nillable {
@@ -243,7 +249,12 @@ func areFieldTypesCompatible(field1Type, field2Type types.Type) bool {
 	}
 
 	// same type is always compatible.
-	if field1Type.Name() == field2Type.Name() {
+	if field1Type == field2Type {
+		return true
+	}
+	name1 := field1Type.Name()
+	name2 := field2Type.Name()
+	if !name1.IsZero() && !name2.IsZero() && name1 == name2 {
 		return true
 	}
 

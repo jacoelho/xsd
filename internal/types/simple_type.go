@@ -76,6 +76,7 @@ func NewUnionSimpleType(name QName, sourceNamespace NamespaceURI, union *UnionTy
 		QName:           name,
 		SourceNamespace: sourceNamespace,
 		Union:           union,
+		whiteSpace:      WhiteSpaceCollapse,
 	}
 	if err := validateSimpleTypeDefinition(st); err != nil {
 		return nil, err
@@ -508,6 +509,18 @@ func (s *SimpleType) Validate(lexical string) error {
 	if err != nil {
 		return err
 	}
+	return s.validateNormalized(normalized, make(map[*SimpleType]bool))
+}
+
+func (s *SimpleType) validateNormalized(normalized string, visited map[*SimpleType]bool) error {
+	if s == nil {
+		return nil
+	}
+	if visited[s] {
+		return nil
+	}
+	visited[s] = true
+	defer delete(visited, s)
 
 	// for built-in types, use built-in validator
 	if s.IsBuiltin() {

@@ -11,7 +11,7 @@ import (
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
@@ -284,9 +284,6 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 				continue
 			}
 			attrNamespace := types.NamespaceURI(attr.NamespaceURI())
-			if attrNamespace != test.Namespace {
-				continue
-			}
 			attrQName := types.QName{
 				Namespace: attrNamespace,
 				Local:     attr.LocalName(),
@@ -484,25 +481,25 @@ func (r *streamRun) finalizeSelectorMatch(scope *identityScope, state *constrain
 		fieldState := match.fields[i]
 		switch {
 		case fieldState.multiple:
-			r.addIdentityFieldError(constraint, errors.ErrIdentityAbsent, errors.ErrIdentityDuplicate, errors.ErrIdentityKeyRefFailed, elemPath,
+			r.addIdentityFieldError(constraint, elemPath,
 				"field selects multiple nodes for element at %s", constraint.Original.Name)
 			return
 		case fieldState.count == 0 || fieldState.missing:
-			if constraint.Original.Type == types.KeyConstraint {
-				violation := errors.NewValidationf(errors.ErrIdentityAbsent, elemPath,
-					"key '%s': field value is absent for element at %s", constraint.Original.Name, elemPath)
-				r.addViolation(&violation)
+			if constraint.Original.Type == types.UniqueConstraint || constraint.Original.Type == types.KeyRefConstraint {
+				return
 			}
+			r.addIdentityFieldError(constraint, elemPath,
+				"field value is absent for element at %s", constraint.Original.Name)
 			return
 		case fieldState.valueInvalid:
-			if constraint.Original.Type == types.KeyConstraint {
-				violation := errors.NewValidationf(errors.ErrIdentityAbsent, elemPath,
-					"key '%s': field value is invalid for element at %s", constraint.Original.Name, elemPath)
-				r.addViolation(&violation)
+			if constraint.Original.Type == types.UniqueConstraint {
+				return
 			}
+			r.addIdentityFieldError(constraint, elemPath,
+				"field value is invalid for element at %s", constraint.Original.Name)
 			return
 		case fieldState.invalid || !fieldState.hasValue:
-			r.addIdentityFieldError(constraint, errors.ErrIdentityAbsent, errors.ErrIdentityDuplicate, errors.ErrIdentityKeyRefFailed, elemPath,
+			r.addIdentityFieldError(constraint, elemPath,
 				"field selects non-simple content for element at %s", constraint.Original.Name)
 			return
 		default:
@@ -612,16 +609,16 @@ func (r *streamRun) abortIdentityFrame(frame *streamFrame) {
 	r.closeIdentityScopes(frame)
 }
 
-func (r *streamRun) addIdentityFieldError(constraint *grammar.CompiledConstraint, keyCode, uniqueCode, keyrefCode errors.ErrorCode, path, message, name string) {
+func (r *streamRun) addIdentityFieldError(constraint *grammar.CompiledConstraint, path, message, name string) {
 	switch constraint.Original.Type {
 	case types.KeyConstraint:
-		violation := errors.NewValidationf(keyCode, path, "key '%s': "+message, name, path)
+		violation := errors.NewValidationf(errors.ErrIdentityAbsent, path, "key '%s': "+message, name, path)
 		r.addViolation(&violation)
 	case types.UniqueConstraint:
-		violation := errors.NewValidationf(uniqueCode, path, "unique '%s': "+message, name, path)
+		violation := errors.NewValidationf(errors.ErrIdentityDuplicate, path, "unique '%s': "+message, name, path)
 		r.addViolation(&violation)
 	case types.KeyRefConstraint:
-		violation := errors.NewValidationf(keyrefCode, path, "keyref '%s': "+message, name, path)
+		violation := errors.NewValidationf(errors.ErrIdentityKeyRefFailed, path, "keyref '%s': "+message, name, path)
 		r.addViolation(&violation)
 	}
 }
@@ -645,7 +642,7 @@ func (r *streamRun) normalizeElementValue(value string, field types.Field, frame
 		fieldType = types.GetBuiltin(types.TypeName("string"))
 	}
 	if _, ok := fieldType.(*types.ComplexType); ok {
-		fieldType = types.GetBuiltin(types.TypeName("string"))
+		return "", KeyInvalidSelection
 	}
 	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth, context)
 }
@@ -705,14 +702,14 @@ const (
 
 func (r *streamRun) normalizeValueByTypeStream(value string, fieldType types.Type, scopeDepth int, context map[string]string) (string, KeyState) {
 	if fieldType == nil {
-		fieldType = types.GetBuiltin(types.TypeName("string"))
+		fieldType = types.GetBuiltin(types.TypeNameString)
 	}
 	return r.normalizeValueByType(value, fieldType, scopeDepth, context)
 }
 
 func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, scopeDepth int, context map[string]string) (string, KeyState) {
 	if fieldType == nil {
-		return value, KeyValid
+		fieldType = types.GetBuiltin(types.TypeNameString)
 	}
 	if !types.IdentityNormalizable(fieldType) {
 		return "", KeyInvalidValue

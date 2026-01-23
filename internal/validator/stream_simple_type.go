@@ -143,38 +143,16 @@ func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar
 }
 
 func (r *streamRun) checkComplexTypeFacetsWithContext(text string, ct *grammar.CompiledType, scopeDepth int, context map[string]string) []errors.Validation {
-	if ct == nil || ct.SimpleContentType == nil || len(ct.Facets) == 0 {
-		return nil
-	}
+	return collectComplexTypeFacetViolations(text, ct, r.path.String(), func(normalized string, enum *types.Enumeration) error {
+		return r.validateQNameEnumeration(normalized, enum, scopeDepth, context)
+	})
+}
 
-	normalizedValue := types.NormalizeWhiteSpace(text, ct.SimpleContentType.Original)
-	var violations []errors.Validation
-	var typedValue types.TypedValue
-	for _, facet := range ct.Facets {
-		if shouldSkipLengthFacet(ct.SimpleContentType, facet) {
-			continue
-		}
-		if enumFacet, ok := facet.(*types.Enumeration); ok && ct.SimpleContentType.IsQNameOrNotationType {
-			if err := r.validateQNameEnumeration(normalizedValue, enumFacet, scopeDepth, context); err != nil {
-				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
-			}
-			continue
-		}
-		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
-			if err := lexicalFacet.ValidateLexical(normalizedValue, ct.SimpleContentType.Original); err != nil {
-				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
-			}
-			continue
-		}
-		if typedValue == nil {
-			typedValue = typedValueForFacets(normalizedValue, ct.SimpleContentType.Original, ct.Facets)
-		}
-		if err := facet.Validate(typedValue, ct.SimpleContentType.Original); err != nil {
-			violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
-		}
-	}
-
-	return violations
+func (r *streamRun) checkComplexTypeFacets(text string, ct *grammar.CompiledType, ns map[string]string) []errors.Validation {
+	return collectComplexTypeFacetViolations(text, ct, r.path.String(), func(normalized string, enum *types.Enumeration) error {
+		// Use scopeDepth -1 and context ns for QName enumeration validation
+		return r.validateQNameEnumeration(normalized, enum, -1, ns)
+	})
 }
 
 func (r *streamRun) validateListValueInternal(value string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy, context map[string]string) (bool, []errors.Validation) {
@@ -183,7 +161,7 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 	abort := false
 	index := 0
 	splitWhitespaceSeq(value, func(item string) bool {
-		itemValid, itemViolations := r.validateListItemNormalized(item, st.ItemType, index, scopeDepth, policy, context)
+		itemValid, itemViolations := r.validateListItemNormalized(item, st.ItemType, index, scopeDepth, policy, context, nil)
 		index++
 		if !itemValid {
 			valid = false
@@ -235,7 +213,7 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 	return valid, nil
 }
 
-func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.CompiledType, index, scopeDepth int, policy errorPolicy, context map[string]string) (bool, []errors.Validation) {
+func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.CompiledType, index, scopeDepth int, policy errorPolicy, context, valueContext map[string]string) (bool, []errors.Validation) {
 	if itemType == nil || itemType.Original == nil {
 		return true, nil
 	}
@@ -250,8 +228,14 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 
 	var violations []errors.Validation
 
+	// Use valueContext if provided, otherwise use context
+	nsContext := valueContext
+	if nsContext == nil {
+		nsContext = context
+	}
+
 	if len(itemType.MemberTypes) > 0 {
-		if !r.validateUnionValue(item, itemType.MemberTypes, scopeDepth, context) {
+		if !r.validateUnionValue(item, itemType.MemberTypes, scopeDepth, nsContext) {
 			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d] '%s' does not match any member type of union", index, item))
@@ -259,7 +243,6 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 			}
 			return false, nil
 		}
-		return true, nil
 	}
 
 	switch orig := itemType.Original.(type) {
@@ -284,7 +267,7 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 	}
 
 	if isQNameType(itemType) {
-		if err := r.validateQNameContext(item, scopeDepth, context); err != nil {
+		if err := r.validateQNameContext(item, scopeDepth, nsContext); err != nil {
 			if policy == errorPolicyReport {
 				violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"list item[%d]: invalid QName value '%s': %v", index, item, err))
@@ -296,11 +279,11 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 
 	if r.isNotationType(itemType) {
 		if policy == errorPolicyReport {
-			if itemViolations := r.validateNotationReference(item, scopeDepth, context); len(itemViolations) > 0 {
+			if itemViolations := r.validateNotationReference(item, scopeDepth, nsContext); len(itemViolations) > 0 {
 				violations = append(violations, itemViolations...)
 				return false, violations
 			}
-		} else if !r.isValidNotationReference(item, scopeDepth, context) {
+		} else if !r.isValidNotationReference(item, scopeDepth, nsContext) {
 			return false, nil
 		}
 	}
@@ -312,7 +295,7 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 				continue
 			}
 			if enumFacet, ok := facet.(*types.Enumeration); ok && itemType.IsQNameOrNotationType {
-				if err := r.validateQNameEnumeration(item, enumFacet, scopeDepth, context); err != nil {
+				if err := r.validateQNameEnumeration(item, enumFacet, scopeDepth, nsContext); err != nil {
 					if policy == errorPolicySuppress {
 						return false, nil
 					}
@@ -448,6 +431,11 @@ func (r *streamRun) parseQNameValueWithContext(value string, scopeDepth int, con
 func (r *streamRun) validateQNameContext(value string, scopeDepth int, context map[string]string) error {
 	_, err := r.parseQNameValueWithContext(value, scopeDepth, context)
 	return err
+}
+
+func (r *streamRun) parseQNameTyped(value string, typ types.Type, ns map[string]string) (types.QName, error) {
+	normalized := types.NormalizeWhiteSpace(value, typ)
+	return types.ParseQNameValue(normalized, ns)
 }
 
 func isQNameType(ct *grammar.CompiledType) bool {

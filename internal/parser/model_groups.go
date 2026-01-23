@@ -340,7 +340,7 @@ func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 		namespaceAttr = "##local"
 	}
 
-	nsConstraint, nsList, err := parseNamespaceConstraint(namespaceAttr, schema)
+	nsConstraint, nsList, err := parseNamespaceConstraint(namespaceAttr)
 	if err != nil {
 		return nil, fmt.Errorf("parse namespace constraint: %w", err)
 	}
@@ -407,7 +407,7 @@ func validateOccursInteger(value string) error {
 }
 
 // parseNamespaceConstraint parses a namespace constraint value
-func parseNamespaceConstraint(value string, schema *Schema) (types.NamespaceConstraint, []types.NamespaceURI, error) {
+func parseNamespaceConstraint(value string) (types.NamespaceConstraint, []types.NamespaceURI, error) {
 	switch value {
 	case "##any":
 		return types.NSCAny, nil, nil
@@ -432,7 +432,7 @@ func parseNamespaceConstraint(value string, schema *Schema) (types.NamespaceCons
 
 		switch ns {
 		case "##targetNamespace":
-			resultList = append(resultList, schema.TargetNamespace)
+			resultList = append(resultList, types.NamespaceTargetPlaceholder)
 		case "##local":
 			resultList = append(resultList, types.NamespaceEmpty)
 		default:

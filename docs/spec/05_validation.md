@@ -121,6 +121,9 @@ For each attribute on an element:
 2. **Check presence rules:**
    - If `use="required"` and missing → error
    - If `use="prohibited"` and present → error
+   - If `use="prohibited"` with `default` → schema error (defaults are not allowed)
+   - Note: `use="prohibited"` with `fixed` is accepted (W3C XSD 1.0 tests);
+     fixed is effectively inert because the attribute may not appear.
 
 3. **Validate value:**
    - Parse according to declared simple type

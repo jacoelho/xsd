@@ -468,7 +468,7 @@ func (a *Automaton) wildcardMatches(sym *Symbol, qname types.QName) bool {
 	case KindAnyNS:
 		return string(qname.Namespace) == sym.NS
 	case KindAnyOther:
-		// ##other matches any namespace other than target namespace AND not empty
+		// ##other matches any namespace other than target namespace
 		elemNS := string(qname.Namespace)
 		return elemNS != sym.NS && elemNS != ""
 	case KindAnyNSList:
@@ -524,17 +524,5 @@ func (a *Automaton) findWildcardProcessContentsQName(qname types.QName, wildcard
 
 // matchesWildcard checks if a QName matches a wildcard.
 func (a *Automaton) matchesWildcard(qname types.QName, w *types.AnyElement) bool {
-	switch w.Namespace {
-	case types.NSCAny:
-		return true
-	case types.NSCOther:
-		return !qname.Namespace.IsEmpty() && qname.Namespace != w.TargetNamespace
-	case types.NSCTargetNamespace:
-		return qname.Namespace == w.TargetNamespace
-	case types.NSCLocal:
-		return qname.Namespace.IsEmpty()
-	case types.NSCList:
-		return slices.Contains(w.NamespaceList, qname.Namespace)
-	}
-	return false
+	return types.AllowsNamespace(w.Namespace, w.NamespaceList, w.TargetNamespace, qname.Namespace)
 }

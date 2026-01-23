@@ -329,6 +329,9 @@ func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind)
 	if nsContext == nil {
 		return NodeTest{Local: local}, nil
 	}
+	if nsURI, ok := types.ResolveNamespace("", nsContext); ok && nsURI != "" {
+		return NodeTest{Local: local, Namespace: nsURI, NamespaceSpecified: true}, nil
+	}
 	return NodeTest{Local: local, NamespaceSpecified: true}, nil
 }
 

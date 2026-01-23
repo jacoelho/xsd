@@ -42,7 +42,10 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 		return nil
 	}
 	baseAttrMap := collectEffectiveAttributeUses(schema, baseCT)
-	baseAnyAttr := collectAnyAttributeFromType(schema, baseCT)
+	baseAnyAttr, err := collectAnyAttributeFromType(schema, baseCT)
+	if err != nil {
+		return err
+	}
 	for _, restrictionAttr := range restrictionAttrs {
 		effectiveRestriction := effectiveAttributeUse(schema, restrictionAttr)
 		key := effectiveAttributeQNameForValidation(schema, effectiveRestriction)

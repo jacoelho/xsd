@@ -33,22 +33,28 @@ func CopyType(typ Type, opts CopyOptions) Type {
 	}
 }
 
-func copyAnyElement(elem *AnyElement) *AnyElement {
+func copyAnyElement(elem *AnyElement, opts CopyOptions) *AnyElement {
 	if elem == nil {
 		return nil
 	}
 	clone := *elem
+	if clone.TargetNamespace.IsEmpty() && !opts.SourceNamespace.IsEmpty() {
+		clone.TargetNamespace = opts.SourceNamespace
+	}
 	if len(elem.NamespaceList) > 0 {
 		clone.NamespaceList = slices.Clone(elem.NamespaceList)
 	}
 	return &clone
 }
 
-func copyAnyAttribute(attr *AnyAttribute) *AnyAttribute {
+func copyAnyAttribute(attr *AnyAttribute, opts CopyOptions) *AnyAttribute {
 	if attr == nil {
 		return nil
 	}
 	clone := *attr
+	if clone.TargetNamespace.IsEmpty() && !opts.SourceNamespace.IsEmpty() {
+		clone.TargetNamespace = opts.SourceNamespace
+	}
 	if len(attr.NamespaceList) > 0 {
 		clone.NamespaceList = slices.Clone(attr.NamespaceList)
 	}
@@ -62,6 +68,17 @@ func copyQNameSlice(values []QName, remap func(QName) QName) []QName {
 	out := make([]QName, len(values))
 	for i, value := range values {
 		out[i] = remap(value)
+	}
+	return out
+}
+
+func copyStringMap(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(values))
+	for key, value := range values {
+		out[key] = value
 	}
 	return out
 }
@@ -143,7 +160,7 @@ func copyParticle(particle Particle, opts CopyOptions) Particle {
 		clone.RefQName = opts.RemapQName(p.RefQName)
 		return &clone
 	case *AnyElement:
-		return copyAnyElement(p)
+		return copyAnyElement(p, opts)
 	default:
 		return particle
 	}

@@ -81,11 +81,11 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 		}
 		attr.Use = use
 
-		if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
-			return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
-		}
 		if attr.Use == types.Required && doc.HasAttribute(elem, "default") {
 			return nil, fmt.Errorf("attribute with use='required' cannot have default value")
+		}
+		if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
+			return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
 		}
 
 		if doc.HasAttribute(elem, "default") {
@@ -98,6 +98,9 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 			attr.Fixed = doc.GetAttribute(elem, "fixed")
 			attr.HasFixed = true
 			attr.FixedContext = namespaceContextForElement(doc, elem, schema)
+		}
+		if attr.HasDefault || attr.HasFixed {
+			attr.ValueContext = namespaceContextForElement(doc, elem, schema)
 		}
 
 		parsed, err := types.NewAttributeDeclFromParsed(attr)
@@ -188,11 +191,11 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 	}
 	attr.Use = use
 
-	if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
-		return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
-	}
 	if attr.Use == types.Required && doc.HasAttribute(elem, "default") {
 		return nil, fmt.Errorf("attribute with use='required' cannot have default value")
+	}
+	if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
+		return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
 	}
 
 	if doc.HasAttribute(elem, "default") {
@@ -205,6 +208,9 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 		attr.Fixed = doc.GetAttribute(elem, "fixed")
 		attr.HasFixed = true
 		attr.FixedContext = namespaceContextForElement(doc, elem, schema)
+	}
+	if attr.HasDefault || attr.HasFixed {
+		attr.ValueContext = namespaceContextForElement(doc, elem, schema)
 	}
 
 	// parse form attribute - must be exactly "qualified" or "unqualified"

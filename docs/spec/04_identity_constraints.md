@@ -353,6 +353,11 @@ The types `xs:ID` and `xs:IDREF` provide document-wide identity constraints inde
 - Each element can have **at most one** attribute of type `xs:ID`
 - ID values must be valid NCNames (no colons, must start with letter or underscore)
 
+Note: The “at most one ID attribute per element” rule is enforced during
+instance validation. A schema is not rejected solely because an `anyAttribute`
+wildcard could admit ID-typed attributes; the violation is detected if it
+occurs in an instance.
+
 **IDREF Constraints:**
 
 - Every `xs:IDREF` value must match some `xs:ID` value in the document

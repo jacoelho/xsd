@@ -295,7 +295,7 @@ func isDateTimeTypeName(typeName string) bool {
 }
 
 func isBuiltinListTypeName(name string) bool {
-	return name == "NMTOKENS" || name == "IDREFS" || name == "ENTITIES"
+	return name == string(types.TypeNameNMTOKENS) || name == string(types.TypeNameIDREFS) || name == string(types.TypeNameENTITIES)
 }
 
 func validateListItemValue(itemType types.Type, value string) error {
@@ -1208,6 +1208,71 @@ func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
 			return 0, errDateTimeNotComparable
 		}
 		return compareTimes(t1, t2), nil
+	case "gYear":
+		t1, tz1, err := parseXSDGYear(v1)
+		if err != nil {
+			return 0, err
+		}
+		t2, tz2, err := parseXSDGYear(v2)
+		if err != nil {
+			return 0, err
+		}
+		if tz1 != tz2 {
+			return 0, errDateTimeNotComparable
+		}
+		return compareTimes(t1, t2), nil
+	case "gYearMonth":
+		t1, tz1, err := parseXSDGYearMonth(v1)
+		if err != nil {
+			return 0, err
+		}
+		t2, tz2, err := parseXSDGYearMonth(v2)
+		if err != nil {
+			return 0, err
+		}
+		if tz1 != tz2 {
+			return 0, errDateTimeNotComparable
+		}
+		return compareTimes(t1, t2), nil
+	case "gMonth":
+		t1, tz1, err := parseXSDGMonth(v1)
+		if err != nil {
+			return 0, err
+		}
+		t2, tz2, err := parseXSDGMonth(v2)
+		if err != nil {
+			return 0, err
+		}
+		if tz1 != tz2 {
+			return 0, errDateTimeNotComparable
+		}
+		return compareTimes(t1, t2), nil
+	case "gMonthDay":
+		t1, tz1, err := parseXSDGMonthDay(v1)
+		if err != nil {
+			return 0, err
+		}
+		t2, tz2, err := parseXSDGMonthDay(v2)
+		if err != nil {
+			return 0, err
+		}
+		if tz1 != tz2 {
+			return 0, errDateTimeNotComparable
+		}
+		return compareTimes(t1, t2), nil
+	case "gDay":
+		t1, tz1, err := parseXSDGDay(v1)
+		if err != nil {
+			return 0, err
+		}
+		t2, tz2, err := parseXSDGDay(v2)
+		if err != nil {
+			return 0, err
+		}
+		if tz1 != tz2 {
+			return 0, errDateTimeNotComparable
+		}
+		return compareTimes(t1, t2), nil
 	}
 
 	// fallback: lexicographic comparison for other date/time types.
@@ -1324,6 +1389,89 @@ func parseXSDTime(value string) (time.Time, bool, error) {
 		loc = time.FixedZone("", offset)
 	}
 	parsed = time.Date(2000, 1, 1, parsed.Hour(), parsed.Minute(), parsed.Second(), parsed.Nanosecond(), loc).UTC()
+	return parsed, hasTZ, nil
+}
+
+func parseXSDGYear(value string) (time.Time, bool, error) {
+	base, hasTZ, offset, err := splitTimezone(value)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	parsed, err := time.Parse("2006", base)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if hasTZ {
+		loc := time.FixedZone("", offset)
+		parsed = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, loc).UTC()
+	}
+	return parsed, hasTZ, nil
+}
+
+func parseXSDGYearMonth(value string) (time.Time, bool, error) {
+	base, hasTZ, offset, err := splitTimezone(value)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	parsed, err := time.Parse("2006-01", base)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if hasTZ {
+		loc := time.FixedZone("", offset)
+		parsed = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, loc).UTC()
+	}
+	return parsed, hasTZ, nil
+}
+
+func parseXSDGMonth(value string) (time.Time, bool, error) {
+	base, hasTZ, offset, err := splitTimezone(value)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	testValue := "2000" + base
+	parsed, err := time.Parse("2006--01", testValue)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if hasTZ {
+		loc := time.FixedZone("", offset)
+		parsed = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, loc).UTC()
+	}
+	return parsed, hasTZ, nil
+}
+
+func parseXSDGMonthDay(value string) (time.Time, bool, error) {
+	base, hasTZ, offset, err := splitTimezone(value)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	testValue := "2000" + base
+	parsed, err := time.Parse("2006--01-02", testValue)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if hasTZ {
+		loc := time.FixedZone("", offset)
+		parsed = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, loc).UTC()
+	}
+	return parsed, hasTZ, nil
+}
+
+func parseXSDGDay(value string) (time.Time, bool, error) {
+	base, hasTZ, offset, err := splitTimezone(value)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	testValue := "2000-01" + base
+	parsed, err := time.Parse("2006-01---02", testValue)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if hasTZ {
+		loc := time.FixedZone("", offset)
+		parsed = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 0, 0, 0, 0, loc).UTC()
+	}
 	return parsed, hasTZ, nil
 }
 

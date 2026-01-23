@@ -715,19 +715,15 @@ func validateAnyURI(value string) error {
 		return nil // empty URI is valid
 	}
 
-	// reject control characters and whitespace.
+	// reject control characters and disallowed ASCII characters.
 	for _, r := range value {
 		if r < 0x20 || r == 0x7f {
 			return fmt.Errorf("anyURI contains control characters")
 		}
-		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
-			return fmt.Errorf("anyURI contains whitespace")
+		switch r {
+		case ' ', '\t', '\n', '\r', '\\', '{', '}', '|', '^', '`':
+			return fmt.Errorf("anyURI contains invalid characters")
 		}
-	}
-
-	// backslashes and a few prohibited delimiters are not valid in URI references.
-	if strings.ContainsAny(value, "\\{}|^`") {
-		return fmt.Errorf("anyURI contains invalid characters")
 	}
 
 	// validate percent-encoding: every '%' must be followed by two hex digits.

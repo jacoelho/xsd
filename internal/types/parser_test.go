@@ -17,6 +17,8 @@ func TestParseDecimal(t *testing.T) {
 		{"zero", "0", "0", false},
 		{"leading plus", "+123", "123", false},
 		{"with whitespace", "  123.456  ", "123.456", false},
+		{"exponent", "1e2", "", true},
+		{"fraction", "1/3", "", true},
 		{"invalid", "abc", "", true},
 		{"empty", "", "", true},
 		{"only dot", ".", "", true},
@@ -122,6 +124,11 @@ func TestParseFloat(t *testing.T) {
 		{"negative INF", "-INF", false},
 		{"NaN", "NaN", false},
 		{"with whitespace", "  123.456  ", false},
+		{"exponent", "1.2e3", false},
+		{"hex", "0x1.2p3", true},
+		{"underscore", "1_2.0", true},
+		{"lower inf", "inf", true},
+		{"lower nan", "nan", true},
 		{"invalid", "abc", true},
 		{"empty", "", true},
 	}
@@ -167,6 +174,11 @@ func TestParseDouble(t *testing.T) {
 		{"negative INF", "-INF", false},
 		{"NaN", "NaN", false},
 		{"with whitespace", "  123.456  ", false},
+		{"exponent", "1.2e3", false},
+		{"hex", "0x1.2p3", true},
+		{"underscore", "1_2.0", true},
+		{"lower inf", "inf", true},
+		{"lower nan", "nan", true},
 		{"invalid", "abc", true},
 		{"empty", "", true},
 	}
@@ -205,6 +217,7 @@ func TestParseDateTime(t *testing.T) {
 		wantErr bool
 	}{
 		{"with 24:00:00", "2001-10-26T24:00:00", false},
+		{"leap second", "1999-12-31T23:59:60Z", false},
 		{"valid datetime", "2001-10-26T21:32:52", false},
 		{"with timezone", "2001-10-26T21:32:52+02:00", false},
 		{"with Z", "2001-10-26T21:32:52Z", false},

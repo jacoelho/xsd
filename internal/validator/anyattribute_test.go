@@ -5,6 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/loader"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -73,7 +74,7 @@ func TestAnyAttributeNamespaceMatching(t *testing.T) {
 			description: "##other should reject attributes from target namespace",
 		},
 		{
-			name: "##other rejects empty namespace",
+			name: "##other rejects empty namespace when target namespace is present",
 			schemaXML: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -87,7 +88,7 @@ func TestAnyAttributeNamespaceMatching(t *testing.T) {
 			xmlDoc: `<root xmlns="http://example.com/test"
       attr="value"/>`,
 			expectValid: false,
-			description: "##other should reject attributes with no namespace",
+			description: "##other should reject attributes with no namespace when target namespace is set",
 		},
 		{
 			name: "##targetNamespace allows only target namespace",
@@ -446,14 +447,15 @@ func TestAnyAttributeDerivationTargetNamespaceMismatch(t *testing.T) {
 // TestAnyAttributeDerivationExtension tests anyAttribute in extension (union)
 func TestAnyAttributeDerivationExtension(t *testing.T) {
 	tests := []struct {
-		name        string
-		schemaXML   string
-		xmlDoc      string
-		description string
-		expectValid bool
+		name              string
+		schemaXML         string
+		xmlDoc            string
+		description       string
+		expectSchemaValid bool
+		expectValid       bool
 	}{
 		{
-			name: "extension unions anyAttribute",
+			name: "extension unions target and other to not-absent",
 			schemaXML: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="http://example.com/test"
@@ -476,8 +478,9 @@ func TestAnyAttributeDerivationExtension(t *testing.T) {
       xmlns:other="http://example.com/other"
       tns:targetAttr="value1"
       other:otherAttr="value2"/>`,
-			expectValid: true,
-			description: "Extension should union anyAttribute (allows both target and other namespaces)",
+			expectSchemaValid: true,
+			expectValid:       true,
+			description:       "Union of ##targetNamespace and ##other allows any qualified attribute",
 		},
 		{
 			name: "extension with base ##any",
@@ -501,8 +504,9 @@ func TestAnyAttributeDerivationExtension(t *testing.T) {
 			xmlDoc: `<root xmlns="http://example.com/test"
       xmlns:other="http://example.com/other"
       other:anyAttr="value"/>`,
-			expectValid: true,
-			description: "Extension with base ##any should result in ##any (union)",
+			expectSchemaValid: true,
+			expectValid:       true,
+			description:       "Extension with base ##any should result in ##any (union)",
 		},
 	}
 
@@ -513,8 +517,16 @@ func TestAnyAttributeDerivationExtension(t *testing.T) {
 				t.Fatalf("Parse schema: %v", err)
 			}
 
-			if validationErrors := loader.ValidateSchema(schema); len(validationErrors) > 0 {
-				t.Fatalf("Validate schema: %v", validationErrors)
+			validationErrors := loader.ValidateSchema(schema)
+			if tt.expectSchemaValid {
+				if len(validationErrors) > 0 {
+					t.Fatalf("Validate schema: %v", validationErrors)
+				}
+			} else {
+				if len(validationErrors) == 0 {
+					t.Fatalf("Expected schema validation error")
+				}
+				return
 			}
 
 			v := New(mustCompile(t, schema))
@@ -779,19 +791,12 @@ func TestProhibitedAttributeWithAnyAttribute(t *testing.T) {
 	}
 
 	// XML with the "prohibited" attribute
-	// this should be VALID because:
-	// 1. prohibited attributes are not in {attribute uses}
-	// 2. anyAttribute namespace="##local" allows local (no-namespace) attributes
-	// 3. attr="123" is a local attribute, so it matches the wildcard
+	// use="prohibited" must reject even if anyAttribute would allow it.
 	xmlDoc := `<root attr="123"/>`
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
 
-	// should be valid - anyAttribute allows this attribute
-	if len(violations) > 0 {
-		t.Errorf("Expected valid (prohibited only matters for derivation), got invalid:")
-		for _, v := range violations {
-			t.Errorf("  %s", v.Error())
-		}
+	if !hasViolationCode(violations, errors.ErrAttributeProhibited) {
+		t.Fatalf("expected prohibited attribute violation, got %v", violations)
 	}
 }

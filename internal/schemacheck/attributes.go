@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
 )
 
 // validateAttributeDeclStructure validates structural constraints of an attribute declaration
@@ -56,6 +56,11 @@ func validateAttributeDeclStructure(schemaDef *parser.Schema, qname types.QName,
 	if decl.Use == types.Required && decl.HasDefault {
 		return fmt.Errorf("attribute with use='required' cannot have a default value")
 	}
+	// per XSD spec: if use="prohibited", default is not allowed
+	// (au-props-correct constraint - prohibited attributes cannot have defaults)
+	if decl.Use == types.Prohibited && decl.HasDefault {
+		return fmt.Errorf("attribute with use='prohibited' cannot have a default value")
+	}
 	// validate default value if present (basic validation only - full type checking after resolution)
 	if decl.HasDefault {
 		if err := validateDefaultOrFixedValue(decl.Default, decl.Type); err != nil {
@@ -65,7 +70,7 @@ func validateAttributeDeclStructure(schemaDef *parser.Schema, qname types.QName,
 
 	// validate fixed value if present (basic validation only - full type checking after resolution)
 	if decl.HasFixed {
-		if err := validateDefaultOrFixedValue(decl.Fixed, decl.Type); err != nil {
+		if err := validateDefaultOrFixedValueWithContext(schemaDef, decl.Fixed, decl.Type, decl.ValueContext); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)
 		}
 	}
@@ -112,6 +117,39 @@ func validateAttributeUniqueness(schema *parser.Schema, ct *types.ComplexType) e
 		seen[key] = true
 	}
 
+	return nil
+}
+
+func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *types.ComplexType) error {
+	if ct == nil {
+		return nil
+	}
+	content := ct.Content()
+	if content == nil {
+		return nil
+	}
+	ext := content.ExtensionDef()
+	if ext == nil || ext.Base.IsZero() {
+		return nil
+	}
+	baseCT, ok := lookupComplexType(schema, ext.Base)
+	if !ok || baseCT == nil {
+		return nil
+	}
+
+	baseAttrs := collectEffectiveAttributeUses(schema, baseCT)
+	if len(baseAttrs) == 0 {
+		return nil
+	}
+
+	attrs := append([]*types.AttributeDecl{}, ext.Attributes...)
+	attrs = append(attrs, collectAttributesFromGroups(schema, ext.AttrGroups, nil)...)
+	for _, attr := range attrs {
+		key := effectiveAttributeQNameForValidation(schema, attr)
+		if _, exists := baseAttrs[key]; exists {
+			return fmt.Errorf("extension attribute '%s' in namespace '%s' duplicates base attribute", attr.Name.Local, attr.Name.Namespace)
+		}
+	}
 	return nil
 }
 

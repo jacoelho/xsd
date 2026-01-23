@@ -97,7 +97,7 @@ func (c *ComplexType) Copy(opts CopyOptions) *ComplexType {
 	clone.SourceNamespace = opts.SourceNamespace
 	clone.attributes = copyAttributeDecls(c.attributes, opts)
 	clone.AttrGroups = copyQNameSlice(c.AttrGroups, opts.RemapQName)
-	clone.anyAttribute = copyAnyAttribute(c.anyAttribute)
+	clone.anyAttribute = copyAnyAttribute(c.anyAttribute, opts)
 	// remap base type references inside content (simple/complex content).
 	if content := c.Content(); content != nil {
 		clone.SetContent(content.Copy(opts))

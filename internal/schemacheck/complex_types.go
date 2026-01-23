@@ -33,6 +33,9 @@ func validateComplexTypeStructure(schema *parser.Schema, complexType *types.Comp
 	if err := validateAnyAttributeDerivation(schema, complexType); err != nil {
 		return fmt.Errorf("anyAttribute derivation: %w", err)
 	}
+	if _, err := collectAnyAttributeFromType(schema, complexType); err != nil {
+		return fmt.Errorf("anyAttribute: %w", err)
+	}
 
 	for _, attr := range complexType.Attributes() {
 		if err := validateAttributeDeclStructure(schema, attr.Name, attr); err != nil {
@@ -58,6 +61,9 @@ func validateComplexTypeStructure(schema *parser.Schema, complexType *types.Comp
 	}
 
 	if err := validateAttributeUniqueness(schema, complexType); err != nil {
+		return fmt.Errorf("attributes: %w", err)
+	}
+	if err := validateExtensionAttributeUniqueness(schema, complexType); err != nil {
 		return fmt.Errorf("attributes: %w", err)
 	}
 
@@ -309,6 +315,50 @@ func collectElementDeclarationsFromParticle(particle types.Particle) []*types.El
 	return result
 }
 
+// wildcardCanAdmitIDAttribute checks if an anyAttribute wildcard can admit
+// any global ID-typed attributes from imported namespaces (not the current schema's target namespace).
+// Returns true only if an ID-typed attribute actually exists in an imported namespace that the wildcard allows.
+func wildcardCanAdmitIDAttribute(schema *parser.Schema, anyAttr *types.AnyAttribute) bool {
+	if anyAttr == nil {
+		return false
+	}
+	// Check if any global attributes from imported namespaces are ID-typed and allowed by the wildcard
+	for qname, globalAttr := range schema.AttributeDecls {
+		// Only check attributes from imported namespaces, not the current schema's target namespace
+		if qname.Namespace == schema.TargetNamespace {
+			continue
+		}
+		// Only check if the namespace is actually imported (or if wildcard is ##any which allows all)
+		if anyAttr.Namespace != types.NSCAny {
+			if _, isImported := schema.ImportedNamespaces[qname.Namespace]; !isImported {
+				continue
+			}
+		}
+		if globalAttr.Type == nil {
+			continue
+		}
+		// Check if the global attribute's namespace is allowed by the wildcard
+		if !anyAttr.AllowsQName(qname) {
+			continue
+		}
+		// Check if the global attribute is ID-typed
+		resolvedType := resolveTypeReference(schema, globalAttr.Type, TypeReferenceAllowMissing)
+		if resolvedType == nil {
+			continue
+		}
+		typeName := resolvedType.Name()
+		if typeName.Namespace == types.XSDNamespace && typeName.Local == string(types.TypeNameID) {
+			return true
+		}
+		if simpleType, ok := resolvedType.(*types.SimpleType); ok {
+			if isIDOnlyDerivedType(schema, simpleType) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func validateIDAttributeCount(schema *parser.Schema, complexType *types.ComplexType) error {
 	attrs := collectAllAttributesForValidation(schema, complexType)
 	idCount := 0
@@ -319,19 +369,33 @@ func validateIDAttributeCount(schema *parser.Schema, complexType *types.ComplexT
 		if attr.Type == nil {
 			continue
 		}
-		typeName := attr.Type.Name()
-		if typeName.Namespace == types.XSDNamespace && typeName.Local == "ID" {
+		resolvedType := resolveTypeReference(schema, attr.Type, TypeReferenceAllowMissing)
+		if resolvedType == nil {
+			continue
+		}
+		typeName := resolvedType.Name()
+		if typeName.Namespace == types.XSDNamespace && typeName.Local == string(types.TypeNameID) {
 			idCount++
 			continue
 		}
-		if simpleType, ok := attr.Type.(*types.SimpleType); ok {
-			if isIDOnlyDerivedType(simpleType) {
+		if simpleType, ok := resolvedType.(*types.SimpleType); ok {
+			if isIDOnlyDerivedType(schema, simpleType) {
 				idCount++
 			}
 		}
 	}
 	if idCount > 1 {
 		return fmt.Errorf("type %s has multiple ID attributes", complexType.QName.Local)
+	}
+	if idCount > 0 {
+		anyAttr, err := collectAnyAttributeFromType(schema, complexType)
+		if err != nil {
+			return err
+		}
+		// Only check if processContents is strict (wildcards with skip/lax don't validate attributes)
+		if anyAttr != nil && anyAttr.ProcessContents == types.Strict && wildcardCanAdmitIDAttribute(schema, anyAttr) {
+			return fmt.Errorf("type %s has ID attribute and anyAttribute that can admit ID-typed attributes", complexType.QName.Local)
+		}
 	}
 	return nil
 }

@@ -186,6 +186,43 @@ func TestElementDeclEquivalentNamespaceContext(t *testing.T) {
 	}
 }
 
+func TestElementDeclEquivalentConstraintOrder(t *testing.T) {
+	constraintA := &types.IdentityConstraint{
+		Name:             "c1",
+		Type:             types.UniqueConstraint,
+		TargetNamespace:  types.NamespaceURI("urn:test"),
+		Selector:         types.Selector{XPath: "tns:child"},
+		Fields:           []types.Field{{XPath: "@id"}},
+		NamespaceContext: map[string]string{"tns": "urn:test"},
+	}
+	constraintB := &types.IdentityConstraint{
+		Name:             "c2",
+		Type:             types.KeyRefConstraint,
+		ReferQName:       types.QName{Namespace: "urn:test", Local: "ref"},
+		TargetNamespace:  types.NamespaceURI("urn:test"),
+		Selector:         types.Selector{XPath: "tns:child"},
+		Fields:           []types.Field{{XPath: "@code"}},
+		NamespaceContext: map[string]string{"tns": "urn:test"},
+	}
+
+	elemA := &types.ElementDecl{
+		Name:        types.QName{Local: "a"},
+		Type:        types.GetBuiltin(types.TypeNameString),
+		Form:        types.FormQualified,
+		Constraints: []*types.IdentityConstraint{constraintA, constraintB},
+	}
+	elemB := &types.ElementDecl{
+		Name:        types.QName{Local: "a"},
+		Type:        types.GetBuiltin(types.TypeNameString),
+		Form:        types.FormQualified,
+		Constraints: []*types.IdentityConstraint{constraintB, constraintA},
+	}
+
+	if !elementDeclEquivalent(elemA, elemB) {
+		t.Fatalf("expected element declarations with reordered constraints to be equivalent")
+	}
+}
+
 func TestLoadValidatesCachedSchema(t *testing.T) {
 	fsys := fstest.MapFS{
 		"a.xsd": {Data: []byte(`<?xml version="1.0" encoding="UTF-8"?>

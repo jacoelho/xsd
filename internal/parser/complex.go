@@ -449,15 +449,6 @@ func parseInlineComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sc
 func resolveBaseTypeForComplex(schema *Schema, baseQName types.QName) types.Type {
 	// check if it's a built-in type
 	if builtinType := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local); builtinType != nil {
-		if baseQName.Local == "anyType" {
-			// anyType is a complex type
-			ct := &types.ComplexType{
-				QName: baseQName,
-			}
-			ct.SetContent(&types.EmptyContent{})
-			ct.SetMixed(false)
-			return ct
-		}
 		// for simple types used as base in simpleContent, return BuiltinType directly
 		return builtinType
 	}

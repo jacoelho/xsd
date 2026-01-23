@@ -37,6 +37,18 @@ func TestIsValidlyDerivedFrom_SameQName(t *testing.T) {
 	}
 }
 
+func TestIsValidlyDerivedFrom_AnonymousTypes(t *testing.T) {
+	base := &SimpleType{}
+	derived := &SimpleType{}
+
+	if IsValidlyDerivedFrom(derived, base) {
+		t.Fatal("expected distinct anonymous types to be invalid derivation")
+	}
+	if !IsValidlyDerivedFrom(base, base) {
+		t.Fatal("expected identical anonymous type to be valid derivation")
+	}
+}
+
 func TestIsValidlyDerivedFrom_UnionMemberMatch(t *testing.T) {
 	member := &SimpleType{
 		QName: QName{

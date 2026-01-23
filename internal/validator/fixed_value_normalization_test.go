@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -29,10 +30,7 @@ func TestFixedValueNormalization_Boolean(t *testing.T) {
 	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
-		t.Errorf("Expected no violations, got %d:", len(violations))
-		for _, v := range violations {
-			t.Errorf("  %s", v.Error())
-		}
+		t.Fatalf("expected no violations, got %v", violations)
 	}
 }
 
@@ -58,10 +56,7 @@ func TestFixedValueNormalization_Decimal(t *testing.T) {
 	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
-		t.Errorf("Expected no violations, got %d:", len(violations))
-		for _, v := range violations {
-			t.Errorf("  %s", v.Error())
-		}
+		t.Fatalf("expected no violations, got %v", violations)
 	}
 }
 
@@ -87,10 +82,7 @@ func TestFixedValueNormalization_StringWhitespace(t *testing.T) {
 	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
-		t.Errorf("Expected no violations, got %d:", len(violations))
-		for _, v := range violations {
-			t.Errorf("  %s", v.Error())
-		}
+		t.Fatalf("expected no violations, got %v", violations)
 	}
 }
 
@@ -116,10 +108,7 @@ func TestFixedValueNormalization_StringTrailingWhitespace(t *testing.T) {
 	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
-		t.Errorf("Expected no violations, got %d:", len(violations))
-		for _, v := range violations {
-			t.Errorf("  %s", v.Error())
-		}
+		t.Fatalf("expected no violations, got %v", violations)
 	}
 }
 
@@ -146,10 +135,64 @@ func TestFixedValueNormalization_DateWhitespace(t *testing.T) {
 	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
-		t.Errorf("Expected no violations, got %d:", len(violations))
-		for _, v := range violations {
-			t.Errorf("  %s", v.Error())
-		}
+		t.Fatalf("expected no violations, got %v", violations)
+	}
+}
+
+func TestFixedValueNormalization_ListValueSpace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="intList">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:intList" fixed="1 02"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	xmlDoc := `<?xml version="1.0"?>
+<root xmlns="urn:test">1 2</root>`
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, xmlDoc)
+	if len(violations) > 0 {
+		t.Fatalf("expected no violations, got %v", violations)
+	}
+}
+
+func TestFixedValueNormalization_ListValueSpaceMismatch(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="intList">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:intList" fixed="1 02"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	xmlDoc := `<?xml version="1.0"?>
+<root xmlns="urn:test">1 3</root>`
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, xmlDoc)
+	if len(violations) == 0 {
+		t.Fatalf("expected fixed-value violation, got none")
+	}
+	if !hasViolationCode(violations, errors.ErrElementFixedValue) {
+		t.Fatalf("expected code %s, got %v", errors.ErrElementFixedValue, violations)
 	}
 }
 
@@ -179,10 +222,7 @@ func TestFixedValueNormalization_UnionBoolean(t *testing.T) {
 	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
-		t.Errorf("Expected no violations, got %d:", len(violations))
-		for _, v := range violations {
-			t.Errorf("  %s", v.Error())
-		}
+		t.Fatalf("expected no violations, got %v", violations)
 	}
 }
 
@@ -212,15 +252,12 @@ func TestFixedValueNormalization_UnionDecimal(t *testing.T) {
 	violations := validateStream(t, v, xmlDoc)
 
 	if len(violations) > 0 {
-		t.Errorf("Expected no violations, got %d:", len(violations))
-		for _, v := range violations {
-			t.Errorf("  %s", v.Error())
-		}
+		t.Fatalf("expected no violations, got %v", violations)
 	}
 }
 
 func TestFixedValueNormalization_FloatNaN(t *testing.T) {
-	// test that fixed NaN matches NaN in the float value space
+	// NaN is not equal to itself in the XSD value space.
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/test"
@@ -239,16 +276,13 @@ func TestFixedValueNormalization_FloatNaN(t *testing.T) {
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
 
-	if len(violations) > 0 {
-		t.Errorf("Expected no violations, got %d:", len(violations))
-		for _, v := range violations {
-			t.Errorf("  %s", v.Error())
-		}
+	if !hasViolationCode(violations, errors.ErrElementFixedValue) {
+		t.Fatalf("expected fixed-value violation, got %v", violations)
 	}
 }
 
 func TestFixedValueNormalization_DoubleNaN(t *testing.T) {
-	// test that fixed NaN matches NaN in the double value space
+	// NaN is not equal to itself in the XSD value space.
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/test"
@@ -267,10 +301,7 @@ func TestFixedValueNormalization_DoubleNaN(t *testing.T) {
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
 
-	if len(violations) > 0 {
-		t.Errorf("Expected no violations, got %d:", len(violations))
-		for _, v := range violations {
-			t.Errorf("  %s", v.Error())
-		}
+	if !hasViolationCode(violations, errors.ErrElementFixedValue) {
+		t.Fatalf("expected fixed-value violation, got %v", violations)
 	}
 }

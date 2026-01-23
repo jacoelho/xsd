@@ -322,6 +322,10 @@ Wildcards allow elements or attributes not explicitly declared:
 
 Spec refs: docs/spec/xml/structures.xml#Wildcards, docs/spec/xml/structures.xml#cvc-wildcard, docs/spec/xml/structures.xml#cvc-wildcard-namespace.
 
+Note: `anyAttribute` does not make a schema invalid just because it could
+admit ID-typed attributes. The “at most one ID attribute per element” rule is
+checked during instance validation when concrete attributes are present.
+
 ## Abstract Types
 
 An abstract complex type cannot be used directly—elements must use `xsi:type` to specify a concrete derived type:

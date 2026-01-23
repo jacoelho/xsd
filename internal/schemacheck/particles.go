@@ -3,7 +3,6 @@ package schemacheck
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
@@ -11,12 +10,12 @@ import (
 
 // validateParticleStructure validates structural constraints of particles.
 func validateParticleStructure(schema *parser.Schema, particle types.Particle) error {
-	visited := make(map[*types.ModelGroup]bool)
+	visited := newModelGroupVisit()
 	return validateParticleStructureWithVisited(schema, particle, nil, visited)
 }
 
 // validateParticleStructureWithVisited validates structural constraints with cycle detection
-func validateParticleStructureWithVisited(schema *parser.Schema, particle types.Particle, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
+func validateParticleStructureWithVisited(schema *parser.Schema, particle types.Particle, parentKind *types.GroupKind, visited modelGroupVisit) error {
 	if err := validateParticleOccurs(particle); err != nil {
 		return err
 	}
@@ -55,12 +54,11 @@ func validateParticleOccurs(particle types.Particle) error {
 	return nil
 }
 
-func validateModelGroupStructure(schema *parser.Schema, group *types.ModelGroup, parentKind *types.GroupKind, visited map[*types.ModelGroup]bool) error {
+func validateModelGroupStructure(schema *parser.Schema, group *types.ModelGroup, parentKind *types.GroupKind, visited modelGroupVisit) error {
 	// cycle detection: skip if already visited
-	if visited[group] {
+	if !visited.enter(group) {
 		return nil
 	}
-	visited[group] = true
 
 	if err := validateLocalElementTypes(group.Particles); err != nil {
 		return err
@@ -245,17 +243,16 @@ func validateInlineElementType(schema *parser.Schema, elem *types.ElementDecl) e
 // across a particle tree, including nested model groups and group references.
 func validateElementDeclarationsConsistentInParticle(schema *parser.Schema, particle types.Particle) error {
 	seen := make(map[types.QName]types.Type)
-	visited := make(map[*types.ModelGroup]bool)
+	visited := newModelGroupVisit()
 	return validateElementDeclarationsConsistentWithVisited(schema, particle, seen, visited)
 }
 
-func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, particle types.Particle, seen map[types.QName]types.Type, visited map[*types.ModelGroup]bool) error {
+func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, particle types.Particle, seen map[types.QName]types.Type, visited modelGroupVisit) error {
 	switch p := particle.(type) {
 	case *types.ModelGroup:
-		if visited[p] {
+		if !visited.enter(p) {
 			return nil
 		}
-		visited[p] = true
 		for _, child := range p.Particles {
 			if err := validateElementDeclarationsConsistentWithVisited(schema, child, seen, visited); err != nil {
 				return err
@@ -509,24 +506,12 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 					found = true
 					break
 				}
-				// check if this is a validation error (like maxOccurs, minOccurs) that should be returned immediately
-				// these errors mean the particles match but the restriction is invalid
-				errMsg := err.Error()
 				skippable := baseParticle.MinOcc().IsZero()
 				if !skippable {
 					if baseGroup, ok := baseParticle.(*types.ModelGroup); ok {
 						skippable = isEffectivelyOptional(baseGroup)
 					}
 				}
-				if strings.Contains(errMsg, "maxOccurs") || strings.Contains(errMsg, "minOccurs") ||
-					strings.Contains(errMsg, "model group kind") || strings.Contains(errMsg, "cannot restrict wildcard") {
-					if !skippable {
-						// validation errors should be returned immediately when base particle is required
-						return err
-					}
-				}
-				// "Element name mismatch" means these particles don't match - try next base particle
-				// no match - check if we can skip this base particle (if it's optional or effectively optional)
 				if skippable {
 					baseIdx++
 					continue
@@ -659,34 +644,13 @@ func validateOccurrenceConstraints(baseMinOcc, baseMaxOcc, restrictionMinOcc, re
 // When base is a wildcard and restriction is an element, this is valid if:
 // - Element's namespace is allowed by wildcard's namespace constraint
 // - Element's occurrence constraints are within wildcard's constraints
-func validateWildcardToElementRestriction(schema *parser.Schema, baseAny *types.AnyElement, restrictionElem *types.ElementDecl) error {
+func validateWildcardToElementRestriction(baseAny *types.AnyElement, restrictionElem *types.ElementDecl) error {
 	if restrictionElem.MinOcc().IsZero() && restrictionElem.MaxOcc().IsZero() {
 		return validateOccurrenceConstraints(baseAny.MinOccurs, baseAny.MaxOccurs, restrictionElem.MinOcc(), restrictionElem.MaxOcc())
 	}
 	// check namespace constraint: element namespace must be allowed by wildcard
 	elemNS := restrictionElem.Name.Namespace
-	wildcardAllows := false
-	switch baseAny.Namespace {
-	case types.NSCAny:
-		// ##any allows all namespaces
-		wildcardAllows = true
-	case types.NSCTargetNamespace:
-		// ##targetNamespace - check if element is in target namespace
-		wildcardAllows = (string(elemNS) == string(schema.TargetNamespace))
-	case types.NSCLocal:
-		// ##local - element must have no namespace
-		wildcardAllows = (elemNS == "")
-	case types.NSCOther:
-		// ##other - element must NOT be in target namespace
-		wildcardAllows = (string(elemNS) != string(schema.TargetNamespace) && elemNS != "")
-	case types.NSCList:
-		// element namespace must be in the allowed list
-		if slices.Contains(baseAny.NamespaceList, elemNS) {
-			wildcardAllows = true
-		}
-	}
-
-	if !wildcardAllows {
+	if !types.AllowsNamespace(baseAny.Namespace, baseAny.NamespaceList, baseAny.TargetNamespace, elemNS) {
 		return fmt.Errorf("ComplexContent restriction: element namespace %q not allowed by base wildcard", elemNS)
 	}
 
@@ -697,7 +661,7 @@ func validateWildcardToElementRestriction(schema *parser.Schema, baseAny *types.
 // When base is a wildcard and restriction is a model group, we calculate the effective
 // occurrence of the model group's content and validate against the wildcard constraints.
 func validateWildcardToModelGroupRestriction(schema *parser.Schema, baseAny *types.AnyElement, restrictionMG *types.ModelGroup) error {
-	if err := validateWildcardNamespaceRestriction(schema, baseAny, restrictionMG, make(map[*types.ModelGroup]bool), make(map[types.QName]bool)); err != nil {
+	if err := validateWildcardNamespaceRestriction(schema, baseAny, restrictionMG, newModelGroupVisit(), make(map[types.QName]bool)); err != nil {
 		return err
 	}
 	// calculate effective occurrence by recursively finding the total minOccurs/maxOccurs
@@ -706,16 +670,15 @@ func validateWildcardToModelGroupRestriction(schema *parser.Schema, baseAny *typ
 	return validateOccurrenceConstraints(baseAny.MinOccurs, baseAny.MaxOccurs, effectiveMinOcc, effectiveMaxOcc)
 }
 
-func validateWildcardNamespaceRestriction(schema *parser.Schema, baseAny *types.AnyElement, particle types.Particle, visitedMG map[*types.ModelGroup]bool, visitedGroups map[types.QName]bool) error {
+func validateWildcardNamespaceRestriction(schema *parser.Schema, baseAny *types.AnyElement, particle types.Particle, visitedMG modelGroupVisit, visitedGroups map[types.QName]bool) error {
 	if particle != nil && particle.MinOcc().IsZero() && particle.MaxOcc().IsZero() {
 		return nil
 	}
 	switch p := particle.(type) {
 	case *types.ModelGroup:
-		if visitedMG[p] {
+		if !visitedMG.enter(p) {
 			return nil
 		}
-		visitedMG[p] = true
 		for _, child := range p.Particles {
 			if err := validateWildcardNamespaceRestriction(schema, baseAny, child, visitedMG, visitedGroups); err != nil {
 				return err
@@ -922,7 +885,7 @@ func validateParticlePairRestriction(schema *parser.Schema, baseParticle, restri
 	baseAny, baseIsAny := baseParticle.(*types.AnyElement)
 	restrictionElem, restrictionIsElem := restrictionParticle.(*types.ElementDecl)
 	if baseIsAny && restrictionIsElem {
-		return validateWildcardToElementRestriction(schema, baseAny, restrictionElem)
+		return validateWildcardToElementRestriction(baseAny, restrictionElem)
 	}
 
 	// special case: ModelGroup:Wildcard derivation (Particle Derivation OK - NS:RecurseAsIfGroup)

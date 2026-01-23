@@ -131,8 +131,12 @@ func ParseTime(lexical string) (time.Time, error) {
 		if minute != 0 || second != 0 || !is24HourZero(main) {
 			return time.Time{}, fmt.Errorf("invalid time: %s", lexical)
 		}
-	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59 {
+	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 60 {
 		return time.Time{}, fmt.Errorf("invalid time: %s", lexical)
+	}
+	leapSecond := second == 60
+	if leapSecond {
+		main = main[:6] + "59" + main[8:]
 	}
 
 	if fractionLength > 9 {
