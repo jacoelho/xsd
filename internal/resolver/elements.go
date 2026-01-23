@@ -141,16 +141,41 @@ func validateSubstitutionGroupDerivation(schema *parser.Schema, memberQName type
 	if isDefaultAnyType(memberDecl) && headDecl.Type != nil {
 		memberDecl.Type = headDecl.Type
 	}
+
 	memberType := resolveTypeForFinalValidation(schema, memberDecl.Type)
 	headType := resolveTypeForFinalValidation(schema, headDecl.Type)
 	if memberType == nil || headType == nil {
 		return nil
 	}
-	if !memberDecl.SubstitutionGroup.IsZero() && !memberDecl.TypeExplicit && isDefaultAnyType(memberDecl.Type) {
+	if !memberDecl.SubstitutionGroup.IsZero() && !memberDecl.TypeExplicit && isDefaultAnyType(memberDecl) {
 		memberType = headType
 	}
 
-	// anyType accepts any derived type.
+	// If member has explicit anyType, it's only valid if head is also anyType
+	// Check the original type declaration first (before resolution may change it)
+	if memberDecl.TypeExplicit && memberDecl.Type != nil {
+		memberTypeName := memberDecl.Type.Name()
+		if memberTypeName.Namespace == types.XSDNamespace && memberTypeName.Local == "anyType" {
+			// Check if head is also anyType (check resolved type first, then original)
+			headIsAnyType := false
+			headTypeName := types.QName{}
+			if headType != nil {
+				headTypeName = headType.Name()
+				headIsAnyType = headTypeName.Namespace == types.XSDNamespace && headTypeName.Local == "anyType"
+			}
+			if !headIsAnyType && headDecl.Type != nil {
+				headTypeName = headDecl.Type.Name()
+				headIsAnyType = headTypeName.Namespace == types.XSDNamespace && headTypeName.Local == "anyType"
+			}
+
+			if !headIsAnyType {
+				return fmt.Errorf("element %s: type '%s' is not derived from substitution group head type '%s'", memberQName, memberTypeName, headTypeName)
+			}
+			return nil
+		}
+	}
+
+	// anyType accepts any derived type (when head is anyType).
 	if headType.Name().Namespace == types.XSDNamespace && headType.Name().Local == "anyType" {
 		return nil
 	}

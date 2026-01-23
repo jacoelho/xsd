@@ -17,6 +17,15 @@ var ErrFieldSelectsComplexContent = errors.New("field selects element with compl
 // statically, such as when wildcard steps are present.
 var ErrXPathUnresolvable = errors.New("xpath cannot be resolved statically")
 
+// ErrFieldXPathIncompatibleTypes indicates a field XPath resolves to elements with incompatible types.
+var ErrFieldXPathIncompatibleTypes = errors.New("field xpath resolves to incompatible element types")
+
+// ErrFieldXPathUnresolved indicates a field XPath cannot be resolved.
+var ErrFieldXPathUnresolved = errors.New("field xpath unresolved")
+
+// ErrFieldSelectsNillable indicates a field XPath selects a nillable element, which is invalid.
+var ErrFieldSelectsNillable = errors.New("field selects nillable element")
+
 func parseXPathExpression(expr string, nsContext map[string]string, policy xpath.AttributePolicy) (xpath.Expression, error) {
 	parsed, err := xpath.Parse(expr, nsContext, policy)
 	if err != nil {
@@ -36,7 +45,7 @@ func parseXPathPath(expr string, nsContext map[string]string, policy xpath.Attri
 	if len(parsed.Paths) != 1 {
 		return xpath.Path{}, fmt.Errorf("xpath contains %d paths", len(parsed.Paths))
 	}
-	return parsed.Paths, nil
+	return parsed.Paths[0], nil
 }
 
 type attributePathPolicy int
@@ -175,7 +184,7 @@ func combineFieldTypes(fieldXPath string, values []types.Type) (types.Type, erro
 	for i := 0; i < len(unique); i++ {
 		for j := i + 1; j < len(unique); j++ {
 			if !fieldTypesCompatible(unique[i], unique[j]) {
-				return nil, fmt.Errorf("field xpath '%s' selects incompatible types '%s' and '%s'", fieldXPath, fieldTypeName(unique[i]), fieldTypeName(unique[j]))
+				return nil, fmt.Errorf("%w: field xpath '%s' selects incompatible types '%s' and '%s'", ErrFieldXPathIncompatibleTypes, fieldXPath, fieldTypeName(unique[i]), fieldTypeName(unique[j]))
 			}
 		}
 	}
@@ -229,7 +238,14 @@ func resolveFieldType(schema *parser.Schema, field *types.Field, constraintEleme
 		return nil, fmt.Errorf("resolve selector '%s': %w", selectorXPath, err)
 	}
 
-	hasUnion := len(fieldExpr.Paths) > 1 || len(selectorDecls) > 1
+	fieldHasUnion := len(fieldExpr.Paths) > 1
+	selectorHasUnion := len(selectorDecls) > 1
+	hasUnion := fieldHasUnion || selectorHasUnion
+
+	// Union paths may mix element and attribute selections.
+	// At runtime, only one branch will match, so the actual selection
+	// will be either all elements or all attributes.
+
 	var resolvedTypes []types.Type
 	unresolved := false
 	for _, selectorDecl := range selectorDecls {
@@ -254,9 +270,13 @@ func resolveFieldType(schema *parser.Schema, field *types.Field, constraintEleme
 	}
 	combined, err := combineFieldTypes(field.XPath, resolvedTypes)
 	if err != nil {
-		if hasUnion {
+		// If only the selector has a union (not the field), incompatible types are allowed
+		// because the field can legitimately resolve to different types for different selector paths
+		if selectorHasUnion && !fieldHasUnion && errors.Is(err, ErrFieldXPathIncompatibleTypes) {
 			return nil, fmt.Errorf("%w: field xpath '%s'", ErrXPathUnresolvable, field.XPath)
 		}
+		// For union fields with incompatible types, always report the error
+		// (it will be allowed during reference validation if needed)
 		return nil, err
 	}
 	if unresolved {
@@ -445,6 +465,7 @@ func resolveFieldElementDecls(schema *parser.Schema, field *types.Field, constra
 	if err != nil {
 		return nil, fmt.Errorf("resolve selector '%s': %w", selectorXPath, err)
 	}
+	hasUnion := len(fieldExpr.Paths) > 1 || len(selectorDecls) > 1
 	var decls []*types.ElementDecl
 	unresolved := false
 	for _, selectorDecl := range selectorDecls {
@@ -454,6 +475,12 @@ func resolveFieldElementDecls(schema *parser.Schema, field *types.Field, constra
 			}
 			decl, err := resolvePathElementDecl(schema, selectorDecl, fieldPath.Steps)
 			if err != nil {
+				// For union paths, allow resolution errors for individual branches
+				// as long as at least one branch resolves
+				if hasUnion {
+					unresolved = true
+					continue
+				}
 				if errors.Is(err, ErrXPathUnresolvable) {
 					unresolved = true
 					continue
@@ -868,13 +895,13 @@ func findAttributeTypeInParticleDescendant(schema *parser.Schema, particle types
 
 // resolveFieldElementDeclPath resolves a field element path to an element declaration.
 func resolveFieldElementDeclPath(schema *parser.Schema, elementDecl *types.ElementDecl, elementPath string, nsContext map[string]string) (*types.ElementDecl, error) {
-	paths, err := parseXPathPaths(elementPath, nsContext, xpath.AttributesDisallowed)
+	expr, err := parseXPathExpression(elementPath, nsContext, xpath.AttributesDisallowed)
 	if err != nil {
 		return nil, err
 	}
 	var baseDecl *types.ElementDecl
 	var baseType types.Type
-	decls, err := resolveElementDeclsForPaths(schema, elementDecl, paths, elementPath, attributeDisallow, "field xpath cannot select attributes: %s", nil)
+	decls, err := resolveElementDeclsForPaths(schema, elementDecl, expr.Paths, elementPath, attributeDisallow, "field xpath cannot select attributes: %s", nil)
 	if err != nil {
 		return nil, err
 	}
