@@ -36,6 +36,17 @@ func (c *Compiler) mergeAttributes(chain []*grammar.CompiledType) ([]*grammar.Co
 	return result, nil
 }
 
+type attributeCollectionMode int
+
+const (
+	attributeCollectionMerge attributeCollectionMode = iota
+	attributeCollectionRestriction
+)
+
+func shouldIncludeAttribute(attr *types.AttributeDecl) bool {
+	return attr.Use != types.Prohibited || attr.HasFixed
+}
+
 // collectAttributesFromComplexType collects attributes from all sources in a complex type:
 // - Direct attributes on the type
 // - Attributes from SimpleContent extension/restriction

@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
 )
 
 // validateAttributeDeclStructure validates structural constraints of an attribute declaration
@@ -56,6 +56,11 @@ func validateAttributeDeclStructure(schemaDef *parser.Schema, qname types.QName,
 	if decl.Use == types.Required && decl.HasDefault {
 		return fmt.Errorf("attribute with use='required' cannot have a default value")
 	}
+	// per XSD spec: if use="prohibited", default is not allowed
+	// (au-props-correct constraint - prohibited attributes cannot have defaults)
+	if decl.Use == types.Prohibited && decl.HasDefault {
+		return fmt.Errorf("attribute with use='prohibited' cannot have a default value")
+	}
 	// validate default value if present (basic validation only - full type checking after resolution)
 	if decl.HasDefault {
 		if err := validateDefaultOrFixedValue(decl.Default, decl.Type); err != nil {
@@ -65,7 +70,7 @@ func validateAttributeDeclStructure(schemaDef *parser.Schema, qname types.QName,
 
 	// validate fixed value if present (basic validation only - full type checking after resolution)
 	if decl.HasFixed {
-		if err := validateDefaultOrFixedValue(schemaDef, decl.Fixed, decl.Type, decl.ValueContext); err != nil {
+		if err := validateDefaultOrFixedValueWithContext(schemaDef, decl.Fixed, decl.Type, decl.ValueContext); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)
 		}
 	}
