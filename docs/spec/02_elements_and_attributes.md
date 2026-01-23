@@ -186,6 +186,10 @@ Attributes carry additional information on elements. Each attribute to be valida
 - `fixed="value"` — if present, must equal value; if absent, value is assumed
 - `default="value"` — if absent, value is supplied; can be overridden
 
+**Notes:**
+
+- When `use="prohibited"`, `default` is not allowed; `fixed` is allowed.
+
 ### Attribute Groups
 
 Attribute groups name and reuse a common set of attributes:

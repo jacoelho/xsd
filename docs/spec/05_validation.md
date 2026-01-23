@@ -121,6 +121,7 @@ For each attribute on an element:
 2. **Check presence rules:**
    - If `use="required"` and missing → error
    - If `use="prohibited"` and present → error
+   - If `use="prohibited"` with `default` → schema error (defaults are not allowed)
 
 3. **Validate value:**
    - Parse according to declared simple type
