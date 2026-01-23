@@ -776,7 +776,9 @@ func dateTimeValuesEqual(v1, v2 string, baseType Type) bool {
 	if primitive == nil {
 		primitive = baseType
 	}
-	if HasTimezone(v1) != HasTimezone(v2) {
+	v1HasTZ := HasTimezone(v1)
+	v2HasTZ := HasTimezone(v2)
+	if v1HasTZ != v2HasTZ {
 		return false
 	}
 	switch primitive.Name().Local {
@@ -786,12 +788,20 @@ func dateTimeValuesEqual(v1, v2 string, baseType Type) bool {
 		if err1 != nil || err2 != nil {
 			return v1 == v2
 		}
+		// If both have timezones, compare UTC times (Z and +00:00 are equivalent)
+		if v1HasTZ {
+			return t1.UTC().Equal(t2.UTC())
+		}
 		return t1.Equal(t2)
 	case "date":
 		t1, err1 := ParseDate(v1)
 		t2, err2 := ParseDate(v2)
 		if err1 != nil || err2 != nil {
 			return v1 == v2
+		}
+		// If both have timezones, compare UTC times (Z and +00:00 are equivalent)
+		if v1HasTZ {
+			return t1.UTC().Equal(t2.UTC())
 		}
 		return t1.Equal(t2)
 	case "time":
@@ -800,12 +810,20 @@ func dateTimeValuesEqual(v1, v2 string, baseType Type) bool {
 		if err1 != nil || err2 != nil {
 			return v1 == v2
 		}
+		// If both have timezones, compare UTC times (Z and +00:00 are equivalent)
+		if v1HasTZ {
+			return t1.UTC().Equal(t2.UTC())
+		}
 		return t1.Equal(t2)
 	case "gYearMonth":
 		t1, err1 := ParseGYearMonth(v1)
 		t2, err2 := ParseGYearMonth(v2)
 		if err1 != nil || err2 != nil {
 			return v1 == v2
+		}
+		// If both have timezones, compare UTC times (Z and +00:00 are equivalent)
+		if v1HasTZ {
+			return t1.UTC().Equal(t2.UTC())
 		}
 		return t1.Equal(t2)
 	case "gYear":
@@ -814,12 +832,20 @@ func dateTimeValuesEqual(v1, v2 string, baseType Type) bool {
 		if err1 != nil || err2 != nil {
 			return v1 == v2
 		}
+		// If both have timezones, compare UTC times (Z and +00:00 are equivalent)
+		if v1HasTZ {
+			return t1.UTC().Equal(t2.UTC())
+		}
 		return t1.Equal(t2)
 	case "gMonthDay":
 		t1, err1 := ParseGMonthDay(v1)
 		t2, err2 := ParseGMonthDay(v2)
 		if err1 != nil || err2 != nil {
 			return v1 == v2
+		}
+		// If both have timezones, compare UTC times (Z and +00:00 are equivalent)
+		if v1HasTZ {
+			return t1.UTC().Equal(t2.UTC())
 		}
 		return t1.Equal(t2)
 	case "gDay":
@@ -828,12 +854,20 @@ func dateTimeValuesEqual(v1, v2 string, baseType Type) bool {
 		if err1 != nil || err2 != nil {
 			return v1 == v2
 		}
+		// If both have timezones, compare UTC times (Z and +00:00 are equivalent)
+		if v1HasTZ {
+			return t1.UTC().Equal(t2.UTC())
+		}
 		return t1.Equal(t2)
 	case "gMonth":
 		t1, err1 := ParseGMonth(v1)
 		t2, err2 := ParseGMonth(v2)
 		if err1 != nil || err2 != nil {
 			return v1 == v2
+		}
+		// If both have timezones, compare UTC times (Z and +00:00 are equivalent)
+		if v1HasTZ {
+			return t1.UTC().Equal(t2.UTC())
 		}
 		return t1.Equal(t2)
 	default:

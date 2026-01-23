@@ -49,8 +49,14 @@ func ValuesEqual(left, right TypedValue) bool {
 			return false
 		}
 		if isTemporalValueType(left.Type()) {
-			if HasTimezone(left.Lexical()) != HasTimezone(right.Lexical()) {
+			leftHasTZ := HasTimezone(left.Lexical())
+			rightHasTZ := HasTimezone(right.Lexical())
+			if leftHasTZ != rightHasTZ {
 				return false
+			}
+			// If both have timezones, compare UTC times (Z and +00:00 are equivalent)
+			if leftHasTZ {
+				return l.UTC().Equal(r.UTC())
 			}
 		}
 		return l.Equal(r)
