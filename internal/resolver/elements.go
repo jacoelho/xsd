@@ -122,7 +122,10 @@ func validateSubstitutionGroupFinal(schema *parser.Schema, memberQName types.QNa
 		}
 		visited[current] = true
 
-		base, method := derivationStep(schema, current)
+		base, method, err := derivationStep(schema, current)
+		if err != nil {
+			return fmt.Errorf("resolve substitution group derivation for %s: %w", memberQName, err)
+		}
 		if method != 0 && headDecl.Final.Has(method) {
 			return fmt.Errorf("element %s cannot substitute for %s: head element is final for %s",
 				memberQName, headDecl.Name, derivationMethodLabel(method))
@@ -248,40 +251,42 @@ func typesMatch(a, b types.Type) bool {
 	return !nameA.IsZero() && nameA == nameB
 }
 
-func derivationStep(schema *parser.Schema, typ types.Type) (types.Type, types.DerivationMethod) {
+func derivationStep(schema *parser.Schema, typ types.Type) (types.Type, types.DerivationMethod, error) {
 	switch typed := typ.(type) {
 	case *types.BuiltinType:
 		name := typed.Name().Local
 		if name == string(types.TypeNameAnyType) {
-			return nil, 0
+			return nil, 0, nil
 		}
 		if name == string(types.TypeNameAnySimpleType) {
-			return types.GetBuiltin(types.TypeNameAnyType), types.DerivationRestriction
+			return types.GetBuiltin(types.TypeNameAnyType), types.DerivationRestriction, nil
 		}
 		if st, ok := types.AsSimpleType(typed); ok && st.List != nil {
-			return types.GetBuiltin(types.TypeNameAnySimpleType), types.DerivationList
+			return types.GetBuiltin(types.TypeNameAnySimpleType), types.DerivationList, nil
 		}
-		return typed.BaseType(), types.DerivationRestriction
+		return typed.BaseType(), types.DerivationRestriction, nil
 	case *types.ComplexType:
 		if typed.DerivationMethod == 0 {
-			return typed.ResolvedBase, 0
+			return typed.ResolvedBase, 0, nil
 		}
 		base := typed.ResolvedBase
 		if base == nil {
 			baseQName := typed.Content().BaseTypeQName()
 			if !baseQName.IsZero() {
-				if resolved, err := lookupType(schema, baseQName); err == nil {
-					base = resolved
+				resolved, err := lookupType(schema, baseQName)
+				if err != nil {
+					return nil, typed.DerivationMethod, err
 				}
+				base = resolved
 			}
 		}
-		return base, typed.DerivationMethod
+		return base, typed.DerivationMethod, nil
 	case *types.SimpleType:
 		if typed.List != nil {
-			return types.GetBuiltin(types.TypeNameAnySimpleType), types.DerivationList
+			return types.GetBuiltin(types.TypeNameAnySimpleType), types.DerivationList, nil
 		}
 		if typed.Union != nil {
-			return types.GetBuiltin(types.TypeNameAnySimpleType), types.DerivationUnion
+			return types.GetBuiltin(types.TypeNameAnySimpleType), types.DerivationUnion, nil
 		}
 		if typed.Restriction != nil {
 			base := typed.ResolvedBase
@@ -289,14 +294,16 @@ func derivationStep(schema *parser.Schema, typ types.Type) (types.Type, types.De
 				base = typed.Restriction.SimpleType
 			}
 			if base == nil && !typed.Restriction.Base.IsZero() {
-				if resolved, err := lookupType(schema, typed.Restriction.Base); err == nil {
-					base = resolved
+				resolved, err := lookupType(schema, typed.Restriction.Base)
+				if err != nil {
+					return nil, types.DerivationRestriction, err
 				}
+				base = resolved
 			}
-			return base, types.DerivationRestriction
+			return base, types.DerivationRestriction, nil
 		}
 	}
-	return nil, 0
+	return nil, 0, nil
 }
 
 func derivationMethodLabel(method types.DerivationMethod) string {
