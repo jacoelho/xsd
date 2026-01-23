@@ -298,16 +298,6 @@ func resolveFieldElementDecl(schema *parser.Schema, field *types.Field, constrai
 			decls = append(decls, decl)
 		}
 	}
-	var baseType types.Type
-	var baseAttributeSelection *bool
-	var firstResolveErr error
-	for _, fieldPath := range fieldPaths {
-		isAttr := fieldPath.Attribute != nil
-		if baseAttributeSelection == nil {
-			baseAttributeSelection = &isAttr
-		} else if *baseAttributeSelection != isAttr {
-			return nil, fmt.Errorf("%w: %s", ErrFieldXPathMixedSelection, field.XPath)
-		}
 
 	unique := uniqueElementDecls(decls)
 	if len(unique) != 1 {

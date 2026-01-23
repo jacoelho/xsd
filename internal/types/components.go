@@ -35,6 +35,7 @@ const (
 // ElementDecl represents an element declaration
 type ElementDecl struct {
 	Type              Type
+	Name              QName
 	ValueContext      map[string]string
 	SubstitutionGroup QName
 	SourceNamespace   NamespaceURI
@@ -144,6 +145,8 @@ type AttributeDecl struct {
 	Name    QName
 	Default string
 	Fixed   string
+	// ValueContext stores namespace bindings for resolving QName/NOTATION values in default/fixed.
+	ValueContext map[string]string
 	// FixedContext stores namespace bindings for resolving fixed QName/NOTATION values.
 	FixedContext map[string]string
 	// DefaultContext stores namespace bindings for resolving default QName/NOTATION values.
