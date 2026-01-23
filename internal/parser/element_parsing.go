@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
 )
 
 var (
@@ -156,7 +156,8 @@ func scanElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) elementAttr
 // makeAnyType returns the canonical anyType instance.
 // anyType is treated as a built-in type throughout the system.
 func makeAnyType() types.Type {
-	return types.NewAnyTypeComplexType()
+	// Return the builtin anyType, not the complex type representation
+	return types.GetBuiltin(types.TypeNameAnyType)
 }
 
 // parseTopLevelElement parses a top-level element declaration
@@ -233,7 +234,6 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 		Form:            types.FormQualified, // global elements are always qualified
 	}
 
-	typeExplicit := false
 	if typeName := doc.GetAttribute(elem, "type"); typeName != "" {
 		typeQName, err := resolveQName(doc, typeName, elem, schema)
 		if err != nil {
@@ -283,7 +283,6 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 			decl.Type = makeAnyType()
 		}
 	}
-	decl.TypeExplicit = typeExplicit
 
 	if ok, value, err := parseBoolAttribute(doc, elem, "nillable"); err != nil {
 		return err

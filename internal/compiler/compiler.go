@@ -434,3 +434,12 @@ func (c *Compiler) effectiveElementQName(elem *grammar.CompiledElement) types.QN
 		return types.QName{Namespace: "", Local: elem.QName.Local}
 	}
 }
+
+// isDefaultAnyType checks if a type is the default anyType (assigned by parser when no explicit type)
+func (c *Compiler) isDefaultAnyType(typ types.Type) bool {
+	if typ == nil {
+		return false
+	}
+	name := typ.Name()
+	return name.Namespace == types.XSDNamespace && name.Local == "anyType"
+}
