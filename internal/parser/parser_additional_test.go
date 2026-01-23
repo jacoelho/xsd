@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
 )
 
 func TestParseTopLevelDefinitions(t *testing.T) {
@@ -1094,12 +1094,12 @@ func TestParseElement_IgnoresNamespacedTypeAttribute(t *testing.T) {
 		t.Fatalf("element 'root' not found in schema")
 	}
 
-	ct, ok := decl.Type.(*types.ComplexType)
+	bt, ok := decl.Type.(*types.BuiltinType)
 	if !ok {
-		t.Fatalf("element type = %T, want anyType complex type", decl.Type)
+		t.Fatalf("element type = %T, want anyType builtin type", decl.Type)
 	}
-	if ct.QName.Namespace != types.XSDNamespace || ct.QName.Local != "anyType" {
-		t.Fatalf("element type = %s, want xs:anyType", ct.QName)
+	if bt.Name().Namespace != types.XSDNamespace || bt.Name().Local != "anyType" {
+		t.Fatalf("element type = %s, want xs:anyType", bt.Name())
 	}
 }
 

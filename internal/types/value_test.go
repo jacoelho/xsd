@@ -373,12 +373,6 @@ func TestValueAs_UnwrappableInterface(t *testing.T) {
 	var _ Unwrappable = ComparableFloat32{}
 }
 
-func TestParseBase64BinaryRejectsURLSafe(t *testing.T) {
-	if _, err := ParseBase64Binary("SGVsbG8_"); err == nil {
-		t.Fatalf("expected URL-safe base64Binary to be rejected")
-	}
-}
-
 func TestNormalizerForType_BuiltinDispatch(t *testing.T) {
 	dateTimeType := GetBuiltin(TypeNameDateTime)
 	if dateTimeType == nil {

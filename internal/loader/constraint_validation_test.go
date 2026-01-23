@@ -484,6 +484,8 @@ func TestKeyFieldSelectsNillableElement(t *testing.T) {
 }
 
 func TestKeyrefFieldSelectsNillableElement(t *testing.T) {
+	// Per XSD 1.0 spec, keyref fields CAN select nillable elements.
+	// Nil values in keyref fields cause the tuple to be excluded from the check.
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:test"
@@ -513,23 +515,14 @@ func TestKeyrefFieldSelectsNillableElement(t *testing.T) {
 	}
 
 	errors := ValidateSchema(result.Schema)
-	if len(errors) == 0 {
-		t.Fatal("Expected schema validation error for nillable keyref field, but got none")
-	}
-
-	found := false
-	for _, err := range errors {
-		if strings.Contains(err.Error(), "nillable") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("Expected nillable keyref field error, got: %v", errors)
+	if len(errors) != 0 {
+		t.Fatalf("Expected no schema validation error for nillable keyref field, got: %v", errors)
 	}
 }
 
 func TestUniqueFieldSelectsNillableElement(t *testing.T) {
+	// Per XSD 1.0 spec, unique fields CAN select nillable elements.
+	// Nil values in unique fields cause the tuple to be excluded from the uniqueness check.
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:test"
@@ -554,19 +547,8 @@ func TestUniqueFieldSelectsNillableElement(t *testing.T) {
 	}
 
 	errors := ValidateSchema(result.Schema)
-	if len(errors) == 0 {
-		t.Fatal("Expected schema validation error for nillable unique field, but got none")
-	}
-
-	found := false
-	for _, err := range errors {
-		if strings.Contains(err.Error(), "nillable") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("Expected nillable unique field error, got: %v", errors)
+	if len(errors) != 0 {
+		t.Fatalf("Expected no schema validation error for nillable unique field, got: %v", errors)
 	}
 }
 

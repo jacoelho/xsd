@@ -54,7 +54,11 @@ func TestEnumerationValueSpaceTemporalEquivalent(t *testing.T) {
 
 			v := New(mustCompile(t, schema))
 			doc := fmt.Sprintf("<root>%s</root>", tt.instanceValue)
-			if violations := validateStream(t, v, doc); len(violations) > 0 {
+			violations := validateStream(t, v, doc)
+			if len(violations) > 0 {
+				for _, v := range violations {
+					t.Logf("Violation: [%s] %s at %s", v.Code, v.Message, v.Path)
+				}
 				t.Fatalf("expected no violations, got %d", len(violations))
 			}
 		})
@@ -102,7 +106,11 @@ func TestFixedValueTemporalEquivalent(t *testing.T) {
 
 			v := New(mustCompile(t, schema))
 			doc := fmt.Sprintf("<root>%s</root>", tt.instanceValue)
-			if violations := validateStream(t, v, doc); len(violations) > 0 {
+			violations := validateStream(t, v, doc)
+			if len(violations) > 0 {
+				for _, v := range violations {
+					t.Logf("Violation: [%s] %s at %s", v.Code, v.Message, v.Path)
+				}
 				t.Fatalf("expected no violations, got %d", len(violations))
 			}
 		})

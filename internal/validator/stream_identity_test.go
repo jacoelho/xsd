@@ -1031,7 +1031,7 @@ func TestLookupAttributeDefaultEmpty(t *testing.T) {
 	}
 	frame := &streamFrame{decl: elem}
 
-	value, ok := run.lookupAttributeDefault(frame, attrQName)
+	value, _, ok := run.lookupAttributeDefault(frame, attrQName)
 	if !ok {
 		t.Fatalf("expected default to be available")
 	}

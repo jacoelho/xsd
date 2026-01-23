@@ -9,6 +9,11 @@ import (
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
+// nsCtx returns a namespace context map for testing
+func nsCtx(_ int) map[string]string {
+	return make(map[string]string)
+}
+
 func TestCheckFixedValueDecimal(t *testing.T) {
 	run := &streamRun{validationRun: &validationRun{schema: newBaseSchemaView(nil)}}
 	decimalType := &grammar.CompiledType{

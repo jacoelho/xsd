@@ -139,7 +139,9 @@ func TestFieldResolution_AttributeAxis(t *testing.T) {
 	}
 }
 
-func TestFieldResolution_UnionWithAttributeFails(t *testing.T) {
+func TestFieldResolution_UnionWithAttributeAllowed(t *testing.T) {
+	// Union fields can mix element and attribute selections.
+	// At runtime, only one branch will match, selecting either an element or an attribute.
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -154,7 +156,7 @@ func TestFieldResolution_UnionWithAttributeFails(t *testing.T) {
       </xs:sequence>
       <xs:attribute name="id" type="xs:string"/>
     </xs:complexType>
-    <xs:key name="badKey">
+    <xs:key name="mixedKey">
       <xs:selector xpath="."/>
       <xs:field xpath="tns:a | @id"/>
     </xs:key>
@@ -164,8 +166,8 @@ func TestFieldResolution_UnionWithAttributeFails(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: testFS})
-	if _, err := loader.Load("test.xsd"); err == nil {
-		t.Fatal("expected union field mixing element and attribute to fail")
+	if _, err := loader.Load("test.xsd"); err != nil {
+		t.Fatalf("expected union field mixing element and attribute to pass, got: %v", err)
 	}
 }
 
@@ -258,7 +260,9 @@ func TestFieldResolution_FieldSelectsNillableKeyFails(t *testing.T) {
 	}
 }
 
-func TestFieldResolution_FieldSelectsNillableKeyrefFails(t *testing.T) {
+func TestFieldResolution_FieldSelectsNillableKeyrefAllowed(t *testing.T) {
+	// Per XSD 1.0 spec, keyref fields CAN select nillable elements.
+	// Nil values in keyref fields cause the tuple to be excluded from the check.
 	testFS := fstest.MapFS{
 		"test.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -277,7 +281,7 @@ func TestFieldResolution_FieldSelectsNillableKeyrefFails(t *testing.T) {
       <xs:selector xpath="."/>
       <xs:field xpath="tns:b"/>
     </xs:key>
-    <xs:keyref name="badRef" refer="tns:goodKey">
+    <xs:keyref name="goodRef" refer="tns:goodKey">
       <xs:selector xpath="."/>
       <xs:field xpath="tns:a"/>
     </xs:keyref>
@@ -287,8 +291,8 @@ func TestFieldResolution_FieldSelectsNillableKeyrefFails(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: testFS})
-	if _, err := loader.Load("test.xsd"); err == nil {
-		t.Fatal("expected keyref field selecting nillable element to fail")
+	if _, err := loader.Load("test.xsd"); err != nil {
+		t.Fatalf("expected keyref field selecting nillable element to pass, got: %v", err)
 	}
 }
 
