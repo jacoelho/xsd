@@ -147,7 +147,8 @@ func validateBoundedUint(value, label string, maxValue uint64) error {
 
 // validateLong validates xs:long
 func validateLong(value string) error {
-	return validateBoundedInt(value, "long", math.MinInt64, math.MaxInt64)
+	_, err := validateSignedInt(value, "long")
+	return err
 }
 
 // validateInt validates xs:int
@@ -194,7 +195,8 @@ func validatePositiveInteger(value string) error {
 
 // validateUnsignedLong validates xs:unsignedLong
 func validateUnsignedLong(value string) error {
-	return validateBoundedUint(value, "unsignedLong", math.MaxUint64)
+	_, err := parseUnsignedIntValue(value, "unsignedLong")
+	return err
 }
 
 // validateUnsignedInt validates xs:unsignedInt
