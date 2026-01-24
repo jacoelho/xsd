@@ -18,6 +18,9 @@ const (
 	AxisSelf
 )
 
+// AxisAttribute is only used internally for parsing attribute steps.
+const AxisAttribute Axis = -1
+
 // NodeTest matches element or attribute names.
 type NodeTest struct {
 	Local              string
@@ -192,15 +195,14 @@ func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
 	}
 
 	if before, after, ok := strings.Cut(token, "::"); ok {
-		name := types.TrimXMLWhitespace(before)
-		if name == "" {
+		if before == "" {
 			return axisToken{}, xpathErrorf("xpath step has invalid axis")
 		}
-		explicitAxis, err := axisFromName(name)
+		explicitAxis, err := axisFromName(before)
 		if err != nil {
 			return axisToken{}, err
 		}
-		node := types.TrimXMLWhitespace(after)
+		node := after
 		if node == "" {
 			node = reader.readToken()
 			if node == "" {
@@ -322,7 +324,7 @@ func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind)
 }
 
 func axisFromName(name string) (Axis, error) {
-	switch types.TrimXMLWhitespace(name) {
+	switch name {
 	case "child":
 		return AxisChild, nil
 	case "attribute":
@@ -385,20 +387,12 @@ func (r *pathReader) peekDoubleSlash() bool {
 }
 
 func (r *pathReader) peekAxisSeparator() bool {
-	pos := r.pos
-	for pos < len(r.input) && isXPathWhitespace(r.input[pos]) {
-		pos++
-	}
-	return pos+1 < len(r.input) && r.input[pos] == ':' && r.input[pos+1] == ':'
+	return r.pos+1 < len(r.input) && r.input[r.pos] == ':' && r.input[r.pos+1] == ':'
 }
 
 func (r *pathReader) consumeAxisSeparator() bool {
-	pos := r.pos
-	for pos < len(r.input) && isXPathWhitespace(r.input[pos]) {
-		pos++
-	}
-	if pos+1 < len(r.input) && r.input[pos] == ':' && r.input[pos+1] == ':' {
-		r.pos = pos + 2
+	if r.peekAxisSeparator() {
+		r.pos += 2
 		return true
 	}
 	return false
@@ -422,6 +416,3 @@ func isXPathWhitespace(b byte) bool {
 		return false
 	}
 }
-
-// AxisAttribute is only used internally for parsing attribute steps.
-const AxisAttribute Axis = -1
