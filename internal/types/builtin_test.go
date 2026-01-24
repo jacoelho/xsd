@@ -42,6 +42,13 @@ func TestGetBuiltinNS(t *testing.T) {
 	}
 }
 
+func TestBuiltinTypeValidateNilReceiver(t *testing.T) {
+	var bt *BuiltinType
+	if err := bt.Validate("value"); err != nil {
+		t.Fatalf("expected nil error for nil receiver, got %v", err)
+	}
+}
+
 func TestValidateBoolean(t *testing.T) {
 	tests := []struct {
 		value string

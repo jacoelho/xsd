@@ -218,6 +218,9 @@ func (b *BuiltinType) IsQNameOrNotationType() bool {
 
 // Validate validates a value against this type
 func (b *BuiltinType) Validate(value string) error {
+	if b == nil || b.validator == nil {
+		return nil
+	}
 	return b.validator(value)
 }
 
