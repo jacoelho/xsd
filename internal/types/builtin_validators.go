@@ -101,61 +101,69 @@ func validateInteger(value string) error {
 	return nil
 }
 
-// validateLong validates xs:long
-func validateLong(value string) error {
+func validateSignedInt(value, label string) (int64, error) {
 	if err := validateInteger(value); err != nil {
+		return 0, err
+	}
+	n, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %s", label, value)
+	}
+	return n, nil
+}
+
+func validateSignedIntRange(value, label string, minValue, maxValue int64) error {
+	n, err := validateSignedInt(value, label)
+	if err != nil {
 		return err
 	}
-	_, err := strconv.ParseInt(value, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid long: %s", value)
+	if n < minValue || n > maxValue {
+		return fmt.Errorf("%s out of range: %s", label, value)
 	}
 	return nil
+}
+
+func parseUnsignedIntValue(value, label string) (uint64, error) {
+	if err := validateNonNegativeInteger(value); err != nil {
+		return 0, err
+	}
+	n, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %s", label, value)
+	}
+	return n, nil
+}
+
+func validateUnsignedIntRange(value, label string, maxValue uint64) error {
+	n, err := parseUnsignedIntValue(value, label)
+	if err != nil {
+		return err
+	}
+	if n > maxValue {
+		return fmt.Errorf("%s out of range: %s", label, value)
+	}
+	return nil
+}
+
+// validateLong validates xs:long
+func validateLong(value string) error {
+	_, err := validateSignedInt(value, "long")
+	return err
 }
 
 // validateInt validates xs:int
 func validateInt(value string) error {
-	if err := validateInteger(value); err != nil {
-		return err
-	}
-	n, err := strconv.ParseInt(value, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid int: %s", value)
-	}
-	if n < math.MinInt32 || n > math.MaxInt32 {
-		return fmt.Errorf("int out of range: %s", value)
-	}
-	return nil
+	return validateSignedIntRange(value, "int", math.MinInt32, math.MaxInt32)
 }
 
 // validateShort validates xs:short
 func validateShort(value string) error {
-	if err := validateInteger(value); err != nil {
-		return err
-	}
-	n, err := strconv.ParseInt(value, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid short: %s", value)
-	}
-	if n < math.MinInt16 || n > math.MaxInt16 {
-		return fmt.Errorf("short out of range: %s", value)
-	}
-	return nil
+	return validateSignedIntRange(value, "short", math.MinInt16, math.MaxInt16)
 }
 
 // validateByte validates xs:byte
 func validateByte(value string) error {
-	if err := validateInteger(value); err != nil {
-		return err
-	}
-	n, err := strconv.ParseInt(value, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid byte: %s", value)
-	}
-	if n < math.MinInt8 || n > math.MaxInt8 {
-		return fmt.Errorf("byte out of range: %s", value)
-	}
-	return nil
+	return validateSignedIntRange(value, "byte", math.MinInt8, math.MaxInt8)
 }
 
 // validateNonNegativeInteger validates xs:nonNegativeInteger
@@ -187,59 +195,23 @@ func validatePositiveInteger(value string) error {
 
 // validateUnsignedLong validates xs:unsignedLong
 func validateUnsignedLong(value string) error {
-	if err := validateNonNegativeInteger(value); err != nil {
-		return err
-	}
-	_, err := strconv.ParseUint(value, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid unsignedLong: %s", value)
-	}
-	return nil
+	_, err := parseUnsignedIntValue(value, "unsignedLong")
+	return err
 }
 
 // validateUnsignedInt validates xs:unsignedInt
 func validateUnsignedInt(value string) error {
-	if err := validateNonNegativeInteger(value); err != nil {
-		return err
-	}
-	n, err := strconv.ParseUint(value, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid unsignedInt: %s", value)
-	}
-	if n > math.MaxUint32 {
-		return fmt.Errorf("unsignedInt out of range: %s", value)
-	}
-	return nil
+	return validateUnsignedIntRange(value, "unsignedInt", math.MaxUint32)
 }
 
 // validateUnsignedShort validates xs:unsignedShort
 func validateUnsignedShort(value string) error {
-	if err := validateNonNegativeInteger(value); err != nil {
-		return err
-	}
-	n, err := strconv.ParseUint(value, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid unsignedShort: %s", value)
-	}
-	if n > math.MaxUint16 {
-		return fmt.Errorf("unsignedShort out of range: %s", value)
-	}
-	return nil
+	return validateUnsignedIntRange(value, "unsignedShort", math.MaxUint16)
 }
 
 // validateUnsignedByte validates xs:unsignedByte
 func validateUnsignedByte(value string) error {
-	if err := validateNonNegativeInteger(value); err != nil {
-		return err
-	}
-	n, err := strconv.ParseUint(value, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid unsignedByte: %s", value)
-	}
-	if n > math.MaxUint8 {
-		return fmt.Errorf("unsignedByte out of range: %s", value)
-	}
-	return nil
+	return validateUnsignedIntRange(value, "unsignedByte", math.MaxUint8)
 }
 
 // validateNonPositiveInteger validates xs:nonPositiveInteger

@@ -261,20 +261,22 @@ func copyEnumerationFacet(enum *Enumeration, opts CopyOptions) *Enumeration {
 	if enum == nil {
 		return nil
 	}
-	clone := *enum
-	clone.Values = slices.Clone(enum.Values)
-	if len(enum.ValueContexts) > 0 {
-		clone.ValueContexts = make([]map[string]string, len(enum.ValueContexts))
-		for i, ctx := range enum.ValueContexts {
-			clone.ValueContexts[i] = copyValueNamespaceContext(ctx, opts)
+	clone := &Enumeration{
+		Values: slices.Clone(enum.Values),
+	}
+	if contexts := enum.ValueContexts(); len(contexts) > 0 {
+		copied := make([]map[string]string, len(contexts))
+		for i, ctx := range contexts {
+			copied[i] = copyValueNamespaceContext(ctx, opts)
 		}
+		clone.SetValueContexts(copied)
 	}
 	if isChameleonRemap(opts) {
-		clone.QNameValues = nil
-	} else if len(enum.QNameValues) > 0 {
-		clone.QNameValues = slices.Clone(enum.QNameValues)
+		clone.SetQNameValues(nil)
+	} else if qnames := enum.QNameValues(); len(qnames) > 0 {
+		clone.SetQNameValues(slices.Clone(qnames))
 	}
-	return &clone
+	return clone
 }
 
 // GroupRef represents a placeholder for a group reference that will be resolved later

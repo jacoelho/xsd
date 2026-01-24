@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 )
@@ -430,20 +431,41 @@ func getLength(value string, baseType Type) int {
 	return utf8.RuneCountInString(value)
 }
 
-// Enumeration represents an enumeration facet
+// Enumeration represents an enumeration facet.
+// Value contexts and QName values should be set during schema load.
+//
+//nolint:govet // fieldalignment: keep layout straightforward to avoid extra indirection.
 type Enumeration struct {
 	Values []string
-	// ValueContexts holds namespace contexts aligned with Values.
-	ValueContexts []map[string]string
-	// QNameValues holds resolved QName values for QName/NOTATION enumerations.
-	QNameValues []QName
-	cachedBase  Type
-	// cachedAtomicValues holds parsed values for atomic enumerations.
-	cachedAtomicValues []TypedValue
-	// cachedUnionValues holds parsed values for union enumerations (flattened across member types).
-	cachedUnionValues []TypedValue
-	// cachedListValues holds parsed list values for list enumerations.
-	cachedListValues [][][]TypedValue
+	aux    atomic.Pointer[enumAux]
+}
+
+//nolint:govet // fieldalignment: keep auxiliary data co-located for clarity.
+type enumAux struct {
+	valueContexts []map[string]string
+	qnameValues   []QName
+	caches        enumCaches
+}
+
+type enumCaches struct {
+	atomicCache atomic.Pointer[enumCacheAtomic]
+	unionCache  atomic.Pointer[enumCacheUnion]
+	listCache   atomic.Pointer[enumCacheList]
+}
+
+type enumCacheAtomic struct {
+	base   Type
+	values []TypedValue
+}
+
+type enumCacheUnion struct {
+	base   Type
+	values []TypedValue
+}
+
+type enumCacheList struct {
+	base   Type
+	values [][][]TypedValue
 }
 
 // Name returns the facet name
@@ -506,6 +528,88 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 	return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
 }
 
+// ValueContexts returns namespace contexts aligned with Values.
+func (e *Enumeration) ValueContexts() []map[string]string {
+	if e == nil {
+		return nil
+	}
+	aux := e.aux.Load()
+	if aux == nil {
+		return nil
+	}
+	return aux.valueContexts
+}
+
+// SetValueContexts stores namespace contexts aligned with Values.
+// Call this before concurrent validation.
+func (e *Enumeration) SetValueContexts(values []map[string]string) {
+	if e == nil {
+		return
+	}
+	if len(values) == 0 {
+		if aux := e.aux.Load(); aux != nil {
+			aux.valueContexts = nil
+		}
+		return
+	}
+	aux := e.ensureAux()
+	if aux != nil {
+		aux.valueContexts = values
+	}
+}
+
+// QNameValues returns resolved QName values for QName/NOTATION enumerations.
+func (e *Enumeration) QNameValues() []QName {
+	if e == nil {
+		return nil
+	}
+	aux := e.aux.Load()
+	if aux == nil {
+		return nil
+	}
+	return aux.qnameValues
+}
+
+// SetQNameValues stores resolved QName values for QName/NOTATION enumerations.
+// Call this before concurrent validation.
+func (e *Enumeration) SetQNameValues(values []QName) {
+	if e == nil {
+		return
+	}
+	if len(values) == 0 {
+		if aux := e.aux.Load(); aux != nil {
+			aux.qnameValues = nil
+		}
+		return
+	}
+	aux := e.ensureAux()
+	if aux != nil {
+		aux.qnameValues = values
+	}
+}
+
+func (e *Enumeration) ensureAux() *enumAux {
+	if e == nil {
+		return nil
+	}
+	if aux := e.aux.Load(); aux != nil {
+		return aux
+	}
+	created := &enumAux{}
+	if e.aux.CompareAndSwap(nil, created) {
+		return created
+	}
+	return e.aux.Load()
+}
+
+func (e *Enumeration) cacheSet() *enumCaches {
+	aux := e.ensureAux()
+	if aux == nil {
+		return nil
+	}
+	return &aux.caches
+}
+
 func (e *Enumeration) matchesAtomicEnumeration(lexical string, baseType Type) (bool, error) {
 	actual, err := parseTypedValue(lexical, baseType)
 	if err != nil {
@@ -559,20 +663,12 @@ func (e *Enumeration) matchesListEnumeration(lexical string, baseType, itemType 
 	return false, nil
 }
 
-func (e *Enumeration) resetCacheIfNeeded(baseType Type) {
-	if e.cachedBase == baseType {
-		return
-	}
-	e.cachedBase = baseType
-	e.cachedAtomicValues = nil
-	e.cachedUnionValues = nil
-	e.cachedListValues = nil
-}
-
 func (e *Enumeration) atomicEnumerationValues(baseType Type) ([]TypedValue, error) {
-	e.resetCacheIfNeeded(baseType)
-	if e.cachedAtomicValues != nil {
-		return e.cachedAtomicValues, nil
+	cacheSet := e.cacheSet()
+	if cacheSet != nil {
+		if cache := cacheSet.atomicCache.Load(); cache != nil && cache.base == baseType {
+			return cache.values, nil
+		}
 	}
 	values := make([]TypedValue, 0, len(e.Values))
 	for _, val := range e.Values {
@@ -583,14 +679,18 @@ func (e *Enumeration) atomicEnumerationValues(baseType Type) ([]TypedValue, erro
 		}
 		values = append(values, typed)
 	}
-	e.cachedAtomicValues = values
+	if cacheSet != nil {
+		cacheSet.atomicCache.Store(&enumCacheAtomic{base: baseType, values: values})
+	}
 	return values, nil
 }
 
 func (e *Enumeration) unionEnumerationValues(baseType Type, memberTypes []Type) ([]TypedValue, error) {
-	e.resetCacheIfNeeded(baseType)
-	if e.cachedUnionValues != nil {
-		return e.cachedUnionValues, nil
+	cacheSet := e.cacheSet()
+	if cacheSet != nil {
+		if cache := cacheSet.unionCache.Load(); cache != nil && cache.base == baseType {
+			return cache.values, nil
+		}
 	}
 	values := make([]TypedValue, 0, len(e.Values))
 	for _, val := range e.Values {
@@ -601,14 +701,18 @@ func (e *Enumeration) unionEnumerationValues(baseType Type, memberTypes []Type) 
 		}
 		values = append(values, typed...)
 	}
-	e.cachedUnionValues = values
+	if cacheSet != nil {
+		cacheSet.unionCache.Store(&enumCacheUnion{base: baseType, values: values})
+	}
 	return values, nil
 }
 
 func (e *Enumeration) listEnumerationValues(baseType, itemType Type) ([][][]TypedValue, error) {
-	e.resetCacheIfNeeded(baseType)
-	if e.cachedListValues != nil {
-		return e.cachedListValues, nil
+	cacheSet := e.cacheSet()
+	if cacheSet != nil {
+		if cache := cacheSet.listCache.Load(); cache != nil && cache.base == baseType {
+			return cache.values, nil
+		}
 	}
 	values := make([][][]TypedValue, len(e.Values))
 	for i, val := range e.Values {
@@ -619,7 +723,9 @@ func (e *Enumeration) listEnumerationValues(baseType, itemType Type) ([][][]Type
 		}
 		values[i] = parsed
 	}
-	e.cachedListValues = values
+	if cacheSet != nil {
+		cacheSet.listCache.Store(&enumCacheList{base: baseType, values: values})
+	}
 	return values, nil
 }
 
@@ -718,12 +824,13 @@ func (e *Enumeration) ResolveQNameValues() ([]QName, error) {
 	if e == nil || len(e.Values) == 0 {
 		return nil, nil
 	}
-	if len(e.ValueContexts) != len(e.Values) {
-		return nil, fmt.Errorf("enumeration contexts %d do not match values %d", len(e.ValueContexts), len(e.Values))
+	contexts := e.ValueContexts()
+	if len(contexts) != len(e.Values) {
+		return nil, fmt.Errorf("enumeration contexts %d do not match values %d", len(contexts), len(e.Values))
 	}
 	qnames := make([]QName, len(e.Values))
 	for i, value := range e.Values {
-		context := e.ValueContexts[i]
+		context := contexts[i]
 		if context == nil {
 			return nil, fmt.Errorf("missing namespace context for enumeration value %q", value)
 		}

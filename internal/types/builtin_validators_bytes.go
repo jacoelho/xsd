@@ -278,6 +278,7 @@ func isDigit(value byte) bool {
 }
 
 func bytesToStringView(value []byte) string {
-	// create a read-only string view for parsing; do not store the result.
+	// create a read-only string view for immediate parsing only.
+	// callers must not retain the string or mutate the backing slice.
 	return unsafe.String(unsafe.SliceData(value), len(value))
 }
