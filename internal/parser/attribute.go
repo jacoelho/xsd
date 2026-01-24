@@ -19,11 +19,8 @@ var validAttributeAttributes = map[string]bool{
 }
 
 func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.AttributeDecl, error) {
-	if hasIDAttribute(doc, elem) {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "attribute", schema); err != nil {
-			return nil, err
-		}
+	if err := validateOptionalID(doc, elem, "attribute", schema); err != nil {
+		return nil, err
 	}
 
 	if err := validateAnnotationOrder(doc, elem); err != nil {
@@ -37,7 +34,7 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 	}
 
 	for _, attr := range doc.Attributes(elem) {
-		if attr.NamespaceURI() == "xmlns" || (attr.NamespaceURI() == "" && attr.LocalName() == "xmlns") {
+		if isXMLNSDeclaration(attr) {
 			continue
 		}
 		if attr.NamespaceURI() == "" && !validAttributeAttributes[attr.LocalName()] {

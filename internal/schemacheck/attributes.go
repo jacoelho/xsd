@@ -249,6 +249,9 @@ func mergeAttributesFromTypeForValidation(schema *parser.Schema, ct *types.Compl
 	mergeAttributesFromGroupsForValidation(schema, ct.AttrGroups, attrMap)
 
 	content := ct.Content()
+	if content == nil {
+		return
+	}
 	if ext := content.ExtensionDef(); ext != nil {
 		for _, attr := range ext.Attributes {
 			addAttr(attr)

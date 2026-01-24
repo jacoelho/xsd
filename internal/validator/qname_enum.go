@@ -29,8 +29,8 @@ func enumerationQNameValues(enum *types.Enumeration) ([]types.QName, error) {
 	if enum == nil || len(enum.Values) == 0 {
 		return nil, nil
 	}
-	if len(enum.QNameValues) == len(enum.Values) {
-		return enum.QNameValues, nil
+	if qnames := enum.QNameValues(); len(qnames) == len(enum.Values) {
+		return qnames, nil
 	}
 	return enum.ResolveQNameValues()
 }

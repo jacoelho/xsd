@@ -2,7 +2,6 @@ package parser
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
@@ -77,11 +76,8 @@ func parseTopLevelAttributeGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 		return fmt.Errorf("attributeGroup missing name attribute")
 	}
 
-	if hasIDAttribute(doc, elem) {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "attributeGroup", schema); err != nil {
-			return err
-		}
+	if err := validateOptionalID(doc, elem, "attributeGroup", schema); err != nil {
+		return err
 	}
 
 	attrGroup := &types.AttributeGroup{
@@ -172,28 +168,19 @@ func parseTopLevelAttributeGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 // parseAnyAttribute parses an <anyAttribute> wildcard
 // Content model: (annotation?)
 func parseAnyAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.AnyAttribute, error) {
-	if doc.GetAttribute(elem, "notNamespace") != "" {
-		return nil, fmt.Errorf("notNamespace attribute is not supported in XSD 1.0 (XSD 1.1 feature)")
-	}
-	if doc.GetAttribute(elem, "notQName") != "" {
-		return nil, fmt.Errorf("notQName attribute is not supported in XSD 1.0 (XSD 1.1 feature)")
-	}
-
-	for _, attr := range doc.Attributes(elem) {
-		attrName := attr.LocalName()
-		if attrName == "xmlns" || strings.HasPrefix(attrName, "xmlns:") {
-			continue
-		}
-		if attr.NamespaceURI() == "" && !validAttributeNames[attrSetAnyAttribute][attrName] {
-			return nil, fmt.Errorf("invalid attribute '%s' on <anyAttribute> element (XSD 1.0 only allows: namespace, processContents)", attrName)
-		}
+	nsConstraint, nsList, processContents, err := parseWildcardConstraints(
+		doc,
+		elem,
+		"anyAttribute",
+		"namespace, processContents",
+		validAttributeNames[attrSetAnyAttribute],
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	if hasIDAttribute(doc, elem) {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "anyAttribute", schema); err != nil {
-			return nil, err
-		}
+	if err := validateOptionalID(doc, elem, "anyAttribute", schema); err != nil {
+		return nil, err
 	}
 
 	hasAnnotation := false
@@ -213,55 +200,11 @@ func parseAnyAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema)
 	}
 
 	anyAttr := &types.AnyAttribute{
-		ProcessContents: types.Strict,
+		ProcessContents: processContents,
 		TargetNamespace: schema.TargetNamespace,
-	}
-
-	namespaceAttr := doc.GetAttribute(elem, "namespace")
-	hasNamespaceAttr := false
-	for _, attr := range doc.Attributes(elem) {
-		if attr.LocalName() == "namespace" && attr.NamespaceURI() == "" {
-			hasNamespaceAttr = true
-			break
-		}
-	}
-	if !hasNamespaceAttr {
-		namespaceAttr = "##any"
-	} else if namespaceAttr == "" {
-		namespaceAttr = "##local"
-	}
-
-	nsConstraint, nsList, err := parseNamespaceConstraint(namespaceAttr)
-	if err != nil {
-		return nil, fmt.Errorf("parse namespace constraint: %w", err)
 	}
 	anyAttr.Namespace = nsConstraint
 	anyAttr.NamespaceList = nsList
-
-	processContents := doc.GetAttribute(elem, "processContents")
-	hasProcessContents := false
-	for _, attr := range doc.Attributes(elem) {
-		if attr.LocalName() == "processContents" && attr.NamespaceURI() == "" {
-			hasProcessContents = true
-			break
-		}
-	}
-	if hasProcessContents && processContents == "" {
-		return nil, fmt.Errorf("processContents attribute cannot be empty")
-	}
-
-	switch processContents {
-	case "strict":
-		anyAttr.ProcessContents = types.Strict
-	case "lax":
-		anyAttr.ProcessContents = types.Lax
-	case "skip":
-		anyAttr.ProcessContents = types.Skip
-	case "":
-		anyAttr.ProcessContents = types.Strict
-	default:
-		return nil, fmt.Errorf("invalid processContents value '%s': must be 'strict', 'lax', or 'skip'", processContents)
-	}
 
 	return anyAttr, nil
 }
@@ -273,11 +216,8 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 		return nil, fmt.Errorf("identity constraint missing name attribute")
 	}
 
-	if hasIDAttribute(doc, elem) {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, doc.LocalName(elem), schema); err != nil {
-			return nil, err
-		}
+	if err := validateOptionalID(doc, elem, doc.LocalName(elem), schema); err != nil {
+		return nil, err
 	}
 
 	nsContext := namespaceContextForElement(doc, elem, schema)
@@ -379,7 +319,7 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 
 func validateAllowedAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, elementName string, allowed map[string]bool) error {
 	for _, attr := range doc.Attributes(elem) {
-		if attr.NamespaceURI() == xsdxml.XMLNSNamespace || attr.LocalName() == "xmlns" {
+		if isXMLNSDeclaration(attr) {
 			continue
 		}
 		if attr.NamespaceURI() != "" {

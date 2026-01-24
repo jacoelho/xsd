@@ -27,32 +27,21 @@ func collectComplexTypeFacetViolations(
 	if ws, ok := derivedSimpleContentWhiteSpace(ct); ok {
 		normalizedValue = types.ApplyWhiteSpace(text, ws)
 	}
-	var violations []errors.Validation
-	var typedValue types.TypedValue
-	for _, facet := range ct.Facets {
-		if shouldSkipLengthFacet(ct.SimpleContentType, facet) {
-			continue
-		}
-		if enumFacet, ok := facet.(*types.Enumeration); ok && validateQNameEnum != nil && ct.SimpleContentType.IsQNameOrNotationType {
-			if err := validateQNameEnum(normalizedValue, enumFacet); err != nil {
-				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), path))
-			}
-			continue
-		}
-		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
-			if err := lexicalFacet.ValidateLexical(normalizedValue, ct.SimpleContentType.Original); err != nil {
-				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), path))
-			}
-			continue
-		}
-		if typedValue == nil {
-			typedValue = typedValueForFacets(normalizedValue, ct.SimpleContentType.Original, ct.Facets)
-		}
-		if err := facet.Validate(typedValue, ct.SimpleContentType.Original); err != nil {
-			violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), path))
-		}
-	}
-
+	_, violations := validateFacets(&facetValidationInput{
+		data: &facetValidationData{
+			value:  normalizedValue,
+			facets: ct.Facets,
+		},
+		typ:      ct.SimpleContentType.Original,
+		compiled: ct.SimpleContentType,
+		context: &facetValidationContext{
+			path: path,
+			callbacks: &facetValidationCallbacks{
+				validateQNameEnum: validateQNameEnum,
+			},
+		},
+		policy: errorPolicyReport,
+	})
 	return violations
 }
 

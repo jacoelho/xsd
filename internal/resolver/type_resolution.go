@@ -283,200 +283,20 @@ func resolveType(qname types.QName, typeDef types.Type, schema *parser.Schema, d
 // resolveSimpleType resolves all references in a SimpleType
 func resolveSimpleType(st *types.SimpleType, schema *parser.Schema, detector *CycleDetector[types.QName]) error {
 	if st.Restriction != nil {
-		// if base is specified as a QName, resolve it
-		if !st.Restriction.Base.IsZero() {
-			if st.ResolvedBase == nil {
-				// check for self-reference (circular dependency)
-				if st.Restriction.Base == st.QName {
-					return fmt.Errorf("type %s: circular derivation (type cannot be its own base)", st.QName)
-				}
-				baseType, err := lookupType(schema, st.Restriction.Base)
-				if err != nil {
-					return fmt.Errorf("type %s: %w", st.QName, err)
-				}
-				st.ResolvedBase = baseType
-			}
-			// inherit whiteSpace from base type if not explicitly set in this restriction
-			if !st.WhiteSpaceExplicit() {
-				if baseType := st.BaseType(); baseType != nil {
-					st.SetWhiteSpace(baseType.WhiteSpace())
-				}
-			}
-		}
-		// recursively resolve base type if it's not a built-in and not a self-reference
-		// (This handles both QName-based bases and inline simpleType bases)
-		// for self-references in redefine context (where base == st.QName), we already
-		// set ResolvedBase to the original type above, so we need to resolve that
-		if st.BaseType() != nil && st.BaseType() != st {
-			if baseST, ok := st.BaseType().(*types.SimpleType); ok && !baseST.IsBuiltin() {
-				switch {
-				case baseST.QName.IsZero():
-					// inline simpleType (no QName) - resolve directly
-					if err := resolveSimpleType(baseST, schema, detector); err != nil {
-						return err
-					}
-				case baseST.QName != st.QName:
-					// named type (but NOT a self-reference) - use resolveType for cycle detection
-					if err := resolveType(baseST.QName, baseST, schema, detector); err != nil {
-						return err
-					}
-				default:
-					// self-reference in redefine context - resolve the original directly
-					// without cycle detection (since it has the same QName but is a different type instance)
-					if err := resolveSimpleType(baseST, schema, detector); err != nil {
-						return err
-					}
-				}
-			}
+		if err := resolveSimpleTypeRestriction(st, schema, detector); err != nil {
+			return err
 		}
 	}
 
 	if st.List != nil {
-		// per XSD spec, list types always have whiteSpace=collapse
-		st.SetWhiteSpace(types.WhiteSpaceCollapse)
-		if st.List.ItemType.IsZero() {
-			// inline simpleType - resolve it
-			if st.List.InlineItemType != nil {
-				if !st.List.InlineItemType.IsBuiltin() {
-					// note: List types can have circular item type references
-					// for inline types, check if we're already resolving this type
-					if !st.List.InlineItemType.QName.IsZero() && !detector.IsResolving(st.List.InlineItemType.QName) {
-						if err := resolveType(st.List.InlineItemType.QName, st.List.InlineItemType, schema, detector); err != nil {
-							return err
-						}
-					}
-				}
-				// also store in st.ItemType for validator access
-				st.ItemType = st.List.InlineItemType
-			}
-		} else {
-			// itemType attribute - resolve from QName
-			if st.ItemType == nil {
-				itemType, err := lookupType(schema, st.List.ItemType)
-				if err != nil {
-					if allowMissingTypeReference(schema, st.List.ItemType) {
-						st.ItemType = types.NewPlaceholderSimpleType(st.List.ItemType)
-						return nil
-					}
-					return fmt.Errorf("type %s: list itemType: %w", st.QName, err)
-				}
-				st.ItemType = itemType
-			}
-			// recursively resolve item type if it's not a built-in
-			// note: List types can have circular item type references (e.g., list of list)
-			// if the item type is already being resolved, skip recursive resolution
-			// to allow the circular reference
-			if itemST, ok := st.ItemType.(*types.SimpleType); ok && !itemST.IsBuiltin() {
-				if !detector.IsResolving(itemST.QName) {
-					if err := resolveType(itemST.QName, itemST, schema, detector); err != nil {
-						return err
-					}
-				}
-			}
+		if err := resolveSimpleTypeList(st, schema, detector); err != nil {
+			return err
 		}
 	}
 
 	if st.Union != nil {
-		if len(st.Union.MemberTypes) > 0 {
-			if st.MemberTypes == nil {
-				st.MemberTypes = make([]types.Type, 0, len(st.Union.MemberTypes))
-			}
-			for i, memberQName := range st.Union.MemberTypes {
-				if i < len(st.MemberTypes) && st.MemberTypes[i] != nil {
-					continue // already resolved
-				}
-				memberType, err := lookupType(schema, memberQName)
-				if err != nil {
-					if allowMissingTypeReference(schema, memberQName) {
-						memberType = types.NewPlaceholderSimpleType(memberQName)
-					} else {
-						return fmt.Errorf("type %s: union memberType %d: %w", st.QName, i, err)
-					}
-				}
-				if i >= len(st.MemberTypes) {
-					st.MemberTypes = append(st.MemberTypes, memberType)
-				} else {
-					st.MemberTypes[i] = memberType
-				}
-				// recursively resolve member type if it's not a built-in
-				// note: Union types can have circular member references (this is valid in XSD)
-				// if the member type is already being resolved, skip recursive resolution
-				// to allow the circular reference
-				if memberST, ok := memberType.(*types.SimpleType); ok && !memberST.IsBuiltin() {
-					if !detector.IsResolving(memberST.QName) {
-						if err := resolveType(memberST.QName, memberST, schema, detector); err != nil {
-							return err
-						}
-					}
-				}
-			}
-		}
-
-		// resolve inline types (anonymous simpleTypes)
-		for _, inlineType := range st.Union.InlineTypes {
-			if inlineType.Restriction != nil && !inlineType.Restriction.Base.IsZero() {
-				if inlineType.ResolvedBase == nil {
-					baseType, err := lookupType(schema, inlineType.Restriction.Base)
-					if err != nil {
-						return fmt.Errorf("type %s: union inline type base: %w", st.QName, err)
-					}
-					inlineType.ResolvedBase = baseType
-				}
-				// set whiteSpace from base type if not explicitly set
-				if inlineType.WhiteSpace() == types.WhiteSpacePreserve {
-					// check if whiteSpace was explicitly set (default is preserve)
-					// if base type has different whiteSpace, inherit it
-					if baseType := inlineType.BaseType(); baseType != nil {
-						inlineType.SetWhiteSpace(baseType.WhiteSpace())
-					}
-				}
-				// recursively resolve base type if it's not a built-in and not a self-reference
-				if inlineType.BaseType() != inlineType {
-					if baseST, ok := inlineType.BaseType().(*types.SimpleType); ok && !baseST.IsBuiltin() {
-						if err := resolveType(baseST.QName, baseST, schema, detector); err != nil {
-							return err
-						}
-					}
-				}
-			}
-			if inlineType.List != nil && !inlineType.List.ItemType.IsZero() {
-				if inlineType.ItemType == nil {
-					itemType, err := lookupType(schema, inlineType.List.ItemType)
-					if err != nil {
-						if allowMissingTypeReference(schema, inlineType.List.ItemType) {
-							inlineType.ItemType = types.NewPlaceholderSimpleType(inlineType.List.ItemType)
-							continue
-						}
-						return fmt.Errorf("type %s: union inline type list itemType: %w", st.QName, err)
-					}
-					inlineType.ItemType = itemType
-				}
-				// recursively resolve item type if it's not a built-in
-				// note: List types can have circular item type references
-				if itemST, ok := inlineType.ItemType.(*types.SimpleType); ok && !itemST.IsBuiltin() {
-					// try to enter - if it's already resolving, that's a valid circular reference
-					if err := detector.Enter(itemST.QName); err != nil {
-						// circular reference - this is valid, skip recursive resolution
-					} else {
-						detector.Leave(itemST.QName)
-						if err := resolveType(itemST.QName, itemST, schema, detector); err != nil {
-							return err
-						}
-					}
-				}
-			}
-			// recursively resolve nested union inline types
-			if inlineType.Union != nil {
-				// use the same detector since inline types are anonymous
-				if err := resolveSimpleType(inlineType, schema, detector); err != nil {
-					return err
-				}
-			}
-			// add resolved inline type to MemberTypes so compiler can compile it
-			if st.MemberTypes == nil {
-				st.MemberTypes = make([]types.Type, 0, len(st.Union.InlineTypes))
-			}
-			st.MemberTypes = append(st.MemberTypes, inlineType)
+		if err := resolveSimpleTypeUnion(st, schema, detector); err != nil {
+			return err
 		}
 	}
 	if st.Union == nil && st.Variety() == types.UnionVariety && len(st.MemberTypes) == 0 {
@@ -487,6 +307,208 @@ func resolveSimpleType(st *types.SimpleType, schema *parser.Schema, detector *Cy
 		}
 	}
 
+	return nil
+}
+
+func resolveSimpleTypeRestriction(st *types.SimpleType, schema *parser.Schema, detector *CycleDetector[types.QName]) error {
+	// if base is specified as a QName, resolve it
+	if !st.Restriction.Base.IsZero() {
+		if st.ResolvedBase == nil {
+			// check for self-reference (circular dependency)
+			if st.Restriction.Base == st.QName {
+				return fmt.Errorf("type %s: circular derivation (type cannot be its own base)", st.QName)
+			}
+			baseType, err := lookupType(schema, st.Restriction.Base)
+			if err != nil {
+				return fmt.Errorf("type %s: %w", st.QName, err)
+			}
+			st.ResolvedBase = baseType
+		}
+		// inherit whiteSpace from base type if not explicitly set in this restriction
+		if !st.WhiteSpaceExplicit() {
+			if baseType := st.BaseType(); baseType != nil {
+				st.SetWhiteSpace(baseType.WhiteSpace())
+			}
+		}
+	}
+	// recursively resolve base type if it's not a built-in and not a self-reference
+	// (This handles both QName-based bases and inline simpleType bases)
+	// for self-references in redefine context (where base == st.QName), we already
+	// set ResolvedBase to the original type above, so we need to resolve that
+	if st.BaseType() != nil && st.BaseType() != st {
+		if baseST, ok := st.BaseType().(*types.SimpleType); ok && !baseST.IsBuiltin() {
+			switch {
+			case baseST.QName.IsZero():
+				// inline simpleType (no QName) - resolve directly
+				if err := resolveSimpleType(baseST, schema, detector); err != nil {
+					return err
+				}
+			case baseST.QName != st.QName:
+				// named type (but NOT a self-reference) - use resolveType for cycle detection
+				if err := resolveType(baseST.QName, baseST, schema, detector); err != nil {
+					return err
+				}
+			default:
+				// self-reference in redefine context - resolve the original directly
+				// without cycle detection (since it has the same QName but is a different type instance)
+				if err := resolveSimpleType(baseST, schema, detector); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func resolveSimpleTypeList(st *types.SimpleType, schema *parser.Schema, detector *CycleDetector[types.QName]) error {
+	// per XSD spec, list types always have whiteSpace=collapse
+	st.SetWhiteSpace(types.WhiteSpaceCollapse)
+	if st.List.ItemType.IsZero() {
+		// inline simpleType - resolve it
+		if st.List.InlineItemType != nil {
+			if !st.List.InlineItemType.IsBuiltin() {
+				// note: List types can have circular item type references
+				// for inline types, check if we're already resolving this type
+				if !st.List.InlineItemType.QName.IsZero() && !detector.IsResolving(st.List.InlineItemType.QName) {
+					if err := resolveType(st.List.InlineItemType.QName, st.List.InlineItemType, schema, detector); err != nil {
+						return err
+					}
+				}
+			}
+			// also store in st.ItemType for validator access
+			st.ItemType = st.List.InlineItemType
+		}
+		return nil
+	}
+
+	// itemType attribute - resolve from QName
+	if st.ItemType == nil {
+		itemType, err := lookupType(schema, st.List.ItemType)
+		if err != nil {
+			if allowMissingTypeReference(schema, st.List.ItemType) {
+				st.ItemType = types.NewPlaceholderSimpleType(st.List.ItemType)
+				return nil
+			}
+			return fmt.Errorf("type %s: list itemType: %w", st.QName, err)
+		}
+		st.ItemType = itemType
+	}
+	// recursively resolve item type if it's not a built-in
+	// note: List types can have circular item type references (e.g., list of list)
+	// if the item type is already being resolved, skip recursive resolution
+	// to allow the circular reference
+	if itemST, ok := st.ItemType.(*types.SimpleType); ok && !itemST.IsBuiltin() {
+		if !detector.IsResolving(itemST.QName) {
+			if err := resolveType(itemST.QName, itemST, schema, detector); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func resolveSimpleTypeUnion(st *types.SimpleType, schema *parser.Schema, detector *CycleDetector[types.QName]) error {
+	if len(st.Union.MemberTypes) > 0 {
+		if st.MemberTypes == nil {
+			st.MemberTypes = make([]types.Type, 0, len(st.Union.MemberTypes))
+		}
+		for i, memberQName := range st.Union.MemberTypes {
+			if i < len(st.MemberTypes) && st.MemberTypes[i] != nil {
+				continue // already resolved
+			}
+			memberType, err := lookupType(schema, memberQName)
+			if err != nil {
+				if allowMissingTypeReference(schema, memberQName) {
+					memberType = types.NewPlaceholderSimpleType(memberQName)
+				} else {
+					return fmt.Errorf("type %s: union memberType %d: %w", st.QName, i, err)
+				}
+			}
+			if i >= len(st.MemberTypes) {
+				st.MemberTypes = append(st.MemberTypes, memberType)
+			} else {
+				st.MemberTypes[i] = memberType
+			}
+			// recursively resolve member type if it's not a built-in
+			// note: Union types can have circular member references (this is valid in XSD)
+			// if the member type is already being resolved, skip recursive resolution
+			// to allow the circular reference
+			if memberST, ok := memberType.(*types.SimpleType); ok && !memberST.IsBuiltin() {
+				if !detector.IsResolving(memberST.QName) {
+					if err := resolveType(memberST.QName, memberST, schema, detector); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	// resolve inline types (anonymous simpleTypes)
+	for _, inlineType := range st.Union.InlineTypes {
+		if inlineType.Restriction != nil && !inlineType.Restriction.Base.IsZero() {
+			if inlineType.ResolvedBase == nil {
+				baseType, err := lookupType(schema, inlineType.Restriction.Base)
+				if err != nil {
+					return fmt.Errorf("type %s: union inline type base: %w", st.QName, err)
+				}
+				inlineType.ResolvedBase = baseType
+			}
+			// set whiteSpace from base type if not explicitly set
+			if inlineType.WhiteSpace() == types.WhiteSpacePreserve {
+				// check if whiteSpace was explicitly set (default is preserve)
+				// if base type has different whiteSpace, inherit it
+				if baseType := inlineType.BaseType(); baseType != nil {
+					inlineType.SetWhiteSpace(baseType.WhiteSpace())
+				}
+			}
+			// recursively resolve base type if it's not a built-in and not a self-reference
+			if inlineType.BaseType() != inlineType {
+				if baseST, ok := inlineType.BaseType().(*types.SimpleType); ok && !baseST.IsBuiltin() {
+					if err := resolveType(baseST.QName, baseST, schema, detector); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		if inlineType.List != nil && !inlineType.List.ItemType.IsZero() {
+			if inlineType.ItemType == nil {
+				itemType, err := lookupType(schema, inlineType.List.ItemType)
+				if err != nil {
+					if allowMissingTypeReference(schema, inlineType.List.ItemType) {
+						inlineType.ItemType = types.NewPlaceholderSimpleType(inlineType.List.ItemType)
+						continue
+					}
+					return fmt.Errorf("type %s: union inline type list itemType: %w", st.QName, err)
+				}
+				inlineType.ItemType = itemType
+			}
+			// recursively resolve item type if it's not a built-in
+			// note: List types can have circular item type references
+			if itemST, ok := inlineType.ItemType.(*types.SimpleType); ok && !itemST.IsBuiltin() {
+				// try to enter - if it's already resolving, that's a valid circular reference
+				if err := detector.Enter(itemST.QName); err != nil {
+					// circular reference - this is valid, skip recursive resolution
+				} else {
+					detector.Leave(itemST.QName)
+					if err := resolveType(itemST.QName, itemST, schema, detector); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		// recursively resolve nested union inline types
+		if inlineType.Union != nil {
+			// use the same detector since inline types are anonymous
+			if err := resolveSimpleType(inlineType, schema, detector); err != nil {
+				return err
+			}
+		}
+		// add resolved inline type to MemberTypes so compiler can compile it
+		if st.MemberTypes == nil {
+			st.MemberTypes = make([]types.Type, 0, len(st.Union.InlineTypes))
+		}
+		st.MemberTypes = append(st.MemberTypes, inlineType)
+	}
 	return nil
 }
 

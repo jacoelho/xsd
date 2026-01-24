@@ -10,11 +10,8 @@ import (
 func parseSimpleContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleContent, error) {
 	sc := &types.SimpleContent{}
 
-	if doc.HasAttribute(elem, "id") {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "simpleContent", schema); err != nil {
-			return nil, err
-		}
+	if err := validateOptionalID(doc, elem, "simpleContent", schema); err != nil {
+		return nil, err
 	}
 
 	seenDerivation := false
@@ -75,11 +72,8 @@ func parseSimpleContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 }
 
 func parseSimpleContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.Restriction, types.QName, error) {
-	if hasIDAttribute(doc, elem) {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "restriction", schema); err != nil {
-			return nil, types.QName{}, err
-		}
+	if err := validateOptionalID(doc, elem, "restriction", schema); err != nil {
+		return nil, types.QName{}, err
 	}
 	base := doc.GetAttribute(elem, "base")
 	if base == "" {
@@ -119,11 +113,8 @@ func parseSimpleContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, sch
 }
 
 func parseSimpleContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.Extension, types.QName, error) {
-	if doc.HasAttribute(elem, "id") {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "extension", schema); err != nil {
-			return nil, types.QName{}, err
-		}
+	if err := validateOptionalID(doc, elem, "extension", schema); err != nil {
+		return nil, types.QName{}, err
 	}
 	base := doc.GetAttribute(elem, "base")
 	if base == "" {

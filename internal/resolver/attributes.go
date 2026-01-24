@@ -79,42 +79,34 @@ func validateAttributeGroupReference(schema *parser.Schema, agRef, contextQName 
 
 // validateNoCyclicAttributeGroups detects cycles between attribute group definitions.
 func validateNoCyclicAttributeGroups(schema *parser.Schema) error {
-	visiting := make(map[types.QName]bool)
-	visited := make(map[types.QName]bool)
+	detector := NewCycleDetector[types.QName]()
+	for qname := range schema.AttributeGroups {
+		if err := visitAttributeGroup(schema, qname, detector); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-	var visit func(types.QName) error
-	visit = func(qname types.QName) error {
-		if visited[qname] {
-			return nil
-		}
-		if visiting[qname] {
-			return fmt.Errorf("circular attribute group definition: %s", qname)
-		}
-		visiting[qname] = true
+func visitAttributeGroup(schema *parser.Schema, qname types.QName, detector *CycleDetector[types.QName]) error {
+	if detector.IsVisited(qname) {
+		return nil
+	}
+	return detector.WithScope(qname, func() error {
 		group, exists := schema.AttributeGroups[qname]
 		if !exists {
-			visiting[qname] = false
 			return nil
 		}
 		for _, ref := range group.AttrGroups {
 			if _, ok := schema.AttributeGroups[ref]; !ok {
 				continue
 			}
-			if err := visit(ref); err != nil {
+			if err := visitAttributeGroup(schema, ref, detector); err != nil {
 				return err
 			}
 		}
-		visiting[qname] = false
-		visited[qname] = true
 		return nil
-	}
-
-	for qname := range schema.AttributeGroups {
-		if err := visit(qname); err != nil {
-			return err
-		}
-	}
-	return nil
+	})
 }
 
 func validateAttributeValueConstraintsForType(schema *parser.Schema, typ types.Type) error {

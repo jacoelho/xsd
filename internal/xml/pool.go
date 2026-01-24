@@ -9,6 +9,7 @@ var documentPool = sync.Pool{
 }
 
 // AcquireDocument returns a reusable XML document arena.
+// The caller owns the document until it is released back to the pool.
 func AcquireDocument() *Document {
 	doc := documentPool.Get().(*Document)
 	doc.reset()
@@ -16,6 +17,7 @@ func AcquireDocument() *Document {
 }
 
 // ReleaseDocument returns a document to the pool after resetting it.
+// After ReleaseDocument, the caller must not retain or use the document.
 func ReleaseDocument(doc *Document) {
 	if doc == nil {
 		return

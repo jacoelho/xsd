@@ -73,7 +73,7 @@ type elementAttrScan struct {
 func scanElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) elementAttrScan {
 	var attrs elementAttrScan
 	for _, attr := range doc.Attributes(elem) {
-		if attr.NamespaceURI() == xsdxml.XMLNSNamespace || attr.NamespaceURI() == "xmlns" || attr.LocalName() == "xmlns" {
+		if isXMLNSDeclaration(attr) {
 			continue
 		}
 		if attr.NamespaceURI() != "" {
@@ -162,33 +162,60 @@ func makeAnyType() types.Type {
 
 // parseTopLevelElement parses a top-level element declaration
 func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
+	name, nameErr := validateTopLevelElementStructure(doc, elem, schema)
+	if nameErr != nil {
+		return nameErr
+	}
+
+	decl := newTopLevelElementDecl(name, schema)
+	typ, explicit, typeErr := resolveTopLevelElementType(doc, elem, schema)
+	if typeErr != nil {
+		return typeErr
+	}
+	decl.Type = typ
+	decl.TypeExplicit = explicit
+
+	if attrErr := applyTopLevelElementAttributes(doc, elem, schema, decl); attrErr != nil {
+		return attrErr
+	}
+
+	decl, declErr := types.NewElementDeclFromParsed(decl)
+	if declErr != nil {
+		return declErr
+	}
+
+	if _, exists := schema.ElementDecls[decl.Name]; exists {
+		return fmt.Errorf("duplicate element declaration: '%s'", decl.Name)
+	}
+	schema.ElementDecls[decl.Name] = decl
+	return nil
+}
+
+func validateTopLevelElementStructure(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (string, error) {
 	name := getNameAttr(doc, elem)
 	if name == "" {
-		return fmt.Errorf("element missing name attribute")
+		return "", fmt.Errorf("element missing name attribute")
 	}
 
 	if err := validateElementAttributes(doc, elem, validTopLevelElementAttributes, "top-level element"); err != nil {
-		return err
+		return "", err
 	}
 
-	if hasIDAttribute(doc, elem) {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "element", schema); err != nil {
-			return err
-		}
+	if err := validateOptionalID(doc, elem, "element", schema); err != nil {
+		return "", err
 	}
 
 	// 'form' attribute only applies to local element declarations
 	if doc.HasAttribute(elem, "form") {
-		return fmt.Errorf("top-level element cannot have 'form' attribute")
+		return "", fmt.Errorf("top-level element cannot have 'form' attribute")
 	}
 
 	// validate annotation order: if present, must be first child
 	if err := validateAnnotationOrder(doc, elem); err != nil {
-		return err
+		return "", err
 	}
 	if err := validateElementChildrenOrder(doc, elem); err != nil {
-		return err
+		return "", err
 	}
 
 	for _, child := range doc.Children(elem) {
@@ -199,31 +226,20 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 		case "annotation", "complexType", "simpleType", "key", "keyref", "unique":
 			// allowed.
 		default:
-			return fmt.Errorf("invalid child element <%s> in <element> declaration", doc.LocalName(child))
+			return "", fmt.Errorf("invalid child element <%s> in <element> declaration", doc.LocalName(child))
 		}
 	}
 
 	// validate: cannot have both default and fixed
 	if doc.HasAttribute(elem, "default") && doc.HasAttribute(elem, "fixed") {
-		return fmt.Errorf("element cannot have both 'default' and 'fixed' attributes")
+		return "", fmt.Errorf("element cannot have both 'default' and 'fixed' attributes")
 	}
 
-	var hasInlineType bool
-	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) == xsdxml.XSDNamespace {
-			if doc.LocalName(child) == "complexType" || doc.LocalName(child) == "simpleType" {
-				hasInlineType = true
-				break
-			}
-		}
-	}
+	return name, nil
+}
 
-	// validate: cannot have both type attribute and inline type definition
-	if doc.GetAttribute(elem, "type") != "" && hasInlineType {
-		return fmt.Errorf("element cannot have both 'type' attribute and inline type definition")
-	}
-
-	decl := &types.ElementDecl{
+func newTopLevelElementDecl(name string, schema *Schema) *types.ElementDecl {
+	return &types.ElementDecl{
 		Name: types.QName{
 			Namespace: schema.TargetNamespace,
 			Local:     name,
@@ -233,57 +249,78 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 		SourceNamespace: schema.TargetNamespace,
 		Form:            types.FormQualified, // global elements are always qualified
 	}
+}
 
+func hasInlineTypeChild(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
+	for _, child := range doc.Children(elem) {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+			continue
+		}
+		switch doc.LocalName(child) {
+		case "complexType", "simpleType":
+			return true
+		}
+	}
+	return false
+}
+
+func resolveTopLevelElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (types.Type, bool, error) {
 	if typeName := doc.GetAttribute(elem, "type"); typeName != "" {
+		if hasInlineTypeChild(doc, elem) {
+			return nil, false, fmt.Errorf("element cannot have both 'type' attribute and inline type definition")
+		}
 		typeQName, err := resolveQName(doc, typeName, elem, schema)
 		if err != nil {
-			return fmt.Errorf("resolve type %s: %w", typeName, err)
+			return nil, false, fmt.Errorf("resolve type %s: %w", typeName, err)
 		}
 
 		// check if it's a built-in type
 		if builtinType := types.GetBuiltinNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
-			decl.Type = builtinType
-		} else {
-			// will be resolved later in a second pass
-			// for now, create a placeholder
-			decl.Type = types.NewPlaceholderSimpleType(typeQName)
+			return builtinType, true, nil
 		}
-		decl.TypeExplicit = true
-	} else {
-		for _, child := range doc.Children(elem) {
-			if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
-				continue
-			}
-
-			switch doc.LocalName(child) {
-			case "complexType":
-				if doc.GetAttribute(child, "name") != "" {
-					return fmt.Errorf("inline complexType cannot have 'name' attribute")
-				}
-				ct, err := parseInlineComplexType(doc, child, schema)
-				if err != nil {
-					return fmt.Errorf("parse inline complexType: %w", err)
-				}
-				decl.Type = ct
-				decl.TypeExplicit = true
-			case "simpleType":
-				if doc.GetAttribute(child, "name") != "" {
-					return fmt.Errorf("inline simpleType cannot have 'name' attribute")
-				}
-				st, err := parseInlineSimpleType(doc, child, schema)
-				if err != nil {
-					return fmt.Errorf("parse inline simpleType: %w", err)
-				}
-				decl.Type = st
-				decl.TypeExplicit = true
-			}
-		}
-		// if no inline type was found, default to anyType
-		if decl.Type == nil {
-			decl.Type = makeAnyType()
-		}
+		// will be resolved later in a second pass
+		// for now, create a placeholder
+		return types.NewPlaceholderSimpleType(typeQName), true, nil
 	}
 
+	var resolved types.Type
+	var explicit bool
+	for _, child := range doc.Children(elem) {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+			continue
+		}
+
+		switch doc.LocalName(child) {
+		case "complexType":
+			if doc.GetAttribute(child, "name") != "" {
+				return nil, false, fmt.Errorf("inline complexType cannot have 'name' attribute")
+			}
+			ct, err := parseInlineComplexType(doc, child, schema)
+			if err != nil {
+				return nil, false, fmt.Errorf("parse inline complexType: %w", err)
+			}
+			resolved = ct
+			explicit = true
+		case "simpleType":
+			if doc.GetAttribute(child, "name") != "" {
+				return nil, false, fmt.Errorf("inline simpleType cannot have 'name' attribute")
+			}
+			st, err := parseInlineSimpleType(doc, child, schema)
+			if err != nil {
+				return nil, false, fmt.Errorf("parse inline simpleType: %w", err)
+			}
+			resolved = st
+			explicit = true
+		}
+	}
+	// if no inline type was found, default to anyType
+	if resolved == nil {
+		return makeAnyType(), false, nil
+	}
+	return resolved, explicit, nil
+}
+
+func applyTopLevelElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *types.ElementDecl) error {
 	if ok, value, err := parseBoolAttribute(doc, elem, "nillable"); err != nil {
 		return err
 	} else if ok {
@@ -312,6 +349,20 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 		decl.ValueContext = namespaceContextForElement(doc, elem, schema)
 	}
 
+	if err := applyTopLevelElementDerivations(doc, elem, schema, decl); err != nil {
+		return err
+	}
+	if err := applyTopLevelElementSubstitutionGroup(doc, elem, schema, decl); err != nil {
+		return err
+	}
+	if err := applyTopLevelElementConstraints(doc, elem, schema, decl); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func applyTopLevelElementDerivations(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *types.ElementDecl) error {
 	// parse block attribute (space-separated list: substitution, extension, restriction, #all)
 	if doc.HasAttribute(elem, "block") {
 		blockAttr := doc.GetAttribute(elem, "block")
@@ -345,6 +396,10 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 		decl.Final = schema.FinalDefault & types.DerivationSet(types.DerivationExtension|types.DerivationRestriction)
 	}
 
+	return nil
+}
+
+func applyTopLevelElementSubstitutionGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *types.ElementDecl) error {
 	if subGroup := doc.GetAttribute(elem, "substitutionGroup"); subGroup != "" {
 		// use resolveElementQName for element references (not type references)
 		subGroupQName, err := resolveElementQName(doc, subGroup, elem, schema)
@@ -359,7 +414,10 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 		}
 		schema.SubstitutionGroups[subGroupQName] = append(schema.SubstitutionGroups[subGroupQName], decl.Name)
 	}
+	return nil
+}
 
+func applyTopLevelElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *types.ElementDecl) error {
 	// parse identity constraints (key, keyref, unique)
 	for _, child := range doc.Children(elem) {
 		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
@@ -375,16 +433,6 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 			decl.Constraints = append(decl.Constraints, constraint)
 		}
 	}
-
-	decl, err := types.NewElementDeclFromParsed(decl)
-	if err != nil {
-		return err
-	}
-
-	if _, exists := schema.ElementDecls[decl.Name]; exists {
-		return fmt.Errorf("duplicate element declaration: '%s'", decl.Name)
-	}
-	schema.ElementDecls[decl.Name] = decl
 	return nil
 }
 

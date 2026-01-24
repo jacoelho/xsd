@@ -11,8 +11,8 @@ func PrecomputeBuiltinCaches() {
 			if builtin == nil {
 				continue
 			}
-			builtin.primitiveTypeCache = builtin.computePrimitiveType()
-			builtin.fundamentalFacetsCache = builtin.FundamentalFacets()
+			_ = builtin.PrimitiveType()
+			_ = builtin.FundamentalFacets()
 		}
 	})
 }

@@ -106,6 +106,14 @@ func TestAutomatonStreamValidatorWildcardMatch(t *testing.T) {
 	}
 }
 
+func TestAutomatonStreamValidatorCloseNilAutomaton(t *testing.T) {
+	validator := &AutomatonStreamValidator{}
+	validator.Reset(nil, nil, nil)
+	if err := validator.Close(); err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+}
+
 func TestAllGroupStreamValidator(t *testing.T) {
 	elements := []AllGroupElementInfo{
 		testAllGroupElement{qname: types.QName{Local: "a"}},

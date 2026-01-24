@@ -160,7 +160,7 @@ func TestBuildAutomatonChoiceAndWildcard(t *testing.T) {
 
 func TestValidationErrorCodes(t *testing.T) {
 	err := &ValidationError{Index: 1, Message: "boom", SubCode: ErrorCodeMissing}
-	if err.Error() != "child 1: boom" {
+	if err.Error() != "cvc-complex-type.2.4.b: child 1: boom" {
 		t.Fatalf("unexpected error string: %s", err.Error())
 	}
 	if err.FullCode() == "" {

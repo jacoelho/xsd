@@ -344,19 +344,32 @@ func (s *SimpleType) ResolvedBaseType() Type {
 
 // FundamentalFacets returns the fundamental facets for this simple type
 func (s *SimpleType) FundamentalFacets() *FundamentalFacets {
+	if s == nil {
+		return nil
+	}
 	// return cached value if available
-	if s.fundamentalFacetsCache != nil {
-		return s.fundamentalFacetsCache
+	typeCacheMu.RLock()
+	cached := s.fundamentalFacetsCache
+	typeCacheMu.RUnlock()
+	if cached != nil {
+		return cached
 	}
 
-	return s.computeFundamentalFacets()
+	computed := s.computeFundamentalFacets()
+	if computed == nil {
+		return nil
+	}
+	typeCacheMu.Lock()
+	if s.fundamentalFacetsCache == nil {
+		s.fundamentalFacetsCache = computed
+	}
+	cached = s.fundamentalFacetsCache
+	typeCacheMu.Unlock()
+	return cached
 }
 
 func (s *SimpleType) computeFundamentalFacets() *FundamentalFacets {
-	primitive := s.primitiveType
-	if primitive == nil {
-		primitive = s.computePrimitiveType(make(map[*SimpleType]bool))
-	}
+	primitive := s.PrimitiveType()
 	if primitive == nil {
 		return nil
 	}
@@ -582,23 +595,35 @@ func (s *SimpleType) ParseValue(lexical string) (TypedValue, error) {
 // PrimitiveType returns the ultimate primitive base type for this simple type
 func (s *SimpleType) PrimitiveType() Type {
 	// return cached value if available
-	if s.primitiveType != nil {
-		return s.primitiveType
+	if s == nil {
+		return nil
+	}
+	typeCacheMu.RLock()
+	cached := s.primitiveType
+	typeCacheMu.RUnlock()
+	if cached != nil {
+		return cached
 	}
 
-	return s.computePrimitiveType(make(map[*SimpleType]bool))
+	computed := s.computePrimitiveType(make(map[*SimpleType]bool))
+	if computed == nil {
+		return nil
+	}
+	typeCacheMu.Lock()
+	if s.primitiveType == nil {
+		s.primitiveType = computed
+	}
+	cached = s.primitiveType
+	typeCacheMu.Unlock()
+	return cached
 }
 
 func (s *SimpleType) precomputeCaches() {
 	if s == nil {
 		return
 	}
-	if s.primitiveType == nil {
-		s.primitiveType = s.computePrimitiveType(make(map[*SimpleType]bool))
-	}
-	if s.fundamentalFacetsCache == nil {
-		s.fundamentalFacetsCache = s.computeFundamentalFacets()
-	}
+	_ = s.PrimitiveType()
+	_ = s.FundamentalFacets()
 	s.precomputeIdentityNormalization()
 }
 
@@ -607,12 +632,21 @@ func (s *SimpleType) IsQNameOrNotationType() bool {
 	if s == nil {
 		return false
 	}
-	if s.qnameOrNotationReady {
-		return s.qnameOrNotation
+	typeCacheMu.RLock()
+	ready := s.qnameOrNotationReady
+	value := s.qnameOrNotation
+	typeCacheMu.RUnlock()
+	if ready {
+		return value
 	}
-	value := s.computeQNameOrNotationType()
-	s.qnameOrNotation = value
-	s.qnameOrNotationReady = true
+	computed := s.computeQNameOrNotationType()
+	typeCacheMu.Lock()
+	if !s.qnameOrNotationReady {
+		s.qnameOrNotation = computed
+		s.qnameOrNotationReady = true
+	}
+	value = s.qnameOrNotation
+	typeCacheMu.Unlock()
 	return value
 }
 
@@ -621,8 +655,10 @@ func (s *SimpleType) SetQNameOrNotationType(value bool) {
 	if s == nil {
 		return
 	}
+	typeCacheMu.Lock()
 	s.qnameOrNotation = value
 	s.qnameOrNotationReady = true
+	typeCacheMu.Unlock()
 }
 
 func (s *SimpleType) computeQNameOrNotationType() bool {
@@ -649,7 +685,7 @@ func (s *SimpleType) computeQNameOrNotationType() bool {
 			return true
 		}
 	}
-	if s.primitiveType != nil && IsQNameOrNotation(s.primitiveType.Name()) {
+	if primitive := s.PrimitiveType(); primitive != nil && IsQNameOrNotation(primitive.Name()) {
 		return true
 	}
 	return false
@@ -658,8 +694,11 @@ func (s *SimpleType) computeQNameOrNotationType() bool {
 // computePrimitiveType is the internal implementation with cycle detection.
 func (s *SimpleType) computePrimitiveType(visited map[*SimpleType]bool) Type {
 	// if already computed, return it
-	if s.primitiveType != nil {
-		return s.primitiveType
+	typeCacheMu.RLock()
+	cached := s.primitiveType
+	typeCacheMu.RUnlock()
+	if cached != nil {
+		return cached
 	}
 
 	if visited[s] {

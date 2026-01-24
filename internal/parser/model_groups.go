@@ -200,11 +200,8 @@ func parseTopLevelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 		}
 	}
 
-	if hasIDAttribute(doc, elem) {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "group", schema); err != nil {
-			return err
-		}
+	if err := validateOptionalID(doc, elem, "group", schema); err != nil {
+		return err
 	}
 
 	qname := types.QName{
@@ -261,21 +258,19 @@ func parseTopLevelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 // parseAnyElement parses an <any> wildcard element
 // Content model: (annotation?)
 func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.AnyElement, error) {
-	for _, attr := range doc.Attributes(elem) {
-		attrName := attr.LocalName()
-		if attrName == "xmlns" || strings.HasPrefix(attrName, "xmlns:") {
-			continue
-		}
-		if attr.NamespaceURI() == "" && !validAttributeNames[attrSetAnyElement][attrName] {
-			return nil, fmt.Errorf("invalid attribute '%s' on <any> element (XSD 1.0 only allows: namespace, processContents, minOccurs, maxOccurs)", attrName)
-		}
+	nsConstraint, nsList, processContents, parseErr := parseWildcardConstraints(
+		doc,
+		elem,
+		"any",
+		"namespace, processContents, minOccurs, maxOccurs",
+		validAttributeNames[attrSetAnyElement],
+	)
+	if parseErr != nil {
+		return nil, parseErr
 	}
 
-	if hasIDAttribute(doc, elem) {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "any", schema); err != nil {
-			return nil, err
-		}
+	if err := validateOptionalID(doc, elem, "any", schema); err != nil {
+		return nil, err
 	}
 
 	hasAnnotation := false
@@ -322,55 +317,11 @@ func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 	anyElem := &types.AnyElement{
 		MinOccurs:       minOccurs,
 		MaxOccurs:       maxOccurs,
-		ProcessContents: types.Strict,
+		ProcessContents: processContents,
 		TargetNamespace: schema.TargetNamespace,
-	}
-
-	namespaceAttr := doc.GetAttribute(elem, "namespace")
-	hasNamespaceAttr := false
-	for _, attr := range doc.Attributes(elem) {
-		if attr.LocalName() == "namespace" && attr.NamespaceURI() == "" {
-			hasNamespaceAttr = true
-			break
-		}
-	}
-	if !hasNamespaceAttr {
-		namespaceAttr = "##any"
-	} else if namespaceAttr == "" {
-		namespaceAttr = "##local"
-	}
-
-	nsConstraint, nsList, err := parseNamespaceConstraint(namespaceAttr)
-	if err != nil {
-		return nil, fmt.Errorf("parse namespace constraint: %w", err)
 	}
 	anyElem.Namespace = nsConstraint
 	anyElem.NamespaceList = nsList
-
-	processContents := doc.GetAttribute(elem, "processContents")
-	hasProcessContents := false
-	for _, attr := range doc.Attributes(elem) {
-		if attr.LocalName() == "processContents" && attr.NamespaceURI() == "" {
-			hasProcessContents = true
-			break
-		}
-	}
-	if hasProcessContents && processContents == "" {
-		return nil, fmt.Errorf("processContents attribute cannot be empty")
-	}
-
-	switch processContents {
-	case "strict":
-		anyElem.ProcessContents = types.Strict
-	case "lax":
-		anyElem.ProcessContents = types.Lax
-	case "skip":
-		anyElem.ProcessContents = types.Skip
-	case "":
-		anyElem.ProcessContents = types.Strict
-	default:
-		return nil, fmt.Errorf("invalid processContents value '%s': must be 'strict', 'lax', or 'skip'", processContents)
-	}
 
 	return anyElem, nil
 }

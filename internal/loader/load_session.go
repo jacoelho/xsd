@@ -24,15 +24,15 @@ func newLoadSession(loader *SchemaLoader, absLoc string, ctx fsContext, key load
 }
 
 func (s *loadSession) handleCircularLoad() (*parser.Schema, error) {
-	if !s.loader.state.loading[s.key] {
+	if !s.loader.state.isLoading(s.key) {
 		return nil, nil
 	}
 
-	if schema, ok := s.loader.state.loaded[s.key]; ok {
+	if schema, ok := s.loader.state.loadedSchema(s.key); ok {
 		return schema, nil
 	}
 
-	inProgress, ok := s.loader.state.loadingSchemas[s.key]
+	inProgress, ok := s.loader.state.loadingSchema(s.key)
 	if !ok || inProgress == nil {
 		return nil, fmt.Errorf("circular dependency detected: %s", s.absLoc)
 	}
@@ -93,8 +93,8 @@ func (s *loadSession) processIncludes(schema *parser.Schema, includes []parser.I
 		if s.loader.alreadyMergedInclude(s.key, includeKey) {
 			continue
 		}
-		if s.loader.state.loading[includeKey] {
-			inProgress := s.loader.state.loadingSchemas[includeKey]
+		if s.loader.state.isLoading(includeKey) {
+			inProgress, _ := s.loader.state.loadingSchema(includeKey)
 			if inProgress == nil {
 				// loadingSchemas should be set before includes are processed; nil means loader state is inconsistent.
 				return fmt.Errorf("circular dependency detected in include: %s", absIncludeLoc)
@@ -155,8 +155,8 @@ func (s *loadSession) processImports(schema *parser.Schema, imports []parser.Imp
 		if s.loader.alreadyMergedImport(s.key, importKey) {
 			continue
 		}
-		if s.loader.state.loading[importKey] {
-			inProgress := s.loader.state.loadingSchemas[importKey]
+		if s.loader.state.isLoading(importKey) {
+			inProgress, _ := s.loader.state.loadingSchema(importKey)
 			if inProgress == nil {
 				return fmt.Errorf("circular dependency detected in import: %s", absImportLoc)
 			}

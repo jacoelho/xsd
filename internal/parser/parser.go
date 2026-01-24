@@ -136,17 +136,20 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	// note: internal/xml represents xmlns declarations in the XMLNS namespace,
 	// with the local name set to the prefix (or "xmlns" for the default).
 	for _, attr := range doc.Attributes(root) {
-		if attr.LocalName() == "xmlns" && (attr.NamespaceURI() == "" || attr.NamespaceURI() == xsdxml.XMLNSNamespace) {
+		if !isXMLNSDeclaration(attr) {
+			continue
+		}
+		if attr.LocalName() == "xmlns" {
 			// xmlns="namespace" - default namespace (no prefix)
 			schema.NamespaceDecls[""] = attr.Value()
-		} else if attr.NamespaceURI() == "xmlns" || attr.NamespaceURI() == xsdxml.XMLNSNamespace {
-			// xmlns:prefix="namespace" - prefix is the local name
-			prefix := attr.LocalName()
-			if attr.Value() == "" {
-				return nil, fmt.Errorf("namespace prefix %q cannot be bound to empty namespace", prefix)
-			}
-			schema.NamespaceDecls[prefix] = attr.Value()
+			continue
 		}
+		// xmlns:prefix="namespace" - prefix is the local name
+		prefix := attr.LocalName()
+		if attr.Value() == "" {
+			return nil, fmt.Errorf("namespace prefix %q cannot be bound to empty namespace", prefix)
+		}
+		schema.NamespaceDecls[prefix] = attr.Value()
 	}
 
 	if doc.HasAttribute(root, "elementFormDefault") {
@@ -295,11 +298,8 @@ func parseTopLevelNotation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 		return fmt.Errorf("notation name '%s' must be a valid NCName", name)
 	}
 
-	if hasIDAttribute(doc, elem) {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "notation", schema); err != nil {
-			return err
-		}
+	if err := validateOptionalID(doc, elem, "notation", schema); err != nil {
+		return err
 	}
 
 	// notation must have either public or system attribute
