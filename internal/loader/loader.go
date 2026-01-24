@@ -41,25 +41,77 @@ type fsContext struct {
 }
 
 type loadState struct {
-	loaded              map[loadKey]*parser.Schema
-	validated           map[loadKey]bool
-	validationRequested map[loadKey]bool
-	loading             map[loadKey]bool
-	loadingSchemas      map[loadKey]*parser.Schema
-	pendingImports      map[loadKey][]pendingImport
-	pendingCounts       map[loadKey]int
+	entries map[loadKey]*schemaEntry
 }
 
 func newLoadState() loadState {
 	return loadState{
-		loaded:              make(map[loadKey]*parser.Schema),
-		validated:           make(map[loadKey]bool),
-		validationRequested: make(map[loadKey]bool),
-		loading:             make(map[loadKey]bool),
-		loadingSchemas:      make(map[loadKey]*parser.Schema),
-		pendingImports:      make(map[loadKey][]pendingImport),
-		pendingCounts:       make(map[loadKey]int),
+		entries: make(map[loadKey]*schemaEntry),
 	}
+}
+
+type schemaLoadState int
+
+const (
+	schemaStateUnknown schemaLoadState = iota
+	schemaStateLoading
+	schemaStateLoaded
+)
+
+type schemaEntry struct {
+	schema              *parser.Schema
+	pendingImports      []pendingImport
+	state               schemaLoadState
+	pendingCount        int
+	validationRequested bool
+	validated           bool
+}
+
+func (s *loadState) entry(key loadKey) (*schemaEntry, bool) {
+	entry, ok := s.entries[key]
+	return entry, ok
+}
+
+func (s *loadState) ensureEntry(key loadKey) *schemaEntry {
+	if entry, ok := s.entries[key]; ok {
+		return entry
+	}
+	entry := &schemaEntry{}
+	s.entries[key] = entry
+	return entry
+}
+
+func (s *loadState) deleteEntry(key loadKey) {
+	delete(s.entries, key)
+}
+
+func (s *loadState) loadedSchema(key loadKey) (*parser.Schema, bool) {
+	entry, ok := s.entries[key]
+	if !ok || entry.state != schemaStateLoaded || entry.schema == nil {
+		return nil, false
+	}
+	return entry.schema, true
+}
+
+func (s *loadState) isLoading(key loadKey) bool {
+	entry, ok := s.entries[key]
+	return ok && entry.state == schemaStateLoading
+}
+
+func (s *loadState) loadingSchema(key loadKey) (*parser.Schema, bool) {
+	entry, ok := s.entries[key]
+	if !ok || entry.state != schemaStateLoading {
+		return nil, false
+	}
+	return entry.schema, true
+}
+
+func (s *loadState) schemaForKey(key loadKey) *parser.Schema {
+	entry, ok := s.entries[key]
+	if !ok {
+		return nil
+	}
+	return entry.schema
 }
 
 type pendingImport struct {
@@ -200,9 +252,10 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 	key := l.loadKey(ctx, absLoc)
 	session := newLoadSession(l, absLoc, ctx, key)
 
-	if schema, ok := l.state.loaded[key]; ok {
+	if schema, ok := l.state.loadedSchema(key); ok {
 		if mode == validateSchema {
-			l.state.validationRequested[key] = true
+			entry := l.state.ensureEntry(key)
+			entry.validationRequested = true
 			if resolveErr := l.resolvePendingImportsFor(key); resolveErr != nil {
 				return nil, resolveErr
 			}
@@ -219,8 +272,19 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 	// this handles the case where we're loading a schema that's being imported
 	// the import context will be checked later when we detect a cycle
 
-	l.state.loading[key] = true
-	defer delete(l.state.loading, key)
+	entry := l.state.ensureEntry(key)
+	entry.state = schemaStateLoading
+	entry.schema = nil
+	defer func() {
+		if entry.state != schemaStateLoading {
+			return
+		}
+		entry.state = schemaStateUnknown
+		entry.schema = nil
+		if entry.pendingCount == 0 && len(entry.pendingImports) == 0 && !entry.validationRequested && !entry.validated {
+			l.state.deleteEntry(key)
+		}
+	}()
 
 	result, err := session.parseSchema()
 	if err != nil {
@@ -229,8 +293,7 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 
 	schema := result.Schema
 	initSchemaOrigins(schema, absLoc)
-	l.state.loadingSchemas[key] = schema
-	defer delete(l.state.loadingSchemas, key)
+	entry.schema = schema
 	registerImports(schema, result.Imports)
 
 	if validateErr := validateImportConstraints(schema, result.Imports); validateErr != nil {
@@ -246,10 +309,11 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 	}
 
 	if mode == validateSchema {
-		l.state.validationRequested[key] = true
+		entry.validationRequested = true
 	}
 
-	l.state.loaded[key] = schema
+	entry.schema = schema
+	entry.state = schemaStateLoaded
 
 	if err := l.resolvePendingImportsFor(key); err != nil {
 		return nil, err
@@ -288,11 +352,11 @@ func (l *SchemaLoader) loadImport(location string, currentNamespace types.Namesp
 	absKey := l.loadKey(ctx, absLocForContext)
 
 	// if already loaded, reuse it
-	if schema, ok := l.state.loaded[absKey]; ok {
+	if schema, ok := l.state.loadedSchema(absKey); ok {
 		return schema, nil
 	}
 	// also check the original location in case it's stored differently
-	if schema, ok := l.state.loaded[l.loadKey(ctx, location)]; ok {
+	if schema, ok := l.state.loadedSchema(l.loadKey(ctx, location)); ok {
 		return schema, nil
 	}
 
@@ -341,7 +405,7 @@ func (l *SchemaLoader) GetLoaded(location string) (*parser.Schema, bool, error) 
 		return nil, false, err
 	}
 	key := l.loadKey(l.defaultFSContext(), absLoc)
-	schema, ok := l.state.loaded[key]
+	schema, ok := l.state.loadedSchema(key)
 	return schema, ok, nil
 }
 
@@ -432,24 +496,27 @@ func (l *SchemaLoader) markMergedImport(baseKey, importKey loadKey) {
 }
 
 func (l *SchemaLoader) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string) {
-	for _, pending := range l.state.pendingImports[sourceKey] {
+	sourceEntry := l.state.ensureEntry(sourceKey)
+	for _, pending := range sourceEntry.pendingImports {
 		if pending.targetKey == targetKey {
 			return
 		}
 	}
-	l.state.pendingImports[sourceKey] = append(l.state.pendingImports[sourceKey], pendingImport{
+	sourceEntry.pendingImports = append(sourceEntry.pendingImports, pendingImport{
 		targetKey:         targetKey,
 		schemaLocation:    schemaLocation,
 		expectedNamespace: expectedNamespace,
 	})
-	l.state.pendingCounts[targetKey]++
+	targetEntry := l.state.ensureEntry(targetKey)
+	targetEntry.pendingCount++
 }
 
 func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
-	if l.state.pendingCounts[sourceKey] > 0 {
+	sourceEntry := l.state.ensureEntry(sourceKey)
+	if sourceEntry.pendingCount > 0 {
 		return nil
 	}
-	pending := l.state.pendingImports[sourceKey]
+	pending := sourceEntry.pendingImports
 	if len(pending) == 0 {
 		return l.validateIfRequested(sourceKey)
 	}
@@ -457,7 +524,7 @@ func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
 	if source == nil {
 		return fmt.Errorf("pending import source not found: %s", sourceKey.location)
 	}
-	delete(l.state.pendingImports, sourceKey)
+	sourceEntry.pendingImports = nil
 
 	for _, entry := range pending {
 		target := l.schemaForKey(entry.targetKey)
@@ -473,11 +540,12 @@ func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
 		}
 		l.markMergedImport(entry.targetKey, sourceKey)
 
-		l.state.pendingCounts[entry.targetKey]--
-		if l.state.pendingCounts[entry.targetKey] < 0 {
-			l.state.pendingCounts[entry.targetKey] = 0
+		targetEntry := l.state.ensureEntry(entry.targetKey)
+		targetEntry.pendingCount--
+		if targetEntry.pendingCount < 0 {
+			targetEntry.pendingCount = 0
 		}
-		if l.state.pendingCounts[entry.targetKey] == 0 {
+		if targetEntry.pendingCount == 0 {
 			if err := l.resolvePendingImportsFor(entry.targetKey); err != nil {
 				return err
 			}
@@ -488,20 +556,15 @@ func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
 }
 
 func (l *SchemaLoader) schemaForKey(key loadKey) *parser.Schema {
-	if schema, ok := l.state.loaded[key]; ok {
-		return schema
-	}
-	if schema, ok := l.state.loadingSchemas[key]; ok {
-		return schema
-	}
-	return nil
+	return l.state.schemaForKey(key)
 }
 
 func (l *SchemaLoader) validateIfRequested(key loadKey) error {
-	if !l.state.validationRequested[key] || l.state.validated[key] {
+	entry, ok := l.state.entry(key)
+	if !ok || !entry.validationRequested || entry.validated {
 		return nil
 	}
-	if l.state.pendingCounts[key] > 0 {
+	if entry.pendingCount > 0 {
 		return nil
 	}
 	schema := l.schemaForKey(key)
@@ -511,7 +574,7 @@ func (l *SchemaLoader) validateIfRequested(key loadKey) error {
 	if err := l.validateLoadedSchema(schema); err != nil {
 		return err
 	}
-	l.state.validated[key] = true
+	entry.validated = true
 	return nil
 }
 
