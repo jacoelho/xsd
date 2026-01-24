@@ -94,9 +94,13 @@ func (d *Document) Root() NodeID {
 	return d.DocumentElement()
 }
 
+func (d *Document) validNode(id NodeID) bool {
+	return d != nil && id >= 0 && int(id) < len(d.nodes)
+}
+
 // Parent returns the parent node of id, or InvalidNode for the root.
 func (d *Document) Parent(id NodeID) NodeID {
-	if d == nil || id == InvalidNode {
+	if !d.validNode(id) {
 		return InvalidNode
 	}
 	return d.nodes[id].parent
@@ -104,7 +108,7 @@ func (d *Document) Parent(id NodeID) NodeID {
 
 // NamespaceURI returns the namespace URI for the given node.
 func (d *Document) NamespaceURI(id NodeID) string {
-	if d == nil || id == InvalidNode {
+	if !d.validNode(id) {
 		return ""
 	}
 	return d.nodes[id].namespace
@@ -112,15 +116,16 @@ func (d *Document) NamespaceURI(id NodeID) string {
 
 // LocalName returns the local name for the given node.
 func (d *Document) LocalName(id NodeID) string {
-	if d == nil || id == InvalidNode {
+	if !d.validNode(id) {
 		return ""
 	}
 	return d.nodes[id].local
 }
 
 // Attributes returns a read-only view of the element attributes.
+// The returned slice aliases the document arena; do not modify or retain it.
 func (d *Document) Attributes(id NodeID) []Attr {
-	if d == nil || id == InvalidNode {
+	if !d.validNode(id) {
 		return nil
 	}
 	n := d.nodes[id]
@@ -131,8 +136,9 @@ func (d *Document) Attributes(id NodeID) []Attr {
 }
 
 // Children returns a read-only view of the element children.
+// The returned slice aliases the document arena; do not modify or retain it.
 func (d *Document) Children(id NodeID) []NodeID {
-	if d == nil || id == InvalidNode {
+	if !d.validNode(id) {
 		return nil
 	}
 	n := d.nodes[id]
@@ -144,15 +150,16 @@ func (d *Document) Children(id NodeID) []NodeID {
 
 // DirectTextContent returns only the text directly under the element.
 func (d *Document) DirectTextContent(id NodeID) string {
-	if d == nil || id == InvalidNode {
+	if !d.validNode(id) {
 		return ""
 	}
 	return string(d.nodes[id].text)
 }
 
 // DirectTextContentBytes returns only the text directly under the element as bytes.
+// The returned slice aliases the document arena; do not modify or retain it.
 func (d *Document) DirectTextContentBytes(id NodeID) []byte {
-	if d == nil || id == InvalidNode {
+	if !d.validNode(id) {
 		return nil
 	}
 	return d.nodes[id].text
@@ -160,7 +167,7 @@ func (d *Document) DirectTextContentBytes(id NodeID) []byte {
 
 // TextContent returns the concatenated text content of the element subtree.
 func (d *Document) TextContent(id NodeID) string {
-	if d == nil || id == InvalidNode {
+	if !d.validNode(id) {
 		return ""
 	}
 	n := d.nodes[id]
