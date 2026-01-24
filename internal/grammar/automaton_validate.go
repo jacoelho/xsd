@@ -27,7 +27,7 @@ type ValidationError struct {
 
 // Error returns the formatted validation error.
 func (e *ValidationError) Error() string {
-	return fmt.Sprintf("child %d: %s", e.Index, e.Message)
+	return fmt.Sprintf("%s: child %d: %s", e.FullCode(), e.Index, e.Message)
 }
 
 // FullCode returns the full error code including sub-code.
@@ -402,7 +402,7 @@ func (a *Automaton) noValidTransitionError(localName string, childIdx, state int
 }
 
 func (a *Automaton) validateEndState(state *validationState, childCount int) error {
-	if !a.accepting[state.currentState] {
+	if !inBounds(state.currentState, len(a.accepting)) || !a.accepting[state.currentState] {
 		return &ValidationError{
 			Index:   childCount,
 			Message: "content incomplete: required elements missing",

@@ -106,6 +106,9 @@ func (v *AutomatonStreamValidator) Feed(child types.QName) (MatchResult, error) 
 
 // Close validates final state and counters after the last child.
 func (v *AutomatonStreamValidator) Close() error {
+	if v == nil || v.automaton == nil {
+		return nil
+	}
 	if v.childIndex == 0 {
 		if v.automaton.emptyOK {
 			return nil
@@ -164,48 +167,39 @@ func (v *AllGroupStreamValidator) Feed(child types.QName) (MatchResult, error) {
 		}
 	}
 
-	for i, elem := range v.validator.elements {
-		elemQName := elem.ElementQName()
-		if elemQName.Equal(child) {
-			if v.elementSeen[i] {
-				return result, &ValidationError{
-					Index:   childIdx,
-					Message: fmt.Sprintf("element %q appears more than once in all group", child.Local),
-					SubCode: ErrorCodeNotExpectedHere,
-				}
-			}
-			v.elementSeen[i] = true
-			if !elem.IsOptional() {
-				v.numRequiredSeen++
-			}
-			result.MatchedQName = elemQName
-			result.MatchedElement = elem.ElementDecl()
-			return result, nil
-		}
-
-		if v.matcher != nil && elem.AllowsSubstitution() && v.matcher.IsSubstitutable(child, elemQName) {
-			if v.elementSeen[i] {
-				return result, &ValidationError{
-					Index:   childIdx,
-					Message: fmt.Sprintf("element %q (substituting for %q) appears more than once in all group", child.Local, elemQName.Local),
-					SubCode: ErrorCodeNotExpectedHere,
-				}
-			}
-			v.elementSeen[i] = true
-			if !elem.IsOptional() {
-				v.numRequiredSeen++
-			}
-			result.MatchedQName = elemQName
-			result.MatchedElement = elem.ElementDecl()
-			return result, nil
+	idx, kind := matchAllGroupElement(child, v.validator.elements, v.matcher)
+	if kind == allGroupNoMatch {
+		return result, &ValidationError{
+			Index:   childIdx,
+			Message: fmt.Sprintf("element %q not allowed in all group", child.Local),
+			SubCode: ErrorCodeNotExpectedHere,
 		}
 	}
 
-	return result, &ValidationError{
-		Index:   childIdx,
-		Message: fmt.Sprintf("element %q not allowed in all group", child.Local),
-		SubCode: ErrorCodeNotExpectedHere,
+	elem := v.validator.elements[idx]
+	elemQName := elem.ElementQName()
+	if v.elementSeen[idx] {
+		if kind == allGroupSubstitutionMatch {
+			return result, &ValidationError{
+				Index:   childIdx,
+				Message: fmt.Sprintf("element %q (substituting for %q) appears more than once in all group", child.Local, elemQName.Local),
+				SubCode: ErrorCodeNotExpectedHere,
+			}
+		}
+		return result, &ValidationError{
+			Index:   childIdx,
+			Message: fmt.Sprintf("element %q appears more than once in all group", child.Local),
+			SubCode: ErrorCodeNotExpectedHere,
+		}
 	}
+
+	v.elementSeen[idx] = true
+	if !elem.IsOptional() {
+		v.numRequiredSeen++
+	}
+	result.MatchedQName = elemQName
+	result.MatchedElement = elem.ElementDecl()
+	return result, nil
 }
 
 // Close validates required elements after the last child.
