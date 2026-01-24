@@ -11,12 +11,11 @@ import (
 // collectElementReferences collects element references from content models.
 func collectElementReferences(content types.Content) []*types.ElementDecl {
 	var refs []*types.ElementDecl
-	if err := schemacheck.WalkContentParticles(content, func(particle types.Particle) error {
+	// WalkContentParticles only returns callback errors; this callback never errors.
+	_ = schemacheck.WalkContentParticles(content, func(particle types.Particle) error {
 		refs = append(refs, collectElementReferencesFromParticles([]types.Particle{particle})...)
 		return nil
-	}); err != nil {
-		return refs
-	}
+	})
 	return refs
 }
 
@@ -352,24 +351,32 @@ func validateNoCyclicSubstitutionGroups(schema *parser.Schema) error {
 			continue
 		}
 
-		visited := make(map[types.QName]bool)
-		visited[startQName] = true
-
-		current := decl.SubstitutionGroup
-		for !current.IsZero() {
-			if visited[current] {
-				return fmt.Errorf("cyclic substitution group detected: element %s is part of a cycle", startQName)
-			}
-			visited[current] = true
-
-			nextDecl, exists := schema.ElementDecls[current]
-			if !exists {
-				// referenced element doesn't exist - already reported elsewhere.
-				break
-			}
-			current = nextDecl.SubstitutionGroup
+		detector := NewCycleDetector[types.QName]()
+		if err := visitSubstitutionGroupChain(schema, startQName, detector); err != nil {
+			return fmt.Errorf("cyclic substitution group detected: element %s is part of a cycle", startQName)
 		}
 	}
 
 	return nil
+}
+
+func visitSubstitutionGroupChain(schema *parser.Schema, qname types.QName, detector *CycleDetector[types.QName]) error {
+	if detector.IsVisited(qname) {
+		return nil
+	}
+	return detector.WithScope(qname, func() error {
+		decl, exists := schema.ElementDecls[qname]
+		if !exists {
+			return nil
+		}
+		next := decl.SubstitutionGroup
+		if next.IsZero() {
+			return nil
+		}
+		if _, ok := schema.ElementDecls[next]; !ok {
+			// referenced element doesn't exist - already reported elsewhere.
+			return nil
+		}
+		return visitSubstitutionGroupChain(schema, next, detector)
+	})
 }
