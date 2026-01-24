@@ -112,7 +112,7 @@ func validateSignedInt(value, label string) (int64, error) {
 	return n, nil
 }
 
-func validateSignedIntRange(value, label string, minValue, maxValue int64) error {
+func validateBoundedInt(value, label string, minValue, maxValue int64) error {
 	n, err := validateSignedInt(value, label)
 	if err != nil {
 		return err
@@ -134,7 +134,7 @@ func parseUnsignedIntValue(value, label string) (uint64, error) {
 	return n, nil
 }
 
-func validateUnsignedIntRange(value, label string, maxValue uint64) error {
+func validateBoundedUint(value, label string, maxValue uint64) error {
 	n, err := parseUnsignedIntValue(value, label)
 	if err != nil {
 		return err
@@ -147,23 +147,22 @@ func validateUnsignedIntRange(value, label string, maxValue uint64) error {
 
 // validateLong validates xs:long
 func validateLong(value string) error {
-	_, err := validateSignedInt(value, "long")
-	return err
+	return validateBoundedInt(value, "long", math.MinInt64, math.MaxInt64)
 }
 
 // validateInt validates xs:int
 func validateInt(value string) error {
-	return validateSignedIntRange(value, "int", math.MinInt32, math.MaxInt32)
+	return validateBoundedInt(value, "int", math.MinInt32, math.MaxInt32)
 }
 
 // validateShort validates xs:short
 func validateShort(value string) error {
-	return validateSignedIntRange(value, "short", math.MinInt16, math.MaxInt16)
+	return validateBoundedInt(value, "short", math.MinInt16, math.MaxInt16)
 }
 
 // validateByte validates xs:byte
 func validateByte(value string) error {
-	return validateSignedIntRange(value, "byte", math.MinInt8, math.MaxInt8)
+	return validateBoundedInt(value, "byte", math.MinInt8, math.MaxInt8)
 }
 
 // validateNonNegativeInteger validates xs:nonNegativeInteger
@@ -195,23 +194,22 @@ func validatePositiveInteger(value string) error {
 
 // validateUnsignedLong validates xs:unsignedLong
 func validateUnsignedLong(value string) error {
-	_, err := parseUnsignedIntValue(value, "unsignedLong")
-	return err
+	return validateBoundedUint(value, "unsignedLong", math.MaxUint64)
 }
 
 // validateUnsignedInt validates xs:unsignedInt
 func validateUnsignedInt(value string) error {
-	return validateUnsignedIntRange(value, "unsignedInt", math.MaxUint32)
+	return validateBoundedUint(value, "unsignedInt", math.MaxUint32)
 }
 
 // validateUnsignedShort validates xs:unsignedShort
 func validateUnsignedShort(value string) error {
-	return validateUnsignedIntRange(value, "unsignedShort", math.MaxUint16)
+	return validateBoundedUint(value, "unsignedShort", math.MaxUint16)
 }
 
 // validateUnsignedByte validates xs:unsignedByte
 func validateUnsignedByte(value string) error {
-	return validateUnsignedIntRange(value, "unsignedByte", math.MaxUint8)
+	return validateBoundedUint(value, "unsignedByte", math.MaxUint8)
 }
 
 // validateNonPositiveInteger validates xs:nonPositiveInteger
