@@ -88,11 +88,8 @@ func parseComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) 
 	}
 
 	// validate id attribute if present (must be a valid NCName, cannot be empty)
-	if doc.HasAttribute(elem, "id") {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "complexType", schema); err != nil {
-			return err
-		}
+	if err := validateOptionalID(doc, elem, "complexType", schema); err != nil {
+		return err
 	}
 
 	ct, err := parseInlineComplexType(doc, elem, schema)
@@ -361,9 +358,8 @@ func (s *complexTypeParseState) handleComplexContent(child xsdxml.NodeID) error 
 func parseInlineComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.ComplexType, error) {
 	ct := &types.ComplexType{}
 
-	if doc.HasAttribute(elem, "id") && doc.GetAttribute(elem, "name") == "" {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "complexType", schema); err != nil {
+	if doc.GetAttribute(elem, "name") == "" {
+		if err := validateOptionalID(doc, elem, "complexType", schema); err != nil {
 			return nil, err
 		}
 	}
