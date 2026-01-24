@@ -124,21 +124,24 @@ func TestParseRestrictedXPath(t *testing.T) {
 }
 
 func TestParseAttributeDefaultNamespaceBehavior(t *testing.T) {
-	parsed, err := Parse("@id", nil, AttributesAllowed)
-	if err != nil {
-		t.Fatalf("Parse(@id) unexpected error: %v", err)
-	}
-	if len(parsed.Paths) != 1 {
-		t.Fatalf("Parse(@id) expected 1 path, got %d", len(parsed.Paths))
-	}
-	attr := parsed.Paths[0].Attribute
-	if attr == nil {
-		t.Fatal("Parse(@id) expected attribute node test")
-	}
-	if !attr.NamespaceSpecified {
-		t.Fatal("Parse(@id) expected NamespaceSpecified to be true for no-namespace attributes")
-	}
-	if attr.Namespace != "" {
-		t.Fatalf("Parse(@id) expected empty namespace, got %q", attr.Namespace)
+	tests := []string{"@id", "@ id"}
+	for _, expr := range tests {
+		parsed, err := Parse(expr, nil, AttributesAllowed)
+		if err != nil {
+			t.Fatalf("Parse(%q) unexpected error: %v", expr, err)
+		}
+		if len(parsed.Paths) != 1 {
+			t.Fatalf("Parse(%q) expected 1 path, got %d", expr, len(parsed.Paths))
+		}
+		attr := parsed.Paths[0].Attribute
+		if attr == nil {
+			t.Fatalf("Parse(%q) expected attribute node test", expr)
+		}
+		if !attr.NamespaceSpecified {
+			t.Fatalf("Parse(%q) expected NamespaceSpecified to be true for no-namespace attributes", expr)
+		}
+		if attr.Namespace != "" {
+			t.Fatalf("Parse(%q) expected empty namespace, got %q", expr, attr.Namespace)
+		}
 	}
 }

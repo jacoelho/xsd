@@ -176,17 +176,19 @@ func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[st
 }
 
 func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
-	token = types.TrimXMLWhitespace(token)
 	if token == "" {
 		return axisToken{}, xpathErrorf("xpath step is missing a node test")
 	}
 
-	if token == "@" {
-		node := reader.readToken()
-		if node == "" {
+	if strings.HasPrefix(token, "@") {
+		name := strings.TrimPrefix(token, "@")
+		if name == "" {
+			name = reader.readToken()
+		}
+		if name == "" {
 			return axisToken{}, xpathErrorf("xpath step is missing a node test")
 		}
-		return axisToken{axis: AxisChild, token: "@" + node}, nil
+		return axisToken{axis: AxisAttribute, token: name}, nil
 	}
 
 	if before, after, ok := strings.Cut(token, "::"); ok {
@@ -208,6 +210,7 @@ func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
 		return axisToken{axis: explicitAxis, explicit: true, token: node}, nil
 	}
 
+	reader.skipSpace()
 	if reader.peekAxisSeparator() {
 		explicitAxis, err := axisFromName(token)
 		if err != nil {
@@ -225,7 +228,7 @@ func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
 }
 
 func parseStep(axisInfo axisToken, nsContext map[string]string, policy AttributePolicy) ([]Step, *NodeTest, error) {
-	token := types.TrimXMLWhitespace(axisInfo.token)
+	token := axisInfo.token
 	if token == "" {
 		return nil, nil, xpathErrorf("xpath step is missing a node test")
 	}
@@ -248,22 +251,6 @@ func parseStep(axisInfo axisToken, nsContext map[string]string, policy Attribute
 		return []Step{{Axis: AxisSelf, Test: NodeTest{Any: true}}}, nil, nil
 	}
 
-	if strings.HasPrefix(token, "@") {
-		if policy != AttributesAllowed {
-			return nil, nil, xpathErrorf("xpath cannot select attributes: %s", token)
-		}
-		name := strings.TrimPrefix(token, "@")
-		name = types.TrimXMLWhitespace(name)
-		if name == "" {
-			return nil, nil, xpathErrorf("xpath step is missing a node test: %s", token)
-		}
-		attr, err := parseNodeTest(name, nsContext, nodeTestAttribute)
-		if err != nil {
-			return nil, nil, err
-		}
-		return nil, &attr, nil
-	}
-
 	parsed, err := parseNodeTest(token, nsContext, nodeTestElement)
 	if err != nil {
 		return nil, nil, err
@@ -279,7 +266,6 @@ const (
 )
 
 func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind) (NodeTest, error) {
-	token = types.TrimXMLWhitespace(token)
 	if token == "" {
 		return NodeTest{}, xpathErrorf("xpath step is missing a node test")
 	}
@@ -351,6 +337,7 @@ type pathReader struct {
 	pos   int
 }
 
+// readToken returns the next token with surrounding XML whitespace removed.
 func (r *pathReader) readToken() string {
 	r.skipSpace()
 	start := r.pos
@@ -398,7 +385,7 @@ func (r *pathReader) peekDoubleSlash() bool {
 }
 
 func (r *pathReader) peekAxisSeparator() bool {
-	r.skipSpace()
+	// caller is responsible for skipping whitespace before peeking.
 	return r.pos+1 < len(r.input) && r.input[r.pos] == ':' && r.input[r.pos+1] == ':'
 }
 
@@ -417,7 +404,6 @@ func (r *pathReader) skipSpace() {
 }
 
 func (r *pathReader) atEnd() bool {
-	r.skipSpace()
 	return r.pos >= len(r.input)
 }
 
