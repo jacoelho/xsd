@@ -101,45 +101,28 @@ func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar
 		return true, nil
 	}
 
-	var violations []errors.Validation
-	var typedValue types.TypedValue
-	for _, facet := range st.Facets {
-		if shouldSkipLengthFacet(st, facet) {
-			continue
-		}
-		if enumFacet, ok := facet.(*types.Enumeration); ok && st.IsQNameOrNotationType {
-			if err := r.validateQNameEnumeration(normalizedValue, enumFacet, scopeDepth, context); err != nil {
-				if policy == errorPolicySuppress {
-					return false, nil
-				}
-				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
-			}
-			continue
-		}
-		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
-			if err := lexicalFacet.ValidateLexical(normalizedValue, st.Original); err != nil {
-				if policy == errorPolicySuppress {
-					return false, nil
-				}
-				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
-			}
-			continue
-		}
-		if typedValue == nil {
-			typedValue = typedValueForFacets(normalizedValue, st.Original, st.Facets)
-		}
-		if err := facet.Validate(typedValue, st.Original); err != nil {
-			if policy == errorPolicySuppress {
-				return false, nil
-			}
-			violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+	var validateQNameEnum func(string, *types.Enumeration) error
+	if st.IsQNameOrNotationType {
+		validateQNameEnum = func(normalized string, enum *types.Enumeration) error {
+			return r.validateQNameEnumeration(normalized, enum, scopeDepth, context)
 		}
 	}
 
-	if len(violations) > 0 {
-		return false, violations
-	}
-	return true, nil
+	return validateFacets(&facetValidationInput{
+		data: &facetValidationData{
+			value:  normalizedValue,
+			facets: st.Facets,
+		},
+		typ:      st.Original,
+		compiled: st,
+		context: &facetValidationContext{
+			path: r.path.String(),
+			callbacks: &facetValidationCallbacks{
+				validateQNameEnum: validateQNameEnum,
+			},
+		},
+		policy: policy,
+	})
 }
 
 func (r *streamRun) checkComplexTypeFacetsWithContext(text string, ct *grammar.CompiledType, scopeDepth int, context map[string]string) []errors.Validation {
@@ -179,31 +162,24 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 	}
 
 	if len(st.Facets) > 0 {
-		var typedValue types.TypedValue
-		for _, facet := range st.Facets {
-			if shouldSkipLengthFacet(st, facet) {
-				continue
+		facetValid, facetViolations := validateFacets(&facetValidationInput{
+			data: &facetValidationData{
+				value:  value,
+				facets: st.Facets,
+			},
+			typ:      st.Original,
+			compiled: st,
+			context: &facetValidationContext{
+				path: r.path.String(),
+			},
+			policy: policy,
+		})
+		if !facetValid {
+			valid = false
+			if policy == errorPolicySuppress {
+				return false, nil
 			}
-			if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
-				if err := lexicalFacet.ValidateLexical(value, st.Original); err != nil {
-					valid = false
-					if policy == errorPolicySuppress {
-						return false, nil
-					}
-					violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
-				}
-				continue
-			}
-			if typedValue == nil {
-				typedValue = typedValueForFacets(value, st.Original, st.Facets)
-			}
-			if err := facet.Validate(typedValue, st.Original); err != nil {
-				valid = false
-				if policy == errorPolicySuppress {
-					return false, nil
-				}
-				violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
-			}
+			violations = append(violations, facetViolations...)
 		}
 	}
 
@@ -289,41 +265,37 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 	}
 
 	if len(itemType.Facets) > 0 {
-		var typedValue types.TypedValue
-		for _, facet := range itemType.Facets {
-			if shouldSkipLengthFacet(itemType, facet) {
-				continue
+		var validateQNameEnum func(string, *types.Enumeration) error
+		if itemType.IsQNameOrNotationType {
+			validateQNameEnum = func(normalized string, enum *types.Enumeration) error {
+				return r.validateQNameEnumeration(normalized, enum, scopeDepth, nsContext)
 			}
-			if enumFacet, ok := facet.(*types.Enumeration); ok && itemType.IsQNameOrNotationType {
-				if err := r.validateQNameEnumeration(item, enumFacet, scopeDepth, nsContext); err != nil {
-					if policy == errorPolicySuppress {
-						return false, nil
-					}
-					violations = append(violations, errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
-						"list item[%d]: %s", index, err.Error()))
-				}
-				continue
+		}
+		makeViolation := func(err error) errors.Validation {
+			return errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
+				"list item[%d]: %s", index, err.Error())
+		}
+		facetValid, facetViolations := validateFacets(&facetValidationInput{
+			data: &facetValidationData{
+				value:  item,
+				facets: itemType.Facets,
+			},
+			typ:      itemType.Original,
+			compiled: itemType,
+			context: &facetValidationContext{
+				path: r.path.String(),
+				callbacks: &facetValidationCallbacks{
+					validateQNameEnum: validateQNameEnum,
+					makeViolation:     makeViolation,
+				},
+			},
+			policy: policy,
+		})
+		if !facetValid {
+			if policy == errorPolicySuppress {
+				return false, nil
 			}
-			if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
-				if err := lexicalFacet.ValidateLexical(item, itemType.Original); err != nil {
-					if policy == errorPolicySuppress {
-						return false, nil
-					}
-					violations = append(violations, errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
-						"list item[%d]: %s", index, err.Error()))
-				}
-				continue
-			}
-			if typedValue == nil {
-				typedValue = typedValueForFacets(item, itemType.Original, itemType.Facets)
-			}
-			if err := facet.Validate(typedValue, itemType.Original); err != nil {
-				if policy == errorPolicySuppress {
-					return false, nil
-				}
-				violations = append(violations, errors.NewValidationf(errors.ErrFacetViolation, r.path.String(),
-					"list item[%d]: %s", index, err.Error()))
-			}
+			violations = append(violations, facetViolations...)
 		}
 	}
 
@@ -431,11 +403,6 @@ func (r *streamRun) parseQNameValueWithContext(value string, scopeDepth int, con
 func (r *streamRun) validateQNameContext(value string, scopeDepth int, context map[string]string) error {
 	_, err := r.parseQNameValueWithContext(value, scopeDepth, context)
 	return err
-}
-
-func (r *streamRun) parseQNameTyped(value string, typ types.Type, ns map[string]string) (types.QName, error) {
-	normalized := types.NormalizeWhiteSpace(value, typ)
-	return types.ParseQNameValue(normalized, ns)
 }
 
 func isQNameType(ct *grammar.CompiledType) bool {
