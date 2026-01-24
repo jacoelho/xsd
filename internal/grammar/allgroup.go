@@ -26,6 +26,27 @@ type AllGroupValidator struct {
 	mixed       bool
 }
 
+type allGroupMatchKind int
+
+const (
+	allGroupNoMatch allGroupMatchKind = iota
+	allGroupExactMatch
+	allGroupSubstitutionMatch
+)
+
+func matchAllGroupElement(child types.QName, elements []AllGroupElementInfo, matcher SymbolMatcher) (int, allGroupMatchKind) {
+	for i, elem := range elements {
+		elemQName := elem.ElementQName()
+		if elemQName.Equal(child) {
+			return i, allGroupExactMatch
+		}
+		if matcher != nil && elem.AllowsSubstitution() && matcher.IsSubstitutable(child, elemQName) {
+			return i, allGroupSubstitutionMatch
+		}
+	}
+	return -1, allGroupNoMatch
+}
+
 // NewAllGroupValidator creates a validator for an all group.
 func NewAllGroupValidator(elements []AllGroupElementInfo, mixed bool, minOccurs types.Occurs) *AllGroupValidator {
 	numRequired := 0
@@ -67,51 +88,36 @@ func (v *AllGroupValidator) Validate(doc *xsdxml.Document, children []xsdxml.Nod
 			Namespace: types.NamespaceURI(doc.NamespaceURI(child)),
 			Local:     doc.LocalName(child),
 		}
+		childLocal := doc.LocalName(child)
 
-		found := false
-		for j, elem := range v.elements {
-			elemQName := elem.ElementQName()
-			if elemQName.Equal(childQName) {
-				// check for duplicate (each element can appear at most once in an all group)
-				if elementSeen[j] {
-					return &ValidationError{
-						Index:   i,
-						Message: fmt.Sprintf("element %q appears more than once in all group", doc.LocalName(child)),
-						SubCode: ErrorCodeNotExpectedHere,
-					}
-				}
-				elementSeen[j] = true
-				if !elem.IsOptional() {
-					numRequiredSeen++
-				}
-				found = true
-				break
-			}
-
-			if matcher != nil && elem.AllowsSubstitution() && matcher.IsSubstitutable(childQName, elemQName) {
-				if elementSeen[j] {
-					return &ValidationError{
-						Index:   i,
-						Message: fmt.Sprintf("element %q (substituting for %q) appears more than once in all group", doc.LocalName(child), elemQName.Local),
-						SubCode: ErrorCodeNotExpectedHere,
-					}
-				}
-				elementSeen[j] = true
-				if !elem.IsOptional() {
-					numRequiredSeen++
-				}
-				found = true
-				break
+		idx, kind := matchAllGroupElement(childQName, v.elements, matcher)
+		if kind == allGroupNoMatch {
+			return &ValidationError{
+				Index:   i,
+				Message: fmt.Sprintf("element %q not allowed in all group", childLocal),
+				SubCode: ErrorCodeNotExpectedHere,
 			}
 		}
 
-		// element not found in the all group
-		if !found {
+		if elementSeen[idx] {
+			elemQName := v.elements[idx].ElementQName()
+			if kind == allGroupSubstitutionMatch {
+				return &ValidationError{
+					Index:   i,
+					Message: fmt.Sprintf("element %q (substituting for %q) appears more than once in all group", childLocal, elemQName.Local),
+					SubCode: ErrorCodeNotExpectedHere,
+				}
+			}
 			return &ValidationError{
 				Index:   i,
-				Message: fmt.Sprintf("element %q not allowed in all group", doc.LocalName(child)),
+				Message: fmt.Sprintf("element %q appears more than once in all group", childLocal),
 				SubCode: ErrorCodeNotExpectedHere,
 			}
+		}
+
+		elementSeen[idx] = true
+		if !v.elements[idx].IsOptional() {
+			numRequiredSeen++
 		}
 	}
 
