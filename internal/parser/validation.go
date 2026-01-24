@@ -12,10 +12,7 @@ import (
 func validateSchemaAttributeNamespaces(doc *xsdxml.Document, elem xsdxml.NodeID) error {
 	if doc.NamespaceURI(elem) == xsdxml.XSDNamespace {
 		for _, attr := range doc.Attributes(elem) {
-			if attr.NamespaceURI() == "xmlns" {
-				continue
-			}
-			if attr.NamespaceURI() == "" && attr.LocalName() == "xmlns" {
+			if isXMLNSDeclaration(attr) {
 				continue
 			}
 			if attr.NamespaceURI() == xsdxml.XSDNamespace {
@@ -64,10 +61,7 @@ func validateAnnotationStructure(doc *xsdxml.Document, elem xsdxml.NodeID) error
 
 func validateAnnotationAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) error {
 	for _, attr := range doc.Attributes(elem) {
-		if attr.NamespaceURI() == "xmlns" {
-			continue
-		}
-		if attr.NamespaceURI() == "" && attr.LocalName() == "xmlns" {
+		if isXMLNSDeclaration(attr) {
 			continue
 		}
 		if attr.NamespaceURI() == "" {
@@ -90,10 +84,7 @@ func validateAnnotationChildAttributes(doc *xsdxml.Document, elem xsdxml.NodeID)
 	switch doc.LocalName(elem) {
 	case "appinfo":
 		for _, attr := range doc.Attributes(elem) {
-			if attr.NamespaceURI() == "xmlns" {
-				continue
-			}
-			if attr.NamespaceURI() == "" && attr.LocalName() == "xmlns" {
+			if isXMLNSDeclaration(attr) {
 				continue
 			}
 			if attr.NamespaceURI() == "" && attr.LocalName() != "source" {
@@ -105,10 +96,7 @@ func validateAnnotationChildAttributes(doc *xsdxml.Document, elem xsdxml.NodeID)
 		}
 	case "documentation":
 		for _, attr := range doc.Attributes(elem) {
-			if attr.NamespaceURI() == "xmlns" {
-				continue
-			}
-			if attr.NamespaceURI() == "" && attr.LocalName() == "xmlns" {
+			if isXMLNSDeclaration(attr) {
 				continue
 			}
 			if attr.NamespaceURI() == "" {
