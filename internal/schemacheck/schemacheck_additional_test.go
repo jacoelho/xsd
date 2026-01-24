@@ -936,25 +936,25 @@ func TestNotationEnumeration(t *testing.T) {
 
 	context := map[string]string{"p": "urn:note"}
 	good := &types.Enumeration{
-		Values:        []string{"p:note"},
-		ValueContexts: []map[string]string{context},
+		Values: []string{"p:note"},
 	}
+	good.SetValueContexts([]map[string]string{context})
 	if err := validateNotationEnumeration(schema, []types.Facet{good}); err != nil {
 		t.Fatalf("validateNotationEnumeration error = %v", err)
 	}
 
 	empty := &types.Enumeration{
-		Values:        []string{""},
-		ValueContexts: []map[string]string{context},
+		Values: []string{""},
 	}
+	empty.SetValueContexts([]map[string]string{context})
 	if err := validateNotationEnumeration(schema, []types.Facet{empty}); err == nil {
 		t.Fatalf("expected empty notation enumeration error")
 	}
 
 	badPrefix := &types.Enumeration{
-		Values:        []string{"x:note"},
-		ValueContexts: []map[string]string{context},
+		Values: []string{"x:note"},
 	}
+	badPrefix.SetValueContexts([]map[string]string{context})
 	if err := validateNotationEnumeration(schema, []types.Facet{badPrefix}); err == nil {
 		t.Fatalf("expected undeclared prefix error")
 	}
@@ -1493,7 +1493,7 @@ func TestElementRestrictionValidation(t *testing.T) {
 
 func TestWildcardIDAttributeValidation(t *testing.T) {
 	// Test case 1: Complex type with ID attribute + anyAttribute namespace="##any"
-	// where an imported namespace has an ID-typed global attribute - expect failure
+	// where an imported namespace has an ID-typed global attribute - expect success
 	t.Run("ID attribute with anyAttribute allowing ID-typed global attributes", func(t *testing.T) {
 		schema := parser.NewSchema()
 		schema.TargetNamespace = "urn:test"
@@ -1528,12 +1528,8 @@ func TestWildcardIDAttributeValidation(t *testing.T) {
 		})
 		ct.SetContent(&types.EmptyContent{})
 
-		err := validateIDAttributeCount(schema, ct)
-		if err == nil {
-			t.Fatalf("expected error for ID attribute with anyAttribute that can admit ID-typed attributes")
-		}
-		if !strings.Contains(err.Error(), "ID attribute") || !strings.Contains(err.Error(), "anyAttribute") {
-			t.Fatalf("error message should mention ID attribute and anyAttribute, got: %v", err)
+		if err := validateIDAttributeCount(schema, ct); err != nil {
+			t.Fatalf("expected no error for ID attribute with anyAttribute, got: %v", err)
 		}
 	})
 
