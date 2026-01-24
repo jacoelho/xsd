@@ -9,7 +9,7 @@ import (
 
 func validateElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, validAttributes map[string]bool, context string) error {
 	for _, attr := range doc.Attributes(elem) {
-		if attr.NamespaceURI() == xsdxml.XMLNSNamespace || attr.NamespaceURI() == "xmlns" || attr.LocalName() == "xmlns" {
+		if isXMLNSDeclaration(attr) {
 			continue
 		}
 		if attr.NamespaceURI() != "" {
@@ -25,9 +25,7 @@ func validateElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, validAt
 func namespaceForPrefix(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, prefix string) string {
 	for current := elem; current != xsdxml.InvalidNode; current = doc.Parent(current) {
 		for _, attr := range doc.Attributes(current) {
-			isXMLNSAttr := attr.NamespaceURI() == xsdxml.XMLNSNamespace ||
-				(attr.NamespaceURI() == "" && attr.LocalName() == "xmlns")
-			if !isXMLNSAttr {
+			if !isXMLNSDeclaration(attr) {
 				continue
 			}
 			if prefix == "" {
@@ -282,11 +280,8 @@ func validateOnlyAnnotationChildren(doc *xsdxml.Document, elem xsdxml.NodeID, el
 }
 
 func validateElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, elementName string, schema *Schema) error {
-	if hasIDAttribute(doc, elem) {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, elementName, schema); err != nil {
-			return err
-		}
+	if err := validateOptionalID(doc, elem, elementName, schema); err != nil {
+		return err
 	}
 	if err := validateOnlyAnnotationChildren(doc, elem, elementName); err != nil {
 		return err

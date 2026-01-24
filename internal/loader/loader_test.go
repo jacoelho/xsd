@@ -121,7 +121,8 @@ func TestLoader_CircularDependency(t *testing.T) {
 		t.Fatalf("resolveLocation error = %v", err)
 	}
 	key := loader.loadKey(loader.defaultFSContext(), absLoc)
-	loader.state.loading[key] = true
+	entry := loader.state.ensureEntry(key)
+	entry.state = schemaStateLoading
 
 	_, err = loader.Load("test.xsd")
 	if err == nil {
@@ -560,6 +561,58 @@ func TestLoader_IncludeDuplicateFromDifferentPaths(t *testing.T) {
 	typeQName := types.QName{Namespace: "http://example.com", Local: "T"}
 	if _, ok := schema.TypeDefs[typeQName]; !ok {
 		t.Errorf("type %s should be in schema.TypeDefs", typeQName)
+	}
+}
+
+func TestLoader_DedupSubstitutionGroupMembers(t *testing.T) {
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:sub"
+           targetNamespace="urn:sub">
+  <xs:include schemaLocation="a.xsd"/>
+  <xs:include schemaLocation="b.xsd"/>
+</xs:schema>`),
+		},
+		"a.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:sub"
+           targetNamespace="urn:sub">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`),
+		},
+		"b.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:sub"
+           targetNamespace="urn:sub">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`),
+		},
+		"common.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:sub"
+           targetNamespace="urn:sub">
+  <xs:element name="head" type="xs:string"/>
+  <xs:element name="member" substitutionGroup="tns:head" type="xs:string"/>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	schema, err := loader.Load("main.xsd")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	headQName := types.QName{Namespace: "urn:sub", Local: "head"}
+	memberQName := types.QName{Namespace: "urn:sub", Local: "member"}
+	members := schema.SubstitutionGroups[headQName]
+	if len(members) != 1 || members[0] != memberQName {
+		t.Fatalf("expected 1 substitution group member %s, got %v", memberQName, members)
 	}
 }
 

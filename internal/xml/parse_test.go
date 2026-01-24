@@ -201,6 +201,39 @@ func TestTextContentOrder(t *testing.T) {
 	}
 }
 
+func TestDocumentOutOfBoundsNodeID(t *testing.T) {
+	doc, err := Parse(strings.NewReader(`<root><child/></root>`))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	badID := NodeID(len(doc.nodes))
+	if doc.Parent(badID) != InvalidNode {
+		t.Fatalf("Parent out-of-bounds should return InvalidNode")
+	}
+	if doc.NamespaceURI(badID) != "" {
+		t.Fatalf("NamespaceURI out-of-bounds should be empty")
+	}
+	if doc.LocalName(badID) != "" {
+		t.Fatalf("LocalName out-of-bounds should be empty")
+	}
+	if attrs := doc.Attributes(badID); attrs != nil {
+		t.Fatalf("Attributes out-of-bounds should be nil")
+	}
+	if children := doc.Children(badID); children != nil {
+		t.Fatalf("Children out-of-bounds should be nil")
+	}
+	if doc.DirectTextContent(badID) != "" {
+		t.Fatalf("DirectTextContent out-of-bounds should be empty")
+	}
+	if doc.DirectTextContentBytes(badID) != nil {
+		t.Fatalf("DirectTextContentBytes out-of-bounds should be nil")
+	}
+	if doc.TextContent(badID) != "" {
+		t.Fatalf("TextContent out-of-bounds should be empty")
+	}
+}
+
 func TestParseRejectsNonXMLWhitespaceOutsideRoot(t *testing.T) {
 	xmlData := "\u00a0<root/>"
 	if _, err := Parse(strings.NewReader(xmlData)); err == nil {

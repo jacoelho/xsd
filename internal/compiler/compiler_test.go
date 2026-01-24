@@ -266,3 +266,71 @@ func TestCompileAllAttributesIncludesDefault(t *testing.T) {
 		t.Fatalf("expected compiled attribute 'code' default to be empty, got %q", attr.Default)
 	}
 }
+
+func TestCompileContentModelPropagatesElementErrors(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:content"
+           xmlns:tns="urn:content"
+           elementFormDefault="qualified">
+  <xs:complexType name="T">
+    <xs:sequence>
+      <xs:element name="item" type="xs:string">
+        <xs:key name="bad">
+          <xs:selector xpath="["/>
+          <xs:field xpath="@id"/>
+        </xs:key>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="root" type="tns:T"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	res := resolver.NewResolver(schema)
+	if err := res.Resolve(); err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	if errs := resolver.ValidateReferences(schema); len(errs) > 0 {
+		t.Fatalf("validate references: %v", errs[0])
+	}
+
+	if _, err := compiler.NewCompiler(schema).Compile(); err == nil {
+		t.Fatalf("expected compile error for invalid selector XPath")
+	}
+}
+
+func TestCompileDeferredFacetError(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:facet"
+           xmlns:tns="urn:facet">
+  <xs:simpleType name="Derived">
+    <xs:restriction base="tns:Base">
+      <xs:minInclusive value="abc"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Base">
+    <xs:restriction base="xs:decimal"/>
+  </xs:simpleType>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	res := resolver.NewResolver(schema)
+	if err := res.Resolve(); err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+	if errs := resolver.ValidateReferences(schema); len(errs) > 0 {
+		t.Fatalf("validate references: %v", errs[0])
+	}
+
+	if _, err := compiler.NewCompiler(schema).Compile(); err == nil {
+		t.Fatalf("expected compile error for invalid deferred facet value")
+	}
+}

@@ -252,6 +252,26 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 	}
 }
 
+func TestFacetInheritance_DeferredFacetConversionError(t *testing.T) {
+	baseType := &types.SimpleType{
+		QName: types.QName{Namespace: "http://example.com", Local: "BaseType"},
+		Restriction: &types.Restriction{
+			Base: types.QName{
+				Namespace: types.XSDNamespace,
+				Local:     string(types.TypeNameInt),
+			},
+			Facets: []any{
+				&types.DeferredFacet{FacetName: "minInclusive", FacetValue: "not-an-int"},
+			},
+		},
+	}
+	baseType.ResolvedBase = types.GetBuiltin(types.TypeNameInt)
+
+	if err := validateFacetInheritance(nil, baseType); err == nil {
+		t.Fatalf("expected deferred facet conversion error")
+	}
+}
+
 func TestFacetInheritance_DigitsRelaxation(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",

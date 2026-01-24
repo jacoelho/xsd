@@ -102,10 +102,18 @@ func (c *Compiler) collectAttributes(attrs []*types.AttributeDecl, attrGroups []
 // addCompiledAttribute adds a single attribute to the map
 func (c *Compiler) addCompiledAttribute(attr *types.AttributeDecl, attrMap map[types.QName]*grammar.CompiledAttribute) error {
 	effectiveQName := c.effectiveAttributeQName(attr)
+	effectiveAttr := attr
+	ensureClone := func() *types.AttributeDecl {
+		if effectiveAttr != attr {
+			return effectiveAttr
+		}
+		clone := *attr
+		effectiveAttr = &clone
+		return effectiveAttr
+	}
 
 	compiled := &grammar.CompiledAttribute{
 		QName:      effectiveQName,
-		Original:   attr,
 		Use:        attr.Use,
 		Default:    attr.Default,
 		HasDefault: attr.HasDefault,
@@ -126,14 +134,14 @@ func (c *Compiler) addCompiledAttribute(attr *types.AttributeDecl, attrMap map[t
 				compiled.Default = globalAttr.Default
 				compiled.HasDefault = true
 				if attr.DefaultContext == nil && globalAttr.DefaultContext != nil {
-					attr.DefaultContext = maps.Clone(globalAttr.DefaultContext)
+					ensureClone().DefaultContext = maps.Clone(globalAttr.DefaultContext)
 				}
 			}
 			if !compiled.HasFixed && globalAttr.HasFixed {
 				compiled.Fixed = globalAttr.Fixed
 				compiled.HasFixed = globalAttr.HasFixed
 				if attr.FixedContext == nil && globalAttr.FixedContext != nil {
-					attr.FixedContext = maps.Clone(globalAttr.FixedContext)
+					ensureClone().FixedContext = maps.Clone(globalAttr.FixedContext)
 				}
 			}
 		}
@@ -146,6 +154,7 @@ func (c *Compiler) addCompiledAttribute(attr *types.AttributeDecl, attrMap map[t
 		}
 		compiled.Type = attrTypeCompiled
 	}
+	compiled.Original = effectiveAttr
 	attrMap[effectiveQName] = compiled
 	return nil
 }

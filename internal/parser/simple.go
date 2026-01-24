@@ -16,11 +16,8 @@ func parseSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) e
 		return fmt.Errorf("simpleType missing name attribute")
 	}
 
-	if doc.HasAttribute(elem, "id") {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "simpleType", schema); err != nil {
-			return err
-		}
+	if err := validateOptionalID(doc, elem, "simpleType", schema); err != nil {
+		return err
 	}
 
 	st, err := parseSimpleTypeDefinition(doc, elem, schema)
@@ -69,11 +66,8 @@ func parseInlineSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 	if doc.GetAttribute(elem, "name") != "" {
 		return nil, fmt.Errorf("inline simpleType cannot have 'name' attribute")
 	}
-	if doc.HasAttribute(elem, "id") {
-		idAttr := doc.GetAttribute(elem, "id")
-		if err := validateIDAttribute(idAttr, "simpleType", schema); err != nil {
-			return nil, err
-		}
+	if err := validateOptionalID(doc, elem, "simpleType", schema); err != nil {
+		return nil, err
 	}
 	return parseSimpleTypeDefinition(doc, elem, schema)
 }
@@ -100,208 +94,30 @@ func parseSimpleTypeDefinition(doc *xsdxml.Document, elem xsdxml.NodeID, schema 
 				return nil, fmt.Errorf("simpleType must have exactly one derivation child (restriction, list, or union)")
 			}
 			seenDerivation = true
-			if err := validateAnnotationOrder(doc, child); err != nil {
+			var err error
+			parsed, err = parseRestrictionDerivation(doc, child, schema)
+			if err != nil {
 				return nil, err
 			}
-			// validate id attribute if present
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "restriction", schema); err != nil {
-					return nil, err
-				}
-			}
-
-			base := doc.GetAttribute(child, "base")
-			restriction := &types.Restriction{}
-			facetType := &types.SimpleType{}
-
-			if base == "" {
-				// restriction without base attribute must have an inline simpleType child
-				var inlineBaseType *types.SimpleType
-				for _, grandchild := range doc.Children(child) {
-					if doc.NamespaceURI(grandchild) == xsdxml.XSDNamespace && doc.LocalName(grandchild) == "simpleType" {
-						if inlineBaseType != nil {
-							return nil, fmt.Errorf("restriction cannot have multiple simpleType children")
-						}
-						var err error
-						inlineBaseType, err = parseInlineSimpleType(doc, grandchild, schema)
-						if err != nil {
-							return nil, fmt.Errorf("parse inline simpleType in restriction: %w", err)
-						}
-					}
-				}
-				if inlineBaseType == nil {
-					return nil, fmt.Errorf("restriction missing base attribute and inline simpleType")
-				}
-				restriction.SimpleType = inlineBaseType
-				// leave restriction.Base as zero QName (empty)
-			} else {
-				// base attribute is present - check that there's no inline simpleType child
-				// (per XSD spec: "Either the base attribute or the simpleType child must be present, but not both")
-				for _, grandchild := range doc.Children(child) {
-					if doc.NamespaceURI(grandchild) == xsdxml.XSDNamespace && doc.LocalName(grandchild) == "simpleType" {
-						return nil, fmt.Errorf("restriction cannot have both base attribute and inline simpleType child")
-					}
-				}
-				baseQName, err := resolveQName(doc, base, child, schema)
-				if err != nil {
-					return nil, err
-				}
-				restriction.Base = baseQName
-			}
-
-			// parse facets (including whiteSpace) - this will skip the simpleType child since it's not a facet
-			if err := parseFacets(doc, child, restriction, facetType, schema); err != nil {
-				return nil, fmt.Errorf("parse facets: %w", err)
-			}
-
-			var err error
-			parsed, err = types.NewAtomicSimpleType(types.QName{}, "", restriction)
-			if err != nil {
-				return nil, fmt.Errorf("simpleType: %w", err)
-			}
-			if facetType.WhiteSpaceExplicit() {
-				parsed.SetWhiteSpaceExplicit(facetType.WhiteSpace())
-			} else {
-				parsed.SetWhiteSpace(facetType.WhiteSpace())
-			}
-
 		case "list":
 			if seenDerivation {
 				return nil, fmt.Errorf("simpleType must have exactly one derivation child (restriction, list, or union)")
 			}
 			seenDerivation = true
-			if err := validateAnnotationOrder(doc, child); err != nil {
+			var err error
+			parsed, err = parseListDerivation(doc, child, schema)
+			if err != nil {
 				return nil, err
 			}
-			// validate id attribute if present
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "list", schema); err != nil {
-					return nil, err
-				}
-			}
-
-			itemType := doc.GetAttribute(child, "itemType")
-			facetType := &types.SimpleType{}
-			facetType.SetWhiteSpace(types.WhiteSpaceCollapse)
-
-			var inlineItemType *types.SimpleType
-			var restriction *types.Restriction
-			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) != xsdxml.XSDNamespace {
-					continue
-				}
-				if doc.LocalName(grandchild) == "simpleType" {
-					if inlineItemType != nil {
-						return nil, fmt.Errorf("list cannot have multiple simpleType children")
-					}
-					var err error
-					inlineItemType, err = parseInlineSimpleType(doc, grandchild, schema)
-					if err != nil {
-						return nil, fmt.Errorf("parse inline simpleType in list: %w", err)
-					}
-				} else if doc.LocalName(grandchild) == "restriction" {
-					// list can have a restriction child with facets (like pattern)
-					// this allows facets to be applied to the list type
-					if restriction != nil {
-						return nil, fmt.Errorf("list cannot have multiple restriction children")
-					}
-					restriction = &types.Restriction{}
-					if err := parseFacets(doc, grandchild, restriction, facetType, schema); err != nil {
-						return nil, fmt.Errorf("parse facets in list restriction: %w", err)
-					}
-				}
-			}
-
-			// per XSD spec: Either itemType attribute or inline simpleType child must be present, but not both
-			if itemType != "" && inlineItemType != nil {
-				return nil, fmt.Errorf("list cannot have both itemType attribute and inline simpleType child")
-			}
-
-			if itemType == "" && inlineItemType == nil {
-				return nil, fmt.Errorf("list must have either itemType attribute or inline simpleType child")
-			}
-
-			if inlineItemType != nil {
-				// inline simpleType child - store it in ListType.InlineItemType
-				list := &types.ListType{
-					ItemType:       types.QName{}, // zero QName indicates inline type
-					InlineItemType: inlineItemType,
-				}
-				var err error
-				parsed, err = types.NewListSimpleType(types.QName{}, "", list, restriction)
-				if err != nil {
-					return nil, fmt.Errorf("simpleType: %w", err)
-				}
-			} else {
-				// itemType attribute - resolve QName
-				itemTypeQName, err := resolveQName(doc, itemType, child, schema)
-				if err != nil {
-					return nil, err
-				}
-				list := &types.ListType{ItemType: itemTypeQName}
-				parsed, err = types.NewListSimpleType(types.QName{}, "", list, restriction)
-				if err != nil {
-					return nil, fmt.Errorf("simpleType: %w", err)
-				}
-			}
-			if facetType.WhiteSpaceExplicit() {
-				parsed.SetWhiteSpaceExplicit(facetType.WhiteSpace())
-			} else {
-				parsed.SetWhiteSpace(facetType.WhiteSpace())
-			}
-
 		case "union":
 			if seenDerivation {
 				return nil, fmt.Errorf("simpleType must have exactly one derivation child (restriction, list, or union)")
 			}
 			seenDerivation = true
-			if err := validateAnnotationOrder(doc, child); err != nil {
-				return nil, err
-			}
-			// validate id attribute if present
-			if hasIDAttribute(doc, child) {
-				idAttr := doc.GetAttribute(child, "id")
-				if err := validateIDAttribute(idAttr, "union", schema); err != nil {
-					return nil, err
-				}
-			}
-
-			memberTypesAttr := doc.GetAttribute(child, "memberTypes")
-			union := &types.UnionType{
-				MemberTypes: []types.QName{},
-				InlineTypes: []*types.SimpleType{},
-			}
-
-			// parse memberTypes attribute (space-separated list of QNames)
-			if memberTypesAttr != "" {
-				for memberTypeName := range types.FieldsXMLWhitespaceSeq(memberTypesAttr) {
-					memberTypeQName, err := resolveQName(doc, memberTypeName, child, schema)
-					if err != nil {
-						return nil, fmt.Errorf("resolve member type %s: %w", memberTypeName, err)
-					}
-					union.MemberTypes = append(union.MemberTypes, memberTypeQName)
-				}
-			}
-
-			for _, grandchild := range doc.Children(child) {
-				if doc.NamespaceURI(grandchild) != xsdxml.XSDNamespace {
-					continue
-				}
-				if doc.LocalName(grandchild) == "simpleType" {
-					inlineType, err := parseInlineSimpleType(doc, grandchild, schema)
-					if err != nil {
-						return nil, fmt.Errorf("parse inline simpleType in union: %w", err)
-					}
-					union.InlineTypes = append(union.InlineTypes, inlineType)
-				}
-			}
-
 			var err error
-			parsed, err = types.NewUnionSimpleType(types.QName{}, "", union)
+			parsed, err = parseUnionDerivation(doc, child, schema)
 			if err != nil {
-				return nil, fmt.Errorf("simpleType: %w", err)
+				return nil, err
 			}
 		default:
 			return nil, fmt.Errorf("simpleType: unexpected child element '%s'", doc.LocalName(child))
@@ -312,6 +128,199 @@ func parseSimpleTypeDefinition(doc *xsdxml.Document, elem xsdxml.NodeID, schema 
 		return nil, fmt.Errorf("simpleType must have a derivation")
 	}
 
+	return parsed, nil
+}
+
+func parseRestrictionDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleType, error) {
+	if err := validateAnnotationOrder(doc, elem); err != nil {
+		return nil, err
+	}
+	if err := validateOptionalID(doc, elem, "restriction", schema); err != nil {
+		return nil, err
+	}
+
+	base := doc.GetAttribute(elem, "base")
+	restriction := &types.Restriction{}
+	facetType := &types.SimpleType{}
+
+	if base == "" {
+		// restriction without base attribute must have an inline simpleType child
+		var inlineBaseType *types.SimpleType
+		for _, child := range doc.Children(elem) {
+			if doc.NamespaceURI(child) == xsdxml.XSDNamespace && doc.LocalName(child) == "simpleType" {
+				if inlineBaseType != nil {
+					return nil, fmt.Errorf("restriction cannot have multiple simpleType children")
+				}
+				var err error
+				inlineBaseType, err = parseInlineSimpleType(doc, child, schema)
+				if err != nil {
+					return nil, fmt.Errorf("parse inline simpleType in restriction: %w", err)
+				}
+			}
+		}
+		if inlineBaseType == nil {
+			return nil, fmt.Errorf("restriction missing base attribute and inline simpleType")
+		}
+		restriction.SimpleType = inlineBaseType
+		// leave restriction.Base as zero QName (empty)
+	} else {
+		// base attribute is present - check that there's no inline simpleType child
+		// (per XSD spec: "Either the base attribute or the simpleType child must be present, but not both")
+		for _, child := range doc.Children(elem) {
+			if doc.NamespaceURI(child) == xsdxml.XSDNamespace && doc.LocalName(child) == "simpleType" {
+				return nil, fmt.Errorf("restriction cannot have both base attribute and inline simpleType child")
+			}
+		}
+		baseQName, err := resolveQName(doc, base, elem, schema)
+		if err != nil {
+			return nil, err
+		}
+		restriction.Base = baseQName
+	}
+
+	// parse facets (including whiteSpace) - this will skip the simpleType child since it's not a facet
+	if err := parseFacets(doc, elem, restriction, facetType, schema); err != nil {
+		return nil, fmt.Errorf("parse facets: %w", err)
+	}
+
+	parsed, err := types.NewAtomicSimpleType(types.QName{}, "", restriction)
+	if err != nil {
+		return nil, fmt.Errorf("simpleType: %w", err)
+	}
+	if facetType.WhiteSpaceExplicit() {
+		parsed.SetWhiteSpaceExplicit(facetType.WhiteSpace())
+	} else {
+		parsed.SetWhiteSpace(facetType.WhiteSpace())
+	}
+
+	return parsed, nil
+}
+
+func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleType, error) {
+	if err := validateAnnotationOrder(doc, elem); err != nil {
+		return nil, err
+	}
+	if err := validateOptionalID(doc, elem, "list", schema); err != nil {
+		return nil, err
+	}
+
+	itemType := doc.GetAttribute(elem, "itemType")
+	facetType := &types.SimpleType{}
+	facetType.SetWhiteSpace(types.WhiteSpaceCollapse)
+
+	var inlineItemType *types.SimpleType
+	var restriction *types.Restriction
+	for _, child := range doc.Children(elem) {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+			continue
+		}
+		switch doc.LocalName(child) {
+		case "simpleType":
+			if inlineItemType != nil {
+				return nil, fmt.Errorf("list cannot have multiple simpleType children")
+			}
+			var err error
+			inlineItemType, err = parseInlineSimpleType(doc, child, schema)
+			if err != nil {
+				return nil, fmt.Errorf("parse inline simpleType in list: %w", err)
+			}
+		case "restriction":
+			// list can have a restriction child with facets (like pattern)
+			// this allows facets to be applied to the list type
+			if restriction != nil {
+				return nil, fmt.Errorf("list cannot have multiple restriction children")
+			}
+			restriction = &types.Restriction{}
+			if err := parseFacets(doc, child, restriction, facetType, schema); err != nil {
+				return nil, fmt.Errorf("parse facets in list restriction: %w", err)
+			}
+		}
+	}
+
+	// per XSD spec: Either itemType attribute or inline simpleType child must be present, but not both
+	if itemType != "" && inlineItemType != nil {
+		return nil, fmt.Errorf("list cannot have both itemType attribute and inline simpleType child")
+	}
+
+	if itemType == "" && inlineItemType == nil {
+		return nil, fmt.Errorf("list must have either itemType attribute or inline simpleType child")
+	}
+
+	var parsed *types.SimpleType
+	var err error
+	if inlineItemType != nil {
+		// inline simpleType child - store it in ListType.InlineItemType
+		list := &types.ListType{
+			ItemType:       types.QName{}, // zero QName indicates inline type
+			InlineItemType: inlineItemType,
+		}
+		parsed, err = types.NewListSimpleType(types.QName{}, "", list, restriction)
+		if err != nil {
+			return nil, fmt.Errorf("simpleType: %w", err)
+		}
+	} else {
+		// itemType attribute - resolve QName
+		itemTypeQName, err := resolveQName(doc, itemType, elem, schema)
+		if err != nil {
+			return nil, err
+		}
+		list := &types.ListType{ItemType: itemTypeQName}
+		parsed, err = types.NewListSimpleType(types.QName{}, "", list, restriction)
+		if err != nil {
+			return nil, fmt.Errorf("simpleType: %w", err)
+		}
+	}
+	if facetType.WhiteSpaceExplicit() {
+		parsed.SetWhiteSpaceExplicit(facetType.WhiteSpace())
+	} else {
+		parsed.SetWhiteSpace(facetType.WhiteSpace())
+	}
+
+	return parsed, nil
+}
+
+func parseUnionDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleType, error) {
+	if err := validateAnnotationOrder(doc, elem); err != nil {
+		return nil, err
+	}
+	if err := validateOptionalID(doc, elem, "union", schema); err != nil {
+		return nil, err
+	}
+
+	memberTypesAttr := doc.GetAttribute(elem, "memberTypes")
+	union := &types.UnionType{
+		MemberTypes: []types.QName{},
+		InlineTypes: []*types.SimpleType{},
+	}
+
+	// parse memberTypes attribute (space-separated list of QNames)
+	if memberTypesAttr != "" {
+		for memberTypeName := range types.FieldsXMLWhitespaceSeq(memberTypesAttr) {
+			memberTypeQName, err := resolveQName(doc, memberTypeName, elem, schema)
+			if err != nil {
+				return nil, fmt.Errorf("resolve member type %s: %w", memberTypeName, err)
+			}
+			union.MemberTypes = append(union.MemberTypes, memberTypeQName)
+		}
+	}
+
+	for _, child := range doc.Children(elem) {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+			continue
+		}
+		if doc.LocalName(child) == "simpleType" {
+			inlineType, err := parseInlineSimpleType(doc, child, schema)
+			if err != nil {
+				return nil, fmt.Errorf("parse inline simpleType in union: %w", err)
+			}
+			union.InlineTypes = append(union.InlineTypes, inlineType)
+		}
+	}
+
+	parsed, err := types.NewUnionSimpleType(types.QName{}, "", union)
+	if err != nil {
+		return nil, fmt.Errorf("simpleType: %w", err)
+	}
 	return parsed, nil
 }
 
@@ -476,18 +485,21 @@ func parseEnumerationFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction
 	value := doc.GetAttribute(elem, "value")
 	context := namespaceContextForElement(doc, elem, schema)
 	if enum := findEnumerationFacet(restriction.Facets); enum != nil {
-		if len(enum.ValueContexts) < len(enum.Values) {
-			missing := len(enum.Values) - len(enum.ValueContexts)
-			enum.ValueContexts = append(enum.ValueContexts, make([]map[string]string, missing)...)
+		contexts := enum.ValueContexts()
+		if len(contexts) < len(enum.Values) {
+			missing := len(enum.Values) - len(contexts)
+			contexts = append(contexts, make([]map[string]string, missing)...)
 		}
 		enum.Values = append(enum.Values, value)
-		enum.ValueContexts = append(enum.ValueContexts, context)
+		contexts = append(contexts, context)
+		enum.SetValueContexts(contexts)
 		return nil, nil
 	}
-	return &types.Enumeration{
-		Values:        []string{value},
-		ValueContexts: []map[string]string{context},
-	}, nil
+	enum := &types.Enumeration{
+		Values: []string{value},
+	}
+	enum.SetValueContexts([]map[string]string{context})
+	return enum, nil
 }
 
 func findEnumerationFacet(facets []any) *types.Enumeration {
@@ -634,6 +646,14 @@ func hasIDAttribute(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
 		}
 	}
 	return false
+}
+
+func validateOptionalID(doc *xsdxml.Document, elem xsdxml.NodeID, elementName string, schema *Schema) error {
+	if !hasIDAttribute(doc, elem) {
+		return nil
+	}
+	idAttr := doc.GetAttribute(elem, "id")
+	return validateIDAttribute(idAttr, elementName, schema)
 }
 
 // validateIDAttribute validates that an id attribute is a valid NCName.

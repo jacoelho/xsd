@@ -35,12 +35,13 @@ func validateTypeReferenceFromTypeWithPolicy(schema *parser.Schema, typ types.Ty
 // validateTypeReferenceFromTypeWithVisited validates type reference with cycle detection.
 func validateTypeReferenceFromTypeWithVisited(schema *parser.Schema, typ types.Type, visited map[*types.ModelGroup]bool, policy typeReferencePolicy, contextNamespace types.NamespaceURI, originLocation string) error {
 	allowMissing := policy == typeReferenceAllowMissing
-	if typ != nil {
-		qname := typ.Name()
-		if !qname.IsZero() {
-			if err := validateImportForNamespace(schema, contextNamespace, qname.Namespace); err != nil {
-				return err
-			}
+	if typ == nil {
+		return nil
+	}
+	qname := typ.Name()
+	if !qname.IsZero() {
+		if err := validateImportForNamespace(schema, contextNamespace, qname.Namespace); err != nil {
+			return err
 		}
 	}
 	// built-in types are always valid.

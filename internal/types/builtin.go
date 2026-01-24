@@ -218,6 +218,9 @@ func (b *BuiltinType) IsQNameOrNotationType() bool {
 
 // Validate validates a value against this type
 func (b *BuiltinType) Validate(value string) error {
+	if b == nil || b.validator == nil {
+		return nil
+	}
 	return b.validator(value)
 }
 
@@ -294,30 +297,73 @@ func (b *BuiltinType) MeasureLength(value string) int {
 
 // FundamentalFacets returns the fundamental facets for this built-in type
 func (b *BuiltinType) FundamentalFacets() *FundamentalFacets {
-	if b.fundamentalFacetsCache != nil {
-		return b.fundamentalFacetsCache
+	typeCacheMu.RLock()
+	cached := b.fundamentalFacetsCache
+	typeCacheMu.RUnlock()
+	if cached != nil {
+		return cached
 	}
 
 	typeName := TypeName(b.name)
 
 	// for primitive types, compute directly
 	if isPrimitiveName(typeName) {
-		return ComputeFundamentalFacets(typeName)
+		cached = ComputeFundamentalFacets(typeName)
+		if cached == nil {
+			return nil
+		}
+		typeCacheMu.Lock()
+		if b.fundamentalFacetsCache == nil {
+			b.fundamentalFacetsCache = cached
+		}
+		cached = b.fundamentalFacetsCache
+		typeCacheMu.Unlock()
+		return cached
 	}
 
 	// for derived types, get facets from primitive type
 	primitive := b.computePrimitiveType()
 	if primitive == nil {
 		// fallback: try computing from name (may return nil for unknown types)
-		return ComputeFundamentalFacets(typeName)
+		cached = ComputeFundamentalFacets(typeName)
+		if cached == nil {
+			return nil
+		}
+		typeCacheMu.Lock()
+		if b.fundamentalFacetsCache == nil {
+			b.fundamentalFacetsCache = cached
+		}
+		cached = b.fundamentalFacetsCache
+		typeCacheMu.Unlock()
+		return cached
 	}
 
 	if bt, ok := as[*BuiltinType](primitive); ok {
-		return bt.FundamentalFacets()
+		cached = bt.FundamentalFacets()
+		if cached == nil {
+			return nil
+		}
+		typeCacheMu.Lock()
+		if b.fundamentalFacetsCache == nil {
+			b.fundamentalFacetsCache = cached
+		}
+		cached = b.fundamentalFacetsCache
+		typeCacheMu.Unlock()
+		return cached
 	}
 
 	// if primitive is not BuiltinType, try to get facets from it
-	return primitive.FundamentalFacets()
+	cached = primitive.FundamentalFacets()
+	if cached == nil {
+		return nil
+	}
+	typeCacheMu.Lock()
+	if b.fundamentalFacetsCache == nil {
+		b.fundamentalFacetsCache = cached
+	}
+	cached = b.fundamentalFacetsCache
+	typeCacheMu.Unlock()
+	return cached
 }
 
 // BaseType returns the base type for this built-in type
@@ -369,11 +415,24 @@ func computeBaseType(name string) Type {
 // PrimitiveType returns the primitive type for this built-in type
 func (b *BuiltinType) PrimitiveType() Type {
 	// return cached value if available
-	if b.primitiveTypeCache != nil {
-		return b.primitiveTypeCache
+	typeCacheMu.RLock()
+	cached := b.primitiveTypeCache
+	typeCacheMu.RUnlock()
+	if cached != nil {
+		return cached
 	}
 
-	return b.computePrimitiveType()
+	primitive := b.computePrimitiveType()
+	if primitive == nil {
+		return nil
+	}
+	typeCacheMu.Lock()
+	if b.primitiveTypeCache == nil {
+		b.primitiveTypeCache = primitive
+	}
+	cached = b.primitiveTypeCache
+	typeCacheMu.Unlock()
+	return cached
 }
 
 func (b *BuiltinType) computePrimitiveType() Type {

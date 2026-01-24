@@ -47,6 +47,15 @@ func TestAutomatonValidate(t *testing.T) {
 	}
 }
 
+func TestAutomatonValidateEndStateOutOfBounds(t *testing.T) {
+	automaton := buildTestAutomaton(t)
+	state := &validationState{currentState: len(automaton.accepting)}
+
+	if err := automaton.validateEndState(state, 0); err == nil {
+		t.Fatalf("expected error for out-of-bounds state")
+	}
+}
+
 func buildTestAutomaton(t *testing.T) *Automaton {
 	t.Helper()
 

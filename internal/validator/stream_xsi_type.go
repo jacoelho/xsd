@@ -23,6 +23,10 @@ func (r *streamRun) resolveXsiType(scopeDepth int, xsiTypeValue string, declared
 		return nil, fmt.Errorf("type '%s' is abstract and cannot be used in xsi:type", xsiTypeQName.String())
 	}
 
+	if declaredType == nil {
+		return xsiType, nil
+	}
+
 	if xsiType.QName == declaredType.QName {
 		return xsiType, nil
 	}

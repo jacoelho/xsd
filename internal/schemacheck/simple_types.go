@@ -240,9 +240,7 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 	for _, df := range deferredFacets {
 		resolvedFacet, err := convertDeferredFacet(df, baseType)
 		if err != nil {
-			// if we can't convert, the facet will just not be validated for inheritance
-			// this is a fallback - most cases should be handled above
-			continue
+			return err
 		}
 		if resolvedFacet != nil {
 			facetList = append(facetList, resolvedFacet)

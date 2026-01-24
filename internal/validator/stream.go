@@ -564,113 +564,58 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 		missingCode = errors.ErrWildcardNotDeclared
 	}
 
-	xsiTypeValue, hasXsiType := attrs.Value(xsdxml.XSINamespace, "type")
-
 	if decl == nil {
-		if processContents == types.Strict {
-			r.addMissingDeclViolation(ev.Name.Local, missingCode)
-			return streamFrame{}, true
-		}
-		if processContents == types.Skip {
-			return streamFrame{}, true
-		}
-		if hasXsiType {
-			xsiType, err := r.resolveXsiTypeOnly(ev.ScopeDepth, xsiTypeValue)
-			if err != nil {
-				violation := errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String())
-				r.addViolation(&violation)
-				return streamFrame{}, true
-			}
-			if xsiType != nil {
-				attrsToCheck := xsiType.AllAttributes
-				anyAttr := xsiType.AnyAttribute
-				if isAnyType(xsiType) {
-					attrsToCheck = nil
-					anyAttr = &types.AnyAttribute{
-						Namespace:       types.NSCAny,
-						ProcessContents: types.Lax,
-						TargetNamespace: types.NamespaceEmpty,
-					}
-				}
-				violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, xsiType, ev.ScopeDepth, ev.Line, ev.Column)
-				if len(violations) > 0 {
-					r.addViolations(violations)
-					return streamFrame{}, true
-				}
-				frame := r.newFrame(ev, nil, xsiType, parent)
-				return frame, false
-			}
-		}
-		anyType := r.validator.getBuiltinCompiledType(types.GetBuiltin(types.TypeNameAnyType))
-		effectiveType := anyType
-		if hasXsiType {
-			xsiType, err := r.resolveXsiType(ev.ScopeDepth, xsiTypeValue, anyType, 0)
-			if err != nil {
-				violation := errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String())
-				r.addViolation(&violation)
-				return streamFrame{}, true
-			}
-			if xsiType != nil {
-				effectiveType = xsiType
-			}
-		}
-
-		attrsToCheck := effectiveType.AllAttributes
-		anyAttr := effectiveType.AnyAttribute
-		if isAnyType(effectiveType) {
-			attrsToCheck = nil
-			anyAttr = &types.AnyAttribute{
-				Namespace:       types.NSCAny,
-				ProcessContents: types.Lax,
-				TargetNamespace: types.NamespaceEmpty,
-			}
-		}
-
-		violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, anyType, ev.ScopeDepth, ev.Line, ev.Column)
-		if len(violations) > 0 {
-			r.addViolations(violations)
-		}
-
-		frame := r.newFrame(ev, nil, effectiveType, parent)
-		return frame, false
+		return r.startUndeclaredFrame(ev, parent, processContents, attrs, missingCode)
 	}
 
-	if decl.Abstract {
-		violation := errors.NewValidationf(errors.ErrElementAbstract, r.path.String(),
-			"Element '%s' is abstract and cannot be used directly in instance documents", ev.Name.Local)
-		r.addViolation(&violation)
+	return r.startDeclaredFrame(ev, parent, attrs, decl)
+}
+
+func (r *streamRun) startUndeclaredFrame(ev *streamStart, parent *streamFrame, processContents types.ProcessContents, attrs attributeIndex, missingCode errors.ErrorCode) (streamFrame, bool) {
+	if processContents == types.Strict {
+		r.addMissingDeclViolation(ev.Name.Local, missingCode)
+		return streamFrame{}, true
+	}
+	if processContents == types.Skip {
 		return streamFrame{}, true
 	}
 
-	nilValue, hasNil := attrs.Value(xsdxml.XSINamespace, "nil")
-	isNil := false
-	if hasNil {
-		parsedNil, err := types.ParseBoolean(nilValue)
-		if err != nil {
-			violation := errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
-				"xsi:nil has invalid value %q", nilValue)
-			r.addViolation(&violation)
-			return streamFrame{}, true
-		}
-		isNil = parsedNil
-	}
-	if hasNil && !decl.Nillable {
-		violation := errors.NewValidationf(errors.ErrElementNotNillable, r.path.String(),
-			"Element '%s' is not nillable but has xsi:nil attribute", ev.Name.Local)
-		r.addViolation(&violation)
-		return streamFrame{}, true
-	}
-
-	if decl.Type == nil {
-		frame := r.newFrame(ev, decl, nil, parent)
-		frame.nilled = isNil
-		frame.skipChildren = true
-		return frame, false
-	}
-
-	effectiveType := decl.Type
+	xsiTypeValue, hasXsiType := attrs.Value(xsdxml.XSINamespace, "type")
 	if hasXsiType {
-		xsiType, err := r.resolveXsiType(ev.ScopeDepth, xsiTypeValue, decl.Type, decl.Block)
+		frame, skip, handled := r.startUndeclaredWithXsiTypeOnly(ev, parent, attrs, xsiTypeValue)
+		if handled {
+			return frame, skip
+		}
+	}
+
+	return r.startUndeclaredWithAnyType(ev, parent, attrs, xsiTypeValue, hasXsiType)
+}
+
+func (r *streamRun) startUndeclaredWithXsiTypeOnly(ev *streamStart, parent *streamFrame, attrs attributeIndex, xsiTypeValue string) (streamFrame, bool, bool) {
+	xsiType, err := r.resolveXsiTypeOnly(ev.ScopeDepth, xsiTypeValue)
+	if err != nil {
+		violation := errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String())
+		r.addViolation(&violation)
+		return streamFrame{}, true, true
+	}
+	if xsiType == nil {
+		return streamFrame{}, false, false
+	}
+	attrsToCheck, anyAttr := attrsForType(xsiType)
+	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, xsiType, ev.ScopeDepth, ev.Line, ev.Column)
+	if len(violations) > 0 {
+		r.addViolations(violations)
+		return streamFrame{}, true, true
+	}
+	frame := r.newFrame(ev, nil, xsiType, parent)
+	return frame, false, true
+}
+
+func (r *streamRun) startUndeclaredWithAnyType(ev *streamStart, parent *streamFrame, attrs attributeIndex, xsiTypeValue string, hasXsiType bool) (streamFrame, bool) {
+	anyType := r.validator.getBuiltinCompiledType(types.GetBuiltin(types.TypeNameAnyType))
+	effectiveType := anyType
+	if hasXsiType {
+		xsiType, err := r.resolveXsiType(ev.ScopeDepth, xsiTypeValue, anyType, 0)
 		if err != nil {
 			violation := errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String())
 			r.addViolation(&violation)
@@ -681,13 +626,47 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 		}
 	}
 
-	if effectiveType.Abstract {
-		violation := errors.NewValidationf(errors.ErrElementTypeAbstract, r.path.String(),
-			"Type '%s' is abstract and cannot be used for element '%s'", effectiveType.QName.String(), ev.Name.Local)
+	attrsToCheck, anyAttr := attrsForType(effectiveType)
+	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, anyType, ev.ScopeDepth, ev.Line, ev.Column)
+	if len(violations) > 0 {
+		r.addViolations(violations)
+	}
+
+	frame := r.newFrame(ev, nil, effectiveType, parent)
+	return frame, false
+}
+
+func (r *streamRun) startDeclaredFrame(ev *streamStart, parent *streamFrame, attrs attributeIndex, decl *grammar.CompiledElement) (streamFrame, bool) {
+	if decl.Abstract {
+		violation := errors.NewValidationf(errors.ErrElementAbstract, r.path.String(),
+			"Element '%s' is abstract and cannot be used directly in instance documents", ev.Name.Local)
 		r.addViolation(&violation)
 		return streamFrame{}, true
 	}
 
+	isNil, nilViolations := r.validateNilAttribute(attrs, decl, ev.Name.Local)
+	if len(nilViolations) > 0 {
+		r.addViolations(nilViolations)
+		return streamFrame{}, true
+	}
+
+	if decl.Type == nil {
+		frame := r.newFrame(ev, decl, nil, parent)
+		frame.nilled = isNil
+		frame.skipChildren = true
+		return frame, false
+	}
+
+	effectiveType, typeViolations := r.resolveEffectiveType(ev, attrs, decl)
+	if len(typeViolations) > 0 {
+		r.addViolations(typeViolations)
+		return streamFrame{}, true
+	}
+
+	return r.startFrameWithType(ev, parent, attrs, decl, effectiveType, isNil)
+}
+
+func (r *streamRun) startFrameWithType(ev *streamStart, parent *streamFrame, attrs attributeIndex, decl *grammar.CompiledElement, effectiveType *grammar.CompiledType, isNil bool) (streamFrame, bool) {
 	if isNil {
 		if decl.HasFixed {
 			violation := errors.NewValidationf(errors.ErrElementFixedValue, r.path.String(),
@@ -705,17 +684,7 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 		return frame, false
 	}
 
-	attrsToCheck := effectiveType.AllAttributes
-	anyAttr := effectiveType.AnyAttribute
-	if isAnyType(effectiveType) {
-		attrsToCheck = nil
-		anyAttr = &types.AnyAttribute{
-			Namespace:       types.NSCAny,
-			ProcessContents: types.Lax,
-			TargetNamespace: types.NamespaceEmpty,
-		}
-	}
-
+	attrsToCheck, anyAttr := attrsForType(effectiveType)
 	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, effectiveType, ev.ScopeDepth, ev.Line, ev.Column)
 	if len(violations) > 0 {
 		r.addViolations(violations)
@@ -723,6 +692,69 @@ func (r *streamRun) startFrame(ev *streamStart, parent *streamFrame, processCont
 
 	frame := r.newFrame(ev, decl, effectiveType, parent)
 	return frame, false
+}
+
+func attrsForType(typ *grammar.CompiledType) ([]*grammar.CompiledAttribute, *types.AnyAttribute) {
+	if typ == nil {
+		return nil, nil
+	}
+	if isAnyType(typ) {
+		return nil, &types.AnyAttribute{
+			Namespace:       types.NSCAny,
+			ProcessContents: types.Lax,
+			TargetNamespace: types.NamespaceEmpty,
+		}
+	}
+	return typ.AllAttributes, typ.AnyAttribute
+}
+
+func (r *streamRun) validateNilAttribute(attrs attributeIndex, decl *grammar.CompiledElement, elemName string) (bool, []errors.Validation) {
+	if decl == nil {
+		return false, nil
+	}
+	nilValue, hasNil := attrs.Value(xsdxml.XSINamespace, "nil")
+	if !hasNil {
+		return false, nil
+	}
+	parsedNil, err := types.ParseBoolean(nilValue)
+	if err != nil {
+		violation := errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+			"xsi:nil has invalid value %q", nilValue)
+		return false, []errors.Validation{violation}
+	}
+	if !decl.Nillable {
+		violation := errors.NewValidationf(errors.ErrElementNotNillable, r.path.String(),
+			"Element '%s' is not nillable but has xsi:nil attribute", elemName)
+		return false, []errors.Validation{violation}
+	}
+	return parsedNil, nil
+}
+
+func (r *streamRun) resolveEffectiveType(ev *streamStart, attrs attributeIndex, decl *grammar.CompiledElement) (*grammar.CompiledType, []errors.Validation) {
+	if decl == nil || decl.Type == nil {
+		return nil, nil
+	}
+
+	effectiveType := decl.Type
+	xsiTypeValue, hasXsiType := attrs.Value(xsdxml.XSINamespace, "type")
+	if hasXsiType {
+		xsiType, err := r.resolveXsiType(ev.ScopeDepth, xsiTypeValue, decl.Type, decl.Block)
+		if err != nil {
+			violation := errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String())
+			return nil, []errors.Validation{violation}
+		}
+		if xsiType != nil {
+			effectiveType = xsiType
+		}
+	}
+
+	if effectiveType.Abstract {
+		violation := errors.NewValidationf(errors.ErrElementTypeAbstract, r.path.String(),
+			"Type '%s' is abstract and cannot be used for element '%s'", effectiveType.QName.String(), ev.Name.Local)
+		return nil, []errors.Validation{violation}
+	}
+
+	return effectiveType, nil
 }
 
 func (r *streamRun) newFrame(ev *streamStart, decl *grammar.CompiledElement, compiledType *grammar.CompiledType, parent *streamFrame) streamFrame {
