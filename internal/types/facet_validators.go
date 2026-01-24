@@ -432,7 +432,6 @@ func getLength(value string, baseType Type) int {
 }
 
 // Enumeration represents an enumeration facet.
-// Value contexts and QName values should be set during schema load.
 //
 //nolint:govet // fieldalignment: keep layout straightforward to avoid extra indirection.
 type Enumeration struct {
@@ -541,21 +540,17 @@ func (e *Enumeration) ValueContexts() []map[string]string {
 }
 
 // SetValueContexts stores namespace contexts aligned with Values.
-// Call this before concurrent validation.
 func (e *Enumeration) SetValueContexts(values []map[string]string) {
 	if e == nil {
 		return
 	}
-	if len(values) == 0 {
-		if aux := e.aux.Load(); aux != nil {
+	e.updateAux(func(aux *enumAux) {
+		if len(values) == 0 {
 			aux.valueContexts = nil
+			return
 		}
-		return
-	}
-	aux := e.ensureAux()
-	if aux != nil {
 		aux.valueContexts = values
-	}
+	})
 }
 
 // QNameValues returns resolved QName values for QName/NOTATION enumerations.
@@ -571,21 +566,17 @@ func (e *Enumeration) QNameValues() []QName {
 }
 
 // SetQNameValues stores resolved QName values for QName/NOTATION enumerations.
-// Call this before concurrent validation.
 func (e *Enumeration) SetQNameValues(values []QName) {
 	if e == nil {
 		return
 	}
-	if len(values) == 0 {
-		if aux := e.aux.Load(); aux != nil {
+	e.updateAux(func(aux *enumAux) {
+		if len(values) == 0 {
 			aux.qnameValues = nil
+			return
 		}
-		return
-	}
-	aux := e.ensureAux()
-	if aux != nil {
 		aux.qnameValues = values
-	}
+	})
 }
 
 func (e *Enumeration) ensureAux() *enumAux {
@@ -608,6 +599,30 @@ func (e *Enumeration) cacheSet() *enumCaches {
 		return nil
 	}
 	return &aux.caches
+}
+
+func (e *Enumeration) updateAux(update func(*enumAux)) {
+	for {
+		current := e.aux.Load()
+		next := &enumAux{}
+		if current != nil {
+			next.valueContexts = current.valueContexts
+			next.qnameValues = current.qnameValues
+			if cache := current.caches.atomicCache.Load(); cache != nil {
+				next.caches.atomicCache.Store(cache)
+			}
+			if cache := current.caches.unionCache.Load(); cache != nil {
+				next.caches.unionCache.Store(cache)
+			}
+			if cache := current.caches.listCache.Load(); cache != nil {
+				next.caches.listCache.Store(cache)
+			}
+		}
+		update(next)
+		if e.aux.CompareAndSwap(current, next) {
+			return
+		}
+	}
 }
 
 func (e *Enumeration) matchesAtomicEnumeration(lexical string, baseType Type) (bool, error) {
