@@ -8,19 +8,19 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *Compiler) compileContentModel(complexType *types.ComplexType) *grammar.CompiledContentModel {
+func (c *Compiler) compileContentModel(complexType *types.ComplexType) (*grammar.CompiledContentModel, error) {
 	content := complexType.Content()
 	if content == nil {
-		return &grammar.CompiledContentModel{Empty: true}
+		return &grammar.CompiledContentModel{Empty: true}, nil
 	}
 
 	switch cnt := content.(type) {
 	case *types.EmptyContent:
-		return &grammar.CompiledContentModel{Empty: true}
+		return &grammar.CompiledContentModel{Empty: true}, nil
 
 	case *types.ElementContent:
 		if cnt.Particle == nil {
-			return &grammar.CompiledContentModel{Empty: true}
+			return &grammar.CompiledContentModel{Empty: true}, nil
 		}
 		minOccurs := types.OccursFromInt(1)
 		var mg *types.ModelGroup
@@ -28,7 +28,10 @@ func (c *Compiler) compileContentModel(complexType *types.ComplexType) *grammar.
 			mg = typedMG
 			minOccurs = mg.MinOccurs
 		}
-		particles := c.flattenParticles(cnt.Particle)
+		particles, err := c.flattenParticles(cnt.Particle)
+		if err != nil {
+			return nil, err
+		}
 		// if flattening produces no particles (e.g., empty group), mark as empty
 		if len(particles) == 0 {
 			if mg != nil && mg.Kind == types.Choice && len(mg.Particles) == 0 {
@@ -37,40 +40,44 @@ func (c *Compiler) compileContentModel(complexType *types.ComplexType) *grammar.
 					RejectAll: true,
 					Mixed:     complexType.EffectiveMixed(),
 					MinOccurs: minOccurs,
-				}
+				}, nil
 			}
-			return &grammar.CompiledContentModel{Empty: true, Mixed: complexType.EffectiveMixed()}
+			return &grammar.CompiledContentModel{Empty: true, Mixed: complexType.EffectiveMixed()}, nil
 		}
 		return &grammar.CompiledContentModel{
 			Kind:      c.getGroupKind(cnt.Particle),
 			Particles: particles,
 			Mixed:     complexType.EffectiveMixed(),
 			MinOccurs: minOccurs,
-		}
+		}, nil
 
 	case *types.ComplexContent:
 		return c.compileComplexContent(cnt, complexType.EffectiveMixed())
 
 	case *types.SimpleContent:
 		// simple content - no element content model
-		return &grammar.CompiledContentModel{Empty: true}
+		return &grammar.CompiledContentModel{Empty: true}, nil
 	}
 
-	return &grammar.CompiledContentModel{Empty: true}
+	return &grammar.CompiledContentModel{Empty: true}, nil
 }
 
-func (c *Compiler) flattenParticles(particle types.Particle) []*grammar.CompiledParticle {
+func (c *Compiler) flattenParticles(particle types.Particle) ([]*grammar.CompiledParticle, error) {
 	// inline ModelGroups are tree-structured (no pointer cycles) from parser
 	expandedGroups := make(map[types.QName]bool)
 	return c.flattenParticle(particle, expandedGroups)
 }
 
-func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[types.QName]bool) []*grammar.CompiledParticle {
+func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[types.QName]bool) ([]*grammar.CompiledParticle, error) {
 	switch p := particle.(type) {
 	case *types.ModelGroup:
 		var children []*grammar.CompiledParticle
 		for _, child := range p.Particles {
-			children = append(children, c.flattenParticle(child, expandedGroups)...)
+			flattened, err := c.flattenParticle(child, expandedGroups)
+			if err != nil {
+				return nil, err
+			}
+			children = append(children, flattened...)
 		}
 		if len(children) > 0 {
 			return []*grammar.CompiledParticle{{
@@ -79,9 +86,9 @@ func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[t
 				MaxOccurs: p.MaxOccurs,
 				GroupKind: p.Kind,
 				Children:  children,
-			}}
+			}}, nil
 		}
-		return nil
+		return nil, nil
 
 	case *types.ElementDecl:
 		compiled := &grammar.CompiledParticle{
@@ -104,23 +111,27 @@ func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[t
 			if elem, ok := c.elements[p.Name]; ok {
 				compiled.Element = elem
 			} else if elemDecl, ok := c.schema.ElementDecls[p.Name]; ok {
-				if compiledElem, err := c.compileElement(p.Name, elemDecl, elementScopeTopLevel); err == nil {
-					compiled.Element = compiledElem
+				compiledElem, err := c.compileElement(p.Name, elemDecl, elementScopeTopLevel)
+				if err != nil {
+					return nil, fmt.Errorf("compile element %s: %w", p.Name, err)
 				}
+				compiled.Element = compiledElem
 			}
 		} else {
 			// local element - compile directly from the particle's ElementDecl.
-			if compiledElem, err := c.compileElement(p.Name, p, elementScopeLocal); err == nil {
-				compiled.Element = compiledElem
+			compiledElem, err := c.compileElement(p.Name, p, elementScopeLocal)
+			if err != nil {
+				return nil, fmt.Errorf("compile element %s: %w", p.Name, err)
 			}
+			compiled.Element = compiledElem
 		}
-		return []*grammar.CompiledParticle{compiled}
+		return []*grammar.CompiledParticle{compiled}, nil
 
 	case *types.GroupRef:
 		// cycle detection via QName - check if already expanding this group
 		if expandedGroups[p.RefQName] {
 			// circular group reference detected - return empty result
-			return nil
+			return nil, nil
 		}
 		expandedGroups[p.RefQName] = true
 		defer func() { delete(expandedGroups, p.RefQName) }()
@@ -128,14 +139,18 @@ func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[t
 		// expand group reference
 		if group, ok := c.schema.Groups[p.RefQName]; ok {
 			if p.MaxOccurs.IsZero() {
-				return nil
+				return nil, nil
 			}
 			var children []*grammar.CompiledParticle
 			for _, child := range group.Particles {
-				children = append(children, c.flattenParticle(child, expandedGroups)...)
+				flattened, err := c.flattenParticle(child, expandedGroups)
+				if err != nil {
+					return nil, err
+				}
+				children = append(children, flattened...)
 			}
 			if len(children) == 0 {
-				return nil
+				return nil, nil
 			}
 			return []*grammar.CompiledParticle{{
 				Kind:      grammar.ParticleGroup,
@@ -143,9 +158,9 @@ func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[t
 				MaxOccurs: p.MaxOccurs,
 				GroupKind: group.Kind,
 				Children:  children,
-			}}
+			}}, nil
 		}
-		return nil
+		return nil, nil
 
 	case *types.AnyElement:
 		return []*grammar.CompiledParticle{{
@@ -153,13 +168,13 @@ func (c *Compiler) flattenParticle(particle types.Particle, expandedGroups map[t
 			MinOccurs: p.MinOccurs,
 			MaxOccurs: p.MaxOccurs,
 			Wildcard:  p,
-		}}
+		}}, nil
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (c *Compiler) compileComplexContent(cc *types.ComplexContent, mixed bool) *grammar.CompiledContentModel {
+func (c *Compiler) compileComplexContent(cc *types.ComplexContent, mixed bool) (*grammar.CompiledContentModel, error) {
 	cm := &grammar.CompiledContentModel{
 		Mixed: mixed,
 	}
@@ -167,22 +182,26 @@ func (c *Compiler) compileComplexContent(cc *types.ComplexContent, mixed bool) *
 	particle := c.contentParticle(cc)
 	if particle == nil {
 		cm.Empty = true
-		return cm
+		return cm, nil
 	}
 
 	cm.Kind = c.getGroupKind(particle)
-	cm.Particles = c.flattenParticles(particle)
+	particles, err := c.flattenParticles(particle)
+	if err != nil {
+		return nil, err
+	}
+	cm.Particles = particles
 	if len(cm.Particles) > 0 {
-		return cm
+		return cm, nil
 	}
 	if mg, ok := particle.(*types.ModelGroup); ok && mg.Kind == types.Choice && len(mg.Particles) == 0 {
 		cm.RejectAll = true
 		cm.MinOccurs = mg.MinOccurs
-		return cm
+		return cm, nil
 	}
 	cm.Empty = true
 
-	return cm
+	return cm, nil
 }
 
 func (c *Compiler) contentParticle(cc *types.ComplexContent) types.Particle {
