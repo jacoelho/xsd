@@ -385,13 +385,20 @@ func (r *pathReader) peekDoubleSlash() bool {
 }
 
 func (r *pathReader) peekAxisSeparator() bool {
-	// caller is responsible for skipping whitespace before peeking.
-	return r.pos+1 < len(r.input) && r.input[r.pos] == ':' && r.input[r.pos+1] == ':'
+	pos := r.pos
+	for pos < len(r.input) && isXPathWhitespace(r.input[pos]) {
+		pos++
+	}
+	return pos+1 < len(r.input) && r.input[pos] == ':' && r.input[pos+1] == ':'
 }
 
 func (r *pathReader) consumeAxisSeparator() bool {
-	if r.peekAxisSeparator() {
-		r.pos += 2
+	pos := r.pos
+	for pos < len(r.input) && isXPathWhitespace(r.input[pos]) {
+		pos++
+	}
+	if pos+1 < len(r.input) && r.input[pos] == ':' && r.input[pos+1] == ':' {
+		r.pos = pos + 2
 		return true
 	}
 	return false
