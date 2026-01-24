@@ -51,3 +51,21 @@ func TestAttributeUseProhibitedAllowsFixed(t *testing.T) {
 		t.Fatalf("expected schema to be valid, got %v", errs)
 	}
 }
+
+func TestMergeAttributesFromTypeForValidationNilContent(t *testing.T) {
+	schema := parser.NewSchema()
+	schema.TargetNamespace = "urn:test"
+
+	attr := &types.AttributeDecl{
+		Name: types.QName{Local: "a"},
+	}
+	ct := &types.ComplexType{}
+	ct.SetAttributes([]*types.AttributeDecl{attr})
+
+	attrMap := make(map[types.QName]*types.AttributeDecl)
+	mergeAttributesFromTypeForValidation(schema, ct, attrMap)
+
+	if len(attrMap) != 1 {
+		t.Fatalf("expected 1 attribute, got %d", len(attrMap))
+	}
+}
