@@ -156,7 +156,11 @@ func (c *Compiler) compileSimpleType(compiled *grammar.CompiledType, simpleType 
 	compiled.IsQNameOrNotationType = c.isQNameOrNotationType(compiled)
 	simpleType.SetQNameOrNotationType(compiled.IsQNameOrNotationType)
 
-	compiled.Facets = c.collectFacets(simpleType)
+	facets, err := c.collectFacets(simpleType)
+	if err != nil {
+		return err
+	}
+	compiled.Facets = facets
 	if compiled.IsQNameOrNotationType {
 		if err := c.resolveQNameEnumerationFacets(compiled); err != nil {
 			return err
@@ -208,7 +212,11 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, complexTyp
 	compiled.AnyAttribute = c.mergeAnyAttribute(compiled.DerivationChain)
 
 	if complexType.Content() != nil {
-		compiled.ContentModel = c.compileContentModel(complexType)
+		contentModel, err := c.compileContentModel(complexType)
+		if err != nil {
+			return fmt.Errorf("compile content model for type %s: %w", compiled.QName, err)
+		}
+		compiled.ContentModel = contentModel
 		c.applyComplexContentExtension(compiled, complexType)
 	}
 
@@ -304,7 +312,7 @@ func (c *Compiler) isQNameOrNotationType(compiledType *grammar.CompiledType) boo
 	return types.IsQNameOrNotation(compiledType.QName)
 }
 
-func (c *Compiler) collectFacets(simpleType *types.SimpleType) []types.Facet {
+func (c *Compiler) collectFacets(simpleType *types.SimpleType) ([]types.Facet, error) {
 	var result []types.Facet
 
 	// collect facets from base type first (inherited facets)
@@ -312,7 +320,11 @@ func (c *Compiler) collectFacets(simpleType *types.SimpleType) []types.Facet {
 	// so inherited patterns become separate entries in the result.
 	if simpleType.ResolvedBase != nil {
 		if baseSimpleType, ok := simpleType.ResolvedBase.(*types.SimpleType); ok {
-			result = append(result, c.collectFacets(baseSimpleType)...)
+			baseFacets, err := c.collectFacets(baseSimpleType)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, baseFacets...)
 		}
 	}
 
@@ -343,7 +355,10 @@ func (c *Compiler) collectFacets(simpleType *types.SimpleType) []types.Facet {
 				}
 			case *types.DeferredFacet:
 				// convert deferred facets to real facets now that base type is resolved
-				realFacet := c.constructDeferredFacet(facet, simpleType)
+				realFacet, err := c.constructDeferredFacet(facet, simpleType)
+				if err != nil {
+					return nil, err
+				}
 				if realFacet != nil {
 					result = append(result, realFacet)
 				}
@@ -359,7 +374,7 @@ func (c *Compiler) collectFacets(simpleType *types.SimpleType) []types.Facet {
 			result = append(result, &types.PatternSet{Patterns: stepPatterns})
 		}
 	}
-	return result
+	return result, nil
 }
 
 func (c *Compiler) resolveQNameEnumerationFacets(compiled *grammar.CompiledType) error {
@@ -371,23 +386,23 @@ func (c *Compiler) resolveQNameEnumerationFacets(compiled *grammar.CompiledType)
 		if !ok || len(enum.Values) == 0 {
 			continue
 		}
-		if len(enum.QNameValues) == len(enum.Values) {
+		if len(enum.QNameValues()) == len(enum.Values) {
 			continue
 		}
 		qnames, err := enum.ResolveQNameValues()
 		if err != nil {
 			return err
 		}
-		enum.QNameValues = qnames
+		enum.SetQNameValues(qnames)
 	}
 	return nil
 }
 
 // constructDeferredFacet converts a DeferredFacet to a real Facet using the resolved base type.
-func (c *Compiler) constructDeferredFacet(df *types.DeferredFacet, simpleType *types.SimpleType) types.Facet {
+func (c *Compiler) constructDeferredFacet(df *types.DeferredFacet, simpleType *types.SimpleType) (types.Facet, error) {
 	baseType := simpleType.ResolvedBase
 	if baseType == nil {
-		return nil
+		return nil, nil
 	}
 
 	var facet types.Facet
@@ -405,10 +420,8 @@ func (c *Compiler) constructDeferredFacet(df *types.DeferredFacet, simpleType *t
 	}
 
 	if err != nil {
-		// log or handle error - facet construction failed even with resolved type
-		// this could happen for genuinely invalid schemas
-		return nil
+		return nil, err
 	}
 
-	return facet
+	return facet, nil
 }
