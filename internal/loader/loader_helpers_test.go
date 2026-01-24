@@ -31,7 +31,9 @@ func TestResolveLocationAndGetLoaded(t *testing.T) {
 	}
 
 	key := loader.loadKey(loader.defaultFSContext(), rel)
-	loader.state.loaded[key] = schema
+	entry := loader.state.ensureEntry(key)
+	entry.state = schemaStateLoaded
+	entry.schema = schema
 	loaded, ok, err := loader.GetLoaded("a/b.xsd")
 	if err != nil {
 		t.Fatalf("GetLoaded error = %v", err)
@@ -77,6 +79,37 @@ func TestDeepCopyModelGroup(t *testing.T) {
 	clone.Particles[0] = &types.ElementDecl{Name: types.QName{Local: "b"}}
 	if original.Particles[0].(*types.ElementDecl).Name.Local != "a" {
 		t.Fatalf("expected original particles to remain unchanged")
+	}
+}
+
+func TestDeepCopyModelGroupNestedIsolation(t *testing.T) {
+	nested := &types.ModelGroup{
+		Kind:      types.Sequence,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
+		Particles: []types.Particle{
+			&types.ElementDecl{Name: types.QName{Local: "child"}},
+		},
+	}
+	original := &types.ModelGroup{
+		Kind:      types.Sequence,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
+		Particles: []types.Particle{nested},
+	}
+
+	clone := deepCopyModelGroup(original)
+	cloneNested, ok := clone.Particles[0].(*types.ModelGroup)
+	if !ok {
+		t.Fatalf("expected nested model group in clone")
+	}
+	if cloneNested == nested {
+		t.Fatalf("expected nested model group to be copied")
+	}
+
+	cloneNested.MinOccurs = types.OccursFromInt(2)
+	if nested.MinOccurs.CmpInt(1) != 0 {
+		t.Fatalf("expected original nested group to remain unchanged")
 	}
 }
 

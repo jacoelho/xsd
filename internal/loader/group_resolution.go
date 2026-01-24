@@ -181,7 +181,13 @@ func deepCopyModelGroup(mg *types.ModelGroup) *types.ModelGroup {
 	clone := *mg
 	if mg.Particles != nil {
 		clone.Particles = make([]types.Particle, len(mg.Particles))
-		copy(clone.Particles, mg.Particles)
+		for i, particle := range mg.Particles {
+			if nested, ok := particle.(*types.ModelGroup); ok {
+				clone.Particles[i] = deepCopyModelGroup(nested)
+				continue
+			}
+			clone.Particles[i] = particle
+		}
 	}
 	return &clone
 }

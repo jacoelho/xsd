@@ -96,6 +96,44 @@ func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind
 	return ctx.mergeIDAttributes()
 }
 
+func mergeNamed[V any](
+	source map[types.QName]V,
+	target map[types.QName]V,
+	targetOrigins map[types.QName]string,
+	remap func(types.QName) types.QName,
+	originFor func(types.QName) string,
+	insert func(V) V,
+	candidate func(V) V,
+	equivalent func(existing V, candidate V) bool,
+	kindName string,
+) error {
+	if insert == nil {
+		insert = func(value V) V { return value }
+	}
+	for qname, value := range source {
+		targetQName := remap(qname)
+		origin := originFor(qname)
+		if existing, exists := target[targetQName]; exists {
+			if targetOrigins[targetQName] == origin {
+				continue
+			}
+			if equivalent != nil {
+				cand := value
+				if candidate != nil {
+					cand = candidate(value)
+				}
+				if equivalent(existing, cand) {
+					continue
+				}
+			}
+			return fmt.Errorf("duplicate %s %s", kindName, targetQName)
+		}
+		target[targetQName] = insert(value)
+		targetOrigins[targetQName] = origin
+	}
+	return nil
+}
+
 func (c *mergeContext) mergeImportedNamespaces() {
 	if c.source.ImportedNamespaces == nil {
 		return
@@ -150,23 +188,17 @@ func (c *mergeContext) mergeImportContexts() {
 }
 
 func (c *mergeContext) mergeElementDecls() error {
-	for qname, decl := range c.source.ElementDecls {
-		targetQName := c.remapQName(qname)
-		origin := c.originFor(c.source.ElementOrigins, qname)
-		if existing, exists := c.target.ElementDecls[targetQName]; exists {
-			if c.target.ElementOrigins[targetQName] == origin {
-				continue
-			}
-			candidate := c.elementDeclCandidate(decl)
-			if elementDeclEquivalent(existing, candidate) {
-				continue
-			}
-			return fmt.Errorf("duplicate element declaration %s", targetQName)
-		}
-		c.target.ElementDecls[targetQName] = c.elementDeclForInsert(decl)
-		c.target.ElementOrigins[targetQName] = origin
-	}
-	return nil
+	return mergeNamed(
+		c.source.ElementDecls,
+		c.target.ElementDecls,
+		c.target.ElementOrigins,
+		c.remapQName,
+		func(qname types.QName) string { return c.originFor(c.source.ElementOrigins, qname) },
+		c.elementDeclForInsert,
+		c.elementDeclCandidate,
+		elementDeclEquivalent,
+		"element declaration",
+	)
 }
 
 func (c *mergeContext) elementDeclCandidate(decl *types.ElementDecl) *types.ElementDecl {
@@ -193,23 +225,23 @@ func (c *mergeContext) elementDeclForInsert(decl *types.ElementDecl) *types.Elem
 }
 
 func (c *mergeContext) mergeTypeDefs() error {
-	for qname, typ := range c.source.TypeDefs {
-		targetQName := c.remapQName(qname)
-		origin := c.originFor(c.source.TypeOrigins, qname)
-		if _, exists := c.target.TypeDefs[targetQName]; exists {
-			if c.target.TypeOrigins[targetQName] == origin {
-				continue
-			}
-			return fmt.Errorf("duplicate type definition %s", targetQName)
-		}
+	insert := func(typ types.Type) types.Type {
 		if c.isImport {
-			c.target.TypeDefs[targetQName] = c.copyTypeForImport(typ)
-		} else {
-			c.target.TypeDefs[targetQName] = c.copyTypeForInclude(typ)
+			return c.copyTypeForImport(typ)
 		}
-		c.target.TypeOrigins[targetQName] = origin
+		return c.copyTypeForInclude(typ)
 	}
-	return nil
+	return mergeNamed(
+		c.source.TypeDefs,
+		c.target.TypeDefs,
+		c.target.TypeOrigins,
+		c.remapQName,
+		func(qname types.QName) string { return c.originFor(c.source.TypeOrigins, qname) },
+		insert,
+		nil,
+		nil,
+		"type definition",
+	)
 }
 
 func (c *mergeContext) copyTypeForImport(typ types.Type) types.Type {
@@ -238,19 +270,17 @@ func (c *mergeContext) copyTypeForInclude(typ types.Type) types.Type {
 }
 
 func (c *mergeContext) mergeAttributeDecls() error {
-	for qname, decl := range c.source.AttributeDecls {
-		targetQName := c.remapQName(qname)
-		origin := c.originFor(c.source.AttributeOrigins, qname)
-		if _, exists := c.target.AttributeDecls[targetQName]; exists {
-			if c.target.AttributeOrigins[targetQName] == origin {
-				continue
-			}
-			return fmt.Errorf("duplicate attribute declaration %s", targetQName)
-		}
-		c.target.AttributeDecls[targetQName] = c.copyAttributeDecl(decl)
-		c.target.AttributeOrigins[targetQName] = origin
-	}
-	return nil
+	return mergeNamed(
+		c.source.AttributeDecls,
+		c.target.AttributeDecls,
+		c.target.AttributeOrigins,
+		c.remapQName,
+		func(qname types.QName) string { return c.originFor(c.source.AttributeOrigins, qname) },
+		c.copyAttributeDecl,
+		nil,
+		nil,
+		"attribute declaration",
+	)
 }
 
 func (c *mergeContext) copyAttributeDecl(decl *types.AttributeDecl) *types.AttributeDecl {
@@ -264,15 +294,7 @@ func (c *mergeContext) copyAttributeDecl(decl *types.AttributeDecl) *types.Attri
 }
 
 func (c *mergeContext) mergeAttributeGroups() error {
-	for qname, group := range c.source.AttributeGroups {
-		targetQName := c.remapQName(qname)
-		origin := c.originFor(c.source.AttributeGroupOrigins, qname)
-		if _, exists := c.target.AttributeGroups[targetQName]; exists {
-			if c.target.AttributeGroupOrigins[targetQName] == origin {
-				continue
-			}
-			return fmt.Errorf("duplicate attributeGroup %s", targetQName)
-		}
+	insert := func(group *types.AttributeGroup) *types.AttributeGroup {
 		groupCopy := group.Copy(c.opts)
 		for _, attr := range groupCopy.Attributes {
 			if attr.Form == types.FormDefault {
@@ -283,57 +305,88 @@ func (c *mergeContext) mergeAttributeGroups() error {
 				}
 			}
 		}
-		c.target.AttributeGroups[targetQName] = groupCopy
-		c.target.AttributeGroupOrigins[targetQName] = origin
+		return groupCopy
 	}
-	return nil
+	return mergeNamed(
+		c.source.AttributeGroups,
+		c.target.AttributeGroups,
+		c.target.AttributeGroupOrigins,
+		c.remapQName,
+		func(qname types.QName) string { return c.originFor(c.source.AttributeGroupOrigins, qname) },
+		insert,
+		nil,
+		nil,
+		"attributeGroup",
+	)
 }
 
 func (c *mergeContext) mergeGroups() error {
-	for qname, group := range c.source.Groups {
-		targetQName := c.remapQName(qname)
-		origin := c.originFor(c.source.GroupOrigins, qname)
-		if _, exists := c.target.Groups[targetQName]; exists {
-			if c.target.GroupOrigins[targetQName] == origin {
-				continue
-			}
-			return fmt.Errorf("duplicate group %s", targetQName)
-		}
-		c.target.Groups[targetQName] = group.Copy(c.opts)
-		c.target.GroupOrigins[targetQName] = origin
-	}
-	return nil
+	return mergeNamed(
+		c.source.Groups,
+		c.target.Groups,
+		c.target.GroupOrigins,
+		c.remapQName,
+		func(qname types.QName) string { return c.originFor(c.source.GroupOrigins, qname) },
+		func(group *types.ModelGroup) *types.ModelGroup { return group.Copy(c.opts) },
+		nil,
+		nil,
+		"group",
+	)
 }
 
 func (c *mergeContext) mergeSubstitutionGroups() {
 	for head, members := range c.source.SubstitutionGroups {
 		targetHead := c.remapQName(head)
-		remappedMembers := make([]types.QName, len(members))
-		for i, member := range members {
-			remappedMembers[i] = c.remapQName(member)
+		remappedMembers := make([]types.QName, 0, len(members))
+		seen := make(map[types.QName]bool, len(members))
+		for _, member := range members {
+			remapped := c.remapQName(member)
+			if seen[remapped] {
+				continue
+			}
+			seen[remapped] = true
+			remappedMembers = append(remappedMembers, remapped)
 		}
 		if existing, exists := c.target.SubstitutionGroups[targetHead]; exists {
-			c.target.SubstitutionGroups[targetHead] = append(existing, remappedMembers...)
-		} else {
+			if len(remappedMembers) == 0 {
+				continue
+			}
+			if len(existing) == 0 {
+				c.target.SubstitutionGroups[targetHead] = remappedMembers
+				continue
+			}
+			seenExisting := make(map[types.QName]bool, len(existing))
+			for _, member := range existing {
+				seenExisting[member] = true
+			}
+			for _, member := range remappedMembers {
+				if seenExisting[member] {
+					continue
+				}
+				existing = append(existing, member)
+				seenExisting[member] = true
+			}
+			c.target.SubstitutionGroups[targetHead] = existing
+			continue
+		}
+		if len(remappedMembers) > 0 {
 			c.target.SubstitutionGroups[targetHead] = remappedMembers
 		}
 	}
 }
 
 func (c *mergeContext) mergeNotationDecls() error {
-	for qname, notation := range c.source.NotationDecls {
-		targetQName := c.remapQName(qname)
-		origin := c.originFor(c.source.NotationOrigins, qname)
-		if _, exists := c.target.NotationDecls[targetQName]; exists {
-			if c.target.NotationOrigins[targetQName] == origin {
-				continue
-			}
-			return fmt.Errorf("duplicate notation %s", targetQName)
-		}
-		c.target.NotationDecls[targetQName] = notation.Copy(c.opts)
-		c.target.NotationOrigins[targetQName] = origin
-	}
-	return nil
+	return mergeNamed(
+		c.source.NotationDecls,
+		c.target.NotationDecls,
+		c.target.NotationOrigins,
+		c.remapQName,
+		func(qname types.QName) string { return c.originFor(c.source.NotationOrigins, qname) },
+		func(notation *types.NotationDecl) *types.NotationDecl { return notation.Copy(c.opts) },
+		nil,
+		nil,
+		"notation",
+	)
 }
 
 func (c *mergeContext) mergeIDAttributes() error {
