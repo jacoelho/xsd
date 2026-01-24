@@ -582,33 +582,36 @@ func (r *streamRun) startUndeclaredFrame(ev *streamStart, parent *streamFrame, p
 
 	xsiTypeValue, hasXsiType := attrs.Value(xsdxml.XSINamespace, "type")
 	if hasXsiType {
-		xsiType, err := r.resolveXsiTypeOnly(ev.ScopeDepth, xsiTypeValue)
-		if err != nil {
-			violation := errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String())
-			r.addViolation(&violation)
-			return streamFrame{}, true
-		}
-		if xsiType != nil {
-			attrsToCheck := xsiType.AllAttributes
-			anyAttr := xsiType.AnyAttribute
-			if isAnyType(xsiType) {
-				attrsToCheck = nil
-				anyAttr = &types.AnyAttribute{
-					Namespace:       types.NSCAny,
-					ProcessContents: types.Lax,
-					TargetNamespace: types.NamespaceEmpty,
-				}
-			}
-			violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, xsiType, ev.ScopeDepth, ev.Line, ev.Column)
-			if len(violations) > 0 {
-				r.addViolations(violations)
-				return streamFrame{}, true
-			}
-			frame := r.newFrame(ev, nil, xsiType, parent)
-			return frame, false
+		frame, skip, handled := r.startUndeclaredWithXsiTypeOnly(ev, parent, attrs, xsiTypeValue)
+		if handled {
+			return frame, skip
 		}
 	}
 
+	return r.startUndeclaredWithAnyType(ev, parent, attrs, xsiTypeValue, hasXsiType)
+}
+
+func (r *streamRun) startUndeclaredWithXsiTypeOnly(ev *streamStart, parent *streamFrame, attrs attributeIndex, xsiTypeValue string) (streamFrame, bool, bool) {
+	xsiType, err := r.resolveXsiTypeOnly(ev.ScopeDepth, xsiTypeValue)
+	if err != nil {
+		violation := errors.NewValidation(errors.ErrXsiTypeInvalid, err.Error(), r.path.String())
+		r.addViolation(&violation)
+		return streamFrame{}, true, true
+	}
+	if xsiType == nil {
+		return streamFrame{}, false, false
+	}
+	attrsToCheck, anyAttr := attrsForType(xsiType)
+	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, xsiType, ev.ScopeDepth, ev.Line, ev.Column)
+	if len(violations) > 0 {
+		r.addViolations(violations)
+		return streamFrame{}, true, true
+	}
+	frame := r.newFrame(ev, nil, xsiType, parent)
+	return frame, false, true
+}
+
+func (r *streamRun) startUndeclaredWithAnyType(ev *streamStart, parent *streamFrame, attrs attributeIndex, xsiTypeValue string, hasXsiType bool) (streamFrame, bool) {
 	anyType := r.validator.getBuiltinCompiledType(types.GetBuiltin(types.TypeNameAnyType))
 	effectiveType := anyType
 	if hasXsiType {
@@ -623,17 +626,7 @@ func (r *streamRun) startUndeclaredFrame(ev *streamStart, parent *streamFrame, p
 		}
 	}
 
-	attrsToCheck := effectiveType.AllAttributes
-	anyAttr := effectiveType.AnyAttribute
-	if isAnyType(effectiveType) {
-		attrsToCheck = nil
-		anyAttr = &types.AnyAttribute{
-			Namespace:       types.NSCAny,
-			ProcessContents: types.Lax,
-			TargetNamespace: types.NamespaceEmpty,
-		}
-	}
-
+	attrsToCheck, anyAttr := attrsForType(effectiveType)
 	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, anyType, ev.ScopeDepth, ev.Line, ev.Column)
 	if len(violations) > 0 {
 		r.addViolations(violations)
@@ -691,17 +684,7 @@ func (r *streamRun) startFrameWithType(ev *streamStart, parent *streamFrame, att
 		return frame, false
 	}
 
-	attrsToCheck := effectiveType.AllAttributes
-	anyAttr := effectiveType.AnyAttribute
-	if isAnyType(effectiveType) {
-		attrsToCheck = nil
-		anyAttr = &types.AnyAttribute{
-			Namespace:       types.NSCAny,
-			ProcessContents: types.Lax,
-			TargetNamespace: types.NamespaceEmpty,
-		}
-	}
-
+	attrsToCheck, anyAttr := attrsForType(effectiveType)
 	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, effectiveType, ev.ScopeDepth, ev.Line, ev.Column)
 	if len(violations) > 0 {
 		r.addViolations(violations)
@@ -709,6 +692,20 @@ func (r *streamRun) startFrameWithType(ev *streamStart, parent *streamFrame, att
 
 	frame := r.newFrame(ev, decl, effectiveType, parent)
 	return frame, false
+}
+
+func attrsForType(typ *grammar.CompiledType) ([]*grammar.CompiledAttribute, *types.AnyAttribute) {
+	if typ == nil {
+		return nil, nil
+	}
+	if isAnyType(typ) {
+		return nil, &types.AnyAttribute{
+			Namespace:       types.NSCAny,
+			ProcessContents: types.Lax,
+			TargetNamespace: types.NamespaceEmpty,
+		}
+	}
+	return typ.AllAttributes, typ.AnyAttribute
 }
 
 func (r *streamRun) validateNilAttribute(attrs attributeIndex, decl *grammar.CompiledElement, elemName string) (bool, []errors.Validation) {
