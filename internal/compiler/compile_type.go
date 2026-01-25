@@ -210,6 +210,7 @@ func (c *Compiler) compileComplexType(compiled *grammar.CompiledType, complexTyp
 	compiled.AllAttributes = attrs
 
 	compiled.AnyAttribute = c.mergeAnyAttribute(compiled.DerivationChain)
+	compiled.ProhibitedAttributes = c.collectProhibitedAttributes(compiled.DerivationChain)
 
 	if complexType.Content() != nil {
 		contentModel, err := c.compileContentModel(complexType)

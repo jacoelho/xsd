@@ -103,6 +103,12 @@ func (s *loadSession) processIncludes(schema *parser.Schema, includes []parser.I
 				return fmt.Errorf("included schema %s has different target namespace: %s != %s",
 					include.SchemaLocation, inProgress.TargetNamespace, schema.TargetNamespace)
 			}
+			needsNamespaceRemap := !schema.TargetNamespace.IsEmpty() && inProgress.TargetNamespace.IsEmpty()
+			remapMode := keepNamespace
+			if needsNamespaceRemap {
+				remapMode = remapNamespace
+			}
+			s.loader.deferInclude(includeKey, s.key, include.SchemaLocation, remapMode)
 			continue
 		}
 		includedSchema, err := s.loader.loadWithValidation(includeLoc, skipSchemaValidation, s.ctx)
