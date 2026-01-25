@@ -284,6 +284,9 @@ func (r *streamRun) applyAttributeSelection(state *fieldState, test xpath.NodeTe
 				continue
 			}
 			attrNamespace := types.NamespaceURI(attr.NamespaceURI())
+			if attrNamespace != test.Namespace {
+				continue
+			}
 			attrQName := types.QName{
 				Namespace: attrNamespace,
 				Local:     attr.LocalName(),
@@ -642,6 +645,13 @@ func (r *streamRun) normalizeElementValue(value string, field types.Field, frame
 		fieldType = types.GetBuiltin(types.TypeName("string"))
 	}
 	if _, ok := fieldType.(*types.ComplexType); ok {
+		if frame != nil && frame.textType != nil && frame.textType.Original != nil {
+			fieldType = frame.textType.Original
+		} else {
+			fieldType = types.ResolveSimpleContentBaseType(fieldType)
+		}
+	}
+	if _, ok := fieldType.(*types.ComplexType); ok {
 		return "", KeyInvalidSelection
 	}
 	return r.normalizeValueByTypeStream(value, fieldType, frame.scopeDepth, context)
@@ -684,7 +694,10 @@ func (r *streamRun) normalizeAttributeValue(value string, field types.Field, fra
 				}
 			}
 			if fieldType == nil && !attrDeclared && typ.AnyAttribute != nil && typ.AnyAttribute.AllowsQName(attrQName) {
-				return "", KeyInvalidSelection
+				if typ.AnyAttribute.ProcessContents == types.Skip {
+					return "", KeyInvalidSelection
+				}
+				fieldType = types.GetBuiltin(types.TypeNameAnySimpleType)
 			}
 		}
 	}
@@ -724,6 +737,10 @@ func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, sco
 	}
 
 	if st, ok := types.AsSimpleType(fieldType); ok && st.Variety() == types.UnionVariety {
+		normalizedUnion, err := types.NormalizeValue(value, fieldType)
+		if err != nil {
+			return "", KeyInvalidValue
+		}
 		members := types.IdentityMemberTypes(fieldType)
 		if len(members) == 0 {
 			return "", KeyInvalidValue
@@ -732,7 +749,7 @@ func (r *streamRun) normalizeValueByType(value string, fieldType types.Type, sco
 			if member == nil {
 				continue
 			}
-			normalized, state := r.normalizeValueByType(value, member, scopeDepth, context)
+			normalized, state := r.normalizeValueByType(normalizedUnion, member, scopeDepth, context)
 			if state == KeyValid {
 				return normalized, KeyValid
 			}

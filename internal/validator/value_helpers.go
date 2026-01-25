@@ -92,10 +92,8 @@ func compareTypedValues(left, right types.TypedValue) bool {
 		if !ok {
 			return false
 		}
-		// Per XSD spec, NaN is not equal to itself in the value space
-		// This is used for fixed value comparison where NaN != NaN
 		if math.IsNaN(float64(l)) || math.IsNaN(float64(r)) {
-			return false
+			return math.IsNaN(float64(l)) && math.IsNaN(float64(r))
 		}
 		return l == r
 
@@ -104,12 +102,31 @@ func compareTypedValues(left, right types.TypedValue) bool {
 		if !ok {
 			return false
 		}
-		// Per XSD spec, NaN is not equal to itself in the value space
-		// This is used for fixed value comparison where NaN != NaN
 		if math.IsNaN(l) || math.IsNaN(r) {
-			return false
+			return math.IsNaN(l) && math.IsNaN(r)
 		}
 		return l == r
+
+	case types.XSDDuration:
+		switch r := rightNative.(type) {
+		case types.XSDDuration:
+			return durationValuesEqual(l, r, left.Type(), right.Type())
+		case types.ComparableXSDDuration:
+			return durationValuesEqual(l, r.Value, left.Type(), right.Type())
+		default:
+			return false
+		}
+
+	case types.ComparableXSDDuration:
+		switch r := rightNative.(type) {
+		case types.ComparableXSDDuration:
+			cmp, err := l.Compare(r)
+			return err == nil && cmp == 0
+		case types.XSDDuration:
+			return durationValuesEqual(l.Value, r, left.Type(), right.Type())
+		default:
+			return false
+		}
 
 	case int64:
 		r, ok := rightNative.(int64)
@@ -187,4 +204,11 @@ func compareTypedValues(left, right types.TypedValue) bool {
 		// this handles any custom TypedValue implementations
 		return left.Lexical() == right.Lexical()
 	}
+}
+
+func durationValuesEqual(left, right types.XSDDuration, leftType, rightType types.Type) bool {
+	leftComp := types.ComparableXSDDuration{Value: left, Typ: leftType}
+	rightComp := types.ComparableXSDDuration{Value: right, Typ: rightType}
+	cmp, err := leftComp.Compare(rightComp)
+	return err == nil && cmp == 0
 }

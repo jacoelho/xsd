@@ -108,13 +108,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 
 	for _, attr := range decls {
 		if attr.Use == types.Prohibited {
-			// Prohibited attributes with fixed are included in AllAttributes for schema validation,
-			// but during instance validation they should not be in the declared set
-			// (so they fall through to wildcard check, or get "not declared" error)
-			// Only add them as prohibited if they don't have fixed
-			if !attr.HasFixed {
-				declared.add(attr.QName, true)
-			}
+			declared.add(attr.QName, true)
 			continue
 		}
 		declared.add(attr.QName, false)
@@ -216,11 +210,15 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 // by checking the original type definitions since prohibited attributes are excluded from AllAttributes
 func (r *streamRun) collectProhibitedAttributes(effectiveType *grammar.CompiledType) []types.QName {
 	var prohibited []types.QName
-	seen := make(map[types.QName]bool)
 
 	if effectiveType == nil {
 		return prohibited
 	}
+	if effectiveType.ProhibitedAttributes != nil {
+		return effectiveType.ProhibitedAttributes
+	}
+
+	seen := make(map[types.QName]bool)
 
 	// Get attributeFormDefault from grammar
 	attributeFormDefault := r.validator.grammar.AttributeFormDefault
@@ -262,7 +260,7 @@ func (r *streamRun) collectProhibitedAttributes(effectiveType *grammar.CompiledT
 
 		// Check direct attributes
 		for _, attr := range complexType.Attributes() {
-			if attr.Use == types.Prohibited && !attr.HasFixed {
+			if attr.Use == types.Prohibited {
 				qname := effectiveQName(attr)
 				if !seen[qname] {
 					prohibited = append(prohibited, qname)
@@ -271,11 +269,35 @@ func (r *streamRun) collectProhibitedAttributes(effectiveType *grammar.CompiledT
 			}
 		}
 
-		// Check restriction attributes
-		if content, ok := complexType.Content().(*types.ComplexContent); ok {
+		// Check restriction/extension attributes in content models
+		switch content := complexType.Content().(type) {
+		case *types.ComplexContent:
 			if restr := content.RestrictionDef(); restr != nil {
 				for _, attr := range restr.Attributes {
-					if attr.Use == types.Prohibited && !attr.HasFixed {
+					if attr.Use == types.Prohibited {
+						qname := effectiveQName(attr)
+						if !seen[qname] {
+							prohibited = append(prohibited, qname)
+							seen[qname] = true
+						}
+					}
+				}
+			}
+		case *types.SimpleContent:
+			if ext := content.ExtensionDef(); ext != nil {
+				for _, attr := range ext.Attributes {
+					if attr.Use == types.Prohibited {
+						qname := effectiveQName(attr)
+						if !seen[qname] {
+							prohibited = append(prohibited, qname)
+							seen[qname] = true
+						}
+					}
+				}
+			}
+			if restr := content.RestrictionDef(); restr != nil {
+				for _, attr := range restr.Attributes {
+					if attr.Use == types.Prohibited {
 						qname := effectiveQName(attr)
 						if !seen[qname] {
 							prohibited = append(prohibited, qname)

@@ -110,6 +110,78 @@ func TestParseBoolean(t *testing.T) {
 	}
 }
 
+func TestParseTimeLeapSecond(t *testing.T) {
+	t1, err := ParseTime("23:59:59Z")
+	if err != nil {
+		t.Fatalf("ParseTime() error = %v", err)
+	}
+	t2, err := ParseTime("23:59:60Z")
+	if err != nil {
+		t.Fatalf("ParseTime() error = %v", err)
+	}
+	if t1.Equal(t2) {
+		t.Fatalf("expected leap second to differ from 23:59:59")
+	}
+	if !t2.After(t1) {
+		t.Fatalf("expected leap second to be after 23:59:59")
+	}
+}
+
+func TestParseUnsignedAcceptsSignedZero(t *testing.T) {
+	tests := []struct {
+		name string
+		fn   func(string) (uint64, error)
+	}{
+		{
+			name: "unsignedLong",
+			fn:   ParseUnsignedLong,
+		},
+		{
+			name: "unsignedInt",
+			fn: func(value string) (uint64, error) {
+				v, err := ParseUnsignedInt(value)
+				return uint64(v), err
+			},
+		},
+		{
+			name: "unsignedShort",
+			fn: func(value string) (uint64, error) {
+				v, err := ParseUnsignedShort(value)
+				return uint64(v), err
+			},
+		},
+		{
+			name: "unsignedByte",
+			fn: func(value string) (uint64, error) {
+				v, err := ParseUnsignedByte(value)
+				return uint64(v), err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tests := map[string]uint64{
+				"+0": 0,
+				"-0": 0,
+				"+1": 1,
+			}
+			for value, want := range tests {
+				got, err := tt.fn(value)
+				if err != nil {
+					t.Fatalf("Parse(%q) error = %v", value, err)
+				}
+				if got != want {
+					t.Fatalf("Parse(%q) = %d, want %d", value, got, want)
+				}
+			}
+			if _, err := tt.fn("-1"); err == nil {
+				t.Fatalf("expected Parse(-1) to error")
+			}
+		})
+	}
+}
+
 func TestParseFloat(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -217,6 +289,7 @@ func TestParseDateTime(t *testing.T) {
 		wantErr bool
 	}{
 		{"with 24:00:00", "2001-10-26T24:00:00", false},
+		{"max year overflow 24:00:00", "9999-12-31T24:00:00", true},
 		{"leap second", "1999-12-31T23:59:60Z", false},
 		{"valid datetime", "2001-10-26T21:32:52", false},
 		{"with timezone", "2001-10-26T21:32:52+02:00", false},
@@ -240,6 +313,24 @@ func TestParseDateTime(t *testing.T) {
 				t.Errorf("ParseDateTime() returned zero time")
 			}
 		})
+	}
+}
+
+func TestParseDateTime24HourRolloverBoundaries(t *testing.T) {
+	got, err := ParseDateTime("9999-12-30T24:00:00")
+	if err != nil {
+		t.Fatalf("ParseDateTime() error = %v", err)
+	}
+	if got.Year() != 9999 || got.Month() != 12 || got.Day() != 31 || got.Hour() != 0 {
+		t.Fatalf("unexpected rollover result: %s", got.Format("2006-01-02T15:04:05"))
+	}
+
+	got, err = ParseDateTime("0001-01-01T24:00:00")
+	if err != nil {
+		t.Fatalf("ParseDateTime() error = %v", err)
+	}
+	if got.Year() != 1 || got.Month() != 1 || got.Day() != 2 || got.Hour() != 0 {
+		t.Fatalf("unexpected rollover result: %s", got.Format("2006-01-02T15:04:05"))
 	}
 }
 

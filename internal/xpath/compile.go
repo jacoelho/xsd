@@ -183,8 +183,8 @@ func parseAxisToken(reader *pathReader, token string) (axisToken, error) {
 		return axisToken{}, xpathErrorf("xpath step is missing a node test")
 	}
 
-	if strings.HasPrefix(token, "@") {
-		name := strings.TrimPrefix(token, "@")
+	if after, ok := strings.CutPrefix(token, "@"); ok {
+		name := after
 		if name == "" {
 			name = reader.readToken()
 		}
@@ -311,15 +311,6 @@ func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind)
 		}, nil
 	}
 
-	if kind == nodeTestAttribute {
-		return NodeTest{Local: local, NamespaceSpecified: true}, nil
-	}
-	if nsContext == nil {
-		return NodeTest{Local: local}, nil
-	}
-	if nsURI, ok := types.ResolveNamespace("", nsContext); ok && nsURI != "" {
-		return NodeTest{Local: local, Namespace: nsURI, NamespaceSpecified: true}, nil
-	}
 	return NodeTest{Local: local, NamespaceSpecified: true}, nil
 }
 

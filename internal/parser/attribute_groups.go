@@ -31,7 +31,7 @@ func parseAttributeUses(doc *xsdxml.Document, children []xsdxml.NodeID, schema *
 			if hasAnyAttribute {
 				return uses, fmt.Errorf("%s: anyAttribute must appear after all attributes", context)
 			}
-			attr, err := parseAttribute(doc, child, schema)
+			attr, err := parseAttribute(doc, child, schema, true)
 			if err != nil {
 				return uses, fmt.Errorf("parse attribute in %s: %w", context, err)
 			}
@@ -111,7 +111,7 @@ func parseTopLevelAttributeGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 
 		case "attribute":
 			hasNonAnnotation = true
-			attr, err := parseAttribute(doc, child, schema)
+			attr, err := parseAttribute(doc, child, schema, true)
 			if err != nil {
 				return fmt.Errorf("attributeGroup: parse attribute: %w", err)
 			}

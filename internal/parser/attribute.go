@@ -18,7 +18,7 @@ var validAttributeAttributes = map[string]bool{
 	"id":      true,
 }
 
-func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.AttributeDecl, error) {
+func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, local bool) (*types.AttributeDecl, error) {
 	if err := validateOptionalID(doc, elem, "attribute", schema); err != nil {
 		return nil, err
 	}
@@ -211,7 +211,8 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 	}
 
 	// parse form attribute - must be exactly "qualified" or "unqualified"
-	if doc.HasAttribute(elem, "form") {
+	formExplicit := doc.HasAttribute(elem, "form")
+	if formExplicit {
 		formAttr := types.ApplyWhiteSpace(doc.GetAttribute(elem, "form"), types.WhiteSpaceCollapse)
 		switch formAttr {
 		case "qualified":
@@ -220,6 +221,12 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*
 			attr.Form = types.FormUnqualified
 		default:
 			return nil, fmt.Errorf("invalid form attribute value '%s': must be 'qualified' or 'unqualified'", formAttr)
+		}
+	} else if local {
+		if schema.AttributeFormDefault == Qualified {
+			attr.Form = types.FormQualified
+		} else {
+			attr.Form = types.FormUnqualified
 		}
 	}
 
@@ -266,7 +273,7 @@ func parseTopLevelAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sc
 		return fmt.Errorf("top-level attribute cannot have 'ref' attribute")
 	}
 
-	attr, err := parseAttribute(doc, elem, schema)
+	attr, err := parseAttribute(doc, elem, schema, false)
 	if err != nil {
 		return err
 	}

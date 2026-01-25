@@ -106,7 +106,7 @@ func ParseFloat(lexical string) (float32, error) {
 	case "NaN":
 		return float32(math.NaN()), nil
 	default:
-		if !floatPattern.MatchString(lexical) {
+		if !isFloatLexical(lexical) {
 			return 0, fmt.Errorf("invalid float: %s", lexical)
 		}
 		f, err := strconv.ParseFloat(lexical, 32)
@@ -135,7 +135,7 @@ func ParseDouble(lexical string) (float64, error) {
 	case "NaN":
 		return math.NaN(), nil
 	default:
-		if !floatPattern.MatchString(lexical) {
+		if !isFloatLexical(lexical) {
 			return 0, fmt.Errorf("invalid double: %s", lexical)
 		}
 		f, err := strconv.ParseFloat(lexical, 64)
@@ -212,6 +212,9 @@ func ParseDateTime(lexical string) (time.Time, error) {
 	if needsDayOffset {
 		parsed = parsed.Add(24 * time.Hour)
 	}
+	if parsed.Year() < 1 || parsed.Year() > 9999 {
+		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
+	}
 	return parsed, nil
 }
 
@@ -278,7 +281,11 @@ func ParseUnsignedLong(lexical string) (uint64, error) {
 		return 0, fmt.Errorf("invalid unsignedLong: empty string")
 	}
 
-	val, err := strconv.ParseUint(lexical, 10, 64)
+	normalized, err := normalizeUnsignedLexical(lexical)
+	if err != nil {
+		return 0, fmt.Errorf("invalid unsignedLong: %s", lexical)
+	}
+	val, err := strconv.ParseUint(normalized, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid unsignedLong: %s", lexical)
 	}
@@ -292,7 +299,11 @@ func ParseUnsignedInt(lexical string) (uint32, error) {
 		return 0, fmt.Errorf("invalid unsignedInt: empty string")
 	}
 
-	val, err := strconv.ParseUint(lexical, 10, 32)
+	normalized, err := normalizeUnsignedLexical(lexical)
+	if err != nil {
+		return 0, fmt.Errorf("invalid unsignedInt: %s", lexical)
+	}
+	val, err := strconv.ParseUint(normalized, 10, 32)
 	if err != nil {
 		return 0, fmt.Errorf("invalid unsignedInt: %s", lexical)
 	}
@@ -306,7 +317,11 @@ func ParseUnsignedShort(lexical string) (uint16, error) {
 		return 0, fmt.Errorf("invalid unsignedShort: empty string")
 	}
 
-	val, err := strconv.ParseUint(lexical, 10, 16)
+	normalized, err := normalizeUnsignedLexical(lexical)
+	if err != nil {
+		return 0, fmt.Errorf("invalid unsignedShort: %s", lexical)
+	}
+	val, err := strconv.ParseUint(normalized, 10, 16)
 	if err != nil {
 		return 0, fmt.Errorf("invalid unsignedShort: %s", lexical)
 	}
@@ -320,7 +335,11 @@ func ParseUnsignedByte(lexical string) (uint8, error) {
 		return 0, fmt.Errorf("invalid unsignedByte: empty string")
 	}
 
-	val, err := strconv.ParseUint(lexical, 10, 8)
+	normalized, err := normalizeUnsignedLexical(lexical)
+	if err != nil {
+		return 0, fmt.Errorf("invalid unsignedByte: %s", lexical)
+	}
+	val, err := strconv.ParseUint(normalized, 10, 8)
 	if err != nil {
 		return 0, fmt.Errorf("invalid unsignedByte: %s", lexical)
 	}

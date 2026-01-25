@@ -41,6 +41,39 @@ func TestValidateNumericRanges(t *testing.T) {
 	}
 }
 
+func TestValidateUnsignedLexicalSigns(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		valid bool
+		fn    func(string) error
+	}{
+		{name: "unsignedLong +0", value: "+0", valid: true, fn: validateUnsignedLong},
+		{name: "unsignedLong +1", value: "+1", valid: true, fn: validateUnsignedLong},
+		{name: "unsignedLong -0", value: "-0", valid: true, fn: validateUnsignedLong},
+		{name: "unsignedLong -1", value: "-1", valid: false, fn: validateUnsignedLong},
+		{name: "unsignedInt +0", value: "+0", valid: true, fn: validateUnsignedInt},
+		{name: "unsignedInt +1", value: "+1", valid: true, fn: validateUnsignedInt},
+		{name: "unsignedInt -0", value: "-0", valid: true, fn: validateUnsignedInt},
+		{name: "unsignedInt -1", value: "-1", valid: false, fn: validateUnsignedInt},
+		{name: "unsignedShort +0", value: "+0", valid: true, fn: validateUnsignedShort},
+		{name: "unsignedShort +1", value: "+1", valid: true, fn: validateUnsignedShort},
+		{name: "unsignedShort -0", value: "-0", valid: true, fn: validateUnsignedShort},
+		{name: "unsignedShort -1", value: "-1", valid: false, fn: validateUnsignedShort},
+		{name: "unsignedByte +0", value: "+0", valid: true, fn: validateUnsignedByte},
+		{name: "unsignedByte +1", value: "+1", valid: true, fn: validateUnsignedByte},
+		{name: "unsignedByte -0", value: "-0", valid: true, fn: validateUnsignedByte},
+		{name: "unsignedByte -1", value: "-1", valid: false, fn: validateUnsignedByte},
+	}
+
+	for _, tt := range tests {
+		err := tt.fn(tt.value)
+		if (err == nil) != tt.valid {
+			t.Fatalf("%s: value %q error=%v, valid=%v", tt.name, tt.value, err, tt.valid)
+		}
+	}
+}
+
 func TestValidateStringDerivedTypes(t *testing.T) {
 	if err := validateNormalizedString("line\nbreak"); err == nil {
 		t.Fatalf("expected normalizedString error")
@@ -269,8 +302,16 @@ func TestValidateBinaryURIAndQName(t *testing.T) {
 	if err := validateAnyURI("http://example.com"); err != nil {
 		t.Fatalf("unexpected anyURI error: %v", err)
 	}
-	if err := validateAnyURI("http://ex ample.com"); err == nil {
-		t.Fatalf("expected anyURI whitespace error")
+	if err := validateAnyURI("http://ex ample.com"); err != nil {
+		t.Fatalf("unexpected anyURI space error: %v", err)
+	}
+	anyURIType := GetBuiltin(TypeNameAnyURI)
+	normalized, err := NormalizeValue(" http://ex\tample.com ", anyURIType)
+	if err != nil {
+		t.Fatalf("NormalizeValue(anyURI) error: %v", err)
+	}
+	if normalized != "http://ex ample.com" {
+		t.Fatalf("NormalizeValue(anyURI) = %q", normalized)
 	}
 	if err := validateAnyURI("http://example.com/%G1"); err == nil {
 		t.Fatalf("expected anyURI percent-encoding error")

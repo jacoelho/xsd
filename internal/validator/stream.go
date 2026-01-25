@@ -627,7 +627,7 @@ func (r *streamRun) startUndeclaredWithAnyType(ev *streamStart, parent *streamFr
 	}
 
 	attrsToCheck, anyAttr := attrsForType(effectiveType)
-	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, anyType, ev.ScopeDepth, ev.Line, ev.Column)
+	violations := r.checkAttributesStream(attrs, attrsToCheck, anyAttr, effectiveType, ev.ScopeDepth, ev.Line, ev.Column)
 	if len(violations) > 0 {
 		r.addViolations(violations)
 	}
@@ -1138,7 +1138,7 @@ func (r *streamRun) finishListStream(frame *streamFrame) {
 
 	r.flushListItem(frame)
 	textLine, textColumn := frame.textPos()
-	r.applyListStreamingFacets(frame.textType, state, textLine, textColumn)
+	r.applyListStreamingFacets(frame.textType, state, frame.scopeDepth, nil, textLine, textColumn)
 }
 
 func (r *streamRun) flushListItem(frame *streamFrame) {
@@ -1211,7 +1211,7 @@ func (r *streamRun) validateListItemBytes(frame *streamFrame, itemBytes []byte, 
 	return true, true
 }
 
-func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType, state *listStreamState, line, column int) {
+func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType, state *listStreamState, scopeDepth int, context map[string]string, line, column int) {
 	if compiledType == nil || state == nil {
 		return
 	}
@@ -1220,6 +1220,7 @@ func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType,
 		lexicalValue = string(state.collapsedBuf)
 	}
 	var typedValue types.TypedValue
+	needsQNameEnum := requiresQNameEnumeration(compiledType)
 
 	for _, facet := range compiledType.Facets {
 		if shouldSkipLengthFacet(compiledType, facet) {
@@ -1240,6 +1241,10 @@ func (r *streamRun) applyListStreamingFacets(compiledType *grammar.CompiledType,
 				err = fmt.Errorf("length must be at most %d, got %d", f.Value, state.itemIndex)
 			}
 		default:
+			if enumFacet, ok := facet.(*types.Enumeration); ok && needsQNameEnum {
+				err = r.validateQNameEnumerationForType(lexicalValue, enumFacet, compiledType, scopeDepth, context)
+				break
+			}
 			if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
 				err = lexicalFacet.ValidateLexical(lexicalValue, compiledType.Original)
 				break

@@ -307,6 +307,151 @@ func TestValidateReferencesAttributeReferences(t *testing.T) {
 	requireNoReferenceErrors(t, schema)
 }
 
+func TestValidateReferencesAttributeRefIgnoresDefaultNamespace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns="urn:tns"
+           targetNamespace="urn:tns"
+           elementFormDefault="qualified">
+  <xs:attribute name="a" type="xs:string"/>
+  <xs:complexType name="t">
+    <xs:attribute ref="a"/>
+  </xs:complexType>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+
+	requireReferenceErrorContains(t, schema, "attribute reference")
+}
+
+func TestValidateReferencesAttributeRefNoTargetNamespace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns="urn:tns">
+  <xs:attribute name="a" type="xs:string"/>
+  <xs:complexType name="t">
+    <xs:attribute ref="a"/>
+  </xs:complexType>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+
+	requireNoReferenceErrors(t, schema)
+}
+
+func TestValidateReferencesAttributeRefDefaultAgainstFixed(t *testing.T) {
+	tests := []struct {
+		name     string
+		defaultV string
+	}{
+		{name: "default matches fixed", defaultV: "1"},
+		{name: "default differs from fixed", defaultV: "2"},
+	}
+
+	for _, tt := range tests {
+		schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:attr"
+           xmlns:tns="urn:attr"
+           elementFormDefault="qualified">
+  <xs:attribute name="a" type="xs:string" fixed="1"/>
+  <xs:complexType name="t">
+    <xs:attribute ref="tns:a" default="` + tt.defaultV + `"/>
+  </xs:complexType>
+</xs:schema>`
+
+		schema, err := parser.Parse(strings.NewReader(schemaXML))
+		if err != nil {
+			t.Fatalf("parse schema: %v", err)
+		}
+
+		requireReferenceErrorContains(t, schema, "default")
+	}
+}
+
+func TestValidateReferencesAttributeRefFixedMatches(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:attr"
+           xmlns:tns="urn:attr"
+           elementFormDefault="qualified">
+  <xs:attribute name="a" type="xs:string" fixed="1"/>
+  <xs:complexType name="t">
+    <xs:attribute ref="tns:a" fixed="1"/>
+  </xs:complexType>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+
+	requireNoReferenceErrors(t, schema)
+}
+
+func TestValidateReferencesAttributeRefFixedQNameValueSpace(t *testing.T) {
+	equivalent := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:attr"
+           xmlns:tns="urn:attr"
+           xmlns:p="urn:a"
+           elementFormDefault="qualified">
+  <xs:attribute name="a" type="xs:QName" fixed="p:code"/>
+  <xs:complexType name="t" xmlns:q="urn:a">
+    <xs:attribute ref="tns:a" fixed="q:code"/>
+  </xs:complexType>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(equivalent))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	requireNoReferenceErrors(t, schema)
+
+	mismatch := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:attr"
+           xmlns:tns="urn:attr"
+           xmlns:p="urn:a"
+           elementFormDefault="qualified">
+  <xs:attribute name="a" type="xs:QName" fixed="p:code"/>
+  <xs:complexType name="t" xmlns:p="urn:b">
+    <xs:attribute ref="tns:a" fixed="p:code"/>
+  </xs:complexType>
+</xs:schema>`
+
+	schema, err = parser.Parse(strings.NewReader(mismatch))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	requireReferenceErrorContains(t, schema, "fixed value")
+}
+
+func TestValidateReferencesAttributeRefFixedWhitespaceValueSpace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:attr"
+           xmlns:tns="urn:attr"
+           elementFormDefault="qualified">
+  <xs:attribute name="a" type="xs:token" fixed="a   b"/>
+  <xs:complexType name="t">
+    <xs:attribute ref="tns:a" fixed="a b"/>
+  </xs:complexType>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	requireNoReferenceErrors(t, schema)
+}
+
 func TestValidateReferencesKeyref(t *testing.T) {
 	schema := resolveW3CSchema(t, "sunData/combined/identity/IdentityTestSuite/001/test.xsd")
 	requireNoReferenceErrors(t, schema)
