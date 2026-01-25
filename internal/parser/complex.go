@@ -252,7 +252,7 @@ func (s *complexTypeParseState) handleAttribute(child xsdxml.NodeID) error {
 	if s.hasAnyAttribute {
 		return fmt.Errorf("complexType: anyAttribute must appear after all attributes")
 	}
-	attr, err := parseAttribute(s.doc, child, s.schema)
+	attr, err := parseAttribute(s.doc, child, s.schema, true)
 	if err != nil {
 		return fmt.Errorf("complexType: parse attribute: %w", err)
 	}

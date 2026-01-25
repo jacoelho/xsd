@@ -28,6 +28,7 @@ type CompiledType struct {
 	IDTypeName            string
 	DerivationChain       []*CompiledType
 	AllAttributes         []*CompiledAttribute
+	ProhibitedAttributes  []types.QName
 	Facets                []types.Facet
 	MemberTypes           []*CompiledType
 	DerivationMethod      types.DerivationMethod

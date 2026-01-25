@@ -50,14 +50,10 @@ func namespaceForPrefix(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 		}
 	}
 
-	switch prefix {
-	case "xs", "xsd":
-		return xsdxml.XSDNamespace
-	case "xml":
+	if prefix == "xml" {
 		return xsdxml.XMLNamespace
-	default:
-		return ""
 	}
+	return ""
 }
 
 func namespaceContextForElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) map[string]string {
@@ -178,9 +174,7 @@ func resolveIdentityConstraintQName(doc *xsdxml.Document, qname string, elem xsd
 }
 
 // resolveAttributeRefQName resolves a QName for ATTRIBUTE references.
-// QName values in schema attributes use standard XML namespace resolution:
-// - Prefixed names use the declared namespace for that prefix
-// - Unprefixed names use the default namespace if declared, otherwise no namespace
+// Per XSD, unprefixed attribute references are in no namespace (ignore default namespaces).
 func resolveAttributeRefQName(doc *xsdxml.Document, qname string, elem xsdxml.NodeID, schema *Schema) (types.QName, error) {
 	prefix, local, hasPrefix, err := types.ParseQName(qname)
 	if err != nil {
@@ -189,12 +183,7 @@ func resolveAttributeRefQName(doc *xsdxml.Document, qname string, elem xsdxml.No
 
 	var namespace types.NamespaceURI
 	if !hasPrefix {
-		// no prefix - check for default namespace (xmlns="...")
-		defaultNS := namespaceForPrefix(doc, elem, schema, "")
-		if defaultNS != "" {
-			namespace = types.NamespaceURI(defaultNS)
-		}
-		// if no default namespace, namespace stays empty
+		namespace = types.NamespaceEmpty
 	} else {
 		namespaceStr := namespaceForPrefix(doc, elem, schema, prefix)
 		if namespaceStr == "" {

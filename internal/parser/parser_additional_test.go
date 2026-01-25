@@ -804,7 +804,7 @@ func TestParseAttributeLocalAndReference(t *testing.T) {
 	if refAttr == xsdxml.InvalidNode {
 		t.Fatalf("expected ref attribute to be found")
 	}
-	refDecl, err := parseAttribute(doc, refAttr, schema)
+	refDecl, err := parseAttribute(doc, refAttr, schema, true)
 	if err != nil {
 		t.Fatalf("parseAttribute ref error = %v", err)
 	}
@@ -816,7 +816,7 @@ func TestParseAttributeLocalAndReference(t *testing.T) {
 	if localAttr == xsdxml.InvalidNode {
 		t.Fatalf("expected local attribute to be found")
 	}
-	localDecl, err := parseAttribute(doc, localAttr, schema)
+	localDecl, err := parseAttribute(doc, localAttr, schema, true)
 	if err != nil {
 		t.Fatalf("parseAttribute local error = %v", err)
 	}
@@ -846,7 +846,7 @@ func TestParseAttributeProhibitedFixedLocalAllowed(t *testing.T) {
 	if attrElem == xsdxml.InvalidNode {
 		t.Fatalf("expected attribute with fixed to be found")
 	}
-	if _, err := parseAttribute(doc, attrElem, schema); err != nil {
+	if _, err := parseAttribute(doc, attrElem, schema, true); err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
 }
@@ -872,7 +872,7 @@ func TestParseAttributeProhibitedFixedReferenceAllowed(t *testing.T) {
 	if attrElem == xsdxml.InvalidNode {
 		t.Fatalf("expected attribute ref to be found")
 	}
-	if _, err := parseAttribute(doc, attrElem, schema); err != nil {
+	if _, err := parseAttribute(doc, attrElem, schema, true); err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
 }
