@@ -893,7 +893,10 @@ func (t *TotalDigits) Validate(value TypedValue, baseType Type) error {
 // ValidateLexical checks if the lexical value respects totalDigits.
 func (t *TotalDigits) ValidateLexical(lexical string, _ Type) error {
 	lexical = TrimXMLWhitespace(lexical)
-	digitCount := countDigits(lexical)
+	digitCount, _, err := normalizedDecimalDigits(lexical)
+	if err != nil {
+		return err
+	}
 	if digitCount > t.Value {
 		return fmt.Errorf("total number of digits (%d) exceeds limit (%d)", digitCount, t.Value)
 	}
@@ -923,37 +926,43 @@ func (f *FractionDigits) Validate(value TypedValue, baseType Type) error {
 // ValidateLexical checks if the lexical value respects fractionDigits.
 func (f *FractionDigits) ValidateLexical(lexical string, _ Type) error {
 	lexical = TrimXMLWhitespace(lexical)
-	fractionDigits := countFractionDigits(lexical)
+	_, fractionDigits, err := normalizedDecimalDigits(lexical)
+	if err != nil {
+		return err
+	}
 	if fractionDigits > f.Value {
 		return fmt.Errorf("number of fraction digits (%d) exceeds limit (%d)", fractionDigits, f.Value)
 	}
 	return nil
 }
 
-// countDigits counts the total number of digits in a string
-func countDigits(value string) int {
-	count := 0
-	for _, r := range value {
-		if r >= '0' && r <= '9' {
-			count++
-		}
+func normalizedDecimalDigits(value string) (int, int, error) {
+	if value == "" {
+		return 0, 0, fmt.Errorf("invalid decimal: empty string")
 	}
-	return count
-}
-
-// countFractionDigits counts digits after the decimal point
-func countFractionDigits(value string) int {
-	_, after, ok := strings.Cut(value, ".")
-	if !ok {
-		return 0 // no decimal point, so no fraction digits
+	// strip exponent if present (e.g., "1.23E4" -> "1.23")
+	if eIdx := strings.IndexAny(value, "Ee"); eIdx >= 0 {
+		value = value[:eIdx]
 	}
-
-	fractionPart := after
-
-	// remove exponent if present (e.g., "1.23E4" -> "1.23")
-	if eIdx := strings.IndexAny(fractionPart, "Ee"); eIdx >= 0 {
-		fractionPart = fractionPart[:eIdx]
+	if value == "" {
+		return 0, 0, fmt.Errorf("invalid decimal: empty string")
 	}
+	if value[0] == '+' || value[0] == '-' {
+		value = value[1:]
+	}
+	if !isValidDecimalLexical(value) {
+		return 0, 0, fmt.Errorf("invalid decimal: %s", value)
+	}
+	intPart, fracPart, _ := strings.Cut(value, ".")
+	if intPart == "" {
+		intPart = "0"
+	}
+	fracPart = strings.TrimRight(fracPart, "0")
+	fractionDigits := len(fracPart)
 
-	return countDigits(fractionPart)
+	digits := strings.TrimLeft(intPart+fracPart, "0")
+	if digits == "" {
+		digits = "0"
+	}
+	return len(digits), fractionDigits, nil
 }

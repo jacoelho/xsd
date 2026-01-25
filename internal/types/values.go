@@ -1,6 +1,8 @@
 package types
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"math/big"
@@ -132,6 +134,23 @@ func (v *DecimalValue) String() string {
 	return canonicalDecimalString(v.lexical)
 }
 
+// XSDDurationValue represents a duration value.
+type XSDDurationValue struct {
+	simpleValue[XSDDuration]
+}
+
+// NewXSDDurationValue creates a new XSDDurationValue.
+func NewXSDDurationValue(parsed ParsedValue[XSDDuration], typ *SimpleType) TypedValue {
+	return &XSDDurationValue{simpleValue: newSimpleValue(parsed, typ, nil)}
+}
+
+func (v *XSDDurationValue) String() string {
+	if v == nil {
+		return ""
+	}
+	return ComparableXSDDuration{Value: v.native, Typ: v.typ}.String()
+}
+
 func canonicalDecimalString(lexical string) string {
 	s := TrimXMLWhitespace(lexical)
 	if s == "" {
@@ -201,18 +220,121 @@ func NewBooleanValue(parsed ParsedValue[bool], typ *SimpleType) TypedValue {
 	return &BooleanValue{simpleValue: newSimpleValue(parsed, typ, nil)}
 }
 
+// HexBinaryValue represents a hexBinary value.
+type HexBinaryValue struct {
+	simpleValue[[]byte]
+}
+
+// NewHexBinaryValue creates a new HexBinaryValue.
+func NewHexBinaryValue(parsed ParsedValue[[]byte], typ *SimpleType) TypedValue {
+	return &HexBinaryValue{simpleValue: newSimpleValue(parsed, typ, nil)}
+}
+
+func (v *HexBinaryValue) String() string {
+	if v == nil {
+		return ""
+	}
+	return strings.ToUpper(hex.EncodeToString(v.native))
+}
+
+// Base64BinaryValue represents a base64Binary value.
+type Base64BinaryValue struct {
+	simpleValue[[]byte]
+}
+
+// NewBase64BinaryValue creates a new Base64BinaryValue.
+func NewBase64BinaryValue(parsed ParsedValue[[]byte], typ *SimpleType) TypedValue {
+	return &Base64BinaryValue{simpleValue: newSimpleValue(parsed, typ, nil)}
+}
+
+func (v *Base64BinaryValue) String() string {
+	if v == nil {
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString(v.native)
+}
+
 // DateTimeValue represents a dateTime value
 type DateTimeValue struct {
 	simpleValue[time.Time]
+	kind        TypeName
+	hasTimezone bool
 }
 
 // NewDateTimeValue creates a new DateTimeValue
 func NewDateTimeValue(parsed ParsedValue[time.Time], typ *SimpleType) TypedValue {
-	return &DateTimeValue{
-		simpleValue: newSimpleValue(parsed, typ, func(value time.Time) string {
-			return value.Format(time.RFC3339Nano)
-		}),
+	kind := TypeNameDateTime
+	if typ != nil {
+		if primitive := typ.PrimitiveType(); primitive != nil {
+			kind = TypeName(primitive.Name().Local)
+		} else {
+			kind = TypeName(typ.Name().Local)
+		}
 	}
+	return &DateTimeValue{
+		simpleValue: newSimpleValue(parsed, typ, nil),
+		kind:        kind,
+		hasTimezone: HasTimezone(parsed.Lexical),
+	}
+}
+
+func (v *DateTimeValue) String() string {
+	return canonicalDateTimeString(v.native, v.kind, v.hasTimezone)
+}
+
+func canonicalDateTimeString(value time.Time, kind TypeName, hasTimezone bool) string {
+	year, month, day := value.Date()
+	hour, minute, second := value.Clock()
+	fraction := formatFraction(value.Nanosecond())
+	tz := ""
+	if hasTimezone {
+		tz = formatTimezone(value)
+	}
+
+	switch kind {
+	case TypeNameDateTime:
+		return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02d%s%s", year, int(month), day, hour, minute, second, fraction, tz)
+	case TypeNameDate:
+		return fmt.Sprintf("%04d-%02d-%02d%s", year, int(month), day, tz)
+	case TypeNameTime:
+		return fmt.Sprintf("%02d:%02d:%02d%s%s", hour, minute, second, fraction, tz)
+	case TypeNameGYearMonth:
+		return fmt.Sprintf("%04d-%02d%s", year, int(month), tz)
+	case TypeNameGYear:
+		return fmt.Sprintf("%04d%s", year, tz)
+	case TypeNameGMonthDay:
+		return fmt.Sprintf("--%02d-%02d%s", int(month), day, tz)
+	case TypeNameGMonth:
+		return fmt.Sprintf("--%02d%s", int(month), tz)
+	case TypeNameGDay:
+		return fmt.Sprintf("---%02d%s", day, tz)
+	default:
+		return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02d%s%s", year, int(month), day, hour, minute, second, fraction, tz)
+	}
+}
+
+func formatFraction(nanos int) string {
+	if nanos == 0 {
+		return ""
+	}
+	frac := fmt.Sprintf("%09d", nanos)
+	frac = strings.TrimRight(frac, "0")
+	return "." + frac
+}
+
+func formatTimezone(value time.Time) string {
+	_, offset := value.Zone()
+	if offset == 0 {
+		return "Z"
+	}
+	sign := "+"
+	if offset < 0 {
+		sign = "-"
+		offset = -offset
+	}
+	hours := offset / 3600
+	minutes := (offset % 3600) / 60
+	return fmt.Sprintf("%s%02d:%02d", sign, hours, minutes)
 }
 
 // FloatValue represents a float value

@@ -157,6 +157,9 @@ func ParseTime(lexical string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, fmt.Errorf("invalid time: %s", lexical)
 	}
+	if leapSecond {
+		parsed = parsed.Add(time.Second)
+	}
 	return parsed, nil
 }
 
