@@ -79,12 +79,12 @@ func ValuesEqual(left, right TypedValue) bool {
 		switch r := rightNative.(type) {
 		case float32:
 			if math.IsNaN(float64(l)) || math.IsNaN(float64(r)) {
-				return false
+				return math.IsNaN(float64(l)) && math.IsNaN(float64(r))
 			}
 			return l == r
 		case float64:
 			if math.IsNaN(float64(l)) || math.IsNaN(r) {
-				return false
+				return math.IsNaN(float64(l)) && math.IsNaN(r)
 			}
 			return float64(l) == r
 		default:
@@ -95,14 +95,39 @@ func ValuesEqual(left, right TypedValue) bool {
 		switch r := rightNative.(type) {
 		case float64:
 			if math.IsNaN(l) || math.IsNaN(r) {
-				return false
+				return math.IsNaN(l) && math.IsNaN(r)
 			}
 			return l == r
 		case float32:
 			if math.IsNaN(l) || math.IsNaN(float64(r)) {
-				return false
+				return math.IsNaN(l) && math.IsNaN(float64(r))
 			}
 			return l == float64(r)
+		default:
+			return false
+		}
+
+	case QName:
+		r, ok := rightNative.(QName)
+		return ok && l.Equal(r)
+
+	case XSDDuration:
+		switch r := rightNative.(type) {
+		case XSDDuration:
+			return durationsEqual(l, r, left.Type(), right.Type())
+		case ComparableXSDDuration:
+			return durationsEqual(l, r.Value, left.Type(), right.Type())
+		default:
+			return false
+		}
+
+	case ComparableXSDDuration:
+		switch r := rightNative.(type) {
+		case ComparableXSDDuration:
+			cmp, err := l.Compare(r)
+			return err == nil && cmp == 0
+		case XSDDuration:
+			return durationsEqual(l.Value, r, left.Type(), right.Type())
 		default:
 			return false
 		}
@@ -145,6 +170,13 @@ func ValuesEqual(left, right TypedValue) bool {
 	}
 
 	return left.Lexical() == right.Lexical()
+}
+
+func durationsEqual(left, right XSDDuration, leftType, rightType Type) bool {
+	leftComp := ComparableXSDDuration{Value: left, Typ: leftType}
+	rightComp := ComparableXSDDuration{Value: right, Typ: rightType}
+	cmp, err := leftComp.Compare(rightComp)
+	return err == nil && cmp == 0
 }
 
 func isTemporalValueType(typ Type) bool {

@@ -96,6 +96,41 @@ func TestGenericMinInclusive_Time(t *testing.T) {
 	}
 }
 
+func TestTimeLeapSecondFacetRange(t *testing.T) {
+	timeType := &SimpleType{
+		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "time"},
+	}
+	minTime, err := ParseTime("23:59:60Z")
+	if err != nil {
+		t.Fatalf("ParseTime() error = %v", err)
+	}
+	facet := &RangeFacet{
+		name:    "minInclusive",
+		lexical: "23:59:60Z",
+		value:   ComparableTime{Value: minTime, Typ: timeType, HasTimezone: true},
+		cmpFunc: func(cmp int) bool { return cmp >= 0 },
+		errOp:   ">=",
+	}
+
+	beforeTime, err := ParseTime("23:59:59Z")
+	if err != nil {
+		t.Fatalf("ParseTime() error = %v", err)
+	}
+	beforeValue := NewDateTimeValue(NewParsedValue("23:59:59Z", beforeTime), timeType)
+	if err := facet.Validate(beforeValue, timeType); err == nil {
+		t.Error("Validate() should return error for value before leap second")
+	}
+
+	equalTime, err := ParseTime("23:59:60Z")
+	if err != nil {
+		t.Fatalf("ParseTime() error = %v", err)
+	}
+	equalValue := NewDateTimeValue(NewParsedValue("23:59:60Z", equalTime), timeType)
+	if err := facet.Validate(equalValue, timeType); err != nil {
+		t.Errorf("Validate() error = %v, want nil", err)
+	}
+}
+
 func TestGenericMinInclusive_BigInt(t *testing.T) {
 	integerType := &SimpleType{
 		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "integer"},

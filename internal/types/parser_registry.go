@@ -28,6 +28,7 @@ var valueParsers = map[TypeName]ValueParserFunc{
 	TypeNameDateTime:      parserFor(ParseDateTime, NewDateTimeValue),
 	TypeNameTime:          parserFor(ParseTime, NewDateTimeValue),
 	TypeNameDate:          parserFor(ParseDate, NewDateTimeValue),
+	TypeNameDuration:      parserFor(ParseXSDDuration, NewXSDDurationValue),
 	TypeNameGYear:         parserFor(ParseGYear, NewDateTimeValue),
 	TypeNameGYearMonth:    parserFor(ParseGYearMonth, NewDateTimeValue),
 	TypeNameGMonth:        parserFor(ParseGMonth, NewDateTimeValue),
@@ -45,6 +46,8 @@ var valueParsers = map[TypeName]ValueParserFunc{
 	TypeNameUnsignedInt:   parserFor(ParseUnsignedInt, NewUnsignedIntValue),
 	TypeNameUnsignedShort: parserFor(ParseUnsignedShort, NewUnsignedShortValue),
 	TypeNameUnsignedByte:  parserFor(ParseUnsignedByte, NewUnsignedByteValue),
+	TypeNameHexBinary:     parserFor(ParseHexBinary, NewHexBinaryValue),
+	TypeNameBase64Binary:  parserFor(ParseBase64Binary, NewBase64BinaryValue),
 }
 
 // ParseValueForType parses a lexical value using the registry for the given type name.
