@@ -841,16 +841,25 @@ func (c ComparableXSDDuration) String() string {
 		buf.WriteString("-")
 	}
 	buf.WriteString("P")
+	hasDate := false
 	if c.Value.Years != 0 {
 		buf.WriteString(fmt.Sprintf("%dY", c.Value.Years))
+		hasDate = true
 	}
 	if c.Value.Months != 0 {
 		buf.WriteString(fmt.Sprintf("%dM", c.Value.Months))
+		hasDate = true
 	}
 	if c.Value.Days != 0 {
 		buf.WriteString(fmt.Sprintf("%dD", c.Value.Days))
+		hasDate = true
 	}
+
 	hasTime := c.Value.Hours != 0 || c.Value.Minutes != 0 || c.Value.Seconds != 0
+	if !hasDate && !hasTime {
+		return buf.String() + "T0S"
+	}
+
 	if hasTime {
 		buf.WriteString("T")
 		if c.Value.Hours != 0 {
@@ -860,7 +869,9 @@ func (c ComparableXSDDuration) String() string {
 			buf.WriteString(fmt.Sprintf("%dM", c.Value.Minutes))
 		}
 		if c.Value.Seconds != 0 {
-			buf.WriteString(fmt.Sprintf("%gS", c.Value.Seconds))
+			seconds := strconv.FormatFloat(c.Value.Seconds, 'f', -1, 64)
+			buf.WriteString(seconds)
+			buf.WriteString("S")
 		}
 	}
 	return buf.String()

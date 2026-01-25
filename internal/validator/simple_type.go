@@ -182,24 +182,10 @@ func (r *validationRun) trackIDREFS(idrefs, path string, line, column int) {
 
 // splitWhitespaceSeq yields whitespace-separated fields using XML's ASCII whitespace set.
 func splitWhitespaceSeq(s string, yield func(string) bool) {
-	start := -1
-	for i := 0; i < len(s); i++ {
-		b := s[i]
-		if types.IsXMLWhitespaceByte(b) {
-			if start >= 0 {
-				if !yield(s[start:i]) {
-					return
-				}
-				start = -1
-			}
-			continue
+	for field := range types.FieldsXMLWhitespaceSeq(s) {
+		if !yield(field) {
+			return
 		}
-		if start < 0 {
-			start = i
-		}
-	}
-	if start >= 0 {
-		_ = yield(s[start:])
 	}
 }
 

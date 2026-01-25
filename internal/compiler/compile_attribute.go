@@ -147,6 +147,10 @@ func (c *Compiler) addCompiledAttribute(attr *types.AttributeDecl, attrMap map[t
 		}
 	}
 
+	if compiled.HasDefault && compiled.HasFixed {
+		return fmt.Errorf("attribute %s cannot have both default and fixed values", effectiveQName)
+	}
+
 	if attrType != nil {
 		attrTypeCompiled, err := c.compileType(attrType.Name(), attrType)
 		if err != nil {
@@ -226,6 +230,87 @@ func (c *Compiler) mergeAttributesFromGroup(ag *types.AttributeGroup, attrMap ma
 		}
 	}
 	return nil
+}
+
+func (c *Compiler) collectProhibitedAttributes(chain []*grammar.CompiledType) []types.QName {
+	if len(chain) == 0 {
+		return nil
+	}
+	seen := make(map[types.QName]bool)
+	prohibited := make([]types.QName, 0)
+
+	for _, compiledType := range chain {
+		if compiledType == nil || compiledType.Original == nil {
+			continue
+		}
+		complexType, ok := compiledType.Original.(*types.ComplexType)
+		if !ok {
+			continue
+		}
+
+		c.collectProhibitedAttributesFromUses(complexType.Attributes(), complexType.AttrGroups, seen, &prohibited)
+
+		if ext := complexType.Content().ExtensionDef(); ext != nil {
+			c.collectProhibitedAttributesFromUses(ext.Attributes, ext.AttrGroups, seen, &prohibited)
+		}
+		if restr := complexType.Content().RestrictionDef(); restr != nil {
+			c.collectProhibitedAttributesFromUses(restr.Attributes, restr.AttrGroups, seen, &prohibited)
+		}
+	}
+
+	return prohibited
+}
+
+func (c *Compiler) collectProhibitedAttributesFromUses(attrs []*types.AttributeDecl, attrGroups []types.QName, seen map[types.QName]bool, out *[]types.QName) {
+	for _, attr := range attrs {
+		if attr.Use != types.Prohibited {
+			continue
+		}
+		qname := c.effectiveAttributeQName(attr)
+		if !seen[qname] {
+			*out = append(*out, qname)
+			seen[qname] = true
+		}
+	}
+	c.collectProhibitedAttributesFromGroups(attrGroups, seen, out)
+}
+
+func (c *Compiler) collectProhibitedAttributesFromGroups(attrGroups []types.QName, seen map[types.QName]bool, out *[]types.QName) {
+	if len(attrGroups) == 0 {
+		return
+	}
+	visited := make(map[*types.AttributeGroup]bool)
+	queue := make([]*types.AttributeGroup, 0, len(attrGroups))
+	for _, ref := range attrGroups {
+		if ag, ok := c.schema.AttributeGroups[ref]; ok {
+			queue = append(queue, ag)
+		}
+	}
+	for len(queue) > 0 {
+		group := queue[0]
+		queue = queue[1:]
+		if visited[group] {
+			continue
+		}
+		visited[group] = true
+
+		for _, attr := range group.Attributes {
+			if attr.Use != types.Prohibited {
+				continue
+			}
+			qname := c.effectiveAttributeQName(attr)
+			if !seen[qname] {
+				*out = append(*out, qname)
+				seen[qname] = true
+			}
+		}
+
+		for _, ref := range group.AttrGroups {
+			if next, ok := c.schema.AttributeGroups[ref]; ok {
+				queue = append(queue, next)
+			}
+		}
+	}
 }
 
 func (c *Compiler) mergeAnyAttribute(chain []*grammar.CompiledType) *types.AnyAttribute {

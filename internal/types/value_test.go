@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -119,6 +120,47 @@ func TestTypedValue_DateTime(t *testing.T) {
 	}
 	if !extracted.Equal(native) {
 		t.Errorf("ValueAs[time.Time]() = %v, want %v", extracted, native)
+	}
+}
+
+func TestTypedValue_DateTimeCanonicalString(t *testing.T) {
+	tests := []struct {
+		name     string
+		typeName TypeName
+		lexical  string
+		want     string
+	}{
+		{"dateTime no tz", TypeNameDateTime, "2001-10-26T21:32:52", "2001-10-26T21:32:52"},
+		{"dateTime with tz", TypeNameDateTime, "2001-10-26T21:32:52Z", "2001-10-26T21:32:52Z"},
+		{"date no tz", TypeNameDate, "2001-10-26", "2001-10-26"},
+		{"date with tz", TypeNameDate, "2001-10-26Z", "2001-10-26Z"},
+		{"time no tz", TypeNameTime, "21:32:52", "21:32:52"},
+		{"time with tz", TypeNameTime, "21:32:52+05:30", "21:32:52+05:30"},
+		{"gYear no tz", TypeNameGYear, "2001", "2001"},
+		{"gYear with tz", TypeNameGYear, "2001Z", "2001Z"},
+		{"gYearMonth no tz", TypeNameGYearMonth, "2001-10", "2001-10"},
+		{"gYearMonth with tz", TypeNameGYearMonth, "2001-10Z", "2001-10Z"},
+		{"gMonth no tz", TypeNameGMonth, "--10", "--10"},
+		{"gMonth with tz", TypeNameGMonth, "--10Z", "--10Z"},
+		{"gMonthDay no tz", TypeNameGMonthDay, "--10-26", "--10-26"},
+		{"gMonthDay with tz", TypeNameGMonthDay, "--10-26Z", "--10-26Z"},
+		{"gDay no tz", TypeNameGDay, "---26", "---26"},
+		{"gDay with tz", TypeNameGDay, "---26Z", "---26Z"},
+		{"dateTime fractional", TypeNameDateTime, "2001-10-26T21:32:52.1200Z", "2001-10-26T21:32:52.12Z"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			typ := mustBuiltinSimpleType(t, tt.typeName)
+			native, err := parseTemporalForType(tt.typeName, tt.lexical)
+			if err != nil {
+				t.Fatalf("parseTemporalForType() error = %v", err)
+			}
+			value := NewDateTimeValue(NewParsedValue(tt.lexical, native), typ)
+			if got := value.String(); got != tt.want {
+				t.Fatalf("String() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -350,6 +392,29 @@ func TestValueAs_WithComparableWrappers(t *testing.T) {
 	}
 	if resultFloat != float32(123.456) {
 		t.Errorf("ValueAs[float32]() = %v, want %v", resultFloat, float32(123.456))
+	}
+}
+
+func parseTemporalForType(typeName TypeName, lexical string) (time.Time, error) {
+	switch typeName {
+	case TypeNameDateTime:
+		return ParseDateTime(lexical)
+	case TypeNameDate:
+		return ParseDate(lexical)
+	case TypeNameTime:
+		return ParseTime(lexical)
+	case TypeNameGYear:
+		return ParseGYear(lexical)
+	case TypeNameGYearMonth:
+		return ParseGYearMonth(lexical)
+	case TypeNameGMonthDay:
+		return ParseGMonthDay(lexical)
+	case TypeNameGMonth:
+		return ParseGMonth(lexical)
+	case TypeNameGDay:
+		return ParseGDay(lexical)
+	default:
+		return time.Time{}, fmt.Errorf("unsupported temporal type %s", typeName)
 	}
 }
 

@@ -112,6 +112,70 @@ func TestQNameEnumerationResolvesLocalNamespace(t *testing.T) {
 	}
 }
 
+func TestQNameListEnumerationResolvesNamespace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:qname"
+           xmlns:tns="urn:qname"
+           elementFormDefault="qualified">
+  <xs:simpleType name="QNameList">
+    <xs:list itemType="xs:QName"/>
+  </xs:simpleType>
+  <xs:simpleType name="QNameListEnum">
+    <xs:restriction base="tns:QNameList">
+      <xs:enumeration xmlns:p="urn:example" value="p:one p:two"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:QNameListEnum"/>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<tns:root xmlns:tns="urn:qname" xmlns:q="urn:example">q:one q:two</tns:root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got: %v", violations)
+	}
+}
+
+func TestQNameUnionEnumerationResolvesNamespace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:qname"
+           xmlns:tns="urn:qname"
+           elementFormDefault="qualified">
+  <xs:simpleType name="QNameOrString">
+    <xs:union memberTypes="xs:QName xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="QNameOrStringEnum">
+    <xs:restriction base="tns:QNameOrString">
+      <xs:enumeration xmlns:p="urn:example" value="p:one"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:QNameOrStringEnum"/>
+</xs:schema>`
+
+	docXML := `<?xml version="1.0"?>
+<tns:root xmlns:tns="urn:qname" xmlns:q="urn:example">q:one</tns:root>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse schema: %v", err)
+	}
+
+	v := New(mustCompile(t, schema))
+	violations := validateStream(t, v, docXML)
+	if len(violations) != 0 {
+		t.Fatalf("expected no violations, got: %v", violations)
+	}
+}
+
 func TestFixedQNameValueResolvesNamespace(t *testing.T) {
 	t.Run("element_fixed", func(t *testing.T) {
 		schemaXML := `<?xml version="1.0"?>

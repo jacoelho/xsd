@@ -304,6 +304,53 @@ func TestFractionDigits(t *testing.T) {
 	}
 }
 
+func TestTotalDigitsValueSpace(t *testing.T) {
+	baseType := mustBuiltinSimpleType(t, TypeNameDecimal)
+
+	td := &TotalDigits{Value: 3}
+
+	tests := []struct {
+		value string
+		valid bool
+	}{
+		{"001.2300", true},
+		{"1234", false},
+		{"-0.000", true},
+	}
+
+	for _, tt := range tests {
+		tv := &StringTypedValue{Value: tt.value, Typ: baseType}
+		err := td.Validate(tv, baseType)
+		if (err == nil) != tt.valid {
+			t.Errorf("TotalDigits.Validate(%q) = %v, want valid=%v", tt.value, err, tt.valid)
+		}
+	}
+}
+
+func TestFractionDigitsValueSpace(t *testing.T) {
+	baseType := mustBuiltinSimpleType(t, TypeNameDecimal)
+
+	fd := &FractionDigits{Value: 2}
+
+	tests := []struct {
+		value string
+		valid bool
+	}{
+		{"1.2300", true},
+		{"01.20", true},
+		{"1.234", false},
+		{"-0.000", true},
+	}
+
+	for _, tt := range tests {
+		tv := &StringTypedValue{Value: tt.value, Typ: baseType}
+		err := fd.Validate(tv, baseType)
+		if (err == nil) != tt.valid {
+			t.Errorf("FractionDigits.Validate(%q) = %v, want valid=%v", tt.value, err, tt.valid)
+		}
+	}
+}
+
 // TestLengthCalculation tests the getLength function for different types
 func TestLengthCalculation(t *testing.T) {
 	tests := []struct {

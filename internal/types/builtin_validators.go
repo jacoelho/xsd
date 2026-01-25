@@ -38,8 +38,6 @@ func validateBoolean(value string) error {
 
 // validateDecimal validates xs:decimal
 var (
-	decimalPattern = regexp.MustCompile(`^[+-]?(\d+(\.\d*)?|\.\d+)$`)
-	floatPattern   = regexp.MustCompile(`^[+-]?((\d+(\.\d*)?)|(\.\d+))([eE][+-]?\d+)?$`)
 	integerPattern = regexp.MustCompile(`^[+-]?\d+$`)
 
 	languagePattern          = regexp.MustCompile(`^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$`)
@@ -63,7 +61,7 @@ var fractionalLayouts = [...]string{
 }
 
 func validateDecimal(value string) error {
-	if !decimalPattern.MatchString(value) {
+	if !isValidDecimalLexical(value) {
 		return fmt.Errorf("invalid decimal: %s", value)
 	}
 	return nil
@@ -77,7 +75,7 @@ func validateFloat(value string) error {
 	if value == "INF" || value == "-INF" || value == "NaN" {
 		return nil
 	}
-	if !floatPattern.MatchString(value) {
+	if !isFloatLexical(value) {
 		return fmt.Errorf("invalid float: %s", value)
 	}
 	return nil
@@ -88,7 +86,7 @@ func validateDouble(value string) error {
 	if value == "INF" || value == "-INF" || value == "NaN" {
 		return nil
 	}
-	if !floatPattern.MatchString(value) {
+	if !isFloatLexical(value) {
 		return fmt.Errorf("invalid double: %s", value)
 	}
 	return nil
@@ -124,10 +122,11 @@ func validateBoundedInt(value, label string, minValue, maxValue int64) error {
 }
 
 func parseUnsignedIntValue(value, label string) (uint64, error) {
-	if err := validateNonNegativeInteger(value); err != nil {
+	normalized, err := normalizeUnsignedLexical(value)
+	if err != nil {
 		return 0, err
 	}
-	n, err := strconv.ParseUint(value, 10, 64)
+	n, err := strconv.ParseUint(normalized, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid %s: %s", label, value)
 	}
@@ -179,6 +178,19 @@ func validateNonNegativeInteger(value string) error {
 		}
 	}
 	return nil
+}
+
+func normalizeUnsignedLexical(value string) (string, error) {
+	if err := validateNonNegativeInteger(value); err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(value, "+") {
+		return value[1:], nil
+	}
+	if strings.HasPrefix(value, "-") {
+		return "0", nil
+	}
+	return value, nil
 }
 
 // validatePositiveInteger validates xs:positiveInteger
@@ -693,7 +705,7 @@ func validateAnyURI(value string) error {
 			return fmt.Errorf("anyURI contains control characters")
 		}
 		switch r {
-		case ' ', '\t', '\n', '\r', '\\', '{', '}', '|', '^', '`':
+		case '\t', '\n', '\r', '\\', '{', '}', '|', '^', '`':
 			return fmt.Errorf("anyURI contains invalid characters")
 		}
 	}

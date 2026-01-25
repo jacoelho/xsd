@@ -30,6 +30,22 @@ func mustCompile(t *testing.T, schema *parser.Schema) *grammar.CompiledSchema {
 	return compiled
 }
 
+func mustParseSchema(t *testing.T, schemaXML string) *parser.Schema {
+	t.Helper()
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	return schema
+}
+
+func mustNewValidator(t *testing.T, schemaXML string) *Validator {
+	t.Helper()
+
+	return New(mustCompile(t, mustParseSchema(t, schemaXML)))
+}
+
 func validateStream(t *testing.T, v *Validator, docXML string) []errors.Validation {
 	t.Helper()
 

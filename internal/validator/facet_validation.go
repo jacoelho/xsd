@@ -59,7 +59,7 @@ func validateFacets(input *facetValidationInput) (bool, []errors.Validation) {
 		if shouldSkipLengthFacet(input.compiled, facet) {
 			continue
 		}
-		if enumFacet, ok := facet.(*types.Enumeration); ok && validateQNameEnum != nil && input.compiled != nil && input.compiled.IsQNameOrNotationType {
+		if enumFacet, ok := facet.(*types.Enumeration); ok && validateQNameEnum != nil {
 			if err := validateQNameEnum(input.data.value, enumFacet); err != nil {
 				if input.policy == errorPolicySuppress {
 					return false, nil

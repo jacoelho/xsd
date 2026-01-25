@@ -30,12 +30,12 @@ func TestProhibitedAttributeWithFixedIsRejected(t *testing.T) {
 
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
-	if !hasViolationCode(violations, errors.ErrAttributeNotDeclared) {
-		t.Fatalf("expected code %s, got %v", errors.ErrAttributeNotDeclared, violations)
+	if !hasViolationCode(violations, errors.ErrAttributeProhibited) {
+		t.Fatalf("expected code %s, got %v", errors.ErrAttributeProhibited, violations)
 	}
 }
 
-func TestProhibitedAttributeWithWildcardAllowed(t *testing.T) {
+func TestProhibitedAttributeWithWildcardRejected(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/test"
@@ -58,7 +58,7 @@ func TestProhibitedAttributeWithWildcardAllowed(t *testing.T) {
 
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
-	if len(violations) != 0 {
-		t.Fatalf("expected no violations, got %v", violations)
+	if !hasViolationCode(violations, errors.ErrAttributeProhibited) {
+		t.Fatalf("expected code %s, got %v", errors.ErrAttributeProhibited, violations)
 	}
 }

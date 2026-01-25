@@ -170,7 +170,7 @@ func combineFieldTypes(fieldXPath string, values []types.Type) (types.Type, erro
 	if len(unique) == 1 {
 		return unique[0], nil
 	}
-	for i := 0; i < len(unique); i++ {
+	for i := range unique {
 		for j := i + 1; j < len(unique); j++ {
 			if !fieldTypesCompatible(unique[i], unique[j]) {
 				return nil, fmt.Errorf("%w: field xpath '%s' selects incompatible types '%s' and '%s'", ErrFieldXPathIncompatibleTypes, fieldXPath, fieldTypeName(unique[i]), fieldTypeName(unique[j]))

@@ -575,6 +575,34 @@ func TestComparableXSDDuration_Indeterminate(t *testing.T) {
 	}
 }
 
+func TestComparableXSDDuration_StringCanonical(t *testing.T) {
+	durationType := mustBuiltinSimpleType(t, TypeNameDuration)
+
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{input: "P0D", want: "PT0S"},
+		{input: "PT0S", want: "PT0S"},
+		{input: "-P0D", want: "-PT0S"},
+		{input: "PT0.000001S", want: "PT0.000001S"},
+		{input: "PT123456.789S", want: "PT123456.789S"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			dur, err := ParseXSDDuration(tt.input)
+			if err != nil {
+				t.Fatalf("ParseXSDDuration() error = %v", err)
+			}
+			got := ComparableXSDDuration{Value: dur, Typ: durationType}.String()
+			if got != tt.want {
+				t.Fatalf("String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestComparableDuration_Unwrap(t *testing.T) {
 	durationType := &SimpleType{
 		QName: QName{Namespace: XSDNamespace, Local: "duration"},

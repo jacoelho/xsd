@@ -13,14 +13,12 @@ func TestEnumerationValidateLexicalConcurrent(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	for i := 0; i < 8; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 8 {
+		wg.Go(func() {
 			if err := enum.ValidateLexical("a", base); err != nil {
 				t.Errorf("ValidateLexical error: %v", err)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 }

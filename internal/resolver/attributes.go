@@ -35,10 +35,22 @@ func validateAttributeReference(schema *parser.Schema, contextQName types.QName,
 		return fmt.Errorf("%s %s: attribute reference %s does not exist", contextType, contextQName, attr.Name)
 	}
 
+	// per XSD spec "Attribute Use Correct": if the declaration has a fixed value,
+	// the referencing use must not provide a default value.
+	if attr.HasDefault && target.HasFixed {
+		return fmt.Errorf("%s %s: attribute reference '%s' cannot specify a default when declaration is fixed",
+			contextType, contextQName, attr.Name)
+	}
+
 	// per XSD spec "Attribute Use Correct": if the reference specifies a fixed value,
 	// it must match the referenced attribute's fixed value.
 	if attr.HasFixed && target.HasFixed {
-		if attr.Fixed != target.Fixed {
+		match, err := fixedValuesEqual(schema, attr, target)
+		if err != nil {
+			return fmt.Errorf("%s %s: attribute reference '%s' fixed value comparison failed: %w",
+				contextType, contextQName, attr.Name, err)
+		}
+		if !match {
 			return fmt.Errorf("%s %s: attribute reference '%s' fixed value '%s' conflicts with declaration fixed value '%s'",
 				contextType, contextQName, attr.Name, attr.Fixed, target.Fixed)
 		}

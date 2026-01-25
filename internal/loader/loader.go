@@ -61,6 +61,7 @@ const (
 type schemaEntry struct {
 	schema              *parser.Schema
 	pendingImports      []pendingImport
+	pendingIncludes     []pendingInclude
 	state               schemaLoadState
 	pendingCount        int
 	validationRequested bool
@@ -118,6 +119,12 @@ type pendingImport struct {
 	targetKey         loadKey
 	schemaLocation    string
 	expectedNamespace string
+}
+
+type pendingInclude struct {
+	targetKey      loadKey
+	schemaLocation string
+	remapMode      namespaceRemapMode
 }
 
 type importTracker struct {
@@ -281,7 +288,7 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 		}
 		entry.state = schemaStateUnknown
 		entry.schema = nil
-		if entry.pendingCount == 0 && len(entry.pendingImports) == 0 && !entry.validationRequested && !entry.validated {
+		if entry.pendingCount == 0 && len(entry.pendingImports) == 0 && len(entry.pendingIncludes) == 0 && !entry.validationRequested && !entry.validated {
 			l.state.deleteEntry(key)
 		}
 	}()
@@ -511,13 +518,30 @@ func (l *SchemaLoader) deferImport(sourceKey, targetKey loadKey, schemaLocation,
 	targetEntry.pendingCount++
 }
 
+func (l *SchemaLoader) deferInclude(sourceKey, targetKey loadKey, schemaLocation string, remapMode namespaceRemapMode) {
+	sourceEntry := l.state.ensureEntry(sourceKey)
+	for _, pending := range sourceEntry.pendingIncludes {
+		if pending.targetKey == targetKey {
+			return
+		}
+	}
+	sourceEntry.pendingIncludes = append(sourceEntry.pendingIncludes, pendingInclude{
+		targetKey:      targetKey,
+		schemaLocation: schemaLocation,
+		remapMode:      remapMode,
+	})
+	targetEntry := l.state.ensureEntry(targetKey)
+	targetEntry.pendingCount++
+}
+
 func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
 	sourceEntry := l.state.ensureEntry(sourceKey)
 	if sourceEntry.pendingCount > 0 {
 		return nil
 	}
-	pending := sourceEntry.pendingImports
-	if len(pending) == 0 {
+	pendingImports := sourceEntry.pendingImports
+	pendingIncludes := sourceEntry.pendingIncludes
+	if len(pendingImports) == 0 && len(pendingIncludes) == 0 {
 		return l.validateIfRequested(sourceKey)
 	}
 	source := l.schemaForKey(sourceKey)
@@ -525,8 +549,31 @@ func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
 		return fmt.Errorf("pending import source not found: %s", sourceKey.location)
 	}
 	sourceEntry.pendingImports = nil
+	sourceEntry.pendingIncludes = nil
 
-	for _, entry := range pending {
+	for _, entry := range pendingIncludes {
+		target := l.schemaForKey(entry.targetKey)
+		if target == nil {
+			return fmt.Errorf("pending include target not found: %s", entry.targetKey.location)
+		}
+		if err := l.mergeSchema(target, source, mergeInclude, entry.remapMode); err != nil {
+			return fmt.Errorf("merge included schema %s: %w", entry.schemaLocation, err)
+		}
+		l.markMergedInclude(entry.targetKey, sourceKey)
+
+		targetEntry := l.state.ensureEntry(entry.targetKey)
+		targetEntry.pendingCount--
+		if targetEntry.pendingCount < 0 {
+			targetEntry.pendingCount = 0
+		}
+		if targetEntry.pendingCount == 0 {
+			if err := l.resolvePendingImportsFor(entry.targetKey); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, entry := range pendingImports {
 		target := l.schemaForKey(entry.targetKey)
 		if target == nil {
 			return fmt.Errorf("pending import target not found: %s", entry.targetKey.location)
