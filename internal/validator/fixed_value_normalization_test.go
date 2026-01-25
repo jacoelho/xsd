@@ -257,7 +257,7 @@ func TestFixedValueNormalization_UnionDecimal(t *testing.T) {
 }
 
 func TestFixedValueNormalization_FloatNaN(t *testing.T) {
-	// NaN is not equal to itself in the XSD value space.
+	// NaN is equal to itself in the XSD value space.
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/test"
@@ -276,13 +276,13 @@ func TestFixedValueNormalization_FloatNaN(t *testing.T) {
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
 
-	if !hasViolationCode(violations, errors.ErrElementFixedValue) {
-		t.Fatalf("expected fixed-value violation, got %v", violations)
+	if len(violations) > 0 {
+		t.Fatalf("expected no violations, got %v", violations)
 	}
 }
 
 func TestFixedValueNormalization_DoubleNaN(t *testing.T) {
-	// NaN is not equal to itself in the XSD value space.
+	// NaN is equal to itself in the XSD value space.
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/test"
@@ -301,7 +301,7 @@ func TestFixedValueNormalization_DoubleNaN(t *testing.T) {
 	v := New(mustCompile(t, schema))
 	violations := validateStream(t, v, xmlDoc)
 
-	if !hasViolationCode(violations, errors.ErrElementFixedValue) {
-		t.Fatalf("expected fixed-value violation, got %v", violations)
+	if len(violations) > 0 {
+		t.Fatalf("expected no violations, got %v", violations)
 	}
 }

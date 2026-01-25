@@ -102,9 +102,9 @@ func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar
 	}
 
 	var validateQNameEnum func(string, *types.Enumeration) error
-	if st.IsQNameOrNotationType {
+	if requiresQNameEnumeration(st) {
 		validateQNameEnum = func(normalized string, enum *types.Enumeration) error {
-			return r.validateQNameEnumeration(normalized, enum, scopeDepth, context)
+			return r.validateQNameEnumerationForType(normalized, enum, st, scopeDepth, context)
 		}
 	}
 
@@ -126,16 +126,23 @@ func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar
 }
 
 func (r *streamRun) checkComplexTypeFacetsWithContext(text string, ct *grammar.CompiledType, scopeDepth int, context map[string]string) []errors.Validation {
-	return collectComplexTypeFacetViolations(text, ct, r.path.String(), func(normalized string, enum *types.Enumeration) error {
-		return r.validateQNameEnumeration(normalized, enum, scopeDepth, context)
-	})
+	var validateQNameEnum func(string, *types.Enumeration) error
+	if ct != nil && requiresQNameEnumeration(ct.SimpleContentType) {
+		validateQNameEnum = func(normalized string, enum *types.Enumeration) error {
+			return r.validateQNameEnumerationForType(normalized, enum, ct.SimpleContentType, scopeDepth, context)
+		}
+	}
+	return collectComplexTypeFacetViolations(text, ct, r.path.String(), validateQNameEnum)
 }
 
 func (r *streamRun) checkComplexTypeFacets(text string, ct *grammar.CompiledType, ns map[string]string) []errors.Validation {
-	return collectComplexTypeFacetViolations(text, ct, r.path.String(), func(normalized string, enum *types.Enumeration) error {
-		// Use scopeDepth -1 and context ns for QName enumeration validation
-		return r.validateQNameEnumeration(normalized, enum, -1, ns)
-	})
+	var validateQNameEnum func(string, *types.Enumeration) error
+	if ct != nil && requiresQNameEnumeration(ct.SimpleContentType) {
+		validateQNameEnum = func(normalized string, enum *types.Enumeration) error {
+			return r.validateQNameEnumerationForType(normalized, enum, ct.SimpleContentType, -1, ns)
+		}
+	}
+	return collectComplexTypeFacetViolations(text, ct, r.path.String(), validateQNameEnum)
 }
 
 func (r *streamRun) validateListValueInternal(value string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy, context map[string]string) (bool, []errors.Validation) {
@@ -162,24 +169,45 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 	}
 
 	if len(st.Facets) > 0 {
-		facetValid, facetViolations := validateFacets(&facetValidationInput{
-			data: &facetValidationData{
-				value:  value,
-				facets: st.Facets,
-			},
-			typ:      st.Original,
-			compiled: st,
-			context: &facetValidationContext{
-				path: r.path.String(),
-			},
-			policy: policy,
-		})
-		if !facetValid {
-			valid = false
-			if policy == errorPolicySuppress {
-				return false, nil
+		facets := st.Facets
+		if requiresQNameEnumeration(st) {
+			nonEnum := make([]types.Facet, 0, len(st.Facets))
+			for _, facet := range st.Facets {
+				enumFacet, ok := facet.(*types.Enumeration)
+				if !ok {
+					nonEnum = append(nonEnum, facet)
+					continue
+				}
+				if err := r.validateQNameEnumerationForType(value, enumFacet, st, scopeDepth, context); err != nil {
+					if policy == errorPolicySuppress {
+						return false, nil
+					}
+					valid = false
+					violations = append(violations, errors.NewValidation(errors.ErrFacetViolation, err.Error(), r.path.String()))
+				}
 			}
-			violations = append(violations, facetViolations...)
+			facets = nonEnum
+		}
+		if len(facets) > 0 {
+			facetValid, facetViolations := validateFacets(&facetValidationInput{
+				data: &facetValidationData{
+					value:  value,
+					facets: facets,
+				},
+				typ:      st.Original,
+				compiled: st,
+				context: &facetValidationContext{
+					path: r.path.String(),
+				},
+				policy: policy,
+			})
+			if !facetValid {
+				valid = false
+				if policy == errorPolicySuppress {
+					return false, nil
+				}
+				violations = append(violations, facetViolations...)
+			}
 		}
 	}
 
@@ -266,9 +294,9 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 
 	if len(itemType.Facets) > 0 {
 		var validateQNameEnum func(string, *types.Enumeration) error
-		if itemType.IsQNameOrNotationType {
+		if requiresQNameEnumeration(itemType) {
 			validateQNameEnum = func(normalized string, enum *types.Enumeration) error {
-				return r.validateQNameEnumeration(normalized, enum, scopeDepth, nsContext)
+				return r.validateQNameEnumerationForType(normalized, enum, itemType, scopeDepth, nsContext)
 			}
 		}
 		makeViolation := func(err error) errors.Validation {
