@@ -43,8 +43,8 @@ func TestCheckFixedValueNaN(t *testing.T) {
 	}
 
 	ns := nsCtx(0)
-	if errs := run.checkFixedValue("NaN", "NaN", doubleType, ns, ns); len(errs) == 0 {
-		t.Fatalf("expected NaN fixed values to mismatch")
+	if errs := run.checkFixedValue("NaN", "NaN", doubleType, ns, ns); len(errs) != 0 {
+		t.Fatalf("expected NaN fixed values to match")
 	}
 }
 
@@ -70,6 +70,14 @@ func TestCheckFixedValueUnionMemberTypes(t *testing.T) {
 	if errs := run.checkFixedValue("1", "false", unionType, ns, ns); len(errs) == 0 {
 		t.Fatalf("expected union fixed value mismatch")
 	}
+
+	unionTypeBoolFirst := &grammar.CompiledType{
+		Original:    types.GetBuiltin(types.TypeName("string")),
+		MemberTypes: []*grammar.CompiledType{memberBool, memberInt},
+	}
+	if errs := run.checkFixedValue("1", "true", unionTypeBoolFirst, ns, ns); len(errs) != 0 {
+		t.Fatalf("expected union fixed values to match when boolean is first")
+	}
 }
 
 func TestCheckFixedValueUnionOverlappingMembers(t *testing.T) {
@@ -86,7 +94,56 @@ func TestCheckFixedValueUnionOverlappingMembers(t *testing.T) {
 		t.Fatalf("expected union fixed values to match")
 	}
 	if errs := run.checkFixedValue("1", "1.0", unionType, ns, ns); len(errs) == 0 {
-		t.Fatalf("expected overlapping union fixed value mismatch")
+		t.Fatalf("expected overlapping union fixed value mismatch when int is first")
+	}
+
+	unionTypeDecimalFirst := &grammar.CompiledType{
+		Original:    types.GetBuiltin(types.TypeName("string")),
+		MemberTypes: []*grammar.CompiledType{memberDecimal, memberInt},
+	}
+	if errs := run.checkFixedValue("1", "1.0", unionTypeDecimalFirst, ns, ns); len(errs) != 0 {
+		t.Fatalf("expected overlapping union fixed values to match when decimal is first")
+	}
+}
+
+func TestCheckFixedValueUnionOrderSignificance(t *testing.T) {
+	run := &streamRun{validationRun: &validationRun{schema: newBaseSchemaView(nil)}}
+	stringType := &grammar.CompiledType{Original: types.GetBuiltin(types.TypeName("string")), Kind: grammar.TypeKindBuiltin}
+	decimalType := &grammar.CompiledType{Original: types.GetBuiltin(types.TypeName("decimal")), Kind: grammar.TypeKindBuiltin}
+	dateType := &grammar.CompiledType{Original: types.GetBuiltin(types.TypeName("date")), Kind: grammar.TypeKindBuiltin}
+
+	ns := nsCtx(0)
+
+	unionStringDecimal := &grammar.CompiledType{
+		Original:    types.GetBuiltin(types.TypeName("string")),
+		MemberTypes: []*grammar.CompiledType{stringType, decimalType},
+	}
+	if errs := run.checkFixedValue("1", "1.0", unionStringDecimal, ns, ns); len(errs) == 0 {
+		t.Fatalf("expected union fixed value mismatch with string-first order")
+	}
+
+	unionDecimalString := &grammar.CompiledType{
+		Original:    types.GetBuiltin(types.TypeName("string")),
+		MemberTypes: []*grammar.CompiledType{decimalType, stringType},
+	}
+	if errs := run.checkFixedValue("1", "1.0", unionDecimalString, ns, ns); len(errs) != 0 {
+		t.Fatalf("expected union fixed values to match with decimal-first order")
+	}
+
+	unionStringDate := &grammar.CompiledType{
+		Original:    types.GetBuiltin(types.TypeName("string")),
+		MemberTypes: []*grammar.CompiledType{stringType, dateType},
+	}
+	if errs := run.checkFixedValue("2024-01-01+00:00", "2024-01-01Z", unionStringDate, ns, ns); len(errs) == 0 {
+		t.Fatalf("expected union fixed value mismatch with string-first order")
+	}
+
+	unionDateString := &grammar.CompiledType{
+		Original:    types.GetBuiltin(types.TypeName("string")),
+		MemberTypes: []*grammar.CompiledType{dateType, stringType},
+	}
+	if errs := run.checkFixedValue("2024-01-01+00:00", "2024-01-01Z", unionDateString, ns, ns); len(errs) != 0 {
+		t.Fatalf("expected union fixed values to match with date-first order")
 	}
 }
 
