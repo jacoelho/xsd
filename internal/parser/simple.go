@@ -51,6 +51,7 @@ func parseSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) e
 	}
 
 	schema.TypeDefs[st.QName] = st
+	schema.addGlobalDecl(GlobalDeclType, st.QName)
 	return nil
 }
 

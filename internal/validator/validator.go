@@ -14,16 +14,15 @@ type Validator struct {
 	builtinTypes map[types.QName]*grammar.CompiledType
 }
 
-//nolint:govet // fieldalignment: keep validationRun grouped by usage and avoid extra indirection.
 type validationRun struct {
 	schema                    schemaView
 	subMatcher                *substitutionMatcher
 	validator                 *Validator
 	ids                       map[string]bool
 	entityDecls               map[string]struct{}
+	idTypeMaskCache           map[*grammar.CompiledType]idTypeMask
 	idrefs                    []idrefEntry
 	path                      pathStack
-	idTypeMaskCache           map[*grammar.CompiledType]idTypeMask
 	idrefCollectionIncomplete bool
 }
 

@@ -258,9 +258,9 @@ func TestIntersectAnyElement_Table(t *testing.T) {
 		w1             *AnyElement
 		w2             *AnyElement
 		name           string
-		wantList       []NamespaceURI
 		wantMin        Occurs
 		wantMax        Occurs
+		wantList       []NamespaceURI
 		wantConstraint NamespaceConstraint
 		wantProcess    ProcessContents
 		checkMin       bool

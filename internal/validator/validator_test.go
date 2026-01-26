@@ -177,12 +177,12 @@ func TestValidateSubstitutionGroup(t *testing.T) {
            targetNamespace="http://example.com/test"
            elementFormDefault="qualified">
   <xs:element name="head" type="xs:string"/>
-  <xs:element name="member" type="xs:string" substitutionGroup="head"/>
+  <xs:element name="member" type="xs:string" substitutionGroup="tns:head"/>
   
   <xs:element name="root">
     <xs:complexType>
       <xs:sequence>
-        <xs:element ref="head"/>
+        <xs:element ref="tns:head"/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>

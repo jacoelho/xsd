@@ -313,6 +313,7 @@ func TestValidateReferencesAttributeRefIgnoresDefaultNamespace(t *testing.T) {
            xmlns="urn:tns"
            targetNamespace="urn:tns"
            elementFormDefault="qualified">
+  <xs:import schemaLocation="no-ns.xsd"/>
   <xs:attribute name="a" type="xs:string"/>
   <xs:complexType name="t">
     <xs:attribute ref="a"/>

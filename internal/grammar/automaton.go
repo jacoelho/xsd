@@ -35,11 +35,11 @@ func (a *Automaton) setTransition(state, symbolIndex, next int) {
 // GroupCounterInfo tracks how repeating groups are counted by the automaton.
 // It captures first/last positions and the per-iteration unit size.
 type GroupCounterInfo struct {
-	LastPositions     []int
-	FirstPositions    []int
 	Min               types.Occurs
 	Max               types.Occurs
 	FirstPosMaxOccurs types.Occurs
+	LastPositions     []int
+	FirstPositions    []int
 	GroupKind         types.GroupKind
 	GroupID           int
 	UnitSize          int
@@ -72,11 +72,11 @@ const (
 
 // Counter tracks occurrence constraints for repeating particles.
 type Counter struct {
-	GroupCompletionSymbols []int
-	GroupStartSymbols      []int
 	Min                    types.Occurs
 	Max                    types.Occurs
 	FirstPosMaxOccurs      types.Occurs
+	GroupCompletionSymbols []int
+	GroupStartSymbols      []int
 	SymbolIndex            int
 	GroupID                int
 	UnitSize               int

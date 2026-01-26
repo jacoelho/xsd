@@ -131,7 +131,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 				}
 				// XSD 1.0: Cannot extend a type with xs:all content model
 				// per Errata E1-21: Can extend if base xs:all is emptiable
-				if baseParticle := effectiveContentParticle(schema, baseCT); baseParticle != nil {
+				if baseParticle := EffectiveContentParticle(schema, baseCT); baseParticle != nil {
 					if baseMG, ok := baseParticle.(*types.ModelGroup); ok && baseMG.Kind == types.AllGroup {
 						if !isEmptiableParticle(baseMG) {
 							return fmt.Errorf("cannot extend type with non-emptiable xs:all content model (XSD 1.0)")
@@ -163,7 +163,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 				baseIsEmptiable := false
 				if baseOK {
 					if baseCT, ok := baseType.(*types.ComplexType); ok {
-						if baseParticle := effectiveContentParticle(schema, baseCT); baseParticle != nil {
+						if baseParticle := EffectiveContentParticle(schema, baseCT); baseParticle != nil {
 							baseIsEmptiable = isEmptiableParticle(baseParticle)
 						} else {
 							baseIsEmptiable = true
@@ -200,7 +200,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 		}
 		if cc.Restriction.Particle != nil {
 			if baseOK {
-				if baseParticle := effectiveContentParticle(schema, baseType); baseParticle != nil {
+				if baseParticle := EffectiveContentParticle(schema, baseType); baseParticle != nil {
 					if err := validateParticlePairRestriction(schema, baseParticle, cc.Restriction.Particle); err != nil {
 						return err
 					}

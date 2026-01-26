@@ -1357,40 +1357,41 @@ func TestSchemaValidatePain008(t *testing.T) {
 }
 
 var (
-	pain008SchemaOnce     sync.Once
-	pain008SchemaInstance *xsd.Schema
-	errPain008Schema      error
+	pain008EngineOnce     sync.Once
+	pain008EngineInstance *xsd.Engine
+	errPain008Engine      error
 )
 
-func loadPain008Schema(tb testing.TB) *xsd.Schema {
+func loadPain008Engine(tb testing.TB) *xsd.Engine {
 	tb.Helper()
 
-	pain008SchemaOnce.Do(func() {
+	pain008EngineOnce.Do(func() {
 		fsys := fstest.MapFS{
 			"pain.008.001.02.xsd": &fstest.MapFile{Data: []byte(pain008Schema)},
 		}
 
-		pain008SchemaInstance, errPain008Schema = xsd.Load(fsys, "pain.008.001.02.xsd")
+		pain008EngineInstance, errPain008Engine = xsd.CompileFS(fsys, "pain.008.001.02.xsd")
 	})
 
-	if errPain008Schema != nil {
-		tb.Fatalf("load pain008 schema: %v", errPain008Schema)
+	if errPain008Engine != nil {
+		tb.Fatalf("load pain008 engine: %v", errPain008Engine)
 	}
 
-	return pain008SchemaInstance
+	return pain008EngineInstance
 }
 
 func BenchmarkPain008Validate(b *testing.B) {
-	schema := loadPain008Schema(b)
+	engine := loadPain008Engine(b)
 	xmlBytes := []byte(pain008XML)
 
 	b.ReportAllocs()
 	b.SetBytes(int64(len(xmlBytes)))
 
+	session := engine.NewSession()
 	reader := bytes.NewReader(nil)
 	for b.Loop() {
 		reader.Reset(xmlBytes)
-		if err := schema.Validate(reader); err != nil {
+		if err := session.Validate(reader); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -1405,7 +1406,7 @@ func BenchmarkPain008Load(b *testing.B) {
 		fsys := fstest.MapFS{
 			"pain.008.001.02.xsd": &fstest.MapFile{Data: schemaBytes},
 		}
-		if _, err := xsd.Load(fsys, "pain.008.001.02.xsd"); err != nil {
+		if _, err := xsd.CompileFS(fsys, "pain.008.001.02.xsd"); err != nil {
 			b.Fatal(err)
 		}
 	}

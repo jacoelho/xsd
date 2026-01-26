@@ -2,15 +2,16 @@ package schemacheck
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-// validateUPA validates Unique Particle Attribution for a content model.
+// ValidateUPA validates Unique Particle Attribution for a content model.
 // UPA requires that no element can be matched by more than one particle.
-func validateUPA(schema *parser.Schema, content types.Content, targetNS types.NamespaceURI) error {
+func ValidateUPA(schema *parser.Schema, content types.Content, targetNS types.NamespaceURI) error {
 	var particle types.Particle
 	var baseParticle types.Particle
 
@@ -224,10 +225,8 @@ func wildcardMatchesQName(symbol *grammar.Symbol, qname types.QName) bool {
 		}
 		return qname.Namespace.String() != symbol.NS
 	case grammar.KindAnyNSList:
-		for _, ns := range symbol.NSList {
-			if ns == qname.Namespace {
-				return true
-			}
+		if slices.Contains(symbol.NSList, qname.Namespace) {
+			return true
 		}
 	}
 	return false

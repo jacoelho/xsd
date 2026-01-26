@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -11,6 +12,30 @@ import (
 	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/types"
 )
+
+type namespaceResolver struct {
+	defaultFS   fs.FS
+	namespaceFS map[string]fs.FS
+}
+
+func (r namespaceResolver) Resolve(req ResolveRequest) (io.ReadCloser, string, error) {
+	fsys := r.defaultFS
+	if req.Kind == ResolveImport && len(req.ImportNS) > 0 {
+		if nsFS, ok := r.namespaceFS[string(req.ImportNS)]; ok {
+			fsys = nsFS
+		}
+	}
+	return NewFSResolver(fsys).Resolve(req)
+}
+
+type flatResolver struct {
+	fsResolver *FSResolver
+}
+
+func (r flatResolver) Resolve(req ResolveRequest) (io.ReadCloser, string, error) {
+	req.BaseSystemID = ""
+	return r.fsResolver.Resolve(req)
+}
 
 func TestLoader_Load(t *testing.T) {
 	testFS := fstest.MapFS{
@@ -107,6 +132,51 @@ func TestLoader_ImportMissingNamespaceAllowsNoTargetNamespace(t *testing.T) {
 	}
 }
 
+func TestLoader_NoNamespaceReferenceRequiresImport(t *testing.T) {
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main">
+  <xs:element name="root" type="NoNsType"/>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("main.xsd"); err == nil {
+		t.Fatal("expected no-namespace reference to require an import")
+	} else if !strings.Contains(err.Error(), "namespace") {
+		t.Fatalf("expected namespace import error, got: %v", err)
+	}
+}
+
+func TestLoader_NoNamespaceReferenceWithImport(t *testing.T) {
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main">
+  <xs:import schemaLocation="nonamespace.xsd"/>
+  <xs:element name="root" type="NoNsType"/>
+</xs:schema>`),
+		},
+		"nonamespace.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="NoNsType">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("main.xsd"); err != nil {
+		t.Fatalf("expected no-namespace import to allow reference, got: %v", err)
+	}
+}
+
 func TestLoader_CircularDependency(t *testing.T) {
 	loader := NewLoader(Config{
 		FS: fstest.MapFS{
@@ -116,15 +186,11 @@ func TestLoader_CircularDependency(t *testing.T) {
 		},
 	})
 
-	absLoc, err := loader.resolveLocation("test.xsd")
-	if err != nil {
-		t.Fatalf("resolveLocation error = %v", err)
-	}
-	key := loader.loadKey(loader.defaultFSContext(), absLoc)
+	key := loader.loadKey("test.xsd", types.NamespaceEmpty)
 	entry := loader.state.ensureEntry(key)
 	entry.state = schemaStateLoading
 
-	_, err = loader.Load("test.xsd")
+	_, err := loader.Load("test.xsd")
 	if err == nil {
 		t.Error("Load() should return error for circular dependency")
 	}
@@ -233,7 +299,7 @@ func TestLoader_MutualImportSameBasename(t *testing.T) {
            targetNamespace="urn:a"
            xmlns:b="urn:b"
            elementFormDefault="qualified">
-  <xs:import namespace="urn:b" schemaLocation="../b/common.xsd"/>
+  <xs:import namespace="urn:b" schemaLocation="b/common.xsd"/>
   <xs:simpleType name="TypeA">
     <xs:restriction base="xs:string"/>
   </xs:simpleType>
@@ -245,7 +311,7 @@ func TestLoader_MutualImportSameBasename(t *testing.T) {
            targetNamespace="urn:b"
            xmlns:a="urn:a"
            elementFormDefault="qualified">
-  <xs:import namespace="urn:a" schemaLocation="../a/common.xsd"/>
+  <xs:import namespace="urn:a" schemaLocation="a/common.xsd"/>
   <xs:simpleType name="TypeB">
     <xs:restriction base="xs:string"/>
   </xs:simpleType>
@@ -254,7 +320,7 @@ func TestLoader_MutualImportSameBasename(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{
-		FS: testFS,
+		Resolver: flatResolver{fsResolver: NewFSResolver(testFS)},
 	})
 
 	schema, err := loader.Load("a/common.xsd")
@@ -370,26 +436,21 @@ func TestLoader_IncludeTraversalRejected(t *testing.T) {
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:root"
            elementFormDefault="qualified">
-  <xs:include schemaLocation="../outside.xsd"/>
+  <xs:include schemaLocation="../../outside.xsd"/>
 </xs:schema>`),
-		},
-		"outside.xsd": &fstest.MapFile{
-			Data: []byte(`<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`),
 		},
 	}
 
 	loader := NewLoader(Config{
-		FS:       testFS,
-		BasePath: "schemas",
+		FS: testFS,
 	})
 
-	_, err := loader.Load("root.xsd")
+	_, err := loader.Load("schemas/root.xsd")
 	if err == nil {
-		t.Fatal("Load() should reject traversal outside base path")
+		t.Fatal("Load() should reject traversal in schemaLocation")
 	}
-	if !strings.Contains(err.Error(), "escapes base path") {
-		t.Fatalf("expected base path error, got: %v", err)
+	if !strings.Contains(err.Error(), "schema location") {
+		t.Fatalf("expected schema location error, got: %v", err)
 	}
 }
 
@@ -406,16 +467,15 @@ func TestLoader_IncludeAbsolutePathRejected(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{
-		FS:       testFS,
-		BasePath: "schemas",
+		FS: testFS,
 	})
 
-	if _, err := loader.Load("root.xsd"); err == nil {
-		t.Fatal("Load() should reject absolute path outside base path")
+	if _, err := loader.Load("schemas/root.xsd"); err == nil {
+		t.Fatal("Load() should reject absolute path schemaLocation")
 	}
 }
 
-func TestLoader_IncludeMissingIgnored(t *testing.T) {
+func TestLoader_IncludeMissingErrors(t *testing.T) {
 	testFS := fstest.MapFS{
 		"root.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -436,13 +496,8 @@ func TestLoader_IncludeMissingIgnored(t *testing.T) {
 		FS: testFS,
 	})
 
-	schema, err := loader.Load("root.xsd")
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	okQName := types.QName{Namespace: types.NamespaceEmpty, Local: "ok"}
-	if _, ok := schema.ElementDecls[okQName]; !ok {
-		t.Error("element 'ok' from included schema not found")
+	if _, err := loader.Load("root.xsd"); err == nil {
+		t.Fatalf("expected missing include to error")
 	}
 }
 
@@ -813,9 +868,11 @@ func TestLoader_ImportNamespaceFS(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{
-		FS: mainFS,
-		NamespaceFS: map[string]fs.FS{
-			"urn:common": commonFS,
+		Resolver: namespaceResolver{
+			defaultFS: mainFS,
+			namespaceFS: map[string]fs.FS{
+				"urn:common": commonFS,
+			},
 		},
 	})
 

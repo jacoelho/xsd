@@ -10,47 +10,38 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func TestResolveLocationAndGetLoaded(t *testing.T) {
-	loader := NewLoader(Config{BasePath: "schemas"})
+func TestResolveSystemIDAndGetLoaded(t *testing.T) {
+	loader := NewLoader(Config{FS: fstest.MapFS{}})
 	schema := &parser.Schema{}
 
-	if _, err := loader.resolveLocation("/abs/schema.xsd"); err == nil {
-		t.Fatalf("expected absolute path outside base to be rejected")
+	if _, err := resolveSystemID("", "/abs/schema.xsd"); err == nil {
+		t.Fatalf("expected absolute path to be rejected")
 	}
 
-	rel, err := loader.resolveLocation("a/b.xsd")
+	rel, err := resolveSystemID("schemas/root.xsd", "a/b.xsd")
 	if err != nil {
-		t.Fatalf("resolveLocation relative error = %v", err)
+		t.Fatalf("resolveSystemID relative error = %v", err)
 	}
 	if rel != "schemas/a/b.xsd" {
-		t.Fatalf("expected base path join, got %q", rel)
+		t.Fatalf("expected base dir join, got %q", rel)
 	}
 
-	key := loader.loadKey(loader.defaultFSContext(), rel)
+	key := loader.loadKey(rel, types.NamespaceEmpty)
 	entry := loader.state.ensureEntry(key)
 	entry.state = schemaStateLoaded
 	entry.schema = schema
-	loaded, ok, err := loader.GetLoaded("a/b.xsd")
-	if err != nil {
-		t.Fatalf("GetLoaded error = %v", err)
-	}
+	loaded, ok := loader.GetLoaded(rel, types.NamespaceEmpty)
 	if !ok || loaded != schema {
 		t.Fatalf("expected GetLoaded to return cached schema")
 	}
 
-	loaderNoBase := NewLoader(Config{})
-	abs, err := loaderNoBase.resolveLocation("/abs/schema.xsd")
-	if err != nil {
-		t.Fatalf("resolveLocation absolute without base error = %v", err)
-	}
-	if abs != "/abs/schema.xsd" {
-		t.Fatalf("expected absolute path to remain unchanged, got %q", abs)
+	if _, ok := loader.GetLoaded(rel, types.NamespaceURI("urn:other")); ok {
+		t.Fatalf("expected GetLoaded to be scoped by effective target namespace")
 	}
 }
 
-func TestResolveLocationRejectsTraversal(t *testing.T) {
-	loader := NewLoader(Config{BasePath: "schemas"})
-	if _, err := loader.resolveLocation("../outside.xsd"); err == nil {
+func TestResolveSystemIDRejectsTraversal(t *testing.T) {
+	if _, err := resolveSystemID("", "../outside.xsd"); err == nil {
 		t.Fatal("expected traversal to be rejected")
 	}
 }

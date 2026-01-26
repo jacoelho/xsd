@@ -374,6 +374,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 			name: "unqualified type without default namespace resolves to no namespace",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://example.com/test">
+  <xs:import schemaLocation="no-ns.xsd"/>
   <xs:element name="testElement" type="string"/>
 </xs:schema>`,
 			elementName:  "testElement",

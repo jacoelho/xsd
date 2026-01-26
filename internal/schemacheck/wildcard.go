@@ -26,7 +26,7 @@ func validateWildcardDerivation(schema *parser.Schema, ct *types.ComplexType) er
 
 	if ct.IsExtension() {
 		// extension: new wildcards must not violate UPA with base type's particles
-		// UPA violations are checked in validateUPA
+		// UPA violations are checked in ValidateUPA
 		// according to spec, wildcards in extension should union with base wildcards
 		// the union is checked at validation time, but we verify here that the structure is valid
 		// (UPA violations are the main constraint and are checked separately)

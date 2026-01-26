@@ -712,7 +712,7 @@ func TestSchemaHelpers(t *testing.T) {
 	schema.TypeDefs[baseCT.QName] = baseCT
 	schema.TypeDefs[derivedCT.QName] = derivedCT
 
-	combined := effectiveContentParticle(schema, derivedCT)
+	combined := EffectiveContentParticle(schema, derivedCT)
 	if combined == nil {
 		t.Fatalf("expected combined content particle")
 	}
@@ -972,7 +972,7 @@ func TestUPAChoiceOverlap(t *testing.T) {
 		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elem1, elem2},
 	}
-	if err := validateUPA(schema, &types.ElementContent{Particle: choice}, schema.TargetNamespace); err == nil {
+	if err := ValidateUPA(schema, &types.ElementContent{Particle: choice}, schema.TargetNamespace); err == nil {
 		t.Fatalf("expected choice UPA violation")
 	}
 }
@@ -989,7 +989,7 @@ func TestUPASequenceOverlap(t *testing.T) {
 		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{elem1, elem2},
 	}
-	if err := validateUPA(schema, &types.ElementContent{Particle: seq}, schema.TargetNamespace); err == nil {
+	if err := ValidateUPA(schema, &types.ElementContent{Particle: seq}, schema.TargetNamespace); err == nil {
 		t.Fatalf("expected sequence UPA violation")
 	}
 }
@@ -1011,7 +1011,7 @@ func TestUPAWildcardOverlap(t *testing.T) {
 		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{wild, elem},
 	}
-	if err := validateUPA(schema, &types.ElementContent{Particle: choice}, schema.TargetNamespace); err == nil {
+	if err := ValidateUPA(schema, &types.ElementContent{Particle: choice}, schema.TargetNamespace); err == nil {
 		t.Fatalf("expected wildcard UPA violation")
 	}
 }
@@ -1036,7 +1036,7 @@ func TestUPAExtensionOverlap(t *testing.T) {
 	derivedCT.DerivationMethod = types.DerivationExtension
 	derivedCT.SetContent(&types.ComplexContent{Extension: &types.Extension{Base: baseCT.QName, Particle: extGroup}})
 
-	if err := validateUPA(schema, derivedCT.Content(), schema.TargetNamespace); err == nil {
+	if err := ValidateUPA(schema, derivedCT.Content(), schema.TargetNamespace); err == nil {
 		t.Fatalf("expected extension UPA violation")
 	}
 }
@@ -1069,7 +1069,7 @@ func TestUPANestedGroupOverlap(t *testing.T) {
 		Particles: []types.Particle{seq1, seq2},
 	}
 
-	if err := validateUPA(schema, &types.ElementContent{Particle: choice}, schema.TargetNamespace); err == nil {
+	if err := ValidateUPA(schema, &types.ElementContent{Particle: choice}, schema.TargetNamespace); err == nil {
 		t.Fatalf("expected nested group UPA violation")
 	}
 }
@@ -1103,7 +1103,7 @@ func TestUPASequenceSeparatorDisambiguates(t *testing.T) {
 		Particles: []types.Particle{seqLeft, elemC, seqRight},
 	}
 
-	if err := validateUPA(schema, &types.ElementContent{Particle: outer}, schema.TargetNamespace); err != nil {
+	if err := ValidateUPA(schema, &types.ElementContent{Particle: outer}, schema.TargetNamespace); err != nil {
 		t.Fatalf("expected no UPA violation, got %v", err)
 	}
 }
@@ -1133,7 +1133,7 @@ func TestUPAWildcardSequenceSeparator(t *testing.T) {
 		Particles: []types.Particle{wild1, sep, wild2},
 	}
 
-	if err := validateUPA(schema, &types.ElementContent{Particle: seq}, schema.TargetNamespace); err != nil {
+	if err := ValidateUPA(schema, &types.ElementContent{Particle: seq}, schema.TargetNamespace); err != nil {
 		t.Fatalf("expected no UPA violation, got %v", err)
 	}
 }
@@ -1161,7 +1161,7 @@ func TestUPAWildcardChoiceOverlap(t *testing.T) {
 		Particles: []types.Particle{wild1, wild2},
 	}
 
-	if err := validateUPA(schema, &types.ElementContent{Particle: choice}, schema.TargetNamespace); err == nil {
+	if err := ValidateUPA(schema, &types.ElementContent{Particle: choice}, schema.TargetNamespace); err == nil {
 		t.Fatalf("expected wildcard choice UPA violation")
 	}
 }

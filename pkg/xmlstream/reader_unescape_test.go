@@ -217,8 +217,7 @@ func TestTextBytesEmptyAfterUnescape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	tok := xmltext.Token{Text: nil, TextNeeds: true}
-	value, err := r.textBytes(&tok)
+	value, err := r.textBytes(nil, true)
 	if err != nil {
 		t.Fatalf("textBytes error = %v", err)
 	}
@@ -234,8 +233,7 @@ func TestTextBytesResetOnError(t *testing.T) {
 	}
 	prefix := []byte("prefix")
 	r.valueBuf = append(r.valueBuf, prefix...)
-	tok := xmltext.Token{Text: []byte("&bad;"), TextNeeds: true}
-	if _, err = r.textBytes(&tok); err == nil {
+	if _, err = r.textBytes([]byte("&bad;"), true); err == nil {
 		t.Fatalf("textBytes error = nil, want error")
 	}
 	if len(r.valueBuf) != len(prefix) {

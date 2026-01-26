@@ -19,10 +19,10 @@ const (
 type CompiledContentModel struct {
 	Automaton        *Automaton
 	ElementIndex     map[types.QName]*CompiledElement
+	MinOccurs        types.Occurs
 	Particles        []*CompiledParticle
 	AllElements      []*AllGroupElement
 	SimpleSequence   []*CompiledParticle
-	MinOccurs        types.Occurs
 	Kind             types.GroupKind
 	Empty            bool
 	RejectAll        bool
@@ -74,9 +74,9 @@ func (e *AllGroupElement) AllowsSubstitution() bool {
 type CompiledParticle struct {
 	Element     *CompiledElement
 	Wildcard    *types.AnyElement
-	Children    []*CompiledParticle
 	MinOccurs   types.Occurs
 	MaxOccurs   types.Occurs
+	Children    []*CompiledParticle
 	Kind        ParticleKind
 	GroupKind   types.GroupKind
 	IsReference bool

@@ -6,8 +6,8 @@ import (
 	"github.com/jacoelho/xsd/pkg/xmltext"
 )
 
-func resolveElementName(names *qnameCache, ns *nsStack, dec *xmltext.Decoder, name []byte, depth, line, column int) (QName, error) {
-	prefix, local, hasPrefix := splitQName(name)
+func resolveElementName(names *qnameCache, ns *nsStack, dec *xmltext.Decoder, name []byte, nameColon, depth, line, column int) (QName, error) {
+	prefix, local, hasPrefix := splitQNameWithColon(name, nameColon)
 	if hasPrefix {
 		prefixName := unsafeString(prefix)
 		namespace, ok := ns.lookup(prefixName, depth)
@@ -18,6 +18,20 @@ func resolveElementName(names *qnameCache, ns *nsStack, dec *xmltext.Decoder, na
 	}
 	namespace, _ := ns.lookup("", depth)
 	return names.internBytes(namespace, local), nil
+}
+
+func resolveElementParts(ns *nsStack, dec *xmltext.Decoder, name []byte, nameColon, depth, line, column int) (string, []byte, error) {
+	prefix, local, hasPrefix := splitQNameWithColon(name, nameColon)
+	if hasPrefix {
+		prefixName := unsafeString(prefix)
+		namespace, ok := ns.lookup(prefixName, depth)
+		if !ok {
+			return "", nil, unboundPrefixError(dec, line, column)
+		}
+		return namespace, local, nil
+	}
+	namespace, _ := ns.lookup("", depth)
+	return namespace, local, nil
 }
 
 func popQName(stack []QName, depth int) (QName, []QName, error) {

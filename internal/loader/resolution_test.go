@@ -89,9 +89,9 @@ func TestLoadAndLoadCompiledResolutionParity(t *testing.T) {
 		t.Fatalf("LoadCompiled error: %v", err)
 	}
 
-	loaded, ok, err := loader.GetLoaded("main.xsd")
-	if err != nil || !ok {
-		t.Fatalf("GetLoaded error: %v (ok=%v)", err, ok)
+	loaded, ok := loader.GetLoaded("main.xsd", types.NamespaceURI("urn:test"))
+	if !ok {
+		t.Fatalf("GetLoaded did not return cached schema")
 	}
 	ctLoaded, ok := loaded.TypeDefs[ctQName].(*types.ComplexType)
 	if !ok || ctLoaded == nil || len(ctLoaded.Attributes()) == 0 {

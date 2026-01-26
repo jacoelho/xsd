@@ -22,7 +22,7 @@ func (a *Automaton) CheckDeterminism(overlap SymbolOverlapFunc) error {
 				return fmt.Errorf("content model is not deterministic: symbol %s is ambiguous", a.symbols[i])
 			}
 		}
-		for i := 0; i < len(row); i++ {
+		for i := range row {
 			if row[i] == symbolPosNone {
 				continue
 			}

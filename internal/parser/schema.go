@@ -12,10 +12,34 @@ const (
 	Qualified
 )
 
+// GlobalDeclKind identifies top-level schema declarations in document order.
+type GlobalDeclKind int
+
+const (
+	// GlobalDeclElement represents a top-level element declaration.
+	GlobalDeclElement GlobalDeclKind = iota
+	// GlobalDeclType represents a top-level type declaration (complex or simple).
+	GlobalDeclType
+	// GlobalDeclAttribute represents a top-level attribute declaration.
+	GlobalDeclAttribute
+	// GlobalDeclAttributeGroup represents a top-level attributeGroup declaration.
+	GlobalDeclAttributeGroup
+	// GlobalDeclGroup represents a top-level model group declaration.
+	GlobalDeclGroup
+	// GlobalDeclNotation represents a top-level notation declaration.
+	GlobalDeclNotation
+)
+
+// GlobalDecl tracks a top-level declaration in document order.
+type GlobalDecl struct {
+	Name types.QName
+	Kind GlobalDeclKind
+}
+
 // Schema represents a compiled XSD schema
 type Schema struct {
-	NotationDecls           map[types.QName]*types.NotationDecl
-	AttributeOrigins        map[types.QName]string
+	ImportContexts          map[string]ImportContext
+	Groups                  map[types.QName]*types.ModelGroup
 	ElementOrigins          map[types.QName]string
 	TypeDefs                map[types.QName]types.Type
 	TypeOrigins             map[types.QName]string
@@ -23,17 +47,18 @@ type Schema struct {
 	SubstitutionGroups      map[types.QName][]types.QName
 	AttributeGroups         map[types.QName]*types.AttributeGroup
 	AttributeGroupOrigins   map[types.QName]string
-	Groups                  map[types.QName]*types.ModelGroup
+	ImportedNamespaces      map[types.NamespaceURI]map[types.NamespaceURI]bool
 	ElementDecls            map[types.QName]*types.ElementDecl
 	GroupOrigins            map[types.QName]string
-	ImportContexts          map[string]ImportContext
+	AttributeOrigins        map[types.QName]string
 	NotationOrigins         map[types.QName]string
-	ImportedNamespaces      map[types.NamespaceURI]map[types.NamespaceURI]bool
+	NotationDecls           map[types.QName]*types.NotationDecl
 	ParticleRestrictionCaps map[*types.ElementDecl]types.Occurs
 	IDAttributes            map[string]string
 	NamespaceDecls          map[string]string
-	TargetNamespace         types.NamespaceURI
 	Location                string
+	TargetNamespace         types.NamespaceURI
+	GlobalDecls             []GlobalDecl
 	FinalDefault            types.DerivationSet
 	AttributeFormDefault    Form
 	ElementFormDefault      Form
@@ -61,7 +86,12 @@ func NewSchema() *Schema {
 		ParticleRestrictionCaps: make(map[*types.ElementDecl]types.Occurs),
 		ImportedNamespaces:      make(map[types.NamespaceURI]map[types.NamespaceURI]bool),
 		ImportContexts:          make(map[string]ImportContext),
+		GlobalDecls:             []GlobalDecl{},
 	}
+}
+
+func (s *Schema) addGlobalDecl(kind GlobalDeclKind, name types.QName) {
+	s.GlobalDecls = append(s.GlobalDecls, GlobalDecl{Kind: kind, Name: name})
 }
 
 // ImportContext tracks import namespaces for a specific schema document.

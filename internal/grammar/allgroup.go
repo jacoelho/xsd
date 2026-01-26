@@ -20,8 +20,8 @@ type AllGroupElementInfo interface {
 // AllGroupValidator validates all-group content models with array-based checks.
 // It enforces required elements, uniqueness, and order-insensitivity.
 type AllGroupValidator struct {
-	elements    []AllGroupElementInfo
 	minOccurs   types.Occurs
+	elements    []AllGroupElementInfo
 	numRequired int
 	mixed       bool
 }

@@ -108,6 +108,7 @@ func parseComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) 
 	}
 
 	schema.TypeDefs[ct.QName] = ct
+	schema.addGlobalDecl(GlobalDeclType, ct.QName)
 	return nil
 }
 

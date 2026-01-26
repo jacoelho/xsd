@@ -12,9 +12,9 @@ type ParticleAdapter struct {
 	Original          types.Particle
 	Element           *CompiledElement
 	Wildcard          *types.AnyElement
-	Children          []*ParticleAdapter
 	MinOccurs         types.Occurs
 	MaxOccurs         types.Occurs
+	Children          []*ParticleAdapter
 	Kind              ParticleKind
 	GroupKind         types.GroupKind
 	AllowSubstitution bool

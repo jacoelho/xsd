@@ -1,6 +1,7 @@
 package types
 
 import (
+	"errors"
 	"math/big"
 	"testing"
 )
@@ -21,67 +22,38 @@ func TestOccursFromBig(t *testing.T) {
 		t.Fatalf("expected small occurs to fit int")
 	}
 
-	maxInt := int(^uint(0) >> 1)
-	bigValue := new(big.Int).Add(big.NewInt(int64(maxInt)), big.NewInt(1))
-	occBig, err := OccursFromBig(bigValue)
+	maxValue := new(big.Int).SetUint64(uint64(^uint32(0)))
+	occMax, err := OccursFromBig(maxValue)
 	if err != nil {
-		t.Fatalf("OccursFromBig big error: %v", err)
+		t.Fatalf("OccursFromBig max error: %v", err)
 	}
-	if _, ok := occBig.Int(); ok {
-		t.Fatalf("expected big occurs to not fit in int")
+	if value, ok := occMax.Int(); !ok || value <= 0 {
+		t.Fatalf("expected max occurs to fit in int on 64-bit")
 	}
-	if occBig.CmpInt(maxInt) <= 0 {
-		t.Fatalf("expected big occurs to exceed maxInt")
-	}
-	if occBig.String() != bigValue.String() {
-		t.Fatalf("unexpected big occurs string: %s", occBig)
+
+	tooLarge := new(big.Int).Add(maxValue, big.NewInt(1))
+	if _, err := OccursFromBig(tooLarge); err == nil {
+		t.Fatalf("expected overflow error for occurs > uint32")
+	} else if !errors.Is(err, ErrOccursOverflow) {
+		t.Fatalf("expected %v, got %v", ErrOccursOverflow, err)
 	}
 }
 
 func TestOccursAddMulBig(t *testing.T) {
-	maxInt := int(^uint(0) >> 1)
-	sum := AddOccurs(OccursFromInt(maxInt), OccursFromInt(1))
-	if sum.IsUnbounded() {
-		t.Fatalf("unexpected unbounded sum")
-	}
-	if _, ok := sum.Int(); ok {
-		t.Fatalf("expected sum to not fit in int")
-	}
-	if sum.CmpInt(maxInt) <= 0 {
-		t.Fatalf("expected sum to exceed maxInt")
-	}
-
-	bigA := new(big.Int).Add(big.NewInt(int64(maxInt)), big.NewInt(10))
-	bigB := new(big.Int).Add(big.NewInt(int64(maxInt)), big.NewInt(20))
-	occA, err := OccursFromBig(bigA)
+	maxValue := new(big.Int).SetUint64(uint64(^uint32(0)))
+	occMax, err := OccursFromBig(maxValue)
 	if err != nil {
-		t.Fatalf("OccursFromBig a error: %v", err)
-	}
-	occB, err := OccursFromBig(bigB)
-	if err != nil {
-		t.Fatalf("OccursFromBig b error: %v", err)
-	}
-	sumBig := AddOccurs(occA, occB)
-	wantSum := new(big.Int).Add(bigA, bigB).String()
-	if sumBig.String() != wantSum {
-		t.Fatalf("unexpected sum: %s, want %s", sumBig, wantSum)
+		t.Fatalf("OccursFromBig max error: %v", err)
 	}
 
-	product := MulOccurs(OccursFromInt(maxInt), OccursFromInt(2))
-	if product.IsUnbounded() {
-		t.Fatalf("unexpected unbounded product")
-	}
-	if _, ok := product.Int(); ok {
-		t.Fatalf("expected product to not fit in int")
-	}
-	if product.CmpInt(maxInt) <= 0 {
-		t.Fatalf("expected product to exceed maxInt")
+	sum := AddOccurs(occMax, OccursFromInt(1))
+	if !sum.IsOverflow() {
+		t.Fatalf("expected sum overflow")
 	}
 
-	productBig := MulOccurs(occA, occB)
-	wantProduct := new(big.Int).Mul(bigA, bigB).String()
-	if productBig.String() != wantProduct {
-		t.Fatalf("unexpected product: %s, want %s", productBig, wantProduct)
+	product := MulOccurs(occMax, OccursFromInt(2))
+	if !product.IsOverflow() {
+		t.Fatalf("expected product overflow")
 	}
 
 	if got := MulOccurs(OccursFromInt(0), OccursUnbounded); !got.IsZero() {
@@ -90,59 +62,57 @@ func TestOccursAddMulBig(t *testing.T) {
 }
 
 func TestOccursMinMaxWithBig(t *testing.T) {
-	maxInt := int(^uint(0) >> 1)
-	bigValue := new(big.Int).Add(big.NewInt(int64(maxInt)), big.NewInt(1))
-	occBig, err := OccursFromBig(bigValue)
+	maxValue := new(big.Int).SetUint64(uint64(^uint32(0)))
+	occMax, err := OccursFromBig(maxValue)
 	if err != nil {
 		t.Fatalf("OccursFromBig error: %v", err)
 	}
 
-	if got := MinOccurs(OccursUnbounded, occBig); !got.Equal(occBig) {
+	if got := MinOccurs(OccursUnbounded, occMax); !got.Equal(occMax) {
 		t.Fatalf("expected min to pick bounded value")
 	}
-	if got := MaxOccurs(OccursUnbounded, occBig); !got.IsUnbounded() {
+	if got := MaxOccurs(OccursUnbounded, occMax); !got.IsUnbounded() {
 		t.Fatalf("expected max to pick unbounded")
 	}
 
 	small := OccursFromInt(1)
-	if got := MinOccurs(small, occBig); !got.Equal(small) {
+	if got := MinOccurs(small, occMax); !got.Equal(small) {
 		t.Fatalf("expected min to pick small")
 	}
-	if got := MaxOccurs(small, occBig); !got.Equal(occBig) {
-		t.Fatalf("expected max to pick big")
+	if got := MaxOccurs(small, occMax); !got.Equal(occMax) {
+		t.Fatalf("expected max to pick max")
 	}
 }
 
 func TestOccursCmpBig(t *testing.T) {
-	maxInt := int(^uint(0) >> 1)
-	bigValue := new(big.Int).Add(big.NewInt(int64(maxInt)), big.NewInt(1))
-	occBig, err := OccursFromBig(bigValue)
+	maxValue := new(big.Int).SetUint64(uint64(^uint32(0)))
+	occMax, err := OccursFromBig(maxValue)
 	if err != nil {
 		t.Fatalf("OccursFromBig error: %v", err)
 	}
-	occSmall := OccursFromInt(maxInt)
+	occSmall := OccursFromInt(1)
 
-	if occBig.Cmp(occSmall) <= 0 {
-		t.Fatalf("expected big > small")
+	if occMax.Cmp(occSmall) <= 0 {
+		t.Fatalf("expected max > small")
 	}
-	if occSmall.Cmp(occBig) >= 0 {
-		t.Fatalf("expected small < big")
+	if occSmall.Cmp(occMax) >= 0 {
+		t.Fatalf("expected small < max")
 	}
-	if occBig.Cmp(OccursUnbounded) >= 0 {
-		t.Fatalf("expected big < unbounded")
+	if occMax.Cmp(OccursUnbounded) >= 0 {
+		t.Fatalf("expected max < unbounded")
 	}
-	if OccursUnbounded.Cmp(occBig) <= 0 {
-		t.Fatalf("expected unbounded > big")
+	if OccursUnbounded.Cmp(occMax) <= 0 {
+		t.Fatalf("expected unbounded > max")
 	}
-	if occBig.CmpInt(maxInt) <= 0 {
-		t.Fatalf("expected big to exceed maxInt")
+	if occMax.CmpInt(1) <= 0 {
+		t.Fatalf("expected max to exceed small")
 	}
 
-	occBig2, err := OccursFromBig(bigValue)
+	occMax2, err := OccursFromBig(maxValue)
 	if err != nil {
 		t.Fatalf("OccursFromBig error: %v", err)
 	}
-	if occBig.Cmp(occBig2) != 0 {
-		t.Fatalf("expected big values to compare equal")
+	if occMax.Cmp(occMax2) != 0 {
+		t.Fatalf("expected max values to compare equal")
 	}
 }

@@ -66,3 +66,16 @@ func TestReaderResetAfterError(t *testing.T) {
 		t.Fatalf("event = %v %s, want good start", ev.Kind, ev.Name.String())
 	}
 }
+
+func TestReaderDuplicateAttributesResolved(t *testing.T) {
+	doc := `<root xmlns:a="urn:x" a:attr="1" xmlns:b="urn:x" b:attr="2"/>`
+	r, err := NewReader(strings.NewReader(doc))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.NextResolved(); err == nil {
+		t.Fatalf("expected duplicate attribute error")
+	} else if !errors.Is(err, errDuplicateAttribute) {
+		t.Fatalf("error = %v, want duplicate attribute error", err)
+	}
+}

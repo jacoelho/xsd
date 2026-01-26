@@ -31,9 +31,9 @@ func TestValidateNilAttribute(t *testing.T) {
 	tests := []struct {
 		name      string
 		docXML    string
+		wantError errors.ErrorCode
 		nillable  bool
 		wantNil   bool
-		wantError errors.ErrorCode
 	}{
 		{
 			name:      "invalid boolean",

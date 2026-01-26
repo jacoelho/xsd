@@ -1,0 +1,387 @@
+package runtimebuild
+
+import (
+	"bytes"
+	"fmt"
+
+	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/types"
+)
+
+func (c *compiler) compileDefaults(registry *schema.Registry) error {
+	if registry == nil {
+		return fmt.Errorf("registry is nil")
+	}
+	for _, entry := range registry.ElementOrder {
+		decl := entry.Decl
+		if decl == nil || decl.IsReference {
+			continue
+		}
+		if decl.HasDefault {
+			typ, err := c.valueTypeForElement(decl)
+			if err != nil {
+				return fmt.Errorf("element %s default: %w", entry.QName, err)
+			}
+			canon, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
+			if err != nil {
+				return fmt.Errorf("element %s default: %w", entry.QName, err)
+			}
+			c.elemDefaults[entry.ID] = c.values.add(canon)
+		}
+		if decl.HasFixed {
+			typ, err := c.valueTypeForElement(decl)
+			if err != nil {
+				return fmt.Errorf("element %s fixed: %w", entry.QName, err)
+			}
+			canon, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
+			if err != nil {
+				return fmt.Errorf("element %s fixed: %w", entry.QName, err)
+			}
+			c.elemFixed[entry.ID] = c.values.add(canon)
+		}
+	}
+
+	for _, entry := range registry.AttributeOrder {
+		decl := entry.Decl
+		if decl == nil {
+			continue
+		}
+		if decl.HasDefault {
+			typ, err := c.valueTypeForAttribute(decl)
+			if err != nil {
+				return fmt.Errorf("attribute %s default: %w", entry.QName, err)
+			}
+			canon, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
+			if err != nil {
+				return fmt.Errorf("attribute %s default: %w", entry.QName, err)
+			}
+			c.attrDefaults[entry.ID] = c.values.add(canon)
+		}
+		if decl.HasFixed {
+			typ, err := c.valueTypeForAttribute(decl)
+			if err != nil {
+				return fmt.Errorf("attribute %s fixed: %w", entry.QName, err)
+			}
+			canon, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
+			if err != nil {
+				return fmt.Errorf("attribute %s fixed: %w", entry.QName, err)
+			}
+			c.attrFixed[entry.ID] = c.values.add(canon)
+		}
+	}
+
+	return nil
+}
+
+func (c *compiler) compileAttributeUses(registry *schema.Registry) error {
+	if registry == nil {
+		return fmt.Errorf("registry is nil")
+	}
+	for _, entry := range registry.TypeOrder {
+		ct, ok := types.AsComplexType(entry.Type)
+		if !ok || ct == nil {
+			continue
+		}
+		attrs, _, err := collectAttributeUses(c.schema, ct)
+		if err != nil {
+			return err
+		}
+		for _, decl := range attrs {
+			if decl == nil {
+				continue
+			}
+			if !decl.HasDefault && !decl.HasFixed {
+				continue
+			}
+			typ, err := c.valueTypeForAttribute(decl)
+			if err != nil {
+				return fmt.Errorf("attribute use %s: %w", decl.Name, err)
+			}
+			if decl.HasDefault {
+				if _, exists := c.attrUseDefaults[decl]; !exists {
+					canon, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
+					if err != nil {
+						return fmt.Errorf("attribute use %s default: %w", decl.Name, err)
+					}
+					c.attrUseDefaults[decl] = c.values.add(canon)
+				}
+			}
+			if decl.HasFixed {
+				if _, exists := c.attrUseFixed[decl]; !exists {
+					canon, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
+					if err != nil {
+						return fmt.Errorf("attribute use %s fixed: %w", decl.Name, err)
+					}
+					c.attrUseFixed[decl] = c.values.add(canon)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *compiler) valueTypeForElement(decl *types.ElementDecl) (types.Type, error) {
+	if decl == nil || decl.Type == nil {
+		return nil, fmt.Errorf("missing type")
+	}
+	switch typed := decl.Type.(type) {
+	case *types.SimpleType, *types.BuiltinType:
+		return typed, nil
+	case *types.ComplexType:
+		textType, err := c.simpleContentTextType(typed)
+		if err != nil {
+			return nil, err
+		}
+		if textType == nil {
+			return nil, fmt.Errorf("complex type has no simple content")
+		}
+		return textType, nil
+	default:
+		return nil, fmt.Errorf("unsupported element type")
+	}
+}
+
+func (c *compiler) valueTypeForAttribute(decl *types.AttributeDecl) (types.Type, error) {
+	if decl == nil {
+		return nil, fmt.Errorf("missing attribute")
+	}
+	if decl.Type != nil {
+		return decl.Type, nil
+	}
+	if decl.IsReference && c.schema != nil {
+		if target := c.schema.AttributeDecls[decl.Name]; target != nil && target.Type != nil {
+			return target.Type, nil
+		}
+	}
+	return nil, fmt.Errorf("missing attribute type")
+}
+
+func (c *compiler) canonicalizeDefaultFixed(lexical string, typ types.Type, ctx map[string]string) ([]byte, error) {
+	normalized := c.normalizeLexical(lexical, typ)
+	facets, err := c.facetsForType(typ)
+	if err != nil {
+		return nil, err
+	}
+	err = c.validatePartialFacets(normalized, typ, facets)
+	if err != nil {
+		return nil, err
+	}
+	canon, err := c.canonicalizeNormalizedDefault(normalized, typ, ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.validateEnumSets(typ, canon); err != nil {
+		return nil, err
+	}
+	return canon, nil
+}
+
+func (c *compiler) canonicalizeNormalizedDefault(normalized string, typ types.Type, ctx map[string]string) ([]byte, error) {
+	switch c.res.varietyForType(typ) {
+	case types.ListVariety:
+		item, ok := c.res.listItemTypeFromType(typ)
+		if !ok || item == nil {
+			return nil, fmt.Errorf("list type missing item type")
+		}
+		items := splitXMLWhitespace(normalized)
+		if len(items) == 0 {
+			return []byte{}, nil
+		}
+		var buf []byte
+		for i, itemLex := range items {
+			canon, err := c.canonicalizeNormalizedDefault(itemLex, item, ctx)
+			if err != nil {
+				return nil, err
+			}
+			if i > 0 {
+				buf = append(buf, ' ')
+			}
+			buf = append(buf, canon...)
+		}
+		return buf, nil
+	case types.UnionVariety:
+		members := c.res.unionMemberTypesFromType(typ)
+		if len(members) == 0 {
+			return nil, fmt.Errorf("union has no member types")
+		}
+		for _, member := range members {
+			memberLex := c.normalizeLexical(normalized, member)
+			memberFacets, err := c.facetsForType(member)
+			if err != nil {
+				return nil, err
+			}
+			err = c.validatePartialFacets(memberLex, member, memberFacets)
+			if err != nil {
+				continue
+			}
+			canon, err := c.canonicalizeNormalizedDefault(memberLex, member, ctx)
+			if err != nil {
+				continue
+			}
+			if err := c.validateEnumSets(member, canon); err != nil {
+				continue
+			}
+			return canon, nil
+		}
+		return nil, fmt.Errorf("union value does not match any member type")
+	default:
+		return c.canonicalizeAtomic(normalized, typ, ctx)
+	}
+}
+
+func (c *compiler) validateEnumSets(typ types.Type, canon []byte) error {
+	validatorID, err := c.compileType(typ)
+	if err != nil {
+		return err
+	}
+	if validatorID == 0 {
+		return nil
+	}
+	enumIDs := c.enumIDsForValidator(validatorID)
+	if len(enumIDs) == 0 {
+		return nil
+	}
+	table := c.enums.table()
+	values := c.values.table()
+	for _, enumID := range enumIDs {
+		if !enumContains(&table, values, enumID, canon) {
+			return fmt.Errorf("value not in enumeration")
+		}
+	}
+	return nil
+}
+
+func (c *compiler) enumIDsForValidator(id runtime.ValidatorID) []runtime.EnumID {
+	if id == 0 {
+		return nil
+	}
+	if int(id) >= len(c.bundle.Meta) {
+		return nil
+	}
+	meta := c.bundle.Meta[id]
+	if meta.Facets.Len == 0 {
+		return nil
+	}
+	start := meta.Facets.Off
+	var out []runtime.EnumID
+	for i := uint32(0); i < meta.Facets.Len; i++ {
+		instr := c.facets[start+i]
+		if instr.Op == runtime.FEnum {
+			out = append(out, runtime.EnumID(instr.Arg0))
+		}
+	}
+	return out
+}
+
+func enumContains(table *runtime.EnumTable, values runtime.ValueBlob, enumID runtime.EnumID, canon []byte) bool {
+	if table == nil {
+		return false
+	}
+	if enumID == 0 || int(enumID) >= len(table.Off) {
+		return false
+	}
+	hashLen := table.HashLen[enumID]
+	if hashLen == 0 {
+		return false
+	}
+	hashOff := table.HashOff[enumID]
+	hash := runtime.HashBytes(canon)
+	mask := uint64(hashLen - 1)
+	slot := int(hash & mask)
+	for range hashLen {
+		idx := hashOff + uint32(slot)
+		if table.Slots[idx] == 0 {
+			return false
+		}
+		if table.Hashes[idx] == hash {
+			valueIndex := table.Slots[idx] - 1
+			ref := table.Values[table.Off[enumID]+valueIndex]
+			if int(ref.Off+ref.Len) <= len(values.Blob) &&
+				ref.Len == uint32(len(canon)) &&
+				bytes.Equal(values.Blob[ref.Off:ref.Off+ref.Len], canon) {
+				return true
+			}
+		}
+		slot = (slot + 1) & int(mask)
+	}
+	return false
+}
+
+func (c *compiler) simpleContentTextType(ct *types.ComplexType) (types.Type, error) {
+	if ct == nil {
+		return nil, nil
+	}
+	if cached, ok := c.simpleContent[ct]; ok {
+		return cached, nil
+	}
+	seen := make(map[*types.ComplexType]bool)
+	return c.simpleContentTextTypeSeen(ct, seen)
+}
+
+func (c *compiler) simpleContentTextTypeSeen(ct *types.ComplexType, seen map[*types.ComplexType]bool) (types.Type, error) {
+	if ct == nil {
+		return nil, nil
+	}
+	if cached, ok := c.simpleContent[ct]; ok {
+		return cached, nil
+	}
+	if seen[ct] {
+		return nil, fmt.Errorf("simpleContent cycle detected")
+	}
+	seen[ct] = true
+	defer delete(seen, ct)
+
+	sc, ok := ct.Content().(*types.SimpleContent)
+	if !ok {
+		return nil, nil
+	}
+	baseType, err := c.simpleContentBaseType(ct, sc, seen)
+	if err != nil {
+		return nil, err
+	}
+	var result types.Type
+	switch {
+	case sc.Extension != nil:
+		result = baseType
+	case sc.Restriction != nil:
+		st := &types.SimpleType{
+			Restriction:  sc.Restriction,
+			ResolvedBase: baseType,
+		}
+		if sc.Restriction.SimpleType != nil && sc.Restriction.SimpleType.WhiteSpaceExplicit() {
+			st.SetWhiteSpaceExplicit(sc.Restriction.SimpleType.WhiteSpace())
+		} else if baseType != nil {
+			st.SetWhiteSpace(baseType.WhiteSpace())
+		}
+		result = st
+	default:
+		result = baseType
+	}
+	c.simpleContent[ct] = result
+	return result, nil
+}
+
+func (c *compiler) simpleContentBaseType(ct *types.ComplexType, sc *types.SimpleContent, seen map[*types.ComplexType]bool) (types.Type, error) {
+	if ct == nil {
+		return nil, fmt.Errorf("simpleContent base missing")
+	}
+	base := ct.ResolvedBase
+	if base == nil && sc != nil {
+		qname := sc.BaseTypeQName()
+		if !qname.IsZero() {
+			base = c.res.resolveQName(qname)
+		}
+	}
+	if base == nil {
+		return nil, fmt.Errorf("simpleContent base missing")
+	}
+	switch typed := base.(type) {
+	case *types.SimpleType, *types.BuiltinType:
+		return typed, nil
+	case *types.ComplexType:
+		return c.simpleContentTextTypeSeen(typed, seen)
+	default:
+		return nil, fmt.Errorf("simpleContent base is not simple")
+	}
+}

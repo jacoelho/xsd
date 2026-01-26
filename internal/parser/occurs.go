@@ -1,8 +1,9 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
-	"math/big"
+	"strconv"
 
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
@@ -27,16 +28,12 @@ func parseOccursValue(attr, value string) (types.Occurs, error) {
 		}
 		return types.OccursUnbounded, nil
 	}
-	bi, ok := new(big.Int).SetString(value, 10)
-	if !ok {
-		return types.OccursFromInt(0), fmt.Errorf("invalid %s attribute value '%s'", attr, value)
-	}
-	if bi.Sign() < 0 {
-		return types.OccursFromInt(0), fmt.Errorf("invalid %s attribute value '%s'", attr, value)
-	}
-	occurs, err := types.OccursFromBig(bi)
+	u, err := strconv.ParseUint(value, 10, 32)
 	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			return types.OccursFromInt(0), fmt.Errorf("%w: %s attribute value '%s' overflows uint32", types.ErrOccursOverflow, attr, value)
+		}
 		return types.OccursFromInt(0), fmt.Errorf("invalid %s attribute value '%s'", attr, value)
 	}
-	return occurs, nil
+	return types.OccursFromInt(int(u)), nil
 }
