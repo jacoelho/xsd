@@ -1,11 +1,13 @@
 package resolver
 
 import (
+	stdErrors "errors"
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 func validateReferences(schema *parser.Schema) []error {
@@ -192,6 +194,9 @@ func validateLocalIdentityConstraintResolution(schema *parser.Schema) []error {
 			for _, constraint := range localConstraints {
 				tempDecl := &types.ElementDecl{Type: ct}
 				if err := validateIdentityConstraintResolution(schema, constraint, tempDecl); err != nil {
+					if stdErrors.Is(err, xpath.ErrInvalidXPath) {
+						continue
+					}
 					errors = append(errors, fmt.Errorf("element %s local identity constraint '%s': %w", qname, constraint.Name, err))
 				}
 			}
@@ -203,6 +208,9 @@ func validateLocalIdentityConstraintResolution(schema *parser.Schema) []error {
 			for _, constraint := range localConstraints {
 				tempDecl := &types.ElementDecl{Type: ct}
 				if err := validateIdentityConstraintResolution(schema, constraint, tempDecl); err != nil {
+					if stdErrors.Is(err, xpath.ErrInvalidXPath) {
+						continue
+					}
 					errors = append(errors, fmt.Errorf("type %s local identity constraint '%s': %w", qname, constraint.Name, err))
 				}
 			}

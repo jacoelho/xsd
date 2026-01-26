@@ -72,15 +72,6 @@ func copyQNameSlice(values []QName, remap func(QName) QName) []QName {
 	return out
 }
 
-func copyStringMap(values map[string]string) map[string]string {
-	if len(values) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(values))
-	maps.Copy(out, values)
-	return out
-}
-
 func copyAttributeDecls(attrs []*AttributeDecl, opts CopyOptions) []*AttributeDecl {
 	if len(attrs) == 0 {
 		return nil
@@ -108,9 +99,7 @@ func copyValueNamespaceContext(src map[string]string, opts CopyOptions) map[stri
 	if !isChameleonRemap(opts) {
 		return clone
 	}
-	if defaultNS, ok := clone[""]; !ok || defaultNS == "" {
-		clone[""] = opts.SourceNamespace.String()
-	}
+	clone[""] = opts.SourceNamespace.String()
 	return clone
 }
 

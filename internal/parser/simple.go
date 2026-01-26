@@ -33,15 +33,14 @@ func parseSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) e
 
 	if doc.HasAttribute(elem, "final") {
 		finalAttr := doc.GetAttribute(elem, "final")
-		if finalAttr == "" {
-			st.Final = 0
-		} else {
-			final, err := parseSimpleTypeFinal(finalAttr)
-			if err != nil {
-				return fmt.Errorf("invalid final attribute value '%s': %w", finalAttr, err)
-			}
-			st.Final = final
+		if types.TrimXMLWhitespace(finalAttr) == "" {
+			return fmt.Errorf("final attribute cannot be empty")
 		}
+		final, err := parseSimpleTypeFinal(finalAttr)
+		if err != nil {
+			return fmt.Errorf("invalid final attribute value '%s': %w", finalAttr, err)
+		}
+		st.Final = final
 	} else if schema.FinalDefault != 0 {
 		// apply finalDefault (restriction, list, union only)
 		st.Final = schema.FinalDefault & types.DerivationSet(types.DerivationRestriction|types.DerivationList|types.DerivationUnion)
@@ -235,6 +234,10 @@ func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 				return nil, fmt.Errorf("parse facets in list restriction: %w", err)
 			}
 		}
+	}
+
+	if facetType.WhiteSpaceExplicit() && facetType.WhiteSpace() != types.WhiteSpaceCollapse {
+		return nil, fmt.Errorf("list whiteSpace facet must be 'collapse'")
 	}
 
 	// per XSD spec: Either itemType attribute or inline simpleType child must be present, but not both

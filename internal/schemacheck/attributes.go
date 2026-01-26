@@ -63,14 +63,14 @@ func validateAttributeDeclStructure(schemaDef *parser.Schema, qname types.QName,
 	}
 	// validate default value if present (basic validation only - full type checking after resolution)
 	if decl.HasDefault {
-		if err := validateDefaultOrFixedValue(decl.Default, decl.Type); err != nil {
+		if err := validateDefaultOrFixedValueWithContext(schemaDef, decl.Default, decl.Type, decl.DefaultContext); err != nil {
 			return fmt.Errorf("invalid default value '%s': %w", decl.Default, err)
 		}
 	}
 
 	// validate fixed value if present (basic validation only - full type checking after resolution)
 	if decl.HasFixed {
-		if err := validateDefaultOrFixedValueWithContext(schemaDef, decl.Fixed, decl.Type, decl.ValueContext); err != nil {
+		if err := validateDefaultOrFixedValueWithContext(schemaDef, decl.Fixed, decl.Type, decl.FixedContext); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)
 		}
 	}

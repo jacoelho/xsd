@@ -26,9 +26,9 @@ func TestResolveSimpleTypeRestriction(t *testing.T) {
 	schema.TypeDefs[baseQName] = base
 	schema.TypeDefs[derivedQName] = derived
 
-	detector := NewCycleDetector[types.QName]()
-	if err := resolveSimpleType(derived, schema, detector); err != nil {
-		t.Fatalf("resolveSimpleType restriction: %v", err)
+	res := NewResolver(schema)
+	if err := res.Resolve(); err != nil {
+		t.Fatalf("resolve restriction: %v", err)
 	}
 	if derived.ResolvedBase != base {
 		t.Fatalf("expected derived base to resolve to %v", baseQName)
@@ -57,9 +57,9 @@ func TestResolveSimpleTypeList(t *testing.T) {
 	schema.TypeDefs[itemQName] = item
 	schema.TypeDefs[listQName] = list
 
-	detector := NewCycleDetector[types.QName]()
-	if err := resolveSimpleType(list, schema, detector); err != nil {
-		t.Fatalf("resolveSimpleType list: %v", err)
+	res := NewResolver(schema)
+	if err := res.Resolve(); err != nil {
+		t.Fatalf("resolve list: %v", err)
 	}
 	if list.ItemType != item {
 		t.Fatalf("expected list item type to resolve to %v", itemQName)
@@ -96,9 +96,9 @@ func TestResolveSimpleTypeUnion(t *testing.T) {
 	schema.TypeDefs[rightQName] = right
 	schema.TypeDefs[unionQName] = union
 
-	detector := NewCycleDetector[types.QName]()
-	if err := resolveSimpleType(union, schema, detector); err != nil {
-		t.Fatalf("resolveSimpleType union: %v", err)
+	res := NewResolver(schema)
+	if err := res.Resolve(); err != nil {
+		t.Fatalf("resolve union: %v", err)
 	}
 	if len(union.MemberTypes) != 2 {
 		t.Fatalf("expected 2 union member types, got %d", len(union.MemberTypes))

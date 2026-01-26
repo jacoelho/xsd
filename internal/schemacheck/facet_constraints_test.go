@@ -125,7 +125,7 @@ func TestValidatePatternFacetSyntax(t *testing.T) {
 			}
 
 			facetList := []types.Facet{patternFacet}
-			err = validateFacetConstraints(facetList, baseType, baseQName)
+			err = validateFacetConstraints(nil, facetList, baseType, baseQName)
 			if tt.valid && err != nil {
 				t.Errorf("Pattern %q should be valid but got error: %v", tt.pattern, err)
 			}

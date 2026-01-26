@@ -299,7 +299,7 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 	}
 
 	schema := result.Schema
-	initSchemaOrigins(schema, absLoc)
+	initSchemaOrigins(schema, absLoc, ctx.key)
 	entry.schema = schema
 	registerImports(schema, result.Imports)
 
@@ -389,13 +389,7 @@ func (l *SchemaLoader) LoadCompiled(location string) (*grammar.CompiledSchema, e
 		return nil, fmt.Errorf("parse %s: %w", location, err)
 	}
 
-	// phase 2: Resolve all QName references
-	res := resolver.NewResolver(schema)
-	if err = res.Resolve(); err != nil {
-		return nil, fmt.Errorf("resolve %s: %w", location, err)
-	}
-
-	// phase 3: Compile to grammar
+	// phase 2: Compile to grammar (resolution already done during Load)
 	comp := compiler.NewCompiler(schema)
 	compiled, err := comp.Compile()
 	if err != nil {
@@ -424,7 +418,15 @@ func (l *SchemaLoader) resolveLocation(location string) (string, error) {
 		return location, nil
 	}
 	if path.IsAbs(location) {
-		return location, nil
+		cleanBase := path.Clean(l.config.BasePath)
+		if cleanBase == "." {
+			return location, nil
+		}
+		cleanLoc := path.Clean(location)
+		if cleanLoc == cleanBase || strings.HasPrefix(cleanLoc, cleanBase+"/") {
+			return location, nil
+		}
+		return "", fmt.Errorf("schema location %q escapes base path %q", location, cleanBase)
 	}
 	cleanBase := path.Clean(l.config.BasePath)
 	if cleanBase == "." {
@@ -451,7 +453,18 @@ func (l *SchemaLoader) resolveIncludeLocation(baseLoc, includeLoc string) (strin
 	}
 	// if include location is absolute, use it as-is
 	if path.IsAbs(includeLoc) {
-		return includeLoc, nil
+		if l.config.BasePath == "" {
+			return includeLoc, nil
+		}
+		cleanBase := path.Clean(l.config.BasePath)
+		if cleanBase == "." {
+			return includeLoc, nil
+		}
+		cleanInclude := path.Clean(includeLoc)
+		if cleanInclude == cleanBase || strings.HasPrefix(cleanInclude, cleanBase+"/") {
+			return includeLoc, nil
+		}
+		return "", fmt.Errorf("schema location %q escapes base path %q", includeLoc, cleanBase)
 	}
 	// otherwise, resolve relative to the base location's directory
 	baseDir := path.Dir(baseLoc)
@@ -700,39 +713,39 @@ func validateSchemaConstraints(schema *parser.Schema) error {
 	return errors.New(errMsg.String())
 }
 
-func initSchemaOrigins(schema *parser.Schema, location string) {
+func initSchemaOrigins(schema *parser.Schema, location, fsKey string) {
 	if schema == nil {
 		return
 	}
-	schema.Location = location
+	schema.Location = parser.ImportContextKey(fsKey, location)
 	for qname := range schema.ElementDecls {
 		if schema.ElementOrigins[qname] == "" {
-			schema.ElementOrigins[qname] = location
+			schema.ElementOrigins[qname] = schema.Location
 		}
 	}
 	for qname := range schema.TypeDefs {
 		if schema.TypeOrigins[qname] == "" {
-			schema.TypeOrigins[qname] = location
+			schema.TypeOrigins[qname] = schema.Location
 		}
 	}
 	for qname := range schema.AttributeDecls {
 		if schema.AttributeOrigins[qname] == "" {
-			schema.AttributeOrigins[qname] = location
+			schema.AttributeOrigins[qname] = schema.Location
 		}
 	}
 	for qname := range schema.AttributeGroups {
 		if schema.AttributeGroupOrigins[qname] == "" {
-			schema.AttributeGroupOrigins[qname] = location
+			schema.AttributeGroupOrigins[qname] = schema.Location
 		}
 	}
 	for qname := range schema.Groups {
 		if schema.GroupOrigins[qname] == "" {
-			schema.GroupOrigins[qname] = location
+			schema.GroupOrigins[qname] = schema.Location
 		}
 	}
 	for qname := range schema.NotationDecls {
 		if schema.NotationOrigins[qname] == "" {
-			schema.NotationOrigins[qname] = location
+			schema.NotationOrigins[qname] = schema.Location
 		}
 	}
 }
@@ -741,7 +754,7 @@ func isNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
-	return errors.Is(err, fs.ErrNotExist) || os.IsNotExist(err) || errors.Is(err, errUnsupportedURL)
+	return errors.Is(err, fs.ErrNotExist) || os.IsNotExist(err)
 }
 
 // isIncludeNamespaceCompatible checks if target namespaces are compatible for include

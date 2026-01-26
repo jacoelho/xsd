@@ -106,6 +106,11 @@ type streamRun struct {
 
 // ValidateStream validates an XML document using streaming schemacheck.
 func (v *Validator) ValidateStream(r io.Reader) ([]errors.Validation, error) {
+	return v.ValidateStreamWithEntities(r, nil)
+}
+
+// ValidateStreamWithEntities validates an XML document with declared ENTITY/ENTITIES values.
+func (v *Validator) ValidateStreamWithEntities(r io.Reader, entities map[string]struct{}) ([]errors.Validation, error) {
 	if v == nil || v.grammar == nil {
 		return []errors.Validation{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}, nil
 	}
@@ -113,7 +118,7 @@ func (v *Validator) ValidateStream(r io.Reader) ([]errors.Validation, error) {
 		return nil, fmt.Errorf("nil reader")
 	}
 
-	run := v.newStreamRun()
+	run := v.newStreamRunWithEntities(entities)
 
 	dec, err := xmlstream.NewStringReader(r)
 	if err != nil {
@@ -123,14 +128,19 @@ func (v *Validator) ValidateStream(r io.Reader) ([]errors.Validation, error) {
 	return run.validate(dec)
 }
 
-func (v *Validator) newStreamRun() *streamRun {
+func (v *Validator) newStreamRunWithEntities(entities map[string]struct{}) *streamRun {
 	base := &validationRun{
-		validator: v,
-		schema:    v.baseView,
+		validator:   v,
+		schema:      v.baseView,
+		entityDecls: copyEntityDecls(entities),
 	}
 	return &streamRun{
 		validationRun: base,
 	}
+}
+
+func (v *Validator) newStreamRun() *streamRun {
+	return v.newStreamRunWithEntities(nil)
 }
 
 func (r *streamRun) newAutomatonValidator(a *grammar.Automaton, wildcards []*types.AnyElement) *grammar.AutomatonStreamValidator {
@@ -254,22 +264,25 @@ func (r *streamRun) handleStart(dec *xmlstream.StringReader, ev *xmlstream.Strin
 	name := toTypesQName(ev.Name)
 	attrs := ev.Attrs
 	if parent != nil {
-		skipSubtree := r.prevalidateParentForChild(parent, name.Local)
+		skipSubtree := r.prevalidateParentForChild(parent, name)
 		if skipSubtree {
+			r.idrefCollectionIncomplete = true
 			return dec.SkipSubtree()
 		}
 	}
 
 	match, skipSubtree := r.resolveChildMatch(parent, name)
 	if skipSubtree {
+		r.idrefCollectionIncomplete = true
 		return dec.SkipSubtree()
 	}
 
 	if match.processContents == types.Skip {
+		r.idrefCollectionIncomplete = true
 		return dec.SkipSubtree()
 	}
 
-	r.path.push(name.Local)
+	r.path.push(name)
 	start := streamStart{
 		Name:       name,
 		Attrs:      attrs,
@@ -281,6 +294,7 @@ func (r *streamRun) handleStart(dec *xmlstream.StringReader, ev *xmlstream.Strin
 	frame, skipSubtree := r.startFrame(&start, parent, match.processContents, match.matchedDecl, match.matchedQName, match.origin)
 	if skipSubtree {
 		r.path.pop()
+		r.idrefCollectionIncomplete = true
 		return dec.SkipSubtree()
 	}
 	r.frames = append(r.frames, frame)
@@ -303,7 +317,7 @@ type startMatch struct {
 	origin          matchOrigin
 }
 
-func (r *streamRun) prevalidateParentForChild(parent *streamFrame, childName string) bool {
+func (r *streamRun) prevalidateParentForChild(parent *streamFrame, childName types.QName) bool {
 	parent.hasChildElements = true
 	if parent.invalid || parent.skipChildren {
 		return true
@@ -317,13 +331,13 @@ func (r *streamRun) prevalidateParentForChild(parent *streamFrame, childName str
 	}
 	if parent.textType != nil && (parent.typ == nil || (!isAnyType(parent.typ) && !parent.typ.HasContentModel())) {
 		r.addChildViolationf(errors.ErrTextInElementOnly, childName,
-			"Element '%s' is not allowed in simple content", childName)
+			"Element '%s' is not allowed in simple content", childName.Local)
 		parent.invalid = true
 		return true
 	}
 	if parent.contentKind == streamContentEmpty {
 		r.addChildViolationf(errors.ErrUnexpectedElement, childName,
-			"Element '%s' is not allowed. No element declaration found for it in the empty content model.", childName)
+			"Element '%s' is not allowed. No element declaration found for it in the empty content model.", childName.Local)
 		parent.invalid = true
 		return true
 	}
@@ -351,7 +365,7 @@ func (r *streamRun) resolveChildMatch(parent *streamFrame, name types.QName) (st
 	case streamContentAutomaton:
 		automatonMatch, err := parent.automaton.Feed(name)
 		if err != nil {
-			r.path.push(name.Local)
+			r.path.push(name)
 			r.addContentModelError(err)
 			r.path.pop()
 			parent.invalid = true
@@ -366,7 +380,7 @@ func (r *streamRun) resolveChildMatch(parent *streamFrame, name types.QName) (st
 	case streamContentAllGroup:
 		groupMatch, err := parent.allGroup.Feed(name)
 		if err != nil {
-			r.path.push(name.Local)
+			r.path.push(name)
 			r.addContentModelError(err)
 			r.path.pop()
 			parent.invalid = true
@@ -379,7 +393,7 @@ func (r *streamRun) resolveChildMatch(parent *streamFrame, name types.QName) (st
 	return match, false
 }
 
-func (r *streamRun) addChildViolationf(code errors.ErrorCode, childName, format string, args ...any) {
+func (r *streamRun) addChildViolationf(code errors.ErrorCode, childName types.QName, format string, args ...any) {
 	r.path.push(childName)
 	violation := errors.NewValidationf(code, r.path.String(), format, args...)
 	r.addViolation(&violation)
@@ -506,7 +520,7 @@ func (r *streamRun) handleEnd() error {
 		}
 		r.addViolationsAt(violations, textLine, textColumn)
 		if len(violations) == 0 {
-			r.addViolationsAt(r.collectIDRefs(text, frame.textType, textLine, textColumn), textLine, textColumn)
+			r.addViolationsAt(r.collectIDRefsForValue(text, frame.textType, textLine, textColumn, frame.scopeDepth, defaultContext), textLine, textColumn)
 		}
 		if frame.typ != nil && frame.typ.Kind == grammar.TypeKindComplex && len(frame.typ.Facets) > 0 {
 			if usedDefault && defaultContext != nil {
@@ -1131,7 +1145,7 @@ func (r *streamRun) finishListStream(frame *streamFrame) {
 		}
 		r.addViolationsAt(violations, textLine, textColumn)
 		if len(violations) == 0 {
-			r.addViolationsAt(r.collectIDRefs(value, frame.textType, textLine, textColumn), textLine, textColumn)
+			r.addViolationsAt(r.collectIDRefsForValue(value, frame.textType, textLine, textColumn, frame.scopeDepth, valueContext), textLine, textColumn)
 		}
 		return
 	}

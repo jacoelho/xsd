@@ -49,6 +49,9 @@ func validateSimpleTypeStructure(schema *parser.Schema, st *types.SimpleType) er
 			}
 		}
 	}
+	if st.Variety() == types.ListVariety && st.WhiteSpace() != types.WhiteSpaceCollapse {
+		return fmt.Errorf("list whiteSpace facet must be 'collapse'")
+	}
 	if err := validateSimpleTypeDerivationConstraints(schema, st); err != nil {
 		return err
 	}
@@ -247,7 +250,7 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 		}
 	}
 
-	if err := validateFacetConstraints(facetList, baseType, baseQName); err != nil {
+	if err := validateFacetConstraints(schema, facetList, baseType, baseQName); err != nil {
 		return err
 	}
 
@@ -256,6 +259,10 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 		if err := validateFacetInheritance(facetList, baseType); err != nil {
 			return err
 		}
+	}
+
+	if st.Variety() == types.ListVariety && st.WhiteSpace() != types.WhiteSpaceCollapse {
+		return fmt.Errorf("list whiteSpace facet must be 'collapse'")
 	}
 
 	// validate whiteSpace restriction: derived type can only be stricter, not relaxed
@@ -341,7 +348,7 @@ func validateSimpleContentRestrictionFacets(schema *parser.Schema, restriction *
 		}
 	}
 
-	if err := validateFacetConstraints(facetList, baseType, baseQName); err != nil {
+	if err := validateFacetConstraints(schema, facetList, baseType, baseQName); err != nil {
 		return err
 	}
 

@@ -27,13 +27,16 @@ type substitutionMatcher struct {
 }
 
 func (r *validationRun) matcher() *substitutionMatcher {
+	if r.subMatcher == nil {
+		r.subMatcher = &substitutionMatcher{}
+	}
 	r.subMatcher.view = r.schema
 	if base, ok := r.schema.(*baseSchemaView); ok {
 		r.subMatcher.headByMember = base.substitutionHeadByMember
 	} else {
 		r.subMatcher.headByMember = nil
 	}
-	return &r.subMatcher
+	return r.subMatcher
 }
 
 // IsSubstitutable reports whether actual can substitute for declared.

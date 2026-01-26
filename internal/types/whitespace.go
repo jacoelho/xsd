@@ -130,6 +130,15 @@ func splitXMLWhitespaceFields(value string) []string {
 	return strings.FieldsFunc(value, isXMLWhitespaceRune)
 }
 
+// SplitXMLWhitespaceFields splits a string on XML whitespace (space, tab, CR, LF).
+// It returns nil for empty input.
+func SplitXMLWhitespaceFields(value string) []string {
+	if value == "" {
+		return nil
+	}
+	return splitXMLWhitespaceFields(value)
+}
+
 // TrimXMLWhitespace removes leading and trailing XML whitespace (space, tab, CR, LF).
 func TrimXMLWhitespace(value string) string {
 	start := 0

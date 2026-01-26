@@ -311,7 +311,10 @@ func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind)
 		}, nil
 	}
 
-	return NodeTest{Local: local, NamespaceSpecified: true}, nil
+	if kind == nodeTestAttribute {
+		return NodeTest{Local: local, NamespaceSpecified: true}, nil
+	}
+	return NodeTest{Local: local}, nil
 }
 
 func axisFromName(name string) (Axis, error) {

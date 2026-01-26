@@ -237,10 +237,21 @@ func resolveFieldType(schema *parser.Schema, field *types.Field, constraintEleme
 
 	var resolvedTypes []types.Type
 	unresolved := false
+	nillableFound := false
 	for _, selectorDecl := range selectorDecls {
 		for _, fieldPath := range fieldExpr.Paths {
 			typ, pathErr := resolveFieldPathType(schema, selectorDecl, fieldPath)
 			if pathErr != nil {
+				if errors.Is(pathErr, ErrFieldSelectsNillable) {
+					if typ != nil {
+						resolvedTypes = append(resolvedTypes, typ)
+					}
+					nillableFound = true
+					if hasUnion {
+						continue
+					}
+					return nil, fmt.Errorf("resolve field xpath '%s': %w", field.XPath, pathErr)
+				}
 				if hasUnion {
 					unresolved = true
 					continue
@@ -267,6 +278,9 @@ func resolveFieldType(schema *parser.Schema, field *types.Field, constraintEleme
 		// For union fields with incompatible types, always report the error
 		// (it will be allowed during reference validation if needed)
 		return nil, err
+	}
+	if nillableFound {
+		return combined, fmt.Errorf("%w: field xpath '%s'", ErrFieldSelectsNillable, field.XPath)
 	}
 	if unresolved {
 		return combined, fmt.Errorf("%w: field xpath '%s' contains wildcard branches", ErrXPathUnresolvable, field.XPath)
@@ -420,13 +434,12 @@ func resolveFieldPathType(schema *parser.Schema, selectedElementDecl *types.Elem
 		return attrType, nil
 	}
 
-	if elementDecl.Nillable {
-		return nil, ErrFieldSelectsNillable
-	}
-
 	elementType := resolveTypeForValidation(schema, elementDecl.Type)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
+	}
+	if elementDecl.Nillable {
+		return elementType, ErrFieldSelectsNillable
 	}
 
 	if ct, ok := elementType.(*types.ComplexType); ok {
@@ -785,7 +798,7 @@ func findAttributeType(schema *parser.Schema, elementDecl *types.ElementDecl, te
 	// note: anyAttribute wildcard cannot be used to resolve specific attribute types.
 	// fields must reference declared attributes, not wildcard attributes (per XSD 1.0 spec).
 
-	return nil, fmt.Errorf("attribute '%s' not found in element type", formatNodeTest(test))
+	return nil, fmt.Errorf("%w: attribute '%s' not found in element type", ErrXPathUnresolvable, formatNodeTest(test))
 }
 
 // findAttributeTypeDescendant searches for an attribute at any depth in the content model.

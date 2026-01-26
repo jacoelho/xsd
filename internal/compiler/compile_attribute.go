@@ -63,6 +63,9 @@ func (c *Compiler) collectAttributesFromComplexType(complexType *types.ComplexTy
 
 	// 3. Check content for extension/restriction attributes
 	content := complexType.Content()
+	if content == nil {
+		return nil
+	}
 	if ext := content.ExtensionDef(); ext != nil {
 		if err := c.collectAttributes(ext.Attributes, ext.AttrGroups, attrMap, attributeCollectionMerge); err != nil {
 			return err
@@ -248,37 +251,44 @@ func (c *Compiler) collectProhibitedAttributes(chain []*grammar.CompiledType) []
 			continue
 		}
 
-		c.collectProhibitedAttributesFromUses(complexType.Attributes(), complexType.AttrGroups, seen, &prohibited)
+		prohibited = append(prohibited, c.collectProhibitedAttributesFromUses(complexType.Attributes(), complexType.AttrGroups, seen)...)
 
-		if ext := complexType.Content().ExtensionDef(); ext != nil {
-			c.collectProhibitedAttributesFromUses(ext.Attributes, ext.AttrGroups, seen, &prohibited)
+		content := complexType.Content()
+		if content == nil {
+			continue
 		}
-		if restr := complexType.Content().RestrictionDef(); restr != nil {
-			c.collectProhibitedAttributesFromUses(restr.Attributes, restr.AttrGroups, seen, &prohibited)
+		if ext := content.ExtensionDef(); ext != nil {
+			prohibited = append(prohibited, c.collectProhibitedAttributesFromUses(ext.Attributes, ext.AttrGroups, seen)...)
+		}
+		if restr := content.RestrictionDef(); restr != nil {
+			prohibited = append(prohibited, c.collectProhibitedAttributesFromUses(restr.Attributes, restr.AttrGroups, seen)...)
 		}
 	}
 
 	return prohibited
 }
 
-func (c *Compiler) collectProhibitedAttributesFromUses(attrs []*types.AttributeDecl, attrGroups []types.QName, seen map[types.QName]bool, out *[]types.QName) {
+func (c *Compiler) collectProhibitedAttributesFromUses(attrs []*types.AttributeDecl, attrGroups []types.QName, seen map[types.QName]bool) []types.QName {
+	var prohibited []types.QName
 	for _, attr := range attrs {
 		if attr.Use != types.Prohibited {
 			continue
 		}
 		qname := c.effectiveAttributeQName(attr)
 		if !seen[qname] {
-			*out = append(*out, qname)
+			prohibited = append(prohibited, qname)
 			seen[qname] = true
 		}
 	}
-	c.collectProhibitedAttributesFromGroups(attrGroups, seen, out)
+	prohibited = append(prohibited, c.collectProhibitedAttributesFromGroups(attrGroups, seen)...)
+	return prohibited
 }
 
-func (c *Compiler) collectProhibitedAttributesFromGroups(attrGroups []types.QName, seen map[types.QName]bool, out *[]types.QName) {
+func (c *Compiler) collectProhibitedAttributesFromGroups(attrGroups []types.QName, seen map[types.QName]bool) []types.QName {
 	if len(attrGroups) == 0 {
-		return
+		return nil
 	}
+	var prohibited []types.QName
 	visited := make(map[*types.AttributeGroup]bool)
 	queue := make([]*types.AttributeGroup, 0, len(attrGroups))
 	for _, ref := range attrGroups {
@@ -300,7 +310,7 @@ func (c *Compiler) collectProhibitedAttributesFromGroups(attrGroups []types.QNam
 			}
 			qname := c.effectiveAttributeQName(attr)
 			if !seen[qname] {
-				*out = append(*out, qname)
+				prohibited = append(prohibited, qname)
 				seen[qname] = true
 			}
 		}
@@ -311,6 +321,7 @@ func (c *Compiler) collectProhibitedAttributesFromGroups(attrGroups []types.QNam
 			}
 		}
 	}
+	return prohibited
 }
 
 func (c *Compiler) mergeAnyAttribute(chain []*grammar.CompiledType) *types.AnyAttribute {

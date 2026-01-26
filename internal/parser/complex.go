@@ -380,15 +380,14 @@ func parseInlineComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sc
 	// parse block attribute (space-separated list: extension, restriction, #all)
 	if doc.HasAttribute(elem, "block") {
 		blockAttr := doc.GetAttribute(elem, "block")
-		if blockAttr == "" {
-			ct.Block = 0
-		} else {
-			block, err := parseDerivationSetWithValidation(blockAttr, types.DerivationSet(types.DerivationExtension|types.DerivationRestriction))
-			if err != nil {
-				return nil, fmt.Errorf("invalid block attribute value '%s': %w", blockAttr, err)
-			}
-			ct.Block = block
+		if types.TrimXMLWhitespace(blockAttr) == "" {
+			return nil, fmt.Errorf("block attribute cannot be empty")
 		}
+		block, err := parseDerivationSetWithValidation(blockAttr, types.DerivationSet(types.DerivationExtension|types.DerivationRestriction))
+		if err != nil {
+			return nil, fmt.Errorf("invalid block attribute value '%s': %w", blockAttr, err)
+		}
+		ct.Block = block
 	} else {
 		// apply blockDefault from schema if no explicit block attribute.
 		// only extension/restriction are valid for complexType.
@@ -398,15 +397,14 @@ func parseInlineComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sc
 	// parse final attribute (space-separated list: extension, restriction, #all)
 	if doc.HasAttribute(elem, "final") {
 		finalAttr := doc.GetAttribute(elem, "final")
-		if finalAttr == "" {
-			ct.Final = 0
-		} else {
-			final, err := parseDerivationSetWithValidation(finalAttr, types.DerivationSet(types.DerivationExtension|types.DerivationRestriction))
-			if err != nil {
-				return nil, fmt.Errorf("invalid final attribute value '%s': %w", finalAttr, err)
-			}
-			ct.Final = final
+		if types.TrimXMLWhitespace(finalAttr) == "" {
+			return nil, fmt.Errorf("final attribute cannot be empty")
 		}
+		final, err := parseDerivationSetWithValidation(finalAttr, types.DerivationSet(types.DerivationExtension|types.DerivationRestriction))
+		if err != nil {
+			return nil, fmt.Errorf("invalid final attribute value '%s': %w", finalAttr, err)
+		}
+		ct.Final = final
 	} else if schema.FinalDefault != 0 {
 		ct.Final = schema.FinalDefault & types.DerivationSet(types.DerivationExtension|types.DerivationRestriction)
 	}

@@ -51,10 +51,16 @@ func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl
 				// Nillable element check only applies to xs:key constraints
 				// For xs:unique and xs:keyref, nillable elements are allowed (nil values are excluded)
 				if errors.Is(err, ErrFieldSelectsNillable) {
+					if resolvedType != nil {
+						constraint.Fields[i].ResolvedType = resolvedType
+					}
 					if constraint.Type == types.KeyConstraint {
 						return fmt.Errorf("element %s identity constraint '%s': field %d '%s' selects nillable element", decl.Name, constraint.Name, i+1, constraint.Fields[i].XPath)
 					}
 					// For unique/keyref, ignore nillable error and continue
+					continue
+				}
+				if errors.Is(err, ErrFieldSelectsComplexContent) {
 					continue
 				}
 				// For union fields with incompatible types, report the error during structure validation
