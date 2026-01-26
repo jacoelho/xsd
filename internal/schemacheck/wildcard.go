@@ -251,6 +251,10 @@ func processContentsStrongerOrEqual(derived, base types.ProcessContents) bool {
 	}
 }
 
+func namespaceMatchesWildcard(ns types.NamespaceURI, constraint types.NamespaceConstraint, list []types.NamespaceURI, target types.NamespaceURI) bool {
+	return types.AllowsNamespace(constraint, list, target, ns)
+}
+
 func namespaceConstraintSubset(
 	ns1 types.NamespaceConstraint,
 	list1 []types.NamespaceURI,

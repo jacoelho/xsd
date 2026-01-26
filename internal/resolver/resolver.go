@@ -148,18 +148,40 @@ func (r *Resolver) resolveSimpleTypeRestriction(qname types.QName, st *types.Sim
 }
 
 func (r *Resolver) resolveSimpleTypeList(qname types.QName, st *types.SimpleType) error {
-	if st.List == nil || st.List.ItemType.IsZero() {
+	if st.List == nil {
+		return nil
+	}
+	if st.List.InlineItemType != nil {
+		if err := r.resolveSimpleType(st.List.InlineItemType.QName, st.List.InlineItemType); err != nil {
+			return fmt.Errorf("type %s list inline item: %w", qname, err)
+		}
+		st.ItemType = st.List.InlineItemType
+		if !st.WhiteSpaceExplicit() {
+			st.SetWhiteSpace(types.WhiteSpaceCollapse)
+		}
+		return nil
+	}
+	if st.List.ItemType.IsZero() {
+		if !st.WhiteSpaceExplicit() {
+			st.SetWhiteSpace(types.WhiteSpaceCollapse)
+		}
 		return nil
 	}
 	item, err := r.lookupType(st.List.ItemType, st.QName)
 	if err != nil {
 		if allowMissingTypeReference(r.schema, st.List.ItemType) {
 			st.ItemType = types.NewPlaceholderSimpleType(st.List.ItemType)
+			if !st.WhiteSpaceExplicit() {
+				st.SetWhiteSpace(types.WhiteSpaceCollapse)
+			}
 			return nil
 		}
 		return fmt.Errorf("type %s list item: %w", qname, err)
 	}
 	st.ItemType = item
+	if !st.WhiteSpaceExplicit() {
+		st.SetWhiteSpace(types.WhiteSpaceCollapse)
+	}
 	return nil
 }
 
@@ -182,6 +204,12 @@ func (r *Resolver) resolveUnionNamedMembers(qname types.QName, st *types.SimpleT
 	}
 	st.MemberTypes = make([]types.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
 	for i, memberQName := range st.Union.MemberTypes {
+		if r.detector.IsResolving(memberQName) {
+			if member, ok := r.schema.TypeDefs[memberQName]; ok {
+				st.MemberTypes = append(st.MemberTypes, member)
+				continue
+			}
+		}
 		member, err := r.lookupType(memberQName, st.QName)
 		if err != nil {
 			if allowMissingTypeReference(r.schema, memberQName) {
@@ -265,6 +293,65 @@ func (r *Resolver) doResolveComplexType(qname types.QName, ct *types.ComplexType
 	for _, attr := range ct.Attributes() {
 		if err := r.resolveAttributeType(attr); err != nil {
 			return err
+		}
+	}
+
+	if content := ct.Content(); content != nil {
+		resolveAttrGroups := func(groups []types.QName) error {
+			for _, agRef := range groups {
+				ag, err := r.lookupAttributeGroup(agRef)
+				if err != nil {
+					return fmt.Errorf("type %s attribute group %s: %w", qname, agRef, err)
+				}
+				if err := r.resolveAttributeGroup(agRef, ag); err != nil {
+					return fmt.Errorf("type %s attribute group %s: %w", qname, agRef, err)
+				}
+			}
+			return nil
+		}
+		resolveAttrs := func(attrs []*types.AttributeDecl) error {
+			for _, attr := range attrs {
+				if err := r.resolveAttributeType(attr); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		switch c := content.(type) {
+		case *types.ComplexContent:
+			if ext := c.ExtensionDef(); ext != nil {
+				if err := resolveAttrGroups(ext.AttrGroups); err != nil {
+					return err
+				}
+				if err := resolveAttrs(ext.Attributes); err != nil {
+					return err
+				}
+			}
+			if restr := c.RestrictionDef(); restr != nil {
+				if err := resolveAttrGroups(restr.AttrGroups); err != nil {
+					return err
+				}
+				if err := resolveAttrs(restr.Attributes); err != nil {
+					return err
+				}
+			}
+		case *types.SimpleContent:
+			if ext := c.ExtensionDef(); ext != nil {
+				if err := resolveAttrGroups(ext.AttrGroups); err != nil {
+					return err
+				}
+				if err := resolveAttrs(ext.Attributes); err != nil {
+					return err
+				}
+			}
+			if restr := c.RestrictionDef(); restr != nil {
+				if err := resolveAttrGroups(restr.AttrGroups); err != nil {
+					return err
+				}
+				if err := resolveAttrs(restr.Attributes); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -465,6 +552,13 @@ func (r *Resolver) resolveAttribute(attr *types.AttributeDecl) error {
 func (r *Resolver) resolveAttributeType(attr *types.AttributeDecl) error {
 	if attr == nil || attr.Type == nil || attr.IsReference {
 		return nil
+	}
+
+	// re-link to the schema's canonical type definition if available
+	if typeQName := attr.Type.Name(); !typeQName.IsZero() {
+		if current, ok := r.schema.TypeDefs[typeQName]; ok && current != attr.Type {
+			attr.Type = current
+		}
 	}
 
 	if st, ok := attr.Type.(*types.SimpleType); ok {

@@ -37,6 +37,9 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, lo
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
+		if attr.NamespaceURI() == xsdxml.XSDNamespace {
+			return nil, fmt.Errorf("attribute: attribute '%s' must be unprefixed", attr.LocalName())
+		}
 		if attr.NamespaceURI() == "" && !validAttributeAttributes[attr.LocalName()] {
 			return nil, fmt.Errorf("invalid attribute '%s' on <attribute> element", attr.LocalName())
 		}

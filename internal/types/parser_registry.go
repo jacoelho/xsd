@@ -66,10 +66,11 @@ func asSimpleType(typ Type) *SimpleType {
 
 	// for BuiltinType, create a SimpleType wrapper
 	if bt, ok := as[*BuiltinType](typ); ok {
-		if bt.simpleWrapper == nil {
-			bt.simpleWrapper = newBuiltinSimpleType(bt)
+		if bt.simpleWrapper != nil {
+			return bt.simpleWrapper
 		}
-		return bt.simpleWrapper
+		// avoid unsynchronized mutation; fallback to a new wrapper if needed
+		return newBuiltinSimpleType(bt)
 	}
 
 	return nil

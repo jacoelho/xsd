@@ -21,6 +21,12 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 		return nil
 	}
 
+	if st, ok := typ.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) && schema != nil {
+		if resolved, ok := lookupTypeDef(schema, st.QName); ok {
+			return validateDefaultOrFixedValueWithContext(schema, value, resolved, nsContext)
+		}
+	}
+
 	// normalize value according to type's whitespace facet before validation
 	// even for basic validation, we need to normalize to match XSD spec behavior
 	normalizedValue := types.NormalizeWhiteSpace(value, typ)

@@ -198,22 +198,39 @@ func validateKeyrefConstraints(contextQName types.QName, constraints, allConstra
 // This validation is lenient; schema-time checks avoid rejecting complex-content fields.
 // Simple-typed field requirements are enforced during instance validation.
 func validateIdentityConstraintResolution(schema *parser.Schema, constraint *types.IdentityConstraint, decl *types.ElementDecl) error {
-	for i, field := range constraint.Fields {
+	for i := range constraint.Fields {
+		field := &constraint.Fields[i]
 		hasUnion := strings.Contains(field.XPath, "|") || strings.Contains(constraint.Selector.XPath, "|")
-		if hasUnion {
-			if _, err := schemacheck.ResolveFieldType(schema, &field, decl, constraint.Selector.XPath, constraint.NamespaceContext); err != nil {
-				// For union fields, treat incompatible types and unresolvable as allowed during reference validation
-				// (they will be caught during instance validation)
-				if !errors.Is(err, schemacheck.ErrXPathUnresolvable) && !errors.Is(err, schemacheck.ErrFieldXPathIncompatibleTypes) {
-					return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
-				}
+		resolved, err := schemacheck.ResolveFieldType(schema, field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
+		switch {
+		case err == nil:
+			field.ResolvedType = resolved
+		case errors.Is(err, schemacheck.ErrFieldSelectsNillable):
+			if resolved != nil {
+				field.ResolvedType = resolved
+			}
+			if constraint.Type == types.KeyConstraint {
+				return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
+			}
+			continue
+		case errors.Is(err, schemacheck.ErrFieldSelectsComplexContent):
+			continue
+		case hasUnion:
+			// For union fields, treat incompatible types and unresolvable as allowed during reference validation
+			// (they will be caught during instance validation)
+			if !errors.Is(err, schemacheck.ErrXPathUnresolvable) && !errors.Is(err, schemacheck.ErrFieldXPathIncompatibleTypes) {
+				return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
+			}
+		default:
+			if !errors.Is(err, schemacheck.ErrXPathUnresolvable) && !errors.Is(err, schemacheck.ErrFieldXPathIncompatibleTypes) {
+				return fmt.Errorf("field %d '%s': %w", i+1, field.XPath, err)
 			}
 		}
 		// Key fields cannot select nillable elements (per spec Section 3.11.4 c-props-correct.4)
 		// For unique/keyref, nillable elements are allowed (nil values are excluded from the check)
 		if constraint.Type == types.KeyConstraint {
 			if hasUnion {
-				elemDecls, err := schemacheck.ResolveFieldElementDecls(schema, &field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
+				elemDecls, err := schemacheck.ResolveFieldElementDecls(schema, field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
 				if err != nil {
 					// For union paths, resolution errors for some branches are allowed
 					if errors.Is(err, schemacheck.ErrXPathUnresolvable) {
@@ -229,7 +246,7 @@ func validateIdentityConstraintResolution(schema *parser.Schema, constraint *typ
 				}
 				continue
 			}
-			elemDecl, err := schemacheck.ResolveFieldElementDecl(schema, &field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
+			elemDecl, err := schemacheck.ResolveFieldElementDecl(schema, field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
 			if err == nil && elemDecl != nil && elemDecl.Nillable {
 				return fmt.Errorf("field %d '%s' selects nillable element '%s'", i+1, field.XPath, elemDecl.Name)
 			}

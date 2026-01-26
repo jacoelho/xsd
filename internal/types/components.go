@@ -119,7 +119,7 @@ func (e *ElementDecl) Copy(opts CopyOptions) *ElementDecl {
 		clone.Type = CopyType(e.Type, opts)
 	}
 	clone.TypeExplicit = e.TypeExplicit
-	clone.ValueContext = copyStringMap(e.ValueContext)
+	clone.ValueContext = copyValueNamespaceContext(e.ValueContext, opts)
 	if !e.SubstitutionGroup.IsZero() {
 		clone.SubstitutionGroup = opts.RemapQName(e.SubstitutionGroup)
 	}
@@ -199,7 +199,7 @@ func (a *AttributeDecl) Copy(opts CopyOptions) *AttributeDecl {
 	if a.Type != nil {
 		clone.Type = CopyType(a.Type, opts)
 	}
-	clone.ValueContext = copyStringMap(a.ValueContext)
+	clone.ValueContext = copyValueNamespaceContext(a.ValueContext, opts)
 	return &clone
 }
 

@@ -3,8 +3,10 @@ package validator
 import (
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/loader"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -525,15 +527,7 @@ func TestAttributeWildcard_ProcessContentsStrict(t *testing.T) {
 		},
 		{
 			name: "strict rejects attribute in wrong namespace",
-			// this tests that strict mode correctly rejects attributes in namespaces
-			// where no declaration exists. The attribute is declared in the target namespace
-			// (stored with empty namespace due to unqualified form default), but used in
-			// a different namespace, which should fail.
-			// note: This test currently fails due to a known limitation in the conservative
-			// fallback for multi-schema composition. The fallback is needed for W3C test cases
-			// where merged schemas only have attributes, but it can cause false matches in
-			// single-schema scenarios. This limitation could be fixed by tracking which schema
-			// each attribute came from.
+			// strict mode should reject attributes used in a namespace with no declaration.
 			schemaXML: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/test"
@@ -589,6 +583,44 @@ func TestAttributeWildcard_ProcessContentsStrict(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestAttributeWildcard_StrictMultiSchemaImport(t *testing.T) {
+	mainSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:ext" schemaLocation="ext.xsd"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:anyAttribute namespace="##any" processContents="strict"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	extSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:ext">
+  <xs:attribute name="attr" type="xs:string"/>
+</xs:schema>`
+
+	fs := fstest.MapFS{
+		"main.xsd": {Data: []byte(mainSchema)},
+		"ext.xsd":  {Data: []byte(extSchema)},
+	}
+
+	schemaLoader := loader.NewLoader(loader.Config{FS: fs})
+	compiled, err := schemaLoader.LoadCompiled("main.xsd")
+	if err != nil {
+		t.Fatalf("load compiled schema: %v", err)
+	}
+
+	v := New(compiled)
+	doc := `<?xml version="1.0"?>
+<root xmlns="urn:main" xmlns:ext="urn:ext" ext:attr="value"/>`
+	if violations, err := v.ValidateStream(strings.NewReader(doc)); err != nil || len(violations) != 0 {
+		t.Fatalf("expected valid document, got violations=%v err=%v", violations, err)
 	}
 }
 

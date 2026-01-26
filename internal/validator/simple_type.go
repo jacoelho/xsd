@@ -10,13 +10,13 @@ import (
 
 // checkComplexTypeFacets validates additional facets on complex types with simpleContent.
 func (r *validationRun) checkComplexTypeFacets(text string, ct *grammar.CompiledType) []errors.Validation {
-	return collectComplexTypeFacetViolations(text, ct, r.path.String(), nil)
+	return collectComplexTypeFacetViolations(text, ct, r.path.String, nil)
 }
 
 func collectComplexTypeFacetViolations(
 	text string,
 	ct *grammar.CompiledType,
-	path string,
+	path func() string,
 	validateQNameEnum func(string, *types.Enumeration) error,
 ) []errors.Validation {
 	if ct == nil || ct.SimpleContentType == nil || len(ct.Facets) == 0 {
@@ -189,8 +189,62 @@ func splitWhitespaceSeq(s string, yield func(string) bool) {
 	}
 }
 
+type idTypeMask uint8
+
+const (
+	idTypeNone idTypeMask = 0
+	idTypeID   idTypeMask = 1 << iota
+	idTypeIDREF
+	idTypeIDREFS
+)
+
+func idTypeMaskForName(name string) idTypeMask {
+	switch name {
+	case string(types.TypeNameID):
+		return idTypeID
+	case string(types.TypeNameIDREF):
+		return idTypeIDREF
+	case string(types.TypeNameIDREFS):
+		return idTypeIDREFS
+	default:
+		return idTypeNone
+	}
+}
+
+func (r *validationRun) idTypeMask(ct *grammar.CompiledType) idTypeMask {
+	if ct == nil {
+		return idTypeNone
+	}
+	if r.idTypeMaskCache == nil {
+		r.idTypeMaskCache = make(map[*grammar.CompiledType]idTypeMask)
+	}
+	if mask, ok := r.idTypeMaskCache[ct]; ok {
+		return mask
+	}
+	r.idTypeMaskCache[ct] = idTypeNone
+
+	mask := idTypeMaskForName(ct.IDTypeName)
+	if ct.ItemType != nil {
+		mask |= r.idTypeMask(ct.ItemType)
+	}
+	if len(ct.MemberTypes) > 0 {
+		for _, member := range ct.MemberTypes {
+			mask |= r.idTypeMask(member)
+		}
+	}
+	if ct.BaseType != nil {
+		mask |= r.idTypeMask(ct.BaseType)
+	}
+
+	r.idTypeMaskCache[ct] = mask
+	return mask
+}
+
 // checkIDRefs validates that all IDREF values reference valid IDs.
 func (r *validationRun) checkIDRefs() []errors.Validation {
+	if r.idrefCollectionIncomplete {
+		return nil
+	}
 	var violations []errors.Validation
 	for _, entry := range r.idrefs {
 		if !r.ids[entry.ref] {
