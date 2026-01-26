@@ -42,7 +42,7 @@ func TestLoader_Load(t *testing.T) {
 	}
 }
 
-func TestLoader_IgnoresHTTPImport(t *testing.T) {
+func TestLoader_RejectsHTTPImport(t *testing.T) {
 	testFS := fstest.MapFS{
 		"main.xsd": &fstest.MapFile{
 			Data: []byte(`<?xml version="1.0"?>
@@ -57,8 +57,8 @@ func TestLoader_IgnoresHTTPImport(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: testFS})
-	if _, err := loader.Load("main.xsd"); err != nil {
-		t.Fatalf("unexpected HTTP import error: %v", err)
+	if _, err := loader.Load("main.xsd"); err == nil {
+		t.Fatalf("expected HTTP import to be rejected")
 	}
 }
 
@@ -390,6 +390,28 @@ func TestLoader_IncludeTraversalRejected(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "escapes base path") {
 		t.Fatalf("expected base path error, got: %v", err)
+	}
+}
+
+func TestLoader_IncludeAbsolutePathRejected(t *testing.T) {
+	testFS := fstest.MapFS{
+		"schemas/root.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:root"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="/outside.xsd"/>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{
+		FS:       testFS,
+		BasePath: "schemas",
+	})
+
+	if _, err := loader.Load("root.xsd"); err == nil {
+		t.Fatal("Load() should reject absolute path outside base path")
 	}
 }
 
@@ -892,6 +914,41 @@ func TestLoader_IncludeWithNoNamespaceIncluded(t *testing.T) {
 	}
 	if _, ok := schema.ElementDecls[commonQName]; !ok {
 		t.Error("element 'common' from included schema not found")
+	}
+}
+
+func TestLoader_ChameleonValueContextRemap(t *testing.T) {
+	testFS := fstest.MapFS{
+		"main.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>`),
+		},
+		"common.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns="urn:orig">
+  <xs:attribute name="attr" type="xs:QName" fixed="local"/>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	schema, err := loader.Load("main.xsd")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	attrQName := types.QName{Namespace: "urn:main", Local: "attr"}
+	decl := schema.AttributeDecls[attrQName]
+	if decl == nil {
+		t.Fatalf("attribute %s not found", attrQName)
+	}
+	if decl.ValueContext == nil || decl.ValueContext[""] != "urn:main" {
+		t.Fatalf("expected ValueContext default namespace to be remapped to target namespace, got %v", decl.ValueContext)
 	}
 }
 

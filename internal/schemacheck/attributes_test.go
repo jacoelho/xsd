@@ -69,3 +69,43 @@ func TestMergeAttributesFromTypeForValidationNilContent(t *testing.T) {
 		t.Fatalf("expected 1 attribute, got %d", len(attrMap))
 	}
 }
+
+func TestAttributeDefaultQNameContextMissingPrefix(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test">
+  <xs:attribute name="attr" type="xs:QName" default="p:val"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+
+	errs := ValidateStructure(schema)
+	if len(errs) == 0 {
+		t.Fatalf("expected schema validation errors")
+	}
+}
+
+func TestAttributeDefaultIDDerivedTypeRejected(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test">
+  <xs:simpleType name="myID">
+    <xs:restriction base="xs:ID"/>
+  </xs:simpleType>
+  <xs:attribute name="attr" type="tns:myID" default="x"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+
+	errs := ValidateStructure(schema)
+	if len(errs) == 0 {
+		t.Fatalf("expected schema validation errors")
+	}
+}

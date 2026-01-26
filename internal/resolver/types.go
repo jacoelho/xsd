@@ -247,7 +247,7 @@ func validateImportForNamespaceAtLocation(schema *parser.Schema, location string
 	if ctx.Imports != nil && ctx.Imports[referenceNamespace] {
 		return nil
 	}
-	return fmt.Errorf("namespace %s must be imported by schema %s", referenceNamespace, location)
+	return fmt.Errorf("namespace %s must be imported by schema %s", referenceNamespace, parser.ImportContextLocation(location))
 }
 
 // validateSimpleTypeFinalRestriction checks if a simple type's final attribute blocks restriction derivation.

@@ -111,15 +111,17 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	targetNSAttr := ""
 	targetNSFound := false
 	for _, attr := range doc.Attributes(root) {
-		// schema attributes must be unprefixed (empty namespace)
-		// prefixed attributes like xsd:targetNamespace are invalid
 		if attr.LocalName() == "targetNamespace" {
-			if attr.NamespaceURI() != "" {
+			switch attr.NamespaceURI() {
+			case "":
+				targetNSAttr = types.ApplyWhiteSpace(attr.Value(), types.WhiteSpaceCollapse)
+				targetNSFound = true
+			case xsdxml.XSDNamespace:
 				return nil, fmt.Errorf("schema attribute 'targetNamespace' must be unprefixed (found '%s:targetNamespace')", attr.NamespaceURI())
+			default:
+				// ignore foreign attributes with the same local name
+				continue
 			}
-			targetNSAttr = types.ApplyWhiteSpace(attr.Value(), types.WhiteSpaceCollapse)
-			targetNSFound = true
-			break
 		}
 	}
 	if !targetNSFound {
@@ -184,24 +186,26 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 
 	if doc.HasAttribute(root, "blockDefault") {
 		blockDefaultAttr := doc.GetAttribute(root, "blockDefault")
-		if blockDefaultAttr != "" {
-			block, err := parseDerivationSetWithValidation(blockDefaultAttr, types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction))
-			if err != nil {
-				return nil, fmt.Errorf("invalid blockDefault attribute value '%s': %w", blockDefaultAttr, err)
-			}
-			schema.BlockDefault = block
+		if types.TrimXMLWhitespace(blockDefaultAttr) == "" {
+			return nil, fmt.Errorf("blockDefault attribute cannot be empty")
 		}
+		block, err := parseDerivationSetWithValidation(blockDefaultAttr, types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction))
+		if err != nil {
+			return nil, fmt.Errorf("invalid blockDefault attribute value '%s': %w", blockDefaultAttr, err)
+		}
+		schema.BlockDefault = block
 	}
 
 	if doc.HasAttribute(root, "finalDefault") {
 		finalDefaultAttr := doc.GetAttribute(root, "finalDefault")
-		if finalDefaultAttr != "" {
-			final, err := parseDerivationSetWithValidation(finalDefaultAttr, types.DerivationSet(types.DerivationExtension|types.DerivationRestriction|types.DerivationList|types.DerivationUnion))
-			if err != nil {
-				return nil, fmt.Errorf("invalid finalDefault attribute value '%s': %w", finalDefaultAttr, err)
-			}
-			schema.FinalDefault = final
+		if types.TrimXMLWhitespace(finalDefaultAttr) == "" {
+			return nil, fmt.Errorf("finalDefault attribute cannot be empty")
 		}
+		final, err := parseDerivationSetWithValidation(finalDefaultAttr, types.DerivationSet(types.DerivationExtension|types.DerivationRestriction|types.DerivationList|types.DerivationUnion))
+		if err != nil {
+			return nil, fmt.Errorf("invalid finalDefault attribute value '%s': %w", finalDefaultAttr, err)
+		}
+		schema.FinalDefault = final
 	}
 
 	result := &ParseResult{

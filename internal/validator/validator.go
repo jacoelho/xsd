@@ -14,13 +14,17 @@ type Validator struct {
 	builtinTypes map[types.QName]*grammar.CompiledType
 }
 
+//nolint:govet // fieldalignment: keep validationRun grouped by usage and avoid extra indirection.
 type validationRun struct {
-	schema     schemaView
-	subMatcher substitutionMatcher
-	validator  *Validator
-	ids        map[string]bool
-	idrefs     []idrefEntry
-	path       pathStack
+	schema                    schemaView
+	subMatcher                *substitutionMatcher
+	validator                 *Validator
+	ids                       map[string]bool
+	entityDecls               map[string]struct{}
+	idrefs                    []idrefEntry
+	path                      pathStack
+	idTypeMaskCache           map[*grammar.CompiledType]idTypeMask
+	idrefCollectionIncomplete bool
 }
 
 // idrefEntry tracks an IDREF value and where it was found during schemacheck.
@@ -46,6 +50,8 @@ func New(g *grammar.CompiledSchema) *Validator {
 func (r *validationRun) reset() {
 	r.ids = make(map[string]bool)
 	r.idrefs = nil
+	r.idrefCollectionIncomplete = false
+	r.idTypeMaskCache = nil
 	r.path.reset()
 }
 
@@ -196,4 +202,18 @@ func builtinIDTypeName(qname types.QName) string {
 
 func containsCompiledElement(list []*grammar.CompiledElement, elem *grammar.CompiledElement) bool {
 	return slices.Contains(list, elem)
+}
+
+func copyEntityDecls(src map[string]struct{}) map[string]struct{} {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[string]struct{}, len(src))
+	for name := range src {
+		if name == "" {
+			continue
+		}
+		dst[name] = struct{}{}
+	}
+	return dst
 }

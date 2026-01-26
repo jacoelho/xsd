@@ -2,6 +2,7 @@ package loader
 
 import (
 	"testing"
+	"testing/fstest"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolver"
@@ -46,6 +47,58 @@ func TestTwoPhaseResolution_SimpleType(t *testing.T) {
 	}
 	if derivedType.BaseType() != baseType {
 		t.Errorf("BaseType = %v, want %v", derivedType.BaseType(), baseType)
+	}
+}
+
+func TestLoadAndLoadCompiledResolutionParity(t *testing.T) {
+	fs := fstest.MapFS{
+		"main.xsd": {
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test">
+  <xs:simpleType name="IDT">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:complexType name="CT">
+    <xs:attribute name="a" type="tns:IDT"/>
+  </xs:complexType>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: fs})
+	schema, err := loader.Load("main.xsd")
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+
+	ctQName := types.QName{Namespace: "urn:test", Local: "CT"}
+	ct, ok := schema.TypeDefs[ctQName].(*types.ComplexType)
+	if !ok || ct == nil || len(ct.Attributes()) == 0 {
+		t.Fatalf("expected complex type %s with attributes", ctQName)
+	}
+
+	attr := ct.Attributes()[0]
+	if st, ok := attr.Type.(*types.SimpleType); !ok || types.IsPlaceholderSimpleType(st) {
+		t.Fatalf("expected resolved attribute type, got %T", attr.Type)
+	}
+	before := attr.Type
+
+	if _, err := loader.LoadCompiled("main.xsd"); err != nil {
+		t.Fatalf("LoadCompiled error: %v", err)
+	}
+
+	loaded, ok, err := loader.GetLoaded("main.xsd")
+	if err != nil || !ok {
+		t.Fatalf("GetLoaded error: %v (ok=%v)", err, ok)
+	}
+	ctLoaded, ok := loaded.TypeDefs[ctQName].(*types.ComplexType)
+	if !ok || ctLoaded == nil || len(ctLoaded.Attributes()) == 0 {
+		t.Fatalf("expected complex type %s after LoadCompiled", ctQName)
+	}
+	if ctLoaded.Attributes()[0].Type != before {
+		t.Fatalf("attribute type pointer changed after LoadCompiled")
 	}
 }
 

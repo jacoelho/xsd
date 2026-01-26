@@ -76,6 +76,15 @@ func scanElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) elementAttr
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
+		if attr.NamespaceURI() == xsdxml.XSDNamespace {
+			if attrs.invalidRefAttr == "" {
+				attrs.invalidRefAttr = attr.LocalName()
+			}
+			if attrs.invalidLocalAttr == "" {
+				attrs.invalidLocalAttr = attr.LocalName()
+			}
+			continue
+		}
 		if attr.NamespaceURI() != "" {
 			continue
 		}
@@ -366,15 +375,14 @@ func applyTopLevelElementDerivations(doc *xsdxml.Document, elem xsdxml.NodeID, s
 	// parse block attribute (space-separated list: substitution, extension, restriction, #all)
 	if doc.HasAttribute(elem, "block") {
 		blockAttr := doc.GetAttribute(elem, "block")
-		if blockAttr == "" {
-			decl.Block = 0
-		} else {
-			block, err := parseDerivationSetWithValidation(blockAttr, types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction))
-			if err != nil {
-				return fmt.Errorf("invalid block attribute value '%s': %w", blockAttr, err)
-			}
-			decl.Block = block
+		if types.TrimXMLWhitespace(blockAttr) == "" {
+			return fmt.Errorf("block attribute cannot be empty")
 		}
+		block, err := parseDerivationSetWithValidation(blockAttr, types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction))
+		if err != nil {
+			return fmt.Errorf("invalid block attribute value '%s': %w", blockAttr, err)
+		}
+		decl.Block = block
 	} else if schema.BlockDefault != 0 {
 		decl.Block = schema.BlockDefault & types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction)
 	}
@@ -383,15 +391,14 @@ func applyTopLevelElementDerivations(doc *xsdxml.Document, elem xsdxml.NodeID, s
 	// element final does not allow substitution; W3C tests (elemF004/006/007/008) expect invalid.
 	if doc.HasAttribute(elem, "final") {
 		finalAttr := doc.GetAttribute(elem, "final")
-		if finalAttr == "" {
-			decl.Final = 0
-		} else {
-			final, err := parseDerivationSetWithValidation(finalAttr, types.DerivationSet(types.DerivationExtension|types.DerivationRestriction))
-			if err != nil {
-				return fmt.Errorf("invalid final attribute value '%s': %w", finalAttr, err)
-			}
-			decl.Final = final
+		if types.TrimXMLWhitespace(finalAttr) == "" {
+			return fmt.Errorf("final attribute cannot be empty")
 		}
+		final, err := parseDerivationSetWithValidation(finalAttr, types.DerivationSet(types.DerivationExtension|types.DerivationRestriction))
+		if err != nil {
+			return fmt.Errorf("invalid final attribute value '%s': %w", finalAttr, err)
+		}
+		decl.Final = final
 	} else if schema.FinalDefault != 0 {
 		decl.Final = schema.FinalDefault & types.DerivationSet(types.DerivationExtension|types.DerivationRestriction)
 	}
@@ -749,15 +756,14 @@ func applyElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 
 	if attrs.hasBlock {
 		blockAttr := attrs.block
-		if blockAttr == "" {
-			decl.Block = 0
-		} else {
-			block, err := parseDerivationSetWithValidation(blockAttr, types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction))
-			if err != nil {
-				return fmt.Errorf("invalid block attribute value '%s': %w", blockAttr, err)
-			}
-			decl.Block = block
+		if types.TrimXMLWhitespace(blockAttr) == "" {
+			return fmt.Errorf("block attribute cannot be empty")
 		}
+		block, err := parseDerivationSetWithValidation(blockAttr, types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction))
+		if err != nil {
+			return fmt.Errorf("invalid block attribute value '%s': %w", blockAttr, err)
+		}
+		decl.Block = block
 	} else if schema.BlockDefault != 0 {
 		decl.Block = schema.BlockDefault & types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction)
 	}
