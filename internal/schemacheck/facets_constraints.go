@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -35,7 +36,7 @@ var validFacetNames = map[string]bool{
 	"fractionDigits": true,
 }
 
-func validateFacetConstraints(facetList []types.Facet, baseType types.Type, baseQName types.QName) error {
+func validateFacetConstraints(schema *parser.Schema, facetList []types.Facet, baseType types.Type, baseQName types.QName) error {
 	baseTypeName := baseQName.Local
 	isBuiltin := baseQName.Namespace == types.XSDNamespace
 	var bt *types.BuiltinType
@@ -82,7 +83,7 @@ func validateFacetConstraints(facetList []types.Facet, baseType types.Type, base
 
 	// validate enumeration values if base type is known
 	if state.hasEnumeration && baseType != nil {
-		if err := validateEnumerationValues(facetList, baseType); err != nil {
+		if err := validateEnumerationValues(schema, facetList, baseType); err != nil {
 			return err
 		}
 	}
@@ -272,106 +273,32 @@ func validateListItemValue(itemType types.Type, value string) error {
 }
 
 // validateEnumerationValues validates that enumeration values are valid for the base type
-func validateEnumerationValues(facetList []types.Facet, baseType types.Type) error {
-	var enumValues []string
+func validateEnumerationValues(schema *parser.Schema, facetList []types.Facet, baseType types.Type) error {
 	for _, f := range facetList {
 		if f.Name() != "enumeration" {
 			continue
 		}
-		if enum, ok := f.(*types.Enumeration); ok {
-			enumValues = enum.Values
-			break
+		enum, ok := f.(*types.Enumeration)
+		if !ok {
+			continue
 		}
-	}
-
-	if len(enumValues) == 0 {
-		return nil // no enumeration to validate
-	}
-
-	// for list types, enumeration values are space-separated lists of item values
-	if st, ok := baseType.(*types.SimpleType); ok {
-		if st.Variety() == types.ListVariety {
-			itemType := st.ItemType
-			if itemType == nil && st.List != nil && st.List.InlineItemType != nil {
-				itemType = st.List.InlineItemType
-			}
-			if itemType == nil && st.List != nil && !st.List.ItemType.IsZero() {
-				if st.List.ItemType.Namespace == types.XSDNamespace {
-					itemType = types.GetBuiltinNS(st.List.ItemType.Namespace, st.List.ItemType.Local)
-				}
-			}
-			if itemType == nil {
-				return nil
-			}
-			for _, enumVal := range enumValues {
-				found := false
-				for item := range types.FieldsXMLWhitespaceSeq(enumVal) {
-					found = true
-					if err := validateListItemValue(itemType, item); err != nil {
-						return fmt.Errorf("enumeration value %q contains invalid list item %q: %w", enumVal, item, err)
-					}
-				}
-				if !found {
-					return fmt.Errorf("enumeration value %q must contain at least one list item", enumVal)
-				}
-			}
-			return nil
-		}
-	}
-
-	// note: empty string is a valid enumeration value per XSD spec for string-based types
-
-	// try to get the built-in type validator
-	var bt *types.BuiltinType
-	var typeName string
-
-	switch t := baseType.(type) {
-	case *types.BuiltinType:
-		bt = t
-		typeName = t.Name().Local
-		if isBuiltinListTypeName(typeName) {
-			itemType := t.BaseType()
-			if itemType == nil {
-				return nil
-			}
-			for _, enumVal := range enumValues {
-				found := false
-				for item := range types.FieldsXMLWhitespaceSeq(enumVal) {
-					found = true
-					if err := validateListItemValue(itemType, item); err != nil {
-						return fmt.Errorf("enumeration value %q contains invalid list item %q: %w", enumVal, item, err)
-					}
-				}
-				if !found {
-					return fmt.Errorf("enumeration value %q must contain at least one list item", enumVal)
-				}
-			}
-			return nil
-		}
-	case *types.SimpleType:
-		if t.IsBuiltin() {
-			bt = types.GetBuiltinNS(t.QName.Namespace, t.QName.Local)
-			typeName = t.QName.Local
-		} else {
-			// for user-defined types, try to get the primitive type for validation
-			primitive := t.PrimitiveType()
-			if primitive != nil {
-				if pbt, ok := primitive.(*types.BuiltinType); ok {
-					bt = pbt
-					typeName = pbt.Name().Local
-				}
+		for i, val := range enum.Values {
+			ctx := enumContext(enum, i)
+			if err := validateValueAgainstTypeWithFacets(schema, val, baseType, ctx, make(map[types.Type]bool)); err != nil {
+				return fmt.Errorf("enumeration value %d (%q) is not valid for base type %s: %w", i+1, val, baseType.Name().Local, err)
 			}
 		}
 	}
+	return nil
+}
 
-	// if we found a built-in type, validate enumeration values against it
-	if bt != nil {
-		for i, val := range enumValues {
-			if err := bt.Validate(val); err != nil {
-				return fmt.Errorf("enumeration value %d (%q) is not valid for base type %s: %w", i+1, val, typeName, err)
-			}
-		}
+func enumContext(enum *types.Enumeration, index int) map[string]string {
+	if enum == nil {
+		return nil
 	}
-
+	contexts := enum.ValueContexts()
+	if index < len(contexts) {
+		return contexts[index]
+	}
 	return nil
 }

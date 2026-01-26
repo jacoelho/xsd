@@ -14,12 +14,8 @@ func TestResolveLocationAndGetLoaded(t *testing.T) {
 	loader := NewLoader(Config{BasePath: "schemas"})
 	schema := &parser.Schema{}
 
-	abs, err := loader.resolveLocation("/abs/schema.xsd")
-	if err != nil {
-		t.Fatalf("resolveLocation absolute error = %v", err)
-	}
-	if abs != "/abs/schema.xsd" {
-		t.Fatalf("expected absolute path to remain unchanged, got %q", abs)
+	if _, err := loader.resolveLocation("/abs/schema.xsd"); err == nil {
+		t.Fatalf("expected absolute path outside base to be rejected")
 	}
 
 	rel, err := loader.resolveLocation("a/b.xsd")
@@ -40,6 +36,15 @@ func TestResolveLocationAndGetLoaded(t *testing.T) {
 	}
 	if !ok || loaded != schema {
 		t.Fatalf("expected GetLoaded to return cached schema")
+	}
+
+	loaderNoBase := NewLoader(Config{})
+	abs, err := loaderNoBase.resolveLocation("/abs/schema.xsd")
+	if err != nil {
+		t.Fatalf("resolveLocation absolute without base error = %v", err)
+	}
+	if abs != "/abs/schema.xsd" {
+		t.Fatalf("expected absolute path to remain unchanged, got %q", abs)
 	}
 }
 

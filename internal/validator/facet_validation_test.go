@@ -48,7 +48,7 @@ func TestValidateFacetsPolicy(t *testing.T) {
 				typ:      stringType,
 				compiled: ct,
 				context: &facetValidationContext{
-					path: "/",
+					path: func() string { return "/" },
 				},
 				policy: tt.policy,
 			})
@@ -82,7 +82,7 @@ func TestValidateFacetsMakeViolation(t *testing.T) {
 		typ:      stringType,
 		compiled: ct,
 		context: &facetValidationContext{
-			path: "/",
+			path: func() string { return "/" },
 			callbacks: &facetValidationCallbacks{
 				makeViolation: func(err error) errors.Validation {
 					return errors.NewValidation(errors.ErrFacetViolation, "custom", "/")
@@ -118,7 +118,7 @@ func TestValidateFacetsQNameEnum(t *testing.T) {
 		typ:      qnameType,
 		compiled: ct,
 		context: &facetValidationContext{
-			path: "/",
+			path: func() string { return "/" },
 			callbacks: &facetValidationCallbacks{
 				validateQNameEnum: func(string, *types.Enumeration) error {
 					return fmt.Errorf("bad enum")
@@ -151,7 +151,7 @@ func TestValidateFacetsTypedFacet(t *testing.T) {
 		typ:      decimalType,
 		compiled: ct,
 		context: &facetValidationContext{
-			path: "/",
+			path: func() string { return "/" },
 		},
 		policy: errorPolicyReport,
 	})

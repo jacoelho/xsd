@@ -12,6 +12,9 @@ func validateElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, validAt
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
+		if attr.NamespaceURI() == xsdxml.XSDNamespace {
+			return fmt.Errorf("%s: attribute '%s' must be unprefixed", context, attr.LocalName())
+		}
 		if attr.NamespaceURI() != "" {
 			continue
 		}

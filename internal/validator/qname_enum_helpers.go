@@ -68,7 +68,7 @@ func (r *streamRun) validateQNameListEnumeration(value string, enum *types.Enume
 		return err
 	}
 	for _, candidate := range allowed {
-		if listValuesEqual(actualItems, candidate) {
+		if types.ListValuesEqual(actualItems, candidate) {
 			return nil
 		}
 	}
@@ -102,51 +102,18 @@ func (r *streamRun) listEnumerationValuesWithContext(enum *types.Enumeration, ct
 }
 
 func (r *streamRun) parseUnionValueVariantsWithContext(value string, memberTypes []*grammar.CompiledType, scopeDepth int, context map[string]string) ([]types.TypedValue, error) {
-	if len(memberTypes) == 0 {
-		return nil, fmt.Errorf("union has no member types")
-	}
-	values := make([]types.TypedValue, 0, len(memberTypes))
-	var firstErr error
-	for _, memberType := range memberTypes {
-		typed, err := r.parseValueVariantsForCompiledType(value, memberType, scopeDepth, context)
-		if err == nil {
-			values = append(values, typed...)
-			continue
-		}
-		if firstErr == nil {
-			firstErr = err
-		}
-	}
-	if len(values) == 0 {
-		if firstErr != nil {
-			return nil, firstErr
-		}
-		return nil, fmt.Errorf("value %q does not match any union member type", value)
-	}
-	return values, nil
+	return types.ParseUnionValueVariants(value, memberTypes, func(val string, member *grammar.CompiledType) ([]types.TypedValue, error) {
+		return r.parseValueVariantsForCompiledType(val, member, scopeDepth, context)
+	})
 }
 
 func (r *streamRun) parseListValueVariantsWithContext(value string, itemType *grammar.CompiledType, scopeDepth int, context map[string]string) ([][]types.TypedValue, error) {
 	if itemType == nil {
 		return nil, fmt.Errorf("list item type is nil")
 	}
-	var items []string
-	splitWhitespaceSeq(value, func(item string) bool {
-		items = append(items, item)
-		return true
+	return types.ParseListValueVariants(value, func(item string) ([]types.TypedValue, error) {
+		return r.parseValueVariantsForCompiledType(item, itemType, scopeDepth, context)
 	})
-	if len(items) == 0 {
-		return nil, nil
-	}
-	parsed := make([][]types.TypedValue, len(items))
-	for i, item := range items {
-		values, err := r.parseValueVariantsForCompiledType(item, itemType, scopeDepth, context)
-		if err != nil {
-			return nil, fmt.Errorf("invalid list item %q: %w", item, err)
-		}
-		parsed[i] = values
-	}
-	return parsed, nil
 }
 
 func (r *streamRun) parseValueVariantsForCompiledType(value string, ct *grammar.CompiledType, scopeDepth int, context map[string]string) ([]types.TypedValue, error) {
@@ -168,29 +135,6 @@ func (r *streamRun) parseValueVariantsForCompiledType(value string, ct *grammar.
 		return nil, err
 	}
 	return []types.TypedValue{typed}, nil
-}
-
-func listValuesEqual(left, right [][]types.TypedValue) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for i := range left {
-		if !anyValueEqual(left[i], right[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-func anyValueEqual(left, right []types.TypedValue) bool {
-	for _, l := range left {
-		for _, r := range right {
-			if types.ValuesEqual(l, r) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func enumContext(enum *types.Enumeration, index int) map[string]string {

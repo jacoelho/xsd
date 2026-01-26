@@ -42,7 +42,7 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 	normalizedValue := types.NormalizeWhiteSpace(value, st.Original)
 
 	if len(st.MemberTypes) > 0 {
-		if !r.validateUnionValue(normalizedValue, st.MemberTypes, scopeDepth, context) {
+		if r.matchUnionMemberType(normalizedValue, st.MemberTypes, scopeDepth, context) == nil {
 			if policy == errorPolicyReport {
 				return false, []errors.Validation{errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
 					"value '%s' does not match any member type of union", normalizedValue)}
@@ -93,6 +93,15 @@ func (r *streamRun) checkSimpleValueInternal(value string, st *grammar.CompiledT
 		}
 	}
 
+	if len(r.entityDecls) > 0 {
+		if err := r.validateEntityValue(normalizedValue, st); err != nil {
+			if policy == errorPolicyReport {
+				return false, []errors.Validation{errors.NewValidation(errors.ErrDatatypeInvalid, err.Error(), r.path.String())}
+			}
+			return false, nil
+		}
+	}
+
 	return r.validateSimpleTypeFacets(normalizedValue, st, scopeDepth, policy, context)
 }
 
@@ -116,7 +125,7 @@ func (r *streamRun) validateSimpleTypeFacets(normalizedValue string, st *grammar
 		typ:      st.Original,
 		compiled: st,
 		context: &facetValidationContext{
-			path: r.path.String(),
+			path: r.path.String,
 			callbacks: &facetValidationCallbacks{
 				validateQNameEnum: validateQNameEnum,
 			},
@@ -132,7 +141,7 @@ func (r *streamRun) checkComplexTypeFacetsWithContext(text string, ct *grammar.C
 			return r.validateQNameEnumerationForType(normalized, enum, ct.SimpleContentType, scopeDepth, context)
 		}
 	}
-	return collectComplexTypeFacetViolations(text, ct, r.path.String(), validateQNameEnum)
+	return collectComplexTypeFacetViolations(text, ct, r.path.String, validateQNameEnum)
 }
 
 func (r *streamRun) checkComplexTypeFacets(text string, ct *grammar.CompiledType, ns map[string]string) []errors.Validation {
@@ -142,7 +151,7 @@ func (r *streamRun) checkComplexTypeFacets(text string, ct *grammar.CompiledType
 			return r.validateQNameEnumerationForType(normalized, enum, ct.SimpleContentType, -1, ns)
 		}
 	}
-	return collectComplexTypeFacetViolations(text, ct, r.path.String(), validateQNameEnum)
+	return collectComplexTypeFacetViolations(text, ct, r.path.String, validateQNameEnum)
 }
 
 func (r *streamRun) validateListValueInternal(value string, st *grammar.CompiledType, scopeDepth int, policy errorPolicy, context map[string]string) (bool, []errors.Validation) {
@@ -197,7 +206,7 @@ func (r *streamRun) validateListValueInternal(value string, st *grammar.Compiled
 				typ:      st.Original,
 				compiled: st,
 				context: &facetValidationContext{
-					path: r.path.String(),
+					path: r.path.String,
 				},
 				policy: policy,
 			})
@@ -292,6 +301,15 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 		}
 	}
 
+	if err := r.validateEntityValue(item, itemType); err != nil {
+		if policy == errorPolicyReport {
+			violations = append(violations, errors.NewValidationf(errors.ErrDatatypeInvalid, r.path.String(),
+				"list item[%d]: %s", index, err.Error()))
+			return false, violations
+		}
+		return false, nil
+	}
+
 	if len(itemType.Facets) > 0 {
 		var validateQNameEnum func(string, *types.Enumeration) error
 		if requiresQNameEnumeration(itemType) {
@@ -311,7 +329,7 @@ func (r *streamRun) validateListItemNormalized(item string, itemType *grammar.Co
 			typ:      itemType.Original,
 			compiled: itemType,
 			context: &facetValidationContext{
-				path: r.path.String(),
+				path: r.path.String,
 				callbacks: &facetValidationCallbacks{
 					validateQNameEnum: validateQNameEnum,
 					makeViolation:     makeViolation,
@@ -357,21 +375,116 @@ func validateSimpleTypeNormalized(st *types.SimpleType, normalized string) error
 }
 
 func (r *streamRun) validateUnionValue(value string, memberTypes []*grammar.CompiledType, scopeDepth int, context map[string]string) bool {
-	for _, memberType := range memberTypes {
-		if r.validateUnionMemberType(value, memberType, scopeDepth, context) {
-			return true
-		}
-	}
-	return false
+	return r.matchUnionMemberType(value, memberTypes, scopeDepth, context) != nil
 }
 
-func (r *streamRun) validateUnionMemberType(value string, mt *grammar.CompiledType, scopeDepth int, context map[string]string) bool {
-	if mt == nil || mt.Original == nil {
-		return false
+func (r *streamRun) matchUnionMemberType(value string, memberTypes []*grammar.CompiledType, scopeDepth int, context map[string]string) *grammar.CompiledType {
+	for _, memberType := range memberTypes {
+		if memberType == nil {
+			continue
+		}
+		valid, _ := r.checkSimpleValueInternal(value, memberType, scopeDepth, errorPolicySuppress, context)
+		if valid {
+			return memberType
+		}
+	}
+	return nil
+}
+
+func (r *streamRun) collectIDRefsForValue(value string, ct *grammar.CompiledType, line, column, scopeDepth int, context map[string]string) []errors.Validation {
+	return r.collectIDRefsForValueVisited(value, ct, line, column, scopeDepth, context, make(map[*grammar.CompiledType]bool))
+}
+
+func (r *streamRun) collectIDRefsForValueVisited(value string, ct *grammar.CompiledType, line, column, scopeDepth int, context map[string]string, visited map[*grammar.CompiledType]bool) []errors.Validation {
+	if value == "" || ct == nil {
+		return nil
+	}
+	if visited[ct] {
+		return nil
+	}
+	visited[ct] = true
+	defer delete(visited, ct)
+
+	normalized := value
+	if ct.Original != nil {
+		normalized = types.NormalizeWhiteSpace(value, ct.Original)
 	}
 
-	valid, _ := r.checkSimpleValueInternal(value, mt, scopeDepth, errorPolicySuppress, context)
-	return valid
+	if len(ct.MemberTypes) > 0 {
+		if r.idTypeMask(ct) == idTypeNone {
+			return nil
+		}
+		member := r.matchUnionMemberType(normalized, ct.MemberTypes, scopeDepth, context)
+		if member == nil {
+			return nil
+		}
+		return r.collectIDRefsForValueVisited(normalized, member, line, column, scopeDepth, context, visited)
+	}
+
+	return r.collectIDRefs(normalized, ct, line, column)
+}
+
+type entityKind int
+
+const (
+	entityNone entityKind = iota
+	entitySingle
+	entityList
+)
+
+func (r *streamRun) validateEntityValue(value string, ct *grammar.CompiledType) error {
+	if r == nil || ct == nil {
+		return nil
+	}
+	if len(r.entityDecls) == 0 {
+		return nil
+	}
+	switch entityKindForType(ct) {
+	case entitySingle:
+		if _, ok := r.entityDecls[value]; !ok {
+			return fmt.Errorf("ENTITY value '%s' does not reference a declared entity", value)
+		}
+	case entityList:
+		for item := range types.FieldsXMLWhitespaceSeq(value) {
+			if item == "" {
+				continue
+			}
+			if _, ok := r.entityDecls[item]; !ok {
+				return fmt.Errorf("ENTITY value '%s' does not reference a declared entity", item)
+			}
+		}
+	}
+	return nil
+}
+
+func entityKindForType(ct *grammar.CompiledType) entityKind {
+	if ct == nil {
+		return entityNone
+	}
+	if ct.Kind == grammar.TypeKindBuiltin && ct.QName.Namespace == types.XSDNamespace {
+		switch ct.QName.Local {
+		case string(types.TypeNameENTITY):
+			return entitySingle
+		case string(types.TypeNameENTITIES):
+			return entityList
+		}
+	}
+	for base := ct.BaseType; base != nil; base = base.BaseType {
+		if base.Kind == grammar.TypeKindBuiltin && base.QName.Namespace == types.XSDNamespace {
+			switch base.QName.Local {
+			case string(types.TypeNameENTITY):
+				return entitySingle
+			case string(types.TypeNameENTITIES):
+				return entityList
+			}
+		}
+	}
+	if ct.ItemType != nil {
+		if entityKindForType(ct.ItemType) == entitySingle {
+			return entityList
+		}
+	}
+	return entityNone
 }
 
 func (r *streamRun) validateNotationReference(value string, scopeDepth int, context map[string]string) []errors.Validation {

@@ -88,8 +88,8 @@ func TestStreamContentModelErrorPathIncludesChild(t *testing.T) {
 	if len(violations) == 0 {
 		t.Fatalf("expected violations")
 	}
-	if violations[0].Path != "/root/b" {
-		t.Fatalf("expected path /root/b, got %q", violations[0].Path)
+	if violations[0].Path != "/{urn:test}root/{urn:test}b" {
+		t.Fatalf("expected path /{urn:test}root/{urn:test}b, got %q", violations[0].Path)
 	}
 }
 

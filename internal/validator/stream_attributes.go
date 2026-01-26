@@ -125,7 +125,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 				valueViolations := r.checkSimpleValue(value, attr.Type, scopeDepth)
 				violations = append(violations, valueViolations...)
 				if value != "" && len(valueViolations) == 0 {
-					violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
+					violations = append(violations, r.collectIDRefsForValue(value, attr.Type, line, column, scopeDepth, nil)...)
 				}
 				if attr.Type.IDTypeName == string(types.TypeNameID) {
 					idCount++
@@ -155,7 +155,7 @@ func (r *streamRun) checkAttributesStream(attrs attributeIndex, decls []*grammar
 				}
 				violations = append(violations, valueViolations...)
 				if value != "" && len(valueViolations) == 0 {
-					violations = append(violations, r.collectIDRefs(value, attr.Type, line, column)...)
+					violations = append(violations, r.collectIDRefsForValue(value, attr.Type, line, column, scopeDepth, valueContext)...)
 				}
 				if attr.Type.IDTypeName == string(types.TypeNameID) {
 					idCount++
@@ -323,6 +323,9 @@ func (r *streamRun) checkWildcardAttributeStream(xmlAttr streamAttr, anyAttr *ty
 	}
 
 	attrDecl := r.schema.Attribute(attrQName)
+	if attrDecl != nil && attrDecl.QName != attrQName {
+		attrDecl = nil
+	}
 	if attrDecl == nil {
 		if anyAttr.ProcessContents == types.Strict {
 			return []errors.Validation{errors.NewValidationf(errors.ErrWildcardNotDeclared, r.path.String(),
@@ -341,7 +344,7 @@ func (r *streamRun) checkDeclaredAttributeValueStream(value string, decl *gramma
 		valueViolations := r.checkSimpleValue(value, decl.Type, scopeDepth)
 		violations = append(violations, valueViolations...)
 		if value != "" && len(valueViolations) == 0 {
-			violations = append(violations, r.collectIDRefs(value, decl.Type, line, column)...)
+			violations = append(violations, r.collectIDRefsForValue(value, decl.Type, line, column, scopeDepth, nil)...)
 		}
 	}
 

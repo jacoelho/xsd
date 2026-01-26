@@ -19,9 +19,8 @@ type facetValidationData struct {
 	facets []types.Facet
 }
 
-//nolint:govet // fieldalignment: prefer clarity over extra indirection.
 type facetValidationContext struct {
-	path      string
+	path      func() string
 	callbacks *facetValidationCallbacks
 }
 
@@ -36,12 +35,12 @@ func validateFacets(input *facetValidationInput) (bool, []errors.Validation) {
 	}
 
 	var (
-		path              string
+		pathProvider      func() string
 		validateQNameEnum func(string, *types.Enumeration) error
 		makeViolation     func(error) errors.Validation
 	)
 	if input.context != nil {
-		path = input.context.path
+		pathProvider = input.context.path
 		if input.context.callbacks != nil {
 			validateQNameEnum = input.context.callbacks.validateQNameEnum
 			makeViolation = input.context.callbacks.makeViolation
@@ -49,6 +48,10 @@ func validateFacets(input *facetValidationInput) (bool, []errors.Validation) {
 	}
 	if makeViolation == nil {
 		makeViolation = func(err error) errors.Validation {
+			path := ""
+			if pathProvider != nil {
+				path = pathProvider()
+			}
 			return errors.NewValidation(errors.ErrFacetViolation, err.Error(), path)
 		}
 	}

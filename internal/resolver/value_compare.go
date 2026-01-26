@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
@@ -61,7 +60,13 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 func parseValueVariants(schema *parser.Schema, lexical string, typ types.Type, context map[string]string) ([]types.TypedValue, error) {
 	if st, ok := typ.(*types.SimpleType); ok && st.Variety() == types.UnionVariety {
 		memberTypes := resolveUnionMemberTypes(schema, st)
-		return parseUnionValueVariants(lexical, memberTypes, context)
+		return types.ParseUnionValueVariants(lexical, memberTypes, func(value string, member types.Type) ([]types.TypedValue, error) {
+			typed, err := parseTypedValueWithContext(value, member, context)
+			if err != nil {
+				return nil, err
+			}
+			return []types.TypedValue{typed}, nil
+		})
 	}
 	typed, err := parseTypedValueWithContext(lexical, typ, context)
 	if err != nil {
@@ -70,48 +75,13 @@ func parseValueVariants(schema *parser.Schema, lexical string, typ types.Type, c
 	return []types.TypedValue{typed}, nil
 }
 
-func parseUnionValueVariants(lexical string, memberTypes []types.Type, context map[string]string) ([]types.TypedValue, error) {
-	if len(memberTypes) == 0 {
-		return nil, fmt.Errorf("union has no member types")
-	}
-	values := make([]types.TypedValue, 0, len(memberTypes))
-	var firstErr error
-	for _, memberType := range memberTypes {
-		typed, err := parseTypedValueWithContext(lexical, memberType, context)
-		if err == nil {
-			values = append(values, typed)
-			continue
-		}
-		if firstErr == nil {
-			firstErr = err
-		}
-	}
-	if len(values) == 0 {
-		if firstErr != nil {
-			return nil, firstErr
-		}
-		return nil, fmt.Errorf("value %q does not match any union member type", lexical)
-	}
-	return values, nil
-}
-
 func parseListValueVariants(schema *parser.Schema, lexical string, itemType types.Type, context map[string]string) ([][]types.TypedValue, error) {
 	if itemType == nil {
 		return nil, fmt.Errorf("list item type is nil")
 	}
-	items := splitXMLWhitespaceFields(lexical)
-	if len(items) == 0 {
-		return nil, nil
-	}
-	parsed := make([][]types.TypedValue, len(items))
-	for i, item := range items {
-		values, err := parseValueVariants(schema, item, itemType, context)
-		if err != nil {
-			return nil, fmt.Errorf("invalid list item %q: %w", item, err)
-		}
-		parsed[i] = values
-	}
-	return parsed, nil
+	return types.ParseListValueVariants(lexical, func(item string) ([]types.TypedValue, error) {
+		return parseValueVariants(schema, item, itemType, context)
+	})
 }
 
 func parseTypedValueWithContext(lexical string, typ types.Type, context map[string]string) (types.TypedValue, error) {
@@ -145,33 +115,9 @@ func (v qnameTypedValue) Native() any      { return v.value }
 func (v qnameTypedValue) String() string   { return v.lexical }
 
 func anyValueEqual(left, right []types.TypedValue) bool {
-	for _, l := range left {
-		for _, r := range right {
-			if types.ValuesEqual(l, r) {
-				return true
-			}
-		}
-	}
-	return false
+	return types.AnyValueEqual(left, right)
 }
 
 func listValuesEqual(left, right [][]types.TypedValue) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for i := range left {
-		if !anyValueEqual(left[i], right[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-func splitXMLWhitespaceFields(value string) []string {
-	if value == "" {
-		return nil
-	}
-	return strings.FieldsFunc(value, func(r rune) bool {
-		return r == ' ' || r == '\t' || r == '\n' || r == '\r'
-	})
+	return types.ListValuesEqual(left, right)
 }

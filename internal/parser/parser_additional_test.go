@@ -277,6 +277,150 @@ func TestValidateOccursInteger(t *testing.T) {
 	}
 }
 
+func TestParseDerivationSetEmptyRejected(t *testing.T) {
+	tests := []struct {
+		name      string
+		schemaXML string
+	}{
+		{
+			name: "schema blockDefault empty",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" blockDefault=""/>`,
+		},
+		{
+			name: "schema finalDefault empty",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" finalDefault=""/>`,
+		},
+		{
+			name: "element block empty",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string" block=""/>
+</xs:schema>`,
+		},
+		{
+			name: "element final empty",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string" final=""/>
+</xs:schema>`,
+		},
+		{
+			name: "complexType block empty",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="ct" block=""/>
+</xs:schema>`,
+		},
+		{
+			name: "complexType final empty",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="ct" final=""/>
+</xs:schema>`,
+		},
+		{
+			name: "simpleType final empty",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="st" final=""/>
+</xs:schema>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := Parse(strings.NewReader(tt.schemaXML)); err == nil {
+				t.Fatalf("expected parse error for %s", tt.name)
+			}
+		})
+	}
+}
+
+func TestSchemaTargetNamespaceAttributeNamespaces(t *testing.T) {
+	t.Run("foreign targetNamespace ignored", func(t *testing.T) {
+		schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:ex="urn:ex"
+           ex:targetNamespace="urn:ex"/>`
+		schema, err := Parse(strings.NewReader(schemaXML))
+		if err != nil {
+			t.Fatalf("Parse() error = %v", err)
+		}
+		if schema.TargetNamespace != "" {
+			t.Fatalf("expected empty targetNamespace, got %q", schema.TargetNamespace)
+		}
+	})
+
+	t.Run("xsd-prefixed targetNamespace rejected", func(t *testing.T) {
+		schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xs:targetNamespace="urn:x"/>`
+		if _, err := Parse(strings.NewReader(schemaXML)); err == nil {
+			t.Fatalf("expected parse error for xs:targetNamespace")
+		}
+	})
+
+	t.Run("unprefixed targetNamespace accepted", func(t *testing.T) {
+		schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:x"/>`
+		schema, err := Parse(strings.NewReader(schemaXML))
+		if err != nil {
+			t.Fatalf("Parse() error = %v", err)
+		}
+		if schema.TargetNamespace != "urn:x" {
+			t.Fatalf("expected targetNamespace urn:x, got %q", schema.TargetNamespace)
+		}
+	})
+}
+
+func TestSchemaXSDPrefixedAttributesRejected(t *testing.T) {
+	tests := []struct {
+		name      string
+		schemaXML string
+		wantErr   bool
+	}{
+		{
+			name: "xsd-prefixed attribute on element",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" xs:foo="bar" type="xs:string"/>
+</xs:schema>`,
+			wantErr: true,
+		},
+		{
+			name: "xsd-prefixed attribute on attribute",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="attr" xs:type="xs:string"/>
+</xs:schema>`,
+			wantErr: true,
+		},
+		{
+			name: "foreign namespace attribute allowed",
+			schemaXML: `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:ex="urn:ex">
+  <xs:element name="root" ex:ext="v" type="xs:string"/>
+</xs:schema>`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse(strings.NewReader(tt.schemaXML))
+			if tt.wantErr && err == nil {
+				t.Fatalf("expected parse error for %s", tt.name)
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+		})
+	}
+}
+
 func TestParseErrorUnwrap(t *testing.T) {
 	inner := errors.New("boom")
 	err := newParseError("parse fail", inner)

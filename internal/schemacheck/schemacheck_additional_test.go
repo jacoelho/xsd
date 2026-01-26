@@ -151,17 +151,17 @@ func TestFacetListAndEnumeration(t *testing.T) {
 	listType.ItemType = itemType
 
 	enumFacet := &types.Enumeration{Values: []string{"alpha beta"}}
-	if err := validateEnumerationValues([]types.Facet{enumFacet}, listType); err != nil {
+	if err := validateEnumerationValues(nil, []types.Facet{enumFacet}, listType); err != nil {
 		t.Fatalf("validateEnumerationValues error = %v", err)
 	}
 
 	nbspFacet := &types.Enumeration{Values: []string{"alpha\u00A0beta"}}
-	if err := validateEnumerationValues([]types.Facet{nbspFacet}, listType); err == nil {
+	if err := validateEnumerationValues(nil, []types.Facet{nbspFacet}, listType); err == nil {
 		t.Fatalf("expected enumeration value with NBSP separator to fail")
 	}
 
 	emptyFacet := &types.Enumeration{Values: []string{""}}
-	if err := validateEnumerationValues([]types.Facet{emptyFacet}, listType); err == nil {
+	if err := validateEnumerationValues(nil, []types.Facet{emptyFacet}, listType); err == nil {
 		t.Fatalf("expected enumeration list item error")
 	}
 
@@ -1041,6 +1041,131 @@ func TestUPAExtensionOverlap(t *testing.T) {
 	}
 }
 
+func TestUPANestedGroupOverlap(t *testing.T) {
+	schema := parser.NewSchema()
+	schema.TargetNamespace = "urn:upa"
+
+	elemA := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
+	elemB := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "b"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
+	elemC := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "c"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
+
+	seq1 := &types.ModelGroup{
+		Kind:      types.Sequence,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
+		Particles: []types.Particle{elemA, elemB},
+	}
+	seq2 := &types.ModelGroup{
+		Kind:      types.Sequence,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
+		Particles: []types.Particle{elemA, elemC},
+	}
+
+	choice := &types.ModelGroup{
+		Kind:      types.Choice,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
+		Particles: []types.Particle{seq1, seq2},
+	}
+
+	if err := validateUPA(schema, &types.ElementContent{Particle: choice}, schema.TargetNamespace); err == nil {
+		t.Fatalf("expected nested group UPA violation")
+	}
+}
+
+func TestUPASequenceSeparatorDisambiguates(t *testing.T) {
+	schema := parser.NewSchema()
+	schema.TargetNamespace = "urn:upa"
+
+	elemA := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "a"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
+	elemB := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "b"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
+	elemC := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "c"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
+	elemD := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "d"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
+
+	seqLeft := &types.ModelGroup{
+		Kind:      types.Sequence,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
+		Particles: []types.Particle{elemA, elemB},
+	}
+	seqRight := &types.ModelGroup{
+		Kind:      types.Sequence,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
+		Particles: []types.Particle{elemB, elemD},
+	}
+
+	outer := &types.ModelGroup{
+		Kind:      types.Sequence,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
+		Particles: []types.Particle{seqLeft, elemC, seqRight},
+	}
+
+	if err := validateUPA(schema, &types.ElementContent{Particle: outer}, schema.TargetNamespace); err != nil {
+		t.Fatalf("expected no UPA violation, got %v", err)
+	}
+}
+
+func TestUPAWildcardSequenceSeparator(t *testing.T) {
+	schema := parser.NewSchema()
+	schema.TargetNamespace = "urn:upa"
+
+	wild1 := &types.AnyElement{
+		Namespace:       types.NSCAny,
+		MinOccurs:       types.OccursFromInt(1),
+		MaxOccurs:       types.OccursFromInt(1),
+		TargetNamespace: "urn:upa",
+	}
+	wild2 := &types.AnyElement{
+		Namespace:       types.NSCAny,
+		MinOccurs:       types.OccursFromInt(1),
+		MaxOccurs:       types.OccursFromInt(1),
+		TargetNamespace: "urn:upa",
+	}
+	sep := &types.ElementDecl{Name: types.QName{Namespace: "urn:upa", Local: "c"}, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)}
+
+	seq := &types.ModelGroup{
+		Kind:      types.Sequence,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
+		Particles: []types.Particle{wild1, sep, wild2},
+	}
+
+	if err := validateUPA(schema, &types.ElementContent{Particle: seq}, schema.TargetNamespace); err != nil {
+		t.Fatalf("expected no UPA violation, got %v", err)
+	}
+}
+
+func TestUPAWildcardChoiceOverlap(t *testing.T) {
+	schema := parser.NewSchema()
+	schema.TargetNamespace = "urn:upa"
+
+	wild1 := &types.AnyElement{
+		Namespace:       types.NSCAny,
+		MinOccurs:       types.OccursFromInt(1),
+		MaxOccurs:       types.OccursFromInt(1),
+		TargetNamespace: "urn:upa",
+	}
+	wild2 := &types.AnyElement{
+		Namespace:       types.NSCAny,
+		MinOccurs:       types.OccursFromInt(1),
+		MaxOccurs:       types.OccursFromInt(1),
+		TargetNamespace: "urn:upa",
+	}
+	choice := &types.ModelGroup{
+		Kind:      types.Choice,
+		MinOccurs: types.OccursFromInt(1),
+		MaxOccurs: types.OccursFromInt(1),
+		Particles: []types.Particle{wild1, wild2},
+	}
+
+	if err := validateUPA(schema, &types.ElementContent{Particle: choice}, schema.TargetNamespace); err == nil {
+		t.Fatalf("expected wildcard choice UPA violation")
+	}
+}
+
 func TestWildcardDerivation(t *testing.T) {
 	schema := parser.NewSchema()
 	schema.TargetNamespace = "urn:wild"
@@ -1109,55 +1234,6 @@ func TestAnyAttributeDerivation(t *testing.T) {
 	}
 	if anyAttributeIsSubset(baseAnyAttr, derivedAnyAttr) {
 		t.Fatalf("expected anyAttribute superset to fail")
-	}
-}
-
-func TestUPAHelperFunctions(t *testing.T) {
-	schema := parser.NewSchema()
-	schema.TargetNamespace = "urn:upa"
-
-	elemRepeat := &types.ElementDecl{
-		Name:      types.QName{Namespace: "urn:upa", Local: "a"},
-		MinOccurs: types.OccursFromInt(0),
-		MaxOccurs: types.OccursFromInt(2),
-	}
-	elemSingle := &types.ElementDecl{
-		Name:      types.QName{Namespace: "urn:upa", Local: "a"},
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
-	}
-
-	seq1 := &types.ModelGroup{
-		Kind:      types.Sequence,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
-		Particles: []types.Particle{elemRepeat},
-	}
-	seq2 := &types.ModelGroup{
-		Kind:      types.Sequence,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
-		Particles: []types.Particle{elemSingle},
-	}
-
-	if err := checkModelGroupUPAWithVisited(schema, seq1, seq2, schema.TargetNamespace, newModelGroupVisit()); err == nil {
-		t.Fatalf("expected model group UPA violation")
-	}
-
-	if len(collectPossibleLastLeafParticles(seq1, newModelGroupVisit())) == 0 {
-		t.Fatalf("expected last leaf particles")
-	}
-	if len(collectPossibleFirstLeafParticles(seq2, newModelGroupVisit())) == 0 {
-		t.Fatalf("expected first leaf particles")
-	}
-
-	wild1 := &types.AnyElement{Namespace: types.NSCAny, TargetNamespace: "urn:upa"}
-	wild2 := &types.AnyElement{Namespace: types.NSCTargetNamespace, TargetNamespace: "urn:upa"}
-	if !wildcardsOverlap(wild1, wild2) {
-		t.Fatalf("expected wildcards to overlap")
-	}
-	if !wildcardOverlapsElement(wild1, elemSingle) {
-		t.Fatalf("expected wildcard to overlap element")
 	}
 }
 

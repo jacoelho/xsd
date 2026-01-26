@@ -245,20 +245,11 @@ func (c *mergeContext) mergeTypeDefs() error {
 }
 
 func (c *mergeContext) copyTypeForImport(typ types.Type) types.Type {
-	if complexType, ok := typ.(*types.ComplexType); ok {
-		typeCopy := *complexType
-		typeCopy.QName = c.remapQName(complexType.QName)
-		typeCopy.SourceNamespace = c.source.TargetNamespace
-		normalizeAttributeForms(&typeCopy, c.source.AttributeFormDefault)
-		return &typeCopy
+	copied := types.CopyType(typ, c.opts)
+	if complexType, ok := copied.(*types.ComplexType); ok {
+		normalizeAttributeForms(complexType, c.source.AttributeFormDefault)
 	}
-	if simpleType, ok := typ.(*types.SimpleType); ok {
-		typeCopy := *simpleType
-		typeCopy.QName = c.remapQName(simpleType.QName)
-		typeCopy.SourceNamespace = c.source.TargetNamespace
-		return &typeCopy
-	}
-	return typ
+	return copied
 }
 
 func (c *mergeContext) copyTypeForInclude(typ types.Type) types.Type {

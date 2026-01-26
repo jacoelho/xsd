@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -16,6 +17,8 @@ const (
 	idValuesDisallowed
 )
 
+var errCircularReference = errors.New("circular type reference")
+
 // validateDefaultOrFixedValueWithResolvedType validates a default/fixed value after type resolution.
 func validateDefaultOrFixedValueWithResolvedType(schema *parser.Schema, value string, typ types.Type, context map[string]string) error {
 	return validateDefaultOrFixedValueWithResolvedTypeVisited(schema, value, typ, context, make(map[types.Type]bool))
@@ -30,7 +33,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 		return nil
 	}
 	if visited[typ] {
-		return nil
+		return errCircularReference
 	}
 	visited[typ] = true
 	defer delete(visited, typ)
@@ -89,11 +92,23 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 		case types.UnionVariety:
 			memberTypes := resolveUnionMemberTypes(schema, st)
 			if len(memberTypes) > 0 {
+				var firstErr error
+				sawCycle := false
 				for _, member := range memberTypes {
 					if err := validateDefaultOrFixedValueResolved(schema, normalizedValue, member, context, visited, idValuesAllowed); err == nil {
 						facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
 						return validateValueAgainstFacets(normalizedValue, st, facets, context)
+					} else if errors.Is(err, errCircularReference) {
+						sawCycle = true
+					} else if firstErr == nil {
+						firstErr = err
 					}
+				}
+				if firstErr != nil {
+					return firstErr
+				}
+				if sawCycle {
+					return fmt.Errorf("cannot validate default/fixed value for circular union type '%s'", typ.Name().Local)
 				}
 				return fmt.Errorf("value '%s' does not match any member type of union '%s'", normalizedValue, typ.Name().Local)
 			}
@@ -102,6 +117,9 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 			if itemType != nil {
 				for item := range types.FieldsXMLWhitespaceSeq(normalizedValue) {
 					if err := validateDefaultOrFixedValueResolved(schema, item, itemType, context, visited, policy); err != nil {
+						if errors.Is(err, errCircularReference) {
+							return fmt.Errorf("cannot validate default/fixed value for circular list item type '%s'", typ.Name().Local)
+						}
 						return err
 					}
 				}
