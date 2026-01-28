@@ -1,38 +1,12 @@
 # XSD 1.0 Validator for Go
 
-Pure Go implementation of XSD 1.0 (XML Schema) validation with streaming and io/fs.
-
-## Features
-- Pure Go implementation
-- io/fs integration for flexible schema loading
-- Streaming validation with constant memory for large documents
-- Built-in type validators for all XSD primitive and derived types
-- Facet validation (pattern, enumeration, length, min/max, digits)
-- Complex type validation with content models
-- Sequence, choice, and all group validation
-- Attribute validation with use and default/fixed value handling
-- W3C error codes for validation failures
-
-## Design decisions and limits
-- XSD 1.0 only
-- No support for HTTP imports
-- Only regex patterns compatible with Go's regexp package
-- xs:redefine is not supported
-- DateTime types use time.Parse (years 0001-9999; no year 0, BCE dates, or years >9999)
-- Instance-document schema hints (xsi:schemaLocation, xsi:noNamespaceSchemaLocation) are ignored
-
-W3C test suite results are tracked in `w3c/w3c_test.go`. Run `make w3c` to measure conformance.
+XSD 1.0 validation for Go with io/fs schema loading and streaming XML validation.
 
 ## Install
 
 ```bash
 go get github.com/jacoelho/xsd
 ```
-
-## Schema loading behavior
-- `Load` accepts any `fs.FS`; include/import locations resolve relative to the including schema path.
-- Missing include/import files are ignored when the filesystem returns `fs.ErrNotExist`.
-- `LoadWithOptions` allows optional limits and import handling without expanding the core API surface.
 
 ## Quickstart (in-memory schema)
 
@@ -128,6 +102,56 @@ func main() {
 }
 ```
 
+## Load options
+
+```go
+schema, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.LoadOptions{
+    AllowMissingImportLocations: true,
+    MaxDFAStates:                4096,
+    MaxOccursLimit:              1_000_000,
+})
+```
+
+Options:
+- `AllowMissingImportLocations`: when true, imports without `schemaLocation` are skipped.
+  Missing import files are also skipped when the filesystem returns `fs.ErrNotExist`.
+- `MaxDFAStates`: limit DFA determinization size for content models. `0` uses the default.
+- `MaxOccursLimit`: limit particle `maxOccurs` during compilation. `0` uses the default.
+
+## Loading behavior
+
+- `Load` accepts any `fs.FS`; include/import locations resolve relative to the including schema path.
+- Includes MUST resolve successfully.
+- Imports without `schemaLocation` are rejected unless `AllowMissingImportLocations` is enabled.
+
+## Validation behavior
+
+- `Schema.Validate` is safe for concurrent use.
+- Validation is streaming; the document is not loaded into a DOM.
+- Instance-document schema hints (`xsi:schemaLocation`, `xsi:noNamespaceSchemaLocation`) are ignored.
+
+## Error handling
+
+`Schema.Validate` returns `errors.ValidationList` for validation and XML parsing failures.
+`Schema.ValidateFile` can return file I/O errors before validation starts.
+
+Each `errors.Validation` includes:
+- `Code` (W3C codes like `cvc-elt.1`, or local codes like `xsd-schema-not-loaded`)
+- `Message`
+- `Path` (best-effort instance path)
+- `Line` and `Column` when available
+- `Expected` and `Actual` when available
+
+## Constraints and limits
+
+- XSD 1.0 only.
+- No HTTP imports.
+- Regex patterns must be compatible with Go's `regexp`.
+- `xs:redefine` is not supported.
+- DateTime parsing uses `time.Parse` (years 0001-9999; no year 0, BCE, or >9999).
+- DTDs and external entity resolution are not supported.
+- Instance documents must be UTF-8.
+
 ## CLI (xmllint)
 
 ```bash
@@ -138,24 +162,6 @@ make xmllint
 Options:
 - `--schema` (required): path to the XSD schema file
 
-## Error handling
-- `Schema.Validate` returns `errors.ValidationList` for validation and XML parsing failures.
-- `Schema.ValidateFile` can return file I/O errors before validation starts.
-
-Each `errors.Validation` includes:
-- `Code` (W3C codes like `cvc-elt.1`, or local codes like `xsd-schema-not-loaded`)
-- `Message`
-- `Path` (best-effort instance path)
-- `Line` and `Column` when available
-- `Expected` and `Actual` when available
-
-## Security considerations
-
-- Instance documents must be UTF-8. Non-UTF-8 encodings are rejected because xsd does not configure a charset reader.
-- DTDs and external entity resolution are not supported.
-- Limit input size for untrusted XML, for example with `io.LimitReader`.
-- Schema selection is explicit; instance hints are ignored.
-
 ## Testing
 
 ```bash
@@ -165,7 +171,7 @@ make w3c
 
 ## Architecture
 
-See [README](./docs/README.md)
+See `docs/architecture.md`.
 
 ## License
 
