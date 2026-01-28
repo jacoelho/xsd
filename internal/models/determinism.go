@@ -40,7 +40,7 @@ func buildOverlapSets(positions []Position, overlap PositionOverlapFunc) []*bits
 		return nil
 	}
 	var overlaps []*bitset
-	for i := 0; i < len(positions); i++ {
+	for i := range positions {
 		for j := i + 1; j < len(positions); j++ {
 			if !overlap(positions[i], positions[j]) {
 				continue

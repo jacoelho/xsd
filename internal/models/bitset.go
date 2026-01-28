@@ -65,11 +65,8 @@ func (b *bitset) intersectionIndex(other *bitset) (int, bool) {
 	if b == nil || other == nil {
 		return 0, false
 	}
-	n := len(b.words)
-	if len(other.words) < n {
-		n = len(other.words)
-	}
-	for i := 0; i < n; i++ {
+	n := min(len(other.words), len(b.words))
+	for i := range n {
 		w := b.words[i] & other.words[i]
 		if w != 0 {
 			return i*64 + bits.TrailingZeros64(w), true
