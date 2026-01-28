@@ -218,7 +218,19 @@ func validateImportForNamespace(schema *parser.Schema, contextNamespace, referen
 	if schema == nil {
 		return nil
 	}
-	if referenceNamespace.IsEmpty() || referenceNamespace == types.XSDNamespace || referenceNamespace == contextNamespace {
+	if referenceNamespace == types.XSDNamespace || referenceNamespace == xsdxml.XMLNamespace {
+		return nil
+	}
+	if referenceNamespace.IsEmpty() {
+		if contextNamespace.IsEmpty() {
+			return nil
+		}
+		if imports, ok := schema.ImportedNamespaces[contextNamespace]; ok && imports[types.NamespaceEmpty] {
+			return nil
+		}
+		return fmt.Errorf("namespace %s not imported for %s", referenceNamespace, contextNamespace)
+	}
+	if referenceNamespace == contextNamespace {
 		return nil
 	}
 	if imports, ok := schema.ImportedNamespaces[contextNamespace]; ok && imports[referenceNamespace] {
@@ -231,7 +243,7 @@ func validateImportForNamespaceAtLocation(schema *parser.Schema, location string
 	if schema == nil {
 		return nil
 	}
-	if referenceNamespace.IsEmpty() || referenceNamespace == types.XSDNamespace || referenceNamespace == xsdxml.XMLNamespace {
+	if referenceNamespace == types.XSDNamespace || referenceNamespace == xsdxml.XMLNamespace {
 		return nil
 	}
 	if location == "" || schema.ImportContexts == nil {
@@ -240,6 +252,15 @@ func validateImportForNamespaceAtLocation(schema *parser.Schema, location string
 	ctx, ok := schema.ImportContexts[location]
 	if !ok {
 		return validateImportForNamespace(schema, schema.TargetNamespace, referenceNamespace)
+	}
+	if referenceNamespace.IsEmpty() {
+		if ctx.TargetNamespace.IsEmpty() {
+			return nil
+		}
+		if ctx.Imports != nil && ctx.Imports[types.NamespaceEmpty] {
+			return nil
+		}
+		return fmt.Errorf("namespace %s must be imported by schema %s", referenceNamespace, parser.ImportContextLocation(location))
 	}
 	if referenceNamespace == ctx.TargetNamespace {
 		return nil

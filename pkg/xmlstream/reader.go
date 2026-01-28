@@ -12,25 +12,32 @@ const readerBufferSize = 256 * 1024
 const readerAttrCapacity = 8
 
 var errNilReader = errors.New("nil XML reader")
+var errDuplicateAttribute = errors.New("duplicate attribute")
 
 // Reader provides a streaming XML event interface with namespace tracking.
 type Reader struct {
+	nsBytes      namespaceBytesCache
+	reader       *bufio.Reader
+	nameIDs      *nameCache
 	dec          *xmltext.Decoder
 	names        *qnameCache
-	tok          xmltext.Token
 	ns           nsStack
-	attrBuf      []Attr
-	rawAttrBuf   []RawAttr
+	attrSeen     []uint32
 	rawAttrInfo  []rawAttrInfo
+	rawAttrBuf   []RawAttr
+	resolvedAttr []ResolvedAttr
+	attrBuf      []Attr
+	lastRawInfo  []rawAttrInfo
 	elemStack    []QName
 	valueBuf     []byte
 	nsBuf        []byte
 	lastRawAttrs []RawAttr
-	lastRawInfo  []rawAttrInfo
+	tok          xmltext.RawTokenSpan
 	lastStart    Event
 	nextID       ElementID
 	lastLine     int
 	lastColumn   int
+	attrEpoch    uint32
 	pendingPop   bool
 	lastWasStart bool
 }
@@ -48,17 +55,14 @@ func NewReader(r io.Reader, opts ...Option) (*Reader, error) {
 	reader := bufio.NewReaderSize(r, readerBufferSize)
 	options := buildOptions(opts...)
 	dec := xmltext.NewDecoder(reader, options...)
-	var tok xmltext.Token
-	tok.Reserve(xmltext.TokenSizes{
-		Attrs:     readerAttrCapacity,
-		AttrName:  256,
-		AttrValue: 256,
-	})
+	var tok xmltext.RawTokenSpan
 	names := newQNameCache()
 	names.setMaxEntries(qnameCacheLimit(options))
 	return &Reader{
+		reader:   reader,
 		dec:      dec,
 		names:    names,
+		nameIDs:  newNameCache(),
 		valueBuf: make([]byte, 0, 256),
 		nsBuf:    make([]byte, 0, 128),
 		tok:      tok,
@@ -73,28 +77,36 @@ func (r *Reader) Reset(src io.Reader, opts ...Option) error {
 	if src == nil {
 		return errNilReader
 	}
-	reader := bufio.NewReaderSize(src, readerBufferSize)
+	if r.reader == nil {
+		r.reader = bufio.NewReaderSize(src, readerBufferSize)
+	} else {
+		r.reader.Reset(src)
+	}
 	options := buildOptions(opts...)
 	if r.dec == nil {
-		r.dec = xmltext.NewDecoder(reader, options...)
+		r.dec = xmltext.NewDecoder(r.reader, options...)
 	} else {
-		r.dec.Reset(reader, options...)
+		r.dec.Reset(r.reader, options...)
 	}
-	r.tok.Reserve(xmltext.TokenSizes{
-		Attrs:     readerAttrCapacity,
-		AttrName:  256,
-		AttrValue: 256,
-	})
 	if r.names == nil {
 		r.names = newQNameCache()
 	} else {
 		r.names.reset()
 	}
 	r.names.setMaxEntries(qnameCacheLimit(options))
-	r.ns = nsStack{}
+	if r.nameIDs == nil {
+		r.nameIDs = newNameCache()
+	} else {
+		r.nameIDs.reset()
+	}
+	r.nsBytes.reset()
+	r.ns.reset()
 	r.attrBuf = r.attrBuf[:0]
+	r.resolvedAttr = r.resolvedAttr[:0]
 	r.rawAttrBuf = r.rawAttrBuf[:0]
 	r.rawAttrInfo = r.rawAttrInfo[:0]
+	r.attrSeen = r.attrSeen[:0]
+	r.attrEpoch = 0
 	r.elemStack = r.elemStack[:0]
 	r.valueBuf = r.valueBuf[:0]
 	r.nsBuf = r.nsBuf[:0]
@@ -113,6 +125,90 @@ func (r *Reader) Reset(src io.Reader, opts ...Option) error {
 func (r *Reader) Next() (Event, error) {
 	ev, _, err := r.next(nextResolved)
 	return ev, err
+}
+
+// NextResolved returns the next XML event with namespace-resolved byte slices.
+func (r *Reader) NextResolved() (ResolvedEvent, error) {
+	if r == nil || r.dec == nil {
+		return ResolvedEvent{}, errNilReader
+	}
+	if r.names == nil {
+		r.names = newQNameCache()
+	}
+	if r.nameIDs == nil {
+		r.nameIDs = newNameCache()
+	}
+	if r.pendingPop {
+		r.ns.pop()
+		r.pendingPop = false
+	}
+	r.lastWasStart = false
+
+	for {
+		if err := r.dec.ReadTokenRawSpansInto(&r.tok); err != nil {
+			return ResolvedEvent{}, err
+		}
+		tok := &r.tok
+		line, column := tok.Line, tok.Column
+		r.lastLine = line
+		r.lastColumn = column
+		r.valueBuf = r.valueBuf[:0]
+
+		switch tok.Kind {
+		case xmltext.KindStartElement:
+			return r.startResolvedEvent(tok, line, column)
+
+		case xmltext.KindEndElement:
+			return r.endResolvedEvent(tok, line, column)
+
+		case xmltext.KindCharData, xmltext.KindCDATA:
+			text, err := r.textBytes(tok.Text, tok.TextNeeds)
+			if err != nil {
+				return ResolvedEvent{}, wrapSyntaxError(r.dec, line, column, err)
+			}
+			scopeDepth := r.currentScopeDepth()
+			return ResolvedEvent{
+				Kind:       EventCharData,
+				Text:       text,
+				Line:       line,
+				Column:     column,
+				ScopeDepth: scopeDepth,
+			}, nil
+
+		case xmltext.KindComment:
+			scopeDepth := r.currentScopeDepth()
+			return ResolvedEvent{
+				Kind:       EventComment,
+				Text:       tok.Text,
+				Line:       line,
+				Column:     column,
+				ScopeDepth: scopeDepth,
+			}, nil
+
+		case xmltext.KindPI:
+			if tok.IsXMLDecl {
+				continue
+			}
+			scopeDepth := r.currentScopeDepth()
+			return ResolvedEvent{
+				Kind:       EventPI,
+				Text:       tok.Text,
+				Line:       line,
+				Column:     column,
+				ScopeDepth: scopeDepth,
+			}, nil
+
+		case xmltext.KindDirective:
+			scopeDepth := r.currentScopeDepth()
+			return ResolvedEvent{
+				Kind:       EventDirective,
+				Text:       tok.Text,
+				Line:       line,
+				Column:     column,
+				ScopeDepth: scopeDepth,
+			}, nil
+		}
+	}
 }
 
 // NextRaw returns the next XML event with raw names.
@@ -143,7 +239,7 @@ func (r *Reader) next(mode nextMode) (Event, RawEvent, error) {
 	r.lastWasStart = false
 
 	for {
-		if err := r.dec.ReadTokenInto(&r.tok); err != nil {
+		if err := r.dec.ReadTokenRawSpansInto(&r.tok); err != nil {
 			return Event{}, RawEvent{}, err
 		}
 		tok := &r.tok
@@ -160,7 +256,7 @@ func (r *Reader) next(mode nextMode) (Event, RawEvent, error) {
 			return r.endEvent(mode, tok, line, column)
 
 		case xmltext.KindCharData, xmltext.KindCDATA:
-			text, err := r.textBytes(tok)
+			text, err := r.textBytes(tok.Text, tok.TextNeeds)
 			if err != nil {
 				return Event{}, RawEvent{}, wrapSyntaxError(r.dec, line, column, err)
 			}
@@ -245,23 +341,27 @@ func (r *Reader) next(mode nextMode) (Event, RawEvent, error) {
 	}
 }
 
-func (r *Reader) startEvent(mode nextMode, tok *xmltext.Token, line, column int) (Event, RawEvent, error) {
-	scope, nsBuf, err := collectNamespaceScope(r.dec, r.nsBuf, tok)
+func (r *Reader) startEvent(mode nextMode, tok *xmltext.RawTokenSpan, line, column int) (Event, RawEvent, error) {
+	declStart := len(r.ns.decls)
+	scope, nsBuf, decls, err := collectNamespaceScope(r.dec, r.nsBuf, r.ns.decls, tok)
 	if err != nil {
 		r.nsBuf = nsBuf
 		return Event{}, RawEvent{}, wrapSyntaxError(r.dec, line, column, err)
 	}
 	r.nsBuf = nsBuf
+	r.ns.decls = decls
+	scope.declStart = declStart
+	scope.declLen = len(r.ns.decls) - declStart
 	scopeDepth := r.ns.push(scope)
-	name, err := resolveElementName(r.names, &r.ns, r.dec, tok.Name, scopeDepth, line, column)
+	name, err := resolveElementName(r.names, &r.ns, r.dec, tok.Name, tok.NameColon, scopeDepth, line, column)
 	if err != nil {
 		return Event{}, RawEvent{}, err
 	}
 
-	attrs := tok.Attrs
+	attrCount := tok.AttrCount()
 	if mode == nextResolved {
-		if cap(r.attrBuf) < len(attrs) {
-			r.attrBuf = make([]Attr, 0, len(attrs))
+		if cap(r.attrBuf) < attrCount {
+			r.attrBuf = make([]Attr, 0, attrCount)
 		} else {
 			r.attrBuf = r.attrBuf[:0]
 		}
@@ -269,30 +369,31 @@ func (r *Reader) startEvent(mode nextMode, tok *xmltext.Token, line, column int)
 		r.attrBuf = r.attrBuf[:0]
 	}
 	if mode == nextRaw {
-		if cap(r.rawAttrBuf) < len(attrs) {
-			r.rawAttrBuf = make([]RawAttr, 0, len(attrs))
+		if cap(r.rawAttrBuf) < attrCount {
+			r.rawAttrBuf = make([]RawAttr, 0, attrCount)
 		} else {
 			r.rawAttrBuf = r.rawAttrBuf[:0]
 		}
-		if cap(r.rawAttrInfo) < len(attrs) {
-			r.rawAttrInfo = make([]rawAttrInfo, 0, len(attrs))
+		if cap(r.rawAttrInfo) < attrCount {
+			r.rawAttrInfo = make([]rawAttrInfo, 0, attrCount)
 		} else {
 			r.rawAttrInfo = r.rawAttrInfo[:0]
 		}
 	}
 
-	for _, attr := range attrs {
-		if isDefaultNamespaceDecl(attr.Name) {
+	for i := range attrCount {
+		attrName := tok.AttrName(i)
+		if isDefaultNamespaceDecl(attrName) {
 			continue
 		}
-		if _, ok := prefixedNamespaceDecl(attr.Name); ok {
+		if _, ok := prefixedNamespaceDecl(attrName); ok {
 			continue
 		}
-		attrNamespace, attrLocal, err := resolveAttrName(r.dec, &r.ns, attr.Name, scopeDepth, line, column)
+		attrNamespace, attrLocal, err := resolveAttrName(r.dec, &r.ns, attrName, tok.AttrNameColon(i), scopeDepth, line, column)
 		if err != nil {
 			return Event{}, RawEvent{}, err
 		}
-		value, err := r.attrValueBytes(attr.Value, attr.ValueNeeds)
+		value, err := r.attrValueBytes(tok.AttrValue(i), tok.AttrValueNeeds(i))
 		if err != nil {
 			return Event{}, RawEvent{}, wrapSyntaxError(r.dec, line, column, err)
 		}
@@ -304,7 +405,7 @@ func (r *Reader) startEvent(mode nextMode, tok *xmltext.Token, line, column int)
 		}
 		if mode == nextRaw {
 			r.rawAttrBuf = append(r.rawAttrBuf, RawAttr{
-				Name:  rawNameFromBytes(attr.Name),
+				Name:  rawNameFromBytes(attrName),
 				Value: value,
 			})
 			r.rawAttrInfo = append(r.rawAttrInfo, rawAttrInfo{
@@ -349,7 +450,105 @@ func (r *Reader) startEvent(mode nextMode, tok *xmltext.Token, line, column int)
 	}, nil
 }
 
-func (r *Reader) endEvent(mode nextMode, tok *xmltext.Token, line, column int) (Event, RawEvent, error) {
+func (r *Reader) startResolvedEvent(tok *xmltext.RawTokenSpan, line, column int) (ResolvedEvent, error) {
+	declStart := len(r.ns.decls)
+	scope, nsBuf, decls, err := collectNamespaceScope(r.dec, r.nsBuf, r.ns.decls, tok)
+	if err != nil {
+		r.nsBuf = nsBuf
+		return ResolvedEvent{}, wrapSyntaxError(r.dec, line, column, err)
+	}
+	r.nsBuf = nsBuf
+	r.ns.decls = decls
+	scope.declStart = declStart
+	scope.declLen = len(r.ns.decls) - declStart
+	scopeDepth := r.ns.push(scope)
+	namespace, local, err := resolveElementParts(&r.ns, r.dec, tok.Name, tok.NameColon, scopeDepth, line, column)
+	if err != nil {
+		return ResolvedEvent{}, err
+	}
+
+	nameID := r.nameIDs.internBytes(namespace, local)
+	nsBytes := r.nsBytes.intern(namespace)
+
+	attrCount := tok.AttrCount()
+	if cap(r.resolvedAttr) < attrCount {
+		r.resolvedAttr = make([]ResolvedAttr, 0, attrCount)
+	} else {
+		r.resolvedAttr = r.resolvedAttr[:0]
+	}
+
+	r.attrEpoch++
+	if r.attrEpoch == 0 {
+		clear(r.attrSeen)
+		r.attrEpoch = 1
+	}
+
+	for i := range attrCount {
+		attrName := tok.AttrName(i)
+		if isDefaultNamespaceDecl(attrName) {
+			continue
+		}
+		if _, ok := prefixedNamespaceDecl(attrName); ok {
+			continue
+		}
+		attrNamespace, attrLocal, err := resolveAttrName(r.dec, &r.ns, attrName, tok.AttrNameColon(i), scopeDepth, line, column)
+		if err != nil {
+			return ResolvedEvent{}, err
+		}
+		value, err := r.attrValueBytes(tok.AttrValue(i), tok.AttrValueNeeds(i))
+		if err != nil {
+			return ResolvedEvent{}, wrapSyntaxError(r.dec, line, column, err)
+		}
+		attrID := r.nameIDs.internBytes(attrNamespace, attrLocal)
+		if attrID != 0 {
+			idx := int(attrID)
+			if idx >= len(r.attrSeen) {
+				r.attrSeen = append(r.attrSeen, make([]uint32, idx-len(r.attrSeen)+1)...)
+			}
+			if r.attrSeen[idx] == r.attrEpoch {
+				return ResolvedEvent{}, wrapSyntaxError(r.dec, line, column, errDuplicateAttribute)
+			}
+			r.attrSeen[idx] = r.attrEpoch
+		}
+		attrNSBytes := r.nsBytes.intern(attrNamespace)
+		r.resolvedAttr = append(r.resolvedAttr, ResolvedAttr{
+			NameID: attrID,
+			NS:     attrNSBytes,
+			Local:  attrLocal,
+			Value:  value,
+		})
+	}
+
+	id := r.nextID
+	r.nextID++
+	name := r.names.internBytes(namespace, local)
+	r.elemStack = append(r.elemStack, name)
+	r.lastWasStart = true
+	r.lastStart = Event{
+		Kind:       EventStartElement,
+		Name:       name,
+		Line:       line,
+		Column:     column,
+		ID:         id,
+		ScopeDepth: scopeDepth,
+	}
+	r.lastRawAttrs = nil
+	r.lastRawInfo = nil
+
+	return ResolvedEvent{
+		Kind:       EventStartElement,
+		NameID:     nameID,
+		NS:         nsBytes,
+		Local:      local,
+		Attrs:      r.resolvedAttr,
+		Line:       line,
+		Column:     column,
+		ID:         id,
+		ScopeDepth: scopeDepth,
+	}, nil
+}
+
+func (r *Reader) endEvent(mode nextMode, tok *xmltext.RawTokenSpan, line, column int) (Event, RawEvent, error) {
 	scopeDepth := r.ns.depth() - 1
 	name, err := r.popElementName()
 	if err != nil {
@@ -368,6 +567,29 @@ func (r *Reader) endEvent(mode nextMode, tok *xmltext.Token, line, column int) (
 	return Event{}, RawEvent{
 		Kind:       EventEndElement,
 		Name:       rawNameFromBytes(tok.Name),
+		Line:       line,
+		Column:     column,
+		ScopeDepth: scopeDepth,
+	}, nil
+}
+
+func (r *Reader) endResolvedEvent(tok *xmltext.RawTokenSpan, line, column int) (ResolvedEvent, error) {
+	scopeDepth := r.ns.depth() - 1
+	name, err := r.popElementName()
+	if err != nil {
+		return ResolvedEvent{}, err
+	}
+	r.pendingPop = true
+
+	_, local, _ := splitQNameWithColon(tok.Name, tok.NameColon)
+	namespace := name.Namespace
+	nameID := r.nameIDs.internBytes(namespace, local)
+	nsBytes := r.nsBytes.intern(namespace)
+	return ResolvedEvent{
+		Kind:       EventEndElement,
+		NameID:     nameID,
+		NS:         nsBytes,
+		Local:      local,
 		Line:       line,
 		Column:     column,
 		ScopeDepth: scopeDepth,
@@ -468,7 +690,11 @@ func (r *Reader) NamespaceDeclsAt(depth int) []NamespaceDecl {
 	if depth >= len(r.ns.scopes) {
 		depth = len(r.ns.scopes) - 1
 	}
-	return r.ns.scopes[depth].decls
+	scope := r.ns.scopes[depth]
+	if scope.declLen == 0 {
+		return nil
+	}
+	return r.ns.decls[scope.declStart : scope.declStart+scope.declLen]
 }
 
 func (r *Reader) popElementName() (QName, error) {
@@ -526,13 +752,13 @@ func (r *Reader) namespaceValueString(value []byte, needsUnescape bool) (string,
 	return out, nil
 }
 
-func (r *Reader) textBytes(tok *xmltext.Token) ([]byte, error) {
-	if !tok.TextNeeds {
-		return tok.Text, nil
+func (r *Reader) textBytes(text []byte, needsUnescape bool) ([]byte, error) {
+	if !needsUnescape {
+		return text, nil
 	}
 	var out []byte
 	var err error
-	r.valueBuf, out, err = decodeTextBytes(r.dec, r.valueBuf, tok.Text)
+	r.valueBuf, out, err = decodeTextBytes(r.dec, r.valueBuf, text)
 	if err != nil {
 		return nil, err
 	}

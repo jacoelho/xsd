@@ -6,33 +6,37 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/loader"
-	"github.com/jacoelho/xsd/internal/validator"
+	"github.com/jacoelho/xsd/internal/models"
+	"github.com/jacoelho/xsd/internal/runtimebuild"
 )
 
 // Schema wraps a compiled schema with convenience methods.
 type Schema struct {
-	compiled          *grammar.CompiledSchema
-	validatorInstance *validator.Validator
-	validatorOnce     sync.Once
+	engine *engine
+}
+
+// LoadOptions configures schema loading and compilation.
+type LoadOptions struct {
+	AllowMissingImportLocations bool
+	MaxDFAStates                uint32
+	MaxOccursLimit              uint32
 }
 
 // Load loads and compiles a schema from the given filesystem and location.
 func Load(fsys fs.FS, location string) (*Schema, error) {
-	l := loader.NewLoader(loader.Config{
-		FS: fsys,
-	})
+	return LoadWithOptions(fsys, location, LoadOptions{})
+}
 
-	compiled, err := l.LoadCompiled(location)
+// LoadWithOptions loads and compiles a schema with explicit configuration.
+func LoadWithOptions(fsys fs.FS, location string, opts LoadOptions) (*Schema, error) {
+	engine, err := compileFS(fsys, location, opts)
 	if err != nil {
 		return nil, fmt.Errorf("load schema %s: %w", location, err)
 	}
-
-	return &Schema{compiled: compiled}, nil
+	return &Schema{engine: engine}, nil
 }
 
 // LoadFile loads and compiles a schema from a file path.
@@ -40,63 +44,18 @@ func LoadFile(path string) (*Schema, error) {
 	dir := filepath.Dir(path)
 	base := filepath.Base(path)
 
-	return Load(os.DirFS(dir), base)
+	return LoadWithOptions(os.DirFS(dir), base, LoadOptions{})
 }
 
 // Validate validates a document against the schema.
 func (s *Schema) Validate(r io.Reader) error {
-	if s == nil || s.compiled == nil {
+	if s == nil || s.engine == nil {
 		return errors.ValidationList{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}
 	}
 	if r == nil {
 		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, "nil reader", "")}
 	}
-
-	v := s.getValidator()
-	violations, err := v.ValidateStream(r)
-	if err != nil {
-		if list, ok := errors.AsValidations(err); ok {
-			return errors.ValidationList(list)
-		}
-		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, err.Error(), "")}
-	}
-	if len(violations) == 0 {
-		return nil
-	}
-	return errors.ValidationList(violations)
-}
-
-// ValidateWithEntities validates a document against the schema using declared ENTITY/ENTITIES names.
-func (s *Schema) ValidateWithEntities(r io.Reader, entities map[string]struct{}) error {
-	if s == nil || s.compiled == nil {
-		return errors.ValidationList{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}
-	}
-	if r == nil {
-		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, "nil reader", "")}
-	}
-
-	v := s.getValidator()
-	violations, err := v.ValidateStreamWithEntities(r, entities)
-	if err != nil {
-		if list, ok := errors.AsValidations(err); ok {
-			return errors.ValidationList(list)
-		}
-		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, err.Error(), "")}
-	}
-	if len(violations) == 0 {
-		return nil
-	}
-	return errors.ValidationList(violations)
-}
-
-func (s *Schema) getValidator() *validator.Validator {
-	if s == nil {
-		return nil
-	}
-	s.validatorOnce.Do(func() {
-		s.validatorInstance = validator.New(s.compiled)
-	})
-	return s.validatorInstance
+	return s.engine.validate(r)
 }
 
 // ValidateFile validates an XML file against the schema.
@@ -114,17 +73,31 @@ func (s *Schema) ValidateFile(path string) error {
 	return s.Validate(f)
 }
 
-// ValidateFileWithEntities validates an XML file against the schema using declared ENTITY/ENTITIES names.
-func (s *Schema) ValidateFileWithEntities(path string, entities map[string]struct{}) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("open xml file %s: %w", path, err)
+func compileFS(fsys fs.FS, root string, opts LoadOptions) (*engine, error) {
+	if fsys == nil {
+		return nil, fmt.Errorf("compile schema: nil fs")
 	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("close xml file %s: %w", path, closeErr)
-		}
-	}()
 
-	return s.ValidateWithEntities(f, entities)
+	l := loader.NewLoader(loader.Config{
+		FS:                          fsys,
+		AllowMissingImportLocations: opts.AllowMissingImportLocations,
+	})
+	parsed, err := l.Load(root)
+	if err != nil {
+		return nil, fmt.Errorf("compile schema %s: %w", root, err)
+	}
+	rt, err := runtimebuild.BuildSchema(parsed, buildConfigFrom(opts))
+	if err != nil {
+		return nil, fmt.Errorf("compile schema %s: %w", root, err)
+	}
+	return newEngine(rt), nil
+}
+
+func buildConfigFrom(opts LoadOptions) runtimebuild.BuildConfig {
+	return runtimebuild.BuildConfig{
+		Limits: models.Limits{
+			MaxDFAStates: opts.MaxDFAStates,
+		},
+		MaxOccursLimit: opts.MaxOccursLimit,
+	}
 }

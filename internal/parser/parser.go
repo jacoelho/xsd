@@ -57,6 +57,21 @@ type IncludeInfo struct {
 	SchemaLocation string
 }
 
+// DirectiveKind represents an include/import directive in document order.
+type DirectiveKind uint8
+
+const (
+	DirectiveInclude DirectiveKind = iota
+	DirectiveImport
+)
+
+// Directive preserves the document order for include/import directives.
+type Directive struct {
+	Import  ImportInfo
+	Include IncludeInfo
+	Kind    DirectiveKind
+}
+
 // getNameAttr returns the name attribute value with whitespace trimmed.
 // XSD attribute values should be normalized per XML spec, so we always trim.
 func getNameAttr(doc *xsdxml.Document, elem xsdxml.NodeID) string {
@@ -65,9 +80,10 @@ func getNameAttr(doc *xsdxml.Document, elem xsdxml.NodeID) string {
 
 // ParseResult contains the parsed schema and import/include directives
 type ParseResult struct {
-	Schema   *Schema
-	Imports  []ImportInfo
-	Includes []IncludeInfo
+	Schema     *Schema
+	Directives []Directive
+	Imports    []ImportInfo
+	Includes   []IncludeInfo
 }
 
 // Parse parses an XSD schema from a reader
@@ -209,11 +225,13 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	}
 
 	result := &ParseResult{
-		Schema:   schema,
-		Imports:  []ImportInfo{},
-		Includes: []IncludeInfo{},
+		Schema:     schema,
+		Directives: []Directive{},
+		Imports:    []ImportInfo{},
+		Includes:   []IncludeInfo{},
 	}
 
+	importedNamespaces := make(map[types.NamespaceURI]bool)
 	for _, child := range doc.Children(root) {
 		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
@@ -231,6 +249,11 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 				SchemaLocation: doc.GetAttribute(child, "schemaLocation"),
 			}
 			result.Imports = append(result.Imports, importInfo)
+			result.Directives = append(result.Directives, Directive{
+				Kind:   DirectiveImport,
+				Import: importInfo,
+			})
+			importedNamespaces[types.NamespaceURI(importInfo.Namespace)] = true
 		case "include":
 			if err := validateElementConstraints(doc, child, "include", schema); err != nil {
 				return nil, err
@@ -242,6 +265,39 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 				return nil, fmt.Errorf("include directive missing schemaLocation")
 			}
 			result.Includes = append(result.Includes, includeInfo)
+			result.Directives = append(result.Directives, Directive{
+				Kind:    DirectiveInclude,
+				Include: includeInfo,
+			})
+		case "element":
+			// handled in second pass
+		case "complexType", "simpleType", "group", "attribute", "attributeGroup", "notation", "key", "keyref", "unique":
+			// handled in second pass
+		case "redefine":
+			return nil, fmt.Errorf("redefine is not supported")
+		default:
+			return nil, fmt.Errorf("unexpected top-level element '%s'", doc.LocalName(child))
+		}
+	}
+
+	if schema.ImportedNamespaces == nil {
+		schema.ImportedNamespaces = make(map[types.NamespaceURI]map[types.NamespaceURI]bool)
+	}
+	if schema.ImportedNamespaces[schema.TargetNamespace] == nil {
+		schema.ImportedNamespaces[schema.TargetNamespace] = make(map[types.NamespaceURI]bool)
+	}
+	for ns := range importedNamespaces {
+		schema.ImportedNamespaces[schema.TargetNamespace][ns] = true
+	}
+
+	for _, child := range doc.Children(root) {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+			continue
+		}
+
+		switch doc.LocalName(child) {
+		case "annotation", "import", "include":
+			// already handled in first pass.
 		case "element":
 			if err := parseTopLevelElement(doc, child, schema); err != nil {
 				return nil, fmt.Errorf("parse element: %w", err)
@@ -356,6 +412,7 @@ func parseTopLevelNotation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 
 	// store in schema's global notation declarations
 	schema.NotationDecls[notationQName] = notation
+	schema.addGlobalDecl(GlobalDeclNotation, notationQName)
 
 	return nil
 }

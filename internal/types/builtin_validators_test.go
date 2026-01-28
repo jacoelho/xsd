@@ -43,10 +43,10 @@ func TestValidateNumericRanges(t *testing.T) {
 
 func TestValidateUnsignedLexicalSigns(t *testing.T) {
 	tests := []struct {
+		fn    func(string) error
 		name  string
 		value string
 		valid bool
-		fn    func(string) error
 	}{
 		{name: "unsignedLong +0", value: "+0", valid: true, fn: validateUnsignedLong},
 		{name: "unsignedLong +1", value: "+1", valid: true, fn: validateUnsignedLong},

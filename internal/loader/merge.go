@@ -25,6 +25,11 @@ const (
 	keepNamespace
 )
 
+type globalDeclKey struct {
+	name types.QName
+	kind parser.GlobalDeclKind
+}
+
 type mergeContext struct {
 	target              *parser.Schema
 	source              *parser.Schema
@@ -72,6 +77,7 @@ func newMergeContext(target, source *parser.Schema, kind mergeKind, remap namesp
 // For includes, uses chameleon namespace remapping if needed.
 func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind, remap namespaceRemapMode) error {
 	ctx := newMergeContext(target, source, kind, remap)
+	existingDecls := existingGlobalDecls(target)
 	ctx.mergeImportedNamespaces()
 	ctx.mergeImportContexts()
 	if err := ctx.mergeElementDecls(); err != nil {
@@ -93,7 +99,65 @@ func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind
 	if err := ctx.mergeNotationDecls(); err != nil {
 		return err
 	}
-	return ctx.mergeIDAttributes()
+	if err := ctx.mergeIDAttributes(); err != nil {
+		return err
+	}
+	ctx.mergeGlobalDecls(existingDecls)
+	return nil
+}
+
+func existingGlobalDecls(schema *parser.Schema) map[globalDeclKey]struct{} {
+	decls := make(map[globalDeclKey]struct{}, len(schema.GlobalDecls))
+	for _, decl := range schema.GlobalDecls {
+		decls[globalDeclKey{kind: decl.Kind, name: decl.Name}] = struct{}{}
+	}
+	return decls
+}
+
+func (c *mergeContext) mergeGlobalDecls(existing map[globalDeclKey]struct{}) {
+	if c.source.GlobalDecls == nil {
+		return
+	}
+	for _, decl := range c.source.GlobalDecls {
+		mappedName := c.remapQName(decl.Name)
+		key := globalDeclKey{kind: decl.Kind, name: mappedName}
+		if _, seen := existing[key]; seen {
+			continue
+		}
+		if !c.globalDeclExists(decl.Kind, mappedName) {
+			continue
+		}
+		c.target.GlobalDecls = append(c.target.GlobalDecls, parser.GlobalDecl{
+			Kind: decl.Kind,
+			Name: mappedName,
+		})
+		existing[key] = struct{}{}
+	}
+}
+
+func (c *mergeContext) globalDeclExists(kind parser.GlobalDeclKind, name types.QName) bool {
+	switch kind {
+	case parser.GlobalDeclElement:
+		_, ok := c.target.ElementDecls[name]
+		return ok
+	case parser.GlobalDeclType:
+		_, ok := c.target.TypeDefs[name]
+		return ok
+	case parser.GlobalDeclAttribute:
+		_, ok := c.target.AttributeDecls[name]
+		return ok
+	case parser.GlobalDeclAttributeGroup:
+		_, ok := c.target.AttributeGroups[name]
+		return ok
+	case parser.GlobalDeclGroup:
+		_, ok := c.target.Groups[name]
+		return ok
+	case parser.GlobalDeclNotation:
+		_, ok := c.target.NotationDecls[name]
+		return ok
+	default:
+		return false
+	}
 }
 
 func mergeNamed[V any](

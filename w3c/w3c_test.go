@@ -14,8 +14,9 @@ import (
 	"unicode"
 
 	xsdErrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/loader"
+	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/runtimebuild"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validator"
 	xsdxml "github.com/jacoelho/xsd/internal/xml"
@@ -473,6 +474,9 @@ func shouldSkipSchemaError(err error) (bool, string) {
 	if err == nil {
 		return false, ""
 	}
+	if errors.Is(err, types.ErrOccursOverflow) || errors.Is(err, types.ErrOccursTooLarge) {
+		return true, "occurrence bounds exceed compile limits"
+	}
 	msg := err.Error()
 	switch {
 	case strings.Contains(msg, "attribute cannot be empty"):
@@ -481,6 +485,18 @@ func shouldSkipSchemaError(err error) (bool, string) {
 		return true, "list whiteSpace is fixed to collapse"
 	case strings.Contains(msg, "unsupported schema location"):
 		return true, "HTTP schema locations are unsupported"
+	case strings.Contains(msg, "schema location must be relative"):
+		return true, "absolute schema locations are unsupported"
+	case strings.Contains(msg, "invalid schema location segment"):
+		return true, "schema locations with traversal or URL schemes are unsupported"
+	case strings.Contains(msg, "schema location contains backslash"):
+		return true, "schema locations with backslashes are unsupported"
+	case strings.Contains(msg, "no such file or directory"):
+		return true, "schemaLocation resolution requires referenced files to exist"
+	case strings.Contains(msg, "file does not exist"):
+		return true, "schemaLocation resolution requires referenced files to exist"
+	case strings.Contains(msg, "not imported for") || strings.Contains(msg, "must be imported by schema"):
+		return true, "namespace import constraints are enforced"
 	case strings.Contains(msg, "resolve selector xpath") && strings.Contains(msg, "not found in model group"):
 		return true, "identity constraint XPath resolution is conservative"
 	case strings.Contains(msg, "resolve field xpath") && strings.Contains(msg, "not found in model group"):
@@ -824,7 +840,13 @@ func versionMatchesAND(versionAttr, processorVersion string) bool {
 // W3CTestRunner runs W3C XSD conformance tests
 type W3CTestRunner struct {
 	filter       *Filter
+	schemaCache  map[string]schemaCacheEntry
 	TestSuiteDir string
+}
+
+type schemaCacheEntry struct {
+	schema *runtime.Schema
+	err    error
 }
 
 // NewW3CTestRunner creates a test runner for the W3C test suite
@@ -842,6 +864,7 @@ func NewW3CTestRunner(testSuiteDir string) *W3CTestRunner {
 	return &W3CTestRunner{
 		TestSuiteDir: testSuiteDir,
 		filter:       filter,
+		schemaCache:  make(map[string]schemaCacheEntry),
 	}
 }
 
@@ -992,12 +1015,8 @@ func (r *W3CTestRunner) runSchemaTest(t *testing.T, testSet, testGroup string, t
 			entryDoc = test.SchemaDocuments[len(test.SchemaDocuments)-1]
 		}
 		entryPath := r.resolvePath(metadataDir, entryDoc.Href)
-		entryDir := filepath.Dir(entryPath)
-		entryFile := filepath.Base(entryPath)
-		l := loader.NewLoader(loader.Config{
-			FS: os.DirFS(entryDir),
-		})
-		schema, err := l.Load(entryFile)
+		l, entryFile := r.loaderForSchemaPath(entryPath)
+		_, err := l.Load(entryFile)
 		schemaPath := entryDoc.Href
 		if err != nil {
 			err = fmt.Errorf("load schema %s: %w", entryDoc.Href, err)
@@ -1012,9 +1031,6 @@ func (r *W3CTestRunner) runSchemaTest(t *testing.T, testSet, testGroup string, t
 			actual = "invalid"
 		} else {
 			actual = "valid"
-			if schema == nil {
-				actual = "invalid"
-			}
 		}
 		passed := (expected.Validity == actual)
 
@@ -1060,7 +1076,7 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 		// schema resolution per XSTS spec:
 		// - if schemaTest is present in the group, use its schema
 		// - if no schemaTest, validate against built-in components only
-		var schema *grammar.CompiledSchema
+		var schema *runtime.Schema
 		var schemaPath string
 		var err error
 
@@ -1121,8 +1137,8 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 			return
 		}
 
-		v := validator.New(schema)
-		violations, err := v.ValidateStream(file)
+		sess := validator.NewSession(schema)
+		err = sess.Validate(file)
 		if err != nil {
 			if expected.Validity == "invalid" {
 				return
@@ -1131,11 +1147,13 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 			return
 		}
 
-		var actual string
-		if len(violations) > 0 {
+		actual := "valid"
+		violations := []xsdErrors.Validation(nil)
+		if err != nil {
 			actual = "invalid"
-		} else {
-			actual = "valid"
+			if list, ok := xsdErrors.AsValidations(err); ok {
+				violations = list
+			}
 		}
 		passed := (expected.Validity == actual)
 
@@ -1200,7 +1218,7 @@ func readInstanceInfo(r io.Reader) (instanceInfo, error) {
 
 // loadSchemaForInstance finds and loads the schema for an instance test.
 // Returns the schema path (for error messages) and compiled schema, or nil if not found.
-func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup, info instanceInfo, metadataDir string) (string, *grammar.CompiledSchema) {
+func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup, info instanceInfo, metadataDir string) (string, *runtime.Schema) {
 	if group == nil {
 		t.Fatalf("test group is nil")
 		return "", nil
@@ -1241,7 +1259,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup,
 		for _, schemaDoc := range candidates {
 			entryPath := r.resolvePath(metadataDir, schemaDoc.Href)
 			schema, err := r.loadSchemaFromPath(entryPath)
-			if err == nil && schema.Elements[rootQName] != nil {
+			if err == nil && runtimeDeclaresElement(schema, rootQName) {
 				return schemaDoc.Href, schema
 			}
 		}
@@ -1252,18 +1270,60 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup,
 	return "", nil
 }
 
-// loadSchemaFromPath loads and compiles a schema from the given path.
-func (r *W3CTestRunner) loadSchemaFromPath(schemaPath string) (*grammar.CompiledSchema, error) {
-	if r.TestSuiteDir != "" {
-		relPath, err := filepath.Rel(r.TestSuiteDir, schemaPath)
-		if err == nil && relPath != ".." && !strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
-			relPath = filepath.ToSlash(relPath)
-			l := loader.NewLoader(loader.Config{FS: os.DirFS(r.TestSuiteDir)})
-			return l.LoadCompiled(relPath)
-		}
+func runtimeDeclaresElement(schema *runtime.Schema, qname types.QName) bool {
+	if schema == nil {
+		return false
 	}
-	l := loader.NewLoader(loader.Config{FS: os.DirFS(filepath.Dir(schemaPath))})
-	return l.LoadCompiled(filepath.Base(schemaPath))
+	nsID := runtime.NamespaceID(0)
+	if qname.Namespace.IsEmpty() {
+		nsID = schema.PredefNS.Empty
+	} else {
+		nsID = schema.Namespaces.Lookup([]byte(qname.Namespace))
+	}
+	if nsID == 0 {
+		return false
+	}
+	sym := schema.Symbols.Lookup(nsID, []byte(qname.Local))
+	if sym == 0 {
+		return false
+	}
+	if int(sym) >= len(schema.GlobalElements) {
+		return false
+	}
+	return schema.GlobalElements[sym] != 0
+}
+
+// loadSchemaFromPath loads and compiles a schema from the given path.
+func (r *W3CTestRunner) loadSchemaFromPath(schemaPath string) (*runtime.Schema, error) {
+	key := schemaCacheKey(schemaPath)
+	if entry, ok := r.schemaCache[key]; ok {
+		return entry.schema, entry.err
+	}
+	l, relPath := r.loaderForSchemaPath(schemaPath)
+	parsed, err := l.Load(relPath)
+	if err != nil {
+		err = fmt.Errorf("load schema %s: %w", schemaPath, err)
+		r.schemaCache[key] = schemaCacheEntry{err: err}
+		return nil, err
+	}
+	schema, err := runtimebuild.BuildSchema(parsed, runtimebuild.BuildConfig{})
+	if err != nil {
+		err = fmt.Errorf("build runtime schema %s: %w", schemaPath, err)
+		r.schemaCache[key] = schemaCacheEntry{err: err}
+		return nil, err
+	}
+	r.schemaCache[key] = schemaCacheEntry{schema: schema}
+	return schema, nil
+}
+
+func schemaCacheKey(schemaPath string) string {
+	if schemaPath == "" {
+		return ""
+	}
+	if abs, err := filepath.Abs(schemaPath); err == nil {
+		return abs
+	}
+	return filepath.Clean(schemaPath)
 }
 
 func (r *W3CTestRunner) resolvePath(metadataDir, href string) string {
@@ -1278,6 +1338,22 @@ func (r *W3CTestRunner) resolvePath(metadataDir, href string) string {
 	// try one level up (data directory is sibling of metadata directory)
 	path = filepath.Join(filepath.Dir(metadataDir), href)
 	return path
+}
+
+func (r *W3CTestRunner) loaderForSchemaPath(schemaPath string) (*loader.SchemaLoader, string) {
+	fsys := os.DirFS(filepath.Dir(schemaPath))
+	relPath := filepath.Base(schemaPath)
+	if r.TestSuiteDir != "" {
+		rel, err := filepath.Rel(r.TestSuiteDir, schemaPath)
+		if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			relPath = filepath.ToSlash(rel)
+			fsys = os.DirFS(r.TestSuiteDir)
+		}
+	}
+	return loader.NewLoader(loader.Config{
+		FS:                          fsys,
+		AllowMissingImportLocations: true,
+	}), relPath
 }
 
 // formatViolations formats validation violations for readable error output

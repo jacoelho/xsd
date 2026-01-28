@@ -64,6 +64,9 @@ func (k EventKind) String() string {
 // ElementID is a monotonic identifier assigned per document.
 type ElementID uint64
 
+// NameID is a monotonic identifier assigned per document for expanded names.
+type NameID uint32
+
 // Event represents a single streaming XML token.
 // Text and Attr.Value are valid until the next Next call.
 type Event struct {
@@ -81,6 +84,29 @@ type Event struct {
 type Attr struct {
 	Name  QName
 	Value []byte
+}
+
+// ResolvedEvent represents a streaming XML token with namespace-resolved bytes.
+// NS/Local/Attr slices are valid until the next NextResolved or Next call.
+type ResolvedEvent struct {
+	NS         []byte
+	Local      []byte
+	Attrs      []ResolvedAttr
+	Text       []byte
+	Kind       EventKind
+	Line       int
+	Column     int
+	ID         ElementID
+	ScopeDepth int
+	NameID     NameID
+}
+
+// ResolvedAttr holds a namespace-resolved attribute.
+type ResolvedAttr struct {
+	NS     []byte
+	Local  []byte
+	Value  []byte
+	NameID NameID
 }
 
 // RawName holds a raw QName split into prefix and local parts.

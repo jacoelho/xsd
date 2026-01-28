@@ -162,6 +162,7 @@ func parseTopLevelAttributeGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 		return fmt.Errorf("attributeGroup %s already defined", qname)
 	}
 	schema.AttributeGroups[qname] = attrGroup
+	schema.addGlobalDecl(GlobalDeclAttributeGroup, qname)
 	return nil
 }
 

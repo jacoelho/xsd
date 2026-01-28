@@ -36,9 +36,9 @@ const (
 // AnyElement represents an <any> wildcard
 type AnyElement struct {
 	TargetNamespace NamespaceURI
-	NamespaceList   []NamespaceURI
 	MinOccurs       Occurs
 	MaxOccurs       Occurs
+	NamespaceList   []NamespaceURI
 	Namespace       NamespaceConstraint
 	ProcessContents ProcessContents
 }

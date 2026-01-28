@@ -21,22 +21,23 @@ validation deterministic and goroutine-safe.
 
 ## Processing Pipeline
 
-Schema loading and validation follows five distinct phases:
+Schema loading and validation follows six distinct phases:
 
 ```mermaid
 flowchart TD
   subgraph SchemaLoading["Schema Loading"]
     direction LR
-    P1["Phase 1: Parse<br/>- Parse XSD XML<br/>- Create components<br/>- Record QName refs<br/>- No type lookups"]
-    P2["Phase 2: Resolve<br/>- Resolve QName refs<br/>- Detect cycles ONCE<br/>- Populate Resolved* fields"]
-    P3["Phase 3: Validate<br/>- Validate structure<br/>- Check UPA, facets<br/>- Enforce consistency<br/>- No compilation yet"]
-    P4["Phase 4: Compile<br/>- Build DFAs<br/>- Pre-compute derivations<br/>- Expand groups<br/>- Merge attributes"]
-    P1 --> P2 --> P3 --> P4
+    P1["Phase 1: Load + Parse<br/>- Parse XSD XML<br/>- Resolve imports/includes<br/>- Build parser.Schema<br/>- Record origins"]
+    P2["Phase 2: Assign IDs<br/>- Deterministic registry<br/>- Stable component IDs"]
+    P3["Phase 3: Resolve References<br/>- Map refs to IDs<br/>- Validate QName targets"]
+    P4["Phase 4: Validate Constraints<br/>- Detect cycles<br/>- Check UPA + schema rules"]
+    P5["Phase 5: Build Runtime<br/>- Compile validators<br/>- Compile content models<br/>- Build runtime.Schema arrays"]
+    P1 --> P2 --> P3 --> P4 --> P5
   end
   subgraph Validation
-    P5["Phase 5: Validate<br/>- Stream XML tokens (no DOM)<br/>- Traverse pre-resolved structures<br/>- NO cycle detection needed<br/>- NO visited maps<br/>- NO QName lookups<br/>- O(n) content model validation via DFA"]
+    P6["Phase 6: Validate<br/>- Stream XML tokens (no DOM)<br/>- Traverse runtime IDs + models<br/>- No QName lookups or cycle detection<br/>- O(n) content model validation via DFA"]
   end
-  P4 --> P5
+  P5 --> P6
 ```
 
 
@@ -45,20 +46,22 @@ flowchart TD
 ```mermaid
 flowchart TD
   subgraph PublicAPI["Public API"]
-    Load["xsd.Load()"] --> LoadCompiled["loader.LoadCompiled()"] --> Parse["parser.Parse()"] --> Resolve["resolver.Resolve()"] --> SchemaCheck["schemacheck.ValidateStructure()"] --> Compile["compiler.Compile()"] --> Compiled["grammar.CompiledSchema"]
+    Load["xsd.Load / xsd.LoadWithOptions"] --> Loader["internal/loader.Load<br/>(parse + import/include)"] --> Build["internal/runtimebuild.BuildSchema<br/>(IDs, refs, validators, models)"] --> Runtime["internal/runtime.Schema"]
   end
   subgraph Validation
-    Validate["xsd.Validate()"] --> ValidatorPkg["validator/<br/>stream.go<br/>attribute.go<br/>content.go<br/>simple_type.go"]
-    Validate --> GrammarPkg["grammar/<br/>CompiledType<br/>CompiledElement<br/>Automaton"]
-    Validate --> XMLPkg["xmlstream/<br/>Reader<br/>Event<br/>Attr"]
+    Validate["Schema.Validate"] --> ValidatorPkg["internal/validator<br/>(session, streaming checks)"]
+    ValidatorPkg --> Runtime
+    ValidatorPkg --> XMLPkg["pkg/xmlstream.Reader"]
+    XMLPkg --> XMLText["pkg/xmltext.Decoder"]
   end
 ```
 
 
-## Phase 1: Parse
+## Phase 1: Load + Parse
 
-The parser reads XSD files and creates schema components with QName references.
-No lookups or resolution occurs in this phase.
+Schema loading uses internal/loader and internal/parser to parse XSD documents,
+resolve includes/imports, and build a single parser.Schema. QName references and
+origin locations are recorded, but no runtime IDs or compiled models exist yet.
 
 ```go
 // parser creates components with unresolved QName references
@@ -74,80 +77,92 @@ type Restriction struct {
 }
 ```
 
-Import and include resolution happens during parsing to load all schema documents.
-Missing include/import files are ignored when the filesystem returns fs.ErrNotExist,
-and imports without schemaLocation are skipped.
+Import and include resolution happens during loading to assemble all schema
+documents. Includes must resolve successfully. Imports without a schemaLocation
+are rejected unless `LoadOptions.AllowMissingImportLocations` is enabled.
+Missing import files are only skipped when that option is enabled; otherwise
+they are errors.
 
 ```mermaid
 flowchart TD
-  Main["Main Schema"] --> Imports["Imports<br/>(different namespace, skipped if missing)"]
-  Main --> Includes["Includes<br/>(same namespace, skipped if missing)"]
+  Main["Main Schema"] --> Imports["Imports<br/>(different namespace, optional if allowed)"]
+  Main --> Includes["Includes<br/>(same namespace, must resolve)"]
 ```
 
 
-## Phase 2: Resolve
+## Phase 2: Assign IDs
 
-The resolver processes all QName references exactly once, detects cycles,
-and populates resolved pointer fields.
+internal/schema.AssignIDs walks the parsed schema in deterministic order and
+assigns stable IDs to all globally visible declarations plus local/anonymous
+components. These IDs back the runtime registry.
 
 ```go
-// After resolution, types have direct pointers
-type SimpleType struct {
-    QName        QName
-    Restriction  *Restriction
-    ResolvedBase types.Type  // Direct pointer to base type
+type Registry struct {
+    Types        map[types.QName]TypeID
+    Elements     map[types.QName]ElemID
+    Attributes   map[types.QName]AttrID
+    TypeOrder    []TypeEntry
+    ElementOrder []ElementEntry
+    AttributeOrder []AttributeEntry
 }
 ```
 
-Resolution order matters due to dependencies:
+## Phase 3: Resolve References
 
-```mermaid
-flowchart TD
-  Simple["1. Simple types<br/>(depend only on built-ins or other simple types)"] --> Complex["2. Complex types<br/>(may depend on simple types)"] --> Groups["3. Groups<br/>(reference types and other groups)"] --> Elements["4. Elements<br/>(reference types and groups)"] --> AttrGroups["5. Attribute groups"]
+internal/schema.ResolveReferences validates QName references against the
+registry and builds ID-based lookup maps without mutating parser.Schema.
+
+```go
+type ResolvedReferences struct {
+    ElementRefs   map[*types.ElementDecl]schema.ElemID
+    AttributeRefs map[*types.AttributeDecl]schema.AttrID
+    GroupRefs     map[*types.GroupRef]*types.ModelGroup
+}
 ```
 
-Cycle detection happens once during resolution. After phase 2 completes,
-no visited maps are needed anywhere in the codebase.
-
-Cycle detection uses QName-based tracking for named components and
-pointer-based tracking for anonymous types and attribute group instances
-to avoid false positives in redefine contexts.
+Resolution traverses global declarations in schema.GlobalDecls order and
+recurses into referenced types, groups, and attribute groups as needed.
+After this phase, runtime validation no longer needs QName lookups.
 
 
-## Phase 3: Validate Schema
+## Phase 4: Validate Schema
 
-Schema validation checks structural rules before compilation. This phase enforces
-UPA constraints, derivation rules, and facet applicability with all references resolved.
+Schema validation checks structural rules before runtime build. internal/schema
+detects cycles in type derivations, groups, attribute groups, and substitution
+groups, and enforces UPA constraints. Additional structural checks run during
+loading via internal/schemacheck.
 
 
-## Phase 4: Compile
+## Phase 5: Build Runtime Schema
 
-The compiler transforms the resolved schema into an optimized grammar structure.
+internal/runtimebuild compiles the resolved schema into an optimized runtime
+representation. The runtime schema is dense, ID-based, and immutable so it can
+be shared across goroutines.
 
-CompiledSchema contains:
+runtime.Schema contains:
 
-- Direct lookup tables for elements, types, attributes
-- Pre-computed derivation chains
+- Stable ID-based tables for elements, types, attributes
+- Pre-computed derivation chains and ancestor masks
 - Pre-merged attributes from type hierarchies
-- Pre-built DFAs for content model validation
-- Transitive closure of substitution groups
+- Compiled DFA/NFA/all models for content validation
+- Pre-compiled simple-type validators and default/fixed values
 
 ```go
-type CompiledType struct {
-    QName           QName
-    Kind            TypeKind           // Simple, Complex, Builtin
-    BaseType        *CompiledType      // Direct pointer
-    DerivationChain []*CompiledType    // [self, base, grandbase, ...]
-    AllAttributes   []*CompiledAttribute  // Merged from all ancestors
-    ContentModel    *CompiledContentModel // Pre-compiled DFA
-    Facets          []types.Facet      // All applicable facets
+type Schema struct {
+    Types        []runtime.Type
+    ComplexTypes []runtime.ComplexType
+    Elements     []runtime.Element
+    Attributes   []runtime.Attribute
+    Models       runtime.ModelsBundle
+    Validators   runtime.ValidatorsBundle
 }
 ```
 
 
-## Phase 5: Validate
+## Phase 6: Validate
 
-Validation streams tokens and validates incrementally with no DOM build.
+Validation streams tokens through internal/validator sessions using the immutable
+runtime.Schema; no DOM build is required.
 
 ```mermaid
 flowchart TD

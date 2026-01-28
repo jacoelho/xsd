@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<level1 xmlns="urn:bench">
+  <level2>
+    <level3>
+      <level4>
+        <level5>
+          <level6>
+            <level7>
+              <level8>value</level8>
+            </level7>
+          </level6>
+        </level5>
+      </level4>
+    </level3>
+  </level2>
+</level1>

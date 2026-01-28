@@ -129,8 +129,8 @@ func TestParseTimeLeapSecond(t *testing.T) {
 
 func TestParseUnsignedAcceptsSignedZero(t *testing.T) {
 	tests := []struct {
-		name string
 		fn   func(string) (uint64, error)
+		name string
 	}{
 		{
 			name: "unsignedLong",

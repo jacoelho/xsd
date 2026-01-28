@@ -4,16 +4,16 @@ import "testing"
 
 func TestEventKindString(t *testing.T) {
 	tests := []struct {
-		kind EventKind
 		want string
+		kind EventKind
 	}{
-		{EventStartElement, "StartElement"},
-		{EventEndElement, "EndElement"},
-		{EventCharData, "CharData"},
-		{EventComment, "Comment"},
-		{EventPI, "PI"},
-		{EventDirective, "Directive"},
-		{EventKind(99), "EventKind(99)"},
+		{kind: EventStartElement, want: "StartElement"},
+		{kind: EventEndElement, want: "EndElement"},
+		{kind: EventCharData, want: "CharData"},
+		{kind: EventComment, want: "Comment"},
+		{kind: EventPI, want: "PI"},
+		{kind: EventDirective, want: "Directive"},
+		{kind: EventKind(99), want: "EventKind(99)"},
 	}
 	for _, tt := range tests {
 		if got := tt.kind.String(); got != tt.want {
