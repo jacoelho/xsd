@@ -436,12 +436,6 @@ func (d *Decoder) scanTokenInto(dst *rawToken, allowCompact bool) (bool, error) 
 		d.compactIfNeeded()
 	}
 	d.scratch.data = d.scratch.data[:0]
-	d.attrBuf = d.attrBuf[:0]
-	d.attrNeeds = d.attrNeeds[:0]
-	d.attrRaw = d.attrRaw[:0]
-	d.attrRawNeeds = d.attrRawNeeds[:0]
-	d.attrValueBuf.data = d.attrValueBuf.data[:0]
-	d.resetAttrSeen()
 
 	if err := d.ensureIndex(d.pos, allowCompact); err != nil {
 		return false, err
@@ -694,20 +688,45 @@ func unescapeCharDataInto(dst, data []byte, resolver *entityResolver, maxTokenSi
 
 func scanCharDataSpanParse(data []byte, resolver *entityResolver) (bool, error) {
 	rawNeeds := false
+	bracketRun := 0
 	for i := 0; i < len(data); {
-		ampIdx, err := scanCharDataSpanUntilEntity(data, i)
-		if err != nil {
-			return rawNeeds, err
+		switch charDataByteClassLUT[data[i]] {
+		case charDataByteOK:
+			bracketRun = 0
+			i++
+		case charDataByteAmp:
+			rawNeeds = true
+			consumed, _, _, _, err := parseEntityRef(data, i, resolver)
+			if err != nil {
+				return rawNeeds, err
+			}
+			i += consumed
+			bracketRun = 0
+		case charDataByteRightBracket:
+			bracketRun++
+			i++
+		case charDataByteGreater:
+			if bracketRun >= 2 {
+				return rawNeeds, errInvalidToken
+			}
+			bracketRun = 0
+			i++
+		case charDataByteInvalid:
+			return rawNeeds, errInvalidChar
+		case charDataByteNonASCII:
+			bracketRun = 0
+			r, size := utf8.DecodeRune(data[i:])
+			if r == utf8.RuneError && size == 1 {
+				return rawNeeds, errInvalidChar
+			}
+			if !isValidXMLChar(r) {
+				return rawNeeds, errInvalidChar
+			}
+			i += size
+		default:
+			bracketRun = 0
+			i++
 		}
-		if ampIdx < 0 {
-			return rawNeeds, nil
-		}
-		rawNeeds = true
-		consumed, _, _, _, err := parseEntityRef(data, ampIdx, resolver)
-		if err != nil {
-			return rawNeeds, err
-		}
-		i = ampIdx + consumed
 	}
 	return rawNeeds, nil
 }
@@ -742,6 +761,13 @@ func (d *Decoder) scanStartTagInto(dst *rawToken, allowCompact bool) (bool, erro
 	startLine, startColumn := d.line, d.column
 	rawStart := d.pos
 	d.advanceRaw(1)
+
+	d.attrBuf = d.attrBuf[:0]
+	d.attrNeeds = d.attrNeeds[:0]
+	d.attrRaw = d.attrRaw[:0]
+	d.attrRawNeeds = d.attrRawNeeds[:0]
+	d.attrValueBuf.data = d.attrValueBuf.data[:0]
+	d.resetAttrSeen()
 
 	name, err := d.scanQName(allowCompact)
 	if err != nil {
@@ -1353,6 +1379,7 @@ func (d *Decoder) scanUntil(seq []byte, allowCompact bool) (int, error) {
 func (d *Decoder) scanQName(allowCompact bool) (qnameSpan, error) {
 	start := d.pos
 	first := true
+	colonIndex := -1
 	for {
 		if err := d.ensureIndex(d.pos, allowCompact); err != nil {
 			if errors.Is(err, io.EOF) {
@@ -1367,14 +1394,26 @@ func (d *Decoder) scanQName(allowCompact bool) (qnameSpan, error) {
 				if !nameStartByteLUT[b] {
 					return qnameSpan{}, errInvalidName
 				}
-			} else if !isNameByte(b) {
+			} else if !nameByteLUT[b] {
 				break
 			}
-			i := d.pos
+			if b == ':' {
+				if colonIndex >= 0 {
+					return qnameSpan{}, errInvalidName
+				}
+				colonIndex = d.pos
+			}
+			i := d.pos + 1
 			for i < len(buf) {
 				b = buf[i]
 				if b >= utf8.RuneSelf || !nameByteLUT[b] {
 					break
+				}
+				if b == ':' {
+					if colonIndex >= 0 {
+						return qnameSpan{}, errInvalidName
+					}
+					colonIndex = i
 				}
 				i++
 			}
@@ -1405,16 +1444,10 @@ func (d *Decoder) scanQName(allowCompact bool) (qnameSpan, error) {
 		first = false
 	}
 	end := d.pos
-	colonIndex := -1
-	data := d.buf.data[start:end]
-	if offset := bytes.IndexByte(data, ':'); offset >= 0 {
-		if offset == 0 || offset == len(data)-1 {
+	if colonIndex >= 0 {
+		if colonIndex == start || colonIndex == end-1 {
 			return qnameSpan{}, errInvalidName
 		}
-		if bytes.IndexByte(data[offset+1:], ':') >= 0 {
-			return qnameSpan{}, errInvalidName
-		}
-		colonIndex = start + offset
 	}
 	return makeQNameSpan(&d.buf, start, end, colonIndex), nil
 }

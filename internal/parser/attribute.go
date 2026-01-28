@@ -297,6 +297,7 @@ func parseTopLevelAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sc
 		return fmt.Errorf("attribute %s already defined", attrQName)
 	}
 	schema.AttributeDecls[attrQName] = attr
+	schema.addGlobalDecl(GlobalDeclAttribute, attrQName)
 
 	return nil
 }

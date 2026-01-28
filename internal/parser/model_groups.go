@@ -252,6 +252,7 @@ func parseTopLevelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 
 	mg.SourceNamespace = schema.TargetNamespace
 	schema.Groups[qname] = mg
+	schema.addGlobalDecl(GlobalDeclGroup, qname)
 	return nil
 }
 

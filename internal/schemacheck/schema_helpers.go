@@ -7,9 +7,9 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-// effectiveContentParticle returns the effective element particle for a complex type.
-// For derived types, this resolves restriction/extension content.
-func effectiveContentParticle(schema *parser.Schema, typ types.Type) types.Particle {
+// EffectiveContentParticle returns the effective element particle for a complex type.
+// For derived types, it resolves restriction or extension content.
+func EffectiveContentParticle(schema *parser.Schema, typ types.Type) types.Particle {
 	ct, ok := typ.(*types.ComplexType)
 	if !ok || ct == nil {
 		return nil
@@ -69,8 +69,14 @@ func resolveBaseComplexType(schema *parser.Schema, ct *types.ComplexType, baseQN
 		if baseCT, ok := ct.ResolvedBase.(*types.ComplexType); ok {
 			return baseCT
 		}
+		if isAnyTypeQName(ct.ResolvedBase.Name()) {
+			return types.NewAnyTypeComplexType()
+		}
 	}
 	if schema != nil && !baseQName.IsZero() {
+		if isAnyTypeQName(baseQName) {
+			return types.NewAnyTypeComplexType()
+		}
 		if baseCT, ok := lookupComplexType(schema, baseQName); ok {
 			return baseCT
 		}
@@ -91,6 +97,10 @@ func combineExtensionParticles(baseParticle, extParticle types.Particle) types.P
 		MaxOccurs: types.OccursFromInt(1),
 		Particles: []types.Particle{baseParticle, extParticle},
 	}
+}
+
+func isAnyTypeQName(qname types.QName) bool {
+	return qname.Namespace == types.XSDNamespace && qname.Local == string(types.TypeNameAnyType)
 }
 
 // modelGroupContainsWildcard checks if a model group contains any wildcard particles

@@ -6,38 +6,25 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/compiler"
-	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolver"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-var errUnsupportedURL = errors.New("unsupported schema location")
-
 // Config holds configuration for the schema loader
 type Config struct {
 	FS fs.FS
 
-	// NamespaceFS maps import namespaces to filesystems for schemaLocation resolution.
-	NamespaceFS map[string]fs.FS
+	Resolver Resolver
 
-	BasePath string
+	AllowMissingImportLocations bool
 }
-
-const defaultFSKey = "default"
 
 type loadKey struct {
-	fsKey    string
-	location string
-}
-
-type fsContext struct {
-	fs  fs.FS
-	key string
+	systemID string
+	etn      types.NamespaceURI
 }
 
 type loadState struct {
@@ -60,8 +47,7 @@ const (
 
 type schemaEntry struct {
 	schema              *parser.Schema
-	pendingImports      []pendingImport
-	pendingIncludes     []pendingInclude
+	pendingDirectives   []pendingDirective
 	state               schemaLoadState
 	pendingCount        int
 	validationRequested bool
@@ -115,51 +101,23 @@ func (s *loadState) schemaForKey(key loadKey) *parser.Schema {
 	return entry.schema
 }
 
-type pendingImport struct {
+type pendingDirective struct {
 	targetKey         loadKey
 	schemaLocation    string
 	expectedNamespace string
-}
-
-type pendingInclude struct {
-	targetKey      loadKey
-	schemaLocation string
-	remapMode      namespaceRemapMode
+	kind              parser.DirectiveKind
 }
 
 type importTracker struct {
-	context        map[loadKey]string
 	mergedIncludes map[loadKey]map[loadKey]bool
 	mergedImports  map[loadKey]map[loadKey]bool
 }
 
 func newImportTracker() importTracker {
 	return importTracker{
-		context:        make(map[loadKey]string),
 		mergedIncludes: make(map[loadKey]map[loadKey]bool),
 		mergedImports:  make(map[loadKey]map[loadKey]bool),
 	}
-}
-
-func (t *importTracker) trackContext(resolvedLocation, originalLocation, namespace, fsKey string) func() {
-	resolvedKey := loadKey{fsKey: fsKey, location: resolvedLocation}
-	originalKey := loadKey{fsKey: fsKey, location: originalLocation}
-	t.context[resolvedKey] = namespace
-	if resolvedLocation != originalLocation {
-		t.context[originalKey] = namespace
-	}
-
-	return func() {
-		delete(t.context, resolvedKey)
-		if resolvedLocation != originalLocation {
-			delete(t.context, originalKey)
-		}
-	}
-}
-
-func (t *importTracker) namespaceFor(location, fsKey string) (string, bool) {
-	ns, ok := t.context[loadKey{fsKey: fsKey, location: location}]
-	return ns, ok
 }
 
 func (t *importTracker) alreadyMergedInclude(baseKey, includeKey loadKey) bool {
@@ -201,64 +159,90 @@ const (
 
 // SchemaLoader loads XML schemas with import/include resolution
 type SchemaLoader struct {
-	state   loadState
-	imports importTracker
-	config  Config
+	imports  importTracker
+	resolver Resolver
+	state    loadState
+	config   Config
 }
 
 // NewLoader creates a new schema loader with the given configuration
 func NewLoader(cfg Config) *SchemaLoader {
+	res := cfg.Resolver
+	if res == nil && cfg.FS != nil {
+		res = NewFSResolver(cfg.FS)
+	}
 	return &SchemaLoader{
-		config:  cfg,
-		state:   newLoadState(),
-		imports: newImportTracker(),
+		config:   cfg,
+		state:    newLoadState(),
+		imports:  newImportTracker(),
+		resolver: res,
 	}
-}
-
-func (l *SchemaLoader) defaultFSContext() fsContext {
-	return fsContext{fs: l.config.FS, key: defaultFSKey}
-}
-
-func (l *SchemaLoader) namespaceFSContext(namespace types.NamespaceURI) (fsContext, bool) {
-	if l.config.NamespaceFS == nil {
-		return fsContext{}, false
-	}
-	fsys, ok := l.config.NamespaceFS[namespace.String()]
-	if !ok {
-		return fsContext{}, false
-	}
-	return fsContext{fs: fsys, key: namespaceFSKey(namespace)}, true
-}
-
-func (l *SchemaLoader) importFSContext(namespace types.NamespaceURI) fsContext {
-	if ctx, ok := l.namespaceFSContext(namespace); ok {
-		return ctx
-	}
-	return l.defaultFSContext()
-}
-
-func namespaceFSKey(namespace types.NamespaceURI) string {
-	return "ns:" + namespace.String()
-}
-
-func (l *SchemaLoader) loadKey(ctx fsContext, location string) loadKey {
-	return loadKey{fsKey: ctx.key, location: location}
 }
 
 // Load loads a schema from the given location and validates it.
 func (l *SchemaLoader) Load(location string) (*parser.Schema, error) {
-	return l.loadWithValidation(location, validateSchema, l.defaultFSContext())
+	if l == nil || l.resolver == nil {
+		return nil, fmt.Errorf("no resolver configured")
+	}
+	return l.loadRoot(location, validateSchema)
 }
 
-// loadWithValidation loads a schema with the requested validation mode.
-func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, ctx fsContext) (*parser.Schema, error) {
-	absLoc, err := l.resolveLocation(location)
+func (l *SchemaLoader) loadKey(systemID string, etn types.NamespaceURI) loadKey {
+	return loadKey{systemID: systemID, etn: etn}
+}
+
+// loadRoot loads the root schema by resolving the provided location.
+func (l *SchemaLoader) loadRoot(location string, mode validationMode) (*parser.Schema, error) {
+	doc, systemID, err := l.resolve(ResolveRequest{
+		BaseSystemID:   "",
+		SchemaLocation: location,
+		Kind:           ResolveInclude,
+	})
 	if err != nil {
 		return nil, err
 	}
-	key := l.loadKey(ctx, absLoc)
-	session := newLoadSession(l, absLoc, ctx, key)
+	result, err := parseSchemaDocument(doc, systemID)
+	if err != nil {
+		return nil, err
+	}
+	key := l.loadKey(systemID, result.Schema.TargetNamespace)
+	return l.loadParsed(result, systemID, key, mode)
+}
 
+// loadResolved loads a schema from an already-resolved reader and systemID.
+func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key loadKey, mode validationMode) (*parser.Schema, error) {
+	session := newLoadSession(l, systemID, key, doc)
+
+	if schema, ok := l.state.loadedSchema(key); ok {
+		if mode == validateSchema {
+			entry := l.state.ensureEntry(key)
+			entry.validationRequested = true
+			if resolveErr := l.resolvePendingImportsFor(key); resolveErr != nil {
+				return nil, resolveErr
+			}
+		}
+		if closeErr := doc.Close(); closeErr != nil {
+			return nil, closeErr
+		}
+		return schema, nil
+	}
+
+	loadedSchema, err := session.handleCircularLoad()
+	if err != nil || loadedSchema != nil {
+		if closeErr := doc.Close(); closeErr != nil && err == nil {
+			return nil, closeErr
+		}
+		return loadedSchema, err
+	}
+
+	result, err := session.parseSchema()
+	if err != nil {
+		return nil, err
+	}
+	return l.loadParsed(result, systemID, key, mode)
+}
+
+func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, key loadKey, mode validationMode) (*parser.Schema, error) {
 	if schema, ok := l.state.loadedSchema(key); ok {
 		if mode == validateSchema {
 			entry := l.state.ensureEntry(key)
@@ -270,14 +254,12 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 		return schema, nil
 	}
 
-	loadedSchema, err := session.handleCircularLoad()
-	if err != nil || loadedSchema != nil {
-		return loadedSchema, err
+	if l.state.isLoading(key) {
+		if inProgress, ok := l.state.loadingSchema(key); ok && inProgress != nil {
+			return inProgress, nil
+		}
+		return nil, fmt.Errorf("circular dependency detected: %s", systemID)
 	}
-
-	// check import context BEFORE setting loading flag (for first-time loads)
-	// this handles the case where we're loading a schema that's being imported
-	// the import context will be checked later when we detect a cycle
 
 	entry := l.state.ensureEntry(key)
 	entry.state = schemaStateLoading
@@ -288,18 +270,13 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 		}
 		entry.state = schemaStateUnknown
 		entry.schema = nil
-		if entry.pendingCount == 0 && len(entry.pendingImports) == 0 && len(entry.pendingIncludes) == 0 && !entry.validationRequested && !entry.validated {
+		if entry.pendingCount == 0 && len(entry.pendingDirectives) == 0 && !entry.validationRequested && !entry.validated {
 			l.state.deleteEntry(key)
 		}
 	}()
 
-	result, err := session.parseSchema()
-	if err != nil {
-		return nil, err
-	}
-
 	schema := result.Schema
-	initSchemaOrigins(schema, absLoc, ctx.key)
+	initSchemaOrigins(schema, systemID)
 	entry.schema = schema
 	registerImports(schema, result.Imports)
 
@@ -307,12 +284,9 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 		return nil, validateErr
 	}
 
-	if includeErr := session.processIncludes(schema, result.Includes); includeErr != nil {
-		return nil, includeErr
-	}
-
-	if importErr := session.processImports(schema, result.Imports); importErr != nil {
-		return nil, importErr
+	session := newLoadSession(l, systemID, key, nil)
+	if directivesErr := session.processDirectives(schema, result.Directives); directivesErr != nil {
+		return nil, directivesErr
 	}
 
 	if mode == validateSchema {
@@ -327,6 +301,13 @@ func (l *SchemaLoader) loadWithValidation(location string, mode validationMode, 
 	}
 
 	return schema, nil
+}
+
+func (l *SchemaLoader) resolve(req ResolveRequest) (io.ReadCloser, string, error) {
+	if l == nil || l.resolver == nil {
+		return nil, "", fmt.Errorf("no resolver configured")
+	}
+	return l.resolver.Resolve(req)
 }
 
 func (l *SchemaLoader) validateLoadedSchema(schema *parser.Schema) error {
@@ -346,159 +327,28 @@ func (l *SchemaLoader) validateLoadedSchema(schema *parser.Schema) error {
 	return nil
 }
 
-// loadImport loads a schema for import, allowing mutual imports between different namespaces.
-func (l *SchemaLoader) loadImport(location string, currentNamespace types.NamespaceURI, ctx fsContext) (*parser.Schema, error) {
-	// the location passed to loadImport is already resolved via resolveIncludeLocation
-	// load will call resolveLocation on it, which might produce a different path
-	// to ensure the import context key matches what Load will use, we need to resolve it the same way
-	// resolve it the way Load will to get the exact key that Load will use
-	absLocForContext, err := l.resolveLocation(location)
+// LoadResolved loads a schema from a resolved reader and systemID, then validates it.
+func (l *SchemaLoader) LoadResolved(doc io.ReadCloser, systemID string) (*parser.Schema, error) {
+	if l == nil {
+		return nil, fmt.Errorf("no loader configured")
+	}
+	if systemID == "" {
+		return nil, fmt.Errorf("missing systemID")
+	}
+	result, err := parseSchemaDocument(doc, systemID)
 	if err != nil {
 		return nil, err
 	}
-	absKey := l.loadKey(ctx, absLocForContext)
-
-	// if already loaded, reuse it
-	if schema, ok := l.state.loadedSchema(absKey); ok {
-		return schema, nil
-	}
-	// also check the original location in case it's stored differently
-	if schema, ok := l.state.loadedSchema(l.loadKey(ctx, location)); ok {
-		return schema, nil
-	}
-
-	// store the IMPORTING schema's namespace (currentNamespace), not the imported schema's namespace.
-	// this allows mutual import detection: when we detect a cycle, we can check if the
-	// importing schema has a different namespace than the schema being imported.
-	currentNS := string(currentNamespace)
-	clearImportContext := l.trackImportContext(absLocForContext, location, currentNS, ctx.key)
-	defer clearImportContext()
-
-	// normal loading - skip validation for imported schemas.
-	// they will be validated after merging into the main schema.
-	return l.loadWithValidation(location, skipSchemaValidation, ctx)
+	key := l.loadKey(systemID, result.Schema.TargetNamespace)
+	return l.loadParsed(result, systemID, key, validateSchema)
 }
 
-// LoadCompiled loads and compiles a schema from the given location.
-// Returns a CompiledSchema ready for schemacheck.
-// This is the new multi-phase architecture: Parse → Resolve → Compile.
-func (l *SchemaLoader) LoadCompiled(location string) (*grammar.CompiledSchema, error) {
-	// phase 1: Parse (and load includes/imports/redefines)
-	schema, err := l.Load(location)
-	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", location, err)
-	}
-
-	// phase 2: Compile to grammar (resolution already done during Load)
-	comp := compiler.NewCompiler(schema)
-	compiled, err := comp.Compile()
-	if err != nil {
-		return nil, fmt.Errorf("compile %s: %w", location, err)
-	}
-
-	return compiled, nil
-}
-
-// GetLoaded returns a loaded schema by location, if it exists.
-func (l *SchemaLoader) GetLoaded(location string) (*parser.Schema, bool, error) {
-	absLoc, err := l.resolveLocation(location)
-	if err != nil {
-		return nil, false, err
-	}
-	key := l.loadKey(l.defaultFSContext(), absLoc)
+// GetLoaded returns a loaded schema by systemID and effective target namespace.
+func (l *SchemaLoader) GetLoaded(systemID string, etn types.NamespaceURI) (*parser.Schema, bool) {
+	key := l.loadKey(systemID, etn)
 	schema, ok := l.state.loadedSchema(key)
-	return schema, ok, nil
+	return schema, ok
 }
-
-func (l *SchemaLoader) resolveLocation(location string) (string, error) {
-	if err := rejectURLLocation(location); err != nil {
-		return "", err
-	}
-	if l.config.BasePath == "" {
-		return location, nil
-	}
-	if path.IsAbs(location) {
-		cleanBase := path.Clean(l.config.BasePath)
-		if cleanBase == "." {
-			return location, nil
-		}
-		cleanLoc := path.Clean(location)
-		if cleanLoc == cleanBase || strings.HasPrefix(cleanLoc, cleanBase+"/") {
-			return location, nil
-		}
-		return "", fmt.Errorf("schema location %q escapes base path %q", location, cleanBase)
-	}
-	cleanBase := path.Clean(l.config.BasePath)
-	if cleanBase == "." {
-		return path.Clean(location), nil
-	}
-	cleanLoc := path.Clean(location)
-	if cleanLoc == "." {
-		return cleanBase, nil
-	}
-	if cleanLoc == cleanBase || strings.HasPrefix(cleanLoc, cleanBase+"/") {
-		return cleanLoc, nil
-	}
-	resolved := path.Join(cleanBase, cleanLoc)
-	if resolved != cleanBase && !strings.HasPrefix(resolved, cleanBase+"/") {
-		return "", fmt.Errorf("schema location %q escapes base path %q", location, cleanBase)
-	}
-	return resolved, nil
-}
-
-// resolveIncludeLocation resolves an include/import location relative to a base location
-func (l *SchemaLoader) resolveIncludeLocation(baseLoc, includeLoc string) (string, error) {
-	if err := rejectURLLocation(includeLoc); err != nil {
-		return "", err
-	}
-	// if include location is absolute, use it as-is
-	if path.IsAbs(includeLoc) {
-		if l.config.BasePath == "" {
-			return includeLoc, nil
-		}
-		cleanBase := path.Clean(l.config.BasePath)
-		if cleanBase == "." {
-			return includeLoc, nil
-		}
-		cleanInclude := path.Clean(includeLoc)
-		if cleanInclude == cleanBase || strings.HasPrefix(cleanInclude, cleanBase+"/") {
-			return includeLoc, nil
-		}
-		return "", fmt.Errorf("schema location %q escapes base path %q", includeLoc, cleanBase)
-	}
-	// otherwise, resolve relative to the base location's directory
-	baseDir := path.Dir(baseLoc)
-	resolved := path.Join(baseDir, includeLoc)
-	if l.config.BasePath == "" {
-		return resolved, nil
-	}
-	cleanBase := path.Clean(l.config.BasePath)
-	if cleanBase == "." {
-		return resolved, nil
-	}
-	cleanResolved := path.Clean(resolved)
-	if cleanResolved == cleanBase || strings.HasPrefix(cleanResolved, cleanBase+"/") {
-		return resolved, nil
-	}
-	return "", fmt.Errorf("schema location %q escapes base path %q", includeLoc, cleanBase)
-}
-
-func rejectURLLocation(location string) error {
-	lower := strings.ToLower(location)
-	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
-		return fmt.Errorf("%w: schema location %q uses HTTP; remote resolution is not supported", errUnsupportedURL, location)
-	}
-	if idx := strings.Index(location, "://"); idx != -1 {
-		scheme := location[:idx]
-		return fmt.Errorf("%w: schema location %q uses URL scheme %q; only local filesystem paths are supported", errUnsupportedURL, location, scheme)
-	}
-	return nil
-}
-
-func (l *SchemaLoader) trackImportContext(resolvedLocation, originalLocation, namespace, fsKey string) func() {
-	return l.imports.trackContext(resolvedLocation, originalLocation, namespace, fsKey)
-}
-
 func (l *SchemaLoader) alreadyMergedInclude(baseKey, includeKey loadKey) bool {
 	return l.imports.alreadyMergedInclude(baseKey, includeKey)
 }
@@ -517,12 +367,13 @@ func (l *SchemaLoader) markMergedImport(baseKey, importKey loadKey) {
 
 func (l *SchemaLoader) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string) {
 	sourceEntry := l.state.ensureEntry(sourceKey)
-	for _, pending := range sourceEntry.pendingImports {
-		if pending.targetKey == targetKey {
+	for _, pending := range sourceEntry.pendingDirectives {
+		if pending.kind == parser.DirectiveImport && pending.targetKey == targetKey {
 			return
 		}
 	}
-	sourceEntry.pendingImports = append(sourceEntry.pendingImports, pendingImport{
+	sourceEntry.pendingDirectives = append(sourceEntry.pendingDirectives, pendingDirective{
+		kind:              parser.DirectiveImport,
 		targetKey:         targetKey,
 		schemaLocation:    schemaLocation,
 		expectedNamespace: expectedNamespace,
@@ -531,17 +382,17 @@ func (l *SchemaLoader) deferImport(sourceKey, targetKey loadKey, schemaLocation,
 	targetEntry.pendingCount++
 }
 
-func (l *SchemaLoader) deferInclude(sourceKey, targetKey loadKey, schemaLocation string, remapMode namespaceRemapMode) {
+func (l *SchemaLoader) deferInclude(sourceKey, targetKey loadKey, schemaLocation string) {
 	sourceEntry := l.state.ensureEntry(sourceKey)
-	for _, pending := range sourceEntry.pendingIncludes {
-		if pending.targetKey == targetKey {
+	for _, pending := range sourceEntry.pendingDirectives {
+		if pending.kind == parser.DirectiveInclude && pending.targetKey == targetKey {
 			return
 		}
 	}
-	sourceEntry.pendingIncludes = append(sourceEntry.pendingIncludes, pendingInclude{
+	sourceEntry.pendingDirectives = append(sourceEntry.pendingDirectives, pendingDirective{
+		kind:           parser.DirectiveInclude,
 		targetKey:      targetKey,
 		schemaLocation: schemaLocation,
-		remapMode:      remapMode,
 	})
 	targetEntry := l.state.ensureEntry(targetKey)
 	targetEntry.pendingCount++
@@ -552,53 +403,52 @@ func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
 	if sourceEntry.pendingCount > 0 {
 		return nil
 	}
-	pendingImports := sourceEntry.pendingImports
-	pendingIncludes := sourceEntry.pendingIncludes
-	if len(pendingImports) == 0 && len(pendingIncludes) == 0 {
+	pendingDirectives := sourceEntry.pendingDirectives
+	if len(pendingDirectives) == 0 {
 		return l.validateIfRequested(sourceKey)
 	}
 	source := l.schemaForKey(sourceKey)
 	if source == nil {
-		return fmt.Errorf("pending import source not found: %s", sourceKey.location)
+		return fmt.Errorf("pending import source not found: %s", sourceKey.systemID)
 	}
-	sourceEntry.pendingImports = nil
-	sourceEntry.pendingIncludes = nil
+	sourceEntry.pendingDirectives = nil
 
-	for _, entry := range pendingIncludes {
+	for _, entry := range pendingDirectives {
 		target := l.schemaForKey(entry.targetKey)
 		if target == nil {
-			return fmt.Errorf("pending include target not found: %s", entry.targetKey.location)
+			return fmt.Errorf("pending directive target not found: %s", entry.targetKey.systemID)
 		}
-		if err := l.mergeSchema(target, source, mergeInclude, entry.remapMode); err != nil {
-			return fmt.Errorf("merge included schema %s: %w", entry.schemaLocation, err)
-		}
-		l.markMergedInclude(entry.targetKey, sourceKey)
-
-		targetEntry := l.state.ensureEntry(entry.targetKey)
-		targetEntry.pendingCount--
-		if targetEntry.pendingCount < 0 {
-			targetEntry.pendingCount = 0
-		}
-		if targetEntry.pendingCount == 0 {
-			if err := l.resolvePendingImportsFor(entry.targetKey); err != nil {
-				return err
+		switch entry.kind {
+		case parser.DirectiveInclude:
+			includingNS := entry.targetKey.etn
+			if !l.isIncludeNamespaceCompatible(includingNS, source.TargetNamespace) {
+				return fmt.Errorf("included schema %s has different target namespace: %s != %s",
+					entry.schemaLocation, source.TargetNamespace, includingNS)
 			}
+			remapMode := keepNamespace
+			if !includingNS.IsEmpty() && source.TargetNamespace.IsEmpty() {
+				remapMode = remapNamespace
+			}
+			if err := l.mergeSchema(target, source, mergeInclude, remapMode); err != nil {
+				return fmt.Errorf("merge included schema %s: %w", entry.schemaLocation, err)
+			}
+			l.markMergedInclude(entry.targetKey, sourceKey)
+		case parser.DirectiveImport:
+			if entry.expectedNamespace != "" && source.TargetNamespace != types.NamespaceURI(entry.expectedNamespace) {
+				return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
+					entry.schemaLocation, entry.expectedNamespace, source.TargetNamespace)
+			}
+			if entry.expectedNamespace == "" && !source.TargetNamespace.IsEmpty() {
+				return fmt.Errorf("imported schema %s namespace mismatch: expected no namespace, got %s",
+					entry.schemaLocation, source.TargetNamespace)
+			}
+			if err := l.mergeSchema(target, source, mergeImport, keepNamespace); err != nil {
+				return fmt.Errorf("merge imported schema %s: %w", entry.schemaLocation, err)
+			}
+			l.markMergedImport(entry.targetKey, sourceKey)
+		default:
+			return fmt.Errorf("unknown pending directive kind: %d", entry.kind)
 		}
-	}
-
-	for _, entry := range pendingImports {
-		target := l.schemaForKey(entry.targetKey)
-		if target == nil {
-			return fmt.Errorf("pending import target not found: %s", entry.targetKey.location)
-		}
-		if entry.expectedNamespace != "" && source.TargetNamespace != types.NamespaceURI(entry.expectedNamespace) {
-			return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
-				entry.schemaLocation, entry.expectedNamespace, source.TargetNamespace)
-		}
-		if err := l.mergeSchema(target, source, mergeImport, keepNamespace); err != nil {
-			return fmt.Errorf("merge imported schema %s: %w", entry.schemaLocation, err)
-		}
-		l.markMergedImport(entry.targetKey, sourceKey)
 
 		targetEntry := l.state.ensureEntry(entry.targetKey)
 		targetEntry.pendingCount--
@@ -629,7 +479,7 @@ func (l *SchemaLoader) validateIfRequested(key loadKey) error {
 	}
 	schema := l.schemaForKey(key)
 	if schema == nil {
-		return fmt.Errorf("schema not available for validation: %s", key.location)
+		return fmt.Errorf("schema not available for validation: %s", key.systemID)
 	}
 	if err := l.validateLoadedSchema(schema); err != nil {
 		return err
@@ -655,10 +505,8 @@ func registerImports(sch *parser.Schema, imports []parser.ImportInfo) {
 	fromNS := sch.TargetNamespace
 	imported := ensureNamespaceMap(sch.ImportedNamespaces, fromNS)
 	for _, imp := range imports {
-		if imp.Namespace == "" {
-			continue
-		}
-		imported[types.NamespaceURI(imp.Namespace)] = true
+		ns := types.NamespaceURI(imp.Namespace)
+		imported[ns] = true
 	}
 
 	if sch.ImportContexts == nil {
@@ -671,10 +519,8 @@ func registerImports(sch *parser.Schema, imports []parser.ImportInfo) {
 		}
 		ctx.TargetNamespace = sch.TargetNamespace
 		for _, imp := range imports {
-			if imp.Namespace == "" {
-				continue
-			}
-			ctx.Imports[types.NamespaceURI(imp.Namespace)] = true
+			ns := types.NamespaceURI(imp.Namespace)
+			ctx.Imports[ns] = true
 		}
 		sch.ImportContexts[sch.Location] = ctx
 	}
@@ -713,11 +559,11 @@ func validateSchemaConstraints(schema *parser.Schema) error {
 	return errors.New(errMsg.String())
 }
 
-func initSchemaOrigins(schema *parser.Schema, location, fsKey string) {
+func initSchemaOrigins(schema *parser.Schema, location string) {
 	if schema == nil {
 		return
 	}
-	schema.Location = parser.ImportContextKey(fsKey, location)
+	schema.Location = parser.ImportContextKey("", location)
 	for qname := range schema.ElementDecls {
 		if schema.ElementOrigins[qname] == "" {
 			schema.ElementOrigins[qname] = schema.Location
@@ -772,17 +618,4 @@ func (l *SchemaLoader) isIncludeNamespaceCompatible(includingNS, includedNS type
 	}
 	// all other cases are incompatible
 	return false
-}
-
-func (l *SchemaLoader) openFile(fsys fs.FS, location string) (io.ReadCloser, error) {
-	if fsys == nil {
-		return nil, fmt.Errorf("no filesystem configured")
-	}
-
-	f, err := fsys.Open(location)
-	if err != nil {
-		return nil, err
-	}
-
-	return f, nil
 }

@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:qualified"
+           xmlns:tns="urn:qualified"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="child" type="xs:string"/>
+        <xs:element name="childUnq" type="xs:string" form="unqualified"/>
+        <xs:element name="childAnon">
+          <xs:simpleType>
+            <xs:restriction base="xs:string"/>
+          </xs:simpleType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="attr" type="xs:string"/>
+      <xs:attribute name="attrQ" type="xs:string" form="qualified"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

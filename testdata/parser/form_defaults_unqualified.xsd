@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:unqualified"
+           xmlns="urn:unqualified"
+           elementFormDefault="unqualified"
+           attributeFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="child" type="xs:string"/>
+        <xs:element name="childQ" type="xs:string" form="qualified"/>
+      </xs:sequence>
+      <xs:attribute name="attr" type="xs:string"/>
+      <xs:attribute name="attrU" type="xs:string" form="unqualified"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

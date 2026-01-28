@@ -63,6 +63,8 @@ const (
 	ErrDuplicateID ErrorCode = "cvc-id.2"
 	// ErrIDRefNotFound indicates an IDREF was not found.
 	ErrIDRefNotFound ErrorCode = "cvc-id.1.2"
+	// ErrMultipleIDAttr indicates multiple ID attributes on the same element.
+	ErrMultipleIDAttr ErrorCode = "cvc-id.3"
 
 	// ErrIdentityDuplicate indicates an identity constraint is duplicated.
 	ErrIdentityDuplicate ErrorCode = "cvc-identity-constraint.4.1"
@@ -70,6 +72,31 @@ const (
 	ErrIdentityAbsent ErrorCode = "cvc-identity-constraint.4.2.1"
 	// ErrIdentityKeyRefFailed indicates a keyref constraint failed.
 	ErrIdentityKeyRefFailed ErrorCode = "cvc-identity-constraint.4.3"
+
+	// ErrValidateValueInvalid indicates a value failed lexical parsing.
+	ErrValidateValueInvalid ErrorCode = "VALIDATE_VALUE_INVALID"
+	// ErrValidateValueFacet indicates a value violated a facet constraint.
+	ErrValidateValueFacet ErrorCode = "VALIDATE_VALUE_FACET"
+	// ErrValidateElementAbstract indicates an abstract element was used.
+	ErrValidateElementAbstract ErrorCode = "VALIDATE_ELEMENT_ABSTRACT"
+	// ErrValidateSimpleTypeAttrNotAllowed indicates attributes on simple types.
+	ErrValidateSimpleTypeAttrNotAllowed ErrorCode = "VALIDATE_SIMPLETYPE_ATTR_NOT_ALLOWED"
+	// ErrValidateXsiTypeUnresolved indicates xsi:type could not be resolved.
+	ErrValidateXsiTypeUnresolved ErrorCode = "VALIDATE_XSI_TYPE_UNRESOLVED"
+	// ErrValidateXsiTypeDerivationBlocked indicates xsi:type derivation is blocked.
+	ErrValidateXsiTypeDerivationBlocked ErrorCode = "VALIDATE_XSI_TYPE_DERIVATION_BLOCKED"
+	// ErrValidateXsiNilNotNillable indicates xsi:nil used on non-nillable element.
+	ErrValidateXsiNilNotNillable ErrorCode = "VALIDATE_XSI_NIL_NOT_NILLABLE"
+	// ErrValidateNilledHasFixed indicates a nilled element has a fixed value.
+	ErrValidateNilledHasFixed ErrorCode = "VALIDATE_NILLED_HAS_FIXED"
+	// ErrValidateNilledNotEmpty indicates a nilled element has content.
+	ErrValidateNilledNotEmpty ErrorCode = "VALIDATE_NILLED_NOT_EMPTY"
+	// ErrValidateWildcardElemStrictUnresolved indicates strict wildcard element unresolved.
+	ErrValidateWildcardElemStrictUnresolved ErrorCode = "VALIDATE_WILDCARD_ELEM_STRICT_UNRESOLVED"
+	// ErrValidateWildcardAttrStrictUnresolved indicates strict wildcard attribute unresolved.
+	ErrValidateWildcardAttrStrictUnresolved ErrorCode = "VALIDATE_WILDCARD_ATTR_STRICT_UNRESOLVED"
+	// ErrValidateRootNotDeclared indicates root element not declared.
+	ErrValidateRootNotDeclared ErrorCode = "VALIDATE_ROOT_NOT_DECLARED"
 )
 
 // Validation describes a schema validation error with a W3C or local error code

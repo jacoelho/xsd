@@ -197,6 +197,7 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 		return fmt.Errorf("duplicate element declaration: '%s'", decl.Name)
 	}
 	schema.ElementDecls[decl.Name] = decl
+	schema.addGlobalDecl(GlobalDeclElement, decl.Name)
 	return nil
 }
 

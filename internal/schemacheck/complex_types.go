@@ -14,7 +14,7 @@ func validateComplexTypeStructure(schema *parser.Schema, complexType *types.Comp
 		return fmt.Errorf("content: %w", err)
 	}
 
-	if err := validateUPA(schema, complexType.Content(), schema.TargetNamespace); err != nil {
+	if err := ValidateUPA(schema, complexType.Content(), schema.TargetNamespace); err != nil {
 		return fmt.Errorf("UPA violation: %w", err)
 	}
 

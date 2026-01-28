@@ -93,6 +93,32 @@ func namespaceContextForElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema
 	return context
 }
 
+func validateQNameNamespace(schema *Schema, namespace types.NamespaceURI) error {
+	if schema == nil {
+		return nil
+	}
+	if namespace == types.XSDNamespace || namespace == xsdxml.XMLNamespace {
+		return nil
+	}
+	if namespace == schema.TargetNamespace {
+		return nil
+	}
+	imports := schema.ImportedNamespaces[schema.TargetNamespace]
+	if namespace.IsEmpty() {
+		if schema.TargetNamespace.IsEmpty() {
+			return nil
+		}
+		if imports != nil && imports[types.NamespaceEmpty] {
+			return nil
+		}
+		return fmt.Errorf("namespace %s not imported for %s", namespace, schema.TargetNamespace)
+	}
+	if imports != nil && imports[namespace] {
+		return nil
+	}
+	return fmt.Errorf("namespace %s not imported for %s", namespace, schema.TargetNamespace)
+}
+
 // resolveQName resolves a QName for TYPE references using namespace prefix mappings.
 // For unprefixed QNames in XSD type attribute values (type, base, itemType, memberTypes, etc.):
 // 1. If a default namespace (xmlns="...") is declared -> use that namespace
@@ -121,6 +147,10 @@ func resolveQName(doc *xsdxml.Document, qname string, elem xsdxml.NodeID, schema
 			return types.QName{}, fmt.Errorf("undefined namespace prefix '%s' in '%s'", prefix, qname)
 		}
 		namespace = types.NamespaceURI(namespaceStr)
+	}
+
+	if err := validateQNameNamespace(schema, namespace); err != nil {
+		return types.QName{}, err
 	}
 
 	return types.QName{
@@ -155,6 +185,10 @@ func resolveQNameWithoutBuiltin(doc *xsdxml.Document, qname string, elem xsdxml.
 			return types.QName{}, fmt.Errorf("undefined namespace prefix '%s' in '%s'", prefix, qname)
 		}
 		namespace = types.NamespaceURI(namespaceStr)
+	}
+
+	if err := validateQNameNamespace(schema, namespace); err != nil {
+		return types.QName{}, err
 	}
 
 	return types.QName{
@@ -193,6 +227,10 @@ func resolveAttributeRefQName(doc *xsdxml.Document, qname string, elem xsdxml.No
 			return types.QName{}, fmt.Errorf("undefined namespace prefix '%s' in '%s'", prefix, qname)
 		}
 		namespace = types.NamespaceURI(namespaceStr)
+	}
+
+	if err := validateQNameNamespace(schema, namespace); err != nil {
+		return types.QName{}, err
 	}
 
 	return types.QName{

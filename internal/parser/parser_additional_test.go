@@ -190,6 +190,9 @@ func TestNamespaceResolutionHelpers(t *testing.T) {
 	schema.TargetNamespace = "urn:test"
 	schema.NamespaceDecls["tns"] = "urn:test"
 	schema.NamespaceDecls["ex"] = "urn:extra"
+	schema.ImportedNamespaces[schema.TargetNamespace] = map[types.NamespaceURI]bool{
+		types.NamespaceURI("urn:extra"): true,
+	}
 
 	ctx := namespaceContextForElement(doc, refElem, schema)
 	if ctx["tns"] != "urn:test" || ctx["xml"] == "" {
@@ -561,10 +564,10 @@ func TestParseBoolAndOccursValues(t *testing.T) {
 	}
 	maxInt := int(^uint(0) >> 1)
 	tooLarge := new(big.Int).Add(big.NewInt(int64(maxInt)), big.NewInt(1)).String()
-	if got, err := parseOccursValue("maxOccurs", tooLarge); err != nil {
-		t.Fatalf("parseOccursValue error = %v", err)
-	} else if got.CmpInt(maxInt) <= 0 {
-		t.Fatalf("parseOccursValue overflow = %s, want > %d", got, maxInt)
+	if _, err := parseOccursValue("maxOccurs", tooLarge); err == nil {
+		t.Fatalf("expected overflow error for maxOccurs")
+	} else if !errors.Is(err, types.ErrOccursOverflow) {
+		t.Fatalf("expected %v, got %v", types.ErrOccursOverflow, err)
 	}
 	if err := validateOccursValue("unbounded"); err == nil {
 		t.Fatalf("expected validateOccursValue error")

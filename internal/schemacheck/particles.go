@@ -41,6 +41,9 @@ func validateParticleOccurs(particle types.Particle) error {
 	// 2. when maxOccurs >= 1, it must be >= minOccurs
 	maxOcc := particle.MaxOcc()
 	minOcc := particle.MinOcc()
+	if maxOcc.IsOverflow() || minOcc.IsOverflow() {
+		return fmt.Errorf("%w: occurrence value exceeds uint32", types.ErrOccursOverflow)
+	}
 
 	// maxOccurs can be "unbounded" or a non-negative integer, with 0 only allowed when minOccurs=0
 	// note: W3C test suite includes schemas with maxOccurs=0 and minOccurs=0, which
@@ -621,6 +624,9 @@ func validateAllGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 // - maxOccurs must be <= base maxOccurs (can allow fewer)
 // - minOccurs must be <= base maxOccurs (can't require more than base allows)
 func validateOccurrenceConstraints(baseMinOcc, baseMaxOcc, restrictionMinOcc, restrictionMaxOcc types.Occurs) error {
+	if baseMinOcc.IsOverflow() || baseMaxOcc.IsOverflow() || restrictionMinOcc.IsOverflow() || restrictionMaxOcc.IsOverflow() {
+		return fmt.Errorf("%w: occurrence value exceeds uint32", types.ErrOccursOverflow)
+	}
 	if restrictionMinOcc.Cmp(baseMinOcc) < 0 {
 		return fmt.Errorf("ComplexContent restriction: minOccurs (%s) must be >= base minOccurs (%s)", restrictionMinOcc, baseMinOcc)
 	}

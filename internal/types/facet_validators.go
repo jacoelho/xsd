@@ -432,18 +432,15 @@ func getLength(value string, baseType Type) int {
 }
 
 // Enumeration represents an enumeration facet.
-//
-//nolint:govet // fieldalignment: keep layout straightforward to avoid extra indirection.
 type Enumeration struct {
-	Values []string
 	aux    atomic.Pointer[enumAux]
+	Values []string
 }
 
-//nolint:govet // fieldalignment: keep auxiliary data co-located for clarity.
 type enumAux struct {
+	caches        enumCaches
 	valueContexts []map[string]string
 	qnameValues   []QName
-	caches        enumCaches
 }
 
 type enumCaches struct {

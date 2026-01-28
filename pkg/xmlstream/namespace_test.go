@@ -514,7 +514,8 @@ func TestNSStackLookupEmptyStack(t *testing.T) {
 
 func TestNSStackLookupNegativeDepth(t *testing.T) {
 	var stack nsStack
-	stack.push(nsScope{prefixes: map[string]string{"a": "urn:a"}})
+	stack.decls = append(stack.decls, NamespaceDecl{Prefix: "a", URI: "urn:a"})
+	stack.push(nsScope{declStart: 0, declLen: 1})
 	if ns, ok := stack.lookup("a", -1); ok || ns != "" {
 		t.Fatalf("lookup negative depth = %q, ok=%v, want empty, false", ns, ok)
 	}
@@ -580,7 +581,8 @@ func TestXMLNSXMLNSBindingIgnored(t *testing.T) {
 
 func TestNSStackLookupDepthOverflow(t *testing.T) {
 	var stack nsStack
-	stack.push(nsScope{prefixes: map[string]string{"a": "urn:a"}})
+	stack.decls = append(stack.decls, NamespaceDecl{Prefix: "a", URI: "urn:a"})
+	stack.push(nsScope{declStart: 0, declLen: 1})
 	if ns, ok := stack.lookup("a", 10); !ok || ns != "urn:a" {
 		t.Fatalf("lookup overflow = %q, ok=%v, want urn:a, true", ns, ok)
 	}
@@ -690,7 +692,7 @@ func TestCollectNamespaceScopeMultiplePrefixes(t *testing.T) {
 func TestResolveAttrNameBareXMLNS(t *testing.T) {
 	dec := xmltext.NewDecoder(strings.NewReader("<root/>"))
 	ns := nsStack{}
-	namespace, local, err := resolveAttrName(dec, &ns, []byte("xmlns"), 0, 1, 1)
+	namespace, local, err := resolveAttrName(dec, &ns, []byte("xmlns"), -1, 0, 1, 1)
 	if err != nil {
 		t.Fatalf("resolveAttrName error = %v", err)
 	}

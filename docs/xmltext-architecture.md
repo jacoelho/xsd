@@ -8,7 +8,7 @@ resolution and semantic modeling to higher layers.
 
 ```mermaid
 flowchart TD
-  Reader["io.Reader"] --> Decoder["xmltext.Decoder<br/>(syntax and well-formedness)"] --> Stream["pkg/xmlstream Reader<br/>(namespace resolution, events)"] --> Higher["validator / DOM parsing"]
+  Reader["io.Reader"] --> Decoder["xmltext.Decoder<br/>(syntax and well-formedness)"] --> Stream["pkg/xmlstream Reader<br/>(namespace resolution, events)"] --> Higher["internal/validator / internal/xml"]
 ```
 
 The decoder is a low-level, allocation-light component. It does not resolve
@@ -52,8 +52,9 @@ operations like `ReadValueInto` and for error snippets.
 ## Namespace handling
 
 xmltext does not interpret prefixes or manage namespace scopes. Namespace
-resolution is performed by internal/xml, which consumes xmltext tokens and
-applies XML Namespaces rules.
+resolution is performed by pkg/xmlstream, which consumes xmltext tokens and
+emits namespace-aware events. internal/xml and internal/validator build on
+xmlstream for DOM parsing and validation.
 
 ## Error model
 

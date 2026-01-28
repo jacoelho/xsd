@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<record xmlns="urn:bench">
+  <code>ABC123</code>
+  <amount>123.45</amount>
+  <flag>ON</flag>
+</record>

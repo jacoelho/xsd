@@ -7,12 +7,6 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-// validateDefaultOrFixedValue validates that a default or fixed value is valid for the given type.
-// This is used during structure validation; full facet validation happens after resolution.
-func validateDefaultOrFixedValue(value string, typ types.Type) error {
-	return validateDefaultOrFixedValueWithContext(nil, value, typ, nil)
-}
-
 // validateDefaultOrFixedValueWithContext validates that a default or fixed value is valid for the given type.
 // This is used during structure validation; full facet validation happens after resolution.
 func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string, typ types.Type, nsContext map[string]string) error {

@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<person xmlns="urn:bench">
+  <name>Jane Doe</name>
+  <age>42</age>
+</person>

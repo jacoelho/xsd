@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<root xmlns="urn:bench">
+  <item id="a"/>
+  <item id="b"/>
+  <item id="c"/>
+  <item id="d"/>
+  <item id="e"/>
+  <item id="f"/>
+  <item id="g"/>
+  <item id="h"/>
+  <item id="i"/>
+  <item id="j"/>
+</root>

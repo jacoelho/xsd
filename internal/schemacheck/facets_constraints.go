@@ -262,16 +262,6 @@ func isBuiltinListTypeName(name string) bool {
 	return name == string(types.TypeNameNMTOKENS) || name == string(types.TypeNameIDREFS) || name == string(types.TypeNameENTITIES)
 }
 
-func validateListItemValue(itemType types.Type, value string) error {
-	if bt, ok := itemType.(*types.BuiltinType); ok {
-		return bt.Validate(value)
-	}
-	if st, ok := itemType.(*types.SimpleType); ok {
-		return st.Validate(value)
-	}
-	return fmt.Errorf("cannot validate list item against non-simple type %T", itemType)
-}
-
 // validateEnumerationValues validates that enumeration values are valid for the base type
 func validateEnumerationValues(schema *parser.Schema, facetList []types.Facet, baseType types.Type) error {
 	for _, f := range facetList {

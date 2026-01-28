@@ -413,8 +413,8 @@ func TestReaderEmptyAttrValue(t *testing.T) {
 
 func TestEmptyElementEquivalence(t *testing.T) {
 	type token struct {
-		kind EventKind
 		name string
+		kind EventKind
 	}
 	collect := func(input string) ([]token, error) {
 		r, err := NewReader(strings.NewReader(input))
@@ -838,7 +838,7 @@ func TestPopElementNameEmpty(t *testing.T) {
 
 func TestEndEventRawEmptyStack(t *testing.T) {
 	r := &Reader{}
-	tok := xmltext.Token{Name: []byte("root")}
+	tok := xmltext.RawTokenSpan{Name: []byte("root")}
 	if _, _, err := r.endEvent(nextRaw, &tok, 1, 1); err == nil {
 		t.Fatalf("endEvent error = nil, want error")
 	}

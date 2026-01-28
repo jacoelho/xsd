@@ -1,0 +1,172 @@
+package schema
+
+import (
+	"testing"
+
+	"github.com/jacoelho/xsd/internal/types"
+)
+
+func findElementRef(t *testing.T, group *types.ModelGroup) *types.ElementDecl {
+	t.Helper()
+	for _, particle := range group.Particles {
+		decl, ok := particle.(*types.ElementDecl)
+		if !ok {
+			continue
+		}
+		if decl.IsReference {
+			return decl
+		}
+	}
+	t.Fatalf("element reference not found")
+	return nil
+}
+
+func findGroupRef(t *testing.T, group *types.ModelGroup) *types.GroupRef {
+	t.Helper()
+	for _, particle := range group.Particles {
+		ref, ok := particle.(*types.GroupRef)
+		if ok {
+			return ref
+		}
+	}
+	t.Fatalf("group reference not found")
+	return nil
+}
+
+func findAttributeRef(t *testing.T, attrs []*types.AttributeDecl) *types.AttributeDecl {
+	t.Helper()
+	for _, attr := range attrs {
+		if attr.IsReference {
+			return attr
+		}
+	}
+	t.Fatalf("attribute reference not found")
+	return nil
+}
+
+func TestReferenceResolution(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:ref"
+           xmlns:tns="urn:ref"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="tns:T"/>
+  <xs:complexType name="T">
+    <xs:sequence>
+      <xs:group ref="tns:G"/>
+      <xs:element ref="tns:leaf"/>
+    </xs:sequence>
+    <xs:attribute ref="tns:ga"/>
+    <xs:attributeGroup ref="tns:AG"/>
+  </xs:complexType>
+  <xs:element name="leaf" type="xs:string"/>
+  <xs:attribute name="ga" type="xs:string"/>
+  <xs:attributeGroup name="AG">
+    <xs:attribute name="agAttr" type="xs:string"/>
+  </xs:attributeGroup>
+  <xs:group name="G">
+    <xs:sequence>
+      <xs:element name="inside" type="xs:string"/>
+    </xs:sequence>
+  </xs:group>
+</xs:schema>`
+
+	schema := mustParseSchema(t, schemaXML)
+	registry, err := AssignIDs(schema)
+	if err != nil {
+		t.Fatalf("AssignIDs error = %v", err)
+	}
+
+	refs, err := ResolveReferences(schema, registry)
+	if err != nil {
+		t.Fatalf("ResolveReferences error = %v", err)
+	}
+
+	rootQName := types.QName{Namespace: "urn:ref", Local: "root"}
+	root := schema.ElementDecls[rootQName]
+	if root == nil {
+		t.Fatalf("root element not found")
+	}
+	if st, ok := root.Type.(*types.SimpleType); ok {
+		if !types.IsPlaceholderSimpleType(st) {
+			t.Fatalf("root type is no longer a placeholder")
+		}
+	}
+
+	ctQName := types.QName{Namespace: "urn:ref", Local: "T"}
+	ct, ok := schema.TypeDefs[ctQName].(*types.ComplexType)
+	if !ok {
+		t.Fatalf("type T not found")
+	}
+	content, ok := ct.Content().(*types.ElementContent)
+	if !ok {
+		t.Fatalf("type T content = %T, want *types.ElementContent", ct.Content())
+	}
+	group, ok := content.Particle.(*types.ModelGroup)
+	if !ok {
+		t.Fatalf("type T particle = %T, want *types.ModelGroup", content.Particle)
+	}
+
+	elemRef := findElementRef(t, group)
+	groupRef := findGroupRef(t, group)
+	attrRef := findAttributeRef(t, ct.Attributes())
+
+	leafID := registry.Elements[types.QName{Namespace: "urn:ref", Local: "leaf"}]
+	if refs.ElementRefs[elemRef] != leafID {
+		t.Fatalf("element ref ID = %d, want %d", refs.ElementRefs[elemRef], leafID)
+	}
+
+	attrID := registry.Attributes[types.QName{Namespace: "urn:ref", Local: "ga"}]
+	if refs.AttributeRefs[attrRef] != attrID {
+		t.Fatalf("attribute ref ID = %d, want %d", refs.AttributeRefs[attrRef], attrID)
+	}
+
+	groupQName := types.QName{Namespace: "urn:ref", Local: "G"}
+	if refs.GroupRefs[groupRef] != schema.Groups[groupQName] {
+		t.Fatalf("group ref resolved to unexpected target")
+	}
+}
+
+func TestReferenceResolutionMissing(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:missing"
+           xmlns:tns="urn:missing"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="tns:Missing"/>
+</xs:schema>`
+
+	schema := mustParseSchema(t, schemaXML)
+	registry, err := AssignIDs(schema)
+	if err != nil {
+		t.Fatalf("AssignIDs error = %v", err)
+	}
+
+	if _, err := ResolveReferences(schema, registry); err == nil {
+		t.Fatalf("expected ResolveReferences to error for missing type")
+	}
+}
+
+func TestReferenceResolutionRecursiveType(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:recursive"
+           xmlns:tns="urn:recursive">
+  <xs:element name="node" type="tns:NodeType"/>
+  <xs:complexType name="NodeType">
+    <xs:sequence>
+      <xs:element name="node" type="tns:NodeType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`
+
+	schema := mustParseSchema(t, schemaXML)
+	registry, err := AssignIDs(schema)
+	if err != nil {
+		t.Fatalf("AssignIDs error = %v", err)
+	}
+
+	if _, err := ResolveReferences(schema, registry); err != nil {
+		t.Fatalf("ResolveReferences error = %v", err)
+	}
+}

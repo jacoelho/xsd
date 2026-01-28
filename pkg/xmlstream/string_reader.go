@@ -46,12 +46,12 @@ type StringEvent struct {
 type StringReader struct {
 	dec          *xmltext.Decoder
 	names        *qnameCache
-	ns           nsStack
 	attrBuf      []StringAttr
+	nsBuf        []byte
 	elemStack    []QName
 	valueBuf     []byte
-	nsBuf        []byte
-	tok          xmltext.Token
+	ns           nsStack
+	tok          xmltext.RawTokenSpan
 	nextID       ElementID
 	lastLine     int
 	lastColumn   int
@@ -67,12 +67,7 @@ func NewStringReader(r io.Reader, opts ...Option) (*StringReader, error) {
 	reader := bufio.NewReaderSize(r, readerBufferSize)
 	options := buildOptions(opts...)
 	dec := xmltext.NewDecoder(reader, options...)
-	var tok xmltext.Token
-	tok.Reserve(xmltext.TokenSizes{
-		Attrs:     readerAttrCapacity,
-		AttrName:  256,
-		AttrValue: 256,
-	})
+	var tok xmltext.RawTokenSpan
 	names := newQNameCache()
 	names.setMaxEntries(qnameCacheLimit(options))
 	return &StringReader{
@@ -99,18 +94,13 @@ func (r *StringReader) Reset(src io.Reader, opts ...Option) error {
 	} else {
 		r.dec.Reset(reader, options...)
 	}
-	r.tok.Reserve(xmltext.TokenSizes{
-		Attrs:     readerAttrCapacity,
-		AttrName:  256,
-		AttrValue: 256,
-	})
 	if r.names == nil {
 		r.names = newQNameCache()
 	} else {
 		r.names.reset()
 	}
 	r.names.setMaxEntries(qnameCacheLimit(options))
-	r.ns = nsStack{}
+	r.ns.reset()
 	r.attrBuf = r.attrBuf[:0]
 	r.elemStack = r.elemStack[:0]
 	r.valueBuf = r.valueBuf[:0]
@@ -138,7 +128,7 @@ func (r *StringReader) Next() (StringEvent, error) {
 	r.lastWasStart = false
 
 	for {
-		if err := r.dec.ReadTokenInto(&r.tok); err != nil {
+		if err := r.dec.ReadTokenRawSpansInto(&r.tok); err != nil {
 			return StringEvent{}, err
 		}
 		tok := &r.tok
@@ -149,30 +139,35 @@ func (r *StringReader) Next() (StringEvent, error) {
 
 		switch tok.Kind {
 		case xmltext.KindStartElement:
-			scope, nsBuf, err := collectNamespaceScope(r.dec, r.nsBuf, tok)
+			declStart := len(r.ns.decls)
+			scope, nsBuf, decls, err := collectNamespaceScope(r.dec, r.nsBuf, r.ns.decls, tok)
 			if err != nil {
 				r.nsBuf = nsBuf
 				return StringEvent{}, wrapSyntaxError(r.dec, line, column, err)
 			}
 			r.nsBuf = nsBuf
+			r.ns.decls = decls
+			scope.declStart = declStart
+			scope.declLen = len(r.ns.decls) - declStart
 			scopeDepth := r.ns.push(scope)
-			name, err := resolveElementName(r.names, &r.ns, r.dec, tok.Name, scopeDepth, line, column)
+			name, err := resolveElementName(r.names, &r.ns, r.dec, tok.Name, tok.NameColon, scopeDepth, line, column)
 			if err != nil {
 				return StringEvent{}, err
 			}
 
-			attrs := tok.Attrs
-			if cap(r.attrBuf) < len(attrs) {
-				r.attrBuf = make([]StringAttr, 0, len(attrs))
+			attrCount := tok.AttrCount()
+			if cap(r.attrBuf) < attrCount {
+				r.attrBuf = make([]StringAttr, 0, attrCount)
 			} else {
 				r.attrBuf = r.attrBuf[:0]
 			}
-			for _, attr := range attrs {
-				attrNamespace, attrLocal, err := resolveAttrName(r.dec, &r.ns, attr.Name, scopeDepth, line, column)
+			for i := range attrCount {
+				attrName := tok.AttrName(i)
+				attrNamespace, attrLocal, err := resolveAttrName(r.dec, &r.ns, attrName, tok.AttrNameColon(i), scopeDepth, line, column)
 				if err != nil {
 					return StringEvent{}, err
 				}
-				value, err := r.attrValueString(attr.Value, attr.ValueNeeds)
+				value, err := r.attrValueString(tok.AttrValue(i), tok.AttrValueNeeds(i))
 				if err != nil {
 					return StringEvent{}, wrapSyntaxError(r.dec, line, column, err)
 				}
@@ -213,7 +208,7 @@ func (r *StringReader) Next() (StringEvent, error) {
 			}, nil
 
 		case xmltext.KindCharData, xmltext.KindCDATA:
-			text, err := r.textBytes(tok)
+			text, err := r.textBytes(tok.Text, tok.TextNeeds)
 			if err != nil {
 				return StringEvent{}, wrapSyntaxError(r.dec, line, column, err)
 			}
@@ -303,13 +298,13 @@ func (r *StringReader) attrValueString(value []byte, needsUnescape bool) (string
 	return string(bytes), nil
 }
 
-func (r *StringReader) textBytes(tok *xmltext.Token) ([]byte, error) {
-	if !tok.TextNeeds {
-		return tok.Text, nil
+func (r *StringReader) textBytes(text []byte, needsUnescape bool) ([]byte, error) {
+	if !needsUnescape {
+		return text, nil
 	}
 	var out []byte
 	var err error
-	r.valueBuf, out, err = decodeTextBytes(r.dec, r.valueBuf, tok.Text)
+	r.valueBuf, out, err = decodeTextBytes(r.dec, r.valueBuf, text)
 	if err != nil {
 		return nil, err
 	}

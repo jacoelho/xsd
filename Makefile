@@ -29,7 +29,7 @@ testdata: testdata/xsdtests
 
 .PHONY: w3c
 w3c: testdata/xsdtests
-	go test -timeout 2m -run ^TestW3CConformance github.com/jacoelho/xsd/w3c --count=1
+	go test -timeout 2m -tags w3c -run ^TestW3CConformance github.com/jacoelho/xsd/w3c --count=1
 
 .PHONY: test
 test: testdata/xsdtests

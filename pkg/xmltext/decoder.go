@@ -237,6 +237,10 @@ func (d *Decoder) ReadTokenInto(dst *Token) error {
 	dst.IsXMLDecl = raw.isXMLDecl
 	dst.TextNeeds = raw.textNeeds
 	dst.nameBuf, dst.Name = appendSpanBytes(dst.nameBuf, raw.name.Full)
+	dst.NameColon = -1
+	if raw.name.HasPrefix {
+		dst.NameColon = raw.name.Prefix.End - raw.name.Prefix.Start
+	}
 	dst.textBuf, dst.Text = appendSpanBytes(dst.textBuf, raw.text)
 	if raw.kind != KindStartElement {
 		dst.Attrs = nil
@@ -249,13 +253,109 @@ func (d *Decoder) ReadTokenInto(dst *Token) error {
 		var dstValue []byte
 		dst.attrNameBuf, dstName = appendSpanBytes(dst.attrNameBuf, attr.Name.Full)
 		dst.attrValueBuf, dstValue = appendSpanBytes(dst.attrValueBuf, attr.ValueSpan)
+		attrColon := -1
+		if attr.Name.HasPrefix {
+			attrColon = attr.Name.Prefix.End - attr.Name.Prefix.Start
+		}
 		dst.attrsBuf = append(dst.attrsBuf, Attr{
 			Name:       dstName,
 			Value:      dstValue,
+			NameColon:  attrColon,
 			ValueNeeds: raw.attrNeeds[i],
 		})
 	}
 	dst.Attrs = dst.attrsBuf
+	return nil
+}
+
+// ReadTokenRawInto reads the next XML token into dst without copying token bytes.
+// Slices in dst are valid until the next call that reuses dst.
+func (d *Decoder) ReadTokenRawInto(dst *RawToken) error {
+	if dst == nil {
+		return errNilToken
+	}
+	if d == nil {
+		return errNilReader
+	}
+	if d.err != nil {
+		return d.err
+	}
+	var raw rawToken
+	if err := d.readTokenIntoRaw(&raw); err != nil {
+		return err
+	}
+	dst.resetBuffers()
+	dst.Kind = raw.kind
+	dst.Line = raw.line
+	dst.Column = raw.column
+	dst.IsXMLDecl = raw.isXMLDecl
+	dst.TextNeeds = raw.textNeeds
+	dst.Name = raw.name.Full.bytesUnsafe()
+	dst.NameColon = -1
+	if raw.name.HasPrefix {
+		dst.NameColon = raw.name.Prefix.End - raw.name.Prefix.Start
+	}
+	dst.Text = raw.text.bytesUnsafe()
+	if raw.kind != KindStartElement {
+		dst.Attrs = nil
+		return nil
+	}
+	if cap(dst.attrsBuf) < len(raw.attrs) {
+		dst.attrsBuf = make([]RawAttr, len(raw.attrs))
+	} else {
+		dst.attrsBuf = dst.attrsBuf[:len(raw.attrs)]
+	}
+	for i := range raw.attrs {
+		attr := &raw.attrs[i]
+		nameColon := -1
+		if attr.Name.HasPrefix {
+			nameColon = attr.Name.Prefix.End - attr.Name.Prefix.Start
+		}
+		dst.attrsBuf[i] = RawAttr{
+			Name:       attr.Name.Full.bytesUnsafe(),
+			Value:      attr.ValueSpan.bytesUnsafe(),
+			NameColon:  nameColon,
+			ValueNeeds: raw.attrNeeds[i],
+		}
+	}
+	dst.Attrs = dst.attrsBuf
+	return nil
+}
+
+// ReadTokenRawSpansInto reads the next XML token into dst without converting attributes.
+// Slices are valid until the next call that reuses dst.
+func (d *Decoder) ReadTokenRawSpansInto(dst *RawTokenSpan) error {
+	if dst == nil {
+		return errNilToken
+	}
+	if d == nil {
+		return errNilReader
+	}
+	if d.err != nil {
+		return d.err
+	}
+	var raw rawToken
+	if err := d.readTokenIntoRaw(&raw); err != nil {
+		return err
+	}
+	dst.Kind = raw.kind
+	dst.Line = raw.line
+	dst.Column = raw.column
+	dst.IsXMLDecl = raw.isXMLDecl
+	dst.TextNeeds = raw.textNeeds
+	dst.Name = raw.name.Full.bytesUnsafe()
+	dst.NameColon = -1
+	if raw.name.HasPrefix {
+		dst.NameColon = raw.name.Prefix.End - raw.name.Prefix.Start
+	}
+	dst.Text = raw.text.bytesUnsafe()
+	if raw.kind != KindStartElement {
+		dst.attrs = nil
+		dst.attrNeeds = nil
+		return nil
+	}
+	dst.attrs = raw.attrs
+	dst.attrNeeds = raw.attrNeeds
 	return nil
 }
 

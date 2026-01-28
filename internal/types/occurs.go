@@ -1,6 +1,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 )
@@ -13,24 +14,38 @@ const (
 	occursUnbounded
 )
 
-const maxIntValue = int(^uint(0) >> 1)
+const (
+	maxIntValue    = int(^uint(0) >> 1)
+	maxOccursValue = uint64(^uint32(0))
+)
 
 var (
 	// OccursUnbounded represents maxOccurs="unbounded".
 	OccursUnbounded = Occurs{kind: occursUnbounded}
-	maxIntBig       = big.NewInt(int64(maxIntValue))
+	maxOccursBig    = new(big.Int).SetUint64(maxOccursValue)
+
+	// ErrOccursOverflow indicates occurrence arithmetic overflow.
+	ErrOccursOverflow = errors.New("PARTICLES_OCCURS_OVERFLOW")
+	// ErrOccursTooLarge indicates occurrence values exceed compile limits.
+	ErrOccursTooLarge = errors.New("SCHEMA_OCCURS_TOO_LARGE")
 )
 
 // Occurs represents a non-negative occurrence bound or "unbounded".
 type Occurs struct {
 	big   *big.Int
-	small int
+	small uint32
 	kind  occursKind
 }
 
 // OccursFromInt returns an Occurs value from a non-negative integer.
 func OccursFromInt(value int) Occurs {
-	return Occurs{kind: occursSmall, small: value}
+	if value < 0 {
+		return Occurs{kind: occursBig, big: big.NewInt(int64(value))}
+	}
+	if uint64(value) > maxOccursValue {
+		return Occurs{kind: occursBig, big: new(big.Int).SetUint64(uint64(value))}
+	}
+	return Occurs{kind: occursSmall, small: uint32(value)}
 }
 
 // OccursFromBig returns an Occurs value from a non-negative big integer.
@@ -41,10 +56,10 @@ func OccursFromBig(value *big.Int) (Occurs, error) {
 	if value.Sign() < 0 {
 		return Occurs{}, fmt.Errorf("occurs value must be non-negative")
 	}
-	if value.Cmp(maxIntBig) <= 0 {
-		return Occurs{kind: occursSmall, small: int(value.Int64())}, nil
+	if value.Cmp(maxOccursBig) > 0 {
+		return Occurs{}, fmt.Errorf("%w: occurs value exceeds uint32", ErrOccursOverflow)
 	}
-	return Occurs{kind: occursBig, big: new(big.Int).Set(value)}, nil
+	return Occurs{kind: occursSmall, small: uint32(value.Uint64())}, nil
 }
 
 // IsUnbounded reports whether the occurrence bound is unbounded.
@@ -65,9 +80,17 @@ func (o Occurs) IsOne() bool {
 // Int returns the small integer value and true if it fits in int.
 func (o Occurs) Int() (int, bool) {
 	if o.kind == occursSmall {
-		return o.small, true
+		if uint64(o.small) > uint64(maxIntValue) {
+			return 0, false
+		}
+		return int(o.small), true
 	}
 	return 0, false
+}
+
+// IsOverflow reports whether the occurrence is too large to represent as uint32.
+func (o Occurs) IsOverflow() bool {
+	return o.kind == occursBig
 }
 
 // Cmp compares two occurrence bounds.
@@ -109,10 +132,11 @@ func (o Occurs) CmpInt(value int) int {
 		return 1
 	}
 	if o.kind == occursSmall {
+		v := uint64(value)
 		switch {
-		case o.small < value:
+		case uint64(o.small) < v:
 			return -1
-		case o.small > value:
+		case uint64(o.small) > v:
 			return 1
 		default:
 			return 0
@@ -172,9 +196,11 @@ func AddOccurs(a, b Occurs) Occurs {
 		return OccursUnbounded
 	}
 	if a.kind == occursSmall && b.kind == occursSmall {
-		if a.small <= maxIntValue-b.small {
-			return Occurs{kind: occursSmall, small: a.small + b.small}
+		sum := uint64(a.small) + uint64(b.small)
+		if sum <= maxOccursValue {
+			return Occurs{kind: occursSmall, small: uint32(sum)}
 		}
+		return Occurs{kind: occursBig, big: new(big.Int).SetUint64(sum)}
 	}
 	return Occurs{kind: occursBig, big: addOccursBig(a, b)}
 }
@@ -188,9 +214,11 @@ func MulOccurs(a, b Occurs) Occurs {
 		return OccursUnbounded
 	}
 	if a.kind == occursSmall && b.kind == occursSmall {
-		if a.small <= maxIntValue/b.small {
-			return Occurs{kind: occursSmall, small: a.small * b.small}
+		product := uint64(a.small) * uint64(b.small)
+		if product <= maxOccursValue {
+			return Occurs{kind: occursSmall, small: uint32(product)}
 		}
+		return Occurs{kind: occursBig, big: new(big.Int).SetUint64(product)}
 	}
 	return Occurs{kind: occursBig, big: mulOccursBig(a, b)}
 }
@@ -202,7 +230,7 @@ func (o Occurs) String() string {
 		return "unbounded"
 	case occursBig:
 		if o.big == nil {
-			return "0"
+			return "overflow"
 		}
 		return o.big.String()
 	default:
@@ -230,7 +258,7 @@ func occursBigValue(o Occurs) *big.Int {
 		}
 		return new(big.Int).Set(o.big)
 	case occursSmall:
-		return big.NewInt(int64(o.small))
+		return new(big.Int).SetUint64(uint64(o.small))
 	default:
 		return big.NewInt(0)
 	}
