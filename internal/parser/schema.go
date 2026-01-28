@@ -63,6 +63,8 @@ type Schema struct {
 	AttributeFormDefault    Form
 	ElementFormDefault      Form
 	BlockDefault            types.DerivationSet
+	// UPAValidated reports whether Unique Particle Attribution was checked for this schema.
+	UPAValidated bool
 }
 
 // NewSchema creates a new empty schema

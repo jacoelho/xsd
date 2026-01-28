@@ -36,9 +36,11 @@ func BuildSchema(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, error) {
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: detect cycles: %w", err)
 	}
-	err = schema.ValidateUPA(sch, reg)
-	if err != nil {
-		return nil, fmt.Errorf("runtime build: validate UPA: %w", err)
+	if !sch.UPAValidated {
+		err = schema.ValidateUPA(sch, reg)
+		if err != nil {
+			return nil, fmt.Errorf("runtime build: validate UPA: %w", err)
+		}
 	}
 	validators, err := CompileValidators(sch, reg)
 	if err != nil {

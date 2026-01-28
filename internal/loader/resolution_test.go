@@ -50,7 +50,7 @@ func TestTwoPhaseResolution_SimpleType(t *testing.T) {
 	}
 }
 
-func TestLoadAndLoadCompiledResolutionParity(t *testing.T) {
+func TestLoadCachesSchema(t *testing.T) {
 	fs := fstest.MapFS{
 		"main.xsd": {
 			Data: []byte(`<?xml version="1.0"?>
@@ -85,20 +85,16 @@ func TestLoadAndLoadCompiledResolutionParity(t *testing.T) {
 	}
 	before := attr.Type
 
-	if _, err := loader.LoadCompiled("main.xsd"); err != nil {
-		t.Fatalf("LoadCompiled error: %v", err)
-	}
-
 	loaded, ok := loader.GetLoaded("main.xsd", types.NamespaceURI("urn:test"))
 	if !ok {
 		t.Fatalf("GetLoaded did not return cached schema")
 	}
 	ctLoaded, ok := loaded.TypeDefs[ctQName].(*types.ComplexType)
 	if !ok || ctLoaded == nil || len(ctLoaded.Attributes()) == 0 {
-		t.Fatalf("expected complex type %s after LoadCompiled", ctQName)
+		t.Fatalf("expected complex type %s after Load", ctQName)
 	}
 	if ctLoaded.Attributes()[0].Type != before {
-		t.Fatalf("attribute type pointer changed after LoadCompiled")
+		t.Fatalf("attribute type pointer changed after Load")
 	}
 }
 

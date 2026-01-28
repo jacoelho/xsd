@@ -61,6 +61,23 @@ func (b *bitset) forEach(f func(int)) {
 	}
 }
 
+func (b *bitset) intersectionIndex(other *bitset) (int, bool) {
+	if b == nil || other == nil {
+		return 0, false
+	}
+	n := len(b.words)
+	if len(other.words) < n {
+		n = len(other.words)
+	}
+	for i := 0; i < n; i++ {
+		w := b.words[i] & other.words[i]
+		if w != 0 {
+			return i*64 + bits.TrailingZeros64(w), true
+		}
+	}
+	return 0, false
+}
+
 func (b *bitset) key() string {
 	if len(b.words) == 0 {
 		return ""

@@ -8,8 +8,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/compiler"
-	"github.com/jacoelho/xsd/internal/grammar"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolver"
 	"github.com/jacoelho/xsd/internal/types"
@@ -343,40 +341,6 @@ func (l *SchemaLoader) LoadResolved(doc io.ReadCloser, systemID string) (*parser
 	}
 	key := l.loadKey(systemID, result.Schema.TargetNamespace)
 	return l.loadParsed(result, systemID, key, validateSchema)
-}
-
-// LoadCompiledResolved loads and compiles a schema from a resolved reader and systemID.
-func (l *SchemaLoader) LoadCompiledResolved(doc io.ReadCloser, systemID string) (*grammar.CompiledSchema, error) {
-	schema, err := l.LoadResolved(doc, systemID)
-	if err != nil {
-		return nil, err
-	}
-	comp := compiler.NewCompiler(schema)
-	compiled, err := comp.Compile()
-	if err != nil {
-		return nil, fmt.Errorf("compile %s: %w", systemID, err)
-	}
-	return compiled, nil
-}
-
-// LoadCompiled loads and compiles a schema from the given location.
-// Returns a CompiledSchema ready for schemacheck.
-// This is the new multi-phase architecture: Parse → Resolve → Compile.
-func (l *SchemaLoader) LoadCompiled(location string) (*grammar.CompiledSchema, error) {
-	// phase 1: Parse (and load includes/imports/redefines)
-	schema, err := l.Load(location)
-	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", location, err)
-	}
-
-	// phase 2: Compile to grammar (resolution already done during Load)
-	comp := compiler.NewCompiler(schema)
-	compiled, err := comp.Compile()
-	if err != nil {
-		return nil, fmt.Errorf("compile %s: %w", location, err)
-	}
-
-	return compiled, nil
 }
 
 // GetLoaded returns a loaded schema by systemID and effective target namespace.
