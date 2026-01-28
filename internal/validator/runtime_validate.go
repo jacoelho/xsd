@@ -24,7 +24,7 @@ func (r sessionResolver) ResolvePrefix(prefix []byte) ([]byte, bool) {
 }
 
 // Validate validates an XML document using the runtime schema.
-func (s *Session) Validate(r io.Reader, entities map[string]struct{}) error {
+func (s *Session) Validate(r io.Reader) error {
 	if s == nil || s.rt == nil {
 		return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrSchemaNotLoaded, "schema not loaded", "")}
 	}
@@ -32,7 +32,6 @@ func (s *Session) Validate(r io.Reader, entities map[string]struct{}) error {
 		return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrXMLParse, "nil reader", "")}
 	}
 	s.Reset()
-	s.entityDecls = entities
 
 	if s.reader == nil {
 		reader, err := xmlstream.NewReader(r)

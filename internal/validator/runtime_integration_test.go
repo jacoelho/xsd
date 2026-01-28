@@ -43,7 +43,7 @@ func TestRuntimeAnyTypeAllowsAnyContent(t *testing.T) {
 	}
 
 	sess := NewSession(rt)
-	if err := sess.Validate(strings.NewReader(doc), nil); err != nil {
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
 		t.Fatalf("validate runtime: %v", err)
 	}
 }

@@ -28,5 +28,5 @@ func validateRuntimeDoc(t *testing.T, schemaXML, docXML string) error {
 
 	schema := mustBuildRuntimeSchema(t, schemaXML)
 	sess := NewSession(schema)
-	return sess.Validate(strings.NewReader(docXML), nil)
+	return sess.Validate(strings.NewReader(docXML))
 }

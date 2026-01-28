@@ -43,17 +43,6 @@ func (s *Schema) Validate(r io.Reader) error {
 	return s.engine.Validate(r)
 }
 
-// ValidateWithEntities validates a document against the schema using declared ENTITY/ENTITIES names.
-func (s *Schema) ValidateWithEntities(r io.Reader, entities map[string]struct{}) error {
-	if s == nil || s.engine == nil {
-		return errors.ValidationList{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}
-	}
-	if r == nil {
-		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, "nil reader", "")}
-	}
-	return s.engine.Validate(r, WithEntities(entities))
-}
-
 // ValidateFile validates an XML file against the schema.
 func (s *Schema) ValidateFile(path string) error {
 	f, err := os.Open(path)
@@ -67,19 +56,4 @@ func (s *Schema) ValidateFile(path string) error {
 	}()
 
 	return s.Validate(f)
-}
-
-// ValidateFileWithEntities validates an XML file against the schema using declared ENTITY/ENTITIES names.
-func (s *Schema) ValidateFileWithEntities(path string, entities map[string]struct{}) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("open xml file %s: %w", path, err)
-	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("close xml file %s: %w", path, closeErr)
-		}
-	}()
-
-	return s.ValidateWithEntities(f, entities)
 }

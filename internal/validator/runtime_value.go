@@ -159,11 +159,6 @@ func (s *Session) canonicalizeValue(meta runtime.ValidatorMeta, normalized []byt
 		if err := validateStringKind(kind, normalized); err != nil {
 			return nil, metrics, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		if kind == runtime.StringEntity {
-			if err := s.validateEntity(normalized); err != nil {
-				return nil, metrics, valueErrorMsg(valueErrInvalid, err.Error())
-			}
-		}
 		canon := s.maybeStore(normalized, opts.storeValue)
 		if opts.trackIDs {
 			if err := s.trackIDs(kind, canon); err != nil {
@@ -372,11 +367,6 @@ func (s *Session) validateValueNoCanonical(meta runtime.ValidatorMeta, normalize
 		}
 		if err := validateStringKind(kind, normalized); err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		if kind == runtime.StringEntity {
-			if err := s.validateEntity(normalized); err != nil {
-				return nil, valueErrorMsg(valueErrInvalid, err.Error())
-			}
 		}
 		canon := s.maybeStore(normalized, opts.storeValue)
 		if opts.trackIDs {
@@ -998,16 +988,6 @@ func trimLeftZeros(b []byte) []byte {
 		b = b[1:]
 	}
 	return b
-}
-
-func (s *Session) validateEntity(valueBytes []byte) error {
-	if s == nil || len(s.entityDecls) == 0 {
-		return nil
-	}
-	if _, ok := s.entityDecls[string(valueBytes)]; !ok {
-		return valueErrorMsg(valueErrInvalid, "ENTITY value does not reference a declared entity")
-	}
-	return nil
 }
 
 func (s *Session) trackIDs(kind runtime.StringKind, canonical []byte) error {

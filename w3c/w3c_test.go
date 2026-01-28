@@ -1138,7 +1138,7 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 		}
 
 		sess := validator.NewSession(schema)
-		err = sess.Validate(file, nil)
+		err = sess.Validate(file)
 		if err != nil {
 			if expected.Validity == "invalid" {
 				return

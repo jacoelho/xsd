@@ -32,9 +32,6 @@ type Session struct {
 // CompileOption configures schema compilation.
 type CompileOption interface{ apply(*compileOptions) }
 
-// ValidateOption configures validation.
-type ValidateOption interface{ apply(*validateOptions) }
-
 // CompileLimits constrain compilation behavior.
 type CompileLimits struct {
 	MaxDFAStates   uint32
@@ -49,22 +46,9 @@ type compileOptions struct {
 	limits                      CompileLimits
 }
 
-type validateOptions struct {
-	entities map[string]struct{}
-}
-
 type compileOptionFunc func(*compileOptions)
 
 func (f compileOptionFunc) apply(cfg *compileOptions) {
-	if cfg == nil {
-		return
-	}
-	f(cfg)
-}
-
-type validateOptionFunc func(*validateOptions)
-
-func (f validateOptionFunc) apply(cfg *validateOptions) {
 	if cfg == nil {
 		return
 	}
@@ -103,13 +87,6 @@ func WithAllowMissingImportLocations(b bool) CompileOption {
 func WithCompileLimits(l CompileLimits) CompileOption {
 	return compileOptionFunc(func(cfg *compileOptions) {
 		cfg.limits = l
-	})
-}
-
-// WithEntities supplies declared ENTITY/ENTITIES names for validation.
-func WithEntities(entities map[string]struct{}) ValidateOption {
-	return validateOptionFunc(func(cfg *validateOptions) {
-		cfg.entities = entities
 	})
 }
 
@@ -174,7 +151,7 @@ func CompileSchema(r io.Reader, opts ...CompileOption) (*Engine, error) {
 }
 
 // Validate validates a document using a pooled session.
-func (e *Engine) Validate(r io.Reader, opts ...ValidateOption) error {
+func (e *Engine) Validate(r io.Reader) error {
 	if e == nil || e.rt == nil {
 		return schemaNotLoadedError()
 	}
@@ -182,9 +159,8 @@ func (e *Engine) Validate(r io.Reader, opts ...ValidateOption) error {
 		return nilReaderError()
 	}
 
-	cfg := applyValidateOptions(opts)
 	session := e.acquire()
-	err := session.Validate(r, cfg.entities)
+	err := session.Validate(r)
 	e.release(session)
 	return err
 }
@@ -201,13 +177,7 @@ func (e *Engine) NewSession() *Session {
 }
 
 // Validate validates a document using this session.
-func (s *Session) Validate(r io.Reader, opts ...ValidateOption) error {
-	cfg := applyValidateOptions(opts)
-	return s.ValidateWithEntities(r, cfg.entities)
-}
-
-// ValidateWithEntities validates a document with declared ENTITY/ENTITIES names.
-func (s *Session) ValidateWithEntities(r io.Reader, entities map[string]struct{}) error {
+func (s *Session) Validate(r io.Reader) error {
 	if s == nil || s.engine == nil || s.engine.rt == nil {
 		return schemaNotLoadedError()
 	}
@@ -217,7 +187,7 @@ func (s *Session) ValidateWithEntities(r io.Reader, entities map[string]struct{}
 	if s.session == nil {
 		s.session = validator.NewSession(s.engine.rt)
 	}
-	return s.session.Validate(r, entities)
+	return s.session.Validate(r)
 }
 
 // Reset clears per-document session state.
@@ -289,14 +259,4 @@ func buildConfigFrom(cfg compileOptions) runtimebuild.BuildConfig {
 		},
 		MaxOccursLimit: limits.MaxOccursLimit,
 	}
-}
-
-func applyValidateOptions(opts []ValidateOption) validateOptions {
-	var cfg validateOptions
-	for _, opt := range opts {
-		if opt != nil {
-			opt.apply(&cfg)
-		}
-	}
-	return cfg
 }

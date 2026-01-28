@@ -46,7 +46,6 @@ type nsDecl struct {
 type Session struct {
 	rt               *runtime.Schema
 	reader           *xmlstream.Reader
-	entityDecls      map[string]struct{}
 	idTable          map[string]struct{}
 	attrPresent      []bool
 	attrAppliedBuf   []AttrApplied
