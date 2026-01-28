@@ -32,6 +32,7 @@ go get github.com/jacoelho/xsd
 ## Schema loading behavior
 - `Load` accepts any `fs.FS`; include/import locations resolve relative to the including schema path.
 - Missing include/import files are ignored when the filesystem returns `fs.ErrNotExist`.
+- `LoadWithOptions` allows optional limits and import handling without expanding the core API surface.
 
 ## Quickstart (in-memory schema)
 
