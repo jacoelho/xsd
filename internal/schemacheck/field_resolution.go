@@ -37,34 +37,6 @@ func parseXPathExpression(expr string, nsContext map[string]string, policy xpath
 	return parsed, nil
 }
 
-type attributePathPolicy int
-
-const (
-	attributeDisallow attributePathPolicy = iota
-	attributeIgnore
-)
-
-func resolveElementDeclsForPaths(schema *parser.Schema, startDecl *types.ElementDecl, paths []xpath.Path, expr string, policy attributePathPolicy, attrErrFmt string, errWrap func(error) error) ([]*types.ElementDecl, error) {
-	var decls []*types.ElementDecl
-	for _, path := range paths {
-		if path.Attribute != nil {
-			if policy == attributeIgnore {
-				continue
-			}
-			return nil, fmt.Errorf(attrErrFmt, expr)
-		}
-		decl, err := resolvePathElementDecl(schema, startDecl, path.Steps)
-		if err != nil {
-			if errWrap != nil {
-				return nil, errWrap(err)
-			}
-			return nil, err
-		}
-		decls = append(decls, decl)
-	}
-	return decls, nil
-}
-
 func isWildcardNodeTest(test xpath.NodeTest) bool {
 	return test.Any || test.Local == "*"
 }
@@ -557,28 +529,6 @@ func resolvePathElementDecl(schema *parser.Schema, startDecl *types.ElementDecl,
 	return current, nil
 }
 
-// findElementTypeDescendant searches for an element at any depth in the content model
-// This is used for descendant axis selectors
-func findElementTypeDescendant(schema *parser.Schema, elementDecl *types.ElementDecl, test xpath.NodeTest) (types.Type, error) {
-	// resolve element's type
-	elementDecl = resolveElementReference(schema, elementDecl)
-	elementType := resolveTypeForValidation(schema, elementDecl.Type)
-	if elementType == nil {
-		return nil, fmt.Errorf("cannot resolve element type")
-	}
-
-	ct, ok := elementType.(*types.ComplexType)
-	if !ok {
-		return nil, fmt.Errorf("element does not have complex type")
-	}
-
-	// search content model recursively for element declaration
-	visited := map[*types.ComplexType]struct{}{
-		ct: {},
-	}
-	return findElementInContentDescendant(schema, ct.Content(), test, visited)
-}
-
 // findElementDeclDescendant searches for an element declaration at any depth in the content model.
 func findElementDeclDescendant(schema *parser.Schema, elementDecl *types.ElementDecl, test xpath.NodeTest) (*types.ElementDecl, error) {
 	elementDecl = resolveElementReference(schema, elementDecl)
@@ -596,31 +546,6 @@ func findElementDeclDescendant(schema *parser.Schema, elementDecl *types.Element
 		ct: {},
 	}
 	return findElementDeclInContentDescendant(schema, ct.Content(), test, visited)
-}
-
-// findElementInContentDescendant searches for an element at any depth in content
-func findElementInContentDescendant(schema *parser.Schema, content types.Content, test xpath.NodeTest, visited map[*types.ComplexType]struct{}) (types.Type, error) {
-	switch c := content.(type) {
-	case *types.ElementContent:
-		if c.Particle != nil {
-			return findElementInParticleDescendant(schema, c.Particle, test, visited)
-		}
-	case *types.SimpleContent:
-		return nil, fmt.Errorf("element '%s' not found in simple content", formatNodeTest(test))
-	case *types.ComplexContent:
-		if c.Extension != nil && c.Extension.Particle != nil {
-			if typ, err := findElementInParticleDescendant(schema, c.Extension.Particle, test, visited); err == nil {
-				return typ, nil
-			}
-		}
-		if c.Restriction != nil && c.Restriction.Particle != nil {
-			return findElementInParticleDescendant(schema, c.Restriction.Particle, test, visited)
-		}
-	case *types.EmptyContent:
-		return nil, fmt.Errorf("element '%s' not found in empty content", formatNodeTest(test))
-	}
-
-	return nil, fmt.Errorf("element '%s' not found in content model", formatNodeTest(test))
 }
 
 // findElementDeclInContentDescendant searches for an element declaration at any depth in content.
@@ -646,55 +571,6 @@ func findElementDeclInContentDescendant(schema *parser.Schema, content types.Con
 	}
 
 	return nil, fmt.Errorf("element '%s' not found in content model", formatNodeTest(test))
-}
-
-// findElementInParticleDescendant searches for an element at any depth in a particle tree
-// This recursively searches through all nested particles
-func findElementInParticleDescendant(schema *parser.Schema, particle types.Particle, test xpath.NodeTest, visited map[*types.ComplexType]struct{}) (types.Type, error) {
-	switch p := particle.(type) {
-	case *types.ElementDecl:
-		elem := resolveElementReference(schema, p)
-		// found an element declaration
-		if nodeTestMatchesQName(test, elem.Name) {
-			resolvedType := resolveTypeForValidation(schema, elem.Type)
-			if resolvedType == nil {
-				return nil, fmt.Errorf("cannot resolve element type for '%s'", formatNodeTest(test))
-			}
-			return resolvedType, nil
-		}
-		// even if name doesn't match, if this element has complex type, search its content
-		if elem.Type != nil {
-			if resolvedType := resolveTypeForValidation(schema, elem.Type); resolvedType != nil {
-				if ct, ok := resolvedType.(*types.ComplexType); ok {
-					if _, seen := visited[ct]; !seen {
-						visited[ct] = struct{}{}
-						if typ, err := findElementInContentDescendant(schema, ct.Content(), test, visited); err == nil {
-							return typ, nil
-						}
-					}
-				}
-			}
-		}
-	case *types.ModelGroup:
-		// search in model group particles recursively
-		var unresolvedErr error
-		for _, childParticle := range p.Particles {
-			if typ, err := findElementInParticleDescendant(schema, childParticle, test, visited); err == nil {
-				return typ, nil
-			} else if errors.Is(err, ErrXPathUnresolvable) && unresolvedErr == nil {
-				unresolvedErr = err
-			}
-		}
-		if unresolvedErr != nil {
-			return nil, unresolvedErr
-		}
-		return nil, fmt.Errorf("element '%s' not found in model group", formatNodeTest(test))
-	case *types.AnyElement:
-		// wildcard - cannot determine specific element type
-		return nil, fmt.Errorf("%w: wildcard element", ErrXPathUnresolvable)
-	}
-
-	return nil, fmt.Errorf("element '%s' not found in particle", formatNodeTest(test))
 }
 
 // findElementDeclInParticleDescendant searches for an element declaration at any depth in a particle tree.
@@ -893,52 +769,6 @@ func findAttributeTypeInParticleDescendant(schema *parser.Schema, particle types
 	}
 
 	return nil, fmt.Errorf("attribute '%s' not found in particle", formatNodeTest(test))
-}
-
-// resolveFieldElementDeclPath resolves a field element path to an element declaration.
-func resolveFieldElementDeclPath(schema *parser.Schema, elementDecl *types.ElementDecl, elementPath string, nsContext map[string]string) (*types.ElementDecl, error) {
-	expr, err := parseXPathExpression(elementPath, nsContext, xpath.AttributesDisallowed)
-	if err != nil {
-		return nil, err
-	}
-	var baseDecl *types.ElementDecl
-	var baseType types.Type
-	decls, err := resolveElementDeclsForPaths(schema, elementDecl, expr.Paths, elementPath, attributeDisallow, "field xpath cannot select attributes: %s", nil)
-	if err != nil {
-		return nil, err
-	}
-	for _, decl := range decls {
-		if decl.Nillable {
-			return nil, ErrFieldSelectsNillable
-		}
-		if baseDecl == nil {
-			baseDecl = decl
-			baseType = resolveTypeForValidation(schema, decl.Type)
-			continue
-		}
-		declType := resolveTypeForValidation(schema, decl.Type)
-		if !elementTypesCompatible(baseType, declType) {
-			return nil, fmt.Errorf("%w: field xpath resolves to incompatible element types: %s", ErrFieldXPathIncompatibleTypes, elementPath)
-		}
-	}
-	if baseDecl == nil {
-		return nil, fmt.Errorf("cannot resolve field element")
-	}
-	return baseDecl, nil
-}
-
-// resolveFieldElementType resolves the element type from a field element path.
-// Handles both simple element names and nested paths like "part" or "orders/order".
-func resolveFieldElementType(schema *parser.Schema, elementDecl *types.ElementDecl, elementPath string, nsContext map[string]string) (types.Type, error) {
-	decl, err := resolveFieldElementDeclPath(schema, elementDecl, elementPath, nsContext)
-	if err != nil {
-		return nil, err
-	}
-	elementType := resolveTypeForValidation(schema, decl.Type)
-	if elementType == nil {
-		return nil, fmt.Errorf("cannot resolve element type")
-	}
-	return elementType, nil
 }
 
 // findElementDecl finds an element declaration in an element's content model.

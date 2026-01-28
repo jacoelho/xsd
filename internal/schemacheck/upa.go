@@ -136,7 +136,7 @@ func (c *upaChecker) elementPositionsOverlap(left, right models.Position) bool {
 	return false
 }
 
-func (c *upaChecker) elementWildcardOverlap(elem models.Position, wildcard models.Position) bool {
+func (c *upaChecker) elementWildcardOverlap(elem, wildcard models.Position) bool {
 	if elem.Element == nil || wildcard.Wildcard == nil {
 		return false
 	}
