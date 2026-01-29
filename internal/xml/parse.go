@@ -27,7 +27,7 @@ func ParseInto(r io.Reader, doc *Document) error {
 
 	decoder, err := xmlstream.NewReader(r)
 	if err != nil {
-		return err
+		return fmt.Errorf("xml reader: %w", err)
 	}
 
 	doc.reset()
@@ -42,7 +42,7 @@ func ParseInto(r io.Reader, doc *Document) error {
 			break
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("xml read: %w", err)
 		}
 
 		switch event.Kind {
