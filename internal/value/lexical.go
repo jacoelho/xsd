@@ -1,6 +1,7 @@
 package value
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"unicode/utf8"
@@ -116,7 +117,7 @@ func ValidateAnyURI(value []byte) error {
 		}
 		i += 2
 	}
-	if idx := indexByte(value, ':'); idx >= 0 {
+	if idx := bytes.IndexByte(value, ':'); idx >= 0 {
 		delimiter := indexAny(value, "/?#")
 		if delimiter == -1 || idx < delimiter {
 			if idx == 0 {
