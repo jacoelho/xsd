@@ -173,9 +173,13 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 	if opts.storeValue || opts.needKey {
 		needsCanonical = true
 	}
-	// only force key computation for unions with enums (they check enum membership inline)
-	// for atomic types, keys are computed lazily in applyFacets if needed
-	needKey := opts.needKey || opts.storeValue || (meta.Kind == runtime.VUnion && meta.Flags&runtime.ValidatorHasEnum != 0)
+	needEnumKey := meta.Flags&runtime.ValidatorHasEnum != 0
+	if metrics == nil && needEnumKey {
+		var localMetrics valueMetrics
+		metrics = &localMetrics
+	}
+	// for atomic types, keys can be computed lazily in applyFacets when metrics is nil
+	needKey := opts.needKey || opts.storeValue || needEnumKey
 	if !needsCanonical {
 		return s.validateValueNoCanonical(meta, normalized, resolver, opts)
 	}

@@ -664,6 +664,65 @@ func TestEnumCanonicalizationQNamePrefixEquality(t *testing.T) {
 	}
 }
 
+func TestRuntimeEnumListWithoutMetrics(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="IntList">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="IntListEnum">
+    <xs:restriction base="IntList">
+      <xs:enumeration value="1 2 3"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="IntListEnum"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	doc := `<root>1 2 3</root>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("expected list enum to validate: %v", err)
+	}
+
+	sess.Reset()
+	doc2 := `<root>1 2 4</root>`
+	if err := sess.Validate(strings.NewReader(doc2)); err == nil {
+		t.Fatalf("expected list enum violation")
+	}
+}
+
+func TestRuntimeEnumUnionWithoutMetrics(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="UnionType">
+    <xs:union memberTypes="xs:int xs:boolean"/>
+  </xs:simpleType>
+  <xs:simpleType name="UnionEnum">
+    <xs:restriction base="UnionType">
+      <xs:enumeration value="1"/>
+      <xs:enumeration value="true"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="UnionEnum"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	doc := `<root>true</root>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("expected union enum to validate: %v", err)
+	}
+
+	sess.Reset()
+	doc2 := `<root>false</root>`
+	if err := sess.Validate(strings.NewReader(doc2)); err == nil {
+		t.Fatalf("expected union enum violation")
+	}
+}
+
 func TestXmlnsAppliedBeforeXsiType(t *testing.T) {
 	// Per refactor.md §7.1 and §12.1 item 5:
 	// Namespace declarations on a start tag MUST be applied BEFORE
