@@ -347,7 +347,10 @@ func effectiveAttributeQName(schema *parser.Schema, attr *types.AttributeDecl) t
 		}
 	}
 	if form == types.FormQualified {
-		ns := schema.TargetNamespace
+		ns := types.NamespaceEmpty
+		if schema != nil {
+			ns = schema.TargetNamespace
+		}
 		if !attr.SourceNamespace.IsEmpty() {
 			ns = attr.SourceNamespace
 		}
