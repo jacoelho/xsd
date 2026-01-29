@@ -724,9 +724,9 @@ func (s *SimpleType) SetQNameOrNotationType(value bool) {
 		return
 	}
 	typeCacheMu.Lock()
+	defer typeCacheMu.Unlock()
 	s.qnameOrNotation = value
 	s.qnameOrNotationReady = true
-	typeCacheMu.Unlock()
 }
 
 func (s *SimpleType) computeQNameOrNotationType() bool {
