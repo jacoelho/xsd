@@ -1,6 +1,7 @@
 package validator
 
 import (
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -31,15 +32,31 @@ type elemFrame struct {
 }
 
 type nsFrame struct {
-	off uint32
-	len uint32
+	off      uint32
+	len      uint32
+	cacheOff uint32
 }
 
 type nsDecl struct {
+	prefixOff  uint32
+	prefixLen  uint32
+	nsOff      uint32
+	nsLen      uint32
+	prefixHash uint64
+}
+
+type prefixEntry struct {
+	hash      uint64
 	prefixOff uint32
 	prefixLen uint32
 	nsOff     uint32
 	nsLen     uint32
+	ok        bool
+}
+
+type attrSeenEntry struct {
+	hash uint64
+	idx  uint32
 }
 
 // Session holds per-document runtime validation state.
@@ -56,12 +73,17 @@ type Session struct {
 	elemStack        []elemFrame
 	normBuf          []byte
 	errBuf           []byte
+	validationErrors []xsderrors.Validation
 	nameLocal        []byte
 	nameNS           []byte
 	textBuf          []byte
+	keyBuf           []byte
+	keyTmp           []byte
 	nsDecls          []nsDecl
 	idRefs           []string
 	nsStack          []nsFrame
+	prefixCache      []prefixEntry
+	attrSeenTable    []attrSeenEntry
 	icState          identityState
 }
 
@@ -78,22 +100,32 @@ func (s *Session) Reset() {
 	s.elemStack = s.elemStack[:0]
 	s.nsStack = s.nsStack[:0]
 	s.nsDecls = s.nsDecls[:0]
+	s.prefixCache = s.prefixCache[:0]
 	s.nameMap = s.nameMap[:0]
 	s.nameLocal = s.nameLocal[:0]
 	s.nameNS = s.nameNS[:0]
 	s.textBuf = s.textBuf[:0]
+	s.keyBuf = s.keyBuf[:0]
+	s.keyTmp = s.keyTmp[:0]
 	s.normBuf = s.normBuf[:0]
 	s.errBuf = s.errBuf[:0]
+	s.validationErrors = s.validationErrors[:0]
 	s.valueBuf = s.valueBuf[:0]
 	s.attrBuf = s.attrBuf[:0]
 	s.attrValidatedBuf = s.attrValidatedBuf[:0]
 	s.attrPresent = s.attrPresent[:0]
 	s.attrAppliedBuf = s.attrAppliedBuf[:0]
+	s.attrSeenTable = s.attrSeenTable[:0]
 	s.icState.reset()
 	if s.idTable != nil {
-		clear(s.idTable)
+		if len(s.idTable) > maxSessionIDTableEntries {
+			s.idTable = nil
+		} else {
+			clear(s.idTable)
+		}
 	}
 	s.idRefs = s.idRefs[:0]
+	s.shrinkBuffers()
 }
 
 func (s *Session) hasIdentityConstraints() bool {

@@ -8,6 +8,7 @@ import (
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestValidatorOrderAndFacetInheritance(t *testing.T) {
@@ -52,12 +53,20 @@ func TestEnumCanonicalizationDecimal(t *testing.T) {
 	compiled, reg := compileSchema(t, schemaXML)
 	id := validatorIDForType(t, reg, compiled, "Dec")
 	enumID := enumIDForValidator(t, compiled, id)
-	values := enumValues(t, compiled, enumID)
-	if len(values) != 1 {
-		t.Fatalf("expected 1 enum value, got %d", len(values))
+	keys := enumKeys(t, compiled, enumID)
+	if len(keys) != 1 {
+		t.Fatalf("expected 1 enum key, got %d", len(keys))
 	}
-	if got := string(values[0]); got != "1.0" {
-		t.Fatalf("expected canonical decimal '1.0', got %q", got)
+	key := keys[0]
+	if key.kind != runtime.VKDecimal {
+		t.Fatalf("expected decimal key kind, got %v", key.kind)
+	}
+	want, err := value.CanonicalDecimalKey([]byte("01"), nil)
+	if err != nil {
+		t.Fatalf("canonical decimal key: %v", err)
+	}
+	if !bytes.Equal(key.bytes, want) {
+		t.Fatalf("expected decimal key %v, got %v", want, key.bytes)
 	}
 }
 
@@ -76,13 +85,17 @@ func TestEnumCanonicalizationQName(t *testing.T) {
 	compiled, reg := compileSchema(t, schemaXML)
 	id := validatorIDForType(t, reg, compiled, "Q")
 	enumID := enumIDForValidator(t, compiled, id)
-	values := enumValues(t, compiled, enumID)
-	if len(values) != 1 {
-		t.Fatalf("expected 1 enum value, got %d", len(values))
+	keys := enumKeys(t, compiled, enumID)
+	if len(keys) != 1 {
+		t.Fatalf("expected 1 enum key, got %d", len(keys))
 	}
 	expected := []byte("urn:ex\x00val")
-	if !bytes.Equal(values[0], expected) {
-		t.Fatalf("expected canonical QName %q, got %q", expected, values[0])
+	key := keys[0]
+	if key.kind != runtime.VKQName {
+		t.Fatalf("expected QName key kind, got %v", key.kind)
+	}
+	if !bytes.Equal(key.bytes, expected) {
+		t.Fatalf("expected canonical QName %q, got %q", expected, key.bytes)
 	}
 }
 
@@ -102,12 +115,68 @@ func TestEnumCanonicalizationUnionOrder(t *testing.T) {
 	compiled, reg := compileSchema(t, schemaXML)
 	id := validatorIDForType(t, reg, compiled, "E")
 	enumID := enumIDForValidator(t, compiled, id)
-	values := enumValues(t, compiled, enumID)
-	if len(values) != 1 {
-		t.Fatalf("expected 1 enum value, got %d", len(values))
+	keys := enumKeys(t, compiled, enumID)
+	if len(keys) != 2 {
+		t.Fatalf("expected 2 enum keys, got %d", len(keys))
 	}
-	if got := string(values[0]); got != "1" {
-		t.Fatalf("expected canonical union value '1', got %q", got)
+	var sawInt, sawString bool
+	for _, key := range keys {
+		switch key.kind {
+		case runtime.VKInteger:
+			want, err := value.CanonicalDecimalKey([]byte("01"), nil)
+			if err != nil {
+				t.Fatalf("canonical integer key: %v", err)
+			}
+			if !bytes.Equal(key.bytes, want) {
+				t.Fatalf("expected integer key %v, got %v", want, key.bytes)
+			}
+			sawInt = true
+		case runtime.VKString:
+			if string(key.bytes) != "01" {
+				t.Fatalf("expected string key %q, got %q", "01", key.bytes)
+			}
+			sawString = true
+		}
+	}
+	if !sawInt || !sawString {
+		t.Fatalf("expected enum keys for int and string, sawInt=%v sawString=%v", sawInt, sawString)
+	}
+}
+
+func TestUnionEnumViolatesUnionPattern_CompileError(t *testing.T) {
+	// Per refactor.md §6.5.2 and §12.1 item 1:
+	// Union with union-level pattern + enumeration where the enum lexical
+	// violates the pattern MUST fail at compile time.
+	schemaXML := `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:int xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="E">
+    <xs:restriction base="U">
+      <xs:pattern value="[a-z]+"/>
+      <xs:enumeration value="123"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`
+
+	sch, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	reg, err := schema.AssignIDs(sch)
+	if err != nil {
+		t.Fatalf("assign ids: %v", err)
+	}
+	if _, err := schema.ResolveReferences(sch, reg); err != nil {
+		t.Fatalf("resolve references: %v", err)
+	}
+	_, err = CompileValidators(sch, reg)
+	if err == nil {
+		t.Fatalf("expected compile error for enum value violating union pattern")
+	}
+	if !strings.Contains(err.Error(), "pattern") && !strings.Contains(err.Error(), "enumeration") {
+		t.Fatalf("expected pattern/enumeration related error, got: %v", err)
 	}
 }
 
@@ -177,7 +246,12 @@ func enumIDForValidator(t *testing.T, compiled *CompiledValidators, id runtime.V
 	return 0
 }
 
-func enumValues(t *testing.T, compiled *CompiledValidators, enumID runtime.EnumID) [][]byte {
+type enumKey struct {
+	kind  runtime.ValueKind
+	bytes []byte
+}
+
+func enumKeys(t *testing.T, compiled *CompiledValidators, enumID runtime.EnumID) []enumKey {
 	t.Helper()
 	if enumID == 0 {
 		t.Fatalf("enum ID is zero")
@@ -187,14 +261,15 @@ func enumValues(t *testing.T, compiled *CompiledValidators, enumID runtime.EnumI
 	}
 	off := compiled.Enums.Off[enumID]
 	ln := compiled.Enums.Len[enumID]
-	values := make([][]byte, 0, ln)
+	out := make([]enumKey, 0, ln)
 	for i := range ln {
-		ref := compiled.Enums.Values[off+i]
+		key := compiled.Enums.Keys[off+i]
+		ref := key.Ref
 		if int(ref.Off+ref.Len) > len(compiled.Values.Blob) {
 			t.Fatalf("value ref out of range")
 		}
-		value := compiled.Values.Blob[ref.Off : ref.Off+ref.Len]
-		values = append(values, append([]byte(nil), value...))
+		val := compiled.Values.Blob[ref.Off : ref.Off+ref.Len]
+		out = append(out, enumKey{kind: key.Kind, bytes: append([]byte(nil), val...)})
 	}
-	return values
+	return out
 }

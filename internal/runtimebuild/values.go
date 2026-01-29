@@ -12,6 +12,10 @@ type valueBuilder struct {
 }
 
 func (b *valueBuilder) add(value []byte) runtime.ValueRef {
+	return b.addWithHash(value, runtime.HashBytes(value))
+}
+
+func (b *valueBuilder) addWithHash(value []byte, hash uint64) runtime.ValueRef {
 	if b.index == nil {
 		b.index = make(map[string]runtime.ValueRef)
 	}
@@ -22,7 +26,7 @@ func (b *valueBuilder) add(value []byte) runtime.ValueRef {
 	ref := runtime.ValueRef{
 		Off:     uint32(len(b.blob)),
 		Len:     uint32(len(value)),
-		Hash:    runtime.HashBytes(value),
+		Hash:    hash,
 		Present: true,
 	}
 	b.blob = append(b.blob, value...)
@@ -37,25 +41,25 @@ func (b *valueBuilder) table() runtime.ValueBlob {
 type enumBuilder struct {
 	off     []uint32
 	len     []uint32
-	values  []runtime.ValueRef
+	keys    []runtime.ValueKey
 	hashOff []uint32
 	hashLen []uint32
 	hashes  []uint64
 	slots   []uint32
 }
 
-func (b *enumBuilder) add(values []runtime.ValueRef) runtime.EnumID {
-	if len(values) == 0 {
+func (b *enumBuilder) add(keys []runtime.ValueKey) runtime.EnumID {
+	if len(keys) == 0 {
 		return 0
 	}
 	b.ensureInit()
 
-	off := uint32(len(b.values))
-	b.values = append(b.values, values...)
+	off := uint32(len(b.keys))
+	b.keys = append(b.keys, keys...)
 	b.off = append(b.off, off)
-	b.len = append(b.len, uint32(len(values)))
+	b.len = append(b.len, uint32(len(keys)))
 
-	tableSize := max(nextPow2(len(values)*2), 1)
+	tableSize := max(nextPow2(len(keys)*2), 1)
 	hashOff := uint32(len(b.hashes))
 	b.hashOff = append(b.hashOff, hashOff)
 	b.hashLen = append(b.hashLen, uint32(tableSize))
@@ -65,8 +69,8 @@ func (b *enumBuilder) add(values []runtime.ValueRef) runtime.EnumID {
 	b.slots = append(b.slots, make([]uint32, tableSize)...)
 
 	mask := uint64(tableSize - 1)
-	for i, ref := range values {
-		h := ref.Hash
+	for i, key := range keys {
+		h := key.Hash
 		slot := int(h & mask)
 		for {
 			idx := start + slot
@@ -85,7 +89,7 @@ func (b *enumBuilder) table() runtime.EnumTable {
 	return runtime.EnumTable{
 		Off:     b.off,
 		Len:     b.len,
-		Values:  b.values,
+		Keys:    b.keys,
 		HashOff: b.hashOff,
 		HashLen: b.hashLen,
 		Hashes:  b.hashes,

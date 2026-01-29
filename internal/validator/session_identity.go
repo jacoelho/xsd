@@ -15,7 +15,7 @@ type identityState struct {
 	frames     []rtIdentityFrame
 	scopes     []rtIdentityScope
 	violations []error
-	completed  []rtIdentityScopeResult
+	pending    []error
 	nextNodeID uint64
 	active     bool
 }
@@ -32,7 +32,9 @@ type identityStartInput struct {
 
 type identityEndInput struct {
 	Text      []byte
+	KeyBytes  []byte
 	TextState TextState
+	KeyKind   runtime.ValueKind
 }
 
 type rtIdentityFrame struct {
@@ -69,8 +71,9 @@ type rtFieldCapture struct {
 
 type rtFieldState struct {
 	nodes    map[rtFieldNodeKey]struct{}
-	value    []byte
+	keyBytes []byte
 	count    int
+	keyKind  runtime.ValueKind
 	multiple bool
 	missing  bool
 	invalid  bool
@@ -106,13 +109,14 @@ type rtConstraintState struct {
 	fields     [][]runtime.PathID
 	rows       []rtIdentityRow
 	keyrefRows []rtIdentityRow
+	violations []error
 	id         runtime.ICID
 	referenced runtime.ICID
 	category   runtime.ICCategory
 }
 
 type rtIdentityRow struct {
-	values [][]byte
+	values []ic.Key
 	hash   uint64
 }
 
@@ -123,25 +127,13 @@ type rtIdentityScope struct {
 	rootElem    runtime.ElemID
 }
 
-type rtIdentityScopeResult struct {
-	constraints []rtConstraintResult
-	rootElem    runtime.ElemID
-}
-
-type rtConstraintResult struct {
-	rows       []rtIdentityRow
-	keyrefs    []rtIdentityRow
-	id         runtime.ICID
-	referenced runtime.ICID
-	category   runtime.ICCategory
-}
-
 type rtIdentityAttr struct {
-	nsBytes []byte
-	local   []byte
-	value   []byte
-	sym     runtime.SymbolID
-	ns      runtime.NamespaceID
+	nsBytes  []byte
+	local    []byte
+	keyBytes []byte
+	sym      runtime.SymbolID
+	ns       runtime.NamespaceID
+	keyKind  runtime.ValueKind
 }
 
 func (s *Session) identityStart(in identityStartInput) error {
@@ -167,7 +159,7 @@ func (s *identityState) reset() {
 	s.frames = s.frames[:0]
 	s.scopes = s.scopes[:0]
 	s.violations = s.violations[:0]
-	s.completed = s.completed[:0]
+	s.pending = s.pending[:0]
 }
 
 func (s *identityState) start(rt *runtime.Schema, in identityStartInput) error {
@@ -226,7 +218,7 @@ func (s *identityState) end(rt *runtime.Schema, in identityEndInput) error {
 		return fmt.Errorf("identity: element %d not found", frame.elem)
 	}
 
-	s.applyFieldCaptures(rt, frame, elem, in)
+	s.applyFieldCaptures(frame, elem, in)
 	s.finalizeMatches(frame)
 	s.closeScopes(frame.id)
 
@@ -435,12 +427,17 @@ func (s *identityState) addAttributeValue(state *rtFieldState, elemID uint64, at
 		state.multiple = true
 		return
 	}
-	state.value = append(state.value[:0], attr.value...)
+	if attr.keyKind == runtime.VKInvalid {
+		state.invalid = true
+		return
+	}
+	state.keyKind = attr.keyKind
+	state.keyBytes = append(state.keyBytes[:0], attr.keyBytes...)
 	state.hasValue = true
 }
 
-func (s *identityState) applyFieldCaptures(rt *runtime.Schema, frame *rtIdentityFrame, elem *runtime.Element, in identityEndInput) {
-	value, ok := elementValue(rt, frame, elem, in)
+func (s *identityState) applyFieldCaptures(frame *rtIdentityFrame, elem *runtime.Element, in identityEndInput) {
+	kind, key, ok := elementValueKey(frame, elem, in)
 	for _, capture := range frame.captures {
 		match := capture.match
 		if match.invalid {
@@ -454,7 +451,12 @@ func (s *identityState) applyFieldCaptures(rt *runtime.Schema, frame *rtIdentity
 			fieldState.missing = true
 			continue
 		}
-		fieldState.value = append(fieldState.value[:0], value...)
+		if kind == runtime.VKInvalid {
+			fieldState.invalid = true
+			continue
+		}
+		fieldState.keyKind = kind
+		fieldState.keyBytes = append(fieldState.keyBytes[:0], key...)
 		fieldState.hasValue = true
 	}
 }
@@ -472,24 +474,24 @@ func (s *identityState) finalizeMatches(frame *rtIdentityFrame) {
 
 func (s *identityState) finalizeSelectorMatch(match *rtSelectorMatch) {
 	state := match.constraint
-	values := make([][]byte, 0, len(match.fields))
+	values := make([]ic.Key, 0, len(match.fields))
 	for i := range match.fields {
 		field := match.fields[i]
 		switch {
 		case field.multiple:
-			s.violations = append(s.violations, identityViolation(state.category, "identity constraint field selects multiple nodes"))
+			state.violations = append(state.violations, identityViolation(state.category, "identity constraint field selects multiple nodes"))
 			return
 		case field.count == 0 || field.missing:
 			if state.category == runtime.ICUnique || state.category == runtime.ICKeyRef {
 				return
 			}
-			s.violations = append(s.violations, identityViolation(state.category, "identity constraint field is missing"))
+			state.violations = append(state.violations, identityViolation(state.category, "identity constraint field is missing"))
 			return
 		case field.invalid || !field.hasValue:
-			s.violations = append(s.violations, identityViolation(state.category, "identity constraint field selects non-simple content"))
+			state.violations = append(state.violations, identityViolation(state.category, "identity constraint field selects non-simple content"))
 			return
 		default:
-			values = append(values, append([]byte(nil), field.value...))
+			values = append(values, ic.Key{Kind: field.keyKind, Bytes: append([]byte(nil), field.keyBytes...)})
 		}
 	}
 	row := rtIdentityRow{values: values, hash: ic.HashRow(values)}
@@ -520,27 +522,32 @@ func (s *identityState) closeScopes(frameID uint64) {
 			i++
 			continue
 		}
-		s.resolveScope(scope)
-		s.completed = append(s.completed, scopeResult(*scope))
+		s.appendScopeViolations(scope)
 		s.scopes = append(s.scopes[:i], s.scopes[i+1:]...)
 	}
 }
 
-func scopeResult(scope rtIdentityScope) rtIdentityScopeResult {
-	result := rtIdentityScopeResult{
-		rootElem:    scope.rootElem,
-		constraints: make([]rtConstraintResult, len(scope.constraints)),
+func (s *identityState) appendScopeViolations(scope *rtIdentityScope) {
+	if s == nil || scope == nil {
+		return
 	}
-	for i, constraint := range scope.constraints {
-		result.constraints[i] = rtConstraintResult{
-			id:         constraint.id,
-			category:   constraint.category,
-			referenced: constraint.referenced,
-			rows:       append([]rtIdentityRow(nil), constraint.rows...),
-			keyrefs:    append([]rtIdentityRow(nil), constraint.keyrefRows...),
+	for i := range scope.constraints {
+		if len(scope.constraints[i].violations) > 0 {
+			s.pending = append(s.pending, scope.constraints[i].violations...)
 		}
 	}
-	return result
+	if errs := resolveScopeErrors(scope); len(errs) > 0 {
+		s.pending = append(s.pending, errs...)
+	}
+}
+
+func (s *identityState) drainPending() []error {
+	if s == nil || len(s.pending) == 0 {
+		return nil
+	}
+	out := s.pending
+	s.pending = s.pending[:0]
+	return out
 }
 
 func sliceElemICs(rt *runtime.Schema, elem *runtime.Element) ([]runtime.ICID, error) {
@@ -763,11 +770,12 @@ func collectIdentityAttrs(rt *runtime.Schema, attrs []StartAttr, applied []AttrA
 			nsBytes = rt.Namespaces.Bytes(attr.NS)
 		}
 		out = append(out, rtIdentityAttr{
-			sym:     attr.Sym,
-			ns:      attr.NS,
-			nsBytes: nsBytes,
-			local:   local,
-			value:   attr.Value,
+			sym:      attr.Sym,
+			ns:       attr.NS,
+			nsBytes:  nsBytes,
+			local:    local,
+			keyKind:  attr.KeyKind,
+			keyBytes: attr.KeyBytes,
 		})
 	}
 	for _, ap := range applied {
@@ -779,11 +787,12 @@ func collectIdentityAttrs(rt *runtime.Schema, attrs []StartAttr, applied []AttrA
 			nsID = rt.Symbols.NS[ap.Name]
 		}
 		out = append(out, rtIdentityAttr{
-			sym:     ap.Name,
-			ns:      nsID,
-			nsBytes: rt.Namespaces.Bytes(nsID),
-			local:   rt.Symbols.LocalBytes(ap.Name),
-			value:   valueBytes(rt.Values, ap.Value),
+			sym:      ap.Name,
+			ns:       nsID,
+			nsBytes:  rt.Namespaces.Bytes(nsID),
+			local:    rt.Symbols.LocalBytes(ap.Name),
+			keyKind:  ap.KeyKind,
+			keyBytes: ap.KeyBytes,
 		})
 	}
 	return out
@@ -860,38 +869,17 @@ func isSimpleContent(rt *runtime.Schema, typeID runtime.TypeID) bool {
 	}
 }
 
-func elementValue(rt *runtime.Schema, frame *rtIdentityFrame, elem *runtime.Element, in identityEndInput) ([]byte, bool) {
+func elementValueKey(frame *rtIdentityFrame, elem *runtime.Element, in identityEndInput) (runtime.ValueKind, []byte, bool) {
 	if elem == nil {
-		return nil, false
+		return runtime.VKInvalid, nil, false
 	}
 	if frame.nilled {
-		return nil, false
+		return runtime.VKInvalid, nil, false
 	}
-	if in.TextState.HasText || frame.hasChildElements || !isSimpleContent(rt, frame.typ) {
-		return append([]byte(nil), in.Text...), true
+	if in.KeyKind == runtime.VKInvalid {
+		return runtime.VKInvalid, nil, true
 	}
-	if elem.Fixed.Present {
-		return append([]byte(nil), valueBytes(rt.Values, elem.Fixed)...), true
-	}
-	if elem.Default.Present {
-		return append([]byte(nil), valueBytes(rt.Values, elem.Default)...), true
-	}
-	return append([]byte(nil), in.Text...), true
-}
-
-func valueBytes(values runtime.ValueBlob, ref runtime.ValueRef) []byte {
-	if !ref.Present {
-		return nil
-	}
-	if ref.Len == 0 {
-		return []byte{}
-	}
-	start := int(ref.Off)
-	end := start + int(ref.Len)
-	if start < 0 || end < 0 || end > len(values.Blob) {
-		return nil
-	}
-	return values.Blob[start:end]
+	return in.KeyKind, in.KeyBytes, true
 }
 
 func elementByID(rt *runtime.Schema, id runtime.ElemID) (*runtime.Element, bool) {

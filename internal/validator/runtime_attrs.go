@@ -10,9 +10,11 @@ import (
 )
 
 type AttrApplied struct {
-	Value runtime.ValueRef
-	Name  runtime.SymbolID
-	Fixed bool
+	KeyBytes []byte
+	Value    runtime.ValueRef
+	Name     runtime.SymbolID
+	Fixed    bool
+	KeyKind  runtime.ValueKind
 }
 
 type AttrResult struct {
@@ -41,6 +43,8 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 			result.Attrs = make([]StartAttr, 0, len(attrs))
 			for _, attr := range attrs {
 				attr.Value = s.storeValue(attr.Value)
+				attr.KeyKind = runtime.VKInvalid
+				attr.KeyBytes = nil
 				result.Attrs = append(result.Attrs, attr)
 			}
 		}
@@ -72,18 +76,16 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 	}
 	seenID := false
 
-	for i := range attrs {
-		for j := i + 1; j < len(attrs); j++ {
-			if s.attrNamesEqual(&attrs[i], &attrs[j]) {
-				return AttrResult{}, newValidationError(xsderrors.ErrXMLParse, "duplicate attribute")
-			}
-		}
+	if err := s.checkDuplicateAttrs(attrs); err != nil {
+		return AttrResult{}, err
 	}
 
 	for _, attr := range attrs {
 		if s.isXsiAttribute(&attr) {
 			if storeAttrs {
 				attr.Value = s.storeValue(attr.Value)
+				attr.KeyKind = runtime.VKInvalid
+				attr.KeyBytes = nil
 				validated = append(validated, attr)
 			}
 			continue
@@ -94,7 +96,7 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 				if use.Use == runtime.AttrProhibited {
 					return AttrResult{}, newValidationError(xsderrors.ErrAttributeProhibited, "attribute prohibited")
 				}
-				canon, err := s.validateValueInternalOptions(use.Validator, attr.Value, resolver, valueOptions{
+				canon, metrics, err := s.validateValueInternalWithMetrics(use.Validator, attr.Value, resolver, valueOptions{
 					applyWhitespace:  true,
 					trackIDs:         true,
 					requireCanonical: use.Fixed.Present,
@@ -111,6 +113,8 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 				}
 				if storeAttrs {
 					attr.Value = canon
+					attr.KeyKind = metrics.keyKind
+					attr.KeyBytes = metrics.keyBytes
 				}
 				if use.Fixed.Present {
 					fixed := valueBytes(s.rt.Values, use.Fixed)
@@ -140,6 +144,8 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 		case runtime.PCSkip:
 			if storeAttrs {
 				attr.Value = s.storeValue(attr.Value)
+				attr.KeyKind = runtime.VKInvalid
+				attr.KeyBytes = nil
 				validated = append(validated, attr)
 			}
 			continue
@@ -150,6 +156,8 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 				}
 				if storeAttrs {
 					attr.Value = s.storeValue(attr.Value)
+					attr.KeyKind = runtime.VKInvalid
+					attr.KeyBytes = nil
 					validated = append(validated, attr)
 				}
 				continue
@@ -161,6 +169,8 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 				}
 				if storeAttrs {
 					attr.Value = s.storeValue(attr.Value)
+					attr.KeyKind = runtime.VKInvalid
+					attr.KeyBytes = nil
 					validated = append(validated, attr)
 				}
 				continue
@@ -169,7 +179,7 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 				return AttrResult{}, fmt.Errorf("attribute %d out of range", id)
 			}
 			globalAttr := s.rt.Attributes[id]
-			canon, err := s.validateValueInternalOptions(globalAttr.Validator, attr.Value, resolver, valueOptions{
+			canon, metrics, err := s.validateValueInternalWithMetrics(globalAttr.Validator, attr.Value, resolver, valueOptions{
 				applyWhitespace:  true,
 				trackIDs:         true,
 				requireCanonical: globalAttr.Fixed.Present,
@@ -186,6 +196,8 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 			}
 			if storeAttrs {
 				attr.Value = canon
+				attr.KeyKind = metrics.keyKind
+				attr.KeyBytes = metrics.keyBytes
 			}
 			if globalAttr.Fixed.Present {
 				fixed := valueBytes(s.rt.Values, globalAttr.Fixed)
@@ -222,7 +234,21 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 			if err := s.trackDefaultValue(use.Validator, valueBytes(s.rt.Values, use.Fixed)); err != nil {
 				return AttrResult{}, err
 			}
-			applied = append(applied, AttrApplied{Name: use.Name, Value: use.Fixed, Fixed: true})
+			if storeAttrs {
+				kind, key, err := s.keyForCanonicalValue(use.Validator, valueBytes(s.rt.Values, use.Fixed))
+				if err != nil {
+					return AttrResult{}, err
+				}
+				applied = append(applied, AttrApplied{
+					Name:     use.Name,
+					Value:    use.Fixed,
+					Fixed:    true,
+					KeyKind:  kind,
+					KeyBytes: s.storeKey(key),
+				})
+			} else {
+				applied = append(applied, AttrApplied{Name: use.Name, Value: use.Fixed, Fixed: true})
+			}
 			continue
 		}
 		if use.Default.Present {
@@ -235,7 +261,20 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 			if err := s.trackDefaultValue(use.Validator, valueBytes(s.rt.Values, use.Default)); err != nil {
 				return AttrResult{}, err
 			}
-			applied = append(applied, AttrApplied{Name: use.Name, Value: use.Default})
+			if storeAttrs {
+				kind, key, err := s.keyForCanonicalValue(use.Validator, valueBytes(s.rt.Values, use.Default))
+				if err != nil {
+					return AttrResult{}, err
+				}
+				applied = append(applied, AttrApplied{
+					Name:     use.Name,
+					Value:    use.Default,
+					KeyKind:  kind,
+					KeyBytes: s.storeKey(key),
+				})
+			} else {
+				applied = append(applied, AttrApplied{Name: use.Name, Value: use.Default})
+			}
 		}
 	}
 
@@ -252,6 +291,63 @@ func (s *Session) attrNamesEqual(a, b *StartAttr) bool {
 		return a.Sym == b.Sym
 	}
 	return bytes.Equal(attrNSBytes(s.rt, a), attrNSBytes(s.rt, b)) && bytes.Equal(a.Local, b.Local)
+}
+
+func (s *Session) checkDuplicateAttrs(attrs []StartAttr) error {
+	if s == nil || len(attrs) < 2 {
+		return nil
+	}
+	const smallAttrDupThreshold = 8
+	if len(attrs) <= smallAttrDupThreshold {
+		for i := range attrs {
+			for j := i + 1; j < len(attrs); j++ {
+				if s.attrNamesEqual(&attrs[i], &attrs[j]) {
+					return newValidationError(xsderrors.ErrXMLParse, "duplicate attribute")
+				}
+			}
+		}
+		return nil
+	}
+	size := nextPow2(len(attrs) * 2)
+	table := s.attrSeenTable
+	if cap(table) < size {
+		table = make([]attrSeenEntry, size)
+	} else {
+		table = table[:size]
+		clear(table)
+	}
+	mask := uint64(size - 1)
+
+	for i := range attrs {
+		nsBytes := attrNSBytes(s.rt, &attrs[i])
+		hash := attrNameHash(nsBytes, attrs[i].Local)
+		slot := int(hash & mask)
+		for {
+			entry := table[slot]
+			if entry.hash == 0 {
+				table[slot] = attrSeenEntry{hash: hash, idx: uint32(i)}
+				break
+			}
+			if entry.hash == hash && s.attrNamesEqual(&attrs[int(entry.idx)], &attrs[i]) {
+				s.attrSeenTable = table
+				return newValidationError(xsderrors.ErrXMLParse, "duplicate attribute")
+			}
+			slot = (slot + 1) & int(mask)
+		}
+	}
+	s.attrSeenTable = table
+	return nil
+}
+
+func nextPow2(n int) int {
+	if n <= 1 {
+		return 1
+	}
+	size := 1
+	for size < n {
+		size <<= 1
+	}
+	return size
 }
 
 func attrNSBytes(rt *runtime.Schema, attr *StartAttr) []byte {
