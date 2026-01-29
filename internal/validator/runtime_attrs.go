@@ -341,6 +341,7 @@ func (s *Session) checkDuplicateAttrs(attrs []StartAttr) error {
 		table = make([]attrSeenEntry, size)
 	} else {
 		table = table[:size]
+		// table is cleared on each use; reuse is safe across calls.
 		clear(table)
 	}
 	mask := uint64(size - 1)
