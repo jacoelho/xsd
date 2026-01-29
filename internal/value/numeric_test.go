@@ -53,3 +53,27 @@ func TestParseDouble(t *testing.T) {
 		t.Fatalf("ParseDouble(NaN) = %v, %v", got, err)
 	}
 }
+
+func TestIsValidDecimalLexicalEmptyInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []byte
+	}{
+		{name: "nil slice", input: nil},
+		{name: "empty slice", input: []byte{}},
+		{name: "sign only plus", input: []byte{'+'}},
+		{name: "sign only minus", input: []byte{'-'}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("isValidDecimalLexical panicked: %v", r)
+				}
+			}()
+			if isValidDecimalLexical(tt.input) {
+				t.Fatalf("isValidDecimalLexical(%v) = true, want false", tt.input)
+			}
+		})
+	}
+}
