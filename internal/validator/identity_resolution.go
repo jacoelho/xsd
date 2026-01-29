@@ -1,15 +1,13 @@
 package validator
 
 import (
-	"fmt"
-
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/ic"
-	"github.com/jacoelho/xsd/internal/runtime"
 )
 
-func (s *identityState) resolveScope(scope *rtIdentityScope) {
-	if s == nil || scope == nil {
-		return
+func resolveScopeErrors(scope *rtIdentityScope) []error {
+	if scope == nil {
+		return nil
 	}
 	constraints := make([]ic.Constraint, len(scope.constraints))
 	for i := range scope.constraints {
@@ -32,18 +30,21 @@ func (s *identityState) resolveScope(scope *rtIdentityScope) {
 	}
 
 	issues := ic.Resolve(constraints)
+	if len(issues) == 0 {
+		return nil
+	}
+	errs := make([]error, 0, len(issues))
 	for _, issue := range issues {
 		switch issue.Kind {
 		case ic.IssueDuplicate:
-			label := "unique"
-			if issue.Category == runtime.ICKey {
-				label = "key"
-			}
-			s.violations = append(s.violations, fmt.Errorf("identity: duplicate %s value", label))
-		case ic.IssueKeyrefUndefined:
-			s.violations = append(s.violations, fmt.Errorf("identity: keyref references missing key"))
+			errs = append(errs, newValidationError(xsderrors.ErrIdentityDuplicate, "identity constraint duplicate"))
 		case ic.IssueKeyrefMissing:
-			s.violations = append(s.violations, fmt.Errorf("identity: keyref value not found"))
+			errs = append(errs, newValidationError(xsderrors.ErrIdentityKeyRefFailed, "identity constraint keyref missing"))
+		case ic.IssueKeyrefUndefined:
+			errs = append(errs, newValidationError(xsderrors.ErrIdentityAbsent, "identity constraint keyref undefined"))
+		default:
+			errs = append(errs, newValidationError(xsderrors.ErrIdentityAbsent, "identity constraint violation"))
 		}
 	}
+	return errs
 }

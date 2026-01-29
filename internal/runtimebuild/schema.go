@@ -1079,7 +1079,7 @@ const (
 )
 
 func buildAttrHashTable(uses []runtime.AttrUse, off uint32) runtime.AttrHashTable {
-	size := max(nextPow2(len(uses)*2), 1)
+	size := max(runtime.NextPow2(len(uses)*2), 1)
 	table := runtime.AttrHashTable{
 		Hash: make([]uint64, size),
 		Slot: make([]uint32, size),

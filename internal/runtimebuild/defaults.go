@@ -1,7 +1,6 @@
 package runtimebuild
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -171,7 +170,7 @@ func (c *compiler) canonicalizeDefaultFixed(lexical string, typ types.Type, ctx 
 	if err != nil {
 		return nil, err
 	}
-	if err := c.validateEnumSets(typ, canon); err != nil {
+	if err := c.validateEnumSets(typ, normalized, ctx); err != nil {
 		return nil, err
 	}
 	return canon, nil
@@ -219,7 +218,7 @@ func (c *compiler) canonicalizeNormalizedDefault(normalized string, typ types.Ty
 			if err != nil {
 				continue
 			}
-			if err := c.validateEnumSets(member, canon); err != nil {
+			if err := c.validateEnumSets(member, memberLex, ctx); err != nil {
 				continue
 			}
 			return canon, nil
@@ -230,7 +229,7 @@ func (c *compiler) canonicalizeNormalizedDefault(normalized string, typ types.Ty
 	}
 }
 
-func (c *compiler) validateEnumSets(typ types.Type, canon []byte) error {
+func (c *compiler) validateEnumSets(typ types.Type, normalized string, ctx map[string]string) error {
 	validatorID, err := c.compileType(typ)
 	if err != nil {
 		return err
@@ -242,14 +241,28 @@ func (c *compiler) validateEnumSets(typ types.Type, canon []byte) error {
 	if len(enumIDs) == 0 {
 		return nil
 	}
+	keys, err := c.keyBytesForNormalized(normalized, typ, ctx)
+	if err != nil {
+		return err
+	}
+	if len(keys) == 0 {
+		return fmt.Errorf("value not in enumeration")
+	}
 	table := c.enums.table()
 	values := c.values.table()
-	for _, enumID := range enumIDs {
-		if !enumContains(&table, values, enumID, canon) {
-			return fmt.Errorf("value not in enumeration")
+	for _, key := range keys {
+		matched := true
+		for _, enumID := range enumIDs {
+			if !runtime.EnumContains(&table, values, enumID, key.kind, key.bytes) {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return nil
 		}
 	}
-	return nil
+	return fmt.Errorf("value not in enumeration")
 }
 
 func (c *compiler) enumIDsForValidator(id runtime.ValidatorID) []runtime.EnumID {
@@ -272,40 +285,6 @@ func (c *compiler) enumIDsForValidator(id runtime.ValidatorID) []runtime.EnumID 
 		}
 	}
 	return out
-}
-
-func enumContains(table *runtime.EnumTable, values runtime.ValueBlob, enumID runtime.EnumID, canon []byte) bool {
-	if table == nil {
-		return false
-	}
-	if enumID == 0 || int(enumID) >= len(table.Off) {
-		return false
-	}
-	hashLen := table.HashLen[enumID]
-	if hashLen == 0 {
-		return false
-	}
-	hashOff := table.HashOff[enumID]
-	hash := runtime.HashBytes(canon)
-	mask := uint64(hashLen - 1)
-	slot := int(hash & mask)
-	for range hashLen {
-		idx := hashOff + uint32(slot)
-		if table.Slots[idx] == 0 {
-			return false
-		}
-		if table.Hashes[idx] == hash {
-			valueIndex := table.Slots[idx] - 1
-			ref := table.Values[table.Off[enumID]+valueIndex]
-			if int(ref.Off+ref.Len) <= len(values.Blob) &&
-				ref.Len == uint32(len(canon)) &&
-				bytes.Equal(values.Blob[ref.Off:ref.Off+ref.Len], canon) {
-				return true
-			}
-		}
-		slot = (slot + 1) & int(mask)
-	}
-	return false
 }
 
 func (c *compiler) simpleContentTextType(ct *types.ComplexType) (types.Type, error) {

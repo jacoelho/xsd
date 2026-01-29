@@ -231,6 +231,26 @@ func TestRuntimeXsiTypeDerivedFromBuiltin(t *testing.T) {
 	}
 }
 
+func TestRuntimeQNameNamespaceOrderingXsiType(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="T">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[a-z]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test" xmlns:p="urn:test" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="p:T">ok</root>`
+	if err := validateRuntimeDoc(t, schema, doc); err != nil {
+		t.Fatalf("validate runtime: %v", err)
+	}
+}
+
 func TestRuntimeAnyAttributeSkipSkipsDeclaredAttributes(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -273,6 +293,169 @@ func TestRuntimeSubstitutionGroupAnySimpleTypeEnumeration(t *testing.T) {
 	doc := `<root><a>1</a></root>`
 	if err := validateRuntimeDoc(t, schema, doc); err != nil {
 		t.Fatalf("validate runtime: %v", err)
+	}
+}
+
+func TestRuntimeSubstitutionGroupXsiTypeDerivedFromMember(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="tns:head"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="head" type="tns:HeadType" abstract="true"/>
+  <xs:element name="member" type="tns:MemberType" substitutionGroup="tns:head"/>
+  <xs:complexType name="HeadType">
+    <xs:sequence>
+      <xs:element name="a" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="MemberType">
+    <xs:complexContent>
+      <xs:extension base="tns:HeadType">
+        <xs:sequence>
+          <xs:element name="b" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="DerivedFromMember">
+    <xs:complexContent>
+      <xs:extension base="tns:MemberType">
+        <xs:sequence>
+          <xs:element name="c" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>`
+
+	doc := `<tns:root xmlns:tns="urn:test" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <tns:member xsi:type="tns:DerivedFromMember">
+    <tns:a>ok</tns:a>
+    <tns:b>ok</tns:b>
+    <tns:c>ok</tns:c>
+  </tns:member>
+</tns:root>`
+
+	if err := validateRuntimeDoc(t, schema, doc); err != nil {
+		t.Fatalf("validate runtime: %v", err)
+	}
+}
+
+func TestRuntimeSubstitutionGroupXsiTypeDerivedFromHeadInvalid(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="tns:head"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="head" type="tns:HeadType" abstract="true"/>
+  <xs:element name="member" type="tns:MemberType" substitutionGroup="tns:head"/>
+  <xs:complexType name="HeadType">
+    <xs:sequence>
+      <xs:element name="a" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="MemberType">
+    <xs:complexContent>
+      <xs:extension base="tns:HeadType">
+        <xs:sequence>
+          <xs:element name="b" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="DerivedFromHead">
+    <xs:complexContent>
+      <xs:extension base="tns:HeadType">
+        <xs:sequence>
+          <xs:element name="d" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>`
+
+	doc := `<tns:root xmlns:tns="urn:test" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <tns:member xsi:type="tns:DerivedFromHead">
+    <tns:a>ok</tns:a>
+    <tns:d>ok</tns:d>
+  </tns:member>
+</tns:root>`
+
+	err := validateRuntimeDoc(t, schema, doc)
+	if err == nil {
+		t.Fatalf("expected xsi:type derivation error")
+	}
+	var violations xsderrors.ValidationList
+	if !errors.As(err, &violations) {
+		t.Fatalf("expected ValidationList error, got %T", err)
+	}
+	if len(violations) == 0 || violations[0].Code != string(xsderrors.ErrValidateXsiTypeDerivationBlocked) {
+		t.Fatalf("expected code %s, got %v", xsderrors.ErrValidateXsiTypeDerivationBlocked, violations)
+	}
+}
+
+func TestRuntimeErrorOrderDocumentOrder(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:all>
+        <xs:element name="a" type="xs:int"/>
+        <xs:element name="b" type="xs:int"/>
+      </xs:all>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	cases := []struct {
+		name     string
+		doc      string
+		wantPath string
+	}{
+		{
+			name:     "a first",
+			doc:      `<root><a>bad</a><b>bad</b></root>`,
+			wantPath: "/root/a",
+		},
+		{
+			name:     "b first",
+			doc:      `<root><b>bad</b><a>bad</a></root>`,
+			wantPath: "/root/b",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateRuntimeDoc(t, schema, tc.doc)
+			if err == nil {
+				t.Fatalf("expected validation error")
+			}
+			var violations xsderrors.ValidationList
+			if !errors.As(err, &violations) {
+				t.Fatalf("expected ValidationList error, got %T", err)
+			}
+			if len(violations) == 0 {
+				t.Fatalf("expected validation errors")
+			}
+			if violations[0].Path != tc.wantPath {
+				t.Fatalf("first error path = %q, want %q", violations[0].Path, tc.wantPath)
+			}
+		})
 	}
 }
 
@@ -354,5 +537,330 @@ func TestRuntimeIdentityFieldUnionSingleField(t *testing.T) {
 	doc := `<tn:root xmlns:tn="urn:test"><tn:key id="12"/><tn:ref> 12 </tn:ref></tn:root>`
 	if err := validateRuntimeDoc(t, schema, doc); err != nil {
 		t.Fatalf("validate runtime: %v", err)
+	}
+}
+
+func TestEnumCanonicalizationDecimalEquivalence(t *testing.T) {
+	// Per refactor.md §12.1 item 3: decimal `1.0` == `1.00` in enum
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Dec">
+    <xs:restriction base="xs:decimal">
+      <xs:enumeration value="1.0"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="Dec"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	// "1.00" should match the enum "1.0" because they are equal in decimal value space
+	doc := `<root>1.00</root>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("expected 1.00 to match enum 1.0: %v", err)
+	}
+
+	// "01" should also match "1.0" (same value: 1)
+	sess.Reset()
+	doc2 := `<root>01</root>`
+	if err := sess.Validate(strings.NewReader(doc2)); err != nil {
+		t.Fatalf("expected 01 to match enum 1.0: %v", err)
+	}
+
+	// "2.0" should NOT match
+	sess.Reset()
+	doc3 := `<root>2.0</root>`
+	if err := sess.Validate(strings.NewReader(doc3)); err == nil {
+		t.Fatalf("expected 2.0 to fail enum constraint")
+	}
+}
+
+func TestEnumCanonicalizationFloatZero(t *testing.T) {
+	// Per refactor.md §12.1 item 3: float `-0` == `0` in enum
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="F">
+    <xs:restriction base="xs:float">
+      <xs:enumeration value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="F"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	// "-0" should match "0" because there's only one zero in float value space
+	doc := `<root>-0</root>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("expected -0 to match enum 0: %v", err)
+	}
+
+	// "0.0" should also match
+	sess.Reset()
+	doc2 := `<root>0.0</root>`
+	if err := sess.Validate(strings.NewReader(doc2)); err != nil {
+		t.Fatalf("expected 0.0 to match enum 0: %v", err)
+	}
+}
+
+func TestEnumCanonicalizationFloatNaN(t *testing.T) {
+	// Per refactor.md §12.1 item 3: float NaN equals itself in enum
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="F">
+    <xs:restriction base="xs:float">
+      <xs:enumeration value="NaN"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="F"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	// "NaN" should match itself
+	doc := `<root>NaN</root>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("expected NaN to match enum NaN: %v", err)
+	}
+
+	// "1.0" should NOT match NaN
+	sess.Reset()
+	doc2 := `<root>1.0</root>`
+	if err := sess.Validate(strings.NewReader(doc2)); err == nil {
+		t.Fatalf("expected 1.0 to fail NaN-only enum")
+	}
+}
+
+func TestEnumCanonicalizationQNamePrefixEquality(t *testing.T) {
+	// Per refactor.md §12.1 item 3: QName with different prefixes but same URI/local are equal
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test">
+  <xs:simpleType name="Q">
+    <xs:restriction base="xs:QName">
+      <xs:enumeration value="tns:val"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="Q"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	// Using a different prefix "p" that resolves to the same namespace should match
+	doc := `<root xmlns:p="urn:test">p:val</root>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("expected p:val to match enum tns:val (same namespace): %v", err)
+	}
+
+	// Different namespace should NOT match
+	sess.Reset()
+	doc2 := `<root xmlns:other="urn:other">other:val</root>`
+	if err := sess.Validate(strings.NewReader(doc2)); err == nil {
+		t.Fatalf("expected other:val to fail enum (different namespace)")
+	}
+}
+
+func TestRuntimeEnumListWithoutMetrics(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="IntList">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="IntListEnum">
+    <xs:restriction base="IntList">
+      <xs:enumeration value="1 2 3"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="IntListEnum"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	doc := `<root>1 2 3</root>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("expected list enum to validate: %v", err)
+	}
+
+	sess.Reset()
+	doc2 := `<root>1 2 4</root>`
+	if err := sess.Validate(strings.NewReader(doc2)); err == nil {
+		t.Fatalf("expected list enum violation")
+	}
+}
+
+func TestRuntimeEnumUnionWithoutMetrics(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="UnionType">
+    <xs:union memberTypes="xs:int xs:boolean"/>
+  </xs:simpleType>
+  <xs:simpleType name="UnionEnum">
+    <xs:restriction base="UnionType">
+      <xs:enumeration value="1"/>
+      <xs:enumeration value="true"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="UnionEnum"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	doc := `<root>true</root>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("expected union enum to validate: %v", err)
+	}
+
+	sess.Reset()
+	doc2 := `<root>false</root>`
+	if err := sess.Validate(strings.NewReader(doc2)); err == nil {
+		t.Fatalf("expected union enum violation")
+	}
+}
+
+func TestXmlnsAppliedBeforeXsiType(t *testing.T) {
+	// Per refactor.md §7.1 and §12.1 item 5:
+	// Namespace declarations on a start tag MUST be applied BEFORE
+	// resolving xsi:type QName on the same tag.
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:complexType name="BaseType">
+    <xs:sequence>
+      <xs:element name="value" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="DerivedType">
+    <xs:complexContent>
+      <xs:extension base="tns:BaseType">
+        <xs:sequence>
+          <xs:element name="extra" type="xs:int"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="tns:BaseType"/>
+</xs:schema>`
+
+	// Document declares xmlns:p and uses it in xsi:type on the SAME start tag.
+	// This tests that xmlns declarations are processed before xsi:type resolution.
+	doc := `<tns:root xmlns:tns="urn:test"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:p="urn:test"
+                  xsi:type="p:DerivedType">
+  <tns:value>test</tns:value>
+  <tns:extra>42</tns:extra>
+</tns:root>`
+
+	if err := validateRuntimeDoc(t, schema, doc); err != nil {
+		t.Fatalf("xmlns should be applied before xsi:type resolution: %v", err)
+	}
+}
+
+func TestValidationErrorOrdering_DocumentOrder(t *testing.T) {
+	// Per refactor.md §9.1 and §12.1 item 9:
+	// Validation errors MUST appear in document order.
+	// End-element errors come after child errors for that element.
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:int"/>
+        <xs:element name="b" type="xs:int"/>
+        <xs:element name="c" type="xs:int"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	// Document with errors in a, b, and c (in that order)
+	doc := `<root><a>notint1</a><b>notint2</b><c>notint3</c></root>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+	err := sess.Validate(strings.NewReader(doc))
+	if err == nil {
+		t.Fatalf("expected validation errors")
+	}
+
+	violations, ok := xsderrors.AsValidations(err)
+	if !ok {
+		t.Fatalf("expected validation errors, got %T", err)
+	}
+
+	if len(violations) < 3 {
+		t.Fatalf("expected at least 3 validation errors, got %d", len(violations))
+	}
+
+	// Verify errors are in document order: a before b before c
+	paths := make([]string, len(violations))
+	for i, v := range violations {
+		paths[i] = v.Path
+	}
+
+	// Find indices for each element's error
+	aIdx, bIdx, cIdx := -1, -1, -1
+	for i, p := range paths {
+		if strings.Contains(p, "/a") && aIdx == -1 {
+			aIdx = i
+		}
+		if strings.Contains(p, "/b") && bIdx == -1 {
+			bIdx = i
+		}
+		if strings.Contains(p, "/c") && cIdx == -1 {
+			cIdx = i
+		}
+	}
+
+	if aIdx == -1 || bIdx == -1 || cIdx == -1 {
+		t.Fatalf("expected errors for a, b, and c, got paths: %v", paths)
+	}
+
+	if aIdx >= bIdx || bIdx >= cIdx {
+		t.Fatalf("expected error ordering a < b < c, got a=%d, b=%d, c=%d (paths: %v)", aIdx, bIdx, cIdx, paths)
+	}
+}
+
+func TestUnionPatternAppliesToRawLexical(t *testing.T) {
+	// Per refactor.md §6.5.1 and §12.1 item 2:
+	// Union-level pattern facets MUST be applied to the raw lexical form
+	// BEFORE member normalization. This test verifies that behavior.
+	//
+	// xs:normalizedString replaces \r\n\t with spaces during normalization,
+	// but the union-level pattern is evaluated on the raw input.
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:normalizedString xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="E">
+    <xs:restriction base="U">
+      <xs:pattern value="[a-z ]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="E"/>
+</xs:schema>`
+
+	// This document contains a newline which should FAIL the pattern
+	// because the pattern is evaluated BEFORE normalization.
+	// The pattern [a-z ]+ only matches lowercase letters and spaces.
+	docWithNewline := `<root>hello
+world</root>`
+	if err := validateRuntimeDoc(t, schema, docWithNewline); err == nil {
+		t.Fatalf("expected pattern violation for newline in union lexical")
+	}
+
+	// Without newline should pass - matches pattern and valid for string member
+	docNoNewline := `<root>hello world</root>`
+	if err := validateRuntimeDoc(t, schema, docNoNewline); err != nil {
+		t.Fatalf("validate: %v", err)
 	}
 }

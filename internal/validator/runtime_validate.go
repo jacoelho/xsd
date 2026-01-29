@@ -7,7 +7,6 @@ import (
 	"io"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/ic"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -56,18 +55,36 @@ func (s *Session) Validate(r io.Reader) error {
 		switch ev.Kind {
 		case xmlstream.EventStartElement:
 			if err := s.handleStartElement(&ev, resolver); err != nil {
-				return s.wrapValidationError(err, ev.Line, ev.Column)
+				if fatal := s.recordValidationError(err, ev.Line, ev.Column); fatal != nil {
+					return fatal
+				}
+				if skipErr := s.reader.SkipSubtree(); skipErr != nil {
+					return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrXMLParse, skipErr.Error(), s.pathString())}
+				}
 			}
 			if !rootSeen {
 				rootSeen = true
 			}
 		case xmlstream.EventEndElement:
-			if err := s.handleEndElement(&ev, resolver); err != nil {
-				return s.wrapValidationError(err, ev.Line, ev.Column)
+			errs, path := s.handleEndElement(&ev, resolver)
+			if len(errs) > 0 {
+				if fatal := s.recordValidationErrorsAtPath(errs, path, ev.Line, ev.Column); fatal != nil {
+					return fatal
+				}
+			}
+			if len(s.icState.pending) > 0 {
+				pending := s.icState.drainPending()
+				if len(pending) > 0 {
+					if fatal := s.recordValidationErrorsAtPath(pending, path, ev.Line, ev.Column); fatal != nil {
+						return fatal
+					}
+				}
 			}
 		case xmlstream.EventCharData:
 			if err := s.handleCharData(&ev); err != nil {
-				return s.wrapValidationError(err, ev.Line, ev.Column)
+				if fatal := s.recordValidationError(err, ev.Line, ev.Column); fatal != nil {
+					return fatal
+				}
 			}
 		}
 	}
@@ -78,13 +95,17 @@ func (s *Session) Validate(r io.Reader) error {
 	if len(s.elemStack) != 0 {
 		return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrXMLParse, "document ended with unclosed elements", s.pathString())}
 	}
-	if err := s.validateIDRefs(); err != nil {
-		return s.wrapValidationError(err, 0, 0)
+	if errs := s.validateIDRefs(); len(errs) > 0 {
+		if fatal := s.recordValidationErrors(errs, 0, 0); fatal != nil {
+			return fatal
+		}
 	}
-	if err := s.finalizeIdentity(); err != nil {
-		return s.wrapValidationError(err, 0, 0)
+	if errs := s.finalizeIdentity(); len(errs) > 0 {
+		if fatal := s.recordValidationErrors(errs, 0, 0); fatal != nil {
+			return fatal
+		}
 	}
-	return nil
+	return s.validationList()
 }
 
 func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessionResolver) error {
@@ -227,41 +248,62 @@ func (s *Session) handleCharData(ev *xmlstream.ResolvedEvent) error {
 	return s.ConsumeText(&frame.text, frame.content, frame.mixed, frame.nilled, ev.Text)
 }
 
-func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver sessionResolver) error {
+func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver sessionResolver) ([]error, string) {
 	if ev == nil {
-		return fmt.Errorf("end element event missing")
+		return []error{fmt.Errorf("end element event missing")}, s.pathString()
 	}
 	if len(s.elemStack) == 0 {
-		return fmt.Errorf("unexpected end element")
+		return []error{fmt.Errorf("unexpected end element")}, s.pathString()
 	}
 	index := len(s.elemStack) - 1
 	frame := s.elemStack[index]
 
+	var errs []error
+	path := ""
+
 	typ, ok := s.typeByID(frame.typ)
 	if !ok {
-		s.popNamespaceScope()
-		return fmt.Errorf("type %d not found", frame.typ)
+		if path == "" {
+			path = s.pathString()
+		}
+		errs = append(errs, fmt.Errorf("type %d not found", frame.typ))
+	}
+	elem, elemOK := s.element(frame.elem)
+	if !elemOK {
+		if path == "" {
+			path = s.pathString()
+		}
+		errs = append(errs, fmt.Errorf("element %d out of range", frame.elem))
 	}
 
 	if frame.nilled {
 		if frame.text.HasText || frame.hasChildElements {
-			s.popNamespaceScope()
-			return newValidationError(xsderrors.ErrValidateNilledNotEmpty, "element with xsi:nil='true' must be empty")
+			if path == "" {
+				path = s.pathString()
+			}
+			errs = append(errs, newValidationError(xsderrors.ErrValidateNilledNotEmpty, "element with xsi:nil='true' must be empty"))
 		}
 	} else {
 		if frame.model.Kind != runtime.ModelNone {
 			if err := s.AcceptModel(frame.model, &frame.modelState); err != nil {
-				s.popNamespaceScope()
-				return err
+				if path == "" {
+					path = s.pathString()
+				}
+				errs = append(errs, err)
 			}
 		}
 	}
 
 	var canonText []byte
-	if !frame.nilled && (typ.Kind == runtime.TypeSimple || typ.Kind == runtime.TypeBuiltin || frame.content == runtime.ContentSimple) {
+	var textKeyKind runtime.ValueKind
+	var textKeyBytes []byte
+	textValidator := runtime.ValidatorID(0)
+	if !frame.nilled && ok && (typ.Kind == runtime.TypeSimple || typ.Kind == runtime.TypeBuiltin || frame.content == runtime.ContentSimple) {
 		if frame.hasChildElements {
-			s.popNamespaceScope()
-			return newValidationError(xsderrors.ErrTextInElementOnly, "element not allowed in simple content")
+			if path == "" {
+				path = s.pathString()
+			}
+			errs = append(errs, newValidationError(xsderrors.ErrTextInElementOnly, "element not allowed in simple content"))
 		}
 		rawText := s.TextSlice(frame.text)
 		hasContent := frame.text.HasText || frame.hasChildElements
@@ -269,13 +311,15 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 		hasComplexText := false
 		if typ.Kind == runtime.TypeComplex {
 			if typ.Complex.ID == 0 || int(typ.Complex.ID) >= len(s.rt.ComplexTypes) {
-				s.popNamespaceScope()
-				return fmt.Errorf("complex type %d missing", frame.typ)
+				if path == "" {
+					path = s.pathString()
+				}
+				errs = append(errs, fmt.Errorf("complex type %d missing", frame.typ))
+			} else {
+				ct = s.rt.ComplexTypes[typ.Complex.ID]
+				hasComplexText = true
 			}
-			ct = s.rt.ComplexTypes[typ.Complex.ID]
-			hasComplexText = true
 		}
-		textValidator := runtime.ValidatorID(0)
 		switch typ.Kind {
 		case runtime.TypeSimple, runtime.TypeBuiltin:
 			textValidator = typ.Validator
@@ -284,78 +328,101 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 				textValidator = ct.TextValidator
 			}
 		}
-		trackDefault := func(value []byte) error {
+		trackDefault := func(value []byte) {
 			if textValidator == 0 {
-				return nil
+				return
 			}
-			return s.trackDefaultValue(textValidator, value)
+			if err := s.trackDefaultValue(textValidator, value); err != nil {
+				if path == "" {
+					path = s.pathString()
+				}
+				errs = append(errs, err)
+			}
 		}
-		elem, _ := s.element(frame.elem)
 		switch {
-		case !hasContent && elem.Fixed.Present:
+		case !hasContent && elemOK && elem.Fixed.Present:
 			canonText = valueBytes(s.rt.Values, elem.Fixed)
-			if err := trackDefault(canonText); err != nil {
-				s.popNamespaceScope()
-				return err
-			}
-		case !hasContent && elem.Default.Present:
+			trackDefault(canonText)
+		case !hasContent && elemOK && elem.Default.Present:
 			canonText = valueBytes(s.rt.Values, elem.Default)
-			if err := trackDefault(canonText); err != nil {
-				s.popNamespaceScope()
-				return err
-			}
+			trackDefault(canonText)
 		case !hasContent && hasComplexText && ct.TextFixed.Present:
 			canonText = valueBytes(s.rt.Values, ct.TextFixed)
-			if err := trackDefault(canonText); err != nil {
-				s.popNamespaceScope()
-				return err
-			}
+			trackDefault(canonText)
 		case !hasContent && hasComplexText && ct.TextDefault.Present:
 			canonText = valueBytes(s.rt.Values, ct.TextDefault)
-			if err := trackDefault(canonText); err != nil {
-				s.popNamespaceScope()
-				return err
-			}
+			trackDefault(canonText)
 		default:
-			requireCanonical := elem.Fixed.Present || (hasComplexText && ct.TextFixed.Present)
-			canon, err := s.ValidateTextValue(frame.typ, rawText, resolver, requireCanonical)
+			requireCanonical := (elemOK && elem.Fixed.Present) || (hasComplexText && ct.TextFixed.Present)
+			canon, metrics, err := s.ValidateTextValue(frame.typ, rawText, resolver, requireCanonical)
 			if err != nil {
-				s.popNamespaceScope()
-				return err
+				if path == "" {
+					path = s.pathString()
+				}
+				errs = append(errs, err)
+			} else {
+				canonText = canon
+				textKeyKind = metrics.keyKind
+				textKeyBytes = metrics.keyBytes
 			}
-			canonText = canon
 		}
-		if (frame.text.HasText || hasContent) && elem.Fixed.Present {
+		if canonText != nil && elemOK && (frame.text.HasText || hasContent) && elem.Fixed.Present {
 			fixed := valueBytes(s.rt.Values, elem.Fixed)
 			if !bytes.Equal(canonText, fixed) {
-				s.popNamespaceScope()
-				return newValidationError(xsderrors.ErrElementFixedValue, "fixed element value mismatch")
+				if path == "" {
+					path = s.pathString()
+				}
+				errs = append(errs, newValidationError(xsderrors.ErrElementFixedValue, "fixed element value mismatch"))
 			}
-		} else if (frame.text.HasText || hasContent) && hasComplexText && ct.TextFixed.Present && !elem.Fixed.Present {
+		} else if canonText != nil && (frame.text.HasText || hasContent) && hasComplexText && ct.TextFixed.Present && (!elemOK || !elem.Fixed.Present) {
 			fixed := valueBytes(s.rt.Values, ct.TextFixed)
 			if !bytes.Equal(canonText, fixed) {
-				s.popNamespaceScope()
-				return newValidationError(xsderrors.ErrElementFixedValue, "fixed element value mismatch")
+				if path == "" {
+					path = s.pathString()
+				}
+				errs = append(errs, newValidationError(xsderrors.ErrElementFixedValue, "fixed element value mismatch"))
 			}
+		}
+	}
+
+	if s.hasIdentityConstraints() && textKeyKind == runtime.VKInvalid && canonText != nil && textValidator != 0 {
+		kind, key, err := s.keyForCanonicalValue(textValidator, canonText)
+		if err != nil {
+			if path == "" {
+				path = s.pathString()
+			}
+			errs = append(errs, err)
+		} else {
+			textKeyKind = kind
+			textKeyBytes = s.storeKey(key)
 		}
 	}
 
 	if err := s.identityEnd(identityEndInput{
 		Text:      canonText,
 		TextState: frame.text,
+		KeyKind:   textKeyKind,
+		KeyBytes:  textKeyBytes,
 	}); err != nil {
-		s.popNamespaceScope()
-		return err
+		if path == "" {
+			path = s.pathString()
+		}
+		errs = append(errs, err)
+	}
+
+	if path == "" && len(s.icState.pending) > 0 {
+		path = s.pathString()
 	}
 
 	s.releaseText(frame.text)
 	s.elemStack = s.elemStack[:index]
 	s.popNamespaceScope()
-	return nil
+	return errs, path
 }
 
 func (s *Session) pushNamespaceScope(decls []xmlstream.NamespaceDecl) {
 	off := len(s.nsDecls)
+	cacheOff := len(s.prefixCache)
 	for _, decl := range decls {
 		prefixBytes := []byte(decl.Prefix)
 		nsBytes := []byte(decl.URI)
@@ -364,13 +431,14 @@ func (s *Session) pushNamespaceScope(decls []xmlstream.NamespaceDecl) {
 		nsOff := len(s.nameNS)
 		s.nameNS = append(s.nameNS, nsBytes...)
 		s.nsDecls = append(s.nsDecls, nsDecl{
-			prefixOff: uint32(prefixOff),
-			prefixLen: uint32(len(prefixBytes)),
-			nsOff:     uint32(nsOff),
-			nsLen:     uint32(len(nsBytes)),
+			prefixOff:  uint32(prefixOff),
+			prefixLen:  uint32(len(prefixBytes)),
+			nsOff:      uint32(nsOff),
+			nsLen:      uint32(len(nsBytes)),
+			prefixHash: runtime.HashBytes(prefixBytes),
 		})
 	}
-	s.nsStack = append(s.nsStack, nsFrame{off: uint32(off), len: uint32(len(decls))})
+	s.nsStack = append(s.nsStack, nsFrame{off: uint32(off), len: uint32(len(decls)), cacheOff: uint32(cacheOff)})
 }
 
 func (s *Session) popNamespaceScope() {
@@ -382,39 +450,151 @@ func (s *Session) popNamespaceScope() {
 	if int(frame.off) <= len(s.nsDecls) {
 		s.nsDecls = s.nsDecls[:frame.off]
 	}
+	if int(frame.cacheOff) <= len(s.prefixCache) {
+		s.prefixCache = s.prefixCache[:frame.cacheOff]
+	}
 }
 
 func (s *Session) lookupNamespace(prefix []byte) ([]byte, bool) {
 	if bytes.Equal(prefix, []byte("xml")) {
 		return []byte(xmlstream.XMLNamespace), true
 	}
-	if len(prefix) == 0 {
+	const smallNSDeclThreshold = 32
+	if len(s.nsDecls) <= smallNSDeclThreshold {
+		if len(prefix) == 0 {
+			for i := len(s.nsStack) - 1; i >= 0; i-- {
+				frame := s.nsStack[i]
+				for j := int(frame.off + frame.len); j > int(frame.off); j-- {
+					decl := s.nsDecls[j-1]
+					if decl.prefixLen != 0 {
+						continue
+					}
+					return s.nameNS[decl.nsOff : decl.nsOff+decl.nsLen], true
+				}
+			}
+			return nil, true
+		}
 		for i := len(s.nsStack) - 1; i >= 0; i-- {
 			frame := s.nsStack[i]
 			for j := int(frame.off + frame.len); j > int(frame.off); j-- {
 				decl := s.nsDecls[j-1]
-				if decl.prefixLen != 0 {
+				if decl.prefixLen == 0 {
 					continue
 				}
-				return s.nameNS[decl.nsOff : decl.nsOff+decl.nsLen], true
+				prefixBytes := s.nameLocal[decl.prefixOff : decl.prefixOff+decl.prefixLen]
+				if bytes.Equal(prefixBytes, prefix) {
+					return s.nameNS[decl.nsOff : decl.nsOff+decl.nsLen], true
+				}
 			}
 		}
-		return nil, true
+		return nil, false
+	}
+
+	hash := runtime.HashBytes(prefix)
+	if cache := s.prefixCacheForCurrent(); len(cache) > 0 {
+		for i := range cache {
+			entry := &cache[i]
+			if entry.hash != hash {
+				continue
+			}
+			if entry.prefixLen == 0 {
+				if len(prefix) != 0 {
+					continue
+				}
+				if entry.ok {
+					if entry.nsLen == 0 {
+						return nil, true
+					}
+					return s.nameNS[entry.nsOff : entry.nsOff+entry.nsLen], true
+				}
+				return nil, false
+			}
+			if len(prefix) != int(entry.prefixLen) {
+				continue
+			}
+			prefixBytes := s.nameLocal[entry.prefixOff : entry.prefixOff+entry.prefixLen]
+			if !bytes.Equal(prefixBytes, prefix) {
+				continue
+			}
+			if entry.ok {
+				if entry.nsLen == 0 {
+					return nil, true
+				}
+				return s.nameNS[entry.nsOff : entry.nsOff+entry.nsLen], true
+			}
+			return nil, false
+		}
 	}
 	for i := len(s.nsStack) - 1; i >= 0; i-- {
 		frame := s.nsStack[i]
 		for j := int(frame.off + frame.len); j > int(frame.off); j-- {
 			decl := s.nsDecls[j-1]
+			if decl.prefixHash != hash {
+				continue
+			}
 			if decl.prefixLen == 0 {
+				if len(prefix) != 0 {
+					continue
+				}
+				ns := s.nameNS[decl.nsOff : decl.nsOff+decl.nsLen]
+				s.cachePrefix(prefix, ns, true, hash)
+				return ns, true
+			}
+			if len(prefix) != int(decl.prefixLen) {
 				continue
 			}
 			prefixBytes := s.nameLocal[decl.prefixOff : decl.prefixOff+decl.prefixLen]
-			if bytes.Equal(prefixBytes, prefix) {
-				return s.nameNS[decl.nsOff : decl.nsOff+decl.nsLen], true
+			if !bytes.Equal(prefixBytes, prefix) {
+				continue
 			}
+			ns := s.nameNS[decl.nsOff : decl.nsOff+decl.nsLen]
+			s.cachePrefix(prefix, ns, true, hash)
+			return ns, true
 		}
 	}
+	if len(prefix) == 0 {
+		s.cachePrefix(prefix, nil, true, hash)
+		return nil, true
+	}
+	s.cachePrefix(prefix, nil, false, hash)
 	return nil, false
+}
+
+func (s *Session) prefixCacheForCurrent() []prefixEntry {
+	if len(s.nsStack) == 0 {
+		return nil
+	}
+	frame := s.nsStack[len(s.nsStack)-1]
+	if int(frame.cacheOff) >= len(s.prefixCache) {
+		return nil
+	}
+	return s.prefixCache[frame.cacheOff:]
+}
+
+func (s *Session) cachePrefix(prefix, ns []byte, ok bool, hash uint64) {
+	if s == nil {
+		return
+	}
+	prefixLen := len(prefix)
+	prefixOff := 0
+	if prefixLen > 0 {
+		prefixOff = len(s.nameLocal)
+		s.nameLocal = append(s.nameLocal, prefix...)
+	}
+	nsLen := len(ns)
+	nsOff := 0
+	if ok && nsLen > 0 {
+		nsOff = len(s.nameNS)
+		s.nameNS = append(s.nameNS, ns...)
+	}
+	s.prefixCache = append(s.prefixCache, prefixEntry{
+		hash:      hash,
+		prefixOff: uint32(prefixOff),
+		prefixLen: uint32(prefixLen),
+		nsOff:     uint32(nsOff),
+		nsLen:     uint32(nsLen),
+		ok:        ok,
+	})
 }
 
 func (s *Session) internName(id xmlstream.NameID, nsBytes, local []byte) nameEntry {
@@ -493,46 +673,17 @@ func (s *Session) makeStartAttrs(attrs []xmlstream.ResolvedAttr) []StartAttr {
 	return out
 }
 
-func (s *Session) finalizeIdentity() error {
+func (s *Session) finalizeIdentity() []error {
+	if s == nil {
+		return nil
+	}
 	if len(s.icState.violations) > 0 {
-		return s.icState.violations[0]
+		errs := append([]error(nil), s.icState.violations...)
+		s.icState.violations = s.icState.violations[:0]
+		return errs
 	}
-	if len(s.icState.completed) == 0 {
-		return nil
+	if pending := s.icState.drainPending(); len(pending) > 0 {
+		return pending
 	}
-	constraints := make([]ic.Constraint, 0, len(s.icState.completed))
-	for _, scope := range s.icState.completed {
-		for _, constraint := range scope.constraints {
-			rows := make([]ic.Row, 0, len(constraint.rows))
-			for _, row := range constraint.rows {
-				rows = append(rows, ic.Row{Values: row.values, Hash: row.hash})
-			}
-			keyrefs := make([]ic.Row, 0, len(constraint.keyrefs))
-			for _, row := range constraint.keyrefs {
-				keyrefs = append(keyrefs, ic.Row{Values: row.values, Hash: row.hash})
-			}
-			constraints = append(constraints, ic.Constraint{
-				ID:         constraint.id,
-				Category:   constraint.category,
-				Referenced: constraint.referenced,
-				Rows:       rows,
-				Keyrefs:    keyrefs,
-			})
-		}
-	}
-	issues := ic.Resolve(constraints)
-	if len(issues) == 0 {
-		return nil
-	}
-	issue := issues[0]
-	switch issue.Kind {
-	case ic.IssueDuplicate:
-		return newValidationError(xsderrors.ErrIdentityDuplicate, "identity constraint duplicate")
-	case ic.IssueKeyrefMissing:
-		return newValidationError(xsderrors.ErrIdentityKeyRefFailed, "identity constraint keyref missing")
-	case ic.IssueKeyrefUndefined:
-		return newValidationError(xsderrors.ErrIdentityAbsent, "identity constraint keyref undefined")
-	default:
-		return newValidationError(xsderrors.ErrIdentityAbsent, "identity constraint violation")
-	}
+	return nil
 }

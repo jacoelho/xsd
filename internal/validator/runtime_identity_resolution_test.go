@@ -1,9 +1,9 @@
 package validator
 
 import (
-	"strings"
 	"testing"
 
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -33,10 +33,12 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 		t.Fatalf("identityStart root: %v", err)
 	}
 	attrs := []StartAttr{{
-		Sym:   fx.symID,
-		NS:    fx.empty,
-		Local: []byte("id"),
-		Value: []byte("dup"),
+		Sym:      fx.symID,
+		NS:       fx.empty,
+		Local:    []byte("id"),
+		Value:    []byte("dup"),
+		KeyKind:  runtime.VKString,
+		KeyBytes: []byte("dup"),
 	}}
 	for range 2 {
 		if err := sess.identityStart(identityStartInput{
@@ -52,11 +54,13 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	if len(sess.icState.violations) != 1 {
-		t.Fatalf("violations = %d, want 1", len(sess.icState.violations))
+	pending := sess.icState.drainPending()
+	if len(pending) != 1 {
+		t.Fatalf("violations = %d, want 1", len(pending))
 	}
-	if !strings.Contains(sess.icState.violations[0].Error(), "duplicate unique") {
-		t.Fatalf("violation = %q, want duplicate unique", sess.icState.violations[0].Error())
+	code, _, ok := validationErrorInfo(pending[0])
+	if !ok || code != xsderrors.ErrIdentityDuplicate {
+		t.Fatalf("expected %s, got %v", xsderrors.ErrIdentityDuplicate, pending[0])
 	}
 }
 
@@ -97,10 +101,12 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		if err := sess.identityStart(identityStartInput{
 			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID,
 			Attrs: []StartAttr{{
-				Sym:   fx.symID,
-				NS:    fx.empty,
-				Local: []byte("id"),
-				Value: []byte(refValue),
+				Sym:      fx.symID,
+				NS:       fx.empty,
+				Local:    []byte("id"),
+				Value:    []byte(refValue),
+				KeyKind:  runtime.VKString,
+				KeyBytes: []byte(refValue),
 			}},
 		}); err != nil {
 			t.Fatalf("identityStart item: %v", err)
@@ -116,10 +122,12 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		if err := sess.identityStart(identityStartInput{
 			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID,
 			Attrs: []StartAttr{{
-				Sym:   fx.symID,
-				NS:    fx.empty,
-				Local: []byte("id"),
-				Value: []byte(keyValue),
+				Sym:      fx.symID,
+				NS:       fx.empty,
+				Local:    []byte("id"),
+				Value:    []byte(keyValue),
+				KeyKind:  runtime.VKString,
+				KeyBytes: []byte(keyValue),
 			}},
 		}); err != nil {
 			t.Fatalf("identityStart item: %v", err)
@@ -133,7 +141,7 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		if err := sess.identityEnd(identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd root: %v", err)
 		}
-		return len(sess.icState.violations)
+		return len(sess.icState.drainPending())
 	}
 
 	if got := runCase("two", "one"); got != 1 {

@@ -60,7 +60,14 @@ type ValidatorMeta struct {
 	Index      uint32
 	Kind       ValidatorKind
 	WhiteSpace WhitespaceMode
+	Flags      ValidatorFlags
 }
+
+type ValidatorFlags uint8
+
+const (
+	ValidatorHasEnum ValidatorFlags = 1 << iota
+)
 
 type WhitespaceMode uint8
 

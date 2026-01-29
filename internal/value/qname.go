@@ -1,6 +1,7 @@
 package value
 
 import (
+	"bytes"
 	"fmt"
 	"slices"
 	"unicode/utf8"
@@ -93,7 +94,7 @@ func validateQName(value []byte) error {
 	}
 	prefix := value[:colon]
 	local := value[colon+1:]
-	if bytesEqual(prefix, []byte("xmlns")) {
+	if bytes.Equal(prefix, []byte("xmlns")) {
 		return fmt.Errorf("QName cannot use reserved prefix 'xmlns'")
 	}
 	if err := validateNCName(prefix); err != nil {

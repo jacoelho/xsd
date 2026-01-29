@@ -159,7 +159,7 @@ func buildNamespaceIndex(table *NamespaceTable) NamespaceIndex {
 	if count <= 0 {
 		return NamespaceIndex{}
 	}
-	size := nextPow2(count * 2)
+	size := NextPow2(count * 2)
 	index := NamespaceIndex{
 		Hash: make([]uint64, size),
 		ID:   make([]NamespaceID, size),
@@ -192,7 +192,7 @@ func buildSymbolsIndex(table *SymbolsTable) SymbolsIndex {
 	if count <= 0 {
 		return SymbolsIndex{}
 	}
-	size := nextPow2(count * 2)
+	size := NextPow2(count * 2)
 	index := SymbolsIndex{
 		Hash: make([]uint64, size),
 		ID:   make([]SymbolID, size),

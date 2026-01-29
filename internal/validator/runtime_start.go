@@ -23,11 +23,13 @@ type StartMatch struct {
 }
 
 type StartAttr struct {
-	NSBytes []byte
-	Local   []byte
-	Value   []byte
-	Sym     runtime.SymbolID
-	NS      runtime.NamespaceID
+	NSBytes  []byte
+	Local    []byte
+	Value    []byte
+	KeyBytes []byte
+	Sym      runtime.SymbolID
+	NS       runtime.NamespaceID
+	KeyKind  runtime.ValueKind
 }
 
 type StartResult struct {

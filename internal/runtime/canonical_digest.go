@@ -1,38 +1,36 @@
-package runtimebuild
+package runtime
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"hash"
-	"hash/fnv"
-
-	"github.com/jacoelho/xsd/internal/runtime"
 )
 
-type hashBuilder struct {
-	h   hash.Hash64
+type digestBuilder struct {
+	h   hash.Hash
 	buf [8]byte
 }
 
-func newHashBuilder() *hashBuilder {
-	return &hashBuilder{h: fnv.New64a()}
+func newDigestBuilder() *digestBuilder {
+	return &digestBuilder{h: sha256.New()}
 }
 
-func (b *hashBuilder) u8(v uint8) {
+func (b *digestBuilder) u8(v uint8) {
 	b.buf[0] = v
 	_, _ = b.h.Write(b.buf[:1])
 }
 
-func (b *hashBuilder) u32(v uint32) {
+func (b *digestBuilder) u32(v uint32) {
 	binary.LittleEndian.PutUint32(b.buf[:4], v)
 	_, _ = b.h.Write(b.buf[:4])
 }
 
-func (b *hashBuilder) u64(v uint64) {
+func (b *digestBuilder) u64(v uint64) {
 	binary.LittleEndian.PutUint64(b.buf[:8], v)
 	_, _ = b.h.Write(b.buf[:8])
 }
 
-func (b *hashBuilder) bool(v bool) {
+func (b *digestBuilder) bool(v bool) {
 	if v {
 		b.u8(1)
 		return
@@ -40,7 +38,7 @@ func (b *hashBuilder) bool(v bool) {
 	b.u8(0)
 }
 
-func (b *hashBuilder) bytes(data []byte) {
+func (b *digestBuilder) bytes(data []byte) {
 	b.u32(uint32(len(data)))
 	if len(data) == 0 {
 		return
@@ -48,71 +46,71 @@ func (b *hashBuilder) bytes(data []byte) {
 	_, _ = b.h.Write(data)
 }
 
-func (b *hashBuilder) sum64() uint64 {
-	sum := b.h.Sum64()
-	if sum == 0 {
-		return 1
-	}
-	return sum
+func (b *digestBuilder) sum() [32]byte {
+	var out [32]byte
+	sum := b.h.Sum(nil)
+	copy(out[:], sum)
+	return out
 }
 
-func computeBuildHash(rt *runtime.Schema) uint64 {
-	if rt == nil {
-		return 0
+// CanonicalDigest returns a deterministic digest of canonical schema artifacts.
+func (s *Schema) CanonicalDigest() [32]byte {
+	if s == nil {
+		return [32]byte{}
 	}
-	h := newHashBuilder()
+	h := newDigestBuilder()
 
-	hashNamespaces(h, &rt.Namespaces)
-	hashSymbols(h, &rt.Symbols)
+	digestNamespaces(h, &s.Namespaces)
+	digestSymbols(h, &s.Symbols)
 
-	hashPredef(h, rt.Predef, rt.PredefNS, rt.Builtin, rt.RootPolicy)
-	hashGlobalIndices(h, rt.GlobalTypes, rt.GlobalElements, rt.GlobalAttributes)
+	digestPredef(h, s.Predef, s.PredefNS, s.Builtin, s.RootPolicy)
+	digestGlobalIndices(h, s.GlobalTypes, s.GlobalElements, s.GlobalAttributes)
 
-	hashTypes(h, rt.Types)
-	hashAncestors(h, rt.Ancestors)
-	hashComplexTypes(h, rt.ComplexTypes)
-	hashElements(h, rt.Elements)
-	hashAttributes(h, rt.Attributes)
-	hashAttrIndex(h, rt.AttrIndex)
+	digestTypes(h, s.Types)
+	digestAncestors(h, s.Ancestors)
+	digestComplexTypes(h, s.ComplexTypes)
+	digestElements(h, s.Elements)
+	digestAttributes(h, s.Attributes)
+	digestAttrIndex(h, s.AttrIndex)
 
-	hashValidators(h, &rt.Validators)
-	hashFacets(h, rt.Facets)
-	hashPatterns(h, rt.Patterns)
-	hashEnums(h, &rt.Enums)
-	hashValues(h, rt.Values)
+	digestValidators(h, &s.Validators)
+	digestFacets(h, s.Facets)
+	digestPatterns(h, s.Patterns)
+	digestEnums(h, &s.Enums)
+	digestValues(h, s.Values)
 
-	hashModels(h, rt.Models)
-	hashWildcards(h, rt.Wildcards, rt.WildcardNS)
+	digestModels(h, s.Models)
+	digestWildcards(h, s.Wildcards, s.WildcardNS)
 
-	hashIdentity(h, rt.ICs, rt.ElemICs, rt.ICSelectors, rt.ICFields, rt.Paths)
+	digestIdentity(h, s.ICs, s.ElemICs, s.ICSelectors, s.ICFields, s.Paths)
 
-	return h.sum64()
+	return h.sum()
 }
 
-func hashNamespaces(h *hashBuilder, table *runtime.NamespaceTable) {
+func digestNamespaces(h *digestBuilder, table *NamespaceTable) {
 	if table == nil {
 		return
 	}
 	h.bytes(table.Blob)
-	hashU32Slice(h, table.Off)
-	hashU32Slice(h, table.Len)
-	hashU64Slice(h, table.Index.Hash)
-	hashNamespaceIDs(h, table.Index.ID)
+	digestU32Slice(h, table.Off)
+	digestU32Slice(h, table.Len)
+	digestU64Slice(h, table.Index.Hash)
+	digestNamespaceIDs(h, table.Index.ID)
 }
 
-func hashSymbols(h *hashBuilder, table *runtime.SymbolsTable) {
+func digestSymbols(h *digestBuilder, table *SymbolsTable) {
 	if table == nil {
 		return
 	}
-	hashNamespaceIDs(h, table.NS)
-	hashU32Slice(h, table.LocalOff)
-	hashU32Slice(h, table.LocalLen)
+	digestNamespaceIDs(h, table.NS)
+	digestU32Slice(h, table.LocalOff)
+	digestU32Slice(h, table.LocalLen)
 	h.bytes(table.LocalBlob)
-	hashU64Slice(h, table.Index.Hash)
-	hashSymbolIDs(h, table.Index.ID)
+	digestU64Slice(h, table.Index.Hash)
+	digestSymbolIDs(h, table.Index.ID)
 }
 
-func hashPredef(h *hashBuilder, pre runtime.PredefinedSymbols, preNS runtime.PredefinedNamespaces, builtin runtime.BuiltinIDs, policy runtime.RootPolicy) {
+func digestPredef(h *digestBuilder, pre PredefinedSymbols, preNS PredefinedNamespaces, builtin BuiltinIDs, policy RootPolicy) {
 	h.u32(uint32(pre.XsiType))
 	h.u32(uint32(pre.XsiNil))
 	h.u32(uint32(pre.XsiSchemaLocation))
@@ -127,13 +125,13 @@ func hashPredef(h *hashBuilder, pre runtime.PredefinedSymbols, preNS runtime.Pre
 	h.u8(uint8(policy))
 }
 
-func hashGlobalIndices(h *hashBuilder, types []runtime.TypeID, elems []runtime.ElemID, attrs []runtime.AttrID) {
-	hashTypeIDs(h, types)
-	hashElemIDs(h, elems)
-	hashAttrIDs(h, attrs)
+func digestGlobalIndices(h *digestBuilder, types []TypeID, elems []ElemID, attrs []AttrID) {
+	digestTypeIDs(h, types)
+	digestElemIDs(h, elems)
+	digestAttrIDs(h, attrs)
 }
 
-func hashTypes(h *hashBuilder, types []runtime.Type) {
+func digestTypes(h *digestBuilder, types []Type) {
 	h.u32(uint32(len(types)))
 	for _, t := range types {
 		h.u8(uint8(t.Kind))
@@ -151,36 +149,36 @@ func hashTypes(h *hashBuilder, types []runtime.Type) {
 	}
 }
 
-func hashAncestors(h *hashBuilder, ancestors runtime.TypeAncestors) {
-	hashTypeIDs(h, ancestors.IDs)
+func digestAncestors(h *digestBuilder, ancestors TypeAncestors) {
+	digestTypeIDs(h, ancestors.IDs)
 	h.u32(uint32(len(ancestors.Masks)))
 	for _, m := range ancestors.Masks {
 		h.u8(uint8(m))
 	}
 }
 
-func hashComplexTypes(h *hashBuilder, types []runtime.ComplexType) {
+func digestComplexTypes(h *digestBuilder, types []ComplexType) {
 	h.u32(uint32(len(types)))
 	for _, ct := range types {
 		h.u8(uint8(ct.Content))
-		hashAttrIndexRef(h, ct.Attrs)
+		digestAttrIndexRef(h, ct.Attrs)
 		h.u32(uint32(ct.AnyAttr))
 		h.u32(uint32(ct.TextValidator))
-		hashValueRef(h, ct.TextFixed)
-		hashValueRef(h, ct.TextDefault)
-		hashModelRef(h, ct.Model)
+		digestValueRef(h, ct.TextFixed)
+		digestValueRef(h, ct.TextDefault)
+		digestModelRef(h, ct.Model)
 		h.bool(ct.Mixed)
 	}
 }
 
-func hashElements(h *hashBuilder, elems []runtime.Element) {
+func digestElements(h *digestBuilder, elems []Element) {
 	h.u32(uint32(len(elems)))
 	for _, e := range elems {
 		h.u32(uint32(e.Name))
 		h.u32(uint32(e.Type))
 		h.u32(uint32(e.SubstHead))
-		hashValueRef(h, e.Default)
-		hashValueRef(h, e.Fixed)
+		digestValueRef(h, e.Default)
+		digestValueRef(h, e.Fixed)
 		h.u32(uint32(e.Flags))
 		h.u8(uint8(e.Block))
 		h.u8(uint8(e.Final))
@@ -189,33 +187,33 @@ func hashElements(h *hashBuilder, elems []runtime.Element) {
 	}
 }
 
-func hashAttributes(h *hashBuilder, attrs []runtime.Attribute) {
+func digestAttributes(h *digestBuilder, attrs []Attribute) {
 	h.u32(uint32(len(attrs)))
 	for _, a := range attrs {
 		h.u32(uint32(a.Name))
 		h.u32(uint32(a.Validator))
-		hashValueRef(h, a.Default)
-		hashValueRef(h, a.Fixed)
+		digestValueRef(h, a.Default)
+		digestValueRef(h, a.Fixed)
 	}
 }
 
-func hashAttrIndex(h *hashBuilder, idx runtime.ComplexAttrIndex) {
+func digestAttrIndex(h *digestBuilder, idx ComplexAttrIndex) {
 	h.u32(uint32(len(idx.Uses)))
 	for _, use := range idx.Uses {
 		h.u32(uint32(use.Name))
 		h.u32(uint32(use.Validator))
 		h.u8(uint8(use.Use))
-		hashValueRef(h, use.Default)
-		hashValueRef(h, use.Fixed)
+		digestValueRef(h, use.Default)
+		digestValueRef(h, use.Fixed)
 	}
 	h.u32(uint32(len(idx.HashTables)))
 	for _, table := range idx.HashTables {
-		hashU64Slice(h, table.Hash)
-		hashU32Slice(h, table.Slot)
+		digestU64Slice(h, table.Hash)
+		digestU32Slice(h, table.Slot)
 	}
 }
 
-func hashValidators(h *hashBuilder, bundle *runtime.ValidatorsBundle) {
+func digestValidators(h *digestBuilder, bundle *ValidatorsBundle) {
 	if bundle == nil {
 		return
 	}
@@ -254,7 +252,7 @@ func hashValidators(h *hashBuilder, bundle *runtime.ValidatorsBundle) {
 		h.u32(v.MemberOff)
 		h.u32(v.MemberLen)
 	}
-	hashValidatorIDs(h, bundle.UnionMembers)
+	digestValidatorIDs(h, bundle.UnionMembers)
 	h.u32(uint32(len(bundle.Meta)))
 	for _, meta := range bundle.Meta {
 		h.u8(uint8(meta.Kind))
@@ -266,7 +264,7 @@ func hashValidators(h *hashBuilder, bundle *runtime.ValidatorsBundle) {
 	}
 }
 
-func hashFacets(h *hashBuilder, facets []runtime.FacetInstr) {
+func digestFacets(h *digestBuilder, facets []FacetInstr) {
 	h.u32(uint32(len(facets)))
 	for _, f := range facets {
 		h.u8(uint8(f.Op))
@@ -275,44 +273,36 @@ func hashFacets(h *hashBuilder, facets []runtime.FacetInstr) {
 	}
 }
 
-func hashPatterns(h *hashBuilder, patterns []runtime.Pattern) {
+func digestPatterns(h *digestBuilder, patterns []Pattern) {
 	h.u32(uint32(len(patterns)))
 	for _, p := range patterns {
-		if len(p.Source) > 0 {
-			h.bytes(p.Source)
-			continue
-		}
-		if p.Re != nil {
-			h.bytes([]byte(p.Re.String()))
-			continue
-		}
-		h.bytes(nil)
+		h.bytes(p.Source)
 	}
 }
 
-func hashEnums(h *hashBuilder, enums *runtime.EnumTable) {
+func digestEnums(h *digestBuilder, enums *EnumTable) {
 	if enums == nil {
 		return
 	}
-	hashU32Slice(h, enums.Off)
-	hashU32Slice(h, enums.Len)
+	digestU32Slice(h, enums.Off)
+	digestU32Slice(h, enums.Len)
 	h.u32(uint32(len(enums.Keys)))
 	for _, key := range enums.Keys {
 		h.u8(uint8(key.Kind))
 		h.u64(key.Hash)
-		hashValueRef(h, key.Ref)
+		digestValueRef(h, key.Ref)
 	}
-	hashU32Slice(h, enums.HashOff)
-	hashU32Slice(h, enums.HashLen)
-	hashU64Slice(h, enums.Hashes)
-	hashU32Slice(h, enums.Slots)
+	digestU32Slice(h, enums.HashOff)
+	digestU32Slice(h, enums.HashLen)
+	digestU64Slice(h, enums.Hashes)
+	digestU32Slice(h, enums.Slots)
 }
 
-func hashValues(h *hashBuilder, values runtime.ValueBlob) {
+func digestValues(h *digestBuilder, values ValueBlob) {
 	h.bytes(values.Blob)
 }
 
-func hashModels(h *hashBuilder, models runtime.ModelsBundle) {
+func digestModels(h *digestBuilder, models ModelsBundle) {
 	h.u32(uint32(len(models.DFA)))
 	for _, m := range models.DFA {
 		h.u32(m.Start)
@@ -338,9 +328,9 @@ func hashModels(h *hashBuilder, models runtime.ModelsBundle) {
 	}
 	h.u32(uint32(len(models.NFA)))
 	for _, m := range models.NFA {
-		hashU64Slice(h, m.Bitsets.Words)
-		hashBitsetRef(h, m.Start)
-		hashBitsetRef(h, m.Accept)
+		digestU64Slice(h, m.Bitsets.Words)
+		digestBitsetRef(h, m.Start)
+		digestBitsetRef(h, m.Accept)
 		h.bool(m.Nullable)
 		h.u32(m.FollowOff)
 		h.u32(m.FollowLen)
@@ -353,7 +343,7 @@ func hashModels(h *hashBuilder, models runtime.ModelsBundle) {
 		}
 		h.u32(uint32(len(m.Follow)))
 		for _, ref := range m.Follow {
-			hashBitsetRef(h, ref)
+			digestBitsetRef(h, ref)
 		}
 	}
 	h.u32(uint32(len(models.All)))
@@ -369,7 +359,7 @@ func hashModels(h *hashBuilder, models runtime.ModelsBundle) {
 	}
 }
 
-func hashWildcards(h *hashBuilder, wildcards []runtime.WildcardRule, nsList []runtime.NamespaceID) {
+func digestWildcards(h *digestBuilder, wildcards []WildcardRule, nsList []NamespaceID) {
 	h.u32(uint32(len(wildcards)))
 	for _, w := range wildcards {
 		h.u8(uint8(w.NS.Kind))
@@ -380,10 +370,10 @@ func hashWildcards(h *hashBuilder, wildcards []runtime.WildcardRule, nsList []ru
 		h.u8(uint8(w.PC))
 		h.u32(uint32(w.TargetNS))
 	}
-	hashNamespaceIDs(h, nsList)
+	digestNamespaceIDs(h, nsList)
 }
 
-func hashIdentity(h *hashBuilder, ics []runtime.IdentityConstraint, elemICs []runtime.ICID, selectors, fields []runtime.PathID, paths []runtime.PathProgram) {
+func digestIdentity(h *digestBuilder, ics []IdentityConstraint, elemICs []ICID, selectors, fields []PathID, paths []PathProgram) {
 	h.u32(uint32(len(ics)))
 	for _, ic := range ics {
 		h.u32(uint32(ic.Name))
@@ -394,9 +384,9 @@ func hashIdentity(h *hashBuilder, ics []runtime.IdentityConstraint, elemICs []ru
 		h.u32(ic.FieldLen)
 		h.u32(uint32(ic.Referenced))
 	}
-	hashICIDs(h, elemICs)
-	hashPathIDs(h, selectors)
-	hashPathIDs(h, fields)
+	digestICIDs(h, elemICs)
+	digestPathIDs(h, selectors)
+	digestPathIDs(h, fields)
 	h.u32(uint32(len(paths)))
 	for _, p := range paths {
 		h.u32(uint32(len(p.Ops)))
@@ -408,94 +398,94 @@ func hashIdentity(h *hashBuilder, ics []runtime.IdentityConstraint, elemICs []ru
 	}
 }
 
-func hashAttrIndexRef(h *hashBuilder, ref runtime.AttrIndexRef) {
+func digestAttrIndexRef(h *digestBuilder, ref AttrIndexRef) {
 	h.u32(ref.Off)
 	h.u32(ref.Len)
 	h.u8(uint8(ref.Mode))
 	h.u32(ref.HashTable)
 }
 
-func hashModelRef(h *hashBuilder, ref runtime.ModelRef) {
+func digestModelRef(h *digestBuilder, ref ModelRef) {
 	h.u8(uint8(ref.Kind))
 	h.u32(ref.ID)
 }
 
-func hashBitsetRef(h *hashBuilder, ref runtime.BitsetRef) {
+func digestBitsetRef(h *digestBuilder, ref BitsetRef) {
 	h.u32(ref.Off)
 	h.u32(ref.Len)
 }
 
-func hashValueRef(h *hashBuilder, ref runtime.ValueRef) {
+func digestValueRef(h *digestBuilder, ref ValueRef) {
 	h.u32(ref.Off)
 	h.u32(ref.Len)
 	h.u64(ref.Hash)
 	h.bool(ref.Present)
 }
 
-func hashU32Slice(h *hashBuilder, vals []uint32) {
+func digestU32Slice(h *digestBuilder, vals []uint32) {
 	h.u32(uint32(len(vals)))
 	for _, v := range vals {
 		h.u32(v)
 	}
 }
 
-func hashU64Slice(h *hashBuilder, vals []uint64) {
+func digestU64Slice(h *digestBuilder, vals []uint64) {
 	h.u32(uint32(len(vals)))
 	for _, v := range vals {
 		h.u64(v)
 	}
 }
 
-func hashNamespaceIDs(h *hashBuilder, vals []runtime.NamespaceID) {
+func digestNamespaceIDs(h *digestBuilder, vals []NamespaceID) {
 	h.u32(uint32(len(vals)))
 	for _, v := range vals {
 		h.u32(uint32(v))
 	}
 }
 
-func hashSymbolIDs(h *hashBuilder, vals []runtime.SymbolID) {
+func digestSymbolIDs(h *digestBuilder, vals []SymbolID) {
 	h.u32(uint32(len(vals)))
 	for _, v := range vals {
 		h.u32(uint32(v))
 	}
 }
 
-func hashTypeIDs(h *hashBuilder, vals []runtime.TypeID) {
+func digestTypeIDs(h *digestBuilder, vals []TypeID) {
 	h.u32(uint32(len(vals)))
 	for _, v := range vals {
 		h.u32(uint32(v))
 	}
 }
 
-func hashElemIDs(h *hashBuilder, vals []runtime.ElemID) {
+func digestElemIDs(h *digestBuilder, vals []ElemID) {
 	h.u32(uint32(len(vals)))
 	for _, v := range vals {
 		h.u32(uint32(v))
 	}
 }
 
-func hashAttrIDs(h *hashBuilder, vals []runtime.AttrID) {
+func digestAttrIDs(h *digestBuilder, vals []AttrID) {
 	h.u32(uint32(len(vals)))
 	for _, v := range vals {
 		h.u32(uint32(v))
 	}
 }
 
-func hashValidatorIDs(h *hashBuilder, vals []runtime.ValidatorID) {
+func digestValidatorIDs(h *digestBuilder, vals []ValidatorID) {
 	h.u32(uint32(len(vals)))
 	for _, v := range vals {
 		h.u32(uint32(v))
 	}
 }
 
-func hashICIDs(h *hashBuilder, vals []runtime.ICID) {
+func digestICIDs(h *digestBuilder, vals []ICID) {
 	h.u32(uint32(len(vals)))
 	for _, v := range vals {
 		h.u32(uint32(v))
 	}
 }
 
-func hashPathIDs(h *hashBuilder, vals []runtime.PathID) {
+func digestPathIDs(h *digestBuilder, vals []PathID) {
 	h.u32(uint32(len(vals)))
 	for _, v := range vals {
 		h.u32(uint32(v))

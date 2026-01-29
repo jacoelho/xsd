@@ -14,14 +14,15 @@ type ValueBlob struct {
 }
 
 type Pattern struct {
-	Re *regexp.Regexp
+	Re     *regexp.Regexp
+	Source []byte
 }
 
 type EnumTable struct {
 	Off []uint32
 	Len []uint32
 
-	Values []ValueRef
+	Keys []ValueKey
 
 	HashOff []uint32
 	HashLen []uint32

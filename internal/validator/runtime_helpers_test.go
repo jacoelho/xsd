@@ -9,16 +9,16 @@ import (
 	"github.com/jacoelho/xsd/internal/runtimebuild"
 )
 
-func mustBuildRuntimeSchema(t *testing.T, schemaXML string) *runtime.Schema {
-	t.Helper()
+func mustBuildRuntimeSchema(tb testing.TB, schemaXML string) *runtime.Schema {
+	tb.Helper()
 
 	parsed, err := parser.Parse(strings.NewReader(schemaXML))
 	if err != nil {
-		t.Fatalf("parse schema: %v", err)
+		tb.Fatalf("parse schema: %v", err)
 	}
 	schema, err := runtimebuild.BuildSchema(parsed, runtimebuild.BuildConfig{})
 	if err != nil {
-		t.Fatalf("runtime build: %v", err)
+		tb.Fatalf("runtime build: %v", err)
 	}
 	return schema
 }

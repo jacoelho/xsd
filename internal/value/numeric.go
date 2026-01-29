@@ -1,6 +1,7 @@
 package value
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"math/big"
@@ -40,9 +41,9 @@ func ParseInteger(lexical []byte) (*big.Int, error) {
 func ParseBoolean(lexical []byte) (bool, error) {
 	trimmed := TrimXMLWhitespace(lexical)
 	switch {
-	case bytesEqual(trimmed, []byte("true")) || bytesEqual(trimmed, []byte("1")):
+	case bytes.Equal(trimmed, []byte("true")) || bytes.Equal(trimmed, []byte("1")):
 		return true, nil
-	case bytesEqual(trimmed, []byte("false")) || bytesEqual(trimmed, []byte("0")):
+	case bytes.Equal(trimmed, []byte("false")) || bytes.Equal(trimmed, []byte("0")):
 		return false, nil
 	default:
 		return false, fmt.Errorf("invalid boolean: %s", string(trimmed))
@@ -120,10 +121,10 @@ func validateFloatLexical(lexical []byte, label string) error {
 	if len(trimmed) == 0 {
 		return fmt.Errorf("invalid %s: empty string", label)
 	}
-	if bytesEqual(trimmed, []byte("+INF")) {
+	if bytes.Equal(trimmed, []byte("+INF")) {
 		return fmt.Errorf("invalid %s: +INF", label)
 	}
-	if bytesEqual(trimmed, []byte("INF")) || bytesEqual(trimmed, []byte("-INF")) || bytesEqual(trimmed, []byte("NaN")) {
+	if bytes.Equal(trimmed, []byte("INF")) || bytes.Equal(trimmed, []byte("-INF")) || bytes.Equal(trimmed, []byte("NaN")) {
 		return nil
 	}
 	if !isFloatLexical(trimmed) {
@@ -212,16 +213,4 @@ func isFloatLexical(value []byte) bool {
 
 func isDigit(b byte) bool {
 	return b >= '0' && b <= '9'
-}
-
-func bytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

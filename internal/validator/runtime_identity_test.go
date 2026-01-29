@@ -3,6 +3,7 @@ package validator
 import (
 	"testing"
 
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -106,10 +107,12 @@ func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
 	}
 
 	attrs := []StartAttr{{
-		Sym:   fx.symID,
-		NS:    fx.empty,
-		Local: []byte("id"),
-		Value: []byte("one"),
+		Sym:      fx.symID,
+		NS:       fx.empty,
+		Local:    []byte("id"),
+		Value:    []byte("one"),
+		KeyKind:  runtime.VKString,
+		KeyBytes: []byte("one"),
 	}}
 	if err := sess.identityStart(identityStartInput{
 		Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: attrs,
@@ -136,15 +139,8 @@ func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
 	if len(sess.icState.violations) != 0 {
 		t.Fatalf("violations = %d, want 0", len(sess.icState.violations))
 	}
-	if len(sess.icState.completed) != 1 {
-		t.Fatalf("completed scopes = %d, want 1", len(sess.icState.completed))
-	}
-	scope := sess.icState.completed[0]
-	if len(scope.constraints) != 1 {
-		t.Fatalf("constraints = %d, want 1", len(scope.constraints))
-	}
-	if got := len(scope.constraints[0].rows); got != 1 {
-		t.Fatalf("rows = %d, want 1", got)
+	if pending := sess.icState.drainPending(); len(pending) != 0 {
+		t.Fatalf("pending errors = %d, want 0", len(pending))
 	}
 }
 
@@ -185,8 +181,13 @@ func TestIdentityKeyMissingFieldErrors(t *testing.T) {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	if len(sess.icState.violations) == 0 {
+	pending := sess.icState.drainPending()
+	if len(pending) == 0 {
 		t.Fatalf("expected missing field violation")
+	}
+	code, _, ok := validationErrorInfo(pending[0])
+	if !ok || code != xsderrors.ErrIdentityAbsent {
+		t.Fatalf("expected %s, got %v", xsderrors.ErrIdentityAbsent, pending[0])
 	}
 }
 
@@ -246,10 +247,12 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 		t.Fatalf("identityStart group: %v", err)
 	}
 	attrs := []StartAttr{{
-		Sym:   fx.symID,
-		NS:    fx.empty,
-		Local: []byte("id"),
-		Value: []byte("one"),
+		Sym:      fx.symID,
+		NS:       fx.empty,
+		Local:    []byte("id"),
+		Value:    []byte("one"),
+		KeyKind:  runtime.VKString,
+		KeyBytes: []byte("one"),
 	}}
 	if err := sess.identityStart(identityStartInput{
 		Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: attrs,
@@ -266,20 +269,7 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	if len(sess.icState.completed) != 2 {
-		t.Fatalf("completed scopes = %d, want 2", len(sess.icState.completed))
-	}
-	for _, scope := range sess.icState.completed {
-		if len(scope.constraints) != 2 {
-			t.Fatalf("scope constraints = %d, want 2", len(scope.constraints))
-		}
-		for _, constraint := range scope.constraints {
-			if constraint.category == runtime.ICKey && len(constraint.rows) != 1 {
-				t.Fatalf("key rows = %d, want 1", len(constraint.rows))
-			}
-			if constraint.category == runtime.ICKeyRef && len(constraint.keyrefs) != 1 {
-				t.Fatalf("keyref rows = %d, want 1", len(constraint.keyrefs))
-			}
-		}
+	if pending := sess.icState.drainPending(); len(pending) != 0 {
+		t.Fatalf("pending errors = %d, want 0", len(pending))
 	}
 }
