@@ -799,17 +799,6 @@ func validateElementRestrictionWithGroupOccurrence(schema *parser.Schema, baseMG
 			return false, nil
 		}
 	}
-	if schema != nil && baseMG != nil && baseMG.Kind == types.Choice && !baseMG.MaxOcc().IsOne() && len(baseChildren) > 1 {
-		baseElemMax := baseElem.MaxOcc()
-		if !baseElemMax.IsUnbounded() {
-			restrictionMax := restrictionElem.MaxOcc()
-			if restrictionMax.IsUnbounded() || restrictionMax.Cmp(baseElemMax) > 0 {
-				if existing, ok := schema.ParticleRestrictionCaps[restrictionElem]; !ok || baseElemMax.Cmp(existing) < 0 {
-					schema.ParticleRestrictionCaps[restrictionElem] = baseElemMax
-				}
-			}
-		}
-	}
 	baseMinOcc := baseElem.MinOcc()
 	baseMaxOcc := baseElem.MaxOcc()
 	if baseMG != nil && baseMG.Kind == types.Choice && !baseMG.MaxOcc().IsOne() {
