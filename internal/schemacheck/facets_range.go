@@ -35,25 +35,43 @@ func isDurationType(baseType types.Type, baseQName types.QName) bool {
 }
 
 type rangeFacetInfo struct {
-	minValue     *string
-	maxValue     *string
+	minValue     string
+	maxValue     string
 	minInclusive bool
 	maxInclusive bool
+	hasMin       bool
+	hasMax       bool
 }
 
-var builtinRangeFacetInfo = map[string]rangeFacetInfo{
-	"positiveInteger":    {minValue: stringPtr("1"), minInclusive: true},
-	"nonNegativeInteger": {minValue: stringPtr("0"), minInclusive: true},
-	"negativeInteger":    {maxValue: stringPtr("-1"), maxInclusive: true},
-	"nonPositiveInteger": {maxValue: stringPtr("0"), maxInclusive: true},
-	"byte":               {minValue: stringPtr("-128"), minInclusive: true, maxValue: stringPtr("127"), maxInclusive: true},
-	"short":              {minValue: stringPtr("-32768"), minInclusive: true, maxValue: stringPtr("32767"), maxInclusive: true},
-	"int":                {minValue: stringPtr("-2147483648"), minInclusive: true, maxValue: stringPtr("2147483647"), maxInclusive: true},
-	"long":               {minValue: stringPtr("-9223372036854775808"), minInclusive: true, maxValue: stringPtr("9223372036854775807"), maxInclusive: true},
-	"unsignedByte":       {minValue: stringPtr("0"), minInclusive: true, maxValue: stringPtr("255"), maxInclusive: true},
-	"unsignedShort":      {minValue: stringPtr("0"), minInclusive: true, maxValue: stringPtr("65535"), maxInclusive: true},
-	"unsignedInt":        {minValue: stringPtr("0"), minInclusive: true, maxValue: stringPtr("4294967295"), maxInclusive: true},
-	"unsignedLong":       {minValue: stringPtr("0"), minInclusive: true, maxValue: stringPtr("18446744073709551615"), maxInclusive: true},
+func builtinRangeFacetInfoFor(typeName string) (rangeFacetInfo, bool) {
+	switch typeName {
+	case "positiveInteger":
+		return rangeFacetInfo{minValue: "1", minInclusive: true, hasMin: true}, true
+	case "nonNegativeInteger":
+		return rangeFacetInfo{minValue: "0", minInclusive: true, hasMin: true}, true
+	case "negativeInteger":
+		return rangeFacetInfo{maxValue: "-1", maxInclusive: true, hasMax: true}, true
+	case "nonPositiveInteger":
+		return rangeFacetInfo{maxValue: "0", maxInclusive: true, hasMax: true}, true
+	case "byte":
+		return rangeFacetInfo{minValue: "-128", minInclusive: true, maxValue: "127", maxInclusive: true, hasMin: true, hasMax: true}, true
+	case "short":
+		return rangeFacetInfo{minValue: "-32768", minInclusive: true, maxValue: "32767", maxInclusive: true, hasMin: true, hasMax: true}, true
+	case "int":
+		return rangeFacetInfo{minValue: "-2147483648", minInclusive: true, maxValue: "2147483647", maxInclusive: true, hasMin: true, hasMax: true}, true
+	case "long":
+		return rangeFacetInfo{minValue: "-9223372036854775808", minInclusive: true, maxValue: "9223372036854775807", maxInclusive: true, hasMin: true, hasMax: true}, true
+	case "unsignedByte":
+		return rangeFacetInfo{minValue: "0", minInclusive: true, maxValue: "255", maxInclusive: true, hasMin: true, hasMax: true}, true
+	case "unsignedShort":
+		return rangeFacetInfo{minValue: "0", minInclusive: true, maxValue: "65535", maxInclusive: true, hasMin: true, hasMax: true}, true
+	case "unsignedInt":
+		return rangeFacetInfo{minValue: "0", minInclusive: true, maxValue: "4294967295", maxInclusive: true, hasMin: true, hasMax: true}, true
+	case "unsignedLong":
+		return rangeFacetInfo{minValue: "0", minInclusive: true, maxValue: "18446744073709551615", maxInclusive: true, hasMin: true, hasMax: true}, true
+	default:
+		return rangeFacetInfo{}, false
+	}
 }
 
 // validateFacetInheritance validates that derived facets are valid restrictions of base type facets
@@ -133,26 +151,26 @@ func validateFacetInheritanceWithVisited(derivedFacets []types.Facet, baseType t
 }
 
 func implicitRangeFacetsForBuiltin(bt *types.BuiltinType) []types.Facet {
-	info, ok := builtinRangeFacetInfo[bt.Name().Local]
+	info, ok := builtinRangeFacetInfoFor(bt.Name().Local)
 	if !ok {
 		return nil
 	}
 	var result []types.Facet
-	if info.minValue != nil {
+	if info.hasMin {
 		if info.minInclusive {
-			if facet, err := types.NewMinInclusive(*info.minValue, bt); err == nil {
+			if facet, err := types.NewMinInclusive(info.minValue, bt); err == nil {
 				result = append(result, facet)
 			}
-		} else if facet, err := types.NewMinExclusive(*info.minValue, bt); err == nil {
+		} else if facet, err := types.NewMinExclusive(info.minValue, bt); err == nil {
 			result = append(result, facet)
 		}
 	}
-	if info.maxValue != nil {
+	if info.hasMax {
 		if info.maxInclusive {
-			if facet, err := types.NewMaxInclusive(*info.maxValue, bt); err == nil {
+			if facet, err := types.NewMaxInclusive(info.maxValue, bt); err == nil {
 				result = append(result, facet)
 			}
-		} else if facet, err := types.NewMaxExclusive(*info.maxValue, bt); err == nil {
+		} else if facet, err := types.NewMaxExclusive(info.maxValue, bt); err == nil {
 			result = append(result, facet)
 		}
 	}
@@ -172,17 +190,21 @@ func extractRangeFacetInfo(facetsList []types.Facet) rangeFacetInfo {
 		}
 		switch facet.Name() {
 		case "minInclusive":
-			info.minValue = &val
+			info.minValue = val
 			info.minInclusive = true
+			info.hasMin = true
 		case "minExclusive":
-			info.minValue = &val
+			info.minValue = val
 			info.minInclusive = false
+			info.hasMin = true
 		case "maxInclusive":
-			info.maxValue = &val
+			info.maxValue = val
 			info.maxInclusive = true
+			info.hasMax = true
 		case "maxExclusive":
-			info.maxValue = &val
+			info.maxValue = val
 			info.maxInclusive = false
+			info.hasMax = true
 		}
 	}
 	return info
@@ -192,8 +214,8 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []types.Facet, base
 	base := extractRangeFacetInfo(baseFacets)
 	derived := extractRangeFacetInfo(derivedFacets)
 
-	if base.minValue != nil && derived.minValue != nil {
-		cmp, err := compareFacetValues(*derived.minValue, *base.minValue, baseType)
+	if base.hasMin && derived.hasMin {
+		cmp, err := compareFacetValues(derived.minValue, base.minValue, baseType)
 		if errors.Is(err, errDurationNotComparable) {
 			return nil
 		}
@@ -201,15 +223,15 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []types.Facet, base
 			return fmt.Errorf("min facet: cannot compare values: %w", err)
 		}
 		if cmp < 0 {
-			return fmt.Errorf("min facet: derived value (%s) must be >= base value (%s) to be a valid restriction", *derived.minValue, *base.minValue)
+			return fmt.Errorf("min facet: derived value (%s) must be >= base value (%s) to be a valid restriction", derived.minValue, base.minValue)
 		}
 		if cmp == 0 && !base.minInclusive && derived.minInclusive {
-			return fmt.Errorf("min facet: derived inclusive value (%s) cannot relax base exclusive bound", *derived.minValue)
+			return fmt.Errorf("min facet: derived inclusive value (%s) cannot relax base exclusive bound", derived.minValue)
 		}
 	}
 
-	if base.maxValue != nil && derived.maxValue != nil {
-		cmp, err := compareFacetValues(*derived.maxValue, *base.maxValue, baseType)
+	if base.hasMax && derived.hasMax {
+		cmp, err := compareFacetValues(derived.maxValue, base.maxValue, baseType)
 		if errors.Is(err, errDurationNotComparable) {
 			return nil
 		}
@@ -217,16 +239,16 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []types.Facet, base
 			return fmt.Errorf("max facet: cannot compare values: %w", err)
 		}
 		if cmp > 0 {
-			return fmt.Errorf("max facet: derived value (%s) must be <= base value (%s) to be a valid restriction", *derived.maxValue, *base.maxValue)
+			return fmt.Errorf("max facet: derived value (%s) must be <= base value (%s) to be a valid restriction", derived.maxValue, base.maxValue)
 		}
 		if cmp == 0 && !base.maxInclusive && derived.maxInclusive {
-			return fmt.Errorf("max facet: derived inclusive value (%s) cannot relax base exclusive bound", *derived.maxValue)
+			return fmt.Errorf("max facet: derived inclusive value (%s) cannot relax base exclusive bound", derived.maxValue)
 		}
 	}
 
 	// ensure derived min does not exceed base max (inherited constraint).
-	if base.maxValue != nil && derived.minValue != nil {
-		cmp, err := compareFacetValues(*derived.minValue, *base.maxValue, baseType)
+	if base.hasMax && derived.hasMin {
+		cmp, err := compareFacetValues(derived.minValue, base.maxValue, baseType)
 		if errors.Is(err, errDurationNotComparable) {
 			return nil
 		}
@@ -234,16 +256,16 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []types.Facet, base
 			return fmt.Errorf("min/max facet: cannot compare values: %w", err)
 		}
 		if cmp > 0 {
-			return fmt.Errorf("min/max facet: derived min (%s) must be <= base max (%s)", *derived.minValue, *base.maxValue)
+			return fmt.Errorf("min/max facet: derived min (%s) must be <= base max (%s)", derived.minValue, base.maxValue)
 		}
 		if cmp == 0 && (!base.maxInclusive || !derived.minInclusive) {
-			return fmt.Errorf("min/max facet: derived min (%s) cannot relax base max bound", *derived.minValue)
+			return fmt.Errorf("min/max facet: derived min (%s) cannot relax base max bound", derived.minValue)
 		}
 	}
 
 	// ensure derived max does not fall below base min (inherited constraint).
-	if base.minValue != nil && derived.maxValue != nil {
-		cmp, err := compareFacetValues(*derived.maxValue, *base.minValue, baseType)
+	if base.hasMin && derived.hasMax {
+		cmp, err := compareFacetValues(derived.maxValue, base.minValue, baseType)
 		if errors.Is(err, errDurationNotComparable) {
 			return nil
 		}
@@ -251,10 +273,10 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []types.Facet, base
 			return fmt.Errorf("min/max facet: cannot compare values: %w", err)
 		}
 		if cmp < 0 {
-			return fmt.Errorf("min/max facet: derived max (%s) must be >= base min (%s)", *derived.maxValue, *base.minValue)
+			return fmt.Errorf("min/max facet: derived max (%s) must be >= base min (%s)", derived.maxValue, base.minValue)
 		}
 		if cmp == 0 && (!base.minInclusive || !derived.maxInclusive) {
-			return fmt.Errorf("min/max facet: derived max (%s) cannot relax base min bound", *derived.maxValue)
+			return fmt.Errorf("min/max facet: derived max (%s) cannot relax base min bound", derived.maxValue)
 		}
 	}
 
@@ -512,10 +534,6 @@ func compareFloatValues(v1, v2 float64) int {
 		return 1
 	}
 	return 0
-}
-
-func stringPtr(val string) *string {
-	return &val
 }
 
 // validateRangeFacets validates consistency of range facets
