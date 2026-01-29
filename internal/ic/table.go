@@ -142,7 +142,7 @@ func BuildTable(rows []Row) (*Table, []int) {
 	if len(rows) == 0 {
 		return nil, nil
 	}
-	size := nextPow2(len(rows) * 2)
+	size := runtime.NextPow2(len(rows) * 2)
 	table := &Table{
 		hashes: make([]uint64, size),
 		slots:  make([]uint32, size),
@@ -214,15 +214,4 @@ func rowsEqual(a, b Row) bool {
 		}
 	}
 	return true
-}
-
-func nextPow2(n int) int {
-	if n <= 1 {
-		return 1
-	}
-	p := 1
-	for p < n {
-		p <<= 1
-	}
-	return p
 }

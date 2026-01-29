@@ -1,7 +1,5 @@
 package runtime
 
-import "math/bits"
-
 const (
 	fnvOffset64 = 14695981039346656037
 	fnvPrime64  = 1099511628211
@@ -55,11 +53,4 @@ func hashSymbol(nsID NamespaceID, local []byte) uint64 {
 		return 1
 	}
 	return h
-}
-
-func nextPow2(n int) int {
-	if n <= 1 {
-		return 1
-	}
-	return 1 << bits.Len(uint(n-1))
 }

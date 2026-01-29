@@ -1,10 +1,6 @@
 package runtimebuild
 
-import (
-	"math/bits"
-
-	"github.com/jacoelho/xsd/internal/runtime"
-)
+import "github.com/jacoelho/xsd/internal/runtime"
 
 type valueBuilder struct {
 	index map[string]runtime.ValueRef
@@ -59,7 +55,7 @@ func (b *enumBuilder) add(keys []runtime.ValueKey) runtime.EnumID {
 	b.off = append(b.off, off)
 	b.len = append(b.len, uint32(len(keys)))
 
-	tableSize := max(nextPow2(len(keys)*2), 1)
+	tableSize := max(runtime.NextPow2(len(keys)*2), 1)
 	hashOff := uint32(len(b.hashes))
 	b.hashOff = append(b.hashOff, hashOff)
 	b.hashLen = append(b.hashLen, uint32(tableSize))
@@ -105,11 +101,4 @@ func (b *enumBuilder) ensureInit() {
 	b.len = []uint32{0}
 	b.hashOff = []uint32{0}
 	b.hashLen = []uint32{0}
-}
-
-func nextPow2(n int) int {
-	if n <= 1 {
-		return 1
-	}
-	return 1 << bits.Len(uint(n-1))
 }

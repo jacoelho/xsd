@@ -308,7 +308,7 @@ func (s *Session) checkDuplicateAttrs(attrs []StartAttr) error {
 		}
 		return nil
 	}
-	size := nextPow2(len(attrs) * 2)
+	size := runtime.NextPow2(len(attrs) * 2)
 	table := s.attrSeenTable
 	if cap(table) < size {
 		table = make([]attrSeenEntry, size)
@@ -337,17 +337,6 @@ func (s *Session) checkDuplicateAttrs(attrs []StartAttr) error {
 	}
 	s.attrSeenTable = table
 	return nil
-}
-
-func nextPow2(n int) int {
-	if n <= 1 {
-		return 1
-	}
-	size := 1
-	for size < n {
-		size <<= 1
-	}
-	return size
 }
 
 func attrNSBytes(rt *runtime.Schema, attr *StartAttr) []byte {
