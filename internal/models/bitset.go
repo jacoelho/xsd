@@ -63,9 +63,14 @@ func (b *bitset) empty() bool {
 
 func (b *bitset) forEach(f func(int)) {
 	for i, w := range b.words {
+		base := i * bitsetWordBits
 		for w != 0 {
 			bit := bits.TrailingZeros64(w)
-			f(i*bitsetWordBits + bit)
+			idx := base + bit
+			if idx >= b.size {
+				return
+			}
+			f(idx)
 			w &^= 1 << bit
 		}
 	}
