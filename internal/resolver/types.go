@@ -50,7 +50,7 @@ func validateTypeReferenceFromTypeWithVisited(schema *parser.Schema, typ types.T
 	}
 
 	// check if it's a placeholder SimpleType (has QName but not builtin and no Restriction/List/Union).
-	if st, ok := typ.(*types.SimpleType); ok {
+	if st, ok := types.AsSimpleType(typ); ok {
 		// check if it's a placeholder: not builtin, has QName, but no Restriction/List/Union.
 		if !st.IsBuiltin() && st.Restriction == nil && st.List == nil && st.Union == nil {
 			// this is a placeholder - check if type exists.
@@ -71,7 +71,7 @@ func validateTypeReferenceFromTypeWithVisited(schema *parser.Schema, typ types.T
 	}
 
 	// check inline complex type's content model for references.
-	if ct, ok := typ.(*types.ComplexType); ok {
+	if ct, ok := types.AsComplexType(typ); ok {
 		if content := ct.Content(); content != nil {
 			if ec, ok := content.(*types.ElementContent); ok && ec.Particle != nil {
 				if err := validateParticleReferencesWithVisited(schema, ec.Particle, visited, originLocation); err != nil {
@@ -101,7 +101,7 @@ func validateTypeReferences(schema *parser.Schema, qname types.QName, typ types.
 			}
 			// also check if we have an inline base type with final attribute.
 			if t.ResolvedBase != nil {
-				if baseST, ok := t.ResolvedBase.(*types.SimpleType); ok && baseST.Final.Has(types.DerivationRestriction) {
+				if baseST, ok := types.AsSimpleType(t.ResolvedBase); ok && baseST.Final.Has(types.DerivationRestriction) {
 					return fmt.Errorf("cannot derive by restriction from type '%s' which is final for restriction", baseST.QName)
 				}
 			}
@@ -289,7 +289,7 @@ func validateSimpleTypeFinalRestriction(schema *parser.Schema, baseQName types.Q
 	}
 
 	// check if it's a simple type with final="restriction".
-	if st, ok := baseType.(*types.SimpleType); ok {
+	if st, ok := types.AsSimpleType(baseType); ok {
 		if st.Final.Has(types.DerivationRestriction) {
 			return fmt.Errorf("cannot derive by restriction from type '%s' which is final for restriction", baseQName)
 		}
@@ -316,7 +316,7 @@ func validateSimpleTypeFinalList(schema *parser.Schema, itemTypeQName types.QNam
 	}
 
 	// check if it's a simple type with final="list".
-	if st, ok := itemType.(*types.SimpleType); ok {
+	if st, ok := types.AsSimpleType(itemType); ok {
 		if st.Final.Has(types.DerivationList) {
 			return fmt.Errorf("cannot use type '%s' as list item type because it is final for list", itemTypeQName)
 		}
@@ -343,7 +343,7 @@ func validateSimpleTypeFinalUnion(schema *parser.Schema, memberTypeQName types.Q
 	}
 
 	// check if it's a simple type with final="union".
-	if st, ok := memberType.(*types.SimpleType); ok {
+	if st, ok := types.AsSimpleType(memberType); ok {
 		if st.Final.Has(types.DerivationUnion) {
 			return fmt.Errorf("cannot use type '%s' as union member type because it is final for union", memberTypeQName)
 		}

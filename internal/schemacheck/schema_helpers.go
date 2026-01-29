@@ -10,7 +10,7 @@ import (
 // EffectiveContentParticle returns the effective element particle for a complex type.
 // For derived types, it resolves restriction or extension content.
 func EffectiveContentParticle(schema *parser.Schema, typ types.Type) types.Particle {
-	ct, ok := typ.(*types.ComplexType)
+	ct, ok := types.AsComplexType(typ)
 	if !ok || ct == nil {
 		return nil
 	}
@@ -60,13 +60,13 @@ func lookupComplexType(schema *parser.Schema, qname types.QName) (*types.Complex
 	if !ok {
 		return nil, false
 	}
-	ct, ok := typ.(*types.ComplexType)
+	ct, ok := types.AsComplexType(typ)
 	return ct, ok
 }
 
 func resolveBaseComplexType(schema *parser.Schema, ct *types.ComplexType, baseQName types.QName) *types.ComplexType {
 	if ct != nil && ct.ResolvedBase != nil {
-		if baseCT, ok := ct.ResolvedBase.(*types.ComplexType); ok {
+		if baseCT, ok := types.AsComplexType(ct.ResolvedBase); ok {
 			return baseCT
 		}
 		if isAnyTypeQName(ct.ResolvedBase.Name()) {
@@ -190,7 +190,7 @@ func validateDeferredFacetApplicability(df *types.DeferredFacet, baseType types.
 	case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive":
 		// range facets are NOT applicable to list types
 		if baseType != nil {
-			if baseST, ok := baseType.(*types.SimpleType); ok {
+			if baseST, ok := types.AsSimpleType(baseType); ok {
 				if baseST.Variety() == types.ListVariety {
 					return fmt.Errorf("facet %s is not applicable to list type %s", df.FacetName, baseQName)
 				}
