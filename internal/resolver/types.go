@@ -273,79 +273,40 @@ func validateImportForNamespaceAtLocation(schema *parser.Schema, location string
 
 // validateSimpleTypeFinalRestriction checks if a simple type's final attribute blocks restriction derivation.
 func validateSimpleTypeFinalRestriction(schema *parser.Schema, baseQName types.QName) error {
-	if baseQName.IsZero() {
-		return nil
-	}
-
-	// built-in types don't have final attribute.
-	if baseQName.Namespace == types.XSDNamespace {
-		return nil
-	}
-
-	// look up the type.
-	baseType, exists := schema.TypeDefs[baseQName]
-	if !exists {
-		return nil // type not found - already validated elsewhere.
-	}
-
-	// check if it's a simple type with final="restriction".
-	if st, ok := types.AsSimpleType(baseType); ok {
-		if st.Final.Has(types.DerivationRestriction) {
-			return fmt.Errorf("cannot derive by restriction from type '%s' which is final for restriction", baseQName)
-		}
-	}
-
-	return nil
+	return validateSimpleTypeFinal(schema, baseQName, types.DerivationRestriction,
+		"cannot derive by restriction from type '%s' which is final for restriction")
 }
 
 // validateSimpleTypeFinalList checks if a simple type's final attribute blocks list derivation.
 func validateSimpleTypeFinalList(schema *parser.Schema, itemTypeQName types.QName) error {
-	if itemTypeQName.IsZero() {
-		return nil
-	}
-
-	// built-in types don't have final attribute.
-	if itemTypeQName.Namespace == types.XSDNamespace {
-		return nil
-	}
-
-	// look up the type.
-	itemType, exists := schema.TypeDefs[itemTypeQName]
-	if !exists {
-		return nil // type not found - already validated elsewhere.
-	}
-
-	// check if it's a simple type with final="list".
-	if st, ok := types.AsSimpleType(itemType); ok {
-		if st.Final.Has(types.DerivationList) {
-			return fmt.Errorf("cannot use type '%s' as list item type because it is final for list", itemTypeQName)
-		}
-	}
-
-	return nil
+	return validateSimpleTypeFinal(schema, itemTypeQName, types.DerivationList,
+		"cannot use type '%s' as list item type because it is final for list")
 }
 
 // validateSimpleTypeFinalUnion checks if a simple type's final attribute blocks union derivation.
 func validateSimpleTypeFinalUnion(schema *parser.Schema, memberTypeQName types.QName) error {
-	if memberTypeQName.IsZero() {
+	return validateSimpleTypeFinal(schema, memberTypeQName, types.DerivationUnion,
+		"cannot use type '%s' as union member type because it is final for union")
+}
+
+func validateSimpleTypeFinal(schema *parser.Schema, qname types.QName, method types.DerivationMethod, errFmt string) error {
+	if qname.IsZero() {
 		return nil
 	}
 
 	// built-in types don't have final attribute.
-	if memberTypeQName.Namespace == types.XSDNamespace {
+	if qname.Namespace == types.XSDNamespace {
 		return nil
 	}
 
-	// look up the type.
-	memberType, exists := schema.TypeDefs[memberTypeQName]
+	typ, exists := schema.TypeDefs[qname]
 	if !exists {
 		return nil // type not found - already validated elsewhere.
 	}
 
-	// check if it's a simple type with final="union".
-	if st, ok := types.AsSimpleType(memberType); ok {
-		if st.Final.Has(types.DerivationUnion) {
-			return fmt.Errorf("cannot use type '%s' as union member type because it is final for union", memberTypeQName)
+	if st, ok := types.AsSimpleType(typ); ok {
+		if st.Final.Has(method) {
+			return fmt.Errorf(errFmt, qname)
 		}
 	}
 
