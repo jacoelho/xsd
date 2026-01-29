@@ -50,10 +50,21 @@ func (s *Session) nameParts(id NameID) ([]byte, []byte) {
 		return nil, nil
 	}
 	idx := int(id)
-	if idx >= len(s.nameMap) {
-		return nil, nil
+	var entry nameEntry
+	if idx < len(s.nameMap) {
+		entry = s.nameMap[idx]
 	}
-	entry := s.nameMap[idx]
+	if entry.LocalLen == 0 && entry.NSLen == 0 && entry.Sym == 0 && entry.NS == 0 {
+		if s.nameMapSparse != nil {
+			if sparse, ok := s.nameMapSparse[id]; ok {
+				entry = sparse
+			} else {
+				return nil, nil
+			}
+		} else {
+			return nil, nil
+		}
+	}
 	var local []byte
 	if entry.LocalLen != 0 && int(entry.LocalOff+entry.LocalLen) <= len(s.nameLocal) {
 		local = s.nameLocal[entry.LocalOff : entry.LocalOff+entry.LocalLen]

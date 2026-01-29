@@ -17,19 +17,24 @@ func newHashBuilder() *hashBuilder {
 	return &hashBuilder{h: fnv.New64a()}
 }
 
+func (b *hashBuilder) write(p []byte) {
+	// hash.Hash.Write never returns an error for standard library hashes.
+	_, _ = b.h.Write(p)
+}
+
 func (b *hashBuilder) u8(v uint8) {
 	b.buf[0] = v
-	_, _ = b.h.Write(b.buf[:1])
+	b.write(b.buf[:1])
 }
 
 func (b *hashBuilder) u32(v uint32) {
 	binary.LittleEndian.PutUint32(b.buf[:4], v)
-	_, _ = b.h.Write(b.buf[:4])
+	b.write(b.buf[:4])
 }
 
 func (b *hashBuilder) u64(v uint64) {
 	binary.LittleEndian.PutUint64(b.buf[:8], v)
-	_, _ = b.h.Write(b.buf[:8])
+	b.write(b.buf[:8])
 }
 
 func (b *hashBuilder) bool(v bool) {
@@ -45,7 +50,7 @@ func (b *hashBuilder) bytes(data []byte) {
 	if len(data) == 0 {
 		return
 	}
-	_, _ = b.h.Write(data)
+	b.write(data)
 }
 
 func (b *hashBuilder) sum64() uint64 {

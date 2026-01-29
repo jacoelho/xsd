@@ -19,3 +19,19 @@ func TestPathStackStringIncludesNamespace(t *testing.T) {
 		t.Fatalf("path = %q, want %q", got, "/{urn:a}root/{urn:b}root")
 	}
 }
+
+func TestInternNameSparseIDUsesMap(t *testing.T) {
+	sess := NewSession(runtime.NewBuilder().Build())
+	id := xmlstream.NameID(maxNameMapSize + 5)
+	sess.internName(id, []byte("urn:big"), []byte("root"))
+	if len(sess.nameMap) != 0 {
+		t.Fatalf("nameMap len = %d, want 0", len(sess.nameMap))
+	}
+	if sess.nameMapSparse == nil {
+		t.Fatalf("expected nameMapSparse to be initialized")
+	}
+	sess.elemStack = append(sess.elemStack, elemFrame{name: NameID(id)})
+	if got := sess.pathString(); got != "/{urn:big}root" {
+		t.Fatalf("path = %q, want %q", got, "/{urn:big}root")
+	}
+}

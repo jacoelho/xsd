@@ -62,7 +62,7 @@ func collectComplexTypeChain(schema *parser.Schema, ct *types.ComplexType) []*ty
 			if isAnyTypeQName(current.ResolvedBase.Name()) {
 				next = types.NewAnyTypeComplexType()
 			}
-		} else if current.ResolvedBase == nil {
+		} else {
 			baseQName := types.QName{}
 			if content := current.Content(); content != nil {
 				baseQName = content.BaseTypeQName()
@@ -347,7 +347,10 @@ func effectiveAttributeQName(schema *parser.Schema, attr *types.AttributeDecl) t
 		}
 	}
 	if form == types.FormQualified {
-		ns := schema.TargetNamespace
+		ns := types.NamespaceEmpty
+		if schema != nil {
+			ns = schema.TargetNamespace
+		}
 		if !attr.SourceNamespace.IsEmpty() {
 			ns = attr.SourceNamespace
 		}

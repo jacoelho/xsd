@@ -44,6 +44,9 @@ func (s *Session) shrinkBuffers() {
 	if cap(s.nameMap) > maxSessionEntries {
 		s.nameMap = nil
 	}
+	if len(s.nameMapSparse) > maxSessionEntries {
+		s.nameMapSparse = nil
+	}
 	if cap(s.attrBuf) > maxSessionEntries {
 		s.attrBuf = nil
 	}

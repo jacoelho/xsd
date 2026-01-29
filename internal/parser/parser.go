@@ -114,12 +114,34 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 			doc.NamespaceURI(root), doc.LocalName(root))
 	}
 
-	if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
+	schema := NewSchema()
+	if err := parseSchemaAttributes(doc, root, schema); err != nil {
 		return nil, err
 	}
 
-	schema := NewSchema()
+	result := &ParseResult{
+		Schema:     schema,
+		Directives: []Directive{},
+		Imports:    []ImportInfo{},
+		Includes:   []IncludeInfo{},
+	}
 
+	importedNamespaces, err := parseDirectives(doc, root, schema, result)
+	if err != nil {
+		return nil, err
+	}
+	applyImportedNamespaces(schema, importedNamespaces)
+	if err := parseComponents(doc, root, schema); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func parseSchemaAttributes(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema) error {
+	if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
+		return err
+	}
 	// check if targetNamespace attribute is present and validate it
 	// according to XSD 1.0 spec, targetNamespace cannot be an empty string
 	// it must either be absent (no namespace) or have a non-empty value
@@ -133,7 +155,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 				targetNSAttr = types.ApplyWhiteSpace(attr.Value(), types.WhiteSpaceCollapse)
 				targetNSFound = true
 			case xsdxml.XSDNamespace:
-				return nil, fmt.Errorf("schema attribute 'targetNamespace' must be unprefixed (found '%s:targetNamespace')", attr.NamespaceURI())
+				return fmt.Errorf("schema attribute 'targetNamespace' must be unprefixed (found '%s:targetNamespace')", attr.NamespaceURI())
 			default:
 				// ignore foreign attributes with the same local name
 				continue
@@ -146,7 +168,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	} else {
 		// attribute is present - validate it's not empty
 		if targetNSAttr == "" {
-			return nil, fmt.Errorf("targetNamespace attribute cannot be empty (must be absent or have a non-empty value)")
+			return fmt.Errorf("targetNamespace attribute cannot be empty (must be absent or have a non-empty value)")
 		}
 		schema.TargetNamespace = types.NamespaceURI(targetNSAttr)
 	}
@@ -165,7 +187,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		// xmlns:prefix="namespace" - prefix is the local name
 		prefix := attr.LocalName()
 		if attr.Value() == "" {
-			return nil, fmt.Errorf("namespace prefix %q cannot be bound to empty namespace", prefix)
+			return fmt.Errorf("namespace prefix %q cannot be bound to empty namespace", prefix)
 		}
 		schema.NamespaceDecls[prefix] = attr.Value()
 	}
@@ -173,7 +195,7 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	if doc.HasAttribute(root, "elementFormDefault") {
 		elemForm := types.ApplyWhiteSpace(doc.GetAttribute(root, "elementFormDefault"), types.WhiteSpaceCollapse)
 		if elemForm == "" {
-			return nil, fmt.Errorf("elementFormDefault attribute cannot be empty")
+			return fmt.Errorf("elementFormDefault attribute cannot be empty")
 		}
 		switch elemForm {
 		case "qualified":
@@ -181,14 +203,14 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		case "unqualified":
 			schema.ElementFormDefault = Unqualified
 		default:
-			return nil, fmt.Errorf("invalid elementFormDefault attribute value '%s': must be 'qualified' or 'unqualified'", elemForm)
+			return fmt.Errorf("invalid elementFormDefault attribute value '%s': must be 'qualified' or 'unqualified'", elemForm)
 		}
 	}
 
 	if doc.HasAttribute(root, "attributeFormDefault") {
 		attrForm := types.ApplyWhiteSpace(doc.GetAttribute(root, "attributeFormDefault"), types.WhiteSpaceCollapse)
 		if attrForm == "" {
-			return nil, fmt.Errorf("attributeFormDefault attribute cannot be empty")
+			return fmt.Errorf("attributeFormDefault attribute cannot be empty")
 		}
 		switch attrForm {
 		case "qualified":
@@ -196,18 +218,18 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 		case "unqualified":
 			schema.AttributeFormDefault = Unqualified
 		default:
-			return nil, fmt.Errorf("invalid attributeFormDefault attribute value '%s': must be 'qualified' or 'unqualified'", attrForm)
+			return fmt.Errorf("invalid attributeFormDefault attribute value '%s': must be 'qualified' or 'unqualified'", attrForm)
 		}
 	}
 
 	if doc.HasAttribute(root, "blockDefault") {
 		blockDefaultAttr := doc.GetAttribute(root, "blockDefault")
 		if types.TrimXMLWhitespace(blockDefaultAttr) == "" {
-			return nil, fmt.Errorf("blockDefault attribute cannot be empty")
+			return fmt.Errorf("blockDefault attribute cannot be empty")
 		}
 		block, err := parseDerivationSetWithValidation(blockDefaultAttr, types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction))
 		if err != nil {
-			return nil, fmt.Errorf("invalid blockDefault attribute value '%s': %w", blockDefaultAttr, err)
+			return fmt.Errorf("invalid blockDefault attribute value '%s': %w", blockDefaultAttr, err)
 		}
 		schema.BlockDefault = block
 	}
@@ -215,22 +237,19 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	if doc.HasAttribute(root, "finalDefault") {
 		finalDefaultAttr := doc.GetAttribute(root, "finalDefault")
 		if types.TrimXMLWhitespace(finalDefaultAttr) == "" {
-			return nil, fmt.Errorf("finalDefault attribute cannot be empty")
+			return fmt.Errorf("finalDefault attribute cannot be empty")
 		}
 		final, err := parseDerivationSetWithValidation(finalDefaultAttr, types.DerivationSet(types.DerivationExtension|types.DerivationRestriction|types.DerivationList|types.DerivationUnion))
 		if err != nil {
-			return nil, fmt.Errorf("invalid finalDefault attribute value '%s': %w", finalDefaultAttr, err)
+			return fmt.Errorf("invalid finalDefault attribute value '%s': %w", finalDefaultAttr, err)
 		}
 		schema.FinalDefault = final
 	}
 
-	result := &ParseResult{
-		Schema:     schema,
-		Directives: []Directive{},
-		Imports:    []ImportInfo{},
-		Includes:   []IncludeInfo{},
-	}
+	return nil
+}
 
+func parseDirectives(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, result *ParseResult) (map[types.NamespaceURI]bool, error) {
 	importedNamespaces := make(map[types.NamespaceURI]bool)
 	for _, child := range doc.Children(root) {
 		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
@@ -279,7 +298,10 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 			return nil, fmt.Errorf("unexpected top-level element '%s'", doc.LocalName(child))
 		}
 	}
+	return importedNamespaces, nil
+}
 
+func applyImportedNamespaces(schema *Schema, importedNamespaces map[types.NamespaceURI]bool) {
 	if schema.ImportedNamespaces == nil {
 		schema.ImportedNamespaces = make(map[types.NamespaceURI]map[types.NamespaceURI]bool)
 	}
@@ -289,7 +311,9 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	for ns := range importedNamespaces {
 		schema.ImportedNamespaces[schema.TargetNamespace][ns] = true
 	}
+}
 
+func parseComponents(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema) error {
 	for _, child := range doc.Children(root) {
 		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
@@ -300,42 +324,41 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 			// already handled in first pass.
 		case "element":
 			if err := parseTopLevelElement(doc, child, schema); err != nil {
-				return nil, fmt.Errorf("parse element: %w", err)
+				return fmt.Errorf("parse element: %w", err)
 			}
 		case "complexType":
 			if err := parseComplexType(doc, child, schema); err != nil {
-				return nil, fmt.Errorf("parse complexType: %w", err)
+				return fmt.Errorf("parse complexType: %w", err)
 			}
 		case "simpleType":
 			if err := parseSimpleType(doc, child, schema); err != nil {
-				return nil, fmt.Errorf("parse simpleType: %w", err)
+				return fmt.Errorf("parse simpleType: %w", err)
 			}
 		case "group":
 			if err := parseTopLevelGroup(doc, child, schema); err != nil {
-				return nil, fmt.Errorf("parse group: %w", err)
+				return fmt.Errorf("parse group: %w", err)
 			}
 		case "attribute":
 			if err := parseTopLevelAttribute(doc, child, schema); err != nil {
-				return nil, fmt.Errorf("parse attribute: %w", err)
+				return fmt.Errorf("parse attribute: %w", err)
 			}
 		case "attributeGroup":
 			if err := parseTopLevelAttributeGroup(doc, child, schema); err != nil {
-				return nil, fmt.Errorf("parse attributeGroup: %w", err)
+				return fmt.Errorf("parse attributeGroup: %w", err)
 			}
 		case "notation":
 			if err := parseTopLevelNotation(doc, child, schema); err != nil {
-				return nil, fmt.Errorf("parse notation: %w", err)
+				return fmt.Errorf("parse notation: %w", err)
 			}
 		case "key", "keyref", "unique":
-			return nil, fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(child))
+			return fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(child))
 		case "redefine":
-			return nil, fmt.Errorf("redefine is not supported")
+			return fmt.Errorf("redefine is not supported")
 		default:
-			return nil, fmt.Errorf("unexpected top-level element '%s'", doc.LocalName(child))
+			return fmt.Errorf("unexpected top-level element '%s'", doc.LocalName(child))
 		}
 	}
-
-	return result, nil
+	return nil
 }
 
 // parseTopLevelNotation parses a top-level notation declaration

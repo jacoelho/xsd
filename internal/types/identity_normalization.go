@@ -12,21 +12,33 @@ func (s *SimpleType) precomputeIdentityNormalization() {
 	if s == nil {
 		return
 	}
-	typeCacheMu.RLock()
-	ready := s.identityNormalizationReady
-	typeCacheMu.RUnlock()
-	if ready {
+	typeCacheMu.Lock()
+	for !s.identityNormalizationReady && s.identityNormalizationComputing {
+		typeCacheCond.Wait()
+	}
+	if s.identityNormalizationReady {
+		typeCacheMu.Unlock()
 		return
 	}
+	s.identityNormalizationComputing = true
+	typeCacheMu.Unlock()
+
 	if s.Variety() == AtomicVariety {
 		typeCacheMu.Lock()
+		defer typeCacheMu.Unlock()
 		s.identityNormalizable = true
 		s.identityNormalizationReady = true
-		typeCacheMu.Unlock()
+		s.identityNormalizationComputing = false
+		typeCacheCond.Broadcast()
 		return
 	}
 	state := make(map[*SimpleType]identityNormalizationState)
 	precomputeIdentityNormalization(s, state)
+
+	typeCacheMu.Lock()
+	defer typeCacheMu.Unlock()
+	s.identityNormalizationComputing = false
+	typeCacheCond.Broadcast()
 }
 
 func precomputeIdentityNormalization(s *SimpleType, state map[*SimpleType]identityNormalizationState) bool {
@@ -78,6 +90,7 @@ func precomputeIdentityNormalization(s *SimpleType, state map[*SimpleType]identi
 	}
 
 	typeCacheMu.Lock()
+	defer typeCacheMu.Unlock()
 	s.identityNormalizable = calculatedNormalizable
 	s.identityListItemType = listItem
 	if s.Variety() == UnionVariety {
@@ -86,7 +99,6 @@ func precomputeIdentityNormalization(s *SimpleType, state map[*SimpleType]identi
 		s.identityMemberTypes = nil
 	}
 	s.identityNormalizationReady = true
-	typeCacheMu.Unlock()
 	state[s] = identityStateDone
 	return calculatedNormalizable
 }

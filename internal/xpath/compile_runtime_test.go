@@ -1,6 +1,7 @@
 package xpath
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -104,6 +105,21 @@ func TestCompileProgramsAttribute(t *testing.T) {
 	}
 	if !reflect.DeepEqual(programs[0].Ops, want) {
 		t.Fatalf("ops = %#v, want %#v", programs[0].Ops, want)
+	}
+}
+
+func TestCompileProgramsErrorsAreWrapped(t *testing.T) {
+	if _, err := CompilePrograms(".", nil, AttributesDisallowed, nil); err == nil {
+		t.Fatal("expected error for nil schema")
+	} else if !errors.Is(err, ErrInvalidXPath) {
+		t.Fatalf("nil schema error = %v, want ErrInvalidXPath", err)
+	}
+
+	schema := &runtime.Schema{}
+	if _, err := CompilePrograms("[invalid", nil, AttributesDisallowed, schema); err == nil {
+		t.Fatal("expected error for invalid xpath")
+	} else if !errors.Is(err, ErrInvalidXPath) {
+		t.Fatalf("invalid xpath error = %v, want ErrInvalidXPath", err)
 	}
 }
 

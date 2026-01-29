@@ -18,14 +18,11 @@ type AncestorIndex struct {
 // BuildAncestors computes ancestor chains for all types in registry order.
 // Built-in base types terminate a chain and are not included.
 func BuildAncestors(schema *parser.Schema, registry *Registry) (*AncestorIndex, error) {
-	if schema == nil {
-		return nil, fmt.Errorf("schema is nil")
-	}
 	if registry == nil {
 		return nil, fmt.Errorf("registry is nil")
 	}
-	if len(schema.GlobalDecls) == 0 && hasGlobalDecls(schema) {
-		return nil, fmt.Errorf("schema global declaration order missing")
+	if err := validateSchemaInput(schema); err != nil {
+		return nil, err
 	}
 
 	maxID := len(registry.TypeOrder)
