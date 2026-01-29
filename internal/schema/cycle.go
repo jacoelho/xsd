@@ -18,11 +18,8 @@ const (
 // DetectCycles validates that type derivation, group refs, attribute group refs,
 // and substitution groups are acyclic.
 func DetectCycles(schema *parser.Schema) error {
-	if schema == nil {
-		return fmt.Errorf("schema is nil")
-	}
-	if len(schema.GlobalDecls) == 0 && hasGlobalDecls(schema) {
-		return fmt.Errorf("schema global declaration order missing")
+	if err := validateSchemaInput(schema); err != nil {
+		return err
 	}
 
 	if err := detectTypeCycles(schema); err != nil {

@@ -9,11 +9,8 @@ import (
 
 // AssignIDs walks the parsed schema in deterministic order and assigns IDs.
 func AssignIDs(schema *parser.Schema) (*Registry, error) {
-	if schema == nil {
-		return nil, fmt.Errorf("schema is nil")
-	}
-	if len(schema.GlobalDecls) == 0 && hasGlobalDecls(schema) {
-		return nil, fmt.Errorf("schema global declaration order missing")
+	if err := validateSchemaInput(schema); err != nil {
+		return nil, err
 	}
 
 	b := &builder{
