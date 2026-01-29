@@ -83,3 +83,25 @@ func TestSimpleTypeCopy_FacetsAreIndependent(t *testing.T) {
 		t.Fatal("Restriction facets leaked into original")
 	}
 }
+
+func TestCopyIdentityConstraintsSkipsNil(t *testing.T) {
+	constraints := []*IdentityConstraint{
+		{Name: "first"},
+		nil,
+		{Name: "third"},
+		nil,
+	}
+
+	copied := copyIdentityConstraints(constraints, CopyOptions{SourceNamespace: NamespaceURI("urn:copy"), RemapQName: NilRemap})
+	if len(copied) != 2 {
+		t.Fatalf("len(copied) = %d, want 2", len(copied))
+	}
+	for i, constraint := range copied {
+		if constraint == nil {
+			t.Fatalf("copied[%d] is nil", i)
+		}
+	}
+	if copied[0].Name != "first" || copied[1].Name != "third" {
+		t.Fatalf("copied names = [%s %s], want [first third]", copied[0].Name, copied[1].Name)
+	}
+}
