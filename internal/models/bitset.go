@@ -29,14 +29,14 @@ func newBitset(size int) *bitset {
 }
 
 func (b *bitset) set(i int) {
-	if i < 0 || i >= b.size {
+	if b == nil || i < 0 || i >= b.size {
 		return
 	}
 	b.words[i/bitsetWordBits] |= 1 << (i % bitsetWordBits)
 }
 
 func (b *bitset) or(other *bitset) {
-	if other == nil {
+	if b == nil || other == nil {
 		return
 	}
 	for i := range b.words {
@@ -47,12 +47,18 @@ func (b *bitset) or(other *bitset) {
 }
 
 func (b *bitset) clone() *bitset {
+	if b == nil {
+		return nil
+	}
 	clone := newBitset(b.size)
 	copy(clone.words, b.words)
 	return clone
 }
 
 func (b *bitset) empty() bool {
+	if b == nil {
+		return true
+	}
 	for _, w := range b.words {
 		if w != 0 {
 			return false
@@ -62,6 +68,9 @@ func (b *bitset) empty() bool {
 }
 
 func (b *bitset) forEach(f func(int)) {
+	if b == nil {
+		return
+	}
 	for i, w := range b.words {
 		base := i * bitsetWordBits
 		for w != 0 {
@@ -91,6 +100,9 @@ func (b *bitset) intersectionIndex(other *bitset) (int, bool) {
 }
 
 func (b *bitset) key() string {
+	if b == nil {
+		return ""
+	}
 	if len(b.words) == 0 {
 		return ""
 	}
