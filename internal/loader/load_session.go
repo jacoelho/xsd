@@ -73,11 +73,15 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 	}
 	includeKey := s.loader.loadKey(systemID, includingNS)
 	if s.loader.alreadyMergedInclude(s.key, includeKey) {
-		_ = doc.Close()
+		if err := closeSchemaDoc(doc, systemID); err != nil {
+			return err
+		}
 		return nil
 	}
 	if s.loader.state.isLoading(includeKey) {
-		_ = doc.Close()
+		if err := closeSchemaDoc(doc, systemID); err != nil {
+			return err
+		}
 		s.loader.deferInclude(includeKey, s.key, include.SchemaLocation)
 		return nil
 	}
@@ -124,11 +128,15 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 	importNS := types.NamespaceURI(imp.Namespace)
 	importKey := s.loader.loadKey(systemID, importNS)
 	if s.loader.alreadyMergedImport(s.key, importKey) {
-		_ = doc.Close()
+		if err := closeSchemaDoc(doc, systemID); err != nil {
+			return err
+		}
 		return nil
 	}
 	if s.loader.state.isLoading(importKey) {
-		_ = doc.Close()
+		if err := closeSchemaDoc(doc, systemID); err != nil {
+			return err
+		}
 		s.loader.deferImport(importKey, s.key, imp.SchemaLocation, imp.Namespace)
 		return nil
 	}
@@ -161,8 +169,8 @@ func parseSchemaDocument(doc io.ReadCloser, systemID string) (result *parser.Par
 		return nil, fmt.Errorf("nil schema reader")
 	}
 	defer func() {
-		if closeErr := doc.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("close %s: %w", systemID, closeErr)
+		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil && err == nil {
+			err = closeErr
 		}
 	}()
 
@@ -172,4 +180,11 @@ func parseSchemaDocument(doc io.ReadCloser, systemID string) (result *parser.Par
 	}
 
 	return result, nil
+}
+
+func closeSchemaDoc(doc io.Closer, systemID string) error {
+	if err := doc.Close(); err != nil {
+		return fmt.Errorf("close %s: %w", systemID, err)
+	}
+	return nil
 }
