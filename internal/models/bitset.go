@@ -29,6 +29,9 @@ func newBitset(size int) *bitset {
 }
 
 func (b *bitset) set(i int) {
+	if i < 0 || i >= b.size {
+		return
+	}
 	b.words[i/bitsetWordBits] |= 1 << (i % bitsetWordBits)
 }
 
