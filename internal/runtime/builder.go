@@ -172,13 +172,18 @@ func buildNamespaceIndex(table *NamespaceTable) NamespaceIndex {
 		b := table.Blob[off : off+ln]
 		h := hashBytes(b)
 		slot := int(h & mask)
-		for {
+		inserted := false
+		for probes := 0; probes < size; probes++ {
 			if index.ID[slot] == 0 {
 				index.ID[slot] = id
 				index.Hash[slot] = h
+				inserted = true
 				break
 			}
 			slot = int((uint64(slot) + 1) & mask)
+		}
+		if !inserted {
+			panic("namespace index table full")
 		}
 	}
 	return index
@@ -206,13 +211,18 @@ func buildSymbolsIndex(table *SymbolsTable) SymbolsIndex {
 		local := table.LocalBlob[off : off+ln]
 		h := hashSymbol(nsID, local)
 		slot := int(h & mask)
-		for {
+		inserted := false
+		for probes := 0; probes < size; probes++ {
 			if index.ID[slot] == 0 {
 				index.ID[slot] = id
 				index.Hash[slot] = h
+				inserted = true
 				break
 			}
 			slot = int((uint64(slot) + 1) & mask)
+		}
+		if !inserted {
+			panic("symbol index table full")
 		}
 	}
 	return index
