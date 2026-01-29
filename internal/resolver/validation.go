@@ -85,13 +85,11 @@ func validateTopLevelElementReferences(schema *parser.Schema) []error {
 
 	for qname, decl := range schema.ElementDecls {
 		if decl.IsReference {
-			if _, exists := schema.ElementDecls[decl.Name]; !exists {
+			refDecl, exists := schema.ElementDecls[decl.Name]
+			if !exists {
 				errors = append(errors, fmt.Errorf("element reference %s does not exist", decl.Name))
-			} else {
-				refDecl := schema.ElementDecls[decl.Name]
-				if refDecl.IsReference {
-					errors = append(errors, fmt.Errorf("element reference %s points to another reference %s (circular or invalid)", qname, decl.Name))
-				}
+			} else if refDecl.IsReference {
+				errors = append(errors, fmt.Errorf("element reference %s points to another reference %s (circular or invalid)", qname, decl.Name))
 			}
 		}
 	}
@@ -103,13 +101,11 @@ func validateContentElementReferences(schema *parser.Schema, elementRefsInConten
 	var errors []error
 
 	for _, elemRef := range elementRefsInContent {
-		if _, exists := schema.ElementDecls[elemRef.Name]; !exists {
+		refDecl, exists := schema.ElementDecls[elemRef.Name]
+		if !exists {
 			errors = append(errors, fmt.Errorf("element reference %s in content model does not exist", elemRef.Name))
-		} else {
-			refDecl := schema.ElementDecls[elemRef.Name]
-			if refDecl.IsReference {
-				errors = append(errors, fmt.Errorf("element reference %s in content model points to another reference (circular or invalid)", elemRef.Name))
-			}
+		} else if refDecl.IsReference {
+			errors = append(errors, fmt.Errorf("element reference %s in content model points to another reference (circular or invalid)", elemRef.Name))
 		}
 	}
 

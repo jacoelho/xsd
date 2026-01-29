@@ -38,31 +38,30 @@ type GlobalDecl struct {
 
 // Schema represents a compiled XSD schema
 type Schema struct {
-	ImportContexts          map[string]ImportContext
-	Groups                  map[types.QName]*types.ModelGroup
-	ElementOrigins          map[types.QName]string
-	TypeDefs                map[types.QName]types.Type
-	TypeOrigins             map[types.QName]string
-	AttributeDecls          map[types.QName]*types.AttributeDecl
-	SubstitutionGroups      map[types.QName][]types.QName
-	AttributeGroups         map[types.QName]*types.AttributeGroup
-	AttributeGroupOrigins   map[types.QName]string
-	ImportedNamespaces      map[types.NamespaceURI]map[types.NamespaceURI]bool
-	ElementDecls            map[types.QName]*types.ElementDecl
-	GroupOrigins            map[types.QName]string
-	AttributeOrigins        map[types.QName]string
-	NotationOrigins         map[types.QName]string
-	NotationDecls           map[types.QName]*types.NotationDecl
-	ParticleRestrictionCaps map[*types.ElementDecl]types.Occurs
-	IDAttributes            map[string]string
-	NamespaceDecls          map[string]string
-	Location                string
-	TargetNamespace         types.NamespaceURI
-	GlobalDecls             []GlobalDecl
-	FinalDefault            types.DerivationSet
-	AttributeFormDefault    Form
-	ElementFormDefault      Form
-	BlockDefault            types.DerivationSet
+	ImportContexts        map[string]ImportContext
+	Groups                map[types.QName]*types.ModelGroup
+	ElementOrigins        map[types.QName]string
+	TypeDefs              map[types.QName]types.Type
+	TypeOrigins           map[types.QName]string
+	AttributeDecls        map[types.QName]*types.AttributeDecl
+	SubstitutionGroups    map[types.QName][]types.QName
+	AttributeGroups       map[types.QName]*types.AttributeGroup
+	AttributeGroupOrigins map[types.QName]string
+	ImportedNamespaces    map[types.NamespaceURI]map[types.NamespaceURI]bool
+	ElementDecls          map[types.QName]*types.ElementDecl
+	GroupOrigins          map[types.QName]string
+	AttributeOrigins      map[types.QName]string
+	NotationOrigins       map[types.QName]string
+	NotationDecls         map[types.QName]*types.NotationDecl
+	IDAttributes          map[string]string
+	NamespaceDecls        map[string]string
+	Location              string
+	TargetNamespace       types.NamespaceURI
+	GlobalDecls           []GlobalDecl
+	FinalDefault          types.DerivationSet
+	AttributeFormDefault  Form
+	ElementFormDefault    Form
+	BlockDefault          types.DerivationSet
 	// UPAValidated reports whether Unique Particle Attribution was checked for this schema.
 	UPAValidated bool
 }
@@ -70,25 +69,24 @@ type Schema struct {
 // NewSchema creates a new empty schema
 func NewSchema() *Schema {
 	return &Schema{
-		ElementDecls:            make(map[types.QName]*types.ElementDecl),
-		ElementOrigins:          make(map[types.QName]string),
-		TypeDefs:                make(map[types.QName]types.Type),
-		TypeOrigins:             make(map[types.QName]string),
-		AttributeDecls:          make(map[types.QName]*types.AttributeDecl),
-		AttributeOrigins:        make(map[types.QName]string),
-		AttributeGroups:         make(map[types.QName]*types.AttributeGroup),
-		AttributeGroupOrigins:   make(map[types.QName]string),
-		Groups:                  make(map[types.QName]*types.ModelGroup),
-		GroupOrigins:            make(map[types.QName]string),
-		SubstitutionGroups:      make(map[types.QName][]types.QName),
-		NotationDecls:           make(map[types.QName]*types.NotationDecl),
-		NotationOrigins:         make(map[types.QName]string),
-		NamespaceDecls:          make(map[string]string),
-		IDAttributes:            make(map[string]string),
-		ParticleRestrictionCaps: make(map[*types.ElementDecl]types.Occurs),
-		ImportedNamespaces:      make(map[types.NamespaceURI]map[types.NamespaceURI]bool),
-		ImportContexts:          make(map[string]ImportContext),
-		GlobalDecls:             []GlobalDecl{},
+		ElementDecls:          make(map[types.QName]*types.ElementDecl),
+		ElementOrigins:        make(map[types.QName]string),
+		TypeDefs:              make(map[types.QName]types.Type),
+		TypeOrigins:           make(map[types.QName]string),
+		AttributeDecls:        make(map[types.QName]*types.AttributeDecl),
+		AttributeOrigins:      make(map[types.QName]string),
+		AttributeGroups:       make(map[types.QName]*types.AttributeGroup),
+		AttributeGroupOrigins: make(map[types.QName]string),
+		Groups:                make(map[types.QName]*types.ModelGroup),
+		GroupOrigins:          make(map[types.QName]string),
+		SubstitutionGroups:    make(map[types.QName][]types.QName),
+		NotationDecls:         make(map[types.QName]*types.NotationDecl),
+		NotationOrigins:       make(map[types.QName]string),
+		NamespaceDecls:        make(map[string]string),
+		IDAttributes:          make(map[string]string),
+		ImportedNamespaces:    make(map[types.NamespaceURI]map[types.NamespaceURI]bool),
+		ImportContexts:        make(map[string]ImportContext),
+		GlobalDecls:           []GlobalDecl{},
 	}
 }
 

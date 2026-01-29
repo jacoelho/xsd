@@ -266,21 +266,92 @@ func (r *Resolver) resolveComplexType(qname types.QName, ct *types.ComplexType) 
 }
 
 func (r *Resolver) doResolveComplexType(qname types.QName, ct *types.ComplexType) error {
-
-	baseQName := r.getBaseQName(ct)
-	if !baseQName.IsZero() {
-		base, err := r.lookupType(baseQName, ct.QName)
-		if err != nil {
-			return fmt.Errorf("type %s: %w", qname, err)
-		}
-		ct.ResolvedBase = base
+	if err := r.resolveComplexTypeBase(qname, ct); err != nil {
+		return err
 	}
+	if err := r.resolveComplexTypeParticles(qname, ct); err != nil {
+		return err
+	}
+	if err := r.resolveComplexTypeAttributes(qname, ct); err != nil {
+		return err
+	}
+	return nil
+}
 
+func (r *Resolver) resolveComplexTypeBase(qname types.QName, ct *types.ComplexType) error {
+	baseQName := r.getBaseQName(ct)
+	if baseQName.IsZero() {
+		return nil
+	}
+	base, err := r.lookupType(baseQName, ct.QName)
+	if err != nil {
+		return fmt.Errorf("type %s: %w", qname, err)
+	}
+	ct.ResolvedBase = base
+	return nil
+}
+
+func (r *Resolver) resolveComplexTypeParticles(qname types.QName, ct *types.ComplexType) error {
 	if err := r.resolveContentParticles(ct.Content()); err != nil {
 		return fmt.Errorf("type %s content: %w", qname, err)
 	}
+	return nil
+}
 
-	for _, agRef := range ct.AttrGroups {
+func (r *Resolver) resolveComplexTypeAttributes(qname types.QName, ct *types.ComplexType) error {
+	if err := r.resolveAttributeGroupRefs(qname, ct.AttrGroups); err != nil {
+		return err
+	}
+	if err := r.resolveAttributeDecls(ct.Attributes()); err != nil {
+		return err
+	}
+
+	content := ct.Content()
+	if content == nil {
+		return nil
+	}
+	switch c := content.(type) {
+	case *types.ComplexContent:
+		if ext := c.ExtensionDef(); ext != nil {
+			if err := r.resolveAttributeGroupRefs(qname, ext.AttrGroups); err != nil {
+				return err
+			}
+			if err := r.resolveAttributeDecls(ext.Attributes); err != nil {
+				return err
+			}
+		}
+		if restr := c.RestrictionDef(); restr != nil {
+			if err := r.resolveAttributeGroupRefs(qname, restr.AttrGroups); err != nil {
+				return err
+			}
+			if err := r.resolveAttributeDecls(restr.Attributes); err != nil {
+				return err
+			}
+		}
+	case *types.SimpleContent:
+		if ext := c.ExtensionDef(); ext != nil {
+			if err := r.resolveAttributeGroupRefs(qname, ext.AttrGroups); err != nil {
+				return err
+			}
+			if err := r.resolveAttributeDecls(ext.Attributes); err != nil {
+				return err
+			}
+		}
+		if restr := c.RestrictionDef(); restr != nil {
+			if err := r.resolveAttributeGroupRefs(qname, restr.AttrGroups); err != nil {
+				return err
+			}
+			if err := r.resolveAttributeDecls(restr.Attributes); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *Resolver) resolveAttributeGroupRefs(qname types.QName, groups []types.QName) error {
+	for _, agRef := range groups {
 		ag, err := r.lookupAttributeGroup(agRef)
 		if err != nil {
 			return fmt.Errorf("type %s attribute group %s: %w", qname, agRef, err)
@@ -289,72 +360,15 @@ func (r *Resolver) doResolveComplexType(qname types.QName, ct *types.ComplexType
 			return fmt.Errorf("type %s attribute group %s: %w", qname, agRef, err)
 		}
 	}
+	return nil
+}
 
-	for _, attr := range ct.Attributes() {
+func (r *Resolver) resolveAttributeDecls(attrs []*types.AttributeDecl) error {
+	for _, attr := range attrs {
 		if err := r.resolveAttributeType(attr); err != nil {
 			return err
 		}
 	}
-
-	if content := ct.Content(); content != nil {
-		resolveAttrGroups := func(groups []types.QName) error {
-			for _, agRef := range groups {
-				ag, err := r.lookupAttributeGroup(agRef)
-				if err != nil {
-					return fmt.Errorf("type %s attribute group %s: %w", qname, agRef, err)
-				}
-				if err := r.resolveAttributeGroup(agRef, ag); err != nil {
-					return fmt.Errorf("type %s attribute group %s: %w", qname, agRef, err)
-				}
-			}
-			return nil
-		}
-		resolveAttrs := func(attrs []*types.AttributeDecl) error {
-			for _, attr := range attrs {
-				if err := r.resolveAttributeType(attr); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-		switch c := content.(type) {
-		case *types.ComplexContent:
-			if ext := c.ExtensionDef(); ext != nil {
-				if err := resolveAttrGroups(ext.AttrGroups); err != nil {
-					return err
-				}
-				if err := resolveAttrs(ext.Attributes); err != nil {
-					return err
-				}
-			}
-			if restr := c.RestrictionDef(); restr != nil {
-				if err := resolveAttrGroups(restr.AttrGroups); err != nil {
-					return err
-				}
-				if err := resolveAttrs(restr.Attributes); err != nil {
-					return err
-				}
-			}
-		case *types.SimpleContent:
-			if ext := c.ExtensionDef(); ext != nil {
-				if err := resolveAttrGroups(ext.AttrGroups); err != nil {
-					return err
-				}
-				if err := resolveAttrs(ext.Attributes); err != nil {
-					return err
-				}
-			}
-			if restr := c.RestrictionDef(); restr != nil {
-				if err := resolveAttrGroups(restr.AttrGroups); err != nil {
-					return err
-				}
-				if err := resolveAttrs(restr.Attributes); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
 	return nil
 }
 

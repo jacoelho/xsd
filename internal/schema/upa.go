@@ -10,14 +10,11 @@ import (
 
 // ValidateUPA checks Unique Particle Attribution across all complex types.
 func ValidateUPA(schema *parser.Schema, registry *Registry) error {
-	if schema == nil {
-		return fmt.Errorf("schema is nil")
-	}
 	if registry == nil {
 		return fmt.Errorf("registry is nil")
 	}
-	if len(schema.GlobalDecls) == 0 && hasGlobalDecls(schema) {
-		return fmt.Errorf("schema global declaration order missing")
+	if err := validateSchemaInput(schema); err != nil {
+		return err
 	}
 
 	for _, entry := range registry.TypeOrder {

@@ -12,6 +12,7 @@ func TestSessionReset(t *testing.T) {
 	s.elemStack = []elemFrame{{name: 1}, {name: 2}}
 	s.nsStack = []nsFrame{{off: 1, len: 2}}
 	s.nameMap = []nameEntry{{LocalOff: 1, LocalLen: 2}}
+	s.nameMapSparse = map[NameID]nameEntry{1: {LocalOff: 1, LocalLen: 2}}
 	s.nameLocal = []byte("local")
 	s.nameNS = []byte("ns")
 	s.textBuf = []byte("text")
@@ -36,6 +37,9 @@ func TestSessionReset(t *testing.T) {
 	}
 	if len(s.nameMap) != 0 {
 		t.Fatalf("nameMap len = %d, want 0", len(s.nameMap))
+	}
+	if len(s.nameMapSparse) != 0 {
+		t.Fatalf("nameMapSparse len = %d, want 0", len(s.nameMapSparse))
 	}
 	if len(s.nameLocal) != 0 {
 		t.Fatalf("nameLocal len = %d, want 0", len(s.nameLocal))

@@ -295,7 +295,7 @@ func derivationStep(schema *parser.Schema, typ types.Type) (types.Type, types.De
 		if base == nil {
 			baseQName := typed.Content().BaseTypeQName()
 			if !baseQName.IsZero() {
-				resolved, err := lookupType(schema, baseQName)
+				resolved, err := lookupTypeInSchema(schema, baseQName)
 				if err != nil {
 					return nil, typed.DerivationMethod, err
 				}
@@ -316,7 +316,7 @@ func derivationStep(schema *parser.Schema, typ types.Type) (types.Type, types.De
 				base = typed.Restriction.SimpleType
 			}
 			if base == nil && !typed.Restriction.Base.IsZero() {
-				resolved, err := lookupType(schema, typed.Restriction.Base)
+				resolved, err := lookupTypeInSchema(schema, typed.Restriction.Base)
 				if err != nil {
 					return nil, types.DerivationRestriction, err
 				}

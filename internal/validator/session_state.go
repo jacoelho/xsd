@@ -67,6 +67,7 @@ type Session struct {
 	attrPresent      []bool
 	attrAppliedBuf   []AttrApplied
 	nameMap          []nameEntry
+	nameMapSparse    map[NameID]nameEntry
 	valueBuf         []byte
 	attrBuf          []StartAttr
 	attrValidatedBuf []StartAttr
@@ -102,6 +103,7 @@ func (s *Session) Reset() {
 	s.nsDecls = s.nsDecls[:0]
 	s.prefixCache = s.prefixCache[:0]
 	s.nameMap = s.nameMap[:0]
+	s.nameMapSparse = nil
 	s.nameLocal = s.nameLocal[:0]
 	s.nameNS = s.nameNS[:0]
 	s.textBuf = s.textBuf[:0]

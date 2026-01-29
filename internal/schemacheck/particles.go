@@ -459,12 +459,8 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 	if err := validateOccurrenceConstraints(baseMG.MinOcc(), baseMG.MaxOcc(), restrictionMG.MinOcc(), restrictionMG.MaxOcc()); err != nil {
 		return err
 	}
-	// if the base group is a single wildcard particle, validate the restriction group
-	// directly against the wildcard using NSRecurseCheckCardinality semantics.
-	if len(baseMG.Particles) == 1 {
-		if baseAny, ok := baseMG.Particles[0].(*types.AnyElement); ok {
-			return validateParticlePairRestriction(schema, baseAny, restrictionMG)
-		}
+	if err := validateSingleWildcardGroupRestriction(schema, baseMG, restrictionMG); err != nil {
+		return err
 	}
 	// handle model group kind changes: if kinds differ, validate that restriction is valid
 	if baseMG.Kind != restrictionMG.Kind {
@@ -478,95 +474,116 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 	// same kind - validate normally
 	switch baseMG.Kind {
 	case types.Sequence:
-		// for sequence, particles must match in order
-		// optional particles (minOccurs=0) can be removed, but required particles must be present
-		baseIdx := 0
-		matchedBaseParticles := make(map[int]bool) // track which base particles have been matched
-		for _, restrictionParticle := range restrictionChildren {
-			if restrictionParticle.MaxOcc().IsZero() && restrictionParticle.MinOcc().IsZero() {
+		return validateSequenceRestriction(schema, baseChildren, restrictionChildren)
+	case types.Choice:
+		return validateChoiceRestriction(schema, baseChildren, restrictionChildren)
+	case types.AllGroup:
+		return validateAllGroupRestriction(schema, baseMG, restrictionMG)
+	}
+	return nil
+}
+
+func validateSingleWildcardGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *types.ModelGroup) error {
+	// if the base group is a single wildcard particle, validate the restriction group
+	// directly against the wildcard using NSRecurseCheckCardinality semantics.
+	if len(baseMG.Particles) != 1 {
+		return nil
+	}
+	baseAny, ok := baseMG.Particles[0].(*types.AnyElement)
+	if !ok {
+		return nil
+	}
+	return validateParticlePairRestriction(schema, baseAny, restrictionMG)
+}
+
+func validateSequenceRestriction(schema *parser.Schema, baseChildren, restrictionChildren []types.Particle) error {
+	// for sequence, particles must match in order
+	// optional particles (minOccurs=0) can be removed, but required particles must be present
+	baseIdx := 0
+	matchedBaseParticles := make(map[int]bool) // track which base particles have been matched
+	for _, restrictionParticle := range restrictionChildren {
+		if restrictionParticle.MaxOcc().IsZero() && restrictionParticle.MinOcc().IsZero() {
+			continue
+		}
+		found := false
+		for baseIdx < len(baseChildren) {
+			baseParticle := baseChildren[baseIdx]
+			// try to match this restriction particle with the current base particle
+			err := validateParticlePairRestriction(schema, baseParticle, restrictionParticle)
+			if err == nil {
+				// match found - mark this base particle as matched
+				matchedBaseParticles[baseIdx] = true
+				// if base particle is a wildcard with maxOccurs > 1 or unbounded, we can match multiple restriction particles to it
+				// otherwise, both particles advance
+				if baseAny, isWildcard := baseParticle.(*types.AnyElement); isWildcard {
+					// wildcard can match multiple restriction particles
+					// only advance past wildcard if maxOccurs=1
+					if baseAny.MaxOccurs.IsOne() {
+						baseIdx++ // advance past wildcard with maxOccurs=1
+					}
+					// if maxOccurs > 1 or unbounded, stay on wildcard (don't increment baseIdx)
+				} else {
+					baseIdx++ // advance past non-wildcard
+				}
+				found = true
+				break
+			}
+			skippable := baseParticle.MinOcc().IsZero()
+			if !skippable {
+				if baseGroup, ok := baseParticle.(*types.ModelGroup); ok {
+					skippable = isEffectivelyOptional(baseGroup)
+				}
+			}
+			if skippable {
+				baseIdx++
 				continue
 			}
-			found := false
-			for baseIdx < len(baseChildren) {
-				baseParticle := baseChildren[baseIdx]
-				// try to match this restriction particle with the current base particle
-				err := validateParticlePairRestriction(schema, baseParticle, restrictionParticle)
-				if err == nil {
-					// match found - mark this base particle as matched
-					matchedBaseParticles[baseIdx] = true
-					// if base particle is a wildcard with maxOccurs > 1 or unbounded, we can match multiple restriction particles to it
-					// otherwise, both particles advance
-					if baseAny, isWildcard := baseParticle.(*types.AnyElement); isWildcard {
-						// wildcard can match multiple restriction particles
-						// only advance past wildcard if maxOccurs=1
-						if baseAny.MaxOccurs.IsOne() {
-							baseIdx++ // advance past wildcard with maxOccurs=1
-						}
-						// if maxOccurs > 1 or unbounded, stay on wildcard (don't increment baseIdx)
-					} else {
-						baseIdx++ // advance past non-wildcard
-					}
-					found = true
-					break
-				}
-				skippable := baseParticle.MinOcc().IsZero()
-				if !skippable {
-					if baseGroup, ok := baseParticle.(*types.ModelGroup); ok {
-						skippable = isEffectivelyOptional(baseGroup)
-					}
-				}
-				if skippable {
-					baseIdx++
+			// required particle cannot be skipped - return the original error
+			return err
+		}
+		if !found {
+			return fmt.Errorf("ComplexContent restriction: restriction particle does not match any base particle")
+		}
+	}
+	// check if any remaining required base particles were skipped
+	for i := baseIdx; i < len(baseChildren); i++ {
+		baseParticle := baseChildren[i]
+		// skip if this particle was already matched
+		if matchedBaseParticles[i] {
+			continue
+		}
+		if baseParticle.MinOcc().CmpInt(0) > 0 {
+			// check if it's effectively optional (contains only optional content)
+			if baseMG2, ok := baseParticle.(*types.ModelGroup); ok {
+				if isEffectivelyOptional(baseMG2) {
+					// effectively optional - can be skipped
 					continue
 				}
-				// required particle cannot be skipped - return the original error
-				return err
 			}
-			if !found {
-				return fmt.Errorf("ComplexContent restriction: restriction particle does not match any base particle")
+			return fmt.Errorf("ComplexContent restriction: required particle at position %d is missing", i)
+		}
+	}
+	return nil
+}
+
+func validateChoiceRestriction(schema *parser.Schema, baseChildren, restrictionChildren []types.Particle) error {
+	// choice uses RecurseLax: match restriction particles to base particles in order.
+	baseIdx := 0
+	for _, restrictionParticle := range restrictionChildren {
+		if restrictionParticle.MaxOcc().IsZero() && restrictionParticle.MinOcc().IsZero() {
+			continue
+		}
+		found := false
+		for baseIdx < len(baseChildren) {
+			baseParticle := baseChildren[baseIdx]
+			baseIdx++
+			if err := validateParticlePairRestriction(schema, baseParticle, restrictionParticle); err == nil {
+				found = true
+				break
 			}
 		}
-		// check if any remaining required base particles were skipped
-		for i := baseIdx; i < len(baseChildren); i++ {
-			baseParticle := baseChildren[i]
-			// skip if this particle was already matched
-			if matchedBaseParticles[i] {
-				continue
-			}
-			if baseParticle.MinOcc().CmpInt(0) > 0 {
-				// check if it's effectively optional (contains only optional content)
-				if baseMG2, ok := baseParticle.(*types.ModelGroup); ok {
-					if isEffectivelyOptional(baseMG2) {
-						// effectively optional - can be skipped
-						continue
-					}
-				}
-				return fmt.Errorf("ComplexContent restriction: required particle at position %d is missing", i)
-			}
-		}
-	case types.Choice:
-		// choice uses RecurseLax: match restriction particles to base particles in order.
-		baseIdx := 0
-		for _, restrictionParticle := range restrictionChildren {
-			if restrictionParticle.MaxOcc().IsZero() && restrictionParticle.MinOcc().IsZero() {
-				continue
-			}
-			found := false
-			for baseIdx < len(baseChildren) {
-				baseParticle := baseChildren[baseIdx]
-				baseIdx++
-				if err := validateParticlePairRestriction(schema, baseParticle, restrictionParticle); err == nil {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return fmt.Errorf("ComplexContent restriction: restriction particle does not match any base particle in choice")
-			}
-		}
-	case types.AllGroup:
-		if err := validateAllGroupRestriction(schema, baseMG, restrictionMG); err != nil {
-			return err
+		if !found {
+			return fmt.Errorf("ComplexContent restriction: restriction particle does not match any base particle in choice")
 		}
 	}
 	return nil
@@ -797,17 +814,6 @@ func validateElementRestrictionWithGroupOccurrence(schema *parser.Schema, baseMG
 	if baseElem.Name != restrictionElem.Name {
 		if !isSubstitutableElement(schema, baseElem.Name, restrictionElem.Name) {
 			return false, nil
-		}
-	}
-	if schema != nil && baseMG != nil && baseMG.Kind == types.Choice && !baseMG.MaxOcc().IsOne() && len(baseChildren) > 1 {
-		baseElemMax := baseElem.MaxOcc()
-		if !baseElemMax.IsUnbounded() {
-			restrictionMax := restrictionElem.MaxOcc()
-			if restrictionMax.IsUnbounded() || restrictionMax.Cmp(baseElemMax) > 0 {
-				if existing, ok := schema.ParticleRestrictionCaps[restrictionElem]; !ok || baseElemMax.Cmp(existing) < 0 {
-					schema.ParticleRestrictionCaps[restrictionElem] = baseElemMax
-				}
-			}
 		}
 	}
 	baseMinOcc := baseElem.MinOcc()

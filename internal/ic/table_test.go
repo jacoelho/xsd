@@ -65,3 +65,23 @@ func TestKeyrefResolution(t *testing.T) {
 		t.Fatalf("issue kind = %d, want %d", issues[0].Kind, IssueKeyrefUndefined)
 	}
 }
+
+func TestBuildTableDoesNotMutateRows(t *testing.T) {
+	rows := []Row{
+		{
+			Values: []Key{{Kind: runtime.VKString, Bytes: []byte("a")}},
+			Hash:   0,
+		},
+		{
+			Values: []Key{{Kind: runtime.VKString, Bytes: []byte("b")}},
+			Hash:   123,
+		},
+	}
+	_, _ = BuildTable(rows)
+	if rows[0].Hash != 0 {
+		t.Fatalf("row[0].Hash = %d, want 0", rows[0].Hash)
+	}
+	if rows[1].Hash != 123 {
+		t.Fatalf("row[1].Hash = %d, want 123", rows[1].Hash)
+	}
+}

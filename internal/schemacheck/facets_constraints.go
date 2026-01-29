@@ -21,19 +21,15 @@ type facetConstraintState struct {
 	hasEnumeration bool
 }
 
-var validFacetNames = map[string]bool{
-	"length":         true,
-	"minLength":      true,
-	"maxLength":      true,
-	"pattern":        true,
-	"enumeration":    true,
-	"whiteSpace":     true,
-	"maxInclusive":   true,
-	"maxExclusive":   true,
-	"minInclusive":   true,
-	"minExclusive":   true,
-	"totalDigits":    true,
-	"fractionDigits": true,
+func isValidFacetName(name string) bool {
+	switch name {
+	case "length", "minLength", "maxLength", "pattern", "enumeration", "whiteSpace",
+		"maxInclusive", "maxExclusive", "minInclusive", "minExclusive",
+		"totalDigits", "fractionDigits":
+		return true
+	default:
+		return false
+	}
 }
 
 func validateFacetConstraints(schema *parser.Schema, facetList []types.Facet, baseType types.Type, baseQName types.QName) error {
@@ -50,7 +46,7 @@ func validateFacetConstraints(schema *parser.Schema, facetList []types.Facet, ba
 		name := facet.Name()
 
 		// validate that the facet is a known XSD facet
-		if !validFacetNames[name] {
+		if !isValidFacetName(name) {
 			return fmt.Errorf("unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", name)
 		}
 

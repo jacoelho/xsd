@@ -3,8 +3,21 @@ package validator
 import (
 	"testing"
 
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
+
+func TestValidateAttributesNilSession(t *testing.T) {
+	var sess *Session
+
+	_, err := sess.ValidateAttributes(0, nil, nil)
+	if err == nil {
+		t.Fatalf("expected schema not loaded error")
+	}
+	if code, _, ok := validationErrorInfo(err); !ok || code != xsderrors.ErrSchemaNotLoaded {
+		t.Fatalf("error code = %v, want %v", code, xsderrors.ErrSchemaNotLoaded)
+	}
+}
 
 func TestValidateAttributesRequiredMissing(t *testing.T) {
 	schema, ids := buildAttrFixture()

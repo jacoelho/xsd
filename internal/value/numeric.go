@@ -134,6 +134,9 @@ func validateFloatLexical(lexical []byte, label string) error {
 }
 
 func isValidDecimalLexical(value []byte) bool {
+	if len(value) == 0 {
+		return false
+	}
 	i := 0
 	if value[0] == '+' || value[0] == '-' {
 		i++

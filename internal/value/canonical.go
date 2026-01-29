@@ -1,6 +1,7 @@
 package value
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"strconv"
@@ -31,7 +32,7 @@ func CanonicalDecimalBytes(lexical, dst []byte) []byte {
 
 	intPart := lexical
 	fracPart := []byte{}
-	if dot := indexByte(lexical, '.'); dot >= 0 {
+	if dot := bytes.IndexByte(lexical, '.'); dot >= 0 {
 		intPart = lexical[:dot]
 		fracPart = lexical[dot+1:]
 	}
@@ -211,13 +212,4 @@ func trimRightZeros(b []byte) []byte {
 		j--
 	}
 	return b[:j]
-}
-
-func indexByte(b []byte, needle byte) int {
-	for i := range b {
-		if b[i] == needle {
-			return i
-		}
-	}
-	return -1
 }

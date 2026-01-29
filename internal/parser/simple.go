@@ -344,7 +344,7 @@ func tryResolveBaseType(restriction *types.Restriction, schema *Schema) types.Ty
 
 	// try schema types (may not be available yet during parsing)
 	if typeDef, ok := schema.TypeDefs[restriction.Base]; ok {
-		if ct, ok := typeDef.(*types.ComplexType); ok {
+		if ct, ok := types.AsComplexType(typeDef); ok {
 			if _, ok := ct.Content().(*types.SimpleContent); ok {
 				return types.ResolveSimpleContentBaseType(ct.BaseType())
 			}

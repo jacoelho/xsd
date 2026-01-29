@@ -1,6 +1,7 @@
 package value
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -36,7 +37,7 @@ func CanonicalDecimalKey(lexical, dst []byte) ([]byte, error) {
 
 	intPart := trimmed
 	fracPart := []byte{}
-	if dot := indexByte(trimmed, '.'); dot >= 0 {
+	if dot := bytes.IndexByte(trimmed, '.'); dot >= 0 {
 		intPart = trimmed[:dot]
 		fracPart = trimmed[dot+1:]
 	}
@@ -87,7 +88,7 @@ func CanonicalDecimalKeyFromCanonical(canonical, dst []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid decimal: empty string")
 	}
 
-	dot := indexByte(canonical, '.')
+	dot := bytes.IndexByte(canonical, '.')
 	if dot < 0 {
 		return nil, fmt.Errorf("invalid decimal: missing decimal point")
 	}

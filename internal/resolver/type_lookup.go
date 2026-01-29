@@ -7,9 +7,9 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-// lookupType finds a type by QName in schema or builtins.
+// lookupTypeInSchema finds a type by QName in schema or builtins.
 // Returns an error if type is not found.
-func lookupType(schema *parser.Schema, qname types.QName) (types.Type, error) {
+func lookupTypeInSchema(schema *parser.Schema, qname types.QName) (types.Type, error) {
 	if builtinType := types.GetBuiltinNS(qname.Namespace, qname.Local); builtinType != nil {
 		if qname.Local == "anyType" {
 			return types.NewAnyTypeComplexType(), nil

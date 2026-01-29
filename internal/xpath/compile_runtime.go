@@ -1,15 +1,11 @@
 package xpath
 
-import (
-	"fmt"
-
-	"github.com/jacoelho/xsd/internal/runtime"
-)
+import "github.com/jacoelho/xsd/internal/runtime"
 
 // CompilePrograms compiles a restricted XPath expression into runtime path programs.
 func CompilePrograms(expr string, nsContext map[string]string, policy AttributePolicy, schema *runtime.Schema) ([]runtime.PathProgram, error) {
 	if schema == nil {
-		return nil, fmt.Errorf("xpath compile: schema is nil")
+		return nil, xpathErrorf("schema is nil")
 	}
 	parsed, err := Parse(expr, nsContext, policy)
 	if err != nil {

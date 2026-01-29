@@ -24,14 +24,11 @@ const (
 
 // ResolveReferences validates and resolves QName references in the parsed schema.
 func ResolveReferences(schema *parser.Schema, registry *Registry) (*ResolvedReferences, error) {
-	if schema == nil {
-		return nil, fmt.Errorf("schema is nil")
-	}
 	if registry == nil {
 		return nil, fmt.Errorf("registry is nil")
 	}
-	if len(schema.GlobalDecls) == 0 && hasGlobalDecls(schema) {
-		return nil, fmt.Errorf("schema global declaration order missing")
+	if err := validateSchemaInput(schema); err != nil {
+		return nil, err
 	}
 
 	resolver := &referenceResolver{

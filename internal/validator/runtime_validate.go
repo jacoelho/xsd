@@ -11,6 +11,8 @@ import (
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
+const maxNameMapSize = 1 << 20
+
 type sessionResolver struct {
 	s *Session
 }
@@ -602,6 +604,9 @@ func (s *Session) internName(id xmlstream.NameID, nsBytes, local []byte) nameEnt
 		return nameEntry{Sym: 0, NS: s.namespaceID(nsBytes)}
 	}
 	idx := int(id)
+	if idx >= maxNameMapSize {
+		return s.internSparseName(NameID(id), nsBytes, local)
+	}
 	if idx >= len(s.nameMap) {
 		s.nameMap = append(s.nameMap, make([]nameEntry, idx-len(s.nameMap)+1)...)
 	}
@@ -627,6 +632,45 @@ func (s *Session) internName(id xmlstream.NameID, nsBytes, local []byte) nameEnt
 		NSLen:    uint32(len(nsBytes)),
 	}
 	s.nameMap[idx] = entry
+	return entry
+}
+
+func (s *Session) internSparseName(id NameID, nsBytes, local []byte) nameEntry {
+	if s == nil {
+		return nameEntry{}
+	}
+	if s.nameMapSparse == nil {
+		s.nameMapSparse = make(map[NameID]nameEntry)
+	}
+	if entry, ok := s.nameMapSparse[id]; ok {
+		return entry
+	}
+	if len(s.nameMapSparse) >= maxNameMapSize {
+		nsID := s.namespaceID(nsBytes)
+		sym := runtime.SymbolID(0)
+		if nsID != 0 {
+			sym = s.rt.Symbols.Lookup(nsID, local)
+		}
+		return nameEntry{Sym: sym, NS: nsID}
+	}
+	localOff := len(s.nameLocal)
+	s.nameLocal = append(s.nameLocal, local...)
+	nsOff := len(s.nameNS)
+	s.nameNS = append(s.nameNS, nsBytes...)
+	nsID := s.namespaceID(nsBytes)
+	sym := runtime.SymbolID(0)
+	if nsID != 0 {
+		sym = s.rt.Symbols.Lookup(nsID, local)
+	}
+	entry := nameEntry{
+		Sym:      sym,
+		NS:       nsID,
+		LocalOff: uint32(localOff),
+		LocalLen: uint32(len(local)),
+		NSOff:    uint32(nsOff),
+		NSLen:    uint32(len(nsBytes)),
+	}
+	s.nameMapSparse[id] = entry
 	return entry
 }
 

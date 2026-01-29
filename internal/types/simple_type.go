@@ -8,26 +8,29 @@ import (
 
 // SimpleType represents a simple type definition
 type SimpleType struct {
-	ItemType                   Type
-	ResolvedBase               Type
-	primitiveType              Type
-	Restriction                *Restriction
-	List                       *ListType
-	Union                      *UnionType
-	fundamentalFacetsCache     *FundamentalFacets
-	identityListItemType       Type
-	QName                      QName
-	SourceNamespace            NamespaceURI
-	MemberTypes                []Type
-	identityMemberTypes        []Type
-	whiteSpace                 WhiteSpace
-	Final                      DerivationSet
-	qnameOrNotationReady       bool
-	qnameOrNotation            bool
-	identityNormalizationReady bool
-	identityNormalizable       bool
-	whiteSpaceExplicit         bool
-	builtin                    bool
+	ItemType                       Type
+	ResolvedBase                   Type
+	primitiveType                  Type
+	Restriction                    *Restriction
+	List                           *ListType
+	Union                          *UnionType
+	fundamentalFacetsCache         *FundamentalFacets
+	fundamentalFacetsComputing     bool
+	primitiveTypeComputing         bool
+	identityListItemType           Type
+	QName                          QName
+	SourceNamespace                NamespaceURI
+	MemberTypes                    []Type
+	identityMemberTypes            []Type
+	whiteSpace                     WhiteSpace
+	Final                          DerivationSet
+	qnameOrNotationReady           bool
+	qnameOrNotation                bool
+	identityNormalizationReady     bool
+	identityNormalizable           bool
+	identityNormalizationComputing bool
+	whiteSpaceExplicit             bool
+	builtin                        bool
 }
 
 // NewAtomicSimpleType creates a simple type derived by restriction.
@@ -246,23 +249,35 @@ func isNilType(typ Type) bool {
 
 // Name returns the QName of the simple type.
 func (s *SimpleType) Name() QName {
+	if s == nil {
+		return QName{}
+	}
 	return s.QName
 }
 
 // ComponentName returns the QName of this component.
 // Implements SchemaComponent interface.
 func (s *SimpleType) ComponentName() QName {
+	if s == nil {
+		return QName{}
+	}
 	return s.QName
 }
 
 // DeclaredNamespace returns the targetNamespace where this component was declared.
 // Implements SchemaComponent interface.
 func (s *SimpleType) DeclaredNamespace() NamespaceURI {
+	if s == nil {
+		return ""
+	}
 	return s.SourceNamespace
 }
 
 // Copy creates a copy of the simple type with remapped QNames.
 func (s *SimpleType) Copy(opts CopyOptions) *SimpleType {
+	if s == nil {
+		return nil
+	}
 	clone := *s
 	clone.QName = opts.RemapQName(s.QName)
 	clone.SourceNamespace = opts.SourceNamespace
@@ -316,6 +331,9 @@ func (s *SimpleType) Copy(opts CopyOptions) *SimpleType {
 
 // IsBuiltin reports whether the simple type is built-in.
 func (s *SimpleType) IsBuiltin() bool {
+	if s == nil {
+		return false
+	}
 	return s.builtin
 }
 
@@ -330,6 +348,9 @@ func IsPlaceholderSimpleType(simpleType *SimpleType) bool {
 // BaseType returns the base type for this simple type
 // If ResolvedBase is nil, returns anySimpleType (the base of all simple types)
 func (s *SimpleType) BaseType() Type {
+	if s == nil {
+		return nil
+	}
 	if s.ResolvedBase == nil {
 		return GetBuiltin(TypeNameAnySimpleType)
 	}
@@ -339,6 +360,9 @@ func (s *SimpleType) BaseType() Type {
 // ResolvedBaseType returns the resolved base type, or nil if at root.
 // Implements DerivedType interface.
 func (s *SimpleType) ResolvedBaseType() Type {
+	if s == nil {
+		return nil
+	}
 	return s.ResolvedBase
 }
 
@@ -347,24 +371,35 @@ func (s *SimpleType) FundamentalFacets() *FundamentalFacets {
 	if s == nil {
 		return nil
 	}
-	// return cached value if available
-	typeCacheMu.RLock()
-	cached := s.fundamentalFacetsCache
-	typeCacheMu.RUnlock()
-	if cached != nil {
+	typeCacheMu.Lock()
+	for s.fundamentalFacetsCache == nil && s.fundamentalFacetsComputing {
+		typeCacheCond.Wait()
+	}
+	if s.fundamentalFacetsCache != nil {
+		cached := s.fundamentalFacetsCache
+		typeCacheMu.Unlock()
 		return cached
 	}
+	s.fundamentalFacetsComputing = true
+	typeCacheMu.Unlock()
 
 	computed := s.computeFundamentalFacets()
 	if computed == nil {
+		typeCacheMu.Lock()
+		s.fundamentalFacetsComputing = false
+		typeCacheMu.Unlock()
+		typeCacheCond.Broadcast()
 		return nil
 	}
+
 	typeCacheMu.Lock()
 	if s.fundamentalFacetsCache == nil {
 		s.fundamentalFacetsCache = computed
 	}
-	cached = s.fundamentalFacetsCache
+	s.fundamentalFacetsComputing = false
+	cached := s.fundamentalFacetsCache
 	typeCacheMu.Unlock()
+	typeCacheCond.Broadcast()
 	return cached
 }
 
@@ -391,29 +426,44 @@ func (s *SimpleType) computeFundamentalFacets() *FundamentalFacets {
 
 // WhiteSpace returns the whitespace normalization for this simple type
 func (s *SimpleType) WhiteSpace() WhiteSpace {
+	if s == nil {
+		return WhiteSpacePreserve
+	}
 	return s.whiteSpace
 }
 
 // SetWhiteSpace sets the whitespace normalization for this simple type
 func (s *SimpleType) SetWhiteSpace(ws WhiteSpace) {
+	if s == nil {
+		return
+	}
 	s.whiteSpace = ws
 }
 
 // SetWhiteSpaceExplicit sets the whitespace normalization and marks it as explicitly set.
 // This is used when parsing a whiteSpace facet in a restriction.
 func (s *SimpleType) SetWhiteSpaceExplicit(ws WhiteSpace) {
+	if s == nil {
+		return
+	}
 	s.whiteSpace = ws
 	s.whiteSpaceExplicit = true
 }
 
 // WhiteSpaceExplicit returns true if whiteSpace was explicitly set in this type's restriction.
 func (s *SimpleType) WhiteSpaceExplicit() bool {
+	if s == nil {
+		return false
+	}
 	return s.whiteSpaceExplicit
 }
 
 // MeasureLength returns length in type-appropriate units (octets, items, or characters).
 // Implements LengthMeasurable interface.
 func (s *SimpleType) MeasureLength(value string) int {
+	if s == nil {
+		return 0
+	}
 	// check if this type is itself a list type
 	if s.List != nil {
 		// list type: length is number of items (space-separated)
@@ -518,6 +568,9 @@ func (s *SimpleType) Variety() SimpleTypeVariety {
 
 // Validate checks if a lexical value is valid for this type
 func (s *SimpleType) Validate(lexical string) error {
+	if s == nil {
+		return fmt.Errorf("cannot validate value for nil simple type")
+	}
 	normalized, err := NormalizeValue(lexical, s)
 	if err != nil {
 		return err
@@ -560,6 +613,9 @@ func (s *SimpleType) validateNormalized(normalized string, visited map[*SimpleTy
 
 // ParseValue converts a lexical value to a TypedValue
 func (s *SimpleType) ParseValue(lexical string) (TypedValue, error) {
+	if s == nil {
+		return nil, fmt.Errorf("cannot parse value for nil simple type")
+	}
 	normalized, err := NormalizeValue(lexical, s)
 	if err != nil {
 		return nil, err
@@ -598,23 +654,35 @@ func (s *SimpleType) PrimitiveType() Type {
 	if s == nil {
 		return nil
 	}
-	typeCacheMu.RLock()
-	cached := s.primitiveType
-	typeCacheMu.RUnlock()
-	if cached != nil {
+	typeCacheMu.Lock()
+	for s.primitiveType == nil && s.primitiveTypeComputing {
+		typeCacheCond.Wait()
+	}
+	if s.primitiveType != nil {
+		cached := s.primitiveType
+		typeCacheMu.Unlock()
 		return cached
 	}
+	s.primitiveTypeComputing = true
+	typeCacheMu.Unlock()
 
 	computed := s.computePrimitiveType(make(map[*SimpleType]bool))
 	if computed == nil {
+		typeCacheMu.Lock()
+		s.primitiveTypeComputing = false
+		typeCacheMu.Unlock()
+		typeCacheCond.Broadcast()
 		return nil
 	}
+
 	typeCacheMu.Lock()
 	if s.primitiveType == nil {
 		s.primitiveType = computed
 	}
-	cached = s.primitiveType
+	s.primitiveTypeComputing = false
+	cached := s.primitiveType
 	typeCacheMu.Unlock()
+	typeCacheCond.Broadcast()
 	return cached
 }
 
@@ -656,9 +724,9 @@ func (s *SimpleType) SetQNameOrNotationType(value bool) {
 		return
 	}
 	typeCacheMu.Lock()
+	defer typeCacheMu.Unlock()
 	s.qnameOrNotation = value
 	s.qnameOrNotationReady = true
-	typeCacheMu.Unlock()
 }
 
 func (s *SimpleType) computeQNameOrNotationType() bool {

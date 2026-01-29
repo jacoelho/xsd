@@ -15,19 +15,24 @@ func newDigestBuilder() *digestBuilder {
 	return &digestBuilder{h: sha256.New()}
 }
 
+func (b *digestBuilder) write(p []byte) {
+	// hash.Hash.Write never returns an error for standard library hashes.
+	_, _ = b.h.Write(p)
+}
+
 func (b *digestBuilder) u8(v uint8) {
 	b.buf[0] = v
-	_, _ = b.h.Write(b.buf[:1])
+	b.write(b.buf[:1])
 }
 
 func (b *digestBuilder) u32(v uint32) {
 	binary.LittleEndian.PutUint32(b.buf[:4], v)
-	_, _ = b.h.Write(b.buf[:4])
+	b.write(b.buf[:4])
 }
 
 func (b *digestBuilder) u64(v uint64) {
 	binary.LittleEndian.PutUint64(b.buf[:8], v)
-	_, _ = b.h.Write(b.buf[:8])
+	b.write(b.buf[:8])
 }
 
 func (b *digestBuilder) bool(v bool) {
@@ -43,7 +48,7 @@ func (b *digestBuilder) bytes(data []byte) {
 	if len(data) == 0 {
 		return
 	}
-	_, _ = b.h.Write(data)
+	b.write(data)
 }
 
 func (b *digestBuilder) sum() [32]byte {

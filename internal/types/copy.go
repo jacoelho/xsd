@@ -115,8 +115,8 @@ func copyIdentityConstraints(constraints []*IdentityConstraint, opts CopyOptions
 	if len(constraints) == 0 {
 		return nil
 	}
-	out := make([]*IdentityConstraint, len(constraints))
-	for i, constraint := range constraints {
+	out := make([]*IdentityConstraint, 0, len(constraints))
+	for _, constraint := range constraints {
 		if constraint == nil {
 			continue
 		}
@@ -127,7 +127,10 @@ func copyIdentityConstraints(constraints []*IdentityConstraint, opts CopyOptions
 		}
 		clone.Fields = copyFields(constraint.Fields)
 		clone.NamespaceContext = copyNamespaceContext(constraint.NamespaceContext)
-		out[i] = &clone
+		out = append(out, &clone)
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }

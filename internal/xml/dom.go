@@ -208,6 +208,9 @@ func (d *Document) collectText(id NodeID, sb *strings.Builder) {
 }
 
 func (d *Document) findAttribute(id NodeID, match func(Attr) bool) (Attr, bool) {
+	if !d.validNode(id) {
+		return Attr{}, false
+	}
 	for _, attr := range d.Attributes(id) {
 		if match(attr) {
 			return attr, true

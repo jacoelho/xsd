@@ -81,99 +81,21 @@ func determinize(glu *Glushkov, matchers []runtime.PosMatcher, maxStates uint32)
 		queue = queue[1:]
 		state := states[stateID]
 
-		reachable := newBitset(size)
-		if state.empty() {
-			reachable.or(glu.firstRaw)
-		} else {
-			state.forEach(func(pos int) {
-				reachable.or(glu.followRaw[pos])
-			})
-		}
-
-		symNext := make(map[runtime.SymbolID]*bitset)
-		symElem := make(map[runtime.SymbolID]runtime.ElemID)
-		wildNext := make(map[runtime.WildcardID]*bitset)
-
-		var scanErr error
-		reachable.forEach(func(pos int) {
-			if scanErr != nil {
-				return
-			}
-			if pos >= len(matchers) {
-				return
-			}
-			matcher := matchers[pos]
-			switch matcher.Kind {
-			case runtime.PosExact:
-				next := symNext[matcher.Sym]
-				if next == nil {
-					next = newBitset(size)
-					symNext[matcher.Sym] = next
-					symElem[matcher.Sym] = matcher.Elem
-				} else if elem := symElem[matcher.Sym]; elem != matcher.Elem {
-					scanErr = fmt.Errorf("symbol %d maps to multiple elements (%d, %d)", matcher.Sym, elem, matcher.Elem)
-					return
-				}
-				next.set(pos)
-			case runtime.PosWildcard:
-				next := wildNext[matcher.Rule]
-				if next == nil {
-					next = newBitset(size)
-					wildNext[matcher.Rule] = next
-				}
-				next.set(pos)
-			default:
-				scanErr = fmt.Errorf("unknown matcher kind %d", matcher.Kind)
-				return
-			}
-		})
-		if scanErr != nil {
-			return runtime.DFAModel{}, scanErr
+		reachable := computeReachable(state, size, glu)
+		symNext, symElem, wildNext, err := scanReachablePositions(reachable, matchers, size)
+		if err != nil {
+			return runtime.DFAModel{}, err
 		}
 
 		stateRecord := runtime.DFAState{Accept: intersects(state, glu.lastRaw) || (state.empty() && glu.Nullable)}
 		stateRecord.TransOff = uint32(len(model.Transitions))
 		stateRecord.WildOff = uint32(len(model.Wildcards))
 
-		symbols := make([]runtime.SymbolID, 0, len(symNext))
-		for sym := range symNext {
-			symbols = append(symbols, sym)
+		if err := appendSymbolTransitions(symNext, symElem, &states, stateIDs, &queue, maxStates, &model); err != nil {
+			return runtime.DFAModel{}, err
 		}
-		slices.Sort(symbols)
-		for _, sym := range symbols {
-			next := symNext[sym]
-			if next.empty() {
-				continue
-			}
-			nextID, err := getOrCreateState(next, &states, stateIDs, &queue, maxStates)
-			if err != nil {
-				return runtime.DFAModel{}, err
-			}
-			model.Transitions = append(model.Transitions, runtime.DFATransition{
-				Sym:  sym,
-				Next: nextID,
-				Elem: symElem[sym],
-			})
-		}
-
-		wildcards := make([]runtime.WildcardID, 0, len(wildNext))
-		for rule := range wildNext {
-			wildcards = append(wildcards, rule)
-		}
-		slices.Sort(wildcards)
-		for _, rule := range wildcards {
-			next := wildNext[rule]
-			if next.empty() {
-				continue
-			}
-			nextID, err := getOrCreateState(next, &states, stateIDs, &queue, maxStates)
-			if err != nil {
-				return runtime.DFAModel{}, err
-			}
-			model.Wildcards = append(model.Wildcards, runtime.DFAWildcardEdge{
-				Rule: rule,
-				Next: nextID,
-			})
+		if err := appendWildcardTransitions(wildNext, &states, stateIDs, &queue, maxStates, &model); err != nil {
+			return runtime.DFAModel{}, err
 		}
 
 		stateRecord.TransLen = uint32(len(model.Transitions)) - stateRecord.TransOff
@@ -182,6 +104,109 @@ func determinize(glu *Glushkov, matchers []runtime.PosMatcher, maxStates uint32)
 	}
 
 	return model, nil
+}
+
+func computeReachable(state *bitset, size int, glu *Glushkov) *bitset {
+	reachable := newBitset(size)
+	if state.empty() {
+		reachable.or(glu.firstRaw)
+		return reachable
+	}
+	state.forEach(func(pos int) {
+		reachable.or(glu.followRaw[pos])
+	})
+	return reachable
+}
+
+func scanReachablePositions(reachable *bitset, matchers []runtime.PosMatcher, size int) (map[runtime.SymbolID]*bitset, map[runtime.SymbolID]runtime.ElemID, map[runtime.WildcardID]*bitset, error) {
+	symNext := make(map[runtime.SymbolID]*bitset)
+	symElem := make(map[runtime.SymbolID]runtime.ElemID)
+	wildNext := make(map[runtime.WildcardID]*bitset)
+
+	var scanErr error
+	reachable.forEach(func(pos int) {
+		if scanErr != nil {
+			return
+		}
+		if pos >= len(matchers) {
+			return
+		}
+		matcher := matchers[pos]
+		switch matcher.Kind {
+		case runtime.PosExact:
+			next := symNext[matcher.Sym]
+			if next == nil {
+				next = newBitset(size)
+				symNext[matcher.Sym] = next
+				symElem[matcher.Sym] = matcher.Elem
+			} else if elem := symElem[matcher.Sym]; elem != matcher.Elem {
+				scanErr = fmt.Errorf("symbol %d maps to multiple elements (%d, %d)", matcher.Sym, elem, matcher.Elem)
+				return
+			}
+			next.set(pos)
+		case runtime.PosWildcard:
+			next := wildNext[matcher.Rule]
+			if next == nil {
+				next = newBitset(size)
+				wildNext[matcher.Rule] = next
+			}
+			next.set(pos)
+		default:
+			scanErr = fmt.Errorf("unknown matcher kind %d", matcher.Kind)
+			return
+		}
+	})
+	if scanErr != nil {
+		return nil, nil, nil, scanErr
+	}
+	return symNext, symElem, wildNext, nil
+}
+
+func appendSymbolTransitions(symNext map[runtime.SymbolID]*bitset, symElem map[runtime.SymbolID]runtime.ElemID, states *[]*bitset, stateIDs map[string]uint32, queue *[]uint32, maxStates uint32, model *runtime.DFAModel) error {
+	symbols := make([]runtime.SymbolID, 0, len(symNext))
+	for sym := range symNext {
+		symbols = append(symbols, sym)
+	}
+	slices.Sort(symbols)
+	for _, sym := range symbols {
+		next := symNext[sym]
+		if next.empty() {
+			continue
+		}
+		nextID, err := getOrCreateState(next, states, stateIDs, queue, maxStates)
+		if err != nil {
+			return err
+		}
+		model.Transitions = append(model.Transitions, runtime.DFATransition{
+			Sym:  sym,
+			Next: nextID,
+			Elem: symElem[sym],
+		})
+	}
+	return nil
+}
+
+func appendWildcardTransitions(wildNext map[runtime.WildcardID]*bitset, states *[]*bitset, stateIDs map[string]uint32, queue *[]uint32, maxStates uint32, model *runtime.DFAModel) error {
+	wildcards := make([]runtime.WildcardID, 0, len(wildNext))
+	for rule := range wildNext {
+		wildcards = append(wildcards, rule)
+	}
+	slices.Sort(wildcards)
+	for _, rule := range wildcards {
+		next := wildNext[rule]
+		if next.empty() {
+			continue
+		}
+		nextID, err := getOrCreateState(next, states, stateIDs, queue, maxStates)
+		if err != nil {
+			return err
+		}
+		model.Wildcards = append(model.Wildcards, runtime.DFAWildcardEdge{
+			Rule: rule,
+			Next: nextID,
+		})
+	}
+	return nil
 }
 
 func getOrCreateState(next *bitset, states *[]*bitset, stateIDs map[string]uint32, queue *[]uint32, maxStates uint32) (uint32, error) {

@@ -157,7 +157,8 @@ const (
 	skipSchemaValidation
 )
 
-// SchemaLoader loads XML schemas with import/include resolution
+// SchemaLoader loads XML schemas with import/include resolution.
+// It is not safe for concurrent use; create one per goroutine or serialize access.
 type SchemaLoader struct {
 	imports  importTracker
 	resolver Resolver
@@ -414,55 +415,77 @@ func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
 	sourceEntry.pendingDirectives = nil
 
 	for _, entry := range pendingDirectives {
-		target := l.schemaForKey(entry.targetKey)
-		if target == nil {
-			return fmt.Errorf("pending directive target not found: %s", entry.targetKey.systemID)
+		if err := l.applyPendingDirective(sourceKey, source, entry); err != nil {
+			return err
 		}
-		switch entry.kind {
-		case parser.DirectiveInclude:
-			includingNS := entry.targetKey.etn
-			if !l.isIncludeNamespaceCompatible(includingNS, source.TargetNamespace) {
-				return fmt.Errorf("included schema %s has different target namespace: %s != %s",
-					entry.schemaLocation, source.TargetNamespace, includingNS)
-			}
-			remapMode := keepNamespace
-			if !includingNS.IsEmpty() && source.TargetNamespace.IsEmpty() {
-				remapMode = remapNamespace
-			}
-			if err := l.mergeSchema(target, source, mergeInclude, remapMode); err != nil {
-				return fmt.Errorf("merge included schema %s: %w", entry.schemaLocation, err)
-			}
-			l.markMergedInclude(entry.targetKey, sourceKey)
-		case parser.DirectiveImport:
-			if entry.expectedNamespace != "" && source.TargetNamespace != types.NamespaceURI(entry.expectedNamespace) {
-				return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
-					entry.schemaLocation, entry.expectedNamespace, source.TargetNamespace)
-			}
-			if entry.expectedNamespace == "" && !source.TargetNamespace.IsEmpty() {
-				return fmt.Errorf("imported schema %s namespace mismatch: expected no namespace, got %s",
-					entry.schemaLocation, source.TargetNamespace)
-			}
-			if err := l.mergeSchema(target, source, mergeImport, keepNamespace); err != nil {
-				return fmt.Errorf("merge imported schema %s: %w", entry.schemaLocation, err)
-			}
-			l.markMergedImport(entry.targetKey, sourceKey)
-		default:
-			return fmt.Errorf("unknown pending directive kind: %d", entry.kind)
-		}
-
-		targetEntry := l.state.ensureEntry(entry.targetKey)
-		targetEntry.pendingCount--
-		if targetEntry.pendingCount < 0 {
-			targetEntry.pendingCount = 0
-		}
-		if targetEntry.pendingCount == 0 {
-			if err := l.resolvePendingImportsFor(entry.targetKey); err != nil {
-				return err
-			}
+		if err := l.decrementPendingAndResolve(entry.targetKey); err != nil {
+			return err
 		}
 	}
 
 	return l.validateIfRequested(sourceKey)
+}
+
+func (l *SchemaLoader) applyPendingDirective(sourceKey loadKey, source *parser.Schema, entry pendingDirective) error {
+	target := l.schemaForKey(entry.targetKey)
+	if target == nil {
+		return fmt.Errorf("pending directive target not found: %s", entry.targetKey.systemID)
+	}
+	switch entry.kind {
+	case parser.DirectiveInclude:
+		return l.applyPendingInclude(sourceKey, source, target, entry)
+	case parser.DirectiveImport:
+		return l.applyPendingImport(sourceKey, source, target, entry)
+	default:
+		return fmt.Errorf("unknown pending directive kind: %d", entry.kind)
+	}
+}
+
+func (l *SchemaLoader) applyPendingInclude(sourceKey loadKey, source, target *parser.Schema, entry pendingDirective) error {
+	includingNS := entry.targetKey.etn
+	if !l.isIncludeNamespaceCompatible(includingNS, source.TargetNamespace) {
+		return fmt.Errorf("included schema %s has different target namespace: %s != %s",
+			entry.schemaLocation, source.TargetNamespace, includingNS)
+	}
+	remapMode := keepNamespace
+	if !includingNS.IsEmpty() && source.TargetNamespace.IsEmpty() {
+		remapMode = remapNamespace
+	}
+	if err := l.mergeSchema(target, source, mergeInclude, remapMode); err != nil {
+		return fmt.Errorf("merge included schema %s: %w", entry.schemaLocation, err)
+	}
+	l.markMergedInclude(entry.targetKey, sourceKey)
+	return nil
+}
+
+func (l *SchemaLoader) applyPendingImport(sourceKey loadKey, source, target *parser.Schema, entry pendingDirective) error {
+	if entry.expectedNamespace != "" && source.TargetNamespace != types.NamespaceURI(entry.expectedNamespace) {
+		return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
+			entry.schemaLocation, entry.expectedNamespace, source.TargetNamespace)
+	}
+	if entry.expectedNamespace == "" && !source.TargetNamespace.IsEmpty() {
+		return fmt.Errorf("imported schema %s namespace mismatch: expected no namespace, got %s",
+			entry.schemaLocation, source.TargetNamespace)
+	}
+	if err := l.mergeSchema(target, source, mergeImport, keepNamespace); err != nil {
+		return fmt.Errorf("merge imported schema %s: %w", entry.schemaLocation, err)
+	}
+	l.markMergedImport(entry.targetKey, sourceKey)
+	return nil
+}
+
+func (l *SchemaLoader) decrementPendingAndResolve(targetKey loadKey) error {
+	targetEntry := l.state.ensureEntry(targetKey)
+	if targetEntry.pendingCount == 0 {
+		return fmt.Errorf("pending directive count underflow for %s", targetKey.systemID)
+	}
+	targetEntry.pendingCount--
+	if targetEntry.pendingCount == 0 {
+		if err := l.resolvePendingImportsFor(targetKey); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (l *SchemaLoader) schemaForKey(key loadKey) *parser.Schema {

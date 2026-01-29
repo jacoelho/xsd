@@ -123,3 +123,36 @@ func TestInternerDeterminism(t *testing.T) {
 		t.Fatalf("symbol tables differ across identical builds")
 	}
 }
+
+func TestBuildNamespaceIndexBounds(t *testing.T) {
+	table := NamespaceTable{
+		Off:  []uint32{0, 10},
+		Len:  []uint32{0, 5},
+		Blob: make([]byte, 10),
+	}
+	assertPanics(t, func() {
+		_ = buildNamespaceIndex(&table)
+	})
+}
+
+func TestBuildSymbolsIndexBounds(t *testing.T) {
+	table := SymbolsTable{
+		NS:        []NamespaceID{0, 1},
+		LocalOff:  []uint32{0, 8},
+		LocalLen:  []uint32{0, 8},
+		LocalBlob: make([]byte, 10),
+	}
+	assertPanics(t, func() {
+		_ = buildSymbolsIndex(&table)
+	})
+}
+
+func assertPanics(t *testing.T, fn func()) {
+	t.Helper()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("expected panic")
+		}
+	}()
+	fn()
+}

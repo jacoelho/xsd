@@ -1,6 +1,7 @@
 package xsdxml
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -156,6 +157,27 @@ func TestParseNamespaceUndeclareRedeclare(t *testing.T) {
 	}
 	if grandXMLNS != "b" {
 		t.Fatalf("grand xmlns = %q, want b", grandXMLNS)
+	}
+}
+
+type errReader struct {
+	err error
+}
+
+func (r errReader) Read(p []byte) (int, error) {
+	return 0, r.err
+}
+
+func TestParseIntoWrapsReadError(t *testing.T) {
+	sentinel := errors.New("read failure")
+	doc := &Document{root: InvalidNode}
+
+	err := ParseInto(errReader{err: sentinel}, doc)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("error = %v, want wrapped %v", err, sentinel)
 	}
 }
 
