@@ -167,9 +167,16 @@ func buildNamespaceIndex(table *NamespaceTable) NamespaceIndex {
 	mask := uint64(size - 1)
 	for i := 1; i <= count; i++ {
 		id := NamespaceID(i)
+		if int(id) >= len(table.Off) || int(id) >= len(table.Len) {
+			panic("namespace table id out of range")
+		}
 		off := table.Off[id]
 		ln := table.Len[id]
-		b := table.Blob[off : off+ln]
+		end := uint64(off) + uint64(ln)
+		if end > uint64(len(table.Blob)) {
+			panic("namespace blob bounds exceeded")
+		}
+		b := table.Blob[int(off):int(end)]
 		h := hashBytes(b)
 		slot := int(h & mask)
 		inserted := false
@@ -205,10 +212,17 @@ func buildSymbolsIndex(table *SymbolsTable) SymbolsIndex {
 	mask := uint64(size - 1)
 	for i := 1; i <= count; i++ {
 		id := SymbolID(i)
+		if int(id) >= len(table.NS) || int(id) >= len(table.LocalOff) || int(id) >= len(table.LocalLen) {
+			panic("symbol table id out of range")
+		}
 		nsID := table.NS[id]
 		off := table.LocalOff[id]
 		ln := table.LocalLen[id]
-		local := table.LocalBlob[off : off+ln]
+		end := uint64(off) + uint64(ln)
+		if end > uint64(len(table.LocalBlob)) {
+			panic("symbol blob bounds exceeded")
+		}
+		local := table.LocalBlob[int(off):int(end)]
 		h := hashSymbol(nsID, local)
 		slot := int(h & mask)
 		inserted := false
