@@ -54,12 +54,19 @@ func (t *NamespaceTable) Lookup(ns []byte) NamespaceID {
 }
 
 func (t *NamespaceTable) equalNamespace(id NamespaceID, ns []byte) bool {
+	if id == 0 || int(id) >= len(t.Off) || int(id) >= len(t.Len) {
+		return false
+	}
 	off := t.Off[id]
 	ln := t.Len[id]
+	end := uint64(off) + uint64(ln)
+	if end > uint64(len(t.Blob)) {
+		return false
+	}
 	if int(ln) != len(ns) {
 		return false
 	}
-	return bytes.Equal(t.Blob[off:off+ln], ns)
+	return bytes.Equal(t.Blob[int(off):int(end)], ns)
 }
 
 type SymbolsTable struct {
