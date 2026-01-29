@@ -152,10 +152,11 @@ func BuildTable(rows []Row) (*Table, []int) {
 	dupes := make([]int, 0, len(rows)/2)
 	mask := uint64(size - 1)
 	for i := range rows {
-		if rows[i].Hash == 0 {
-			rows[i].Hash = HashRow(rows[i].Values)
+		hash := rows[i].Hash
+		if hash == 0 {
+			hash = HashRow(rows[i].Values)
 		}
-		h := rows[i].Hash
+		h := hash
 		slot := int(h & mask)
 		for range size {
 			entry := table.slots[slot]
