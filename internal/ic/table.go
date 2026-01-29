@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	hashOffset64 = 14695981039346656037
-	hashPrime64  = 1099511628211
+	// fnvOffsetBasis64 and fnvPrime64 are 64-bit FNV-1a constants.
+	fnvOffsetBasis64 = 14695981039346656037
+	fnvPrime64       = 1099511628211
 )
 
 type Row struct {
@@ -117,19 +118,19 @@ func Resolve(constraints []Constraint) []Issue {
 }
 
 func HashRow(values []Key) uint64 {
-	h := uint64(hashOffset64)
+	h := uint64(fnvOffsetBasis64)
 	for _, value := range values {
 		h ^= uint64(value.Kind)
-		h *= hashPrime64
+		h *= fnvPrime64
 		length := uint32(len(value.Bytes))
 		for range 4 {
 			h ^= uint64(byte(length))
-			h *= hashPrime64
+			h *= fnvPrime64
 			length >>= 8
 		}
 		for _, c := range value.Bytes {
 			h ^= uint64(c)
-			h *= hashPrime64
+			h *= fnvPrime64
 		}
 	}
 	if h == 0 {

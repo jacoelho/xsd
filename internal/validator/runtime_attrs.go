@@ -297,6 +297,7 @@ func (s *Session) checkDuplicateAttrs(attrs []StartAttr) error {
 	if s == nil || len(attrs) < 2 {
 		return nil
 	}
+	// smallAttrDupThreshold switches from quadratic scan to hashing.
 	const smallAttrDupThreshold = 8
 	if len(attrs) <= smallAttrDupThreshold {
 		for i := range attrs {
