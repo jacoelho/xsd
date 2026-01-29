@@ -14,6 +14,7 @@ func attrNameHash(ns, local []byte) uint64 {
 		h ^= uint64(c)
 		h *= attrHashPrime64
 	}
+	// mix a separator byte to distinguish namespace/local boundaries.
 	h ^= 0
 	h *= attrHashPrime64
 	for _, c := range local {
