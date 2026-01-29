@@ -114,7 +114,7 @@ func (b *builder) visitGlobalAttribute(name types.QName, decl *types.AttributeDe
 }
 
 func (b *builder) visitAttributeGroup(group *types.AttributeGroup) error {
-	return b.visitAttributeDecls(group.Attributes, true)
+	return b.visitAttributeDeclsWithIDs(group.Attributes)
 }
 
 func (b *builder) visitGroup(group *types.ModelGroup) error {
@@ -193,7 +193,7 @@ func (b *builder) visitComplexType(ct *types.ComplexType) error {
 		// no-op
 	}
 
-	if err := b.visitAttributeDecls(ct.Attributes(), false); err != nil {
+	if err := b.visitAttributeDecls(ct.Attributes()); err != nil {
 		return err
 	}
 
@@ -208,7 +208,7 @@ func (b *builder) visitComplexContent(content *types.ComplexContent) error {
 		if err := b.visitParticle(ext.Particle); err != nil {
 			return err
 		}
-		if err := b.visitAttributeDecls(ext.Attributes, false); err != nil {
+		if err := b.visitAttributeDecls(ext.Attributes); err != nil {
 			return err
 		}
 		return nil
@@ -217,7 +217,7 @@ func (b *builder) visitComplexContent(content *types.ComplexContent) error {
 		if err := b.visitParticle(restr.Particle); err != nil {
 			return err
 		}
-		if err := b.visitAttributeDecls(restr.Attributes, false); err != nil {
+		if err := b.visitAttributeDecls(restr.Attributes); err != nil {
 			return err
 		}
 	}
@@ -229,7 +229,7 @@ func (b *builder) visitSimpleContent(content *types.SimpleContent) error {
 		return nil
 	}
 	if ext := content.ExtensionDef(); ext != nil {
-		if err := b.visitAttributeDecls(ext.Attributes, false); err != nil {
+		if err := b.visitAttributeDecls(ext.Attributes); err != nil {
 			return err
 		}
 		return nil
@@ -243,7 +243,7 @@ func (b *builder) visitSimpleContent(content *types.SimpleContent) error {
 				return err
 			}
 		}
-		if err := b.visitAttributeDecls(restr.Attributes, false); err != nil {
+		if err := b.visitAttributeDecls(restr.Attributes); err != nil {
 			return err
 		}
 	}
@@ -283,13 +283,21 @@ func (b *builder) visitSimpleType(st *types.SimpleType) error {
 	return nil
 }
 
-func (b *builder) visitAttributeDecls(attrs []*types.AttributeDecl, assignIDs bool) error {
+func (b *builder) visitAttributeDecls(attrs []*types.AttributeDecl) error {
+	return b.visitAttributeDeclsWithAssigner(attrs, nil)
+}
+
+func (b *builder) visitAttributeDeclsWithIDs(attrs []*types.AttributeDecl) error {
+	return b.visitAttributeDeclsWithAssigner(attrs, b.assignLocalAttribute)
+}
+
+func (b *builder) visitAttributeDeclsWithAssigner(attrs []*types.AttributeDecl, assign func(*types.AttributeDecl) error) error {
 	for _, attr := range attrs {
 		if attr == nil {
 			continue
 		}
-		if assignIDs && !attr.IsReference {
-			if err := b.assignLocalAttribute(attr); err != nil {
+		if assign != nil && !attr.IsReference {
+			if err := assign(attr); err != nil {
 				return err
 			}
 		}
