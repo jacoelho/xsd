@@ -62,7 +62,7 @@ func collectComplexTypeChain(schema *parser.Schema, ct *types.ComplexType) []*ty
 			if isAnyTypeQName(current.ResolvedBase.Name()) {
 				next = types.NewAnyTypeComplexType()
 			}
-		} else if current.ResolvedBase == nil {
+		} else {
 			baseQName := types.QName{}
 			if content := current.Content(); content != nil {
 				baseQName = content.BaseTypeQName()
