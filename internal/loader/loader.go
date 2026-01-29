@@ -476,10 +476,10 @@ func (l *SchemaLoader) applyPendingImport(sourceKey loadKey, source, target *par
 
 func (l *SchemaLoader) decrementPendingAndResolve(targetKey loadKey) error {
 	targetEntry := l.state.ensureEntry(targetKey)
-	targetEntry.pendingCount--
-	if targetEntry.pendingCount < 0 {
-		targetEntry.pendingCount = 0
+	if targetEntry.pendingCount == 0 {
+		return fmt.Errorf("pending directive count underflow for %s", targetKey.systemID)
 	}
+	targetEntry.pendingCount--
 	if targetEntry.pendingCount == 0 {
 		if err := l.resolvePendingImportsFor(targetKey); err != nil {
 			return err

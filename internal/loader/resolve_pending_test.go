@@ -77,3 +77,16 @@ func TestResolvePendingImportsRejectsNamespaceMismatch(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestDecrementPendingAndResolveUnderflow(t *testing.T) {
+	loader := &SchemaLoader{
+		state:   newLoadState(),
+		imports: newImportTracker(),
+	}
+	key := loadKey{systemID: "root.xsd"}
+	loader.state.ensureEntry(key)
+
+	if err := loader.decrementPendingAndResolve(key); err == nil {
+		t.Fatalf("expected pendingCount underflow error")
+	}
+}
