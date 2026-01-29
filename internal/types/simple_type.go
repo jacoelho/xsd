@@ -8,26 +8,29 @@ import (
 
 // SimpleType represents a simple type definition
 type SimpleType struct {
-	ItemType                   Type
-	ResolvedBase               Type
-	primitiveType              Type
-	Restriction                *Restriction
-	List                       *ListType
-	Union                      *UnionType
-	fundamentalFacetsCache     *FundamentalFacets
-	identityListItemType       Type
-	QName                      QName
-	SourceNamespace            NamespaceURI
-	MemberTypes                []Type
-	identityMemberTypes        []Type
-	whiteSpace                 WhiteSpace
-	Final                      DerivationSet
-	qnameOrNotationReady       bool
-	qnameOrNotation            bool
-	identityNormalizationReady bool
-	identityNormalizable       bool
-	whiteSpaceExplicit         bool
-	builtin                    bool
+	ItemType                       Type
+	ResolvedBase                   Type
+	primitiveType                  Type
+	Restriction                    *Restriction
+	List                           *ListType
+	Union                          *UnionType
+	fundamentalFacetsCache         *FundamentalFacets
+	fundamentalFacetsComputing     bool
+	primitiveTypeComputing         bool
+	identityListItemType           Type
+	QName                          QName
+	SourceNamespace                NamespaceURI
+	MemberTypes                    []Type
+	identityMemberTypes            []Type
+	whiteSpace                     WhiteSpace
+	Final                          DerivationSet
+	qnameOrNotationReady           bool
+	qnameOrNotation                bool
+	identityNormalizationReady     bool
+	identityNormalizable           bool
+	identityNormalizationComputing bool
+	whiteSpaceExplicit             bool
+	builtin                        bool
 }
 
 // NewAtomicSimpleType creates a simple type derived by restriction.
@@ -347,24 +350,35 @@ func (s *SimpleType) FundamentalFacets() *FundamentalFacets {
 	if s == nil {
 		return nil
 	}
-	// return cached value if available
-	typeCacheMu.RLock()
-	cached := s.fundamentalFacetsCache
-	typeCacheMu.RUnlock()
-	if cached != nil {
+	typeCacheMu.Lock()
+	for s.fundamentalFacetsCache == nil && s.fundamentalFacetsComputing {
+		typeCacheCond.Wait()
+	}
+	if s.fundamentalFacetsCache != nil {
+		cached := s.fundamentalFacetsCache
+		typeCacheMu.Unlock()
 		return cached
 	}
+	s.fundamentalFacetsComputing = true
+	typeCacheMu.Unlock()
 
 	computed := s.computeFundamentalFacets()
 	if computed == nil {
+		typeCacheMu.Lock()
+		s.fundamentalFacetsComputing = false
+		typeCacheMu.Unlock()
+		typeCacheCond.Broadcast()
 		return nil
 	}
+
 	typeCacheMu.Lock()
 	if s.fundamentalFacetsCache == nil {
 		s.fundamentalFacetsCache = computed
 	}
-	cached = s.fundamentalFacetsCache
+	s.fundamentalFacetsComputing = false
+	cached := s.fundamentalFacetsCache
 	typeCacheMu.Unlock()
+	typeCacheCond.Broadcast()
 	return cached
 }
 
@@ -598,23 +612,35 @@ func (s *SimpleType) PrimitiveType() Type {
 	if s == nil {
 		return nil
 	}
-	typeCacheMu.RLock()
-	cached := s.primitiveType
-	typeCacheMu.RUnlock()
-	if cached != nil {
+	typeCacheMu.Lock()
+	for s.primitiveType == nil && s.primitiveTypeComputing {
+		typeCacheCond.Wait()
+	}
+	if s.primitiveType != nil {
+		cached := s.primitiveType
+		typeCacheMu.Unlock()
 		return cached
 	}
+	s.primitiveTypeComputing = true
+	typeCacheMu.Unlock()
 
 	computed := s.computePrimitiveType(make(map[*SimpleType]bool))
 	if computed == nil {
+		typeCacheMu.Lock()
+		s.primitiveTypeComputing = false
+		typeCacheMu.Unlock()
+		typeCacheCond.Broadcast()
 		return nil
 	}
+
 	typeCacheMu.Lock()
 	if s.primitiveType == nil {
 		s.primitiveType = computed
 	}
-	cached = s.primitiveType
+	s.primitiveTypeComputing = false
+	cached := s.primitiveType
 	typeCacheMu.Unlock()
+	typeCacheCond.Broadcast()
 	return cached
 }
 

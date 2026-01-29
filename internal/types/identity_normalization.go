@@ -12,21 +12,33 @@ func (s *SimpleType) precomputeIdentityNormalization() {
 	if s == nil {
 		return
 	}
-	typeCacheMu.RLock()
-	ready := s.identityNormalizationReady
-	typeCacheMu.RUnlock()
-	if ready {
+	typeCacheMu.Lock()
+	for !s.identityNormalizationReady && s.identityNormalizationComputing {
+		typeCacheCond.Wait()
+	}
+	if s.identityNormalizationReady {
+		typeCacheMu.Unlock()
 		return
 	}
+	s.identityNormalizationComputing = true
+	typeCacheMu.Unlock()
+
 	if s.Variety() == AtomicVariety {
 		typeCacheMu.Lock()
 		s.identityNormalizable = true
 		s.identityNormalizationReady = true
+		s.identityNormalizationComputing = false
 		typeCacheMu.Unlock()
+		typeCacheCond.Broadcast()
 		return
 	}
 	state := make(map[*SimpleType]identityNormalizationState)
 	precomputeIdentityNormalization(s, state)
+
+	typeCacheMu.Lock()
+	s.identityNormalizationComputing = false
+	typeCacheMu.Unlock()
+	typeCacheCond.Broadcast()
 }
 
 func precomputeIdentityNormalization(s *SimpleType, state map[*SimpleType]identityNormalizationState) bool {

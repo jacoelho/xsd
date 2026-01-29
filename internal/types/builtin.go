@@ -16,15 +16,17 @@ type TypeValidatorBytes func(value []byte) error
 
 // BuiltinType represents a built-in XSD type
 type BuiltinType struct {
-	primitiveTypeCache     Type
-	validator              TypeValidator
-	validatorBytes         TypeValidatorBytes
-	fundamentalFacetsCache *FundamentalFacets
-	simpleWrapper          *SimpleType
-	qname                  QName
-	name                   string
-	whiteSpace             WhiteSpace
-	ordered                bool
+	primitiveTypeCache         Type
+	validator                  TypeValidator
+	validatorBytes             TypeValidatorBytes
+	fundamentalFacetsCache     *FundamentalFacets
+	fundamentalFacetsComputing bool
+	primitiveTypeComputing     bool
+	simpleWrapper              *SimpleType
+	qname                      QName
+	name                       string
+	whiteSpace                 WhiteSpace
+	ordered                    bool
 }
 
 type orderingFlag bool
@@ -297,73 +299,55 @@ func (b *BuiltinType) MeasureLength(value string) int {
 
 // FundamentalFacets returns the fundamental facets for this built-in type
 func (b *BuiltinType) FundamentalFacets() *FundamentalFacets {
-	typeCacheMu.RLock()
-	cached := b.fundamentalFacetsCache
-	typeCacheMu.RUnlock()
-	if cached != nil {
+	typeCacheMu.Lock()
+	for b.fundamentalFacetsCache == nil && b.fundamentalFacetsComputing {
+		typeCacheCond.Wait()
+	}
+	if b.fundamentalFacetsCache != nil {
+		cached := b.fundamentalFacetsCache
+		typeCacheMu.Unlock()
 		return cached
 	}
+	b.fundamentalFacetsComputing = true
+	typeCacheMu.Unlock()
 
+	computed := b.computeFundamentalFacets()
+	if computed == nil {
+		typeCacheMu.Lock()
+		b.fundamentalFacetsComputing = false
+		typeCacheMu.Unlock()
+		typeCacheCond.Broadcast()
+		return nil
+	}
+
+	typeCacheMu.Lock()
+	if b.fundamentalFacetsCache == nil {
+		b.fundamentalFacetsCache = computed
+	}
+	b.fundamentalFacetsComputing = false
+	cached := b.fundamentalFacetsCache
+	typeCacheMu.Unlock()
+	typeCacheCond.Broadcast()
+	return cached
+}
+
+func (b *BuiltinType) computeFundamentalFacets() *FundamentalFacets {
 	typeName := TypeName(b.name)
 
-	// for primitive types, compute directly
 	if isPrimitiveName(typeName) {
-		cached = ComputeFundamentalFacets(typeName)
-		if cached == nil {
-			return nil
-		}
-		typeCacheMu.Lock()
-		if b.fundamentalFacetsCache == nil {
-			b.fundamentalFacetsCache = cached
-		}
-		cached = b.fundamentalFacetsCache
-		typeCacheMu.Unlock()
-		return cached
+		return ComputeFundamentalFacets(typeName)
 	}
 
-	// for derived types, get facets from primitive type
 	primitive := b.computePrimitiveType()
 	if primitive == nil {
-		// fallback: try computing from name (may return nil for unknown types)
-		cached = ComputeFundamentalFacets(typeName)
-		if cached == nil {
-			return nil
-		}
-		typeCacheMu.Lock()
-		if b.fundamentalFacetsCache == nil {
-			b.fundamentalFacetsCache = cached
-		}
-		cached = b.fundamentalFacetsCache
-		typeCacheMu.Unlock()
-		return cached
+		return ComputeFundamentalFacets(typeName)
 	}
 
 	if bt, ok := as[*BuiltinType](primitive); ok {
-		cached = bt.FundamentalFacets()
-		if cached == nil {
-			return nil
-		}
-		typeCacheMu.Lock()
-		if b.fundamentalFacetsCache == nil {
-			b.fundamentalFacetsCache = cached
-		}
-		cached = b.fundamentalFacetsCache
-		typeCacheMu.Unlock()
-		return cached
+		return bt.FundamentalFacets()
 	}
 
-	// if primitive is not BuiltinType, try to get facets from it
-	cached = primitive.FundamentalFacets()
-	if cached == nil {
-		return nil
-	}
-	typeCacheMu.Lock()
-	if b.fundamentalFacetsCache == nil {
-		b.fundamentalFacetsCache = cached
-	}
-	cached = b.fundamentalFacetsCache
-	typeCacheMu.Unlock()
-	return cached
+	return primitive.FundamentalFacets()
 }
 
 // BaseType returns the base type for this built-in type
@@ -414,24 +398,35 @@ func computeBaseType(name string) Type {
 
 // PrimitiveType returns the primitive type for this built-in type
 func (b *BuiltinType) PrimitiveType() Type {
-	// return cached value if available
-	typeCacheMu.RLock()
-	cached := b.primitiveTypeCache
-	typeCacheMu.RUnlock()
-	if cached != nil {
+	typeCacheMu.Lock()
+	for b.primitiveTypeCache == nil && b.primitiveTypeComputing {
+		typeCacheCond.Wait()
+	}
+	if b.primitiveTypeCache != nil {
+		cached := b.primitiveTypeCache
+		typeCacheMu.Unlock()
 		return cached
 	}
+	b.primitiveTypeComputing = true
+	typeCacheMu.Unlock()
 
 	primitive := b.computePrimitiveType()
 	if primitive == nil {
+		typeCacheMu.Lock()
+		b.primitiveTypeComputing = false
+		typeCacheMu.Unlock()
+		typeCacheCond.Broadcast()
 		return nil
 	}
+
 	typeCacheMu.Lock()
 	if b.primitiveTypeCache == nil {
 		b.primitiveTypeCache = primitive
 	}
-	cached = b.primitiveTypeCache
+	b.primitiveTypeComputing = false
+	cached := b.primitiveTypeCache
 	typeCacheMu.Unlock()
+	typeCacheCond.Broadcast()
 	return cached
 }
 
