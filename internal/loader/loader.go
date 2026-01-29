@@ -157,7 +157,8 @@ const (
 	skipSchemaValidation
 )
 
-// SchemaLoader loads XML schemas with import/include resolution
+// SchemaLoader loads XML schemas with import/include resolution.
+// It is not safe for concurrent use; create one per goroutine or serialize access.
 type SchemaLoader struct {
 	imports  importTracker
 	resolver Resolver
