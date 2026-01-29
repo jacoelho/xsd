@@ -12,8 +12,13 @@ const (
 )
 
 type Row struct {
-	Values [][]byte
+	Values []Key
 	Hash   uint64
+}
+
+type Key struct {
+	Bytes []byte
+	Kind  runtime.ValueKind
 }
 
 type Constraint struct {
@@ -111,16 +116,18 @@ func Resolve(constraints []Constraint) []Issue {
 	return issues
 }
 
-func HashRow(values [][]byte) uint64 {
+func HashRow(values []Key) uint64 {
 	h := uint64(hashOffset64)
 	for _, value := range values {
-		length := uint32(len(value))
+		h ^= uint64(value.Kind)
+		h *= hashPrime64
+		length := uint32(len(value.Bytes))
 		for range 4 {
 			h ^= uint64(byte(length))
 			h *= hashPrime64
 			length >>= 8
 		}
-		for _, c := range value {
+		for _, c := range value.Bytes {
 			h ^= uint64(c)
 			h *= hashPrime64
 		}
@@ -135,7 +142,7 @@ func BuildTable(rows []Row) (*Table, []int) {
 	if len(rows) == 0 {
 		return nil, nil
 	}
-	size := nextPow2(len(rows) * 2)
+	size := runtime.NextPow2(len(rows) * 2)
 	table := &Table{
 		hashes: make([]uint64, size),
 		slots:  make([]uint32, size),
@@ -199,20 +206,12 @@ func rowsEqual(a, b Row) bool {
 		return false
 	}
 	for i := range a.Values {
-		if !bytes.Equal(a.Values[i], b.Values[i]) {
+		if a.Values[i].Kind != b.Values[i].Kind {
+			return false
+		}
+		if !bytes.Equal(a.Values[i].Bytes, b.Values[i].Bytes) {
 			return false
 		}
 	}
 	return true
-}
-
-func nextPow2(n int) int {
-	if n <= 1 {
-		return 1
-	}
-	p := 1
-	for p < n {
-		p <<= 1
-	}
-	return p
 }

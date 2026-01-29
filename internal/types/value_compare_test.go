@@ -77,3 +77,18 @@ func TestValuesEqual_DurationBinary(t *testing.T) {
 		t.Fatalf("expected base64Binary values to be equal")
 	}
 }
+
+func TestValuesEqual_DateTimeTimezonePresence(t *testing.T) {
+	dateTimeType := mustBuiltinSimpleType(t, TypeNameDateTime)
+	noTimezone, err := dateTimeType.ParseValue("2000-01-01T00:00:00")
+	if err != nil {
+		t.Fatalf("ParseValue(no timezone) error = %v", err)
+	}
+	withTimezone, err := dateTimeType.ParseValue("2000-01-01T00:00:00Z")
+	if err != nil {
+		t.Fatalf("ParseValue(with timezone) error = %v", err)
+	}
+	if ValuesEqual(noTimezone, withTimezone) {
+		t.Fatalf("expected dateTime values with and without timezone to differ")
+	}
+}

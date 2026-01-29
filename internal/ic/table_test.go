@@ -8,8 +8,8 @@ import (
 
 func TestDuplicateDetection(t *testing.T) {
 	rows := []Row{
-		{Values: [][]byte{[]byte("dup")}},
-		{Values: [][]byte{[]byte("dup")}},
+		{Values: []Key{{Kind: runtime.VKString, Bytes: []byte("dup")}}},
+		{Values: []Key{{Kind: runtime.VKString, Bytes: []byte("dup")}}},
 	}
 	table, dupes := BuildTable(rows)
 	if table == nil {
@@ -29,7 +29,7 @@ func TestKeyrefResolution(t *testing.T) {
 			ID:       1,
 			Category: runtime.ICKey,
 			Rows: []Row{
-				{Values: [][]byte{[]byte("a")}},
+				{Values: []Key{{Kind: runtime.VKString, Bytes: []byte("a")}}},
 			},
 		},
 		{
@@ -37,8 +37,8 @@ func TestKeyrefResolution(t *testing.T) {
 			Category:   runtime.ICKeyRef,
 			Referenced: 1,
 			Keyrefs: []Row{
-				{Values: [][]byte{[]byte("a")}},
-				{Values: [][]byte{[]byte("b")}},
+				{Values: []Key{{Kind: runtime.VKString, Bytes: []byte("a")}}},
+				{Values: []Key{{Kind: runtime.VKString, Bytes: []byte("b")}}},
 			},
 		},
 	}
@@ -55,7 +55,7 @@ func TestKeyrefResolution(t *testing.T) {
 		Category:   runtime.ICKeyRef,
 		Referenced: 9,
 		Keyrefs: []Row{
-			{Values: [][]byte{[]byte("x")}},
+			{Values: []Key{{Kind: runtime.VKString, Bytes: []byte("x")}}},
 		},
 	}})
 	if len(issues) != 1 {

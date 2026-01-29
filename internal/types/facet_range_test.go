@@ -633,3 +633,63 @@ func TestRangeFacet_CrossTypeNumeric(t *testing.T) {
 		}
 	})
 }
+
+func TestDateTimeBoundsFacet_IndeterminateComparison(t *testing.T) {
+	// Per refactor.md §6.4 and §12.1 item 6:
+	// When comparing dateTime values where one has a timezone and one doesn't,
+	// the comparison is indeterminate (within ±14 hours) and bounds facets should fail.
+	dateTimeType := mustBuiltinSimpleType(t, TypeNameDateTime)
+
+	// Create a minInclusive facet with a timezone-aware value (noon UTC)
+	facet, err := NewMinInclusive("2000-01-01T12:00:00Z", dateTimeType)
+	if err != nil {
+		t.Fatalf("NewMinInclusive() error = %v", err)
+	}
+
+	// Parse a value WITHOUT timezone - same date/time but no timezone info.
+	// This creates an indeterminate comparison because the local time
+	// could be interpreted as UTC-14 to UTC+14, which overlaps with 12:00 UTC.
+	valueTime, err := ParseDateTime("2000-01-01T12:00:00")
+	if err != nil {
+		t.Fatalf("ParseDateTime() error = %v", err)
+	}
+
+	value := &DateTimeTypedValue{
+		Value:       "2000-01-01T12:00:00",
+		Typ:         dateTimeType,
+		parsedTime:  valueTime,
+		hasTimezone: false,
+	}
+
+	// This comparison is INDETERMINATE because one has timezone and one doesn't,
+	// and they are within the ±14 hour window.
+	// Per spec, indeterminate comparisons should fail bounds facets.
+	err = facet.Validate(value, dateTimeType)
+	if err == nil {
+		t.Fatal("Validate() should return error for indeterminate dateTime comparison (timezone presence mismatch)")
+	}
+}
+
+// DateTimeTypedValue is a helper type for testing dateTime facets with timezone presence
+type DateTimeTypedValue struct {
+	Typ         Type
+	Value       string
+	parsedTime  time.Time
+	hasTimezone bool
+}
+
+func (d *DateTimeTypedValue) Type() Type {
+	return d.Typ
+}
+
+func (d *DateTimeTypedValue) Lexical() string {
+	return d.Value
+}
+
+func (d *DateTimeTypedValue) Native() any {
+	return ComparableTime{Value: d.parsedTime, Typ: d.Typ, HasTimezone: d.hasTimezone}
+}
+
+func (d *DateTimeTypedValue) String() string {
+	return d.Value
+}

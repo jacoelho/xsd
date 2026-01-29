@@ -374,27 +374,23 @@ func (c *compiler) compileEnumeration(enum *types.Enumeration, st *types.SimpleT
 	if len(contexts) > 0 && len(contexts) != len(enum.Values) {
 		return 0, fmt.Errorf("enumeration contexts %d do not match values %d", len(contexts), len(enum.Values))
 	}
-	values := make([]runtime.ValueRef, 0, len(enum.Values))
+	keys := make([]runtime.ValueKey, 0, len(enum.Values))
 	for i, val := range enum.Values {
 		var ctx map[string]string
 		if len(contexts) > 0 {
 			ctx = contexts[i]
 		}
-		canon, err := c.canonicalizeEnumValue(val, st, partial, ctx)
+		normalized := c.normalizeLexical(val, st)
+		if err := c.validatePartialFacets(normalized, st, partial); err != nil {
+			return 0, err
+		}
+		enumKeys, err := c.valueKeysForNormalized(normalized, st, ctx)
 		if err != nil {
 			return 0, err
 		}
-		values = append(values, c.values.add(canon))
+		keys = append(keys, enumKeys...)
 	}
-	return c.enums.add(values), nil
-}
-
-func (c *compiler) canonicalizeEnumValue(lexical string, typ types.Type, partial []types.Facet, ctx map[string]string) ([]byte, error) {
-	normalized := c.normalizeLexical(lexical, typ)
-	if err := c.validatePartialFacets(normalized, typ, partial); err != nil {
-		return nil, err
-	}
-	return c.canonicalizeNormalized(normalized, typ, ctx)
+	return c.enums.add(keys), nil
 }
 
 func (c *compiler) canonicalizeLexical(lexical string, typ types.Type, ctx map[string]string) ([]byte, error) {
@@ -806,6 +802,7 @@ func (c *compiler) addAtomicValidator(kind runtime.ValidatorKind, ws runtime.Whi
 		Index:      index,
 		WhiteSpace: ws,
 		Facets:     facets,
+		Flags:      c.validatorFlags(facets),
 	})
 	return id
 }
@@ -820,6 +817,7 @@ func (c *compiler) addListValidator(ws runtime.WhitespaceMode, facets runtime.Fa
 		Index:      index,
 		WhiteSpace: ws,
 		Facets:     facets,
+		Flags:      c.validatorFlags(facets),
 	})
 	return id
 }
@@ -839,8 +837,25 @@ func (c *compiler) addUnionValidator(ws runtime.WhitespaceMode, facets runtime.F
 		Index:      index,
 		WhiteSpace: ws,
 		Facets:     facets,
+		Flags:      c.validatorFlags(facets),
 	})
 	return id
+}
+
+func (c *compiler) validatorFlags(facets runtime.FacetProgramRef) runtime.ValidatorFlags {
+	if facets.Len == 0 {
+		return 0
+	}
+	end := facets.Off + facets.Len
+	if int(end) > len(c.facets) {
+		return 0
+	}
+	for i := facets.Off; i < end; i++ {
+		if c.facets[i].Op == runtime.FEnum {
+			return runtime.ValidatorHasEnum
+		}
+	}
+	return 0
 }
 
 func (c *compiler) addPattern(p *types.Pattern) (runtime.PatternID, error) {
@@ -853,7 +868,7 @@ func (c *compiler) addPattern(p *types.Pattern) (runtime.PatternID, error) {
 	if err != nil {
 		return 0, err
 	}
-	c.patterns = append(c.patterns, runtime.Pattern{Re: re})
+	c.patterns = append(c.patterns, runtime.Pattern{Source: []byte(p.GoPattern), Re: re})
 	return runtime.PatternID(len(c.patterns) - 1), nil
 }
 
@@ -879,7 +894,7 @@ func (c *compiler) addPatternSet(set *types.PatternSet) (runtime.PatternID, erro
 	if err != nil {
 		return 0, err
 	}
-	c.patterns = append(c.patterns, runtime.Pattern{Re: re})
+	c.patterns = append(c.patterns, runtime.Pattern{Source: []byte(goPattern), Re: re})
 	return runtime.PatternID(len(c.patterns) - 1), nil
 }
 
