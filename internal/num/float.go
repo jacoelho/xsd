@@ -41,6 +41,25 @@ func ParseFloat32(b []byte) (float32, FloatClass, *ParseError) {
 	return float32(f), FloatFinite, nil
 }
 
+// ValidateFloatLexical checks whether a float/double lexical form is valid.
+func ValidateFloatLexical(b []byte) *ParseError {
+	if len(b) == 0 {
+		return &ParseError{Kind: ParseEmpty}
+	}
+	switch {
+	case bytesEqual(b, []byte("INF")),
+		bytesEqual(b, []byte("-INF")),
+		bytesEqual(b, []byte("NaN")):
+		return nil
+	case bytesEqual(b, []byte("+INF")):
+		return &ParseError{Kind: ParseBadChar}
+	}
+	if !isFloatLexical(b) {
+		return &ParseError{Kind: ParseBadChar}
+	}
+	return nil
+}
+
 // ParseFloat64 parses an XSD double lexical value.
 func ParseFloat64(b []byte) (float64, FloatClass, *ParseError) {
 	if len(b) == 0 {

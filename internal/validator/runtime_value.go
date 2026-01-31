@@ -670,12 +670,12 @@ func (s *Session) validateValueNoCanonical(meta runtime.ValidatorMeta, normalize
 		}
 		return s.maybeStore(normalized, opts.storeValue), nil
 	case runtime.VFloat:
-		if _, _, perr := num.ParseFloat32(normalized); perr != nil {
+		if perr := num.ValidateFloatLexical(normalized); perr != nil {
 			return nil, valueErrorMsg(valueErrInvalid, "invalid float")
 		}
 		return s.maybeStore(normalized, opts.storeValue), nil
 	case runtime.VDouble:
-		if _, _, perr := num.ParseFloat64(normalized); perr != nil {
+		if perr := num.ValidateFloatLexical(normalized); perr != nil {
 			return nil, valueErrorMsg(valueErrInvalid, "invalid double")
 		}
 		return s.maybeStore(normalized, opts.storeValue), nil
