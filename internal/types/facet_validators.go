@@ -948,19 +948,9 @@ func normalizedDecimalDigits(value string) (int, int, error) {
 	if value[0] == '+' || value[0] == '-' {
 		value = value[1:]
 	}
-	if !isValidDecimalLexical(value) {
+	dec, perr := num.ParseDec([]byte(value))
+	if perr != nil {
 		return 0, 0, fmt.Errorf("invalid decimal: %s", value)
 	}
-	intPart, fracPart, _ := strings.Cut(value, ".")
-	if intPart == "" {
-		intPart = "0"
-	}
-	fracPart = strings.TrimRight(fracPart, "0")
-	fractionDigits := len(fracPart)
-
-	digits := strings.TrimLeft(intPart+fracPart, "0")
-	if digits == "" {
-		digits = "0"
-	}
-	return len(digits), fractionDigits, nil
+	return len(dec.Coef), int(dec.Scale), nil
 }

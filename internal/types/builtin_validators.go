@@ -62,7 +62,7 @@ var fractionalLayouts = [...]string{
 }
 
 func validateDecimal(value string) error {
-	if !isValidDecimalLexical(value) {
+	if _, perr := num.ParseDec([]byte(value)); perr != nil {
 		return fmt.Errorf("invalid decimal: %s", value)
 	}
 	return nil

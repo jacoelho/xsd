@@ -8,12 +8,14 @@ type Dec struct {
 }
 
 // ParseDec parses a decimal lexical value into a Dec.
+// The returned Dec may share backing storage with b.
 func ParseDec(b []byte) (Dec, *ParseError) {
 	dec, _, err := parseDecInto(b, nil)
 	return dec, err
 }
 
 // ParseDecInto parses a decimal lexical value into a Dec using dst as scratch.
+// The returned Dec may share backing storage with b or dst.
 func ParseDecInto(b, dst []byte) (Dec, []byte, *ParseError) {
 	return parseDecInto(b, dst)
 }

@@ -39,5 +39,7 @@ func (a *Arena) Reset() {
 	if a == nil {
 		return
 	}
+	clear(a.buf[:a.off])
 	a.off = 0
+	a.OverflowCount = 0
 }

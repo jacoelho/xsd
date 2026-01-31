@@ -65,6 +65,8 @@ func TestDecCompare(t *testing.T) {
 		{name: "greater", a: "1.2", b: "1.19", want: 1},
 		{name: "neg vs pos", a: "-1.2", b: "1.2", want: -1},
 		{name: "neg compare", a: "-1.2", b: "-1.3", want: 1},
+		{name: "scale exceeds coef", a: "0.001", b: "0.01", want: -1},
+		{name: "scale exceeds coef equal", a: "0.0001", b: "0.0001", want: 0},
 	}
 
 	for _, tc := range tests {

@@ -19,45 +19,12 @@ func ParseDecimal(lexical string) (num.Dec, error) {
 	if lexical == "" {
 		return num.Dec{}, fmt.Errorf("invalid decimal: empty string")
 	}
-	if !isValidDecimalLexical(lexical) {
-		return num.Dec{}, fmt.Errorf("invalid decimal: %s", lexical)
-	}
 
 	dec, perr := num.ParseDec([]byte(lexical))
 	if perr != nil {
 		return num.Dec{}, fmt.Errorf("invalid decimal: %s", lexical)
 	}
 	return dec, nil
-}
-
-func isValidDecimalLexical(lexical string) bool {
-	if lexical == "" {
-		return false
-	}
-	i := 0
-	if lexical[0] == '+' || lexical[0] == '-' {
-		i++
-	}
-	if i >= len(lexical) {
-		return false
-	}
-	sawDigit := false
-	sawDot := false
-	for ; i < len(lexical); i++ {
-		ch := lexical[i]
-		switch {
-		case ch >= '0' && ch <= '9':
-			sawDigit = true
-		case ch == '.':
-			if sawDot {
-				return false
-			}
-			sawDot = true
-		default:
-			return false
-		}
-	}
-	return sawDigit
 }
 
 // ParseInteger parses an integer string into num.Int.

@@ -9,6 +9,7 @@ type Int struct {
 }
 
 // ParseInt parses an integer lexical value into an Int.
+// The returned Int may share backing storage with b.
 func ParseInt(b []byte) (Int, *ParseError) {
 	if len(b) == 0 {
 		return Int{}, &ParseError{Kind: ParseEmpty}
