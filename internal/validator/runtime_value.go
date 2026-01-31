@@ -3,11 +3,8 @@ package validator
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"math"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -17,6 +14,7 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
 type valueErrorKind uint8
@@ -51,22 +49,6 @@ func valueErrorKindOf(err error) (valueErrorKind, bool) {
 	}
 	return 0, false
 }
-
-var (
-	intZero   = num.Int{Sign: 0, Digits: []byte{'0'}}
-	minInt8   = num.Int{Sign: -1, Digits: []byte("128")}
-	maxInt8   = num.Int{Sign: 1, Digits: []byte("127")}
-	minInt16  = num.Int{Sign: -1, Digits: []byte("32768")}
-	maxInt16  = num.Int{Sign: 1, Digits: []byte("32767")}
-	minInt32  = num.Int{Sign: -1, Digits: []byte("2147483648")}
-	maxInt32  = num.Int{Sign: 1, Digits: []byte("2147483647")}
-	minInt64  = num.Int{Sign: -1, Digits: []byte("9223372036854775808")}
-	maxInt64  = num.Int{Sign: 1, Digits: []byte("9223372036854775807")}
-	maxUint8  = num.Int{Sign: 1, Digits: []byte("255")}
-	maxUint16 = num.Int{Sign: 1, Digits: []byte("65535")}
-	maxUint32 = num.Int{Sign: 1, Digits: []byte("4294967295")}
-	maxUint64 = num.Int{Sign: 1, Digits: []byte("18446744073709551615")}
-)
 
 type valueMetrics struct {
 	intVal         num.Int
@@ -212,7 +194,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 			}
 		}
 		if needKey {
-			key := stringKeyBytes(s.keyTmp[:0], 0, canon)
+			key := valuekey.StringKeyBytes(s.keyTmp[:0], 0, canon)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKString, key, opts.storeValue)
 		}
@@ -298,7 +280,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalFloat(float64(v), 32))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := float32KeyBytes(s.keyTmp[:0], v, class)
+			key := valuekey.Float32Key(s.keyTmp[:0], v, class)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKFloat32, key, opts.storeValue)
 		}
@@ -316,7 +298,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalFloat(v, 64))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := float64KeyBytes(s.keyTmp[:0], v, class)
+			key := valuekey.Float64Key(s.keyTmp[:0], v, class)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKFloat64, key, opts.storeValue)
 		}
@@ -329,7 +311,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(types.ComparableXSDDuration{Value: dur}.String())
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := durationKeyBytes(s.keyTmp[:0], dur)
+			key := valuekey.DurationKeyBytes(s.keyTmp[:0], dur)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDuration, key, opts.storeValue)
 		}
@@ -343,7 +325,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "dateTime", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := temporalKeyBytes(s.keyTmp[:0], 0, t, hasTZ)
+			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 0, t, hasTZ)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
@@ -357,7 +339,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "time", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := temporalKeyBytes(s.keyTmp[:0], 2, t, hasTZ)
+			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 2, t, hasTZ)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
@@ -371,7 +353,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "date", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := temporalKeyBytes(s.keyTmp[:0], 1, t, hasTZ)
+			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 1, t, hasTZ)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
@@ -385,7 +367,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gYearMonth", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := temporalKeyBytes(s.keyTmp[:0], 3, t, hasTZ)
+			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 3, t, hasTZ)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
@@ -399,7 +381,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gYear", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := temporalKeyBytes(s.keyTmp[:0], 4, t, hasTZ)
+			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 4, t, hasTZ)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
@@ -413,7 +395,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gMonthDay", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := temporalKeyBytes(s.keyTmp[:0], 5, t, hasTZ)
+			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 5, t, hasTZ)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
@@ -427,7 +409,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gDay", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := temporalKeyBytes(s.keyTmp[:0], 6, t, hasTZ)
+			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 6, t, hasTZ)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
@@ -441,7 +423,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gMonth", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := temporalKeyBytes(s.keyTmp[:0], 7, t, hasTZ)
+			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 7, t, hasTZ)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
@@ -452,7 +434,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		canon := s.maybeStore(normalized, opts.storeValue)
 		if needKey {
-			key := stringKeyBytes(s.keyTmp[:0], 1, canon)
+			key := valuekey.StringKeyBytes(s.keyTmp[:0], 1, canon)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKString, key, opts.storeValue)
 		}
@@ -468,7 +450,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 			if meta.Kind == runtime.VNotation {
 				tag = 1
 			}
-			key := qnameKeyBytes(s.keyTmp[:0], tag, canonStored)
+			key := valuekey.QNameKeyCanonical(s.keyTmp[:0], tag, canonStored)
 			if len(key) == 0 {
 				return nil, valueErrorf(valueErrInvalid, "invalid QName key")
 			}
@@ -488,7 +470,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(strings.ToUpper(fmt.Sprintf("%x", decoded)))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := binaryKeyBytes(s.keyTmp[:0], 0, decoded)
+			key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 0, decoded)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKBinary, key, opts.storeValue)
 		}
@@ -505,7 +487,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(encodeBase64(decoded))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := binaryKeyBytes(s.keyTmp[:0], 1, decoded)
+			key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 1, decoded)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKBinary, key, opts.storeValue)
 		}
@@ -559,7 +541,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
 			listKey := s.keyTmp[:0]
-			listKey = appendUvarint(listKey, uint64(count))
+			listKey = valuekey.AppendUvarint(listKey, uint64(count))
 			listKey = append(listKey, keyTmp...)
 			s.keyTmp = listKey
 			s.setKey(metrics, runtime.VKList, listKey, opts.storeValue)
@@ -1091,7 +1073,7 @@ func shouldSkipRuntimeLengthFacet(kind runtime.ValidatorKind) bool {
 func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical []byte) (runtime.ValueKind, []byte, error) {
 	switch kind {
 	case runtime.VString:
-		key := stringKeyBytes(s.keyTmp[:0], 0, canonical)
+		key := valuekey.StringKeyBytes(s.keyTmp[:0], 0, canonical)
 		s.keyTmp = key
 		return runtime.VKString, key, nil
 	case runtime.VBoolean:
@@ -1124,7 +1106,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if perr != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid float")
 		}
-		key := float32KeyBytes(s.keyTmp[:0], v, class)
+		key := valuekey.Float32Key(s.keyTmp[:0], v, class)
 		s.keyTmp = key
 		return runtime.VKFloat32, key, nil
 	case runtime.VDouble:
@@ -1132,11 +1114,11 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if perr != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid double")
 		}
-		key := float64KeyBytes(s.keyTmp[:0], v, class)
+		key := valuekey.Float64Key(s.keyTmp[:0], v, class)
 		s.keyTmp = key
 		return runtime.VKFloat64, key, nil
 	case runtime.VAnyURI:
-		key := stringKeyBytes(s.keyTmp[:0], 1, canonical)
+		key := valuekey.StringKeyBytes(s.keyTmp[:0], 1, canonical)
 		s.keyTmp = key
 		return runtime.VKString, key, nil
 	case runtime.VQName, runtime.VNotation:
@@ -1144,7 +1126,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if kind == runtime.VNotation {
 			tag = 1
 		}
-		key := qnameKeyBytes(s.keyTmp[:0], tag, canonical)
+		key := valuekey.QNameKeyCanonical(s.keyTmp[:0], tag, canonical)
 		if len(key) == 0 {
 			return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "invalid QName key")
 		}
@@ -1155,7 +1137,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		key := binaryKeyBytes(s.keyTmp[:0], 0, decoded)
+		key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 0, decoded)
 		s.keyTmp = key
 		return runtime.VKBinary, key, nil
 	case runtime.VBase64Binary:
@@ -1163,7 +1145,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		key := binaryKeyBytes(s.keyTmp[:0], 1, decoded)
+		key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 1, decoded)
 		s.keyTmp = key
 		return runtime.VKBinary, key, nil
 	case runtime.VDuration:
@@ -1171,7 +1153,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		key := durationKeyBytes(s.keyTmp[:0], dur)
+		key := valuekey.DurationKeyBytes(s.keyTmp[:0], dur)
 		s.keyTmp = key
 		return runtime.VKDuration, key, nil
 	case runtime.VDateTime, runtime.VDate, runtime.VTime, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
@@ -1179,7 +1161,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if err != nil {
 			return runtime.VKInvalid, nil, err
 		}
-		key := temporalKeyBytes(s.keyTmp[:0], temporalSubkind(kind), t, hasTZ)
+		key := valuekey.TemporalKeyBytes(s.keyTmp[:0], temporalSubkind(kind), t, hasTZ)
 		s.keyTmp = key
 		return runtime.VKDateTime, key, nil
 	default:
@@ -1244,13 +1226,13 @@ func validateIntegerKind(kind runtime.IntegerKind, v num.Int) error {
 	case runtime.IntegerAny:
 		return nil
 	case runtime.IntegerLong:
-		return validateIntRange(v, minInt64, maxInt64, "long")
+		return validateIntRange(v, num.MinInt64, num.MaxInt64, "long")
 	case runtime.IntegerInt:
-		return validateIntRange(v, minInt32, maxInt32, "int")
+		return validateIntRange(v, num.MinInt32, num.MaxInt32, "int")
 	case runtime.IntegerShort:
-		return validateIntRange(v, minInt16, maxInt16, "short")
+		return validateIntRange(v, num.MinInt16, num.MaxInt16, "short")
 	case runtime.IntegerByte:
-		return validateIntRange(v, minInt8, maxInt8, "byte")
+		return validateIntRange(v, num.MinInt8, num.MaxInt8, "byte")
 	case runtime.IntegerNonNegative:
 		if v.Sign < 0 {
 			return fmt.Errorf("nonNegativeInteger must be >= 0")
@@ -1275,22 +1257,22 @@ func validateIntegerKind(kind runtime.IntegerKind, v num.Int) error {
 		if v.Sign < 0 {
 			return fmt.Errorf("unsignedLong must be >= 0")
 		}
-		return validateIntRange(v, intZero, maxUint64, "unsignedLong")
+		return validateIntRange(v, num.IntZero, num.MaxUint64, "unsignedLong")
 	case runtime.IntegerUnsignedInt:
 		if v.Sign < 0 {
 			return fmt.Errorf("unsignedInt must be >= 0")
 		}
-		return validateIntRange(v, intZero, maxUint32, "unsignedInt")
+		return validateIntRange(v, num.IntZero, num.MaxUint32, "unsignedInt")
 	case runtime.IntegerUnsignedShort:
 		if v.Sign < 0 {
 			return fmt.Errorf("unsignedShort must be >= 0")
 		}
-		return validateIntRange(v, intZero, maxUint16, "unsignedShort")
+		return validateIntRange(v, num.IntZero, num.MaxUint16, "unsignedShort")
 	case runtime.IntegerUnsignedByte:
 		if v.Sign < 0 {
 			return fmt.Errorf("unsignedByte must be >= 0")
 		}
-		return validateIntRange(v, intZero, maxUint8, "unsignedByte")
+		return validateIntRange(v, num.IntZero, num.MaxUint8, "unsignedByte")
 	default:
 		return nil
 	}
@@ -1464,72 +1446,6 @@ func rangeViolation(op runtime.FacetOp) error {
 	}
 }
 
-func stringKeyBytes(dst []byte, tag byte, data []byte) []byte {
-	dst = append(dst[:0], tag)
-	dst = append(dst, data...)
-	return dst
-}
-
-func binaryKeyBytes(dst []byte, tag byte, data []byte) []byte {
-	dst = append(dst[:0], tag)
-	dst = append(dst, data...)
-	return dst
-}
-
-func qnameKeyBytes(dst []byte, tag byte, canonical []byte) []byte {
-	sep := bytes.IndexByte(canonical, 0)
-	if sep < 0 {
-		return nil
-	}
-	ns := canonical[:sep]
-	local := canonical[sep+1:]
-	dst = append(dst[:0], tag)
-	dst = appendUvarint(dst, uint64(len(ns)))
-	dst = append(dst, ns...)
-	dst = appendUvarint(dst, uint64(len(local)))
-	dst = append(dst, local...)
-	return dst
-}
-
-const (
-	canonicalNaN32 = 0x7fc00000
-	canonicalNaN64 = 0x7ff8000000000000
-)
-
-func float32KeyBytes(dst []byte, floatVal float32, class num.FloatClass) []byte {
-	var bits uint32
-	switch class {
-	case num.FloatNaN:
-		bits = canonicalNaN32
-	default:
-		if floatVal == 0 {
-			bits = 0
-		} else {
-			bits = math.Float32bits(floatVal)
-		}
-	}
-	dst = ensureLen(dst[:0], 4)
-	binary.BigEndian.PutUint32(dst, bits)
-	return dst
-}
-
-func float64KeyBytes(dst []byte, floatVal float64, class num.FloatClass) []byte {
-	var bits uint64
-	switch class {
-	case num.FloatNaN:
-		bits = canonicalNaN64
-	default:
-		if floatVal == 0 {
-			bits = 0
-		} else {
-			bits = math.Float64bits(floatVal)
-		}
-	}
-	dst = ensureLen(dst[:0], 8)
-	binary.BigEndian.PutUint64(dst, bits)
-	return dst
-}
-
 func temporalSubkind(kind runtime.ValidatorKind) byte {
 	switch kind {
 	case runtime.VDateTime:
@@ -1582,66 +1498,6 @@ func parseTemporalForKind(kind runtime.ValidatorKind, lexical []byte) (time.Time
 	default:
 		return time.Time{}, false, valueErrorf(valueErrInvalid, "unsupported temporal kind %d", kind)
 	}
-}
-
-func temporalKeyBytes(dst []byte, subkind byte, t time.Time, hasTZ bool) []byte {
-	if hasTZ {
-		utc := t.UTC()
-		dst = ensureLen(dst[:0], 14)
-		dst[0] = subkind
-		dst[1] = 1
-		binary.BigEndian.PutUint64(dst[2:], uint64(utc.Unix()))
-		binary.BigEndian.PutUint32(dst[10:], uint32(utc.Nanosecond()))
-		return dst
-	}
-	year, month, day := t.Date()
-	hour, minute, sec := t.Clock()
-	dst = ensureLen(dst[:0], 20)
-	dst[0] = subkind
-	dst[1] = 0
-	binary.BigEndian.PutUint32(dst[2:], uint32(int32(year)))
-	binary.BigEndian.PutUint16(dst[6:], uint16(month))
-	binary.BigEndian.PutUint16(dst[8:], uint16(day))
-	binary.BigEndian.PutUint16(dst[10:], uint16(hour))
-	binary.BigEndian.PutUint16(dst[12:], uint16(minute))
-	binary.BigEndian.PutUint16(dst[14:], uint16(sec))
-	binary.BigEndian.PutUint32(dst[16:], uint32(t.Nanosecond()))
-	return dst
-}
-
-func durationKeyBytes(dst []byte, dur types.XSDDuration) []byte {
-	monthsTotal := int64(dur.Years)*12 + int64(dur.Months)
-	months, _ := num.ParseInt([]byte(strconv.FormatInt(monthsTotal, 10)))
-	secondsTotal := float64(dur.Days)*86400 + float64(dur.Hours)*3600 + float64(dur.Minutes)*60 + dur.Seconds
-	if secondsTotal < 0 {
-		secondsTotal = -secondsTotal
-	}
-	secStr := strconv.FormatFloat(secondsTotal, 'f', -1, 64)
-	seconds, _ := num.ParseDec([]byte(secStr))
-	sign := byte(1)
-	if dur.Negative {
-		sign = 2
-	}
-	if monthsTotal == 0 && seconds.Sign == 0 {
-		sign = 0
-	}
-	dst = append(dst[:0], sign)
-	dst = num.EncodeIntKey(dst, months)
-	dst = num.EncodeDecKey(dst, seconds)
-	return dst
-}
-
-func appendUvarint(dst []byte, v uint64) []byte {
-	var buf [binary.MaxVarintLen64]byte
-	n := binary.PutUvarint(buf[:], v)
-	return append(dst, buf[:n]...)
-}
-
-func ensureLen(dst []byte, n int) []byte {
-	if cap(dst) < n {
-		return make([]byte, n)
-	}
-	return dst[:n]
 }
 
 func forEachListItem(normalized []byte, spaceOnly bool, fn func([]byte) error) (int, error) {
@@ -1796,7 +1652,7 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte)
 		}); err != nil {
 			return runtime.VKInvalid, nil, err
 		}
-		listKey := appendUvarint(s.keyTmp[:0], uint64(count))
+		listKey := valuekey.AppendUvarint(s.keyTmp[:0], uint64(count))
 		listKey = append(listKey, keyBytes...)
 		s.keyTmp = listKey
 		return runtime.VKList, listKey, nil

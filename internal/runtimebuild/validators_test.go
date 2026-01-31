@@ -9,7 +9,7 @@ import (
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/schema"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
 func TestValidatorOrderAndFacetInheritance(t *testing.T) {
@@ -91,7 +91,7 @@ func TestEnumCanonicalizationQName(t *testing.T) {
 	if len(keys) != 1 {
 		t.Fatalf("expected 1 enum key, got %d", len(keys))
 	}
-	expected := qnameKeyBytes(0, types.QName{Namespace: "urn:ex", Local: "val"})
+	expected := valuekey.QNameKeyStrings(0, "urn:ex", "val")
 	key := keys[0]
 	if key.kind != runtime.VKQName {
 		t.Fatalf("expected QName key kind, got %v", key.kind)
@@ -135,7 +135,7 @@ func TestEnumCanonicalizationUnionOrder(t *testing.T) {
 			}
 			sawInt = true
 		case runtime.VKString:
-			want := stringKeyBytes(0, "01")
+			want := valuekey.StringKeyString(0, "01")
 			if !bytes.Equal(key.bytes, want) {
 				t.Fatalf("expected string key %q, got %q", want, key.bytes)
 			}

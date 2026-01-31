@@ -1,16 +1,13 @@
 package runtimebuild
 
 import (
-	"encoding/binary"
 	"fmt"
-	"math"
-	"strconv"
-	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
 type keyBytes struct {
@@ -39,7 +36,7 @@ func (c *compiler) keyBytesForNormalized(normalized string, typ types.Type, ctx 
 		}
 		items := splitXMLWhitespace(normalized)
 		var keyBytesBuf []byte
-		keyBytesBuf = appendUvarint(keyBytesBuf, uint64(len(items)))
+		keyBytesBuf = valuekey.AppendUvarint(keyBytesBuf, uint64(len(items)))
 		for _, itemLex := range items {
 			itemKey, err := c.keyBytesForNormalizedSingle(itemLex, item, ctx)
 			if err != nil {
@@ -104,9 +101,9 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 	}
 	switch primName {
 	case "string", "normalizedString", "token", "language", "Name", "NCName", "ID", "IDREF", "ENTITY", "NMTOKEN":
-		return keyBytes{kind: runtime.VKString, bytes: stringKeyBytes(0, normalized)}, nil
+		return keyBytes{kind: runtime.VKString, bytes: valuekey.StringKeyString(0, normalized)}, nil
 	case "anyURI":
-		return keyBytes{kind: runtime.VKString, bytes: stringKeyBytes(1, normalized)}, nil
+		return keyBytes{kind: runtime.VKString, bytes: valuekey.StringKeyString(1, normalized)}, nil
 	case "decimal":
 		if c.res.isIntegerDerived(typ) {
 			intVal, err := parseInt(normalized)
@@ -146,99 +143,99 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 		if perr != nil {
 			return keyBytes{}, fmt.Errorf("invalid float")
 		}
-		return keyBytes{kind: runtime.VKFloat32, bytes: float32Key(v, class)}, nil
+		return keyBytes{kind: runtime.VKFloat32, bytes: valuekey.Float32Key(nil, v, class)}, nil
 	case "double":
 		v, class, perr := num.ParseFloat64([]byte(normalized))
 		if perr != nil {
 			return keyBytes{}, fmt.Errorf("invalid double")
 		}
-		return keyBytes{kind: runtime.VKFloat64, bytes: float64Key(v, class)}, nil
+		return keyBytes{kind: runtime.VKFloat64, bytes: valuekey.Float64Key(nil, v, class)}, nil
 	case "dateTime":
 		t, err := value.ParseDateTime([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: temporalKeyBytes(0, t, hasTZ)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 0, t, hasTZ)}, nil
 	case "date":
 		t, err := value.ParseDate([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: temporalKeyBytes(1, t, hasTZ)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 1, t, hasTZ)}, nil
 	case "time":
 		t, err := value.ParseTime([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: temporalKeyBytes(2, t, hasTZ)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 2, t, hasTZ)}, nil
 	case "gYearMonth":
 		t, err := value.ParseGYearMonth([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: temporalKeyBytes(3, t, hasTZ)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 3, t, hasTZ)}, nil
 	case "gYear":
 		t, err := value.ParseGYear([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: temporalKeyBytes(4, t, hasTZ)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 4, t, hasTZ)}, nil
 	case "gMonthDay":
 		t, err := value.ParseGMonthDay([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: temporalKeyBytes(5, t, hasTZ)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 5, t, hasTZ)}, nil
 	case "gDay":
 		t, err := value.ParseGDay([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: temporalKeyBytes(6, t, hasTZ)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 6, t, hasTZ)}, nil
 	case "gMonth":
 		t, err := value.ParseGMonth([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: temporalKeyBytes(7, t, hasTZ)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 7, t, hasTZ)}, nil
 	case "duration":
 		dur, err := types.ParseXSDDuration(normalized)
 		if err != nil {
 			return keyBytes{}, err
 		}
-		return keyBytes{kind: runtime.VKDuration, bytes: durationKeyBytes(dur)}, nil
+		return keyBytes{kind: runtime.VKDuration, bytes: valuekey.DurationKeyBytes(nil, dur)}, nil
 	case "hexBinary":
 		b, err := types.ParseHexBinary(normalized)
 		if err != nil {
 			return keyBytes{}, err
 		}
-		return keyBytes{kind: runtime.VKBinary, bytes: binaryKeyBytes(0, b)}, nil
+		return keyBytes{kind: runtime.VKBinary, bytes: valuekey.BinaryKeyBytes(nil, 0, b)}, nil
 	case "base64Binary":
 		b, err := types.ParseBase64Binary(normalized)
 		if err != nil {
 			return keyBytes{}, err
 		}
-		return keyBytes{kind: runtime.VKBinary, bytes: binaryKeyBytes(1, b)}, nil
+		return keyBytes{kind: runtime.VKBinary, bytes: valuekey.BinaryKeyBytes(nil, 1, b)}, nil
 	case "QName":
 		qname, err := types.ParseQNameValue(normalized, ctx)
 		if err != nil {
 			return keyBytes{}, err
 		}
-		return keyBytes{kind: runtime.VKQName, bytes: qnameKeyBytes(0, qname)}, nil
+		return keyBytes{kind: runtime.VKQName, bytes: valuekey.QNameKeyStrings(0, string(qname.Namespace), qname.Local)}, nil
 	case "NOTATION":
 		qname, err := types.ParseQNameValue(normalized, ctx)
 		if err != nil {
 			return keyBytes{}, err
 		}
-		return keyBytes{kind: runtime.VKQName, bytes: qnameKeyBytes(1, qname)}, nil
+		return keyBytes{kind: runtime.VKQName, bytes: valuekey.QNameKeyStrings(1, string(qname.Namespace), qname.Local)}, nil
 	default:
 		return keyBytes{}, fmt.Errorf("unsupported primitive type %s", primName)
 	}
@@ -275,13 +272,13 @@ func validateIntegerKind(kind runtime.IntegerKind, intVal num.Int) error {
 	case runtime.IntegerAny:
 		return nil
 	case runtime.IntegerLong:
-		return checkIntRange(intVal, minInt64, maxInt64)
+		return checkIntRange(intVal, num.MinInt64, num.MaxInt64)
 	case runtime.IntegerInt:
-		return checkIntRange(intVal, minInt32, maxInt32)
+		return checkIntRange(intVal, num.MinInt32, num.MaxInt32)
 	case runtime.IntegerShort:
-		return checkIntRange(intVal, minInt16, maxInt16)
+		return checkIntRange(intVal, num.MinInt16, num.MaxInt16)
 	case runtime.IntegerByte:
-		return checkIntRange(intVal, minInt8, maxInt8)
+		return checkIntRange(intVal, num.MinInt8, num.MaxInt8)
 	case runtime.IntegerNonNegative:
 		if intVal.Sign < 0 {
 			return fmt.Errorf("invalid non-negative integer")
@@ -306,22 +303,22 @@ func validateIntegerKind(kind runtime.IntegerKind, intVal num.Int) error {
 		if intVal.Sign < 0 {
 			return fmt.Errorf("invalid unsignedLong")
 		}
-		return checkIntRange(intVal, intZero, maxUint64)
+		return checkIntRange(intVal, num.IntZero, num.MaxUint64)
 	case runtime.IntegerUnsignedInt:
 		if intVal.Sign < 0 {
 			return fmt.Errorf("invalid unsignedInt")
 		}
-		return checkIntRange(intVal, intZero, maxUint32)
+		return checkIntRange(intVal, num.IntZero, num.MaxUint32)
 	case runtime.IntegerUnsignedShort:
 		if intVal.Sign < 0 {
 			return fmt.Errorf("invalid unsignedShort")
 		}
-		return checkIntRange(intVal, intZero, maxUint16)
+		return checkIntRange(intVal, num.IntZero, num.MaxUint16)
 	case runtime.IntegerUnsignedByte:
 		if intVal.Sign < 0 {
 			return fmt.Errorf("invalid unsignedByte")
 		}
-		return checkIntRange(intVal, intZero, maxUint8)
+		return checkIntRange(intVal, num.IntZero, num.MaxUint8)
 	default:
 		return nil
 	}
@@ -333,140 +330,3 @@ func checkIntRange(intVal, minValue, maxValue num.Int) error {
 	}
 	return nil
 }
-
-func stringKeyBytes(tag byte, normalized string) []byte {
-	out := make([]byte, 1+len(normalized))
-	out[0] = tag
-	copy(out[1:], normalized)
-	return out
-}
-
-func binaryKeyBytes(tag byte, data []byte) []byte {
-	out := make([]byte, 1+len(data))
-	out[0] = tag
-	copy(out[1:], data)
-	return out
-}
-
-func qnameKeyBytes(tag byte, name types.QName) []byte {
-	ns := []byte(name.Namespace)
-	local := []byte(name.Local)
-	out := make([]byte, 0, 1+binary.MaxVarintLen64*2+len(ns)+len(local))
-	out = append(out, tag)
-	out = appendUvarint(out, uint64(len(ns)))
-	out = append(out, ns...)
-	out = appendUvarint(out, uint64(len(local)))
-	out = append(out, local...)
-	return out
-}
-
-const (
-	canonicalNaN32 = 0x7fc00000
-	canonicalNaN64 = 0x7ff8000000000000
-)
-
-func float32Key(floatVal float32, class num.FloatClass) []byte {
-	var bits uint32
-	switch class {
-	case num.FloatNaN:
-		bits = canonicalNaN32
-	default:
-		if floatVal == 0 {
-			bits = 0
-		} else {
-			bits = math.Float32bits(floatVal)
-		}
-	}
-	out := make([]byte, 4)
-	binary.BigEndian.PutUint32(out, bits)
-	return out
-}
-
-func float64Key(floatVal float64, class num.FloatClass) []byte {
-	var bits uint64
-	switch class {
-	case num.FloatNaN:
-		bits = canonicalNaN64
-	default:
-		if floatVal == 0 {
-			bits = 0
-		} else {
-			bits = math.Float64bits(floatVal)
-		}
-	}
-	out := make([]byte, 8)
-	binary.BigEndian.PutUint64(out, bits)
-	return out
-}
-
-func temporalKeyBytes(subkind byte, t time.Time, hasTZ bool) []byte {
-	if hasTZ {
-		utc := t.UTC()
-		out := make([]byte, 14)
-		out[0] = subkind
-		out[1] = 1
-		binary.BigEndian.PutUint64(out[2:], uint64(utc.Unix()))
-		binary.BigEndian.PutUint32(out[10:], uint32(utc.Nanosecond()))
-		return out
-	}
-	year, month, day := t.Date()
-	hour, minute, sec := t.Clock()
-	out := make([]byte, 20)
-	out[0] = subkind
-	out[1] = 0
-	binary.BigEndian.PutUint32(out[2:], uint32(int32(year)))
-	binary.BigEndian.PutUint16(out[6:], uint16(month))
-	binary.BigEndian.PutUint16(out[8:], uint16(day))
-	binary.BigEndian.PutUint16(out[10:], uint16(hour))
-	binary.BigEndian.PutUint16(out[12:], uint16(minute))
-	binary.BigEndian.PutUint16(out[14:], uint16(sec))
-	binary.BigEndian.PutUint32(out[16:], uint32(t.Nanosecond()))
-	return out
-}
-
-func durationKeyBytes(dur types.XSDDuration) []byte {
-	monthsTotal := int64(dur.Years)*12 + int64(dur.Months)
-	monthInt, _ := num.ParseInt([]byte(strconv.FormatInt(monthsTotal, 10)))
-
-	secondsTotal := float64(dur.Days)*86400 + float64(dur.Hours)*3600 + float64(dur.Minutes)*60 + dur.Seconds
-	if secondsTotal < 0 {
-		secondsTotal = -secondsTotal
-	}
-	secStr := strconv.FormatFloat(secondsTotal, 'f', -1, 64)
-	secDec, _ := num.ParseDec([]byte(secStr))
-
-	sign := byte(1)
-	if dur.Negative {
-		sign = 2
-	}
-	if monthsTotal == 0 && secDec.Sign == 0 {
-		sign = 0
-	}
-	out := make([]byte, 0, 1+len(monthInt.Digits)+len(secDec.Coef)+16)
-	out = append(out, sign)
-	out = num.EncodeIntKey(out, monthInt)
-	out = num.EncodeDecKey(out, secDec)
-	return out
-}
-
-func appendUvarint(dst []byte, v uint64) []byte {
-	var buf [binary.MaxVarintLen64]byte
-	n := binary.PutUvarint(buf[:], v)
-	return append(dst, buf[:n]...)
-}
-
-var (
-	intZero   = num.Int{Sign: 0, Digits: []byte{'0'}}
-	minInt8   = num.Int{Sign: -1, Digits: []byte("128")}
-	maxInt8   = num.Int{Sign: 1, Digits: []byte("127")}
-	minInt16  = num.Int{Sign: -1, Digits: []byte("32768")}
-	maxInt16  = num.Int{Sign: 1, Digits: []byte("32767")}
-	minInt32  = num.Int{Sign: -1, Digits: []byte("2147483648")}
-	maxInt32  = num.Int{Sign: 1, Digits: []byte("2147483647")}
-	minInt64  = num.Int{Sign: -1, Digits: []byte("9223372036854775808")}
-	maxInt64  = num.Int{Sign: 1, Digits: []byte("9223372036854775807")}
-	maxUint8  = num.Int{Sign: 1, Digits: []byte("255")}
-	maxUint16 = num.Int{Sign: 1, Digits: []byte("65535")}
-	maxUint32 = num.Int{Sign: 1, Digits: []byte("4294967295")}
-	maxUint64 = num.Int{Sign: 1, Digits: []byte("18446744073709551615")}
-)
