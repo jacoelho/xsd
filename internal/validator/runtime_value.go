@@ -3,14 +3,17 @@ package validator
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
+	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
@@ -49,34 +52,23 @@ func valueErrorKindOf(err error) (valueErrorKind, bool) {
 	return 0, false
 }
 
-const (
-	minInt8  = -1 << 7
-	maxInt8  = 1<<7 - 1
-	minInt16 = -1 << 15
-	maxInt16 = 1<<15 - 1
-	minInt32 = -1 << 31
-	maxInt32 = 1<<31 - 1
-	minInt64 = -1 << 63
-	maxInt64 = 1<<63 - 1
-)
-
 var (
-	bigMinInt8   = big.NewInt(minInt8)
-	bigMaxInt8   = big.NewInt(maxInt8)
-	bigMinInt16  = big.NewInt(minInt16)
-	bigMaxInt16  = big.NewInt(maxInt16)
-	bigMinInt32  = big.NewInt(minInt32)
-	bigMaxInt32  = big.NewInt(maxInt32)
-	bigMinInt64  = big.NewInt(minInt64)
-	bigMaxInt64  = big.NewInt(maxInt64)
-	bigMaxUint8  = new(big.Int).SetUint64(1<<8 - 1)
-	bigMaxUint16 = new(big.Int).SetUint64(1<<16 - 1)
-	bigMaxUint32 = new(big.Int).SetUint64(1<<32 - 1)
-	bigMaxUint64 = new(big.Int).SetUint64(^uint64(0))
+	intZero   = num.Int{Sign: 0, Digits: []byte{'0'}}
+	minInt8   = num.Int{Sign: -1, Digits: []byte("128")}
+	maxInt8   = num.Int{Sign: 1, Digits: []byte("127")}
+	minInt16  = num.Int{Sign: -1, Digits: []byte("32768")}
+	maxInt16  = num.Int{Sign: 1, Digits: []byte("32767")}
+	minInt32  = num.Int{Sign: -1, Digits: []byte("2147483648")}
+	maxInt32  = num.Int{Sign: 1, Digits: []byte("2147483647")}
+	minInt64  = num.Int{Sign: -1, Digits: []byte("9223372036854775808")}
+	maxInt64  = num.Int{Sign: 1, Digits: []byte("9223372036854775807")}
+	maxUint8  = num.Int{Sign: 1, Digits: []byte("255")}
+	maxUint16 = num.Int{Sign: 1, Digits: []byte("65535")}
+	maxUint32 = num.Int{Sign: 1, Digits: []byte("4294967295")}
+	maxUint64 = num.Int{Sign: 1, Digits: []byte("18446744073709551615")}
 )
 
 type valueMetrics struct {
-	comp           types.ComparableValue
 	keyBytes       []byte
 	fractionDigits int
 	totalDigits    int
@@ -86,10 +78,22 @@ type valueMetrics struct {
 	lengthSet      bool
 	digitsSet      bool
 	listSet        bool
-	compSet        bool
 	keySet         bool
 	patternChecked bool
 	enumChecked    bool
+	actualTypeID   runtime.TypeID
+
+	decSet     bool
+	intSet     bool
+	float32Set bool
+	float64Set bool
+
+	decVal       num.Dec
+	intVal       num.Int
+	float32Val   float32
+	float32Class num.FloatClass
+	float64Val   float64
+	float64Class num.FloatClass
 }
 
 type valueOptions struct {
@@ -210,7 +214,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 			}
 		}
 		if needKey {
-			s.setKey(metrics, runtime.VKString, canon, opts.storeValue)
+			key := stringKeyBytes(s.keyTmp[:0], 0, canon)
+			s.keyTmp = key
+			s.setKey(metrics, runtime.VKString, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VBoolean:
@@ -224,20 +230,31 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			s.setKey(metrics, runtime.VKBool, canon, opts.storeValue)
+			key := byte(0)
+			if v {
+				key = 1
+			}
+			s.setKey(metrics, runtime.VKBool, []byte{key}, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VDecimal:
-		if _, err := value.ParseDecimal(normalized); err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
+		dec, buf, perr := num.ParseDecInto(normalized, s.Scratch.Buf1)
+		if perr != nil {
+			return nil, valueErrorMsg(valueErrInvalid, "invalid decimal")
 		}
-		canonRaw := value.CanonicalDecimalBytes(normalized, nil)
+		s.Scratch.Buf1 = buf
+		if metrics != nil {
+			metrics.decVal = dec
+			metrics.decSet = true
+			metrics.totalDigits = len(dec.Coef)
+			metrics.fractionDigits = int(dec.Scale)
+			metrics.digitsSet = true
+		}
+		canonRaw := dec.RenderCanonical(s.Scratch.Buf2[:0])
+		s.Scratch.Buf2 = canonRaw
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key, err := value.CanonicalDecimalKeyFromCanonical(canonRaw, s.keyTmp[:0])
-			if err != nil {
-				return nil, valueErrorMsg(valueErrInvalid, err.Error())
-			}
+			key := num.EncodeDecKey(s.keyTmp[:0], dec)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDecimal, key, opts.storeValue)
 		}
@@ -247,46 +264,61 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		if !ok {
 			return nil, valueErrorf(valueErrInvalid, "integer validator out of range")
 		}
-		v, err := value.ParseInteger(normalized)
-		if err != nil {
+		intVal, perr := num.ParseInt(normalized)
+		if perr != nil {
+			return nil, valueErrorMsg(valueErrInvalid, "invalid integer")
+		}
+		if err := validateIntegerKind(kind, intVal); err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		if err := validateIntegerKind(kind, v); err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
+		if metrics != nil {
+			metrics.intVal = intVal
+			metrics.intSet = true
+			metrics.totalDigits = len(intVal.Digits)
+			metrics.fractionDigits = 0
+			metrics.digitsSet = true
 		}
-		canonRaw := []byte(v.String())
+		canonRaw := intVal.RenderCanonical(s.Scratch.Buf2[:0])
+		s.Scratch.Buf2 = canonRaw
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key, err := value.CanonicalIntegerKeyFromCanonical(canonRaw, s.keyTmp[:0])
-			if err != nil {
-				return nil, valueErrorMsg(valueErrInvalid, err.Error())
-			}
+			key := num.EncodeIntKey(s.keyTmp[:0], intVal)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKInteger, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDecimal, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VFloat:
-		v, err := value.ParseFloat(normalized)
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
+		v, class, perr := num.ParseFloat32(normalized)
+		if perr != nil {
+			return nil, valueErrorMsg(valueErrInvalid, "invalid float")
+		}
+		if metrics != nil {
+			metrics.float32Val = v
+			metrics.float32Class = class
+			metrics.float32Set = true
 		}
 		canonRaw := []byte(value.CanonicalFloat(float64(v), 32))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := value.CanonicalFloat32Key(v, s.keyTmp[:0])
+			key := float32KeyBytes(s.keyTmp[:0], v, class)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKFloat32, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VDouble:
-		v, err := value.ParseDouble(normalized)
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
+		v, class, perr := num.ParseFloat64(normalized)
+		if perr != nil {
+			return nil, valueErrorMsg(valueErrInvalid, "invalid double")
+		}
+		if metrics != nil {
+			metrics.float64Val = v
+			metrics.float64Class = class
+			metrics.float64Set = true
 		}
 		canonRaw := []byte(value.CanonicalFloat(v, 64))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := value.CanonicalFloat64Key(v, s.keyTmp[:0])
+			key := float64KeyBytes(s.keyTmp[:0], v, class)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKFloat64, key, opts.storeValue)
 		}
@@ -299,7 +331,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(types.ComparableXSDDuration{Value: dur}.String())
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := types.CanonicalDurationKey(dur, s.keyTmp[:0])
+			key := durationKeyBytes(s.keyTmp[:0], dur)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDuration, key, opts.storeValue)
 		}
@@ -313,7 +345,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "dateTime", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := value.CanonicalTemporalKey(t, "dateTime", hasTZ, s.keyTmp[:0])
+			key := temporalKeyBytes(s.keyTmp[:0], 0, t, hasTZ)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
@@ -327,9 +359,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "time", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := value.CanonicalTemporalKey(t, "time", hasTZ, s.keyTmp[:0])
+			key := temporalKeyBytes(s.keyTmp[:0], 2, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKTime, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VDate:
@@ -341,9 +373,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "date", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := value.CanonicalTemporalKey(t, "date", hasTZ, s.keyTmp[:0])
+			key := temporalKeyBytes(s.keyTmp[:0], 1, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKDate, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VGYearMonth:
@@ -355,9 +387,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gYearMonth", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := value.CanonicalTemporalKey(t, "gYearMonth", hasTZ, s.keyTmp[:0])
+			key := temporalKeyBytes(s.keyTmp[:0], 3, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKGYearMonth, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VGYear:
@@ -369,9 +401,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gYear", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := value.CanonicalTemporalKey(t, "gYear", hasTZ, s.keyTmp[:0])
+			key := temporalKeyBytes(s.keyTmp[:0], 4, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKGYear, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VGMonthDay:
@@ -383,9 +415,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gMonthDay", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := value.CanonicalTemporalKey(t, "gMonthDay", hasTZ, s.keyTmp[:0])
+			key := temporalKeyBytes(s.keyTmp[:0], 5, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKGMonthDay, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VGDay:
@@ -397,9 +429,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gDay", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := value.CanonicalTemporalKey(t, "gDay", hasTZ, s.keyTmp[:0])
+			key := temporalKeyBytes(s.keyTmp[:0], 6, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKGDay, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VGMonth:
@@ -411,9 +443,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gMonth", hasTZ))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			key := value.CanonicalTemporalKey(t, "gMonth", hasTZ, s.keyTmp[:0])
+			key := temporalKeyBytes(s.keyTmp[:0], 7, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKGMonth, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VAnyURI:
@@ -422,7 +454,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		canon := s.maybeStore(normalized, opts.storeValue)
 		if needKey {
-			s.setKey(metrics, runtime.VKAnyURI, canon, opts.storeValue)
+			key := stringKeyBytes(s.keyTmp[:0], 1, canon)
+			s.keyTmp = key
+			s.setKey(metrics, runtime.VKString, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VQName, runtime.VNotation:
@@ -432,7 +466,16 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		canonStored := s.maybeStore(canon, opts.storeValue)
 		if needKey {
-			s.setKey(metrics, runtime.VKQName, canonStored, opts.storeValue)
+			tag := byte(0)
+			if meta.Kind == runtime.VNotation {
+				tag = 1
+			}
+			key := qnameKeyBytes(s.keyTmp[:0], tag, canonStored)
+			if len(key) == 0 {
+				return nil, valueErrorf(valueErrInvalid, "invalid QName key")
+			}
+			s.keyTmp = key
+			s.setKey(metrics, runtime.VKQName, key, opts.storeValue)
 		}
 		return canonStored, nil
 	case runtime.VHexBinary:
@@ -447,7 +490,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(strings.ToUpper(fmt.Sprintf("%x", decoded)))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			s.setKey(metrics, runtime.VKHexBinary, canon, opts.storeValue)
+			key := binaryKeyBytes(s.keyTmp[:0], 0, decoded)
+			s.keyTmp = key
+			s.setKey(metrics, runtime.VKBinary, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VBase64Binary:
@@ -462,7 +507,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		canonRaw := []byte(encodeBase64(decoded))
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			s.setKey(metrics, runtime.VKBase64Binary, canon, opts.storeValue)
+			key := binaryKeyBytes(s.keyTmp[:0], 1, decoded)
+			s.keyTmp = key
+			s.setKey(metrics, runtime.VKBinary, key, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VList:
@@ -513,11 +560,15 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		canon := s.maybeStore(canonRaw, opts.storeValue)
 		if needKey {
-			s.setKey(metrics, runtime.VKList, keyTmp, opts.storeValue)
+			listKey := s.keyTmp[:0]
+			listKey = appendUvarint(listKey, uint64(count))
+			listKey = append(listKey, keyTmp...)
+			s.keyTmp = listKey
+			s.setKey(metrics, runtime.VKList, listKey, opts.storeValue)
 		}
 		return canon, nil
 	case runtime.VUnion:
-		memberValidators, ok := s.unionMemberValidators(meta)
+		memberValidators, memberTypes, ok := s.unionMemberInfo(meta)
 		if !ok || len(memberValidators) == 0 {
 			return nil, valueErrorf(valueErrInvalid, "union validator out of range")
 		}
@@ -535,7 +586,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		sawValid := false
 		var lastErr error
-		for _, member := range memberValidators {
+		for i, member := range memberValidators {
 			memberOpts := opts
 			memberOpts.applyWhitespace = true
 			memberOpts.requireCanonical = true
@@ -556,6 +607,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 				metrics.keySet = memberMetrics.keySet
 				if len(enumIDs) > 0 {
 					metrics.enumChecked = true
+				}
+				if i < len(memberTypes) {
+					metrics.actualTypeID = memberTypes[i]
 				}
 				if opts.storeValue && metrics.keySet {
 					s.setKey(metrics, metrics.keyKind, metrics.keyBytes, true)
@@ -598,8 +652,8 @@ func (s *Session) validateValueNoCanonical(meta runtime.ValidatorMeta, normalize
 		}
 		return s.maybeStore(normalized, opts.storeValue), nil
 	case runtime.VDecimal:
-		if _, err := value.ParseDecimal(normalized); err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
+		if _, perr := num.ParseDec(normalized); perr != nil {
+			return nil, valueErrorMsg(valueErrInvalid, "invalid decimal")
 		}
 		return s.maybeStore(normalized, opts.storeValue), nil
 	case runtime.VInteger:
@@ -607,22 +661,22 @@ func (s *Session) validateValueNoCanonical(meta runtime.ValidatorMeta, normalize
 		if !ok {
 			return nil, valueErrorf(valueErrInvalid, "integer validator out of range")
 		}
-		v, err := value.ParseInteger(normalized)
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
+		intVal, perr := num.ParseInt(normalized)
+		if perr != nil {
+			return nil, valueErrorMsg(valueErrInvalid, "invalid integer")
 		}
-		if err := validateIntegerKind(kind, v); err != nil {
+		if err := validateIntegerKind(kind, intVal); err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
 		return s.maybeStore(normalized, opts.storeValue), nil
 	case runtime.VFloat:
-		if err := value.ValidateFloatLexical(normalized); err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
+		if _, _, perr := num.ParseFloat32(normalized); perr != nil {
+			return nil, valueErrorMsg(valueErrInvalid, "invalid float")
 		}
 		return s.maybeStore(normalized, opts.storeValue), nil
 	case runtime.VDouble:
-		if err := value.ValidateDoubleLexical(normalized); err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
+		if _, _, perr := num.ParseFloat64(normalized); perr != nil {
+			return nil, valueErrorMsg(valueErrInvalid, "invalid double")
 		}
 		return s.maybeStore(normalized, opts.storeValue), nil
 	case runtime.VDuration:
@@ -750,10 +804,10 @@ func (s *Session) applyFacets(meta runtime.ValidatorMeta, normalized, canonical 
 					metrics.keyBytes = key
 					metrics.keySet = true
 				}
-				if !runtime.EnumContains(&s.rt.Enums, s.rt.Values, enumID, kind, key) {
+				if !runtime.EnumContains(&s.rt.Enums, enumID, kind, key) {
 					return valueErrorf(valueErrFacet, "enumeration violation")
 				}
-			} else if !runtime.EnumContains(&s.rt.Enums, s.rt.Values, enumID, metrics.keyKind, metrics.keyBytes) {
+			} else if !runtime.EnumContains(&s.rt.Enums, enumID, metrics.keyKind, metrics.keyBytes) {
 				return valueErrorf(valueErrFacet, "enumeration violation")
 			}
 		case runtime.FMinInclusive, runtime.FMaxInclusive, runtime.FMinExclusive, runtime.FMaxExclusive:
@@ -762,26 +816,37 @@ func (s *Session) applyFacets(meta runtime.ValidatorMeta, normalized, canonical 
 			if bound == nil {
 				return valueErrorf(valueErrInvalid, "range facet bound out of range")
 			}
-			cmp, err := s.compareValue(meta.Kind, canonical, bound, metrics)
-			if err != nil {
-				return err
-			}
-			switch instr.Op {
-			case runtime.FMinInclusive:
-				if cmp < 0 {
-					return valueErrorf(valueErrFacet, "minInclusive violation")
+			switch meta.Kind {
+			case runtime.VFloat:
+				if err := s.checkFloat32Range(instr.Op, canonical, bound, metrics); err != nil {
+					return err
 				}
-			case runtime.FMaxInclusive:
-				if cmp > 0 {
-					return valueErrorf(valueErrFacet, "maxInclusive violation")
+			case runtime.VDouble:
+				if err := s.checkFloat64Range(instr.Op, canonical, bound, metrics); err != nil {
+					return err
 				}
-			case runtime.FMinExclusive:
-				if cmp <= 0 {
-					return valueErrorf(valueErrFacet, "minExclusive violation")
+			default:
+				cmp, err := s.compareValue(meta.Kind, canonical, bound, metrics)
+				if err != nil {
+					return err
 				}
-			case runtime.FMaxExclusive:
-				if cmp >= 0 {
-					return valueErrorf(valueErrFacet, "maxExclusive violation")
+				switch instr.Op {
+				case runtime.FMinInclusive:
+					if cmp < 0 {
+						return valueErrorf(valueErrFacet, "minInclusive violation")
+					}
+				case runtime.FMaxInclusive:
+					if cmp > 0 {
+						return valueErrorf(valueErrFacet, "maxInclusive violation")
+					}
+				case runtime.FMinExclusive:
+					if cmp <= 0 {
+						return valueErrorf(valueErrFacet, "minExclusive violation")
+					}
+				case runtime.FMaxExclusive:
+					if cmp >= 0 {
+						return valueErrorf(valueErrFacet, "maxExclusive violation")
+					}
 				}
 			}
 		case runtime.FLength, runtime.FMinLength, runtime.FMaxLength:
@@ -882,7 +947,7 @@ func (s *Session) enumSetsContain(enumIDs []runtime.EnumID, keyKind runtime.Valu
 		return false
 	}
 	for _, enumID := range enumIDs {
-		if !runtime.EnumContains(&s.rt.Enums, s.rt.Values, enumID, keyKind, keyBytes) {
+		if !runtime.EnumContains(&s.rt.Enums, enumID, keyKind, keyBytes) {
 			return false
 		}
 	}
@@ -917,124 +982,59 @@ func (s *Session) valueLength(meta runtime.ValidatorMeta, normalized []byte, met
 }
 
 func (s *Session) compareValue(kind runtime.ValidatorKind, canonical, bound []byte, metrics *valueMetrics) (int, error) {
-	if metrics != nil && metrics.compSet {
-		boundComp, err := comparableForKind(kind, bound)
+	switch kind {
+	case runtime.VDecimal:
+		val, err := s.decForCanonical(canonical, metrics)
 		if err != nil {
 			return 0, err
 		}
-		cmp, err := metrics.comp.Compare(boundComp)
+		boundVal, perr := num.ParseDec(bound)
+		if perr != nil {
+			return 0, valueErrorMsg(valueErrInvalid, "invalid decimal")
+		}
+		return val.Compare(boundVal), nil
+	case runtime.VInteger:
+		val, err := s.intForCanonical(canonical, metrics)
+		if err != nil {
+			return 0, err
+		}
+		boundVal, perr := num.ParseInt(bound)
+		if perr != nil {
+			return 0, valueErrorMsg(valueErrInvalid, "invalid integer")
+		}
+		return val.Compare(boundVal), nil
+	case runtime.VDuration:
+		val, err := types.ParseXSDDuration(string(canonical))
+		if err != nil {
+			return 0, valueErrorMsg(valueErrInvalid, err.Error())
+		}
+		boundVal, err := types.ParseXSDDuration(string(bound))
+		if err != nil {
+			return 0, valueErrorMsg(valueErrInvalid, err.Error())
+		}
+		cmp, err := types.ComparableXSDDuration{Value: val}.Compare(types.ComparableXSDDuration{Value: boundVal})
 		if err != nil {
 			return 0, valueErrorMsg(valueErrFacet, err.Error())
 		}
 		return cmp, nil
-	}
-	comp, err := comparableForKind(kind, canonical)
-	if err != nil {
-		return 0, err
-	}
-	if metrics != nil {
-		metrics.comp = comp
-		metrics.compSet = true
-	}
-	boundComp, err := comparableForKind(kind, bound)
-	if err != nil {
-		return 0, err
-	}
-	cmp, err := comp.Compare(boundComp)
-	if err != nil {
-		return 0, valueErrorMsg(valueErrFacet, err.Error())
-	}
-	return cmp, nil
-}
-
-func comparableForKind(kind runtime.ValidatorKind, lexical []byte) (types.ComparableValue, error) {
-	switch kind {
-	case runtime.VDecimal:
-		val, err := value.ParseDecimal(lexical)
+	case runtime.VDateTime, runtime.VTime, runtime.VDate, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
+		valTime, valHasTZ, err := parseTemporalForKind(kind, canonical)
 		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
+			return 0, err
 		}
-		return types.ComparableBigRat{Value: val}, nil
-	case runtime.VInteger:
-		val, err := value.ParseInteger(lexical)
+		boundTime, boundHasTZ, err := parseTemporalForKind(kind, bound)
 		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
+			return 0, err
 		}
-		return types.ComparableBigInt{Value: val}, nil
-	case runtime.VFloat:
-		val, err := value.ParseFloat(lexical)
+		comp := types.ComparableTime{Value: valTime, HasTimezone: valHasTZ}
+		boundComp := types.ComparableTime{Value: boundTime, HasTimezone: boundHasTZ}
+		cmp, err := comp.Compare(boundComp)
 		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
+			return 0, valueErrorMsg(valueErrFacet, err.Error())
 		}
-		if math.IsNaN(float64(val)) {
-			return nil, valueErrorf(valueErrInvalid, "NaN not comparable")
-		}
-		return types.ComparableFloat32{Value: val}, nil
-	case runtime.VDouble:
-		val, err := value.ParseDouble(lexical)
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		if math.IsNaN(val) {
-			return nil, valueErrorf(valueErrInvalid, "NaN not comparable")
-		}
-		return types.ComparableFloat64{Value: val}, nil
-	case runtime.VDuration:
-		val, err := types.ParseXSDDuration(string(lexical))
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		return types.ComparableXSDDuration{Value: val}, nil
-	case runtime.VDateTime:
-		t, err := value.ParseDateTime(lexical)
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		return types.ComparableTime{Value: t, HasTimezone: value.HasTimezone(lexical)}, nil
-	case runtime.VTime:
-		t, err := value.ParseTime(lexical)
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		return types.ComparableTime{Value: t, HasTimezone: value.HasTimezone(lexical)}, nil
-	case runtime.VDate:
-		t, err := value.ParseDate(lexical)
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		return types.ComparableTime{Value: t, HasTimezone: value.HasTimezone(lexical)}, nil
-	case runtime.VGYearMonth:
-		t, err := value.ParseGYearMonth(lexical)
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		return types.ComparableTime{Value: t, HasTimezone: value.HasTimezone(lexical)}, nil
-	case runtime.VGYear:
-		t, err := value.ParseGYear(lexical)
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		return types.ComparableTime{Value: t, HasTimezone: value.HasTimezone(lexical)}, nil
-	case runtime.VGMonthDay:
-		t, err := value.ParseGMonthDay(lexical)
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		return types.ComparableTime{Value: t, HasTimezone: value.HasTimezone(lexical)}, nil
-	case runtime.VGDay:
-		t, err := value.ParseGDay(lexical)
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		return types.ComparableTime{Value: t, HasTimezone: value.HasTimezone(lexical)}, nil
-	case runtime.VGMonth:
-		t, err := value.ParseGMonth(lexical)
-		if err != nil {
-			return nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		return types.ComparableTime{Value: t, HasTimezone: value.HasTimezone(lexical)}, nil
+		return cmp, nil
 	default:
-		return nil, valueErrorf(valueErrInvalid, "unsupported comparable type %d", kind)
+		return 0, valueErrorf(valueErrInvalid, "unsupported comparable type %d", kind)
 	}
 }
 
@@ -1045,23 +1045,35 @@ func digitCounts(kind runtime.ValidatorKind, canonical []byte, metrics *valueMet
 	if kind != runtime.VDecimal && kind != runtime.VInteger {
 		return 0, 0, valueErrorf(valueErrInvalid, "digits facet not applicable")
 	}
-	b := canonical
-	if len(b) > 0 && (b[0] == '+' || b[0] == '-') {
-		b = b[1:]
-	}
 	total := 0
 	fraction := 0
-	if idx := bytesIndexByte(b, '.'); idx >= 0 {
-		intPart := trimLeftZeros(b[:idx])
-		fraction = len(b) - idx - 1
-		total = len(intPart) + fraction
-	} else {
-		intPart := trimLeftZeros(b)
-		total = len(intPart)
+	switch kind {
+	case runtime.VDecimal:
+		var dec num.Dec
+		if metrics != nil && metrics.decSet {
+			dec = metrics.decVal
+		} else {
+			decVal, perr := num.ParseDec(canonical)
+			if perr != nil {
+				return 0, 0, valueErrorMsg(valueErrInvalid, "invalid decimal")
+			}
+			dec = decVal
+		}
+		total = len(dec.Coef)
+		fraction = int(dec.Scale)
+	case runtime.VInteger:
+		var intVal num.Int
+		if metrics != nil && metrics.intSet {
+			intVal = metrics.intVal
+		} else {
+			val, perr := num.ParseInt(canonical)
+			if perr != nil {
+				return 0, 0, valueErrorMsg(valueErrInvalid, "invalid integer")
+			}
+			intVal = val
+		}
+		total = len(intVal.Digits)
 		fraction = 0
-	}
-	if total == 0 {
-		total = 1
 	}
 	if metrics != nil {
 		metrics.totalDigits = total
@@ -1081,65 +1093,99 @@ func shouldSkipRuntimeLengthFacet(kind runtime.ValidatorKind) bool {
 func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical []byte) (runtime.ValueKind, []byte, error) {
 	switch kind {
 	case runtime.VString:
-		return runtime.VKString, canonical, nil
+		key := stringKeyBytes(s.keyTmp[:0], 0, canonical)
+		s.keyTmp = key
+		return runtime.VKString, key, nil
 	case runtime.VBoolean:
-		return runtime.VKBool, canonical, nil
-	case runtime.VDecimal:
-		key, err := value.CanonicalDecimalKeyFromCanonical(canonical, s.keyTmp[:0])
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
+		switch {
+		case bytes.Equal(canonical, []byte("true")):
+			return runtime.VKBool, []byte{1}, nil
+		case bytes.Equal(canonical, []byte("false")):
+			return runtime.VKBool, []byte{0}, nil
+		default:
+			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid boolean")
 		}
+	case runtime.VDecimal:
+		decVal, perr := num.ParseDec(canonical)
+		if perr != nil {
+			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid decimal")
+		}
+		key := num.EncodeDecKey(s.keyTmp[:0], decVal)
 		s.keyTmp = key
 		return runtime.VKDecimal, key, nil
 	case runtime.VInteger:
-		key, err := value.CanonicalIntegerKeyFromCanonical(canonical, s.keyTmp[:0])
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
+		intVal, perr := num.ParseInt(canonical)
+		if perr != nil {
+			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid integer")
 		}
+		key := num.EncodeIntKey(s.keyTmp[:0], intVal)
 		s.keyTmp = key
-		return runtime.VKInteger, key, nil
+		return runtime.VKDecimal, key, nil
 	case runtime.VFloat:
-		v, err := value.ParseFloat(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
+		v, class, perr := num.ParseFloat32(canonical)
+		if perr != nil {
+			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid float")
 		}
-		key := value.CanonicalFloat32Key(v, s.keyTmp[:0])
+		key := float32KeyBytes(s.keyTmp[:0], v, class)
 		s.keyTmp = key
 		return runtime.VKFloat32, key, nil
 	case runtime.VDouble:
-		v, err := value.ParseDouble(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
+		v, class, perr := num.ParseFloat64(canonical)
+		if perr != nil {
+			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid double")
 		}
-		key := value.CanonicalFloat64Key(v, s.keyTmp[:0])
+		key := float64KeyBytes(s.keyTmp[:0], v, class)
 		s.keyTmp = key
 		return runtime.VKFloat64, key, nil
 	case runtime.VAnyURI:
-		return runtime.VKAnyURI, canonical, nil
+		key := stringKeyBytes(s.keyTmp[:0], 1, canonical)
+		s.keyTmp = key
+		return runtime.VKString, key, nil
 	case runtime.VQName, runtime.VNotation:
-		return runtime.VKQName, canonical, nil
+		tag := byte(0)
+		if kind == runtime.VNotation {
+			tag = 1
+		}
+		key := qnameKeyBytes(s.keyTmp[:0], tag, canonical)
+		if len(key) == 0 {
+			return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "invalid QName key")
+		}
+		s.keyTmp = key
+		return runtime.VKQName, key, nil
 	case runtime.VHexBinary:
-		return runtime.VKHexBinary, canonical, nil
+		decoded, err := types.ParseHexBinary(string(canonical))
+		if err != nil {
+			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
+		}
+		key := binaryKeyBytes(s.keyTmp[:0], 0, decoded)
+		s.keyTmp = key
+		return runtime.VKBinary, key, nil
 	case runtime.VBase64Binary:
-		return runtime.VKBase64Binary, canonical, nil
+		decoded, err := types.ParseBase64Binary(string(canonical))
+		if err != nil {
+			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
+		}
+		key := binaryKeyBytes(s.keyTmp[:0], 1, decoded)
+		s.keyTmp = key
+		return runtime.VKBinary, key, nil
 	case runtime.VDuration:
 		dur, err := types.ParseXSDDuration(string(canonical))
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		key := types.CanonicalDurationKey(dur, s.keyTmp[:0])
+		key := durationKeyBytes(s.keyTmp[:0], dur)
 		s.keyTmp = key
 		return runtime.VKDuration, key, nil
 	case runtime.VDateTime, runtime.VDate, runtime.VTime, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
-		// for temporal types with enums, the canonical bytes are typically the key
-		// (timezone presence is already encoded in canonical form)
-		vkind, ok := runtime.ValueKindForValidatorKind(kind)
-		if !ok {
-			return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "unknown temporal kind %d", kind)
+		t, hasTZ, err := parseTemporalForKind(kind, canonical)
+		if err != nil {
+			return runtime.VKInvalid, nil, err
 		}
-		return vkind, canonical, nil
+		key := temporalKeyBytes(s.keyTmp[:0], temporalSubkind(kind), t, hasTZ)
+		s.keyTmp = key
+		return runtime.VKDateTime, key, nil
 	default:
-		return runtime.VKString, canonical, nil
+		return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "unsupported validator kind %d", kind)
 	}
 }
 
@@ -1164,15 +1210,16 @@ func (s *Session) listItemValidator(meta runtime.ValidatorMeta) (runtime.Validat
 	return s.rt.Validators.List[meta.Index].Item, true
 }
 
-func (s *Session) unionMemberValidators(meta runtime.ValidatorMeta) ([]runtime.ValidatorID, bool) {
+func (s *Session) unionMemberInfo(meta runtime.ValidatorMeta) ([]runtime.ValidatorID, []runtime.TypeID, bool) {
 	if int(meta.Index) >= len(s.rt.Validators.Union) {
-		return nil, false
+		return nil, nil, false
 	}
 	union := s.rt.Validators.Union[meta.Index]
-	if int(union.MemberOff+union.MemberLen) > len(s.rt.Validators.UnionMembers) {
-		return nil, false
+	end := union.MemberOff + union.MemberLen
+	if int(end) > len(s.rt.Validators.UnionMembers) || int(end) > len(s.rt.Validators.UnionMemberTypes) {
+		return nil, nil, false
 	}
-	return s.rt.Validators.UnionMembers[union.MemberOff : union.MemberOff+union.MemberLen], true
+	return s.rt.Validators.UnionMembers[union.MemberOff:end], s.rt.Validators.UnionMemberTypes[union.MemberOff:end], true
 }
 
 func validateStringKind(kind runtime.StringKind, normalized []byte) error {
@@ -1194,83 +1241,409 @@ func validateStringKind(kind runtime.StringKind, normalized []byte) error {
 	}
 }
 
-func validateIntegerKind(kind runtime.IntegerKind, v *big.Int) error {
-	if v == nil {
-		return fmt.Errorf("invalid integer")
-	}
+func validateIntegerKind(kind runtime.IntegerKind, v num.Int) error {
 	switch kind {
 	case runtime.IntegerAny:
 		return nil
 	case runtime.IntegerLong:
-		return validateBoundedInt(v, bigMinInt64, bigMaxInt64, "long")
+		return validateIntRange(v, minInt64, maxInt64, "long")
 	case runtime.IntegerInt:
-		return validateBoundedInt(v, bigMinInt32, bigMaxInt32, "int")
+		return validateIntRange(v, minInt32, maxInt32, "int")
 	case runtime.IntegerShort:
-		return validateBoundedInt(v, bigMinInt16, bigMaxInt16, "short")
+		return validateIntRange(v, minInt16, maxInt16, "short")
 	case runtime.IntegerByte:
-		return validateBoundedInt(v, bigMinInt8, bigMaxInt8, "byte")
+		return validateIntRange(v, minInt8, maxInt8, "byte")
 	case runtime.IntegerNonNegative:
-		if v.Sign() < 0 {
+		if v.Sign < 0 {
 			return fmt.Errorf("nonNegativeInteger must be >= 0")
 		}
 		return nil
 	case runtime.IntegerPositive:
-		if v.Sign() <= 0 {
+		if v.Sign <= 0 {
 			return fmt.Errorf("positiveInteger must be >= 1")
 		}
 		return nil
 	case runtime.IntegerNonPositive:
-		if v.Sign() > 0 {
+		if v.Sign > 0 {
 			return fmt.Errorf("nonPositiveInteger must be <= 0")
 		}
 		return nil
 	case runtime.IntegerNegative:
-		if v.Sign() >= 0 {
+		if v.Sign >= 0 {
 			return fmt.Errorf("negativeInteger must be <= -1")
 		}
 		return nil
 	case runtime.IntegerUnsignedLong:
-		if v.Sign() < 0 {
+		if v.Sign < 0 {
 			return fmt.Errorf("unsignedLong must be >= 0")
 		}
-		if v.Cmp(bigMaxUint64) > 0 {
-			return fmt.Errorf("unsignedLong out of range")
-		}
-		return nil
+		return validateIntRange(v, intZero, maxUint64, "unsignedLong")
 	case runtime.IntegerUnsignedInt:
-		if v.Sign() < 0 {
+		if v.Sign < 0 {
 			return fmt.Errorf("unsignedInt must be >= 0")
 		}
-		if v.Cmp(bigMaxUint32) > 0 {
-			return fmt.Errorf("unsignedInt out of range")
-		}
-		return nil
+		return validateIntRange(v, intZero, maxUint32, "unsignedInt")
 	case runtime.IntegerUnsignedShort:
-		if v.Sign() < 0 {
+		if v.Sign < 0 {
 			return fmt.Errorf("unsignedShort must be >= 0")
 		}
-		if v.Cmp(bigMaxUint16) > 0 {
-			return fmt.Errorf("unsignedShort out of range")
-		}
-		return nil
+		return validateIntRange(v, intZero, maxUint16, "unsignedShort")
 	case runtime.IntegerUnsignedByte:
-		if v.Sign() < 0 {
+		if v.Sign < 0 {
 			return fmt.Errorf("unsignedByte must be >= 0")
 		}
-		if v.Cmp(bigMaxUint8) > 0 {
-			return fmt.Errorf("unsignedByte out of range")
-		}
-		return nil
+		return validateIntRange(v, intZero, maxUint8, "unsignedByte")
 	default:
 		return nil
 	}
 }
 
-func validateBoundedInt(v, minValue, maxValue *big.Int, label string) error {
-	if v.Cmp(minValue) < 0 || v.Cmp(maxValue) > 0 {
+func validateIntRange(v, minValue, maxValue num.Int, label string) error {
+	if v.Compare(minValue) < 0 || v.Compare(maxValue) > 0 {
 		return fmt.Errorf("%s out of range", label)
 	}
 	return nil
+}
+
+func (s *Session) decForCanonical(canonical []byte, metrics *valueMetrics) (num.Dec, error) {
+	if metrics != nil && metrics.decSet {
+		return metrics.decVal, nil
+	}
+	val, perr := num.ParseDec(canonical)
+	if perr != nil {
+		return num.Dec{}, valueErrorMsg(valueErrInvalid, "invalid decimal")
+	}
+	if metrics != nil {
+		metrics.decVal = val
+		metrics.decSet = true
+	}
+	return val, nil
+}
+
+func (s *Session) intForCanonical(canonical []byte, metrics *valueMetrics) (num.Int, error) {
+	if metrics != nil && metrics.intSet {
+		return metrics.intVal, nil
+	}
+	val, perr := num.ParseInt(canonical)
+	if perr != nil {
+		return num.Int{}, valueErrorMsg(valueErrInvalid, "invalid integer")
+	}
+	if metrics != nil {
+		metrics.intVal = val
+		metrics.intSet = true
+	}
+	return val, nil
+}
+
+func (s *Session) float32ForCanonical(canonical []byte, metrics *valueMetrics) (float32, num.FloatClass, error) {
+	if metrics != nil && metrics.float32Set {
+		return metrics.float32Val, metrics.float32Class, nil
+	}
+	val, class, perr := num.ParseFloat32(canonical)
+	if perr != nil {
+		return 0, num.FloatFinite, valueErrorMsg(valueErrInvalid, "invalid float")
+	}
+	if metrics != nil {
+		metrics.float32Val = val
+		metrics.float32Class = class
+		metrics.float32Set = true
+	}
+	return val, class, nil
+}
+
+func (s *Session) float64ForCanonical(canonical []byte, metrics *valueMetrics) (float64, num.FloatClass, error) {
+	if metrics != nil && metrics.float64Set {
+		return metrics.float64Val, metrics.float64Class, nil
+	}
+	val, class, perr := num.ParseFloat64(canonical)
+	if perr != nil {
+		return 0, num.FloatFinite, valueErrorMsg(valueErrInvalid, "invalid double")
+	}
+	if metrics != nil {
+		metrics.float64Val = val
+		metrics.float64Class = class
+		metrics.float64Set = true
+	}
+	return val, class, nil
+}
+
+func (s *Session) checkFloat32Range(op runtime.FacetOp, canonical, bound []byte, metrics *valueMetrics) error {
+	val, valClass, err := s.float32ForCanonical(canonical, metrics)
+	if err != nil {
+		return err
+	}
+	boundVal, boundClass, perr := num.ParseFloat32(bound)
+	if perr != nil {
+		return valueErrorMsg(valueErrInvalid, "invalid float")
+	}
+	if boundClass == num.FloatNaN {
+		if op == runtime.FMinInclusive || op == runtime.FMaxInclusive {
+			if valClass == num.FloatNaN {
+				return nil
+			}
+		}
+		return rangeViolation(op)
+	}
+	if valClass == num.FloatNaN {
+		return rangeViolation(op)
+	}
+	cmp, _ := num.CompareFloat32(val, valClass, boundVal, boundClass)
+	switch op {
+	case runtime.FMinInclusive:
+		if cmp < 0 {
+			return valueErrorf(valueErrFacet, "minInclusive violation")
+		}
+	case runtime.FMaxInclusive:
+		if cmp > 0 {
+			return valueErrorf(valueErrFacet, "maxInclusive violation")
+		}
+	case runtime.FMinExclusive:
+		if cmp <= 0 {
+			return valueErrorf(valueErrFacet, "minExclusive violation")
+		}
+	case runtime.FMaxExclusive:
+		if cmp >= 0 {
+			return valueErrorf(valueErrFacet, "maxExclusive violation")
+		}
+	}
+	return nil
+}
+
+func (s *Session) checkFloat64Range(op runtime.FacetOp, canonical, bound []byte, metrics *valueMetrics) error {
+	val, valClass, err := s.float64ForCanonical(canonical, metrics)
+	if err != nil {
+		return err
+	}
+	boundVal, boundClass, perr := num.ParseFloat64(bound)
+	if perr != nil {
+		return valueErrorMsg(valueErrInvalid, "invalid double")
+	}
+	if boundClass == num.FloatNaN {
+		if op == runtime.FMinInclusive || op == runtime.FMaxInclusive {
+			if valClass == num.FloatNaN {
+				return nil
+			}
+		}
+		return rangeViolation(op)
+	}
+	if valClass == num.FloatNaN {
+		return rangeViolation(op)
+	}
+	cmp, _ := num.CompareFloat64(val, valClass, boundVal, boundClass)
+	switch op {
+	case runtime.FMinInclusive:
+		if cmp < 0 {
+			return valueErrorf(valueErrFacet, "minInclusive violation")
+		}
+	case runtime.FMaxInclusive:
+		if cmp > 0 {
+			return valueErrorf(valueErrFacet, "maxInclusive violation")
+		}
+	case runtime.FMinExclusive:
+		if cmp <= 0 {
+			return valueErrorf(valueErrFacet, "minExclusive violation")
+		}
+	case runtime.FMaxExclusive:
+		if cmp >= 0 {
+			return valueErrorf(valueErrFacet, "maxExclusive violation")
+		}
+	}
+	return nil
+}
+
+func rangeViolation(op runtime.FacetOp) error {
+	switch op {
+	case runtime.FMinInclusive:
+		return valueErrorf(valueErrFacet, "minInclusive violation")
+	case runtime.FMaxInclusive:
+		return valueErrorf(valueErrFacet, "maxInclusive violation")
+	case runtime.FMinExclusive:
+		return valueErrorf(valueErrFacet, "minExclusive violation")
+	case runtime.FMaxExclusive:
+		return valueErrorf(valueErrFacet, "maxExclusive violation")
+	default:
+		return valueErrorf(valueErrFacet, "range violation")
+	}
+}
+
+func stringKeyBytes(dst []byte, tag byte, value []byte) []byte {
+	dst = append(dst[:0], tag)
+	dst = append(dst, value...)
+	return dst
+}
+
+func binaryKeyBytes(dst []byte, tag byte, data []byte) []byte {
+	dst = append(dst[:0], tag)
+	dst = append(dst, data...)
+	return dst
+}
+
+func qnameKeyBytes(dst []byte, tag byte, canonical []byte) []byte {
+	sep := bytes.IndexByte(canonical, 0)
+	if sep < 0 {
+		return nil
+	}
+	ns := canonical[:sep]
+	local := canonical[sep+1:]
+	dst = append(dst[:0], tag)
+	dst = appendUvarint(dst, uint64(len(ns)))
+	dst = append(dst, ns...)
+	dst = appendUvarint(dst, uint64(len(local)))
+	dst = append(dst, local...)
+	return dst
+}
+
+const (
+	canonicalNaN32 = 0x7fc00000
+	canonicalNaN64 = 0x7ff8000000000000
+)
+
+func float32KeyBytes(dst []byte, value float32, class num.FloatClass) []byte {
+	var bits uint32
+	switch class {
+	case num.FloatNaN:
+		bits = canonicalNaN32
+	default:
+		if value == 0 {
+			bits = 0
+		} else {
+			bits = math.Float32bits(value)
+		}
+	}
+	dst = ensureLen(dst[:0], 4)
+	binary.BigEndian.PutUint32(dst, bits)
+	return dst
+}
+
+func float64KeyBytes(dst []byte, value float64, class num.FloatClass) []byte {
+	var bits uint64
+	switch class {
+	case num.FloatNaN:
+		bits = canonicalNaN64
+	default:
+		if value == 0 {
+			bits = 0
+		} else {
+			bits = math.Float64bits(value)
+		}
+	}
+	dst = ensureLen(dst[:0], 8)
+	binary.BigEndian.PutUint64(dst, bits)
+	return dst
+}
+
+func temporalSubkind(kind runtime.ValidatorKind) byte {
+	switch kind {
+	case runtime.VDateTime:
+		return 0
+	case runtime.VDate:
+		return 1
+	case runtime.VTime:
+		return 2
+	case runtime.VGYearMonth:
+		return 3
+	case runtime.VGYear:
+		return 4
+	case runtime.VGMonthDay:
+		return 5
+	case runtime.VGDay:
+		return 6
+	case runtime.VGMonth:
+		return 7
+	default:
+		return 0
+	}
+}
+
+func parseTemporalForKind(kind runtime.ValidatorKind, lexical []byte) (time.Time, bool, error) {
+	switch kind {
+	case runtime.VDateTime:
+		t, err := value.ParseDateTime(lexical)
+		return t, value.HasTimezone(lexical), err
+	case runtime.VDate:
+		t, err := value.ParseDate(lexical)
+		return t, value.HasTimezone(lexical), err
+	case runtime.VTime:
+		t, err := value.ParseTime(lexical)
+		return t, value.HasTimezone(lexical), err
+	case runtime.VGYearMonth:
+		t, err := value.ParseGYearMonth(lexical)
+		return t, value.HasTimezone(lexical), err
+	case runtime.VGYear:
+		t, err := value.ParseGYear(lexical)
+		return t, value.HasTimezone(lexical), err
+	case runtime.VGMonthDay:
+		t, err := value.ParseGMonthDay(lexical)
+		return t, value.HasTimezone(lexical), err
+	case runtime.VGDay:
+		t, err := value.ParseGDay(lexical)
+		return t, value.HasTimezone(lexical), err
+	case runtime.VGMonth:
+		t, err := value.ParseGMonth(lexical)
+		return t, value.HasTimezone(lexical), err
+	default:
+		return time.Time{}, false, valueErrorf(valueErrInvalid, "unsupported temporal kind %d", kind)
+	}
+}
+
+func temporalKeyBytes(dst []byte, subkind byte, t time.Time, hasTZ bool) []byte {
+	if hasTZ {
+		utc := t.UTC()
+		dst = ensureLen(dst[:0], 14)
+		dst[0] = subkind
+		dst[1] = 1
+		binary.BigEndian.PutUint64(dst[2:], uint64(utc.Unix()))
+		binary.BigEndian.PutUint32(dst[10:], uint32(utc.Nanosecond()))
+		return dst
+	}
+	year, month, day := t.Date()
+	hour, min, sec := t.Clock()
+	dst = ensureLen(dst[:0], 20)
+	dst[0] = subkind
+	dst[1] = 0
+	binary.BigEndian.PutUint32(dst[2:], uint32(int32(year)))
+	binary.BigEndian.PutUint16(dst[6:], uint16(month))
+	binary.BigEndian.PutUint16(dst[8:], uint16(day))
+	binary.BigEndian.PutUint16(dst[10:], uint16(hour))
+	binary.BigEndian.PutUint16(dst[12:], uint16(min))
+	binary.BigEndian.PutUint16(dst[14:], uint16(sec))
+	binary.BigEndian.PutUint32(dst[16:], uint32(t.Nanosecond()))
+	return dst
+}
+
+func durationKeyBytes(dst []byte, dur types.XSDDuration) []byte {
+	monthsTotal := int64(dur.Years)*12 + int64(dur.Months)
+	months, _ := num.ParseInt([]byte(strconv.FormatInt(monthsTotal, 10)))
+	secondsTotal := float64(dur.Days)*86400 + float64(dur.Hours)*3600 + float64(dur.Minutes)*60 + dur.Seconds
+	if secondsTotal < 0 {
+		secondsTotal = -secondsTotal
+	}
+	secStr := strconv.FormatFloat(secondsTotal, 'f', -1, 64)
+	seconds, _ := num.ParseDec([]byte(secStr))
+	sign := byte(1)
+	if dur.Negative {
+		sign = 2
+	}
+	if monthsTotal == 0 && seconds.Sign == 0 {
+		sign = 0
+	}
+	dst = append(dst[:0], sign)
+	dst = num.EncodeIntKey(dst, months)
+	dst = num.EncodeDecKey(dst, seconds)
+	return dst
+}
+
+func appendUvarint(dst []byte, v uint64) []byte {
+	var buf [binary.MaxVarintLen64]byte
+	n := binary.PutUvarint(buf[:], v)
+	return append(dst, buf[:n]...)
+}
+
+func ensureLen(dst []byte, n int) []byte {
+	if cap(dst) < n {
+		return make([]byte, n)
+	}
+	return dst[:n]
 }
 
 func forEachListItem(normalized []byte, spaceOnly bool, fn func([]byte) error) (int, error) {
@@ -1400,7 +1773,7 @@ func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte) er
 			return err
 		}
 	case runtime.VUnion:
-		members, ok := s.unionMemberValidators(meta)
+		members, _, ok := s.unionMemberInfo(meta)
 		if !ok || len(members) == 0 {
 			return fmt.Errorf("union validator out of range")
 		}
@@ -1422,141 +1795,13 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte)
 	}
 	meta := s.rt.Validators.Meta[id]
 	switch meta.Kind {
-	case runtime.VString:
-		return runtime.VKString, canonical, nil
-	case runtime.VBoolean:
-		v, err := value.ParseBoolean(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		if v {
-			return runtime.VKBool, []byte("true"), nil
-		}
-		return runtime.VKBool, []byte("false"), nil
-	case runtime.VDecimal:
-		key, err := value.CanonicalDecimalKeyFromCanonical(canonical, s.keyTmp[:0])
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		s.keyTmp = key
-		return runtime.VKDecimal, key, nil
-	case runtime.VInteger:
-		key, err := value.CanonicalIntegerKeyFromCanonical(canonical, s.keyTmp[:0])
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		s.keyTmp = key
-		return runtime.VKInteger, key, nil
-	case runtime.VFloat:
-		v, err := value.ParseFloat(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		key := value.CanonicalFloat32Key(v, s.keyTmp[:0])
-		s.keyTmp = key
-		return runtime.VKFloat32, key, nil
-	case runtime.VDouble:
-		v, err := value.ParseDouble(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		key := value.CanonicalFloat64Key(v, s.keyTmp[:0])
-		s.keyTmp = key
-		return runtime.VKFloat64, key, nil
-	case runtime.VDuration:
-		dur, err := types.ParseXSDDuration(string(canonical))
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		key := types.CanonicalDurationKey(dur, s.keyTmp[:0])
-		s.keyTmp = key
-		return runtime.VKDuration, key, nil
-	case runtime.VDateTime:
-		t, err := value.ParseDateTime(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		hasTZ := value.HasTimezone(canonical)
-		key := value.CanonicalTemporalKey(t, "dateTime", hasTZ, s.keyTmp[:0])
-		s.keyTmp = key
-		return runtime.VKDateTime, key, nil
-	case runtime.VTime:
-		t, err := value.ParseTime(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		hasTZ := value.HasTimezone(canonical)
-		key := value.CanonicalTemporalKey(t, "time", hasTZ, s.keyTmp[:0])
-		s.keyTmp = key
-		return runtime.VKTime, key, nil
-	case runtime.VDate:
-		t, err := value.ParseDate(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		hasTZ := value.HasTimezone(canonical)
-		key := value.CanonicalTemporalKey(t, "date", hasTZ, s.keyTmp[:0])
-		s.keyTmp = key
-		return runtime.VKDate, key, nil
-	case runtime.VGYearMonth:
-		t, err := value.ParseGYearMonth(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		hasTZ := value.HasTimezone(canonical)
-		key := value.CanonicalTemporalKey(t, "gYearMonth", hasTZ, s.keyTmp[:0])
-		s.keyTmp = key
-		return runtime.VKGYearMonth, key, nil
-	case runtime.VGYear:
-		t, err := value.ParseGYear(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		hasTZ := value.HasTimezone(canonical)
-		key := value.CanonicalTemporalKey(t, "gYear", hasTZ, s.keyTmp[:0])
-		s.keyTmp = key
-		return runtime.VKGYear, key, nil
-	case runtime.VGMonthDay:
-		t, err := value.ParseGMonthDay(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		hasTZ := value.HasTimezone(canonical)
-		key := value.CanonicalTemporalKey(t, "gMonthDay", hasTZ, s.keyTmp[:0])
-		s.keyTmp = key
-		return runtime.VKGMonthDay, key, nil
-	case runtime.VGDay:
-		t, err := value.ParseGDay(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		hasTZ := value.HasTimezone(canonical)
-		key := value.CanonicalTemporalKey(t, "gDay", hasTZ, s.keyTmp[:0])
-		s.keyTmp = key
-		return runtime.VKGDay, key, nil
-	case runtime.VGMonth:
-		t, err := value.ParseGMonth(canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		hasTZ := value.HasTimezone(canonical)
-		key := value.CanonicalTemporalKey(t, "gMonth", hasTZ, s.keyTmp[:0])
-		s.keyTmp = key
-		return runtime.VKGMonth, key, nil
-	case runtime.VAnyURI:
-		return runtime.VKAnyURI, canonical, nil
-	case runtime.VQName, runtime.VNotation:
-		return runtime.VKQName, canonical, nil
-	case runtime.VHexBinary:
-		return runtime.VKHexBinary, canonical, nil
-	case runtime.VBase64Binary:
-		return runtime.VKBase64Binary, canonical, nil
 	case runtime.VList:
 		item, ok := s.listItemValidator(meta)
 		if !ok {
 			return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "list validator out of range")
 		}
 		var keyBytes []byte
+		count := 0
 		spaceOnly := meta.WhiteSpace == runtime.WS_Collapse
 		if _, err := forEachListItem(canonical, spaceOnly, func(itemValue []byte) error {
 			kind, key, err := s.keyForCanonicalValue(item, itemValue)
@@ -1564,13 +1809,17 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte)
 				return err
 			}
 			keyBytes = runtime.AppendListKey(keyBytes, kind, key)
+			count++
 			return nil
 		}); err != nil {
 			return runtime.VKInvalid, nil, err
 		}
-		return runtime.VKList, keyBytes, nil
+		listKey := appendUvarint(s.keyTmp[:0], uint64(count))
+		listKey = append(listKey, keyBytes...)
+		s.keyTmp = listKey
+		return runtime.VKList, listKey, nil
 	case runtime.VUnion:
-		members, ok := s.unionMemberValidators(meta)
+		members, _, ok := s.unionMemberInfo(meta)
 		if !ok || len(members) == 0 {
 			return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "union validator out of range")
 		}
@@ -1582,7 +1831,7 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte)
 		}
 		return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "union value does not match any member type")
 	default:
-		return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "unsupported validator kind %d", meta.Kind)
+		return s.deriveKeyFromCanonical(meta.Kind, canonical)
 	}
 }
 

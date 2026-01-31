@@ -13,13 +13,8 @@ const (
 )
 
 type Row struct {
-	Values []Key
+	Values []runtime.ValueKey
 	Hash   uint64
-}
-
-type Key struct {
-	Bytes []byte
-	Kind  runtime.ValueKind
 }
 
 type Constraint struct {
@@ -117,7 +112,7 @@ func Resolve(constraints []Constraint) []Issue {
 	return issues
 }
 
-func HashRow(values []Key) uint64 {
+func HashRow(values []runtime.ValueKey) uint64 {
 	h := uint64(fnvOffsetBasis64)
 	for _, value := range values {
 		h ^= uint64(value.Kind)
@@ -133,6 +128,11 @@ func HashRow(values []Key) uint64 {
 			h *= fnvPrime64
 		}
 	}
+	h ^= h >> 33
+	h *= 0xff51afd7ed558ccd
+	h ^= h >> 33
+	h *= 0xc4ceb9fe1a85ec53
+	h ^= h >> 33
 	if h == 0 {
 		return 1
 	}

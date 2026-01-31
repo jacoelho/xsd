@@ -260,6 +260,7 @@ func hashValidators(h *hashBuilder, bundle *runtime.ValidatorsBundle) {
 		h.u32(v.MemberLen)
 	}
 	hashValidatorIDs(h, bundle.UnionMembers)
+	hashTypeIDs(h, bundle.UnionMemberTypes)
 	h.u32(uint32(len(bundle.Meta)))
 	for _, meta := range bundle.Meta {
 		h.u8(uint8(meta.Kind))
@@ -305,7 +306,7 @@ func hashEnums(h *hashBuilder, enums *runtime.EnumTable) {
 	for _, key := range enums.Keys {
 		h.u8(uint8(key.Kind))
 		h.u64(key.Hash)
-		hashValueRef(h, key.Ref)
+		h.bytes(key.Bytes)
 	}
 	hashU32Slice(h, enums.HashOff)
 	hashU32Slice(h, enums.HashLen)

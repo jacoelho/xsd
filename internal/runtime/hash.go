@@ -11,15 +11,16 @@ func hashBytes(b []byte) uint64 {
 		h ^= uint64(c)
 		h *= fnvPrime64
 	}
-	if h == 0 {
-		return 1
-	}
 	return h
 }
 
 // HashBytes returns a stable 64-bit hash for arbitrary byte slices.
 func HashBytes(b []byte) uint64 {
-	return hashBytes(b)
+	h := hashBytes(b)
+	if h == 0 {
+		return 1
+	}
+	return h
 }
 
 // HashKey returns a stable 64-bit hash for a value-space key.
@@ -31,6 +32,11 @@ func HashKey(kind ValueKind, b []byte) uint64 {
 		h ^= uint64(c)
 		h *= fnvPrime64
 	}
+	h ^= h >> 33
+	h *= 0xff51afd7ed558ccd
+	h ^= h >> 33
+	h *= 0xc4ceb9fe1a85ec53
+	h ^= h >> 33
 	if h == 0 {
 		return 1
 	}

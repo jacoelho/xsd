@@ -62,6 +62,8 @@ type attrSeenEntry struct {
 // Session holds per-document runtime validation state.
 type Session struct {
 	rt               *runtime.Schema
+	Arena            Arena
+	Scratch          Scratch
 	reader           *xmlstream.Reader
 	idTable          map[string]struct{}
 	attrPresent      []bool
@@ -90,7 +92,9 @@ type Session struct {
 
 // NewSession creates a new runtime validation session.
 func NewSession(rt *runtime.Schema) *Session {
-	return &Session{rt: rt}
+	sess := &Session{rt: rt}
+	sess.icState.arena = &sess.Arena
+	return sess
 }
 
 // Reset clears per-document state while retaining buffer capacity.
@@ -98,6 +102,9 @@ func (s *Session) Reset() {
 	if s == nil {
 		return
 	}
+	s.Arena.Reset()
+	s.Scratch.Reset()
+	s.icState.arena = &s.Arena
 	s.elemStack = s.elemStack[:0]
 	s.nsStack = s.nsStack[:0]
 	s.nsDecls = s.nsDecls[:0]
