@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jacoelho/xsd/internal/num"
 )
 
 var (
@@ -34,75 +35,71 @@ type Unwrappable interface {
 	Unwrap() any
 }
 
-// ComparableBigRat wraps *big.Rat to implement ComparableValue
-type ComparableBigRat struct {
-	Value *big.Rat
-	// XSD type this value represents
-	Typ Type
+// ComparableDec wraps num.Dec to implement ComparableValue.
+type ComparableDec struct {
+	Typ   Type
+	Value num.Dec
 }
 
 // Compare compares with another ComparableValue (implements ComparableValue)
-// Supports cross-type comparison with ComparableBigInt since integers are a subset of decimals.
-func (c ComparableBigRat) Compare(other ComparableValue) (int, error) {
+// Supports cross-type comparison with ComparableInt since integers are a subset of decimals.
+func (c ComparableDec) Compare(other ComparableValue) (int, error) {
 	switch otherVal := other.(type) {
-	case ComparableBigRat:
-		return c.Value.Cmp(otherVal.Value), nil
-	case ComparableBigInt:
-		otherRat := new(big.Rat).SetInt(otherVal.Value)
-		return c.Value.Cmp(otherRat), nil
+	case ComparableDec:
+		return c.Value.Compare(otherVal.Value), nil
+	case ComparableInt:
+		return c.Value.Compare(otherVal.Value.AsDec()), nil
 	default:
-		return 0, fmt.Errorf("cannot compare ComparableBigRat with %T", other)
+		return 0, fmt.Errorf("cannot compare ComparableDec with %T", other)
 	}
 }
 
 // String returns the string representation (implements ComparableValue)
-func (c ComparableBigRat) String() string {
-	return c.Value.String()
+func (c ComparableDec) String() string {
+	return string(c.Value.RenderCanonical(nil))
 }
 
 // Type returns the XSD type (implements ComparableValue)
-func (c ComparableBigRat) Type() Type {
+func (c ComparableDec) Type() Type {
 	return c.Typ
 }
 
-// Unwrap returns the inner *big.Rat value
-func (c ComparableBigRat) Unwrap() any {
+// Unwrap returns the inner num.Dec value.
+func (c ComparableDec) Unwrap() any {
 	return c.Value
 }
 
-// ComparableBigInt wraps *big.Int to implement ComparableValue
-type ComparableBigInt struct {
-	Value *big.Int
-	// XSD type this value represents
-	Typ Type
+// ComparableInt wraps num.Int to implement ComparableValue.
+type ComparableInt struct {
+	Typ   Type
+	Value num.Int
 }
 
 // Compare compares with another ComparableValue (implements ComparableValue)
-// Supports cross-type comparison with ComparableBigRat since integers are a subset of decimals.
-func (c ComparableBigInt) Compare(other ComparableValue) (int, error) {
+// Supports cross-type comparison with ComparableDec since integers are a subset of decimals.
+func (c ComparableInt) Compare(other ComparableValue) (int, error) {
 	switch otherVal := other.(type) {
-	case ComparableBigInt:
-		return c.Value.Cmp(otherVal.Value), nil
-	case ComparableBigRat:
-		thisRat := new(big.Rat).SetInt(c.Value)
-		return thisRat.Cmp(otherVal.Value), nil
+	case ComparableInt:
+		return c.Value.Compare(otherVal.Value), nil
+	case ComparableDec:
+		return c.Value.CompareDec(otherVal.Value), nil
 	default:
-		return 0, fmt.Errorf("cannot compare ComparableBigInt with %T", other)
+		return 0, fmt.Errorf("cannot compare ComparableInt with %T", other)
 	}
 }
 
 // String returns the string representation (implements ComparableValue)
-func (c ComparableBigInt) String() string {
-	return c.Value.String()
+func (c ComparableInt) String() string {
+	return string(c.Value.RenderCanonical(nil))
 }
 
 // Type returns the XSD type (implements ComparableValue)
-func (c ComparableBigInt) Type() Type {
+func (c ComparableInt) Type() Type {
 	return c.Typ
 }
 
-// Unwrap returns the inner *big.Int value
-func (c ComparableBigInt) Unwrap() any {
+// Unwrap returns the inner num.Int value.
+func (c ComparableInt) Unwrap() any {
 	return c.Value
 }
 

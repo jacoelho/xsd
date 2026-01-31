@@ -6,20 +6,9 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
-const (
-	// fnvOffsetBasis64 and fnvPrime64 are 64-bit FNV-1a constants.
-	fnvOffsetBasis64 = 14695981039346656037
-	fnvPrime64       = 1099511628211
-)
-
 type Row struct {
-	Values []Key
+	Values []runtime.ValueKey
 	Hash   uint64
-}
-
-type Key struct {
-	Bytes []byte
-	Kind  runtime.ValueKind
 }
 
 type Constraint struct {
@@ -117,22 +106,27 @@ func Resolve(constraints []Constraint) []Issue {
 	return issues
 }
 
-func HashRow(values []Key) uint64 {
-	h := uint64(fnvOffsetBasis64)
+func HashRow(values []runtime.ValueKey) uint64 {
+	h := uint64(runtime.FNVOffset64)
 	for _, value := range values {
 		h ^= uint64(value.Kind)
-		h *= fnvPrime64
+		h *= runtime.FNVPrime64
 		length := uint32(len(value.Bytes))
 		for range 4 {
 			h ^= uint64(byte(length))
-			h *= fnvPrime64
+			h *= runtime.FNVPrime64
 			length >>= 8
 		}
 		for _, c := range value.Bytes {
 			h ^= uint64(c)
-			h *= fnvPrime64
+			h *= runtime.FNVPrime64
 		}
 	}
+	h ^= h >> 33
+	h *= 0xff51afd7ed558ccd
+	h ^= h >> 33
+	h *= 0xc4ceb9fe1a85ec53
+	h ^= h >> 33
 	if h == 0 {
 		return 1
 	}

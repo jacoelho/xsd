@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestComparable_BigRat(t *testing.T) {
+func TestComparable_Decimal(t *testing.T) {
 	rat1, _ := ParseDecimal("123.456")
 	rat2, _ := ParseDecimal("789.012")
 	rat3, _ := ParseDecimal("123.456")
@@ -16,9 +16,9 @@ func TestComparable_BigRat(t *testing.T) {
 	decimalType := &SimpleType{
 		QName: QName{Namespace: XSDNamespace, Local: "decimal"},
 	}
-	comp1 := ComparableBigRat{Value: rat1, Typ: decimalType}
-	comp2 := ComparableBigRat{Value: rat2, Typ: decimalType}
-	comp3 := ComparableBigRat{Value: rat3, Typ: decimalType}
+	comp1 := ComparableDec{Value: rat1, Typ: decimalType}
+	comp2 := ComparableDec{Value: rat2, Typ: decimalType}
+	comp3 := ComparableDec{Value: rat3, Typ: decimalType}
 
 	// test Compare
 	cmp, err := comp1.Compare(comp2)
@@ -45,7 +45,7 @@ func TestComparable_BigRat(t *testing.T) {
 
 }
 
-func TestComparable_BigInt(t *testing.T) {
+func TestComparable_Integer(t *testing.T) {
 	int1, _ := ParseInteger("123")
 	int2, _ := ParseInteger("789")
 	int3, _ := ParseInteger("123")
@@ -53,9 +53,9 @@ func TestComparable_BigInt(t *testing.T) {
 	integerType := &SimpleType{
 		QName: QName{Namespace: XSDNamespace, Local: "integer"},
 	}
-	comp1 := ComparableBigInt{Value: int1, Typ: integerType}
-	comp2 := ComparableBigInt{Value: int2, Typ: integerType}
-	comp3 := ComparableBigInt{Value: int3, Typ: integerType}
+	comp1 := ComparableInt{Value: int1, Typ: integerType}
+	comp2 := ComparableInt{Value: int2, Typ: integerType}
+	comp3 := ComparableInt{Value: int3, Typ: integerType}
 
 	// test Compare
 	cmp, err := comp1.Compare(comp2)
@@ -95,8 +95,8 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 
 	int100, _ := ParseInteger("100")
 	decimal100, _ := ParseDecimal("100.0")
-	compInt := ComparableBigInt{Value: int100, Typ: integerType}
-	compDecimal := ComparableBigRat{Value: decimal100, Typ: decimalType}
+	compInt := ComparableInt{Value: int100, Typ: integerType}
+	compDecimal := ComparableDec{Value: decimal100, Typ: decimalType}
 
 	t.Run("integer_100_equals_decimal_100.0", func(t *testing.T) {
 		cmp, err := compInt.Compare(compDecimal)
@@ -120,7 +120,7 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 
 	t.Run("integer_50_less_than_decimal_100.0", func(t *testing.T) {
 		int50, _ := ParseInteger("50")
-		compInt50 := ComparableBigInt{Value: int50, Typ: integerType}
+		compInt50 := ComparableInt{Value: int50, Typ: integerType}
 		cmp, err := compInt50.Compare(compDecimal)
 		if err != nil {
 			t.Fatalf("Compare(integer 50, decimal 100.0) error = %v, want nil", err)
@@ -132,7 +132,7 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 
 	t.Run("decimal_150.0_greater_than_integer_100", func(t *testing.T) {
 		decimal150, _ := ParseDecimal("150.0")
-		compDecimal150 := ComparableBigRat{Value: decimal150, Typ: decimalType}
+		compDecimal150 := ComparableDec{Value: decimal150, Typ: decimalType}
 		cmp, err := compDecimal150.Compare(compInt)
 		if err != nil {
 			t.Fatalf("Compare(decimal 150.0, integer 100) error = %v, want nil", err)
@@ -144,7 +144,7 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 
 	t.Run("integer_100_greater_than_decimal_99.9", func(t *testing.T) {
 		decimal999, _ := ParseDecimal("99.9")
-		compDecimal999 := ComparableBigRat{Value: decimal999, Typ: decimalType}
+		compDecimal999 := ComparableDec{Value: decimal999, Typ: decimalType}
 		cmp, err := compInt.Compare(compDecimal999)
 		if err != nil {
 			t.Fatalf("Compare(integer 100, decimal 99.9) error = %v, want nil", err)
@@ -156,7 +156,7 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 
 	t.Run("decimal_100.1_greater_than_integer_100", func(t *testing.T) {
 		decimal1001, _ := ParseDecimal("100.1")
-		compDecimal1001 := ComparableBigRat{Value: decimal1001, Typ: decimalType}
+		compDecimal1001 := ComparableDec{Value: decimal1001, Typ: decimalType}
 		cmp, err := compDecimal1001.Compare(compInt)
 		if err != nil {
 			t.Fatalf("Compare(decimal 100.1, integer 100) error = %v, want nil", err)

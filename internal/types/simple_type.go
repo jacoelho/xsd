@@ -8,22 +8,22 @@ import (
 
 // SimpleType represents a simple type definition
 type SimpleType struct {
-	ItemType                       Type
+	identityListItemType           Type
 	ResolvedBase                   Type
 	primitiveType                  Type
+	ItemType                       Type
 	Restriction                    *Restriction
 	List                           *ListType
 	Union                          *UnionType
 	fundamentalFacetsCache         *FundamentalFacets
-	fundamentalFacetsComputing     bool
-	primitiveTypeComputing         bool
-	identityListItemType           Type
 	QName                          QName
 	SourceNamespace                NamespaceURI
 	MemberTypes                    []Type
 	identityMemberTypes            []Type
-	whiteSpace                     WhiteSpace
 	Final                          DerivationSet
+	whiteSpace                     WhiteSpace
+	fundamentalFacetsComputing     bool
+	primitiveTypeComputing         bool
 	qnameOrNotationReady           bool
 	qnameOrNotation                bool
 	identityNormalizationReady     bool

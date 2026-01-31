@@ -4,72 +4,40 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
-	"math/big"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/jacoelho/xsd/internal/num"
 )
 
-// ParseDecimal parses a decimal string into *big.Rat
+// ParseDecimal parses a decimal string into num.Dec.
 // Handles leading/trailing whitespace and validates decimal format
-func ParseDecimal(lexical string) (*big.Rat, error) {
+func ParseDecimal(lexical string) (num.Dec, error) {
 	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
-		return nil, fmt.Errorf("invalid decimal: empty string")
-	}
-	if !isValidDecimalLexical(lexical) {
-		return nil, fmt.Errorf("invalid decimal: %s", lexical)
+		return num.Dec{}, fmt.Errorf("invalid decimal: empty string")
 	}
 
-	rat := new(big.Rat)
-	if _, ok := rat.SetString(lexical); !ok {
-		return nil, fmt.Errorf("invalid decimal: %s", lexical)
+	dec, perr := num.ParseDec([]byte(lexical))
+	if perr != nil {
+		return num.Dec{}, fmt.Errorf("invalid decimal: %s", lexical)
 	}
-	return rat, nil
+	return dec, nil
 }
 
-func isValidDecimalLexical(lexical string) bool {
-	if lexical == "" {
-		return false
-	}
-	i := 0
-	if lexical[0] == '+' || lexical[0] == '-' {
-		i++
-	}
-	if i >= len(lexical) {
-		return false
-	}
-	sawDigit := false
-	sawDot := false
-	for ; i < len(lexical); i++ {
-		ch := lexical[i]
-		switch {
-		case ch >= '0' && ch <= '9':
-			sawDigit = true
-		case ch == '.':
-			if sawDot {
-				return false
-			}
-			sawDot = true
-		default:
-			return false
-		}
-	}
-	return sawDigit
-}
-
-// ParseInteger parses an integer string into *big.Int
+// ParseInteger parses an integer string into num.Int.
 // Handles leading/trailing whitespace and validates integer format
-func ParseInteger(lexical string) (*big.Int, error) {
+func ParseInteger(lexical string) (num.Int, error) {
 	lexical = TrimXMLWhitespace(lexical)
 	if lexical == "" {
-		return nil, fmt.Errorf("invalid integer: empty string")
+		return num.Int{}, fmt.Errorf("invalid integer: empty string")
 	}
 
-	intVal := new(big.Int)
-	if _, ok := intVal.SetString(lexical, 10); !ok {
-		return nil, fmt.Errorf("invalid integer: %s", lexical)
+	intVal, perr := num.ParseInt([]byte(lexical))
+	if perr != nil {
+		return num.Int{}, fmt.Errorf("invalid integer: %s", lexical)
 	}
 	return intVal, nil
 }

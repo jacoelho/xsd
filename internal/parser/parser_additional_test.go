@@ -2,7 +2,7 @@ package parser
 
 import (
 	"errors"
-	"math/big"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -562,8 +562,7 @@ func TestParseBoolAndOccursValues(t *testing.T) {
 	} else if !got.IsUnbounded() {
 		t.Fatalf("parseOccursValue whitespace unbounded = %s, want unbounded", got)
 	}
-	maxInt := int(^uint(0) >> 1)
-	tooLarge := new(big.Int).Add(big.NewInt(int64(maxInt)), big.NewInt(1)).String()
+	tooLarge := strconv.FormatUint(uint64(^uint32(0))+1, 10)
 	if _, err := parseOccursValue("maxOccurs", tooLarge); err == nil {
 		t.Fatalf("expected overflow error for maxOccurs")
 	} else if !errors.Is(err, types.ErrOccursOverflow) {

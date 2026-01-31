@@ -51,8 +51,9 @@ type ValidatorsBundle struct {
 	List         []ListValidator
 	Union        []UnionValidator
 
-	UnionMembers []ValidatorID
-	Meta         []ValidatorMeta
+	UnionMembers     []ValidatorID
+	UnionMemberTypes []TypeID
+	Meta             []ValidatorMeta
 }
 
 type ValidatorMeta struct {

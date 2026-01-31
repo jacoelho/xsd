@@ -33,12 +33,11 @@ func TestParseDecimal(t *testing.T) {
 				return
 			}
 			if !tt.wantErr {
-				// compare as float64 for decimal values
-				gotFloat, _ := got.Float64()
-				wantRat, _ := ParseDecimal(tt.want)
-				wantFloat, _ := wantRat.Float64()
-				if gotFloat != wantFloat {
-					t.Errorf("ParseDecimal() = %v (%v), want %v (%v)", got, gotFloat, tt.want, wantFloat)
+				wantDec, _ := ParseDecimal(tt.want)
+				if got.Compare(wantDec) != 0 {
+					gotStr := string(got.RenderCanonical(nil))
+					wantStr := string(wantDec.RenderCanonical(nil))
+					t.Errorf("ParseDecimal() = %v, want %v", gotStr, wantStr)
 				}
 			}
 		})
@@ -72,8 +71,9 @@ func TestParseInteger(t *testing.T) {
 				return
 			}
 			if !tt.wantErr {
-				if got.String() != tt.want {
-					t.Errorf("ParseInteger() = %v, want %v", got.String(), tt.want)
+				gotStr := string(got.RenderCanonical(nil))
+				if gotStr != tt.want {
+					t.Errorf("ParseInteger() = %v, want %v", gotStr, tt.want)
 				}
 			}
 		})

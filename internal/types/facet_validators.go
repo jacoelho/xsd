@@ -3,13 +3,14 @@ package types
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
+
+	"github.com/jacoelho/xsd/internal/num"
 )
 
 // getXSDTypeName returns a user-friendly XSD type name for error messages
@@ -145,10 +146,10 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 	}
 
 	switch v := native.(type) {
-	case *big.Rat:
-		return ComparableBigRat{Value: v, Typ: typ}, nil
-	case *big.Int:
-		return ComparableBigInt{Value: v, Typ: typ}, nil
+	case num.Dec:
+		return ComparableDec{Value: v, Typ: typ}, nil
+	case num.Int:
+		return ComparableInt{Value: v, Typ: typ}, nil
 	case time.Time:
 		hasTZ := HasTimezone(value.Lexical())
 		return ComparableTime{Value: v, Typ: typ, HasTimezone: hasTZ}, nil
@@ -186,7 +187,7 @@ func parseStringToComparableValue(value TypedValue, lexical string, typ Type) (C
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse integer: %w", err)
 		}
-		return ComparableBigInt{Value: intVal, Typ: typ}, nil
+		return ComparableInt{Value: intVal, Typ: typ}, nil
 	}
 
 	var primitiveType Type
@@ -216,13 +217,13 @@ func parseStringToComparableValue(value TypedValue, lexical string, typ Type) (C
 			if err != nil {
 				return nil, fmt.Errorf("cannot parse integer: %w", err)
 			}
-			return ComparableBigInt{Value: intVal, Typ: typ}, nil
+			return ComparableInt{Value: intVal, Typ: typ}, nil
 		}
 		rat, err := ParseDecimal(lexical)
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse decimal: %w", err)
 		}
-		return ComparableBigRat{Value: rat, Typ: typ}, nil
+		return ComparableDec{Value: rat, Typ: typ}, nil
 
 	case "dateTime", "date", "time", "gYear", "gYearMonth", "gMonth", "gMonthDay", "gDay":
 		timeVal, err := parseTemporalValue(primitiveName, lexical)
@@ -947,19 +948,9 @@ func normalizedDecimalDigits(value string) (int, int, error) {
 	if value[0] == '+' || value[0] == '-' {
 		value = value[1:]
 	}
-	if !isValidDecimalLexical(value) {
+	dec, perr := num.ParseDec([]byte(value))
+	if perr != nil {
 		return 0, 0, fmt.Errorf("invalid decimal: %s", value)
 	}
-	intPart, fracPart, _ := strings.Cut(value, ".")
-	if intPart == "" {
-		intPart = "0"
-	}
-	fracPart = strings.TrimRight(fracPart, "0")
-	fractionDigits := len(fracPart)
-
-	digits := strings.TrimLeft(intPart+fracPart, "0")
-	if digits == "" {
-		digits = "0"
-	}
-	return len(digits), fractionDigits, nil
+	return len(dec.Coef), int(dec.Scale), nil
 }

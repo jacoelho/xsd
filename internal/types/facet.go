@@ -263,7 +263,7 @@ func parseRangeInteger(facetName, lexical string, baseType Type) (ComparableValu
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", facetName, err)
 	}
-	return ComparableBigInt{Value: intVal, Typ: baseType}, nil
+	return ComparableInt{Value: intVal, Typ: baseType}, nil
 }
 
 func parseRangeDecimal(facetName, lexical string, baseType Type) (ComparableValue, error) {
@@ -271,7 +271,7 @@ func parseRangeDecimal(facetName, lexical string, baseType Type) (ComparableValu
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", facetName, err)
 	}
-	return ComparableBigRat{Value: rat, Typ: baseType}, nil
+	return ComparableDec{Value: rat, Typ: baseType}, nil
 }
 
 func parseRangeTemporal(facetName, lexical string, baseType Type, primitiveName string) (ComparableValue, error) {

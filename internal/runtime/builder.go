@@ -180,7 +180,7 @@ func buildNamespaceIndex(table *NamespaceTable) NamespaceIndex {
 		h := hashBytes(b)
 		slot := int(h & mask)
 		inserted := false
-		for probes := 0; probes < size; probes++ {
+		for range size {
 			if index.ID[slot] == 0 {
 				index.ID[slot] = id
 				index.Hash[slot] = h
@@ -226,7 +226,7 @@ func buildSymbolsIndex(table *SymbolsTable) SymbolsIndex {
 		h := hashSymbol(nsID, local)
 		slot := int(h & mask)
 		inserted := false
-		for probes := 0; probes < size; probes++ {
+		for range size {
 			if index.ID[slot] == 0 {
 				index.ID[slot] = id
 				index.Hash[slot] = h

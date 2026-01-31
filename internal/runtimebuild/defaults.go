@@ -249,11 +249,10 @@ func (c *compiler) validateEnumSets(typ types.Type, normalized string, ctx map[s
 		return fmt.Errorf("value not in enumeration")
 	}
 	table := c.enums.table()
-	values := c.values.table()
 	for _, key := range keys {
 		matched := true
 		for _, enumID := range enumIDs {
-			if !runtime.EnumContains(&table, values, enumID, key.kind, key.bytes) {
+			if !runtime.EnumContains(&table, enumID, key.kind, key.bytes) {
 				matched = false
 				break
 			}

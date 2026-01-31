@@ -5,10 +5,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
-	"math/big"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jacoelho/xsd/internal/num"
 )
 
 // TypedValue represents a value with its XSD type
@@ -122,11 +123,11 @@ func (v *simpleValue[T]) String() string {
 
 // DecimalValue represents a decimal value
 type DecimalValue struct {
-	simpleValue[*big.Rat]
+	simpleValue[num.Dec]
 }
 
 // NewDecimalValue creates a new DecimalValue
-func NewDecimalValue(parsed ParsedValue[*big.Rat], typ *SimpleType) TypedValue {
+func NewDecimalValue(parsed ParsedValue[num.Dec], typ *SimpleType) TypedValue {
 	return &DecimalValue{simpleValue: newSimpleValue(parsed, typ, nil)}
 }
 
@@ -202,11 +203,11 @@ func isAllZeros(s string) bool {
 
 // IntegerValue represents an integer value
 type IntegerValue struct {
-	simpleValue[*big.Int]
+	simpleValue[num.Int]
 }
 
 // NewIntegerValue creates a new IntegerValue
-func NewIntegerValue(parsed ParsedValue[*big.Int], typ *SimpleType) TypedValue {
+func NewIntegerValue(parsed ParsedValue[num.Int], typ *SimpleType) TypedValue {
 	return &IntegerValue{simpleValue: newSimpleValue(parsed, typ, nil)}
 }
 
