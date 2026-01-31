@@ -35,28 +35,26 @@ const (
 // ElementDecl represents an element declaration
 type ElementDecl struct {
 	Type              Type
-	Name              QName
 	ValueContext      map[string]string
+	FixedContext      map[string]string
+	DefaultContext    map[string]string
+	Name              QName
 	SubstitutionGroup QName
 	SourceNamespace   NamespaceURI
 	Fixed             string
-	// FixedContext stores namespace bindings for resolving fixed QName/NOTATION values.
-	FixedContext map[string]string
-	Default      string
-	// DefaultContext stores namespace bindings for resolving default QName/NOTATION values.
-	DefaultContext map[string]string
-	MaxOccurs      Occurs
-	MinOccurs      Occurs
-	Constraints    []*IdentityConstraint
-	Final          DerivationSet
-	Block          DerivationSet
-	Form           FormChoice
-	TypeExplicit   bool
-	HasDefault     bool
-	Abstract       bool
-	Nillable       bool
-	HasFixed       bool
-	IsReference    bool
+	Default           string
+	Constraints       []*IdentityConstraint
+	MinOccurs         Occurs
+	MaxOccurs         Occurs
+	Final             DerivationSet
+	Block             DerivationSet
+	Form              FormChoice
+	TypeExplicit      bool
+	HasDefault        bool
+	Abstract          bool
+	Nillable          bool
+	HasFixed          bool
+	IsReference       bool
 }
 
 // NewElementDeclFromParsed validates a parsed element declaration and returns it if valid.

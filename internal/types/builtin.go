@@ -20,12 +20,12 @@ type BuiltinType struct {
 	validator                  TypeValidator
 	validatorBytes             TypeValidatorBytes
 	fundamentalFacetsCache     *FundamentalFacets
-	fundamentalFacetsComputing bool
-	primitiveTypeComputing     bool
 	simpleWrapper              *SimpleType
 	qname                      QName
 	name                       string
 	whiteSpace                 WhiteSpace
+	fundamentalFacetsComputing bool
+	primitiveTypeComputing     bool
 	ordered                    bool
 }
 

@@ -12,6 +12,7 @@ import (
 )
 
 type identityState struct {
+	arena      *Arena
 	frames     []rtIdentityFrame
 	scopes     []rtIdentityScope
 	violations []error
@@ -116,7 +117,7 @@ type rtConstraintState struct {
 }
 
 type rtIdentityRow struct {
-	values []ic.Key
+	values []runtime.ValueKey
 	hash   uint64
 }
 
@@ -474,7 +475,7 @@ func (s *identityState) finalizeMatches(frame *rtIdentityFrame) {
 
 func (s *identityState) finalizeSelectorMatch(match *rtSelectorMatch) {
 	state := match.constraint
-	values := make([]ic.Key, 0, len(match.fields))
+	values := make([]runtime.ValueKey, 0, len(match.fields))
 	for i := range match.fields {
 		field := match.fields[i]
 		switch {
@@ -491,7 +492,7 @@ func (s *identityState) finalizeSelectorMatch(match *rtSelectorMatch) {
 			state.violations = append(state.violations, identityViolation(state.category, "identity constraint field selects non-simple content"))
 			return
 		default:
-			values = append(values, ic.Key{Kind: field.keyKind, Bytes: append([]byte(nil), field.keyBytes...)})
+			values = append(values, freezeIdentityKey(s.arena, field.keyKind, field.keyBytes))
 		}
 	}
 	row := rtIdentityRow{values: values, hash: ic.HashRow(values)}
@@ -500,6 +501,19 @@ func (s *identityState) finalizeSelectorMatch(match *rtSelectorMatch) {
 		return
 	}
 	state.rows = append(state.rows, row)
+}
+
+func freezeIdentityKey(arena *Arena, kind runtime.ValueKind, key []byte) runtime.ValueKey {
+	if len(key) == 0 {
+		return runtime.ValueKey{Kind: kind, Hash: runtime.HashKey(kind, nil)}
+	}
+	if arena == nil {
+		copied := append([]byte(nil), key...)
+		return runtime.ValueKey{Kind: kind, Hash: runtime.HashKey(kind, copied), Bytes: copied}
+	}
+	buf := arena.Alloc(len(key))
+	copy(buf, key)
+	return runtime.ValueKey{Kind: kind, Hash: runtime.HashKey(kind, buf), Bytes: buf}
 }
 
 func identityViolation(category runtime.ICCategory, msg string) error {

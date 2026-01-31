@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/schema"
@@ -40,6 +41,8 @@ func CompileValidators(sch *parser.Schema, registry *schema.Registry) (*Compiled
 	}
 
 	comp := newCompiler(sch)
+	comp.registry = registry
+	comp.initRuntimeTypeIDs(registry)
 	if err := comp.compileRegistry(registry); err != nil {
 		return nil, err
 	}
@@ -70,6 +73,9 @@ func (c *CompiledValidators) ValidatorForType(typ types.Type) (runtime.Validator
 }
 
 type compiler struct {
+	registry        *schema.Registry
+	runtimeTypeIDs  map[schema.TypeID]runtime.TypeID
+	builtinTypeIDs  map[types.TypeName]runtime.TypeID
 	values          valueBuilder
 	attrDefaults    map[schema.AttrID]runtime.ValueRef
 	elemFixed       map[schema.ElemID]runtime.ValueRef
@@ -106,6 +112,24 @@ func newCompiler(sch *parser.Schema) *compiler {
 		bundle: runtime.ValidatorsBundle{
 			Meta: make([]runtime.ValidatorMeta, 1),
 		},
+	}
+}
+
+func (c *compiler) initRuntimeTypeIDs(registry *schema.Registry) {
+	if registry == nil {
+		return
+	}
+	c.runtimeTypeIDs = make(map[schema.TypeID]runtime.TypeID, len(registry.TypeOrder))
+	c.builtinTypeIDs = make(map[types.TypeName]runtime.TypeID, len(builtinTypeNames()))
+
+	next := runtime.TypeID(1)
+	for _, name := range builtinTypeNames() {
+		c.builtinTypeIDs[name] = next
+		next++
+	}
+	for _, entry := range registry.TypeOrder {
+		c.runtimeTypeIDs[entry.ID] = next
+		next++
 	}
 }
 
@@ -295,14 +319,20 @@ func (c *compiler) compileSimpleType(st *types.SimpleType) (runtime.ValidatorID,
 	case types.UnionVariety:
 		members := c.res.unionMemberTypes(st)
 		memberIDs := make([]runtime.ValidatorID, 0, len(members))
+		memberTypeIDs := make([]runtime.TypeID, 0, len(members))
 		for _, member := range members {
 			id, err := c.compileType(member)
 			if err != nil {
 				return 0, err
 			}
 			memberIDs = append(memberIDs, id)
+			typeID, ok := c.typeIDForType(member)
+			if !ok {
+				return 0, fmt.Errorf("union member type id not found")
+			}
+			memberTypeIDs = append(memberTypeIDs, typeID)
 		}
-		return c.addUnionValidator(ws, facetRef, memberIDs), nil
+		return c.addUnionValidator(ws, facetRef, memberIDs, memberTypeIDs), nil
 	default:
 		kind, err := c.validatorKind(st)
 		if err != nil {
@@ -310,6 +340,39 @@ func (c *compiler) compileSimpleType(st *types.SimpleType) (runtime.ValidatorID,
 		}
 		return c.addAtomicValidator(kind, ws, facetRef, c.stringKindForType(st), c.integerKindForType(st)), nil
 	}
+}
+
+func (c *compiler) typeIDForType(typ types.Type) (runtime.TypeID, bool) {
+	if c == nil || c.registry == nil || typ == nil {
+		return 0, false
+	}
+	if bt, ok := types.AsBuiltinType(typ); ok && bt != nil {
+		if id, ok := c.builtinTypeIDs[types.TypeName(bt.Name().Local)]; ok {
+			return id, true
+		}
+	}
+	if st, ok := types.AsSimpleType(typ); ok && st != nil {
+		if st.IsBuiltin() {
+			if builtin := types.GetBuiltin(types.TypeName(st.Name().Local)); builtin != nil {
+				if id, ok := c.builtinTypeIDs[types.TypeName(builtin.Name().Local)]; ok {
+					return id, true
+				}
+			}
+		}
+		if name := st.Name(); !name.IsZero() {
+			if schemaID, ok := c.registry.Types[name]; ok {
+				if id, ok := c.runtimeTypeIDs[schemaID]; ok {
+					return id, true
+				}
+			}
+		}
+	}
+	if schemaID, ok := c.registry.AnonymousTypes[typ]; ok {
+		if id, ok := c.runtimeTypeIDs[schemaID]; ok {
+			return id, true
+		}
+	}
+	return 0, false
 }
 
 func (c *compiler) compileFacetProgram(st *types.SimpleType, facets, partial []types.Facet) (runtime.FacetProgramRef, error) {
@@ -467,23 +530,23 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 		return []byte(normalized), nil
 	case "decimal":
 		if c.res.isIntegerDerived(typ) {
-			v, err := value.ParseInteger([]byte(normalized))
-			if err != nil {
-				return nil, err
+			v, perr := num.ParseInt([]byte(normalized))
+			if perr != nil {
+				return nil, fmt.Errorf("invalid integer: %s", normalized)
 			}
-			return []byte(v.String()), nil
+			return v.RenderCanonical(nil), nil
 		}
-		_, err := value.ParseDecimal([]byte(normalized))
-		if err != nil {
-			return nil, err
+		v, perr := num.ParseDec([]byte(normalized))
+		if perr != nil {
+			return nil, fmt.Errorf("invalid decimal: %s", normalized)
 		}
-		return value.CanonicalDecimalBytes([]byte(normalized), nil), nil
+		return v.RenderCanonical(nil), nil
 	case "integer", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte", "nonNegativeInteger", "positiveInteger", "negativeInteger", "nonPositiveInteger":
-		v, err := value.ParseInteger([]byte(normalized))
-		if err != nil {
-			return nil, err
+		v, perr := num.ParseInt([]byte(normalized))
+		if perr != nil {
+			return nil, fmt.Errorf("invalid integer: %s", normalized)
 		}
-		return []byte(v.String()), nil
+		return v.RenderCanonical(nil), nil
 	case "boolean":
 		v, err := value.ParseBoolean([]byte(normalized))
 		if err != nil {
@@ -644,23 +707,23 @@ func (c *compiler) comparableValue(lexical string, typ types.Type) (types.Compar
 	switch primName {
 	case "decimal":
 		if c.res.isIntegerDerived(typ) {
-			v, err := value.ParseInteger([]byte(lexical))
-			if err != nil {
-				return nil, err
+			v, perr := num.ParseInt([]byte(lexical))
+			if perr != nil {
+				return nil, fmt.Errorf("invalid integer: %s", lexical)
 			}
-			return types.ComparableBigInt{Value: v}, nil
+			return types.ComparableInt{Value: v}, nil
 		}
-		rat, err := value.ParseDecimal([]byte(lexical))
-		if err != nil {
-			return nil, err
+		dec, perr := num.ParseDec([]byte(lexical))
+		if perr != nil {
+			return nil, fmt.Errorf("invalid decimal: %s", lexical)
 		}
-		return types.ComparableBigRat{Value: rat}, nil
+		return types.ComparableDec{Value: dec}, nil
 	case "integer", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte", "nonNegativeInteger", "positiveInteger", "negativeInteger", "nonPositiveInteger":
-		v, err := value.ParseInteger([]byte(lexical))
-		if err != nil {
-			return nil, err
+		v, perr := num.ParseInt([]byte(lexical))
+		if perr != nil {
+			return nil, fmt.Errorf("invalid integer: %s", lexical)
 		}
-		return types.ComparableBigInt{Value: v}, nil
+		return types.ComparableInt{Value: v}, nil
 	case "float":
 		v, err := value.ParseFloat([]byte(lexical))
 		if err != nil {
@@ -822,9 +885,13 @@ func (c *compiler) addListValidator(ws runtime.WhitespaceMode, facets runtime.Fa
 	return id
 }
 
-func (c *compiler) addUnionValidator(ws runtime.WhitespaceMode, facets runtime.FacetProgramRef, members []runtime.ValidatorID) runtime.ValidatorID {
+func (c *compiler) addUnionValidator(ws runtime.WhitespaceMode, facets runtime.FacetProgramRef, members []runtime.ValidatorID, memberTypes []runtime.TypeID) runtime.ValidatorID {
 	off := uint32(len(c.bundle.UnionMembers))
 	c.bundle.UnionMembers = append(c.bundle.UnionMembers, members...)
+	if len(memberTypes) != len(members) {
+		panic("union member type count mismatch")
+	}
+	c.bundle.UnionMemberTypes = append(c.bundle.UnionMemberTypes, memberTypes...)
 	index := uint32(len(c.bundle.Union))
 	c.bundle.Union = append(c.bundle.Union, runtime.UnionValidator{
 		MemberOff: off,

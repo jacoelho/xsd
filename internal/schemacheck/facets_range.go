@@ -496,7 +496,7 @@ func compareNumericFacetValues(val1, val2 string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return d1.Cmp(d2), nil
+	return d1.Compare(d2), nil
 }
 
 func compareFloatFacetValues(val1, val2 string) (int, error) {

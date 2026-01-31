@@ -142,7 +142,7 @@ func Benchmark_EnumLookup_TypedKeys(b *testing.B) {
 
 	b.ReportAllocs()
 	for b.Loop() {
-		if !runtime.EnumContains(&rt.Enums, rt.Values, enumID, kind, key) {
+		if !runtime.EnumContains(&rt.Enums, enumID, kind, key) {
 			b.Fatalf("enum lookup failed")
 		}
 	}

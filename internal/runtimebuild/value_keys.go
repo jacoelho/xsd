@@ -2,11 +2,12 @@ package runtimebuild
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
 type keyBytes struct {
@@ -35,6 +36,7 @@ func (c *compiler) keyBytesForNormalized(normalized string, typ types.Type, ctx 
 		}
 		items := splitXMLWhitespace(normalized)
 		var keyBytesBuf []byte
+		keyBytesBuf = valuekey.AppendUvarint(keyBytesBuf, uint64(len(items)))
 		for _, itemLex := range items {
 			itemKey, err := c.keyBytesForNormalizedSingle(itemLex, item, ctx)
 			if err != nil {
@@ -97,164 +99,143 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 	if err != nil {
 		return keyBytes{}, err
 	}
-	var vkind runtime.ValidatorKind
-	if st, ok := types.AsSimpleType(typ); ok && st != nil {
-		vkind, err = c.validatorKind(st)
-		if err != nil {
-			return keyBytes{}, err
-		}
-	} else {
-		if primName == "decimal" && c.res.isIntegerDerived(typ) {
-			vkind = runtime.VInteger
-		} else {
-			vkind, err = builtinValidatorKind(primName)
-			if err != nil {
-				return keyBytes{}, err
-			}
-		}
-	}
-	kind, ok := runtime.ValueKindForValidatorKind(vkind)
-	if !ok {
-		return keyBytes{}, fmt.Errorf("unsupported value kind")
-	}
-
-	if c.res.isQNameOrNotation(typ) {
-		resolver := mapResolver(ctx)
-		canon, err := value.CanonicalQName([]byte(normalized), resolver, nil)
-		if err != nil {
-			return keyBytes{}, err
-		}
-		return keyBytes{kind: kind, bytes: canon}, nil
-	}
-
 	switch primName {
-	case "string", "normalizedString", "token", "language", "Name", "NCName", "ID", "IDREF", "ENTITY", "NMTOKEN", "anyURI":
-		return keyBytes{kind: kind, bytes: []byte(normalized)}, nil
+	case "string", "normalizedString", "token", "language", "Name", "NCName", "ID", "IDREF", "ENTITY", "NMTOKEN":
+		return keyBytes{kind: runtime.VKString, bytes: valuekey.StringKeyString(0, normalized)}, nil
+	case "anyURI":
+		return keyBytes{kind: runtime.VKString, bytes: valuekey.StringKeyString(1, normalized)}, nil
 	case "decimal":
-		if kind == runtime.VKInteger {
-			v, err := value.ParseInteger([]byte(normalized))
+		if c.res.isIntegerDerived(typ) {
+			intVal, err := parseInt(normalized)
 			if err != nil {
 				return keyBytes{}, err
 			}
-			canon := []byte(v.String())
-			key, err := value.CanonicalIntegerKeyFromCanonical(canon, nil)
-			if err != nil {
+			if err := validateIntegerKind(c.integerKindForType(typ), intVal); err != nil {
 				return keyBytes{}, err
 			}
-			return keyBytes{kind: kind, bytes: key}, nil
+			return keyBytes{kind: runtime.VKDecimal, bytes: num.EncodeIntKey(nil, intVal)}, nil
 		}
-		key, err := value.CanonicalDecimalKey([]byte(normalized), nil)
+		decVal, err := parseDec(normalized)
 		if err != nil {
 			return keyBytes{}, err
 		}
-		return keyBytes{kind: kind, bytes: key}, nil
+		return keyBytes{kind: runtime.VKDecimal, bytes: num.EncodeDecKey(nil, decVal)}, nil
 	case "integer", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte", "nonNegativeInteger", "positiveInteger", "negativeInteger", "nonPositiveInteger":
-		v, err := value.ParseInteger([]byte(normalized))
+		intVal, err := parseInt(normalized)
 		if err != nil {
 			return keyBytes{}, err
 		}
-		canon := []byte(v.String())
-		key, err := value.CanonicalIntegerKeyFromCanonical(canon, nil)
-		if err != nil {
+		if err := validateIntegerKind(c.integerKindForType(typ), intVal); err != nil {
 			return keyBytes{}, err
 		}
-		return keyBytes{kind: kind, bytes: key}, nil
+		return keyBytes{kind: runtime.VKDecimal, bytes: num.EncodeIntKey(nil, intVal)}, nil
 	case "boolean":
 		v, err := value.ParseBoolean([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
-		out := []byte("false")
 		if v {
-			out = []byte("true")
+			return keyBytes{kind: runtime.VKBool, bytes: []byte{1}}, nil
 		}
-		return keyBytes{kind: kind, bytes: out}, nil
+		return keyBytes{kind: runtime.VKBool, bytes: []byte{0}}, nil
 	case "float":
-		v, err := value.ParseFloat([]byte(normalized))
-		if err != nil {
-			return keyBytes{}, err
+		v, class, perr := num.ParseFloat32([]byte(normalized))
+		if perr != nil {
+			return keyBytes{}, fmt.Errorf("invalid float")
 		}
-		return keyBytes{kind: kind, bytes: value.CanonicalFloat32Key(v, nil)}, nil
+		return keyBytes{kind: runtime.VKFloat32, bytes: valuekey.Float32Key(nil, v, class)}, nil
 	case "double":
-		v, err := value.ParseDouble([]byte(normalized))
-		if err != nil {
-			return keyBytes{}, err
+		v, class, perr := num.ParseFloat64([]byte(normalized))
+		if perr != nil {
+			return keyBytes{}, fmt.Errorf("invalid double")
 		}
-		return keyBytes{kind: kind, bytes: value.CanonicalFloat64Key(v, nil)}, nil
+		return keyBytes{kind: runtime.VKFloat64, bytes: valuekey.Float64Key(nil, v, class)}, nil
 	case "dateTime":
 		t, err := value.ParseDateTime([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: kind, bytes: value.CanonicalTemporalKey(t, "dateTime", hasTZ, nil)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 0, t, hasTZ)}, nil
 	case "date":
 		t, err := value.ParseDate([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: kind, bytes: value.CanonicalTemporalKey(t, "date", hasTZ, nil)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 1, t, hasTZ)}, nil
 	case "time":
 		t, err := value.ParseTime([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: kind, bytes: value.CanonicalTemporalKey(t, "time", hasTZ, nil)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 2, t, hasTZ)}, nil
 	case "gYearMonth":
 		t, err := value.ParseGYearMonth([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: kind, bytes: value.CanonicalTemporalKey(t, "gYearMonth", hasTZ, nil)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 3, t, hasTZ)}, nil
 	case "gYear":
 		t, err := value.ParseGYear([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: kind, bytes: value.CanonicalTemporalKey(t, "gYear", hasTZ, nil)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 4, t, hasTZ)}, nil
 	case "gMonthDay":
 		t, err := value.ParseGMonthDay([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: kind, bytes: value.CanonicalTemporalKey(t, "gMonthDay", hasTZ, nil)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 5, t, hasTZ)}, nil
 	case "gDay":
 		t, err := value.ParseGDay([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: kind, bytes: value.CanonicalTemporalKey(t, "gDay", hasTZ, nil)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 6, t, hasTZ)}, nil
 	case "gMonth":
 		t, err := value.ParseGMonth([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
 		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: kind, bytes: value.CanonicalTemporalKey(t, "gMonth", hasTZ, nil)}, nil
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 7, t, hasTZ)}, nil
 	case "duration":
 		dur, err := types.ParseXSDDuration(normalized)
 		if err != nil {
 			return keyBytes{}, err
 		}
-		return keyBytes{kind: kind, bytes: types.CanonicalDurationKey(dur, nil)}, nil
+		return keyBytes{kind: runtime.VKDuration, bytes: valuekey.DurationKeyBytes(nil, dur)}, nil
 	case "hexBinary":
 		b, err := types.ParseHexBinary(normalized)
 		if err != nil {
 			return keyBytes{}, err
 		}
-		return keyBytes{kind: kind, bytes: []byte(strings.ToUpper(fmt.Sprintf("%x", b)))}, nil
+		return keyBytes{kind: runtime.VKBinary, bytes: valuekey.BinaryKeyBytes(nil, 0, b)}, nil
 	case "base64Binary":
 		b, err := types.ParseBase64Binary(normalized)
 		if err != nil {
 			return keyBytes{}, err
 		}
-		return keyBytes{kind: kind, bytes: []byte(encodeBase64(b))}, nil
+		return keyBytes{kind: runtime.VKBinary, bytes: valuekey.BinaryKeyBytes(nil, 1, b)}, nil
+	case "QName":
+		qname, err := types.ParseQNameValue(normalized, ctx)
+		if err != nil {
+			return keyBytes{}, err
+		}
+		return keyBytes{kind: runtime.VKQName, bytes: valuekey.QNameKeyStrings(0, string(qname.Namespace), qname.Local)}, nil
+	case "NOTATION":
+		qname, err := types.ParseQNameValue(normalized, ctx)
+		if err != nil {
+			return keyBytes{}, err
+		}
+		return keyBytes{kind: runtime.VKQName, bytes: valuekey.QNameKeyStrings(1, string(qname.Namespace), qname.Local)}, nil
 	default:
 		return keyBytes{}, fmt.Errorf("unsupported primitive type %s", primName)
 	}
@@ -262,10 +243,65 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 
 func (c *compiler) makeValueKey(kind runtime.ValueKind, key []byte) runtime.ValueKey {
 	hash := runtime.HashKey(kind, key)
-	ref := c.values.addWithHash(key, hash)
+	bytes := append([]byte(nil), key...)
 	return runtime.ValueKey{
-		Kind: kind,
-		Hash: hash,
-		Ref:  ref,
+		Kind:  kind,
+		Hash:  hash,
+		Bytes: bytes,
 	}
+}
+
+func parseInt(normalized string) (num.Int, error) {
+	val, perr := num.ParseInt([]byte(normalized))
+	if perr != nil {
+		return num.Int{}, fmt.Errorf("invalid integer")
+	}
+	return val, nil
+}
+
+func parseDec(normalized string) (num.Dec, error) {
+	val, perr := num.ParseDec([]byte(normalized))
+	if perr != nil {
+		return num.Dec{}, fmt.Errorf("invalid decimal")
+	}
+	return val, nil
+}
+
+func validateIntegerKind(kind runtime.IntegerKind, intVal num.Int) error {
+	spec, ok := runtime.IntegerKindSpecFor(kind)
+	if !ok {
+		return nil
+	}
+	switch spec.SignRule {
+	case runtime.IntegerSignNonNegative:
+		if intVal.Sign < 0 {
+			if spec.HasRange {
+				return fmt.Errorf("invalid %s", spec.Label)
+			}
+			return fmt.Errorf("invalid non-negative integer")
+		}
+	case runtime.IntegerSignPositive:
+		if intVal.Sign <= 0 {
+			return fmt.Errorf("invalid positive integer")
+		}
+	case runtime.IntegerSignNonPositive:
+		if intVal.Sign > 0 {
+			return fmt.Errorf("invalid non-positive integer")
+		}
+	case runtime.IntegerSignNegative:
+		if intVal.Sign >= 0 {
+			return fmt.Errorf("invalid negative integer")
+		}
+	}
+	if spec.HasRange {
+		return checkIntRange(intVal, spec.Min, spec.Max)
+	}
+	return nil
+}
+
+func checkIntRange(intVal, minValue, maxValue num.Int) error {
+	if intVal.Compare(minValue) < 0 || intVal.Compare(maxValue) > 0 {
+		return fmt.Errorf("integer out of range")
+	}
+	return nil
 }

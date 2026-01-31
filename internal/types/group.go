@@ -23,9 +23,9 @@ const (
 // ModelGroup represents sequence, choice, or all groups
 type ModelGroup struct {
 	SourceNamespace NamespaceURI
+	Particles       []Particle
 	MinOccurs       Occurs
 	MaxOccurs       Occurs
-	Particles       []Particle
 	Kind            GroupKind
 }
 

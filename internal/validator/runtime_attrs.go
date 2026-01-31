@@ -36,7 +36,7 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 		return s.validateSimpleTypeAttrs(attrs, storeAttrs)
 	}
 
-	ct := s.rt.ComplexTypes[typ.Complex.ID]
+	ct := &s.rt.ComplexTypes[typ.Complex.ID]
 	uses := s.attrUses(ct.Attrs)
 	present := s.prepareAttrPresent(len(uses))
 
@@ -44,12 +44,12 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 		return AttrResult{}, err
 	}
 
-	validated, seenID, err := s.validateComplexAttrs(ct, uses, present, attrs, resolver, storeAttrs)
+	validated, seenID, err := s.validateComplexAttrs(ct, present, attrs, resolver, storeAttrs)
 	if err != nil {
 		return AttrResult{}, err
 	}
 
-	applied, _, err := s.applyDefaultAttrs(uses, present, storeAttrs, seenID)
+	applied, err := s.applyDefaultAttrs(uses, present, storeAttrs, seenID)
 	if err != nil {
 		return AttrResult{}, err
 	}
@@ -95,7 +95,7 @@ func (s *Session) prepareAttrPresent(size int) []bool {
 	return present
 }
 
-func (s *Session) validateComplexAttrs(ct runtime.ComplexType, uses []runtime.AttrUse, present []bool, attrs []StartAttr, resolver value.NSResolver, storeAttrs bool) ([]StartAttr, bool, error) {
+func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, attrs []StartAttr, resolver value.NSResolver, storeAttrs bool) ([]StartAttr, bool, error) {
 	var validated []StartAttr
 	if storeAttrs {
 		validated = s.attrValidatedBuf[:0]
@@ -239,7 +239,7 @@ func (s *Session) validateComplexAttrs(ct runtime.ComplexType, uses []runtime.At
 	return validated, seenID, nil
 }
 
-func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, storeAttrs bool, seenID bool) ([]AttrApplied, bool, error) {
+func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, storeAttrs, seenID bool) ([]AttrApplied, error) {
 	applied := s.attrAppliedBuf[:0]
 	if cap(applied) < len(uses) {
 		applied = make([]AttrApplied, 0, len(uses))
@@ -253,22 +253,22 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 			continue
 		}
 		if use.Use == runtime.AttrRequired {
-			return nil, seenID, newValidationError(xsderrors.ErrRequiredAttributeMissing, "required attribute missing")
+			return nil, newValidationError(xsderrors.ErrRequiredAttributeMissing, "required attribute missing")
 		}
 		if use.Fixed.Present {
 			if s.isIDValidator(use.Validator) {
 				if seenID {
-					return nil, seenID, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
+					return nil, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
 				}
 				seenID = true
 			}
 			if err := s.trackDefaultValue(use.Validator, valueBytes(s.rt.Values, use.Fixed)); err != nil {
-				return nil, seenID, err
+				return nil, err
 			}
 			if storeAttrs {
 				kind, key, err := s.keyForCanonicalValue(use.Validator, valueBytes(s.rt.Values, use.Fixed))
 				if err != nil {
-					return nil, seenID, err
+					return nil, err
 				}
 				applied = append(applied, AttrApplied{
 					Name:     use.Name,
@@ -285,17 +285,17 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 		if use.Default.Present {
 			if s.isIDValidator(use.Validator) {
 				if seenID {
-					return nil, seenID, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
+					return nil, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
 				}
 				seenID = true
 			}
 			if err := s.trackDefaultValue(use.Validator, valueBytes(s.rt.Values, use.Default)); err != nil {
-				return nil, seenID, err
+				return nil, err
 			}
 			if storeAttrs {
 				kind, key, err := s.keyForCanonicalValue(use.Validator, valueBytes(s.rt.Values, use.Default))
 				if err != nil {
-					return nil, seenID, err
+					return nil, err
 				}
 				applied = append(applied, AttrApplied{
 					Name:     use.Name,
@@ -309,7 +309,7 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 		}
 	}
 
-	return applied, seenID, nil
+	return applied, nil
 }
 
 func (s *Session) attrNamesEqual(a, b *StartAttr) bool {

@@ -73,14 +73,14 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 	}
 	includeKey := s.loader.loadKey(systemID, includingNS)
 	if s.loader.alreadyMergedInclude(s.key, includeKey) {
-		if err := closeSchemaDoc(doc, systemID); err != nil {
-			return err
+		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
+			return closeErr
 		}
 		return nil
 	}
 	if s.loader.state.isLoading(includeKey) {
-		if err := closeSchemaDoc(doc, systemID); err != nil {
-			return err
+		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
+			return closeErr
 		}
 		s.loader.deferInclude(includeKey, s.key, include.SchemaLocation)
 		return nil
@@ -128,14 +128,14 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 	importNS := types.NamespaceURI(imp.Namespace)
 	importKey := s.loader.loadKey(systemID, importNS)
 	if s.loader.alreadyMergedImport(s.key, importKey) {
-		if err := closeSchemaDoc(doc, systemID); err != nil {
-			return err
+		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
+			return closeErr
 		}
 		return nil
 	}
 	if s.loader.state.isLoading(importKey) {
-		if err := closeSchemaDoc(doc, systemID); err != nil {
-			return err
+		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
+			return closeErr
 		}
 		s.loader.deferImport(importKey, s.key, imp.SchemaLocation, imp.Namespace)
 		return nil

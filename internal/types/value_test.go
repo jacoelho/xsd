@@ -3,9 +3,10 @@ package types
 import (
 	"fmt"
 	"math"
-	"math/big"
 	"testing"
 	"time"
+
+	"github.com/jacoelho/xsd/internal/num"
 )
 
 func TestTypedValue_Decimal(t *testing.T) {
@@ -25,20 +26,24 @@ func TestTypedValue_Decimal(t *testing.T) {
 	if value.Lexical() != lexical {
 		t.Errorf("Lexical() = %v, want %v", value.Lexical(), lexical)
 	}
-	if value.Native() != native {
-		t.Errorf("Native() = %v, want %v", value.Native(), native)
+	decNative, ok := value.Native().(num.Dec)
+	if !ok {
+		t.Fatalf("Native() type = %T, want num.Dec", value.Native())
+	}
+	if decNative.Compare(native) != 0 {
+		t.Errorf("Native() = %v, want %v", decNative, native)
 	}
 	if value.String() == "" {
 		t.Error("String() should not be empty")
 	}
 
 	// test type-safe extraction
-	extracted, err := ValueAs[*big.Rat](value)
+	extracted, err := ValueAs[num.Dec](value)
 	if err != nil {
-		t.Errorf("ValueAs[*big.Rat]() error = %v", err)
+		t.Errorf("ValueAs[num.Dec]() error = %v", err)
 	}
-	if extracted != native {
-		t.Errorf("ValueAs[*big.Rat]() = %v, want %v", extracted, native)
+	if extracted.Compare(native) != 0 {
+		t.Errorf("ValueAs[num.Dec]() = %v, want %v", extracted, native)
 	}
 
 	// test type mismatch
@@ -181,20 +186,24 @@ func TestTypedValue_Integer(t *testing.T) {
 	if value.Lexical() != lexical {
 		t.Errorf("Lexical() = %v, want %v", value.Lexical(), lexical)
 	}
-	if value.Native() != native {
-		t.Errorf("Native() = %v, want %v", value.Native(), native)
+	intNative, ok := value.Native().(num.Int)
+	if !ok {
+		t.Fatalf("Native() type = %T, want num.Int", value.Native())
+	}
+	if intNative.Compare(native) != 0 {
+		t.Errorf("Native() = %v, want %v", intNative, native)
 	}
 	if value.String() == "" {
 		t.Error("String() should not be empty")
 	}
 
 	// test type-safe extraction
-	extracted, err := ValueAs[*big.Int](value)
+	extracted, err := ValueAs[num.Int](value)
 	if err != nil {
-		t.Errorf("ValueAs[*big.Int]() error = %v", err)
+		t.Errorf("ValueAs[num.Int]() error = %v", err)
 	}
-	if extracted.Cmp(native) != 0 {
-		t.Errorf("ValueAs[*big.Int]() = %v, want %v", extracted, native)
+	if extracted.Compare(native) != 0 {
+		t.Errorf("ValueAs[num.Int]() = %v, want %v", extracted, native)
 	}
 }
 
@@ -338,32 +347,31 @@ func TestTypedValue_CanonicalNumericString(t *testing.T) {
 }
 
 func TestValueAs_WithComparableWrappers(t *testing.T) {
-	// test ComparableBigRat - unwrap to *big.Rat
-	rat := &big.Rat{}
-	rat.SetString("1.5")
+	// test ComparableDec - unwrap to num.Dec
+	dec, _ := ParseDecimal("1.5")
 	typ := mustBuiltinSimpleType(t, TypeNameDecimal)
-	val := NewDecimalValue(NewParsedValue("1.5", rat), typ)
+	val := NewDecimalValue(NewParsedValue("1.5", dec), typ)
 
-	// test direct unwrap to *big.Rat
-	result, err := ValueAs[*big.Rat](val)
+	// test direct unwrap to num.Dec
+	result, err := ValueAs[num.Dec](val)
 	if err != nil {
-		t.Errorf("ValueAs[*big.Rat]() error = %v", err)
+		t.Errorf("ValueAs[num.Dec]() error = %v", err)
 	}
-	if result.Cmp(rat) != 0 {
-		t.Errorf("ValueAs[*big.Rat]() = %v, want %v", result, rat)
+	if result.Compare(dec) != 0 {
+		t.Errorf("ValueAs[num.Dec]() = %v, want %v", result, dec)
 	}
 
-	// test ComparableBigInt - unwrap to *big.Int
-	bigInt := big.NewInt(123)
+	// test ComparableInt - unwrap to num.Int
+	intVal, _ := ParseInteger("123")
 	typInt := mustBuiltinSimpleType(t, TypeNameInteger)
-	valInt := NewIntegerValue(NewParsedValue("123", bigInt), typInt)
+	valInt := NewIntegerValue(NewParsedValue("123", intVal), typInt)
 
-	resultInt, err := ValueAs[*big.Int](valInt)
+	resultInt, err := ValueAs[num.Int](valInt)
 	if err != nil {
-		t.Errorf("ValueAs[*big.Int]() error = %v", err)
+		t.Errorf("ValueAs[num.Int]() error = %v", err)
 	}
-	if resultInt.Cmp(bigInt) != 0 {
-		t.Errorf("ValueAs[*big.Int]() = %v, want %v", resultInt, bigInt)
+	if resultInt.Compare(intVal) != 0 {
+		t.Errorf("ValueAs[num.Int]() = %v, want %v", resultInt, intVal)
 	}
 
 	// test ComparableTime - unwrap to time.Time
@@ -420,19 +428,21 @@ func parseTemporalForType(typeName TypeName, lexical string) (time.Time, error) 
 
 func TestValueAs_UnwrappableInterface(t *testing.T) {
 	// test that Unwrappable interface works correctly
-	rat := &big.Rat{}
-	rat.SetString("1.5")
-	cbr := ComparableBigRat{Value: rat}
+	dec, _ := ParseDecimal("1.5")
+	cbr := ComparableDec{Value: dec}
 
 	// test Unwrap method
-	unwrapped := cbr.Unwrap()
-	if unwrapped != rat {
-		t.Errorf("Unwrap() = %v, want %v", unwrapped, rat)
+	unwrapped, ok := cbr.Unwrap().(num.Dec)
+	if !ok {
+		t.Fatalf("Unwrap() should return num.Dec")
+	}
+	if unwrapped.Compare(dec) != 0 {
+		t.Errorf("Unwrap() = %v, want %v", unwrapped, dec)
 	}
 
 	// test that all Comparable types implement Unwrappable
-	var _ Unwrappable = ComparableBigRat{}
-	var _ Unwrappable = ComparableBigInt{}
+	var _ Unwrappable = ComparableDec{}
+	var _ Unwrappable = ComparableInt{}
 	var _ Unwrappable = ComparableTime{}
 	var _ Unwrappable = ComparableFloat64{}
 	var _ Unwrappable = ComparableFloat32{}

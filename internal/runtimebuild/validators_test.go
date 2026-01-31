@@ -5,10 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/schema"
-	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
 func TestValidatorOrderAndFacetInheritance(t *testing.T) {
@@ -61,10 +62,11 @@ func TestEnumCanonicalizationDecimal(t *testing.T) {
 	if key.kind != runtime.VKDecimal {
 		t.Fatalf("expected decimal key kind, got %v", key.kind)
 	}
-	want, err := value.CanonicalDecimalKey([]byte("01"), nil)
+	dec, err := num.ParseDec([]byte("01"))
 	if err != nil {
-		t.Fatalf("canonical decimal key: %v", err)
+		t.Fatalf("parse decimal: %v", err)
 	}
+	want := num.EncodeDecKey(nil, dec)
 	if !bytes.Equal(key.bytes, want) {
 		t.Fatalf("expected decimal key %v, got %v", want, key.bytes)
 	}
@@ -89,7 +91,7 @@ func TestEnumCanonicalizationQName(t *testing.T) {
 	if len(keys) != 1 {
 		t.Fatalf("expected 1 enum key, got %d", len(keys))
 	}
-	expected := []byte("urn:ex\x00val")
+	expected := valuekey.QNameKeyStrings(0, "urn:ex", "val")
 	key := keys[0]
 	if key.kind != runtime.VKQName {
 		t.Fatalf("expected QName key kind, got %v", key.kind)
@@ -122,18 +124,20 @@ func TestEnumCanonicalizationUnionOrder(t *testing.T) {
 	var sawInt, sawString bool
 	for _, key := range keys {
 		switch key.kind {
-		case runtime.VKInteger:
-			want, err := value.CanonicalDecimalKey([]byte("01"), nil)
+		case runtime.VKDecimal:
+			intVal, err := num.ParseInt([]byte("01"))
 			if err != nil {
-				t.Fatalf("canonical integer key: %v", err)
+				t.Fatalf("parse integer: %v", err)
 			}
+			want := num.EncodeIntKey(nil, intVal)
 			if !bytes.Equal(key.bytes, want) {
 				t.Fatalf("expected integer key %v, got %v", want, key.bytes)
 			}
 			sawInt = true
 		case runtime.VKString:
-			if string(key.bytes) != "01" {
-				t.Fatalf("expected string key %q, got %q", "01", key.bytes)
+			want := valuekey.StringKeyString(0, "01")
+			if !bytes.Equal(key.bytes, want) {
+				t.Fatalf("expected string key %q, got %q", want, key.bytes)
 			}
 			sawString = true
 		}
@@ -264,12 +268,7 @@ func enumKeys(t *testing.T, compiled *CompiledValidators, enumID runtime.EnumID)
 	out := make([]enumKey, 0, ln)
 	for i := range ln {
 		key := compiled.Enums.Keys[off+i]
-		ref := key.Ref
-		if int(ref.Off+ref.Len) > len(compiled.Values.Blob) {
-			t.Fatalf("value ref out of range")
-		}
-		val := compiled.Values.Blob[ref.Off : ref.Off+ref.Len]
-		out = append(out, enumKey{kind: key.Kind, bytes: append([]byte(nil), val...)})
+		out = append(out, enumKey{kind: key.Kind, bytes: append([]byte(nil), key.Bytes...)})
 	}
 	return out
 }

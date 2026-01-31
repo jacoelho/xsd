@@ -21,7 +21,7 @@ func TestTypeCacheConcurrency(t *testing.T) {
 	const workers = 16
 	var wg sync.WaitGroup
 	wg.Add(workers * 3)
-	for i := 0; i < workers; i++ {
+	for range workers {
 		go func() {
 			defer wg.Done()
 			_ = builtin.PrimitiveType()

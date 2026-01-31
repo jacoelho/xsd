@@ -258,6 +258,7 @@ func digestValidators(h *digestBuilder, bundle *ValidatorsBundle) {
 		h.u32(v.MemberLen)
 	}
 	digestValidatorIDs(h, bundle.UnionMembers)
+	digestTypeIDs(h, bundle.UnionMemberTypes)
 	h.u32(uint32(len(bundle.Meta)))
 	for _, meta := range bundle.Meta {
 		h.u8(uint8(meta.Kind))
@@ -295,7 +296,7 @@ func digestEnums(h *digestBuilder, enums *EnumTable) {
 	for _, key := range enums.Keys {
 		h.u8(uint8(key.Kind))
 		h.u64(key.Hash)
-		digestValueRef(h, key.Ref)
+		h.bytes(key.Bytes)
 	}
 	digestU32Slice(h, enums.HashOff)
 	digestU32Slice(h, enums.HashLen)

@@ -2,8 +2,9 @@ package types
 
 import (
 	"math"
-	"math/big"
 	"time"
+
+	"github.com/jacoelho/xsd/internal/num"
 )
 
 // ValuesEqual reports whether two typed values are equal in the value space.
@@ -23,22 +24,22 @@ func ValuesEqual(left, right TypedValue) bool {
 	}
 
 	switch l := leftNative.(type) {
-	case *big.Rat:
+	case num.Dec:
 		switch r := rightNative.(type) {
-		case *big.Rat:
-			return l.Cmp(r) == 0
-		case *big.Int:
-			return l.Cmp(new(big.Rat).SetInt(r)) == 0
+		case num.Dec:
+			return l.Compare(r) == 0
+		case num.Int:
+			return l.Compare(r.AsDec()) == 0
 		default:
 			return false
 		}
 
-	case *big.Int:
+	case num.Int:
 		switch r := rightNative.(type) {
-		case *big.Int:
-			return l.Cmp(r) == 0
-		case *big.Rat:
-			return new(big.Rat).SetInt(l).Cmp(r) == 0
+		case num.Int:
+			return l.Compare(r) == 0
+		case num.Dec:
+			return l.CompareDec(r) == 0
 		default:
 			return false
 		}

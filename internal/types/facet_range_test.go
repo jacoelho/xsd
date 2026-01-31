@@ -6,12 +6,12 @@ import (
 	"time"
 )
 
-func TestGenericMinInclusive_BigRat(t *testing.T) {
+func TestGenericMinInclusive_Decimal(t *testing.T) {
 	decimalType := &SimpleType{
 		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
 	}
 	minVal, _ := ParseDecimal("100")
-	compMin := ComparableBigRat{Value: minVal, Typ: decimalType}
+	compMin := ComparableDec{Value: minVal, Typ: decimalType}
 	facet := &RangeFacet{
 		name:    "minInclusive",
 		lexical: "100",
@@ -36,12 +36,12 @@ func TestGenericMinInclusive_BigRat(t *testing.T) {
 	}
 }
 
-func TestGenericMaxInclusive_BigRat(t *testing.T) {
+func TestGenericMaxInclusive_Decimal(t *testing.T) {
 	decimalType := &SimpleType{
 		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
 	}
 	maxVal, _ := ParseDecimal("100")
-	compMax := ComparableBigRat{Value: maxVal, Typ: decimalType}
+	compMax := ComparableDec{Value: maxVal, Typ: decimalType}
 	facet := &RangeFacet{
 		name:    "maxInclusive",
 		lexical: "100",
@@ -131,12 +131,12 @@ func TestTimeLeapSecondFacetRange(t *testing.T) {
 	}
 }
 
-func TestGenericMinInclusive_BigInt(t *testing.T) {
+func TestGenericMinInclusive_Integer(t *testing.T) {
 	integerType := &SimpleType{
 		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "integer"},
 	}
 	minVal, _ := ParseInteger("100")
-	compMin := ComparableBigInt{Value: minVal, Typ: integerType}
+	compMin := ComparableInt{Value: minVal, Typ: integerType}
 	facet := &RangeFacet{
 		name:    "minInclusive",
 		lexical: "100",
@@ -159,7 +159,7 @@ func TestGenericMinExclusive(t *testing.T) {
 		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
 	}
 	minVal, _ := ParseDecimal("100")
-	compMin := ComparableBigRat{Value: minVal, Typ: decimalType}
+	compMin := ComparableDec{Value: minVal, Typ: decimalType}
 	facet := &RangeFacet{
 		name:    "minExclusive",
 		lexical: "100",
@@ -188,7 +188,7 @@ func TestGenericMaxExclusive(t *testing.T) {
 		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "decimal"},
 	}
 	maxVal, _ := ParseDecimal("100")
-	compMax := ComparableBigRat{Value: maxVal, Typ: decimalType}
+	compMax := ComparableDec{Value: maxVal, Typ: decimalType}
 	facet := &RangeFacet{
 		name:    "maxExclusive",
 		lexical: "100",
@@ -220,7 +220,7 @@ func TestGenericFacet_TypeMismatch(t *testing.T) {
 		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "boolean"},
 	}
 	minVal, _ := ParseDecimal("100")
-	compMin := ComparableBigRat{Value: minVal, Typ: decimalType}
+	compMin := ComparableDec{Value: minVal, Typ: decimalType}
 	facet := &RangeFacet{
 		name:    "minInclusive",
 		lexical: "100",
@@ -245,7 +245,7 @@ func TestGenericFacet_StringTypedValue_Decimal(t *testing.T) {
 	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	maxVal, _ := ParseDecimal("100")
-	compMax := ComparableBigRat{Value: maxVal, Typ: decimalType}
+	compMax := ComparableDec{Value: maxVal, Typ: decimalType}
 	facet := &RangeFacet{
 		name:    "maxExclusive",
 		lexical: "100",
@@ -261,7 +261,7 @@ func TestGenericFacet_StringTypedValue_Decimal(t *testing.T) {
 		Typ:   decimalType,
 	}
 
-	// should pass (50 < 100) - the string should be parsed to *big.Rat
+	// should pass (50 < 100) - the string should be parsed to decimal
 	if err := facet.Validate(stringTypedValue, decimalType); err != nil {
 		t.Errorf("Validate() error = %v, want nil (string '50' should be parsed and compared)", err)
 	}
@@ -281,7 +281,7 @@ func TestGenericFacet_StringTypedValue_Decimal_MinInclusive(t *testing.T) {
 	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	minVal, _ := ParseDecimal("100")
-	compMin := ComparableBigRat{Value: minVal, Typ: decimalType}
+	compMin := ComparableDec{Value: minVal, Typ: decimalType}
 	facet := &RangeFacet{
 		name:    "minInclusive",
 		lexical: "100",
@@ -314,7 +314,7 @@ func TestGenericFacet_StringTypedValue_Decimal_MinExclusive(t *testing.T) {
 	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
 	minVal, _ := ParseDecimal("100")
-	compMin := ComparableBigRat{Value: minVal, Typ: decimalType}
+	compMin := ComparableDec{Value: minVal, Typ: decimalType}
 	facet := &RangeFacet{
 		name:    "minExclusive",
 		lexical: "100",
@@ -347,9 +347,9 @@ func TestGenericFacet_StringTypedValue_Integer(t *testing.T) {
 	// create an integer type (primitive is decimal)
 	integerType := mustBuiltinSimpleType(t, TypeNameInteger)
 
-	// create facet with maxInclusive on integer (uses ComparableBigInt)
+	// create facet with maxInclusive on integer (uses ComparableInt)
 	maxVal, _ := ParseInteger("100")
-	compMax := ComparableBigInt{Value: maxVal, Typ: integerType}
+	compMax := ComparableInt{Value: maxVal, Typ: integerType}
 	facet := &RangeFacet{
 		name:    "maxInclusive",
 		lexical: "100",
@@ -363,7 +363,7 @@ func TestGenericFacet_StringTypedValue_Integer(t *testing.T) {
 		Typ:   integerType,
 	}
 
-	// should pass (50 <= 100) - the string should be parsed to *big.Int
+	// should pass (50 <= 100) - the string should be parsed to integer
 	if err := facet.Validate(stringTypedValue, integerType); err != nil {
 		t.Errorf("Validate() error = %v, want nil (string '50' should be parsed and compared)", err)
 	}
@@ -378,7 +378,7 @@ func TestGenericFacet_ValueSpaceComparison_Decimal(t *testing.T) {
 
 	// create facet with value "1.0"
 	facetVal, _ := ParseDecimal("1.0")
-	compFacet := ComparableBigRat{Value: facetVal, Typ: decimalType}
+	compFacet := ComparableDec{Value: facetVal, Typ: decimalType}
 	facet := &RangeFacet{
 		name:    "maxInclusive",
 		lexical: "1.0",
@@ -562,9 +562,9 @@ func TestRangeFacet_CrossTypeNumeric(t *testing.T) {
 	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 	integerType := mustBuiltinSimpleType(t, TypeNameInteger)
 
-	// create maxExclusive facet with decimal value (ComparableBigRat)
+	// create maxExclusive facet with decimal value (ComparableDec)
 	maxVal, _ := ParseDecimal("100")
-	compMax := ComparableBigRat{Value: maxVal, Typ: decimalType}
+	compMax := ComparableDec{Value: maxVal, Typ: decimalType}
 	maxFacet := &RangeFacet{
 		name:    "maxExclusive",
 		lexical: "100",
@@ -597,10 +597,10 @@ func TestRangeFacet_CrossTypeNumeric(t *testing.T) {
 		}
 	})
 
-	// create minInclusive facet with integer value (ComparableBigInt)
+	// create minInclusive facet with integer value (ComparableInt)
 	// this tests the reverse: facet has integer value, instance has decimal value
 	minVal, _ := ParseInteger("100")
-	compMin := ComparableBigInt{Value: minVal, Typ: integerType}
+	compMin := ComparableInt{Value: minVal, Typ: integerType}
 	minFacet := &RangeFacet{
 		name:    "minInclusive",
 		lexical: "100",
