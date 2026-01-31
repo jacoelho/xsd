@@ -22,10 +22,7 @@ func (a *Arena) Alloc(n int) []byte {
 		return make([]byte, n)
 	}
 	if a.off+n > cap(a.buf) {
-		newCap := cap(a.buf) * 2
-		if newCap < a.off+n {
-			newCap = a.off + n
-		}
+		newCap := max(cap(a.buf)*2, a.off+n)
 		buf := make([]byte, a.off+n, newCap)
 		copy(buf, a.buf[:a.off])
 		a.buf = buf

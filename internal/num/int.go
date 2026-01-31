@@ -4,8 +4,8 @@ var zeroDigits = []byte{'0'}
 
 // Int represents an arbitrary-precision integer.
 type Int struct {
-	Sign   int8
 	Digits []byte
+	Sign   int8
 }
 
 // ParseInt parses an integer lexical value into an Int.
@@ -119,7 +119,7 @@ func compareDigits(a, b []byte) int {
 		}
 		return 1
 	}
-	for i := 0; i < len(a); i++ {
+	for i := range a {
 		if a[i] == b[i] {
 			continue
 		}
@@ -165,10 +165,7 @@ func FromInt64(v int64) Int {
 }
 
 func addDigits(a, b []byte) []byte {
-	maxLen := len(a)
-	if len(b) > maxLen {
-		maxLen = len(b)
-	}
+	maxLen := max(len(b), len(a))
 	out := make([]byte, maxLen+1)
 	i := len(a) - 1
 	j := len(b) - 1

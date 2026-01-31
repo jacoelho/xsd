@@ -61,23 +61,23 @@ type attrSeenEntry struct {
 
 // Session holds per-document runtime validation state.
 type Session struct {
+	nameMapSparse    map[NameID]nameEntry
 	rt               *runtime.Schema
-	Arena            Arena
-	Scratch          Scratch
 	reader           *xmlstream.Reader
 	idTable          map[string]struct{}
-	attrPresent      []bool
-	attrAppliedBuf   []AttrApplied
+	Scratch          Scratch
+	elemStack        []elemFrame
+	nameLocal        []byte
 	nameMap          []nameEntry
-	nameMapSparse    map[NameID]nameEntry
+	attrPresent      []bool
 	valueBuf         []byte
 	attrBuf          []StartAttr
 	attrValidatedBuf []StartAttr
-	elemStack        []elemFrame
+	attrSeenTable    []attrSeenEntry
 	normBuf          []byte
 	errBuf           []byte
 	validationErrors []xsderrors.Validation
-	nameLocal        []byte
+	attrAppliedBuf   []AttrApplied
 	nameNS           []byte
 	textBuf          []byte
 	keyBuf           []byte
@@ -86,8 +86,8 @@ type Session struct {
 	idRefs           []string
 	nsStack          []nsFrame
 	prefixCache      []prefixEntry
-	attrSeenTable    []attrSeenEntry
 	icState          identityState
+	Arena            Arena
 }
 
 // NewSession creates a new runtime validation session.

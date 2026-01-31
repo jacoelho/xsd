@@ -69,31 +69,29 @@ var (
 )
 
 type valueMetrics struct {
+	intVal         num.Int
 	keyBytes       []byte
+	decVal         num.Dec
 	fractionDigits int
 	totalDigits    int
 	listCount      int
 	length         int
-	keyKind        runtime.ValueKind
-	lengthSet      bool
-	digitsSet      bool
-	listSet        bool
-	keySet         bool
+	float64Val     float64
+	float32Val     float32
+	actualTypeID   runtime.TypeID
 	patternChecked bool
 	enumChecked    bool
-	actualTypeID   runtime.TypeID
-
-	decSet     bool
-	intSet     bool
-	float32Set bool
-	float64Set bool
-
-	decVal       num.Dec
-	intVal       num.Int
-	float32Val   float32
-	float32Class num.FloatClass
-	float64Val   float64
-	float64Class num.FloatClass
+	keySet         bool
+	decSet         bool
+	intSet         bool
+	float32Set     bool
+	float64Set     bool
+	listSet        bool
+	digitsSet      bool
+	lengthSet      bool
+	float32Class   num.FloatClass
+	keyKind        runtime.ValueKind
+	float64Class   num.FloatClass
 }
 
 type valueOptions struct {
@@ -1466,9 +1464,9 @@ func rangeViolation(op runtime.FacetOp) error {
 	}
 }
 
-func stringKeyBytes(dst []byte, tag byte, value []byte) []byte {
+func stringKeyBytes(dst []byte, tag byte, data []byte) []byte {
 	dst = append(dst[:0], tag)
-	dst = append(dst, value...)
+	dst = append(dst, data...)
 	return dst
 }
 
@@ -1498,16 +1496,16 @@ const (
 	canonicalNaN64 = 0x7ff8000000000000
 )
 
-func float32KeyBytes(dst []byte, value float32, class num.FloatClass) []byte {
+func float32KeyBytes(dst []byte, floatVal float32, class num.FloatClass) []byte {
 	var bits uint32
 	switch class {
 	case num.FloatNaN:
 		bits = canonicalNaN32
 	default:
-		if value == 0 {
+		if floatVal == 0 {
 			bits = 0
 		} else {
-			bits = math.Float32bits(value)
+			bits = math.Float32bits(floatVal)
 		}
 	}
 	dst = ensureLen(dst[:0], 4)
@@ -1515,16 +1513,16 @@ func float32KeyBytes(dst []byte, value float32, class num.FloatClass) []byte {
 	return dst
 }
 
-func float64KeyBytes(dst []byte, value float64, class num.FloatClass) []byte {
+func float64KeyBytes(dst []byte, floatVal float64, class num.FloatClass) []byte {
 	var bits uint64
 	switch class {
 	case num.FloatNaN:
 		bits = canonicalNaN64
 	default:
-		if value == 0 {
+		if floatVal == 0 {
 			bits = 0
 		} else {
-			bits = math.Float64bits(value)
+			bits = math.Float64bits(floatVal)
 		}
 	}
 	dst = ensureLen(dst[:0], 8)
@@ -1597,7 +1595,7 @@ func temporalKeyBytes(dst []byte, subkind byte, t time.Time, hasTZ bool) []byte 
 		return dst
 	}
 	year, month, day := t.Date()
-	hour, min, sec := t.Clock()
+	hour, minute, sec := t.Clock()
 	dst = ensureLen(dst[:0], 20)
 	dst[0] = subkind
 	dst[1] = 0
@@ -1605,7 +1603,7 @@ func temporalKeyBytes(dst []byte, subkind byte, t time.Time, hasTZ bool) []byte 
 	binary.BigEndian.PutUint16(dst[6:], uint16(month))
 	binary.BigEndian.PutUint16(dst[8:], uint16(day))
 	binary.BigEndian.PutUint16(dst[10:], uint16(hour))
-	binary.BigEndian.PutUint16(dst[12:], uint16(min))
+	binary.BigEndian.PutUint16(dst[12:], uint16(minute))
 	binary.BigEndian.PutUint16(dst[14:], uint16(sec))
 	binary.BigEndian.PutUint32(dst[16:], uint32(t.Nanosecond()))
 	return dst
@@ -1714,22 +1712,6 @@ func isXMLWhitespace(b byte) bool {
 	default:
 		return false
 	}
-}
-
-func bytesIndexByte(b []byte, needle byte) int {
-	for i := range b {
-		if b[i] == needle {
-			return i
-		}
-	}
-	return -1
-}
-
-func trimLeftZeros(b []byte) []byte {
-	for len(b) > 0 && b[0] == '0' {
-		b = b[1:]
-	}
-	return b
 }
 
 func (s *Session) trackIDs(kind runtime.StringKind, canonical []byte) error {

@@ -37,9 +37,8 @@ type Unwrappable interface {
 
 // ComparableDec wraps num.Dec to implement ComparableValue.
 type ComparableDec struct {
+	Typ   Type
 	Value num.Dec
-	// XSD type this value represents
-	Typ Type
 }
 
 // Compare compares with another ComparableValue (implements ComparableValue)
@@ -72,9 +71,8 @@ func (c ComparableDec) Unwrap() any {
 
 // ComparableInt wraps num.Int to implement ComparableValue.
 type ComparableInt struct {
+	Typ   Type
 	Value num.Int
-	// XSD type this value represents
-	Typ Type
 }
 
 // Compare compares with another ComparableValue (implements ComparableValue)

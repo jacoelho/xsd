@@ -22,16 +22,16 @@ type NamespaceContext = value.NSResolver
 
 // ValueContext carries contextual information for simple value validation.
 type ValueContext struct {
+	NS       NamespaceContext
 	Path     Path
 	NodeKind NodeKind
-	NS       NamespaceContext
 }
 
 // Value contains the validated value metadata.
 type Value struct {
+	Key          runtime.ValueKey
 	TypeID       runtime.TypeID
 	ActualTypeID runtime.TypeID
-	Key          runtime.ValueKey
 }
 
 // ValidateSimple validates one lexical value against one simple type.

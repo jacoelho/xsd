@@ -2,9 +2,9 @@ package num
 
 // Dec represents an arbitrary-precision decimal.
 type Dec struct {
-	Sign  int8
 	Coef  []byte
 	Scale uint32
+	Sign  int8
 }
 
 // ParseDec parses a decimal lexical value into a Dec.
@@ -153,10 +153,7 @@ func compareDecAbs(a, b Dec) int {
 		return 1
 	}
 
-	scaleMax := a.Scale
-	if b.Scale > scaleMax {
-		scaleMax = b.Scale
-	}
+	scaleMax := max(b.Scale, a.Scale)
 	padA := int(scaleMax - a.Scale)
 	padB := int(scaleMax - b.Scale)
 	lenA := len(a.Coef) + padA
@@ -168,7 +165,7 @@ func compareDecAbs(a, b Dec) int {
 		return 1
 	}
 
-	for i := 0; i < lenA; i++ {
+	for i := range lenA {
 		da := byte('0')
 		db := byte('0')
 		if i < len(a.Coef) {

@@ -1,6 +1,7 @@
 package num
 
 import (
+	"bytes"
 	"math"
 	"strconv"
 	"unsafe"
@@ -22,13 +23,13 @@ func ParseFloat32(b []byte) (float32, FloatClass, *ParseError) {
 		return 0, FloatFinite, &ParseError{Kind: ParseEmpty}
 	}
 	switch {
-	case bytesEqual(b, []byte("INF")):
+	case bytes.Equal(b, []byte("INF")):
 		return float32(math.Inf(1)), FloatPosInf, nil
-	case bytesEqual(b, []byte("-INF")):
+	case bytes.Equal(b, []byte("-INF")):
 		return float32(math.Inf(-1)), FloatNegInf, nil
-	case bytesEqual(b, []byte("NaN")):
+	case bytes.Equal(b, []byte("NaN")):
 		return float32(math.NaN()), FloatNaN, nil
-	case bytesEqual(b, []byte("+INF")):
+	case bytes.Equal(b, []byte("+INF")):
 		return 0, FloatFinite, &ParseError{Kind: ParseBadChar}
 	}
 	if !isFloatLexical(b) {
@@ -47,11 +48,11 @@ func ValidateFloatLexical(b []byte) *ParseError {
 		return &ParseError{Kind: ParseEmpty}
 	}
 	switch {
-	case bytesEqual(b, []byte("INF")),
-		bytesEqual(b, []byte("-INF")),
-		bytesEqual(b, []byte("NaN")):
+	case bytes.Equal(b, []byte("INF")),
+		bytes.Equal(b, []byte("-INF")),
+		bytes.Equal(b, []byte("NaN")):
 		return nil
-	case bytesEqual(b, []byte("+INF")):
+	case bytes.Equal(b, []byte("+INF")):
 		return &ParseError{Kind: ParseBadChar}
 	}
 	if !isFloatLexical(b) {
@@ -66,13 +67,13 @@ func ParseFloat64(b []byte) (float64, FloatClass, *ParseError) {
 		return 0, FloatFinite, &ParseError{Kind: ParseEmpty}
 	}
 	switch {
-	case bytesEqual(b, []byte("INF")):
+	case bytes.Equal(b, []byte("INF")):
 		return math.Inf(1), FloatPosInf, nil
-	case bytesEqual(b, []byte("-INF")):
+	case bytes.Equal(b, []byte("-INF")):
 		return math.Inf(-1), FloatNegInf, nil
-	case bytesEqual(b, []byte("NaN")):
+	case bytes.Equal(b, []byte("NaN")):
 		return math.NaN(), FloatNaN, nil
-	case bytesEqual(b, []byte("+INF")):
+	case bytes.Equal(b, []byte("+INF")):
 		return 0, FloatFinite, &ParseError{Kind: ParseBadChar}
 	}
 	if !isFloatLexical(b) {
@@ -149,18 +150,6 @@ func CompareFloat64(a float64, ac FloatClass, b float64, bc FloatClass) (int, bo
 	default:
 		return 0, true
 	}
-}
-
-func bytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func unsafeString(b []byte) string {

@@ -270,65 +270,65 @@ func parseDec(normalized string) (num.Dec, error) {
 	return val, nil
 }
 
-func validateIntegerKind(kind runtime.IntegerKind, value num.Int) error {
+func validateIntegerKind(kind runtime.IntegerKind, intVal num.Int) error {
 	switch kind {
 	case runtime.IntegerAny:
 		return nil
 	case runtime.IntegerLong:
-		return checkIntRange(value, minInt64, maxInt64)
+		return checkIntRange(intVal, minInt64, maxInt64)
 	case runtime.IntegerInt:
-		return checkIntRange(value, minInt32, maxInt32)
+		return checkIntRange(intVal, minInt32, maxInt32)
 	case runtime.IntegerShort:
-		return checkIntRange(value, minInt16, maxInt16)
+		return checkIntRange(intVal, minInt16, maxInt16)
 	case runtime.IntegerByte:
-		return checkIntRange(value, minInt8, maxInt8)
+		return checkIntRange(intVal, minInt8, maxInt8)
 	case runtime.IntegerNonNegative:
-		if value.Sign < 0 {
+		if intVal.Sign < 0 {
 			return fmt.Errorf("invalid non-negative integer")
 		}
 		return nil
 	case runtime.IntegerPositive:
-		if value.Sign <= 0 {
+		if intVal.Sign <= 0 {
 			return fmt.Errorf("invalid positive integer")
 		}
 		return nil
 	case runtime.IntegerNonPositive:
-		if value.Sign > 0 {
+		if intVal.Sign > 0 {
 			return fmt.Errorf("invalid non-positive integer")
 		}
 		return nil
 	case runtime.IntegerNegative:
-		if value.Sign >= 0 {
+		if intVal.Sign >= 0 {
 			return fmt.Errorf("invalid negative integer")
 		}
 		return nil
 	case runtime.IntegerUnsignedLong:
-		if value.Sign < 0 {
+		if intVal.Sign < 0 {
 			return fmt.Errorf("invalid unsignedLong")
 		}
-		return checkIntRange(value, intZero, maxUint64)
+		return checkIntRange(intVal, intZero, maxUint64)
 	case runtime.IntegerUnsignedInt:
-		if value.Sign < 0 {
+		if intVal.Sign < 0 {
 			return fmt.Errorf("invalid unsignedInt")
 		}
-		return checkIntRange(value, intZero, maxUint32)
+		return checkIntRange(intVal, intZero, maxUint32)
 	case runtime.IntegerUnsignedShort:
-		if value.Sign < 0 {
+		if intVal.Sign < 0 {
 			return fmt.Errorf("invalid unsignedShort")
 		}
-		return checkIntRange(value, intZero, maxUint16)
+		return checkIntRange(intVal, intZero, maxUint16)
 	case runtime.IntegerUnsignedByte:
-		if value.Sign < 0 {
+		if intVal.Sign < 0 {
 			return fmt.Errorf("invalid unsignedByte")
 		}
-		return checkIntRange(value, intZero, maxUint8)
+		return checkIntRange(intVal, intZero, maxUint8)
 	default:
 		return nil
 	}
 }
 
-func checkIntRange(value, min, max num.Int) error {
-	if value.Compare(min) < 0 || value.Compare(max) > 0 {
+func checkIntRange(intVal, minValue, maxValue num.Int) error {
+	if intVal.Compare(minValue) < 0 || intVal.Compare(maxValue) > 0 {
 		return fmt.Errorf("integer out of range")
 	}
 	return nil
@@ -365,16 +365,16 @@ const (
 	canonicalNaN64 = 0x7ff8000000000000
 )
 
-func float32Key(value float32, class num.FloatClass) []byte {
+func float32Key(floatVal float32, class num.FloatClass) []byte {
 	var bits uint32
 	switch class {
 	case num.FloatNaN:
 		bits = canonicalNaN32
 	default:
-		if value == 0 {
+		if floatVal == 0 {
 			bits = 0
 		} else {
-			bits = math.Float32bits(value)
+			bits = math.Float32bits(floatVal)
 		}
 	}
 	out := make([]byte, 4)
@@ -382,16 +382,16 @@ func float32Key(value float32, class num.FloatClass) []byte {
 	return out
 }
 
-func float64Key(value float64, class num.FloatClass) []byte {
+func float64Key(floatVal float64, class num.FloatClass) []byte {
 	var bits uint64
 	switch class {
 	case num.FloatNaN:
 		bits = canonicalNaN64
 	default:
-		if value == 0 {
+		if floatVal == 0 {
 			bits = 0
 		} else {
-			bits = math.Float64bits(value)
+			bits = math.Float64bits(floatVal)
 		}
 	}
 	out := make([]byte, 8)
@@ -410,7 +410,7 @@ func temporalKeyBytes(subkind byte, t time.Time, hasTZ bool) []byte {
 		return out
 	}
 	year, month, day := t.Date()
-	hour, min, sec := t.Clock()
+	hour, minute, sec := t.Clock()
 	out := make([]byte, 20)
 	out[0] = subkind
 	out[1] = 0
@@ -418,7 +418,7 @@ func temporalKeyBytes(subkind byte, t time.Time, hasTZ bool) []byte {
 	binary.BigEndian.PutUint16(out[6:], uint16(month))
 	binary.BigEndian.PutUint16(out[8:], uint16(day))
 	binary.BigEndian.PutUint16(out[10:], uint16(hour))
-	binary.BigEndian.PutUint16(out[12:], uint16(min))
+	binary.BigEndian.PutUint16(out[12:], uint16(minute))
 	binary.BigEndian.PutUint16(out[14:], uint16(sec))
 	binary.BigEndian.PutUint32(out[16:], uint32(t.Nanosecond()))
 	return out

@@ -1,5 +1,7 @@
 package runtime
 
+import "bytes"
+
 // EnumContains checks if a typed key is a member of the enumeration identified by enumID.
 // The key must match both the ValueKind and the canonical bytes.
 func EnumContains(table *EnumTable, enumID EnumID, kind ValueKind, key []byte) bool {
@@ -41,7 +43,7 @@ func EnumContains(table *EnumTable, enumID EnumID, kind ValueKind, key []byte) b
 				if entry.Kind != kind {
 					goto next
 				}
-				if bytesEqual(entry.Bytes, key) {
+				if bytes.Equal(entry.Bytes, key) {
 					return true
 				}
 			}
@@ -50,16 +52,4 @@ func EnumContains(table *EnumTable, enumID EnumID, kind ValueKind, key []byte) b
 		slot = (slot + 1) & int(mask)
 	}
 	return false
-}
-
-func bytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

@@ -21,9 +21,9 @@ const (
 
 // ValueKey is the canonical, immutable representation of a value.
 type ValueKey struct {
-	Kind  ValueKind
-	Hash  uint64
 	Bytes []byte
+	Hash  uint64
+	Kind  ValueKind
 }
 
 // AppendListKey appends a typed key entry to a list key buffer.
