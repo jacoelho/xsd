@@ -268,60 +268,35 @@ func parseDec(normalized string) (num.Dec, error) {
 }
 
 func validateIntegerKind(kind runtime.IntegerKind, intVal num.Int) error {
-	switch kind {
-	case runtime.IntegerAny:
+	spec, ok := runtime.IntegerKindSpecFor(kind)
+	if !ok {
 		return nil
-	case runtime.IntegerLong:
-		return checkIntRange(intVal, num.MinInt64, num.MaxInt64)
-	case runtime.IntegerInt:
-		return checkIntRange(intVal, num.MinInt32, num.MaxInt32)
-	case runtime.IntegerShort:
-		return checkIntRange(intVal, num.MinInt16, num.MaxInt16)
-	case runtime.IntegerByte:
-		return checkIntRange(intVal, num.MinInt8, num.MaxInt8)
-	case runtime.IntegerNonNegative:
+	}
+	switch spec.SignRule {
+	case runtime.IntegerSignNonNegative:
 		if intVal.Sign < 0 {
+			if spec.HasRange {
+				return fmt.Errorf("invalid %s", spec.Label)
+			}
 			return fmt.Errorf("invalid non-negative integer")
 		}
-		return nil
-	case runtime.IntegerPositive:
+	case runtime.IntegerSignPositive:
 		if intVal.Sign <= 0 {
 			return fmt.Errorf("invalid positive integer")
 		}
-		return nil
-	case runtime.IntegerNonPositive:
+	case runtime.IntegerSignNonPositive:
 		if intVal.Sign > 0 {
 			return fmt.Errorf("invalid non-positive integer")
 		}
-		return nil
-	case runtime.IntegerNegative:
+	case runtime.IntegerSignNegative:
 		if intVal.Sign >= 0 {
 			return fmt.Errorf("invalid negative integer")
 		}
-		return nil
-	case runtime.IntegerUnsignedLong:
-		if intVal.Sign < 0 {
-			return fmt.Errorf("invalid unsignedLong")
-		}
-		return checkIntRange(intVal, num.IntZero, num.MaxUint64)
-	case runtime.IntegerUnsignedInt:
-		if intVal.Sign < 0 {
-			return fmt.Errorf("invalid unsignedInt")
-		}
-		return checkIntRange(intVal, num.IntZero, num.MaxUint32)
-	case runtime.IntegerUnsignedShort:
-		if intVal.Sign < 0 {
-			return fmt.Errorf("invalid unsignedShort")
-		}
-		return checkIntRange(intVal, num.IntZero, num.MaxUint16)
-	case runtime.IntegerUnsignedByte:
-		if intVal.Sign < 0 {
-			return fmt.Errorf("invalid unsignedByte")
-		}
-		return checkIntRange(intVal, num.IntZero, num.MaxUint8)
-	default:
-		return nil
 	}
+	if spec.HasRange {
+		return checkIntRange(intVal, spec.Min, spec.Max)
+	}
+	return nil
 }
 
 func checkIntRange(intVal, minValue, maxValue num.Int) error {

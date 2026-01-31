@@ -1222,60 +1222,32 @@ func validateStringKind(kind runtime.StringKind, normalized []byte) error {
 }
 
 func validateIntegerKind(kind runtime.IntegerKind, v num.Int) error {
-	switch kind {
-	case runtime.IntegerAny:
-		return nil
-	case runtime.IntegerLong:
-		return validateIntRange(v, num.MinInt64, num.MaxInt64, "long")
-	case runtime.IntegerInt:
-		return validateIntRange(v, num.MinInt32, num.MaxInt32, "int")
-	case runtime.IntegerShort:
-		return validateIntRange(v, num.MinInt16, num.MaxInt16, "short")
-	case runtime.IntegerByte:
-		return validateIntRange(v, num.MinInt8, num.MaxInt8, "byte")
-	case runtime.IntegerNonNegative:
-		if v.Sign < 0 {
-			return fmt.Errorf("nonNegativeInteger must be >= 0")
-		}
-		return nil
-	case runtime.IntegerPositive:
-		if v.Sign <= 0 {
-			return fmt.Errorf("positiveInteger must be >= 1")
-		}
-		return nil
-	case runtime.IntegerNonPositive:
-		if v.Sign > 0 {
-			return fmt.Errorf("nonPositiveInteger must be <= 0")
-		}
-		return nil
-	case runtime.IntegerNegative:
-		if v.Sign >= 0 {
-			return fmt.Errorf("negativeInteger must be <= -1")
-		}
-		return nil
-	case runtime.IntegerUnsignedLong:
-		if v.Sign < 0 {
-			return fmt.Errorf("unsignedLong must be >= 0")
-		}
-		return validateIntRange(v, num.IntZero, num.MaxUint64, "unsignedLong")
-	case runtime.IntegerUnsignedInt:
-		if v.Sign < 0 {
-			return fmt.Errorf("unsignedInt must be >= 0")
-		}
-		return validateIntRange(v, num.IntZero, num.MaxUint32, "unsignedInt")
-	case runtime.IntegerUnsignedShort:
-		if v.Sign < 0 {
-			return fmt.Errorf("unsignedShort must be >= 0")
-		}
-		return validateIntRange(v, num.IntZero, num.MaxUint16, "unsignedShort")
-	case runtime.IntegerUnsignedByte:
-		if v.Sign < 0 {
-			return fmt.Errorf("unsignedByte must be >= 0")
-		}
-		return validateIntRange(v, num.IntZero, num.MaxUint8, "unsignedByte")
-	default:
+	spec, ok := runtime.IntegerKindSpecFor(kind)
+	if !ok {
 		return nil
 	}
+	switch spec.SignRule {
+	case runtime.IntegerSignNonNegative:
+		if v.Sign < 0 {
+			return fmt.Errorf("%s must be >= 0", spec.Label)
+		}
+	case runtime.IntegerSignPositive:
+		if v.Sign <= 0 {
+			return fmt.Errorf("%s must be >= 1", spec.Label)
+		}
+	case runtime.IntegerSignNonPositive:
+		if v.Sign > 0 {
+			return fmt.Errorf("%s must be <= 0", spec.Label)
+		}
+	case runtime.IntegerSignNegative:
+		if v.Sign >= 0 {
+			return fmt.Errorf("%s must be <= -1", spec.Label)
+		}
+	}
+	if spec.HasRange {
+		return validateIntRange(v, spec.Min, spec.Max, spec.Label)
+	}
+	return nil
 }
 
 func validateIntRange(v, minValue, maxValue num.Int, label string) error {
