@@ -59,6 +59,8 @@ func TestIntCompare(t *testing.T) {
 		{name: "neg vs zero", a: "-1", b: "0", want: -1},
 		{name: "magnitude", a: "10", b: "2", want: 1},
 		{name: "neg magnitude", a: "-2", b: "-3", want: 1},
+		{name: "max int64", a: "9223372036854775807", b: "0", want: 1},
+		{name: "min int64", a: "-9223372036854775808", b: "0", want: -1},
 	}
 
 	for _, tc := range tests {
