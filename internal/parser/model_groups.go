@@ -2,9 +2,9 @@ package parser
 
 import (
 	"fmt"
-	"math/big"
 	"strings"
 
+	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
@@ -351,8 +351,8 @@ func validateOccursInteger(value string) error {
 	if value == "" {
 		return fmt.Errorf("occurs value must be a non-negative integer")
 	}
-	bi, ok := new(big.Int).SetString(value, 10)
-	if !ok || bi.Sign() < 0 {
+	intVal, perr := num.ParseInt([]byte(value))
+	if perr != nil || intVal.Sign < 0 {
 		return fmt.Errorf("occurs value must be a non-negative integer")
 	}
 	return nil

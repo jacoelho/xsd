@@ -55,6 +55,39 @@ func (a Int) Compare(b Int) int {
 	return cmp
 }
 
+// Add returns the sum of two Int values.
+func Add(a, b Int) Int {
+	if a.Sign == 0 {
+		return b
+	}
+	if b.Sign == 0 {
+		return a
+	}
+	if a.Sign == b.Sign {
+		return Int{Sign: a.Sign, Digits: addDigits(a.Digits, b.Digits)}
+	}
+	cmp := compareDigits(a.Digits, b.Digits)
+	if cmp == 0 {
+		return Int{Sign: 0, Digits: zeroDigits}
+	}
+	if cmp > 0 {
+		return Int{Sign: a.Sign, Digits: subDigits(a.Digits, b.Digits)}
+	}
+	return Int{Sign: b.Sign, Digits: subDigits(b.Digits, a.Digits)}
+}
+
+// Mul returns the product of two Int values.
+func Mul(a, b Int) Int {
+	if a.Sign == 0 || b.Sign == 0 {
+		return Int{Sign: 0, Digits: zeroDigits}
+	}
+	sign := int8(1)
+	if a.Sign != b.Sign {
+		sign = -1
+	}
+	return Int{Sign: sign, Digits: mulDigits(a.Digits, b.Digits)}
+}
+
 // CompareDec compares an Int to a Dec.
 func (a Int) CompareDec(b Dec) int {
 	return a.AsDec().Compare(b)
@@ -96,4 +129,124 @@ func compareDigits(a, b []byte) int {
 		return 1
 	}
 	return 0
+}
+
+// FromUint64 returns an Int representation of a non-negative uint64.
+func FromUint64(v uint64) Int {
+	if v == 0 {
+		return Int{Sign: 0, Digits: zeroDigits}
+	}
+	var buf [20]byte
+	i := len(buf)
+	for v > 0 {
+		i--
+		buf[i] = byte(v%10) + '0'
+		v /= 10
+	}
+	digits := make([]byte, len(buf)-i)
+	copy(digits, buf[i:])
+	return Int{Sign: 1, Digits: digits}
+}
+
+// FromInt64 returns an Int representation of an int64.
+func FromInt64(v int64) Int {
+	if v == 0 {
+		return Int{Sign: 0, Digits: zeroDigits}
+	}
+	sign := int8(1)
+	if v < 0 {
+		sign = -1
+		v = -v
+	}
+	u := uint64(v)
+	intVal := FromUint64(u)
+	intVal.Sign = sign
+	return intVal
+}
+
+func addDigits(a, b []byte) []byte {
+	maxLen := len(a)
+	if len(b) > maxLen {
+		maxLen = len(b)
+	}
+	out := make([]byte, maxLen+1)
+	i := len(a) - 1
+	j := len(b) - 1
+	k := len(out) - 1
+	carry := 0
+	for i >= 0 || j >= 0 || carry > 0 {
+		sum := carry
+		if i >= 0 {
+			sum += int(a[i] - '0')
+			i--
+		}
+		if j >= 0 {
+			sum += int(b[j] - '0')
+			j--
+		}
+		out[k] = byte(sum%10) + '0'
+		carry = sum / 10
+		k--
+	}
+	return normalizeDigits(out[k+1:])
+}
+
+func subDigits(a, b []byte) []byte {
+	out := make([]byte, len(a))
+	i := len(a) - 1
+	j := len(b) - 1
+	borrow := 0
+	for i >= 0 {
+		diff := int(a[i]-'0') - borrow
+		if j >= 0 {
+			diff -= int(b[j] - '0')
+			j--
+		}
+		if diff < 0 {
+			diff += 10
+			borrow = 1
+		} else {
+			borrow = 0
+		}
+		out[i] = byte(diff) + '0'
+		i--
+	}
+	return normalizeDigits(out)
+}
+
+func mulDigits(a, b []byte) []byte {
+	if len(a) == 0 || len(b) == 0 {
+		return zeroDigits
+	}
+	if len(a) == 1 && a[0] == '0' {
+		return zeroDigits
+	}
+	if len(b) == 1 && b[0] == '0' {
+		return zeroDigits
+	}
+	res := make([]int, len(a)+len(b))
+	for i := len(a) - 1; i >= 0; i-- {
+		ai := int(a[i] - '0')
+		for j := len(b) - 1; j >= 0; j-- {
+			res[i+j+1] += ai * int(b[j]-'0')
+		}
+	}
+	for k := len(res) - 1; k > 0; k-- {
+		carry := res[k] / 10
+		res[k] %= 10
+		res[k-1] += carry
+	}
+	out := make([]byte, len(res))
+	for i := range res {
+		out[i] = byte(res[i]) + '0'
+	}
+	return normalizeDigits(out)
+}
+
+func normalizeDigits(d []byte) []byte {
+	d = trimLeadingZeros(d)
+	if len(d) == 0 {
+		return zeroDigits
+	}
+	return d
 }

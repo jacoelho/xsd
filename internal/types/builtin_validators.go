@@ -5,11 +5,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
-	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jacoelho/xsd/internal/num"
 )
 
 // validateAnyType accepts any value (anyType is the base type for all types)
@@ -198,8 +199,8 @@ func validatePositiveInteger(value string) error {
 	if err := validateInteger(value); err != nil {
 		return err
 	}
-	n, ok := new(big.Int).SetString(value, 10)
-	if !ok || n.Sign() <= 0 {
+	n, perr := num.ParseInt([]byte(value))
+	if perr != nil || n.Sign <= 0 {
 		return fmt.Errorf("positiveInteger must be >= 1: %s", value)
 	}
 	return nil
@@ -231,8 +232,8 @@ func validateNonPositiveInteger(value string) error {
 	if err := validateInteger(value); err != nil {
 		return err
 	}
-	n, ok := new(big.Int).SetString(value, 10)
-	if !ok || n.Sign() > 0 {
+	n, perr := num.ParseInt([]byte(value))
+	if perr != nil || n.Sign > 0 {
 		return fmt.Errorf("nonPositiveInteger must be <= 0: %s", value)
 	}
 	return nil
@@ -243,8 +244,8 @@ func validateNegativeInteger(value string) error {
 	if err := validateInteger(value); err != nil {
 		return err
 	}
-	n, ok := new(big.Int).SetString(value, 10)
-	if !ok || n.Sign() >= 0 {
+	n, perr := num.ParseInt([]byte(value))
+	if perr != nil || n.Sign >= 0 {
 		return fmt.Errorf("negativeInteger must be < 0: %s", value)
 	}
 	return nil

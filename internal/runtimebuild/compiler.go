@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/schema"
@@ -529,23 +530,23 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 		return []byte(normalized), nil
 	case "decimal":
 		if c.res.isIntegerDerived(typ) {
-			v, err := value.ParseInteger([]byte(normalized))
-			if err != nil {
-				return nil, err
+			v, perr := num.ParseInt([]byte(normalized))
+			if perr != nil {
+				return nil, fmt.Errorf("invalid integer: %s", normalized)
 			}
-			return []byte(v.String()), nil
+			return v.RenderCanonical(nil), nil
 		}
-		_, err := value.ParseDecimal([]byte(normalized))
-		if err != nil {
-			return nil, err
+		v, perr := num.ParseDec([]byte(normalized))
+		if perr != nil {
+			return nil, fmt.Errorf("invalid decimal: %s", normalized)
 		}
-		return value.CanonicalDecimalBytes([]byte(normalized), nil), nil
+		return v.RenderCanonical(nil), nil
 	case "integer", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte", "nonNegativeInteger", "positiveInteger", "negativeInteger", "nonPositiveInteger":
-		v, err := value.ParseInteger([]byte(normalized))
-		if err != nil {
-			return nil, err
+		v, perr := num.ParseInt([]byte(normalized))
+		if perr != nil {
+			return nil, fmt.Errorf("invalid integer: %s", normalized)
 		}
-		return []byte(v.String()), nil
+		return v.RenderCanonical(nil), nil
 	case "boolean":
 		v, err := value.ParseBoolean([]byte(normalized))
 		if err != nil {
@@ -706,23 +707,23 @@ func (c *compiler) comparableValue(lexical string, typ types.Type) (types.Compar
 	switch primName {
 	case "decimal":
 		if c.res.isIntegerDerived(typ) {
-			v, err := value.ParseInteger([]byte(lexical))
-			if err != nil {
-				return nil, err
+			v, perr := num.ParseInt([]byte(lexical))
+			if perr != nil {
+				return nil, fmt.Errorf("invalid integer: %s", lexical)
 			}
-			return types.ComparableBigInt{Value: v}, nil
+			return types.ComparableInt{Value: v}, nil
 		}
-		rat, err := value.ParseDecimal([]byte(lexical))
-		if err != nil {
-			return nil, err
+		dec, perr := num.ParseDec([]byte(lexical))
+		if perr != nil {
+			return nil, fmt.Errorf("invalid decimal: %s", lexical)
 		}
-		return types.ComparableBigRat{Value: rat}, nil
+		return types.ComparableDec{Value: dec}, nil
 	case "integer", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte", "nonNegativeInteger", "positiveInteger", "negativeInteger", "nonPositiveInteger":
-		v, err := value.ParseInteger([]byte(lexical))
-		if err != nil {
-			return nil, err
+		v, perr := num.ParseInt([]byte(lexical))
+		if perr != nil {
+			return nil, fmt.Errorf("invalid integer: %s", lexical)
 		}
-		return types.ComparableBigInt{Value: v}, nil
+		return types.ComparableInt{Value: v}, nil
 	case "float":
 		v, err := value.ParseFloat([]byte(lexical))
 		if err != nil {

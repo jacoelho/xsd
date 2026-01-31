@@ -4,38 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"math"
-	"math/big"
 	"strconv"
 )
-
-// ParseDecimal parses a decimal lexical value into a big.Rat.
-func ParseDecimal(lexical []byte) (*big.Rat, error) {
-	trimmed := TrimXMLWhitespace(lexical)
-	if len(trimmed) == 0 {
-		return nil, fmt.Errorf("invalid decimal: empty string")
-	}
-	if !isValidDecimalLexical(trimmed) {
-		return nil, fmt.Errorf("invalid decimal: %s", string(trimmed))
-	}
-	rat := new(big.Rat)
-	if _, ok := rat.SetString(string(trimmed)); !ok {
-		return nil, fmt.Errorf("invalid decimal: %s", string(trimmed))
-	}
-	return rat, nil
-}
-
-// ParseInteger parses an integer lexical value into a big.Int.
-func ParseInteger(lexical []byte) (*big.Int, error) {
-	trimmed := TrimXMLWhitespace(lexical)
-	if len(trimmed) == 0 {
-		return nil, fmt.Errorf("invalid integer: empty string")
-	}
-	val := new(big.Int)
-	if _, ok := val.SetString(string(trimmed), 10); !ok {
-		return nil, fmt.Errorf("invalid integer: %s", string(trimmed))
-	}
-	return val, nil
-}
 
 // ParseBoolean parses a boolean lexical value into a bool.
 func ParseBoolean(lexical []byte) (bool, error) {
@@ -131,35 +101,6 @@ func validateFloatLexical(lexical []byte, label string) error {
 		return fmt.Errorf("invalid %s: %s", label, string(trimmed))
 	}
 	return nil
-}
-
-func isValidDecimalLexical(value []byte) bool {
-	if len(value) == 0 {
-		return false
-	}
-	i := 0
-	if value[0] == '+' || value[0] == '-' {
-		i++
-	}
-	if i >= len(value) {
-		return false
-	}
-	sawDigit := false
-	sawDot := false
-	for ; i < len(value); i++ {
-		switch b := value[i]; {
-		case b >= '0' && b <= '9':
-			sawDigit = true
-		case b == '.':
-			if sawDot {
-				return false
-			}
-			sawDot = true
-		default:
-			return false
-		}
-	}
-	return sawDigit
 }
 
 func isFloatLexical(value []byte) bool {
