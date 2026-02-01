@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -80,7 +81,7 @@ func TestValidateCharDataOutsideRoot(t *testing.T) {
 func TestLookupNamespaceCacheDoesNotGrowBuffers(t *testing.T) {
 	sess := NewSession(runtime.NewBuilder().Build())
 	decls := make([]xmlstream.NamespaceDecl, 0, 40)
-	for i := 0; i < 40; i++ {
+	for i := range 40 {
 		decls = append(decls, xmlstream.NamespaceDecl{
 			Prefix: fmt.Sprintf("p%d", i),
 			URI:    fmt.Sprintf("urn:%d", i),
@@ -196,7 +197,8 @@ func TestAllGroupSubstitutionMembers(t *testing.T) {
 
 func mustValidationList(t *testing.T, err error) xsderrors.ValidationList {
 	t.Helper()
-	list, ok := err.(xsderrors.ValidationList)
+	var list xsderrors.ValidationList
+	ok := errors.As(err, &list)
 	if !ok {
 		t.Fatalf("expected ValidationList, got %T", err)
 	}
