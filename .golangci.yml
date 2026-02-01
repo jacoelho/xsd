@@ -39,6 +39,7 @@ linters:
         - regexpSimplify
         - whyNoLint
         - unnamedResult
+        - hugeParam
   exclusions:
     generated: strict
     paths:
