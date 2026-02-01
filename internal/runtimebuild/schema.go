@@ -947,8 +947,8 @@ func (b *schemaBuilder) buildIdentityConstraints() error {
 
 	icByElem := make(map[runtime.ElemID]map[types.QName]runtime.ICID)
 	type keyrefPending struct {
-		elem runtime.ElemID
 		name types.QName
+		elem runtime.ElemID
 		id   runtime.ICID
 	}
 	var pending []keyrefPending

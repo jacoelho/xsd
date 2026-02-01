@@ -421,13 +421,13 @@ func (c ComparableDuration) Unwrap() any {
 
 // XSDDuration represents a full XSD duration with all components
 type XSDDuration struct {
-	Negative bool
+	Seconds  num.Dec
 	Years    int
 	Months   int
 	Days     int
 	Hours    int
 	Minutes  int
-	Seconds  num.Dec
+	Negative bool
 }
 
 // ComparableXSDDuration wraps XSDDuration to implement ComparableValue
@@ -564,21 +564,21 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 }
 
 type durationFields struct {
+	seconds num.Dec
 	years   int
 	months  int
 	days    int
 	hours   int
 	minutes int
-	seconds num.Dec
 }
 
 type dateTimeFields struct {
+	second num.Dec
 	year   int
 	month  int
 	day    int
 	hour   int
 	minute int
-	second num.Dec
 }
 
 // durationOrderReferenceTimes are the XSD 1.0 reference dateTimes for duration ordering.
@@ -769,10 +769,7 @@ func decAdd(a, b num.Dec) num.Dec {
 	if b.Sign == 0 {
 		return a
 	}
-	scale := a.Scale
-	if b.Scale > scale {
-		scale = b.Scale
-	}
+	scale := max(b.Scale, a.Scale)
 	ai := num.DecToScaledInt(a, scale)
 	bi := num.DecToScaledInt(b, scale)
 	sum := num.Add(ai, bi)

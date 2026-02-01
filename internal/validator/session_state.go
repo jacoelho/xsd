@@ -19,6 +19,8 @@ type nameEntry struct {
 }
 
 type elemFrame struct {
+	local            []byte
+	ns               []byte
 	modelState       ModelState
 	text             TextState
 	model            runtime.ModelRef
@@ -29,8 +31,6 @@ type elemFrame struct {
 	mixed            bool
 	nilled           bool
 	hasChildElements bool
-	local            []byte
-	ns               []byte
 }
 
 type nsFrame struct {
