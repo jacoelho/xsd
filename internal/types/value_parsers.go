@@ -310,22 +310,22 @@ func ParseNOTATION(lexical string, nsContext map[string]string) (QName, error) {
 }
 
 // measureLengthForPrimitive measures length for primitive types.
-func measureLengthForPrimitive(value string, primitiveName TypeName) int {
+func measureLengthForPrimitive(lexical string, primitiveName TypeName) int {
 	switch primitiveName {
 	case TypeNameHexBinary:
 		// hexBinary: each pair of hex characters = 1 octet
-		if value == "" {
+		if lexical == "" {
 			return 0
 		}
-		if len(value)%2 != 0 {
+		if len(lexical)%2 != 0 {
 			// invalid hexBinary - return character count as fallback
-			return utf8.RuneCountInString(value)
+			return utf8.RuneCountInString(lexical)
 		}
-		return len(value) / 2
+		return len(lexical) / 2
 
 	case TypeNameBase64Binary:
 		// base64Binary: length is the number of octets it contains
-		if value == "" {
+		if lexical == "" {
 			return 0
 		}
 		cleaned := strings.Map(func(r rune) rune {
@@ -335,19 +335,19 @@ func measureLengthForPrimitive(value string, primitiveName TypeName) int {
 			default:
 				return r
 			}
-		}, value)
+		}, lexical)
 
 		// decode to get actual byte length
 		decoded, err := base64.StdEncoding.Strict().DecodeString(cleaned)
 		if err != nil {
 			// invalid base64 - return character count as fallback
-			return utf8.RuneCountInString(value)
+			return utf8.RuneCountInString(lexical)
 		}
 		return len(decoded)
 	}
 
 	// for all other types, length is in characters (Unicode code points)
-	return utf8.RuneCountInString(value)
+	return utf8.RuneCountInString(lexical)
 }
 
 // isBuiltinListType checks if a type name is a built-in list type.

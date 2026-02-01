@@ -48,19 +48,6 @@ var (
 	base64WhitespaceReplacer = strings.NewReplacer(" ", "", "\t", "", "\n", "", "\r", "")
 )
 
-var fractionalLayouts = [...]string{
-	"",
-	".0",
-	".00",
-	".000",
-	".0000",
-	".00000",
-	".000000",
-	".0000000",
-	".00000000",
-	".000000000",
-}
-
 func validateDecimal(value string) error {
 	if _, perr := num.ParseDec([]byte(value)); perr != nil {
 		return fmt.Errorf("invalid decimal: %s", value)
@@ -523,28 +510,6 @@ func parseTimeParts(value string) (int, int, int, int, bool) {
 	}
 	fractionLength := len(value) - 9
 	return hour, minute, second, fractionLength, true
-}
-
-func appendTimezoneSuffix(value, tz string) string {
-	switch tz {
-	case "Z":
-		return value + "Z"
-	case "":
-		return value
-	default:
-		return value + tz
-	}
-}
-
-func applyTimezoneLayout(layout, tz string) string {
-	switch tz {
-	case "Z":
-		return layout + "Z"
-	case "":
-		return layout
-	default:
-		return layout + "-07:00"
-	}
 }
 
 // validateDateTime validates xs:dateTime

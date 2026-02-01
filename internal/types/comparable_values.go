@@ -857,8 +857,8 @@ func secondsToDuration(sec num.Dec) (time.Duration, error) {
 		return 0, err
 	}
 	const maxDuration = time.Duration(^uint64(0) >> 1)
-	max := num.FromInt64(int64(maxDuration))
-	if scaled.Compare(max) > 0 {
+	maxSeconds := num.FromInt64(int64(maxDuration))
+	if scaled.Compare(maxSeconds) > 0 {
 		return 0, fmt.Errorf("second value too large")
 	}
 	val, ok := int64FromDigits(scaled.Digits)

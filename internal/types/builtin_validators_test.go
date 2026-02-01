@@ -206,14 +206,22 @@ func TestValidateDateTimeFamily(t *testing.T) {
 	if _, ok := parseFixedDigits("2024", 0, 4); !ok {
 		t.Fatalf("expected parseFixedDigits to succeed")
 	}
-	if _, _, _, ok := parseDateParts("2024-02-29"); !ok {
+	year, month, day, ok := parseDateParts("2024-02-29")
+	if !ok {
 		t.Fatalf("expected parseDateParts to succeed")
+	}
+	if year != 2024 || month != 2 || day != 29 {
+		t.Fatalf("unexpected parseDateParts values: %d-%02d-%02d", year, month, day)
 	}
 	if _, _, _, ok := parseDateParts("2024-2-29"); ok {
 		t.Fatalf("expected parseDateParts to fail")
 	}
-	if _, _, _, _, ok := parseTimeParts("12:34:56.789"); !ok {
+	hour, minute, second, fractionLength, ok := parseTimeParts("12:34:56.789")
+	if !ok {
 		t.Fatalf("expected parseTimeParts to succeed")
+	}
+	if hour != 12 || minute != 34 || second != 56 || fractionLength != 3 {
+		t.Fatalf("unexpected parseTimeParts values: %02d:%02d:%02d (%d)", hour, minute, second, fractionLength)
 	}
 	if _, _, _, _, ok := parseTimeParts("12:34"); ok {
 		t.Fatalf("expected parseTimeParts to fail")
