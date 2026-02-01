@@ -31,3 +31,40 @@ func TestParseDouble(t *testing.T) {
 		t.Fatalf("ParseDouble(NaN) = %v, %v", got, err)
 	}
 }
+
+func TestParseFloatLexicalVariants(t *testing.T) {
+	valid := [][]byte{
+		[]byte("0"),
+		[]byte("+0"),
+		[]byte("-0"),
+		[]byte("1."),
+		[]byte(".1"),
+		[]byte("1.0"),
+		[]byte("1e2"),
+		[]byte("1E-2"),
+	}
+	for _, input := range valid {
+		if _, err := ParseFloat(input); err != nil {
+			t.Fatalf("ParseFloat(%q) unexpected error: %v", input, err)
+		}
+		if _, err := ParseDouble(input); err != nil {
+			t.Fatalf("ParseDouble(%q) unexpected error: %v", input, err)
+		}
+	}
+
+	invalid := [][]byte{
+		[]byte(""),
+		[]byte("."),
+		[]byte("+"),
+		[]byte("1e"),
+		[]byte("1e+"),
+	}
+	for _, input := range invalid {
+		if _, err := ParseFloat(input); err == nil {
+			t.Fatalf("ParseFloat(%q) expected error", input)
+		}
+		if _, err := ParseDouble(input); err == nil {
+			t.Fatalf("ParseDouble(%q) expected error", input)
+		}
+	}
+}

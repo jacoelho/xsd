@@ -777,7 +777,7 @@ func (c *compiler) parseTemporal(kind, lexical string) (time.Time, error) {
 }
 
 func (c *compiler) normalizeLexical(lexical string, typ types.Type) string {
-	if typ != nil && c.res.varietyForType(typ) == types.UnionVariety {
+	if st, ok := types.AsSimpleType(typ); ok && st.Union != nil {
 		return lexical
 	}
 	ws := c.res.whitespaceMode(typ)

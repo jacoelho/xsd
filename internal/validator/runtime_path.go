@@ -11,6 +11,10 @@ func (s *Session) pathString() string {
 		frame := &s.elemStack[i]
 		ns, local := s.nameParts(frame.name)
 		if len(local) == 0 {
+			local = frame.local
+			ns = frame.ns
+		}
+		if len(local) == 0 {
 			continue
 		}
 		if len(ns) == 0 {
@@ -27,6 +31,10 @@ func (s *Session) pathString() string {
 	for i := range s.elemStack {
 		frame := &s.elemStack[i]
 		ns, local := s.nameParts(frame.name)
+		if len(local) == 0 {
+			local = frame.local
+			ns = frame.ns
+		}
 		if len(local) == 0 {
 			continue
 		}

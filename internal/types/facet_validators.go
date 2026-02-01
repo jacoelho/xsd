@@ -59,7 +59,7 @@ func durationToXSD(d time.Duration) XSDDuration {
 	d %= time.Hour
 	minutes := int(d / time.Minute)
 	d %= time.Minute
-	seconds := float64(d) / float64(time.Second)
+	seconds := decFromDurationSeconds(d)
 	return XSDDuration{
 		Negative: negative,
 		Years:    0,

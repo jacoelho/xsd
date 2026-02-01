@@ -19,6 +19,8 @@ type nameEntry struct {
 }
 
 type elemFrame struct {
+	local            []byte
+	ns               []byte
 	modelState       ModelState
 	text             TextState
 	model            runtime.ModelRef

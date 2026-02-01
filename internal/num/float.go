@@ -2,6 +2,7 @@ package num
 
 import (
 	"bytes"
+	"errors"
 	"math"
 	"strconv"
 	"unsafe"
@@ -37,6 +38,15 @@ func ParseFloat32(b []byte) (float32, FloatClass, *ParseError) {
 	}
 	f, err := strconv.ParseFloat(unsafeString(b), 32)
 	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			class := FloatFinite
+			if math.IsInf(f, 1) {
+				class = FloatPosInf
+			} else if math.IsInf(f, -1) {
+				class = FloatNegInf
+			}
+			return float32(f), class, nil
+		}
 		return 0, FloatFinite, &ParseError{Kind: ParseBadChar}
 	}
 	return float32(f), FloatFinite, nil
@@ -81,6 +91,15 @@ func ParseFloat64(b []byte) (float64, FloatClass, *ParseError) {
 	}
 	f, err := strconv.ParseFloat(unsafeString(b), 64)
 	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			class := FloatFinite
+			if math.IsInf(f, 1) {
+				class = FloatPosInf
+			} else if math.IsInf(f, -1) {
+				class = FloatNegInf
+			}
+			return f, class, nil
+		}
 		return 0, FloatFinite, &ParseError{Kind: ParseBadChar}
 	}
 	return f, FloatFinite, nil

@@ -143,8 +143,6 @@ type RawEvent struct {
 }
 
 // Attr returns the raw attribute value by local name and optional prefix.
-//
-//nolint:gocritic // keep value receiver for convenience.
 func (e RawEvent) Attr(prefix, local []byte) ([]byte, bool) {
 	for _, attr := range e.Attrs {
 		if bytes.Equal(attr.Name.Prefix, prefix) && bytes.Equal(attr.Name.Local, local) {
@@ -155,8 +153,6 @@ func (e RawEvent) Attr(prefix, local []byte) ([]byte, bool) {
 }
 
 // AttrLocal returns the raw attribute value by local name, ignoring prefix.
-//
-//nolint:gocritic // keep value receiver for convenience.
 func (e RawEvent) AttrLocal(local []byte) ([]byte, bool) {
 	for _, attr := range e.Attrs {
 		if bytes.Equal(attr.Name.Local, local) {
@@ -167,8 +163,6 @@ func (e RawEvent) AttrLocal(local []byte) ([]byte, bool) {
 }
 
 // Attr returns the attribute value by namespace and local name.
-//
-//nolint:gocritic // keep value receiver for convenience.
 func (e Event) Attr(namespace, local string) ([]byte, bool) {
 	for _, attr := range e.Attrs {
 		if attr.Name.Namespace == namespace && attr.Name.Local == local {
@@ -179,8 +173,6 @@ func (e Event) Attr(namespace, local string) ([]byte, bool) {
 }
 
 // AttrLocal returns the attribute value by local name, ignoring namespace.
-//
-//nolint:gocritic // keep value receiver for convenience.
 func (e Event) AttrLocal(local string) ([]byte, bool) {
 	for _, attr := range e.Attrs {
 		if attr.Name.Local == local {

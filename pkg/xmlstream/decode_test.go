@@ -1121,7 +1121,6 @@ type itemTitle struct {
 	title string
 }
 
-//nolint:gocritic // test keeps value semantics for start events.
 func (i *itemTitle) UnmarshalXMLStream(r *Reader, start Event) error {
 	if start.Kind != EventStartElement || start.Name.Local != "item" {
 		return errNoStartElement
@@ -1154,7 +1153,6 @@ type bookStream struct {
 	Author string
 }
 
-//nolint:gocritic // test keeps value semantics for start events.
 func (b *bookStream) UnmarshalXMLStream(r *Reader, start Event) error {
 	if start.Kind != EventStartElement || start.Name.Local != "book" {
 		return errNoStartElement
@@ -1205,7 +1203,6 @@ type parentStream struct {
 	titles []string
 }
 
-//nolint:gocritic // test keeps value semantics for start events.
 func (p *parentStream) UnmarshalXMLStream(r *Reader, start Event) error {
 	if start.Kind != EventStartElement || start.Name.Local != "root" {
 		return errNoStartElement
