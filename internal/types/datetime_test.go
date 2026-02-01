@@ -3,6 +3,8 @@ package types
 import (
 	"testing"
 	"time"
+
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestParseTime(t *testing.T) {
@@ -220,5 +222,94 @@ func TestNormalizeValue_DateTime(t *testing.T) {
 	}
 	if normalized != "2001-10-26T21:32:52" {
 		t.Errorf("NormalizeValue() = %q, want %q", normalized, "2001-10-26T21:32:52")
+	}
+}
+
+func TestTemporalParsingConsistency(t *testing.T) {
+	compare := func(t *testing.T, input string, typesFn func(string) (time.Time, error), valueFn func([]byte) (time.Time, error)) {
+		t.Helper()
+		tTypes, errTypes := typesFn(input)
+		tValue, errValue := valueFn([]byte(input))
+		if (errTypes != nil) != (errValue != nil) {
+			t.Fatalf("parse mismatch for %q: types err=%v value err=%v", input, errTypes, errValue)
+		}
+		if errTypes == nil && !tTypes.Equal(tValue) {
+			t.Fatalf("parse value mismatch for %q: types=%v value=%v", input, tTypes, tValue)
+		}
+	}
+
+	dateTimeCases := []string{
+		"2001-10-26T21:32:52",
+		"2001-10-26T21:32:52Z",
+		"2001-10-26T21:32:52+02:00",
+		"2001-10-26T23:59:60Z",
+		"0000-01-01T00:00:00",
+	}
+	for _, input := range dateTimeCases {
+		compare(t, input, ParseDateTime, value.ParseDateTime)
+	}
+
+	timeCases := []string{
+		"13:20:00",
+		"13:20:00Z",
+		"23:59:60",
+		"12:00:60",
+	}
+	for _, input := range timeCases {
+		compare(t, input, ParseTime, value.ParseTime)
+	}
+
+	dateCases := []string{
+		"2001-10-26",
+		"2001-10-26Z",
+		"0000-10-26",
+	}
+	for _, input := range dateCases {
+		compare(t, input, ParseDate, value.ParseDate)
+	}
+
+	gYearCases := []string{
+		"2001",
+		"2001Z",
+		"0000",
+	}
+	for _, input := range gYearCases {
+		compare(t, input, ParseGYear, value.ParseGYear)
+	}
+
+	gYearMonthCases := []string{
+		"2001-10",
+		"2001-10Z",
+		"0000-10",
+	}
+	for _, input := range gYearMonthCases {
+		compare(t, input, ParseGYearMonth, value.ParseGYearMonth)
+	}
+
+	gMonthCases := []string{
+		"--10",
+		"--10Z",
+		"--13",
+	}
+	for _, input := range gMonthCases {
+		compare(t, input, ParseGMonth, value.ParseGMonth)
+	}
+
+	gMonthDayCases := []string{
+		"--10-26",
+		"--10-26Z",
+		"--10-32",
+	}
+	for _, input := range gMonthDayCases {
+		compare(t, input, ParseGMonthDay, value.ParseGMonthDay)
+	}
+
+	gDayCases := []string{
+		"---26",
+		"---26Z",
+		"---32",
+	}
+	for _, input := range gDayCases {
+		compare(t, input, ParseGDay, value.ParseGDay)
 	}
 }

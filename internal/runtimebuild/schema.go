@@ -177,7 +177,11 @@ func (b *schemaBuilder) initSymbols() error {
 			b.internWildcardNamespaces(particle)
 		}
 	}
-	for _, decl := range b.schema.ElementDecls {
+	for _, entry := range b.registry.ElementOrder {
+		decl := entry.Decl
+		if decl == nil {
+			continue
+		}
 		for _, constraint := range decl.Constraints {
 			qname := types.QName{Namespace: constraint.TargetNamespace, Local: constraint.Name}
 			_ = b.internQName(qname)
@@ -850,10 +854,36 @@ func (b *schemaBuilder) addAllModel(group *types.ModelGroup) (runtime.ModelRef, 
 		}
 		minOccurs := elem.MinOcc()
 		optional := minOccurs.IsZero()
-		model.Members = append(model.Members, runtime.AllMember{
+		member := runtime.AllMember{
 			Elem:     elemID,
 			Optional: optional,
-		})
+		}
+		if elem.IsReference {
+			member.AllowsSubst = true
+			head := elem
+			if resolved := b.resolveSubstitutionHead(elem); resolved != nil {
+				head = resolved
+			}
+			list, err := models.ExpandSubstitutionMembers(head, b.substitutionMembers)
+			if err != nil {
+				return runtime.ModelRef{}, err
+			}
+			if len(list) > 0 {
+				member.SubstOff = uint32(len(b.rt.Models.AllSubst))
+				for _, decl := range list {
+					if decl == nil {
+						continue
+					}
+					memberID, ok := b.runtimeElemID(decl)
+					if !ok {
+						return runtime.ModelRef{}, fmt.Errorf("runtime build: all group substitution element %s missing ID", decl.Name)
+					}
+					b.rt.Models.AllSubst = append(b.rt.Models.AllSubst, memberID)
+				}
+				member.SubstLen = uint32(len(b.rt.Models.AllSubst)) - member.SubstOff
+			}
+		}
+		model.Members = append(model.Members, member)
 	}
 
 	id := uint32(len(b.rt.Models.All))
@@ -915,9 +945,10 @@ func (b *schemaBuilder) buildIdentityConstraints() error {
 	b.rt.ICFields = nil
 	b.rt.ElemICs = nil
 
-	icByQName := make(map[types.QName]runtime.ICID)
+	icByElem := make(map[runtime.ElemID]map[types.QName]runtime.ICID)
 	type keyrefPending struct {
 		name types.QName
+		elem runtime.ElemID
 		id   runtime.ICID
 	}
 	var pending []keyrefPending
@@ -982,10 +1013,16 @@ func (b *schemaBuilder) buildIdentityConstraints() error {
 			}
 			b.rt.ICs = append(b.rt.ICs, ic)
 			b.rt.ElemICs = append(b.rt.ElemICs, icID)
-			icByQName[name] = icID
+			scope := icByElem[elemID]
+			if scope == nil {
+				scope = make(map[types.QName]runtime.ICID)
+				icByElem[elemID] = scope
+			}
+			scope[name] = icID
 
 			if constraint.Type == types.KeyRefConstraint {
 				pending = append(pending, keyrefPending{
+					elem: elemID,
 					id:   icID,
 					name: constraint.ReferQName,
 				})
@@ -998,7 +1035,8 @@ func (b *schemaBuilder) buildIdentityConstraints() error {
 	}
 
 	for _, ref := range pending {
-		target, ok := icByQName[ref.name]
+		scope := icByElem[ref.elem]
+		target, ok := scope[ref.name]
 		if !ok {
 			return fmt.Errorf("runtime build: keyref %s refers to missing key", ref.name)
 		}

@@ -8,6 +8,7 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -45,6 +46,7 @@ func (s *Session) Validate(r io.Reader) error {
 	}
 
 	rootSeen := false
+	allowBOM := true
 	resolver := sessionResolver{s: s}
 	for {
 		ev, err := s.reader.NextResolved()
@@ -67,6 +69,7 @@ func (s *Session) Validate(r io.Reader) error {
 			if !rootSeen {
 				rootSeen = true
 			}
+			allowBOM = false
 		case xmlstream.EventEndElement:
 			errs, path := s.handleEndElement(&ev, resolver)
 			if len(errs) > 0 {
@@ -82,12 +85,23 @@ func (s *Session) Validate(r io.Reader) error {
 					}
 				}
 			}
+			allowBOM = false
 		case xmlstream.EventCharData:
+			if len(s.elemStack) == 0 {
+				if !xsdxml.IsIgnorableOutsideRoot(ev.Text, allowBOM) {
+					if fatal := s.recordValidationError(fmt.Errorf("unexpected character data outside root element"), ev.Line, ev.Column); fatal != nil {
+						return fatal
+					}
+				}
+				allowBOM = false
+				continue
+			}
 			if err := s.handleCharData(&ev); err != nil {
 				if fatal := s.recordValidationError(err, ev.Line, ev.Column); fatal != nil {
 					return fatal
 				}
 			}
+			allowBOM = false
 		}
 	}
 
@@ -195,6 +209,14 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 		typ:    result.Type,
 		nilled: result.Nilled,
 	}
+	if entry.LocalLen == 0 && entry.NSLen == 0 {
+		if len(ev.Local) > 0 {
+			frame.local = append([]byte(nil), ev.Local...)
+		}
+		if len(ev.NS) > 0 {
+			frame.ns = append([]byte(nil), ev.NS...)
+		}
+	}
 
 	switch typ.Kind {
 	case runtime.TypeSimple, runtime.TypeBuiltin:
@@ -233,6 +255,9 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 		Applied: attrResult.Applied,
 		Nilled:  result.Nilled,
 	}); err != nil {
+		s.releaseText(frame.text)
+		s.elemStack = s.elemStack[:len(s.elemStack)-1]
+		s.popNamespaceScope()
 		return err
 	}
 
@@ -539,7 +564,7 @@ func (s *Session) lookupNamespace(prefix []byte) ([]byte, bool) {
 					continue
 				}
 				ns := s.nameNS[decl.nsOff : decl.nsOff+decl.nsLen]
-				s.cachePrefix(prefix, ns, true, hash)
+				s.cachePrefixDecl(decl, true, hash)
 				return ns, true
 			}
 			if len(prefix) != int(decl.prefixLen) {
@@ -550,7 +575,7 @@ func (s *Session) lookupNamespace(prefix []byte) ([]byte, bool) {
 				continue
 			}
 			ns := s.nameNS[decl.nsOff : decl.nsOff+decl.nsLen]
-			s.cachePrefix(prefix, ns, true, hash)
+			s.cachePrefixDecl(decl, true, hash)
 			return ns, true
 		}
 	}
@@ -595,6 +620,20 @@ func (s *Session) cachePrefix(prefix, ns []byte, ok bool, hash uint64) {
 		prefixLen: uint32(prefixLen),
 		nsOff:     uint32(nsOff),
 		nsLen:     uint32(nsLen),
+		ok:        ok,
+	})
+}
+
+func (s *Session) cachePrefixDecl(decl nsDecl, ok bool, hash uint64) {
+	if s == nil {
+		return
+	}
+	s.prefixCache = append(s.prefixCache, prefixEntry{
+		hash:      hash,
+		prefixOff: decl.prefixOff,
+		prefixLen: decl.prefixLen,
+		nsOff:     decl.nsOff,
+		nsLen:     decl.nsLen,
 		ok:        ok,
 	})
 }

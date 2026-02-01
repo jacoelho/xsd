@@ -48,19 +48,6 @@ var (
 	base64WhitespaceReplacer = strings.NewReplacer(" ", "", "\t", "", "\n", "", "\r", "")
 )
 
-var fractionalLayouts = [...]string{
-	"",
-	".0",
-	".00",
-	".000",
-	".0000",
-	".00000",
-	".000000",
-	".0000000",
-	".00000000",
-	".000000000",
-}
-
 func validateDecimal(value string) error {
 	if _, perr := num.ParseDec([]byte(value)); perr != nil {
 		return fmt.Errorf("invalid decimal: %s", value)
@@ -73,10 +60,7 @@ func validateDecimal(value string) error {
 // an explicit lexical check before ParseFloat (which would otherwise accept it).
 
 func validateFloat(value string) error {
-	if value == "INF" || value == "-INF" || value == "NaN" {
-		return nil
-	}
-	if !isFloatLexical(value) {
+	if perr := num.ValidateFloatLexical([]byte(value)); perr != nil {
 		return fmt.Errorf("invalid float: %s", value)
 	}
 	return nil
@@ -84,10 +68,7 @@ func validateFloat(value string) error {
 
 // validateDouble validates xs:double
 func validateDouble(value string) error {
-	if value == "INF" || value == "-INF" || value == "NaN" {
-		return nil
-	}
-	if !isFloatLexical(value) {
+	if perr := num.ValidateFloatLexical([]byte(value)); perr != nil {
 		return fmt.Errorf("invalid double: %s", value)
 	}
 	return nil
@@ -531,28 +512,6 @@ func parseTimeParts(value string) (int, int, int, int, bool) {
 	return hour, minute, second, fractionLength, true
 }
 
-func appendTimezoneSuffix(value, tz string) string {
-	switch tz {
-	case "Z":
-		return value + "Z"
-	case "":
-		return value
-	default:
-		return value + tz
-	}
-}
-
-func applyTimezoneLayout(layout, tz string) string {
-	switch tz {
-	case "Z":
-		return layout + "Z"
-	case "":
-		return layout
-	default:
-		return layout + "-07:00"
-	}
-}
-
 // validateDateTime validates xs:dateTime
 // Format: CCYY-MM-DDThh:mm:ss[.sss][Z|(+|-)hh:mm]
 func validateDateTime(value string) error {
@@ -706,7 +665,7 @@ func validateAnyURI(value string) error {
 			return fmt.Errorf("anyURI contains control characters")
 		}
 		switch r {
-		case '\t', '\n', '\r', '\\', '{', '}', '|', '^', '`':
+		case '\\', '{', '}', '|', '^', '`':
 			return fmt.Errorf("anyURI contains invalid characters")
 		}
 	}

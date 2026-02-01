@@ -92,3 +92,18 @@ func TestValuesEqual_DateTimeTimezonePresence(t *testing.T) {
 		t.Fatalf("expected dateTime values with and without timezone to differ")
 	}
 }
+
+func TestValuesEqual_TimeTimezoneWrap(t *testing.T) {
+	timeType := mustBuiltinSimpleType(t, TypeNameTime)
+	left, err := timeType.ParseValue("23:30:00-01:00")
+	if err != nil {
+		t.Fatalf("ParseValue(23:30:00-01:00) error = %v", err)
+	}
+	right, err := timeType.ParseValue("00:30:00Z")
+	if err != nil {
+		t.Fatalf("ParseValue(00:30:00Z) error = %v", err)
+	}
+	if !ValuesEqual(left, right) {
+		t.Fatalf("expected time values with equivalent UTC to be equal")
+	}
+}

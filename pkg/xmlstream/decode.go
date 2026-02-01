@@ -28,8 +28,6 @@ func (r *Reader) Decode(v Unmarshaler) error {
 }
 
 // DecodeElement unmarshals using the provided start event.
-//
-//nolint:gocritic // keep value semantics for immutable start events.
 func (r *Reader) DecodeElement(v Unmarshaler, start Event) error {
 	if v == nil {
 		return errNilUnmarshaler
@@ -44,7 +42,6 @@ func (r *Reader) DecodeElement(v Unmarshaler, start Event) error {
 	return v.UnmarshalXMLStream(r, start)
 }
 
-//nolint:gocritic // keep value semantics for start event comparisons.
 func sameStartEvent(a, b Event) bool {
 	if a.Kind != EventStartElement {
 		return false
@@ -112,7 +109,6 @@ func (r *Reader) consumeStart() (Event, bool) {
 	return start, true
 }
 
-//nolint:gocritic // keep value semantics for subtree start events.
 func (r *Reader) writeSubtree(w io.Writer, start Event) error {
 	enc := xml.NewEncoder(w)
 	if err := encodeEvent(enc, start); err != nil {
@@ -137,7 +133,6 @@ func (r *Reader) writeSubtree(w io.Writer, start Event) error {
 	return enc.Flush()
 }
 
-//nolint:gocritic // keep value semantics for encoded events.
 func encodeEvent(enc *xml.Encoder, ev Event) error {
 	switch ev.Kind {
 	case EventStartElement:

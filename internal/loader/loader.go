@@ -298,6 +298,12 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 	entry.state = schemaStateLoaded
 
 	if err := l.resolvePendingImportsFor(key); err != nil {
+		entry.schema = nil
+		entry.state = schemaStateUnknown
+		entry.pendingDirectives = nil
+		entry.pendingCount = 0
+		entry.validationRequested = false
+		entry.validated = false
 		return nil, err
 	}
 
@@ -412,16 +418,18 @@ func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
 	if source == nil {
 		return fmt.Errorf("pending import source not found: %s", sourceKey.systemID)
 	}
-	sourceEntry.pendingDirectives = nil
 
-	for _, entry := range pendingDirectives {
+	for i, entry := range pendingDirectives {
 		if err := l.applyPendingDirective(sourceKey, source, entry); err != nil {
+			sourceEntry.pendingDirectives = pendingDirectives[i:]
 			return err
 		}
 		if err := l.decrementPendingAndResolve(entry.targetKey); err != nil {
+			sourceEntry.pendingDirectives = pendingDirectives[i+1:]
 			return err
 		}
 	}
+	sourceEntry.pendingDirectives = nil
 
 	return l.validateIfRequested(sourceKey)
 }

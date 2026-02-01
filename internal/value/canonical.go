@@ -110,6 +110,12 @@ func CanonicalFloat(value float64, bits int) string {
 // CanonicalDateTimeString formats a time value into the canonical lexical form
 // for the given XML Schema temporal kind.
 func CanonicalDateTimeString(value time.Time, kind string, hasTZ bool) string {
+	if hasTZ {
+		switch kind {
+		case "dateTime", "time":
+			value = value.UTC()
+		}
+	}
 	year, month, day := value.Date()
 	hour, minute, second := value.Clock()
 	fraction := formatFraction(value.Nanosecond())

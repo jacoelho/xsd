@@ -107,6 +107,10 @@ func ParseInto(r io.Reader, doc *Document) error {
 			textOff := len(node.text)
 			node.text = append(node.text, event.Text...)
 			doc.addTextSegment(nodeID, childCounts[len(childCounts)-1], textOff, len(event.Text))
+		case xmlstream.EventComment, xmlstream.EventPI, xmlstream.EventDirective:
+			if len(stack) == 0 {
+				allowBOM = false
+			}
 		}
 	}
 

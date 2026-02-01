@@ -131,7 +131,6 @@ type benchStreamItem struct {
 	Author string
 }
 
-//nolint:gocritic // keep value semantics for immutable start events.
 func (b *benchStreamItem) UnmarshalXMLStream(r *Reader, start Event) error {
 	if start.Kind != EventStartElement || start.Name.Local != "item" {
 		return errNoStartElement

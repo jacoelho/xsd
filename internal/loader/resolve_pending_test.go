@@ -76,6 +76,12 @@ func TestResolvePendingImportsRejectsNamespaceMismatch(t *testing.T) {
 	if !strings.Contains(err.Error(), "namespace mismatch") {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if targetEntry.pendingCount != 1 {
+		t.Fatalf("pendingCount = %d, want 1", targetEntry.pendingCount)
+	}
+	if len(sourceEntry.pendingDirectives) != 1 {
+		t.Fatalf("pendingDirectives = %d, want 1", len(sourceEntry.pendingDirectives))
+	}
 }
 
 func TestDecrementPendingAndResolveUnderflow(t *testing.T) {

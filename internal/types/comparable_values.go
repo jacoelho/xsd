@@ -292,9 +292,6 @@ func ParseDurationToTimeDuration(s string) (time.Duration, error) {
 	if xsdDur.Years != 0 || xsdDur.Months != 0 {
 		return 0, fmt.Errorf("durations with years or months cannot be converted to time.Duration (indeterminate)")
 	}
-	if xsdDur.Seconds > 9223372036.854775807 {
-		return 0, fmt.Errorf("second value too large: %g", xsdDur.Seconds)
-	}
 	const maxDuration = time.Duration(^uint64(0) >> 1)
 
 	componentDuration := func(value int, unit time.Duration) (time.Duration, error) {
@@ -351,9 +348,9 @@ func ParseDurationToTimeDuration(s string) (time.Duration, error) {
 		return 0, err
 	}
 
-	secondsDuration := time.Duration(xsdDur.Seconds * float64(time.Second))
-	if secondsDuration < 0 || secondsDuration > maxDuration {
-		return 0, fmt.Errorf("second value too large: %g", xsdDur.Seconds)
+	secondsDuration, err := secondsToDuration(xsdDur.Seconds)
+	if err != nil {
+		return 0, err
 	}
 	if dur, err = addDuration(dur, secondsDuration); err != nil {
 		return 0, err
@@ -379,7 +376,7 @@ func (c ComparableDuration) Compare(other ComparableValue) (int, error) {
 		durVal %= time.Hour
 		minutes := int(durVal / time.Minute)
 		durVal %= time.Minute
-		seconds := float64(durVal) / float64(time.Second)
+		seconds := decFromDurationSeconds(durVal)
 		thisXSDDur := ComparableXSDDuration{
 			Value: XSDDuration{
 				Negative: negative,
@@ -424,13 +421,13 @@ func (c ComparableDuration) Unwrap() any {
 
 // XSDDuration represents a full XSD duration with all components
 type XSDDuration struct {
-	Negative bool
+	Seconds  num.Dec
 	Years    int
 	Months   int
 	Days     int
 	Hours    int
 	Minutes  int
-	Seconds  float64
+	Negative bool
 }
 
 // ComparableXSDDuration wraps XSDDuration to implement ComparableValue
@@ -477,7 +474,7 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 	}
 
 	var years, months, days, hours, minutes int
-	var seconds float64
+	var seconds num.Dec
 	hasDateComponent := false
 	hasTimeComponent := false
 
@@ -533,14 +530,14 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 				hasTimeComponent = true
 			}
 			if match[3] != "" {
-				val, err := strconv.ParseFloat(match[3], 64)
-				if err != nil {
-					return XSDDuration{}, fmt.Errorf("invalid second value: %w", err)
+				dec, perr := num.ParseDec([]byte(match[3]))
+				if perr != nil {
+					return XSDDuration{}, fmt.Errorf("invalid second value: %w", perr)
 				}
-				if val < 0 {
+				if dec.Sign < 0 {
 					return XSDDuration{}, fmt.Errorf("second value cannot be negative")
 				}
-				seconds = val
+				seconds = dec
 				hasTimeComponent = true
 			}
 		}
@@ -567,29 +564,29 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 }
 
 type durationFields struct {
+	seconds num.Dec
 	years   int
 	months  int
 	days    int
 	hours   int
 	minutes int
-	seconds float64
 }
 
 type dateTimeFields struct {
+	second num.Dec
 	year   int
 	month  int
 	day    int
 	hour   int
 	minute int
-	second float64
 }
 
 // durationOrderReferenceTimes are the XSD 1.0 reference dateTimes for duration ordering.
 var durationOrderReferenceTimes = []dateTimeFields{
-	{year: 1696, month: 9, day: 1, hour: 0, minute: 0, second: 0},
-	{year: 1697, month: 2, day: 1, hour: 0, minute: 0, second: 0},
-	{year: 1903, month: 3, day: 1, hour: 0, minute: 0, second: 0},
-	{year: 1903, month: 7, day: 1, hour: 0, minute: 0, second: 0},
+	{year: 1696, month: 9, day: 1, hour: 0, minute: 0, second: num.Dec{}},
+	{year: 1697, month: 2, day: 1, hour: 0, minute: 0, second: num.Dec{}},
+	{year: 1903, month: 3, day: 1, hour: 0, minute: 0, second: num.Dec{}},
+	{year: 1903, month: 7, day: 1, hour: 0, minute: 0, second: num.Dec{}},
 }
 
 func durationFieldsFor(value XSDDuration) durationFields {
@@ -597,13 +594,17 @@ func durationFieldsFor(value XSDDuration) durationFields {
 	if value.Negative {
 		sign = -1
 	}
+	seconds := value.Seconds
+	if sign < 0 {
+		seconds = negateDec(seconds)
+	}
 	return durationFields{
 		years:   sign * value.Years,
 		months:  sign * value.Months,
 		days:    sign * value.Days,
 		hours:   sign * value.Hours,
 		minutes: sign * value.Minutes,
-		seconds: float64(sign) * value.Seconds,
+		seconds: seconds,
 	}
 }
 
@@ -611,13 +612,13 @@ func isDayTimeDuration(value XSDDuration) bool {
 	return value.Years == 0 && value.Months == 0
 }
 
-func durationTotalSeconds(value XSDDuration) float64 {
-	total := float64(value.Days)*86400 +
-		float64(value.Hours)*3600 +
-		float64(value.Minutes)*60 +
-		value.Seconds
+func durationTotalSeconds(value XSDDuration) num.Dec {
+	total := value.Seconds
+	total = addDecInt(total, int64(value.Minutes)*60)
+	total = addDecInt(total, int64(value.Hours)*3600)
+	total = addDecInt(total, int64(value.Days)*86400)
 	if value.Negative {
-		return -total
+		total = negateDec(total)
 	}
 	return total
 }
@@ -625,14 +626,7 @@ func durationTotalSeconds(value XSDDuration) float64 {
 func compareDayTimeDurations(left, right XSDDuration) int {
 	leftSeconds := durationTotalSeconds(left)
 	rightSeconds := durationTotalSeconds(right)
-	switch {
-	case leftSeconds < rightSeconds:
-		return -1
-	case leftSeconds > rightSeconds:
-		return 1
-	default:
-		return 0
-	}
+	return leftSeconds.Compare(rightSeconds)
 }
 
 func compareDateTimeFields(left, right dateTimeFields) int {
@@ -657,12 +651,8 @@ func compareDateTimeFields(left, right dateTimeFields) int {
 		return -1
 	case left.minute > right.minute:
 		return 1
-	case left.second < right.second:
-		return -1
-	case left.second > right.second:
-		return 1
 	default:
-		return 0
+		return left.second.Compare(right.second)
 	}
 }
 
@@ -673,9 +663,8 @@ func addDurationToDateTime(start dateTimeFields, dur durationFields) dateTimeFie
 
 	year := start.year + dur.years + carry
 
-	tempSecond := start.second + dur.seconds
-	second := moduloFloat(tempSecond, 60)
-	carry = fQuotientFloat(tempSecond, 60)
+	tempSecond := decAdd(start.second, dur.seconds)
+	carry, second := decDivModInt(tempSecond, 60)
 
 	tempMinute := start.minute + dur.minutes + carry
 	minute := moduloInt(tempMinute, 60)
@@ -773,15 +762,191 @@ func moduloIntRange(a, low, high int) int {
 	return moduloInt(a-low, high-low) + low
 }
 
-func fQuotientFloat(a, b float64) int {
-	if b == 0 {
-		return 0
+func decAdd(a, b num.Dec) num.Dec {
+	if a.Sign == 0 {
+		return b
 	}
-	return int(math.Floor(a / b))
+	if b.Sign == 0 {
+		return a
+	}
+	scale := max(b.Scale, a.Scale)
+	ai := num.DecToScaledInt(a, scale)
+	bi := num.DecToScaledInt(b, scale)
+	sum := num.Add(ai, bi)
+	return num.DecFromScaledInt(sum, scale)
 }
 
-func moduloFloat(a, b float64) float64 {
-	return a - float64(fQuotientFloat(a, b))*b
+func addDecInt(dec num.Dec, delta int64) num.Dec {
+	if delta == 0 {
+		return dec
+	}
+	scale := dec.Scale
+	scaled := num.DecToScaledInt(dec, scale)
+	deltaScaled := num.DecToScaledInt(decFromInt64(delta), scale)
+	sum := num.Add(scaled, deltaScaled)
+	return num.DecFromScaledInt(sum, scale)
+}
+
+func negateDec(dec num.Dec) num.Dec {
+	if dec.Sign == 0 {
+		return dec
+	}
+	dec.Sign = -dec.Sign
+	return dec
+}
+
+func decDivModInt(dec num.Dec, divisor int) (int, num.Dec) {
+	if divisor == 0 {
+		return 0, dec
+	}
+	if dec.Sign == 0 {
+		return 0, dec
+	}
+	if divisor < 0 {
+		divisor = -divisor
+		dec = negateDec(dec)
+	}
+	intDigits := decIntegerDigits(dec)
+	qDigits, rem := divModDigitsByInt(intDigits, divisor)
+	q := digitsToInt(qDigits)
+	hasFraction := dec.Scale > 0
+	if dec.Sign < 0 {
+		if rem != 0 || hasFraction {
+			q = -q - 1
+		} else {
+			q = -q
+		}
+	}
+	remainder := decAdd(dec, decFromInt64(int64(-q*divisor)))
+	return q, remainder
+}
+
+func decFromInt64(v int64) num.Dec {
+	return num.FromInt64(v).AsDec()
+}
+
+func decFromDurationSeconds(d time.Duration) num.Dec {
+	sec := int64(d / time.Second)
+	nanos := int64(d % time.Second)
+	if nanos == 0 {
+		return decFromInt64(sec)
+	}
+	if nanos < 0 {
+		nanos = -nanos
+	}
+	text := fmt.Sprintf("%d.%09d", sec, nanos)
+	text = strings.TrimRight(text, "0")
+	dec, _ := num.ParseDec([]byte(text))
+	return dec
+}
+
+func formatDurationSeconds(sec num.Dec) string {
+	buf := sec.RenderCanonical(nil)
+	if len(buf) >= 2 && buf[len(buf)-2] == '.' && buf[len(buf)-1] == '0' {
+		buf = buf[:len(buf)-2]
+	}
+	return string(buf)
+}
+
+func secondsToDuration(sec num.Dec) (time.Duration, error) {
+	if sec.Sign < 0 {
+		return 0, fmt.Errorf("second value cannot be negative")
+	}
+	scaled, err := num.DecToScaledIntExact(sec, 9)
+	if err != nil {
+		return 0, err
+	}
+	const maxDuration = time.Duration(^uint64(0) >> 1)
+	maxSeconds := num.FromInt64(int64(maxDuration))
+	if scaled.Compare(maxSeconds) > 0 {
+		return 0, fmt.Errorf("second value too large")
+	}
+	val, ok := int64FromDigits(scaled.Digits)
+	if !ok {
+		return 0, fmt.Errorf("second value too large")
+	}
+	if scaled.Sign < 0 {
+		val = -val
+	}
+	return time.Duration(val), nil
+}
+
+func decIntegerDigits(dec num.Dec) []byte {
+	if dec.Sign == 0 || len(dec.Coef) == 0 {
+		return nil
+	}
+	if dec.Scale == 0 {
+		return dec.Coef
+	}
+	if int(dec.Scale) >= len(dec.Coef) {
+		return nil
+	}
+	return dec.Coef[:len(dec.Coef)-int(dec.Scale)]
+}
+
+func divModDigitsByInt(digits []byte, divisor int) ([]byte, int) {
+	if divisor <= 0 || len(digits) == 0 {
+		return nil, 0
+	}
+	quot := make([]byte, len(digits))
+	rem := 0
+	for i, d := range digits {
+		rem = rem*10 + int(d-'0')
+		q := rem / divisor
+		rem %= divisor
+		quot[i] = byte(q) + '0'
+	}
+	quot = trimLeadingZerosDigits(quot)
+	if len(quot) == 0 || allZerosDigits(quot) {
+		return nil, rem
+	}
+	return quot, rem
+}
+
+func digitsToInt(digits []byte) int {
+	if len(digits) == 0 {
+		return 0
+	}
+	maxInt := int(^uint(0) >> 1)
+	n := 0
+	for _, d := range digits {
+		if n > (maxInt-int(d-'0'))/10 {
+			return maxInt
+		}
+		n = n*10 + int(d-'0')
+	}
+	return n
+}
+
+func int64FromDigits(digits []byte) (int64, bool) {
+	if len(digits) == 0 {
+		return 0, true
+	}
+	var n int64
+	for _, d := range digits {
+		if n > (int64(^uint64(0)>>1)-int64(d-'0'))/10 {
+			return 0, false
+		}
+		n = n*10 + int64(d-'0')
+	}
+	return n, true
+}
+
+func trimLeadingZerosDigits(b []byte) []byte {
+	i := 0
+	for i < len(b) && b[i] == '0' {
+		i++
+	}
+	return b[i:]
+}
+
+func allZerosDigits(b []byte) bool {
+	for _, c := range b {
+		if c != '0' {
+			return false
+		}
+	}
+	return true
 }
 
 // Compare orders durations using the XSD 1.0 order relation for duration.
@@ -852,7 +1017,7 @@ func (c ComparableXSDDuration) String() string {
 		hasDate = true
 	}
 
-	hasTime := c.Value.Hours != 0 || c.Value.Minutes != 0 || c.Value.Seconds != 0
+	hasTime := c.Value.Hours != 0 || c.Value.Minutes != 0 || c.Value.Seconds.Sign != 0
 	if !hasDate && !hasTime {
 		return buf.String() + "T0S"
 	}
@@ -865,9 +1030,8 @@ func (c ComparableXSDDuration) String() string {
 		if c.Value.Minutes != 0 {
 			buf.WriteString(fmt.Sprintf("%dM", c.Value.Minutes))
 		}
-		if c.Value.Seconds != 0 {
-			seconds := strconv.FormatFloat(c.Value.Seconds, 'f', -1, 64)
-			buf.WriteString(seconds)
+		if c.Value.Seconds.Sign != 0 {
+			buf.WriteString(formatDurationSeconds(c.Value.Seconds))
 			buf.WriteString("S")
 		}
 	}

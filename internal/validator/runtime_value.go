@@ -149,6 +149,10 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 		return nil, valueErrorf(valueErrInvalid, "validator %d out of range", id)
 	}
 	meta := s.rt.Validators.Meta[id]
+	var localMetrics valueMetrics
+	if metrics == nil && (meta.Kind == runtime.VHexBinary || meta.Kind == runtime.VBase64Binary) && s.hasLengthFacet(meta) {
+		metrics = &localMetrics
+	}
 	normalized := lexical
 	if opts.applyWhitespace && meta.Kind != runtime.VUnion {
 		normalized = value.NormalizeWhitespace(meta.WhiteSpace, lexical, s.normBuf)
@@ -159,7 +163,6 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 	}
 	needEnumKey := meta.Flags&runtime.ValidatorHasEnum != 0
 	if metrics == nil && needEnumKey {
-		var localMetrics valueMetrics
 		metrics = &localMetrics
 	}
 	// for atomic types, keys can be computed lazily in applyFacets when metrics is nil
@@ -561,6 +564,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		if err != nil {
 			return nil, err
 		}
+		memberLexical := normalized
 		if metrics != nil {
 			metrics.patternChecked = patternChecked
 		}
@@ -572,7 +576,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 			memberOpts.requireCanonical = true
 			memberOpts.storeValue = false
 			memberOpts.needKey = needKey
-			canon, memberMetrics, err := s.validateValueInternalWithMetrics(member, normalized, resolver, memberOpts)
+			canon, memberMetrics, err := s.validateValueInternalWithMetrics(member, memberLexical, resolver, memberOpts)
 			if err != nil {
 				lastErr = err
 				continue
@@ -883,6 +887,24 @@ func (s *Session) facetProgram(meta runtime.ValidatorMeta) ([]runtime.FacetInstr
 		return nil, valueErrorf(valueErrInvalid, "facet program out of range")
 	}
 	return s.rt.Facets[start:end], nil
+}
+
+func (s *Session) hasLengthFacet(meta runtime.ValidatorMeta) bool {
+	if s == nil || s.rt == nil || meta.Facets.Len == 0 {
+		return false
+	}
+	start := int(meta.Facets.Off)
+	end := start + int(meta.Facets.Len)
+	if start < 0 || end < 0 || end > len(s.rt.Facets) {
+		return false
+	}
+	for _, instr := range s.rt.Facets[start:end] {
+		switch instr.Op {
+		case runtime.FLength, runtime.FMinLength, runtime.FMaxLength:
+			return true
+		}
+	}
+	return false
 }
 
 func collectEnumIDs(facets []runtime.FacetInstr) []runtime.EnumID {

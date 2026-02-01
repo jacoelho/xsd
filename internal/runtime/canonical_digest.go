@@ -361,8 +361,11 @@ func digestModels(h *digestBuilder, models ModelsBundle) {
 			h.u32(uint32(member.Elem))
 			h.bool(member.Optional)
 			h.bool(member.AllowsSubst)
+			h.u32(member.SubstOff)
+			h.u32(member.SubstLen)
 		}
 	}
+	digestElemIDs(h, models.AllSubst)
 }
 
 func digestWildcards(h *digestBuilder, wildcards []WildcardRule, nsList []NamespaceID) {

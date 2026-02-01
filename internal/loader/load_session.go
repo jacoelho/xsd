@@ -106,7 +106,7 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 }
 
 func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo) error {
-	if imp.SchemaLocation == "" && s.loader.resolver == nil {
+	if imp.SchemaLocation == "" {
 		if s.loader.config.AllowMissingImportLocations {
 			return nil
 		}

@@ -17,6 +17,8 @@ func TestParseFloat32(t *testing.T) {
 		{name: "neg inf", input: "-INF", class: FloatNegInf},
 		{name: "nan", input: "NaN", class: FloatNaN},
 		{name: "finite", input: "1.25", class: FloatFinite},
+		{name: "overflow", input: "1e400", class: FloatPosInf},
+		{name: "neg overflow", input: "-1e400", class: FloatNegInf},
 		{name: "plus inf invalid", input: "+INF", wantErr: true, errKind: ParseBadChar},
 		{name: "bad char", input: "1e", wantErr: true, errKind: ParseBadChar},
 	}
@@ -69,6 +71,8 @@ func TestParseFloat64(t *testing.T) {
 		{name: "neg inf", input: "-INF", class: FloatNegInf},
 		{name: "nan", input: "NaN", class: FloatNaN},
 		{name: "finite", input: "1.25", class: FloatFinite},
+		{name: "overflow", input: "1e4000", class: FloatPosInf},
+		{name: "neg overflow", input: "-1e4000", class: FloatNegInf},
 		{name: "plus inf invalid", input: "+INF", wantErr: true, errKind: ParseBadChar},
 		{name: "bad char", input: "1e", wantErr: true, errKind: ParseBadChar},
 	}

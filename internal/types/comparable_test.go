@@ -553,6 +553,69 @@ func TestComparableXSDDuration_Compare(t *testing.T) {
 	}
 }
 
+func TestComparableXSDDuration_CarryBorrow(t *testing.T) {
+	durationType := &SimpleType{
+		QName: QName{Namespace: XSDNamespace, Local: "duration"},
+	}
+	tests := []struct {
+		name string
+		a    string
+		b    string
+		want int
+	}{
+		{
+			name: "seconds to minutes carry",
+			a:    "P1M0DT0H1M0S",
+			b:    "P1M0DT0H0M60S",
+			want: 0,
+		},
+		{
+			name: "minutes to hours carry",
+			a:    "P1M0DT1H0M0S",
+			b:    "P1M0DT0H60M0S",
+			want: 0,
+		},
+		{
+			name: "negative seconds ordering",
+			a:    "-P1M0DT0H0M1S",
+			b:    "-P1M0DT0H0M2S",
+			want: 1,
+		},
+		{
+			name: "fractional seconds ordering",
+			a:    "P1M0DT0H0M0.5S",
+			b:    "P1M0DT0H0M0.4S",
+			want: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			left, err := ParseXSDDuration(tt.a)
+			if err != nil {
+				t.Fatalf("ParseXSDDuration(%q) error = %v", tt.a, err)
+			}
+			right, err := ParseXSDDuration(tt.b)
+			if err != nil {
+				t.Fatalf("ParseXSDDuration(%q) error = %v", tt.b, err)
+			}
+			cmp, err := ComparableXSDDuration{Value: left, Typ: durationType}.Compare(
+				ComparableXSDDuration{Value: right, Typ: durationType},
+			)
+			if err != nil {
+				t.Fatalf("Compare() error = %v", err)
+			}
+			switch {
+			case tt.want == 0 && cmp != 0:
+				t.Fatalf("compare(%q,%q) = %d, want 0", tt.a, tt.b, cmp)
+			case tt.want < 0 && cmp >= 0:
+				t.Fatalf("compare(%q,%q) = %d, want <0", tt.a, tt.b, cmp)
+			case tt.want > 0 && cmp <= 0:
+				t.Fatalf("compare(%q,%q) = %d, want >0", tt.a, tt.b, cmp)
+			}
+		})
+	}
+}
+
 func TestComparableXSDDuration_Indeterminate(t *testing.T) {
 	durationType := &SimpleType{
 		QName: QName{Namespace: XSDNamespace, Local: "duration"},

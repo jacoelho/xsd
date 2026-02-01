@@ -60,6 +60,9 @@ func ParseDateTime(lexical []byte) (time.Time, error) {
 	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 60 {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
 	}
+	if second == 60 && (hour != 23 || minute != 59) {
+		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+	}
 	leapSecond := second == 60
 	if leapSecond {
 		timePart = timePart[:6] + "59" + timePart[8:]
@@ -128,6 +131,9 @@ func ParseTime(lexical []byte) (time.Time, error) {
 			return time.Time{}, fmt.Errorf("invalid time: %s", trimmed)
 		}
 	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 60 {
+		return time.Time{}, fmt.Errorf("invalid time: %s", trimmed)
+	}
+	if second == 60 && (hour != 23 || minute != 59) {
 		return time.Time{}, fmt.Errorf("invalid time: %s", trimmed)
 	}
 	leapSecond := second == 60

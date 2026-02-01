@@ -16,9 +16,9 @@ const (
 // IntegerKindSpec describes the constraints for an integer kind.
 type IntegerKindSpec struct {
 	Label    string
-	SignRule IntegerSignRule
 	Min      num.Int
 	Max      num.Int
+	SignRule IntegerSignRule
 	HasRange bool
 }
 

@@ -371,8 +371,11 @@ func hashModels(h *hashBuilder, models runtime.ModelsBundle) {
 			h.u32(uint32(member.Elem))
 			h.bool(member.Optional)
 			h.bool(member.AllowsSubst)
+			h.u32(member.SubstOff)
+			h.u32(member.SubstLen)
 		}
 	}
+	hashElemIDs(h, models.AllSubst)
 }
 
 func hashWildcards(h *hashBuilder, wildcards []runtime.WildcardRule, nsList []runtime.NamespaceID) {

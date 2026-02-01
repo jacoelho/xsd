@@ -103,6 +103,22 @@ func Float64Key(dst []byte, floatVal float64, class num.FloatClass) []byte {
 
 // TemporalKeyBytes appends a canonical temporal key encoding to dst.
 func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, hasTZ bool) []byte {
+	if subkind == 2 {
+		if hasTZ {
+			t = t.UTC()
+		}
+		seconds := t.Hour()*3600 + t.Minute()*60 + t.Second()
+		dst = ensureLen(dst[:0], 10)
+		dst[0] = subkind
+		if hasTZ {
+			dst[1] = 1
+		} else {
+			dst[1] = 0
+		}
+		binary.BigEndian.PutUint32(dst[2:], uint32(seconds))
+		binary.BigEndian.PutUint32(dst[6:], uint32(t.Nanosecond()))
+		return dst
+	}
 	if hasTZ {
 		utc := t.UTC()
 		dst = ensureLen(dst[:0], 14)
@@ -131,12 +147,7 @@ func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, hasTZ bool) []byte 
 func DurationKeyBytes(dst []byte, dur types.XSDDuration) []byte {
 	monthsTotal := int64(dur.Years)*12 + int64(dur.Months)
 	months, _ := num.ParseInt([]byte(strconv.FormatInt(monthsTotal, 10)))
-	secondsTotal := float64(dur.Days)*86400 + float64(dur.Hours)*3600 + float64(dur.Minutes)*60 + dur.Seconds
-	if secondsTotal < 0 {
-		secondsTotal = -secondsTotal
-	}
-	secStr := strconv.FormatFloat(secondsTotal, 'f', -1, 64)
-	seconds, _ := num.ParseDec([]byte(secStr))
+	seconds := durationSecondsTotal(dur)
 	sign := byte(1)
 	if dur.Negative {
 		sign = 2
@@ -148,6 +159,25 @@ func DurationKeyBytes(dst []byte, dur types.XSDDuration) []byte {
 	dst = num.EncodeIntKey(dst, months)
 	dst = num.EncodeDecKey(dst, seconds)
 	return dst
+}
+
+func durationSecondsTotal(dur types.XSDDuration) num.Dec {
+	total := dur.Seconds
+	total = addDecInt(total, int64(dur.Minutes)*60)
+	total = addDecInt(total, int64(dur.Hours)*3600)
+	total = addDecInt(total, int64(dur.Days)*86400)
+	return total
+}
+
+func addDecInt(dec num.Dec, delta int64) num.Dec {
+	if delta == 0 {
+		return dec
+	}
+	scale := dec.Scale
+	scaled := num.DecToScaledInt(dec, scale)
+	deltaScaled := num.DecToScaledInt(num.FromInt64(delta).AsDec(), scale)
+	sum := num.Add(scaled, deltaScaled)
+	return num.DecFromScaledInt(sum, scale)
 }
 
 // AppendUvarint appends v as a varint-encoded uint64.

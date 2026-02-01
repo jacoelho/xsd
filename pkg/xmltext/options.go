@@ -207,8 +207,6 @@ func FastValidation() Options {
 }
 
 // QNameInternEntries reports the configured QName interner limit.
-//
-//nolint:gocritic // keep value receiver for fluent option usage.
 func (opts Options) QNameInternEntries() (int, bool) {
 	return opts.maxQNameInternEntries, opts.maxQNameInternEntriesSet
 }

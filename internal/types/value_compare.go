@@ -57,6 +57,11 @@ func ValuesEqual(left, right TypedValue) bool {
 			}
 			// If both have timezones, compare UTC times (Z and +00:00 are equivalent)
 			if leftHasTZ {
+				if isTimeValueType(left.Type()) {
+					leftSec, leftNanos := timeOfDayUTC(l)
+					rightSec, rightNanos := timeOfDayUTC(r)
+					return leftSec == rightSec && leftNanos == rightNanos
+				}
 				return l.UTC().Equal(r.UTC())
 			}
 		}
@@ -194,4 +199,21 @@ func isTemporalValueType(typ Type) bool {
 	default:
 		return false
 	}
+}
+
+func isTimeValueType(typ Type) bool {
+	if typ == nil {
+		return false
+	}
+	primitive := typ.PrimitiveType()
+	if primitive == nil {
+		primitive = typ
+	}
+	return primitive.Name().Local == "time"
+}
+
+func timeOfDayUTC(t time.Time) (int, int) {
+	utc := t.UTC()
+	seconds := utc.Hour()*3600 + utc.Minute()*60 + utc.Second()
+	return seconds, utc.Nanosecond()
 }

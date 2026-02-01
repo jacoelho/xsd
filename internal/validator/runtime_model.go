@@ -3,6 +3,7 @@ package validator
 import (
 	"fmt"
 	"math/bits"
+	"slices"
 	"sort"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
@@ -299,7 +300,10 @@ func (s *Session) stepAll(model *runtime.AllModel, state *ModelState, sym runtim
 		if !ok {
 			continue
 		}
-		if elem.Name == sym {
+		if !member.AllowsSubst {
+			if elem.Name != sym {
+				continue
+			}
 			if matchIdx != -1 {
 				return StartMatch{}, newValidationError(xsderrors.ErrContentModelInvalid, "ambiguous content model match")
 			}
@@ -307,24 +311,18 @@ func (s *Session) stepAll(model *runtime.AllModel, state *ModelState, sym runtim
 			matchElem = member.Elem
 			continue
 		}
-		if !member.AllowsSubst {
-			continue
-		}
 		actual, ok := s.globalElementBySymbol(sym)
 		if !ok {
 			continue
 		}
-		actualElem, ok := s.element(actual)
-		if !ok {
+		if !s.allMemberAllowsSubst(member, actual) {
 			continue
 		}
-		if actualElem.SubstHead == member.Elem {
-			if matchIdx != -1 {
-				return StartMatch{}, newValidationError(xsderrors.ErrContentModelInvalid, "ambiguous content model match")
-			}
-			matchIdx = i
-			matchElem = actual
+		if matchIdx != -1 {
+			return StartMatch{}, newValidationError(xsderrors.ErrContentModelInvalid, "ambiguous content model match")
 		}
+		matchIdx = i
+		matchElem = actual
 	}
 	if matchIdx == -1 {
 		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
@@ -335,6 +333,18 @@ func (s *Session) stepAll(model *runtime.AllModel, state *ModelState, sym runtim
 	allSet(state.All, matchIdx)
 	state.AllCount++
 	return StartMatch{Kind: MatchElem, Elem: matchElem}, nil
+}
+
+func (s *Session) allMemberAllowsSubst(member runtime.AllMember, elem runtime.ElemID) bool {
+	if s == nil || s.rt == nil || member.SubstLen == 0 {
+		return false
+	}
+	start := int(member.SubstOff)
+	end := start + int(member.SubstLen)
+	if start < 0 || end < 0 || end > len(s.rt.Models.AllSubst) {
+		return false
+	}
+	return slices.Contains(s.rt.Models.AllSubst[start:end], elem)
 }
 
 func (s *Session) dfaByRef(ref runtime.ModelRef) (*runtime.DFAModel, error) {

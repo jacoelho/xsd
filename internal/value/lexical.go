@@ -104,7 +104,7 @@ func ValidateAnyURI(value []byte) error {
 			return fmt.Errorf("anyURI contains control characters")
 		}
 		switch b {
-		case '\t', '\n', '\r', '\\', '{', '}', '|', '^', '`':
+		case '\\', '{', '}', '|', '^', '`':
 			return fmt.Errorf("anyURI contains invalid characters")
 		}
 	}
