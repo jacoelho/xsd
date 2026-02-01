@@ -73,10 +73,7 @@ func validateDecimal(value string) error {
 // an explicit lexical check before ParseFloat (which would otherwise accept it).
 
 func validateFloat(value string) error {
-	if value == "INF" || value == "-INF" || value == "NaN" {
-		return nil
-	}
-	if !isFloatLexical(value) {
+	if perr := num.ValidateFloatLexical([]byte(value)); perr != nil {
 		return fmt.Errorf("invalid float: %s", value)
 	}
 	return nil
@@ -84,10 +81,7 @@ func validateFloat(value string) error {
 
 // validateDouble validates xs:double
 func validateDouble(value string) error {
-	if value == "INF" || value == "-INF" || value == "NaN" {
-		return nil
-	}
-	if !isFloatLexical(value) {
+	if perr := num.ValidateFloatLexical([]byte(value)); perr != nil {
 		return fmt.Errorf("invalid double: %s", value)
 	}
 	return nil
@@ -706,7 +700,7 @@ func validateAnyURI(value string) error {
 			return fmt.Errorf("anyURI contains control characters")
 		}
 		switch r {
-		case '\t', '\n', '\r', '\\', '{', '}', '|', '^', '`':
+		case '\\', '{', '}', '|', '^', '`':
 			return fmt.Errorf("anyURI contains invalid characters")
 		}
 	}

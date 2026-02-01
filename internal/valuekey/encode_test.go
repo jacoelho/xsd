@@ -84,27 +84,32 @@ func TestTemporalKeyBytes(t *testing.T) {
 
 	noTZ := time.Date(2021, 7, 9, 11, 12, 13, 14000000, time.UTC)
 	keyNoTZ := TemporalKeyBytes(nil, 2, noTZ, false)
-	if len(keyNoTZ) != 20 {
-		t.Fatalf("no-tz key len = %d, want 20", len(keyNoTZ))
+	if len(keyNoTZ) != 10 {
+		t.Fatalf("no-tz key len = %d, want 10", len(keyNoTZ))
 	}
 	if keyNoTZ[0] != 2 || keyNoTZ[1] != 0 {
 		t.Fatalf("no-tz key header = %v, want [2 0]", keyNoTZ[:2])
 	}
-	year := int32(binary.BigEndian.Uint32(keyNoTZ[2:6]))
-	month := binary.BigEndian.Uint16(keyNoTZ[6:8])
-	day := binary.BigEndian.Uint16(keyNoTZ[8:10])
-	hour := binary.BigEndian.Uint16(keyNoTZ[10:12])
-	minute := binary.BigEndian.Uint16(keyNoTZ[12:14])
-	second := binary.BigEndian.Uint16(keyNoTZ[14:16])
-	nanos = binary.BigEndian.Uint32(keyNoTZ[16:20])
-	if year != int32(noTZ.Year()) ||
-		month != uint16(noTZ.Month()) ||
-		day != uint16(noTZ.Day()) ||
-		hour != uint16(noTZ.Hour()) ||
-		minute != uint16(noTZ.Minute()) ||
-		second != uint16(noTZ.Second()) ||
-		nanos != uint32(noTZ.Nanosecond()) {
+	seconds := binary.BigEndian.Uint32(keyNoTZ[2:6])
+	nanos = binary.BigEndian.Uint32(keyNoTZ[6:10])
+	wantSeconds := uint32(noTZ.Hour()*3600 + noTZ.Minute()*60 + noTZ.Second())
+	if seconds != wantSeconds || nanos != uint32(noTZ.Nanosecond()) {
 		t.Fatalf("no-tz payload mismatch")
+	}
+
+	withTZTime := time.Date(2020, 1, 2, 0, 30, 0, 0, time.FixedZone("X", 2*3600))
+	keyTimeTZ := TemporalKeyBytes(nil, 2, withTZTime, true)
+	if len(keyTimeTZ) != 10 {
+		t.Fatalf("time tz key len = %d, want 10", len(keyTimeTZ))
+	}
+	if keyTimeTZ[0] != 2 || keyTimeTZ[1] != 1 {
+		t.Fatalf("time tz key header = %v, want [2 1]", keyTimeTZ[:2])
+	}
+	seconds = binary.BigEndian.Uint32(keyTimeTZ[2:6])
+	nanos = binary.BigEndian.Uint32(keyTimeTZ[6:10])
+	utcSeconds := uint32(withTZTime.UTC().Hour()*3600 + withTZTime.UTC().Minute()*60 + withTZTime.UTC().Second())
+	if seconds != utcSeconds || nanos != uint32(withTZTime.UTC().Nanosecond()) {
+		t.Fatalf("time tz payload mismatch")
 	}
 }
 
@@ -136,7 +141,7 @@ func TestDurationKeyBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse seconds: %v", err)
 	}
-	dur = types.XSDDuration{Seconds: 1.5}
+	dur = types.XSDDuration{Seconds: secDec}
 	key = DurationKeyBytes(nil, dur)
 	want = []byte{1}
 	want = num.EncodeIntKey(want, num.IntZero)
@@ -149,6 +154,24 @@ func TestDurationKeyBytes(t *testing.T) {
 	key = DurationKeyBytes(nil, dur)
 	if len(key) == 0 || key[0] != 0 {
 		t.Fatalf("negative zero sign = %v, want 0", key)
+	}
+}
+
+func TestDurationKeyBytesPrecision(t *testing.T) {
+	leftSec, err := num.ParseDec([]byte("0.123456789123456789"))
+	if err != nil {
+		t.Fatalf("parse left seconds: %v", err)
+	}
+	rightSec, err := num.ParseDec([]byte("0.123456789123456788"))
+	if err != nil {
+		t.Fatalf("parse right seconds: %v", err)
+	}
+	left := types.XSDDuration{Seconds: leftSec}
+	right := types.XSDDuration{Seconds: rightSec}
+	keyLeft := DurationKeyBytes(nil, left)
+	keyRight := DurationKeyBytes(nil, right)
+	if bytes.Equal(keyLeft, keyRight) {
+		t.Fatalf("duration keys should differ for high-precision seconds")
 	}
 }
 

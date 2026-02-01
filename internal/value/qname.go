@@ -131,7 +131,7 @@ func validateNCName(value []byte) error {
 }
 
 func isNameStartChar(r rune) bool {
-	return r == '_' ||
+	return r == ':' || r == '_' ||
 		(r >= 'A' && r <= 'Z') ||
 		(r >= 'a' && r <= 'z') ||
 		(r >= 0xC0 && r <= 0xD6) ||

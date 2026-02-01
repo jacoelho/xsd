@@ -141,7 +141,22 @@ func (s *Session) identityStart(in identityStartInput) error {
 	if s == nil {
 		return nil
 	}
-	return s.icState.start(s.rt, in)
+	prevFrames := len(s.icState.frames)
+	prevScopes := len(s.icState.scopes)
+	prevViolations := len(s.icState.violations)
+	prevPending := len(s.icState.pending)
+	prevNodeID := s.icState.nextNodeID
+	prevActive := s.icState.active
+	err := s.icState.start(s.rt, in)
+	if err != nil {
+		s.icState.frames = s.icState.frames[:prevFrames]
+		s.icState.scopes = s.icState.scopes[:prevScopes]
+		s.icState.violations = s.icState.violations[:prevViolations]
+		s.icState.pending = s.icState.pending[:prevPending]
+		s.icState.nextNodeID = prevNodeID
+		s.icState.active = prevActive
+	}
+	return err
 }
 
 func (s *Session) identityEnd(in identityEndInput) error {

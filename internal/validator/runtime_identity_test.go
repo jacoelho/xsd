@@ -1,10 +1,12 @@
 package validator
 
 import (
+	"strings"
 	"testing"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 type identityFixture struct {
@@ -271,5 +273,58 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 
 	if pending := sess.icState.drainPending(); len(pending) != 0 {
 		t.Fatalf("pending errors = %d, want 0", len(pending))
+	}
+}
+
+func TestIdentityStartRollbackOnError(t *testing.T) {
+	builder := runtime.NewBuilder()
+	ns := builder.InternNamespace([]byte("urn:test"))
+	symRoot := builder.InternSymbol(ns, []byte("root"))
+	schema := builder.Build()
+
+	schema.Types = make([]runtime.Type, 2)
+	schema.ComplexTypes = make([]runtime.ComplexType, 2)
+	schema.Types[1] = runtime.Type{Kind: runtime.TypeComplex, Complex: runtime.ComplexTypeRef{ID: 1}}
+	schema.ComplexTypes[1] = runtime.ComplexType{Content: runtime.ContentEmpty}
+
+	schema.Elements = make([]runtime.Element, 2)
+	schema.Elements[1] = runtime.Element{Name: symRoot, Type: 1, ICOff: 0, ICLen: 1}
+	schema.GlobalElements = make([]runtime.ElemID, schema.Symbols.Count()+1)
+	schema.GlobalElements[symRoot] = 1
+
+	schema.ICs = make([]runtime.IdentityConstraint, 2)
+	schema.ICs[1] = runtime.IdentityConstraint{
+		Category:    runtime.ICKey,
+		SelectorOff: 0,
+		SelectorLen: 1,
+		FieldOff:    0,
+		FieldLen:    1,
+	}
+	schema.ElemICs = []runtime.ICID{1}
+
+	sess := NewSession(schema)
+	sess.Reset()
+
+	reader, err := xmlstream.NewReader(strings.NewReader(`<root xmlns="urn:test"/>`))
+	if err != nil {
+		t.Fatalf("xml reader: %v", err)
+	}
+	sess.reader = reader
+
+	ev, err := sess.reader.NextResolved()
+	if err != nil {
+		t.Fatalf("NextResolved: %v", err)
+	}
+	if ev.Kind != xmlstream.EventStartElement {
+		t.Fatalf("expected start element, got %v", ev.Kind)
+	}
+	if err := sess.handleStartElement(&ev, sessionResolver{s: sess}); err == nil {
+		t.Fatalf("expected identityStart error")
+	}
+	if len(sess.elemStack) != 0 {
+		t.Fatalf("elemStack len = %d, want 0", len(sess.elemStack))
+	}
+	if len(sess.nsStack) != 0 {
+		t.Fatalf("nsStack len = %d, want 0", len(sess.nsStack))
 	}
 }

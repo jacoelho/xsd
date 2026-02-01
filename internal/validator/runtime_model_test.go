@@ -206,11 +206,12 @@ func TestModelStateNFANullableAcceptsEmpty(t *testing.T) {
 func TestModelStateAllGroup(t *testing.T) {
 	fx := buildModelFixture()
 	fx.schema.Models.All = make([]runtime.AllModel, 2)
+	fx.schema.Models.AllSubst = []runtime.ElemID{fx.elemA, fx.elemC}
 	fx.schema.Models.All[1] = runtime.AllModel{
 		MinOccurs: 1,
 		Mixed:     false,
 		Members: []runtime.AllMember{
-			{Elem: fx.elemA, Optional: false, AllowsSubst: true},
+			{Elem: fx.elemA, Optional: false, AllowsSubst: true, SubstOff: 0, SubstLen: 2},
 			{Elem: fx.elemB, Optional: true},
 		},
 	}

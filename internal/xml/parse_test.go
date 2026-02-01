@@ -270,6 +270,19 @@ func TestParseRejectsBOMAfterRoot(t *testing.T) {
 	}
 }
 
+func TestParseRejectsBOMAfterNonContentTokens(t *testing.T) {
+	cases := []string{
+		"<?xml version=\"1.0\"?>\ufeff<root/>",
+		"<!--c-->\ufeff<root/>",
+		"<?pi?>\ufeff<root/>",
+	}
+	for _, xmlData := range cases {
+		if _, err := Parse(strings.NewReader(xmlData)); err == nil {
+			t.Fatalf("expected parse error for BOM after non-content token: %q", xmlData)
+		}
+	}
+}
+
 func TestIsIgnorableOutsideRoot(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -25,9 +25,10 @@ const (
 )
 
 type ModelsBundle struct {
-	DFA []DFAModel
-	NFA []NFAModel
-	All []AllModel
+	DFA      []DFAModel
+	NFA      []NFAModel
+	All      []AllModel
+	AllSubst []ElemID
 }
 
 type DFAModel struct {
@@ -66,6 +67,8 @@ type AllMember struct {
 	Elem        ElemID
 	Optional    bool
 	AllowsSubst bool
+	SubstOff    uint32
+	SubstLen    uint32
 }
 
 type BitsetRef struct {

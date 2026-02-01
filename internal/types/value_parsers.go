@@ -3,13 +3,13 @@ package types
 import (
 	"encoding/base64"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // ParseDecimal parses a decimal string into num.Dec.
@@ -63,26 +63,14 @@ func ParseFloat(lexical string) (float32, error) {
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid float: empty string")
 	}
-
-	switch lexical {
-	case "+INF":
-		return 0, fmt.Errorf("invalid float: %s", lexical)
-	case "INF":
-		return float32(math.Inf(1)), nil
-	case "-INF":
-		return float32(math.Inf(-1)), nil
-	case "NaN":
-		return float32(math.NaN()), nil
-	default:
-		if !isFloatLexical(lexical) {
-			return 0, fmt.Errorf("invalid float: %s", lexical)
-		}
-		f, err := strconv.ParseFloat(lexical, 32)
-		if err != nil {
-			return 0, fmt.Errorf("invalid float: %s", lexical)
-		}
-		return float32(f), nil
+	f, _, perr := num.ParseFloat32([]byte(lexical))
+	if perr == nil {
+		return f, nil
 	}
+	if perr.Kind == num.ParseEmpty {
+		return 0, fmt.Errorf("invalid float: empty string")
+	}
+	return 0, fmt.Errorf("invalid float: %s", lexical)
 }
 
 // ParseDouble parses a double string into float64 with special value handling
@@ -92,98 +80,20 @@ func ParseDouble(lexical string) (float64, error) {
 	if lexical == "" {
 		return 0, fmt.Errorf("invalid double: empty string")
 	}
-
-	switch lexical {
-	case "+INF":
-		return 0, fmt.Errorf("invalid double: %s", lexical)
-	case "INF":
-		return math.Inf(1), nil
-	case "-INF":
-		return math.Inf(-1), nil
-	case "NaN":
-		return math.NaN(), nil
-	default:
-		if !isFloatLexical(lexical) {
-			return 0, fmt.Errorf("invalid double: %s", lexical)
-		}
-		f, err := strconv.ParseFloat(lexical, 64)
-		if err != nil {
-			return 0, fmt.Errorf("invalid double: %s", lexical)
-		}
+	f, _, perr := num.ParseFloat64([]byte(lexical))
+	if perr == nil {
 		return f, nil
 	}
+	if perr.Kind == num.ParseEmpty {
+		return 0, fmt.Errorf("invalid double: empty string")
+	}
+	return 0, fmt.Errorf("invalid double: %s", lexical)
 }
 
 // ParseDateTime parses a dateTime string into time.Time
 // Supports various ISO 8601 formats with and without timezone
 func ParseDateTime(lexical string) (time.Time, error) {
-	lexical = TrimXMLWhitespace(lexical)
-	if err := validateYearPrefix(lexical, "dateTime"); err != nil {
-		return time.Time{}, err
-	}
-
-	main, tz := splitTimezone(lexical)
-	timeIndex := strings.IndexByte(main, 'T')
-	if timeIndex == -1 {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
-	}
-	datePart := main[:timeIndex]
-	timePart := main[timeIndex+1:]
-	year, month, day, ok := parseDateParts(datePart)
-	if !ok {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
-	}
-	hour, minute, second, fractionLength, ok := parseTimeParts(timePart)
-	if !ok {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
-	}
-	if year < 1 || year > 9999 {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
-	}
-	if month < 1 || month > 12 || !isValidDate(year, month, day) {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
-	}
-	if err := validateTimezoneOffset(tz); err != nil {
-		return time.Time{}, err
-	}
-	if fractionLength > 9 {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
-	}
-	needsDayOffset := hour == 24
-	if needsDayOffset {
-		if minute != 0 || second != 0 || !is24HourZero(timePart) {
-			return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
-		}
-	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 60 {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
-	}
-	leapSecond := second == 60
-	if leapSecond {
-		timePart = timePart[:6] + "59" + timePart[8:]
-		main = datePart + "T" + timePart
-	}
-
-	layout := "2006-01-02T15:04:05" + fractionalLayouts[fractionLength]
-	parseValue := main
-	if needsDayOffset {
-		parseValue = datePart + "T00:00:00" + timePart[len("24:00:00"):]
-	}
-	layout = applyTimezoneLayout(layout, tz)
-	parseValue = appendTimezoneSuffix(parseValue, tz)
-	parsed, err := time.Parse(layout, parseValue)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
-	}
-	if leapSecond {
-		parsed = parsed.Add(time.Second)
-	}
-	if needsDayOffset {
-		parsed = parsed.Add(24 * time.Hour)
-	}
-	if parsed.Year() < 1 || parsed.Year() > 9999 {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", lexical)
-	}
-	return parsed, nil
+	return value.ParseDateTime([]byte(lexical))
 }
 
 // ParseLong parses a long string into int64

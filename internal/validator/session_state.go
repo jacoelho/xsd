@@ -29,6 +29,8 @@ type elemFrame struct {
 	mixed            bool
 	nilled           bool
 	hasChildElements bool
+	local            []byte
+	ns               []byte
 }
 
 type nsFrame struct {

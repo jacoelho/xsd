@@ -42,7 +42,7 @@ func ExpandSubstitution(glu *Glushkov, resolve func(*types.ElementDecl) *types.E
 					head = resolved
 				}
 			}
-			list, err := expandMembers(head, members)
+			list, err := ExpandSubstitutionMembers(head, members)
 			if err != nil {
 				return nil, err
 			}
@@ -125,7 +125,9 @@ func ExpandSubstitution(glu *Glushkov, resolve func(*types.ElementDecl) *types.E
 	}, nil
 }
 
-func expandMembers(head *types.ElementDecl, members func(*types.ElementDecl) []*types.ElementDecl) ([]*types.ElementDecl, error) {
+// ExpandSubstitutionMembers returns the allowed substitution members for a head element.
+// It applies blocking, final, and abstract rules to produce the substitutable set.
+func ExpandSubstitutionMembers(head *types.ElementDecl, members func(*types.ElementDecl) []*types.ElementDecl) ([]*types.ElementDecl, error) {
 	if head == nil {
 		return nil, fmt.Errorf("head element is nil")
 	}
