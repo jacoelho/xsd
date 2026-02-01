@@ -3,6 +3,7 @@ package validator
 import (
 	"fmt"
 	"math/bits"
+	"slices"
 	"sort"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
@@ -343,12 +344,7 @@ func (s *Session) allMemberAllowsSubst(member runtime.AllMember, elem runtime.El
 	if start < 0 || end < 0 || end > len(s.rt.Models.AllSubst) {
 		return false
 	}
-	for _, id := range s.rt.Models.AllSubst[start:end] {
-		if id == elem {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s.rt.Models.AllSubst[start:end], elem)
 }
 
 func (s *Session) dfaByRef(ref runtime.ModelRef) (*runtime.DFAModel, error) {
