@@ -270,15 +270,16 @@ func collectSimpleTypeFacets(schema *parser.Schema, st *types.SimpleType, visite
 		}
 	}
 
-	if st.IsBuiltin() && isBuiltinListTypeName(st.QName.Local) {
+	switch {
+	case st.IsBuiltin() && isBuiltinListTypeName(st.QName.Local):
 		result = append(result, &types.MinLength{Value: 1})
-	} else if st.ResolvedBase != nil {
+	case st.ResolvedBase != nil:
 		if bt, ok := st.ResolvedBase.(*types.BuiltinType); ok && isBuiltinListTypeName(bt.Name().Local) {
 			result = append(result, &types.MinLength{Value: 1})
 		}
-	} else if st.Restriction != nil && !st.Restriction.Base.IsZero() &&
+	case st.Restriction != nil && !st.Restriction.Base.IsZero() &&
 		st.Restriction.Base.Namespace == types.XSDNamespace &&
-		isBuiltinListTypeName(st.Restriction.Base.Local) {
+		isBuiltinListTypeName(st.Restriction.Base.Local):
 		result = append(result, &types.MinLength{Value: 1})
 	}
 

@@ -137,7 +137,8 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 
 	var match StartMatch
 	if len(s.elemStack) == 0 {
-		if s.rt.RootPolicy == runtime.RootAny {
+		switch s.rt.RootPolicy {
+		case runtime.RootAny:
 			if sym == 0 {
 				if err := s.reader.SkipSubtree(); err != nil {
 					s.popNamespaceScope()
@@ -156,7 +157,7 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 				return nil
 			}
 			match = StartMatch{Kind: MatchElem, Elem: elemID}
-		} else if s.rt.RootPolicy == runtime.RootStrict {
+		case runtime.RootStrict:
 			if sym == 0 {
 				s.popNamespaceScope()
 				return newValidationError(xsderrors.ErrValidateRootNotDeclared, "root element not declared")

@@ -766,8 +766,8 @@ func (s *SimpleType) parseValueInternal(lexical string, validateFacets bool) (Ty
 		return nil, err
 	}
 	if validateFacets {
-		if err = s.validateNormalized(normalized, make(map[*SimpleType]bool)); err != nil {
-			return nil, err
+		if vErr := s.validateNormalized(normalized, make(map[*SimpleType]bool)); vErr != nil {
+			return nil, vErr
 		}
 	}
 
