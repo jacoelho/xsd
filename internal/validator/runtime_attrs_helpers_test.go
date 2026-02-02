@@ -3,7 +3,7 @@ package validator
 import "testing"
 
 func TestValidateSimpleTypeAttrsRejectsNonXsi(t *testing.T) {
-	schema, ids := buildAttrFixture()
+	schema, ids := buildAttrFixture(t)
 	sess := NewSession(schema)
 
 	attrs := []StartAttr{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
@@ -14,7 +14,7 @@ func TestValidateSimpleTypeAttrsRejectsNonXsi(t *testing.T) {
 }
 
 func TestValidateComplexAttrsMarksPresent(t *testing.T) {
-	schema, ids := buildAttrFixtureNoRequired()
+	schema, ids := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
 	ct := &schema.ComplexTypes[1]
@@ -38,7 +38,7 @@ func TestValidateComplexAttrsMarksPresent(t *testing.T) {
 }
 
 func TestApplyDefaultAttrsAddsDefault(t *testing.T) {
-	schema, _ := buildAttrFixtureNoRequired()
+	schema, _ := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
 	ct := &schema.ComplexTypes[1]

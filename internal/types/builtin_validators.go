@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
 	valuepkg "github.com/jacoelho/xsd/internal/value"
@@ -338,89 +337,6 @@ func validateDuration(value string) error {
 	return err
 }
 
-func splitTimezone(value string) (string, string) {
-	if value == "" {
-		return value, ""
-	}
-	last := value[len(value)-1]
-	if last == 'Z' {
-		return value[:len(value)-1], "Z"
-	}
-	if len(value) >= 6 {
-		tz := value[len(value)-6:]
-		if (tz[0] == '+' || tz[0] == '-') && tz[3] == ':' {
-			return value[:len(value)-6], tz
-		}
-	}
-	return value, ""
-}
-
-func parseFixedDigits(value string, start, length int) (int, bool) {
-	if start < 0 || length <= 0 || start+length > len(value) {
-		return 0, false
-	}
-	n := 0
-	for i := range length {
-		ch := value[start+i]
-		if ch < '0' || ch > '9' {
-			return 0, false
-		}
-		n = n*10 + int(ch-'0')
-	}
-	return n, true
-}
-
-func parseDateParts(value string) (int, int, int, bool) {
-	if len(value) != 10 || value[4] != '-' || value[7] != '-' {
-		return 0, 0, 0, false
-	}
-	year, ok := parseFixedDigits(value, 0, 4)
-	if !ok {
-		return 0, 0, 0, false
-	}
-	month, ok := parseFixedDigits(value, 5, 2)
-	if !ok {
-		return 0, 0, 0, false
-	}
-	day, ok := parseFixedDigits(value, 8, 2)
-	if !ok {
-		return 0, 0, 0, false
-	}
-	return year, month, day, true
-}
-
-func parseTimeParts(value string) (int, int, int, int, bool) {
-	if len(value) < 8 || value[2] != ':' || value[5] != ':' {
-		return 0, 0, 0, 0, false
-	}
-	hour, ok := parseFixedDigits(value, 0, 2)
-	if !ok {
-		return 0, 0, 0, 0, false
-	}
-	minute, ok := parseFixedDigits(value, 3, 2)
-	if !ok {
-		return 0, 0, 0, 0, false
-	}
-	second, ok := parseFixedDigits(value, 6, 2)
-	if !ok {
-		return 0, 0, 0, 0, false
-	}
-	if len(value) == 8 {
-		return hour, minute, second, 0, true
-	}
-	if value[8] != '.' || len(value) == 9 {
-		return 0, 0, 0, 0, false
-	}
-	for i := 9; i < len(value); i++ {
-		ch := value[i]
-		if ch < '0' || ch > '9' {
-			return 0, 0, 0, 0, false
-		}
-	}
-	fractionLength := len(value) - 9
-	return hour, minute, second, fractionLength, true
-}
-
 // validateDateTime validates xs:dateTime
 // Format: CCYY-MM-DDThh:mm:ss[.sss][Z|(+|-)hh:mm]
 func validateDateTime(value string) error {
@@ -477,44 +393,6 @@ func validateGMonthDay(value string) error {
 func validateGDay(value string) error {
 	_, err := ParseGDay(value)
 	return err
-}
-
-func validateTimezoneOffset(tz string) error {
-	if tz == "" || tz == "Z" {
-		return nil
-	}
-	if len(tz) != 6 {
-		return fmt.Errorf("invalid timezone format: %s", tz)
-	}
-	if tz[0] != '+' && tz[0] != '-' {
-		return fmt.Errorf("invalid timezone format: %s", tz)
-	}
-	if tz[3] != ':' {
-		return fmt.Errorf("invalid timezone format: %s", tz)
-	}
-	hour, err := strconv.Atoi(tz[1:3])
-	if err != nil {
-		return fmt.Errorf("invalid timezone format: %s", tz)
-	}
-	minute, err := strconv.Atoi(tz[4:6])
-	if err != nil {
-		return fmt.Errorf("invalid timezone format: %s", tz)
-	}
-	if hour < 0 || hour > 14 || minute < 0 || minute > 59 {
-		return fmt.Errorf("invalid timezone offset: %s", tz)
-	}
-	if hour == 14 && minute != 0 {
-		return fmt.Errorf("invalid timezone offset: %s", tz)
-	}
-	return nil
-}
-
-func isValidDate(year, month, day int) bool {
-	if day < 1 || day > 31 {
-		return false
-	}
-	t := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
-	return t.Year() == year && int(t.Month()) == month && t.Day() == day
 }
 
 // validateHexBinary validates xs:hexBinary

@@ -573,6 +573,22 @@ func TestParseBoolAndOccursValues(t *testing.T) {
 	}
 }
 
+func TestParseOccursValueUint32On32Bit(t *testing.T) {
+	if strconv.IntSize != 32 {
+		t.Skip("requires 32-bit int")
+	}
+	got, err := parseOccursValue("maxOccurs", "3000000000")
+	if err != nil {
+		t.Fatalf("parseOccursValue error = %v", err)
+	}
+	if got.IsOverflow() {
+		t.Fatalf("parseOccursValue = %s, want non-overflow", got)
+	}
+	if got.CmpInt(0) <= 0 {
+		t.Fatalf("parseOccursValue = %s, want positive", got)
+	}
+}
+
 func TestParseUnionMemberTypesNBSP(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -1159,7 +1175,7 @@ func TestParseFacetsWithPolicy(t *testing.T) {
 	}
 }
 
-func TestResolveQNameWithoutBuiltin(t *testing.T) {
+func TestResolveQNameDefaultNamespace(t *testing.T) {
 	xmlStr := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns="http://www.w3.org/2001/XMLSchema"></xs:schema>`
@@ -1167,14 +1183,14 @@ func TestResolveQNameWithoutBuiltin(t *testing.T) {
 	schema := NewSchema()
 	root := doc.DocumentElement()
 
-	qname, err := resolveQNameWithoutBuiltin(doc, "string", root, schema)
+	qname, err := resolveQName(doc, "string", root, schema)
 	if err != nil {
 		t.Fatalf("resolveQNameWithoutBuiltin error = %v", err)
 	}
 	if qname.Namespace != types.XSDNamespace || qname.Local != "string" {
 		t.Fatalf("unexpected QName result: %s", qname)
 	}
-	if _, err := resolveQNameWithoutBuiltin(doc, "bad:local", root, schema); err == nil {
+	if _, err := resolveQName(doc, "bad:local", root, schema); err == nil {
 		t.Fatalf("expected undefined prefix error")
 	}
 }

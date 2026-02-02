@@ -15,6 +15,8 @@ func TestParseDec(t *testing.T) {
 		{name: "zero", input: "0", sign: 0, coef: "0", scale: 0},
 		{name: "neg zero", input: "-0.0", sign: 0, coef: "0", scale: 0},
 		{name: "integer", input: "12", sign: 1, coef: "12", scale: 0},
+		{name: "leading zero decimal", input: "0.1", sign: 1, coef: "1", scale: 1},
+		{name: "trailing zero decimal", input: "1.0", sign: 1, coef: "1", scale: 0},
 		{name: "trim trailing zeros", input: "12.3400", sign: 1, coef: "1234", scale: 2},
 		{name: "leading dot", input: ".5", sign: 1, coef: "5", scale: 1},
 		{name: "trailing dot", input: "5.", sign: 1, coef: "5", scale: 0},

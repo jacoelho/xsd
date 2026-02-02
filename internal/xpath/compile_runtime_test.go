@@ -18,7 +18,8 @@ type runtimeIDs struct {
 	symAEmpty runtime.SymbolID
 }
 
-func buildRuntimeXPathFixture() (*runtime.Schema, runtimeIDs) {
+func buildRuntimeXPathFixture(tb testing.TB) (*runtime.Schema, runtimeIDs) {
+	tb.Helper()
 	builder := runtime.NewBuilder()
 	emptyNS := builder.InternNamespace(nil)
 	ns := builder.InternNamespace([]byte("urn:test"))
@@ -27,7 +28,10 @@ func buildRuntimeXPathFixture() (*runtime.Schema, runtimeIDs) {
 	symAttr := builder.InternSymbol(ns, []byte("attr"))
 	symID := builder.InternSymbol(emptyNS, []byte("id"))
 	symAEmpty := builder.InternSymbol(emptyNS, []byte("a"))
-	schema := builder.Build()
+	schema, err := builder.Build()
+	if err != nil {
+		tb.Fatalf("Build() error = %v", err)
+	}
 	return schema, runtimeIDs{
 		ns:        ns,
 		emptyNS:   emptyNS,
@@ -40,7 +44,7 @@ func buildRuntimeXPathFixture() (*runtime.Schema, runtimeIDs) {
 }
 
 func TestCompileProgramsDescend(t *testing.T) {
-	schema, ids := buildRuntimeXPathFixture()
+	schema, ids := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
 	programs, err := CompilePrograms(".//t:a/t:b", nsContext, AttributesDisallowed, schema)
@@ -62,7 +66,7 @@ func TestCompileProgramsDescend(t *testing.T) {
 }
 
 func TestCompileProgramsRootSelf(t *testing.T) {
-	schema, _ := buildRuntimeXPathFixture()
+	schema, _ := buildRuntimeXPathFixture(t)
 
 	programs, err := CompilePrograms(".", nil, AttributesDisallowed, schema)
 	if err != nil {
@@ -75,7 +79,7 @@ func TestCompileProgramsRootSelf(t *testing.T) {
 }
 
 func TestCompileProgramsSelfStep(t *testing.T) {
-	schema, ids := buildRuntimeXPathFixture()
+	schema, ids := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
 	programs, err := CompilePrograms("t:a/.", nsContext, AttributesDisallowed, schema)
@@ -92,7 +96,7 @@ func TestCompileProgramsSelfStep(t *testing.T) {
 }
 
 func TestCompileProgramsAttribute(t *testing.T) {
-	schema, ids := buildRuntimeXPathFixture()
+	schema, ids := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
 	programs, err := CompilePrograms("t:a/@id", nsContext, AttributesAllowed, schema)
@@ -124,7 +128,7 @@ func TestCompileProgramsErrorsAreWrapped(t *testing.T) {
 }
 
 func TestCompileProgramsNamespaceWildcard(t *testing.T) {
-	schema, ids := buildRuntimeXPathFixture()
+	schema, ids := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
 	programs, err := CompilePrograms("t:*", nsContext, AttributesDisallowed, schema)
@@ -138,7 +142,7 @@ func TestCompileProgramsNamespaceWildcard(t *testing.T) {
 }
 
 func TestCompileProgramsUnprefixedNameUsesEmptyNamespace(t *testing.T) {
-	schema, ids := buildRuntimeXPathFixture()
+	schema, ids := buildRuntimeXPathFixture(t)
 
 	programs, err := CompilePrograms("a", nil, AttributesDisallowed, schema)
 	if err != nil {
@@ -151,7 +155,7 @@ func TestCompileProgramsUnprefixedNameUsesEmptyNamespace(t *testing.T) {
 }
 
 func TestCompileProgramsUnion(t *testing.T) {
-	schema, ids := buildRuntimeXPathFixture()
+	schema, ids := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
 	programs, err := CompilePrograms("t:a|t:b", nsContext, AttributesDisallowed, schema)
@@ -169,7 +173,7 @@ func TestCompileProgramsUnion(t *testing.T) {
 }
 
 func TestCompileProgramsMissingSymbol(t *testing.T) {
-	schema, _ := buildRuntimeXPathFixture()
+	schema, _ := buildRuntimeXPathFixture(t)
 	nsContext := map[string]string{"t": "urn:test"}
 
 	if _, err := CompilePrograms("t:missing", nsContext, AttributesDisallowed, schema); err == nil {

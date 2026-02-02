@@ -125,6 +125,47 @@ func TestResolveW3CComplexTypeBases(t *testing.T) {
 	}
 }
 
+func TestResolveSimpleTypeRestrictionInheritsUnionMembers(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:string xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="R">
+    <xs:restriction base="tns:U"/>
+  </xs:simpleType>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	resolver := NewResolver(schema)
+	if err := resolver.Resolve(); err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+
+	baseQName := types.QName{Namespace: schema.TargetNamespace, Local: "U"}
+	derivedQName := types.QName{Namespace: schema.TargetNamespace, Local: "R"}
+	base, ok := schema.TypeDefs[baseQName].(*types.SimpleType)
+	if !ok || base == nil {
+		t.Fatalf("expected base union type U")
+	}
+	derived, ok := schema.TypeDefs[derivedQName].(*types.SimpleType)
+	if !ok || derived == nil {
+		t.Fatalf("expected derived type R")
+	}
+	if len(base.MemberTypes) == 0 {
+		t.Fatalf("expected base union member types to be resolved")
+	}
+	if len(derived.MemberTypes) != len(base.MemberTypes) {
+		t.Fatalf("derived member types = %d, want %d", len(derived.MemberTypes), len(base.MemberTypes))
+	}
+}
+
 func TestResolveW3CUniqueConstraints(t *testing.T) {
 	schema := resolveW3CSchema(t, "saxonData/Complex/unique001.xsd")
 	requireNoReferenceErrors(t, schema)

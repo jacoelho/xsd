@@ -12,8 +12,12 @@ import (
 )
 
 func TestValidateRootSeenOnError(t *testing.T) {
-	sess := NewSession(runtime.NewBuilder().Build())
-	err := sess.Validate(strings.NewReader("<root/>"))
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
+	err = sess.Validate(strings.NewReader("<root/>"))
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -27,10 +31,13 @@ func TestValidateRootSeenOnError(t *testing.T) {
 }
 
 func TestRootAnyAllowsUndeclaredRoot(t *testing.T) {
-	schema := runtime.NewBuilder().Build()
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
 	schema.RootPolicy = runtime.RootAny
 	sess := NewSession(schema)
-	err := sess.Validate(strings.NewReader("<root/>"))
+	err = sess.Validate(strings.NewReader("<root/>"))
 	if err != nil {
 		t.Fatalf("expected validation to succeed: %v", err)
 	}
@@ -113,9 +120,59 @@ func TestProhibitedAttributeFixedRejectedAtRuntime(t *testing.T) {
 	}
 }
 
+func TestNilledElementChildReportsOnce(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root" nillable="true">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="child" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	docXML := `<root xmlns="urn:test" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:nil="true"><child>ok</child></root>`
+	err := validateRuntimeDoc(t, schemaXML, docXML)
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	list := mustValidationList(t, err)
+	if got := countValidationCode(list, xsderrors.ErrValidateNilledNotEmpty); got != 1 {
+		t.Fatalf("ErrValidateNilledNotEmpty count = %d, want 1", got)
+	}
+}
+
+func TestSimpleContentChildReportsOnce(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+
+	docXML := `<root xmlns="urn:test"><child/></root>`
+	err := validateRuntimeDoc(t, schemaXML, docXML)
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	list := mustValidationList(t, err)
+	if got := countValidationCode(list, xsderrors.ErrTextInElementOnly); got != 1 {
+		t.Fatalf("ErrTextInElementOnly count = %d, want 1", got)
+	}
+}
+
 func TestValidateMissingRootParseError(t *testing.T) {
-	sess := NewSession(runtime.NewBuilder().Build())
-	err := sess.Validate(strings.NewReader(""))
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
+	err = sess.Validate(strings.NewReader(""))
 	if err == nil {
 		t.Fatalf("expected parse error")
 	}
@@ -166,7 +223,11 @@ func TestValidateCharDataOutsideRoot(t *testing.T) {
 }
 
 func TestLookupNamespaceCacheDoesNotGrowBuffers(t *testing.T) {
-	sess := NewSession(runtime.NewBuilder().Build())
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
 	decls := make([]xmlstream.NamespaceDecl, 0, 40)
 	for i := range 40 {
 		decls = append(decls, xmlstream.NamespaceDecl{
@@ -200,7 +261,11 @@ func TestLookupNamespaceCacheDoesNotGrowBuffers(t *testing.T) {
 }
 
 func TestPathStringFallbackUsesFrameName(t *testing.T) {
-	sess := NewSession(runtime.NewBuilder().Build())
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
 	sess.elemStack = []elemFrame{{
 		name:  NameID(maxNameMapSize + 1),
 		local: []byte("root"),
@@ -299,4 +364,14 @@ func hasValidationCode(list xsderrors.ValidationList, code xsderrors.ErrorCode) 
 		}
 	}
 	return false
+}
+
+func countValidationCode(list xsderrors.ValidationList, code xsderrors.ErrorCode) int {
+	count := 0
+	for _, v := range list {
+		if v.Code == string(code) {
+			count++
+		}
+	}
+	return count
 }

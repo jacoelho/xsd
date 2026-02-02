@@ -136,6 +136,7 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 	s.pushNamespaceScope(decls)
 
 	var match StartMatch
+	parentIndex := -1
 	if len(s.elemStack) == 0 {
 		switch s.rt.RootPolicy {
 		case runtime.RootAny:
@@ -170,8 +171,8 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 			match = StartMatch{Kind: MatchElem, Elem: elemID}
 		}
 	} else {
-		parent := &s.elemStack[len(s.elemStack)-1]
-		parent.hasChildElements = true
+		parentIndex = len(s.elemStack) - 1
+		parent := &s.elemStack[parentIndex]
 		if parent.nilled {
 			s.popNamespaceScope()
 			return newValidationError(xsderrors.ErrValidateNilledNotEmpty, "element with xsi:nil='true' must be empty")
@@ -202,6 +203,9 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 		return err
 	}
 	if result.Skip {
+		if parentIndex >= 0 {
+			s.elemStack[parentIndex].hasChildElements = true
+		}
 		err = s.reader.SkipSubtree()
 		if err != nil {
 			s.popNamespaceScope()
@@ -221,6 +225,9 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 	if !ok {
 		s.popNamespaceScope()
 		return fmt.Errorf("type %d not found", result.Type)
+	}
+	if parentIndex >= 0 {
+		s.elemStack[parentIndex].hasChildElements = true
 	}
 
 	frame := elemFrame{

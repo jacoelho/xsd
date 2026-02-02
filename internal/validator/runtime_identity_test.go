@@ -32,7 +32,8 @@ type identityFixture struct {
 	pathGroupItem runtime.PathID
 }
 
-func buildIdentityFixture() identityFixture {
+func buildIdentityFixture(tb testing.TB) identityFixture {
+	tb.Helper()
 	builder := runtime.NewBuilder()
 	empty := builder.InternNamespace(nil)
 	ns := builder.InternNamespace([]byte("urn:test"))
@@ -40,7 +41,10 @@ func buildIdentityFixture() identityFixture {
 	symGroup := builder.InternSymbol(ns, []byte("group"))
 	symItem := builder.InternSymbol(ns, []byte("item"))
 	symID := builder.InternSymbol(empty, []byte("id"))
-	schema := builder.Build()
+	schema, err := builder.Build()
+	if err != nil {
+		tb.Fatalf("Build() error = %v", err)
+	}
 
 	schema.Types = make([]runtime.Type, 3)
 	schema.Types[1] = runtime.Type{Kind: runtime.TypeSimple}
@@ -83,7 +87,7 @@ func buildIdentityFixture() identityFixture {
 }
 
 func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
-	fx := buildIdentityFixture()
+	fx := buildIdentityFixture(t)
 	schema := fx.schema
 
 	schema.ICs = make([]runtime.IdentityConstraint, 2)
@@ -147,7 +151,7 @@ func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
 }
 
 func TestIdentityKeyMissingFieldErrors(t *testing.T) {
-	fx := buildIdentityFixture()
+	fx := buildIdentityFixture(t)
 	schema := fx.schema
 
 	schema.ICs = make([]runtime.IdentityConstraint, 2)
@@ -194,7 +198,7 @@ func TestIdentityKeyMissingFieldErrors(t *testing.T) {
 }
 
 func TestIdentityKeyrefScopeIsolation(t *testing.T) {
-	fx := buildIdentityFixture()
+	fx := buildIdentityFixture(t)
 	schema := fx.schema
 
 	schema.ICs = make([]runtime.IdentityConstraint, 5)
@@ -280,7 +284,10 @@ func TestIdentityStartRollbackOnError(t *testing.T) {
 	builder := runtime.NewBuilder()
 	ns := builder.InternNamespace([]byte("urn:test"))
 	symRoot := builder.InternSymbol(ns, []byte("root"))
-	schema := builder.Build()
+	schema, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
 
 	schema.Types = make([]runtime.Type, 2)
 	schema.ComplexTypes = make([]runtime.ComplexType, 2)
