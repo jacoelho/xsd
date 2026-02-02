@@ -76,23 +76,8 @@ func (s *Session) applyFacets(meta runtime.ValidatorMeta, normalized, canonical 
 				if err != nil {
 					return err
 				}
-				switch instr.Op {
-				case runtime.FMinInclusive:
-					if cmp < 0 {
-						return valueErrorf(valueErrFacet, "minInclusive violation")
-					}
-				case runtime.FMaxInclusive:
-					if cmp > 0 {
-						return valueErrorf(valueErrFacet, "maxInclusive violation")
-					}
-				case runtime.FMinExclusive:
-					if cmp <= 0 {
-						return valueErrorf(valueErrFacet, "minExclusive violation")
-					}
-				case runtime.FMaxExclusive:
-					if cmp >= 0 {
-						return valueErrorf(valueErrFacet, "maxExclusive violation")
-					}
+				if err := compareRange(instr.Op, cmp); err != nil {
+					return err
 				}
 			}
 		case runtime.FLength, runtime.FMinLength, runtime.FMaxLength:
@@ -281,7 +266,11 @@ func digitCounts(kind runtime.ValidatorKind, canonical []byte, metrics *valueMet
 		if metrics != nil && metrics.intSet {
 			intVal = metrics.intVal
 		} else {
-			intVal, _ = num.ParseInt(canonical)
+			parsed, perr := num.ParseInt(canonical)
+			if perr != nil {
+				return 0, 0, valueErrorMsg(valueErrInvalid, "invalid integer")
+			}
+			intVal = parsed
 		}
 		total = len(intVal.Digits)
 		fraction = 0
@@ -480,25 +469,7 @@ func (s *Session) checkFloat32Range(op runtime.FacetOp, canonical, bound []byte,
 		return rangeViolation(op)
 	}
 	cmp, _ := num.CompareFloat32(val, valClass, boundVal, boundClass)
-	switch op {
-	case runtime.FMinInclusive:
-		if cmp < 0 {
-			return valueErrorf(valueErrFacet, "minInclusive violation")
-		}
-	case runtime.FMaxInclusive:
-		if cmp > 0 {
-			return valueErrorf(valueErrFacet, "maxInclusive violation")
-		}
-	case runtime.FMinExclusive:
-		if cmp <= 0 {
-			return valueErrorf(valueErrFacet, "minExclusive violation")
-		}
-	case runtime.FMaxExclusive:
-		if cmp >= 0 {
-			return valueErrorf(valueErrFacet, "maxExclusive violation")
-		}
-	}
-	return nil
+	return compareRange(op, cmp)
 }
 
 func (s *Session) checkFloat64Range(op runtime.FacetOp, canonical, bound []byte, metrics *valueMetrics) error {
@@ -522,23 +493,29 @@ func (s *Session) checkFloat64Range(op runtime.FacetOp, canonical, bound []byte,
 		return rangeViolation(op)
 	}
 	cmp, _ := num.CompareFloat64(val, valClass, boundVal, boundClass)
+	return compareRange(op, cmp)
+}
+
+func compareRange(op runtime.FacetOp, cmp int) error {
 	switch op {
 	case runtime.FMinInclusive:
 		if cmp < 0 {
-			return valueErrorf(valueErrFacet, "minInclusive violation")
+			return rangeViolation(op)
 		}
 	case runtime.FMaxInclusive:
 		if cmp > 0 {
-			return valueErrorf(valueErrFacet, "maxInclusive violation")
+			return rangeViolation(op)
 		}
 	case runtime.FMinExclusive:
 		if cmp <= 0 {
-			return valueErrorf(valueErrFacet, "minExclusive violation")
+			return rangeViolation(op)
 		}
 	case runtime.FMaxExclusive:
 		if cmp >= 0 {
-			return valueErrorf(valueErrFacet, "maxExclusive violation")
+			return rangeViolation(op)
 		}
+	default:
+		return rangeViolation(op)
 	}
 	return nil
 }

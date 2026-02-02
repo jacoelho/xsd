@@ -1,8 +1,6 @@
 package validator
 
 import (
-	"fmt"
-
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/valuekey"
@@ -25,20 +23,20 @@ func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte) er
 		return nil
 	}
 	if int(id) >= len(s.rt.Validators.Meta) {
-		return fmt.Errorf("validator %d out of range", id)
+		return valueErrorf(valueErrInvalid, "validator %d out of range", id)
 	}
 	meta := s.rt.Validators.Meta[id]
 	switch meta.Kind {
 	case runtime.VString:
 		kind, ok := s.stringKind(meta)
 		if !ok {
-			return fmt.Errorf("string validator out of range")
+			return valueErrorf(valueErrInvalid, "string validator out of range")
 		}
 		return s.trackIDs(kind, canonical)
 	case runtime.VList:
 		item, ok := s.listItemValidator(meta)
 		if !ok {
-			return fmt.Errorf("list validator out of range")
+			return valueErrorf(valueErrInvalid, "list validator out of range")
 		}
 		_, err := forEachListItem(canonical, meta.WhiteSpace == runtime.WS_Collapse, func(itemValue []byte) error {
 			return s.trackValidatedIDs(item, itemValue)
@@ -47,7 +45,7 @@ func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte) er
 	case runtime.VUnion:
 		members, _, _, ok := s.unionMemberInfo(meta)
 		if !ok || len(members) == 0 {
-			return fmt.Errorf("union validator out of range")
+			return valueErrorf(valueErrInvalid, "union validator out of range")
 		}
 		memberOpts := valueOptions{
 			applyWhitespace:  true,
@@ -71,33 +69,30 @@ func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte) er
 		return nil
 	}
 	if int(id) >= len(s.rt.Validators.Meta) {
-		return fmt.Errorf("validator %d out of range", id)
+		return valueErrorf(valueErrInvalid, "validator %d out of range", id)
 	}
 	meta := s.rt.Validators.Meta[id]
 	switch meta.Kind {
 	case runtime.VString:
 		kind, ok := s.stringKind(meta)
 		if !ok {
-			return fmt.Errorf("string validator out of range")
+			return valueErrorf(valueErrInvalid, "string validator out of range")
 		}
 		return s.trackIDs(kind, canonical)
 	case runtime.VList:
 		item, ok := s.listItemValidator(meta)
 		if !ok {
-			return fmt.Errorf("list validator out of range")
+			return valueErrorf(valueErrInvalid, "list validator out of range")
 		}
 		if _, err := forEachListItem(canonical, meta.WhiteSpace == runtime.WS_Collapse, func(itemValue []byte) error {
-			if err := s.trackDefaultValue(item, itemValue); err != nil {
-				return err
-			}
-			return nil
+			return s.trackDefaultValue(item, itemValue)
 		}); err != nil {
 			return err
 		}
 	case runtime.VUnion:
 		members, _, _, ok := s.unionMemberInfo(meta)
 		if !ok || len(members) == 0 {
-			return fmt.Errorf("union validator out of range")
+			return valueErrorf(valueErrInvalid, "union validator out of range")
 		}
 		for _, member := range members {
 			if _, err := s.validateValueInternalNoTrack(member, canonical, nil, true); err == nil {

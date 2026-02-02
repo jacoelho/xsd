@@ -607,10 +607,6 @@ func (s *SimpleType) validateNormalizedWithContext(normalized string, visited ma
 	return validateNormalizedFacetsWithContext(normalized, s, facets, context)
 }
 
-func (s *SimpleType) validateNormalizedLexical(normalized string, visited map[*SimpleType]bool) error {
-	return s.validateNormalizedLexicalWithContext(normalized, visited, nil)
-}
-
 func (s *SimpleType) validateNormalizedLexicalWithContext(normalized string, visited map[*SimpleType]bool, context map[string]string) error {
 	switch s.Variety() {
 	case ListVariety:
@@ -651,10 +647,6 @@ func (s *SimpleType) validateNormalizedLexicalWithContext(normalized string, vis
 	}
 }
 
-func (s *SimpleType) validateAtomicLexical(normalized string) error {
-	return s.validateAtomicLexicalWithContext(normalized, nil)
-}
-
 func (s *SimpleType) validateAtomicLexicalWithContext(normalized string, context map[string]string) error {
 	if context != nil && IsQNameOrNotationType(s) {
 		if _, err := ParseQNameValue(normalized, context); err != nil {
@@ -678,10 +670,6 @@ func (s *SimpleType) validateAtomicLexicalWithContext(normalized string, context
 		}
 	}
 	return nil
-}
-
-func validateTypeLexical(typ Type, lexical string, visited map[*SimpleType]bool) error {
-	return validateTypeLexicalWithContext(typ, lexical, visited, nil)
 }
 
 func validateTypeLexicalWithContext(typ Type, lexical string, visited map[*SimpleType]bool, context map[string]string) error {
@@ -762,10 +750,6 @@ func needsBuiltinListMinLength(st *SimpleType) bool {
 		return true
 	}
 	return false
-}
-
-func validateNormalizedFacets(normalized string, baseType Type, facets []Facet) error {
-	return validateNormalizedFacetsWithContext(normalized, baseType, facets, nil)
 }
 
 func validateNormalizedFacetsWithContext(normalized string, baseType Type, facets []Facet, context map[string]string) error {

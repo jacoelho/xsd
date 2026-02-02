@@ -52,6 +52,7 @@ func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexi
 		memberOpts.needKey = needKey
 		memberOpts.applyWhitespace = true
 		if opts.applyWhitespace && i < len(memberSameWS) && memberSameWS[i] != 0 {
+			// optimization: reuse union-normalized text when the member uses the same whitespace handling.
 			memberOpts.applyWhitespace = false
 			memberLex = normalized
 		}
