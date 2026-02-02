@@ -107,3 +107,28 @@ func TestSimpleTypeValidateListMembers(t *testing.T) {
 		t.Fatalf("unexpected empty list validation error: %v", err)
 	}
 }
+
+func TestSimpleTypeValidateWithContextQNameEnumeration(t *testing.T) {
+	enum := &types.Enumeration{Values: []string{"p:red", "p:blue"}}
+	enum.SetValueContexts([]map[string]string{
+		{"p": "urn:colors"},
+		{"p": "urn:colors"},
+	})
+	st, err := types.NewAtomicSimpleType(types.QName{Namespace: "urn:test", Local: "ColorQN"}, "urn:test", &types.Restriction{
+		Base:   types.QName{Namespace: types.XSDNamespace, Local: "QName"},
+		Facets: []any{enum},
+	})
+	if err != nil {
+		t.Fatalf("NewAtomicSimpleType: %v", err)
+	}
+
+	if err := st.ValidateWithContext("c:red", map[string]string{"c": "urn:colors"}); err != nil {
+		t.Fatalf("expected QName enum to match across prefixes: %v", err)
+	}
+	if err := st.ValidateWithContext("c:green", map[string]string{"c": "urn:colors"}); err == nil {
+		t.Fatalf("expected QName enum mismatch for non-enumerated value")
+	}
+	if err := st.ValidateWithContext("c:red", map[string]string{"c": "urn:other"}); err == nil {
+		t.Fatalf("expected QName enum mismatch for different namespace")
+	}
+}

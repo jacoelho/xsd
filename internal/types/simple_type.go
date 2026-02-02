@@ -568,6 +568,11 @@ func (s *SimpleType) Variety() SimpleTypeVariety {
 
 // Validate checks if a lexical value is valid for this type
 func (s *SimpleType) Validate(lexical string) error {
+	return s.ValidateWithContext(lexical, nil)
+}
+
+// ValidateWithContext checks if a lexical value is valid for this type using namespace context.
+func (s *SimpleType) ValidateWithContext(lexical string, context map[string]string) error {
 	if s == nil {
 		return fmt.Errorf("cannot validate value for nil simple type")
 	}
@@ -575,10 +580,14 @@ func (s *SimpleType) Validate(lexical string) error {
 	if err != nil {
 		return err
 	}
-	return s.validateNormalized(normalized, make(map[*SimpleType]bool))
+	return s.validateNormalizedWithContext(normalized, make(map[*SimpleType]bool), context)
 }
 
 func (s *SimpleType) validateNormalized(normalized string, visited map[*SimpleType]bool) error {
+	return s.validateNormalizedWithContext(normalized, visited, nil)
+}
+
+func (s *SimpleType) validateNormalizedWithContext(normalized string, visited map[*SimpleType]bool, context map[string]string) error {
 	if s == nil {
 		return nil
 	}
@@ -588,17 +597,21 @@ func (s *SimpleType) validateNormalized(normalized string, visited map[*SimpleTy
 	visited[s] = true
 	defer delete(visited, s)
 
-	if err := s.validateNormalizedLexical(normalized, visited); err != nil {
+	if err := s.validateNormalizedLexicalWithContext(normalized, visited, context); err != nil {
 		return err
 	}
 	facets := collectSimpleTypeFacets(s, make(map[*SimpleType]bool))
 	if len(facets) == 0 {
 		return nil
 	}
-	return validateNormalizedFacets(normalized, s, facets)
+	return validateNormalizedFacetsWithContext(normalized, s, facets, context)
 }
 
 func (s *SimpleType) validateNormalizedLexical(normalized string, visited map[*SimpleType]bool) error {
+	return s.validateNormalizedLexicalWithContext(normalized, visited, nil)
+}
+
+func (s *SimpleType) validateNormalizedLexicalWithContext(normalized string, visited map[*SimpleType]bool, context map[string]string) error {
 	switch s.Variety() {
 	case ListVariety:
 		itemType, ok := ListItemType(s)
@@ -607,7 +620,7 @@ func (s *SimpleType) validateNormalizedLexical(normalized string, visited map[*S
 		}
 		count := 0
 		for item := range FieldsXMLWhitespaceSeq(normalized) {
-			if err := validateTypeLexical(itemType, item, visited); err != nil {
+			if err := validateTypeLexicalWithContext(itemType, item, visited, context); err != nil {
 				return err
 			}
 			count++
@@ -623,7 +636,7 @@ func (s *SimpleType) validateNormalizedLexical(normalized string, visited map[*S
 		}
 		var firstErr error
 		for _, member := range members {
-			if err := validateTypeLexical(member, normalized, visited); err == nil {
+			if err := validateTypeLexicalWithContext(member, normalized, visited, context); err == nil {
 				return nil
 			} else if firstErr == nil {
 				firstErr = err
@@ -634,11 +647,20 @@ func (s *SimpleType) validateNormalizedLexical(normalized string, visited map[*S
 		}
 		return fmt.Errorf("value %q does not match any member type", normalized)
 	default:
-		return s.validateAtomicLexical(normalized)
+		return s.validateAtomicLexicalWithContext(normalized, context)
 	}
 }
 
 func (s *SimpleType) validateAtomicLexical(normalized string) error {
+	return s.validateAtomicLexicalWithContext(normalized, nil)
+}
+
+func (s *SimpleType) validateAtomicLexicalWithContext(normalized string, context map[string]string) error {
+	if context != nil && IsQNameOrNotationType(s) {
+		if _, err := ParseQNameValue(normalized, context); err != nil {
+			return err
+		}
+	}
 	if s.IsBuiltin() {
 		if builtinType := GetBuiltinNS(s.QName.Namespace, s.QName.Local); builtinType != nil {
 			return builtinType.Validate(normalized)
@@ -659,6 +681,10 @@ func (s *SimpleType) validateAtomicLexical(normalized string) error {
 }
 
 func validateTypeLexical(typ Type, lexical string, visited map[*SimpleType]bool) error {
+	return validateTypeLexicalWithContext(typ, lexical, visited, nil)
+}
+
+func validateTypeLexicalWithContext(typ Type, lexical string, visited map[*SimpleType]bool, context map[string]string) error {
 	if typ == nil {
 		return nil
 	}
@@ -667,9 +693,14 @@ func validateTypeLexical(typ Type, lexical string, visited map[*SimpleType]bool)
 		return err
 	}
 	if st, ok := AsSimpleType(typ); ok {
-		return st.validateNormalized(normalized, visited)
+		return st.validateNormalizedWithContext(normalized, visited, context)
 	}
 	if bt, ok := AsBuiltinType(typ); ok {
+		if context != nil && IsQNameOrNotationType(bt) {
+			if _, err := ParseQNameValue(normalized, context); err != nil {
+				return err
+			}
+		}
 		return bt.Validate(normalized)
 	}
 	return nil
@@ -734,8 +765,18 @@ func needsBuiltinListMinLength(st *SimpleType) bool {
 }
 
 func validateNormalizedFacets(normalized string, baseType Type, facets []Facet) error {
+	return validateNormalizedFacetsWithContext(normalized, baseType, facets, nil)
+}
+
+func validateNormalizedFacetsWithContext(normalized string, baseType Type, facets []Facet, context map[string]string) error {
 	var typed TypedValue
 	for _, facet := range facets {
+		if enumFacet, ok := facet.(*Enumeration); ok && context != nil && IsQNameOrNotationType(baseType) {
+			if err := enumFacet.ValidateLexicalQName(normalized, baseType, context); err != nil {
+				return err
+			}
+			continue
+		}
 		if lexicalFacet, ok := facet.(LexicalValidator); ok {
 			if err := lexicalFacet.ValidateLexical(normalized, baseType); err != nil {
 				return err
