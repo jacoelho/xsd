@@ -259,6 +259,7 @@ func digestValidators(h *digestBuilder, bundle *ValidatorsBundle) {
 	}
 	digestValidatorIDs(h, bundle.UnionMembers)
 	digestTypeIDs(h, bundle.UnionMemberTypes)
+	digestU8Slice(h, bundle.UnionMemberSameWS)
 	h.u32(uint32(len(bundle.Meta)))
 	for _, meta := range bundle.Meta {
 		h.u8(uint8(meta.Kind))
@@ -442,6 +443,13 @@ func digestU64Slice(h *digestBuilder, vals []uint64) {
 	h.u32(uint32(len(vals)))
 	for _, v := range vals {
 		h.u64(v)
+	}
+}
+
+func digestU8Slice(h *digestBuilder, vals []uint8) {
+	h.u32(uint32(len(vals)))
+	for _, v := range vals {
+		h.u8(v)
 	}
 }
 

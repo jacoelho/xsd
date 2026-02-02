@@ -64,7 +64,7 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 
 func (s *Session) validateSimpleTypeAttrs(attrs []StartAttr, storeAttrs bool) (AttrResult, error) {
 	for _, attr := range attrs {
-		if !s.isXsiAttribute(&attr) {
+		if !s.isXsiAttribute(&attr) && !s.isXMLAttribute(&attr) {
 			return AttrResult{}, newValidationError(xsderrors.ErrValidateSimpleTypeAttrNotAllowed, "attribute not allowed on simple type")
 		}
 	}
@@ -73,6 +73,7 @@ func (s *Session) validateSimpleTypeAttrs(attrs []StartAttr, storeAttrs bool) (A
 	}
 	result := AttrResult{Attrs: make([]StartAttr, 0, len(attrs))}
 	for _, attr := range attrs {
+		s.ensureAttrNameStable(&attr)
 		attr.Value = s.storeValue(attr.Value)
 		attr.KeyKind = runtime.VKInvalid
 		attr.KeyBytes = nil
@@ -108,6 +109,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 	for _, attr := range attrs {
 		if s.isXsiAttribute(&attr) {
 			if storeAttrs {
+				s.ensureAttrNameStable(&attr)
 				attr.Value = s.storeValue(attr.Value)
 				attr.KeyKind = runtime.VKInvalid
 				attr.KeyBytes = nil
@@ -137,6 +139,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 					seenID = true
 				}
 				if storeAttrs {
+					s.ensureAttrNameStable(&attr)
 					attr.Value = canon
 					attr.KeyKind = metrics.keyKind
 					attr.KeyBytes = metrics.keyBytes
@@ -157,6 +160,17 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 			}
 		}
 
+		if s.isXMLAttribute(&attr) {
+			if storeAttrs {
+				s.ensureAttrNameStable(&attr)
+				attr.Value = s.storeValue(attr.Value)
+				attr.KeyKind = runtime.VKInvalid
+				attr.KeyBytes = nil
+				validated = append(validated, attr)
+			}
+			continue
+		}
+
 		if ct.AnyAttr == 0 {
 			return nil, seenID, newValidationError(xsderrors.ErrAttributeNotDeclared, "attribute not declared")
 		}
@@ -168,6 +182,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 		switch rule.PC {
 		case runtime.PCSkip:
 			if storeAttrs {
+				s.ensureAttrNameStable(&attr)
 				attr.Value = s.storeValue(attr.Value)
 				attr.KeyKind = runtime.VKInvalid
 				attr.KeyBytes = nil
@@ -180,6 +195,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 					return nil, seenID, newValidationError(xsderrors.ErrValidateWildcardAttrStrictUnresolved, "attribute wildcard strict unresolved")
 				}
 				if storeAttrs {
+					s.ensureAttrNameStable(&attr)
 					attr.Value = s.storeValue(attr.Value)
 					attr.KeyKind = runtime.VKInvalid
 					attr.KeyBytes = nil
@@ -193,6 +209,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 					return nil, seenID, newValidationError(xsderrors.ErrValidateWildcardAttrStrictUnresolved, "attribute wildcard strict unresolved")
 				}
 				if storeAttrs {
+					s.ensureAttrNameStable(&attr)
 					attr.Value = s.storeValue(attr.Value)
 					attr.KeyKind = runtime.VKInvalid
 					attr.KeyBytes = nil
@@ -220,6 +237,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 				seenID = true
 			}
 			if storeAttrs {
+				s.ensureAttrNameStable(&attr)
 				attr.Value = canon
 				attr.KeyKind = metrics.keyKind
 				attr.KeyBytes = metrics.keyBytes
@@ -374,11 +392,42 @@ func attrNSBytes(rt *runtime.Schema, attr *StartAttr) []byte {
 	return attr.NSBytes
 }
 
+func (s *Session) ensureAttrNameStable(attr *StartAttr) {
+	if s == nil || attr == nil || attr.NameCached {
+		return
+	}
+	if len(attr.Local) > 0 {
+		off := len(s.nameLocal)
+		s.nameLocal = append(s.nameLocal, attr.Local...)
+		attr.Local = s.nameLocal[off : off+len(attr.Local)]
+	}
+	if len(attr.NSBytes) > 0 {
+		off := len(s.nameNS)
+		s.nameNS = append(s.nameNS, attr.NSBytes...)
+		attr.NSBytes = s.nameNS[off : off+len(attr.NSBytes)]
+	}
+	attr.NameCached = true
+}
+
 func (s *Session) isXsiAttribute(attr *StartAttr) bool {
 	if attr.NS != 0 {
 		return attr.NS == s.rt.PredefNS.Xsi
 	}
 	target := s.rt.Namespaces.Bytes(s.rt.PredefNS.Xsi)
+	if len(target) == 0 {
+		return false
+	}
+	return bytes.Equal(target, attr.NSBytes)
+}
+
+func (s *Session) isXMLAttribute(attr *StartAttr) bool {
+	if s == nil || s.rt == nil || attr == nil {
+		return false
+	}
+	if attr.NS != 0 {
+		return attr.NS == s.rt.PredefNS.Xml
+	}
+	target := s.rt.Namespaces.Bytes(s.rt.PredefNS.Xml)
 	if len(target) == 0 {
 		return false
 	}

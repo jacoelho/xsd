@@ -69,17 +69,22 @@ func TestFloatKeyBytes(t *testing.T) {
 func TestTemporalKeyBytes(t *testing.T) {
 	withTZ := time.Date(2020, 1, 2, 3, 4, 5, 60000000, time.FixedZone("X", 2*3600))
 	keyTZ := TemporalKeyBytes(nil, 5, withTZ, true)
-	if len(keyTZ) != 14 {
-		t.Fatalf("tz key len = %d, want 14", len(keyTZ))
+	if len(keyTZ) != 20 {
+		t.Fatalf("tz key len = %d, want 20", len(keyTZ))
 	}
 	if keyTZ[0] != 5 || keyTZ[1] != 1 {
 		t.Fatalf("tz key header = %v, want [5 1]", keyTZ[:2])
 	}
 	utc := withTZ.UTC()
-	secs := binary.BigEndian.Uint64(keyTZ[2:10])
-	nanos := binary.BigEndian.Uint32(keyTZ[10:14])
-	if secs != uint64(utc.Unix()) || nanos != uint32(utc.Nanosecond()) {
-		t.Fatalf("tz payload mismatch: %d/%d vs %d/%d", secs, nanos, utc.Unix(), utc.Nanosecond())
+	year := int32(binary.BigEndian.Uint32(keyTZ[2:6]))
+	month := binary.BigEndian.Uint16(keyTZ[6:8])
+	day := binary.BigEndian.Uint16(keyTZ[8:10])
+	hour := binary.BigEndian.Uint16(keyTZ[10:12])
+	minute := binary.BigEndian.Uint16(keyTZ[12:14])
+	sec := binary.BigEndian.Uint16(keyTZ[14:16])
+	nanos := binary.BigEndian.Uint32(keyTZ[16:20])
+	if year != 0 || month != uint16(utc.Month()) || day != uint16(utc.Day()) || hour != 0 || minute != 0 || sec != 0 || nanos != 0 {
+		t.Fatalf("tz payload mismatch: %d-%02d-%02d %02d:%02d:%02d.%d vs gMonthDay %02d-%02dZ", year, month, day, hour, minute, sec, nanos, utc.Month(), utc.Day())
 	}
 
 	noTZ := time.Date(2021, 7, 9, 11, 12, 13, 14000000, time.UTC)

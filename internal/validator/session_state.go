@@ -68,8 +68,8 @@ type Session struct {
 	reader           *xmlstream.Reader
 	idTable          map[string]struct{}
 	Scratch          Scratch
-	elemStack        []elemFrame
-	nameLocal        []byte
+	normStack        [][]byte
+	errBuf           []byte
 	nameMap          []nameEntry
 	attrPresent      []bool
 	valueBuf         []byte
@@ -77,7 +77,9 @@ type Session struct {
 	attrValidatedBuf []StartAttr
 	attrSeenTable    []attrSeenEntry
 	normBuf          []byte
-	errBuf           []byte
+	elemStack        []elemFrame
+	prefixCache      []prefixEntry
+	nameLocal        []byte
 	validationErrors []xsderrors.Validation
 	attrAppliedBuf   []AttrApplied
 	nameNS           []byte
@@ -87,9 +89,9 @@ type Session struct {
 	nsDecls          []nsDecl
 	idRefs           []string
 	nsStack          []nsFrame
-	prefixCache      []prefixEntry
 	icState          identityState
 	Arena            Arena
+	normDepth        int
 }
 
 // NewSession creates a new runtime validation session.
@@ -119,6 +121,7 @@ func (s *Session) Reset() {
 	s.keyBuf = s.keyBuf[:0]
 	s.keyTmp = s.keyTmp[:0]
 	s.normBuf = s.normBuf[:0]
+	s.normDepth = 0
 	s.errBuf = s.errBuf[:0]
 	s.validationErrors = s.validationErrors[:0]
 	s.valueBuf = s.valueBuf[:0]
@@ -137,6 +140,37 @@ func (s *Session) Reset() {
 	}
 	s.idRefs = s.idRefs[:0]
 	s.shrinkBuffers()
+}
+
+func (s *Session) pushNormBuf(size int) []byte {
+	if s == nil {
+		return nil
+	}
+	idx := s.normDepth
+	if idx < len(s.normStack) {
+		buf := s.normStack[idx]
+		if cap(buf) < size {
+			buf = make([]byte, 0, size)
+		} else {
+			buf = buf[:0]
+		}
+		s.normStack[idx] = buf
+		s.normDepth++
+		return buf
+	}
+	buf := make([]byte, 0, size)
+	s.normStack = append(s.normStack, buf)
+	s.normDepth++
+	return buf
+}
+
+func (s *Session) popNormBuf() {
+	if s == nil {
+		return
+	}
+	if s.normDepth > 0 {
+		s.normDepth--
+	}
 }
 
 func (s *Session) hasIdentityConstraints() bool {

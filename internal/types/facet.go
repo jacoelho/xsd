@@ -58,7 +58,7 @@ func (s *StringTypedValue) String() string { return s.Value }
 func TypedValueForFacet(value string, typ Type) TypedValue {
 	switch t := typ.(type) {
 	case *SimpleType:
-		if parsed, err := t.ParseValue(value); err == nil {
+		if parsed, err := t.parseValueInternal(value, false); err == nil {
 			return parsed
 		}
 	case *BuiltinType:

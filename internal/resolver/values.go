@@ -3,7 +3,6 @@ package resolver
 import (
 	"errors"
 	"fmt"
-	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemacheck"
@@ -115,6 +114,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 		case types.ListVariety:
 			itemType := resolveListItemType(schema, st)
 			if itemType != nil {
+				count := 0
 				for item := range types.FieldsXMLWhitespaceSeq(normalizedValue) {
 					if err := validateDefaultOrFixedValueResolved(schema, item, itemType, context, visited, policy); err != nil {
 						if errors.Is(err, errCircularReference) {
@@ -122,18 +122,18 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 						}
 						return err
 					}
+					count++
 				}
 			}
 			facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
 			return validateValueAgainstFacets(normalizedValue, st, facets, context)
 		default:
-			if err := st.Validate(normalizedValue); err != nil {
-				return err
-			}
 			if types.IsQNameOrNotationType(st) {
 				if err := validateQNameContext(normalizedValue, context); err != nil {
 					return err
 				}
+			} else if err := st.Validate(normalizedValue); err != nil {
+				return err
 			}
 			facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
 			return validateValueAgainstFacets(normalizedValue, st, facets, context)
@@ -225,18 +225,10 @@ func validateValueAgainstFacets(value string, baseType types.Type, facets []type
 			continue
 		}
 		if enumFacet, ok := facet.(*types.Enumeration); ok && types.IsQNameOrNotationType(baseType) && !isListType(baseType) {
-			qname, err := types.ParseQNameValue(value, context)
-			if err != nil {
+			if err := enumFacet.ValidateLexicalQName(value, baseType, context); err != nil {
 				return err
 			}
-			allowed, err := enumFacet.ResolveQNameValues()
-			if err != nil {
-				return err
-			}
-			if slices.Contains(allowed, qname) {
-				continue
-			}
-			return fmt.Errorf("value %s not in enumeration: %s", value, types.FormatEnumerationValues(enumFacet.Values))
+			continue
 		}
 		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
 			if err := lexicalFacet.ValidateLexical(value, baseType); err != nil {
@@ -276,6 +268,19 @@ func collectSimpleTypeFacets(schema *parser.Schema, st *types.SimpleType, visite
 				result = append(result, collectSimpleTypeFacets(schema, baseST, visited)...)
 			}
 		}
+	}
+
+	switch {
+	case st.IsBuiltin() && isBuiltinListTypeName(st.QName.Local):
+		result = append(result, &types.MinLength{Value: 1})
+	case st.ResolvedBase != nil:
+		if bt, ok := st.ResolvedBase.(*types.BuiltinType); ok && isBuiltinListTypeName(bt.Name().Local) {
+			result = append(result, &types.MinLength{Value: 1})
+		}
+	case st.Restriction != nil && !st.Restriction.Base.IsZero() &&
+		st.Restriction.Base.Namespace == types.XSDNamespace &&
+		isBuiltinListTypeName(st.Restriction.Base.Local):
+		result = append(result, &types.MinLength{Value: 1})
 	}
 
 	if st.Restriction != nil {
@@ -337,6 +342,12 @@ func collectRestrictionFacets(schema *parser.Schema, restriction *types.Restrict
 	}
 
 	return result
+}
+
+func isBuiltinListTypeName(name string) bool {
+	return name == string(types.TypeNameNMTOKENS) ||
+		name == string(types.TypeNameIDREFS) ||
+		name == string(types.TypeNameENTITIES)
 }
 
 func resolveSimpleContentBaseType(schema *parser.Schema, sc *types.SimpleContent) types.Type {

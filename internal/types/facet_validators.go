@@ -525,6 +525,35 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 	return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
 }
 
+// ValidateLexicalQName validates QName/NOTATION enumerations using namespace context.
+func (e *Enumeration) ValidateLexicalQName(lexical string, baseType Type, context map[string]string) error {
+	if e == nil {
+		return nil
+	}
+	if baseType == nil {
+		return fmt.Errorf("enumeration: missing base type")
+	}
+	if !isQNameOrNotationType(baseType) {
+		return e.ValidateLexical(lexical, baseType)
+	}
+	if context == nil {
+		return fmt.Errorf("namespace context unavailable for QName/NOTATION enumeration")
+	}
+	normalized := NormalizeWhiteSpace(lexical, baseType)
+	qname, err := ParseQNameValue(normalized, context)
+	if err != nil {
+		return err
+	}
+	allowed, err := e.ResolveQNameValues()
+	if err != nil {
+		return err
+	}
+	if slices.Contains(allowed, qname) {
+		return nil
+	}
+	return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
+}
+
 // ValueContexts returns namespace contexts aligned with Values.
 func (e *Enumeration) ValueContexts() []map[string]string {
 	if e == nil {
@@ -745,7 +774,7 @@ func (e *Enumeration) listEnumerationValues(baseType, itemType Type) ([][][]Type
 func parseTypedValue(lexical string, typ Type) (TypedValue, error) {
 	switch t := typ.(type) {
 	case *SimpleType:
-		return t.ParseValue(lexical)
+		return t.parseValueInternal(lexical, false)
 	case *BuiltinType:
 		return t.ParseValue(lexical)
 	default:
@@ -784,7 +813,7 @@ func parseListValueVariants(lexical string, itemType Type) ([][]TypedValue, erro
 	}
 	items := splitXMLWhitespaceFields(lexical)
 	if len(items) == 0 {
-		return nil, nil
+		return [][]TypedValue{}, nil
 	}
 	parsed := make([][]TypedValue, len(items))
 	for i, item := range items {

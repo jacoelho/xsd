@@ -22,6 +22,18 @@ func (s *Session) shrinkBuffers() {
 	if cap(s.normBuf) > maxSessionBuffer {
 		s.normBuf = nil
 	}
+	if len(s.normStack) > 0 {
+		for i, buf := range s.normStack {
+			if cap(buf) > maxSessionBuffer {
+				s.normStack[i] = nil
+			} else {
+				s.normStack[i] = buf[:0]
+			}
+		}
+		if len(s.normStack) > maxSessionEntries {
+			s.normStack = nil
+		}
+	}
 	if cap(s.errBuf) > maxSessionBuffer {
 		s.errBuf = nil
 	}

@@ -248,7 +248,10 @@ func (c *compiler) compileBuiltin(bt *types.BuiltinType) (runtime.ValidatorID, e
 		if err != nil {
 			return 0, err
 		}
-		return c.addListValidator(ws, runtime.FacetProgramRef{}, itemID), nil
+		start := len(c.facets)
+		c.facets = append(c.facets, runtime.FacetInstr{Op: runtime.FMinLength, Arg0: 1})
+		facetRef := runtime.FacetProgramRef{Off: uint32(start), Len: 1}
+		return c.addListValidator(ws, facetRef, itemID), nil
 	}
 
 	kind, err := builtinValidatorKind(name)
@@ -332,7 +335,8 @@ func (c *compiler) compileSimpleType(st *types.SimpleType) (runtime.ValidatorID,
 			}
 			memberTypeIDs = append(memberTypeIDs, typeID)
 		}
-		return c.addUnionValidator(ws, facetRef, memberIDs, memberTypeIDs), nil
+		typeID, _ := c.typeIDForType(st)
+		return c.addUnionValidator(ws, facetRef, memberIDs, memberTypeIDs, st.QName.String(), typeID)
 	default:
 		kind, err := c.validatorKind(st)
 		if err != nil {
@@ -447,7 +451,7 @@ func (c *compiler) compileEnumeration(enum *types.Enumeration, st *types.SimpleT
 		if err := c.validatePartialFacets(normalized, st, partial); err != nil {
 			return 0, err
 		}
-		enumKeys, err := c.valueKeysForNormalized(normalized, st, ctx)
+		enumKeys, err := c.valueKeysForNormalized(val, normalized, st, ctx)
 		if err != nil {
 			return 0, err
 		}
@@ -458,10 +462,10 @@ func (c *compiler) compileEnumeration(enum *types.Enumeration, st *types.SimpleT
 
 func (c *compiler) canonicalizeLexical(lexical string, typ types.Type, ctx map[string]string) ([]byte, error) {
 	normalized := c.normalizeLexical(lexical, typ)
-	return c.canonicalizeNormalized(normalized, typ, ctx)
+	return c.canonicalizeNormalized(lexical, normalized, typ, ctx)
 }
 
-func (c *compiler) canonicalizeNormalized(normalized string, typ types.Type, ctx map[string]string) ([]byte, error) {
+func (c *compiler) canonicalizeNormalized(lexical, normalized string, typ types.Type, ctx map[string]string) ([]byte, error) {
 	switch c.res.varietyForType(typ) {
 	case types.ListVariety:
 		item, ok := c.res.listItemTypeFromType(typ)
@@ -474,7 +478,8 @@ func (c *compiler) canonicalizeNormalized(normalized string, typ types.Type, ctx
 		}
 		buf := strings.Builder{}
 		for i, itemLex := range items {
-			canon, err := c.canonicalizeNormalized(itemLex, item, ctx)
+			itemNorm := c.normalizeLexical(itemLex, item)
+			canon, err := c.canonicalizeNormalized(itemLex, itemNorm, item, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -490,20 +495,16 @@ func (c *compiler) canonicalizeNormalized(normalized string, typ types.Type, ctx
 			return nil, fmt.Errorf("union has no member types")
 		}
 		for _, member := range members {
-			memberLex := c.normalizeLexical(normalized, member)
+			memberLex := c.normalizeLexical(lexical, member)
 			memberFacets, err := c.facetsForType(member)
 			if err != nil {
 				return nil, err
 			}
-			partial := filterFacets(memberFacets, func(f types.Facet) bool {
-				_, ok := f.(*types.Enumeration)
-				return !ok
-			})
-			err = c.validatePartialFacets(memberLex, member, partial)
+			err = c.validateMemberFacets(memberLex, member, memberFacets, ctx, true)
 			if err != nil {
 				continue
 			}
-			canon, err := c.canonicalizeNormalized(memberLex, member, ctx)
+			canon, err := c.canonicalizeNormalized(lexical, memberLex, member, ctx)
 			if err == nil {
 				return canon, nil
 			}
@@ -666,6 +667,43 @@ func (c *compiler) validatePartialFacets(normalized string, typ types.Type, face
 	return nil
 }
 
+func (c *compiler) validateMemberFacets(normalized string, typ types.Type, facets []types.Facet, ctx map[string]string, includeEnum bool) error {
+	if len(facets) == 0 {
+		return nil
+	}
+	for _, facet := range facets {
+		if c.shouldSkipLengthFacet(typ, facet) {
+			continue
+		}
+		switch f := facet.(type) {
+		case *types.RangeFacet:
+			if err := c.validateRangeFacet(normalized, typ, f); err != nil {
+				return err
+			}
+		case *types.Enumeration:
+			if !includeEnum {
+				continue
+			}
+			if c.res.isQNameOrNotation(typ) {
+				if err := f.ValidateLexicalQName(normalized, typ, ctx); err != nil {
+					return err
+				}
+				continue
+			}
+			if err := f.ValidateLexical(normalized, typ); err != nil {
+				return err
+			}
+		case types.LexicalValidator:
+			if err := f.ValidateLexical(normalized, typ); err != nil {
+				return err
+			}
+		default:
+			// ignore unsupported facets
+		}
+	}
+	return nil
+}
+
 func (c *compiler) validateRangeFacet(normalized string, typ types.Type, facet *types.RangeFacet) error {
 	actual, err := c.comparableValue(normalized, typ)
 	if err != nil {
@@ -777,10 +815,10 @@ func (c *compiler) parseTemporal(kind, lexical string) (time.Time, error) {
 }
 
 func (c *compiler) normalizeLexical(lexical string, typ types.Type) string {
-	if st, ok := types.AsSimpleType(typ); ok && st.Union != nil {
+	ws := c.res.whitespaceMode(typ)
+	if ws == runtime.WS_Preserve || lexical == "" {
 		return lexical
 	}
-	ws := c.res.whitespaceMode(typ)
 	normalized := value.NormalizeWhitespace(ws, []byte(lexical), nil)
 	return string(normalized)
 }
@@ -885,13 +923,26 @@ func (c *compiler) addListValidator(ws runtime.WhitespaceMode, facets runtime.Fa
 	return id
 }
 
-func (c *compiler) addUnionValidator(ws runtime.WhitespaceMode, facets runtime.FacetProgramRef, members []runtime.ValidatorID, memberTypes []runtime.TypeID) runtime.ValidatorID {
+func (c *compiler) addUnionValidator(ws runtime.WhitespaceMode, facets runtime.FacetProgramRef, members []runtime.ValidatorID, memberTypes []runtime.TypeID, unionName string, typeID runtime.TypeID) (runtime.ValidatorID, error) {
+	if len(memberTypes) != len(members) {
+		if typeID != 0 {
+			return 0, fmt.Errorf("union member type count mismatch for %s (type %d): validators=%d memberTypes=%d", unionName, typeID, len(members), len(memberTypes))
+		}
+		return 0, fmt.Errorf("union member type count mismatch for %s: validators=%d memberTypes=%d", unionName, len(members), len(memberTypes))
+	}
 	off := uint32(len(c.bundle.UnionMembers))
 	c.bundle.UnionMembers = append(c.bundle.UnionMembers, members...)
-	if len(memberTypes) != len(members) {
-		panic("union member type count mismatch")
-	}
 	c.bundle.UnionMemberTypes = append(c.bundle.UnionMemberTypes, memberTypes...)
+	sameWS := make([]uint8, len(members))
+	for i, member := range members {
+		if int(member) >= len(c.bundle.Meta) {
+			return 0, fmt.Errorf("union member validator %d out of range for %s", member, unionName)
+		}
+		if c.bundle.Meta[member].WhiteSpace == ws {
+			sameWS[i] = 1
+		}
+	}
+	c.bundle.UnionMemberSameWS = append(c.bundle.UnionMemberSameWS, sameWS...)
 	index := uint32(len(c.bundle.Union))
 	c.bundle.Union = append(c.bundle.Union, runtime.UnionValidator{
 		MemberOff: off,
@@ -906,7 +957,7 @@ func (c *compiler) addUnionValidator(ws runtime.WhitespaceMode, facets runtime.F
 		Facets:     facets,
 		Flags:      c.validatorFlags(facets),
 	})
-	return id
+	return id, nil
 }
 
 func (c *compiler) validatorFlags(facets runtime.FacetProgramRef) runtime.ValidatorFlags {
@@ -1003,6 +1054,14 @@ func (c *compiler) collectFacetsRecursive(st *types.SimpleType, seen map[*types.
 		}
 	}
 
+	if st.IsBuiltin() && isBuiltinListName(st.Name().Local) {
+		result = append(result, &types.MinLength{Value: 1})
+	} else if base := c.res.baseType(st); base != nil {
+		if bt := builtinForType(base); bt != nil && isBuiltinListName(bt.Name().Local) {
+			result = append(result, &types.MinLength{Value: 1})
+		}
+	}
+
 	if st.Restriction != nil {
 		var stepPatterns []*types.Pattern
 		for _, f := range st.Restriction.Facets {
@@ -1045,6 +1104,11 @@ func (c *compiler) collectFacetsRecursive(st *types.SimpleType, seen map[*types.
 func (c *compiler) facetsForType(typ types.Type) ([]types.Facet, error) {
 	if st, ok := types.AsSimpleType(typ); ok {
 		return c.collectFacets(st)
+	}
+	if bt, ok := types.AsBuiltinType(typ); ok {
+		if isBuiltinListName(bt.Name().Local) {
+			return []types.Facet{&types.MinLength{Value: 1}}, nil
+		}
 	}
 	return nil, nil
 }

@@ -124,6 +124,58 @@ func TestCircularDerivation_ValidDeepHierarchy(t *testing.T) {
 	}
 }
 
+func TestValidateStructureDeterministicOrder(t *testing.T) {
+	schema := parser.NewSchema()
+	schema.TargetNamespace = "urn:test"
+
+	attrQName := types.QName{Namespace: "urn:test", Local: "1bad"}
+	schema.AttributeDecls[attrQName] = &types.AttributeDecl{Name: attrQName}
+	schema.GlobalDecls = append(schema.GlobalDecls, parser.GlobalDecl{Kind: parser.GlobalDeclAttribute, Name: attrQName})
+
+	elemQName := types.QName{Namespace: "urn:test", Local: "2bad"}
+	schema.ElementDecls[elemQName] = &types.ElementDecl{Name: elemQName}
+	schema.GlobalDecls = append(schema.GlobalDecls, parser.GlobalDecl{Kind: parser.GlobalDeclElement, Name: elemQName})
+
+	typeQName := types.QName{Namespace: "urn:test", Local: "3bad"}
+	schema.TypeDefs[typeQName] = &types.SimpleType{QName: typeQName}
+	schema.GlobalDecls = append(schema.GlobalDecls, parser.GlobalDecl{Kind: parser.GlobalDeclType, Name: typeQName})
+
+	errs := ValidateStructure(schema)
+	if len(errs) < 3 {
+		t.Fatalf("errors = %d, want at least 3", len(errs))
+	}
+	if !strings.Contains(errs[0].Error(), "attribute") {
+		t.Fatalf("first error = %q, want attribute error", errs[0].Error())
+	}
+	if !strings.Contains(errs[1].Error(), "element") {
+		t.Fatalf("second error = %q, want element error", errs[1].Error())
+	}
+	if !strings.Contains(errs[2].Error(), "type") {
+		t.Fatalf("third error = %q, want type error", errs[2].Error())
+	}
+}
+
+func TestProhibitedAttributeWithFixedAllowed(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="a" type="xs:string" use="prohibited" fixed="x"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	parsed, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	if errs := ValidateStructure(parsed); len(errs) != 0 {
+		t.Fatalf("unexpected structure errors: %v", errs)
+	}
+}
+
 // TestCircularDerivation_MultipleTypesFromSameBase tests that multiple types deriving from the same base is NOT flagged as circular.
 func TestCircularDerivation_MultipleTypesFromSameBase(t *testing.T) {
 	schema := &parser.Schema{

@@ -48,6 +48,22 @@ func TestRuntimeAnyTypeAllowsAnyContent(t *testing.T) {
 	}
 }
 
+func TestRuntimeAllowsXMLNamespaceAttributes(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	doc := `<root xml:lang="en"/>`
+	if err := validateRuntimeDoc(t, schema, doc); err != nil {
+		t.Fatalf("expected xml:lang to be accepted: %v", err)
+	}
+}
+
 func TestRuntimeComplexContentExtensionIncludesBaseParticle(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -540,6 +556,42 @@ func TestRuntimeIdentityFieldUnionSingleField(t *testing.T) {
 	}
 }
 
+func TestRuntimeKeyrefMissingFieldFails(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:ID" use="required"/>
+            <xs:attribute name="ref" type="xs:IDREF"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="k">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+    <xs:keyref name="r" refer="k">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@ref"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`
+
+	doc := `<root><item id="a"/><item id="b" ref="a"/></root>`
+	err := validateRuntimeDoc(t, schema, doc)
+	if err == nil {
+		t.Fatalf("expected keyref missing field violation")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsderrors.ErrIdentityKeyRefFailed) {
+		t.Fatalf("expected ErrIdentityKeyRefFailed, got %+v", list)
+	}
+}
+
 func TestEnumCanonicalizationDecimalEquivalence(t *testing.T) {
 	// Per refactor.md §12.1 item 3: decimal `1.0` == `1.00` in enum
 	schema := `<?xml version="1.0"?>
@@ -573,6 +625,44 @@ func TestEnumCanonicalizationDecimalEquivalence(t *testing.T) {
 	doc3 := `<root>2.0</root>`
 	if err := sess.Validate(strings.NewReader(doc3)); err == nil {
 		t.Fatalf("expected 2.0 to fail enum constraint")
+	}
+}
+
+func TestEnumCanonicalizationDateTimezone(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="DateEnum">
+    <xs:restriction base="xs:date">
+      <xs:enumeration value="2023-12-31Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="DateEnum"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+	doc := `<root>2024-01-01+02:00</root>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("expected date enum to match across timezones: %v", err)
+	}
+}
+
+func TestEnumCanonicalizationDurationNegativeZero(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="DurEnum">
+    <xs:restriction base="xs:duration">
+      <xs:enumeration value="PT0S"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="DurEnum"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+	doc := `<root>-PT0S</root>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("expected -PT0S to match PT0S enum: %v", err)
 	}
 }
 
@@ -690,6 +780,45 @@ func TestRuntimeEnumListWithoutMetrics(t *testing.T) {
 	doc2 := `<root>1 2 4</root>`
 	if err := sess.Validate(strings.NewReader(doc2)); err == nil {
 		t.Fatalf("expected list enum violation")
+	}
+}
+
+func TestRuntimeListEmptyValues(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="List">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="ListMin">
+    <xs:restriction base="List">
+      <xs:minLength value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="ListEnum">
+    <xs:restriction base="List">
+      <xs:enumeration value=""/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="List"/>
+  <xs:element name="rootMin" type="ListMin"/>
+  <xs:element name="rootEnum" type="ListEnum"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	if err := sess.Validate(strings.NewReader("<root/>")); err != nil {
+		t.Fatalf("expected empty list to validate: %v", err)
+	}
+
+	sess.Reset()
+	if err := sess.Validate(strings.NewReader("<rootMin/>")); err == nil {
+		t.Fatalf("expected minLength violation for empty list")
+	}
+
+	sess.Reset()
+	if err := sess.Validate(strings.NewReader("<rootEnum/>")); err != nil {
+		t.Fatalf("expected empty list enum to validate: %v", err)
 	}
 }
 
@@ -829,13 +958,9 @@ func TestValidationErrorOrdering_DocumentOrder(t *testing.T) {
 	}
 }
 
-func TestUnionPatternAppliesToRawLexical(t *testing.T) {
-	// Per refactor.md §6.5.1 and §12.1 item 2:
-	// Union-level pattern facets MUST be applied to the raw lexical form
-	// BEFORE member normalization. This test verifies that behavior.
-	//
-	// xs:normalizedString replaces \r\n\t with spaces during normalization,
-	// but the union-level pattern is evaluated on the raw input.
+func TestUnionPatternAppliesAfterNormalization(t *testing.T) {
+	// Union-level patterns are evaluated on the union's whitespace-normalized value.
+	// This ensures pattern checks match the union's fixed whiteSpace=collapse behavior.
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="U">
@@ -849,13 +974,11 @@ func TestUnionPatternAppliesToRawLexical(t *testing.T) {
   <xs:element name="root" type="E"/>
 </xs:schema>`
 
-	// This document contains a newline which should FAIL the pattern
-	// because the pattern is evaluated BEFORE normalization.
-	// The pattern [a-z ]+ only matches lowercase letters and spaces.
+	// Newlines collapse to spaces before pattern validation.
 	docWithNewline := `<root>hello
 world</root>`
-	if err := validateRuntimeDoc(t, schema, docWithNewline); err == nil {
-		t.Fatalf("expected pattern violation for newline in union lexical")
+	if err := validateRuntimeDoc(t, schema, docWithNewline); err != nil {
+		t.Fatalf("validate: %v", err)
 	}
 
 	// Without newline should pass - matches pattern and valid for string member

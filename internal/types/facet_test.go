@@ -51,6 +51,36 @@ func TestEnumeration(t *testing.T) {
 	}
 }
 
+func TestEnumerationNaN(t *testing.T) {
+	floatType := GetBuiltin(TypeNameFloat)
+	if floatType == nil {
+		t.Fatalf("expected builtin float type")
+	}
+	enum := &Enumeration{Values: []string{"NaN"}}
+	if err := enum.ValidateLexical("NaN", floatType); err != nil {
+		t.Fatalf("expected NaN to match enumeration: %v", err)
+	}
+	if err := enum.ValidateLexical("1.0", floatType); err == nil {
+		t.Fatalf("expected non-NaN to fail enumeration")
+	}
+}
+
+func TestEnumerationQNameContext(t *testing.T) {
+	base := GetBuiltin(TypeNameQName)
+	if base == nil {
+		t.Fatalf("expected builtin QName type")
+	}
+	enum := &Enumeration{Values: []string{"p:color"}}
+	enum.SetValueContexts([]map[string]string{{"p": "urn:ex"}})
+
+	if err := enum.ValidateLexicalQName("q:color", base, map[string]string{"q": "urn:ex"}); err != nil {
+		t.Fatalf("expected QName enum to match: %v", err)
+	}
+	if err := enum.ValidateLexicalQName("q:color", base, map[string]string{"q": "urn:other"}); err == nil {
+		t.Fatalf("expected QName enum to reject mismatched namespace")
+	}
+}
+
 func TestLength(t *testing.T) {
 	l := &Length{Value: 5}
 

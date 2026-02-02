@@ -1,6 +1,10 @@
 package types
 
-import "testing"
+import (
+	"testing"
+
+	valuepkg "github.com/jacoelho/xsd/internal/value"
+)
 
 func TestValidateNumericRanges(t *testing.T) {
 	tests := []struct {
@@ -294,6 +298,56 @@ func TestValidateDateTimeFamily(t *testing.T) {
 	}
 }
 
+func TestLexicalValidatorsMatchValuePackage(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		fn    func(string) error
+		vfn   func([]byte) error
+	}{
+		{name: "token empty", value: "", fn: validateToken, vfn: valuepkg.ValidateToken},
+		{name: "token spaces", value: "a  b", fn: validateToken, vfn: valuepkg.ValidateToken},
+		{name: "name ok", value: "validName", fn: validateName, vfn: valuepkg.ValidateName},
+		{name: "name bad", value: "1bad", fn: validateName, vfn: valuepkg.ValidateName},
+		{name: "ncname ok", value: "good", fn: validateNCName, vfn: valuepkg.ValidateNCName},
+		{name: "ncname bad", value: "a:b", fn: validateNCName, vfn: valuepkg.ValidateNCName},
+		{name: "nmtoken ok", value: "a.b", fn: validateNMTOKEN, vfn: valuepkg.ValidateNMTOKEN},
+		{name: "nmtoken bad", value: "a b", fn: validateNMTOKEN, vfn: valuepkg.ValidateNMTOKEN},
+		{name: "language ok", value: "en-US", fn: validateLanguage, vfn: valuepkg.ValidateLanguage},
+		{name: "language bad", value: "en_US", fn: validateLanguage, vfn: valuepkg.ValidateLanguage},
+		{name: "anyURI ok", value: "http://example.com", fn: validateAnyURI, vfn: valuepkg.ValidateAnyURI},
+		{name: "anyURI bad", value: "http://exa mple.com", fn: validateAnyURI, vfn: valuepkg.ValidateAnyURI},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.fn(tt.value)
+			verr := tt.vfn([]byte(tt.value))
+			if (err == nil) != (verr == nil) {
+				t.Fatalf("types=%v value=%v", err, verr)
+			}
+		})
+	}
+}
+
+func FuzzLexicalNameValidatorsMatchValuePackage(f *testing.F) {
+	seeds := []string{"", "a", "abc", "a:b", "1bad", "good-name", "white space"}
+	for _, seed := range seeds {
+		f.Add(seed)
+	}
+	f.Fuzz(func(t *testing.T, input string) {
+		if (validateName(input) == nil) != (valuepkg.ValidateName([]byte(input)) == nil) {
+			t.Fatalf("name mismatch for %q", input)
+		}
+		if (validateNCName(input) == nil) != (valuepkg.ValidateNCName([]byte(input)) == nil) {
+			t.Fatalf("ncname mismatch for %q", input)
+		}
+		if (validateNMTOKEN(input) == nil) != (valuepkg.ValidateNMTOKEN([]byte(input)) == nil) {
+			t.Fatalf("nmtoken mismatch for %q", input)
+		}
+	})
+}
+
 func TestValidateBinaryURIAndQName(t *testing.T) {
 	if err := validateHexBinary("0A"); err != nil {
 		t.Fatalf("unexpected hexBinary error: %v", err)
@@ -335,9 +389,6 @@ func TestValidateBinaryURIAndQName(t *testing.T) {
 	}
 	if err := validateNOTATION("n:note"); err != nil {
 		t.Fatalf("unexpected NOTATION error: %v", err)
-	}
-	if !isHexDigit('F') || isHexDigit('g') {
-		t.Fatalf("unexpected isHexDigit result")
 	}
 }
 
@@ -402,6 +453,17 @@ func TestBuiltinTypeMethods(t *testing.T) {
 	}
 	if tokenType.PrimitiveType().Name().Local != "string" {
 		t.Fatalf("unexpected token primitive type")
+	}
+
+	listType := GetBuiltin(TypeNameNMTOKENS)
+	if listType == nil {
+		t.Fatalf("expected builtin NMTOKENS type")
+	}
+	if err := listType.Validate("a b"); err != nil {
+		t.Fatalf("unexpected builtin list validate error: %v", err)
+	}
+	if err := listType.Validate(""); err == nil {
+		t.Fatalf("expected builtin list empty error")
 	}
 }
 

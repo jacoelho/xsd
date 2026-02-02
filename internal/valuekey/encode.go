@@ -120,12 +120,43 @@ func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, hasTZ bool) []byte 
 		return dst
 	}
 	if hasTZ {
+		if subkind == 0 {
+			utc := t.UTC()
+			dst = ensureLen(dst[:0], 14)
+			dst[0] = subkind
+			dst[1] = 1
+			binary.BigEndian.PutUint64(dst[2:], uint64(utc.Unix()))
+			binary.BigEndian.PutUint32(dst[10:], uint32(utc.Nanosecond()))
+			return dst
+		}
 		utc := t.UTC()
-		dst = ensureLen(dst[:0], 14)
+		year, month, day := utc.Date()
+		hour, minute, sec := 0, 0, 0
+		switch subkind {
+		case 3: // gYearMonth
+			day = 0
+		case 4: // gYear
+			month = 0
+			day = 0
+		case 5: // gMonthDay
+			year = 0
+		case 6: // gDay
+			year = 0
+			month = 0
+		case 7: // gMonth
+			year = 0
+			day = 0
+		}
+		dst = ensureLen(dst[:0], 20)
 		dst[0] = subkind
 		dst[1] = 1
-		binary.BigEndian.PutUint64(dst[2:], uint64(utc.Unix()))
-		binary.BigEndian.PutUint32(dst[10:], uint32(utc.Nanosecond()))
+		binary.BigEndian.PutUint32(dst[2:], uint32(int32(year)))
+		binary.BigEndian.PutUint16(dst[6:], uint16(month))
+		binary.BigEndian.PutUint16(dst[8:], uint16(day))
+		binary.BigEndian.PutUint16(dst[10:], uint16(hour))
+		binary.BigEndian.PutUint16(dst[12:], uint16(minute))
+		binary.BigEndian.PutUint16(dst[14:], uint16(sec))
+		binary.BigEndian.PutUint32(dst[16:], 0)
 		return dst
 	}
 	year, month, day := t.Date()

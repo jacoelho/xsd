@@ -13,6 +13,24 @@ type loadSession struct {
 	loader   *SchemaLoader
 	key      loadKey
 	systemID string
+	pending  []pendingChange
+	merged   mergedChanges
+}
+
+type pendingChange struct {
+	sourceKey loadKey
+	targetKey loadKey
+	kind      parser.DirectiveKind
+}
+
+type mergedChanges struct {
+	includes []mergeRecord
+	imports  []mergeRecord
+}
+
+type mergeRecord struct {
+	base   loadKey
+	target loadKey
 }
 
 func newLoadSession(loader *SchemaLoader, systemID string, key loadKey, doc io.ReadCloser) *loadSession {
@@ -82,7 +100,7 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
 			return closeErr
 		}
-		s.loader.deferInclude(includeKey, s.key, include.SchemaLocation)
+		s.deferInclude(includeKey, s.key, include.SchemaLocation)
 		return nil
 	}
 	includedSchema, err := s.loader.loadResolved(doc, systemID, includeKey, skipSchemaValidation)
@@ -102,6 +120,7 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 		return fmt.Errorf("merge included schema %s: %w", include.SchemaLocation, err)
 	}
 	s.loader.markMergedInclude(s.key, includeKey)
+	s.merged.includes = append(s.merged.includes, mergeRecord{base: s.key, target: includeKey})
 	return nil
 }
 
@@ -137,7 +156,7 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
 			return closeErr
 		}
-		s.loader.deferImport(importKey, s.key, imp.SchemaLocation, imp.Namespace)
+		s.deferImport(importKey, s.key, imp.SchemaLocation, imp.Namespace)
 		return nil
 	}
 	importedSchema, err := s.loader.loadResolved(doc, systemID, importKey, skipSchemaValidation)
@@ -161,7 +180,90 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 		return fmt.Errorf("merge imported schema %s: %w", imp.SchemaLocation, err)
 	}
 	s.loader.markMergedImport(s.key, importKey)
+	s.merged.imports = append(s.merged.imports, mergeRecord{base: s.key, target: importKey})
 	return nil
+}
+
+func (s *loadSession) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string) {
+	if s.loader.deferImport(sourceKey, targetKey, schemaLocation, expectedNamespace) {
+		s.pending = append(s.pending, pendingChange{
+			sourceKey: sourceKey,
+			targetKey: targetKey,
+			kind:      parser.DirectiveImport,
+		})
+	}
+}
+
+func (s *loadSession) deferInclude(sourceKey, targetKey loadKey, schemaLocation string) {
+	if s.loader.deferInclude(sourceKey, targetKey, schemaLocation) {
+		s.pending = append(s.pending, pendingChange{
+			sourceKey: sourceKey,
+			targetKey: targetKey,
+			kind:      parser.DirectiveInclude,
+		})
+	}
+}
+
+func (s *loadSession) rollback() {
+	if s == nil || s.loader == nil {
+		return
+	}
+	s.rollbackMerges()
+	s.rollbackPending()
+	s.rollbackKeyPending()
+}
+
+func (s *loadSession) rollbackMerges() {
+	for i := len(s.merged.includes) - 1; i >= 0; i-- {
+		rec := s.merged.includes[i]
+		s.loader.unmarkMergedInclude(rec.base, rec.target)
+	}
+	for i := len(s.merged.imports) - 1; i >= 0; i-- {
+		rec := s.merged.imports[i]
+		s.loader.unmarkMergedImport(rec.base, rec.target)
+	}
+}
+
+func (s *loadSession) rollbackPending() {
+	for i := len(s.pending) - 1; i >= 0; i-- {
+		change := s.pending[i]
+		if entry, ok := s.loader.state.entry(change.sourceKey); ok && entry != nil {
+			entry.pendingDirectives = removePendingDirective(entry.pendingDirectives, change.kind, change.targetKey)
+		}
+		if entry, ok := s.loader.state.entry(change.targetKey); ok && entry != nil {
+			if entry.pendingCount > 0 {
+				entry.pendingCount--
+			}
+		}
+		s.loader.cleanupEntryIfUnused(change.sourceKey)
+		s.loader.cleanupEntryIfUnused(change.targetKey)
+	}
+}
+
+func (s *loadSession) rollbackKeyPending() {
+	entry, ok := s.loader.state.entry(s.key)
+	if !ok || entry == nil || len(entry.pendingDirectives) == 0 {
+		return
+	}
+	for _, pending := range entry.pendingDirectives {
+		if target, ok := s.loader.state.entry(pending.targetKey); ok && target != nil {
+			if target.pendingCount > 0 {
+				target.pendingCount--
+			}
+		}
+		s.loader.cleanupEntryIfUnused(pending.targetKey)
+	}
+	entry.pendingDirectives = nil
+	s.loader.cleanupEntryIfUnused(s.key)
+}
+
+func removePendingDirective(directives []pendingDirective, kind parser.DirectiveKind, targetKey loadKey) []pendingDirective {
+	for i, entry := range directives {
+		if entry.kind == kind && entry.targetKey == targetKey {
+			return append(directives[:i], directives[i+1:]...)
+		}
+	}
+	return directives
 }
 
 func parseSchemaDocument(doc io.ReadCloser, systemID string) (result *parser.ParseResult, err error) {

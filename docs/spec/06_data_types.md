@@ -69,6 +69,7 @@ Whitespace-separated sequence of atomic values:
 - Each item must be valid for the item type
 - `length`, `minLength`, `maxLength` count items, not characters
 - `pattern` on a list type applies to the **entire string** (not per-item); use pattern on the item type to constrain individual items
+- Empty lists are allowed unless constrained by `length`/`minLength`, **except** the built-in list types `NMTOKENS`, `IDREFS`, and `ENTITIES`, which are defined as non-zero-length sequences (treat as implicit `minLength=1`)
 
 ### Union
 
@@ -162,7 +163,7 @@ Spec refs: docs/spec/xml/datatypes.xml#built-in-derived.
 | `Name` | XML Name | collapse |
 | `NCName` | Non-colonized name | collapse |
 | `NMTOKEN` | Name token | collapse |
-| `NMTOKENS` | List of NMTOKENs | collapse |
+| `NMTOKENS` | List of NMTOKENs (non-empty) | collapse |
 
 ### Identity Types (from NCName)
 
@@ -170,9 +171,9 @@ Spec refs: docs/spec/xml/datatypes.xml#built-in-derived.
 |------|-------------|------------|
 | `ID` | Unique identifier | Must be unique in document |
 | `IDREF` | Reference to ID | Must match existing ID |
-| `IDREFS` | List of IDREFs | Each must match existing ID |
+| `IDREFS` | List of IDREFs (non-empty) | Each must match existing ID |
 | `ENTITY` | Unparsed entity name | Must match declared entity |
-| `ENTITIES` | List of ENTITYs | Each must match declared entity |
+| `ENTITIES` | List of ENTITYs (non-empty) | Each must match declared entity |
 
 ### From decimal
 
