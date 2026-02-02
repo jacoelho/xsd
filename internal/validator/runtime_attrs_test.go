@@ -20,7 +20,7 @@ func TestValidateAttributesNilSession(t *testing.T) {
 }
 
 func TestValidateAttributesRequiredMissing(t *testing.T) {
-	schema, ids := buildAttrFixture()
+	schema, ids := buildAttrFixture(t)
 	sess := NewSession(schema)
 
 	_, err := sess.ValidateAttributes(ids.typeBase, nil, nil)
@@ -30,7 +30,7 @@ func TestValidateAttributesRequiredMissing(t *testing.T) {
 }
 
 func TestValidateAttributesProhibited(t *testing.T) {
-	schema, ids := buildAttrFixture()
+	schema, ids := buildAttrFixture(t)
 	sess := NewSession(schema)
 
 	attrs := []StartAttr{{Sym: ids.attrSymProhibited, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("prohib")}}
@@ -41,7 +41,7 @@ func TestValidateAttributesProhibited(t *testing.T) {
 }
 
 func TestValidateAttributesDefaultApplied(t *testing.T) {
-	schema, ids := buildAttrFixture()
+	schema, ids := buildAttrFixture(t)
 	sess := NewSession(schema)
 
 	_, err := sess.ValidateAttributes(ids.typeBase, nil, nil)
@@ -49,7 +49,7 @@ func TestValidateAttributesDefaultApplied(t *testing.T) {
 		t.Fatalf("expected required attribute error")
 	}
 
-	schema, ids = buildAttrFixtureNoRequired()
+	schema, ids = buildAttrFixtureNoRequired(t)
 	sess = NewSession(schema)
 	result, err := sess.ValidateAttributes(ids.typeBase, nil, nil)
 	if err != nil {
@@ -64,7 +64,7 @@ func TestValidateAttributesDefaultApplied(t *testing.T) {
 }
 
 func TestValidateAttributesAllowsXMLNamespace(t *testing.T) {
-	schema, ids := buildAttrFixtureNoRequired()
+	schema, ids := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
 	xmlAttrs := []StartAttr{{Sym: schema.Predef.XmlLang, NS: schema.PredefNS.Xml, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
@@ -75,7 +75,7 @@ func TestValidateAttributesAllowsXMLNamespace(t *testing.T) {
 }
 
 func TestValidateAttributesSimpleTypeXsiOnly(t *testing.T) {
-	schema, ids := buildAttrFixture()
+	schema, ids := buildAttrFixture(t)
 	sess := NewSession(schema)
 
 	attrs := []StartAttr{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
@@ -98,7 +98,7 @@ func TestValidateAttributesSimpleTypeXsiOnly(t *testing.T) {
 }
 
 func TestValidateAttributesWildcardStrictUnresolved(t *testing.T) {
-	schema, ids := buildAttrFixtureNoRequired()
+	schema, ids := buildAttrFixtureNoRequired(t)
 	schema.ComplexTypes[1].AnyAttr = 1
 	schema.Wildcards = []runtime.WildcardRule{
 		{},
@@ -114,7 +114,7 @@ func TestValidateAttributesWildcardStrictUnresolved(t *testing.T) {
 }
 
 func TestValidateAttributesWildcardLaxSkip(t *testing.T) {
-	schema, ids := buildAttrFixtureNoRequired()
+	schema, ids := buildAttrFixtureNoRequired(t)
 	schema.ComplexTypes[1].AnyAttr = 1
 	schema.Wildcards = []runtime.WildcardRule{
 		{},
@@ -130,7 +130,7 @@ func TestValidateAttributesWildcardLaxSkip(t *testing.T) {
 }
 
 func TestValidateAttributesWildcardResolvesGlobal(t *testing.T) {
-	schema, ids := buildAttrFixtureNoRequired()
+	schema, ids := buildAttrFixtureNoRequired(t)
 	schema.ComplexTypes[1].AnyAttr = 1
 	schema.Wildcards = []runtime.WildcardRule{
 		{},
@@ -146,7 +146,7 @@ func TestValidateAttributesWildcardResolvesGlobal(t *testing.T) {
 }
 
 func TestValidateAttributesDuplicate(t *testing.T) {
-	schema, ids := buildAttrFixtureNoRequired()
+	schema, ids := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
 	attrs := []StartAttr{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}, {Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
@@ -157,7 +157,7 @@ func TestValidateAttributesDuplicate(t *testing.T) {
 }
 
 func TestValidateAttributesCopiesUncachedNamesWhenStored(t *testing.T) {
-	schema, ids := buildAttrFixtureNoRequired()
+	schema, ids := buildAttrFixtureNoRequired(t)
 	schema.ICs = make([]runtime.IdentityConstraint, 2)
 	sess := NewSession(schema)
 
@@ -188,15 +188,17 @@ func TestValidateAttributesCopiesUncachedNamesWhenStored(t *testing.T) {
 	}
 }
 
-func buildAttrFixture() (*runtime.Schema, attrFixtureIDs) {
-	schema, ids := buildAttrFixtureNoRequired()
+func buildAttrFixture(tb testing.TB) (*runtime.Schema, attrFixtureIDs) {
+	tb.Helper()
+	schema, ids := buildAttrFixtureNoRequired(tb)
 	// add required attribute use
 	schema.AttrIndex.Uses = append(schema.AttrIndex.Uses, runtime.AttrUse{Name: ids.attrSymRequired, Use: runtime.AttrRequired})
 	schema.ComplexTypes[1].Attrs.Len++
 	return schema, ids
 }
 
-func buildAttrFixtureNoRequired() (*runtime.Schema, attrFixtureIDs) {
+func buildAttrFixtureNoRequired(tb testing.TB) (*runtime.Schema, attrFixtureIDs) {
+	tb.Helper()
 	builder := runtime.NewBuilder()
 	nsID := builder.InternNamespace([]byte("urn:test"))
 	xsiNS := builder.InternNamespace([]byte("http://www.w3.org/2001/XMLSchema-instance"))
@@ -210,7 +212,10 @@ func buildAttrFixtureNoRequired() (*runtime.Schema, attrFixtureIDs) {
 	attrGlobal := builder.InternSymbol(nsID, []byte("global"))
 	attrRequired := builder.InternSymbol(nsID, []byte("required"))
 	typeSym := builder.InternSymbol(nsID, []byte("BaseType"))
-	schema := builder.Build()
+	schema, err := builder.Build()
+	if err != nil {
+		tb.Fatalf("Build() error = %v", err)
+	}
 	schema.Validators = runtime.ValidatorsBundle{
 		String: []runtime.StringValidator{{Kind: runtime.StringAny}},
 		Meta: []runtime.ValidatorMeta{{

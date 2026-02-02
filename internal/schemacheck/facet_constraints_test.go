@@ -1,6 +1,7 @@
 package schemacheck
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -55,6 +56,28 @@ func TestValidateRangeFacetsGYear(t *testing.T) {
 	}
 }
 
+func TestValidateRangeFacetsDateTimeTimezoneDefiniteOrder(t *testing.T) {
+	minInclusive := "2000-01-01T00:00:00Z"
+	maxInclusive := "1999-12-31T00:00:00"
+	bt := types.GetBuiltin(types.TypeNameDateTime)
+
+	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
+	if err == nil {
+		t.Fatal("expected timezone mismatch comparison to detect minInclusive > maxInclusive")
+	}
+}
+
+func TestValidateRangeFacetsDateTimeTimezoneIndeterminate(t *testing.T) {
+	minInclusive := "2000-01-01T12:00:00Z"
+	maxInclusive := "2000-01-01T12:00:00"
+	bt := types.GetBuiltin(types.TypeNameDateTime)
+
+	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
+	if err != nil {
+		t.Fatalf("expected indeterminate timezone comparison to be ignored, got %v", err)
+	}
+}
+
 func TestValidateRangeFacetsLargeIntegerPrecision(t *testing.T) {
 	minInclusive := "9007199254740993"
 	maxInclusive := "9007199254740992"
@@ -74,6 +97,30 @@ func TestValidateRangeFacetsDecimalPrecision(t *testing.T) {
 	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
 		t.Fatal("expected range facet comparison to detect minInclusive > maxInclusive")
+	}
+}
+
+func TestValidateRangeFacetsFloatNaNNotComparable(t *testing.T) {
+	minInclusive := "NaN"
+	maxInclusive := "1.0"
+	bt := types.GetBuiltin(types.TypeNameFloat)
+
+	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
+	if err != nil {
+		t.Fatalf("expected NaN range comparison to be ignored, got %v", err)
+	}
+}
+
+func TestCompareFloatFacetValuesNaN(t *testing.T) {
+	if _, err := compareFloatFacetValues("NaN", "1.0"); !errors.Is(err, errFloatNotComparable) {
+		t.Fatalf("expected errFloatNotComparable, got %v", err)
+	}
+	cmp, err := compareFloatFacetValues("NaN", "NaN")
+	if err != nil {
+		t.Fatalf("compareFloatFacetValues NaN error = %v", err)
+	}
+	if cmp != 0 {
+		t.Fatalf("compareFloatFacetValues NaN cmp = %d, want 0", cmp)
 	}
 }
 

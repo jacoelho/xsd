@@ -33,7 +33,11 @@ func Benchmark_QNameValueParsing_PrefixHeavy(b *testing.B) {
 		}
 	}
 
-	sess := NewSession(runtime.NewBuilder().Build())
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		b.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
 	sess.pushNamespaceScope(decls)
 	resolver := sessionResolver{s: sess}
 

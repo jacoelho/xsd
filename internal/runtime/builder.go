@@ -1,6 +1,10 @@
 package runtime
 
-import xsdxml "github.com/jacoelho/xsd/internal/xml"
+import (
+	"fmt"
+
+	xsdxml "github.com/jacoelho/xsd/internal/xml"
+)
 
 type Builder struct {
 	namespaces namespaceBuilder
@@ -45,19 +49,27 @@ func (b *Builder) InternSymbol(nsID NamespaceID, local []byte) SymbolID {
 	return b.symbols.intern(nsID, local)
 }
 
-func (b *Builder) Build() *Schema {
+func (b *Builder) Build() (*Schema, error) {
 	b.ensureMutable()
 	b.sealed = true
+	namespaces, err := b.namespaces.build()
+	if err != nil {
+		return nil, fmt.Errorf("runtime build: namespaces: %w", err)
+	}
+	symbols, err := b.symbols.build()
+	if err != nil {
+		return nil, fmt.Errorf("runtime build: symbols: %w", err)
+	}
 	return &Schema{
-		Namespaces: b.namespaces.build(),
-		Symbols:    b.symbols.build(),
+		Namespaces: namespaces,
+		Symbols:    symbols,
 		Predef:     b.predef,
 		PredefNS: PredefinedNamespaces{
 			Empty: b.emptyNS,
 			Xml:   b.xmlNS,
 			Xsi:   b.xsiNS,
 		},
-	}
+	}, nil
 }
 
 func (b *Builder) ensureMutable() {
@@ -94,14 +106,18 @@ func (b *namespaceBuilder) intern(uri []byte) NamespaceID {
 	return id
 }
 
-func (b *namespaceBuilder) build() NamespaceTable {
+func (b *namespaceBuilder) build() (NamespaceTable, error) {
 	out := NamespaceTable{
 		Blob: b.blob,
 		Off:  b.off,
 		Len:  b.len,
 	}
-	out.Index = buildNamespaceIndex(&out)
-	return out
+	index, err := buildNamespaceIndex(&out)
+	if err != nil {
+		return NamespaceTable{}, err
+	}
+	out.Index = index
+	return out, nil
 }
 
 type symbolKey struct {
@@ -140,24 +156,28 @@ func (b *symbolBuilder) intern(nsID NamespaceID, local []byte) SymbolID {
 	return id
 }
 
-func (b *symbolBuilder) build() SymbolsTable {
+func (b *symbolBuilder) build() (SymbolsTable, error) {
 	out := SymbolsTable{
 		NS:        b.ns,
 		LocalOff:  b.localOff,
 		LocalLen:  b.localLen,
 		LocalBlob: b.localBlob,
 	}
-	out.Index = buildSymbolsIndex(&out)
-	return out
+	index, err := buildSymbolsIndex(&out)
+	if err != nil {
+		return SymbolsTable{}, err
+	}
+	out.Index = index
+	return out, nil
 }
 
-func buildNamespaceIndex(table *NamespaceTable) NamespaceIndex {
+func buildNamespaceIndex(table *NamespaceTable) (NamespaceIndex, error) {
 	if table == nil {
-		return NamespaceIndex{}
+		return NamespaceIndex{}, nil
 	}
 	count := len(table.Off) - 1
 	if count <= 0 {
-		return NamespaceIndex{}
+		return NamespaceIndex{}, nil
 	}
 	size := NextPow2(count * 2)
 	index := NamespaceIndex{
@@ -168,13 +188,13 @@ func buildNamespaceIndex(table *NamespaceTable) NamespaceIndex {
 	for i := 1; i <= count; i++ {
 		id := NamespaceID(i)
 		if int(id) >= len(table.Off) || int(id) >= len(table.Len) {
-			panic("namespace table id out of range")
+			return NamespaceIndex{}, fmt.Errorf("namespace table id out of range")
 		}
 		off := table.Off[id]
 		ln := table.Len[id]
 		end := uint64(off) + uint64(ln)
 		if end > uint64(len(table.Blob)) {
-			panic("namespace blob bounds exceeded")
+			return NamespaceIndex{}, fmt.Errorf("namespace blob bounds exceeded")
 		}
 		b := table.Blob[int(off):int(end)]
 		h := hashBytes(b)
@@ -190,19 +210,19 @@ func buildNamespaceIndex(table *NamespaceTable) NamespaceIndex {
 			slot = int((uint64(slot) + 1) & mask)
 		}
 		if !inserted {
-			panic("namespace index table full")
+			return NamespaceIndex{}, fmt.Errorf("namespace index table full")
 		}
 	}
-	return index
+	return index, nil
 }
 
-func buildSymbolsIndex(table *SymbolsTable) SymbolsIndex {
+func buildSymbolsIndex(table *SymbolsTable) (SymbolsIndex, error) {
 	if table == nil {
-		return SymbolsIndex{}
+		return SymbolsIndex{}, nil
 	}
 	count := len(table.NS) - 1
 	if count <= 0 {
-		return SymbolsIndex{}
+		return SymbolsIndex{}, nil
 	}
 	size := NextPow2(count * 2)
 	index := SymbolsIndex{
@@ -213,14 +233,14 @@ func buildSymbolsIndex(table *SymbolsTable) SymbolsIndex {
 	for i := 1; i <= count; i++ {
 		id := SymbolID(i)
 		if int(id) >= len(table.NS) || int(id) >= len(table.LocalOff) || int(id) >= len(table.LocalLen) {
-			panic("symbol table id out of range")
+			return SymbolsIndex{}, fmt.Errorf("symbol table id out of range")
 		}
 		nsID := table.NS[id]
 		off := table.LocalOff[id]
 		ln := table.LocalLen[id]
 		end := uint64(off) + uint64(ln)
 		if end > uint64(len(table.LocalBlob)) {
-			panic("symbol blob bounds exceeded")
+			return SymbolsIndex{}, fmt.Errorf("symbol blob bounds exceeded")
 		}
 		local := table.LocalBlob[int(off):int(end)]
 		h := hashSymbol(nsID, local)
@@ -236,8 +256,8 @@ func buildSymbolsIndex(table *SymbolsTable) SymbolsIndex {
 			slot = int((uint64(slot) + 1) & mask)
 		}
 		if !inserted {
-			panic("symbol index table full")
+			return SymbolsIndex{}, fmt.Errorf("symbol index table full")
 		}
 	}
-	return index
+	return index, nil
 }

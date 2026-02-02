@@ -346,6 +346,31 @@ func TestTypedValue_CanonicalNumericString(t *testing.T) {
 	}
 }
 
+func TestDecimalCanonicalizationTable(t *testing.T) {
+	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
+	cases := []struct {
+		lexical string
+		want    string
+	}{
+		{lexical: "0", want: "0.0"},
+		{lexical: "-0.0", want: "0.0"},
+		{lexical: "+001.500", want: "1.5"},
+		{lexical: "000.0100", want: "0.01"},
+		{lexical: "-001.2300", want: "-1.23"},
+	}
+
+	for _, tc := range cases {
+		dec, err := ParseDecimal(tc.lexical)
+		if err != nil {
+			t.Fatalf("ParseDecimal(%q) error = %v", tc.lexical, err)
+		}
+		value := NewDecimalValue(NewParsedValue(tc.lexical, dec), decimalType)
+		if got := value.String(); got != tc.want {
+			t.Fatalf("String(%q) = %q, want %q", tc.lexical, got, tc.want)
+		}
+	}
+}
+
 func TestValueAs_WithComparableWrappers(t *testing.T) {
 	// test ComparableDec - unwrap to num.Dec
 	dec, _ := ParseDecimal("1.5")

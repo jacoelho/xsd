@@ -8,7 +8,11 @@ import (
 )
 
 func TestPathStackStringIncludesNamespace(t *testing.T) {
-	sess := NewSession(runtime.NewBuilder().Build())
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
 	id1 := xmlstream.NameID(1)
 	id2 := xmlstream.NameID(2)
 	sess.internName(id1, []byte("urn:a"), []byte("root"))
@@ -21,7 +25,11 @@ func TestPathStackStringIncludesNamespace(t *testing.T) {
 }
 
 func TestInternNameSparseIDUsesMap(t *testing.T) {
-	sess := NewSession(runtime.NewBuilder().Build())
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
 	id := xmlstream.NameID(maxNameMapSize + 5)
 	sess.internName(id, []byte("urn:big"), []byte("root"))
 	if len(sess.nameMap) != 0 {

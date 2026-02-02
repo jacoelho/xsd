@@ -35,10 +35,7 @@ func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if tz1 != tz2 {
-			return 0, errDateTimeNotComparable
-		}
-		return compareTimes(t1, t2), nil
+		return compareDateTimeOrder(t1, tz1, t2, tz2)
 	case "dateTime":
 		t1, tz1, err := parseXSDDateTime(v1)
 		if err != nil {
@@ -48,10 +45,7 @@ func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if tz1 != tz2 {
-			return 0, errDateTimeNotComparable
-		}
-		return compareTimes(t1, t2), nil
+		return compareDateTimeOrder(t1, tz1, t2, tz2)
 	case "time":
 		t1, tz1, err := parseXSDTime(v1)
 		if err != nil {
@@ -61,10 +55,7 @@ func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if tz1 != tz2 {
-			return 0, errDateTimeNotComparable
-		}
-		return compareTimes(t1, t2), nil
+		return compareDateTimeOrder(t1, tz1, t2, tz2)
 	case "gYear":
 		t1, tz1, err := parseXSDGYear(v1)
 		if err != nil {
@@ -74,10 +65,7 @@ func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if tz1 != tz2 {
-			return 0, errDateTimeNotComparable
-		}
-		return compareTimes(t1, t2), nil
+		return compareDateTimeOrder(t1, tz1, t2, tz2)
 	case "gYearMonth":
 		t1, tz1, err := parseXSDGYearMonth(v1)
 		if err != nil {
@@ -87,10 +75,7 @@ func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if tz1 != tz2 {
-			return 0, errDateTimeNotComparable
-		}
-		return compareTimes(t1, t2), nil
+		return compareDateTimeOrder(t1, tz1, t2, tz2)
 	case "gMonth":
 		t1, tz1, err := parseXSDGMonth(v1)
 		if err != nil {
@@ -100,10 +85,7 @@ func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if tz1 != tz2 {
-			return 0, errDateTimeNotComparable
-		}
-		return compareTimes(t1, t2), nil
+		return compareDateTimeOrder(t1, tz1, t2, tz2)
 	case "gMonthDay":
 		t1, tz1, err := parseXSDGMonthDay(v1)
 		if err != nil {
@@ -113,10 +95,7 @@ func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if tz1 != tz2 {
-			return 0, errDateTimeNotComparable
-		}
-		return compareTimes(t1, t2), nil
+		return compareDateTimeOrder(t1, tz1, t2, tz2)
 	case "gDay":
 		t1, tz1, err := parseXSDGDay(v1)
 		if err != nil {
@@ -126,10 +105,7 @@ func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if tz1 != tz2 {
-			return 0, errDateTimeNotComparable
-		}
-		return compareTimes(t1, t2), nil
+		return compareDateTimeOrder(t1, tz1, t2, tz2)
 	}
 
 	// fallback: lexicographic comparison for other date/time types.
@@ -150,6 +126,17 @@ func compareTimes(t1, t2 time.Time) int {
 		return 1
 	}
 	return 0
+}
+
+func compareDateTimeOrder(t1 time.Time, tz1 bool, t2 time.Time, tz2 bool) (int, error) {
+	if tz1 == tz2 {
+		return compareTimes(t1, t2), nil
+	}
+	cmp, err := types.ComparableTime{Value: t1, HasTimezone: tz1}.Compare(types.ComparableTime{Value: t2, HasTimezone: tz2})
+	if err != nil {
+		return 0, errDateTimeNotComparable
+	}
+	return cmp, nil
 }
 
 func splitTimezone(value string) (string, bool, int, error) {

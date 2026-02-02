@@ -413,7 +413,7 @@ func TestParseDurationToTimeDuration(t *testing.T) {
 			name:    "invalid year value",
 			input:   "P999999999999999999999Y",
 			wantErr: true,
-			errMsg:  "invalid year value",
+			errMsg:  "too large",
 		},
 		{
 			name:    "second value too large",

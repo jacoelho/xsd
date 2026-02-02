@@ -10,6 +10,8 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
+var errFloatNotComparable = errors.New("float values are not comparable")
+
 // isNumericTypeName checks if a type name represents a numeric type
 func isNumericTypeName(typeName string) bool {
 	numericTypes := []string{
@@ -216,7 +218,7 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []types.Facet, base
 
 	if base.hasMin && derived.hasMin {
 		cmp, err := compareFacetValues(derived.minValue, base.minValue, baseType)
-		if errors.Is(err, errDurationNotComparable) {
+		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}
 		if err != nil {
@@ -232,7 +234,7 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []types.Facet, base
 
 	if base.hasMax && derived.hasMax {
 		cmp, err := compareFacetValues(derived.maxValue, base.maxValue, baseType)
-		if errors.Is(err, errDurationNotComparable) {
+		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}
 		if err != nil {
@@ -249,7 +251,7 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []types.Facet, base
 	// ensure derived min does not exceed base max (inherited constraint).
 	if base.hasMax && derived.hasMin {
 		cmp, err := compareFacetValues(derived.minValue, base.maxValue, baseType)
-		if errors.Is(err, errDurationNotComparable) {
+		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}
 		if err != nil {
@@ -266,7 +268,7 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []types.Facet, base
 	// ensure derived max does not fall below base min (inherited constraint).
 	if base.hasMin && derived.hasMax {
 		cmp, err := compareFacetValues(derived.maxValue, base.minValue, baseType)
-		if errors.Is(err, errDurationNotComparable) {
+		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}
 		if err != nil {
@@ -299,7 +301,7 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Fa
 			return nil
 		}
 		cmp, err := compareFacetValues(derivedValStr, baseValStr, baseType)
-		if errors.Is(err, errDurationNotComparable) {
+		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}
 		if err != nil {
@@ -322,7 +324,7 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Fa
 			return nil
 		}
 		cmp, err := compareFacetValues(derivedValStr, baseValStr, baseType)
-		if errors.Is(err, errDurationNotComparable) {
+		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}
 		if err != nil {
@@ -508,7 +510,7 @@ func compareFloatFacetValues(val1, val2 string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return compareFloatValues(float64(f1), float64(f2)), nil
+	return compareFloatValues(float64(f1), float64(f2))
 }
 
 func compareDoubleFacetValues(val1, val2 string) (int, error) {
@@ -520,20 +522,23 @@ func compareDoubleFacetValues(val1, val2 string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return compareFloatValues(f1, f2), nil
+	return compareFloatValues(f1, f2)
 }
 
-func compareFloatValues(v1, v2 float64) int {
+func compareFloatValues(v1, v2 float64) (int, error) {
 	if math.IsNaN(v1) || math.IsNaN(v2) {
-		return 0
+		if math.IsNaN(v1) && math.IsNaN(v2) {
+			return 0, nil
+		}
+		return 0, errFloatNotComparable
 	}
 	if v1 < v2 {
-		return -1
+		return -1, nil
 	}
 	if v1 > v2 {
-		return 1
+		return 1, nil
 	}
-	return 0
+	return 0, nil
 }
 
 // validateRangeFacets validates consistency of range facets
@@ -566,7 +571,7 @@ func validateRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive 
 			return 0, false, nil
 		}
 		cmp, err := compareFacetValues(v1, v2, baseTypeForCompare)
-		if errors.Is(err, errDateTimeNotComparable) || errors.Is(err, errDurationNotComparable) {
+		if errors.Is(err, errDateTimeNotComparable) || errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return 0, false, nil
 		}
 		if err != nil {
@@ -601,13 +606,6 @@ func validateRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive 
 			return fmt.Errorf("minInclusive/maxExclusive: %w", err)
 		} else if ok && cmp >= 0 {
 			return fmt.Errorf("minInclusive (%s) must be < maxExclusive (%s)", *minInclusive, *maxExclusive)
-		}
-	}
-	if minExclusive != nil && maxInclusive != nil {
-		if cmp, ok, err := compare(*minExclusive, *maxInclusive); err != nil {
-			return fmt.Errorf("minExclusive/maxInclusive: %w", err)
-		} else if ok && cmp >= 0 {
-			return fmt.Errorf("minExclusive (%s) must be < maxInclusive (%s)", *minExclusive, *maxInclusive)
 		}
 	}
 

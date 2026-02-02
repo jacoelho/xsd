@@ -39,16 +39,15 @@ type identityEndInput struct {
 }
 
 type rtIdentityFrame struct {
-	captures         []rtFieldCapture
-	matches          []*rtSelectorMatch
-	id               uint64
-	depth            int
-	sym              runtime.SymbolID
-	ns               runtime.NamespaceID
-	elem             runtime.ElemID
-	typ              runtime.TypeID
-	nilled           bool
-	hasChildElements bool
+	captures []rtFieldCapture
+	matches  []*rtSelectorMatch
+	id       uint64
+	depth    int
+	sym      runtime.SymbolID
+	ns       runtime.NamespaceID
+	elem     runtime.ElemID
+	typ      runtime.TypeID
+	nilled   bool
 }
 
 type rtFieldNodeKind int
@@ -192,9 +191,6 @@ func (s *identityState) start(rt *runtime.Schema, in identityStartInput) error {
 	}
 	s.active = true
 
-	if len(s.frames) > 0 {
-		s.frames[len(s.frames)-1].hasChildElements = true
-	}
 	s.nextNodeID++
 	frame := rtIdentityFrame{
 		id:     s.nextNodeID,

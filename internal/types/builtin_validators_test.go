@@ -198,56 +198,6 @@ func TestValidateDateTimeFamily(t *testing.T) {
 		t.Fatalf("expected ParseXSDDuration error")
 	}
 
-	main, tz := splitTimezone("2024-01-01Z")
-	if main != "2024-01-01" || tz != "Z" {
-		t.Fatalf("splitTimezone mismatch: %q %q", main, tz)
-	}
-	main, tz = splitTimezone("2024-01-01+02:00")
-	if main != "2024-01-01" || tz != "+02:00" {
-		t.Fatalf("splitTimezone mismatch: %q %q", main, tz)
-	}
-
-	if _, ok := parseFixedDigits("2024", 0, 4); !ok {
-		t.Fatalf("expected parseFixedDigits to succeed")
-	}
-	year, month, day, ok := parseDateParts("2024-02-29")
-	if !ok {
-		t.Fatalf("expected parseDateParts to succeed")
-	}
-	if year != 2024 || month != 2 || day != 29 {
-		t.Fatalf("unexpected parseDateParts values: %d-%02d-%02d", year, month, day)
-	}
-	if _, _, _, ok := parseDateParts("2024-2-29"); ok {
-		t.Fatalf("expected parseDateParts to fail")
-	}
-	hour, minute, second, fractionLength, ok := parseTimeParts("12:34:56.789")
-	if !ok {
-		t.Fatalf("expected parseTimeParts to succeed")
-	}
-	if hour != 12 || minute != 34 || second != 56 || fractionLength != 3 {
-		t.Fatalf("unexpected parseTimeParts values: %02d:%02d:%02d (%d)", hour, minute, second, fractionLength)
-	}
-	if _, _, _, _, ok := parseTimeParts("12:34"); ok {
-		t.Fatalf("expected parseTimeParts to fail")
-	}
-
-	if err := validateTimezoneOffset("Z"); err != nil {
-		t.Fatalf("unexpected timezone error: %v", err)
-	}
-	if err := validateTimezoneOffset("+14:00"); err != nil {
-		t.Fatalf("unexpected timezone error: %v", err)
-	}
-	if err := validateTimezoneOffset("+14:01"); err == nil {
-		t.Fatalf("expected timezone range error")
-	}
-
-	if !isValidDate(2024, 2, 29) {
-		t.Fatalf("expected leap day to be valid")
-	}
-	if isValidDate(2023, 2, 29) {
-		t.Fatalf("expected non-leap day to be invalid")
-	}
-
 	if err := validateDateTime("2024-02-29T12:34:56Z"); err != nil {
 		t.Fatalf("unexpected dateTime error: %v", err)
 	}

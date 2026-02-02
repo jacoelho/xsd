@@ -35,5 +35,5 @@ func parseOccursValue(attr, value string) (types.Occurs, error) {
 		}
 		return types.OccursFromInt(0), fmt.Errorf("invalid %s attribute value '%s'", attr, value)
 	}
-	return types.OccursFromInt(int(u)), nil
+	return types.OccursFromUint64(u), nil
 }

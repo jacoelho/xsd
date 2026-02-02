@@ -1,9 +1,12 @@
 package value
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
+
+	datetimelex "github.com/jacoelho/xsd/internal/value/datetime"
 )
 
 var fractionalLayouts = [...]string{
@@ -19,38 +22,40 @@ var fractionalLayouts = [...]string{
 	".000000000",
 }
 
+var errFractionalSecondsTooLong = errors.New("fractional seconds precision exceeds 9 digits")
+
 // ParseDateTime parses an xs:dateTime lexical value.
 func ParseDateTime(lexical []byte) (time.Time, error) {
 	trimmed := string(TrimXMLWhitespace(lexical))
 	if err := validateYearPrefix(trimmed, "dateTime"); err != nil {
 		return time.Time{}, err
 	}
-	main, tz := splitTimezone(trimmed)
+	main, tz := datetimelex.SplitTimezone(trimmed)
 	timeIndex := strings.IndexByte(main, 'T')
 	if timeIndex == -1 {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
 	}
 	datePart := main[:timeIndex]
 	timePart := main[timeIndex+1:]
-	year, month, day, ok := parseDateParts(datePart)
+	year, month, day, ok := datetimelex.ParseDateParts(datePart)
 	if !ok {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
 	}
-	hour, minute, second, fractionLength, ok := parseTimeParts(timePart)
+	hour, minute, second, fractionLength, ok := datetimelex.ParseTimeParts(timePart)
 	if !ok {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
 	}
 	if year < 1 || year > 9999 {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
 	}
-	if month < 1 || month > 12 || !isValidDate(year, month, day) {
+	if month < 1 || month > 12 || !datetimelex.IsValidDate(year, month, day) {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
 	}
-	if err := validateTimezoneOffset(tz); err != nil {
+	if err := datetimelex.ValidateTimezoneOffset(tz); err != nil {
 		return time.Time{}, err
 	}
 	if fractionLength > 9 {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+		return time.Time{}, fmt.Errorf("invalid dateTime: %w", errFractionalSecondsTooLong)
 	}
 	needsDayOffset := hour == 24
 	if needsDayOffset {
@@ -120,8 +125,8 @@ func ParseTime(lexical []byte) (time.Time, error) {
 	if trimmed == "" {
 		return time.Time{}, fmt.Errorf("invalid time: empty string")
 	}
-	main, tz := splitTimezone(trimmed)
-	hour, minute, second, fractionLength, ok := parseTimeParts(main)
+	main, tz := datetimelex.SplitTimezone(trimmed)
+	hour, minute, second, fractionLength, ok := datetimelex.ParseTimeParts(main)
 	if !ok {
 		return time.Time{}, fmt.Errorf("invalid time: %s", trimmed)
 	}
@@ -141,9 +146,9 @@ func ParseTime(lexical []byte) (time.Time, error) {
 		main = main[:6] + "59" + main[8:]
 	}
 	if fractionLength > 9 {
-		return time.Time{}, fmt.Errorf("invalid time: %s", trimmed)
+		return time.Time{}, fmt.Errorf("invalid time: %w", errFractionalSecondsTooLong)
 	}
-	if err := validateTimezoneOffset(tz); err != nil {
+	if err := datetimelex.ValidateTimezoneOffset(tz); err != nil {
 		return time.Time{}, err
 	}
 	if is24Hour {
@@ -309,124 +314,11 @@ func validateYearPrefix(lexical, kind string) error {
 }
 
 func validateOptionalTimezone(lexical string) error {
-	_, tz := splitTimezone(lexical)
+	_, tz := datetimelex.SplitTimezone(lexical)
 	if tz == "" {
 		return nil
 	}
-	return validateTimezoneOffset(tz)
-}
-
-func splitTimezone(value string) (string, string) {
-	if value == "" {
-		return value, ""
-	}
-	last := value[len(value)-1]
-	if last == 'Z' {
-		return value[:len(value)-1], "Z"
-	}
-	if len(value) >= 6 {
-		tz := value[len(value)-6:]
-		if (tz[0] == '+' || tz[0] == '-') && tz[3] == ':' {
-			return value[:len(value)-6], tz
-		}
-	}
-	return value, ""
-}
-
-func parseDateParts(value string) (int, int, int, bool) {
-	if len(value) != 10 || value[4] != '-' || value[7] != '-' {
-		return 0, 0, 0, false
-	}
-	year, ok := parseFixedDigits(value, 0, 4)
-	if !ok {
-		return 0, 0, 0, false
-	}
-	month, ok := parseFixedDigits(value, 5, 2)
-	if !ok {
-		return 0, 0, 0, false
-	}
-	day, ok := parseFixedDigits(value, 8, 2)
-	if !ok {
-		return 0, 0, 0, false
-	}
-	return year, month, day, true
-}
-
-func parseTimeParts(value string) (int, int, int, int, bool) {
-	if len(value) < 8 || value[2] != ':' || value[5] != ':' {
-		return 0, 0, 0, 0, false
-	}
-	hour, ok := parseFixedDigits(value, 0, 2)
-	if !ok {
-		return 0, 0, 0, 0, false
-	}
-	minute, ok := parseFixedDigits(value, 3, 2)
-	if !ok {
-		return 0, 0, 0, 0, false
-	}
-	second, ok := parseFixedDigits(value, 6, 2)
-	if !ok {
-		return 0, 0, 0, 0, false
-	}
-	if len(value) == 8 {
-		return hour, minute, second, 0, true
-	}
-	if value[8] != '.' || len(value) == 9 {
-		return 0, 0, 0, 0, false
-	}
-	for i := 9; i < len(value); i++ {
-		ch := value[i]
-		if ch < '0' || ch > '9' {
-			return 0, 0, 0, 0, false
-		}
-	}
-	fractionLength := len(value) - 9
-	return hour, minute, second, fractionLength, true
-}
-
-func parseFixedDigits(value string, start, length int) (int, bool) {
-	if start < 0 || length <= 0 || start+length > len(value) {
-		return 0, false
-	}
-	n := 0
-	for i := range length {
-		ch := value[start+i]
-		if ch < '0' || ch > '9' {
-			return 0, false
-		}
-		n = n*10 + int(ch-'0')
-	}
-	return n, true
-}
-
-func validateTimezoneOffset(tz string) error {
-	if tz == "" || tz == "Z" {
-		return nil
-	}
-	if len(tz) != 6 {
-		return fmt.Errorf("invalid timezone format: %s", tz)
-	}
-	if tz[0] != '+' && tz[0] != '-' {
-		return fmt.Errorf("invalid timezone format: %s", tz)
-	}
-	if tz[3] != ':' {
-		return fmt.Errorf("invalid timezone format: %s", tz)
-	}
-	hour, ok := parseFixedDigits(tz, 1, 2)
-	if !ok {
-		return fmt.Errorf("invalid timezone format: %s", tz)
-	}
-	minute, ok := parseFixedDigits(tz, 4, 2)
-	if !ok {
-		return fmt.Errorf("invalid timezone format: %s", tz)
-	}
-	if hour < 0 || hour > 14 || minute < 0 || minute > 59 {
-		return fmt.Errorf("invalid timezone offset: %s", tz)
-	}
-	if hour == 14 && minute != 0 {
-		return fmt.Errorf("invalid timezone offset: %s", tz)
-	}
-	return nil
+	return datetimelex.ValidateTimezoneOffset(tz)
 }
 
 func appendTimezoneSuffix(value, tz string) string {
@@ -449,14 +341,6 @@ func applyTimezoneLayout(layout, tz string) string {
 	default:
 		return layout + "-07:00"
 	}
-}
-
-func isValidDate(year, month, day int) bool {
-	if day < 1 || day > 31 {
-		return false
-	}
-	t := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
-	return t.Year() == year && int(t.Month()) == month && t.Day() == day
 }
 
 func is24HourZero(timePart string) bool {
