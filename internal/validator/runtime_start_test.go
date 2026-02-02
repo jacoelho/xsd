@@ -20,7 +20,7 @@ func (m mapResolver) ResolvePrefix(prefix []byte) ([]byte, bool) {
 }
 
 func TestStartElementXsiTypeRetarget(t *testing.T) {
-	schema, ids := buildRuntimeFixture()
+	schema, ids := buildRuntimeFixture(t)
 	sess := NewSession(schema)
 
 	attrs := []StartAttr{{
@@ -37,7 +37,7 @@ func TestStartElementXsiTypeRetarget(t *testing.T) {
 }
 
 func TestStartElementXsiTypeBlocked(t *testing.T) {
-	schema, ids := buildRuntimeFixture()
+	schema, ids := buildRuntimeFixture(t)
 	schema.Elements[ids.elemBase].Block = runtime.ElemBlockExtension
 	sess := NewSession(schema)
 
@@ -52,7 +52,7 @@ func TestStartElementXsiTypeBlocked(t *testing.T) {
 }
 
 func TestStartElementXsiNil(t *testing.T) {
-	schema, ids := buildRuntimeFixture()
+	schema, ids := buildRuntimeFixture(t)
 	schema.Elements[ids.elemBase].Flags |= runtime.ElemNillable
 	sess := NewSession(schema)
 
@@ -70,7 +70,7 @@ func TestStartElementXsiNil(t *testing.T) {
 }
 
 func TestStartElementXsiNilNotAllowed(t *testing.T) {
-	schema, ids := buildRuntimeFixture()
+	schema, ids := buildRuntimeFixture(t)
 	sess := NewSession(schema)
 
 	attrs := []StartAttr{{
@@ -84,7 +84,7 @@ func TestStartElementXsiNilNotAllowed(t *testing.T) {
 }
 
 func TestStartElementAbstract(t *testing.T) {
-	schema, ids := buildRuntimeFixture()
+	schema, ids := buildRuntimeFixture(t)
 	schema.Elements[ids.elemBase].Flags |= runtime.ElemAbstract
 	sess := NewSession(schema)
 
@@ -95,7 +95,7 @@ func TestStartElementAbstract(t *testing.T) {
 }
 
 func TestStartElementWildcardStrictUnresolved(t *testing.T) {
-	schema, ids := buildRuntimeFixture()
+	schema, ids := buildRuntimeFixture(t)
 	schema.Wildcards = []runtime.WildcardRule{
 		{},
 		{
@@ -112,7 +112,7 @@ func TestStartElementWildcardStrictUnresolved(t *testing.T) {
 }
 
 func TestStartElementWildcardLaxSkip(t *testing.T) {
-	schema, ids := buildRuntimeFixture()
+	schema, ids := buildRuntimeFixture(t)
 	schema.Wildcards = []runtime.WildcardRule{
 		{},
 		{
@@ -132,7 +132,7 @@ func TestStartElementWildcardLaxSkip(t *testing.T) {
 }
 
 func TestStartElementWildcardResolvesGlobal(t *testing.T) {
-	schema, ids := buildRuntimeFixture()
+	schema, ids := buildRuntimeFixture(t)
 	schema.Wildcards = []runtime.WildcardRule{
 		{},
 		{
@@ -151,13 +151,17 @@ func TestStartElementWildcardResolvesGlobal(t *testing.T) {
 	}
 }
 
-func buildRuntimeFixture() (*runtime.Schema, fixtureIDs) {
+func buildRuntimeFixture(tb testing.TB) (*runtime.Schema, fixtureIDs) {
+	tb.Helper()
 	builder := runtime.NewBuilder()
 	nsID := builder.InternNamespace([]byte("urn:test"))
 	elemSym := builder.InternSymbol(nsID, []byte("Base"))
 	baseSym := builder.InternSymbol(nsID, []byte("BaseType"))
 	derivedSym := builder.InternSymbol(nsID, []byte("Derived"))
-	schema := builder.Build()
+	schema, err := builder.Build()
+	if err != nil {
+		tb.Fatalf("Build() error = %v", err)
+	}
 
 	schema.Types = make([]runtime.Type, 3)
 	schema.Types[1] = runtime.Type{Name: baseSym, Kind: runtime.TypeComplex}
@@ -196,7 +200,7 @@ type fixtureIDs struct {
 }
 
 func TestResolveXsiTypeUsesResolver(t *testing.T) {
-	schema, _ := buildRuntimeFixture()
+	schema, _ := buildRuntimeFixture(t)
 	sess := NewSession(schema)
 
 	_, err := sess.resolveXsiType([]byte("p:Derived"), mapResolver{"p": "urn:test"})

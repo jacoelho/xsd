@@ -159,55 +159,16 @@ func resolveQName(doc *xsdxml.Document, qname string, elem xsdxml.NodeID, schema
 	}, nil
 }
 
-// resolveQNameWithoutBuiltin resolves a QName using namespace prefixes without
-// applying built-in type shortcuts.
-func resolveQNameWithoutBuiltin(doc *xsdxml.Document, qname string, elem xsdxml.NodeID, schema *Schema) (types.QName, error) {
-	prefix, local, hasPrefix, err := types.ParseQName(qname)
-	if err != nil {
-		return types.QName{}, err
-	}
-
-	var namespace types.NamespaceURI
-	if !hasPrefix {
-		// no prefix - check for default namespace (xmlns="...") in scope
-		defaultNS := namespaceForPrefix(doc, elem, schema, "")
-		// if default namespace is XSD namespace, treat as no namespace
-		switch {
-		case defaultNS != "":
-			namespace = types.NamespaceURI(defaultNS)
-		default:
-			// no default namespace - per XSD spec, unprefixed QNames resolve to no namespace.
-			namespace = types.NamespaceEmpty
-		}
-	} else {
-		namespaceStr := namespaceForPrefix(doc, elem, schema, prefix)
-		if namespaceStr == "" {
-			return types.QName{}, fmt.Errorf("undefined namespace prefix '%s' in '%s'", prefix, qname)
-		}
-		namespace = types.NamespaceURI(namespaceStr)
-	}
-
-	if err := validateQNameNamespace(schema, namespace); err != nil {
-		return types.QName{}, err
-	}
-
-	return types.QName{
-		Namespace: namespace,
-		Local:     local,
-	}, nil
-}
-
 // resolveElementQName resolves a QName for ELEMENT references (ref, substitutionGroup).
-// Unlike resolveQName for types, this does NOT check for built-in type names
-// because element references never refer to built-in types.
+// Element references use the same namespace resolution rules as type references.
 func resolveElementQName(doc *xsdxml.Document, qname string, elem xsdxml.NodeID, schema *Schema) (types.QName, error) {
-	return resolveQNameWithoutBuiltin(doc, qname, elem, schema)
+	return resolveQName(doc, qname, elem, schema)
 }
 
 // resolveIdentityConstraintQName resolves a QName for identity constraint references.
-// Identity constraints use standard QName resolution without built-in type shortcuts.
+// Identity constraints use standard QName resolution.
 func resolveIdentityConstraintQName(doc *xsdxml.Document, qname string, elem xsdxml.NodeID, schema *Schema) (types.QName, error) {
-	return resolveQNameWithoutBuiltin(doc, qname, elem, schema)
+	return resolveQName(doc, qname, elem, schema)
 }
 
 // resolveAttributeRefQName resolves a QName for ATTRIBUTE references.

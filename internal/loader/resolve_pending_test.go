@@ -23,14 +23,17 @@ func TestResolvePendingIncludesDrainsPending(t *testing.T) {
 	sourceEntry := loader.state.ensureEntry(sourceKey)
 	sourceEntry.schema = source
 	sourceEntry.pendingDirectives = []pendingDirective{{
-		kind:           parser.DirectiveInclude,
-		targetKey:      targetKey,
-		schemaLocation: "included.xsd",
+		kind:             parser.DirectiveInclude,
+		targetKey:        targetKey,
+		schemaLocation:   "included.xsd",
+		includeDeclIndex: 0,
+		includeIndex:     0,
 	}}
 
 	targetEntry := loader.state.ensureEntry(targetKey)
 	targetEntry.schema = target
 	targetEntry.pendingCount = 1
+	targetEntry.includeInserted = make([]int, 1)
 
 	if err := loader.resolvePendingImportsFor(sourceKey); err != nil {
 		t.Fatalf("resolve pending includes: %v", err)

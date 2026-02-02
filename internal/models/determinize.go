@@ -91,10 +91,12 @@ func determinize(glu *Glushkov, matchers []runtime.PosMatcher, maxStates uint32)
 		stateRecord.TransOff = uint32(len(model.Transitions))
 		stateRecord.WildOff = uint32(len(model.Wildcards))
 
-		if err := appendSymbolTransitions(symNext, symElem, &states, stateIDs, &queue, maxStates, &model); err != nil {
+		states, queue, err = appendSymbolTransitions(symNext, symElem, states, stateIDs, queue, maxStates, &model)
+		if err != nil {
 			return runtime.DFAModel{}, err
 		}
-		if err := appendWildcardTransitions(wildNext, &states, stateIDs, &queue, maxStates, &model); err != nil {
+		states, queue, err = appendWildcardTransitions(wildNext, states, stateIDs, queue, maxStates, &model)
+		if err != nil {
 			return runtime.DFAModel{}, err
 		}
 
@@ -162,7 +164,7 @@ func scanReachablePositions(reachable *bitset, matchers []runtime.PosMatcher, si
 	return symNext, symElem, wildNext, nil
 }
 
-func appendSymbolTransitions(symNext map[runtime.SymbolID]*bitset, symElem map[runtime.SymbolID]runtime.ElemID, states *[]*bitset, stateIDs map[string]uint32, queue *[]uint32, maxStates uint32, model *runtime.DFAModel) error {
+func appendSymbolTransitions(symNext map[runtime.SymbolID]*bitset, symElem map[runtime.SymbolID]runtime.ElemID, states []*bitset, stateIDs map[string]uint32, queue []uint32, maxStates uint32, model *runtime.DFAModel) ([]*bitset, []uint32, error) {
 	symbols := make([]runtime.SymbolID, 0, len(symNext))
 	for sym := range symNext {
 		symbols = append(symbols, sym)
@@ -173,9 +175,11 @@ func appendSymbolTransitions(symNext map[runtime.SymbolID]*bitset, symElem map[r
 		if next.empty() {
 			continue
 		}
-		nextID, err := getOrCreateState(next, states, stateIDs, queue, maxStates)
+		var err error
+		var nextID uint32
+		nextID, states, queue, err = getOrCreateState(next, states, stateIDs, queue, maxStates)
 		if err != nil {
-			return err
+			return states, queue, err
 		}
 		model.Transitions = append(model.Transitions, runtime.DFATransition{
 			Sym:  sym,
@@ -183,10 +187,10 @@ func appendSymbolTransitions(symNext map[runtime.SymbolID]*bitset, symElem map[r
 			Elem: symElem[sym],
 		})
 	}
-	return nil
+	return states, queue, nil
 }
 
-func appendWildcardTransitions(wildNext map[runtime.WildcardID]*bitset, states *[]*bitset, stateIDs map[string]uint32, queue *[]uint32, maxStates uint32, model *runtime.DFAModel) error {
+func appendWildcardTransitions(wildNext map[runtime.WildcardID]*bitset, states []*bitset, stateIDs map[string]uint32, queue []uint32, maxStates uint32, model *runtime.DFAModel) ([]*bitset, []uint32, error) {
 	wildcards := make([]runtime.WildcardID, 0, len(wildNext))
 	for rule := range wildNext {
 		wildcards = append(wildcards, rule)
@@ -197,31 +201,33 @@ func appendWildcardTransitions(wildNext map[runtime.WildcardID]*bitset, states *
 		if next.empty() {
 			continue
 		}
-		nextID, err := getOrCreateState(next, states, stateIDs, queue, maxStates)
+		var err error
+		var nextID uint32
+		nextID, states, queue, err = getOrCreateState(next, states, stateIDs, queue, maxStates)
 		if err != nil {
-			return err
+			return states, queue, err
 		}
 		model.Wildcards = append(model.Wildcards, runtime.DFAWildcardEdge{
 			Rule: rule,
 			Next: nextID,
 		})
 	}
-	return nil
+	return states, queue, nil
 }
 
-func getOrCreateState(next *bitset, states *[]*bitset, stateIDs map[string]uint32, queue *[]uint32, maxStates uint32) (uint32, error) {
+func getOrCreateState(next *bitset, states []*bitset, stateIDs map[string]uint32, queue []uint32, maxStates uint32) (uint32, []*bitset, []uint32, error) {
 	key := next.key()
 	if id, ok := stateIDs[key]; ok {
-		return id, nil
+		return id, states, queue, nil
 	}
-	if maxStates > 0 && uint32(len(*states)) >= maxStates {
-		return 0, errDFALimitExceeded
+	if maxStates > 0 && uint32(len(states)) >= maxStates {
+		return 0, states, queue, errDFALimitExceeded
 	}
-	id := uint32(len(*states))
+	id := uint32(len(states))
 	stateIDs[key] = id
-	*states = append(*states, next)
-	*queue = append(*queue, id)
-	return id, nil
+	states = append(states, next)
+	queue = append(queue, id)
+	return id, states, queue, nil
 }
 
 func intersects(a, b *bitset) bool {

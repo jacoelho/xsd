@@ -477,31 +477,45 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 	var seconds num.Dec
 	hasDateComponent := false
 	hasTimeComponent := false
+	maxComponent := uint64(^uint(0) >> 1)
+	parseComponent := func(value, label string) (int, error) {
+		u, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			if errors.Is(err, strconv.ErrRange) {
+				return 0, fmt.Errorf("%s value too large", label)
+			}
+			return 0, fmt.Errorf("invalid %s value: %w", label, err)
+		}
+		if u > maxComponent {
+			return 0, fmt.Errorf("%s value too large", label)
+		}
+		return int(u), nil
+	}
 
 	// parse date part (years, months, days)
 	if datePart != "" {
 		matches := durationDatePattern.FindAllStringSubmatch(datePart, -1)
 		for _, match := range matches {
 			if match[1] != "" {
-				val, err := strconv.Atoi(match[1])
+				val, err := parseComponent(match[1], "year")
 				if err != nil {
-					return XSDDuration{}, fmt.Errorf("invalid year value: %w", err)
+					return XSDDuration{}, err
 				}
 				years = val
 				hasDateComponent = true
 			}
 			if match[2] != "" {
-				val, err := strconv.Atoi(match[2])
+				val, err := parseComponent(match[2], "month")
 				if err != nil {
-					return XSDDuration{}, fmt.Errorf("invalid month value: %w", err)
+					return XSDDuration{}, err
 				}
 				months = val
 				hasDateComponent = true
 			}
 			if match[3] != "" {
-				val, err := strconv.Atoi(match[3])
+				val, err := parseComponent(match[3], "day")
 				if err != nil {
-					return XSDDuration{}, fmt.Errorf("invalid day value: %w", err)
+					return XSDDuration{}, err
 				}
 				days = val
 				hasDateComponent = true
@@ -514,17 +528,17 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 		matches := durationTimePattern.FindAllStringSubmatch(timePart, -1)
 		for _, match := range matches {
 			if match[1] != "" {
-				val, err := strconv.Atoi(match[1])
+				val, err := parseComponent(match[1], "hour")
 				if err != nil {
-					return XSDDuration{}, fmt.Errorf("invalid hour value: %w", err)
+					return XSDDuration{}, err
 				}
 				hours = val
 				hasTimeComponent = true
 			}
 			if match[2] != "" {
-				val, err := strconv.Atoi(match[2])
+				val, err := parseComponent(match[2], "minute")
 				if err != nil {
-					return XSDDuration{}, fmt.Errorf("invalid minute value: %w", err)
+					return XSDDuration{}, err
 				}
 				minutes = val
 				hasTimeComponent = true

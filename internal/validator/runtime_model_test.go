@@ -17,13 +17,17 @@ type modelFixture struct {
 	elemC  runtime.ElemID
 }
 
-func buildModelFixture() modelFixture {
+func buildModelFixture(tb testing.TB) modelFixture {
+	tb.Helper()
 	builder := runtime.NewBuilder()
 	ns := builder.InternNamespace([]byte("urn:test"))
 	symA := builder.InternSymbol(ns, []byte("a"))
 	symB := builder.InternSymbol(ns, []byte("b"))
 	symC := builder.InternSymbol(ns, []byte("c"))
-	schema := builder.Build()
+	schema, err := builder.Build()
+	if err != nil {
+		tb.Fatalf("Build() error = %v", err)
+	}
 
 	schema.Elements = make([]runtime.Element, 4)
 	schema.Elements[1] = runtime.Element{Name: symA}
@@ -47,7 +51,7 @@ func buildModelFixture() modelFixture {
 }
 
 func TestModelStateDFASequence(t *testing.T) {
-	fx := buildModelFixture()
+	fx := buildModelFixture(t)
 	fx.schema.Models.DFA = make([]runtime.DFAModel, 2)
 	fx.schema.Models.DFA[1] = runtime.DFAModel{
 		Start: 0,
@@ -92,7 +96,7 @@ func TestModelStateDFASequence(t *testing.T) {
 }
 
 func TestModelStateDFAWildcardMatch(t *testing.T) {
-	fx := buildModelFixture()
+	fx := buildModelFixture(t)
 	fx.schema.Wildcards = []runtime.WildcardRule{
 		{},
 		{NS: runtime.NSConstraint{Kind: runtime.NSAny}, PC: runtime.PCSkip},
@@ -124,7 +128,7 @@ func TestModelStateDFAWildcardMatch(t *testing.T) {
 }
 
 func TestModelStateDFAWildcardAmbiguous(t *testing.T) {
-	fx := buildModelFixture()
+	fx := buildModelFixture(t)
 	fx.schema.Wildcards = []runtime.WildcardRule{
 		{},
 		{NS: runtime.NSConstraint{Kind: runtime.NSAny}, PC: runtime.PCSkip},
@@ -154,7 +158,7 @@ func TestModelStateDFAWildcardAmbiguous(t *testing.T) {
 }
 
 func TestModelStateNFASequence(t *testing.T) {
-	fx := buildModelFixture()
+	fx := buildModelFixture(t)
 	fx.schema.Models.NFA = make([]runtime.NFAModel, 2)
 	fx.schema.Models.NFA[1] = buildNFASequence(fx.symA, fx.symB, fx.elemA, fx.elemB)
 	ref := runtime.ModelRef{Kind: runtime.ModelNFA, ID: 1}
@@ -188,7 +192,7 @@ func TestModelStateNFASequence(t *testing.T) {
 }
 
 func TestModelStateNFANullableAcceptsEmpty(t *testing.T) {
-	fx := buildModelFixture()
+	fx := buildModelFixture(t)
 	fx.schema.Models.NFA = make([]runtime.NFAModel, 2)
 	fx.schema.Models.NFA[1] = buildNFANullable(fx.symA, fx.elemA)
 	ref := runtime.ModelRef{Kind: runtime.ModelNFA, ID: 1}
@@ -204,7 +208,7 @@ func TestModelStateNFANullableAcceptsEmpty(t *testing.T) {
 }
 
 func TestModelStateAllGroup(t *testing.T) {
-	fx := buildModelFixture()
+	fx := buildModelFixture(t)
 	fx.schema.Models.All = make([]runtime.AllModel, 2)
 	fx.schema.Models.AllSubst = []runtime.ElemID{fx.elemA, fx.elemC}
 	fx.schema.Models.All[1] = runtime.AllModel{

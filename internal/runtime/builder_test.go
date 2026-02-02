@@ -22,7 +22,10 @@ func TestNamespaceInterner(t *testing.T) {
 		t.Fatalf("namespace interning not stable: got %d want %d", again, aID)
 	}
 
-	schema := b.Build()
+	schema, err := b.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
 	if schema.PredefNS.Empty != emptyID {
 		t.Fatalf("PredefNS.Empty = %d, want %d", schema.PredefNS.Empty, emptyID)
 	}
@@ -39,7 +42,10 @@ func TestNamespaceInterner(t *testing.T) {
 
 func TestPredefinedSymbols(t *testing.T) {
 	b := NewBuilder()
-	schema := b.Build()
+	schema, err := b.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
 
 	if schema.PredefNS.Xml == 0 || schema.PredefNS.Xsi == 0 {
 		t.Fatalf("expected predefined XML/XSI namespaces")
@@ -86,7 +92,10 @@ func TestSymbolInterner(t *testing.T) {
 		t.Fatalf("expected distinct IDs for different namespaces")
 	}
 
-	schema := b.Build()
+	schema, err := b.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
 	if got := schema.Symbols.Lookup(aNS, []byte("root")); got != rootA {
 		t.Fatalf("Lookup(ns=a, root) = %d, want %d", got, rootA)
 	}
@@ -104,14 +113,20 @@ func TestInternerDeterminism(t *testing.T) {
 	b1ns := b1.InternNamespace([]byte("urn:b"))
 	sym1 := b1.InternSymbol(a1, []byte("root"))
 	sym2 := b1.InternSymbol(b1ns, []byte("child"))
-	s1 := b1.Build()
+	s1, err := b1.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
 
 	b2 := NewBuilder()
 	a2 := b2.InternNamespace([]byte("urn:a"))
 	b2ns := b2.InternNamespace([]byte("urn:b"))
 	sym1b := b2.InternSymbol(a2, []byte("root"))
 	sym2b := b2.InternSymbol(b2ns, []byte("child"))
-	s2 := b2.Build()
+	s2, err := b2.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
 
 	if a1 != a2 || b1ns != b2ns || sym1 != sym1b || sym2 != sym2b {
 		t.Fatalf("interned IDs differ across identical builds")
@@ -130,9 +145,9 @@ func TestBuildNamespaceIndexBounds(t *testing.T) {
 		Len:  []uint32{0, 5},
 		Blob: make([]byte, 10),
 	}
-	assertPanics(t, func() {
-		_ = buildNamespaceIndex(&table)
-	})
+	if _, err := buildNamespaceIndex(&table); err == nil {
+		t.Fatalf("expected namespace index bounds error")
+	}
 }
 
 func TestBuildSymbolsIndexBounds(t *testing.T) {
@@ -142,17 +157,30 @@ func TestBuildSymbolsIndexBounds(t *testing.T) {
 		LocalLen:  []uint32{0, 8},
 		LocalBlob: make([]byte, 10),
 	}
-	assertPanics(t, func() {
-		_ = buildSymbolsIndex(&table)
-	})
+	if _, err := buildSymbolsIndex(&table); err == nil {
+		t.Fatalf("expected symbols index bounds error")
+	}
 }
 
-func assertPanics(t *testing.T, fn func()) {
-	t.Helper()
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatalf("expected panic")
-		}
-	}()
-	fn()
+func TestBuilderBuildRejectsInvalidNamespaceTable(t *testing.T) {
+	b := NewBuilder()
+	b.namespaces.off = []uint32{0, 10}
+	b.namespaces.len = []uint32{0, 5}
+	b.namespaces.blob = make([]byte, 10)
+
+	if _, err := b.Build(); err == nil {
+		t.Fatalf("expected Build() error for invalid namespace table")
+	}
+}
+
+func TestBuilderBuildRejectsInvalidSymbolTable(t *testing.T) {
+	b := NewBuilder()
+	b.symbols.ns = []NamespaceID{0, 1}
+	b.symbols.localOff = []uint32{0, 8}
+	b.symbols.localLen = []uint32{0, 8}
+	b.symbols.localBlob = make([]byte, 10)
+
+	if _, err := b.Build(); err == nil {
+		t.Fatalf("expected Build() error for invalid symbol table")
+	}
 }

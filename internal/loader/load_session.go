@@ -100,7 +100,7 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
 			return closeErr
 		}
-		s.deferInclude(includeKey, s.key, include.SchemaLocation)
+		s.deferInclude(includeKey, s.key, include)
 		return nil
 	}
 	includedSchema, err := s.loader.loadResolved(doc, systemID, includeKey, skipSchemaValidation)
@@ -116,8 +116,21 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 	if needsNamespaceRemap {
 		remapMode = remapNamespace
 	}
-	if err := s.loader.mergeSchema(schema, includedSchema, mergeInclude, remapMode); err != nil {
+	entry, ok := s.loader.state.entry(s.key)
+	if !ok || entry == nil {
+		return fmt.Errorf("include tracking missing for %s", s.key.systemID)
+	}
+	insertAt, err := includeInsertIndex(entry, include, len(schema.GlobalDecls))
+	if err != nil {
+		return err
+	}
+	beforeLen := len(schema.GlobalDecls)
+	if err := s.loader.mergeSchema(schema, includedSchema, mergeInclude, remapMode, insertAt); err != nil {
 		return fmt.Errorf("merge included schema %s: %w", include.SchemaLocation, err)
+	}
+	inserted := len(schema.GlobalDecls) - beforeLen
+	if err := recordIncludeInserted(entry, include.IncludeIndex, inserted); err != nil {
+		return err
 	}
 	s.loader.markMergedInclude(s.key, includeKey)
 	s.merged.includes = append(s.merged.includes, mergeRecord{base: s.key, target: includeKey})
@@ -172,11 +185,7 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 		return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
 			imp.SchemaLocation, imp.Namespace, importedSchema.TargetNamespace)
 	}
-	if imp.Namespace == "" && !importedSchema.TargetNamespace.IsEmpty() {
-		return fmt.Errorf("imported schema %s must have no target namespace when import namespace is omitted",
-			imp.SchemaLocation)
-	}
-	if err := s.loader.mergeSchema(schema, importedSchema, mergeImport, keepNamespace); err != nil {
+	if err := s.loader.mergeSchema(schema, importedSchema, mergeImport, keepNamespace, len(schema.GlobalDecls)); err != nil {
 		return fmt.Errorf("merge imported schema %s: %w", imp.SchemaLocation, err)
 	}
 	s.loader.markMergedImport(s.key, importKey)
@@ -194,8 +203,8 @@ func (s *loadSession) deferImport(sourceKey, targetKey loadKey, schemaLocation, 
 	}
 }
 
-func (s *loadSession) deferInclude(sourceKey, targetKey loadKey, schemaLocation string) {
-	if s.loader.deferInclude(sourceKey, targetKey, schemaLocation) {
+func (s *loadSession) deferInclude(sourceKey, targetKey loadKey, include parser.IncludeInfo) {
+	if s.loader.deferInclude(sourceKey, targetKey, include) {
 		s.pending = append(s.pending, pendingChange{
 			sourceKey: sourceKey,
 			targetKey: targetKey,

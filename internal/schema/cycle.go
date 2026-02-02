@@ -144,22 +144,23 @@ func collectGroupRefs(group *types.ModelGroup) []*types.GroupRef {
 	}
 	var refs []*types.GroupRef
 	for _, particle := range group.Particles {
-		collectGroupRefsFromParticle(particle, &refs)
+		refs = collectGroupRefsFromParticle(particle, refs)
 	}
 	return refs
 }
 
-func collectGroupRefsFromParticle(particle types.Particle, refs *[]*types.GroupRef) {
+func collectGroupRefsFromParticle(particle types.Particle, refs []*types.GroupRef) []*types.GroupRef {
 	switch typed := particle.(type) {
 	case *types.GroupRef:
-		*refs = append(*refs, typed)
+		return append(refs, typed)
 	case *types.ModelGroup:
 		for _, child := range typed.Particles {
-			collectGroupRefsFromParticle(child, refs)
+			refs = collectGroupRefsFromParticle(child, refs)
 		}
 	case *types.ElementDecl, *types.AnyElement:
-		return
+		return refs
 	}
+	return refs
 }
 
 func detectAttributeGroupCycles(schema *parser.Schema) error {

@@ -75,7 +75,7 @@ func newMergeContext(target, source *parser.Schema, kind mergeKind, remap namesp
 // mergeSchema merges a source schema into a target schema.
 // For imports, preserves source namespace.
 // For includes, uses chameleon namespace remapping if needed.
-func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind, remap namespaceRemapMode) error {
+func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind, remap namespaceRemapMode, insertAt int) error {
 	ctx := newMergeContext(target, source, kind, remap)
 	existingDecls := existingGlobalDecls(target)
 	ctx.mergeImportedNamespaces()
@@ -102,7 +102,7 @@ func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind
 	if err := ctx.mergeIDAttributes(); err != nil {
 		return err
 	}
-	ctx.mergeGlobalDecls(existingDecls)
+	ctx.mergeGlobalDecls(existingDecls, insertAt)
 	return nil
 }
 
@@ -114,10 +114,11 @@ func existingGlobalDecls(schema *parser.Schema) map[globalDeclKey]struct{} {
 	return decls
 }
 
-func (c *mergeContext) mergeGlobalDecls(existing map[globalDeclKey]struct{}) {
+func (c *mergeContext) mergeGlobalDecls(existing map[globalDeclKey]struct{}, insertAt int) {
 	if c.source.GlobalDecls == nil {
 		return
 	}
+	newDecls := make([]parser.GlobalDecl, 0, len(c.source.GlobalDecls))
 	for _, decl := range c.source.GlobalDecls {
 		mappedName := c.remapQName(decl.Name)
 		key := globalDeclKey{kind: decl.Kind, name: mappedName}
@@ -127,12 +128,33 @@ func (c *mergeContext) mergeGlobalDecls(existing map[globalDeclKey]struct{}) {
 		if !c.globalDeclExists(decl.Kind, mappedName) {
 			continue
 		}
-		c.target.GlobalDecls = append(c.target.GlobalDecls, parser.GlobalDecl{
+		newDecls = append(newDecls, parser.GlobalDecl{
 			Kind: decl.Kind,
 			Name: mappedName,
 		})
 		existing[key] = struct{}{}
 	}
+	if len(newDecls) == 0 {
+		return
+	}
+	if insertAt < 0 || insertAt > len(c.target.GlobalDecls) {
+		insertAt = len(c.target.GlobalDecls)
+	}
+	c.target.GlobalDecls = insertGlobalDecls(c.target.GlobalDecls, insertAt, newDecls)
+}
+
+func insertGlobalDecls(dst []parser.GlobalDecl, insertAt int, insert []parser.GlobalDecl) []parser.GlobalDecl {
+	if len(insert) == 0 {
+		return dst
+	}
+	if insertAt < 0 || insertAt > len(dst) {
+		insertAt = len(dst)
+	}
+	merged := make([]parser.GlobalDecl, 0, len(dst)+len(insert))
+	merged = append(merged, dst[:insertAt]...)
+	merged = append(merged, insert...)
+	merged = append(merged, dst[insertAt:]...)
+	return merged
 }
 
 func (c *mergeContext) globalDeclExists(kind parser.GlobalDeclKind, name types.QName) bool {

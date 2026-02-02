@@ -8,7 +8,7 @@ import (
 )
 
 func TestIdentityDuplicateUnique(t *testing.T) {
-	fx := buildIdentityFixture()
+	fx := buildIdentityFixture(t)
 	schema := fx.schema
 
 	schema.ICs = make([]runtime.IdentityConstraint, 2)
@@ -65,7 +65,7 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 }
 
 func TestIdentityKeyrefMissing(t *testing.T) {
-	fx := buildIdentityFixture()
+	fx := buildIdentityFixture(t)
 	schema := fx.schema
 
 	schema.ICs = make([]runtime.IdentityConstraint, 3)

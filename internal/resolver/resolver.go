@@ -136,8 +136,22 @@ func (r *Resolver) resolveSimpleTypeRestriction(qname types.QName, st *types.Sim
 	}
 	st.ResolvedBase = base
 	if baseST, ok := base.(*types.SimpleType); ok {
-		if baseST.Variety() == types.UnionVariety && len(st.MemberTypes) == 0 && len(baseST.MemberTypes) > 0 {
-			st.MemberTypes = append([]types.Type(nil), baseST.MemberTypes...)
+		if baseST.Variety() == types.UnionVariety && len(st.MemberTypes) == 0 {
+			if len(baseST.MemberTypes) == 0 {
+				baseQName := baseST.QName
+				if baseQName.IsZero() {
+					baseQName = st.Restriction.Base
+				}
+				if err := r.resolveUnionNamedMembers(baseQName, baseST); err != nil {
+					return err
+				}
+				if err := r.resolveUnionInlineMembers(baseQName, baseST); err != nil {
+					return err
+				}
+			}
+			if len(baseST.MemberTypes) > 0 {
+				st.MemberTypes = append([]types.Type(nil), baseST.MemberTypes...)
+			}
 		}
 	}
 	// inherit whiteSpace when this type keeps the default preserve behavior

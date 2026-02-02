@@ -7,7 +7,10 @@ func TestWildcardAcceptsEnumerationWithBytesFallback(t *testing.T) {
 	target := builder.InternNamespace([]byte("urn:target"))
 	other := builder.InternNamespace([]byte("urn:other"))
 	_ = builder.InternNamespace([]byte("urn:list"))
-	schema := builder.Build()
+	schema, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
 
 	rule := WildcardRule{
 		NS: NSConstraint{
@@ -42,7 +45,10 @@ func TestWildcardAcceptsOther(t *testing.T) {
 	builder := NewBuilder()
 	target := builder.InternNamespace([]byte("urn:target"))
 	other := builder.InternNamespace([]byte("urn:other"))
-	schema := builder.Build()
+	schema, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
 
 	rule := WildcardRule{
 		NS:       NSConstraint{Kind: NSOther},
@@ -68,7 +74,10 @@ func TestWildcardAcceptsOther(t *testing.T) {
 func TestWildcardAcceptsNotAbsent(t *testing.T) {
 	builder := NewBuilder()
 	other := builder.InternNamespace([]byte("urn:other"))
-	schema := builder.Build()
+	schema, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
 
 	rule := WildcardRule{
 		NS: NSConstraint{Kind: NSNotAbsent},
@@ -88,7 +97,10 @@ func TestSchemaWildcardAccepts(t *testing.T) {
 	builder := NewBuilder()
 	target := builder.InternNamespace([]byte("urn:target"))
 	other := builder.InternNamespace([]byte("urn:other"))
-	schema := builder.Build()
+	schema, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
 
 	schema.Wildcards = []WildcardRule{
 		{},

@@ -1,6 +1,9 @@
 package value
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseDateTime(t *testing.T) {
 	if _, err := ParseDateTime([]byte("2001-10-26T21:32:52")); err != nil {
@@ -8,6 +11,16 @@ func TestParseDateTime(t *testing.T) {
 	}
 	if _, err := ParseDateTime([]byte("0000-01-01T00:00:00")); err == nil {
 		t.Fatalf("expected error for year 0000")
+	}
+}
+
+func TestParseDateTimeFractionalSecondsTooLong(t *testing.T) {
+	_, err := ParseDateTime([]byte("2024-01-01T00:00:00.123456789123Z"))
+	if err == nil {
+		t.Fatalf("expected error for fractional seconds > 9 digits")
+	}
+	if !strings.Contains(err.Error(), "fractional seconds") {
+		t.Fatalf("error = %v, want fractional seconds message", err)
 	}
 }
 
@@ -23,6 +36,16 @@ func TestParseTime(t *testing.T) {
 	}
 	if _, err := ParseTime([]byte("24:01:00")); err == nil {
 		t.Fatalf("expected error for invalid 24-hour time")
+	}
+}
+
+func TestParseTimeFractionalSecondsTooLong(t *testing.T) {
+	_, err := ParseTime([]byte("23:59:59.123456789123Z"))
+	if err == nil {
+		t.Fatalf("expected error for fractional seconds > 9 digits")
+	}
+	if !strings.Contains(err.Error(), "fractional seconds") {
+		t.Fatalf("error = %v, want fractional seconds message", err)
 	}
 }
 
@@ -59,6 +82,18 @@ func TestCanonicalDateTimeUTC(t *testing.T) {
 	got := CanonicalDateTimeString(ts, "dateTime", HasTimezone(lexical))
 	if got != "2001-10-26T19:32:52Z" {
 		t.Fatalf("CanonicalDateTimeString() = %q, want %q", got, "2001-10-26T19:32:52Z")
+	}
+}
+
+func TestCanonicalDateTimeZeroOffset(t *testing.T) {
+	lexical := []byte("2001-10-26T21:32:52-00:00")
+	ts, err := ParseDateTime(lexical)
+	if err != nil {
+		t.Fatalf("ParseDateTime() error = %v", err)
+	}
+	got := CanonicalDateTimeString(ts, "dateTime", HasTimezone(lexical))
+	if got != "2001-10-26T21:32:52Z" {
+		t.Fatalf("CanonicalDateTimeString() = %q, want %q", got, "2001-10-26T21:32:52Z")
 	}
 }
 

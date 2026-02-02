@@ -55,6 +55,8 @@ type ImportInfo struct {
 // Includes allow referencing components from the same namespace or no namespace.
 type IncludeInfo struct {
 	SchemaLocation string
+	DeclIndex      int
+	IncludeIndex   int
 }
 
 // DirectiveKind represents an include/import directive in document order.
@@ -251,12 +253,15 @@ func parseSchemaAttributes(doc *xsdxml.Document, root xsdxml.NodeID, schema *Sch
 
 func parseDirectives(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, result *ParseResult) (map[types.NamespaceURI]bool, error) {
 	importedNamespaces := make(map[types.NamespaceURI]bool)
+	declIndex := 0
+	includeIndex := 0
 	for _, child := range doc.Children(root) {
 		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
 
-		switch doc.LocalName(child) {
+		localName := doc.LocalName(child)
+		switch localName {
 		case "annotation":
 			// allowed at top-level; nothing to parse.
 		case "import":
@@ -279,6 +284,8 @@ func parseDirectives(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, r
 			}
 			includeInfo := IncludeInfo{
 				SchemaLocation: doc.GetAttribute(child, "schemaLocation"),
+				DeclIndex:      declIndex,
+				IncludeIndex:   includeIndex,
 			}
 			if includeInfo.SchemaLocation == "" {
 				return nil, fmt.Errorf("include directive missing schemaLocation")
@@ -288,6 +295,7 @@ func parseDirectives(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, r
 				Kind:    DirectiveInclude,
 				Include: includeInfo,
 			})
+			includeIndex++
 		case "element":
 			// handled in second pass
 		case "complexType", "simpleType", "group", "attribute", "attributeGroup", "notation", "key", "keyref", "unique":
@@ -295,10 +303,22 @@ func parseDirectives(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, r
 		case "redefine":
 			return nil, fmt.Errorf("redefine is not supported")
 		default:
-			return nil, fmt.Errorf("unexpected top-level element '%s'", doc.LocalName(child))
+			return nil, fmt.Errorf("unexpected top-level element '%s'", localName)
+		}
+		if isGlobalDeclElement(localName) {
+			declIndex++
 		}
 	}
 	return importedNamespaces, nil
+}
+
+func isGlobalDeclElement(localName string) bool {
+	switch localName {
+	case "element", "complexType", "simpleType", "group", "attribute", "attributeGroup", "notation":
+		return true
+	default:
+		return false
+	}
 }
 
 func applyImportedNamespaces(schema *Schema, importedNamespaces map[types.NamespaceURI]bool) {

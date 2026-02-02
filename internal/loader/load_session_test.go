@@ -74,3 +74,29 @@ func TestLoadReportsCloseErrorOnDuplicateInclude(t *testing.T) {
 		t.Fatalf("expected close error, got %v", err)
 	}
 }
+
+func TestLoadRejectsImportNamespaceMismatchWithoutNamespace(t *testing.T) {
+	root := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:root">
+  <xs:import schemaLocation="imp.xsd"/>
+</xs:schema>`)
+	imp := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:imp">
+  <xs:element name="e" type="xs:string"/>
+</xs:schema>`)
+
+	res := &trackingResolver{
+		docs: map[string][]byte{
+			"root.xsd": root,
+			"imp.xsd":  imp,
+		},
+	}
+
+	loader := NewLoader(Config{Resolver: res})
+	_, err := loader.Load("root.xsd")
+	if err == nil {
+		t.Fatalf("expected import namespace mismatch error")
+	}
+	want := "imported schema imp.xsd namespace mismatch: expected no namespace, got urn:imp"
+	if err.Error() != want {
+		t.Fatalf("error = %q, want %q", err.Error(), want)
+	}
+}

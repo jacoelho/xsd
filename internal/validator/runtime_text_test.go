@@ -7,7 +7,11 @@ import (
 )
 
 func TestConsumeTextElementOnlyWhitespace(t *testing.T) {
-	sess := NewSession(runtime.NewBuilder().Build())
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
 	var state TextState
 	sess.ResetText(&state)
 
@@ -28,7 +32,11 @@ func TestConsumeTextElementOnlyWhitespace(t *testing.T) {
 }
 
 func TestConsumeTextMixedAllowsText(t *testing.T) {
-	sess := NewSession(runtime.NewBuilder().Build())
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
 	var state TextState
 	sess.ResetText(&state)
 
@@ -41,7 +49,11 @@ func TestConsumeTextMixedAllowsText(t *testing.T) {
 }
 
 func TestConsumeTextSimpleCollects(t *testing.T) {
-	sess := NewSession(runtime.NewBuilder().Build())
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
 	var state TextState
 	sess.ResetText(&state)
 
@@ -57,7 +69,11 @@ func TestConsumeTextSimpleCollects(t *testing.T) {
 }
 
 func TestConsumeTextNilledRejects(t *testing.T) {
-	sess := NewSession(runtime.NewBuilder().Build())
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
 	var state TextState
 	sess.ResetText(&state)
 
@@ -67,7 +83,11 @@ func TestConsumeTextNilledRejects(t *testing.T) {
 }
 
 func TestConsumeTextAllMixed(t *testing.T) {
-	sess := NewSession(runtime.NewBuilder().Build())
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
 	var state TextState
 	sess.ResetText(&state)
 

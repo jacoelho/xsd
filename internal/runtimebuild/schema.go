@@ -95,7 +95,11 @@ func (b *schemaBuilder) build() (*runtime.Schema, error) {
 	if err := b.initSymbols(); err != nil {
 		return nil, err
 	}
-	b.rt = b.builder.Build()
+	rt, err := b.builder.Build()
+	if err != nil {
+		return nil, err
+	}
+	b.rt = rt
 	b.rt.RootPolicy = runtime.RootStrict
 	b.rt.Validators = b.validators.Validators
 	b.rt.Facets = b.validators.Facets
@@ -314,7 +318,9 @@ func (b *schemaBuilder) buildAncestors() error {
 		typ := b.rt.Types[id]
 		offset := uint32(len(ids))
 
-		if err := b.appendAncestors(id, typ, &ids, &masks); err != nil {
+		var err error
+		ids, masks, err = b.appendAncestors(id, typ, ids, masks)
+		if err != nil {
 			return err
 		}
 
@@ -328,12 +334,12 @@ func (b *schemaBuilder) buildAncestors() error {
 	return nil
 }
 
-func (b *schemaBuilder) appendAncestors(id runtime.TypeID, typ runtime.Type, ids *[]runtime.TypeID, masks *[]runtime.DerivationMethod) error {
+func (b *schemaBuilder) appendAncestors(id runtime.TypeID, typ runtime.Type, ids []runtime.TypeID, masks []runtime.DerivationMethod) ([]runtime.TypeID, []runtime.DerivationMethod, error) {
 	if b == nil {
-		return fmt.Errorf("runtime build: schema builder missing")
+		return ids, masks, fmt.Errorf("runtime build: schema builder missing")
 	}
 	if id == 0 || b.rt == nil {
-		return fmt.Errorf("runtime build: invalid type ID for ancestors")
+		return ids, masks, fmt.Errorf("runtime build: invalid type ID for ancestors")
 	}
 	typeCount := len(b.rt.Types)
 	cumulative := runtime.DerivationMethod(0)
@@ -343,25 +349,25 @@ func (b *schemaBuilder) appendAncestors(id runtime.TypeID, typ runtime.Type, ids
 
 	for base != 0 {
 		if current.Derivation == runtime.DerNone {
-			return fmt.Errorf("runtime build: type %d missing derivation method", id)
+			return ids, masks, fmt.Errorf("runtime build: type %d missing derivation method", id)
 		}
 		if int(base) >= typeCount {
-			return fmt.Errorf("runtime build: ancestor type %d out of range", base)
+			return ids, masks, fmt.Errorf("runtime build: ancestor type %d out of range", base)
 		}
 		if visited[base] {
-			return fmt.Errorf("runtime build: type derivation cycle at %d", base)
+			return ids, masks, fmt.Errorf("runtime build: type derivation cycle at %d", base)
 		}
 		visited[base] = true
 
 		cumulative |= current.Derivation
-		*ids = append(*ids, base)
-		*masks = append(*masks, cumulative)
+		ids = append(ids, base)
+		masks = append(masks, cumulative)
 
 		current = b.rt.Types[base]
 		base = current.Base
 	}
 
-	return nil
+	return ids, masks, nil
 }
 
 func (b *schemaBuilder) buildTypes() error {
