@@ -498,7 +498,7 @@ func (s *identityState) finalizeSelectorMatch(match *rtSelectorMatch) {
 			state.violations = append(state.violations, identityViolation(state.category, "identity constraint field selects multiple nodes"))
 			return
 		case field.count == 0 || field.missing:
-			if state.category == runtime.ICUnique || state.category == runtime.ICKeyRef {
+			if state.category == runtime.ICUnique {
 				return
 			}
 			state.violations = append(state.violations, identityViolation(state.category, "identity constraint field is missing"))

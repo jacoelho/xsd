@@ -73,3 +73,39 @@ func TestCanonicalTimeUTC(t *testing.T) {
 		t.Fatalf("CanonicalDateTimeString() = %q, want %q", got, "00:00:00Z")
 	}
 }
+
+func TestCanonicalDateUTC(t *testing.T) {
+	lexical := []byte("2024-01-01+02:00")
+	ts, err := ParseDate(lexical)
+	if err != nil {
+		t.Fatalf("ParseDate() error = %v", err)
+	}
+	got := CanonicalDateTimeString(ts, "date", HasTimezone(lexical))
+	if got != "2023-12-31Z" {
+		t.Fatalf("CanonicalDateTimeString() = %q, want %q", got, "2023-12-31Z")
+	}
+}
+
+func TestCanonicalGYearMonthUTC(t *testing.T) {
+	lexical := []byte("2024-01+14:00")
+	ts, err := ParseGYearMonth(lexical)
+	if err != nil {
+		t.Fatalf("ParseGYearMonth() error = %v", err)
+	}
+	got := CanonicalDateTimeString(ts, "gYearMonth", HasTimezone(lexical))
+	if got != "2023-12Z" {
+		t.Fatalf("CanonicalDateTimeString() = %q, want %q", got, "2023-12Z")
+	}
+}
+
+func TestCanonicalGDayUTC(t *testing.T) {
+	lexical := []byte("---01+14:00")
+	ts, err := ParseGDay(lexical)
+	if err != nil {
+		t.Fatalf("ParseGDay() error = %v", err)
+	}
+	got := CanonicalDateTimeString(ts, "gDay", HasTimezone(lexical))
+	if got != "---31Z" {
+		t.Fatalf("CanonicalDateTimeString() = %q, want %q", got, "---31Z")
+	}
+}

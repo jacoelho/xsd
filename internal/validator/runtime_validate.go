@@ -137,7 +137,27 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 
 	var match StartMatch
 	if len(s.elemStack) == 0 {
-		if s.rt.RootPolicy == runtime.RootStrict || s.rt.RootPolicy == runtime.RootAny {
+		switch s.rt.RootPolicy {
+		case runtime.RootAny:
+			if sym == 0 {
+				if err := s.reader.SkipSubtree(); err != nil {
+					s.popNamespaceScope()
+					return err
+				}
+				s.popNamespaceScope()
+				return nil
+			}
+			elemID, ok := s.globalElementBySymbol(sym)
+			if !ok {
+				if err := s.reader.SkipSubtree(); err != nil {
+					s.popNamespaceScope()
+					return err
+				}
+				s.popNamespaceScope()
+				return nil
+			}
+			match = StartMatch{Kind: MatchElem, Elem: elemID}
+		case runtime.RootStrict:
 			if sym == 0 {
 				s.popNamespaceScope()
 				return newValidationError(xsderrors.ErrValidateRootNotDeclared, "root element not declared")
@@ -738,18 +758,22 @@ func (s *Session) makeStartAttrs(attrs []xmlstream.ResolvedAttr) []StartAttr {
 		entry := s.internName(attr.NameID, attr.NS, attr.Local)
 		local := attr.Local
 		nsBytes := attr.NS
+		nameCached := false
 		if entry.LocalLen != 0 {
 			local = s.nameLocal[entry.LocalOff : entry.LocalOff+entry.LocalLen]
+			nameCached = true
 		}
 		if entry.NSLen != 0 {
 			nsBytes = s.nameNS[entry.NSOff : entry.NSOff+entry.NSLen]
+			nameCached = true
 		}
 		out = append(out, StartAttr{
-			Sym:     entry.Sym,
-			NS:      entry.NS,
-			NSBytes: nsBytes,
-			Local:   local,
-			Value:   attr.Value,
+			Sym:        entry.Sym,
+			NS:         entry.NS,
+			NSBytes:    nsBytes,
+			Local:      local,
+			NameCached: nameCached,
+			Value:      attr.Value,
 		})
 	}
 	s.attrBuf = out[:0]

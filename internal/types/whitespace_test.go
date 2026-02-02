@@ -2,6 +2,9 @@ package types
 
 import (
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/runtime"
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
 func TestWhiteSpace_Inheritance(t *testing.T) {
@@ -131,6 +134,36 @@ func TestNormalizeValue_XMLWhitespaceOnly(t *testing.T) {
 	}
 	if normalized != input {
 		t.Errorf("NormalizeValue() = %q, want %q", normalized, input)
+	}
+}
+
+func TestApplyWhiteSpaceMatchesValueNormalize(t *testing.T) {
+	cases := []struct {
+		name  string
+		ws    WhiteSpace
+		input string
+	}{
+		{name: "preserve", ws: WhiteSpacePreserve, input: " a\tb\n"},
+		{name: "replace", ws: WhiteSpaceReplace, input: " a\tb\n"},
+		{name: "collapse", ws: WhiteSpaceCollapse, input: "  a\tb \n c  "},
+		{name: "collapse no change", ws: WhiteSpaceCollapse, input: "a b"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ApplyWhiteSpace(tc.input, tc.ws)
+			mode := runtime.WS_Preserve
+			switch tc.ws {
+			case WhiteSpaceReplace:
+				mode = runtime.WS_Replace
+			case WhiteSpaceCollapse:
+				mode = runtime.WS_Collapse
+			}
+			want := string(valuepkg.NormalizeWhitespace(mode, []byte(tc.input), nil))
+			if got != want {
+				t.Fatalf("ApplyWhiteSpace(%q) = %q, want %q", tc.input, got, want)
+			}
+		})
 	}
 }
 

@@ -63,6 +63,17 @@ func TestValidateAttributesDefaultApplied(t *testing.T) {
 	}
 }
 
+func TestValidateAttributesAllowsXMLNamespace(t *testing.T) {
+	schema, ids := buildAttrFixtureNoRequired()
+	sess := NewSession(schema)
+
+	xmlAttrs := []StartAttr{{Sym: schema.Predef.XmlLang, NS: schema.PredefNS.Xml, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
+	_, err := sess.ValidateAttributes(ids.typeBase, xmlAttrs, nil)
+	if err != nil {
+		t.Fatalf("expected xml attribute to be allowed, got %v", err)
+	}
+}
+
 func TestValidateAttributesSimpleTypeXsiOnly(t *testing.T) {
 	schema, ids := buildAttrFixture()
 	sess := NewSession(schema)
@@ -77,6 +88,12 @@ func TestValidateAttributesSimpleTypeXsiOnly(t *testing.T) {
 	_, err = sess.ValidateAttributes(ids.typeSimple, xsiAttrs, nil)
 	if err != nil {
 		t.Fatalf("expected xsi attribute to be allowed")
+	}
+
+	xmlAttrs := []StartAttr{{Sym: schema.Predef.XmlLang, NS: schema.PredefNS.Xml, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
+	_, err = sess.ValidateAttributes(ids.typeSimple, xmlAttrs, nil)
+	if err != nil {
+		t.Fatalf("expected xml attribute to be allowed")
 	}
 }
 
@@ -136,6 +153,38 @@ func TestValidateAttributesDuplicate(t *testing.T) {
 	_, err := sess.ValidateAttributes(ids.typeBase, attrs, nil)
 	if err == nil {
 		t.Fatalf("expected duplicate attribute error")
+	}
+}
+
+func TestValidateAttributesCopiesUncachedNamesWhenStored(t *testing.T) {
+	schema, ids := buildAttrFixtureNoRequired()
+	schema.ICs = make([]runtime.IdentityConstraint, 2)
+	sess := NewSession(schema)
+
+	nsBuf := []byte("urn:test")
+	localBuf := []byte("default")
+	attrs := []StartAttr{{
+		Sym:        ids.attrSymDefault,
+		NS:         ids.nsID,
+		NSBytes:    nsBuf,
+		Local:      localBuf,
+		NameCached: false,
+	}}
+	result, err := sess.ValidateAttributes(ids.typeBase, attrs, nil)
+	if err != nil {
+		t.Fatalf("ValidateAttributes: %v", err)
+	}
+	if len(result.Attrs) != 1 {
+		t.Fatalf("stored attrs = %d, want 1", len(result.Attrs))
+	}
+
+	nsBuf[0] = 'x'
+	localBuf[0] = 'x'
+	if got := string(result.Attrs[0].NSBytes); got != "urn:test" {
+		t.Fatalf("stored namespace = %q, want %q", got, "urn:test")
+	}
+	if got := string(result.Attrs[0].Local); got != "default" {
+		t.Fatalf("stored local name = %q, want %q", got, "default")
 	}
 }
 

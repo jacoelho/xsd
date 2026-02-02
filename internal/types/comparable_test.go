@@ -647,7 +647,8 @@ func TestComparableXSDDuration_StringCanonical(t *testing.T) {
 	}{
 		{input: "P0D", want: "PT0S"},
 		{input: "PT0S", want: "PT0S"},
-		{input: "-P0D", want: "-PT0S"},
+		{input: "-P0D", want: "PT0S"},
+		{input: "-PT0S", want: "PT0S"},
 		{input: "PT0.000001S", want: "PT0.000001S"},
 		{input: "PT123456.789S", want: "PT123456.789S"},
 	}

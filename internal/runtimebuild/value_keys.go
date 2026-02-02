@@ -15,8 +15,8 @@ type keyBytes struct {
 	kind  runtime.ValueKind
 }
 
-func (c *compiler) valueKeysForNormalized(normalized string, typ types.Type, ctx map[string]string) ([]runtime.ValueKey, error) {
-	keys, err := c.keyBytesForNormalized(normalized, typ, ctx)
+func (c *compiler) valueKeysForNormalized(lexical, normalized string, typ types.Type, ctx map[string]string) ([]runtime.ValueKey, error) {
+	keys, err := c.keyBytesForNormalized(lexical, normalized, typ, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func (c *compiler) valueKeysForNormalized(normalized string, typ types.Type, ctx
 	return out, nil
 }
 
-func (c *compiler) keyBytesForNormalized(normalized string, typ types.Type, ctx map[string]string) ([]keyBytes, error) {
+func (c *compiler) keyBytesForNormalized(lexical, normalized string, typ types.Type, ctx map[string]string) ([]keyBytes, error) {
 	switch c.res.varietyForType(typ) {
 	case types.ListVariety:
 		item, ok := c.res.listItemTypeFromType(typ)
@@ -52,19 +52,15 @@ func (c *compiler) keyBytesForNormalized(normalized string, typ types.Type, ctx 
 		}
 		var out []keyBytes
 		for _, member := range members {
-			memberLex := c.normalizeLexical(normalized, member)
+			memberLex := c.normalizeLexical(lexical, member)
 			memberFacets, err := c.facetsForType(member)
 			if err != nil {
 				return nil, err
 			}
-			partial := filterFacets(memberFacets, func(f types.Facet) bool {
-				_, ok := f.(*types.Enumeration)
-				return !ok
-			})
-			if validateErr := c.validatePartialFacets(memberLex, member, partial); validateErr != nil {
+			if validateErr := c.validateMemberFacets(memberLex, member, memberFacets, ctx, true); validateErr != nil {
 				continue
 			}
-			keys, err := c.keyBytesForNormalized(memberLex, member, ctx)
+			keys, err := c.keyBytesForNormalized(lexical, memberLex, member, ctx)
 			if err != nil {
 				continue
 			}
@@ -84,7 +80,7 @@ func (c *compiler) keyBytesForNormalized(normalized string, typ types.Type, ctx 
 }
 
 func (c *compiler) keyBytesForNormalizedSingle(normalized string, typ types.Type, ctx map[string]string) (keyBytes, error) {
-	keys, err := c.keyBytesForNormalized(normalized, typ, ctx)
+	keys, err := c.keyBytesForNormalized(normalized, normalized, typ, ctx)
 	if err != nil {
 		return keyBytes{}, err
 	}

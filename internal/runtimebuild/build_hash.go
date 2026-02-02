@@ -261,6 +261,7 @@ func hashValidators(h *hashBuilder, bundle *runtime.ValidatorsBundle) {
 	}
 	hashValidatorIDs(h, bundle.UnionMembers)
 	hashTypeIDs(h, bundle.UnionMemberTypes)
+	hashU8Slice(h, bundle.UnionMemberSameWS)
 	h.u32(uint32(len(bundle.Meta)))
 	for _, meta := range bundle.Meta {
 		h.u8(uint8(meta.Kind))
@@ -452,6 +453,13 @@ func hashU64Slice(h *hashBuilder, vals []uint64) {
 	h.u32(uint32(len(vals)))
 	for _, v := range vals {
 		h.u64(v)
+	}
+}
+
+func hashU8Slice(h *hashBuilder, vals []uint8) {
+	h.u32(uint32(len(vals)))
+	for _, v := range vals {
+		h.u8(v)
 	}
 }
 
