@@ -124,9 +124,6 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 					}
 					count++
 				}
-				if count == 0 {
-					return fmt.Errorf("list value is empty")
-				}
 			}
 			facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
 			return validateValueAgainstFacets(normalizedValue, st, facets, context)
@@ -273,6 +270,18 @@ func collectSimpleTypeFacets(schema *parser.Schema, st *types.SimpleType, visite
 		}
 	}
 
+	if st.IsBuiltin() && isBuiltinListTypeName(st.QName.Local) {
+		result = append(result, &types.MinLength{Value: 1})
+	} else if st.ResolvedBase != nil {
+		if bt, ok := st.ResolvedBase.(*types.BuiltinType); ok && isBuiltinListTypeName(bt.Name().Local) {
+			result = append(result, &types.MinLength{Value: 1})
+		}
+	} else if st.Restriction != nil && !st.Restriction.Base.IsZero() &&
+		st.Restriction.Base.Namespace == types.XSDNamespace &&
+		isBuiltinListTypeName(st.Restriction.Base.Local) {
+		result = append(result, &types.MinLength{Value: 1})
+	}
+
 	if st.Restriction != nil {
 		var baseType types.Type
 		if st.ResolvedBase != nil {
@@ -332,6 +341,12 @@ func collectRestrictionFacets(schema *parser.Schema, restriction *types.Restrict
 	}
 
 	return result
+}
+
+func isBuiltinListTypeName(name string) bool {
+	return name == string(types.TypeNameNMTOKENS) ||
+		name == string(types.TypeNameIDREFS) ||
+		name == string(types.TypeNameENTITIES)
 }
 
 func resolveSimpleContentBaseType(schema *parser.Schema, sc *types.SimpleContent) types.Type {

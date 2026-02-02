@@ -35,9 +35,6 @@ func (c *compiler) keyBytesForNormalized(lexical, normalized string, typ types.T
 			return nil, fmt.Errorf("list type missing item type")
 		}
 		items := splitXMLWhitespace(normalized)
-		if len(items) == 0 {
-			return nil, fmt.Errorf("list value is empty")
-		}
 		var keyBytesBuf []byte
 		keyBytesBuf = valuekey.AppendUvarint(keyBytesBuf, uint64(len(items)))
 		for _, itemLex := range items {

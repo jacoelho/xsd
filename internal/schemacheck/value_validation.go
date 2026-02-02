@@ -88,9 +88,6 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 			}
 			count++
 		}
-		if count == 0 {
-			return fmt.Errorf("list value is empty")
-		}
 		facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
 		return validateValueAgainstFacets(normalized, st, facets, context)
 	default:
@@ -192,6 +189,18 @@ func collectSimpleTypeFacets(schema *parser.Schema, st *types.SimpleType, visite
 				result = append(result, collectSimpleTypeFacets(schema, baseST, visited)...)
 			}
 		}
+	}
+
+	if st.IsBuiltin() && isBuiltinListTypeName(st.QName.Local) {
+		result = append(result, &types.MinLength{Value: 1})
+	} else if st.ResolvedBase != nil {
+		if bt, ok := st.ResolvedBase.(*types.BuiltinType); ok && isBuiltinListTypeName(bt.Name().Local) {
+			result = append(result, &types.MinLength{Value: 1})
+		}
+	} else if st.Restriction != nil && !st.Restriction.Base.IsZero() &&
+		st.Restriction.Base.Namespace == types.XSDNamespace &&
+		isBuiltinListTypeName(st.Restriction.Base.Local) {
+		result = append(result, &types.MinLength{Value: 1})
 	}
 
 	if st.Restriction != nil {

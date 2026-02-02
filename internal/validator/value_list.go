@@ -52,9 +52,6 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 	if err != nil {
 		return nil, err
 	}
-	if count == 0 {
-		return nil, valueErrorf(valueErrInvalid, "list value is empty")
-	}
 	if metrics != nil {
 		metrics.listCount = count
 		metrics.listSet = true

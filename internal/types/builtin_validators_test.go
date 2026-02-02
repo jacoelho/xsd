@@ -459,8 +459,11 @@ func TestBuiltinTypeMethods(t *testing.T) {
 	if listType == nil {
 		t.Fatalf("expected builtin NMTOKENS type")
 	}
+	if err := listType.Validate("a b"); err != nil {
+		t.Fatalf("unexpected builtin list validate error: %v", err)
+	}
 	if err := listType.Validate(""); err == nil {
-		t.Fatalf("expected builtin list validate error")
+		t.Fatalf("expected builtin list empty error")
 	}
 }
 

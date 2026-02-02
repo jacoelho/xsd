@@ -185,7 +185,7 @@ func (c *compiler) canonicalizeNormalizedDefault(lexical, normalized string, typ
 		}
 		items := splitXMLWhitespace(normalized)
 		if len(items) == 0 {
-			return nil, fmt.Errorf("list value is empty")
+			return []byte{}, nil
 		}
 		var buf []byte
 		for i, itemLex := range items {

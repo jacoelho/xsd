@@ -103,7 +103,7 @@ func TestSimpleTypeValidateListMembers(t *testing.T) {
 	if err := list.Validate("1 a"); err == nil {
 		t.Fatalf("expected list item validation error")
 	}
-	if err := list.Validate(""); err == nil {
-		t.Fatalf("expected empty list to be invalid")
+	if err := list.Validate(""); err != nil {
+		t.Fatalf("unexpected empty list validation error: %v", err)
 	}
 }

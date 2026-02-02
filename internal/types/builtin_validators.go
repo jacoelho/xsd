@@ -268,9 +268,8 @@ func validateIDREF(value string) error {
 func validateIDREFS(value string) error {
 	parts := splitXMLWhitespaceFields(value)
 	if len(parts) == 0 {
-		return fmt.Errorf("IDREFS cannot be empty")
+		return fmt.Errorf("invalid IDREFS: empty value")
 	}
-
 	for _, part := range parts {
 		if err := validateIDREF(part); err != nil {
 			return fmt.Errorf("invalid IDREFS: %w", err)
@@ -289,9 +288,8 @@ func validateENTITY(value string) error {
 func validateENTITIES(value string) error {
 	parts := splitXMLWhitespaceFields(value)
 	if len(parts) == 0 {
-		return fmt.Errorf("ENTITIES cannot be empty")
+		return fmt.Errorf("invalid ENTITIES: empty value")
 	}
-
 	for _, part := range parts {
 		if err := validateENTITY(part); err != nil {
 			return fmt.Errorf("invalid ENTITIES: %w", err)
@@ -311,9 +309,8 @@ func validateNMTOKEN(value string) error {
 func validateNMTOKENS(value string) error {
 	parts := splitXMLWhitespaceFields(value)
 	if len(parts) == 0 {
-		return fmt.Errorf("NMTOKENS cannot be empty")
+		return fmt.Errorf("invalid NMTOKENS: empty value")
 	}
-
 	for _, part := range parts {
 		if err := validateNMTOKEN(part); err != nil {
 			return fmt.Errorf("invalid NMTOKENS: %w", err)

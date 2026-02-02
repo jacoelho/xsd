@@ -813,7 +813,7 @@ func parseListValueVariants(lexical string, itemType Type) ([][]TypedValue, erro
 	}
 	items := splitXMLWhitespaceFields(lexical)
 	if len(items) == 0 {
-		return nil, fmt.Errorf("list value is empty")
+		return [][]TypedValue{}, nil
 	}
 	parsed := make([][]TypedValue, len(items))
 	for i, item := range items {

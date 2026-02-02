@@ -6,14 +6,14 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func TestSchemacheckListRejectsEmptyValue(t *testing.T) {
+func TestSchemacheckListAcceptsEmptyValue(t *testing.T) {
 	list := &types.ListType{ItemType: types.QName{Namespace: types.XSDNamespace, Local: "token"}}
 	st, err := types.NewListSimpleType(types.QName{Namespace: "urn:test", Local: "List"}, "urn:test", list, nil)
 	if err != nil {
 		t.Fatalf("NewListSimpleType: %v", err)
 	}
-	if err := validateValueAgainstTypeWithFacets(nil, "", st, nil, make(map[types.Type]bool)); err == nil {
-		t.Fatalf("expected empty list to be invalid")
+	if err := validateValueAgainstTypeWithFacets(nil, "", st, nil, make(map[types.Type]bool)); err != nil {
+		t.Fatalf("unexpected empty list error: %v", err)
 	}
 }
 

@@ -612,9 +612,6 @@ func (s *SimpleType) validateNormalizedLexical(normalized string, visited map[*S
 			}
 			count++
 		}
-		if count == 0 {
-			return fmt.Errorf("list value is empty")
-		}
 		return nil
 	case UnionVariety:
 		members := s.MemberTypes
@@ -701,6 +698,10 @@ func collectSimpleTypeFacets(st *SimpleType, visited map[*SimpleType]bool) []Fac
 		}
 	}
 
+	if needsBuiltinListMinLength(st) {
+		result = append(result, &MinLength{Value: 1})
+	}
+
 	if st.Restriction != nil {
 		for _, facet := range st.Restriction.Facets {
 			if f, ok := facet.(Facet); ok {
@@ -710,6 +711,26 @@ func collectSimpleTypeFacets(st *SimpleType, visited map[*SimpleType]bool) []Fac
 	}
 
 	return result
+}
+
+func needsBuiltinListMinLength(st *SimpleType) bool {
+	if st == nil {
+		return false
+	}
+	if st.IsBuiltin() && isBuiltinListType(st.QName.Local) {
+		return true
+	}
+	if st.ResolvedBase != nil {
+		if bt, ok := AsBuiltinType(st.ResolvedBase); ok && isBuiltinListType(bt.Name().Local) {
+			return true
+		}
+	}
+	if st.Restriction != nil && !st.Restriction.Base.IsZero() &&
+		st.Restriction.Base.Namespace == XSDNamespace &&
+		isBuiltinListType(st.Restriction.Base.Local) {
+		return true
+	}
+	return false
 }
 
 func validateNormalizedFacets(normalized string, baseType Type, facets []Facet) error {

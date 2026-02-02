@@ -137,7 +137,26 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 
 	var match StartMatch
 	if len(s.elemStack) == 0 {
-		if s.rt.RootPolicy == runtime.RootStrict || s.rt.RootPolicy == runtime.RootAny {
+		if s.rt.RootPolicy == runtime.RootAny {
+			if sym == 0 {
+				if err := s.reader.SkipSubtree(); err != nil {
+					s.popNamespaceScope()
+					return err
+				}
+				s.popNamespaceScope()
+				return nil
+			}
+			elemID, ok := s.globalElementBySymbol(sym)
+			if !ok {
+				if err := s.reader.SkipSubtree(); err != nil {
+					s.popNamespaceScope()
+					return err
+				}
+				s.popNamespaceScope()
+				return nil
+			}
+			match = StartMatch{Kind: MatchElem, Elem: elemID}
+		} else if s.rt.RootPolicy == runtime.RootStrict {
 			if sym == 0 {
 				s.popNamespaceScope()
 				return newValidationError(xsderrors.ErrValidateRootNotDeclared, "root element not declared")

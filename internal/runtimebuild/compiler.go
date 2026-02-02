@@ -248,7 +248,10 @@ func (c *compiler) compileBuiltin(bt *types.BuiltinType) (runtime.ValidatorID, e
 		if err != nil {
 			return 0, err
 		}
-		return c.addListValidator(ws, runtime.FacetProgramRef{}, itemID), nil
+		start := len(c.facets)
+		c.facets = append(c.facets, runtime.FacetInstr{Op: runtime.FMinLength, Arg0: 1})
+		facetRef := runtime.FacetProgramRef{Off: uint32(start), Len: 1}
+		return c.addListValidator(ws, facetRef, itemID), nil
 	}
 
 	kind, err := builtinValidatorKind(name)
@@ -471,7 +474,7 @@ func (c *compiler) canonicalizeNormalized(lexical, normalized string, typ types.
 		}
 		items := splitXMLWhitespace(normalized)
 		if len(items) == 0 {
-			return nil, fmt.Errorf("list value is empty")
+			return []byte{}, nil
 		}
 		buf := strings.Builder{}
 		for i, itemLex := range items {
@@ -1051,6 +1054,14 @@ func (c *compiler) collectFacetsRecursive(st *types.SimpleType, seen map[*types.
 		}
 	}
 
+	if st.IsBuiltin() && isBuiltinListName(st.Name().Local) {
+		result = append(result, &types.MinLength{Value: 1})
+	} else if base := c.res.baseType(st); base != nil {
+		if bt := builtinForType(base); bt != nil && isBuiltinListName(bt.Name().Local) {
+			result = append(result, &types.MinLength{Value: 1})
+		}
+	}
+
 	if st.Restriction != nil {
 		var stepPatterns []*types.Pattern
 		for _, f := range st.Restriction.Facets {
@@ -1093,6 +1104,11 @@ func (c *compiler) collectFacetsRecursive(st *types.SimpleType, seen map[*types.
 func (c *compiler) facetsForType(typ types.Type) ([]types.Facet, error) {
 	if st, ok := types.AsSimpleType(typ); ok {
 		return c.collectFacets(st)
+	}
+	if bt, ok := types.AsBuiltinType(typ); ok {
+		if isBuiltinListName(bt.Name().Local) {
+			return []types.Facet{&types.MinLength{Value: 1}}, nil
+		}
 	}
 	return nil, nil
 }

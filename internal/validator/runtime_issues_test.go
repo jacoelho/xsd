@@ -26,17 +26,13 @@ func TestValidateRootSeenOnError(t *testing.T) {
 	}
 }
 
-func TestRootAnyIsStrict(t *testing.T) {
+func TestRootAnyAllowsUndeclaredRoot(t *testing.T) {
 	schema := runtime.NewBuilder().Build()
 	schema.RootPolicy = runtime.RootAny
 	sess := NewSession(schema)
 	err := sess.Validate(strings.NewReader("<root/>"))
-	if err == nil {
-		t.Fatalf("expected validation error")
-	}
-	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrValidateRootNotDeclared) {
-		t.Fatalf("expected ErrValidateRootNotDeclared, got %+v", list)
+	if err != nil {
+		t.Fatalf("expected validation to succeed: %v", err)
 	}
 }
 
