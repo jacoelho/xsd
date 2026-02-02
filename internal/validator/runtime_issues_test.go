@@ -26,6 +26,97 @@ func TestValidateRootSeenOnError(t *testing.T) {
 	}
 }
 
+func TestRootAnyIsStrict(t *testing.T) {
+	schema := runtime.NewBuilder().Build()
+	schema.RootPolicy = runtime.RootAny
+	sess := NewSession(schema)
+	err := sess.Validate(strings.NewReader("<root/>"))
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsderrors.ErrValidateRootNotDeclared) {
+		t.Fatalf("expected ErrValidateRootNotDeclared, got %+v", list)
+	}
+}
+
+func TestUnionWhitespaceCollapseRuntime(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="E">
+    <xs:restriction base="tns:U">
+      <xs:pattern value="\S+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:E"/>
+</xs:schema>`
+
+	docXML := `<root xmlns="urn:test">  a  </root>`
+	if err := validateRuntimeDoc(t, schemaXML, docXML); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestInvalidIDDoesNotSatisfyIDREF(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="ID10">
+    <xs:restriction base="xs:ID">
+      <xs:pattern value="\d{10}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="id" type="tns:ID10"/>
+      <xs:attribute name="ref" type="xs:IDREF"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	docXML := `<root xmlns="urn:test" id="abc" ref="abc"/>`
+	err := validateRuntimeDoc(t, schemaXML, docXML)
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsderrors.ErrIDRefNotFound) {
+		t.Fatalf("expected ErrIDRefNotFound, got %+v", list)
+	}
+}
+
+func TestProhibitedAttributeFixedRejectedAtRuntime(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="a" type="xs:string" use="prohibited" fixed="x"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	docXML := `<root xmlns="urn:test" a="x"/>`
+	err := validateRuntimeDoc(t, schemaXML, docXML)
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsderrors.ErrAttributeProhibited) {
+		t.Fatalf("expected ErrAttributeProhibited, got %+v", list)
+	}
+}
+
 func TestValidateMissingRootParseError(t *testing.T) {
 	sess := NewSession(runtime.NewBuilder().Build())
 	err := sess.Validate(strings.NewReader(""))

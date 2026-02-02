@@ -135,6 +135,17 @@ func (t *importTracker) markMergedInclude(baseKey, includeKey loadKey) {
 	t.mergedIncludes[baseKey][includeKey] = true
 }
 
+func (t *importTracker) unmarkMergedInclude(baseKey, includeKey loadKey) {
+	merged, ok := t.mergedIncludes[baseKey]
+	if !ok {
+		return
+	}
+	delete(merged, includeKey)
+	if len(merged) == 0 {
+		delete(t.mergedIncludes, baseKey)
+	}
+}
+
 func (t *importTracker) alreadyMergedImport(baseKey, importKey loadKey) bool {
 	merged, ok := t.mergedImports[baseKey]
 	if !ok {
@@ -148,6 +159,17 @@ func (t *importTracker) markMergedImport(baseKey, importKey loadKey) {
 		t.mergedImports[baseKey] = make(map[loadKey]bool)
 	}
 	t.mergedImports[baseKey][importKey] = true
+}
+
+func (t *importTracker) unmarkMergedImport(baseKey, importKey loadKey) {
+	merged, ok := t.mergedImports[baseKey]
+	if !ok {
+		return
+	}
+	delete(merged, importKey)
+	if len(merged) == 0 {
+		delete(t.mergedImports, baseKey)
+	}
 }
 
 type validationMode int
@@ -190,6 +212,20 @@ func (l *SchemaLoader) Load(location string) (*parser.Schema, error) {
 
 func (l *SchemaLoader) loadKey(systemID string, etn types.NamespaceURI) loadKey {
 	return loadKey{systemID: systemID, etn: etn}
+}
+
+func (l *SchemaLoader) cleanupEntryIfUnused(key loadKey) {
+	entry, ok := l.state.entry(key)
+	if !ok || entry == nil {
+		return
+	}
+	if entry.state != schemaStateUnknown || entry.schema != nil {
+		return
+	}
+	if entry.pendingCount != 0 || len(entry.pendingDirectives) != 0 || entry.validationRequested || entry.validated {
+		return
+	}
+	l.state.deleteEntry(key)
 }
 
 // loadRoot loads the root schema by resolving the provided location.
@@ -243,8 +279,8 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 	return l.loadParsed(result, systemID, key, mode)
 }
 
-func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, key loadKey, mode validationMode) (*parser.Schema, error) {
-	if schema, ok := l.state.loadedSchema(key); ok {
+func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, key loadKey, mode validationMode) (schema *parser.Schema, err error) {
+	if loadedSchema, ok := l.state.loadedSchema(key); ok {
 		if mode == validateSchema {
 			entry := l.state.ensureEntry(key)
 			entry.validationRequested = true
@@ -252,7 +288,7 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 				return nil, resolveErr
 			}
 		}
-		return schema, nil
+		return loadedSchema, nil
 	}
 
 	if l.state.isLoading(key) {
@@ -276,7 +312,7 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 		}
 	}()
 
-	schema := result.Schema
+	schema = result.Schema
 	initSchemaOrigins(schema, systemID)
 	entry.schema = schema
 	registerImports(schema, result.Imports)
@@ -286,6 +322,11 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 	}
 
 	session := newLoadSession(l, systemID, key, nil)
+	defer func() {
+		if err != nil {
+			session.rollback()
+		}
+	}()
 	if directivesErr := session.processDirectives(schema, result.Directives); directivesErr != nil {
 		return nil, directivesErr
 	}
@@ -364,6 +405,10 @@ func (l *SchemaLoader) markMergedInclude(baseKey, includeKey loadKey) {
 	l.imports.markMergedInclude(baseKey, includeKey)
 }
 
+func (l *SchemaLoader) unmarkMergedInclude(baseKey, includeKey loadKey) {
+	l.imports.unmarkMergedInclude(baseKey, includeKey)
+}
+
 func (l *SchemaLoader) alreadyMergedImport(baseKey, importKey loadKey) bool {
 	return l.imports.alreadyMergedImport(baseKey, importKey)
 }
@@ -372,11 +417,15 @@ func (l *SchemaLoader) markMergedImport(baseKey, importKey loadKey) {
 	l.imports.markMergedImport(baseKey, importKey)
 }
 
-func (l *SchemaLoader) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string) {
+func (l *SchemaLoader) unmarkMergedImport(baseKey, importKey loadKey) {
+	l.imports.unmarkMergedImport(baseKey, importKey)
+}
+
+func (l *SchemaLoader) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string) bool {
 	sourceEntry := l.state.ensureEntry(sourceKey)
 	for _, pending := range sourceEntry.pendingDirectives {
 		if pending.kind == parser.DirectiveImport && pending.targetKey == targetKey {
-			return
+			return false
 		}
 	}
 	sourceEntry.pendingDirectives = append(sourceEntry.pendingDirectives, pendingDirective{
@@ -387,13 +436,14 @@ func (l *SchemaLoader) deferImport(sourceKey, targetKey loadKey, schemaLocation,
 	})
 	targetEntry := l.state.ensureEntry(targetKey)
 	targetEntry.pendingCount++
+	return true
 }
 
-func (l *SchemaLoader) deferInclude(sourceKey, targetKey loadKey, schemaLocation string) {
+func (l *SchemaLoader) deferInclude(sourceKey, targetKey loadKey, schemaLocation string) bool {
 	sourceEntry := l.state.ensureEntry(sourceKey)
 	for _, pending := range sourceEntry.pendingDirectives {
 		if pending.kind == parser.DirectiveInclude && pending.targetKey == targetKey {
-			return
+			return false
 		}
 	}
 	sourceEntry.pendingDirectives = append(sourceEntry.pendingDirectives, pendingDirective{
@@ -403,6 +453,7 @@ func (l *SchemaLoader) deferInclude(sourceKey, targetKey loadKey, schemaLocation
 	})
 	targetEntry := l.state.ensureEntry(targetKey)
 	targetEntry.pendingCount++
+	return true
 }
 
 func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {

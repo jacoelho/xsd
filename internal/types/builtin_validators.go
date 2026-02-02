@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
 // validateAnyType accepts any value (anyType is the base type for all types)
@@ -41,10 +42,8 @@ func validateBoolean(value string) error {
 var (
 	integerPattern = regexp.MustCompile(`^[+-]?\d+$`)
 
-	languagePattern          = regexp.MustCompile(`^[a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*$`)
 	durationPattern          = regexp.MustCompile(`^-?P(\d+Y)?(\d+M)?(\d+D)?(T(\d+H)?(\d+M)?(\d+(\.\d+)?S)?)?$`)
 	hexBinaryPattern         = regexp.MustCompile(`^[0-9A-Fa-f]+$`)
-	uriSchemePattern         = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*$`)
 	base64WhitespaceReplacer = strings.NewReplacer(" ", "", "\t", "", "\n", "", "\r", "")
 )
 
@@ -242,91 +241,17 @@ func validateNormalizedString(value string) error {
 
 // validateToken validates xs:token
 func validateToken(value string) error {
-	if strings.HasPrefix(value, " ") || strings.HasSuffix(value, " ") {
-		return fmt.Errorf("token cannot have leading or trailing whitespace")
-	}
-	if strings.Contains(value, "  ") {
-		return fmt.Errorf("token cannot have consecutive spaces")
-	}
-	if strings.ContainsAny(value, "\r\n\t") {
-		return fmt.Errorf("token cannot contain CR, LF, or Tab")
-	}
-	return nil
+	return valuepkg.ValidateToken([]byte(value))
 }
 
 // validateName validates xs:Name
 func validateName(value string) error {
-	if value == "" {
-		return fmt.Errorf("Name cannot be empty")
-	}
-
-	// iterate through runes (not bytes) to handle UTF-8 properly
-	runes := []rune(value)
-	if !isNameStartChar(runes[0]) {
-		return fmt.Errorf("invalid Name start character: %c", runes[0])
-	}
-
-	for _, r := range runes[1:] {
-		if !isNameChar(r) {
-			return fmt.Errorf("invalid Name character: %c", r)
-		}
-	}
-
-	return nil
+	return valuepkg.ValidateName([]byte(value))
 }
 
 // validateNCName validates xs:NCName (Name without colons)
 func validateNCName(value string) error {
-	if value == "" {
-		return fmt.Errorf("NCName cannot be empty")
-	}
-
-	if strings.Contains(value, ":") {
-		return fmt.Errorf("NCName cannot contain colons")
-	}
-
-	// iterate through runes (not bytes) to handle UTF-8 properly
-	runes := []rune(value)
-	if !isNameStartChar(runes[0]) {
-		return fmt.Errorf("invalid NCName start character: %c", runes[0])
-	}
-
-	for _, r := range runes[1:] {
-		if !isNameChar(r) {
-			return fmt.Errorf("invalid NCName character: %c", r)
-		}
-	}
-
-	return nil
-}
-
-// isNameStartChar checks if a rune is a valid Name start character
-func isNameStartChar(r rune) bool {
-	return r == ':' || r == '_' ||
-		(r >= 'A' && r <= 'Z') ||
-		(r >= 'a' && r <= 'z') ||
-		(r >= 0xC0 && r <= 0xD6) ||
-		(r >= 0xD8 && r <= 0xF6) ||
-		(r >= 0xF8 && r <= 0x2FF) ||
-		(r >= 0x370 && r <= 0x37D) ||
-		(r >= 0x37F && r <= 0x1FFF) ||
-		(r >= 0x200C && r <= 0x200D) ||
-		(r >= 0x2070 && r <= 0x218F) ||
-		(r >= 0x2C00 && r <= 0x2FEF) ||
-		(r >= 0x3001 && r <= 0xD7FF) ||
-		(r >= 0xF900 && r <= 0xFDCF) ||
-		(r >= 0xFDF0 && r <= 0xFFFD) ||
-		(r >= 0x10000 && r <= 0xEFFFF)
-}
-
-// isNameChar checks if a rune is a valid Name character
-func isNameChar(r rune) bool {
-	return isNameStartChar(r) ||
-		r == '-' || r == '.' ||
-		(r >= '0' && r <= '9') ||
-		r == 0xB7 ||
-		(r >= 0x0300 && r <= 0x036F) ||
-		(r >= 0x203F && r <= 0x2040)
+	return valuepkg.ValidateNCName([]byte(value))
 }
 
 // validateID validates xs:ID (same as NCName)
@@ -343,7 +268,7 @@ func validateIDREF(value string) error {
 func validateIDREFS(value string) error {
 	parts := splitXMLWhitespaceFields(value)
 	if len(parts) == 0 {
-		return fmt.Errorf("IDREFS must have at least one item")
+		return fmt.Errorf("IDREFS cannot be empty")
 	}
 
 	for _, part := range parts {
@@ -364,7 +289,7 @@ func validateENTITY(value string) error {
 func validateENTITIES(value string) error {
 	parts := splitXMLWhitespaceFields(value)
 	if len(parts) == 0 {
-		return fmt.Errorf("ENTITIES must have at least one item")
+		return fmt.Errorf("ENTITIES cannot be empty")
 	}
 
 	for _, part := range parts {
@@ -379,24 +304,14 @@ func validateENTITIES(value string) error {
 // validateNMTOKEN validates xs:NMTOKEN
 // NMTOKEN is any string matching NameChar+
 func validateNMTOKEN(value string) error {
-	if value == "" {
-		return fmt.Errorf("NMTOKEN cannot be empty")
-	}
-
-	for _, r := range value {
-		if !isNameChar(r) {
-			return fmt.Errorf("invalid NMTOKEN character: %c", r)
-		}
-	}
-
-	return nil
+	return valuepkg.ValidateNMTOKEN([]byte(value))
 }
 
 // validateNMTOKENS validates xs:NMTOKENS (space-separated list of NMTOKENs)
 func validateNMTOKENS(value string) error {
 	parts := splitXMLWhitespaceFields(value)
 	if len(parts) == 0 {
-		return fmt.Errorf("NMTOKENS must have at least one item")
+		return fmt.Errorf("NMTOKENS cannot be empty")
 	}
 
 	for _, part := range parts {
@@ -413,12 +328,9 @@ func validateNMTOKENS(value string) error {
 // Pattern: [a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*
 
 func validateLanguage(value string) error {
-	// per XSD spec, language pattern is [a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*
-	// empty string is not valid (pattern requires at least one character)
-	if !languagePattern.MatchString(value) {
+	if err := valuepkg.ValidateLanguage([]byte(value)); err != nil {
 		return fmt.Errorf("invalid language format: %s", value)
 	}
-
 	return nil
 }
 
@@ -655,51 +567,7 @@ func validateBase64Binary(value string) error {
 // validateAnyURI validates xs:anyURI
 // Format: URI/IRI reference (RFC 2396 and RFC 2732)
 func validateAnyURI(value string) error {
-	if value == "" {
-		return nil // empty URI is valid
-	}
-
-	// reject control characters and disallowed ASCII characters.
-	for _, r := range value {
-		if r < 0x20 || r == 0x7f {
-			return fmt.Errorf("anyURI contains control characters")
-		}
-		switch r {
-		case '\\', '{', '}', '|', '^', '`':
-			return fmt.Errorf("anyURI contains invalid characters")
-		}
-	}
-
-	// validate percent-encoding: every '%' must be followed by two hex digits.
-	for i := 0; i < len(value); i++ {
-		if value[i] != '%' {
-			continue
-		}
-		if i+2 >= len(value) || !isHexDigit(value[i+1]) || !isHexDigit(value[i+2]) {
-			return fmt.Errorf("anyURI contains invalid percent-encoding")
-		}
-		i += 2
-	}
-
-	// validate scheme if present (scheme must precede any '/', '?', or '#').
-	if idx := strings.Index(value, ":"); idx != -1 {
-		delimiter := strings.IndexAny(value, "/?#")
-		if delimiter == -1 || idx < delimiter {
-			if idx == 0 {
-				return fmt.Errorf("anyURI scheme cannot be empty")
-			}
-			scheme := value[:idx]
-			if !uriSchemePattern.MatchString(scheme) {
-				return fmt.Errorf("anyURI has invalid scheme: %s", scheme)
-			}
-		}
-	}
-
-	return nil
-}
-
-func isHexDigit(b byte) bool {
-	return (b >= '0' && b <= '9') || (b >= 'A' && b <= 'F') || (b >= 'a' && b <= 'f')
+	return valuepkg.ValidateAnyURI([]byte(value))
 }
 
 // validateQName validates xs:QName

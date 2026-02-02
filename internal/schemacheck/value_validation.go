@@ -2,7 +2,6 @@ package schemacheck
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
@@ -82,21 +81,23 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 		if itemType == nil {
 			return nil
 		}
-		found := false
+		count := 0
 		for item := range types.FieldsXMLWhitespaceSeq(normalized) {
-			found = true
 			if err := validateValueAgainstTypeWithFacets(schema, item, itemType, context, visited); err != nil {
 				return err
 			}
+			count++
 		}
-		if !found {
-			return fmt.Errorf("list value must contain at least one item")
+		if count == 0 {
+			return fmt.Errorf("list value is empty")
 		}
 		facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
 		return validateValueAgainstFacets(normalized, st, facets, context)
 	default:
-		if err := st.Validate(normalized); err != nil {
-			return err
+		if !types.IsQNameOrNotationType(st) {
+			if err := st.Validate(normalized); err != nil {
+				return err
+			}
 		}
 		facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
 		return validateValueAgainstFacets(normalized, st, facets, context)
@@ -265,21 +266,10 @@ func validateValueAgainstFacets(value string, baseType types.Type, facets []type
 			continue
 		}
 		if enumFacet, ok := facet.(*types.Enumeration); ok && types.IsQNameOrNotationType(baseType) && !isListType(baseType) {
-			if context == nil {
-				return fmt.Errorf("namespace context unavailable for QName/NOTATION enumeration")
-			}
-			qname, err := types.ParseQNameValue(value, context)
-			if err != nil {
+			if err := enumFacet.ValidateLexicalQName(value, baseType, context); err != nil {
 				return err
 			}
-			allowed, err := enumFacet.ResolveQNameValues()
-			if err != nil {
-				return err
-			}
-			if slices.Contains(allowed, qname) {
-				continue
-			}
-			return fmt.Errorf("value %s not in enumeration: %s", value, types.FormatEnumerationValues(enumFacet.Values))
+			continue
 		}
 		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
 			if err := lexicalFacet.ValidateLexical(value, baseType); err != nil {

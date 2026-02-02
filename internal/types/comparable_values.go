@@ -552,6 +552,9 @@ func ParseXSDDuration(s string) (XSDDuration, error) {
 		return XSDDuration{}, fmt.Errorf("time designator present but no time components specified")
 	}
 
+	if years == 0 && months == 0 && days == 0 && hours == 0 && minutes == 0 && seconds.Sign == 0 {
+		negative = false
+	}
 	return XSDDuration{
 		Negative: negative,
 		Years:    years,

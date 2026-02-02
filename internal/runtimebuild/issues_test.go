@@ -133,6 +133,218 @@ func TestKeyrefResolutionScopedToElement(t *testing.T) {
 	}
 }
 
+func TestProhibitedAttributeUsePreserved(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:attr"
+           targetNamespace="urn:attr"
+           elementFormDefault="qualified"
+           attributeFormDefault="qualified">
+  <xs:complexType name="Base">
+    <xs:anyAttribute namespace="##any" processContents="lax"/>
+  </xs:complexType>
+  <xs:complexType name="Derived">
+    <xs:complexContent>
+      <xs:restriction base="tns:Base">
+        <xs:attribute name="foo" use="prohibited"/>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="tns:Derived"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schemaXML)
+	elemID := mustElemID(t, rt, "urn:attr", "root")
+	elem := rt.Elements[elemID]
+	typ := rt.Types[elem.Type]
+	ct := rt.ComplexTypes[typ.Complex.ID]
+	off := int(ct.Attrs.Off)
+	end := off + int(ct.Attrs.Len)
+	if end > len(rt.AttrIndex.Uses) {
+		t.Fatalf("attr uses out of range")
+	}
+	nsID := rt.Namespaces.Lookup([]byte("urn:attr"))
+	if nsID == 0 {
+		t.Fatalf("namespace urn:attr not found")
+	}
+	fooSym := rt.Symbols.Lookup(nsID, []byte("foo"))
+	if fooSym == 0 {
+		t.Fatalf("symbol foo not found")
+	}
+
+	found := false
+	for _, use := range rt.AttrIndex.Uses[off:end] {
+		if use.Name == fooSym {
+			found = true
+			if use.Use != runtime.AttrProhibited {
+				t.Fatalf("foo use = %d, want prohibited", use.Use)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected prohibited foo attribute use to be preserved")
+	}
+}
+
+func TestUnionEnumerationRespectsMemberEnums(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:union"
+           targetNamespace="urn:union"
+           elementFormDefault="qualified"
+           attributeFormDefault="qualified">
+  <xs:simpleType name="Color">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="red"/>
+      <xs:enumeration value="blue"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="U">
+    <xs:union memberTypes="tns:Color"/>
+  </xs:simpleType>
+  <xs:simpleType name="R">
+    <xs:restriction base="tns:U">
+      <xs:enumeration value="green"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`
+
+	parsed, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	if _, err := BuildSchema(parsed, BuildConfig{}); err == nil {
+		t.Fatalf("expected union enumeration compilation error")
+	}
+}
+
+func TestUnionWhitespaceNormalizationDuringCompile(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:union"
+           targetNamespace="urn:union"
+           elementFormDefault="qualified"
+           attributeFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="R">
+    <xs:restriction base="tns:U">
+      <xs:pattern value="\S+"/>
+      <xs:enumeration value="  a  "/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`
+
+	parsed, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	if _, err := BuildSchema(parsed, BuildConfig{}); err != nil {
+		t.Fatalf("build schema: %v", err)
+	}
+}
+
+func TestUnionEnumerationRespectsNestedMemberEnums(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:union"
+           targetNamespace="urn:union"
+           elementFormDefault="qualified"
+           attributeFormDefault="qualified">
+  <xs:simpleType name="Color">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="red"/>
+      <xs:enumeration value="blue"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="U2">
+    <xs:union memberTypes="tns:Color"/>
+  </xs:simpleType>
+  <xs:simpleType name="U">
+    <xs:union memberTypes="tns:U2"/>
+  </xs:simpleType>
+  <xs:simpleType name="R">
+    <xs:restriction base="tns:U">
+      <xs:enumeration value="green"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`
+
+	parsed, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	if _, err := BuildSchema(parsed, BuildConfig{}); err == nil {
+		t.Fatalf("expected union enumeration compilation error")
+	}
+}
+
+func TestUnionDefaultUsesMemberWhitespace(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:union"
+           targetNamespace="urn:union"
+           elementFormDefault="qualified"
+           attributeFormDefault="qualified">
+  <xs:complexType name="C">
+    <xs:attribute name="u" default="  a  ">
+      <xs:simpleType>
+        <xs:union memberTypes="xs:string"/>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:complexType>
+  <xs:element name="root" type="tns:C"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schemaXML)
+	elemID := mustElemID(t, rt, "urn:union", "root")
+	elem := rt.Elements[elemID]
+	typ := rt.Types[elem.Type]
+	if typ.Kind != runtime.TypeComplex {
+		t.Fatalf("root type is not complex")
+	}
+	ct := rt.ComplexTypes[typ.Complex.ID]
+	off := int(ct.Attrs.Off)
+	end := off + int(ct.Attrs.Len)
+	if off < 0 || end > len(rt.AttrIndex.Uses) {
+		t.Fatalf("attr uses out of range")
+	}
+	nsID := rt.Namespaces.Lookup([]byte("urn:union"))
+	if nsID == 0 {
+		t.Fatalf("namespace urn:union not found")
+	}
+	attrSym := rt.Symbols.Lookup(nsID, []byte("u"))
+	if attrSym == 0 {
+		t.Fatalf("attribute symbol not found")
+	}
+	for _, use := range rt.AttrIndex.Uses[off:end] {
+		if use.Name != attrSym {
+			continue
+		}
+		if !use.Default.Present {
+			t.Fatalf("attribute default missing")
+		}
+		got := string(valueRefBytes(rt, use.Default))
+		if got != "  a  " {
+			t.Fatalf("default value = %q, want %q", got, "  a  ")
+		}
+		return
+	}
+	t.Fatalf("attribute use not found")
+}
+
+func TestUnionValidatorMismatchReturnsError(t *testing.T) {
+	comp := newCompiler(nil)
+	_, err := comp.addUnionValidator(runtime.WS_Preserve, runtime.FacetProgramRef{}, []runtime.ValidatorID{1}, nil, "U", 0)
+	if err == nil {
+		t.Fatalf("expected union member mismatch error")
+	}
+	if !strings.Contains(err.Error(), "validators=1") || !strings.Contains(err.Error(), "memberTypes=0") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func mustBuildRuntimeSchema(t *testing.T, schemaXML string) *runtime.Schema {
 	t.Helper()
 	parsed, err := parser.Parse(strings.NewReader(schemaXML))
@@ -185,4 +397,19 @@ func findConstraintID(rt *runtime.Schema, elemID runtime.ElemID, cat runtime.ICC
 		}
 	}
 	return 0
+}
+
+func valueRefBytes(rt *runtime.Schema, ref runtime.ValueRef) []byte {
+	if rt == nil || !ref.Present {
+		return nil
+	}
+	if ref.Len == 0 {
+		return []byte{}
+	}
+	start := int(ref.Off)
+	end := start + int(ref.Len)
+	if start < 0 || end < 0 || end > len(rt.Values.Blob) {
+		return nil
+	}
+	return rt.Values.Blob[start:end]
 }

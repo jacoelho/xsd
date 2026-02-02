@@ -166,17 +166,17 @@ func (c *compiler) canonicalizeDefaultFixed(lexical string, typ types.Type, ctx 
 	if err != nil {
 		return nil, err
 	}
-	canon, err := c.canonicalizeNormalizedDefault(normalized, typ, ctx)
+	canon, err := c.canonicalizeNormalizedDefault(lexical, normalized, typ, ctx)
 	if err != nil {
 		return nil, err
 	}
-	if err := c.validateEnumSets(typ, normalized, ctx); err != nil {
+	if err := c.validateEnumSets(lexical, normalized, typ, ctx); err != nil {
 		return nil, err
 	}
 	return canon, nil
 }
 
-func (c *compiler) canonicalizeNormalizedDefault(normalized string, typ types.Type, ctx map[string]string) ([]byte, error) {
+func (c *compiler) canonicalizeNormalizedDefault(lexical, normalized string, typ types.Type, ctx map[string]string) ([]byte, error) {
 	switch c.res.varietyForType(typ) {
 	case types.ListVariety:
 		item, ok := c.res.listItemTypeFromType(typ)
@@ -185,11 +185,12 @@ func (c *compiler) canonicalizeNormalizedDefault(normalized string, typ types.Ty
 		}
 		items := splitXMLWhitespace(normalized)
 		if len(items) == 0 {
-			return []byte{}, nil
+			return nil, fmt.Errorf("list value is empty")
 		}
 		var buf []byte
 		for i, itemLex := range items {
-			canon, err := c.canonicalizeNormalizedDefault(itemLex, item, ctx)
+			itemNorm := c.normalizeLexical(itemLex, item)
+			canon, err := c.canonicalizeNormalizedDefault(itemLex, itemNorm, item, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -205,7 +206,7 @@ func (c *compiler) canonicalizeNormalizedDefault(normalized string, typ types.Ty
 			return nil, fmt.Errorf("union has no member types")
 		}
 		for _, member := range members {
-			memberLex := c.normalizeLexical(normalized, member)
+			memberLex := c.normalizeLexical(lexical, member)
 			memberFacets, err := c.facetsForType(member)
 			if err != nil {
 				return nil, err
@@ -214,11 +215,11 @@ func (c *compiler) canonicalizeNormalizedDefault(normalized string, typ types.Ty
 			if err != nil {
 				continue
 			}
-			canon, err := c.canonicalizeNormalizedDefault(memberLex, member, ctx)
+			canon, err := c.canonicalizeNormalizedDefault(lexical, memberLex, member, ctx)
 			if err != nil {
 				continue
 			}
-			if err := c.validateEnumSets(member, memberLex, ctx); err != nil {
+			if err := c.validateEnumSets(lexical, memberLex, member, ctx); err != nil {
 				continue
 			}
 			return canon, nil
@@ -229,7 +230,7 @@ func (c *compiler) canonicalizeNormalizedDefault(normalized string, typ types.Ty
 	}
 }
 
-func (c *compiler) validateEnumSets(typ types.Type, normalized string, ctx map[string]string) error {
+func (c *compiler) validateEnumSets(lexical, normalized string, typ types.Type, ctx map[string]string) error {
 	validatorID, err := c.compileType(typ)
 	if err != nil {
 		return err
@@ -241,7 +242,7 @@ func (c *compiler) validateEnumSets(typ types.Type, normalized string, ctx map[s
 	if len(enumIDs) == 0 {
 		return nil
 	}
-	keys, err := c.keyBytesForNormalized(normalized, typ, ctx)
+	keys, err := c.keyBytesForNormalized(lexical, normalized, typ, ctx)
 	if err != nil {
 		return err
 	}

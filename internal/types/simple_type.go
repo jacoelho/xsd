@@ -588,15 +588,66 @@ func (s *SimpleType) validateNormalized(normalized string, visited map[*SimpleTy
 	visited[s] = true
 	defer delete(visited, s)
 
-	// for built-in types, use built-in validator
+	if err := s.validateNormalizedLexical(normalized, visited); err != nil {
+		return err
+	}
+	facets := collectSimpleTypeFacets(s, make(map[*SimpleType]bool))
+	if len(facets) == 0 {
+		return nil
+	}
+	return validateNormalizedFacets(normalized, s, facets)
+}
+
+func (s *SimpleType) validateNormalizedLexical(normalized string, visited map[*SimpleType]bool) error {
+	switch s.Variety() {
+	case ListVariety:
+		itemType, ok := ListItemType(s)
+		if !ok || itemType == nil {
+			return fmt.Errorf("list item type is missing")
+		}
+		count := 0
+		for item := range FieldsXMLWhitespaceSeq(normalized) {
+			if err := validateTypeLexical(itemType, item, visited); err != nil {
+				return err
+			}
+			count++
+		}
+		if count == 0 {
+			return fmt.Errorf("list value is empty")
+		}
+		return nil
+	case UnionVariety:
+		members := s.MemberTypes
+		if len(members) == 0 {
+			members = unionMemberTypes(s)
+		}
+		if len(members) == 0 {
+			return fmt.Errorf("union has no member types")
+		}
+		var firstErr error
+		for _, member := range members {
+			if err := validateTypeLexical(member, normalized, visited); err == nil {
+				return nil
+			} else if firstErr == nil {
+				firstErr = err
+			}
+		}
+		if firstErr != nil {
+			return firstErr
+		}
+		return fmt.Errorf("value %q does not match any member type", normalized)
+	default:
+		return s.validateAtomicLexical(normalized)
+	}
+}
+
+func (s *SimpleType) validateAtomicLexical(normalized string) error {
 	if s.IsBuiltin() {
 		if builtinType := GetBuiltinNS(s.QName.Namespace, s.QName.Local); builtinType != nil {
 			return builtinType.Validate(normalized)
 		}
 	}
-
-	// for user-defined atomic types with restrictions, validate against primitive base
-	if s.Restriction != nil && s.Variety() == AtomicVariety {
+	if s.Restriction != nil {
 		primitive := s.PrimitiveType()
 		if builtinType, ok := AsBuiltinType(primitive); ok {
 			return builtinType.Validate(normalized)
@@ -607,12 +658,85 @@ func (s *SimpleType) validateNormalized(normalized string, visited map[*SimpleTy
 			}
 		}
 	}
+	return nil
+}
 
+func validateTypeLexical(typ Type, lexical string, visited map[*SimpleType]bool) error {
+	if typ == nil {
+		return nil
+	}
+	normalized, err := NormalizeValue(lexical, typ)
+	if err != nil {
+		return err
+	}
+	if st, ok := AsSimpleType(typ); ok {
+		return st.validateNormalized(normalized, visited)
+	}
+	if bt, ok := AsBuiltinType(typ); ok {
+		return bt.Validate(normalized)
+	}
+	return nil
+}
+
+func collectSimpleTypeFacets(st *SimpleType, visited map[*SimpleType]bool) []Facet {
+	if st == nil {
+		return nil
+	}
+	if visited[st] {
+		return nil
+	}
+	visited[st] = true
+	defer delete(visited, st)
+
+	var result []Facet
+	if st.ResolvedBase != nil {
+		if baseST, ok := AsSimpleType(st.ResolvedBase); ok {
+			result = append(result, collectSimpleTypeFacets(baseST, visited)...)
+		}
+	} else if st.Restriction != nil && !st.Restriction.Base.IsZero() {
+		if base := GetBuiltinNS(st.Restriction.Base.Namespace, st.Restriction.Base.Local); base != nil {
+			if baseST, ok := AsSimpleType(base); ok {
+				result = append(result, collectSimpleTypeFacets(baseST, visited)...)
+			}
+		}
+	}
+
+	if st.Restriction != nil {
+		for _, facet := range st.Restriction.Facets {
+			if f, ok := facet.(Facet); ok {
+				result = append(result, f)
+			}
+		}
+	}
+
+	return result
+}
+
+func validateNormalizedFacets(normalized string, baseType Type, facets []Facet) error {
+	var typed TypedValue
+	for _, facet := range facets {
+		if lexicalFacet, ok := facet.(LexicalValidator); ok {
+			if err := lexicalFacet.ValidateLexical(normalized, baseType); err != nil {
+				return err
+			}
+			continue
+		}
+		if typed == nil {
+			typed = TypedValueForFacet(normalized, baseType)
+		}
+		if err := facet.Validate(typed, baseType); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 // ParseValue converts a lexical value to a TypedValue
 func (s *SimpleType) ParseValue(lexical string) (TypedValue, error) {
+	return s.parseValueInternal(lexical, true)
+}
+
+func (s *SimpleType) parseValueInternal(lexical string, validateFacets bool) (TypedValue, error) {
 	if s == nil {
 		return nil, fmt.Errorf("cannot parse value for nil simple type")
 	}
@@ -620,11 +744,18 @@ func (s *SimpleType) ParseValue(lexical string) (TypedValue, error) {
 	if err != nil {
 		return nil, err
 	}
+	if validateFacets {
+		if err = s.validateNormalized(normalized, make(map[*SimpleType]bool)); err != nil {
+			return nil, err
+		}
+	}
 
 	// first, try to parse based on the type's own name (for built-in types)
 	if s.IsBuiltin() {
 		typeName := TypeName(s.QName.Local)
-		if result, err := ParseValueForType(normalized, typeName, s); err == nil {
+		var result TypedValue
+		result, err = ParseValueForType(normalized, typeName, s)
+		if err == nil {
 			return result, nil
 		}
 	}
@@ -632,6 +763,9 @@ func (s *SimpleType) ParseValue(lexical string) (TypedValue, error) {
 	// for user-defined types or if built-in type not handled above, use primitive type
 	primitiveType := s.PrimitiveType()
 	if primitiveType == nil {
+		if s.Variety() != AtomicVariety {
+			return &StringTypedValue{Value: normalized, Typ: s}, nil
+		}
 		return nil, fmt.Errorf("cannot determine primitive type")
 	}
 
@@ -641,11 +775,21 @@ func (s *SimpleType) ParseValue(lexical string) (TypedValue, error) {
 		if builtinType, ok := AsBuiltinType(primitiveType); ok {
 			return builtinType.ParseValue(normalized)
 		}
+		if s.Variety() != AtomicVariety {
+			return &StringTypedValue{Value: normalized, Typ: s}, nil
+		}
 		return nil, fmt.Errorf("primitive type is not a SimpleType or BuiltinType")
 	}
 
 	primitiveName := TypeName(primitiveST.QName.Local)
-	return ParseValueForType(normalized, primitiveName, s)
+	parsed, err := ParseValueForType(normalized, primitiveName, s)
+	if err == nil {
+		return parsed, nil
+	}
+	if s.Variety() != AtomicVariety {
+		return &StringTypedValue{Value: normalized, Typ: s}, nil
+	}
+	return nil, err
 }
 
 // PrimitiveType returns the ultimate primitive base type for this simple type

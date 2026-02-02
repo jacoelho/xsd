@@ -122,6 +122,17 @@ func (s *Session) storeKey(data []byte) []byte {
 	return s.keyBuf[start:len(s.keyBuf)]
 }
 
+func (s *Session) finalizeValue(canonical []byte, opts valueOptions, metrics *valueMetrics, metricsInternal bool) []byte {
+	if !opts.storeValue {
+		return canonical
+	}
+	canonStored := s.storeValue(canonical)
+	if metrics != nil && metrics.keySet && !metricsInternal {
+		s.setKey(metrics, metrics.keyKind, metrics.keyBytes, true)
+	}
+	return canonStored
+}
+
 func (s *Session) validateValueInternalNoTrack(id runtime.ValidatorID, lexical []byte, resolver value.NSResolver, applyWhitespace bool) ([]byte, error) {
 	return s.validateValueInternalOptions(id, lexical, resolver, valueOptions{
 		applyWhitespace:  applyWhitespace,
@@ -150,12 +161,24 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 	}
 	meta := s.rt.Validators.Meta[id]
 	var localMetrics valueMetrics
+	metricsInternal := false
 	if metrics == nil && (meta.Kind == runtime.VHexBinary || meta.Kind == runtime.VBase64Binary) && s.hasLengthFacet(meta) {
 		metrics = &localMetrics
+		metricsInternal = true
 	}
 	normalized := lexical
-	if opts.applyWhitespace && meta.Kind != runtime.VUnion {
-		normalized = value.NormalizeWhitespace(meta.WhiteSpace, lexical, s.normBuf)
+	popNorm := false
+	if opts.applyWhitespace {
+		if meta.Kind == runtime.VList || meta.Kind == runtime.VUnion {
+			buf := s.pushNormBuf(len(lexical))
+			popNorm = true
+			normalized = value.NormalizeWhitespace(meta.WhiteSpace, lexical, buf)
+		} else {
+			normalized = value.NormalizeWhitespace(meta.WhiteSpace, lexical, s.normBuf)
+		}
+	}
+	if popNorm {
+		defer s.popNormBuf()
 	}
 	needsCanonical := opts.requireCanonical || meta.Facets.Len != 0 || meta.Kind == runtime.VUnion || meta.Kind == runtime.VQName || meta.Kind == runtime.VNotation
 	if opts.storeValue || opts.needKey {
@@ -164,23 +187,39 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 	needEnumKey := meta.Flags&runtime.ValidatorHasEnum != 0
 	if metrics == nil && needEnumKey {
 		metrics = &localMetrics
+		metricsInternal = true
 	}
 	// for atomic types, keys can be computed lazily in applyFacets when metrics is nil
 	needKey := opts.needKey || opts.storeValue || needEnumKey
 	if !needsCanonical {
-		return s.validateValueNoCanonical(meta, normalized, resolver, opts)
+		canon, err := s.validateValueNoCanonical(meta, normalized, resolver, opts)
+		if err != nil {
+			return nil, err
+		}
+		if opts.trackIDs {
+			if err := s.trackValidatedIDs(id, canon); err != nil {
+				return nil, err
+			}
+		}
+		return canon, nil
 	}
-	canon, err := s.canonicalizeValueCore(meta, normalized, resolver, opts, needKey, metrics)
+	canon, err := s.canonicalizeValueCore(meta, normalized, lexical, resolver, opts, needKey, metrics)
 	if err != nil {
 		return nil, err
 	}
 	if err := s.applyFacets(meta, normalized, canon, metrics); err != nil {
 		return nil, err
 	}
+	canon = s.finalizeValue(canon, opts, metrics, metricsInternal)
+	if opts.trackIDs {
+		if err := s.trackValidatedIDs(id, canon); err != nil {
+			return nil, err
+		}
+	}
 	return canon, nil
 }
 
-func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized, lexical []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *valueMetrics) ([]byte, error) {
 	switch meta.Kind {
 	case runtime.VString:
 		kind, ok := s.stringKind(meta)
@@ -190,16 +229,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		if err := validateStringKind(kind, normalized); err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		canon := s.maybeStore(normalized, opts.storeValue)
-		if opts.trackIDs {
-			if err := s.trackIDs(kind, canon); err != nil {
-				return nil, err
-			}
-		}
+		canon := normalized
 		if needKey {
 			key := valuekey.StringKeyBytes(s.keyTmp[:0], 0, canon)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKString, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKString, key, false)
 		}
 		return canon, nil
 	case runtime.VBoolean:
@@ -211,13 +245,13 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		if v {
 			canonRaw = []byte("true")
 		}
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := byte(0)
 			if v {
 				key = 1
 			}
-			s.setKey(metrics, runtime.VKBool, []byte{key}, opts.storeValue)
+			s.setKey(metrics, runtime.VKBool, []byte{key}, false)
 		}
 		return canon, nil
 	case runtime.VDecimal:
@@ -235,11 +269,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		canonRaw := dec.RenderCanonical(s.Scratch.Buf2[:0])
 		s.Scratch.Buf2 = canonRaw
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := num.EncodeDecKey(s.keyTmp[:0], dec)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKDecimal, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDecimal, key, false)
 		}
 		return canon, nil
 	case runtime.VInteger:
@@ -263,11 +297,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		canonRaw := intVal.RenderCanonical(s.Scratch.Buf2[:0])
 		s.Scratch.Buf2 = canonRaw
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := num.EncodeIntKey(s.keyTmp[:0], intVal)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKDecimal, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDecimal, key, false)
 		}
 		return canon, nil
 	case runtime.VFloat:
@@ -281,11 +315,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 			metrics.float32Set = true
 		}
 		canonRaw := []byte(value.CanonicalFloat(float64(v), 32))
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.Float32Key(s.keyTmp[:0], v, class)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKFloat32, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKFloat32, key, false)
 		}
 		return canon, nil
 	case runtime.VDouble:
@@ -299,11 +333,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 			metrics.float64Set = true
 		}
 		canonRaw := []byte(value.CanonicalFloat(v, 64))
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.Float64Key(s.keyTmp[:0], v, class)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKFloat64, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKFloat64, key, false)
 		}
 		return canon, nil
 	case runtime.VDuration:
@@ -312,11 +346,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
 		canonRaw := []byte(types.ComparableXSDDuration{Value: dur}.String())
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.DurationKeyBytes(s.keyTmp[:0], dur)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKDuration, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDuration, key, false)
 		}
 		return canon, nil
 	case runtime.VDateTime:
@@ -326,11 +360,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		hasTZ := value.HasTimezone(normalized)
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "dateTime", hasTZ))
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 0, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, false)
 		}
 		return canon, nil
 	case runtime.VTime:
@@ -340,11 +374,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		hasTZ := value.HasTimezone(normalized)
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "time", hasTZ))
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 2, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, false)
 		}
 		return canon, nil
 	case runtime.VDate:
@@ -354,11 +388,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		hasTZ := value.HasTimezone(normalized)
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "date", hasTZ))
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 1, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, false)
 		}
 		return canon, nil
 	case runtime.VGYearMonth:
@@ -368,11 +402,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		hasTZ := value.HasTimezone(normalized)
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gYearMonth", hasTZ))
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 3, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, false)
 		}
 		return canon, nil
 	case runtime.VGYear:
@@ -382,11 +416,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		hasTZ := value.HasTimezone(normalized)
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gYear", hasTZ))
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 4, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, false)
 		}
 		return canon, nil
 	case runtime.VGMonthDay:
@@ -396,11 +430,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		hasTZ := value.HasTimezone(normalized)
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gMonthDay", hasTZ))
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 5, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, false)
 		}
 		return canon, nil
 	case runtime.VGDay:
@@ -410,11 +444,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		hasTZ := value.HasTimezone(normalized)
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gDay", hasTZ))
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 6, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, false)
 		}
 		return canon, nil
 	case runtime.VGMonth:
@@ -424,22 +458,22 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		}
 		hasTZ := value.HasTimezone(normalized)
 		canonRaw := []byte(value.CanonicalDateTimeString(t, "gMonth", hasTZ))
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.TemporalKeyBytes(s.keyTmp[:0], 7, t, hasTZ)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKDateTime, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKDateTime, key, false)
 		}
 		return canon, nil
 	case runtime.VAnyURI:
 		if err := value.ValidateAnyURI(normalized); err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		canon := s.maybeStore(normalized, opts.storeValue)
+		canon := normalized
 		if needKey {
 			key := valuekey.StringKeyBytes(s.keyTmp[:0], 1, canon)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKString, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKString, key, false)
 		}
 		return canon, nil
 	case runtime.VQName, runtime.VNotation:
@@ -447,7 +481,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		if err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		canonStored := s.maybeStore(canon, opts.storeValue)
+		canonStored := canon
 		if needKey {
 			tag := byte(0)
 			if meta.Kind == runtime.VNotation {
@@ -458,7 +492,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 				return nil, valueErrorf(valueErrInvalid, "invalid QName key")
 			}
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKQName, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKQName, key, false)
 		}
 		return canonStored, nil
 	case runtime.VHexBinary:
@@ -471,11 +505,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 			metrics.lengthSet = true
 		}
 		canonRaw := []byte(strings.ToUpper(fmt.Sprintf("%x", decoded)))
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 0, decoded)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKBinary, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKBinary, key, false)
 		}
 		return canon, nil
 	case runtime.VBase64Binary:
@@ -488,11 +522,11 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 			metrics.lengthSet = true
 		}
 		canonRaw := []byte(encodeBase64(decoded))
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 1, decoded)
 			s.keyTmp = key
-			s.setKey(metrics, runtime.VKBinary, key, opts.storeValue)
+			s.setKey(metrics, runtime.VKBinary, key, false)
 		}
 		return canon, nil
 	case runtime.VList:
@@ -512,6 +546,7 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 			itemOpts.applyWhitespace = false
 			itemOpts.requireCanonical = true
 			itemOpts.storeValue = false
+			itemOpts.trackIDs = false
 			itemOpts.needKey = needKey
 			canon, itemMetrics, err := s.validateValueInternalWithMetrics(itemValidator, item, resolver, itemOpts)
 			if err != nil {
@@ -533,6 +568,9 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		if err != nil {
 			return nil, err
 		}
+		if count == 0 {
+			return nil, valueErrorf(valueErrInvalid, "list value is empty")
+		}
 		if metrics != nil {
 			metrics.listCount = count
 			metrics.listSet = true
@@ -541,17 +579,17 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		if count == 0 {
 			canonRaw = []byte{}
 		}
-		canon := s.maybeStore(canonRaw, opts.storeValue)
+		canon := canonRaw
 		if needKey {
 			listKey := s.keyTmp[:0]
 			listKey = valuekey.AppendUvarint(listKey, uint64(count))
 			listKey = append(listKey, keyTmp...)
 			s.keyTmp = listKey
-			s.setKey(metrics, runtime.VKList, listKey, opts.storeValue)
+			s.setKey(metrics, runtime.VKList, listKey, false)
 		}
 		return canon, nil
 	case runtime.VUnion:
-		memberValidators, memberTypes, ok := s.unionMemberInfo(meta)
+		memberValidators, memberTypes, memberSameWS, ok := s.unionMemberInfo(meta)
 		if !ok || len(memberValidators) == 0 {
 			return nil, valueErrorf(valueErrInvalid, "union validator out of range")
 		}
@@ -564,19 +602,28 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 		if err != nil {
 			return nil, err
 		}
-		memberLexical := normalized
+		memberLexical := lexical
+		if memberLexical == nil {
+			memberLexical = normalized
+		}
 		if metrics != nil {
 			metrics.patternChecked = patternChecked
 		}
 		sawValid := false
 		var lastErr error
 		for i, member := range memberValidators {
+			memberLex := memberLexical
 			memberOpts := opts
-			memberOpts.applyWhitespace = true
 			memberOpts.requireCanonical = true
 			memberOpts.storeValue = false
+			memberOpts.trackIDs = false
 			memberOpts.needKey = needKey
-			canon, memberMetrics, err := s.validateValueInternalWithMetrics(member, memberLexical, resolver, memberOpts)
+			memberOpts.applyWhitespace = true
+			if opts.applyWhitespace && i < len(memberSameWS) && memberSameWS[i] != 0 {
+				memberOpts.applyWhitespace = false
+				memberLex = normalized
+			}
+			canon, memberMetrics, err := s.validateValueInternalWithMetrics(member, memberLex, resolver, memberOpts)
 			if err != nil {
 				lastErr = err
 				continue
@@ -594,9 +641,6 @@ func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized [
 				}
 				if i < len(memberTypes) {
 					metrics.actualTypeID = memberTypes[i]
-				}
-				if opts.storeValue && metrics.keySet {
-					s.setKey(metrics, metrics.keyKind, metrics.keyBytes, true)
 				}
 			}
 			return canon, nil
@@ -623,13 +667,7 @@ func (s *Session) validateValueNoCanonical(meta runtime.ValidatorMeta, normalize
 		if err := validateStringKind(kind, normalized); err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		canon := s.maybeStore(normalized, opts.storeValue)
-		if opts.trackIDs {
-			if err := s.trackIDs(kind, canon); err != nil {
-				return nil, err
-			}
-		}
-		return canon, nil
+		return s.maybeStore(normalized, opts.storeValue), nil
 	case runtime.VBoolean:
 		if _, err := value.ParseBoolean(normalized); err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
@@ -1212,16 +1250,19 @@ func (s *Session) listItemValidator(meta runtime.ValidatorMeta) (runtime.Validat
 	return s.rt.Validators.List[meta.Index].Item, true
 }
 
-func (s *Session) unionMemberInfo(meta runtime.ValidatorMeta) ([]runtime.ValidatorID, []runtime.TypeID, bool) {
+func (s *Session) unionMemberInfo(meta runtime.ValidatorMeta) ([]runtime.ValidatorID, []runtime.TypeID, []uint8, bool) {
 	if int(meta.Index) >= len(s.rt.Validators.Union) {
-		return nil, nil, false
+		return nil, nil, nil, false
 	}
 	union := s.rt.Validators.Union[meta.Index]
 	end := union.MemberOff + union.MemberLen
-	if int(end) > len(s.rt.Validators.UnionMembers) || int(end) > len(s.rt.Validators.UnionMemberTypes) {
-		return nil, nil, false
+	if int(end) > len(s.rt.Validators.UnionMembers) || int(end) > len(s.rt.Validators.UnionMemberTypes) || int(end) > len(s.rt.Validators.UnionMemberSameWS) {
+		return nil, nil, nil, false
 	}
-	return s.rt.Validators.UnionMembers[union.MemberOff:end], s.rt.Validators.UnionMemberTypes[union.MemberOff:end], true
+	return s.rt.Validators.UnionMembers[union.MemberOff:end],
+		s.rt.Validators.UnionMemberTypes[union.MemberOff:end],
+		s.rt.Validators.UnionMemberSameWS[union.MemberOff:end],
+		true
 }
 
 func validateStringKind(kind runtime.StringKind, normalized []byte) error {
@@ -1576,6 +1617,52 @@ func (s *Session) trackIDs(kind runtime.StringKind, canonical []byte) error {
 	return nil
 }
 
+func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte) error {
+	if s == nil || s.rt == nil || id == 0 {
+		return nil
+	}
+	if int(id) >= len(s.rt.Validators.Meta) {
+		return fmt.Errorf("validator %d out of range", id)
+	}
+	meta := s.rt.Validators.Meta[id]
+	switch meta.Kind {
+	case runtime.VString:
+		kind, ok := s.stringKind(meta)
+		if !ok {
+			return fmt.Errorf("string validator out of range")
+		}
+		return s.trackIDs(kind, canonical)
+	case runtime.VList:
+		item, ok := s.listItemValidator(meta)
+		if !ok {
+			return fmt.Errorf("list validator out of range")
+		}
+		_, err := forEachListItem(canonical, meta.WhiteSpace == runtime.WS_Collapse, func(itemValue []byte) error {
+			return s.trackValidatedIDs(item, itemValue)
+		})
+		return err
+	case runtime.VUnion:
+		members, _, _, ok := s.unionMemberInfo(meta)
+		if !ok || len(members) == 0 {
+			return fmt.Errorf("union validator out of range")
+		}
+		memberOpts := valueOptions{
+			applyWhitespace:  true,
+			trackIDs:         false,
+			requireCanonical: true,
+			storeValue:       false,
+		}
+		for _, member := range members {
+			if _, err := s.validateValueInternalOptions(member, canonical, nil, memberOpts); err == nil {
+				return s.trackValidatedIDs(member, canonical)
+			}
+		}
+		return nil
+	default:
+		return nil
+	}
+}
+
 func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte) error {
 	if s == nil || s.rt == nil || id == 0 {
 		return nil
@@ -1605,7 +1692,7 @@ func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte) er
 			return err
 		}
 	case runtime.VUnion:
-		members, _, ok := s.unionMemberInfo(meta)
+		members, _, _, ok := s.unionMemberInfo(meta)
 		if !ok || len(members) == 0 {
 			return fmt.Errorf("union validator out of range")
 		}
@@ -1651,7 +1738,7 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte)
 		s.keyTmp = listKey
 		return runtime.VKList, listKey, nil
 	case runtime.VUnion:
-		members, _, ok := s.unionMemberInfo(meta)
+		members, _, _, ok := s.unionMemberInfo(meta)
 		if !ok || len(members) == 0 {
 			return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "union validator out of range")
 		}

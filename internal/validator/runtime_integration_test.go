@@ -829,13 +829,9 @@ func TestValidationErrorOrdering_DocumentOrder(t *testing.T) {
 	}
 }
 
-func TestUnionPatternAppliesToRawLexical(t *testing.T) {
-	// Per refactor.md §6.5.1 and §12.1 item 2:
-	// Union-level pattern facets MUST be applied to the raw lexical form
-	// BEFORE member normalization. This test verifies that behavior.
-	//
-	// xs:normalizedString replaces \r\n\t with spaces during normalization,
-	// but the union-level pattern is evaluated on the raw input.
+func TestUnionPatternAppliesAfterNormalization(t *testing.T) {
+	// Union-level patterns are evaluated on the union's whitespace-normalized value.
+	// This ensures pattern checks match the union's fixed whiteSpace=collapse behavior.
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="U">
@@ -849,13 +845,11 @@ func TestUnionPatternAppliesToRawLexical(t *testing.T) {
   <xs:element name="root" type="E"/>
 </xs:schema>`
 
-	// This document contains a newline which should FAIL the pattern
-	// because the pattern is evaluated BEFORE normalization.
-	// The pattern [a-z ]+ only matches lowercase letters and spaces.
+	// Newlines collapse to spaces before pattern validation.
 	docWithNewline := `<root>hello
 world</root>`
-	if err := validateRuntimeDoc(t, schema, docWithNewline); err == nil {
-		t.Fatalf("expected pattern violation for newline in union lexical")
+	if err := validateRuntimeDoc(t, schema, docWithNewline); err != nil {
+		t.Fatalf("validate: %v", err)
 	}
 
 	// Without newline should pass - matches pattern and valid for string member
