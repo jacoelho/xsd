@@ -14,6 +14,8 @@ import (
 
 const maxNameMapSize = 1 << 20
 
+var newXMLReader = xmlstream.NewReader
+
 type sessionResolver struct {
 	s *Session
 }
@@ -31,18 +33,18 @@ func (s *Session) Validate(r io.Reader) error {
 		return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrSchemaNotLoaded, "schema not loaded", "")}
 	}
 	if r == nil {
-		return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrXMLParse, "nil reader", "")}
+		return readerSetupError(errors.New("nil reader"))
 	}
 	s.Reset()
 
 	if s.reader == nil {
-		reader, err := xmlstream.NewReader(r)
+		reader, err := newXMLReader(r)
 		if err != nil {
-			return err
+			return readerSetupError(err)
 		}
 		s.reader = reader
 	} else if err := s.reader.Reset(r); err != nil {
-		return err
+		return readerSetupError(err)
 	}
 
 	rootSeen := false
@@ -122,6 +124,13 @@ func (s *Session) Validate(r io.Reader) error {
 		}
 	}
 	return s.validationList()
+}
+
+func readerSetupError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrXMLParse, err.Error(), "")}
 }
 
 func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessionResolver) error {

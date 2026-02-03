@@ -155,11 +155,12 @@ func FromInt64(v int64) Int {
 		return Int{Sign: 0, Digits: zeroDigits}
 	}
 	sign := int8(1)
+	u := uint64(v)
 	if v < 0 {
 		sign = -1
-		v = -v
+		u = uint64(-(v + 1))
+		u++
 	}
-	u := uint64(v)
 	intVal := FromUint64(u)
 	intVal.Sign = sign
 	return intVal

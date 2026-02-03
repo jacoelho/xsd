@@ -434,15 +434,19 @@ func (c *compiler) compileFacetProgram(st *types.SimpleType, facets, partial []t
 }
 
 func (c *compiler) compileEnumeration(enum *types.Enumeration, st *types.SimpleType, partial []types.Facet) (runtime.EnumID, error) {
-	if enum == nil || len(enum.Values) == 0 {
+	if enum == nil {
+		return 0, nil
+	}
+	values := enum.Values()
+	if len(values) == 0 {
 		return 0, nil
 	}
 	contexts := enum.ValueContexts()
-	if len(contexts) > 0 && len(contexts) != len(enum.Values) {
-		return 0, fmt.Errorf("enumeration contexts %d do not match values %d", len(contexts), len(enum.Values))
+	if len(contexts) > 0 && len(contexts) != len(values) {
+		return 0, fmt.Errorf("enumeration contexts %d do not match values %d", len(contexts), len(values))
 	}
-	keys := make([]runtime.ValueKey, 0, len(enum.Values))
-	for i, val := range enum.Values {
+	keys := make([]runtime.ValueKey, 0, len(values))
+	for i, val := range values {
 		var ctx map[string]string
 		if len(contexts) > 0 {
 			ctx = contexts[i]
@@ -465,7 +469,20 @@ func (c *compiler) canonicalizeLexical(lexical string, typ types.Type, ctx map[s
 	return c.canonicalizeNormalized(lexical, normalized, typ, ctx)
 }
 
+type canonicalizeMode uint8
+
+const (
+	// canonicalizeGeneral is used for ordinary validation, applying full facet checks.
+	canonicalizeGeneral canonicalizeMode = iota
+	// canonicalizeDefault is used for default/fixed values so unions follow runtime default validation order.
+	canonicalizeDefault
+)
+
 func (c *compiler) canonicalizeNormalized(lexical, normalized string, typ types.Type, ctx map[string]string) ([]byte, error) {
+	return c.canonicalizeNormalizedCore(lexical, normalized, typ, ctx, canonicalizeGeneral)
+}
+
+func (c *compiler) canonicalizeNormalizedCore(lexical, normalized string, typ types.Type, ctx map[string]string, mode canonicalizeMode) ([]byte, error) {
 	switch c.res.varietyForType(typ) {
 	case types.ListVariety:
 		item, ok := c.res.listItemTypeFromType(typ)
@@ -476,19 +493,19 @@ func (c *compiler) canonicalizeNormalized(lexical, normalized string, typ types.
 		if len(items) == 0 {
 			return []byte{}, nil
 		}
-		buf := strings.Builder{}
+		var buf []byte
 		for i, itemLex := range items {
 			itemNorm := c.normalizeLexical(itemLex, item)
-			canon, err := c.canonicalizeNormalized(itemLex, itemNorm, item, ctx)
+			canon, err := c.canonicalizeNormalizedCore(itemLex, itemNorm, item, ctx, mode)
 			if err != nil {
 				return nil, err
 			}
 			if i > 0 {
-				buf.WriteByte(' ')
+				buf = append(buf, ' ')
 			}
-			buf.Write(canon)
+			buf = append(buf, canon...)
 		}
-		return []byte(buf.String()), nil
+		return buf, nil
 	case types.UnionVariety:
 		members := c.res.unionMemberTypesFromType(typ)
 		if len(members) == 0 {
@@ -496,17 +513,31 @@ func (c *compiler) canonicalizeNormalized(lexical, normalized string, typ types.
 		}
 		for _, member := range members {
 			memberLex := c.normalizeLexical(lexical, member)
-			memberFacets, err := c.facetsForType(member)
-			if err != nil {
-				return nil, err
+			memberFacets, facetErr := c.facetsForType(member)
+			if facetErr != nil {
+				return nil, facetErr
 			}
-			err = c.validateMemberFacets(memberLex, member, memberFacets, ctx, true)
-			if err != nil {
-				continue
-			}
-			canon, err := c.canonicalizeNormalized(lexical, memberLex, member, ctx)
-			if err == nil {
+			switch mode {
+			case canonicalizeDefault:
+				if validateErr := c.validatePartialFacets(memberLex, member, memberFacets); validateErr != nil {
+					continue
+				}
+				canon, canonErr := c.canonicalizeNormalizedCore(lexical, memberLex, member, ctx, mode)
+				if canonErr != nil {
+					continue
+				}
+				if enumErr := c.validateEnumSets(lexical, memberLex, member, ctx); enumErr != nil {
+					continue
+				}
 				return canon, nil
+			default:
+				if validateErr := c.validateMemberFacets(memberLex, member, memberFacets, ctx, true); validateErr != nil {
+					continue
+				}
+				canon, canonErr := c.canonicalizeNormalizedCore(lexical, memberLex, member, ctx, mode)
+				if canonErr == nil {
+					return canon, nil
+				}
 			}
 		}
 		return nil, fmt.Errorf("union value does not match any member type")
@@ -527,13 +558,24 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 	}
 
 	switch primName {
-	case "string", "normalizedString", "token", "language", "Name", "NCName", "ID", "IDREF", "ENTITY", "NMTOKEN", "anyURI":
+	case "string":
+		if err := validateStringKind(c.stringKindForType(typ), normalized); err != nil {
+			return nil, err
+		}
+		return []byte(normalized), nil
+	case "anyURI":
+		if err := value.ValidateAnyURI([]byte(normalized)); err != nil {
+			return nil, err
+		}
 		return []byte(normalized), nil
 	case "decimal":
 		if c.res.isIntegerDerived(typ) {
 			v, perr := num.ParseInt([]byte(normalized))
 			if perr != nil {
 				return nil, fmt.Errorf("invalid integer: %s", normalized)
+			}
+			if err := runtime.ValidateIntegerKind(c.integerKindForType(typ), v); err != nil {
+				return nil, err
 			}
 			return v.RenderCanonical(nil), nil
 		}
@@ -546,6 +588,9 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 		v, perr := num.ParseInt([]byte(normalized))
 		if perr != nil {
 			return nil, fmt.Errorf("invalid integer: %s", normalized)
+		}
+		if err := runtime.ValidateIntegerKind(c.integerKindForType(typ), v); err != nil {
+			return nil, err
 		}
 		return v.RenderCanonical(nil), nil
 	case "boolean":
@@ -637,6 +682,29 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 		return []byte(encodeBase64(b)), nil
 	default:
 		return nil, fmt.Errorf("unsupported primitive type %s", primName)
+	}
+}
+
+func validateStringKind(kind runtime.StringKind, normalized string) error {
+	if kind == runtime.StringAny || kind == runtime.StringNormalized {
+		return nil
+	}
+	data := []byte(normalized)
+	switch kind {
+	case runtime.StringToken:
+		return value.ValidateToken(data)
+	case runtime.StringLanguage:
+		return value.ValidateLanguage(data)
+	case runtime.StringName:
+		return value.ValidateName(data)
+	case runtime.StringNCName:
+		return value.ValidateNCName(data)
+	case runtime.StringID, runtime.StringIDREF, runtime.StringEntity:
+		return value.ValidateNCName(data)
+	case runtime.StringNMTOKEN:
+		return value.ValidateNMTOKEN(data)
+	default:
+		return nil
 	}
 }
 

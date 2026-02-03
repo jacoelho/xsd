@@ -29,7 +29,7 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 		if sc.Restriction != nil {
 			normalized := types.NormalizeWhiteSpace(value, baseType)
 			facets := collectRestrictionFacets(schema, sc.Restriction, baseType)
-			if err := validateValueAgainstFacets(normalized, baseType, facets, context); err != nil {
+			if err := types.ValidateValueAgainstFacets(normalized, baseType, facets, context); err != nil {
 				return err
 			}
 		}
@@ -72,7 +72,7 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 		for _, member := range memberTypes {
 			if err := validateValueAgainstTypeWithFacets(schema, normalized, member, context, visited); err == nil {
 				facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
-				return validateValueAgainstFacets(normalized, st, facets, context)
+				return types.ValidateValueAgainstFacets(normalized, st, facets, context)
 			}
 		}
 		return fmt.Errorf("value %q does not match any member type of union", normalized)
@@ -89,7 +89,7 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 			count++
 		}
 		facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
-		return validateValueAgainstFacets(normalized, st, facets, context)
+		return types.ValidateValueAgainstFacets(normalized, st, facets, context)
 	default:
 		if !types.IsQNameOrNotationType(st) {
 			if err := st.Validate(normalized); err != nil {
@@ -97,7 +97,7 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 			}
 		}
 		facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
-		return validateValueAgainstFacets(normalized, st, facets, context)
+		return types.ValidateValueAgainstFacets(normalized, st, facets, context)
 	}
 }
 
@@ -263,59 +263,4 @@ func collectRestrictionFacets(schema *parser.Schema, restriction *types.Restrict
 	}
 
 	return result
-}
-
-func validateValueAgainstFacets(value string, baseType types.Type, facets []types.Facet, context map[string]string) error {
-	if len(facets) == 0 {
-		return nil
-	}
-
-	var typedValue types.TypedValue
-	for _, facet := range facets {
-		if shouldSkipLengthFacet(baseType, facet) {
-			continue
-		}
-		if enumFacet, ok := facet.(*types.Enumeration); ok && types.IsQNameOrNotationType(baseType) && !isListType(baseType) {
-			if err := enumFacet.ValidateLexicalQName(value, baseType, context); err != nil {
-				return err
-			}
-			continue
-		}
-		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
-			if err := lexicalFacet.ValidateLexical(value, baseType); err != nil {
-				return fmt.Errorf("facet '%s' violation: %w", facet.Name(), err)
-			}
-			continue
-		}
-		if typedValue == nil {
-			typedValue = types.TypedValueForFacet(value, baseType)
-		}
-		if err := facet.Validate(typedValue, baseType); err != nil {
-			return fmt.Errorf("facet '%s' violation: %w", facet.Name(), err)
-		}
-	}
-
-	return nil
-}
-
-func isListType(typ types.Type) bool {
-	switch t := typ.(type) {
-	case *types.SimpleType:
-		return t.Variety() == types.ListVariety || t.List != nil
-	case *types.BuiltinType:
-		name := t.Name().Local
-		return name == "NMTOKENS" || name == "IDREFS" || name == "ENTITIES"
-	default:
-		return false
-	}
-}
-
-func shouldSkipLengthFacet(baseType types.Type, facet types.Facet) bool {
-	if !types.IsLengthFacet(facet) {
-		return false
-	}
-	if isListType(baseType) {
-		return false
-	}
-	return types.IsQNameOrNotationType(baseType)
 }

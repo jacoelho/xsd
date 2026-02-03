@@ -22,6 +22,13 @@ type AttrResult struct {
 	Attrs   []StartAttr
 }
 
+var (
+	xsiLocalType                      = []byte("type")
+	xsiLocalNil                       = []byte("nil")
+	xsiLocalSchemaLocation            = []byte("schemaLocation")
+	xsiLocalNoNamespaceSchemaLocation = []byte("noNamespaceSchemaLocation")
+)
+
 func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, resolver value.NSResolver) (AttrResult, error) {
 	if s == nil || s.rt == nil {
 		return AttrResult{}, newValidationError(xsderrors.ErrSchemaNotLoaded, "schema not loaded")
@@ -64,6 +71,9 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 
 func (s *Session) validateSimpleTypeAttrs(attrs []StartAttr, storeAttrs bool) (AttrResult, error) {
 	for _, attr := range attrs {
+		if s.isUnknownXsiAttribute(&attr) {
+			return AttrResult{}, newValidationError(xsderrors.ErrValidateSimpleTypeAttrNotAllowed, "unknown xsi attribute")
+		}
 		if !s.isXsiAttribute(&attr) && !s.isXMLAttribute(&attr) {
 			return AttrResult{}, newValidationError(xsderrors.ErrValidateSimpleTypeAttrNotAllowed, "attribute not allowed on simple type")
 		}
@@ -107,6 +117,9 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 	seenID := false
 
 	for _, attr := range attrs {
+		if s.isUnknownXsiAttribute(&attr) {
+			return nil, seenID, newValidationError(xsderrors.ErrAttributeNotDeclared, "unknown xsi attribute")
+		}
 		if s.isXsiAttribute(&attr) {
 			if storeAttrs {
 				s.ensureAttrNameStable(&attr)
@@ -410,6 +423,43 @@ func (s *Session) ensureAttrNameStable(attr *StartAttr) {
 }
 
 func (s *Session) isXsiAttribute(attr *StartAttr) bool {
+	if s == nil || s.rt == nil || attr == nil {
+		return false
+	}
+	predef := s.rt.Predef
+	switch attr.Sym {
+	case predef.XsiType, predef.XsiNil, predef.XsiSchemaLocation, predef.XsiNoNamespaceSchemaLocation:
+		return true
+	}
+	if !s.isXsiNamespaceAttr(attr) {
+		return false
+	}
+	return isXsiLocalName(attr.Local)
+}
+
+func (s *Session) isUnknownXsiAttribute(attr *StartAttr) bool {
+	if s == nil || s.rt == nil || attr == nil {
+		return false
+	}
+	return s.isXsiNamespaceAttr(attr) && !s.isXsiAttribute(attr)
+}
+
+func isXsiLocalName(local []byte) bool {
+	switch {
+	case bytes.Equal(local, xsiLocalType):
+		return true
+	case bytes.Equal(local, xsiLocalNil):
+		return true
+	case bytes.Equal(local, xsiLocalSchemaLocation):
+		return true
+	case bytes.Equal(local, xsiLocalNoNamespaceSchemaLocation):
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Session) isXsiNamespaceAttr(attr *StartAttr) bool {
 	if attr.NS != 0 {
 		return attr.NS == s.rt.PredefNS.Xsi
 	}

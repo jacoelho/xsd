@@ -52,7 +52,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 			}
 			normalized := types.NormalizeWhiteSpace(value, baseType)
 			facets := collectRestrictionFacets(schema, sc.Restriction, baseType)
-			return validateValueAgainstFacets(normalized, baseType, facets, context)
+			return types.ValidateValueAgainstFacets(normalized, baseType, facets, context)
 		}
 		return validateDefaultOrFixedValueResolved(schema, value, baseType, context, visited, policy)
 	}
@@ -96,7 +96,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 				for _, member := range memberTypes {
 					if err := validateDefaultOrFixedValueResolved(schema, normalizedValue, member, context, visited, idValuesAllowed); err == nil {
 						facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
-						return validateValueAgainstFacets(normalizedValue, st, facets, context)
+						return types.ValidateValueAgainstFacets(normalizedValue, st, facets, context)
 					} else if errors.Is(err, errCircularReference) {
 						sawCycle = true
 					} else if firstErr == nil {
@@ -126,7 +126,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 				}
 			}
 			facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
-			return validateValueAgainstFacets(normalizedValue, st, facets, context)
+			return types.ValidateValueAgainstFacets(normalizedValue, st, facets, context)
 		default:
 			if types.IsQNameOrNotationType(st) {
 				if err := validateQNameContext(normalizedValue, context); err != nil {
@@ -136,7 +136,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 				return err
 			}
 			facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
-			return validateValueAgainstFacets(normalizedValue, st, facets, context)
+			return types.ValidateValueAgainstFacets(normalizedValue, st, facets, context)
 		}
 		return nil
 	}
@@ -211,39 +211,6 @@ func resolveListItemType(schema *parser.Schema, st *types.SimpleType) types.Type
 	if itemType, ok := types.ListItemType(st); ok {
 		return itemType
 	}
-	return nil
-}
-
-func validateValueAgainstFacets(value string, baseType types.Type, facets []types.Facet, context map[string]string) error {
-	if len(facets) == 0 {
-		return nil
-	}
-
-	var typedValue types.TypedValue
-	for _, facet := range facets {
-		if shouldSkipLengthFacet(baseType, facet) {
-			continue
-		}
-		if enumFacet, ok := facet.(*types.Enumeration); ok && types.IsQNameOrNotationType(baseType) && !isListType(baseType) {
-			if err := enumFacet.ValidateLexicalQName(value, baseType, context); err != nil {
-				return err
-			}
-			continue
-		}
-		if lexicalFacet, ok := facet.(types.LexicalValidator); ok {
-			if err := lexicalFacet.ValidateLexical(value, baseType); err != nil {
-				return fmt.Errorf("facet '%s' violation: %w", facet.Name(), err)
-			}
-			continue
-		}
-		if typedValue == nil {
-			typedValue = types.TypedValueForFacet(value, baseType)
-		}
-		if err := facet.Validate(typedValue, baseType); err != nil {
-			return fmt.Errorf("facet '%s' violation: %w", facet.Name(), err)
-		}
-	}
-
 	return nil
 }
 
@@ -393,26 +360,4 @@ func convertDeferredFacet(df *types.DeferredFacet, baseType types.Type) (types.F
 func validateQNameContext(value string, context map[string]string) error {
 	_, err := types.ParseQNameValue(value, context)
 	return err
-}
-
-func isListType(typ types.Type) bool {
-	switch t := typ.(type) {
-	case *types.SimpleType:
-		return t.Variety() == types.ListVariety || t.List != nil
-	case *types.BuiltinType:
-		name := t.Name().Local
-		return name == "NMTOKENS" || name == "IDREFS" || name == "ENTITIES"
-	default:
-		return false
-	}
-}
-
-func shouldSkipLengthFacet(baseType types.Type, facet types.Facet) bool {
-	if !types.IsLengthFacet(facet) {
-		return false
-	}
-	if isListType(baseType) {
-		return false
-	}
-	return types.IsQNameOrNotationType(baseType)
 }

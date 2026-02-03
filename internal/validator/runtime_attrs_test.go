@@ -97,6 +97,34 @@ func TestValidateAttributesSimpleTypeXsiOnly(t *testing.T) {
 	}
 }
 
+func TestValidateAttributesRejectsUnknownXsiAttribute(t *testing.T) {
+	schema, ids := buildAttrFixtureNoRequired(t)
+	sess := NewSession(schema)
+
+	unknown := []StartAttr{{
+		NS:      schema.PredefNS.Xsi,
+		NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
+		Local:   []byte("unknown"),
+		Value:   []byte("1"),
+	}}
+	if _, err := sess.ValidateAttributes(ids.typeBase, unknown, nil); err == nil {
+		t.Fatalf("expected unknown xsi attribute error")
+	}
+	if _, err := sess.ValidateAttributes(ids.typeSimple, unknown, nil); err == nil {
+		t.Fatalf("expected unknown xsi attribute error for simple type")
+	}
+
+	known := []StartAttr{{
+		NS:      schema.PredefNS.Xsi,
+		NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
+		Local:   []byte("nil"),
+		Value:   []byte("true"),
+	}}
+	if _, err := sess.ValidateAttributes(ids.typeBase, known, nil); err != nil {
+		t.Fatalf("expected xsi:nil to be allowed, got %v", err)
+	}
+}
+
 func TestValidateAttributesWildcardStrictUnresolved(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
 	schema.ComplexTypes[1].AnyAttr = 1
@@ -200,18 +228,18 @@ func buildAttrFixture(tb testing.TB) (*runtime.Schema, attrFixtureIDs) {
 func buildAttrFixtureNoRequired(tb testing.TB) (*runtime.Schema, attrFixtureIDs) {
 	tb.Helper()
 	builder := runtime.NewBuilder()
-	nsID := builder.InternNamespace([]byte("urn:test"))
-	xsiNS := builder.InternNamespace([]byte("http://www.w3.org/2001/XMLSchema-instance"))
-	builder.InternSymbol(xsiNS, []byte("type"))
-	builder.InternSymbol(xsiNS, []byte("nil"))
-	builder.InternSymbol(xsiNS, []byte("schemaLocation"))
-	builder.InternSymbol(xsiNS, []byte("noNamespaceSchemaLocation"))
+	nsID := mustInternNamespace(tb, builder, []byte("urn:test"))
+	xsiNS := mustInternNamespace(tb, builder, []byte("http://www.w3.org/2001/XMLSchema-instance"))
+	mustInternSymbol(tb, builder, xsiNS, []byte("type"))
+	mustInternSymbol(tb, builder, xsiNS, []byte("nil"))
+	mustInternSymbol(tb, builder, xsiNS, []byte("schemaLocation"))
+	mustInternSymbol(tb, builder, xsiNS, []byte("noNamespaceSchemaLocation"))
 
-	attrDefault := builder.InternSymbol(nsID, []byte("default"))
-	attrProhib := builder.InternSymbol(nsID, []byte("prohib"))
-	attrGlobal := builder.InternSymbol(nsID, []byte("global"))
-	attrRequired := builder.InternSymbol(nsID, []byte("required"))
-	typeSym := builder.InternSymbol(nsID, []byte("BaseType"))
+	attrDefault := mustInternSymbol(tb, builder, nsID, []byte("default"))
+	attrProhib := mustInternSymbol(tb, builder, nsID, []byte("prohib"))
+	attrGlobal := mustInternSymbol(tb, builder, nsID, []byte("global"))
+	attrRequired := mustInternSymbol(tb, builder, nsID, []byte("required"))
+	typeSym := mustInternSymbol(tb, builder, nsID, []byte("BaseType"))
 	schema, err := builder.Build()
 	if err != nil {
 		tb.Fatalf("Build() error = %v", err)

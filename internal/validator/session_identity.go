@@ -494,7 +494,7 @@ func (s *identityState) finalizeSelectorMatch(match *rtSelectorMatch) {
 			state.violations = append(state.violations, identityViolation(state.category, "identity constraint field selects multiple nodes"))
 			return
 		case field.count == 0 || field.missing:
-			if state.category == runtime.ICUnique {
+			if state.category == runtime.ICUnique || state.category == runtime.ICKeyRef {
 				return
 			}
 			state.violations = append(state.violations, identityViolation(state.category, "identity constraint field is missing"))
@@ -685,14 +685,10 @@ func matchProgramPath(ops []runtime.PathOp, frames []rtIdentityFrame, startDepth
 		return currentDepth == startDepth
 	}
 	steps := make([]programStep, 0, len(ops))
-	start := 0
-	if ops[0].Op == runtime.OpDescend {
-		steps = append(steps, programStep{axis: axisDescendantOrSelf, any: true})
-		start = 1
-	}
-	for i := start; i < len(ops); i++ {
-		op := ops[i]
+	for _, op := range ops {
 		switch op.Op {
+		case runtime.OpDescend:
+			steps = append(steps, programStep{axis: axisDescendantOrSelf, any: true})
 		case runtime.OpRootSelf, runtime.OpSelf:
 			steps = append(steps, programStep{axis: axisSelf, any: true})
 		case runtime.OpChildAny:

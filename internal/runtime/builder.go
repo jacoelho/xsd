@@ -39,18 +39,24 @@ func NewBuilder() *Builder {
 	return b
 }
 
-func (b *Builder) InternNamespace(uri []byte) NamespaceID {
-	b.ensureMutable()
-	return b.namespaces.intern(uri)
+func (b *Builder) InternNamespace(uri []byte) (NamespaceID, error) {
+	if err := b.ensureMutable(); err != nil {
+		return 0, err
+	}
+	return b.namespaces.intern(uri), nil
 }
 
-func (b *Builder) InternSymbol(nsID NamespaceID, local []byte) SymbolID {
-	b.ensureMutable()
-	return b.symbols.intern(nsID, local)
+func (b *Builder) InternSymbol(nsID NamespaceID, local []byte) (SymbolID, error) {
+	if err := b.ensureMutable(); err != nil {
+		return 0, err
+	}
+	return b.symbols.intern(nsID, local), nil
 }
 
 func (b *Builder) Build() (*Schema, error) {
-	b.ensureMutable()
+	if err := b.ensureMutable(); err != nil {
+		return nil, err
+	}
 	b.sealed = true
 	namespaces, err := b.namespaces.build()
 	if err != nil {
@@ -72,10 +78,11 @@ func (b *Builder) Build() (*Schema, error) {
 	}, nil
 }
 
-func (b *Builder) ensureMutable() {
+func (b *Builder) ensureMutable() error {
 	if b.sealed {
-		panic("runtime.Builder used after Build")
+		return fmt.Errorf("runtime.Builder used after Build")
 	}
+	return nil
 }
 
 type namespaceBuilder struct {

@@ -125,6 +125,47 @@ func TestResolveW3CComplexTypeBases(t *testing.T) {
 	}
 }
 
+func TestResolveAnyTypeUsesBuiltin(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test">
+  <xs:complexType name="Derived">
+    <xs:complexContent>
+      <xs:extension base="xs:anyType"/>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	res := NewResolver(schema)
+	if err := res.Resolve(); err != nil {
+		t.Fatalf("resolve schema: %v", err)
+	}
+
+	derivedQName := types.QName{Namespace: schema.TargetNamespace, Local: "Derived"}
+	derived, ok := schema.TypeDefs[derivedQName].(*types.ComplexType)
+	if !ok || derived == nil {
+		t.Fatalf("expected Derived to be a complex type")
+	}
+	if derived.ResolvedBase == nil {
+		t.Fatalf("expected Derived base type to be resolved")
+	}
+	builtinAny := types.GetBuiltin(types.TypeNameAnyType)
+	if builtinAny == nil {
+		t.Fatalf("expected builtin xs:anyType")
+	}
+	if derived.ResolvedBase != builtinAny {
+		t.Fatalf("expected anyType base to use builtin instance, got %T", derived.ResolvedBase)
+	}
+	if !types.IsDerivedFrom(derived, builtinAny) {
+		t.Fatalf("expected Derived to be derived from builtin anyType")
+	}
+}
+
 func TestResolveSimpleTypeRestrictionInheritsUnionMembers(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

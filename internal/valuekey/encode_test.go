@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
+	"strconv"
 	"testing"
 	"time"
 
@@ -178,6 +179,73 @@ func TestDurationKeyBytesPrecision(t *testing.T) {
 	if bytes.Equal(keyLeft, keyRight) {
 		t.Fatalf("duration keys should differ for high-precision seconds")
 	}
+}
+
+func TestDurationKeyBytesAvoidsOverflow(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
+	tested := false
+
+	years := maxInt/12 + 1
+	if int64(years) > math.MaxInt64/12 {
+		tested = true
+		dur := types.XSDDuration{Years: years}
+		got := DurationKeyBytes(nil, dur)
+		legacy := durationKeyBytesLegacy(nil, dur)
+		if bytes.Equal(got, legacy) {
+			t.Fatalf("expected overflow-safe months key to differ from legacy")
+		}
+	}
+
+	days := maxInt/86400 + 1
+	if int64(days) > math.MaxInt64/86400 {
+		tested = true
+		dur := types.XSDDuration{Days: days}
+		got := DurationKeyBytes(nil, dur)
+		legacy := durationKeyBytesLegacy(nil, dur)
+		if bytes.Equal(got, legacy) {
+			t.Fatalf("expected overflow-safe seconds key to differ from legacy")
+		}
+	}
+
+	if !tested {
+		t.Skip("int size too small to overflow int64 in legacy duration key path")
+	}
+}
+
+func durationKeyBytesLegacy(dst []byte, dur types.XSDDuration) []byte {
+	monthsTotal := int64(dur.Years)*12 + int64(dur.Months)
+	months, _ := num.ParseInt([]byte(strconv.FormatInt(monthsTotal, 10)))
+	seconds := legacyDurationSecondsTotal(dur)
+	sign := byte(1)
+	if dur.Negative {
+		sign = 2
+	}
+	if monthsTotal == 0 && seconds.Sign == 0 {
+		sign = 0
+	}
+	dst = append(dst[:0], sign)
+	dst = num.EncodeIntKey(dst, months)
+	dst = num.EncodeDecKey(dst, seconds)
+	return dst
+}
+
+func legacyDurationSecondsTotal(dur types.XSDDuration) num.Dec {
+	total := dur.Seconds
+	total = legacyAddDecInt(total, int64(dur.Minutes)*60)
+	total = legacyAddDecInt(total, int64(dur.Hours)*3600)
+	total = legacyAddDecInt(total, int64(dur.Days)*86400)
+	return total
+}
+
+func legacyAddDecInt(dec num.Dec, delta int64) num.Dec {
+	if delta == 0 {
+		return dec
+	}
+	scale := dec.Scale
+	scaled := num.DecToScaledInt(dec, scale)
+	deltaScaled := num.DecToScaledInt(num.FromInt64(delta).AsDec(), scale)
+	sum := num.Add(scaled, deltaScaled)
+	return num.DecFromScaledInt(sum, scale)
 }
 
 func decodeQNameKey(t *testing.T, key []byte) (byte, string, string) {

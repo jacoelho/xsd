@@ -28,7 +28,7 @@ func TestPattern(t *testing.T) {
 }
 
 func TestEnumeration(t *testing.T) {
-	e := &Enumeration{Values: []string{"red", "green", "blue"}}
+	e := NewEnumeration([]string{"red", "green", "blue"})
 	base := GetBuiltin(TypeName("string"))
 
 	tests := []struct {
@@ -56,7 +56,7 @@ func TestEnumerationNaN(t *testing.T) {
 	if floatType == nil {
 		t.Fatalf("expected builtin float type")
 	}
-	enum := &Enumeration{Values: []string{"NaN"}}
+	enum := NewEnumeration([]string{"NaN"})
 	if err := enum.ValidateLexical("NaN", floatType); err != nil {
 		t.Fatalf("expected NaN to match enumeration: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestEnumerationQNameContext(t *testing.T) {
 	if base == nil {
 		t.Fatalf("expected builtin QName type")
 	}
-	enum := &Enumeration{Values: []string{"p:color"}}
+	enum := NewEnumeration([]string{"p:color"})
 	enum.SetValueContexts([]map[string]string{{"p": "urn:ex"}})
 
 	if err := enum.ValidateLexicalQName("q:color", base, map[string]string{"q": "urn:ex"}); err != nil {

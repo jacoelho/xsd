@@ -388,9 +388,6 @@ func (r *Resolver) resolveAttributeDecls(attrs []*types.AttributeDecl) error {
 
 func (r *Resolver) lookupType(qname, referrer types.QName) (types.Type, error) {
 	if bt := types.GetBuiltinNS(qname.Namespace, qname.Local); bt != nil {
-		if qname.Local == "anyType" {
-			return types.NewAnyTypeComplexType(), nil
-		}
 		return bt, nil
 	}
 

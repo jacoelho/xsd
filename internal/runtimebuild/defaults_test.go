@@ -73,6 +73,71 @@ func TestDefaultRejectsEnumerationViolation(t *testing.T) {
 	}
 }
 
+func TestDefaultRejectsInvalidBuiltinDefaults(t *testing.T) {
+	cases := []struct {
+		name      string
+		schemaXML string
+	}{
+		{
+			name: "int out of range",
+			schemaXML: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:int" default="2147483648"/>
+</xs:schema>`,
+		},
+		{
+			name: "NCName with colon",
+			schemaXML: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:NCName" default="a:b"/>
+</xs:schema>`,
+		},
+		{
+			name: "anyURI invalid percent",
+			schemaXML: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyURI" default="http://example.com/%GG"/>
+</xs:schema>`,
+		},
+		{
+			name: "anyURI with spaces",
+			schemaXML: `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyURI" default="http://exa mple.com"/>
+</xs:schema>`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sch, reg, err := parseAndAssign(tc.schemaXML)
+			if err != nil {
+				t.Fatalf("parse schema: %v", err)
+			}
+			if _, err := CompileValidators(sch, reg); err == nil {
+				t.Fatalf("expected default validation error")
+			}
+		})
+	}
+}
+
+func TestDefaultAcceptsValidBuiltinDefaults(t *testing.T) {
+	schemaXML := `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="intOK" type="xs:int" default="2147483647"/>
+  <xs:element name="nameOK" type="xs:NCName" default="validName"/>
+  <xs:element name="uriOK" type="xs:anyURI" default="http://example.com/%20"/>
+</xs:schema>`
+
+	sch, reg, err := parseAndAssign(schemaXML)
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	if _, err := CompileValidators(sch, reg); err != nil {
+		t.Fatalf("expected valid defaults, got %v", err)
+	}
+}
+
 func elementIDForLocal(t *testing.T, reg *schema.Registry, local string) schema.ElemID {
 	t.Helper()
 	for _, entry := range reg.ElementOrder {

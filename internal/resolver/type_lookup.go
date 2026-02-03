@@ -11,9 +11,6 @@ import (
 // Returns an error if type is not found.
 func lookupTypeInSchema(schema *parser.Schema, qname types.QName) (types.Type, error) {
 	if builtinType := types.GetBuiltinNS(qname.Namespace, qname.Local); builtinType != nil {
-		if qname.Local == "anyType" {
-			return types.NewAnyTypeComplexType(), nil
-		}
 		return builtinType, nil
 	}
 

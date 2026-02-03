@@ -114,7 +114,7 @@ func mergeAttributesFromComplexType(schema *parser.Schema, ct *types.ComplexType
 	if ct == nil {
 		return nil
 	}
-	if err := mergeAttributes(schema, ct.Attributes(), ct.AttrGroups, attrMap, attrMerge, false); err != nil {
+	if err := mergeAttributes(schema, ct.Attributes(), ct.AttrGroups, attrMap, attrMerge); err != nil {
 		return err
 	}
 	content := ct.Content()
@@ -122,30 +122,24 @@ func mergeAttributesFromComplexType(schema *parser.Schema, ct *types.ComplexType
 		return nil
 	}
 	if ext := content.ExtensionDef(); ext != nil {
-		if err := mergeAttributes(schema, ext.Attributes, ext.AttrGroups, attrMap, attrMerge, false); err != nil {
+		if err := mergeAttributes(schema, ext.Attributes, ext.AttrGroups, attrMap, attrMerge); err != nil {
 			return err
 		}
 	}
 	if restr := content.RestrictionDef(); restr != nil {
-		if err := mergeAttributes(schema, restr.Attributes, restr.AttrGroups, attrMap, attrRestriction, false); err != nil {
+		if err := mergeAttributes(schema, restr.Attributes, restr.AttrGroups, attrMap, attrRestriction); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func mergeAttributes(schema *parser.Schema, attrs []*types.AttributeDecl, groups []types.QName, attrMap map[types.QName]*types.AttributeDecl, mode attrCollectionMode, fromGroup bool) error {
+func mergeAttributes(schema *parser.Schema, attrs []*types.AttributeDecl, groups []types.QName, attrMap map[types.QName]*types.AttributeDecl, mode attrCollectionMode) error {
 	for _, attr := range attrs {
 		if attr == nil {
 			continue
 		}
 		key := effectiveAttributeQName(schema, attr)
-		if !shouldIncludeAttribute(attr, fromGroup) {
-			if mode == attrRestriction {
-				delete(attrMap, key)
-			}
-			continue
-		}
 		attrMap[key] = attr
 	}
 	if len(groups) == 0 {
@@ -169,7 +163,22 @@ func mergeAttributesFromGroups(schema *parser.Schema, groups []types.QName, attr
 		if mode == attrRestriction {
 			groupMode = attrMerge
 		}
-		if err := mergeAttributes(schema, group.Attributes, group.AttrGroups, attrMap, groupMode, true); err != nil {
+		attrs := group.Attributes
+		for _, attr := range attrs {
+			if attr != nil && attr.Use == types.Prohibited {
+				// W3C attZ015: ignore prohibited uses from attribute groups.
+				filtered := make([]*types.AttributeDecl, 0, len(attrs))
+				for _, candidate := range attrs {
+					if candidate == nil || candidate.Use == types.Prohibited {
+						continue
+					}
+					filtered = append(filtered, candidate)
+				}
+				attrs = filtered
+				break
+			}
+		}
+		if err := mergeAttributes(schema, attrs, group.AttrGroups, attrMap, groupMode); err != nil {
 			return err
 		}
 	}
@@ -334,16 +343,6 @@ func restrictAnyAttribute(base, derived *types.AnyAttribute) (*types.AnyAttribut
 		intersected.ProcessContents = derived.ProcessContents
 	}
 	return intersected, nil
-}
-
-func shouldIncludeAttribute(attr *types.AttributeDecl, fromGroup bool) bool {
-	if attr == nil {
-		return false
-	}
-	if fromGroup && attr.Use == types.Prohibited {
-		return false
-	}
-	return true
 }
 
 func effectiveAttributeQName(schema *parser.Schema, attr *types.AttributeDecl) types.QName {

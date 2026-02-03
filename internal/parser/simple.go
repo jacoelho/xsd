@@ -489,19 +489,10 @@ func parseEnumerationFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction
 	value := doc.GetAttribute(elem, "value")
 	context := namespaceContextForElement(doc, elem, schema)
 	if enum := findEnumerationFacet(restriction.Facets); enum != nil {
-		contexts := enum.ValueContexts()
-		if len(contexts) < len(enum.Values) {
-			missing := len(enum.Values) - len(contexts)
-			contexts = append(contexts, make([]map[string]string, missing)...)
-		}
-		enum.Values = append(enum.Values, value)
-		contexts = append(contexts, context)
-		enum.SetValueContexts(contexts)
+		enum.AppendValue(value, context)
 		return nil, nil
 	}
-	enum := &types.Enumeration{
-		Values: []string{value},
-	}
+	enum := types.NewEnumeration([]string{value})
 	enum.SetValueContexts([]map[string]string{context})
 	return enum, nil
 }

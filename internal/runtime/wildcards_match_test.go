@@ -4,9 +4,17 @@ import "testing"
 
 func TestWildcardAcceptsEnumerationWithBytesFallback(t *testing.T) {
 	builder := NewBuilder()
-	target := builder.InternNamespace([]byte("urn:target"))
-	other := builder.InternNamespace([]byte("urn:other"))
-	_ = builder.InternNamespace([]byte("urn:list"))
+	target, err := builder.InternNamespace([]byte("urn:target"))
+	if err != nil {
+		t.Fatalf("InternNamespace: %v", err)
+	}
+	other, err := builder.InternNamespace([]byte("urn:other"))
+	if err != nil {
+		t.Fatalf("InternNamespace: %v", err)
+	}
+	if _, err := builder.InternNamespace([]byte("urn:list")); err != nil {
+		t.Fatalf("InternNamespace: %v", err)
+	}
 	schema, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
@@ -43,8 +51,14 @@ func TestWildcardAcceptsEnumerationWithBytesFallback(t *testing.T) {
 
 func TestWildcardAcceptsOther(t *testing.T) {
 	builder := NewBuilder()
-	target := builder.InternNamespace([]byte("urn:target"))
-	other := builder.InternNamespace([]byte("urn:other"))
+	target, err := builder.InternNamespace([]byte("urn:target"))
+	if err != nil {
+		t.Fatalf("InternNamespace: %v", err)
+	}
+	other, err := builder.InternNamespace([]byte("urn:other"))
+	if err != nil {
+		t.Fatalf("InternNamespace: %v", err)
+	}
 	schema, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
@@ -73,7 +87,10 @@ func TestWildcardAcceptsOther(t *testing.T) {
 
 func TestWildcardAcceptsNotAbsent(t *testing.T) {
 	builder := NewBuilder()
-	other := builder.InternNamespace([]byte("urn:other"))
+	other, err := builder.InternNamespace([]byte("urn:other"))
+	if err != nil {
+		t.Fatalf("InternNamespace: %v", err)
+	}
 	schema, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
@@ -95,8 +112,14 @@ func TestWildcardAcceptsNotAbsent(t *testing.T) {
 
 func TestSchemaWildcardAccepts(t *testing.T) {
 	builder := NewBuilder()
-	target := builder.InternNamespace([]byte("urn:target"))
-	other := builder.InternNamespace([]byte("urn:other"))
+	target, err := builder.InternNamespace([]byte("urn:target"))
+	if err != nil {
+		t.Fatalf("InternNamespace: %v", err)
+	}
+	other, err := builder.InternNamespace([]byte("urn:other"))
+	if err != nil {
+		t.Fatalf("InternNamespace: %v", err)
+	}
 	schema, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)

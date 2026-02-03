@@ -177,57 +177,7 @@ func (c *compiler) canonicalizeDefaultFixed(lexical string, typ types.Type, ctx 
 }
 
 func (c *compiler) canonicalizeNormalizedDefault(lexical, normalized string, typ types.Type, ctx map[string]string) ([]byte, error) {
-	switch c.res.varietyForType(typ) {
-	case types.ListVariety:
-		item, ok := c.res.listItemTypeFromType(typ)
-		if !ok || item == nil {
-			return nil, fmt.Errorf("list type missing item type")
-		}
-		items := splitXMLWhitespace(normalized)
-		if len(items) == 0 {
-			return []byte{}, nil
-		}
-		var buf []byte
-		for i, itemLex := range items {
-			itemNorm := c.normalizeLexical(itemLex, item)
-			canon, err := c.canonicalizeNormalizedDefault(itemLex, itemNorm, item, ctx)
-			if err != nil {
-				return nil, err
-			}
-			if i > 0 {
-				buf = append(buf, ' ')
-			}
-			buf = append(buf, canon...)
-		}
-		return buf, nil
-	case types.UnionVariety:
-		members := c.res.unionMemberTypesFromType(typ)
-		if len(members) == 0 {
-			return nil, fmt.Errorf("union has no member types")
-		}
-		for _, member := range members {
-			memberLex := c.normalizeLexical(lexical, member)
-			memberFacets, err := c.facetsForType(member)
-			if err != nil {
-				return nil, err
-			}
-			err = c.validatePartialFacets(memberLex, member, memberFacets)
-			if err != nil {
-				continue
-			}
-			canon, err := c.canonicalizeNormalizedDefault(lexical, memberLex, member, ctx)
-			if err != nil {
-				continue
-			}
-			if err := c.validateEnumSets(lexical, memberLex, member, ctx); err != nil {
-				continue
-			}
-			return canon, nil
-		}
-		return nil, fmt.Errorf("union value does not match any member type")
-	default:
-		return c.canonicalizeAtomic(normalized, typ, ctx)
-	}
+	return c.canonicalizeNormalizedCore(lexical, normalized, typ, ctx, canonicalizeDefault)
 }
 
 func (c *compiler) validateEnumSets(lexical, normalized string, typ types.Type, ctx map[string]string) error {

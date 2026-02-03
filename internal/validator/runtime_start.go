@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"bytes"
 	"fmt"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
@@ -150,6 +151,10 @@ func (s *Session) scanXsiAttributes(attrs []StartAttr) ([]byte, []byte, error) {
 	var xsiType []byte
 	var xsiNil []byte
 	predef := s.rt.Predef
+	xsiNS := s.rt.PredefNS.Xsi
+	xsiNSBytes := s.rt.Namespaces.Bytes(xsiNS)
+	typeLocal := []byte("type")
+	nilLocal := []byte("nil")
 	for _, attr := range attrs {
 		switch attr.Sym {
 		case predef.XsiType:
@@ -162,9 +167,39 @@ func (s *Session) scanXsiAttributes(attrs []StartAttr) ([]byte, []byte, error) {
 				return nil, nil, newValidationError(xsderrors.ErrDatatypeInvalid, "duplicate xsi:nil attribute")
 			}
 			xsiNil = attr.Value
+			continue
+		}
+		if attr.Sym != 0 {
+			continue
+		}
+		if !isXsiNamespace(attr, xsiNS, xsiNSBytes) {
+			continue
+		}
+		if bytes.Equal(attr.Local, typeLocal) {
+			if len(xsiType) > 0 {
+				return nil, nil, newValidationError(xsderrors.ErrDatatypeInvalid, "duplicate xsi:type attribute")
+			}
+			xsiType = attr.Value
+			continue
+		}
+		if bytes.Equal(attr.Local, nilLocal) {
+			if len(xsiNil) > 0 {
+				return nil, nil, newValidationError(xsderrors.ErrDatatypeInvalid, "duplicate xsi:nil attribute")
+			}
+			xsiNil = attr.Value
 		}
 	}
 	return xsiType, xsiNil, nil
+}
+
+func isXsiNamespace(attr StartAttr, xsiNS runtime.NamespaceID, xsiNSBytes []byte) bool {
+	if attr.NS != 0 {
+		return attr.NS == xsiNS
+	}
+	if len(attr.NSBytes) == 0 || len(xsiNSBytes) == 0 {
+		return false
+	}
+	return bytes.Equal(attr.NSBytes, xsiNSBytes)
 }
 
 func (s *Session) resolveXsiType(valueBytes []byte, resolver value.NSResolver) (runtime.TypeID, error) {

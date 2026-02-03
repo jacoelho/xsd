@@ -20,6 +20,32 @@ func ParseBoolean(lexical []byte) (bool, error) {
 	}
 }
 
+// ParseDecimal parses a decimal lexical value into num.Dec.
+func ParseDecimal(lexical []byte) (num.Dec, error) {
+	trimmed := TrimXMLWhitespace(lexical)
+	if len(trimmed) == 0 {
+		return num.Dec{}, fmt.Errorf("invalid decimal: empty string")
+	}
+	dec, perr := num.ParseDec(trimmed)
+	if perr != nil {
+		return num.Dec{}, fmt.Errorf("invalid decimal: %s", string(trimmed))
+	}
+	return dec, nil
+}
+
+// ParseInteger parses an integer lexical value into num.Int.
+func ParseInteger(lexical []byte) (num.Int, error) {
+	trimmed := TrimXMLWhitespace(lexical)
+	if len(trimmed) == 0 {
+		return num.Int{}, fmt.Errorf("invalid integer: empty string")
+	}
+	intVal, perr := num.ParseInt(trimmed)
+	if perr != nil {
+		return num.Int{}, fmt.Errorf("invalid integer: %s", string(trimmed))
+	}
+	return intVal, nil
+}
+
 // ParseFloat parses a float lexical value into float32.
 func ParseFloat(lexical []byte) (float32, error) {
 	trimmed := TrimXMLWhitespace(lexical)

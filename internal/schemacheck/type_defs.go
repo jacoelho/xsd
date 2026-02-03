@@ -141,13 +141,14 @@ func validateNotationEnumeration(schema *parser.Schema, facetList []types.Facet)
 		if !ok {
 			continue
 		}
+		values := enum.Values()
 		qnames, err := enum.ResolveQNameValues()
 		if err != nil {
 			return err
 		}
 		for i, qname := range qnames {
 			if _, ok := schema.NotationDecls[qname]; !ok {
-				return fmt.Errorf("enumeration value %q does not reference a declared notation", enum.Values[i])
+				return fmt.Errorf("enumeration value %q does not reference a declared notation", values[i])
 			}
 		}
 	}

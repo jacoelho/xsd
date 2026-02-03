@@ -59,10 +59,10 @@ func TestValidateValueAgainstFacets(t *testing.T) {
 		t.Fatalf("expected mytype simple type")
 	}
 	facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
-	if err := validateValueAgainstFacets("abcd", st, facets, nil); err != nil {
+	if err := types.ValidateValueAgainstFacets("abcd", st, facets, nil); err != nil {
 		t.Fatalf("expected valid facet value, got %v", err)
 	}
-	if err := validateValueAgainstFacets("ab", st, facets, nil); err == nil {
+	if err := types.ValidateValueAgainstFacets("ab", st, facets, nil); err == nil {
 		t.Fatalf("expected facet violation for short value")
 	}
 }

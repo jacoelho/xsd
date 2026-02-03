@@ -109,7 +109,7 @@ func TestSimpleTypeValidateListMembers(t *testing.T) {
 }
 
 func TestSimpleTypeValidateWithContextQNameEnumeration(t *testing.T) {
-	enum := &types.Enumeration{Values: []string{"p:red", "p:blue"}}
+	enum := types.NewEnumeration([]string{"p:red", "p:blue"})
 	enum.SetValueContexts([]map[string]string{
 		{"p": "urn:colors"},
 		{"p": "urn:colors"},

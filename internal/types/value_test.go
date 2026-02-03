@@ -140,7 +140,7 @@ func TestTypedValue_DateTimeCanonicalString(t *testing.T) {
 		{"date no tz", TypeNameDate, "2001-10-26", "2001-10-26"},
 		{"date with tz", TypeNameDate, "2001-10-26Z", "2001-10-26Z"},
 		{"time no tz", TypeNameTime, "21:32:52", "21:32:52"},
-		{"time with tz", TypeNameTime, "21:32:52+05:30", "21:32:52+05:30"},
+		{"time with tz", TypeNameTime, "21:32:52+05:30", "16:02:52Z"},
 		{"gYear no tz", TypeNameGYear, "2001", "2001"},
 		{"gYear with tz", TypeNameGYear, "2001Z", "2001Z"},
 		{"gYearMonth no tz", TypeNameGYearMonth, "2001-10", "2001-10"},

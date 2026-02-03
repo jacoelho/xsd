@@ -69,6 +69,9 @@ func resolveSystemID(baseSystemID, schemaLocation string) (string, error) {
 	if schemaLocation == "" {
 		return "", fmt.Errorf("schema location is empty")
 	}
+	if baseSystemID != "" && strings.Contains(baseSystemID, "\\") {
+		return "", fmt.Errorf("base system ID contains backslash: %q", baseSystemID)
+	}
 	segments := strings.Split(schemaLocation, "/")
 	if len(segments) == 0 {
 		return "", fmt.Errorf("schema location is empty")

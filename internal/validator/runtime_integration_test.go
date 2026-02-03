@@ -198,8 +198,9 @@ func TestRuntimeAttributeGroupProhibitedIgnored(t *testing.T) {
 </xs:schema>`
 
 	doc := `<doc a="ok"/>`
-	if err := validateRuntimeDoc(t, schema, doc); err != nil {
-		t.Fatalf("validate runtime: %v", err)
+	err := validateRuntimeDoc(t, schema, doc)
+	if err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
 	}
 }
 
@@ -522,6 +523,28 @@ func TestRuntimeXsiTypeBlockedByBaseTypeBlock(t *testing.T) {
 	}
 }
 
+func TestRuntimeAnyURIRejectsSpaces(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyURI"/>
+</xs:schema>`
+
+	bad := `<root>http://exa mple.com</root>`
+	err := validateRuntimeDoc(t, schema, bad)
+	if err == nil {
+		t.Fatalf("expected anyURI whitespace error")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsderrors.ErrDatatypeInvalid) {
+		t.Fatalf("expected ErrDatatypeInvalid, got %+v", list)
+	}
+
+	good := `<root>http://example.com/%20</root>`
+	if err := validateRuntimeDoc(t, schema, good); err != nil {
+		t.Fatalf("expected anyURI percent-encoding to pass: %v", err)
+	}
+}
+
 func TestRuntimeIdentityFieldUnionSingleField(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -556,7 +579,45 @@ func TestRuntimeIdentityFieldUnionSingleField(t *testing.T) {
 	}
 }
 
-func TestRuntimeKeyrefMissingFieldFails(t *testing.T) {
+func TestRuntimeIdentitySelectorDescendantMidPath(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="wrap">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="b" maxOccurs="unbounded">
+                      <xs:complexType>
+                        <xs:attribute name="id" type="xs:ID" use="required"/>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="k">
+      <xs:selector xpath="a//b"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`
+
+	doc := `<root><a><wrap><b id="a1"/></wrap></a></root>`
+	if err := validateRuntimeDoc(t, schema, doc); err != nil {
+		t.Fatalf("validate runtime: %v", err)
+	}
+}
+
+func TestRuntimeKeyrefMissingFieldExcluded(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
@@ -582,9 +643,40 @@ func TestRuntimeKeyrefMissingFieldFails(t *testing.T) {
 </xs:schema>`
 
 	doc := `<root><item id="a"/><item id="b" ref="a"/></root>`
+	if err := validateRuntimeDoc(t, schema, doc); err != nil {
+		t.Fatalf("expected missing keyref fields to be excluded, got %v", err)
+	}
+}
+
+func TestRuntimeKeyrefMissingFieldMismatchFails(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:ID" use="required"/>
+            <xs:attribute name="ref" type="xs:IDREF"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="k">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+    <xs:keyref name="r" refer="k">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@ref"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`
+
+	doc := `<root><item id="a"/><item id="b" ref="c"/></root>`
 	err := validateRuntimeDoc(t, schema, doc)
 	if err == nil {
-		t.Fatalf("expected keyref missing field violation")
+		t.Fatalf("expected keyref mismatch violation")
 	}
 	list := mustValidationList(t, err)
 	if !hasValidationCode(list, xsderrors.ErrIdentityKeyRefFailed) {

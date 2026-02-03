@@ -69,21 +69,22 @@ func BuildSchema(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, error) {
 }
 
 type schemaBuilder struct {
-	complexIDs      map[runtime.TypeID]uint32
-	rt              *runtime.Schema
-	refs            *schema.ResolvedReferences
+	err             error
+	registry        *schema.Registry
+	builtinIDs      map[types.TypeName]runtime.TypeID
 	validators      *CompiledValidators
 	anyElementRules map[*types.AnyElement]runtime.WildcardID
 	typeIDs         map[schema.TypeID]runtime.TypeID
 	builder         *runtime.Builder
 	schema          *parser.Schema
-	registry        *schema.Registry
+	complexIDs      map[runtime.TypeID]uint32
+	refs            *schema.ResolvedReferences
 	attrIDs         map[schema.AttrID]runtime.AttrID
 	elemIDs         map[schema.ElemID]runtime.ElemID
-	builtinIDs      map[types.TypeName]runtime.TypeID
-	wildcardNS      []runtime.NamespaceID
+	rt              *runtime.Schema
 	paths           []runtime.PathProgram
 	wildcards       []runtime.WildcardRule
+	wildcardNS      []runtime.NamespaceID
 	maxOccurs       uint32
 	anyTypeComplex  uint32
 	limits          models.Limits
@@ -94,6 +95,9 @@ const defaultMaxOccursLimit = 1_000_000
 func (b *schemaBuilder) build() (*runtime.Schema, error) {
 	if err := b.initSymbols(); err != nil {
 		return nil, err
+	}
+	if b.err != nil {
+		return nil, b.err
 	}
 	rt, err := b.builder.Build()
 	if err != nil {
@@ -1385,6 +1389,9 @@ func (b *schemaBuilder) internNamespace(ns types.NamespaceURI) runtime.Namespace
 	if b == nil {
 		return 0
 	}
+	if b.err != nil {
+		return 0
+	}
 	if b.rt != nil {
 		if ns.IsEmpty() {
 			return b.rt.PredefNS.Empty
@@ -1395,13 +1402,20 @@ func (b *schemaBuilder) internNamespace(ns types.NamespaceURI) runtime.Namespace
 		return 0
 	}
 	if ns.IsEmpty() {
-		return b.builder.InternNamespace(nil)
+		id, err := b.builder.InternNamespace(nil)
+		b.setError(err)
+		return id
 	}
-	return b.builder.InternNamespace([]byte(ns))
+	id, err := b.builder.InternNamespace([]byte(ns))
+	b.setError(err)
+	return id
 }
 
 func (b *schemaBuilder) internQName(qname types.QName) runtime.SymbolID {
 	if b == nil {
+		return 0
+	}
+	if b.err != nil {
 		return 0
 	}
 	nsID := b.internNamespace(qname.Namespace)
@@ -1414,7 +1428,16 @@ func (b *schemaBuilder) internQName(qname types.QName) runtime.SymbolID {
 	if b.builder == nil {
 		return 0
 	}
-	return b.builder.InternSymbol(nsID, []byte(qname.Local))
+	id, err := b.builder.InternSymbol(nsID, []byte(qname.Local))
+	b.setError(err)
+	return id
+}
+
+func (b *schemaBuilder) setError(err error) {
+	if err == nil || b == nil || b.err != nil {
+		return
+	}
+	b.err = err
 }
 
 func toRuntimeAttrUse(use types.AttributeUse) runtime.AttrUseKind {

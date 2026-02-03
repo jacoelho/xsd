@@ -106,7 +106,7 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 			if err != nil {
 				return keyBytes{}, err
 			}
-			if err := validateIntegerKind(c.integerKindForType(typ), intVal); err != nil {
+			if err := runtime.ValidateIntegerKind(c.integerKindForType(typ), intVal); err != nil {
 				return keyBytes{}, err
 			}
 			return keyBytes{kind: runtime.VKDecimal, bytes: num.EncodeIntKey(nil, intVal)}, nil
@@ -121,7 +121,7 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 		if err != nil {
 			return keyBytes{}, err
 		}
-		if err := validateIntegerKind(c.integerKindForType(typ), intVal); err != nil {
+		if err := runtime.ValidateIntegerKind(c.integerKindForType(typ), intVal); err != nil {
 			return keyBytes{}, err
 		}
 		return keyBytes{kind: runtime.VKDecimal, bytes: num.EncodeIntKey(nil, intVal)}, nil
@@ -261,43 +261,4 @@ func parseDec(normalized string) (num.Dec, error) {
 		return num.Dec{}, fmt.Errorf("invalid decimal")
 	}
 	return val, nil
-}
-
-func validateIntegerKind(kind runtime.IntegerKind, intVal num.Int) error {
-	spec, ok := runtime.IntegerKindSpecFor(kind)
-	if !ok {
-		return nil
-	}
-	switch spec.SignRule {
-	case runtime.IntegerSignNonNegative:
-		if intVal.Sign < 0 {
-			if spec.HasRange {
-				return fmt.Errorf("invalid %s", spec.Label)
-			}
-			return fmt.Errorf("invalid non-negative integer")
-		}
-	case runtime.IntegerSignPositive:
-		if intVal.Sign <= 0 {
-			return fmt.Errorf("invalid positive integer")
-		}
-	case runtime.IntegerSignNonPositive:
-		if intVal.Sign > 0 {
-			return fmt.Errorf("invalid non-positive integer")
-		}
-	case runtime.IntegerSignNegative:
-		if intVal.Sign >= 0 {
-			return fmt.Errorf("invalid negative integer")
-		}
-	}
-	if spec.HasRange {
-		return checkIntRange(intVal, spec.Min, spec.Max)
-	}
-	return nil
-}
-
-func checkIntRange(intVal, minValue, maxValue num.Int) error {
-	if intVal.Compare(minValue) < 0 || intVal.Compare(maxValue) > 0 {
-		return fmt.Errorf("integer out of range")
-	}
-	return nil
 }

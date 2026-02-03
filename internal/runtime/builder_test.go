@@ -9,16 +9,16 @@ import (
 
 func TestNamespaceInterner(t *testing.T) {
 	b := NewBuilder()
-	emptyID := b.InternNamespace(nil)
+	emptyID := mustInternNamespace(t, b, nil)
 	if emptyID != 1 {
 		t.Fatalf("empty namespace id = %d, want 1", emptyID)
 	}
-	aID := b.InternNamespace([]byte("urn:a"))
-	bID := b.InternNamespace([]byte("urn:b"))
+	aID := mustInternNamespace(t, b, []byte("urn:a"))
+	bID := mustInternNamespace(t, b, []byte("urn:b"))
 	if aID == bID {
 		t.Fatalf("expected distinct IDs for namespaces")
 	}
-	if again := b.InternNamespace([]byte("urn:a")); again != aID {
+	if again := mustInternNamespace(t, b, []byte("urn:a")); again != aID {
 		t.Fatalf("namespace interning not stable: got %d want %d", again, aID)
 	}
 
@@ -80,14 +80,14 @@ func TestPredefinedSymbols(t *testing.T) {
 
 func TestSymbolInterner(t *testing.T) {
 	b := NewBuilder()
-	aNS := b.InternNamespace([]byte("urn:a"))
-	bNS := b.InternNamespace([]byte("urn:b"))
+	aNS := mustInternNamespace(t, b, []byte("urn:a"))
+	bNS := mustInternNamespace(t, b, []byte("urn:b"))
 
-	rootA := b.InternSymbol(aNS, []byte("root"))
-	if again := b.InternSymbol(aNS, []byte("root")); again != rootA {
+	rootA := mustInternSymbol(t, b, aNS, []byte("root"))
+	if again := mustInternSymbol(t, b, aNS, []byte("root")); again != rootA {
 		t.Fatalf("symbol interning not stable: got %d want %d", again, rootA)
 	}
-	rootB := b.InternSymbol(bNS, []byte("root"))
+	rootB := mustInternSymbol(t, b, bNS, []byte("root"))
 	if rootB == rootA {
 		t.Fatalf("expected distinct IDs for different namespaces")
 	}
@@ -109,20 +109,20 @@ func TestSymbolInterner(t *testing.T) {
 
 func TestInternerDeterminism(t *testing.T) {
 	b1 := NewBuilder()
-	a1 := b1.InternNamespace([]byte("urn:a"))
-	b1ns := b1.InternNamespace([]byte("urn:b"))
-	sym1 := b1.InternSymbol(a1, []byte("root"))
-	sym2 := b1.InternSymbol(b1ns, []byte("child"))
+	a1 := mustInternNamespace(t, b1, []byte("urn:a"))
+	b1ns := mustInternNamespace(t, b1, []byte("urn:b"))
+	sym1 := mustInternSymbol(t, b1, a1, []byte("root"))
+	sym2 := mustInternSymbol(t, b1, b1ns, []byte("child"))
 	s1, err := b1.Build()
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
 
 	b2 := NewBuilder()
-	a2 := b2.InternNamespace([]byte("urn:a"))
-	b2ns := b2.InternNamespace([]byte("urn:b"))
-	sym1b := b2.InternSymbol(a2, []byte("root"))
-	sym2b := b2.InternSymbol(b2ns, []byte("child"))
+	a2 := mustInternNamespace(t, b2, []byte("urn:a"))
+	b2ns := mustInternNamespace(t, b2, []byte("urn:b"))
+	sym1b := mustInternSymbol(t, b2, a2, []byte("root"))
+	sym2b := mustInternSymbol(t, b2, b2ns, []byte("child"))
 	s2, err := b2.Build()
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
@@ -183,4 +183,35 @@ func TestBuilderBuildRejectsInvalidSymbolTable(t *testing.T) {
 	if _, err := b.Build(); err == nil {
 		t.Fatalf("expected Build() error for invalid symbol table")
 	}
+}
+
+func TestBuilderReuseAfterBuildReturnsError(t *testing.T) {
+	b := NewBuilder()
+	if _, err := b.Build(); err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	if _, err := b.InternNamespace([]byte("urn:after")); err == nil {
+		t.Fatalf("expected InternNamespace error after Build")
+	}
+	if _, err := b.Build(); err == nil {
+		t.Fatalf("expected Build error after Build")
+	}
+}
+
+func mustInternNamespace(t *testing.T, b *Builder, uri []byte) NamespaceID {
+	t.Helper()
+	id, err := b.InternNamespace(uri)
+	if err != nil {
+		t.Fatalf("InternNamespace: %v", err)
+	}
+	return id
+}
+
+func mustInternSymbol(t *testing.T, b *Builder, nsID NamespaceID, local []byte) SymbolID {
+	t.Helper()
+	id, err := b.InternSymbol(nsID, local)
+	if err != nil {
+		t.Fatalf("InternSymbol: %v", err)
+	}
+	return id
 }

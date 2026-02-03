@@ -393,10 +393,10 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Fa
 		derivedEnum, derivedOk := derivedFacet.(*types.Enumeration)
 		if baseOk && derivedOk {
 			baseValues := make(map[string]bool)
-			for _, val := range baseEnum.Values {
+			for _, val := range baseEnum.Values() {
 				baseValues[val] = true
 			}
-			for _, derivedValStr := range derivedEnum.Values {
+			for _, derivedValStr := range derivedEnum.Values() {
 				if !baseValues[derivedValStr] {
 					return fmt.Errorf("facet %s: derived enumeration value (%s) must be in base enumeration", facetName, derivedValStr)
 				}

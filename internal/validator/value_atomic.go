@@ -1,8 +1,6 @@
 package validator
 
 import (
-	"fmt"
-
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/types"
@@ -76,7 +74,7 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		if perr != nil {
 			return nil, valueErrorMsg(valueErrInvalid, "invalid integer")
 		}
-		if err := validateIntegerKind(kind, intVal); err != nil {
+		if err := runtime.ValidateIntegerKind(kind, intVal); err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
 		if metrics != nil {
@@ -176,7 +174,7 @@ func (s *Session) validateAtomicNoCanonical(meta runtime.ValidatorMeta, normaliz
 		if perr != nil {
 			return valueErrorMsg(valueErrInvalid, "invalid integer")
 		}
-		if err := validateIntegerKind(kind, intVal); err != nil {
+		if err := runtime.ValidateIntegerKind(kind, intVal); err != nil {
 			return valueErrorMsg(valueErrInvalid, err.Error())
 		}
 	case runtime.VFloat:
@@ -228,40 +226,4 @@ func validateStringKind(kind runtime.StringKind, normalized []byte) error {
 	default:
 		return nil
 	}
-}
-
-func validateIntegerKind(kind runtime.IntegerKind, v num.Int) error {
-	spec, ok := runtime.IntegerKindSpecFor(kind)
-	if !ok {
-		return nil
-	}
-	switch spec.SignRule {
-	case runtime.IntegerSignNonNegative:
-		if v.Sign < 0 {
-			return fmt.Errorf("%s must be >= 0", spec.Label)
-		}
-	case runtime.IntegerSignPositive:
-		if v.Sign <= 0 {
-			return fmt.Errorf("%s must be >= 1", spec.Label)
-		}
-	case runtime.IntegerSignNonPositive:
-		if v.Sign > 0 {
-			return fmt.Errorf("%s must be <= 0", spec.Label)
-		}
-	case runtime.IntegerSignNegative:
-		if v.Sign >= 0 {
-			return fmt.Errorf("%s must be <= -1", spec.Label)
-		}
-	}
-	if spec.HasRange {
-		return validateIntRange(v, spec.Min, spec.Max, spec.Label)
-	}
-	return nil
-}
-
-func validateIntRange(v, minValue, maxValue num.Int, label string) error {
-	if v.Compare(minValue) < 0 || v.Compare(maxValue) > 0 {
-		return fmt.Errorf("%s out of range", label)
-	}
-	return nil
 }

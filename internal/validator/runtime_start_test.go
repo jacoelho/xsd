@@ -36,6 +36,24 @@ func TestStartElementXsiTypeRetarget(t *testing.T) {
 	}
 }
 
+func TestStartElementXsiTypeNamespaceFallback(t *testing.T) {
+	schema, ids := buildRuntimeFixture(t)
+	sess := NewSession(schema)
+
+	attrs := []StartAttr{{
+		NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
+		Local:   []byte("type"),
+		Value:   []byte("t:Derived"),
+	}}
+	result, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, mapResolver{"t": "urn:test"})
+	if err != nil {
+		t.Fatalf("StartElement: %v", err)
+	}
+	if result.Type != ids.typeDerived {
+		t.Fatalf("type = %d, want %d", result.Type, ids.typeDerived)
+	}
+}
+
 func TestStartElementXsiTypeBlocked(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
 	schema.Elements[ids.elemBase].Block = runtime.ElemBlockExtension
@@ -69,6 +87,25 @@ func TestStartElementXsiNil(t *testing.T) {
 	}
 }
 
+func TestStartElementXsiNilNamespaceFallback(t *testing.T) {
+	schema, ids := buildRuntimeFixture(t)
+	schema.Elements[ids.elemBase].Flags |= runtime.ElemNillable
+	sess := NewSession(schema)
+
+	attrs := []StartAttr{{
+		NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
+		Local:   []byte("nil"),
+		Value:   []byte("true"),
+	}}
+	result, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, nil)
+	if err != nil {
+		t.Fatalf("StartElement: %v", err)
+	}
+	if !result.Nilled {
+		t.Fatalf("expected nilled element")
+	}
+}
+
 func TestStartElementXsiNilNotAllowed(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
 	sess := NewSession(schema)
@@ -80,6 +117,49 @@ func TestStartElementXsiNilNotAllowed(t *testing.T) {
 	_, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, nil)
 	if err == nil {
 		t.Fatalf("expected nillable error")
+	}
+}
+
+func TestStartElementXsiTypeDuplicateMixed(t *testing.T) {
+	schema, ids := buildRuntimeFixture(t)
+	sess := NewSession(schema)
+
+	attrs := []StartAttr{
+		{
+			Sym:   schema.Predef.XsiType,
+			Value: []byte("t:Derived"),
+		},
+		{
+			NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
+			Local:   []byte("type"),
+			Value:   []byte("t:Derived"),
+		},
+	}
+	_, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, mapResolver{"t": "urn:test"})
+	if err == nil {
+		t.Fatalf("expected duplicate xsi:type error")
+	}
+}
+
+func TestStartElementXsiNilDuplicateMixed(t *testing.T) {
+	schema, ids := buildRuntimeFixture(t)
+	schema.Elements[ids.elemBase].Flags |= runtime.ElemNillable
+	sess := NewSession(schema)
+
+	attrs := []StartAttr{
+		{
+			Sym:   schema.Predef.XsiNil,
+			Value: []byte("true"),
+		},
+		{
+			NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
+			Local:   []byte("nil"),
+			Value:   []byte("true"),
+		},
+	}
+	_, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, nil)
+	if err == nil {
+		t.Fatalf("expected duplicate xsi:nil error")
 	}
 }
 
@@ -154,10 +234,10 @@ func TestStartElementWildcardResolvesGlobal(t *testing.T) {
 func buildRuntimeFixture(tb testing.TB) (*runtime.Schema, fixtureIDs) {
 	tb.Helper()
 	builder := runtime.NewBuilder()
-	nsID := builder.InternNamespace([]byte("urn:test"))
-	elemSym := builder.InternSymbol(nsID, []byte("Base"))
-	baseSym := builder.InternSymbol(nsID, []byte("BaseType"))
-	derivedSym := builder.InternSymbol(nsID, []byte("Derived"))
+	nsID := mustInternNamespace(tb, builder, []byte("urn:test"))
+	elemSym := mustInternSymbol(tb, builder, nsID, []byte("Base"))
+	baseSym := mustInternSymbol(tb, builder, nsID, []byte("BaseType"))
+	derivedSym := mustInternSymbol(tb, builder, nsID, []byte("Derived"))
 	schema, err := builder.Build()
 	if err != nil {
 		tb.Fatalf("Build() error = %v", err)
