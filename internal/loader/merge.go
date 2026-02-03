@@ -77,9 +77,6 @@ func newMergeContext(target, source *parser.Schema, kind mergeKind, remap namesp
 // For imports, preserves source namespace.
 // For includes, uses chameleon namespace remapping if needed.
 func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind, remap namespaceRemapMode, insertAt int) error {
-	if target == nil {
-		return fmt.Errorf("target schema is nil")
-	}
 	staging := cloneSchemaForMerge(target)
 	ctx := newMergeContext(staging, source, kind, remap)
 	existingDecls := existingGlobalDecls(staging)
@@ -113,9 +110,6 @@ func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind
 }
 
 func cloneSchemaForMerge(schema *parser.Schema) *parser.Schema {
-	if schema == nil {
-		return nil
-	}
 	clone := *schema
 	clone.ImportContexts = copyImportContexts(schema.ImportContexts)
 	clone.ImportedNamespaces = copyImportedNamespaces(schema.ImportedNamespaces)

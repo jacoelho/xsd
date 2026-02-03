@@ -84,7 +84,10 @@ func (s *Session) applyFacets(meta runtime.ValidatorMeta, normalized, canonical 
 			if shouldSkipRuntimeLengthFacet(meta.Kind) {
 				continue
 			}
-			length := s.valueLength(meta, normalized, metrics)
+			length, err := s.valueLength(meta, normalized, metrics)
+			if err != nil {
+				return err
+			}
 			switch instr.Op {
 			case runtime.FLength:
 				if length != int(instr.Arg0) {
@@ -154,43 +157,43 @@ func (s *Session) hasLengthFacet(meta runtime.ValidatorMeta) bool {
 	return false
 }
 
-func (s *Session) valueLength(meta runtime.ValidatorMeta, normalized []byte, metrics *valueMetrics) int {
+func (s *Session) valueLength(meta runtime.ValidatorMeta, normalized []byte, metrics *valueMetrics) (int, error) {
 	if metrics != nil && metrics.lengthSet {
-		return metrics.length
+		return metrics.length, nil
 	}
 	switch meta.Kind {
 	case runtime.VList:
 		if metrics != nil && metrics.listSet {
 			metrics.length = metrics.listCount
 			metrics.lengthSet = true
-			return metrics.length
+			return metrics.length, nil
 		}
 		count := listItemCount(normalized, meta.WhiteSpace == runtime.WS_Collapse)
 		if metrics != nil {
 			metrics.length = count
 			metrics.lengthSet = true
 		}
-		return count
+		return count, nil
 	case runtime.VHexBinary:
-		return binaryOctetLength(types.ParseHexBinary, normalized, metrics)
+		return binaryOctetLength(types.ParseHexBinary, normalized, metrics, "hexBinary")
 	case runtime.VBase64Binary:
-		return binaryOctetLength(types.ParseBase64Binary, normalized, metrics)
+		return binaryOctetLength(types.ParseBase64Binary, normalized, metrics, "base64Binary")
 	default:
-		return utf8.RuneCount(normalized)
+		return utf8.RuneCount(normalized), nil
 	}
 }
 
-func binaryOctetLength(parse func(string) ([]byte, error), normalized []byte, metrics *valueMetrics) int {
+func binaryOctetLength(parse func(string) ([]byte, error), normalized []byte, metrics *valueMetrics, label string) (int, error) {
 	decoded, err := parse(string(normalized))
 	if err != nil {
-		return 0
+		return 0, valueErrorf(valueErrInvalid, "invalid %s", label)
 	}
 	length := len(decoded)
 	if metrics != nil {
 		metrics.length = length
 		metrics.lengthSet = true
 	}
-	return length
+	return length, nil
 }
 
 func (s *Session) compareValue(kind runtime.ValidatorKind, canonical, bound []byte, metrics *valueMetrics) (int, error) {

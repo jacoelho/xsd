@@ -166,7 +166,7 @@ func mergeAttributesFromGroups(schema *parser.Schema, groups []types.QName, attr
 		attrs := group.Attributes
 		for _, attr := range attrs {
 			if attr != nil && attr.Use == types.Prohibited {
-				// match W3C attZ015: prohibited uses in attribute groups do not contribute to uses
+				// W3C attZ015: ignore prohibited uses from attribute groups.
 				filtered := make([]*types.AttributeDecl, 0, len(attrs))
 				for _, candidate := range attrs {
 					if candidate == nil || candidate.Use == types.Prohibited {

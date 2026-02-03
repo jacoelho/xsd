@@ -379,6 +379,7 @@ func TestBinaryLengthFacets(t *testing.T) {
 		schemaXML string
 		docXML    string
 		wantErr   bool
+		wantCode  xsderrors.ErrorCode
 	}{
 		{
 			name:      "base64Binary length accepts one byte",
@@ -414,6 +415,13 @@ func TestBinaryLengthFacets(t *testing.T) {
 			wantErr:   true,
 		},
 		{
+			name:      "base64Binary invalid format reports invalid",
+			schemaXML: binarySchema("base64Binary", "length", 1),
+			docXML:    `<root xmlns="urn:test">AQ=</root>`,
+			wantErr:   true,
+			wantCode:  xsderrors.ErrDatatypeInvalid,
+		},
+		{
 			name:      "hexBinary length accepts one byte",
 			schemaXML: binarySchema("hexBinary", "length", 1),
 			docXML:    `<root xmlns="urn:test">0F</root>`,
@@ -446,6 +454,13 @@ func TestBinaryLengthFacets(t *testing.T) {
 			docXML:    `<root xmlns="urn:test">0F10</root>`,
 			wantErr:   true,
 		},
+		{
+			name:      "hexBinary invalid format reports invalid",
+			schemaXML: binarySchema("hexBinary", "length", 1),
+			docXML:    `<root xmlns="urn:test">0G</root>`,
+			wantErr:   true,
+			wantCode:  xsderrors.ErrDatatypeInvalid,
+		},
 	}
 
 	for _, tc := range cases {
@@ -454,6 +469,12 @@ func TestBinaryLengthFacets(t *testing.T) {
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("expected validation error")
+				}
+				if tc.wantCode != "" {
+					list := mustValidationList(t, err)
+					if !hasValidationCode(list, tc.wantCode) {
+						t.Fatalf("expected %s, got %+v", tc.wantCode, list)
+					}
 				}
 				return
 			}

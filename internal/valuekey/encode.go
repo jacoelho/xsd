@@ -10,7 +10,7 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-// StringKeyBytes appends a tagged string key to dst.
+// StringKeyBytes writes a tagged string key into dst, reusing capacity; dst is overwritten from the start.
 func StringKeyBytes(dst []byte, tag byte, value []byte) []byte {
 	dst = append(dst[:0], tag)
 	dst = append(dst, value...)
@@ -25,7 +25,7 @@ func StringKeyString(tag byte, value string) []byte {
 	return out
 }
 
-// BinaryKeyBytes appends a tagged binary key to dst.
+// BinaryKeyBytes writes a tagged binary key into dst, reusing capacity; dst is overwritten from the start.
 func BinaryKeyBytes(dst []byte, tag byte, data []byte) []byte {
 	dst = append(dst[:0], tag)
 	dst = append(dst, data...)
@@ -43,7 +43,7 @@ func QNameKeyStrings(tag byte, ns, local string) []byte {
 	return out
 }
 
-// QNameKeyCanonical appends a tagged QName key from canonical bytes (ns\0local).
+// QNameKeyCanonical writes a tagged QName key into dst, reusing capacity; dst is overwritten from the start.
 func QNameKeyCanonical(dst []byte, tag byte, canonical []byte) []byte {
 	sep := bytes.IndexByte(canonical, 0)
 	if sep < 0 {
