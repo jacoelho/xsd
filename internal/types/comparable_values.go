@@ -631,9 +631,9 @@ func isDayTimeDuration(value XSDDuration) bool {
 
 func durationTotalSeconds(value XSDDuration) num.Dec {
 	total := value.Seconds
-	total = addDecIntBig(total, num.Mul(num.FromInt64(int64(value.Minutes)), num.FromInt64(60)))
-	total = addDecIntBig(total, num.Mul(num.FromInt64(int64(value.Hours)), num.FromInt64(3600)))
-	total = addDecIntBig(total, num.Mul(num.FromInt64(int64(value.Days)), num.FromInt64(86400)))
+	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(value.Minutes)), num.FromInt64(60)))
+	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(value.Hours)), num.FromInt64(3600)))
+	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(value.Days)), num.FromInt64(86400)))
 	if value.Negative {
 		total = negateDec(total)
 	}
@@ -791,32 +791,6 @@ func decAdd(a, b num.Dec) num.Dec {
 	bi := num.DecToScaledInt(b, scale)
 	sum := num.Add(ai, bi)
 	return num.DecFromScaledInt(sum, scale)
-}
-
-func addDecIntBig(dec num.Dec, delta num.Int) num.Dec {
-	if delta.Sign == 0 {
-		return dec
-	}
-	scale := dec.Scale
-	scaled := num.DecToScaledInt(dec, scale)
-	if scale != 0 {
-		delta = num.Mul(delta, pow10Int(scale))
-	}
-	sum := num.Add(scaled, delta)
-	return num.DecFromScaledInt(sum, scale)
-}
-
-func pow10Int(scale uint32) num.Int {
-	if scale == 0 {
-		return num.FromInt64(1)
-	}
-	digits := make([]byte, int(scale)+1)
-	digits[0] = '1'
-	for i := 1; i < len(digits); i++ {
-		digits[i] = '0'
-	}
-	out, _ := num.ParseInt(digits)
-	return out
 }
 
 func negateDec(dec num.Dec) num.Dec {

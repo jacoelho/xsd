@@ -119,22 +119,31 @@ func cloneSchemaForMerge(schema *parser.Schema) *parser.Schema {
 	clone := *schema
 	clone.ImportContexts = copyImportContexts(schema.ImportContexts)
 	clone.ImportedNamespaces = copyImportedNamespaces(schema.ImportedNamespaces)
-	clone.ElementDecls = copyQNameElementDecls(schema.ElementDecls)
-	clone.ElementOrigins = copyQNameStringMap(schema.ElementOrigins)
-	clone.TypeDefs = copyQNameTypes(schema.TypeDefs)
-	clone.TypeOrigins = copyQNameStringMap(schema.TypeOrigins)
-	clone.AttributeDecls = copyQNameAttrDecls(schema.AttributeDecls)
-	clone.AttributeOrigins = copyQNameStringMap(schema.AttributeOrigins)
-	clone.AttributeGroups = copyQNameAttrGroups(schema.AttributeGroups)
-	clone.AttributeGroupOrigins = copyQNameStringMap(schema.AttributeGroupOrigins)
-	clone.Groups = copyQNameGroups(schema.Groups)
-	clone.GroupOrigins = copyQNameStringMap(schema.GroupOrigins)
+	clone.ElementDecls = cloneMap(schema.ElementDecls)
+	clone.ElementOrigins = cloneMap(schema.ElementOrigins)
+	clone.TypeDefs = cloneMap(schema.TypeDefs)
+	clone.TypeOrigins = cloneMap(schema.TypeOrigins)
+	clone.AttributeDecls = cloneMap(schema.AttributeDecls)
+	clone.AttributeOrigins = cloneMap(schema.AttributeOrigins)
+	clone.AttributeGroups = cloneMap(schema.AttributeGroups)
+	clone.AttributeGroupOrigins = cloneMap(schema.AttributeGroupOrigins)
+	clone.Groups = cloneMap(schema.Groups)
+	clone.GroupOrigins = cloneMap(schema.GroupOrigins)
 	clone.SubstitutionGroups = copyQNameSliceMap(schema.SubstitutionGroups)
-	clone.NotationDecls = copyQNameNotations(schema.NotationDecls)
-	clone.NotationOrigins = copyQNameStringMap(schema.NotationOrigins)
-	clone.IDAttributes = copyStringMap(schema.IDAttributes)
+	clone.NotationDecls = cloneMap(schema.NotationDecls)
+	clone.NotationOrigins = cloneMap(schema.NotationOrigins)
+	clone.IDAttributes = cloneMap(schema.IDAttributes)
 	clone.GlobalDecls = append([]parser.GlobalDecl(nil), schema.GlobalDecls...)
 	return &clone
+}
+
+func cloneMap[K comparable, V any](src map[K]V) map[K]V {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[K]V, len(src))
+	maps.Copy(dst, src)
+	return dst
 }
 
 func copyImportContexts(src map[string]parser.ImportContext) map[string]parser.ImportContext {
@@ -177,69 +186,6 @@ func copyImportedNamespaces(src map[types.NamespaceURI]map[types.NamespaceURI]bo
 	return dst
 }
 
-func copyQNameElementDecls(src map[types.QName]*types.ElementDecl) map[types.QName]*types.ElementDecl {
-	if src == nil {
-		return nil
-	}
-	dst := make(map[types.QName]*types.ElementDecl, len(src))
-	maps.Copy(dst, src)
-	return dst
-}
-
-func copyQNameTypes(src map[types.QName]types.Type) map[types.QName]types.Type {
-	if src == nil {
-		return nil
-	}
-	dst := make(map[types.QName]types.Type, len(src))
-	maps.Copy(dst, src)
-	return dst
-}
-
-func copyQNameAttrDecls(src map[types.QName]*types.AttributeDecl) map[types.QName]*types.AttributeDecl {
-	if src == nil {
-		return nil
-	}
-	dst := make(map[types.QName]*types.AttributeDecl, len(src))
-	maps.Copy(dst, src)
-	return dst
-}
-
-func copyQNameAttrGroups(src map[types.QName]*types.AttributeGroup) map[types.QName]*types.AttributeGroup {
-	if src == nil {
-		return nil
-	}
-	dst := make(map[types.QName]*types.AttributeGroup, len(src))
-	maps.Copy(dst, src)
-	return dst
-}
-
-func copyQNameGroups(src map[types.QName]*types.ModelGroup) map[types.QName]*types.ModelGroup {
-	if src == nil {
-		return nil
-	}
-	dst := make(map[types.QName]*types.ModelGroup, len(src))
-	maps.Copy(dst, src)
-	return dst
-}
-
-func copyQNameNotations(src map[types.QName]*types.NotationDecl) map[types.QName]*types.NotationDecl {
-	if src == nil {
-		return nil
-	}
-	dst := make(map[types.QName]*types.NotationDecl, len(src))
-	maps.Copy(dst, src)
-	return dst
-}
-
-func copyQNameStringMap(src map[types.QName]string) map[types.QName]string {
-	if src == nil {
-		return nil
-	}
-	dst := make(map[types.QName]string, len(src))
-	maps.Copy(dst, src)
-	return dst
-}
-
 func copyQNameSliceMap(src map[types.QName][]types.QName) map[types.QName][]types.QName {
 	if src == nil {
 		return nil
@@ -254,15 +200,6 @@ func copyQNameSliceMap(src map[types.QName][]types.QName) map[types.QName][]type
 		copy(copied, value)
 		dst[key] = copied
 	}
-	return dst
-}
-
-func copyStringMap(src map[string]string) map[string]string {
-	if src == nil {
-		return nil
-	}
-	dst := make(map[string]string, len(src))
-	maps.Copy(dst, src)
 	return dst
 }
 

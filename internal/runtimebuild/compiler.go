@@ -472,7 +472,9 @@ func (c *compiler) canonicalizeLexical(lexical string, typ types.Type, ctx map[s
 type canonicalizeMode uint8
 
 const (
+	// canonicalizeGeneral is used for ordinary validation, applying full facet checks.
 	canonicalizeGeneral canonicalizeMode = iota
+	// canonicalizeDefault is used for default/fixed values so unions follow runtime default validation order.
 	canonicalizeDefault
 )
 

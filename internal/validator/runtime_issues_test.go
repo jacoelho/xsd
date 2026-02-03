@@ -60,6 +60,26 @@ func TestValidateReaderSetupErrorWrapped(t *testing.T) {
 	}
 }
 
+func TestValidateNilReaderWrapped(t *testing.T) {
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
+
+	err = sess.Validate(nil)
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsderrors.ErrXMLParse) {
+		t.Fatalf("expected ErrXMLParse, got %+v", list)
+	}
+	if !strings.Contains(list[0].Message, "nil reader") {
+		t.Fatalf("expected error message to contain %q, got %q", "nil reader", list[0].Message)
+	}
+}
+
 func TestRootAnyAllowsUndeclaredRoot(t *testing.T) {
 	schema, err := runtime.NewBuilder().Build()
 	if err != nil {
