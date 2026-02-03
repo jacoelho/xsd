@@ -187,7 +187,7 @@ func TestProhibitedAttributeUsePreserved(t *testing.T) {
 	}
 }
 
-func TestProhibitedAttributeGroupUseIgnored(t *testing.T) {
+func TestProhibitedAttributeGroupUsePreserved(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="urn:attr"
@@ -234,19 +234,18 @@ func TestProhibitedAttributeGroupUseIgnored(t *testing.T) {
 		if use.Name == attrSym {
 			found = true
 			if use.Use != runtime.AttrProhibited {
-				continue
+				t.Fatalf("attribute use = %d, want prohibited", use.Use)
 			}
-			t.Fatalf("attribute use unexpectedly prohibited")
 		}
 	}
 	if !found {
-		t.Fatalf("expected attribute use to be present")
+		t.Fatalf("expected prohibited attribute use to be preserved")
 	}
 
 	sess := validator.NewSession(rt)
-	doc := `<doc xmlns="urn:attr" xmlns:tns="urn:attr" tns:a="1"/>`
-	if err := sess.Validate(strings.NewReader(doc)); err != nil {
-		t.Fatalf("unexpected validation error: %v", err)
+	doc := `<doc xmlns="urn:attr" a="1"/>`
+	if err := sess.Validate(strings.NewReader(doc)); err == nil {
+		t.Fatalf("expected prohibited attribute validation error")
 	}
 }
 

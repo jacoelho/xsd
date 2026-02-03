@@ -108,6 +108,23 @@ func TestValidateAnyURIMatchesValue(t *testing.T) {
 	}
 }
 
+func TestParseAnyURIMatchesValue(t *testing.T) {
+	cases := []string{"http://example.com", "http://exa mple.com"}
+	for _, input := range cases {
+		got, err := ParseAnyURI(input)
+		want, werr := valuepkg.ParseAnyURI([]byte(input))
+		if (err != nil) != (werr != nil) {
+			t.Fatalf("ParseAnyURI(%q) error mismatch: %v vs %v", input, err, werr)
+		}
+		if err != nil {
+			continue
+		}
+		if got != want {
+			t.Fatalf("ParseAnyURI(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
 func float32Equal(left, right float32) bool {
 	if math.IsNaN(float64(left)) {
 		return math.IsNaN(float64(right))

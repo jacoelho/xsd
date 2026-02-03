@@ -163,25 +163,7 @@ func mergeAttributesFromGroups(schema *parser.Schema, groups []types.QName, attr
 		if mode == attrRestriction {
 			groupMode = attrMerge
 		}
-		attrs := group.Attributes
-		hasProhibited := false
-		for _, attr := range attrs {
-			if attr != nil && attr.Use == types.Prohibited {
-				hasProhibited = true
-				break
-			}
-		}
-		if hasProhibited {
-			filtered := make([]*types.AttributeDecl, 0, len(attrs))
-			for _, attr := range attrs {
-				if attr == nil || attr.Use == types.Prohibited {
-					continue
-				}
-				filtered = append(filtered, attr)
-			}
-			attrs = filtered
-		}
-		if err := mergeAttributes(schema, attrs, group.AttrGroups, attrMap, groupMode); err != nil {
+		if err := mergeAttributes(schema, group.Attributes, group.AttrGroups, attrMap, groupMode); err != nil {
 			return err
 		}
 	}

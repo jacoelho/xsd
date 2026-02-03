@@ -433,6 +433,7 @@ func getLength(value string, baseType Type) int {
 }
 
 // Enumeration represents an enumeration facet.
+// Values are appended during schema parsing and treated as immutable afterwards.
 type Enumeration struct {
 	aux    atomic.Pointer[enumAux]
 	values []string
@@ -454,7 +455,7 @@ func (e *Enumeration) Values() []string {
 	return slices.Clone(e.values)
 }
 
-// AppendValue adds a value and optional namespace context, clearing caches.
+// AppendValue adds a value and optional namespace context during schema parsing.
 func (e *Enumeration) AppendValue(value string, context map[string]string) {
 	if e == nil {
 		return

@@ -178,7 +178,7 @@ func TestRuntimeDefaultIDREFSInvalid(t *testing.T) {
 	}
 }
 
-func TestRuntimeAttributeGroupProhibitedIgnored(t *testing.T) {
+func TestRuntimeAttributeGroupProhibitedEnforced(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base">
@@ -199,8 +199,12 @@ func TestRuntimeAttributeGroupProhibitedIgnored(t *testing.T) {
 
 	doc := `<doc a="ok"/>`
 	err := validateRuntimeDoc(t, schema, doc)
-	if err != nil {
-		t.Fatalf("unexpected validation error: %v", err)
+	if err == nil {
+		t.Fatalf("expected prohibited attribute violation")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsderrors.ErrAttributeProhibited) {
+		t.Fatalf("expected ErrAttributeProhibited, got %+v", list)
 	}
 }
 
