@@ -35,12 +35,12 @@ type identityFixture struct {
 func buildIdentityFixture(tb testing.TB) identityFixture {
 	tb.Helper()
 	builder := runtime.NewBuilder()
-	empty := builder.InternNamespace(nil)
-	ns := builder.InternNamespace([]byte("urn:test"))
-	symRoot := builder.InternSymbol(ns, []byte("root"))
-	symGroup := builder.InternSymbol(ns, []byte("group"))
-	symItem := builder.InternSymbol(ns, []byte("item"))
-	symID := builder.InternSymbol(empty, []byte("id"))
+	empty := mustInternNamespace(tb, builder, nil)
+	ns := mustInternNamespace(tb, builder, []byte("urn:test"))
+	symRoot := mustInternSymbol(tb, builder, ns, []byte("root"))
+	symGroup := mustInternSymbol(tb, builder, ns, []byte("group"))
+	symItem := mustInternSymbol(tb, builder, ns, []byte("item"))
+	symID := mustInternSymbol(tb, builder, empty, []byte("id"))
 	schema, err := builder.Build()
 	if err != nil {
 		tb.Fatalf("Build() error = %v", err)
@@ -282,8 +282,8 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 
 func TestIdentityStartRollbackOnError(t *testing.T) {
 	builder := runtime.NewBuilder()
-	ns := builder.InternNamespace([]byte("urn:test"))
-	symRoot := builder.InternSymbol(ns, []byte("root"))
+	ns := mustInternNamespace(t, builder, []byte("urn:test"))
+	symRoot := mustInternSymbol(t, builder, ns, []byte("root"))
 	schema, err := builder.Build()
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)

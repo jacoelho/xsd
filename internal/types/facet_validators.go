@@ -433,9 +433,52 @@ func getLength(value string, baseType Type) int {
 }
 
 // Enumeration represents an enumeration facet.
+// Values are appended during schema parsing and treated as immutable afterwards.
 type Enumeration struct {
 	aux    atomic.Pointer[enumAux]
-	Values []string
+	values []string
+}
+
+// NewEnumeration creates an enumeration facet with immutable values.
+func NewEnumeration(values []string) *Enumeration {
+	if len(values) == 0 {
+		return &Enumeration{}
+	}
+	return &Enumeration{values: slices.Clone(values)}
+}
+
+// Values returns a copy of the enumeration values.
+func (e *Enumeration) Values() []string {
+	if e == nil || len(e.values) == 0 {
+		return nil
+	}
+	return slices.Clone(e.values)
+}
+
+// AppendValue adds a value and optional namespace context during schema parsing.
+func (e *Enumeration) AppendValue(value string, context map[string]string) {
+	if e == nil {
+		return
+	}
+	e.values = append(e.values, value)
+
+	aux := e.aux.Load()
+	if (aux == nil || len(aux.valueContexts) == 0) && context == nil {
+		e.setAux(nil, nil)
+		return
+	}
+
+	var contexts []map[string]string
+	if aux != nil && len(aux.valueContexts) > 0 {
+		contexts = cloneValueContexts(aux.valueContexts)
+	}
+	if len(contexts) < len(e.values) {
+		next := make([]map[string]string, len(e.values))
+		copy(next, contexts)
+		contexts = next
+	}
+	contexts[len(contexts)-1] = copyNamespaceContext(context)
+	e.setAux(contexts, nil)
 }
 
 type enumAux struct {
@@ -487,10 +530,10 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 	normalized := NormalizeWhiteSpace(lexical, baseType)
 
 	if isQNameOrNotationType(baseType) {
-		if slices.Contains(e.Values, normalized) {
+		if slices.Contains(e.values, normalized) {
 			return nil
 		}
-		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
+		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.values))
 	}
 
 	if itemType, ok := ListItemType(baseType); ok {
@@ -501,7 +544,7 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 		if match {
 			return nil
 		}
-		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
+		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.values))
 	}
 
 	if memberTypes := unionMemberTypes(baseType); len(memberTypes) > 0 {
@@ -512,7 +555,7 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 		if match {
 			return nil
 		}
-		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
+		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.values))
 	}
 
 	match, err := e.matchesAtomicEnumeration(normalized, baseType)
@@ -522,7 +565,7 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 	if match {
 		return nil
 	}
-	return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
+	return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.values))
 }
 
 // ValidateLexicalQName validates QName/NOTATION enumerations using namespace context.
@@ -551,7 +594,7 @@ func (e *Enumeration) ValidateLexicalQName(lexical string, baseType Type, contex
 	if slices.Contains(allowed, qname) {
 		return nil
 	}
-	return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.Values))
+	return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.values))
 }
 
 // ValueContexts returns namespace contexts aligned with Values.
@@ -560,10 +603,10 @@ func (e *Enumeration) ValueContexts() []map[string]string {
 		return nil
 	}
 	aux := e.aux.Load()
-	if aux == nil {
+	if aux == nil || len(aux.valueContexts) == 0 {
 		return nil
 	}
-	return aux.valueContexts
+	return cloneValueContexts(aux.valueContexts)
 }
 
 // SetValueContexts stores namespace contexts aligned with Values.
@@ -571,13 +614,12 @@ func (e *Enumeration) SetValueContexts(values []map[string]string) {
 	if e == nil {
 		return
 	}
-	e.updateAux(func(aux *enumAux) {
-		if len(values) == 0 {
-			aux.valueContexts = nil
-			return
-		}
-		aux.valueContexts = values
-	})
+	contexts := cloneValueContexts(values)
+	var qnames []QName
+	if aux := e.aux.Load(); aux != nil && len(aux.qnameValues) > 0 {
+		qnames = slices.Clone(aux.qnameValues)
+	}
+	e.setAux(contexts, qnames)
 }
 
 // QNameValues returns resolved QName values for QName/NOTATION enumerations.
@@ -586,10 +628,10 @@ func (e *Enumeration) QNameValues() []QName {
 		return nil
 	}
 	aux := e.aux.Load()
-	if aux == nil {
+	if aux == nil || len(aux.qnameValues) == 0 {
 		return nil
 	}
-	return aux.qnameValues
+	return slices.Clone(aux.qnameValues)
 }
 
 // SetQNameValues stores resolved QName values for QName/NOTATION enumerations.
@@ -597,13 +639,12 @@ func (e *Enumeration) SetQNameValues(values []QName) {
 	if e == nil {
 		return
 	}
-	e.updateAux(func(aux *enumAux) {
-		if len(values) == 0 {
-			aux.qnameValues = nil
-			return
-		}
-		aux.qnameValues = values
-	})
+	qnames := slices.Clone(values)
+	var contexts []map[string]string
+	if aux := e.aux.Load(); aux != nil && len(aux.valueContexts) > 0 {
+		contexts = cloneValueContexts(aux.valueContexts)
+	}
+	e.setAux(contexts, qnames)
 }
 
 func (e *Enumeration) ensureAux() *enumAux {
@@ -628,28 +669,22 @@ func (e *Enumeration) cacheSet() *enumCaches {
 	return &aux.caches
 }
 
-func (e *Enumeration) updateAux(update func(*enumAux)) {
-	for {
-		current := e.aux.Load()
-		next := &enumAux{}
-		if current != nil {
-			next.valueContexts = current.valueContexts
-			next.qnameValues = current.qnameValues
-			if cache := current.caches.atomicCache.Load(); cache != nil {
-				next.caches.atomicCache.Store(cache)
-			}
-			if cache := current.caches.unionCache.Load(); cache != nil {
-				next.caches.unionCache.Store(cache)
-			}
-			if cache := current.caches.listCache.Load(); cache != nil {
-				next.caches.listCache.Store(cache)
-			}
-		}
-		update(next)
-		if e.aux.CompareAndSwap(current, next) {
-			return
-		}
+func (e *Enumeration) setAux(valueContexts []map[string]string, qnameValues []QName) {
+	e.aux.Store(&enumAux{
+		valueContexts: valueContexts,
+		qnameValues:   qnameValues,
+	})
+}
+
+func cloneValueContexts(values []map[string]string) []map[string]string {
+	if len(values) == 0 {
+		return nil
 	}
+	copied := make([]map[string]string, len(values))
+	for i, ctx := range values {
+		copied[i] = copyNamespaceContext(ctx)
+	}
+	return copied
 }
 
 func (e *Enumeration) matchesAtomicEnumeration(lexical string, baseType Type) (bool, error) {
@@ -712,8 +747,8 @@ func (e *Enumeration) atomicEnumerationValues(baseType Type) ([]TypedValue, erro
 			return cache.values, nil
 		}
 	}
-	values := make([]TypedValue, 0, len(e.Values))
-	for _, val := range e.Values {
+	values := make([]TypedValue, 0, len(e.values))
+	for _, val := range e.values {
 		normalized := NormalizeWhiteSpace(val, baseType)
 		typed, err := parseTypedValue(normalized, baseType)
 		if err != nil {
@@ -734,8 +769,8 @@ func (e *Enumeration) unionEnumerationValues(baseType Type, memberTypes []Type) 
 			return cache.values, nil
 		}
 	}
-	values := make([]TypedValue, 0, len(e.Values))
-	for _, val := range e.Values {
+	values := make([]TypedValue, 0, len(e.values))
+	for _, val := range e.values {
 		normalized := NormalizeWhiteSpace(val, baseType)
 		typed, err := parseUnionValueVariants(normalized, memberTypes)
 		if err != nil {
@@ -756,8 +791,8 @@ func (e *Enumeration) listEnumerationValues(baseType, itemType Type) ([][][]Type
 			return cache.values, nil
 		}
 	}
-	values := make([][][]TypedValue, len(e.Values))
-	for i, val := range e.Values {
+	values := make([][][]TypedValue, len(e.values))
+	for i, val := range e.values {
 		normalized := NormalizeWhiteSpace(val, baseType)
 		parsed, err := parseListValueVariants(normalized, itemType)
 		if err != nil {
@@ -863,15 +898,15 @@ func anyValueEqual(left, right []TypedValue) bool {
 // ResolveQNameValues parses enumeration values as QNames using ValueContexts.
 // It returns a QName for each entry in Values or an error if any value cannot be resolved.
 func (e *Enumeration) ResolveQNameValues() ([]QName, error) {
-	if e == nil || len(e.Values) == 0 {
+	if e == nil || len(e.values) == 0 {
 		return nil, nil
 	}
 	contexts := e.ValueContexts()
-	if len(contexts) != len(e.Values) {
-		return nil, fmt.Errorf("enumeration contexts %d do not match values %d", len(contexts), len(e.Values))
+	if len(contexts) != len(e.values) {
+		return nil, fmt.Errorf("enumeration contexts %d do not match values %d", len(contexts), len(e.values))
 	}
-	qnames := make([]QName, len(e.Values))
-	for i, value := range e.Values {
+	qnames := make([]QName, len(e.values))
+	for i, value := range e.values {
 		context := contexts[i]
 		if context == nil {
 			return nil, fmt.Errorf("missing namespace context for enumeration value %q", value)

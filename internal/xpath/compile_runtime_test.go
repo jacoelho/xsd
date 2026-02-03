@@ -21,13 +21,34 @@ type runtimeIDs struct {
 func buildRuntimeXPathFixture(tb testing.TB) (*runtime.Schema, runtimeIDs) {
 	tb.Helper()
 	builder := runtime.NewBuilder()
-	emptyNS := builder.InternNamespace(nil)
-	ns := builder.InternNamespace([]byte("urn:test"))
-	symA := builder.InternSymbol(ns, []byte("a"))
-	symB := builder.InternSymbol(ns, []byte("b"))
-	symAttr := builder.InternSymbol(ns, []byte("attr"))
-	symID := builder.InternSymbol(emptyNS, []byte("id"))
-	symAEmpty := builder.InternSymbol(emptyNS, []byte("a"))
+	emptyNS, err := builder.InternNamespace(nil)
+	if err != nil {
+		tb.Fatalf("InternNamespace: %v", err)
+	}
+	ns, err := builder.InternNamespace([]byte("urn:test"))
+	if err != nil {
+		tb.Fatalf("InternNamespace: %v", err)
+	}
+	symA, err := builder.InternSymbol(ns, []byte("a"))
+	if err != nil {
+		tb.Fatalf("InternSymbol: %v", err)
+	}
+	symB, err := builder.InternSymbol(ns, []byte("b"))
+	if err != nil {
+		tb.Fatalf("InternSymbol: %v", err)
+	}
+	symAttr, err := builder.InternSymbol(ns, []byte("attr"))
+	if err != nil {
+		tb.Fatalf("InternSymbol: %v", err)
+	}
+	symID, err := builder.InternSymbol(emptyNS, []byte("id"))
+	if err != nil {
+		tb.Fatalf("InternSymbol: %v", err)
+	}
+	symAEmpty, err := builder.InternSymbol(emptyNS, []byte("a"))
+	if err != nil {
+		tb.Fatalf("InternSymbol: %v", err)
+	}
 	schema, err := builder.Build()
 	if err != nil {
 		tb.Fatalf("Build() error = %v", err)
@@ -58,6 +79,28 @@ func TestCompileProgramsDescend(t *testing.T) {
 	want := []runtime.PathOp{
 		{Op: runtime.OpDescend},
 		{Op: runtime.OpChildName, Sym: ids.symA, NS: ids.ns},
+		{Op: runtime.OpChildName, Sym: ids.symB, NS: ids.ns},
+	}
+	if !reflect.DeepEqual(programs[0].Ops, want) {
+		t.Fatalf("ops = %#v, want %#v", programs[0].Ops, want)
+	}
+}
+
+func TestCompileProgramsDescendMidPath(t *testing.T) {
+	schema, ids := buildRuntimeXPathFixture(t)
+	nsContext := map[string]string{"t": "urn:test"}
+
+	programs, err := CompilePrograms("t:a//t:b", nsContext, AttributesDisallowed, schema)
+	if err != nil {
+		t.Fatalf("CompilePrograms: %v", err)
+	}
+	if len(programs) != 1 {
+		t.Fatalf("programs = %d, want 1", len(programs))
+	}
+
+	want := []runtime.PathOp{
+		{Op: runtime.OpChildName, Sym: ids.symA, NS: ids.ns},
+		{Op: runtime.OpDescend},
 		{Op: runtime.OpChildName, Sym: ids.symB, NS: ids.ns},
 	}
 	if !reflect.DeepEqual(programs[0].Ops, want) {

@@ -309,8 +309,9 @@ func TestParser_RestrictionWithInlineSimpleTypeUnion(t *testing.T) {
 				if !ok {
 					t.Fatal("enumeration facet should be *types.Enumeration")
 				}
-				if len(enum.Values) != 1 || enum.Values[0] != "a" {
-					t.Errorf("enumeration should have value 'a', got %v", enum.Values)
+				values := enum.Values()
+				if len(values) != 1 || values[0] != "a" {
+					t.Errorf("enumeration should have value 'a', got %v", values)
 				}
 				break
 			}

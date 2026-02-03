@@ -20,10 +20,10 @@ type modelFixture struct {
 func buildModelFixture(tb testing.TB) modelFixture {
 	tb.Helper()
 	builder := runtime.NewBuilder()
-	ns := builder.InternNamespace([]byte("urn:test"))
-	symA := builder.InternSymbol(ns, []byte("a"))
-	symB := builder.InternSymbol(ns, []byte("b"))
-	symC := builder.InternSymbol(ns, []byte("c"))
+	ns := mustInternNamespace(tb, builder, []byte("urn:test"))
+	symA := mustInternSymbol(tb, builder, ns, []byte("a"))
+	symB := mustInternSymbol(tb, builder, ns, []byte("b"))
+	symC := mustInternSymbol(tb, builder, ns, []byte("c"))
 	schema, err := builder.Build()
 	if err != nil {
 		tb.Fatalf("Build() error = %v", err)

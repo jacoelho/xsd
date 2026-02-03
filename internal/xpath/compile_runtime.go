@@ -31,16 +31,13 @@ func compilePathProgram(path Path, schema *runtime.Schema) (runtime.PathProgram,
 	}
 	ops := make([]runtime.PathOp, 0, len(path.Steps)+1)
 
-	start := 0
-	if len(path.Steps) > 0 && isDescendPrefix(path.Steps[0]) {
-		ops = append(ops, runtime.PathOp{Op: runtime.OpDescend})
-		start = 1
-	}
-
-	for i := start; i < len(path.Steps); i++ {
-		step := path.Steps[i]
+	for _, step := range path.Steps {
+		if isDescendStep(step) {
+			ops = append(ops, runtime.PathOp{Op: runtime.OpDescend})
+			continue
+		}
 		if step.Axis == AxisSelf && step.Test.Any {
-			if i == start && start == 0 {
+			if len(ops) == 0 {
 				ops = append(ops, runtime.PathOp{Op: runtime.OpRootSelf})
 			} else {
 				ops = append(ops, runtime.PathOp{Op: runtime.OpSelf})
@@ -71,7 +68,7 @@ func compilePathProgram(path Path, schema *runtime.Schema) (runtime.PathProgram,
 	return runtime.PathProgram{Ops: ops}, nil
 }
 
-func isDescendPrefix(step Step) bool {
+func isDescendStep(step Step) bool {
 	return step.Axis == AxisDescendantOrSelf && step.Test.Any
 }
 

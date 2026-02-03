@@ -2,12 +2,10 @@ package schemacheck
 
 import (
 	"errors"
-	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/jacoelho/xsd/internal/types"
+	xsdvalue "github.com/jacoelho/xsd/internal/value"
 )
 
 var errDateTimeNotComparable = errors.New("date/time values are not comparable")
@@ -139,132 +137,45 @@ func compareDateTimeOrder(t1 time.Time, tz1 bool, t2 time.Time, tz2 bool) (int, 
 	return cmp, nil
 }
 
-func splitTimezone(value string) (string, bool, int, error) {
-	if before, ok := strings.CutSuffix(value, "Z"); ok {
-		return before, true, 0, nil
-	}
-	if len(value) >= 6 {
-		sep := value[len(value)-6]
-		if (sep == '+' || sep == '-') && value[len(value)-3] == ':' {
-			base := value[:len(value)-6]
-			hours, err := strconv.Atoi(value[len(value)-5 : len(value)-3])
-			if err != nil {
-				return "", false, 0, fmt.Errorf("invalid timezone offset in %q", value)
-			}
-			mins, err := strconv.Atoi(value[len(value)-2:])
-			if err != nil {
-				return "", false, 0, fmt.Errorf("invalid timezone offset in %q", value)
-			}
-			offset := hours*3600 + mins*60
-			if sep == '-' {
-				offset = -offset
-			}
-			return base, true, offset, nil
-		}
-	}
-	return value, false, 0, nil
-}
-
-func parseXSDDateTimeBase(value string, parse func(string) (time.Time, error), normalize func(time.Time, bool, int) time.Time) (time.Time, bool, error) {
-	base, hasTZ, offset, err := splitTimezone(value)
+func parseTemporal(value string, parse func([]byte) (time.Time, error)) (time.Time, bool, error) {
+	lexical := []byte(value)
+	parsed, err := parse(lexical)
 	if err != nil {
 		return time.Time{}, false, err
 	}
-	parsed, err := parse(base)
-	if err != nil {
-		return time.Time{}, false, err
-	}
-	if normalize != nil {
-		parsed = normalize(parsed, hasTZ, offset)
-	}
-	return parsed, hasTZ, nil
-}
-
-func parseWithLayouts(base string, layouts []string) (time.Time, error) {
-	var parsed time.Time
-	var parseErr error
-	for _, layout := range layouts {
-		parsed, parseErr = time.Parse(layout, base)
-		if parseErr == nil {
-			return parsed, nil
-		}
-	}
-	return time.Time{}, parseErr
-}
-
-func normalizeWithTimezone(parsed time.Time, hasTZ bool, offset int) time.Time {
-	if !hasTZ {
-		return parsed
-	}
-	loc := time.FixedZone("", offset)
-	return time.Date(parsed.Year(), parsed.Month(), parsed.Day(), parsed.Hour(), parsed.Minute(), parsed.Second(), parsed.Nanosecond(), loc).UTC()
-}
-
-func normalizeTimeOfDay(parsed time.Time, hasTZ bool, offset int) time.Time {
-	loc := time.UTC
-	if hasTZ {
-		loc = time.FixedZone("", offset)
-	}
-	return time.Date(2000, 1, 1, parsed.Hour(), parsed.Minute(), parsed.Second(), parsed.Nanosecond(), loc).UTC()
+	return parsed, xsdvalue.HasTimezone(lexical), nil
 }
 
 func parseXSDDate(value string) (time.Time, bool, error) {
-	return parseXSDDateTimeBase(value, func(base string) (time.Time, error) {
-		return time.Parse("2006-01-02", base)
-	}, normalizeWithTimezone)
+	return parseTemporal(value, xsdvalue.ParseDate)
 }
 
 func parseXSDDateTime(value string) (time.Time, bool, error) {
-	layouts := []string{
-		"2006-01-02T15:04:05.999999999",
-		"2006-01-02T15:04:05",
-	}
-	return parseXSDDateTimeBase(value, func(base string) (time.Time, error) {
-		return parseWithLayouts(base, layouts)
-	}, normalizeWithTimezone)
+	return parseTemporal(value, xsdvalue.ParseDateTime)
 }
 
 func parseXSDTime(value string) (time.Time, bool, error) {
-	layouts := []string{
-		"15:04:05.999999999",
-		"15:04:05",
-	}
-	return parseXSDDateTimeBase(value, func(base string) (time.Time, error) {
-		return parseWithLayouts(base, layouts)
-	}, normalizeTimeOfDay)
+	return parseTemporal(value, xsdvalue.ParseTime)
 }
 
 func parseXSDGYear(value string) (time.Time, bool, error) {
-	return parseXSDDateTimeBase(value, func(base string) (time.Time, error) {
-		return time.Parse("2006", base)
-	}, normalizeWithTimezone)
+	return parseTemporal(value, xsdvalue.ParseGYear)
 }
 
 func parseXSDGYearMonth(value string) (time.Time, bool, error) {
-	return parseXSDDateTimeBase(value, func(base string) (time.Time, error) {
-		return time.Parse("2006-01", base)
-	}, normalizeWithTimezone)
+	return parseTemporal(value, xsdvalue.ParseGYearMonth)
 }
 
 func parseXSDGMonth(value string) (time.Time, bool, error) {
-	return parseXSDDateTimeBase(value, func(base string) (time.Time, error) {
-		testValue := "2000" + base
-		return time.Parse("2006--01", testValue)
-	}, normalizeWithTimezone)
+	return parseTemporal(value, xsdvalue.ParseGMonth)
 }
 
 func parseXSDGMonthDay(value string) (time.Time, bool, error) {
-	return parseXSDDateTimeBase(value, func(base string) (time.Time, error) {
-		testValue := "2000" + base
-		return time.Parse("2006--01-02", testValue)
-	}, normalizeWithTimezone)
+	return parseTemporal(value, xsdvalue.ParseGMonthDay)
 }
 
 func parseXSDGDay(value string) (time.Time, bool, error) {
-	return parseXSDDateTimeBase(value, func(base string) (time.Time, error) {
-		testValue := "2000-01" + base
-		return time.Parse("2006-01---02", testValue)
-	}, normalizeWithTimezone)
+	return parseTemporal(value, xsdvalue.ParseGDay)
 }
 
 func compareDurationValues(v1, v2 string) (int, error) {

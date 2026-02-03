@@ -314,8 +314,8 @@ func TestValidateBinaryURIAndQName(t *testing.T) {
 	if err := validateAnyURI("http://example.com"); err != nil {
 		t.Fatalf("unexpected anyURI error: %v", err)
 	}
-	if err := validateAnyURI("http://ex ample.com"); err != nil {
-		t.Fatalf("unexpected anyURI space error: %v", err)
+	if err := validateAnyURI("http://ex ample.com"); err == nil {
+		t.Fatalf("expected anyURI space error")
 	}
 	if err := validateAnyURI("urn:foo<bar"); err != nil {
 		t.Fatalf("unexpected anyURI delimiter error: %v", err)

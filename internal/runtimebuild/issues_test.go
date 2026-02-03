@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator"
 )
 
 func TestBuildHashIdentityConstraintsDeterministic(t *testing.T) {
@@ -183,6 +184,64 @@ func TestProhibitedAttributeUsePreserved(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected prohibited foo attribute use to be preserved")
+	}
+}
+
+func TestProhibitedAttributeGroupUseIgnored(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Base">
+    <xs:attribute name="a"/>
+  </xs:complexType>
+  <xs:attributeGroup name="G">
+    <xs:attribute name="a" use="prohibited"/>
+  </xs:attributeGroup>
+  <xs:complexType name="Derived">
+    <xs:complexContent>
+      <xs:restriction base="Base">
+        <xs:attributeGroup ref="G"/>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="doc" type="Derived"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schemaXML)
+	elemID := mustElemID(t, rt, "", "doc")
+	elem := rt.Elements[elemID]
+	typ := rt.Types[elem.Type]
+	ct := rt.ComplexTypes[typ.Complex.ID]
+	off := int(ct.Attrs.Off)
+	end := off + int(ct.Attrs.Len)
+	if end > len(rt.AttrIndex.Uses) {
+		t.Fatalf("attr uses out of range")
+	}
+	nsID := rt.Namespaces.Lookup([]byte(""))
+	if nsID == 0 {
+		t.Fatalf("empty namespace not found")
+	}
+	attrSym := rt.Symbols.Lookup(nsID, []byte("a"))
+	if attrSym == 0 {
+		t.Fatalf("symbol a not found")
+	}
+
+	found := false
+	for _, use := range rt.AttrIndex.Uses[off:end] {
+		if use.Name == attrSym {
+			found = true
+			if use.Use == runtime.AttrProhibited {
+				t.Fatalf("attribute use unexpectedly prohibited")
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected attribute use to be present")
+	}
+
+	sess := validator.NewSession(rt)
+	doc := `<doc a="1"/>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
 	}
 }
 

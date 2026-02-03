@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
-	"strconv"
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-// StringKeyBytes appends a tagged string key to dst.
+// StringKeyBytes writes a tagged string key into dst, reusing capacity; dst is overwritten from the start.
 func StringKeyBytes(dst []byte, tag byte, value []byte) []byte {
 	dst = append(dst[:0], tag)
 	dst = append(dst, value...)
@@ -26,7 +25,7 @@ func StringKeyString(tag byte, value string) []byte {
 	return out
 }
 
-// BinaryKeyBytes appends a tagged binary key to dst.
+// BinaryKeyBytes writes a tagged binary key into dst, reusing capacity; dst is overwritten from the start.
 func BinaryKeyBytes(dst []byte, tag byte, data []byte) []byte {
 	dst = append(dst[:0], tag)
 	dst = append(dst, data...)
@@ -44,7 +43,7 @@ func QNameKeyStrings(tag byte, ns, local string) []byte {
 	return out
 }
 
-// QNameKeyCanonical appends a tagged QName key from canonical bytes (ns\0local).
+// QNameKeyCanonical writes a tagged QName key into dst, reusing capacity; dst is overwritten from the start.
 func QNameKeyCanonical(dst []byte, tag byte, canonical []byte) []byte {
 	sep := bytes.IndexByte(canonical, 0)
 	if sep < 0 {
@@ -176,14 +175,13 @@ func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, hasTZ bool) []byte 
 
 // DurationKeyBytes appends a canonical duration key encoding to dst.
 func DurationKeyBytes(dst []byte, dur types.XSDDuration) []byte {
-	monthsTotal := int64(dur.Years)*12 + int64(dur.Months)
-	months, _ := num.ParseInt([]byte(strconv.FormatInt(monthsTotal, 10)))
+	months := durationMonthsTotal(dur)
 	seconds := durationSecondsTotal(dur)
 	sign := byte(1)
 	if dur.Negative {
 		sign = 2
 	}
-	if monthsTotal == 0 && seconds.Sign == 0 {
+	if months.Sign == 0 && seconds.Sign == 0 {
 		sign = 0
 	}
 	dst = append(dst[:0], sign)
@@ -192,23 +190,21 @@ func DurationKeyBytes(dst []byte, dur types.XSDDuration) []byte {
 	return dst
 }
 
-func durationSecondsTotal(dur types.XSDDuration) num.Dec {
-	total := dur.Seconds
-	total = addDecInt(total, int64(dur.Minutes)*60)
-	total = addDecInt(total, int64(dur.Hours)*3600)
-	total = addDecInt(total, int64(dur.Days)*86400)
-	return total
+func durationMonthsTotal(dur types.XSDDuration) num.Int {
+	years := num.FromInt64(int64(dur.Years))
+	months := num.FromInt64(int64(dur.Months))
+	if years.Sign == 0 {
+		return months
+	}
+	return num.Add(num.Mul(years, num.FromInt64(12)), months)
 }
 
-func addDecInt(dec num.Dec, delta int64) num.Dec {
-	if delta == 0 {
-		return dec
-	}
-	scale := dec.Scale
-	scaled := num.DecToScaledInt(dec, scale)
-	deltaScaled := num.DecToScaledInt(num.FromInt64(delta).AsDec(), scale)
-	sum := num.Add(scaled, deltaScaled)
-	return num.DecFromScaledInt(sum, scale)
+func durationSecondsTotal(dur types.XSDDuration) num.Dec {
+	total := dur.Seconds
+	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(dur.Minutes)), num.FromInt64(60)))
+	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(dur.Hours)), num.FromInt64(3600)))
+	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(dur.Days)), num.FromInt64(86400)))
+	return total
 }
 
 // AppendUvarint appends v as a varint-encoded uint64.

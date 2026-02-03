@@ -16,6 +16,7 @@ func TestParseRestrictedXPath(t *testing.T) {
 		wantStepCount  int
 		wantFirstAxis  Axis
 		wantSecondAxis Axis
+		wantThirdAxis  Axis
 	}{
 		{
 			name:          "child axis with space before ::",
@@ -54,16 +55,42 @@ func TestParseRestrictedXPath(t *testing.T) {
 			wantSecondAxis: AxisSelf,
 		},
 		{
+			name:          "self step only",
+			expr:          ".",
+			policy:        AttributesDisallowed,
+			wantErr:       false,
+			verifySteps:   true,
+			wantStepCount: 1,
+			wantFirstAxis: AxisSelf,
+		},
+		{
+			name:    "descendant after self step invalid",
+			expr:    ".//.//imp:iid",
+			policy:  AttributesDisallowed,
+			wantErr: true,
+		},
+		{
+			name:    "descendant after self mid-path invalid",
+			expr:    "imp:iid1/.//imp:iid2",
+			policy:  AttributesDisallowed,
+			wantErr: true,
+		},
+		{
 			name:    "descendant prefix without node test",
 			expr:    ".//",
 			policy:  AttributesDisallowed,
 			wantErr: true,
 		},
 		{
-			name:    "descendant prefix mid-path",
-			expr:    ".//imp:iid1/.//imp:iid2",
-			policy:  AttributesDisallowed,
-			wantErr: true,
+			name:           "descendant axis mid-path",
+			expr:           "imp:iid1//imp:iid2",
+			policy:         AttributesDisallowed,
+			wantErr:        false,
+			verifySteps:    true,
+			wantStepCount:  3,
+			wantFirstAxis:  AxisChild,
+			wantSecondAxis: AxisDescendantOrSelf,
+			wantThirdAxis:  AxisChild,
 		},
 		{
 			name:    "explicit self axis disallowed",
@@ -118,6 +145,9 @@ func TestParseRestrictedXPath(t *testing.T) {
 			}
 			if tt.wantStepCount > 1 && path.Steps[1].Axis != tt.wantSecondAxis {
 				t.Fatalf("Parse(%q) step[1] axis = %v, want %v", tt.expr, path.Steps[1].Axis, tt.wantSecondAxis)
+			}
+			if tt.wantStepCount > 2 && path.Steps[2].Axis != tt.wantThirdAxis {
+				t.Fatalf("Parse(%q) step[2] axis = %v, want %v", tt.expr, path.Steps[2].Axis, tt.wantThirdAxis)
 			}
 		})
 	}

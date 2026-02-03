@@ -261,9 +261,7 @@ func copyEnumerationFacet(enum *Enumeration, opts CopyOptions) *Enumeration {
 	if enum == nil {
 		return nil
 	}
-	clone := &Enumeration{
-		Values: slices.Clone(enum.Values),
-	}
+	clone := NewEnumeration(enum.values)
 	if contexts := enum.ValueContexts(); len(contexts) > 0 {
 		copied := make([]map[string]string, len(contexts))
 		for i, ctx := range contexts {
