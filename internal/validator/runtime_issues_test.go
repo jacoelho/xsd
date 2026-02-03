@@ -80,6 +80,38 @@ func TestValidateNilReaderWrapped(t *testing.T) {
 	}
 }
 
+func TestAttZ015ProhibitedAttributeGroup(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+<xsd:complexType name="base">
+	<xsd:attribute name="a" />
+</xsd:complexType>
+
+<xsd:complexType name="derived">
+  <xsd:complexContent>
+
+    <xsd:restriction base="base">
+      <xsd:attributeGroup ref="attG"/>
+    </xsd:restriction>
+
+  </xsd:complexContent>
+</xsd:complexType>
+
+<xsd:attributeGroup name="attG">
+ <xsd:attribute name="a" use="prohibited"/> 
+</xsd:attributeGroup>
+
+<xsd:element name="doc" type="derived" />
+
+</xsd:schema>`
+
+	docXML := `<doc a="a"/>`
+	if err := validateRuntimeDoc(t, schemaXML, docXML); err != nil {
+		t.Fatalf("expected validation to succeed: %v", err)
+	}
+}
+
 func TestRootAnyAllowsUndeclaredRoot(t *testing.T) {
 	schema, err := runtime.NewBuilder().Build()
 	if err != nil {

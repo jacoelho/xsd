@@ -187,13 +187,9 @@ func TestProhibitedAttributeUsePreserved(t *testing.T) {
 	}
 }
 
-func TestProhibitedAttributeGroupUsePreserved(t *testing.T) {
+func TestProhibitedAttributeGroupUseIgnored(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           xmlns:tns="urn:attr"
-           targetNamespace="urn:attr"
-           elementFormDefault="qualified"
-           attributeFormDefault="qualified">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="Base">
     <xs:attribute name="a"/>
   </xs:complexType>
@@ -202,16 +198,16 @@ func TestProhibitedAttributeGroupUsePreserved(t *testing.T) {
   </xs:attributeGroup>
   <xs:complexType name="Derived">
     <xs:complexContent>
-      <xs:restriction base="tns:Base">
-        <xs:attributeGroup ref="tns:G"/>
+      <xs:restriction base="Base">
+        <xs:attributeGroup ref="G"/>
       </xs:restriction>
     </xs:complexContent>
   </xs:complexType>
-  <xs:element name="doc" type="tns:Derived"/>
+  <xs:element name="doc" type="Derived"/>
 </xs:schema>`
 
 	rt := mustBuildRuntimeSchema(t, schemaXML)
-	elemID := mustElemID(t, rt, "urn:attr", "doc")
+	elemID := mustElemID(t, rt, "", "doc")
 	elem := rt.Elements[elemID]
 	typ := rt.Types[elem.Type]
 	ct := rt.ComplexTypes[typ.Complex.ID]
@@ -220,9 +216,9 @@ func TestProhibitedAttributeGroupUsePreserved(t *testing.T) {
 	if end > len(rt.AttrIndex.Uses) {
 		t.Fatalf("attr uses out of range")
 	}
-	nsID := rt.Namespaces.Lookup([]byte("urn:attr"))
+	nsID := rt.Namespaces.Lookup([]byte(""))
 	if nsID == 0 {
-		t.Fatalf("namespace urn:attr not found")
+		t.Fatalf("empty namespace not found")
 	}
 	attrSym := rt.Symbols.Lookup(nsID, []byte("a"))
 	if attrSym == 0 {
@@ -233,19 +229,19 @@ func TestProhibitedAttributeGroupUsePreserved(t *testing.T) {
 	for _, use := range rt.AttrIndex.Uses[off:end] {
 		if use.Name == attrSym {
 			found = true
-			if use.Use != runtime.AttrProhibited {
-				t.Fatalf("attribute use = %d, want prohibited", use.Use)
+			if use.Use == runtime.AttrProhibited {
+				t.Fatalf("attribute use unexpectedly prohibited")
 			}
 		}
 	}
 	if !found {
-		t.Fatalf("expected prohibited attribute use to be preserved")
+		t.Fatalf("expected attribute use to be present")
 	}
 
 	sess := validator.NewSession(rt)
-	doc := `<doc xmlns="urn:attr" a="1"/>`
-	if err := sess.Validate(strings.NewReader(doc)); err == nil {
-		t.Fatalf("expected prohibited attribute validation error")
+	doc := `<doc a="1"/>`
+	if err := sess.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
 	}
 }
 
