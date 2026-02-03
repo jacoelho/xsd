@@ -511,30 +511,29 @@ func (c *compiler) canonicalizeNormalizedCore(lexical, normalized string, typ ty
 		}
 		for _, member := range members {
 			memberLex := c.normalizeLexical(lexical, member)
-			memberFacets, err := c.facetsForType(member)
-			if err != nil {
-				return nil, err
+			memberFacets, facetErr := c.facetsForType(member)
+			if facetErr != nil {
+				return nil, facetErr
 			}
 			switch mode {
 			case canonicalizeDefault:
-				if err := c.validatePartialFacets(memberLex, member, memberFacets); err != nil {
+				if validateErr := c.validatePartialFacets(memberLex, member, memberFacets); validateErr != nil {
 					continue
 				}
-				canon, err := c.canonicalizeNormalizedCore(lexical, memberLex, member, ctx, mode)
-				if err != nil {
+				canon, canonErr := c.canonicalizeNormalizedCore(lexical, memberLex, member, ctx, mode)
+				if canonErr != nil {
 					continue
 				}
-				if err := c.validateEnumSets(lexical, memberLex, member, ctx); err != nil {
+				if enumErr := c.validateEnumSets(lexical, memberLex, member, ctx); enumErr != nil {
 					continue
 				}
 				return canon, nil
 			default:
-				err = c.validateMemberFacets(memberLex, member, memberFacets, ctx, true)
-				if err != nil {
+				if validateErr := c.validateMemberFacets(memberLex, member, memberFacets, ctx, true); validateErr != nil {
 					continue
 				}
-				canon, err := c.canonicalizeNormalizedCore(lexical, memberLex, member, ctx, mode)
-				if err == nil {
+				canon, canonErr := c.canonicalizeNormalizedCore(lexical, memberLex, member, ctx, mode)
+				if canonErr == nil {
 					return canon, nil
 				}
 			}

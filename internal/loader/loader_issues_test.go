@@ -239,7 +239,7 @@ func TestSubstitutionGroupOrderDeterministic(t *testing.T) {
 	}
 
 	var prevHash uint64
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		loader := NewLoader(Config{FS: fs})
 		schema, err := loader.Load("root.xsd")
 		if err != nil {

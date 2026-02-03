@@ -69,25 +69,25 @@ func BuildSchema(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, error) {
 }
 
 type schemaBuilder struct {
-	complexIDs      map[runtime.TypeID]uint32
-	rt              *runtime.Schema
-	refs            *schema.ResolvedReferences
+	err             error
+	registry        *schema.Registry
+	builtinIDs      map[types.TypeName]runtime.TypeID
 	validators      *CompiledValidators
 	anyElementRules map[*types.AnyElement]runtime.WildcardID
 	typeIDs         map[schema.TypeID]runtime.TypeID
 	builder         *runtime.Builder
 	schema          *parser.Schema
-	registry        *schema.Registry
+	complexIDs      map[runtime.TypeID]uint32
+	refs            *schema.ResolvedReferences
 	attrIDs         map[schema.AttrID]runtime.AttrID
 	elemIDs         map[schema.ElemID]runtime.ElemID
-	builtinIDs      map[types.TypeName]runtime.TypeID
-	wildcardNS      []runtime.NamespaceID
+	rt              *runtime.Schema
 	paths           []runtime.PathProgram
 	wildcards       []runtime.WildcardRule
+	wildcardNS      []runtime.NamespaceID
 	maxOccurs       uint32
 	anyTypeComplex  uint32
 	limits          models.Limits
-	err             error
 }
 
 const defaultMaxOccursLimit = 1_000_000

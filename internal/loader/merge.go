@@ -2,6 +2,7 @@ package loader
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -181,9 +182,7 @@ func copyQNameElementDecls(src map[types.QName]*types.ElementDecl) map[types.QNa
 		return nil
 	}
 	dst := make(map[types.QName]*types.ElementDecl, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
+	maps.Copy(dst, src)
 	return dst
 }
 
@@ -192,9 +191,7 @@ func copyQNameTypes(src map[types.QName]types.Type) map[types.QName]types.Type {
 		return nil
 	}
 	dst := make(map[types.QName]types.Type, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
+	maps.Copy(dst, src)
 	return dst
 }
 
@@ -203,9 +200,7 @@ func copyQNameAttrDecls(src map[types.QName]*types.AttributeDecl) map[types.QNam
 		return nil
 	}
 	dst := make(map[types.QName]*types.AttributeDecl, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
+	maps.Copy(dst, src)
 	return dst
 }
 
@@ -214,9 +209,7 @@ func copyQNameAttrGroups(src map[types.QName]*types.AttributeGroup) map[types.QN
 		return nil
 	}
 	dst := make(map[types.QName]*types.AttributeGroup, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
+	maps.Copy(dst, src)
 	return dst
 }
 
@@ -225,9 +218,7 @@ func copyQNameGroups(src map[types.QName]*types.ModelGroup) map[types.QName]*typ
 		return nil
 	}
 	dst := make(map[types.QName]*types.ModelGroup, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
+	maps.Copy(dst, src)
 	return dst
 }
 
@@ -236,9 +227,7 @@ func copyQNameNotations(src map[types.QName]*types.NotationDecl) map[types.QName
 		return nil
 	}
 	dst := make(map[types.QName]*types.NotationDecl, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
+	maps.Copy(dst, src)
 	return dst
 }
 
@@ -247,9 +236,7 @@ func copyQNameStringMap(src map[types.QName]string) map[types.QName]string {
 		return nil
 	}
 	dst := make(map[types.QName]string, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
+	maps.Copy(dst, src)
 	return dst
 }
 
@@ -275,9 +262,7 @@ func copyStringMap(src map[string]string) map[string]string {
 		return nil
 	}
 	dst := make(map[string]string, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
+	maps.Copy(dst, src)
 	return dst
 }
 
@@ -611,8 +596,8 @@ func (c *mergeContext) mergeSubstitutionGroups() {
 				c.target.SubstitutionGroups[targetHead] = sortAndDedupeQNames(existing)
 				continue
 			}
-			merged := append(existing, remappedMembers...)
-			c.target.SubstitutionGroups[targetHead] = sortAndDedupeQNames(merged)
+			existing = append(existing, remappedMembers...)
+			c.target.SubstitutionGroups[targetHead] = sortAndDedupeQNames(existing)
 			continue
 		}
 		if len(remappedMembers) > 0 {

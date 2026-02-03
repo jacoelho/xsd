@@ -16,7 +16,7 @@ func TestTypeCacheConcurrency(t *testing.T) {
 
 	result := make(chan string, 1)
 	go func() {
-		for i := 0; i < iterations; i++ {
+		for i := range iterations {
 			builtin := newBuiltin(TypeNameString, validateString, nil, WhiteSpacePreserve, unordered)
 			simple := &SimpleType{
 				QName: QName{Namespace: "http://example.com", Local: "MyInt"},
@@ -28,7 +28,7 @@ func TestTypeCacheConcurrency(t *testing.T) {
 			start := make(chan struct{})
 			var wg sync.WaitGroup
 			wg.Add(workers * 4)
-			for j := 0; j < workers; j++ {
+			for range workers {
 				go func() {
 					defer wg.Done()
 					<-start

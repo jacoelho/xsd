@@ -55,7 +55,7 @@ func TestEnumerationValueContextsIsolationUnderConcurrency(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 1000; i++ {
+		for range 1000 {
 			if err := enum.ValidateLexicalQName("p:val", base, map[string]string{"p": "urn:test"}); err != nil {
 				select {
 				case errCh <- err:
@@ -67,7 +67,7 @@ func TestEnumerationValueContextsIsolationUnderConcurrency(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 1000; i++ {
+		for range 1000 {
 			contexts[0]["p"] = "urn:test"
 			contexts[0]["p"] = "urn:other"
 		}

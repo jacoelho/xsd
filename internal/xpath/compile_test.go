@@ -55,6 +55,27 @@ func TestParseRestrictedXPath(t *testing.T) {
 			wantSecondAxis: AxisSelf,
 		},
 		{
+			name:          "self step only",
+			expr:          ".",
+			policy:        AttributesDisallowed,
+			wantErr:       false,
+			verifySteps:   true,
+			wantStepCount: 1,
+			wantFirstAxis: AxisSelf,
+		},
+		{
+			name:    "descendant after self step invalid",
+			expr:    ".//.//imp:iid",
+			policy:  AttributesDisallowed,
+			wantErr: true,
+		},
+		{
+			name:    "descendant after self mid-path invalid",
+			expr:    "imp:iid1/.//imp:iid2",
+			policy:  AttributesDisallowed,
+			wantErr: true,
+		},
+		{
 			name:    "descendant prefix without node test",
 			expr:    ".//",
 			policy:  AttributesDisallowed,

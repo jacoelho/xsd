@@ -172,6 +172,9 @@ func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[st
 		return false, nil
 	}
 	if reader.consumeDoubleSlash() {
+		if len(path.Steps) > 0 && path.Steps[len(path.Steps)-1].Axis == AxisSelf {
+			return false, xpathErrorf("xpath step '.' cannot be followed by //: %s", expr)
+		}
 		state.pendingDescendant = true
 		return false, nil
 	}

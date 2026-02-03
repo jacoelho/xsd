@@ -16,7 +16,7 @@ func TestIntegerKindCompileRuntimeParity(t *testing.T) {
 		rt := mustBuildRuntimeSchema(t, schemaForType(tc.typeName))
 		for _, vc := range tc.values {
 			tc := tc
-			vc := vc
+
 			t.Run(tc.typeName+"/"+vc.label, func(t *testing.T) {
 				compileErr := compileDefaultValue(t, tc.typeName, vc.lexical)
 				compileOK := compileErr == nil
