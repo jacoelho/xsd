@@ -97,8 +97,7 @@ func Parse(expr string, nsContext map[string]string, policy AttributePolicy) (Ex
 }
 
 type pathParseState struct {
-	usedDescendantPrefix bool
-	sawSuffix            bool
+	pendingDescendant bool
 }
 
 type axisToken struct {
@@ -110,11 +109,7 @@ type axisToken struct {
 func parsePath(expr string, nsContext map[string]string, policy AttributePolicy) (Path, error) {
 	var path Path
 	reader := &pathReader{input: expr}
-	state := &pathParseState{usedDescendantPrefix: reader.consumeDotSlashSlashPrefix()}
-
-	if state.usedDescendantPrefix {
-		path.Steps = append(path.Steps, Step{Axis: AxisDescendantOrSelf, Test: NodeTest{Any: true}})
-	}
+	state := &pathParseState{pendingDescendant: reader.consumeDotSlashSlashPrefix()}
 
 	for {
 		done, err := parseNextStep(reader, &path, expr, nsContext, policy, state)
@@ -130,7 +125,7 @@ func parsePath(expr string, nsContext map[string]string, policy AttributePolicy)
 func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[string]string, policy AttributePolicy, state *pathParseState) (bool, error) {
 	reader.skipSpace()
 	if reader.atEnd() {
-		if state.usedDescendantPrefix && !state.sawSuffix {
+		if state.pendingDescendant {
 			return true, xpathErrorf("xpath step is missing a node test: %s", expr)
 		}
 		if len(path.Steps) == 0 && path.Attribute == nil {
@@ -139,8 +134,13 @@ func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[st
 		return true, nil
 	}
 
+	if state.pendingDescendant {
+		path.Steps = append(path.Steps, Step{Axis: AxisDescendantOrSelf, Test: NodeTest{Any: true}})
+		state.pendingDescendant = false
+	}
+
 	if reader.peekSlash() {
-		if len(path.Steps) == 0 && path.Attribute == nil && !state.usedDescendantPrefix {
+		if len(path.Steps) == 0 && path.Attribute == nil {
 			return false, xpathErrorf("xpath must be a relative path: %s", expr)
 		}
 		return false, xpathErrorf("xpath step is missing a node test: %s", expr)
@@ -156,7 +156,6 @@ func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[st
 	if err != nil {
 		return false, err
 	}
-	state.sawSuffix = true
 	path.Steps = append(path.Steps, addedSteps...)
 	if attr != nil {
 		path.Attribute = attr
@@ -172,8 +171,9 @@ func parseNextStep(reader *pathReader, path *Path, expr string, nsContext map[st
 	if reader.consumeSlash() {
 		return false, nil
 	}
-	if reader.peekDoubleSlash() {
-		return false, xpathErrorf("xpath step has invalid axis: %s", expr)
+	if reader.consumeDoubleSlash() {
+		state.pendingDescendant = true
+		return false, nil
 	}
 	return false, xpathErrorf("xpath has invalid trailing content: %s", expr)
 }
@@ -351,6 +351,15 @@ func (r *pathReader) consumeSlash() bool {
 	r.skipSpace()
 	if r.peekSlash() && !r.peekDoubleSlash() {
 		r.pos++
+		return true
+	}
+	return false
+}
+
+func (r *pathReader) consumeDoubleSlash() bool {
+	r.skipSpace()
+	if r.peekDoubleSlash() {
+		r.pos += 2
 		return true
 	}
 	return false

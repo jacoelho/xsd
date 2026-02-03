@@ -14,6 +14,8 @@ import (
 
 const maxNameMapSize = 1 << 20
 
+var newXMLReader = xmlstream.NewReader
+
 type sessionResolver struct {
 	s *Session
 }
@@ -36,13 +38,13 @@ func (s *Session) Validate(r io.Reader) error {
 	s.Reset()
 
 	if s.reader == nil {
-		reader, err := xmlstream.NewReader(r)
+		reader, err := newXMLReader(r)
 		if err != nil {
-			return err
+			return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrXMLParse, err.Error(), "")}
 		}
 		s.reader = reader
 	} else if err := s.reader.Reset(r); err != nil {
-		return err
+		return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrXMLParse, err.Error(), "")}
 	}
 
 	rootSeen := false

@@ -76,8 +76,12 @@ func newMergeContext(target, source *parser.Schema, kind mergeKind, remap namesp
 // For imports, preserves source namespace.
 // For includes, uses chameleon namespace remapping if needed.
 func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind, remap namespaceRemapMode, insertAt int) error {
-	ctx := newMergeContext(target, source, kind, remap)
-	existingDecls := existingGlobalDecls(target)
+	if target == nil {
+		return fmt.Errorf("target schema is nil")
+	}
+	staging := cloneSchemaForMerge(target)
+	ctx := newMergeContext(staging, source, kind, remap)
+	existingDecls := existingGlobalDecls(staging)
 	ctx.mergeImportedNamespaces()
 	ctx.mergeImportContexts()
 	if err := ctx.mergeElementDecls(); err != nil {
@@ -103,7 +107,178 @@ func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind
 		return err
 	}
 	ctx.mergeGlobalDecls(existingDecls, insertAt)
+	*target = *staging
 	return nil
+}
+
+func cloneSchemaForMerge(schema *parser.Schema) *parser.Schema {
+	if schema == nil {
+		return nil
+	}
+	clone := *schema
+	clone.ImportContexts = copyImportContexts(schema.ImportContexts)
+	clone.ImportedNamespaces = copyImportedNamespaces(schema.ImportedNamespaces)
+	clone.ElementDecls = copyQNameElementDecls(schema.ElementDecls)
+	clone.ElementOrigins = copyQNameStringMap(schema.ElementOrigins)
+	clone.TypeDefs = copyQNameTypes(schema.TypeDefs)
+	clone.TypeOrigins = copyQNameStringMap(schema.TypeOrigins)
+	clone.AttributeDecls = copyQNameAttrDecls(schema.AttributeDecls)
+	clone.AttributeOrigins = copyQNameStringMap(schema.AttributeOrigins)
+	clone.AttributeGroups = copyQNameAttrGroups(schema.AttributeGroups)
+	clone.AttributeGroupOrigins = copyQNameStringMap(schema.AttributeGroupOrigins)
+	clone.Groups = copyQNameGroups(schema.Groups)
+	clone.GroupOrigins = copyQNameStringMap(schema.GroupOrigins)
+	clone.SubstitutionGroups = copyQNameSliceMap(schema.SubstitutionGroups)
+	clone.NotationDecls = copyQNameNotations(schema.NotationDecls)
+	clone.NotationOrigins = copyQNameStringMap(schema.NotationOrigins)
+	clone.IDAttributes = copyStringMap(schema.IDAttributes)
+	clone.GlobalDecls = append([]parser.GlobalDecl(nil), schema.GlobalDecls...)
+	return &clone
+}
+
+func copyImportContexts(src map[string]parser.ImportContext) map[string]parser.ImportContext {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[string]parser.ImportContext, len(src))
+	for key, ctx := range src {
+		copied := ctx
+		if ctx.Imports != nil {
+			imports := make(map[types.NamespaceURI]bool, len(ctx.Imports))
+			for ns := range ctx.Imports {
+				imports[ns] = true
+			}
+			copied.Imports = imports
+		} else {
+			copied.Imports = nil
+		}
+		dst[key] = copied
+	}
+	return dst
+}
+
+func copyImportedNamespaces(src map[types.NamespaceURI]map[types.NamespaceURI]bool) map[types.NamespaceURI]map[types.NamespaceURI]bool {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[types.NamespaceURI]map[types.NamespaceURI]bool, len(src))
+	for ns, imports := range src {
+		if imports == nil {
+			dst[ns] = nil
+			continue
+		}
+		copied := make(map[types.NamespaceURI]bool, len(imports))
+		for imported := range imports {
+			copied[imported] = true
+		}
+		dst[ns] = copied
+	}
+	return dst
+}
+
+func copyQNameElementDecls(src map[types.QName]*types.ElementDecl) map[types.QName]*types.ElementDecl {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[types.QName]*types.ElementDecl, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
+}
+
+func copyQNameTypes(src map[types.QName]types.Type) map[types.QName]types.Type {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[types.QName]types.Type, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
+}
+
+func copyQNameAttrDecls(src map[types.QName]*types.AttributeDecl) map[types.QName]*types.AttributeDecl {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[types.QName]*types.AttributeDecl, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
+}
+
+func copyQNameAttrGroups(src map[types.QName]*types.AttributeGroup) map[types.QName]*types.AttributeGroup {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[types.QName]*types.AttributeGroup, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
+}
+
+func copyQNameGroups(src map[types.QName]*types.ModelGroup) map[types.QName]*types.ModelGroup {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[types.QName]*types.ModelGroup, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
+}
+
+func copyQNameNotations(src map[types.QName]*types.NotationDecl) map[types.QName]*types.NotationDecl {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[types.QName]*types.NotationDecl, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
+}
+
+func copyQNameStringMap(src map[types.QName]string) map[types.QName]string {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[types.QName]string, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
+}
+
+func copyQNameSliceMap(src map[types.QName][]types.QName) map[types.QName][]types.QName {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[types.QName][]types.QName, len(src))
+	for key, value := range src {
+		if value == nil {
+			dst[key] = nil
+			continue
+		}
+		copied := make([]types.QName, len(value))
+		copy(copied, value)
+		dst[key] = copied
+	}
+	return dst
+}
+
+func copyStringMap(src map[string]string) map[string]string {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[string]string, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
 }
 
 func existingGlobalDecls(schema *parser.Schema) map[globalDeclKey]struct{} {
@@ -412,44 +587,63 @@ func (c *mergeContext) mergeGroups() error {
 }
 
 func (c *mergeContext) mergeSubstitutionGroups() {
-	for head, members := range c.source.SubstitutionGroups {
+	if c.target.SubstitutionGroups == nil {
+		c.target.SubstitutionGroups = make(map[types.QName][]types.QName)
+	}
+	heads := make([]types.QName, 0, len(c.source.SubstitutionGroups))
+	for head := range c.source.SubstitutionGroups {
+		heads = append(heads, head)
+	}
+	sort.Slice(heads, func(i, j int) bool {
+		return qnameLess(heads[i], heads[j])
+	})
+	for _, head := range heads {
+		members := c.source.SubstitutionGroups[head]
 		targetHead := c.remapQName(head)
 		remappedMembers := make([]types.QName, 0, len(members))
-		seen := make(map[types.QName]bool, len(members))
 		for _, member := range members {
 			remapped := c.remapQName(member)
-			if seen[remapped] {
-				continue
-			}
-			seen[remapped] = true
 			remappedMembers = append(remappedMembers, remapped)
 		}
+		remappedMembers = sortAndDedupeQNames(remappedMembers)
 		if existing, exists := c.target.SubstitutionGroups[targetHead]; exists {
 			if len(remappedMembers) == 0 {
+				c.target.SubstitutionGroups[targetHead] = sortAndDedupeQNames(existing)
 				continue
 			}
-			if len(existing) == 0 {
-				c.target.SubstitutionGroups[targetHead] = remappedMembers
-				continue
-			}
-			seenExisting := make(map[types.QName]bool, len(existing))
-			for _, member := range existing {
-				seenExisting[member] = true
-			}
-			for _, member := range remappedMembers {
-				if seenExisting[member] {
-					continue
-				}
-				existing = append(existing, member)
-				seenExisting[member] = true
-			}
-			c.target.SubstitutionGroups[targetHead] = existing
+			merged := append(existing, remappedMembers...)
+			c.target.SubstitutionGroups[targetHead] = sortAndDedupeQNames(merged)
 			continue
 		}
 		if len(remappedMembers) > 0 {
 			c.target.SubstitutionGroups[targetHead] = remappedMembers
 		}
 	}
+}
+
+func sortAndDedupeQNames(names []types.QName) []types.QName {
+	if len(names) < 2 {
+		return names
+	}
+	sort.Slice(names, func(i, j int) bool {
+		return qnameLess(names[i], names[j])
+	})
+	out := names[:0]
+	var last types.QName
+	for i, name := range names {
+		if i == 0 || !name.Equal(last) {
+			out = append(out, name)
+			last = name
+		}
+	}
+	return out
+}
+
+func qnameLess(a, b types.QName) bool {
+	if a.Namespace != b.Namespace {
+		return a.Namespace < b.Namespace
+	}
+	return a.Local < b.Local
 }
 
 func (c *mergeContext) mergeNotationDecls() error {

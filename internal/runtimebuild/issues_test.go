@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator"
 )
 
 func TestBuildHashIdentityConstraintsDeterministic(t *testing.T) {
@@ -183,6 +184,67 @@ func TestProhibitedAttributeUsePreserved(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected prohibited foo attribute use to be preserved")
+	}
+}
+
+func TestProhibitedAttributeGroupUsePreserved(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:attr"
+           targetNamespace="urn:attr"
+           elementFormDefault="qualified"
+           attributeFormDefault="qualified">
+  <xs:attributeGroup name="G">
+    <xs:attribute name="foo" use="prohibited"/>
+  </xs:attributeGroup>
+  <xs:complexType name="Base">
+    <xs:anyAttribute namespace="##any" processContents="lax"/>
+  </xs:complexType>
+  <xs:complexType name="Derived">
+    <xs:complexContent>
+      <xs:restriction base="tns:Base">
+        <xs:attributeGroup ref="tns:G"/>
+      </xs:restriction>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="root" type="tns:Derived"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schemaXML)
+	elemID := mustElemID(t, rt, "urn:attr", "root")
+	elem := rt.Elements[elemID]
+	typ := rt.Types[elem.Type]
+	ct := rt.ComplexTypes[typ.Complex.ID]
+	off := int(ct.Attrs.Off)
+	end := off + int(ct.Attrs.Len)
+	if end > len(rt.AttrIndex.Uses) {
+		t.Fatalf("attr uses out of range")
+	}
+	nsID := rt.Namespaces.Lookup([]byte("urn:attr"))
+	if nsID == 0 {
+		t.Fatalf("namespace urn:attr not found")
+	}
+	fooSym := rt.Symbols.Lookup(nsID, []byte("foo"))
+	if fooSym == 0 {
+		t.Fatalf("symbol foo not found")
+	}
+
+	found := false
+	for _, use := range rt.AttrIndex.Uses[off:end] {
+		if use.Name == fooSym {
+			found = true
+			if use.Use != runtime.AttrProhibited {
+				t.Fatalf("foo use = %d, want prohibited", use.Use)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected prohibited foo attribute use to be preserved")
+	}
+
+	sess := validator.NewSession(rt)
+	if err := sess.Validate(strings.NewReader(`<root xmlns="urn:attr" foo="1"/>`)); err == nil {
+		t.Fatalf("expected prohibited attribute validation error")
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
-	"strconv"
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
@@ -176,14 +175,13 @@ func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, hasTZ bool) []byte 
 
 // DurationKeyBytes appends a canonical duration key encoding to dst.
 func DurationKeyBytes(dst []byte, dur types.XSDDuration) []byte {
-	monthsTotal := int64(dur.Years)*12 + int64(dur.Months)
-	months, _ := num.ParseInt([]byte(strconv.FormatInt(monthsTotal, 10)))
+	months := durationMonthsTotal(dur)
 	seconds := durationSecondsTotal(dur)
 	sign := byte(1)
 	if dur.Negative {
 		sign = 2
 	}
-	if monthsTotal == 0 && seconds.Sign == 0 {
+	if months.Sign == 0 && seconds.Sign == 0 {
 		sign = 0
 	}
 	dst = append(dst[:0], sign)
@@ -192,23 +190,47 @@ func DurationKeyBytes(dst []byte, dur types.XSDDuration) []byte {
 	return dst
 }
 
+func durationMonthsTotal(dur types.XSDDuration) num.Int {
+	years := num.FromInt64(int64(dur.Years))
+	months := num.FromInt64(int64(dur.Months))
+	if years.Sign == 0 {
+		return months
+	}
+	return num.Add(num.Mul(years, num.FromInt64(12)), months)
+}
+
 func durationSecondsTotal(dur types.XSDDuration) num.Dec {
 	total := dur.Seconds
-	total = addDecInt(total, int64(dur.Minutes)*60)
-	total = addDecInt(total, int64(dur.Hours)*3600)
-	total = addDecInt(total, int64(dur.Days)*86400)
+	total = addDecIntBig(total, num.Mul(num.FromInt64(int64(dur.Minutes)), num.FromInt64(60)))
+	total = addDecIntBig(total, num.Mul(num.FromInt64(int64(dur.Hours)), num.FromInt64(3600)))
+	total = addDecIntBig(total, num.Mul(num.FromInt64(int64(dur.Days)), num.FromInt64(86400)))
 	return total
 }
 
-func addDecInt(dec num.Dec, delta int64) num.Dec {
-	if delta == 0 {
+func addDecIntBig(dec num.Dec, delta num.Int) num.Dec {
+	if delta.Sign == 0 {
 		return dec
 	}
 	scale := dec.Scale
 	scaled := num.DecToScaledInt(dec, scale)
-	deltaScaled := num.DecToScaledInt(num.FromInt64(delta).AsDec(), scale)
-	sum := num.Add(scaled, deltaScaled)
+	if scale != 0 {
+		delta = num.Mul(delta, pow10Int(scale))
+	}
+	sum := num.Add(scaled, delta)
 	return num.DecFromScaledInt(sum, scale)
+}
+
+func pow10Int(scale uint32) num.Int {
+	if scale == 0 {
+		return num.FromInt64(1)
+	}
+	digits := make([]byte, int(scale)+1)
+	digits[0] = '1'
+	for i := 1; i < len(digits); i++ {
+		digits[i] = '0'
+	}
+	out, _ := num.ParseInt(digits)
+	return out
 }
 
 // AppendUvarint appends v as a varint-encoded uint64.

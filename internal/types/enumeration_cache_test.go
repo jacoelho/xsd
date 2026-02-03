@@ -6,7 +6,7 @@ import (
 )
 
 func TestEnumerationValidateLexicalConcurrent(t *testing.T) {
-	enum := &Enumeration{Values: []string{"a", "b"}}
+	enum := NewEnumeration([]string{"a", "b"})
 	base := GetBuiltin(TypeNameString)
 	if base == nil {
 		t.Fatal("expected builtin string type")

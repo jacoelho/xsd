@@ -3,6 +3,7 @@ package validator
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -27,6 +28,35 @@ func TestValidateRootSeenOnError(t *testing.T) {
 	}
 	if !hasValidationCode(list, xsderrors.ErrValidateRootNotDeclared) {
 		t.Fatalf("expected ErrValidateRootNotDeclared, got %+v", list)
+	}
+}
+
+func TestValidateReaderSetupErrorWrapped(t *testing.T) {
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
+
+	sentinel := errors.New("reader setup failed")
+	orig := newXMLReader
+	newXMLReader = func(_ io.Reader, _ ...xmlstream.Option) (*xmlstream.Reader, error) {
+		return nil, sentinel
+	}
+	t.Cleanup(func() {
+		newXMLReader = orig
+	})
+
+	err = sess.Validate(strings.NewReader("<root/>"))
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsderrors.ErrXMLParse) {
+		t.Fatalf("expected ErrXMLParse, got %+v", list)
+	}
+	if !strings.Contains(list[0].Message, sentinel.Error()) {
+		t.Fatalf("expected error message to contain %q, got %q", sentinel.Error(), list[0].Message)
 	}
 }
 
@@ -277,48 +307,105 @@ func TestPathStringFallbackUsesFrameName(t *testing.T) {
 }
 
 func TestBinaryLengthFacets(t *testing.T) {
+	binarySchema := func(base, facet string, value int) string {
+		return fmt.Sprintf(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="Bin">
+    <xs:restriction base="xs:%s">
+      <xs:%s value="%d"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:Bin"/>
+</xs:schema>`, base, facet, value)
+	}
+
 	cases := []struct {
 		name      string
 		schemaXML string
 		docXML    string
+		wantErr   bool
 	}{
 		{
-			name: "base64Binary length",
-			schemaXML: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           xmlns:tns="urn:test"
-           targetNamespace="urn:test"
-           elementFormDefault="qualified">
-  <xs:simpleType name="OneByte">
-    <xs:restriction base="xs:base64Binary">
-      <xs:length value="1"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:element name="root" type="tns:OneByte"/>
-</xs:schema>`,
-			docXML: `<root xmlns="urn:test">AQ==</root>`,
+			name:      "base64Binary length accepts one byte",
+			schemaXML: binarySchema("base64Binary", "length", 1),
+			docXML:    `<root xmlns="urn:test">AQ==</root>`,
 		},
 		{
-			name: "hexBinary length",
-			schemaXML: `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           xmlns:tns="urn:test"
-           targetNamespace="urn:test"
-           elementFormDefault="qualified">
-  <xs:simpleType name="OneByteHex">
-    <xs:restriction base="xs:hexBinary">
-      <xs:length value="1"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:element name="root" type="tns:OneByteHex"/>
-</xs:schema>`,
-			docXML: `<root xmlns="urn:test">0A</root>`,
+			name:      "base64Binary length rejects two bytes",
+			schemaXML: binarySchema("base64Binary", "length", 1),
+			docXML:    `<root xmlns="urn:test">AQI=</root>`,
+			wantErr:   true,
+		},
+		{
+			name:      "base64Binary minLength rejects one byte",
+			schemaXML: binarySchema("base64Binary", "minLength", 2),
+			docXML:    `<root xmlns="urn:test">AQ==</root>`,
+			wantErr:   true,
+		},
+		{
+			name:      "base64Binary minLength accepts two bytes",
+			schemaXML: binarySchema("base64Binary", "minLength", 2),
+			docXML:    `<root xmlns="urn:test">AQI=</root>`,
+		},
+		{
+			name:      "base64Binary maxLength accepts one byte",
+			schemaXML: binarySchema("base64Binary", "maxLength", 1),
+			docXML:    `<root xmlns="urn:test">AQ==</root>`,
+		},
+		{
+			name:      "base64Binary maxLength rejects two bytes",
+			schemaXML: binarySchema("base64Binary", "maxLength", 1),
+			docXML:    `<root xmlns="urn:test">AQI=</root>`,
+			wantErr:   true,
+		},
+		{
+			name:      "hexBinary length accepts one byte",
+			schemaXML: binarySchema("hexBinary", "length", 1),
+			docXML:    `<root xmlns="urn:test">0F</root>`,
+		},
+		{
+			name:      "hexBinary length rejects two bytes",
+			schemaXML: binarySchema("hexBinary", "length", 1),
+			docXML:    `<root xmlns="urn:test">0F10</root>`,
+			wantErr:   true,
+		},
+		{
+			name:      "hexBinary minLength rejects one byte",
+			schemaXML: binarySchema("hexBinary", "minLength", 2),
+			docXML:    `<root xmlns="urn:test">0F</root>`,
+			wantErr:   true,
+		},
+		{
+			name:      "hexBinary minLength accepts two bytes",
+			schemaXML: binarySchema("hexBinary", "minLength", 2),
+			docXML:    `<root xmlns="urn:test">0F10</root>`,
+		},
+		{
+			name:      "hexBinary maxLength accepts one byte",
+			schemaXML: binarySchema("hexBinary", "maxLength", 1),
+			docXML:    `<root xmlns="urn:test">0F</root>`,
+		},
+		{
+			name:      "hexBinary maxLength rejects two bytes",
+			schemaXML: binarySchema("hexBinary", "maxLength", 1),
+			docXML:    `<root xmlns="urn:test">0F10</root>`,
+			wantErr:   true,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateRuntimeDoc(t, tc.schemaXML, tc.docXML); err != nil {
+			err := validateRuntimeDoc(t, tc.schemaXML, tc.docXML)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected validation error")
+				}
+				return
+			}
+			if err != nil {
 				t.Fatalf("unexpected validation error: %v", err)
 			}
 		})

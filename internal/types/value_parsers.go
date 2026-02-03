@@ -15,79 +15,31 @@ import (
 // ParseDecimal parses a decimal string into num.Dec.
 // Handles leading/trailing whitespace and validates decimal format
 func ParseDecimal(lexical string) (num.Dec, error) {
-	lexical = TrimXMLWhitespace(lexical)
-	if lexical == "" {
-		return num.Dec{}, fmt.Errorf("invalid decimal: empty string")
-	}
-
-	dec, perr := num.ParseDec([]byte(lexical))
-	if perr != nil {
-		return num.Dec{}, fmt.Errorf("invalid decimal: %s", lexical)
-	}
-	return dec, nil
+	return value.ParseDecimal([]byte(lexical))
 }
 
 // ParseInteger parses an integer string into num.Int.
 // Handles leading/trailing whitespace and validates integer format
 func ParseInteger(lexical string) (num.Int, error) {
-	lexical = TrimXMLWhitespace(lexical)
-	if lexical == "" {
-		return num.Int{}, fmt.Errorf("invalid integer: empty string")
-	}
-
-	intVal, perr := num.ParseInt([]byte(lexical))
-	if perr != nil {
-		return num.Int{}, fmt.Errorf("invalid integer: %s", lexical)
-	}
-	return intVal, nil
+	return value.ParseInteger([]byte(lexical))
 }
 
 // ParseBoolean parses a boolean string into bool
 // Accepts "true", "false", "1", "0" (XSD boolean lexical representation)
 func ParseBoolean(lexical string) (bool, error) {
-	lexical = TrimXMLWhitespace(lexical)
-	switch lexical {
-	case "true", "1":
-		return true, nil
-	case "false", "0":
-		return false, nil
-	default:
-		return false, fmt.Errorf("invalid boolean: %s (must be 'true', 'false', '1', or '0')", lexical)
-	}
+	return value.ParseBoolean([]byte(lexical))
 }
 
 // ParseFloat parses a float string into float32 with special value handling
 // Handles INF, -INF, and NaN special values
 func ParseFloat(lexical string) (float32, error) {
-	lexical = TrimXMLWhitespace(lexical)
-	if lexical == "" {
-		return 0, fmt.Errorf("invalid float: empty string")
-	}
-	f, _, perr := num.ParseFloat32([]byte(lexical))
-	if perr == nil {
-		return f, nil
-	}
-	if perr.Kind == num.ParseEmpty {
-		return 0, fmt.Errorf("invalid float: empty string")
-	}
-	return 0, fmt.Errorf("invalid float: %s", lexical)
+	return value.ParseFloat([]byte(lexical))
 }
 
 // ParseDouble parses a double string into float64 with special value handling
 // Handles INF, -INF, and NaN special values
 func ParseDouble(lexical string) (float64, error) {
-	lexical = TrimXMLWhitespace(lexical)
-	if lexical == "" {
-		return 0, fmt.Errorf("invalid double: empty string")
-	}
-	f, _, perr := num.ParseFloat64([]byte(lexical))
-	if perr == nil {
-		return f, nil
-	}
-	if perr.Kind == num.ParseEmpty {
-		return 0, fmt.Errorf("invalid double: empty string")
-	}
-	return 0, fmt.Errorf("invalid double: %s", lexical)
+	return value.ParseDouble([]byte(lexical))
 }
 
 // ParseDateTime parses a dateTime string into time.Time

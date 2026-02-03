@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
 // TypedValue represents a value with its XSD type
@@ -280,62 +281,7 @@ func NewDateTimeValue(parsed ParsedValue[time.Time], typ *SimpleType) TypedValue
 }
 
 func (v *DateTimeValue) String() string {
-	return canonicalDateTimeString(v.native, v.kind, v.hasTimezone)
-}
-
-func canonicalDateTimeString(value time.Time, kind TypeName, hasTimezone bool) string {
-	year, month, day := value.Date()
-	hour, minute, second := value.Clock()
-	fraction := formatFraction(value.Nanosecond())
-	tz := ""
-	if hasTimezone {
-		tz = formatTimezone(value)
-	}
-
-	switch kind {
-	case TypeNameDateTime:
-		return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02d%s%s", year, int(month), day, hour, minute, second, fraction, tz)
-	case TypeNameDate:
-		return fmt.Sprintf("%04d-%02d-%02d%s", year, int(month), day, tz)
-	case TypeNameTime:
-		return fmt.Sprintf("%02d:%02d:%02d%s%s", hour, minute, second, fraction, tz)
-	case TypeNameGYearMonth:
-		return fmt.Sprintf("%04d-%02d%s", year, int(month), tz)
-	case TypeNameGYear:
-		return fmt.Sprintf("%04d%s", year, tz)
-	case TypeNameGMonthDay:
-		return fmt.Sprintf("--%02d-%02d%s", int(month), day, tz)
-	case TypeNameGMonth:
-		return fmt.Sprintf("--%02d%s", int(month), tz)
-	case TypeNameGDay:
-		return fmt.Sprintf("---%02d%s", day, tz)
-	default:
-		return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02d%s%s", year, int(month), day, hour, minute, second, fraction, tz)
-	}
-}
-
-func formatFraction(nanos int) string {
-	if nanos == 0 {
-		return ""
-	}
-	frac := fmt.Sprintf("%09d", nanos)
-	frac = strings.TrimRight(frac, "0")
-	return "." + frac
-}
-
-func formatTimezone(value time.Time) string {
-	_, offset := value.Zone()
-	if offset == 0 {
-		return "Z"
-	}
-	sign := "+"
-	if offset < 0 {
-		sign = "-"
-		offset = -offset
-	}
-	hours := offset / 3600
-	minutes := (offset % 3600) / 60
-	return fmt.Sprintf("%s%02d:%02d", sign, hours, minutes)
+	return valuepkg.CanonicalDateTimeString(v.native, string(v.kind), v.hasTimezone)
 }
 
 // FloatValue represents a float value

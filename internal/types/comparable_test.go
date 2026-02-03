@@ -167,6 +167,21 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 	})
 }
 
+func TestCompareDayTimeDurationsLargeDays(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
+	limit := int64(math.MaxInt64 / 86400)
+	if int64(maxInt) <= limit {
+		t.Skip("int size too small to overflow int64 in legacy dayTime comparison")
+	}
+	rightDays := int(limit)
+	leftDays := rightDays + 1
+	left := XSDDuration{Days: leftDays}
+	right := XSDDuration{Days: rightDays}
+	if got := compareDayTimeDurations(left, right); got <= 0 {
+		t.Fatalf("compareDayTimeDurations = %d, want > 0", got)
+	}
+}
+
 func TestComparable_Time(t *testing.T) {
 	time1, _ := ParseDateTime("2001-10-26T21:32:52")
 	time2, _ := ParseDateTime("2002-10-26T21:32:52")

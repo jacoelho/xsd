@@ -1,6 +1,10 @@
 package runtime
 
-import "github.com/jacoelho/xsd/internal/num"
+import (
+	"fmt"
+
+	"github.com/jacoelho/xsd/internal/num"
+)
 
 // IntegerSignRule describes the sign constraint for an integer kind.
 type IntegerSignRule uint8
@@ -54,4 +58,44 @@ func IntegerKindSpecFor(kind IntegerKind) (IntegerKindSpec, bool) {
 	default:
 		return IntegerKindSpec{}, false
 	}
+}
+
+// ValidateIntegerKind validates an integer value against the kind constraints.
+func ValidateIntegerKind(kind IntegerKind, v num.Int) error {
+	spec, ok := IntegerKindSpecFor(kind)
+	if !ok {
+		return nil
+	}
+	switch spec.SignRule {
+	case IntegerSignNonNegative:
+		if v.Sign < 0 {
+			return fmt.Errorf("%s must be >= 0", spec.Label)
+		}
+	case IntegerSignPositive:
+		if v.Sign <= 0 {
+			return fmt.Errorf("%s must be >= 1", spec.Label)
+		}
+	case IntegerSignNonPositive:
+		if v.Sign > 0 {
+			return fmt.Errorf("%s must be <= 0", spec.Label)
+		}
+	case IntegerSignNegative:
+		if v.Sign >= 0 {
+			return fmt.Errorf("%s must be <= -1", spec.Label)
+		}
+	}
+	if spec.HasRange {
+		return validateIntRange(v, spec.Min, spec.Max, spec.Label)
+	}
+	return nil
+}
+
+func validateIntRange(v, minValue, maxValue num.Int, label string) error {
+	if v.Compare(minValue) < 0 || v.Compare(maxValue) > 0 {
+		if label == "" {
+			return fmt.Errorf("integer out of range")
+		}
+		return fmt.Errorf("%s out of range", label)
+	}
+	return nil
 }

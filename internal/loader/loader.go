@@ -258,6 +258,7 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 			entry := l.state.ensureEntry(key)
 			entry.validationRequested = true
 			if resolveErr := l.resolvePendingImportsFor(key); resolveErr != nil {
+				_ = doc.Close()
 				return nil, resolveErr
 			}
 		}

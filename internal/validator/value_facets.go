@@ -171,14 +171,26 @@ func (s *Session) valueLength(meta runtime.ValidatorMeta, normalized []byte, met
 			metrics.lengthSet = true
 		}
 		return count
-	case runtime.VHexBinary, runtime.VBase64Binary:
-		if metrics != nil && metrics.lengthSet {
-			return metrics.length
-		}
-		return utf8.RuneCount(normalized)
+	case runtime.VHexBinary:
+		return binaryOctetLength(types.ParseHexBinary, normalized, metrics)
+	case runtime.VBase64Binary:
+		return binaryOctetLength(types.ParseBase64Binary, normalized, metrics)
 	default:
 		return utf8.RuneCount(normalized)
 	}
+}
+
+func binaryOctetLength(parse func(string) ([]byte, error), normalized []byte, metrics *valueMetrics) int {
+	decoded, err := parse(string(normalized))
+	if err != nil {
+		return 0
+	}
+	length := len(decoded)
+	if metrics != nil {
+		metrics.length = length
+		metrics.lengthSet = true
+	}
+	return length
 }
 
 func (s *Session) compareValue(kind runtime.ValidatorKind, canonical, bound []byte, metrics *valueMetrics) (int, error) {

@@ -315,8 +315,8 @@ func (b *BuiltinType) FundamentalFacets() *FundamentalFacets {
 	if computed == nil {
 		typeCacheMu.Lock()
 		b.fundamentalFacetsComputing = false
-		typeCacheMu.Unlock()
 		typeCacheCond.Broadcast()
+		typeCacheMu.Unlock()
 		return nil
 	}
 
@@ -326,8 +326,8 @@ func (b *BuiltinType) FundamentalFacets() *FundamentalFacets {
 	}
 	b.fundamentalFacetsComputing = false
 	cached := b.fundamentalFacetsCache
-	typeCacheMu.Unlock()
 	typeCacheCond.Broadcast()
+	typeCacheMu.Unlock()
 	return cached
 }
 
@@ -414,8 +414,8 @@ func (b *BuiltinType) PrimitiveType() Type {
 	if primitive == nil {
 		typeCacheMu.Lock()
 		b.primitiveTypeComputing = false
-		typeCacheMu.Unlock()
 		typeCacheCond.Broadcast()
+		typeCacheMu.Unlock()
 		return nil
 	}
 
@@ -425,8 +425,8 @@ func (b *BuiltinType) PrimitiveType() Type {
 	}
 	b.primitiveTypeComputing = false
 	cached := b.primitiveTypeCache
-	typeCacheMu.Unlock()
 	typeCacheCond.Broadcast()
+	typeCacheMu.Unlock()
 	return cached
 }
 

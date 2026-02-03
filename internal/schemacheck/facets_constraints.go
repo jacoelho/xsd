@@ -268,7 +268,8 @@ func validateEnumerationValues(schema *parser.Schema, facetList []types.Facet, b
 		if !ok {
 			continue
 		}
-		for i, val := range enum.Values {
+		values := enum.Values()
+		for i, val := range values {
 			ctx := enumContext(enum, i)
 			if err := validateValueAgainstTypeWithFacets(schema, val, baseType, ctx, make(map[types.Type]bool)); err != nil {
 				return fmt.Errorf("enumeration value %d (%q) is not valid for base type %s: %w", i+1, val, baseType.Name().Local, err)
