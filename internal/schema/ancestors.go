@@ -21,6 +21,9 @@ func BuildAncestors(schema *parser.Schema, registry *Registry) (*AncestorIndex, 
 	if registry == nil {
 		return nil, fmt.Errorf("registry is nil")
 	}
+	if err := RequireResolved(schema); err != nil {
+		return nil, err
+	}
 	if err := validateSchemaInput(schema); err != nil {
 		return nil, err
 	}

@@ -1,6 +1,23 @@
-package schema
+package schema_test
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/jacoelho/xsd/internal/parser"
+	schemapkg "github.com/jacoelho/xsd/internal/schema"
+)
+
+func mustParsedResolved(t *testing.T, schemaXML string) *parser.Schema {
+	t.Helper()
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	schema.Phase = parser.PhaseResolved
+	schema.HasPlaceholders = false
+	return schema
+}
 
 func TestDetectTypeCycle(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
@@ -15,8 +32,8 @@ func TestDetectTypeCycle(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	schema := mustParseSchema(t, schemaXML)
-	if err := DetectCycles(schema); err == nil {
+	schema := mustParsedResolved(t, schemaXML)
+	if err := schemapkg.DetectCycles(schema); err == nil {
 		t.Fatalf("expected type cycle error")
 	}
 }
@@ -38,8 +55,8 @@ func TestDetectGroupCycle(t *testing.T) {
   </xs:group>
 </xs:schema>`
 
-	schema := mustParseSchema(t, schemaXML)
-	if err := DetectCycles(schema); err == nil {
+	schema := mustParsedResolved(t, schemaXML)
+	if err := schemapkg.DetectCycles(schema); err == nil {
 		t.Fatalf("expected group cycle error")
 	}
 }
@@ -57,8 +74,8 @@ func TestDetectAttributeGroupCycle(t *testing.T) {
   </xs:attributeGroup>
 </xs:schema>`
 
-	schema := mustParseSchema(t, schemaXML)
-	if err := DetectCycles(schema); err == nil {
+	schema := mustParsedResolved(t, schemaXML)
+	if err := schemapkg.DetectCycles(schema); err == nil {
 		t.Fatalf("expected attributeGroup cycle error")
 	}
 }
@@ -73,8 +90,8 @@ func TestDetectSubstitutionGroupCycle(t *testing.T) {
   <xs:element name="B" type="xs:string" substitutionGroup="tns:A"/>
 </xs:schema>`
 
-	schema := mustParseSchema(t, schemaXML)
-	if err := DetectCycles(schema); err == nil {
+	schema := mustParsedResolved(t, schemaXML)
+	if err := schemapkg.DetectCycles(schema); err == nil {
 		t.Fatalf("expected substitutionGroup cycle error")
 	}
 }

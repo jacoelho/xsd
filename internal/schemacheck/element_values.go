@@ -15,6 +15,10 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 		return nil
 	}
 
+	if shouldDeferValueValidation(schema, typ) {
+		return nil
+	}
+
 	if st, ok := typ.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) && schema != nil {
 		if resolved, ok := lookupTypeDef(schema, st.QName); ok {
 			return validateDefaultOrFixedValueWithContext(schema, value, resolved, nsContext)
@@ -98,4 +102,26 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 	}
 
 	return nil
+}
+
+func shouldDeferValueValidation(schema *parser.Schema, typ types.Type) bool {
+	st, ok := typ.(*types.SimpleType)
+	if !ok {
+		return false
+	}
+	if types.IsPlaceholderSimpleType(st) {
+		if schema == nil {
+			return true
+		}
+		if _, ok := lookupTypeDef(schema, st.QName); !ok {
+			return true
+		}
+		return false
+	}
+	if st.Variety() == types.AtomicVariety && st.PrimitiveType() == nil {
+		if st.Restriction != nil && !st.Restriction.Base.IsZero() && st.Restriction.Base.Namespace != types.XSDNamespace {
+			return true
+		}
+	}
+	return false
 }

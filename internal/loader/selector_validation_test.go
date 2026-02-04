@@ -17,6 +17,7 @@ func TestSelectorXPathValidation(t *testing.T) {
 			name: "selector selecting attribute should fail",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -48,6 +49,7 @@ func TestSelectorXPathValidation(t *testing.T) {
 			name: "selector selecting text node should fail",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -79,6 +81,7 @@ func TestSelectorXPathValidation(t *testing.T) {
 			name: "selector using attribute axis should fail",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -110,6 +113,7 @@ func TestSelectorXPathValidation(t *testing.T) {
 			name: "valid selector selecting elements should pass",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -129,7 +133,7 @@ func TestSelectorXPathValidation(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts/part"/>
+      <xs:selector xpath="tns:parts/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:key>
   </xs:element>
@@ -140,6 +144,7 @@ func TestSelectorXPathValidation(t *testing.T) {
 			name: "valid selector with descendant-or-self should pass",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -159,7 +164,7 @@ func TestSelectorXPathValidation(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath=".//part"/>
+      <xs:selector xpath=".//tns:part"/>
       <xs:field xpath="@number"/>
     </xs:key>
   </xs:element>
@@ -170,6 +175,7 @@ func TestSelectorXPathValidation(t *testing.T) {
 			name: "selector with namespace axis should fail",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -201,6 +207,7 @@ func TestSelectorXPathValidation(t *testing.T) {
 			name: "selector with text() in middle should fail",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -220,7 +227,7 @@ func TestSelectorXPathValidation(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts/part/text()"/>
+      <xs:selector xpath="tns:parts/tns:part/text()"/>
       <xs:field xpath="@number"/>
     </xs:key>
   </xs:element>
@@ -232,6 +239,7 @@ func TestSelectorXPathValidation(t *testing.T) {
 			name: "selector with attribute in middle should fail",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -251,7 +259,7 @@ func TestSelectorXPathValidation(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts/part/@number"/>
+      <xs:selector xpath="tns:parts/tns:part/@number"/>
       <xs:field xpath="@number"/>
     </xs:key>
   </xs:element>
@@ -263,6 +271,7 @@ func TestSelectorXPathValidation(t *testing.T) {
 			name: "selector with parent navigation should fail",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -282,7 +291,7 @@ func TestSelectorXPathValidation(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="../part"/>
+      <xs:selector xpath="../tns:part"/>
       <xs:field xpath="@number"/>
     </xs:key>
   </xs:element>
@@ -294,6 +303,7 @@ func TestSelectorXPathValidation(t *testing.T) {
 			name: "selector with parent:: axis should fail",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -313,7 +323,7 @@ func TestSelectorXPathValidation(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parent::part"/>
+      <xs:selector xpath="parent::tns:part"/>
       <xs:field xpath="@number"/>
     </xs:key>
   </xs:element>
@@ -362,6 +372,7 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
 			name: "field with wildcard should succeed",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -381,7 +392,7 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts"/>
+      <xs:selector xpath="tns:parts"/>
       <xs:field xpath="*"/>
     </xs:key>
   </xs:element>
@@ -392,6 +403,7 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
 			name: "field with parent axis should fail",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -411,8 +423,8 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts"/>
-      <xs:field xpath="parent::part/@number"/>
+      <xs:selector xpath="tns:parts"/>
+      <xs:field xpath="parent::tns:part/@number"/>
     </xs:key>
   </xs:element>
 </xs:schema>`,
@@ -423,6 +435,7 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
 			name: "field with ancestor axis should fail",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -442,8 +455,8 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts"/>
-      <xs:field xpath="ancestor::part/@number"/>
+      <xs:selector xpath="tns:parts"/>
+      <xs:field xpath="ancestor::tns:part/@number"/>
     </xs:key>
   </xs:element>
 </xs:schema>`,
@@ -454,6 +467,7 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
 			name: "valid field with attribute should pass",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -473,7 +487,7 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts"/>
+      <xs:selector xpath="tns:parts"/>
       <xs:field xpath="@number"/>
     </xs:key>
   </xs:element>
@@ -484,6 +498,7 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
 			name: "valid field with child element attribute should pass",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -503,8 +518,8 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts"/>
-      <xs:field xpath="part/@id"/>
+      <xs:selector xpath="tns:parts"/>
+      <xs:field xpath="tns:part/@id"/>
     </xs:key>
   </xs:element>
 </xs:schema>`,
@@ -514,6 +529,7 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
 			name: "valid field with child axis should pass",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -537,8 +553,8 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts"/>
-      <xs:field xpath="child::part"/>
+      <xs:selector xpath="tns:parts"/>
+      <xs:field xpath="child::tns:part"/>
     </xs:key>
   </xs:element>
 </xs:schema>`,
@@ -548,6 +564,7 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
 			name: "valid field with descendant-or-self should pass",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -571,8 +588,8 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts"/>
-      <xs:field xpath=".//part"/>
+      <xs:selector xpath="tns:parts"/>
+      <xs:field xpath=".//tns:part"/>
     </xs:key>
   </xs:element>
 </xs:schema>`,
@@ -582,6 +599,7 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
 			name: "selector with wildcard should pass (wildcards allowed in selectors)",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -601,7 +619,7 @@ func TestFieldXPathInIdentityConstraint(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts/*"/>
+      <xs:selector xpath="tns:parts/*"/>
       <xs:field xpath="@number"/>
     </xs:key>
   </xs:element>

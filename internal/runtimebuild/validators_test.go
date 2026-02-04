@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/valuekey"
@@ -164,10 +163,7 @@ func TestUnionEnumViolatesUnionPattern_CompileError(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	sch, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
+	sch := mustResolveSchema(t, schemaXML)
 	reg, err := schema.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("assign ids: %v", err)
@@ -186,10 +182,7 @@ func TestUnionEnumViolatesUnionPattern_CompileError(t *testing.T) {
 
 func compileSchema(t *testing.T, schemaXML string) (*CompiledValidators, *schema.Registry) {
 	t.Helper()
-	sch, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
+	sch := mustResolveSchema(t, schemaXML)
 	reg, err := schema.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("assign ids: %v", err)

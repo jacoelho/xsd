@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 type loadSession struct {
@@ -57,7 +58,7 @@ func (s *loadSession) handleCircularLoad() (*parser.Schema, error) {
 }
 
 func (s *loadSession) parseSchema() (result *parser.ParseResult, err error) {
-	return parseSchemaDocument(s.doc, s.systemID)
+	return parseSchemaDocument(s.doc, s.systemID, s.loader.config.SchemaParseOptions...)
 }
 
 func (s *loadSession) processDirectives(schema *parser.Schema, directives []parser.Directive) error {
@@ -275,7 +276,7 @@ func removePendingDirective(directives []pendingDirective, kind parser.Directive
 	return directives
 }
 
-func parseSchemaDocument(doc io.ReadCloser, systemID string) (result *parser.ParseResult, err error) {
+func parseSchemaDocument(doc io.ReadCloser, systemID string, opts ...xmlstream.Option) (result *parser.ParseResult, err error) {
 	if doc == nil {
 		return nil, fmt.Errorf("nil schema reader")
 	}
@@ -285,7 +286,7 @@ func parseSchemaDocument(doc io.ReadCloser, systemID string) (result *parser.Par
 		}
 	}()
 
-	result, err = parser.ParseWithImports(doc)
+	result, err = parser.ParseWithImportsOptions(doc, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", systemID, err)
 	}

@@ -27,6 +27,9 @@ func ResolveReferences(schema *parser.Schema, registry *Registry) (*ResolvedRefe
 	if registry == nil {
 		return nil, fmt.Errorf("registry is nil")
 	}
+	if err := RequireResolved(schema); err != nil {
+		return nil, err
+	}
 	if err := validateSchemaInput(schema); err != nil {
 		return nil, err
 	}
@@ -112,7 +115,7 @@ func (r *referenceResolver) resolveGlobalElement(decl *types.ElementDecl) error 
 		return r.resolveElement(decl)
 	}
 	if _, ok := r.schema.ElementDecls[decl.SubstitutionGroup]; !ok {
-		return fmt.Errorf("element %s: substitutionGroup %s not found", decl.Name, decl.SubstitutionGroup)
+		return r.resolveElement(decl)
 	}
 	return r.resolveElement(decl)
 }
@@ -135,6 +138,14 @@ func (r *referenceResolver) resolveElement(decl *types.ElementDecl) error {
 		return nil
 	}
 	if decl.Type == nil {
+		r.elementState[decl] = resolveResolved
+		return nil
+	}
+	if st, ok := decl.Type.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) {
+		if err := r.resolveTypeQName(st.QName); err != nil {
+			delete(r.elementState, decl)
+			return fmt.Errorf("element %s: %w", decl.Name, err)
+		}
 		r.elementState[decl] = resolveResolved
 		return nil
 	}
@@ -167,6 +178,12 @@ func (r *referenceResolver) resolveAttribute(attr *types.AttributeDecl) error {
 		return r.resolveAttributeReference(attr)
 	}
 	if attr.Type == nil {
+		return nil
+	}
+	if st, ok := attr.Type.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) {
+		if err := r.resolveTypeQName(st.QName); err != nil {
+			return fmt.Errorf("attribute %s: %w", attr.Name, err)
+		}
 		return nil
 	}
 	if err := r.resolveType(attr.Type); err != nil {

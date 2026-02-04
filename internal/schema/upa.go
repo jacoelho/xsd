@@ -13,6 +13,9 @@ func ValidateUPA(schema *parser.Schema, registry *Registry) error {
 	if registry == nil {
 		return fmt.Errorf("registry is nil")
 	}
+	if err := RequireResolved(schema); err != nil {
+		return err
+	}
 	if err := validateSchemaInput(schema); err != nil {
 		return err
 	}

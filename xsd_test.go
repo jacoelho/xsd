@@ -3,6 +3,8 @@ package xsd_test
 import (
 	"bytes"
 	"io"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -73,6 +75,35 @@ func TestSchemaValidateFileValid(t *testing.T) {
 
 	if err := s.Validate(strings.NewReader(validPersonXML)); err != nil {
 		t.Fatalf("Validate() err = %v, want nil", err)
+	}
+}
+
+func TestSchemaValidateFileSetsDocument(t *testing.T) {
+	s := loadSchema(t)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "person.xml")
+	doc := `<?xml version="1.0"?>
+<person xmlns="http://example.com/simple">
+  <name>John Doe</name>
+  <age>bad</age>
+</person>`
+	if err := os.WriteFile(path, []byte(doc), 0o600); err != nil {
+		t.Fatalf("WriteFile() err = %v", err)
+	}
+
+	err := s.ValidateFile(path)
+	if err == nil {
+		t.Fatalf("ValidateFile() err = nil, want validation error")
+	}
+	violations, ok := errors.AsValidations(err)
+	if !ok {
+		t.Fatalf("AsValidations() ok = false, want true")
+	}
+	for i, v := range violations {
+		if v.Document != path {
+			t.Fatalf("violation %d document = %q, want %q", i, v.Document, path)
+		}
 	}
 }
 

@@ -85,7 +85,7 @@ func TestAttZ015ProhibitedAttributeGroup(t *testing.T) {
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
 
 <xsd:complexType name="base">
-	<xsd:attribute name="a" />
+	<xsd:attribute name="a" type="xsd:string" />
 </xsd:complexType>
 
 <xsd:complexType name="derived">
@@ -99,7 +99,7 @@ func TestAttZ015ProhibitedAttributeGroup(t *testing.T) {
 </xsd:complexType>
 
 <xsd:attributeGroup name="attG">
- <xsd:attribute name="a" use="prohibited"/> 
+ <xsd:attribute name="a" type="xsd:string" use="prohibited"/> 
 </xsd:attributeGroup>
 
 <xsd:element name="doc" type="derived" />
@@ -173,8 +173,8 @@ func TestInvalidIDDoesNotSatisfyIDREF(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrIDRefNotFound) {
-		t.Fatalf("expected ErrIDRefNotFound, got %+v", list)
+	if !hasValidationCode(list, xsderrors.ErrFacetViolation) {
+		t.Fatalf("expected ErrFacetViolation, got %+v", list)
 	}
 }
 

@@ -1,11 +1,6 @@
 package runtimebuild
 
-import (
-	"strings"
-	"testing"
-
-	"github.com/jacoelho/xsd/internal/parser"
-)
+import "testing"
 
 func TestBuildSchema_ResolvesGroupRefs(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
@@ -26,10 +21,7 @@ func TestBuildSchema_ResolvesGroupRefs(t *testing.T) {
   <xs:element name="root" type="tns:T"/>
 </xs:schema>`
 
-	schema, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
-	}
+	schema := mustResolveSchema(t, schemaXML)
 	if _, err := BuildSchema(schema, BuildConfig{}); err != nil {
 		t.Fatalf("BuildSchema error = %v", err)
 	}
