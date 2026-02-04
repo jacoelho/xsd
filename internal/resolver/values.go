@@ -31,6 +31,9 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 	if typ == nil {
 		return nil
 	}
+	if st, ok := typ.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) {
+		return fmt.Errorf("type %s not resolved", st.QName)
+	}
 	if visited[typ] {
 		return errCircularReference
 	}

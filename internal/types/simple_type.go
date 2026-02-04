@@ -600,7 +600,10 @@ func (s *SimpleType) validateNormalizedWithContext(normalized string, visited ma
 	if err := s.validateNormalizedLexicalWithContext(normalized, visited, context); err != nil {
 		return err
 	}
-	facets := collectSimpleTypeFacets(s, make(map[*SimpleType]bool))
+	facets, err := collectSimpleTypeFacets(s, make(map[*SimpleType]bool))
+	if err != nil {
+		return err
+	}
 	if len(facets) == 0 {
 		return nil
 	}
@@ -694,12 +697,12 @@ func validateTypeLexicalWithContext(typ Type, lexical string, visited map[*Simpl
 	return nil
 }
 
-func collectSimpleTypeFacets(st *SimpleType, visited map[*SimpleType]bool) []Facet {
+func collectSimpleTypeFacets(st *SimpleType, visited map[*SimpleType]bool) ([]Facet, error) {
 	if st == nil {
-		return nil
+		return nil, nil
 	}
 	if visited[st] {
-		return nil
+		return nil, nil
 	}
 	visited[st] = true
 	defer delete(visited, st)
@@ -707,12 +710,20 @@ func collectSimpleTypeFacets(st *SimpleType, visited map[*SimpleType]bool) []Fac
 	var result []Facet
 	if st.ResolvedBase != nil {
 		if baseST, ok := AsSimpleType(st.ResolvedBase); ok {
-			result = append(result, collectSimpleTypeFacets(baseST, visited)...)
+			facets, err := collectSimpleTypeFacets(baseST, visited)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, facets...)
 		}
 	} else if st.Restriction != nil && !st.Restriction.Base.IsZero() {
 		if base := GetBuiltinNS(st.Restriction.Base.Namespace, st.Restriction.Base.Local); base != nil {
 			if baseST, ok := AsSimpleType(base); ok {
-				result = append(result, collectSimpleTypeFacets(baseST, visited)...)
+				facets, err := collectSimpleTypeFacets(baseST, visited)
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, facets...)
 			}
 		}
 	}
@@ -724,12 +735,17 @@ func collectSimpleTypeFacets(st *SimpleType, visited map[*SimpleType]bool) []Fac
 	if st.Restriction != nil {
 		for _, facet := range st.Restriction.Facets {
 			if f, ok := facet.(Facet); ok {
+				if compilable, ok := f.(interface{ ValidateSyntax() error }); ok {
+					if err := compilable.ValidateSyntax(); err != nil {
+						return nil, err
+					}
+				}
 				result = append(result, f)
 			}
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 func needsBuiltinListMinLength(st *SimpleType) bool {

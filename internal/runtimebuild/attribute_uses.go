@@ -1,8 +1,9 @@
 package runtimebuild
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
@@ -44,13 +45,13 @@ func collectAttributeUses(schema *parser.Schema, ct *types.ComplexType) ([]*type
 	for _, decl := range attrMap {
 		out = append(out, decl)
 	}
-	sort.Slice(out, func(i, j int) bool {
-		left := effectiveAttributeQName(schema, out[i])
-		right := effectiveAttributeQName(schema, out[j])
-		if left.Namespace == right.Namespace {
-			return left.Local < right.Local
+	slices.SortFunc(out, func(a, b *types.AttributeDecl) int {
+		left := effectiveAttributeQName(schema, a)
+		right := effectiveAttributeQName(schema, b)
+		if left.Namespace != right.Namespace {
+			return cmp.Compare(left.Namespace, right.Namespace)
 		}
-		return left.Namespace < right.Namespace
+		return cmp.Compare(left.Local, right.Local)
 	})
 	return out, wildcard, nil
 }

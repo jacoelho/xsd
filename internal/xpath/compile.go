@@ -29,6 +29,19 @@ type NodeTest struct {
 	NamespaceSpecified bool
 }
 
+// CanonicalizeNodeTest normalizes unprefixed node tests to the empty namespace.
+func CanonicalizeNodeTest(test NodeTest) NodeTest {
+	if test.Any || test.Local == "*" {
+		return test
+	}
+	if test.NamespaceSpecified {
+		return test
+	}
+	test.NamespaceSpecified = true
+	test.Namespace = types.NamespaceEmpty
+	return test
+}
+
 // Step represents a single element step in a path.
 type Step struct {
 	Test NodeTest

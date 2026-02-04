@@ -171,6 +171,9 @@ var excludePatterns = []ExclusionReason{
 	{"stz019", "Simple type constraint interpretation differs; treated as out-of-scope for strict mode"},
 	{"stz022", "Simple type constraint interpretation differs; treated as out-of-scope for strict mode"},
 	{"token_whitespace001_367", "Whitespace facet behavior differs; treated as out-of-scope for strict mode"},
+	{"missing/missing001", "Missing type references are rejected by design"},
+	{"missing/missing003", "Missing type references are rejected by design"},
+	{"missing/missing006", "Missing type references are rejected by design"},
 
 	// Unicode block escapes (\p{Is...}) - not supported in Go regexp
 	{"/rel", "Uses \\p{Is...} Unicode block escape - not supported in Go regexp"},

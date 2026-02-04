@@ -87,6 +87,11 @@ func validateFacetConstraints(schema *parser.Schema, facetList []types.Facet, ba
 	return nil
 }
 
+// ValidateFacetConstraints validates facet consistency and values for a base type.
+func ValidateFacetConstraints(schema *parser.Schema, facetList []types.Facet, baseType types.Type, baseQName types.QName) error {
+	return validateFacetConstraints(schema, facetList, baseType, baseQName)
+}
+
 func (s *facetConstraintState) captureFacet(name string, facet types.Facet) error {
 	switch name {
 	case "minExclusive", "maxExclusive", "minInclusive", "maxInclusive":
@@ -258,8 +263,28 @@ func isBuiltinListTypeName(name string) bool {
 	return name == string(types.TypeNameNMTOKENS) || name == string(types.TypeNameIDREFS) || name == string(types.TypeNameENTITIES)
 }
 
+func shouldDeferEnumerationValidation(baseType types.Type) bool {
+	st, ok := baseType.(*types.SimpleType)
+	if !ok {
+		return false
+	}
+	if st.ResolvedBase != nil {
+		return false
+	}
+	if st.Restriction == nil || st.Restriction.Base.IsZero() {
+		return false
+	}
+	return st.Restriction.Base.Namespace != types.XSDNamespace
+}
+
 // validateEnumerationValues validates that enumeration values are valid for the base type
 func validateEnumerationValues(schema *parser.Schema, facetList []types.Facet, baseType types.Type) error {
+	if baseType == nil {
+		return nil
+	}
+	if shouldDeferEnumerationValidation(baseType) {
+		return nil
+	}
 	for _, f := range facetList {
 		if f.Name() != "enumeration" {
 			continue

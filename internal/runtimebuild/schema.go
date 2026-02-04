@@ -1,8 +1,9 @@
 package runtimebuild
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/models"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -24,6 +25,9 @@ func BuildSchema(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, error) {
 	if sch == nil {
 		return nil, fmt.Errorf("runtime build: schema is nil")
 	}
+	if err := schema.RequireResolved(sch); err != nil {
+		return nil, fmt.Errorf("runtime build: %w", err)
+	}
 	reg, err := schema.AssignIDs(sch)
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: assign IDs: %w", err)
@@ -41,6 +45,7 @@ func BuildSchema(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, error) {
 		if err != nil {
 			return nil, fmt.Errorf("runtime build: validate UPA: %w", err)
 		}
+		sch.UPAValidated = true
 	}
 	validators, err := CompileValidators(sch, reg)
 	if err != nil {
@@ -65,7 +70,12 @@ func BuildSchema(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, error) {
 		complexIDs: make(map[runtime.TypeID]uint32),
 		maxOccurs:  maxOccursLimit,
 	}
-	return builder.build()
+	rt, err := builder.build()
+	if err != nil {
+		return nil, err
+	}
+	sch.Phase = parser.PhaseRuntimeReady
+	return rt, nil
 }
 
 type schemaBuilder struct {
@@ -479,9 +489,14 @@ func (b *schemaBuilder) buildAttributes() error {
 		sym := b.internQName(entry.QName)
 		attr := runtime.Attribute{Name: sym}
 		if decl := entry.Decl; decl != nil {
-			if vid, ok := b.validators.ValidatorForType(decl.Type); ok {
-				attr.Validator = vid
+			if decl.Type == nil {
+				return fmt.Errorf("runtime build: attribute %s missing type", entry.QName)
 			}
+			vid, ok := b.validators.ValidatorForType(decl.Type)
+			if !ok || vid == 0 {
+				return fmt.Errorf("runtime build: attribute %s missing validator", entry.QName)
+			}
+			attr.Validator = vid
 		}
 		if def, ok := b.validators.AttributeDefaults[entry.ID]; ok {
 			attr.Default = def
@@ -523,7 +538,9 @@ func (b *schemaBuilder) buildAttributes() error {
 		case len(uses) <= attrIndexLinearLimit:
 			mode = runtime.AttrIndexSmallLinear
 		case len(uses) <= attrIndexBinaryLimit:
-			sort.Slice(uses, func(i, j int) bool { return uses[i].Name < uses[j].Name })
+			slices.SortFunc(uses, func(a, b runtime.AttrUse) int {
+				return cmp.Compare(a.Name, b.Name)
+			})
 			mode = runtime.AttrIndexSortedBinary
 		default:
 			mode = runtime.AttrIndexHash
@@ -552,9 +569,14 @@ func (b *schemaBuilder) buildElements() error {
 		}
 		sym := b.internQName(entry.QName)
 		elem := runtime.Element{Name: sym}
-		if typeID, ok := b.runtimeTypeID(decl.Type); ok {
-			elem.Type = typeID
+		if decl.Type == nil {
+			return fmt.Errorf("runtime build: element %s missing type", entry.QName)
 		}
+		typeID, ok := b.runtimeTypeID(decl.Type)
+		if !ok {
+			return fmt.Errorf("runtime build: element %s missing type ID", entry.QName)
+		}
+		elem.Type = typeID
 		if !decl.SubstitutionGroup.IsZero() {
 			if head := b.schema.ElementDecls[decl.SubstitutionGroup]; head != nil {
 				if headID, ok := b.runtimeElemID(head); ok {
@@ -607,13 +629,25 @@ func (b *schemaBuilder) buildModels() error {
 		switch typed := content.(type) {
 		case *types.SimpleContent:
 			model.Content = runtime.ContentSimple
-			base := b.resolveTypeQName(typed.BaseTypeQName())
-			if base == nil {
-				base = types.GetBuiltin(types.TypeNameAnySimpleType)
+			var textType types.Type
+			if b.validators != nil && b.validators.SimpleContentTypes != nil {
+				textType = b.validators.SimpleContentTypes[ct]
 			}
-			if vid, ok := b.validators.ValidatorForType(base); ok {
-				model.TextValidator = vid
+			if textType == nil {
+				var err error
+				textType, err = b.simpleContentTextType(ct, typed)
+				if err != nil {
+					return err
+				}
 			}
+			if textType == nil {
+				return fmt.Errorf("runtime build: complex type %s simpleContent base missing", entry.QName)
+			}
+			vid, ok := b.validators.ValidatorForType(textType)
+			if !ok || vid == 0 {
+				return fmt.Errorf("runtime build: complex type %s missing validator", entry.QName)
+			}
+			model.TextValidator = vid
 		case *types.EmptyContent:
 			model.Content = runtime.ContentEmpty
 		default:
@@ -1081,7 +1115,7 @@ func (b *schemaBuilder) collectAttrUses(ct *types.ComplexType) ([]runtime.AttrUs
 		if decl.IsReference {
 			target = b.resolveAttributeDecl(decl)
 			if target == nil {
-				continue
+				return nil, nil, fmt.Errorf("runtime build: attribute ref %s not found", decl.Name)
 			}
 		}
 		sym := b.internQName(effectiveAttributeQName(b.schema, decl))
@@ -1089,9 +1123,14 @@ func (b *schemaBuilder) collectAttrUses(ct *types.ComplexType) ([]runtime.AttrUs
 			Name: sym,
 			Use:  toRuntimeAttrUse(decl.Use),
 		}
-		if vid, ok := b.validators.ValidatorForType(target.Type); ok {
-			use.Validator = vid
+		if target.Type == nil {
+			return nil, nil, fmt.Errorf("runtime build: attribute %s missing type", target.Name)
 		}
+		vid, ok := b.validators.ValidatorForType(target.Type)
+		if !ok || vid == 0 {
+			return nil, nil, fmt.Errorf("runtime build: attribute %s missing validator", target.Name)
+		}
+		use.Validator = vid
 		if decl.HasDefault {
 			if def, ok := b.validators.AttrUseDefaults[decl]; ok {
 				use.Default = def
@@ -1345,6 +1384,79 @@ func (b *schemaBuilder) resolveTypeQName(qname types.QName) types.Type {
 		return types.GetBuiltin(types.TypeName(qname.Local))
 	}
 	return b.schema.TypeDefs[qname]
+}
+
+func (b *schemaBuilder) simpleContentTextType(ct *types.ComplexType, sc *types.SimpleContent) (types.Type, error) {
+	if ct == nil {
+		return nil, nil
+	}
+	res := newTypeResolver(b.schema)
+	seen := make(map[*types.ComplexType]bool)
+	return simpleContentTextType(res, ct, sc, seen)
+}
+
+func simpleContentTextType(res *typeResolver, ct *types.ComplexType, sc *types.SimpleContent, seen map[*types.ComplexType]bool) (types.Type, error) {
+	if ct == nil {
+		return nil, nil
+	}
+	if seen[ct] {
+		return nil, fmt.Errorf("simpleContent cycle detected")
+	}
+	seen[ct] = true
+	defer delete(seen, ct)
+
+	if sc == nil {
+		if typed, ok := ct.Content().(*types.SimpleContent); ok {
+			sc = typed
+		} else {
+			return nil, nil
+		}
+	}
+	baseType, err := simpleContentBaseType(res, ct, sc, seen)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case sc.Extension != nil:
+		return baseType, nil
+	case sc.Restriction != nil:
+		st := &types.SimpleType{
+			Restriction:  sc.Restriction,
+			ResolvedBase: baseType,
+		}
+		if sc.Restriction.SimpleType != nil && sc.Restriction.SimpleType.WhiteSpaceExplicit() {
+			st.SetWhiteSpaceExplicit(sc.Restriction.SimpleType.WhiteSpace())
+		} else if baseType != nil {
+			st.SetWhiteSpace(baseType.WhiteSpace())
+		}
+		return st, nil
+	default:
+		return baseType, nil
+	}
+}
+
+func simpleContentBaseType(res *typeResolver, ct *types.ComplexType, sc *types.SimpleContent, seen map[*types.ComplexType]bool) (types.Type, error) {
+	if ct == nil {
+		return nil, fmt.Errorf("simpleContent base missing")
+	}
+	base := ct.ResolvedBase
+	if base == nil && sc != nil {
+		qname := sc.BaseTypeQName()
+		if !qname.IsZero() {
+			base = res.resolveQName(qname)
+		}
+	}
+	if base == nil {
+		return nil, fmt.Errorf("simpleContent base missing")
+	}
+	switch typed := base.(type) {
+	case *types.SimpleType, *types.BuiltinType:
+		return typed, nil
+	case *types.ComplexType:
+		return simpleContentTextType(res, typed, nil, seen)
+	default:
+		return nil, fmt.Errorf("simpleContent base is not simple")
+	}
 }
 
 func (b *schemaBuilder) baseForSimpleType(st *types.SimpleType) (types.Type, runtime.DerivationMethod) {

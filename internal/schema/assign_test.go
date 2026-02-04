@@ -1,20 +1,39 @@
-package schema
+package schema_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/resolver"
+	"github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func mustParseSchema(t *testing.T, schemaXML string) *parser.Schema {
+func mustResolveSchema(t *testing.T, schemaXML string) *parser.Schema {
 	t.Helper()
-	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	sch, err := parser.Parse(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	return schema
+	if errs := schemacheck.ValidateStructure(sch); len(errs) != 0 {
+		t.Fatalf("ValidateStructure errors = %v", errs)
+	}
+	if err := schema.MarkSemantic(sch); err != nil {
+		t.Fatalf("MarkSemantic error = %v", err)
+	}
+	if err := resolver.ResolveTypeReferences(sch); err != nil {
+		t.Fatalf("ResolveTypeReferences error = %v", err)
+	}
+	if errs := resolver.ValidateReferences(sch); len(errs) != 0 {
+		t.Fatalf("ValidateReferences errors = %v", errs)
+	}
+	parser.UpdatePlaceholderState(sch)
+	if err := schema.MarkResolved(sch); err != nil {
+		t.Fatalf("MarkResolved error = %v", err)
+	}
+	return sch
 }
 
 func findLocalElement(t *testing.T, group *types.ModelGroup, local string) *types.ElementDecl {
@@ -81,13 +100,13 @@ func TestDeterministicIDs(t *testing.T) {
   </xs:attributeGroup>
 </xs:schema>`
 
-	schema := mustParseSchema(t, schemaXML)
-	reg, err := AssignIDs(schema)
+	sch := mustResolveSchema(t, schemaXML)
+	reg, err := schema.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 
-	root := schema.ElementDecls[types.QName{Namespace: "urn:ids", Local: "root"}]
+	root := sch.ElementDecls[types.QName{Namespace: "urn:ids", Local: "root"}]
 	if root == nil {
 		t.Fatalf("root element not found")
 	}
@@ -108,7 +127,7 @@ func TestDeterministicIDs(t *testing.T) {
 	attrInline := findAttribute(t, rootCT.Attributes(), "attrInline")
 
 	typeQName := types.QName{Namespace: "urn:ids", Local: "T"}
-	globalType, ok := schema.TypeDefs[typeQName].(*types.ComplexType)
+	globalType, ok := sch.TypeDefs[typeQName].(*types.ComplexType)
 	if !ok {
 		t.Fatalf("global type T not found")
 	}
@@ -122,11 +141,11 @@ func TestDeterministicIDs(t *testing.T) {
 	}
 	nested := findLocalElement(t, globalGroup, "nested")
 
-	globalAttr := schema.AttributeDecls[types.QName{Namespace: "urn:ids", Local: "gAttr"}]
+	globalAttr := sch.AttributeDecls[types.QName{Namespace: "urn:ids", Local: "gAttr"}]
 	if globalAttr == nil {
 		t.Fatalf("global attribute gAttr not found")
 	}
-	attrGroup := schema.AttributeGroups[types.QName{Namespace: "urn:ids", Local: "AG"}]
+	attrGroup := sch.AttributeGroups[types.QName{Namespace: "urn:ids", Local: "AG"}]
 	if attrGroup == nil {
 		t.Fatalf("attributeGroup AG not found")
 	}
@@ -208,7 +227,7 @@ func TestDeterministicIDs(t *testing.T) {
 		t.Fatalf("expected local attribute attrInline to be excluded from ID assignment")
 	}
 
-	reg2, err := AssignIDs(schema)
+	reg2, err := schema.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs (second) error = %v", err)
 	}
@@ -245,9 +264,9 @@ func TestAssignIDs_AllowsSharedLocalElement(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	schema := mustParseSchema(t, schemaXML)
-	elemA := schema.ElementDecls[types.QName{Namespace: "urn:shared", Local: "A"}]
-	elemB := schema.ElementDecls[types.QName{Namespace: "urn:shared", Local: "B"}]
+	sch := mustResolveSchema(t, schemaXML)
+	elemA := sch.ElementDecls[types.QName{Namespace: "urn:shared", Local: "A"}]
+	elemB := sch.ElementDecls[types.QName{Namespace: "urn:shared", Local: "B"}]
 	if elemA == nil || elemB == nil {
 		t.Fatalf("elements A/B not found")
 	}
@@ -265,7 +284,7 @@ func TestAssignIDs_AllowsSharedLocalElement(t *testing.T) {
 	}
 	groupB.Particles[0] = rowA
 
-	if _, err := AssignIDs(schema); err != nil {
+	if _, err := schema.AssignIDs(sch); err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 }
@@ -287,7 +306,7 @@ func elementSequenceGroup(t *testing.T, decl *types.ElementDecl) *types.ModelGro
 	return group
 }
 
-func equalElemOrder(a, b []ElementEntry) bool {
+func equalElemOrder(a, b []schema.ElementEntry) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -299,7 +318,7 @@ func equalElemOrder(a, b []ElementEntry) bool {
 	return true
 }
 
-func equalTypeOrder(a, b []TypeEntry) bool {
+func equalTypeOrder(a, b []schema.TypeEntry) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -311,7 +330,7 @@ func equalTypeOrder(a, b []TypeEntry) bool {
 	return true
 }
 
-func equalAttrOrder(a, b []AttributeEntry) bool {
+func equalAttrOrder(a, b []schema.AttributeEntry) bool {
 	if len(a) != len(b) {
 		return false
 	}

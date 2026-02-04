@@ -9,32 +9,20 @@ import (
 	"github.com/jacoelho/xsd/internal/xml"
 )
 
-type typeReferencePolicy int
-
-const (
-	typeReferenceRequired typeReferencePolicy = iota
-	typeReferenceAllowMissing
-)
-
 const noOriginLocation = ""
 
 // validateTypeReferenceFromType validates that a type reference exists (from a Type interface).
 func validateTypeReferenceFromType(schema *parser.Schema, typ types.Type, contextNamespace types.NamespaceURI) error {
-	return validateTypeReferenceFromTypeWithPolicy(schema, typ, contextNamespace, noOriginLocation, typeReferenceRequired)
+	return validateTypeReferenceFromTypeAtLocation(schema, typ, contextNamespace, noOriginLocation)
 }
 
-func validateTypeReferenceFromTypeAllowMissingAtLocation(schema *parser.Schema, typ types.Type, contextNamespace types.NamespaceURI, originLocation string) error {
-	return validateTypeReferenceFromTypeWithPolicy(schema, typ, contextNamespace, originLocation, typeReferenceAllowMissing)
-}
-
-func validateTypeReferenceFromTypeWithPolicy(schema *parser.Schema, typ types.Type, contextNamespace types.NamespaceURI, originLocation string, policy typeReferencePolicy) error {
+func validateTypeReferenceFromTypeAtLocation(schema *parser.Schema, typ types.Type, contextNamespace types.NamespaceURI, originLocation string) error {
 	visited := make(map[*types.ModelGroup]bool)
-	return validateTypeReferenceFromTypeWithVisited(schema, typ, visited, policy, contextNamespace, originLocation)
+	return validateTypeReferenceFromTypeWithVisited(schema, typ, visited, contextNamespace, originLocation)
 }
 
 // validateTypeReferenceFromTypeWithVisited validates type reference with cycle detection.
-func validateTypeReferenceFromTypeWithVisited(schema *parser.Schema, typ types.Type, visited map[*types.ModelGroup]bool, policy typeReferencePolicy, contextNamespace types.NamespaceURI, originLocation string) error {
-	allowMissing := policy == typeReferenceAllowMissing
+func validateTypeReferenceFromTypeWithVisited(schema *parser.Schema, typ types.Type, visited map[*types.ModelGroup]bool, contextNamespace types.NamespaceURI, originLocation string) error {
 	if typ == nil {
 		return nil
 	}
@@ -60,9 +48,6 @@ func validateTypeReferenceFromTypeWithVisited(schema *parser.Schema, typ types.T
 					if types.GetBuiltin(types.TypeName(st.QName.Local)) == nil {
 						return fmt.Errorf("type '%s' not found in XSD namespace", st.QName.Local)
 					}
-					return nil
-				}
-				if allowMissing && allowMissingTypeReference(schema, st.QName) {
 					return nil
 				}
 				return fmt.Errorf("type %s not found", st.QName)
@@ -107,7 +92,7 @@ func validateTypeReferences(schema *parser.Schema, qname types.QName, typ types.
 			}
 		}
 		if t.List != nil {
-			if err := validateTypeQNameReferenceWithSchemaPolicy(schema, t.List.ItemType, qname.Namespace); err != nil {
+			if err := validateTypeQNameReference(schema, t.List.ItemType, qname.Namespace); err != nil {
 				return fmt.Errorf("list itemType: %w", err)
 			}
 			// check if item type's final attribute blocks list derivation.
@@ -117,7 +102,7 @@ func validateTypeReferences(schema *parser.Schema, qname types.QName, typ types.
 		}
 		if t.Union != nil {
 			for i, memberType := range t.Union.MemberTypes {
-				if err := validateTypeQNameReferenceWithSchemaPolicy(schema, memberType, qname.Namespace); err != nil {
+				if err := validateTypeQNameReference(schema, memberType, qname.Namespace); err != nil {
 					return fmt.Errorf("union memberType %d: %w", i+1, err)
 				}
 				// check if member type's final attribute blocks union derivation.
@@ -162,23 +147,6 @@ func validateTypeReferences(schema *parser.Schema, qname types.QName, typ types.
 
 // validateTypeQNameReference validates that a type QName reference exists.
 func validateTypeQNameReference(schema *parser.Schema, qname types.QName, contextNamespace types.NamespaceURI) error {
-	return validateTypeQNameReferenceWithPolicy(schema, qname, typeReferenceRequired, contextNamespace)
-}
-
-// validateTypeQNameReferenceAllowMissing validates a type QName reference that may be absent.
-func validateTypeQNameReferenceAllowMissing(schema *parser.Schema, qname types.QName, contextNamespace types.NamespaceURI) error {
-	return validateTypeQNameReferenceWithPolicy(schema, qname, typeReferenceAllowMissing, contextNamespace)
-}
-
-func validateTypeQNameReferenceWithSchemaPolicy(schema *parser.Schema, qname types.QName, contextNamespace types.NamespaceURI) error {
-	if allowMissingTypeReference(schema, qname) {
-		return validateTypeQNameReferenceAllowMissing(schema, qname, contextNamespace)
-	}
-	return validateTypeQNameReference(schema, qname, contextNamespace)
-}
-
-func validateTypeQNameReferenceWithPolicy(schema *parser.Schema, qname types.QName, policy typeReferencePolicy, contextNamespace types.NamespaceURI) error {
-	allowMissing := policy == typeReferenceAllowMissing
 	// empty QName is not valid.
 	if qname.IsZero() {
 		return nil // this case is handled elsewhere (e.g., inline types).
@@ -198,20 +166,10 @@ func validateTypeQNameReferenceWithPolicy(schema *parser.Schema, qname types.QNa
 
 	// check if type exists in schema.
 	if _, exists := schema.TypeDefs[qname]; !exists {
-		if allowMissing && allowMissingTypeReference(schema, qname) {
-			return nil
-		}
 		return fmt.Errorf("type %s not found", qname)
 	}
 
 	return nil
-}
-
-func allowMissingTypeReference(schema *parser.Schema, qname types.QName) bool {
-	if schema == nil {
-		return false
-	}
-	return schema.TargetNamespace.IsEmpty() && qname.Namespace.IsEmpty()
 }
 
 func validateImportForNamespace(schema *parser.Schema, contextNamespace, referenceNamespace types.NamespaceURI) error {

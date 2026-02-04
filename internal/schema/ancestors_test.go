@@ -1,8 +1,9 @@
-package schema
+package schema_test
 
 import (
 	"testing"
 
+	schemapkg "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -11,38 +12,26 @@ func TestBuildAncestorsMasks(t *testing.T) {
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:anc"
            xmlns:tns="urn:anc">
-  <xs:complexType name="Base">
-    <xs:sequence>
-      <xs:element name="a" type="xs:string"/>
-    </xs:sequence>
-  </xs:complexType>
+  <xs:complexType name="Base"/>
   <xs:complexType name="Ext">
     <xs:complexContent>
-      <xs:extension base="tns:Base">
-        <xs:sequence>
-          <xs:element name="b" type="xs:string"/>
-        </xs:sequence>
-      </xs:extension>
+      <xs:extension base="tns:Base"/>
     </xs:complexContent>
   </xs:complexType>
   <xs:complexType name="Restrict">
     <xs:complexContent>
-      <xs:restriction base="tns:Ext">
-        <xs:sequence>
-          <xs:element name="a" type="xs:string"/>
-        </xs:sequence>
-      </xs:restriction>
+      <xs:restriction base="tns:Ext"/>
     </xs:complexContent>
   </xs:complexType>
 </xs:schema>`
 
-	schema := mustParseSchema(t, schemaXML)
-	registry, err := AssignIDs(schema)
+	schema := mustResolveSchema(t, schemaXML)
+	registry, err := schemapkg.AssignIDs(schema)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 
-	ancestors, err := BuildAncestors(schema, registry)
+	ancestors, err := schemapkg.BuildAncestors(schema, registry)
 	if err != nil {
 		t.Fatalf("BuildAncestors error = %v", err)
 	}

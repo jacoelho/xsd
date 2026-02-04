@@ -73,6 +73,7 @@ func isDescendStep(step Step) bool {
 }
 
 func compileNodeTest(test NodeTest, schema *runtime.Schema, attribute bool) (runtime.PathOp, error) {
+	test = CanonicalizeNodeTest(test)
 	if test.Any {
 		if attribute {
 			return runtime.PathOp{Op: runtime.OpAttrAny}, nil

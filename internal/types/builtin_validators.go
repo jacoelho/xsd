@@ -448,37 +448,7 @@ func validateAnyURI(value string) error {
 // validateQName validates xs:QName
 // Format: NCName (possibly qualified with a prefix)
 func validateQName(value string) error {
-	if value == "" {
-		return fmt.Errorf("QName cannot be empty")
-	}
-
-	// check for prefix (local:name format)
-	colon := strings.IndexByte(value, ':')
-	if colon == -1 {
-		if err := validateNCName(value); err != nil {
-			return fmt.Errorf("invalid QName part '%s': %w", value, err)
-		}
-		return nil
-	}
-	if colon == 0 || colon == len(value)-1 {
-		return fmt.Errorf("QName part cannot be empty")
-	}
-	if strings.IndexByte(value[colon+1:], ':') != -1 {
-		return fmt.Errorf("QName can have at most one colon")
-	}
-	prefix := value[:colon]
-	local := value[colon+1:]
-	if prefix == "xmlns" {
-		return fmt.Errorf("QName cannot use reserved prefix 'xmlns'")
-	}
-	if err := validateNCName(prefix); err != nil {
-		return fmt.Errorf("invalid QName part '%s': %w", prefix, err)
-	}
-	if err := validateNCName(local); err != nil {
-		return fmt.Errorf("invalid QName part '%s': %w", local, err)
-	}
-
-	return nil
+	return valuepkg.ValidateQName([]byte(value))
 }
 
 // validateNOTATION validates xs:NOTATION

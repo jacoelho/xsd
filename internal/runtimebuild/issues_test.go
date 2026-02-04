@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validator"
 )
@@ -25,7 +24,7 @@ func TestBuildHashIdentityConstraintsDeterministic(t *testing.T) {
         </xs:element>
       </xs:sequence>
     </xs:complexType>
-    <xs:key name="k">
+    <xs:key name="ka">
       <xs:selector xpath="tns:item"/>
       <xs:field xpath="@id"/>
     </xs:key>
@@ -103,11 +102,11 @@ func TestKeyrefResolutionScopedToElement(t *testing.T) {
         </xs:element>
       </xs:sequence>
     </xs:complexType>
-    <xs:key name="k">
+    <xs:key name="kb">
       <xs:selector xpath="tns:item"/>
       <xs:field xpath="@id"/>
     </xs:key>
-    <xs:keyref name="kr" refer="tns:k">
+    <xs:keyref name="kr" refer="tns:kb">
       <xs:selector xpath="tns:item"/>
       <xs:field xpath="@id"/>
     </xs:keyref>
@@ -147,7 +146,7 @@ func TestProhibitedAttributeUsePreserved(t *testing.T) {
   <xs:complexType name="Derived">
     <xs:complexContent>
       <xs:restriction base="tns:Base">
-        <xs:attribute name="foo" use="prohibited"/>
+        <xs:attribute name="foo" type="xs:string" use="prohibited"/>
       </xs:restriction>
     </xs:complexContent>
   </xs:complexType>
@@ -191,10 +190,10 @@ func TestProhibitedAttributeGroupUseIgnored(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="Base">
-    <xs:attribute name="a"/>
+    <xs:attribute name="a" type="xs:string"/>
   </xs:complexType>
   <xs:attributeGroup name="G">
-    <xs:attribute name="a" use="prohibited"/>
+    <xs:attribute name="a" type="xs:string" use="prohibited"/>
   </xs:attributeGroup>
   <xs:complexType name="Derived">
     <xs:complexContent>
@@ -268,12 +267,8 @@ func TestUnionEnumerationRespectsMemberEnums(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	parsed, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
-	if _, err := BuildSchema(parsed, BuildConfig{}); err == nil {
-		t.Fatalf("expected union enumeration compilation error")
+	if _, err := resolveSchema(schemaXML); err == nil {
+		t.Fatalf("expected union enumeration error")
 	}
 }
 
@@ -295,10 +290,7 @@ func TestUnionWhitespaceNormalizationDuringCompile(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	parsed, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
+	parsed := mustResolveSchema(t, schemaXML)
 	if _, err := BuildSchema(parsed, BuildConfig{}); err != nil {
 		t.Fatalf("build schema: %v", err)
 	}
@@ -330,12 +322,8 @@ func TestUnionEnumerationRespectsNestedMemberEnums(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	parsed, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
-	if _, err := BuildSchema(parsed, BuildConfig{}); err == nil {
-		t.Fatalf("expected union enumeration compilation error")
+	if _, err := resolveSchema(schemaXML); err == nil {
+		t.Fatalf("expected union enumeration error")
 	}
 }
 
@@ -406,10 +394,7 @@ func TestUnionValidatorMismatchReturnsError(t *testing.T) {
 
 func mustBuildRuntimeSchema(t *testing.T, schemaXML string) *runtime.Schema {
 	t.Helper()
-	parsed, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
+	parsed := mustResolveSchema(t, schemaXML)
 	rt, err := BuildSchema(parsed, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build schema: %v", err)

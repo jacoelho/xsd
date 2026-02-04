@@ -1,6 +1,7 @@
 package types
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 )
@@ -137,6 +138,14 @@ func (q QName) IsZero() bool {
 // Equal returns true if two QNames are equal
 func (q QName) Equal(other QName) bool {
 	return q.Namespace == other.Namespace && q.Local == other.Local
+}
+
+// CompareQName orders QNames by namespace then local.
+func CompareQName(a, b QName) int {
+	if a.Namespace != b.Namespace {
+		return cmp.Compare(a.Namespace, b.Namespace)
+	}
+	return cmp.Compare(a.Local, b.Local)
 }
 
 // SplitQName splits a QName string into prefix/local without schemacheck.

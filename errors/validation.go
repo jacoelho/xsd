@@ -1,8 +1,10 @@
 package errors
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -104,8 +106,10 @@ const (
 //
 //nolint:errname // public API name uses XSD domain term.
 type Validation struct {
-	Code     string
-	Message  string
+	Code    string
+	Message string
+	// Document holds an optional document URI for error ordering.
+	Document string
 	Path     string
 	Actual   string
 	Expected []string
@@ -118,6 +122,9 @@ type ValidationList []Validation //nolint:errname // public API name, keep for c
 
 // Error returns a compact summary of the validation errors.
 func (v ValidationList) Error() string {
+	if len(v) > 1 {
+		v.Sort()
+	}
 	switch len(v) {
 	case 0:
 		return "no validation errors"
@@ -126,6 +133,38 @@ func (v ValidationList) Error() string {
 	default:
 		return fmt.Sprintf("%s (and %d more)", v[0].Error(), len(v)-1)
 	}
+}
+
+// Sort orders the validation list deterministically by document, line, column, code, and message.
+func (v ValidationList) Sort() {
+	if len(v) < 2 {
+		return
+	}
+	slices.SortStableFunc(v, func(a, b Validation) int {
+		if a.Document == "" && b.Document != "" {
+			return 1
+		}
+		if a.Document != "" && b.Document == "" {
+			return -1
+		}
+		if a.Document != b.Document {
+			return cmp.Compare(a.Document, b.Document)
+		}
+		lineA := max(a.Line, 0)
+		lineB := max(b.Line, 0)
+		if lineA != lineB {
+			return cmp.Compare(lineA, lineB)
+		}
+		colA := max(a.Column, 0)
+		colB := max(b.Column, 0)
+		if colA != colB {
+			return cmp.Compare(colA, colB)
+		}
+		if a.Code != b.Code {
+			return cmp.Compare(a.Code, b.Code)
+		}
+		return cmp.Compare(a.Message, b.Message)
+	})
 }
 
 // Error formats the validation for display, including code, message, and context.
@@ -171,6 +210,7 @@ func AsValidations(err error) ([]Validation, bool) {
 	if !ok {
 		return nil, false
 	}
+	list.Sort()
 	return []Validation(list), true
 }
 

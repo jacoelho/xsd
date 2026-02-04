@@ -20,9 +20,17 @@ type Schema struct {
 
 // LoadOptions configures schema loading and compilation.
 type LoadOptions struct {
-	AllowMissingImportLocations bool
-	MaxDFAStates                uint32
-	MaxOccursLimit              uint32
+	AllowMissingImportLocations   bool
+	MaxDFAStates                  uint32
+	MaxOccursLimit                uint32
+	SchemaMaxDepth                int
+	SchemaMaxAttrs                int
+	SchemaMaxTokenSize            int
+	SchemaMaxQNameInternEntries   int
+	InstanceMaxDepth              int
+	InstanceMaxAttrs              int
+	InstanceMaxTokenSize          int
+	InstanceMaxQNameInternEntries int
 }
 
 // Load loads and compiles a schema from the given filesystem and location.
@@ -70,7 +78,7 @@ func (s *Schema) ValidateFile(path string) error {
 		}
 	}()
 
-	return s.Validate(f)
+	return s.engine.validateWithDocument(f, path)
 }
 
 func compileFS(fsys fs.FS, root string, opts LoadOptions) (*engine, error) {
@@ -81,6 +89,12 @@ func compileFS(fsys fs.FS, root string, opts LoadOptions) (*engine, error) {
 	l := loader.NewLoader(loader.Config{
 		FS:                          fsys,
 		AllowMissingImportLocations: opts.AllowMissingImportLocations,
+		SchemaParseOptions: buildXMLParseOptions(
+			opts.SchemaMaxDepth,
+			opts.SchemaMaxAttrs,
+			opts.SchemaMaxTokenSize,
+			opts.SchemaMaxQNameInternEntries,
+		),
 	})
 	parsed, err := l.Load(root)
 	if err != nil {
@@ -90,7 +104,12 @@ func compileFS(fsys fs.FS, root string, opts LoadOptions) (*engine, error) {
 	if err != nil {
 		return nil, fmt.Errorf("compile schema %s: %w", root, err)
 	}
-	return newEngine(rt), nil
+	return newEngine(rt, buildXMLParseOptions(
+		opts.InstanceMaxDepth,
+		opts.InstanceMaxAttrs,
+		opts.InstanceMaxTokenSize,
+		opts.InstanceMaxQNameInternEntries,
+	)...), nil
 }
 
 func buildConfigFrom(opts LoadOptions) runtimebuild.BuildConfig {

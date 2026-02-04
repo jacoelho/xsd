@@ -12,6 +12,35 @@ const (
 	Qualified
 )
 
+// SchemaPhase represents the schema validation state.
+type SchemaPhase uint8
+
+const (
+	// PhaseParsed indicates the schema is parsed but not semantically validated.
+	PhaseParsed SchemaPhase = iota
+	// PhaseSemantic indicates structural constraints have been validated.
+	PhaseSemantic
+	// PhaseResolved indicates all references are resolved and placeholders removed.
+	PhaseResolved
+	// PhaseRuntimeReady indicates runtime compilation completed.
+	PhaseRuntimeReady
+)
+
+func (p SchemaPhase) String() string {
+	switch p {
+	case PhaseParsed:
+		return "parsed"
+	case PhaseSemantic:
+		return "semantic"
+	case PhaseResolved:
+		return "resolved"
+	case PhaseRuntimeReady:
+		return "runtime-ready"
+	default:
+		return "unknown"
+	}
+}
+
 // GlobalDeclKind identifies top-level schema declarations in document order.
 type GlobalDeclKind int
 
@@ -62,6 +91,10 @@ type Schema struct {
 	AttributeFormDefault  Form
 	ElementFormDefault    Form
 	BlockDefault          types.DerivationSet
+	// Phase reports the current validation phase of the schema.
+	Phase SchemaPhase
+	// HasPlaceholders reports whether unresolved type placeholders remain.
+	HasPlaceholders bool
 	// UPAValidated reports whether Unique Particle Attribution was checked for this schema.
 	UPAValidated bool
 }
@@ -87,6 +120,7 @@ func NewSchema() *Schema {
 		ImportedNamespaces:    make(map[types.NamespaceURI]map[types.NamespaceURI]bool),
 		ImportContexts:        make(map[string]ImportContext),
 		GlobalDecls:           []GlobalDecl{},
+		Phase:                 PhaseParsed,
 	}
 }
 

@@ -184,6 +184,9 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, lo
 			}
 		}
 	}
+	if attr.Type == nil {
+		attr.Type = types.GetBuiltin(types.TypeNameAnySimpleType)
+	}
 
 	use, err := parseAttributeUse(doc, elem)
 	if err != nil {

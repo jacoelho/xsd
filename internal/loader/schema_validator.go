@@ -13,8 +13,5 @@ func ValidateSchema(schema *parser.Schema) []error {
 	if refErrors := resolver.ValidateReferences(schema); len(refErrors) > 0 {
 		errors = append(errors, refErrors...)
 	}
-	if len(errors) == 0 && schema != nil {
-		schema.UPAValidated = true
-	}
 	return errors
 }

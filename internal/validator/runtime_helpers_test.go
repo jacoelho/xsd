@@ -5,28 +5,50 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/resolver"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/runtimebuild"
+	"github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 )
+
+func buildRuntimeSchema(schemaXML string) (*runtime.Schema, error) {
+	parsed, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		return nil, err
+	}
+	if errs := schemacheck.ValidateStructure(parsed); len(errs) != 0 {
+		return nil, errs[0]
+	}
+	if err := schema.MarkSemantic(parsed); err != nil {
+		return nil, err
+	}
+	if err := resolver.ResolveTypeReferences(parsed); err != nil {
+		return nil, err
+	}
+	if errs := resolver.ValidateReferences(parsed); len(errs) != 0 {
+		return nil, errs[0]
+	}
+	parser.UpdatePlaceholderState(parsed)
+	if err := schema.MarkResolved(parsed); err != nil {
+		return nil, err
+	}
+	return runtimebuild.BuildSchema(parsed, runtimebuild.BuildConfig{})
+}
 
 func mustBuildRuntimeSchema(tb testing.TB, schemaXML string) *runtime.Schema {
 	tb.Helper()
-
-	parsed, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		tb.Fatalf("parse schema: %v", err)
-	}
-	schema, err := runtimebuild.BuildSchema(parsed, runtimebuild.BuildConfig{})
+	rtSchema, err := buildRuntimeSchema(schemaXML)
 	if err != nil {
 		tb.Fatalf("runtime build: %v", err)
 	}
-	return schema
+	return rtSchema
 }
 
 func validateRuntimeDoc(t *testing.T, schemaXML, docXML string) error {
 	t.Helper()
 
-	schema := mustBuildRuntimeSchema(t, schemaXML)
-	sess := NewSession(schema)
+	rtSchema := mustBuildRuntimeSchema(t, schemaXML)
+	sess := NewSession(rtSchema)
 	return sess.Validate(strings.NewReader(docXML))
 }

@@ -220,7 +220,7 @@ func buildAttrFixture(tb testing.TB) (*runtime.Schema, attrFixtureIDs) {
 	tb.Helper()
 	schema, ids := buildAttrFixtureNoRequired(tb)
 	// add required attribute use
-	schema.AttrIndex.Uses = append(schema.AttrIndex.Uses, runtime.AttrUse{Name: ids.attrSymRequired, Use: runtime.AttrRequired})
+	schema.AttrIndex.Uses = append(schema.AttrIndex.Uses, runtime.AttrUse{Name: ids.attrSymRequired, Validator: 1, Use: runtime.AttrRequired})
 	schema.ComplexTypes[1].Attrs.Len++
 	return schema, ids
 }
@@ -246,11 +246,14 @@ func buildAttrFixtureNoRequired(tb testing.TB) (*runtime.Schema, attrFixtureIDs)
 	}
 	schema.Validators = runtime.ValidatorsBundle{
 		String: []runtime.StringValidator{{Kind: runtime.StringAny}},
-		Meta: []runtime.ValidatorMeta{{
-			Kind:       runtime.VString,
-			Index:      0,
-			WhiteSpace: runtime.WS_Preserve,
-		}},
+		Meta: []runtime.ValidatorMeta{
+			{},
+			{
+				Kind:       runtime.VString,
+				Index:      0,
+				WhiteSpace: runtime.WS_Preserve,
+			},
+		},
 	}
 
 	schema.Types = make([]runtime.Type, 3)
@@ -261,13 +264,13 @@ func buildAttrFixtureNoRequired(tb testing.TB) (*runtime.Schema, attrFixtureIDs)
 
 	schema.ComplexTypes = make([]runtime.ComplexType, 2)
 	schema.AttrIndex = runtime.ComplexAttrIndex{Uses: []runtime.AttrUse{
-		{Name: attrDefault, Use: runtime.AttrOptional, Default: runtime.ValueRef{Present: true}},
-		{Name: attrProhib, Use: runtime.AttrProhibited},
+		{Name: attrDefault, Validator: 1, Use: runtime.AttrOptional, Default: runtime.ValueRef{Present: true}},
+		{Name: attrProhib, Validator: 1, Use: runtime.AttrProhibited},
 	}}
 	schema.ComplexTypes[1].Attrs = runtime.AttrIndexRef{Off: 0, Len: 2, Mode: runtime.AttrIndexSmallLinear}
 
 	schema.Attributes = make([]runtime.Attribute, 2)
-	schema.Attributes[1] = runtime.Attribute{Name: attrGlobal}
+	schema.Attributes[1] = runtime.Attribute{Name: attrGlobal, Validator: 1}
 	schema.GlobalAttributes = make([]runtime.AttrID, schema.Symbols.Count()+1)
 	schema.GlobalAttributes[attrGlobal] = 1
 

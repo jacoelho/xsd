@@ -43,16 +43,6 @@ func resolveW3CSchema(t *testing.T, relPath string) *parser.Schema {
 	return schema
 }
 
-func resolveW3CTypeReferences(t *testing.T, relPath string) *parser.Schema {
-	t.Helper()
-
-	schema := parseW3CSchema(t, relPath)
-	if err := ResolveTypeReferences(schema); err != nil {
-		t.Fatalf("resolve type references %s: %v", relPath, err)
-	}
-	return schema
-}
-
 func requireNoReferenceErrors(t *testing.T, schema *parser.Schema) {
 	t.Helper()
 
@@ -224,20 +214,9 @@ func TestResolveW3CUniqueConstraints(t *testing.T) {
 }
 
 func TestResolveW3CMissingListItemType(t *testing.T) {
-	schema := resolveW3CTypeReferences(t, "saxonData/Missing/missing006.xsd")
-
-	st, ok := schema.TypeDefs[types.QName{Local: "list"}].(*types.SimpleType)
-	if !ok || st == nil {
-		t.Fatalf("expected list to be a simple type")
-	}
-	if st.ItemType == nil {
-		t.Fatalf("expected list item type to be set")
-	}
-	if st.ItemType.Name().Local != "absent" {
-		t.Fatalf("expected list item type name 'absent', got %s", st.ItemType.Name())
-	}
-	if st.WhiteSpace() != types.WhiteSpaceCollapse {
-		t.Fatalf("expected list whiteSpace collapse, got %v", st.WhiteSpace())
+	schema := parseW3CSchema(t, "saxonData/Missing/missing006.xsd")
+	if err := ResolveTypeReferences(schema); err == nil {
+		t.Fatalf("expected missing list item type to fail resolution")
 	}
 }
 
@@ -293,6 +272,47 @@ func TestValidateReferencesListDefaultRejectsNonXMLWhitespace(t *testing.T) {
 		t.Fatalf("resolve schema: %v", err)
 	}
 	requireReferenceErrorContains(t, schema, "invalid default value")
+}
+
+func TestValidateReferencesLocalKeyrefContext(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:keyref"
+           xmlns:tns="urn:keyref"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="id" type="xs:string"/>
+            </xs:sequence>
+          </xs:complexType>
+          <xs:key name="k">
+            <xs:selector xpath="."/>
+            <xs:field xpath="tns:id"/>
+          </xs:key>
+          <xs:keyref name="kr" refer="tns:k">
+            <xs:selector xpath="."/>
+            <xs:field xpath="tns:id"/>
+          </xs:keyref>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	if err := ResolveTypeReferences(schema); err != nil {
+		t.Fatalf("resolve type references: %v", err)
+	}
+	if errs := ValidateReferences(schema); len(errs) > 0 {
+		t.Fatalf("validate references: %v", errs[0])
+	}
 }
 
 func TestValidateReferencesDefaultFacetViolations(t *testing.T) {

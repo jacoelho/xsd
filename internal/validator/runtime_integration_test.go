@@ -139,18 +139,8 @@ func TestRuntimeMultipleIDAttributesInvalid(t *testing.T) {
   <xs:element name="root" type="tns:T"/>
 </xs:schema>`
 
-	doc := `<tns:root xmlns:tns="urn:test" a="x" b="y"/>`
-
-	err := validateRuntimeDoc(t, schema, doc)
-	if err == nil {
-		t.Fatalf("expected multiple ID attribute error, got nil")
-	}
-	var violations xsderrors.ValidationList
-	if !errors.As(err, &violations) {
-		t.Fatalf("expected ValidationList error, got %T", err)
-	}
-	if !hasViolationCode([]xsderrors.Validation(violations), xsderrors.ErrMultipleIDAttr) {
-		t.Fatalf("expected code %s, got %v", xsderrors.ErrMultipleIDAttr, violations)
+	if _, err := buildRuntimeSchema(schema); err == nil {
+		t.Fatalf("expected schema validation error for multiple ID attributes")
 	}
 }
 
@@ -182,7 +172,7 @@ func TestRuntimeAttributeGroupProhibitedIgnored(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base">
-    <xs:attribute name="a"/>
+    <xs:attribute name="a" type="xs:string"/>
   </xs:complexType>
   <xs:complexType name="derived">
     <xs:complexContent>
@@ -192,7 +182,7 @@ func TestRuntimeAttributeGroupProhibitedIgnored(t *testing.T) {
     </xs:complexContent>
   </xs:complexType>
   <xs:attributeGroup name="attG">
-    <xs:attribute name="a" use="prohibited"/>
+    <xs:attribute name="a" type="xs:string" use="prohibited"/>
   </xs:attributeGroup>
   <xs:element name="doc" type="derived"/>
 </xs:schema>`

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -46,12 +47,12 @@ func collectElementReferencesFromParticlesWithVisited(particles []types.Particle
 	return refs
 }
 
-func validateElementValueConstraints(schema *parser.Schema, decl *types.ElementDecl) error {
+func validateElementValueConstraints(sch *parser.Schema, decl *types.ElementDecl) error {
 	if decl == nil {
 		return nil
 	}
 
-	resolvedType := resolveTypeForFinalValidation(schema, decl.Type)
+	resolvedType := resolveTypeForFinalValidation(sch, decl.Type)
 	if isDirectNotationType(resolvedType) {
 		return fmt.Errorf("element cannot use NOTATION type")
 	}
@@ -73,12 +74,12 @@ func validateElementValueConstraints(schema *parser.Schema, decl *types.ElementD
 	}
 
 	if decl.HasDefault {
-		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Default, resolvedType, decl.DefaultContext); err != nil {
+		if err := validateDefaultOrFixedValueWithResolvedType(sch, decl.Default, resolvedType, decl.DefaultContext); err != nil {
 			return fmt.Errorf("invalid default value '%s': %w", decl.Default, err)
 		}
 	}
 	if decl.HasFixed {
-		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Fixed, resolvedType, decl.FixedContext); err != nil {
+		if err := validateDefaultOrFixedValueWithResolvedType(sch, decl.Fixed, resolvedType, decl.FixedContext); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)
 		}
 	}
@@ -87,7 +88,7 @@ func validateElementValueConstraints(schema *parser.Schema, decl *types.ElementD
 
 // validateSubstitutionGroupFinal validates that the substitution group member's derivation
 // method is not blocked by the head element's final attribute.
-func validateSubstitutionGroupFinal(schema *parser.Schema, memberQName types.QName, memberDecl, headDecl *types.ElementDecl) error {
+func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName types.QName, memberDecl, headDecl *types.ElementDecl) error {
 	// if head element has no final constraints, any derivation is allowed.
 	if headDecl.Final == 0 {
 		return nil
@@ -102,8 +103,8 @@ func validateSubstitutionGroupFinal(schema *parser.Schema, memberQName types.QNa
 	}
 
 	// resolve types if they are placeholders.
-	memberType = resolveTypeForFinalValidation(schema, memberType)
-	headType = resolveTypeForFinalValidation(schema, headType)
+	memberType = resolveTypeForFinalValidation(sch, memberType)
+	headType = resolveTypeForFinalValidation(sch, headType)
 
 	if memberType == nil || headType == nil {
 		return nil // can't validate without resolved types.
@@ -121,7 +122,7 @@ func validateSubstitutionGroupFinal(schema *parser.Schema, memberQName types.QNa
 		}
 		visited[current] = true
 
-		base, method, err := derivationStep(schema, current)
+		base, method, err := derivationStep(sch, current)
 		if err != nil {
 			return fmt.Errorf("resolve substitution group derivation for %s: %w", memberQName, err)
 		}
@@ -136,13 +137,13 @@ func validateSubstitutionGroupFinal(schema *parser.Schema, memberQName types.QNa
 }
 
 // validateSubstitutionGroupDerivation validates that the member element's type is derived from the head element's type.
-func validateSubstitutionGroupDerivation(schema *parser.Schema, memberQName types.QName, memberDecl, headDecl *types.ElementDecl) error {
+func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName types.QName, memberDecl, headDecl *types.ElementDecl) error {
 	if isDefaultAnyType(memberDecl) && headDecl.Type != nil {
 		memberDecl.Type = headDecl.Type
 	}
 
-	memberType := resolveTypeForFinalValidation(schema, memberDecl.Type)
-	headType := resolveTypeForFinalValidation(schema, headDecl.Type)
+	memberType := resolveTypeForFinalValidation(sch, memberDecl.Type)
+	headType := resolveTypeForFinalValidation(sch, headDecl.Type)
 	if memberType == nil || headType == nil {
 		return nil
 	}
@@ -196,7 +197,7 @@ func validateSubstitutionGroupDerivation(schema *parser.Schema, memberQName type
 	if !derivedValid && !types.IsValidlyDerivedFrom(memberType, headType) {
 		if memberCT, ok := memberType.(*types.ComplexType); ok {
 			baseQName := memberCT.Content().BaseTypeQName()
-			if typesAreEqual(baseQName, headType) || isTypeInDerivationChain(schema, baseQName, headType) {
+			if typesAreEqual(baseQName, headType) || isTypeInDerivationChain(sch, baseQName, headType) {
 				derivedValid = true
 			}
 		}
@@ -230,7 +231,7 @@ func typesAreEqual(qname types.QName, typ types.Type) bool {
 }
 
 // isTypeInDerivationChain checks if the given QName is anywhere in the derivation chain of the target type.
-func isTypeInDerivationChain(schema *parser.Schema, qname types.QName, targetType types.Type) bool {
+func isTypeInDerivationChain(sch *parser.Schema, qname types.QName, targetType types.Type) bool {
 	// get the target type's name.
 	targetQName := targetType.Name()
 
@@ -245,7 +246,7 @@ func isTypeInDerivationChain(schema *parser.Schema, qname types.QName, targetTyp
 			return true
 		}
 
-		typeDef, ok := schema.TypeDefs[current]
+		typeDef, ok := sch.TypeDefs[current]
 		if !ok {
 			return false
 		}
@@ -273,7 +274,7 @@ func typesMatch(a, b types.Type) bool {
 	return !nameA.IsZero() && nameA == nameB
 }
 
-func derivationStep(schema *parser.Schema, typ types.Type) (types.Type, types.DerivationMethod, error) {
+func derivationStep(sch *parser.Schema, typ types.Type) (types.Type, types.DerivationMethod, error) {
 	switch typed := typ.(type) {
 	case *types.BuiltinType:
 		name := typed.Name().Local
@@ -295,7 +296,7 @@ func derivationStep(schema *parser.Schema, typ types.Type) (types.Type, types.De
 		if base == nil {
 			baseQName := typed.Content().BaseTypeQName()
 			if !baseQName.IsZero() {
-				resolved, err := lookupTypeInSchema(schema, baseQName)
+				resolved, err := lookupTypeInSchema(sch, baseQName)
 				if err != nil {
 					return nil, typed.DerivationMethod, err
 				}
@@ -316,7 +317,7 @@ func derivationStep(schema *parser.Schema, typ types.Type) (types.Type, types.De
 				base = typed.Restriction.SimpleType
 			}
 			if base == nil && !typed.Restriction.Base.IsZero() {
-				resolved, err := lookupTypeInSchema(schema, typed.Restriction.Base)
+				resolved, err := lookupTypeInSchema(sch, typed.Restriction.Base)
 				if err != nil {
 					return nil, types.DerivationRestriction, err
 				}
@@ -344,15 +345,16 @@ func derivationMethodLabel(method types.DerivationMethod) string {
 }
 
 // validateNoCyclicSubstitutionGroups checks for cycles in substitution group chains.
-func validateNoCyclicSubstitutionGroups(schema *parser.Schema) error {
+func validateNoCyclicSubstitutionGroups(sch *parser.Schema) error {
 	// for each element with a substitution group, follow the chain and check for cycles.
-	for startQName, decl := range schema.ElementDecls {
+	for _, startQName := range schema.SortedQNames(sch.ElementDecls) {
+		decl := sch.ElementDecls[startQName]
 		if decl.SubstitutionGroup.IsZero() {
 			continue
 		}
 
 		detector := NewCycleDetector[types.QName]()
-		if err := visitSubstitutionGroupChain(schema, startQName, detector); err != nil {
+		if err := visitSubstitutionGroupChain(sch, startQName, detector); err != nil {
 			return fmt.Errorf("cyclic substitution group detected: element %s is part of a cycle", startQName)
 		}
 	}
@@ -360,12 +362,12 @@ func validateNoCyclicSubstitutionGroups(schema *parser.Schema) error {
 	return nil
 }
 
-func visitSubstitutionGroupChain(schema *parser.Schema, qname types.QName, detector *CycleDetector[types.QName]) error {
+func visitSubstitutionGroupChain(sch *parser.Schema, qname types.QName, detector *CycleDetector[types.QName]) error {
 	if detector.IsVisited(qname) {
 		return nil
 	}
 	return detector.WithScope(qname, func() error {
-		decl, exists := schema.ElementDecls[qname]
+		decl, exists := sch.ElementDecls[qname]
 		if !exists {
 			return nil
 		}
@@ -373,10 +375,10 @@ func visitSubstitutionGroupChain(schema *parser.Schema, qname types.QName, detec
 		if next.IsZero() {
 			return nil
 		}
-		if _, ok := schema.ElementDecls[next]; !ok {
+		if _, ok := sch.ElementDecls[next]; !ok {
 			// referenced element doesn't exist - already reported elsewhere.
 			return nil
 		}
-		return visitSubstitutionGroupChain(schema, next, detector)
+		return visitSubstitutionGroupChain(sch, next, detector)
 	})
 }

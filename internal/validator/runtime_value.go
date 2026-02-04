@@ -148,6 +148,9 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 	if s == nil || s.rt == nil {
 		return nil, valueErrorf(valueErrInvalid, "runtime schema missing")
 	}
+	if id == 0 {
+		return nil, valueErrorf(valueErrInvalid, "validator missing")
+	}
 	if int(id) >= len(s.rt.Validators.Meta) {
 		return nil, valueErrorf(valueErrInvalid, "validator %d out of range", id)
 	}

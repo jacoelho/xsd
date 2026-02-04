@@ -3,11 +3,12 @@ package loader
 import (
 	"fmt"
 	"maps"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -105,29 +106,30 @@ func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind
 		return err
 	}
 	ctx.mergeGlobalDecls(existingDecls, insertAt)
+	staging.HasPlaceholders = staging.HasPlaceholders || source.HasPlaceholders
 	*target = *staging
 	return nil
 }
 
-func cloneSchemaForMerge(schema *parser.Schema) *parser.Schema {
-	clone := *schema
-	clone.ImportContexts = copyImportContexts(schema.ImportContexts)
-	clone.ImportedNamespaces = copyImportedNamespaces(schema.ImportedNamespaces)
-	clone.ElementDecls = cloneMap(schema.ElementDecls)
-	clone.ElementOrigins = cloneMap(schema.ElementOrigins)
-	clone.TypeDefs = cloneMap(schema.TypeDefs)
-	clone.TypeOrigins = cloneMap(schema.TypeOrigins)
-	clone.AttributeDecls = cloneMap(schema.AttributeDecls)
-	clone.AttributeOrigins = cloneMap(schema.AttributeOrigins)
-	clone.AttributeGroups = cloneMap(schema.AttributeGroups)
-	clone.AttributeGroupOrigins = cloneMap(schema.AttributeGroupOrigins)
-	clone.Groups = cloneMap(schema.Groups)
-	clone.GroupOrigins = cloneMap(schema.GroupOrigins)
-	clone.SubstitutionGroups = copyQNameSliceMap(schema.SubstitutionGroups)
-	clone.NotationDecls = cloneMap(schema.NotationDecls)
-	clone.NotationOrigins = cloneMap(schema.NotationOrigins)
-	clone.IDAttributes = cloneMap(schema.IDAttributes)
-	clone.GlobalDecls = append([]parser.GlobalDecl(nil), schema.GlobalDecls...)
+func cloneSchemaForMerge(sch *parser.Schema) *parser.Schema {
+	clone := *sch
+	clone.ImportContexts = copyImportContexts(sch.ImportContexts)
+	clone.ImportedNamespaces = copyImportedNamespaces(sch.ImportedNamespaces)
+	clone.ElementDecls = cloneMap(sch.ElementDecls)
+	clone.ElementOrigins = cloneMap(sch.ElementOrigins)
+	clone.TypeDefs = cloneMap(sch.TypeDefs)
+	clone.TypeOrigins = cloneMap(sch.TypeOrigins)
+	clone.AttributeDecls = cloneMap(sch.AttributeDecls)
+	clone.AttributeOrigins = cloneMap(sch.AttributeOrigins)
+	clone.AttributeGroups = cloneMap(sch.AttributeGroups)
+	clone.AttributeGroupOrigins = cloneMap(sch.AttributeGroupOrigins)
+	clone.Groups = cloneMap(sch.Groups)
+	clone.GroupOrigins = cloneMap(sch.GroupOrigins)
+	clone.SubstitutionGroups = copyQNameSliceMap(sch.SubstitutionGroups)
+	clone.NotationDecls = cloneMap(sch.NotationDecls)
+	clone.NotationOrigins = cloneMap(sch.NotationOrigins)
+	clone.IDAttributes = cloneMap(sch.IDAttributes)
+	clone.GlobalDecls = append([]parser.GlobalDecl(nil), sch.GlobalDecls...)
 	return &clone
 }
 
@@ -197,9 +199,9 @@ func copyQNameSliceMap(src map[types.QName][]types.QName) map[types.QName][]type
 	return dst
 }
 
-func existingGlobalDecls(schema *parser.Schema) map[globalDeclKey]struct{} {
-	decls := make(map[globalDeclKey]struct{}, len(schema.GlobalDecls))
-	for _, decl := range schema.GlobalDecls {
+func existingGlobalDecls(sch *parser.Schema) map[globalDeclKey]struct{} {
+	decls := make(map[globalDeclKey]struct{}, len(sch.GlobalDecls))
+	for _, decl := range sch.GlobalDecls {
 		decls[globalDeclKey{kind: decl.Kind, name: decl.Name}] = struct{}{}
 	}
 	return decls
@@ -287,7 +289,8 @@ func mergeNamed[V any](
 	if insert == nil {
 		insert = func(value V) V { return value }
 	}
-	for qname, value := range source {
+	for _, qname := range schema.SortedQNames(source) {
+		value := source[qname]
 		targetQName := remap(qname)
 		origin := originFor(qname)
 		if existing, exists := target[targetQName]; exists {
@@ -510,9 +513,7 @@ func (c *mergeContext) mergeSubstitutionGroups() {
 	for head := range c.source.SubstitutionGroups {
 		heads = append(heads, head)
 	}
-	sort.Slice(heads, func(i, j int) bool {
-		return qnameLess(heads[i], heads[j])
-	})
+	slices.SortFunc(heads, types.CompareQName)
 	for _, head := range heads {
 		members := c.source.SubstitutionGroups[head]
 		targetHead := c.remapQName(head)
@@ -541,9 +542,7 @@ func sortAndDedupeQNames(names []types.QName) []types.QName {
 	if len(names) < 2 {
 		return names
 	}
-	sort.Slice(names, func(i, j int) bool {
-		return qnameLess(names[i], names[j])
-	})
+	slices.SortFunc(names, types.CompareQName)
 	out := names[:0]
 	var last types.QName
 	for i, name := range names {
@@ -553,13 +552,6 @@ func sortAndDedupeQNames(names []types.QName) []types.QName {
 		}
 	}
 	return out
-}
-
-func qnameLess(a, b types.QName) bool {
-	if a.Namespace != b.Namespace {
-		return a.Namespace < b.Namespace
-	}
-	return a.Local < b.Local
 }
 
 func (c *mergeContext) mergeNotationDecls() error {
@@ -643,14 +635,9 @@ func identityConstraintsEquivalent(a, b []*types.IdentityConstraint) bool {
 	for _, constraint := range b {
 		keysB = append(keysB, identityConstraintKey(constraint))
 	}
-	sort.Strings(keysA)
-	sort.Strings(keysB)
-	for i := range keysA {
-		if keysA[i] != keysB[i] {
-			return false
-		}
-	}
-	return true
+	slices.Sort(keysA)
+	slices.Sort(keysB)
+	return slices.Equal(keysA, keysB)
 }
 
 func identityConstraintKey(constraint *types.IdentityConstraint) string {
@@ -680,7 +667,7 @@ func identityConstraintKey(constraint *types.IdentityConstraint) string {
 	for key := range constraint.NamespaceContext {
 		keys = append(keys, key)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	for _, key := range keys {
 		builder.WriteString(key)
 		builder.WriteByte('=')

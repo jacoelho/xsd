@@ -2,7 +2,7 @@ package schemacheck
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
@@ -122,10 +122,5 @@ func collectUnseenKeys[T any](kind parser.GlobalDeclKind, seen map[parser.Global
 }
 
 func sortQNames(keys []types.QName) {
-	sort.Slice(keys, func(i, j int) bool {
-		if keys[i].Namespace != keys[j].Namespace {
-			return keys[i].Namespace < keys[j].Namespace
-		}
-		return keys[i].Local < keys[j].Local
-	})
+	slices.SortFunc(keys, types.CompareQName)
 }

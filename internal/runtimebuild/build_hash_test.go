@@ -3,8 +3,6 @@ package runtimebuild
 import (
 	"strings"
 	"testing"
-
-	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func TestBuildHashDeterministic(t *testing.T) {
@@ -15,10 +13,7 @@ func TestBuildHashDeterministic(t *testing.T) {
   <xs:element name="root" type="xs:string"/>
 </xs:schema>`
 
-	first, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
+	first := mustResolveSchema(t, schemaXML)
 	rt1, err := BuildSchema(first, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build schema: %v", err)
@@ -27,10 +22,7 @@ func TestBuildHashDeterministic(t *testing.T) {
 		t.Fatalf("expected non-zero build hash")
 	}
 
-	second, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
+	second := mustResolveSchema(t, schemaXML)
 	rt2, err := BuildSchema(second, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build schema: %v", err)
@@ -40,10 +32,7 @@ func TestBuildHashDeterministic(t *testing.T) {
 	}
 
 	changedXML := strings.Replace(schemaXML, "root", "root2", 1)
-	third, err := parser.Parse(strings.NewReader(changedXML))
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
+	third := mustResolveSchema(t, changedXML)
 	rt3, err := BuildSchema(third, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build schema: %v", err)

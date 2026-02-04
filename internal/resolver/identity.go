@@ -6,13 +6,14 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // collectAllIdentityConstraints collects all identity constraints from the schema
 // including constraints on local elements in content models.
-func collectAllIdentityConstraints(schema *parser.Schema) []*types.IdentityConstraint {
+func collectAllIdentityConstraints(sch *parser.Schema) []*types.IdentityConstraint {
 	var all []*types.IdentityConstraint
 	visitedGroups := make(map[*types.ModelGroup]bool)
 	visitedTypes := make(map[*types.ComplexType]bool)
@@ -21,7 +22,8 @@ func collectAllIdentityConstraints(schema *parser.Schema) []*types.IdentityConst
 		all = append(all, collectIdentityConstraintsFromContentWithVisited(content, visitedGroups, visitedTypes)...)
 	}
 
-	for _, decl := range schema.ElementDecls {
+	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
+		decl := sch.ElementDecls[qname]
 		all = append(all, decl.Constraints...)
 		// also check inline type's content model.
 		if ct, ok := decl.Type.(*types.ComplexType); ok {
@@ -29,13 +31,15 @@ func collectAllIdentityConstraints(schema *parser.Schema) []*types.IdentityConst
 		}
 	}
 
-	for _, typ := range schema.TypeDefs {
+	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
+		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			collectFromContent(ct.Content())
 		}
 	}
 
-	for _, group := range schema.Groups {
+	for _, qname := range schema.SortedQNames(sch.Groups) {
+		group := sch.Groups[qname]
 		all = append(all, collectIdentityConstraintsFromParticlesWithVisited(group.Particles, visitedGroups, visitedTypes)...)
 	}
 
@@ -43,12 +47,6 @@ func collectAllIdentityConstraints(schema *parser.Schema) []*types.IdentityConst
 }
 
 // collectIdentityConstraintsFromContent collects identity constraints from content models.
-func collectIdentityConstraintsFromContent(content types.Content) []*types.IdentityConstraint {
-	visited := make(map[*types.ModelGroup]bool)
-	visitedTypes := make(map[*types.ComplexType]bool)
-	return collectIdentityConstraintsFromContentWithVisited(content, visited, visitedTypes)
-}
-
 // collectIdentityConstraintsFromContentWithVisited collects identity constraints with cycle detection.
 func collectIdentityConstraintsFromContentWithVisited(content types.Content, visited map[*types.ModelGroup]bool, visitedTypes map[*types.ComplexType]bool) []*types.IdentityConstraint {
 	var constraints []*types.IdentityConstraint
@@ -66,6 +64,56 @@ func collectIdentityConstraintsFromContentWithVisited(content types.Content, vis
 		}
 	}
 	return constraints
+}
+
+func collectConstraintElementsFromContent(content types.Content) []*types.ElementDecl {
+	visited := make(map[*types.ModelGroup]bool)
+	visitedTypes := make(map[*types.ComplexType]bool)
+	return collectConstraintElementsFromContentWithVisited(content, visited, visitedTypes)
+}
+
+func collectConstraintElementsFromContentWithVisited(content types.Content, visited map[*types.ModelGroup]bool, visitedTypes map[*types.ComplexType]bool) []*types.ElementDecl {
+	var elements []*types.ElementDecl
+	switch c := content.(type) {
+	case *types.ElementContent:
+		if c.Particle != nil {
+			elements = append(elements, collectConstraintElementsFromParticlesWithVisited([]types.Particle{c.Particle}, visited, visitedTypes)...)
+		}
+	case *types.ComplexContent:
+		if c.Extension != nil && c.Extension.Particle != nil {
+			elements = append(elements, collectConstraintElementsFromParticlesWithVisited([]types.Particle{c.Extension.Particle}, visited, visitedTypes)...)
+		}
+		if c.Restriction != nil && c.Restriction.Particle != nil {
+			elements = append(elements, collectConstraintElementsFromParticlesWithVisited([]types.Particle{c.Restriction.Particle}, visited, visitedTypes)...)
+		}
+	}
+	return elements
+}
+
+func collectConstraintElementsFromParticlesWithVisited(particles []types.Particle, visited map[*types.ModelGroup]bool, visitedTypes map[*types.ComplexType]bool) []*types.ElementDecl {
+	var elements []*types.ElementDecl
+	for _, particle := range particles {
+		switch p := particle.(type) {
+		case *types.ElementDecl:
+			if p != nil && !p.IsReference && len(p.Constraints) > 0 {
+				elements = append(elements, p)
+			}
+			if ct, ok := p.Type.(*types.ComplexType); ok {
+				if visitedTypes[ct] {
+					continue
+				}
+				visitedTypes[ct] = true
+				elements = append(elements, collectConstraintElementsFromContentWithVisited(ct.Content(), visited, visitedTypes)...)
+			}
+		case *types.ModelGroup:
+			if visited[p] {
+				continue
+			}
+			visited[p] = true
+			elements = append(elements, collectConstraintElementsFromParticlesWithVisited(p.Particles, visited, visitedTypes)...)
+		}
+	}
+	return elements
 }
 
 // collectIdentityConstraintsFromParticlesWithVisited collects identity constraints with cycle detection.
@@ -99,7 +147,7 @@ func collectIdentityConstraintsFromParticlesWithVisited(particles []types.Partic
 // validateIdentityConstraintUniqueness validates that identity constraint names are unique within the target namespace.
 // Per XSD spec 3.11.2: "Constraint definition identities must be unique within an XML Schema"
 // Constraints are identified by (name, target namespace).
-func validateIdentityConstraintUniqueness(schema *parser.Schema) []error {
+func validateIdentityConstraintUniqueness(sch *parser.Schema) []error {
 	var errs []error
 
 	// identity constraints are identified by (name, targetNamespace) per XSD spec.
@@ -113,7 +161,7 @@ func validateIdentityConstraintUniqueness(schema *parser.Schema) []error {
 	}
 	constraintsByKey := make(map[constraintKey][]*types.IdentityConstraint)
 
-	allConstraints := collectAllIdentityConstraints(schema)
+	allConstraints := collectAllIdentityConstraints(sch)
 	for _, constraint := range allConstraints {
 		key := constraintKey{
 			name:      constraint.Name,
@@ -197,11 +245,11 @@ func validateKeyrefConstraints(contextQName types.QName, constraints, allConstra
 // validateIdentityConstraintResolution validates that identity constraint selector and fields can be resolved.
 // This validation is lenient; schema-time checks avoid rejecting complex-content fields.
 // Simple-typed field requirements are enforced during instance validation.
-func validateIdentityConstraintResolution(schema *parser.Schema, constraint *types.IdentityConstraint, decl *types.ElementDecl) error {
+func validateIdentityConstraintResolution(sch *parser.Schema, constraint *types.IdentityConstraint, decl *types.ElementDecl) error {
 	for i := range constraint.Fields {
 		field := &constraint.Fields[i]
 		hasUnion := strings.Contains(field.XPath, "|") || strings.Contains(constraint.Selector.XPath, "|")
-		resolved, err := schemacheck.ResolveFieldType(schema, field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
+		resolved, err := schemacheck.ResolveFieldType(sch, field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
 		switch {
 		case err == nil:
 			field.ResolvedType = resolved
@@ -230,7 +278,7 @@ func validateIdentityConstraintResolution(schema *parser.Schema, constraint *typ
 		// For unique/keyref, nillable elements are allowed (nil values are excluded from the check)
 		if constraint.Type == types.KeyConstraint {
 			if hasUnion {
-				elemDecls, err := schemacheck.ResolveFieldElementDecls(schema, field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
+				elemDecls, err := schemacheck.ResolveFieldElementDecls(sch, field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
 				if err != nil {
 					// For union paths, resolution errors for some branches are allowed
 					if errors.Is(err, schemacheck.ErrXPathUnresolvable) {
@@ -246,7 +294,7 @@ func validateIdentityConstraintResolution(schema *parser.Schema, constraint *typ
 				}
 				continue
 			}
-			elemDecl, err := schemacheck.ResolveFieldElementDecl(schema, field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
+			elemDecl, err := schemacheck.ResolveFieldElementDecl(sch, field, decl, constraint.Selector.XPath, constraint.NamespaceContext)
 			if err == nil && elemDecl != nil && elemDecl.Nillable {
 				return fmt.Errorf("field %d '%s' selects nillable element '%s'", i+1, field.XPath, elemDecl.Name)
 			}

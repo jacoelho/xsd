@@ -139,6 +139,41 @@ func TestFieldResolution_AttributeAxis(t *testing.T) {
 	}
 }
 
+func TestLocalIdentityConstraintContext(t *testing.T) {
+	testFS := fstest.MapFS{
+		"test.xsd": &fstest.MapFile{
+			Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:local"
+           xmlns:tns="urn:local"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="id" type="xs:string"/>
+            </xs:sequence>
+          </xs:complexType>
+          <xs:key name="k">
+            <xs:selector xpath="."/>
+            <xs:field xpath="tns:id"/>
+          </xs:key>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`),
+		},
+	}
+
+	loader := NewLoader(Config{FS: testFS})
+	if _, err := loader.Load("test.xsd"); err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+}
+
 func TestFieldResolution_UnionWithAttributeAllowed(t *testing.T) {
 	// Union fields can mix element and attribute selections.
 	// At runtime, only one branch will match, selecting either an element or an attribute.

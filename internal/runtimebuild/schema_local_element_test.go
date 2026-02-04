@@ -1,10 +1,8 @@
 package runtimebuild
 
 import (
-	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -28,10 +26,7 @@ func TestBuildSchema_LocalElementShadowsGlobalByQName(t *testing.T) {
   <xs:element name="container" type="tns:ContainerType"/>
 </xs:schema>`
 
-	schema, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
-	}
+	schema := mustResolveSchema(t, schemaXML)
 	rt, err := BuildSchema(schema, BuildConfig{})
 	if err != nil {
 		t.Fatalf("BuildSchema error = %v", err)

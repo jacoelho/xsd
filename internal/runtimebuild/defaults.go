@@ -17,6 +17,9 @@ func (c *compiler) compileDefaults(registry *schema.Registry) error {
 		if decl == nil || decl.IsReference {
 			continue
 		}
+		if st, ok := types.AsSimpleType(decl.Type); ok && types.IsPlaceholderSimpleType(st) {
+			return fmt.Errorf("element %s type not resolved", entry.QName)
+		}
 		if decl.HasDefault {
 			typ, err := c.valueTypeForElement(decl)
 			if err != nil {
@@ -45,6 +48,9 @@ func (c *compiler) compileDefaults(registry *schema.Registry) error {
 		decl := entry.Decl
 		if decl == nil {
 			continue
+		}
+		if st, ok := types.AsSimpleType(decl.Type); ok && types.IsPlaceholderSimpleType(st) {
+			return fmt.Errorf("attribute %s type not resolved", entry.QName)
 		}
 		if decl.HasDefault {
 			typ, err := c.valueTypeForAttribute(decl)
@@ -89,6 +95,9 @@ func (c *compiler) compileAttributeUses(registry *schema.Registry) error {
 		for _, decl := range attrs {
 			if decl == nil {
 				continue
+			}
+			if st, ok := types.AsSimpleType(decl.Type); ok && types.IsPlaceholderSimpleType(st) {
+				return fmt.Errorf("attribute use %s type not resolved", decl.Name)
 			}
 			if !decl.HasDefault && !decl.HasFixed {
 				continue

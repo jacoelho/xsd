@@ -1285,6 +1285,32 @@ func TestParseComplexContent_IgnoresXMLID(t *testing.T) {
 	}
 }
 
+func TestParseAttributeDefaultsToAnySimpleType(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:attr"
+           xmlns:tns="urn:attr">
+  <xs:attribute name="Code"/>
+</xs:schema>`
+
+	schema, err := Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	qname := types.QName{Namespace: "urn:attr", Local: "Code"}
+	decl := schema.AttributeDecls[qname]
+	if decl == nil {
+		t.Fatalf("attribute %s not found in schema", qname)
+	}
+	if decl.Type == nil {
+		t.Fatalf("attribute %s type is nil", qname)
+	}
+	if decl.Type.Name().Local != string(types.TypeNameAnySimpleType) {
+		t.Fatalf("attribute %s type = %s, want xs:anySimpleType", qname, decl.Type.Name())
+	}
+}
+
 func parseDoc(t *testing.T, xmlStr string) *xsdxml.Document {
 	t.Helper()
 	doc, err := xsdxml.Parse(strings.NewReader(xmlStr))

@@ -1,6 +1,7 @@
 package schemacheck
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
@@ -212,16 +213,39 @@ func convertDeferredFacet(df *types.DeferredFacet, baseType types.Type) (types.F
 
 	switch df.FacetName {
 	case "minInclusive":
-		return types.NewMinInclusive(df.FacetValue, baseType)
+		return convertDeferredRangeFacet(df.FacetName, df.FacetValue, baseType)
 	case "maxInclusive":
-		return types.NewMaxInclusive(df.FacetValue, baseType)
+		return convertDeferredRangeFacet(df.FacetName, df.FacetValue, baseType)
 	case "minExclusive":
-		return types.NewMinExclusive(df.FacetValue, baseType)
+		return convertDeferredRangeFacet(df.FacetName, df.FacetValue, baseType)
 	case "maxExclusive":
-		return types.NewMaxExclusive(df.FacetValue, baseType)
+		return convertDeferredRangeFacet(df.FacetName, df.FacetValue, baseType)
 	default:
 		return nil, fmt.Errorf("unknown deferred facet type: %s", df.FacetName)
 	}
+}
+
+func convertDeferredRangeFacet(name, value string, baseType types.Type) (types.Facet, error) {
+	var (
+		facet types.Facet
+		err   error
+	)
+	switch name {
+	case "minInclusive":
+		facet, err = types.NewMinInclusive(value, baseType)
+	case "maxInclusive":
+		facet, err = types.NewMaxInclusive(value, baseType)
+	case "minExclusive":
+		facet, err = types.NewMinExclusive(value, baseType)
+	case "maxExclusive":
+		facet, err = types.NewMaxExclusive(value, baseType)
+	default:
+		return nil, fmt.Errorf("unknown deferred facet type: %s", name)
+	}
+	if errors.Is(err, types.ErrCannotDeterminePrimitiveType) {
+		return nil, nil
+	}
+	return facet, err
 }
 
 // isNotationType checks if a type is or derives from xs:NOTATION

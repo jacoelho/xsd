@@ -2,10 +2,8 @@ package runtimebuild
 
 import (
 	"errors"
-	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -20,11 +18,8 @@ func TestBuildSchemaOccursLimitError(t *testing.T) {
     </xs:complexType>
   </xs:element>
 </xs:schema>`
-	parsed, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
-	_, err = BuildSchema(parsed, BuildConfig{MaxOccursLimit: 1})
+	parsed := mustResolveSchema(t, schemaXML)
+	_, err := BuildSchema(parsed, BuildConfig{MaxOccursLimit: 1})
 	if err == nil {
 		t.Fatalf("expected maxOccurs limit error")
 	}
