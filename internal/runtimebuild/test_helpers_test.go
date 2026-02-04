@@ -34,6 +34,21 @@ func resolveSchema(schemaXML string) (*parser.Schema, error) {
 	return sch, nil
 }
 
+func parseAndAssign(schemaXML string) (*parser.Schema, *schema.Registry, error) {
+	sch, err := resolveSchema(schemaXML)
+	if err != nil {
+		return nil, nil, err
+	}
+	reg, err := schema.AssignIDs(sch)
+	if err != nil {
+		return nil, nil, err
+	}
+	if _, err := schema.ResolveReferences(sch, reg); err != nil {
+		return nil, nil, err
+	}
+	return sch, reg, nil
+}
+
 func mustResolveSchema(tb testing.TB, schemaXML string) *parser.Schema {
 	tb.Helper()
 	sch, err := resolveSchema(schemaXML)

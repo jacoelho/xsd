@@ -1,7 +1,6 @@
 package loader
 
 import (
-	"cmp"
 	"fmt"
 	"maps"
 	"slices"
@@ -514,7 +513,7 @@ func (c *mergeContext) mergeSubstitutionGroups() {
 	for head := range c.source.SubstitutionGroups {
 		heads = append(heads, head)
 	}
-	slices.SortFunc(heads, qnameCompare)
+	slices.SortFunc(heads, types.CompareQName)
 	for _, head := range heads {
 		members := c.source.SubstitutionGroups[head]
 		targetHead := c.remapQName(head)
@@ -543,7 +542,7 @@ func sortAndDedupeQNames(names []types.QName) []types.QName {
 	if len(names) < 2 {
 		return names
 	}
-	slices.SortFunc(names, qnameCompare)
+	slices.SortFunc(names, types.CompareQName)
 	out := names[:0]
 	var last types.QName
 	for i, name := range names {
@@ -553,13 +552,6 @@ func sortAndDedupeQNames(names []types.QName) []types.QName {
 		}
 	}
 	return out
-}
-
-func qnameCompare(a, b types.QName) int {
-	if a.Namespace != b.Namespace {
-		return cmp.Compare(a.Namespace, b.Namespace)
-	}
-	return cmp.Compare(a.Local, b.Local)
 }
 
 func (c *mergeContext) mergeNotationDecls() error {
@@ -645,12 +637,7 @@ func identityConstraintsEquivalent(a, b []*types.IdentityConstraint) bool {
 	}
 	slices.Sort(keysA)
 	slices.Sort(keysB)
-	for i := range keysA {
-		if keysA[i] != keysB[i] {
-			return false
-		}
-	}
-	return true
+	return slices.Equal(keysA, keysB)
 }
 
 func identityConstraintKey(constraint *types.IdentityConstraint) string {

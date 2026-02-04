@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolver"
-	schemapkg "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -76,19 +76,19 @@ func TestReferenceResolution(t *testing.T) {
   </xs:group>
 </xs:schema>`
 
-	schema := mustResolveSchema(t, schemaXML)
-	registry, err := schemapkg.AssignIDs(schema)
+	sch := mustResolveSchema(t, schemaXML)
+	registry, err := schema.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 
-	refs, err := schemapkg.ResolveReferences(schema, registry)
+	refs, err := schema.ResolveReferences(sch, registry)
 	if err != nil {
 		t.Fatalf("ResolveReferences error = %v", err)
 	}
 
 	rootQName := types.QName{Namespace: "urn:ref", Local: "root"}
-	root := schema.ElementDecls[rootQName]
+	root := sch.ElementDecls[rootQName]
 	if root == nil {
 		t.Fatalf("root element not found")
 	}
@@ -97,7 +97,7 @@ func TestReferenceResolution(t *testing.T) {
 	}
 
 	ctQName := types.QName{Namespace: "urn:ref", Local: "T"}
-	ct, ok := schema.TypeDefs[ctQName].(*types.ComplexType)
+	ct, ok := sch.TypeDefs[ctQName].(*types.ComplexType)
 	if !ok {
 		t.Fatalf("type T not found")
 	}
@@ -125,7 +125,7 @@ func TestReferenceResolution(t *testing.T) {
 	}
 
 	groupQName := types.QName{Namespace: "urn:ref", Local: "G"}
-	if refs.GroupRefs[groupRef] != schema.Groups[groupQName] {
+	if refs.GroupRefs[groupRef] != sch.Groups[groupQName] {
 		t.Fatalf("group ref resolved to unexpected target")
 	}
 }
@@ -139,17 +139,17 @@ func TestReferenceResolutionMissing(t *testing.T) {
   <xs:element name="root" type="tns:Missing"/>
 </xs:schema>`
 
-	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	sch, err := parser.Parse(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	if errs := schemacheck.ValidateStructure(schema); len(errs) != 0 {
+	if errs := schemacheck.ValidateStructure(sch); len(errs) != 0 {
 		t.Fatalf("ValidateStructure errors = %v", errs)
 	}
-	if err := schemapkg.MarkSemantic(schema); err != nil {
+	if err := schema.MarkSemantic(sch); err != nil {
 		t.Fatalf("MarkSemantic error = %v", err)
 	}
-	if errs := resolver.ValidateReferences(schema); len(errs) == 0 {
+	if errs := resolver.ValidateReferences(sch); len(errs) == 0 {
 		t.Fatalf("expected missing type to fail reference validation")
 	}
 }
@@ -167,13 +167,13 @@ func TestReferenceResolutionRecursiveType(t *testing.T) {
   </xs:complexType>
 </xs:schema>`
 
-	schema := mustResolveSchema(t, schemaXML)
-	registry, err := schemapkg.AssignIDs(schema)
+	sch := mustResolveSchema(t, schemaXML)
+	registry, err := schema.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 
-	if _, err := schemapkg.ResolveReferences(schema, registry); err != nil {
+	if _, err := schema.ResolveReferences(sch, registry); err != nil {
 		t.Fatalf("ResolveReferences error = %v", err)
 	}
 }

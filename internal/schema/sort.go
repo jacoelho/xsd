@@ -17,7 +17,7 @@ func SortedQNames[V any](m map[types.QName]V) []types.QName {
 	for qname := range m {
 		keys = append(keys, qname)
 	}
-	slices.SortFunc(keys, compareQName)
+	slices.SortFunc(keys, types.CompareQName)
 	return keys
 }
 
@@ -29,13 +29,6 @@ func SortedGlobalDecls(decls []parser.GlobalDecl) []parser.GlobalDecl {
 	out := append([]parser.GlobalDecl(nil), decls...)
 	slices.SortFunc(out, compareGlobalDecl)
 	return out
-}
-
-func compareQName(a, b types.QName) int {
-	if a.Namespace != b.Namespace {
-		return cmp.Compare(a.Namespace, b.Namespace)
-	}
-	return cmp.Compare(a.Local, b.Local)
 }
 
 func compareGlobalDecl(a, b parser.GlobalDecl) int {

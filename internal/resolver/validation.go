@@ -165,34 +165,11 @@ func validateElementDeclarationReferences(sch *parser.Schema, allConstraints []*
 func validateLocalIdentityConstraintKeyrefs(sch *parser.Schema, allConstraints []*types.IdentityConstraint) []error {
 	var errors []error
 
-	seen := make(map[*types.ElementDecl]bool)
-	validateLocals := func(ct *types.ComplexType) {
-		for _, elem := range collectConstraintElementsFromContent(ct.Content()) {
-			if elem == nil || elem.IsReference || len(elem.Constraints) == 0 {
-				continue
-			}
-			if seen[elem] {
-				continue
-			}
-			seen[elem] = true
-			if err := validateKeyrefConstraints(elem.Name, elem.Constraints, allConstraints); err != nil {
-				errors = append(errors, err...)
-			}
+	forEachLocalConstraintElement(sch, func(elem *types.ElementDecl) {
+		if err := validateKeyrefConstraints(elem.Name, elem.Constraints, allConstraints); err != nil {
+			errors = append(errors, err...)
 		}
-	}
-
-	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
-		decl := sch.ElementDecls[qname]
-		if ct, ok := decl.Type.(*types.ComplexType); ok {
-			validateLocals(ct)
-		}
-	}
-	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
-		typ := sch.TypeDefs[qname]
-		if ct, ok := typ.(*types.ComplexType); ok {
-			validateLocals(ct)
-		}
-	}
+	})
 
 	return errors
 }
@@ -200,6 +177,24 @@ func validateLocalIdentityConstraintKeyrefs(sch *parser.Schema, allConstraints [
 func validateLocalIdentityConstraintResolution(sch *parser.Schema) []error {
 	var errors []error
 
+	forEachLocalConstraintElement(sch, func(elem *types.ElementDecl) {
+		for _, constraint := range elem.Constraints {
+			if err := validateIdentityConstraintResolution(sch, constraint, elem); err != nil {
+				if stdErrors.Is(err, xpath.ErrInvalidXPath) {
+					continue
+				}
+				errors = append(errors, fmt.Errorf("element %s local identity constraint '%s': %w", elem.Name, constraint.Name, err))
+			}
+		}
+	})
+
+	return errors
+}
+
+func forEachLocalConstraintElement(sch *parser.Schema, visit func(*types.ElementDecl)) {
+	if sch == nil || visit == nil {
+		return
+	}
 	seen := make(map[*types.ElementDecl]bool)
 	validateLocals := func(ct *types.ComplexType) {
 		for _, elem := range collectConstraintElementsFromContent(ct.Content()) {
@@ -210,14 +205,7 @@ func validateLocalIdentityConstraintResolution(sch *parser.Schema) []error {
 				continue
 			}
 			seen[elem] = true
-			for _, constraint := range elem.Constraints {
-				if err := validateIdentityConstraintResolution(sch, constraint, elem); err != nil {
-					if stdErrors.Is(err, xpath.ErrInvalidXPath) {
-						continue
-					}
-					errors = append(errors, fmt.Errorf("element %s local identity constraint '%s': %w", elem.Name, constraint.Name, err))
-				}
-			}
+			visit(elem)
 		}
 	}
 
@@ -233,8 +221,6 @@ func validateLocalIdentityConstraintResolution(sch *parser.Schema) []error {
 			validateLocals(ct)
 		}
 	}
-
-	return errors
 }
 
 func validateAttributeDeclarations(sch *parser.Schema) []error {

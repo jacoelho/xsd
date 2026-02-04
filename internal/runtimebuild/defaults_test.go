@@ -2,13 +2,9 @@ package runtimebuild
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/resolver"
 	"github.com/jacoelho/xsd/internal/schema"
-	"github.com/jacoelho/xsd/internal/schemacheck"
 )
 
 func TestElementDefaultEmptyStringPresent(t *testing.T) {
@@ -152,35 +148,4 @@ func attributeIDForLocal(t *testing.T, reg *schema.Registry, local string) schem
 	}
 	t.Fatalf("attribute %s not found", local)
 	return 0
-}
-
-func parseAndAssign(schemaXML string) (*parser.Schema, *schema.Registry, error) {
-	sch, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		return nil, nil, err
-	}
-	if errs := schemacheck.ValidateStructure(sch); len(errs) != 0 {
-		return nil, nil, errs[0]
-	}
-	if err := schema.MarkSemantic(sch); err != nil {
-		return nil, nil, err
-	}
-	if err := resolver.ResolveTypeReferences(sch); err != nil {
-		return nil, nil, err
-	}
-	if errs := resolver.ValidateReferences(sch); len(errs) != 0 {
-		return nil, nil, errs[0]
-	}
-	parser.UpdatePlaceholderState(sch)
-	if err := schema.MarkResolved(sch); err != nil {
-		return nil, nil, err
-	}
-	reg, err := schema.AssignIDs(sch)
-	if err != nil {
-		return nil, nil, err
-	}
-	if _, err := schema.ResolveReferences(sch, reg); err != nil {
-		return nil, nil, err
-	}
-	return sch, reg, nil
 }
