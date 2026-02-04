@@ -57,6 +57,12 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 			continue
 		}
 		effectiveBase := effectiveAttributeUse(schema, baseAttr)
+		if effectiveBase.Use == types.Required && effectiveRestriction.Use != types.Required {
+			return fmt.Errorf("%s: required attribute '%s' cannot be relaxed", context, restrictionAttr.Name.Local)
+		}
+		if effectiveRestriction.Use == types.Prohibited {
+			continue
+		}
 		if effectiveBase.HasFixed {
 			if !effectiveRestriction.HasFixed {
 				return fmt.Errorf("%s: attribute '%s' fixed value must match base type", context, restrictionAttr.Name.Local)
@@ -70,9 +76,6 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 			if baseFixed != restrFixed {
 				return fmt.Errorf("%s: attribute '%s' fixed value must match base type", context, restrictionAttr.Name.Local)
 			}
-		}
-		if effectiveBase.Use == types.Required && effectiveRestriction.Use != types.Required {
-			return fmt.Errorf("%s: required attribute '%s' cannot be relaxed", context, restrictionAttr.Name.Local)
 		}
 		// attribute exists in base - type must match
 		baseTypeQName := getTypeQName(effectiveBase.Type)
