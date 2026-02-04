@@ -3,6 +3,7 @@ package errors
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -104,8 +105,10 @@ const (
 //
 //nolint:errname // public API name uses XSD domain term.
 type Validation struct {
-	Code     string
-	Message  string
+	Code    string
+	Message string
+	// Document holds an optional document URI for error ordering.
+	Document string
 	Path     string
 	Actual   string
 	Expected []string
@@ -118,6 +121,9 @@ type ValidationList []Validation //nolint:errname // public API name, keep for c
 
 // Error returns a compact summary of the validation errors.
 func (v ValidationList) Error() string {
+	if len(v) > 1 {
+		v.Sort()
+	}
 	switch len(v) {
 	case 0:
 		return "no validation errors"
@@ -126,6 +132,52 @@ func (v ValidationList) Error() string {
 	default:
 		return fmt.Sprintf("%s (and %d more)", v[0].Error(), len(v)-1)
 	}
+}
+
+// Sort orders the validation list deterministically by document, line, column, code, and message.
+func (v ValidationList) Sort() {
+	if len(v) < 2 {
+		return
+	}
+	sort.SliceStable(v, func(i, j int) bool {
+		a := v[i]
+		b := v[j]
+		if a.Document == "" && b.Document != "" {
+			return false
+		}
+		if a.Document != "" && b.Document == "" {
+			return true
+		}
+		if a.Document != b.Document {
+			return a.Document < b.Document
+		}
+		lineA := a.Line
+		if lineA < 0 {
+			lineA = 0
+		}
+		lineB := b.Line
+		if lineB < 0 {
+			lineB = 0
+		}
+		if lineA != lineB {
+			return lineA < lineB
+		}
+		colA := a.Column
+		if colA < 0 {
+			colA = 0
+		}
+		colB := b.Column
+		if colB < 0 {
+			colB = 0
+		}
+		if colA != colB {
+			return colA < colB
+		}
+		if a.Code != b.Code {
+			return a.Code < b.Code
+		}
+		return a.Message < b.Message
+	})
 }
 
 // Error formats the validation for display, including code, message, and context.
@@ -171,6 +223,7 @@ func AsValidations(err error) ([]Validation, bool) {
 	if !ok {
 		return nil, false
 	}
+	list.Sort()
 	return []Validation(list), true
 }
 

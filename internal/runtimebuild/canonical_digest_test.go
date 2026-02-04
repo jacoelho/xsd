@@ -1,11 +1,6 @@
 package runtimebuild
 
-import (
-	"strings"
-	"testing"
-
-	"github.com/jacoelho/xsd/internal/parser"
-)
+import "testing"
 
 func TestDeterministicBuild(t *testing.T) {
 	cases := []struct {
@@ -137,10 +132,7 @@ func TestDeterministicBuild(t *testing.T) {
 func buildDigest(t *testing.T, schemaXML string) [32]byte {
 	t.Helper()
 
-	parsed, err := parser.Parse(strings.NewReader(schemaXML))
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
+	parsed := mustResolveSchema(t, schemaXML)
 	rt, err := BuildSchema(parsed, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build schema: %v", err)

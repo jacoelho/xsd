@@ -6,11 +6,15 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolver"
+	schemacontract "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 // Config holds configuration for the schema loader
@@ -20,6 +24,7 @@ type Config struct {
 	Resolver Resolver
 
 	AllowMissingImportLocations bool
+	SchemaParseOptions          []xmlstream.Option
 }
 
 type loadKey struct {
@@ -241,7 +246,7 @@ func (l *SchemaLoader) loadRoot(location string, mode validationMode) (*parser.S
 	if err != nil {
 		return nil, err
 	}
-	result, err := parseSchemaDocument(doc, systemID)
+	result, err := parseSchemaDocument(doc, systemID, l.config.SchemaParseOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +283,6 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 
 	result, err := session.parseSchema()
 	if err != nil {
-		_ = doc.Close()
 		return nil, err
 	}
 	return l.loadParsed(result, systemID, key, mode)
@@ -373,12 +377,25 @@ func (l *SchemaLoader) validateLoadedSchema(schema *parser.Schema) error {
 		return fmt.Errorf("resolve group references: %w", err)
 	}
 
-	// phase 2: Resolve all type references (two-phase resolution)
+	structureErrors := schemacheck.ValidateStructure(schema)
+	if len(structureErrors) > 0 {
+		return formatSchemaErrors(structureErrors)
+	}
+	if err := schemacontract.MarkSemantic(schema); err != nil {
+		return err
+	}
+
 	if err := resolver.ResolveTypeReferences(schema); err != nil {
 		return fmt.Errorf("resolve type references: %w", err)
 	}
 
-	if err := validateSchemaConstraints(schema); err != nil {
+	refErrors := resolver.ValidateReferences(schema)
+	if len(refErrors) > 0 {
+		return formatSchemaErrors(refErrors)
+	}
+
+	parser.UpdatePlaceholderState(schema)
+	if err := schemacontract.MarkResolved(schema); err != nil {
 		return err
 	}
 
@@ -393,7 +410,7 @@ func (l *SchemaLoader) LoadResolved(doc io.ReadCloser, systemID string) (*parser
 	if systemID == "" {
 		return nil, fmt.Errorf("missing systemID")
 	}
-	result, err := parseSchemaDocument(doc, systemID)
+	result, err := parseSchemaDocument(doc, systemID, l.config.SchemaParseOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -482,85 +499,115 @@ func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
 		return fmt.Errorf("pending import source not found: %s", sourceKey.systemID)
 	}
 
-	for i, entry := range pendingDirectives {
-		if err := l.applyPendingDirective(sourceKey, source, entry); err != nil {
-			sourceEntry.pendingDirectives = pendingDirectives[i:]
+	type stagedTarget struct {
+		schema *parser.Schema
+		entry  *schemaEntry
+	}
+	staged := make(map[loadKey]*stagedTarget, len(pendingDirectives))
+
+	stageTarget := func(targetKey loadKey) (*stagedTarget, error) {
+		if existing, ok := staged[targetKey]; ok {
+			return existing, nil
+		}
+		target := l.schemaForKey(targetKey)
+		if target == nil {
+			return nil, fmt.Errorf("pending directive target not found: %s", targetKey.systemID)
+		}
+		entry, ok := l.state.entry(targetKey)
+		if !ok || entry == nil {
+			return nil, fmt.Errorf("pending directive tracking missing for %s", targetKey.systemID)
+		}
+		stagedEntry := &schemaEntry{}
+		if len(entry.includeInserted) > 0 {
+			stagedEntry.includeInserted = append([]int(nil), entry.includeInserted...)
+		}
+		stagedTarget := &stagedTarget{
+			schema: cloneSchemaForMerge(target),
+			entry:  stagedEntry,
+		}
+		staged[targetKey] = stagedTarget
+		return stagedTarget, nil
+	}
+
+	for _, entry := range pendingDirectives {
+		target, err := stageTarget(entry.targetKey)
+		if err != nil {
 			return err
 		}
-		if err := l.decrementPendingAndResolve(entry.targetKey); err != nil {
-			sourceEntry.pendingDirectives = pendingDirectives[i+1:]
-			return err
+		switch entry.kind {
+		case parser.DirectiveInclude:
+			includingNS := entry.targetKey.etn
+			if !l.isIncludeNamespaceCompatible(includingNS, source.TargetNamespace) {
+				return fmt.Errorf("included schema %s has different target namespace: %s != %s",
+					entry.schemaLocation, source.TargetNamespace, includingNS)
+			}
+			remapMode := keepNamespace
+			if !includingNS.IsEmpty() && source.TargetNamespace.IsEmpty() {
+				remapMode = remapNamespace
+			}
+			includeInfo := parser.IncludeInfo{
+				SchemaLocation: entry.schemaLocation,
+				DeclIndex:      entry.includeDeclIndex,
+				IncludeIndex:   entry.includeIndex,
+			}
+			insertAt, err := includeInsertIndex(target.entry, includeInfo, len(target.schema.GlobalDecls))
+			if err != nil {
+				return err
+			}
+			beforeLen := len(target.schema.GlobalDecls)
+			if err := l.mergeSchema(target.schema, source, mergeInclude, remapMode, insertAt); err != nil {
+				return fmt.Errorf("merge included schema %s: %w", entry.schemaLocation, err)
+			}
+			inserted := len(target.schema.GlobalDecls) - beforeLen
+			if err := recordIncludeInserted(target.entry, entry.includeIndex, inserted); err != nil {
+				return err
+			}
+		case parser.DirectiveImport:
+			if entry.expectedNamespace != "" && source.TargetNamespace != types.NamespaceURI(entry.expectedNamespace) {
+				return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
+					entry.schemaLocation, entry.expectedNamespace, source.TargetNamespace)
+			}
+			if entry.expectedNamespace == "" && !source.TargetNamespace.IsEmpty() {
+				return fmt.Errorf("imported schema %s namespace mismatch: expected no namespace, got %s",
+					entry.schemaLocation, source.TargetNamespace)
+			}
+			if err := l.mergeSchema(target.schema, source, mergeImport, keepNamespace, len(target.schema.GlobalDecls)); err != nil {
+				return fmt.Errorf("merge imported schema %s: %w", entry.schemaLocation, err)
+			}
+		default:
+			return fmt.Errorf("unknown pending directive kind: %d", entry.kind)
 		}
 	}
+
+	for key, stagedTarget := range staged {
+		target := l.schemaForKey(key)
+		if target == nil {
+			return fmt.Errorf("pending directive target not found: %s", key.systemID)
+		}
+		*target = *stagedTarget.schema
+		if entry, ok := l.state.entry(key); ok && entry != nil {
+			entry.includeInserted = stagedTarget.entry.includeInserted
+		}
+	}
+
+	for _, entry := range pendingDirectives {
+		switch entry.kind {
+		case parser.DirectiveInclude:
+			l.markMergedInclude(entry.targetKey, sourceKey)
+		case parser.DirectiveImport:
+			l.markMergedImport(entry.targetKey, sourceKey)
+		}
+	}
+
 	sourceEntry.pendingDirectives = nil
 
+	for _, entry := range pendingDirectives {
+		if err := l.decrementPendingAndResolve(entry.targetKey); err != nil {
+			return err
+		}
+	}
+
 	return l.validateIfRequested(sourceKey)
-}
-
-func (l *SchemaLoader) applyPendingDirective(sourceKey loadKey, source *parser.Schema, entry pendingDirective) error {
-	target := l.schemaForKey(entry.targetKey)
-	if target == nil {
-		return fmt.Errorf("pending directive target not found: %s", entry.targetKey.systemID)
-	}
-	switch entry.kind {
-	case parser.DirectiveInclude:
-		return l.applyPendingInclude(sourceKey, source, target, entry)
-	case parser.DirectiveImport:
-		return l.applyPendingImport(sourceKey, source, target, entry)
-	default:
-		return fmt.Errorf("unknown pending directive kind: %d", entry.kind)
-	}
-}
-
-func (l *SchemaLoader) applyPendingInclude(sourceKey loadKey, source, target *parser.Schema, entry pendingDirective) error {
-	includingNS := entry.targetKey.etn
-	if !l.isIncludeNamespaceCompatible(includingNS, source.TargetNamespace) {
-		return fmt.Errorf("included schema %s has different target namespace: %s != %s",
-			entry.schemaLocation, source.TargetNamespace, includingNS)
-	}
-	remapMode := keepNamespace
-	if !includingNS.IsEmpty() && source.TargetNamespace.IsEmpty() {
-		remapMode = remapNamespace
-	}
-	targetEntry, ok := l.state.entry(entry.targetKey)
-	if !ok || targetEntry == nil {
-		return fmt.Errorf("include tracking missing for %s", entry.targetKey.systemID)
-	}
-	includeInfo := parser.IncludeInfo{
-		SchemaLocation: entry.schemaLocation,
-		DeclIndex:      entry.includeDeclIndex,
-		IncludeIndex:   entry.includeIndex,
-	}
-	insertAt, err := includeInsertIndex(targetEntry, includeInfo, len(target.GlobalDecls))
-	if err != nil {
-		return err
-	}
-	beforeLen := len(target.GlobalDecls)
-	if err := l.mergeSchema(target, source, mergeInclude, remapMode, insertAt); err != nil {
-		return fmt.Errorf("merge included schema %s: %w", entry.schemaLocation, err)
-	}
-	inserted := len(target.GlobalDecls) - beforeLen
-	if err := recordIncludeInserted(targetEntry, entry.includeIndex, inserted); err != nil {
-		return err
-	}
-	l.markMergedInclude(entry.targetKey, sourceKey)
-	return nil
-}
-
-func (l *SchemaLoader) applyPendingImport(sourceKey loadKey, source, target *parser.Schema, entry pendingDirective) error {
-	if entry.expectedNamespace != "" && source.TargetNamespace != types.NamespaceURI(entry.expectedNamespace) {
-		return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
-			entry.schemaLocation, entry.expectedNamespace, source.TargetNamespace)
-	}
-	if entry.expectedNamespace == "" && !source.TargetNamespace.IsEmpty() {
-		return fmt.Errorf("imported schema %s namespace mismatch: expected no namespace, got %s",
-			entry.schemaLocation, source.TargetNamespace)
-	}
-	if err := l.mergeSchema(target, source, mergeImport, keepNamespace, len(target.GlobalDecls)); err != nil {
-		return fmt.Errorf("merge imported schema %s: %w", entry.schemaLocation, err)
-	}
-	l.markMergedImport(entry.targetKey, sourceKey)
-	return nil
 }
 
 func (l *SchemaLoader) decrementPendingAndResolve(targetKey loadKey) error {
@@ -658,13 +705,24 @@ func validateImportConstraints(schema *parser.Schema, imports []parser.ImportInf
 }
 
 func validateSchemaConstraints(schema *parser.Schema) error {
-	validationErrors := ValidateSchema(schema)
+	return formatSchemaErrors(ValidateSchema(schema))
+}
+
+func formatSchemaErrors(validationErrors []error) error {
 	if len(validationErrors) == 0 {
 		return nil
 	}
+	errs := validationErrors
+	if len(validationErrors) > 1 {
+		errs = make([]error, len(validationErrors))
+		copy(errs, validationErrors)
+		sort.SliceStable(errs, func(i, j int) bool {
+			return errs[i].Error() < errs[j].Error()
+		})
+	}
 	var errMsg strings.Builder
 	errMsg.WriteString("schema validation failed:")
-	for _, err := range validationErrors {
+	for _, err := range errs {
 		errMsg.WriteString("\n  - ")
 		errMsg.WriteString(err.Error())
 	}
@@ -676,32 +734,32 @@ func initSchemaOrigins(schema *parser.Schema, location string) {
 		return
 	}
 	schema.Location = parser.ImportContextKey("", location)
-	for qname := range schema.ElementDecls {
+	for _, qname := range schemacontract.SortedQNames(schema.ElementDecls) {
 		if schema.ElementOrigins[qname] == "" {
 			schema.ElementOrigins[qname] = schema.Location
 		}
 	}
-	for qname := range schema.TypeDefs {
+	for _, qname := range schemacontract.SortedQNames(schema.TypeDefs) {
 		if schema.TypeOrigins[qname] == "" {
 			schema.TypeOrigins[qname] = schema.Location
 		}
 	}
-	for qname := range schema.AttributeDecls {
+	for _, qname := range schemacontract.SortedQNames(schema.AttributeDecls) {
 		if schema.AttributeOrigins[qname] == "" {
 			schema.AttributeOrigins[qname] = schema.Location
 		}
 	}
-	for qname := range schema.AttributeGroups {
+	for _, qname := range schemacontract.SortedQNames(schema.AttributeGroups) {
 		if schema.AttributeGroupOrigins[qname] == "" {
 			schema.AttributeGroupOrigins[qname] = schema.Location
 		}
 	}
-	for qname := range schema.Groups {
+	for _, qname := range schemacontract.SortedQNames(schema.Groups) {
 		if schema.GroupOrigins[qname] == "" {
 			schema.GroupOrigins[qname] = schema.Location
 		}
 	}
-	for qname := range schema.NotationDecls {
+	for _, qname := range schemacontract.SortedQNames(schema.NotationDecls) {
 		if schema.NotationOrigins[qname] == "" {
 			schema.NotationOrigins[qname] = schema.Location
 		}

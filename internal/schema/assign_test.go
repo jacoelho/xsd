@@ -1,18 +1,35 @@
-package schema
+package schema_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/resolver"
+	schemapkg "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func mustParseSchema(t *testing.T, schemaXML string) *parser.Schema {
+func mustResolveSchema(t *testing.T, schemaXML string) *parser.Schema {
 	t.Helper()
 	schema, err := parser.Parse(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
+	}
+	if errs := schemacheck.ValidateStructure(schema); len(errs) != 0 {
+		t.Fatalf("ValidateStructure errors = %v", errs)
+	}
+	schemapkg.MarkSemantic(schema)
+	if err := resolver.ResolveTypeReferences(schema); err != nil {
+		t.Fatalf("ResolveTypeReferences error = %v", err)
+	}
+	if errs := resolver.ValidateReferences(schema); len(errs) != 0 {
+		t.Fatalf("ValidateReferences errors = %v", errs)
+	}
+	parser.UpdatePlaceholderState(schema)
+	if err := schemapkg.MarkResolved(schema); err != nil {
+		t.Fatalf("MarkResolved error = %v", err)
 	}
 	return schema
 }
@@ -81,8 +98,8 @@ func TestDeterministicIDs(t *testing.T) {
   </xs:attributeGroup>
 </xs:schema>`
 
-	schema := mustParseSchema(t, schemaXML)
-	reg, err := AssignIDs(schema)
+	schema := mustResolveSchema(t, schemaXML)
+	reg, err := schemapkg.AssignIDs(schema)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
@@ -208,7 +225,7 @@ func TestDeterministicIDs(t *testing.T) {
 		t.Fatalf("expected local attribute attrInline to be excluded from ID assignment")
 	}
 
-	reg2, err := AssignIDs(schema)
+	reg2, err := schemapkg.AssignIDs(schema)
 	if err != nil {
 		t.Fatalf("AssignIDs (second) error = %v", err)
 	}
@@ -245,7 +262,7 @@ func TestAssignIDs_AllowsSharedLocalElement(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	schema := mustParseSchema(t, schemaXML)
+	schema := mustResolveSchema(t, schemaXML)
 	elemA := schema.ElementDecls[types.QName{Namespace: "urn:shared", Local: "A"}]
 	elemB := schema.ElementDecls[types.QName{Namespace: "urn:shared", Local: "B"}]
 	if elemA == nil || elemB == nil {
@@ -265,7 +282,7 @@ func TestAssignIDs_AllowsSharedLocalElement(t *testing.T) {
 	}
 	groupB.Particles[0] = rowA
 
-	if _, err := AssignIDs(schema); err != nil {
+	if _, err := schemapkg.AssignIDs(schema); err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 }
@@ -287,7 +304,7 @@ func elementSequenceGroup(t *testing.T, decl *types.ElementDecl) *types.ModelGro
 	return group
 }
 
-func equalElemOrder(a, b []ElementEntry) bool {
+func equalElemOrder(a, b []schemapkg.ElementEntry) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -299,7 +316,7 @@ func equalElemOrder(a, b []ElementEntry) bool {
 	return true
 }
 
-func equalTypeOrder(a, b []TypeEntry) bool {
+func equalTypeOrder(a, b []schemapkg.TypeEntry) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -311,7 +328,7 @@ func equalTypeOrder(a, b []TypeEntry) bool {
 	return true
 }
 
-func equalAttrOrder(a, b []AttributeEntry) bool {
+func equalAttrOrder(a, b []schemapkg.AttributeEntry) bool {
 	if len(a) != len(b) {
 		return false
 	}

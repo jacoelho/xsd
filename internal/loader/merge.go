@@ -9,6 +9,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemacheck"
+	schemadet "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -105,6 +106,7 @@ func (l *SchemaLoader) mergeSchema(target, source *parser.Schema, kind mergeKind
 		return err
 	}
 	ctx.mergeGlobalDecls(existingDecls, insertAt)
+	staging.HasPlaceholders = staging.HasPlaceholders || source.HasPlaceholders
 	*target = *staging
 	return nil
 }
@@ -287,7 +289,8 @@ func mergeNamed[V any](
 	if insert == nil {
 		insert = func(value V) V { return value }
 	}
-	for qname, value := range source {
+	for _, qname := range schemadet.SortedQNames(source) {
+		value := source[qname]
 		targetQName := remap(qname)
 		origin := originFor(qname)
 		if existing, exists := target[targetQName]; exists {

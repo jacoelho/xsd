@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/resolver"
 	"github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 )
 
 func TestElementDefaultEmptyStringPresent(t *testing.T) {
@@ -64,11 +66,7 @@ func TestDefaultRejectsEnumerationViolation(t *testing.T) {
   <xs:element name="bad" type="OnlyA" default="b"/>
 </xs:schema>`
 
-	sch, reg, err := parseAndAssign(schemaXML)
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
-	if _, err := CompileValidators(sch, reg); err == nil {
+	if _, err := resolveSchema(schemaXML); err == nil {
 		t.Fatalf("expected enumeration violation error")
 	}
 }
@@ -110,11 +108,7 @@ func TestDefaultRejectsInvalidBuiltinDefaults(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			sch, reg, err := parseAndAssign(tc.schemaXML)
-			if err != nil {
-				t.Fatalf("parse schema: %v", err)
-			}
-			if _, err := CompileValidators(sch, reg); err == nil {
+			if _, err := resolveSchema(tc.schemaXML); err == nil {
 				t.Fatalf("expected default validation error")
 			}
 		})
@@ -163,6 +157,20 @@ func attributeIDForLocal(t *testing.T, reg *schema.Registry, local string) schem
 func parseAndAssign(schemaXML string) (*parser.Schema, *schema.Registry, error) {
 	sch, err := parser.Parse(strings.NewReader(schemaXML))
 	if err != nil {
+		return nil, nil, err
+	}
+	if errs := schemacheck.ValidateStructure(sch); len(errs) != 0 {
+		return nil, nil, errs[0]
+	}
+	schema.MarkSemantic(sch)
+	if err := resolver.ResolveTypeReferences(sch); err != nil {
+		return nil, nil, err
+	}
+	if errs := resolver.ValidateReferences(sch); len(errs) != 0 {
+		return nil, nil, errs[0]
+	}
+	parser.UpdatePlaceholderState(sch)
+	if err := schema.MarkResolved(sch); err != nil {
 		return nil, nil, err
 	}
 	reg, err := schema.AssignIDs(sch)

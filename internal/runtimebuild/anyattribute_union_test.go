@@ -3,10 +3,8 @@ package runtimebuild
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -16,10 +14,7 @@ func TestAnyAttributeUnionNamespaceList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read schema: %v", err)
 	}
-	parsed, err := parser.Parse(strings.NewReader(string(data)))
-	if err != nil {
-		t.Fatalf("parse schema: %v", err)
-	}
+	parsed := mustResolveSchema(t, string(data))
 	rt, err := BuildSchema(parsed, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build runtime: %v", err)

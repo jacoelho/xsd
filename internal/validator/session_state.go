@@ -19,18 +19,19 @@ type nameEntry struct {
 }
 
 type elemFrame struct {
-	local            []byte
-	ns               []byte
-	modelState       ModelState
-	text             TextState
-	model            runtime.ModelRef
-	name             NameID
-	elem             runtime.ElemID
-	typ              runtime.TypeID
-	content          runtime.ContentKind
-	mixed            bool
-	nilled           bool
-	hasChildElements bool
+	local              []byte
+	ns                 []byte
+	modelState         ModelState
+	text               TextState
+	model              runtime.ModelRef
+	name               NameID
+	elem               runtime.ElemID
+	typ                runtime.TypeID
+	content            runtime.ContentKind
+	mixed              bool
+	nilled             bool
+	hasChildElements   bool
+	childErrorReported bool
 }
 
 type nsFrame struct {
@@ -66,6 +67,7 @@ type Session struct {
 	nameMapSparse    map[NameID]nameEntry
 	rt               *runtime.Schema
 	reader           *xmlstream.Reader
+	parseOptions     []xmlstream.Option
 	idTable          map[string]struct{}
 	Scratch          Scratch
 	normStack        [][]byte
@@ -92,11 +94,15 @@ type Session struct {
 	icState          identityState
 	Arena            Arena
 	normDepth        int
+	documentURI      string
 }
 
 // NewSession creates a new runtime validation session.
-func NewSession(rt *runtime.Schema) *Session {
+func NewSession(rt *runtime.Schema, opts ...xmlstream.Option) *Session {
 	sess := &Session{rt: rt}
+	if len(opts) > 0 {
+		sess.parseOptions = append([]xmlstream.Option(nil), opts...)
+	}
 	sess.icState.arena = &sess.Arena
 	return sess
 }
@@ -131,6 +137,7 @@ func (s *Session) Reset() {
 	s.attrAppliedBuf = s.attrAppliedBuf[:0]
 	s.attrSeenTable = s.attrSeenTable[:0]
 	s.icState.reset()
+	s.documentURI = ""
 	if s.idTable != nil {
 		if len(s.idTable) > maxSessionIDTableEntries {
 			s.idTable = nil

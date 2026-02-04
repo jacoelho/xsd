@@ -156,6 +156,14 @@ func (r *typeResolver) variety(st *types.SimpleType) types.SimpleTypeVariety {
 	if st.Union != nil {
 		return types.UnionVariety
 	}
+	if st.ResolvedBase != nil {
+		if baseST, ok := types.AsSimpleType(st.ResolvedBase); ok {
+			return r.variety(baseST)
+		}
+		if bt := builtinForType(st.ResolvedBase); bt != nil && isBuiltinListName(bt.Name().Local) {
+			return types.ListVariety
+		}
+	}
 	if st.Restriction != nil {
 		if st.Restriction.SimpleType != nil {
 			if baseST, ok := types.AsSimpleType(st.Restriction.SimpleType); ok {

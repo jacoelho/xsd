@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validator"
 )
@@ -134,9 +133,9 @@ func schemaWithDefault(typeName, value string) string {
 func compileDefaultValue(t *testing.T, typeName, value string) error {
 	t.Helper()
 	schemaXML := schemaWithDefault(typeName, value)
-	parsed, err := parser.Parse(strings.NewReader(schemaXML))
+	parsed, err := resolveSchema(schemaXML)
 	if err != nil {
-		t.Fatalf("parse schema: %v", err)
+		return err
 	}
 	_, err = BuildSchema(parsed, BuildConfig{})
 	return err

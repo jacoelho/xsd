@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemacheck"
+	schemadet "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -346,7 +347,8 @@ func derivationMethodLabel(method types.DerivationMethod) string {
 // validateNoCyclicSubstitutionGroups checks for cycles in substitution group chains.
 func validateNoCyclicSubstitutionGroups(schema *parser.Schema) error {
 	// for each element with a substitution group, follow the chain and check for cycles.
-	for startQName, decl := range schema.ElementDecls {
+	for _, startQName := range schemadet.SortedQNames(schema.ElementDecls) {
+		decl := schema.ElementDecls[startQName]
 		if decl.SubstitutionGroup.IsZero() {
 			continue
 		}

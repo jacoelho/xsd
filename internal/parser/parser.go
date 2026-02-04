@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 var validNotationAttributes = map[string]bool{
@@ -99,10 +100,15 @@ func Parse(r io.Reader) (*Schema, error) {
 
 // ParseWithImports parses an XSD schema and returns import/include information
 func ParseWithImports(r io.Reader) (*ParseResult, error) {
+	return ParseWithImportsOptions(r)
+}
+
+// ParseWithImportsOptions parses an XSD schema with XML reader options.
+func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResult, error) {
 	doc := xsdxml.AcquireDocument()
 	defer xsdxml.ReleaseDocument(doc)
 
-	if err := xsdxml.ParseInto(r, doc); err != nil {
+	if err := xsdxml.ParseIntoWithOptions(r, doc, opts...); err != nil {
 		return nil, newParseError("parse XML", err)
 	}
 
@@ -136,6 +142,9 @@ func ParseWithImports(r io.Reader) (*ParseResult, error) {
 	if err := parseComponents(doc, root, schema); err != nil {
 		return nil, err
 	}
+
+	schema.Phase = PhaseParsed
+	UpdatePlaceholderState(schema)
 
 	return result, nil
 }

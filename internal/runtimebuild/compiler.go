@@ -17,19 +17,20 @@ import (
 )
 
 type CompiledValidators struct {
-	AttributeDefaults map[schema.AttrID]runtime.ValueRef
-	TypeValidators    map[schema.TypeID]runtime.ValidatorID
-	ValidatorByType   map[types.Type]runtime.ValidatorID
-	ElementDefaults   map[schema.ElemID]runtime.ValueRef
-	ElementFixed      map[schema.ElemID]runtime.ValueRef
-	AttributeFixed    map[schema.AttrID]runtime.ValueRef
-	AttrUseDefaults   map[*types.AttributeDecl]runtime.ValueRef
-	AttrUseFixed      map[*types.AttributeDecl]runtime.ValueRef
-	Validators        runtime.ValidatorsBundle
-	Enums             runtime.EnumTable
-	Facets            []runtime.FacetInstr
-	Patterns          []runtime.Pattern
-	Values            runtime.ValueBlob
+	AttributeDefaults  map[schema.AttrID]runtime.ValueRef
+	TypeValidators     map[schema.TypeID]runtime.ValidatorID
+	ValidatorByType    map[types.Type]runtime.ValidatorID
+	SimpleContentTypes map[*types.ComplexType]types.Type
+	ElementDefaults    map[schema.ElemID]runtime.ValueRef
+	ElementFixed       map[schema.ElemID]runtime.ValueRef
+	AttributeFixed     map[schema.AttrID]runtime.ValueRef
+	AttrUseDefaults    map[*types.AttributeDecl]runtime.ValueRef
+	AttrUseFixed       map[*types.AttributeDecl]runtime.ValueRef
+	Validators         runtime.ValidatorsBundle
+	Enums              runtime.EnumTable
+	Facets             []runtime.FacetInstr
+	Patterns           []runtime.Pattern
+	Values             runtime.ValueBlob
 }
 
 func CompileValidators(sch *parser.Schema, registry *schema.Registry) (*CompiledValidators, error) {
@@ -135,7 +136,7 @@ func (c *compiler) initRuntimeTypeIDs(registry *schema.Registry) {
 
 func (c *compiler) compileRegistry(registry *schema.Registry) error {
 	for _, name := range builtinTypeNames() {
-		if name == types.TypeNameAnyType || name == types.TypeNameAnySimpleType {
+		if name == types.TypeNameAnyType {
 			continue
 		}
 		bt := types.GetBuiltin(name)
@@ -159,6 +160,25 @@ func (c *compiler) compileRegistry(registry *schema.Registry) error {
 			return fmt.Errorf("type %s: %w", entry.QName, err)
 		}
 	}
+	for _, entry := range registry.TypeOrder {
+		ct, ok := types.AsComplexType(entry.Type)
+		if !ok {
+			continue
+		}
+		if _, ok := ct.Content().(*types.SimpleContent); !ok {
+			continue
+		}
+		textType, err := c.simpleContentTextType(ct)
+		if err != nil {
+			return fmt.Errorf("type %s: %w", entry.QName, err)
+		}
+		if textType == nil {
+			return fmt.Errorf("type %s: simpleContent base missing", entry.QName)
+		}
+		if _, err := c.compileType(textType); err != nil {
+			return fmt.Errorf("type %s: %w", entry.QName, err)
+		}
+	}
 	return nil
 }
 
@@ -177,6 +197,12 @@ func (c *compiler) result(registry *schema.Registry) *CompiledValidators {
 		AttributeFixed:    c.attrFixed,
 		AttrUseDefaults:   c.attrUseDefaults,
 		AttrUseFixed:      c.attrUseFixed,
+	}
+	if len(c.simpleContent) > 0 {
+		out.SimpleContentTypes = make(map[*types.ComplexType]types.Type, len(c.simpleContent))
+		for ct, typ := range c.simpleContent {
+			out.SimpleContentTypes[ct] = typ
+		}
 	}
 	maps.Copy(out.ValidatorByType, c.validatorByType)
 	for _, entry := range registry.TypeOrder {
@@ -1194,6 +1220,8 @@ func (c *compiler) validatorKind(st *types.SimpleType) (runtime.ValidatorKind, e
 
 func builtinValidatorKind(name string) (runtime.ValidatorKind, error) {
 	switch name {
+	case "anySimpleType":
+		return runtime.VString, nil
 	case "string", "normalizedString", "token", "language", "Name", "NCName", "ID", "IDREF", "ENTITY", "NMTOKEN":
 		return runtime.VString, nil
 	case "boolean":

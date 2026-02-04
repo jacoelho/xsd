@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	schemadet "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
@@ -34,6 +35,8 @@ func validateReferences(schema *parser.Schema) []error {
 	errors = append(errors, validateLocalIdentityConstraintResolution(schema)...)
 	errors = append(errors, validateAttributeDeclarations(schema)...)
 	errors = append(errors, validateTypeDefinitionReferences(schema)...)
+	errors = append(errors, validateEnumerationFacetValues(schema)...)
+	errors = append(errors, validateDeferredRangeFacetValues(schema)...)
 	errors = append(errors, validateInlineTypeReferences(schema)...)
 	errors = append(errors, validateComplexTypeReferences(schema)...)
 	errors = append(errors, validateAttributeGroupReferencesInSchema(schema)...)
@@ -55,19 +58,22 @@ func ValidateReferences(schema *parser.Schema) []error {
 func collectElementReferencesInSchema(schema *parser.Schema) []*types.ElementDecl {
 	var elementRefsInContent []*types.ElementDecl
 
-	for _, decl := range schema.ElementDecls {
+	for _, qname := range schemadet.SortedQNames(schema.ElementDecls) {
+		decl := schema.ElementDecls[qname]
 		if ct, ok := decl.Type.(*types.ComplexType); ok {
 			elementRefsInContent = append(elementRefsInContent, collectElementReferences(ct.Content())...)
 		}
 	}
 
-	for _, typ := range schema.TypeDefs {
+	for _, qname := range schemadet.SortedQNames(schema.TypeDefs) {
+		typ := schema.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			elementRefsInContent = append(elementRefsInContent, collectElementReferences(ct.Content())...)
 		}
 	}
 
-	for _, group := range schema.Groups {
+	for _, qname := range schemadet.SortedQNames(schema.Groups) {
+		group := schema.Groups[qname]
 		for _, particle := range group.Particles {
 			if elem, ok := particle.(*types.ElementDecl); ok && elem.IsReference {
 				elementRefsInContent = append(elementRefsInContent, elem)
@@ -83,7 +89,8 @@ func collectElementReferencesInSchema(schema *parser.Schema) []*types.ElementDec
 func validateTopLevelElementReferences(schema *parser.Schema) []error {
 	var errors []error
 
-	for qname, decl := range schema.ElementDecls {
+	for _, qname := range schemadet.SortedQNames(schema.ElementDecls) {
+		decl := schema.ElementDecls[qname]
 		if decl.IsReference {
 			refDecl, exists := schema.ElementDecls[decl.Name]
 			if !exists {
@@ -115,10 +122,11 @@ func validateContentElementReferences(schema *parser.Schema, elementRefsInConten
 func validateElementDeclarationReferences(schema *parser.Schema, allConstraints []*types.IdentityConstraint) []error {
 	var errors []error
 
-	for qname, decl := range schema.ElementDecls {
+	for _, qname := range schemadet.SortedQNames(schema.ElementDecls) {
+		decl := schema.ElementDecls[qname]
 		if decl.Type != nil {
 			origin := schema.ElementOrigins[qname]
-			if err := validateTypeReferenceFromTypeAllowMissingAtLocation(schema, decl.Type, qname.Namespace, origin); err != nil {
+			if err := validateTypeReferenceFromTypeAtLocation(schema, decl.Type, qname.Namespace, origin); err != nil {
 				errors = append(errors, fmt.Errorf("element %s: %w", qname, err))
 			}
 		}
@@ -157,24 +165,32 @@ func validateElementDeclarationReferences(schema *parser.Schema, allConstraints 
 func validateLocalIdentityConstraintKeyrefs(schema *parser.Schema, allConstraints []*types.IdentityConstraint) []error {
 	var errors []error
 
-	for qname, decl := range schema.ElementDecls {
-		if ct, ok := decl.Type.(*types.ComplexType); ok {
-			localConstraints := collectIdentityConstraintsFromContent(ct.Content())
-			if len(localConstraints) > 0 {
-				if err := validateKeyrefConstraints(qname, localConstraints, allConstraints); err != nil {
-					errors = append(errors, err...)
-				}
+	seen := make(map[*types.ElementDecl]bool)
+	validateLocals := func(ct *types.ComplexType) {
+		for _, elem := range collectConstraintElementsFromContent(ct.Content()) {
+			if elem == nil || elem.IsReference || len(elem.Constraints) == 0 {
+				continue
+			}
+			if seen[elem] {
+				continue
+			}
+			seen[elem] = true
+			if err := validateKeyrefConstraints(elem.Name, elem.Constraints, allConstraints); err != nil {
+				errors = append(errors, err...)
 			}
 		}
 	}
-	for qname, typ := range schema.TypeDefs {
+
+	for _, qname := range schemadet.SortedQNames(schema.ElementDecls) {
+		decl := schema.ElementDecls[qname]
+		if ct, ok := decl.Type.(*types.ComplexType); ok {
+			validateLocals(ct)
+		}
+	}
+	for _, qname := range schemadet.SortedQNames(schema.TypeDefs) {
+		typ := schema.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
-			localConstraints := collectIdentityConstraintsFromContent(ct.Content())
-			if len(localConstraints) > 0 {
-				if err := validateKeyrefConstraints(qname, localConstraints, allConstraints); err != nil {
-					errors = append(errors, err...)
-				}
-			}
+			validateLocals(ct)
 		}
 	}
 
@@ -184,32 +200,37 @@ func validateLocalIdentityConstraintKeyrefs(schema *parser.Schema, allConstraint
 func validateLocalIdentityConstraintResolution(schema *parser.Schema) []error {
 	var errors []error
 
-	for qname, decl := range schema.ElementDecls {
-		if ct, ok := decl.Type.(*types.ComplexType); ok {
-			localConstraints := collectIdentityConstraintsFromContent(ct.Content())
-			for _, constraint := range localConstraints {
-				tempDecl := &types.ElementDecl{Type: ct}
-				if err := validateIdentityConstraintResolution(schema, constraint, tempDecl); err != nil {
+	seen := make(map[*types.ElementDecl]bool)
+	validateLocals := func(ct *types.ComplexType) {
+		for _, elem := range collectConstraintElementsFromContent(ct.Content()) {
+			if elem == nil || elem.IsReference || len(elem.Constraints) == 0 {
+				continue
+			}
+			if seen[elem] {
+				continue
+			}
+			seen[elem] = true
+			for _, constraint := range elem.Constraints {
+				if err := validateIdentityConstraintResolution(schema, constraint, elem); err != nil {
 					if stdErrors.Is(err, xpath.ErrInvalidXPath) {
 						continue
 					}
-					errors = append(errors, fmt.Errorf("element %s local identity constraint '%s': %w", qname, constraint.Name, err))
+					errors = append(errors, fmt.Errorf("element %s local identity constraint '%s': %w", elem.Name, constraint.Name, err))
 				}
 			}
 		}
 	}
-	for qname, typ := range schema.TypeDefs {
+
+	for _, qname := range schemadet.SortedQNames(schema.ElementDecls) {
+		decl := schema.ElementDecls[qname]
+		if ct, ok := decl.Type.(*types.ComplexType); ok {
+			validateLocals(ct)
+		}
+	}
+	for _, qname := range schemadet.SortedQNames(schema.TypeDefs) {
+		typ := schema.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
-			localConstraints := collectIdentityConstraintsFromContent(ct.Content())
-			for _, constraint := range localConstraints {
-				tempDecl := &types.ElementDecl{Type: ct}
-				if err := validateIdentityConstraintResolution(schema, constraint, tempDecl); err != nil {
-					if stdErrors.Is(err, xpath.ErrInvalidXPath) {
-						continue
-					}
-					errors = append(errors, fmt.Errorf("type %s local identity constraint '%s': %w", qname, constraint.Name, err))
-				}
-			}
+			validateLocals(ct)
 		}
 	}
 
@@ -221,7 +242,8 @@ func validateAttributeDeclarations(schema *parser.Schema) []error {
 
 	// note: Attribute references are stored in complex types, not as top-level declarations
 	// we validate attribute type references when validating complex types
-	for qname, decl := range schema.AttributeDecls {
+	for _, qname := range schemadet.SortedQNames(schema.AttributeDecls) {
+		decl := schema.AttributeDecls[qname]
 		if decl.Type != nil {
 			if err := validateTypeReferenceFromType(schema, decl.Type, qname.Namespace); err != nil {
 				errors = append(errors, fmt.Errorf("attribute %s: %w", qname, err))
@@ -253,7 +275,8 @@ func validateAttributeDeclarations(schema *parser.Schema) []error {
 func validateTypeDefinitionReferences(schema *parser.Schema) []error {
 	var errors []error
 
-	for qname, typ := range schema.TypeDefs {
+	for _, qname := range schemadet.SortedQNames(schema.TypeDefs) {
+		typ := schema.TypeDefs[qname]
 		if err := validateTypeReferences(schema, qname, typ); err != nil {
 			errors = append(errors, fmt.Errorf("type %s: %w", qname, err))
 		}
@@ -262,10 +285,136 @@ func validateTypeDefinitionReferences(schema *parser.Schema) []error {
 	return errors
 }
 
+func validateEnumerationFacetValues(schema *parser.Schema) []error {
+	var errs []error
+
+	for _, qname := range schemadet.SortedQNames(schema.TypeDefs) {
+		st, ok := schema.TypeDefs[qname].(*types.SimpleType)
+		if !ok || st == nil || st.Restriction == nil {
+			continue
+		}
+		baseType := st.ResolvedBase
+		if baseType == nil && !st.Restriction.Base.IsZero() {
+			baseType = schemacheck.ResolveSimpleTypeReference(schema, st.Restriction.Base)
+		}
+		if baseType == nil {
+			continue
+		}
+		for _, facet := range st.Restriction.Facets {
+			enum, ok := facet.(*types.Enumeration)
+			if !ok {
+				continue
+			}
+			values := enum.Values()
+			contexts := enum.ValueContexts()
+			for i, val := range values {
+				var ctx map[string]string
+				if i < len(contexts) {
+					ctx = contexts[i]
+				}
+				if err := validateDefaultOrFixedValueResolved(schema, val, baseType, ctx, make(map[types.Type]bool), idValuesAllowed); err != nil {
+					errs = append(errs, fmt.Errorf("type %s: restriction: enumeration value %d (%q) is not valid for base type %s: %w", qname, i+1, val, baseType.Name().Local, err))
+				}
+			}
+		}
+	}
+
+	return errs
+}
+
+func validateDeferredRangeFacetValues(schema *parser.Schema) []error {
+	var errs []error
+
+	for _, qname := range schemadet.SortedQNames(schema.TypeDefs) {
+		st, ok := schema.TypeDefs[qname].(*types.SimpleType)
+		if !ok || st == nil || st.Restriction == nil {
+			continue
+		}
+
+		baseType := st.ResolvedBase
+		if baseType == nil && !st.Restriction.Base.IsZero() {
+			baseType = schemacheck.ResolveSimpleTypeReference(schema, st.Restriction.Base)
+		}
+		if baseType == nil {
+			continue
+		}
+
+		var (
+			rangeFacets  []types.Facet
+			seenDeferred bool
+		)
+
+		for _, facet := range st.Restriction.Facets {
+			switch f := facet.(type) {
+			case types.Facet:
+				if isRangeFacetName(f.Name()) {
+					rangeFacets = append(rangeFacets, f)
+				}
+			case *types.DeferredFacet:
+				if !isRangeFacetName(f.FacetName) {
+					continue
+				}
+				seenDeferred = true
+				resolved, err := convertDeferredRangeFacetForValidation(f, baseType)
+				if err != nil {
+					errs = append(errs, fmt.Errorf("type %s: restriction: %w", qname, err))
+					continue
+				}
+				if resolved != nil {
+					rangeFacets = append(rangeFacets, resolved)
+				}
+			}
+		}
+
+		if !seenDeferred || len(rangeFacets) == 0 {
+			continue
+		}
+
+		baseQName := st.Restriction.Base
+		if baseQName.IsZero() {
+			baseQName = baseType.Name()
+		}
+		if err := schemacheck.ValidateFacetConstraints(schema, rangeFacets, baseType, baseQName); err != nil {
+			errs = append(errs, fmt.Errorf("type %s: restriction: %w", qname, err))
+		}
+	}
+
+	return errs
+}
+
+func isRangeFacetName(name string) bool {
+	switch name {
+	case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive":
+		return true
+	default:
+		return false
+	}
+}
+
+func convertDeferredRangeFacetForValidation(df *types.DeferredFacet, baseType types.Type) (types.Facet, error) {
+	if df == nil || baseType == nil {
+		return nil, nil
+	}
+
+	switch df.FacetName {
+	case "minInclusive":
+		return types.NewMinInclusive(df.FacetValue, baseType)
+	case "maxInclusive":
+		return types.NewMaxInclusive(df.FacetValue, baseType)
+	case "minExclusive":
+		return types.NewMinExclusive(df.FacetValue, baseType)
+	case "maxExclusive":
+		return types.NewMaxExclusive(df.FacetValue, baseType)
+	default:
+		return nil, fmt.Errorf("unknown deferred facet type: %s", df.FacetName)
+	}
+}
+
 func validateInlineTypeReferences(schema *parser.Schema) []error {
 	var errors []error
 
-	for qname, decl := range schema.ElementDecls {
+	for _, qname := range schemadet.SortedQNames(schema.ElementDecls) {
+		decl := schema.ElementDecls[qname]
 		if decl.Type != nil && !decl.Type.IsBuiltin() {
 			// skip if the type is a reference to a named type (already validated above)
 			if _, exists := schema.TypeDefs[decl.Type.Name()]; !exists {
@@ -297,7 +446,8 @@ func validateInlineTypeReferences(schema *parser.Schema) []error {
 func validateComplexTypeReferences(schema *parser.Schema) []error {
 	var errors []error
 
-	for qname, typ := range schema.TypeDefs {
+	for _, qname := range schemadet.SortedQNames(schema.TypeDefs) {
+		typ := schema.TypeDefs[qname]
 		ct, ok := typ.(*types.ComplexType)
 		if !ok {
 			continue
@@ -358,7 +508,8 @@ func validateComplexTypeReferences(schema *parser.Schema) []error {
 func validateAttributeGroupReferencesInSchema(schema *parser.Schema) []error {
 	var errors []error
 
-	for qname, ag := range schema.AttributeGroups {
+	for _, qname := range schemadet.SortedQNames(schema.AttributeGroups) {
+		ag := schema.AttributeGroups[qname]
 		for _, agRef := range ag.AttrGroups {
 			if err := validateAttributeGroupReference(schema, agRef, qname); err != nil {
 				errors = append(errors, err)
@@ -403,12 +554,14 @@ func validateLocalElementValueConstraints(schema *parser.Schema) []error {
 			}
 		}
 	}
-	for _, decl := range schema.ElementDecls {
+	for _, qname := range schemadet.SortedQNames(schema.ElementDecls) {
+		decl := schema.ElementDecls[qname]
 		if ct, ok := decl.Type.(*types.ComplexType); ok {
 			validateLocals(ct)
 		}
 	}
-	for _, typ := range schema.TypeDefs {
+	for _, qname := range schemadet.SortedQNames(schema.TypeDefs) {
+		typ := schema.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			validateLocals(ct)
 		}
@@ -420,7 +573,8 @@ func validateLocalElementValueConstraints(schema *parser.Schema) []error {
 func validateGroupReferencesInSchema(schema *parser.Schema) []error {
 	var errors []error
 
-	for qname, group := range schema.Groups {
+	for _, qname := range schemadet.SortedQNames(schema.Groups) {
+		group := schema.Groups[qname]
 		if err := validateGroupReferences(schema, qname, group); err != nil {
 			errors = append(errors, fmt.Errorf("group %s: %w", qname, err))
 		}

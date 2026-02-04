@@ -29,22 +29,32 @@ func (r sessionResolver) ResolvePrefix(prefix []byte) ([]byte, bool) {
 
 // Validate validates an XML document using the runtime schema.
 func (s *Session) Validate(r io.Reader) error {
+	return s.validateWithDocument(r, "")
+}
+
+// ValidateWithDocument validates an XML document with a known document URI.
+func (s *Session) ValidateWithDocument(r io.Reader, document string) error {
+	return s.validateWithDocument(r, document)
+}
+
+func (s *Session) validateWithDocument(r io.Reader, document string) error {
 	if s == nil || s.rt == nil {
 		return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrSchemaNotLoaded, "schema not loaded", "")}
 	}
 	if r == nil {
-		return readerSetupError(errors.New("nil reader"))
+		return readerSetupError(errors.New("nil reader"), document)
 	}
 	s.Reset()
+	s.documentURI = document
 
 	if s.reader == nil {
-		reader, err := newXMLReader(r)
+		reader, err := newXMLReader(r, s.parseOptions...)
 		if err != nil {
-			return readerSetupError(err)
+			return readerSetupError(err, s.documentURI)
 		}
 		s.reader = reader
-	} else if err := s.reader.Reset(r); err != nil {
-		return readerSetupError(err)
+	} else if err := s.reader.Reset(r, s.parseOptions...); err != nil {
+		return readerSetupError(err, s.documentURI)
 	}
 
 	rootSeen := false
@@ -56,7 +66,7 @@ func (s *Session) Validate(r io.Reader) error {
 			break
 		}
 		if err != nil {
-			return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrXMLParse, err.Error(), s.pathString())}
+			return xsderrors.ValidationList{s.newValidation(xsderrors.ErrXMLParse, err.Error(), s.pathString(), 0, 0)}
 		}
 		switch ev.Kind {
 		case xmlstream.EventStartElement:
@@ -65,7 +75,7 @@ func (s *Session) Validate(r io.Reader) error {
 					return fatal
 				}
 				if skipErr := s.reader.SkipSubtree(); skipErr != nil {
-					return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrXMLParse, skipErr.Error(), s.pathString())}
+					return xsderrors.ValidationList{s.newValidation(xsderrors.ErrXMLParse, skipErr.Error(), s.pathString(), 0, 0)}
 				}
 			}
 			if !rootSeen {
@@ -108,10 +118,10 @@ func (s *Session) Validate(r io.Reader) error {
 	}
 
 	if !rootSeen {
-		return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrNoRoot, "document has no root element", "")}
+		return xsderrors.ValidationList{s.newValidation(xsderrors.ErrNoRoot, "document has no root element", "", 0, 0)}
 	}
 	if len(s.elemStack) != 0 {
-		return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrXMLParse, "document ended with unclosed elements", s.pathString())}
+		return xsderrors.ValidationList{s.newValidation(xsderrors.ErrXMLParse, "document ended with unclosed elements", s.pathString(), 0, 0)}
 	}
 	if errs := s.validateIDRefs(); len(errs) > 0 {
 		if fatal := s.recordValidationErrors(errs, 0, 0); fatal != nil {
@@ -126,11 +136,15 @@ func (s *Session) Validate(r io.Reader) error {
 	return s.validationList()
 }
 
-func readerSetupError(err error) error {
+func readerSetupError(err error, document string) error {
 	if err == nil {
 		return nil
 	}
-	return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrXMLParse, err.Error(), "")}
+	return xsderrors.ValidationList{{
+		Code:     string(xsderrors.ErrXMLParse),
+		Message:  err.Error(),
+		Document: document,
+	}}
 }
 
 func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessionResolver) error {
@@ -146,7 +160,11 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 
 	var match StartMatch
 	parentIndex := -1
-	if len(s.elemStack) == 0 {
+	if len(s.elemStack) > 0 {
+		parentIndex = len(s.elemStack) - 1
+		s.elemStack[parentIndex].hasChildElements = true
+	}
+	if parentIndex == -1 {
 		switch s.rt.RootPolicy {
 		case runtime.RootAny:
 			if sym == 0 {
@@ -180,13 +198,14 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 			match = StartMatch{Kind: MatchElem, Elem: elemID}
 		}
 	} else {
-		parentIndex = len(s.elemStack) - 1
 		parent := &s.elemStack[parentIndex]
 		if parent.nilled {
+			parent.childErrorReported = true
 			s.popNamespaceScope()
 			return newValidationError(xsderrors.ErrValidateNilledNotEmpty, "element with xsi:nil='true' must be empty")
 		}
 		if parent.content == runtime.ContentSimple || parent.content == runtime.ContentEmpty {
+			parent.childErrorReported = true
 			s.popNamespaceScope()
 			if parent.content == runtime.ContentSimple {
 				return newValidationError(xsderrors.ErrTextInElementOnly, "element not allowed in simple content")
@@ -212,9 +231,6 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 		return err
 	}
 	if result.Skip {
-		if parentIndex >= 0 {
-			s.elemStack[parentIndex].hasChildElements = true
-		}
 		err = s.reader.SkipSubtree()
 		if err != nil {
 			s.popNamespaceScope()
@@ -234,9 +250,6 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 	if !ok {
 		s.popNamespaceScope()
 		return fmt.Errorf("type %d not found", result.Type)
-	}
-	if parentIndex >= 0 {
-		s.elemStack[parentIndex].hasChildElements = true
 	}
 
 	frame := elemFrame{
@@ -340,7 +353,7 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 	}
 
 	if frame.nilled {
-		if frame.text.HasText || frame.hasChildElements {
+		if (frame.text.HasText || frame.hasChildElements) && !frame.childErrorReported {
 			if path == "" {
 				path = s.pathString()
 			}
@@ -362,7 +375,7 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 	var textKeyBytes []byte
 	textValidator := runtime.ValidatorID(0)
 	if !frame.nilled && ok && (typ.Kind == runtime.TypeSimple || typ.Kind == runtime.TypeBuiltin || frame.content == runtime.ContentSimple) {
-		if frame.hasChildElements {
+		if frame.hasChildElements && !frame.childErrorReported {
 			if path == "" {
 				path = s.pathString()
 			}

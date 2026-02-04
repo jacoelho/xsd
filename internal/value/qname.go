@@ -70,6 +70,11 @@ func parseQName(value []byte) ([]byte, []byte, bool, error) {
 	return value[:colon], value[colon+1:], true, nil
 }
 
+// ValidateQName validates xs:QName lexical constraints.
+func ValidateQName(value []byte) error {
+	return validateQName(value)
+}
+
 func validateQName(value []byte) error {
 	if len(value) == 0 {
 		return fmt.Errorf("QName cannot be empty")

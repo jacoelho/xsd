@@ -17,6 +17,7 @@ func TestDuplicateConstraintNameValidation(t *testing.T) {
 			name: "duplicate key constraint names",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -37,11 +38,11 @@ func TestDuplicateConstraintNameValidation(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts/part"/>
+      <xs:selector xpath="tns:parts/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:key>
     <xs:key name="partKey">
-      <xs:selector xpath="parts/part"/>
+      <xs:selector xpath="tns:parts/tns:part"/>
       <xs:field xpath="@id"/>
     </xs:key>
   </xs:element>
@@ -53,6 +54,7 @@ func TestDuplicateConstraintNameValidation(t *testing.T) {
 			name: "different constraint types with same name",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -72,11 +74,11 @@ func TestDuplicateConstraintNameValidation(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts/part"/>
+      <xs:selector xpath="tns:parts/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:key>
     <xs:unique name="partKey">
-      <xs:selector xpath="parts/part"/>
+      <xs:selector xpath="tns:parts/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:unique>
   </xs:element>
@@ -88,6 +90,7 @@ func TestDuplicateConstraintNameValidation(t *testing.T) {
 			name: "unique constraint names should pass",
 			schema: `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://example.com"
            targetNamespace="http://example.com"
            elementFormDefault="qualified">
   <xs:element name="purchaseReport">
@@ -118,11 +121,11 @@ func TestDuplicateConstraintNameValidation(t *testing.T) {
       </xs:sequence>
     </xs:complexType>
     <xs:key name="partKey">
-      <xs:selector xpath="parts/part"/>
+      <xs:selector xpath="tns:parts/tns:part"/>
       <xs:field xpath="@number"/>
     </xs:key>
     <xs:unique name="regionKey">
-      <xs:selector xpath="regions/region"/>
+      <xs:selector xpath="tns:regions/tns:region"/>
       <xs:field xpath="@code"/>
     </xs:unique>
   </xs:element>

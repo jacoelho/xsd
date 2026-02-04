@@ -23,11 +23,11 @@ func TestValidateSimpleTypeFinalUnion(t *testing.T) {
 	requireReferenceErrorContains(t, schema, "final for union")
 }
 
-func TestValidateTypeQNameReferenceAllowMissing(t *testing.T) {
+func TestValidateTypeQNameReferenceMissing(t *testing.T) {
 	schema := parseW3CSchema(t, "saxonData/Missing/missing001.xsd")
-	err := validateTypeQNameReferenceWithSchemaPolicy(schema, types.QName{Local: "absent"}, schema.TargetNamespace)
-	if err != nil {
-		t.Fatalf("expected allow-missing type reference, got %v", err)
+	err := validateTypeQNameReference(schema, types.QName{Local: "absent"}, schema.TargetNamespace)
+	if err == nil {
+		t.Fatalf("expected missing type reference error")
 	}
 }
 

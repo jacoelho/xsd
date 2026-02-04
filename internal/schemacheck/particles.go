@@ -409,18 +409,28 @@ func derivationMethodForType(typ types.Type) types.DerivationMethod {
 	return 0
 }
 
-func isRestrictionDerivedFrom(derived, base types.Type) bool {
+func isRestrictionDerivedFrom(schema *parser.Schema, derived, base types.Type) bool {
 	if derived == nil || base == nil {
 		return false
 	}
-	baseCT, ok := base.(*types.ComplexType)
-	if ok {
-		return isRestrictionDerivedFromComplex(derived, baseCT)
+	if baseCT, ok := base.(*types.ComplexType); ok {
+		return isRestrictionDerivedFromComplex(schema, derived, baseCT)
 	}
-	return types.IsValidlyDerivedFrom(derived, base)
+	if baseST, ok := base.(*types.SimpleType); ok && baseST.Variety() == types.UnionVariety {
+		if unionAllowsDerived(schema, derived, baseST) {
+			return true
+		}
+	}
+	if types.IsValidlyDerivedFrom(derived, base) {
+		return true
+	}
+	if derivedST, ok := derived.(*types.SimpleType); ok {
+		return isRestrictionDerivedFromSimple(schema, derivedST, base)
+	}
+	return false
 }
 
-func isRestrictionDerivedFromComplex(derived types.Type, base *types.ComplexType) bool {
+func isRestrictionDerivedFromComplex(schema *parser.Schema, derived types.Type, base *types.ComplexType) bool {
 	derivedCT, ok := derived.(*types.ComplexType)
 	if !ok {
 		return false
@@ -428,25 +438,155 @@ func isRestrictionDerivedFromComplex(derived types.Type, base *types.ComplexType
 	if derivedCT == base {
 		return true
 	}
+	visited := make(map[*types.ComplexType]bool)
 	current := derivedCT
-	for current != nil && current != base {
+	for current != nil && !visited[current] {
+		visited[current] = true
+		if current == base {
+			return true
+		}
 		if current.DerivationMethod != types.DerivationRestriction {
 			return false
 		}
-		nextDT, ok := types.AsDerivedType(current)
-		if !ok {
-			return false
-		}
-		next := nextDT.ResolvedBaseType()
+		next := current.ResolvedBase
 		if next == nil {
-			return false
+			baseQName := current.Content().BaseTypeQName()
+			if baseQName.IsZero() {
+				return false
+			}
+			if baseQName == base.QName {
+				return true
+			}
+			next = resolveTypeByQName(schema, baseQName)
+			if next == nil {
+				return false
+			}
 		}
 		if next == base {
 			return true
 		}
-		current, _ = next.(*types.ComplexType)
+		nextCT, ok := next.(*types.ComplexType)
+		if !ok {
+			return false
+		}
+		current = nextCT
 	}
-	return current == base
+	return false
+}
+
+func isRestrictionDerivedFromSimple(schema *parser.Schema, derived *types.SimpleType, base types.Type) bool {
+	if derived == nil || base == nil {
+		return false
+	}
+	if sameTypeOrQName(derived, base) {
+		return true
+	}
+	baseName := base.Name()
+	if baseName.Namespace == types.XSDNamespace && baseName.Local == string(types.TypeNameAnySimpleType) {
+		return true
+	}
+	visited := make(map[*types.SimpleType]bool)
+	current := derived
+	for current != nil && !visited[current] {
+		visited[current] = true
+		if sameTypeOrQName(current, base) {
+			return true
+		}
+		if current.ResolvedBase != nil {
+			if sameTypeOrQName(current.ResolvedBase, base) || types.IsValidlyDerivedFrom(current.ResolvedBase, base) {
+				return true
+			}
+			nextST, ok := current.ResolvedBase.(*types.SimpleType)
+			if !ok {
+				return false
+			}
+			current = nextST
+			continue
+		}
+		if current.Restriction == nil || current.Restriction.Base.IsZero() {
+			return false
+		}
+		baseQName := current.Restriction.Base
+		if baseQName == baseName {
+			return true
+		}
+		next := resolveTypeByQName(schema, baseQName)
+		if next == nil {
+			return false
+		}
+		if sameTypeOrQName(next, base) || types.IsValidlyDerivedFrom(next, base) {
+			return true
+		}
+		nextST, ok := next.(*types.SimpleType)
+		if !ok {
+			return false
+		}
+		current = nextST
+	}
+	return false
+}
+
+func unionAllowsDerived(schema *parser.Schema, derived types.Type, baseUnion *types.SimpleType) bool {
+	if derived == nil || baseUnion == nil {
+		return false
+	}
+	if types.IsValidlyDerivedFrom(derived, baseUnion) {
+		return true
+	}
+	members := baseUnion.MemberTypes
+	if len(members) == 0 && baseUnion.Union != nil {
+		members = make([]types.Type, 0, len(baseUnion.Union.MemberTypes)+len(baseUnion.Union.InlineTypes))
+		for _, inline := range baseUnion.Union.InlineTypes {
+			members = append(members, inline)
+		}
+		for _, qname := range baseUnion.Union.MemberTypes {
+			if member := resolveTypeByQName(schema, qname); member != nil {
+				members = append(members, member)
+			} else if derivedName := derived.Name(); !derivedName.IsZero() && derivedName == qname {
+				return true
+			}
+		}
+	}
+	for _, member := range members {
+		if member == nil {
+			continue
+		}
+		if types.IsValidlyDerivedFrom(derived, member) || sameTypeOrQName(derived, member) {
+			return true
+		}
+	}
+	return false
+}
+
+func resolveTypeByQName(schema *parser.Schema, qname types.QName) types.Type {
+	if qname.IsZero() {
+		return nil
+	}
+	if bt := types.GetBuiltinNS(qname.Namespace, qname.Local); bt != nil {
+		return bt
+	}
+	if schema == nil {
+		return nil
+	}
+	if def, ok := lookupTypeDef(schema, qname); ok {
+		return def
+	}
+	return nil
+}
+
+func sameTypeOrQName(a, b types.Type) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	if a == b {
+		return true
+	}
+	nameA := a.Name()
+	nameB := b.Name()
+	if nameA.IsZero() || nameB.IsZero() {
+		return false
+	}
+	return nameA == nameB
 }
 
 // validateParticleRestriction validates that particles in a restriction are valid restrictions of base particles
@@ -827,7 +967,7 @@ func validateElementRestrictionWithGroupOccurrence(schema *parser.Schema, baseMG
 	if restrictionElem.MinOcc().IsZero() && restrictionElem.MaxOcc().IsZero() {
 		return true, nil
 	}
-	if err := validateElementRestriction(baseElem, restrictionElem); err != nil {
+	if err := validateElementRestriction(schema, baseElem, restrictionElem); err != nil {
 		return true, err
 	}
 	return true, nil
@@ -1010,7 +1150,7 @@ func validateElementToElementRestriction(schema *parser.Schema, baseElem, restri
 			return fmt.Errorf("ComplexContent restriction: element name mismatch (%s vs %s)", baseElem.Name, restrictionElem.Name)
 		}
 	}
-	return validateElementRestriction(baseElem, restrictionElem)
+	return validateElementRestriction(schema, baseElem, restrictionElem)
 }
 
 func validateElementToChoiceRestriction(schema *parser.Schema, baseElem *types.ElementDecl, restrictionGroup *types.ModelGroup) error {
@@ -1050,7 +1190,7 @@ func validateModelGroupPairRestriction(schema *parser.Schema, baseParticle, rest
 // - fixed: If base has fixed value, restriction must have same fixed value
 // - block: Restriction block must be superset of base block (cannot allow more derivations)
 // - type: Restriction type must be same as or derived from base type
-func validateElementRestriction(baseElem, restrictionElem *types.ElementDecl) error {
+func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem *types.ElementDecl) error {
 	// validate nillable: cannot change from false to true
 	if !baseElem.Nillable && restrictionElem.Nillable {
 		return fmt.Errorf("ComplexContent restriction: element '%s' nillable cannot be true when base element nillable is false", restrictionElem.Name)
@@ -1062,9 +1202,17 @@ func validateElementRestriction(baseElem, restrictionElem *types.ElementDecl) er
 		if !restrictionElem.HasFixed {
 			return fmt.Errorf("ComplexContent restriction: element '%s' must have fixed value matching base fixed value '%s'", restrictionElem.Name, baseElem.Fixed)
 		}
-		// normalize both fixed values for comparison based on the element's type
-		baseFixed := types.NormalizeWhiteSpace(baseElem.Fixed, baseElem.Type)
-		restrictionFixed := types.NormalizeWhiteSpace(restrictionElem.Fixed, restrictionElem.Type)
+		baseType := resolveTypeReference(schema, baseElem.Type, TypeReferenceAllowMissing)
+		restrictionType := resolveTypeReference(schema, restrictionElem.Type, TypeReferenceAllowMissing)
+		if baseType == nil {
+			baseType = baseElem.Type
+		}
+		if restrictionType == nil {
+			restrictionType = restrictionElem.Type
+		}
+		// normalize fixed values using effective whitespace rules for simple/list types
+		baseFixed := normalizeFixedValue(baseElem.Fixed, baseType)
+		restrictionFixed := normalizeFixedValue(restrictionElem.Fixed, restrictionType)
 		if baseFixed != restrictionFixed {
 			return fmt.Errorf("ComplexContent restriction: element '%s' fixed value '%s' must match base fixed value '%s'", restrictionElem.Name, restrictionElem.Fixed, baseElem.Fixed)
 		}
@@ -1077,16 +1225,27 @@ func validateElementRestriction(baseElem, restrictionElem *types.ElementDecl) er
 	}
 
 	// validate type: restriction type must be same as or derived from base type
-	if baseElem.Type != nil && restrictionElem.Type != nil {
+	baseType := resolveTypeReference(schema, baseElem.Type, TypeReferenceAllowMissing)
+	restrictionType := resolveTypeReference(schema, restrictionElem.Type, TypeReferenceAllowMissing)
+	if baseType == nil {
+		baseType = baseElem.Type
+	}
+	if restrictionType == nil {
+		restrictionType = restrictionElem.Type
+	}
+	if baseType == nil || restrictionType == nil {
+		return nil
+	}
+	if baseType != nil && restrictionType != nil {
 		// types are same if they have the same QName
-		baseTypeName := baseElem.Type.Name()
-		restrictionTypeName := restrictionElem.Type.Name()
+		baseTypeName := baseType.Name()
+		restrictionTypeName := restrictionType.Name()
 
 		if baseTypeName.Namespace == types.XSDNamespace && baseTypeName.Local == "anyType" {
 			return nil
 		}
 		if baseTypeName.Namespace == types.XSDNamespace && baseTypeName.Local == "anySimpleType" {
-			switch restrictionElem.Type.(type) {
+			switch restrictionType.(type) {
 			case *types.SimpleType, *types.BuiltinType:
 				return nil
 			}
@@ -1101,15 +1260,15 @@ func validateElementRestriction(baseElem, restrictionElem *types.ElementDecl) er
 		// anonymous types may have empty names but should be derived from base
 		if restrictionTypeName.Local == "" {
 			// anonymous type - check if it's derived from base type
-			if !isRestrictionDerivedFrom(restrictionElem.Type, baseElem.Type) {
+			if !isRestrictionDerivedFrom(schema, restrictionType, baseType) {
 				// for anonymous types, also check if they declare base type explicitly
 				// anonymous simpleTypes with restrictions are valid if their base matches
-				if st, ok := restrictionElem.Type.(*types.SimpleType); ok {
+				if st, ok := restrictionType.(*types.SimpleType); ok {
 					if st.Restriction != nil && st.Restriction.Base == baseTypeName {
 						return nil
 					}
 					// check if the anonymous type derives from the base through its ResolvedBase
-					if st.ResolvedBase != nil && isRestrictionDerivedFrom(st.ResolvedBase, baseElem.Type) {
+					if st.ResolvedBase != nil && isRestrictionDerivedFrom(schema, st.ResolvedBase, baseType) {
 						return nil
 					}
 				}
@@ -1119,12 +1278,32 @@ func validateElementRestriction(baseElem, restrictionElem *types.ElementDecl) er
 		}
 
 		// if type names are different, restriction type must be derived from base type
-		if !isRestrictionDerivedFrom(restrictionElem.Type, baseElem.Type) {
+		if !isRestrictionDerivedFrom(schema, restrictionType, baseType) {
 			return fmt.Errorf("ComplexContent restriction: element '%s' type '%s' must be same as or derived from base type '%s'", restrictionElem.Name, restrictionTypeName, baseTypeName)
 		}
 	}
 
 	return nil
+}
+
+func normalizeFixedValue(value string, typ types.Type) string {
+	if typ == nil {
+		return value
+	}
+	if st, ok := typ.(*types.SimpleType); ok {
+		if st.List != nil || st.Variety() == types.ListVariety {
+			return types.ApplyWhiteSpace(value, types.WhiteSpaceCollapse)
+		}
+		if st.Restriction != nil && !st.Restriction.Base.IsZero() &&
+			st.Restriction.Base.Namespace == types.XSDNamespace &&
+			isBuiltinListTypeName(st.Restriction.Base.Local) {
+			return types.ApplyWhiteSpace(value, types.WhiteSpaceCollapse)
+		}
+	}
+	if bt, ok := typ.(*types.BuiltinType); ok && isBuiltinListTypeName(bt.Name().Local) {
+		return types.ApplyWhiteSpace(value, types.WhiteSpaceCollapse)
+	}
+	return types.NormalizeWhiteSpace(value, typ)
 }
 
 // validateParticleRestrictionWithKindChange validates restrictions when model group kinds differ.

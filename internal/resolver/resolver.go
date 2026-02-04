@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	schemadet "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -39,7 +40,8 @@ func (r *Resolver) Resolve() error {
 	// order matters: resolve in dependency order
 
 	// 1. Simple types (only depend on built-ins or other simple types)
-	for qname, typ := range r.schema.TypeDefs {
+	for _, qname := range schemadet.SortedQNames(r.schema.TypeDefs) {
+		typ := r.schema.TypeDefs[qname]
 		if st, ok := typ.(*types.SimpleType); ok {
 			if err := r.resolveSimpleType(qname, st); err != nil {
 				return err
@@ -48,7 +50,8 @@ func (r *Resolver) Resolve() error {
 	}
 
 	// 2. Complex types (may depend on simple types)
-	for qname, typ := range r.schema.TypeDefs {
+	for _, qname := range schemadet.SortedQNames(r.schema.TypeDefs) {
+		typ := r.schema.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			if err := r.resolveComplexType(qname, ct); err != nil {
 				return err
@@ -57,28 +60,32 @@ func (r *Resolver) Resolve() error {
 	}
 
 	// 3. Groups (reference types and other groups)
-	for qname, grp := range r.schema.Groups {
+	for _, qname := range schemadet.SortedQNames(r.schema.Groups) {
+		grp := r.schema.Groups[qname]
 		if err := r.resolveGroup(qname, grp); err != nil {
 			return err
 		}
 	}
 
 	// 4. Elements (reference types and groups)
-	for qname, elem := range r.schema.ElementDecls {
+	for _, qname := range schemadet.SortedQNames(r.schema.ElementDecls) {
+		elem := r.schema.ElementDecls[qname]
 		if err := r.resolveElement(qname, elem); err != nil {
 			return err
 		}
 	}
 
 	// 5. Attributes
-	for _, attr := range r.schema.AttributeDecls {
+	for _, qname := range schemadet.SortedQNames(r.schema.AttributeDecls) {
+		attr := r.schema.AttributeDecls[qname]
 		if err := r.resolveAttribute(attr); err != nil {
 			return err
 		}
 	}
 
 	// 6. Attribute groups
-	for qname, ag := range r.schema.AttributeGroups {
+	for _, qname := range schemadet.SortedQNames(r.schema.AttributeGroups) {
+		ag := r.schema.AttributeGroups[qname]
 		if err := r.resolveAttributeGroup(qname, ag); err != nil {
 			return err
 		}
@@ -183,13 +190,6 @@ func (r *Resolver) resolveSimpleTypeList(qname types.QName, st *types.SimpleType
 	}
 	item, err := r.lookupType(st.List.ItemType, st.QName)
 	if err != nil {
-		if allowMissingTypeReference(r.schema, st.List.ItemType) {
-			st.ItemType = types.NewPlaceholderSimpleType(st.List.ItemType)
-			if !st.WhiteSpaceExplicit() {
-				st.SetWhiteSpace(types.WhiteSpaceCollapse)
-			}
-			return nil
-		}
 		return fmt.Errorf("type %s list item: %w", qname, err)
 	}
 	st.ItemType = item
@@ -226,10 +226,6 @@ func (r *Resolver) resolveUnionNamedMembers(qname types.QName, st *types.SimpleT
 		}
 		member, err := r.lookupType(memberQName, st.QName)
 		if err != nil {
-			if allowMissingTypeReference(r.schema, memberQName) {
-				st.MemberTypes = append(st.MemberTypes, types.NewPlaceholderSimpleType(memberQName))
-				continue
-			}
 			return fmt.Errorf("type %s union member %d: %w", qname, i, err)
 		}
 		st.MemberTypes = append(st.MemberTypes, member)
@@ -399,7 +395,7 @@ func (r *Resolver) lookupType(qname, referrer types.QName) (types.Type, error) {
 	// look up in schema
 	typ, ok := r.schema.TypeDefs[qname]
 	if !ok {
-		return nil, fmt.Errorf("type %s not found", qname)
+		return nil, fmt.Errorf("%w: %s", ErrTypeNotFound, qname)
 	}
 
 	if r.detector.IsResolving(qname) {
@@ -514,9 +510,6 @@ func (r *Resolver) resolveElementType(elem *types.ElementDecl, elemName types.QN
 			// not for elements with the same name as their type (which is valid).
 			actualType, err := r.lookupType(t.QName, types.QName{})
 			if err != nil {
-				if allowMissingTypeReference(r.schema, t.QName) {
-					return nil
-				}
 				return fmt.Errorf(opts.simpleContext, elemName, err)
 			}
 			elem.Type = actualType

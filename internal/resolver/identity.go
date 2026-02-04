@@ -7,6 +7,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemacheck"
+	schemadet "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -21,7 +22,8 @@ func collectAllIdentityConstraints(schema *parser.Schema) []*types.IdentityConst
 		all = append(all, collectIdentityConstraintsFromContentWithVisited(content, visitedGroups, visitedTypes)...)
 	}
 
-	for _, decl := range schema.ElementDecls {
+	for _, qname := range schemadet.SortedQNames(schema.ElementDecls) {
+		decl := schema.ElementDecls[qname]
 		all = append(all, decl.Constraints...)
 		// also check inline type's content model.
 		if ct, ok := decl.Type.(*types.ComplexType); ok {
@@ -29,13 +31,15 @@ func collectAllIdentityConstraints(schema *parser.Schema) []*types.IdentityConst
 		}
 	}
 
-	for _, typ := range schema.TypeDefs {
+	for _, qname := range schemadet.SortedQNames(schema.TypeDefs) {
+		typ := schema.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			collectFromContent(ct.Content())
 		}
 	}
 
-	for _, group := range schema.Groups {
+	for _, qname := range schemadet.SortedQNames(schema.Groups) {
+		group := schema.Groups[qname]
 		all = append(all, collectIdentityConstraintsFromParticlesWithVisited(group.Particles, visitedGroups, visitedTypes)...)
 	}
 
@@ -66,6 +70,56 @@ func collectIdentityConstraintsFromContentWithVisited(content types.Content, vis
 		}
 	}
 	return constraints
+}
+
+func collectConstraintElementsFromContent(content types.Content) []*types.ElementDecl {
+	visited := make(map[*types.ModelGroup]bool)
+	visitedTypes := make(map[*types.ComplexType]bool)
+	return collectConstraintElementsFromContentWithVisited(content, visited, visitedTypes)
+}
+
+func collectConstraintElementsFromContentWithVisited(content types.Content, visited map[*types.ModelGroup]bool, visitedTypes map[*types.ComplexType]bool) []*types.ElementDecl {
+	var elements []*types.ElementDecl
+	switch c := content.(type) {
+	case *types.ElementContent:
+		if c.Particle != nil {
+			elements = append(elements, collectConstraintElementsFromParticlesWithVisited([]types.Particle{c.Particle}, visited, visitedTypes)...)
+		}
+	case *types.ComplexContent:
+		if c.Extension != nil && c.Extension.Particle != nil {
+			elements = append(elements, collectConstraintElementsFromParticlesWithVisited([]types.Particle{c.Extension.Particle}, visited, visitedTypes)...)
+		}
+		if c.Restriction != nil && c.Restriction.Particle != nil {
+			elements = append(elements, collectConstraintElementsFromParticlesWithVisited([]types.Particle{c.Restriction.Particle}, visited, visitedTypes)...)
+		}
+	}
+	return elements
+}
+
+func collectConstraintElementsFromParticlesWithVisited(particles []types.Particle, visited map[*types.ModelGroup]bool, visitedTypes map[*types.ComplexType]bool) []*types.ElementDecl {
+	var elements []*types.ElementDecl
+	for _, particle := range particles {
+		switch p := particle.(type) {
+		case *types.ElementDecl:
+			if p != nil && !p.IsReference && len(p.Constraints) > 0 {
+				elements = append(elements, p)
+			}
+			if ct, ok := p.Type.(*types.ComplexType); ok {
+				if visitedTypes[ct] {
+					continue
+				}
+				visitedTypes[ct] = true
+				elements = append(elements, collectConstraintElementsFromContentWithVisited(ct.Content(), visited, visitedTypes)...)
+			}
+		case *types.ModelGroup:
+			if visited[p] {
+				continue
+			}
+			visited[p] = true
+			elements = append(elements, collectConstraintElementsFromParticlesWithVisited(p.Particles, visited, visitedTypes)...)
+		}
+	}
+	return elements
 }
 
 // collectIdentityConstraintsFromParticlesWithVisited collects identity constraints with cycle detection.

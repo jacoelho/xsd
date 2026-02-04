@@ -42,6 +42,7 @@ func isWildcardNodeTest(test xpath.NodeTest) bool {
 }
 
 func nodeTestMatchesQName(test xpath.NodeTest, name types.QName) bool {
+	test = xpath.CanonicalizeNodeTest(test)
 	if test.Any {
 		return true
 	}
@@ -545,7 +546,11 @@ func findElementDeclDescendant(schema *parser.Schema, elementDecl *types.Element
 	visited := map[*types.ComplexType]struct{}{
 		ct: {},
 	}
-	return findElementDeclInContentDescendant(schema, ct.Content(), test, visited)
+	decl, err := findElementDeclInContentDescendant(schema, ct.Content(), test, visited)
+	if err != nil && ct.Abstract {
+		return nil, fmt.Errorf("%w: %v", ErrXPathUnresolvable, err)
+	}
+	return decl, err
 }
 
 // findElementDeclInContentDescendant searches for an element declaration at any depth in content.
