@@ -18,7 +18,9 @@ func resolveSchema(schemaXML string) (*parser.Schema, error) {
 	if errs := schemacheck.ValidateStructure(sch); len(errs) != 0 {
 		return nil, errs[0]
 	}
-	schema.MarkSemantic(sch)
+	if err := schema.MarkSemantic(sch); err != nil {
+		return nil, err
+	}
 	if err := resolver.ResolveTypeReferences(sch); err != nil {
 		return nil, err
 	}

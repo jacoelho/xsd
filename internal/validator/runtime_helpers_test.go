@@ -20,7 +20,9 @@ func buildRuntimeSchema(schemaXML string) (*runtime.Schema, error) {
 	if errs := schemacheck.ValidateStructure(parsed); len(errs) != 0 {
 		return nil, errs[0]
 	}
-	schema.MarkSemantic(parsed)
+	if err := schema.MarkSemantic(parsed); err != nil {
+		return nil, err
+	}
 	if err := resolver.ResolveTypeReferences(parsed); err != nil {
 		return nil, err
 	}
@@ -36,17 +38,17 @@ func buildRuntimeSchema(schemaXML string) (*runtime.Schema, error) {
 
 func mustBuildRuntimeSchema(tb testing.TB, schemaXML string) *runtime.Schema {
 	tb.Helper()
-	schema, err := buildRuntimeSchema(schemaXML)
+	rtSchema, err := buildRuntimeSchema(schemaXML)
 	if err != nil {
 		tb.Fatalf("runtime build: %v", err)
 	}
-	return schema
+	return rtSchema
 }
 
 func validateRuntimeDoc(t *testing.T, schemaXML, docXML string) error {
 	t.Helper()
 
-	schema := mustBuildRuntimeSchema(t, schemaXML)
-	sess := NewSession(schema)
+	rtSchema := mustBuildRuntimeSchema(t, schemaXML)
+	sess := NewSession(rtSchema)
 	return sess.Validate(strings.NewReader(docXML))
 }

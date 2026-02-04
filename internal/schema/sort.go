@@ -1,7 +1,8 @@
 package schema
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
@@ -16,12 +17,7 @@ func SortedQNames[V any](m map[types.QName]V) []types.QName {
 	for qname := range m {
 		keys = append(keys, qname)
 	}
-	sort.Slice(keys, func(i, j int) bool {
-		if keys[i].Namespace != keys[j].Namespace {
-			return keys[i].Namespace < keys[j].Namespace
-		}
-		return keys[i].Local < keys[j].Local
-	})
+	slices.SortFunc(keys, compareQName)
 	return keys
 }
 
@@ -31,14 +27,23 @@ func SortedGlobalDecls(decls []parser.GlobalDecl) []parser.GlobalDecl {
 		return nil
 	}
 	out := append([]parser.GlobalDecl(nil), decls...)
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Kind != out[j].Kind {
-			return out[i].Kind < out[j].Kind
-		}
-		if out[i].Name.Namespace != out[j].Name.Namespace {
-			return out[i].Name.Namespace < out[j].Name.Namespace
-		}
-		return out[i].Name.Local < out[j].Name.Local
-	})
+	slices.SortFunc(out, compareGlobalDecl)
 	return out
+}
+
+func compareQName(a, b types.QName) int {
+	if a.Namespace != b.Namespace {
+		return cmp.Compare(a.Namespace, b.Namespace)
+	}
+	return cmp.Compare(a.Local, b.Local)
+}
+
+func compareGlobalDecl(a, b parser.GlobalDecl) int {
+	if a.Kind != b.Kind {
+		return cmp.Compare(a.Kind, b.Kind)
+	}
+	if a.Name.Namespace != b.Name.Namespace {
+		return cmp.Compare(a.Name.Namespace, b.Name.Namespace)
+	}
+	return cmp.Compare(a.Name.Local, b.Name.Local)
 }

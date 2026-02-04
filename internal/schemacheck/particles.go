@@ -1236,51 +1236,49 @@ func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem
 	if baseType == nil || restrictionType == nil {
 		return nil
 	}
-	if baseType != nil && restrictionType != nil {
-		// types are same if they have the same QName
-		baseTypeName := baseType.Name()
-		restrictionTypeName := restrictionType.Name()
+	// types are same if they have the same QName
+	baseTypeName := baseType.Name()
+	restrictionTypeName := restrictionType.Name()
 
-		if baseTypeName.Namespace == types.XSDNamespace && baseTypeName.Local == "anyType" {
+	if baseTypeName.Namespace == types.XSDNamespace && baseTypeName.Local == "anyType" {
+		return nil
+	}
+	if baseTypeName.Namespace == types.XSDNamespace && baseTypeName.Local == "anySimpleType" {
+		switch restrictionType.(type) {
+		case *types.SimpleType, *types.BuiltinType:
 			return nil
 		}
-		if baseTypeName.Namespace == types.XSDNamespace && baseTypeName.Local == "anySimpleType" {
-			switch restrictionType.(type) {
-			case *types.SimpleType, *types.BuiltinType:
-				return nil
-			}
-		}
+	}
 
-		// if types are the same (by name), that's always valid
-		if baseTypeName == restrictionTypeName {
-			return nil
-		}
+	// if types are the same (by name), that's always valid
+	if baseTypeName == restrictionTypeName {
+		return nil
+	}
 
-		// handle anonymous types (inline simpleType/complexType in restriction)
-		// anonymous types may have empty names but should be derived from base
-		if restrictionTypeName.Local == "" {
-			// anonymous type - check if it's derived from base type
-			if !isRestrictionDerivedFrom(schema, restrictionType, baseType) {
-				// for anonymous types, also check if they declare base type explicitly
-				// anonymous simpleTypes with restrictions are valid if their base matches
-				if st, ok := restrictionType.(*types.SimpleType); ok {
-					if st.Restriction != nil && st.Restriction.Base == baseTypeName {
-						return nil
-					}
-					// check if the anonymous type derives from the base through its ResolvedBase
-					if st.ResolvedBase != nil && isRestrictionDerivedFrom(schema, st.ResolvedBase, baseType) {
-						return nil
-					}
-				}
-				return fmt.Errorf("ComplexContent restriction: element '%s' anonymous type must be derived from base type '%s'", restrictionElem.Name, baseTypeName)
-			}
-			return nil
-		}
-
-		// if type names are different, restriction type must be derived from base type
+	// handle anonymous types (inline simpleType/complexType in restriction)
+	// anonymous types may have empty names but should be derived from base
+	if restrictionTypeName.Local == "" {
+		// anonymous type - check if it's derived from base type
 		if !isRestrictionDerivedFrom(schema, restrictionType, baseType) {
-			return fmt.Errorf("ComplexContent restriction: element '%s' type '%s' must be same as or derived from base type '%s'", restrictionElem.Name, restrictionTypeName, baseTypeName)
+			// for anonymous types, also check if they declare base type explicitly
+			// anonymous simpleTypes with restrictions are valid if their base matches
+			if st, ok := restrictionType.(*types.SimpleType); ok {
+				if st.Restriction != nil && st.Restriction.Base == baseTypeName {
+					return nil
+				}
+				// check if the anonymous type derives from the base through its ResolvedBase
+				if st.ResolvedBase != nil && isRestrictionDerivedFrom(schema, st.ResolvedBase, baseType) {
+					return nil
+				}
+			}
+			return fmt.Errorf("ComplexContent restriction: element '%s' anonymous type must be derived from base type '%s'", restrictionElem.Name, baseTypeName)
 		}
+		return nil
+	}
+
+	// if type names are different, restriction type must be derived from base type
+	if !isRestrictionDerivedFrom(schema, restrictionType, baseType) {
+		return fmt.Errorf("ComplexContent restriction: element '%s' type '%s' must be same as or derived from base type '%s'", restrictionElem.Name, restrictionTypeName, baseTypeName)
 	}
 
 	return nil

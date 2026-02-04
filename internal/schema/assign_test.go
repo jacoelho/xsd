@@ -20,7 +20,9 @@ func mustResolveSchema(t *testing.T, schemaXML string) *parser.Schema {
 	if errs := schemacheck.ValidateStructure(schema); len(errs) != 0 {
 		t.Fatalf("ValidateStructure errors = %v", errs)
 	}
-	schemapkg.MarkSemantic(schema)
+	if err := schemapkg.MarkSemantic(schema); err != nil {
+		t.Fatalf("MarkSemantic error = %v", err)
+	}
 	if err := resolver.ResolveTypeReferences(schema); err != nil {
 		t.Fatalf("ResolveTypeReferences error = %v", err)
 	}

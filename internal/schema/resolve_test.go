@@ -146,7 +146,9 @@ func TestReferenceResolutionMissing(t *testing.T) {
 	if errs := schemacheck.ValidateStructure(schema); len(errs) != 0 {
 		t.Fatalf("ValidateStructure errors = %v", errs)
 	}
-	schemapkg.MarkSemantic(schema)
+	if err := schemapkg.MarkSemantic(schema); err != nil {
+		t.Fatalf("MarkSemantic error = %v", err)
+	}
 	if errs := resolver.ValidateReferences(schema); len(errs) == 0 {
 		t.Fatalf("expected missing type to fail reference validation")
 	}

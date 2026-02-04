@@ -548,7 +548,7 @@ func findElementDeclDescendant(schema *parser.Schema, elementDecl *types.Element
 	}
 	decl, err := findElementDeclInContentDescendant(schema, ct.Content(), test, visited)
 	if err != nil && ct.Abstract {
-		return nil, fmt.Errorf("%w: %v", ErrXPathUnresolvable, err)
+		return nil, fmt.Errorf("%w: %w", ErrXPathUnresolvable, err)
 	}
 	return decl, err
 }

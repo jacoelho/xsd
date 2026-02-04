@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	schemadet "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
@@ -19,7 +19,7 @@ import (
 // - IsReference=false: came from name="..." in XSD, local declaration that doesn't need to exist
 //
 // contextType should be "element" or "type" for error message formatting.
-func validateAttributeReference(schema *parser.Schema, contextQName types.QName, attr *types.AttributeDecl, contextType string) error {
+func validateAttributeReference(sch *parser.Schema, contextQName types.QName, attr *types.AttributeDecl, contextType string) error {
 	// skip local attribute declarations - they're not references.
 	if !attr.IsReference {
 		return nil
@@ -31,7 +31,7 @@ func validateAttributeReference(schema *parser.Schema, contextQName types.QName,
 	}
 
 	// this is a reference, so it must exist.
-	target, exists := schema.AttributeDecls[attr.Name]
+	target, exists := sch.AttributeDecls[attr.Name]
 	if !exists {
 		return fmt.Errorf("%s %s: attribute reference %s does not exist", contextType, contextQName, attr.Name)
 	}
@@ -46,7 +46,7 @@ func validateAttributeReference(schema *parser.Schema, contextQName types.QName,
 	// per XSD spec "Attribute Use Correct": if the reference specifies a fixed value,
 	// it must match the referenced attribute's fixed value.
 	if attr.HasFixed && target.HasFixed {
-		match, err := fixedValuesEqual(schema, attr, target)
+		match, err := fixedValuesEqual(sch, attr, target)
 		if err != nil {
 			return fmt.Errorf("%s %s: attribute reference '%s' fixed value comparison failed: %w",
 				contextType, contextQName, attr.Name, err)
@@ -70,17 +70,17 @@ func isBuiltinXMLAttribute(attr *types.AttributeDecl) bool {
 // If the reference has the target namespace and is not found, also checks the no-namespace.
 // This handles cases where attribute groups from imported schemas with no target namespace
 // are referenced without a prefix (resolved to target namespace).
-func validateAttributeGroupReference(schema *parser.Schema, agRef, contextQName types.QName) error {
-	if _, exists := schema.AttributeGroups[agRef]; !exists {
+func validateAttributeGroupReference(sch *parser.Schema, agRef, contextQName types.QName) error {
+	if _, exists := sch.AttributeGroups[agRef]; !exists {
 		// if reference has target namespace and not found, also check no-namespace.
 		// this handles cases where attribute groups from imported schemas with no
 		// target namespace are referenced without a prefix (resolved to target namespace).
-		if agRef.Namespace == schema.TargetNamespace && !schema.TargetNamespace.IsEmpty() {
+		if agRef.Namespace == sch.TargetNamespace && !sch.TargetNamespace.IsEmpty() {
 			noNSRef := types.QName{
 				Namespace: "",
 				Local:     agRef.Local,
 			}
-			if _, exists := schema.AttributeGroups[noNSRef]; !exists {
+			if _, exists := sch.AttributeGroups[noNSRef]; !exists {
 				return fmt.Errorf("type %s: attributeGroup reference %s does not exist", contextQName, agRef)
 			}
 		} else {
@@ -91,30 +91,30 @@ func validateAttributeGroupReference(schema *parser.Schema, agRef, contextQName 
 }
 
 // validateNoCyclicAttributeGroups detects cycles between attribute group definitions.
-func validateNoCyclicAttributeGroups(schema *parser.Schema) error {
+func validateNoCyclicAttributeGroups(sch *parser.Schema) error {
 	detector := NewCycleDetector[types.QName]()
-	for _, qname := range schemadet.SortedQNames(schema.AttributeGroups) {
-		if err := visitAttributeGroup(schema, qname, detector); err != nil {
+	for _, qname := range schema.SortedQNames(sch.AttributeGroups) {
+		if err := visitAttributeGroup(sch, qname, detector); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func visitAttributeGroup(schema *parser.Schema, qname types.QName, detector *CycleDetector[types.QName]) error {
+func visitAttributeGroup(sch *parser.Schema, qname types.QName, detector *CycleDetector[types.QName]) error {
 	if detector.IsVisited(qname) {
 		return nil
 	}
 	return detector.WithScope(qname, func() error {
-		group, exists := schema.AttributeGroups[qname]
+		group, exists := sch.AttributeGroups[qname]
 		if !exists {
 			return nil
 		}
 		for _, ref := range group.AttrGroups {
-			if _, ok := schema.AttributeGroups[ref]; !ok {
+			if _, ok := sch.AttributeGroups[ref]; !ok {
 				continue
 			}
-			if err := visitAttributeGroup(schema, ref, detector); err != nil {
+			if err := visitAttributeGroup(sch, ref, detector); err != nil {
 				return err
 			}
 		}
@@ -122,14 +122,14 @@ func visitAttributeGroup(schema *parser.Schema, qname types.QName, detector *Cyc
 	})
 }
 
-func validateAttributeValueConstraintsForType(schema *parser.Schema, typ types.Type) error {
+func validateAttributeValueConstraintsForType(sch *parser.Schema, typ types.Type) error {
 	ct, ok := typ.(*types.ComplexType)
 	if !ok {
 		return nil
 	}
 	validateAttrs := func(attrs []*types.AttributeDecl) error {
 		for _, attr := range attrs {
-			if err := validateAttributeValueConstraints(schema, attr); err != nil {
+			if err := validateAttributeValueConstraints(sch, attr); err != nil {
 				return fmt.Errorf("attribute %s: %w", attr.Name, err)
 			}
 		}
@@ -151,8 +151,8 @@ func validateAttributeValueConstraintsForType(schema *parser.Schema, typ types.T
 	return nil
 }
 
-func validateAttributeValueConstraints(schema *parser.Schema, decl *types.AttributeDecl) error {
-	resolvedType := resolveTypeForFinalValidation(schema, decl.Type)
+func validateAttributeValueConstraints(sch *parser.Schema, decl *types.AttributeDecl) error {
+	resolvedType := resolveTypeForFinalValidation(sch, decl.Type)
 	if _, ok := resolvedType.(*types.ComplexType); ok {
 		return fmt.Errorf("type must be a simple type")
 	}
@@ -160,12 +160,12 @@ func validateAttributeValueConstraints(schema *parser.Schema, decl *types.Attrib
 		return fmt.Errorf("attribute cannot use NOTATION type")
 	}
 	if decl.HasDefault {
-		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Default, resolvedType, decl.DefaultContext); err != nil {
+		if err := validateDefaultOrFixedValueWithResolvedType(sch, decl.Default, resolvedType, decl.DefaultContext); err != nil {
 			return fmt.Errorf("invalid default value '%s': %w", decl.Default, err)
 		}
 	}
 	if decl.HasFixed {
-		if err := validateDefaultOrFixedValueWithResolvedType(schema, decl.Fixed, resolvedType, decl.FixedContext); err != nil {
+		if err := validateDefaultOrFixedValueWithResolvedType(sch, decl.Fixed, resolvedType, decl.FixedContext); err != nil {
 			return fmt.Errorf("invalid fixed value '%s': %w", decl.Fixed, err)
 		}
 	}

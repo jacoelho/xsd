@@ -30,7 +30,7 @@ func TestDetectCyclesDeterministic(t *testing.T) {
 	sch.HasPlaceholders = false
 
 	var first string
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		err := DetectCycles(sch)
 		if err == nil {
 			t.Fatalf("expected cycle detection error")

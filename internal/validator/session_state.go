@@ -67,23 +67,23 @@ type Session struct {
 	nameMapSparse    map[NameID]nameEntry
 	rt               *runtime.Schema
 	reader           *xmlstream.Reader
-	parseOptions     []xmlstream.Option
 	idTable          map[string]struct{}
+	documentURI      string
 	Scratch          Scratch
-	normStack        [][]byte
-	errBuf           []byte
+	normBuf          []byte
+	attrAppliedBuf   []AttrApplied
 	nameMap          []nameEntry
 	attrPresent      []bool
 	valueBuf         []byte
 	attrBuf          []StartAttr
 	attrValidatedBuf []StartAttr
 	attrSeenTable    []attrSeenEntry
-	normBuf          []byte
+	normStack        [][]byte
 	elemStack        []elemFrame
 	prefixCache      []prefixEntry
 	nameLocal        []byte
 	validationErrors []xsderrors.Validation
-	attrAppliedBuf   []AttrApplied
+	errBuf           []byte
 	nameNS           []byte
 	textBuf          []byte
 	keyBuf           []byte
@@ -91,10 +91,10 @@ type Session struct {
 	nsDecls          []nsDecl
 	idRefs           []string
 	nsStack          []nsFrame
+	parseOptions     []xmlstream.Option
 	icState          identityState
 	Arena            Arena
 	normDepth        int
-	documentURI      string
 }
 
 // NewSession creates a new runtime validation session.

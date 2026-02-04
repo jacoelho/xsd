@@ -6,12 +6,12 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolver"
-	schemacontract "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
@@ -19,12 +19,10 @@ import (
 
 // Config holds configuration for the schema loader
 type Config struct {
-	FS fs.FS
-
-	Resolver Resolver
-
-	AllowMissingImportLocations bool
+	FS                          fs.FS
+	Resolver                    Resolver
 	SchemaParseOptions          []xmlstream.Option
+	AllowMissingImportLocations bool
 }
 
 type loadKey struct {
@@ -258,7 +256,7 @@ func (l *SchemaLoader) loadRoot(location string, mode validationMode) (*parser.S
 func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key loadKey, mode validationMode) (*parser.Schema, error) {
 	session := newLoadSession(l, systemID, key, doc)
 
-	if schema, ok := l.state.loadedSchema(key); ok {
+	if sch, ok := l.state.loadedSchema(key); ok {
 		if mode == validateSchema {
 			entry := l.state.ensureEntry(key)
 			entry.validationRequested = true
@@ -270,7 +268,7 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 		if closeErr := doc.Close(); closeErr != nil {
 			return nil, closeErr
 		}
-		return schema, nil
+		return sch, nil
 	}
 
 	loadedSchema, err := session.handleCircularLoad()
@@ -288,7 +286,7 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 	return l.loadParsed(result, systemID, key, mode)
 }
 
-func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, key loadKey, mode validationMode) (schema *parser.Schema, err error) {
+func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, key loadKey, mode validationMode) (sch *parser.Schema, err error) {
 	if loadedSchema, ok := l.state.loadedSchema(key); ok {
 		if mode == validateSchema {
 			entry := l.state.ensureEntry(key)
@@ -321,17 +319,17 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 		}
 	}()
 
-	schema = result.Schema
-	initSchemaOrigins(schema, systemID)
-	entry.schema = schema
+	sch = result.Schema
+	initSchemaOrigins(sch, systemID)
+	entry.schema = sch
 	if len(result.Includes) > 0 {
 		entry.includeInserted = make([]int, len(result.Includes))
 	} else {
 		entry.includeInserted = nil
 	}
-	registerImports(schema, result.Imports)
+	registerImports(sch, result.Imports)
 
-	if validateErr := validateImportConstraints(schema, result.Imports); validateErr != nil {
+	if validateErr := validateImportConstraints(sch, result.Imports); validateErr != nil {
 		return nil, validateErr
 	}
 
@@ -341,7 +339,7 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 			session.rollback()
 		}
 	}()
-	if directivesErr := session.processDirectives(schema, result.Directives); directivesErr != nil {
+	if directivesErr := session.processDirectives(sch, result.Directives); directivesErr != nil {
 		return nil, directivesErr
 	}
 
@@ -349,7 +347,7 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 		entry.validationRequested = true
 	}
 
-	entry.schema = schema
+	entry.schema = sch
 	entry.state = schemaStateLoaded
 
 	if err := l.resolvePendingImportsFor(key); err != nil {
@@ -362,7 +360,7 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 		return nil, err
 	}
 
-	return schema, nil
+	return sch, nil
 }
 
 func (l *SchemaLoader) resolve(req ResolveRequest) (io.ReadCloser, string, error) {
@@ -372,30 +370,30 @@ func (l *SchemaLoader) resolve(req ResolveRequest) (io.ReadCloser, string, error
 	return l.resolver.Resolve(req)
 }
 
-func (l *SchemaLoader) validateLoadedSchema(schema *parser.Schema) error {
-	if err := l.resolveGroupReferences(schema); err != nil {
+func (l *SchemaLoader) validateLoadedSchema(sch *parser.Schema) error {
+	if err := l.resolveGroupReferences(sch); err != nil {
 		return fmt.Errorf("resolve group references: %w", err)
 	}
 
-	structureErrors := schemacheck.ValidateStructure(schema)
+	structureErrors := schemacheck.ValidateStructure(sch)
 	if len(structureErrors) > 0 {
 		return formatSchemaErrors(structureErrors)
 	}
-	if err := schemacontract.MarkSemantic(schema); err != nil {
+	if err := schema.MarkSemantic(sch); err != nil {
 		return err
 	}
 
-	if err := resolver.ResolveTypeReferences(schema); err != nil {
+	if err := resolver.ResolveTypeReferences(sch); err != nil {
 		return fmt.Errorf("resolve type references: %w", err)
 	}
 
-	refErrors := resolver.ValidateReferences(schema)
+	refErrors := resolver.ValidateReferences(sch)
 	if len(refErrors) > 0 {
 		return formatSchemaErrors(refErrors)
 	}
 
-	parser.UpdatePlaceholderState(schema)
-	if err := schemacontract.MarkResolved(schema); err != nil {
+	parser.UpdatePlaceholderState(sch)
+	if err := schema.MarkResolved(sch); err != nil {
 		return err
 	}
 
@@ -421,8 +419,8 @@ func (l *SchemaLoader) LoadResolved(doc io.ReadCloser, systemID string) (*parser
 // GetLoaded returns a loaded schema by systemID and effective target namespace.
 func (l *SchemaLoader) GetLoaded(systemID string, etn types.NamespaceURI) (*parser.Schema, bool) {
 	key := l.loadKey(systemID, etn)
-	schema, ok := l.state.loadedSchema(key)
-	return schema, ok
+	sch, ok := l.state.loadedSchema(key)
+	return sch, ok
 }
 func (l *SchemaLoader) alreadyMergedInclude(baseKey, includeKey loadKey) bool {
 	return l.imports.alreadyMergedInclude(baseKey, includeKey)
@@ -636,11 +634,11 @@ func (l *SchemaLoader) validateIfRequested(key loadKey) error {
 	if entry.pendingCount > 0 {
 		return nil
 	}
-	schema := l.schemaForKey(key)
-	if schema == nil {
+	sch := l.schemaForKey(key)
+	if sch == nil {
 		return fmt.Errorf("schema not available for validation: %s", key.systemID)
 	}
-	if err := l.validateLoadedSchema(schema); err != nil {
+	if err := l.validateLoadedSchema(sch); err != nil {
 		return err
 	}
 	entry.validated = true
@@ -685,8 +683,8 @@ func registerImports(sch *parser.Schema, imports []parser.ImportInfo) {
 	}
 }
 
-func validateImportConstraints(schema *parser.Schema, imports []parser.ImportInfo) error {
-	if schema.TargetNamespace.IsEmpty() {
+func validateImportConstraints(sch *parser.Schema, imports []parser.ImportInfo) error {
+	if sch.TargetNamespace.IsEmpty() {
 		for _, imp := range imports {
 			if imp.Namespace == "" {
 				return fmt.Errorf("schema without targetNamespace cannot use import without namespace attribute (namespace attribute is required)")
@@ -697,15 +695,11 @@ func validateImportConstraints(schema *parser.Schema, imports []parser.ImportInf
 		if imp.Namespace == "" {
 			continue
 		}
-		if !schema.TargetNamespace.IsEmpty() && types.NamespaceURI(imp.Namespace) == schema.TargetNamespace {
+		if !sch.TargetNamespace.IsEmpty() && types.NamespaceURI(imp.Namespace) == sch.TargetNamespace {
 			return fmt.Errorf("import namespace %s must be different from target namespace", imp.Namespace)
 		}
 	}
 	return nil
-}
-
-func validateSchemaConstraints(schema *parser.Schema) error {
-	return formatSchemaErrors(ValidateSchema(schema))
 }
 
 func formatSchemaErrors(validationErrors []error) error {
@@ -716,8 +710,8 @@ func formatSchemaErrors(validationErrors []error) error {
 	if len(validationErrors) > 1 {
 		errs = make([]error, len(validationErrors))
 		copy(errs, validationErrors)
-		sort.SliceStable(errs, func(i, j int) bool {
-			return errs[i].Error() < errs[j].Error()
+		slices.SortStableFunc(errs, func(a, b error) int {
+			return strings.Compare(a.Error(), b.Error())
 		})
 	}
 	var errMsg strings.Builder
@@ -729,39 +723,39 @@ func formatSchemaErrors(validationErrors []error) error {
 	return errors.New(errMsg.String())
 }
 
-func initSchemaOrigins(schema *parser.Schema, location string) {
-	if schema == nil {
+func initSchemaOrigins(sch *parser.Schema, location string) {
+	if sch == nil {
 		return
 	}
-	schema.Location = parser.ImportContextKey("", location)
-	for _, qname := range schemacontract.SortedQNames(schema.ElementDecls) {
-		if schema.ElementOrigins[qname] == "" {
-			schema.ElementOrigins[qname] = schema.Location
+	sch.Location = parser.ImportContextKey("", location)
+	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
+		if sch.ElementOrigins[qname] == "" {
+			sch.ElementOrigins[qname] = sch.Location
 		}
 	}
-	for _, qname := range schemacontract.SortedQNames(schema.TypeDefs) {
-		if schema.TypeOrigins[qname] == "" {
-			schema.TypeOrigins[qname] = schema.Location
+	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
+		if sch.TypeOrigins[qname] == "" {
+			sch.TypeOrigins[qname] = sch.Location
 		}
 	}
-	for _, qname := range schemacontract.SortedQNames(schema.AttributeDecls) {
-		if schema.AttributeOrigins[qname] == "" {
-			schema.AttributeOrigins[qname] = schema.Location
+	for _, qname := range schema.SortedQNames(sch.AttributeDecls) {
+		if sch.AttributeOrigins[qname] == "" {
+			sch.AttributeOrigins[qname] = sch.Location
 		}
 	}
-	for _, qname := range schemacontract.SortedQNames(schema.AttributeGroups) {
-		if schema.AttributeGroupOrigins[qname] == "" {
-			schema.AttributeGroupOrigins[qname] = schema.Location
+	for _, qname := range schema.SortedQNames(sch.AttributeGroups) {
+		if sch.AttributeGroupOrigins[qname] == "" {
+			sch.AttributeGroupOrigins[qname] = sch.Location
 		}
 	}
-	for _, qname := range schemacontract.SortedQNames(schema.Groups) {
-		if schema.GroupOrigins[qname] == "" {
-			schema.GroupOrigins[qname] = schema.Location
+	for _, qname := range schema.SortedQNames(sch.Groups) {
+		if sch.GroupOrigins[qname] == "" {
+			sch.GroupOrigins[qname] = sch.Location
 		}
 	}
-	for _, qname := range schemacontract.SortedQNames(schema.NotationDecls) {
-		if schema.NotationOrigins[qname] == "" {
-			schema.NotationOrigins[qname] = schema.Location
+	for _, qname := range schema.SortedQNames(sch.NotationDecls) {
+		if sch.NotationOrigins[qname] == "" {
+			sch.NotationOrigins[qname] = sch.Location
 		}
 	}
 }

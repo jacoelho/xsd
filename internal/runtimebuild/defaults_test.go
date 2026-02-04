@@ -162,7 +162,9 @@ func parseAndAssign(schemaXML string) (*parser.Schema, *schema.Registry, error) 
 	if errs := schemacheck.ValidateStructure(sch); len(errs) != 0 {
 		return nil, nil, errs[0]
 	}
-	schema.MarkSemantic(sch)
+	if err := schema.MarkSemantic(sch); err != nil {
+		return nil, nil, err
+	}
 	if err := resolver.ResolveTypeReferences(sch); err != nil {
 		return nil, nil, err
 	}

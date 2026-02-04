@@ -200,9 +200,7 @@ func (c *compiler) result(registry *schema.Registry) *CompiledValidators {
 	}
 	if len(c.simpleContent) > 0 {
 		out.SimpleContentTypes = make(map[*types.ComplexType]types.Type, len(c.simpleContent))
-		for ct, typ := range c.simpleContent {
-			out.SimpleContentTypes[ct] = typ
-		}
+		maps.Copy(out.SimpleContentTypes, c.simpleContent)
 	}
 	maps.Copy(out.ValidatorByType, c.validatorByType)
 	for _, entry := range registry.TypeOrder {

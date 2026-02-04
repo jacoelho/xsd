@@ -1,8 +1,9 @@
 package runtimebuild
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/models"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -537,7 +538,9 @@ func (b *schemaBuilder) buildAttributes() error {
 		case len(uses) <= attrIndexLinearLimit:
 			mode = runtime.AttrIndexSmallLinear
 		case len(uses) <= attrIndexBinaryLimit:
-			sort.Slice(uses, func(i, j int) bool { return uses[i].Name < uses[j].Name })
+			slices.SortFunc(uses, func(a, b runtime.AttrUse) int {
+				return cmp.Compare(a.Name, b.Name)
+			})
 			mode = runtime.AttrIndexSortedBinary
 		default:
 			mode = runtime.AttrIndexHash

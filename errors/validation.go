@@ -1,9 +1,10 @@
 package errors
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -139,44 +140,30 @@ func (v ValidationList) Sort() {
 	if len(v) < 2 {
 		return
 	}
-	sort.SliceStable(v, func(i, j int) bool {
-		a := v[i]
-		b := v[j]
+	slices.SortStableFunc(v, func(a, b Validation) int {
 		if a.Document == "" && b.Document != "" {
-			return false
+			return 1
 		}
 		if a.Document != "" && b.Document == "" {
-			return true
+			return -1
 		}
 		if a.Document != b.Document {
-			return a.Document < b.Document
+			return cmp.Compare(a.Document, b.Document)
 		}
-		lineA := a.Line
-		if lineA < 0 {
-			lineA = 0
-		}
-		lineB := b.Line
-		if lineB < 0 {
-			lineB = 0
-		}
+		lineA := max(a.Line, 0)
+		lineB := max(b.Line, 0)
 		if lineA != lineB {
-			return lineA < lineB
+			return cmp.Compare(lineA, lineB)
 		}
-		colA := a.Column
-		if colA < 0 {
-			colA = 0
-		}
-		colB := b.Column
-		if colB < 0 {
-			colB = 0
-		}
+		colA := max(a.Column, 0)
+		colB := max(b.Column, 0)
 		if colA != colB {
-			return colA < colB
+			return cmp.Compare(colA, colB)
 		}
 		if a.Code != b.Code {
-			return a.Code < b.Code
+			return cmp.Compare(a.Code, b.Code)
 		}
-		return a.Message < b.Message
+		return cmp.Compare(a.Message, b.Message)
 	})
 }
 

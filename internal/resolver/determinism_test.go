@@ -26,7 +26,7 @@ func TestValidateReferencesDeterministicOrder(t *testing.T) {
 	}
 
 	var first []string
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		errs := ValidateReferences(sch)
 		if len(errs) == 0 {
 			t.Fatalf("expected reference errors")
