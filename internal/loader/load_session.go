@@ -91,7 +91,7 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 		return err
 	}
 	includeKey := s.loader.loadKey(systemID, includingNS)
-	if s.loader.alreadyMergedInclude(s.key, includeKey) {
+	if s.loader.imports.alreadyMerged(parser.DirectiveInclude, s.key, includeKey) {
 		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
 			return closeErr
 		}
@@ -136,7 +136,7 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 	if err := recordIncludeInserted(entry, include.IncludeIndex, inserted); err != nil {
 		return err
 	}
-	s.loader.markMergedInclude(s.key, includeKey)
+	s.loader.imports.markMerged(parser.DirectiveInclude, s.key, includeKey)
 	s.merged.includes = append(s.merged.includes, mergeRecord{base: s.key, target: includeKey})
 	return nil
 }
@@ -163,7 +163,7 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 	}
 	importNS := types.NamespaceURI(imp.Namespace)
 	importKey := s.loader.loadKey(systemID, importNS)
-	if s.loader.alreadyMergedImport(s.key, importKey) {
+	if s.loader.imports.alreadyMerged(parser.DirectiveImport, s.key, importKey) {
 		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
 			return closeErr
 		}
@@ -198,7 +198,7 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 	if err := s.loader.mergeSchema(schema, importedSchema, mergeImport, keepNamespace, len(schema.GlobalDecls)); err != nil {
 		return fmt.Errorf("merge imported schema %s: %w", imp.SchemaLocation, err)
 	}
-	s.loader.markMergedImport(s.key, importKey)
+	s.loader.imports.markMerged(parser.DirectiveImport, s.key, importKey)
 	s.merged.imports = append(s.merged.imports, mergeRecord{base: s.key, target: importKey})
 	return nil
 }
@@ -235,11 +235,11 @@ func (s *loadSession) rollback() {
 func (s *loadSession) rollbackMerges() {
 	for i := len(s.merged.includes) - 1; i >= 0; i-- {
 		rec := s.merged.includes[i]
-		s.loader.unmarkMergedInclude(rec.base, rec.target)
+		s.loader.imports.unmarkMerged(parser.DirectiveInclude, rec.base, rec.target)
 	}
 	for i := len(s.merged.imports) - 1; i >= 0; i-- {
 		rec := s.merged.imports[i]
-		s.loader.unmarkMergedImport(rec.base, rec.target)
+		s.loader.imports.unmarkMerged(parser.DirectiveImport, rec.base, rec.target)
 	}
 }
 

@@ -180,10 +180,10 @@ func TestLoadRollbackClearsPendingAndMerges(t *testing.T) {
 	includeKey := loader.loadKey("b.xsd", types.NamespaceURI("urn:root"))
 	importKey := loader.loadKey("c.xsd", types.NamespaceURI("urn:c"))
 
-	if loader.imports.alreadyMergedInclude(rootKey, includeKey) {
+	if loader.imports.alreadyMerged(parser.DirectiveInclude, rootKey, includeKey) {
 		t.Fatalf("include merge should be rolled back")
 	}
-	if loader.imports.alreadyMergedImport(rootKey, importKey) {
+	if loader.imports.alreadyMerged(parser.DirectiveImport, rootKey, importKey) {
 		t.Fatalf("import merge should be rolled back")
 	}
 

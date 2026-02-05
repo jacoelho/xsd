@@ -74,18 +74,7 @@ func SplitXMLWhitespaceFields(value string) []string {
 
 // TrimXMLWhitespace removes leading and trailing XML whitespace (space, tab, CR, LF).
 func TrimXMLWhitespace(value string) string {
-	start := 0
-	end := len(value)
-	for start < end && valuepkg.IsXMLWhitespaceByte(value[start]) {
-		start++
-	}
-	for end > start && valuepkg.IsXMLWhitespaceByte(value[end-1]) {
-		end--
-	}
-	if start == 0 && end == len(value) {
-		return value
-	}
-	return value[start:end]
+	return valuepkg.TrimXMLWhitespaceString(value)
 }
 
 // FieldsXMLWhitespaceSeq yields fields split on XML whitespace (space, tab, CR, LF).

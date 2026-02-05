@@ -175,7 +175,7 @@ func (s *Session) valueLength(meta runtime.ValidatorMeta, normalized []byte, met
 			metrics.lengthSet = true
 			return metrics.length, nil
 		}
-		count := listItemCount(normalized, meta.WhiteSpace == runtime.WS_Collapse)
+		count := listItemCount(normalized)
 		if metrics != nil {
 			metrics.length = count
 			metrics.lengthSet = true

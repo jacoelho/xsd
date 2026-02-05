@@ -39,7 +39,7 @@ func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte, re
 		if !ok {
 			return valueErrorf(valueErrInvalid, "list validator out of range")
 		}
-		_, err := forEachListItem(canonical, meta.WhiteSpace == runtime.WS_Collapse, func(itemValue []byte) error {
+		_, err := forEachListItem(canonical, func(itemValue []byte) error {
 			return s.trackValidatedIDs(item, itemValue, resolver, nil)
 		})
 		return err
@@ -84,7 +84,7 @@ func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte, re
 		if !ok {
 			return valueErrorf(valueErrInvalid, "list validator out of range")
 		}
-		if _, err := forEachListItem(canonical, meta.WhiteSpace == runtime.WS_Collapse, func(itemValue []byte) error {
+		if _, err := forEachListItem(canonical, func(itemValue []byte) error {
 			return s.trackDefaultValue(item, itemValue, resolver, 0)
 		}); err != nil {
 			return err
@@ -124,8 +124,7 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte,
 		}
 		var keyBytes []byte
 		count := 0
-		spaceOnly := meta.WhiteSpace == runtime.WS_Collapse
-		if _, err := forEachListItem(canonical, spaceOnly, func(itemValue []byte) error {
+		if _, err := forEachListItem(canonical, func(itemValue []byte) error {
 			kind, key, err := s.keyForCanonicalValue(item, itemValue, resolver, 0)
 			if err != nil {
 				return err

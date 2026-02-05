@@ -32,6 +32,49 @@ func TrimXMLWhitespace(in []byte) []byte {
 	return in[start:end]
 }
 
+// TrimXMLWhitespaceString removes leading and trailing XML whitespace.
+// It returns the original string when no trimming is needed.
+func TrimXMLWhitespaceString(in string) string {
+	start := 0
+	end := len(in)
+	for start < end && IsXMLWhitespaceByte(in[start]) {
+		start++
+	}
+	for end > start && IsXMLWhitespaceByte(in[end-1]) {
+		end--
+	}
+	if start == 0 && end == len(in) {
+		return in
+	}
+	return in[start:end]
+}
+
+// SplitXMLWhitespace splits input on XML whitespace and skips empty fields.
+func SplitXMLWhitespace(in []byte) [][]byte {
+	if len(in) == 0 {
+		return nil
+	}
+	items := make([][]byte, 0, 4)
+	i := 0
+	for i < len(in) {
+		for i < len(in) && IsXMLWhitespaceByte(in[i]) {
+			i++
+		}
+		if i >= len(in) {
+			break
+		}
+		start := i
+		for i < len(in) && !IsXMLWhitespaceByte(in[i]) {
+			i++
+		}
+		items = append(items, in[start:i])
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	return items
+}
+
 func replaceWhitespace(in, dst []byte) []byte {
 	needs := false
 	for _, b := range in {
