@@ -1,8 +1,11 @@
 package validator
 
 import (
+	"fmt"
+
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/ic"
+	"github.com/jacoelho/xsd/internal/runtime"
 )
 
 func resolveScopeErrors(scope *rtIdentityScope) []error {
@@ -10,6 +13,7 @@ func resolveScopeErrors(scope *rtIdentityScope) []error {
 		return nil
 	}
 	constraints := make([]ic.Constraint, len(scope.constraints))
+	names := make(map[runtime.ICID]string, len(scope.constraints))
 	for i := range scope.constraints {
 		constraint := &scope.constraints[i]
 		rows := make([]ic.Row, len(constraint.rows))
@@ -27,6 +31,9 @@ func resolveScopeErrors(scope *rtIdentityScope) []error {
 			Rows:       rows,
 			Keyrefs:    keyrefs,
 		}
+		if constraint.name != "" {
+			names[constraint.id] = constraint.name
+		}
 	}
 
 	issues := ic.Resolve(constraints)
@@ -35,15 +42,20 @@ func resolveScopeErrors(scope *rtIdentityScope) []error {
 	}
 	errs := make([]error, 0, len(issues))
 	for _, issue := range issues {
+		name := names[issue.Constraint]
+		label := "identity constraint"
+		if name != "" {
+			label = fmt.Sprintf("identity constraint %s", name)
+		}
 		switch issue.Kind {
 		case ic.IssueDuplicate:
-			errs = append(errs, newValidationError(xsderrors.ErrIdentityDuplicate, "identity constraint duplicate"))
+			errs = append(errs, newValidationError(xsderrors.ErrIdentityDuplicate, fmt.Sprintf("%s duplicate", label)))
 		case ic.IssueKeyrefMissing:
-			errs = append(errs, newValidationError(xsderrors.ErrIdentityKeyRefFailed, "identity constraint keyref missing"))
+			errs = append(errs, newValidationError(xsderrors.ErrIdentityKeyRefFailed, fmt.Sprintf("%s keyref missing", label)))
 		case ic.IssueKeyrefUndefined:
-			errs = append(errs, newValidationError(xsderrors.ErrIdentityAbsent, "identity constraint keyref undefined"))
+			errs = append(errs, newValidationError(xsderrors.ErrIdentityAbsent, fmt.Sprintf("%s keyref undefined", label)))
 		default:
-			errs = append(errs, newValidationError(xsderrors.ErrIdentityAbsent, "identity constraint violation"))
+			errs = append(errs, newValidationError(xsderrors.ErrIdentityAbsent, fmt.Sprintf("%s violation", label)))
 		}
 	}
 	return errs

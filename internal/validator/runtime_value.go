@@ -43,29 +43,30 @@ func valueErrorKindOf(err error) (valueErrorKind, bool) {
 }
 
 type valueMetrics struct {
-	intVal         num.Int
-	keyBytes       []byte
-	decVal         num.Dec
-	fractionDigits int
-	totalDigits    int
-	listCount      int
-	length         int
-	float64Val     float64
-	float32Val     float32
-	actualTypeID   runtime.TypeID
-	patternChecked bool
-	enumChecked    bool
-	keySet         bool
-	decSet         bool
-	intSet         bool
-	float32Set     bool
-	float64Set     bool
-	listSet        bool
-	digitsSet      bool
-	lengthSet      bool
-	float32Class   num.FloatClass
-	keyKind        runtime.ValueKind
-	float64Class   num.FloatClass
+	intVal          num.Int
+	keyBytes        []byte
+	decVal          num.Dec
+	fractionDigits  int
+	totalDigits     int
+	listCount       int
+	length          int
+	float64Val      float64
+	float32Val      float32
+	actualTypeID    runtime.TypeID
+	actualValidator runtime.ValidatorID
+	patternChecked  bool
+	enumChecked     bool
+	keySet          bool
+	decSet          bool
+	intSet          bool
+	float32Set      bool
+	float64Set      bool
+	listSet         bool
+	digitsSet       bool
+	lengthSet       bool
+	float32Class    num.FloatClass
+	keyKind         runtime.ValueKind
+	float64Class    num.FloatClass
 }
 
 type valueOptions struct {
@@ -125,15 +126,6 @@ func (s *Session) finalizeValue(canonical []byte, opts valueOptions, metrics *va
 	return canonStored
 }
 
-func (s *Session) validateValueInternalNoTrack(id runtime.ValidatorID, lexical []byte, resolver value.NSResolver, applyWhitespace bool) ([]byte, error) {
-	return s.validateValueInternalOptions(id, lexical, resolver, valueOptions{
-		applyWhitespace:  applyWhitespace,
-		trackIDs:         false,
-		requireCanonical: true,
-		storeValue:       true,
-	})
-}
-
 func (s *Session) validateValueInternalOptions(id runtime.ValidatorID, lexical []byte, resolver value.NSResolver, opts valueOptions) ([]byte, error) {
 	return s.validateValueCore(id, lexical, resolver, opts, nil)
 }
@@ -157,9 +149,17 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 	meta := s.rt.Validators.Meta[id]
 	var localMetrics valueMetrics
 	metricsInternal := false
-	if metrics == nil && (meta.Kind == runtime.VHexBinary || meta.Kind == runtime.VBase64Binary) && s.hasLengthFacet(meta) {
-		metrics = &localMetrics
-		metricsInternal = true
+	ensureMetrics := func() {
+		if metrics == nil {
+			metrics = &localMetrics
+			metricsInternal = true
+		}
+	}
+	if (meta.Kind == runtime.VHexBinary || meta.Kind == runtime.VBase64Binary) && s.hasLengthFacet(meta) {
+		ensureMetrics()
+	}
+	if opts.trackIDs && meta.Kind == runtime.VUnion {
+		ensureMetrics()
 	}
 	normalized := lexical
 	popNorm := false
@@ -180,9 +180,8 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 		needsCanonical = true
 	}
 	needEnumKey := meta.Flags&runtime.ValidatorHasEnum != 0
-	if metrics == nil && needEnumKey {
-		metrics = &localMetrics
-		metricsInternal = true
+	if needEnumKey {
+		ensureMetrics()
 	}
 	needKey := opts.needKey || opts.storeValue || needEnumKey
 	if !needsCanonical {
@@ -191,7 +190,7 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 			return nil, err
 		}
 		if opts.trackIDs {
-			if err := s.trackValidatedIDs(id, canon); err != nil {
+			if err := s.trackValidatedIDs(id, canon, resolver, metrics); err != nil {
 				return nil, err
 			}
 		}
@@ -206,7 +205,7 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 	}
 	canon = s.finalizeValue(canon, opts, metrics, metricsInternal)
 	if opts.trackIDs {
-		if err := s.trackValidatedIDs(id, canon); err != nil {
+		if err := s.trackValidatedIDs(id, canon, resolver, metrics); err != nil {
 			return nil, err
 		}
 	}

@@ -23,10 +23,10 @@ func NormalizeWhitespace(mode runtime.WhitespaceMode, in, dst []byte) []byte {
 func TrimXMLWhitespace(in []byte) []byte {
 	start := 0
 	end := len(in)
-	for start < end && isXMLWhitespace(in[start]) {
+	for start < end && IsXMLWhitespaceByte(in[start]) {
 		start++
 	}
-	for end > start && isXMLWhitespace(in[end-1]) {
+	for end > start && IsXMLWhitespaceByte(in[end-1]) {
 		end--
 	}
 	return in[start:end]
@@ -35,7 +35,7 @@ func TrimXMLWhitespace(in []byte) []byte {
 func replaceWhitespace(in, dst []byte) []byte {
 	needs := false
 	for _, b := range in {
-		if isXMLWhitespace(b) && b != ' ' {
+		if IsXMLWhitespaceByte(b) && b != ' ' {
 			needs = true
 			break
 		}
@@ -46,7 +46,7 @@ func replaceWhitespace(in, dst []byte) []byte {
 	out := grow(dst, len(in))
 	copy(out, in)
 	for i, b := range out {
-		if isXMLWhitespace(b) {
+		if IsXMLWhitespaceByte(b) {
 			out[i] = ' '
 		}
 	}
@@ -62,13 +62,13 @@ func collapseWhitespace(in, dst []byte) []byte {
 		out = make([]byte, 0, len(in))
 	}
 	i := 0
-	for i < len(in) && isXMLWhitespace(in[i]) {
+	for i < len(in) && IsXMLWhitespaceByte(in[i]) {
 		i++
 	}
 	pendingSpace := false
 	for ; i < len(in); i++ {
 		b := in[i]
-		if isXMLWhitespace(b) {
+		if IsXMLWhitespaceByte(b) {
 			pendingSpace = true
 			continue
 		}
@@ -85,7 +85,7 @@ func needsCollapse(in []byte) bool {
 	if len(in) == 0 {
 		return false
 	}
-	if isXMLWhitespace(in[0]) || isXMLWhitespace(in[len(in)-1]) {
+	if IsXMLWhitespaceByte(in[0]) || IsXMLWhitespaceByte(in[len(in)-1]) {
 		return true
 	}
 	if bytes.IndexByte(in, '\t') >= 0 || bytes.IndexByte(in, '\n') >= 0 || bytes.IndexByte(in, '\r') >= 0 {
@@ -96,7 +96,8 @@ func needsCollapse(in []byte) bool {
 
 var doubleSpaceBytes = []byte("  ")
 
-func isXMLWhitespace(b byte) bool {
+// IsXMLWhitespaceByte reports whether the byte is XML whitespace.
+func IsXMLWhitespaceByte(b byte) bool {
 	if b > ' ' {
 		return false
 	}

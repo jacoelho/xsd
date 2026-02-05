@@ -25,6 +25,9 @@ func (s *Session) applyFacets(meta runtime.ValidatorMeta, normalized, canonical 
 	for _, instr := range s.rt.Facets[start:end] {
 		switch instr.Op {
 		case runtime.FPattern:
+			if meta.Kind == runtime.VUnion {
+				continue
+			}
 			if metrics != nil && metrics.patternChecked {
 				continue
 			}
@@ -72,7 +75,11 @@ func (s *Session) applyFacets(meta runtime.ValidatorMeta, normalized, canonical 
 					return err
 				}
 			default:
-				cmp, err := s.compareValue(meta.Kind, canonical, bound, metrics)
+				valueLexical := canonical
+				if meta.Kind == runtime.VTime {
+					valueLexical = normalized
+				}
+				cmp, err := s.compareValue(meta.Kind, valueLexical, bound, metrics)
 				if err != nil {
 					return err
 				}
@@ -233,16 +240,16 @@ func (s *Session) compareValue(kind runtime.ValidatorKind, canonical, bound []by
 		}
 		return cmp, nil
 	case runtime.VDateTime, runtime.VTime, runtime.VDate, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
-		valTime, valHasTZ, err := parseTemporalForKind(kind, canonical)
+		valTime, valTZ, err := parseTemporalForKind(kind, canonical)
 		if err != nil {
 			return 0, err
 		}
-		boundTime, boundHasTZ, err := parseTemporalForKind(kind, bound)
+		boundTime, boundTZ, err := parseTemporalForKind(kind, bound)
 		if err != nil {
 			return 0, err
 		}
-		comp := types.ComparableTime{Value: valTime, HasTimezone: valHasTZ}
-		boundComp := types.ComparableTime{Value: boundTime, HasTimezone: boundHasTZ}
+		comp := types.ComparableTime{Value: valTime, TimezoneKind: valTZ}
+		boundComp := types.ComparableTime{Value: boundTime, TimezoneKind: boundTZ}
 		cmp, err := comp.Compare(boundComp)
 		if err != nil {
 			return 0, valueErrorMsg(valueErrFacet, err.Error())
@@ -389,11 +396,11 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		s.keyTmp = key
 		return runtime.VKDuration, key, nil
 	case runtime.VDateTime, runtime.VDate, runtime.VTime, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
-		t, hasTZ, err := parseTemporalForKind(kind, canonical)
+		t, tzKind, err := parseTemporalForKind(kind, canonical)
 		if err != nil {
 			return runtime.VKInvalid, nil, err
 		}
-		key := valuekey.TemporalKeyBytes(s.keyTmp[:0], temporalSubkind(kind), t, hasTZ)
+		key := valuekey.TemporalKeyBytes(s.keyTmp[:0], temporalSubkind(kind), t, tzKind)
 		s.keyTmp = key
 		return runtime.VKDateTime, key, nil
 	default:
@@ -472,15 +479,7 @@ func (s *Session) checkFloat32Range(op runtime.FacetOp, canonical, bound []byte,
 	if perr != nil {
 		return valueErrorMsg(valueErrInvalid, "invalid float")
 	}
-	if boundClass == num.FloatNaN {
-		if op == runtime.FMinInclusive || op == runtime.FMaxInclusive {
-			if valClass == num.FloatNaN {
-				return nil
-			}
-		}
-		return rangeViolation(op)
-	}
-	if valClass == num.FloatNaN {
+	if boundClass == num.FloatNaN || valClass == num.FloatNaN {
 		return rangeViolation(op)
 	}
 	cmp, _ := num.CompareFloat32(val, valClass, boundVal, boundClass)
@@ -496,15 +495,7 @@ func (s *Session) checkFloat64Range(op runtime.FacetOp, canonical, bound []byte,
 	if perr != nil {
 		return valueErrorMsg(valueErrInvalid, "invalid double")
 	}
-	if boundClass == num.FloatNaN {
-		if op == runtime.FMinInclusive || op == runtime.FMaxInclusive {
-			if valClass == num.FloatNaN {
-				return nil
-			}
-		}
-		return rangeViolation(op)
-	}
-	if valClass == num.FloatNaN {
+	if boundClass == num.FloatNaN || valClass == num.FloatNaN {
 		return rangeViolation(op)
 	}
 	cmp, _ := num.CompareFloat64(val, valClass, boundVal, boundClass)

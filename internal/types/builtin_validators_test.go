@@ -266,7 +266,7 @@ func TestLexicalValidatorsMatchValuePackage(t *testing.T) {
 		{name: "language ok", value: "en-US", fn: validateLanguage, vfn: valuepkg.ValidateLanguage},
 		{name: "language bad", value: "en_US", fn: validateLanguage, vfn: valuepkg.ValidateLanguage},
 		{name: "anyURI ok", value: "http://example.com", fn: validateAnyURI, vfn: valuepkg.ValidateAnyURI},
-		{name: "anyURI bad", value: "http://exa mple.com", fn: validateAnyURI, vfn: valuepkg.ValidateAnyURI},
+		{name: "anyURI space", value: "http://exa mple.com", fn: validateAnyURI, vfn: valuepkg.ValidateAnyURI},
 	}
 
 	for _, tt := range tests {
@@ -314,8 +314,8 @@ func TestValidateBinaryURIAndQName(t *testing.T) {
 	if err := validateAnyURI("http://example.com"); err != nil {
 		t.Fatalf("unexpected anyURI error: %v", err)
 	}
-	if err := validateAnyURI("http://ex ample.com"); err == nil {
-		t.Fatalf("expected anyURI space error")
+	if err := validateAnyURI("http://ex ample.com"); err != nil {
+		t.Fatalf("unexpected anyURI space error: %v", err)
 	}
 	if err := validateAnyURI("urn:foo<bar"); err != nil {
 		t.Fatalf("unexpected anyURI delimiter error: %v", err)

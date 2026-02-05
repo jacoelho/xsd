@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolver"
+	schemapkg "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -14,7 +15,8 @@ func (l *SchemaLoader) resolveGroupReferences(schema *parser.Schema) error {
 	// first, resolve all top-level groups (they may reference each other)
 	detector := resolver.NewCycleDetector[types.QName]()
 
-	for qname, group := range schema.Groups {
+	for _, qname := range schemapkg.SortedQNames(schema.Groups) {
+		group := schema.Groups[qname]
 		if err := detector.WithScope(qname, func() error {
 			return l.resolveGroupRefsInModelGroupWithCycleDetection(group, schema, detector)
 		}); err != nil {
@@ -22,7 +24,8 @@ func (l *SchemaLoader) resolveGroupReferences(schema *parser.Schema) error {
 		}
 	}
 
-	for _, typ := range schema.TypeDefs {
+	for _, qname := range schemapkg.SortedQNames(schema.TypeDefs) {
+		typ := schema.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			if err := l.resolveGroupRefsInContentWithVisited(ct.Content(), schema, detector); err != nil {
 				return fmt.Errorf("resolve group refs in type %s: %w", ct.QName, err)
@@ -30,7 +33,8 @@ func (l *SchemaLoader) resolveGroupReferences(schema *parser.Schema) error {
 		}
 	}
 
-	for _, elem := range schema.ElementDecls {
+	for _, qname := range schemapkg.SortedQNames(schema.ElementDecls) {
+		elem := schema.ElementDecls[qname]
 		if elem.Type != nil {
 			if ct, ok := elem.Type.(*types.ComplexType); ok {
 				if err := l.resolveGroupRefsInContentWithVisited(ct.Content(), schema, detector); err != nil {

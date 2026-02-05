@@ -125,7 +125,7 @@ func TestRootAnyAllowsUndeclaredRoot(t *testing.T) {
 	}
 }
 
-func TestUnionWhitespaceCollapseRuntime(t *testing.T) {
+func TestUnionWhitespacePreserveRuntime(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="urn:test"
@@ -143,8 +143,8 @@ func TestUnionWhitespaceCollapseRuntime(t *testing.T) {
 </xs:schema>`
 
 	docXML := `<root xmlns="urn:test">  a  </root>`
-	if err := validateRuntimeDoc(t, schemaXML, docXML); err != nil {
-		t.Fatalf("unexpected validation error: %v", err)
+	if err := validateRuntimeDoc(t, schemaXML, docXML); err == nil {
+		t.Fatalf("expected pattern violation for preserved whitespace")
 	}
 }
 
@@ -504,6 +504,261 @@ func TestAllGroupSubstitutionMembers(t *testing.T) {
 	docXML := `<root xmlns="urn:test"><member>ok</member></root>`
 	if err := validateRuntimeDoc(t, schemaXML, docXML); err != nil {
 		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestUnionEnumerationIntersectionRuntime(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="Base">
+    <xs:restriction base="tns:U">
+      <xs:enumeration value="1"/>
+      <xs:enumeration value="2"/>
+      <xs:enumeration value="3"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Derived">
+    <xs:restriction base="tns:Base">
+      <xs:enumeration value="2"/>
+      <xs:enumeration value="3"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:Derived"/>
+</xs:schema>`
+
+	if err := validateRuntimeDoc(t, schemaXML, `<root xmlns="urn:test">2</root>`); err != nil {
+		t.Fatalf("expected enumeration intersection to pass: %v", err)
+	}
+	if err := validateRuntimeDoc(t, schemaXML, `<root xmlns="urn:test">1</root>`); err == nil {
+		t.Fatalf("expected enumeration intersection to reject value")
+	}
+}
+
+func TestUnionPatternWhitespaceNormalization(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:token xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="P">
+    <xs:restriction base="tns:U">
+      <xs:pattern value="\S+ \S+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:P"/>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test">a   b</root>`
+	if err := validateRuntimeDoc(t, schemaXML, doc); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestUnionPatternAfterCollapseRejects(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:token xs:ID"/>
+  </xs:simpleType>
+  <xs:simpleType name="P">
+    <xs:restriction base="tns:U">
+      <xs:pattern value="\S+\s{2}\S+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:P"/>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test">a  b</root>`
+	if err := validateRuntimeDoc(t, schemaXML, doc); err == nil {
+		t.Fatalf("expected collapsed pattern to reject value")
+	}
+}
+
+func TestUnionDefaultKeyMemberSelection(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base="xs:int">
+          <xs:minInclusive value="10"/>
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base="xs:string"/>
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="a" type="tns:U" default="5"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="u">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@a"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test"><item/><item a="5"/></root>`
+	err := validateRuntimeDoc(t, schemaXML, doc)
+	if err == nil {
+		t.Fatalf("expected identity duplicate from default/member key match")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsderrors.ErrIdentityDuplicate) {
+		t.Fatalf("expected ErrIdentityDuplicate, got %+v", list)
+	}
+}
+
+func TestUnionIDTrackingUsesSelectedMember(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:QName xs:ID"/>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="tns:U" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test"><item>foo</item><item>foo</item></root>`
+	if err := validateRuntimeDoc(t, schemaXML, doc); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestFloatNaNRangeFacet(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="F">
+    <xs:restriction base="xs:float">
+      <xs:minInclusive value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:F"/>
+</xs:schema>`
+
+	err := validateRuntimeDoc(t, schemaXML, `<root xmlns="urn:test">NaN</root>`)
+	if err == nil {
+		t.Fatalf("expected NaN to violate range facet")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsderrors.ErrFacetViolation) {
+		t.Fatalf("expected ErrFacetViolation, got %+v", list)
+	}
+}
+
+func TestTimeFacetComparisonRespectsDateShift(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="T">
+    <xs:restriction base="xs:time">
+      <xs:minInclusive value="10:30:00Z"/>
+      <xs:maxInclusive value="10:30:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:T"/>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test">00:30:00+14:00</root>`
+	if err := validateRuntimeDoc(t, schemaXML, doc); err == nil {
+		t.Fatalf("expected time with date shift to violate facets")
+	}
+}
+
+func TestNotationRequiresDeclaration(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:notation name="gif" public="image/gif"/>
+  <xs:simpleType name="NotationType">
+    <xs:union memberTypes="xs:NOTATION"/>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:NotationType"/>
+</xs:schema>`
+
+	okDoc := `<root xmlns="urn:test" xmlns:tns="urn:test">tns:gif</root>`
+	if err := validateRuntimeDoc(t, schemaXML, okDoc); err != nil {
+		t.Fatalf("expected declared notation to pass: %v", err)
+	}
+
+	badDoc := `<root xmlns="urn:test" xmlns:tns="urn:test">tns:png</root>`
+	if err := validateRuntimeDoc(t, schemaXML, badDoc); err == nil {
+		t.Fatalf("expected undeclared notation to fail")
+	}
+}
+
+func TestEmptyContentRejectsWhitespaceRuntime(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType/>
+  </xs:element>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test"> </root>`
+	err := validateRuntimeDoc(t, schemaXML, doc)
+	if err == nil {
+		t.Fatalf("expected empty content to reject whitespace")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsderrors.ErrTextInElementOnly) {
+		t.Fatalf("expected ErrTextInElementOnly, got %+v", list)
+	}
+}
+
+func TestAnyURIAllowsSpaces(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="xs:anyURI"/>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test">http://exa mple.com</root>`
+	if err := validateRuntimeDoc(t, schemaXML, doc); err != nil {
+		t.Fatalf("expected anyURI with space to pass: %v", err)
 	}
 }
 

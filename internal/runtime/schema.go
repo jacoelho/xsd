@@ -20,6 +20,7 @@ type Schema struct {
 	Patterns   []Pattern
 	Enums      EnumTable
 	Values     ValueBlob
+	Notations  []SymbolID
 
 	Models     ModelsBundle
 	Wildcards  []WildcardRule

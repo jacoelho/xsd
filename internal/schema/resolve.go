@@ -111,12 +111,6 @@ type referenceResolver struct {
 }
 
 func (r *referenceResolver) resolveGlobalElement(decl *types.ElementDecl) error {
-	if decl.SubstitutionGroup.IsZero() {
-		return r.resolveElement(decl)
-	}
-	if _, ok := r.schema.ElementDecls[decl.SubstitutionGroup]; !ok {
-		return r.resolveElement(decl)
-	}
 	return r.resolveElement(decl)
 }
 

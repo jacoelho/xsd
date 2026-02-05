@@ -76,10 +76,10 @@ func SplitXMLWhitespaceFields(value string) []string {
 func TrimXMLWhitespace(value string) string {
 	start := 0
 	end := len(value)
-	for start < end && IsXMLWhitespaceByte(value[start]) {
+	for start < end && valuepkg.IsXMLWhitespaceByte(value[start]) {
 		start++
 	}
-	for end > start && IsXMLWhitespaceByte(value[end-1]) {
+	for end > start && valuepkg.IsXMLWhitespaceByte(value[end-1]) {
 		end--
 	}
 	if start == 0 && end == len(value) {
@@ -94,14 +94,14 @@ func FieldsXMLWhitespaceSeq(value string) iter.Seq[string] {
 	return func(yield func(string) bool) {
 		i := 0
 		for i < len(value) {
-			for i < len(value) && IsXMLWhitespaceByte(value[i]) {
+			for i < len(value) && valuepkg.IsXMLWhitespaceByte(value[i]) {
 				i++
 			}
 			if i >= len(value) {
 				return
 			}
 			start := i
-			for i < len(value) && !IsXMLWhitespaceByte(value[i]) {
+			for i < len(value) && !valuepkg.IsXMLWhitespaceByte(value[i]) {
 				i++
 			}
 			if !yield(value[start:i]) {
@@ -112,10 +112,8 @@ func FieldsXMLWhitespaceSeq(value string) iter.Seq[string] {
 }
 
 func isXMLWhitespaceRune(r rune) bool {
-	return r == ' ' || r == '\t' || r == '\n' || r == '\r'
-}
-
-// IsXMLWhitespaceByte reports whether the byte is XML whitespace.
-func IsXMLWhitespaceByte(b byte) bool {
-	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
+	if r < 0 || r > 0x7f {
+		return false
+	}
+	return valuepkg.IsXMLWhitespaceByte(byte(r))
 }

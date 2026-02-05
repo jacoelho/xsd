@@ -80,21 +80,22 @@ func BuildSchema(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, error) {
 
 type schemaBuilder struct {
 	err             error
-	registry        *schema.Registry
-	builtinIDs      map[types.TypeName]runtime.TypeID
+	attrIDs         map[schema.AttrID]runtime.AttrID
+	elemIDs         map[schema.ElemID]runtime.ElemID
 	validators      *CompiledValidators
-	anyElementRules map[*types.AnyElement]runtime.WildcardID
+	registry        *schema.Registry
 	typeIDs         map[schema.TypeID]runtime.TypeID
 	builder         *runtime.Builder
 	schema          *parser.Schema
 	complexIDs      map[runtime.TypeID]uint32
+	builtinIDs      map[types.TypeName]runtime.TypeID
 	refs            *schema.ResolvedReferences
-	attrIDs         map[schema.AttrID]runtime.AttrID
-	elemIDs         map[schema.ElemID]runtime.ElemID
+	anyElementRules map[*types.AnyElement]runtime.WildcardID
 	rt              *runtime.Schema
 	paths           []runtime.PathProgram
 	wildcards       []runtime.WildcardRule
 	wildcardNS      []runtime.NamespaceID
+	notations       []runtime.SymbolID
 	maxOccurs       uint32
 	anyTypeComplex  uint32
 	limits          models.Limits
@@ -120,6 +121,7 @@ func (b *schemaBuilder) build() (*runtime.Schema, error) {
 	b.rt.Patterns = b.validators.Patterns
 	b.rt.Enums = b.validators.Enums
 	b.rt.Values = b.validators.Values
+	b.rt.Notations = b.notations
 	b.wildcards = make([]runtime.WildcardRule, 1)
 
 	b.initIDs()
@@ -204,6 +206,18 @@ func (b *schemaBuilder) initSymbols() error {
 			qname := types.QName{Namespace: constraint.TargetNamespace, Local: constraint.Name}
 			_ = b.internQName(qname)
 		}
+	}
+	for _, qname := range schema.SortedQNames(b.schema.NotationDecls) {
+		if qname.IsZero() {
+			continue
+		}
+		if id := b.internQName(qname); id != 0 {
+			b.notations = append(b.notations, id)
+		}
+	}
+	if len(b.notations) > 1 {
+		slices.Sort(b.notations)
+		b.notations = slices.Compact(b.notations)
 	}
 	return nil
 }
@@ -500,9 +514,15 @@ func (b *schemaBuilder) buildAttributes() error {
 		}
 		if def, ok := b.validators.AttributeDefaults[entry.ID]; ok {
 			attr.Default = def
+			if member, ok := b.validators.AttributeDefaultMembers[entry.ID]; ok {
+				attr.DefaultMember = member
+			}
 		}
 		if fixed, ok := b.validators.AttributeFixed[entry.ID]; ok {
 			attr.Fixed = fixed
+			if member, ok := b.validators.AttributeFixedMembers[entry.ID]; ok {
+				attr.FixedMember = member
+			}
 		}
 		b.rt.Attributes[id] = attr
 		if entry.Global {
@@ -595,9 +615,15 @@ func (b *schemaBuilder) buildElements() error {
 
 		if def, ok := b.validators.ElementDefaults[entry.ID]; ok {
 			elem.Default = def
+			if member, ok := b.validators.ElementDefaultMembers[entry.ID]; ok {
+				elem.DefaultMember = member
+			}
 		}
 		if fixed, ok := b.validators.ElementFixed[entry.ID]; ok {
 			elem.Fixed = fixed
+			if member, ok := b.validators.ElementFixedMembers[entry.ID]; ok {
+				elem.FixedMember = member
+			}
 		}
 
 		b.rt.Elements[id] = elem
@@ -1134,6 +1160,9 @@ func (b *schemaBuilder) collectAttrUses(ct *types.ComplexType) ([]runtime.AttrUs
 		if decl.HasDefault {
 			if def, ok := b.validators.AttrUseDefaults[decl]; ok {
 				use.Default = def
+				if member, ok := b.validators.AttrUseDefaultMembers[decl]; ok {
+					use.DefaultMember = member
+				}
 			} else {
 				return nil, nil, fmt.Errorf("runtime build: attribute use %s default missing", decl.Name)
 			}
@@ -1141,6 +1170,9 @@ func (b *schemaBuilder) collectAttrUses(ct *types.ComplexType) ([]runtime.AttrUs
 		if decl.HasFixed {
 			if fixed, ok := b.validators.AttrUseFixed[decl]; ok {
 				use.Fixed = fixed
+				if member, ok := b.validators.AttrUseFixedMembers[decl]; ok {
+					use.FixedMember = member
+				}
 			} else {
 				return nil, nil, fmt.Errorf("runtime build: attribute use %s fixed missing", decl.Name)
 			}
@@ -1149,9 +1181,15 @@ func (b *schemaBuilder) collectAttrUses(ct *types.ComplexType) ([]runtime.AttrUs
 			if attrID, ok := b.schemaAttrID(target); ok {
 				if def, ok := b.validators.AttributeDefaults[attrID]; ok {
 					use.Default = def
+					if member, ok := b.validators.AttributeDefaultMembers[attrID]; ok {
+						use.DefaultMember = member
+					}
 				}
 				if fixed, ok := b.validators.AttributeFixed[attrID]; ok {
 					use.Fixed = fixed
+					if member, ok := b.validators.AttributeFixedMembers[attrID]; ok {
+						use.FixedMember = member
+					}
 				}
 			}
 		}

@@ -8,20 +8,21 @@ import (
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // StringKeyBytes writes a tagged string key into dst, reusing capacity; dst is overwritten from the start.
-func StringKeyBytes(dst []byte, tag byte, value []byte) []byte {
+func StringKeyBytes(dst []byte, tag byte, data []byte) []byte {
 	dst = append(dst[:0], tag)
-	dst = append(dst, value...)
+	dst = append(dst, data...)
 	return dst
 }
 
 // StringKeyString returns a tagged string key for a Go string.
-func StringKeyString(tag byte, value string) []byte {
-	out := make([]byte, 1+len(value))
+func StringKeyString(tag byte, data string) []byte {
+	out := make([]byte, 1+len(data))
 	out[0] = tag
-	copy(out[1:], value)
+	copy(out[1:], data)
 	return out
 }
 
@@ -101,75 +102,73 @@ func Float64Key(dst []byte, floatVal float64, class num.FloatClass) []byte {
 }
 
 // TemporalKeyBytes appends a canonical temporal key encoding to dst.
-func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, hasTZ bool) []byte {
+func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, tzKind value.TimezoneKind) []byte {
+	tzFlag := timezoneFlag(tzKind)
+	if tzKind == value.TZKnown {
+		t = t.UTC()
+	}
 	if subkind == 2 {
-		if hasTZ {
-			t = t.UTC()
-		}
 		seconds := t.Hour()*3600 + t.Minute()*60 + t.Second()
 		dst = ensureLen(dst[:0], 10)
 		dst[0] = subkind
-		if hasTZ {
-			dst[1] = 1
-		} else {
-			dst[1] = 0
-		}
+		dst[1] = tzFlag
 		binary.BigEndian.PutUint32(dst[2:], uint32(seconds))
 		binary.BigEndian.PutUint32(dst[6:], uint32(t.Nanosecond()))
 		return dst
 	}
-	if hasTZ {
-		if subkind == 0 {
-			utc := t.UTC()
-			dst = ensureLen(dst[:0], 14)
-			dst[0] = subkind
-			dst[1] = 1
-			binary.BigEndian.PutUint64(dst[2:], uint64(utc.Unix()))
-			binary.BigEndian.PutUint32(dst[10:], uint32(utc.Nanosecond()))
-			return dst
-		}
-		utc := t.UTC()
-		year, month, day := utc.Date()
-		hour, minute, sec := 0, 0, 0
-		switch subkind {
-		case 3: // gYearMonth
-			day = 0
-		case 4: // gYear
-			month = 0
-			day = 0
-		case 5: // gMonthDay
-			year = 0
-		case 6: // gDay
-			year = 0
-			month = 0
-		case 7: // gMonth
-			year = 0
-			day = 0
-		}
-		dst = ensureLen(dst[:0], 20)
-		dst[0] = subkind
-		dst[1] = 1
-		binary.BigEndian.PutUint32(dst[2:], uint32(int32(year)))
-		binary.BigEndian.PutUint16(dst[6:], uint16(month))
-		binary.BigEndian.PutUint16(dst[8:], uint16(day))
-		binary.BigEndian.PutUint16(dst[10:], uint16(hour))
-		binary.BigEndian.PutUint16(dst[12:], uint16(minute))
-		binary.BigEndian.PutUint16(dst[14:], uint16(sec))
-		binary.BigEndian.PutUint32(dst[16:], 0)
-		return dst
-	}
 	year, month, day := t.Date()
 	hour, minute, sec := t.Clock()
+	nanos := t.Nanosecond()
+	switch subkind {
+	case 1: // date
+		hour = 0
+		minute = 0
+		sec = 0
+		nanos = 0
+	case 3: // gYearMonth
+		day = 0
+		hour = 0
+		minute = 0
+		sec = 0
+		nanos = 0
+	case 4: // gYear
+		month = 0
+		day = 0
+		hour = 0
+		minute = 0
+		sec = 0
+		nanos = 0
+	case 5: // gMonthDay
+		year = 0
+		hour = 0
+		minute = 0
+		sec = 0
+		nanos = 0
+	case 6: // gDay
+		year = 0
+		month = 0
+		hour = 0
+		minute = 0
+		sec = 0
+		nanos = 0
+	case 7: // gMonth
+		year = 0
+		day = 0
+		hour = 0
+		minute = 0
+		sec = 0
+		nanos = 0
+	}
 	dst = ensureLen(dst[:0], 20)
 	dst[0] = subkind
-	dst[1] = 0
+	dst[1] = tzFlag
 	binary.BigEndian.PutUint32(dst[2:], uint32(int32(year)))
 	binary.BigEndian.PutUint16(dst[6:], uint16(month))
 	binary.BigEndian.PutUint16(dst[8:], uint16(day))
 	binary.BigEndian.PutUint16(dst[10:], uint16(hour))
 	binary.BigEndian.PutUint16(dst[12:], uint16(minute))
 	binary.BigEndian.PutUint16(dst[14:], uint16(sec))
-	binary.BigEndian.PutUint32(dst[16:], uint32(t.Nanosecond()))
+	binary.BigEndian.PutUint32(dst[16:], uint32(nanos))
 	return dst
 }
 
@@ -219,4 +218,13 @@ func ensureLen(dst []byte, n int) []byte {
 		return make([]byte, n)
 	}
 	return dst[:n]
+}
+
+func timezoneFlag(kind value.TimezoneKind) byte {
+	switch kind {
+	case value.TZKnown:
+		return 1
+	default:
+		return 0
+	}
 }

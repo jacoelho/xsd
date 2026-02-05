@@ -115,67 +115,87 @@ type pendingDirective struct {
 }
 
 type importTracker struct {
-	mergedIncludes map[loadKey]map[loadKey]bool
-	mergedImports  map[loadKey]map[loadKey]bool
+	merged map[parser.DirectiveKind]map[loadKey]map[loadKey]bool
 }
 
 func newImportTracker() importTracker {
 	return importTracker{
-		mergedIncludes: make(map[loadKey]map[loadKey]bool),
-		mergedImports:  make(map[loadKey]map[loadKey]bool),
+		merged: make(map[parser.DirectiveKind]map[loadKey]map[loadKey]bool),
+	}
+}
+
+func (t *importTracker) alreadyMerged(kind parser.DirectiveKind, baseKey, targetKey loadKey) bool {
+	if t == nil || len(t.merged) == 0 {
+		return false
+	}
+	byKind := t.merged[kind]
+	if byKind == nil {
+		return false
+	}
+	merged := byKind[baseKey]
+	return merged[targetKey]
+}
+
+func (t *importTracker) markMerged(kind parser.DirectiveKind, baseKey, targetKey loadKey) {
+	if t.merged == nil {
+		t.merged = make(map[parser.DirectiveKind]map[loadKey]map[loadKey]bool)
+	}
+	byKind := t.merged[kind]
+	if byKind == nil {
+		byKind = make(map[loadKey]map[loadKey]bool)
+		t.merged[kind] = byKind
+	}
+	merged := byKind[baseKey]
+	if merged == nil {
+		merged = make(map[loadKey]bool)
+		byKind[baseKey] = merged
+	}
+	merged[targetKey] = true
+}
+
+func (t *importTracker) unmarkMerged(kind parser.DirectiveKind, baseKey, targetKey loadKey) {
+	if t == nil || len(t.merged) == 0 {
+		return
+	}
+	byKind := t.merged[kind]
+	if byKind == nil {
+		return
+	}
+	merged := byKind[baseKey]
+	if merged == nil {
+		return
+	}
+	delete(merged, targetKey)
+	if len(merged) == 0 {
+		delete(byKind, baseKey)
+	}
+	if len(byKind) == 0 {
+		delete(t.merged, kind)
 	}
 }
 
 func (t *importTracker) alreadyMergedInclude(baseKey, includeKey loadKey) bool {
-	merged, ok := t.mergedIncludes[baseKey]
-	if !ok {
-		return false
-	}
-	return merged[includeKey]
+	return t.alreadyMerged(parser.DirectiveInclude, baseKey, includeKey)
 }
 
 func (t *importTracker) markMergedInclude(baseKey, includeKey loadKey) {
-	if t.mergedIncludes[baseKey] == nil {
-		t.mergedIncludes[baseKey] = make(map[loadKey]bool)
-	}
-	t.mergedIncludes[baseKey][includeKey] = true
+	t.markMerged(parser.DirectiveInclude, baseKey, includeKey)
 }
 
 func (t *importTracker) unmarkMergedInclude(baseKey, includeKey loadKey) {
-	merged, ok := t.mergedIncludes[baseKey]
-	if !ok {
-		return
-	}
-	delete(merged, includeKey)
-	if len(merged) == 0 {
-		delete(t.mergedIncludes, baseKey)
-	}
+	t.unmarkMerged(parser.DirectiveInclude, baseKey, includeKey)
 }
 
 func (t *importTracker) alreadyMergedImport(baseKey, importKey loadKey) bool {
-	merged, ok := t.mergedImports[baseKey]
-	if !ok {
-		return false
-	}
-	return merged[importKey]
+	return t.alreadyMerged(parser.DirectiveImport, baseKey, importKey)
 }
 
 func (t *importTracker) markMergedImport(baseKey, importKey loadKey) {
-	if t.mergedImports[baseKey] == nil {
-		t.mergedImports[baseKey] = make(map[loadKey]bool)
-	}
-	t.mergedImports[baseKey][importKey] = true
+	t.markMerged(parser.DirectiveImport, baseKey, importKey)
 }
 
 func (t *importTracker) unmarkMergedImport(baseKey, importKey loadKey) {
-	merged, ok := t.mergedImports[baseKey]
-	if !ok {
-		return
-	}
-	delete(merged, importKey)
-	if len(merged) == 0 {
-		delete(t.mergedImports, baseKey)
-	}
+	t.unmarkMerged(parser.DirectiveImport, baseKey, importKey)
 }
 
 type validationMode int
@@ -261,11 +281,13 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 			entry := l.state.ensureEntry(key)
 			entry.validationRequested = true
 			if resolveErr := l.resolvePendingImportsFor(key); resolveErr != nil {
-				_ = doc.Close()
+				if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
+					return nil, errors.Join(resolveErr, closeErr)
+				}
 				return nil, resolveErr
 			}
 		}
-		if closeErr := doc.Close(); closeErr != nil {
+		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
 			return nil, closeErr
 		}
 		return sch, nil
@@ -273,8 +295,12 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 
 	loadedSchema, err := session.handleCircularLoad()
 	if err != nil || loadedSchema != nil {
-		if closeErr := doc.Close(); closeErr != nil && err == nil {
-			return nil, closeErr
+		closeErr := closeSchemaDoc(doc, systemID)
+		if closeErr != nil {
+			if err == nil {
+				return nil, closeErr
+			}
+			return nil, errors.Join(err, closeErr)
 		}
 		return loadedSchema, err
 	}
@@ -305,32 +331,12 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 		return nil, fmt.Errorf("circular dependency detected: %s", systemID)
 	}
 
-	entry := l.state.ensureEntry(key)
-	entry.state = schemaStateLoading
-	entry.schema = nil
-	defer func() {
-		if entry.state != schemaStateLoading {
-			return
-		}
-		entry.state = schemaStateUnknown
-		entry.schema = nil
-		if entry.pendingCount == 0 && len(entry.pendingDirectives) == 0 && !entry.validationRequested && !entry.validated {
-			l.state.deleteEntry(key)
-		}
-	}()
+	entry, cleanup := l.enterLoading(key)
+	defer cleanup()
 
 	sch = result.Schema
-	initSchemaOrigins(sch, systemID)
-	entry.schema = sch
-	if len(result.Includes) > 0 {
-		entry.includeInserted = make([]int, len(result.Includes))
-	} else {
-		entry.includeInserted = nil
-	}
-	registerImports(sch, result.Imports)
-
-	if validateErr := validateImportConstraints(sch, result.Imports); validateErr != nil {
-		return nil, validateErr
+	if initErr := l.initLoadEntry(entry, sch, systemID, result.Includes, result.Imports); initErr != nil {
+		return nil, initErr
 	}
 
 	session := newLoadSession(l, systemID, key, nil)
@@ -343,24 +349,62 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 		return nil, directivesErr
 	}
 
-	if mode == validateSchema {
-		entry.validationRequested = true
-	}
-
-	entry.schema = sch
-	entry.state = schemaStateLoaded
+	l.finalizeLoad(entry, sch, mode)
 
 	if err := l.resolvePendingImportsFor(key); err != nil {
-		entry.schema = nil
-		entry.state = schemaStateUnknown
-		entry.pendingDirectives = nil
-		entry.pendingCount = 0
-		entry.validationRequested = false
-		entry.validated = false
+		l.resetEntry(entry, key)
 		return nil, err
 	}
 
 	return sch, nil
+}
+
+func (l *SchemaLoader) enterLoading(key loadKey) (*schemaEntry, func()) {
+	entry := l.state.ensureEntry(key)
+	entry.state = schemaStateLoading
+	entry.schema = nil
+	cleanup := func() {
+		if entry.state != schemaStateLoading {
+			return
+		}
+		entry.state = schemaStateUnknown
+		entry.schema = nil
+		l.cleanupEntryIfUnused(key)
+	}
+	return entry, cleanup
+}
+
+func (l *SchemaLoader) initLoadEntry(entry *schemaEntry, sch *parser.Schema, systemID string, includes []parser.IncludeInfo, imports []parser.ImportInfo) error {
+	initSchemaOrigins(sch, systemID)
+	entry.schema = sch
+	if len(includes) > 0 {
+		entry.includeInserted = make([]int, len(includes))
+	} else {
+		entry.includeInserted = nil
+	}
+	registerImports(sch, imports)
+	if validateErr := validateImportConstraints(sch, imports); validateErr != nil {
+		return validateErr
+	}
+	return nil
+}
+
+func (l *SchemaLoader) finalizeLoad(entry *schemaEntry, sch *parser.Schema, mode validationMode) {
+	if mode == validateSchema {
+		entry.validationRequested = true
+	}
+	entry.schema = sch
+	entry.state = schemaStateLoaded
+}
+
+func (l *SchemaLoader) resetEntry(entry *schemaEntry, key loadKey) {
+	entry.schema = nil
+	entry.state = schemaStateUnknown
+	entry.pendingDirectives = nil
+	entry.pendingCount = 0
+	entry.validationRequested = false
+	entry.validated = false
+	l.cleanupEntryIfUnused(key)
 }
 
 func (l *SchemaLoader) resolve(req ResolveRequest) (io.ReadCloser, string, error) {

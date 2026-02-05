@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // ValuesEqual reports whether two typed values are equal in the value space.
@@ -50,18 +51,12 @@ func ValuesEqual(left, right TypedValue) bool {
 			return false
 		}
 		if isTemporalValueType(left.Type()) {
-			leftHasTZ := HasTimezone(left.Lexical())
-			rightHasTZ := HasTimezone(right.Lexical())
-			if leftHasTZ != rightHasTZ {
+			leftTZ := TimezoneKind(left.Lexical())
+			rightTZ := TimezoneKind(right.Lexical())
+			if leftTZ != rightTZ {
 				return false
 			}
-			// If both have timezones, compare UTC times (Z and +00:00 are equivalent)
-			if leftHasTZ {
-				if isTimeValueType(left.Type()) {
-					leftSec, leftNanos := timeOfDayUTC(l)
-					rightSec, rightNanos := timeOfDayUTC(r)
-					return leftSec == rightSec && leftNanos == rightNanos
-				}
+			if leftTZ == value.TZKnown {
 				return l.UTC().Equal(r.UTC())
 			}
 		}
@@ -199,21 +194,4 @@ func isTemporalValueType(typ Type) bool {
 	default:
 		return false
 	}
-}
-
-func isTimeValueType(typ Type) bool {
-	if typ == nil {
-		return false
-	}
-	primitive := typ.PrimitiveType()
-	if primitive == nil {
-		primitive = typ
-	}
-	return primitive.Name().Local == "time"
-}
-
-func timeOfDayUTC(t time.Time) (int, int) {
-	utc := t.UTC()
-	seconds := utc.Hour()*3600 + utc.Minute()*60 + utc.Second()
-	return seconds, utc.Nanosecond()
 }

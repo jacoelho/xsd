@@ -126,55 +126,55 @@ func compareTimes(t1, t2 time.Time) int {
 	return 0
 }
 
-func compareDateTimeOrder(t1 time.Time, tz1 bool, t2 time.Time, tz2 bool) (int, error) {
+func compareDateTimeOrder(t1 time.Time, tz1 xsdvalue.TimezoneKind, t2 time.Time, tz2 xsdvalue.TimezoneKind) (int, error) {
 	if tz1 == tz2 {
 		return compareTimes(t1, t2), nil
 	}
-	cmp, err := types.ComparableTime{Value: t1, HasTimezone: tz1}.Compare(types.ComparableTime{Value: t2, HasTimezone: tz2})
+	cmp, err := types.ComparableTime{Value: t1, TimezoneKind: tz1}.Compare(types.ComparableTime{Value: t2, TimezoneKind: tz2})
 	if err != nil {
 		return 0, errDateTimeNotComparable
 	}
 	return cmp, nil
 }
 
-func parseTemporal(value string, parse func([]byte) (time.Time, error)) (time.Time, bool, error) {
+func parseTemporal(value string, parse func([]byte) (time.Time, error)) (time.Time, xsdvalue.TimezoneKind, error) {
 	lexical := []byte(value)
 	parsed, err := parse(lexical)
 	if err != nil {
-		return time.Time{}, false, err
+		return time.Time{}, xsdvalue.TZNone, err
 	}
-	return parsed, xsdvalue.HasTimezone(lexical), nil
+	return parsed, xsdvalue.TimezoneKindFromLexical(lexical), nil
 }
 
-func parseXSDDate(value string) (time.Time, bool, error) {
+func parseXSDDate(value string) (time.Time, xsdvalue.TimezoneKind, error) {
 	return parseTemporal(value, xsdvalue.ParseDate)
 }
 
-func parseXSDDateTime(value string) (time.Time, bool, error) {
+func parseXSDDateTime(value string) (time.Time, xsdvalue.TimezoneKind, error) {
 	return parseTemporal(value, xsdvalue.ParseDateTime)
 }
 
-func parseXSDTime(value string) (time.Time, bool, error) {
+func parseXSDTime(value string) (time.Time, xsdvalue.TimezoneKind, error) {
 	return parseTemporal(value, xsdvalue.ParseTime)
 }
 
-func parseXSDGYear(value string) (time.Time, bool, error) {
+func parseXSDGYear(value string) (time.Time, xsdvalue.TimezoneKind, error) {
 	return parseTemporal(value, xsdvalue.ParseGYear)
 }
 
-func parseXSDGYearMonth(value string) (time.Time, bool, error) {
+func parseXSDGYearMonth(value string) (time.Time, xsdvalue.TimezoneKind, error) {
 	return parseTemporal(value, xsdvalue.ParseGYearMonth)
 }
 
-func parseXSDGMonth(value string) (time.Time, bool, error) {
+func parseXSDGMonth(value string) (time.Time, xsdvalue.TimezoneKind, error) {
 	return parseTemporal(value, xsdvalue.ParseGMonth)
 }
 
-func parseXSDGMonthDay(value string) (time.Time, bool, error) {
+func parseXSDGMonthDay(value string) (time.Time, xsdvalue.TimezoneKind, error) {
 	return parseTemporal(value, xsdvalue.ParseGMonthDay)
 }
 
-func parseXSDGDay(value string) (time.Time, bool, error) {
+func parseXSDGDay(value string) (time.Time, xsdvalue.TimezoneKind, error) {
 	return parseTemporal(value, xsdvalue.ParseGDay)
 }
 

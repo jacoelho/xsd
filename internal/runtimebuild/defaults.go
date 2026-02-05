@@ -25,22 +25,28 @@ func (c *compiler) compileDefaults(registry *schema.Registry) error {
 			if err != nil {
 				return fmt.Errorf("element %s default: %w", entry.QName, err)
 			}
-			canon, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
+			canon, member, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
 			if err != nil {
 				return fmt.Errorf("element %s default: %w", entry.QName, err)
 			}
 			c.elemDefaults[entry.ID] = c.values.add(canon)
+			if member != 0 {
+				c.elemDefaultMembers[entry.ID] = member
+			}
 		}
 		if decl.HasFixed {
 			typ, err := c.valueTypeForElement(decl)
 			if err != nil {
 				return fmt.Errorf("element %s fixed: %w", entry.QName, err)
 			}
-			canon, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
+			canon, member, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
 			if err != nil {
 				return fmt.Errorf("element %s fixed: %w", entry.QName, err)
 			}
 			c.elemFixed[entry.ID] = c.values.add(canon)
+			if member != 0 {
+				c.elemFixedMembers[entry.ID] = member
+			}
 		}
 	}
 
@@ -57,22 +63,28 @@ func (c *compiler) compileDefaults(registry *schema.Registry) error {
 			if err != nil {
 				return fmt.Errorf("attribute %s default: %w", entry.QName, err)
 			}
-			canon, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
+			canon, member, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
 			if err != nil {
 				return fmt.Errorf("attribute %s default: %w", entry.QName, err)
 			}
 			c.attrDefaults[entry.ID] = c.values.add(canon)
+			if member != 0 {
+				c.attrDefaultMembers[entry.ID] = member
+			}
 		}
 		if decl.HasFixed {
 			typ, err := c.valueTypeForAttribute(decl)
 			if err != nil {
 				return fmt.Errorf("attribute %s fixed: %w", entry.QName, err)
 			}
-			canon, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
+			canon, member, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
 			if err != nil {
 				return fmt.Errorf("attribute %s fixed: %w", entry.QName, err)
 			}
 			c.attrFixed[entry.ID] = c.values.add(canon)
+			if member != 0 {
+				c.attrFixedMembers[entry.ID] = member
+			}
 		}
 	}
 
@@ -108,20 +120,26 @@ func (c *compiler) compileAttributeUses(registry *schema.Registry) error {
 			}
 			if decl.HasDefault {
 				if _, exists := c.attrUseDefaults[decl]; !exists {
-					canon, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
+					canon, member, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
 					if err != nil {
 						return fmt.Errorf("attribute use %s default: %w", decl.Name, err)
 					}
 					c.attrUseDefaults[decl] = c.values.add(canon)
+					if member != 0 {
+						c.attrUseDefaultMembers[decl] = member
+					}
 				}
 			}
 			if decl.HasFixed {
 				if _, exists := c.attrUseFixed[decl]; !exists {
-					canon, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
+					canon, member, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
 					if err != nil {
 						return fmt.Errorf("attribute use %s fixed: %w", decl.Name, err)
 					}
 					c.attrUseFixed[decl] = c.values.add(canon)
+					if member != 0 {
+						c.attrUseFixedMembers[decl] = member
+					}
 				}
 			}
 		}
@@ -165,28 +183,66 @@ func (c *compiler) valueTypeForAttribute(decl *types.AttributeDecl) (types.Type,
 	return nil, fmt.Errorf("missing attribute type")
 }
 
-func (c *compiler) canonicalizeDefaultFixed(lexical string, typ types.Type, ctx map[string]string) ([]byte, error) {
+func (c *compiler) canonicalizeDefaultFixed(lexical string, typ types.Type, ctx map[string]string) ([]byte, runtime.ValidatorID, error) {
 	normalized := c.normalizeLexical(lexical, typ)
 	facets, err := c.facetsForType(typ)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	err = c.validatePartialFacets(normalized, typ, facets)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	canon, err := c.canonicalizeNormalizedDefault(lexical, normalized, typ, ctx)
+	canon, memberType, err := c.canonicalizeNormalizedDefaultWithMember(lexical, normalized, typ, ctx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	if err := c.validateEnumSets(lexical, normalized, typ, ctx); err != nil {
-		return nil, err
+	enumErr := c.validateEnumSets(lexical, normalized, typ, ctx)
+	if enumErr != nil {
+		return nil, 0, enumErr
 	}
-	return canon, nil
+	memberID := runtime.ValidatorID(0)
+	if memberType != nil {
+		memberID, err = c.compileType(memberType)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+	return canon, memberID, nil
 }
 
 func (c *compiler) canonicalizeNormalizedDefault(lexical, normalized string, typ types.Type, ctx map[string]string) ([]byte, error) {
 	return c.canonicalizeNormalizedCore(lexical, normalized, typ, ctx, canonicalizeDefault)
+}
+
+func (c *compiler) canonicalizeNormalizedDefaultWithMember(lexical, normalized string, typ types.Type, ctx map[string]string) ([]byte, types.Type, error) {
+	if c.res.varietyForType(typ) != types.UnionVariety {
+		canon, err := c.canonicalizeNormalizedCore(lexical, normalized, typ, ctx, canonicalizeDefault)
+		return canon, nil, err
+	}
+	members := c.res.unionMemberTypesFromType(typ)
+	if len(members) == 0 {
+		return nil, nil, fmt.Errorf("union has no member types")
+	}
+	for _, member := range members {
+		memberLex := c.normalizeLexical(lexical, member)
+		memberFacets, err := c.facetsForType(member)
+		if err != nil {
+			return nil, nil, err
+		}
+		if validateErr := c.validatePartialFacets(memberLex, member, memberFacets); validateErr != nil {
+			continue
+		}
+		canon, canonErr := c.canonicalizeNormalizedCore(lexical, memberLex, member, ctx, canonicalizeDefault)
+		if canonErr != nil {
+			continue
+		}
+		if enumErr := c.validateEnumSets(lexical, memberLex, member, ctx); enumErr != nil {
+			continue
+		}
+		return canon, member, nil
+	}
+	return nil, nil, fmt.Errorf("union value does not match any member type")
 }
 
 func (c *compiler) validateEnumSets(lexical, normalized string, typ types.Type, ctx map[string]string) error {

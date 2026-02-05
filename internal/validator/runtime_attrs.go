@@ -293,11 +293,11 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 				}
 				seenID = true
 			}
-			if err := s.trackDefaultValue(use.Validator, valueBytes(s.rt.Values, use.Fixed)); err != nil {
+			if err := s.trackDefaultValue(use.Validator, valueBytes(s.rt.Values, use.Fixed), nil, use.FixedMember); err != nil {
 				return nil, err
 			}
 			if storeAttrs {
-				kind, key, err := s.keyForCanonicalValue(use.Validator, valueBytes(s.rt.Values, use.Fixed))
+				kind, key, err := s.keyForCanonicalValue(use.Validator, valueBytes(s.rt.Values, use.Fixed), nil, use.FixedMember)
 				if err != nil {
 					return nil, err
 				}
@@ -320,11 +320,11 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 				}
 				seenID = true
 			}
-			if err := s.trackDefaultValue(use.Validator, valueBytes(s.rt.Values, use.Default)); err != nil {
+			if err := s.trackDefaultValue(use.Validator, valueBytes(s.rt.Values, use.Default), nil, use.DefaultMember); err != nil {
 				return nil, err
 			}
 			if storeAttrs {
-				kind, key, err := s.keyForCanonicalValue(use.Validator, valueBytes(s.rt.Values, use.Default))
+				kind, key, err := s.keyForCanonicalValue(use.Validator, valueBytes(s.rt.Values, use.Default), nil, use.DefaultMember)
 				if err != nil {
 					return nil, err
 				}

@@ -374,6 +374,7 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 	var textKeyKind runtime.ValueKind
 	var textKeyBytes []byte
 	textValidator := runtime.ValidatorID(0)
+	textMember := runtime.ValidatorID(0)
 	if !frame.nilled && ok && (typ.Kind == runtime.TypeSimple || typ.Kind == runtime.TypeBuiltin || frame.content == runtime.ContentSimple) {
 		if frame.hasChildElements && !frame.childErrorReported {
 			if path == "" {
@@ -404,11 +405,11 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 				textValidator = ct.TextValidator
 			}
 		}
-		trackDefault := func(value []byte) {
+		trackDefault := func(value []byte, member runtime.ValidatorID) {
 			if textValidator == 0 {
 				return
 			}
-			if err := s.trackDefaultValue(textValidator, value); err != nil {
+			if err := s.trackDefaultValue(textValidator, value, resolver, member); err != nil {
 				if path == "" {
 					path = s.pathString()
 				}
@@ -418,16 +419,20 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 		switch {
 		case !hasContent && elemOK && elem.Fixed.Present:
 			canonText = valueBytes(s.rt.Values, elem.Fixed)
-			trackDefault(canonText)
+			textMember = elem.FixedMember
+			trackDefault(canonText, textMember)
 		case !hasContent && elemOK && elem.Default.Present:
 			canonText = valueBytes(s.rt.Values, elem.Default)
-			trackDefault(canonText)
+			textMember = elem.DefaultMember
+			trackDefault(canonText, textMember)
 		case !hasContent && hasComplexText && ct.TextFixed.Present:
 			canonText = valueBytes(s.rt.Values, ct.TextFixed)
-			trackDefault(canonText)
+			textMember = ct.TextFixedMember
+			trackDefault(canonText, textMember)
 		case !hasContent && hasComplexText && ct.TextDefault.Present:
 			canonText = valueBytes(s.rt.Values, ct.TextDefault)
-			trackDefault(canonText)
+			textMember = ct.TextDefaultMember
+			trackDefault(canonText, textMember)
 		default:
 			requireCanonical := (elemOK && elem.Fixed.Present) || (hasComplexText && ct.TextFixed.Present)
 			canon, metrics, err := s.ValidateTextValue(frame.typ, rawText, resolver, requireCanonical)
@@ -462,7 +467,7 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 	}
 
 	if s.hasIdentityConstraints() && textKeyKind == runtime.VKInvalid && canonText != nil && textValidator != 0 {
-		kind, key, err := s.keyForCanonicalValue(textValidator, canonText)
+		kind, key, err := s.keyForCanonicalValue(textValidator, canonText, resolver, textMember)
 		if err != nil {
 			if path == "" {
 				path = s.pathString()

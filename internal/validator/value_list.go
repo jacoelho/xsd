@@ -94,14 +94,14 @@ func forEachListItem(normalized []byte, spaceOnly bool, fn func([]byte) error) (
 	i := 0
 	if spaceOnly {
 		for i < len(normalized) {
-			for i < len(normalized) && isXMLWhitespace(normalized[i]) {
+			for i < len(normalized) && value.IsXMLWhitespaceByte(normalized[i]) {
 				i++
 			}
 			if i >= len(normalized) {
 				break
 			}
 			start := i
-			for i < len(normalized) && !isXMLWhitespace(normalized[i]) {
+			for i < len(normalized) && !value.IsXMLWhitespaceByte(normalized[i]) {
 				i++
 			}
 			if fn != nil {
@@ -135,13 +135,4 @@ func forEachListItem(normalized []byte, spaceOnly bool, fn func([]byte) error) (
 func listItemCount(normalized []byte, spaceOnly bool) int {
 	count, _ := forEachListItem(normalized, spaceOnly, nil)
 	return count
-}
-
-func isXMLWhitespace(b byte) bool {
-	switch b {
-	case ' ', '\t', '\n', '\r':
-		return true
-	default:
-		return false
-	}
 }

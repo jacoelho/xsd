@@ -151,57 +151,57 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 		if err != nil {
 			return keyBytes{}, err
 		}
-		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 0, t, hasTZ)}, nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 0, t, tzKind)}, nil
 	case "date":
 		t, err := value.ParseDate([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
-		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 1, t, hasTZ)}, nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 1, t, tzKind)}, nil
 	case "time":
 		t, err := value.ParseTime([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
-		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 2, t, hasTZ)}, nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 2, t, tzKind)}, nil
 	case "gYearMonth":
 		t, err := value.ParseGYearMonth([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
-		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 3, t, hasTZ)}, nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 3, t, tzKind)}, nil
 	case "gYear":
 		t, err := value.ParseGYear([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
-		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 4, t, hasTZ)}, nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 4, t, tzKind)}, nil
 	case "gMonthDay":
 		t, err := value.ParseGMonthDay([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
-		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 5, t, hasTZ)}, nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 5, t, tzKind)}, nil
 	case "gDay":
 		t, err := value.ParseGDay([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
-		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 6, t, hasTZ)}, nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 6, t, tzKind)}, nil
 	case "gMonth":
 		t, err := value.ParseGMonth([]byte(normalized))
 		if err != nil {
 			return keyBytes{}, err
 		}
-		hasTZ := value.HasTimezone([]byte(normalized))
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 7, t, hasTZ)}, nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 7, t, tzKind)}, nil
 	case "duration":
 		dur, err := types.ParseXSDDuration(normalized)
 		if err != nil {

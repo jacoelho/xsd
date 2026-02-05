@@ -109,6 +109,9 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 		return fmt.Errorf("load included schema %s: %w", include.SchemaLocation, err)
 	}
 	if !s.loader.isIncludeNamespaceCompatible(includingNS, includedSchema.TargetNamespace) {
+		if entry, ok := s.loader.state.entry(includeKey); ok && entry != nil {
+			s.loader.resetEntry(entry, includeKey)
+		}
 		return fmt.Errorf("included schema %s has different target namespace: %s != %s",
 			include.SchemaLocation, includedSchema.TargetNamespace, includingNS)
 	}
@@ -179,10 +182,16 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 	}
 	if imp.Namespace == "" {
 		if !importedSchema.TargetNamespace.IsEmpty() {
+			if entry, ok := s.loader.state.entry(importKey); ok && entry != nil {
+				s.loader.resetEntry(entry, importKey)
+			}
 			return fmt.Errorf("imported schema %s namespace mismatch: expected no namespace, got %s",
 				imp.SchemaLocation, importedSchema.TargetNamespace)
 		}
 	} else if importedSchema.TargetNamespace != importNS {
+		if entry, ok := s.loader.state.entry(importKey); ok && entry != nil {
+			s.loader.resetEntry(entry, importKey)
+		}
 		return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
 			imp.SchemaLocation, imp.Namespace, importedSchema.TargetNamespace)
 	}

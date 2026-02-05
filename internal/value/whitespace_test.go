@@ -33,3 +33,16 @@ func TestTrimXMLWhitespace(t *testing.T) {
 		t.Fatalf("TrimXMLWhitespace() = %q, want %q", string(got), string(want))
 	}
 }
+
+func TestIsXMLWhitespaceByte(t *testing.T) {
+	for _, b := range []byte{' ', '\t', '\n', '\r'} {
+		if !IsXMLWhitespaceByte(b) {
+			t.Fatalf("expected %q to be XML whitespace", b)
+		}
+	}
+	for _, b := range []byte{'a', '0', 0} {
+		if IsXMLWhitespaceByte(b) {
+			t.Fatalf("expected %q to be non-whitespace", b)
+		}
+	}
+}

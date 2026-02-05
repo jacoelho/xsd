@@ -484,7 +484,7 @@ func TestRuntimeTotalDigitsLeadingDotDecimal(t *testing.T) {
 
 	doc := `<t1 att9=".12345"/>`
 	if err := validateRuntimeDoc(t, schema, doc); err != nil {
-		t.Fatalf("validate runtime: %v", err)
+		t.Fatalf("expected leading dot decimal to pass: %v", err)
 	}
 }
 
@@ -513,20 +513,15 @@ func TestRuntimeXsiTypeBlockedByBaseTypeBlock(t *testing.T) {
 	}
 }
 
-func TestRuntimeAnyURIRejectsSpaces(t *testing.T) {
+func TestRuntimeAnyURIAllowsSpaces(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyURI"/>
 </xs:schema>`
 
 	bad := `<root>http://exa mple.com</root>`
-	err := validateRuntimeDoc(t, schema, bad)
-	if err == nil {
-		t.Fatalf("expected anyURI whitespace error")
-	}
-	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrDatatypeInvalid) {
-		t.Fatalf("expected ErrDatatypeInvalid, got %+v", list)
+	if err := validateRuntimeDoc(t, schema, bad); err != nil {
+		t.Fatalf("expected anyURI whitespace to pass: %v", err)
 	}
 
 	good := `<root>http://example.com/%20</root>`

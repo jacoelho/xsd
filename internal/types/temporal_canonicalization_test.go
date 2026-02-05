@@ -34,8 +34,8 @@ func TestTemporalCanonicalizationMatchesValue(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse temporal %s error = %v", tc.kind, err)
 			}
-			hasTZ := valuepkg.HasTimezone([]byte(tc.lexical))
-			want := valuepkg.CanonicalDateTimeString(parsed, string(tc.kind), hasTZ)
+			tzKind := valuepkg.TimezoneKindFromLexical([]byte(tc.lexical))
+			want := valuepkg.CanonicalDateTimeString(parsed, string(tc.kind), tzKind)
 			if got != want {
 				t.Fatalf("canonical = %q, want %q", got, want)
 			}

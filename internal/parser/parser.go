@@ -277,9 +277,11 @@ func parseDirectives(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, r
 			if err := validateElementConstraints(doc, child, "import", schema); err != nil {
 				return nil, err
 			}
+			namespace := types.ApplyWhiteSpace(doc.GetAttribute(child, "namespace"), types.WhiteSpaceCollapse)
+			schemaLocation := types.ApplyWhiteSpace(doc.GetAttribute(child, "schemaLocation"), types.WhiteSpaceCollapse)
 			importInfo := ImportInfo{
-				Namespace:      doc.GetAttribute(child, "namespace"),
-				SchemaLocation: doc.GetAttribute(child, "schemaLocation"),
+				Namespace:      namespace,
+				SchemaLocation: schemaLocation,
 			}
 			result.Imports = append(result.Imports, importInfo)
 			result.Directives = append(result.Directives, Directive{
@@ -291,8 +293,9 @@ func parseDirectives(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, r
 			if err := validateElementConstraints(doc, child, "include", schema); err != nil {
 				return nil, err
 			}
+			schemaLocation := types.ApplyWhiteSpace(doc.GetAttribute(child, "schemaLocation"), types.WhiteSpaceCollapse)
 			includeInfo := IncludeInfo{
-				SchemaLocation: doc.GetAttribute(child, "schemaLocation"),
+				SchemaLocation: schemaLocation,
 				DeclIndex:      declIndex,
 				IncludeIndex:   includeIndex,
 			}

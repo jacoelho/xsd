@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 var (
@@ -107,8 +108,8 @@ func (c ComparableInt) Unwrap() any {
 type ComparableTime struct {
 	Value time.Time
 	// XSD type this value represents
-	Typ         Type
-	HasTimezone bool
+	Typ          Type
+	TimezoneKind value.TimezoneKind
 }
 
 var errIndeterminateTimeComparison = errors.New("time comparison indeterminate")
@@ -119,7 +120,7 @@ func (c ComparableTime) Compare(other ComparableValue) (int, error) {
 	if !ok {
 		return 0, fmt.Errorf("cannot compare ComparableTime with %T", other)
 	}
-	if c.HasTimezone == otherTime.HasTimezone {
+	if c.TimezoneKind == otherTime.TimezoneKind {
 		if c.Value.Before(otherTime.Value) {
 			return -1, nil
 		}
@@ -128,7 +129,7 @@ func (c ComparableTime) Compare(other ComparableValue) (int, error) {
 		}
 		return 0, nil
 	}
-	if c.HasTimezone {
+	if c.TimezoneKind == value.TZKnown {
 		return compareTimezonedToLocal(c.Value, otherTime.Value)
 	}
 	cmp, err := compareTimezonedToLocal(otherTime.Value, c.Value)
@@ -140,10 +141,12 @@ func (c ComparableTime) Compare(other ComparableValue) (int, error) {
 
 // String returns the string representation (implements ComparableValue)
 func (c ComparableTime) String() string {
-	if c.HasTimezone {
-		return c.Value.Format(time.RFC3339Nano)
+	switch c.TimezoneKind {
+	case value.TZKnown:
+		return c.Value.UTC().Format(time.RFC3339Nano)
+	default:
+		return c.Value.Format("2006-01-02T15:04:05.999999999")
 	}
-	return c.Value.Format("2006-01-02T15:04:05.999999999")
 }
 
 func compareTimezonedToLocal(timezoned, local time.Time) (int, error) {
@@ -606,35 +609,35 @@ var durationOrderReferenceTimes = []dateTimeFields{
 	{year: 1903, month: 7, day: 1, hour: 0, minute: 0, second: num.Dec{}},
 }
 
-func durationFieldsFor(value XSDDuration) durationFields {
+func durationFieldsFor(dur XSDDuration) durationFields {
 	sign := 1
-	if value.Negative {
+	if dur.Negative {
 		sign = -1
 	}
-	seconds := value.Seconds
+	seconds := dur.Seconds
 	if sign < 0 {
 		seconds = negateDec(seconds)
 	}
 	return durationFields{
-		years:   sign * value.Years,
-		months:  sign * value.Months,
-		days:    sign * value.Days,
-		hours:   sign * value.Hours,
-		minutes: sign * value.Minutes,
+		years:   sign * dur.Years,
+		months:  sign * dur.Months,
+		days:    sign * dur.Days,
+		hours:   sign * dur.Hours,
+		minutes: sign * dur.Minutes,
 		seconds: seconds,
 	}
 }
 
-func isDayTimeDuration(value XSDDuration) bool {
-	return value.Years == 0 && value.Months == 0
+func isDayTimeDuration(dur XSDDuration) bool {
+	return dur.Years == 0 && dur.Months == 0
 }
 
-func durationTotalSeconds(value XSDDuration) num.Dec {
-	total := value.Seconds
-	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(value.Minutes)), num.FromInt64(60)))
-	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(value.Hours)), num.FromInt64(3600)))
-	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(value.Days)), num.FromInt64(86400)))
-	if value.Negative {
+func durationTotalSeconds(dur XSDDuration) num.Dec {
+	total := dur.Seconds
+	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(dur.Minutes)), num.FromInt64(60)))
+	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(dur.Hours)), num.FromInt64(3600)))
+	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(dur.Days)), num.FromInt64(86400)))
+	if dur.Negative {
 		total = negateDec(total)
 	}
 	return total

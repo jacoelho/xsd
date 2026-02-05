@@ -50,7 +50,9 @@ func (s *Session) ConsumeText(state *TextState, kind runtime.ContentKind, mixed,
 		return nil
 	case runtime.ContentMixed:
 		return nil
-	case runtime.ContentElementOnly, runtime.ContentEmpty, runtime.ContentAll:
+	case runtime.ContentEmpty:
+		return newValidationError(xsderrors.ErrTextInElementOnly, "character data not allowed in empty content")
+	case runtime.ContentElementOnly, runtime.ContentAll:
 		if state.HasNonWS {
 			return newValidationError(xsderrors.ErrTextInElementOnly, "character data not allowed in element-only content")
 		}
