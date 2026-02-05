@@ -867,17 +867,16 @@ func parseListValueVariants(lexical string, itemType Type) ([][]TypedValue, erro
 	if itemType == nil {
 		return nil, fmt.Errorf("list item type is nil")
 	}
-	items := splitXMLWhitespaceFields(lexical)
-	if len(items) == 0 {
-		return [][]TypedValue{}, nil
-	}
-	parsed := make([][]TypedValue, len(items))
-	for i, item := range items {
+	parsed := make([][]TypedValue, 0, 4)
+	for item := range FieldsXMLWhitespaceSeq(lexical) {
 		values, err := parseValueVariants(item, itemType)
 		if err != nil {
 			return nil, fmt.Errorf("invalid list item %q: %w", item, err)
 		}
-		parsed[i] = values
+		parsed = append(parsed, values)
+	}
+	if len(parsed) == 0 {
+		return [][]TypedValue{}, nil
 	}
 	return parsed, nil
 }

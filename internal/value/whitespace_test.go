@@ -75,6 +75,57 @@ func TestSplitXMLWhitespace(t *testing.T) {
 	}
 }
 
+func TestForEachXMLWhitespaceField(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{in: "a b c", want: []string{"a", "b", "c"}},
+		{in: "  a  b  ", want: []string{"a", "b"}},
+		{in: "a\tb\nc", want: []string{"a", "b", "c"}},
+		{in: " \t\n\r ", want: nil},
+		{in: "", want: nil},
+	}
+	for _, tc := range cases {
+		var got []string
+		count, err := ForEachXMLWhitespaceField([]byte(tc.in), func(field []byte) error {
+			got = append(got, string(field))
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("ForEachXMLWhitespaceField(%q) error = %v", tc.in, err)
+		}
+		if !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("ForEachXMLWhitespaceField(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+		if count != len(tc.want) {
+			t.Fatalf("ForEachXMLWhitespaceField(%q) count = %d, want %d", tc.in, count, len(tc.want))
+		}
+	}
+}
+
+func TestFieldsXMLWhitespaceSeq(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{in: "a b c", want: []string{"a", "b", "c"}},
+		{in: "  a  b  ", want: []string{"a", "b"}},
+		{in: "a\tb\nc", want: []string{"a", "b", "c"}},
+		{in: " \t\n\r ", want: nil},
+		{in: "", want: nil},
+	}
+	for _, tc := range cases {
+		var got []string
+		for field := range FieldsXMLWhitespaceSeq([]byte(tc.in)) {
+			got = append(got, string(field))
+		}
+		if !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("FieldsXMLWhitespaceSeq(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}
+
 func TestIsXMLWhitespaceByte(t *testing.T) {
 	for _, b := range []byte{' ', '\t', '\n', '\r'} {
 		if !IsXMLWhitespaceByte(b) {

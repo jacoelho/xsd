@@ -30,17 +30,16 @@ func ParseUnionValueVariants[T any](lexical string, members []T, parseMember fun
 
 // ParseListValueVariants parses list values into per-item variants using XML whitespace splitting.
 func ParseListValueVariants(lexical string, parseItem func(string) ([]TypedValue, error)) ([][]TypedValue, error) {
-	items := SplitXMLWhitespaceFields(lexical)
-	if len(items) == 0 {
-		return nil, nil
-	}
-	parsed := make([][]TypedValue, len(items))
-	for i, item := range items {
+	parsed := make([][]TypedValue, 0, 4)
+	for item := range FieldsXMLWhitespaceSeq(lexical) {
 		values, err := parseItem(item)
 		if err != nil {
 			return nil, fmt.Errorf("invalid list item %q: %w", item, err)
 		}
-		parsed[i] = values
+		parsed = append(parsed, values)
+	}
+	if len(parsed) == 0 {
+		return nil, nil
 	}
 	return parsed, nil
 }

@@ -85,14 +85,10 @@ func (s *Session) validateListNoCanonical(meta runtime.ValidatorMeta, normalized
 }
 
 func forEachListItem(normalized []byte, fn func([]byte) error) (int, error) {
-	if len(normalized) == 0 {
-		return 0, nil
-	}
 	count := 0
-	items := value.SplitXMLWhitespace(normalized)
-	for _, item := range items {
+	for field := range value.FieldsXMLWhitespaceSeq(normalized) {
 		if fn != nil {
-			if err := fn(item); err != nil {
+			if err := fn(field); err != nil {
 				return count, err
 			}
 		}

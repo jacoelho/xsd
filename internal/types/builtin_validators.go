@@ -265,16 +265,16 @@ func validateIDREF(value string) error {
 
 // validateIDREFS validates xs:IDREFS (space-separated list of IDREFs)
 func validateIDREFS(value string) error {
-	parts := splitXMLWhitespaceFields(value)
-	if len(parts) == 0 {
-		return fmt.Errorf("invalid IDREFS: empty value")
-	}
-	for _, part := range parts {
+	count := 0
+	for part := range FieldsXMLWhitespaceSeq(value) {
+		count++
 		if err := validateIDREF(part); err != nil {
 			return fmt.Errorf("invalid IDREFS: %w", err)
 		}
 	}
-
+	if count == 0 {
+		return fmt.Errorf("invalid IDREFS: empty value")
+	}
 	return nil
 }
 
@@ -285,16 +285,16 @@ func validateENTITY(value string) error {
 
 // validateENTITIES validates xs:ENTITIES (space-separated list of ENTITYs)
 func validateENTITIES(value string) error {
-	parts := splitXMLWhitespaceFields(value)
-	if len(parts) == 0 {
-		return fmt.Errorf("invalid ENTITIES: empty value")
-	}
-	for _, part := range parts {
+	count := 0
+	for part := range FieldsXMLWhitespaceSeq(value) {
+		count++
 		if err := validateENTITY(part); err != nil {
 			return fmt.Errorf("invalid ENTITIES: %w", err)
 		}
 	}
-
+	if count == 0 {
+		return fmt.Errorf("invalid ENTITIES: empty value")
+	}
 	return nil
 }
 
@@ -306,16 +306,16 @@ func validateNMTOKEN(value string) error {
 
 // validateNMTOKENS validates xs:NMTOKENS (space-separated list of NMTOKENs)
 func validateNMTOKENS(value string) error {
-	parts := splitXMLWhitespaceFields(value)
-	if len(parts) == 0 {
-		return fmt.Errorf("invalid NMTOKENS: empty value")
-	}
-	for _, part := range parts {
+	count := 0
+	for part := range FieldsXMLWhitespaceSeq(value) {
+		count++
 		if err := validateNMTOKEN(part); err != nil {
 			return fmt.Errorf("invalid NMTOKENS: %w", err)
 		}
 	}
-
+	if count == 0 {
+		return fmt.Errorf("invalid NMTOKENS: empty value")
+	}
 	return nil
 }
 

@@ -2,6 +2,7 @@ package value
 
 import (
 	"bytes"
+	"iter"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 )
@@ -49,25 +50,51 @@ func TrimXMLWhitespaceString(in string) string {
 	return in[start:end]
 }
 
+// FieldsXMLWhitespaceSeq yields XML whitespace-separated fields without allocation.
+func FieldsXMLWhitespaceSeq(in []byte) iter.Seq[[]byte] {
+	return func(yield func([]byte) bool) {
+		i := 0
+		for i < len(in) {
+			for i < len(in) && IsXMLWhitespaceByte(in[i]) {
+				i++
+			}
+			if i >= len(in) {
+				return
+			}
+			start := i
+			for i < len(in) && !IsXMLWhitespaceByte(in[i]) {
+				i++
+			}
+			if !yield(in[start:i]) {
+				return
+			}
+		}
+	}
+}
+
+// ForEachXMLWhitespaceField splits input on XML whitespace and calls fn per field.
+// It returns the number of fields seen and does not allocate.
+func ForEachXMLWhitespaceField(in []byte, fn func([]byte) error) (int, error) {
+	count := 0
+	for field := range FieldsXMLWhitespaceSeq(in) {
+		if fn != nil {
+			if err := fn(field); err != nil {
+				return count, err
+			}
+		}
+		count++
+	}
+	return count, nil
+}
+
 // SplitXMLWhitespace splits input on XML whitespace and skips empty fields.
 func SplitXMLWhitespace(in []byte) [][]byte {
 	if len(in) == 0 {
 		return nil
 	}
 	items := make([][]byte, 0, 4)
-	i := 0
-	for i < len(in) {
-		for i < len(in) && IsXMLWhitespaceByte(in[i]) {
-			i++
-		}
-		if i >= len(in) {
-			break
-		}
-		start := i
-		for i < len(in) && !IsXMLWhitespaceByte(in[i]) {
-			i++
-		}
-		items = append(items, in[start:i])
+	for field := range FieldsXMLWhitespaceSeq(in) {
+		items = append(items, field)
 	}
 	if len(items) == 0 {
 		return nil

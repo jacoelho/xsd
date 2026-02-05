@@ -34,10 +34,12 @@ func (c *compiler) keyBytesForNormalized(lexical, normalized string, typ types.T
 		if !ok || item == nil {
 			return nil, fmt.Errorf("list type missing item type")
 		}
-		items := splitXMLWhitespace(normalized)
-		var keyBytesBuf []byte
-		keyBytesBuf = valuekey.AppendUvarint(keyBytesBuf, uint64(len(items)))
-		for _, itemLex := range items {
+		count := 0
+		for range types.FieldsXMLWhitespaceSeq(normalized) {
+			count++
+		}
+		keyBytesBuf := valuekey.AppendUvarint(nil, uint64(count))
+		for itemLex := range types.FieldsXMLWhitespaceSeq(normalized) {
 			itemKey, err := c.keyBytesForNormalizedSingle(itemLex, item, ctx)
 			if err != nil {
 				return nil, err

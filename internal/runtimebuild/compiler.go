@@ -534,21 +534,22 @@ func (c *compiler) canonicalizeNormalizedCore(lexical, normalized string, typ ty
 		if !ok || item == nil {
 			return nil, fmt.Errorf("list type missing item type")
 		}
-		items := splitXMLWhitespace(normalized)
-		if len(items) == 0 {
-			return []byte{}, nil
-		}
 		var buf []byte
-		for i, itemLex := range items {
+		count := 0
+		for itemLex := range types.FieldsXMLWhitespaceSeq(normalized) {
 			itemNorm := c.normalizeLexical(itemLex, item)
 			canon, err := c.canonicalizeNormalizedCore(itemLex, itemNorm, item, ctx, mode)
 			if err != nil {
 				return nil, err
 			}
-			if i > 0 {
+			if count > 0 {
 				buf = append(buf, ' ')
 			}
 			buf = append(buf, canon...)
+			count++
+		}
+		if count == 0 {
+			return []byte{}, nil
 		}
 		return buf, nil
 	case types.UnionVariety:
@@ -1419,14 +1420,6 @@ func filterFacets(facets []types.Facet, keep func(types.Facet) bool) []types.Fac
 		if keep(facet) {
 			out = append(out, facet)
 		}
-	}
-	return out
-}
-
-func splitXMLWhitespace(input string) []string {
-	var out []string
-	for field := range types.FieldsXMLWhitespaceSeq(input) {
-		out = append(out, field)
 	}
 	return out
 }
