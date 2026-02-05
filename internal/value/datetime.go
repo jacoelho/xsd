@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	datetimelex "github.com/jacoelho/xsd/internal/value/datetime"
+	"github.com/jacoelho/xsd/internal/value/datetime"
 )
 
 var fractionalLayouts = [...]string{
@@ -22,7 +22,7 @@ var fractionalLayouts = [...]string{
 	".000000000",
 }
 
-var errFractionalSecondsTooLong = errors.New("fractional seconds precision exceeds 9 digits")
+var errFractionalSecondsTooLong = errors.New("fractional seconds exceed 9 digits (implementation limit)")
 
 // ParseDateTime parses an xs:dateTime lexical value.
 func ParseDateTime(lexical []byte) (time.Time, error) {
@@ -30,28 +30,29 @@ func ParseDateTime(lexical []byte) (time.Time, error) {
 	if err := validateYearPrefix(trimmed, "dateTime"); err != nil {
 		return time.Time{}, err
 	}
-	main, tz := datetimelex.SplitTimezone(trimmed)
+	main, tz := datetime.SplitTimezone(trimmed)
+	tzKind := timezoneKindFromTZ(tz)
 	timeIndex := strings.IndexByte(main, 'T')
 	if timeIndex == -1 {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
 	}
 	datePart := main[:timeIndex]
 	timePart := main[timeIndex+1:]
-	year, month, day, ok := datetimelex.ParseDateParts(datePart)
+	year, month, day, ok := datetime.ParseDateParts(datePart)
 	if !ok {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
 	}
-	hour, minute, second, fractionLength, ok := datetimelex.ParseTimeParts(timePart)
+	hour, minute, second, fractionLength, ok := datetime.ParseTimeParts(timePart)
 	if !ok {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
 	}
 	if year < 1 || year > 9999 {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
 	}
-	if month < 1 || month > 12 || !datetimelex.IsValidDate(year, month, day) {
+	if month < 1 || month > 12 || !datetime.IsValidDate(year, month, day) {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
 	}
-	if err := datetimelex.ValidateTimezoneOffset(tz); err != nil {
+	if err := datetime.ValidateTimezoneOffset(tz); err != nil {
 		return time.Time{}, err
 	}
 	if fractionLength > 9 {
@@ -90,7 +91,12 @@ func ParseDateTime(lexical []byte) (time.Time, error) {
 	if needsDayOffset {
 		parsed = parsed.Add(24 * time.Hour)
 	}
-	if parsed.Year() < 1 || parsed.Year() > 9999 {
+	if tzKind == TZKnown {
+		utc := parsed.UTC()
+		if utc.Year() < 1 || utc.Year() > 9999 {
+			return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+		}
+	} else if parsed.Year() < 1 || parsed.Year() > 9999 {
 		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
 	}
 	return parsed, nil
@@ -102,6 +108,7 @@ func ParseDate(lexical []byte) (time.Time, error) {
 	if err := validateYearPrefix(trimmed, "date"); err != nil {
 		return time.Time{}, err
 	}
+	tzKind := TimezoneKindFromLexical([]byte(trimmed))
 	if err := validateOptionalTimezone(trimmed); err != nil {
 		return time.Time{}, err
 	}
@@ -113,6 +120,12 @@ func ParseDate(lexical []byte) (time.Time, error) {
 	}
 	for _, format := range formats {
 		if t, err := time.Parse(format, trimmed); err == nil {
+			if tzKind == TZKnown {
+				utc := t.UTC()
+				if utc.Year() < 1 || utc.Year() > 9999 {
+					return time.Time{}, fmt.Errorf("invalid date: %s", trimmed)
+				}
+			}
 			return t, nil
 		}
 	}
@@ -125,8 +138,8 @@ func ParseTime(lexical []byte) (time.Time, error) {
 	if trimmed == "" {
 		return time.Time{}, fmt.Errorf("invalid time: empty string")
 	}
-	main, tz := datetimelex.SplitTimezone(trimmed)
-	hour, minute, second, fractionLength, ok := datetimelex.ParseTimeParts(main)
+	main, tz := datetime.SplitTimezone(trimmed)
+	hour, minute, second, fractionLength, ok := datetime.ParseTimeParts(main)
 	if !ok {
 		return time.Time{}, fmt.Errorf("invalid time: %s", trimmed)
 	}
@@ -148,7 +161,7 @@ func ParseTime(lexical []byte) (time.Time, error) {
 	if fractionLength > 9 {
 		return time.Time{}, fmt.Errorf("invalid time: %w", errFractionalSecondsTooLong)
 	}
-	if err := datetimelex.ValidateTimezoneOffset(tz); err != nil {
+	if err := datetime.ValidateTimezoneOffset(tz); err != nil {
 		return time.Time{}, err
 	}
 	if is24Hour {
@@ -173,6 +186,7 @@ func ParseGYear(lexical []byte) (time.Time, error) {
 	if err := validateYearPrefix(trimmed, "gYear"); err != nil {
 		return time.Time{}, err
 	}
+	tzKind := TimezoneKindFromLexical([]byte(trimmed))
 	if err := validateOptionalTimezone(trimmed); err != nil {
 		return time.Time{}, err
 	}
@@ -184,6 +198,12 @@ func ParseGYear(lexical []byte) (time.Time, error) {
 	}
 	for _, format := range formats {
 		if t, err := time.Parse(format, trimmed); err == nil {
+			if tzKind == TZKnown {
+				utc := t.UTC()
+				if utc.Year() < 1 || utc.Year() > 9999 {
+					return time.Time{}, fmt.Errorf("invalid gYear: %s", trimmed)
+				}
+			}
 			return t, nil
 		}
 	}
@@ -196,6 +216,7 @@ func ParseGYearMonth(lexical []byte) (time.Time, error) {
 	if err := validateYearPrefix(trimmed, "gYearMonth"); err != nil {
 		return time.Time{}, err
 	}
+	tzKind := TimezoneKindFromLexical([]byte(trimmed))
 	if err := validateOptionalTimezone(trimmed); err != nil {
 		return time.Time{}, err
 	}
@@ -207,6 +228,12 @@ func ParseGYearMonth(lexical []byte) (time.Time, error) {
 	}
 	for _, format := range formats {
 		if t, err := time.Parse(format, trimmed); err == nil {
+			if tzKind == TZKnown {
+				utc := t.UTC()
+				if utc.Year() < 1 || utc.Year() > 9999 {
+					return time.Time{}, fmt.Errorf("invalid gYearMonth: %s", trimmed)
+				}
+			}
 			return t, nil
 		}
 	}
@@ -314,11 +341,11 @@ func validateYearPrefix(lexical, kind string) error {
 }
 
 func validateOptionalTimezone(lexical string) error {
-	_, tz := datetimelex.SplitTimezone(lexical)
+	_, tz := datetime.SplitTimezone(lexical)
 	if tz == "" {
 		return nil
 	}
-	return datetimelex.ValidateTimezoneOffset(tz)
+	return datetime.ValidateTimezoneOffset(tz)
 }
 
 func appendTimezoneSuffix(value, tz string) string {
@@ -363,4 +390,13 @@ func is24HourZero(timePart string) bool {
 		}
 	}
 	return true
+}
+
+func timezoneKindFromTZ(tz string) TimezoneKind {
+	switch tz {
+	case "":
+		return TZNone
+	default:
+		return TZKnown
+	}
 }

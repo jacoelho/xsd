@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	xsdxml "github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xml"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -39,7 +39,7 @@ func (s *Session) ValidateWithDocument(r io.Reader, document string) error {
 
 func (s *Session) validateWithDocument(r io.Reader, document string) error {
 	if s == nil || s.rt == nil {
-		return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrSchemaNotLoaded, "schema not loaded", "")}
+		return xsdErrors.ValidationList{xsdErrors.NewValidation(xsdErrors.ErrSchemaNotLoaded, "schema not loaded", "")}
 	}
 	if r == nil {
 		return readerSetupError(errors.New("nil reader"), document)
@@ -66,7 +66,7 @@ func (s *Session) validateWithDocument(r io.Reader, document string) error {
 			break
 		}
 		if err != nil {
-			return xsderrors.ValidationList{s.newValidation(xsderrors.ErrXMLParse, err.Error(), s.pathString(), 0, 0)}
+			return xsdErrors.ValidationList{s.newValidation(xsdErrors.ErrXMLParse, err.Error(), s.pathString(), 0, 0)}
 		}
 		switch ev.Kind {
 		case xmlstream.EventStartElement:
@@ -75,7 +75,7 @@ func (s *Session) validateWithDocument(r io.Reader, document string) error {
 					return fatal
 				}
 				if skipErr := s.reader.SkipSubtree(); skipErr != nil {
-					return xsderrors.ValidationList{s.newValidation(xsderrors.ErrXMLParse, skipErr.Error(), s.pathString(), 0, 0)}
+					return xsdErrors.ValidationList{s.newValidation(xsdErrors.ErrXMLParse, skipErr.Error(), s.pathString(), 0, 0)}
 				}
 			}
 			if !rootSeen {
@@ -118,10 +118,10 @@ func (s *Session) validateWithDocument(r io.Reader, document string) error {
 	}
 
 	if !rootSeen {
-		return xsderrors.ValidationList{s.newValidation(xsderrors.ErrNoRoot, "document has no root element", "", 0, 0)}
+		return xsdErrors.ValidationList{s.newValidation(xsdErrors.ErrNoRoot, "document has no root element", "", 0, 0)}
 	}
 	if len(s.elemStack) != 0 {
-		return xsderrors.ValidationList{s.newValidation(xsderrors.ErrXMLParse, "document ended with unclosed elements", s.pathString(), 0, 0)}
+		return xsdErrors.ValidationList{s.newValidation(xsdErrors.ErrXMLParse, "document ended with unclosed elements", s.pathString(), 0, 0)}
 	}
 	if errs := s.validateIDRefs(); len(errs) > 0 {
 		if fatal := s.recordValidationErrors(errs, 0, 0); fatal != nil {
@@ -140,8 +140,8 @@ func readerSetupError(err error, document string) error {
 	if err == nil {
 		return nil
 	}
-	return xsderrors.ValidationList{{
-		Code:     string(xsderrors.ErrXMLParse),
+	return xsdErrors.ValidationList{{
+		Code:     string(xsdErrors.ErrXMLParse),
 		Message:  err.Error(),
 		Document: document,
 	}}
@@ -188,12 +188,12 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 		case runtime.RootStrict:
 			if sym == 0 {
 				s.popNamespaceScope()
-				return newValidationError(xsderrors.ErrValidateRootNotDeclared, "root element not declared")
+				return newValidationError(xsdErrors.ErrValidateRootNotDeclared, "root element not declared")
 			}
 			elemID, ok := s.globalElementBySymbol(sym)
 			if !ok {
 				s.popNamespaceScope()
-				return newValidationError(xsderrors.ErrValidateRootNotDeclared, "root element not declared")
+				return newValidationError(xsdErrors.ErrValidateRootNotDeclared, "root element not declared")
 			}
 			match = StartMatch{Kind: MatchElem, Elem: elemID}
 		}
@@ -202,19 +202,19 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 		if parent.nilled {
 			parent.childErrorReported = true
 			s.popNamespaceScope()
-			return newValidationError(xsderrors.ErrValidateNilledNotEmpty, "element with xsi:nil='true' must be empty")
+			return newValidationError(xsdErrors.ErrValidateNilledNotEmpty, "element with xsi:nil='true' must be empty")
 		}
 		if parent.content == runtime.ContentSimple || parent.content == runtime.ContentEmpty {
 			parent.childErrorReported = true
 			s.popNamespaceScope()
 			if parent.content == runtime.ContentSimple {
-				return newValidationError(xsderrors.ErrTextInElementOnly, "element not allowed in simple content")
+				return newValidationError(xsdErrors.ErrTextInElementOnly, "element not allowed in simple content")
 			}
-			return newValidationError(xsderrors.ErrUnexpectedElement, "element not allowed in empty content")
+			return newValidationError(xsdErrors.ErrUnexpectedElement, "element not allowed in empty content")
 		}
 		if parent.model.Kind == runtime.ModelNone {
 			s.popNamespaceScope()
-			return newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
+			return newValidationError(xsdErrors.ErrUnexpectedElement, "no content model match")
 		}
 		var err error
 		match, err = s.StepModel(parent.model, &parent.modelState, sym, nsID, ev.NS)
@@ -357,7 +357,7 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 			if path == "" {
 				path = s.pathString()
 			}
-			errs = append(errs, newValidationError(xsderrors.ErrValidateNilledNotEmpty, "element with xsi:nil='true' must be empty"))
+			errs = append(errs, newValidationError(xsdErrors.ErrValidateNilledNotEmpty, "element with xsi:nil='true' must be empty"))
 		}
 	} else {
 		if frame.model.Kind != runtime.ModelNone {
@@ -374,12 +374,13 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 	var textKeyKind runtime.ValueKind
 	var textKeyBytes []byte
 	textValidator := runtime.ValidatorID(0)
+	textMember := runtime.ValidatorID(0)
 	if !frame.nilled && ok && (typ.Kind == runtime.TypeSimple || typ.Kind == runtime.TypeBuiltin || frame.content == runtime.ContentSimple) {
 		if frame.hasChildElements && !frame.childErrorReported {
 			if path == "" {
 				path = s.pathString()
 			}
-			errs = append(errs, newValidationError(xsderrors.ErrTextInElementOnly, "element not allowed in simple content"))
+			errs = append(errs, newValidationError(xsdErrors.ErrTextInElementOnly, "element not allowed in simple content"))
 		}
 		rawText := s.TextSlice(frame.text)
 		hasContent := frame.text.HasText || frame.hasChildElements
@@ -404,11 +405,11 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 				textValidator = ct.TextValidator
 			}
 		}
-		trackDefault := func(value []byte) {
+		trackDefault := func(value []byte, member runtime.ValidatorID) {
 			if textValidator == 0 {
 				return
 			}
-			if err := s.trackDefaultValue(textValidator, value); err != nil {
+			if err := s.trackDefaultValue(textValidator, value, resolver, member); err != nil {
 				if path == "" {
 					path = s.pathString()
 				}
@@ -418,16 +419,20 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 		switch {
 		case !hasContent && elemOK && elem.Fixed.Present:
 			canonText = valueBytes(s.rt.Values, elem.Fixed)
-			trackDefault(canonText)
+			textMember = elem.FixedMember
+			trackDefault(canonText, textMember)
 		case !hasContent && elemOK && elem.Default.Present:
 			canonText = valueBytes(s.rt.Values, elem.Default)
-			trackDefault(canonText)
+			textMember = elem.DefaultMember
+			trackDefault(canonText, textMember)
 		case !hasContent && hasComplexText && ct.TextFixed.Present:
 			canonText = valueBytes(s.rt.Values, ct.TextFixed)
-			trackDefault(canonText)
+			textMember = ct.TextFixedMember
+			trackDefault(canonText, textMember)
 		case !hasContent && hasComplexText && ct.TextDefault.Present:
 			canonText = valueBytes(s.rt.Values, ct.TextDefault)
-			trackDefault(canonText)
+			textMember = ct.TextDefaultMember
+			trackDefault(canonText, textMember)
 		default:
 			requireCanonical := (elemOK && elem.Fixed.Present) || (hasComplexText && ct.TextFixed.Present)
 			canon, metrics, err := s.ValidateTextValue(frame.typ, rawText, resolver, requireCanonical)
@@ -448,7 +453,7 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 				if path == "" {
 					path = s.pathString()
 				}
-				errs = append(errs, newValidationError(xsderrors.ErrElementFixedValue, "fixed element value mismatch"))
+				errs = append(errs, newValidationError(xsdErrors.ErrElementFixedValue, "fixed element value mismatch"))
 			}
 		} else if canonText != nil && (frame.text.HasText || hasContent) && hasComplexText && ct.TextFixed.Present && (!elemOK || !elem.Fixed.Present) {
 			fixed := valueBytes(s.rt.Values, ct.TextFixed)
@@ -456,13 +461,13 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 				if path == "" {
 					path = s.pathString()
 				}
-				errs = append(errs, newValidationError(xsderrors.ErrElementFixedValue, "fixed element value mismatch"))
+				errs = append(errs, newValidationError(xsdErrors.ErrElementFixedValue, "fixed element value mismatch"))
 			}
 		}
 	}
 
 	if s.hasIdentityConstraints() && textKeyKind == runtime.VKInvalid && canonText != nil && textValidator != 0 {
-		kind, key, err := s.keyForCanonicalValue(textValidator, canonText)
+		kind, key, err := s.keyForCanonicalValue(textValidator, canonText, resolver, textMember)
 		if err != nil {
 			if path == "" {
 				path = s.pathString()

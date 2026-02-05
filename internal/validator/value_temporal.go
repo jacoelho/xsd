@@ -45,10 +45,10 @@ func (s *Session) canonicalizeTemporal(kind runtime.ValidatorKind, normalized []
 	if err != nil {
 		return nil, valueErrorMsg(valueErrInvalid, err.Error())
 	}
-	hasTZ := value.HasTimezone(normalized)
-	canon := []byte(value.CanonicalDateTimeString(t, spec.kind, hasTZ))
+	tzKind := value.TimezoneKindFromLexical(normalized)
+	canon := []byte(value.CanonicalDateTimeString(t, spec.kind, tzKind))
 	if needKey {
-		key := valuekey.TemporalKeyBytes(s.keyTmp[:0], spec.keyTag, t, hasTZ)
+		key := valuekey.TemporalKeyBytes(s.keyTmp[:0], spec.keyTag, t, tzKind)
 		s.keyTmp = key
 		s.setKey(metrics, runtime.VKDateTime, key, false)
 	}
@@ -74,11 +74,11 @@ func temporalSubkind(kind runtime.ValidatorKind) byte {
 	return spec.keyTag
 }
 
-func parseTemporalForKind(kind runtime.ValidatorKind, lexical []byte) (time.Time, bool, error) {
+func parseTemporalForKind(kind runtime.ValidatorKind, lexical []byte) (time.Time, value.TimezoneKind, error) {
 	spec, ok := temporalSpecFor(kind)
 	if !ok {
-		return time.Time{}, false, valueErrorf(valueErrInvalid, "unsupported temporal kind %d", kind)
+		return time.Time{}, value.TZNone, valueErrorf(valueErrInvalid, "unsupported temporal kind %d", kind)
 	}
 	t, err := spec.parse(lexical)
-	return t, value.HasTimezone(lexical), err
+	return t, value.TimezoneKindFromLexical(lexical), err
 }

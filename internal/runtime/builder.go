@@ -3,7 +3,7 @@ package runtime
 import (
 	"fmt"
 
-	xsdxml "github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xml"
 )
 
 type Builder struct {

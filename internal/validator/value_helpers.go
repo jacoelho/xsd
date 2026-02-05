@@ -1,8 +1,9 @@
 package validator
 
 import (
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
@@ -18,7 +19,7 @@ func (s *Session) trackIDs(kind runtime.StringKind, canonical []byte) error {
 	return nil
 }
 
-func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte) error {
+func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver, metrics *valueMetrics) error {
 	if s == nil || s.rt == nil || id == 0 {
 		return nil
 	}
@@ -38,14 +39,13 @@ func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte) er
 		if !ok {
 			return valueErrorf(valueErrInvalid, "list validator out of range")
 		}
-		_, err := forEachListItem(canonical, meta.WhiteSpace == runtime.WS_Collapse, func(itemValue []byte) error {
-			return s.trackValidatedIDs(item, itemValue)
+		_, err := forEachListItem(canonical, func(itemValue []byte) error {
+			return s.trackValidatedIDs(item, itemValue, resolver, nil)
 		})
 		return err
 	case runtime.VUnion:
-		members, _, _, ok := s.unionMemberInfo(meta)
-		if !ok || len(members) == 0 {
-			return valueErrorf(valueErrInvalid, "union validator out of range")
+		if metrics != nil && metrics.actualValidator != 0 {
+			return s.trackValidatedIDs(metrics.actualValidator, canonical, resolver, nil)
 		}
 		memberOpts := valueOptions{
 			applyWhitespace:  true,
@@ -53,9 +53,9 @@ func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte) er
 			requireCanonical: true,
 			storeValue:       false,
 		}
-		for _, member := range members {
-			if _, err := s.validateValueInternalOptions(member, canonical, nil, memberOpts); err == nil {
-				return s.trackValidatedIDs(member, canonical)
+		if _, memberMetrics, err := s.validateValueInternalWithMetrics(id, canonical, resolver, memberOpts); err == nil {
+			if memberMetrics.actualValidator != 0 {
+				return s.trackValidatedIDs(memberMetrics.actualValidator, canonical, resolver, nil)
 			}
 		}
 		return nil
@@ -64,7 +64,7 @@ func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte) er
 	}
 }
 
-func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte) error {
+func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver, member runtime.ValidatorID) error {
 	if s == nil || s.rt == nil || id == 0 {
 		return nil
 	}
@@ -84,26 +84,31 @@ func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte) er
 		if !ok {
 			return valueErrorf(valueErrInvalid, "list validator out of range")
 		}
-		if _, err := forEachListItem(canonical, meta.WhiteSpace == runtime.WS_Collapse, func(itemValue []byte) error {
-			return s.trackDefaultValue(item, itemValue)
+		if _, err := forEachListItem(canonical, func(itemValue []byte) error {
+			return s.trackDefaultValue(item, itemValue, resolver, 0)
 		}); err != nil {
 			return err
 		}
 	case runtime.VUnion:
-		members, _, _, ok := s.unionMemberInfo(meta)
-		if !ok || len(members) == 0 {
-			return valueErrorf(valueErrInvalid, "union validator out of range")
+		if member != 0 {
+			return s.trackDefaultValue(member, canonical, resolver, 0)
 		}
-		for _, member := range members {
-			if _, err := s.validateValueInternalNoTrack(member, canonical, nil, true); err == nil {
-				return s.trackDefaultValue(member, canonical)
+		memberOpts := valueOptions{
+			applyWhitespace:  true,
+			trackIDs:         false,
+			requireCanonical: true,
+			storeValue:       false,
+		}
+		if _, memberMetrics, err := s.validateValueInternalWithMetrics(id, canonical, resolver, memberOpts); err == nil {
+			if memberMetrics.actualValidator != 0 {
+				return s.trackDefaultValue(memberMetrics.actualValidator, canonical, resolver, 0)
 			}
 		}
 	}
 	return nil
 }
 
-func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte) (runtime.ValueKind, []byte, error) {
+func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver, member runtime.ValidatorID) (runtime.ValueKind, []byte, error) {
 	if s == nil || s.rt == nil || id == 0 {
 		return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "validator missing")
 	}
@@ -119,9 +124,8 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte)
 		}
 		var keyBytes []byte
 		count := 0
-		spaceOnly := meta.WhiteSpace == runtime.WS_Collapse
-		if _, err := forEachListItem(canonical, spaceOnly, func(itemValue []byte) error {
-			kind, key, err := s.keyForCanonicalValue(item, itemValue)
+		if _, err := forEachListItem(canonical, func(itemValue []byte) error {
+			kind, key, err := s.keyForCanonicalValue(item, itemValue, resolver, 0)
 			if err != nil {
 				return err
 			}
@@ -136,14 +140,18 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte)
 		s.keyTmp = listKey
 		return runtime.VKList, listKey, nil
 	case runtime.VUnion:
-		members, _, _, ok := s.unionMemberInfo(meta)
-		if !ok || len(members) == 0 {
-			return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "union validator out of range")
+		if member != 0 {
+			return s.keyForCanonicalValue(member, canonical, resolver, 0)
 		}
-		for _, member := range members {
-			kind, key, err := s.keyForCanonicalValue(member, canonical)
-			if err == nil {
-				return kind, key, nil
+		memberOpts := valueOptions{
+			applyWhitespace:  true,
+			trackIDs:         false,
+			requireCanonical: true,
+			storeValue:       false,
+		}
+		if _, memberMetrics, err := s.validateValueInternalWithMetrics(id, canonical, resolver, memberOpts); err == nil {
+			if memberMetrics.actualValidator != 0 {
+				return s.keyForCanonicalValue(memberMetrics.actualValidator, canonical, resolver, 0)
 			}
 		}
 		return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "union value does not match any member type")
@@ -161,7 +169,7 @@ func (s *Session) recordID(valueBytes []byte) error {
 	}
 	key := string(valueBytes)
 	if _, ok := s.idTable[key]; ok {
-		return newValidationError(xsderrors.ErrDuplicateID, "duplicate ID value")
+		return newValidationError(xsdErrors.ErrDuplicateID, "duplicate ID value")
 	}
 	s.idTable[key] = struct{}{}
 	return nil
@@ -184,7 +192,7 @@ func (s *Session) validateIDRefs() []error {
 	var errs []error
 	for _, ref := range s.idRefs {
 		if _, ok := s.idTable[ref]; !ok {
-			errs = append(errs, newValidationError(xsderrors.ErrIDRefNotFound, "IDREF value not found"))
+			errs = append(errs, newValidationError(xsdErrors.ErrIDRefNotFound, "IDREF value not found"))
 		}
 	}
 	return errs

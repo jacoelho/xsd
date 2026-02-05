@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestComparable_Decimal(t *testing.T) {
@@ -226,11 +228,26 @@ func TestComparable_TimeTimezoneMismatch(t *testing.T) {
 	dateTimeType := &SimpleType{
 		QName: QName{Namespace: XSDNamespace, Local: "dateTime"},
 	}
-	compZ := ComparableTime{Value: timeZ, Typ: dateTimeType, HasTimezone: true}
-	compNo := ComparableTime{Value: timeNoTZ, Typ: dateTimeType, HasTimezone: false}
+	compZ := ComparableTime{Value: timeZ, Typ: dateTimeType, TimezoneKind: value.TZKnown}
+	compNo := ComparableTime{Value: timeNoTZ, Typ: dateTimeType, TimezoneKind: value.TZNone}
 
 	if _, err := compZ.Compare(compNo); err == nil {
 		t.Fatalf("expected timezone mismatch comparison error")
+	}
+}
+
+func TestComparable_TimezoneMinusZeroEqualsUTC(t *testing.T) {
+	timeMinusZero, _ := ParseDateTime("2001-10-26T21:32:52-00:00")
+	timeZ, _ := ParseDateTime("2001-10-26T21:32:52Z")
+
+	dateTimeType := &SimpleType{
+		QName: QName{Namespace: XSDNamespace, Local: "dateTime"},
+	}
+	minusZero := ComparableTime{Value: timeMinusZero, Typ: dateTimeType, TimezoneKind: value.TZKnown}
+	utc := ComparableTime{Value: timeZ, Typ: dateTimeType, TimezoneKind: value.TZKnown}
+
+	if cmp, err := minusZero.Compare(utc); err != nil || cmp != 0 {
+		t.Fatalf("compare(-00:00, Z) = %d, err=%v, want 0", cmp, err)
 	}
 }
 

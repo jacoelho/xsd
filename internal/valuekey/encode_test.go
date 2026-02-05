@@ -10,6 +10,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestStringKeyBytes(t *testing.T) {
@@ -69,7 +70,7 @@ func TestFloatKeyBytes(t *testing.T) {
 
 func TestTemporalKeyBytes(t *testing.T) {
 	withTZ := time.Date(2020, 1, 2, 3, 4, 5, 60000000, time.FixedZone("X", 2*3600))
-	keyTZ := TemporalKeyBytes(nil, 5, withTZ, true)
+	keyTZ := TemporalKeyBytes(nil, 5, withTZ, value.TZKnown)
 	if len(keyTZ) != 20 {
 		t.Fatalf("tz key len = %d, want 20", len(keyTZ))
 	}
@@ -89,7 +90,7 @@ func TestTemporalKeyBytes(t *testing.T) {
 	}
 
 	noTZ := time.Date(2021, 7, 9, 11, 12, 13, 14000000, time.UTC)
-	keyNoTZ := TemporalKeyBytes(nil, 2, noTZ, false)
+	keyNoTZ := TemporalKeyBytes(nil, 2, noTZ, value.TZNone)
 	if len(keyNoTZ) != 10 {
 		t.Fatalf("no-tz key len = %d, want 10", len(keyNoTZ))
 	}
@@ -104,7 +105,7 @@ func TestTemporalKeyBytes(t *testing.T) {
 	}
 
 	withTZTime := time.Date(2020, 1, 2, 0, 30, 0, 0, time.FixedZone("X", 2*3600))
-	keyTimeTZ := TemporalKeyBytes(nil, 2, withTZTime, true)
+	keyTimeTZ := TemporalKeyBytes(nil, 2, withTZTime, value.TZKnown)
 	if len(keyTimeTZ) != 10 {
 		t.Fatalf("time tz key len = %d, want 10", len(keyTimeTZ))
 	}
@@ -116,6 +117,22 @@ func TestTemporalKeyBytes(t *testing.T) {
 	utcSeconds := uint32(withTZTime.UTC().Hour()*3600 + withTZTime.UTC().Minute()*60 + withTZTime.UTC().Second())
 	if seconds != utcSeconds || nanos != uint32(withTZTime.UTC().Nanosecond()) {
 		t.Fatalf("time tz payload mismatch")
+	}
+}
+
+func TestTemporalKeyBytesDateTimePreEpochOrdering(t *testing.T) {
+	preEpoch, err := value.ParseDateTime([]byte("1969-12-31T23:59:59Z"))
+	if err != nil {
+		t.Fatalf("parse pre-epoch: %v", err)
+	}
+	epoch, err := value.ParseDateTime([]byte("1970-01-01T00:00:00Z"))
+	if err != nil {
+		t.Fatalf("parse epoch: %v", err)
+	}
+	preKey := TemporalKeyBytes(nil, 0, preEpoch, value.TZKnown)
+	epochKey := TemporalKeyBytes(nil, 0, epoch, value.TZKnown)
+	if bytes.Compare(preKey, epochKey) >= 0 {
+		t.Fatalf("expected pre-epoch key < epoch key")
 	}
 }
 

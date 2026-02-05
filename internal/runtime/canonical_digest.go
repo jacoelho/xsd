@@ -83,6 +83,7 @@ func (s *Schema) CanonicalDigest() [32]byte {
 	digestPatterns(h, s.Patterns)
 	digestEnums(h, &s.Enums)
 	digestValues(h, s.Values)
+	digestSymbolIDs(h, s.Notations)
 
 	digestModels(h, s.Models)
 	digestWildcards(h, s.Wildcards, s.WildcardNS)
@@ -171,6 +172,8 @@ func digestComplexTypes(h *digestBuilder, types []ComplexType) {
 		h.u32(uint32(ct.TextValidator))
 		digestValueRef(h, ct.TextFixed)
 		digestValueRef(h, ct.TextDefault)
+		h.u32(uint32(ct.TextFixedMember))
+		h.u32(uint32(ct.TextDefaultMember))
 		digestModelRef(h, ct.Model)
 		h.bool(ct.Mixed)
 	}
@@ -184,6 +187,8 @@ func digestElements(h *digestBuilder, elems []Element) {
 		h.u32(uint32(e.SubstHead))
 		digestValueRef(h, e.Default)
 		digestValueRef(h, e.Fixed)
+		h.u32(uint32(e.DefaultMember))
+		h.u32(uint32(e.FixedMember))
 		h.u32(uint32(e.Flags))
 		h.u8(uint8(e.Block))
 		h.u8(uint8(e.Final))
@@ -199,6 +204,8 @@ func digestAttributes(h *digestBuilder, attrs []Attribute) {
 		h.u32(uint32(a.Validator))
 		digestValueRef(h, a.Default)
 		digestValueRef(h, a.Fixed)
+		h.u32(uint32(a.DefaultMember))
+		h.u32(uint32(a.FixedMember))
 	}
 }
 
@@ -210,6 +217,8 @@ func digestAttrIndex(h *digestBuilder, idx ComplexAttrIndex) {
 		h.u8(uint8(use.Use))
 		digestValueRef(h, use.Default)
 		digestValueRef(h, use.Fixed)
+		h.u32(uint32(use.DefaultMember))
+		h.u32(uint32(use.FixedMember))
 	}
 	h.u32(uint32(len(idx.HashTables)))
 	for _, table := range idx.HashTables {

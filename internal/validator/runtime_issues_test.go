@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -23,10 +23,10 @@ func TestValidateRootSeenOnError(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if hasValidationCode(list, xsderrors.ErrNoRoot) {
+	if hasValidationCode(list, xsdErrors.ErrNoRoot) {
 		t.Fatalf("unexpected ErrNoRoot when root element was present")
 	}
-	if !hasValidationCode(list, xsderrors.ErrValidateRootNotDeclared) {
+	if !hasValidationCode(list, xsdErrors.ErrValidateRootNotDeclared) {
 		t.Fatalf("expected ErrValidateRootNotDeclared, got %+v", list)
 	}
 }
@@ -52,7 +52,7 @@ func TestValidateReaderSetupErrorWrapped(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrXMLParse) {
+	if !hasValidationCode(list, xsdErrors.ErrXMLParse) {
 		t.Fatalf("expected ErrXMLParse, got %+v", list)
 	}
 	if !strings.Contains(list[0].Message, sentinel.Error()) {
@@ -72,7 +72,7 @@ func TestValidateNilReaderWrapped(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrXMLParse) {
+	if !hasValidationCode(list, xsdErrors.ErrXMLParse) {
 		t.Fatalf("expected ErrXMLParse, got %+v", list)
 	}
 	if !strings.Contains(list[0].Message, "nil reader") {
@@ -125,7 +125,7 @@ func TestRootAnyAllowsUndeclaredRoot(t *testing.T) {
 	}
 }
 
-func TestUnionWhitespaceCollapseRuntime(t *testing.T) {
+func TestUnionWhitespacePreserveRuntime(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="urn:test"
@@ -143,8 +143,8 @@ func TestUnionWhitespaceCollapseRuntime(t *testing.T) {
 </xs:schema>`
 
 	docXML := `<root xmlns="urn:test">  a  </root>`
-	if err := validateRuntimeDoc(t, schemaXML, docXML); err != nil {
-		t.Fatalf("unexpected validation error: %v", err)
+	if err := validateRuntimeDoc(t, schemaXML, docXML); err == nil {
+		t.Fatalf("expected pattern violation for preserved whitespace")
 	}
 }
 
@@ -173,7 +173,7 @@ func TestInvalidIDDoesNotSatisfyIDREF(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrFacetViolation) {
+	if !hasValidationCode(list, xsdErrors.ErrFacetViolation) {
 		t.Fatalf("expected ErrFacetViolation, got %+v", list)
 	}
 }
@@ -197,7 +197,7 @@ func TestProhibitedAttributeFixedRejectedAtRuntime(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrAttributeProhibited) {
+	if !hasValidationCode(list, xsdErrors.ErrAttributeProhibited) {
 		t.Fatalf("expected ErrAttributeProhibited, got %+v", list)
 	}
 }
@@ -223,7 +223,7 @@ func TestNilledElementChildReportsOnce(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if got := countValidationCode(list, xsderrors.ErrValidateNilledNotEmpty); got != 1 {
+	if got := countValidationCode(list, xsdErrors.ErrValidateNilledNotEmpty); got != 1 {
 		t.Fatalf("ErrValidateNilledNotEmpty count = %d, want 1", got)
 	}
 }
@@ -243,7 +243,7 @@ func TestSimpleContentChildReportsOnce(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if got := countValidationCode(list, xsderrors.ErrTextInElementOnly); got != 1 {
+	if got := countValidationCode(list, xsdErrors.ErrTextInElementOnly); got != 1 {
 		t.Fatalf("ErrTextInElementOnly count = %d, want 1", got)
 	}
 }
@@ -259,7 +259,7 @@ func TestValidateMissingRootParseError(t *testing.T) {
 		t.Fatalf("expected parse error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrXMLParse) {
+	if !hasValidationCode(list, xsdErrors.ErrXMLParse) {
 		t.Fatalf("expected ErrXMLParse, got %+v", list)
 	}
 }
@@ -292,7 +292,7 @@ func TestValidateCharDataOutsideRoot(t *testing.T) {
 					t.Fatalf("expected error")
 				}
 				list := mustValidationList(t, err)
-				if !hasValidationCode(list, xsderrors.ErrXMLParse) {
+				if !hasValidationCode(list, xsdErrors.ErrXMLParse) {
 					t.Fatalf("expected ErrXMLParse, got %+v", list)
 				}
 				return
@@ -379,7 +379,7 @@ func TestBinaryLengthFacets(t *testing.T) {
 		schemaXML string
 		docXML    string
 		wantErr   bool
-		wantCode  xsderrors.ErrorCode
+		wantCode  xsdErrors.ErrorCode
 	}{
 		{
 			name:      "base64Binary length accepts one byte",
@@ -419,7 +419,7 @@ func TestBinaryLengthFacets(t *testing.T) {
 			schemaXML: binarySchema("base64Binary", "length", 1),
 			docXML:    `<root xmlns="urn:test">AQ=</root>`,
 			wantErr:   true,
-			wantCode:  xsderrors.ErrDatatypeInvalid,
+			wantCode:  xsdErrors.ErrDatatypeInvalid,
 		},
 		{
 			name:      "hexBinary length accepts one byte",
@@ -459,7 +459,7 @@ func TestBinaryLengthFacets(t *testing.T) {
 			schemaXML: binarySchema("hexBinary", "length", 1),
 			docXML:    `<root xmlns="urn:test">0G</root>`,
 			wantErr:   true,
-			wantCode:  xsderrors.ErrDatatypeInvalid,
+			wantCode:  xsdErrors.ErrDatatypeInvalid,
 		},
 	}
 
@@ -507,9 +507,264 @@ func TestAllGroupSubstitutionMembers(t *testing.T) {
 	}
 }
 
-func mustValidationList(t *testing.T, err error) xsderrors.ValidationList {
+func TestUnionEnumerationIntersectionRuntime(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="Base">
+    <xs:restriction base="tns:U">
+      <xs:enumeration value="1"/>
+      <xs:enumeration value="2"/>
+      <xs:enumeration value="3"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Derived">
+    <xs:restriction base="tns:Base">
+      <xs:enumeration value="2"/>
+      <xs:enumeration value="3"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:Derived"/>
+</xs:schema>`
+
+	if err := validateRuntimeDoc(t, schemaXML, `<root xmlns="urn:test">2</root>`); err != nil {
+		t.Fatalf("expected enumeration intersection to pass: %v", err)
+	}
+	if err := validateRuntimeDoc(t, schemaXML, `<root xmlns="urn:test">1</root>`); err == nil {
+		t.Fatalf("expected enumeration intersection to reject value")
+	}
+}
+
+func TestUnionPatternWhitespaceNormalization(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:token xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="P">
+    <xs:restriction base="tns:U">
+      <xs:pattern value="\S+ \S+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:P"/>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test">a   b</root>`
+	if err := validateRuntimeDoc(t, schemaXML, doc); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestUnionPatternAfterCollapseRejects(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:token xs:ID"/>
+  </xs:simpleType>
+  <xs:simpleType name="P">
+    <xs:restriction base="tns:U">
+      <xs:pattern value="\S+\s{2}\S+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:P"/>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test">a  b</root>`
+	if err := validateRuntimeDoc(t, schemaXML, doc); err == nil {
+		t.Fatalf("expected collapsed pattern to reject value")
+	}
+}
+
+func TestUnionDefaultKeyMemberSelection(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union>
+      <xs:simpleType>
+        <xs:restriction base="xs:int">
+          <xs:minInclusive value="10"/>
+        </xs:restriction>
+      </xs:simpleType>
+      <xs:simpleType>
+        <xs:restriction base="xs:string"/>
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="a" type="tns:U" default="5"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="u">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@a"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test"><item/><item a="5"/></root>`
+	err := validateRuntimeDoc(t, schemaXML, doc)
+	if err == nil {
+		t.Fatalf("expected identity duplicate from default/member key match")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsdErrors.ErrIdentityDuplicate) {
+		t.Fatalf("expected ErrIdentityDuplicate, got %+v", list)
+	}
+}
+
+func TestUnionIDTrackingUsesSelectedMember(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:QName xs:ID"/>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" type="tns:U" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test"><item>foo</item><item>foo</item></root>`
+	if err := validateRuntimeDoc(t, schemaXML, doc); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestFloatNaNRangeFacet(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="F">
+    <xs:restriction base="xs:float">
+      <xs:minInclusive value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:F"/>
+</xs:schema>`
+
+	err := validateRuntimeDoc(t, schemaXML, `<root xmlns="urn:test">NaN</root>`)
+	if err == nil {
+		t.Fatalf("expected NaN to violate range facet")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsdErrors.ErrFacetViolation) {
+		t.Fatalf("expected ErrFacetViolation, got %+v", list)
+	}
+}
+
+func TestTimeFacetComparisonIgnoresDateShift(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="T">
+    <xs:restriction base="xs:time">
+      <xs:minInclusive value="10:30:00Z"/>
+      <xs:maxInclusive value="10:30:00Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:T"/>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test">00:30:00+14:00</root>`
+	if err := validateRuntimeDoc(t, schemaXML, doc); err != nil {
+		t.Fatalf("expected time with date shift to satisfy facets: %v", err)
+	}
+}
+
+func TestNotationRequiresDeclaration(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:notation name="gif" public="image/gif"/>
+  <xs:simpleType name="NotationType">
+    <xs:union memberTypes="xs:NOTATION"/>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:NotationType"/>
+</xs:schema>`
+
+	okDoc := `<root xmlns="urn:test" xmlns:tns="urn:test">tns:gif</root>`
+	if err := validateRuntimeDoc(t, schemaXML, okDoc); err != nil {
+		t.Fatalf("expected declared notation to pass: %v", err)
+	}
+
+	badDoc := `<root xmlns="urn:test" xmlns:tns="urn:test">tns:png</root>`
+	if err := validateRuntimeDoc(t, schemaXML, badDoc); err == nil {
+		t.Fatalf("expected undeclared notation to fail")
+	}
+}
+
+func TestEmptyContentRejectsWhitespaceRuntime(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType/>
+  </xs:element>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test"> </root>`
+	err := validateRuntimeDoc(t, schemaXML, doc)
+	if err == nil {
+		t.Fatalf("expected empty content to reject whitespace")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsdErrors.ErrTextInElementOnly) {
+		t.Fatalf("expected ErrTextInElementOnly, got %+v", list)
+	}
+}
+
+func TestAnyURIAllowsSpaces(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="xs:anyURI"/>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test">http://exa mple.com</root>`
+	if err := validateRuntimeDoc(t, schemaXML, doc); err != nil {
+		t.Fatalf("expected anyURI with space to pass: %v", err)
+	}
+}
+
+func mustValidationList(t *testing.T, err error) xsdErrors.ValidationList {
 	t.Helper()
-	var list xsderrors.ValidationList
+	var list xsdErrors.ValidationList
 	ok := errors.As(err, &list)
 	if !ok {
 		t.Fatalf("expected ValidationList, got %T", err)
@@ -517,7 +772,7 @@ func mustValidationList(t *testing.T, err error) xsderrors.ValidationList {
 	return list
 }
 
-func hasValidationCode(list xsderrors.ValidationList, code xsderrors.ErrorCode) bool {
+func hasValidationCode(list xsdErrors.ValidationList, code xsdErrors.ErrorCode) bool {
 	for _, v := range list {
 		if v.Code == string(code) {
 			return true
@@ -526,7 +781,7 @@ func hasValidationCode(list xsderrors.ValidationList, code xsderrors.ErrorCode) 
 	return false
 }
 
-func countValidationCode(list xsderrors.ValidationList, code xsderrors.ErrorCode) int {
+func countValidationCode(list xsdErrors.ValidationList, code xsdErrors.ErrorCode) int {
 	count := 0
 	for _, v := range list {
 		if v.Code == string(code) {

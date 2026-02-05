@@ -5,35 +5,39 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolver"
+	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // resolveGroupReferences resolves all GroupRef placeholders in a schema
 // This must be called after all schemas (including imports/includes) are loaded
-func (l *SchemaLoader) resolveGroupReferences(schema *parser.Schema) error {
+func (l *SchemaLoader) resolveGroupReferences(sch *parser.Schema) error {
 	// first, resolve all top-level groups (they may reference each other)
 	detector := resolver.NewCycleDetector[types.QName]()
 
-	for qname, group := range schema.Groups {
+	for _, qname := range schema.SortedQNames(sch.Groups) {
+		group := sch.Groups[qname]
 		if err := detector.WithScope(qname, func() error {
-			return l.resolveGroupRefsInModelGroupWithCycleDetection(group, schema, detector)
+			return l.resolveGroupRefsInModelGroupWithCycleDetection(group, sch, detector)
 		}); err != nil {
 			return fmt.Errorf("resolve group refs in group %s: %w", qname, err)
 		}
 	}
 
-	for _, typ := range schema.TypeDefs {
+	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
+		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
-			if err := l.resolveGroupRefsInContentWithVisited(ct.Content(), schema, detector); err != nil {
+			if err := l.resolveGroupRefsInContentWithVisited(ct.Content(), sch, detector); err != nil {
 				return fmt.Errorf("resolve group refs in type %s: %w", ct.QName, err)
 			}
 		}
 	}
 
-	for _, elem := range schema.ElementDecls {
+	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
+		elem := sch.ElementDecls[qname]
 		if elem.Type != nil {
 			if ct, ok := elem.Type.(*types.ComplexType); ok {
-				if err := l.resolveGroupRefsInContentWithVisited(ct.Content(), schema, detector); err != nil {
+				if err := l.resolveGroupRefsInContentWithVisited(ct.Content(), sch, detector); err != nil {
 					return fmt.Errorf("resolve group refs in element %s: %w", elem.Name, err)
 				}
 			}

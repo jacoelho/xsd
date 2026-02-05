@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // SimpleType represents a simple type definition
@@ -512,12 +514,12 @@ func (s *SimpleType) MeasureLength(value string) int {
 	return utf8.RuneCountInString(value)
 }
 
-func countXMLFields(value string) int {
+func countXMLFields(lexical string) int {
 	// count fields delimited by XML whitespace (#x20/#x9/#xD/#xA) without allocations.
 	count := 0
 	inField := false
-	for i := 0; i < len(value); i++ {
-		if IsXMLWhitespaceByte(value[i]) {
+	for i := 0; i < len(lexical); i++ {
+		if value.IsXMLWhitespaceByte(lexical[i]) {
 			if inField {
 				count++
 				inField = false

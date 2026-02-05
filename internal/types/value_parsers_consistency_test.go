@@ -5,14 +5,14 @@ import (
 	"math"
 	"testing"
 
-	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestParseDecimalMatchesValue(t *testing.T) {
 	cases := []string{"1", " 1.0 ", "-0.5", "", "1.2.3"}
 	for _, input := range cases {
 		got, err := ParseDecimal(input)
-		want, werr := valuepkg.ParseDecimal([]byte(input))
+		want, werr := value.ParseDecimal([]byte(input))
 		if (err != nil) != (werr != nil) {
 			t.Fatalf("ParseDecimal(%q) error mismatch: %v vs %v", input, err, werr)
 		}
@@ -29,7 +29,7 @@ func TestParseIntegerMatchesValue(t *testing.T) {
 	cases := []string{"0", "-1", " 10 ", "", "1.0"}
 	for _, input := range cases {
 		got, err := ParseInteger(input)
-		want, werr := valuepkg.ParseInteger([]byte(input))
+		want, werr := value.ParseInteger([]byte(input))
 		if (err != nil) != (werr != nil) {
 			t.Fatalf("ParseInteger(%q) error mismatch: %v vs %v", input, err, werr)
 		}
@@ -46,7 +46,7 @@ func TestParseFloatMatchesValue(t *testing.T) {
 	cases := []string{"INF", "-INF", "NaN", "+INF", "1.25"}
 	for _, input := range cases {
 		got, err := ParseFloat(input)
-		want, werr := valuepkg.ParseFloat([]byte(input))
+		want, werr := value.ParseFloat([]byte(input))
 		if (err != nil) != (werr != nil) {
 			t.Fatalf("ParseFloat(%q) error mismatch: %v vs %v", input, err, werr)
 		}
@@ -63,7 +63,7 @@ func TestParseDoubleMatchesValue(t *testing.T) {
 	cases := []string{"INF", "-INF", "NaN", "+INF", "1.25"}
 	for _, input := range cases {
 		got, err := ParseDouble(input)
-		want, werr := valuepkg.ParseDouble([]byte(input))
+		want, werr := value.ParseDouble([]byte(input))
 		if (err != nil) != (werr != nil) {
 			t.Fatalf("ParseDouble(%q) error mismatch: %v vs %v", input, err, werr)
 		}
@@ -84,7 +84,7 @@ func TestParseDateTimeMatchesValue(t *testing.T) {
 	}
 	for _, input := range cases {
 		got, err := ParseDateTime(input)
-		want, werr := valuepkg.ParseDateTime([]byte(input))
+		want, werr := value.ParseDateTime([]byte(input))
 		if (err != nil) != (werr != nil) {
 			t.Fatalf("ParseDateTime(%q) error mismatch: %v vs %v", input, err, werr)
 		}
@@ -101,7 +101,7 @@ func TestValidateAnyURIMatchesValue(t *testing.T) {
 	cases := []string{"http://example.com/%G1", "http://exa mple.com"}
 	for _, input := range cases {
 		err := validateAnyURI(input)
-		werr := valuepkg.ValidateAnyURI([]byte(input))
+		werr := value.ValidateAnyURI([]byte(input))
 		if (err != nil) != (werr != nil) {
 			t.Fatalf("validateAnyURI(%q) error mismatch: %v vs %v", input, err, werr)
 		}
@@ -112,7 +112,7 @@ func TestParseAnyURIMatchesValue(t *testing.T) {
 	cases := []string{"http://example.com", "http://exa mple.com"}
 	for _, input := range cases {
 		got, err := ParseAnyURI(input)
-		want, werr := valuepkg.ParseAnyURI([]byte(input))
+		want, werr := value.ParseAnyURI([]byte(input))
 		if (err != nil) != (werr != nil) {
 			t.Fatalf("ParseAnyURI(%q) error mismatch: %v vs %v", input, err, werr)
 		}
