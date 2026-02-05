@@ -135,6 +135,8 @@ Spec refs: docs/spec/xml/datatypes.xml#built-in-primitive-datatypes.
 
 Implementation note: fractional seconds are limited to 9 digits (nanosecond precision); longer fractions are rejected with an explicit error.
 
+Implementation note: `xs:time` comparisons and range facets use the full UTC-normalized instant (including the reference date used during parsing). This means timezone offsets that cross midnight can change ordering, and derived facets must respect that ordering to match the W3C XSD 1.0 test suite (for example, a base `maxInclusive` of `12:00:00-10:00` makes a derived `maxInclusive` of `12:00:00-14:00` invalid because it is later when normalized to UTC).
+
 ### Binary Types
 
 | Type | Description | Example |
