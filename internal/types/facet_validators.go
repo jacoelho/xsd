@@ -151,8 +151,8 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 	case num.Int:
 		return ComparableInt{Value: v, Typ: typ}, nil
 	case time.Time:
-		hasTZ := HasTimezone(value.Lexical())
-		return ComparableTime{Value: v, Typ: typ, HasTimezone: hasTZ}, nil
+		tzKind := TimezoneKind(value.Lexical())
+		return ComparableTime{Value: v, Typ: typ, TimezoneKind: tzKind}, nil
 	case time.Duration:
 		xsdDur := durationToXSD(v)
 		return ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
@@ -230,7 +230,7 @@ func parseStringToComparableValue(value TypedValue, lexical string, typ Type) (C
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse date/time: %w", err)
 		}
-		return ComparableTime{Value: timeVal, Typ: typ, HasTimezone: HasTimezone(lexical)}, nil
+		return ComparableTime{Value: timeVal, Typ: typ, TimezoneKind: TimezoneKind(lexical)}, nil
 
 	case "float":
 		floatVal, err := ParseFloat(lexical)
@@ -437,6 +437,7 @@ func getLength(value string, baseType Type) int {
 type Enumeration struct {
 	aux    atomic.Pointer[enumAux]
 	values []string
+	sealed atomic.Bool
 }
 
 // NewEnumeration creates an enumeration facet with immutable values.
@@ -460,6 +461,7 @@ func (e *Enumeration) AppendValue(value string, context map[string]string) {
 	if e == nil {
 		return
 	}
+	e.ensureMutable()
 	e.values = append(e.values, value)
 
 	aux := e.aux.Load()
@@ -479,6 +481,23 @@ func (e *Enumeration) AppendValue(value string, context map[string]string) {
 	}
 	contexts[len(contexts)-1] = copyNamespaceContext(context)
 	e.setAux(contexts, nil)
+}
+
+// Seal marks the enumeration as immutable.
+func (e *Enumeration) Seal() {
+	if e == nil {
+		return
+	}
+	e.sealed.Store(true)
+}
+
+func (e *Enumeration) ensureMutable() {
+	if e == nil {
+		return
+	}
+	if e.sealed.Load() {
+		panic("enumeration is sealed")
+	}
 }
 
 type enumAux struct {
@@ -614,6 +633,7 @@ func (e *Enumeration) SetValueContexts(values []map[string]string) {
 	if e == nil {
 		return
 	}
+	e.ensureMutable()
 	contexts := cloneValueContexts(values)
 	var qnames []QName
 	if aux := e.aux.Load(); aux != nil && len(aux.qnameValues) > 0 {
@@ -639,6 +659,7 @@ func (e *Enumeration) SetQNameValues(values []QName) {
 	if e == nil {
 		return
 	}
+	e.ensureMutable()
 	qnames := slices.Clone(values)
 	var contexts []map[string]string
 	if aux := e.aux.Load(); aux != nil && len(aux.valueContexts) > 0 {
@@ -846,17 +867,16 @@ func parseListValueVariants(lexical string, itemType Type) ([][]TypedValue, erro
 	if itemType == nil {
 		return nil, fmt.Errorf("list item type is nil")
 	}
-	items := splitXMLWhitespaceFields(lexical)
-	if len(items) == 0 {
-		return [][]TypedValue{}, nil
-	}
-	parsed := make([][]TypedValue, len(items))
-	for i, item := range items {
+	parsed := make([][]TypedValue, 0, 4)
+	for item := range FieldsXMLWhitespaceSeq(lexical) {
 		values, err := parseValueVariants(item, itemType)
 		if err != nil {
 			return nil, fmt.Errorf("invalid list item %q: %w", item, err)
 		}
-		parsed[i] = values
+		parsed = append(parsed, values)
+	}
+	if len(parsed) == 0 {
+		return [][]TypedValue{}, nil
 	}
 	return parsed, nil
 }

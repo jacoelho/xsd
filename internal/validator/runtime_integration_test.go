@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -159,12 +159,12 @@ func TestRuntimeDefaultIDREFSInvalid(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected IDREFS default error, got nil")
 	}
-	var violations xsderrors.ValidationList
+	var violations xsdErrors.ValidationList
 	if !errors.As(err, &violations) {
 		t.Fatalf("expected ValidationList error, got %T", err)
 	}
-	if !hasViolationCode([]xsderrors.Validation(violations), xsderrors.ErrIDRefNotFound) {
-		t.Fatalf("expected code %s, got %v", xsderrors.ErrIDRefNotFound, violations)
+	if !hasViolationCode([]xsdErrors.Validation(violations), xsdErrors.ErrIDRefNotFound) {
+		t.Fatalf("expected code %s, got %v", xsdErrors.ErrIDRefNotFound, violations)
 	}
 }
 
@@ -209,12 +209,12 @@ func TestRuntimeEmptyChoiceRejectsEmpty(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected empty choice to reject empty content")
 	}
-	var violations xsderrors.ValidationList
+	var violations xsdErrors.ValidationList
 	if !errors.As(err, &violations) {
 		t.Fatalf("expected ValidationList error, got %T", err)
 	}
-	if !hasViolationCode([]xsderrors.Validation(violations), xsderrors.ErrContentModelInvalid) {
-		t.Fatalf("expected code %s, got %v", xsderrors.ErrContentModelInvalid, violations)
+	if !hasViolationCode([]xsdErrors.Validation(violations), xsdErrors.ErrContentModelInvalid) {
+		t.Fatalf("expected code %s, got %v", xsdErrors.ErrContentModelInvalid, violations)
 	}
 }
 
@@ -407,12 +407,12 @@ func TestRuntimeSubstitutionGroupXsiTypeDerivedFromHeadInvalid(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected xsi:type derivation error")
 	}
-	var violations xsderrors.ValidationList
+	var violations xsdErrors.ValidationList
 	if !errors.As(err, &violations) {
 		t.Fatalf("expected ValidationList error, got %T", err)
 	}
-	if len(violations) == 0 || violations[0].Code != string(xsderrors.ErrValidateXsiTypeDerivationBlocked) {
-		t.Fatalf("expected code %s, got %v", xsderrors.ErrValidateXsiTypeDerivationBlocked, violations)
+	if len(violations) == 0 || violations[0].Code != string(xsdErrors.ErrValidateXsiTypeDerivationBlocked) {
+		t.Fatalf("expected code %s, got %v", xsdErrors.ErrValidateXsiTypeDerivationBlocked, violations)
 	}
 }
 
@@ -452,7 +452,7 @@ func TestRuntimeErrorOrderDocumentOrder(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected validation error")
 			}
-			var violations xsderrors.ValidationList
+			var violations xsdErrors.ValidationList
 			if !errors.As(err, &violations) {
 				t.Fatalf("expected ValidationList error, got %T", err)
 			}
@@ -484,7 +484,7 @@ func TestRuntimeTotalDigitsLeadingDotDecimal(t *testing.T) {
 
 	doc := `<t1 att9=".12345"/>`
 	if err := validateRuntimeDoc(t, schema, doc); err != nil {
-		t.Fatalf("validate runtime: %v", err)
+		t.Fatalf("expected leading dot decimal to pass: %v", err)
 	}
 }
 
@@ -513,20 +513,15 @@ func TestRuntimeXsiTypeBlockedByBaseTypeBlock(t *testing.T) {
 	}
 }
 
-func TestRuntimeAnyURIRejectsSpaces(t *testing.T) {
+func TestRuntimeAnyURIAllowsSpaces(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyURI"/>
 </xs:schema>`
 
 	bad := `<root>http://exa mple.com</root>`
-	err := validateRuntimeDoc(t, schema, bad)
-	if err == nil {
-		t.Fatalf("expected anyURI whitespace error")
-	}
-	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrDatatypeInvalid) {
-		t.Fatalf("expected ErrDatatypeInvalid, got %+v", list)
+	if err := validateRuntimeDoc(t, schema, bad); err != nil {
+		t.Fatalf("expected anyURI whitespace to pass: %v", err)
 	}
 
 	good := `<root>http://example.com/%20</root>`
@@ -669,7 +664,7 @@ func TestRuntimeKeyrefMissingFieldMismatchFails(t *testing.T) {
 		t.Fatalf("expected keyref mismatch violation")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrIdentityKeyRefFailed) {
+	if !hasValidationCode(list, xsdErrors.ErrIdentityKeyRefFailed) {
 		t.Fatalf("expected ErrIdentityKeyRefFailed, got %+v", list)
 	}
 }
@@ -1002,7 +997,7 @@ func TestValidationErrorOrdering_DocumentOrder(t *testing.T) {
 		t.Fatalf("expected validation errors")
 	}
 
-	violations, ok := xsderrors.AsValidations(err)
+	violations, ok := xsdErrors.AsValidations(err)
 	if !ok {
 		t.Fatalf("expected validation errors, got %T", err)
 	}

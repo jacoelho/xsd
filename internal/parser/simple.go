@@ -461,6 +461,12 @@ func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, 
 		}
 	}
 
+	for _, facet := range restriction.Facets {
+		if enum, ok := facet.(*types.Enumeration); ok {
+			enum.Seal()
+		}
+	}
+
 	return nil
 }
 

@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 )
 
 func TestSessionReset(t *testing.T) {
@@ -18,7 +18,7 @@ func TestSessionReset(t *testing.T) {
 	s.textBuf = []byte("text")
 	s.normBuf = []byte("norm")
 	s.errBuf = []byte("err")
-	s.validationErrors = []xsderrors.Validation{{Code: "x"}}
+	s.validationErrors = []xsdErrors.Validation{{Code: "x"}}
 	s.icState.active = true
 	s.icState.frames = []rtIdentityFrame{{id: 1}, {id: 2}}
 	s.icState.scopes = []rtIdentityScope{{rootID: 1}}

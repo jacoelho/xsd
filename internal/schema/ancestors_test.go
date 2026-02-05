@@ -3,7 +3,7 @@ package schema_test
 import (
 	"testing"
 
-	schemapkg "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -25,13 +25,13 @@ func TestBuildAncestorsMasks(t *testing.T) {
   </xs:complexType>
 </xs:schema>`
 
-	schema := mustResolveSchema(t, schemaXML)
-	registry, err := schemapkg.AssignIDs(schema)
+	sch := mustResolveSchema(t, schemaXML)
+	registry, err := schema.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 
-	ancestors, err := schemapkg.BuildAncestors(schema, registry)
+	ancestors, err := schema.BuildAncestors(sch, registry)
 	if err != nil {
 		t.Fatalf("BuildAncestors error = %v", err)
 	}

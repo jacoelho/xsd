@@ -209,6 +209,26 @@ func TestTextContent(t *testing.T) {
 	}
 }
 
+func TestParseIntoResetsOnError(t *testing.T) {
+	doc := &Document{}
+	if err := ParseInto(strings.NewReader("<root><child/></root>"), doc); err != nil {
+		t.Fatalf("ParseInto() error = %v", err)
+	}
+	if doc.DocumentElement() == InvalidNode {
+		t.Fatalf("expected document element after successful parse")
+	}
+
+	if err := ParseInto(strings.NewReader("<root>"), doc); err == nil {
+		t.Fatalf("expected parse error for malformed XML")
+	}
+	if doc.DocumentElement() != InvalidNode {
+		t.Fatalf("expected document to be reset after parse error")
+	}
+	if len(doc.nodes) != 0 || len(doc.attrs) != 0 || len(doc.children) != 0 {
+		t.Fatalf("expected document arenas to be cleared after error")
+	}
+}
+
 func TestTextContentOrder(t *testing.T) {
 	xmlData := `<root>a <child>b</child> c</root>`
 

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"slices"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/ic"
 	"github.com/jacoelho/xsd/internal/runtime"
-	xsdxml "github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xml"
 )
 
 type identityState struct {
@@ -105,6 +105,7 @@ type rtSelectorMatch struct {
 
 type rtConstraintState struct {
 	matches    map[uint64]*rtSelectorMatch
+	name       string
 	selectors  []runtime.PathID
 	fields     [][]runtime.PathID
 	rows       []rtIdentityRow
@@ -277,6 +278,7 @@ func (s *identityState) openScope(rt *runtime.Schema, frame *rtIdentityFrame, el
 		}
 		scope.constraints = append(scope.constraints, rtConstraintState{
 			id:         id,
+			name:       constraintName(rt, constraint.Name),
 			category:   constraint.Category,
 			referenced: constraint.Referenced,
 			selectors:  selectors,
@@ -286,6 +288,25 @@ func (s *identityState) openScope(rt *runtime.Schema, frame *rtIdentityFrame, el
 	}
 	s.scopes = append(s.scopes, scope)
 	return nil
+}
+
+func constraintName(rt *runtime.Schema, sym runtime.SymbolID) string {
+	if rt == nil || sym == 0 {
+		return ""
+	}
+	if int(sym) >= len(rt.Symbols.NS) {
+		return ""
+	}
+	local := rt.Symbols.LocalBytes(sym)
+	if len(local) == 0 {
+		return ""
+	}
+	nsID := rt.Symbols.NS[sym]
+	ns := rt.Namespaces.Bytes(nsID)
+	if len(ns) == 0 {
+		return string(local)
+	}
+	return "{" + string(ns) + "}" + string(local)
 }
 
 func (s *identityState) matchSelectors(rt *runtime.Schema, currentDepth int) {
@@ -530,13 +551,13 @@ func freezeIdentityKey(arena *Arena, kind runtime.ValueKind, key []byte) runtime
 func identityViolation(category runtime.ICCategory, msg string) error {
 	switch category {
 	case runtime.ICKey:
-		return newValidationError(xsderrors.ErrIdentityAbsent, msg)
+		return newValidationError(xsdErrors.ErrIdentityAbsent, msg)
 	case runtime.ICUnique:
-		return newValidationError(xsderrors.ErrIdentityDuplicate, msg)
+		return newValidationError(xsdErrors.ErrIdentityDuplicate, msg)
 	case runtime.ICKeyRef:
-		return newValidationError(xsderrors.ErrIdentityKeyRefFailed, msg)
+		return newValidationError(xsdErrors.ErrIdentityKeyRefFailed, msg)
 	default:
-		return newValidationError(xsderrors.ErrIdentityAbsent, msg)
+		return newValidationError(xsdErrors.ErrIdentityAbsent, msg)
 	}
 }
 

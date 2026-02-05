@@ -4,13 +4,11 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"math"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
-	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // TypedValue represents a value with its XSD type
@@ -259,8 +257,8 @@ func (v *Base64BinaryValue) String() string {
 // DateTimeValue represents a dateTime value
 type DateTimeValue struct {
 	simpleValue[time.Time]
-	kind        TypeName
-	hasTimezone bool
+	kind   TypeName
+	tzKind value.TimezoneKind
 }
 
 // NewDateTimeValue creates a new DateTimeValue
@@ -276,12 +274,12 @@ func NewDateTimeValue(parsed ParsedValue[time.Time], typ *SimpleType) TypedValue
 	return &DateTimeValue{
 		simpleValue: newSimpleValue(parsed, typ, nil),
 		kind:        kind,
-		hasTimezone: HasTimezone(parsed.Lexical),
+		tzKind:      value.TimezoneKindFromLexical([]byte(parsed.Lexical)),
 	}
 }
 
 func (v *DateTimeValue) String() string {
-	return valuepkg.CanonicalDateTimeString(v.native, string(v.kind), v.hasTimezone)
+	return value.CanonicalDateTimeString(v.native, string(v.kind), v.tzKind)
 }
 
 // FloatValue represents a float value
@@ -295,7 +293,7 @@ func NewFloatValue(parsed ParsedValue[float32], typ *SimpleType) TypedValue {
 }
 
 func (v *FloatValue) String() string {
-	return canonicalFloat(float64(v.native), 32)
+	return value.CanonicalFloat(float64(v.native), 32)
 }
 
 // DoubleValue represents a double value
@@ -309,46 +307,7 @@ func NewDoubleValue(parsed ParsedValue[float64], typ *SimpleType) TypedValue {
 }
 
 func (v *DoubleValue) String() string {
-	return canonicalFloat(v.native, 64)
-}
-
-func canonicalFloat(value float64, bits int) string {
-	if math.IsNaN(value) {
-		return "NaN"
-	}
-	if math.IsInf(value, 1) {
-		return "INF"
-	}
-	if math.IsInf(value, -1) {
-		return "-INF"
-	}
-	if value == 0 {
-		return "0.0E0"
-	}
-	raw := strconv.FormatFloat(value, 'E', -1, bits)
-	parts := strings.SplitN(raw, "E", 2)
-	mantissa := parts[0]
-	exponent := "0"
-	if len(parts) == 2 {
-		exponent = parts[1]
-	}
-
-	if !strings.Contains(mantissa, ".") {
-		mantissa += ".0"
-	}
-	if dot := strings.IndexByte(mantissa, '.'); dot >= 0 {
-		i := len(mantissa) - 1
-		for i > dot+1 && mantissa[i] == '0' {
-			i--
-		}
-		mantissa = mantissa[:i+1]
-	}
-
-	expVal, err := strconv.Atoi(exponent)
-	if err != nil {
-		return mantissa + "E" + exponent
-	}
-	return mantissa + "E" + strconv.Itoa(expVal)
+	return value.CanonicalFloat(v.native, 64)
 }
 
 // StringValue represents a string value

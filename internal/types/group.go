@@ -274,6 +274,9 @@ func copyEnumerationFacet(enum *Enumeration, opts CopyOptions) *Enumeration {
 	} else if qnames := enum.QNameValues(); len(qnames) > 0 {
 		clone.SetQNameValues(slices.Clone(qnames))
 	}
+	if enum.sealed.Load() {
+		clone.Seal()
+	}
 	return clone
 }
 

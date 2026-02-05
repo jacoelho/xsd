@@ -224,11 +224,10 @@ func detectSubstitutionGroupCycles(schema *parser.Schema) error {
 		}
 		if !decl.SubstitutionGroup.IsZero() {
 			head := decl.SubstitutionGroup
-			if _, ok := schema.ElementDecls[head]; !ok {
-				return fmt.Errorf("element %s substitutionGroup %s not found", name, head)
-			}
-			if err := visit(head); err != nil {
-				return err
+			if _, ok := schema.ElementDecls[head]; ok {
+				if err := visit(head); err != nil {
+					return err
+				}
 			}
 		}
 		states[name] = stateDone

@@ -3,7 +3,7 @@ package validator
 import (
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 )
 
 func TestChildPresenceRecordedOnStartElementError(t *testing.T) {
@@ -24,7 +24,7 @@ func TestChildPresenceRecordedOnStartElementError(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrTextInElementOnly) {
+	if !hasValidationCode(list, xsdErrors.ErrTextInElementOnly) {
 		t.Fatalf("expected ErrTextInElementOnly, got %+v", list)
 	}
 }
@@ -47,7 +47,7 @@ func TestNilledElementReportsNotEmptyWithInvalidChild(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrValidateNilledNotEmpty) {
+	if !hasValidationCode(list, xsdErrors.ErrValidateNilledNotEmpty) {
 		t.Fatalf("expected ErrValidateNilledNotEmpty, got %+v", list)
 	}
 }

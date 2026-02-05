@@ -49,14 +49,16 @@ type ComplexTypeRef struct {
 }
 
 type ComplexType struct {
-	TextFixed     ValueRef
-	TextDefault   ValueRef
-	Attrs         AttrIndexRef
-	Model         ModelRef
-	AnyAttr       WildcardID
-	TextValidator ValidatorID
-	Content       ContentKind
-	Mixed         bool
+	TextFixed         ValueRef
+	TextDefault       ValueRef
+	TextFixedMember   ValidatorID
+	TextDefaultMember ValidatorID
+	Attrs             AttrIndexRef
+	Model             ModelRef
+	AnyAttr           WildcardID
+	TextValidator     ValidatorID
+	Content           ContentKind
+	Mixed             bool
 }
 
 type Element struct {
@@ -65,8 +67,10 @@ type Element struct {
 	Type      TypeID
 	SubstHead ElemID
 
-	Default ValueRef
-	Fixed   ValueRef
+	Default       ValueRef
+	Fixed         ValueRef
+	DefaultMember ValidatorID
+	FixedMember   ValidatorID
 
 	Flags ElemFlags
 	Block ElemBlock
@@ -92,18 +96,22 @@ const (
 )
 
 type Attribute struct {
-	Name      SymbolID
-	Validator ValidatorID
-	Default   ValueRef
-	Fixed     ValueRef
+	Name          SymbolID
+	Validator     ValidatorID
+	Default       ValueRef
+	Fixed         ValueRef
+	DefaultMember ValidatorID
+	FixedMember   ValidatorID
 }
 
 type AttrUse struct {
-	Name      SymbolID
-	Validator ValidatorID
-	Use       AttrUseKind
-	Default   ValueRef
-	Fixed     ValueRef
+	Name          SymbolID
+	Validator     ValidatorID
+	Use           AttrUseKind
+	Default       ValueRef
+	Fixed         ValueRef
+	DefaultMember ValidatorID
+	FixedMember   ValidatorID
 }
 
 type AttrUseKind uint8

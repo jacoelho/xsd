@@ -85,6 +85,7 @@ func computeBuildHash(rt *runtime.Schema) uint64 {
 	hashPatterns(h, rt.Patterns)
 	hashEnums(h, &rt.Enums)
 	hashValues(h, rt.Values)
+	hashSymbolIDs(h, rt.Notations)
 
 	hashModels(h, rt.Models)
 	hashWildcards(h, rt.Wildcards, rt.WildcardNS)
@@ -173,6 +174,8 @@ func hashComplexTypes(h *hashBuilder, types []runtime.ComplexType) {
 		h.u32(uint32(ct.TextValidator))
 		hashValueRef(h, ct.TextFixed)
 		hashValueRef(h, ct.TextDefault)
+		h.u32(uint32(ct.TextFixedMember))
+		h.u32(uint32(ct.TextDefaultMember))
 		hashModelRef(h, ct.Model)
 		h.bool(ct.Mixed)
 	}
@@ -186,6 +189,8 @@ func hashElements(h *hashBuilder, elems []runtime.Element) {
 		h.u32(uint32(e.SubstHead))
 		hashValueRef(h, e.Default)
 		hashValueRef(h, e.Fixed)
+		h.u32(uint32(e.DefaultMember))
+		h.u32(uint32(e.FixedMember))
 		h.u32(uint32(e.Flags))
 		h.u8(uint8(e.Block))
 		h.u8(uint8(e.Final))
@@ -201,6 +206,8 @@ func hashAttributes(h *hashBuilder, attrs []runtime.Attribute) {
 		h.u32(uint32(a.Validator))
 		hashValueRef(h, a.Default)
 		hashValueRef(h, a.Fixed)
+		h.u32(uint32(a.DefaultMember))
+		h.u32(uint32(a.FixedMember))
 	}
 }
 
@@ -212,6 +219,8 @@ func hashAttrIndex(h *hashBuilder, idx runtime.ComplexAttrIndex) {
 		h.u8(uint8(use.Use))
 		hashValueRef(h, use.Default)
 		hashValueRef(h, use.Fixed)
+		h.u32(uint32(use.DefaultMember))
+		h.u32(uint32(use.FixedMember))
 	}
 	h.u32(uint32(len(idx.HashTables)))
 	for _, table := range idx.HashTables {

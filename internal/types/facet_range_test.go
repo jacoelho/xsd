@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestGenericMinInclusive_Decimal(t *testing.T) {
@@ -107,7 +109,7 @@ func TestTimeLeapSecondFacetRange(t *testing.T) {
 	facet := &RangeFacet{
 		name:    "minInclusive",
 		lexical: "23:59:60Z",
-		value:   ComparableTime{Value: minTime, Typ: timeType, HasTimezone: true},
+		value:   ComparableTime{Value: minTime, Typ: timeType, TimezoneKind: value.TZKnown},
 		cmpFunc: func(cmp int) bool { return cmp >= 0 },
 		errOp:   ">=",
 	}
@@ -492,13 +494,13 @@ func TestRangeFacet_DurationIndeterminate(t *testing.T) {
 		t.Fatalf("ParseXSDDuration() error = %v", err)
 	}
 
-	value := &XSDDurationTypedValue{
+	durValue := &XSDDurationTypedValue{
 		Value: "P30D",
 		Typ:   durationType,
 		dur:   valueDur,
 	}
 
-	err = facet.Validate(value, durationType)
+	err = facet.Validate(durValue, durationType)
 	if err == nil {
 		t.Fatal("Validate() should return error for indeterminate duration comparison")
 	}
@@ -654,17 +656,17 @@ func TestDateTimeBoundsFacet_IndeterminateComparison(t *testing.T) {
 		t.Fatalf("ParseDateTime() error = %v", err)
 	}
 
-	value := &DateTimeTypedValue{
-		Value:       "2000-01-01T12:00:00",
-		Typ:         dateTimeType,
-		parsedTime:  valueTime,
-		hasTimezone: false,
+	timeValue := &DateTimeTypedValue{
+		Value:      "2000-01-01T12:00:00",
+		Typ:        dateTimeType,
+		parsedTime: valueTime,
+		tzKind:     value.TZNone,
 	}
 
 	// This comparison is INDETERMINATE because one has timezone and one doesn't,
 	// and they are within the ±14 hour window.
 	// Per spec, indeterminate comparisons should fail bounds facets.
-	err = facet.Validate(value, dateTimeType)
+	err = facet.Validate(timeValue, dateTimeType)
 	if err == nil {
 		t.Fatal("Validate() should return error for indeterminate dateTime comparison (timezone presence mismatch)")
 	}
@@ -672,10 +674,10 @@ func TestDateTimeBoundsFacet_IndeterminateComparison(t *testing.T) {
 
 // DateTimeTypedValue is a helper type for testing dateTime facets with timezone presence
 type DateTimeTypedValue struct {
-	Typ         Type
-	Value       string
-	parsedTime  time.Time
-	hasTimezone bool
+	Typ        Type
+	Value      string
+	parsedTime time.Time
+	tzKind     value.TimezoneKind
 }
 
 func (d *DateTimeTypedValue) Type() Type {
@@ -687,7 +689,7 @@ func (d *DateTimeTypedValue) Lexical() string {
 }
 
 func (d *DateTimeTypedValue) Native() any {
-	return ComparableTime{Value: d.parsedTime, Typ: d.Typ, HasTimezone: d.hasTimezone}
+	return ComparableTime{Value: d.parsedTime, Typ: d.Typ, TimezoneKind: d.tzKind}
 }
 
 func (d *DateTimeTypedValue) String() string {

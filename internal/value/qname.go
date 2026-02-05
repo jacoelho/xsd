@@ -163,5 +163,5 @@ func isNameChar(r rune) bool {
 }
 
 func containsXMLWhitespace(value []byte) bool {
-	return slices.ContainsFunc(value, isXMLWhitespace)
+	return slices.ContainsFunc(value, IsXMLWhitespaceByte)
 }

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestTemporalCanonicalizationMatchesValue(t *testing.T) {
@@ -34,8 +34,8 @@ func TestTemporalCanonicalizationMatchesValue(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse temporal %s error = %v", tc.kind, err)
 			}
-			hasTZ := valuepkg.HasTimezone([]byte(tc.lexical))
-			want := valuepkg.CanonicalDateTimeString(parsed, string(tc.kind), hasTZ)
+			tzKind := value.TimezoneKindFromLexical([]byte(tc.lexical))
+			want := value.CanonicalDateTimeString(parsed, string(tc.kind), tzKind)
 			if got != want {
 				t.Fatalf("canonical = %q, want %q", got, want)
 			}
@@ -46,11 +46,11 @@ func TestTemporalCanonicalizationMatchesValue(t *testing.T) {
 func parseTemporalForKind(kind TypeName, lexical string) (time.Time, error) {
 	switch kind {
 	case TypeNameDateTime:
-		return valuepkg.ParseDateTime([]byte(lexical))
+		return value.ParseDateTime([]byte(lexical))
 	case TypeNameTime:
-		return valuepkg.ParseTime([]byte(lexical))
+		return value.ParseTime([]byte(lexical))
 	case TypeNameGYearMonth:
-		return valuepkg.ParseGYearMonth([]byte(lexical))
+		return value.ParseGYearMonth([]byte(lexical))
 	default:
 		return time.Time{}, fmt.Errorf("unsupported temporal kind %s", kind)
 	}

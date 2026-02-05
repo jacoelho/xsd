@@ -80,3 +80,16 @@ func TestEnumerationValueContextsIsolationUnderConcurrency(t *testing.T) {
 	default:
 	}
 }
+
+func TestEnumerationSealPreventsAppend(t *testing.T) {
+	enum := NewEnumeration([]string{"a"})
+	enum.Seal()
+
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected AppendValue to panic after Seal")
+		}
+	}()
+
+	enum.AppendValue("b", nil)
+}

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/value"
-	datetimelex "github.com/jacoelho/xsd/internal/value/datetime"
 )
 
 type dateTimeNormalizer struct{}
@@ -19,11 +18,15 @@ func (n dateTimeNormalizer) Normalize(lexical string, typ Type) (string, error) 
 	return TrimXMLWhitespace(normalized), nil
 }
 
+// TimezoneKind reports the timezone kind for a lexical date/time value.
+func TimezoneKind(lexical string) value.TimezoneKind {
+	lexical = TrimXMLWhitespace(lexical)
+	return value.TimezoneKindFromLexical([]byte(lexical))
+}
+
 // HasTimezone reports whether a lexical date/time value includes a timezone indicator.
 func HasTimezone(lexical string) bool {
-	lexical = TrimXMLWhitespace(lexical)
-	_, tz := datetimelex.SplitTimezone(lexical)
-	return tz != ""
+	return TimezoneKind(lexical) != value.TZNone
 }
 
 // ParseDate parses a date string into time.Time (date component only)

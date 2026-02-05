@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 	"github.com/jacoelho/xsd/pkg/xmltext"
@@ -26,7 +26,7 @@ func TestValidateMaxDepth(t *testing.T) {
 		t.Fatalf("expected MaxDepth error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrXMLParse) {
+	if !hasValidationCode(list, xsdErrors.ErrXMLParse) {
 		t.Fatalf("expected ErrXMLParse, got %+v", list)
 	}
 }
@@ -45,7 +45,7 @@ func TestValidateMaxAttrs(t *testing.T) {
 		t.Fatalf("expected MaxAttrs error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrXMLParse) {
+	if !hasValidationCode(list, xsdErrors.ErrXMLParse) {
 		t.Fatalf("expected ErrXMLParse, got %+v", list)
 	}
 }
@@ -64,7 +64,7 @@ func TestValidateMaxTokenSize(t *testing.T) {
 		t.Fatalf("expected MaxTokenSize error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrXMLParse) {
+	if !hasValidationCode(list, xsdErrors.ErrXMLParse) {
 		t.Fatalf("expected ErrXMLParse, got %+v", list)
 	}
 }

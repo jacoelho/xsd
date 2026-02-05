@@ -24,8 +24,7 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 	if needKey {
 		keyTmp = make([]byte, 0, len(normalized))
 	}
-	spaceOnly := opts.applyWhitespace && meta.WhiteSpace == runtime.WS_Collapse
-	_, err := forEachListItem(normalized, spaceOnly, func(item []byte) error {
+	_, err := forEachListItem(normalized, func(item []byte) error {
 		itemOpts := opts
 		itemOpts.applyWhitespace = false
 		itemOpts.requireCanonical = true
@@ -72,8 +71,7 @@ func (s *Session) validateListNoCanonical(meta runtime.ValidatorMeta, normalized
 	if !ok {
 		return valueErrorf(valueErrInvalid, "list validator out of range")
 	}
-	spaceOnly := opts.applyWhitespace && meta.WhiteSpace == runtime.WS_Collapse
-	_, err := forEachListItem(normalized, spaceOnly, func(item []byte) error {
+	_, err := forEachListItem(normalized, func(item []byte) error {
 		itemOpts := opts
 		itemOpts.applyWhitespace = false
 		itemOpts.requireCanonical = false
@@ -86,44 +84,11 @@ func (s *Session) validateListNoCanonical(meta runtime.ValidatorMeta, normalized
 	return err
 }
 
-func forEachListItem(normalized []byte, spaceOnly bool, fn func([]byte) error) (int, error) {
-	if len(normalized) == 0 {
-		return 0, nil
-	}
+func forEachListItem(normalized []byte, fn func([]byte) error) (int, error) {
 	count := 0
-	i := 0
-	if spaceOnly {
-		for i < len(normalized) {
-			for i < len(normalized) && isXMLWhitespace(normalized[i]) {
-				i++
-			}
-			if i >= len(normalized) {
-				break
-			}
-			start := i
-			for i < len(normalized) && !isXMLWhitespace(normalized[i]) {
-				i++
-			}
-			if fn != nil {
-				if err := fn(normalized[start:i]); err != nil {
-					return count, err
-				}
-			}
-			count++
-		}
-		return count, nil
-	}
-	for i < len(normalized) {
-		if normalized[i] == ' ' {
-			i++
-			continue
-		}
-		start := i
-		for i < len(normalized) && normalized[i] != ' ' {
-			i++
-		}
+	for field := range value.FieldsXMLWhitespaceSeq(normalized) {
 		if fn != nil {
-			if err := fn(normalized[start:i]); err != nil {
+			if err := fn(field); err != nil {
 				return count, err
 			}
 		}
@@ -132,16 +97,7 @@ func forEachListItem(normalized []byte, spaceOnly bool, fn func([]byte) error) (
 	return count, nil
 }
 
-func listItemCount(normalized []byte, spaceOnly bool) int {
-	count, _ := forEachListItem(normalized, spaceOnly, nil)
+func listItemCount(normalized []byte) int {
+	count, _ := forEachListItem(normalized, nil)
 	return count
-}
-
-func isXMLWhitespace(b byte) bool {
-	switch b {
-	case ' ', '\t', '\n', '\r':
-		return true
-	default:
-		return false
-	}
 }

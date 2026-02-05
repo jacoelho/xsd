@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestWhiteSpace_Inheritance(t *testing.T) {
@@ -159,7 +159,7 @@ func TestApplyWhiteSpaceMatchesValueNormalize(t *testing.T) {
 			case WhiteSpaceCollapse:
 				mode = runtime.WS_Collapse
 			}
-			want := string(valuepkg.NormalizeWhitespace(mode, []byte(tc.input), nil))
+			want := string(value.NormalizeWhitespace(mode, []byte(tc.input), nil))
 			if got != want {
 				t.Fatalf("ApplyWhiteSpace(%q) = %q, want %q", tc.input, got, want)
 			}

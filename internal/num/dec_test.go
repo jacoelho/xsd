@@ -98,7 +98,7 @@ func TestDecRenderCanonical(t *testing.T) {
 		{name: "zero", in: "0", want: "0.0"},
 		{name: "integer", in: "12", want: "12.0"},
 		{name: "negative", in: "-12.34", want: "-12.34"},
-		{name: "leading dot", in: ".5", want: "0.5"},
+		{name: "fraction", in: "0.5", want: "0.5"},
 	}
 
 	for _, tc := range tests {

@@ -1,7 +1,7 @@
 package resolver
 
 import (
-	stdErrors "errors"
+	"errors"
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
@@ -12,7 +12,7 @@ import (
 )
 
 func validateReferences(sch *parser.Schema) []error {
-	var errors []error
+	var errs []error
 
 	elementRefsInContent := collectElementReferencesInSchema(sch)
 	allConstraints := collectAllIdentityConstraints(sch)
@@ -20,34 +20,34 @@ func validateReferences(sch *parser.Schema) []error {
 	// per XSD spec 3.11.2: "Constraint definition identities must be unique within an XML Schema"
 	// constraints are identified by (name, target namespace)
 	if uniquenessErrors := validateIdentityConstraintUniqueness(sch); len(uniquenessErrors) > 0 {
-		errors = append(errors, uniquenessErrors...)
+		errs = append(errs, uniquenessErrors...)
 	}
 
-	errors = append(errors, validateTopLevelElementReferences(sch)...)
-	errors = append(errors, validateContentElementReferences(sch, elementRefsInContent)...)
-	errors = append(errors, validateElementDeclarationReferences(sch, allConstraints)...)
+	errs = append(errs, validateTopLevelElementReferences(sch)...)
+	errs = append(errs, validateContentElementReferences(sch, elementRefsInContent)...)
+	errs = append(errs, validateElementDeclarationReferences(sch, allConstraints)...)
 
 	if err := validateNoCyclicSubstitutionGroups(sch); err != nil {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	}
 
-	errors = append(errors, validateLocalIdentityConstraintKeyrefs(sch, allConstraints)...)
-	errors = append(errors, validateLocalIdentityConstraintResolution(sch)...)
-	errors = append(errors, validateAttributeDeclarations(sch)...)
-	errors = append(errors, validateTypeDefinitionReferences(sch)...)
-	errors = append(errors, validateEnumerationFacetValues(sch)...)
-	errors = append(errors, validateDeferredRangeFacetValues(sch)...)
-	errors = append(errors, validateInlineTypeReferences(sch)...)
-	errors = append(errors, validateComplexTypeReferences(sch)...)
-	errors = append(errors, validateAttributeGroupReferencesInSchema(sch)...)
-	errors = append(errors, validateLocalElementValueConstraints(sch)...)
-	errors = append(errors, validateGroupReferencesInSchema(sch)...)
+	errs = append(errs, validateLocalIdentityConstraintKeyrefs(sch, allConstraints)...)
+	errs = append(errs, validateLocalIdentityConstraintResolution(sch)...)
+	errs = append(errs, validateAttributeDeclarations(sch)...)
+	errs = append(errs, validateTypeDefinitionReferences(sch)...)
+	errs = append(errs, validateEnumerationFacetValues(sch)...)
+	errs = append(errs, validateDeferredRangeFacetValues(sch)...)
+	errs = append(errs, validateInlineTypeReferences(sch)...)
+	errs = append(errs, validateComplexTypeReferences(sch)...)
+	errs = append(errs, validateAttributeGroupReferencesInSchema(sch)...)
+	errs = append(errs, validateLocalElementValueConstraints(sch)...)
+	errs = append(errs, validateGroupReferencesInSchema(sch)...)
 
 	if err := validateNoCyclicAttributeGroups(sch); err != nil {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	}
 
-	return errors
+	return errs
 }
 
 // ValidateReferences exposes reference validation for schema loading.
@@ -87,52 +87,52 @@ func collectElementReferencesInSchema(sch *parser.Schema) []*types.ElementDecl {
 }
 
 func validateTopLevelElementReferences(sch *parser.Schema) []error {
-	var errors []error
+	var errs []error
 
 	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if decl.IsReference {
 			refDecl, exists := sch.ElementDecls[decl.Name]
 			if !exists {
-				errors = append(errors, fmt.Errorf("element reference %s does not exist", decl.Name))
+				errs = append(errs, fmt.Errorf("element reference %s does not exist", decl.Name))
 			} else if refDecl.IsReference {
-				errors = append(errors, fmt.Errorf("element reference %s points to another reference %s (circular or invalid)", qname, decl.Name))
+				errs = append(errs, fmt.Errorf("element reference %s points to another reference %s (circular or invalid)", qname, decl.Name))
 			}
 		}
 	}
 
-	return errors
+	return errs
 }
 
 func validateContentElementReferences(sch *parser.Schema, elementRefsInContent []*types.ElementDecl) []error {
-	var errors []error
+	var errs []error
 
 	for _, elemRef := range elementRefsInContent {
 		refDecl, exists := sch.ElementDecls[elemRef.Name]
 		if !exists {
-			errors = append(errors, fmt.Errorf("element reference %s in content model does not exist", elemRef.Name))
+			errs = append(errs, fmt.Errorf("element reference %s in content model does not exist", elemRef.Name))
 		} else if refDecl.IsReference {
-			errors = append(errors, fmt.Errorf("element reference %s in content model points to another reference (circular or invalid)", elemRef.Name))
+			errs = append(errs, fmt.Errorf("element reference %s in content model points to another reference (circular or invalid)", elemRef.Name))
 		}
 	}
 
-	return errors
+	return errs
 }
 
 func validateElementDeclarationReferences(sch *parser.Schema, allConstraints []*types.IdentityConstraint) []error {
-	var errors []error
+	var errs []error
 
 	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if decl.Type != nil {
 			origin := sch.ElementOrigins[qname]
 			if err := validateTypeReferenceFromTypeAtLocation(sch, decl.Type, qname.Namespace, origin); err != nil {
-				errors = append(errors, fmt.Errorf("element %s: %w", qname, err))
+				errs = append(errs, fmt.Errorf("element %s: %w", qname, err))
 			}
 		}
 
 		if err := validateElementValueConstraints(sch, decl); err != nil {
-			errors = append(errors, fmt.Errorf("element %s: %w", qname, err))
+			errs = append(errs, fmt.Errorf("element %s: %w", qname, err))
 		}
 
 		if decl.SubstitutionGroup != (types.QName{}) {
@@ -141,54 +141,54 @@ func validateElementDeclarationReferences(sch *parser.Schema, allConstraints []*
 				continue
 			}
 			if err := validateSubstitutionGroupDerivation(sch, qname, decl, headDecl); err != nil {
-				errors = append(errors, err)
+				errs = append(errs, err)
 			}
 			if err := validateSubstitutionGroupFinal(sch, qname, decl, headDecl); err != nil {
-				errors = append(errors, err)
+				errs = append(errs, err)
 			}
 		}
 
 		if err := validateKeyrefConstraints(qname, decl.Constraints, allConstraints); err != nil {
-			errors = append(errors, err...)
+			errs = append(errs, err...)
 		}
 
 		for _, constraint := range decl.Constraints {
 			if err := validateIdentityConstraintResolution(sch, constraint, decl); err != nil {
-				errors = append(errors, fmt.Errorf("element %s identity constraint '%s': %w", qname, constraint.Name, err))
+				errs = append(errs, fmt.Errorf("element %s identity constraint '%s': %w", qname, constraint.Name, err))
 			}
 		}
 	}
 
-	return errors
+	return errs
 }
 
 func validateLocalIdentityConstraintKeyrefs(sch *parser.Schema, allConstraints []*types.IdentityConstraint) []error {
-	var errors []error
+	var errs []error
 
 	forEachLocalConstraintElement(sch, func(elem *types.ElementDecl) {
 		if err := validateKeyrefConstraints(elem.Name, elem.Constraints, allConstraints); err != nil {
-			errors = append(errors, err...)
+			errs = append(errs, err...)
 		}
 	})
 
-	return errors
+	return errs
 }
 
 func validateLocalIdentityConstraintResolution(sch *parser.Schema) []error {
-	var errors []error
+	var errs []error
 
 	forEachLocalConstraintElement(sch, func(elem *types.ElementDecl) {
 		for _, constraint := range elem.Constraints {
 			if err := validateIdentityConstraintResolution(sch, constraint, elem); err != nil {
-				if stdErrors.Is(err, xpath.ErrInvalidXPath) {
+				if errors.Is(err, xpath.ErrInvalidXPath) {
 					continue
 				}
-				errors = append(errors, fmt.Errorf("element %s local identity constraint '%s': %w", elem.Name, constraint.Name, err))
+				errs = append(errs, fmt.Errorf("element %s local identity constraint '%s': %w", elem.Name, constraint.Name, err))
 			}
 		}
 	})
 
-	return errors
+	return errs
 }
 
 func forEachLocalConstraintElement(sch *parser.Schema, visit func(*types.ElementDecl)) {
@@ -224,7 +224,7 @@ func forEachLocalConstraintElement(sch *parser.Schema, visit func(*types.Element
 }
 
 func validateAttributeDeclarations(sch *parser.Schema) []error {
-	var errors []error
+	var errs []error
 
 	// note: Attribute references are stored in complex types, not as top-level declarations
 	// we validate attribute type references when validating complex types
@@ -232,7 +232,7 @@ func validateAttributeDeclarations(sch *parser.Schema) []error {
 		decl := sch.AttributeDecls[qname]
 		if decl.Type != nil {
 			if err := validateTypeReferenceFromType(sch, decl.Type, qname.Namespace); err != nil {
-				errors = append(errors, fmt.Errorf("attribute %s: %w", qname, err))
+				errs = append(errs, fmt.Errorf("attribute %s: %w", qname, err))
 			}
 		}
 
@@ -241,34 +241,34 @@ func validateAttributeDeclarations(sch *parser.Schema) []error {
 		// the type might be a placeholder and facets might not be available
 		resolvedType := resolveTypeForFinalValidation(sch, decl.Type)
 		if _, ok := resolvedType.(*types.ComplexType); ok {
-			errors = append(errors, fmt.Errorf("attribute %s: type must be a simple type", qname))
+			errs = append(errs, fmt.Errorf("attribute %s: type must be a simple type", qname))
 		}
 		if decl.HasDefault {
 			if err := validateDefaultOrFixedValueWithResolvedType(sch, decl.Default, resolvedType, decl.DefaultContext); err != nil {
-				errors = append(errors, fmt.Errorf("attribute %s: invalid default value '%s': %w", qname, decl.Default, err))
+				errs = append(errs, fmt.Errorf("attribute %s: invalid default value '%s': %w", qname, decl.Default, err))
 			}
 		}
 		if decl.HasFixed {
 			if err := validateDefaultOrFixedValueWithResolvedType(sch, decl.Fixed, resolvedType, decl.FixedContext); err != nil {
-				errors = append(errors, fmt.Errorf("attribute %s: invalid fixed value '%s': %w", qname, decl.Fixed, err))
+				errs = append(errs, fmt.Errorf("attribute %s: invalid fixed value '%s': %w", qname, decl.Fixed, err))
 			}
 		}
 	}
 
-	return errors
+	return errs
 }
 
 func validateTypeDefinitionReferences(sch *parser.Schema) []error {
-	var errors []error
+	var errs []error
 
 	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		if err := validateTypeReferences(sch, qname, typ); err != nil {
-			errors = append(errors, fmt.Errorf("type %s: %w", qname, err))
+			errs = append(errs, fmt.Errorf("type %s: %w", qname, err))
 		}
 	}
 
-	return errors
+	return errs
 }
 
 func validateEnumerationFacetValues(sch *parser.Schema) []error {
@@ -397,7 +397,7 @@ func convertDeferredRangeFacetForValidation(df *types.DeferredFacet, baseType ty
 }
 
 func validateInlineTypeReferences(sch *parser.Schema) []error {
-	var errors []error
+	var errs []error
 
 	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
@@ -405,19 +405,19 @@ func validateInlineTypeReferences(sch *parser.Schema) []error {
 			// skip if the type is a reference to a named type (already validated above)
 			if _, exists := sch.TypeDefs[decl.Type.Name()]; !exists {
 				if err := validateTypeReferences(sch, qname, decl.Type); err != nil {
-					errors = append(errors, fmt.Errorf("element %s inline type: %w", qname, err))
+					errs = append(errs, fmt.Errorf("element %s inline type: %w", qname, err))
 				}
 				// also validate attribute group references for inline complex types
 				if ct, ok := decl.Type.(*types.ComplexType); ok {
 					for _, agRef := range ct.AttrGroups {
 						if err := validateAttributeGroupReference(sch, agRef, qname); err != nil {
-							errors = append(errors, err)
+							errs = append(errs, err)
 						}
 					}
 					for _, attr := range ct.Attributes() {
 						if attr.IsReference {
 							if err := validateAttributeReference(sch, qname, attr, "element"); err != nil {
-								errors = append(errors, err)
+								errs = append(errs, err)
 							}
 						}
 					}
@@ -426,11 +426,11 @@ func validateInlineTypeReferences(sch *parser.Schema) []error {
 		}
 	}
 
-	return errors
+	return errs
 }
 
 func validateComplexTypeReferences(sch *parser.Schema) []error {
-	var errors []error
+	var errs []error
 
 	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
@@ -440,7 +440,7 @@ func validateComplexTypeReferences(sch *parser.Schema) []error {
 		}
 		for _, agRef := range ct.AttrGroups {
 			if err := validateAttributeGroupReference(sch, agRef, qname); err != nil {
-				errors = append(errors, err)
+				errs = append(errs, err)
 			}
 		}
 
@@ -448,14 +448,14 @@ func validateComplexTypeReferences(sch *parser.Schema) []error {
 			if cc.Extension != nil {
 				for _, agRef := range cc.Extension.AttrGroups {
 					if err := validateAttributeGroupReference(sch, agRef, qname); err != nil {
-						errors = append(errors, err)
+						errs = append(errs, err)
 					}
 				}
 			}
 			if cc.Restriction != nil {
 				for _, agRef := range cc.Restriction.AttrGroups {
 					if err := validateAttributeGroupReference(sch, agRef, qname); err != nil {
-						errors = append(errors, err)
+						errs = append(errs, err)
 					}
 				}
 			}
@@ -464,7 +464,7 @@ func validateComplexTypeReferences(sch *parser.Schema) []error {
 			if sc.Extension != nil {
 				for _, agRef := range sc.Extension.AttrGroups {
 					if err := validateAttributeGroupReference(sch, agRef, qname); err != nil {
-						errors = append(errors, err)
+						errs = append(errs, err)
 					}
 				}
 			}
@@ -473,39 +473,39 @@ func validateComplexTypeReferences(sch *parser.Schema) []error {
 		for _, attr := range ct.Attributes() {
 			if attr.IsReference {
 				if err := validateAttributeReference(sch, qname, attr, "type"); err != nil {
-					errors = append(errors, err)
+					errs = append(errs, err)
 				}
 			} else if attr.Type != nil {
 				if err := validateTypeReferenceFromType(sch, attr.Type, qname.Namespace); err != nil {
-					errors = append(errors, fmt.Errorf("type %s attribute: %w", qname, err))
+					errs = append(errs, fmt.Errorf("type %s attribute: %w", qname, err))
 				}
 			}
 		}
 
 		origin := sch.TypeOrigins[qname]
 		if err := validateContentReferences(sch, ct.Content(), origin); err != nil {
-			errors = append(errors, fmt.Errorf("type %s: %w", qname, err))
+			errs = append(errs, fmt.Errorf("type %s: %w", qname, err))
 		}
 	}
 
-	return errors
+	return errs
 }
 
 func validateAttributeGroupReferencesInSchema(sch *parser.Schema) []error {
-	var errors []error
+	var errs []error
 
 	for _, qname := range schema.SortedQNames(sch.AttributeGroups) {
 		ag := sch.AttributeGroups[qname]
 		for _, agRef := range ag.AttrGroups {
 			if err := validateAttributeGroupReference(sch, agRef, qname); err != nil {
-				errors = append(errors, err)
+				errs = append(errs, err)
 			}
 		}
 
 		for _, attr := range ag.Attributes {
 			if attr.IsReference {
 				if err := validateAttributeReference(sch, qname, attr, "attributeGroup"); err != nil {
-					errors = append(errors, err)
+					errs = append(errs, err)
 				}
 			}
 		}
@@ -513,17 +513,17 @@ func validateAttributeGroupReferencesInSchema(sch *parser.Schema) []error {
 		for _, attr := range ag.Attributes {
 			if attr.Type != nil {
 				if err := validateTypeReferenceFromType(sch, attr.Type, qname.Namespace); err != nil {
-					errors = append(errors, fmt.Errorf("attributeGroup %s attribute %s: %w", qname, attr.Name, err))
+					errs = append(errs, fmt.Errorf("attributeGroup %s attribute %s: %w", qname, attr.Name, err))
 				}
 			}
 		}
 	}
 
-	return errors
+	return errs
 }
 
 func validateLocalElementValueConstraints(sch *parser.Schema) []error {
-	var errors []error
+	var errs []error
 
 	seenLocal := make(map[*types.ElementDecl]bool)
 	validateLocals := func(ct *types.ComplexType) {
@@ -536,7 +536,7 @@ func validateLocalElementValueConstraints(sch *parser.Schema) []error {
 			}
 			seenLocal[elem] = true
 			if err := validateElementValueConstraints(sch, elem); err != nil {
-				errors = append(errors, fmt.Errorf("local element %s: %w", elem.Name, err))
+				errs = append(errs, fmt.Errorf("local element %s: %w", elem.Name, err))
 			}
 		}
 	}
@@ -553,18 +553,18 @@ func validateLocalElementValueConstraints(sch *parser.Schema) []error {
 		}
 	}
 
-	return errors
+	return errs
 }
 
 func validateGroupReferencesInSchema(sch *parser.Schema) []error {
-	var errors []error
+	var errs []error
 
 	for _, qname := range schema.SortedQNames(sch.Groups) {
 		group := sch.Groups[qname]
 		if err := validateGroupReferences(sch, qname, group); err != nil {
-			errors = append(errors, fmt.Errorf("group %s: %w", qname, err))
+			errs = append(errs, fmt.Errorf("group %s: %w", qname, err))
 		}
 	}
 
-	return errors
+	return errs
 }

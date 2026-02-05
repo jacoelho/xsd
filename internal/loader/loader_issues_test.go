@@ -1,7 +1,9 @@
 package loader
 
 import (
+	"errors"
 	"io"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -56,6 +58,78 @@ func TestAllowMissingImportLocationsSkipsResolve(t *testing.T) {
 	}
 }
 
+func TestAllowMissingImportLocationsMissingTypeReferenceFails(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:root"
+           elementFormDefault="qualified"
+           xmlns:other="urn:other">
+  <xs:import namespace="urn:other"/>
+  <xs:element name="root" type="other:MissingType"/>
+</xs:schema>`
+
+	fs := fstest.MapFS{
+		"root.xsd": &fstest.MapFile{Data: []byte(schema)},
+	}
+	loader := NewLoader(Config{
+		FS:                          fs,
+		AllowMissingImportLocations: true,
+	})
+	if _, err := loader.Load("root.xsd"); err == nil || !strings.Contains(err.Error(), "type not found") {
+		t.Fatalf("expected missing type error, got %v", err)
+	}
+}
+
+func TestAllowMissingImportLocationsChameleonIncludeResolves(t *testing.T) {
+	rootSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:root"
+           xmlns:tns="urn:root"
+           xmlns:other="urn:other"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="chameleon.xsd"/>
+  <xs:import namespace="urn:other"/>
+  <xs:element name="root" type="tns:ChameleonType"/>
+</xs:schema>`
+	chameleonSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="ChameleonType">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`
+
+	fs := fstest.MapFS{
+		"root.xsd":      &fstest.MapFile{Data: []byte(rootSchema)},
+		"chameleon.xsd": &fstest.MapFile{Data: []byte(chameleonSchema)},
+	}
+	loader := NewLoader(Config{
+		FS:                          fs,
+		AllowMissingImportLocations: true,
+	})
+	schema, err := loader.Load("root.xsd")
+	if err != nil {
+		t.Fatalf("expected load success, got %v", err)
+	}
+	if schema.Phase != parser.PhaseResolved {
+		t.Fatalf("schema phase = %s, want %s", schema.Phase, parser.PhaseResolved)
+	}
+	if schema.HasPlaceholders {
+		t.Fatalf("expected no placeholders after load")
+	}
+	typeQName := types.QName{Namespace: "urn:root", Local: "ChameleonType"}
+	if _, ok := schema.TypeDefs[typeQName]; !ok {
+		t.Fatalf("expected chameleon type %s to be present", typeQName)
+	}
+	rootQName := types.QName{Namespace: "urn:root", Local: "root"}
+	rootDecl := schema.ElementDecls[rootQName]
+	if rootDecl == nil {
+		t.Fatalf("expected root element %s", rootQName)
+	}
+	if st, ok := rootDecl.Type.(*types.SimpleType); !ok || types.IsPlaceholderSimpleType(st) {
+		t.Fatalf("expected resolved root type, got %T", rootDecl.Type)
+	}
+}
+
 func TestLoadRollbackClearsPendingAndMerges(t *testing.T) {
 	rootSchema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -106,10 +180,10 @@ func TestLoadRollbackClearsPendingAndMerges(t *testing.T) {
 	includeKey := loader.loadKey("b.xsd", types.NamespaceURI("urn:root"))
 	importKey := loader.loadKey("c.xsd", types.NamespaceURI("urn:c"))
 
-	if loader.imports.alreadyMergedInclude(rootKey, includeKey) {
+	if loader.imports.alreadyMerged(parser.DirectiveInclude, rootKey, includeKey) {
 		t.Fatalf("include merge should be rolled back")
 	}
-	if loader.imports.alreadyMergedImport(rootKey, importKey) {
+	if loader.imports.alreadyMerged(parser.DirectiveImport, rootKey, importKey) {
 		t.Fatalf("import merge should be rolled back")
 	}
 
@@ -263,6 +337,192 @@ func TestSubstitutionGroupOrderDeterministic(t *testing.T) {
 	}
 }
 
+func TestGroupResolutionDeterministic(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:group name="B">
+    <xs:sequence>
+      <xs:element name="b" type="xs:string"/>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="A">
+    <xs:sequence>
+      <xs:group ref="tns:B"/>
+      <xs:element name="a" type="xs:string"/>
+    </xs:sequence>
+  </xs:group>
+  <xs:complexType name="T">
+    <xs:sequence>
+      <xs:group ref="tns:A"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="root" type="tns:T"/>
+</xs:schema>`
+
+	fs := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
+	}
+	var prevHash uint64
+	for i := range 5 {
+		loader := NewLoader(Config{FS: fs})
+		schema, err := loader.Load("schema.xsd")
+		if err != nil {
+			t.Fatalf("load schema: %v", err)
+		}
+		rt, err := runtimebuild.BuildSchema(schema, runtimebuild.BuildConfig{})
+		if err != nil {
+			t.Fatalf("runtime build: %v", err)
+		}
+		if i == 0 {
+			prevHash = rt.BuildHash
+			continue
+		}
+		if rt.BuildHash != prevHash {
+			t.Fatalf("build hash = %d, want %d", rt.BuildHash, prevHash)
+		}
+	}
+}
+
+func TestImportNamespaceMismatchDoesNotCache(t *testing.T) {
+	rootSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:root"
+           xmlns:tns="urn:root"
+           xmlns:other="urn:other"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:other" schemaLocation="other.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+	mismatchSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:wrong"
+           xmlns:tns="urn:wrong"
+           elementFormDefault="qualified">
+  <xs:element name="other" type="xs:string"/>
+</xs:schema>`
+	fixedSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:other"
+           xmlns:tns="urn:other"
+           elementFormDefault="qualified">
+  <xs:element name="other" type="xs:string"/>
+</xs:schema>`
+
+	fs := fstest.MapFS{
+		"root.xsd":  &fstest.MapFile{Data: []byte(rootSchema)},
+		"other.xsd": &fstest.MapFile{Data: []byte(mismatchSchema)},
+	}
+	loader := NewLoader(Config{FS: fs})
+	if _, err := loader.Load("root.xsd"); err == nil {
+		t.Fatalf("expected namespace mismatch error")
+	}
+	fs["other.xsd"] = &fstest.MapFile{Data: []byte(fixedSchema)}
+	if _, err := loader.Load("root.xsd"); err != nil {
+		t.Fatalf("expected reload to succeed, got %v", err)
+	}
+}
+
+func TestImportIncludeWhitespaceNormalization(t *testing.T) {
+	rootSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:root"
+           xmlns:tns="urn:root"
+           xmlns:other="urn:other"
+           elementFormDefault="qualified">
+  <xs:include schemaLocation="  include.xsd  "/>
+  <xs:import namespace="  urn:other  " schemaLocation="  other.xsd  "/>
+  <xs:element name="root" type="other:OtherType"/>
+</xs:schema>`
+	includeSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="IncludedType">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`
+	otherSchema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:other"
+           xmlns:tns="urn:other"
+           elementFormDefault="qualified">
+  <xs:simpleType name="OtherType">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`
+
+	fs := fstest.MapFS{
+		"root.xsd":    &fstest.MapFile{Data: []byte(rootSchema)},
+		"include.xsd": &fstest.MapFile{Data: []byte(includeSchema)},
+		"other.xsd":   &fstest.MapFile{Data: []byte(otherSchema)},
+	}
+	loader := NewLoader(Config{FS: fs})
+	if _, err := loader.Load("root.xsd"); err != nil {
+		t.Fatalf("expected whitespace-normalized import/include to succeed, got %v", err)
+	}
+}
+
+func TestSubstitutionGroupMissingHeadAllowed(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="member" substitutionGroup="tns:missing" type="xs:string"/>
+</xs:schema>`
+
+	fs := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
+	}
+	loader := NewLoader(Config{FS: fs})
+	if _, err := loader.Load("schema.xsd"); err != nil {
+		t.Fatalf("expected missing substitution group head to be ignored, got %v", err)
+	}
+}
+
+func TestLoadResolvedCloseErrorIncludesSystemID(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"></xs:schema>`
+	closeErr := errors.New("close failure")
+	doc := &errorCloseReadCloser{r: strings.NewReader(schemaXML), closeErr: closeErr}
+	loader := &SchemaLoader{state: newLoadState(), imports: newImportTracker()}
+	key := loader.loadKey("schema.xsd", types.NamespaceEmpty)
+	if _, err := loader.loadResolved(doc, "schema.xsd", key, skipSchemaValidation); err == nil {
+		t.Fatalf("expected close error")
+	} else {
+		if !strings.Contains(err.Error(), "close schema.xsd") {
+			t.Fatalf("expected close context, got %v", err)
+		}
+		if !errors.Is(err, closeErr) {
+			t.Fatalf("expected close error to be preserved")
+		}
+	}
+}
+
+func TestLoadResolvedCloseErrorJoined(t *testing.T) {
+	loader := &SchemaLoader{
+		state:   newLoadState(),
+		imports: newImportTracker(),
+	}
+	key := loader.loadKey("schema.xsd", types.NamespaceURI("urn:test"))
+	entry := loader.state.ensureEntry(key)
+	entry.state = schemaStateLoaded
+	entry.schema = parser.NewSchema()
+	entry.pendingDirectives = []pendingDirective{{
+		kind:      parser.DirectiveImport,
+		targetKey: loadKey{systemID: "missing.xsd", etn: types.NamespaceURI("urn:missing")},
+	}}
+
+	closeErr := errors.New("close failure")
+	doc := &errorCloseReadCloser{r: strings.NewReader(""), closeErr: closeErr}
+	if _, err := loader.loadResolved(doc, "schema.xsd", key, validateSchema); err == nil {
+		t.Fatalf("expected pending resolve error")
+	} else if !errors.Is(err, closeErr) {
+		t.Fatalf("expected close error to be joined")
+	}
+}
+
 func equalQNameSlices(a, b []types.QName) bool {
 	if len(a) != len(b) {
 		return false
@@ -286,4 +546,20 @@ func (t *trackingReadCloser) Read(_ []byte) (int, error) {
 func (t *trackingReadCloser) Close() error {
 	t.closed = true
 	return nil
+}
+
+type errorCloseReadCloser struct {
+	r        io.Reader
+	closeErr error
+}
+
+func (e *errorCloseReadCloser) Read(p []byte) (int, error) {
+	if e.r == nil {
+		return 0, io.EOF
+	}
+	return e.r.Read(p)
+}
+
+func (e *errorCloseReadCloser) Close() error {
+	return e.closeErr
 }

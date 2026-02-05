@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 )
 
 func TestValidationDocumentURISet(t *testing.T) {
@@ -30,7 +30,7 @@ func TestValidationDocumentURISet(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 
-	var violations xsderrors.ValidationList
+	var violations xsdErrors.ValidationList
 	if !errors.As(err, &violations) {
 		t.Fatalf("expected ValidationList error, got %T", err)
 	}
@@ -42,7 +42,7 @@ func TestValidationDocumentURISet(t *testing.T) {
 }
 
 func TestSortValidationListOrdering(t *testing.T) {
-	list := xsderrors.ValidationList{
+	list := xsdErrors.ValidationList{
 		{Document: "b", Line: 1, Column: 1, Code: "a", Message: "zeta"},
 		{Document: "a", Line: 1, Column: 1, Code: "a", Message: "beta"},
 		{Document: "a", Line: 2, Column: 1, Code: "a", Message: "epsilon"},

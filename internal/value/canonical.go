@@ -47,15 +47,15 @@ func CanonicalFloat(value float64, bits int) string {
 
 // CanonicalDateTimeString formats a time value into the canonical lexical form
 // for the given XML Schema temporal kind.
-func CanonicalDateTimeString(value time.Time, kind string, hasTZ bool) string {
-	if hasTZ {
+func CanonicalDateTimeString(value time.Time, kind string, tzKind TimezoneKind) string {
+	if tzKind == TZKnown {
 		value = value.UTC()
 	}
 	year, month, day := value.Date()
 	hour, minute, second := value.Clock()
 	fraction := formatFraction(value.Nanosecond())
 	tz := ""
-	if hasTZ {
+	if tzKind == TZKnown {
 		tz = formatTimezone(value)
 	}
 
@@ -83,19 +83,7 @@ func CanonicalDateTimeString(value time.Time, kind string, hasTZ bool) string {
 
 // HasTimezone reports whether a lexical temporal value includes a timezone.
 func HasTimezone(lexical []byte) bool {
-	lexical = TrimXMLWhitespace(lexical)
-	if len(lexical) == 0 {
-		return false
-	}
-	last := lexical[len(lexical)-1]
-	if last == 'Z' {
-		return true
-	}
-	if len(lexical) >= 6 {
-		tz := lexical[len(lexical)-6:]
-		return (tz[0] == '+' || tz[0] == '-') && tz[3] == ':'
-	}
-	return false
+	return TimezoneKindFromLexical(lexical) != TZNone
 }
 
 func formatFloat(value float64, bits int) string {

@@ -87,17 +87,16 @@ func TestDefaultRejectsInvalidBuiltinDefaults(t *testing.T) {
 </xs:schema>`,
 		},
 		{
+			name: "anyURI control characters",
+			schemaXML: "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">" +
+				"<xs:element name=\"root\" type=\"xs:anyURI\" default=\"http://example.com/\x7f\"/>" +
+				"</xs:schema>",
+		},
+		{
 			name: "anyURI invalid percent",
 			schemaXML: `
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyURI" default="http://example.com/%GG"/>
-</xs:schema>`,
-		},
-		{
-			name: "anyURI with spaces",
-			schemaXML: `
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:anyURI" default="http://exa mple.com"/>
 </xs:schema>`,
 		},
 	}
@@ -117,6 +116,7 @@ func TestDefaultAcceptsValidBuiltinDefaults(t *testing.T) {
   <xs:element name="intOK" type="xs:int" default="2147483647"/>
   <xs:element name="nameOK" type="xs:NCName" default="validName"/>
   <xs:element name="uriOK" type="xs:anyURI" default="http://example.com/%20"/>
+  <xs:element name="uriSpace" type="xs:anyURI" default="http://exa mple.com"/>
 </xs:schema>`
 
 	sch, reg, err := parseAndAssign(schemaXML)

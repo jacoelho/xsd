@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestTypedValue_Decimal(t *testing.T) {
@@ -238,6 +239,47 @@ func TestTypedValue_Float(t *testing.T) {
 	}
 	if extracted != native {
 		t.Errorf("ValueAs[float32]() = %v, want %v", extracted, native)
+	}
+}
+
+func TestFloatCanonicalizationConsistency(t *testing.T) {
+	floatType := mustBuiltinSimpleType(t, TypeNameFloat)
+	doubleType := mustBuiltinSimpleType(t, TypeNameDouble)
+
+	floatCases := []float32{
+		0,
+		float32(math.Copysign(0, -1)),
+		1.5,
+		1e-5,
+		float32(math.Inf(1)),
+		float32(math.Inf(-1)),
+		float32(math.NaN()),
+	}
+	for _, v := range floatCases {
+		tv := NewFloatValue(NewParsedValue("x", v), floatType)
+		got := tv.String()
+		want := value.CanonicalFloat(float64(v), 32)
+		if got != want {
+			t.Fatalf("float canonical = %q, want %q", got, want)
+		}
+	}
+
+	doubleCases := []float64{
+		0,
+		math.Copysign(0, -1),
+		1.5,
+		1e-5,
+		math.Inf(1),
+		math.Inf(-1),
+		math.NaN(),
+	}
+	for _, v := range doubleCases {
+		tv := NewDoubleValue(NewParsedValue("x", v), doubleType)
+		got := tv.String()
+		want := value.CanonicalFloat(v, 64)
+		if got != want {
+			t.Fatalf("double canonical = %q, want %q", got, want)
+		}
 	}
 }
 

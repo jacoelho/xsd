@@ -95,3 +95,17 @@ func TestConsumeTextAllMixed(t *testing.T) {
 		t.Fatalf("ConsumeText all mixed: %v", err)
 	}
 }
+
+func TestConsumeTextEmptyRejectsWhitespace(t *testing.T) {
+	schema, err := runtime.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	sess := NewSession(schema)
+	var state TextState
+	sess.ResetText(&state)
+
+	if err := sess.ConsumeText(&state, runtime.ContentEmpty, false, false, []byte(" \n\t")); err == nil {
+		t.Fatalf("expected empty content to reject whitespace")
+	}
+}

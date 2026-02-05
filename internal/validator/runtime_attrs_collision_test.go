@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -54,8 +54,8 @@ func TestAttrDuplicateDetectionCollisionSafeDuplicate(t *testing.T) {
 		t.Fatalf("expected duplicate attribute error")
 	}
 	code, _, ok := validationErrorInfo(err)
-	if !ok || code != xsderrors.ErrXMLParse {
-		t.Fatalf("expected %s, got %v", xsderrors.ErrXMLParse, err)
+	if !ok || code != xsdErrors.ErrXMLParse {
+		t.Fatalf("expected %s, got %v", xsdErrors.ErrXMLParse, err)
 	}
 }
 

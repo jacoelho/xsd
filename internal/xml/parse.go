@@ -25,17 +25,23 @@ func ParseInto(r io.Reader, doc *Document) error {
 }
 
 // ParseIntoWithOptions builds the minimal DOM into an existing document with reader options.
-func ParseIntoWithOptions(r io.Reader, doc *Document, opts ...xmlstream.Option) error {
+func ParseIntoWithOptions(r io.Reader, doc *Document, opts ...xmlstream.Option) (err error) {
 	if doc == nil {
 		return fmt.Errorf("nil XML document")
 	}
+
+	doc.reset()
+	defer func() {
+		if err != nil {
+			doc.reset()
+		}
+	}()
 
 	decoder, err := xmlstream.NewReader(r, opts...)
 	if err != nil {
 		return fmt.Errorf("xml reader: %w", err)
 	}
 
-	doc.reset()
 	var stack []NodeID
 	var childCounts []int
 	var attrsScratch []Attr

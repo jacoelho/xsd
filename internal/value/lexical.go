@@ -100,9 +100,6 @@ func ValidateAnyURI(value []byte) error {
 		return nil
 	}
 	for _, b := range value {
-		if isXMLWhitespace(b) {
-			return fmt.Errorf("anyURI contains whitespace")
-		}
 		if b < 0x20 || b == 0x7f {
 			return fmt.Errorf("anyURI contains control characters")
 		}

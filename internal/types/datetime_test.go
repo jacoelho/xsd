@@ -203,9 +203,9 @@ func TestParseTimeStructure(t *testing.T) {
 	if tm.IsZero() {
 		t.Error("ParseTime returned zero time")
 	}
-	// time should be on reference date 2000-01-01
-	expectedDate := time.Date(2000, 1, 1, 13, 20, 0, 0, time.FixedZone("", -5*3600))
-	if tm.Format("2006-01-02T15:04:05-07:00") != expectedDate.Format("2006-01-02T15:04:05-07:00") {
+	// time should be normalized to UTC reference date 2000-01-01
+	expectedDate := time.Date(2000, 1, 1, 18, 20, 0, 0, time.UTC)
+	if !tm.Equal(expectedDate) {
 		t.Errorf("ParseTime returned wrong time: got %v, want %v", tm, expectedDate)
 	}
 }

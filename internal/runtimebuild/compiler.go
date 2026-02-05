@@ -17,20 +17,26 @@ import (
 )
 
 type CompiledValidators struct {
-	AttributeDefaults  map[schema.AttrID]runtime.ValueRef
-	TypeValidators     map[schema.TypeID]runtime.ValidatorID
-	ValidatorByType    map[types.Type]runtime.ValidatorID
-	SimpleContentTypes map[*types.ComplexType]types.Type
-	ElementDefaults    map[schema.ElemID]runtime.ValueRef
-	ElementFixed       map[schema.ElemID]runtime.ValueRef
-	AttributeFixed     map[schema.AttrID]runtime.ValueRef
-	AttrUseDefaults    map[*types.AttributeDecl]runtime.ValueRef
-	AttrUseFixed       map[*types.AttributeDecl]runtime.ValueRef
-	Validators         runtime.ValidatorsBundle
-	Enums              runtime.EnumTable
-	Facets             []runtime.FacetInstr
-	Patterns           []runtime.Pattern
-	Values             runtime.ValueBlob
+	AttributeDefaults       map[schema.AttrID]runtime.ValueRef
+	TypeValidators          map[schema.TypeID]runtime.ValidatorID
+	ValidatorByType         map[types.Type]runtime.ValidatorID
+	SimpleContentTypes      map[*types.ComplexType]types.Type
+	ElementDefaults         map[schema.ElemID]runtime.ValueRef
+	ElementFixed            map[schema.ElemID]runtime.ValueRef
+	AttributeFixed          map[schema.AttrID]runtime.ValueRef
+	AttrUseDefaults         map[*types.AttributeDecl]runtime.ValueRef
+	AttrUseFixed            map[*types.AttributeDecl]runtime.ValueRef
+	ElementDefaultMembers   map[schema.ElemID]runtime.ValidatorID
+	ElementFixedMembers     map[schema.ElemID]runtime.ValidatorID
+	AttributeDefaultMembers map[schema.AttrID]runtime.ValidatorID
+	AttributeFixedMembers   map[schema.AttrID]runtime.ValidatorID
+	AttrUseDefaultMembers   map[*types.AttributeDecl]runtime.ValidatorID
+	AttrUseFixedMembers     map[*types.AttributeDecl]runtime.ValidatorID
+	Validators              runtime.ValidatorsBundle
+	Enums                   runtime.EnumTable
+	Facets                  []runtime.FacetInstr
+	Patterns                []runtime.Pattern
+	Values                  runtime.ValueBlob
 }
 
 func CompileValidators(sch *parser.Schema, registry *schema.Registry) (*CompiledValidators, error) {
@@ -74,42 +80,54 @@ func (c *CompiledValidators) ValidatorForType(typ types.Type) (runtime.Validator
 }
 
 type compiler struct {
-	registry        *schema.Registry
-	runtimeTypeIDs  map[schema.TypeID]runtime.TypeID
-	builtinTypeIDs  map[types.TypeName]runtime.TypeID
-	values          valueBuilder
-	attrDefaults    map[schema.AttrID]runtime.ValueRef
-	elemFixed       map[schema.ElemID]runtime.ValueRef
-	simpleContent   map[*types.ComplexType]types.Type
-	attrUseFixed    map[*types.AttributeDecl]runtime.ValueRef
-	attrUseDefaults map[*types.AttributeDecl]runtime.ValueRef
-	attrFixed       map[schema.AttrID]runtime.ValueRef
-	res             *typeResolver
-	elemDefaults    map[schema.ElemID]runtime.ValueRef
-	facetsCache     map[*types.SimpleType][]types.Facet
-	compiling       map[types.Type]bool
-	validatorByType map[types.Type]runtime.ValidatorID
-	schema          *parser.Schema
-	bundle          runtime.ValidatorsBundle
-	enums           enumBuilder
-	facets          []runtime.FacetInstr
-	patterns        []runtime.Pattern
+	facetsCache           map[*types.SimpleType][]types.Facet
+	attrDefaultMembers    map[schema.AttrID]runtime.ValidatorID
+	builtinTypeIDs        map[types.TypeName]runtime.TypeID
+	attrUseFixedMembers   map[*types.AttributeDecl]runtime.ValidatorID
+	attrDefaults          map[schema.AttrID]runtime.ValueRef
+	elemFixed             map[schema.ElemID]runtime.ValueRef
+	simpleContent         map[*types.ComplexType]types.Type
+	attrUseFixed          map[*types.AttributeDecl]runtime.ValueRef
+	attrUseDefaults       map[*types.AttributeDecl]runtime.ValueRef
+	attrFixed             map[schema.AttrID]runtime.ValueRef
+	res                   *typeResolver
+	elemDefaults          map[schema.ElemID]runtime.ValueRef
+	runtimeTypeIDs        map[schema.TypeID]runtime.TypeID
+	registry              *schema.Registry
+	attrUseDefaultMembers map[*types.AttributeDecl]runtime.ValidatorID
+	schema                *parser.Schema
+	attrFixedMembers      map[schema.AttrID]runtime.ValidatorID
+	compiling             map[types.Type]bool
+	validatorByType       map[types.Type]runtime.ValidatorID
+	elemFixedMembers      map[schema.ElemID]runtime.ValidatorID
+	elemDefaultMembers    map[schema.ElemID]runtime.ValidatorID
+	bundle                runtime.ValidatorsBundle
+	enums                 enumBuilder
+	values                valueBuilder
+	patterns              []runtime.Pattern
+	facets                []runtime.FacetInstr
 }
 
 func newCompiler(sch *parser.Schema) *compiler {
 	return &compiler{
-		schema:          sch,
-		res:             newTypeResolver(sch),
-		validatorByType: make(map[types.Type]runtime.ValidatorID),
-		compiling:       make(map[types.Type]bool),
-		facetsCache:     make(map[*types.SimpleType][]types.Facet),
-		elemDefaults:    make(map[schema.ElemID]runtime.ValueRef),
-		elemFixed:       make(map[schema.ElemID]runtime.ValueRef),
-		attrDefaults:    make(map[schema.AttrID]runtime.ValueRef),
-		attrFixed:       make(map[schema.AttrID]runtime.ValueRef),
-		attrUseDefaults: make(map[*types.AttributeDecl]runtime.ValueRef),
-		attrUseFixed:    make(map[*types.AttributeDecl]runtime.ValueRef),
-		simpleContent:   make(map[*types.ComplexType]types.Type),
+		schema:                sch,
+		res:                   newTypeResolver(sch),
+		validatorByType:       make(map[types.Type]runtime.ValidatorID),
+		compiling:             make(map[types.Type]bool),
+		facetsCache:           make(map[*types.SimpleType][]types.Facet),
+		elemDefaults:          make(map[schema.ElemID]runtime.ValueRef),
+		elemFixed:             make(map[schema.ElemID]runtime.ValueRef),
+		attrDefaults:          make(map[schema.AttrID]runtime.ValueRef),
+		attrFixed:             make(map[schema.AttrID]runtime.ValueRef),
+		attrUseDefaults:       make(map[*types.AttributeDecl]runtime.ValueRef),
+		attrUseFixed:          make(map[*types.AttributeDecl]runtime.ValueRef),
+		elemDefaultMembers:    make(map[schema.ElemID]runtime.ValidatorID),
+		elemFixedMembers:      make(map[schema.ElemID]runtime.ValidatorID),
+		attrDefaultMembers:    make(map[schema.AttrID]runtime.ValidatorID),
+		attrFixedMembers:      make(map[schema.AttrID]runtime.ValidatorID),
+		attrUseDefaultMembers: make(map[*types.AttributeDecl]runtime.ValidatorID),
+		attrUseFixedMembers:   make(map[*types.AttributeDecl]runtime.ValidatorID),
+		simpleContent:         make(map[*types.ComplexType]types.Type),
 		bundle: runtime.ValidatorsBundle{
 			Meta: make([]runtime.ValidatorMeta, 1),
 		},
@@ -184,19 +202,25 @@ func (c *compiler) compileRegistry(registry *schema.Registry) error {
 
 func (c *compiler) result(registry *schema.Registry) *CompiledValidators {
 	out := &CompiledValidators{
-		Validators:        c.bundle,
-		Facets:            c.facets,
-		Patterns:          c.patterns,
-		Enums:             c.enums.table(),
-		Values:            c.values.table(),
-		TypeValidators:    make(map[schema.TypeID]runtime.ValidatorID),
-		ValidatorByType:   make(map[types.Type]runtime.ValidatorID),
-		ElementDefaults:   c.elemDefaults,
-		ElementFixed:      c.elemFixed,
-		AttributeDefaults: c.attrDefaults,
-		AttributeFixed:    c.attrFixed,
-		AttrUseDefaults:   c.attrUseDefaults,
-		AttrUseFixed:      c.attrUseFixed,
+		Validators:              c.bundle,
+		Facets:                  c.facets,
+		Patterns:                c.patterns,
+		Enums:                   c.enums.table(),
+		Values:                  c.values.table(),
+		TypeValidators:          make(map[schema.TypeID]runtime.ValidatorID),
+		ValidatorByType:         make(map[types.Type]runtime.ValidatorID),
+		ElementDefaults:         c.elemDefaults,
+		ElementFixed:            c.elemFixed,
+		AttributeDefaults:       c.attrDefaults,
+		AttributeFixed:          c.attrFixed,
+		AttrUseDefaults:         c.attrUseDefaults,
+		AttrUseFixed:            c.attrUseFixed,
+		ElementDefaultMembers:   c.elemDefaultMembers,
+		ElementFixedMembers:     c.elemFixedMembers,
+		AttributeDefaultMembers: c.attrDefaultMembers,
+		AttributeFixedMembers:   c.attrFixedMembers,
+		AttrUseDefaultMembers:   c.attrUseDefaultMembers,
+		AttrUseFixedMembers:     c.attrUseFixedMembers,
 	}
 	if len(c.simpleContent) > 0 {
 		out.SimpleContentTypes = make(map[*types.ComplexType]types.Type, len(c.simpleContent))
@@ -444,11 +468,13 @@ func (c *compiler) compileFacetProgram(st *types.SimpleType, facets, partial []t
 				return runtime.FacetProgramRef{}, fmt.Errorf("unknown range facet %s", f.Name())
 			}
 			lexical := f.GetLexical()
-			canon, err := c.canonicalizeLexical(lexical, st, nil)
+			normalized := c.normalizeLexical(lexical, st)
+			canon, err := c.canonicalizeNormalized(lexical, normalized, st, nil)
 			if err != nil {
 				return runtime.FacetProgramRef{}, fmt.Errorf("%s: %w", f.Name(), err)
 			}
-			ref := c.values.add(canon)
+			stored := canon
+			ref := c.values.add(stored)
 			c.facets = append(c.facets, runtime.FacetInstr{Op: op, Arg0: ref.Off, Arg1: ref.Len})
 		default:
 			// ignore unknown facets for now
@@ -488,11 +514,6 @@ func (c *compiler) compileEnumeration(enum *types.Enumeration, st *types.SimpleT
 	return c.enums.add(keys), nil
 }
 
-func (c *compiler) canonicalizeLexical(lexical string, typ types.Type, ctx map[string]string) ([]byte, error) {
-	normalized := c.normalizeLexical(lexical, typ)
-	return c.canonicalizeNormalized(lexical, normalized, typ, ctx)
-}
-
 type canonicalizeMode uint8
 
 const (
@@ -513,21 +534,22 @@ func (c *compiler) canonicalizeNormalizedCore(lexical, normalized string, typ ty
 		if !ok || item == nil {
 			return nil, fmt.Errorf("list type missing item type")
 		}
-		items := splitXMLWhitespace(normalized)
-		if len(items) == 0 {
-			return []byte{}, nil
-		}
 		var buf []byte
-		for i, itemLex := range items {
+		count := 0
+		for itemLex := range types.FieldsXMLWhitespaceSeq(normalized) {
 			itemNorm := c.normalizeLexical(itemLex, item)
 			canon, err := c.canonicalizeNormalizedCore(itemLex, itemNorm, item, ctx, mode)
 			if err != nil {
 				return nil, err
 			}
-			if i > 0 {
+			if count > 0 {
 				buf = append(buf, ' ')
 			}
 			buf = append(buf, canon...)
+			count++
+		}
+		if count == 0 {
+			return []byte{}, nil
 		}
 		return buf, nil
 	case types.UnionVariety:
@@ -643,49 +665,57 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 		if err != nil {
 			return nil, err
 		}
-		return []byte(value.CanonicalDateTimeString(v, "dateTime", value.HasTimezone([]byte(normalized)))), nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return []byte(value.CanonicalDateTimeString(v, "dateTime", tzKind)), nil
 	case "date":
 		v, err := value.ParseDate([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		return []byte(value.CanonicalDateTimeString(v, "date", value.HasTimezone([]byte(normalized)))), nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return []byte(value.CanonicalDateTimeString(v, "date", tzKind)), nil
 	case "time":
 		v, err := value.ParseTime([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		return []byte(value.CanonicalDateTimeString(v, "time", value.HasTimezone([]byte(normalized)))), nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return []byte(value.CanonicalDateTimeString(v, "time", tzKind)), nil
 	case "gYearMonth":
 		v, err := value.ParseGYearMonth([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		return []byte(value.CanonicalDateTimeString(v, "gYearMonth", value.HasTimezone([]byte(normalized)))), nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return []byte(value.CanonicalDateTimeString(v, "gYearMonth", tzKind)), nil
 	case "gYear":
 		v, err := value.ParseGYear([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		return []byte(value.CanonicalDateTimeString(v, "gYear", value.HasTimezone([]byte(normalized)))), nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return []byte(value.CanonicalDateTimeString(v, "gYear", tzKind)), nil
 	case "gMonthDay":
 		v, err := value.ParseGMonthDay([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		return []byte(value.CanonicalDateTimeString(v, "gMonthDay", value.HasTimezone([]byte(normalized)))), nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return []byte(value.CanonicalDateTimeString(v, "gMonthDay", tzKind)), nil
 	case "gDay":
 		v, err := value.ParseGDay([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		return []byte(value.CanonicalDateTimeString(v, "gDay", value.HasTimezone([]byte(normalized)))), nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return []byte(value.CanonicalDateTimeString(v, "gDay", tzKind)), nil
 	case "gMonth":
 		v, err := value.ParseGMonth([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		return []byte(value.CanonicalDateTimeString(v, "gMonth", value.HasTimezone([]byte(normalized)))), nil
+		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
+		return []byte(value.CanonicalDateTimeString(v, "gMonth", tzKind)), nil
 	case "duration":
 		dur, err := types.ParseXSDDuration(normalized)
 		if err != nil {
@@ -871,7 +901,8 @@ func (c *compiler) comparableValue(lexical string, typ types.Type) (types.Compar
 		if err != nil {
 			return nil, err
 		}
-		return types.ComparableTime{Value: t, HasTimezone: value.HasTimezone([]byte(lexical))}, nil
+		tzKind := value.TimezoneKindFromLexical([]byte(lexical))
+		return types.ComparableTime{Value: t, TimezoneKind: tzKind}, nil
 	case "duration":
 		dur, err := types.ParseXSDDuration(lexical)
 		if err != nil {
@@ -1389,14 +1420,6 @@ func filterFacets(facets []types.Facet, keep func(types.Facet) bool) []types.Fac
 		if keep(facet) {
 			out = append(out, facet)
 		}
-	}
-	return out
-}
-
-func splitXMLWhitespace(input string) []string {
-	var out []string
-	for field := range types.FieldsXMLWhitespaceSeq(input) {
-		out = append(out, field)
 	}
 	return out
 }

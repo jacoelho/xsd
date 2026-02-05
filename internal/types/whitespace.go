@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // WhiteSpace represents whitespace normalization
@@ -27,9 +27,9 @@ func (n whiteSpaceNormalizer) Normalize(value string, typ Type) (string, error) 
 }
 
 // ApplyWhiteSpace applies whitespace normalization
-func ApplyWhiteSpace(value string, ws WhiteSpace) string {
-	if value == "" {
-		return value
+func ApplyWhiteSpace(lexical string, ws WhiteSpace) string {
+	if lexical == "" {
+		return lexical
 	}
 	mode := runtime.WS_Preserve
 	switch ws {
@@ -39,9 +39,9 @@ func ApplyWhiteSpace(value string, ws WhiteSpace) string {
 		mode = runtime.WS_Collapse
 	}
 	if mode == runtime.WS_Preserve {
-		return value
+		return lexical
 	}
-	normalized := valuepkg.NormalizeWhitespace(mode, []byte(value), nil)
+	normalized := value.NormalizeWhitespace(mode, []byte(lexical), nil)
 	return string(normalized)
 }
 
@@ -73,38 +73,27 @@ func SplitXMLWhitespaceFields(value string) []string {
 }
 
 // TrimXMLWhitespace removes leading and trailing XML whitespace (space, tab, CR, LF).
-func TrimXMLWhitespace(value string) string {
-	start := 0
-	end := len(value)
-	for start < end && IsXMLWhitespaceByte(value[start]) {
-		start++
-	}
-	for end > start && IsXMLWhitespaceByte(value[end-1]) {
-		end--
-	}
-	if start == 0 && end == len(value) {
-		return value
-	}
-	return value[start:end]
+func TrimXMLWhitespace(lexical string) string {
+	return value.TrimXMLWhitespaceString(lexical)
 }
 
 // FieldsXMLWhitespaceSeq yields fields split on XML whitespace (space, tab, CR, LF).
 // It is equivalent to strings.FieldsSeq for XML whitespace only.
-func FieldsXMLWhitespaceSeq(value string) iter.Seq[string] {
+func FieldsXMLWhitespaceSeq(lexical string) iter.Seq[string] {
 	return func(yield func(string) bool) {
 		i := 0
-		for i < len(value) {
-			for i < len(value) && IsXMLWhitespaceByte(value[i]) {
+		for i < len(lexical) {
+			for i < len(lexical) && value.IsXMLWhitespaceByte(lexical[i]) {
 				i++
 			}
-			if i >= len(value) {
+			if i >= len(lexical) {
 				return
 			}
 			start := i
-			for i < len(value) && !IsXMLWhitespaceByte(value[i]) {
+			for i < len(lexical) && !value.IsXMLWhitespaceByte(lexical[i]) {
 				i++
 			}
-			if !yield(value[start:i]) {
+			if !yield(lexical[start:i]) {
 				return
 			}
 		}
@@ -112,10 +101,8 @@ func FieldsXMLWhitespaceSeq(value string) iter.Seq[string] {
 }
 
 func isXMLWhitespaceRune(r rune) bool {
-	return r == ' ' || r == '\t' || r == '\n' || r == '\r'
-}
-
-// IsXMLWhitespaceByte reports whether the byte is XML whitespace.
-func IsXMLWhitespaceByte(b byte) bool {
-	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
+	if r < 0 || r > 0x7f {
+		return false
+	}
+	return value.IsXMLWhitespaceByte(byte(r))
 }

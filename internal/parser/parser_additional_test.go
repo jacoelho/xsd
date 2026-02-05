@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/types"
-	xsdxml "github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xml"
 )
 
 func TestParseTopLevelDefinitions(t *testing.T) {
