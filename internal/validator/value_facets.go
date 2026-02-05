@@ -75,11 +75,7 @@ func (s *Session) applyFacets(meta runtime.ValidatorMeta, normalized, canonical 
 					return err
 				}
 			default:
-				valueLexical := canonical
-				if meta.Kind == runtime.VTime {
-					valueLexical = normalized
-				}
-				cmp, err := s.compareValue(meta.Kind, valueLexical, bound, metrics)
+				cmp, err := s.compareValue(meta.Kind, canonical, bound, metrics)
 				if err != nil {
 					return err
 				}

@@ -680,7 +680,7 @@ func TestFloatNaNRangeFacet(t *testing.T) {
 	}
 }
 
-func TestTimeFacetComparisonRespectsDateShift(t *testing.T) {
+func TestTimeFacetComparisonIgnoresDateShift(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="urn:test"
@@ -696,8 +696,8 @@ func TestTimeFacetComparisonRespectsDateShift(t *testing.T) {
 </xs:schema>`
 
 	doc := `<root xmlns="urn:test">00:30:00+14:00</root>`
-	if err := validateRuntimeDoc(t, schemaXML, doc); err == nil {
-		t.Fatalf("expected time with date shift to violate facets")
+	if err := validateRuntimeDoc(t, schemaXML, doc); err != nil {
+		t.Fatalf("expected time with date shift to satisfy facets: %v", err)
 	}
 }
 

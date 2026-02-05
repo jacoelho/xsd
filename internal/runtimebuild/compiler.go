@@ -469,16 +469,11 @@ func (c *compiler) compileFacetProgram(st *types.SimpleType, facets, partial []t
 			}
 			lexical := f.GetLexical()
 			normalized := c.normalizeLexical(lexical, st)
-			var stored []byte
-			if isTimeFacetType(st) {
-				stored = []byte(normalized)
-			} else {
-				canon, err := c.canonicalizeNormalized(lexical, normalized, st, nil)
-				if err != nil {
-					return runtime.FacetProgramRef{}, fmt.Errorf("%s: %w", f.Name(), err)
-				}
-				stored = canon
+			canon, err := c.canonicalizeNormalized(lexical, normalized, st, nil)
+			if err != nil {
+				return runtime.FacetProgramRef{}, fmt.Errorf("%s: %w", f.Name(), err)
 			}
+			stored := canon
 			ref := c.values.add(stored)
 			c.facets = append(c.facets, runtime.FacetInstr{Op: op, Arg0: ref.Off, Arg1: ref.Len})
 		default:
@@ -486,18 +481,6 @@ func (c *compiler) compileFacetProgram(st *types.SimpleType, facets, partial []t
 		}
 	}
 	return runtime.FacetProgramRef{Off: uint32(start), Len: uint32(len(c.facets) - start)}, nil
-}
-
-func isTimeFacetType(typ types.Type) bool {
-	if typ == nil {
-		return false
-	}
-	primitive := typ.PrimitiveType()
-	if primitive == nil {
-		primitive = typ
-	}
-	name := primitive.Name()
-	return name.Namespace == types.XSDNamespace && name.Local == string(types.TypeNameTime)
 }
 
 func (c *compiler) compileEnumeration(enum *types.Enumeration, st *types.SimpleType, partial []types.Facet) (runtime.EnumID, error) {
