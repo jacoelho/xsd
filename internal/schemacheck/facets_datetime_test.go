@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/types"
-	xsdvalue "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestCompareFacetValuesDateTimeSpecials(t *testing.T) {
@@ -32,7 +32,7 @@ func TestCompareFacetValuesDateTimeSpecials(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := xsdvalue.ParseDateTime([]byte(tc.v1)); err != nil {
+			if _, err := value.ParseDateTime([]byte(tc.v1)); err != nil {
 				t.Fatalf("runtime parse %q: %v", tc.v1, err)
 			}
 			cmp, err := compareFacetValues(tc.v1, tc.v2, bt)
@@ -59,7 +59,7 @@ func TestCompareFacetValuesTimeSpecials(t *testing.T) {
 
 	for _, val := range cases {
 		t.Run(val, func(t *testing.T) {
-			if _, err := xsdvalue.ParseTime([]byte(val)); err != nil {
+			if _, err := value.ParseTime([]byte(val)); err != nil {
 				t.Fatalf("runtime parse %q: %v", val, err)
 			}
 			cmp, err := compareFacetValues(val, val, bt)
@@ -86,7 +86,7 @@ func TestCompareFacetValuesDateTimeRejectsInvalidOffsets(t *testing.T) {
 
 	for _, val := range invalid {
 		t.Run(val, func(t *testing.T) {
-			if _, err := xsdvalue.ParseDateTime([]byte(val)); err == nil {
+			if _, err := value.ParseDateTime([]byte(val)); err == nil {
 				t.Fatalf("runtime parse %q: expected error", val)
 			}
 			if _, err := compareFacetValues(val, val, bt); err == nil {

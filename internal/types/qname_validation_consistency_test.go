@@ -3,7 +3,7 @@ package types
 import (
 	"testing"
 
-	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestQNameValidationConsistency(t *testing.T) {
@@ -24,20 +24,20 @@ func TestQNameValidationConsistency(t *testing.T) {
 		"a\tb",
 	}
 
-	for _, value := range valid {
-		if err := valuepkg.ValidateQName([]byte(value)); err != nil {
-			t.Fatalf("value.ValidateQName(%q) = %v, want nil", value, err)
+	for _, lexical := range valid {
+		if err := value.ValidateQName([]byte(lexical)); err != nil {
+			t.Fatalf("value.ValidateQName(%q) = %v, want nil", lexical, err)
 		}
-		if err := validateQName(value); err != nil {
-			t.Fatalf("types.validateQName(%q) = %v, want nil", value, err)
+		if err := validateQName(lexical); err != nil {
+			t.Fatalf("types.validateQName(%q) = %v, want nil", lexical, err)
 		}
 	}
-	for _, value := range invalid {
-		if err := valuepkg.ValidateQName([]byte(value)); err == nil {
-			t.Fatalf("value.ValidateQName(%q) = nil, want error", value)
+	for _, lexical := range invalid {
+		if err := value.ValidateQName([]byte(lexical)); err == nil {
+			t.Fatalf("value.ValidateQName(%q) = nil, want error", lexical)
 		}
-		if err := validateQName(value); err == nil {
-			t.Fatalf("types.validateQName(%q) = nil, want error", value)
+		if err := validateQName(lexical); err == nil {
+			t.Fatalf("types.validateQName(%q) = nil, want error", lexical)
 		}
 	}
 }

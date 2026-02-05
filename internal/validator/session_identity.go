@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"slices"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/ic"
 	"github.com/jacoelho/xsd/internal/runtime"
-	xsdxml "github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xml"
 )
 
 type identityState struct {
@@ -551,13 +551,13 @@ func freezeIdentityKey(arena *Arena, kind runtime.ValueKind, key []byte) runtime
 func identityViolation(category runtime.ICCategory, msg string) error {
 	switch category {
 	case runtime.ICKey:
-		return newValidationError(xsderrors.ErrIdentityAbsent, msg)
+		return newValidationError(xsdErrors.ErrIdentityAbsent, msg)
 	case runtime.ICUnique:
-		return newValidationError(xsderrors.ErrIdentityDuplicate, msg)
+		return newValidationError(xsdErrors.ErrIdentityDuplicate, msg)
 	case runtime.ICKeyRef:
-		return newValidationError(xsderrors.ErrIdentityKeyRefFailed, msg)
+		return newValidationError(xsdErrors.ErrIdentityKeyRefFailed, msg)
 	default:
-		return newValidationError(xsderrors.ErrIdentityAbsent, msg)
+		return newValidationError(xsdErrors.ErrIdentityAbsent, msg)
 	}
 }
 

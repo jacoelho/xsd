@@ -3,7 +3,7 @@ package validator
 import (
 	"fmt"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 )
@@ -35,7 +35,7 @@ func (s *Session) ConsumeText(state *TextState, kind runtime.ContentKind, mixed,
 		return nil
 	}
 	if nilled {
-		return newValidationError(xsderrors.ErrValidateNilledNotEmpty, "element with xsi:nil='true' must be empty")
+		return newValidationError(xsdErrors.ErrValidateNilledNotEmpty, "element with xsi:nil='true' must be empty")
 	}
 	kind = effectiveTextKind(kind, mixed)
 	state.HasText = true
@@ -51,10 +51,10 @@ func (s *Session) ConsumeText(state *TextState, kind runtime.ContentKind, mixed,
 	case runtime.ContentMixed:
 		return nil
 	case runtime.ContentEmpty:
-		return newValidationError(xsderrors.ErrTextInElementOnly, "character data not allowed in empty content")
+		return newValidationError(xsdErrors.ErrTextInElementOnly, "character data not allowed in empty content")
 	case runtime.ContentElementOnly, runtime.ContentAll:
 		if state.HasNonWS {
-			return newValidationError(xsderrors.ErrTextInElementOnly, "character data not allowed in element-only content")
+			return newValidationError(xsdErrors.ErrTextInElementOnly, "character data not allowed in element-only content")
 		}
 		return nil
 	default:

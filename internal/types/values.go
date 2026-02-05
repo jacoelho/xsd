@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
-	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // TypedValue represents a value with its XSD type
@@ -258,7 +258,7 @@ func (v *Base64BinaryValue) String() string {
 type DateTimeValue struct {
 	simpleValue[time.Time]
 	kind   TypeName
-	tzKind valuepkg.TimezoneKind
+	tzKind value.TimezoneKind
 }
 
 // NewDateTimeValue creates a new DateTimeValue
@@ -274,12 +274,12 @@ func NewDateTimeValue(parsed ParsedValue[time.Time], typ *SimpleType) TypedValue
 	return &DateTimeValue{
 		simpleValue: newSimpleValue(parsed, typ, nil),
 		kind:        kind,
-		tzKind:      valuepkg.TimezoneKindFromLexical([]byte(parsed.Lexical)),
+		tzKind:      value.TimezoneKindFromLexical([]byte(parsed.Lexical)),
 	}
 }
 
 func (v *DateTimeValue) String() string {
-	return valuepkg.CanonicalDateTimeString(v.native, string(v.kind), v.tzKind)
+	return value.CanonicalDateTimeString(v.native, string(v.kind), v.tzKind)
 }
 
 // FloatValue represents a float value
@@ -293,7 +293,7 @@ func NewFloatValue(parsed ParsedValue[float32], typ *SimpleType) TypedValue {
 }
 
 func (v *FloatValue) String() string {
-	return valuepkg.CanonicalFloat(float64(v.native), 32)
+	return value.CanonicalFloat(float64(v.native), 32)
 }
 
 // DoubleValue represents a double value
@@ -307,7 +307,7 @@ func NewDoubleValue(parsed ParsedValue[float64], typ *SimpleType) TypedValue {
 }
 
 func (v *DoubleValue) String() string {
-	return valuepkg.CanonicalFloat(v.native, 64)
+	return value.CanonicalFloat(v.native, 64)
 }
 
 // StringValue represents a string value

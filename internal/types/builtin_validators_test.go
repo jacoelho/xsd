@@ -3,7 +3,7 @@ package types
 import (
 	"testing"
 
-	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestValidateNumericRanges(t *testing.T) {
@@ -255,18 +255,18 @@ func TestLexicalValidatorsMatchValuePackage(t *testing.T) {
 		fn    func(string) error
 		vfn   func([]byte) error
 	}{
-		{name: "token empty", value: "", fn: validateToken, vfn: valuepkg.ValidateToken},
-		{name: "token spaces", value: "a  b", fn: validateToken, vfn: valuepkg.ValidateToken},
-		{name: "name ok", value: "validName", fn: validateName, vfn: valuepkg.ValidateName},
-		{name: "name bad", value: "1bad", fn: validateName, vfn: valuepkg.ValidateName},
-		{name: "ncname ok", value: "good", fn: validateNCName, vfn: valuepkg.ValidateNCName},
-		{name: "ncname bad", value: "a:b", fn: validateNCName, vfn: valuepkg.ValidateNCName},
-		{name: "nmtoken ok", value: "a.b", fn: validateNMTOKEN, vfn: valuepkg.ValidateNMTOKEN},
-		{name: "nmtoken bad", value: "a b", fn: validateNMTOKEN, vfn: valuepkg.ValidateNMTOKEN},
-		{name: "language ok", value: "en-US", fn: validateLanguage, vfn: valuepkg.ValidateLanguage},
-		{name: "language bad", value: "en_US", fn: validateLanguage, vfn: valuepkg.ValidateLanguage},
-		{name: "anyURI ok", value: "http://example.com", fn: validateAnyURI, vfn: valuepkg.ValidateAnyURI},
-		{name: "anyURI space", value: "http://exa mple.com", fn: validateAnyURI, vfn: valuepkg.ValidateAnyURI},
+		{name: "token empty", value: "", fn: validateToken, vfn: value.ValidateToken},
+		{name: "token spaces", value: "a  b", fn: validateToken, vfn: value.ValidateToken},
+		{name: "name ok", value: "validName", fn: validateName, vfn: value.ValidateName},
+		{name: "name bad", value: "1bad", fn: validateName, vfn: value.ValidateName},
+		{name: "ncname ok", value: "good", fn: validateNCName, vfn: value.ValidateNCName},
+		{name: "ncname bad", value: "a:b", fn: validateNCName, vfn: value.ValidateNCName},
+		{name: "nmtoken ok", value: "a.b", fn: validateNMTOKEN, vfn: value.ValidateNMTOKEN},
+		{name: "nmtoken bad", value: "a b", fn: validateNMTOKEN, vfn: value.ValidateNMTOKEN},
+		{name: "language ok", value: "en-US", fn: validateLanguage, vfn: value.ValidateLanguage},
+		{name: "language bad", value: "en_US", fn: validateLanguage, vfn: value.ValidateLanguage},
+		{name: "anyURI ok", value: "http://example.com", fn: validateAnyURI, vfn: value.ValidateAnyURI},
+		{name: "anyURI space", value: "http://exa mple.com", fn: validateAnyURI, vfn: value.ValidateAnyURI},
 	}
 
 	for _, tt := range tests {
@@ -286,13 +286,13 @@ func FuzzLexicalNameValidatorsMatchValuePackage(f *testing.F) {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, input string) {
-		if (validateName(input) == nil) != (valuepkg.ValidateName([]byte(input)) == nil) {
+		if (validateName(input) == nil) != (value.ValidateName([]byte(input)) == nil) {
 			t.Fatalf("name mismatch for %q", input)
 		}
-		if (validateNCName(input) == nil) != (valuepkg.ValidateNCName([]byte(input)) == nil) {
+		if (validateNCName(input) == nil) != (value.ValidateNCName([]byte(input)) == nil) {
 			t.Fatalf("ncname mismatch for %q", input)
 		}
-		if (validateNMTOKEN(input) == nil) != (valuepkg.ValidateNMTOKEN([]byte(input)) == nil) {
+		if (validateNMTOKEN(input) == nil) != (value.ValidateNMTOKEN([]byte(input)) == nil) {
 			t.Fatalf("nmtoken mismatch for %q", input)
 		}
 	})

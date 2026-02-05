@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	xsdxml "github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xml"
 )
 
 func TestNamespaceInterner(t *testing.T) {

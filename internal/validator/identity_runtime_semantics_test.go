@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 )
 
 func TestIdentityUnprefixedSelectorRuntimeSemantics(t *testing.T) {
@@ -55,7 +55,7 @@ func TestIdentityUnprefixedSelectorRuntimeSemantics(t *testing.T) {
 		t.Fatalf("expected no-namespace doc to fail unique constraint")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrIdentityDuplicate) {
+	if !hasValidationCode(list, xsdErrors.ErrIdentityDuplicate) {
 		t.Fatalf("expected ErrIdentityDuplicate, got %+v", list)
 	}
 }
@@ -88,7 +88,7 @@ func TestIdentitySelectorUnionNamespaceSemantics(t *testing.T) {
 		t.Fatalf("expected union selector to report duplicate")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsderrors.ErrIdentityDuplicate) {
+	if !hasValidationCode(list, xsdErrors.ErrIdentityDuplicate) {
 		t.Fatalf("expected ErrIdentityDuplicate, got %+v", list)
 	}
 }

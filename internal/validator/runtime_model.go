@@ -6,7 +6,7 @@ import (
 	"slices"
 	"sort"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
+	xsdErrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -71,7 +71,7 @@ func (s *Session) StepModel(ref runtime.ModelRef, state *ModelState, sym runtime
 	}
 	switch ref.Kind {
 	case runtime.ModelNone:
-		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
+		return StartMatch{}, newValidationError(xsdErrors.ErrUnexpectedElement, "no content model match")
 	case runtime.ModelDFA:
 		model, err := s.dfaByRef(ref)
 		if err != nil {
@@ -117,7 +117,7 @@ func (s *Session) AcceptModel(ref runtime.ModelRef, state *ModelState) error {
 			return fmt.Errorf("dfa state %d out of range", state.DFA)
 		}
 		if !model.States[state.DFA].Accept {
-			return newValidationError(xsderrors.ErrContentModelInvalid, "content model not accepted")
+			return newValidationError(xsdErrors.ErrContentModelInvalid, "content model not accepted")
 		}
 		return nil
 	case runtime.ModelNFA:
@@ -129,14 +129,14 @@ func (s *Session) AcceptModel(ref runtime.ModelRef, state *ModelState) error {
 			if model.Nullable {
 				return nil
 			}
-			return newValidationError(xsderrors.ErrContentModelInvalid, "content model not accepted")
+			return newValidationError(xsdErrors.ErrContentModelInvalid, "content model not accepted")
 		}
 		accept, ok := bitsetSlice(model.Bitsets, model.Accept)
 		if !ok {
 			return fmt.Errorf("nfa accept bitset out of range")
 		}
 		if !bitsetIntersects(state.NFA, accept) {
-			return newValidationError(xsderrors.ErrContentModelInvalid, "content model not accepted")
+			return newValidationError(xsdErrors.ErrContentModelInvalid, "content model not accepted")
 		}
 		return nil
 	case runtime.ModelAll:
@@ -152,7 +152,7 @@ func (s *Session) AcceptModel(ref runtime.ModelRef, state *ModelState) error {
 				continue
 			}
 			if !allHas(state.All, i) {
-				return newValidationError(xsderrors.ErrRequiredElementMissing, "required element missing from all group")
+				return newValidationError(xsdErrors.ErrRequiredElementMissing, "required element missing from all group")
 			}
 		}
 		return nil
@@ -195,7 +195,7 @@ func (s *Session) stepDFA(model *runtime.DFAModel, state *ModelState, sym runtim
 		}
 	}
 	if !found {
-		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
+		return StartMatch{}, newValidationError(xsdErrors.ErrUnexpectedElement, "no content model match")
 	}
 	state.DFA = next
 	return matched, nil
@@ -240,7 +240,7 @@ func (s *Session) stepNFA(model *runtime.NFAModel, state *ModelState, sym runtim
 	}
 
 	if bitsetEmpty(reachable) {
-		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
+		return StartMatch{}, newValidationError(xsdErrors.ErrUnexpectedElement, "no content model match")
 	}
 
 	bitsetZero(state.NFA)
@@ -259,7 +259,7 @@ func (s *Session) stepNFA(model *runtime.NFAModel, state *ModelState, sym runtim
 			}
 			matchCount++
 			if matchCount > 1 {
-				matchErr = newValidationError(xsderrors.ErrContentModelInvalid, "ambiguous content model match")
+				matchErr = newValidationError(xsdErrors.ErrContentModelInvalid, "ambiguous content model match")
 				return
 			}
 			match = StartMatch{Kind: MatchElem, Elem: m.Elem}
@@ -270,7 +270,7 @@ func (s *Session) stepNFA(model *runtime.NFAModel, state *ModelState, sym runtim
 			}
 			matchCount++
 			if matchCount > 1 {
-				matchErr = newValidationError(xsderrors.ErrContentModelInvalid, "ambiguous content model match")
+				matchErr = newValidationError(xsdErrors.ErrContentModelInvalid, "ambiguous content model match")
 				return
 			}
 			match = StartMatch{Kind: MatchWildcard, Wildcard: m.Rule}
@@ -284,14 +284,14 @@ func (s *Session) stepNFA(model *runtime.NFAModel, state *ModelState, sym runtim
 		return StartMatch{}, matchErr
 	}
 	if matchCount == 0 {
-		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
+		return StartMatch{}, newValidationError(xsdErrors.ErrUnexpectedElement, "no content model match")
 	}
 	return match, nil
 }
 
 func (s *Session) stepAll(model *runtime.AllModel, state *ModelState, sym runtime.SymbolID) (StartMatch, error) {
 	if sym == 0 {
-		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "unknown element name")
+		return StartMatch{}, newValidationError(xsdErrors.ErrUnexpectedElement, "unknown element name")
 	}
 	matchIdx := -1
 	matchElem := runtime.ElemID(0)
@@ -305,7 +305,7 @@ func (s *Session) stepAll(model *runtime.AllModel, state *ModelState, sym runtim
 				continue
 			}
 			if matchIdx != -1 {
-				return StartMatch{}, newValidationError(xsderrors.ErrContentModelInvalid, "ambiguous content model match")
+				return StartMatch{}, newValidationError(xsdErrors.ErrContentModelInvalid, "ambiguous content model match")
 			}
 			matchIdx = i
 			matchElem = member.Elem
@@ -319,16 +319,16 @@ func (s *Session) stepAll(model *runtime.AllModel, state *ModelState, sym runtim
 			continue
 		}
 		if matchIdx != -1 {
-			return StartMatch{}, newValidationError(xsderrors.ErrContentModelInvalid, "ambiguous content model match")
+			return StartMatch{}, newValidationError(xsdErrors.ErrContentModelInvalid, "ambiguous content model match")
 		}
 		matchIdx = i
 		matchElem = actual
 	}
 	if matchIdx == -1 {
-		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
+		return StartMatch{}, newValidationError(xsdErrors.ErrUnexpectedElement, "no content model match")
 	}
 	if allHas(state.All, matchIdx) {
-		return StartMatch{}, newValidationError(xsderrors.ErrContentModelInvalid, "duplicate element in all group")
+		return StartMatch{}, newValidationError(xsdErrors.ErrContentModelInvalid, "duplicate element in all group")
 	}
 	allSet(state.All, matchIdx)
 	state.AllCount++
