@@ -6,7 +6,7 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	schemabuild "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -78,7 +78,7 @@ func TestIncludeGlobalDeclOrder(t *testing.T) {
 				t.Fatalf("GlobalDecls = %v, want %v", gotDecls, tc.expected)
 			}
 
-			registry, err := schemabuild.AssignIDs(loaded)
+			registry, err := schema.AssignIDs(loaded)
 			if err != nil {
 				t.Fatalf("AssignIDs error = %v", err)
 			}
@@ -101,7 +101,7 @@ func globalDeclNames(decls []parser.GlobalDecl) []types.QName {
 	return names
 }
 
-func globalElementOrder(registry *schemabuild.Registry) []types.QName {
+func globalElementOrder(registry *schema.Registry) []types.QName {
 	if registry == nil {
 		return nil
 	}
