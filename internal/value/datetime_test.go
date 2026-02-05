@@ -23,6 +23,9 @@ func TestParseDateTimeFractionalSecondsTooLong(t *testing.T) {
 	if !strings.Contains(err.Error(), "fractional seconds") {
 		t.Fatalf("error = %v, want fractional seconds message", err)
 	}
+	if !strings.Contains(err.Error(), "implementation limit") {
+		t.Fatalf("error = %v, want implementation limit message", err)
+	}
 }
 
 func TestParseDate(t *testing.T) {
@@ -47,6 +50,9 @@ func TestParseTimeFractionalSecondsTooLong(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "fractional seconds") {
 		t.Fatalf("error = %v, want fractional seconds message", err)
+	}
+	if !strings.Contains(err.Error(), "implementation limit") {
+		t.Fatalf("error = %v, want implementation limit message", err)
 	}
 }
 

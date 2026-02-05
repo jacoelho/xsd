@@ -22,7 +22,7 @@ var fractionalLayouts = [...]string{
 	".000000000",
 }
 
-var errFractionalSecondsTooLong = errors.New("fractional seconds precision exceeds 9 digits")
+var errFractionalSecondsTooLong = errors.New("fractional seconds exceed 9 digits (implementation limit)")
 
 // ParseDateTime parses an xs:dateTime lexical value.
 func ParseDateTime(lexical []byte) (time.Time, error) {

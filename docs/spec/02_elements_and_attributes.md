@@ -83,6 +83,7 @@ In an instance, `<book>` or `<cd>` can appear wherever `<item>` is expected.
 - Only global element declarations can be substitution group heads or members; actual membership excludes abstract declarations and applies the head's blocking constraints
 - The head can block substitution via `block="substitution"`
 - The `final` attribute on the head can restrict derivation methods
+- Implementation note: missing substitution group heads are tolerated at schema load to match the W3C `Missing/missing002` expectation.
 
 **Transitive Substitution:**
 

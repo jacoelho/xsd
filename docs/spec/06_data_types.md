@@ -133,6 +133,8 @@ Spec refs: docs/spec/xml/datatypes.xml#built-in-primitive-datatypes.
 
 `YYYY` is a four-or-more digit year; an optional leading '-' is allowed, '0000' is not allowed, and a leading '+' is not permitted. All g* types allow an optional time zone. For `duration`, an optional leading '-' is allowed and only the seconds field may be fractional.
 
+Implementation note: fractional seconds are limited to 9 digits (nanosecond precision); longer fractions are rejected with an explicit error.
+
 ### Binary Types
 
 | Type | Description | Example |
