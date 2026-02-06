@@ -201,7 +201,7 @@ func collectNamespaceScope(dec *xmltext.Decoder, nsBuf []byte, declBuf []Namespa
 			if xmlnames.IsXMLPrefix(local) {
 				if err := xmlnames.ValidateXMLPrefixBinding(value, true); err != nil {
 					return nsScope{}, nsBuf, declBuf, namespaceDeclError(dec, tok.Line, tok.Column,
-						fmt.Errorf("%w: %v", errReservedNamespacePrefix, err))
+						fmt.Errorf("%w: %w", errReservedNamespacePrefix, err))
 				}
 				continue
 			}

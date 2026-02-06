@@ -4,13 +4,11 @@ import (
 	"bytes"
 	"reflect"
 	"testing"
-
-	"github.com/jacoelho/xsd/internal/runtime"
 )
 
 func TestNormalizeWhitespaceReplace(t *testing.T) {
 	in := []byte("a\tb\nc\rd")
-	got := NormalizeWhitespace(runtime.WS_Replace, in, nil)
+	got := NormalizeWhitespace(WhitespaceReplace, in, nil)
 	want := []byte("a b c d")
 	if !bytes.Equal(got, want) {
 		t.Fatalf("NormalizeWhitespace(replace) = %q, want %q", string(got), string(want))
@@ -19,7 +17,7 @@ func TestNormalizeWhitespaceReplace(t *testing.T) {
 
 func TestNormalizeWhitespaceCollapse(t *testing.T) {
 	in := []byte("  a\t b \n c  ")
-	got := NormalizeWhitespace(runtime.WS_Collapse, in, nil)
+	got := NormalizeWhitespace(WhitespaceCollapse, in, nil)
 	want := []byte("a b c")
 	if !bytes.Equal(got, want) {
 		t.Fatalf("NormalizeWhitespace(collapse) = %q, want %q", string(got), string(want))

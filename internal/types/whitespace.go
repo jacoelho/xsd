@@ -4,7 +4,6 @@ import (
 	"iter"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -31,14 +30,14 @@ func ApplyWhiteSpace(lexical string, ws WhiteSpace) string {
 	if lexical == "" {
 		return lexical
 	}
-	mode := runtime.WS_Preserve
+	mode := value.WhitespacePreserve
 	switch ws {
 	case WhiteSpaceReplace:
-		mode = runtime.WS_Replace
+		mode = value.WhitespaceReplace
 	case WhiteSpaceCollapse:
-		mode = runtime.WS_Collapse
+		mode = value.WhitespaceCollapse
 	}
-	if mode == runtime.WS_Preserve {
+	if mode == value.WhitespacePreserve {
 		return lexical
 	}
 	normalized := value.NormalizeWhitespace(mode, []byte(lexical), nil)

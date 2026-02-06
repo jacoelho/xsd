@@ -241,15 +241,15 @@ func collectSimpleTypeFacets(schema *parser.Schema, st *types.SimpleType, visite
 	}
 
 	switch {
-	case st.IsBuiltin() && isBuiltinListTypeName(st.QName.Local):
+	case st.IsBuiltin() && types.IsBuiltinListTypeName(st.QName.Local):
 		result = append(result, &types.MinLength{Value: 1})
 	case st.ResolvedBase != nil:
-		if bt, ok := st.ResolvedBase.(*types.BuiltinType); ok && isBuiltinListTypeName(bt.Name().Local) {
+		if bt, ok := st.ResolvedBase.(*types.BuiltinType); ok && types.IsBuiltinListTypeName(bt.Name().Local) {
 			result = append(result, &types.MinLength{Value: 1})
 		}
 	case st.Restriction != nil && !st.Restriction.Base.IsZero() &&
 		st.Restriction.Base.Namespace == types.XSDNamespace &&
-		isBuiltinListTypeName(st.Restriction.Base.Local):
+		types.IsBuiltinListTypeName(st.Restriction.Base.Local):
 		result = append(result, &types.MinLength{Value: 1})
 	}
 
@@ -312,12 +312,6 @@ func collectRestrictionFacets(schema *parser.Schema, restriction *types.Restrict
 	}
 
 	return result
-}
-
-func isBuiltinListTypeName(name string) bool {
-	return name == string(types.TypeNameNMTOKENS) ||
-		name == string(types.TypeNameIDREFS) ||
-		name == string(types.TypeNameENTITIES)
 }
 
 func resolveSimpleContentBaseType(schema *parser.Schema, sc *types.SimpleContent) types.Type {

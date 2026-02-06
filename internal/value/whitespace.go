@@ -3,17 +3,27 @@ package value
 import (
 	"bytes"
 	"iter"
+)
 
-	"github.com/jacoelho/xsd/internal/runtime"
+// WhitespaceMode controls XML whitespace normalization.
+type WhitespaceMode uint8
+
+const (
+	// WhitespacePreserve keeps lexical whitespace unchanged.
+	WhitespacePreserve WhitespaceMode = iota
+	// WhitespaceReplace converts XML whitespace characters to spaces.
+	WhitespaceReplace
+	// WhitespaceCollapse replaces XML whitespace with single spaces and trims edges.
+	WhitespaceCollapse
 )
 
 // NormalizeWhitespace applies the whitespace mode using dst as scratch.
 // It returns a slice that may alias the input when no changes are needed.
-func NormalizeWhitespace(mode runtime.WhitespaceMode, in, dst []byte) []byte {
+func NormalizeWhitespace(mode WhitespaceMode, in, dst []byte) []byte {
 	switch mode {
-	case runtime.WS_Replace:
+	case WhitespaceReplace:
 		return replaceWhitespace(in, dst)
-	case runtime.WS_Collapse:
+	case WhitespaceCollapse:
 		return collapseWhitespace(in, dst)
 	default:
 		return in

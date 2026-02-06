@@ -9,7 +9,7 @@ import (
 
 func TestValidateUPA_DoesNotMutateOccurs(t *testing.T) {
 	schema := &parser.Schema{
-		TargetNamespace:   types.NamespaceURI("urn:test"),
+		TargetNamespace:    types.NamespaceURI("urn:test"),
 		SubstitutionGroups: map[types.QName][]types.QName{},
 	}
 
@@ -39,7 +39,7 @@ func TestValidateUPA_DoesNotMutateOccurs(t *testing.T) {
 
 func TestValidateUPA_DuplicateElementRefs(t *testing.T) {
 	schema := &parser.Schema{
-		TargetNamespace:   types.NamespaceURI("urn:test"),
+		TargetNamespace:    types.NamespaceURI("urn:test"),
 		SubstitutionGroups: map[types.QName][]types.QName{},
 	}
 

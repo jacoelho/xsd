@@ -82,15 +82,10 @@ const (
 
 // Value stores temporal semantics used for equality, ordering, and keying.
 type Value struct {
-	Kind Kind
-
-	// Time stores the parsed value using the existing parser behavior.
-	Time time.Time
-
+	Time         time.Time
+	Kind         Kind
 	TimezoneKind TimezoneKind
-
-	// LeapSecond preserves lexical second=60 identity for time/dateTime.
-	LeapSecond bool
+	LeapSecond   bool
 }
 
 // ErrIndeterminateComparison matches XSD indeterminate temporal ordering.

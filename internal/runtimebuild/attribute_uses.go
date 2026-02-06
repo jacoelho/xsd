@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -21,7 +22,7 @@ func collectAttributeUses(schema *parser.Schema, ct *types.ComplexType) ([]*type
 		return nil, nil, nil
 	}
 	attrMap := make(map[types.QName]*types.AttributeDecl)
-	chain := collectComplexTypeChain(schema, ct)
+	chain := typegraph.CollectComplexTypeChainWithImplicitAnyType(schema, ct)
 	var wildcard *types.AnyAttribute
 	for i := len(chain) - 1; i >= 0; i-- {
 		current := chain[i]
@@ -54,61 +55,6 @@ func collectAttributeUses(schema *parser.Schema, ct *types.ComplexType) ([]*type
 		return cmp.Compare(left.Local, right.Local)
 	})
 	return out, wildcard, nil
-}
-
-func collectComplexTypeChain(schema *parser.Schema, ct *types.ComplexType) []*types.ComplexType {
-	var chain []*types.ComplexType
-	visited := make(map[*types.ComplexType]bool)
-	for current := ct; current != nil; {
-		if visited[current] {
-			break
-		}
-		visited[current] = true
-		chain = append(chain, current)
-		var next *types.ComplexType
-		if baseCT, ok := current.ResolvedBase.(*types.ComplexType); ok {
-			next = baseCT
-		} else if current.ResolvedBase != nil {
-			if isAnyTypeQName(current.ResolvedBase.Name()) {
-				next = types.NewAnyTypeComplexType()
-			}
-		} else {
-			baseQName := types.QName{}
-			if content := current.Content(); content != nil {
-				baseQName = content.BaseTypeQName()
-			}
-			if !baseQName.IsZero() {
-				if isAnyTypeQName(baseQName) {
-					next = types.NewAnyTypeComplexType()
-				} else if base, ok := lookupComplexType(schema, baseQName); ok {
-					next = base
-				}
-			} else if !isAnyTypeQName(current.QName) {
-				next = types.NewAnyTypeComplexType()
-			}
-		}
-		if next == nil {
-			break
-		}
-		current = next
-	}
-	return chain
-}
-
-func isAnyTypeQName(qname types.QName) bool {
-	return qname.Namespace == types.XSDNamespace && qname.Local == string(types.TypeNameAnyType)
-}
-
-func lookupComplexType(schema *parser.Schema, name types.QName) (*types.ComplexType, bool) {
-	if schema == nil || name.IsZero() {
-		return nil, false
-	}
-	typ, ok := schema.TypeDefs[name]
-	if !ok {
-		return nil, false
-	}
-	ct, ok := types.AsComplexType(typ)
-	return ct, ok
 }
 
 func mergeAttributesFromComplexType(schema *parser.Schema, ct *types.ComplexType, attrMap map[types.QName]*types.AttributeDecl) error {

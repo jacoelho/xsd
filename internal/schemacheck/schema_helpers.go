@@ -5,103 +5,22 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // EffectiveContentParticle returns the effective element particle for a complex type.
 // For derived types, it resolves restriction or extension content.
 func EffectiveContentParticle(schema *parser.Schema, typ types.Type) types.Particle {
-	ct, ok := types.AsComplexType(typ)
-	if !ok || ct == nil {
-		return nil
-	}
-	visited := make(map[*types.ComplexType]bool)
-	return effectiveContentParticleForComplexType(schema, ct, visited)
-}
-
-func effectiveContentParticleForComplexType(schema *parser.Schema, ct *types.ComplexType, visited map[*types.ComplexType]bool) types.Particle {
-	if ct == nil {
-		return nil
-	}
-	if visited[ct] {
-		return nil
-	}
-	visited[ct] = true
-	defer delete(visited, ct)
-
-	switch content := ct.Content().(type) {
-	case *types.ElementContent:
-		return content.Particle
-	case *types.SimpleContent, *types.EmptyContent:
-		return nil
-	case *types.ComplexContent:
-		if content.Restriction != nil {
-			return content.Restriction.Particle
-		}
-		if content.Extension != nil {
-			baseCT := resolveBaseComplexType(schema, ct, content.BaseTypeQName())
-			baseParticle := effectiveContentParticleForComplexType(schema, baseCT, visited)
-			extParticle := content.Extension.Particle
-			return combineExtensionParticles(baseParticle, extParticle)
-		}
-	}
-	return nil
+	return typegraph.EffectiveContentParticle(schema, typ)
 }
 
 func lookupTypeDef(schema *parser.Schema, qname types.QName) (types.Type, bool) {
-	if schema == nil {
-		return nil, false
-	}
-	typ, ok := schema.TypeDefs[qname]
-	return typ, ok
+	return typegraph.LookupType(schema, qname)
 }
 
 func lookupComplexType(schema *parser.Schema, qname types.QName) (*types.ComplexType, bool) {
-	typ, ok := lookupTypeDef(schema, qname)
-	if !ok {
-		return nil, false
-	}
-	ct, ok := types.AsComplexType(typ)
-	return ct, ok
-}
-
-func resolveBaseComplexType(schema *parser.Schema, ct *types.ComplexType, baseQName types.QName) *types.ComplexType {
-	if ct != nil && ct.ResolvedBase != nil {
-		if baseCT, ok := types.AsComplexType(ct.ResolvedBase); ok {
-			return baseCT
-		}
-		if isAnyTypeQName(ct.ResolvedBase.Name()) {
-			return types.NewAnyTypeComplexType()
-		}
-	}
-	if schema != nil && !baseQName.IsZero() {
-		if isAnyTypeQName(baseQName) {
-			return types.NewAnyTypeComplexType()
-		}
-		if baseCT, ok := lookupComplexType(schema, baseQName); ok {
-			return baseCT
-		}
-	}
-	return nil
-}
-
-func combineExtensionParticles(baseParticle, extParticle types.Particle) types.Particle {
-	if baseParticle == nil {
-		return extParticle
-	}
-	if extParticle == nil {
-		return baseParticle
-	}
-	return &types.ModelGroup{
-		Kind:      types.Sequence,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
-		Particles: []types.Particle{baseParticle, extParticle},
-	}
-}
-
-func isAnyTypeQName(qname types.QName) bool {
-	return qname.Namespace == types.XSDNamespace && qname.Local == string(types.TypeNameAnyType)
+	return typegraph.LookupComplexType(schema, qname)
 }
 
 // modelGroupContainsWildcard checks if a model group contains any wildcard particles
