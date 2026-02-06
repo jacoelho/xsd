@@ -216,6 +216,18 @@ func AppendUvarint(dst []byte, v uint64) []byte {
 	return append(dst, buf[:n]...)
 }
 
+// StartListKey resets dst and appends the list item count prefix.
+func StartListKey(dst []byte, count int) []byte {
+	return AppendUvarint(dst[:0], uint64(count))
+}
+
+// AppendListEntry appends one typed list item: kind (1 byte), len (uvarint), key bytes.
+func AppendListEntry(dst []byte, kind byte, key []byte) []byte {
+	out := append(dst, kind)
+	out = AppendUvarint(out, uint64(len(key)))
+	return append(out, key...)
+}
+
 func ensureLen(dst []byte, n int) []byte {
 	if cap(dst) < n {
 		return make([]byte, n)
