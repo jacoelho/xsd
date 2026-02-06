@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -1202,8 +1203,8 @@ func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem
 		if !restrictionElem.HasFixed {
 			return fmt.Errorf("ComplexContent restriction: element '%s' must have fixed value matching base fixed value '%s'", restrictionElem.Name, baseElem.Fixed)
 		}
-		baseType := ResolveTypeReference(schema, baseElem.Type, TypeReferenceAllowMissing)
-		restrictionType := ResolveTypeReference(schema, restrictionElem.Type, TypeReferenceAllowMissing)
+		baseType := ResolveTypeReference(schema, baseElem.Type, typeops.TypeReferenceAllowMissing)
+		restrictionType := ResolveTypeReference(schema, restrictionElem.Type, typeops.TypeReferenceAllowMissing)
 		if baseType == nil {
 			baseType = baseElem.Type
 		}
@@ -1225,8 +1226,8 @@ func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem
 	}
 
 	// validate type: restriction type must be same as or derived from base type
-	baseType := ResolveTypeReference(schema, baseElem.Type, TypeReferenceAllowMissing)
-	restrictionType := ResolveTypeReference(schema, restrictionElem.Type, TypeReferenceAllowMissing)
+	baseType := ResolveTypeReference(schema, baseElem.Type, typeops.TypeReferenceAllowMissing)
+	restrictionType := ResolveTypeReference(schema, restrictionElem.Type, typeops.TypeReferenceAllowMissing)
 	if baseType == nil {
 		baseType = baseElem.Type
 	}

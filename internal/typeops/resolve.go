@@ -1,27 +1,66 @@
 package typeops
 
 import (
+	"fmt"
+
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-// ResolveSimpleTypeReference resolves a simple type QName against built-ins and schema types.
-func ResolveSimpleTypeReference(schema *parser.Schema, qname types.QName) types.Type {
+// TypeReferencePolicy controls how missing type references are handled.
+type TypeReferencePolicy int
+
+const (
+	// TypeReferenceMustExist requires referenced types to resolve.
+	TypeReferenceMustExist TypeReferencePolicy = iota
+	// TypeReferenceAllowMissing allows unresolved placeholders to pass through.
+	TypeReferenceAllowMissing
+)
+
+// ResolveTypeQName resolves a type QName against built-ins and schema types.
+func ResolveTypeQName(schema *parser.Schema, qname types.QName, policy TypeReferencePolicy) (types.Type, error) {
 	if qname.IsZero() {
-		return nil
+		return nil, nil
 	}
-	if qname.Namespace == types.XSDNamespace {
-		if bt := types.GetBuiltin(types.TypeName(qname.Local)); bt != nil {
-			return bt
+	if builtinType := types.GetBuiltinNS(qname.Namespace, qname.Local); builtinType != nil {
+		return builtinType, nil
+	}
+	if schema != nil {
+		if typeDef, ok := schema.TypeDefs[qname]; ok {
+			return typeDef, nil
 		}
 	}
-	if schema == nil {
+	if policy == TypeReferenceAllowMissing {
+		return nil, nil
+	}
+	return nil, fmt.Errorf("type %s not found", qname)
+}
+
+// ResolveTypeReference resolves a type reference in schema validation contexts.
+func ResolveTypeReference(schema *parser.Schema, typ types.Type, policy TypeReferencePolicy) types.Type {
+	if typ == nil {
 		return nil
 	}
-	if typ, ok := schema.TypeDefs[qname]; ok {
-		return typ
+	if simpleType, ok := typ.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(simpleType) {
+		resolvedType, err := ResolveTypeQName(schema, simpleType.QName, policy)
+		if err != nil {
+			return nil
+		}
+		if resolvedType == nil && policy == TypeReferenceAllowMissing {
+			return typ
+		}
+		return resolvedType
 	}
-	return nil
+	return typ
+}
+
+// ResolveSimpleTypeReference resolves a simple type QName against built-ins and schema types.
+func ResolveSimpleTypeReference(schema *parser.Schema, qname types.QName) types.Type {
+	resolved, err := ResolveTypeQName(schema, qname, TypeReferenceMustExist)
+	if err != nil {
+		return nil
+	}
+	return resolved
 }
 
 // ResolveSimpleContentBaseTypeFromContent resolves the base type of a simpleContent definition.
