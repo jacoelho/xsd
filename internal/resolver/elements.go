@@ -355,7 +355,10 @@ func validateNoCyclicSubstitutionGroups(sch *parser.Schema) error {
 
 		detector := NewCycleDetector[types.QName]()
 		if err := visitSubstitutionGroupChain(sch, startQName, detector); err != nil {
-			return fmt.Errorf("cyclic substitution group detected: element %s is part of a cycle", startQName)
+			if IsCycleError(err) {
+				return fmt.Errorf("cyclic substitution group detected: element %s is part of a cycle", startQName)
+			}
+			return err
 		}
 	}
 
@@ -376,7 +379,8 @@ func visitSubstitutionGroupChain(sch *parser.Schema, qname types.QName, detector
 			return nil
 		}
 		if _, ok := sch.ElementDecls[next]; !ok {
-			return fmt.Errorf("element %s substitutionGroup %s does not exist", qname, next)
+			// missing heads are validated in validateElementDeclarationReferences.
+			return nil
 		}
 		return visitSubstitutionGroupChain(sch, next, detector)
 	})
