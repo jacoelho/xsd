@@ -53,7 +53,7 @@ func CanonicalDateTimeString(value time.Time, kind string, tzKind TimezoneKind) 
 	}
 	year, month, day := value.Date()
 	hour, minute, second := value.Clock()
-	fraction := formatFraction(value.Nanosecond())
+	fraction := FormatFraction(value.Nanosecond())
 	tz := ""
 	if tzKind == TZKnown {
 		tz = formatTimezone(value)
@@ -94,7 +94,8 @@ func formatFloat(value float64, bits int) string {
 	return strconv.FormatFloat(value, 'E', prec, 64)
 }
 
-func formatFraction(nanos int) string {
+// FormatFraction renders fractional seconds without trailing zeros.
+func FormatFraction(nanos int) string {
 	if nanos == 0 {
 		return ""
 	}

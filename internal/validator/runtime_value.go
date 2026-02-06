@@ -7,6 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/wsmode"
 )
 
 type valueErrorKind uint8
@@ -213,14 +214,7 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 }
 
 func valueWhitespaceMode(mode runtime.WhitespaceMode) value.WhitespaceMode {
-	switch mode {
-	case runtime.WS_Replace:
-		return value.WhitespaceReplace
-	case runtime.WS_Collapse:
-		return value.WhitespaceCollapse
-	default:
-		return value.WhitespacePreserve
-	}
+	return wsmode.ToValue(mode)
 }
 
 func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized, lexical []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *valueMetrics) ([]byte, error) {

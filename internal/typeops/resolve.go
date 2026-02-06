@@ -1,27 +1,69 @@
 package typeops
 
 import (
+	"fmt"
+
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-// ResolveSimpleTypeReference resolves a simple type QName against built-ins and schema types.
-func ResolveSimpleTypeReference(schema *parser.Schema, qname types.QName) types.Type {
+// TypeReferencePolicy controls how missing type references are handled.
+type TypeReferencePolicy int
+
+const (
+	// TypeReferenceMustExist requires referenced types to resolve.
+	TypeReferenceMustExist TypeReferencePolicy = iota
+	// TypeReferenceAllowMissing allows unresolved placeholders to pass through.
+	TypeReferenceAllowMissing
+)
+
+// ResolveTypeQName resolves a type QName against built-ins and schema types.
+func ResolveTypeQName(schema *parser.Schema, qname types.QName, policy TypeReferencePolicy) (types.Type, error) {
 	if qname.IsZero() {
-		return nil
+		return nil, nil
 	}
-	if qname.Namespace == types.XSDNamespace {
-		if bt := types.GetBuiltin(types.TypeName(qname.Local)); bt != nil {
-			return bt
+	if builtinType := types.GetBuiltinNS(qname.Namespace, qname.Local); builtinType != nil {
+		return builtinType, nil
+	}
+	if schema != nil {
+		if typeDef, ok := schema.TypeDefs[qname]; ok {
+			return typeDef, nil
 		}
 	}
-	if schema == nil {
+	if policy == TypeReferenceAllowMissing {
+		return nil, nil
+	}
+	return nil, fmt.Errorf("type %s not found", qname)
+}
+
+// ResolveTypeReference resolves a type reference in schema validation contexts.
+func ResolveTypeReference(schema *parser.Schema, typ types.Type, policy TypeReferencePolicy) types.Type {
+	if typ == nil {
 		return nil
 	}
-	if typ, ok := schema.TypeDefs[qname]; ok {
-		return typ
+	if simpleType, ok := typ.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(simpleType) {
+		resolvedType, err := ResolveTypeQName(schema, simpleType.QName, policy)
+		if err != nil {
+			return nil
+		}
+		if resolvedType == nil && policy == TypeReferenceAllowMissing {
+			return typ
+		}
+		return resolvedType
 	}
-	return nil
+	return typ
+}
+
+// ResolveSimpleTypeReference resolves a simple type QName against built-ins and schema types.
+// It returns an error when the referenced type cannot be found.
+func ResolveSimpleTypeReference(schema *parser.Schema, qname types.QName) (types.Type, error) {
+	return ResolveTypeQName(schema, qname, TypeReferenceMustExist)
+}
+
+// ResolveSimpleTypeReferenceAllowMissing resolves a simple type QName when present.
+func ResolveSimpleTypeReferenceAllowMissing(schema *parser.Schema, qname types.QName) types.Type {
+	resolved, _ := ResolveTypeQName(schema, qname, TypeReferenceAllowMissing)
+	return resolved
 }
 
 // ResolveSimpleContentBaseTypeFromContent resolves the base type of a simpleContent definition.
@@ -74,14 +116,14 @@ func resolveUnionMemberTypesVisited(schema *parser.Schema, st *types.SimpleType,
 			memberTypes = append(memberTypes, inline)
 		}
 		for _, memberQName := range st.Union.MemberTypes {
-			if member := ResolveSimpleTypeReference(schema, memberQName); member != nil {
+			if member := ResolveSimpleTypeReferenceAllowMissing(schema, memberQName); member != nil {
 				memberTypes = append(memberTypes, member)
 			}
 		}
 		return memberTypes
 	}
 	if st.Restriction != nil && !st.Restriction.Base.IsZero() {
-		if baseST, ok := ResolveSimpleTypeReference(schema, st.Restriction.Base).(*types.SimpleType); ok {
+		if baseST, ok := ResolveSimpleTypeReferenceAllowMissing(schema, st.Restriction.Base).(*types.SimpleType); ok {
 			return resolveUnionMemberTypesVisited(schema, baseST, visited)
 		}
 	}
@@ -98,7 +140,7 @@ func ResolveListItemType(schema *parser.Schema, st *types.SimpleType) types.Type
 			return itemType
 		}
 		if st.Restriction != nil && !st.Restriction.Base.IsZero() {
-			if base := ResolveSimpleTypeReference(schema, st.Restriction.Base); base != nil {
+			if base := ResolveSimpleTypeReferenceAllowMissing(schema, st.Restriction.Base); base != nil {
 				if itemType, ok := types.ListItemType(base); ok {
 					return itemType
 				}
@@ -113,7 +155,7 @@ func ResolveListItemType(schema *parser.Schema, st *types.SimpleType) types.Type
 		return st.List.InlineItemType
 	}
 	if !st.List.ItemType.IsZero() {
-		return ResolveSimpleTypeReference(schema, st.List.ItemType)
+		return ResolveSimpleTypeReferenceAllowMissing(schema, st.List.ItemType)
 	}
 	if itemType, ok := types.ListItemType(st); ok {
 		return itemType
@@ -150,7 +192,7 @@ func isIDOnlyDerivedTypeVisited(schema *parser.Schema, st *types.SimpleType, vis
 	if st.ResolvedBase != nil {
 		baseType = st.ResolvedBase
 	} else if !baseQName.IsZero() {
-		baseType = ResolveSimpleTypeReference(schema, baseQName)
+		baseType = ResolveSimpleTypeReferenceAllowMissing(schema, baseQName)
 	}
 
 	switch typed := baseType.(type) {

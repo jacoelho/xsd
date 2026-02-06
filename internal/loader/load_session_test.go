@@ -5,6 +5,10 @@ import (
 	"errors"
 	"io"
 	"testing"
+	"testing/fstest"
+
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 type errCloseReader struct {
@@ -98,5 +102,39 @@ func TestLoadRejectsImportNamespaceMismatchWithoutNamespace(t *testing.T) {
 	want := "imported schema imp.xsd namespace mismatch: expected no namespace, got urn:imp"
 	if err.Error() != want {
 		t.Fatalf("error = %q, want %q", err.Error(), want)
+	}
+}
+
+func TestLoadDirectiveSchemaMissingImportIsSkippedNotDeferred(t *testing.T) {
+	loader := NewLoader(Config{
+		FS:                          fstest.MapFS{},
+		AllowMissingImportLocations: true,
+	})
+	session := newLoadSession(
+		loader,
+		"root.xsd",
+		loader.loadKey("root.xsd", types.NamespaceURI("urn:root")),
+		nil,
+	)
+
+	result, err := session.loadDirectiveSchema(
+		parser.DirectiveImport,
+		ResolveRequest{
+			BaseSystemID:   "root.xsd",
+			SchemaLocation: "missing.xsd",
+			ImportNS:       []byte("urn:other"),
+			Kind:           ResolveImport,
+		},
+		func(systemID string) loadKey {
+			return loader.loadKey(systemID, types.NamespaceURI("urn:other"))
+		},
+		true,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("loadDirectiveSchema missing import error = %v, want nil", err)
+	}
+	if result.status != directiveLoadStatusSkippedMissing {
+		t.Fatalf("status = %v, want skipped-missing", result.status)
 	}
 }

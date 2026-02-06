@@ -54,7 +54,7 @@ func collectSimpleTypeFacetsVisited(schema *parser.Schema, st *types.SimpleType,
 			result = append(result, baseFacets...)
 		}
 	} else if st.Restriction != nil && !st.Restriction.Base.IsZero() {
-		if base := ResolveSimpleTypeReference(schema, st.Restriction.Base); base != nil {
+		if base := ResolveSimpleTypeReferenceAllowMissing(schema, st.Restriction.Base); base != nil {
 			if baseST, ok := base.(*types.SimpleType); ok {
 				baseFacets, err := collectSimpleTypeFacetsVisited(schema, baseST, visited, convert)
 				if err != nil {
@@ -83,7 +83,7 @@ func collectSimpleTypeFacetsVisited(schema *parser.Schema, st *types.SimpleType,
 		if st.ResolvedBase != nil {
 			baseType = st.ResolvedBase
 		} else if !st.Restriction.Base.IsZero() {
-			baseType = ResolveSimpleTypeReference(schema, st.Restriction.Base)
+			baseType = ResolveSimpleTypeReferenceAllowMissing(schema, st.Restriction.Base)
 		}
 		restrictionFacets, err := CollectRestrictionFacets(schema, st.Restriction, baseType, convert)
 		if err != nil {
@@ -125,7 +125,7 @@ func CollectRestrictionFacets(schema *parser.Schema, restriction *types.Restrict
 			result = append(result, facet)
 		case *types.DeferredFacet:
 			if baseType == nil {
-				baseType = ResolveSimpleTypeReference(schema, restriction.Base)
+				baseType = ResolveSimpleTypeReferenceAllowMissing(schema, restriction.Base)
 			}
 			if baseType == nil {
 				continue

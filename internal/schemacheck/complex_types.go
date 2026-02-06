@@ -326,7 +326,7 @@ func validateIDAttributeCount(schema *parser.Schema, complexType *types.ComplexT
 		if attr.Type == nil {
 			continue
 		}
-		resolvedType := ResolveTypeReference(schema, attr.Type, TypeReferenceAllowMissing)
+		resolvedType := ResolveTypeReference(schema, attr.Type, typeops.TypeReferenceAllowMissing)
 		if resolvedType == nil {
 			continue
 		}

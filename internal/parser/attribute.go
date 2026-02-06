@@ -22,7 +22,6 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, lo
 	if err := validateOptionalID(doc, elem, "attribute", schema); err != nil {
 		return nil, err
 	}
-
 	if err := validateAnnotationOrder(doc, elem); err != nil {
 		return nil, err
 	}
@@ -49,68 +48,65 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, lo
 		return nil, fmt.Errorf("attribute cannot have both 'default' and 'fixed' attributes")
 	}
 
-	// check if it's a reference
 	if ref != "" {
-		if doc.HasAttribute(elem, "type") {
-			return nil, fmt.Errorf("attribute reference cannot have 'type' attribute")
-		}
-		if doc.HasAttribute(elem, "form") {
-			return nil, fmt.Errorf("attribute reference cannot have 'form' attribute")
-		}
-		if err := validateOnlyAnnotationChildren(doc, elem, "attribute"); err != nil {
-			return nil, err
-		}
-		// for attribute references, use resolveAttributeRefQName
-		// per XSD spec, unprefixed attribute refs refer to no namespace
-		refQName, err := resolveAttributeRefQName(doc, ref, elem, schema)
-		if err != nil {
-			return nil, fmt.Errorf("resolve ref %s: %w", ref, err)
-		}
+		return parseAttributeReference(doc, elem, schema, ref)
+	}
+	return parseLocalAttribute(doc, elem, schema, local)
+}
 
-		attr := &types.AttributeDecl{
-			Name: refQName,
-			// and will override the referenced attribute's values
-			Use:         types.Optional,
-			IsReference: true,
-		}
-
-		// parse use attribute (can override referenced attribute's use)
-		use, err := parseAttributeUse(doc, elem)
-		if err != nil {
-			return nil, err
-		}
-		attr.Use = use
-
-		if attr.Use == types.Required && doc.HasAttribute(elem, "default") {
-			return nil, fmt.Errorf("attribute with use='required' cannot have default value")
-		}
-		if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
-			return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
-		}
-
-		if doc.HasAttribute(elem, "default") {
-			attr.Default = doc.GetAttribute(elem, "default")
-			attr.HasDefault = true
-			attr.DefaultContext = namespaceContextForElement(doc, elem, schema)
-		}
-
-		if doc.HasAttribute(elem, "fixed") {
-			attr.Fixed = doc.GetAttribute(elem, "fixed")
-			attr.HasFixed = true
-			attr.FixedContext = namespaceContextForElement(doc, elem, schema)
-		}
-		if attr.HasDefault || attr.HasFixed {
-			attr.ValueContext = namespaceContextForElement(doc, elem, schema)
-		}
-
-		parsed, err := types.NewAttributeDeclFromParsed(attr)
-		if err != nil {
-			return nil, err
-		}
-		return parsed, nil
+func parseAttributeReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, ref string) (*types.AttributeDecl, error) {
+	if doc.HasAttribute(elem, "type") {
+		return nil, fmt.Errorf("attribute reference cannot have 'type' attribute")
+	}
+	if doc.HasAttribute(elem, "form") {
+		return nil, fmt.Errorf("attribute reference cannot have 'form' attribute")
+	}
+	if err := validateOnlyAnnotationChildren(doc, elem, "attribute"); err != nil {
+		return nil, err
 	}
 
-	// local attribute declaration
+	refQName, err := resolveAttributeRefQName(doc, ref, elem, schema)
+	if err != nil {
+		return nil, fmt.Errorf("resolve ref %s: %w", ref, err)
+	}
+
+	attr := &types.AttributeDecl{
+		Name:        refQName,
+		Use:         types.Optional,
+		IsReference: true,
+	}
+	use, err := parseAttributeUse(doc, elem)
+	if err != nil {
+		return nil, err
+	}
+	attr.Use = use
+	if attr.Use == types.Required && doc.HasAttribute(elem, "default") {
+		return nil, fmt.Errorf("attribute with use='required' cannot have default value")
+	}
+	if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
+		return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
+	}
+	if doc.HasAttribute(elem, "default") {
+		attr.Default = doc.GetAttribute(elem, "default")
+		attr.HasDefault = true
+		attr.DefaultContext = namespaceContextForElement(doc, elem, schema)
+	}
+	if doc.HasAttribute(elem, "fixed") {
+		attr.Fixed = doc.GetAttribute(elem, "fixed")
+		attr.HasFixed = true
+		attr.FixedContext = namespaceContextForElement(doc, elem, schema)
+	}
+	if attr.HasDefault || attr.HasFixed {
+		attr.ValueContext = namespaceContextForElement(doc, elem, schema)
+	}
+	parsed, err := types.NewAttributeDeclFromParsed(attr)
+	if err != nil {
+		return nil, err
+	}
+	return parsed, nil
+}
+
+func parseLocalAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, local bool) (*types.AttributeDecl, error) {
 	name := getNameAttr(doc, elem)
 	if name == "" {
 		return nil, fmt.Errorf("attribute missing name and ref")
@@ -133,7 +129,6 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, lo
 		SourceNamespace: schema.TargetNamespace,
 	}
 
-	// attribute can have either 'type' attribute OR inline simpleType, but not both
 	typeName := doc.GetAttribute(elem, "type")
 	simpleTypeCount := 0
 	for _, child := range doc.Children(elem) {
@@ -216,7 +211,6 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, lo
 		attr.ValueContext = namespaceContextForElement(doc, elem, schema)
 	}
 
-	// parse form attribute - must be exactly "qualified" or "unqualified"
 	formExplicit := doc.HasAttribute(elem, "form")
 	if formExplicit {
 		formAttr := types.ApplyWhiteSpace(doc.GetAttribute(elem, "form"), types.WhiteSpaceCollapse)

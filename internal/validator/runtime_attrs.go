@@ -115,22 +115,6 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 		}
 	}
 	seenID := false
-	fixedMatches := func(validator, member runtime.ValidatorID, canonical []byte, metrics valueMetrics, fixed runtime.ValueRef, fixedKey runtime.ValueKeyRef) (bool, error) {
-		if fixedKey.Ref.Present {
-			actualKind := metrics.keyKind
-			actualKey := metrics.keyBytes
-			if actualKind == runtime.VKInvalid {
-				kind, key, err := s.keyForCanonicalValue(validator, canonical, resolver, member)
-				if err != nil {
-					return false, err
-				}
-				actualKind = kind
-				actualKey = key
-			}
-			return actualKind == fixedKey.Kind && bytes.Equal(actualKey, valueKeyBytes(s.rt.Values, fixedKey)), nil
-		}
-		return bytes.Equal(canonical, valueBytes(s.rt.Values, fixed)), nil
-	}
 
 	for _, attr := range attrs {
 		if s.isUnknownXsiAttribute(&attr) {
@@ -175,7 +159,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 					attr.KeyBytes = metrics.keyBytes
 				}
 				if use.Fixed.Present {
-					match, err := fixedMatches(use.Validator, use.FixedMember, canon, metrics, use.Fixed, use.FixedKey)
+					match, err := s.fixedValueMatches(use.Validator, use.FixedMember, canon, metrics, resolver, use.Fixed, use.FixedKey)
 					if err != nil {
 						return nil, seenID, err
 					}
@@ -278,7 +262,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 				validated = append(validated, attr)
 			}
 			if globalAttr.Fixed.Present {
-				match, err := fixedMatches(globalAttr.Validator, globalAttr.FixedMember, canon, metrics, globalAttr.Fixed, globalAttr.FixedKey)
+				match, err := s.fixedValueMatches(globalAttr.Validator, globalAttr.FixedMember, canon, metrics, resolver, globalAttr.Fixed, globalAttr.FixedKey)
 				if err != nil {
 					return nil, seenID, err
 				}
@@ -292,6 +276,31 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 	}
 
 	return validated, seenID, nil
+}
+
+func (s *Session) fixedValueMatches(
+	validator runtime.ValidatorID,
+	member runtime.ValidatorID,
+	canonical []byte,
+	metrics valueMetrics,
+	resolver value.NSResolver,
+	fixed runtime.ValueRef,
+	fixedKey runtime.ValueKeyRef,
+) (bool, error) {
+	if fixedKey.Ref.Present {
+		actualKind := metrics.keyKind
+		actualKey := metrics.keyBytes
+		if actualKind == runtime.VKInvalid {
+			kind, key, err := s.keyForCanonicalValue(validator, canonical, resolver, member)
+			if err != nil {
+				return false, err
+			}
+			actualKind = kind
+			actualKey = key
+		}
+		return actualKind == fixedKey.Kind && bytes.Equal(actualKey, valueKeyBytes(s.rt.Values, fixedKey)), nil
+	}
+	return bytes.Equal(canonical, valueBytes(s.rt.Values, fixed)), nil
 }
 
 func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, storeAttrs, seenID bool) ([]AttrApplied, error) {

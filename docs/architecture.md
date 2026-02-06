@@ -56,6 +56,19 @@ flowchart TD
   end
 ```
 
+## Shared Internal Kernels
+
+To keep package boundaries one-way and avoid drift between phases, shared
+pure helpers live in small reusable internal packages:
+
+- `internal/typeops`: type reference resolution policy and facet traversal helpers.
+- `internal/typegraph`: base-chain navigation and anyType semantics.
+- `internal/traversal`: particle/content tree walkers reused by resolver and schemacheck.
+- `internal/valuekey`: canonical key encoding used by runtime build and runtime validation.
+
+These packages are intentionally dependency-light and do not depend on
+loading, resolver orchestration, or validator session state.
+
 
 ## Phase 1: Load + Parse
 

@@ -20,36 +20,8 @@ const (
 
 // ParseFloat32 parses an XSD float lexical value.
 func ParseFloat32(b []byte) (float32, FloatClass, *ParseError) {
-	if len(b) == 0 {
-		return 0, FloatFinite, &ParseError{Kind: ParseEmpty}
-	}
-	switch {
-	case bytes.Equal(b, []byte("INF")):
-		return float32(math.Inf(1)), FloatPosInf, nil
-	case bytes.Equal(b, []byte("-INF")):
-		return float32(math.Inf(-1)), FloatNegInf, nil
-	case bytes.Equal(b, []byte("NaN")):
-		return float32(math.NaN()), FloatNaN, nil
-	case bytes.Equal(b, []byte("+INF")):
-		return 0, FloatFinite, &ParseError{Kind: ParseBadChar}
-	}
-	if !isFloatLexical(b) {
-		return 0, FloatFinite, &ParseError{Kind: ParseBadChar}
-	}
-	f, err := strconv.ParseFloat(unsafeString(b), 32)
-	if err != nil {
-		if errors.Is(err, strconv.ErrRange) {
-			class := FloatFinite
-			if math.IsInf(f, 1) {
-				class = FloatPosInf
-			} else if math.IsInf(f, -1) {
-				class = FloatNegInf
-			}
-			return float32(f), class, nil
-		}
-		return 0, FloatFinite, &ParseError{Kind: ParseBadChar}
-	}
-	return float32(f), FloatFinite, nil
+	f, class, err := parseFloat(b, 32)
+	return float32(f), class, err
 }
 
 // ValidateFloatLexical checks whether a float/double lexical form is valid.
@@ -73,6 +45,10 @@ func ValidateFloatLexical(b []byte) *ParseError {
 
 // ParseFloat64 parses an XSD double lexical value.
 func ParseFloat64(b []byte) (float64, FloatClass, *ParseError) {
+	return parseFloat(b, 64)
+}
+
+func parseFloat(b []byte, bits int) (float64, FloatClass, *ParseError) {
 	if len(b) == 0 {
 		return 0, FloatFinite, &ParseError{Kind: ParseEmpty}
 	}
@@ -89,7 +65,7 @@ func ParseFloat64(b []byte) (float64, FloatClass, *ParseError) {
 	if !isFloatLexical(b) {
 		return 0, FloatFinite, &ParseError{Kind: ParseBadChar}
 	}
-	f, err := strconv.ParseFloat(unsafeString(b), 64)
+	f, err := strconv.ParseFloat(unsafeString(b), bits)
 	if err != nil {
 		if errors.Is(err, strconv.ErrRange) {
 			class := FloatFinite
@@ -107,39 +83,15 @@ func ParseFloat64(b []byte) (float64, FloatClass, *ParseError) {
 
 // CompareFloat32 compares two float32 values using XSD ordering rules.
 func CompareFloat32(a float32, ac FloatClass, b float32, bc FloatClass) (int, bool) {
-	if ac == FloatNaN || bc == FloatNaN {
-		return 0, false
-	}
-	if ac == FloatPosInf {
-		if bc == FloatPosInf {
-			return 0, true
-		}
-		return 1, true
-	}
-	if ac == FloatNegInf {
-		if bc == FloatNegInf {
-			return 0, true
-		}
-		return -1, true
-	}
-	if bc == FloatPosInf {
-		return -1, true
-	}
-	if bc == FloatNegInf {
-		return 1, true
-	}
-	switch {
-	case a < b:
-		return -1, true
-	case a > b:
-		return 1, true
-	default:
-		return 0, true
-	}
+	return compareFloat(float64(a), ac, float64(b), bc)
 }
 
 // CompareFloat64 compares two float64 values using XSD ordering rules.
 func CompareFloat64(a float64, ac FloatClass, b float64, bc FloatClass) (int, bool) {
+	return compareFloat(a, ac, b, bc)
+}
+
+func compareFloat(a float64, ac FloatClass, b float64, bc FloatClass) (int, bool) {
 	if ac == FloatNaN || bc == FloatNaN {
 		return 0, false
 	}

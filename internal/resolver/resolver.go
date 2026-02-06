@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schema"
-	"github.com/jacoelho/xsd/internal/schemacheck"
+	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -606,7 +606,7 @@ func (r *Resolver) lookupAttributeGroup(qname types.QName) (*types.AttributeGrou
 }
 
 func (r *Resolver) resolveContentParticles(content types.Content) error {
-	return schemacheck.WalkContentParticles(content, func(particle types.Particle) error {
+	return traversal.WalkContentParticles(content, func(particle types.Particle) error {
 		return r.resolveParticles([]types.Particle{particle})
 	})
 }

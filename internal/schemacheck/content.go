@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -67,7 +68,7 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 			if !effectiveRestriction.HasFixed {
 				return fmt.Errorf("%s: attribute '%s' fixed value must match base type", context, restrictionAttr.Name.Local)
 			}
-			baseType := ResolveTypeReference(schema, effectiveBase.Type, TypeReferenceAllowMissing)
+			baseType := ResolveTypeReference(schema, effectiveBase.Type, typeops.TypeReferenceAllowMissing)
 			if baseType == nil {
 				baseType = effectiveBase.Type
 			}
@@ -86,8 +87,8 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 			continue
 		}
 		if baseTypeQName != restrictionTypeQName {
-			baseType := ResolveTypeReference(schema, effectiveBase.Type, TypeReferenceAllowMissing)
-			restrictionType := ResolveTypeReference(schema, effectiveRestriction.Type, TypeReferenceAllowMissing)
+			baseType := ResolveTypeReference(schema, effectiveBase.Type, typeops.TypeReferenceAllowMissing)
+			restrictionType := ResolveTypeReference(schema, effectiveRestriction.Type, typeops.TypeReferenceAllowMissing)
 			if baseType == nil {
 				baseType = effectiveBase.Type
 			}

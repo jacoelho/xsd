@@ -109,17 +109,14 @@ func Resolve(constraints []Constraint) []Issue {
 func HashRow(values []runtime.ValueKey) uint64 {
 	h := uint64(runtime.FNVOffset64)
 	for _, value := range values {
-		h ^= uint64(value.Kind)
-		h *= runtime.FNVPrime64
-		length := uint32(len(value.Bytes))
-		for range 4 {
-			h ^= uint64(byte(length))
-			h *= runtime.FNVPrime64
-			length >>= 8
+		keyHash := value.Hash
+		if keyHash == 0 {
+			keyHash = runtime.HashKey(value.Kind, value.Bytes)
 		}
-		for _, c := range value.Bytes {
-			h ^= uint64(c)
+		for i := 0; i < 8; i++ {
+			h ^= uint64(byte(keyHash))
 			h *= runtime.FNVPrime64
+			keyHash >>= 8
 		}
 	}
 	h ^= h >> 33

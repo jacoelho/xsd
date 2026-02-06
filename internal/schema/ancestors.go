@@ -101,10 +101,10 @@ func baseForSimpleType(st *types.SimpleType) (types.QName, types.DerivationMetho
 		return types.QName{}, 0
 	}
 	if st.List != nil {
-		return anySimpleTypeQName(), types.DerivationList
+		return types.AnySimpleTypeQName(), types.DerivationList
 	}
 	if st.Union != nil {
-		return anySimpleTypeQName(), types.DerivationUnion
+		return types.AnySimpleTypeQName(), types.DerivationUnion
 	}
 	if st.Restriction != nil {
 		return st.Restriction.Base, types.DerivationRestriction
@@ -124,19 +124,11 @@ func baseForComplexType(ct *types.ComplexType) (types.QName, types.DerivationMet
 		if ct.QName.Namespace == types.XSDNamespace && ct.QName.Local == "anyType" {
 			return types.QName{}, 0
 		}
-		return anyTypeQName(), types.DerivationRestriction
+		return types.AnyTypeQName(), types.DerivationRestriction
 	}
 	method := ct.DerivationMethod
 	if method == 0 {
 		method = types.DerivationRestriction
 	}
 	return baseQName, method
-}
-
-func anyTypeQName() types.QName {
-	return types.QName{Namespace: types.XSDNamespace, Local: "anyType"}
-}
-
-func anySimpleTypeQName() types.QName {
-	return types.QName{Namespace: types.XSDNamespace, Local: "anySimpleType"}
 }

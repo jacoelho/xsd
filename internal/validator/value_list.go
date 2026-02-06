@@ -43,7 +43,7 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 			if !itemMetrics.keySet {
 				return valueErrorf(valueErrInvalid, "list item key missing")
 			}
-			keyTmp = runtime.AppendListKey(keyTmp, itemMetrics.keyKind, itemMetrics.keyBytes)
+			keyTmp = valuekey.AppendListEntry(keyTmp, byte(itemMetrics.keyKind), itemMetrics.keyBytes)
 		}
 		count++
 		return nil
@@ -57,8 +57,7 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 	}
 	canon := tmp
 	if needKey {
-		listKey := s.keyTmp[:0]
-		listKey = valuekey.AppendUvarint(listKey, uint64(count))
+		listKey := valuekey.StartListKey(s.keyTmp[:0], count)
 		listKey = append(listKey, keyTmp...)
 		s.keyTmp = listKey
 		s.setKey(metrics, runtime.VKList, listKey, false)

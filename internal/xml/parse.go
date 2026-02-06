@@ -162,14 +162,7 @@ func (d *Document) buildChildren() {
 		return
 	}
 
-	counts := d.countsScratch
-	if cap(counts) < len(d.nodes) {
-		counts = make([]int, len(d.nodes))
-	} else {
-		counts = counts[:len(d.nodes)]
-		clear(counts)
-	}
-	d.countsScratch = counts
+	counts := d.acquireCountsScratch()
 	for i := range d.nodes {
 		parent := d.nodes[i].parent
 		if parent != InvalidNode {
@@ -177,14 +170,10 @@ func (d *Document) buildChildren() {
 		}
 	}
 
-	total := 0
-	for i := range counts {
-		count := counts[i]
-		d.nodes[i].childrenOff = total
+	total := assignOffsets(counts, func(i, off, count int) {
+		d.nodes[i].childrenOff = off
 		d.nodes[i].childrenLen = count
-		counts[i] = total
-		total += count
-	}
+	})
 
 	if total == 0 {
 		d.children = d.children[:0]
@@ -233,14 +222,7 @@ func (d *Document) buildTextSegments() {
 		return
 	}
 
-	counts := d.countsScratch
-	if cap(counts) < len(d.nodes) {
-		counts = make([]int, len(d.nodes))
-	} else {
-		counts = counts[:len(d.nodes)]
-		clear(counts)
-	}
-	d.countsScratch = counts
+	counts := d.acquireCountsScratch()
 
 	for _, entry := range d.textScratch {
 		if entry.parent == InvalidNode {
@@ -249,14 +231,10 @@ func (d *Document) buildTextSegments() {
 		counts[entry.parent]++
 	}
 
-	total := 0
-	for i := range counts {
-		count := counts[i]
-		d.nodes[i].textSegOff = total
+	total := assignOffsets(counts, func(i, off, count int) {
+		d.nodes[i].textSegOff = off
 		d.nodes[i].textSegLen = count
-		counts[i] = total
-		total += count
-	}
+	})
 
 	if total == 0 {
 		d.textSegments = d.textSegments[:0]
@@ -280,6 +258,29 @@ func (d *Document) buildTextSegments() {
 		}
 		counts[entry.parent]++
 	}
+}
+
+func (d *Document) acquireCountsScratch() []int {
+	counts := d.countsScratch
+	if cap(counts) < len(d.nodes) {
+		counts = make([]int, len(d.nodes))
+	} else {
+		counts = counts[:len(d.nodes)]
+		clear(counts)
+	}
+	d.countsScratch = counts
+	return counts
+}
+
+func assignOffsets(counts []int, setOffset func(i, off, count int)) int {
+	total := 0
+	for i := range counts {
+		count := counts[i]
+		setOffset(i, total, count)
+		counts[i] = total
+		total += count
+	}
+	return total
 }
 
 // IsIgnorableOutsideRoot reports whether data contains only XML whitespace.

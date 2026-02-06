@@ -110,6 +110,25 @@ linters:
               desc: internal/typegraph must not depend on internal/resolver
             - pkg: github.com/jacoelho/xsd/internal/schemacheck
               desc: internal/typegraph must not depend on internal/schemacheck
+        traversal_reusable:
+          files:
+            - "internal/traversal/**/*.go"
+            - "internal/traversal/*.go"
+            - "!internal/traversal/**/*_test.go"
+            - "!internal/traversal/*_test.go"
+          deny:
+            - pkg: github.com/jacoelho/xsd/internal/loader
+              desc: internal/traversal must not depend on internal/loader
+            - pkg: github.com/jacoelho/xsd/internal/resolver
+              desc: internal/traversal must not depend on internal/resolver
+            - pkg: github.com/jacoelho/xsd/internal/runtimebuild
+              desc: internal/traversal must not depend on internal/runtimebuild
+            - pkg: github.com/jacoelho/xsd/internal/schema
+              desc: internal/traversal must not depend on internal/schema
+            - pkg: github.com/jacoelho/xsd/internal/schemacheck
+              desc: internal/traversal must not depend on internal/schemacheck
+            - pkg: github.com/jacoelho/xsd/internal/validator
+              desc: internal/traversal must not depend on internal/validator
     gocritic:
       enabled-tags:
         - diagnostic
