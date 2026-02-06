@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	semantic "github.com/jacoelho/xsd/internal/semantic"
-	semanticcheck "github.com/jacoelho/xsd/internal/semanticcheck"
-	semanticresolve "github.com/jacoelho/xsd/internal/semanticresolve"
+	"github.com/jacoelho/xsd/internal/semantic"
+	"github.com/jacoelho/xsd/internal/semanticcheck"
+	"github.com/jacoelho/xsd/internal/semanticresolve"
 )
 
 // PreparedSchema stores semantic artifacts needed for runtime compilation.
