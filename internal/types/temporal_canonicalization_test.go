@@ -14,8 +14,13 @@ func TestTemporalCanonicalizationMatchesValue(t *testing.T) {
 		lexical string
 	}{
 		{kind: TypeNameDateTime, lexical: "2001-10-26T21:32:52+05:30"},
+		{kind: TypeNameDate, lexical: "2001-10-26+05:30"},
 		{kind: TypeNameTime, lexical: "21:32:52+05:30"},
 		{kind: TypeNameGYearMonth, lexical: "2001-10+05:30"},
+		{kind: TypeNameGYear, lexical: "2001+05:30"},
+		{kind: TypeNameGMonthDay, lexical: "--10-26+05:30"},
+		{kind: TypeNameGDay, lexical: "---26+05:30"},
+		{kind: TypeNameGMonth, lexical: "--10+05:30"},
 	}
 
 	for _, tc := range cases {
@@ -49,8 +54,14 @@ func TestTemporalCanonicalizationRoundTripParseable(t *testing.T) {
 		lexical string
 	}{
 		{kind: TypeNameDateTime, lexical: "1999-12-31T23:59:60+02:00"},
+		{kind: TypeNameDate, lexical: "2001-10-26+05:30"},
 		{kind: TypeNameTime, lexical: "23:59:60+02:00"},
 		{kind: TypeNameTime, lexical: "23:59:60Z"},
+		{kind: TypeNameGYearMonth, lexical: "2001-10+05:30"},
+		{kind: TypeNameGYear, lexical: "2001+05:30"},
+		{kind: TypeNameGMonthDay, lexical: "--10-26+05:30"},
+		{kind: TypeNameGDay, lexical: "---26+05:30"},
+		{kind: TypeNameGMonth, lexical: "--10+05:30"},
 	}
 
 	for _, tc := range cases {
@@ -75,10 +86,20 @@ func parseTemporalForKind(kind TypeName, lexical string) (time.Time, error) {
 	switch kind {
 	case TypeNameDateTime:
 		return value.ParseDateTime([]byte(lexical))
+	case TypeNameDate:
+		return value.ParseDate([]byte(lexical))
 	case TypeNameTime:
 		return value.ParseTime([]byte(lexical))
 	case TypeNameGYearMonth:
 		return value.ParseGYearMonth([]byte(lexical))
+	case TypeNameGYear:
+		return value.ParseGYear([]byte(lexical))
+	case TypeNameGMonthDay:
+		return value.ParseGMonthDay([]byte(lexical))
+	case TypeNameGDay:
+		return value.ParseGDay([]byte(lexical))
+	case TypeNameGMonth:
+		return value.ParseGMonth([]byte(lexical))
 	default:
 		return time.Time{}, fmt.Errorf("unsupported temporal kind %s", kind)
 	}

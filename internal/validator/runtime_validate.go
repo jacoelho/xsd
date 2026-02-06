@@ -445,7 +445,10 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 			trackDefault(canonText, textMember)
 		default:
 			requireCanonical := (elemOK && elem.Fixed.Present) || (hasComplexText && ct.TextFixed.Present)
-			canon, metrics, err := s.ValidateTextValue(frame.typ, rawText, resolver, requireCanonical, requireCanonical)
+			canon, metrics, err := s.ValidateTextValue(frame.typ, rawText, resolver, TextValueOptions{
+				RequireCanonical: requireCanonical,
+				NeedKey:          requireCanonical,
+			})
 			if err != nil {
 				if path == "" {
 					path = s.pathString()
