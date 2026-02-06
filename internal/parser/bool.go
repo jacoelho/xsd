@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 func parseBoolAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, name string) (bool, bool, error) {

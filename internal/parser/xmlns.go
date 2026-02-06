@@ -1,6 +1,6 @@
 package parser
 
-import "github.com/jacoelho/xsd/internal/xml"
+import "github.com/jacoelho/xsd/internal/xsdxml"
 
 func isXMLNSDeclaration(attr xsdxml.Attr) bool {
 	if attr.NamespaceURI() == xsdxml.XMLNSNamespace {

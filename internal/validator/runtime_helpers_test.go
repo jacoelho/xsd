@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/resolver"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/runtimebuild"
-	"github.com/jacoelho/xsd/internal/schema"
-	"github.com/jacoelho/xsd/internal/schemacheck"
+	runtimebuild "github.com/jacoelho/xsd/internal/runtimecompile"
+	schema "github.com/jacoelho/xsd/internal/semantic"
+	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
+	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
 )
 
 func buildRuntimeSchema(schemaXML string) (*runtime.Schema, error) {

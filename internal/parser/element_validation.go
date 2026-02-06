@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 func validateElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, validAttributes map[string]bool, context string) error {

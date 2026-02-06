@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 func parseOccursAttr(doc *xsdxml.Document, elem xsdxml.NodeID, attr string) (types.Occurs, error) {

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 func TestParseSchemaAttributes(t *testing.T) {

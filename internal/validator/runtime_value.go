@@ -7,7 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/wsmode"
+	wsmode "github.com/jacoelho/xsd/internal/whitespace"
 )
 
 type valueErrorKind uint8

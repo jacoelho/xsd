@@ -1,0 +1,86 @@
+package pipeline
+
+import (
+	"fmt"
+
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semantic"
+	"github.com/jacoelho/xsd/internal/semanticcheck"
+	"github.com/jacoelho/xsd/internal/semanticresolve"
+)
+
+// PreparedSchema stores semantic artifacts needed for runtime compilation.
+type PreparedSchema struct {
+	Ancestors *semantic.AncestorIndex
+	Refs      *semantic.ResolvedReferences
+	Registry  *semantic.Registry
+	Schema    *parser.Schema
+}
+
+// Prepare validates and resolves a parsed schema for runtime compilation.
+func Prepare(sch *parser.Schema) (*PreparedSchema, error) {
+	if sch == nil {
+		return nil, fmt.Errorf("prepare schema: schema is nil")
+	}
+	if sch.Phase < parser.PhaseResolved {
+		if err := runSemanticPipeline(sch); err != nil {
+			return nil, err
+		}
+	} else if err := semantic.RequireResolved(sch); err != nil {
+		return nil, fmt.Errorf("prepare schema: %w", err)
+	}
+
+	reg, err := semantic.AssignIDs(sch)
+	if err != nil {
+		return nil, fmt.Errorf("prepare schema: assign IDs: %w", err)
+	}
+	refs, err := semantic.ResolveReferences(sch, reg)
+	if err != nil {
+		return nil, fmt.Errorf("prepare schema: resolve references: %w", err)
+	}
+	if cycleErr := semantic.DetectCycles(sch); cycleErr != nil {
+		return nil, fmt.Errorf("prepare schema: detect cycles: %w", cycleErr)
+	}
+	if !sch.UPAValidated {
+		if upaErr := semantic.ValidateUPA(sch, reg); upaErr != nil {
+			return nil, fmt.Errorf("prepare schema: validate UPA: %w", upaErr)
+		}
+		sch.UPAValidated = true
+	}
+	ancestors, err := semantic.BuildAncestors(sch, reg)
+	if err != nil {
+		return nil, fmt.Errorf("prepare schema: build ancestors: %w", err)
+	}
+	return &PreparedSchema{
+		Ancestors: ancestors,
+		Refs:      refs,
+		Registry:  reg,
+		Schema:    sch,
+	}, nil
+}
+
+func runSemanticPipeline(sch *parser.Schema) error {
+	if sch.Phase <= parser.PhaseParsed {
+		structureErrors := semanticcheck.ValidateStructure(sch)
+		if len(structureErrors) > 0 {
+			return semantic.FormatValidationErrors(structureErrors)
+		}
+		if err := semantic.MarkSemantic(sch); err != nil {
+			return fmt.Errorf("prepare schema: %w", err)
+		}
+	}
+
+	if err := semanticresolve.ResolveTypeReferences(sch); err != nil {
+		return fmt.Errorf("prepare schema: resolve type references: %w", err)
+	}
+	refErrors := semanticresolve.ValidateReferences(sch)
+	if len(refErrors) > 0 {
+		return semantic.FormatValidationErrors(refErrors)
+	}
+
+	parser.UpdatePlaceholderState(sch)
+	if err := semantic.MarkResolved(sch); err != nil {
+		return fmt.Errorf("prepare schema: %w", err)
+	}
+	return nil
+}

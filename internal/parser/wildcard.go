@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 func parseWildcardConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, elementName, allowedAttrs string, allowed map[string]bool) (types.NamespaceConstraint, []types.NamespaceURI, types.ProcessContents, error) {
