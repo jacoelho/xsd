@@ -80,7 +80,7 @@ func validateSimpleTypeDerivationConstraints(schema *parser.Schema, st *types.Si
 			itemType = st.List.InlineItemType
 		}
 		if itemType == nil && !st.List.ItemType.IsZero() {
-			itemType = typeops.ResolveSimpleTypeReference(schema, st.List.ItemType)
+			itemType = typeops.ResolveSimpleTypeReferenceAllowMissing(schema, st.List.ItemType)
 		}
 		if itemST, ok := itemType.(*types.SimpleType); ok {
 			if itemST.Final.Has(types.DerivationList) {
@@ -96,7 +96,7 @@ func validateSimpleTypeDerivationConstraints(schema *parser.Schema, st *types.Si
 				memberTypes = append(memberTypes, inlineType)
 			}
 			for _, memberQName := range st.Union.MemberTypes {
-				if member := typeops.ResolveSimpleTypeReference(schema, memberQName); member != nil {
+				if member := typeops.ResolveSimpleTypeReferenceAllowMissing(schema, memberQName); member != nil {
 					memberTypes = append(memberTypes, member)
 				}
 			}
@@ -121,7 +121,7 @@ func resolveSimpleTypeRestrictionBase(schema *parser.Schema, st *types.SimpleTyp
 	if restriction == nil || restriction.Base.IsZero() {
 		return nil
 	}
-	return typeops.ResolveSimpleTypeReference(schema, restriction.Base)
+	return typeops.ResolveSimpleTypeReferenceAllowMissing(schema, restriction.Base)
 }
 
 // resolveSimpleContentBaseType resolves the base type for a simpleContent restriction

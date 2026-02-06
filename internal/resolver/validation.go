@@ -279,7 +279,7 @@ func validateEnumerationFacetValues(sch *parser.Schema) []error {
 		}
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = typeops.ResolveSimpleTypeReference(sch, st.Restriction.Base)
+			baseType = typeops.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue
@@ -317,7 +317,7 @@ func validateDeferredRangeFacetValues(sch *parser.Schema) []error {
 
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = typeops.ResolveSimpleTypeReference(sch, st.Restriction.Base)
+			baseType = typeops.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue

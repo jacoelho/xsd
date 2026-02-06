@@ -61,27 +61,23 @@ func WalkParticles(particle types.Particle, fn func(types.Particle) error) error
 // CollectElements returns all element declarations in a particle tree.
 func CollectElements(particle types.Particle) []*types.ElementDecl {
 	var result []*types.ElementDecl
-	if err := WalkParticles(particle, func(p types.Particle) error {
+	_ = WalkParticles(particle, func(p types.Particle) error {
 		if elem, ok := p.(*types.ElementDecl); ok {
 			result = append(result, elem)
 		}
 		return nil
-	}); err != nil {
-		return nil
-	}
+	})
 	return result
 }
 
 // CollectWildcards returns all wildcard particles in a tree.
 func CollectWildcards(particle types.Particle) []*types.AnyElement {
 	var result []*types.AnyElement
-	if err := WalkParticles(particle, func(p types.Particle) error {
+	_ = WalkParticles(particle, func(p types.Particle) error {
 		if wildcard, ok := p.(*types.AnyElement); ok {
 			result = append(result, wildcard)
 		}
 		return nil
-	}); err != nil {
-		return nil
-	}
+	})
 	return result
 }

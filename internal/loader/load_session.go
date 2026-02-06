@@ -18,10 +18,18 @@ type loadSession struct {
 	merged   mergedChanges
 }
 
+type directiveLoadStatus uint8
+
+const (
+	directiveLoadStatusLoaded directiveLoadStatus = iota
+	directiveLoadStatusDeferred
+	directiveLoadStatusSkippedMissing
+)
+
 type directiveLoadResult struct {
-	schema   *parser.Schema
-	target   loadKey
-	deferred bool
+	schema *parser.Schema
+	target loadKey
+	status directiveLoadStatus
 }
 
 type pendingChange struct {
@@ -105,8 +113,11 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 	if err != nil {
 		return fmt.Errorf("load included schema %s: %w", include.SchemaLocation, err)
 	}
-	if result.deferred {
+	switch result.status {
+	case directiveLoadStatusDeferred:
 		return nil
+	case directiveLoadStatusSkippedMissing:
+		return fmt.Errorf("included schema %s not found", include.SchemaLocation)
 	}
 	includedSchema := result.schema
 	includeKey := result.target
@@ -171,7 +182,8 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 	if err != nil {
 		return fmt.Errorf("load imported schema %s: %w", imp.SchemaLocation, err)
 	}
-	if result.deferred {
+	switch result.status {
+	case directiveLoadStatusDeferred, directiveLoadStatusSkippedMissing:
 		return nil
 	}
 	importedSchema := result.schema
@@ -210,7 +222,7 @@ func (s *loadSession) loadDirectiveSchema(
 	doc, systemID, err := s.loader.resolve(req)
 	if err != nil {
 		if allowNotFound && isNotFound(err) {
-			return directiveLoadResult{deferred: true}, nil
+			return directiveLoadResult{status: directiveLoadStatusSkippedMissing}, nil
 		}
 		return directiveLoadResult{}, err
 	}
@@ -220,7 +232,10 @@ func (s *loadSession) loadDirectiveSchema(
 		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
 			return directiveLoadResult{}, closeErr
 		}
-		return directiveLoadResult{target: targetKey, deferred: true}, nil
+		return directiveLoadResult{
+			target: targetKey,
+			status: directiveLoadStatusDeferred,
+		}, nil
 	}
 	if s.loader.state.isLoading(targetKey) {
 		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
@@ -229,7 +244,10 @@ func (s *loadSession) loadDirectiveSchema(
 		if onLoading != nil {
 			onLoading(targetKey)
 		}
-		return directiveLoadResult{target: targetKey, deferred: true}, nil
+		return directiveLoadResult{
+			target: targetKey,
+			status: directiveLoadStatusDeferred,
+		}, nil
 	}
 
 	loadedSchema, err := s.loader.loadResolved(doc, systemID, targetKey, skipSchemaValidation)
@@ -239,6 +257,7 @@ func (s *loadSession) loadDirectiveSchema(
 	return directiveLoadResult{
 		schema: loadedSchema,
 		target: targetKey,
+		status: directiveLoadStatusLoaded,
 	}, nil
 }
 
