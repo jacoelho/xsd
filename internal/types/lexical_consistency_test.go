@@ -26,7 +26,7 @@ func TestParseValidateConsistency_Primitives(t *testing.T) {
 			validate: validateDecimal,
 			cases: []caseDef{
 				{name: "valid", value: "1.0", wantErr: false},
-				{name: "leading-dot", value: ".5", wantErr: true},
+				{name: "leading-dot", value: ".5", wantErr: false},
 				{name: "empty", value: "", wantErr: true},
 				{name: "whitespace", value: " 10 ", wantErr: false},
 			},

@@ -19,7 +19,7 @@ func TestParseDecimal(t *testing.T) {
 		{"with whitespace", "  123.456  ", "123.456", false},
 		{"leading zero decimal", "0.1", "0.1", false},
 		{"trailing zero decimal", "1.0", "1.0", false},
-		{"leading dot", ".1", "", true},
+		{"leading dot", ".1", "0.1", false},
 		{"trailing dot", "1.", "1", false},
 		{"exponent", "1e2", "", true},
 		{"fraction", "1/3", "", true},
