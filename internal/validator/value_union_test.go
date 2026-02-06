@@ -25,7 +25,6 @@ func TestIsIntegerLexical(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			if got := isIntegerLexical([]byte(tc.lexical)); got != tc.want {
@@ -61,7 +60,6 @@ func TestUnionIntegerDecimalSelectsMatchingMember(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.lexical, func(t *testing.T) {
 			canon, _, err := sess.validateValueInternalWithMetrics(
 				validator,
