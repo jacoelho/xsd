@@ -237,7 +237,7 @@ func validateAttributeDeclarations(sch *parser.Schema) []error {
 		// validate default/fixed values against the resolved type (including facets)
 		// this is done here after type resolution because during structure validation
 		// the type might be a placeholder and facets might not be available
-		resolvedType := resolveTypeForFinalValidation(sch, decl.Type)
+		resolvedType := schemacheck.ResolveTypeReference(sch, decl.Type, schemacheck.TypeReferenceAllowMissing)
 		if _, ok := resolvedType.(*types.ComplexType); ok {
 			errs = append(errs, fmt.Errorf("attribute %s: type must be a simple type", qname))
 		}

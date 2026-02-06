@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) (bool, error) {
-	resolvedType := resolveTypeForFinalValidation(schema, target.Type)
+	resolvedType := schemacheck.ResolveTypeReference(schema, target.Type, schemacheck.TypeReferenceAllowMissing)
 	if resolvedType == nil {
 		return attr.Fixed == target.Fixed, nil
 	}
