@@ -41,6 +41,51 @@ func TestLoadInvalidSchemaTripsFailStop(t *testing.T) {
 	}
 }
 
+func TestLoadResolvedWithoutResolverSucceedsForSelfContainedSchema(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+
+	loader := NewLoader(Config{})
+	schema, err := loader.LoadResolved(io.NopCloser(strings.NewReader(schemaXML)), "inline.xsd")
+	if err != nil {
+		t.Fatalf("expected self-contained schema to load without resolver, got %v", err)
+	}
+	if schema == nil {
+		t.Fatalf("expected loaded schema")
+	}
+	if _, ok := schema.ElementDecls[types.QName{Namespace: "", Local: "root"}]; !ok {
+		t.Fatalf("expected root element declaration")
+	}
+}
+
+func TestLoadResolvedWithoutResolverFailsWhenDirectiveNeedsResolution(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="inc.xsd"/>
+</xs:schema>`
+
+	loader := NewLoader(Config{})
+	_, err := loader.LoadResolved(io.NopCloser(strings.NewReader(schemaXML)), "inline.xsd")
+	if err == nil || !strings.Contains(err.Error(), "no resolver configured") {
+		t.Fatalf("expected resolver error when include needs resolution, got %v", err)
+	}
+	if _, err := loader.LoadResolved(io.NopCloser(strings.NewReader(schemaXML)), "inline.xsd"); !errors.Is(err, errLoaderFailed) {
+		t.Fatalf("expected fail-stop error after first load failure, got %v", err)
+	}
+}
+
+func TestLoadWithoutResolverFailsFast(t *testing.T) {
+	loader := NewLoader(Config{})
+	if _, err := loader.Load("schema.xsd"); err == nil || !strings.Contains(err.Error(), "no resolver configured") {
+		t.Fatalf("expected resolver configuration error, got %v", err)
+	}
+	if _, err := loader.Load("schema.xsd"); !errors.Is(err, errLoaderFailed) {
+		t.Fatalf("expected fail-stop error on second call, got %v", err)
+	}
+}
+
 func TestAllowMissingImportLocationsSkipsResolve(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

@@ -210,9 +210,9 @@ func NewLoader(cfg Config) *SchemaLoader {
 }
 
 // Load loads and validates a schema from location.
-// It is fail-stop: after the first error, all later calls return a failed-state error.
+// It is fail-stop and requires a configured resolver for root resolution.
 func (l *SchemaLoader) Load(location string) (*parser.Schema, error) {
-	if err := l.beginLoad(); err != nil {
+	if err := l.beginLocationLoad(); err != nil {
 		return nil, err
 	}
 	sch, err := l.loadRoot(location, validateSchema)
@@ -432,9 +432,9 @@ func (l *SchemaLoader) validateLoadedSchema(sch *parser.Schema) error {
 }
 
 // LoadResolved loads a schema from a resolved reader and systemID, then validates it.
-// It follows the same fail-stop lifecycle as Load.
+// It is fail-stop and only requires a resolver when directives need external resolution.
 func (l *SchemaLoader) LoadResolved(doc io.ReadCloser, systemID string) (*parser.Schema, error) {
-	if err := l.beginLoad(); err != nil {
+	if err := l.beginResolvedLoad(); err != nil {
 		return nil, err
 	}
 	if systemID == "" {
@@ -463,7 +463,7 @@ func (l *SchemaLoader) GetLoaded(systemID string, etn types.NamespaceURI) (*pars
 	return sch, ok
 }
 
-func (l *SchemaLoader) beginLoad() error {
+func (l *SchemaLoader) beginLocationLoad() error {
 	if l == nil {
 		return fmt.Errorf("no resolver configured")
 	}
@@ -474,6 +474,16 @@ func (l *SchemaLoader) beginLoad() error {
 		err := fmt.Errorf("no resolver configured")
 		l.markFailed(err)
 		return err
+	}
+	return nil
+}
+
+func (l *SchemaLoader) beginResolvedLoad() error {
+	if l == nil {
+		return fmt.Errorf("no loader configured")
+	}
+	if l.failed {
+		return l.failedError()
 	}
 	return nil
 }
