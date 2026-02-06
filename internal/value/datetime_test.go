@@ -35,12 +35,21 @@ func TestParseDate(t *testing.T) {
 }
 
 func TestParseTime(t *testing.T) {
-	invalid := []string{
+	valid := []string{
 		"24:00:00",
 		"24:00:00.000",
 		"24:00:00Z",
 		"24:00:00+01:00",
+	}
+	for _, tc := range valid {
+		if _, err := ParseTime([]byte(tc)); err != nil {
+			t.Fatalf("ParseTime(%q) error = %v", tc, err)
+		}
+	}
+
+	invalid := []string{
 		"24:01:00",
+		"24:00:00.001",
 	}
 	for _, tc := range invalid {
 		if _, err := ParseTime([]byte(tc)); err == nil {

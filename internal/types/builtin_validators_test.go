@@ -213,8 +213,8 @@ func TestValidateDateTimeFamily(t *testing.T) {
 	if err := validateTime("23:59:59"); err != nil {
 		t.Fatalf("unexpected time error: %v", err)
 	}
-	if err := validateTime("24:00:00"); err == nil {
-		t.Fatalf("expected 24:00:00 error")
+	if err := validateTime("24:00:00"); err != nil {
+		t.Fatalf("unexpected 24:00:00 error: %v", err)
 	}
 	if err := validateGYear("2024"); err != nil {
 		t.Fatalf("unexpected gYear error: %v", err)
