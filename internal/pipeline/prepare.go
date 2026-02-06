@@ -60,6 +60,10 @@ func Prepare(sch *parser.Schema) (*PreparedSchema, error) {
 }
 
 func runSemanticPipeline(sch *parser.Schema) error {
+	if err := semanticresolve.ResolveGroupReferences(sch); err != nil {
+		return fmt.Errorf("prepare schema: resolve group references: %w", err)
+	}
+
 	if sch.Phase <= parser.PhaseParsed {
 		structureErrors := semanticcheck.ValidateStructure(sch)
 		if len(structureErrors) > 0 {

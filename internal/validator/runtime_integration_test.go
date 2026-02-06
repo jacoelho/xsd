@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	xsdErrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -159,12 +159,12 @@ func TestRuntimeDefaultIDREFSInvalid(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected IDREFS default error, got nil")
 	}
-	var violations xsdErrors.ValidationList
+	var violations xsderrors.ValidationList
 	if !errors.As(err, &violations) {
 		t.Fatalf("expected ValidationList error, got %T", err)
 	}
-	if !hasViolationCode([]xsdErrors.Validation(violations), xsdErrors.ErrIDRefNotFound) {
-		t.Fatalf("expected code %s, got %v", xsdErrors.ErrIDRefNotFound, violations)
+	if !hasViolationCode([]xsderrors.Validation(violations), xsderrors.ErrIDRefNotFound) {
+		t.Fatalf("expected code %s, got %v", xsderrors.ErrIDRefNotFound, violations)
 	}
 }
 
@@ -209,12 +209,12 @@ func TestRuntimeEmptyChoiceRejectsEmpty(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected empty choice to reject empty content")
 	}
-	var violations xsdErrors.ValidationList
+	var violations xsderrors.ValidationList
 	if !errors.As(err, &violations) {
 		t.Fatalf("expected ValidationList error, got %T", err)
 	}
-	if !hasViolationCode([]xsdErrors.Validation(violations), xsdErrors.ErrContentModelInvalid) {
-		t.Fatalf("expected code %s, got %v", xsdErrors.ErrContentModelInvalid, violations)
+	if !hasViolationCode([]xsderrors.Validation(violations), xsderrors.ErrContentModelInvalid) {
+		t.Fatalf("expected code %s, got %v", xsderrors.ErrContentModelInvalid, violations)
 	}
 }
 
@@ -407,12 +407,12 @@ func TestRuntimeSubstitutionGroupXsiTypeDerivedFromHeadInvalid(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected xsi:type derivation error")
 	}
-	var violations xsdErrors.ValidationList
+	var violations xsderrors.ValidationList
 	if !errors.As(err, &violations) {
 		t.Fatalf("expected ValidationList error, got %T", err)
 	}
-	if len(violations) == 0 || violations[0].Code != string(xsdErrors.ErrValidateXsiTypeDerivationBlocked) {
-		t.Fatalf("expected code %s, got %v", xsdErrors.ErrValidateXsiTypeDerivationBlocked, violations)
+	if len(violations) == 0 || violations[0].Code != string(xsderrors.ErrValidateXsiTypeDerivationBlocked) {
+		t.Fatalf("expected code %s, got %v", xsderrors.ErrValidateXsiTypeDerivationBlocked, violations)
 	}
 }
 
@@ -452,7 +452,7 @@ func TestRuntimeErrorOrderDocumentOrder(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected validation error")
 			}
-			var violations xsdErrors.ValidationList
+			var violations xsderrors.ValidationList
 			if !errors.As(err, &violations) {
 				t.Fatalf("expected ValidationList error, got %T", err)
 			}
@@ -664,7 +664,7 @@ func TestRuntimeKeyrefMissingFieldMismatchFails(t *testing.T) {
 		t.Fatalf("expected keyref mismatch violation")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsdErrors.ErrIdentityKeyRefFailed) {
+	if !hasValidationCode(list, xsderrors.ErrIdentityKeyRefFailed) {
 		t.Fatalf("expected ErrIdentityKeyRefFailed, got %+v", list)
 	}
 }
@@ -791,7 +791,7 @@ func TestElementFixedTimeLeapSecondOffsetDistinct(t *testing.T) {
 		t.Fatalf("expected non-leap equivalent to fail fixed value")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsdErrors.ErrElementFixedValue) {
+	if !hasValidationCode(list, xsderrors.ErrElementFixedValue) {
 		t.Fatalf("expected ErrElementFixedValue, got %+v", list)
 	}
 }
@@ -815,7 +815,7 @@ func TestAttributeFixedTimeLeapSecondOffsetDistinct(t *testing.T) {
 		t.Fatalf("expected non-leap equivalent to fail fixed attribute")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsdErrors.ErrAttributeFixedValue) {
+	if !hasValidationCode(list, xsderrors.ErrAttributeFixedValue) {
 		t.Fatalf("expected ErrAttributeFixedValue, got %+v", list)
 	}
 }
@@ -849,7 +849,7 @@ func TestUniqueDefaultTimeLeapSecondOffsetKeyDistinct(t *testing.T) {
 		t.Fatalf("expected duplicate unique value when both are leap-second equivalents")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsdErrors.ErrIdentityDuplicate) {
+	if !hasValidationCode(list, xsderrors.ErrIdentityDuplicate) {
 		t.Fatalf("expected ErrIdentityDuplicate, got %+v", list)
 	}
 }
@@ -1127,7 +1127,7 @@ func TestValidationErrorOrdering_DocumentOrder(t *testing.T) {
 		t.Fatalf("expected validation errors")
 	}
 
-	violations, ok := xsdErrors.AsValidations(err)
+	violations, ok := xsderrors.AsValidations(err)
 	if !ok {
 		t.Fatalf("expected validation errors, got %T", err)
 	}

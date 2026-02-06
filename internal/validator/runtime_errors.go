@@ -3,11 +3,11 @@ package validator
 import (
 	"errors"
 
-	xsdErrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/errors"
 )
 
 type validationError struct {
-	code xsdErrors.ErrorCode
+	code xsderrors.ErrorCode
 	msg  string
 }
 
@@ -15,11 +15,11 @@ func (e validationError) Error() string {
 	return e.msg
 }
 
-func newValidationError(code xsdErrors.ErrorCode, msg string) error {
+func newValidationError(code xsderrors.ErrorCode, msg string) error {
 	return validationError{code: code, msg: msg}
 }
 
-func validationErrorInfo(err error) (xsdErrors.ErrorCode, string, bool) {
+func validationErrorInfo(err error) (xsderrors.ErrorCode, string, bool) {
 	if err == nil {
 		return "", "", false
 	}
@@ -30,9 +30,9 @@ func validationErrorInfo(err error) (xsdErrors.ErrorCode, string, bool) {
 	if kind, ok := valueErrorKindOf(err); ok {
 		switch kind {
 		case valueErrInvalid:
-			return xsdErrors.ErrDatatypeInvalid, err.Error(), true
+			return xsderrors.ErrDatatypeInvalid, err.Error(), true
 		case valueErrFacet:
-			return xsdErrors.ErrFacetViolation, err.Error(), true
+			return xsderrors.ErrFacetViolation, err.Error(), true
 		}
 	}
 	return "", err.Error(), false
@@ -52,8 +52,8 @@ func wrapValueError(err error) error {
 	return err
 }
 
-func (s *Session) newValidation(code xsdErrors.ErrorCode, msg, path string, line, column int) xsdErrors.Validation {
-	return xsdErrors.Validation{
+func (s *Session) newValidation(code xsderrors.ErrorCode, msg, path string, line, column int) xsderrors.Validation {
+	return xsderrors.Validation{
 		Code:     string(code),
 		Message:  msg,
 		Document: s.documentURI,
@@ -77,7 +77,7 @@ func (s *Session) recordValidationErrorAtPath(err error, path string, line, colu
 	}
 	code, msg, ok := validationErrorInfo(err)
 	if !ok {
-		return xsdErrors.ValidationList{s.newValidation(xsdErrors.ErrXMLParse, err.Error(), path, line, column)}
+		return xsderrors.ValidationList{s.newValidation(xsderrors.ErrXMLParse, err.Error(), path, line, column)}
 	}
 	s.validationErrors = append(s.validationErrors, s.newValidation(code, msg, path, line, column))
 	return nil
@@ -99,7 +99,7 @@ func (s *Session) validationList() error {
 	if s == nil || len(s.validationErrors) == 0 {
 		return nil
 	}
-	out := make(xsdErrors.ValidationList, len(s.validationErrors))
+	out := make(xsderrors.ValidationList, len(s.validationErrors))
 	copy(out, s.validationErrors)
 	out.Sort()
 	return out

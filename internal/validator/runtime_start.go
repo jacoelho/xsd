@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	xsdErrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 )
@@ -43,7 +43,7 @@ type StartResult struct {
 
 func (s *Session) StartElement(match StartMatch, sym runtime.SymbolID, nsID runtime.NamespaceID, nsBytes []byte, attrs []StartAttr, resolver value.NSResolver) (StartResult, error) {
 	if s == nil || s.rt == nil {
-		return StartResult{}, newValidationError(xsdErrors.ErrSchemaNotLoaded, "schema not loaded")
+		return StartResult{}, newValidationError(xsderrors.ErrSchemaNotLoaded, "schema not loaded")
 	}
 
 	decl, err := s.resolveMatch(match, sym, nsID, nsBytes)
@@ -58,7 +58,7 @@ func (s *Session) StartElement(match StartMatch, sym runtime.SymbolID, nsID runt
 		return StartResult{}, fmt.Errorf("element %d out of range", decl)
 	}
 	if elem.Flags&runtime.ElemAbstract != 0 {
-		return StartResult{}, newValidationError(xsdErrors.ErrElementAbstract, "element is abstract")
+		return StartResult{}, newValidationError(xsderrors.ErrElementAbstract, "element is abstract")
 	}
 
 	xsiType, xsiNil, err := s.scanXsiAttributes(attrs)
@@ -70,10 +70,10 @@ func (s *Session) StartElement(match StartMatch, sym runtime.SymbolID, nsID runt
 	if len(xsiType) > 0 {
 		resolved, err := s.resolveXsiType(xsiType, resolver)
 		if err != nil {
-			return StartResult{}, newValidationError(xsdErrors.ErrValidateXsiTypeUnresolved, err.Error())
+			return StartResult{}, newValidationError(xsderrors.ErrValidateXsiTypeUnresolved, err.Error())
 		}
 		if err := s.checkTypeDerivation(resolved, actualType, elem.Block); err != nil {
-			return StartResult{}, newValidationError(xsdErrors.ErrValidateXsiTypeDerivationBlocked, err.Error())
+			return StartResult{}, newValidationError(xsderrors.ErrValidateXsiTypeDerivationBlocked, err.Error())
 		}
 		actualType = resolved
 	}
@@ -82,14 +82,14 @@ func (s *Session) StartElement(match StartMatch, sym runtime.SymbolID, nsID runt
 	if len(xsiNil) > 0 {
 		flag, err := value.ParseBoolean(xsiNil)
 		if err != nil {
-			return StartResult{}, newValidationError(xsdErrors.ErrDatatypeInvalid, fmt.Sprintf("invalid xsi:nil: %v", err))
+			return StartResult{}, newValidationError(xsderrors.ErrDatatypeInvalid, fmt.Sprintf("invalid xsi:nil: %v", err))
 		}
 		if flag {
 			if elem.Flags&runtime.ElemNillable == 0 {
-				return StartResult{}, newValidationError(xsdErrors.ErrValidateXsiNilNotNillable, "element is not nillable")
+				return StartResult{}, newValidationError(xsderrors.ErrValidateXsiNilNotNillable, "element is not nillable")
 			}
 			if elem.Fixed.Present {
-				return StartResult{}, newValidationError(xsdErrors.ErrValidateNilledHasFixed, "element has fixed value and cannot be nilled")
+				return StartResult{}, newValidationError(xsderrors.ErrValidateNilledHasFixed, "element has fixed value and cannot be nilled")
 			}
 			nilled = true
 		}
@@ -97,7 +97,7 @@ func (s *Session) StartElement(match StartMatch, sym runtime.SymbolID, nsID runt
 
 	if typ, ok := s.typeByID(actualType); ok {
 		if typ.Flags&runtime.TypeAbstract != 0 {
-			return StartResult{}, newValidationError(xsdErrors.ErrElementTypeAbstract, "type is abstract")
+			return StartResult{}, newValidationError(xsderrors.ErrElementTypeAbstract, "type is abstract")
 		}
 	}
 
@@ -107,18 +107,18 @@ func (s *Session) StartElement(match StartMatch, sym runtime.SymbolID, nsID runt
 func (s *Session) resolveMatch(match StartMatch, sym runtime.SymbolID, nsID runtime.NamespaceID, nsBytes []byte) (runtime.ElemID, error) {
 	switch match.Kind {
 	case MatchNone:
-		return 0, newValidationError(xsdErrors.ErrUnexpectedElement, "no content model match")
+		return 0, newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
 	case MatchElem:
 		if match.Elem == 0 {
-			return 0, newValidationError(xsdErrors.ErrElementNotDeclared, "element not declared")
+			return 0, newValidationError(xsderrors.ErrElementNotDeclared, "element not declared")
 		}
 		return match.Elem, nil
 	case MatchWildcard:
 		if match.Wildcard == 0 {
-			return 0, newValidationError(xsdErrors.ErrWildcardNotDeclared, "wildcard match invalid")
+			return 0, newValidationError(xsderrors.ErrWildcardNotDeclared, "wildcard match invalid")
 		}
 		if !s.rt.WildcardAccepts(match.Wildcard, nsBytes, nsID) {
-			return 0, newValidationError(xsdErrors.ErrUnexpectedElement, "wildcard rejected namespace")
+			return 0, newValidationError(xsderrors.ErrUnexpectedElement, "wildcard rejected namespace")
 		}
 		rule := s.rt.Wildcards[match.Wildcard]
 		switch rule.PC {
@@ -127,14 +127,14 @@ func (s *Session) resolveMatch(match StartMatch, sym runtime.SymbolID, nsID runt
 		case runtime.PCLax, runtime.PCStrict:
 			if sym == 0 {
 				if rule.PC == runtime.PCStrict {
-					return 0, newValidationError(xsdErrors.ErrValidateWildcardElemStrictUnresolved, "wildcard strict unresolved element")
+					return 0, newValidationError(xsderrors.ErrValidateWildcardElemStrictUnresolved, "wildcard strict unresolved element")
 				}
 				return 0, nil
 			}
 			elem, ok := s.globalElementBySymbol(sym)
 			if !ok {
 				if rule.PC == runtime.PCStrict {
-					return 0, newValidationError(xsdErrors.ErrValidateWildcardElemStrictUnresolved, "wildcard strict unresolved element")
+					return 0, newValidationError(xsderrors.ErrValidateWildcardElemStrictUnresolved, "wildcard strict unresolved element")
 				}
 				return 0, nil
 			}
@@ -159,12 +159,12 @@ func (s *Session) scanXsiAttributes(attrs []StartAttr) ([]byte, []byte, error) {
 		switch attr.Sym {
 		case predef.XsiType:
 			if len(xsiType) > 0 {
-				return nil, nil, newValidationError(xsdErrors.ErrDatatypeInvalid, "duplicate xsi:type attribute")
+				return nil, nil, newValidationError(xsderrors.ErrDatatypeInvalid, "duplicate xsi:type attribute")
 			}
 			xsiType = attr.Value
 		case predef.XsiNil:
 			if len(xsiNil) > 0 {
-				return nil, nil, newValidationError(xsdErrors.ErrDatatypeInvalid, "duplicate xsi:nil attribute")
+				return nil, nil, newValidationError(xsderrors.ErrDatatypeInvalid, "duplicate xsi:nil attribute")
 			}
 			xsiNil = attr.Value
 			continue
@@ -177,14 +177,14 @@ func (s *Session) scanXsiAttributes(attrs []StartAttr) ([]byte, []byte, error) {
 		}
 		if bytes.Equal(attr.Local, typeLocal) {
 			if len(xsiType) > 0 {
-				return nil, nil, newValidationError(xsdErrors.ErrDatatypeInvalid, "duplicate xsi:type attribute")
+				return nil, nil, newValidationError(xsderrors.ErrDatatypeInvalid, "duplicate xsi:type attribute")
 			}
 			xsiType = attr.Value
 			continue
 		}
 		if bytes.Equal(attr.Local, nilLocal) {
 			if len(xsiNil) > 0 {
-				return nil, nil, newValidationError(xsdErrors.ErrDatatypeInvalid, "duplicate xsi:nil attribute")
+				return nil, nil, newValidationError(xsderrors.ErrDatatypeInvalid, "duplicate xsi:nil attribute")
 			}
 			xsiNil = attr.Value
 		}

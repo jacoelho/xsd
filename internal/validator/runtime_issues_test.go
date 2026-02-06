@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	xsdErrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -23,10 +23,10 @@ func TestValidateRootSeenOnError(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if hasValidationCode(list, xsdErrors.ErrNoRoot) {
+	if hasValidationCode(list, xsderrors.ErrNoRoot) {
 		t.Fatalf("unexpected ErrNoRoot when root element was present")
 	}
-	if !hasValidationCode(list, xsdErrors.ErrValidateRootNotDeclared) {
+	if !hasValidationCode(list, xsderrors.ErrValidateRootNotDeclared) {
 		t.Fatalf("expected ErrValidateRootNotDeclared, got %+v", list)
 	}
 }
@@ -52,7 +52,7 @@ func TestValidateReaderSetupErrorWrapped(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsdErrors.ErrXMLParse) {
+	if !hasValidationCode(list, xsderrors.ErrXMLParse) {
 		t.Fatalf("expected ErrXMLParse, got %+v", list)
 	}
 	if !strings.Contains(list[0].Message, sentinel.Error()) {
@@ -72,7 +72,7 @@ func TestValidateNilReaderWrapped(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsdErrors.ErrXMLParse) {
+	if !hasValidationCode(list, xsderrors.ErrXMLParse) {
 		t.Fatalf("expected ErrXMLParse, got %+v", list)
 	}
 	if !strings.Contains(list[0].Message, "nil reader") {
@@ -173,7 +173,7 @@ func TestInvalidIDDoesNotSatisfyIDREF(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsdErrors.ErrFacetViolation) {
+	if !hasValidationCode(list, xsderrors.ErrFacetViolation) {
 		t.Fatalf("expected ErrFacetViolation, got %+v", list)
 	}
 }
@@ -197,7 +197,7 @@ func TestProhibitedAttributeFixedRejectedAtRuntime(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsdErrors.ErrAttributeProhibited) {
+	if !hasValidationCode(list, xsderrors.ErrAttributeProhibited) {
 		t.Fatalf("expected ErrAttributeProhibited, got %+v", list)
 	}
 }
@@ -223,7 +223,7 @@ func TestNilledElementChildReportsOnce(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if got := countValidationCode(list, xsdErrors.ErrValidateNilledNotEmpty); got != 1 {
+	if got := countValidationCode(list, xsderrors.ErrValidateNilledNotEmpty); got != 1 {
 		t.Fatalf("ErrValidateNilledNotEmpty count = %d, want 1", got)
 	}
 }
@@ -243,7 +243,7 @@ func TestSimpleContentChildReportsOnce(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	list := mustValidationList(t, err)
-	if got := countValidationCode(list, xsdErrors.ErrTextInElementOnly); got != 1 {
+	if got := countValidationCode(list, xsderrors.ErrTextInElementOnly); got != 1 {
 		t.Fatalf("ErrTextInElementOnly count = %d, want 1", got)
 	}
 }
@@ -259,7 +259,7 @@ func TestValidateMissingRootParseError(t *testing.T) {
 		t.Fatalf("expected parse error")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsdErrors.ErrXMLParse) {
+	if !hasValidationCode(list, xsderrors.ErrXMLParse) {
 		t.Fatalf("expected ErrXMLParse, got %+v", list)
 	}
 }
@@ -292,7 +292,7 @@ func TestValidateCharDataOutsideRoot(t *testing.T) {
 					t.Fatalf("expected error")
 				}
 				list := mustValidationList(t, err)
-				if !hasValidationCode(list, xsdErrors.ErrXMLParse) {
+				if !hasValidationCode(list, xsderrors.ErrXMLParse) {
 					t.Fatalf("expected ErrXMLParse, got %+v", list)
 				}
 				return
@@ -379,7 +379,7 @@ func TestBinaryLengthFacets(t *testing.T) {
 		schemaXML string
 		docXML    string
 		wantErr   bool
-		wantCode  xsdErrors.ErrorCode
+		wantCode  xsderrors.ErrorCode
 	}{
 		{
 			name:      "base64Binary length accepts one byte",
@@ -419,7 +419,7 @@ func TestBinaryLengthFacets(t *testing.T) {
 			schemaXML: binarySchema("base64Binary", "length", 1),
 			docXML:    `<root xmlns="urn:test">AQ=</root>`,
 			wantErr:   true,
-			wantCode:  xsdErrors.ErrDatatypeInvalid,
+			wantCode:  xsderrors.ErrDatatypeInvalid,
 		},
 		{
 			name:      "hexBinary length accepts one byte",
@@ -459,7 +459,7 @@ func TestBinaryLengthFacets(t *testing.T) {
 			schemaXML: binarySchema("hexBinary", "length", 1),
 			docXML:    `<root xmlns="urn:test">0G</root>`,
 			wantErr:   true,
-			wantCode:  xsdErrors.ErrDatatypeInvalid,
+			wantCode:  xsderrors.ErrDatatypeInvalid,
 		},
 	}
 
@@ -650,7 +650,7 @@ func TestUnionDefaultKeyMemberSelection(t *testing.T) {
 		t.Fatalf("expected identity duplicate from default/member key match")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsdErrors.ErrIdentityDuplicate) {
+	if !hasValidationCode(list, xsderrors.ErrIdentityDuplicate) {
 		t.Fatalf("expected ErrIdentityDuplicate, got %+v", list)
 	}
 }
@@ -698,7 +698,7 @@ func TestFloatNaNRangeFacet(t *testing.T) {
 		t.Fatalf("expected NaN to violate range facet")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsdErrors.ErrFacetViolation) {
+	if !hasValidationCode(list, xsderrors.ErrFacetViolation) {
 		t.Fatalf("expected ErrFacetViolation, got %+v", list)
 	}
 }
@@ -765,7 +765,7 @@ func TestEmptyContentRejectsWhitespaceRuntime(t *testing.T) {
 		t.Fatalf("expected empty content to reject whitespace")
 	}
 	list := mustValidationList(t, err)
-	if !hasValidationCode(list, xsdErrors.ErrTextInElementOnly) {
+	if !hasValidationCode(list, xsderrors.ErrTextInElementOnly) {
 		t.Fatalf("expected ErrTextInElementOnly, got %+v", list)
 	}
 }
@@ -785,9 +785,9 @@ func TestAnyURIAllowsSpaces(t *testing.T) {
 	}
 }
 
-func mustValidationList(t *testing.T, err error) xsdErrors.ValidationList {
+func mustValidationList(t *testing.T, err error) xsderrors.ValidationList {
 	t.Helper()
-	var list xsdErrors.ValidationList
+	var list xsderrors.ValidationList
 	ok := errors.As(err, &list)
 	if !ok {
 		t.Fatalf("expected ValidationList, got %T", err)
@@ -795,7 +795,7 @@ func mustValidationList(t *testing.T, err error) xsdErrors.ValidationList {
 	return list
 }
 
-func hasValidationCode(list xsdErrors.ValidationList, code xsdErrors.ErrorCode) bool {
+func hasValidationCode(list xsderrors.ValidationList, code xsderrors.ErrorCode) bool {
 	for _, v := range list {
 		if v.Code == string(code) {
 			return true
@@ -804,7 +804,7 @@ func hasValidationCode(list xsdErrors.ValidationList, code xsdErrors.ErrorCode) 
 	return false
 }
 
-func countValidationCode(list xsdErrors.ValidationList, code xsdErrors.ErrorCode) int {
+func countValidationCode(list xsderrors.ValidationList, code xsderrors.ErrorCode) int {
 	count := 0
 	for _, v := range list {
 		if v.Code == string(code) {

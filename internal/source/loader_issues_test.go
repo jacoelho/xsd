@@ -8,6 +8,7 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/pipeline"
 	runtimebuild "github.com/jacoelho/xsd/internal/runtimecompile"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -26,13 +27,17 @@ func TestLoadInvalidSchemaTripsFailStop(t *testing.T) {
 		"schema.xsd": &fstest.MapFile{Data: []byte(badSchema)},
 	}
 	loader := NewLoader(Config{FS: fs})
-	if _, err := loader.Load("schema.xsd"); err == nil {
-		t.Fatalf("expected schema validation error")
+	badLoaded, err := loader.Load("schema.xsd")
+	if err != nil {
+		t.Fatalf("expected parse/load success, got %v", err)
+	}
+	if _, err := pipeline.Prepare(badLoaded); err == nil {
+		t.Fatalf("expected semantic validation error")
 	}
 
 	fs["schema.xsd"] = &fstest.MapFile{Data: []byte(goodSchema)}
-	if _, err := loader.Load("schema.xsd"); !errors.Is(err, errLoaderFailed) {
-		t.Fatalf("expected fail-stop error, got %v", err)
+	if _, err := loader.Load("schema.xsd"); err != nil {
+		t.Fatalf("expected load success after semantic error, got %v", err)
 	}
 
 	fresh := NewLoader(Config{FS: fs})
@@ -125,7 +130,7 @@ func TestAllowMissingImportLocationsMissingTypeReferenceFails(t *testing.T) {
 		FS:                          fs,
 		AllowMissingImportLocations: true,
 	})
-	if _, err := loader.Load("root.xsd"); err == nil || !strings.Contains(err.Error(), "type not found") {
+	if _, err := loadAndPrepare(t, loader, "root.xsd"); err == nil || !strings.Contains(err.Error(), "type not found") {
 		t.Fatalf("expected missing type error, got %v", err)
 	}
 }
@@ -156,7 +161,7 @@ func TestAllowMissingImportLocationsChameleonIncludeResolves(t *testing.T) {
 		FS:                          fs,
 		AllowMissingImportLocations: true,
 	})
-	schema, err := loader.Load("root.xsd")
+	schema, err := loadAndPrepare(t, loader, "root.xsd")
 	if err != nil {
 		t.Fatalf("expected load success, got %v", err)
 	}
@@ -536,7 +541,7 @@ func TestSubstitutionGroupMissingHeadRejected(t *testing.T) {
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 	loader := NewLoader(Config{FS: fs})
-	if _, err := loader.Load("schema.xsd"); err == nil || !strings.Contains(err.Error(), "substitutionGroup") {
+	if _, err := loadAndPrepare(t, loader, "schema.xsd"); err == nil || !strings.Contains(err.Error(), "substitutionGroup") {
 		t.Fatalf("expected missing substitution group head error, got %v", err)
 	}
 }
