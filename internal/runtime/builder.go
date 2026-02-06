@@ -186,41 +186,22 @@ func buildNamespaceIndex(table *NamespaceTable) (NamespaceIndex, error) {
 	if count <= 0 {
 		return NamespaceIndex{}, nil
 	}
-	size := NextPow2(count * 2)
-	index := NamespaceIndex{
-		Hash: make([]uint64, size),
-		ID:   make([]NamespaceID, size),
-	}
-	mask := uint64(size - 1)
-	for i := 1; i <= count; i++ {
-		id := NamespaceID(i)
+	hashes, ids, err := buildOpenAddressIndex(count, "namespace", func(id NamespaceID) (uint64, error) {
 		if int(id) >= len(table.Off) || int(id) >= len(table.Len) {
-			return NamespaceIndex{}, fmt.Errorf("namespace table id out of range")
+			return 0, fmt.Errorf("namespace table id out of range")
 		}
 		off := table.Off[id]
 		ln := table.Len[id]
 		end := uint64(off) + uint64(ln)
 		if end > uint64(len(table.Blob)) {
-			return NamespaceIndex{}, fmt.Errorf("namespace blob bounds exceeded")
+			return 0, fmt.Errorf("namespace blob bounds exceeded")
 		}
-		b := table.Blob[int(off):int(end)]
-		h := hashBytes(b)
-		slot := int(h & mask)
-		inserted := false
-		for range size {
-			if index.ID[slot] == 0 {
-				index.ID[slot] = id
-				index.Hash[slot] = h
-				inserted = true
-				break
-			}
-			slot = int((uint64(slot) + 1) & mask)
-		}
-		if !inserted {
-			return NamespaceIndex{}, fmt.Errorf("namespace index table full")
-		}
+		return hashBytes(table.Blob[int(off):int(end)]), nil
+	})
+	if err != nil {
+		return NamespaceIndex{}, err
 	}
-	return index, nil
+	return NamespaceIndex{Hash: hashes, ID: ids}, nil
 }
 
 func buildSymbolsIndex(table *SymbolsTable) (SymbolsIndex, error) {
@@ -231,40 +212,52 @@ func buildSymbolsIndex(table *SymbolsTable) (SymbolsIndex, error) {
 	if count <= 0 {
 		return SymbolsIndex{}, nil
 	}
-	size := NextPow2(count * 2)
-	index := SymbolsIndex{
-		Hash: make([]uint64, size),
-		ID:   make([]SymbolID, size),
-	}
-	mask := uint64(size - 1)
-	for i := 1; i <= count; i++ {
-		id := SymbolID(i)
+	hashes, ids, err := buildOpenAddressIndex(count, "symbol", func(id SymbolID) (uint64, error) {
 		if int(id) >= len(table.NS) || int(id) >= len(table.LocalOff) || int(id) >= len(table.LocalLen) {
-			return SymbolsIndex{}, fmt.Errorf("symbol table id out of range")
+			return 0, fmt.Errorf("symbol table id out of range")
 		}
 		nsID := table.NS[id]
 		off := table.LocalOff[id]
 		ln := table.LocalLen[id]
 		end := uint64(off) + uint64(ln)
 		if end > uint64(len(table.LocalBlob)) {
-			return SymbolsIndex{}, fmt.Errorf("symbol blob bounds exceeded")
+			return 0, fmt.Errorf("symbol blob bounds exceeded")
 		}
-		local := table.LocalBlob[int(off):int(end)]
-		h := hashSymbol(nsID, local)
+		return hashSymbol(nsID, table.LocalBlob[int(off):int(end)]), nil
+	})
+	if err != nil {
+		return SymbolsIndex{}, err
+	}
+	return SymbolsIndex{Hash: hashes, ID: ids}, nil
+}
+
+func buildOpenAddressIndex[T ~uint32](count int, name string, hashForID func(id T) (uint64, error)) ([]uint64, []T, error) {
+	size := NextPow2(count * 2)
+	hashes := make([]uint64, size)
+	ids := make([]T, size)
+	mask := uint64(size - 1)
+
+	for i := 1; i <= count; i++ {
+		id := T(i)
+		h, err := hashForID(id)
+		if err != nil {
+			return nil, nil, err
+		}
 		slot := int(h & mask)
 		inserted := false
 		for range size {
-			if index.ID[slot] == 0 {
-				index.ID[slot] = id
-				index.Hash[slot] = h
+			if ids[slot] == 0 {
+				ids[slot] = id
+				hashes[slot] = h
 				inserted = true
 				break
 			}
 			slot = int((uint64(slot) + 1) & mask)
 		}
 		if !inserted {
-			return SymbolsIndex{}, fmt.Errorf("symbol index table full")
+			return nil, nil, fmt.Errorf("%s index table full", name)
 		}
 	}
-	return index, nil
+
+	return hashes, ids, nil
 }
