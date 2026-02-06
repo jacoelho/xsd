@@ -3,12 +3,14 @@ package valuekey
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 // StringKeyBytes writes a tagged string key into dst, reusing capacity; dst is overwritten from the start.
@@ -120,46 +122,6 @@ func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, tzKind value.Timezo
 	year, month, day := t.Date()
 	hour, minute, sec := t.Clock()
 	nanos := t.Nanosecond()
-	switch subkind {
-	case 1: // date
-		hour = 0
-		minute = 0
-		sec = 0
-		nanos = 0
-	case 3: // gYearMonth
-		day = 0
-		hour = 0
-		minute = 0
-		sec = 0
-		nanos = 0
-	case 4: // gYear
-		month = 0
-		day = 0
-		hour = 0
-		minute = 0
-		sec = 0
-		nanos = 0
-	case 5: // gMonthDay
-		year = 0
-		hour = 0
-		minute = 0
-		sec = 0
-		nanos = 0
-	case 6: // gDay
-		year = 0
-		month = 0
-		hour = 0
-		minute = 0
-		sec = 0
-		nanos = 0
-	case 7: // gMonth
-		year = 0
-		day = 0
-		hour = 0
-		minute = 0
-		sec = 0
-		nanos = 0
-	}
 	keyLen := 20
 	if subkind == 0 {
 		keyLen = 21
@@ -178,6 +140,39 @@ func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, tzKind value.Timezo
 		dst[20] = leapSecondFlag(leapSecond)
 	}
 	return dst
+}
+
+// TemporalSubkind maps a temporal kind to its compact key subkind.
+func TemporalSubkind(kind temporal.Kind) (byte, bool) {
+	switch kind {
+	case temporal.KindDateTime:
+		return 0, true
+	case temporal.KindDate:
+		return 1, true
+	case temporal.KindTime:
+		return 2, true
+	case temporal.KindGYearMonth:
+		return 3, true
+	case temporal.KindGYear:
+		return 4, true
+	case temporal.KindGMonthDay:
+		return 5, true
+	case temporal.KindGDay:
+		return 6, true
+	case temporal.KindGMonth:
+		return 7, true
+	default:
+		return 0, false
+	}
+}
+
+// TemporalKeyFromValue appends a canonical temporal key for v to dst.
+func TemporalKeyFromValue(dst []byte, v temporal.Value) ([]byte, error) {
+	subkind, ok := TemporalSubkind(v.Kind)
+	if !ok {
+		return nil, fmt.Errorf("unsupported temporal kind %d", v.Kind)
+	}
+	return TemporalKeyBytes(dst, subkind, v.Time, temporal.ValueTimezoneKind(v.TimezoneKind), v.LeapSecond), nil
 }
 
 // DurationKeyBytes appends a canonical duration key encoding to dst.

@@ -705,7 +705,7 @@ func TestEnumCanonicalizationDecimalEquivalence(t *testing.T) {
 	}
 }
 
-func TestEnumCanonicalizationDateTimezone(t *testing.T) {
+func TestEnumCanonicalizationDateTimezoneDistinct(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="DateEnum">
@@ -719,8 +719,8 @@ func TestEnumCanonicalizationDateTimezone(t *testing.T) {
 	rt := mustBuildRuntimeSchema(t, schema)
 	sess := NewSession(rt)
 	doc := `<root>2024-01-01+02:00</root>`
-	if err := sess.Validate(strings.NewReader(doc)); err != nil {
-		t.Fatalf("expected date enum to match across timezones: %v", err)
+	if err := sess.Validate(strings.NewReader(doc)); err == nil {
+		t.Fatalf("expected date enum to reject non-equivalent timezone-shifted date")
 	}
 }
 

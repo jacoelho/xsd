@@ -11,6 +11,7 @@ import (
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 func TestStringKeyBytes(t *testing.T) {
@@ -85,8 +86,14 @@ func TestTemporalKeyBytes(t *testing.T) {
 	minute := binary.BigEndian.Uint16(keyTZ[12:14])
 	sec := binary.BigEndian.Uint16(keyTZ[14:16])
 	nanos := binary.BigEndian.Uint32(keyTZ[16:20])
-	if year != 0 || month != uint16(utc.Month()) || day != uint16(utc.Day()) || hour != 0 || minute != 0 || sec != 0 || nanos != 0 {
-		t.Fatalf("tz payload mismatch: %d-%02d-%02d %02d:%02d:%02d.%d vs gMonthDay %02d-%02dZ", year, month, day, hour, minute, sec, nanos, utc.Month(), utc.Day())
+	if year != int32(utc.Year()) ||
+		month != uint16(utc.Month()) ||
+		day != uint16(utc.Day()) ||
+		hour != uint16(utc.Hour()) ||
+		minute != uint16(utc.Minute()) ||
+		sec != uint16(utc.Second()) ||
+		nanos != uint32(utc.Nanosecond()) {
+		t.Fatalf("tz payload mismatch: %d-%02d-%02d %02d:%02d:%02d.%d vs %s", year, month, day, hour, minute, sec, nanos, utc.Format(time.RFC3339Nano))
 	}
 
 	noTZ := time.Date(2021, 7, 9, 11, 12, 13, 14000000, time.UTC)
@@ -163,6 +170,72 @@ func TestTemporalKeyBytes_LeapSecondDistinct(t *testing.T) {
 	nextSecondKey := TemporalKeyBytes(nil, 0, nextSecond, value.TZKnown, false)
 	if bytes.Equal(leapDateTimeKey, nextSecondKey) {
 		t.Fatalf("expected dateTime leap-second key to differ from next-second key")
+	}
+}
+
+func TestTemporalSubkind(t *testing.T) {
+	tests := []struct {
+		kind    temporal.Kind
+		subkind byte
+		ok      bool
+	}{
+		{kind: temporal.KindDateTime, subkind: 0, ok: true},
+		{kind: temporal.KindDate, subkind: 1, ok: true},
+		{kind: temporal.KindTime, subkind: 2, ok: true},
+		{kind: temporal.KindGYearMonth, subkind: 3, ok: true},
+		{kind: temporal.KindGYear, subkind: 4, ok: true},
+		{kind: temporal.KindGMonthDay, subkind: 5, ok: true},
+		{kind: temporal.KindGDay, subkind: 6, ok: true},
+		{kind: temporal.KindGMonth, subkind: 7, ok: true},
+		{kind: temporal.KindInvalid, ok: false},
+	}
+	for _, tt := range tests {
+		subkind, ok := TemporalSubkind(tt.kind)
+		if ok != tt.ok {
+			t.Fatalf("TemporalSubkind(%s) ok = %v, want %v", tt.kind, ok, tt.ok)
+		}
+		if ok && subkind != tt.subkind {
+			t.Fatalf("TemporalSubkind(%s) = %d, want %d", tt.kind, subkind, tt.subkind)
+		}
+	}
+}
+
+func TestTemporalKeyBytesMatchesTemporalEqual(t *testing.T) {
+	cases := []struct {
+		kind temporal.Kind
+		a    string
+		b    string
+	}{
+		{kind: temporal.KindTime, a: "00:30:00+02:00", b: "22:30:00Z"},
+		{kind: temporal.KindTime, a: "23:59:60+02:00", b: "22:00:00Z"},
+		{kind: temporal.KindTime, a: "23:59:60Z", b: "00:00:00Z"},
+		{kind: temporal.KindDateTime, a: "2000-01-01T00:30:00+02:00", b: "1999-12-31T22:30:00Z"},
+		{kind: temporal.KindDate, a: "2002-10-10+05:00", b: "2002-10-09Z"},
+		{kind: temporal.KindGYearMonth, a: "2002-10+05:00", b: "2002-09Z"},
+	}
+
+	for _, tc := range cases {
+		a, err := temporal.Parse(tc.kind, []byte(tc.a))
+		if err != nil {
+			t.Fatalf("parse %q: %v", tc.a, err)
+		}
+		b, err := temporal.Parse(tc.kind, []byte(tc.b))
+		if err != nil {
+			t.Fatalf("parse %q: %v", tc.b, err)
+		}
+		keyA, err := TemporalKeyFromValue(nil, a)
+		if err != nil {
+			t.Fatalf("TemporalKeyFromValue(%q): %v", tc.a, err)
+		}
+		keyB, err := TemporalKeyFromValue(nil, b)
+		if err != nil {
+			t.Fatalf("TemporalKeyFromValue(%q): %v", tc.b, err)
+		}
+		eq := temporal.Equal(a, b)
+		keyEq := bytes.Equal(keyA, keyB)
+		if eq != keyEq {
+			t.Fatalf("mismatch kind=%s a=%s b=%s eq=%v keyEq=%v keyA=%v keyB=%v", tc.kind, tc.a, tc.b, eq, keyEq, keyA, keyB)
+		}
 	}
 }
 

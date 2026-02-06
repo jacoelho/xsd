@@ -98,6 +98,9 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 	if err != nil {
 		return keyBytes{}, err
 	}
+	if kind, ok := temporalKindForPrimitive(primName); ok {
+		return c.keyBytesTemporal(normalized, kind)
+	}
 	switch primName {
 	case "string", "normalizedString", "token", "language", "Name", "NCName", "ID", "IDREF", "ENTITY", "NMTOKEN":
 		return keyBytes{kind: runtime.VKString, bytes: valuekey.StringKeyString(0, normalized)}, nil
@@ -149,54 +152,6 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 			return keyBytes{}, fmt.Errorf("invalid double")
 		}
 		return keyBytes{kind: runtime.VKFloat64, bytes: valuekey.Float64Key(nil, v, class)}, nil
-	case "dateTime":
-		tv, err := temporal.Parse(temporal.KindDateTime, []byte(normalized))
-		if err != nil {
-			return keyBytes{}, err
-		}
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 0, tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)}, nil
-	case "date":
-		tv, err := temporal.Parse(temporal.KindDate, []byte(normalized))
-		if err != nil {
-			return keyBytes{}, err
-		}
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 1, tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)}, nil
-	case "time":
-		tv, err := temporal.Parse(temporal.KindTime, []byte(normalized))
-		if err != nil {
-			return keyBytes{}, err
-		}
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 2, tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)}, nil
-	case "gYearMonth":
-		tv, err := temporal.Parse(temporal.KindGYearMonth, []byte(normalized))
-		if err != nil {
-			return keyBytes{}, err
-		}
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 3, tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)}, nil
-	case "gYear":
-		tv, err := temporal.Parse(temporal.KindGYear, []byte(normalized))
-		if err != nil {
-			return keyBytes{}, err
-		}
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 4, tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)}, nil
-	case "gMonthDay":
-		tv, err := temporal.Parse(temporal.KindGMonthDay, []byte(normalized))
-		if err != nil {
-			return keyBytes{}, err
-		}
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 5, tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)}, nil
-	case "gDay":
-		tv, err := temporal.Parse(temporal.KindGDay, []byte(normalized))
-		if err != nil {
-			return keyBytes{}, err
-		}
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 6, tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)}, nil
-	case "gMonth":
-		tv, err := temporal.Parse(temporal.KindGMonth, []byte(normalized))
-		if err != nil {
-			return keyBytes{}, err
-		}
-		return keyBytes{kind: runtime.VKDateTime, bytes: valuekey.TemporalKeyBytes(nil, 7, tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)}, nil
 	case "duration":
 		dur, err := types.ParseXSDDuration(normalized)
 		if err != nil {
@@ -230,6 +185,41 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 	default:
 		return keyBytes{}, fmt.Errorf("unsupported primitive type %s", primName)
 	}
+}
+
+func temporalKindForPrimitive(primName string) (temporal.Kind, bool) {
+	switch primName {
+	case "dateTime":
+		return temporal.KindDateTime, true
+	case "date":
+		return temporal.KindDate, true
+	case "time":
+		return temporal.KindTime, true
+	case "gYearMonth":
+		return temporal.KindGYearMonth, true
+	case "gYear":
+		return temporal.KindGYear, true
+	case "gMonthDay":
+		return temporal.KindGMonthDay, true
+	case "gDay":
+		return temporal.KindGDay, true
+	case "gMonth":
+		return temporal.KindGMonth, true
+	default:
+		return temporal.KindInvalid, false
+	}
+}
+
+func (c *compiler) keyBytesTemporal(normalized string, kind temporal.Kind) (keyBytes, error) {
+	tv, err := temporal.Parse(kind, []byte(normalized))
+	if err != nil {
+		return keyBytes{}, err
+	}
+	key, err := valuekey.TemporalKeyFromValue(nil, tv)
+	if err != nil {
+		return keyBytes{}, err
+	}
+	return keyBytes{kind: runtime.VKDateTime, bytes: key}, nil
 }
 
 func (c *compiler) makeValueKey(kind runtime.ValueKind, key []byte) runtime.ValueKey {
