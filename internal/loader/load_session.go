@@ -18,6 +18,12 @@ type loadSession struct {
 	merged   mergedChanges
 }
 
+type directiveLoadResult struct {
+	schema   *parser.Schema
+	target   loadKey
+	deferred bool
+}
+
 type pendingChange struct {
 	sourceKey loadKey
 	targetKey loadKey
@@ -81,33 +87,30 @@ func (s *loadSession) processDirectives(schema *parser.Schema, directives []pars
 
 func (s *loadSession) processInclude(schema *parser.Schema, include parser.IncludeInfo) error {
 	includingNS := s.key.etn
-	req := ResolveRequest{
-		BaseSystemID:   s.systemID,
-		SchemaLocation: include.SchemaLocation,
-		Kind:           ResolveInclude,
-	}
-	doc, systemID, err := s.loader.resolve(req)
-	if err != nil {
-		return err
-	}
-	includeKey := s.loader.loadKey(systemID, includingNS)
-	if s.loader.imports.alreadyMerged(parser.DirectiveInclude, s.key, includeKey) {
-		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
-			return closeErr
-		}
-		return nil
-	}
-	if s.loader.state.isLoading(includeKey) {
-		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
-			return closeErr
-		}
-		s.deferInclude(includeKey, s.key, include)
-		return nil
-	}
-	includedSchema, err := s.loader.loadResolved(doc, systemID, includeKey, skipSchemaValidation)
+	result, err := s.loadDirectiveSchema(
+		parser.DirectiveInclude,
+		ResolveRequest{
+			BaseSystemID:   s.systemID,
+			SchemaLocation: include.SchemaLocation,
+			Kind:           ResolveInclude,
+		},
+		func(systemID string) loadKey {
+			return s.loader.loadKey(systemID, includingNS)
+		},
+		false,
+		func(targetKey loadKey) {
+			s.deferInclude(targetKey, s.key, include)
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("load included schema %s: %w", include.SchemaLocation, err)
 	}
+	if result.deferred {
+		return nil
+	}
+	includedSchema := result.schema
+	includeKey := result.target
+
 	if !s.loader.isIncludeNamespaceCompatible(includingNS, includedSchema.TargetNamespace) {
 		if entry, ok := s.loader.state.entry(includeKey); ok && entry != nil {
 			s.loader.resetEntry(entry, includeKey)
@@ -148,38 +151,32 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 		}
 		return fmt.Errorf("import missing schemaLocation")
 	}
-	req := ResolveRequest{
-		BaseSystemID:   s.systemID,
-		SchemaLocation: imp.SchemaLocation,
-		ImportNS:       []byte(imp.Namespace),
-		Kind:           ResolveImport,
-	}
-	doc, systemID, err := s.loader.resolve(req)
-	if err != nil {
-		if s.loader.config.AllowMissingImportLocations && isNotFound(err) {
-			return nil
-		}
-		return err
-	}
 	importNS := types.NamespaceURI(imp.Namespace)
-	importKey := s.loader.loadKey(systemID, importNS)
-	if s.loader.imports.alreadyMerged(parser.DirectiveImport, s.key, importKey) {
-		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
-			return closeErr
-		}
-		return nil
-	}
-	if s.loader.state.isLoading(importKey) {
-		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
-			return closeErr
-		}
-		s.deferImport(importKey, s.key, imp.SchemaLocation, imp.Namespace)
-		return nil
-	}
-	importedSchema, err := s.loader.loadResolved(doc, systemID, importKey, skipSchemaValidation)
+	result, err := s.loadDirectiveSchema(
+		parser.DirectiveImport,
+		ResolveRequest{
+			BaseSystemID:   s.systemID,
+			SchemaLocation: imp.SchemaLocation,
+			ImportNS:       []byte(imp.Namespace),
+			Kind:           ResolveImport,
+		},
+		func(systemID string) loadKey {
+			return s.loader.loadKey(systemID, importNS)
+		},
+		s.loader.config.AllowMissingImportLocations,
+		func(targetKey loadKey) {
+			s.deferImport(targetKey, s.key, imp.SchemaLocation, imp.Namespace)
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("load imported schema %s: %w", imp.SchemaLocation, err)
 	}
+	if result.deferred {
+		return nil
+	}
+	importedSchema := result.schema
+	importKey := result.target
+
 	if imp.Namespace == "" {
 		if !importedSchema.TargetNamespace.IsEmpty() {
 			if entry, ok := s.loader.state.entry(importKey); ok && entry != nil {
@@ -201,6 +198,48 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 	s.loader.imports.markMerged(parser.DirectiveImport, s.key, importKey)
 	s.merged.imports = append(s.merged.imports, mergeRecord{base: s.key, target: importKey})
 	return nil
+}
+
+func (s *loadSession) loadDirectiveSchema(
+	kind parser.DirectiveKind,
+	req ResolveRequest,
+	keyForSystemID func(systemID string) loadKey,
+	allowNotFound bool,
+	onLoading func(targetKey loadKey),
+) (directiveLoadResult, error) {
+	doc, systemID, err := s.loader.resolve(req)
+	if err != nil {
+		if allowNotFound && isNotFound(err) {
+			return directiveLoadResult{deferred: true}, nil
+		}
+		return directiveLoadResult{}, err
+	}
+
+	targetKey := keyForSystemID(systemID)
+	if s.loader.imports.alreadyMerged(kind, s.key, targetKey) {
+		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
+			return directiveLoadResult{}, closeErr
+		}
+		return directiveLoadResult{target: targetKey, deferred: true}, nil
+	}
+	if s.loader.state.isLoading(targetKey) {
+		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
+			return directiveLoadResult{}, closeErr
+		}
+		if onLoading != nil {
+			onLoading(targetKey)
+		}
+		return directiveLoadResult{target: targetKey, deferred: true}, nil
+	}
+
+	loadedSchema, err := s.loader.loadResolved(doc, systemID, targetKey, skipSchemaValidation)
+	if err != nil {
+		return directiveLoadResult{}, err
+	}
+	return directiveLoadResult{
+		schema: loadedSchema,
+		target: targetKey,
+	}, nil
 }
 
 func (s *loadSession) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string) {
