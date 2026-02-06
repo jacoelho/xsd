@@ -1,23 +1,26 @@
 package schema
 
-import "github.com/jacoelho/xsd/internal/types"
+import (
+	"github.com/jacoelho/xsd/internal/ids"
+	"github.com/jacoelho/xsd/internal/types"
+)
 
 // TypeID identifies a type definition.
-type TypeID uint32
+type TypeID = ids.TypeID
 
 // ElemID identifies an element declaration.
-type ElemID uint32
+type ElemID = ids.ElemID
 
 // AttrID identifies an attribute declaration.
-type AttrID uint32
+type AttrID = ids.AttrID
 
 const (
 	// InvalidTypeID represents an unassigned type ID.
-	InvalidTypeID TypeID = 0
+	InvalidTypeID = ids.InvalidTypeID
 	// InvalidElemID represents an unassigned element ID.
-	InvalidElemID ElemID = 0
+	InvalidElemID = ids.InvalidElemID
 	// InvalidAttrID represents an unassigned attribute ID.
-	InvalidAttrID AttrID = 0
+	InvalidAttrID = ids.InvalidAttrID
 )
 
 // TypeEntry records a type ID assignment in traversal order.

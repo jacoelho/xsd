@@ -1294,11 +1294,11 @@ func normalizeFixedValue(value string, typ types.Type) string {
 		}
 		if st.Restriction != nil && !st.Restriction.Base.IsZero() &&
 			st.Restriction.Base.Namespace == types.XSDNamespace &&
-			isBuiltinListTypeName(st.Restriction.Base.Local) {
+			types.IsBuiltinListTypeName(st.Restriction.Base.Local) {
 			return types.ApplyWhiteSpace(value, types.WhiteSpaceCollapse)
 		}
 	}
-	if bt, ok := typ.(*types.BuiltinType); ok && isBuiltinListTypeName(bt.Name().Local) {
+	if bt, ok := typ.(*types.BuiltinType); ok && types.IsBuiltinListTypeName(bt.Name().Local) {
 		return types.ApplyWhiteSpace(value, types.WhiteSpaceCollapse)
 	}
 	return types.NormalizeWhiteSpace(value, typ)
