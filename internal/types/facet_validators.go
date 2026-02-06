@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 // getXSDTypeName returns a user-friendly XSD type name for error messages
@@ -26,27 +27,8 @@ func getXSDTypeName(value TypedValue) string {
 }
 
 // parseTemporalValue parses a lexical value according to its primitive type name.
-func parseTemporalValue(primitiveName, lexical string) (time.Time, error) {
-	switch primitiveName {
-	case "dateTime":
-		return ParseDateTime(lexical)
-	case "date":
-		return ParseDate(lexical)
-	case "time":
-		return ParseTime(lexical)
-	case "gYear":
-		return ParseGYear(lexical)
-	case "gYearMonth":
-		return ParseGYearMonth(lexical)
-	case "gMonth":
-		return ParseGMonth(lexical)
-	case "gMonthDay":
-		return ParseGMonthDay(lexical)
-	case "gDay":
-		return ParseGDay(lexical)
-	default:
-		return time.Time{}, fmt.Errorf("unsupported date/time type: %s", primitiveName)
-	}
+func parseTemporalValue(primitiveName, lexical string) (temporal.Value, error) {
+	return temporal.ParsePrimitive(primitiveName, []byte(lexical))
 }
 
 // durationToXSD converts a time.Duration to XSDDuration.
@@ -152,7 +134,25 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 		return ComparableInt{Value: v, Typ: typ}, nil
 	case time.Time:
 		tzKind := TimezoneKind(value.Lexical())
-		return ComparableTime{Value: v, Typ: typ, TimezoneKind: tzKind}, nil
+		kind, ok := temporalKindFromType(typ)
+		if ok {
+			tval, err := temporal.Parse(kind, []byte(value.Lexical()))
+			if err == nil {
+				return ComparableTime{
+					Value:        tval.Time,
+					Typ:          typ,
+					TimezoneKind: tzKind,
+					Kind:         tval.Kind,
+					LeapSecond:   tval.LeapSecond,
+				}, nil
+			}
+		}
+		return ComparableTime{
+			Value:        v,
+			Typ:          typ,
+			TimezoneKind: tzKind,
+			Kind:         temporal.KindDateTime,
+		}, nil
 	case time.Duration:
 		xsdDur := durationToXSD(v)
 		return ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
@@ -230,7 +230,13 @@ func parseStringToComparableValue(value TypedValue, lexical string, typ Type) (C
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse date/time: %w", err)
 		}
-		return ComparableTime{Value: timeVal, Typ: typ, TimezoneKind: TimezoneKind(lexical)}, nil
+		return ComparableTime{
+			Value:        timeVal.Time,
+			Typ:          typ,
+			TimezoneKind: TimezoneKind(lexical),
+			Kind:         timeVal.Kind,
+			LeapSecond:   timeVal.LeapSecond,
+		}, nil
 
 	case "float":
 		floatVal, err := ParseFloat(lexical)

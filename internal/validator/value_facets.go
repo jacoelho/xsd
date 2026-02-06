@@ -7,6 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
@@ -236,17 +237,15 @@ func (s *Session) compareValue(kind runtime.ValidatorKind, canonical, bound []by
 		}
 		return cmp, nil
 	case runtime.VDateTime, runtime.VTime, runtime.VDate, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
-		valTime, valTZ, err := parseTemporalForKind(kind, canonical)
+		valTemporal, err := parseTemporalForKind(kind, canonical)
 		if err != nil {
 			return 0, err
 		}
-		boundTime, boundTZ, err := parseTemporalForKind(kind, bound)
+		boundTemporal, err := parseTemporalForKind(kind, bound)
 		if err != nil {
 			return 0, err
 		}
-		comp := types.ComparableTime{Value: valTime, TimezoneKind: valTZ}
-		boundComp := types.ComparableTime{Value: boundTime, TimezoneKind: boundTZ}
-		cmp, err := comp.Compare(boundComp)
+		cmp, err := temporal.Compare(valTemporal, boundTemporal)
 		if err != nil {
 			return 0, valueErrorMsg(valueErrFacet, err.Error())
 		}
@@ -392,11 +391,11 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		s.keyTmp = key
 		return runtime.VKDuration, key, nil
 	case runtime.VDateTime, runtime.VDate, runtime.VTime, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
-		t, tzKind, err := parseTemporalForKind(kind, canonical)
+		tv, err := parseTemporalForKind(kind, canonical)
 		if err != nil {
 			return runtime.VKInvalid, nil, err
 		}
-		key := valuekey.TemporalKeyBytes(s.keyTmp[:0], temporalSubkind(kind), t, tzKind)
+		key := valuekey.TemporalKeyBytes(s.keyTmp[:0], temporalSubkind(kind), tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)
 		s.keyTmp = key
 		return runtime.VKDateTime, key, nil
 	default:

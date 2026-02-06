@@ -17,16 +17,19 @@ func TestCompareFacetValuesDateTimeSpecials(t *testing.T) {
 		name string
 		v1   string
 		v2   string
+		want int
 	}{
 		{
 			name: "24:00:00",
 			v1:   "2000-01-01T24:00:00",
 			v2:   "2000-01-02T00:00:00",
+			want: 0,
 		},
 		{
 			name: "leap second",
 			v1:   "1999-12-31T23:59:60",
 			v2:   "2000-01-01T00:00:00",
+			want: -1,
 		},
 	}
 
@@ -39,8 +42,8 @@ func TestCompareFacetValuesDateTimeSpecials(t *testing.T) {
 			if err != nil {
 				t.Fatalf("compareFacetValues(%q, %q) error: %v", tc.v1, tc.v2, err)
 			}
-			if cmp != 0 {
-				t.Fatalf("compareFacetValues(%q, %q) = %d, want 0", tc.v1, tc.v2, cmp)
+			if cmp != tc.want {
+				t.Fatalf("compareFacetValues(%q, %q) = %d, want %d", tc.v1, tc.v2, cmp, tc.want)
 			}
 		})
 	}

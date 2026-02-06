@@ -3,6 +3,8 @@ package value
 import (
 	"bytes"
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
 type mapResolver map[string]string
@@ -64,5 +66,25 @@ func TestCanonicalQNameInvalid(t *testing.T) {
 	}
 	if _, err := CanonicalQName([]byte("xmlns:local"), mapResolver{"xmlns": "urn:x"}, nil); err == nil {
 		t.Fatalf("expected error for reserved xmlns prefix")
+	}
+}
+
+func TestCanonicalQNameXMLPrefix(t *testing.T) {
+	lexical := []byte("xml:lang")
+	got, err := CanonicalQName(lexical, mapResolver{}, nil)
+	if err != nil {
+		t.Fatalf("CanonicalQName() error = %v", err)
+	}
+	want := append([]byte(xmlnames.XMLNamespace), 0)
+	want = append(want, []byte("lang")...)
+	if !bytes.Equal(got, want) {
+		t.Fatalf("CanonicalQName(xml) = %q, want %q", string(got), string(want))
+	}
+}
+
+func TestCanonicalQNameXMLPrefixRejectsWrongBinding(t *testing.T) {
+	_, err := CanonicalQName([]byte("xml:lang"), mapResolver{"xml": "urn:wrong"}, nil)
+	if err == nil {
+		t.Fatalf("expected error for wrong xml namespace binding")
 	}
 }

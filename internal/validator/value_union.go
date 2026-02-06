@@ -37,12 +37,20 @@ func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexi
 			break
 		}
 	}
+	if hasPatterns {
+		checked, err := s.checkUnionPatterns(facets, normalized)
+		if err != nil {
+			return nil, err
+		}
+		if metrics != nil {
+			metrics.patternChecked = checked
+		}
+	}
 	memberLexical := lexical
 	if memberLexical == nil {
 		memberLexical = normalized
 	}
 	sawValid := false
-	var lastPatternErr error
 	var lastErr error
 	for i, member := range memberValidators {
 		if int(member) >= len(s.rt.Validators.Meta) {
@@ -67,27 +75,6 @@ func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexi
 			continue
 		}
 		sawValid = true
-		if hasPatterns {
-			memberMeta := s.rt.Validators.Meta[member]
-			memberNormalized := memberLex
-			if memberOpts.applyWhitespace {
-				if memberMeta.Kind == runtime.VList || memberMeta.Kind == runtime.VUnion {
-					buf := s.pushNormBuf(len(memberLex))
-					memberNormalized = value.NormalizeWhitespace(memberMeta.WhiteSpace, memberLex, buf)
-					s.popNormBuf()
-				} else {
-					memberNormalized = value.NormalizeWhitespace(memberMeta.WhiteSpace, memberLex, s.normBuf)
-				}
-			}
-			checked, err := s.checkUnionPatterns(facets, memberNormalized)
-			if err != nil {
-				lastPatternErr = err
-				continue
-			}
-			if metrics != nil {
-				metrics.patternChecked = checked
-			}
-		}
 		if len(enumIDs) > 0 && !s.enumSetsContainAll(enumIDs, memberMetrics.keyKind, memberMetrics.keyBytes) {
 			continue
 		}
@@ -106,9 +93,6 @@ func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexi
 		return canon, nil
 	}
 	if sawValid {
-		if hasPatterns && lastPatternErr != nil {
-			return nil, lastPatternErr
-		}
 		if len(enumIDs) > 0 {
 			return nil, valueErrorf(valueErrFacet, "enumeration violation")
 		}

@@ -48,11 +48,11 @@ func (l *SchemaLoader) resolveGroupReferences(sch *parser.Schema) error {
 }
 
 // resolveGroupRefsInContentWithVisited resolves GroupRef placeholders in content with cycle detector
-func (l *SchemaLoader) resolveGroupRefsInContentWithVisited(content types.Content, schema *parser.Schema, detector *resolver.CycleDetector[types.QName]) error {
+func (l *SchemaLoader) resolveGroupRefsInContentWithVisited(content types.Content, sch *parser.Schema, detector *resolver.CycleDetector[types.QName]) error {
 	switch c := content.(type) {
 	case *types.ElementContent:
 		if c.Particle != nil {
-			resolved, err := l.resolveGroupRefsInParticleWithVisited(c.Particle, schema, detector)
+			resolved, err := l.resolveGroupRefsInParticleWithVisited(c.Particle, sch, detector)
 			if err != nil {
 				return err
 			}
@@ -62,7 +62,7 @@ func (l *SchemaLoader) resolveGroupRefsInContentWithVisited(content types.Conten
 		}
 	case *types.ComplexContent:
 		if c.Restriction != nil && c.Restriction.Particle != nil {
-			resolved, err := l.resolveGroupRefsInParticleWithVisited(c.Restriction.Particle, schema, detector)
+			resolved, err := l.resolveGroupRefsInParticleWithVisited(c.Restriction.Particle, sch, detector)
 			if err != nil {
 				return err
 			}
@@ -71,7 +71,7 @@ func (l *SchemaLoader) resolveGroupRefsInContentWithVisited(content types.Conten
 			}
 		}
 		if c.Extension != nil && c.Extension.Particle != nil {
-			resolved, err := l.resolveGroupRefsInParticleWithVisited(c.Extension.Particle, schema, detector)
+			resolved, err := l.resolveGroupRefsInParticleWithVisited(c.Extension.Particle, sch, detector)
 			if err != nil {
 				return err
 			}
@@ -85,11 +85,11 @@ func (l *SchemaLoader) resolveGroupRefsInContentWithVisited(content types.Conten
 
 // resolveGroupRefsInParticleWithVisited resolves GroupRef placeholders in a particle with cycle detector
 // Returns the resolved particle if it was a GroupRef, nil otherwise
-func (l *SchemaLoader) resolveGroupRefsInParticleWithVisited(particle types.Particle, schema *parser.Schema, detector *resolver.CycleDetector[types.QName]) (types.Particle, error) {
+func (l *SchemaLoader) resolveGroupRefsInParticleWithVisited(particle types.Particle, sch *parser.Schema, detector *resolver.CycleDetector[types.QName]) (types.Particle, error) {
 	// check if this particle is a GroupRef that needs resolution
 	if groupRef, ok := particle.(*types.GroupRef); ok {
 		// look up the actual group
-		groupDef, ok := schema.Groups[groupRef.RefQName]
+		groupDef, ok := sch.Groups[groupRef.RefQName]
 		if !ok {
 			return nil, fmt.Errorf("group '%s' not found", groupRef.RefQName)
 		}
@@ -106,7 +106,7 @@ func (l *SchemaLoader) resolveGroupRefsInParticleWithVisited(particle types.Part
 
 	// if it's a ModelGroup, resolve recursively
 	if mg, ok := particle.(*types.ModelGroup); ok {
-		if err := l.resolveGroupRefsInModelGroupWithCycleDetection(mg, schema, detector); err != nil {
+		if err := l.resolveGroupRefsInModelGroupWithCycleDetection(mg, sch, detector); err != nil {
 			return nil, err
 		}
 	}
@@ -115,12 +115,12 @@ func (l *SchemaLoader) resolveGroupRefsInParticleWithVisited(particle types.Part
 }
 
 // resolveGroupRefsInModelGroupWithCycleDetection resolves GroupRef placeholders with cycle detection
-func (l *SchemaLoader) resolveGroupRefsInModelGroupWithCycleDetection(mg *types.ModelGroup, schema *parser.Schema, detector *resolver.CycleDetector[types.QName]) error {
-	return l.resolveGroupRefsInModelGroupWithPointerCycleDetection(mg, schema, detector, make(map[*types.ModelGroup]bool))
+func (l *SchemaLoader) resolveGroupRefsInModelGroupWithCycleDetection(mg *types.ModelGroup, sch *parser.Schema, detector *resolver.CycleDetector[types.QName]) error {
+	return l.resolveGroupRefsInModelGroupWithPointerCycleDetection(mg, sch, detector, make(map[*types.ModelGroup]bool))
 }
 
 // resolveGroupRefsInModelGroupWithPointerCycleDetection resolves GroupRef placeholders with both QName and pointer-based cycle detection
-func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg *types.ModelGroup, schema *parser.Schema, detector *resolver.CycleDetector[types.QName], visitedMGs map[*types.ModelGroup]bool) error {
+func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg *types.ModelGroup, sch *parser.Schema, detector *resolver.CycleDetector[types.QName], visitedMGs map[*types.ModelGroup]bool) error {
 	// pointer-based cycle detection for ModelGroup structures
 	if visitedMGs[mg] {
 		return nil // already processed this ModelGroup
@@ -135,7 +135,7 @@ func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg 
 			}
 
 			// look up the actual group
-			groupDef, ok := schema.Groups[typed.RefQName]
+			groupDef, ok := sch.Groups[typed.RefQName]
 			if !ok {
 				detector.Leave(typed.RefQName)
 				return fmt.Errorf("group '%s' not found", typed.RefQName)
@@ -159,7 +159,7 @@ func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg 
 
 			// recursively resolve any GroupRefs in the copied group
 			// use a fresh visitedMGs since this is a new copy
-			if err := l.resolveGroupRefsInModelGroupWithPointerCycleDetection(groupCopy, schema, detector, make(map[*types.ModelGroup]bool)); err != nil {
+			if err := l.resolveGroupRefsInModelGroupWithPointerCycleDetection(groupCopy, sch, detector, make(map[*types.ModelGroup]bool)); err != nil {
 				detector.Leave(typed.RefQName)
 				return err
 			}
@@ -169,7 +169,7 @@ func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg 
 			detector.Leave(typed.RefQName)
 		case *types.ModelGroup:
 			// recursively resolve nested model groups
-			if err := l.resolveGroupRefsInModelGroupWithPointerCycleDetection(typed, schema, detector, visitedMGs); err != nil {
+			if err := l.resolveGroupRefsInModelGroupWithPointerCycleDetection(typed, sch, detector, visitedMGs); err != nil {
 				return err
 			}
 		}

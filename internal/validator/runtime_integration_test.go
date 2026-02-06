@@ -705,7 +705,7 @@ func TestEnumCanonicalizationDecimalEquivalence(t *testing.T) {
 	}
 }
 
-func TestEnumCanonicalizationDateTimezone(t *testing.T) {
+func TestEnumCanonicalizationDateTimezoneDistinct(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="DateEnum">
@@ -719,8 +719,138 @@ func TestEnumCanonicalizationDateTimezone(t *testing.T) {
 	rt := mustBuildRuntimeSchema(t, schema)
 	sess := NewSession(rt)
 	doc := `<root>2024-01-01+02:00</root>`
-	if err := sess.Validate(strings.NewReader(doc)); err != nil {
-		t.Fatalf("expected date enum to match across timezones: %v", err)
+	if err := sess.Validate(strings.NewReader(doc)); err == nil {
+		t.Fatalf("expected date enum to reject non-equivalent timezone-shifted date")
+	}
+}
+
+func TestEnumCanonicalizationTimeLeapSecondDistinct(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="TimeEnum">
+    <xs:restriction base="xs:time">
+      <xs:enumeration value="23:59:60Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="TimeEnum"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	passDoc := `<root>23:59:60Z</root>`
+	if err := sess.Validate(strings.NewReader(passDoc)); err != nil {
+		t.Fatalf("expected leap-second time to match enum: %v", err)
+	}
+
+	sess.Reset()
+	failDoc := `<root>00:00:00Z</root>`
+	if err := sess.Validate(strings.NewReader(failDoc)); err == nil {
+		t.Fatalf("expected 00:00:00Z to fail leap-second enum")
+	}
+}
+
+func TestEnumCanonicalizationDateTimeLeapSecondDistinct(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="DateTimeEnum">
+    <xs:restriction base="xs:dateTime">
+      <xs:enumeration value="1999-12-31T23:59:60Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="DateTimeEnum"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	passDoc := `<root>1999-12-31T23:59:60Z</root>`
+	if err := sess.Validate(strings.NewReader(passDoc)); err != nil {
+		t.Fatalf("expected leap-second dateTime to match enum: %v", err)
+	}
+
+	sess.Reset()
+	failDoc := `<root>2000-01-01T00:00:00Z</root>`
+	if err := sess.Validate(strings.NewReader(failDoc)); err == nil {
+		t.Fatalf("expected next-second dateTime to fail leap-second enum")
+	}
+}
+
+func TestElementFixedTimeLeapSecondOffsetDistinct(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:time" fixed="23:59:60+02:00"/>
+</xs:schema>`
+
+	if err := validateRuntimeDoc(t, schema, `<root>23:59:60+02:00</root>`); err != nil {
+		t.Fatalf("expected leap-second lexical form to satisfy fixed value: %v", err)
+	}
+
+	err := validateRuntimeDoc(t, schema, `<root>22:00:00Z</root>`)
+	if err == nil {
+		t.Fatalf("expected non-leap equivalent to fail fixed value")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsdErrors.ErrElementFixedValue) {
+		t.Fatalf("expected ErrElementFixedValue, got %+v", list)
+	}
+}
+
+func TestAttributeFixedTimeLeapSecondOffsetDistinct(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="t" type="xs:time" fixed="23:59:60+02:00"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	if err := validateRuntimeDoc(t, schema, `<root t="23:59:60+02:00"/>`); err != nil {
+		t.Fatalf("expected leap-second lexical form to satisfy fixed attribute: %v", err)
+	}
+
+	err := validateRuntimeDoc(t, schema, `<root t="22:00:00Z"/>`)
+	if err == nil {
+		t.Fatalf("expected non-leap equivalent to fail fixed attribute")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsdErrors.ErrAttributeFixedValue) {
+		t.Fatalf("expected ErrAttributeFixedValue, got %+v", list)
+	}
+}
+
+func TestUniqueDefaultTimeLeapSecondOffsetKeyDistinct(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="2">
+          <xs:complexType>
+            <xs:attribute name="t" type="xs:time" default="23:59:60+02:00"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="u">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@t"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`
+
+	if err := validateRuntimeDoc(t, schema, `<root><item/><item t="22:00:00Z"/></root>`); err != nil {
+		t.Fatalf("expected leap default and non-leap explicit value to remain distinct: %v", err)
+	}
+
+	err := validateRuntimeDoc(t, schema, `<root><item/><item t="23:59:60+02:00"/></root>`)
+	if err == nil {
+		t.Fatalf("expected duplicate unique value when both are leap-second equivalents")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsdErrors.ErrIdentityDuplicate) {
+		t.Fatalf("expected ErrIdentityDuplicate, got %+v", list)
 	}
 }
 

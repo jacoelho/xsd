@@ -9,6 +9,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
 // ParseDecimal parses a decimal string into num.Dec.
@@ -121,6 +122,13 @@ func ParseQNameValue(lexical string, nsContext map[string]string) (QName, error)
 
 	var ns NamespaceURI
 	if hasPrefix {
+		if prefix == xmlnames.XMLPrefix {
+			resolved, ok := ResolveNamespace(prefix, nsContext)
+			if err := xmlnames.ValidateXMLPrefixBinding(resolved.String(), ok); err != nil {
+				return QName{}, err
+			}
+			return QName{Namespace: XMLNamespace, Local: local}, nil
+		}
 		var ok bool
 		ns, ok = ResolveNamespace(prefix, nsContext)
 		if !ok {

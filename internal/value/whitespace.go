@@ -73,7 +73,7 @@ func FieldsXMLWhitespaceSeq(in []byte) iter.Seq[[]byte] {
 }
 
 // ForEachXMLWhitespaceField splits input on XML whitespace and calls fn per field.
-// It returns the number of fields seen and does not allocate.
+// It returns the number of fields seen; iteration itself does not allocate.
 func ForEachXMLWhitespaceField(in []byte, fn func([]byte) error) (int, error) {
 	count := 0
 	for field := range FieldsXMLWhitespaceSeq(in) {

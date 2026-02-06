@@ -181,13 +181,18 @@ const (
 	skipSchemaValidation
 )
 
+var errLoaderFailed = errors.New("loader is in failed state")
+
 // SchemaLoader loads XML schemas with import/include resolution.
-// It is not safe for concurrent use; create one per goroutine or serialize access.
+// It is not safe for concurrent use.
+// After the first load error, the loader becomes failed and must be replaced.
 type SchemaLoader struct {
 	imports  importTracker
 	resolver Resolver
 	state    loadState
 	config   Config
+	failed   bool
+	failure  error
 }
 
 // NewLoader creates a new schema loader with the given configuration
@@ -204,12 +209,18 @@ func NewLoader(cfg Config) *SchemaLoader {
 	}
 }
 
-// Load loads a schema from the given location and validates it.
+// Load loads and validates a schema from location.
+// It is fail-stop and requires a configured resolver for root resolution.
 func (l *SchemaLoader) Load(location string) (*parser.Schema, error) {
-	if l == nil || l.resolver == nil {
-		return nil, fmt.Errorf("no resolver configured")
+	if err := l.beginLocationLoad(); err != nil {
+		return nil, err
 	}
-	return l.loadRoot(location, validateSchema)
+	sch, err := l.loadRoot(location, validateSchema)
+	if err != nil {
+		l.markFailed(err)
+		return nil, err
+	}
+	return sch, nil
 }
 
 func (l *SchemaLoader) loadKey(systemID string, etn types.NamespaceURI) loadKey {
@@ -258,7 +269,7 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 			entry.validationRequested = true
 			if resolveErr := l.resolvePendingImportsFor(key); resolveErr != nil {
 				if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
-					return nil, errors.Join(resolveErr, closeErr)
+					return nil, joinWithClose(resolveErr, closeErr)
 				}
 				return nil, resolveErr
 			}
@@ -272,11 +283,8 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 	loadedSchema, err := session.handleCircularLoad()
 	if err != nil || loadedSchema != nil {
 		closeErr := closeSchemaDoc(doc, systemID)
-		if closeErr != nil {
-			if err == nil {
-				return nil, closeErr
-			}
-			return nil, errors.Join(err, closeErr)
+		if combined := joinWithClose(err, closeErr); combined != nil {
+			return nil, combined
 		}
 		return loadedSchema, err
 	}
@@ -421,19 +429,50 @@ func (l *SchemaLoader) validateLoadedSchema(sch *parser.Schema) error {
 }
 
 // LoadResolved loads a schema from a resolved reader and systemID, then validates it.
+// It is fail-stop and only requires a resolver when directives need external resolution.
 func (l *SchemaLoader) LoadResolved(doc io.ReadCloser, systemID string) (*parser.Schema, error) {
-	if l == nil {
-		return nil, fmt.Errorf("no loader configured")
+	if err := l.beginResolvedLoad(); err != nil {
+		return nil, closeLoadResolvedEarly(doc, systemID, err)
 	}
 	if systemID == "" {
-		return nil, fmt.Errorf("missing systemID")
+		err := fmt.Errorf("missing systemID")
+		l.markFailed(err)
+		return nil, closeLoadResolvedEarly(doc, systemID, err)
 	}
 	result, err := parseSchemaDocument(doc, systemID, l.config.SchemaParseOptions...)
 	if err != nil {
+		l.markFailed(err)
 		return nil, err
 	}
 	key := l.loadKey(systemID, result.Schema.TargetNamespace)
-	return l.loadParsed(result, systemID, key, validateSchema)
+	sch, err := l.loadParsed(result, systemID, key, validateSchema)
+	if err != nil {
+		l.markFailed(err)
+		return nil, err
+	}
+	return sch, nil
+}
+
+func closeLoadResolvedEarly(doc io.ReadCloser, systemID string, loadErr error) error {
+	if doc == nil {
+		return loadErr
+	}
+	closeID := systemID
+	if closeID == "" {
+		closeID = "resolved schema"
+	}
+	closeErr := closeSchemaDoc(doc, closeID)
+	return joinWithClose(loadErr, closeErr)
+}
+
+func joinWithClose(loadErr, closeErr error) error {
+	if closeErr == nil {
+		return loadErr
+	}
+	if loadErr == nil {
+		return closeErr
+	}
+	return errors.Join(loadErr, closeErr)
 }
 
 // GetLoaded returns a loaded schema by systemID and effective target namespace.
@@ -441,6 +480,49 @@ func (l *SchemaLoader) GetLoaded(systemID string, etn types.NamespaceURI) (*pars
 	key := l.loadKey(systemID, etn)
 	sch, ok := l.state.loadedSchema(key)
 	return sch, ok
+}
+
+func (l *SchemaLoader) beginLocationLoad() error {
+	if l == nil {
+		return fmt.Errorf("no resolver configured")
+	}
+	if l.failed {
+		return l.failedError()
+	}
+	if l.resolver == nil {
+		err := fmt.Errorf("no resolver configured")
+		l.markFailed(err)
+		return err
+	}
+	return nil
+}
+
+func (l *SchemaLoader) beginResolvedLoad() error {
+	if l == nil {
+		return fmt.Errorf("no loader configured")
+	}
+	if l.failed {
+		return l.failedError()
+	}
+	return nil
+}
+
+func (l *SchemaLoader) markFailed(err error) {
+	if l == nil || err == nil || l.failed {
+		return
+	}
+	l.failed = true
+	l.failure = err
+}
+
+func (l *SchemaLoader) failedError() error {
+	if l == nil {
+		return errLoaderFailed
+	}
+	if l.failure == nil {
+		return fmt.Errorf("%w: create a new loader", errLoaderFailed)
+	}
+	return fmt.Errorf("%w: create a new loader (first failure: %v)", errLoaderFailed, l.failure)
 }
 func (l *SchemaLoader) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string) bool {
 	sourceEntry := l.state.ensureEntry(sourceKey)

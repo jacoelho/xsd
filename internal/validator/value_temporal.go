@@ -1,28 +1,25 @@
 package validator
 
 import (
-	"time"
-
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
 type temporalSpec struct {
-	parse  func([]byte) (time.Time, error)
-	kind   string
+	kind   temporal.Kind
 	keyTag byte
 }
 
 var temporalSpecs = [...]temporalSpec{
-	runtime.VDateTime:   {value.ParseDateTime, "dateTime", 0},
-	runtime.VTime:       {value.ParseTime, "time", 2},
-	runtime.VDate:       {value.ParseDate, "date", 1},
-	runtime.VGYearMonth: {value.ParseGYearMonth, "gYearMonth", 3},
-	runtime.VGYear:      {value.ParseGYear, "gYear", 4},
-	runtime.VGMonthDay:  {value.ParseGMonthDay, "gMonthDay", 5},
-	runtime.VGDay:       {value.ParseGDay, "gDay", 6},
-	runtime.VGMonth:     {value.ParseGMonth, "gMonth", 7},
+	runtime.VDateTime:   {kind: temporal.KindDateTime, keyTag: 0},
+	runtime.VTime:       {kind: temporal.KindTime, keyTag: 2},
+	runtime.VDate:       {kind: temporal.KindDate, keyTag: 1},
+	runtime.VGYearMonth: {kind: temporal.KindGYearMonth, keyTag: 3},
+	runtime.VGYear:      {kind: temporal.KindGYear, keyTag: 4},
+	runtime.VGMonthDay:  {kind: temporal.KindGMonthDay, keyTag: 5},
+	runtime.VGDay:       {kind: temporal.KindGDay, keyTag: 6},
+	runtime.VGMonth:     {kind: temporal.KindGMonth, keyTag: 7},
 }
 
 func temporalSpecFor(kind runtime.ValidatorKind) (temporalSpec, bool) {
@@ -30,7 +27,7 @@ func temporalSpecFor(kind runtime.ValidatorKind) (temporalSpec, bool) {
 		return temporalSpec{}, false
 	}
 	spec := temporalSpecs[kind]
-	if spec.parse == nil {
+	if spec.kind == temporal.KindInvalid {
 		return temporalSpec{}, false
 	}
 	return spec, true
@@ -41,14 +38,13 @@ func (s *Session) canonicalizeTemporal(kind runtime.ValidatorKind, normalized []
 	if !ok {
 		return nil, valueErrorf(valueErrInvalid, "unsupported temporal kind %d", kind)
 	}
-	t, err := spec.parse(normalized)
+	tv, err := temporal.Parse(spec.kind, normalized)
 	if err != nil {
 		return nil, valueErrorMsg(valueErrInvalid, err.Error())
 	}
-	tzKind := value.TimezoneKindFromLexical(normalized)
-	canon := []byte(value.CanonicalDateTimeString(t, spec.kind, tzKind))
+	canon := []byte(temporal.Canonical(tv))
 	if needKey {
-		key := valuekey.TemporalKeyBytes(s.keyTmp[:0], spec.keyTag, t, tzKind)
+		key := valuekey.TemporalKeyBytes(s.keyTmp[:0], spec.keyTag, tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)
 		s.keyTmp = key
 		s.setKey(metrics, runtime.VKDateTime, key, false)
 	}
@@ -60,7 +56,7 @@ func validateTemporalNoCanonical(kind runtime.ValidatorKind, normalized []byte) 
 	if !ok {
 		return valueErrorf(valueErrInvalid, "unsupported temporal kind %d", kind)
 	}
-	if _, err := spec.parse(normalized); err != nil {
+	if _, err := temporal.Parse(spec.kind, normalized); err != nil {
 		return valueErrorMsg(valueErrInvalid, err.Error())
 	}
 	return nil
@@ -74,11 +70,10 @@ func temporalSubkind(kind runtime.ValidatorKind) byte {
 	return spec.keyTag
 }
 
-func parseTemporalForKind(kind runtime.ValidatorKind, lexical []byte) (time.Time, value.TimezoneKind, error) {
+func parseTemporalForKind(kind runtime.ValidatorKind, lexical []byte) (temporal.Value, error) {
 	spec, ok := temporalSpecFor(kind)
 	if !ok {
-		return time.Time{}, value.TZNone, valueErrorf(valueErrInvalid, "unsupported temporal kind %d", kind)
+		return temporal.Value{}, valueErrorf(valueErrInvalid, "unsupported temporal kind %d", kind)
 	}
-	t, err := spec.parse(lexical)
-	return t, value.TimezoneKindFromLexical(lexical), err
+	return temporal.Parse(spec.kind, lexical)
 }

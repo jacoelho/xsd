@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/value/temporal"
+	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
 func TestElementDefaultEmptyStringPresent(t *testing.T) {
@@ -125,6 +128,45 @@ func TestDefaultAcceptsValidBuiltinDefaults(t *testing.T) {
 	}
 	if _, err := CompileValidators(sch, reg); err != nil {
 		t.Fatalf("expected valid defaults, got %v", err)
+	}
+}
+
+func TestElementFixedTimeLeapSecondOffsetKeyPreservesLeapIdentity(t *testing.T) {
+	schemaXML := `
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:time" fixed="23:59:60+02:00"/>
+</xs:schema>`
+
+	compiled, reg := compileSchema(t, schemaXML)
+	elemID := elementIDForLocal(t, reg, "root")
+	keyRef, ok := compiled.ElementFixedKeys[elemID]
+	if !ok {
+		t.Fatalf("missing fixed key for element root")
+	}
+	if keyRef.Kind != runtime.VKDateTime {
+		t.Fatalf("fixed key kind = %d, want %d", keyRef.Kind, runtime.VKDateTime)
+	}
+	if !keyRef.Ref.Present {
+		t.Fatalf("expected fixed key ref present")
+	}
+	got := compiled.Values.Blob[keyRef.Ref.Off : keyRef.Ref.Off+keyRef.Ref.Len]
+
+	leapValue, err := temporal.Parse(temporal.KindTime, []byte("23:59:60+02:00"))
+	if err != nil {
+		t.Fatalf("parse leap value: %v", err)
+	}
+	want := valuekey.TemporalKeyBytes(nil, 2, leapValue.Time, temporal.ValueTimezoneKind(leapValue.TimezoneKind), leapValue.LeapSecond)
+	if !bytes.Equal(got, want) {
+		t.Fatalf("fixed key = %x, want %x", got, want)
+	}
+
+	nonLeapValue, err := temporal.Parse(temporal.KindTime, []byte("22:00:00Z"))
+	if err != nil {
+		t.Fatalf("parse non-leap value: %v", err)
+	}
+	nonLeapKey := valuekey.TemporalKeyBytes(nil, 2, nonLeapValue.Time, temporal.ValueTimezoneKind(nonLeapValue.TimezoneKind), nonLeapValue.LeapSecond)
+	if bytes.Equal(got, nonLeapKey) {
+		t.Fatalf("fixed key unexpectedly matches non-leap equivalent")
 	}
 }
 

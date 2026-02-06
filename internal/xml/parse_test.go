@@ -109,6 +109,18 @@ func TestParseNamespaceDeclarations(t *testing.T) {
 	}
 }
 
+func TestParseRejectsReservedNamespacePrefixes(t *testing.T) {
+	cases := []string{
+		`<root xmlns:xml="urn:wrong"><child/></root>`,
+		`<root xmlns:xmlns="urn:wrong"><child/></root>`,
+	}
+	for _, xmlData := range cases {
+		if _, err := Parse(strings.NewReader(xmlData)); err == nil {
+			t.Fatalf("expected error for reserved namespace declaration: %s", xmlData)
+		}
+	}
+}
+
 func TestParseNamespaceUndeclareRedeclare(t *testing.T) {
 	xmlData := `<root xmlns="a"><child xmlns=""><grand xmlns="b"/></child></root>`
 

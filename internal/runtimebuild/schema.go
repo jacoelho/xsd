@@ -514,12 +514,18 @@ func (b *schemaBuilder) buildAttributes() error {
 		}
 		if def, ok := b.validators.AttributeDefaults[entry.ID]; ok {
 			attr.Default = def
+			if key, ok := b.validators.AttributeDefaultKeys[entry.ID]; ok {
+				attr.DefaultKey = key
+			}
 			if member, ok := b.validators.AttributeDefaultMembers[entry.ID]; ok {
 				attr.DefaultMember = member
 			}
 		}
 		if fixed, ok := b.validators.AttributeFixed[entry.ID]; ok {
 			attr.Fixed = fixed
+			if key, ok := b.validators.AttributeFixedKeys[entry.ID]; ok {
+				attr.FixedKey = key
+			}
 			if member, ok := b.validators.AttributeFixedMembers[entry.ID]; ok {
 				attr.FixedMember = member
 			}
@@ -615,12 +621,18 @@ func (b *schemaBuilder) buildElements() error {
 
 		if def, ok := b.validators.ElementDefaults[entry.ID]; ok {
 			elem.Default = def
+			if key, ok := b.validators.ElementDefaultKeys[entry.ID]; ok {
+				elem.DefaultKey = key
+			}
 			if member, ok := b.validators.ElementDefaultMembers[entry.ID]; ok {
 				elem.DefaultMember = member
 			}
 		}
 		if fixed, ok := b.validators.ElementFixed[entry.ID]; ok {
 			elem.Fixed = fixed
+			if key, ok := b.validators.ElementFixedKeys[entry.ID]; ok {
+				elem.FixedKey = key
+			}
 			if member, ok := b.validators.ElementFixedMembers[entry.ID]; ok {
 				elem.FixedMember = member
 			}
@@ -1160,6 +1172,9 @@ func (b *schemaBuilder) collectAttrUses(ct *types.ComplexType) ([]runtime.AttrUs
 		if decl.HasDefault {
 			if def, ok := b.validators.AttrUseDefaults[decl]; ok {
 				use.Default = def
+				if key, ok := b.validators.AttrUseDefaultKeys[decl]; ok {
+					use.DefaultKey = key
+				}
 				if member, ok := b.validators.AttrUseDefaultMembers[decl]; ok {
 					use.DefaultMember = member
 				}
@@ -1170,6 +1185,9 @@ func (b *schemaBuilder) collectAttrUses(ct *types.ComplexType) ([]runtime.AttrUs
 		if decl.HasFixed {
 			if fixed, ok := b.validators.AttrUseFixed[decl]; ok {
 				use.Fixed = fixed
+				if key, ok := b.validators.AttrUseFixedKeys[decl]; ok {
+					use.FixedKey = key
+				}
 				if member, ok := b.validators.AttrUseFixedMembers[decl]; ok {
 					use.FixedMember = member
 				}
@@ -1181,12 +1199,18 @@ func (b *schemaBuilder) collectAttrUses(ct *types.ComplexType) ([]runtime.AttrUs
 			if attrID, ok := b.schemaAttrID(target); ok {
 				if def, ok := b.validators.AttributeDefaults[attrID]; ok {
 					use.Default = def
+					if key, ok := b.validators.AttributeDefaultKeys[attrID]; ok {
+						use.DefaultKey = key
+					}
 					if member, ok := b.validators.AttributeDefaultMembers[attrID]; ok {
 						use.DefaultMember = member
 					}
 				}
 				if fixed, ok := b.validators.AttributeFixed[attrID]; ok {
 					use.Fixed = fixed
+					if key, ok := b.validators.AttributeFixedKeys[attrID]; ok {
+						use.FixedKey = key
+					}
 					if member, ok := b.validators.AttributeFixedMembers[attrID]; ok {
 						use.FixedMember = member
 					}
@@ -1210,7 +1234,8 @@ func buildAttrHashTable(uses []runtime.AttrUse, off uint32) runtime.AttrHashTabl
 		Slot: make([]uint32, size),
 	}
 	mask := uint64(size - 1)
-	for i, use := range uses {
+	for i := range uses {
+		use := &uses[i]
 		h := uint64(use.Name)
 		if h == 0 {
 			h = 1

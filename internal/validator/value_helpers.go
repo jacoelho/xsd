@@ -212,3 +212,10 @@ func valueBytes(values runtime.ValueBlob, ref runtime.ValueRef) []byte {
 	}
 	return values.Blob[start:end]
 }
+
+func valueKeyBytes(values runtime.ValueBlob, ref runtime.ValueKeyRef) []byte {
+	if !ref.Ref.Present {
+		return nil
+	}
+	return valueBytes(values, ref.Ref)
+}

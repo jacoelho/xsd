@@ -115,6 +115,22 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 		}
 	}
 	seenID := false
+	fixedMatches := func(validator, member runtime.ValidatorID, canonical []byte, metrics valueMetrics, fixed runtime.ValueRef, fixedKey runtime.ValueKeyRef) (bool, error) {
+		if fixedKey.Ref.Present {
+			actualKind := metrics.keyKind
+			actualKey := metrics.keyBytes
+			if actualKind == runtime.VKInvalid {
+				kind, key, err := s.keyForCanonicalValue(validator, canonical, resolver, member)
+				if err != nil {
+					return false, err
+				}
+				actualKind = kind
+				actualKey = key
+			}
+			return actualKind == fixedKey.Kind && bytes.Equal(actualKey, valueKeyBytes(s.rt.Values, fixedKey)), nil
+		}
+		return bytes.Equal(canonical, valueBytes(s.rt.Values, fixed)), nil
+	}
 
 	for _, attr := range attrs {
 		if s.isUnknownXsiAttribute(&attr) {
@@ -141,6 +157,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 					trackIDs:         true,
 					requireCanonical: use.Fixed.Present,
 					storeValue:       storeAttrs,
+					needKey:          use.Fixed.Present,
 				})
 				if err != nil {
 					return nil, seenID, wrapValueError(err)
@@ -158,8 +175,11 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 					attr.KeyBytes = metrics.keyBytes
 				}
 				if use.Fixed.Present {
-					fixed := valueBytes(s.rt.Values, use.Fixed)
-					if !bytes.Equal(canon, fixed) {
+					match, err := fixedMatches(use.Validator, use.FixedMember, canon, metrics, use.Fixed, use.FixedKey)
+					if err != nil {
+						return nil, seenID, err
+					}
+					if !match {
 						return nil, seenID, newValidationError(xsdErrors.ErrAttributeFixedValue, "fixed attribute value mismatch")
 					}
 				}
@@ -239,6 +259,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 				trackIDs:         true,
 				requireCanonical: globalAttr.Fixed.Present,
 				storeValue:       storeAttrs,
+				needKey:          globalAttr.Fixed.Present,
 			})
 			if err != nil {
 				return nil, seenID, wrapValueError(err)
@@ -257,8 +278,11 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 				validated = append(validated, attr)
 			}
 			if globalAttr.Fixed.Present {
-				fixed := valueBytes(s.rt.Values, globalAttr.Fixed)
-				if !bytes.Equal(canon, fixed) {
+				match, err := fixedMatches(globalAttr.Validator, globalAttr.FixedMember, canon, metrics, globalAttr.Fixed, globalAttr.FixedKey)
+				if err != nil {
+					return nil, seenID, err
+				}
+				if !match {
 					return nil, seenID, newValidationError(xsdErrors.ErrAttributeFixedValue, "fixed attribute value mismatch")
 				}
 			}
@@ -276,7 +300,8 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 		applied = make([]AttrApplied, 0, len(uses))
 	}
 
-	for i, use := range uses {
+	for i := range uses {
+		use := &uses[i]
 		if use.Use == runtime.AttrProhibited {
 			continue
 		}
@@ -293,13 +318,19 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 				}
 				seenID = true
 			}
-			if err := s.trackDefaultValue(use.Validator, valueBytes(s.rt.Values, use.Fixed), nil, use.FixedMember); err != nil {
+			fixedValue := valueBytes(s.rt.Values, use.Fixed)
+			if err := s.trackDefaultValue(use.Validator, fixedValue, nil, use.FixedMember); err != nil {
 				return nil, err
 			}
 			if storeAttrs {
-				kind, key, err := s.keyForCanonicalValue(use.Validator, valueBytes(s.rt.Values, use.Fixed), nil, use.FixedMember)
-				if err != nil {
-					return nil, err
+				kind := use.FixedKey.Kind
+				key := valueKeyBytes(s.rt.Values, use.FixedKey)
+				if !use.FixedKey.Ref.Present {
+					var err error
+					kind, key, err = s.keyForCanonicalValue(use.Validator, fixedValue, nil, use.FixedMember)
+					if err != nil {
+						return nil, err
+					}
 				}
 				applied = append(applied, AttrApplied{
 					Name:     use.Name,
@@ -320,13 +351,19 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 				}
 				seenID = true
 			}
-			if err := s.trackDefaultValue(use.Validator, valueBytes(s.rt.Values, use.Default), nil, use.DefaultMember); err != nil {
+			defaultValue := valueBytes(s.rt.Values, use.Default)
+			if err := s.trackDefaultValue(use.Validator, defaultValue, nil, use.DefaultMember); err != nil {
 				return nil, err
 			}
 			if storeAttrs {
-				kind, key, err := s.keyForCanonicalValue(use.Validator, valueBytes(s.rt.Values, use.Default), nil, use.DefaultMember)
-				if err != nil {
-					return nil, err
+				kind := use.DefaultKey.Kind
+				key := valueKeyBytes(s.rt.Values, use.DefaultKey)
+				if !use.DefaultKey.Ref.Present {
+					var err error
+					kind, key, err = s.keyForCanonicalValue(use.Validator, defaultValue, nil, use.DefaultMember)
+					if err != nil {
+						return nil, err
+					}
 				}
 				applied = append(applied, AttrApplied{
 					Name:     use.Name,
@@ -572,9 +609,10 @@ func lookupAttrUse(rt *runtime.Schema, ref runtime.AttrIndexRef, sym runtime.Sym
 		}
 		return runtime.AttrUse{}, -1, false
 	default:
-		for i, use := range uses {
+		for i := range uses {
+			use := &uses[i]
 			if use.Name == sym {
-				return use, i, true
+				return *use, i, true
 			}
 		}
 		return runtime.AttrUse{}, -1, false

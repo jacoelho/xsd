@@ -66,3 +66,24 @@ func TestBuildSchemaAllGroupSubstitutionMemberMissingID(t *testing.T) {
 		t.Fatalf("expected missing substitution member ID error, got %v", err)
 	}
 }
+
+func TestBuildSchemaMissingSubstitutionGroupHeadFails(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="member" substitutionGroup="tns:missing" type="xs:string"/>
+</xs:schema>`
+
+	sch, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	sch.Phase = parser.PhaseResolved
+	sch.HasPlaceholders = false
+
+	if _, err := BuildSchema(sch, BuildConfig{}); err == nil || !strings.Contains(err.Error(), "substitutionGroup") {
+		t.Fatalf("expected missing substitutionGroup head error, got %v", err)
+	}
+}

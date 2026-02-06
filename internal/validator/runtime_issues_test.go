@@ -39,12 +39,12 @@ func TestValidateReaderSetupErrorWrapped(t *testing.T) {
 	sess := NewSession(schema)
 
 	sentinel := errors.New("reader setup failed")
-	orig := newXMLReader
-	newXMLReader = func(_ io.Reader, _ ...xmlstream.Option) (*xmlstream.Reader, error) {
+	orig := sess.readerFactory
+	sess.readerFactory = func(_ io.Reader, _ ...xmlstream.Option) (*xmlstream.Reader, error) {
 		return nil, sentinel
 	}
 	t.Cleanup(func() {
-		newXMLReader = orig
+		sess.readerFactory = orig
 	})
 
 	err = sess.Validate(strings.NewReader("<root/>"))
@@ -125,7 +125,7 @@ func TestRootAnyAllowsUndeclaredRoot(t *testing.T) {
 	}
 }
 
-func TestUnionWhitespacePreserveRuntime(t *testing.T) {
+func TestUnionWhitespaceCollapseRuntime(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            xmlns:tns="urn:test"
@@ -143,8 +143,8 @@ func TestUnionWhitespacePreserveRuntime(t *testing.T) {
 </xs:schema>`
 
 	docXML := `<root xmlns="urn:test">  a  </root>`
-	if err := validateRuntimeDoc(t, schemaXML, docXML); err == nil {
-		t.Fatalf("expected pattern violation for preserved whitespace")
+	if err := validateRuntimeDoc(t, schemaXML, docXML); err != nil {
+		t.Fatalf("expected collapsed union whitespace to satisfy pattern: %v", err)
 	}
 }
 
@@ -583,6 +583,29 @@ func TestUnionPatternAfterCollapseRejects(t *testing.T) {
 	doc := `<root xmlns="urn:test">a  b</root>`
 	if err := validateRuntimeDoc(t, schemaXML, doc); err == nil {
 		t.Fatalf("expected collapsed pattern to reject value")
+	}
+}
+
+func TestUnionPatternAfterCollapseRejectsStringMember(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="P">
+    <xs:restriction base="tns:U">
+      <xs:pattern value="\S+\s{2}\S+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:P"/>
+</xs:schema>`
+
+	doc := `<root xmlns="urn:test">a  b</root>`
+	if err := validateRuntimeDoc(t, schemaXML, doc); err == nil {
+		t.Fatalf("expected union pattern to evaluate collapsed lexical value")
 	}
 }
 

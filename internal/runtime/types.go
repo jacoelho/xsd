@@ -69,6 +69,8 @@ type Element struct {
 
 	Default       ValueRef
 	Fixed         ValueRef
+	DefaultKey    ValueKeyRef
+	FixedKey      ValueKeyRef
 	DefaultMember ValidatorID
 	FixedMember   ValidatorID
 
@@ -100,6 +102,8 @@ type Attribute struct {
 	Validator     ValidatorID
 	Default       ValueRef
 	Fixed         ValueRef
+	DefaultKey    ValueKeyRef
+	FixedKey      ValueKeyRef
 	DefaultMember ValidatorID
 	FixedMember   ValidatorID
 }
@@ -110,6 +114,8 @@ type AttrUse struct {
 	Use           AttrUseKind
 	Default       ValueRef
 	Fixed         ValueRef
+	DefaultKey    ValueKeyRef
+	FixedKey      ValueKeyRef
 	DefaultMember ValidatorID
 	FixedMember   ValidatorID
 }

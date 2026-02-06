@@ -19,11 +19,11 @@ const (
 
 type whiteSpaceNormalizer struct{}
 
-func (n whiteSpaceNormalizer) Normalize(value string, typ Type) (string, error) {
+func (n whiteSpaceNormalizer) Normalize(lexical string, typ Type) (string, error) {
 	if typ == nil {
-		return value, nil
+		return lexical, nil
 	}
-	return ApplyWhiteSpace(value, typ.WhiteSpace()), nil
+	return ApplyWhiteSpace(lexical, typ.WhiteSpace()), nil
 }
 
 // ApplyWhiteSpace applies whitespace normalization
@@ -47,29 +47,29 @@ func ApplyWhiteSpace(lexical string, ws WhiteSpace) string {
 
 // NormalizeWhiteSpace applies whitespace normalization for simple types.
 // Non-simple types are returned unchanged.
-func NormalizeWhiteSpace(value string, typ Type) string {
+func NormalizeWhiteSpace(lexical string, typ Type) string {
 	if typ == nil {
-		return value
+		return lexical
 	}
 	switch typ.(type) {
 	case *SimpleType, *BuiltinType:
-		return ApplyWhiteSpace(value, typ.WhiteSpace())
+		return ApplyWhiteSpace(lexical, typ.WhiteSpace())
 	default:
-		return value
+		return lexical
 	}
 }
 
-func splitXMLWhitespaceFields(value string) []string {
-	return strings.FieldsFunc(value, isXMLWhitespaceRune)
+func splitXMLWhitespaceFields(lexical string) []string {
+	return strings.FieldsFunc(lexical, isXMLWhitespaceRune)
 }
 
 // SplitXMLWhitespaceFields splits a string on XML whitespace (space, tab, CR, LF).
 // It returns nil for empty input.
-func SplitXMLWhitespaceFields(value string) []string {
-	if value == "" {
+func SplitXMLWhitespaceFields(lexical string) []string {
+	if lexical == "" {
 		return nil
 	}
-	return splitXMLWhitespaceFields(value)
+	return splitXMLWhitespaceFields(lexical)
 }
 
 // TrimXMLWhitespace removes leading and trailing XML whitespace (space, tab, CR, LF).

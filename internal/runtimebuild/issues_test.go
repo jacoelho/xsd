@@ -296,6 +296,30 @@ func TestUnionWhitespaceNormalizationDuringCompile(t *testing.T) {
 	}
 }
 
+func TestUnionPatternCollapseDuringCompile(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:union"
+           targetNamespace="urn:union"
+           elementFormDefault="qualified"
+           attributeFormDefault="qualified">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="R">
+    <xs:restriction base="tns:U">
+      <xs:pattern value="\S+\s{2}\S+"/>
+      <xs:enumeration value="a  b"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>`
+
+	parsed := mustResolveSchema(t, schemaXML)
+	if _, err := BuildSchema(parsed, BuildConfig{}); err == nil {
+		t.Fatalf("expected compile error for union pattern violating collapsed lexical form")
+	}
+}
+
 func TestUnionEnumerationRespectsNestedMemberEnums(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

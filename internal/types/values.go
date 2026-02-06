@@ -9,6 +9,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 // TypedValue represents a value with its XSD type
@@ -210,6 +211,15 @@ func NewIntegerValue(parsed ParsedValue[num.Int], typ *SimpleType) TypedValue {
 	return &IntegerValue{simpleValue: newSimpleValue(parsed, typ, nil)}
 }
 
+func (v *IntegerValue) String() string {
+	if v == nil {
+		return ""
+	}
+	buf := make([]byte, 0, len(v.native.Digits)+1)
+	buf = v.native.RenderCanonical(buf)
+	return string(buf)
+}
+
 // BooleanValue represents a boolean value
 type BooleanValue struct {
 	simpleValue[bool]
@@ -279,6 +289,15 @@ func NewDateTimeValue(parsed ParsedValue[time.Time], typ *SimpleType) TypedValue
 }
 
 func (v *DateTimeValue) String() string {
+	if v == nil {
+		return ""
+	}
+	if kind, ok := temporal.KindFromPrimitiveName(string(v.kind)); ok {
+		parsed, err := temporal.Parse(kind, []byte(v.lexical))
+		if err == nil {
+			return temporal.Canonical(parsed)
+		}
+	}
 	return value.CanonicalDateTimeString(v.native, string(v.kind), v.tzKind)
 }
 
@@ -402,12 +421,12 @@ func NewUnsignedByteValue(parsed ParsedValue[uint8], typ *SimpleType) TypedValue
 
 // ValueAs extracts the native value from a TypedValue with type safety.
 // Returns an error if the value type doesn't match the requested type.
-func ValueAs[T any](value TypedValue) (T, error) {
+func ValueAs[T any](typedValue TypedValue) (T, error) {
 	var zero T
-	if value == nil {
+	if typedValue == nil {
 		return zero, fmt.Errorf("cannot convert nil value")
 	}
-	native := value.Native()
+	native := typedValue.Native()
 
 	// for Comparable wrapper types, extract the inner value
 	if nativeVal, ok := as[T](native); ok {
@@ -422,7 +441,7 @@ func ValueAs[T any](value TypedValue) (T, error) {
 
 	// get XSD type name for user-friendly error message
 	xsdTypeName := "unknown"
-	if typ := value.Type(); typ != nil {
+	if typ := typedValue.Type(); typ != nil {
 		xsdTypeName = typ.Name().Local
 	}
 	return zero, fmt.Errorf("cannot convert value of type %s", xsdTypeName)

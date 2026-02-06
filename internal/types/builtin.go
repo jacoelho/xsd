@@ -1,9 +1,16 @@
 package types
 
-import "unicode/utf8"
+import (
+	"unicode/utf8"
+
+	"github.com/jacoelho/xsd/internal/xmlnames"
+)
 
 // XSDNamespace is the XML Schema namespace URI.
 const XSDNamespace NamespaceURI = "http://www.w3.org/2001/XMLSchema"
+
+// XMLNamespace is the XML namespace URI.
+const XMLNamespace NamespaceURI = NamespaceURI(xmlnames.XMLNamespace)
 
 // TypeValidator validates a string value according to a type's rules.
 // It is used to implement validation logic for built-in XSD types.
