@@ -37,5 +37,5 @@ w3c: testdata/xsdtests
 	go test -timeout 2m -tags w3c -run ^TestW3CConformance github.com/jacoelho/xsd/w3c --count=1
 
 .PHONY: test
-test: testdata/xsdtests
+test: archcheck testdata/xsdtests
 	go test -timeout 2m -race -shuffle=on ./...
