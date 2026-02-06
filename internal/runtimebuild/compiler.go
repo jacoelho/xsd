@@ -11,6 +11,7 @@ import (
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
@@ -1202,7 +1203,7 @@ func (c *compiler) collectFacetsRecursive(st *types.SimpleType, seen map[*types.
 				result = append(result, facet)
 			case *types.DeferredFacet:
 				base := c.res.baseType(st)
-				resolved, err := convertDeferredFacet(facet, base)
+				resolved, err := typeops.DefaultDeferredFacetConverter(facet, base)
 				if err != nil {
 					return nil, err
 				}
@@ -1436,22 +1437,4 @@ func (c *compiler) shouldSkipLengthFacet(typ types.Type, facet types.Facet) bool
 		return false
 	}
 	return c.res.isQNameOrNotation(typ)
-}
-
-func convertDeferredFacet(df *types.DeferredFacet, base types.Type) (types.Facet, error) {
-	if df == nil || base == nil {
-		return nil, nil
-	}
-	switch df.FacetName {
-	case "minInclusive":
-		return types.NewMinInclusive(df.FacetValue, base)
-	case "maxInclusive":
-		return types.NewMaxInclusive(df.FacetValue, base)
-	case "minExclusive":
-		return types.NewMinExclusive(df.FacetValue, base)
-	case "maxExclusive":
-		return types.NewMaxExclusive(df.FacetValue, base)
-	default:
-		return nil, fmt.Errorf("unknown deferred facet type: %s", df.FacetName)
-	}
 }
