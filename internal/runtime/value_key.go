@@ -26,6 +26,12 @@ type ValueKey struct {
 	Kind  ValueKind
 }
 
+// ValueKeyRef stores a semantic value key in the shared value blob.
+type ValueKeyRef struct {
+	Kind ValueKind
+	Ref  ValueRef
+}
+
 // AppendListKey appends a typed key entry to a list key buffer.
 // The format is: kind (1 byte) + varint(len) + key bytes.
 func AppendListKey(dst []byte, kind ValueKind, key []byte) []byte {

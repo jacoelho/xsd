@@ -283,8 +283,9 @@ func TestDefaultNamespaceDeclPrefixMatch(t *testing.T) {
 }
 
 func TestPrefixedNamespaceDeclXML(t *testing.T) {
-	if local, ok := prefixedNamespaceDecl([]byte("xmlns:xml")); ok || local != nil {
-		t.Fatalf("prefixedNamespaceDecl(xmlns:xml) = %q, ok=%v, want nil, false", local, ok)
+	local, ok := prefixedNamespaceDecl([]byte("xmlns:xml"))
+	if !ok || string(local) != "xml" {
+		t.Fatalf("prefixedNamespaceDecl(xmlns:xml) = %q, ok=%v, want xml, true", local, ok)
 	}
 }
 
@@ -551,31 +552,33 @@ func TestUnboundPrefixErrorNilDecoder(t *testing.T) {
 	}
 }
 
-func TestXMLNSXMLBindingIgnored(t *testing.T) {
+func TestXMLNSXMLBindingRejected(t *testing.T) {
 	input := `<root xmlns:xml="urn:wrong"><child/></root>`
 	r, err := NewReader(strings.NewReader(input))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err = r.Next(); err != nil {
-		t.Fatalf("root start error = %v", err)
+	if _, err = r.Next(); err == nil {
+		t.Fatalf("expected error for xmlns:xml rebind")
 	}
-	if ns, ok := r.LookupNamespace("xml"); !ok || ns != XMLNamespace {
-		t.Fatalf("LookupNamespace xml = %q, ok=%v, want %q, true", ns, ok, XMLNamespace)
+	var syntax *xmltext.SyntaxError
+	if !errors.As(err, &syntax) {
+		t.Fatalf("xmlns:xml error type = %T, want *xmltext.SyntaxError", err)
 	}
 }
 
-func TestXMLNSXMLNSBindingIgnored(t *testing.T) {
+func TestXMLNSXMLNSBindingRejected(t *testing.T) {
 	input := `<root xmlns:xmlns="urn:wrong"><child/></root>`
 	r, err := NewReader(strings.NewReader(input))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
-	if _, err = r.Next(); err != nil {
-		t.Fatalf("root start error = %v", err)
+	if _, err = r.Next(); err == nil {
+		t.Fatalf("expected error for xmlns:xmlns declaration")
 	}
-	if _, ok := r.LookupNamespace("xmlns"); ok {
-		t.Fatalf("LookupNamespace xmlns = true, want false")
+	var syntax *xmltext.SyntaxError
+	if !errors.As(err, &syntax) {
+		t.Fatalf("xmlns:xmlns error type = %T, want *xmltext.SyntaxError", err)
 	}
 }
 

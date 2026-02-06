@@ -45,7 +45,7 @@ func TestValidateNumericRanges(t *testing.T) {
 	}
 }
 
-func TestValidateUnsignedLexicalSigns(t *testing.T) {
+func TestValidateUnsignedLexicalSignedNonNegative(t *testing.T) {
 	tests := []struct {
 		fn    func(string) error
 		name  string

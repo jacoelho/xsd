@@ -43,7 +43,7 @@ func ValidateUPA(schema *parser.Schema, content types.Content, _ types.Namespace
 			return err
 		}
 		particle = expanded
-		relaxOccursInPlace(particle)
+		particle = relaxOccursCopy(particle)
 	}
 	if baseParticle != nil {
 		expanded, err := expandGroupRefs(schema, baseParticle, make(map[types.QName]bool))
@@ -51,7 +51,7 @@ func ValidateUPA(schema *parser.Schema, content types.Content, _ types.Namespace
 			return err
 		}
 		baseParticle = expanded
-		relaxOccursInPlace(baseParticle)
+		baseParticle = relaxOccursCopy(baseParticle)
 	}
 
 	if baseParticle != nil && particle != nil {
@@ -97,9 +97,6 @@ func newUPAChecker(schema *parser.Schema) *upaChecker {
 }
 
 func (c *upaChecker) positionsOverlap(left, right models.Position) bool {
-	if left.Kind == models.PositionElement && right.Kind == models.PositionElement && left.Element == right.Element {
-		return false
-	}
 	if left.Kind == models.PositionWildcard && right.Kind == models.PositionWildcard && left.Wildcard == right.Wildcard {
 		return false
 	}
@@ -171,17 +168,37 @@ func wildcardMatchesQName(wildcard *types.AnyElement, qname types.QName) bool {
 	return types.AllowsNamespace(wildcard.Namespace, wildcard.NamespaceList, wildcard.TargetNamespace, qname.Namespace)
 }
 
-func relaxOccursInPlace(particle types.Particle) {
+func relaxOccursCopy(particle types.Particle) types.Particle {
 	switch typed := particle.(type) {
 	case *types.ElementDecl:
-		typed.MinOccurs, typed.MaxOccurs = relaxOccurs(typed.MinOccurs, typed.MaxOccurs)
-	case *types.AnyElement:
-		typed.MinOccurs, typed.MaxOccurs = relaxOccurs(typed.MinOccurs, typed.MaxOccurs)
-	case *types.ModelGroup:
-		typed.MinOccurs, typed.MaxOccurs = relaxOccurs(typed.MinOccurs, typed.MaxOccurs)
-		for _, child := range typed.Particles {
-			relaxOccursInPlace(child)
+		if typed == nil {
+			return nil
 		}
+		clone := *typed
+		clone.MinOccurs, clone.MaxOccurs = relaxOccurs(typed.MinOccurs, typed.MaxOccurs)
+		return &clone
+	case *types.AnyElement:
+		if typed == nil {
+			return nil
+		}
+		clone := *typed
+		clone.MinOccurs, clone.MaxOccurs = relaxOccurs(typed.MinOccurs, typed.MaxOccurs)
+		return &clone
+	case *types.ModelGroup:
+		if typed == nil {
+			return nil
+		}
+		clone := *typed
+		clone.MinOccurs, clone.MaxOccurs = relaxOccurs(typed.MinOccurs, typed.MaxOccurs)
+		if len(typed.Particles) > 0 {
+			clone.Particles = make([]types.Particle, 0, len(typed.Particles))
+			for _, child := range typed.Particles {
+				clone.Particles = append(clone.Particles, relaxOccursCopy(child))
+			}
+		}
+		return &clone
+	default:
+		return particle
 	}
 }
 

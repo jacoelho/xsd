@@ -66,6 +66,17 @@ func requireReferenceErrorContains(t *testing.T, schema *parser.Schema, substr s
 	t.Fatalf("expected reference error containing %q, got %v", substr, errs[0])
 }
 
+func requireReferenceErrorNotContains(t *testing.T, schema *parser.Schema, substr string) {
+	t.Helper()
+
+	errs := ValidateReferences(schema)
+	for _, err := range errs {
+		if err != nil && strings.Contains(err.Error(), substr) {
+			t.Fatalf("unexpected reference error containing %q: %v", substr, err)
+		}
+	}
+}
+
 func TestResolveW3CGroupAndAttributeGroup(t *testing.T) {
 	schema := resolveW3CSchema(t, "sunData/combined/xsd024/xsd024.xsdmod")
 	requireNoReferenceErrors(t, schema)
@@ -250,6 +261,26 @@ func TestValidateReferencesSubstitutionGroupExplicitAnyType(t *testing.T) {
 		t.Fatalf("resolve schema: %v", err)
 	}
 	requireReferenceErrorContains(t, schema, "not derived from substitution group head type")
+}
+
+func TestValidateReferencesMissingSubstitutionGroupHead(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test">
+  <xs:element name="member" type="xs:string" substitutionGroup="tns:missing"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	if err := ResolveTypeReferences(schema); err != nil {
+		t.Fatalf("resolve type references: %v", err)
+	}
+	requireReferenceErrorContains(t, schema, "substitutionGroup")
+	requireReferenceErrorContains(t, schema, "does not exist")
+	requireReferenceErrorNotContains(t, schema, "cyclic substitution group")
 }
 
 func TestValidateReferencesListDefaultRejectsNonXMLWhitespace(t *testing.T) {

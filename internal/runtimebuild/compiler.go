@@ -6,7 +6,6 @@ import (
 	"maps"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -14,18 +13,25 @@ import (
 	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 type CompiledValidators struct {
 	AttributeDefaults       map[schema.AttrID]runtime.ValueRef
+	AttributeDefaultKeys    map[schema.AttrID]runtime.ValueKeyRef
 	TypeValidators          map[schema.TypeID]runtime.ValidatorID
 	ValidatorByType         map[types.Type]runtime.ValidatorID
 	SimpleContentTypes      map[*types.ComplexType]types.Type
 	ElementDefaults         map[schema.ElemID]runtime.ValueRef
+	ElementDefaultKeys      map[schema.ElemID]runtime.ValueKeyRef
 	ElementFixed            map[schema.ElemID]runtime.ValueRef
+	ElementFixedKeys        map[schema.ElemID]runtime.ValueKeyRef
 	AttributeFixed          map[schema.AttrID]runtime.ValueRef
+	AttributeFixedKeys      map[schema.AttrID]runtime.ValueKeyRef
 	AttrUseDefaults         map[*types.AttributeDecl]runtime.ValueRef
+	AttrUseDefaultKeys      map[*types.AttributeDecl]runtime.ValueKeyRef
 	AttrUseFixed            map[*types.AttributeDecl]runtime.ValueRef
+	AttrUseFixedKeys        map[*types.AttributeDecl]runtime.ValueKeyRef
 	ElementDefaultMembers   map[schema.ElemID]runtime.ValidatorID
 	ElementFixedMembers     map[schema.ElemID]runtime.ValidatorID
 	AttributeDefaultMembers map[schema.AttrID]runtime.ValidatorID
@@ -82,16 +88,22 @@ func (c *CompiledValidators) ValidatorForType(typ types.Type) (runtime.Validator
 type compiler struct {
 	facetsCache           map[*types.SimpleType][]types.Facet
 	attrDefaultMembers    map[schema.AttrID]runtime.ValidatorID
+	attrDefaultKeys       map[schema.AttrID]runtime.ValueKeyRef
 	builtinTypeIDs        map[types.TypeName]runtime.TypeID
 	attrUseFixedMembers   map[*types.AttributeDecl]runtime.ValidatorID
 	attrDefaults          map[schema.AttrID]runtime.ValueRef
+	attrUseDefaultKeys    map[*types.AttributeDecl]runtime.ValueKeyRef
+	attrUseFixedKeys      map[*types.AttributeDecl]runtime.ValueKeyRef
 	elemFixed             map[schema.ElemID]runtime.ValueRef
+	elemFixedKeys         map[schema.ElemID]runtime.ValueKeyRef
 	simpleContent         map[*types.ComplexType]types.Type
 	attrUseFixed          map[*types.AttributeDecl]runtime.ValueRef
 	attrUseDefaults       map[*types.AttributeDecl]runtime.ValueRef
 	attrFixed             map[schema.AttrID]runtime.ValueRef
+	attrFixedKeys         map[schema.AttrID]runtime.ValueKeyRef
 	res                   *typeResolver
 	elemDefaults          map[schema.ElemID]runtime.ValueRef
+	elemDefaultKeys       map[schema.ElemID]runtime.ValueKeyRef
 	runtimeTypeIDs        map[schema.TypeID]runtime.TypeID
 	registry              *schema.Registry
 	attrUseDefaultMembers map[*types.AttributeDecl]runtime.ValidatorID
@@ -116,11 +128,17 @@ func newCompiler(sch *parser.Schema) *compiler {
 		compiling:             make(map[types.Type]bool),
 		facetsCache:           make(map[*types.SimpleType][]types.Facet),
 		elemDefaults:          make(map[schema.ElemID]runtime.ValueRef),
+		elemDefaultKeys:       make(map[schema.ElemID]runtime.ValueKeyRef),
 		elemFixed:             make(map[schema.ElemID]runtime.ValueRef),
+		elemFixedKeys:         make(map[schema.ElemID]runtime.ValueKeyRef),
 		attrDefaults:          make(map[schema.AttrID]runtime.ValueRef),
+		attrDefaultKeys:       make(map[schema.AttrID]runtime.ValueKeyRef),
 		attrFixed:             make(map[schema.AttrID]runtime.ValueRef),
+		attrFixedKeys:         make(map[schema.AttrID]runtime.ValueKeyRef),
 		attrUseDefaults:       make(map[*types.AttributeDecl]runtime.ValueRef),
+		attrUseDefaultKeys:    make(map[*types.AttributeDecl]runtime.ValueKeyRef),
 		attrUseFixed:          make(map[*types.AttributeDecl]runtime.ValueRef),
+		attrUseFixedKeys:      make(map[*types.AttributeDecl]runtime.ValueKeyRef),
 		elemDefaultMembers:    make(map[schema.ElemID]runtime.ValidatorID),
 		elemFixedMembers:      make(map[schema.ElemID]runtime.ValidatorID),
 		attrDefaultMembers:    make(map[schema.AttrID]runtime.ValidatorID),
@@ -210,11 +228,17 @@ func (c *compiler) result(registry *schema.Registry) *CompiledValidators {
 		TypeValidators:          make(map[schema.TypeID]runtime.ValidatorID),
 		ValidatorByType:         make(map[types.Type]runtime.ValidatorID),
 		ElementDefaults:         c.elemDefaults,
+		ElementDefaultKeys:      c.elemDefaultKeys,
 		ElementFixed:            c.elemFixed,
+		ElementFixedKeys:        c.elemFixedKeys,
 		AttributeDefaults:       c.attrDefaults,
+		AttributeDefaultKeys:    c.attrDefaultKeys,
 		AttributeFixed:          c.attrFixed,
+		AttributeFixedKeys:      c.attrFixedKeys,
 		AttrUseDefaults:         c.attrUseDefaults,
+		AttrUseDefaultKeys:      c.attrUseDefaultKeys,
 		AttrUseFixed:            c.attrUseFixed,
+		AttrUseFixedKeys:        c.attrUseFixedKeys,
 		ElementDefaultMembers:   c.elemDefaultMembers,
 		ElementFixedMembers:     c.elemFixedMembers,
 		AttributeDefaultMembers: c.attrDefaultMembers,
@@ -661,61 +685,53 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 		}
 		return []byte(value.CanonicalFloat(v, 64)), nil
 	case "dateTime":
-		v, err := value.ParseDateTime([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindDateTime, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "dateTime", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "date":
-		v, err := value.ParseDate([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindDate, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "date", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "time":
-		v, err := value.ParseTime([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindTime, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "time", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "gYearMonth":
-		v, err := value.ParseGYearMonth([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindGYearMonth, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "gYearMonth", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "gYear":
-		v, err := value.ParseGYear([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindGYear, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "gYear", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "gMonthDay":
-		v, err := value.ParseGMonthDay([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindGMonthDay, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "gMonthDay", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "gDay":
-		v, err := value.ParseGDay([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindGDay, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "gDay", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "gMonth":
-		v, err := value.ParseGMonth([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindGMonth, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "gMonth", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "duration":
 		dur, err := types.ParseXSDDuration(normalized)
 		if err != nil {
@@ -897,12 +913,16 @@ func (c *compiler) comparableValue(lexical string, typ types.Type) (types.Compar
 		}
 		return types.ComparableFloat64{Value: v}, nil
 	case "dateTime", "date", "time", "gYear", "gYearMonth", "gMonth", "gMonthDay", "gDay":
-		t, err := c.parseTemporal(primName, lexical)
+		tv, err := temporal.ParsePrimitive(primName, []byte(lexical))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(lexical))
-		return types.ComparableTime{Value: t, TimezoneKind: tzKind}, nil
+		return types.ComparableTime{
+			Value:        tv.Time,
+			TimezoneKind: temporal.ValueTimezoneKind(tv.TimezoneKind),
+			Kind:         tv.Kind,
+			LeapSecond:   tv.LeapSecond,
+		}, nil
 	case "duration":
 		dur, err := types.ParseXSDDuration(lexical)
 		if err != nil {
@@ -911,29 +931,6 @@ func (c *compiler) comparableValue(lexical string, typ types.Type) (types.Compar
 		return types.ComparableXSDDuration{Value: dur}, nil
 	default:
 		return nil, fmt.Errorf("unsupported comparable type %s", primName)
-	}
-}
-
-func (c *compiler) parseTemporal(kind, lexical string) (time.Time, error) {
-	switch kind {
-	case "dateTime":
-		return value.ParseDateTime([]byte(lexical))
-	case "date":
-		return value.ParseDate([]byte(lexical))
-	case "time":
-		return value.ParseTime([]byte(lexical))
-	case "gYearMonth":
-		return value.ParseGYearMonth([]byte(lexical))
-	case "gYear":
-		return value.ParseGYear([]byte(lexical))
-	case "gMonthDay":
-		return value.ParseGMonthDay([]byte(lexical))
-	case "gDay":
-		return value.ParseGDay([]byte(lexical))
-	case "gMonth":
-		return value.ParseGMonth([]byte(lexical))
-	default:
-		return time.Time{}, fmt.Errorf("unsupported temporal type %s", kind)
 	}
 }
 

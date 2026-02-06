@@ -10,13 +10,13 @@ import (
 
 func mustParsedResolved(t *testing.T, schemaXML string) *parser.Schema {
 	t.Helper()
-	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	parsedSchema, err := parser.Parse(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	schema.Phase = parser.PhaseResolved
-	schema.HasPlaceholders = false
-	return schema
+	parsedSchema.Phase = parser.PhaseResolved
+	parsedSchema.HasPlaceholders = false
+	return parsedSchema
 }
 
 func TestDetectTypeCycle(t *testing.T) {
@@ -93,5 +93,20 @@ func TestDetectSubstitutionGroupCycle(t *testing.T) {
 	sch := mustParsedResolved(t, schemaXML)
 	if err := schema.DetectCycles(sch); err == nil {
 		t.Fatalf("expected substitutionGroup cycle error")
+	}
+}
+
+func TestDetectSubstitutionGroupMissingHead(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:sub"
+           xmlns:tns="urn:sub"
+           elementFormDefault="qualified">
+  <xs:element name="Member" type="xs:string" substitutionGroup="tns:Missing"/>
+</xs:schema>`
+
+	sch := mustParsedResolved(t, schemaXML)
+	if err := schema.DetectCycles(sch); err == nil {
+		t.Fatalf("expected missing substitutionGroup head error")
 	}
 }

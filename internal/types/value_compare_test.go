@@ -103,7 +103,37 @@ func TestValuesEqual_TimeTimezoneWrap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseValue(00:30:00Z) error = %v", err)
 	}
-	if ValuesEqual(left, right) {
-		t.Fatalf("expected time values with different reference dates to differ")
+	if !ValuesEqual(left, right) {
+		t.Fatalf("expected time values with equivalent UTC time-of-day to be equal")
+	}
+}
+
+func TestValuesEqual_TimeLeapSecondDistinctFromMidnight(t *testing.T) {
+	timeType := mustBuiltinSimpleType(t, TypeNameTime)
+	leap, err := timeType.ParseValue("23:59:60")
+	if err != nil {
+		t.Fatalf("ParseValue(23:59:60) error = %v", err)
+	}
+	midnight, err := timeType.ParseValue("00:00:00")
+	if err != nil {
+		t.Fatalf("ParseValue(00:00:00) error = %v", err)
+	}
+	if ValuesEqual(leap, midnight) {
+		t.Fatalf("expected leap second to differ from plain midnight")
+	}
+}
+
+func TestValuesEqual_DateTimeLeapSecondDistinctFromNextSecond(t *testing.T) {
+	dateTimeType := mustBuiltinSimpleType(t, TypeNameDateTime)
+	leap, err := dateTimeType.ParseValue("1999-12-31T23:59:60Z")
+	if err != nil {
+		t.Fatalf("ParseValue(leap) error = %v", err)
+	}
+	nextSecond, err := dateTimeType.ParseValue("2000-01-01T00:00:00Z")
+	if err != nil {
+		t.Fatalf("ParseValue(nextSecond) error = %v", err)
+	}
+	if ValuesEqual(leap, nextSecond) {
+		t.Fatalf("expected leap dateTime to differ from next second")
 	}
 }

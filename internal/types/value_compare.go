@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 // ValuesEqual reports whether two typed values are equal in the value space.
@@ -50,15 +50,18 @@ func ValuesEqual(left, right TypedValue) bool {
 		if !ok {
 			return false
 		}
-		if isTemporalValueType(left.Type()) {
-			leftTZ := TimezoneKind(left.Lexical())
-			rightTZ := TimezoneKind(right.Lexical())
-			if leftTZ != rightTZ {
+		leftKind, leftTemporal := temporalKindFromType(left.Type())
+		rightKind, rightTemporal := temporalKindFromType(right.Type())
+		if leftTemporal || rightTemporal {
+			if !leftTemporal || !rightTemporal || leftKind != rightKind {
 				return false
 			}
-			if leftTZ == value.TZKnown {
-				return l.UTC().Equal(r.UTC())
+			leftVal, lerr := temporal.Parse(leftKind, []byte(left.Lexical()))
+			rightVal, rerr := temporal.Parse(rightKind, []byte(right.Lexical()))
+			if lerr != nil || rerr != nil {
+				return false
 			}
+			return temporal.Equal(leftVal, rightVal)
 		}
 		return l.Equal(r)
 
@@ -180,18 +183,13 @@ func durationsEqual(left, right XSDDuration, leftType, rightType Type) bool {
 	return err == nil && cmp == 0
 }
 
-func isTemporalValueType(typ Type) bool {
+func temporalKindFromType(typ Type) (temporal.Kind, bool) {
 	if typ == nil {
-		return false
+		return temporal.KindInvalid, false
 	}
 	primitive := typ.PrimitiveType()
 	if primitive == nil {
 		primitive = typ
 	}
-	switch primitive.Name().Local {
-	case "dateTime", "date", "time", "gYear", "gYearMonth", "gMonth", "gMonthDay", "gDay":
-		return true
-	default:
-		return false
-	}
+	return temporal.KindFromPrimitiveName(primitive.Name().Local)
 }

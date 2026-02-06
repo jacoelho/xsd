@@ -177,3 +177,22 @@ func TestReferenceResolutionRecursiveType(t *testing.T) {
 		t.Fatalf("ResolveReferences error = %v", err)
 	}
 }
+
+func TestReferenceResolutionMissingSubstitutionGroupHead(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:missing"
+           xmlns:tns="urn:missing"
+           elementFormDefault="qualified">
+  <xs:element name="member" type="xs:string" substitutionGroup="tns:missingHead"/>
+</xs:schema>`
+
+	sch := mustParsedResolved(t, schemaXML)
+	registry, err := schema.AssignIDs(sch)
+	if err != nil {
+		t.Fatalf("AssignIDs error = %v", err)
+	}
+	if _, err := schema.ResolveReferences(sch, registry); err == nil {
+		t.Fatalf("expected missing substitutionGroup head to fail reference resolution")
+	}
+}

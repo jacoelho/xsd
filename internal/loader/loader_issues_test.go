@@ -12,7 +12,7 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func TestLoadInvalidSchemaDoesNotCache(t *testing.T) {
+func TestLoadInvalidSchemaTripsFailStop(t *testing.T) {
 	badSchema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:unknownType"/>
@@ -31,8 +31,58 @@ func TestLoadInvalidSchemaDoesNotCache(t *testing.T) {
 	}
 
 	fs["schema.xsd"] = &fstest.MapFile{Data: []byte(goodSchema)}
-	if _, err := loader.Load("schema.xsd"); err != nil {
-		t.Fatalf("expected reload to succeed, got %v", err)
+	if _, err := loader.Load("schema.xsd"); !errors.Is(err, errLoaderFailed) {
+		t.Fatalf("expected fail-stop error, got %v", err)
+	}
+
+	fresh := NewLoader(Config{FS: fs})
+	if _, err := fresh.Load("schema.xsd"); err != nil {
+		t.Fatalf("expected load with fresh loader to succeed, got %v", err)
+	}
+}
+
+func TestLoadResolvedWithoutResolverSucceedsForSelfContainedSchema(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+
+	loader := NewLoader(Config{})
+	schema, err := loader.LoadResolved(io.NopCloser(strings.NewReader(schemaXML)), "inline.xsd")
+	if err != nil {
+		t.Fatalf("expected self-contained schema to load without resolver, got %v", err)
+	}
+	if schema == nil {
+		t.Fatalf("expected loaded schema")
+	}
+	if _, ok := schema.ElementDecls[types.QName{Namespace: "", Local: "root"}]; !ok {
+		t.Fatalf("expected root element declaration")
+	}
+}
+
+func TestLoadResolvedWithoutResolverFailsWhenDirectiveNeedsResolution(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="inc.xsd"/>
+</xs:schema>`
+
+	loader := NewLoader(Config{})
+	_, err := loader.LoadResolved(io.NopCloser(strings.NewReader(schemaXML)), "inline.xsd")
+	if err == nil || !strings.Contains(err.Error(), "no resolver configured") {
+		t.Fatalf("expected resolver error when include needs resolution, got %v", err)
+	}
+	if _, err := loader.LoadResolved(io.NopCloser(strings.NewReader(schemaXML)), "inline.xsd"); !errors.Is(err, errLoaderFailed) {
+		t.Fatalf("expected fail-stop error after first load failure, got %v", err)
+	}
+}
+
+func TestLoadWithoutResolverFailsFast(t *testing.T) {
+	loader := NewLoader(Config{})
+	if _, err := loader.Load("schema.xsd"); err == nil || !strings.Contains(err.Error(), "no resolver configured") {
+		t.Fatalf("expected resolver configuration error, got %v", err)
+	}
+	if _, err := loader.Load("schema.xsd"); !errors.Is(err, errLoaderFailed) {
+		t.Fatalf("expected fail-stop error on second call, got %v", err)
 	}
 }
 
@@ -199,9 +249,14 @@ func TestLoadRollbackClearsPendingAndMerges(t *testing.T) {
 	}
 
 	fs["d.xsd"] = &fstest.MapFile{Data: []byte(fixedImport)}
-	schema, err := loader.Load("a.xsd")
+	if _, err := loader.Load("a.xsd"); !errors.Is(err, errLoaderFailed) {
+		t.Fatalf("expected fail-stop error, got %v", err)
+	}
+
+	fresh := NewLoader(Config{FS: fs})
+	schema, err := fresh.Load("a.xsd")
 	if err != nil {
-		t.Fatalf("expected reload to succeed, got %v", err)
+		t.Fatalf("expected load with fresh loader to succeed, got %v", err)
 	}
 	if _, ok := schema.ElementDecls[types.QName{Namespace: "urn:root", Local: "fromB"}]; !ok {
 		t.Fatalf("expected included declaration from b.xsd to be present")
@@ -275,7 +330,7 @@ func TestLoadResolvedClosesDocOnPendingResolveError(t *testing.T) {
 		targetKey: loadKey{systemID: "missing.xsd", etn: types.NamespaceURI("urn:missing")},
 	}}
 
-	doc := &trackingReadCloser{}
+	doc := &testReadCloser{}
 	if _, err := loader.loadResolved(doc, "schema.xsd", key, validateSchema); err == nil {
 		t.Fatalf("expected pending resolve error")
 	}
@@ -386,7 +441,7 @@ func TestGroupResolutionDeterministic(t *testing.T) {
 	}
 }
 
-func TestImportNamespaceMismatchDoesNotCache(t *testing.T) {
+func TestImportNamespaceMismatchTripsFailStop(t *testing.T) {
 	rootSchema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:root"
@@ -420,8 +475,13 @@ func TestImportNamespaceMismatchDoesNotCache(t *testing.T) {
 		t.Fatalf("expected namespace mismatch error")
 	}
 	fs["other.xsd"] = &fstest.MapFile{Data: []byte(fixedSchema)}
-	if _, err := loader.Load("root.xsd"); err != nil {
-		t.Fatalf("expected reload to succeed, got %v", err)
+	if _, err := loader.Load("root.xsd"); !errors.Is(err, errLoaderFailed) {
+		t.Fatalf("expected fail-stop error, got %v", err)
+	}
+
+	fresh := NewLoader(Config{FS: fs})
+	if _, err := fresh.Load("root.xsd"); err != nil {
+		t.Fatalf("expected load with fresh loader to succeed, got %v", err)
 	}
 }
 
@@ -463,7 +523,7 @@ func TestImportIncludeWhitespaceNormalization(t *testing.T) {
 	}
 }
 
-func TestSubstitutionGroupMissingHeadAllowed(t *testing.T) {
+func TestSubstitutionGroupMissingHeadRejected(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:test"
@@ -476,8 +536,8 @@ func TestSubstitutionGroupMissingHeadAllowed(t *testing.T) {
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 	loader := NewLoader(Config{FS: fs})
-	if _, err := loader.Load("schema.xsd"); err != nil {
-		t.Fatalf("expected missing substitution group head to be ignored, got %v", err)
+	if _, err := loader.Load("schema.xsd"); err == nil || !strings.Contains(err.Error(), "substitutionGroup") {
+		t.Fatalf("expected missing substitution group head error, got %v", err)
 	}
 }
 
@@ -485,7 +545,7 @@ func TestLoadResolvedCloseErrorIncludesSystemID(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"></xs:schema>`
 	closeErr := errors.New("close failure")
-	doc := &errorCloseReadCloser{r: strings.NewReader(schemaXML), closeErr: closeErr}
+	doc := &testReadCloser{reader: strings.NewReader(schemaXML), closeErr: closeErr}
 	loader := &SchemaLoader{state: newLoadState(), imports: newImportTracker()}
 	key := loader.loadKey("schema.xsd", types.NamespaceEmpty)
 	if _, err := loader.loadResolved(doc, "schema.xsd", key, skipSchemaValidation); err == nil {
@@ -515,7 +575,7 @@ func TestLoadResolvedCloseErrorJoined(t *testing.T) {
 	}}
 
 	closeErr := errors.New("close failure")
-	doc := &errorCloseReadCloser{r: strings.NewReader(""), closeErr: closeErr}
+	doc := &testReadCloser{reader: strings.NewReader(""), closeErr: closeErr}
 	if _, err := loader.loadResolved(doc, "schema.xsd", key, validateSchema); err == nil {
 		t.Fatalf("expected pending resolve error")
 	} else if !errors.Is(err, closeErr) {
@@ -533,33 +593,4 @@ func equalQNameSlices(a, b []types.QName) bool {
 		}
 	}
 	return true
-}
-
-type trackingReadCloser struct {
-	closed bool
-}
-
-func (t *trackingReadCloser) Read(_ []byte) (int, error) {
-	return 0, io.EOF
-}
-
-func (t *trackingReadCloser) Close() error {
-	t.closed = true
-	return nil
-}
-
-type errorCloseReadCloser struct {
-	r        io.Reader
-	closeErr error
-}
-
-func (e *errorCloseReadCloser) Read(p []byte) (int, error) {
-	if e.r == nil {
-		return 0, io.EOF
-	}
-	return e.r.Read(p)
-}
-
-func (e *errorCloseReadCloser) Close() error {
-	return e.closeErr
 }

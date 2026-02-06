@@ -2,16 +2,15 @@ package schemacheck
 
 import (
 	"errors"
-	"time"
 
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 var errDateTimeNotComparable = errors.New("date/time values are not comparable")
 var errDurationNotComparable = errors.New("duration values are not comparable")
 
-// isDateTimeTypeName checks if a type name represents a date/time type
+// isDateTimeTypeName checks if a type name represents a date/time type.
 func isDateTimeTypeName(typeName string) bool {
 	switch typeName {
 	case "dateTime", "date", "time", "gYearMonth", "gYear", "gMonthDay", "gDay", "gMonth":
@@ -21,89 +20,89 @@ func isDateTimeTypeName(typeName string) bool {
 	}
 }
 
-// compareDateTimeValues compares two date/time values, returning -1, 0, or 1
+// compareDateTimeValues compares two date/time values, returning -1, 0, or 1.
 func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
 	switch baseTypeName {
 	case "date":
-		t1, tz1, err := parseXSDDate(v1)
+		t1, err := parseXSDDate(v1)
 		if err != nil {
 			return 0, err
 		}
-		t2, tz2, err := parseXSDDate(v2)
+		t2, err := parseXSDDate(v2)
 		if err != nil {
 			return 0, err
 		}
-		return compareDateTimeOrder(t1, tz1, t2, tz2)
+		return compareDateTimeOrder(t1, t2)
 	case "dateTime":
-		t1, tz1, err := parseXSDDateTime(v1)
+		t1, err := parseXSDDateTime(v1)
 		if err != nil {
 			return 0, err
 		}
-		t2, tz2, err := parseXSDDateTime(v2)
+		t2, err := parseXSDDateTime(v2)
 		if err != nil {
 			return 0, err
 		}
-		return compareDateTimeOrder(t1, tz1, t2, tz2)
+		return compareDateTimeOrder(t1, t2)
 	case "time":
-		t1, tz1, err := parseXSDTime(v1)
+		t1, err := parseXSDTime(v1)
 		if err != nil {
 			return 0, err
 		}
-		t2, tz2, err := parseXSDTime(v2)
+		t2, err := parseXSDTime(v2)
 		if err != nil {
 			return 0, err
 		}
-		return compareDateTimeOrder(t1, tz1, t2, tz2)
+		return compareDateTimeOrder(t1, t2)
 	case "gYear":
-		t1, tz1, err := parseXSDGYear(v1)
+		t1, err := parseXSDGYear(v1)
 		if err != nil {
 			return 0, err
 		}
-		t2, tz2, err := parseXSDGYear(v2)
+		t2, err := parseXSDGYear(v2)
 		if err != nil {
 			return 0, err
 		}
-		return compareDateTimeOrder(t1, tz1, t2, tz2)
+		return compareDateTimeOrder(t1, t2)
 	case "gYearMonth":
-		t1, tz1, err := parseXSDGYearMonth(v1)
+		t1, err := parseXSDGYearMonth(v1)
 		if err != nil {
 			return 0, err
 		}
-		t2, tz2, err := parseXSDGYearMonth(v2)
+		t2, err := parseXSDGYearMonth(v2)
 		if err != nil {
 			return 0, err
 		}
-		return compareDateTimeOrder(t1, tz1, t2, tz2)
+		return compareDateTimeOrder(t1, t2)
 	case "gMonth":
-		t1, tz1, err := parseXSDGMonth(v1)
+		t1, err := parseXSDGMonth(v1)
 		if err != nil {
 			return 0, err
 		}
-		t2, tz2, err := parseXSDGMonth(v2)
+		t2, err := parseXSDGMonth(v2)
 		if err != nil {
 			return 0, err
 		}
-		return compareDateTimeOrder(t1, tz1, t2, tz2)
+		return compareDateTimeOrder(t1, t2)
 	case "gMonthDay":
-		t1, tz1, err := parseXSDGMonthDay(v1)
+		t1, err := parseXSDGMonthDay(v1)
 		if err != nil {
 			return 0, err
 		}
-		t2, tz2, err := parseXSDGMonthDay(v2)
+		t2, err := parseXSDGMonthDay(v2)
 		if err != nil {
 			return 0, err
 		}
-		return compareDateTimeOrder(t1, tz1, t2, tz2)
+		return compareDateTimeOrder(t1, t2)
 	case "gDay":
-		t1, tz1, err := parseXSDGDay(v1)
+		t1, err := parseXSDGDay(v1)
 		if err != nil {
 			return 0, err
 		}
-		t2, tz2, err := parseXSDGDay(v2)
+		t2, err := parseXSDGDay(v2)
 		if err != nil {
 			return 0, err
 		}
-		return compareDateTimeOrder(t1, tz1, t2, tz2)
+		return compareDateTimeOrder(t1, t2)
 	}
 
 	// fallback: lexicographic comparison for other date/time types.
@@ -116,66 +115,44 @@ func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
 	return 0, nil
 }
 
-func compareTimes(t1, t2 time.Time) int {
-	if t1.Before(t2) {
-		return -1
-	}
-	if t1.After(t2) {
-		return 1
-	}
-	return 0
-}
-
-func compareDateTimeOrder(t1 time.Time, tz1 value.TimezoneKind, t2 time.Time, tz2 value.TimezoneKind) (int, error) {
-	if tz1 == tz2 {
-		return compareTimes(t1, t2), nil
-	}
-	cmp, err := types.ComparableTime{Value: t1, TimezoneKind: tz1}.Compare(types.ComparableTime{Value: t2, TimezoneKind: tz2})
+func compareDateTimeOrder(t1, t2 temporal.Value) (int, error) {
+	cmp, err := temporal.Compare(t1, t2)
 	if err != nil {
 		return 0, errDateTimeNotComparable
 	}
 	return cmp, nil
 }
 
-func parseTemporal(lexical string, parse func([]byte) (time.Time, error)) (time.Time, value.TimezoneKind, error) {
-	input := []byte(lexical)
-	parsed, err := parse(input)
-	if err != nil {
-		return time.Time{}, value.TZNone, err
-	}
-	return parsed, value.TimezoneKindFromLexical(input), nil
+func parseXSDDate(lexical string) (temporal.Value, error) {
+	return temporal.Parse(temporal.KindDate, []byte(lexical))
 }
 
-func parseXSDDate(lexical string) (time.Time, value.TimezoneKind, error) {
-	return parseTemporal(lexical, value.ParseDate)
+func parseXSDDateTime(lexical string) (temporal.Value, error) {
+	return temporal.Parse(temporal.KindDateTime, []byte(lexical))
 }
 
-func parseXSDDateTime(lexical string) (time.Time, value.TimezoneKind, error) {
-	return parseTemporal(lexical, value.ParseDateTime)
+func parseXSDTime(lexical string) (temporal.Value, error) {
+	return temporal.Parse(temporal.KindTime, []byte(lexical))
 }
 
-func parseXSDTime(lexical string) (time.Time, value.TimezoneKind, error) {
-	return parseTemporal(lexical, value.ParseTime)
+func parseXSDGYear(lexical string) (temporal.Value, error) {
+	return temporal.Parse(temporal.KindGYear, []byte(lexical))
 }
 
-func parseXSDGYear(lexical string) (time.Time, value.TimezoneKind, error) {
-	return parseTemporal(lexical, value.ParseGYear)
+func parseXSDGYearMonth(lexical string) (temporal.Value, error) {
+	return temporal.Parse(temporal.KindGYearMonth, []byte(lexical))
 }
 
-func parseXSDGYearMonth(lexical string) (time.Time, value.TimezoneKind, error) {
-	return parseTemporal(lexical, value.ParseGYearMonth)
+func parseXSDGMonth(lexical string) (temporal.Value, error) {
+	return temporal.Parse(temporal.KindGMonth, []byte(lexical))
 }
 
-func parseXSDGMonth(lexical string) (time.Time, value.TimezoneKind, error) {
-	return parseTemporal(lexical, value.ParseGMonth)
+func parseXSDGMonthDay(lexical string) (temporal.Value, error) {
+	return temporal.Parse(temporal.KindGMonthDay, []byte(lexical))
 }
 
-func parseXSDGMonthDay(lexical string) (time.Time, value.TimezoneKind, error) {
-	return parseTemporal(lexical, value.ParseGMonthDay)
-}
-
-func parseXSDGDay(lexical string) (time.Time, value.TimezoneKind, error) {
-	return parseTemporal(lexical, value.ParseGDay)
+func parseXSDGDay(lexical string) (temporal.Value, error) {
+	return temporal.Parse(temporal.KindGDay, []byte(lexical))
 }
 
 func compareDurationValues(v1, v2 string) (int, error) {
