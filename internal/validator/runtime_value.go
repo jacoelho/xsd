@@ -167,9 +167,9 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 		if meta.Kind == runtime.VList || meta.Kind == runtime.VUnion {
 			buf := s.pushNormBuf(len(lexical))
 			popNorm = true
-			normalized = value.NormalizeWhitespace(meta.WhiteSpace, lexical, buf)
+			normalized = value.NormalizeWhitespace(valueWhitespaceMode(meta.WhiteSpace), lexical, buf)
 		} else {
-			normalized = value.NormalizeWhitespace(meta.WhiteSpace, lexical, s.normBuf)
+			normalized = value.NormalizeWhitespace(valueWhitespaceMode(meta.WhiteSpace), lexical, s.normBuf)
 		}
 	}
 	if popNorm {
@@ -210,6 +210,17 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 		}
 	}
 	return canon, nil
+}
+
+func valueWhitespaceMode(mode runtime.WhitespaceMode) value.WhitespaceMode {
+	switch mode {
+	case runtime.WS_Replace:
+		return value.WhitespaceReplace
+	case runtime.WS_Collapse:
+		return value.WhitespaceCollapse
+	default:
+		return value.WhitespacePreserve
+	}
 }
 
 func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized, lexical []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *valueMetrics) ([]byte, error) {

@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
@@ -194,43 +195,12 @@ func collectEffectiveAttributeUses(schema *parser.Schema, ct *types.ComplexType)
 	if ct == nil {
 		return nil
 	}
-	chain := collectComplexTypeChain(schema, ct)
+	chain := typegraph.CollectComplexTypeChain(schema, ct)
 	attrMap := make(map[types.QName]*types.AttributeDecl)
 	for i := len(chain) - 1; i >= 0; i-- {
 		mergeAttributesFromTypeForValidation(schema, chain[i], attrMap)
 	}
 	return attrMap
-}
-
-func collectComplexTypeChain(schema *parser.Schema, ct *types.ComplexType) []*types.ComplexType {
-	var chain []*types.ComplexType
-	visited := make(map[*types.ComplexType]bool)
-	for current := ct; current != nil; {
-		if visited[current] {
-			break
-		}
-		visited[current] = true
-		chain = append(chain, current)
-		var next *types.ComplexType
-		if baseCT, ok := current.ResolvedBase.(*types.ComplexType); ok {
-			next = baseCT
-		} else if current.ResolvedBase == nil {
-			baseQName := types.QName{}
-			if content := current.Content(); content != nil {
-				baseQName = content.BaseTypeQName()
-			}
-			if !baseQName.IsZero() {
-				if baseCT, ok := lookupComplexType(schema, baseQName); ok {
-					next = baseCT
-				}
-			}
-		}
-		if next == nil {
-			break
-		}
-		current = next
-	}
-	return chain
 }
 
 func mergeAttributesFromTypeForValidation(schema *parser.Schema, ct *types.ComplexType, attrMap map[types.QName]*types.AttributeDecl) {

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/runtime"
 )
 
 // ParseLong parses an xs:long lexical value into int64.
@@ -174,7 +173,7 @@ func ParseBase64Binary(lexical []byte) ([]byte, error) {
 
 // ParseAnyURI parses an xs:anyURI lexical value and validates its syntax.
 func ParseAnyURI(lexical []byte) (string, error) {
-	normalized := NormalizeWhitespace(runtime.WS_Collapse, lexical, nil)
+	normalized := NormalizeWhitespace(WhitespaceCollapse, lexical, nil)
 	if err := ValidateAnyURI(normalized); err != nil {
 		return "", fmt.Errorf("invalid anyURI: %s", string(normalized))
 	}

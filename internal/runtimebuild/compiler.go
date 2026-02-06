@@ -311,7 +311,7 @@ func (c *compiler) compileBuiltin(bt *types.BuiltinType) (runtime.ValidatorID, e
 	name := bt.Name().Local
 	ws := c.res.whitespaceMode(bt)
 
-	if itemName, ok := builtinListItemTypeName(name); ok {
+	if itemName, ok := types.BuiltinListItemTypeName(name); ok {
 		itemType := types.GetBuiltin(itemName)
 		if itemType == nil {
 			return 0, fmt.Errorf("builtin list %s: item type %s not found", name, itemName)
@@ -939,7 +939,7 @@ func (c *compiler) normalizeLexical(lexical string, typ types.Type) string {
 	if ws == runtime.WS_Preserve || lexical == "" {
 		return lexical
 	}
-	normalized := value.NormalizeWhitespace(ws, []byte(lexical), nil)
+	normalized := value.NormalizeWhitespace(toValueWhitespaceMode(ws), []byte(lexical), nil)
 	return string(normalized)
 }
 
@@ -1368,19 +1368,6 @@ func integerKindForBuiltin(name string) runtime.IntegerKind {
 		return runtime.IntegerUnsignedByte
 	default:
 		return runtime.IntegerAny
-	}
-}
-
-func builtinListItemTypeName(name string) (types.TypeName, bool) {
-	switch name {
-	case "NMTOKENS":
-		return types.TypeNameNMTOKEN, true
-	case "IDREFS":
-		return types.TypeNameIDREF, true
-	case "ENTITIES":
-		return types.TypeNameENTITY, true
-	default:
-		return "", false
 	}
 }
 

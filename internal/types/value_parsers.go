@@ -191,20 +191,9 @@ func measureLengthForPrimitive(lexical string, primitiveName TypeName) int {
 
 // isBuiltinListType checks if a type name is a built-in list type.
 func isBuiltinListType(name string) bool {
-	return name == string(TypeNameNMTOKENS) ||
-		name == string(TypeNameIDREFS) ||
-		name == string(TypeNameENTITIES)
+	return IsBuiltinListTypeName(name)
 }
 
 func builtinListItemTypeName(name string) (TypeName, bool) {
-	switch name {
-	case string(TypeNameNMTOKENS):
-		return TypeNameNMTOKEN, true
-	case string(TypeNameIDREFS):
-		return TypeNameIDREF, true
-	case string(TypeNameENTITIES):
-		return TypeNameENTITY, true
-	default:
-		return "", false
-	}
+	return BuiltinListItemTypeName(name)
 }

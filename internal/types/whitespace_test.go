@@ -3,7 +3,6 @@ package types
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -152,12 +151,12 @@ func TestApplyWhiteSpaceMatchesValueNormalize(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := ApplyWhiteSpace(tc.input, tc.ws)
-			mode := runtime.WS_Preserve
+			mode := value.WhitespacePreserve
 			switch tc.ws {
 			case WhiteSpaceReplace:
-				mode = runtime.WS_Replace
+				mode = value.WhitespaceReplace
 			case WhiteSpaceCollapse:
-				mode = runtime.WS_Collapse
+				mode = value.WhitespaceCollapse
 			}
 			want := string(value.NormalizeWhitespace(mode, []byte(tc.input), nil))
 			if got != want {

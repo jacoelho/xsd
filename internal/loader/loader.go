@@ -187,12 +187,12 @@ var errLoaderFailed = errors.New("loader is in failed state")
 // It is not safe for concurrent use.
 // After the first load error, the loader becomes failed and must be replaced.
 type SchemaLoader struct {
-	imports  importTracker
 	resolver Resolver
+	failure  error
+	imports  importTracker
 	state    loadState
 	config   Config
 	failed   bool
-	failure  error
 }
 
 // NewLoader creates a new schema loader with the given configuration
@@ -522,7 +522,7 @@ func (l *SchemaLoader) failedError() error {
 	if l.failure == nil {
 		return fmt.Errorf("%w: create a new loader", errLoaderFailed)
 	}
-	return fmt.Errorf("%w: create a new loader (first failure: %v)", errLoaderFailed, l.failure)
+	return fmt.Errorf("%w: create a new loader (first failure: %w)", errLoaderFailed, l.failure)
 }
 func (l *SchemaLoader) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string) bool {
 	sourceEntry := l.state.ensureEntry(sourceKey)

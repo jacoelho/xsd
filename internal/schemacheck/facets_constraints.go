@@ -166,7 +166,7 @@ func validateLengthFacetConstraints(state *facetConstraintState, baseType types.
 	}
 
 	// built-in list types require at least one item.
-	if isBuiltinListTypeName(baseTypeName) {
+	if types.IsBuiltinListTypeName(baseTypeName) {
 		if state.length != nil && *state.length < 1 {
 			return fmt.Errorf("length (%d) must be >= 1 for list type %s", *state.length, baseTypeName)
 		}
@@ -213,7 +213,7 @@ func isListTypeForFacets(baseType types.Type, baseQName types.QName) bool {
 			return true
 		}
 	}
-	if baseQName.Namespace == types.XSDNamespace && isBuiltinListTypeName(baseQName.Local) {
+	if baseQName.Namespace == types.XSDNamespace && types.IsBuiltinListTypeName(baseQName.Local) {
 		return true
 	}
 	return false
@@ -257,10 +257,6 @@ func getEffectiveIntegerTypeName(t types.Type) string {
 		current = current.BaseType()
 	}
 	return ""
-}
-
-func isBuiltinListTypeName(name string) bool {
-	return name == string(types.TypeNameNMTOKENS) || name == string(types.TypeNameIDREFS) || name == string(types.TypeNameENTITIES)
 }
 
 func shouldDeferEnumerationValidation(baseType types.Type) bool {

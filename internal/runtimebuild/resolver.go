@@ -64,7 +64,7 @@ func (r *typeResolver) listItemTypeFromTypeSeen(typ types.Type, seen map[types.T
 	defer delete(seen, typ)
 
 	if bt := builtinForType(typ); bt != nil {
-		if itemName, ok := builtinListItemTypeName(bt.Name().Local); ok {
+		if itemName, ok := types.BuiltinListItemTypeName(bt.Name().Local); ok {
 			if item := types.GetBuiltin(itemName); item != nil {
 				return item, true
 			}
@@ -341,22 +341,22 @@ func (r *typeResolver) whitespaceModeSeen(typ types.Type, seen map[types.Type]bo
 	defer delete(seen, typ)
 
 	if bt := builtinForType(typ); bt != nil {
-		return mapWhitespace(bt.WhiteSpace())
+		return toRuntimeWhitespaceMode(bt.WhiteSpace())
 	}
 	st, ok := types.AsSimpleType(typ)
 	if !ok {
 		return runtime.WS_Preserve
 	}
 	if st.WhiteSpaceExplicit() {
-		return mapWhitespace(st.WhiteSpace())
+		return toRuntimeWhitespaceMode(st.WhiteSpace())
 	}
 	if st.List != nil || st.Union != nil {
-		return mapWhitespace(st.WhiteSpace())
+		return toRuntimeWhitespaceMode(st.WhiteSpace())
 	}
 	if base := r.baseType(st); base != nil {
 		return r.whitespaceModeSeen(base, seen)
 	}
-	return mapWhitespace(st.WhiteSpace())
+	return toRuntimeWhitespaceMode(st.WhiteSpace())
 }
 
 func (r *typeResolver) isListType(typ types.Type) bool {
@@ -420,8 +420,7 @@ func builtinForType(typ types.Type) *types.BuiltinType {
 }
 
 func isBuiltinListName(name string) bool {
-	_, ok := builtinListItemTypeName(name)
-	return ok
+	return types.IsBuiltinListTypeName(name)
 }
 
 func isIntegerTypeName(name string) bool {
@@ -441,15 +440,4 @@ func isAnySimpleType(typ types.Type) bool {
 		return false
 	}
 	return bt.Name().Local == string(types.TypeNameAnySimpleType)
-}
-
-func mapWhitespace(ws types.WhiteSpace) runtime.WhitespaceMode {
-	switch ws {
-	case types.WhiteSpaceReplace:
-		return runtime.WS_Replace
-	case types.WhiteSpaceCollapse:
-		return runtime.WS_Collapse
-	default:
-		return runtime.WS_Preserve
-	}
 }
