@@ -15,6 +15,8 @@ func TestIsIntegerLexical(t *testing.T) {
 		{name: "plain", lexical: "12", want: true},
 		{name: "negative", lexical: "-12", want: true},
 		{name: "positive", lexical: "+12", want: true},
+		{name: "negative zero", lexical: "-0", want: true},
+		{name: "positive zero", lexical: "+0", want: true},
 		{name: "zero", lexical: "000", want: true},
 		{name: "empty", lexical: "", want: false},
 		{name: "sign only", lexical: "-", want: false},
@@ -31,6 +33,34 @@ func TestIsIntegerLexical(t *testing.T) {
 				t.Fatalf("isIntegerLexical(%q) = %v, want %v", tc.lexical, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestUnionIntegerDecimalNoMemberMatch(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="U">
+    <xs:union memberTypes="xs:int xs:decimal"/>
+  </xs:simpleType>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+	sym := rt.Symbols.Lookup(rt.PredefNS.Empty, []byte("U"))
+	typeID := rt.GlobalTypes[sym]
+	if typeID == 0 {
+		t.Fatalf("union type not found")
+	}
+	validator := rt.Types[typeID].Validator
+
+	_, _, err := sess.validateValueInternalWithMetrics(
+		validator,
+		[]byte("abc"),
+		nil,
+		valueOptions{applyWhitespace: true, requireCanonical: true, needKey: true},
+	)
+	if err == nil {
+		t.Fatalf("expected error for value that matches no union member")
 	}
 }
 
