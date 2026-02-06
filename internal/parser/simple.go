@@ -399,39 +399,6 @@ func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, 
 		)
 
 		switch localName {
-		case "pattern":
-			facet, err = parsePatternFacet(doc, child)
-
-		case "enumeration":
-			facet, err = parseEnumerationFacet(doc, child, restriction, schema)
-
-		case "length":
-			facet, err = parseLengthFacet(doc, child)
-
-		case "minLength":
-			facet, err = parseMinLengthFacet(doc, child)
-
-		case "maxLength":
-			facet, err = parseMaxLengthFacet(doc, child)
-
-		case "minInclusive":
-			facet, err = parseOrderedFacet(doc, child, restriction, baseType, "minInclusive", types.NewMinInclusive)
-
-		case "maxInclusive":
-			facet, err = parseOrderedFacet(doc, child, restriction, baseType, "maxInclusive", types.NewMaxInclusive)
-
-		case "minExclusive":
-			facet, err = parseOrderedFacet(doc, child, restriction, baseType, "minExclusive", types.NewMinExclusive)
-
-		case "maxExclusive":
-			facet, err = parseOrderedFacet(doc, child, restriction, baseType, "maxExclusive", types.NewMaxExclusive)
-
-		case "totalDigits":
-			facet, err = parseTotalDigitsFacet(doc, child)
-
-		case "fractionDigits":
-			facet, err = parseFractionDigitsFacet(doc, child)
-
 		case "whiteSpace":
 			if st == nil {
 				if restriction != nil && restriction.SimpleType == nil {
@@ -447,8 +414,14 @@ func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, 
 				return err
 			}
 			continue
-
-		default:
+		}
+		if parser := directFacetParsers[localName]; parser != nil {
+			facet, err = parser(doc, child)
+		} else if localName == "enumeration" {
+			facet, err = parseEnumerationFacet(doc, child, restriction, schema)
+		} else if constructor := orderedFacetConstructors[localName]; constructor != nil {
+			facet, err = parseOrderedFacet(doc, child, restriction, baseType, localName, constructor)
+		} else {
 			// unknown facet - reject it as invalid
 			return fmt.Errorf("unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", localName)
 		}
@@ -546,6 +519,24 @@ func parseMaxLengthFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (types.Facet,
 }
 
 type orderedFacetConstructor func(string, types.Type) (types.Facet, error)
+
+var orderedFacetConstructors = map[string]orderedFacetConstructor{
+	"minInclusive": types.NewMinInclusive,
+	"maxInclusive": types.NewMaxInclusive,
+	"minExclusive": types.NewMinExclusive,
+	"maxExclusive": types.NewMaxExclusive,
+}
+
+type facetParserFunc func(doc *xsdxml.Document, elem xsdxml.NodeID) (types.Facet, error)
+
+var directFacetParsers = map[string]facetParserFunc{
+	"pattern":        parsePatternFacet,
+	"length":         parseLengthFacet,
+	"minLength":      parseMinLengthFacet,
+	"maxLength":      parseMaxLengthFacet,
+	"totalDigits":    parseTotalDigitsFacet,
+	"fractionDigits": parseFractionDigitsFacet,
+}
 
 func parseOrderedFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction *types.Restriction, baseType types.Type, facetName string, constructor orderedFacetConstructor) (types.Facet, error) {
 	if err := validateOnlyAnnotationChildren(doc, elem, facetName); err != nil {
