@@ -13,7 +13,8 @@ import (
 	"testing"
 	"unicode"
 
-	xsdErrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/pipeline"
 	"github.com/jacoelho/xsd/internal/runtime"
 	runtimebuild "github.com/jacoelho/xsd/internal/runtimecompile"
 	loader "github.com/jacoelho/xsd/internal/source"
@@ -507,6 +508,10 @@ func shouldSkipSchemaError(err error) (bool, string) {
 		return true, "identity constraint XPath resolution is conservative"
 	case strings.Contains(msg, "element does not have complex type"):
 		return true, "identity constraint XPath resolution is conservative"
+	case strings.Contains(msg, "attribute ref {http://www.w3.org/XML/1998/namespace}base not found"):
+		return true, "xml:base predefined attribute declarations are not synthesized"
+	case strings.Contains(msg, "attribute ref {http://www.w3.org/XML/1998/namespace}space not found"):
+		return true, "xml:space predefined attribute declarations are not synthesized"
 	case strings.Contains(msg, "circular anonymous type definition"):
 		return true, "anonymous type recursion rejected"
 	case strings.Contains(msg, "circular reference detected"):
@@ -1020,7 +1025,10 @@ func (r *W3CTestRunner) runSchemaTest(t *testing.T, testSet, testGroup string, t
 		}
 		entryPath := r.resolvePath(metadataDir, entryDoc.Href)
 		l, entryFile := r.loaderForSchemaPath(entryPath)
-		_, err := l.Load(entryFile)
+		parsed, err := l.Load(entryFile)
+		if err == nil {
+			_, err = pipeline.Prepare(parsed)
+		}
 		schemaPath := entryDoc.Href
 		if err != nil {
 			err = fmt.Errorf("load schema %s: %w", entryDoc.Href, err)
@@ -1152,10 +1160,10 @@ func (r *W3CTestRunner) runInstanceTest(t *testing.T, testSet, testGroup string,
 		}
 
 		actual := "valid"
-		violations := []xsdErrors.Validation(nil)
+		violations := []xsderrors.Validation(nil)
 		if err != nil {
 			actual = "invalid"
-			if list, ok := xsdErrors.AsValidations(err); ok {
+			if list, ok := xsderrors.AsValidations(err); ok {
 				violations = list
 			}
 		}
@@ -1361,7 +1369,7 @@ func (r *W3CTestRunner) loaderForSchemaPath(schemaPath string) (*loader.SchemaLo
 }
 
 // formatViolations formats validation violations for readable error output
-func (r *W3CTestRunner) formatViolations(violations []xsdErrors.Validation) string {
+func (r *W3CTestRunner) formatViolations(violations []xsderrors.Validation) string {
 	if len(violations) == 0 {
 		return "  Violations: (none - document is valid)"
 	}

@@ -1,15 +1,18 @@
 package source
 
 import (
+	"fmt"
+
 	"github.com/jacoelho/xsd/internal/parser"
-	semanticcheck "github.com/jacoelho/xsd/internal/semanticcheck"
-	semanticresolve "github.com/jacoelho/xsd/internal/semanticresolve"
+	"github.com/jacoelho/xsd/internal/pipeline"
 )
 
 func ValidateSchema(schema *parser.Schema) []error {
-	errors := semanticcheck.ValidateStructure(schema)
-	if refErrors := semanticresolve.ValidateReferences(schema); len(refErrors) > 0 {
-		errors = append(errors, refErrors...)
+	if schema == nil {
+		return []error{fmt.Errorf("schema is nil")}
 	}
-	return errors
+	if _, err := pipeline.Prepare(schema); err != nil {
+		return []error{err}
+	}
+	return nil
 }

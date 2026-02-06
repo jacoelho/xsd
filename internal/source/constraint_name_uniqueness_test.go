@@ -146,7 +146,7 @@ func TestDuplicateConstraintNameValidation(t *testing.T) {
 				FS: testFS,
 			})
 
-			_, err := loader.Load("test.xsd")
+			_, err := loadAndPrepare(t, loader, "test.xsd")
 
 			if tt.shouldFail {
 				if err == nil {

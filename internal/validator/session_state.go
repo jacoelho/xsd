@@ -3,7 +3,7 @@ package validator
 import (
 	"io"
 
-	xsdErrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -85,7 +85,7 @@ type Session struct {
 	elemStack        []elemFrame
 	prefixCache      []prefixEntry
 	nameLocal        []byte
-	validationErrors []xsdErrors.Validation
+	validationErrors []xsderrors.Validation
 	errBuf           []byte
 	nameNS           []byte
 	textBuf          []byte

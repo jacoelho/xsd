@@ -3,6 +3,7 @@ package validator
 import (
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/valuekey"
@@ -15,7 +16,7 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		if !ok {
 			return nil, valueErrorf(valueErrInvalid, "string validator out of range")
 		}
-		if err := validateStringKind(kind, normalized); err != nil {
+		if err := semantics.ValidateStringKind(kind, normalized); err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
 		canon := normalized
@@ -154,7 +155,7 @@ func (s *Session) validateAtomicNoCanonical(meta runtime.ValidatorMeta, normaliz
 		if !ok {
 			return valueErrorf(valueErrInvalid, "string validator out of range")
 		}
-		if err := validateStringKind(kind, normalized); err != nil {
+		if err := semantics.ValidateStringKind(kind, normalized); err != nil {
 			return valueErrorMsg(valueErrInvalid, err.Error())
 		}
 	case runtime.VBoolean:
@@ -207,23 +208,4 @@ func (s *Session) integerKind(meta runtime.ValidatorMeta) (runtime.IntegerKind, 
 		return runtime.IntegerAny, false
 	}
 	return s.rt.Validators.Integer[meta.Index].Kind, true
-}
-
-func validateStringKind(kind runtime.StringKind, normalized []byte) error {
-	switch kind {
-	case runtime.StringToken:
-		return value.ValidateToken(normalized)
-	case runtime.StringLanguage:
-		return value.ValidateLanguage(normalized)
-	case runtime.StringName:
-		return value.ValidateName(normalized)
-	case runtime.StringNCName:
-		return value.ValidateNCName(normalized)
-	case runtime.StringID, runtime.StringIDREF, runtime.StringEntity:
-		return value.ValidateNCName(normalized)
-	case runtime.StringNMTOKEN:
-		return value.ValidateNMTOKEN(normalized)
-	default:
-		return nil
-	}
 }

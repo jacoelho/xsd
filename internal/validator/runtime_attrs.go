@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	xsdErrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 )
@@ -31,7 +31,7 @@ var (
 
 func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, resolver value.NSResolver) (AttrResult, error) {
 	if s == nil || s.rt == nil {
-		return AttrResult{}, newValidationError(xsdErrors.ErrSchemaNotLoaded, "schema not loaded")
+		return AttrResult{}, newValidationError(xsderrors.ErrSchemaNotLoaded, "schema not loaded")
 	}
 	typ, ok := s.typeByID(typeID)
 	if !ok {
@@ -72,10 +72,10 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 func (s *Session) validateSimpleTypeAttrs(attrs []StartAttr, storeAttrs bool) (AttrResult, error) {
 	for _, attr := range attrs {
 		if s.isUnknownXsiAttribute(&attr) {
-			return AttrResult{}, newValidationError(xsdErrors.ErrValidateSimpleTypeAttrNotAllowed, "unknown xsi attribute")
+			return AttrResult{}, newValidationError(xsderrors.ErrValidateSimpleTypeAttrNotAllowed, "unknown xsi attribute")
 		}
 		if !s.isXsiAttribute(&attr) && !s.isXMLAttribute(&attr) {
-			return AttrResult{}, newValidationError(xsdErrors.ErrValidateSimpleTypeAttrNotAllowed, "attribute not allowed on simple type")
+			return AttrResult{}, newValidationError(xsderrors.ErrValidateSimpleTypeAttrNotAllowed, "attribute not allowed on simple type")
 		}
 	}
 	if !storeAttrs {
@@ -118,7 +118,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 
 	for _, attr := range attrs {
 		if s.isUnknownXsiAttribute(&attr) {
-			return nil, seenID, newValidationError(xsdErrors.ErrAttributeNotDeclared, "unknown xsi attribute")
+			return nil, seenID, newValidationError(xsderrors.ErrAttributeNotDeclared, "unknown xsi attribute")
 		}
 		if s.isXsiAttribute(&attr) {
 			if storeAttrs {
@@ -134,7 +134,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 		if attr.Sym != 0 {
 			if use, idx, ok := lookupAttrUse(s.rt, ct.Attrs, attr.Sym); ok {
 				if use.Use == runtime.AttrProhibited {
-					return nil, seenID, newValidationError(xsdErrors.ErrAttributeProhibited, "attribute prohibited")
+					return nil, seenID, newValidationError(xsderrors.ErrAttributeProhibited, "attribute prohibited")
 				}
 				canon, metrics, err := s.validateValueInternalWithMetrics(use.Validator, attr.Value, resolver, valueOptions{
 					applyWhitespace:  true,
@@ -148,7 +148,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 				}
 				if s.isIDValidator(use.Validator) {
 					if seenID {
-						return nil, seenID, newValidationError(xsdErrors.ErrMultipleIDAttr, "multiple ID attributes on element")
+						return nil, seenID, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
 					}
 					seenID = true
 				}
@@ -164,7 +164,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 						return nil, seenID, err
 					}
 					if !match {
-						return nil, seenID, newValidationError(xsdErrors.ErrAttributeFixedValue, "fixed attribute value mismatch")
+						return nil, seenID, newValidationError(xsderrors.ErrAttributeFixedValue, "fixed attribute value mismatch")
 					}
 				}
 				if idx >= 0 && idx < len(present) {
@@ -189,10 +189,10 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 		}
 
 		if ct.AnyAttr == 0 {
-			return nil, seenID, newValidationError(xsdErrors.ErrAttributeNotDeclared, "attribute not declared")
+			return nil, seenID, newValidationError(xsderrors.ErrAttributeNotDeclared, "attribute not declared")
 		}
 		if !s.rt.WildcardAccepts(ct.AnyAttr, attr.NSBytes, attr.NS) {
-			return nil, seenID, newValidationError(xsdErrors.ErrAttributeNotDeclared, "attribute wildcard rejected namespace")
+			return nil, seenID, newValidationError(xsderrors.ErrAttributeNotDeclared, "attribute wildcard rejected namespace")
 		}
 
 		rule := s.rt.Wildcards[ct.AnyAttr]
@@ -209,7 +209,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 		case runtime.PCLax, runtime.PCStrict:
 			if attr.Sym == 0 {
 				if rule.PC == runtime.PCStrict {
-					return nil, seenID, newValidationError(xsdErrors.ErrValidateWildcardAttrStrictUnresolved, "attribute wildcard strict unresolved")
+					return nil, seenID, newValidationError(xsderrors.ErrValidateWildcardAttrStrictUnresolved, "attribute wildcard strict unresolved")
 				}
 				if storeAttrs {
 					s.ensureAttrNameStable(&attr)
@@ -223,7 +223,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 			id, ok := s.globalAttributeBySymbol(attr.Sym)
 			if !ok {
 				if rule.PC == runtime.PCStrict {
-					return nil, seenID, newValidationError(xsdErrors.ErrValidateWildcardAttrStrictUnresolved, "attribute wildcard strict unresolved")
+					return nil, seenID, newValidationError(xsderrors.ErrValidateWildcardAttrStrictUnresolved, "attribute wildcard strict unresolved")
 				}
 				if storeAttrs {
 					s.ensureAttrNameStable(&attr)
@@ -250,7 +250,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 			}
 			if s.isIDValidator(globalAttr.Validator) {
 				if seenID {
-					return nil, seenID, newValidationError(xsdErrors.ErrMultipleIDAttr, "multiple ID attributes on element")
+					return nil, seenID, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
 				}
 				seenID = true
 			}
@@ -267,7 +267,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 					return nil, seenID, err
 				}
 				if !match {
-					return nil, seenID, newValidationError(xsdErrors.ErrAttributeFixedValue, "fixed attribute value mismatch")
+					return nil, seenID, newValidationError(xsderrors.ErrAttributeFixedValue, "fixed attribute value mismatch")
 				}
 			}
 		default:
@@ -318,12 +318,12 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 			continue
 		}
 		if use.Use == runtime.AttrRequired {
-			return nil, newValidationError(xsdErrors.ErrRequiredAttributeMissing, "required attribute missing")
+			return nil, newValidationError(xsderrors.ErrRequiredAttributeMissing, "required attribute missing")
 		}
 		if use.Fixed.Present {
 			if s.isIDValidator(use.Validator) {
 				if seenID {
-					return nil, newValidationError(xsdErrors.ErrMultipleIDAttr, "multiple ID attributes on element")
+					return nil, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
 				}
 				seenID = true
 			}
@@ -356,7 +356,7 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 		if use.Default.Present {
 			if s.isIDValidator(use.Validator) {
 				if seenID {
-					return nil, newValidationError(xsdErrors.ErrMultipleIDAttr, "multiple ID attributes on element")
+					return nil, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
 				}
 				seenID = true
 			}
@@ -406,7 +406,7 @@ func (s *Session) checkDuplicateAttrs(attrs []StartAttr) error {
 		for i := range attrs {
 			for j := i + 1; j < len(attrs); j++ {
 				if s.attrNamesEqual(&attrs[i], &attrs[j]) {
-					return newValidationError(xsdErrors.ErrXMLParse, "duplicate attribute")
+					return newValidationError(xsderrors.ErrXMLParse, "duplicate attribute")
 				}
 			}
 		}
@@ -435,7 +435,7 @@ func (s *Session) checkDuplicateAttrs(attrs []StartAttr) error {
 			}
 			if entry.hash == hash && s.attrNamesEqual(&attrs[int(entry.idx)], &attrs[i]) {
 				s.attrSeenTable = table
-				return newValidationError(xsdErrors.ErrXMLParse, "duplicate attribute")
+				return newValidationError(xsderrors.ErrXMLParse, "duplicate attribute")
 			}
 			slot = (slot + 1) & int(mask)
 		}

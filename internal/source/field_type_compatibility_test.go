@@ -71,7 +71,7 @@ func TestKeyRef_FieldCountMismatch(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Fatal("Load() should return error for keyref with wrong number of fields")
 	}
@@ -144,7 +144,7 @@ func TestKeyRef_IncompatibleFieldTypes(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Fatal("Load() should return error for keyref with incompatible field types")
 	}
@@ -187,7 +187,7 @@ func TestKeyRef_NamespaceContextMismatch(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Fatal("Load() should return error for keyref with namespace-mismatched field types")
 	}
@@ -256,7 +256,7 @@ func TestKeyRef_CompatibleFieldTypes(t *testing.T) {
 		FS: testFS,
 	})
 
-	schema, err := loader.Load("test.xsd")
+	schema, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Fatalf("Load() should succeed for keyref with compatible field types, got error: %v", err)
 	}
@@ -355,7 +355,7 @@ func TestKeyRef_SameFieldTypes(t *testing.T) {
 		FS: testFS,
 	})
 
-	schema, err := loader.Load("test.xsd")
+	schema, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Fatalf("Load() should succeed for keyref with identical field types, got error: %v", err)
 	}
@@ -425,7 +425,7 @@ func TestKeyRef_UniqueConstraint(t *testing.T) {
 		FS: testFS,
 	})
 
-	schema, err := loader.Load("test.xsd")
+	schema, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Fatalf("Load() should succeed for keyref referencing unique constraint, got error: %v", err)
 	}
@@ -489,7 +489,7 @@ func TestKeyRef_DescendantOrSelfPrefix(t *testing.T) {
 		FS: testFS,
 	})
 
-	schema, err := loader.Load("test.xsd")
+	schema, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Fatalf("Load() should succeed for keyref with descendant-or-self selector, got error: %v", err)
 	}
@@ -586,7 +586,7 @@ func TestKeyRef_MultipleFields(t *testing.T) {
 		FS: testFS,
 	})
 
-	schema, err := loader.Load("test.xsd")
+	schema, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Fatalf("Load() should succeed for keyref with multiple compatible fields, got error: %v", err)
 	}
@@ -654,7 +654,7 @@ func TestKeyRef_MultipleFieldsIncompatible(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Fatal("Load() should return error for keyref with incompatible second field type")
 	}
@@ -718,7 +718,7 @@ func TestKeyRef_BuiltinTypeDerivation(t *testing.T) {
 		FS: testFS,
 	})
 
-	schema, err := loader.Load("test.xsd")
+	schema, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Fatalf("Load() should succeed for keyref with compatible built-in types (decimal and long share primitive), got error: %v", err)
 	}

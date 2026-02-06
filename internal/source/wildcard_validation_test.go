@@ -33,7 +33,7 @@ func TestWildcardUPA_ChoiceWildcardOverlapsElement(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: wildcard in choice overlaps with explicit element 'foo'")
 	} else if !strings.Contains(err.Error(), "UPA violation") {
@@ -68,7 +68,7 @@ func TestWildcardUPA_ChoiceWildcardOverlapsWildcard(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: overlapping wildcards in choice group")
 	} else if !strings.Contains(err.Error(), "UPA violation") {
@@ -103,7 +103,7 @@ func TestWildcardUPA_SequenceWildcardOverlapsElement_Valid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Errorf("Schema should be valid (sequence allows overlap): %v", err)
 	}
@@ -136,7 +136,7 @@ func TestWildcardUPA_SequenceWildcardOverlapsWildcard_Valid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Errorf("Schema should be valid (sequence allows overlap): %v", err)
 	}
@@ -171,7 +171,7 @@ func TestWildcardUPA_NestedChoiceWildcardOverlapsElement(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: wildcard in nested choice overlaps with explicit element")
 	} else if !strings.Contains(err.Error(), "UPA violation") {
@@ -212,7 +212,7 @@ func TestWildcardDerivation_RestrictionSubset_Valid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Errorf("Schema should be valid (##targetNamespace is subset of ##any): %v", err)
 	}
@@ -251,7 +251,7 @@ func TestWildcardDerivation_RestrictionSubset_Invalid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: ##any is not a subset of ##targetNamespace")
 	} else if !strings.Contains(err.Error(), "wildcard") {
@@ -292,7 +292,7 @@ func TestWildcardDerivation_RestrictionProcessContentsWeaker_Invalid(t *testing.
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: processContents cannot be weakened in restriction")
 	} else if !strings.Contains(err.Error(), "processContents") {
@@ -333,7 +333,7 @@ func TestWildcardDerivation_RestrictionElementNamespace_Invalid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: element namespace is not allowed by base wildcard")
 	} else if !strings.Contains(err.Error(), "base wildcard") {
@@ -374,7 +374,7 @@ func TestWildcardDerivation_RestrictionAddWildcard_Invalid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: cannot add wildcard in restriction when base has no wildcard")
 	} else if !strings.Contains(err.Error(), "restriction") && !strings.Contains(err.Error(), "cannot restrict non-wildcard to wildcard") {
@@ -415,7 +415,7 @@ func TestWildcardDerivation_ExtensionUPA_Invalid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: repeating base wildcard overlaps extension wildcard")
 	} else if !strings.Contains(err.Error(), "not deterministic") {
@@ -456,7 +456,7 @@ func TestWildcardDerivation_ExtensionUPA_Valid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Errorf("Schema should be valid (##other doesn't overlap with targetNamespace element): %v", err)
 	}
@@ -489,7 +489,7 @@ func TestWildcardUPA_ChoiceDuplicateElementNames_Invalid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: duplicate element names with different types in choice")
 	} else if !strings.Contains(err.Error(), "UPA violation") &&
@@ -526,7 +526,7 @@ func TestWildcardUPA_ChoiceListWildcardOverlapsElement(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: wildcard namespace list overlaps with explicit element")
 	} else if !strings.Contains(err.Error(), "UPA violation") {
@@ -567,7 +567,7 @@ func TestWildcardDerivation_RestrictionListSubset_Valid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Errorf("Schema should be valid (list subset): %v", err)
 	}
@@ -606,7 +606,7 @@ func TestWildcardDerivation_RestrictionListSubset_Invalid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: derived list is not a subset of base list")
 	} else if !strings.Contains(err.Error(), "wildcard") {
@@ -653,7 +653,7 @@ func TestWildcardDerivation_TargetNamespaceMismatch_Invalid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("a.xsd")
+	_, err := loadAndPrepare(t, loader, "a.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: wildcard restriction with differing targetNamespaces should fail")
 	} else if !strings.Contains(err.Error(), "wildcard") {
@@ -696,7 +696,7 @@ func TestAnyAttributeDerivation_TargetNamespaceMismatch_Invalid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("a.xsd")
+	_, err := loadAndPrepare(t, loader, "a.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: anyAttribute restriction with differing targetNamespaces should fail")
 	} else if !strings.Contains(err.Error(), "anyAttribute restriction") {
@@ -732,7 +732,7 @@ func TestAnyAttributeDerivation_RestrictionProcessContentsWeaker_Invalid(t *test
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Error("Schema should be invalid: anyAttribute restriction cannot weaken processContents")
 	} else if !strings.Contains(err.Error(), "anyAttribute restriction") {
@@ -768,7 +768,7 @@ func TestAnyAttributeAllowsIDAttributeWithDeclaredIDAttributeValid(t *testing.T)
 	}
 
 	loader := NewLoader(Config{FS: testFS})
-	if _, err := loader.Load("main.xsd"); err != nil {
+	if _, err := loadAndPrepare(t, loader, "main.xsd"); err != nil {
 		t.Fatalf("expected schema to be valid, got error: %v", err)
 	}
 }
@@ -801,7 +801,7 @@ func TestAnyAttributeAllowsIDAttributeWithNoIDGlobalsValid(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: testFS})
-	if _, err := loader.Load("main.xsd"); err != nil {
+	if _, err := loadAndPrepare(t, loader, "main.xsd"); err != nil {
 		t.Fatalf("Expected schema to be valid, got error: %v", err)
 	}
 }
@@ -833,7 +833,7 @@ func TestWildcardUPA_ValidChoiceWithNonOverlappingWildcards(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Errorf("Schema should be valid (non-overlapping wildcards): %v", err)
 	}

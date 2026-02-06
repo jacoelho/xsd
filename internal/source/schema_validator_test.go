@@ -16,7 +16,7 @@ func TestGYearMinInclusive003Schema(t *testing.T) {
 		FS: os.DirFS(testDataDir),
 	}
 	l := NewLoader(cfg)
-	schema, err := l.Load("msData/datatypes/Facets/Schemas/gYear_minInclusive003.xsd")
+	schema, err := loadAndPrepare(t, l, "msData/datatypes/Facets/Schemas/gYear_minInclusive003.xsd")
 	if err != nil {
 		t.Logf("Schema loading failed as expected: %v", err)
 		return
@@ -53,7 +53,7 @@ func TestInvalidPatternSchemas(t *testing.T) {
 				FS: os.DirFS(testDataDir),
 			}
 			l := NewLoader(cfg)
-			_, err := l.Load(tt.schemaPath)
+			_, err := loadAndPrepare(t, l, tt.schemaPath)
 
 			if tt.shouldFail {
 				if err == nil {

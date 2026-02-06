@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -613,10 +612,25 @@ func elementDeclEquivalent(a, b *types.ElementDecl) bool {
 	if a.Form != b.Form {
 		return false
 	}
-	if !schemacheck.ElementTypesCompatible(a.Type, b.Type) {
+	if !elementTypesCompatible(a.Type, b.Type) {
 		return false
 	}
 	return identityConstraintsEquivalent(a.Constraints, b.Constraints)
+}
+
+func elementTypesCompatible(a, b types.Type) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	nameA := a.Name()
+	nameB := b.Name()
+	if !nameA.IsZero() || !nameB.IsZero() {
+		return nameA == nameB
+	}
+	return a == b
 }
 
 func identityConstraintsEquivalent(a, b []*types.IdentityConstraint) bool {

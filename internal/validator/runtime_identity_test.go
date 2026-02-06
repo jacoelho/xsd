@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	xsdErrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -192,8 +192,8 @@ func TestIdentityKeyMissingFieldErrors(t *testing.T) {
 		t.Fatalf("expected missing field violation")
 	}
 	code, _, ok := validationErrorInfo(pending[0])
-	if !ok || code != xsdErrors.ErrIdentityAbsent {
-		t.Fatalf("expected %s, got %v", xsdErrors.ErrIdentityAbsent, pending[0])
+	if !ok || code != xsderrors.ErrIdentityAbsent {
+		t.Fatalf("expected %s, got %v", xsderrors.ErrIdentityAbsent, pending[0])
 	}
 }
 

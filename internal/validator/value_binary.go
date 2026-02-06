@@ -1,11 +1,11 @@
 package validator
 
 import (
-	"encoding/base64"
 	"fmt"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/valuekey"
@@ -65,7 +65,7 @@ func (s *Session) canonicalizeBase64Binary(normalized []byte, needKey bool, metr
 		metrics.length = len(decoded)
 		metrics.lengthSet = true
 	}
-	canon := []byte(encodeBase64(decoded))
+	canon := []byte(semantics.EncodeBase64(decoded))
 	if needKey {
 		key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 1, decoded)
 		s.keyTmp = key
@@ -79,11 +79,4 @@ func validateBase64BinaryNoCanonical(normalized []byte) error {
 		return valueErrorMsg(valueErrInvalid, err.Error())
 	}
 	return nil
-}
-
-func encodeBase64(data []byte) string {
-	if len(data) == 0 {
-		return ""
-	}
-	return base64.StdEncoding.EncodeToString(data)
 }
