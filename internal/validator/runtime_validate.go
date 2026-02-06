@@ -70,52 +70,8 @@ func (s *Session) validateWithDocument(r io.Reader, document string) error {
 		if err != nil {
 			return xsdErrors.ValidationList{s.newValidation(xsdErrors.ErrXMLParse, err.Error(), s.pathString(), 0, 0)}
 		}
-		switch ev.Kind {
-		case xmlstream.EventStartElement:
-			if err := s.handleStartElement(&ev, resolver); err != nil {
-				if fatal := s.recordValidationError(err, ev.Line, ev.Column); fatal != nil {
-					return fatal
-				}
-				if skipErr := s.reader.SkipSubtree(); skipErr != nil {
-					return xsdErrors.ValidationList{s.newValidation(xsdErrors.ErrXMLParse, skipErr.Error(), s.pathString(), 0, 0)}
-				}
-			}
-			if !rootSeen {
-				rootSeen = true
-			}
-			allowBOM = false
-		case xmlstream.EventEndElement:
-			errs, path := s.handleEndElement(&ev, resolver)
-			if len(errs) > 0 {
-				if fatal := s.recordValidationErrorsAtPath(errs, path, ev.Line, ev.Column); fatal != nil {
-					return fatal
-				}
-			}
-			if len(s.icState.pending) > 0 {
-				pending := s.icState.drainPending()
-				if len(pending) > 0 {
-					if fatal := s.recordValidationErrorsAtPath(pending, path, ev.Line, ev.Column); fatal != nil {
-						return fatal
-					}
-				}
-			}
-			allowBOM = false
-		case xmlstream.EventCharData:
-			if len(s.elemStack) == 0 {
-				if !xsdxml.IsIgnorableOutsideRoot(ev.Text, allowBOM) {
-					if fatal := s.recordValidationError(fmt.Errorf("unexpected character data outside root element"), ev.Line, ev.Column); fatal != nil {
-						return fatal
-					}
-				}
-				allowBOM = false
-				continue
-			}
-			if err := s.handleCharData(&ev); err != nil {
-				if fatal := s.recordValidationError(err, ev.Line, ev.Column); fatal != nil {
-					return fatal
-				}
-			}
-			allowBOM = false
+		if err := s.processResolvedEvent(&ev, resolver, &rootSeen, &allowBOM); err != nil {
+			return err
 		}
 	}
 
@@ -136,6 +92,57 @@ func (s *Session) validateWithDocument(r io.Reader, document string) error {
 		}
 	}
 	return s.validationList()
+}
+
+func (s *Session) processResolvedEvent(ev *xmlstream.ResolvedEvent, resolver sessionResolver, rootSeen *bool, allowBOM *bool) error {
+	switch ev.Kind {
+	case xmlstream.EventStartElement:
+		if err := s.handleStartElement(ev, resolver); err != nil {
+			if fatal := s.recordValidationError(err, ev.Line, ev.Column); fatal != nil {
+				return fatal
+			}
+			if skipErr := s.reader.SkipSubtree(); skipErr != nil {
+				return xsdErrors.ValidationList{s.newValidation(xsdErrors.ErrXMLParse, skipErr.Error(), s.pathString(), 0, 0)}
+			}
+		}
+		if !*rootSeen {
+			*rootSeen = true
+		}
+		*allowBOM = false
+	case xmlstream.EventEndElement:
+		errs, path := s.handleEndElement(ev, resolver)
+		if len(errs) > 0 {
+			if fatal := s.recordValidationErrorsAtPath(errs, path, ev.Line, ev.Column); fatal != nil {
+				return fatal
+			}
+		}
+		if len(s.icState.pending) > 0 {
+			pending := s.icState.drainPending()
+			if len(pending) > 0 {
+				if fatal := s.recordValidationErrorsAtPath(pending, path, ev.Line, ev.Column); fatal != nil {
+					return fatal
+				}
+			}
+		}
+		*allowBOM = false
+	case xmlstream.EventCharData:
+		if len(s.elemStack) == 0 {
+			if !xsdxml.IsIgnorableOutsideRoot(ev.Text, *allowBOM) {
+				if fatal := s.recordValidationError(fmt.Errorf("unexpected character data outside root element"), ev.Line, ev.Column); fatal != nil {
+					return fatal
+				}
+			}
+			*allowBOM = false
+			return nil
+		}
+		if err := s.handleCharData(ev); err != nil {
+			if fatal := s.recordValidationError(err, ev.Line, ev.Column); fatal != nil {
+				return fatal
+			}
+		}
+		*allowBOM = false
+	}
+	return nil
 }
 
 func readerSetupError(err error, document string) error {
