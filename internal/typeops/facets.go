@@ -30,16 +30,16 @@ func DefaultDeferredFacetConverter(df *types.DeferredFacet, baseType types.Type)
 }
 
 // CollectSimpleTypeFacets collects inherited and local facets for a simple type.
-func CollectSimpleTypeFacets(schema *parser.Schema, st *types.SimpleType, convert DeferredFacetConverter) []types.Facet {
+func CollectSimpleTypeFacets(schema *parser.Schema, st *types.SimpleType, convert DeferredFacetConverter) ([]types.Facet, error) {
 	return collectSimpleTypeFacetsVisited(schema, st, make(map[*types.SimpleType]bool), convert)
 }
 
-func collectSimpleTypeFacetsVisited(schema *parser.Schema, st *types.SimpleType, visited map[*types.SimpleType]bool, convert DeferredFacetConverter) []types.Facet {
+func collectSimpleTypeFacetsVisited(schema *parser.Schema, st *types.SimpleType, visited map[*types.SimpleType]bool, convert DeferredFacetConverter) ([]types.Facet, error) {
 	if st == nil {
-		return nil
+		return nil, nil
 	}
 	if visited[st] {
-		return nil
+		return nil, nil
 	}
 	visited[st] = true
 	defer delete(visited, st)
@@ -47,12 +47,20 @@ func collectSimpleTypeFacetsVisited(schema *parser.Schema, st *types.SimpleType,
 	var result []types.Facet
 	if st.ResolvedBase != nil {
 		if baseST, ok := st.ResolvedBase.(*types.SimpleType); ok {
-			result = append(result, collectSimpleTypeFacetsVisited(schema, baseST, visited, convert)...)
+			baseFacets, err := collectSimpleTypeFacetsVisited(schema, baseST, visited, convert)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, baseFacets...)
 		}
 	} else if st.Restriction != nil && !st.Restriction.Base.IsZero() {
 		if base := ResolveSimpleTypeReference(schema, st.Restriction.Base); base != nil {
 			if baseST, ok := base.(*types.SimpleType); ok {
-				result = append(result, collectSimpleTypeFacetsVisited(schema, baseST, visited, convert)...)
+				baseFacets, err := collectSimpleTypeFacetsVisited(schema, baseST, visited, convert)
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, baseFacets...)
 			}
 		}
 	}
@@ -77,16 +85,20 @@ func collectSimpleTypeFacetsVisited(schema *parser.Schema, st *types.SimpleType,
 		} else if !st.Restriction.Base.IsZero() {
 			baseType = ResolveSimpleTypeReference(schema, st.Restriction.Base)
 		}
-		result = append(result, CollectRestrictionFacets(schema, st.Restriction, baseType, convert)...)
+		restrictionFacets, err := CollectRestrictionFacets(schema, st.Restriction, baseType, convert)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, restrictionFacets...)
 	}
 
-	return result
+	return result, nil
 }
 
 // CollectRestrictionFacets collects restriction facets and composes patterns when valid.
-func CollectRestrictionFacets(schema *parser.Schema, restriction *types.Restriction, baseType types.Type, convert DeferredFacetConverter) []types.Facet {
+func CollectRestrictionFacets(schema *parser.Schema, restriction *types.Restriction, baseType types.Type, convert DeferredFacetConverter) ([]types.Facet, error) {
 	if restriction == nil || len(restriction.Facets) == 0 {
-		return nil
+		return nil, nil
 	}
 	if convert == nil {
 		convert = DefaultDeferredFacetConverter
@@ -101,13 +113,13 @@ func CollectRestrictionFacets(schema *parser.Schema, restriction *types.Restrict
 		switch facet := facetIface.(type) {
 		case *types.Pattern:
 			if err := facet.ValidateSyntax(); err != nil {
-				continue
+				return nil, err
 			}
 			stepPatterns = append(stepPatterns, facet)
 		case types.Facet:
 			if compilable, ok := facet.(interface{ ValidateSyntax() error }); ok {
 				if err := compilable.ValidateSyntax(); err != nil {
-					continue
+					return nil, fmt.Errorf("%s facet: %w", facet.Name(), err)
 				}
 			}
 			result = append(result, facet)
@@ -119,7 +131,10 @@ func CollectRestrictionFacets(schema *parser.Schema, restriction *types.Restrict
 				continue
 			}
 			resolved, err := convert(facet, baseType)
-			if err != nil || resolved == nil {
+			if err != nil {
+				return nil, err
+			}
+			if resolved == nil {
 				continue
 			}
 			result = append(result, resolved)
@@ -132,5 +147,5 @@ func CollectRestrictionFacets(schema *parser.Schema, restriction *types.Restrict
 		result = append(result, &types.PatternSet{Patterns: stepPatterns})
 	}
 
-	return result
+	return result, nil
 }

@@ -341,9 +341,6 @@ func areFieldTypesCompatible(field1Type, field2Type types.Type) bool {
 	return false
 }
 
-// isDerivedFrom checks if type1 is derived (directly or indirectly) from type2.
-// Works for both SimpleType and BuiltinType.
-
 // getPrimitiveType returns the primitive type for a given type.
 func getPrimitiveType(typ types.Type) types.Type {
 	if typ == nil {

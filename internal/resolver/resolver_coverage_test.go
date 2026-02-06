@@ -59,7 +59,10 @@ func TestValidateValueAgainstFacets(t *testing.T) {
 	if !ok || st == nil {
 		t.Fatalf("expected mytype simple type")
 	}
-	facets := typeops.CollectSimpleTypeFacets(schema, st, nil)
+	facets, err := typeops.CollectSimpleTypeFacets(schema, st, nil)
+	if err != nil {
+		t.Fatalf("collect simple type facets: %v", err)
+	}
 	if err := types.ValidateValueAgainstFacets("abcd", st, facets, nil); err != nil {
 		t.Fatalf("expected valid facet value, got %v", err)
 	}

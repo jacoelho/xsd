@@ -29,7 +29,10 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 		}
 		if sc.Restriction != nil {
 			normalized := types.NormalizeWhiteSpace(value, baseType)
-			facets := typeops.CollectRestrictionFacets(schema, sc.Restriction, baseType, convertDeferredFacet)
+			facets, err := typeops.CollectRestrictionFacets(schema, sc.Restriction, baseType, convertDeferredFacet)
+			if err != nil {
+				return err
+			}
 			if err := types.ValidateValueAgainstFacets(normalized, baseType, facets, context); err != nil {
 				return err
 			}
@@ -72,7 +75,10 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 		}
 		for _, member := range memberTypes {
 			if err := validateValueAgainstTypeWithFacets(schema, normalized, member, context, visited); err == nil {
-				facets := typeops.CollectSimpleTypeFacets(schema, st, convertDeferredFacet)
+				facets, ferr := typeops.CollectSimpleTypeFacets(schema, st, convertDeferredFacet)
+				if ferr != nil {
+					return ferr
+				}
 				return types.ValidateValueAgainstFacets(normalized, st, facets, context)
 			}
 		}
@@ -87,7 +93,10 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 				return err
 			}
 		}
-		facets := typeops.CollectSimpleTypeFacets(schema, st, convertDeferredFacet)
+		facets, err := typeops.CollectSimpleTypeFacets(schema, st, convertDeferredFacet)
+		if err != nil {
+			return err
+		}
 		return types.ValidateValueAgainstFacets(normalized, st, facets, context)
 	default:
 		if !types.IsQNameOrNotationType(st) {
@@ -95,7 +104,10 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 				return err
 			}
 		}
-		facets := typeops.CollectSimpleTypeFacets(schema, st, convertDeferredFacet)
+		facets, err := typeops.CollectSimpleTypeFacets(schema, st, convertDeferredFacet)
+		if err != nil {
+			return err
+		}
 		return types.ValidateValueAgainstFacets(normalized, st, facets, context)
 	}
 }

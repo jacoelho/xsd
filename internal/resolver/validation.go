@@ -339,7 +339,7 @@ func validateDeferredRangeFacetValues(sch *parser.Schema) []error {
 					continue
 				}
 				seenDeferred = true
-				resolved, err := convertDeferredRangeFacetForValidation(f, baseType)
+				resolved, err := typeops.DefaultDeferredFacetConverter(f, baseType)
 				if err != nil {
 					errs = append(errs, fmt.Errorf("type %s: restriction: %w", qname, err))
 					continue
@@ -372,25 +372,6 @@ func isRangeFacetName(name string) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-func convertDeferredRangeFacetForValidation(df *types.DeferredFacet, baseType types.Type) (types.Facet, error) {
-	if df == nil || baseType == nil {
-		return nil, nil
-	}
-
-	switch df.FacetName {
-	case "minInclusive":
-		return types.NewMinInclusive(df.FacetValue, baseType)
-	case "maxInclusive":
-		return types.NewMaxInclusive(df.FacetValue, baseType)
-	case "minExclusive":
-		return types.NewMinExclusive(df.FacetValue, baseType)
-	case "maxExclusive":
-		return types.NewMaxExclusive(df.FacetValue, baseType)
-	default:
-		return nil, fmt.Errorf("unknown deferred facet type: %s", df.FacetName)
 	}
 }
 

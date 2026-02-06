@@ -54,7 +54,10 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 				return err
 			}
 			normalized := types.NormalizeWhiteSpace(value, baseType)
-			facets := typeops.CollectRestrictionFacets(schema, sc.Restriction, baseType, nil)
+			facets, err := typeops.CollectRestrictionFacets(schema, sc.Restriction, baseType, nil)
+			if err != nil {
+				return err
+			}
 			return types.ValidateValueAgainstFacets(normalized, baseType, facets, context)
 		}
 		return validateDefaultOrFixedValueResolved(schema, value, baseType, context, visited, policy)
@@ -98,7 +101,10 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 				sawCycle := false
 				for _, member := range memberTypes {
 					if err := validateDefaultOrFixedValueResolved(schema, normalizedValue, member, context, visited, idValuesAllowed); err == nil {
-						facets := typeops.CollectSimpleTypeFacets(schema, st, nil)
+						facets, ferr := typeops.CollectSimpleTypeFacets(schema, st, nil)
+						if ferr != nil {
+							return ferr
+						}
 						return types.ValidateValueAgainstFacets(normalizedValue, st, facets, context)
 					} else if errors.Is(err, errCircularReference) {
 						sawCycle = true
@@ -126,7 +132,10 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 					}
 				}
 			}
-			facets := typeops.CollectSimpleTypeFacets(schema, st, nil)
+			facets, err := typeops.CollectSimpleTypeFacets(schema, st, nil)
+			if err != nil {
+				return err
+			}
 			return types.ValidateValueAgainstFacets(normalizedValue, st, facets, context)
 		default:
 			if types.IsQNameOrNotationType(st) {
@@ -136,7 +145,10 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 			} else if err := st.Validate(normalizedValue); err != nil {
 				return err
 			}
-			facets := typeops.CollectSimpleTypeFacets(schema, st, nil)
+			facets, err := typeops.CollectSimpleTypeFacets(schema, st, nil)
+			if err != nil {
+				return err
+			}
 			return types.ValidateValueAgainstFacets(normalizedValue, st, facets, context)
 		}
 		return nil
