@@ -1,13 +1,13 @@
 package runtimecompile
 
 import (
+	"encoding/base64"
 	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
@@ -192,7 +192,7 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 
 	switch primName {
 	case "string":
-		if err := semantics.ValidateStringKind(c.stringKindForType(typ), []byte(normalized)); err != nil {
+		if err := runtime.ValidateStringKind(c.stringKindForType(typ), []byte(normalized)); err != nil {
 			return nil, err
 		}
 		return []byte(normalized), nil
@@ -312,7 +312,7 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 		if err != nil {
 			return nil, err
 		}
-		return []byte(semantics.EncodeBase64(b)), nil
+		return []byte(base64.StdEncoding.EncodeToString(b)), nil
 	default:
 		return nil, fmt.Errorf("unsupported primitive type %s", primName)
 	}

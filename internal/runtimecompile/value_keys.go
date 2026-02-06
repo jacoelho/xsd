@@ -5,7 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
@@ -99,7 +98,7 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 	if err != nil {
 		return keyBytes{}, err
 	}
-	if kind, ok := semantics.TemporalKindForPrimitive(primName); ok {
+	if kind, ok := temporal.KindFromPrimitiveName(primName); ok {
 		return c.keyBytesTemporal(normalized, kind)
 	}
 	switch primName {

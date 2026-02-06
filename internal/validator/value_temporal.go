@@ -2,13 +2,12 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
-func temporalSpecFor(kind runtime.ValidatorKind) (semantics.TemporalSpec, bool) {
-	return semantics.TemporalSpecForValidatorKind(kind)
+func temporalSpecFor(kind runtime.ValidatorKind) (runtime.TemporalSpec, bool) {
+	return runtime.TemporalSpecForValidatorKind(kind)
 }
 
 func (s *Session) canonicalizeTemporal(kind runtime.ValidatorKind, normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
