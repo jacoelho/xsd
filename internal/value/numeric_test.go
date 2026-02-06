@@ -69,7 +69,7 @@ func TestParseFloatLexicalVariants(t *testing.T) {
 	}
 }
 
-func TestParseUnsignedRejectsSigns(t *testing.T) {
+func TestParseUnsignedAcceptsSignedNonNegativeLexical(t *testing.T) {
 	tests := []struct {
 		name string
 		fn   func([]byte) (uint64, error)
@@ -105,20 +105,13 @@ func TestParseUnsignedRejectsSigns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			invalid := [][]byte{
-				[]byte("+0"),
-				[]byte("-0"),
-				[]byte("+1"),
-				[]byte("-1"),
-			}
-			for _, value := range invalid {
-				if _, err := tt.fn(value); err == nil {
-					t.Fatalf("Parse(%q) expected error", value)
-				}
-			}
 			valid := map[string]uint64{
-				"0": 0,
-				"1": 1,
+				"0":   0,
+				"+0":  0,
+				"-0":  0,
+				"1":   1,
+				"+1":  1,
+				"001": 1,
 			}
 			for value, want := range valid {
 				got, err := tt.fn([]byte(value))
@@ -127,6 +120,18 @@ func TestParseUnsignedRejectsSigns(t *testing.T) {
 				}
 				if got != want {
 					t.Fatalf("Parse(%q) = %d, want %d", value, got, want)
+				}
+			}
+			invalid := [][]byte{
+				[]byte("-1"),
+				[]byte("+"),
+				[]byte("-"),
+				[]byte("1.0"),
+				[]byte("abc"),
+			}
+			for _, value := range invalid {
+				if _, err := tt.fn(value); err == nil {
+					t.Fatalf("Parse(%q) expected error", value)
 				}
 			}
 		})

@@ -42,8 +42,9 @@ func TestParseValidateConsistency_Primitives(t *testing.T) {
 			cases: []caseDef{
 				{name: "max", value: "18446744073709551615", wantErr: false},
 				{name: "overflow", value: "18446744073709551616", wantErr: true},
-				{name: "plus", value: "+1", wantErr: true},
-				{name: "minus-zero", value: "-0", wantErr: true},
+				{name: "plus", value: "+1", wantErr: false},
+				{name: "minus-zero", value: "-0", wantErr: false},
+				{name: "minus", value: "-1", wantErr: true},
 				{name: "whitespace", value: " 42 ", wantErr: false},
 			},
 		},
@@ -58,7 +59,8 @@ func TestParseValidateConsistency_Primitives(t *testing.T) {
 			cases: []caseDef{
 				{name: "max", value: "4294967295", wantErr: false},
 				{name: "overflow", value: "4294967296", wantErr: true},
-				{name: "plus", value: "+1", wantErr: true},
+				{name: "plus", value: "+1", wantErr: false},
+				{name: "minus", value: "-1", wantErr: true},
 			},
 		},
 		{
@@ -72,7 +74,8 @@ func TestParseValidateConsistency_Primitives(t *testing.T) {
 			cases: []caseDef{
 				{name: "max", value: "65535", wantErr: false},
 				{name: "overflow", value: "65536", wantErr: true},
-				{name: "plus", value: "+1", wantErr: true},
+				{name: "plus", value: "+1", wantErr: false},
+				{name: "minus", value: "-1", wantErr: true},
 			},
 		},
 		{
@@ -86,7 +89,8 @@ func TestParseValidateConsistency_Primitives(t *testing.T) {
 			cases: []caseDef{
 				{name: "max", value: "255", wantErr: false},
 				{name: "overflow", value: "256", wantErr: true},
-				{name: "plus", value: "+1", wantErr: true},
+				{name: "plus", value: "+1", wantErr: false},
+				{name: "minus", value: "-1", wantErr: true},
 			},
 		},
 		{

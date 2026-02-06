@@ -45,28 +45,28 @@ func TestValidateNumericRanges(t *testing.T) {
 	}
 }
 
-func TestValidateUnsignedLexicalRejectsSigns(t *testing.T) {
+func TestValidateUnsignedLexicalSignedNonNegative(t *testing.T) {
 	tests := []struct {
 		fn    func(string) error
 		name  string
 		value string
 		valid bool
 	}{
-		{name: "unsignedLong +0", value: "+0", valid: false, fn: validateUnsignedLong},
-		{name: "unsignedLong +1", value: "+1", valid: false, fn: validateUnsignedLong},
-		{name: "unsignedLong -0", value: "-0", valid: false, fn: validateUnsignedLong},
+		{name: "unsignedLong +0", value: "+0", valid: true, fn: validateUnsignedLong},
+		{name: "unsignedLong +1", value: "+1", valid: true, fn: validateUnsignedLong},
+		{name: "unsignedLong -0", value: "-0", valid: true, fn: validateUnsignedLong},
 		{name: "unsignedLong -1", value: "-1", valid: false, fn: validateUnsignedLong},
-		{name: "unsignedInt +0", value: "+0", valid: false, fn: validateUnsignedInt},
-		{name: "unsignedInt +1", value: "+1", valid: false, fn: validateUnsignedInt},
-		{name: "unsignedInt -0", value: "-0", valid: false, fn: validateUnsignedInt},
+		{name: "unsignedInt +0", value: "+0", valid: true, fn: validateUnsignedInt},
+		{name: "unsignedInt +1", value: "+1", valid: true, fn: validateUnsignedInt},
+		{name: "unsignedInt -0", value: "-0", valid: true, fn: validateUnsignedInt},
 		{name: "unsignedInt -1", value: "-1", valid: false, fn: validateUnsignedInt},
-		{name: "unsignedShort +0", value: "+0", valid: false, fn: validateUnsignedShort},
-		{name: "unsignedShort +1", value: "+1", valid: false, fn: validateUnsignedShort},
-		{name: "unsignedShort -0", value: "-0", valid: false, fn: validateUnsignedShort},
+		{name: "unsignedShort +0", value: "+0", valid: true, fn: validateUnsignedShort},
+		{name: "unsignedShort +1", value: "+1", valid: true, fn: validateUnsignedShort},
+		{name: "unsignedShort -0", value: "-0", valid: true, fn: validateUnsignedShort},
 		{name: "unsignedShort -1", value: "-1", valid: false, fn: validateUnsignedShort},
-		{name: "unsignedByte +0", value: "+0", valid: false, fn: validateUnsignedByte},
-		{name: "unsignedByte +1", value: "+1", valid: false, fn: validateUnsignedByte},
-		{name: "unsignedByte -0", value: "-0", valid: false, fn: validateUnsignedByte},
+		{name: "unsignedByte +0", value: "+0", valid: true, fn: validateUnsignedByte},
+		{name: "unsignedByte +1", value: "+1", valid: true, fn: validateUnsignedByte},
+		{name: "unsignedByte -0", value: "-0", valid: true, fn: validateUnsignedByte},
 		{name: "unsignedByte -1", value: "-1", valid: false, fn: validateUnsignedByte},
 	}
 

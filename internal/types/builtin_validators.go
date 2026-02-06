@@ -39,8 +39,7 @@ func validateBoolean(value string) error {
 
 // validateDecimal validates xs:decimal
 var (
-	integerPattern  = regexp.MustCompile(`^[+-]?\d+$`)
-	unsignedPattern = regexp.MustCompile(`^\d+$`)
+	integerPattern = regexp.MustCompile(`^[+-]?\d+$`)
 
 	durationPattern          = regexp.MustCompile(`^-?P(\d+Y)?(\d+M)?(\d+D)?(T(\d+H)?(\d+M)?(\d+(\.\d+)?S)?)?$`)
 	hexBinaryPattern         = regexp.MustCompile(`^[0-9A-Fa-f]+$`)
@@ -162,10 +161,14 @@ func validateNonNegativeInteger(value string) error {
 }
 
 func normalizeUnsignedLexical(value, label string) (string, error) {
-	if !unsignedPattern.MatchString(value) {
+	parsed, perr := num.ParseInt([]byte(value))
+	if perr != nil {
 		return "", fmt.Errorf("invalid %s: %s", label, value)
 	}
-	return value, nil
+	if parsed.Sign < 0 {
+		return "", fmt.Errorf("invalid %s: %s", label, value)
+	}
+	return string(parsed.Digits), nil
 }
 
 // validatePositiveInteger validates xs:positiveInteger

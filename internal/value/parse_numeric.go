@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -181,10 +182,12 @@ func ParseAnyURI(lexical []byte) (string, error) {
 }
 
 func normalizeUnsignedLexical(trimmed []byte) (string, error) {
-	for _, b := range trimmed {
-		if b < '0' || b > '9' {
-			return "", fmt.Errorf("unsigned integer must contain only digits")
-		}
+	parsed, perr := num.ParseInt(trimmed)
+	if perr != nil {
+		return "", fmt.Errorf("invalid unsigned integer lexical")
 	}
-	return string(trimmed), nil
+	if parsed.Sign < 0 {
+		return "", fmt.Errorf("unsigned integer must be >= 0")
+	}
+	return string(parsed.Digits), nil
 }

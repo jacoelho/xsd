@@ -131,7 +131,7 @@ func TestParseTimeLeapSecond(t *testing.T) {
 	}
 }
 
-func TestParseUnsignedRejectsSigns(t *testing.T) {
+func TestParseUnsignedAcceptsSignedNonNegativeLexical(t *testing.T) {
 	tests := []struct {
 		fn   func(string) (uint64, error)
 		name string
@@ -165,15 +165,13 @@ func TestParseUnsignedRejectsSigns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			invalid := []string{"+0", "-0", "+1", "-1"}
-			for _, value := range invalid {
-				if _, err := tt.fn(value); err == nil {
-					t.Fatalf("Parse(%q) expected error", value)
-				}
-			}
 			valid := map[string]uint64{
-				"0": 0,
-				"1": 1,
+				"0":   0,
+				"+0":  0,
+				"-0":  0,
+				"1":   1,
+				"+1":  1,
+				"001": 1,
 			}
 			for value, want := range valid {
 				got, err := tt.fn(value)
@@ -182,6 +180,12 @@ func TestParseUnsignedRejectsSigns(t *testing.T) {
 				}
 				if got != want {
 					t.Fatalf("Parse(%q) = %d, want %d", value, got, want)
+				}
+			}
+			invalid := []string{"-1", "+", "-", "1.0", "abc"}
+			for _, value := range invalid {
+				if _, err := tt.fn(value); err == nil {
+					t.Fatalf("Parse(%q) expected error", value)
 				}
 			}
 		})
