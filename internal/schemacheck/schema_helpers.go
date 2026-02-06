@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typegraph"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -85,41 +86,7 @@ func validateDeferredFacetApplicability(df *types.DeferredFacet, baseType types.
 // convertDeferredFacet converts a DeferredFacet to an actual Facet now that the base type is resolved.
 // This is needed for facet inheritance validation.
 func convertDeferredFacet(df *types.DeferredFacet, baseType types.Type) (types.Facet, error) {
-	if df == nil || baseType == nil {
-		return nil, nil
-	}
-
-	switch df.FacetName {
-	case "minInclusive":
-		return convertDeferredRangeFacet(df.FacetName, df.FacetValue, baseType)
-	case "maxInclusive":
-		return convertDeferredRangeFacet(df.FacetName, df.FacetValue, baseType)
-	case "minExclusive":
-		return convertDeferredRangeFacet(df.FacetName, df.FacetValue, baseType)
-	case "maxExclusive":
-		return convertDeferredRangeFacet(df.FacetName, df.FacetValue, baseType)
-	default:
-		return nil, fmt.Errorf("unknown deferred facet type: %s", df.FacetName)
-	}
-}
-
-func convertDeferredRangeFacet(name, value string, baseType types.Type) (types.Facet, error) {
-	var (
-		facet types.Facet
-		err   error
-	)
-	switch name {
-	case "minInclusive":
-		facet, err = types.NewMinInclusive(value, baseType)
-	case "maxInclusive":
-		facet, err = types.NewMaxInclusive(value, baseType)
-	case "minExclusive":
-		facet, err = types.NewMinExclusive(value, baseType)
-	case "maxExclusive":
-		facet, err = types.NewMaxExclusive(value, baseType)
-	default:
-		return nil, fmt.Errorf("unknown deferred facet type: %s", name)
-	}
+	facet, err := typeops.DefaultDeferredFacetConverter(df, baseType)
 	if errors.Is(err, types.ErrCannotDeterminePrimitiveType) {
 		return nil, nil
 	}
