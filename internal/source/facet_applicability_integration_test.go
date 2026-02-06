@@ -40,7 +40,7 @@ func TestFacetApplicability_ListTypes_W3CTestCases(t *testing.T) {
 				FS: os.DirFS(testDataDir),
 			}
 			l := NewLoader(cfg)
-			_, err := l.Load(tt.schemaPath)
+			_, err := loadAndPrepare(t, l, tt.schemaPath)
 
 			if tt.shouldLoad {
 				if err != nil {

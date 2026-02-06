@@ -68,7 +68,7 @@ func TestLoadCachesSchema(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: fs})
-	schema, err := loader.Load("main.xsd")
+	schema, err := loadAndPrepare(t, loader, "main.xsd")
 	if err != nil {
 		t.Fatalf("Load error: %v", err)
 	}

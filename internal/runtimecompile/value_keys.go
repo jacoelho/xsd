@@ -98,7 +98,7 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 	if err != nil {
 		return keyBytes{}, err
 	}
-	if kind, ok := temporalKindForPrimitive(primName); ok {
+	if kind, ok := temporal.KindFromPrimitiveName(primName); ok {
 		return c.keyBytesTemporal(normalized, kind)
 	}
 	switch primName {
@@ -184,29 +184,6 @@ func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[str
 		return keyBytes{kind: runtime.VKQName, bytes: valuekey.QNameKeyStrings(1, string(qname.Namespace), qname.Local)}, nil
 	default:
 		return keyBytes{}, fmt.Errorf("unsupported primitive type %s", primName)
-	}
-}
-
-func temporalKindForPrimitive(primName string) (temporal.Kind, bool) {
-	switch primName {
-	case "dateTime":
-		return temporal.KindDateTime, true
-	case "date":
-		return temporal.KindDate, true
-	case "time":
-		return temporal.KindTime, true
-	case "gYearMonth":
-		return temporal.KindGYearMonth, true
-	case "gYear":
-		return temporal.KindGYear, true
-	case "gMonthDay":
-		return temporal.KindGMonthDay, true
-	case "gDay":
-		return temporal.KindGDay, true
-	case "gMonth":
-		return temporal.KindGMonth, true
-	default:
-		return temporal.KindInvalid, false
 	}
 }
 

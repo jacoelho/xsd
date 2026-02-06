@@ -142,7 +142,7 @@ func TestNotationEnumerationValidation(t *testing.T) {
 				FS: testFS,
 			})
 
-			_, err := loader.Load("test.xsd")
+			_, err := loadAndPrepare(t, loader, "test.xsd")
 
 			if tt.wantError {
 				if err == nil {
@@ -181,7 +181,7 @@ func TestNotationElementUsageAllowed(t *testing.T) {
 		FS: testFS,
 	})
 
-	if _, err := loader.Load("test.xsd"); err != nil {
+	if _, err := loadAndPrepare(t, loader, "test.xsd"); err != nil {
 		t.Fatalf("Unexpected schema validation error: %v", err)
 	}
 }
@@ -200,7 +200,7 @@ func TestDirectNotationElementUsageInvalid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Fatal("Expected schema validation error for direct NOTATION element type, got nil")
 	}
@@ -227,7 +227,7 @@ func TestDirectNotationAttributeUsageInvalid(t *testing.T) {
 		FS: testFS,
 	})
 
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Fatal("Expected schema validation error for direct NOTATION attribute type, got nil")
 	}
@@ -343,7 +343,7 @@ func TestInvalidParticleOccurrenceConstraints(t *testing.T) {
 				FS: testFS,
 			})
 
-			_, err := loader.Load("test.xsd")
+			_, err := loadAndPrepare(t, loader, "test.xsd")
 
 			if tt.wantError {
 				if err == nil {
@@ -435,7 +435,7 @@ func TestExtensionOfAllGroup(t *testing.T) {
 				FS: testFS,
 			})
 
-			_, err := loader.Load("test.xsd")
+			_, err := loadAndPrepare(t, loader, "test.xsd")
 
 			if tt.wantError {
 				if err == nil {
@@ -514,7 +514,7 @@ func TestAttributeReferenceFixedValueConflict(t *testing.T) {
 				FS: testFS,
 			})
 
-			_, err := loader.Load("test.xsd")
+			_, err := loadAndPrepare(t, loader, "test.xsd")
 
 			if tt.wantError {
 				if err == nil {

@@ -3,7 +3,7 @@ package validator
 import (
 	"fmt"
 
-	xsdErrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/errors"
 	ic "github.com/jacoelho/xsd/internal/identity"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
@@ -49,13 +49,13 @@ func resolveScopeErrors(scope *rtIdentityScope) []error {
 		}
 		switch issue.Kind {
 		case ic.IssueDuplicate:
-			errs = append(errs, newValidationError(xsdErrors.ErrIdentityDuplicate, fmt.Sprintf("%s duplicate", label)))
+			errs = append(errs, newValidationError(xsderrors.ErrIdentityDuplicate, fmt.Sprintf("%s duplicate", label)))
 		case ic.IssueKeyrefMissing:
-			errs = append(errs, newValidationError(xsdErrors.ErrIdentityKeyRefFailed, fmt.Sprintf("%s keyref missing", label)))
+			errs = append(errs, newValidationError(xsderrors.ErrIdentityKeyRefFailed, fmt.Sprintf("%s keyref missing", label)))
 		case ic.IssueKeyrefUndefined:
-			errs = append(errs, newValidationError(xsdErrors.ErrIdentityAbsent, fmt.Sprintf("%s keyref undefined", label)))
+			errs = append(errs, newValidationError(xsderrors.ErrIdentityAbsent, fmt.Sprintf("%s keyref undefined", label)))
 		default:
-			errs = append(errs, newValidationError(xsdErrors.ErrIdentityAbsent, fmt.Sprintf("%s violation", label)))
+			errs = append(errs, newValidationError(xsderrors.ErrIdentityAbsent, fmt.Sprintf("%s violation", label)))
 		}
 	}
 	return errs

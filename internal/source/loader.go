@@ -9,9 +9,6 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	semantic "github.com/jacoelho/xsd/internal/semantic"
-	semanticcheck "github.com/jacoelho/xsd/internal/semanticcheck"
-	semanticresolve "github.com/jacoelho/xsd/internal/semanticresolve"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -208,18 +205,10 @@ func NewLoader(cfg Config) *SchemaLoader {
 	}
 }
 
-// Load loads and validates a schema graph from location.
+// Load loads and merges a schema graph from location.
 // It is fail-stop and requires a configured resolver for root resolution.
 func (l *SchemaLoader) Load(location string) (*parser.Schema, error) {
-	sch, err := l.LoadParsed(location)
-	if err != nil {
-		return nil, err
-	}
-	if err := l.validateLoadedSchema(sch); err != nil {
-		l.markFailed(err)
-		return nil, err
-	}
-	return sch, nil
+	return l.LoadParsed(location)
 }
 
 // LoadParsed loads and merges a schema graph from location.
@@ -411,18 +400,10 @@ func (l *SchemaLoader) resolve(req ResolveRequest) (io.ReadCloser, string, error
 	return l.resolver.Resolve(req)
 }
 
-// LoadResolved loads a schema from a resolved reader and systemID, then validates it.
+// LoadResolved loads a schema from a resolved reader and systemID.
 // It is fail-stop and only requires a resolver when directives need external resolution.
 func (l *SchemaLoader) LoadResolved(doc io.ReadCloser, systemID string) (*parser.Schema, error) {
-	sch, err := l.LoadResolvedParsed(doc, systemID)
-	if err != nil {
-		return nil, err
-	}
-	if err := l.validateLoadedSchema(sch); err != nil {
-		l.markFailed(err)
-		return nil, err
-	}
-	return sch, nil
+	return l.LoadResolvedParsed(doc, systemID)
 }
 
 // LoadResolvedParsed loads a schema from a resolved reader and systemID.
@@ -711,31 +692,6 @@ func (l *SchemaLoader) validateIfRequested(key loadKey) error {
 	}
 	// source loading is parse-only; semantic validation runs in pipeline preparation.
 	entry.validated = true
-	return nil
-}
-
-func (l *SchemaLoader) validateLoadedSchema(sch *parser.Schema) error {
-	if err := l.resolveGroupReferences(sch); err != nil {
-		return fmt.Errorf("resolve group references: %w", err)
-	}
-	structureErrors := semanticcheck.ValidateStructure(sch)
-	if len(structureErrors) > 0 {
-		return semantic.FormatValidationErrors(structureErrors)
-	}
-	if err := semantic.MarkSemantic(sch); err != nil {
-		return err
-	}
-	if err := semanticresolve.ResolveTypeReferences(sch); err != nil {
-		return fmt.Errorf("resolve type references: %w", err)
-	}
-	refErrors := semanticresolve.ValidateReferences(sch)
-	if len(refErrors) > 0 {
-		return semantic.FormatValidationErrors(refErrors)
-	}
-	parser.UpdatePlaceholderState(sch)
-	if err := semantic.MarkResolved(sch); err != nil {
-		return err
-	}
 	return nil
 }
 

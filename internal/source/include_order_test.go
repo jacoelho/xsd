@@ -6,6 +6,7 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/pipeline"
 	schema "github.com/jacoelho/xsd/internal/semantic"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -78,11 +79,11 @@ func TestIncludeGlobalDeclOrder(t *testing.T) {
 				t.Fatalf("GlobalDecls = %v, want %v", gotDecls, tc.expected)
 			}
 
-			registry, err := schema.AssignIDs(loaded)
+			prepared, err := pipeline.Prepare(loaded)
 			if err != nil {
-				t.Fatalf("AssignIDs error = %v", err)
+				t.Fatalf("Prepare error = %v", err)
 			}
-			gotOrder := globalElementOrder(registry)
+			gotOrder := globalElementOrder(prepared.Registry)
 			if !reflect.DeepEqual(gotOrder, tc.expected) {
 				t.Fatalf("ElementOrder = %v, want %v", gotOrder, tc.expected)
 			}

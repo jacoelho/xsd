@@ -164,7 +164,7 @@ func TestValidateElementDeclarationsConsistent(t *testing.T) {
 				FS: fsys,
 			}
 			l := NewLoader(cfg)
-			_, err := l.Load("test.xsd")
+			_, err := loadAndPrepare(t, l, "test.xsd")
 
 			if tt.wantErr {
 				if err == nil {
@@ -262,7 +262,7 @@ func TestValidateGroupOccurrenceConstraints(t *testing.T) {
 				FS: fsys,
 			}
 			l := NewLoader(cfg)
-			_, err := l.Load("test.xsd")
+			_, err := loadAndPrepare(t, l, "test.xsd")
 
 			if tt.wantErr {
 				if err == nil {
@@ -449,7 +449,7 @@ func TestValidateMixedContentDerivation(t *testing.T) {
 				FS: fsys,
 			}
 			l := NewLoader(cfg)
-			_, err := l.Load("test.xsd")
+			_, err := loadAndPrepare(t, l, "test.xsd")
 
 			if tt.wantErr {
 				if err == nil {
@@ -576,7 +576,7 @@ func TestValidateComplexTypeStructureIntegration(t *testing.T) {
 				FS: fsys,
 			}
 			l := NewLoader(cfg)
-			_, err := l.Load("test.xsd")
+			_, err := loadAndPrepare(t, l, "test.xsd")
 
 			if tt.wantErr {
 				if err == nil {
@@ -715,7 +715,7 @@ func TestAllGroupConstraints(t *testing.T) {
 				FS: testFS,
 			})
 
-			_, err := loader.Load("test.xsd")
+			_, err := loadAndPrepare(t, loader, "test.xsd")
 
 			if tt.wantErr {
 				if err == nil {
@@ -760,7 +760,7 @@ func TestComplexContentExtensionFromSimpleContentBase(t *testing.T) {
 		FS: testFS,
 	})
 
-	if _, err := loader.Load("test.xsd"); err != nil {
+	if _, err := loadAndPrepare(t, loader, "test.xsd"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

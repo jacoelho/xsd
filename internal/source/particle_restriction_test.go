@@ -31,7 +31,7 @@ func TestParticleRestriction_BlockSupersetInModelGroup(t *testing.T) {
 		"test.xsd": &fstest.MapFile{Data: []byte(schema)},
 	}
 	loader := NewLoader(Config{FS: fsys})
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Fatal("Expected schema validation error but got none")
 	}
@@ -75,7 +75,7 @@ func TestParticleRestriction_TypeMismatchInModelGroup(t *testing.T) {
 		"test.xsd": &fstest.MapFile{Data: []byte(schema)},
 	}
 	loader := NewLoader(Config{FS: fsys})
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Fatal("Expected schema validation error but got none")
 	}
@@ -111,7 +111,7 @@ func TestParticleRestriction_ChoiceOccurrenceRange(t *testing.T) {
 		"test.xsd": &fstest.MapFile{Data: []byte(schema)},
 	}
 	loader := NewLoader(Config{FS: fsys})
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Fatal("Expected schema validation error but got none")
 	}
@@ -147,7 +147,7 @@ func TestParticleRestriction_ChoiceWildcardAllowsMultiple(t *testing.T) {
 		"test.xsd": &fstest.MapFile{Data: []byte(schema)},
 	}
 	loader := NewLoader(Config{FS: fsys})
-	if _, err := loader.Load("test.xsd"); err != nil {
+	if _, err := loadAndPrepare(t, loader, "test.xsd"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -187,7 +187,7 @@ func TestParticleRestriction_PointlessChoiceToSequence(t *testing.T) {
 		"test.xsd": &fstest.MapFile{Data: []byte(schema)},
 	}
 	loader := NewLoader(Config{FS: fsys})
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Fatal("Expected schema validation error but got none")
 	}
@@ -229,7 +229,7 @@ func TestParticleRestriction_PointlessChoiceOptionalSequence(t *testing.T) {
 		"test.xsd": &fstest.MapFile{Data: []byte(schema)},
 	}
 	loader := NewLoader(Config{FS: fsys})
-	_, err := loader.Load("test.xsd")
+	_, err := loadAndPrepare(t, loader, "test.xsd")
 	if err == nil {
 		t.Fatal("Expected schema validation error but got none")
 	}

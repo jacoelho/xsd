@@ -34,7 +34,7 @@ func TestFieldResolution_AttributeField(t *testing.T) {
 		FS: testFS,
 	})
 
-	schema, err := loader.Load("test.xsd")
+	schema, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Fatalf("Load() failed: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestFieldResolution_AttributeAxis(t *testing.T) {
 		FS: testFS,
 	})
 
-	schema, err := loader.Load("test.xsd")
+	schema, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Fatalf("Load() failed: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestLocalIdentityConstraintContext(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: testFS})
-	if _, err := loader.Load("test.xsd"); err != nil {
+	if _, err := loadAndPrepare(t, loader, "test.xsd"); err != nil {
 		t.Fatalf("Load() failed: %v", err)
 	}
 }
@@ -201,7 +201,7 @@ func TestFieldResolution_UnionWithAttributeAllowed(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: testFS})
-	if _, err := loader.Load("test.xsd"); err != nil {
+	if _, err := loadAndPrepare(t, loader, "test.xsd"); err != nil {
 		t.Fatalf("expected union field mixing element and attribute to pass, got: %v", err)
 	}
 }
@@ -231,7 +231,7 @@ func TestFieldResolution_UnionIncompatibleTypesFails(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: testFS})
-	if _, err := loader.Load("test.xsd"); err == nil {
+	if _, err := loadAndPrepare(t, loader, "test.xsd"); err == nil {
 		t.Fatal("expected union field with incompatible types to fail")
 	}
 }
@@ -261,7 +261,7 @@ func TestFieldResolution_UnionCompatibleTypesPass(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: testFS})
-	if _, err := loader.Load("test.xsd"); err != nil {
+	if _, err := loadAndPrepare(t, loader, "test.xsd"); err != nil {
 		t.Fatalf("expected union field with compatible types to pass, got: %v", err)
 	}
 }
@@ -290,7 +290,7 @@ func TestFieldResolution_FieldSelectsNillableKeyFails(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: testFS})
-	if _, err := loader.Load("test.xsd"); err == nil {
+	if _, err := loadAndPrepare(t, loader, "test.xsd"); err == nil {
 		t.Fatal("expected key field selecting nillable element to fail")
 	}
 }
@@ -326,7 +326,7 @@ func TestFieldResolution_FieldSelectsNillableKeyrefAllowed(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: testFS})
-	if _, err := loader.Load("test.xsd"); err != nil {
+	if _, err := loadAndPrepare(t, loader, "test.xsd"); err != nil {
 		t.Fatalf("expected keyref field selecting nillable element to pass, got: %v", err)
 	}
 }
@@ -363,7 +363,7 @@ func TestFieldResolution_DescendantAttributeField(t *testing.T) {
 		FS: testFS,
 	})
 
-	schema, err := loader.Load("test.xsd")
+	schema, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Fatalf("Load() failed: %v", err)
 	}
@@ -431,7 +431,7 @@ func TestFieldResolution_ChildElementField(t *testing.T) {
 		FS: testFS,
 	})
 
-	schema, err := loader.Load("test.xsd")
+	schema, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Fatalf("Load() failed: %v", err)
 	}
@@ -510,7 +510,7 @@ func TestFieldResolution_DescendantElementField(t *testing.T) {
 		FS: testFS,
 	})
 
-	schema, err := loader.Load("test.xsd")
+	schema, err := loadAndPrepare(t, loader, "test.xsd")
 	if err != nil {
 		t.Fatalf("Load() failed: %v", err)
 	}

@@ -3,7 +3,7 @@ package validator
 import (
 	"testing"
 
-	xsdErrors "github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -59,8 +59,8 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 		t.Fatalf("violations = %d, want 1", len(pending))
 	}
 	code, _, ok := validationErrorInfo(pending[0])
-	if !ok || code != xsdErrors.ErrIdentityDuplicate {
-		t.Fatalf("expected %s, got %v", xsdErrors.ErrIdentityDuplicate, pending[0])
+	if !ok || code != xsderrors.ErrIdentityDuplicate {
+		t.Fatalf("expected %s, got %v", xsderrors.ErrIdentityDuplicate, pending[0])
 	}
 }
 
