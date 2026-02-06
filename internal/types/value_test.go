@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
-	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestTypedValue_Decimal(t *testing.T) {
@@ -19,27 +19,27 @@ func TestTypedValue_Decimal(t *testing.T) {
 		t.Fatalf("ParseDecimal() error = %v", err)
 	}
 
-	value := NewDecimalValue(NewParsedValue(lexical, native), typ)
+	typedValue := NewDecimalValue(NewParsedValue(lexical, native), typ)
 
-	if value.Type() != typ {
-		t.Errorf("Type() = %v, want %v", value.Type(), typ)
+	if typedValue.Type() != typ {
+		t.Errorf("Type() = %v, want %v", typedValue.Type(), typ)
 	}
-	if value.Lexical() != lexical {
-		t.Errorf("Lexical() = %v, want %v", value.Lexical(), lexical)
+	if typedValue.Lexical() != lexical {
+		t.Errorf("Lexical() = %v, want %v", typedValue.Lexical(), lexical)
 	}
-	decNative, ok := value.Native().(num.Dec)
+	decNative, ok := typedValue.Native().(num.Dec)
 	if !ok {
-		t.Fatalf("Native() type = %T, want num.Dec", value.Native())
+		t.Fatalf("Native() type = %T, want num.Dec", typedValue.Native())
 	}
 	if decNative.Compare(native) != 0 {
 		t.Errorf("Native() = %v, want %v", decNative, native)
 	}
-	if value.String() == "" {
+	if typedValue.String() == "" {
 		t.Error("String() should not be empty")
 	}
 
 	// test type-safe extraction
-	extracted, err := ValueAs[num.Dec](value)
+	extracted, err := ValueAs[num.Dec](typedValue)
 	if err != nil {
 		t.Errorf("ValueAs[num.Dec]() error = %v", err)
 	}
@@ -48,7 +48,7 @@ func TestTypedValue_Decimal(t *testing.T) {
 	}
 
 	// test type mismatch
-	_, err = ValueAs[bool](value)
+	_, err = ValueAs[bool](typedValue)
 	if err == nil {
 		t.Error("ValueAs[bool]() should return error for type mismatch")
 	}
@@ -70,23 +70,23 @@ func TestTypedValue_Boolean(t *testing.T) {
 		t.Fatalf("ParseBoolean() error = %v", err)
 	}
 
-	value := NewBooleanValue(NewParsedValue(lexical, native), typ)
+	typedValue := NewBooleanValue(NewParsedValue(lexical, native), typ)
 
-	if value.Type() != typ {
-		t.Errorf("Type() = %v, want %v", value.Type(), typ)
+	if typedValue.Type() != typ {
+		t.Errorf("Type() = %v, want %v", typedValue.Type(), typ)
 	}
-	if value.Lexical() != lexical {
-		t.Errorf("Lexical() = %v, want %v", value.Lexical(), lexical)
+	if typedValue.Lexical() != lexical {
+		t.Errorf("Lexical() = %v, want %v", typedValue.Lexical(), lexical)
 	}
-	if value.Native() != native {
-		t.Errorf("Native() = %v, want %v", value.Native(), native)
+	if typedValue.Native() != native {
+		t.Errorf("Native() = %v, want %v", typedValue.Native(), native)
 	}
-	if value.String() != "true" {
-		t.Errorf("String() = %v, want 'true'", value.String())
+	if typedValue.String() != "true" {
+		t.Errorf("String() = %v, want 'true'", typedValue.String())
 	}
 
 	// test type-safe extraction
-	extracted, err := ValueAs[bool](value)
+	extracted, err := ValueAs[bool](typedValue)
 	if err != nil {
 		t.Errorf("ValueAs[bool]() error = %v", err)
 	}
@@ -104,23 +104,23 @@ func TestTypedValue_DateTime(t *testing.T) {
 		t.Fatalf("ParseDateTime() error = %v", err)
 	}
 
-	value := NewDateTimeValue(NewParsedValue(lexical, native), typ)
+	typedValue := NewDateTimeValue(NewParsedValue(lexical, native), typ)
 
-	if value.Type() != typ {
-		t.Errorf("Type() = %v, want %v", value.Type(), typ)
+	if typedValue.Type() != typ {
+		t.Errorf("Type() = %v, want %v", typedValue.Type(), typ)
 	}
-	if value.Lexical() != lexical {
-		t.Errorf("Lexical() = %v, want %v", value.Lexical(), lexical)
+	if typedValue.Lexical() != lexical {
+		t.Errorf("Lexical() = %v, want %v", typedValue.Lexical(), lexical)
 	}
-	if value.Native() != native {
-		t.Errorf("Native() = %v, want %v", value.Native(), native)
+	if typedValue.Native() != native {
+		t.Errorf("Native() = %v, want %v", typedValue.Native(), native)
 	}
-	if value.String() == "" {
+	if typedValue.String() == "" {
 		t.Error("String() should not be empty")
 	}
 
 	// test type-safe extraction
-	extracted, err := ValueAs[time.Time](value)
+	extracted, err := ValueAs[time.Time](typedValue)
 	if err != nil {
 		t.Errorf("ValueAs[time.Time]() error = %v", err)
 	}
@@ -162,8 +162,8 @@ func TestTypedValue_DateTimeCanonicalString(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parseTemporalForType() error = %v", err)
 			}
-			value := NewDateTimeValue(NewParsedValue(tt.lexical, native), typ)
-			if got := value.String(); got != tt.want {
+			typedValue := NewDateTimeValue(NewParsedValue(tt.lexical, native), typ)
+			if got := typedValue.String(); got != tt.want {
 				t.Fatalf("String() = %q, want %q", got, tt.want)
 			}
 		})
@@ -179,17 +179,17 @@ func TestTypedValue_Integer(t *testing.T) {
 		t.Fatalf("ParseInteger() error = %v", err)
 	}
 
-	value := NewIntegerValue(NewParsedValue(lexical, native), typ)
+	typedValue := NewIntegerValue(NewParsedValue(lexical, native), typ)
 
-	if value.Type() != typ {
-		t.Errorf("Type() = %v, want %v", value.Type(), typ)
+	if typedValue.Type() != typ {
+		t.Errorf("Type() = %v, want %v", typedValue.Type(), typ)
 	}
-	if value.Lexical() != lexical {
-		t.Errorf("Lexical() = %v, want %v", value.Lexical(), lexical)
+	if typedValue.Lexical() != lexical {
+		t.Errorf("Lexical() = %v, want %v", typedValue.Lexical(), lexical)
 	}
-	intNative, ok := value.Native().(num.Int)
+	intNative, ok := typedValue.Native().(num.Int)
 	if !ok {
-		t.Fatalf("Native() type = %T, want num.Int", value.Native())
+		t.Fatalf("Native() type = %T, want num.Int", typedValue.Native())
 	}
 	if intNative.Compare(native) != 0 {
 		t.Errorf("Native() = %v, want %v", intNative, native)
@@ -197,12 +197,12 @@ func TestTypedValue_Integer(t *testing.T) {
 	var buf []byte
 	buf = native.RenderCanonical(buf)
 	want := string(buf)
-	if got := value.String(); got != want {
+	if got := typedValue.String(); got != want {
 		t.Errorf("String() = %q, want %q", got, want)
 	}
 
 	// test type-safe extraction
-	extracted, err := ValueAs[num.Int](value)
+	extracted, err := ValueAs[num.Int](typedValue)
 	if err != nil {
 		t.Errorf("ValueAs[num.Int]() error = %v", err)
 	}
@@ -220,23 +220,23 @@ func TestTypedValue_Float(t *testing.T) {
 		t.Fatalf("ParseFloat() error = %v", err)
 	}
 
-	value := NewFloatValue(NewParsedValue(lexical, native), typ)
+	typedValue := NewFloatValue(NewParsedValue(lexical, native), typ)
 
-	if value.Type() != typ {
-		t.Errorf("Type() = %v, want %v", value.Type(), typ)
+	if typedValue.Type() != typ {
+		t.Errorf("Type() = %v, want %v", typedValue.Type(), typ)
 	}
-	if value.Lexical() != lexical {
-		t.Errorf("Lexical() = %v, want %v", value.Lexical(), lexical)
+	if typedValue.Lexical() != lexical {
+		t.Errorf("Lexical() = %v, want %v", typedValue.Lexical(), lexical)
 	}
-	if value.Native() != native {
-		t.Errorf("Native() = %v, want %v", value.Native(), native)
+	if typedValue.Native() != native {
+		t.Errorf("Native() = %v, want %v", typedValue.Native(), native)
 	}
-	if value.String() == "" {
+	if typedValue.String() == "" {
 		t.Error("String() should not be empty")
 	}
 
 	// test type-safe extraction
-	extracted, err := ValueAs[float32](value)
+	extracted, err := ValueAs[float32](typedValue)
 	if err != nil {
 		t.Errorf("ValueAs[float32]() error = %v", err)
 	}
@@ -261,7 +261,7 @@ func TestFloatCanonicalizationConsistency(t *testing.T) {
 	for _, v := range floatCases {
 		tv := NewFloatValue(NewParsedValue("x", v), floatType)
 		got := tv.String()
-		want := valuepkg.CanonicalFloat(float64(v), 32)
+		want := value.CanonicalFloat(float64(v), 32)
 		if got != want {
 			t.Fatalf("float canonical = %q, want %q", got, want)
 		}
@@ -279,7 +279,7 @@ func TestFloatCanonicalizationConsistency(t *testing.T) {
 	for _, v := range doubleCases {
 		tv := NewDoubleValue(NewParsedValue("x", v), doubleType)
 		got := tv.String()
-		want := valuepkg.CanonicalFloat(v, 64)
+		want := value.CanonicalFloat(v, 64)
 		if got != want {
 			t.Fatalf("double canonical = %q, want %q", got, want)
 		}
@@ -295,23 +295,23 @@ func TestTypedValue_String(t *testing.T) {
 		t.Fatalf("ParseString() error = %v", err)
 	}
 
-	value := NewStringValue(NewParsedValue(lexical, native), typ)
+	typedValue := NewStringValue(NewParsedValue(lexical, native), typ)
 
-	if value.Type() != typ {
-		t.Errorf("Type() = %v, want %v", value.Type(), typ)
+	if typedValue.Type() != typ {
+		t.Errorf("Type() = %v, want %v", typedValue.Type(), typ)
 	}
-	if value.Lexical() != lexical {
-		t.Errorf("Lexical() = %v, want %v", value.Lexical(), lexical)
+	if typedValue.Lexical() != lexical {
+		t.Errorf("Lexical() = %v, want %v", typedValue.Lexical(), lexical)
 	}
-	if value.Native() != native {
-		t.Errorf("Native() = %v, want %v", value.Native(), native)
+	if typedValue.Native() != native {
+		t.Errorf("Native() = %v, want %v", typedValue.Native(), native)
 	}
-	if value.String() != lexical {
-		t.Errorf("String() = %v, want %v", value.String(), lexical)
+	if typedValue.String() != lexical {
+		t.Errorf("String() = %v, want %v", typedValue.String(), lexical)
 	}
 
 	// test type-safe extraction
-	extracted, err := ValueAs[string](value)
+	extracted, err := ValueAs[string](typedValue)
 	if err != nil {
 		t.Errorf("ValueAs[string]() error = %v", err)
 	}
@@ -321,9 +321,9 @@ func TestTypedValue_String(t *testing.T) {
 }
 
 func TestParseDecimalRejectsFraction(t *testing.T) {
-	for _, value := range []string{"1/2", "3/7"} {
-		if _, err := ParseDecimal(value); err == nil {
-			t.Fatalf("expected decimal parse error for %q", value)
+	for _, lexical := range []string{"1/2", "3/7"} {
+		if _, err := ParseDecimal(lexical); err == nil {
+			t.Fatalf("expected decimal parse error for %q", lexical)
 		}
 	}
 }
@@ -409,8 +409,8 @@ func TestDecimalCanonicalizationTable(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ParseDecimal(%q) error = %v", tc.lexical, err)
 		}
-		value := NewDecimalValue(NewParsedValue(tc.lexical, dec), decimalType)
-		if got := value.String(); got != tc.want {
+		typedValue := NewDecimalValue(NewParsedValue(tc.lexical, dec), decimalType)
+		if got := typedValue.String(); got != tc.want {
 			t.Fatalf("String(%q) = %q, want %q", tc.lexical, got, tc.want)
 		}
 	}

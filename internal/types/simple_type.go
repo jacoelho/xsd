@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // SimpleType represents a simple type definition
@@ -235,15 +235,15 @@ func validateRestrictionFacetApplicability(facets []any, baseType Type) error {
 
 func isNilType(typ Type) bool {
 	// interface-typed nils need a type switch to detect nil pointers.
-	switch value := typ.(type) {
+	switch typed := typ.(type) {
 	case nil:
 		return true
 	case *BuiltinType:
-		return value == nil
+		return typed == nil
 	case *SimpleType:
-		return value == nil
+		return typed == nil
 	case *ComplexType:
-		return value == nil
+		return typed == nil
 	default:
 		return false
 	}
@@ -462,14 +462,14 @@ func (s *SimpleType) WhiteSpaceExplicit() bool {
 
 // MeasureLength returns length in type-appropriate units (octets, items, or characters).
 // Implements LengthMeasurable interface.
-func (s *SimpleType) MeasureLength(value string) int {
+func (s *SimpleType) MeasureLength(lexical string) int {
 	if s == nil {
 		return 0
 	}
 	// check if this type is itself a list type
 	if s.List != nil {
 		// list type: length is number of items (space-separated)
-		return countXMLFields(value)
+		return countXMLFields(lexical)
 	}
 
 	// check if this type restricts a list type
@@ -480,14 +480,14 @@ func (s *SimpleType) MeasureLength(value string) int {
 				// check if base is a list type
 				if baseSimpleType, ok := AsSimpleType(s.ResolvedBase); ok && baseSimpleType.List != nil {
 					// restriction of list type: length is number of items
-					return countXMLFields(value)
+					return countXMLFields(lexical)
 				}
 				if builtinType, ok := AsBuiltinType(s.ResolvedBase); ok && isBuiltinListType(builtinType.Name().Local) {
 					// restriction of built-in list type: length is number of items
-					return countXMLFields(value)
+					return countXMLFields(lexical)
 				}
 				// otherwise delegate to base type
-				return lengthMeasurer.MeasureLength(value)
+				return lengthMeasurer.MeasureLength(lexical)
 			}
 		}
 		// fallback: check if Restriction.Base QName suggests it's a list type
@@ -496,7 +496,7 @@ func (s *SimpleType) MeasureLength(value string) int {
 			if strings.HasPrefix(strings.ToLower(baseLocal), "list") ||
 				isBuiltinListType(baseLocal) {
 				// likely a list type - count items
-				return countXMLFields(value)
+				return countXMLFields(lexical)
 			}
 		}
 	}
@@ -505,13 +505,13 @@ func (s *SimpleType) MeasureLength(value string) int {
 	primitiveType := s.PrimitiveType()
 	if primitiveType != nil {
 		if lengthMeasurer, ok := as[LengthMeasurable](primitiveType); ok {
-			return lengthMeasurer.MeasureLength(value)
+			return lengthMeasurer.MeasureLength(lexical)
 		}
 		// fallback: use primitive name directly
-		return measureLengthForPrimitive(value, TypeName(primitiveType.Name().Local))
+		return measureLengthForPrimitive(lexical, TypeName(primitiveType.Name().Local))
 	}
 	// fallback: character count
-	return utf8.RuneCountInString(value)
+	return utf8.RuneCountInString(lexical)
 }
 
 func countXMLFields(lexical string) int {
@@ -519,7 +519,7 @@ func countXMLFields(lexical string) int {
 	count := 0
 	inField := false
 	for i := 0; i < len(lexical); i++ {
-		if valuepkg.IsXMLWhitespaceByte(lexical[i]) {
+		if value.IsXMLWhitespaceByte(lexical[i]) {
 			if inField {
 				count++
 				inField = false
@@ -910,10 +910,10 @@ func (s *SimpleType) IsQNameOrNotationType() bool {
 	}
 	typeCacheMu.RLock()
 	ready := s.qnameOrNotationReady
-	value := s.qnameOrNotation
+	result := s.qnameOrNotation
 	typeCacheMu.RUnlock()
 	if ready {
-		return value
+		return result
 	}
 	computed := s.computeQNameOrNotationType()
 	typeCacheMu.Lock()
@@ -921,19 +921,19 @@ func (s *SimpleType) IsQNameOrNotationType() bool {
 		s.qnameOrNotation = computed
 		s.qnameOrNotationReady = true
 	}
-	value = s.qnameOrNotation
+	result = s.qnameOrNotation
 	typeCacheMu.Unlock()
-	return value
+	return result
 }
 
 // SetQNameOrNotationType stores the precomputed QName/NOTATION derivation flag.
-func (s *SimpleType) SetQNameOrNotationType(value bool) {
+func (s *SimpleType) SetQNameOrNotationType(flag bool) {
 	if s == nil {
 		return
 	}
 	typeCacheMu.Lock()
 	defer typeCacheMu.Unlock()
-	s.qnameOrNotation = value
+	s.qnameOrNotation = flag
 	s.qnameOrNotationReady = true
 }
 

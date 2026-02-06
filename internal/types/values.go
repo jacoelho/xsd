@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
-	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
@@ -135,7 +135,7 @@ func (v *DecimalValue) String() string {
 	return canonicalDecimalString(v.lexical)
 }
 
-// XSDDurationValue represents a duration valuepkg.
+// XSDDurationValue represents a duration value.
 type XSDDurationValue struct {
 	simpleValue[XSDDuration]
 }
@@ -230,7 +230,7 @@ func NewBooleanValue(parsed ParsedValue[bool], typ *SimpleType) TypedValue {
 	return &BooleanValue{simpleValue: newSimpleValue(parsed, typ, nil)}
 }
 
-// HexBinaryValue represents a hexBinary valuepkg.
+// HexBinaryValue represents a hexBinary value.
 type HexBinaryValue struct {
 	simpleValue[[]byte]
 }
@@ -247,7 +247,7 @@ func (v *HexBinaryValue) String() string {
 	return strings.ToUpper(hex.EncodeToString(v.native))
 }
 
-// Base64BinaryValue represents a base64Binary valuepkg.
+// Base64BinaryValue represents a base64Binary value.
 type Base64BinaryValue struct {
 	simpleValue[[]byte]
 }
@@ -268,7 +268,7 @@ func (v *Base64BinaryValue) String() string {
 type DateTimeValue struct {
 	simpleValue[time.Time]
 	kind   TypeName
-	tzKind valuepkg.TimezoneKind
+	tzKind value.TimezoneKind
 }
 
 // NewDateTimeValue creates a new DateTimeValue
@@ -284,7 +284,7 @@ func NewDateTimeValue(parsed ParsedValue[time.Time], typ *SimpleType) TypedValue
 	return &DateTimeValue{
 		simpleValue: newSimpleValue(parsed, typ, nil),
 		kind:        kind,
-		tzKind:      valuepkg.TimezoneKindFromLexical([]byte(parsed.Lexical)),
+		tzKind:      value.TimezoneKindFromLexical([]byte(parsed.Lexical)),
 	}
 }
 
@@ -298,7 +298,7 @@ func (v *DateTimeValue) String() string {
 			return temporal.Canonical(parsed)
 		}
 	}
-	return valuepkg.CanonicalDateTimeString(v.native, string(v.kind), v.tzKind)
+	return value.CanonicalDateTimeString(v.native, string(v.kind), v.tzKind)
 }
 
 // FloatValue represents a float value
@@ -312,7 +312,7 @@ func NewFloatValue(parsed ParsedValue[float32], typ *SimpleType) TypedValue {
 }
 
 func (v *FloatValue) String() string {
-	return valuepkg.CanonicalFloat(float64(v.native), 32)
+	return value.CanonicalFloat(float64(v.native), 32)
 }
 
 // DoubleValue represents a double value
@@ -326,7 +326,7 @@ func NewDoubleValue(parsed ParsedValue[float64], typ *SimpleType) TypedValue {
 }
 
 func (v *DoubleValue) String() string {
-	return valuepkg.CanonicalFloat(v.native, 64)
+	return value.CanonicalFloat(v.native, 64)
 }
 
 // StringValue represents a string value
@@ -421,12 +421,12 @@ func NewUnsignedByteValue(parsed ParsedValue[uint8], typ *SimpleType) TypedValue
 
 // ValueAs extracts the native value from a TypedValue with type safety.
 // Returns an error if the value type doesn't match the requested type.
-func ValueAs[T any](value TypedValue) (T, error) {
+func ValueAs[T any](typedValue TypedValue) (T, error) {
 	var zero T
-	if value == nil {
+	if typedValue == nil {
 		return zero, fmt.Errorf("cannot convert nil value")
 	}
-	native := value.Native()
+	native := typedValue.Native()
 
 	// for Comparable wrapper types, extract the inner value
 	if nativeVal, ok := as[T](native); ok {
@@ -441,7 +441,7 @@ func ValueAs[T any](value TypedValue) (T, error) {
 
 	// get XSD type name for user-friendly error message
 	xsdTypeName := "unknown"
-	if typ := value.Type(); typ != nil {
+	if typ := typedValue.Type(); typ != nil {
 		xsdTypeName = typ.Name().Local
 	}
 	return zero, fmt.Errorf("cannot convert value of type %s", xsdTypeName)

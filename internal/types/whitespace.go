@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // WhiteSpace represents whitespace normalization
@@ -19,11 +19,11 @@ const (
 
 type whiteSpaceNormalizer struct{}
 
-func (n whiteSpaceNormalizer) Normalize(value string, typ Type) (string, error) {
+func (n whiteSpaceNormalizer) Normalize(lexical string, typ Type) (string, error) {
 	if typ == nil {
-		return value, nil
+		return lexical, nil
 	}
-	return ApplyWhiteSpace(value, typ.WhiteSpace()), nil
+	return ApplyWhiteSpace(lexical, typ.WhiteSpace()), nil
 }
 
 // ApplyWhiteSpace applies whitespace normalization
@@ -41,40 +41,40 @@ func ApplyWhiteSpace(lexical string, ws WhiteSpace) string {
 	if mode == runtime.WS_Preserve {
 		return lexical
 	}
-	normalized := valuepkg.NormalizeWhitespace(mode, []byte(lexical), nil)
+	normalized := value.NormalizeWhitespace(mode, []byte(lexical), nil)
 	return string(normalized)
 }
 
 // NormalizeWhiteSpace applies whitespace normalization for simple types.
 // Non-simple types are returned unchanged.
-func NormalizeWhiteSpace(value string, typ Type) string {
+func NormalizeWhiteSpace(lexical string, typ Type) string {
 	if typ == nil {
-		return value
+		return lexical
 	}
 	switch typ.(type) {
 	case *SimpleType, *BuiltinType:
-		return ApplyWhiteSpace(value, typ.WhiteSpace())
+		return ApplyWhiteSpace(lexical, typ.WhiteSpace())
 	default:
-		return value
+		return lexical
 	}
 }
 
-func splitXMLWhitespaceFields(value string) []string {
-	return strings.FieldsFunc(value, isXMLWhitespaceRune)
+func splitXMLWhitespaceFields(lexical string) []string {
+	return strings.FieldsFunc(lexical, isXMLWhitespaceRune)
 }
 
 // SplitXMLWhitespaceFields splits a string on XML whitespace (space, tab, CR, LF).
 // It returns nil for empty input.
-func SplitXMLWhitespaceFields(value string) []string {
-	if value == "" {
+func SplitXMLWhitespaceFields(lexical string) []string {
+	if lexical == "" {
 		return nil
 	}
-	return splitXMLWhitespaceFields(value)
+	return splitXMLWhitespaceFields(lexical)
 }
 
 // TrimXMLWhitespace removes leading and trailing XML whitespace (space, tab, CR, LF).
 func TrimXMLWhitespace(lexical string) string {
-	return valuepkg.TrimXMLWhitespaceString(lexical)
+	return value.TrimXMLWhitespaceString(lexical)
 }
 
 // FieldsXMLWhitespaceSeq yields fields split on XML whitespace (space, tab, CR, LF).
@@ -83,14 +83,14 @@ func FieldsXMLWhitespaceSeq(lexical string) iter.Seq[string] {
 	return func(yield func(string) bool) {
 		i := 0
 		for i < len(lexical) {
-			for i < len(lexical) && valuepkg.IsXMLWhitespaceByte(lexical[i]) {
+			for i < len(lexical) && value.IsXMLWhitespaceByte(lexical[i]) {
 				i++
 			}
 			if i >= len(lexical) {
 				return
 			}
 			start := i
-			for i < len(lexical) && !valuepkg.IsXMLWhitespaceByte(lexical[i]) {
+			for i < len(lexical) && !value.IsXMLWhitespaceByte(lexical[i]) {
 				i++
 			}
 			if !yield(lexical[start:i]) {
@@ -104,5 +104,5 @@ func isXMLWhitespaceRune(r rune) bool {
 	if r < 0 || r > 0x7f {
 		return false
 	}
-	return valuepkg.IsXMLWhitespaceByte(byte(r))
+	return value.IsXMLWhitespaceByte(byte(r))
 }
