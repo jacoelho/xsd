@@ -235,7 +235,7 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 		}
 	}
 
-	if err := validateFacetConstraints(schema, facetList, baseType, baseQName); err != nil {
+	if err := ValidateFacetConstraints(schema, facetList, baseType, baseQName); err != nil {
 		return err
 	}
 
@@ -333,7 +333,7 @@ func validateSimpleContentRestrictionFacets(schema *parser.Schema, restriction *
 		}
 	}
 
-	if err := validateFacetConstraints(schema, facetList, baseType, baseQName); err != nil {
+	if err := ValidateFacetConstraints(schema, facetList, baseType, baseQName); err != nil {
 		return err
 	}
 

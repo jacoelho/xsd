@@ -12,7 +12,8 @@ import (
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
-func validateReferences(sch *parser.Schema) []error {
+// ValidateReferences validates cross-component references for schema loading.
+func ValidateReferences(sch *parser.Schema) []error {
 	var errs []error
 
 	elementRefsInContent := collectElementReferencesInSchema(sch)
@@ -49,11 +50,6 @@ func validateReferences(sch *parser.Schema) []error {
 	}
 
 	return errs
-}
-
-// ValidateReferences exposes reference validation for schema loading.
-func ValidateReferences(sch *parser.Schema) []error {
-	return validateReferences(sch)
 }
 
 func collectElementReferencesInSchema(sch *parser.Schema) []*types.ElementDecl {

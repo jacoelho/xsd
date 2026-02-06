@@ -32,7 +32,8 @@ func isValidFacetName(name string) bool {
 	}
 }
 
-func validateFacetConstraints(schema *parser.Schema, facetList []types.Facet, baseType types.Type, baseQName types.QName) error {
+// ValidateFacetConstraints validates facet consistency and values for a base type.
+func ValidateFacetConstraints(schema *parser.Schema, facetList []types.Facet, baseType types.Type, baseQName types.QName) error {
 	baseTypeName := baseQName.Local
 	isBuiltin := baseQName.Namespace == types.XSDNamespace
 	var bt *types.BuiltinType
@@ -85,11 +86,6 @@ func validateFacetConstraints(schema *parser.Schema, facetList []types.Facet, ba
 	}
 
 	return nil
-}
-
-// ValidateFacetConstraints validates facet consistency and values for a base type.
-func ValidateFacetConstraints(schema *parser.Schema, facetList []types.Facet, baseType types.Type, baseQName types.QName) error {
-	return validateFacetConstraints(schema, facetList, baseType, baseQName)
 }
 
 func (s *facetConstraintState) captureFacet(name string, facet types.Facet) error {
