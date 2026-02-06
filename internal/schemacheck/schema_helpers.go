@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typegraph"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -61,44 +62,12 @@ func getTypeQName(typ types.Type) types.QName {
 }
 
 func isIDOnlyType(qname types.QName) bool {
-	return qname.Namespace == types.XSDNamespace && qname.Local == string(types.TypeNameID)
+	return typeops.IsIDOnlyType(qname)
 }
 
 // isIDOnlyDerivedType checks if a SimpleType is derived from ID (not IDREF/IDREFS).
 func isIDOnlyDerivedType(schema *parser.Schema, st *types.SimpleType) bool {
-	return isIDOnlyDerivedTypeVisited(schema, st, make(map[*types.SimpleType]bool))
-}
-
-func isIDOnlyDerivedTypeVisited(schema *parser.Schema, st *types.SimpleType, visited map[*types.SimpleType]bool) bool {
-	if st == nil || st.Restriction == nil {
-		return false
-	}
-	if visited[st] {
-		return false
-	}
-	visited[st] = true
-	defer delete(visited, st)
-
-	baseQName := st.Restriction.Base
-	if isIDOnlyType(baseQName) {
-		return true
-	}
-
-	var baseType types.Type
-	if st.ResolvedBase != nil {
-		baseType = st.ResolvedBase
-	} else if !baseQName.IsZero() {
-		baseType = resolveSimpleTypeReference(schema, baseQName)
-	}
-
-	switch typed := baseType.(type) {
-	case *types.SimpleType:
-		return isIDOnlyDerivedTypeVisited(schema, typed, visited)
-	case *types.BuiltinType:
-		return isIDOnlyType(typed.Name())
-	default:
-		return false
-	}
+	return typeops.IsIDOnlyDerivedType(schema, st)
 }
 
 // validateDeferredFacetApplicability validates a deferred facet now that the base type is resolved.

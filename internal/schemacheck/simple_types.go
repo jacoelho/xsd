@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -125,18 +126,7 @@ func resolveSimpleTypeRestrictionBase(schema *parser.Schema, st *types.SimpleTyp
 
 // resolveSimpleTypeReference resolves a simple type reference by QName
 func resolveSimpleTypeReference(schema *parser.Schema, qname types.QName) types.Type {
-	if qname.IsZero() {
-		return nil
-	}
-	if qname.Namespace == types.XSDNamespace {
-		if bt := types.GetBuiltin(types.TypeName(qname.Local)); bt != nil {
-			return bt
-		}
-	}
-	if typ, ok := lookupTypeDef(schema, qname); ok {
-		return typ
-	}
-	return nil
+	return typeops.ResolveSimpleTypeReference(schema, qname)
 }
 
 // resolveSimpleContentBaseType resolves the base type for a simpleContent restriction

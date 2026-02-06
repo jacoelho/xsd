@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -59,7 +60,7 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 
 func parseValueVariants(schema *parser.Schema, lexical string, typ types.Type, context map[string]string) ([]types.TypedValue, error) {
 	if st, ok := typ.(*types.SimpleType); ok && st.Variety() == types.UnionVariety {
-		memberTypes := resolveUnionMemberTypes(schema, st)
+		memberTypes := typeops.ResolveUnionMemberTypes(schema, st)
 		return types.ParseUnionValueVariants(lexical, memberTypes, func(value string, member types.Type) ([]types.TypedValue, error) {
 			typed, err := parseTypedValueWithContext(value, member, context)
 			if err != nil {
