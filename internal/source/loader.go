@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"slices"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
 	semantic "github.com/jacoelho/xsd/internal/semantic"
@@ -721,7 +720,7 @@ func (l *SchemaLoader) validateLoadedSchema(sch *parser.Schema) error {
 	}
 	structureErrors := semanticcheck.ValidateStructure(sch)
 	if len(structureErrors) > 0 {
-		return formatSchemaErrors(structureErrors)
+		return semantic.FormatValidationErrors(structureErrors)
 	}
 	if err := semantic.MarkSemantic(sch); err != nil {
 		return err
@@ -731,7 +730,7 @@ func (l *SchemaLoader) validateLoadedSchema(sch *parser.Schema) error {
 	}
 	refErrors := semanticresolve.ValidateReferences(sch)
 	if len(refErrors) > 0 {
-		return formatSchemaErrors(refErrors)
+		return semantic.FormatValidationErrors(refErrors)
 	}
 	parser.UpdatePlaceholderState(sch)
 	if err := semantic.MarkResolved(sch); err != nil {
@@ -832,27 +831,6 @@ func initSchemaOrigins(sch *parser.Schema, location string) {
 			sch.NotationOrigins[qname] = sch.Location
 		}
 	}
-}
-
-func formatSchemaErrors(validationErrors []error) error {
-	if len(validationErrors) == 0 {
-		return nil
-	}
-	errs := validationErrors
-	if len(validationErrors) > 1 {
-		errs = make([]error, len(validationErrors))
-		copy(errs, validationErrors)
-		slices.SortStableFunc(errs, func(a, b error) int {
-			return strings.Compare(a.Error(), b.Error())
-		})
-	}
-	var errMsg strings.Builder
-	errMsg.WriteString("schema validation failed:")
-	for _, err := range errs {
-		errMsg.WriteString("\n  - ")
-		errMsg.WriteString(err.Error())
-	}
-	return errors.New(errMsg.String())
 }
 
 func sortedQNames[V any](m map[types.QName]V) []types.QName {
