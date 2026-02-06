@@ -330,7 +330,7 @@ func TestLoadResolvedClosesDocOnPendingResolveError(t *testing.T) {
 		targetKey: loadKey{systemID: "missing.xsd", etn: types.NamespaceURI("urn:missing")},
 	}}
 
-	doc := &trackingReadCloser{}
+	doc := &testReadCloser{}
 	if _, err := loader.loadResolved(doc, "schema.xsd", key, validateSchema); err == nil {
 		t.Fatalf("expected pending resolve error")
 	}
@@ -545,7 +545,7 @@ func TestLoadResolvedCloseErrorIncludesSystemID(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"></xs:schema>`
 	closeErr := errors.New("close failure")
-	doc := &errorCloseReadCloser{r: strings.NewReader(schemaXML), closeErr: closeErr}
+	doc := &testReadCloser{reader: strings.NewReader(schemaXML), closeErr: closeErr}
 	loader := &SchemaLoader{state: newLoadState(), imports: newImportTracker()}
 	key := loader.loadKey("schema.xsd", types.NamespaceEmpty)
 	if _, err := loader.loadResolved(doc, "schema.xsd", key, skipSchemaValidation); err == nil {
@@ -575,7 +575,7 @@ func TestLoadResolvedCloseErrorJoined(t *testing.T) {
 	}}
 
 	closeErr := errors.New("close failure")
-	doc := &errorCloseReadCloser{r: strings.NewReader(""), closeErr: closeErr}
+	doc := &testReadCloser{reader: strings.NewReader(""), closeErr: closeErr}
 	if _, err := loader.loadResolved(doc, "schema.xsd", key, validateSchema); err == nil {
 		t.Fatalf("expected pending resolve error")
 	} else if !errors.Is(err, closeErr) {
@@ -593,33 +593,4 @@ func equalQNameSlices(a, b []types.QName) bool {
 		}
 	}
 	return true
-}
-
-type trackingReadCloser struct {
-	closed bool
-}
-
-func (t *trackingReadCloser) Read(_ []byte) (int, error) {
-	return 0, io.EOF
-}
-
-func (t *trackingReadCloser) Close() error {
-	t.closed = true
-	return nil
-}
-
-type errorCloseReadCloser struct {
-	r        io.Reader
-	closeErr error
-}
-
-func (e *errorCloseReadCloser) Read(p []byte) (int, error) {
-	if e.r == nil {
-		return 0, io.EOF
-	}
-	return e.r.Read(p)
-}
-
-func (e *errorCloseReadCloser) Close() error {
-	return e.closeErr
 }

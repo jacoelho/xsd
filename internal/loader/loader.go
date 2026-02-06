@@ -269,7 +269,7 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 			entry.validationRequested = true
 			if resolveErr := l.resolvePendingImportsFor(key); resolveErr != nil {
 				if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
-					return nil, errors.Join(resolveErr, closeErr)
+					return nil, joinWithClose(resolveErr, closeErr)
 				}
 				return nil, resolveErr
 			}
@@ -283,11 +283,8 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 	loadedSchema, err := session.handleCircularLoad()
 	if err != nil || loadedSchema != nil {
 		closeErr := closeSchemaDoc(doc, systemID)
-		if closeErr != nil {
-			if err == nil {
-				return nil, closeErr
-			}
-			return nil, errors.Join(err, closeErr)
+		if combined := joinWithClose(err, closeErr); combined != nil {
+			return nil, combined
 		}
 		return loadedSchema, err
 	}
@@ -435,12 +432,12 @@ func (l *SchemaLoader) validateLoadedSchema(sch *parser.Schema) error {
 // It is fail-stop and only requires a resolver when directives need external resolution.
 func (l *SchemaLoader) LoadResolved(doc io.ReadCloser, systemID string) (*parser.Schema, error) {
 	if err := l.beginResolvedLoad(); err != nil {
-		return nil, err
+		return nil, closeLoadResolvedEarly(doc, systemID, err)
 	}
 	if systemID == "" {
 		err := fmt.Errorf("missing systemID")
 		l.markFailed(err)
-		return nil, err
+		return nil, closeLoadResolvedEarly(doc, systemID, err)
 	}
 	result, err := parseSchemaDocument(doc, systemID, l.config.SchemaParseOptions...)
 	if err != nil {
@@ -454,6 +451,28 @@ func (l *SchemaLoader) LoadResolved(doc io.ReadCloser, systemID string) (*parser
 		return nil, err
 	}
 	return sch, nil
+}
+
+func closeLoadResolvedEarly(doc io.ReadCloser, systemID string, loadErr error) error {
+	if doc == nil {
+		return loadErr
+	}
+	closeID := systemID
+	if closeID == "" {
+		closeID = "resolved schema"
+	}
+	closeErr := closeSchemaDoc(doc, closeID)
+	return joinWithClose(loadErr, closeErr)
+}
+
+func joinWithClose(loadErr, closeErr error) error {
+	if closeErr == nil {
+		return loadErr
+	}
+	if loadErr == nil {
+		return closeErr
+	}
+	return errors.Join(loadErr, closeErr)
 }
 
 // GetLoaded returns a loaded schema by systemID and effective target namespace.
