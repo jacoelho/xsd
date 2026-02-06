@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	xsdErrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/ic"
+	ic "github.com/jacoelho/xsd/internal/identity"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 

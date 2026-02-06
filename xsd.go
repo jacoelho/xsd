@@ -8,9 +8,10 @@ import (
 	"path/filepath"
 
 	"github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/loader"
-	"github.com/jacoelho/xsd/internal/models"
-	"github.com/jacoelho/xsd/internal/runtimebuild"
+	"github.com/jacoelho/xsd/internal/contentmodel"
+	"github.com/jacoelho/xsd/internal/pipeline"
+	"github.com/jacoelho/xsd/internal/runtimecompile"
+	"github.com/jacoelho/xsd/internal/source"
 )
 
 // Schema wraps a compiled schema with convenience methods.
@@ -86,7 +87,7 @@ func compileFS(fsys fs.FS, root string, opts LoadOptions) (*engine, error) {
 		return nil, fmt.Errorf("compile schema: nil fs")
 	}
 
-	l := loader.NewLoader(loader.Config{
+	l := source.NewLoader(source.Config{
 		FS:                          fsys,
 		AllowMissingImportLocations: opts.AllowMissingImportLocations,
 		SchemaParseOptions: buildXMLParseOptions(
@@ -96,11 +97,15 @@ func compileFS(fsys fs.FS, root string, opts LoadOptions) (*engine, error) {
 			opts.SchemaMaxQNameInternEntries,
 		),
 	})
-	parsed, err := l.Load(root)
+	parsed, err := l.LoadParsed(root)
 	if err != nil {
 		return nil, fmt.Errorf("compile schema %s: %w", root, err)
 	}
-	rt, err := runtimebuild.BuildSchema(parsed, buildConfigFrom(opts))
+	prepared, err := pipeline.Prepare(parsed)
+	if err != nil {
+		return nil, fmt.Errorf("compile schema %s: %w", root, err)
+	}
+	rt, err := runtimecompile.BuildPrepared(prepared, buildConfigFrom(opts))
 	if err != nil {
 		return nil, fmt.Errorf("compile schema %s: %w", root, err)
 	}
@@ -112,9 +117,9 @@ func compileFS(fsys fs.FS, root string, opts LoadOptions) (*engine, error) {
 	)...), nil
 }
 
-func buildConfigFrom(opts LoadOptions) runtimebuild.BuildConfig {
-	return runtimebuild.BuildConfig{
-		Limits: models.Limits{
+func buildConfigFrom(opts LoadOptions) runtimecompile.BuildConfig {
+	return runtimecompile.BuildConfig{
+		Limits: contentmodel.Limits{
 			MaxDFAStates: opts.MaxDFAStates,
 		},
 		MaxOccursLimit: opts.MaxOccursLimit,

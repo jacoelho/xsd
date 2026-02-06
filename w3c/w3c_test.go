@@ -14,12 +14,12 @@ import (
 	"unicode"
 
 	xsdErrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/loader"
+	loader "github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/runtimebuild"
+	runtimebuild "github.com/jacoelho/xsd/internal/runtimecompile"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validator"
-	"github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xsdxml"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
