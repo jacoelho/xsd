@@ -7,13 +7,13 @@ import (
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-func (s *Session) ValidateTextValue(typeID runtime.TypeID, text []byte, resolver value.NSResolver, requireCanonical bool) ([]byte, valueMetrics, error) {
+func (s *Session) ValidateTextValue(typeID runtime.TypeID, text []byte, resolver value.NSResolver, requireCanonical, needKey bool) ([]byte, valueMetrics, error) {
 	var metrics valueMetrics
-	canon, err := s.validateTextValueCore(typeID, text, resolver, requireCanonical, &metrics)
+	canon, err := s.validateTextValueCore(typeID, text, resolver, requireCanonical, needKey, &metrics)
 	return canon, metrics, err
 }
 
-func (s *Session) validateTextValueCore(typeID runtime.TypeID, text []byte, resolver value.NSResolver, requireCanonical bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) validateTextValueCore(typeID runtime.TypeID, text []byte, resolver value.NSResolver, requireCanonical, needKey bool, metrics *valueMetrics) ([]byte, error) {
 	if s == nil || s.rt == nil {
 		return nil, fmt.Errorf("session missing runtime schema")
 	}
@@ -21,12 +21,14 @@ func (s *Session) validateTextValueCore(typeID runtime.TypeID, text []byte, reso
 	if !ok {
 		return nil, fmt.Errorf("type %d not found", typeID)
 	}
-	needMetrics := s.hasIdentityConstraints()
+	storeValue := s.hasIdentityConstraints()
+	needMetrics := storeValue || needKey
 	opts := valueOptions{
 		applyWhitespace:  true,
 		trackIDs:         true,
 		requireCanonical: requireCanonical,
-		storeValue:       needMetrics,
+		storeValue:       storeValue,
+		needKey:          needKey,
 	}
 	var validatorID runtime.ValidatorID
 	switch typ.Kind {

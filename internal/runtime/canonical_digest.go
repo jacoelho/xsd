@@ -187,6 +187,8 @@ func digestElements(h *digestBuilder, elems []Element) {
 		h.u32(uint32(e.SubstHead))
 		digestValueRef(h, e.Default)
 		digestValueRef(h, e.Fixed)
+		digestValueKeyRef(h, e.DefaultKey)
+		digestValueKeyRef(h, e.FixedKey)
 		h.u32(uint32(e.DefaultMember))
 		h.u32(uint32(e.FixedMember))
 		h.u32(uint32(e.Flags))
@@ -204,6 +206,8 @@ func digestAttributes(h *digestBuilder, attrs []Attribute) {
 		h.u32(uint32(a.Validator))
 		digestValueRef(h, a.Default)
 		digestValueRef(h, a.Fixed)
+		digestValueKeyRef(h, a.DefaultKey)
+		digestValueKeyRef(h, a.FixedKey)
 		h.u32(uint32(a.DefaultMember))
 		h.u32(uint32(a.FixedMember))
 	}
@@ -217,6 +221,8 @@ func digestAttrIndex(h *digestBuilder, idx ComplexAttrIndex) {
 		h.u8(uint8(use.Use))
 		digestValueRef(h, use.Default)
 		digestValueRef(h, use.Fixed)
+		digestValueKeyRef(h, use.DefaultKey)
+		digestValueKeyRef(h, use.FixedKey)
 		h.u32(uint32(use.DefaultMember))
 		h.u32(uint32(use.FixedMember))
 	}
@@ -439,6 +445,11 @@ func digestValueRef(h *digestBuilder, ref ValueRef) {
 	h.u32(ref.Len)
 	h.u64(ref.Hash)
 	h.bool(ref.Present)
+}
+
+func digestValueKeyRef(h *digestBuilder, ref ValueKeyRef) {
+	h.u8(uint8(ref.Kind))
+	digestValueRef(h, ref.Ref)
 }
 
 func digestU32Slice(h *digestBuilder, vals []uint32) {

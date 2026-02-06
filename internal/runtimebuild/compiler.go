@@ -18,14 +18,20 @@ import (
 
 type CompiledValidators struct {
 	AttributeDefaults       map[schema.AttrID]runtime.ValueRef
+	AttributeDefaultKeys    map[schema.AttrID]runtime.ValueKeyRef
 	TypeValidators          map[schema.TypeID]runtime.ValidatorID
 	ValidatorByType         map[types.Type]runtime.ValidatorID
 	SimpleContentTypes      map[*types.ComplexType]types.Type
 	ElementDefaults         map[schema.ElemID]runtime.ValueRef
+	ElementDefaultKeys      map[schema.ElemID]runtime.ValueKeyRef
 	ElementFixed            map[schema.ElemID]runtime.ValueRef
+	ElementFixedKeys        map[schema.ElemID]runtime.ValueKeyRef
 	AttributeFixed          map[schema.AttrID]runtime.ValueRef
+	AttributeFixedKeys      map[schema.AttrID]runtime.ValueKeyRef
 	AttrUseDefaults         map[*types.AttributeDecl]runtime.ValueRef
+	AttrUseDefaultKeys      map[*types.AttributeDecl]runtime.ValueKeyRef
 	AttrUseFixed            map[*types.AttributeDecl]runtime.ValueRef
+	AttrUseFixedKeys        map[*types.AttributeDecl]runtime.ValueKeyRef
 	ElementDefaultMembers   map[schema.ElemID]runtime.ValidatorID
 	ElementFixedMembers     map[schema.ElemID]runtime.ValidatorID
 	AttributeDefaultMembers map[schema.AttrID]runtime.ValidatorID
@@ -82,16 +88,22 @@ func (c *CompiledValidators) ValidatorForType(typ types.Type) (runtime.Validator
 type compiler struct {
 	facetsCache           map[*types.SimpleType][]types.Facet
 	attrDefaultMembers    map[schema.AttrID]runtime.ValidatorID
+	attrDefaultKeys       map[schema.AttrID]runtime.ValueKeyRef
 	builtinTypeIDs        map[types.TypeName]runtime.TypeID
 	attrUseFixedMembers   map[*types.AttributeDecl]runtime.ValidatorID
 	attrDefaults          map[schema.AttrID]runtime.ValueRef
+	attrUseDefaultKeys    map[*types.AttributeDecl]runtime.ValueKeyRef
+	attrUseFixedKeys      map[*types.AttributeDecl]runtime.ValueKeyRef
 	elemFixed             map[schema.ElemID]runtime.ValueRef
+	elemFixedKeys         map[schema.ElemID]runtime.ValueKeyRef
 	simpleContent         map[*types.ComplexType]types.Type
 	attrUseFixed          map[*types.AttributeDecl]runtime.ValueRef
 	attrUseDefaults       map[*types.AttributeDecl]runtime.ValueRef
 	attrFixed             map[schema.AttrID]runtime.ValueRef
+	attrFixedKeys         map[schema.AttrID]runtime.ValueKeyRef
 	res                   *typeResolver
 	elemDefaults          map[schema.ElemID]runtime.ValueRef
+	elemDefaultKeys       map[schema.ElemID]runtime.ValueKeyRef
 	runtimeTypeIDs        map[schema.TypeID]runtime.TypeID
 	registry              *schema.Registry
 	attrUseDefaultMembers map[*types.AttributeDecl]runtime.ValidatorID
@@ -116,11 +128,17 @@ func newCompiler(sch *parser.Schema) *compiler {
 		compiling:             make(map[types.Type]bool),
 		facetsCache:           make(map[*types.SimpleType][]types.Facet),
 		elemDefaults:          make(map[schema.ElemID]runtime.ValueRef),
+		elemDefaultKeys:       make(map[schema.ElemID]runtime.ValueKeyRef),
 		elemFixed:             make(map[schema.ElemID]runtime.ValueRef),
+		elemFixedKeys:         make(map[schema.ElemID]runtime.ValueKeyRef),
 		attrDefaults:          make(map[schema.AttrID]runtime.ValueRef),
+		attrDefaultKeys:       make(map[schema.AttrID]runtime.ValueKeyRef),
 		attrFixed:             make(map[schema.AttrID]runtime.ValueRef),
+		attrFixedKeys:         make(map[schema.AttrID]runtime.ValueKeyRef),
 		attrUseDefaults:       make(map[*types.AttributeDecl]runtime.ValueRef),
+		attrUseDefaultKeys:    make(map[*types.AttributeDecl]runtime.ValueKeyRef),
 		attrUseFixed:          make(map[*types.AttributeDecl]runtime.ValueRef),
+		attrUseFixedKeys:      make(map[*types.AttributeDecl]runtime.ValueKeyRef),
 		elemDefaultMembers:    make(map[schema.ElemID]runtime.ValidatorID),
 		elemFixedMembers:      make(map[schema.ElemID]runtime.ValidatorID),
 		attrDefaultMembers:    make(map[schema.AttrID]runtime.ValidatorID),
@@ -210,11 +228,17 @@ func (c *compiler) result(registry *schema.Registry) *CompiledValidators {
 		TypeValidators:          make(map[schema.TypeID]runtime.ValidatorID),
 		ValidatorByType:         make(map[types.Type]runtime.ValidatorID),
 		ElementDefaults:         c.elemDefaults,
+		ElementDefaultKeys:      c.elemDefaultKeys,
 		ElementFixed:            c.elemFixed,
+		ElementFixedKeys:        c.elemFixedKeys,
 		AttributeDefaults:       c.attrDefaults,
+		AttributeDefaultKeys:    c.attrDefaultKeys,
 		AttributeFixed:          c.attrFixed,
+		AttributeFixedKeys:      c.attrFixedKeys,
 		AttrUseDefaults:         c.attrUseDefaults,
+		AttrUseDefaultKeys:      c.attrUseDefaultKeys,
 		AttrUseFixed:            c.attrUseFixed,
+		AttrUseFixedKeys:        c.attrUseFixedKeys,
 		ElementDefaultMembers:   c.elemDefaultMembers,
 		ElementFixedMembers:     c.elemFixedMembers,
 		AttributeDefaultMembers: c.attrDefaultMembers,

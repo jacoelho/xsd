@@ -422,10 +422,18 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 		case !hasContent && elemOK && elem.Fixed.Present:
 			canonText = valueBytes(s.rt.Values, elem.Fixed)
 			textMember = elem.FixedMember
+			if elem.FixedKey.Ref.Present {
+				textKeyKind = elem.FixedKey.Kind
+				textKeyBytes = valueKeyBytes(s.rt.Values, elem.FixedKey)
+			}
 			trackDefault(canonText, textMember)
 		case !hasContent && elemOK && elem.Default.Present:
 			canonText = valueBytes(s.rt.Values, elem.Default)
 			textMember = elem.DefaultMember
+			if elem.DefaultKey.Ref.Present {
+				textKeyKind = elem.DefaultKey.Kind
+				textKeyBytes = valueKeyBytes(s.rt.Values, elem.DefaultKey)
+			}
 			trackDefault(canonText, textMember)
 		case !hasContent && hasComplexText && ct.TextFixed.Present:
 			canonText = valueBytes(s.rt.Values, ct.TextFixed)
@@ -437,7 +445,7 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 			trackDefault(canonText, textMember)
 		default:
 			requireCanonical := (elemOK && elem.Fixed.Present) || (hasComplexText && ct.TextFixed.Present)
-			canon, metrics, err := s.ValidateTextValue(frame.typ, rawText, resolver, requireCanonical)
+			canon, metrics, err := s.ValidateTextValue(frame.typ, rawText, resolver, requireCanonical, requireCanonical)
 			if err != nil {
 				if path == "" {
 					path = s.pathString()
@@ -450,8 +458,32 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 			}
 		}
 		if canonText != nil && elemOK && (frame.text.HasText || hasContent) && elem.Fixed.Present {
-			fixed := valueBytes(s.rt.Values, elem.Fixed)
-			if !bytes.Equal(canonText, fixed) {
+			matched := false
+			keyCompareErr := false
+			if elem.FixedKey.Ref.Present {
+				actualKind := textKeyKind
+				actualKey := textKeyBytes
+				if actualKind == runtime.VKInvalid {
+					kind, key, err := s.keyForCanonicalValue(textValidator, canonText, resolver, textMember)
+					if err != nil {
+						if path == "" {
+							path = s.pathString()
+						}
+						errs = append(errs, err)
+						keyCompareErr = true
+					} else {
+						actualKind = kind
+						actualKey = key
+					}
+				}
+				if actualKind == elem.FixedKey.Kind && bytes.Equal(actualKey, valueKeyBytes(s.rt.Values, elem.FixedKey)) {
+					matched = true
+				}
+			} else {
+				fixed := valueBytes(s.rt.Values, elem.Fixed)
+				matched = bytes.Equal(canonText, fixed)
+			}
+			if !matched && !keyCompareErr {
 				if path == "" {
 					path = s.pathString()
 				}

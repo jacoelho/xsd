@@ -25,11 +25,12 @@ func (c *compiler) compileDefaults(registry *schema.Registry) error {
 			if err != nil {
 				return fmt.Errorf("element %s default: %w", entry.QName, err)
 			}
-			canon, member, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
+			canon, member, key, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
 			if err != nil {
 				return fmt.Errorf("element %s default: %w", entry.QName, err)
 			}
 			c.elemDefaults[entry.ID] = c.values.add(canon)
+			c.elemDefaultKeys[entry.ID] = key
 			if member != 0 {
 				c.elemDefaultMembers[entry.ID] = member
 			}
@@ -39,11 +40,12 @@ func (c *compiler) compileDefaults(registry *schema.Registry) error {
 			if err != nil {
 				return fmt.Errorf("element %s fixed: %w", entry.QName, err)
 			}
-			canon, member, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
+			canon, member, key, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
 			if err != nil {
 				return fmt.Errorf("element %s fixed: %w", entry.QName, err)
 			}
 			c.elemFixed[entry.ID] = c.values.add(canon)
+			c.elemFixedKeys[entry.ID] = key
 			if member != 0 {
 				c.elemFixedMembers[entry.ID] = member
 			}
@@ -63,11 +65,12 @@ func (c *compiler) compileDefaults(registry *schema.Registry) error {
 			if err != nil {
 				return fmt.Errorf("attribute %s default: %w", entry.QName, err)
 			}
-			canon, member, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
+			canon, member, key, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
 			if err != nil {
 				return fmt.Errorf("attribute %s default: %w", entry.QName, err)
 			}
 			c.attrDefaults[entry.ID] = c.values.add(canon)
+			c.attrDefaultKeys[entry.ID] = key
 			if member != 0 {
 				c.attrDefaultMembers[entry.ID] = member
 			}
@@ -77,11 +80,12 @@ func (c *compiler) compileDefaults(registry *schema.Registry) error {
 			if err != nil {
 				return fmt.Errorf("attribute %s fixed: %w", entry.QName, err)
 			}
-			canon, member, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
+			canon, member, key, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
 			if err != nil {
 				return fmt.Errorf("attribute %s fixed: %w", entry.QName, err)
 			}
 			c.attrFixed[entry.ID] = c.values.add(canon)
+			c.attrFixedKeys[entry.ID] = key
 			if member != 0 {
 				c.attrFixedMembers[entry.ID] = member
 			}
@@ -120,11 +124,12 @@ func (c *compiler) compileAttributeUses(registry *schema.Registry) error {
 			}
 			if decl.HasDefault {
 				if _, exists := c.attrUseDefaults[decl]; !exists {
-					canon, member, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
+					canon, member, key, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
 					if err != nil {
 						return fmt.Errorf("attribute use %s default: %w", decl.Name, err)
 					}
 					c.attrUseDefaults[decl] = c.values.add(canon)
+					c.attrUseDefaultKeys[decl] = key
 					if member != 0 {
 						c.attrUseDefaultMembers[decl] = member
 					}
@@ -132,11 +137,12 @@ func (c *compiler) compileAttributeUses(registry *schema.Registry) error {
 			}
 			if decl.HasFixed {
 				if _, exists := c.attrUseFixed[decl]; !exists {
-					canon, member, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
+					canon, member, key, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
 					if err != nil {
 						return fmt.Errorf("attribute use %s fixed: %w", decl.Name, err)
 					}
 					c.attrUseFixed[decl] = c.values.add(canon)
+					c.attrUseFixedKeys[decl] = key
 					if member != 0 {
 						c.attrUseFixedMembers[decl] = member
 					}
@@ -183,32 +189,57 @@ func (c *compiler) valueTypeForAttribute(decl *types.AttributeDecl) (types.Type,
 	return nil, fmt.Errorf("missing attribute type")
 }
 
-func (c *compiler) canonicalizeDefaultFixed(lexical string, typ types.Type, ctx map[string]string) ([]byte, runtime.ValidatorID, error) {
+func (c *compiler) canonicalizeDefaultFixed(lexical string, typ types.Type, ctx map[string]string) ([]byte, runtime.ValidatorID, runtime.ValueKeyRef, error) {
 	normalized := c.normalizeLexical(lexical, typ)
 	facets, err := c.facetsForType(typ)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, runtime.ValueKeyRef{}, err
 	}
 	err = c.validatePartialFacets(normalized, typ, facets)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, runtime.ValueKeyRef{}, err
 	}
 	canon, memberType, err := c.canonicalizeNormalizedDefaultWithMember(lexical, normalized, typ, ctx)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, runtime.ValueKeyRef{}, err
 	}
 	enumErr := c.validateEnumSets(lexical, normalized, typ, ctx)
 	if enumErr != nil {
-		return nil, 0, enumErr
+		return nil, 0, runtime.ValueKeyRef{}, enumErr
+	}
+	keyRef, err := c.defaultFixedKeyRef(lexical, normalized, typ, memberType, ctx)
+	if err != nil {
+		return nil, 0, runtime.ValueKeyRef{}, err
 	}
 	memberID := runtime.ValidatorID(0)
 	if memberType != nil {
 		memberID, err = c.compileType(memberType)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, runtime.ValueKeyRef{}, err
 		}
 	}
-	return canon, memberID, nil
+	return canon, memberID, keyRef, nil
+}
+
+func (c *compiler) defaultFixedKeyRef(lexical, normalized string, typ, memberType types.Type, ctx map[string]string) (runtime.ValueKeyRef, error) {
+	keyType := typ
+	keyLexical := normalized
+	if memberType != nil {
+		keyType = memberType
+		keyLexical = c.normalizeLexical(lexical, memberType)
+	}
+	keys, err := c.valueKeysForNormalized(lexical, keyLexical, keyType, ctx)
+	if err != nil {
+		return runtime.ValueKeyRef{}, err
+	}
+	if len(keys) == 0 {
+		return runtime.ValueKeyRef{}, fmt.Errorf("no value key produced")
+	}
+	key := keys[0]
+	return runtime.ValueKeyRef{
+		Kind: key.Kind,
+		Ref:  c.values.add(key.Bytes),
+	}, nil
 }
 
 func (c *compiler) canonicalizeNormalizedDefault(lexical, normalized string, typ types.Type, ctx map[string]string) ([]byte, error) {

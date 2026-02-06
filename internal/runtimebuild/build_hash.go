@@ -189,6 +189,8 @@ func hashElements(h *hashBuilder, elems []runtime.Element) {
 		h.u32(uint32(e.SubstHead))
 		hashValueRef(h, e.Default)
 		hashValueRef(h, e.Fixed)
+		hashValueKeyRef(h, e.DefaultKey)
+		hashValueKeyRef(h, e.FixedKey)
 		h.u32(uint32(e.DefaultMember))
 		h.u32(uint32(e.FixedMember))
 		h.u32(uint32(e.Flags))
@@ -206,6 +208,8 @@ func hashAttributes(h *hashBuilder, attrs []runtime.Attribute) {
 		h.u32(uint32(a.Validator))
 		hashValueRef(h, a.Default)
 		hashValueRef(h, a.Fixed)
+		hashValueKeyRef(h, a.DefaultKey)
+		hashValueKeyRef(h, a.FixedKey)
 		h.u32(uint32(a.DefaultMember))
 		h.u32(uint32(a.FixedMember))
 	}
@@ -219,6 +223,8 @@ func hashAttrIndex(h *hashBuilder, idx runtime.ComplexAttrIndex) {
 		h.u8(uint8(use.Use))
 		hashValueRef(h, use.Default)
 		hashValueRef(h, use.Fixed)
+		hashValueKeyRef(h, use.DefaultKey)
+		hashValueKeyRef(h, use.FixedKey)
 		h.u32(uint32(use.DefaultMember))
 		h.u32(uint32(use.FixedMember))
 	}
@@ -449,6 +455,11 @@ func hashValueRef(h *hashBuilder, ref runtime.ValueRef) {
 	h.u32(ref.Len)
 	h.u64(ref.Hash)
 	h.bool(ref.Present)
+}
+
+func hashValueKeyRef(h *hashBuilder, ref runtime.ValueKeyRef) {
+	h.u8(uint8(ref.Kind))
+	hashValueRef(h, ref.Ref)
 }
 
 func hashU32Slice(h *hashBuilder, vals []uint32) {

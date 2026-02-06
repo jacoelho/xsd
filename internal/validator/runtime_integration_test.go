@@ -776,6 +776,84 @@ func TestEnumCanonicalizationDateTimeLeapSecondDistinct(t *testing.T) {
 	}
 }
 
+func TestElementFixedTimeLeapSecondOffsetDistinct(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:time" fixed="23:59:60+02:00"/>
+</xs:schema>`
+
+	if err := validateRuntimeDoc(t, schema, `<root>23:59:60+02:00</root>`); err != nil {
+		t.Fatalf("expected leap-second lexical form to satisfy fixed value: %v", err)
+	}
+
+	err := validateRuntimeDoc(t, schema, `<root>22:00:00Z</root>`)
+	if err == nil {
+		t.Fatalf("expected non-leap equivalent to fail fixed value")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsdErrors.ErrElementFixedValue) {
+		t.Fatalf("expected ErrElementFixedValue, got %+v", list)
+	}
+}
+
+func TestAttributeFixedTimeLeapSecondOffsetDistinct(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="t" type="xs:time" fixed="23:59:60+02:00"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	if err := validateRuntimeDoc(t, schema, `<root t="23:59:60+02:00"/>`); err != nil {
+		t.Fatalf("expected leap-second lexical form to satisfy fixed attribute: %v", err)
+	}
+
+	err := validateRuntimeDoc(t, schema, `<root t="22:00:00Z"/>`)
+	if err == nil {
+		t.Fatalf("expected non-leap equivalent to fail fixed attribute")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsdErrors.ErrAttributeFixedValue) {
+		t.Fatalf("expected ErrAttributeFixedValue, got %+v", list)
+	}
+}
+
+func TestUniqueDefaultTimeLeapSecondOffsetKeyDistinct(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="2">
+          <xs:complexType>
+            <xs:attribute name="t" type="xs:time" default="23:59:60+02:00"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:unique name="u">
+      <xs:selector xpath="item"/>
+      <xs:field xpath="@t"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`
+
+	if err := validateRuntimeDoc(t, schema, `<root><item/><item t="22:00:00Z"/></root>`); err != nil {
+		t.Fatalf("expected leap default and non-leap explicit value to remain distinct: %v", err)
+	}
+
+	err := validateRuntimeDoc(t, schema, `<root><item/><item t="23:59:60+02:00"/></root>`)
+	if err == nil {
+		t.Fatalf("expected duplicate unique value when both are leap-second equivalents")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsdErrors.ErrIdentityDuplicate) {
+		t.Fatalf("expected ErrIdentityDuplicate, got %+v", list)
+	}
+}
+
 func TestEnumCanonicalizationDurationNegativeZero(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
