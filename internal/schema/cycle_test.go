@@ -10,13 +10,13 @@ import (
 
 func mustParsedResolved(t *testing.T, schemaXML string) *parser.Schema {
 	t.Helper()
-	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	parsedSchema, err := parser.Parse(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	schema.Phase = parser.PhaseResolved
-	schema.HasPlaceholders = false
-	return schema
+	parsedSchema.Phase = parser.PhaseResolved
+	parsedSchema.HasPlaceholders = false
+	return parsedSchema
 }
 
 func TestDetectTypeCycle(t *testing.T) {

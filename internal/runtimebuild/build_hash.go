@@ -183,7 +183,8 @@ func hashComplexTypes(h *hashBuilder, types []runtime.ComplexType) {
 
 func hashElements(h *hashBuilder, elems []runtime.Element) {
 	h.u32(uint32(len(elems)))
-	for _, e := range elems {
+	for i := range elems {
+		e := &elems[i]
 		h.u32(uint32(e.Name))
 		h.u32(uint32(e.Type))
 		h.u32(uint32(e.SubstHead))
@@ -203,7 +204,8 @@ func hashElements(h *hashBuilder, elems []runtime.Element) {
 
 func hashAttributes(h *hashBuilder, attrs []runtime.Attribute) {
 	h.u32(uint32(len(attrs)))
-	for _, a := range attrs {
+	for i := range attrs {
+		a := &attrs[i]
 		h.u32(uint32(a.Name))
 		h.u32(uint32(a.Validator))
 		hashValueRef(h, a.Default)
@@ -217,7 +219,8 @@ func hashAttributes(h *hashBuilder, attrs []runtime.Attribute) {
 
 func hashAttrIndex(h *hashBuilder, idx runtime.ComplexAttrIndex) {
 	h.u32(uint32(len(idx.Uses)))
-	for _, use := range idx.Uses {
+	for i := range idx.Uses {
+		use := &idx.Uses[i]
 		h.u32(uint32(use.Name))
 		h.u32(uint32(use.Validator))
 		h.u8(uint8(use.Use))

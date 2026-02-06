@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/value"
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
 // validateAnyType accepts any value (anyType is the base type for all types)
@@ -238,17 +238,17 @@ func validateNormalizedString(value string) error {
 
 // validateToken validates xs:token
 func validateToken(lexical string) error {
-	return value.ValidateToken([]byte(lexical))
+	return valuepkg.ValidateToken([]byte(lexical))
 }
 
 // validateName validates xs:Name
 func validateName(lexical string) error {
-	return value.ValidateName([]byte(lexical))
+	return valuepkg.ValidateName([]byte(lexical))
 }
 
 // validateNCName validates xs:NCName (Name without colons)
 func validateNCName(lexical string) error {
-	return value.ValidateNCName([]byte(lexical))
+	return valuepkg.ValidateNCName([]byte(lexical))
 }
 
 // validateID validates xs:ID (same as NCName)
@@ -299,7 +299,7 @@ func validateENTITIES(value string) error {
 // validateNMTOKEN validates xs:NMTOKEN
 // NMTOKEN is any string matching NameChar+
 func validateNMTOKEN(lexical string) error {
-	return value.ValidateNMTOKEN([]byte(lexical))
+	return valuepkg.ValidateNMTOKEN([]byte(lexical))
 }
 
 // validateNMTOKENS validates xs:NMTOKENS (space-separated list of NMTOKENs)
@@ -322,7 +322,7 @@ func validateNMTOKENS(value string) error {
 // Pattern: [a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*
 
 func validateLanguage(lexical string) error {
-	if err := value.ValidateLanguage([]byte(lexical)); err != nil {
+	if err := valuepkg.ValidateLanguage([]byte(lexical)); err != nil {
 		return fmt.Errorf("invalid language format: %s", lexical)
 	}
 	return nil
@@ -440,13 +440,13 @@ func validateBase64Binary(value string) error {
 // validateAnyURI validates xs:anyURI
 // Format: URI/IRI reference (RFC 2396 and RFC 2732)
 func validateAnyURI(lexical string) error {
-	return value.ValidateAnyURI([]byte(lexical))
+	return valuepkg.ValidateAnyURI([]byte(lexical))
 }
 
 // validateQName validates xs:QName
 // Format: NCName (possibly qualified with a prefix)
 func validateQName(lexical string) error {
-	return value.ValidateQName([]byte(lexical))
+	return valuepkg.ValidateQName([]byte(lexical))
 }
 
 // validateNOTATION validates xs:NOTATION

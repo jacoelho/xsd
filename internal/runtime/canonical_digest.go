@@ -181,7 +181,8 @@ func digestComplexTypes(h *digestBuilder, types []ComplexType) {
 
 func digestElements(h *digestBuilder, elems []Element) {
 	h.u32(uint32(len(elems)))
-	for _, e := range elems {
+	for i := range elems {
+		e := &elems[i]
 		h.u32(uint32(e.Name))
 		h.u32(uint32(e.Type))
 		h.u32(uint32(e.SubstHead))
@@ -201,7 +202,8 @@ func digestElements(h *digestBuilder, elems []Element) {
 
 func digestAttributes(h *digestBuilder, attrs []Attribute) {
 	h.u32(uint32(len(attrs)))
-	for _, a := range attrs {
+	for i := range attrs {
+		a := &attrs[i]
 		h.u32(uint32(a.Name))
 		h.u32(uint32(a.Validator))
 		digestValueRef(h, a.Default)
@@ -215,7 +217,8 @@ func digestAttributes(h *digestBuilder, attrs []Attribute) {
 
 func digestAttrIndex(h *digestBuilder, idx ComplexAttrIndex) {
 	h.u32(uint32(len(idx.Uses)))
-	for _, use := range idx.Uses {
+	for i := range idx.Uses {
+		use := &idx.Uses[i]
 		h.u32(uint32(use.Name))
 		h.u32(uint32(use.Validator))
 		h.u8(uint8(use.Use))

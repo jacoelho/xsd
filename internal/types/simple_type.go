@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/jacoelho/xsd/internal/value"
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
 // SimpleType represents a simple type definition
@@ -519,7 +519,7 @@ func countXMLFields(lexical string) int {
 	count := 0
 	inField := false
 	for i := 0; i < len(lexical); i++ {
-		if value.IsXMLWhitespaceByte(lexical[i]) {
+		if valuepkg.IsXMLWhitespaceByte(lexical[i]) {
 			if inField {
 				count++
 				inField = false

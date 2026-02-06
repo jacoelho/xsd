@@ -1234,7 +1234,8 @@ func buildAttrHashTable(uses []runtime.AttrUse, off uint32) runtime.AttrHashTabl
 		Slot: make([]uint32, size),
 	}
 	mask := uint64(size - 1)
-	for i, use := range uses {
+	for i := range uses {
+		use := &uses[i]
 		h := uint64(use.Name)
 		if h == 0 {
 			h = 1

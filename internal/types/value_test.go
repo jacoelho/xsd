@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/value"
+	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
 func TestTypedValue_Decimal(t *testing.T) {
@@ -261,7 +261,7 @@ func TestFloatCanonicalizationConsistency(t *testing.T) {
 	for _, v := range floatCases {
 		tv := NewFloatValue(NewParsedValue("x", v), floatType)
 		got := tv.String()
-		want := value.CanonicalFloat(float64(v), 32)
+		want := valuepkg.CanonicalFloat(float64(v), 32)
 		if got != want {
 			t.Fatalf("float canonical = %q, want %q", got, want)
 		}
@@ -279,7 +279,7 @@ func TestFloatCanonicalizationConsistency(t *testing.T) {
 	for _, v := range doubleCases {
 		tv := NewDoubleValue(NewParsedValue("x", v), doubleType)
 		got := tv.String()
-		want := value.CanonicalFloat(v, 64)
+		want := valuepkg.CanonicalFloat(v, 64)
 		if got != want {
 			t.Fatalf("double canonical = %q, want %q", got, want)
 		}

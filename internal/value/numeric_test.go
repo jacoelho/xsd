@@ -76,9 +76,7 @@ func TestParseUnsignedAcceptsSignedNonNegativeLexical(t *testing.T) {
 	}{
 		{
 			name: "unsignedLong",
-			fn: func(value []byte) (uint64, error) {
-				return ParseUnsignedLong(value)
-			},
+			fn:   ParseUnsignedLong,
 		},
 		{
 			name: "unsignedInt",

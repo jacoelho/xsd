@@ -300,7 +300,8 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 		applied = make([]AttrApplied, 0, len(uses))
 	}
 
-	for i, use := range uses {
+	for i := range uses {
+		use := &uses[i]
 		if use.Use == runtime.AttrProhibited {
 			continue
 		}
@@ -608,9 +609,10 @@ func lookupAttrUse(rt *runtime.Schema, ref runtime.AttrIndexRef, sym runtime.Sym
 		}
 		return runtime.AttrUse{}, -1, false
 	default:
-		for i, use := range uses {
+		for i := range uses {
+			use := &uses[i]
 			if use.Name == sym {
-				return use, i, true
+				return *use, i, true
 			}
 		}
 		return runtime.AttrUse{}, -1, false
