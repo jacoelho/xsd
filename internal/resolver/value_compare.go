@@ -44,7 +44,7 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 		if rerr != nil {
 			return false, rerr
 		}
-		return listValuesEqual(leftItems, rightItems), nil
+		return types.ListValuesEqual(leftItems, rightItems), nil
 	}
 
 	leftValues, err := parseValueVariants(schema, left, resolvedType, attr.FixedContext)
@@ -55,7 +55,7 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 	if err != nil {
 		return false, err
 	}
-	return anyValueEqual(leftValues, rightValues), nil
+	return types.AnyValueEqual(leftValues, rightValues), nil
 }
 
 func parseValueVariants(schema *parser.Schema, lexical string, typ types.Type, context map[string]string) ([]types.TypedValue, error) {
@@ -114,11 +114,3 @@ func (v qnameTypedValue) Type() types.Type { return v.typ }
 func (v qnameTypedValue) Lexical() string  { return v.lexical }
 func (v qnameTypedValue) Native() any      { return v.value }
 func (v qnameTypedValue) String() string   { return v.lexical }
-
-func anyValueEqual(left, right []types.TypedValue) bool {
-	return types.AnyValueEqual(left, right)
-}
-
-func listValuesEqual(left, right [][]types.TypedValue) bool {
-	return types.ListValuesEqual(left, right)
-}

@@ -111,7 +111,7 @@ func TestTypeDerivationHelpers(t *testing.T) {
 	if base == nil {
 		t.Fatalf("expected builtin string type")
 	}
-	if !isDerivedFrom(derived, base) {
+	if !types.IsDerivedFrom(derived, base) {
 		t.Fatalf("expected mytype derived from string")
 	}
 	if prim := getPrimitiveType(derived); prim == nil || prim.Name().Local != "string" {
