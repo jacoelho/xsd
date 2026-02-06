@@ -826,20 +826,17 @@ func (b *schemaBuilder) resolveGroupRefs(particle types.Particle, stack map[type
 			return nil, fmt.Errorf("group ref %s not resolved", typed.RefQName)
 		}
 
-		clone := *group
+		clone := types.CloneModelGroupTree(group)
 		clone.MinOccurs = typed.MinOccurs
 		clone.MaxOccurs = typed.MaxOccurs
-		if len(group.Particles) > 0 {
-			clone.Particles = make([]types.Particle, len(group.Particles))
-			for i, child := range group.Particles {
-				resolved, err := b.resolveGroupRefs(child, stack)
-				if err != nil {
-					return nil, err
-				}
-				clone.Particles[i] = resolved
+		for i, child := range clone.Particles {
+			resolved, err := b.resolveGroupRefs(child, stack)
+			if err != nil {
+				return nil, err
 			}
+			clone.Particles[i] = resolved
 		}
-		return &clone, nil
+		return clone, nil
 	case *types.ModelGroup:
 		if typed == nil {
 			return nil, nil
