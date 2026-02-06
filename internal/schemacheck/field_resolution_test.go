@@ -27,7 +27,7 @@ func TestResolveFieldTypeMixedContent(t *testing.T) {
 	root := &types.ElementDecl{Name: types.QName{Namespace: "urn:field", Local: "root"}, Type: rootType}
 
 	field := &types.Field{XPath: "."}
-	_, err := resolveFieldType(schema, field, root, "tns:item", schema.NamespaceDecls)
+	_, err := ResolveFieldType(schema, field, root, "tns:item", schema.NamespaceDecls)
 	if !errors.Is(err, ErrFieldSelectsComplexContent) {
 		t.Fatalf("expected ErrFieldSelectsComplexContent, got %v", err)
 	}
@@ -46,7 +46,7 @@ func TestResolveSelectorElementTypeUnionMissingBranch(t *testing.T) {
 	rootType.SetContent(&types.ElementContent{Particle: child})
 	root := &types.ElementDecl{Name: types.QName{Namespace: "urn:field", Local: "root"}, Type: rootType}
 
-	if _, err := resolveSelectorElementType(schema, root, "tns:a | tns:missing", schema.NamespaceDecls); err == nil {
+	if _, err := ResolveSelectorElementType(schema, root, "tns:a | tns:missing", schema.NamespaceDecls); err == nil {
 		t.Fatalf("expected selector union missing branch error")
 	}
 }
@@ -84,7 +84,7 @@ func TestResolveFieldTypeUnionComplexContent(t *testing.T) {
 	root := &types.ElementDecl{Name: types.QName{Namespace: "urn:field", Local: "root"}, Type: rootType}
 
 	field := &types.Field{XPath: "tns:simple | tns:complex"}
-	_, err := resolveFieldType(schema, field, root, "tns:container", schema.NamespaceDecls)
+	_, err := ResolveFieldType(schema, field, root, "tns:container", schema.NamespaceDecls)
 	if !errors.Is(err, ErrXPathUnresolvable) {
 		t.Fatalf("expected ErrXPathUnresolvable, got %v", err)
 	}

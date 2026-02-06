@@ -52,7 +52,7 @@ func validateElementValueConstraints(sch *parser.Schema, decl *types.ElementDecl
 		return nil
 	}
 
-	resolvedType := resolveTypeForFinalValidation(sch, decl.Type)
+	resolvedType := schemacheck.ResolveTypeReference(sch, decl.Type, schemacheck.TypeReferenceAllowMissing)
 	if isDirectNotationType(resolvedType) {
 		return fmt.Errorf("element cannot use NOTATION type")
 	}
@@ -103,8 +103,8 @@ func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName types.QName,
 	}
 
 	// resolve types if they are placeholders.
-	memberType = resolveTypeForFinalValidation(sch, memberType)
-	headType = resolveTypeForFinalValidation(sch, headType)
+	memberType = schemacheck.ResolveTypeReference(sch, memberType, schemacheck.TypeReferenceAllowMissing)
+	headType = schemacheck.ResolveTypeReference(sch, headType, schemacheck.TypeReferenceAllowMissing)
 
 	if memberType == nil || headType == nil {
 		return nil // can't validate without resolved types.
@@ -142,8 +142,8 @@ func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName types.Q
 		memberDecl.Type = headDecl.Type
 	}
 
-	memberType := resolveTypeForFinalValidation(sch, memberDecl.Type)
-	headType := resolveTypeForFinalValidation(sch, headDecl.Type)
+	memberType := schemacheck.ResolveTypeReference(sch, memberDecl.Type, schemacheck.TypeReferenceAllowMissing)
+	headType := schemacheck.ResolveTypeReference(sch, headDecl.Type, schemacheck.TypeReferenceAllowMissing)
 	if memberType == nil || headType == nil {
 		return nil
 	}

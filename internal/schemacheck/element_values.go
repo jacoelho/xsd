@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -43,7 +44,7 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 		bt := types.GetBuiltinNS(typ.Name().Namespace, typ.Name().Local)
 		if bt != nil {
 			// ID types cannot have default or fixed values
-			if isIDOnlyType(typ.Name()) {
+			if typeops.IsIDOnlyType(typ.Name()) {
 				return fmt.Errorf("type '%s' cannot have default or fixed values", typ.Name().Local)
 			}
 			if err := bt.Validate(normalizedValue); err != nil {
@@ -57,19 +58,19 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 		// check if derived from ID type
 		// First check the direct base QName
 		if st.Restriction != nil && !st.Restriction.Base.IsZero() {
-			if isIDOnlyType(st.Restriction.Base) {
+			if typeops.IsIDOnlyType(st.Restriction.Base) {
 				return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 			}
 		}
 		// Also check resolved base if available
 		if st.ResolvedBase != nil {
-			if bt, ok := st.ResolvedBase.(*types.BuiltinType); ok && isIDOnlyType(bt.Name()) {
+			if bt, ok := st.ResolvedBase.(*types.BuiltinType); ok && typeops.IsIDOnlyType(bt.Name()) {
 				return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 			}
-			if baseST, ok := st.ResolvedBase.(*types.SimpleType); ok && schema != nil && isIDOnlyDerivedType(schema, baseST) {
+			if baseST, ok := st.ResolvedBase.(*types.SimpleType); ok && schema != nil && typeops.IsIDOnlyDerivedType(schema, baseST) {
 				return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 			}
-		} else if schema != nil && isIDOnlyDerivedType(schema, st) {
+		} else if schema != nil && typeops.IsIDOnlyDerivedType(schema, st) {
 			return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 		}
 		return validateValueAgainstTypeWithFacets(schema, value, st, nsContext, make(map[types.Type]bool))
@@ -91,7 +92,7 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 				bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local)
 				if bt != nil {
 					if err := validateDefaultOrFixedValueWithContext(schema, value, bt, nsContext); err != nil {
-						if isIDOnlyType(baseQName) {
+						if typeops.IsIDOnlyType(baseQName) {
 							return fmt.Errorf("type '%s' (with simpleContent from ID) cannot have default or fixed values", typ.Name().Local)
 						}
 						return err

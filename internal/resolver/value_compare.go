@@ -4,11 +4,13 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemacheck"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) (bool, error) {
-	resolvedType := resolveTypeForFinalValidation(schema, target.Type)
+	resolvedType := schemacheck.ResolveTypeReference(schema, target.Type, schemacheck.TypeReferenceAllowMissing)
 	if resolvedType == nil {
 		return attr.Fixed == target.Fixed, nil
 	}
@@ -43,7 +45,7 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 		if rerr != nil {
 			return false, rerr
 		}
-		return listValuesEqual(leftItems, rightItems), nil
+		return types.ListValuesEqual(leftItems, rightItems), nil
 	}
 
 	leftValues, err := parseValueVariants(schema, left, resolvedType, attr.FixedContext)
@@ -54,12 +56,12 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 	if err != nil {
 		return false, err
 	}
-	return anyValueEqual(leftValues, rightValues), nil
+	return types.AnyValueEqual(leftValues, rightValues), nil
 }
 
 func parseValueVariants(schema *parser.Schema, lexical string, typ types.Type, context map[string]string) ([]types.TypedValue, error) {
 	if st, ok := typ.(*types.SimpleType); ok && st.Variety() == types.UnionVariety {
-		memberTypes := resolveUnionMemberTypes(schema, st)
+		memberTypes := typeops.ResolveUnionMemberTypes(schema, st)
 		return types.ParseUnionValueVariants(lexical, memberTypes, func(value string, member types.Type) ([]types.TypedValue, error) {
 			typed, err := parseTypedValueWithContext(value, member, context)
 			if err != nil {
@@ -113,11 +115,3 @@ func (v qnameTypedValue) Type() types.Type { return v.typ }
 func (v qnameTypedValue) Lexical() string  { return v.lexical }
 func (v qnameTypedValue) Native() any      { return v.value }
 func (v qnameTypedValue) String() string   { return v.lexical }
-
-func anyValueEqual(left, right []types.TypedValue) bool {
-	return types.AnyValueEqual(left, right)
-}
-
-func listValuesEqual(left, right [][]types.TypedValue) bool {
-	return types.ListValuesEqual(left, right)
-}
