@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
@@ -269,9 +268,4 @@ func validateSimpleTypeFinal(schema *parser.Schema, qname types.QName, method ty
 	}
 
 	return nil
-}
-
-// resolveTypeForFinalValidation resolves a type reference for substitution group final schemacheck.
-func resolveTypeForFinalValidation(schema *parser.Schema, typ types.Type) types.Type {
-	return schemacheck.ResolveTypeReference(schema, typ, schemacheck.TypeReferenceAllowMissing)
 }

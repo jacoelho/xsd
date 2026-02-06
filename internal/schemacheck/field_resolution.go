@@ -179,10 +179,10 @@ func isDescendantOnlySteps(steps []xpath.Step) bool {
 	return sawDescendant
 }
 
-// resolveFieldType resolves the type of a field XPath expression.
+// ResolveFieldType resolves the type of a field XPath expression.
 // Returns the type of the attribute or element selected by the field.
 // The selectorXPath is used to determine the context element (the element selected by the selector).
-func resolveFieldType(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (types.Type, error) {
+func ResolveFieldType(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (types.Type, error) {
 	if field == nil {
 		return nil, fmt.Errorf("field is nil")
 	}
@@ -261,9 +261,9 @@ func resolveFieldType(schema *parser.Schema, field *types.Field, constraintEleme
 	return combined, nil
 }
 
-// resolveFieldElementDecl resolves a field XPath to the selected element declaration.
+// ResolveFieldElementDecl resolves a field XPath to the selected element declaration.
 // Returns nil if the field selects an attribute.
-func resolveFieldElementDecl(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (*types.ElementDecl, error) {
+func ResolveFieldElementDecl(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (*types.ElementDecl, error) {
 	if field == nil {
 		return nil, fmt.Errorf("field is nil")
 	}
@@ -302,8 +302,8 @@ func resolveFieldElementDecl(schema *parser.Schema, field *types.Field, constrai
 	return unique[0], nil
 }
 
-// resolveSelectorElementType resolves the type of the element selected by the selector XPath.
-func resolveSelectorElementType(schema *parser.Schema, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (types.Type, error) {
+// ResolveSelectorElementType resolves the type of the element selected by the selector XPath.
+func ResolveSelectorElementType(schema *parser.Schema, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (types.Type, error) {
 	selectorDecls, err := resolveSelectorElementDecls(schema, constraintElement, selectorXPath, nsContext)
 	if err != nil {
 		return nil, err
@@ -319,7 +319,7 @@ func resolveSelectorElementType(schema *parser.Schema, constraintElement *types.
 			elementType = resolved
 			continue
 		}
-		if !elementTypesCompatible(elementType, resolved) {
+		if !ElementTypesCompatible(elementType, resolved) {
 			return nil, fmt.Errorf("selector xpath '%s' resolves to multiple element types", selectorXPath)
 		}
 	}
@@ -428,7 +428,7 @@ func resolveFieldPathType(schema *parser.Schema, selectedElementDecl *types.Elem
 	return elementType, nil
 }
 
-func resolveFieldElementDecls(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) ([]*types.ElementDecl, error) {
+func ResolveFieldElementDecls(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) ([]*types.ElementDecl, error) {
 	if field == nil {
 		return nil, fmt.Errorf("field is nil")
 	}

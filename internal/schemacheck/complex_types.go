@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -223,7 +224,7 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *t
 		return nil // base type not found or not complex
 	}
 
-	baseElements := collectAllElementDeclarationsFromType(schema, baseComplexType)
+	baseElements := CollectAllElementDeclarationsFromType(schema, baseComplexType)
 
 	// simpleContent extensions don't have particles
 	if ext.Particle == nil {
@@ -249,9 +250,9 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *t
 	return nil
 }
 
-// collectAllElementDeclarationsFromType collects all element declarations from a complex type
-// This recursively collects from the type's content model and its base types
-func collectAllElementDeclarationsFromType(schema *parser.Schema, complexType *types.ComplexType) []*types.ElementDecl {
+// CollectAllElementDeclarationsFromType collects all element declarations from a complex type.
+// This recursively collects from the type's content model and its base types.
+func CollectAllElementDeclarationsFromType(schema *parser.Schema, complexType *types.ComplexType) []*types.ElementDecl {
 	visited := make(map[types.QName]bool)
 	return collectElementDeclarationsRecursive(schema, complexType, visited)
 }
@@ -325,7 +326,7 @@ func validateIDAttributeCount(schema *parser.Schema, complexType *types.ComplexT
 		if attr.Type == nil {
 			continue
 		}
-		resolvedType := resolveTypeReference(schema, attr.Type, TypeReferenceAllowMissing)
+		resolvedType := ResolveTypeReference(schema, attr.Type, TypeReferenceAllowMissing)
 		if resolvedType == nil {
 			continue
 		}
@@ -335,7 +336,7 @@ func validateIDAttributeCount(schema *parser.Schema, complexType *types.ComplexT
 			continue
 		}
 		if simpleType, ok := resolvedType.(*types.SimpleType); ok {
-			if isIDOnlyDerivedType(schema, simpleType) {
+			if typeops.IsIDOnlyDerivedType(schema, simpleType) {
 				idCount++
 			}
 		}

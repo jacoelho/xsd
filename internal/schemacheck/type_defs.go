@@ -7,14 +7,24 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
+// TypeReferencePolicy controls how missing type references are handled.
+type TypeReferencePolicy int
+
+const (
+	// TypeReferenceMustExist requires referenced types to be resolved.
+	TypeReferenceMustExist TypeReferencePolicy = iota
+	// TypeReferenceAllowMissing allows unresolved placeholders to pass through.
+	TypeReferenceAllowMissing
+)
+
 // isValidNCName checks if a string is a valid NCName
 func isValidNCName(s string) bool {
 	return types.IsValidNCName(s)
 }
 
-// elementTypesCompatible checks if two element declaration types are consistent.
+// ElementTypesCompatible checks if two element declaration types are consistent.
 // Treats nil types as compatible only when both are nil (implicit anyType).
-func elementTypesCompatible(a, b types.Type) bool {
+func ElementTypesCompatible(a, b types.Type) bool {
 	if a == nil && b == nil {
 		return true
 	}
@@ -31,8 +41,8 @@ func elementTypesCompatible(a, b types.Type) bool {
 	return a == b
 }
 
-// resolveTypeReference resolves a type reference in schema validation contexts.
-func resolveTypeReference(schema *parser.Schema, typ types.Type, policy TypeReferencePolicy) types.Type {
+// ResolveTypeReference resolves a type reference in schema validation contexts.
+func ResolveTypeReference(schema *parser.Schema, typ types.Type, policy TypeReferencePolicy) types.Type {
 	if typ == nil {
 		return nil
 	}
@@ -61,12 +71,12 @@ func resolveTypeReference(schema *parser.Schema, typ types.Type, policy TypeRefe
 
 // resolveTypeForValidation resolves a type reference without allowing missing types.
 func resolveTypeForValidation(schema *parser.Schema, typ types.Type) types.Type {
-	return resolveTypeReference(schema, typ, TypeReferenceMustExist)
+	return ResolveTypeReference(schema, typ, TypeReferenceMustExist)
 }
 
 // resolveTypeForFinalValidation resolves a type reference for substitution group final checks.
 func resolveTypeForFinalValidation(schema *parser.Schema, typ types.Type) types.Type {
-	return resolveTypeReference(schema, typ, TypeReferenceAllowMissing)
+	return ResolveTypeReference(schema, typ, TypeReferenceAllowMissing)
 }
 
 // validateTypeDefStructure validates structural constraints of a type definition

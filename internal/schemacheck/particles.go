@@ -92,7 +92,7 @@ func validateLocalElementTypes(particles []types.Particle) error {
 			continue
 		}
 		if existingType, exists := localElementTypes[childElem.Name]; exists {
-			if !elementTypesCompatible(existingType, childElem.Type) {
+			if !ElementTypesCompatible(existingType, childElem.Type) {
 				return fmt.Errorf("duplicate local element declaration '%s' with different types", childElem.Name)
 			}
 			continue
@@ -279,7 +279,7 @@ func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, par
 			return nil
 		}
 		if existing, ok := seen[p.Name]; ok {
-			if !elementTypesCompatible(existing, elemType) {
+			if !ElementTypesCompatible(existing, elemType) {
 				return fmt.Errorf("element declarations consistent violation for element '%s'", p.Name)
 			}
 			return nil
@@ -1202,8 +1202,8 @@ func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem
 		if !restrictionElem.HasFixed {
 			return fmt.Errorf("ComplexContent restriction: element '%s' must have fixed value matching base fixed value '%s'", restrictionElem.Name, baseElem.Fixed)
 		}
-		baseType := resolveTypeReference(schema, baseElem.Type, TypeReferenceAllowMissing)
-		restrictionType := resolveTypeReference(schema, restrictionElem.Type, TypeReferenceAllowMissing)
+		baseType := ResolveTypeReference(schema, baseElem.Type, TypeReferenceAllowMissing)
+		restrictionType := ResolveTypeReference(schema, restrictionElem.Type, TypeReferenceAllowMissing)
 		if baseType == nil {
 			baseType = baseElem.Type
 		}
@@ -1225,8 +1225,8 @@ func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem
 	}
 
 	// validate type: restriction type must be same as or derived from base type
-	baseType := resolveTypeReference(schema, baseElem.Type, TypeReferenceAllowMissing)
-	restrictionType := resolveTypeReference(schema, restrictionElem.Type, TypeReferenceAllowMissing)
+	baseType := ResolveTypeReference(schema, baseElem.Type, TypeReferenceAllowMissing)
+	restrictionType := ResolveTypeReference(schema, restrictionElem.Type, TypeReferenceAllowMissing)
 	if baseType == nil {
 		baseType = baseElem.Type
 	}

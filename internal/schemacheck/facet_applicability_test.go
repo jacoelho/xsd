@@ -33,7 +33,7 @@ func TestFacetApplicability_LengthOnListType(t *testing.T) {
 	facetList := []types.Facet{lengthFacet}
 	baseQName := listType.QName
 
-	err := validateFacetConstraints(nil, facetList, listType, baseQName)
+	err := ValidateFacetConstraints(nil, facetList, listType, baseQName)
 	if err != nil {
 		t.Errorf("length facet should be applicable to list type, but got error: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestFacetApplicability_MaxLengthOnListType(t *testing.T) {
 	facetList := []types.Facet{maxLengthFacet}
 	baseQName := listType.QName
 
-	err := validateFacetConstraints(nil, facetList, listType, baseQName)
+	err := ValidateFacetConstraints(nil, facetList, listType, baseQName)
 	if err != nil {
 		t.Errorf("maxLength facet should be applicable to list type, but got error: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestFacetApplicability_MinLengthOnListType(t *testing.T) {
 	facetList := []types.Facet{minLengthFacet}
 	baseQName := listType.QName
 
-	err := validateFacetConstraints(nil, facetList, listType, baseQName)
+	err := ValidateFacetConstraints(nil, facetList, listType, baseQName)
 	if err != nil {
 		t.Errorf("minLength facet should be applicable to list type, but got error: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestFacetApplicability_LengthOnAtomicNumericType(t *testing.T) {
 	facetList := []types.Facet{lengthFacet}
 	baseQName := atomicType.Name()
 
-	err = validateFacetConstraints(nil, facetList, atomicType, baseQName)
+	err = ValidateFacetConstraints(nil, facetList, atomicType, baseQName)
 	if err == nil {
 		t.Error("length facet should NOT be applicable to atomic numeric type, but validation passed")
 	} else if !strings.Contains(err.Error(), "not applicable") {
@@ -129,7 +129,7 @@ func TestFacetApplicability_LengthOnDurationType(t *testing.T) {
 	facetList := []types.Facet{lengthFacet}
 	baseQName := durationType.Name()
 
-	err = validateFacetConstraints(nil, facetList, durationType, baseQName)
+	err = ValidateFacetConstraints(nil, facetList, durationType, baseQName)
 	if err == nil {
 		t.Error("length facet should NOT be applicable to duration type, but validation passed")
 	} else if !strings.Contains(err.Error(), "not applicable") {

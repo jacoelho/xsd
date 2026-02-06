@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typegraph"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -60,47 +61,6 @@ func getTypeQName(typ types.Type) types.QName {
 	return typ.Name()
 }
 
-func isIDOnlyType(qname types.QName) bool {
-	return qname.Namespace == types.XSDNamespace && qname.Local == string(types.TypeNameID)
-}
-
-// isIDOnlyDerivedType checks if a SimpleType is derived from ID (not IDREF/IDREFS).
-func isIDOnlyDerivedType(schema *parser.Schema, st *types.SimpleType) bool {
-	return isIDOnlyDerivedTypeVisited(schema, st, make(map[*types.SimpleType]bool))
-}
-
-func isIDOnlyDerivedTypeVisited(schema *parser.Schema, st *types.SimpleType, visited map[*types.SimpleType]bool) bool {
-	if st == nil || st.Restriction == nil {
-		return false
-	}
-	if visited[st] {
-		return false
-	}
-	visited[st] = true
-	defer delete(visited, st)
-
-	baseQName := st.Restriction.Base
-	if isIDOnlyType(baseQName) {
-		return true
-	}
-
-	var baseType types.Type
-	if st.ResolvedBase != nil {
-		baseType = st.ResolvedBase
-	} else if !baseQName.IsZero() {
-		baseType = resolveSimpleTypeReference(schema, baseQName)
-	}
-
-	switch typed := baseType.(type) {
-	case *types.SimpleType:
-		return isIDOnlyDerivedTypeVisited(schema, typed, visited)
-	case *types.BuiltinType:
-		return isIDOnlyType(typed.Name())
-	default:
-		return false
-	}
-}
-
 // validateDeferredFacetApplicability validates a deferred facet now that the base type is resolved.
 // Deferred facets are range facets (min/max Inclusive/Exclusive) that couldn't be constructed
 // during parsing because the base type wasn't available.
@@ -126,41 +86,7 @@ func validateDeferredFacetApplicability(df *types.DeferredFacet, baseType types.
 // convertDeferredFacet converts a DeferredFacet to an actual Facet now that the base type is resolved.
 // This is needed for facet inheritance validation.
 func convertDeferredFacet(df *types.DeferredFacet, baseType types.Type) (types.Facet, error) {
-	if df == nil || baseType == nil {
-		return nil, nil
-	}
-
-	switch df.FacetName {
-	case "minInclusive":
-		return convertDeferredRangeFacet(df.FacetName, df.FacetValue, baseType)
-	case "maxInclusive":
-		return convertDeferredRangeFacet(df.FacetName, df.FacetValue, baseType)
-	case "minExclusive":
-		return convertDeferredRangeFacet(df.FacetName, df.FacetValue, baseType)
-	case "maxExclusive":
-		return convertDeferredRangeFacet(df.FacetName, df.FacetValue, baseType)
-	default:
-		return nil, fmt.Errorf("unknown deferred facet type: %s", df.FacetName)
-	}
-}
-
-func convertDeferredRangeFacet(name, value string, baseType types.Type) (types.Facet, error) {
-	var (
-		facet types.Facet
-		err   error
-	)
-	switch name {
-	case "minInclusive":
-		facet, err = types.NewMinInclusive(value, baseType)
-	case "maxInclusive":
-		facet, err = types.NewMaxInclusive(value, baseType)
-	case "minExclusive":
-		facet, err = types.NewMinExclusive(value, baseType)
-	case "maxExclusive":
-		facet, err = types.NewMaxExclusive(value, baseType)
-	default:
-		return nil, fmt.Errorf("unknown deferred facet type: %s", name)
-	}
+	facet, err := typeops.DefaultDeferredFacetConverter(df, baseType)
 	if errors.Is(err, types.ErrCannotDeterminePrimitiveType) {
 		return nil, nil
 	}

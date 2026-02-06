@@ -46,7 +46,7 @@ func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl
 	// so we don't fail validation if resolution fails - it will be caught later
 	for _, constraint := range decl.Constraints {
 		for i := range constraint.Fields {
-			resolvedType, err := resolveFieldType(schema, &constraint.Fields[i], decl, constraint.Selector.XPath, constraint.NamespaceContext)
+			resolvedType, err := ResolveFieldType(schema, &constraint.Fields[i], decl, constraint.Selector.XPath, constraint.NamespaceContext)
 			if err != nil {
 				// Nillable element check only applies to xs:key constraints
 				// For xs:unique and xs:keyref, nillable elements are allowed (nil values are excluded)

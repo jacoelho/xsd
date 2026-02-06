@@ -5,6 +5,8 @@ import (
 	"github.com/jacoelho/xsd/internal/value"
 )
 
+var errInvalidIntegerLexical = valueError{kind: valueErrInvalid, msg: "invalid integer"}
+
 func (s *Session) unionMemberInfo(meta runtime.ValidatorMeta) ([]runtime.ValidatorID, []runtime.TypeID, []uint8, bool) {
 	if int(meta.Index) >= len(s.rt.Validators.Union) {
 		return nil, nil, nil, false
@@ -50,13 +52,17 @@ func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexi
 	if memberLexical == nil {
 		memberLexical = normalized
 	}
+	needMemberMetrics := needKey || len(enumIDs) > 0 || metrics != nil
 	sawValid := false
-	var lastErr error
+	var firstErr error
 	for i, member := range memberValidators {
 		if int(member) >= len(s.rt.Validators.Meta) {
-			lastErr = valueErrorf(valueErrInvalid, "validator %d out of range", member)
+			if firstErr == nil {
+				firstErr = valueErrorf(valueErrInvalid, "validator %d out of range", member)
+			}
 			continue
 		}
+		memberMeta := s.rt.Validators.Meta[member]
 		memberLex := memberLexical
 		memberOpts := opts
 		memberOpts.requireCanonical = true
@@ -69,9 +75,25 @@ func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexi
 			memberOpts.applyWhitespace = false
 			memberLex = normalized
 		}
-		canon, memberMetrics, err := s.validateValueInternalWithMetrics(member, memberLex, resolver, memberOpts)
+		if !memberOpts.applyWhitespace && unionMemberLexicallyImpossible(memberMeta.Kind, memberLex) {
+			if mismatch := unionMemberLexicalMismatch(memberMeta.Kind); mismatch != nil {
+				if firstErr == nil {
+					firstErr = mismatch
+				}
+			}
+			continue
+		}
+
+		var memberMetrics valueMetrics
+		var memberMetricsPtr *valueMetrics
+		if needMemberMetrics {
+			memberMetricsPtr = &memberMetrics
+		}
+		canon, err := s.validateValueCore(member, memberLex, resolver, memberOpts, memberMetricsPtr)
 		if err != nil {
-			lastErr = err
+			if firstErr == nil {
+				firstErr = err
+			}
 			continue
 		}
 		sawValid = true
@@ -97,10 +119,47 @@ func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexi
 			return nil, valueErrorf(valueErrFacet, "enumeration violation")
 		}
 	}
-	if lastErr == nil {
-		lastErr = valueErrorf(valueErrInvalid, "union value does not match any member type")
+	if firstErr == nil {
+		firstErr = valueErrorf(valueErrInvalid, "union value does not match any member type")
 	}
-	return nil, lastErr
+	return nil, firstErr
+}
+
+func unionMemberLexicallyImpossible(kind runtime.ValidatorKind, lexical []byte) bool {
+	switch kind {
+	case runtime.VInteger:
+		return !isIntegerLexical(lexical)
+	default:
+		return false
+	}
+}
+
+func unionMemberLexicalMismatch(kind runtime.ValidatorKind) error {
+	switch kind {
+	case runtime.VInteger:
+		return errInvalidIntegerLexical
+	default:
+		return nil
+	}
+}
+
+func isIntegerLexical(lexical []byte) bool {
+	if len(lexical) == 0 {
+		return false
+	}
+	start := 0
+	if lexical[0] == '+' || lexical[0] == '-' {
+		start = 1
+	}
+	if start >= len(lexical) {
+		return false
+	}
+	for _, b := range lexical[start:] {
+		if b < '0' || b > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func collectEnumIDs(facets []runtime.FacetInstr) []runtime.EnumID {

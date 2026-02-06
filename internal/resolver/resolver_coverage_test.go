@@ -3,6 +3,7 @@ package resolver
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -37,7 +38,7 @@ func TestResolveUnionAndListItemTypes(t *testing.T) {
 	if !ok || unionType == nil {
 		t.Fatalf("expected myUnion simple type")
 	}
-	if members := resolveUnionMemberTypes(unionSchema, unionType); len(members) == 0 {
+	if members := typeops.ResolveUnionMemberTypes(unionSchema, unionType); len(members) == 0 {
 		t.Fatalf("expected union member types")
 	}
 
@@ -46,7 +47,7 @@ func TestResolveUnionAndListItemTypes(t *testing.T) {
 	if !ok || listType == nil {
 		t.Fatalf("expected listOfIDs simple type")
 	}
-	item := resolveListItemType(listSchema, listType)
+	item := typeops.ResolveListItemType(listSchema, listType)
 	if item == nil || item.Name().Local != "ID" {
 		t.Fatalf("expected listOfIDs item type ID, got %v", item)
 	}
@@ -58,7 +59,10 @@ func TestValidateValueAgainstFacets(t *testing.T) {
 	if !ok || st == nil {
 		t.Fatalf("expected mytype simple type")
 	}
-	facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
+	facets, err := typeops.CollectSimpleTypeFacets(schema, st, nil)
+	if err != nil {
+		t.Fatalf("collect simple type facets: %v", err)
+	}
 	if err := types.ValidateValueAgainstFacets("abcd", st, facets, nil); err != nil {
 		t.Fatalf("expected valid facet value, got %v", err)
 	}
@@ -77,7 +81,7 @@ func TestResolveSimpleContentBaseType(t *testing.T) {
 	if !ok || sc == nil {
 		t.Fatalf("expected simpleContent on Test2")
 	}
-	textType := resolveSimpleContentBaseType(schema, sc)
+	textType := typeops.ResolveSimpleContentBaseTypeFromContent(schema, sc)
 	if textType == nil || textType.Name().Local != "int" {
 		t.Fatalf("expected text content type xsd:int")
 	}
@@ -110,7 +114,7 @@ func TestTypeDerivationHelpers(t *testing.T) {
 	if base == nil {
 		t.Fatalf("expected builtin string type")
 	}
-	if !isDerivedFrom(derived, base) {
+	if !types.IsDerivedFrom(derived, base) {
 		t.Fatalf("expected mytype derived from string")
 	}
 	if prim := getPrimitiveType(derived); prim == nil || prim.Name().Local != "string" {

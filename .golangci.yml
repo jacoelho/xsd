@@ -11,6 +11,7 @@ linters:
     - asciicheck
     - bidichk
     - copyloopvar
+    - depguard
     - errcheck
     - errorlint
     - errname
@@ -28,6 +29,87 @@ linters:
   settings:
     govet:
       enable-all: true
+    depguard:
+      rules:
+        non_test_no_testing_import:
+          files:
+            - "$all"
+            - "!$test"
+          deny:
+            - pkg: testing
+              desc: non-test Go files must not import testing
+        types_no_runtime:
+          files:
+            - "internal/types/**/*.go"
+            - "internal/types/*.go"
+          deny:
+            - pkg: github.com/jacoelho/xsd/internal/runtime
+              desc: internal/types must not depend on internal/runtime
+        value_no_runtime:
+          files:
+            - "internal/value/**/*.go"
+            - "internal/value/*.go"
+          deny:
+            - pkg: github.com/jacoelho/xsd/internal/runtime
+              desc: internal/value must not depend on internal/runtime
+        validator_no_schema_layers:
+          files:
+            - "internal/validator/**/*.go"
+            - "internal/validator/*.go"
+            - "!internal/validator/**/*_test.go"
+            - "!internal/validator/*_test.go"
+          deny:
+            - pkg: github.com/jacoelho/xsd/internal/parser
+              desc: internal/validator must not depend on internal/parser
+            - pkg: github.com/jacoelho/xsd/internal/loader
+              desc: internal/validator must not depend on internal/loader
+            - pkg: github.com/jacoelho/xsd/internal/resolver
+              desc: internal/validator must not depend on internal/resolver
+            - pkg: github.com/jacoelho/xsd/internal/schema
+              desc: internal/validator must not depend on internal/schema
+            - pkg: github.com/jacoelho/xsd/internal/schemacheck
+              desc: internal/validator must not depend on internal/schemacheck
+        runtimebuild_no_resolution_layers:
+          files:
+            - "internal/runtimebuild/**/*.go"
+            - "internal/runtimebuild/*.go"
+            - "!internal/runtimebuild/**/*_test.go"
+            - "!internal/runtimebuild/*_test.go"
+          deny:
+            - pkg: github.com/jacoelho/xsd/internal/loader
+              desc: internal/runtimebuild must not depend on internal/loader
+            - pkg: github.com/jacoelho/xsd/internal/resolver
+              desc: internal/runtimebuild must not depend on internal/resolver
+            - pkg: github.com/jacoelho/xsd/internal/schemacheck
+              desc: internal/runtimebuild must not depend on internal/schemacheck
+        typeops_dependency_light:
+          files:
+            - "internal/typeops/**/*.go"
+            - "internal/typeops/*.go"
+            - "!internal/typeops/**/*_test.go"
+            - "!internal/typeops/*_test.go"
+          deny:
+            - pkg: github.com/jacoelho/xsd/internal/loader
+              desc: internal/typeops must not depend on internal/loader
+            - pkg: github.com/jacoelho/xsd/internal/resolver
+              desc: internal/typeops must not depend on internal/resolver
+            - pkg: github.com/jacoelho/xsd/internal/runtimebuild
+              desc: internal/typeops must not depend on internal/runtimebuild
+            - pkg: github.com/jacoelho/xsd/internal/schemacheck
+              desc: internal/typeops must not depend on internal/schemacheck
+            - pkg: github.com/jacoelho/xsd/internal/validator
+              desc: internal/typeops must not depend on internal/validator
+        typegraph_reusable:
+          files:
+            - "internal/typegraph/**/*.go"
+            - "internal/typegraph/*.go"
+            - "!internal/typegraph/**/*_test.go"
+            - "!internal/typegraph/*_test.go"
+          deny:
+            - pkg: github.com/jacoelho/xsd/internal/resolver
+              desc: internal/typegraph must not depend on internal/resolver
+            - pkg: github.com/jacoelho/xsd/internal/schemacheck
+              desc: internal/typegraph must not depend on internal/schemacheck
     gocritic:
       enabled-tags:
         - diagnostic

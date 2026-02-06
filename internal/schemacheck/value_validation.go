@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -22,13 +23,16 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 		if !ok {
 			return nil
 		}
-		baseType := resolveSimpleContentBaseTypeFromContent(schema, sc)
+		baseType := typeops.ResolveSimpleContentBaseTypeFromContent(schema, sc)
 		if baseType == nil {
 			return nil
 		}
 		if sc.Restriction != nil {
 			normalized := types.NormalizeWhiteSpace(value, baseType)
-			facets := collectRestrictionFacets(schema, sc.Restriction, baseType)
+			facets, err := typeops.CollectRestrictionFacets(schema, sc.Restriction, baseType, convertDeferredFacet)
+			if err != nil {
+				return err
+			}
 			if err := types.ValidateValueAgainstFacets(normalized, baseType, facets, context); err != nil {
 				return err
 			}
@@ -65,30 +69,34 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 
 	switch st.Variety() {
 	case types.UnionVariety:
-		memberTypes := resolveUnionMemberTypesForValidation(schema, st, make(map[*types.SimpleType]bool))
+		memberTypes := typeops.ResolveUnionMemberTypes(schema, st)
 		if len(memberTypes) == 0 {
 			return fmt.Errorf("union has no member types")
 		}
 		for _, member := range memberTypes {
 			if err := validateValueAgainstTypeWithFacets(schema, normalized, member, context, visited); err == nil {
-				facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
+				facets, ferr := typeops.CollectSimpleTypeFacets(schema, st, convertDeferredFacet)
+				if ferr != nil {
+					return ferr
+				}
 				return types.ValidateValueAgainstFacets(normalized, st, facets, context)
 			}
 		}
 		return fmt.Errorf("value %q does not match any member type of union", normalized)
 	case types.ListVariety:
-		itemType := resolveListItemTypeForValidation(schema, st)
+		itemType := typeops.ResolveListItemType(schema, st)
 		if itemType == nil {
 			return nil
 		}
-		count := 0
 		for item := range types.FieldsXMLWhitespaceSeq(normalized) {
 			if err := validateValueAgainstTypeWithFacets(schema, item, itemType, context, visited); err != nil {
 				return err
 			}
-			count++
 		}
-		facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
+		facets, err := typeops.CollectSimpleTypeFacets(schema, st, convertDeferredFacet)
+		if err != nil {
+			return err
+		}
 		return types.ValidateValueAgainstFacets(normalized, st, facets, context)
 	default:
 		if !types.IsQNameOrNotationType(st) {
@@ -96,171 +104,10 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 				return err
 			}
 		}
-		facets := collectSimpleTypeFacets(schema, st, make(map[*types.SimpleType]bool))
+		facets, err := typeops.CollectSimpleTypeFacets(schema, st, convertDeferredFacet)
+		if err != nil {
+			return err
+		}
 		return types.ValidateValueAgainstFacets(normalized, st, facets, context)
 	}
-}
-
-func resolveSimpleContentBaseTypeFromContent(schema *parser.Schema, sc *types.SimpleContent) types.Type {
-	if sc == nil {
-		return nil
-	}
-	var baseQName types.QName
-	if sc.Extension != nil {
-		baseQName = sc.Extension.Base
-	} else if sc.Restriction != nil {
-		baseQName = sc.Restriction.Base
-	}
-	baseType, _ := resolveSimpleContentBaseType(schema, baseQName)
-	return baseType
-}
-
-func resolveUnionMemberTypesForValidation(schema *parser.Schema, st *types.SimpleType, visited map[*types.SimpleType]bool) []types.Type {
-	if st == nil {
-		return nil
-	}
-	if visited[st] {
-		return nil
-	}
-	visited[st] = true
-	defer delete(visited, st)
-
-	if len(st.MemberTypes) > 0 {
-		return st.MemberTypes
-	}
-	if st.Union != nil {
-		memberTypes := make([]types.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
-		for _, inline := range st.Union.InlineTypes {
-			memberTypes = append(memberTypes, inline)
-		}
-		for _, memberQName := range st.Union.MemberTypes {
-			if member := ResolveSimpleTypeReference(schema, memberQName); member != nil {
-				memberTypes = append(memberTypes, member)
-			}
-		}
-		return memberTypes
-	}
-	if st.Restriction != nil && !st.Restriction.Base.IsZero() {
-		baseType := schema.TypeDefs[st.Restriction.Base]
-		if baseST, ok := baseType.(*types.SimpleType); ok {
-			return resolveUnionMemberTypesForValidation(schema, baseST, visited)
-		}
-	}
-	return nil
-}
-
-func resolveListItemTypeForValidation(schema *parser.Schema, st *types.SimpleType) types.Type {
-	if st == nil {
-		return nil
-	}
-	if st.ItemType != nil {
-		return st.ItemType
-	}
-	if st.List != nil && st.List.InlineItemType != nil {
-		return st.List.InlineItemType
-	}
-	if st.List != nil && !st.List.ItemType.IsZero() {
-		return ResolveSimpleTypeReference(schema, st.List.ItemType)
-	}
-	if itemType, ok := types.ListItemType(st); ok {
-		return itemType
-	}
-	return nil
-}
-
-func collectSimpleTypeFacets(schema *parser.Schema, st *types.SimpleType, visited map[*types.SimpleType]bool) []types.Facet {
-	if st == nil {
-		return nil
-	}
-	if visited[st] {
-		return nil
-	}
-	visited[st] = true
-	defer delete(visited, st)
-
-	var result []types.Facet
-	if st.ResolvedBase != nil {
-		if baseST, ok := st.ResolvedBase.(*types.SimpleType); ok {
-			result = append(result, collectSimpleTypeFacets(schema, baseST, visited)...)
-		}
-	} else if st.Restriction != nil && !st.Restriction.Base.IsZero() {
-		if base := ResolveSimpleTypeReference(schema, st.Restriction.Base); base != nil {
-			if baseST, ok := base.(*types.SimpleType); ok {
-				result = append(result, collectSimpleTypeFacets(schema, baseST, visited)...)
-			}
-		}
-	}
-
-	switch {
-	case st.IsBuiltin() && types.IsBuiltinListTypeName(st.QName.Local):
-		result = append(result, &types.MinLength{Value: 1})
-	case st.ResolvedBase != nil:
-		if bt, ok := st.ResolvedBase.(*types.BuiltinType); ok && types.IsBuiltinListTypeName(bt.Name().Local) {
-			result = append(result, &types.MinLength{Value: 1})
-		}
-	case st.Restriction != nil && !st.Restriction.Base.IsZero() &&
-		st.Restriction.Base.Namespace == types.XSDNamespace &&
-		types.IsBuiltinListTypeName(st.Restriction.Base.Local):
-		result = append(result, &types.MinLength{Value: 1})
-	}
-
-	if st.Restriction != nil {
-		var baseType types.Type
-		if st.ResolvedBase != nil {
-			baseType = st.ResolvedBase
-		} else if !st.Restriction.Base.IsZero() {
-			baseType = ResolveSimpleTypeReference(schema, st.Restriction.Base)
-		}
-		result = append(result, collectRestrictionFacets(schema, st.Restriction, baseType)...)
-	}
-
-	return result
-}
-
-func collectRestrictionFacets(schema *parser.Schema, restriction *types.Restriction, baseType types.Type) []types.Facet {
-	if restriction == nil || len(restriction.Facets) == 0 {
-		return nil
-	}
-
-	var (
-		result       []types.Facet
-		stepPatterns []*types.Pattern
-	)
-
-	for _, facetIface := range restriction.Facets {
-		switch facet := facetIface.(type) {
-		case *types.Pattern:
-			if err := facet.ValidateSyntax(); err != nil {
-				continue
-			}
-			stepPatterns = append(stepPatterns, facet)
-		case types.Facet:
-			if compilable, ok := facet.(interface{ ValidateSyntax() error }); ok {
-				if err := compilable.ValidateSyntax(); err != nil {
-					continue
-				}
-			}
-			result = append(result, facet)
-		case *types.DeferredFacet:
-			if baseType == nil {
-				baseType = ResolveSimpleTypeReference(schema, restriction.Base)
-			}
-			if baseType == nil {
-				continue
-			}
-			resolved, err := convertDeferredFacet(facet, baseType)
-			if err != nil || resolved == nil {
-				continue
-			}
-			result = append(result, resolved)
-		}
-	}
-
-	if len(stepPatterns) == 1 {
-		result = append(result, stepPatterns[0])
-	} else if len(stepPatterns) > 1 {
-		result = append(result, &types.PatternSet{Patterns: stepPatterns})
-	}
-
-	return result
 }

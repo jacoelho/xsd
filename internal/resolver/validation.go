@@ -7,11 +7,13 @@ import (
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/schemacheck"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
-func validateReferences(sch *parser.Schema) []error {
+// ValidateReferences validates cross-component references for schema loading.
+func ValidateReferences(sch *parser.Schema) []error {
 	var errs []error
 
 	elementRefsInContent := collectElementReferencesInSchema(sch)
@@ -48,11 +50,6 @@ func validateReferences(sch *parser.Schema) []error {
 	}
 
 	return errs
-}
-
-// ValidateReferences exposes reference validation for schema loading.
-func ValidateReferences(sch *parser.Schema) []error {
-	return validateReferences(sch)
 }
 
 func collectElementReferencesInSchema(sch *parser.Schema) []*types.ElementDecl {
@@ -240,7 +237,7 @@ func validateAttributeDeclarations(sch *parser.Schema) []error {
 		// validate default/fixed values against the resolved type (including facets)
 		// this is done here after type resolution because during structure validation
 		// the type might be a placeholder and facets might not be available
-		resolvedType := resolveTypeForFinalValidation(sch, decl.Type)
+		resolvedType := schemacheck.ResolveTypeReference(sch, decl.Type, schemacheck.TypeReferenceAllowMissing)
 		if _, ok := resolvedType.(*types.ComplexType); ok {
 			errs = append(errs, fmt.Errorf("attribute %s: type must be a simple type", qname))
 		}
@@ -282,7 +279,7 @@ func validateEnumerationFacetValues(sch *parser.Schema) []error {
 		}
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = schemacheck.ResolveSimpleTypeReference(sch, st.Restriction.Base)
+			baseType = typeops.ResolveSimpleTypeReference(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue
@@ -320,7 +317,7 @@ func validateDeferredRangeFacetValues(sch *parser.Schema) []error {
 
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = schemacheck.ResolveSimpleTypeReference(sch, st.Restriction.Base)
+			baseType = typeops.ResolveSimpleTypeReference(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue
@@ -342,7 +339,7 @@ func validateDeferredRangeFacetValues(sch *parser.Schema) []error {
 					continue
 				}
 				seenDeferred = true
-				resolved, err := convertDeferredRangeFacetForValidation(f, baseType)
+				resolved, err := typeops.DefaultDeferredFacetConverter(f, baseType)
 				if err != nil {
 					errs = append(errs, fmt.Errorf("type %s: restriction: %w", qname, err))
 					continue
@@ -375,25 +372,6 @@ func isRangeFacetName(name string) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-func convertDeferredRangeFacetForValidation(df *types.DeferredFacet, baseType types.Type) (types.Facet, error) {
-	if df == nil || baseType == nil {
-		return nil, nil
-	}
-
-	switch df.FacetName {
-	case "minInclusive":
-		return types.NewMinInclusive(df.FacetValue, baseType)
-	case "maxInclusive":
-		return types.NewMaxInclusive(df.FacetValue, baseType)
-	case "minExclusive":
-		return types.NewMinExclusive(df.FacetValue, baseType)
-	case "maxExclusive":
-		return types.NewMaxExclusive(df.FacetValue, baseType)
-	default:
-		return nil, fmt.Errorf("unknown deferred facet type: %s", df.FacetName)
 	}
 }
 

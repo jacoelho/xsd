@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/schemacheck"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xml"
 )
@@ -152,7 +153,7 @@ func validateAttributeValueConstraintsForType(sch *parser.Schema, typ types.Type
 }
 
 func validateAttributeValueConstraints(sch *parser.Schema, decl *types.AttributeDecl) error {
-	resolvedType := resolveTypeForFinalValidation(sch, decl.Type)
+	resolvedType := schemacheck.ResolveTypeReference(sch, decl.Type, schemacheck.TypeReferenceAllowMissing)
 	if _, ok := resolvedType.(*types.ComplexType); ok {
 		return fmt.Errorf("type must be a simple type")
 	}
