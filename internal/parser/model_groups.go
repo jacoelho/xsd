@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xml"
+	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.ModelGroup, error) {
