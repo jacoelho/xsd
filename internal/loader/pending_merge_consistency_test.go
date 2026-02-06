@@ -7,7 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func TestPendingMergesAreAtomic(t *testing.T) {
+func TestPendingMergesRemainConsistentOnFailure(t *testing.T) {
 	rootSchema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:root"
