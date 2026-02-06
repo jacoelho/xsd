@@ -48,8 +48,8 @@ func listInternalImports(t *testing.T) map[string][]string {
 	}
 
 	graph := make(map[string][]string)
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(strings.TrimSpace(string(out)), "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue

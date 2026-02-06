@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
 	schema "github.com/jacoelho/xsd/internal/semantic"
 	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
+	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
 	"github.com/jacoelho/xsd/internal/types"
 )
 

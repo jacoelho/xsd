@@ -14,9 +14,9 @@ import (
 	"unicode"
 
 	xsdErrors "github.com/jacoelho/xsd/errors"
-	loader "github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/runtime"
 	runtimebuild "github.com/jacoelho/xsd/internal/runtimecompile"
+	loader "github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validator"
 	"github.com/jacoelho/xsd/internal/xsdxml"

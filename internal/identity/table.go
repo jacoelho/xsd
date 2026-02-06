@@ -113,7 +113,7 @@ func HashRow(values []runtime.ValueKey) uint64 {
 		if keyHash == 0 {
 			keyHash = runtime.HashKey(value.Kind, value.Bytes)
 		}
-		for i := 0; i < 8; i++ {
+		for range 8 {
 			h ^= uint64(byte(keyHash))
 			h *= runtime.FNVPrime64
 			keyHash >>= 8

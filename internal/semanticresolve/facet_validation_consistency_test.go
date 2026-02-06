@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
 	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
+	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
 )
 
 func TestFacetValidationConsistentAcrossPhases(t *testing.T) {
