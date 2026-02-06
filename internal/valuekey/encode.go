@@ -223,9 +223,9 @@ func StartListKey(dst []byte, count int) []byte {
 
 // AppendListEntry appends one typed list item: kind (1 byte), len (uvarint), key bytes.
 func AppendListEntry(dst []byte, kind byte, key []byte) []byte {
-	out := append(dst, kind)
-	out = AppendUvarint(out, uint64(len(key)))
-	return append(out, key...)
+	dst = append(dst, kind)
+	dst = AppendUvarint(dst, uint64(len(key)))
+	return append(dst, key...)
 }
 
 func ensureLen(dst []byte, n int) []byte {

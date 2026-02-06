@@ -398,8 +398,7 @@ func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, 
 			err   error
 		)
 
-		switch localName {
-		case "whiteSpace":
+		if localName == "whiteSpace" {
 			if st == nil {
 				if restriction != nil && restriction.SimpleType == nil {
 					restriction.SimpleType = &types.SimpleType{}

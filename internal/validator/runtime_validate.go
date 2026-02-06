@@ -94,7 +94,7 @@ func (s *Session) validateWithDocument(r io.Reader, document string) error {
 	return s.validationList()
 }
 
-func (s *Session) processResolvedEvent(ev *xmlstream.ResolvedEvent, resolver sessionResolver, rootSeen *bool, allowBOM *bool) error {
+func (s *Session) processResolvedEvent(ev *xmlstream.ResolvedEvent, resolver sessionResolver, rootSeen, allowBOM *bool) error {
 	switch ev.Kind {
 	case xmlstream.EventStartElement:
 		if err := s.handleStartElement(ev, resolver); err != nil {
