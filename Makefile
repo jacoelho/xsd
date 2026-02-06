@@ -21,6 +21,11 @@ staticcheck: $(GOBIN)/staticcheck
 fieldalignment:
 	go run golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest ./...
 
+.PHONY: archcheck
+archcheck:
+	./scripts/check-no-testing-imports.sh
+	./scripts/check-internal-deps.sh
+
 testdata/xsdtests:
 	git clone --depth 1 https://github.com/w3c/xsdtests.git testdata/xsdtests
 
