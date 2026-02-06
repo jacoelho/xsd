@@ -148,19 +148,3 @@ func validateQNameContext(value string, context map[string]string) error {
 	_, err := types.ParseQNameValue(value, context)
 	return err
 }
-
-func resolveUnionMemberTypes(schema *parser.Schema, st *types.SimpleType) []types.Type {
-	return typeops.ResolveUnionMemberTypes(schema, st)
-}
-
-func resolveListItemType(schema *parser.Schema, st *types.SimpleType) types.Type {
-	return typeops.ResolveListItemType(schema, st)
-}
-
-func collectSimpleTypeFacets(schema *parser.Schema, st *types.SimpleType, _ map[*types.SimpleType]bool) []types.Facet {
-	return typeops.CollectSimpleTypeFacets(schema, st, nil)
-}
-
-func resolveSimpleContentBaseType(schema *parser.Schema, sc *types.SimpleContent) types.Type {
-	return typeops.ResolveSimpleContentBaseTypeFromContent(schema, sc)
-}
