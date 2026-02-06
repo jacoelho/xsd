@@ -41,12 +41,12 @@ func Prepare(sch *parser.Schema) (*PreparedSchema, error) {
 	if err != nil {
 		return nil, fmt.Errorf("prepare schema: resolve references: %w", err)
 	}
-	if err := semantic.DetectCycles(sch); err != nil {
-		return nil, fmt.Errorf("prepare schema: detect cycles: %w", err)
+	if cycleErr := semantic.DetectCycles(sch); cycleErr != nil {
+		return nil, fmt.Errorf("prepare schema: detect cycles: %w", cycleErr)
 	}
 	if !sch.UPAValidated {
-		if err := semantic.ValidateUPA(sch, reg); err != nil {
-			return nil, fmt.Errorf("prepare schema: validate UPA: %w", err)
+		if upaErr := semantic.ValidateUPA(sch, reg); upaErr != nil {
+			return nil, fmt.Errorf("prepare schema: validate UPA: %w", upaErr)
 		}
 		sch.UPAValidated = true
 	}

@@ -84,8 +84,8 @@ func (l *SchemaLoader) resolveGroupRefsInContentWithVisited(content types.Conten
 func (l *SchemaLoader) resolveGroupRefsInParticleWithVisited(particle types.Particle, sch *parser.Schema, detector *semanticresolve.CycleDetector[types.QName]) (types.Particle, error) {
 	groupRef, ok := particle.(*types.GroupRef)
 	if ok {
-		groupDef, ok := sch.Groups[groupRef.RefQName]
-		if !ok {
+		groupDef, found := sch.Groups[groupRef.RefQName]
+		if !found {
 			return nil, fmt.Errorf("group '%s' not found", groupRef.RefQName)
 		}
 		groupCopy := *groupDef
