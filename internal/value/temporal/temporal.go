@@ -361,12 +361,15 @@ func canonicalLeap(v Value) string {
 		t = t.UTC()
 	}
 	adjusted := t.Add(-time.Second)
+	hour, minute, _ := adjusted.Clock()
+	if hour != 23 || minute != 59 {
+		return value.CanonicalDateTimeString(v.Time, v.Kind.String(), toValueTimezoneKind(v.TimezoneKind))
+	}
 	fraction := formatFraction(adjusted.Nanosecond())
 	tz := ""
 	if v.TimezoneKind == TZKnown {
 		tz = "Z"
 	}
-	hour, minute, _ := adjusted.Clock()
 	if v.Kind == KindTime {
 		return fmt.Sprintf("%02d:%02d:60%s%s", hour, minute, fraction, tz)
 	}

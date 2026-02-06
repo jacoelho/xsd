@@ -40,6 +40,32 @@ func TestCanonical_PreservesLeapSecond(t *testing.T) {
 	}
 }
 
+func TestCanonical_TimeLeapWithOffsetProducesParseableCanonical(t *testing.T) {
+	leap, err := Parse(KindTime, []byte("23:59:60+02:00"))
+	if err != nil {
+		t.Fatalf("Parse(leap) error = %v", err)
+	}
+	if got := Canonical(leap); got != "22:00:00Z" {
+		t.Fatalf("Canonical(leap) = %q, want %q", got, "22:00:00Z")
+	}
+	if _, err := Parse(KindTime, []byte(Canonical(leap))); err != nil {
+		t.Fatalf("Parse(Canonical(leap)) error = %v", err)
+	}
+}
+
+func TestCanonical_DateTimeLeapWithOffsetProducesParseableCanonical(t *testing.T) {
+	leap, err := Parse(KindDateTime, []byte("1999-12-31T23:59:60+02:00"))
+	if err != nil {
+		t.Fatalf("Parse(leap) error = %v", err)
+	}
+	if got := Canonical(leap); got != "1999-12-31T22:00:00Z" {
+		t.Fatalf("Canonical(leap) = %q, want %q", got, "1999-12-31T22:00:00Z")
+	}
+	if _, err := Parse(KindDateTime, []byte(Canonical(leap))); err != nil {
+		t.Fatalf("Parse(Canonical(leap)) error = %v", err)
+	}
+}
+
 func TestCompare_IndeterminateWhenTimezoneMissing(t *testing.T) {
 	withTZ, err := Parse(KindDateTime, []byte("2000-01-01T12:00:00Z"))
 	if err != nil {

@@ -43,6 +43,34 @@ func TestTemporalCanonicalizationMatchesValue(t *testing.T) {
 	}
 }
 
+func TestTemporalCanonicalizationRoundTripParseable(t *testing.T) {
+	cases := []struct {
+		kind    TypeName
+		lexical string
+	}{
+		{kind: TypeNameDateTime, lexical: "1999-12-31T23:59:60+02:00"},
+		{kind: TypeNameTime, lexical: "23:59:60+02:00"},
+		{kind: TypeNameTime, lexical: "23:59:60Z"},
+	}
+
+	for _, tc := range cases {
+		t.Run(string(tc.kind)+"_"+tc.lexical, func(t *testing.T) {
+			bt := GetBuiltin(tc.kind)
+			if bt == nil {
+				t.Fatalf("builtin %s missing", tc.kind)
+			}
+			tv, err := ParseValueForType(tc.lexical, tc.kind, bt)
+			if err != nil {
+				t.Fatalf("ParseValueForType(%s) error = %v", tc.kind, err)
+			}
+			canonical := tv.String()
+			if _, err := parseTemporalForKind(tc.kind, canonical); err != nil {
+				t.Fatalf("parse canonical %q for %s error = %v", canonical, tc.kind, err)
+			}
+		})
+	}
+}
+
 func parseTemporalForKind(kind TypeName, lexical string) (time.Time, error) {
 	switch kind {
 	case TypeNameDateTime:
