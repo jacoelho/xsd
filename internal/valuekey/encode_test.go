@@ -70,7 +70,7 @@ func TestFloatKeyBytes(t *testing.T) {
 
 func TestTemporalKeyBytes(t *testing.T) {
 	withTZ := time.Date(2020, 1, 2, 3, 4, 5, 60000000, time.FixedZone("X", 2*3600))
-	keyTZ := TemporalKeyBytes(nil, 5, withTZ, value.TZKnown)
+	keyTZ := TemporalKeyBytes(nil, 5, withTZ, value.TZKnown, false)
 	if len(keyTZ) != 20 {
 		t.Fatalf("tz key len = %d, want 20", len(keyTZ))
 	}
@@ -90,9 +90,9 @@ func TestTemporalKeyBytes(t *testing.T) {
 	}
 
 	noTZ := time.Date(2021, 7, 9, 11, 12, 13, 14000000, time.UTC)
-	keyNoTZ := TemporalKeyBytes(nil, 2, noTZ, value.TZNone)
-	if len(keyNoTZ) != 10 {
-		t.Fatalf("no-tz key len = %d, want 10", len(keyNoTZ))
+	keyNoTZ := TemporalKeyBytes(nil, 2, noTZ, value.TZNone, false)
+	if len(keyNoTZ) != 11 {
+		t.Fatalf("no-tz key len = %d, want 11", len(keyNoTZ))
 	}
 	if keyNoTZ[0] != 2 || keyNoTZ[1] != 0 {
 		t.Fatalf("no-tz key header = %v, want [2 0]", keyNoTZ[:2])
@@ -105,9 +105,9 @@ func TestTemporalKeyBytes(t *testing.T) {
 	}
 
 	withTZTime := time.Date(2020, 1, 2, 0, 30, 0, 0, time.FixedZone("X", 2*3600))
-	keyTimeTZ := TemporalKeyBytes(nil, 2, withTZTime, value.TZKnown)
-	if len(keyTimeTZ) != 10 {
-		t.Fatalf("time tz key len = %d, want 10", len(keyTimeTZ))
+	keyTimeTZ := TemporalKeyBytes(nil, 2, withTZTime, value.TZKnown, false)
+	if len(keyTimeTZ) != 11 {
+		t.Fatalf("time tz key len = %d, want 11", len(keyTimeTZ))
 	}
 	if keyTimeTZ[0] != 2 || keyTimeTZ[1] != 1 {
 		t.Fatalf("time tz key header = %v, want [2 1]", keyTimeTZ[:2])
@@ -129,10 +129,40 @@ func TestTemporalKeyBytesDateTimePreEpochOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse epoch: %v", err)
 	}
-	preKey := TemporalKeyBytes(nil, 0, preEpoch, value.TZKnown)
-	epochKey := TemporalKeyBytes(nil, 0, epoch, value.TZKnown)
+	preKey := TemporalKeyBytes(nil, 0, preEpoch, value.TZKnown, false)
+	epochKey := TemporalKeyBytes(nil, 0, epoch, value.TZKnown, false)
 	if bytes.Compare(preKey, epochKey) >= 0 {
 		t.Fatalf("expected pre-epoch key < epoch key")
+	}
+}
+
+func TestTemporalKeyBytes_LeapSecondDistinct(t *testing.T) {
+	leapTime, err := value.ParseTime([]byte("23:59:60Z"))
+	if err != nil {
+		t.Fatalf("parse leap time: %v", err)
+	}
+	midnightTime, err := value.ParseTime([]byte("00:00:00Z"))
+	if err != nil {
+		t.Fatalf("parse midnight time: %v", err)
+	}
+	leapTimeKey := TemporalKeyBytes(nil, 2, leapTime, value.TZKnown, true)
+	midnightTimeKey := TemporalKeyBytes(nil, 2, midnightTime, value.TZKnown, false)
+	if bytes.Equal(leapTimeKey, midnightTimeKey) {
+		t.Fatalf("expected time leap-second key to differ from plain midnight key")
+	}
+
+	leapDateTime, err := value.ParseDateTime([]byte("1999-12-31T23:59:60Z"))
+	if err != nil {
+		t.Fatalf("parse leap dateTime: %v", err)
+	}
+	nextSecond, err := value.ParseDateTime([]byte("2000-01-01T00:00:00Z"))
+	if err != nil {
+		t.Fatalf("parse next-second dateTime: %v", err)
+	}
+	leapDateTimeKey := TemporalKeyBytes(nil, 0, leapDateTime, value.TZKnown, true)
+	nextSecondKey := TemporalKeyBytes(nil, 0, nextSecond, value.TZKnown, false)
+	if bytes.Equal(leapDateTimeKey, nextSecondKey) {
+		t.Fatalf("expected dateTime leap-second key to differ from next-second key")
 	}
 }
 

@@ -109,7 +109,7 @@ func TestTimeLeapSecondFacetRange(t *testing.T) {
 	facet := &RangeFacet{
 		name:    "minInclusive",
 		lexical: "23:59:60Z",
-		value:   ComparableTime{Value: minTime, Typ: timeType, TimezoneKind: value.TZKnown},
+		value:   ComparableTime{Value: minTime, Typ: timeType, TimezoneKind: value.TZKnown, LeapSecond: true},
 		cmpFunc: func(cmp int) bool { return cmp >= 0 },
 		errOp:   ">=",
 	}

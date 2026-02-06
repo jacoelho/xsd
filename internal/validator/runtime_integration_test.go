@@ -724,6 +724,58 @@ func TestEnumCanonicalizationDateTimezone(t *testing.T) {
 	}
 }
 
+func TestEnumCanonicalizationTimeLeapSecondDistinct(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="TimeEnum">
+    <xs:restriction base="xs:time">
+      <xs:enumeration value="23:59:60Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="TimeEnum"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	passDoc := `<root>23:59:60Z</root>`
+	if err := sess.Validate(strings.NewReader(passDoc)); err != nil {
+		t.Fatalf("expected leap-second time to match enum: %v", err)
+	}
+
+	sess.Reset()
+	failDoc := `<root>00:00:00Z</root>`
+	if err := sess.Validate(strings.NewReader(failDoc)); err == nil {
+		t.Fatalf("expected 00:00:00Z to fail leap-second enum")
+	}
+}
+
+func TestEnumCanonicalizationDateTimeLeapSecondDistinct(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="DateTimeEnum">
+    <xs:restriction base="xs:dateTime">
+      <xs:enumeration value="1999-12-31T23:59:60Z"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="DateTimeEnum"/>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schema)
+	sess := NewSession(rt)
+
+	passDoc := `<root>1999-12-31T23:59:60Z</root>`
+	if err := sess.Validate(strings.NewReader(passDoc)); err != nil {
+		t.Fatalf("expected leap-second dateTime to match enum: %v", err)
+	}
+
+	sess.Reset()
+	failDoc := `<root>2000-01-01T00:00:00Z</root>`
+	if err := sess.Validate(strings.NewReader(failDoc)); err == nil {
+		t.Fatalf("expected next-second dateTime to fail leap-second enum")
+	}
+}
+
 func TestEnumCanonicalizationDurationNegativeZero(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

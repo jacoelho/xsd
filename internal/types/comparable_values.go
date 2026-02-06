@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 var (
@@ -110,6 +111,8 @@ type ComparableTime struct {
 	// XSD type this value represents
 	Typ          Type
 	TimezoneKind value.TimezoneKind
+	Kind         temporal.Kind
+	LeapSecond   bool
 }
 
 var errIndeterminateTimeComparison = errors.New("time comparison indeterminate")
@@ -120,47 +123,22 @@ func (c ComparableTime) Compare(other ComparableValue) (int, error) {
 	if !ok {
 		return 0, fmt.Errorf("cannot compare ComparableTime with %T", other)
 	}
-	if c.TimezoneKind == otherTime.TimezoneKind {
-		if c.Value.Before(otherTime.Value) {
-			return -1, nil
-		}
-		if c.Value.After(otherTime.Value) {
-			return 1, nil
-		}
-		return 0, nil
-	}
-	if c.TimezoneKind == value.TZKnown {
-		return compareTimezonedToLocal(c.Value, otherTime.Value)
-	}
-	cmp, err := compareTimezonedToLocal(otherTime.Value, c.Value)
+
+	leftValue := c.semanticValue()
+	rightValue := otherTime.semanticValue()
+	cmp, err := temporal.Compare(leftValue, rightValue)
 	if err != nil {
+		if errors.Is(err, temporal.ErrIndeterminateComparison) {
+			return 0, errIndeterminateTimeComparison
+		}
 		return 0, err
 	}
-	return -cmp, nil
+	return cmp, nil
 }
 
 // String returns the string representation (implements ComparableValue)
 func (c ComparableTime) String() string {
-	switch c.TimezoneKind {
-	case value.TZKnown:
-		return c.Value.UTC().Format(time.RFC3339Nano)
-	default:
-		return c.Value.Format("2006-01-02T15:04:05.999999999")
-	}
-}
-
-func compareTimezonedToLocal(timezoned, local time.Time) (int, error) {
-	tzUTC := timezoned.UTC()
-	localUTC := local.UTC()
-	localPlus14 := localUTC.Add(-14 * time.Hour)
-	localMinus14 := localUTC.Add(14 * time.Hour)
-	if tzUTC.Before(localPlus14) {
-		return -1, nil
-	}
-	if tzUTC.After(localMinus14) {
-		return 1, nil
-	}
-	return 0, errIndeterminateTimeComparison
+	return temporal.Canonical(c.semanticValue())
 }
 
 // Type returns the XSD type (implements ComparableValue)
@@ -171,6 +149,30 @@ func (c ComparableTime) Type() Type {
 // Unwrap returns the inner time.Time value
 func (c ComparableTime) Unwrap() any {
 	return c.Value
+}
+
+func (c ComparableTime) semanticValue() temporal.Value {
+	kind := c.Kind
+	if kind == temporal.KindInvalid {
+		if inferred, ok := temporalKindFromType(c.Typ); ok {
+			kind = inferred
+		} else {
+			kind = temporal.KindDateTime
+		}
+	}
+	return temporal.Value{
+		Kind:         kind,
+		Time:         c.Value,
+		TimezoneKind: temporalTimezoneKind(c.TimezoneKind),
+		LeapSecond:   c.LeapSecond,
+	}
+}
+
+func temporalTimezoneKind(kind value.TimezoneKind) temporal.TimezoneKind {
+	if kind == value.TZKnown {
+		return temporal.TZKnown
+	}
+	return temporal.TZNone
 }
 
 // ComparableFloat64 wraps float64 to implement ComparableValue with NaN/INF handling

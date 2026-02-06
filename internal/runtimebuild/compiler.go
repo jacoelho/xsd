@@ -6,7 +6,6 @@ import (
 	"maps"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -14,6 +13,7 @@ import (
 	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 type CompiledValidators struct {
@@ -661,61 +661,53 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 		}
 		return []byte(value.CanonicalFloat(v, 64)), nil
 	case "dateTime":
-		v, err := value.ParseDateTime([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindDateTime, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "dateTime", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "date":
-		v, err := value.ParseDate([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindDate, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "date", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "time":
-		v, err := value.ParseTime([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindTime, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "time", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "gYearMonth":
-		v, err := value.ParseGYearMonth([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindGYearMonth, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "gYearMonth", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "gYear":
-		v, err := value.ParseGYear([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindGYear, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "gYear", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "gMonthDay":
-		v, err := value.ParseGMonthDay([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindGMonthDay, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "gMonthDay", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "gDay":
-		v, err := value.ParseGDay([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindGDay, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "gDay", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "gMonth":
-		v, err := value.ParseGMonth([]byte(normalized))
+		tv, err := temporal.Parse(temporal.KindGMonth, []byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(normalized))
-		return []byte(value.CanonicalDateTimeString(v, "gMonth", tzKind)), nil
+		return []byte(temporal.Canonical(tv)), nil
 	case "duration":
 		dur, err := types.ParseXSDDuration(normalized)
 		if err != nil {
@@ -897,12 +889,16 @@ func (c *compiler) comparableValue(lexical string, typ types.Type) (types.Compar
 		}
 		return types.ComparableFloat64{Value: v}, nil
 	case "dateTime", "date", "time", "gYear", "gYearMonth", "gMonth", "gMonthDay", "gDay":
-		t, err := c.parseTemporal(primName, lexical)
+		tv, err := temporal.ParsePrimitive(primName, []byte(lexical))
 		if err != nil {
 			return nil, err
 		}
-		tzKind := value.TimezoneKindFromLexical([]byte(lexical))
-		return types.ComparableTime{Value: t, TimezoneKind: tzKind}, nil
+		return types.ComparableTime{
+			Value:        tv.Time,
+			TimezoneKind: temporal.ValueTimezoneKind(tv.TimezoneKind),
+			Kind:         tv.Kind,
+			LeapSecond:   tv.LeapSecond,
+		}, nil
 	case "duration":
 		dur, err := types.ParseXSDDuration(lexical)
 		if err != nil {
@@ -911,29 +907,6 @@ func (c *compiler) comparableValue(lexical string, typ types.Type) (types.Compar
 		return types.ComparableXSDDuration{Value: dur}, nil
 	default:
 		return nil, fmt.Errorf("unsupported comparable type %s", primName)
-	}
-}
-
-func (c *compiler) parseTemporal(kind, lexical string) (time.Time, error) {
-	switch kind {
-	case "dateTime":
-		return value.ParseDateTime([]byte(lexical))
-	case "date":
-		return value.ParseDate([]byte(lexical))
-	case "time":
-		return value.ParseTime([]byte(lexical))
-	case "gYearMonth":
-		return value.ParseGYearMonth([]byte(lexical))
-	case "gYear":
-		return value.ParseGYear([]byte(lexical))
-	case "gMonthDay":
-		return value.ParseGMonthDay([]byte(lexical))
-	case "gDay":
-		return value.ParseGDay([]byte(lexical))
-	case "gMonth":
-		return value.ParseGMonth([]byte(lexical))
-	default:
-		return time.Time{}, fmt.Errorf("unsupported temporal type %s", kind)
 	}
 }
 

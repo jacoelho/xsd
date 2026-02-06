@@ -102,18 +102,19 @@ func Float64Key(dst []byte, floatVal float64, class num.FloatClass) []byte {
 }
 
 // TemporalKeyBytes appends a canonical temporal key encoding to dst.
-func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, tzKind value.TimezoneKind) []byte {
+func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, tzKind value.TimezoneKind, leapSecond bool) []byte {
 	tzFlag := timezoneFlag(tzKind)
 	if tzKind == value.TZKnown {
 		t = t.UTC()
 	}
 	if subkind == 2 {
 		seconds := t.Hour()*3600 + t.Minute()*60 + t.Second()
-		dst = ensureLen(dst[:0], 10)
+		dst = ensureLen(dst[:0], 11)
 		dst[0] = subkind
 		dst[1] = tzFlag
 		binary.BigEndian.PutUint32(dst[2:], uint32(seconds))
 		binary.BigEndian.PutUint32(dst[6:], uint32(t.Nanosecond()))
+		dst[10] = leapSecondFlag(leapSecond)
 		return dst
 	}
 	year, month, day := t.Date()
@@ -159,7 +160,11 @@ func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, tzKind value.Timezo
 		sec = 0
 		nanos = 0
 	}
-	dst = ensureLen(dst[:0], 20)
+	keyLen := 20
+	if subkind == 0 {
+		keyLen = 21
+	}
+	dst = ensureLen(dst[:0], keyLen)
 	dst[0] = subkind
 	dst[1] = tzFlag
 	binary.BigEndian.PutUint32(dst[2:], uint32(int32(year)))
@@ -169,6 +174,9 @@ func TemporalKeyBytes(dst []byte, subkind byte, t time.Time, tzKind value.Timezo
 	binary.BigEndian.PutUint16(dst[12:], uint16(minute))
 	binary.BigEndian.PutUint16(dst[14:], uint16(sec))
 	binary.BigEndian.PutUint32(dst[16:], uint32(nanos))
+	if subkind == 0 {
+		dst[20] = leapSecondFlag(leapSecond)
+	}
 	return dst
 }
 
@@ -227,4 +235,11 @@ func timezoneFlag(kind value.TimezoneKind) byte {
 	default:
 		return 0
 	}
+}
+
+func leapSecondFlag(leapSecond bool) byte {
+	if leapSecond {
+		return 1
+	}
+	return 0
 }

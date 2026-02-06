@@ -9,6 +9,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 // TypedValue represents a value with its XSD type
@@ -288,6 +289,15 @@ func NewDateTimeValue(parsed ParsedValue[time.Time], typ *SimpleType) TypedValue
 }
 
 func (v *DateTimeValue) String() string {
+	if v == nil {
+		return ""
+	}
+	if kind, ok := temporal.KindFromPrimitiveName(string(v.kind)); ok {
+		parsed, err := temporal.Parse(kind, []byte(v.lexical))
+		if err == nil {
+			return temporal.Canonical(parsed)
+		}
+	}
 	return value.CanonicalDateTimeString(v.native, string(v.kind), v.tzKind)
 }
 
