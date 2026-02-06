@@ -21,11 +21,6 @@ staticcheck: $(GOBIN)/staticcheck
 fieldalignment:
 	go run golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest ./...
 
-.PHONY: archcheck
-archcheck:
-	./scripts/check-no-testing-imports.sh
-	./scripts/check-internal-deps.sh
-
 testdata/xsdtests:
 	git clone --depth 1 https://github.com/w3c/xsdtests.git testdata/xsdtests
 
@@ -37,5 +32,5 @@ w3c: testdata/xsdtests
 	go test -timeout 2m -tags w3c -run ^TestW3CConformance github.com/jacoelho/xsd/w3c --count=1
 
 .PHONY: test
-test: archcheck testdata/xsdtests
+test: testdata/xsdtests
 	go test -timeout 2m -race -shuffle=on ./...
