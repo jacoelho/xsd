@@ -4,17 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
-)
-
-// TypeReferencePolicy controls how missing type references are handled.
-type TypeReferencePolicy int
-
-const (
-	// TypeReferenceMustExist requires referenced types to be resolved.
-	TypeReferenceMustExist TypeReferencePolicy = iota
-	// TypeReferenceAllowMissing allows unresolved placeholders to pass through.
-	TypeReferenceAllowMissing
 )
 
 // isValidNCName checks if a string is a valid NCName
@@ -42,41 +33,18 @@ func ElementTypesCompatible(a, b types.Type) bool {
 }
 
 // ResolveTypeReference resolves a type reference in schema validation contexts.
-func ResolveTypeReference(schema *parser.Schema, typ types.Type, policy TypeReferencePolicy) types.Type {
-	if typ == nil {
-		return nil
-	}
-
-	// if it's a placeholder SimpleType (has QName but not builtin and no Restriction/List/Union),
-	if simpleType, ok := typ.(*types.SimpleType); ok {
-		// check if it's a placeholder: not builtin, has QName, but no Restriction/List/Union
-		if !simpleType.IsBuiltin() && simpleType.Restriction == nil && simpleType.List == nil && simpleType.Union == nil {
-			// this is a placeholder - resolve from schema type definitions
-			if resolvedType, ok := lookupTypeDef(schema, simpleType.QName); ok {
-				return resolvedType
-			}
-			if policy == TypeReferenceAllowMissing {
-				return typ
-			}
-			// type not found - return nil to indicate error
-			return nil
-		}
-		// not a placeholder, return as-is
-		return typ
-	}
-
-	// already a resolved type (ComplexType or non-placeholder SimpleType)
-	return typ
+func ResolveTypeReference(schema *parser.Schema, typ types.Type, policy typeops.TypeReferencePolicy) types.Type {
+	return typeops.ResolveTypeReference(schema, typ, policy)
 }
 
 // resolveTypeForValidation resolves a type reference without allowing missing types.
 func resolveTypeForValidation(schema *parser.Schema, typ types.Type) types.Type {
-	return ResolveTypeReference(schema, typ, TypeReferenceMustExist)
+	return ResolveTypeReference(schema, typ, typeops.TypeReferenceMustExist)
 }
 
 // resolveTypeForFinalValidation resolves a type reference for substitution group final checks.
 func resolveTypeForFinalValidation(schema *parser.Schema, typ types.Type) types.Type {
-	return ResolveTypeReference(schema, typ, TypeReferenceAllowMissing)
+	return ResolveTypeReference(schema, typ, typeops.TypeReferenceAllowMissing)
 }
 
 // validateTypeDefStructure validates structural constraints of a type definition

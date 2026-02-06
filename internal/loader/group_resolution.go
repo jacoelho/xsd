@@ -144,7 +144,7 @@ func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg 
 			// if the group is already resolved (visited), just copy it
 			if detector.IsVisited(typed.RefQName) {
 				// create a deep copy of the already-resolved group with occurrence constraints from the reference
-				groupCopy := deepCopyModelGroup(groupDef)
+				groupCopy := types.CloneModelGroupTree(groupDef)
 				groupCopy.MinOccurs = typed.MinOccurs
 				groupCopy.MaxOccurs = typed.MaxOccurs
 				mg.Particles[i] = groupCopy
@@ -153,7 +153,7 @@ func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg 
 			}
 
 			// create a deep copy of the group with occurrence constraints from the reference
-			groupCopy := deepCopyModelGroup(groupDef)
+			groupCopy := types.CloneModelGroupTree(groupDef)
 			groupCopy.MinOccurs = typed.MinOccurs
 			groupCopy.MaxOccurs = typed.MaxOccurs
 
@@ -175,23 +175,4 @@ func (l *SchemaLoader) resolveGroupRefsInModelGroupWithPointerCycleDetection(mg 
 		}
 	}
 	return nil
-}
-
-// deepCopyModelGroup creates a deep copy of a ModelGroup including its Particles slice
-func deepCopyModelGroup(mg *types.ModelGroup) *types.ModelGroup {
-	if mg == nil {
-		return nil
-	}
-	clone := *mg
-	if mg.Particles != nil {
-		clone.Particles = make([]types.Particle, len(mg.Particles))
-		for i, particle := range mg.Particles {
-			if nested, ok := particle.(*types.ModelGroup); ok {
-				clone.Particles[i] = deepCopyModelGroup(nested)
-				continue
-			}
-			clone.Particles[i] = particle
-		}
-	}
-	return &clone
 }

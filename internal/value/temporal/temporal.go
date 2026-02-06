@@ -73,11 +73,11 @@ func (k Kind) String() string {
 }
 
 // TimezoneKind mirrors timezone presence for temporal values.
-type TimezoneKind uint8
+type TimezoneKind = value.TimezoneKind
 
 const (
-	TZNone TimezoneKind = iota
-	TZKnown
+	TZNone  = value.TZNone
+	TZKnown = value.TZKnown
 )
 
 // Value stores temporal semantics used for equality, ordering, and keying.
@@ -103,7 +103,7 @@ func ParsePrimitive(primitiveName string, lexical []byte) (Value, error) {
 // Parse parses an XSD temporal lexical value into semantic representation.
 func Parse(kind Kind, lexical []byte) (Value, error) {
 	trimmed := value.TrimXMLWhitespace(lexical)
-	tzKind := fromValueTimezoneKind(value.TimezoneKindFromLexical(trimmed))
+	tzKind := value.TimezoneKindFromLexical(trimmed)
 
 	switch kind {
 	case KindDateTime:
@@ -241,12 +241,12 @@ func Canonical(v Value) string {
 	if v.LeapSecond && (v.Kind == KindDateTime || v.Kind == KindTime) {
 		return canonicalLeap(v)
 	}
-	return value.CanonicalDateTimeString(v.Time, v.Kind.String(), toValueTimezoneKind(v.TimezoneKind))
+	return value.CanonicalDateTimeString(v.Time, v.Kind.String(), v.TimezoneKind)
 }
 
 // ValueTimezoneKind converts temporal timezone kind to value.TimezoneKind.
 func ValueTimezoneKind(kind TimezoneKind) value.TimezoneKind {
-	return toValueTimezoneKind(kind)
+	return kind
 }
 
 func compareSameTimezone(left, right Value) int {
@@ -358,9 +358,9 @@ func canonicalLeap(v Value) string {
 	adjusted := t.Add(-time.Second)
 	hour, minute, _ := adjusted.Clock()
 	if hour != 23 || minute != 59 {
-		return value.CanonicalDateTimeString(v.Time, v.Kind.String(), toValueTimezoneKind(v.TimezoneKind))
+		return value.CanonicalDateTimeString(v.Time, v.Kind.String(), v.TimezoneKind)
 	}
-	fraction := formatFraction(adjusted.Nanosecond())
+	fraction := value.FormatFraction(adjusted.Nanosecond())
 	tz := ""
 	if v.TimezoneKind == TZKnown {
 		tz = "Z"
@@ -370,27 +370,4 @@ func canonicalLeap(v Value) string {
 	}
 	year, month, day := adjusted.Date()
 	return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:60%s%s", year, int(month), day, hour, minute, fraction, tz)
-}
-
-func formatFraction(nanos int) string {
-	if nanos == 0 {
-		return ""
-	}
-	frac := fmt.Sprintf("%09d", nanos)
-	frac = strings.TrimRight(frac, "0")
-	return "." + frac
-}
-
-func fromValueTimezoneKind(kind value.TimezoneKind) TimezoneKind {
-	if kind == value.TZKnown {
-		return TZKnown
-	}
-	return TZNone
-}
-
-func toValueTimezoneKind(kind TimezoneKind) value.TimezoneKind {
-	if kind == TZKnown {
-		return value.TZKnown
-	}
-	return value.TZNone
 }

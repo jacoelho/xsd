@@ -39,13 +39,13 @@ func (c *compiler) keyBytesForNormalized(lexical, normalized string, typ types.T
 		for range types.FieldsXMLWhitespaceSeq(normalized) {
 			count++
 		}
-		keyBytesBuf := valuekey.AppendUvarint(nil, uint64(count))
+		keyBytesBuf := valuekey.StartListKey(nil, count)
 		for itemLex := range types.FieldsXMLWhitespaceSeq(normalized) {
 			itemKey, err := c.keyBytesForNormalizedSingle(itemLex, item, ctx)
 			if err != nil {
 				return nil, err
 			}
-			keyBytesBuf = runtime.AppendListKey(keyBytesBuf, itemKey.kind, itemKey.bytes)
+			keyBytesBuf = valuekey.AppendListEntry(keyBytesBuf, byte(itemKey.kind), itemKey.bytes)
 		}
 		return []keyBytes{{kind: runtime.VKList, bytes: keyBytesBuf}}, nil
 	case types.UnionVariety:

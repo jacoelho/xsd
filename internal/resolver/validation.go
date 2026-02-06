@@ -237,7 +237,7 @@ func validateAttributeDeclarations(sch *parser.Schema) []error {
 		// validate default/fixed values against the resolved type (including facets)
 		// this is done here after type resolution because during structure validation
 		// the type might be a placeholder and facets might not be available
-		resolvedType := schemacheck.ResolveTypeReference(sch, decl.Type, schemacheck.TypeReferenceAllowMissing)
+		resolvedType := typeops.ResolveTypeReference(sch, decl.Type, typeops.TypeReferenceAllowMissing)
 		if _, ok := resolvedType.(*types.ComplexType); ok {
 			errs = append(errs, fmt.Errorf("attribute %s: type must be a simple type", qname))
 		}
@@ -279,7 +279,7 @@ func validateEnumerationFacetValues(sch *parser.Schema) []error {
 		}
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = typeops.ResolveSimpleTypeReference(sch, st.Restriction.Base)
+			baseType = typeops.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue
@@ -317,7 +317,7 @@ func validateDeferredRangeFacetValues(sch *parser.Schema) []error {
 
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = typeops.ResolveSimpleTypeReference(sch, st.Restriction.Base)
+			baseType = typeops.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue

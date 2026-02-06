@@ -8,6 +8,13 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
+type compiledDefaultFixed struct {
+	key    runtime.ValueKeyRef
+	ref    runtime.ValueRef
+	member runtime.ValidatorID
+	ok     bool
+}
+
 func (c *compiler) compileDefaults(registry *schema.Registry) error {
 	if registry == nil {
 		return fmt.Errorf("registry is nil")
@@ -20,35 +27,27 @@ func (c *compiler) compileDefaults(registry *schema.Registry) error {
 		if st, ok := types.AsSimpleType(decl.Type); ok && types.IsPlaceholderSimpleType(st) {
 			return fmt.Errorf("element %s type not resolved", entry.QName)
 		}
-		if decl.HasDefault {
-			typ, err := c.valueTypeForElement(decl)
+		var typ types.Type
+		if decl.HasDefault || decl.HasFixed {
+			var err error
+			typ, err = c.valueTypeForElement(decl)
 			if err != nil {
-				return fmt.Errorf("element %s default: %w", entry.QName, err)
-			}
-			canon, member, key, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
-			if err != nil {
-				return fmt.Errorf("element %s default: %w", entry.QName, err)
-			}
-			c.elemDefaults[entry.ID] = c.values.add(canon)
-			c.elemDefaultKeys[entry.ID] = key
-			if member != 0 {
-				c.elemDefaultMembers[entry.ID] = member
+				return fmt.Errorf("element %s: %w", entry.QName, err)
 			}
 		}
+		if decl.HasDefault {
+			value, err := c.compileDefaultFixedValue(decl.Default, typ, decl.DefaultContext)
+			if err != nil {
+				return fmt.Errorf("element %s default: %w", entry.QName, err)
+			}
+			storeDefaultFixed(c.elemDefaults, c.elemDefaultKeys, c.elemDefaultMembers, entry.ID, value)
+		}
 		if decl.HasFixed {
-			typ, err := c.valueTypeForElement(decl)
+			value, err := c.compileDefaultFixedValue(decl.Fixed, typ, decl.FixedContext)
 			if err != nil {
 				return fmt.Errorf("element %s fixed: %w", entry.QName, err)
 			}
-			canon, member, key, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
-			if err != nil {
-				return fmt.Errorf("element %s fixed: %w", entry.QName, err)
-			}
-			c.elemFixed[entry.ID] = c.values.add(canon)
-			c.elemFixedKeys[entry.ID] = key
-			if member != 0 {
-				c.elemFixedMembers[entry.ID] = member
-			}
+			storeDefaultFixed(c.elemFixed, c.elemFixedKeys, c.elemFixedMembers, entry.ID, value)
 		}
 	}
 
@@ -60,35 +59,27 @@ func (c *compiler) compileDefaults(registry *schema.Registry) error {
 		if st, ok := types.AsSimpleType(decl.Type); ok && types.IsPlaceholderSimpleType(st) {
 			return fmt.Errorf("attribute %s type not resolved", entry.QName)
 		}
-		if decl.HasDefault {
-			typ, err := c.valueTypeForAttribute(decl)
+		var typ types.Type
+		if decl.HasDefault || decl.HasFixed {
+			var err error
+			typ, err = c.valueTypeForAttribute(decl)
 			if err != nil {
-				return fmt.Errorf("attribute %s default: %w", entry.QName, err)
-			}
-			canon, member, key, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
-			if err != nil {
-				return fmt.Errorf("attribute %s default: %w", entry.QName, err)
-			}
-			c.attrDefaults[entry.ID] = c.values.add(canon)
-			c.attrDefaultKeys[entry.ID] = key
-			if member != 0 {
-				c.attrDefaultMembers[entry.ID] = member
+				return fmt.Errorf("attribute %s: %w", entry.QName, err)
 			}
 		}
+		if decl.HasDefault {
+			value, err := c.compileDefaultFixedValue(decl.Default, typ, decl.DefaultContext)
+			if err != nil {
+				return fmt.Errorf("attribute %s default: %w", entry.QName, err)
+			}
+			storeDefaultFixed(c.attrDefaults, c.attrDefaultKeys, c.attrDefaultMembers, entry.ID, value)
+		}
 		if decl.HasFixed {
-			typ, err := c.valueTypeForAttribute(decl)
+			value, err := c.compileDefaultFixedValue(decl.Fixed, typ, decl.FixedContext)
 			if err != nil {
 				return fmt.Errorf("attribute %s fixed: %w", entry.QName, err)
 			}
-			canon, member, key, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
-			if err != nil {
-				return fmt.Errorf("attribute %s fixed: %w", entry.QName, err)
-			}
-			c.attrFixed[entry.ID] = c.values.add(canon)
-			c.attrFixedKeys[entry.ID] = key
-			if member != 0 {
-				c.attrFixedMembers[entry.ID] = member
-			}
+			storeDefaultFixed(c.attrFixed, c.attrFixedKeys, c.attrFixedMembers, entry.ID, value)
 		}
 	}
 
@@ -124,33 +115,55 @@ func (c *compiler) compileAttributeUses(registry *schema.Registry) error {
 			}
 			if decl.HasDefault {
 				if _, exists := c.attrUseDefaults[decl]; !exists {
-					canon, member, key, err := c.canonicalizeDefaultFixed(decl.Default, typ, decl.DefaultContext)
+					value, err := c.compileDefaultFixedValue(decl.Default, typ, decl.DefaultContext)
 					if err != nil {
 						return fmt.Errorf("attribute use %s default: %w", decl.Name, err)
 					}
-					c.attrUseDefaults[decl] = c.values.add(canon)
-					c.attrUseDefaultKeys[decl] = key
-					if member != 0 {
-						c.attrUseDefaultMembers[decl] = member
-					}
+					storeDefaultFixed(c.attrUseDefaults, c.attrUseDefaultKeys, c.attrUseDefaultMembers, decl, value)
 				}
 			}
 			if decl.HasFixed {
 				if _, exists := c.attrUseFixed[decl]; !exists {
-					canon, member, key, err := c.canonicalizeDefaultFixed(decl.Fixed, typ, decl.FixedContext)
+					value, err := c.compileDefaultFixedValue(decl.Fixed, typ, decl.FixedContext)
 					if err != nil {
 						return fmt.Errorf("attribute use %s fixed: %w", decl.Name, err)
 					}
-					c.attrUseFixed[decl] = c.values.add(canon)
-					c.attrUseFixedKeys[decl] = key
-					if member != 0 {
-						c.attrUseFixedMembers[decl] = member
-					}
+					storeDefaultFixed(c.attrUseFixed, c.attrUseFixedKeys, c.attrUseFixedMembers, decl, value)
 				}
 			}
 		}
 	}
 	return nil
+}
+
+func (c *compiler) compileDefaultFixedValue(lexical string, typ types.Type, ctx map[string]string) (compiledDefaultFixed, error) {
+	canon, member, key, err := c.canonicalizeDefaultFixed(lexical, typ, ctx)
+	if err != nil {
+		return compiledDefaultFixed{}, err
+	}
+	return compiledDefaultFixed{
+		ok:     true,
+		ref:    c.values.add(canon),
+		key:    key,
+		member: member,
+	}, nil
+}
+
+func storeDefaultFixed[K comparable](
+	valueMap map[K]runtime.ValueRef,
+	keyMap map[K]runtime.ValueKeyRef,
+	memberMap map[K]runtime.ValidatorID,
+	mapKey K,
+	value compiledDefaultFixed,
+) {
+	if !value.ok {
+		return
+	}
+	valueMap[mapKey] = value.ref
+	keyMap[mapKey] = value.key
+	if value.member != 0 {
+		memberMap[mapKey] = value.member
+	}
 }
 
 func (c *compiler) valueTypeForElement(decl *types.ElementDecl) (types.Type, error) {

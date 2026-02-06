@@ -26,7 +26,7 @@ func LookupComplexType(schema *parser.Schema, qname types.QName) (*types.Complex
 
 // IsAnyTypeQName reports whether qname is xs:anyType.
 func IsAnyTypeQName(qname types.QName) bool {
-	return qname.Namespace == types.XSDNamespace && qname.Local == string(types.TypeNameAnyType)
+	return types.IsAnyTypeQName(qname)
 }
 
 // ResolveBaseComplexType resolves a complex base type, including xs:anyType.

@@ -5,7 +5,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schema"
-	"github.com/jacoelho/xsd/internal/schemacheck"
+	"github.com/jacoelho/xsd/internal/traversal"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -13,7 +14,7 @@ import (
 func collectElementReferences(content types.Content) []*types.ElementDecl {
 	var refs []*types.ElementDecl
 	// WalkContentParticles only returns callback errors; this callback never errors.
-	_ = schemacheck.WalkContentParticles(content, func(particle types.Particle) error {
+	_ = traversal.WalkContentParticles(content, func(particle types.Particle) error {
 		refs = append(refs, collectElementReferencesFromParticles([]types.Particle{particle})...)
 		return nil
 	})
@@ -52,7 +53,7 @@ func validateElementValueConstraints(sch *parser.Schema, decl *types.ElementDecl
 		return nil
 	}
 
-	resolvedType := schemacheck.ResolveTypeReference(sch, decl.Type, schemacheck.TypeReferenceAllowMissing)
+	resolvedType := typeops.ResolveTypeReference(sch, decl.Type, typeops.TypeReferenceAllowMissing)
 	if isDirectNotationType(resolvedType) {
 		return fmt.Errorf("element cannot use NOTATION type")
 	}
@@ -103,8 +104,8 @@ func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName types.QName,
 	}
 
 	// resolve types if they are placeholders.
-	memberType = schemacheck.ResolveTypeReference(sch, memberType, schemacheck.TypeReferenceAllowMissing)
-	headType = schemacheck.ResolveTypeReference(sch, headType, schemacheck.TypeReferenceAllowMissing)
+	memberType = typeops.ResolveTypeReference(sch, memberType, typeops.TypeReferenceAllowMissing)
+	headType = typeops.ResolveTypeReference(sch, headType, typeops.TypeReferenceAllowMissing)
 
 	if memberType == nil || headType == nil {
 		return nil // can't validate without resolved types.
@@ -142,8 +143,8 @@ func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName types.Q
 		memberDecl.Type = headDecl.Type
 	}
 
-	memberType := schemacheck.ResolveTypeReference(sch, memberDecl.Type, schemacheck.TypeReferenceAllowMissing)
-	headType := schemacheck.ResolveTypeReference(sch, headDecl.Type, schemacheck.TypeReferenceAllowMissing)
+	memberType := typeops.ResolveTypeReference(sch, memberDecl.Type, typeops.TypeReferenceAllowMissing)
+	headType := typeops.ResolveTypeReference(sch, headDecl.Type, typeops.TypeReferenceAllowMissing)
 	if memberType == nil || headType == nil {
 		return nil
 	}
@@ -210,19 +211,11 @@ func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName types.Q
 	return nil
 }
 
-func isAnyType(typ types.Type) bool {
-	if typ == nil {
-		return false
-	}
-	name := typ.Name()
-	return name.Namespace == types.XSDNamespace && name.Local == "anyType"
-}
-
 func isDefaultAnyType(decl *types.ElementDecl) bool {
 	if decl == nil || decl.TypeExplicit {
 		return false
 	}
-	return isAnyType(decl.Type)
+	return types.IsAnyType(decl.Type)
 }
 
 // typesAreEqual checks if a QName refers to the same type.
