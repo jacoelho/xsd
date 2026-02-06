@@ -149,7 +149,7 @@ func TestValidateDecimal(t *testing.T) {
 		{"123.45", true},
 		{"+123.45", true},
 		{"-123.45", true},
-		{".45", true},
+		{".45", false},
 		{"123.", true},
 		{"0", true},
 		{"-0", true},

@@ -14,8 +14,6 @@ import (
 
 const maxNameMapSize = 1 << 20
 
-var newXMLReader = xmlstream.NewReader
-
 type sessionResolver struct {
 	s *Session
 }
@@ -48,7 +46,11 @@ func (s *Session) validateWithDocument(r io.Reader, document string) error {
 	s.documentURI = document
 
 	if s.reader == nil {
-		reader, err := newXMLReader(r, s.parseOptions...)
+		factory := s.readerFactory
+		if factory == nil {
+			factory = xmlstream.NewReader
+		}
+		reader, err := factory(r, s.parseOptions...)
 		if err != nil {
 			return readerSetupError(err, s.documentURI)
 		}

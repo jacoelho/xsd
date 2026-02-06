@@ -143,12 +143,7 @@ func ParseTime(lexical []byte) (time.Time, error) {
 	if !ok {
 		return time.Time{}, fmt.Errorf("invalid time: %s", trimmed)
 	}
-	is24Hour := hour == 24
-	if is24Hour {
-		if minute != 0 || second != 0 || !is24HourZero(main) {
-			return time.Time{}, fmt.Errorf("invalid time: %s", trimmed)
-		}
-	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 60 {
+	if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 60 {
 		return time.Time{}, fmt.Errorf("invalid time: %s", trimmed)
 	}
 	if second == 60 && (hour != 23 || minute != 59) {
@@ -163,9 +158,6 @@ func ParseTime(lexical []byte) (time.Time, error) {
 	}
 	if err := datetime.ValidateTimezoneOffset(tz); err != nil {
 		return time.Time{}, err
-	}
-	if is24Hour {
-		main = "00:00:00" + main[len("24:00:00"):]
 	}
 	layout := "2006-01-02T15:04:05" + fractionalLayouts[fractionLength]
 	layout = applyTimezoneLayout(layout, tz)

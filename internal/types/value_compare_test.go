@@ -103,7 +103,7 @@ func TestValuesEqual_TimeTimezoneWrap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseValue(00:30:00Z) error = %v", err)
 	}
-	if ValuesEqual(left, right) {
-		t.Fatalf("expected time values with different reference dates to differ")
+	if !ValuesEqual(left, right) {
+		t.Fatalf("expected time values with equivalent UTC time-of-day to be equal")
 	}
 }

@@ -66,6 +66,9 @@ func parseDecInto(b, dst []byte) (Dec, []byte, *ParseError) {
 		intPart = b[i:dotIndex]
 		fracPart = b[dotIndex+1:]
 	}
+	if dotIndex != -1 && len(intPart) == 0 {
+		return Dec{}, dst, &ParseError{Kind: ParseInvalid}
+	}
 	scale := uint32(len(fracPart))
 
 	var coef []byte

@@ -19,7 +19,7 @@ func TestParseDecimal(t *testing.T) {
 		{"with whitespace", "  123.456  ", "123.456", false},
 		{"leading zero decimal", "0.1", "0.1", false},
 		{"trailing zero decimal", "1.0", "1.0", false},
-		{"leading dot", ".1", "0.1", false},
+		{"leading dot", ".1", "", true},
 		{"trailing dot", "1.", "1", false},
 		{"exponent", "1e2", "", true},
 		{"fraction", "1/3", "", true},
@@ -131,7 +131,7 @@ func TestParseTimeLeapSecond(t *testing.T) {
 	}
 }
 
-func TestParseUnsignedAcceptsSignedZero(t *testing.T) {
+func TestParseUnsignedRejectsSigns(t *testing.T) {
 	tests := []struct {
 		fn   func(string) (uint64, error)
 		name string
@@ -165,12 +165,17 @@ func TestParseUnsignedAcceptsSignedZero(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tests := map[string]uint64{
-				"+0": 0,
-				"-0": 0,
-				"+1": 1,
+			invalid := []string{"+0", "-0", "+1", "-1"}
+			for _, value := range invalid {
+				if _, err := tt.fn(value); err == nil {
+					t.Fatalf("Parse(%q) expected error", value)
+				}
 			}
-			for value, want := range tests {
+			valid := map[string]uint64{
+				"0": 0,
+				"1": 1,
+			}
+			for value, want := range valid {
 				got, err := tt.fn(value)
 				if err != nil {
 					t.Fatalf("Parse(%q) error = %v", value, err)
@@ -178,9 +183,6 @@ func TestParseUnsignedAcceptsSignedZero(t *testing.T) {
 				if got != want {
 					t.Fatalf("Parse(%q) = %d, want %d", value, got, want)
 				}
-			}
-			if _, err := tt.fn("-1"); err == nil {
-				t.Fatalf("expected Parse(-1) to error")
 			}
 		})
 	}

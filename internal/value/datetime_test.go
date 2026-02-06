@@ -35,11 +35,17 @@ func TestParseDate(t *testing.T) {
 }
 
 func TestParseTime(t *testing.T) {
-	if _, err := ParseTime([]byte("24:00:00")); err != nil {
-		t.Fatalf("ParseTime() error = %v", err)
+	invalid := []string{
+		"24:00:00",
+		"24:00:00.000",
+		"24:00:00Z",
+		"24:00:00+01:00",
+		"24:01:00",
 	}
-	if _, err := ParseTime([]byte("24:01:00")); err == nil {
-		t.Fatalf("expected error for invalid 24-hour time")
+	for _, tc := range invalid {
+		if _, err := ParseTime([]byte(tc)); err == nil {
+			t.Fatalf("expected error for invalid time %q", tc)
+		}
 	}
 }
 

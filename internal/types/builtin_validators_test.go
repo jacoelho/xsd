@@ -45,28 +45,28 @@ func TestValidateNumericRanges(t *testing.T) {
 	}
 }
 
-func TestValidateUnsignedLexicalSigns(t *testing.T) {
+func TestValidateUnsignedLexicalRejectsSigns(t *testing.T) {
 	tests := []struct {
 		fn    func(string) error
 		name  string
 		value string
 		valid bool
 	}{
-		{name: "unsignedLong +0", value: "+0", valid: true, fn: validateUnsignedLong},
-		{name: "unsignedLong +1", value: "+1", valid: true, fn: validateUnsignedLong},
-		{name: "unsignedLong -0", value: "-0", valid: true, fn: validateUnsignedLong},
+		{name: "unsignedLong +0", value: "+0", valid: false, fn: validateUnsignedLong},
+		{name: "unsignedLong +1", value: "+1", valid: false, fn: validateUnsignedLong},
+		{name: "unsignedLong -0", value: "-0", valid: false, fn: validateUnsignedLong},
 		{name: "unsignedLong -1", value: "-1", valid: false, fn: validateUnsignedLong},
-		{name: "unsignedInt +0", value: "+0", valid: true, fn: validateUnsignedInt},
-		{name: "unsignedInt +1", value: "+1", valid: true, fn: validateUnsignedInt},
-		{name: "unsignedInt -0", value: "-0", valid: true, fn: validateUnsignedInt},
+		{name: "unsignedInt +0", value: "+0", valid: false, fn: validateUnsignedInt},
+		{name: "unsignedInt +1", value: "+1", valid: false, fn: validateUnsignedInt},
+		{name: "unsignedInt -0", value: "-0", valid: false, fn: validateUnsignedInt},
 		{name: "unsignedInt -1", value: "-1", valid: false, fn: validateUnsignedInt},
-		{name: "unsignedShort +0", value: "+0", valid: true, fn: validateUnsignedShort},
-		{name: "unsignedShort +1", value: "+1", valid: true, fn: validateUnsignedShort},
-		{name: "unsignedShort -0", value: "-0", valid: true, fn: validateUnsignedShort},
+		{name: "unsignedShort +0", value: "+0", valid: false, fn: validateUnsignedShort},
+		{name: "unsignedShort +1", value: "+1", valid: false, fn: validateUnsignedShort},
+		{name: "unsignedShort -0", value: "-0", valid: false, fn: validateUnsignedShort},
 		{name: "unsignedShort -1", value: "-1", valid: false, fn: validateUnsignedShort},
-		{name: "unsignedByte +0", value: "+0", valid: true, fn: validateUnsignedByte},
-		{name: "unsignedByte +1", value: "+1", valid: true, fn: validateUnsignedByte},
-		{name: "unsignedByte -0", value: "-0", valid: true, fn: validateUnsignedByte},
+		{name: "unsignedByte +0", value: "+0", valid: false, fn: validateUnsignedByte},
+		{name: "unsignedByte +1", value: "+1", valid: false, fn: validateUnsignedByte},
+		{name: "unsignedByte -0", value: "-0", valid: false, fn: validateUnsignedByte},
 		{name: "unsignedByte -1", value: "-1", valid: false, fn: validateUnsignedByte},
 	}
 
@@ -213,8 +213,8 @@ func TestValidateDateTimeFamily(t *testing.T) {
 	if err := validateTime("23:59:59"); err != nil {
 		t.Fatalf("unexpected time error: %v", err)
 	}
-	if err := validateTime("24:00:00"); err != nil {
-		t.Fatalf("unexpected 24:00:00 error: %v", err)
+	if err := validateTime("24:00:00"); err == nil {
+		t.Fatalf("expected 24:00:00 error")
 	}
 	if err := validateGYear("2024"); err != nil {
 		t.Fatalf("unexpected gYear error: %v", err)

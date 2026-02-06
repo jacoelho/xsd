@@ -42,7 +42,7 @@ func TestTemporalParseValidateConsistency(t *testing.T) {
 			cases: []caseDef{
 				{name: "max-offset", value: "13:20:00+14:00", wantErr: false},
 				{name: "offset-too-large", value: "13:20:00+14:01", wantErr: true},
-				{name: "day-offset", value: "24:00:00", wantErr: false},
+				{name: "day-offset", value: "24:00:00", wantErr: true},
 				{name: "day-offset-fraction", value: "24:00:00.1", wantErr: true},
 				{name: "fraction-too-long", value: "13:20:00.1234567890", wantErr: true},
 			},

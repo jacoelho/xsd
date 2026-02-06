@@ -76,8 +76,8 @@ func TestValidatePassesQNameInternLimit(t *testing.T) {
 	}
 	sess := NewSession(schema, xmlstream.MaxQNameInternEntries(3))
 
-	orig := newXMLReader
-	newXMLReader = func(_ io.Reader, opts ...xmlstream.Option) (*xmlstream.Reader, error) {
+	orig := sess.readerFactory
+	sess.readerFactory = func(_ io.Reader, opts ...xmlstream.Option) (*xmlstream.Reader, error) {
 		merged := xmltext.JoinOptions(opts...)
 		limit, ok := merged.QNameInternEntries()
 		if !ok || limit != 3 {
@@ -86,7 +86,7 @@ func TestValidatePassesQNameInternLimit(t *testing.T) {
 		return nil, errors.New("stop")
 	}
 	t.Cleanup(func() {
-		newXMLReader = orig
+		sess.readerFactory = orig
 	})
 
 	_ = sess.Validate(strings.NewReader("<root/>"))

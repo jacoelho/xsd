@@ -210,6 +210,15 @@ func NewIntegerValue(parsed ParsedValue[num.Int], typ *SimpleType) TypedValue {
 	return &IntegerValue{simpleValue: newSimpleValue(parsed, typ, nil)}
 }
 
+func (v *IntegerValue) String() string {
+	if v == nil {
+		return ""
+	}
+	buf := make([]byte, 0, len(v.native.Digits)+1)
+	buf = v.native.RenderCanonical(buf)
+	return string(buf)
+}
+
 // BooleanValue represents a boolean value
 type BooleanValue struct {
 	simpleValue[bool]

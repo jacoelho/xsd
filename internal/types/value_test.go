@@ -173,7 +173,7 @@ func TestTypedValue_DateTimeCanonicalString(t *testing.T) {
 func TestTypedValue_Integer(t *testing.T) {
 	typ := mustBuiltinSimpleType(t, TypeNameInteger)
 
-	lexical := "12345678901234567890"
+	lexical := "00012345678901234567890"
 	native, err := ParseInteger(lexical)
 	if err != nil {
 		t.Fatalf("ParseInteger() error = %v", err)
@@ -194,8 +194,11 @@ func TestTypedValue_Integer(t *testing.T) {
 	if intNative.Compare(native) != 0 {
 		t.Errorf("Native() = %v, want %v", intNative, native)
 	}
-	if value.String() == "" {
-		t.Error("String() should not be empty")
+	var buf []byte
+	buf = native.RenderCanonical(buf)
+	want := string(buf)
+	if got := value.String(); got != want {
+		t.Errorf("String() = %q, want %q", got, want)
 	}
 
 	// test type-safe extraction
@@ -563,5 +566,27 @@ func TestParseQNameValue_DefaultNamespace(t *testing.T) {
 	}
 	if qname.Namespace != NamespaceEmpty || qname.Local != "local" {
 		t.Fatalf("ParseQNameValue() = %v, want local in no namespace", qname)
+	}
+}
+
+func TestParseQNameValue_XMLPrefixBinding(t *testing.T) {
+	qname, err := ParseQNameValue("xml:lang", nil)
+	if err != nil {
+		t.Fatalf("ParseQNameValue(xml:lang) error = %v", err)
+	}
+	if qname.Namespace != XMLNamespace || qname.Local != "lang" {
+		t.Fatalf("ParseQNameValue(xml:lang) = %v, want {%s}lang", qname, XMLNamespace)
+	}
+
+	qname, err = ParseQNameValue("xml:lang", map[string]string{"xml": XMLNamespace.String()})
+	if err != nil {
+		t.Fatalf("ParseQNameValue(xml:lang) error = %v", err)
+	}
+	if qname.Namespace != XMLNamespace || qname.Local != "lang" {
+		t.Fatalf("ParseQNameValue(xml:lang) = %v, want {%s}lang", qname, XMLNamespace)
+	}
+
+	if _, err := ParseQNameValue("xml:lang", map[string]string{"xml": "urn:wrong"}); err == nil {
+		t.Fatalf("expected ParseQNameValue to reject wrong xml prefix binding")
 	}
 }

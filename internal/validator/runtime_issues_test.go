@@ -39,12 +39,12 @@ func TestValidateReaderSetupErrorWrapped(t *testing.T) {
 	sess := NewSession(schema)
 
 	sentinel := errors.New("reader setup failed")
-	orig := newXMLReader
-	newXMLReader = func(_ io.Reader, _ ...xmlstream.Option) (*xmlstream.Reader, error) {
+	orig := sess.readerFactory
+	sess.readerFactory = func(_ io.Reader, _ ...xmlstream.Option) (*xmlstream.Reader, error) {
 		return nil, sentinel
 	}
 	t.Cleanup(func() {
-		newXMLReader = orig
+		sess.readerFactory = orig
 	})
 
 	err = sess.Validate(strings.NewReader("<root/>"))

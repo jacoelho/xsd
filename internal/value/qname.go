@@ -1,10 +1,11 @@
 package value
 
 import (
-	"bytes"
 	"fmt"
 	"slices"
 	"unicode/utf8"
+
+	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
 // NSResolver resolves QName prefixes to namespace URIs.
@@ -28,14 +29,24 @@ func CanonicalQName(value []byte, resolver NSResolver, dst []byte) ([]byte, erro
 	}
 	var ns []byte
 	if hasPrefix {
-		if resolver == nil {
-			return nil, fmt.Errorf("prefix %s not found in namespace context", string(prefix))
+		if xmlnames.IsXMLPrefix(prefix) {
+			if resolver != nil {
+				resolved, ok := resolver.ResolvePrefix(prefix)
+				if err := xmlnames.ValidateXMLPrefixBindingBytes(resolved, ok); err != nil {
+					return nil, err
+				}
+			}
+			ns = xmlnames.XMLNamespaceBytes()
+		} else {
+			if resolver == nil {
+				return nil, fmt.Errorf("prefix %s not found in namespace context", string(prefix))
+			}
+			resolved, ok := resolver.ResolvePrefix(prefix)
+			if !ok {
+				return nil, fmt.Errorf("prefix %s not found in namespace context", string(prefix))
+			}
+			ns = resolved
 		}
-		resolved, ok := resolver.ResolvePrefix(prefix)
-		if !ok {
-			return nil, fmt.Errorf("prefix %s not found in namespace context", string(prefix))
-		}
-		ns = resolved
 	} else if resolver != nil {
 		if resolved, ok := resolver.ResolvePrefix(nil); ok {
 			ns = resolved
@@ -99,7 +110,7 @@ func validateQName(value []byte) error {
 	}
 	prefix := value[:colon]
 	local := value[colon+1:]
-	if bytes.Equal(prefix, []byte("xmlns")) {
+	if xmlnames.IsXMLNSPrefix(prefix) {
 		return fmt.Errorf("QName cannot use reserved prefix 'xmlns'")
 	}
 	if err := validateNCName(prefix); err != nil {

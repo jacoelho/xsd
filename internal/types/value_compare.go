@@ -56,6 +56,13 @@ func ValuesEqual(left, right TypedValue) bool {
 			if leftTZ != rightTZ {
 				return false
 			}
+			if isTimeType(left.Type()) && isTimeType(right.Type()) {
+				if leftTZ == value.TZKnown {
+					l = l.UTC()
+					r = r.UTC()
+				}
+				return sameTimeOfDay(l, r)
+			}
 			if leftTZ == value.TZKnown {
 				return l.UTC().Equal(r.UTC())
 			}
@@ -194,4 +201,22 @@ func isTemporalValueType(typ Type) bool {
 	default:
 		return false
 	}
+}
+
+func isTimeType(typ Type) bool {
+	if typ == nil {
+		return false
+	}
+	primitive := typ.PrimitiveType()
+	if primitive == nil {
+		primitive = typ
+	}
+	return primitive.Name().Local == "time"
+}
+
+func sameTimeOfDay(left, right time.Time) bool {
+	return left.Hour() == right.Hour() &&
+		left.Minute() == right.Minute() &&
+		left.Second() == right.Second() &&
+		left.Nanosecond() == right.Nanosecond()
 }

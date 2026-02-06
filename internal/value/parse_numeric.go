@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/runtime"
 )
 
 // ParseLong parses an xs:long lexical value into int64.
@@ -173,27 +173,18 @@ func ParseBase64Binary(lexical []byte) ([]byte, error) {
 
 // ParseAnyURI parses an xs:anyURI lexical value and validates its syntax.
 func ParseAnyURI(lexical []byte) (string, error) {
-	trimmed := TrimXMLWhitespace(lexical)
-	if err := ValidateAnyURI(trimmed); err != nil {
-		return "", fmt.Errorf("invalid anyURI: %s", string(trimmed))
+	normalized := NormalizeWhitespace(runtime.WS_Collapse, lexical, nil)
+	if err := ValidateAnyURI(normalized); err != nil {
+		return "", fmt.Errorf("invalid anyURI: %s", string(normalized))
 	}
-	return string(trimmed), nil
+	return string(normalized), nil
 }
 
 func normalizeUnsignedLexical(trimmed []byte) (string, error) {
-	intVal, perr := num.ParseInt(trimmed)
-	if perr != nil {
-		return "", perr
+	for _, b := range trimmed {
+		if b < '0' || b > '9' {
+			return "", fmt.Errorf("unsigned integer must contain only digits")
+		}
 	}
-	if intVal.Sign < 0 {
-		return "", fmt.Errorf("unsigned integer must be >= 0")
-	}
-	switch trimmed[0] {
-	case '+':
-		return string(trimmed[1:]), nil
-	case '-':
-		return "0", nil
-	default:
-		return string(trimmed), nil
-	}
+	return string(trimmed), nil
 }

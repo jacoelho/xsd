@@ -1,6 +1,8 @@
 package validator
 
 import (
+	"io"
+
 	xsdErrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
@@ -67,6 +69,7 @@ type Session struct {
 	nameMapSparse    map[NameID]nameEntry
 	rt               *runtime.Schema
 	reader           *xmlstream.Reader
+	readerFactory    func(io.Reader, ...xmlstream.Option) (*xmlstream.Reader, error)
 	idTable          map[string]struct{}
 	documentURI      string
 	Scratch          Scratch
@@ -103,6 +106,7 @@ func NewSession(rt *runtime.Schema, opts ...xmlstream.Option) *Session {
 	if len(opts) > 0 {
 		sess.parseOptions = append([]xmlstream.Option(nil), opts...)
 	}
+	sess.readerFactory = xmlstream.NewReader
 	sess.icState.arena = &sess.Arena
 	return sess
 }
