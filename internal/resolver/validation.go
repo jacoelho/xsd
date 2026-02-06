@@ -138,6 +138,7 @@ func validateElementDeclarationReferences(sch *parser.Schema, allConstraints []*
 		if decl.SubstitutionGroup != (types.QName{}) {
 			headDecl, exists := sch.ElementDecls[decl.SubstitutionGroup]
 			if !exists {
+				errs = append(errs, fmt.Errorf("element %s substitutionGroup %s does not exist", qname, decl.SubstitutionGroup))
 				continue
 			}
 			if err := validateSubstitutionGroupDerivation(sch, qname, decl, headDecl); err != nil {

@@ -95,3 +95,18 @@ func TestDetectSubstitutionGroupCycle(t *testing.T) {
 		t.Fatalf("expected substitutionGroup cycle error")
 	}
 }
+
+func TestDetectSubstitutionGroupMissingHead(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:sub"
+           xmlns:tns="urn:sub"
+           elementFormDefault="qualified">
+  <xs:element name="Member" type="xs:string" substitutionGroup="tns:Missing"/>
+</xs:schema>`
+
+	sch := mustParsedResolved(t, schemaXML)
+	if err := schema.DetectCycles(sch); err == nil {
+		t.Fatalf("expected missing substitutionGroup head error")
+	}
+}

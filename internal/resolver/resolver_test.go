@@ -252,6 +252,24 @@ func TestValidateReferencesSubstitutionGroupExplicitAnyType(t *testing.T) {
 	requireReferenceErrorContains(t, schema, "not derived from substitution group head type")
 }
 
+func TestValidateReferencesMissingSubstitutionGroupHead(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test">
+  <xs:element name="member" type="xs:string" substitutionGroup="tns:missing"/>
+</xs:schema>`
+
+	schema, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
+	if err := ResolveTypeReferences(schema); err != nil {
+		t.Fatalf("resolve type references: %v", err)
+	}
+	requireReferenceErrorContains(t, schema, "substitutionGroup")
+}
+
 func TestValidateReferencesListDefaultRejectsNonXMLWhitespace(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

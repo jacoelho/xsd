@@ -463,7 +463,7 @@ func TestImportIncludeWhitespaceNormalization(t *testing.T) {
 	}
 }
 
-func TestSubstitutionGroupMissingHeadAllowed(t *testing.T) {
+func TestSubstitutionGroupMissingHeadRejected(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:test"
@@ -476,8 +476,8 @@ func TestSubstitutionGroupMissingHeadAllowed(t *testing.T) {
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 	loader := NewLoader(Config{FS: fs})
-	if _, err := loader.Load("schema.xsd"); err != nil {
-		t.Fatalf("expected missing substitution group head to be ignored, got %v", err)
+	if _, err := loader.Load("schema.xsd"); err == nil || !strings.Contains(err.Error(), "substitutionGroup") {
+		t.Fatalf("expected missing substitution group head error, got %v", err)
 	}
 }
 

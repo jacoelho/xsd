@@ -172,6 +172,7 @@ var excludePatterns = []ExclusionReason{
 	{"stz022", "Simple type constraint interpretation differs; treated as out-of-scope for strict mode"},
 	{"token_whitespace001_367", "Whitespace facet behavior differs; treated as out-of-scope for strict mode"},
 	{"missing/missing001", "Missing type references are rejected by design"},
+	{"missing/missing002", "Missing substitutionGroup heads are rejected by design"},
 	{"missing/missing003", "Missing type references are rejected by design"},
 	{"missing/missing006", "Missing type references are rejected by design"},
 

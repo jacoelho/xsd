@@ -376,8 +376,7 @@ func visitSubstitutionGroupChain(sch *parser.Schema, qname types.QName, detector
 			return nil
 		}
 		if _, ok := sch.ElementDecls[next]; !ok {
-			// referenced element doesn't exist - already reported elsewhere.
-			return nil
+			return fmt.Errorf("element %s substitutionGroup %s does not exist", qname, next)
 		}
 		return visitSubstitutionGroupChain(sch, next, detector)
 	})
