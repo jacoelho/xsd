@@ -6,7 +6,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -59,15 +58,6 @@ func getTypeQName(typ types.Type) types.QName {
 		return types.QName{}
 	}
 	return typ.Name()
-}
-
-func isIDOnlyType(qname types.QName) bool {
-	return typeops.IsIDOnlyType(qname)
-}
-
-// isIDOnlyDerivedType checks if a SimpleType is derived from ID (not IDREF/IDREFS).
-func isIDOnlyDerivedType(schema *parser.Schema, st *types.SimpleType) bool {
-	return typeops.IsIDOnlyDerivedType(schema, st)
 }
 
 // validateDeferredFacetApplicability validates a deferred facet now that the base type is resolved.

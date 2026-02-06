@@ -7,6 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/schemacheck"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
@@ -282,7 +283,7 @@ func validateEnumerationFacetValues(sch *parser.Schema) []error {
 		}
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = schemacheck.ResolveSimpleTypeReference(sch, st.Restriction.Base)
+			baseType = typeops.ResolveSimpleTypeReference(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue
@@ -320,7 +321,7 @@ func validateDeferredRangeFacetValues(sch *parser.Schema) []error {
 
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = schemacheck.ResolveSimpleTypeReference(sch, st.Restriction.Base)
+			baseType = typeops.ResolveSimpleTypeReference(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue

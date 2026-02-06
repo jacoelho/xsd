@@ -67,7 +67,7 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 			if !effectiveRestriction.HasFixed {
 				return fmt.Errorf("%s: attribute '%s' fixed value must match base type", context, restrictionAttr.Name.Local)
 			}
-			baseType := resolveTypeReference(schema, effectiveBase.Type, TypeReferenceAllowMissing)
+			baseType := ResolveTypeReference(schema, effectiveBase.Type, TypeReferenceAllowMissing)
 			if baseType == nil {
 				baseType = effectiveBase.Type
 			}
@@ -86,8 +86,8 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 			continue
 		}
 		if baseTypeQName != restrictionTypeQName {
-			baseType := resolveTypeReference(schema, effectiveBase.Type, TypeReferenceAllowMissing)
-			restrictionType := resolveTypeReference(schema, effectiveRestriction.Type, TypeReferenceAllowMissing)
+			baseType := ResolveTypeReference(schema, effectiveBase.Type, TypeReferenceAllowMissing)
+			restrictionType := ResolveTypeReference(schema, effectiveRestriction.Type, TypeReferenceAllowMissing)
 			if baseType == nil {
 				baseType = effectiveBase.Type
 			}
