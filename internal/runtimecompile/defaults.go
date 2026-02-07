@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/schemaops"
 	schema "github.com/jacoelho/xsd/internal/semantic"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -347,79 +348,8 @@ func (c *compiler) enumIDsForValidator(id runtime.ValidatorID) []runtime.EnumID 
 }
 
 func (c *compiler) simpleContentTextType(ct *types.ComplexType) (types.Type, error) {
-	if ct == nil {
-		return nil, nil
-	}
-	if cached, ok := c.simpleContent[ct]; ok {
-		return cached, nil
-	}
-	seen := make(map[*types.ComplexType]bool)
-	return c.simpleContentTextTypeSeen(ct, seen)
-}
-
-func (c *compiler) simpleContentTextTypeSeen(ct *types.ComplexType, seen map[*types.ComplexType]bool) (types.Type, error) {
-	if ct == nil {
-		return nil, nil
-	}
-	if cached, ok := c.simpleContent[ct]; ok {
-		return cached, nil
-	}
-	if seen[ct] {
-		return nil, fmt.Errorf("simpleContent cycle detected")
-	}
-	seen[ct] = true
-	defer delete(seen, ct)
-
-	sc, ok := ct.Content().(*types.SimpleContent)
-	if !ok {
-		return nil, nil
-	}
-	baseType, err := c.simpleContentBaseType(ct, sc, seen)
-	if err != nil {
-		return nil, err
-	}
-	var result types.Type
-	switch {
-	case sc.Extension != nil:
-		result = baseType
-	case sc.Restriction != nil:
-		st := &types.SimpleType{
-			Restriction:  sc.Restriction,
-			ResolvedBase: baseType,
-		}
-		if sc.Restriction.SimpleType != nil && sc.Restriction.SimpleType.WhiteSpaceExplicit() {
-			st.SetWhiteSpaceExplicit(sc.Restriction.SimpleType.WhiteSpace())
-		} else if baseType != nil {
-			st.SetWhiteSpace(baseType.WhiteSpace())
-		}
-		result = st
-	default:
-		result = baseType
-	}
-	c.simpleContent[ct] = result
-	return result, nil
-}
-
-func (c *compiler) simpleContentBaseType(ct *types.ComplexType, sc *types.SimpleContent, seen map[*types.ComplexType]bool) (types.Type, error) {
-	if ct == nil {
-		return nil, fmt.Errorf("simpleContent base missing")
-	}
-	base := ct.ResolvedBase
-	if base == nil && sc != nil {
-		qname := sc.BaseTypeQName()
-		if !qname.IsZero() {
-			base = c.res.resolveQName(qname)
-		}
-	}
-	if base == nil {
-		return nil, fmt.Errorf("simpleContent base missing")
-	}
-	switch typed := base.(type) {
-	case *types.SimpleType, *types.BuiltinType:
-		return typed, nil
-	case *types.ComplexType:
-		return c.simpleContentTextTypeSeen(typed, seen)
-	default:
-		return nil, fmt.Errorf("simpleContent base is not simple")
-	}
+	return schemaops.ResolveSimpleContentTextType(ct, schemaops.SimpleContentTextTypeOptions{
+		ResolveQName: c.res.resolveQName,
+		Cache:        c.simpleContent,
+	})
 }

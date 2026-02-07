@@ -292,10 +292,10 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 
 type endTextState struct {
 	canonText     []byte
-	textKeyKind   runtime.ValueKind
 	textKeyBytes  []byte
 	textValidator runtime.ValidatorID
 	textMember    runtime.ValidatorID
+	textKeyKind   runtime.ValueKind
 }
 
 func (s *Session) validateEndElementText(frame elemFrame, typ runtime.Type, typeOK bool, elem runtime.Element, elemOK bool, resolver sessionResolver, path *string) ([]error, endTextState) {
