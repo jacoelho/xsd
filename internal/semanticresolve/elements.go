@@ -12,13 +12,10 @@ import (
 
 // collectElementReferences collects element references from content models.
 func collectElementReferences(content types.Content) []*types.ElementDecl {
-	var refs []*types.ElementDecl
-	// WalkContentParticles only returns callback errors; this callback never errors.
-	_ = traversal.WalkContentParticles(content, func(particle types.Particle) error {
-		refs = append(refs, collectElementReferencesFromParticles([]types.Particle{particle})...)
-		return nil
+	return traversal.CollectFromContent(content, func(p types.Particle) (*types.ElementDecl, bool) {
+		decl, ok := p.(*types.ElementDecl)
+		return decl, ok && decl.IsReference
 	})
-	return refs
 }
 
 // collectElementReferencesFromParticles collects element references from particles.
@@ -29,23 +26,10 @@ func collectElementReferencesFromParticles(particles []types.Particle) []*types.
 
 // collectElementReferencesFromParticlesWithVisited collects element references with cycle detection.
 func collectElementReferencesFromParticlesWithVisited(particles []types.Particle, visited map[*types.ModelGroup]bool) []*types.ElementDecl {
-	var refs []*types.ElementDecl
-	for _, particle := range particles {
-		switch p := particle.(type) {
-		case *types.ElementDecl:
-			if p.IsReference {
-				refs = append(refs, p)
-			}
-		case *types.ModelGroup:
-			// skip if already visited (prevents infinite recursion in cyclic groups).
-			if visited[p] {
-				continue
-			}
-			visited[p] = true
-			refs = append(refs, collectElementReferencesFromParticlesWithVisited(p.Particles, visited)...)
-		}
-	}
-	return refs
+	return traversal.CollectFromParticlesWithVisited(particles, visited, func(p types.Particle) (*types.ElementDecl, bool) {
+		decl, ok := p.(*types.ElementDecl)
+		return decl, ok && decl.IsReference
+	})
 }
 
 func validateElementValueConstraints(sch *parser.Schema, decl *types.ElementDecl) error {

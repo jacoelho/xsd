@@ -58,26 +58,95 @@ func WalkParticles(particle types.Particle, fn func(types.Particle) error) error
 	return nil
 }
 
-// CollectElements returns all element declarations in a particle tree.
-func CollectElements(particle types.Particle) []*types.ElementDecl {
-	var result []*types.ElementDecl
+// WalkParticlesWithVisited recursively visits particles and skips previously seen model groups.
+func WalkParticlesWithVisited(particle types.Particle, visited map[*types.ModelGroup]bool, fn func(types.Particle) error) error {
+	if particle == nil {
+		return nil
+	}
+	if visited == nil {
+		visited = make(map[*types.ModelGroup]bool)
+	}
+	if group, ok := particle.(*types.ModelGroup); ok {
+		if visited[group] {
+			return nil
+		}
+		visited[group] = true
+	}
+	if err := fn(particle); err != nil {
+		return err
+	}
+	if group, ok := particle.(*types.ModelGroup); ok {
+		for _, child := range group.Particles {
+			if err := WalkParticlesWithVisited(child, visited, fn); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// CollectFromParticle collects values from a particle tree using a typed predicate.
+func CollectFromParticle[T any](particle types.Particle, collect func(types.Particle) (T, bool)) []T {
+	if particle == nil {
+		return nil
+	}
+	var result []T
 	_ = WalkParticles(particle, func(p types.Particle) error {
-		if elem, ok := p.(*types.ElementDecl); ok {
-			result = append(result, elem)
+		if value, ok := collect(p); ok {
+			result = append(result, value)
 		}
 		return nil
 	})
 	return result
 }
 
-// CollectWildcards returns all wildcard particles in a tree.
-func CollectWildcards(particle types.Particle) []*types.AnyElement {
-	var result []*types.AnyElement
-	_ = WalkParticles(particle, func(p types.Particle) error {
-		if wildcard, ok := p.(*types.AnyElement); ok {
-			result = append(result, wildcard)
-		}
+// CollectFromContent collects values from all particles present in a content model.
+func CollectFromContent[T any](content types.Content, collect func(types.Particle) (T, bool)) []T {
+	var result []T
+	_ = WalkContentParticles(content, func(particle types.Particle) error {
+		_ = WalkParticles(particle, func(p types.Particle) error {
+			if value, ok := collect(p); ok {
+				result = append(result, value)
+			}
+			return nil
+		})
 		return nil
 	})
 	return result
+}
+
+// CollectFromParticlesWithVisited collects values and avoids revisiting model groups.
+func CollectFromParticlesWithVisited[T any](particles []types.Particle, visited map[*types.ModelGroup]bool, collect func(types.Particle) (T, bool)) []T {
+	if len(particles) == 0 {
+		return nil
+	}
+	if visited == nil {
+		visited = make(map[*types.ModelGroup]bool)
+	}
+	var result []T
+	for _, particle := range particles {
+		_ = WalkParticlesWithVisited(particle, visited, func(p types.Particle) error {
+			if value, ok := collect(p); ok {
+				result = append(result, value)
+			}
+			return nil
+		})
+	}
+	return result
+}
+
+// CollectElements returns all element declarations in a particle tree.
+func CollectElements(particle types.Particle) []*types.ElementDecl {
+	return CollectFromParticle(particle, func(p types.Particle) (*types.ElementDecl, bool) {
+		elem, ok := p.(*types.ElementDecl)
+		return elem, ok
+	})
+}
+
+// CollectWildcards returns all wildcard particles in a tree.
+func CollectWildcards(particle types.Particle) []*types.AnyElement {
+	return CollectFromParticle(particle, func(p types.Particle) (*types.AnyElement, bool) {
+		wildcard, ok := p.(*types.AnyElement)
+		return wildcard, ok
+	})
 }
