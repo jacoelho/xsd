@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	schema "github.com/jacoelho/xsd/internal/semantic"
 	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -22,7 +21,7 @@ func collectAllIdentityConstraints(sch *parser.Schema) []*types.IdentityConstrai
 		all = append(all, collectIdentityConstraintsFromContentWithVisited(content, visitedGroups, visitedTypes)...)
 	}
 
-	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
+	for _, qname := range sortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		all = append(all, decl.Constraints...)
 		// also check inline type's content model.
@@ -31,14 +30,14 @@ func collectAllIdentityConstraints(sch *parser.Schema) []*types.IdentityConstrai
 		}
 	}
 
-	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
+	for _, qname := range sortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			collectFromContent(ct.Content())
 		}
 	}
 
-	for _, qname := range schema.SortedQNames(sch.Groups) {
+	for _, qname := range sortedQNames(sch.Groups) {
 		group := sch.Groups[qname]
 		all = append(all, collectIdentityConstraintsFromParticlesWithVisited(group.Particles, visitedGroups, visitedTypes)...)
 	}

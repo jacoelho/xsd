@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	schema "github.com/jacoelho/xsd/internal/semantic"
 	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -40,7 +39,7 @@ func (r *Resolver) Resolve() error {
 	// order matters: resolve in dependency order
 
 	// 1. Simple types (only depend on built-ins or other simple types)
-	for _, qname := range schema.SortedQNames(r.schema.TypeDefs) {
+	for _, qname := range sortedQNames(r.schema.TypeDefs) {
 		typ := r.schema.TypeDefs[qname]
 		if st, ok := typ.(*types.SimpleType); ok {
 			if err := r.resolveSimpleType(qname, st); err != nil {
@@ -50,7 +49,7 @@ func (r *Resolver) Resolve() error {
 	}
 
 	// 2. Complex types (may depend on simple types)
-	for _, qname := range schema.SortedQNames(r.schema.TypeDefs) {
+	for _, qname := range sortedQNames(r.schema.TypeDefs) {
 		typ := r.schema.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			if err := r.resolveComplexType(qname, ct); err != nil {
@@ -60,7 +59,7 @@ func (r *Resolver) Resolve() error {
 	}
 
 	// 3. Groups (reference types and other groups)
-	for _, qname := range schema.SortedQNames(r.schema.Groups) {
+	for _, qname := range sortedQNames(r.schema.Groups) {
 		grp := r.schema.Groups[qname]
 		if err := r.resolveGroup(qname, grp); err != nil {
 			return err
@@ -68,7 +67,7 @@ func (r *Resolver) Resolve() error {
 	}
 
 	// 4. Elements (reference types and groups)
-	for _, qname := range schema.SortedQNames(r.schema.ElementDecls) {
+	for _, qname := range sortedQNames(r.schema.ElementDecls) {
 		elem := r.schema.ElementDecls[qname]
 		if err := r.resolveElement(qname, elem); err != nil {
 			return err
@@ -76,7 +75,7 @@ func (r *Resolver) Resolve() error {
 	}
 
 	// 5. Attributes
-	for _, qname := range schema.SortedQNames(r.schema.AttributeDecls) {
+	for _, qname := range sortedQNames(r.schema.AttributeDecls) {
 		attr := r.schema.AttributeDecls[qname]
 		if err := r.resolveAttribute(attr); err != nil {
 			return err
@@ -84,7 +83,7 @@ func (r *Resolver) Resolve() error {
 	}
 
 	// 6. Attribute groups
-	for _, qname := range schema.SortedQNames(r.schema.AttributeGroups) {
+	for _, qname := range sortedQNames(r.schema.AttributeGroups) {
 		ag := r.schema.AttributeGroups[qname]
 		if err := r.resolveAttributeGroup(qname, ag); err != nil {
 			return err

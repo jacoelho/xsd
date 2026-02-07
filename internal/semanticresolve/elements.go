@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	schema "github.com/jacoelho/xsd/internal/semantic"
 	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
@@ -324,7 +323,7 @@ func derivationMethodLabel(method types.DerivationMethod) string {
 // validateNoCyclicSubstitutionGroups checks for cycles in substitution group chains.
 func validateNoCyclicSubstitutionGroups(sch *parser.Schema) error {
 	// for each element with a substitution group, follow the chain and check for cycles.
-	for _, startQName := range schema.SortedQNames(sch.ElementDecls) {
+	for _, startQName := range sortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[startQName]
 		if decl.SubstitutionGroup.IsZero() {
 			continue

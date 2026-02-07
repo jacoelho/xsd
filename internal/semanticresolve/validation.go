@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	schema "github.com/jacoelho/xsd/internal/semantic"
 	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
@@ -55,21 +54,21 @@ func ValidateReferences(sch *parser.Schema) []error {
 func collectElementReferencesInSchema(sch *parser.Schema) []*types.ElementDecl {
 	var elementRefsInContent []*types.ElementDecl
 
-	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
+	for _, qname := range sortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if ct, ok := decl.Type.(*types.ComplexType); ok {
 			elementRefsInContent = append(elementRefsInContent, collectElementReferences(ct.Content())...)
 		}
 	}
 
-	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
+	for _, qname := range sortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			elementRefsInContent = append(elementRefsInContent, collectElementReferences(ct.Content())...)
 		}
 	}
 
-	for _, qname := range schema.SortedQNames(sch.Groups) {
+	for _, qname := range sortedQNames(sch.Groups) {
 		group := sch.Groups[qname]
 		for _, particle := range group.Particles {
 			if elem, ok := particle.(*types.ElementDecl); ok && elem.IsReference {
@@ -86,7 +85,7 @@ func collectElementReferencesInSchema(sch *parser.Schema) []*types.ElementDecl {
 func validateTopLevelElementReferences(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
+	for _, qname := range sortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if decl.IsReference {
 			refDecl, exists := sch.ElementDecls[decl.Name]
@@ -119,7 +118,7 @@ func validateContentElementReferences(sch *parser.Schema, elementRefsInContent [
 func validateElementDeclarationReferences(sch *parser.Schema, allConstraints []*types.IdentityConstraint) []error {
 	var errs []error
 
-	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
+	for _, qname := range sortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if decl.Type != nil {
 			origin := sch.ElementOrigins[qname]
@@ -207,13 +206,13 @@ func forEachLocalConstraintElement(sch *parser.Schema, visit func(*types.Element
 		}
 	}
 
-	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
+	for _, qname := range sortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if ct, ok := decl.Type.(*types.ComplexType); ok {
 			validateLocals(ct)
 		}
 	}
-	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
+	for _, qname := range sortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			validateLocals(ct)
@@ -226,7 +225,7 @@ func validateAttributeDeclarations(sch *parser.Schema) []error {
 
 	// note: Attribute references are stored in complex types, not as top-level declarations
 	// we validate attribute type references when validating complex types
-	for _, qname := range schema.SortedQNames(sch.AttributeDecls) {
+	for _, qname := range sortedQNames(sch.AttributeDecls) {
 		decl := sch.AttributeDecls[qname]
 		if decl.Type != nil {
 			if err := validateTypeReferenceFromType(sch, decl.Type, qname.Namespace); err != nil {
@@ -259,7 +258,7 @@ func validateAttributeDeclarations(sch *parser.Schema) []error {
 func validateTypeDefinitionReferences(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
+	for _, qname := range sortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		if err := validateTypeReferences(sch, qname, typ); err != nil {
 			errs = append(errs, fmt.Errorf("type %s: %w", qname, err))
@@ -272,7 +271,7 @@ func validateTypeDefinitionReferences(sch *parser.Schema) []error {
 func validateEnumerationFacetValues(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
+	for _, qname := range sortedQNames(sch.TypeDefs) {
 		st, ok := sch.TypeDefs[qname].(*types.SimpleType)
 		if !ok || st == nil || st.Restriction == nil {
 			continue
@@ -309,7 +308,7 @@ func validateEnumerationFacetValues(sch *parser.Schema) []error {
 func validateDeferredRangeFacetValues(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
+	for _, qname := range sortedQNames(sch.TypeDefs) {
 		st, ok := sch.TypeDefs[qname].(*types.SimpleType)
 		if !ok || st == nil || st.Restriction == nil {
 			continue
@@ -378,7 +377,7 @@ func isRangeFacetName(name string) bool {
 func validateInlineTypeReferences(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
+	for _, qname := range sortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if decl.Type != nil && !decl.Type.IsBuiltin() {
 			// skip if the type is a reference to a named type (already validated above)
@@ -411,7 +410,7 @@ func validateInlineTypeReferences(sch *parser.Schema) []error {
 func validateComplexTypeReferences(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
+	for _, qname := range sortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		ct, ok := typ.(*types.ComplexType)
 		if !ok {
@@ -473,7 +472,7 @@ func validateComplexTypeReferences(sch *parser.Schema) []error {
 func validateAttributeGroupReferencesInSchema(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range schema.SortedQNames(sch.AttributeGroups) {
+	for _, qname := range sortedQNames(sch.AttributeGroups) {
 		ag := sch.AttributeGroups[qname]
 		for _, agRef := range ag.AttrGroups {
 			if err := validateAttributeGroupReference(sch, agRef, qname); err != nil {
@@ -519,13 +518,13 @@ func validateLocalElementValueConstraints(sch *parser.Schema) []error {
 			}
 		}
 	}
-	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
+	for _, qname := range sortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if ct, ok := decl.Type.(*types.ComplexType); ok {
 			validateLocals(ct)
 		}
 	}
-	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
+	for _, qname := range sortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			validateLocals(ct)
@@ -538,7 +537,7 @@ func validateLocalElementValueConstraints(sch *parser.Schema) []error {
 func validateGroupReferencesInSchema(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range schema.SortedQNames(sch.Groups) {
+	for _, qname := range sortedQNames(sch.Groups) {
 		group := sch.Groups[qname]
 		if err := validateGroupReferences(sch, qname, group); err != nil {
 			errs = append(errs, fmt.Errorf("group %s: %w", qname, err))
