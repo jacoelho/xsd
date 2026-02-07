@@ -3,7 +3,6 @@ package types
 import (
 	"errors"
 	"fmt"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -23,87 +22,6 @@ var (
 	// Examples: "1H", "2M", "3S", "1.5S", "1H2M3.4S"
 	durationTimePattern = regexp.MustCompile(`(\d+)H|(\d+)M|(\d+(\.\d+)?)S`)
 )
-
-// ComparableValue is a unified interface for comparable values that can be compared across types
-// This is used by range facets to store and compare values without generic type parameters
-type ComparableValue interface {
-	Compare(other ComparableValue) (int, error)
-	String() string
-	Type() Type // Returns the XSD type this value represents
-}
-
-// Unwrappable is an interface for types that can unwrap their inner value
-type Unwrappable interface {
-	Unwrap() any
-}
-
-// ComparableDec wraps num.Dec to implement ComparableValue.
-type ComparableDec struct {
-	Typ   Type
-	Value num.Dec
-}
-
-// Compare compares with another ComparableValue (implements ComparableValue)
-// Supports cross-type comparison with ComparableInt since integers are a subset of decimals.
-func (c ComparableDec) Compare(other ComparableValue) (int, error) {
-	switch otherVal := other.(type) {
-	case ComparableDec:
-		return c.Value.Compare(otherVal.Value), nil
-	case ComparableInt:
-		return c.Value.Compare(otherVal.Value.AsDec()), nil
-	default:
-		return 0, fmt.Errorf("cannot compare ComparableDec with %T", other)
-	}
-}
-
-// String returns the string representation (implements ComparableValue)
-func (c ComparableDec) String() string {
-	return string(c.Value.RenderCanonical(nil))
-}
-
-// Type returns the XSD type (implements ComparableValue)
-func (c ComparableDec) Type() Type {
-	return c.Typ
-}
-
-// Unwrap returns the inner num.Dec value.
-func (c ComparableDec) Unwrap() any {
-	return c.Value
-}
-
-// ComparableInt wraps num.Int to implement ComparableValue.
-type ComparableInt struct {
-	Typ   Type
-	Value num.Int
-}
-
-// Compare compares with another ComparableValue (implements ComparableValue)
-// Supports cross-type comparison with ComparableDec since integers are a subset of decimals.
-func (c ComparableInt) Compare(other ComparableValue) (int, error) {
-	switch otherVal := other.(type) {
-	case ComparableInt:
-		return c.Value.Compare(otherVal.Value), nil
-	case ComparableDec:
-		return c.Value.CompareDec(otherVal.Value), nil
-	default:
-		return 0, fmt.Errorf("cannot compare ComparableInt with %T", other)
-	}
-}
-
-// String returns the string representation (implements ComparableValue)
-func (c ComparableInt) String() string {
-	return string(c.Value.RenderCanonical(nil))
-}
-
-// Type returns the XSD type (implements ComparableValue)
-func (c ComparableInt) Type() Type {
-	return c.Typ
-}
-
-// Unwrap returns the inner num.Int value.
-func (c ComparableInt) Unwrap() any {
-	return c.Value
-}
 
 // ComparableTime wraps time.Time to implement ComparableValue
 type ComparableTime struct {
@@ -173,110 +91,6 @@ func temporalTimezoneKind(kind value.TimezoneKind) temporal.TimezoneKind {
 		return temporal.TZKnown
 	}
 	return temporal.TZNone
-}
-
-// ComparableFloat64 wraps float64 to implement ComparableValue with NaN/INF handling
-type ComparableFloat64 struct {
-	Typ   Type
-	Value float64
-}
-
-// Compare compares with another ComparableValue (implements ComparableValue)
-func (c ComparableFloat64) Compare(other ComparableValue) (int, error) {
-	otherFloat, ok := other.(ComparableFloat64)
-	if !ok {
-		return 0, fmt.Errorf("cannot compare ComparableFloat64 with %T", other)
-	}
-	if math.IsNaN(c.Value) || math.IsNaN(otherFloat.Value) {
-		return 0, fmt.Errorf("cannot compare NaN values")
-	}
-
-	cIsInf := math.IsInf(c.Value, 0)
-	otherIsInf := math.IsInf(otherFloat.Value, 0)
-
-	if cIsInf && otherIsInf {
-		// both are infinite
-		if math.IsInf(c.Value, 1) && math.IsInf(otherFloat.Value, 1) {
-			return 0, nil // both +INF
-		}
-		if math.IsInf(c.Value, -1) && math.IsInf(otherFloat.Value, -1) {
-			return 0, nil // both -INF
-		}
-		if math.IsInf(c.Value, 1) && math.IsInf(otherFloat.Value, -1) {
-			return 1, nil // +INF > -INF
-		}
-		return -1, nil // -INF < +INF
-	}
-
-	if cIsInf {
-		if math.IsInf(c.Value, 1) {
-			return 1, nil // +INF > any finite value
-		}
-		return -1, nil // -INF < any finite value
-	}
-
-	if otherIsInf {
-		if math.IsInf(otherFloat.Value, 1) {
-			return -1, nil // any finite value < +INF
-		}
-		return 1, nil // any finite value > -INF
-	}
-
-	// both are finite, normal comparison
-	if c.Value < otherFloat.Value {
-		return -1, nil
-	}
-	if c.Value > otherFloat.Value {
-		return 1, nil
-	}
-	return 0, nil
-}
-
-// String returns the string representation (implements ComparableValue)
-func (c ComparableFloat64) String() string {
-	return fmt.Sprintf("%g", c.Value)
-}
-
-// Type returns the XSD type (implements ComparableValue)
-func (c ComparableFloat64) Type() Type {
-	return c.Typ
-}
-
-// Unwrap returns the inner float64 value
-func (c ComparableFloat64) Unwrap() any {
-	return c.Value
-}
-
-// ComparableFloat32 wraps float32 to implement ComparableValue with NaN/INF handling
-type ComparableFloat32 struct {
-	Typ   Type
-	Value float32
-}
-
-// Compare compares with another ComparableValue (implements ComparableValue)
-func (c ComparableFloat32) Compare(other ComparableValue) (int, error) {
-	otherFloat, ok := other.(ComparableFloat32)
-	if !ok {
-		return 0, fmt.Errorf("cannot compare ComparableFloat32 with %T", other)
-	}
-	c64 := ComparableFloat64{Value: float64(c.Value), Typ: c.Typ}
-	other64 := ComparableFloat64{Value: float64(otherFloat.Value), Typ: otherFloat.Typ}
-	return c64.Compare(other64)
-}
-
-// String returns the string representation (implements ComparableValue)
-func (c ComparableFloat32) String() string {
-	return fmt.Sprintf("%g", c.Value)
-}
-
-// Type returns the XSD type (implements ComparableValue)
-func (c ComparableFloat32) Type() Type {
-	return c.Typ
-}
-
-// Unwrap returns the inner float32 value
-func (c ComparableFloat32) Unwrap() any {
-	return c.Value
 }
 
 // ComparableDuration wraps time.Duration to implement ComparableValue
