@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
+	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -87,7 +87,7 @@ func TestResolveW3CGroupAndAttributeGroup(t *testing.T) {
 	}
 
 	var refQName types.QName
-	if err := schemacheck.WalkContentParticles(ct.Content(), func(p types.Particle) error {
+	if err := traversal.WalkContentParticles(ct.Content(), func(p types.Particle) error {
 		if ref, ok := p.(*types.GroupRef); ok {
 			refQName = ref.RefQName
 		}
@@ -609,12 +609,12 @@ func TestResolveW3CInlineUnionAnonymousTypes(t *testing.T) {
 		t.Fatalf("expected uid to have a complex type")
 	}
 
-	particle := schemacheck.GetContentParticle(ct.Content())
+	particle := traversal.GetContentParticle(ct.Content())
 	if particle == nil {
 		t.Fatalf("expected uid content particle")
 	}
 	var pid *types.ElementDecl
-	for _, elem := range schemacheck.CollectElements(particle) {
+	for _, elem := range traversal.CollectElements(particle) {
 		if elem.Name.Local == "pid" {
 			pid = elem
 			break

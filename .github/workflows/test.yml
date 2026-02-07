@@ -20,4 +20,3 @@ jobs:
       - run: make staticcheck
 
       - run: make test
-

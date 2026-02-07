@@ -45,13 +45,11 @@ const (
 )
 
 type schemaEntry struct {
-	schema              *parser.Schema
-	pendingDirectives   []pendingDirective
-	includeInserted     []int
-	state               schemaLoadState
-	pendingCount        int
-	validationRequested bool
-	validated           bool
+	schema            *parser.Schema
+	pendingDirectives []pendingDirective
+	includeInserted   []int
+	state             schemaLoadState
+	pendingCount      int
 }
 
 func (s *loadState) entry(key loadKey) (*schemaEntry, bool) {
@@ -170,13 +168,6 @@ func (t *importTracker) unmarkMerged(kind parser.DirectiveKind, baseKey, targetK
 	}
 }
 
-type validationMode int
-
-const (
-	validateSchema validationMode = iota
-	skipSchemaValidation
-)
-
 var errLoaderFailed = errors.New("loader is in failed state")
 
 // SchemaLoader loads XML schemas with import/include resolution.
@@ -217,7 +208,7 @@ func (l *SchemaLoader) LoadParsed(location string) (*parser.Schema, error) {
 	if err := l.beginLocationLoad(); err != nil {
 		return nil, err
 	}
-	sch, err := l.loadRoot(location, skipSchemaValidation)
+	sch, err := l.loadRoot(location)
 	if err != nil {
 		l.markFailed(err)
 		return nil, err
@@ -237,14 +228,14 @@ func (l *SchemaLoader) cleanupEntryIfUnused(key loadKey) {
 	if entry.state != schemaStateUnknown || entry.schema != nil {
 		return
 	}
-	if entry.pendingCount != 0 || len(entry.pendingDirectives) != 0 || entry.validationRequested || entry.validated {
+	if entry.pendingCount != 0 || len(entry.pendingDirectives) != 0 {
 		return
 	}
 	l.state.deleteEntry(key)
 }
 
 // loadRoot loads the root schema by resolving the provided location.
-func (l *SchemaLoader) loadRoot(location string, mode validationMode) (*parser.Schema, error) {
+func (l *SchemaLoader) loadRoot(location string) (*parser.Schema, error) {
 	doc, systemID, err := l.resolve(ResolveRequest{
 		BaseSystemID:   "",
 		SchemaLocation: location,
@@ -258,24 +249,14 @@ func (l *SchemaLoader) loadRoot(location string, mode validationMode) (*parser.S
 		return nil, err
 	}
 	key := l.loadKey(systemID, result.Schema.TargetNamespace)
-	return l.loadParsed(result, systemID, key, mode)
+	return l.loadParsed(result, systemID, key)
 }
 
 // loadResolved loads a schema from an already-resolved reader and systemID.
-func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key loadKey, mode validationMode) (*parser.Schema, error) {
+func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key loadKey) (*parser.Schema, error) {
 	session := newLoadSession(l, systemID, key, doc)
 
 	if sch, ok := l.state.loadedSchema(key); ok {
-		if mode == validateSchema {
-			entry := l.state.ensureEntry(key)
-			entry.validationRequested = true
-			if resolveErr := l.resolvePendingImportsFor(key); resolveErr != nil {
-				if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
-					return nil, joinWithClose(resolveErr, closeErr)
-				}
-				return nil, resolveErr
-			}
-		}
 		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
 			return nil, closeErr
 		}
@@ -295,18 +276,11 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 	if err != nil {
 		return nil, err
 	}
-	return l.loadParsed(result, systemID, key, mode)
+	return l.loadParsed(result, systemID, key)
 }
 
-func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, key loadKey, mode validationMode) (sch *parser.Schema, err error) {
+func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, key loadKey) (sch *parser.Schema, err error) {
 	if loadedSchema, ok := l.state.loadedSchema(key); ok {
-		if mode == validateSchema {
-			entry := l.state.ensureEntry(key)
-			entry.validationRequested = true
-			if resolveErr := l.resolvePendingImportsFor(key); resolveErr != nil {
-				return nil, resolveErr
-			}
-		}
 		return loadedSchema, nil
 	}
 
@@ -335,7 +309,7 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 		return nil, directivesErr
 	}
 
-	l.finalizeLoad(entry, sch, mode)
+	l.finalizeLoad(entry, sch)
 
 	if err := l.resolvePendingImportsFor(key); err != nil {
 		l.resetEntry(entry, key)
@@ -375,10 +349,7 @@ func (l *SchemaLoader) initLoadEntry(entry *schemaEntry, sch *parser.Schema, sys
 	return nil
 }
 
-func (l *SchemaLoader) finalizeLoad(entry *schemaEntry, sch *parser.Schema, mode validationMode) {
-	if mode == validateSchema {
-		entry.validationRequested = true
-	}
+func (l *SchemaLoader) finalizeLoad(entry *schemaEntry, sch *parser.Schema) {
 	entry.schema = sch
 	entry.state = schemaStateLoaded
 }
@@ -388,8 +359,6 @@ func (l *SchemaLoader) resetEntry(entry *schemaEntry, key loadKey) {
 	entry.state = schemaStateUnknown
 	entry.pendingDirectives = nil
 	entry.pendingCount = 0
-	entry.validationRequested = false
-	entry.validated = false
 	l.cleanupEntryIfUnused(key)
 }
 
@@ -423,7 +392,7 @@ func (l *SchemaLoader) LoadResolvedParsed(doc io.ReadCloser, systemID string) (*
 		return nil, err
 	}
 	key := l.loadKey(systemID, result.Schema.TargetNamespace)
-	sch, err := l.loadParsed(result, systemID, key, skipSchemaValidation)
+	sch, err := l.loadParsed(result, systemID, key)
 	if err != nil {
 		l.markFailed(err)
 		return nil, err
@@ -546,7 +515,7 @@ func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
 	}
 	pendingDirectives := sourceEntry.pendingDirectives
 	if len(pendingDirectives) == 0 {
-		return l.validateIfRequested(sourceKey)
+		return nil
 	}
 	source := l.schemaForKey(sourceKey)
 	if source == nil {
@@ -661,7 +630,7 @@ func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
 		}
 	}
 
-	return l.validateIfRequested(sourceKey)
+	return nil
 }
 
 func (l *SchemaLoader) decrementPendingAndResolve(targetKey loadKey) error {
@@ -680,19 +649,6 @@ func (l *SchemaLoader) decrementPendingAndResolve(targetKey loadKey) error {
 
 func (l *SchemaLoader) schemaForKey(key loadKey) *parser.Schema {
 	return l.state.schemaForKey(key)
-}
-
-func (l *SchemaLoader) validateIfRequested(key loadKey) error {
-	entry, ok := l.state.entry(key)
-	if !ok || !entry.validationRequested || entry.validated {
-		return nil
-	}
-	if entry.pendingCount > 0 {
-		return nil
-	}
-	// source loading is parse-only; semantic validation runs in pipeline preparation.
-	entry.validated = true
-	return nil
 }
 
 func ensureNamespaceMap(m map[types.NamespaceURI]map[types.NamespaceURI]bool, key types.NamespaceURI) map[types.NamespaceURI]bool {

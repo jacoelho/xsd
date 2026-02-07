@@ -5,6 +5,7 @@ import (
 
 	models "github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemaops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -37,8 +38,28 @@ func ValidateUPA(schema *parser.Schema, content types.Content, _ types.Namespace
 		return nil
 	}
 
+	expandOptions := schemaops.ExpandGroupRefsOptions{
+		Lookup: func(ref *types.GroupRef) *types.ModelGroup {
+			if schema == nil || ref == nil {
+				return nil
+			}
+			return schema.Groups[ref.RefQName]
+		},
+		MissingError: func(ref types.QName) error {
+			if schema == nil {
+				return fmt.Errorf("group ref %s not resolved", ref)
+			}
+			return fmt.Errorf("group '%s' not found", ref)
+		},
+		CycleError: func(ref types.QName) error {
+			return fmt.Errorf("circular group reference detected for %s", ref)
+		},
+		AllGroupMode: schemaops.AllGroupAsChoice,
+		LeafClone:    schemaops.LeafClone,
+	}
+
 	if particle != nil {
-		expanded, err := expandGroupRefs(schema, particle, make(map[types.QName]bool))
+		expanded, err := schemaops.ExpandGroupRefs(particle, expandOptions)
 		if err != nil {
 			return err
 		}
@@ -46,7 +67,7 @@ func ValidateUPA(schema *parser.Schema, content types.Content, _ types.Namespace
 		particle = relaxOccursCopy(particle)
 	}
 	if baseParticle != nil {
-		expanded, err := expandGroupRefs(schema, baseParticle, make(map[types.QName]bool))
+		expanded, err := schemaops.ExpandGroupRefs(baseParticle, expandOptions)
 		if err != nil {
 			return err
 		}
@@ -250,78 +271,4 @@ func (c *upaChecker) isSubstitutable(head, member types.QName) bool {
 	allowed := isSubstitutableElement(c.schema, head, member)
 	c.substAllowed[key] = allowed
 	return allowed
-}
-
-func expandGroupRefs(schema *parser.Schema, particle types.Particle, stack map[types.QName]bool) (types.Particle, error) {
-	switch p := particle.(type) {
-	case *types.GroupRef:
-		if p == nil {
-			return nil, nil
-		}
-		if stack[p.RefQName] {
-			return nil, fmt.Errorf("circular group reference detected for %s", p.RefQName)
-		}
-		if schema == nil {
-			return nil, fmt.Errorf("group ref %s not resolved", p.RefQName)
-		}
-		groupDef, exists := schema.Groups[p.RefQName]
-		if !exists {
-			return nil, fmt.Errorf("group '%s' not found", p.RefQName)
-		}
-		stack[p.RefQName] = true
-		defer delete(stack, p.RefQName)
-
-		groupCopy := &types.ModelGroup{
-			Kind:      groupDef.Kind,
-			MinOccurs: p.MinOccurs,
-			MaxOccurs: p.MaxOccurs,
-			Particles: make([]types.Particle, 0, len(groupDef.Particles)),
-		}
-		if groupCopy.Kind == types.AllGroup {
-			groupCopy.Kind = types.Choice
-		}
-		for _, child := range groupDef.Particles {
-			expanded, err := expandGroupRefs(schema, child, stack)
-			if err != nil {
-				return nil, err
-			}
-			groupCopy.Particles = append(groupCopy.Particles, expanded)
-		}
-		return groupCopy, nil
-	case *types.ModelGroup:
-		if p == nil {
-			return nil, nil
-		}
-		groupCopy := &types.ModelGroup{
-			Kind:      p.Kind,
-			MinOccurs: p.MinOccurs,
-			MaxOccurs: p.MaxOccurs,
-			Particles: make([]types.Particle, 0, len(p.Particles)),
-		}
-		if groupCopy.Kind == types.AllGroup {
-			groupCopy.Kind = types.Choice
-		}
-		for _, child := range p.Particles {
-			expanded, err := expandGroupRefs(schema, child, stack)
-			if err != nil {
-				return nil, err
-			}
-			groupCopy.Particles = append(groupCopy.Particles, expanded)
-		}
-		return groupCopy, nil
-	case *types.ElementDecl:
-		if p == nil {
-			return nil, nil
-		}
-		clone := *p
-		return &clone, nil
-	case *types.AnyElement:
-		if p == nil {
-			return nil, nil
-		}
-		clone := *p
-		return &clone, nil
-	default:
-		return particle, nil
-	}
 }

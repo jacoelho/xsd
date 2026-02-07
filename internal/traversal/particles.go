@@ -58,26 +58,124 @@ func WalkParticles(particle types.Particle, fn func(types.Particle) error) error
 	return nil
 }
 
+// WalkParticlesWithVisited recursively visits particles and skips previously seen model groups.
+func WalkParticlesWithVisited(particle types.Particle, visited map[*types.ModelGroup]bool, fn func(types.Particle) error) error {
+	if particle == nil {
+		return nil
+	}
+	if visited == nil {
+		visited = make(map[*types.ModelGroup]bool)
+	}
+	if group, ok := particle.(*types.ModelGroup); ok {
+		if visited[group] {
+			return nil
+		}
+		visited[group] = true
+	}
+	if err := fn(particle); err != nil {
+		return err
+	}
+	if group, ok := particle.(*types.ModelGroup); ok {
+		for _, child := range group.Particles {
+			if err := WalkParticlesWithVisited(child, visited, fn); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func collectFromParticles[T any](particles []types.Particle, visited map[*types.ModelGroup]bool, collect func(types.Particle) (T, bool)) []T {
+	if len(particles) == 0 {
+		return nil
+	}
+
+	stack := make([]types.Particle, 0, len(particles))
+	for i := len(particles) - 1; i >= 0; i-- {
+		if particles[i] != nil {
+			stack = append(stack, particles[i])
+		}
+	}
+
+	var result []T
+	for len(stack) > 0 {
+		particle := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		group, ok := particle.(*types.ModelGroup)
+		if ok {
+			if visited != nil {
+				if visited[group] {
+					continue
+				}
+				visited[group] = true
+			}
+			for i := len(group.Particles) - 1; i >= 0; i-- {
+				if child := group.Particles[i]; child != nil {
+					stack = append(stack, child)
+				}
+			}
+		}
+
+		if value, ok := collect(particle); ok {
+			result = append(result, value)
+		}
+	}
+
+	return result
+}
+
+// CollectFromParticle collects values from a particle tree using a typed predicate.
+func CollectFromParticle[T any](particle types.Particle, collect func(types.Particle) (T, bool)) []T {
+	if particle == nil {
+		return nil
+	}
+
+	return collectFromParticles([]types.Particle{particle}, nil, collect)
+}
+
+// CollectFromContent collects values from all particles present in a content model.
+func CollectFromContent[T any](content types.Content, collect func(types.Particle) (T, bool)) []T {
+	switch c := content.(type) {
+	case *types.ElementContent:
+		return collectFromParticles([]types.Particle{c.Particle}, nil, collect)
+	case *types.ComplexContent:
+		var particles []types.Particle
+		if c.Extension != nil && c.Extension.Particle != nil {
+			particles = append(particles, c.Extension.Particle)
+		}
+		if c.Restriction != nil && c.Restriction.Particle != nil {
+			particles = append(particles, c.Restriction.Particle)
+		}
+		return collectFromParticles(particles, nil, collect)
+	default:
+		return nil
+	}
+}
+
+// CollectFromParticlesWithVisited collects values and avoids revisiting model groups.
+func CollectFromParticlesWithVisited[T any](particles []types.Particle, visited map[*types.ModelGroup]bool, collect func(types.Particle) (T, bool)) []T {
+	if len(particles) == 0 {
+		return nil
+	}
+	if visited == nil {
+		visited = make(map[*types.ModelGroup]bool)
+	}
+	return collectFromParticles(particles, visited, collect)
+}
+
 // CollectElements returns all element declarations in a particle tree.
 func CollectElements(particle types.Particle) []*types.ElementDecl {
-	var result []*types.ElementDecl
-	_ = WalkParticles(particle, func(p types.Particle) error {
-		if elem, ok := p.(*types.ElementDecl); ok {
-			result = append(result, elem)
-		}
-		return nil
+	return CollectFromParticle(particle, func(p types.Particle) (*types.ElementDecl, bool) {
+		elem, ok := p.(*types.ElementDecl)
+		return elem, ok
 	})
-	return result
 }
 
 // CollectWildcards returns all wildcard particles in a tree.
 func CollectWildcards(particle types.Particle) []*types.AnyElement {
-	var result []*types.AnyElement
-	_ = WalkParticles(particle, func(p types.Particle) error {
-		if wildcard, ok := p.(*types.AnyElement); ok {
-			result = append(result, wildcard)
-		}
-		return nil
+	return CollectFromParticle(particle, func(p types.Particle) (*types.AnyElement, bool) {
+		wildcard, ok := p.(*types.AnyElement)
+		return wildcard, ok
 	})
-	return result
 }
