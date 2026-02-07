@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	schema "github.com/jacoelho/xsd/internal/semantic"
+	"github.com/jacoelho/xsd/internal/schemaops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -13,38 +13,58 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 	if sch == nil {
 		return nil
 	}
-	detector := NewCycleDetector[types.QName]()
 
-	for _, qname := range schema.SortedQNames(sch.Groups) {
+	options := schemaops.ExpandGroupRefsOptions{
+		Lookup: func(ref *types.GroupRef) *types.ModelGroup {
+			if ref == nil {
+				return nil
+			}
+			return sch.Groups[ref.RefQName]
+		},
+		MissingError: func(ref types.QName) error {
+			return fmt.Errorf("group '%s' not found", ref)
+		},
+		CycleError: func(ref types.QName) error {
+			return fmt.Errorf("circular group reference detected: %s", ref)
+		},
+		AllGroupMode: schemaops.AllGroupKeep,
+		LeafClone:    schemaops.LeafReuse,
+	}
+
+	for _, qname := range sortedQNames(sch.Groups) {
 		group := sch.Groups[qname]
 		if group == nil {
 			continue
 		}
-		if err := detector.WithScope(qname, func() error {
-			return resolveGroupRefsInModelGroupWithCycleDetection(group, sch, detector)
-		}); err != nil {
+		expanded, err := schemaops.ExpandGroupRefs(group, options)
+		if err != nil {
 			return fmt.Errorf("resolve group refs in group %s: %w", qname, err)
 		}
+		expandedGroup, ok := expanded.(*types.ModelGroup)
+		if !ok || expandedGroup == nil {
+			return fmt.Errorf("resolve group refs in group %s: expanded group is nil", qname)
+		}
+		sch.Groups[qname] = expandedGroup
 	}
 
-	for _, qname := range schema.SortedQNames(sch.TypeDefs) {
+	for _, qname := range sortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		ct, ok := typ.(*types.ComplexType)
 		if !ok {
 			continue
 		}
-		if err := resolveGroupRefsInContentWithVisited(ct.Content(), sch, detector); err != nil {
+		if err := resolveGroupRefsInContent(ct.Content(), options); err != nil {
 			return fmt.Errorf("resolve group refs in type %s: %w", ct.QName, err)
 		}
 	}
 
-	for _, qname := range schema.SortedQNames(sch.ElementDecls) {
+	for _, qname := range sortedQNames(sch.ElementDecls) {
 		elem := sch.ElementDecls[qname]
 		ct, ok := elem.Type.(*types.ComplexType)
 		if !ok {
 			continue
 		}
-		if err := resolveGroupRefsInContentWithVisited(ct.Content(), sch, detector); err != nil {
+		if err := resolveGroupRefsInContent(ct.Content(), options); err != nil {
 			return fmt.Errorf("resolve group refs in element %s: %w", elem.Name, err)
 		}
 	}
@@ -52,108 +72,36 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 	return nil
 }
 
-func resolveGroupRefsInContentWithVisited(content types.Content, sch *parser.Schema, detector *CycleDetector[types.QName]) error {
+func resolveGroupRefsInContent(content types.Content, options schemaops.ExpandGroupRefsOptions) error {
 	switch c := content.(type) {
 	case *types.ElementContent:
 		if c.Particle == nil {
 			return nil
 		}
-		resolved, err := resolveGroupRefsInParticleWithVisited(c.Particle, sch, detector)
+		expanded, err := schemaops.ExpandGroupRefs(c.Particle, options)
 		if err != nil {
 			return err
 		}
-		if resolved != nil {
-			c.Particle = resolved
+		if expanded != nil {
+			c.Particle = expanded
 		}
 	case *types.ComplexContent:
 		if c.Restriction != nil && c.Restriction.Particle != nil {
-			resolved, err := resolveGroupRefsInParticleWithVisited(c.Restriction.Particle, sch, detector)
+			expanded, err := schemaops.ExpandGroupRefs(c.Restriction.Particle, options)
 			if err != nil {
 				return err
 			}
-			if resolved != nil {
-				c.Restriction.Particle = resolved
+			if expanded != nil {
+				c.Restriction.Particle = expanded
 			}
 		}
 		if c.Extension != nil && c.Extension.Particle != nil {
-			resolved, err := resolveGroupRefsInParticleWithVisited(c.Extension.Particle, sch, detector)
+			expanded, err := schemaops.ExpandGroupRefs(c.Extension.Particle, options)
 			if err != nil {
 				return err
 			}
-			if resolved != nil {
-				c.Extension.Particle = resolved
-			}
-		}
-	}
-	return nil
-}
-
-func resolveGroupRefsInParticleWithVisited(particle types.Particle, sch *parser.Schema, detector *CycleDetector[types.QName]) (types.Particle, error) {
-	groupRef, ok := particle.(*types.GroupRef)
-	if ok {
-		groupDef, found := sch.Groups[groupRef.RefQName]
-		if !found {
-			return nil, fmt.Errorf("group '%s' not found", groupRef.RefQName)
-		}
-		groupCopy := types.CloneModelGroupTree(groupDef)
-		groupCopy.MinOccurs = groupRef.MinOccurs
-		groupCopy.MaxOccurs = groupRef.MaxOccurs
-		return groupCopy, nil
-	}
-
-	mg, ok := particle.(*types.ModelGroup)
-	if !ok {
-		return nil, nil
-	}
-	if err := resolveGroupRefsInModelGroupWithCycleDetection(mg, sch, detector); err != nil {
-		return nil, err
-	}
-	return nil, nil
-}
-
-func resolveGroupRefsInModelGroupWithCycleDetection(mg *types.ModelGroup, sch *parser.Schema, detector *CycleDetector[types.QName]) error {
-	return resolveGroupRefsInModelGroupWithPointerCycleDetection(mg, sch, detector, make(map[*types.ModelGroup]bool))
-}
-
-func resolveGroupRefsInModelGroupWithPointerCycleDetection(mg *types.ModelGroup, sch *parser.Schema, detector *CycleDetector[types.QName], visitedMGs map[*types.ModelGroup]bool) error {
-	if mg == nil || visitedMGs[mg] {
-		return nil
-	}
-	visitedMGs[mg] = true
-
-	for i, particle := range mg.Particles {
-		switch typed := particle.(type) {
-		case *types.GroupRef:
-			if err := detector.Enter(typed.RefQName); err != nil {
-				return fmt.Errorf("circular group reference detected: %s", typed.RefQName)
-			}
-			groupDef, ok := sch.Groups[typed.RefQName]
-			if !ok {
-				detector.Leave(typed.RefQName)
-				return fmt.Errorf("group '%s' not found", typed.RefQName)
-			}
-
-			if detector.IsVisited(typed.RefQName) {
-				groupCopy := types.CloneModelGroupTree(groupDef)
-				groupCopy.MinOccurs = typed.MinOccurs
-				groupCopy.MaxOccurs = typed.MaxOccurs
-				mg.Particles[i] = groupCopy
-				detector.Leave(typed.RefQName)
-				continue
-			}
-
-			groupCopy := types.CloneModelGroupTree(groupDef)
-			groupCopy.MinOccurs = typed.MinOccurs
-			groupCopy.MaxOccurs = typed.MaxOccurs
-			if err := resolveGroupRefsInModelGroupWithPointerCycleDetection(groupCopy, sch, detector, make(map[*types.ModelGroup]bool)); err != nil {
-				detector.Leave(typed.RefQName)
-				return err
-			}
-			mg.Particles[i] = groupCopy
-			detector.Leave(typed.RefQName)
-		case *types.ModelGroup:
-			if err := resolveGroupRefsInModelGroupWithPointerCycleDetection(typed, sch, detector, visitedMGs); err != nil {
-				return err
+			if expanded != nil {
+				c.Extension.Particle = expanded
 			}
 		}
 	}
