@@ -434,18 +434,7 @@ func decFromInt64(v int64) num.Dec {
 }
 
 func decFromDurationSeconds(d time.Duration) num.Dec {
-	sec := int64(d / time.Second)
-	nanos := int64(d % time.Second)
-	if nanos == 0 {
-		return decFromInt64(sec)
-	}
-	if nanos < 0 {
-		nanos = -nanos
-	}
-	text := fmt.Sprintf("%d.%09d", sec, nanos)
-	text = strings.TrimRight(text, "0")
-	dec, _ := num.ParseDec([]byte(text))
-	return dec
+	return num.DecFromScaledInt(num.FromInt64(int64(d)), 9)
 }
 
 func formatDurationSeconds(sec num.Dec) string {

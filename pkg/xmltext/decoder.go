@@ -883,7 +883,9 @@ func discardUTF8BOM(r *bufio.Reader) error {
 		return err
 	}
 	if len(peek) >= 3 && peek[0] == 0xEF && peek[1] == 0xBB && peek[2] == 0xBF {
-		_, _ = r.Discard(3)
+		if _, err := r.Discard(3); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -7,7 +7,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
-	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -115,11 +114,24 @@ func collectFromContentParticlesWithVisited[T any](content types.Content, visite
 	if visitedTypes == nil {
 		visitedTypes = make(map[*types.ComplexType]bool)
 	}
+	var particles []types.Particle
+	switch c := content.(type) {
+	case *types.ElementContent:
+		if c.Particle != nil {
+			particles = append(particles, c.Particle)
+		}
+	case *types.ComplexContent:
+		if c.Extension != nil && c.Extension.Particle != nil {
+			particles = append(particles, c.Extension.Particle)
+		}
+		if c.Restriction != nil && c.Restriction.Particle != nil {
+			particles = append(particles, c.Restriction.Particle)
+		}
+	}
 	var out []T
-	_ = traversal.WalkContentParticles(content, func(particle types.Particle) error {
+	for _, particle := range particles {
 		out = append(out, collect([]types.Particle{particle}, visited, visitedTypes)...)
-		return nil
-	})
+	}
 	return out
 }
 
