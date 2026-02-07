@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
@@ -807,7 +808,7 @@ func findElementDeclInContent(content types.Content, test xpath.NodeTest) (*type
 	var result *types.ElementDecl
 	var resultErr error
 
-	err := WalkContentParticles(content, func(particle types.Particle) error {
+	err := traversal.WalkContentParticles(content, func(particle types.Particle) error {
 		found, err := findElementDeclInParticle(particle, test)
 		if err == nil && found != nil {
 			result = found
