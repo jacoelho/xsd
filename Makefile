@@ -17,6 +17,10 @@ $(GOBIN)/xmllint:
 staticcheck: $(GOBIN)/staticcheck
 	$(GOBIN)/staticcheck ./...
 
+.PHONY: check-arch
+check-arch:
+	bash scripts/check_arch.sh
+
 .PHONY: fieldalignment
 fieldalignment:
 	go run golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest ./...
