@@ -58,7 +58,7 @@ func validateParticleOccurs(particle types.Particle) error {
 
 func validateModelGroupStructure(schema *parser.Schema, group *types.ModelGroup, parentKind *types.GroupKind, visited modelGroupVisit) error {
 	// cycle detection: skip if already visited
-	if !visited.enter(group) {
+	if !visited.Enter(group) {
 		return nil
 	}
 
@@ -252,7 +252,7 @@ func validateElementDeclarationsConsistentInParticle(schema *parser.Schema, part
 func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, particle types.Particle, seen map[types.QName]types.Type, visited modelGroupVisit) error {
 	switch p := particle.(type) {
 	case *types.ModelGroup:
-		if !visited.enter(p) {
+		if !visited.Enter(p) {
 			return nil
 		}
 		for _, child := range p.Particles {

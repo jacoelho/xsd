@@ -43,7 +43,7 @@ func validateWildcardNamespaceRestriction(schema *parser.Schema, baseAny *types.
 	}
 	switch p := particle.(type) {
 	case *types.ModelGroup:
-		if !visitedMG.enter(p) {
+		if !visitedMG.Enter(p) {
 			return nil
 		}
 		for _, child := range p.Particles {
