@@ -9,10 +9,10 @@ import (
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/pipeline"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/schemaops"
 	schema "github.com/jacoelho/xsd/internal/semantic"
 	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 // BuildConfig configures runtime schema compilation.
@@ -662,7 +662,7 @@ func (b *schemaBuilder) buildModels() error {
 		content := ct.Content()
 		model := &b.rt.ComplexTypes[complexID]
 		model.Mixed = ct.EffectiveMixed()
-		switch typed := content.(type) {
+		switch content.(type) {
 		case *types.SimpleContent:
 			model.Content = runtime.ContentSimple
 			var textType types.Type
@@ -671,7 +671,7 @@ func (b *schemaBuilder) buildModels() error {
 			}
 			if textType == nil {
 				var err error
-				textType, err = b.simpleContentTextType(ct, typed)
+				textType, err = b.simpleContentTextType(ct)
 				if err != nil {
 					return err
 				}
@@ -737,7 +737,7 @@ func (b *schemaBuilder) compileParticleModel(particle types.Particle) (runtime.M
 	if particle == nil {
 		return runtime.ModelRef{Kind: runtime.ModelNone}, runtime.ContentEmpty, nil
 	}
-	resolved, err := b.resolveGroupRefs(particle, make(map[types.QName]bool))
+	resolved, err := schemaops.ExpandGroupRefs(particle, b.groupRefExpansionOptions())
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
@@ -787,6 +787,33 @@ func (b *schemaBuilder) compileParticleModel(particle types.Particle) (runtime.M
 	}
 }
 
+func (b *schemaBuilder) groupRefExpansionOptions() schemaops.ExpandGroupRefsOptions {
+	return schemaops.ExpandGroupRefsOptions{
+		Lookup: func(ref *types.GroupRef) *types.ModelGroup {
+			if ref == nil {
+				return nil
+			}
+			if b != nil && b.refs != nil {
+				if group := b.refs.GroupRefs[ref]; group != nil {
+					return group
+				}
+			}
+			if b == nil || b.schema == nil {
+				return nil
+			}
+			return b.schema.Groups[ref.RefQName]
+		},
+		MissingError: func(ref types.QName) error {
+			return fmt.Errorf("group ref %s not resolved", ref)
+		},
+		CycleError: func(ref types.QName) error {
+			return fmt.Errorf("group ref cycle detected: %s", ref)
+		},
+		AllGroupMode: schemaops.AllGroupKeep,
+		LeafClone:    schemaops.LeafReuse,
+	}
+}
+
 func isEmptyChoice(particle types.Particle) bool {
 	group, ok := particle.(*types.ModelGroup)
 	if !ok || group == nil || group.Kind != types.Choice {
@@ -802,67 +829,6 @@ func isEmptyChoice(particle types.Particle) bool {
 		return false
 	}
 	return true
-}
-
-func (b *schemaBuilder) resolveGroupRefs(particle types.Particle, stack map[types.QName]bool) (types.Particle, error) {
-	switch typed := particle.(type) {
-	case *types.GroupRef:
-		if typed == nil {
-			return nil, nil
-		}
-		if stack[typed.RefQName] {
-			return nil, fmt.Errorf("group ref cycle detected: %s", typed.RefQName)
-		}
-		stack[typed.RefQName] = true
-		defer delete(stack, typed.RefQName)
-
-		group := b.refs.GroupRefs[typed]
-		if group == nil && b.schema != nil {
-			group = b.schema.Groups[typed.RefQName]
-		}
-		if group == nil {
-			return nil, fmt.Errorf("group ref %s not resolved", typed.RefQName)
-		}
-
-		clone := types.CloneModelGroupTree(group)
-		clone.MinOccurs = typed.MinOccurs
-		clone.MaxOccurs = typed.MaxOccurs
-		for i, child := range clone.Particles {
-			resolved, err := b.resolveGroupRefs(child, stack)
-			if err != nil {
-				return nil, err
-			}
-			clone.Particles[i] = resolved
-		}
-		return clone, nil
-	case *types.ModelGroup:
-		if typed == nil {
-			return nil, nil
-		}
-		if len(typed.Particles) == 0 {
-			return typed, nil
-		}
-		updated := false
-		particles := make([]types.Particle, len(typed.Particles))
-		for i, child := range typed.Particles {
-			resolved, err := b.resolveGroupRefs(child, stack)
-			if err != nil {
-				return nil, err
-			}
-			if resolved != child {
-				updated = true
-			}
-			particles[i] = resolved
-		}
-		if !updated {
-			return typed, nil
-		}
-		clone := *typed
-		clone.Particles = particles
-		return &clone, nil
-	default:
-		return particle, nil
-	}
 }
 
 func (b *schemaBuilder) validateOccursLimit(particle types.Particle) error {
@@ -1015,117 +981,6 @@ func (b *schemaBuilder) buildMatchers(glu *models.Glushkov) ([]runtime.PosMatche
 		}
 	}
 	return matchers, nil
-}
-
-func (b *schemaBuilder) buildIdentityConstraints() error {
-	b.rt.ICSelectors = nil
-	b.rt.ICFields = nil
-	b.rt.ElemICs = nil
-
-	icByElem := make(map[runtime.ElemID]map[types.QName]runtime.ICID)
-	type keyrefPending struct {
-		name types.QName
-		elem runtime.ElemID
-		id   runtime.ICID
-	}
-	var pending []keyrefPending
-
-	for _, entry := range b.registry.ElementOrder {
-		decl := entry.Decl
-		if decl == nil || len(decl.Constraints) == 0 {
-			continue
-		}
-		elemID := b.elemIDs[entry.ID]
-		elem := b.rt.Elements[elemID]
-		off := uint32(len(b.rt.ElemICs))
-
-		for _, constraint := range decl.Constraints {
-			icID := runtime.ICID(len(b.rt.ICs))
-			selectorOff := uint32(len(b.rt.ICSelectors))
-			selectorPrograms, err := xpath.CompilePrograms(constraint.Selector.XPath, constraint.NamespaceContext, xpath.AttributesDisallowed, b.rt)
-			if err != nil {
-				return fmt.Errorf("runtime build: selector %s: %w", constraint.Name, err)
-			}
-			for _, program := range selectorPrograms {
-				pathID := b.addPath(program)
-				b.rt.ICSelectors = append(b.rt.ICSelectors, pathID)
-			}
-			selectorLen := uint32(len(b.rt.ICSelectors)) - selectorOff
-
-			fieldOff := uint32(len(b.rt.ICFields))
-			for fieldIdx, field := range constraint.Fields {
-				fieldPrograms, err := xpath.CompilePrograms(field.XPath, constraint.NamespaceContext, xpath.AttributesAllowed, b.rt)
-				if err != nil {
-					return fmt.Errorf("runtime build: field %d %s: %w", fieldIdx+1, constraint.Name, err)
-				}
-				for _, program := range fieldPrograms {
-					pathID := b.addPath(program)
-					b.rt.ICFields = append(b.rt.ICFields, pathID)
-				}
-				if fieldIdx < len(constraint.Fields)-1 {
-					b.rt.ICFields = append(b.rt.ICFields, 0)
-				}
-			}
-			fieldLen := uint32(len(b.rt.ICFields)) - fieldOff
-
-			category := runtime.ICUnique
-			switch constraint.Type {
-			case types.UniqueConstraint:
-				category = runtime.ICUnique
-			case types.KeyConstraint:
-				category = runtime.ICKey
-			case types.KeyRefConstraint:
-				category = runtime.ICKeyRef
-			}
-
-			name := types.QName{Namespace: constraint.TargetNamespace, Local: constraint.Name}
-			nameSym := b.internQName(name)
-			ic := runtime.IdentityConstraint{
-				Name:        nameSym,
-				Category:    category,
-				SelectorOff: selectorOff,
-				SelectorLen: selectorLen,
-				FieldOff:    fieldOff,
-				FieldLen:    fieldLen,
-			}
-			b.rt.ICs = append(b.rt.ICs, ic)
-			b.rt.ElemICs = append(b.rt.ElemICs, icID)
-			scope := icByElem[elemID]
-			if scope == nil {
-				scope = make(map[types.QName]runtime.ICID)
-				icByElem[elemID] = scope
-			}
-			scope[name] = icID
-
-			if constraint.Type == types.KeyRefConstraint {
-				pending = append(pending, keyrefPending{
-					elem: elemID,
-					id:   icID,
-					name: constraint.ReferQName,
-				})
-			}
-		}
-
-		elem.ICOff = off
-		elem.ICLen = uint32(len(b.rt.ElemICs)) - off
-		b.rt.Elements[elemID] = elem
-	}
-
-	for _, ref := range pending {
-		scope := icByElem[ref.elem]
-		target, ok := scope[ref.name]
-		if !ok {
-			return fmt.Errorf("runtime build: keyref %s refers to missing key", ref.name)
-		}
-		if int(ref.id) >= len(b.rt.ICs) {
-			return fmt.Errorf("runtime build: keyref constraint %d out of range", ref.id)
-		}
-		ic := b.rt.ICs[ref.id]
-		ic.Referenced = target
-		b.rt.ICs[ref.id] = ic
-	}
-
-	return nil
 }
 
 func (b *schemaBuilder) collectAttrUses(ct *types.ComplexType) ([]runtime.AttrUse, *types.AnyAttribute, error) {
@@ -1444,77 +1299,11 @@ func (b *schemaBuilder) resolveTypeQName(qname types.QName) types.Type {
 	return b.schema.TypeDefs[qname]
 }
 
-func (b *schemaBuilder) simpleContentTextType(ct *types.ComplexType, sc *types.SimpleContent) (types.Type, error) {
-	if ct == nil {
-		return nil, nil
-	}
+func (b *schemaBuilder) simpleContentTextType(ct *types.ComplexType) (types.Type, error) {
 	res := newTypeResolver(b.schema)
-	seen := make(map[*types.ComplexType]bool)
-	return simpleContentTextType(res, ct, sc, seen)
-}
-
-func simpleContentTextType(res *typeResolver, ct *types.ComplexType, sc *types.SimpleContent, seen map[*types.ComplexType]bool) (types.Type, error) {
-	if ct == nil {
-		return nil, nil
-	}
-	if seen[ct] {
-		return nil, fmt.Errorf("simpleContent cycle detected")
-	}
-	seen[ct] = true
-	defer delete(seen, ct)
-
-	if sc == nil {
-		if typed, ok := ct.Content().(*types.SimpleContent); ok {
-			sc = typed
-		} else {
-			return nil, nil
-		}
-	}
-	baseType, err := simpleContentBaseType(res, ct, sc, seen)
-	if err != nil {
-		return nil, err
-	}
-	switch {
-	case sc.Extension != nil:
-		return baseType, nil
-	case sc.Restriction != nil:
-		st := &types.SimpleType{
-			Restriction:  sc.Restriction,
-			ResolvedBase: baseType,
-		}
-		if sc.Restriction.SimpleType != nil && sc.Restriction.SimpleType.WhiteSpaceExplicit() {
-			st.SetWhiteSpaceExplicit(sc.Restriction.SimpleType.WhiteSpace())
-		} else if baseType != nil {
-			st.SetWhiteSpace(baseType.WhiteSpace())
-		}
-		return st, nil
-	default:
-		return baseType, nil
-	}
-}
-
-func simpleContentBaseType(res *typeResolver, ct *types.ComplexType, sc *types.SimpleContent, seen map[*types.ComplexType]bool) (types.Type, error) {
-	if ct == nil {
-		return nil, fmt.Errorf("simpleContent base missing")
-	}
-	base := ct.ResolvedBase
-	if base == nil && sc != nil {
-		qname := sc.BaseTypeQName()
-		if !qname.IsZero() {
-			base = res.resolveQName(qname)
-		}
-	}
-	if base == nil {
-		return nil, fmt.Errorf("simpleContent base missing")
-	}
-	switch typed := base.(type) {
-	case *types.SimpleType, *types.BuiltinType:
-		return typed, nil
-	case *types.ComplexType:
-		return simpleContentTextType(res, typed, nil, seen)
-	default:
-		return nil, fmt.Errorf("simpleContent base is not simple")
-	}
+	return schemaops.ResolveSimpleContentTextType(ct, schemaops.SimpleContentTextTypeOptions{
+		ResolveQName: res.resolveQName,
+	})
 }
 
 func (b *schemaBuilder) baseForSimpleType(st *types.SimpleType) (types.Type, runtime.DerivationMethod) {
