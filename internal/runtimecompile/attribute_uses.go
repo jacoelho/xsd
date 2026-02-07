@@ -7,6 +7,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typegraph"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -47,8 +48,8 @@ func collectAttributeUses(schema *parser.Schema, ct *types.ComplexType) ([]*type
 		out = append(out, decl)
 	}
 	slices.SortFunc(out, func(a, b *types.AttributeDecl) int {
-		left := effectiveAttributeQName(schema, a)
-		right := effectiveAttributeQName(schema, b)
+		left := typeops.EffectiveAttributeQName(schema, a)
+		right := typeops.EffectiveAttributeQName(schema, b)
 		if left.Namespace != right.Namespace {
 			return cmp.Compare(left.Namespace, right.Namespace)
 		}
@@ -86,7 +87,7 @@ func mergeAttributes(schema *parser.Schema, attrs []*types.AttributeDecl, groups
 		if attr == nil {
 			continue
 		}
-		key := effectiveAttributeQName(schema, attr)
+		key := typeops.EffectiveAttributeQName(schema, attr)
 		attrMap[key] = attr
 	}
 	if len(groups) == 0 {
@@ -293,29 +294,5 @@ func restrictAnyAttribute(base, derived *types.AnyAttribute) (*types.AnyAttribut
 }
 
 func effectiveAttributeQName(schema *parser.Schema, attr *types.AttributeDecl) types.QName {
-	if attr == nil {
-		return types.QName{}
-	}
-	if attr.IsReference {
-		return attr.Name
-	}
-	form := attr.Form
-	if form == types.FormDefault {
-		if schema != nil && schema.AttributeFormDefault == parser.Qualified {
-			form = types.FormQualified
-		} else {
-			form = types.FormUnqualified
-		}
-	}
-	if form == types.FormQualified {
-		ns := types.NamespaceEmpty
-		if schema != nil {
-			ns = schema.TargetNamespace
-		}
-		if !attr.SourceNamespace.IsEmpty() {
-			ns = attr.SourceNamespace
-		}
-		return types.QName{Namespace: ns, Local: attr.Name.Local}
-	}
-	return types.QName{Namespace: types.NamespaceEmpty, Local: attr.Name.Local}
+	return typeops.EffectiveAttributeQName(schema, attr)
 }

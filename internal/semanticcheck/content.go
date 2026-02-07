@@ -49,7 +49,7 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 	}
 	for _, restrictionAttr := range restrictionAttrs {
 		effectiveRestriction := effectiveAttributeUse(schema, restrictionAttr)
-		key := effectiveAttributeQNameForValidation(schema, effectiveRestriction)
+		key := typeops.EffectiveAttributeQName(schema, effectiveRestriction)
 		baseAttr, exists := baseAttrMap[key]
 		if !exists {
 			if baseAnyAttr == nil || !baseAnyAttr.AllowsQName(key) {
