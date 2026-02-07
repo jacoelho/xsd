@@ -85,34 +85,72 @@ func WalkParticlesWithVisited(particle types.Particle, visited map[*types.ModelG
 	return nil
 }
 
+func collectFromParticles[T any](particles []types.Particle, visited map[*types.ModelGroup]bool, collect func(types.Particle) (T, bool)) []T {
+	if len(particles) == 0 {
+		return nil
+	}
+
+	stack := make([]types.Particle, 0, len(particles))
+	for i := len(particles) - 1; i >= 0; i-- {
+		if particles[i] != nil {
+			stack = append(stack, particles[i])
+		}
+	}
+
+	var result []T
+	for len(stack) > 0 {
+		particle := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		group, ok := particle.(*types.ModelGroup)
+		if ok {
+			if visited != nil {
+				if visited[group] {
+					continue
+				}
+				visited[group] = true
+			}
+			for i := len(group.Particles) - 1; i >= 0; i-- {
+				if child := group.Particles[i]; child != nil {
+					stack = append(stack, child)
+				}
+			}
+		}
+
+		if value, ok := collect(particle); ok {
+			result = append(result, value)
+		}
+	}
+
+	return result
+}
+
 // CollectFromParticle collects values from a particle tree using a typed predicate.
 func CollectFromParticle[T any](particle types.Particle, collect func(types.Particle) (T, bool)) []T {
 	if particle == nil {
 		return nil
 	}
-	var result []T
-	_ = WalkParticles(particle, func(p types.Particle) error {
-		if value, ok := collect(p); ok {
-			result = append(result, value)
-		}
-		return nil
-	})
-	return result
+
+	return collectFromParticles([]types.Particle{particle}, nil, collect)
 }
 
 // CollectFromContent collects values from all particles present in a content model.
 func CollectFromContent[T any](content types.Content, collect func(types.Particle) (T, bool)) []T {
-	var result []T
-	_ = WalkContentParticles(content, func(particle types.Particle) error {
-		_ = WalkParticles(particle, func(p types.Particle) error {
-			if value, ok := collect(p); ok {
-				result = append(result, value)
-			}
-			return nil
-		})
+	switch c := content.(type) {
+	case *types.ElementContent:
+		return collectFromParticles([]types.Particle{c.Particle}, nil, collect)
+	case *types.ComplexContent:
+		var particles []types.Particle
+		if c.Extension != nil && c.Extension.Particle != nil {
+			particles = append(particles, c.Extension.Particle)
+		}
+		if c.Restriction != nil && c.Restriction.Particle != nil {
+			particles = append(particles, c.Restriction.Particle)
+		}
+		return collectFromParticles(particles, nil, collect)
+	default:
 		return nil
-	})
-	return result
+	}
 }
 
 // CollectFromParticlesWithVisited collects values and avoids revisiting model groups.
@@ -123,16 +161,7 @@ func CollectFromParticlesWithVisited[T any](particles []types.Particle, visited 
 	if visited == nil {
 		visited = make(map[*types.ModelGroup]bool)
 	}
-	var result []T
-	for _, particle := range particles {
-		_ = WalkParticlesWithVisited(particle, visited, func(p types.Particle) error {
-			if value, ok := collect(p); ok {
-				result = append(result, value)
-			}
-			return nil
-		})
-	}
-	return result
+	return collectFromParticles(particles, visited, collect)
 }
 
 // CollectElements returns all element declarations in a particle tree.
