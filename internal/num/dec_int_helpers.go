@@ -24,6 +24,5 @@ func Pow10Int(scale uint32) Int {
 	for i := 1; i < len(digits); i++ {
 		digits[i] = '0'
 	}
-	out, _ := ParseInt(digits)
-	return out
+	return Int{Sign: 1, Digits: digits}
 }

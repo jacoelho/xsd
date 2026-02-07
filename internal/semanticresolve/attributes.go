@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	schema "github.com/jacoelho/xsd/internal/semantic"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xsdxml"
@@ -94,7 +93,7 @@ func validateAttributeGroupReference(sch *parser.Schema, agRef, contextQName typ
 // validateNoCyclicAttributeGroups detects cycles between attribute group definitions.
 func validateNoCyclicAttributeGroups(sch *parser.Schema) error {
 	detector := NewCycleDetector[types.QName]()
-	for _, qname := range schema.SortedQNames(sch.AttributeGroups) {
+	for _, qname := range sortedQNames(sch.AttributeGroups) {
 		if err := visitAttributeGroup(sch, qname, detector); err != nil {
 			return err
 		}

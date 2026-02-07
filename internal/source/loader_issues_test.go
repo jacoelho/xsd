@@ -321,7 +321,7 @@ func TestMergeSchemaRollbackOnError(t *testing.T) {
 	}
 }
 
-func TestLoadResolvedClosesDocOnPendingResolveError(t *testing.T) {
+func TestLoadResolvedClosesDocForLoadedSchema(t *testing.T) {
 	loader := &SchemaLoader{
 		state:   newLoadState(),
 		imports: newImportTracker(),
@@ -336,8 +336,8 @@ func TestLoadResolvedClosesDocOnPendingResolveError(t *testing.T) {
 	}}
 
 	doc := &testReadCloser{}
-	if _, err := loader.loadResolved(doc, "schema.xsd", key, validateSchema); err == nil {
-		t.Fatalf("expected pending resolve error")
+	if _, err := loader.loadResolved(doc, "schema.xsd", key); err != nil {
+		t.Fatalf("loadResolved error = %v", err)
 	}
 	if !doc.closed {
 		t.Fatalf("expected doc to be closed")
@@ -553,7 +553,7 @@ func TestLoadResolvedCloseErrorIncludesSystemID(t *testing.T) {
 	doc := &testReadCloser{reader: strings.NewReader(schemaXML), closeErr: closeErr}
 	loader := &SchemaLoader{state: newLoadState(), imports: newImportTracker()}
 	key := loader.loadKey("schema.xsd", types.NamespaceEmpty)
-	if _, err := loader.loadResolved(doc, "schema.xsd", key, skipSchemaValidation); err == nil {
+	if _, err := loader.loadResolved(doc, "schema.xsd", key); err == nil {
 		t.Fatalf("expected close error")
 	} else {
 		if !strings.Contains(err.Error(), "close schema.xsd") {
@@ -565,7 +565,7 @@ func TestLoadResolvedCloseErrorIncludesSystemID(t *testing.T) {
 	}
 }
 
-func TestLoadResolvedCloseErrorJoined(t *testing.T) {
+func TestLoadResolvedCloseErrorForLoadedSchema(t *testing.T) {
 	loader := &SchemaLoader{
 		state:   newLoadState(),
 		imports: newImportTracker(),
@@ -581,10 +581,10 @@ func TestLoadResolvedCloseErrorJoined(t *testing.T) {
 
 	closeErr := errors.New("close failure")
 	doc := &testReadCloser{reader: strings.NewReader(""), closeErr: closeErr}
-	if _, err := loader.loadResolved(doc, "schema.xsd", key, validateSchema); err == nil {
-		t.Fatalf("expected pending resolve error")
+	if _, err := loader.loadResolved(doc, "schema.xsd", key); err == nil {
+		t.Fatalf("expected close error")
 	} else if !errors.Is(err, closeErr) {
-		t.Fatalf("expected close error to be joined")
+		t.Fatalf("expected close error to be preserved")
 	}
 }
 

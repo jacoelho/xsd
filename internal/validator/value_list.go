@@ -97,6 +97,9 @@ func forEachListItem(normalized []byte, fn func([]byte) error) (int, error) {
 }
 
 func listItemCount(normalized []byte) int {
-	count, _ := forEachListItem(normalized, nil)
+	count := 0
+	for range value.FieldsXMLWhitespaceSeq(normalized) {
+		count++
+	}
 	return count
 }

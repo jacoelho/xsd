@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -230,7 +231,7 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *t
 	if ext.Particle == nil {
 		return nil
 	}
-	extElements := collectElementDeclarationsFromParticle(ext.Particle)
+	extElements := traversal.CollectElements(ext.Particle)
 
 	for _, extElem := range extElements {
 		for _, baseElem := range baseElements {
@@ -272,16 +273,16 @@ func collectElementDeclarationsRecursive(schema *parser.Schema, complexType *typ
 	switch c := content.(type) {
 	case *types.ElementContent:
 		if c.Particle != nil {
-			result = append(result, collectElementDeclarationsFromParticle(c.Particle)...)
+			result = append(result, traversal.CollectElements(c.Particle)...)
 		}
 	case *types.ComplexContent:
 		// for extensions, collect from extension particles
 		if c.Extension != nil && c.Extension.Particle != nil {
-			result = append(result, collectElementDeclarationsFromParticle(c.Extension.Particle)...)
+			result = append(result, traversal.CollectElements(c.Extension.Particle)...)
 		}
 		// for restrictions, collect from restriction particles (which restrict base)
 		if c.Restriction != nil && c.Restriction.Particle != nil {
-			result = append(result, collectElementDeclarationsFromParticle(c.Restriction.Particle)...)
+			result = append(result, traversal.CollectElements(c.Restriction.Particle)...)
 		}
 		// also collect from base type recursively
 		var baseQName types.QName
@@ -295,23 +296,6 @@ func collectElementDeclarationsRecursive(schema *parser.Schema, complexType *typ
 				result = append(result, collectElementDeclarationsRecursive(schema, baseCT, visited)...)
 			}
 		}
-	}
-	return result
-}
-
-// collectElementDeclarationsFromParticle collects all element declarations from a particle (recursively)
-func collectElementDeclarationsFromParticle(particle types.Particle) []*types.ElementDecl {
-	var result []*types.ElementDecl
-	switch p := particle.(type) {
-	case *types.ModelGroup:
-		// recursively collect from all particles in the group
-		for _, child := range p.Particles {
-			result = append(result, collectElementDeclarationsFromParticle(child)...)
-		}
-	case *types.ElementDecl:
-		result = append(result, p)
-	case *types.AnyElement:
-		// wildcards don't have element declarations
 	}
 	return result
 }

@@ -3,7 +3,7 @@ package runtime
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 type Builder struct {
@@ -24,8 +24,8 @@ func NewBuilder() *Builder {
 		symbols:    newSymbolBuilder(),
 	}
 	b.emptyNS = b.namespaces.intern(nil)
-	b.xmlNS = b.namespaces.intern([]byte(xsdxml.XMLNamespace))
-	b.xsiNS = b.namespaces.intern([]byte(xsdxml.XSINamespace))
+	b.xmlNS = b.namespaces.intern([]byte(xmlstream.XMLNamespace))
+	b.xsiNS = b.namespaces.intern([]byte(xmlstream.XSINamespace))
 
 	b.predef = PredefinedSymbols{
 		XsiType:                      b.symbols.intern(b.xsiNS, []byte("type")),

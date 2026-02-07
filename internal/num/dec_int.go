@@ -78,30 +78,17 @@ func DecFromScaledInt(val Int, scale uint32) Dec {
 	if val.Sign == 0 || len(val.Digits) == 0 {
 		return Dec{}
 	}
-	needed := int(scale)
-	digits := val.Digits
-	var out []byte
-	if val.Sign < 0 {
-		out = append(out, '-')
+	digits := trimLeadingZeros(val.Digits)
+	if len(digits) == 0 || allZeros(digits) {
+		return Dec{}
 	}
-	if scale == 0 {
-		out = append(out, digits...)
-		dec, _ := ParseDec(out)
-		return dec
+	coef := append([]byte(nil), digits...)
+	for scale > 0 && len(coef) > 0 && coef[len(coef)-1] == '0' {
+		coef = coef[:len(coef)-1]
+		scale--
 	}
-	if len(digits) <= needed {
-		out = append(out, '0', '.')
-		for i := 0; i < needed-len(digits); i++ {
-			out = append(out, '0')
-		}
-		out = append(out, digits...)
-		dec, _ := ParseDec(out)
-		return dec
+	if len(coef) == 0 || allZeros(coef) {
+		return Dec{}
 	}
-	idx := len(digits) - needed
-	out = append(out, digits[:idx]...)
-	out = append(out, '.')
-	out = append(out, digits[idx:]...)
-	dec, _ := ParseDec(out)
-	return dec
+	return Dec{Sign: val.Sign, Coef: coef, Scale: scale}
 }

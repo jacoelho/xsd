@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -56,36 +57,10 @@ func validateWildcardDerivation(schema *parser.Schema, ct *types.ComplexType) er
 
 // collectWildcardsFromContent collects all AnyElement wildcards from content model
 func collectWildcardsFromContent(content types.Content) []*types.AnyElement {
-	var result []*types.AnyElement
-	switch c := content.(type) {
-	case *types.ElementContent:
-		if c.Particle != nil {
-			result = append(result, collectWildcardsInParticle(c.Particle)...)
-		}
-	case *types.ComplexContent:
-		if c.Extension != nil && c.Extension.Particle != nil {
-			result = append(result, collectWildcardsInParticle(c.Extension.Particle)...)
-		}
-		if c.Restriction != nil && c.Restriction.Particle != nil {
-			result = append(result, collectWildcardsInParticle(c.Restriction.Particle)...)
-		}
-	}
-	return result
-}
-
-// collectWildcardsInParticle collects all AnyElement wildcards in a particle (recursively)
-func collectWildcardsInParticle(particle types.Particle) []*types.AnyElement {
-	var result []*types.AnyElement
-	switch p := particle.(type) {
-	case *types.ModelGroup:
-		// recursively collect wildcards from all particles in the model group
-		for _, child := range p.Particles {
-			result = append(result, collectWildcardsInParticle(child)...)
-		}
-	case *types.AnyElement:
-		result = append(result, p)
-	}
-	return result
+	return traversal.CollectFromContent(content, func(p types.Particle) (*types.AnyElement, bool) {
+		wildcard, ok := p.(*types.AnyElement)
+		return wildcard, ok
+	})
 }
 
 // wildcardIsSubset checks if wildcard1's namespace constraint is a subset of wildcard2's

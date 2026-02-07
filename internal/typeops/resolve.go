@@ -62,7 +62,10 @@ func ResolveSimpleTypeReference(schema *parser.Schema, qname types.QName) (types
 
 // ResolveSimpleTypeReferenceAllowMissing resolves a simple type QName when present.
 func ResolveSimpleTypeReferenceAllowMissing(schema *parser.Schema, qname types.QName) types.Type {
-	resolved, _ := ResolveTypeQName(schema, qname, TypeReferenceAllowMissing)
+	resolved, err := ResolveTypeQName(schema, qname, TypeReferenceAllowMissing)
+	if err != nil {
+		return nil
+	}
 	return resolved
 }
 

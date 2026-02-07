@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typegraph"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
@@ -111,7 +112,7 @@ func validateAttributeUniqueness(schema *parser.Schema, ct *types.ComplexType) e
 
 	seen := make(map[types.QName]bool)
 	for _, attr := range allAttributes {
-		key := effectiveAttributeQNameForValidation(schema, attr)
+		key := typeops.EffectiveAttributeQName(schema, attr)
 		if seen[key] {
 			return fmt.Errorf("duplicate attribute '%s' in namespace '%s'", attr.Name.Local, attr.Name.Namespace)
 		}
@@ -146,7 +147,7 @@ func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *types.Compl
 	attrs := append([]*types.AttributeDecl{}, ext.Attributes...)
 	attrs = append(attrs, collectAttributesFromGroups(schema, ext.AttrGroups, nil)...)
 	for _, attr := range attrs {
-		key := effectiveAttributeQNameForValidation(schema, attr)
+		key := typeops.EffectiveAttributeQName(schema, attr)
 		if _, exists := baseAttrs[key]; exists {
 			return fmt.Errorf("extension attribute '%s' in namespace '%s' duplicates base attribute", attr.Name.Local, attr.Name.Namespace)
 		}
@@ -159,7 +160,7 @@ func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *types.Compl
 func validateAttributeGroupUniqueness(schema *parser.Schema, ag *types.AttributeGroup) error {
 	seen := make(map[types.QName]bool)
 	for _, attr := range ag.Attributes {
-		key := effectiveAttributeQNameForValidation(schema, attr)
+		key := typeops.EffectiveAttributeQName(schema, attr)
 		if seen[key] {
 			return fmt.Errorf("duplicate attribute '%s' in namespace '%s'", attr.Name.Local, attr.Name.Namespace)
 		}
@@ -205,7 +206,7 @@ func collectEffectiveAttributeUses(schema *parser.Schema, ct *types.ComplexType)
 
 func mergeAttributesFromTypeForValidation(schema *parser.Schema, ct *types.ComplexType, attrMap map[types.QName]*types.AttributeDecl) {
 	addAttr := func(attr *types.AttributeDecl) {
-		key := effectiveAttributeQNameForValidation(schema, attr)
+		key := typeops.EffectiveAttributeQName(schema, attr)
 		if attr.Use == types.Prohibited && !attr.HasFixed {
 			delete(attrMap, key)
 			return
@@ -257,7 +258,7 @@ func mergeAttributesFromGroupForValidation(schema *parser.Schema, ag *types.Attr
 		}
 		visited[current] = true
 		for _, attr := range current.Attributes {
-			key := effectiveAttributeQNameForValidation(schema, attr)
+			key := typeops.EffectiveAttributeQName(schema, attr)
 			if attr.Use == types.Prohibited && !attr.HasFixed {
 				delete(attrMap, key)
 				continue
@@ -291,36 +292,4 @@ func collectAttributesFromGroups(schema *parser.Schema, agRefs []types.QName, vi
 		result = append(result, collectAttributesFromGroups(schema, ag.AttrGroups, visited)...)
 	}
 	return result
-}
-
-// effectiveAttributeQNameForValidation returns the effective QName for an attribute
-// considering form defaults and namespace qualification
-func effectiveAttributeQNameForValidation(sch *parser.Schema, attr *types.AttributeDecl) types.QName {
-	if attr.IsReference {
-		return attr.Name
-	}
-	form := attr.Form
-	if form == types.FormDefault {
-		if sch.AttributeFormDefault == parser.Qualified {
-			form = types.FormQualified
-		} else {
-			form = types.FormUnqualified
-		}
-	}
-	if form == types.FormQualified {
-		if attr.SourceNamespace != "" {
-			return types.QName{
-				Namespace: attr.SourceNamespace,
-				Local:     attr.Name.Local,
-			}
-		}
-		return types.QName{
-			Namespace: sch.TargetNamespace,
-			Local:     attr.Name.Local,
-		}
-	}
-	return types.QName{
-		Namespace: "",
-		Local:     attr.Name.Local,
-	}
 }

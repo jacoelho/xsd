@@ -250,7 +250,7 @@ func (s *loadSession) loadDirectiveSchema(
 		}, nil
 	}
 
-	loadedSchema, err := s.loader.loadResolved(doc, systemID, targetKey, skipSchemaValidation)
+	loadedSchema, err := s.loader.loadResolved(doc, systemID, targetKey)
 	if err != nil {
 		return directiveLoadResult{}, err
 	}

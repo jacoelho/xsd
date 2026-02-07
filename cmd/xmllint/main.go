@@ -111,7 +111,9 @@ func writeMemProfile(path string) error {
 	}
 	runtime.GC()
 	if err := pprof.WriteHeapProfile(f); err != nil {
-		_ = f.Close()
+		if closeErr := f.Close(); closeErr != nil {
+			return fmt.Errorf("write mem profile %s: %w (close failed: %w)", path, err, closeErr)
+		}
 		return fmt.Errorf("write mem profile %s: %w", path, err)
 	}
 	if err := f.Close(); err != nil {
