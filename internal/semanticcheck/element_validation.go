@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	fieldresolve "github.com/jacoelho/xsd/internal/fieldresolve"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -46,11 +47,11 @@ func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl
 	// so we don't fail validation if resolution fails - it will be caught later
 	for _, constraint := range decl.Constraints {
 		for i := range constraint.Fields {
-			resolvedType, err := ResolveFieldType(schema, &constraint.Fields[i], decl, constraint.Selector.XPath, constraint.NamespaceContext)
+			resolvedType, err := fieldresolve.ResolveFieldType(schema, &constraint.Fields[i], decl, constraint.Selector.XPath, constraint.NamespaceContext)
 			if err != nil {
 				// Nillable element check only applies to xs:key constraints
 				// For xs:unique and xs:keyref, nillable elements are allowed (nil values are excluded)
-				if errors.Is(err, ErrFieldSelectsNillable) {
+				if errors.Is(err, fieldresolve.ErrFieldSelectsNillable) {
 					if resolvedType != nil {
 						constraint.Fields[i].ResolvedType = resolvedType
 					}
@@ -60,25 +61,25 @@ func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl
 					// For unique/keyref, ignore nillable error and continue
 					continue
 				}
-				if errors.Is(err, ErrFieldSelectsComplexContent) {
+				if errors.Is(err, fieldresolve.ErrFieldSelectsComplexContent) {
 					continue
 				}
 				// For union fields with incompatible types, report the error during structure validation
 				// UNLESS it's due to selector union (which is allowed - field can have different types for different selector paths)
 				// (reference validation will allow them if needed)
-				if errors.Is(err, ErrFieldXPathIncompatibleTypes) {
+				if errors.Is(err, fieldresolve.ErrFieldXPathIncompatibleTypes) {
 					// Check if error was converted to unresolvable (which means selector union allowed it)
-					if !errors.Is(err, ErrXPathUnresolvable) {
+					if !errors.Is(err, fieldresolve.ErrXPathUnresolvable) {
 						return fmt.Errorf("identity constraint '%s': field %d '%s': %w", constraint.Name, i+1, constraint.Fields[i].XPath, err)
 					}
 					// If it was converted to unresolvable, treat as unresolvable (allow it)
 				}
 				// For other errors (unresolvable), leave ResolvedType as nil - will be caught during reference validation
-				if errors.Is(err, ErrXPathUnresolvable) {
+				if errors.Is(err, fieldresolve.ErrXPathUnresolvable) {
 					continue
 				}
 				// For incompatible types that weren't converted, report the error
-				if errors.Is(err, ErrFieldXPathIncompatibleTypes) {
+				if errors.Is(err, fieldresolve.ErrFieldXPathIncompatibleTypes) {
 					return fmt.Errorf("identity constraint '%s': field %d '%s': %w", constraint.Name, i+1, constraint.Fields[i].XPath, err)
 				}
 				continue

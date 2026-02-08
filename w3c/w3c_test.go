@@ -16,7 +16,6 @@ import (
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/pipeline"
 	"github.com/jacoelho/xsd/internal/runtime"
-	runtimebuild "github.com/jacoelho/xsd/internal/runtimecompile"
 	loader "github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validator"
@@ -1318,7 +1317,13 @@ func (r *W3CTestRunner) loadSchemaFromPath(schemaPath string) (*runtime.Schema, 
 		r.schemaCache[key] = schemaCacheEntry{err: err}
 		return nil, err
 	}
-	schema, err := runtimebuild.BuildSchema(parsed, runtimebuild.BuildConfig{})
+	prepared, err := pipeline.Prepare(parsed)
+	if err != nil {
+		err = fmt.Errorf("prepare schema %s: %w", schemaPath, err)
+		r.schemaCache[key] = schemaCacheEntry{err: err}
+		return nil, err
+	}
+	schema, err := prepared.BuildRuntime(pipeline.CompileConfig{})
 	if err != nil {
 		err = fmt.Errorf("build runtime schema %s: %w", schemaPath, err)
 		r.schemaCache[key] = schemaCacheEntry{err: err}

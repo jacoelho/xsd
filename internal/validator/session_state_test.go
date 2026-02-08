@@ -10,7 +10,7 @@ import (
 func TestSessionReset(t *testing.T) {
 	s := &Session{}
 	s.elemStack = []elemFrame{{name: 1}, {name: 2}}
-	s.nsStack = []nsFrame{{off: 1, len: 2}}
+	s.nsStack.Push(nsFrame{off: 1, len: 2})
 	s.nameMap = []nameEntry{{LocalOff: 1, LocalLen: 2}}
 	s.nameMapSparse = map[NameID]nameEntry{1: {LocalOff: 1, LocalLen: 2}}
 	s.nameLocal = []byte("local")
@@ -20,10 +20,11 @@ func TestSessionReset(t *testing.T) {
 	s.errBuf = []byte("err")
 	s.validationErrors = []xsderrors.Validation{{Code: "x"}}
 	s.icState.active = true
-	s.icState.frames = []rtIdentityFrame{{id: 1}, {id: 2}}
-	s.icState.scopes = []rtIdentityScope{{rootID: 1}}
-	s.icState.violations = []error{dummyError{}}
-	s.icState.pending = []error{dummyError{}}
+	s.icState.frames.Push(rtIdentityFrame{id: 1})
+	s.icState.frames.Push(rtIdentityFrame{id: 2})
+	s.icState.scopes.Push(rtIdentityScope{rootID: 1})
+	s.icState.uncommittedViolations = []error{dummyError{}}
+	s.icState.committedViolations = []error{dummyError{}}
 	s.prefixCache = []prefixEntry{{hash: 1}}
 	s.attrSeenTable = []attrSeenEntry{{hash: 1, idx: 1}}
 
@@ -32,8 +33,8 @@ func TestSessionReset(t *testing.T) {
 	if len(s.elemStack) != 0 {
 		t.Fatalf("elemStack len = %d, want 0", len(s.elemStack))
 	}
-	if len(s.nsStack) != 0 {
-		t.Fatalf("nsStack len = %d, want 0", len(s.nsStack))
+	if s.nsStack.Len() != 0 {
+		t.Fatalf("nsStack len = %d, want 0", s.nsStack.Len())
 	}
 	if len(s.nameMap) != 0 {
 		t.Fatalf("nameMap len = %d, want 0", len(s.nameMap))
@@ -56,10 +57,10 @@ func TestSessionReset(t *testing.T) {
 	if s.icState.active {
 		t.Fatalf("identity state not reset")
 	}
-	if len(s.icState.frames) != 0 || len(s.icState.scopes) != 0 {
+	if s.icState.frames.Len() != 0 || s.icState.scopes.Len() != 0 {
 		t.Fatalf("identity stacks not reset")
 	}
-	if len(s.icState.violations) != 0 || len(s.icState.pending) != 0 {
+	if len(s.icState.uncommittedViolations) != 0 || len(s.icState.committedViolations) != 0 {
 		t.Fatalf("identity state results not reset")
 	}
 	if len(s.prefixCache) != 0 || len(s.attrSeenTable) != 0 {

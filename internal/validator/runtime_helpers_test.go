@@ -5,11 +5,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/pipeline"
 	"github.com/jacoelho/xsd/internal/runtime"
-	runtimebuild "github.com/jacoelho/xsd/internal/runtimecompile"
-	schema "github.com/jacoelho/xsd/internal/semantic"
-	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
-	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
 )
 
 func buildRuntimeSchema(schemaXML string) (*runtime.Schema, error) {
@@ -17,23 +14,15 @@ func buildRuntimeSchema(schemaXML string) (*runtime.Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	if errs := schemacheck.ValidateStructure(parsed); len(errs) != 0 {
-		return nil, errs[0]
-	}
-	if err := schema.MarkSemantic(parsed); err != nil {
+	validated, err := pipeline.Validate(parsed)
+	if err != nil {
 		return nil, err
 	}
-	if err := resolver.ResolveTypeReferences(parsed); err != nil {
+	prepared, err := pipeline.Transform(validated)
+	if err != nil {
 		return nil, err
 	}
-	if errs := resolver.ValidateReferences(parsed); len(errs) != 0 {
-		return nil, errs[0]
-	}
-	parser.UpdatePlaceholderState(parsed)
-	if err := schema.MarkResolved(parsed); err != nil {
-		return nil, err
-	}
-	return runtimebuild.BuildSchema(parsed, runtimebuild.BuildConfig{})
+	return prepared.BuildRuntime(pipeline.CompileConfig{})
 }
 
 func mustBuildRuntimeSchema(tb testing.TB, schemaXML string) *runtime.Schema {

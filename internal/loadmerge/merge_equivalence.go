@@ -1,0 +1,112 @@
+package loadmerge
+
+import (
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/jacoelho/xsd/internal/types"
+)
+
+func elementDeclEquivalent(a, b *types.ElementDecl) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	if a.Name != b.Name {
+		return false
+	}
+	if a.Nillable != b.Nillable || a.Abstract != b.Abstract || a.SubstitutionGroup != b.SubstitutionGroup {
+		return false
+	}
+	if a.Block != b.Block || a.Final != b.Final {
+		return false
+	}
+	if a.HasFixed != b.HasFixed || a.HasDefault != b.HasDefault {
+		return false
+	}
+	if a.HasFixed && a.Fixed != b.Fixed {
+		return false
+	}
+	if a.HasDefault && a.Default != b.Default {
+		return false
+	}
+	if a.Form != b.Form {
+		return false
+	}
+	if !elementTypesCompatible(a.Type, b.Type) {
+		return false
+	}
+	return identityConstraintsEquivalent(a.Constraints, b.Constraints)
+}
+
+func elementTypesCompatible(a, b types.Type) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	nameA := a.Name()
+	nameB := b.Name()
+	if !nameA.IsZero() || !nameB.IsZero() {
+		return nameA == nameB
+	}
+	return a == b
+}
+
+func identityConstraintsEquivalent(a, b []*types.IdentityConstraint) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	if len(a) == 0 {
+		return true
+	}
+	keysA := make([]string, 0, len(a))
+	for _, constraint := range a {
+		keysA = append(keysA, identityConstraintKey(constraint))
+	}
+	keysB := make([]string, 0, len(b))
+	for _, constraint := range b {
+		keysB = append(keysB, identityConstraintKey(constraint))
+	}
+	slices.Sort(keysA)
+	slices.Sort(keysB)
+	return slices.Equal(keysA, keysB)
+}
+
+func identityConstraintKey(constraint *types.IdentityConstraint) string {
+	if constraint == nil {
+		return "<nil>"
+	}
+	var builder strings.Builder
+	builder.WriteString(constraint.Name)
+	builder.WriteByte('|')
+	builder.WriteString(strconv.Itoa(int(constraint.Type)))
+	builder.WriteByte('|')
+	builder.WriteString(constraint.Selector.XPath)
+	builder.WriteByte('|')
+	builder.WriteString(constraint.ReferQName.String())
+	builder.WriteByte('|')
+	builder.WriteString(string(constraint.TargetNamespace))
+	builder.WriteByte('|')
+	for _, field := range constraint.Fields {
+		builder.WriteString(field.XPath)
+		builder.WriteByte('\x1f')
+	}
+	builder.WriteByte('|')
+	if len(constraint.NamespaceContext) == 0 {
+		return builder.String()
+	}
+	keys := make([]string, 0, len(constraint.NamespaceContext))
+	for key := range constraint.NamespaceContext {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	for _, key := range keys {
+		builder.WriteString(key)
+		builder.WriteByte('=')
+		builder.WriteString(constraint.NamespaceContext[key])
+		builder.WriteByte(';')
+	}
+	return builder.String()
+}

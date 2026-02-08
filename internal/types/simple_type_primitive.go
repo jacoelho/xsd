@@ -42,8 +42,8 @@ func (s *SimpleType) precomputeCaches() {
 	if s == nil {
 		return
 	}
-	_ = s.PrimitiveType()
-	_ = s.FundamentalFacets()
+	s.PrimitiveType()
+	s.FundamentalFacets()
 	s.precomputeIdentityNormalization()
 }
 

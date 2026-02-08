@@ -24,9 +24,7 @@ func TestBuildSchemaMissingAttributeGroupRefFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	sch.Phase = parser.PhaseResolved
-	sch.HasPlaceholders = false
-	if _, err := BuildSchema(sch, BuildConfig{}); err == nil || !strings.Contains(err.Error(), "attributeGroup ref") {
+	if _, err := buildSchemaForTest(sch, BuildConfig{}); err == nil || !strings.Contains(err.Error(), "attribute group") {
 		t.Fatalf("expected missing attributeGroup ref error, got %v", err)
 	}
 }
@@ -62,7 +60,7 @@ func TestBuildSchemaAllGroupSubstitutionMemberMissingID(t *testing.T) {
 	}
 	sch.GlobalDecls = filtered
 
-	if _, err := BuildSchema(sch, BuildConfig{}); err == nil || !strings.Contains(err.Error(), "all group substitution element") {
+	if _, err := buildSchemaForTest(sch, BuildConfig{}); err == nil || !strings.Contains(err.Error(), "all group substitution element") {
 		t.Fatalf("expected missing substitution member ID error, got %v", err)
 	}
 }
@@ -80,10 +78,8 @@ func TestBuildSchemaMissingSubstitutionGroupHeadFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	sch.Phase = parser.PhaseResolved
-	sch.HasPlaceholders = false
 
-	if _, err := BuildSchema(sch, BuildConfig{}); err == nil || !strings.Contains(err.Error(), "substitutionGroup") {
+	if _, err := buildSchemaForTest(sch, BuildConfig{}); err == nil || !strings.Contains(err.Error(), "substitutionGroup") {
 		t.Fatalf("expected missing substitutionGroup head error, got %v", err)
 	}
 }

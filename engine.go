@@ -28,20 +28,14 @@ func newEngine(rt *runtime.Schema, opts ...xmlstream.Option) *engine {
 }
 
 func (e *engine) validate(r io.Reader) error {
-	if e == nil || e.rt == nil {
-		return schemaNotLoadedError()
-	}
-	if r == nil {
-		return nilReaderError()
-	}
-
-	session := e.acquire()
-	err := session.Validate(r)
-	e.release(session)
-	return err
+	return e.validateDocument(r, "")
 }
 
 func (e *engine) validateWithDocument(r io.Reader, document string) error {
+	return e.validateDocument(r, document)
+}
+
+func (e *engine) validateDocument(r io.Reader, document string) error {
 	if e == nil || e.rt == nil {
 		return schemaNotLoadedError()
 	}

@@ -5,9 +5,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/pipeline"
 	schema "github.com/jacoelho/xsd/internal/semantic"
-	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
-	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -17,23 +16,15 @@ func mustResolveSchema(t *testing.T, schemaXML string) *parser.Schema {
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	if errs := schemacheck.ValidateStructure(sch); len(errs) != 0 {
-		t.Fatalf("ValidateStructure errors = %v", errs)
+	validated, err := pipeline.Validate(sch)
+	if err != nil {
+		t.Fatalf("Validate() error = %v", err)
 	}
-	if err := schema.MarkSemantic(sch); err != nil {
-		t.Fatalf("MarkSemantic error = %v", err)
+	resolved, err := validated.SchemaSnapshot()
+	if err != nil {
+		t.Fatalf("SchemaSnapshot() error = %v", err)
 	}
-	if err := resolver.ResolveTypeReferences(sch); err != nil {
-		t.Fatalf("ResolveTypeReferences error = %v", err)
-	}
-	if errs := resolver.ValidateReferences(sch); len(errs) != 0 {
-		t.Fatalf("ValidateReferences errors = %v", errs)
-	}
-	parser.UpdatePlaceholderState(sch)
-	if err := schema.MarkResolved(sch); err != nil {
-		t.Fatalf("MarkResolved error = %v", err)
-	}
-	return sch
+	return resolved
 }
 
 func findLocalElement(t *testing.T, group *types.ModelGroup, local string) *types.ElementDecl {

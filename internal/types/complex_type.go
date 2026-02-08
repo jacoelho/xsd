@@ -92,9 +92,14 @@ func (c *ComplexType) DeclaredNamespace() NamespaceURI {
 
 // Copy creates a copy of the complex type with remapped QNames.
 func (c *ComplexType) Copy(opts CopyOptions) *ComplexType {
+	if existing, ok := opts.lookupComplexType(c); ok {
+		return existing
+	}
 	clone := *c
+	opts.rememberComplexType(c, &clone)
 	clone.QName = opts.RemapQName(c.QName)
-	clone.SourceNamespace = opts.SourceNamespace
+	clone.SourceNamespace = sourceNamespace(c.SourceNamespace, opts)
+	clone.ResolvedBase = CopyType(c.ResolvedBase, opts)
 	clone.attributes = copyAttributeDecls(c.attributes, opts)
 	clone.AttrGroups = copyQNameSlice(c.AttrGroups, opts.RemapQName)
 	clone.anyAttribute = copyAnyAttribute(c.anyAttribute, opts)

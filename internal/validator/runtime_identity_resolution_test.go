@@ -54,7 +54,7 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	pending := sess.icState.drainPending()
+	pending := sess.icState.drainCommitted()
 	if len(pending) != 1 {
 		t.Fatalf("violations = %d, want 1", len(pending))
 	}
@@ -141,7 +141,7 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		if err := sess.identityEnd(identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd root: %v", err)
 		}
-		return len(sess.icState.drainPending())
+		return len(sess.icState.drainCommitted())
 	}
 
 	if got := runCase("two", "one"); got != 1 {

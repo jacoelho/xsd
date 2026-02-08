@@ -7,8 +7,97 @@ import (
 
 // CopyOptions configures how schema components are copied during merge.
 type CopyOptions struct {
-	RemapQName      func(QName) QName
-	SourceNamespace NamespaceURI
+	RemapQName              func(QName) QName
+	SourceNamespace         NamespaceURI
+	PreserveSourceNamespace bool
+	memo                    *copyMemo
+}
+
+type copyMemo struct {
+	simpleTypes  map[*SimpleType]*SimpleType
+	complexTypes map[*ComplexType]*ComplexType
+	modelGroups  map[*ModelGroup]*ModelGroup
+	elementDecls map[*ElementDecl]*ElementDecl
+}
+
+// WithGraphMemo enables cycle-safe graph copy memoization for copy operations.
+func WithGraphMemo(opts CopyOptions) CopyOptions {
+	if opts.memo == nil {
+		opts.memo = &copyMemo{}
+	}
+	return opts
+}
+
+func (opts CopyOptions) lookupSimpleType(src *SimpleType) (*SimpleType, bool) {
+	if src == nil || opts.memo == nil || opts.memo.simpleTypes == nil {
+		return nil, false
+	}
+	dst, ok := opts.memo.simpleTypes[src]
+	return dst, ok
+}
+
+func (opts CopyOptions) rememberSimpleType(src, dst *SimpleType) {
+	if src == nil || dst == nil || opts.memo == nil {
+		return
+	}
+	if opts.memo.simpleTypes == nil {
+		opts.memo.simpleTypes = make(map[*SimpleType]*SimpleType)
+	}
+	opts.memo.simpleTypes[src] = dst
+}
+
+func (opts CopyOptions) lookupComplexType(src *ComplexType) (*ComplexType, bool) {
+	if src == nil || opts.memo == nil || opts.memo.complexTypes == nil {
+		return nil, false
+	}
+	dst, ok := opts.memo.complexTypes[src]
+	return dst, ok
+}
+
+func (opts CopyOptions) rememberComplexType(src, dst *ComplexType) {
+	if src == nil || dst == nil || opts.memo == nil {
+		return
+	}
+	if opts.memo.complexTypes == nil {
+		opts.memo.complexTypes = make(map[*ComplexType]*ComplexType)
+	}
+	opts.memo.complexTypes[src] = dst
+}
+
+func (opts CopyOptions) lookupModelGroup(src *ModelGroup) (*ModelGroup, bool) {
+	if src == nil || opts.memo == nil || opts.memo.modelGroups == nil {
+		return nil, false
+	}
+	dst, ok := opts.memo.modelGroups[src]
+	return dst, ok
+}
+
+func (opts CopyOptions) rememberModelGroup(src, dst *ModelGroup) {
+	if src == nil || dst == nil || opts.memo == nil {
+		return
+	}
+	if opts.memo.modelGroups == nil {
+		opts.memo.modelGroups = make(map[*ModelGroup]*ModelGroup)
+	}
+	opts.memo.modelGroups[src] = dst
+}
+
+func (opts CopyOptions) lookupElementDecl(src *ElementDecl) (*ElementDecl, bool) {
+	if src == nil || opts.memo == nil || opts.memo.elementDecls == nil {
+		return nil, false
+	}
+	dst, ok := opts.memo.elementDecls[src]
+	return dst, ok
+}
+
+func (opts CopyOptions) rememberElementDecl(src, dst *ElementDecl) {
+	if src == nil || dst == nil || opts.memo == nil {
+		return
+	}
+	if opts.memo.elementDecls == nil {
+		opts.memo.elementDecls = make(map[*ElementDecl]*ElementDecl)
+	}
+	opts.memo.elementDecls[src] = dst
 }
 
 // NilRemap returns qname unchanged (for non-chameleon merges)
@@ -38,7 +127,7 @@ func copyAnyElement(elem *AnyElement, opts CopyOptions) *AnyElement {
 		return nil
 	}
 	clone := *elem
-	if clone.TargetNamespace.IsEmpty() && !opts.SourceNamespace.IsEmpty() {
+	if !opts.PreserveSourceNamespace && clone.TargetNamespace.IsEmpty() && !opts.SourceNamespace.IsEmpty() {
 		clone.TargetNamespace = opts.SourceNamespace
 	}
 	if len(elem.NamespaceList) > 0 {
@@ -52,7 +141,7 @@ func copyAnyAttribute(attr *AnyAttribute, opts CopyOptions) *AnyAttribute {
 		return nil
 	}
 	clone := *attr
-	if clone.TargetNamespace.IsEmpty() && !opts.SourceNamespace.IsEmpty() {
+	if !opts.PreserveSourceNamespace && clone.TargetNamespace.IsEmpty() && !opts.SourceNamespace.IsEmpty() {
 		clone.TargetNamespace = opts.SourceNamespace
 	}
 	if len(attr.NamespaceList) > 0 {
@@ -121,7 +210,11 @@ func copyIdentityConstraints(constraints []*IdentityConstraint, opts CopyOptions
 			continue
 		}
 		clone := *constraint
-		clone.TargetNamespace = opts.SourceNamespace
+		if opts.PreserveSourceNamespace {
+			clone.TargetNamespace = constraint.TargetNamespace
+		} else {
+			clone.TargetNamespace = opts.SourceNamespace
+		}
 		if !constraint.ReferQName.IsZero() && constraint.ReferQName.Namespace.IsEmpty() {
 			clone.ReferQName = opts.RemapQName(constraint.ReferQName)
 		}
@@ -154,4 +247,11 @@ func copyParticle(particle Particle, opts CopyOptions) Particle {
 	default:
 		return particle
 	}
+}
+
+func sourceNamespace(original NamespaceURI, opts CopyOptions) NamespaceURI {
+	if opts.PreserveSourceNamespace {
+		return original
+	}
+	return opts.SourceNamespace
 }

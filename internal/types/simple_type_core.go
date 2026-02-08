@@ -42,9 +42,6 @@ func NewAtomicSimpleType(name QName, sourceNamespace NamespaceURI, restriction *
 		SourceNamespace: sourceNamespace,
 		Restriction:     restriction,
 	}
-	if restriction != nil && restriction.SimpleType != nil {
-		st.ResolvedBase = restriction.SimpleType
-	}
 	if err := validateSimpleTypeDefinition(st); err != nil {
 		return nil, err
 	}
@@ -142,7 +139,7 @@ func validateSimpleTypeDefinition(simpleType *SimpleType) error {
 	}
 
 	if simpleType.Restriction != nil {
-		if simpleType.Restriction.Base.IsZero() && simpleType.ResolvedBase == nil {
+		if simpleType.Restriction.Base.IsZero() && simpleType.ResolvedBase == nil && simpleType.Restriction.SimpleType == nil {
 			return fmt.Errorf("simpleType restriction must have a base type")
 		}
 		baseType := restrictionBaseType(simpleType)
@@ -280,9 +277,31 @@ func (s *SimpleType) Copy(opts CopyOptions) *SimpleType {
 	if s == nil {
 		return nil
 	}
+	if existing, ok := opts.lookupSimpleType(s); ok {
+		return existing
+	}
 	clone := *s
+	opts.rememberSimpleType(s, &clone)
 	clone.QName = opts.RemapQName(s.QName)
-	clone.SourceNamespace = opts.SourceNamespace
+	clone.SourceNamespace = sourceNamespace(s.SourceNamespace, opts)
+	clone.ResolvedBase = CopyType(s.ResolvedBase, opts)
+	clone.primitiveType = CopyType(s.primitiveType, opts)
+	clone.ItemType = CopyType(s.ItemType, opts)
+	clone.identityListItemType = CopyType(s.identityListItemType, opts)
+	if len(s.MemberTypes) > 0 {
+		memberTypes := make([]Type, len(s.MemberTypes))
+		for i, member := range s.MemberTypes {
+			memberTypes[i] = CopyType(member, opts)
+		}
+		clone.MemberTypes = memberTypes
+	}
+	if len(s.identityMemberTypes) > 0 {
+		identityMemberTypes := make([]Type, len(s.identityMemberTypes))
+		for i, member := range s.identityMemberTypes {
+			identityMemberTypes[i] = CopyType(member, opts)
+		}
+		clone.identityMemberTypes = identityMemberTypes
+	}
 	copyInline := func(inline *SimpleType) *SimpleType {
 		if inline == nil {
 			return nil
@@ -291,7 +310,7 @@ func (s *SimpleType) Copy(opts CopyOptions) *SimpleType {
 		if inline.QName.IsZero() {
 			inlineCopy.QName = inline.QName
 		}
-		inlineCopy.SourceNamespace = opts.SourceNamespace
+		inlineCopy.SourceNamespace = sourceNamespace(inline.SourceNamespace, opts)
 		return inlineCopy
 	}
 	clone.Restriction = copyRestriction(s.Restriction, opts)

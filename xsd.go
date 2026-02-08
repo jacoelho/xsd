@@ -9,8 +9,9 @@ import (
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/contentmodel"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/pipeline"
-	"github.com/jacoelho/xsd/internal/runtimecompile"
+	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
 )
 
@@ -32,6 +33,102 @@ type LoadOptions struct {
 	InstanceMaxAttrs              int
 	InstanceMaxTokenSize          int
 	InstanceMaxQNameInternEntries int
+}
+
+type compilationPipeline struct {
+	opts LoadOptions
+	root string
+	fsys fs.FS
+}
+
+type loadedArtifacts struct {
+	loader *source.SchemaLoader
+}
+
+type parsedArtifacts struct {
+	schema *parser.Schema
+}
+
+type preparedArtifacts struct {
+	prepared *pipeline.PreparedSchema
+}
+
+func newCompilationPipeline(fsys fs.FS, root string, opts LoadOptions) *compilationPipeline {
+	return &compilationPipeline{
+		fsys: fsys,
+		root: root,
+		opts: opts,
+	}
+}
+
+func (p *compilationPipeline) Run() (*runtime.Schema, error) {
+	loaded, err := p.Load()
+	if err != nil {
+		return nil, err
+	}
+	parsed, err := p.Parse(loaded)
+	if err != nil {
+		return nil, err
+	}
+	prepared, err := p.Prepare(parsed)
+	if err != nil {
+		return nil, err
+	}
+	return p.Compile(prepared)
+}
+
+func (p *compilationPipeline) Load() (*loadedArtifacts, error) {
+	if p == nil || p.fsys == nil {
+		return nil, fmt.Errorf("compile schema: nil fs")
+	}
+	loader := source.NewLoader(source.Config{
+		FS:                          p.fsys,
+		AllowMissingImportLocations: p.opts.AllowMissingImportLocations,
+		SchemaParseOptions: buildXMLParseOptions(
+			p.opts.SchemaMaxDepth,
+			p.opts.SchemaMaxAttrs,
+			p.opts.SchemaMaxTokenSize,
+			p.opts.SchemaMaxQNameInternEntries,
+		),
+	})
+	return &loadedArtifacts{loader: loader}, nil
+}
+
+func (p *compilationPipeline) Parse(loaded *loadedArtifacts) (*parsedArtifacts, error) {
+	if loaded == nil || loaded.loader == nil {
+		return nil, fmt.Errorf("compile schema %s: nil schema loader", p.root)
+	}
+	parsed, err := loaded.loader.Load(p.root)
+	if err != nil {
+		return nil, fmt.Errorf("compile schema %s: %w", p.root, err)
+	}
+	return &parsedArtifacts{schema: parsed}, nil
+}
+
+func (p *compilationPipeline) Prepare(parsed *parsedArtifacts) (*preparedArtifacts, error) {
+	if parsed == nil || parsed.schema == nil {
+		return nil, fmt.Errorf("compile schema %s: nil parsed schema", p.root)
+	}
+	validated, err := pipeline.Validate(parsed.schema)
+	if err != nil {
+		return nil, fmt.Errorf("compile schema %s: %w", p.root, err)
+	}
+	prepared, err := pipeline.Transform(validated)
+	if err != nil {
+		return nil, fmt.Errorf("compile schema %s: %w", p.root, err)
+	}
+	return &preparedArtifacts{prepared: prepared}, nil
+}
+
+func (p *compilationPipeline) Compile(prepared *preparedArtifacts) (*runtime.Schema, error) {
+	if prepared == nil || prepared.prepared == nil {
+		return nil, fmt.Errorf("compile schema %s: nil prepared schema", p.root)
+	}
+	rt, err := prepared.prepared.BuildRuntime(buildConfigFrom(p.opts))
+	if err != nil {
+		return nil, fmt.Errorf("compile schema %s: %w", p.root, err)
+	}
+	return rt, nil
 }
 
 // Load loads and compiles a schema from the given filesystem and location.
@@ -83,31 +180,10 @@ func (s *Schema) ValidateFile(path string) error {
 }
 
 func compileFS(fsys fs.FS, root string, opts LoadOptions) (*engine, error) {
-	if fsys == nil {
-		return nil, fmt.Errorf("compile schema: nil fs")
-	}
-
-	l := source.NewLoader(source.Config{
-		FS:                          fsys,
-		AllowMissingImportLocations: opts.AllowMissingImportLocations,
-		SchemaParseOptions: buildXMLParseOptions(
-			opts.SchemaMaxDepth,
-			opts.SchemaMaxAttrs,
-			opts.SchemaMaxTokenSize,
-			opts.SchemaMaxQNameInternEntries,
-		),
-	})
-	parsed, err := l.LoadParsed(root)
+	p := newCompilationPipeline(fsys, root, opts)
+	rt, err := p.Run()
 	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", root, err)
-	}
-	prepared, err := pipeline.Prepare(parsed)
-	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", root, err)
-	}
-	rt, err := runtimecompile.BuildPrepared(prepared, buildConfigFrom(opts))
-	if err != nil {
-		return nil, fmt.Errorf("compile schema %s: %w", root, err)
+		return nil, err
 	}
 	return newEngine(rt, buildXMLParseOptions(
 		opts.InstanceMaxDepth,
@@ -117,8 +193,8 @@ func compileFS(fsys fs.FS, root string, opts LoadOptions) (*engine, error) {
 	)...), nil
 }
 
-func buildConfigFrom(opts LoadOptions) runtimecompile.BuildConfig {
-	return runtimecompile.BuildConfig{
+func buildConfigFrom(opts LoadOptions) pipeline.CompileConfig {
+	return pipeline.CompileConfig{
 		Limits: contentmodel.Limits{
 			MaxDFAStates: opts.MaxDFAStates,
 		},

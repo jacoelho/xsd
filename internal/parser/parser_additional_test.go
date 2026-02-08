@@ -1084,20 +1084,8 @@ func TestParseComplexContentExtension(t *testing.T) {
 	if len(content.Extension.AttrGroups) != 1 || content.Extension.AnyAttribute == nil {
 		t.Fatalf("expected extension attributeGroup and anyAttribute")
 	}
-}
-
-func TestResolveBaseTypeForComplex(t *testing.T) {
-	schema := NewSchema()
-	anyQName := types.QName{Namespace: types.XSDNamespace, Local: "anyType"}
-	base := resolveBaseTypeForComplex(schema, anyQName)
-	if _, ok := base.(*types.BuiltinType); !ok {
-		t.Fatalf("expected anyType to resolve to builtin type")
-	}
-
-	stringQName := types.QName{Namespace: types.XSDNamespace, Local: "string"}
-	base = resolveBaseTypeForComplex(schema, stringQName)
-	if _, ok := base.(*types.BuiltinType); !ok {
-		t.Fatalf("expected string to resolve to builtin type")
+	if ct.ResolvedBase != nil {
+		t.Fatalf("expected parse phase to leave complexType base unresolved")
 	}
 }
 
@@ -1223,6 +1211,47 @@ func TestParseModelGroupNestedAndGroupRef(t *testing.T) {
 	}
 	if _, err := parseModelGroup(doc, seqElem, schema); err != nil {
 		t.Fatalf("parseModelGroup error = %v", err)
+	}
+}
+
+func TestParseModelGroupRejectsEmptyID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		group string
+	}{
+		{name: "all", group: "all"},
+		{name: "choice", group: "choice"},
+		{name: "sequence", group: "sequence"},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			xmlStr := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:group name="g">
+    <xs:` + tt.group + ` id="">
+      <xs:element name="a" type="xs:string"/>
+    </xs:` + tt.group + `>
+  </xs:group>
+</xs:schema>`
+
+			doc := parseDoc(t, xmlStr)
+			root := doc.DocumentElement()
+			groupElem := findElementWithAttr(doc, root, tt.group, "id")
+			if groupElem == xsdxml.InvalidNode {
+				t.Fatalf("expected %s element to be found", tt.group)
+			}
+
+			schema := NewSchema()
+			if _, err := parseModelGroup(doc, groupElem, schema); err == nil {
+				t.Fatalf("expected %s with empty id attribute to fail", tt.group)
+			}
+		})
 	}
 }
 
