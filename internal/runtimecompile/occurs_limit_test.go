@@ -19,7 +19,7 @@ func TestBuildSchemaOccursLimitError(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	parsed := mustResolveSchema(t, schemaXML)
-	_, err := BuildSchema(parsed, BuildConfig{MaxOccursLimit: 1})
+	_, err := buildSchemaForTest(parsed, BuildConfig{MaxOccursLimit: 1})
 	if err == nil {
 		t.Fatalf("expected maxOccurs limit error")
 	}

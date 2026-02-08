@@ -22,7 +22,7 @@ func TestBuildSchema_ResolvesGroupRefs(t *testing.T) {
 </xs:schema>`
 
 	schema := mustResolveSchema(t, schemaXML)
-	if _, err := BuildSchema(schema, BuildConfig{}); err != nil {
+	if _, err := buildSchemaForTest(schema, BuildConfig{}); err != nil {
 		t.Fatalf("BuildSchema error = %v", err)
 	}
 }

@@ -14,7 +14,7 @@ func TestBuildHashDeterministic(t *testing.T) {
 </xs:schema>`
 
 	first := mustResolveSchema(t, schemaXML)
-	rt1, err := BuildSchema(first, BuildConfig{})
+	rt1, err := buildSchemaForTest(first, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build schema: %v", err)
 	}
@@ -23,7 +23,7 @@ func TestBuildHashDeterministic(t *testing.T) {
 	}
 
 	second := mustResolveSchema(t, schemaXML)
-	rt2, err := BuildSchema(second, BuildConfig{})
+	rt2, err := buildSchemaForTest(second, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build schema: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestBuildHashDeterministic(t *testing.T) {
 
 	changedXML := strings.Replace(schemaXML, "root", "root2", 1)
 	third := mustResolveSchema(t, changedXML)
-	rt3, err := BuildSchema(third, BuildConfig{})
+	rt3, err := buildSchemaForTest(third, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build schema: %v", err)
 	}

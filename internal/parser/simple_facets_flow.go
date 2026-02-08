@@ -1,0 +1,100 @@
+package parser
+
+import (
+	"fmt"
+
+	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/xsdxml"
+)
+
+type facetAttributePolicy int
+
+const (
+	facetAttributesDisallowed facetAttributePolicy = iota
+	facetAttributesAllowed
+)
+
+func parseFacets(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema) error {
+	return parseFacetsWithPolicy(doc, restrictionElem, restriction, st, schema, facetAttributesDisallowed)
+}
+
+func parseFacetsWithAttributes(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema) error {
+	return parseFacetsWithPolicy(doc, restrictionElem, restriction, st, schema, facetAttributesAllowed)
+}
+
+// parseFacetsWithPolicy parses facet elements from a restriction element.
+func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema, policy facetAttributePolicy) error {
+	baseType := resolveFacetBaseType(restriction, st, schema)
+
+	for _, child := range doc.Children(restrictionElem) {
+		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+			continue
+		}
+
+		localName := doc.LocalName(child)
+		switch localName {
+		case "annotation":
+			continue
+		case "simpleType":
+			continue
+		case "attribute", "attributeGroup", "anyAttribute":
+			if policy == facetAttributesAllowed {
+				continue
+			}
+			return fmt.Errorf("unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", localName)
+		}
+
+		var (
+			facet types.Facet
+			err   error
+		)
+
+		if localName == "whiteSpace" {
+			if st == nil {
+				if restriction != nil && restriction.SimpleType == nil {
+					restriction.SimpleType = &types.SimpleType{}
+				}
+				st = restriction.SimpleType
+			}
+			if st == nil {
+				continue
+			}
+			err = applyWhiteSpaceFacet(doc, child, st)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		if parser := directFacetParsers[localName]; parser != nil {
+			facet, err = parser(doc, child)
+		} else if localName == "enumeration" {
+			facet, err = parseEnumerationFacet(doc, child, restriction, schema)
+		} else if constructor := orderedFacetConstructors[localName]; constructor != nil {
+			facet, err = parseOrderedFacet(doc, child, restriction, baseType, localName, constructor)
+		} else {
+			return fmt.Errorf("unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", localName)
+		}
+
+		if err != nil {
+			return err
+		}
+		if facet != nil {
+			restriction.Facets = append(restriction.Facets, facet)
+		}
+	}
+
+	for _, facet := range restriction.Facets {
+		if enum, ok := facet.(*types.Enumeration); ok {
+			enum.Seal()
+		}
+	}
+
+	return nil
+}
+
+func resolveFacetBaseType(restriction *types.Restriction, st *types.SimpleType, schema *Schema) types.Type {
+	if st != nil && st.Restriction != nil {
+		return tryResolveBaseType(st.Restriction, schema)
+	}
+	return tryResolveBaseType(restriction, schema)
+}

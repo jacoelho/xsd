@@ -41,23 +41,15 @@ func (b *schemaBuilder) buildElements() error {
 		elem.Block = toRuntimeElemBlock(decl.Block)
 		elem.Final = toRuntimeDerivationSet(decl.Final)
 
-		if def, ok := b.validators.ElementDefaults[entry.ID]; ok {
-			elem.Default = def
-			if key, ok := b.validators.ElementDefaultKeys[entry.ID]; ok {
-				elem.DefaultKey = key
-			}
-			if member, ok := b.validators.ElementDefaultMembers[entry.ID]; ok {
-				elem.DefaultMember = member
-			}
+		if def, ok := b.validators.elementDefault(entry.ID); ok {
+			elem.Default = def.ref
+			elem.DefaultKey = def.key
+			elem.DefaultMember = def.member
 		}
-		if fixed, ok := b.validators.ElementFixed[entry.ID]; ok {
-			elem.Fixed = fixed
-			if key, ok := b.validators.ElementFixedKeys[entry.ID]; ok {
-				elem.FixedKey = key
-			}
-			if member, ok := b.validators.ElementFixedMembers[entry.ID]; ok {
-				elem.FixedMember = member
-			}
+		if fixed, ok := b.validators.elementFixed(entry.ID); ok {
+			elem.Fixed = fixed.ref
+			elem.FixedKey = fixed.key
+			elem.FixedMember = fixed.member
 		}
 
 		b.rt.Elements[id] = elem

@@ -41,8 +41,12 @@ func (m *ModelGroup) MaxOcc() Occurs {
 
 // Copy creates a copy of the model group with remapped QNames.
 func (m *ModelGroup) Copy(opts CopyOptions) *ModelGroup {
+	if existing, ok := opts.lookupModelGroup(m); ok {
+		return existing
+	}
 	clone := *m
-	clone.SourceNamespace = opts.SourceNamespace
+	opts.rememberModelGroup(m, &clone)
+	clone.SourceNamespace = sourceNamespace(m.SourceNamespace, opts)
 	if len(m.Particles) > 0 {
 		clone.Particles = make([]Particle, len(m.Particles))
 		for i, particle := range m.Particles {

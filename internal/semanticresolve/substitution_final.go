@@ -1,0 +1,56 @@
+package semanticresolve
+
+import (
+	"fmt"
+
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/types"
+)
+
+// validateSubstitutionGroupFinal validates that the substitution group member's derivation
+// method is not blocked by the head element's final attribute.
+func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName types.QName, memberDecl, headDecl *types.ElementDecl) error {
+	if headDecl.Final == 0 {
+		return nil
+	}
+
+	memberType := memberDecl.Type
+	headType := headDecl.Type
+
+	if memberType == nil || headType == nil {
+		return nil
+	}
+
+	memberType = typeops.ResolveTypeReference(sch, memberType, typeops.TypeReferenceAllowMissing)
+	headType = typeops.ResolveTypeReference(sch, headType, typeops.TypeReferenceAllowMissing)
+
+	if memberType == nil || headType == nil {
+		return nil
+	}
+
+	if typesMatch(memberType, headType) {
+		return nil
+	}
+
+	current := memberType
+	visited := make(map[types.Type]bool)
+	for current != nil && !typesMatch(current, headType) {
+		if visited[current] {
+			break
+		}
+		visited[current] = true
+
+		base, method, err := derivationStep(sch, current)
+		if err != nil {
+			return fmt.Errorf("resolve substitution group derivation for %s: %w", memberQName, err)
+		}
+		if method != 0 && headDecl.Final.Has(method) {
+			return fmt.Errorf("element %s cannot substitute for %s: head element is final for %s",
+				memberQName, headDecl.Name, derivationMethodLabel(method))
+		}
+		current = base
+	}
+
+	return nil
+}

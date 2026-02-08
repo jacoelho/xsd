@@ -3,6 +3,7 @@ package semanticcheck
 import (
 	"fmt"
 
+	facetengine "github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
@@ -28,12 +29,7 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 			return nil
 		}
 		if sc.Restriction != nil {
-			normalized := types.NormalizeWhiteSpace(value, baseType)
-			facets, err := typeops.CollectRestrictionFacets(schema, sc.Restriction, baseType, convertDeferredFacet)
-			if err != nil {
-				return err
-			}
-			if err := types.ValidateValueAgainstFacets(normalized, baseType, facets, context); err != nil {
+			if err := facetengine.ValidateRestrictionFacets(schema, sc.Restriction, baseType, value, context, convertDeferredFacet); err != nil {
 				return err
 			}
 		}
@@ -46,7 +42,7 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 		if context == nil {
 			return fmt.Errorf("namespace context unavailable for QName/NOTATION value")
 		}
-		if _, err := types.ParseQNameValue(normalized, context); err != nil {
+		if err := facetengine.ValidateQNameContext(normalized, context); err != nil {
 			return err
 		}
 	}
@@ -75,11 +71,7 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 		}
 		for _, member := range memberTypes {
 			if err := validateValueAgainstTypeWithFacets(schema, normalized, member, context, visited); err == nil {
-				facets, ferr := typeops.CollectSimpleTypeFacets(schema, st, convertDeferredFacet)
-				if ferr != nil {
-					return ferr
-				}
-				return types.ValidateValueAgainstFacets(normalized, st, facets, context)
+				return facetengine.ValidateSimpleTypeFacets(schema, st, normalized, context, convertDeferredFacet)
 			}
 		}
 		return fmt.Errorf("value %q does not match any member type of union", normalized)
@@ -93,21 +85,13 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 				return err
 			}
 		}
-		facets, err := typeops.CollectSimpleTypeFacets(schema, st, convertDeferredFacet)
-		if err != nil {
-			return err
-		}
-		return types.ValidateValueAgainstFacets(normalized, st, facets, context)
+		return facetengine.ValidateSimpleTypeFacets(schema, st, normalized, context, convertDeferredFacet)
 	default:
 		if !types.IsQNameOrNotationType(st) {
 			if err := st.Validate(normalized); err != nil {
 				return err
 			}
 		}
-		facets, err := typeops.CollectSimpleTypeFacets(schema, st, convertDeferredFacet)
-		if err != nil {
-			return err
-		}
-		return types.ValidateValueAgainstFacets(normalized, st, facets, context)
+		return facetengine.ValidateSimpleTypeFacets(schema, st, normalized, context, convertDeferredFacet)
 	}
 }

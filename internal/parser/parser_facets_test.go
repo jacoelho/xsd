@@ -136,7 +136,7 @@ func TestParser_FallbackToStringFacets_UserDefinedType(t *testing.T) {
 	}
 
 	// during parsing, baseType might not be available yet, so facets won't be created
-	// after two-phase resolution in the loader, facets should be created
+	// after semantic resolution in the loader, facets should be created.
 	// for now, we just verify it doesn't crash and the type is parsed correctly
 	qname := types.QName{
 		Namespace: "http://example.com",
@@ -153,7 +153,7 @@ func TestParser_FallbackToStringFacets_UserDefinedType(t *testing.T) {
 	}
 
 	// facets may not be created during parsing if baseType is not available
-	// they will be created during two-phase resolution in the loader
+	// they will be created during semantic resolution in the loader.
 	// so we just verify the type structure is correct
 	if st.Restriction == nil {
 		t.Error("Restriction should not be nil")
@@ -207,15 +207,15 @@ func TestParser_RestrictionWithInlineSimpleType(t *testing.T) {
 		t.Errorf("Restriction.Base should be zero for inline simpleType base, got %v", st.Restriction.Base)
 	}
 
-	// ResolvedBase should be set to the inline simpleType
-	if st.ResolvedBase == nil {
-		t.Fatal("ResolvedBase should be set to the inline simpleType")
+	// parse phase keeps inline base symbolic in Restriction.SimpleType.
+	if st.ResolvedBase != nil {
+		t.Fatal("ResolvedBase should remain unset during parse phase")
 	}
 
 	// verify the inline base type is a SimpleType
-	baseST, ok := st.ResolvedBase.(*types.SimpleType)
-	if !ok {
-		t.Fatalf("ResolvedBase should be a SimpleType, got %T", st.ResolvedBase)
+	baseST := st.Restriction.SimpleType
+	if baseST == nil {
+		t.Fatal("Restriction.SimpleType should be present")
 	}
 
 	// the inline base should have its own restriction with base="xs:string"
@@ -280,15 +280,15 @@ func TestParser_RestrictionWithInlineSimpleTypeUnion(t *testing.T) {
 		t.Errorf("Restriction.Base should be zero for inline simpleType base, got %v", st.Restriction.Base)
 	}
 
-	// ResolvedBase should be set to the inline simpleType
-	if st.ResolvedBase == nil {
-		t.Fatal("ResolvedBase should be set to the inline simpleType")
+	// parse phase keeps inline base symbolic in Restriction.SimpleType.
+	if st.ResolvedBase != nil {
+		t.Fatal("ResolvedBase should remain unset during parse phase")
 	}
 
 	// verify the inline base type is a SimpleType with Union variety
-	baseST, ok := st.ResolvedBase.(*types.SimpleType)
-	if !ok {
-		t.Fatalf("ResolvedBase should be a SimpleType, got %T", st.ResolvedBase)
+	baseST := st.Restriction.SimpleType
+	if baseST == nil {
+		t.Fatal("Restriction.SimpleType should be present")
 	}
 
 	if baseST.Variety() != types.UnionVariety {

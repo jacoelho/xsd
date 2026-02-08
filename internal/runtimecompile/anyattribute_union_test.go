@@ -15,7 +15,7 @@ func TestAnyAttributeUnionNamespaceList(t *testing.T) {
 		t.Fatalf("read schema: %v", err)
 	}
 	parsed := mustResolveSchema(t, string(data))
-	rt, err := BuildSchema(parsed, BuildConfig{})
+	rt, err := buildSchemaForTest(parsed, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build runtime: %v", err)
 	}

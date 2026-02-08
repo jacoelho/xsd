@@ -12,43 +12,45 @@ func (s *SimpleType) precomputeIdentityNormalization() {
 	if s == nil {
 		return
 	}
-	typeCacheMu.Lock()
+	guard := s.guard()
+	guard.mu.Lock()
 	for !s.identityNormalizationReady && s.identityNormalizationComputing {
-		typeCacheCond.Wait()
+		guard.cond.Wait()
 	}
 	if s.identityNormalizationReady {
-		typeCacheMu.Unlock()
+		guard.mu.Unlock()
 		return
 	}
 	s.identityNormalizationComputing = true
-	typeCacheMu.Unlock()
+	guard.mu.Unlock()
 
 	if s.Variety() == AtomicVariety {
-		typeCacheMu.Lock()
-		defer typeCacheMu.Unlock()
+		guard.mu.Lock()
+		defer guard.mu.Unlock()
 		s.identityNormalizable = true
 		s.identityNormalizationReady = true
 		s.identityNormalizationComputing = false
-		typeCacheCond.Broadcast()
+		guard.cond.Broadcast()
 		return
 	}
 	state := make(map[*SimpleType]identityNormalizationState)
 	precomputeIdentityNormalization(s, state)
 
-	typeCacheMu.Lock()
-	defer typeCacheMu.Unlock()
+	guard.mu.Lock()
+	defer guard.mu.Unlock()
 	s.identityNormalizationComputing = false
-	typeCacheCond.Broadcast()
+	guard.cond.Broadcast()
 }
 
 func precomputeIdentityNormalization(s *SimpleType, state map[*SimpleType]identityNormalizationState) bool {
 	if s == nil {
 		return false
 	}
-	typeCacheMu.RLock()
+	guard := s.guard()
+	guard.mu.RLock()
 	ready := s.identityNormalizationReady
 	normalizable := s.identityNormalizable
-	typeCacheMu.RUnlock()
+	guard.mu.RUnlock()
 	if ready {
 		return normalizable
 	}
@@ -89,8 +91,8 @@ func precomputeIdentityNormalization(s *SimpleType, state map[*SimpleType]identi
 		calculatedNormalizable = true
 	}
 
-	typeCacheMu.Lock()
-	defer typeCacheMu.Unlock()
+	guard.mu.Lock()
+	defer guard.mu.Unlock()
 	s.identityNormalizable = calculatedNormalizable
 	s.identityListItemType = listItem
 	if s.Variety() == UnionVariety {
@@ -135,15 +137,16 @@ func IdentityNormalizable(typ Type) bool {
 		return false
 	}
 	if st, ok := AsSimpleType(typ); ok {
-		typeCacheMu.RLock()
+		guard := st.guard()
+		guard.mu.RLock()
 		ready := st.identityNormalizationReady
 		normalizable := st.identityNormalizable
-		typeCacheMu.RUnlock()
+		guard.mu.RUnlock()
 		if !ready {
 			st.precomputeIdentityNormalization()
-			typeCacheMu.RLock()
+			guard.mu.RLock()
 			normalizable = st.identityNormalizable
-			typeCacheMu.RUnlock()
+			guard.mu.RUnlock()
 		}
 		return normalizable
 	}
@@ -160,15 +163,16 @@ func IdentityListItemType(typ Type) (Type, bool) {
 		if st.Variety() != ListVariety {
 			return nil, false
 		}
-		typeCacheMu.RLock()
+		guard := st.guard()
+		guard.mu.RLock()
 		ready := st.identityNormalizationReady
 		listItem := st.identityListItemType
-		typeCacheMu.RUnlock()
+		guard.mu.RUnlock()
 		if !ready {
 			st.precomputeIdentityNormalization()
-			typeCacheMu.RLock()
+			guard.mu.RLock()
 			listItem = st.identityListItemType
-			typeCacheMu.RUnlock()
+			guard.mu.RUnlock()
 		}
 		if listItem == nil {
 			return nil, false
@@ -191,15 +195,16 @@ func IdentityMemberTypes(typ Type) []Type {
 	if !ok || st.Variety() != UnionVariety {
 		return nil
 	}
-	typeCacheMu.RLock()
+	guard := st.guard()
+	guard.mu.RLock()
 	ready := st.identityNormalizationReady
 	members := st.identityMemberTypes
-	typeCacheMu.RUnlock()
+	guard.mu.RUnlock()
 	if !ready {
 		st.precomputeIdentityNormalization()
-		typeCacheMu.RLock()
+		guard.mu.RLock()
 		members = st.identityMemberTypes
-		typeCacheMu.RUnlock()
+		guard.mu.RUnlock()
 	}
 	return members
 }

@@ -4,47 +4,44 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
-
-func TestAssignIDsRequiresResolved(t *testing.T) {
-	sch := parser.NewSchema()
-	sch.Phase = parser.PhaseParsed
-	if _, err := AssignIDs(sch); err == nil {
-		t.Fatalf("expected AssignIDs to reject non-resolved schema")
-	}
-}
 
 func TestAssignIDsRejectsPlaceholders(t *testing.T) {
 	sch := parser.NewSchema()
-	sch.Phase = parser.PhaseResolved
-	sch.HasPlaceholders = true
+	name := types.QName{Namespace: "urn:test", Local: "MissingType"}
+	sch.TypeDefs[name] = types.NewPlaceholderSimpleType(name)
+	sch.GlobalDecls = append(sch.GlobalDecls, parser.GlobalDecl{
+		Kind: parser.GlobalDeclType,
+		Name: name,
+	})
 	if _, err := AssignIDs(sch); err == nil {
 		t.Fatalf("expected AssignIDs to reject placeholders")
 	}
 }
 
-func TestResolveReferencesRequiresResolved(t *testing.T) {
-	sch := parser.NewSchema()
-	sch.Phase = parser.PhaseParsed
-	if _, err := ResolveReferences(sch, newRegistry()); err == nil {
-		t.Fatalf("expected ResolveReferences to reject non-resolved schema")
-	}
-}
-
 func TestResolveReferencesRejectsPlaceholders(t *testing.T) {
 	sch := parser.NewSchema()
-	sch.Phase = parser.PhaseResolved
-	sch.HasPlaceholders = true
+	name := types.QName{Namespace: "urn:test", Local: "MissingType"}
+	sch.TypeDefs[name] = types.NewPlaceholderSimpleType(name)
+	sch.GlobalDecls = append(sch.GlobalDecls, parser.GlobalDecl{
+		Kind: parser.GlobalDeclType,
+		Name: name,
+	})
 	if _, err := ResolveReferences(sch, newRegistry()); err == nil {
 		t.Fatalf("expected ResolveReferences to reject placeholders")
 	}
 }
 
-func TestMarkResolvedRejectsPlaceholders(t *testing.T) {
+func TestRequireResolvedRejectsPlaceholders(t *testing.T) {
 	sch := parser.NewSchema()
-	sch.Phase = parser.PhaseSemantic
-	sch.HasPlaceholders = true
-	if err := MarkResolved(sch); err == nil {
-		t.Fatalf("expected MarkResolved to reject placeholders")
+	name := types.QName{Namespace: "urn:test", Local: "MissingType"}
+	sch.TypeDefs[name] = types.NewPlaceholderSimpleType(name)
+	sch.GlobalDecls = append(sch.GlobalDecls, parser.GlobalDecl{
+		Kind: parser.GlobalDeclType,
+		Name: name,
+	})
+	if err := RequireResolved(sch); err == nil {
+		t.Fatalf("expected RequireResolved to reject placeholders")
 	}
 }

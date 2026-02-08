@@ -76,7 +76,19 @@ func TestReferenceResolution(t *testing.T) {
   </xs:group>
 </xs:schema>`
 
-	sch := mustResolveSchema(t, schemaXML)
+	sch, err := parser.Parse(strings.NewReader(schemaXML))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if errs := schemacheck.ValidateStructure(sch); len(errs) != 0 {
+		t.Fatalf("ValidateStructure errors = %v", errs)
+	}
+	if err := resolver.NewResolver(sch).Resolve(); err != nil {
+		t.Fatalf("Resolve error = %v", err)
+	}
+	if errs := resolver.ValidateReferences(sch); len(errs) != 0 {
+		t.Fatalf("ValidateReferences errors = %v", errs)
+	}
 	registry, err := schema.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
@@ -145,9 +157,6 @@ func TestReferenceResolutionMissing(t *testing.T) {
 	}
 	if errs := schemacheck.ValidateStructure(sch); len(errs) != 0 {
 		t.Fatalf("ValidateStructure errors = %v", errs)
-	}
-	if err := schema.MarkSemantic(sch); err != nil {
-		t.Fatalf("MarkSemantic error = %v", err)
 	}
 	if errs := resolver.ValidateReferences(sch); len(errs) == 0 {
 		t.Fatalf("expected missing type to fail reference validation")

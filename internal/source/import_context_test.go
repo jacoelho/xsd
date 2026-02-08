@@ -3,6 +3,7 @@ package source
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -29,7 +30,7 @@ func TestMergeImportContextsKeepsDistinctKeys(t *testing.T) {
 		},
 	}
 
-	if err := loader.mergeSchema(left, right, mergeInclude, keepNamespace, len(left.GlobalDecls)); err != nil {
+	if err := loader.mergeSchema(left, right, loadmerge.MergeInclude, loadmerge.KeepNamespace, len(left.GlobalDecls)); err != nil {
 		t.Fatalf("mergeSchema error = %v", err)
 	}
 	if len(left.ImportContexts) != 2 {

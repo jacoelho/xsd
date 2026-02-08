@@ -131,12 +131,10 @@ func (s *Session) finalizeIdentity() []error {
 	if s == nil {
 		return nil
 	}
-	if len(s.icState.violations) > 0 {
-		errs := append([]error(nil), s.icState.violations...)
-		s.icState.violations = s.icState.violations[:0]
+	if errs := s.icState.drainUncommitted(); len(errs) > 0 {
 		return errs
 	}
-	if pending := s.icState.drainPending(); len(pending) > 0 {
+	if pending := s.icState.drainCommitted(); len(pending) > 0 {
 		return pending
 	}
 	return nil

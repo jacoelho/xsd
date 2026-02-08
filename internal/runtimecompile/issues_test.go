@@ -291,7 +291,7 @@ func TestUnionWhitespaceNormalizationDuringCompile(t *testing.T) {
 </xs:schema>`
 
 	parsed := mustResolveSchema(t, schemaXML)
-	if _, err := BuildSchema(parsed, BuildConfig{}); err != nil {
+	if _, err := buildSchemaForTest(parsed, BuildConfig{}); err != nil {
 		t.Fatalf("build schema: %v", err)
 	}
 }
@@ -315,7 +315,7 @@ func TestUnionPatternCollapseDuringCompile(t *testing.T) {
 </xs:schema>`
 
 	parsed := mustResolveSchema(t, schemaXML)
-	if _, err := BuildSchema(parsed, BuildConfig{}); err == nil {
+	if _, err := buildSchemaForTest(parsed, BuildConfig{}); err == nil {
 		t.Fatalf("expected compile error for union pattern violating collapsed lexical form")
 	}
 }
@@ -419,7 +419,7 @@ func TestUnionValidatorMismatchReturnsError(t *testing.T) {
 func mustBuildRuntimeSchema(t *testing.T, schemaXML string) *runtime.Schema {
 	t.Helper()
 	parsed := mustResolveSchema(t, schemaXML)
-	rt, err := BuildSchema(parsed, BuildConfig{})
+	rt, err := buildSchemaForTest(parsed, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build schema: %v", err)
 	}

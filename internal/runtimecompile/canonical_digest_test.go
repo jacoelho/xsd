@@ -133,7 +133,7 @@ func buildDigest(t *testing.T, schemaXML string) [32]byte {
 	t.Helper()
 
 	parsed := mustResolveSchema(t, schemaXML)
-	rt, err := BuildSchema(parsed, BuildConfig{})
+	rt, err := buildSchemaForTest(parsed, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build schema: %v", err)
 	}

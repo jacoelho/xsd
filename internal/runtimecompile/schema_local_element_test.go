@@ -27,7 +27,7 @@ func TestBuildSchema_LocalElementShadowsGlobalByQName(t *testing.T) {
 </xs:schema>`
 
 	schema := mustResolveSchema(t, schemaXML)
-	rt, err := BuildSchema(schema, BuildConfig{})
+	rt, err := buildSchemaForTest(schema, BuildConfig{})
 	if err != nil {
 		t.Fatalf("BuildSchema error = %v", err)
 	}

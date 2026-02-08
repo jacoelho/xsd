@@ -1,13 +1,14 @@
 package runtimecompile
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/schemaflow"
 	schema "github.com/jacoelho/xsd/internal/semantic"
-	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
-	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
 )
 
 func resolveSchema(schemaXML string) (*parser.Schema, error) {
@@ -15,23 +16,11 @@ func resolveSchema(schemaXML string) (*parser.Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	if errs := schemacheck.ValidateStructure(sch); len(errs) != 0 {
-		return nil, errs[0]
-	}
-	if err := schema.MarkSemantic(sch); err != nil {
+	resolved, err := schemaflow.ResolveAndValidate(sch)
+	if err != nil {
 		return nil, err
 	}
-	if err := resolver.ResolveTypeReferences(sch); err != nil {
-		return nil, err
-	}
-	if errs := resolver.ValidateReferences(sch); len(errs) != 0 {
-		return nil, errs[0]
-	}
-	parser.UpdatePlaceholderState(sch)
-	if err := schema.MarkResolved(sch); err != nil {
-		return nil, err
-	}
-	return sch, nil
+	return resolved, nil
 }
 
 func parseAndAssign(schemaXML string) (*parser.Schema, *schema.Registry, error) {
@@ -56,4 +45,29 @@ func mustResolveSchema(tb testing.TB, schemaXML string) *parser.Schema {
 		tb.Fatalf("parse schema: %v", err)
 	}
 	return sch
+}
+
+func buildSchemaForTest(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, error) {
+	if sch == nil {
+		return nil, fmt.Errorf("runtime build: schema is nil")
+	}
+	resolvedSchema, err := schemaflow.ResolveAndValidate(sch)
+	if err != nil {
+		return nil, fmt.Errorf("runtime build: %w", err)
+	}
+	reg, err := schema.AssignIDs(resolvedSchema)
+	if err != nil {
+		return nil, fmt.Errorf("runtime build: assign IDs: %w", err)
+	}
+	refs, err := schema.ResolveReferences(resolvedSchema, reg)
+	if err != nil {
+		return nil, fmt.Errorf("runtime build: resolve references: %w", err)
+	}
+	if err := schema.DetectCycles(resolvedSchema); err != nil {
+		return nil, fmt.Errorf("runtime build: detect cycles: %w", err)
+	}
+	if err := schema.ValidateUPA(resolvedSchema, reg); err != nil {
+		return nil, fmt.Errorf("runtime build: validate UPA: %w", err)
+	}
+	return BuildArtifacts(resolvedSchema, reg, refs, cfg)
 }

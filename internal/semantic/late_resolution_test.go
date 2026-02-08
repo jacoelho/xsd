@@ -18,7 +18,7 @@ func TestMissingTypeAllowedDuringResolution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	if err := resolver.ResolveTypeReferences(sch); err == nil {
+	if err := resolver.NewResolver(sch).Resolve(); err == nil {
 		t.Fatalf("expected missing type to fail resolution")
 	}
 }

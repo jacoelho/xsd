@@ -21,13 +21,15 @@ func ExampleLoad() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	schema, err := xsd.Load(fsys, "simple.xsd")
+	loaded, err := xsd.Load(fsys, "simple.xsd")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
 	}
-
-	_ = schema
+	if loaded == nil {
+		fmt.Println("Error: schema is nil")
+		return
+	}
 	fmt.Println("Schema loaded successfully")
 	// Output: Schema loaded successfully
 }

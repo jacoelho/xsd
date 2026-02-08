@@ -7,6 +7,8 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
+type mapResolver map[string]string
+
 func (c *compiler) validatorKind(st *types.SimpleType) (runtime.ValidatorKind, error) {
 	primName, err := c.res.primitiveName(st)
 	if err != nil {

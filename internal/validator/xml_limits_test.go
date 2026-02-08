@@ -9,7 +9,6 @@ import (
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
-	"github.com/jacoelho/xsd/pkg/xmltext"
 )
 
 func TestValidateMaxDepth(t *testing.T) {
@@ -78,7 +77,7 @@ func TestValidatePassesQNameInternLimit(t *testing.T) {
 
 	orig := sess.readerFactory
 	sess.readerFactory = func(_ io.Reader, opts ...xmlstream.Option) (*xmlstream.Reader, error) {
-		merged := xmltext.JoinOptions(opts...)
+		merged := xmlstream.JoinOptions(opts...)
 		limit, ok := merged.QNameInternEntries()
 		if !ok || limit != 3 {
 			t.Fatalf("QNameInternEntries = %d, ok=%v, want 3, true", limit, ok)

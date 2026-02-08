@@ -26,8 +26,6 @@ func TestDetectCyclesDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	sch.Phase = parser.PhaseResolved
-	sch.HasPlaceholders = false
 
 	var first string
 	for i := range 5 {

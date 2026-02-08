@@ -18,10 +18,11 @@ func TestElementDefaultEmptyStringPresent(t *testing.T) {
 
 	compiled, reg := compileSchema(t, schemaXML)
 	elemID := elementIDForLocal(t, reg, "empty")
-	ref, ok := compiled.ElementDefaults[elemID]
+	def, ok := compiled.elementDefault(elemID)
 	if !ok {
 		t.Fatalf("missing default for element empty")
 	}
+	ref := def.ref
 	if !ref.Present {
 		t.Fatalf("expected default Present=true")
 	}
@@ -40,10 +41,11 @@ func TestAttributeFixedQNameCanonicalization(t *testing.T) {
 
 	compiled, reg := compileSchema(t, schemaXML)
 	attrID := attributeIDForLocal(t, reg, "q")
-	ref, ok := compiled.AttributeFixed[attrID]
+	fixed, ok := compiled.attributeFixed(attrID)
 	if !ok {
 		t.Fatalf("missing fixed value for attribute q")
 	}
+	ref := fixed.ref
 	if !ref.Present {
 		t.Fatalf("expected fixed Present=true")
 	}
@@ -126,7 +128,7 @@ func TestDefaultAcceptsValidBuiltinDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	if _, err := CompileValidators(sch, reg); err != nil {
+	if _, err := compileValidators(sch, reg); err != nil {
 		t.Fatalf("expected valid defaults, got %v", err)
 	}
 }
@@ -139,10 +141,11 @@ func TestElementFixedTimeLeapSecondOffsetKeyPreservesLeapIdentity(t *testing.T) 
 
 	compiled, reg := compileSchema(t, schemaXML)
 	elemID := elementIDForLocal(t, reg, "root")
-	keyRef, ok := compiled.ElementFixedKeys[elemID]
+	fixed, ok := compiled.elementFixed(elemID)
 	if !ok {
 		t.Fatalf("missing fixed key for element root")
 	}
+	keyRef := fixed.key
 	if keyRef.Kind != runtime.VKDateTime {
 		t.Fatalf("fixed key kind = %d, want %d", keyRef.Kind, runtime.VKDateTime)
 	}

@@ -1,6 +1,9 @@
 package traversal
 
-import "github.com/jacoelho/xsd/internal/types"
+import (
+	"github.com/jacoelho/xsd/internal/state"
+	"github.com/jacoelho/xsd/internal/types"
+)
 
 // GetContentParticle extracts the particle from any content type.
 func GetContentParticle(content types.Content) types.Particle {
@@ -90,17 +93,16 @@ func collectFromParticles[T any](particles []types.Particle, visited map[*types.
 		return nil
 	}
 
-	stack := make([]types.Particle, 0, len(particles))
+	stack := state.NewStateStack[types.Particle](len(particles))
 	for i := len(particles) - 1; i >= 0; i-- {
 		if particles[i] != nil {
-			stack = append(stack, particles[i])
+			stack.Push(particles[i])
 		}
 	}
 
 	var result []T
-	for len(stack) > 0 {
-		particle := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
+	for stack.Len() > 0 {
+		particle, _ := stack.Pop()
 
 		group, ok := particle.(*types.ModelGroup)
 		if ok {
@@ -112,7 +114,7 @@ func collectFromParticles[T any](particles []types.Particle, visited map[*types.
 			}
 			for i := len(group.Particles) - 1; i >= 0; i-- {
 				if child := group.Particles[i]; child != nil {
-					stack = append(stack, child)
+					stack.Push(child)
 				}
 			}
 		}

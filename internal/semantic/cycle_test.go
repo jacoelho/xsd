@@ -14,8 +14,6 @@ func mustParsedResolved(t *testing.T, schemaXML string) *parser.Schema {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	parsedSchema.Phase = parser.PhaseResolved
-	parsedSchema.HasPlaceholders = false
 	return parsedSchema
 }
 

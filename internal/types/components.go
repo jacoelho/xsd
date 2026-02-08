@@ -101,12 +101,16 @@ func (e *ElementDecl) DeclaredNamespace() NamespaceURI {
 
 // Copy creates a copy of the element declaration with remapped QNames.
 func (e *ElementDecl) Copy(opts CopyOptions) *ElementDecl {
+	if existing, ok := opts.lookupElementDecl(e); ok {
+		return existing
+	}
 	clone := *e
+	opts.rememberElementDecl(e, &clone)
 	clone.Name = e.Name
 	if e.IsReference || e.Form != FormUnqualified {
 		clone.Name = opts.RemapQName(e.Name)
 	}
-	clone.SourceNamespace = opts.SourceNamespace
+	clone.SourceNamespace = sourceNamespace(e.SourceNamespace, opts)
 	if e.FixedContext != nil {
 		clone.FixedContext = copyValueNamespaceContext(e.FixedContext, opts)
 	}
@@ -187,7 +191,7 @@ func (a *AttributeDecl) Copy(opts CopyOptions) *AttributeDecl {
 	if a.IsReference || a.Form != FormUnqualified {
 		clone.Name = opts.RemapQName(a.Name)
 	}
-	clone.SourceNamespace = opts.SourceNamespace
+	clone.SourceNamespace = sourceNamespace(a.SourceNamespace, opts)
 	if a.FixedContext != nil {
 		clone.FixedContext = copyValueNamespaceContext(a.FixedContext, opts)
 	}
@@ -226,7 +230,7 @@ func (g *AttributeGroup) DeclaredNamespace() NamespaceURI {
 func (g *AttributeGroup) Copy(opts CopyOptions) *AttributeGroup {
 	clone := *g
 	clone.Name = opts.RemapQName(g.Name)
-	clone.SourceNamespace = opts.SourceNamespace
+	clone.SourceNamespace = sourceNamespace(g.SourceNamespace, opts)
 	clone.Attributes = copyAttributeDecls(g.Attributes, opts)
 	clone.AttrGroups = copyQNameSlice(g.AttrGroups, opts.RemapQName)
 	clone.AnyAttribute = copyAnyAttribute(g.AnyAttribute, opts)
@@ -309,6 +313,6 @@ func (n *NotationDecl) DeclaredNamespace() NamespaceURI {
 func (n *NotationDecl) Copy(opts CopyOptions) *NotationDecl {
 	clone := *n
 	clone.Name = opts.RemapQName(n.Name)
-	clone.SourceNamespace = opts.SourceNamespace
+	clone.SourceNamespace = sourceNamespace(n.SourceNamespace, opts)
 	return &clone
 }

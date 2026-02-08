@@ -1,0 +1,134 @@
+package validator
+
+import (
+	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/value/temporal"
+)
+
+func (s *Session) compareValue(kind runtime.ValidatorKind, canonical, bound []byte, metrics *valueMetrics) (int, error) {
+	switch kind {
+	case runtime.VDecimal:
+		val, err := s.decForCanonical(canonical, metrics)
+		if err != nil {
+			return 0, err
+		}
+		boundVal, perr := num.ParseDec(bound)
+		if perr != nil {
+			return 0, valueErrorMsg(valueErrInvalid, "invalid decimal")
+		}
+		return val.Compare(boundVal), nil
+	case runtime.VInteger:
+		val, err := s.intForCanonical(canonical, metrics)
+		if err != nil {
+			return 0, err
+		}
+		boundVal, perr := num.ParseInt(bound)
+		if perr != nil {
+			return 0, valueErrorMsg(valueErrInvalid, "invalid integer")
+		}
+		return val.Compare(boundVal), nil
+	case runtime.VDuration:
+		val, err := types.ParseXSDDuration(string(canonical))
+		if err != nil {
+			return 0, valueErrorMsg(valueErrInvalid, err.Error())
+		}
+		boundVal, err := types.ParseXSDDuration(string(bound))
+		if err != nil {
+			return 0, valueErrorMsg(valueErrInvalid, err.Error())
+		}
+		cmp, err := types.ComparableXSDDuration{Value: val}.Compare(types.ComparableXSDDuration{Value: boundVal})
+		if err != nil {
+			return 0, valueErrorMsg(valueErrFacet, err.Error())
+		}
+		return cmp, nil
+	case runtime.VDateTime, runtime.VTime, runtime.VDate, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
+		valTemporal, err := parseTemporalForKind(kind, canonical)
+		if err != nil {
+			return 0, err
+		}
+		boundTemporal, err := parseTemporalForKind(kind, bound)
+		if err != nil {
+			return 0, err
+		}
+		cmp, err := temporal.Compare(valTemporal, boundTemporal)
+		if err != nil {
+			return 0, valueErrorMsg(valueErrFacet, err.Error())
+		}
+		return cmp, nil
+	default:
+		return 0, valueErrorf(valueErrInvalid, "unsupported comparable type %d", kind)
+	}
+}
+
+func (s *Session) checkFloat32Range(op runtime.FacetOp, canonical, bound []byte, metrics *valueMetrics) error {
+	val, valClass, err := s.float32ForCanonical(canonical, metrics)
+	if err != nil {
+		return err
+	}
+	boundVal, boundClass, perr := num.ParseFloat32(bound)
+	if perr != nil {
+		return valueErrorMsg(valueErrInvalid, "invalid float")
+	}
+	if boundClass == num.FloatNaN || valClass == num.FloatNaN {
+		return rangeViolation(op)
+	}
+	cmp, _ := num.CompareFloat32(val, valClass, boundVal, boundClass)
+	return compareRange(op, cmp)
+}
+
+func (s *Session) checkFloat64Range(op runtime.FacetOp, canonical, bound []byte, metrics *valueMetrics) error {
+	val, valClass, err := s.float64ForCanonical(canonical, metrics)
+	if err != nil {
+		return err
+	}
+	boundVal, boundClass, perr := num.ParseFloat64(bound)
+	if perr != nil {
+		return valueErrorMsg(valueErrInvalid, "invalid double")
+	}
+	if boundClass == num.FloatNaN || valClass == num.FloatNaN {
+		return rangeViolation(op)
+	}
+	cmp, _ := num.CompareFloat64(val, valClass, boundVal, boundClass)
+	return compareRange(op, cmp)
+}
+
+func compareRange(op runtime.FacetOp, cmp int) error {
+	switch op {
+	case runtime.FMinInclusive:
+		if cmp < 0 {
+			return rangeViolation(op)
+		}
+	case runtime.FMaxInclusive:
+		if cmp > 0 {
+			return rangeViolation(op)
+		}
+	case runtime.FMinExclusive:
+		if cmp <= 0 {
+			return rangeViolation(op)
+		}
+	case runtime.FMaxExclusive:
+		if cmp >= 0 {
+			return rangeViolation(op)
+		}
+	default:
+		return rangeViolation(op)
+	}
+	return nil
+}
+
+func rangeViolation(op runtime.FacetOp) error {
+	switch op {
+	case runtime.FMinInclusive:
+		return valueErrorf(valueErrFacet, "minInclusive violation")
+	case runtime.FMaxInclusive:
+		return valueErrorf(valueErrFacet, "maxInclusive violation")
+	case runtime.FMinExclusive:
+		return valueErrorf(valueErrFacet, "minExclusive violation")
+	case runtime.FMaxExclusive:
+		return valueErrorf(valueErrFacet, "maxExclusive violation")
+	default:
+		return valueErrorf(valueErrFacet, "range violation")
+	}
+}

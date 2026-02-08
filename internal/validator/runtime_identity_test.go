@@ -142,10 +142,10 @@ func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	if len(sess.icState.violations) != 0 {
-		t.Fatalf("violations = %d, want 0", len(sess.icState.violations))
+	if len(sess.icState.uncommittedViolations) != 0 {
+		t.Fatalf("violations = %d, want 0", len(sess.icState.uncommittedViolations))
 	}
-	if pending := sess.icState.drainPending(); len(pending) != 0 {
+	if pending := sess.icState.drainCommitted(); len(pending) != 0 {
 		t.Fatalf("pending errors = %d, want 0", len(pending))
 	}
 }
@@ -187,7 +187,7 @@ func TestIdentityKeyMissingFieldErrors(t *testing.T) {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	pending := sess.icState.drainPending()
+	pending := sess.icState.drainCommitted()
 	if len(pending) == 0 {
 		t.Fatalf("expected missing field violation")
 	}
@@ -275,7 +275,7 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	if pending := sess.icState.drainPending(); len(pending) != 0 {
+	if pending := sess.icState.drainCommitted(); len(pending) != 0 {
 		t.Fatalf("pending errors = %d, want 0", len(pending))
 	}
 }
@@ -331,7 +331,7 @@ func TestIdentityStartRollbackOnError(t *testing.T) {
 	if len(sess.elemStack) != 0 {
 		t.Fatalf("elemStack len = %d, want 0", len(sess.elemStack))
 	}
-	if len(sess.nsStack) != 0 {
-		t.Fatalf("nsStack len = %d, want 0", len(sess.nsStack))
+	if sess.nsStack.Len() != 0 {
+		t.Fatalf("nsStack len = %d, want 0", sess.nsStack.Len())
 	}
 }

@@ -17,9 +17,7 @@ func TestBuildSchemaMissingElementTypeFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	sch.Phase = parser.PhaseResolved
-	sch.HasPlaceholders = false
-	if _, err := BuildSchema(sch, BuildConfig{}); err == nil {
+	if _, err := buildSchemaForTest(sch, BuildConfig{}); err == nil {
 		t.Fatalf("expected missing element type to fail build")
 	}
 }

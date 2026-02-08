@@ -3,11 +3,9 @@ package source
 import (
 	"testing"
 	"testing/fstest"
-
-	"github.com/jacoelho/xsd/internal/parser"
 )
 
-func TestLoadParsedReturnsParsedPhase(t *testing.T) {
+func TestLoadReturnsSchema(t *testing.T) {
 	fsys := fstest.MapFS{
 		"schema.xsd": {
 			Data: []byte(`<?xml version="1.0"?>
@@ -18,11 +16,11 @@ func TestLoadParsedReturnsParsedPhase(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: fsys})
-	sch, err := loader.LoadParsed("schema.xsd")
+	sch, err := loader.Load("schema.xsd")
 	if err != nil {
-		t.Fatalf("LoadParsed() error = %v", err)
+		t.Fatalf("Load() error = %v", err)
 	}
-	if sch.Phase != parser.PhaseParsed {
-		t.Fatalf("schema phase = %s, want %s", sch.Phase, parser.PhaseParsed)
+	if sch == nil {
+		t.Fatalf("expected parsed schema")
 	}
 }

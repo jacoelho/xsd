@@ -3,7 +3,7 @@ package xpath
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/qname"
 )
 
 func TestCanonicalizeNodeTestUnprefixed(t *testing.T) {
@@ -12,7 +12,7 @@ func TestCanonicalizeNodeTestUnprefixed(t *testing.T) {
 	if !canon.NamespaceSpecified {
 		t.Fatalf("expected NamespaceSpecified to be true")
 	}
-	if canon.Namespace != types.NamespaceEmpty {
+	if canon.Namespace != qname.NamespaceEmpty {
 		t.Fatalf("expected empty namespace, got %q", canon.Namespace)
 	}
 }

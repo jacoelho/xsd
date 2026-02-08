@@ -74,8 +74,8 @@ func (s *Session) shrinkBuffers() {
 	if cap(s.idRefs) > maxSessionEntries {
 		s.idRefs = nil
 	}
-	if cap(s.nsStack) > maxSessionEntries {
-		s.nsStack = nil
+	if s.nsStack.Cap() > maxSessionEntries {
+		s.nsStack.Drop()
 	}
 	if cap(s.prefixCache) > maxSessionEntries {
 		s.prefixCache = nil
@@ -86,17 +86,17 @@ func (s *Session) shrinkBuffers() {
 	if cap(s.validationErrors) > maxSessionEntries {
 		s.validationErrors = nil
 	}
-	if cap(s.icState.frames) > maxSessionEntries {
-		s.icState.frames = nil
+	if s.icState.frames.Cap() > maxSessionEntries {
+		s.icState.frames.Drop()
 	}
-	if cap(s.icState.scopes) > maxSessionEntries {
-		s.icState.scopes = nil
+	if s.icState.scopes.Cap() > maxSessionEntries {
+		s.icState.scopes.Drop()
 	}
-	if cap(s.icState.violations) > maxSessionEntries {
-		s.icState.violations = nil
+	if cap(s.icState.uncommittedViolations) > maxSessionEntries {
+		s.icState.uncommittedViolations = nil
 	}
-	if cap(s.icState.pending) > maxSessionEntries {
-		s.icState.pending = nil
+	if cap(s.icState.committedViolations) > maxSessionEntries {
+		s.icState.committedViolations = nil
 	}
 
 	if len(s.idTable) > maxSessionIDTableEntries {

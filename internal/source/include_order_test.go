@@ -7,7 +7,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/pipeline"
-	schema "github.com/jacoelho/xsd/internal/semantic"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -83,7 +82,7 @@ func TestIncludeGlobalDeclOrder(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Prepare error = %v", err)
 			}
-			gotOrder := globalElementOrder(prepared.Registry)
+			gotOrder := prepared.GlobalElementOrder()
 			if !reflect.DeepEqual(gotOrder, tc.expected) {
 				t.Fatalf("ElementOrder = %v, want %v", gotOrder, tc.expected)
 			}
@@ -100,17 +99,4 @@ func globalDeclNames(decls []parser.GlobalDecl) []types.QName {
 		names = append(names, decl.Name)
 	}
 	return names
-}
-
-func globalElementOrder(registry *schema.Registry) []types.QName {
-	if registry == nil {
-		return nil
-	}
-	order := make([]types.QName, 0, len(registry.ElementOrder))
-	for _, entry := range registry.ElementOrder {
-		if entry.Global {
-			order = append(order, entry.QName)
-		}
-	}
-	return order
 }

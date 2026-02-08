@@ -7,10 +7,10 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func TestResolveTypeReferencesAnonymousContent(t *testing.T) {
+func TestResolverResolveAnonymousContent(t *testing.T) {
 	schema := parseW3CSchema(t, "sunData/combined/xsd001/xsd001.xsd")
-	if err := ResolveTypeReferences(schema); err != nil {
-		t.Fatalf("resolve type references: %v", err)
+	if err := NewResolver(schema).Resolve(); err != nil {
+		t.Fatalf("resolve: %v", err)
 	}
 }
 
@@ -103,8 +103,8 @@ func TestTypeDerivationHelpers(t *testing.T) {
 	}
 
 	xsdSchema := parseW3CSchema(t, "sunData/combined/xsd001/xsd001.xsd")
-	if err := ResolveTypeReferences(xsdSchema); err != nil {
-		t.Fatalf("resolve type references: %v", err)
+	if err := NewResolver(xsdSchema).Resolve(); err != nil {
+		t.Fatalf("resolve: %v", err)
 	}
 	derived, ok := xsdSchema.TypeDefs[types.QName{Namespace: xsdSchema.TargetNamespace, Local: "mytype"}].(*types.SimpleType)
 	if !ok || derived == nil {
