@@ -36,9 +36,9 @@ type LoadOptions struct {
 }
 
 type compilationPipeline struct {
-	opts LoadOptions
-	root string
 	fsys fs.FS
+	root string
+	opts LoadOptions
 }
 
 type loadedArtifacts struct {

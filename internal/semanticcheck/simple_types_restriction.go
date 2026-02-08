@@ -11,13 +11,14 @@ import (
 func validateRestriction(schema *parser.Schema, st *types.SimpleType, restriction *types.Restriction) error {
 	var baseType types.Type
 
+	switch {
 	// use ResolvedBase if available (after semantic resolution).
-	if st.ResolvedBase != nil {
+	case st.ResolvedBase != nil:
 		baseType = st.ResolvedBase
-	} else if restriction.SimpleType != nil {
+	case restriction.SimpleType != nil:
 		// inline simpleType base is available before resolution.
 		baseType = restriction.SimpleType
-	} else if !restriction.Base.IsZero() {
+	case !restriction.Base.IsZero():
 		// fall back to resolving from QName if ResolvedBase is not set
 		baseTypeName := restriction.Base.Local
 

@@ -38,7 +38,7 @@ func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte, re
 		if !ok {
 			return valueErrorf(valueErrInvalid, "list validator out of range")
 		}
-		_, err := forEachListItem(canonical, func(itemValue []byte) error {
+		err := forEachListItem(canonical, func(itemValue []byte) error {
 			return s.trackValidatedIDs(item, itemValue, resolver, nil)
 		})
 		return err
@@ -83,7 +83,7 @@ func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte, re
 		if !ok {
 			return valueErrorf(valueErrInvalid, "list validator out of range")
 		}
-		if _, err := forEachListItem(canonical, func(itemValue []byte) error {
+		if err := forEachListItem(canonical, func(itemValue []byte) error {
 			return s.trackDefaultValue(item, itemValue, resolver, 0)
 		}); err != nil {
 			return err

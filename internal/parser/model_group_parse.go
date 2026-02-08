@@ -13,10 +13,12 @@ func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 		return nil, err
 	}
 
-	if err := validateModelGroupAttributes(doc, elem); err != nil {
+	err = validateModelGroupAttributes(doc, elem)
+	if err != nil {
 		return nil, err
 	}
-	if err := validateOptionalID(doc, elem, doc.LocalName(elem), schema); err != nil {
+	err = validateOptionalID(doc, elem, doc.LocalName(elem), schema)
+	if err != nil {
 		return nil, err
 	}
 

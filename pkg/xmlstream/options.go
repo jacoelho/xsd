@@ -25,9 +25,9 @@ func buildOptions(opts ...Option) []xmltext.Options {
 		wrapOption(xmltext.TrackLineColumn(true)),
 		wrapOption(xmltext.MaxQNameInternEntries(qnameCacheMaxEntries)),
 	}
-	all := append(base, opts...)
-	out := make([]xmltext.Options, 0, len(all))
-	for _, opt := range all {
+	base = append(base, opts...)
+	out := make([]xmltext.Options, 0, len(base))
+	for _, opt := range base {
 		out = append(out, opt.value)
 	}
 	return out

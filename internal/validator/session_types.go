@@ -68,8 +68,8 @@ type attrSeenEntry struct {
 type SessionIO struct {
 	reader        *xmlstream.Reader
 	readerFactory func(io.Reader, ...xmlstream.Option) (*xmlstream.Reader, error)
-	parseOptions  []xmlstream.Option
 	documentURI   string
+	parseOptions  []xmlstream.Option
 }
 
 type AttributeTracker struct {

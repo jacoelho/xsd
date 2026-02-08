@@ -9,9 +9,9 @@ import (
 
 // SchemaConstraintInput carries schema-time facet consistency inputs.
 type SchemaConstraintInput struct {
-	FacetList []types.Facet
 	BaseType  types.Type
 	BaseQName types.QName
+	FacetList []types.Facet
 }
 
 // SchemaConstraintCallbacks provides semantic checks delegated to callers.

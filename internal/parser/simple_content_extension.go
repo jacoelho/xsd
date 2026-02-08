@@ -20,7 +20,8 @@ func parseSimpleContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 		return nil, types.QName{}, err
 	}
 
-	if err := validateSimpleContentExtensionChildren(doc, elem); err != nil {
+	err = validateSimpleContentExtensionChildren(doc, elem)
+	if err != nil {
 		return nil, baseQName, err
 	}
 

@@ -9,13 +9,13 @@ import (
 
 // RuntimeProgram contains compiled runtime facet inputs for one validator.
 type RuntimeProgram struct {
-	Meta       runtime.ValidatorMeta
+	Enums      runtime.EnumTable
 	Facets     []runtime.FacetInstr
 	Patterns   []runtime.Pattern
-	Enums      runtime.EnumTable
 	Values     runtime.ValueBlob
 	Normalized []byte
 	Canonical  []byte
+	Meta       runtime.ValidatorMeta
 }
 
 // RuntimeCallbacks provide validator-owned operations for runtime facet checks.

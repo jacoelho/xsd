@@ -30,7 +30,7 @@ func (c *compiler) keyBytesForNormalized(lexical, normalized string, typ types.T
 	case types.ListVariety:
 		return c.keyBytesForList(normalized, typ, ctx)
 	case types.UnionVariety:
-		return c.keyBytesForUnion(lexical, normalized, typ, ctx)
+		return c.keyBytesForUnion(lexical, typ, ctx)
 	default:
 		key, err := c.keyBytesAtomic(normalized, typ, ctx)
 		if err != nil {
@@ -71,7 +71,7 @@ func (c *compiler) keyBytesForList(normalized string, typ types.Type, ctx map[st
 	return []keyBytes{{kind: runtime.VKList, bytes: keyBytesBuf}}, nil
 }
 
-func (c *compiler) keyBytesForUnion(lexical, normalized string, typ types.Type, ctx map[string]string) ([]keyBytes, error) {
+func (c *compiler) keyBytesForUnion(lexical string, typ types.Type, ctx map[string]string) ([]keyBytes, error) {
 	members := c.res.unionMemberTypesFromType(typ)
 	if len(members) == 0 {
 		return nil, fmt.Errorf("union has no member types")

@@ -8,9 +8,9 @@ import (
 // CopyOptions configures how schema components are copied during merge.
 type CopyOptions struct {
 	RemapQName              func(QName) QName
+	memo                    *copyMemo
 	SourceNamespace         NamespaceURI
 	PreserveSourceNamespace bool
-	memo                    *copyMemo
 }
 
 type copyMemo struct {

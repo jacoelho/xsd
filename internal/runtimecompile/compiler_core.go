@@ -8,6 +8,9 @@ import (
 )
 
 type compiledValidators struct {
+	elements           defaultFixedSet[schema.ElemID]
+	attributes         defaultFixedSet[schema.AttrID]
+	attrUses           defaultFixedSet[*types.AttributeDecl]
 	TypeValidators     map[schema.TypeID]runtime.ValidatorID
 	ValidatorByType    map[types.Type]runtime.ValidatorID
 	SimpleContentTypes map[*types.ComplexType]types.Type
@@ -16,9 +19,6 @@ type compiledValidators struct {
 	Facets             []runtime.FacetInstr
 	Patterns           []runtime.Pattern
 	Values             runtime.ValueBlob
-	elements           defaultFixedSet[schema.ElemID]
-	attributes         defaultFixedSet[schema.AttrID]
-	attrUses           defaultFixedSet[*types.AttributeDecl]
 }
 
 // ValidatorForType returns the validator ID for a type when available.

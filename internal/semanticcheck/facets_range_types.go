@@ -5,7 +5,6 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-var errDateTimeNotComparable = facetengine.ErrDateTimeNotComparable
 var errDurationNotComparable = facetengine.ErrDurationNotComparable
 var errFloatNotComparable = facetengine.ErrFloatNotComparable
 

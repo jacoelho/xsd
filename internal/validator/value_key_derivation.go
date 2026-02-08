@@ -22,7 +22,7 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte,
 		}
 		var keyBytes []byte
 		count := 0
-		if _, err := forEachListItem(canonical, func(itemValue []byte) error {
+		if err := forEachListItem(canonical, func(itemValue []byte) error {
 			kind, key, err := s.keyForCanonicalValue(item, itemValue, resolver, 0)
 			if err != nil {
 				return err
