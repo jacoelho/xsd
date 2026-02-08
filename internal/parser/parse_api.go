@@ -113,7 +113,7 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 		Includes:   []IncludeInfo{},
 	}
 	importedNamespaces := make(map[types.NamespaceURI]bool)
-	directiveState := directiveState{}
+	dirState := directiveState{}
 	componentSubtrees := make([]topLevelComponentSubtree, 0, 8)
 	var subtreeBuf bytes.Buffer
 	allowBOM := true
@@ -163,7 +163,7 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 					xsdxml.ReleaseDocument(doc)
 					return nil, err
 				}
-				if err := parseDirectiveElement(doc, root, schema, result, importedNamespaces, &directiveState); err != nil {
+				if err := parseDirectiveElement(doc, root, schema, result, importedNamespaces, &dirState); err != nil {
 					xsdxml.ReleaseDocument(doc)
 					return nil, err
 				}
@@ -175,7 +175,7 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 					return nil, fmt.Errorf("unexpected top-level element '%s'", ev.Name.Local)
 				}
 				if isGlobalDeclElement(ev.Name.Local) {
-					directiveState.declIndex++
+					dirState.declIndex++
 				}
 				componentSubtrees = append(componentSubtrees, topLevelComponentSubtree{data: subtreeData})
 			}

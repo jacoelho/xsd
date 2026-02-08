@@ -153,14 +153,14 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 	}
 }
 
-func upperHex(dst, value []byte) []byte {
-	size := hex.EncodedLen(len(value))
+func upperHex(dst, src []byte) []byte {
+	size := hex.EncodedLen(len(src))
 	if cap(dst) < size {
 		dst = make([]byte, size)
 	} else {
 		dst = dst[:size]
 	}
-	hex.Encode(dst, value)
+	hex.Encode(dst, src)
 	for i := range dst {
 		if dst[i] >= 'a' && dst[i] <= 'f' {
 			dst[i] -= 'a' - 'A'
