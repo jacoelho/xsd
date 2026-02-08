@@ -21,23 +21,24 @@ validation deterministic and goroutine-safe.
 
 ## Processing Pipeline
 
-Schema loading and validation follows six distinct phases:
+Schema loading and validation follows seven distinct phases:
 
 ```mermaid
 flowchart TD
   subgraph SchemaLoading["Schema Loading"]
     direction LR
     P1["Phase 1: Load + Parse<br/>- Parse XSD XML<br/>- Resolve imports/includes<br/>- Build parser.Schema<br/>- Record origins"]
-    P2["Phase 2: Assign IDs<br/>- Deterministic registry<br/>- Stable component IDs"]
-    P3["Phase 3: Resolve References<br/>- Map refs to IDs<br/>- Validate QName targets"]
-    P4["Phase 4: Validate Constraints<br/>- Detect cycles<br/>- Check UPA + schema rules"]
-    P5["Phase 5: Build Runtime<br/>- Compile validators<br/>- Compile content models<br/>- Build runtime.Schema arrays"]
-    P1 --> P2 --> P3 --> P4 --> P5
+    P2["Phase 2: Resolve + Validate<br/>- Clone parser.Schema<br/>- Resolve group/type refs<br/>- Structural checks"]
+    P3["Phase 3: Assign IDs<br/>- Deterministic registry<br/>- Stable component IDs"]
+    P4["Phase 4: Resolve References<br/>- Map refs to IDs<br/>- Validate QName targets"]
+    P5["Phase 5: Semantic Checks<br/>- Detect derivation/group cycles<br/>- Enforce UPA"]
+    P6["Phase 6: Build Runtime<br/>- Compile validators<br/>- Compile content models<br/>- Build runtime.Schema arrays"]
+    P1 --> P2 --> P3 --> P4 --> P5 --> P6
   end
   subgraph Validation
-    P6["Phase 6: Validate<br/>- Stream XML tokens (no DOM)<br/>- Traverse runtime IDs + models<br/>- No QName lookups or cycle detection<br/>- O(n) content model validation via DFA"]
+    P7["Phase 7: Validate<br/>- Stream XML tokens (no DOM)<br/>- Traverse runtime IDs + models<br/>- No QName lookups or cycle detection<br/>- O(n) content model validation via DFA"]
   end
-  P5 --> P6
+  P6 --> P7
 ```
 
 
@@ -46,7 +47,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   subgraph PublicAPI["Public API"]
-    Load["xsd.Load / xsd.LoadWithOptions"] --> Loader["internal/loader.Load<br/>(parse + import/include)"] --> Build["internal/runtimebuild.BuildSchema<br/>(IDs, refs, validators, models)"] --> Runtime["internal/runtime.Schema"]
+    Load["xsd.Load / xsd.LoadWithOptions"] --> Loader["internal/source.SchemaLoader.Load<br/>(parse + import/include)"] --> Prepare["internal/pipeline.Prepare<br/>(semantic validation + artifacts)"] --> Build["pipeline.PreparedSchema.BuildRuntime<br/>(IDs, refs, validators, models)"] --> Runtime["internal/runtime.Schema"]
   end
   subgraph Validation
     Validate["Schema.Validate"] --> ValidatorPkg["internal/validator<br/>(session, streaming checks)"]
@@ -63,7 +64,8 @@ pure helpers live in small reusable internal packages:
 
 - `internal/typeops`: type reference resolution policy and facet traversal helpers.
 - `internal/typegraph`: base-chain navigation and anyType semantics.
-- `internal/traversal`: particle/content tree walkers reused by resolver and schemacheck.
+- `internal/schemaflow`: schema-time resolve+validate orchestration shared by preparation flows.
+- `internal/traversal`: particle/content tree walkers reused by resolver and semanticcheck.
 - `internal/valuekey`: canonical key encoding used by runtime build and runtime validation.
 
 These packages are intentionally dependency-light and do not depend on
@@ -72,7 +74,7 @@ loading, resolver orchestration, or validator session state.
 
 ## Phase 1: Load + Parse
 
-Schema loading uses internal/loader and internal/parser to parse XSD documents,
+Schema loading uses `internal/source` and `internal/parser` to parse XSD documents,
 resolve includes/imports, and build a single parser.Schema. QName references and
 origin locations are recorded, but no runtime IDs or compiled models exist yet.
 
@@ -103,11 +105,17 @@ flowchart TD
 ```
 
 
-## Phase 2: Assign IDs
+## Phase 2: Resolve + Validate
 
-internal/schema.AssignIDs walks the parsed schema in deterministic order and
-assigns stable IDs to all globally visible declarations plus local/anonymous
-components. These IDs back the runtime registry.
+`internal/schemaflow.ResolveAndValidate` clones the parsed schema, resolves group
+and type references, runs structure/reference checks, and returns a validated schema
+without mutating the parse-phase model.
+
+## Phase 3: Assign IDs
+
+`internal/semantic.AssignIDs` walks the validated schema in deterministic order and
+assigns stable IDs to globally visible declarations plus local/anonymous components.
+These IDs back the runtime registry.
 
 ```go
 type Registry struct {
@@ -120,15 +128,15 @@ type Registry struct {
 }
 ```
 
-## Phase 3: Resolve References
+## Phase 4: Resolve References
 
-internal/schema.ResolveReferences validates QName references against the
+`internal/semantic.ResolveReferences` validates QName references against the
 registry and builds ID-based lookup maps without mutating parser.Schema.
 
 ```go
 type ResolvedReferences struct {
-    ElementRefs   map[*types.ElementDecl]schema.ElemID
-    AttributeRefs map[*types.AttributeDecl]schema.AttrID
+    ElementRefs   map[*types.ElementDecl]semantic.ElemID
+    AttributeRefs map[*types.AttributeDecl]semantic.AttrID
     GroupRefs     map[*types.GroupRef]*types.ModelGroup
 }
 ```
@@ -138,17 +146,15 @@ recurses into referenced types, groups, and attribute groups as needed.
 After this phase, runtime validation no longer needs QName lookups.
 
 
-## Phase 4: Validate Schema
+## Phase 5: Semantic Checks
 
-Schema validation checks structural rules before runtime build. internal/schema
-detects cycles in type derivations, groups, attribute groups, and substitution
-groups, and enforces UPA constraints. Additional structural checks run during
-loading via internal/schemacheck.
+Before runtime build, `internal/semantic` runs cycle detection and UPA checks on
+the validated schema and assigned registry.
 
+## Phase 6: Build Runtime Schema
 
-## Phase 5: Build Runtime Schema
-
-internal/runtimebuild compiles the resolved schema into an optimized runtime
+internal/pipeline.PreparedSchema.BuildRuntime (backed by
+internal/runtimecompile) compiles prepared artifacts into an optimized runtime
 representation. The runtime schema is dense, ID-based, and immutable so it can
 be shared across goroutines.
 
@@ -172,7 +178,7 @@ type Schema struct {
 ```
 
 
-## Phase 6: Validate
+## Phase 7: Validate
 
 Validation streams tokens through internal/validator sessions using the immutable
 runtime.Schema; no DOM build is required.
