@@ -2,30 +2,35 @@ package validator
 
 import (
 	"bytes"
+	"iter"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
-func (s *Session) pushNamespaceScope(decls []xmlstream.NamespaceDecl) {
+func (s *Session) pushNamespaceScope(decls iter.Seq[xmlstream.NamespaceDecl]) {
 	off := len(s.nsDecls)
 	cacheOff := len(s.prefixCache)
-	for _, decl := range decls {
-		prefixBytes := []byte(decl.Prefix)
-		nsBytes := []byte(decl.URI)
-		prefixOff := len(s.nameLocal)
-		s.nameLocal = append(s.nameLocal, prefixBytes...)
-		nsOff := len(s.nameNS)
-		s.nameNS = append(s.nameNS, nsBytes...)
-		s.nsDecls = append(s.nsDecls, nsDecl{
-			prefixOff:  uint32(prefixOff),
-			prefixLen:  uint32(len(prefixBytes)),
-			nsOff:      uint32(nsOff),
-			nsLen:      uint32(len(nsBytes)),
-			prefixHash: runtime.HashBytes(prefixBytes),
-		})
+	declLen := 0
+	if decls != nil {
+		for decl := range decls {
+			declLen++
+			prefixBytes := []byte(decl.Prefix)
+			nsBytes := []byte(decl.URI)
+			prefixOff := len(s.nameLocal)
+			s.nameLocal = append(s.nameLocal, prefixBytes...)
+			nsOff := len(s.nameNS)
+			s.nameNS = append(s.nameNS, nsBytes...)
+			s.nsDecls = append(s.nsDecls, nsDecl{
+				prefixOff:  uint32(prefixOff),
+				prefixLen:  uint32(len(prefixBytes)),
+				nsOff:      uint32(nsOff),
+				nsLen:      uint32(len(nsBytes)),
+				prefixHash: runtime.HashBytes(prefixBytes),
+			})
+		}
 	}
-	s.nsStack.Push(nsFrame{off: uint32(off), len: uint32(len(decls)), cacheOff: uint32(cacheOff)})
+	s.nsStack.Push(nsFrame{off: uint32(off), len: uint32(declLen), cacheOff: uint32(cacheOff)})
 }
 
 func (s *Session) popNamespaceScope() {

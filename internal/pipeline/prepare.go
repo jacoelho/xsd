@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"fmt"
+	"iter"
 
 	models "github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/loadmerge"
@@ -49,14 +50,18 @@ func (p *PreparedSchema) BuildRuntime(cfg CompileConfig) (*runtime.Schema, error
 	return p.build(cfg)
 }
 
-// GlobalElementOrder returns global element names in deterministic prepared order.
-func (p *PreparedSchema) GlobalElementOrder() []types.QName {
-	if p == nil || len(p.globalElementOrder) == 0 {
-		return nil
+// GlobalElementOrderSeq yields global element names in deterministic prepared order.
+func (p *PreparedSchema) GlobalElementOrderSeq() iter.Seq[types.QName] {
+	return func(yield func(types.QName) bool) {
+		if p == nil || len(p.globalElementOrder) == 0 {
+			return
+		}
+		for _, item := range p.globalElementOrder {
+			if !yield(item) {
+				return
+			}
+		}
 	}
-	order := make([]types.QName, len(p.globalElementOrder))
-	copy(order, p.globalElementOrder)
-	return order
 }
 
 // Prepare validates and transforms a parsed schema for runtime compilation.
@@ -70,7 +75,6 @@ func Prepare(sch *parser.Schema) (*PreparedSchema, error) {
 
 // Validate runs schema semantic checks and returns immutable preparation artifacts.
 func Validate(sch *parser.Schema) (*ValidatedSchema, error) {
-	types.PrecomputeBuiltinCaches()
 	validatedSchema, reg, err := validateSchema(sch)
 	if err != nil {
 		return nil, err
@@ -121,7 +125,7 @@ func validateSchema(sch *parser.Schema) (*parser.Schema, *semantic.Registry, err
 	if cycleErr := semantic.DetectCycles(resolvedSchema); cycleErr != nil {
 		return nil, nil, fmt.Errorf("prepare schema: detect cycles: %w", cycleErr)
 	}
-	if upaErr := semantic.ValidateUPA(resolvedSchema, reg); upaErr != nil {
+	if upaErr := schemaflow.ValidateUPA(resolvedSchema, reg); upaErr != nil {
 		return nil, nil, fmt.Errorf("prepare schema: validate UPA: %w", upaErr)
 	}
 	return resolvedSchema, reg, nil

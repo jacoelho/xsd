@@ -2,8 +2,7 @@ package validator
 
 import (
 	"encoding/base64"
-	"fmt"
-	"strings"
+	"encoding/hex"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/types"
@@ -32,7 +31,7 @@ func validateAnyURINoCanonical(normalized []byte) error {
 }
 
 func (s *Session) canonicalizeHexBinary(normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
-	decoded, err := types.ParseHexBinary(string(normalized))
+	decoded, err := types.ParseHexBinaryBytes(normalized)
 	if err != nil {
 		return nil, valueErrorMsg(valueErrInvalid, err.Error())
 	}
@@ -40,7 +39,8 @@ func (s *Session) canonicalizeHexBinary(normalized []byte, needKey bool, metrics
 		metrics.length = len(decoded)
 		metrics.lengthSet = true
 	}
-	canon := []byte(strings.ToUpper(fmt.Sprintf("%x", decoded)))
+	canon := upperHex(s.valueBuf[:0], decoded)
+	s.valueBuf = canon
 	if needKey {
 		key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 0, decoded)
 		s.keyTmp = key
@@ -50,14 +50,14 @@ func (s *Session) canonicalizeHexBinary(normalized []byte, needKey bool, metrics
 }
 
 func validateHexBinaryNoCanonical(normalized []byte) error {
-	if _, err := types.ParseHexBinary(string(normalized)); err != nil {
+	if _, err := types.ParseHexBinaryBytes(normalized); err != nil {
 		return valueErrorMsg(valueErrInvalid, err.Error())
 	}
 	return nil
 }
 
 func (s *Session) canonicalizeBase64Binary(normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
-	decoded, err := types.ParseBase64Binary(string(normalized))
+	decoded, err := types.ParseBase64BinaryBytes(normalized)
 	if err != nil {
 		return nil, valueErrorMsg(valueErrInvalid, err.Error())
 	}
@@ -65,7 +65,15 @@ func (s *Session) canonicalizeBase64Binary(normalized []byte, needKey bool, metr
 		metrics.length = len(decoded)
 		metrics.lengthSet = true
 	}
-	canon := []byte(base64.StdEncoding.EncodeToString(decoded))
+	canonLen := base64.StdEncoding.EncodedLen(len(decoded))
+	canon := s.valueBuf[:0]
+	if cap(canon) < canonLen {
+		canon = make([]byte, canonLen)
+	} else {
+		canon = canon[:canonLen]
+	}
+	base64.StdEncoding.Encode(canon, decoded)
+	s.valueBuf = canon
 	if needKey {
 		key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 1, decoded)
 		s.keyTmp = key
@@ -75,8 +83,24 @@ func (s *Session) canonicalizeBase64Binary(normalized []byte, needKey bool, metr
 }
 
 func validateBase64BinaryNoCanonical(normalized []byte) error {
-	if _, err := types.ParseBase64Binary(string(normalized)); err != nil {
+	if _, err := types.ParseBase64BinaryBytes(normalized); err != nil {
 		return valueErrorMsg(valueErrInvalid, err.Error())
 	}
 	return nil
+}
+
+func upperHex(dst, value []byte) []byte {
+	size := hex.EncodedLen(len(value))
+	if cap(dst) < size {
+		dst = make([]byte, size)
+	} else {
+		dst = dst[:size]
+	}
+	hex.Encode(dst, value)
+	for i := range dst {
+		if dst[i] >= 'a' && dst[i] <= 'f' {
+			dst[i] -= 'a' - 'A'
+		}
+	}
+	return dst
 }

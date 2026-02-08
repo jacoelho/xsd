@@ -1,23 +1,21 @@
-package semantic
+package schemaflow
 
 import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
+	"github.com/jacoelho/xsd/internal/semantic"
+	"github.com/jacoelho/xsd/internal/semanticcheck"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // ValidateUPA checks Unique Particle Attribution across all complex types.
-func ValidateUPA(schema *parser.Schema, registry *Registry) error {
+func ValidateUPA(schema *parser.Schema, registry *semantic.Registry) error {
+	if schema == nil {
+		return fmt.Errorf("schema is nil")
+	}
 	if registry == nil {
 		return fmt.Errorf("registry is nil")
-	}
-	if err := RequireResolved(schema); err != nil {
-		return err
-	}
-	if err := validateSchemaInput(schema); err != nil {
-		return err
 	}
 
 	for _, entry := range registry.TypeOrder {
@@ -25,7 +23,7 @@ func ValidateUPA(schema *parser.Schema, registry *Registry) error {
 		if !ok {
 			continue
 		}
-		if err := schemacheck.ValidateUPA(schema, ct.Content(), schema.TargetNamespace); err != nil {
+		if err := semanticcheck.ValidateUPA(schema, ct.Content(), schema.TargetNamespace); err != nil {
 			return fmt.Errorf("%s: %w", typeLabel(ct), err)
 		}
 	}

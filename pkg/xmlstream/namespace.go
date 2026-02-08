@@ -13,7 +13,7 @@ import (
 const (
 	XMLNamespace   = xmlnames.XMLNamespace
 	XMLNSNamespace = xmlnames.XMLNSNamespace
-	XSINamespace   = "http://www.w3.org/2001/XMLSchema-instance"
+	XSINamespace   = xmlnames.XSINamespace
 	XSDNamespace   = "http://www.w3.org/2001/XMLSchema"
 )
 

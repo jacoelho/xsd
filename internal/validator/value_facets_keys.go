@@ -73,7 +73,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		s.keyTmp = key
 		return runtime.VKQName, key, nil
 	case runtime.VHexBinary:
-		decoded, err := types.ParseHexBinary(string(canonical))
+		decoded, err := types.ParseHexBinaryBytes(canonical)
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
@@ -81,7 +81,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		s.keyTmp = key
 		return runtime.VKBinary, key, nil
 	case runtime.VBase64Binary:
-		decoded, err := types.ParseBase64Binary(string(canonical))
+		decoded, err := types.ParseBase64BinaryBytes(canonical)
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
@@ -89,7 +89,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		s.keyTmp = key
 		return runtime.VKBinary, key, nil
 	case runtime.VDuration:
-		dur, err := types.ParseXSDDuration(string(canonical))
+		dur, err := types.ParseXSDDurationBytes(canonical)
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
