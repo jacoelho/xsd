@@ -10,6 +10,7 @@ import (
 
 // SimpleType represents a simple type definition
 type SimpleType struct {
+	cacheGuard                     cacheGuard
 	identityListItemType           Type
 	ResolvedBase                   Type
 	primitiveType                  Type
@@ -41,9 +42,6 @@ func NewAtomicSimpleType(name QName, sourceNamespace NamespaceURI, restriction *
 		QName:           name,
 		SourceNamespace: sourceNamespace,
 		Restriction:     restriction,
-	}
-	if restriction != nil && restriction.SimpleType != nil {
-		st.ResolvedBase = restriction.SimpleType
 	}
 	if err := validateSimpleTypeDefinition(st); err != nil {
 		return nil, err
@@ -142,7 +140,7 @@ func validateSimpleTypeDefinition(simpleType *SimpleType) error {
 	}
 
 	if simpleType.Restriction != nil {
-		if simpleType.Restriction.Base.IsZero() && simpleType.ResolvedBase == nil {
+		if simpleType.Restriction.Base.IsZero() && simpleType.ResolvedBase == nil && simpleType.Restriction.SimpleType == nil {
 			return fmt.Errorf("simpleType restriction must have a base type")
 		}
 		baseType := restrictionBaseType(simpleType)
@@ -280,9 +278,32 @@ func (s *SimpleType) Copy(opts CopyOptions) *SimpleType {
 	if s == nil {
 		return nil
 	}
+	if existing, ok := opts.lookupSimpleType(s); ok {
+		return existing
+	}
 	clone := *s
+	clone.cacheGuard = cacheGuard{}
+	opts.rememberSimpleType(s, &clone)
 	clone.QName = opts.RemapQName(s.QName)
-	clone.SourceNamespace = opts.SourceNamespace
+	clone.SourceNamespace = sourceNamespace(s.SourceNamespace, opts)
+	clone.ResolvedBase = CopyType(s.ResolvedBase, opts)
+	clone.primitiveType = CopyType(s.primitiveType, opts)
+	clone.ItemType = CopyType(s.ItemType, opts)
+	clone.identityListItemType = CopyType(s.identityListItemType, opts)
+	if len(s.MemberTypes) > 0 {
+		memberTypes := make([]Type, len(s.MemberTypes))
+		for i, member := range s.MemberTypes {
+			memberTypes[i] = CopyType(member, opts)
+		}
+		clone.MemberTypes = memberTypes
+	}
+	if len(s.identityMemberTypes) > 0 {
+		identityMemberTypes := make([]Type, len(s.identityMemberTypes))
+		for i, member := range s.identityMemberTypes {
+			identityMemberTypes[i] = CopyType(member, opts)
+		}
+		clone.identityMemberTypes = identityMemberTypes
+	}
 	copyInline := func(inline *SimpleType) *SimpleType {
 		if inline == nil {
 			return nil
@@ -291,7 +312,7 @@ func (s *SimpleType) Copy(opts CopyOptions) *SimpleType {
 		if inline.QName.IsZero() {
 			inlineCopy.QName = inline.QName
 		}
-		inlineCopy.SourceNamespace = opts.SourceNamespace
+		inlineCopy.SourceNamespace = sourceNamespace(inline.SourceNamespace, opts)
 		return inlineCopy
 	}
 	clone.Restriction = copyRestriction(s.Restriction, opts)
@@ -373,35 +394,36 @@ func (s *SimpleType) FundamentalFacets() *FundamentalFacets {
 	if s == nil {
 		return nil
 	}
-	typeCacheMu.Lock()
+	guard := s.guard()
+	guard.mu.Lock()
 	for s.fundamentalFacetsCache == nil && s.fundamentalFacetsComputing {
-		typeCacheCond.Wait()
+		guard.cond.Wait()
 	}
 	if s.fundamentalFacetsCache != nil {
 		cached := s.fundamentalFacetsCache
-		typeCacheMu.Unlock()
+		guard.mu.Unlock()
 		return cached
 	}
 	s.fundamentalFacetsComputing = true
-	typeCacheMu.Unlock()
+	guard.mu.Unlock()
 
 	computed := s.computeFundamentalFacets()
 	if computed == nil {
-		typeCacheMu.Lock()
+		guard.mu.Lock()
 		s.fundamentalFacetsComputing = false
-		typeCacheCond.Broadcast()
-		typeCacheMu.Unlock()
+		guard.cond.Broadcast()
+		guard.mu.Unlock()
 		return nil
 	}
 
-	typeCacheMu.Lock()
+	guard.mu.Lock()
 	if s.fundamentalFacetsCache == nil {
 		s.fundamentalFacetsCache = computed
 	}
 	s.fundamentalFacetsComputing = false
 	cached := s.fundamentalFacetsCache
-	typeCacheCond.Broadcast()
-	typeCacheMu.Unlock()
+	guard.cond.Broadcast()
+	guard.mu.Unlock()
 	return cached
 }
 

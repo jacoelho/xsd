@@ -7,12 +7,12 @@ var builtinCacheOnce sync.Once
 // PrecomputeBuiltinCaches initializes built-in type caches for safe concurrent use.
 func PrecomputeBuiltinCaches() {
 	builtinCacheOnce.Do(func() {
-		for _, builtin := range builtinRegistry {
+		for _, builtin := range defaultBuiltinRegistry.all() {
 			if builtin == nil {
 				continue
 			}
-			_ = builtin.PrimitiveType()
-			_ = builtin.FundamentalFacets()
+			builtin.PrimitiveType()
+			builtin.FundamentalFacets()
 		}
 	})
 }

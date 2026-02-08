@@ -24,7 +24,7 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 	if needKey {
 		keyTmp = make([]byte, 0, len(normalized))
 	}
-	_, err := forEachListItem(normalized, func(item []byte) error {
+	err := forEachListItem(normalized, func(item []byte) error {
 		itemOpts := opts
 		itemOpts.applyWhitespace = false
 		itemOpts.requireCanonical = true
@@ -70,7 +70,7 @@ func (s *Session) validateListNoCanonical(meta runtime.ValidatorMeta, normalized
 	if !ok {
 		return valueErrorf(valueErrInvalid, "list validator out of range")
 	}
-	_, err := forEachListItem(normalized, func(item []byte) error {
+	err := forEachListItem(normalized, func(item []byte) error {
 		itemOpts := opts
 		itemOpts.applyWhitespace = false
 		itemOpts.requireCanonical = false
@@ -83,17 +83,15 @@ func (s *Session) validateListNoCanonical(meta runtime.ValidatorMeta, normalized
 	return err
 }
 
-func forEachListItem(normalized []byte, fn func([]byte) error) (int, error) {
-	count := 0
+func forEachListItem(normalized []byte, fn func([]byte) error) error {
 	for field := range value.FieldsXMLWhitespaceSeq(normalized) {
 		if fn != nil {
 			if err := fn(field); err != nil {
-				return count, err
+				return err
 			}
 		}
-		count++
 	}
-	return count, nil
+	return nil
 }
 
 func listItemCount(normalized []byte) int {

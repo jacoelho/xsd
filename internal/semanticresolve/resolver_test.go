@@ -226,14 +226,14 @@ func TestResolveW3CUniqueConstraints(t *testing.T) {
 
 func TestResolveW3CMissingListItemType(t *testing.T) {
 	schema := parseW3CSchema(t, "saxonData/Missing/missing006.xsd")
-	if err := ResolveTypeReferences(schema); err == nil {
+	if err := NewResolver(schema).Resolve(); err == nil {
 		t.Fatalf("expected missing list item type to fail resolution")
 	}
 }
 
 func TestResolveW3CMissingSimpleTypeBase(t *testing.T) {
 	schema := parseW3CSchema(t, "saxonData/Missing/missing004.xsd")
-	if err := ResolveTypeReferences(schema); err == nil {
+	if err := NewResolver(schema).Resolve(); err == nil {
 		t.Fatalf("expected error resolving missing base type")
 	}
 }
@@ -275,7 +275,7 @@ func TestValidateReferencesMissingSubstitutionGroupHead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	if err := ResolveTypeReferences(schema); err != nil {
+	if err := NewResolver(schema).Resolve(); err != nil {
 		t.Fatalf("resolve type references: %v", err)
 	}
 	requireReferenceErrorContains(t, schema, "substitutionGroup")
@@ -338,7 +338,7 @@ func TestValidateReferencesLocalKeyrefContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	if err := ResolveTypeReferences(schema); err != nil {
+	if err := NewResolver(schema).Resolve(); err != nil {
 		t.Fatalf("resolve type references: %v", err)
 	}
 	if errs := ValidateReferences(schema); len(errs) > 0 {

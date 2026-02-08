@@ -15,20 +15,20 @@ func (b *schemaBuilder) initSymbols() error {
 	}
 	xsdNS := types.XSDNamespace
 	for _, name := range builtinTypeNames() {
-		_ = b.internQName(types.QName{Namespace: xsdNS, Local: string(name)})
+		b.internQName(types.QName{Namespace: xsdNS, Local: string(name)})
 	}
 
 	for _, entry := range b.registry.TypeOrder {
 		if entry.QName.IsZero() {
 			continue
 		}
-		_ = b.internQName(entry.QName)
+		b.internQName(entry.QName)
 	}
 	for _, entry := range b.registry.ElementOrder {
-		_ = b.internQName(entry.QName)
+		b.internQName(entry.QName)
 	}
 	for _, entry := range b.registry.AttributeOrder {
-		_ = b.internQName(entry.QName)
+		b.internQName(entry.QName)
 	}
 	for _, entry := range b.registry.TypeOrder {
 		ct, ok := types.AsComplexType(entry.Type)
@@ -43,7 +43,7 @@ func (b *schemaBuilder) initSymbols() error {
 			if attr == nil {
 				continue
 			}
-			_ = b.internQName(effectiveAttributeQName(b.schema, attr))
+			b.internQName(effectiveAttributeQName(b.schema, attr))
 		}
 		if wildcard != nil {
 			b.internNamespaceConstraint(wildcard.Namespace, wildcard.NamespaceList, wildcard.TargetNamespace)
@@ -60,7 +60,7 @@ func (b *schemaBuilder) initSymbols() error {
 		}
 		for _, constraint := range decl.Constraints {
 			qname := types.QName{Namespace: constraint.TargetNamespace, Local: constraint.Name}
-			_ = b.internQName(qname)
+			b.internQName(qname)
 		}
 	}
 	for _, qname := range schema.SortedQNames(b.schema.NotationDecls) {

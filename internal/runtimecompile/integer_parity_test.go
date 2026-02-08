@@ -137,7 +137,7 @@ func compileDefaultValue(t *testing.T, typeName, value string) error {
 	if err != nil {
 		return err
 	}
-	_, err = BuildSchema(parsed, BuildConfig{})
+	_, err = buildSchemaForTest(parsed, BuildConfig{})
 	return err
 }
 

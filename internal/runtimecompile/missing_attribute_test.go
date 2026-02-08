@@ -20,10 +20,8 @@ func TestBuildSchemaMissingAttributeRefFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	sch.Phase = parser.PhaseResolved
-	sch.HasPlaceholders = false
 
-	if _, err := BuildSchema(sch, BuildConfig{}); err == nil || !strings.Contains(err.Error(), "attribute ref") {
+	if _, err := buildSchemaForTest(sch, BuildConfig{}); err == nil || !strings.Contains(err.Error(), "attribute ref") {
 		t.Fatalf("expected missing attribute ref error, got %v", err)
 	}
 }
@@ -43,9 +41,7 @@ func TestBuildSchemaMissingAttributeTypeFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	sch.Phase = parser.PhaseResolved
-	sch.HasPlaceholders = false
-	if _, err := BuildSchema(sch, BuildConfig{}); err == nil {
+	if _, err := buildSchemaForTest(sch, BuildConfig{}); err == nil {
 		t.Fatalf("expected missing attribute type to fail build")
 	}
 }

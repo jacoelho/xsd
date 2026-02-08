@@ -25,15 +25,14 @@ func (s *Session) pushNamespaceScope(decls []xmlstream.NamespaceDecl) {
 			prefixHash: runtime.HashBytes(prefixBytes),
 		})
 	}
-	s.nsStack = append(s.nsStack, nsFrame{off: uint32(off), len: uint32(len(decls)), cacheOff: uint32(cacheOff)})
+	s.nsStack.Push(nsFrame{off: uint32(off), len: uint32(len(decls)), cacheOff: uint32(cacheOff)})
 }
 
 func (s *Session) popNamespaceScope() {
-	if len(s.nsStack) == 0 {
+	frame, ok := s.nsStack.Pop()
+	if !ok {
 		return
 	}
-	frame := s.nsStack[len(s.nsStack)-1]
-	s.nsStack = s.nsStack[:len(s.nsStack)-1]
 	if int(frame.off) <= len(s.nsDecls) {
 		s.nsDecls = s.nsDecls[:frame.off]
 	}
@@ -47,10 +46,11 @@ func (s *Session) lookupNamespace(prefix []byte) ([]byte, bool) {
 		return []byte(xmlstream.XMLNamespace), true
 	}
 	const smallNSDeclThreshold = 32
+	frames := s.nsStack.Items()
 	if len(s.nsDecls) <= smallNSDeclThreshold {
 		if len(prefix) == 0 {
-			for i := len(s.nsStack) - 1; i >= 0; i-- {
-				frame := s.nsStack[i]
+			for i := len(frames) - 1; i >= 0; i-- {
+				frame := frames[i]
 				for j := int(frame.off + frame.len); j > int(frame.off); j-- {
 					decl := s.nsDecls[j-1]
 					if decl.prefixLen != 0 {
@@ -61,8 +61,8 @@ func (s *Session) lookupNamespace(prefix []byte) ([]byte, bool) {
 			}
 			return nil, true
 		}
-		for i := len(s.nsStack) - 1; i >= 0; i-- {
-			frame := s.nsStack[i]
+		for i := len(frames) - 1; i >= 0; i-- {
+			frame := frames[i]
 			for j := int(frame.off + frame.len); j > int(frame.off); j-- {
 				decl := s.nsDecls[j-1]
 				if decl.prefixLen == 0 {
@@ -112,8 +112,8 @@ func (s *Session) lookupNamespace(prefix []byte) ([]byte, bool) {
 			return nil, false
 		}
 	}
-	for i := len(s.nsStack) - 1; i >= 0; i-- {
-		frame := s.nsStack[i]
+	for i := len(frames) - 1; i >= 0; i-- {
+		frame := frames[i]
 		for j := int(frame.off + frame.len); j > int(frame.off); j-- {
 			decl := s.nsDecls[j-1]
 			if decl.prefixHash != hash {
@@ -148,10 +148,10 @@ func (s *Session) lookupNamespace(prefix []byte) ([]byte, bool) {
 }
 
 func (s *Session) prefixCacheForCurrent() []prefixEntry {
-	if len(s.nsStack) == 0 {
+	frame, ok := s.nsStack.Peek()
+	if !ok {
 		return nil
 	}
-	frame := s.nsStack[len(s.nsStack)-1]
 	if int(frame.cacheOff) >= len(s.prefixCache) {
 		return nil
 	}

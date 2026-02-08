@@ -11,17 +11,17 @@ func (b *schemaBuilder) internNamespaceConstraint(constraint types.NamespaceCons
 	}
 	switch constraint {
 	case types.NSCTargetNamespace, types.NSCOther:
-		_ = b.internNamespace(target)
+		b.internNamespace(target)
 	case types.NSCList:
 		for _, ns := range list {
 			if ns == types.NamespaceTargetPlaceholder {
-				_ = b.internNamespace(target)
+				b.internNamespace(target)
 				continue
 			}
 			if ns.IsEmpty() {
 				continue
 			}
-			_ = b.internNamespace(ns)
+			b.internNamespace(ns)
 		}
 	}
 }

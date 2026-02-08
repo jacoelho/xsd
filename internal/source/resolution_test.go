@@ -9,8 +9,8 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func TestTwoPhaseResolution_SimpleType(t *testing.T) {
-	// test that simple type base types are resolved in phase 2
+func TestTypeResolution_SimpleType(t *testing.T) {
+	// simple type base types resolve during semantic resolution.
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
@@ -37,13 +37,13 @@ func TestTwoPhaseResolution_SimpleType(t *testing.T) {
 	}
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// phase 2: Resolve base types
-	if err := resolver.ResolveTypeReferences(schema); err != nil {
-		t.Fatalf("resolver.ResolveTypeReferences failed: %v", err)
+	// resolve base types
+	if err := resolver.NewResolver(schema).Resolve(); err != nil {
+		t.Fatalf("resolver.Resolve failed: %v", err)
 	}
 
 	if derivedType.ResolvedBase == nil {
-		t.Fatal("BaseType should be resolved after phase 2")
+		t.Fatal("ResolvedBase should be set after semantic resolution")
 	}
 	if derivedType.BaseType() != baseType {
 		t.Errorf("BaseType = %v, want %v", derivedType.BaseType(), baseType)
@@ -68,7 +68,7 @@ func TestLoadCachesSchema(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: fs})
-	schema, err := loadAndPrepare(t, loader, "main.xsd")
+	schema, err := loader.Load("main.xsd")
 	if err != nil {
 		t.Fatalf("Load error: %v", err)
 	}
@@ -80,14 +80,15 @@ func TestLoadCachesSchema(t *testing.T) {
 	}
 
 	attr := ct.Attributes()[0]
-	if st, ok := attr.Type.(*types.SimpleType); !ok || types.IsPlaceholderSimpleType(st) {
-		t.Fatalf("expected resolved attribute type, got %T", attr.Type)
+	if attr.Type == nil {
+		t.Fatalf("expected attribute type")
 	}
 	before := attr.Type
 
-	loaded, ok := loader.GetLoaded("main.xsd", types.NamespaceURI("urn:test"))
+	key := loader.loadKey("main.xsd", types.NamespaceURI("urn:test"))
+	loaded, ok := loader.state.loadedSchema(key)
 	if !ok {
-		t.Fatalf("GetLoaded did not return cached schema")
+		t.Fatalf("loader state did not return cached schema")
 	}
 	ctLoaded, ok := loaded.TypeDefs[ctQName].(*types.ComplexType)
 	if !ok || ctLoaded == nil || len(ctLoaded.Attributes()) == 0 {
@@ -98,8 +99,8 @@ func TestLoadCachesSchema(t *testing.T) {
 	}
 }
 
-func TestTwoPhaseResolution_ComplexType(t *testing.T) {
-	// test that complex type base types are resolved in phase 2
+func TestTypeResolution_ComplexType(t *testing.T) {
+	// complex type base types resolve during semantic resolution.
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
@@ -131,21 +132,21 @@ func TestTwoPhaseResolution_ComplexType(t *testing.T) {
 	})
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// phase 2: Resolve base types
-	if err := resolver.ResolveTypeReferences(schema); err != nil {
-		t.Fatalf("resolver.ResolveTypeReferences failed: %v", err)
+	// resolve base types
+	if err := resolver.NewResolver(schema).Resolve(); err != nil {
+		t.Fatalf("resolver.Resolve failed: %v", err)
 	}
 
 	if derivedType.ResolvedBase == nil {
-		t.Fatal("BaseType should be resolved after phase 2")
+		t.Fatal("ResolvedBase should be set after semantic resolution")
 	}
 	if derivedType.BaseType() != baseType {
 		t.Errorf("BaseType = %v, want %v", derivedType.BaseType(), baseType)
 	}
 }
 
-func TestTwoPhaseResolution_ForwardReference(t *testing.T) {
-	// test that forward references work (type A can reference type B defined later)
+func TestTypeResolution_ForwardReference(t *testing.T) {
+	// forward references should resolve even when the base type is declared later.
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
@@ -175,9 +176,9 @@ func TestTwoPhaseResolution_ForwardReference(t *testing.T) {
 	}
 	schema.TypeDefs[typeB.QName] = typeB
 
-	// phase 2: Resolve base types (should work even though B is defined after A)
-	if err := resolver.ResolveTypeReferences(schema); err != nil {
-		t.Fatalf("resolver.ResolveTypeReferences failed: %v", err)
+	// resolve base types (should work even though B is defined after A)
+	if err := resolver.NewResolver(schema).Resolve(); err != nil {
+		t.Fatalf("resolver.Resolve failed: %v", err)
 	}
 
 	if typeA.ResolvedBase == nil {
@@ -188,8 +189,8 @@ func TestTwoPhaseResolution_ForwardReference(t *testing.T) {
 	}
 }
 
-func TestTwoPhaseResolution_CircularDependency(t *testing.T) {
-	// test that circular dependencies are detected
+func TestTypeResolution_CircularDependency(t *testing.T) {
+	// circular dependencies must be detected
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
@@ -225,8 +226,8 @@ func TestTwoPhaseResolution_CircularDependency(t *testing.T) {
 	}
 	schema.TypeDefs[typeB.QName] = typeB
 
-	// phase 2: Should detect circular dependency
-	err := resolver.ResolveTypeReferences(schema)
+	// resolve should detect circular dependency
+	err := resolver.NewResolver(schema).Resolve()
 	if err == nil {
 		t.Fatal("Should detect circular dependency")
 	}
@@ -235,8 +236,8 @@ func TestTwoPhaseResolution_CircularDependency(t *testing.T) {
 	}
 }
 
-func TestTwoPhaseResolution_MissingBaseType(t *testing.T) {
-	// test that missing base types are detected
+func TestTypeResolution_MissingBaseType(t *testing.T) {
+	// missing base types must be detected
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
 		TypeDefs:        make(map[types.QName]types.Type),
@@ -257,15 +258,15 @@ func TestTwoPhaseResolution_MissingBaseType(t *testing.T) {
 	}
 	schema.TypeDefs[derivedType.QName] = derivedType
 
-	// phase 2: Should detect missing base type
-	err := resolver.ResolveTypeReferences(schema)
+	// resolve should detect missing base type
+	err := resolver.NewResolver(schema).Resolve()
 	if err == nil {
 		t.Fatal("Should detect missing base type")
 	}
 }
 
-func TestTwoPhaseResolution_ValidCircularUnion(t *testing.T) {
-	// test that union types can have circular member references (this is valid in XSD)
+func TestTypeResolution_ValidCircularUnion(t *testing.T) {
+	// union types can have circular member references (this is valid in XSD)
 	// this is based on MS-SimpleType2006-07-15/ste110 test case
 	schema := &parser.Schema{
 		TargetNamespace: "",
@@ -302,10 +303,10 @@ func TestTwoPhaseResolution_ValidCircularUnion(t *testing.T) {
 	}
 	schema.TypeDefs[st2.QName] = st2
 
-	// phase 2: Should NOT detect this as a circular dependency (union circular references are valid)
-	err := resolver.ResolveTypeReferences(schema)
+	// resolve should not treat this as an invalid circular dependency
+	err := resolver.NewResolver(schema).Resolve()
 	if err != nil {
-		t.Fatalf("resolver.ResolveTypeReferences should not fail for valid circular union: %v", err)
+		t.Fatalf("resolver.Resolve should not fail for valid circular union: %v", err)
 	}
 
 	if len(st.MemberTypes) != 3 {

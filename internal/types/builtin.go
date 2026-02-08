@@ -23,6 +23,7 @@ type TypeValidatorBytes func(value []byte) error
 
 // BuiltinType represents a built-in XSD type
 type BuiltinType struct {
+	cacheGuard                 cacheGuard
 	primitiveTypeCache         Type
 	validator                  TypeValidator
 	validatorBytes             TypeValidatorBytes
@@ -43,7 +44,7 @@ const (
 	ordered   orderingFlag = true
 )
 
-var builtinRegistry = map[string]*BuiltinType{
+var defaultBuiltinRegistry = newBuiltinRegistry(map[string]*BuiltinType{
 	// built-in complex type
 	string(TypeNameAnyType): newBuiltin(TypeNameAnyType, validateAnyType, nil, WhiteSpacePreserve, unordered),
 
@@ -99,7 +100,7 @@ var builtinRegistry = map[string]*BuiltinType{
 	string(TypeNameUnsignedByte):       newBuiltin(TypeNameUnsignedByte, validateUnsignedByte, validateUnsignedByteBytes, WhiteSpaceCollapse, ordered),
 	string(TypeNameNonPositiveInteger): newBuiltin(TypeNameNonPositiveInteger, validateNonPositiveInteger, validateNonPositiveIntegerBytes, WhiteSpaceCollapse, ordered),
 	string(TypeNameNegativeInteger):    newBuiltin(TypeNameNegativeInteger, validateNegativeInteger, validateNegativeIntegerBytes, WhiteSpaceCollapse, ordered),
-}
+})
 
 var primitiveTypeNames = map[TypeName]struct{}{
 	TypeNameString:       {},
@@ -155,15 +156,12 @@ var builtinBaseTypes = map[TypeName]TypeName{
 
 // GetBuiltin returns a built-in type by name (local name only, assumes XSD namespace)
 func GetBuiltin(name TypeName) *BuiltinType {
-	return builtinRegistry[string(name)]
+	return defaultBuiltinRegistry.get(name)
 }
 
 // GetBuiltinNS returns a built-in type by namespace and local name
 func GetBuiltinNS(namespace NamespaceURI, local string) *BuiltinType {
-	if namespace != XSDNamespace {
-		return nil
-	}
-	return builtinRegistry[local]
+	return defaultBuiltinRegistry.getNS(namespace, local)
 }
 
 func newBuiltin(name TypeName, validator TypeValidator, validatorBytes TypeValidatorBytes, ws WhiteSpace, ordering orderingFlag) *BuiltinType {
@@ -306,35 +304,36 @@ func (b *BuiltinType) MeasureLength(value string) int {
 
 // FundamentalFacets returns the fundamental facets for this built-in type
 func (b *BuiltinType) FundamentalFacets() *FundamentalFacets {
-	typeCacheMu.Lock()
+	guard := b.guard()
+	guard.mu.Lock()
 	for b.fundamentalFacetsCache == nil && b.fundamentalFacetsComputing {
-		typeCacheCond.Wait()
+		guard.cond.Wait()
 	}
 	if b.fundamentalFacetsCache != nil {
 		cached := b.fundamentalFacetsCache
-		typeCacheMu.Unlock()
+		guard.mu.Unlock()
 		return cached
 	}
 	b.fundamentalFacetsComputing = true
-	typeCacheMu.Unlock()
+	guard.mu.Unlock()
 
 	computed := b.computeFundamentalFacets()
 	if computed == nil {
-		typeCacheMu.Lock()
+		guard.mu.Lock()
 		b.fundamentalFacetsComputing = false
-		typeCacheCond.Broadcast()
-		typeCacheMu.Unlock()
+		guard.cond.Broadcast()
+		guard.mu.Unlock()
 		return nil
 	}
 
-	typeCacheMu.Lock()
+	guard.mu.Lock()
 	if b.fundamentalFacetsCache == nil {
 		b.fundamentalFacetsCache = computed
 	}
 	b.fundamentalFacetsComputing = false
 	cached := b.fundamentalFacetsCache
-	typeCacheCond.Broadcast()
-	typeCacheMu.Unlock()
+	guard.cond.Broadcast()
+	guard.mu.Unlock()
 	return cached
 }
 
@@ -405,35 +404,36 @@ func computeBaseType(name string) Type {
 
 // PrimitiveType returns the primitive type for this built-in type
 func (b *BuiltinType) PrimitiveType() Type {
-	typeCacheMu.Lock()
+	guard := b.guard()
+	guard.mu.Lock()
 	for b.primitiveTypeCache == nil && b.primitiveTypeComputing {
-		typeCacheCond.Wait()
+		guard.cond.Wait()
 	}
 	if b.primitiveTypeCache != nil {
 		cached := b.primitiveTypeCache
-		typeCacheMu.Unlock()
+		guard.mu.Unlock()
 		return cached
 	}
 	b.primitiveTypeComputing = true
-	typeCacheMu.Unlock()
+	guard.mu.Unlock()
 
 	primitive := b.computePrimitiveType()
 	if primitive == nil {
-		typeCacheMu.Lock()
+		guard.mu.Lock()
 		b.primitiveTypeComputing = false
-		typeCacheCond.Broadcast()
-		typeCacheMu.Unlock()
+		guard.cond.Broadcast()
+		guard.mu.Unlock()
 		return nil
 	}
 
-	typeCacheMu.Lock()
+	guard.mu.Lock()
 	if b.primitiveTypeCache == nil {
 		b.primitiveTypeCache = primitive
 	}
 	b.primitiveTypeComputing = false
 	cached := b.primitiveTypeCache
-	typeCacheCond.Broadcast()
-	typeCacheMu.Unlock()
+	guard.cond.Broadcast()
+	guard.mu.Unlock()
 	return cached
 }
 

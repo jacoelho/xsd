@@ -14,11 +14,11 @@ import (
 	"unicode"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/pipeline"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/runtime"
-	runtimebuild "github.com/jacoelho/xsd/internal/runtimecompile"
 	loader "github.com/jacoelho/xsd/internal/source"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validator"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
@@ -479,7 +479,7 @@ func shouldSkipSchemaError(err error) (bool, string) {
 	if err == nil {
 		return false, ""
 	}
-	if errors.Is(err, types.ErrOccursOverflow) || errors.Is(err, types.ErrOccursTooLarge) {
+	if errors.Is(err, occurs.ErrOccursOverflow) || errors.Is(err, occurs.ErrOccursTooLarge) {
 		return true, "occurrence bounds exceed compile limits"
 	}
 	msg := err.Error()
@@ -1236,8 +1236,8 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup,
 		return "", nil
 	}
 	rootNS := info.rootNS
-	rootQName := types.QName{
-		Namespace: types.NamespaceURI(rootNS),
+	rootQName := qname.QName{
+		Namespace: qname.NamespaceURI(rootNS),
 		Local:     info.rootLocal,
 	}
 
@@ -1282,20 +1282,20 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup,
 	return "", nil
 }
 
-func runtimeDeclaresElement(schema *runtime.Schema, qname types.QName) bool {
+func runtimeDeclaresElement(schema *runtime.Schema, root qname.QName) bool {
 	if schema == nil {
 		return false
 	}
 	nsID := runtime.NamespaceID(0)
-	if qname.Namespace.IsEmpty() {
+	if root.Namespace.IsEmpty() {
 		nsID = schema.PredefNS.Empty
 	} else {
-		nsID = schema.Namespaces.Lookup([]byte(qname.Namespace))
+		nsID = schema.Namespaces.Lookup([]byte(root.Namespace))
 	}
 	if nsID == 0 {
 		return false
 	}
-	sym := schema.Symbols.Lookup(nsID, []byte(qname.Local))
+	sym := schema.Symbols.Lookup(nsID, []byte(root.Local))
 	if sym == 0 {
 		return false
 	}
@@ -1318,7 +1318,13 @@ func (r *W3CTestRunner) loadSchemaFromPath(schemaPath string) (*runtime.Schema, 
 		r.schemaCache[key] = schemaCacheEntry{err: err}
 		return nil, err
 	}
-	schema, err := runtimebuild.BuildSchema(parsed, runtimebuild.BuildConfig{})
+	prepared, err := pipeline.Prepare(parsed)
+	if err != nil {
+		err = fmt.Errorf("prepare schema %s: %w", schemaPath, err)
+		r.schemaCache[key] = schemaCacheEntry{err: err}
+		return nil, err
+	}
+	schema, err := prepared.BuildRuntime(pipeline.CompileConfig{})
 	if err != nil {
 		err = fmt.Errorf("build runtime schema %s: %w", schemaPath, err)
 		r.schemaCache[key] = schemaCacheEntry{err: err}

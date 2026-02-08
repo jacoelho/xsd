@@ -171,7 +171,7 @@ func TestUnionEnumViolatesUnionPattern_CompileError(t *testing.T) {
 	if _, err := schema.ResolveReferences(sch, reg); err != nil {
 		t.Fatalf("resolve references: %v", err)
 	}
-	_, err = CompileValidators(sch, reg)
+	_, err = compileValidators(sch, reg)
 	if err == nil {
 		t.Fatalf("expected compile error for enum value violating union pattern")
 	}
@@ -180,7 +180,7 @@ func TestUnionEnumViolatesUnionPattern_CompileError(t *testing.T) {
 	}
 }
 
-func compileSchema(t *testing.T, schemaXML string) (*CompiledValidators, *schema.Registry) {
+func compileSchema(t *testing.T, schemaXML string) (*compiledValidators, *schema.Registry) {
 	t.Helper()
 	sch := mustResolveSchema(t, schemaXML)
 	reg, err := schema.AssignIDs(sch)
@@ -190,14 +190,14 @@ func compileSchema(t *testing.T, schemaXML string) (*CompiledValidators, *schema
 	if _, err := schema.ResolveReferences(sch, reg); err != nil {
 		t.Fatalf("resolve references: %v", err)
 	}
-	compiled, err := CompileValidators(sch, reg)
+	compiled, err := compileValidators(sch, reg)
 	if err != nil {
 		t.Fatalf("compile validators: %v", err)
 	}
 	return compiled, reg
 }
 
-func validatorIDForType(t *testing.T, reg *schema.Registry, compiled *CompiledValidators, local string) runtime.ValidatorID {
+func validatorIDForType(t *testing.T, reg *schema.Registry, compiled *compiledValidators, local string) runtime.ValidatorID {
 	t.Helper()
 	var typeID schema.TypeID
 	for _, entry := range reg.TypeOrder {
@@ -216,7 +216,7 @@ func validatorIDForType(t *testing.T, reg *schema.Registry, compiled *CompiledVa
 	return id
 }
 
-func facetOps(compiled *CompiledValidators, id runtime.ValidatorID) map[runtime.FacetOp]bool {
+func facetOps(compiled *compiledValidators, id runtime.ValidatorID) map[runtime.FacetOp]bool {
 	meta := compiled.Validators.Meta[id]
 	if meta.Facets.Len == 0 {
 		return map[runtime.FacetOp]bool{}
@@ -229,7 +229,7 @@ func facetOps(compiled *CompiledValidators, id runtime.ValidatorID) map[runtime.
 	return ops
 }
 
-func enumIDForValidator(t *testing.T, compiled *CompiledValidators, id runtime.ValidatorID) runtime.EnumID {
+func enumIDForValidator(t *testing.T, compiled *compiledValidators, id runtime.ValidatorID) runtime.EnumID {
 	t.Helper()
 	meta := compiled.Validators.Meta[id]
 	start := meta.Facets.Off
@@ -248,7 +248,7 @@ type enumKey struct {
 	bytes []byte
 }
 
-func enumKeys(t *testing.T, compiled *CompiledValidators, enumID runtime.EnumID) []enumKey {
+func enumKeys(t *testing.T, compiled *compiledValidators, enumID runtime.EnumID) []enumKey {
 	t.Helper()
 	if enumID == 0 {
 		t.Fatalf("enum ID is zero")

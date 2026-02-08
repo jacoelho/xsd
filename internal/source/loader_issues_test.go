@@ -2,14 +2,13 @@ package source
 
 import (
 	"errors"
-	"io"
 	"strings"
 	"testing"
 	"testing/fstest"
 
+	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/pipeline"
-	runtimebuild "github.com/jacoelho/xsd/internal/runtimecompile"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -43,41 +42,6 @@ func TestLoadInvalidSchemaTripsFailStop(t *testing.T) {
 	fresh := NewLoader(Config{FS: fs})
 	if _, err := fresh.Load("schema.xsd"); err != nil {
 		t.Fatalf("expected load with fresh loader to succeed, got %v", err)
-	}
-}
-
-func TestLoadResolvedWithoutResolverSucceedsForSelfContainedSchema(t *testing.T) {
-	schemaXML := `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:string"/>
-</xs:schema>`
-
-	loader := NewLoader(Config{})
-	schema, err := loader.LoadResolved(io.NopCloser(strings.NewReader(schemaXML)), "inline.xsd")
-	if err != nil {
-		t.Fatalf("expected self-contained schema to load without resolver, got %v", err)
-	}
-	if schema == nil {
-		t.Fatalf("expected loaded schema")
-	}
-	if _, ok := schema.ElementDecls[types.QName{Namespace: "", Local: "root"}]; !ok {
-		t.Fatalf("expected root element declaration")
-	}
-}
-
-func TestLoadResolvedWithoutResolverFailsWhenDirectiveNeedsResolution(t *testing.T) {
-	schemaXML := `<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:include schemaLocation="inc.xsd"/>
-</xs:schema>`
-
-	loader := NewLoader(Config{})
-	_, err := loader.LoadResolved(io.NopCloser(strings.NewReader(schemaXML)), "inline.xsd")
-	if err == nil || !strings.Contains(err.Error(), "no resolver configured") {
-		t.Fatalf("expected resolver error when include needs resolution, got %v", err)
-	}
-	if _, err := loader.LoadResolved(io.NopCloser(strings.NewReader(schemaXML)), "inline.xsd"); !errors.Is(err, errLoaderFailed) {
-		t.Fatalf("expected fail-stop error after first load failure, got %v", err)
 	}
 }
 
@@ -165,10 +129,7 @@ func TestAllowMissingImportLocationsChameleonIncludeResolves(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected load success, got %v", err)
 	}
-	if schema.Phase != parser.PhaseResolved {
-		t.Fatalf("schema phase = %s, want %s", schema.Phase, parser.PhaseResolved)
-	}
-	if schema.HasPlaceholders {
+	if parser.HasPlaceholders(schema) {
 		t.Fatalf("expected no placeholders after load")
 	}
 	typeQName := types.QName{Namespace: "urn:root", Local: "ChameleonType"}
@@ -299,7 +260,7 @@ func TestMergeSchemaRollbackOnError(t *testing.T) {
 		},
 	}
 
-	err := loader.mergeSchema(target, source, mergeInclude, keepNamespace, len(target.GlobalDecls))
+	err := loader.mergeSchema(target, source, loadmerge.MergeInclude, loadmerge.KeepNamespace, len(target.GlobalDecls))
 	if err == nil {
 		t.Fatalf("expected merge error for duplicate type")
 	}
@@ -383,7 +344,11 @@ func TestSubstitutionGroupOrderDeterministic(t *testing.T) {
 		if !equalQNameSlices(members, expected) {
 			t.Fatalf("substitution group members = %v, want %v", members, expected)
 		}
-		rt, err := runtimebuild.BuildSchema(schema, runtimebuild.BuildConfig{})
+		prepared, err := pipeline.Prepare(schema)
+		if err != nil {
+			t.Fatalf("prepare: %v", err)
+		}
+		rt, err := prepared.BuildRuntime(pipeline.CompileConfig{})
 		if err != nil {
 			t.Fatalf("runtime build: %v", err)
 		}
@@ -432,7 +397,11 @@ func TestGroupResolutionDeterministic(t *testing.T) {
 		if err != nil {
 			t.Fatalf("load schema: %v", err)
 		}
-		rt, err := runtimebuild.BuildSchema(schema, runtimebuild.BuildConfig{})
+		prepared, err := pipeline.Prepare(schema)
+		if err != nil {
+			t.Fatalf("prepare: %v", err)
+		}
+		rt, err := prepared.BuildRuntime(pipeline.CompileConfig{})
 		if err != nil {
 			t.Fatalf("runtime build: %v", err)
 		}
