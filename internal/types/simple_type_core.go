@@ -10,6 +10,7 @@ import (
 
 // SimpleType represents a simple type definition
 type SimpleType struct {
+	cacheGuard                     cacheGuard
 	identityListItemType           Type
 	ResolvedBase                   Type
 	primitiveType                  Type
@@ -281,6 +282,7 @@ func (s *SimpleType) Copy(opts CopyOptions) *SimpleType {
 		return existing
 	}
 	clone := *s
+	clone.cacheGuard = cacheGuard{}
 	opts.rememberSimpleType(s, &clone)
 	clone.QName = opts.RemapQName(s.QName)
 	clone.SourceNamespace = sourceNamespace(s.SourceNamespace, opts)
@@ -392,35 +394,36 @@ func (s *SimpleType) FundamentalFacets() *FundamentalFacets {
 	if s == nil {
 		return nil
 	}
-	typeCacheMu.Lock()
+	guard := s.guard()
+	guard.mu.Lock()
 	for s.fundamentalFacetsCache == nil && s.fundamentalFacetsComputing {
-		typeCacheCond.Wait()
+		guard.cond.Wait()
 	}
 	if s.fundamentalFacetsCache != nil {
 		cached := s.fundamentalFacetsCache
-		typeCacheMu.Unlock()
+		guard.mu.Unlock()
 		return cached
 	}
 	s.fundamentalFacetsComputing = true
-	typeCacheMu.Unlock()
+	guard.mu.Unlock()
 
 	computed := s.computeFundamentalFacets()
 	if computed == nil {
-		typeCacheMu.Lock()
+		guard.mu.Lock()
 		s.fundamentalFacetsComputing = false
-		typeCacheCond.Broadcast()
-		typeCacheMu.Unlock()
+		guard.cond.Broadcast()
+		guard.mu.Unlock()
 		return nil
 	}
 
-	typeCacheMu.Lock()
+	guard.mu.Lock()
 	if s.fundamentalFacetsCache == nil {
 		s.fundamentalFacetsCache = computed
 	}
 	s.fundamentalFacetsComputing = false
 	cached := s.fundamentalFacetsCache
-	typeCacheCond.Broadcast()
-	typeCacheMu.Unlock()
+	guard.cond.Broadcast()
+	guard.mu.Unlock()
 	return cached
 }
 

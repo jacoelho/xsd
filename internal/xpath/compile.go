@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/qname"
 )
 
 // Axis describes the XPath axis used in a step.
@@ -24,7 +24,7 @@ const AxisAttribute Axis = -1
 // NodeTest matches element or attribute names.
 type NodeTest struct {
 	Local              string
-	Namespace          types.NamespaceURI
+	Namespace          qname.NamespaceURI
 	Any                bool
 	NamespaceSpecified bool
 }
@@ -38,7 +38,7 @@ func CanonicalizeNodeTest(test NodeTest) NodeTest {
 		return test
 	}
 	test.NamespaceSpecified = true
-	test.Namespace = types.NamespaceEmpty
+	test.Namespace = qname.NamespaceEmpty
 	return test
 }
 
@@ -78,7 +78,7 @@ const (
 
 // Parse compiles an XPath expression into a set of paths.
 func Parse(expr string, nsContext map[string]string, policy AttributePolicy) (Expression, error) {
-	expr = types.TrimXMLWhitespace(expr)
+	expr = qname.TrimXMLWhitespace(expr)
 	if expr == "" {
 		return Expression{}, xpathErrorf("xpath cannot be empty")
 	}
@@ -95,7 +95,7 @@ func Parse(expr string, nsContext map[string]string, policy AttributePolicy) (Ex
 	parts := strings.Split(expr, "|")
 	paths := make([]Path, 0, len(parts))
 	for _, raw := range parts {
-		part := types.TrimXMLWhitespace(raw)
+		part := qname.TrimXMLWhitespace(raw)
 		if part == "" {
 			return Expression{}, xpathErrorf("xpath contains empty union branch: %s", expr)
 		}
@@ -292,14 +292,14 @@ func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind)
 	}
 
 	if before, ok := strings.CutSuffix(token, ":*"); ok {
-		prefix := types.TrimXMLWhitespace(before)
+		prefix := qname.TrimXMLWhitespace(before)
 		if prefix == "" {
 			return NodeTest{}, xpathErrorf("xpath step has empty prefix: %s", token)
 		}
-		if !types.IsValidNCName(prefix) {
+		if !qname.IsValidNCName(prefix) {
 			return NodeTest{}, xpathErrorf("xpath step has invalid prefix %q", token)
 		}
-		nsURI, ok := types.ResolveNamespace(prefix, nsContext)
+		nsURI, ok := qname.ResolveNamespace(prefix, nsContext)
 		if !ok {
 			return NodeTest{}, xpathErrorf("xpath step uses undeclared prefix %q", prefix)
 		}
@@ -310,13 +310,13 @@ func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind)
 		}, nil
 	}
 
-	if !types.IsValidQName(token) {
+	if !qname.IsValidQName(token) {
 		return NodeTest{}, xpathErrorf("xpath step has invalid QName %q", token)
 	}
 
-	prefix, local, hasPrefix := types.SplitQName(token)
+	prefix, local, hasPrefix := qname.SplitQName(token)
 	if hasPrefix {
-		nsURI, ok := types.ResolveNamespace(prefix, nsContext)
+		nsURI, ok := qname.ResolveNamespace(prefix, nsContext)
 		if !ok {
 			return NodeTest{}, xpathErrorf("xpath step uses undeclared prefix %q", prefix)
 		}
@@ -360,7 +360,7 @@ func (r *pathReader) readToken() string {
 		}
 		r.pos++
 	}
-	return types.TrimXMLWhitespace(r.input[start:r.pos])
+	return qname.TrimXMLWhitespace(r.input[start:r.pos])
 }
 
 func (r *pathReader) consumeSlash() bool {

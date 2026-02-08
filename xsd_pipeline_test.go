@@ -14,7 +14,10 @@ func TestCompilationPipelineLoadAndParse(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	p := newCompilationPipeline(fsys, "main.xsd", LoadOptions{})
+	p, _, err := newCompilationPipeline(fsys, "main.xsd", LoadOptions{})
+	if err != nil {
+		t.Fatalf("newCompilationPipeline() error = %v", err)
+	}
 	loader, err := p.Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
@@ -43,8 +46,11 @@ func TestCompilationPipelineLoadAndParse(t *testing.T) {
 }
 
 func TestCompilationPipelineParseRejectsNilLoader(t *testing.T) {
-	p := newCompilationPipeline(fstest.MapFS{}, "main.xsd", LoadOptions{})
-	_, err := p.Parse(nil)
+	p, _, err := newCompilationPipeline(fstest.MapFS{}, "main.xsd", LoadOptions{})
+	if err != nil {
+		t.Fatalf("newCompilationPipeline() error = %v", err)
+	}
+	_, err = p.Parse(nil)
 	if err == nil {
 		t.Fatal("Parse() error = nil, want error")
 	}
@@ -54,8 +60,11 @@ func TestCompilationPipelineParseRejectsNilLoader(t *testing.T) {
 }
 
 func TestCompilationPipelineLoadRejectsNilFS(t *testing.T) {
-	p := newCompilationPipeline(nil, "main.xsd", LoadOptions{})
-	_, err := p.Load()
+	p, _, err := newCompilationPipeline(nil, "main.xsd", LoadOptions{})
+	if err != nil {
+		t.Fatalf("newCompilationPipeline() error = %v", err)
+	}
+	_, err = p.Load()
 	if err == nil {
 		t.Fatal("Load() error = nil, want error")
 	}
@@ -65,8 +74,11 @@ func TestCompilationPipelineLoadRejectsNilFS(t *testing.T) {
 }
 
 func TestCompilationPipelinePrepareRejectsNilParsed(t *testing.T) {
-	p := newCompilationPipeline(fstest.MapFS{}, "main.xsd", LoadOptions{})
-	_, err := p.Prepare(nil)
+	p, _, err := newCompilationPipeline(fstest.MapFS{}, "main.xsd", LoadOptions{})
+	if err != nil {
+		t.Fatalf("newCompilationPipeline() error = %v", err)
+	}
+	_, err = p.Prepare(nil)
 	if err == nil {
 		t.Fatal("Prepare() error = nil, want error")
 	}
@@ -76,8 +88,11 @@ func TestCompilationPipelinePrepareRejectsNilParsed(t *testing.T) {
 }
 
 func TestCompilationPipelineCompileRejectsNilPrepared(t *testing.T) {
-	p := newCompilationPipeline(fstest.MapFS{}, "main.xsd", LoadOptions{})
-	_, err := p.Compile(nil)
+	p, _, err := newCompilationPipeline(fstest.MapFS{}, "main.xsd", LoadOptions{})
+	if err != nil {
+		t.Fatalf("newCompilationPipeline() error = %v", err)
+	}
+	_, err = p.Compile(nil)
 	if err == nil {
 		t.Fatal("Compile() error = nil, want error")
 	}
@@ -94,7 +109,10 @@ func TestCompilationPipelineRunBuildsRuntime(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	p := newCompilationPipeline(fsys, "main.xsd", LoadOptions{})
+	p, _, err := newCompilationPipeline(fsys, "main.xsd", LoadOptions{})
+	if err != nil {
+		t.Fatalf("newCompilationPipeline() error = %v", err)
+	}
 	rt, err := p.Run()
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
@@ -112,7 +130,10 @@ func TestCompilationPipelinePrepareRejectsInvalidParsedSchema(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	p := newCompilationPipeline(fsys, "main.xsd", LoadOptions{})
+	p, _, err := newCompilationPipeline(fsys, "main.xsd", LoadOptions{})
+	if err != nil {
+		t.Fatalf("newCompilationPipeline() error = %v", err)
+	}
 	loaded, err := p.Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)

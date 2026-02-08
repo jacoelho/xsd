@@ -6,35 +6,36 @@ func (s *SimpleType) PrimitiveType() Type {
 	if s == nil {
 		return nil
 	}
-	typeCacheMu.Lock()
+	guard := s.guard()
+	guard.mu.Lock()
 	for s.primitiveType == nil && s.primitiveTypeComputing {
-		typeCacheCond.Wait()
+		guard.cond.Wait()
 	}
 	if s.primitiveType != nil {
 		cached := s.primitiveType
-		typeCacheMu.Unlock()
+		guard.mu.Unlock()
 		return cached
 	}
 	s.primitiveTypeComputing = true
-	typeCacheMu.Unlock()
+	guard.mu.Unlock()
 
 	computed := s.computePrimitiveType(make(map[*SimpleType]bool))
 	if computed == nil {
-		typeCacheMu.Lock()
+		guard.mu.Lock()
 		s.primitiveTypeComputing = false
-		typeCacheCond.Broadcast()
-		typeCacheMu.Unlock()
+		guard.cond.Broadcast()
+		guard.mu.Unlock()
 		return nil
 	}
 
-	typeCacheMu.Lock()
+	guard.mu.Lock()
 	if s.primitiveType == nil {
 		s.primitiveType = computed
 	}
 	s.primitiveTypeComputing = false
 	cached := s.primitiveType
-	typeCacheCond.Broadcast()
-	typeCacheMu.Unlock()
+	guard.cond.Broadcast()
+	guard.mu.Unlock()
 	return cached
 }
 
@@ -52,21 +53,22 @@ func (s *SimpleType) IsQNameOrNotationType() bool {
 	if s == nil {
 		return false
 	}
-	typeCacheMu.RLock()
+	guard := s.guard()
+	guard.mu.RLock()
 	ready := s.qnameOrNotationReady
 	result := s.qnameOrNotation
-	typeCacheMu.RUnlock()
+	guard.mu.RUnlock()
 	if ready {
 		return result
 	}
 	computed := s.computeQNameOrNotationType()
-	typeCacheMu.Lock()
+	guard.mu.Lock()
 	if !s.qnameOrNotationReady {
 		s.qnameOrNotation = computed
 		s.qnameOrNotationReady = true
 	}
 	result = s.qnameOrNotation
-	typeCacheMu.Unlock()
+	guard.mu.Unlock()
 	return result
 }
 
@@ -75,8 +77,9 @@ func (s *SimpleType) SetQNameOrNotationType(flag bool) {
 	if s == nil {
 		return
 	}
-	typeCacheMu.Lock()
-	defer typeCacheMu.Unlock()
+	guard := s.guard()
+	guard.mu.Lock()
+	defer guard.mu.Unlock()
 	s.qnameOrNotation = flag
 	s.qnameOrNotationReady = true
 }
@@ -114,9 +117,10 @@ func (s *SimpleType) computeQNameOrNotationType() bool {
 // computePrimitiveType is the internal implementation with cycle detection.
 func (s *SimpleType) computePrimitiveType(visited map[*SimpleType]bool) Type {
 	// if already computed, return it
-	typeCacheMu.RLock()
+	guard := s.guard()
+	guard.mu.RLock()
 	cached := s.primitiveType
-	typeCacheMu.RUnlock()
+	guard.mu.RUnlock()
 	if cached != nil {
 		return cached
 	}

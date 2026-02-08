@@ -70,6 +70,7 @@ func Prepare(sch *parser.Schema) (*PreparedSchema, error) {
 
 // Validate runs schema semantic checks and returns immutable preparation artifacts.
 func Validate(sch *parser.Schema) (*ValidatedSchema, error) {
+	types.PrecomputeBuiltinCaches()
 	validatedSchema, reg, err := validateSchema(sch)
 	if err != nil {
 		return nil, err

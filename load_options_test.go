@@ -24,7 +24,8 @@ func TestLoadWithOptionsAllowsMissingImportLocation(t *testing.T) {
 		t.Fatal("Load() err = nil, want missing import error")
 	}
 
-	if _, err := xsd.LoadWithOptions(fsys, "main.xsd", xsd.LoadOptions{AllowMissingImportLocations: true}); err != nil {
+	opts := xsd.NewLoadOptions().WithAllowMissingImportLocations(true)
+	if _, err := xsd.LoadWithOptions(fsys, "main.xsd", opts); err != nil {
 		t.Fatalf("LoadWithOptions() error = %v", err)
 	}
 }
