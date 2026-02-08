@@ -47,7 +47,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   subgraph PublicAPI["Public API"]
-    Load["xsd.Load / xsd.LoadWithOptions"] --> Loader["internal/source.SchemaLoader.Load<br/>(parse + import/include)"] --> Prepare["internal/pipeline.Prepare<br/>(semantic validation + artifacts)"] --> Build["pipeline.PreparedSchema.BuildRuntime<br/>(IDs, refs, validators, models)"] --> Runtime["internal/runtime.Schema"]
+    Load["xsd.Load / xsd.LoadWithOptions / xsd.Prepare"] --> Loader["internal/source.SchemaLoader.Load<br/>(parse + import/include)"] --> Prepare["internal/pipeline.Prepare<br/>(semantic validation + artifacts)"] --> Build["xsd.PreparedSchema.Build<br/>or BuildWithOptions"] --> Runtime["internal/runtime.Schema"]
   end
   subgraph Validation
     Validate["Schema.Validate"] --> ValidatorPkg["internal/validator<br/>(session, streaming checks)"]
@@ -94,7 +94,7 @@ type Restriction struct {
 
 Import and include resolution happens during loading to assemble all schema
 documents. Includes must resolve successfully. Imports without a schemaLocation
-are rejected unless `LoadOptions.AllowMissingImportLocations` is enabled.
+are rejected unless `LoadOptions.WithAllowMissingImportLocations(true)` is used.
 Missing import files are only skipped when that option is enabled; otherwise
 they are errors.
 

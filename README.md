@@ -105,24 +105,49 @@ func main() {
 ## Load options
 
 ```go
-schema, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.LoadOptions{
-    AllowMissingImportLocations: true,
-    MaxDFAStates:                4096,
-    MaxOccursLimit:              1_000_000,
-})
+opts := xsd.NewLoadOptions().
+    WithAllowMissingImportLocations(true).
+    WithMaxDFAStates(4096).
+    WithMaxOccursLimit(1_000_000)
+
+schema, err := xsd.LoadWithOptions(fsys, "schema.xsd", opts)
 ```
 
 Options:
-- `AllowMissingImportLocations`: when true, imports without `schemaLocation` are skipped.
+- `WithAllowMissingImportLocations`: when true, imports without `schemaLocation` are skipped.
   Missing import files are also skipped when the filesystem returns `fs.ErrNotExist`.
-- `MaxDFAStates`: limit DFA determinization size for content models. `0` uses the default.
-- `MaxOccursLimit`: limit particle `maxOccurs` during compilation. `0` uses the default.
+- `WithMaxDFAStates`: limit DFA determinization size for content models. `0` uses the default.
+- `WithMaxOccursLimit`: limit particle `maxOccurs` during compilation. `0` uses the default.
+- `WithSchemaMaxDepth` / `WithSchemaMaxAttrs` / `WithSchemaMaxTokenSize`: schema parser XML limits.
+- `WithInstanceMaxDepth` / `WithInstanceMaxAttrs` / `WithInstanceMaxTokenSize`: instance XML limits.
+
+## Prepare Once, Build Many
+
+```go
+prepared, err := xsd.Prepare(fsys, "schema.xsd")
+if err != nil {
+    // handle
+}
+
+schemaA, err := prepared.Build()
+if err != nil {
+    // handle
+}
+
+runtimeOpts := xsd.NewRuntimeOptions().
+    WithMaxDFAStates(2048).
+    WithInstanceMaxDepth(512)
+schemaB, err := prepared.BuildWithOptions(runtimeOpts)
+if err != nil {
+    // handle
+}
+```
 
 ## Loading behavior
 
 - `Load` accepts any `fs.FS`; include/import locations resolve relative to the including schema path.
 - Includes MUST resolve successfully.
-- Imports without `schemaLocation` are rejected unless `AllowMissingImportLocations` is enabled.
+- Imports without `schemaLocation` are rejected unless `WithAllowMissingImportLocations(true)` is set.
 
 ## Validation behavior
 
