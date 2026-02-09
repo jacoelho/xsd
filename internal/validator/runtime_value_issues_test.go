@@ -18,7 +18,7 @@ func TestUnionStoredValueIsStable(t *testing.T) {
 </xs:schema>`
 
 	rt := mustBuildRuntimeSchema(t, schemaXML)
-	validatorID := mustValidatorID(t, rt, "urn:test", "U")
+	validatorID := mustValidatorID(t, rt, "U")
 	sess := NewSession(rt)
 
 	opts := valueOptions{
@@ -54,7 +54,7 @@ func TestListNormalizedValueIsStable(t *testing.T) {
 </xs:schema>`
 
 	rt := mustBuildRuntimeSchema(t, schemaXML)
-	validatorID := mustValidatorID(t, rt, "urn:test", "L")
+	validatorID := mustValidatorID(t, rt, "L")
 	sess := NewSession(rt)
 
 	opts := valueOptions{
@@ -78,11 +78,83 @@ func TestListNormalizedValueIsStable(t *testing.T) {
 	}
 }
 
-func mustValidatorID(t *testing.T, rt *runtime.Schema, ns, local string) runtime.ValidatorID {
+func TestHexBinaryCanonicalValueIsStable(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="H">
+    <xs:restriction base="xs:hexBinary"/>
+  </xs:simpleType>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schemaXML)
+	validatorID := mustValidatorID(t, rt, "H")
+	sess := NewSession(rt)
+
+	opts := valueOptions{
+		applyWhitespace:  true,
+		requireCanonical: true,
+		storeValue:       false,
+	}
+	canon, err := sess.validateValueInternalOptions(validatorID, []byte("0a"), nil, opts)
+	if err != nil {
+		t.Fatalf("validate value: %v", err)
+	}
+	if string(canon) != "0A" {
+		t.Fatalf("canonical = %q, want %q", string(canon), "0A")
+	}
+
+	if _, err := sess.validateValueInternalOptions(validatorID, []byte("0b"), nil, opts); err != nil {
+		t.Fatalf("validate value: %v", err)
+	}
+	if string(canon) != "0A" {
+		t.Fatalf("canonical mutated to %q", string(canon))
+	}
+}
+
+func TestBase64BinaryCanonicalValueIsStable(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="B">
+    <xs:restriction base="xs:base64Binary"/>
+  </xs:simpleType>
+</xs:schema>`
+
+	rt := mustBuildRuntimeSchema(t, schemaXML)
+	validatorID := mustValidatorID(t, rt, "B")
+	sess := NewSession(rt)
+
+	opts := valueOptions{
+		applyWhitespace:  true,
+		requireCanonical: true,
+		storeValue:       false,
+	}
+	canon, err := sess.validateValueInternalOptions(validatorID, []byte(" YQ== "), nil, opts)
+	if err != nil {
+		t.Fatalf("validate value: %v", err)
+	}
+	if string(canon) != "YQ==" {
+		t.Fatalf("canonical = %q, want %q", string(canon), "YQ==")
+	}
+
+	if _, err := sess.validateValueInternalOptions(validatorID, []byte(" Yg== "), nil, opts); err != nil {
+		t.Fatalf("validate value: %v", err)
+	}
+	if string(canon) != "YQ==" {
+		t.Fatalf("canonical mutated to %q", string(canon))
+	}
+}
+
+func mustValidatorID(t *testing.T, rt *runtime.Schema, local string) runtime.ValidatorID {
 	t.Helper()
-	nsID := rt.Namespaces.Lookup([]byte(ns))
+	nsID := rt.Namespaces.Lookup([]byte("urn:test"))
 	if nsID == 0 {
-		t.Fatalf("namespace %q not found", ns)
+		t.Fatalf("namespace %q not found", "urn:test")
 	}
 	sym := rt.Symbols.Lookup(nsID, []byte(local))
 	if sym == 0 {

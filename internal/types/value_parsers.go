@@ -95,12 +95,12 @@ func ParseString(lexical string) (string, error) {
 
 // ParseHexBinary parses a hexBinary string into []byte
 func ParseHexBinary(lexical string) ([]byte, error) {
-	return value.ParseHexBinary([]byte(lexical))
+	return ParseHexBinaryBytes([]byte(lexical))
 }
 
 // ParseBase64Binary parses a base64Binary string into []byte
 func ParseBase64Binary(lexical string) ([]byte, error) {
-	return value.ParseBase64Binary([]byte(lexical))
+	return ParseBase64BinaryBytes([]byte(lexical))
 }
 
 // ParseAnyURI parses an anyURI string (no validation beyond trimming)

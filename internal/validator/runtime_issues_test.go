@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 
@@ -317,7 +318,7 @@ func TestLookupNamespaceCacheDoesNotGrowBuffers(t *testing.T) {
 			URI:    fmt.Sprintf("urn:%d", i),
 		})
 	}
-	sess.pushNamespaceScope(decls)
+	sess.pushNamespaceScope(slices.Values(decls))
 	beforeLocal := len(sess.nameLocal)
 	beforeNS := len(sess.nameNS)
 

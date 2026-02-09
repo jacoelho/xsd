@@ -39,15 +39,6 @@ func (s *SimpleType) PrimitiveType() Type {
 	return cached
 }
 
-func (s *SimpleType) precomputeCaches() {
-	if s == nil {
-		return
-	}
-	s.PrimitiveType()
-	s.FundamentalFacets()
-	s.precomputeIdentityNormalization()
-}
-
 // IsQNameOrNotationType reports whether this type derives from QName or NOTATION.
 func (s *SimpleType) IsQNameOrNotationType() bool {
 	if s == nil {

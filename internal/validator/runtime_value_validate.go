@@ -83,6 +83,9 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 	if err := s.applyFacets(meta, normalized, canon, metrics); err != nil {
 		return nil, err
 	}
+	if !opts.storeValue && (meta.Kind == runtime.VHexBinary || meta.Kind == runtime.VBase64Binary) {
+		canon = append([]byte(nil), canon...)
+	}
 	canon = s.finalizeValue(canon, opts, metrics, metricsInternal)
 	if opts.trackIDs {
 		if err := s.trackValidatedIDs(id, canon, resolver, metrics); err != nil {

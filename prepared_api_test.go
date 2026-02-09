@@ -1,6 +1,7 @@
 package xsd_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -29,12 +30,12 @@ func TestPrepareAndBuild(t *testing.T) {
 		t.Fatal("Prepare() returned nil")
 	}
 
-	order := prepared.GlobalElementOrder()
+	order := slices.Collect(prepared.GlobalElementOrderSeq())
 	if len(order) != 1 {
-		t.Fatalf("GlobalElementOrder() length = %d, want 1", len(order))
+		t.Fatalf("GlobalElementOrderSeq() length = %d, want 1", len(order))
 	}
 	if order[0].Local != "root" {
-		t.Fatalf("GlobalElementOrder()[0].Local = %q, want root", order[0].Local)
+		t.Fatalf("GlobalElementOrderSeq()[0].Local = %q, want root", order[0].Local)
 	}
 
 	schema, err := prepared.Build()

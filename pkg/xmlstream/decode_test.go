@@ -11,6 +11,105 @@ import (
 	"github.com/jacoelho/xsd/pkg/xmltext"
 )
 
+func readSubtreeBytes(r *Reader) ([]byte, error) {
+	if r == nil {
+		return nil, errNoStartElement
+	}
+	var buf bytes.Buffer
+	if _, err := r.ReadSubtreeTo(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func readSubtreeInto(r *Reader, dst []byte) (int, error) {
+	if r == nil {
+		return 0, errNoStartElement
+	}
+	writer := subtreeWriterCompat{dst: dst}
+	n, err := r.ReadSubtreeTo(&writer)
+	if err != nil {
+		return int(n), err
+	}
+	if writer.short {
+		return int(n), io.ErrShortBuffer
+	}
+	return int(n), nil
+}
+
+func firstStartElement(t *testing.T, data []byte) xml.StartElement {
+	t.Helper()
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	for {
+		tok, err := dec.Token()
+		if errors.Is(err, io.EOF) {
+			t.Fatalf("first start element missing")
+		}
+		if err != nil {
+			t.Fatalf("decode token error = %v", err)
+		}
+		if start, ok := tok.(xml.StartElement); ok {
+			return start
+		}
+	}
+}
+
+func collectStartElements(t *testing.T, data []byte) []xml.StartElement {
+	t.Helper()
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	starts := make([]xml.StartElement, 0, 4)
+	for {
+		tok, err := dec.Token()
+		if errors.Is(err, io.EOF) {
+			return starts
+		}
+		if err != nil {
+			t.Fatalf("decode token error = %v", err)
+		}
+		if start, ok := tok.(xml.StartElement); ok {
+			starts = append(starts, start)
+		}
+	}
+}
+
+func hasNamespaceDecl(start xml.StartElement, prefix, uri string) bool {
+	for _, attr := range start.Attr {
+		switch {
+		case prefix == "" && attr.Name.Space == "" && attr.Name.Local == "xmlns" && attr.Value == uri:
+			return true
+		case attr.Name.Space == "xmlns" && attr.Name.Local == prefix && attr.Value == uri:
+			return true
+		default:
+			continue
+		}
+	}
+	return false
+}
+
+type subtreeWriterCompat struct {
+	dst   []byte
+	n     int
+	short bool
+}
+
+func (w *subtreeWriterCompat) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if w.n >= len(w.dst) {
+		w.short = true
+		return len(p), nil
+	}
+	avail := len(w.dst) - w.n
+	if len(p) > avail {
+		w.n += copy(w.dst[w.n:], p[:avail])
+		w.short = true
+		return len(p), nil
+	}
+	w.n += copy(w.dst[w.n:], p)
+	return len(p), nil
+}
+
 func TestReadSubtreeBytes(t *testing.T) {
 	input := `<root><skip/><item><title>Go</title></item><tail/></root>`
 	r, err := NewReader(strings.NewReader(input))
@@ -36,7 +135,7 @@ func TestReadSubtreeBytes(t *testing.T) {
 		t.Fatalf("item event = %v %s", ev.Kind, ev.Name.String())
 	}
 
-	data, err := r.ReadSubtreeBytes()
+	data, err := readSubtreeBytes(r)
 	if err != nil {
 		t.Fatalf("ReadSubtreeBytes error = %v", err)
 	}
@@ -73,7 +172,7 @@ func TestReadSubtreeBytesEmptyElement(t *testing.T) {
 		t.Fatalf("item start error = %v", err)
 	}
 
-	data, err := r.ReadSubtreeBytes()
+	data, err := readSubtreeBytes(r)
 	if err != nil {
 		t.Fatalf("ReadSubtreeBytes error = %v", err)
 	}
@@ -102,12 +201,147 @@ func TestReadSubtreeBytesWithCommentsAndPI(t *testing.T) {
 		t.Fatalf("item start error = %v", err)
 	}
 
-	data, err := r.ReadSubtreeBytes()
+	data, err := readSubtreeBytes(r)
 	if err != nil {
 		t.Fatalf("ReadSubtreeBytes error = %v", err)
 	}
 	if got := string(data); got != "<item><!--c--><?pi data?></item>" {
 		t.Fatalf("ReadSubtreeBytes = %q, want <item><!--c--><?pi data?></item>", got)
+	}
+}
+
+func TestReadSubtreeToNilWriter(t *testing.T) {
+	input := `<root><item/></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // root
+		t.Fatalf("root start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // item
+		t.Fatalf("item start error = %v", err)
+	}
+	if _, err = r.ReadSubtreeTo(nil); !errors.Is(err, errNilWriter) {
+		t.Fatalf("ReadSubtreeTo(nil) error = %v, want %v", err, errNilWriter)
+	}
+}
+
+func TestReadSubtreeBytesInheritedPrefixedAttributeNamespace(t *testing.T) {
+	input := `<root xmlns:a="urn:a"><item a:code="x"/></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // root
+		t.Fatalf("root start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // item
+		t.Fatalf("item start error = %v", err)
+	}
+	data, err := readSubtreeBytes(r)
+	if err != nil {
+		t.Fatalf("ReadSubtreeBytes error = %v", err)
+	}
+	start := firstStartElement(t, data)
+	if !hasNamespaceDecl(start, "a", "urn:a") {
+		t.Fatalf("item start missing inherited namespace decl for prefix a in %q", string(data))
+	}
+	foundAttr := false
+	for _, attr := range start.Attr {
+		if attr.Name.Space == "urn:a" && attr.Name.Local == "code" && attr.Value == "x" {
+			foundAttr = true
+			break
+		}
+	}
+	if !foundAttr {
+		t.Fatalf("item start missing namespaced attribute in %q", string(data))
+	}
+}
+
+func TestReadSubtreeBytesDoesNotDuplicateNamespaceDeclarations(t *testing.T) {
+	input := `<root xmlns:foo="urn:foo"><item foo:attr="v"/></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // root
+		t.Fatalf("root start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // item
+		t.Fatalf("item start error = %v", err)
+	}
+	data, err := readSubtreeBytes(r)
+	if err != nil {
+		t.Fatalf("ReadSubtreeBytes error = %v", err)
+	}
+	if got := strings.Count(string(data), `xmlns:foo="urn:foo"`); got != 1 {
+		t.Fatalf("xmlns:foo declaration count = %d, want 1 in %q", got, string(data))
+	}
+}
+
+func TestReadSubtreeBytesNamespaceShadowingUsesInnermostBinding(t *testing.T) {
+	input := `<root xmlns:p="urn:outer"><p:outer><inner xmlns:p="urn:inner"><p:leaf/></inner></p:outer></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // root
+		t.Fatalf("root start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // p:outer
+		t.Fatalf("outer start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // inner
+		t.Fatalf("inner start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // p:leaf
+		t.Fatalf("leaf start error = %v", err)
+	}
+	data, err := readSubtreeBytes(r)
+	if err != nil {
+		t.Fatalf("ReadSubtreeBytes error = %v", err)
+	}
+	start := firstStartElement(t, data)
+	if start.Name.Space != "urn:inner" || start.Name.Local != "leaf" {
+		t.Fatalf("leaf QName = {%s}%s, want {urn:inner}leaf", start.Name.Space, start.Name.Local)
+	}
+	if !hasNamespaceDecl(start, "p", "urn:inner") {
+		t.Fatalf("leaf start missing innermost namespace binding in %q", string(data))
+	}
+}
+
+func TestReadSubtreeBytesDefaultAndPrefixedNamespaces(t *testing.T) {
+	input := `<root xmlns="urn:root" xmlns:a="urn:a"><container><a:item/></container></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // root
+		t.Fatalf("root start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // container
+		t.Fatalf("container start error = %v", err)
+	}
+	data, err := readSubtreeBytes(r)
+	if err != nil {
+		t.Fatalf("ReadSubtreeBytes error = %v", err)
+	}
+	starts := collectStartElements(t, data)
+	if len(starts) < 2 {
+		t.Fatalf("start element count = %d, want at least 2", len(starts))
+	}
+	if starts[0].Name.Space != "urn:root" || starts[0].Name.Local != "container" {
+		t.Fatalf("container QName = {%s}%s, want {urn:root}container", starts[0].Name.Space, starts[0].Name.Local)
+	}
+	if starts[1].Name.Space != "urn:a" || starts[1].Name.Local != "item" {
+		t.Fatalf("item QName = {%s}%s, want {urn:a}item", starts[1].Name.Space, starts[1].Name.Local)
+	}
+	if !hasNamespaceDecl(starts[0], "", "urn:root") {
+		t.Fatalf("container start missing default namespace declaration in %q", string(data))
+	}
+	if !hasNamespaceDecl(starts[0], "a", "urn:a") {
+		t.Fatalf("container start missing prefixed namespace declaration in %q", string(data))
 	}
 }
 
@@ -123,7 +357,7 @@ func TestReadSubtreeBytesReadError(t *testing.T) {
 	if _, err = r.Next(); err != nil { // item
 		t.Fatalf("item start error = %v", err)
 	}
-	if _, err = r.ReadSubtreeBytes(); err == nil {
+	if _, err = readSubtreeBytes(r); err == nil {
 		t.Fatalf("ReadSubtreeBytes error = nil, want error")
 	} else {
 		var syntax *xmltext.SyntaxError
@@ -145,7 +379,7 @@ func TestReadSubtreeBytesFollowedByDecode(t *testing.T) {
 	if _, err = r.Next(); err != nil { // a
 		t.Fatalf("a start error = %v", err)
 	}
-	if _, err = r.ReadSubtreeBytes(); err != nil {
+	if _, err = readSubtreeBytes(r); err != nil {
 		t.Fatalf("ReadSubtreeBytes error = %v", err)
 	}
 	if err = r.Decode(noopUnmarshal{}); !errors.Is(err, errNoStartElement) {
@@ -167,7 +401,7 @@ func TestReadSubtreeBytes_UnmarshalStruct(t *testing.T) {
 		t.Fatalf("book start error = %v", err)
 	}
 
-	data, err := r.ReadSubtreeBytes()
+	data, err := readSubtreeBytes(r)
 	if err != nil {
 		t.Fatalf("ReadSubtreeBytes error = %v", err)
 	}
@@ -202,7 +436,7 @@ func TestReadSubtreeBytes_UnmarshalNestedPaths(t *testing.T) {
 		t.Fatalf("book start error = %v", err)
 	}
 
-	data, err := r.ReadSubtreeBytes()
+	data, err := readSubtreeBytes(r)
 	if err != nil {
 		t.Fatalf("ReadSubtreeBytes error = %v", err)
 	}
@@ -249,7 +483,7 @@ func TestReadSubtreeBytes_UnmarshalPathOnly(t *testing.T) {
 		t.Fatalf("book start error = %v", err)
 	}
 
-	data, err := r.ReadSubtreeBytes()
+	data, err := readSubtreeBytes(r)
 	if err != nil {
 		t.Fatalf("ReadSubtreeBytes error = %v", err)
 	}
@@ -293,7 +527,7 @@ func TestReadSubtreeIntoShortBuffer(t *testing.T) {
 	}
 
 	buf := make([]byte, 4)
-	_, err = r.ReadSubtreeInto(buf)
+	_, err = readSubtreeInto(r, buf)
 	if err == nil {
 		t.Fatalf("ReadSubtreeInto error = nil, want %v", io.ErrShortBuffer)
 	}
@@ -315,7 +549,7 @@ func TestReadSubtreeIntoReadError(t *testing.T) {
 		t.Fatalf("item start error = %v", err)
 	}
 	buf := make([]byte, 64)
-	if _, err = r.ReadSubtreeInto(buf); err == nil {
+	if _, err = readSubtreeInto(r, buf); err == nil {
 		t.Fatalf("ReadSubtreeInto error = nil, want error")
 	} else {
 		var syntax *xmltext.SyntaxError
@@ -337,7 +571,7 @@ func TestReadSubtreeIntoExactFit(t *testing.T) {
 	if _, err = r.Next(); err != nil { // a start
 		t.Fatalf("a start error = %v", err)
 	}
-	data, err := r.ReadSubtreeBytes()
+	data, err := readSubtreeBytes(r)
 	if err != nil {
 		t.Fatalf("ReadSubtreeBytes error = %v", err)
 	}
@@ -353,7 +587,7 @@ func TestReadSubtreeIntoExactFit(t *testing.T) {
 		t.Fatalf("a start error = %v", err)
 	}
 	buf := make([]byte, len(data))
-	n, err := r.ReadSubtreeInto(buf)
+	n, err := readSubtreeInto(r, buf)
 	if err != nil {
 		t.Fatalf("ReadSubtreeInto error = %v", err)
 	}
@@ -379,7 +613,7 @@ func TestReadSubtreeInto_UnmarshalNestedPaths(t *testing.T) {
 	}
 
 	buf := make([]byte, 2048)
-	n, err := r.ReadSubtreeInto(buf)
+	n, err := readSubtreeInto(r, buf)
 	if err != nil {
 		t.Fatalf("ReadSubtreeInto error = %v", err)
 	}
@@ -559,7 +793,7 @@ func TestNextRawReadSubtreeBytes(t *testing.T) {
 	if ev.Kind != EventStartElement || string(ev.Name.Full) != "item" {
 		t.Fatalf("item start = %v %q, want item start", ev.Kind, ev.Name.Full)
 	}
-	data, err := r.ReadSubtreeBytes()
+	data, err := readSubtreeBytes(r)
 	if err != nil {
 		t.Fatalf("ReadSubtreeBytes error = %v", err)
 	}
@@ -763,7 +997,7 @@ func TestReadSubtreeIntoShortBufferConsumes(t *testing.T) {
 		t.Fatalf("item start error = %v", err)
 	}
 	buf := make([]byte, 5)
-	if _, err = r.ReadSubtreeInto(buf); !errors.Is(err, io.ErrShortBuffer) {
+	if _, err = readSubtreeInto(r, buf); !errors.Is(err, io.ErrShortBuffer) {
 		t.Fatalf("ReadSubtreeInto error = %v, want %v", err, io.ErrShortBuffer)
 	}
 	ev, err := r.Next()
@@ -788,7 +1022,7 @@ func TestReadSubtreeIntoEntities(t *testing.T) {
 		t.Fatalf("item start error = %v", err)
 	}
 	buf := make([]byte, 0, 64)
-	n, err := r.ReadSubtreeInto(buf[:cap(buf)])
+	n, err := readSubtreeInto(r, buf[:cap(buf)])
 	if err != nil {
 		t.Fatalf("ReadSubtreeInto error = %v", err)
 	}
@@ -810,7 +1044,7 @@ func TestReadSubtreeIntoZeroLengthBuffer(t *testing.T) {
 	if _, err = r.Next(); err != nil { // item
 		t.Fatalf("item start error = %v", err)
 	}
-	if _, err = r.ReadSubtreeInto(nil); !errors.Is(err, io.ErrShortBuffer) {
+	if _, err = readSubtreeInto(r, nil); !errors.Is(err, io.ErrShortBuffer) {
 		t.Fatalf("ReadSubtreeInto error = %v, want %v", err, io.ErrShortBuffer)
 	}
 }
@@ -826,7 +1060,7 @@ func TestNextRawDecodeReusesAttrBuf(t *testing.T) {
 	}
 	r.attrBuf = make([]Attr, 1, 10)
 	before := cap(r.attrBuf)
-	if _, err = r.ReadSubtreeBytes(); err != nil {
+	if _, err = readSubtreeBytes(r); err != nil {
 		t.Fatalf("ReadSubtreeBytes error = %v", err)
 	}
 	if cap(r.attrBuf) != before {
@@ -895,7 +1129,7 @@ func TestEncodeEventEmptyDirective(t *testing.T) {
 
 func TestSubtreeWriterExactCapacity(t *testing.T) {
 	dst := make([]byte, 3)
-	w := subtreeWriter{dst: dst}
+	w := subtreeWriterCompat{dst: dst}
 	n, err := w.Write([]byte("abc"))
 	if err != nil {
 		t.Fatalf("Write error = %v", err)
@@ -913,7 +1147,7 @@ func TestSubtreeWriterExactCapacity(t *testing.T) {
 
 func TestSubtreeWriterEmptyWrite(t *testing.T) {
 	dst := make([]byte, 2)
-	w := subtreeWriter{dst: dst}
+	w := subtreeWriterCompat{dst: dst}
 	n, err := w.Write(nil)
 	if err != nil {
 		t.Fatalf("Write error = %v", err)
@@ -926,7 +1160,7 @@ func TestSubtreeWriterEmptyWrite(t *testing.T) {
 func TestSubtreeWriterBufferFull(t *testing.T) {
 	var err error
 	dst := make([]byte, 1)
-	w := subtreeWriter{dst: dst}
+	w := subtreeWriterCompat{dst: dst}
 	if _, err = w.Write([]byte("a")); err != nil {
 		t.Fatalf("Write error = %v", err)
 	}
@@ -943,7 +1177,7 @@ func TestSubtreeWriterBufferFull(t *testing.T) {
 
 func TestSubtreeWriterPartialThenOverflow(t *testing.T) {
 	dst := make([]byte, 3)
-	w := subtreeWriter{dst: dst}
+	w := subtreeWriterCompat{dst: dst}
 	if n, err := w.Write([]byte("abcd")); err != nil {
 		t.Fatalf("Write error = %v", err)
 	} else if n != 4 {
@@ -1002,7 +1236,7 @@ func TestWriteSubtreeEncodeErrorInCharData(t *testing.T) {
 		t.Fatalf("encoder flush error = %v", err)
 	}
 	writer := &byteLimitWriter{limit: buf.Len()}
-	if err = r.writeSubtree(writer, start); err == nil {
+	if _, err = r.writeSubtree(writer, start); err == nil {
 		t.Fatalf("writeSubtree error = nil, want error")
 	}
 }
@@ -1011,7 +1245,7 @@ func TestWriteSubtreeStartEncodeError(t *testing.T) {
 	var err error
 	r := &Reader{}
 	start := Event{Kind: EventStartElement, Name: QName{}}
-	if err = r.writeSubtree(io.Discard, start); err == nil {
+	if _, err = r.writeSubtree(io.Discard, start); err == nil {
 		t.Fatalf("writeSubtree error = nil, want error")
 	} else if errors.Is(err, errNilReader) {
 		t.Fatalf("writeSubtree error = %v, want encode error", err)
@@ -1032,7 +1266,7 @@ func TestWriteSubtreeWriterError(t *testing.T) {
 		t.Fatalf("item start error = %v", err)
 	}
 	writer := &failingWriter{err: errors.New("write failed")}
-	if err = r.writeSubtree(writer, start); err == nil {
+	if _, err = r.writeSubtree(writer, start); err == nil {
 		t.Fatalf("writeSubtree error = nil, want error")
 	}
 }
@@ -1062,7 +1296,7 @@ func TestWriteSubtreeWriterErrorAfterStart(t *testing.T) {
 		t.Fatalf("item start error = %v", err)
 	}
 	writer := &byteLimitWriter{limit: 8}
-	if err = r.writeSubtree(writer, start); err == nil {
+	if _, err = r.writeSubtree(writer, start); err == nil {
 		t.Fatalf("writeSubtree error = nil, want error")
 	}
 }
@@ -1081,7 +1315,7 @@ func TestWriteSubtreeFlushError(t *testing.T) {
 		t.Fatalf("item start error = %v", err)
 	}
 	writer := &flushFailWriter{err: errors.New("flush failed")}
-	if err = r.writeSubtree(writer, start); err == nil {
+	if _, err = r.writeSubtree(writer, start); err == nil {
 		t.Fatalf("writeSubtree error = nil, want error")
 	}
 	if writer.calls == 0 {

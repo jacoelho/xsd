@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -61,7 +62,7 @@ func TestBuildRuntimeDoesNotMutatePreparedSchema(t *testing.T) {
 		t.Fatalf("prepare schema: %v", err)
 	}
 
-	orderBefore := append([]types.QName(nil), prepared.GlobalElementOrder()...)
+	orderBefore := slices.Collect(prepared.GlobalElementOrderSeq())
 
 	rt1, err := prepared.BuildRuntime(pipeline.CompileConfig{})
 	if err != nil {
@@ -72,7 +73,7 @@ func TestBuildRuntimeDoesNotMutatePreparedSchema(t *testing.T) {
 		t.Fatalf("second compile prepared schema: %v", err)
 	}
 
-	if !equalQNameSlices(orderBefore, prepared.GlobalElementOrder()) {
+	if !equalQNameSlices(orderBefore, slices.Collect(prepared.GlobalElementOrderSeq())) {
 		t.Fatalf("prepared element order mutated")
 	}
 	if rt1.BuildHash != rt2.BuildHash {
@@ -100,7 +101,7 @@ func TestPrepareIsolatedFromInputMapMutation(t *testing.T) {
 	if _, err := prepared.BuildRuntime(pipeline.CompileConfig{}); err != nil {
 		t.Fatalf("compile prepared schema after input mutation: %v", err)
 	}
-	if got := prepared.GlobalElementOrder(); len(got) != 1 || got[0].Local != "root" {
+	if got := slices.Collect(prepared.GlobalElementOrderSeq()); len(got) != 1 || got[0].Local != "root" {
 		t.Fatalf("prepared order = %v, want root", got)
 	}
 }

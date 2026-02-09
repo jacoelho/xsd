@@ -19,46 +19,59 @@ func parseComponents(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema) e
 		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue
 		}
-
-		switch doc.LocalName(child) {
-		case "annotation", "import", "include":
-		case "element":
-			if err := parseTopLevelElement(doc, child, schema); err != nil {
-				return fmt.Errorf("parse element: %w", err)
-			}
-		case "complexType":
-			if err := parseComplexType(doc, child, schema); err != nil {
-				return fmt.Errorf("parse complexType: %w", err)
-			}
-		case "simpleType":
-			if err := parseSimpleType(doc, child, schema); err != nil {
-				return fmt.Errorf("parse simpleType: %w", err)
-			}
-		case "group":
-			if err := parseTopLevelGroup(doc, child, schema); err != nil {
-				return fmt.Errorf("parse group: %w", err)
-			}
-		case "attribute":
-			if err := parseTopLevelAttribute(doc, child, schema); err != nil {
-				return fmt.Errorf("parse attribute: %w", err)
-			}
-		case "attributeGroup":
-			if err := parseTopLevelAttributeGroup(doc, child, schema); err != nil {
-				return fmt.Errorf("parse attributeGroup: %w", err)
-			}
-		case "notation":
-			if err := parseTopLevelNotation(doc, child, schema); err != nil {
-				return fmt.Errorf("parse notation: %w", err)
-			}
-		case "key", "keyref", "unique":
-			return fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(child))
-		case "redefine":
-			return fmt.Errorf("redefine is not supported")
-		default:
-			return fmt.Errorf("unexpected top-level element '%s'", doc.LocalName(child))
+		if err := parseTopLevelComponent(doc, child, schema); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func parseTopLevelComponent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
+	switch doc.LocalName(elem) {
+	case "annotation", "import", "include":
+		return nil
+	case "element":
+		if err := parseTopLevelElement(doc, elem, schema); err != nil {
+			return fmt.Errorf("parse element: %w", err)
+		}
+		return nil
+	case "complexType":
+		if err := parseComplexType(doc, elem, schema); err != nil {
+			return fmt.Errorf("parse complexType: %w", err)
+		}
+		return nil
+	case "simpleType":
+		if err := parseSimpleType(doc, elem, schema); err != nil {
+			return fmt.Errorf("parse simpleType: %w", err)
+		}
+		return nil
+	case "group":
+		if err := parseTopLevelGroup(doc, elem, schema); err != nil {
+			return fmt.Errorf("parse group: %w", err)
+		}
+		return nil
+	case "attribute":
+		if err := parseTopLevelAttribute(doc, elem, schema); err != nil {
+			return fmt.Errorf("parse attribute: %w", err)
+		}
+		return nil
+	case "attributeGroup":
+		if err := parseTopLevelAttributeGroup(doc, elem, schema); err != nil {
+			return fmt.Errorf("parse attributeGroup: %w", err)
+		}
+		return nil
+	case "notation":
+		if err := parseTopLevelNotation(doc, elem, schema); err != nil {
+			return fmt.Errorf("parse notation: %w", err)
+		}
+		return nil
+	case "key", "keyref", "unique":
+		return fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(elem))
+	case "redefine":
+		return fmt.Errorf("redefine is not supported")
+	default:
+		return fmt.Errorf("unexpected top-level element '%s'", doc.LocalName(elem))
+	}
 }
 
 // parseTopLevelNotation parses a top-level notation declaration

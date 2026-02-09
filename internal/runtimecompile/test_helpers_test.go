@@ -66,7 +66,7 @@ func buildSchemaForTest(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, e
 	if err := schema.DetectCycles(resolvedSchema); err != nil {
 		return nil, fmt.Errorf("runtime build: detect cycles: %w", err)
 	}
-	if err := schema.ValidateUPA(resolvedSchema, reg); err != nil {
+	if err := schemaflow.ValidateUPA(resolvedSchema, reg); err != nil {
 		return nil, fmt.Errorf("runtime build: validate UPA: %w", err)
 	}
 	return BuildArtifacts(resolvedSchema, reg, refs, cfg)

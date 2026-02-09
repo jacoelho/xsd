@@ -23,7 +23,6 @@ type TypeValidatorBytes func(value []byte) error
 
 // BuiltinType represents a built-in XSD type
 type BuiltinType struct {
-	cacheGuard                 cacheGuard
 	primitiveTypeCache         Type
 	validator                  TypeValidator
 	validatorBytes             TypeValidatorBytes
@@ -31,6 +30,7 @@ type BuiltinType struct {
 	simpleWrapper              *SimpleType
 	qname                      QName
 	name                       string
+	cacheGuard                 cacheGuard
 	whiteSpace                 WhiteSpace
 	fundamentalFacetsComputing bool
 	primitiveTypeComputing     bool

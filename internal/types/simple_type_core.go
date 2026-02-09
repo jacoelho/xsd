@@ -10,7 +10,6 @@ import (
 
 // SimpleType represents a simple type definition
 type SimpleType struct {
-	cacheGuard                     cacheGuard
 	identityListItemType           Type
 	ResolvedBase                   Type
 	primitiveType                  Type
@@ -21,8 +20,9 @@ type SimpleType struct {
 	fundamentalFacetsCache         *FundamentalFacets
 	QName                          QName
 	SourceNamespace                NamespaceURI
-	MemberTypes                    []Type
 	identityMemberTypes            []Type
+	MemberTypes                    []Type
+	cacheGuard                     cacheGuard
 	Final                          DerivationSet
 	whiteSpace                     WhiteSpace
 	fundamentalFacetsComputing     bool
@@ -281,8 +281,7 @@ func (s *SimpleType) Copy(opts CopyOptions) *SimpleType {
 	if existing, ok := opts.lookupSimpleType(s); ok {
 		return existing
 	}
-	clone := *s
-	clone.cacheGuard = cacheGuard{}
+	clone := simpleTypeCopyWithoutGuard(s)
 	opts.rememberSimpleType(s, &clone)
 	clone.QName = opts.RemapQName(s.QName)
 	clone.SourceNamespace = sourceNamespace(s.SourceNamespace, opts)
@@ -350,6 +349,37 @@ func (s *SimpleType) Copy(opts CopyOptions) *SimpleType {
 		clone.List = &listCopy
 	}
 	return &clone
+}
+
+func simpleTypeCopyWithoutGuard(src *SimpleType) SimpleType {
+	if src == nil {
+		return SimpleType{}
+	}
+	return SimpleType{
+		identityListItemType:           src.identityListItemType,
+		ResolvedBase:                   src.ResolvedBase,
+		primitiveType:                  src.primitiveType,
+		ItemType:                       src.ItemType,
+		Restriction:                    src.Restriction,
+		List:                           src.List,
+		Union:                          src.Union,
+		fundamentalFacetsCache:         src.fundamentalFacetsCache,
+		QName:                          src.QName,
+		SourceNamespace:                src.SourceNamespace,
+		identityMemberTypes:            src.identityMemberTypes,
+		MemberTypes:                    src.MemberTypes,
+		Final:                          src.Final,
+		whiteSpace:                     src.whiteSpace,
+		fundamentalFacetsComputing:     src.fundamentalFacetsComputing,
+		primitiveTypeComputing:         src.primitiveTypeComputing,
+		qnameOrNotationReady:           src.qnameOrNotationReady,
+		qnameOrNotation:                src.qnameOrNotation,
+		identityNormalizationReady:     src.identityNormalizationReady,
+		identityNormalizable:           src.identityNormalizable,
+		identityNormalizationComputing: src.identityNormalizationComputing,
+		whiteSpaceExplicit:             src.whiteSpaceExplicit,
+		builtin:                        src.builtin,
+	}
 }
 
 // IsBuiltin reports whether the simple type is built-in.

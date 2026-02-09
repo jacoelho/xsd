@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"io"
+	"iter"
 
 	"github.com/jacoelho/xsd/pkg/xmltext"
 )
@@ -669,32 +670,34 @@ func (r *Reader) LookupNamespaceAt(prefix string, depth int) (string, bool) {
 	return r.ns.lookup(prefix, depth)
 }
 
-// NamespaceDecls returns namespace declarations in the current scope.
-// The returned slice is valid until the next call to Next or NextRaw.
-func (r *Reader) NamespaceDecls() []NamespaceDecl {
-	if r == nil {
-		return nil
+// NamespaceDeclsSeq yields namespace declarations at the given scope depth.
+func (r *Reader) NamespaceDeclsSeq(depth int) iter.Seq[NamespaceDecl] {
+	return func(yield func(NamespaceDecl) bool) {
+		if r == nil || len(r.ns.scopes) == 0 || depth < 0 {
+			return
+		}
+		if depth >= len(r.ns.scopes) {
+			depth = len(r.ns.scopes) - 1
+		}
+		scope := r.ns.scopes[depth]
+		if scope.declLen == 0 {
+			return
+		}
+		decls := r.ns.decls[scope.declStart : scope.declStart+scope.declLen]
+		for _, decl := range decls {
+			if !yield(decl) {
+				return
+			}
+		}
 	}
-	return r.NamespaceDeclsAt(r.ns.depth() - 1)
 }
 
-// NamespaceDeclsAt returns namespace declarations at the given scope depth.
-// The returned slice is valid until the next call to Next or NextRaw.
-func (r *Reader) NamespaceDeclsAt(depth int) []NamespaceDecl {
+// CurrentNamespaceDeclsSeq yields namespace declarations in the current scope.
+func (r *Reader) CurrentNamespaceDeclsSeq() iter.Seq[NamespaceDecl] {
 	if r == nil {
-		return nil
+		return func(func(NamespaceDecl) bool) {}
 	}
-	if len(r.ns.scopes) == 0 || depth < 0 {
-		return nil
-	}
-	if depth >= len(r.ns.scopes) {
-		depth = len(r.ns.scopes) - 1
-	}
-	scope := r.ns.scopes[depth]
-	if scope.declLen == 0 {
-		return nil
-	}
-	return r.ns.decls[scope.declStart : scope.declStart+scope.declLen]
+	return r.NamespaceDeclsSeq(r.ns.depth() - 1)
 }
 
 func (r *Reader) popElementName() (QName, error) {

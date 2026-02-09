@@ -3,9 +3,9 @@ package types
 import "sync"
 
 type cacheGuard struct {
-	once sync.Once
 	cond *sync.Cond
 	mu   sync.RWMutex
+	once sync.Once
 }
 
 func (g *cacheGuard) ensure() {

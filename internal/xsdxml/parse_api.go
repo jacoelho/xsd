@@ -77,7 +77,7 @@ func ParseIntoWithOptions(r io.Reader, doc *Document, opts ...xmlstream.Option) 
 					value:     string(attr.Value),
 				})
 			}
-			for _, decl := range decoder.NamespaceDeclsAt(event.ScopeDepth) {
+			for decl := range decoder.NamespaceDeclsSeq(event.ScopeDepth) {
 				local := decl.Prefix
 				if local == "" {
 					local = "xmlns"

@@ -40,12 +40,3 @@ func (r *builtinRegistry) getNS(namespace NamespaceURI, local string) *BuiltinTy
 	}
 	return r.byName[local]
 }
-
-func (r *builtinRegistry) all() []*BuiltinType {
-	if r == nil || len(r.ordered) == 0 {
-		return nil
-	}
-	values := make([]*BuiltinType, len(r.ordered))
-	copy(values, r.ordered)
-	return values
-}

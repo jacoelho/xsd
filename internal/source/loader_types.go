@@ -1,7 +1,6 @@
 package source
 
 import (
-	"errors"
 	"io/fs"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
@@ -18,19 +17,14 @@ type Config struct {
 	AllowMissingImportLocations bool
 }
 
-var errLoaderFailed = errors.New("loader is in failed state")
-
 // SchemaLoader loads XML schemas with import/include resolution.
 // It is not safe for concurrent use.
-// After the first load error, the loader becomes failed and must be replaced.
 type SchemaLoader struct {
 	resolver Resolver
 	merger   loadmerge.SchemaMerger
-	failure  error
 	imports  importTracker
 	state    loadState
 	config   Config
-	failed   bool
 }
 
 // NewLoader creates a new schema loader with the given configuration

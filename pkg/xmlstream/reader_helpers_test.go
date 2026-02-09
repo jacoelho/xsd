@@ -1,6 +1,7 @@
 package xmlstream
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -47,4 +48,18 @@ func TestAppendNamespaceValueEmpty(t *testing.T) {
 	if string(buf) != "x" {
 		t.Fatalf("buffer = %q, want x", buf)
 	}
+}
+
+func namespaceDeclsAt(r *Reader, depth int) []NamespaceDecl {
+	if r == nil {
+		return nil
+	}
+	return slices.Collect(r.NamespaceDeclsSeq(depth))
+}
+
+func namespaceDeclsCurrent(r *Reader) []NamespaceDecl {
+	if r == nil {
+		return nil
+	}
+	return slices.Collect(r.CurrentNamespaceDeclsSeq())
 }

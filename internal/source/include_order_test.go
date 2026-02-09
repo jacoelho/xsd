@@ -2,6 +2,7 @@ package source
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 	"testing/fstest"
 
@@ -82,7 +83,7 @@ func TestIncludeGlobalDeclOrder(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Prepare error = %v", err)
 			}
-			gotOrder := prepared.GlobalElementOrder()
+			gotOrder := slices.Collect(prepared.GlobalElementOrderSeq())
 			if !reflect.DeepEqual(gotOrder, tc.expected) {
 				t.Fatalf("ElementOrder = %v, want %v", gotOrder, tc.expected)
 			}

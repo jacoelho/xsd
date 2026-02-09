@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -257,7 +258,7 @@ func TestPreparedSchemaBuildRuntimeRejectsNilPreparedSchema(t *testing.T) {
 	}
 }
 
-func TestPreparedSchemaGlobalElementOrderReturnsCopy(t *testing.T) {
+func TestPreparedSchemaGlobalElementOrderSeqIsDeterministic(t *testing.T) {
 	sch, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="a" type="xs:string"/>
@@ -271,17 +272,16 @@ func TestPreparedSchemaGlobalElementOrderReturnsCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Prepare() error = %v", err)
 	}
-	first := prepared.GlobalElementOrder()
+	first := slices.Collect(prepared.GlobalElementOrderSeq())
 	if len(first) != 2 {
-		t.Fatalf("GlobalElementOrder() length = %d, want 2", len(first))
+		t.Fatalf("GlobalElementOrderSeq() length = %d, want 2", len(first))
 	}
-	first[0].Local = "mutated"
 
-	second := prepared.GlobalElementOrder()
+	second := slices.Collect(prepared.GlobalElementOrderSeq())
 	if len(second) != 2 {
-		t.Fatalf("GlobalElementOrder() second length = %d, want 2", len(second))
+		t.Fatalf("GlobalElementOrderSeq() second length = %d, want 2", len(second))
 	}
-	if second[0].Local == "mutated" {
-		t.Fatal("GlobalElementOrder() returned shared backing slice")
+	if !slices.Equal(first, second) {
+		t.Fatalf("GlobalElementOrderSeq() changed between iterations: first=%v second=%v", first, second)
 	}
 }

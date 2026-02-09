@@ -81,17 +81,18 @@ type AttributeTracker struct {
 }
 
 type SessionBuffers struct {
-	normBuf     []byte
-	valueBuf    []byte
-	normStack   [][]byte
-	prefixCache []prefixEntry
-	nameLocal   []byte
-	errBuf      []byte
-	nameNS      []byte
-	textBuf     []byte
-	keyBuf      []byte
-	keyTmp      []byte
-	nsDecls     []nsDecl
+	normBuf      []byte
+	valueBuf     []byte
+	valueScratch []byte
+	normStack    [][]byte
+	prefixCache  []prefixEntry
+	nameLocal    []byte
+	errBuf       []byte
+	nameNS       []byte
+	textBuf      []byte
+	keyBuf       []byte
+	keyTmp       []byte
+	nsDecls      []nsDecl
 }
 
 type SessionIdentity struct {

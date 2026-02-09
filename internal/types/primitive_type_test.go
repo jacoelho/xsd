@@ -468,9 +468,8 @@ func TestPrimitiveType_WithRestrictionBaseDuringParsing(t *testing.T) {
 		if primitive.Name().Local != string(TypeNameDecimal) {
 			t.Errorf("PrimitiveType() = %q, want %q", primitive.Name().Local, string(TypeNameDecimal))
 		}
-		PrecomputeSimpleTypeCaches(st)
 		if st.primitiveType == nil {
-			t.Error("PrecomputeSimpleTypeCaches should cache the result")
+			t.Error("PrimitiveType should cache the computed result")
 		}
 	})
 
