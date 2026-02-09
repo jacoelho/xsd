@@ -214,7 +214,7 @@ func TestDeterministicIDs(t *testing.T) {
 		}
 	}
 
-	if _, ok := reg.LocalAttributes[attrInline]; ok {
+	if _, ok := reg.LookupLocalAttributeID(attrInline); ok {
 		t.Fatalf("expected local attribute attrInline to be excluded from ID assignment")
 	}
 

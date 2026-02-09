@@ -6,7 +6,6 @@ import (
 	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
@@ -41,7 +40,7 @@ func (s *Session) compareValue(kind runtime.ValidatorKind, canonical, bound []by
 		if err != nil {
 			return 0, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		cmp, err := types.ComparableXSDDuration{Value: val}.Compare(types.ComparableXSDDuration{Value: boundVal})
+		cmp, err := durationlex.Compare(val, boundVal)
 		if err != nil {
 			return 0, valueErrorMsg(valueErrFacet, err.Error())
 		}

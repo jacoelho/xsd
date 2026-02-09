@@ -10,11 +10,9 @@ import (
 	"sync"
 
 	"github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/pipeline"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 // Schema wraps a compiled schema with convenience methods.
@@ -23,7 +21,28 @@ type Schema struct {
 }
 
 // QName is a public qualified name with namespace and local part.
-type QName = xmlstream.QName
+type QName struct {
+	Namespace string
+	Local     string
+}
+
+// Is reports whether the QName matches the namespace and local name.
+func (q QName) Is(namespace, local string) bool {
+	return q.Namespace == namespace && q.Local == local
+}
+
+// HasLocal reports whether the local name matches, ignoring namespace.
+func (q QName) HasLocal(local string) bool {
+	return q.Local == local
+}
+
+// String returns the QName in Clark notation: "{namespace}local".
+func (q QName) String() string {
+	if q.Namespace == "" {
+		return q.Local
+	}
+	return "{" + q.Namespace + "}" + q.Local
+}
 
 // PreparedSchema stores immutable, precompiled schema artifacts.
 type PreparedSchema struct {
@@ -197,6 +216,29 @@ func (s *Schema) Validate(r io.Reader) error {
 	return s.validateReader(r, "")
 }
 
+// ValidateFSFile validates an XML file from the provided filesystem.
+func (s *Schema) ValidateFSFile(fsys fs.FS, path string) (err error) {
+	if s == nil || s.engine == nil {
+		return schemaNotLoadedError()
+	}
+	if fsys == nil {
+		return fmt.Errorf("open xml file %s: nil fs", path)
+	}
+
+	f, err := fsys.Open(path)
+	if err != nil {
+		return fmt.Errorf("open xml file %s: %w", path, err)
+	}
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close xml file %s: %w", path, closeErr)
+		}
+	}()
+
+	err = s.validateReader(f, path)
+	return err
+}
+
 // ValidateFile validates an XML file against the schema.
 func (s *Schema) ValidateFile(path string) (err error) {
 	if s == nil || s.engine == nil {
@@ -229,9 +271,7 @@ func (s *Schema) validateReader(r io.Reader, document string) error {
 
 func buildCompileConfig(opts resolvedRuntimeOptions) pipeline.CompileConfig {
 	return pipeline.CompileConfig{
-		Limits: contentmodel.Limits{
-			MaxDFAStates: opts.maxDFAStates,
-		},
+		MaxDFAStates:   opts.maxDFAStates,
 		MaxOccursLimit: opts.maxOccursLimit,
 	}
 }
