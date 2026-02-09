@@ -30,7 +30,7 @@ func (c *compiler) typeIDForType(typ types.Type) (runtime.TypeID, bool) {
 			}
 		}
 	}
-	if schemaID, ok := c.registry.AnonymousTypes[typ]; ok {
+	if schemaID, ok := c.registry.LookupAnonymousTypeID(typ); ok {
 		if id, ok := c.runtimeTypeIDs[schemaID]; ok {
 			return id, true
 		}

@@ -155,10 +155,15 @@ var builtinBaseTypes = map[TypeName]TypeName{
 	TypeNameNegativeInteger:    TypeNameNonPositiveInteger,
 }
 
-var (
-	GetBuiltin   = defaultBuiltinRegistry.get
-	GetBuiltinNS = defaultBuiltinRegistry.getNS
-)
+// GetBuiltin returns a built-in XSD type by local name.
+func GetBuiltin(name TypeName) *BuiltinType {
+	return defaultBuiltinRegistry.get(name)
+}
+
+// GetBuiltinNS returns a built-in XSD type for an expanded name.
+func GetBuiltinNS(namespace NamespaceURI, local string) *BuiltinType {
+	return defaultBuiltinRegistry.getNS(namespace, local)
+}
 
 func newBuiltin(name TypeName, validator TypeValidator, validatorBytes TypeValidatorBytes, ws WhiteSpace, ordering orderingFlag) *BuiltinType {
 	nameStr := string(name)

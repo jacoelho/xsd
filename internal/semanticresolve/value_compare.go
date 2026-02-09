@@ -53,7 +53,7 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 		if rerr != nil {
 			return false, rerr
 		}
-		return valueparse.ListValuesEqual(leftItems, rightItems), nil
+		return valueparse.ListValuesEqual(leftItems, rightItems, types.ValuesEqual), nil
 	}
 
 	leftValues, err := parseValueVariants(schema, left, resolvedType, attr.FixedContext)
@@ -64,7 +64,7 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 	if err != nil {
 		return false, err
 	}
-	return valueparse.AnyValueEqual(leftValues, rightValues), nil
+	return valueparse.AnyValueEqual(leftValues, rightValues, types.ValuesEqual), nil
 }
 
 func parseValueVariants(schema *parser.Schema, lexical string, typ types.Type, context map[string]string) ([]types.TypedValue, error) {

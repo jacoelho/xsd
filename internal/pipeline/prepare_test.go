@@ -34,6 +34,29 @@ func TestPrepareBuildsSemanticArtifacts(t *testing.T) {
 	}
 }
 
+func TestPrepareDefersRuntimeValidatorCompilation(t *testing.T) {
+	sch, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:attribute name="att" fixed="123" />
+  <xs:element name="doc">
+    <xs:complexType>
+      <xs:attribute ref="att" fixed="123"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	prepared, err := Prepare(sch)
+	if err != nil {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+	if prepared == nil {
+		t.Fatal("Prepare() returned nil")
+	}
+}
+
 func TestPrepareDoesNotMutateInputSchema(t *testing.T) {
 	sch, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

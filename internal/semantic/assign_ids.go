@@ -34,15 +34,15 @@ func (b *builder) assignAnonymousType(typ types.Type) error {
 		return fmt.Errorf("expected anonymous type, got %s", typ.Name())
 	}
 	if existing, ok := b.typeIDs[typ]; ok {
-		if _, seen := b.registry.AnonymousTypes[typ]; !seen {
-			b.registry.AnonymousTypes[typ] = existing
+		if _, seen := b.registry.anonymousTypes[typ]; !seen {
+			b.registry.anonymousTypes[typ] = existing
 		}
 		return nil
 	}
 	id := b.nextType
 	b.nextType++
 	b.typeIDs[typ] = id
-	b.registry.AnonymousTypes[typ] = id
+	b.registry.anonymousTypes[typ] = id
 	b.registry.TypeOrder = append(b.registry.TypeOrder, TypeEntry{
 		ID:     id,
 		QName:  types.QName{},
@@ -75,12 +75,12 @@ func (b *builder) assignLocalElement(decl *types.ElementDecl) error {
 	if decl == nil {
 		return fmt.Errorf("local element is nil")
 	}
-	if _, exists := b.registry.LocalElements[decl]; exists {
+	if _, exists := b.registry.localElements[decl]; exists {
 		return nil
 	}
 	id := b.nextElem
 	b.nextElem++
-	b.registry.LocalElements[decl] = id
+	b.registry.localElements[decl] = id
 	b.registry.ElementOrder = append(b.registry.ElementOrder, ElementEntry{
 		ID:     id,
 		QName:  decl.Name,
@@ -113,12 +113,12 @@ func (b *builder) assignLocalAttribute(decl *types.AttributeDecl) error {
 	if decl == nil {
 		return fmt.Errorf("local attribute is nil")
 	}
-	if _, exists := b.registry.LocalAttributes[decl]; exists {
+	if _, exists := b.registry.localAttributes[decl]; exists {
 		return nil
 	}
 	id := b.nextAttr
 	b.nextAttr++
-	b.registry.LocalAttributes[decl] = id
+	b.registry.localAttributes[decl] = id
 	b.registry.AttributeOrder = append(b.registry.AttributeOrder, AttributeEntry{
 		ID:     id,
 		QName:  decl.Name,
