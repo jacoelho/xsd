@@ -150,8 +150,7 @@ func (s *Session) identityStart(in identityStartInput) error {
 		return nil
 	}
 	snapshot := s.icState.checkpoint()
-	attrs := collectIdentityAttrs(s.rt, in.Attrs, in.Applied, s.internIdentityAttrName)
-	err := s.icState.start(s.rt, in, attrs)
+	err := s.icState.start(s, in)
 	if err != nil {
 		s.icState.rollback(snapshot)
 	}

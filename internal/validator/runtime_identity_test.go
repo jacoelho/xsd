@@ -353,6 +353,50 @@ func TestIdentityStartRollbackOnError(t *testing.T) {
 	}
 }
 
+func TestIdentityStartNoConstraintsSkipsAttrMaterialization(t *testing.T) {
+	fx := buildIdentityFixture(t)
+	sess := NewSession(fx.schema)
+
+	attrs := make([]StartAttr, 0, 64)
+	for i := range 64 {
+		local := fmt.Appendf(nil, "attr%d", i)
+		attrs = append(attrs, StartAttr{
+			NSBytes: []byte("urn:other"),
+			Local:   local,
+			Value:   []byte("x"),
+		})
+	}
+
+	if err := sess.identityStart(identityStartInput{
+		Elem:  fx.elemItem,
+		Type:  fx.typeSimple,
+		Sym:   fx.symItem,
+		NS:    fx.nsID,
+		Attrs: attrs,
+	}); err != nil {
+		t.Fatalf("identityStart: %v", err)
+	}
+
+	if sess.icState.active {
+		t.Fatalf("identity state unexpectedly active")
+	}
+	if sess.icState.frames.Len() != 0 {
+		t.Fatalf("identity frames len = %d, want 0", sess.icState.frames.Len())
+	}
+	if sess.icState.scopes.Len() != 0 {
+		t.Fatalf("identity scopes len = %d, want 0", sess.icState.scopes.Len())
+	}
+	if sess.icState.nextNodeID != 0 {
+		t.Fatalf("identity nextNodeID = %d, want 0", sess.icState.nextNodeID)
+	}
+	if len(sess.identityAttrNames) != 0 {
+		t.Fatalf("identity attr names materialized: %d", len(sess.identityAttrNames))
+	}
+	if len(sess.identityAttrBuckets) != 0 {
+		t.Fatalf("identity attr buckets materialized: %d", len(sess.identityAttrBuckets))
+	}
+}
+
 func TestIdentityAttrSelectionAllocationsScaleLinearly(t *testing.T) {
 	fx := buildIdentityFixture(t)
 	schema := fx.schema

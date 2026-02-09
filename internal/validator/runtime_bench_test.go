@@ -214,3 +214,35 @@ func Benchmark_IdentityAttrSelection_AttrHeavy(b *testing.B) {
 		run()
 	}
 }
+
+func Benchmark_IdentityStart_NoConstraints_AttrHeavy(b *testing.B) {
+	fx := buildIdentityFixture(b)
+
+	attrs := make([]StartAttr, 0, 64)
+	for i := range 64 {
+		attrs = append(attrs, StartAttr{
+			NSBytes: []byte("urn:other"),
+			Local:   []byte("attr" + strconv.Itoa(i)),
+			Value:   []byte("x"),
+		})
+	}
+
+	sess := NewSession(fx.schema)
+	run := func() {
+		sess.Reset()
+		if err := sess.identityStart(identityStartInput{
+			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: attrs,
+		}); err != nil {
+			b.Fatalf("identityStart item: %v", err)
+		}
+	}
+
+	for range 10 {
+		run()
+	}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		run()
+	}
+}
