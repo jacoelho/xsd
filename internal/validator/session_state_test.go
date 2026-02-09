@@ -27,6 +27,8 @@ func TestSessionReset(t *testing.T) {
 	s.icState.committedViolations = []error{dummyError{}}
 	s.prefixCache = []prefixEntry{{hash: 1}}
 	s.attrSeenTable = []attrSeenEntry{{hash: 1, idx: 1}}
+	s.identityAttrBuckets = map[uint64][]identityAttrNameID{1: {1}}
+	s.identityAttrNames = []identityAttrName{{ns: []byte("urn"), local: []byte("id")}}
 
 	s.Reset()
 
@@ -66,6 +68,9 @@ func TestSessionReset(t *testing.T) {
 	if len(s.prefixCache) != 0 || len(s.attrSeenTable) != 0 {
 		t.Fatalf("session caches not reset")
 	}
+	if len(s.identityAttrBuckets) != 0 || len(s.identityAttrNames) != 0 {
+		t.Fatalf("identity attr interner not reset")
+	}
 }
 
 type dummyError struct{}
@@ -78,8 +83,13 @@ func TestSessionResetShrinksOversizedBuffers(t *testing.T) {
 	s.elemStack = make([]elemFrame, maxSessionEntries+1)
 	s.attrPresent = make([]bool, maxSessionEntries+1)
 	s.idTable = make(map[string]struct{}, maxSessionIDTableEntries+1)
+	s.identityAttrNames = make([]identityAttrName, maxSessionEntries+1)
+	s.identityAttrBuckets = make(map[uint64][]identityAttrNameID, maxSessionEntries+1)
 	for i := range maxSessionIDTableEntries + 1 {
 		s.idTable[strconv.Itoa(i)] = struct{}{}
+	}
+	for i := range maxSessionEntries + 1 {
+		s.identityAttrBuckets[uint64(i)] = []identityAttrNameID{identityAttrNameID(i + 1)}
 	}
 
 	s.Reset()
@@ -95,5 +105,11 @@ func TestSessionResetShrinksOversizedBuffers(t *testing.T) {
 	}
 	if s.idTable != nil {
 		t.Fatalf("expected idTable to be dropped")
+	}
+	if s.identityAttrNames != nil {
+		t.Fatalf("expected identityAttrNames to be shrunk")
+	}
+	if s.identityAttrBuckets != nil {
+		t.Fatalf("expected identityAttrBuckets to be dropped")
 	}
 }

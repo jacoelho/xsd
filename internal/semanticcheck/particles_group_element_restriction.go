@@ -122,7 +122,7 @@ func validateWildcardRestrictionWithGroupOccurrence(baseMG *types.ModelGroup, ba
 		}
 		return true, nil
 	}
-	if !namespaceMatchesWildcard(restrictionElem.Name.Namespace, baseAny.Namespace, baseAny.NamespaceList, baseAny.TargetNamespace) {
+	if !types.AllowsNamespace(baseAny.Namespace, baseAny.NamespaceList, baseAny.TargetNamespace, restrictionElem.Name.Namespace) {
 		return false, nil
 	}
 	if err := validateOccurrenceConstraints(baseMinOcc, baseMaxOcc, restrictionElem.MinOcc(), restrictionElem.MaxOcc()); err != nil {

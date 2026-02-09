@@ -4,13 +4,14 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 func validateComplexTypeReferences(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range sortedQNames(sch.TypeDefs) {
+	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		ct, ok := typ.(*types.ComplexType)
 		if !ok {
@@ -28,14 +29,16 @@ func validateComplexTypeReferences(sch *parser.Schema) []error {
 					errs = append(errs, err)
 				}
 			} else if attr.Type != nil {
-				if err := validateTypeReferenceFromType(sch, attr.Type, qname.Namespace); err != nil {
+				if err := validateTypeReferenceFromTypeAtLocation(sch, attr.Type, qname.Namespace, noOriginLocation); err != nil {
 					errs = append(errs, fmt.Errorf("type %s attribute: %w", qname, err))
 				}
 			}
 		}
 
 		origin := sch.TypeOrigins[qname]
-		if err := validateContentReferences(sch, ct.Content(), origin); err != nil {
+		if err := traversal.WalkContentParticles(ct.Content(), func(particle types.Particle) error {
+			return validateParticleReferences(sch, particle, origin)
+		}); err != nil {
 			errs = append(errs, fmt.Errorf("type %s: %w", qname, err))
 		}
 	}

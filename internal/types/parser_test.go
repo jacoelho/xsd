@@ -1,6 +1,10 @@
 package types
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jacoelho/xsd/internal/value"
+)
 
 func TestParseDecimal(t *testing.T) {
 	tests := []struct {
@@ -115,13 +119,13 @@ func TestParseBoolean(t *testing.T) {
 }
 
 func TestParseTimeLeapSecond(t *testing.T) {
-	t1, err := ParseTime("23:59:59Z")
+	t1, err := value.ParseTime([]byte("23:59:59Z"))
 	if err != nil {
-		t.Fatalf("ParseTime() error = %v", err)
+		t.Fatalf("value.ParseTime([]byte()) error = %v", err)
 	}
-	t2, err := ParseTime("23:59:60Z")
+	t2, err := value.ParseTime([]byte("23:59:60Z"))
 	if err != nil {
-		t.Fatalf("ParseTime() error = %v", err)
+		t.Fatalf("value.ParseTime([]byte()) error = %v", err)
 	}
 	if t1.Equal(t2) {
 		t.Fatalf("expected leap second to differ from 23:59:59")

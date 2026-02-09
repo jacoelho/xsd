@@ -15,7 +15,7 @@ func parseSimpleContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, sch
 	if base == "" {
 		return nil, types.QName{}, fmt.Errorf("restriction missing base")
 	}
-	baseQName, err := resolveQName(doc, base, elem, schema)
+	baseQName, err := resolveQNameWithPolicy(doc, base, elem, schema, useDefaultNamespace)
 	if err != nil {
 		return nil, types.QName{}, err
 	}
@@ -32,7 +32,7 @@ func parseSimpleContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, sch
 	}
 	restriction.SimpleType = nestedSimpleType
 
-	err = parseFacetsWithAttributes(doc, elem, restriction, nestedSimpleType, schema)
+	err = parseFacetsWithPolicy(doc, elem, restriction, nestedSimpleType, schema, facetAttributesAllowed)
 	if err != nil {
 		return nil, baseQName, fmt.Errorf("parse facets: %w", err)
 	}

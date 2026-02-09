@@ -8,28 +8,10 @@ var (
 	OccursUnbounded   = internaloccurs.OccursUnbounded
 	ErrOccursOverflow = internaloccurs.ErrOccursOverflow
 	ErrOccursTooLarge = internaloccurs.ErrOccursTooLarge
+	OccursFromInt     = internaloccurs.OccursFromInt
+	OccursFromUint64  = internaloccurs.OccursFromUint64
+	MinOccurs         = internaloccurs.MinOccurs
+	MaxOccurs         = internaloccurs.MaxOccurs
+	AddOccurs         = internaloccurs.AddOccurs
+	MulOccurs         = internaloccurs.MulOccurs
 )
-
-func OccursFromInt(value int) Occurs {
-	return internaloccurs.OccursFromInt(value)
-}
-
-func OccursFromUint64(value uint64) Occurs {
-	return internaloccurs.OccursFromUint64(value)
-}
-
-func MinOccurs(a, b Occurs) Occurs {
-	return internaloccurs.MinOccurs(a, b)
-}
-
-func MaxOccurs(a, b Occurs) Occurs {
-	return internaloccurs.MaxOccurs(a, b)
-}
-
-func AddOccurs(a, b Occurs) Occurs {
-	return internaloccurs.AddOccurs(a, b)
-}
-
-func MulOccurs(a, b Occurs) Occurs {
-	return internaloccurs.MulOccurs(a, b)
-}

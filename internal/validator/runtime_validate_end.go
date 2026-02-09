@@ -73,7 +73,7 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 		}
 	}
 
-	if err := s.identityEnd(identityEndInput{
+	if err := s.icState.end(s.rt, identityEndInput{
 		Text:      canonText,
 		TextState: frame.text,
 		KeyKind:   textKeyKind,

@@ -1,11 +1,11 @@
 package xsdxml
 
-import "github.com/jacoelho/xsd/pkg/xmlstream"
+import "github.com/jacoelho/xsd/internal/xmllex"
 
 // Common XML namespaces.
 const (
-	XMLNamespace   = xmlstream.XMLNamespace
-	XMLNSNamespace = xmlstream.XMLNSNamespace
-	XSINamespace   = xmlstream.XSINamespace
-	XSDNamespace   = xmlstream.XSDNamespace
+	XMLNamespace   = xmllex.XMLNamespace
+	XMLNSNamespace = xmllex.XMLNSNamespace
+	XSINamespace   = xmllex.XSINamespace
+	XSDNamespace   = xmllex.XSDNamespace
 )

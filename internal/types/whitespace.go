@@ -2,7 +2,6 @@ package types
 
 import (
 	"iter"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/value"
 )
@@ -58,23 +57,7 @@ func NormalizeWhiteSpace(lexical string, typ Type) string {
 	}
 }
 
-func splitXMLWhitespaceFields(lexical string) []string {
-	return strings.FieldsFunc(lexical, isXMLWhitespaceRune)
-}
-
-// SplitXMLWhitespaceFields splits a string on XML whitespace (space, tab, CR, LF).
-// It returns nil for empty input.
-func SplitXMLWhitespaceFields(lexical string) []string {
-	if lexical == "" {
-		return nil
-	}
-	return splitXMLWhitespaceFields(lexical)
-}
-
-// TrimXMLWhitespace removes leading and trailing XML whitespace (space, tab, CR, LF).
-func TrimXMLWhitespace(lexical string) string {
-	return value.TrimXMLWhitespaceString(lexical)
-}
+var TrimXMLWhitespace = value.TrimXMLWhitespaceString
 
 // FieldsXMLWhitespaceSeq yields fields split on XML whitespace (space, tab, CR, LF).
 // It is equivalent to strings.FieldsSeq for XML whitespace only.
@@ -97,11 +80,4 @@ func FieldsXMLWhitespaceSeq(lexical string) iter.Seq[string] {
 			}
 		}
 	}
-}
-
-func isXMLWhitespaceRune(r rune) bool {
-	if r < 0 || r > 0x7f {
-		return false
-	}
-	return value.IsXMLWhitespaceByte(byte(r))
 }

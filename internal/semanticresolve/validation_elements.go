@@ -4,13 +4,14 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 func validateTopLevelElementReferences(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range sortedQNames(sch.ElementDecls) {
+	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if decl.IsReference {
 			refDecl, exists := sch.ElementDecls[decl.Name]
@@ -43,7 +44,7 @@ func validateContentElementReferences(sch *parser.Schema, elementRefsInContent [
 func validateElementDeclarationReferences(sch *parser.Schema, allConstraints []*types.IdentityConstraint) []error {
 	var errs []error
 
-	for _, qname := range sortedQNames(sch.ElementDecls) {
+	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if decl.Type != nil {
 			origin := sch.ElementOrigins[qname]

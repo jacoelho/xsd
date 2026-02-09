@@ -19,7 +19,7 @@ func TestCollectFromParticle(t *testing.T) {
 		},
 	}
 
-	got := CollectFromParticle(root, func(p types.Particle) (string, bool) {
+	got := CollectFromParticlesWithVisited([]types.Particle{root}, nil, func(p types.Particle) (string, bool) {
 		elem, ok := p.(*types.ElementDecl)
 		if !ok {
 			return "", false

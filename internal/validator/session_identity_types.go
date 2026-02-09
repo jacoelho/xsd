@@ -62,11 +62,13 @@ const (
 	rtFieldNodeAttribute
 )
 
+type identityAttrNameID uint32
+
 type rtFieldNodeKey struct {
-	attrKey string
-	kind    rtFieldNodeKind
-	elemID  uint64
-	attrSym runtime.SymbolID
+	kind       rtFieldNodeKind
+	elemID     uint64
+	attrSym    runtime.SymbolID
+	attrNameID identityAttrNameID
 }
 
 type rtFieldCapture struct {
@@ -140,6 +142,7 @@ type rtIdentityAttr struct {
 	sym      runtime.SymbolID
 	ns       runtime.NamespaceID
 	keyKind  runtime.ValueKind
+	nameID   identityAttrNameID
 }
 
 func (s *Session) identityStart(in identityStartInput) error {
@@ -147,16 +150,9 @@ func (s *Session) identityStart(in identityStartInput) error {
 		return nil
 	}
 	snapshot := s.icState.checkpoint()
-	err := s.icState.start(s.rt, in)
+	err := s.icState.start(s, in)
 	if err != nil {
 		s.icState.rollback(snapshot)
 	}
 	return err
-}
-
-func (s *Session) identityEnd(in identityEndInput) error {
-	if s == nil {
-		return nil
-	}
-	return s.icState.end(s.rt, in)
 }

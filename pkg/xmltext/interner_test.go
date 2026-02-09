@@ -1,6 +1,9 @@
 package xmltext
 
-import "testing"
+import (
+	"hash/maphash"
+	"testing"
+)
 
 func TestInterningHelpers(t *testing.T) {
 	interner := newNameInterner(2)
@@ -22,13 +25,13 @@ func TestInterningHelpers(t *testing.T) {
 	}
 
 	limit := &nameInterner{maxEntries: -1}
-	_ = limit.internBytesHash([]byte("x"), -1, hashBytes([]byte("x")))
+	_ = limit.internBytesHash([]byte("x"), -1, maphash.Bytes(hashSeed, []byte("x")))
 	if limit.maxEntries != 0 {
 		t.Fatalf("maxEntries = %d, want 0", limit.maxEntries)
 	}
 	limit.maxEntries = 1
-	_ = limit.internBytesHash([]byte("a"), -1, hashBytes([]byte("a")))
-	_ = limit.internBytesHash([]byte("b"), -1, hashBytes([]byte("b")))
+	_ = limit.internBytesHash([]byte("a"), -1, maphash.Bytes(hashSeed, []byte("a")))
+	_ = limit.internBytesHash([]byte("b"), -1, maphash.Bytes(hashSeed, []byte("b")))
 	if limit.stats.Count != 1 {
 		t.Fatalf("intern count = %d, want 1", limit.stats.Count)
 	}

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -76,7 +77,7 @@ func TestCollectElementDeclarationsFromType(t *testing.T) {
 	schema.TypeDefs[extendedType.QName] = extendedType
 
 	// test collecting from extended type should get all elements
-	elements := CollectAllElementDeclarationsFromType(schema, extendedType)
+	elements := traversal.CollectElementDeclsFromComplexType(schema, extendedType)
 	if len(elements) != 3 {
 		t.Errorf("Expected 3 elements, got %d", len(elements))
 	}

@@ -147,12 +147,10 @@ func (s *identityState) addAttributeValue(state *rtFieldState, elemID uint64, at
 		return
 	}
 	key := rtFieldNodeKey{
-		kind:    rtFieldNodeAttribute,
-		elemID:  elemID,
-		attrSym: attr.sym,
-	}
-	if key.attrSym == 0 {
-		key.attrKey = makeAttrKey(attr.nsBytes, attr.local)
+		kind:       rtFieldNodeAttribute,
+		elemID:     elemID,
+		attrSym:    attr.sym,
+		attrNameID: attr.nameID,
 	}
 	if !state.addNode(key) {
 		return

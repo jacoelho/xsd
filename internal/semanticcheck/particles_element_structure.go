@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -69,19 +70,19 @@ func validateInlineElementType(schema *parser.Schema, elem *types.ElementDecl) e
 
 // validateGroupStructure validates structural constraints of a group definition
 // Does not validate references (which might be forward references or imports)
-func validateGroupStructure(qname types.QName, group *types.ModelGroup) error {
-	if !isValidNCName(qname.Local) {
-		return fmt.Errorf("invalid group name '%s': must be a valid NCName", qname.Local)
+func validateGroupStructure(groupQName types.QName, group *types.ModelGroup) error {
+	if !qname.IsValidNCName(groupQName.Local) {
+		return fmt.Errorf("invalid group name '%s': must be a valid NCName", groupQName.Local)
 	}
 
 	if group.MinOccurs.IsZero() {
-		return fmt.Errorf("group '%s' cannot have minOccurs='0'", qname.Local)
+		return fmt.Errorf("group '%s' cannot have minOccurs='0'", groupQName.Local)
 	}
 	if group.MaxOccurs.IsUnbounded() {
-		return fmt.Errorf("group '%s' cannot have maxOccurs='unbounded'", qname.Local)
+		return fmt.Errorf("group '%s' cannot have maxOccurs='unbounded'", groupQName.Local)
 	}
 	if !group.MinOccurs.IsOne() || !group.MaxOccurs.IsOne() {
-		return fmt.Errorf("group '%s' must have minOccurs='1' and maxOccurs='1' (got minOccurs=%s, maxOccurs=%s)", qname.Local, group.MinOccurs, group.MaxOccurs)
+		return fmt.Errorf("group '%s' must have minOccurs='1' and maxOccurs='1' (got minOccurs=%s, maxOccurs=%s)", groupQName.Local, group.MinOccurs, group.MaxOccurs)
 	}
 
 	return nil

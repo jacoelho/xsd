@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -29,7 +30,7 @@ func checkCircularDerivation(schema *parser.Schema, originalQName types.QName, c
 	visited[complexType.QName] = true
 	defer delete(visited, complexType.QName)
 
-	baseComplexType, ok := lookupComplexType(schema, baseQName)
+	baseComplexType, ok := typegraph.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}
@@ -43,7 +44,7 @@ func validateDerivationConstraints(schema *parser.Schema, complexType *types.Com
 	if baseQName.IsZero() {
 		return nil
 	}
-	baseCT, ok := lookupComplexType(schema, baseQName)
+	baseCT, ok := typegraph.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}
@@ -69,7 +70,7 @@ func validateMixedContentDerivation(schema *parser.Schema, complexType *types.Co
 	if baseQName.IsZero() {
 		return nil
 	}
-	baseComplexType, ok := lookupComplexType(schema, baseQName)
+	baseComplexType, ok := typegraph.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}

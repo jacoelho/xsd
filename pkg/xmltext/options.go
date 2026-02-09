@@ -199,11 +199,14 @@ func bufferSize(value int) Options {
 
 // FastValidation returns a preset tuned for validation throughput.
 func FastValidation() Options {
-	return JoinOptions(
-		TrackLineColumn(false),
-		ResolveEntities(false),
-		MaxDepth(256),
-	)
+	return Options{
+		trackLineColumn:    false,
+		trackLineColumnSet: true,
+		resolveEntities:    false,
+		resolveEntitiesSet: true,
+		maxDepth:           256,
+		maxDepthSet:        true,
+	}
 }
 
 // QNameInternEntries reports the configured QName interner limit.

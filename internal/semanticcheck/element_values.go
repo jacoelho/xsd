@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	qnamelex "github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -21,7 +23,7 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 	}
 
 	if st, ok := typ.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) && schema != nil {
-		if resolved, ok := lookupTypeDef(schema, st.QName); ok {
+		if resolved, ok := typegraph.LookupType(schema, st.QName); ok {
 			return validateDefaultOrFixedValueWithContext(schema, value, resolved, nsContext)
 		}
 	}
@@ -35,7 +37,7 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 			// Can't validate QName without context, skip for now
 			return nil
 		}
-		if _, err := types.ParseQNameValue(normalizedValue, nsContext); err != nil {
+		if _, err := qnamelex.ParseQNameValue(normalizedValue, nsContext); err != nil {
 			return err
 		}
 	}
@@ -114,7 +116,7 @@ func shouldDeferValueValidation(schema *parser.Schema, typ types.Type) bool {
 		if schema == nil {
 			return true
 		}
-		if _, ok := lookupTypeDef(schema, st.QName); !ok {
+		if _, ok := typegraph.LookupType(schema, st.QName); !ok {
 			return true
 		}
 		return false

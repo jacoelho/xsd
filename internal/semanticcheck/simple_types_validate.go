@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -133,7 +134,7 @@ func validateUnionType(schema *parser.Schema, unionType *types.UnionType) error 
 			continue
 		}
 
-		if memberType, ok := lookupTypeDef(schema, memberQName); ok {
+		if memberType, ok := typegraph.LookupType(schema, memberQName); ok {
 			// union members must be simple types, not complex types
 			if _, isComplex := memberType.(*types.ComplexType); isComplex {
 				return fmt.Errorf("union memberType %d: '%s' is a complex type (union types can only have simple types as members)", i+1, memberQName.Local)
@@ -185,7 +186,7 @@ func validateListType(schema *parser.Schema, listType *types.ListType) error {
 	}
 
 	// check if it's a user-defined type in this schema
-	if defType, ok := lookupTypeDef(schema, listType.ItemType); ok {
+	if defType, ok := typegraph.LookupType(schema, listType.ItemType); ok {
 		st, ok := defType.(*types.SimpleType)
 		if !ok {
 			return fmt.Errorf("list itemType must be a simple type, got %T", defType)

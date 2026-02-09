@@ -79,7 +79,7 @@ func TestParseFloat64(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			val, class, err := ParseFloat64([]byte(tc.input))
+			val, class, err := ParseFloat([]byte(tc.input), 64)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("expected error")
@@ -144,10 +144,10 @@ func TestValidateFloatLexical(t *testing.T) {
 }
 
 func TestCompareFloat(t *testing.T) {
-	if _, ok := CompareFloat32(1, FloatFinite, float32(math.NaN()), FloatNaN); ok {
+	if _, ok := CompareFloat(1, FloatFinite, float64(math.NaN()), FloatNaN); ok {
 		t.Fatalf("expected FloatNaN comparison to be unordered")
 	}
-	if _, ok := CompareFloat64(math.NaN(), FloatNaN, 1, FloatFinite); ok {
+	if _, ok := CompareFloat(math.NaN(), FloatNaN, 1, FloatFinite); ok {
 		t.Fatalf("expected FloatNaN comparison to be unordered")
 	}
 }

@@ -7,7 +7,7 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/pkg/xmltext"
 )
 
 func TestValidatorZeroRejected(t *testing.T) {
@@ -56,7 +56,7 @@ func TestValidatorZeroRejected(t *testing.T) {
 	}
 	uses[idx].Validator = 0
 
-	sess := NewSession(rt, xmlstream.MaxDepth(64))
+	sess := NewSession(rt, xmltext.MaxDepth(64))
 	err := sess.Validate(strings.NewReader(`<root a="x"/>`))
 	if err == nil {
 		t.Fatalf("expected validator missing error")

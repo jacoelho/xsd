@@ -1,6 +1,10 @@
 package semanticcheck
 
-import "testing"
+import (
+	"testing"
+
+	facetengine "github.com/jacoelho/xsd/internal/facets"
+)
 
 func TestIsValidFacetName(t *testing.T) {
 	cases := []struct {
@@ -13,7 +17,7 @@ func TestIsValidFacetName(t *testing.T) {
 		{name: "unknownFacet", valid: false},
 	}
 	for _, tc := range cases {
-		if got := isValidFacetName(tc.name); got != tc.valid {
+		if got := facetengine.IsValidFacetName(tc.name); got != tc.valid {
 			t.Fatalf("facet %q valid=%v, want %v", tc.name, got, tc.valid)
 		}
 	}

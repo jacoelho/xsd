@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
@@ -29,7 +29,7 @@ func validateOptionalID(doc *xsdxml.Document, elem xsdxml.NodeID, elementName st
 // Per XSD spec, id attributes on schema components must be valid NCNames.
 // Also registers the id for uniqueness schemacheck.
 func validateIDAttribute(id, elementName string, schema *Schema) error {
-	if !types.IsValidNCName(id) {
+	if !qname.IsValidNCName(id) {
 		return fmt.Errorf("%s element has invalid id attribute '%s': must be a valid NCName", elementName, id)
 	}
 	if existing, exists := schema.IDAttributes[id]; exists {

@@ -36,9 +36,9 @@ func TestParseTime(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ParseTime(tt.input)
+			_, err := value.ParseTime([]byte(tt.input))
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseTime(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				t.Errorf("value.ParseTime([]byte(%q)) error = %v, wantErr %v", tt.input, err, tt.wantErr)
 			}
 		})
 	}
@@ -63,9 +63,9 @@ func TestParseGMonth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ParseGMonth(tt.input)
+			_, err := value.ParseGMonth([]byte(tt.input))
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseGMonth(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				t.Errorf("value.ParseGMonth([]byte(%q)) error = %v, wantErr %v", tt.input, err, tt.wantErr)
 			}
 		})
 	}
@@ -90,9 +90,9 @@ func TestParseGMonthDay(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ParseGMonthDay(tt.input)
+			_, err := value.ParseGMonthDay([]byte(tt.input))
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseGMonthDay(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				t.Errorf("value.ParseGMonthDay([]byte(%q)) error = %v, wantErr %v", tt.input, err, tt.wantErr)
 			}
 		})
 	}
@@ -117,9 +117,9 @@ func TestParseGDay(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ParseGDay(tt.input)
+			_, err := value.ParseGDay([]byte(tt.input))
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseGDay(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				t.Errorf("value.ParseGDay([]byte(%q)) error = %v, wantErr %v", tt.input, err, tt.wantErr)
 			}
 		})
 	}
@@ -139,9 +139,9 @@ func TestParseDateYearConstraints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ParseDate(tt.input)
+			_, err := value.ParseDate([]byte(tt.input))
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseDate(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				t.Errorf("value.ParseDate([]byte(%q)) error = %v, wantErr %v", tt.input, err, tt.wantErr)
 			}
 		})
 	}
@@ -162,9 +162,9 @@ func TestParseGYearConstraints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ParseGYear(tt.input)
+			_, err := value.ParseGYear([]byte(tt.input))
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseGYear(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				t.Errorf("value.ParseGYear([]byte(%q)) error = %v, wantErr %v", tt.input, err, tt.wantErr)
 			}
 		})
 	}
@@ -185,9 +185,9 @@ func TestParseGYearMonthConstraints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ParseGYearMonth(tt.input)
+			_, err := value.ParseGYearMonth([]byte(tt.input))
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseGYearMonth(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				t.Errorf("value.ParseGYearMonth([]byte(%q)) error = %v, wantErr %v", tt.input, err, tt.wantErr)
 			}
 		})
 	}
@@ -195,7 +195,7 @@ func TestParseGYearMonthConstraints(t *testing.T) {
 
 // Test that parsed times have correct structure
 func TestParseTimeStructure(t *testing.T) {
-	tm, err := ParseTime("13:20:00-05:00")
+	tm, err := value.ParseTime([]byte("13:20:00-05:00"))
 	if err != nil {
 		t.Fatalf("ParseTime failed: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestTemporalParsingConsistency(t *testing.T) {
 		"12:00:60",
 	}
 	for _, input := range timeCases {
-		compare(t, input, ParseTime, value.ParseTime)
+		compare(t, input, func(lexical string) (time.Time, error) { return value.ParseTime([]byte(lexical)) }, value.ParseTime)
 	}
 
 	dateCases := []string{
@@ -265,7 +265,7 @@ func TestTemporalParsingConsistency(t *testing.T) {
 		"0000-10-26",
 	}
 	for _, input := range dateCases {
-		compare(t, input, ParseDate, value.ParseDate)
+		compare(t, input, func(lexical string) (time.Time, error) { return value.ParseDate([]byte(lexical)) }, value.ParseDate)
 	}
 
 	gYearCases := []string{
@@ -274,7 +274,7 @@ func TestTemporalParsingConsistency(t *testing.T) {
 		"0000",
 	}
 	for _, input := range gYearCases {
-		compare(t, input, ParseGYear, value.ParseGYear)
+		compare(t, input, func(lexical string) (time.Time, error) { return value.ParseGYear([]byte(lexical)) }, value.ParseGYear)
 	}
 
 	gYearMonthCases := []string{
@@ -283,7 +283,7 @@ func TestTemporalParsingConsistency(t *testing.T) {
 		"0000-10",
 	}
 	for _, input := range gYearMonthCases {
-		compare(t, input, ParseGYearMonth, value.ParseGYearMonth)
+		compare(t, input, func(lexical string) (time.Time, error) { return value.ParseGYearMonth([]byte(lexical)) }, value.ParseGYearMonth)
 	}
 
 	gMonthCases := []string{
@@ -292,7 +292,7 @@ func TestTemporalParsingConsistency(t *testing.T) {
 		"--13",
 	}
 	for _, input := range gMonthCases {
-		compare(t, input, ParseGMonth, value.ParseGMonth)
+		compare(t, input, func(lexical string) (time.Time, error) { return value.ParseGMonth([]byte(lexical)) }, value.ParseGMonth)
 	}
 
 	gMonthDayCases := []string{
@@ -301,7 +301,7 @@ func TestTemporalParsingConsistency(t *testing.T) {
 		"--10-32",
 	}
 	for _, input := range gMonthDayCases {
-		compare(t, input, ParseGMonthDay, value.ParseGMonthDay)
+		compare(t, input, func(lexical string) (time.Time, error) { return value.ParseGMonthDay([]byte(lexical)) }, value.ParseGMonthDay)
 	}
 
 	gDayCases := []string{
@@ -310,6 +310,6 @@ func TestTemporalParsingConsistency(t *testing.T) {
 		"---32",
 	}
 	for _, input := range gDayCases {
-		compare(t, input, ParseGDay, value.ParseGDay)
+		compare(t, input, func(lexical string) (time.Time, error) { return value.ParseGDay([]byte(lexical)) }, value.ParseGDay)
 	}
 }

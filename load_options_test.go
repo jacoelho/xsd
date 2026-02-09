@@ -1,6 +1,7 @@
 package xsd_test
 
 import (
+	"reflect"
 	"testing"
 	"testing/fstest"
 
@@ -20,12 +21,64 @@ func TestLoadWithOptionsAllowsMissingImportLocation(t *testing.T) {
 		"main.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	if _, err := xsd.Load(fsys, "main.xsd"); err == nil {
-		t.Fatal("Load() err = nil, want missing import error")
+	if _, err := xsd.LoadWithOptions(fsys, "main.xsd", xsd.NewLoadOptions()); err == nil {
+		t.Fatal("LoadWithOptions() err = nil, want missing import error")
 	}
 
 	opts := xsd.NewLoadOptions().WithAllowMissingImportLocations(true)
 	if _, err := xsd.LoadWithOptions(fsys, "main.xsd", opts); err != nil {
 		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+}
+
+func TestPrepareWithOptionsAppliesRuntimeOptions(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+
+	fsys := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
+	}
+
+	runtimeOpts := xsd.NewRuntimeOptions().WithInstanceMaxDepth(-1)
+	loadOpts := xsd.NewLoadOptions().WithRuntimeOptions(runtimeOpts)
+	if _, err := xsd.PrepareWithOptions(fsys, "schema.xsd", loadOpts); err == nil {
+		t.Fatal("PrepareWithOptions() error = nil, want invalid runtime options error")
+	}
+}
+
+func TestLoadOptionsRejectsMixedRuntimeConfiguration(t *testing.T) {
+	loadOptionsType := reflect.TypeOf(xsd.NewLoadOptions())
+	forbiddenRuntimeSetters := []string{
+		"WithMaxDFAStates",
+		"WithMaxOccursLimit",
+		"WithInstanceMaxDepth",
+		"WithInstanceMaxAttrs",
+		"WithInstanceMaxTokenSize",
+		"WithInstanceMaxQNameInternEntries",
+	}
+	for _, method := range forbiddenRuntimeSetters {
+		if _, ok := loadOptionsType.MethodByName(method); ok {
+			t.Fatalf("LoadOptions should not export runtime setter %s; use WithRuntimeOptions", method)
+		}
+	}
+	if _, ok := loadOptionsType.MethodByName("WithRuntimeOptions"); !ok {
+		t.Fatal("LoadOptions should expose WithRuntimeOptions bridge")
+	}
+
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+	fsys := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
+	}
+
+	opts := xsd.NewLoadOptions().WithRuntimeOptions(
+		xsd.NewRuntimeOptions().WithInstanceMaxDepth(-1),
+	)
+	if _, err := xsd.PrepareWithOptions(fsys, "schema.xsd", opts); err == nil {
+		t.Fatal("PrepareWithOptions() error = nil, want runtime options validation error")
 	}
 }

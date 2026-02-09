@@ -1,6 +1,7 @@
 package types
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/value"
@@ -166,7 +167,7 @@ func TestApplyWhiteSpaceMatchesValueNormalize(t *testing.T) {
 	}
 }
 
-func TestSplitXMLWhitespaceFields(t *testing.T) {
+func TestFieldsXMLWhitespaceSeq(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
@@ -192,13 +193,13 @@ func TestSplitXMLWhitespaceFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := splitXMLWhitespaceFields(tt.input)
+			got := slices.Collect(FieldsXMLWhitespaceSeq(tt.input))
 			if len(got) != len(tt.want) {
-				t.Fatalf("splitXMLWhitespaceFields length = %d, want %d", len(got), len(tt.want))
+				t.Fatalf("FieldsXMLWhitespaceSeq length = %d, want %d", len(got), len(tt.want))
 			}
 			for i := range tt.want {
 				if got[i] != tt.want[i] {
-					t.Fatalf("splitXMLWhitespaceFields[%d] = %q, want %q", i, got[i], tt.want[i])
+					t.Fatalf("FieldsXMLWhitespaceSeq[%d] = %q, want %q", i, got[i], tt.want[i])
 				}
 			}
 		})

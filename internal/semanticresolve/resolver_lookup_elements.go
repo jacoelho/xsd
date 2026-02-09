@@ -41,27 +41,6 @@ func (r *Resolver) lookupType(qname, referrer types.QName) (types.Type, error) {
 	return typ, nil
 }
 
-func (r *Resolver) resolveElementParticle(elem *types.ElementDecl) error {
-	if elem.IsReference || elem.Type == nil {
-		return nil
-	}
-	return r.resolveElementType(elem, elem.Name, elementTypeOptions{
-		simpleContext:  "element %s type: %w",
-		complexContext: "element %s anonymous type: %w",
-		allowResolving: true,
-	})
-}
-
-func (r *Resolver) resolveElement(qname types.QName, elem *types.ElementDecl) error {
-	if elem.Type == nil {
-		return nil
-	}
-	return r.resolveElementType(elem, qname, elementTypeOptions{
-		simpleContext:  "element %s type: %w",
-		complexContext: "element %s type: %w",
-	})
-}
-
 type elementTypeOptions struct {
 	simpleContext  string
 	complexContext string

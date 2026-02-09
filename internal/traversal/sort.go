@@ -1,6 +1,7 @@
 package traversal
 
 import (
+	"cmp"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/types"
@@ -15,6 +16,11 @@ func SortedQNames[V any](m map[types.QName]V) []types.QName {
 	for qname := range m {
 		keys = append(keys, qname)
 	}
-	slices.SortFunc(keys, types.CompareQName)
+	slices.SortFunc(keys, func(a, b types.QName) int {
+		if a.Namespace != b.Namespace {
+			return cmp.Compare(a.Namespace, b.Namespace)
+		}
+		return cmp.Compare(a.Local, b.Local)
+	})
 	return keys
 }

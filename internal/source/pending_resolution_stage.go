@@ -21,7 +21,7 @@ func (l *SchemaLoader) pendingResolutionInputs(sourceKey loadKey) (*schemaEntry,
 	if len(pendingDirectives) == 0 {
 		return sourceEntry, nil, nil, nil
 	}
-	source := l.schemaForKey(sourceKey)
+	source := l.state.schemaForKey(sourceKey)
 	if source == nil {
 		return nil, nil, nil, fmt.Errorf("pending import source not found: %s", sourceKey.systemID)
 	}
@@ -55,7 +55,7 @@ func (l *SchemaLoader) stagePendingTargets(pendingDirectives []pendingDirective)
 }
 
 func (l *SchemaLoader) schemaForKeyStrict(key loadKey) (*parser.Schema, error) {
-	target := l.schemaForKey(key)
+	target := l.state.schemaForKey(key)
 	if target == nil {
 		return nil, fmt.Errorf("pending directive target not found: %s", key.systemID)
 	}

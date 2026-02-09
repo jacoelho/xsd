@@ -4,6 +4,7 @@ import (
 	facetengine "github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
+	wsmode "github.com/jacoelho/xsd/internal/whitespace"
 )
 
 func (s *Session) validateValueInternalOptions(id runtime.ValidatorID, lexical []byte, resolver value.NSResolver, opts valueOptions) ([]byte, error) {
@@ -47,9 +48,9 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 		if meta.Kind == runtime.VList || meta.Kind == runtime.VUnion {
 			buf := s.pushNormBuf(len(lexical))
 			popNorm = true
-			normalized = value.NormalizeWhitespace(valueWhitespaceMode(meta.WhiteSpace), lexical, buf)
+			normalized = value.NormalizeWhitespace(wsmode.ToValue(meta.WhiteSpace), lexical, buf)
 		} else {
-			normalized = value.NormalizeWhitespace(valueWhitespaceMode(meta.WhiteSpace), lexical, s.normBuf)
+			normalized = value.NormalizeWhitespace(wsmode.ToValue(meta.WhiteSpace), lexical, s.normBuf)
 		}
 	}
 	if popNorm {
@@ -80,7 +81,71 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 	if err != nil {
 		return nil, err
 	}
-	if err := s.applyFacets(meta, normalized, canon, metrics); err != nil {
+	if err := facetengine.ValidateRuntimeProgram(
+		facetengine.RuntimeProgram{
+			Meta:       meta,
+			Facets:     s.rt.Facets,
+			Patterns:   s.rt.Patterns,
+			Enums:      s.rt.Enums,
+			Values:     s.rt.Values,
+			Normalized: normalized,
+			Canonical:  canon,
+		},
+		facetengine.RuntimeCallbacks{
+			SkipPattern: func() bool {
+				return metrics != nil && metrics.patternChecked
+			},
+			SkipEnum: func() bool {
+				return metrics != nil && metrics.enumChecked
+			},
+			CachedEnumKey: func() (runtime.ValueKind, []byte, bool) {
+				if metrics == nil || !metrics.keySet {
+					return runtime.VKInvalid, nil, false
+				}
+				return metrics.keyKind, metrics.keyBytes, true
+			},
+			DeriveEnumKey: func(canonical []byte) (runtime.ValueKind, []byte, error) {
+				return s.deriveKeyFromCanonical(meta.Kind, canonical)
+			},
+			StoreEnumKey: func(kind runtime.ValueKind, key []byte) {
+				if metrics == nil {
+					return
+				}
+				metrics.keyKind = kind
+				metrics.keyBytes = key
+				metrics.keySet = true
+			},
+			CheckRange: func(op runtime.FacetOp, kind runtime.ValidatorKind, canonical, bound []byte) error {
+				switch kind {
+				case runtime.VFloat:
+					return s.checkFloat32Range(op, canonical, bound, metrics)
+				case runtime.VDouble:
+					return s.checkFloat64Range(op, canonical, bound, metrics)
+				default:
+					cmp, err := s.compareValue(kind, canonical, bound, metrics)
+					if err != nil {
+						return err
+					}
+					return compareRange(op, cmp)
+				}
+			},
+			ValueLength: func(kind runtime.ValidatorKind, normalized []byte) (int, error) {
+				return s.valueLength(runtime.ValidatorMeta{Kind: kind}, normalized, metrics)
+			},
+			ShouldSkipLength: func(kind runtime.ValidatorKind) bool {
+				return kind == runtime.VQName || kind == runtime.VNotation
+			},
+			DigitCounts: func(kind runtime.ValidatorKind, canonical []byte) (int, int, error) {
+				return digitCounts(kind, canonical, metrics)
+			},
+			Invalidf: func(format string, args ...any) error {
+				return valueErrorf(valueErrInvalid, format, args...)
+			},
+			FacetViolation: func(name string) error {
+				return valueErrorf(valueErrFacet, "%s violation", name)
+			},
+		},
+	); err != nil {
 		return nil, err
 	}
 	if !opts.storeValue && (meta.Kind == runtime.VHexBinary || meta.Kind == runtime.VBase64Binary) {

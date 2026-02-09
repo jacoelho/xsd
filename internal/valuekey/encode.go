@@ -187,7 +187,7 @@ func DurationKeyBytes(dst []byte, dur types.XSDDuration) []byte {
 		sign = 0
 	}
 	dst = append(dst[:0], sign)
-	dst = num.EncodeIntKey(dst, months)
+	dst = num.EncodeDecKey(dst, months.AsDec())
 	dst = num.EncodeDecKey(dst, seconds)
 	return dst
 }
@@ -214,11 +214,6 @@ func AppendUvarint(dst []byte, v uint64) []byte {
 	var buf [binary.MaxVarintLen64]byte
 	n := binary.PutUvarint(buf[:], v)
 	return append(dst, buf[:n]...)
-}
-
-// StartListKey resets dst and appends the list item count prefix.
-func StartListKey(dst []byte, count int) []byte {
-	return AppendUvarint(dst[:0], uint64(count))
 }
 
 // AppendListEntry appends one typed list item: kind (1 byte), len (uvarint), key bytes.

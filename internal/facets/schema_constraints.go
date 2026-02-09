@@ -47,7 +47,7 @@ func ValidateSchemaConstraints(in SchemaConstraintInput, cb SchemaConstraintCall
 
 	for _, facet := range in.FacetList {
 		name := facet.Name()
-		if !isValidFacetName(name) {
+		if !IsValidFacetName(name) {
 			return fmt.Errorf("unknown or invalid facet '%s' (not a valid XSD 1.0 facet)", name)
 		}
 		if err := state.captureFacet(name, facet); err != nil {
@@ -84,7 +84,8 @@ func ValidateSchemaConstraints(in SchemaConstraintInput, cb SchemaConstraintCall
 	return nil
 }
 
-func isValidFacetName(name string) bool {
+// IsValidFacetName reports whether name is an XSD 1.0 facet name.
+func IsValidFacetName(name string) bool {
 	switch name {
 	case "length", "minLength", "maxLength", "pattern", "enumeration", "whiteSpace",
 		"maxInclusive", "maxExclusive", "minInclusive", "minExclusive",
@@ -93,11 +94,6 @@ func isValidFacetName(name string) bool {
 	default:
 		return false
 	}
-}
-
-// IsValidFacetName reports whether name is an XSD 1.0 facet name.
-func IsValidFacetName(name string) bool {
-	return isValidFacetName(name)
 }
 
 func (s *facetConstraintState) captureFacet(name string, facet types.Facet) error {

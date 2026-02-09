@@ -1,7 +1,6 @@
 package qname
 
 import (
-	"cmp"
 	"fmt"
 	"strings"
 
@@ -65,14 +64,6 @@ func (q QName) Equal(other QName) bool {
 	return q.Namespace == other.Namespace && q.Local == other.Local
 }
 
-// CompareQName orders QNames by namespace then local.
-func CompareQName(a, b QName) int {
-	if a.Namespace != b.Namespace {
-		return cmp.Compare(a.Namespace, b.Namespace)
-	}
-	return cmp.Compare(a.Local, b.Local)
-}
-
 // SplitQName splits a QName string into prefix/local without validation.
 func SplitQName(name string) (prefix, local string, hasPrefix bool) {
 	prefix, local, hasPrefix = strings.Cut(name, ":")
@@ -84,7 +75,7 @@ func SplitQName(name string) (prefix, local string, hasPrefix bool) {
 
 // ParseQName trims and validates a QName, returning prefix/local parts.
 func ParseQName(name string) (prefix, local string, hasPrefix bool, err error) {
-	trimmed := TrimXMLWhitespace(name)
+	trimmed := value.TrimXMLWhitespaceString(name)
 	if trimmed == "" {
 		return "", "", false, fmt.Errorf("empty qname")
 	}
@@ -92,8 +83,8 @@ func ParseQName(name string) (prefix, local string, hasPrefix bool, err error) {
 		return "", "", false, fmt.Errorf("invalid QName '%s'", trimmed)
 	}
 	prefix, local, hasPrefix = SplitQName(trimmed)
-	prefix = TrimXMLWhitespace(prefix)
-	local = TrimXMLWhitespace(local)
+	prefix = value.TrimXMLWhitespaceString(prefix)
+	local = value.TrimXMLWhitespaceString(local)
 	return prefix, local, hasPrefix, nil
 }
 
@@ -105,9 +96,4 @@ func IsValidNCName(s string) bool {
 // IsValidQName returns true if the string is a valid QName.
 func IsValidQName(s string) bool {
 	return value.ValidateQName([]byte(s)) == nil
-}
-
-// TrimXMLWhitespace removes leading and trailing XML whitespace.
-func TrimXMLWhitespace(lexical string) string {
-	return value.TrimXMLWhitespaceString(lexical)
 }

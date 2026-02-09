@@ -9,7 +9,7 @@ import (
 
 // parseIdentityConstraint parses a key, keyref, or unique constraint
 func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.IdentityConstraint, error) {
-	name := getNameAttr(doc, elem)
+	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return nil, fmt.Errorf("identity constraint missing name attribute")
 	}
@@ -40,7 +40,7 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 
 	refer := doc.GetAttribute(elem, "refer")
 	if refer != "" {
-		referQName, err := resolveIdentityConstraintQName(doc, refer, elem, schema)
+		referQName, err := resolveQNameWithPolicy(doc, refer, elem, schema, useDefaultNamespace)
 		if err != nil {
 			return nil, fmt.Errorf("resolve refer QName %s: %w", refer, err)
 		}

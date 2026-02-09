@@ -9,7 +9,7 @@ import (
 	"github.com/jacoelho/xsd/errors"
 )
 
-func ExampleLoad() {
+func ExampleLoadWithOptions() {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/simple"
@@ -21,7 +21,7 @@ func ExampleLoad() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	loaded, err := xsd.Load(fsys, "simple.xsd")
+	loaded, err := xsd.LoadWithOptions(fsys, "simple.xsd", xsd.NewLoadOptions())
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -53,7 +53,7 @@ func ExampleSchema_Validate() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	schema, err := xsd.Load(fsys, "simple.xsd")
+	schema, err := xsd.LoadWithOptions(fsys, "simple.xsd", xsd.NewLoadOptions())
 	if err != nil {
 		fmt.Printf("Error loading schema: %v\n", err)
 		return

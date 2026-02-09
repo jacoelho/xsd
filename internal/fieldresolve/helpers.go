@@ -4,14 +4,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
-
-func resolveTypeForValidation(schema *parser.Schema, typ types.Type) types.Type {
-	return typeops.ResolveTypeReference(schema, typ, typeops.TypeReferenceMustExist)
-}
 
 func elementTypesCompatible(a, b types.Type) bool {
 	if a == nil && b == nil {

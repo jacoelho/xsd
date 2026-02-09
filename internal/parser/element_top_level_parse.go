@@ -7,12 +7,6 @@ import (
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
-// makeAnyType returns the canonical anyType instance.
-// anyType is treated as a built-in type throughout the system.
-func makeAnyType() types.Type {
-	return types.GetBuiltin(types.TypeNameAnyType)
-}
-
 // parseTopLevelElement parses a top-level element declaration.
 func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
 	name, nameErr := validateTopLevelElementStructure(doc, elem, schema)
@@ -46,7 +40,7 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 }
 
 func validateTopLevelElementStructure(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (string, error) {
-	name := getNameAttr(doc, elem)
+	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return "", fmt.Errorf("element missing name attribute")
 	}

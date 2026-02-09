@@ -248,7 +248,7 @@ func TestDurationKeyBytes(t *testing.T) {
 	dur := types.XSDDuration{}
 	key := DurationKeyBytes(nil, dur)
 	want := []byte{0}
-	want = num.EncodeIntKey(want, num.IntZero)
+	want = num.EncodeDecKey(want, num.IntZero.AsDec())
 	want = num.EncodeDecKey(want, zero)
 	if !bytes.Equal(key, want) {
 		t.Fatalf("zero duration key = %v, want %v", key, want)
@@ -257,7 +257,7 @@ func TestDurationKeyBytes(t *testing.T) {
 	dur = types.XSDDuration{Years: 1, Months: 2}
 	key = DurationKeyBytes(nil, dur)
 	want = []byte{1}
-	want = num.EncodeIntKey(want, num.FromInt64(14))
+	want = num.EncodeDecKey(want, num.FromInt64(14).AsDec())
 	want = num.EncodeDecKey(want, zero)
 	if !bytes.Equal(key, want) {
 		t.Fatalf("months duration key = %v, want %v", key, want)
@@ -270,7 +270,7 @@ func TestDurationKeyBytes(t *testing.T) {
 	dur = types.XSDDuration{Seconds: secDec}
 	key = DurationKeyBytes(nil, dur)
 	want = []byte{1}
-	want = num.EncodeIntKey(want, num.IntZero)
+	want = num.EncodeDecKey(want, num.IntZero.AsDec())
 	want = num.EncodeDecKey(want, secDec)
 	if !bytes.Equal(key, want) {
 		t.Fatalf("seconds duration key = %v, want %v", key, want)
@@ -344,7 +344,7 @@ func durationKeyBytesLegacy(dst []byte, dur types.XSDDuration) []byte {
 		sign = 0
 	}
 	dst = append(dst[:0], sign)
-	dst = num.EncodeIntKey(dst, months)
+	dst = num.EncodeDecKey(dst, months.AsDec())
 	dst = num.EncodeDecKey(dst, seconds)
 	return dst
 }

@@ -23,18 +23,15 @@ type TypeValidatorBytes func(value []byte) error
 
 // BuiltinType represents a built-in XSD type
 type BuiltinType struct {
-	primitiveTypeCache         Type
-	validator                  TypeValidator
-	validatorBytes             TypeValidatorBytes
-	fundamentalFacetsCache     *FundamentalFacets
-	simpleWrapper              *SimpleType
-	qname                      QName
-	name                       string
-	cacheGuard                 cacheGuard
-	whiteSpace                 WhiteSpace
-	fundamentalFacetsComputing bool
-	primitiveTypeComputing     bool
-	ordered                    bool
+	primitiveType     Type
+	validator         TypeValidator
+	validatorBytes    TypeValidatorBytes
+	fundamentalFacets *FundamentalFacets
+	simpleWrapper     *SimpleType
+	qname             QName
+	name              string
+	whiteSpace        WhiteSpace
+	ordered           bool
 }
 
 type orderingFlag bool
@@ -44,63 +41,67 @@ const (
 	ordered   orderingFlag = true
 )
 
-var defaultBuiltinRegistry = newBuiltinRegistry(map[string]*BuiltinType{
-	// built-in complex type
-	string(TypeNameAnyType): newBuiltin(TypeNameAnyType, validateAnyType, nil, WhiteSpacePreserve, unordered),
+var defaultBuiltinRegistry = func() *builtinRegistry {
+	registry := newBuiltinRegistry(map[string]*BuiltinType{
+		// built-in complex type
+		string(TypeNameAnyType): newBuiltin(TypeNameAnyType, validateAnyType, nil, WhiteSpacePreserve, unordered),
 
-	// base simple type (base of all simple types, must be registered before primitives)
-	string(TypeNameAnySimpleType): newBuiltin(TypeNameAnySimpleType, validateAnySimpleType, nil, WhiteSpacePreserve, unordered),
+		// base simple type (base of all simple types, must be registered before primitives)
+		string(TypeNameAnySimpleType): newBuiltin(TypeNameAnySimpleType, validateAnySimpleType, nil, WhiteSpacePreserve, unordered),
 
-	// primitive types (19 total)
-	string(TypeNameString):       newBuiltin(TypeNameString, validateString, nil, WhiteSpacePreserve, unordered),
-	string(TypeNameBoolean):      newBuiltin(TypeNameBoolean, validateBoolean, validateBooleanBytes, WhiteSpaceCollapse, unordered),
-	string(TypeNameDecimal):      newBuiltin(TypeNameDecimal, validateDecimal, validateDecimalBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameFloat):        newBuiltin(TypeNameFloat, validateFloat, validateFloatBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameDouble):       newBuiltin(TypeNameDouble, validateDouble, validateDoubleBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameDuration):     newBuiltin(TypeNameDuration, validateDuration, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameDateTime):     newBuiltin(TypeNameDateTime, validateDateTime, nil, WhiteSpaceCollapse, ordered),
-	string(TypeNameTime):         newBuiltin(TypeNameTime, validateTime, nil, WhiteSpaceCollapse, ordered),
-	string(TypeNameDate):         newBuiltin(TypeNameDate, validateDate, nil, WhiteSpaceCollapse, ordered),
-	string(TypeNameGYearMonth):   newBuiltin(TypeNameGYearMonth, validateGYearMonth, nil, WhiteSpaceCollapse, ordered),
-	string(TypeNameGYear):        newBuiltin(TypeNameGYear, validateGYear, nil, WhiteSpaceCollapse, ordered),
-	string(TypeNameGMonthDay):    newBuiltin(TypeNameGMonthDay, validateGMonthDay, nil, WhiteSpaceCollapse, ordered),
-	string(TypeNameGDay):         newBuiltin(TypeNameGDay, validateGDay, nil, WhiteSpaceCollapse, ordered),
-	string(TypeNameGMonth):       newBuiltin(TypeNameGMonth, validateGMonth, nil, WhiteSpaceCollapse, ordered),
-	string(TypeNameHexBinary):    newBuiltin(TypeNameHexBinary, validateHexBinary, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameBase64Binary): newBuiltin(TypeNameBase64Binary, validateBase64Binary, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameAnyURI):       newBuiltin(TypeNameAnyURI, validateAnyURI, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameQName):        newBuiltin(TypeNameQName, validateQName, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameNOTATION):     newBuiltin(TypeNameNOTATION, validateNOTATION, nil, WhiteSpaceCollapse, unordered),
+		// primitive types (19 total)
+		string(TypeNameString):       newBuiltin(TypeNameString, validateString, nil, WhiteSpacePreserve, unordered),
+		string(TypeNameBoolean):      newBuiltin(TypeNameBoolean, validateBoolean, byteValidator(validateBoolean), WhiteSpaceCollapse, unordered),
+		string(TypeNameDecimal):      newBuiltin(TypeNameDecimal, validateDecimal, byteValidator(validateDecimal), WhiteSpaceCollapse, ordered),
+		string(TypeNameFloat):        newBuiltin(TypeNameFloat, validateFloat, byteValidator(validateFloat), WhiteSpaceCollapse, ordered),
+		string(TypeNameDouble):       newBuiltin(TypeNameDouble, validateDouble, byteValidator(validateDouble), WhiteSpaceCollapse, ordered),
+		string(TypeNameDuration):     newBuiltin(TypeNameDuration, validateDuration, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameDateTime):     newBuiltin(TypeNameDateTime, validateDateTime, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameTime):         newBuiltin(TypeNameTime, validateTime, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameDate):         newBuiltin(TypeNameDate, validateDate, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameGYearMonth):   newBuiltin(TypeNameGYearMonth, validateGYearMonth, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameGYear):        newBuiltin(TypeNameGYear, validateGYear, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameGMonthDay):    newBuiltin(TypeNameGMonthDay, validateGMonthDay, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameGDay):         newBuiltin(TypeNameGDay, validateGDay, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameGMonth):       newBuiltin(TypeNameGMonth, validateGMonth, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameHexBinary):    newBuiltin(TypeNameHexBinary, validateHexBinary, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameBase64Binary): newBuiltin(TypeNameBase64Binary, validateBase64Binary, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameAnyURI):       newBuiltin(TypeNameAnyURI, validateAnyURI, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameQName):        newBuiltin(TypeNameQName, validateQName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameNOTATION):     newBuiltin(TypeNameNOTATION, validateQName, nil, WhiteSpaceCollapse, unordered),
 
-	// derived string types
-	string(TypeNameNormalizedString): newBuiltin(TypeNameNormalizedString, validateNormalizedString, nil, WhiteSpaceReplace, unordered),
-	string(TypeNameToken):            newBuiltin(TypeNameToken, validateToken, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameLanguage):         newBuiltin(TypeNameLanguage, validateLanguage, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameName):             newBuiltin(TypeNameName, validateName, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameNCName):           newBuiltin(TypeNameNCName, validateNCName, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameID):               newBuiltin(TypeNameID, validateID, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameIDREF):            newBuiltin(TypeNameIDREF, validateIDREF, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameIDREFS):           newBuiltin(TypeNameIDREFS, validateIDREFS, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameENTITY):           newBuiltin(TypeNameENTITY, validateENTITY, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameENTITIES):         newBuiltin(TypeNameENTITIES, validateENTITIES, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameNMTOKEN):          newBuiltin(TypeNameNMTOKEN, validateNMTOKEN, nil, WhiteSpaceCollapse, unordered),
-	string(TypeNameNMTOKENS):         newBuiltin(TypeNameNMTOKENS, validateNMTOKENS, nil, WhiteSpaceCollapse, unordered),
+		// derived string types
+		string(TypeNameNormalizedString): newBuiltin(TypeNameNormalizedString, validateNormalizedString, nil, WhiteSpaceReplace, unordered),
+		string(TypeNameToken):            newBuiltin(TypeNameToken, validateToken, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameLanguage):         newBuiltin(TypeNameLanguage, validateLanguage, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameName):             newBuiltin(TypeNameName, validateName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameNCName):           newBuiltin(TypeNameNCName, validateNCName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameID):               newBuiltin(TypeNameID, validateNCName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameIDREF):            newBuiltin(TypeNameIDREF, validateNCName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameIDREFS):           newBuiltin(TypeNameIDREFS, validateIDREFS, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameENTITY):           newBuiltin(TypeNameENTITY, validateNCName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameENTITIES):         newBuiltin(TypeNameENTITIES, validateENTITIES, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameNMTOKEN):          newBuiltin(TypeNameNMTOKEN, validateNMTOKEN, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameNMTOKENS):         newBuiltin(TypeNameNMTOKENS, validateNMTOKENS, nil, WhiteSpaceCollapse, unordered),
 
-	// derived numeric types
-	string(TypeNameInteger):            newBuiltin(TypeNameInteger, validateInteger, validateIntegerBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameLong):               newBuiltin(TypeNameLong, validateLong, validateLongBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameInt):                newBuiltin(TypeNameInt, validateInt, validateIntBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameShort):              newBuiltin(TypeNameShort, validateShort, validateShortBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameByte):               newBuiltin(TypeNameByte, validateByte, validateByteBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameNonNegativeInteger): newBuiltin(TypeNameNonNegativeInteger, validateNonNegativeInteger, validateNonNegativeIntegerBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNamePositiveInteger):    newBuiltin(TypeNamePositiveInteger, validatePositiveInteger, validatePositiveIntegerBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameUnsignedLong):       newBuiltin(TypeNameUnsignedLong, validateUnsignedLong, validateUnsignedLongBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameUnsignedInt):        newBuiltin(TypeNameUnsignedInt, validateUnsignedInt, validateUnsignedIntBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameUnsignedShort):      newBuiltin(TypeNameUnsignedShort, validateUnsignedShort, validateUnsignedShortBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameUnsignedByte):       newBuiltin(TypeNameUnsignedByte, validateUnsignedByte, validateUnsignedByteBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameNonPositiveInteger): newBuiltin(TypeNameNonPositiveInteger, validateNonPositiveInteger, validateNonPositiveIntegerBytes, WhiteSpaceCollapse, ordered),
-	string(TypeNameNegativeInteger):    newBuiltin(TypeNameNegativeInteger, validateNegativeInteger, validateNegativeIntegerBytes, WhiteSpaceCollapse, ordered),
-})
+		// derived numeric types
+		string(TypeNameInteger):            newBuiltin(TypeNameInteger, validateInteger, byteValidator(validateInteger), WhiteSpaceCollapse, ordered),
+		string(TypeNameLong):               newBuiltin(TypeNameLong, validateLong, byteValidator(validateLong), WhiteSpaceCollapse, ordered),
+		string(TypeNameInt):                newBuiltin(TypeNameInt, validateInt, byteValidator(validateInt), WhiteSpaceCollapse, ordered),
+		string(TypeNameShort):              newBuiltin(TypeNameShort, validateShort, byteValidator(validateShort), WhiteSpaceCollapse, ordered),
+		string(TypeNameByte):               newBuiltin(TypeNameByte, validateByte, byteValidator(validateByte), WhiteSpaceCollapse, ordered),
+		string(TypeNameNonNegativeInteger): newBuiltin(TypeNameNonNegativeInteger, validateNonNegativeInteger, byteValidator(validateNonNegativeInteger), WhiteSpaceCollapse, ordered),
+		string(TypeNamePositiveInteger):    newBuiltin(TypeNamePositiveInteger, validatePositiveInteger, byteValidator(validatePositiveInteger), WhiteSpaceCollapse, ordered),
+		string(TypeNameUnsignedLong):       newBuiltin(TypeNameUnsignedLong, validateUnsignedLong, byteValidator(validateUnsignedLong), WhiteSpaceCollapse, ordered),
+		string(TypeNameUnsignedInt):        newBuiltin(TypeNameUnsignedInt, validateUnsignedInt, byteValidator(validateUnsignedInt), WhiteSpaceCollapse, ordered),
+		string(TypeNameUnsignedShort):      newBuiltin(TypeNameUnsignedShort, validateUnsignedShort, byteValidator(validateUnsignedShort), WhiteSpaceCollapse, ordered),
+		string(TypeNameUnsignedByte):       newBuiltin(TypeNameUnsignedByte, validateUnsignedByte, byteValidator(validateUnsignedByte), WhiteSpaceCollapse, ordered),
+		string(TypeNameNonPositiveInteger): newBuiltin(TypeNameNonPositiveInteger, validateNonPositiveInteger, byteValidator(validateNonPositiveInteger), WhiteSpaceCollapse, ordered),
+		string(TypeNameNegativeInteger):    newBuiltin(TypeNameNegativeInteger, validateNegativeInteger, byteValidator(validateNegativeInteger), WhiteSpaceCollapse, ordered),
+	})
+	initializeBuiltinRegistry(registry)
+	return registry
+}()
 
 var primitiveTypeNames = map[TypeName]struct{}{
 	TypeNameString:       {},
@@ -154,15 +155,10 @@ var builtinBaseTypes = map[TypeName]TypeName{
 	TypeNameNegativeInteger:    TypeNameNonPositiveInteger,
 }
 
-// GetBuiltin returns a built-in type by name (local name only, assumes XSD namespace)
-func GetBuiltin(name TypeName) *BuiltinType {
-	return defaultBuiltinRegistry.get(name)
-}
-
-// GetBuiltinNS returns a built-in type by namespace and local name
-func GetBuiltinNS(namespace NamespaceURI, local string) *BuiltinType {
-	return defaultBuiltinRegistry.getNS(namespace, local)
-}
+var (
+	GetBuiltin   = defaultBuiltinRegistry.get
+	GetBuiltinNS = defaultBuiltinRegistry.getNS
+)
 
 func newBuiltin(name TypeName, validator TypeValidator, validatorBytes TypeValidatorBytes, ws WhiteSpace, ordering orderingFlag) *BuiltinType {
 	nameStr := string(name)
@@ -173,6 +169,10 @@ func newBuiltin(name TypeName, validator TypeValidator, validatorBytes TypeValid
 		validatorBytes: validatorBytes,
 		whiteSpace:     ws,
 		ordered:        bool(ordering),
+	}
+	if isPrimitiveName(name) {
+		builtin.primitiveType = builtin
+		builtin.fundamentalFacets = ComputeFundamentalFacets(name)
 	}
 	builtin.simpleWrapper = newBuiltinSimpleType(builtin)
 	return builtin
@@ -188,7 +188,7 @@ func newBuiltinSimpleType(builtin *BuiltinType) *SimpleType {
 		builtin:         true,
 		whiteSpace:      builtin.whiteSpace,
 	}
-	if itemName, ok := builtinListItemTypeName(builtin.name); ok {
+	if itemName, ok := BuiltinListItemTypeName(builtin.name); ok {
 		st.List = &ListType{
 			ItemType: QName{Namespace: XSDNamespace, Local: string(itemName)},
 		}
@@ -213,14 +213,6 @@ func (b *BuiltinType) Name() QName {
 // IsBuiltin returns true for built-in types
 func (b *BuiltinType) IsBuiltin() bool {
 	return true
-}
-
-// IsQNameOrNotationType reports whether this built-in type is QName or NOTATION.
-func (b *BuiltinType) IsQNameOrNotationType() bool {
-	if b == nil {
-		return false
-	}
-	return IsQNameOrNotation(b.Name())
 }
 
 // Validate validates a value against this type
@@ -288,7 +280,7 @@ func (b *BuiltinType) MeasureLength(value string) int {
 	name := b.Name().Local
 
 	// check if it's a built-in list type (NMTOKENS, IDREFS, ENTITIES)
-	if isBuiltinListType(name) {
+	if IsBuiltinListTypeName(name) {
 		// list type: length is number of items (space-separated)
 		return countXMLFields(value)
 	}
@@ -304,37 +296,13 @@ func (b *BuiltinType) MeasureLength(value string) int {
 
 // FundamentalFacets returns the fundamental facets for this built-in type
 func (b *BuiltinType) FundamentalFacets() *FundamentalFacets {
-	guard := b.guard()
-	guard.mu.Lock()
-	for b.fundamentalFacetsCache == nil && b.fundamentalFacetsComputing {
-		guard.cond.Wait()
-	}
-	if b.fundamentalFacetsCache != nil {
-		cached := b.fundamentalFacetsCache
-		guard.mu.Unlock()
-		return cached
-	}
-	b.fundamentalFacetsComputing = true
-	guard.mu.Unlock()
-
-	computed := b.computeFundamentalFacets()
-	if computed == nil {
-		guard.mu.Lock()
-		b.fundamentalFacetsComputing = false
-		guard.cond.Broadcast()
-		guard.mu.Unlock()
+	if b == nil {
 		return nil
 	}
-
-	guard.mu.Lock()
-	if b.fundamentalFacetsCache == nil {
-		b.fundamentalFacetsCache = computed
+	if b.fundamentalFacets != nil {
+		return b.fundamentalFacets
 	}
-	b.fundamentalFacetsComputing = false
-	cached := b.fundamentalFacetsCache
-	guard.cond.Broadcast()
-	guard.mu.Unlock()
-	return cached
+	return b.computeFundamentalFacets()
 }
 
 func (b *BuiltinType) computeFundamentalFacets() *FundamentalFacets {
@@ -387,11 +355,6 @@ func isPrimitiveName(name TypeName) bool {
 	return ok
 }
 
-// isPrimitive checks if a type name is one of the 19 primitive types
-func isPrimitive(name string) bool {
-	return isPrimitiveName(TypeName(name))
-}
-
 // computeBaseType computes the base type for a derived built-in type
 func computeBaseType(name string) Type {
 	// map derived types to their bases according to XSD 1.0 type hierarchy
@@ -404,37 +367,13 @@ func computeBaseType(name string) Type {
 
 // PrimitiveType returns the primitive type for this built-in type
 func (b *BuiltinType) PrimitiveType() Type {
-	guard := b.guard()
-	guard.mu.Lock()
-	for b.primitiveTypeCache == nil && b.primitiveTypeComputing {
-		guard.cond.Wait()
-	}
-	if b.primitiveTypeCache != nil {
-		cached := b.primitiveTypeCache
-		guard.mu.Unlock()
-		return cached
-	}
-	b.primitiveTypeComputing = true
-	guard.mu.Unlock()
-
-	primitive := b.computePrimitiveType()
-	if primitive == nil {
-		guard.mu.Lock()
-		b.primitiveTypeComputing = false
-		guard.cond.Broadcast()
-		guard.mu.Unlock()
+	if b == nil {
 		return nil
 	}
-
-	guard.mu.Lock()
-	if b.primitiveTypeCache == nil {
-		b.primitiveTypeCache = primitive
+	if b.primitiveType != nil {
+		return b.primitiveType
 	}
-	b.primitiveTypeComputing = false
-	cached := b.primitiveTypeCache
-	guard.cond.Broadcast()
-	guard.mu.Unlock()
-	return cached
+	return b.computePrimitiveType()
 }
 
 func (b *BuiltinType) computePrimitiveType() Type {
@@ -444,7 +383,7 @@ func (b *BuiltinType) computePrimitiveType() Type {
 	}
 
 	// for primitive types, return self
-	if isPrimitive(b.name) {
+	if isPrimitiveName(TypeName(b.name)) {
 		return b
 	}
 
@@ -454,4 +393,49 @@ func (b *BuiltinType) computePrimitiveType() Type {
 		return nil
 	}
 	return base.PrimitiveType()
+}
+
+func initializeBuiltinRegistry(registry *builtinRegistry) {
+	if registry == nil {
+		return
+	}
+	for _, builtin := range registry.ordered {
+		if builtin == nil {
+			continue
+		}
+		if primitive := resolveBuiltinPrimitive(registry, TypeName(builtin.name)); primitive != nil {
+			builtin.primitiveType = primitive
+		}
+	}
+	for _, builtin := range registry.ordered {
+		if builtin == nil {
+			continue
+		}
+		switch primitive := builtin.primitiveType.(type) {
+		case *BuiltinType:
+			builtin.fundamentalFacets = ComputeFundamentalFacets(TypeName(primitive.name))
+		case nil:
+			builtin.fundamentalFacets = nil
+		default:
+			builtin.fundamentalFacets = primitive.FundamentalFacets()
+		}
+	}
+}
+
+func resolveBuiltinPrimitive(registry *builtinRegistry, name TypeName) Type {
+	switch name {
+	case TypeNameAnyType, TypeNameAnySimpleType:
+		return nil
+	}
+	current := name
+	for {
+		if isPrimitiveName(current) {
+			return registry.get(current)
+		}
+		base, ok := builtinBaseTypes[current]
+		if !ok {
+			return nil
+		}
+		current = base
+	}
 }

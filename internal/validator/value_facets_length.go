@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func (s *Session) valueLength(meta runtime.ValidatorMeta, normalized []byte, metrics *valueMetrics) (int, error) {
@@ -26,16 +26,16 @@ func (s *Session) valueLength(meta runtime.ValidatorMeta, normalized []byte, met
 		}
 		return count, nil
 	case runtime.VHexBinary:
-		return binaryOctetLength(types.ParseHexBinary, normalized, metrics, "hexBinary")
+		return binaryOctetLength(value.ParseHexBinary, normalized, metrics, "hexBinary")
 	case runtime.VBase64Binary:
-		return binaryOctetLength(types.ParseBase64Binary, normalized, metrics, "base64Binary")
+		return binaryOctetLength(value.ParseBase64Binary, normalized, metrics, "base64Binary")
 	default:
 		return utf8.RuneCount(normalized), nil
 	}
 }
 
-func binaryOctetLength(parse func(string) ([]byte, error), normalized []byte, metrics *valueMetrics, label string) (int, error) {
-	decoded, err := parse(string(normalized))
+func binaryOctetLength(parse func([]byte) ([]byte, error), normalized []byte, metrics *valueMetrics, label string) (int, error) {
+	decoded, err := parse(normalized)
 	if err != nil {
 		return 0, valueErrorf(valueErrInvalid, "invalid %s", label)
 	}

@@ -41,7 +41,7 @@ func main() {
         "simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
     }
 
-    schema, err := xsd.Load(fsys, "simple.xsd")
+    schema, err := xsd.LoadWithOptions(fsys, "simple.xsd", xsd.NewLoadOptions())
     if err != nil {
         fmt.Printf("Load schema: %v\n", err)
         return
@@ -107,8 +107,11 @@ func main() {
 ```go
 opts := xsd.NewLoadOptions().
     WithAllowMissingImportLocations(true).
-    WithMaxDFAStates(4096).
-    WithMaxOccursLimit(1_000_000)
+    WithRuntimeOptions(
+        xsd.NewRuntimeOptions().
+            WithMaxDFAStates(4096).
+            WithMaxOccursLimit(1_000_000),
+    )
 
 schema, err := xsd.LoadWithOptions(fsys, "schema.xsd", opts)
 ```
@@ -116,15 +119,14 @@ schema, err := xsd.LoadWithOptions(fsys, "schema.xsd", opts)
 Options:
 - `WithAllowMissingImportLocations`: when true, imports without `schemaLocation` are skipped.
   Missing import files are also skipped when the filesystem returns `fs.ErrNotExist`.
-- `WithMaxDFAStates`: limit DFA determinization size for content models. `0` uses the default.
-- `WithMaxOccursLimit`: limit particle `maxOccurs` during compilation. `0` uses the default.
+- `WithRuntimeOptions`: applies runtime compilation/validation limits from `RuntimeOptions`.
 - `WithSchemaMaxDepth` / `WithSchemaMaxAttrs` / `WithSchemaMaxTokenSize`: schema parser XML limits.
-- `WithInstanceMaxDepth` / `WithInstanceMaxAttrs` / `WithInstanceMaxTokenSize`: instance XML limits.
+- instance limits (`WithInstanceMaxDepth`, `WithInstanceMaxAttrs`, `WithInstanceMaxTokenSize`, `WithInstanceMaxQNameInternEntries`) are set on `RuntimeOptions`.
 
 ## Prepare Once, Build Many
 
 ```go
-prepared, err := xsd.Prepare(fsys, "schema.xsd")
+prepared, err := xsd.PrepareWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
 if err != nil {
     // handle
 }
@@ -145,7 +147,7 @@ if err != nil {
 
 ## Loading behavior
 
-- `Load` accepts any `fs.FS`; include/import locations resolve relative to the including schema path.
+- `LoadWithOptions` accepts any `fs.FS`; include/import locations resolve relative to the including schema path.
 - Includes MUST resolve successfully.
 - Imports without `schemaLocation` are rejected unless `WithAllowMissingImportLocations(true)` is set.
 
