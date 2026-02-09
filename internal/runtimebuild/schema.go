@@ -13,25 +13,77 @@ import (
 
 // BuildConfig configures runtime schema compilation.
 type BuildConfig struct {
-	Limits         models.Limits
+	MaxDFAStates   uint32
 	MaxOccursLimit uint32
+}
+
+// PreparedArtifacts stores immutable runtime-build prerequisites.
+type PreparedArtifacts struct {
+	schema     *parser.Schema
+	registry   *schema.Registry
+	refs       *schema.ResolvedReferences
+	validators *validatorcompile.CompiledValidators
 }
 
 // BuildArtifacts compiles resolved semantic artifacts into a runtime schema model.
 func BuildArtifacts(sch *parser.Schema, reg *schema.Registry, refs *schema.ResolvedReferences, cfg BuildConfig) (*runtime.Schema, error) {
-	if sch == nil {
-		return nil, fmt.Errorf("runtime build: schema is nil")
+	prepared, err := PrepareBuildArtifacts(sch, reg, refs)
+	if err != nil {
+		return nil, err
 	}
-	if reg == nil {
-		return nil, fmt.Errorf("runtime build: registry is nil")
-	}
-	if refs == nil {
-		return nil, fmt.Errorf("runtime build: references are nil")
-	}
+	return prepared.Build(cfg)
+}
 
+// PrepareBuildArtifacts compiles validator artifacts once for repeated runtime builds.
+func PrepareBuildArtifacts(sch *parser.Schema, reg *schema.Registry, refs *schema.ResolvedReferences) (*PreparedArtifacts, error) {
+	if err := validateBuildInputs(sch, reg, refs); err != nil {
+		return nil, err
+	}
 	validators, err := validatorcompile.Compile(sch, reg)
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: compile validators: %w", err)
+	}
+	return &PreparedArtifacts{
+		schema:     sch,
+		registry:   reg,
+		refs:       refs,
+		validators: validators,
+	}, nil
+}
+
+// Build compiles prepared artifacts into a runtime schema model.
+func (p *PreparedArtifacts) Build(cfg BuildConfig) (*runtime.Schema, error) {
+	if p == nil {
+		return nil, fmt.Errorf("runtime build: prepared artifacts are nil")
+	}
+	return buildArtifactsWithValidators(p.schema, p.registry, p.refs, p.validators, cfg)
+}
+
+func validateBuildInputs(sch *parser.Schema, reg *schema.Registry, refs *schema.ResolvedReferences) error {
+	if sch == nil {
+		return fmt.Errorf("runtime build: schema is nil")
+	}
+	if reg == nil {
+		return fmt.Errorf("runtime build: registry is nil")
+	}
+	if refs == nil {
+		return fmt.Errorf("runtime build: references are nil")
+	}
+	return nil
+}
+
+func buildArtifactsWithValidators(
+	sch *parser.Schema,
+	reg *schema.Registry,
+	refs *schema.ResolvedReferences,
+	validators *validatorcompile.CompiledValidators,
+	cfg BuildConfig,
+) (*runtime.Schema, error) {
+	if err := validateBuildInputs(sch, reg, refs); err != nil {
+		return nil, err
+	}
+	if validators == nil {
+		return nil, fmt.Errorf("runtime build: validators are nil")
 	}
 	maxOccursLimit := cfg.MaxOccursLimit
 	if maxOccursLimit == 0 {
@@ -43,7 +95,7 @@ func BuildArtifacts(sch *parser.Schema, reg *schema.Registry, refs *schema.Resol
 		registry:   reg,
 		refs:       refs,
 		validators: validators,
-		limits:     cfg.Limits,
+		limits:     models.Limits{MaxDFAStates: cfg.MaxDFAStates},
 		builder:    runtime.NewBuilder(),
 		typeIDs:    make(map[schema.TypeID]runtime.TypeID),
 		elemIDs:    make(map[schema.ElemID]runtime.ElemID),

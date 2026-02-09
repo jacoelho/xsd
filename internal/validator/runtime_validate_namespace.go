@@ -5,8 +5,11 @@ import (
 	"iter"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
+
+var xmlNamespaceBytes = xmlnames.XMLNamespaceBytes()
 
 func (s *Session) pushNamespaceScope(decls iter.Seq[xmlstream.NamespaceDecl]) {
 	off := len(s.nsDecls)
@@ -15,17 +18,18 @@ func (s *Session) pushNamespaceScope(decls iter.Seq[xmlstream.NamespaceDecl]) {
 	if decls != nil {
 		for decl := range decls {
 			declLen++
-			prefixBytes := []byte(decl.Prefix)
-			nsBytes := []byte(decl.URI)
 			prefixOff := len(s.nameLocal)
-			s.nameLocal = append(s.nameLocal, prefixBytes...)
+			s.nameLocal = append(s.nameLocal, decl.Prefix...)
+			prefixLen := len(decl.Prefix)
 			nsOff := len(s.nameNS)
-			s.nameNS = append(s.nameNS, nsBytes...)
+			s.nameNS = append(s.nameNS, decl.URI...)
+			nsLen := len(decl.URI)
+			prefixBytes := s.nameLocal[prefixOff : prefixOff+prefixLen]
 			s.nsDecls = append(s.nsDecls, nsDecl{
 				prefixOff:  uint32(prefixOff),
-				prefixLen:  uint32(len(prefixBytes)),
+				prefixLen:  uint32(prefixLen),
 				nsOff:      uint32(nsOff),
-				nsLen:      uint32(len(nsBytes)),
+				nsLen:      uint32(nsLen),
 				prefixHash: runtime.HashBytes(prefixBytes),
 			})
 		}
@@ -47,8 +51,8 @@ func (s *Session) popNamespaceScope() {
 }
 
 func (s *Session) lookupNamespace(prefix []byte) ([]byte, bool) {
-	if bytes.Equal(prefix, []byte("xml")) {
-		return []byte(xmlstream.XMLNamespace), true
+	if isXMLPrefix(prefix) {
+		return xmlNamespaceBytes, true
 	}
 	const smallNSDeclThreshold = 32
 	frames := s.nsStack.Items()
@@ -201,4 +205,8 @@ func (s *Session) cachePrefixDecl(decl nsDecl, ok bool, hash uint64) {
 		nsLen:     decl.nsLen,
 		ok:        ok,
 	})
+}
+
+func isXMLPrefix(prefix []byte) bool {
+	return len(prefix) == 3 && prefix[0] == 'x' && prefix[1] == 'm' && prefix[2] == 'l'
 }

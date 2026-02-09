@@ -23,7 +23,7 @@ func (b *schemaBuilder) runtimeTypeID(typ types.Type) (runtime.TypeID, bool) {
 			return b.typeIDs[id], true
 		}
 	}
-	if id, ok := b.registry.AnonymousTypes[typ]; ok {
+	if id, ok := b.registry.LookupAnonymousTypeID(typ); ok {
 		return b.typeIDs[id], true
 	}
 	return 0, false
@@ -39,7 +39,7 @@ func (b *schemaBuilder) runtimeElemID(decl *types.ElementDecl) (runtime.ElemID, 
 		}
 		return 0, false
 	}
-	if id, ok := b.registry.LocalElements[decl]; ok {
+	if id, ok := b.registry.LookupLocalElementID(decl); ok {
 		return b.elemIDs[id], true
 	}
 	if id, ok := b.registry.Elements[decl.Name]; ok {

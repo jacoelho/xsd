@@ -170,7 +170,7 @@ func TestComparable_CrossTypeNumeric(t *testing.T) {
 	})
 }
 
-func TestCompareDayTimeDurationsLargeDays(t *testing.T) {
+func TestComparableXSDDurationCompareDayTimeLargeDays(t *testing.T) {
 	maxInt := int(^uint(0) >> 1)
 	limit := int64(math.MaxInt64 / 86400)
 	if int64(maxInt) <= limit {
@@ -178,10 +178,19 @@ func TestCompareDayTimeDurationsLargeDays(t *testing.T) {
 	}
 	rightDays := int(limit)
 	leftDays := rightDays + 1
-	left := XSDDuration{Days: leftDays}
-	right := XSDDuration{Days: rightDays}
-	if got := compareDayTimeDurations(left, right); got <= 0 {
-		t.Fatalf("compareDayTimeDurations = %d, want > 0", got)
+
+	durType := &SimpleType{
+		QName: QName{Namespace: XSDNamespace, Local: "duration"},
+	}
+	left := ComparableXSDDuration{Value: XSDDuration{Days: leftDays}, Typ: durType}
+	right := ComparableXSDDuration{Value: XSDDuration{Days: rightDays}, Typ: durType}
+
+	got, err := left.Compare(right)
+	if err != nil {
+		t.Fatalf("Compare() error = %v", err)
+	}
+	if got <= 0 {
+		t.Fatalf("Compare() = %d, want > 0", got)
 	}
 }
 

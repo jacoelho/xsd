@@ -90,15 +90,46 @@ func TestLoadWithOptionsRejectsInvalidSchemaLimits(t *testing.T) {
 	}
 }
 
-func TestQNameTypeAliasAssignability(t *testing.T) {
-	var apiQName = xmlstream.QName{Namespace: "urn:test", Local: "root"}
-	var streamQName = apiQName
+func TestQNameCompatibility(t *testing.T) {
+	apiQName := xsd.QName{Namespace: "urn:test", Local: "root"}
+	streamQName := xmlstream.QName{Namespace: apiQName.Namespace, Local: apiQName.Local}
 
 	if got, want := apiQName.String(), "{urn:test}root"; got != want {
 		t.Fatalf("xsd.QName.String() = %q, want %q", got, want)
 	}
 	if got, want := streamQName.String(), "{urn:test}root"; got != want {
 		t.Fatalf("xmlstream.QName.String() = %q, want %q", got, want)
+	}
+	if !apiQName.Is("urn:test", "root") {
+		t.Fatalf("xsd.QName.Is() = false, want true")
+	}
+	if !apiQName.HasLocal("root") {
+		t.Fatalf("xsd.QName.HasLocal() = false, want true")
+	}
+}
+
+func TestValidateFSFile(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+
+	instanceXML := `<root xmlns="urn:test">ok</root>`
+
+	fsys := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
+		"doc.xml":    &fstest.MapFile{Data: []byte(instanceXML)},
+	}
+
+	schema, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if err := schema.ValidateFSFile(fsys, "doc.xml"); err != nil {
+		t.Fatalf("ValidateFSFile() error = %v", err)
 	}
 }
 

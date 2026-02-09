@@ -71,3 +71,55 @@ func TestBuiltinRegistryCacheMutationBoundary(t *testing.T) {
 		t.Fatalf("scan internal/types files: %v", err)
 	}
 }
+
+func TestBuiltinRegistryAccessorsAreFunctions(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	path := filepath.Join(root, "internal", "types", "builtin.go")
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		t.Fatalf("parse builtin.go: %v", err)
+	}
+
+	sawGetBuiltin := false
+	sawGetBuiltinNS := false
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Name == nil {
+			continue
+		}
+		switch fn.Name.Name {
+		case "GetBuiltin":
+			sawGetBuiltin = true
+		case "GetBuiltinNS":
+			sawGetBuiltinNS = true
+		}
+	}
+
+	if !sawGetBuiltin {
+		t.Fatal("builtin registry boundary violation: GetBuiltin must be a function")
+	}
+	if !sawGetBuiltinNS {
+		t.Fatal("builtin registry boundary violation: GetBuiltinNS must be a function")
+	}
+
+	for _, decl := range file.Decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if !ok || gen.Tok != token.VAR {
+			continue
+		}
+		for _, spec := range gen.Specs {
+			valueSpec, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
+			}
+			for _, name := range valueSpec.Names {
+				if name.Name == "GetBuiltin" || name.Name == "GetBuiltinNS" {
+					t.Fatalf("builtin registry boundary violation: %s must not be a package var", name.Name)
+				}
+			}
+		}
+	}
+}

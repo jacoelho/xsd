@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
@@ -245,7 +245,7 @@ func TestDurationKeyBytes(t *testing.T) {
 		t.Fatalf("parse zero: %v", err)
 	}
 
-	dur := types.XSDDuration{}
+	dur := durationlex.Duration{}
 	key := DurationKeyBytes(nil, dur)
 	want := []byte{0}
 	want = num.EncodeDecKey(want, num.IntZero.AsDec())
@@ -254,7 +254,7 @@ func TestDurationKeyBytes(t *testing.T) {
 		t.Fatalf("zero duration key = %v, want %v", key, want)
 	}
 
-	dur = types.XSDDuration{Years: 1, Months: 2}
+	dur = durationlex.Duration{Years: 1, Months: 2}
 	key = DurationKeyBytes(nil, dur)
 	want = []byte{1}
 	want = num.EncodeDecKey(want, num.FromInt64(14).AsDec())
@@ -267,7 +267,7 @@ func TestDurationKeyBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse seconds: %v", err)
 	}
-	dur = types.XSDDuration{Seconds: secDec}
+	dur = durationlex.Duration{Seconds: secDec}
 	key = DurationKeyBytes(nil, dur)
 	want = []byte{1}
 	want = num.EncodeDecKey(want, num.IntZero.AsDec())
@@ -276,7 +276,7 @@ func TestDurationKeyBytes(t *testing.T) {
 		t.Fatalf("seconds duration key = %v, want %v", key, want)
 	}
 
-	dur = types.XSDDuration{Negative: true}
+	dur = durationlex.Duration{Negative: true}
 	key = DurationKeyBytes(nil, dur)
 	if len(key) == 0 || key[0] != 0 {
 		t.Fatalf("negative zero sign = %v, want 0", key)
@@ -292,8 +292,8 @@ func TestDurationKeyBytesPrecision(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse right seconds: %v", err)
 	}
-	left := types.XSDDuration{Seconds: leftSec}
-	right := types.XSDDuration{Seconds: rightSec}
+	left := durationlex.Duration{Seconds: leftSec}
+	right := durationlex.Duration{Seconds: rightSec}
 	keyLeft := DurationKeyBytes(nil, left)
 	keyRight := DurationKeyBytes(nil, right)
 	if bytes.Equal(keyLeft, keyRight) {
@@ -308,7 +308,7 @@ func TestDurationKeyBytesAvoidsOverflow(t *testing.T) {
 	years := maxInt/12 + 1
 	if int64(years) > math.MaxInt64/12 {
 		tested = true
-		dur := types.XSDDuration{Years: years}
+		dur := durationlex.Duration{Years: years}
 		got := DurationKeyBytes(nil, dur)
 		legacy := durationKeyBytesLegacy(nil, dur)
 		if bytes.Equal(got, legacy) {
@@ -319,7 +319,7 @@ func TestDurationKeyBytesAvoidsOverflow(t *testing.T) {
 	days := maxInt/86400 + 1
 	if int64(days) > math.MaxInt64/86400 {
 		tested = true
-		dur := types.XSDDuration{Days: days}
+		dur := durationlex.Duration{Days: days}
 		got := DurationKeyBytes(nil, dur)
 		legacy := durationKeyBytesLegacy(nil, dur)
 		if bytes.Equal(got, legacy) {
@@ -332,7 +332,7 @@ func TestDurationKeyBytesAvoidsOverflow(t *testing.T) {
 	}
 }
 
-func durationKeyBytesLegacy(dst []byte, dur types.XSDDuration) []byte {
+func durationKeyBytesLegacy(dst []byte, dur durationlex.Duration) []byte {
 	monthsTotal := int64(dur.Years)*12 + int64(dur.Months)
 	months, _ := num.ParseInt([]byte(strconv.FormatInt(monthsTotal, 10)))
 	seconds := legacyDurationSecondsTotal(dur)
@@ -349,7 +349,7 @@ func durationKeyBytesLegacy(dst []byte, dur types.XSDDuration) []byte {
 	return dst
 }
 
-func legacyDurationSecondsTotal(dur types.XSDDuration) num.Dec {
+func legacyDurationSecondsTotal(dur durationlex.Duration) num.Dec {
 	total := dur.Seconds
 	total = legacyAddDecInt(total, int64(dur.Minutes)*60)
 	total = legacyAddDecInt(total, int64(dur.Hours)*3600)

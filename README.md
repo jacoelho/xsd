@@ -102,6 +102,14 @@ func main() {
 }
 ```
 
+To validate from any `fs.FS`:
+
+```go
+if err := schema.ValidateFSFile(fsys, "document.xml"); err != nil {
+    // handle
+}
+```
+
 ## Load options
 
 ```go

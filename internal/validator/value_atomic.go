@@ -6,7 +6,6 @@ import (
 	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/valuekey"
 )
@@ -137,7 +136,7 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		if err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		canonRaw := []byte(types.ComparableXSDDuration{Value: dur}.String())
+		canonRaw := []byte(durationlex.CanonicalString(dur))
 		canon := canonRaw
 		if needKey {
 			key := valuekey.DurationKeyBytes(s.keyTmp[:0], dur)

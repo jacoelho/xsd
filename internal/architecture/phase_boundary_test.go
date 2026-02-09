@@ -2,12 +2,6 @@ package architecture_test
 
 import (
 	"go/ast"
-	"go/parser"
-	"go/token"
-	"io/fs"
-	"path/filepath"
-	"slices"
-	"strings"
 	"testing"
 )
 
@@ -23,46 +17,13 @@ var semanticPhaseFunctions = map[string]struct{}{
 func TestSemanticPhaseFunctionsOnlyInPipeline(t *testing.T) {
 	t.Parallel()
 
-	root := repoRoot(t)
-	var files []string
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	forEachParsedRepoProductionGoFile(t, 0, func(file repoGoFile, parsed *ast.File) {
+		if withinScope(file.relPath, "internal/pipeline") {
+			return
 		}
-		if d.IsDir() {
-			if d.Name() == ".git" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-		files = append(files, path)
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("walk go files: %v", err)
-	}
-	slices.Sort(files)
-
-	fset := token.NewFileSet()
-	for _, absPath := range files {
-		path, err := filepath.Rel(root, absPath)
-		if err != nil {
-			t.Fatalf("rel path %s: %v", absPath, err)
-		}
-		if withinScope(path, "internal/pipeline") {
-			continue
-		}
-		parsed, err := parser.ParseFile(fset, absPath, nil, 0)
-		if err != nil {
-			t.Fatalf("parse file %s: %v", path, err)
-		}
-
-		aliases := semanticAliases(parsed)
+		aliases := importAliasesForPath(parsed, semanticImportPath, "semantic")
 		if len(aliases) == 0 {
-			continue
+			return
 		}
 
 		ast.Inspect(parsed, func(node ast.Node) bool {
@@ -78,28 +39,9 @@ func TestSemanticPhaseFunctionsOnlyInPipeline(t *testing.T) {
 				return true
 			}
 			if aliases[pkg.Name] {
-				t.Fatalf("phase boundary violation: %s calls %s.%s", path, pkg.Name, selector.Sel.Name)
+				t.Fatalf("phase boundary violation: %s calls %s.%s", file.relPath, pkg.Name, selector.Sel.Name)
 			}
 			return true
 		})
-	}
-}
-
-func semanticAliases(parsed *ast.File) map[string]bool {
-	aliases := make(map[string]bool)
-	for _, imp := range parsed.Imports {
-		importPath := strings.Trim(imp.Path.Value, "\"")
-		if importPath != semanticImportPath {
-			continue
-		}
-		if imp.Name != nil {
-			if imp.Name.Name == "." || imp.Name.Name == "_" {
-				continue
-			}
-			aliases[imp.Name.Name] = true
-			continue
-		}
-		aliases["semantic"] = true
-	}
-	return aliases
+	})
 }

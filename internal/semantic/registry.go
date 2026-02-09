@@ -52,9 +52,9 @@ type Registry struct {
 	Types           map[types.QName]TypeID
 	Elements        map[types.QName]ElemID
 	Attributes      map[types.QName]AttrID
-	LocalElements   map[*types.ElementDecl]ElemID
-	LocalAttributes map[*types.AttributeDecl]AttrID
-	AnonymousTypes  map[types.Type]TypeID
+	localElements   map[*types.ElementDecl]ElemID
+	localAttributes map[*types.AttributeDecl]AttrID
+	anonymousTypes  map[types.Type]TypeID
 	TypeOrder       []TypeEntry
 	ElementOrder    []ElementEntry
 	AttributeOrder  []AttributeEntry
@@ -65,11 +65,38 @@ func newRegistry() *Registry {
 		Types:           make(map[types.QName]TypeID),
 		Elements:        make(map[types.QName]ElemID),
 		Attributes:      make(map[types.QName]AttrID),
-		LocalElements:   make(map[*types.ElementDecl]ElemID),
-		LocalAttributes: make(map[*types.AttributeDecl]AttrID),
-		AnonymousTypes:  make(map[types.Type]TypeID),
 		TypeOrder:       []TypeEntry{},
 		ElementOrder:    []ElementEntry{},
 		AttributeOrder:  []AttributeEntry{},
+		localElements:   make(map[*types.ElementDecl]ElemID),
+		localAttributes: make(map[*types.AttributeDecl]AttrID),
+		anonymousTypes:  make(map[types.Type]TypeID),
 	}
+}
+
+// LookupLocalElementID resolves a local element declaration to its assigned ID.
+func (r *Registry) LookupLocalElementID(decl *types.ElementDecl) (ElemID, bool) {
+	if r == nil || decl == nil {
+		return 0, false
+	}
+	id, ok := r.localElements[decl]
+	return id, ok
+}
+
+// LookupLocalAttributeID resolves a local attribute declaration to its assigned ID.
+func (r *Registry) LookupLocalAttributeID(decl *types.AttributeDecl) (AttrID, bool) {
+	if r == nil || decl == nil {
+		return 0, false
+	}
+	id, ok := r.localAttributes[decl]
+	return id, ok
+}
+
+// LookupAnonymousTypeID resolves an anonymous type definition to its assigned ID.
+func (r *Registry) LookupAnonymousTypeID(typ types.Type) (TypeID, bool) {
+	if r == nil || typ == nil {
+		return 0, false
+	}
+	id, ok := r.anonymousTypes[typ]
+	return id, ok
 }

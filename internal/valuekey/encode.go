@@ -7,8 +7,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
@@ -176,7 +176,7 @@ func TemporalKeyFromValue(dst []byte, v temporal.Value) ([]byte, error) {
 }
 
 // DurationKeyBytes appends a canonical duration key encoding to dst.
-func DurationKeyBytes(dst []byte, dur types.XSDDuration) []byte {
+func DurationKeyBytes(dst []byte, dur durationlex.Duration) []byte {
 	months := durationMonthsTotal(dur)
 	seconds := durationSecondsTotal(dur)
 	sign := byte(1)
@@ -192,7 +192,7 @@ func DurationKeyBytes(dst []byte, dur types.XSDDuration) []byte {
 	return dst
 }
 
-func durationMonthsTotal(dur types.XSDDuration) num.Int {
+func durationMonthsTotal(dur durationlex.Duration) num.Int {
 	years := num.FromInt64(int64(dur.Years))
 	months := num.FromInt64(int64(dur.Months))
 	if years.Sign == 0 {
@@ -201,7 +201,7 @@ func durationMonthsTotal(dur types.XSDDuration) num.Int {
 	return num.Add(num.Mul(years, num.FromInt64(12)), months)
 }
 
-func durationSecondsTotal(dur types.XSDDuration) num.Dec {
+func durationSecondsTotal(dur durationlex.Duration) num.Dec {
 	total := dur.Seconds
 	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(dur.Minutes)), num.FromInt64(60)))
 	total = num.AddDecInt(total, num.Mul(num.FromInt64(int64(dur.Hours)), num.FromInt64(3600)))

@@ -106,7 +106,7 @@ func (b *schemaBuilder) schemaAttrID(decl *types.AttributeDecl) (schema.AttrID, 
 	if id, ok := b.registry.Attributes[decl.Name]; ok {
 		return id, true
 	}
-	if id, ok := b.registry.LocalAttributes[decl]; ok {
+	if id, ok := b.registry.LookupLocalAttributeID(decl); ok {
 		return id, true
 	}
 	return 0, false

@@ -3,8 +3,8 @@ package pipeline
 import (
 	"fmt"
 	"iter"
+	"sync"
 
-	models "github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -38,7 +38,7 @@ type PreparedSchema struct {
 
 // CompileConfig configures runtime schema compilation from prepared artifacts.
 type CompileConfig struct {
-	Limits         models.Limits
+	MaxDFAStates   uint32
 	MaxOccursLimit uint32
 }
 
@@ -133,18 +133,20 @@ func validateSchema(sch *parser.Schema) (*parser.Schema, *semantic.Registry, err
 }
 
 func newBuildRuntimeFunc(sch *parser.Schema, reg *semantic.Registry, refs *semantic.ResolvedReferences) buildRuntimeFunc {
+	var (
+		once     sync.Once
+		prepared *runtimebuild.PreparedArtifacts
+		prepErr  error
+	)
 	return func(cfg CompileConfig) (*runtime.Schema, error) {
-		if sch == nil {
-			return nil, fmt.Errorf("runtime build: prepared schema is nil")
+		once.Do(func() {
+			prepared, prepErr = runtimebuild.PrepareBuildArtifacts(sch, reg, refs)
+		})
+		if prepErr != nil {
+			return nil, prepErr
 		}
-		if reg == nil {
-			return nil, fmt.Errorf("runtime build: prepared registry is nil")
-		}
-		if refs == nil {
-			return nil, fmt.Errorf("runtime build: prepared references are nil")
-		}
-		return runtimebuild.BuildArtifacts(sch, reg, refs, runtimebuild.BuildConfig{
-			Limits:         cfg.Limits,
+		return prepared.Build(runtimebuild.BuildConfig{
+			MaxDFAStates:   cfg.MaxDFAStates,
 			MaxOccursLimit: cfg.MaxOccursLimit,
 		})
 	}
