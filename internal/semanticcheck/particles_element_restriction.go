@@ -84,7 +84,7 @@ func effectiveElementType(schema *parser.Schema, elem *types.ElementDecl) types.
 	if elem == nil {
 		return nil
 	}
-	resolved := ResolveTypeReference(schema, elem.Type, typeops.TypeReferenceAllowMissing)
+	resolved := typeops.ResolveTypeReference(schema, elem.Type, typeops.TypeReferenceAllowMissing)
 	if resolved != nil {
 		return resolved
 	}

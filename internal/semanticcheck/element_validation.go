@@ -6,16 +6,17 @@ import (
 
 	fieldresolve "github.com/jacoelho/xsd/internal/fieldresolve"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateElementDeclStructure validates structural constraints of an element declaration
 // Does not validate references (which might be forward references or imports)
-func validateElementDeclStructure(schema *parser.Schema, qname types.QName, decl *types.ElementDecl) error {
+func validateElementDeclStructure(schema *parser.Schema, elementQName types.QName, decl *types.ElementDecl) error {
 	// validate element name is a valid NCName (no spaces, valid XML name)
 	// this is a structural constraint that is definitely invalid if violated
-	if !isValidNCName(qname.Local) {
-		return fmt.Errorf("invalid element name '%s': must be a valid NCName", qname.Local)
+	if !qname.IsValidNCName(elementQName.Local) {
+		return fmt.Errorf("invalid element name '%s': must be a valid NCName", elementQName.Local)
 	}
 
 	// element references don't need type validation - they inherit type from referenced element

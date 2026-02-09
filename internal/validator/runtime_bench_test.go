@@ -152,3 +152,65 @@ func Benchmark_EnumLookup_TypedKeys(b *testing.B) {
 		}
 	}
 }
+
+func Benchmark_IdentityAttrSelection_AttrHeavy(b *testing.B) {
+	fx := buildIdentityFixture(b)
+	schema := fx.schema
+	pathAttrNSAny := runtime.PathID(len(schema.Paths))
+	schema.Paths = append(schema.Paths, runtime.PathProgram{
+		Ops: []runtime.PathOp{{Op: runtime.OpAttrNSAny, NS: fx.empty}},
+	})
+	configureRootUniqueAttrConstraint(schema, fx.elemRoot, fx.pathChild, pathAttrNSAny)
+
+	attrs := make([]StartAttr, 0, 65)
+	for i := range 64 {
+		attrs = append(attrs, StartAttr{
+			NSBytes:  []byte("urn:other"),
+			Local:    []byte("attr" + strconv.Itoa(i)),
+			Value:    []byte("x"),
+			KeyKind:  runtime.VKString,
+			KeyBytes: []byte("x"),
+		})
+	}
+	attrs = append(attrs, StartAttr{
+		NS:       fx.empty,
+		NSBytes:  nil,
+		Local:    []byte("id"),
+		Value:    []byte("match"),
+		KeyKind:  runtime.VKString,
+		KeyBytes: []byte("match"),
+	})
+
+	sess := NewSession(schema)
+	run := func() {
+		sess.Reset()
+		if err := sess.identityStart(identityStartInput{
+			Elem: fx.elemRoot, Type: fx.typeComplex, Sym: fx.symRoot, NS: fx.nsID,
+		}); err != nil {
+			b.Fatalf("identityStart root: %v", err)
+		}
+		if err := sess.identityStart(identityStartInput{
+			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: attrs,
+		}); err != nil {
+			b.Fatalf("identityStart item: %v", err)
+		}
+		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+			b.Fatalf("identityEnd item: %v", err)
+		}
+		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+			b.Fatalf("identityEnd root: %v", err)
+		}
+		if pending := sess.icState.drainCommitted(); len(pending) != 0 {
+			b.Fatalf("identity violations: %v", pending[0])
+		}
+	}
+
+	for range 10 {
+		run()
+	}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		run()
+	}
+}

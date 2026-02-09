@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
@@ -89,7 +90,7 @@ func parseTopLevelNotation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 		return fmt.Errorf("notation must have a 'name' attribute")
 	}
 
-	if !types.IsValidNCName(name) {
+	if !qname.IsValidNCName(name) {
 		return fmt.Errorf("notation name '%s' must be a valid NCName", name)
 	}
 

@@ -95,7 +95,7 @@ func (s *SimpleType) computeQNameOrNotationType() bool {
 			return true
 		}
 	case *BuiltinType:
-		if base.IsQNameOrNotationType() {
+		if IsQNameOrNotation(base.Name()) {
 			return true
 		}
 	}

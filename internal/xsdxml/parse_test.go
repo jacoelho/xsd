@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/xmllex"
 )
 
 func TestParse(t *testing.T) {
@@ -184,7 +186,7 @@ func TestParseIntoWrapsReadError(t *testing.T) {
 	sentinel := errors.New("read failure")
 	doc := &Document{root: InvalidNode}
 
-	err := ParseInto(errReader{err: sentinel}, doc)
+	err := ParseIntoWithOptions(errReader{err: sentinel}, doc)
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -223,14 +225,14 @@ func TestTextContent(t *testing.T) {
 
 func TestParseIntoResetsOnError(t *testing.T) {
 	doc := &Document{}
-	if err := ParseInto(strings.NewReader("<root><child/></root>"), doc); err != nil {
-		t.Fatalf("ParseInto() error = %v", err)
+	if err := ParseIntoWithOptions(strings.NewReader("<root><child/></root>"), doc); err != nil {
+		t.Fatalf("ParseIntoWithOptions() error = %v", err)
 	}
 	if doc.DocumentElement() == InvalidNode {
 		t.Fatalf("expected document element after successful parse")
 	}
 
-	if err := ParseInto(strings.NewReader("<root>"), doc); err == nil {
+	if err := ParseIntoWithOptions(strings.NewReader("<root>"), doc); err == nil {
 		t.Fatalf("expected parse error for malformed XML")
 	}
 	if doc.DocumentElement() != InvalidNode {
@@ -276,9 +278,6 @@ func TestDocumentOutOfBoundsNodeID(t *testing.T) {
 	}
 	if children := doc.Children(badID); children != nil {
 		t.Fatalf("Children out-of-bounds should be nil")
-	}
-	if doc.DirectTextContent(badID) != "" {
-		t.Fatalf("DirectTextContent out-of-bounds should be empty")
 	}
 	if doc.DirectTextContentBytes(badID) != nil {
 		t.Fatalf("DirectTextContentBytes out-of-bounds should be nil")
@@ -335,7 +334,7 @@ func TestIsIgnorableOutsideRoot(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsIgnorableOutsideRoot(tt.data, tt.allowBOM); got != tt.want {
+			if got := xmllex.IsIgnorableOutsideRoot(tt.data, tt.allowBOM); got != tt.want {
 				t.Fatalf("IsIgnorableOutsideRoot() = %v, want %v", got, tt.want)
 			}
 		})

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -17,7 +18,7 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *types.ComplexType
 		return nil
 	}
 
-	baseCT, ok := lookupComplexType(schema, baseQName)
+	baseCT, ok := typegraph.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}
@@ -43,7 +44,11 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *types.ComplexType
 			return fmt.Errorf("anyAttribute restriction: cannot add anyAttribute when base type has no anyAttribute")
 		}
 		if derivedAnyAttr != nil && baseAnyAttr != nil {
-			if !anyAttributeIsSubset(derivedAnyAttr, baseAnyAttr) {
+			if !processContentsStrongerOrEqual(derivedAnyAttr.ProcessContents, baseAnyAttr.ProcessContents) ||
+				!namespaceConstraintSubset(
+					derivedAnyAttr.Namespace, derivedAnyAttr.NamespaceList, derivedAnyAttr.TargetNamespace,
+					baseAnyAttr.Namespace, baseAnyAttr.NamespaceList, baseAnyAttr.TargetNamespace,
+				) {
 				return fmt.Errorf("anyAttribute restriction: derived anyAttribute is not a valid subset of base anyAttribute")
 			}
 		}
@@ -117,15 +122,4 @@ func collectAnyAttributeFromGroups(schema *parser.Schema, agRefs []types.QName, 
 		}
 	}
 	return result
-}
-
-// anyAttributeIsSubset checks if anyAttribute1's namespace constraint is a subset of anyAttribute2's
-func anyAttributeIsSubset(w1, w2 *types.AnyAttribute) bool {
-	if !processContentsStrongerOrEqual(w1.ProcessContents, w2.ProcessContents) {
-		return false
-	}
-	return namespaceConstraintSubset(
-		w1.Namespace, w1.NamespaceList, w1.TargetNamespace,
-		w2.Namespace, w2.NamespaceList, w2.TargetNamespace,
-	)
 }

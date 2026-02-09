@@ -67,7 +67,7 @@ func (s *Session) validateEndElementText(frame elemFrame, typ runtime.Type, type
 		result.textMember = elem.FixedMember
 		if elem.FixedKey.Ref.Present {
 			result.textKeyKind = elem.FixedKey.Kind
-			result.textKeyBytes = valueKeyBytes(s.rt.Values, elem.FixedKey)
+			result.textKeyBytes = valueBytes(s.rt.Values, elem.FixedKey.Ref)
 		}
 		trackDefault(result.canonText, result.textMember)
 	case !hasContent && elemOK && elem.Default.Present:
@@ -75,7 +75,7 @@ func (s *Session) validateEndElementText(frame elemFrame, typ runtime.Type, type
 		result.textMember = elem.DefaultMember
 		if elem.DefaultKey.Ref.Present {
 			result.textKeyKind = elem.DefaultKey.Kind
-			result.textKeyBytes = valueKeyBytes(s.rt.Values, elem.DefaultKey)
+			result.textKeyBytes = valueBytes(s.rt.Values, elem.DefaultKey.Ref)
 		}
 		trackDefault(result.canonText, result.textMember)
 	case !hasContent && hasComplexText && ct.TextFixed.Present:
@@ -119,7 +119,7 @@ func (s *Session) validateEndElementText(frame elemFrame, typ runtime.Type, type
 					actualKey = key
 				}
 			}
-			if actualKind == elem.FixedKey.Kind && bytes.Equal(actualKey, valueKeyBytes(s.rt.Values, elem.FixedKey)) {
+			if actualKind == elem.FixedKey.Kind && bytes.Equal(actualKey, valueBytes(s.rt.Values, elem.FixedKey.Ref)) {
 				matched = true
 			}
 		} else {

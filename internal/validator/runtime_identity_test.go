@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -30,6 +31,22 @@ type identityFixture struct {
 	pathDescend   runtime.PathID
 	pathAttrID    runtime.PathID
 	pathGroupItem runtime.PathID
+}
+
+func configureRootUniqueAttrConstraint(schema *runtime.Schema, root runtime.ElemID, selector, field runtime.PathID) {
+	schema.ICs = make([]runtime.IdentityConstraint, 2)
+	schema.ICs[1] = runtime.IdentityConstraint{
+		Category:    runtime.ICUnique,
+		SelectorOff: 0,
+		SelectorLen: 1,
+		FieldOff:    0,
+		FieldLen:    1,
+	}
+	schema.ICSelectors = []runtime.PathID{selector}
+	schema.ICFields = []runtime.PathID{field}
+	schema.ElemICs = []runtime.ICID{1}
+	schema.Elements[root].ICOff = 0
+	schema.Elements[root].ICLen = 1
 }
 
 func buildIdentityFixture(tb testing.TB) identityFixture {
@@ -125,7 +142,7 @@ func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("identityStart item: %v", err)
 	}
-	if err := sess.identityEnd(identityEndInput{}); err != nil {
+	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd item: %v", err)
 	}
 
@@ -134,11 +151,11 @@ func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("identityStart item missing: %v", err)
 	}
-	if err := sess.identityEnd(identityEndInput{}); err != nil {
+	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd item missing: %v", err)
 	}
 
-	if err := sess.identityEnd(identityEndInput{}); err != nil {
+	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
@@ -180,10 +197,10 @@ func TestIdentityKeyMissingFieldErrors(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("identityStart item: %v", err)
 	}
-	if err := sess.identityEnd(identityEndInput{}); err != nil {
+	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd item: %v", err)
 	}
-	if err := sess.identityEnd(identityEndInput{}); err != nil {
+	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
@@ -265,13 +282,13 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("identityStart item: %v", err)
 	}
-	if err := sess.identityEnd(identityEndInput{}); err != nil {
+	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd item: %v", err)
 	}
-	if err := sess.identityEnd(identityEndInput{}); err != nil {
+	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd group: %v", err)
 	}
-	if err := sess.identityEnd(identityEndInput{}); err != nil {
+	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
@@ -333,5 +350,75 @@ func TestIdentityStartRollbackOnError(t *testing.T) {
 	}
 	if sess.nsStack.Len() != 0 {
 		t.Fatalf("nsStack len = %d, want 0", sess.nsStack.Len())
+	}
+}
+
+func TestIdentityAttrSelectionAllocationsScaleLinearly(t *testing.T) {
+	fx := buildIdentityFixture(t)
+	schema := fx.schema
+	pathAttrNSAny := runtime.PathID(len(schema.Paths))
+	schema.Paths = append(schema.Paths, runtime.PathProgram{
+		Ops: []runtime.PathOp{{Op: runtime.OpAttrNSAny, NS: fx.empty}},
+	})
+	configureRootUniqueAttrConstraint(schema, fx.elemRoot, fx.pathChild, pathAttrNSAny)
+
+	buildAttrs := func(extra int) []StartAttr {
+		out := make([]StartAttr, 0, extra+1)
+		for i := range extra {
+			local := []byte(fmt.Sprintf("attr%d", i))
+			out = append(out, StartAttr{
+				NSBytes:  []byte("urn:other"),
+				Local:    local,
+				Value:    []byte("x"),
+				KeyKind:  runtime.VKString,
+				KeyBytes: []byte("x"),
+			})
+		}
+		out = append(out, StartAttr{
+			NS:       fx.empty,
+			NSBytes:  nil,
+			Local:    []byte("id"),
+			Value:    []byte("match"),
+			KeyKind:  runtime.VKString,
+			KeyBytes: []byte("match"),
+		})
+		return out
+	}
+
+	smallAttrs := buildAttrs(8)
+	largeAttrs := buildAttrs(80)
+	sess := NewSession(schema)
+	run := func(attrs []StartAttr) {
+		sess.Reset()
+		if err := sess.identityStart(identityStartInput{
+			Elem: fx.elemRoot, Type: fx.typeComplex, Sym: fx.symRoot, NS: fx.nsID,
+		}); err != nil {
+			panic(err)
+		}
+		if err := sess.identityStart(identityStartInput{
+			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: attrs,
+		}); err != nil {
+			panic(err)
+		}
+		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+			panic(err)
+		}
+		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
+			panic(err)
+		}
+		if pending := sess.icState.drainCommitted(); len(pending) != 0 {
+			panic(pending[0])
+		}
+	}
+
+	run(largeAttrs)
+	run(smallAttrs)
+
+	smallAllocs := testing.AllocsPerRun(100, func() { run(smallAttrs) })
+	largeAllocs := testing.AllocsPerRun(50, func() { run(largeAttrs) })
+
+	// keep scaling near-linear for attribute-heavy identity paths.
+	if largeAllocs > smallAllocs*12 {
+		t.Fatalf("identity attr selection allocations grew too fast: small=%.2f large=%.2f ratio=%.2f", smallAllocs, largeAllocs, largeAllocs/smallAllocs)
 	}
 }

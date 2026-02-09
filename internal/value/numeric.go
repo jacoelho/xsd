@@ -62,7 +62,7 @@ func ParseFloat(lexical []byte) (float32, error) {
 // ParseDouble parses a double lexical value into float64.
 func ParseDouble(lexical []byte) (float64, error) {
 	trimmed := TrimXMLWhitespace(lexical)
-	f, _, perr := num.ParseFloat64(trimmed)
+	f, _, perr := num.ParseFloat(trimmed, 64)
 	if perr == nil {
 		return f, nil
 	}
@@ -70,16 +70,6 @@ func ParseDouble(lexical []byte) (float64, error) {
 		return 0, fmt.Errorf("invalid double: empty string")
 	}
 	return 0, fmt.Errorf("invalid double: %s", string(trimmed))
-}
-
-// ValidateFloatLexical checks whether the lexical form is valid for float.
-func ValidateFloatLexical(lexical []byte) error {
-	return validateFloatLexical(lexical, "float")
-}
-
-// ValidateDoubleLexical checks whether the lexical form is valid for double.
-func ValidateDoubleLexical(lexical []byte) error {
-	return validateFloatLexical(lexical, "double")
 }
 
 func validateFloatLexical(lexical []byte, label string) error {

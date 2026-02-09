@@ -11,15 +11,15 @@ func TestResolveQNameMatchesElementQName(t *testing.T) {
 		t.Fatalf("parseSchemaAttributes error = %v", err)
 	}
 
-	gotType, err := resolveQName(doc, "RootType", root, schema)
+	gotType, err := resolveQNameWithPolicy(doc, "RootType", root, schema, useDefaultNamespace)
 	if err != nil {
 		t.Fatalf("resolveQName error = %v", err)
 	}
-	gotElem, err := resolveElementQName(doc, "RootType", root, schema)
+	gotElem, err := resolveQNameWithPolicy(doc, "RootType", root, schema, useDefaultNamespace)
 	if err != nil {
-		t.Fatalf("resolveElementQName error = %v", err)
+		t.Fatalf("resolveQName (element) error = %v", err)
 	}
 	if gotType != gotElem {
-		t.Fatalf("resolveQName = %s, resolveElementQName = %s", gotType, gotElem)
+		t.Fatalf("resolveQNameWithPolicy(type) = %s, resolveQNameWithPolicy(element) = %s", gotType, gotElem)
 	}
 }

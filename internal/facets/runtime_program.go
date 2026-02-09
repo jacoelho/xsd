@@ -35,9 +35,34 @@ type RuntimeCallbacks struct {
 
 // ValidateRuntimeProgram evaluates runtime facet instructions.
 func ValidateRuntimeProgram(in RuntimeProgram, cb RuntimeCallbacks) error {
+	invalidf := func(format string, args ...any) error {
+		if cb.Invalidf != nil {
+			return cb.Invalidf(format, args...)
+		}
+		return fmt.Errorf(format, args...)
+	}
+	facetViolation := func(name string) error {
+		if cb.FacetViolation != nil {
+			return cb.FacetViolation(name)
+		}
+		return fmt.Errorf("%s violation", name)
+	}
+	cachedEnumKey := func() (runtime.ValueKind, []byte, bool) {
+		if cb.CachedEnumKey == nil {
+			return runtime.VKInvalid, nil, false
+		}
+		return cb.CachedEnumKey()
+	}
+	deriveEnumKey := func(canonical []byte) (runtime.ValueKind, []byte, error) {
+		if cb.DeriveEnumKey == nil {
+			return runtime.VKInvalid, nil, fmt.Errorf("enum key callback is nil")
+		}
+		return cb.DeriveEnumKey(canonical)
+	}
+
 	program, err := RuntimeProgramSlice(in.Meta, in.Facets)
 	if err != nil {
-		return invalidf(cb, "%v", err)
+		return invalidf("%v", err)
 	}
 	for _, instr := range program {
 		switch instr.Op {
@@ -49,19 +74,19 @@ func ValidateRuntimeProgram(in RuntimeProgram, cb RuntimeCallbacks) error {
 				continue
 			}
 			if int(instr.Arg0) >= len(in.Patterns) {
-				return invalidf(cb, "pattern %d out of range", instr.Arg0)
+				return invalidf("pattern %d out of range", instr.Arg0)
 			}
 			pat := in.Patterns[instr.Arg0]
 			if pat.Re != nil && !pat.Re.Match(in.Normalized) {
-				return facetViolation(cb, "pattern")
+				return facetViolation("pattern")
 			}
 		case runtime.FEnum:
 			if cb.SkipEnum != nil && cb.SkipEnum() {
 				continue
 			}
-			kind, key, ok := cachedEnumKey(cb)
+			kind, key, ok := cachedEnumKey()
 			if !ok {
-				derivedKind, derivedKey, err := deriveEnumKey(cb, in.Canonical)
+				derivedKind, derivedKey, err := deriveEnumKey(in.Canonical)
 				if err != nil {
 					return err
 				}
@@ -73,16 +98,16 @@ func ValidateRuntimeProgram(in RuntimeProgram, cb RuntimeCallbacks) error {
 			}
 			enumID := runtime.EnumID(instr.Arg0)
 			if !runtime.EnumContains(&in.Enums, enumID, kind, key) {
-				return facetViolation(cb, "enumeration")
+				return facetViolation("enumeration")
 			}
 		case runtime.FMinInclusive, runtime.FMaxInclusive, runtime.FMinExclusive, runtime.FMaxExclusive:
 			ref := runtime.ValueRef{Off: instr.Arg0, Len: instr.Arg1, Present: true}
 			bound := facetValueBytes(in.Values, ref)
 			if bound == nil {
-				return invalidf(cb, "range facet bound out of range")
+				return invalidf("range facet bound out of range")
 			}
 			if cb.CheckRange == nil {
-				return invalidf(cb, "range callback is nil")
+				return invalidf("range callback is nil")
 			}
 			if err := cb.CheckRange(instr.Op, in.Meta.Kind, in.Canonical, bound); err != nil {
 				return err
@@ -92,7 +117,7 @@ func ValidateRuntimeProgram(in RuntimeProgram, cb RuntimeCallbacks) error {
 				continue
 			}
 			if cb.ValueLength == nil {
-				return invalidf(cb, "length callback is nil")
+				return invalidf("length callback is nil")
 			}
 			length, err := cb.ValueLength(in.Meta.Kind, in.Normalized)
 			if err != nil {
@@ -101,20 +126,20 @@ func ValidateRuntimeProgram(in RuntimeProgram, cb RuntimeCallbacks) error {
 			switch instr.Op {
 			case runtime.FLength:
 				if length != int(instr.Arg0) {
-					return facetViolation(cb, "length")
+					return facetViolation("length")
 				}
 			case runtime.FMinLength:
 				if length < int(instr.Arg0) {
-					return facetViolation(cb, "minLength")
+					return facetViolation("minLength")
 				}
 			case runtime.FMaxLength:
 				if length > int(instr.Arg0) {
-					return facetViolation(cb, "maxLength")
+					return facetViolation("maxLength")
 				}
 			}
 		case runtime.FTotalDigits, runtime.FFractionDigits:
 			if cb.DigitCounts == nil {
-				return invalidf(cb, "digits callback is nil")
+				return invalidf("digits callback is nil")
 			}
 			total, fraction, err := cb.DigitCounts(in.Meta.Kind, in.Canonical)
 			if err != nil {
@@ -123,15 +148,15 @@ func ValidateRuntimeProgram(in RuntimeProgram, cb RuntimeCallbacks) error {
 			switch instr.Op {
 			case runtime.FTotalDigits:
 				if total > int(instr.Arg0) {
-					return facetViolation(cb, "totalDigits")
+					return facetViolation("totalDigits")
 				}
 			case runtime.FFractionDigits:
 				if fraction > int(instr.Arg0) {
-					return facetViolation(cb, "fractionDigits")
+					return facetViolation("fractionDigits")
 				}
 			}
 		default:
-			return invalidf(cb, "unknown facet op %d", instr.Op)
+			return invalidf("unknown facet op %d", instr.Op)
 		}
 	}
 	return nil
@@ -179,34 +204,6 @@ func RuntimeProgramEnumIDs(program []runtime.FacetInstr) []runtime.EnumID {
 		return nil
 	}
 	return out
-}
-
-func invalidf(cb RuntimeCallbacks, format string, args ...any) error {
-	if cb.Invalidf != nil {
-		return cb.Invalidf(format, args...)
-	}
-	return fmt.Errorf(format, args...)
-}
-
-func facetViolation(cb RuntimeCallbacks, name string) error {
-	if cb.FacetViolation != nil {
-		return cb.FacetViolation(name)
-	}
-	return fmt.Errorf("%s violation", name)
-}
-
-func cachedEnumKey(cb RuntimeCallbacks) (runtime.ValueKind, []byte, bool) {
-	if cb.CachedEnumKey == nil {
-		return runtime.VKInvalid, nil, false
-	}
-	return cb.CachedEnumKey()
-}
-
-func deriveEnumKey(cb RuntimeCallbacks, canonical []byte) (runtime.ValueKind, []byte, error) {
-	if cb.DeriveEnumKey == nil {
-		return runtime.VKInvalid, nil, fmt.Errorf("enum key callback is nil")
-	}
-	return cb.DeriveEnumKey(canonical)
 }
 
 func facetValueBytes(values runtime.ValueBlob, ref runtime.ValueRef) []byte {

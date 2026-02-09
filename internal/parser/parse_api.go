@@ -1,13 +1,13 @@
 package parser
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"iter"
 
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/xmllex"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -71,12 +71,6 @@ type Directive struct {
 	Kind    DirectiveKind
 }
 
-// getNameAttr returns the name attribute value with whitespace trimmed.
-// XSD attribute values should be normalized per XML spec, so we always trim.
-func getNameAttr(doc *xsdxml.Document, elem xsdxml.NodeID) string {
-	return types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
-}
-
 // ParseResult contains the parsed schema and import/include directives
 type ParseResult struct {
 	Schema     *Schema
@@ -87,16 +81,11 @@ type ParseResult struct {
 
 // Parse parses an XSD schema from a reader
 func Parse(r io.Reader) (*Schema, error) {
-	result, err := ParseWithImports(r)
+	result, err := ParseWithImportsOptions(r)
 	if err != nil {
 		return nil, err
 	}
 	return result.Schema, nil
-}
-
-// ParseWithImports parses an XSD schema and returns import/include information
-func ParseWithImports(r io.Reader) (*ParseResult, error) {
-	return ParseWithImportsOptions(r)
 }
 
 // ParseWithImportsOptions parses an XSD schema with XML reader options.
@@ -114,8 +103,6 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 	}
 	importedNamespaces := make(map[types.NamespaceURI]bool)
 	dirState := directiveState{}
-	componentSubtrees := make([]topLevelComponentSubtree, 0, 8)
-	var subtreeBuf bytes.Buffer
 	allowBOM := true
 	rootSeen := false
 	rootClosed := false
@@ -143,35 +130,40 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 				if err := parseSchemaAttributesFromStart(ev, reader.NamespaceDeclsSeq(ev.ScopeDepth), schema); err != nil {
 					return nil, err
 				}
+				applyImportedNamespaces(schema, importedNamespaces)
+				continue
+			}
+			if ev.Name.Namespace != xsdxml.XSDNamespace {
+				if err := reader.SkipSubtree(); err != nil {
+					return nil, newParseError("parse XML", fmt.Errorf("xml skip for element %s: %w", ev.Name.String(), err))
+				}
 				continue
 			}
 
-			subtreeData, err := readSubtreeBytes(reader, &subtreeBuf)
+			doc, root, err := parseSubtreeIntoDoc(reader, ev)
 			if err != nil {
 				return nil, newParseError("parse XML", fmt.Errorf("xml read for element %s: %w", ev.Name.String(), err))
 			}
-			if ev.Name.Namespace != xsdxml.XSDNamespace {
-				continue
-			}
+
 			switch ev.Name.Local {
 			case "annotation", "import", "include":
-				doc, root, err := parseSubtreeIntoDoc(subtreeData, opts...)
-				if err != nil {
-					return nil, newParseError("parse XML", err)
-				}
 				if err := parseDirectiveSubtree(doc, root, schema, result, importedNamespaces, &dirState); err != nil {
 					return nil, err
 				}
+				applyImportedNamespaces(schema, importedNamespaces)
 			case "redefine":
 				return nil, fmt.Errorf("redefine is not supported")
 			default:
 				if !isTopLevelComponentElement(ev.Name.Local) {
+					xsdxml.ReleaseDocument(doc)
 					return nil, fmt.Errorf("unexpected top-level element '%s'", ev.Name.Local)
 				}
 				if isGlobalDeclElement(ev.Name.Local) {
 					dirState.declIndex++
 				}
-				componentSubtrees = append(componentSubtrees, topLevelComponentSubtree{data: subtreeData})
+				if err := parseTopLevelComponentSubtree(doc, root, schema); err != nil {
+					return nil, err
+				}
 			}
 
 		case xmlstream.EventEndElement:
@@ -181,7 +173,7 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 			allowBOM = false
 		case xmlstream.EventCharData:
 			if !rootSeen || rootClosed {
-				if !xsdxml.IsIgnorableOutsideRoot(ev.Text, allowBOM) {
+				if !xmllex.IsIgnorableOutsideRoot(ev.Text, allowBOM) {
 					return nil, newParseError("parse XML", fmt.Errorf("unexpected character data outside root element"))
 				}
 				allowBOM = false
@@ -198,33 +190,12 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 	}
 
 	applyImportedNamespaces(schema, importedNamespaces)
-	for _, subtree := range componentSubtrees {
-		doc, root, err := parseSubtreeIntoDoc(subtree.data, opts...)
-		if err != nil {
-			return nil, newParseError("parse XML", err)
-		}
-		if err := parseTopLevelComponentSubtree(doc, root, schema); err != nil {
-			return nil, err
-		}
-	}
 	return result, nil
 }
 
-type topLevelComponentSubtree struct {
-	data []byte
-}
-
-func readSubtreeBytes(reader *xmlstream.Reader, buf *bytes.Buffer) ([]byte, error) {
-	buf.Reset()
-	if _, err := reader.ReadSubtreeTo(buf); err != nil {
-		return nil, err
-	}
-	return append([]byte(nil), buf.Bytes()...), nil
-}
-
-func parseSubtreeIntoDoc(data []byte, opts ...xmlstream.Option) (*xsdxml.Document, xsdxml.NodeID, error) {
+func parseSubtreeIntoDoc(reader *xmlstream.Reader, start xmlstream.Event) (*xsdxml.Document, xsdxml.NodeID, error) {
 	doc := xsdxml.AcquireDocument()
-	if err := xsdxml.ParseIntoWithOptions(bytes.NewReader(data), doc, opts...); err != nil {
+	if err := xsdxml.ParseSubtreeInto(reader, start, doc); err != nil {
 		xsdxml.ReleaseDocument(doc)
 		return nil, xsdxml.InvalidNode, err
 	}

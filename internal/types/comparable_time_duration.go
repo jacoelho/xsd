@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
+	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
@@ -90,7 +92,7 @@ type ComparableDuration struct {
 // Returns an error if the duration contains years or months (which cannot be converted to time.Duration)
 // or if the duration string is invalid.
 func ParseDurationToTimeDuration(s string) (time.Duration, error) {
-	xsdDur, err := ParseXSDDuration(s)
+	xsdDur, err := durationlex.Parse(s)
 	if err != nil {
 		return 0, err
 	}
@@ -181,7 +183,7 @@ func (c ComparableDuration) Compare(other ComparableValue) (int, error) {
 		durVal %= time.Hour
 		minutes := int(durVal / time.Minute)
 		durVal %= time.Minute
-		seconds := decFromDurationSeconds(durVal)
+		seconds := num.DecFromScaledInt(num.FromInt64(int64(durVal)), 9)
 		thisXSDDur := ComparableXSDDuration{
 			Value: XSDDuration{
 				Negative: negative,

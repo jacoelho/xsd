@@ -1,6 +1,10 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+
+	qnamelex "github.com/jacoelho/xsd/internal/qname"
+)
 
 func (s *SimpleType) Validate(lexical string) error {
 	return s.ValidateWithContext(lexical, nil)
@@ -85,7 +89,7 @@ func (s *SimpleType) validateNormalizedLexicalWithContext(normalized string, vis
 
 func (s *SimpleType) validateAtomicLexicalWithContext(normalized string, context map[string]string) error {
 	if context != nil && IsQNameOrNotationType(s) {
-		if _, err := ParseQNameValue(normalized, context); err != nil {
+		if _, err := qnamelex.ParseQNameValue(normalized, context); err != nil {
 			return err
 		}
 	}
@@ -121,7 +125,7 @@ func validateTypeLexicalWithContext(typ Type, lexical string, visited map[*Simpl
 	}
 	if bt, ok := AsBuiltinType(typ); ok {
 		if context != nil && IsQNameOrNotationType(bt) {
-			if _, err := ParseQNameValue(normalized, context); err != nil {
+			if _, err := qnamelex.ParseQNameValue(normalized, context); err != nil {
 				return err
 			}
 		}
@@ -185,17 +189,17 @@ func needsBuiltinListMinLength(st *SimpleType) bool {
 	if st == nil {
 		return false
 	}
-	if st.IsBuiltin() && isBuiltinListType(st.QName.Local) {
+	if st.IsBuiltin() && IsBuiltinListTypeName(st.QName.Local) {
 		return true
 	}
 	if st.ResolvedBase != nil {
-		if bt, ok := AsBuiltinType(st.ResolvedBase); ok && isBuiltinListType(bt.Name().Local) {
+		if bt, ok := AsBuiltinType(st.ResolvedBase); ok && IsBuiltinListTypeName(bt.Name().Local) {
 			return true
 		}
 	}
 	if st.Restriction != nil && !st.Restriction.Base.IsZero() &&
 		st.Restriction.Base.Namespace == XSDNamespace &&
-		isBuiltinListType(st.Restriction.Base.Local) {
+		IsBuiltinListTypeName(st.Restriction.Base.Local) {
 		return true
 	}
 	return false

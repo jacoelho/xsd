@@ -99,6 +99,14 @@ type SessionIdentity struct {
 	idTable map[string]struct{}
 	idRefs  []string
 	icState identityState
+
+	identityAttrBuckets map[uint64][]identityAttrNameID
+	identityAttrNames   []identityAttrName
+}
+
+type identityAttrName struct {
+	ns    []byte
+	local []byte
 }
 
 // Session holds per-document runtime validation state.

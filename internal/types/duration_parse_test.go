@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/durationlex"
 )
 
 func TestParseXSDDurationComponentTooLarge(t *testing.T) {
@@ -19,7 +21,7 @@ func TestParseXSDDurationComponentTooLarge(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := ParseXSDDuration(tc.input)
+			_, err := durationlex.Parse(tc.input)
 			if err == nil {
 				t.Fatalf("expected error")
 			}

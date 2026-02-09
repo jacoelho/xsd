@@ -15,7 +15,7 @@ func parseComplexContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, sc
 	if base == "" {
 		return nil, types.QName{}, fmt.Errorf("restriction missing base")
 	}
-	baseQName, err := resolveQName(doc, base, elem, schema)
+	baseQName, err := resolveQNameWithPolicy(doc, base, elem, schema, useDefaultNamespace)
 	if err != nil {
 		return nil, types.QName{}, err
 	}
@@ -58,7 +58,7 @@ func parseComplexContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, sche
 	if base == "" {
 		return nil, types.QName{}, fmt.Errorf("extension missing base")
 	}
-	baseQName, err := resolveQName(doc, base, elem, schema)
+	baseQName, err := resolveQNameWithPolicy(doc, base, elem, schema, useDefaultNamespace)
 	if err != nil {
 		return nil, types.QName{}, err
 	}

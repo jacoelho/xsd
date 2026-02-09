@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -11,7 +12,7 @@ import (
 func validateEnumerationFacetValues(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range sortedQNames(sch.TypeDefs) {
+	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
 		st, ok := sch.TypeDefs[qname].(*types.SimpleType)
 		if !ok || st == nil || st.Restriction == nil {
 			continue
@@ -48,7 +49,7 @@ func validateEnumerationFacetValues(sch *parser.Schema) []error {
 func validateInlineTypeReferences(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range sortedQNames(sch.ElementDecls) {
+	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if decl.Type != nil && !decl.Type.IsBuiltin() {
 			if _, exists := sch.TypeDefs[decl.Type.Name()]; !exists {

@@ -66,7 +66,12 @@ func (c *upaChecker) elementWildcardOverlap(elem, wildcard models.Position) bool
 	if elem.Element == nil || wildcard.Wildcard == nil {
 		return false
 	}
-	if wildcardMatchesQName(wildcard.Wildcard, elem.Element.Name) {
+	if types.AllowsNamespace(
+		wildcard.Wildcard.Namespace,
+		wildcard.Wildcard.NamespaceList,
+		wildcard.Wildcard.TargetNamespace,
+		elem.Element.Name.Namespace,
+	) {
 		return true
 	}
 	if c == nil || c.schema == nil || !elem.AllowsSubst {
@@ -76,7 +81,12 @@ func (c *upaChecker) elementWildcardOverlap(elem, wildcard models.Position) bool
 		if !c.isSubstitutable(elem.Element.Name, member) {
 			continue
 		}
-		if wildcardMatchesQName(wildcard.Wildcard, member) {
+		if types.AllowsNamespace(
+			wildcard.Wildcard.Namespace,
+			wildcard.Wildcard.NamespaceList,
+			wildcard.Wildcard.TargetNamespace,
+			member.Namespace,
+		) {
 			return true
 		}
 	}
@@ -88,13 +98,6 @@ func wildcardsOverlap(left, right *types.AnyElement) bool {
 		return false
 	}
 	return types.IntersectAnyElement(left, right) != nil
-}
-
-func wildcardMatchesQName(wildcard *types.AnyElement, qname types.QName) bool {
-	if wildcard == nil {
-		return false
-	}
-	return types.AllowsNamespace(wildcard.Namespace, wildcard.NamespaceList, wildcard.TargetNamespace, qname.Namespace)
 }
 
 func (c *upaChecker) substitutionMembers(head types.QName) []types.QName {

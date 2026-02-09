@@ -7,11 +7,14 @@ import (
 	"iter"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/pipeline"
+	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 // Schema wraps a compiled schema with convenience methods.
@@ -20,16 +23,24 @@ type Schema struct {
 }
 
 // QName is a public qualified name with namespace and local part.
-type QName struct {
-	Namespace string
-	Local     string
-}
+type QName = xmlstream.QName
 
 // PreparedSchema stores immutable, precompiled schema artifacts.
 type PreparedSchema struct {
 	prepared *pipeline.PreparedSchema
 	runtime  resolvedRuntimeOptions
+
+	buildCacheMu sync.RWMutex
+	buildCache   map[runtimeBuildCacheKey]*runtime.Schema
+	buildOrder   []runtimeBuildCacheKey
 }
+
+type runtimeBuildCacheKey struct {
+	maxDFAStates   uint32
+	maxOccursLimit uint32
+}
+
+const maxPreparedRuntimeBuildCacheEntries = 16
 
 func prepareSchema(fsys fs.FS, location string, opts LoadOptions) (*pipeline.PreparedSchema, resolvedRuntimeOptions, error) {
 	resolvedLoad, runtimeOpts, err := opts.withDefaults()
@@ -59,11 +70,6 @@ func prepareSchema(fsys fs.FS, location string, opts LoadOptions) (*pipeline.Pre
 		return nil, resolvedRuntimeOptions{}, fmt.Errorf("transform schema: %w", err)
 	}
 	return prepared, runtimeOpts, nil
-}
-
-// Prepare loads and validates a schema, returning reusable prepared artifacts.
-func Prepare(fsys fs.FS, location string) (*PreparedSchema, error) {
-	return PrepareWithOptions(fsys, location, NewLoadOptions())
 }
 
 // PrepareWithOptions loads and validates a schema with explicit load options.
@@ -119,16 +125,51 @@ func (p *PreparedSchema) buildWithResolvedRuntime(opts resolvedRuntimeOptions) (
 	if p == nil || p.prepared == nil {
 		return nil, fmt.Errorf("build schema: prepared schema is nil")
 	}
-	rt, err := p.prepared.BuildRuntime(buildCompileConfig(opts))
-	if err != nil {
-		return nil, fmt.Errorf("build schema: %w", err)
+	key := runtimeBuildKey(opts)
+	p.buildCacheMu.RLock()
+	rt, ok := p.buildCache[key]
+	p.buildCacheMu.RUnlock()
+	if !ok {
+		p.buildCacheMu.Lock()
+		rt, ok = p.buildCache[key]
+		if !ok {
+			var err error
+			rt, err = p.prepared.BuildRuntime(buildCompileConfig(opts))
+			if err != nil {
+				p.buildCacheMu.Unlock()
+				return nil, fmt.Errorf("build schema: %w", err)
+			}
+			if p.buildCache == nil {
+				p.buildCache = make(map[runtimeBuildCacheKey]*runtime.Schema)
+			}
+			if maxPreparedRuntimeBuildCacheEntries > 0 && len(p.buildCache) >= maxPreparedRuntimeBuildCacheEntries {
+				oldest := p.buildOrder[0]
+				p.buildOrder = p.buildOrder[1:]
+				delete(p.buildCache, oldest)
+			}
+			p.buildCache[key] = rt
+			p.buildOrder = append(p.buildOrder, key)
+		}
+		p.buildCacheMu.Unlock()
 	}
 	return &Schema{engine: newEngine(rt, opts.instanceParseOptions...)}, nil
 }
 
-// Load loads and compiles a schema from the given filesystem and location.
-func Load(fsys fs.FS, location string) (*Schema, error) {
-	return LoadWithOptions(fsys, location, NewLoadOptions())
+func runtimeBuildKey(opts resolvedRuntimeOptions) runtimeBuildCacheKey {
+	return runtimeBuildCacheKey{
+		maxDFAStates:   opts.maxDFAStates,
+		maxOccursLimit: opts.maxOccursLimit,
+	}
+}
+
+func (p *PreparedSchema) runtimeBuildCacheLen() int {
+	if p == nil {
+		return 0
+	}
+	p.buildCacheMu.RLock()
+	n := len(p.buildCache)
+	p.buildCacheMu.RUnlock()
+	return n
 }
 
 // LoadWithOptions loads and compiles a schema with explicit configuration.
@@ -154,17 +195,15 @@ func LoadFile(path string) (*Schema, error) {
 
 // Validate validates a document against the schema.
 func (s *Schema) Validate(r io.Reader) error {
-	if s == nil || s.engine == nil {
-		return errors.ValidationList{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}
-	}
-	if r == nil {
-		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, "nil reader", "")}
-	}
-	return s.engine.validate(r)
+	return s.validateReader(r, "")
 }
 
 // ValidateFile validates an XML file against the schema.
-func (s *Schema) ValidateFile(path string) error {
+func (s *Schema) ValidateFile(path string) (err error) {
+	if s == nil || s.engine == nil {
+		return schemaNotLoadedError()
+	}
+
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open xml file %s: %w", path, err)
@@ -175,7 +214,18 @@ func (s *Schema) ValidateFile(path string) error {
 		}
 	}()
 
-	return s.engine.validateWithDocument(f, path)
+	err = s.validateReader(f, path)
+	return err
+}
+
+func (s *Schema) validateReader(r io.Reader, document string) error {
+	if s == nil || s.engine == nil {
+		return errors.ValidationList{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}
+	}
+	if r == nil {
+		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, "nil reader", "")}
+	}
+	return s.engine.validateDocument(r, document)
 }
 
 func buildCompileConfig(opts resolvedRuntimeOptions) pipeline.CompileConfig {

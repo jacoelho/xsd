@@ -24,23 +24,18 @@ func LookupComplexType(schema *parser.Schema, qname types.QName) (*types.Complex
 	return ct, ok
 }
 
-// IsAnyTypeQName reports whether qname is xs:anyType.
-func IsAnyTypeQName(qname types.QName) bool {
-	return types.IsAnyTypeQName(qname)
-}
-
 // ResolveBaseComplexType resolves a complex base type, including xs:anyType.
 func ResolveBaseComplexType(schema *parser.Schema, ct *types.ComplexType, baseQName types.QName) *types.ComplexType {
 	if ct != nil && ct.ResolvedBase != nil {
 		if baseCT, ok := types.AsComplexType(ct.ResolvedBase); ok {
 			return baseCT
 		}
-		if IsAnyTypeQName(ct.ResolvedBase.Name()) {
+		if types.IsAnyTypeQName(ct.ResolvedBase.Name()) {
 			return types.NewAnyTypeComplexType()
 		}
 	}
 	if schema != nil && !baseQName.IsZero() {
-		if IsAnyTypeQName(baseQName) {
+		if types.IsAnyTypeQName(baseQName) {
 			return types.NewAnyTypeComplexType()
 		}
 		if baseCT, ok := LookupComplexType(schema, baseQName); ok {
@@ -102,24 +97,16 @@ func combineExtensionParticles(baseParticle, extParticle types.Particle) types.P
 	}
 }
 
-// CollectComplexTypeChain walks base links from a complex type to root.
-func CollectComplexTypeChain(schema *parser.Schema, ct *types.ComplexType) []*types.ComplexType {
-	return collectComplexTypeChain(schema, ct, chainModeExplicitBaseOnly)
-}
-
-// CollectComplexTypeChainWithImplicitAnyType walks base links and appends an implicit anyType base when needed.
-func CollectComplexTypeChainWithImplicitAnyType(schema *parser.Schema, ct *types.ComplexType) []*types.ComplexType {
-	return collectComplexTypeChain(schema, ct, chainModeAllowImplicitAnyType)
-}
-
-type chainMode uint8
+// ComplexTypeChainMode controls how implicit anyType is handled in type chains.
+type ComplexTypeChainMode uint8
 
 const (
-	chainModeExplicitBaseOnly chainMode = iota
-	chainModeAllowImplicitAnyType
+	ComplexTypeChainExplicitBaseOnly ComplexTypeChainMode = iota
+	ComplexTypeChainAllowImplicitAnyType
 )
 
-func collectComplexTypeChain(schema *parser.Schema, ct *types.ComplexType, mode chainMode) []*types.ComplexType {
+// CollectComplexTypeChain walks base links from a complex type to root.
+func CollectComplexTypeChain(schema *parser.Schema, ct *types.ComplexType, mode ComplexTypeChainMode) []*types.ComplexType {
 	var chain []*types.ComplexType
 	visited := make(map[*types.ComplexType]bool)
 	for current := ct; current != nil; {
@@ -137,7 +124,7 @@ func collectComplexTypeChain(schema *parser.Schema, ct *types.ComplexType, mode 
 	return chain
 }
 
-func nextBaseComplexType(schema *parser.Schema, current *types.ComplexType, mode chainMode) *types.ComplexType {
+func nextBaseComplexType(schema *parser.Schema, current *types.ComplexType, mode ComplexTypeChainMode) *types.ComplexType {
 	if current == nil {
 		return nil
 	}
@@ -145,7 +132,7 @@ func nextBaseComplexType(schema *parser.Schema, current *types.ComplexType, mode
 		return baseCT
 	}
 	if current.ResolvedBase != nil {
-		if mode == chainModeAllowImplicitAnyType && IsAnyTypeQName(current.ResolvedBase.Name()) {
+		if mode == ComplexTypeChainAllowImplicitAnyType && types.IsAnyTypeQName(current.ResolvedBase.Name()) {
 			return types.NewAnyTypeComplexType()
 		}
 		return nil
@@ -156,8 +143,8 @@ func nextBaseComplexType(schema *parser.Schema, current *types.ComplexType, mode
 		baseQName = content.BaseTypeQName()
 	}
 	if !baseQName.IsZero() {
-		if IsAnyTypeQName(baseQName) {
-			if mode == chainModeAllowImplicitAnyType {
+		if types.IsAnyTypeQName(baseQName) {
+			if mode == ComplexTypeChainAllowImplicitAnyType {
 				return types.NewAnyTypeComplexType()
 			}
 			return nil
@@ -167,7 +154,7 @@ func nextBaseComplexType(schema *parser.Schema, current *types.ComplexType, mode
 		}
 		return nil
 	}
-	if mode == chainModeAllowImplicitAnyType && !IsAnyTypeQName(current.QName) {
+	if mode == ComplexTypeChainAllowImplicitAnyType && !types.IsAnyTypeQName(current.QName) {
 		return types.NewAnyTypeComplexType()
 	}
 	return nil

@@ -1,6 +1,10 @@
 package types
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jacoelho/xsd/internal/value"
+)
 
 func TestNewMinInclusive_Decimal(t *testing.T) {
 	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
@@ -223,7 +227,7 @@ func TestNewMinInclusive_Date(t *testing.T) {
 	}
 
 	// test validation
-	testVal, _ := ParseDate("2000-06-01")
+	testVal, _ := value.ParseDate([]byte("2000-06-01"))
 	dateType := mustBuiltinSimpleType(t, TypeNameDate)
 	testTypedValue := NewDateTimeValue(NewParsedValue("2000-06-01", testVal), dateType)
 	if err := facet.Validate(testTypedValue, dateBuiltin); err != nil {

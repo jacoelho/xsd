@@ -45,7 +45,7 @@ func TestResolveQNameIgnoresForeignXMLNSLocalName(t *testing.T) {
 		t.Fatalf("expected element node")
 	}
 
-	qname, err := resolveQName(doc, "Type", elem, schema)
+	qname, err := resolveQNameWithPolicy(doc, "Type", elem, schema, useDefaultNamespace)
 	if err != nil {
 		t.Fatalf("resolveQName error = %v", err)
 	}

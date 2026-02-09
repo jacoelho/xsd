@@ -1,6 +1,9 @@
 package validator
 
 import (
+	"unsafe"
+
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/types"
@@ -88,7 +91,7 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		s.Scratch.Buf2 = canonRaw
 		canon := canonRaw
 		if needKey {
-			key := num.EncodeIntKey(s.keyTmp[:0], intVal)
+			key := num.EncodeDecKey(s.keyTmp[:0], intVal.AsDec())
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDecimal, key, false)
 		}
@@ -112,7 +115,7 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		}
 		return canon, nil
 	case runtime.VDouble:
-		v, class, perr := num.ParseFloat64(normalized)
+		v, class, perr := num.ParseFloat(normalized, 64)
 		if perr != nil {
 			return nil, valueErrorMsg(valueErrInvalid, "invalid double")
 		}
@@ -130,7 +133,7 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		}
 		return canon, nil
 	case runtime.VDuration:
-		dur, err := types.ParseXSDDurationBytes(normalized)
+		dur, err := durationlex.Parse(unsafe.String(unsafe.SliceData(normalized), len(normalized)))
 		if err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
@@ -186,7 +189,7 @@ func (s *Session) validateAtomicNoCanonical(meta runtime.ValidatorMeta, normaliz
 			return valueErrorMsg(valueErrInvalid, "invalid double")
 		}
 	case runtime.VDuration:
-		if _, err := types.ParseXSDDurationBytes(normalized); err != nil {
+		if _, err := durationlex.Parse(unsafe.String(unsafe.SliceData(normalized), len(normalized))); err != nil {
 			return valueErrorMsg(valueErrInvalid, err.Error())
 		}
 	default:

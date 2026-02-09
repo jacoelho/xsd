@@ -2,6 +2,7 @@ package semanticresolve
 
 import (
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -45,27 +46,36 @@ func ValidateReferences(sch *parser.Schema) []error {
 func collectElementReferencesInSchema(sch *parser.Schema) []*types.ElementDecl {
 	var elementRefsInContent []*types.ElementDecl
 
-	for _, qname := range sortedQNames(sch.ElementDecls) {
+	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if ct, ok := decl.Type.(*types.ComplexType); ok {
-			elementRefsInContent = append(elementRefsInContent, collectElementReferences(ct.Content())...)
+			elementRefsInContent = append(elementRefsInContent, traversal.CollectFromContent(ct.Content(), func(p types.Particle) (*types.ElementDecl, bool) {
+				decl, ok := p.(*types.ElementDecl)
+				return decl, ok && decl.IsReference
+			})...)
 		}
 	}
 
-	for _, qname := range sortedQNames(sch.TypeDefs) {
+	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
-			elementRefsInContent = append(elementRefsInContent, collectElementReferences(ct.Content())...)
+			elementRefsInContent = append(elementRefsInContent, traversal.CollectFromContent(ct.Content(), func(p types.Particle) (*types.ElementDecl, bool) {
+				decl, ok := p.(*types.ElementDecl)
+				return decl, ok && decl.IsReference
+			})...)
 		}
 	}
 
-	for _, qname := range sortedQNames(sch.Groups) {
+	for _, qname := range traversal.SortedQNames(sch.Groups) {
 		group := sch.Groups[qname]
 		for _, particle := range group.Particles {
 			if elem, ok := particle.(*types.ElementDecl); ok && elem.IsReference {
 				elementRefsInContent = append(elementRefsInContent, elem)
 			} else if mg, ok := particle.(*types.ModelGroup); ok {
-				elementRefsInContent = append(elementRefsInContent, collectElementReferencesFromParticles(mg.Particles)...)
+				elementRefsInContent = append(elementRefsInContent, traversal.CollectFromParticlesWithVisited(mg.Particles, make(map[*types.ModelGroup]bool), func(p types.Particle) (*types.ElementDecl, bool) {
+					decl, ok := p.(*types.ElementDecl)
+					return decl, ok && decl.IsReference
+				})...)
 			}
 		}
 	}

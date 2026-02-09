@@ -1,6 +1,7 @@
 package semanticcheck
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 
@@ -122,5 +123,10 @@ func collectUnseenKeys[T any](kind parser.GlobalDeclKind, seen map[parser.Global
 }
 
 func sortQNames(keys []types.QName) {
-	slices.SortFunc(keys, types.CompareQName)
+	slices.SortFunc(keys, func(a, b types.QName) int {
+		if a.Namespace != b.Namespace {
+			return cmp.Compare(a.Namespace, b.Namespace)
+		}
+		return cmp.Compare(a.Local, b.Local)
+	})
 }

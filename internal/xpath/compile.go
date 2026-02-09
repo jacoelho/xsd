@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // Axis describes the XPath axis used in a step.
@@ -63,7 +64,9 @@ type Expression struct {
 var ErrInvalidXPath = errors.New("invalid xpath")
 
 func xpathErrorf(format string, args ...any) error {
-	return fmt.Errorf("%w: "+format, append([]any{ErrInvalidXPath}, args...)...)
+	formatWithCode := "%w: " + format
+	params := append([]any{ErrInvalidXPath}, args...)
+	return fmt.Errorf(formatWithCode, params...)
 }
 
 // AttributePolicy controls whether parsing allows attribute selection.
@@ -78,7 +81,7 @@ const (
 
 // Parse compiles an XPath expression into a set of paths.
 func Parse(expr string, nsContext map[string]string, policy AttributePolicy) (Expression, error) {
-	expr = qname.TrimXMLWhitespace(expr)
+	expr = value.TrimXMLWhitespaceString(expr)
 	if expr == "" {
 		return Expression{}, xpathErrorf("xpath cannot be empty")
 	}
@@ -95,7 +98,7 @@ func Parse(expr string, nsContext map[string]string, policy AttributePolicy) (Ex
 	parts := strings.Split(expr, "|")
 	paths := make([]Path, 0, len(parts))
 	for _, raw := range parts {
-		part := qname.TrimXMLWhitespace(raw)
+		part := value.TrimXMLWhitespaceString(raw)
 		if part == "" {
 			return Expression{}, xpathErrorf("xpath contains empty union branch: %s", expr)
 		}
@@ -292,7 +295,7 @@ func parseNodeTest(token string, nsContext map[string]string, kind nodeTestKind)
 	}
 
 	if before, ok := strings.CutSuffix(token, ":*"); ok {
-		prefix := qname.TrimXMLWhitespace(before)
+		prefix := value.TrimXMLWhitespaceString(before)
 		if prefix == "" {
 			return NodeTest{}, xpathErrorf("xpath step has empty prefix: %s", token)
 		}
@@ -360,7 +363,7 @@ func (r *pathReader) readToken() string {
 		}
 		r.pos++
 	}
-	return qname.TrimXMLWhitespace(r.input[start:r.pos])
+	return value.TrimXMLWhitespaceString(r.input[start:r.pos])
 }
 
 func (r *pathReader) consumeSlash() bool {

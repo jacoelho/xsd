@@ -1,6 +1,10 @@
 package source
 
-import "github.com/jacoelho/xsd/internal/parser"
+import (
+	"fmt"
+
+	"github.com/jacoelho/xsd/internal/parser"
+)
 
 func (s *loadSession) loadDirectiveSchema(
 	kind parser.DirectiveKind,
@@ -9,7 +13,10 @@ func (s *loadSession) loadDirectiveSchema(
 	allowNotFound bool,
 	onLoading func(targetKey loadKey),
 ) (directiveLoadResult, error) {
-	doc, systemID, err := s.loader.resolve(req)
+	if s == nil || s.loader == nil || s.loader.resolver == nil {
+		return directiveLoadResult{}, fmt.Errorf("no resolver configured")
+	}
+	doc, systemID, err := s.loader.resolver.Resolve(req)
 	if err != nil {
 		if allowNotFound && isNotFound(err) {
 			return directiveLoadResult{status: directiveLoadStatusSkippedMissing}, nil
@@ -27,7 +34,7 @@ func (s *loadSession) loadDirectiveSchema(
 			status: directiveLoadStatusDeferred,
 		}, nil
 	}
-	if s.loader.state.isLoading(targetKey) {
+	if s.loader.state.IsLoading(targetKey) {
 		if closeErr := closeSchemaDoc(doc, systemID); closeErr != nil {
 			return directiveLoadResult{}, closeErr
 		}

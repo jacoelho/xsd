@@ -61,14 +61,6 @@ type AnyAttribute struct {
 	ProcessContents ProcessContents
 }
 
-// AllowsQName reports whether the anyAttribute wildcard allows the given QName.
-func (a *AnyAttribute) AllowsQName(qname QName) bool {
-	if a == nil {
-		return false
-	}
-	return AllowsNamespace(a.Namespace, a.NamespaceList, a.TargetNamespace, qname.Namespace)
-}
-
 // NSCInvalid represents an invalid namespace constraint.
 const NSCInvalid NamespaceConstraint = -1
 

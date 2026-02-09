@@ -7,6 +7,7 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 func TestPrepareAndBuild(t *testing.T) {
@@ -22,12 +23,12 @@ func TestPrepareAndBuild(t *testing.T) {
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	prepared, err := xsd.Prepare(fsys, "schema.xsd")
+	prepared, err := xsd.PrepareWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
 	if err != nil {
-		t.Fatalf("Prepare() error = %v", err)
+		t.Fatalf("PrepareWithOptions() error = %v", err)
 	}
 	if prepared == nil {
-		t.Fatal("Prepare() returned nil")
+		t.Fatal("PrepareWithOptions() returned nil")
 	}
 
 	order := slices.Collect(prepared.GlobalElementOrderSeq())
@@ -62,9 +63,9 @@ func TestPreparedSchemaBuildWithOptionsRejectsInvalidRuntimeLimits(t *testing.T)
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	prepared, err := xsd.Prepare(fsys, "schema.xsd")
+	prepared, err := xsd.PrepareWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
 	if err != nil {
-		t.Fatalf("Prepare() error = %v", err)
+		t.Fatalf("PrepareWithOptions() error = %v", err)
 	}
 
 	opts := xsd.NewRuntimeOptions().WithInstanceMaxDepth(-1)
@@ -87,4 +88,79 @@ func TestLoadWithOptionsRejectsInvalidSchemaLimits(t *testing.T) {
 	if _, err := xsd.LoadWithOptions(fsys, "schema.xsd", opts); err == nil {
 		t.Fatal("LoadWithOptions() error = nil, want invalid schema options error")
 	}
+}
+
+func TestQNameTypeAliasAssignability(t *testing.T) {
+	var apiQName xsd.QName = xmlstream.QName{Namespace: "urn:test", Local: "root"}
+	var streamQName xmlstream.QName = apiQName
+
+	if got, want := apiQName.String(), "{urn:test}root"; got != want {
+		t.Fatalf("xsd.QName.String() = %q, want %q", got, want)
+	}
+	if got, want := streamQName.String(), "{urn:test}root"; got != want {
+		t.Fatalf("xmlstream.QName.String() = %q, want %q", got, want)
+	}
+}
+
+func TestRuntimeOptionsAppliedThroughPrepareBuild(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:anyType"/>
+</xs:schema>`
+
+	fsys := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
+	}
+
+	prepared, err := xsd.PrepareWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("PrepareWithOptions() error = %v", err)
+	}
+
+	compileOpts := xsd.NewRuntimeOptions().
+		WithMaxDFAStates(512).
+		WithMaxOccursLimit(4096)
+	tightOpts := compileOpts.WithInstanceMaxDepth(4)
+	looseOpts := compileOpts.WithInstanceMaxDepth(64)
+
+	tightSchema, err := prepared.BuildWithOptions(tightOpts)
+	if err != nil {
+		t.Fatalf("BuildWithOptions(tight) error = %v", err)
+	}
+	looseSchema, err := prepared.BuildWithOptions(looseOpts)
+	if err != nil {
+		t.Fatalf("BuildWithOptions(loose) error = %v", err)
+	}
+
+	if tightSchema == nil {
+		t.Fatal("tight schema should be non-nil")
+	}
+	if looseSchema == nil {
+		t.Fatal("loose schema should be non-nil")
+	}
+
+	doc := deepAnyTypeDocument(8)
+	if err := tightSchema.Validate(strings.NewReader(doc)); err == nil {
+		t.Fatal("tight runtime options should reject deep document")
+	}
+	if err := looseSchema.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("loose runtime options should accept deep document: %v", err)
+	}
+}
+
+func deepAnyTypeDocument(depth int) string {
+	if depth < 1 {
+		depth = 1
+	}
+	var b strings.Builder
+	b.WriteString(`<root>`)
+	for i := 1; i < depth; i++ {
+		b.WriteString(`<n>`)
+	}
+	b.WriteString(`v`)
+	for i := 1; i < depth; i++ {
+		b.WriteString(`</n>`)
+	}
+	b.WriteString(`</root>`)
+	return b.String()
 }

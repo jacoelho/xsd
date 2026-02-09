@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestUnionStoredValueIsStable(t *testing.T) {
@@ -147,6 +148,50 @@ func TestBase64BinaryCanonicalValueIsStable(t *testing.T) {
 	}
 	if string(canon) != "YQ==" {
 		t.Fatalf("canonical mutated to %q", string(canon))
+	}
+}
+
+func TestBinaryOctetLengthAllocationsStayAtParserBaseline(t *testing.T) {
+	cases := []struct {
+		name  string
+		label string
+		value []byte
+		parse func([]byte) ([]byte, error)
+	}{
+		{
+			name:  "hexBinary",
+			label: "hexBinary",
+			value: []byte("0A0B0C0D"),
+			parse: value.ParseHexBinary,
+		},
+		{
+			name:  "base64Binary",
+			label: "base64Binary",
+			value: []byte("AQIDBA=="),
+			parse: value.ParseBase64Binary,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			parseAllocs := testing.AllocsPerRun(200, func() {
+				if _, err := tc.parse(tc.value); err != nil {
+					panic(err)
+				}
+			})
+			lengthAllocs := testing.AllocsPerRun(200, func() {
+				if _, err := binaryOctetLength(tc.parse, tc.value, nil, tc.label); err != nil {
+					panic(err)
+				}
+			})
+
+			// binaryOctetLength should not add per-call allocations beyond
+			// the parser itself.
+			if lengthAllocs > parseAllocs+0.1 {
+				t.Fatalf("length allocations = %.2f, parser baseline = %.2f", lengthAllocs, parseAllocs)
+			}
+		})
 	}
 }
 

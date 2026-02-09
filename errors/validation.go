@@ -199,11 +199,6 @@ func NewValidation(code ErrorCode, msg, path string) Validation {
 	return Validation{Code: string(code), Message: msg, Path: path}
 }
 
-// NewValidationf formats a message and builds a Validation.
-func NewValidationf(code ErrorCode, path, format string, args ...any) Validation {
-	return NewValidation(code, fmt.Sprintf(format, args...), path)
-}
-
 // AsValidations extracts validation errors from an error returned by validation helpers.
 func AsValidations(err error) ([]Validation, bool) {
 	list, ok := asValidationList(err)

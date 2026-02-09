@@ -63,5 +63,13 @@ func (s *Session) Reset() {
 		}
 	}
 	s.idRefs = s.idRefs[:0]
+	if s.identityAttrBuckets != nil {
+		if len(s.identityAttrBuckets) > maxSessionEntries {
+			s.identityAttrBuckets = nil
+		} else {
+			clear(s.identityAttrBuckets)
+		}
+	}
+	s.identityAttrNames = s.identityAttrNames[:0]
 	s.shrinkBuffers()
 }

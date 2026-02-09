@@ -15,7 +15,7 @@ func parseSimpleContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 	if base == "" {
 		return nil, types.QName{}, fmt.Errorf("extension missing base")
 	}
-	baseQName, err := resolveQName(doc, base, elem, schema)
+	baseQName, err := resolveQNameWithPolicy(doc, base, elem, schema, useDefaultNamespace)
 	if err != nil {
 		return nil, types.QName{}, err
 	}

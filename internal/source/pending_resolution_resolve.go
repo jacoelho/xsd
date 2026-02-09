@@ -2,8 +2,6 @@ package source
 
 import (
 	"fmt"
-
-	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func (l *SchemaLoader) resolvePendingTargets(pendingDirectives []pendingDirective) error {
@@ -27,8 +25,4 @@ func (l *SchemaLoader) decrementPendingAndResolve(targetKey loadKey) error {
 		}
 	}
 	return nil
-}
-
-func (l *SchemaLoader) schemaForKey(key loadKey) *parser.Schema {
-	return l.state.schemaForKey(key)
 }

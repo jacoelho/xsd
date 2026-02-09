@@ -16,7 +16,12 @@ func validateTypeReferences(schema *parser.Schema, qname types.QName, typ types.
 				if err := validateTypeQNameReference(schema, t.Restriction.Base, qname.Namespace); err != nil {
 					return fmt.Errorf("restriction base type: %w", err)
 				}
-				if err := validateSimpleTypeFinalRestriction(schema, t.Restriction.Base); err != nil {
+				if err := validateSimpleTypeFinal(
+					schema,
+					t.Restriction.Base,
+					types.DerivationRestriction,
+					"cannot derive by restriction from type '%s' which is final for restriction",
+				); err != nil {
 					return err
 				}
 			}
@@ -30,7 +35,12 @@ func validateTypeReferences(schema *parser.Schema, qname types.QName, typ types.
 			if err := validateTypeQNameReference(schema, t.List.ItemType, qname.Namespace); err != nil {
 				return fmt.Errorf("list itemType: %w", err)
 			}
-			if err := validateSimpleTypeFinalList(schema, t.List.ItemType); err != nil {
+			if err := validateSimpleTypeFinal(
+				schema,
+				t.List.ItemType,
+				types.DerivationList,
+				"cannot use type '%s' as list item type because it is final for list",
+			); err != nil {
 				return err
 			}
 		}
@@ -39,7 +49,12 @@ func validateTypeReferences(schema *parser.Schema, qname types.QName, typ types.
 				if err := validateTypeQNameReference(schema, memberType, qname.Namespace); err != nil {
 					return fmt.Errorf("union memberType %d: %w", i+1, err)
 				}
-				if err := validateSimpleTypeFinalUnion(schema, memberType); err != nil {
+				if err := validateSimpleTypeFinal(
+					schema,
+					memberType,
+					types.DerivationUnion,
+					"cannot use type '%s' as union member type because it is final for union",
+				); err != nil {
 					return fmt.Errorf("union memberType %d: %w", i+1, err)
 				}
 			}
@@ -75,24 +90,6 @@ func validateTypeReferences(schema *parser.Schema, qname types.QName, typ types.
 	}
 
 	return nil
-}
-
-// validateSimpleTypeFinalRestriction checks if a simple type's final attribute blocks restriction derivation.
-func validateSimpleTypeFinalRestriction(schema *parser.Schema, baseQName types.QName) error {
-	return validateSimpleTypeFinal(schema, baseQName, types.DerivationRestriction,
-		"cannot derive by restriction from type '%s' which is final for restriction")
-}
-
-// validateSimpleTypeFinalList checks if a simple type's final attribute blocks list derivation.
-func validateSimpleTypeFinalList(schema *parser.Schema, itemTypeQName types.QName) error {
-	return validateSimpleTypeFinal(schema, itemTypeQName, types.DerivationList,
-		"cannot use type '%s' as list item type because it is final for list")
-}
-
-// validateSimpleTypeFinalUnion checks if a simple type's final attribute blocks union derivation.
-func validateSimpleTypeFinalUnion(schema *parser.Schema, memberTypeQName types.QName) error {
-	return validateSimpleTypeFinal(schema, memberTypeQName, types.DerivationUnion,
-		"cannot use type '%s' as union member type because it is final for union")
 }
 
 func validateSimpleTypeFinal(schema *parser.Schema, qname types.QName, method types.DerivationMethod, errFmt string) error {

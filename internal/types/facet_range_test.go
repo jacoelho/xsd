@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -102,9 +103,9 @@ func TestTimeLeapSecondFacetRange(t *testing.T) {
 	timeType := &SimpleType{
 		QName: QName{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "time"},
 	}
-	minTime, err := ParseTime("23:59:60Z")
+	minTime, err := value.ParseTime([]byte("23:59:60Z"))
 	if err != nil {
-		t.Fatalf("ParseTime() error = %v", err)
+		t.Fatalf("value.ParseTime([]byte()) error = %v", err)
 	}
 	facet := &RangeFacet{
 		name:    "minInclusive",
@@ -114,18 +115,18 @@ func TestTimeLeapSecondFacetRange(t *testing.T) {
 		errOp:   ">=",
 	}
 
-	beforeTime, err := ParseTime("23:59:59Z")
+	beforeTime, err := value.ParseTime([]byte("23:59:59Z"))
 	if err != nil {
-		t.Fatalf("ParseTime() error = %v", err)
+		t.Fatalf("value.ParseTime([]byte()) error = %v", err)
 	}
 	beforeValue := NewDateTimeValue(NewParsedValue("23:59:59Z", beforeTime), timeType)
 	if err := facet.Validate(beforeValue, timeType); err == nil {
 		t.Error("Validate() should return error for value before leap second")
 	}
 
-	equalTime, err := ParseTime("23:59:60Z")
+	equalTime, err := value.ParseTime([]byte("23:59:60Z"))
 	if err != nil {
-		t.Fatalf("ParseTime() error = %v", err)
+		t.Fatalf("value.ParseTime([]byte()) error = %v", err)
 	}
 	equalValue := NewDateTimeValue(NewParsedValue("23:59:60Z", equalTime), timeType)
 	if err := facet.Validate(equalValue, timeType); err != nil {
@@ -489,7 +490,7 @@ func TestRangeFacet_DurationIndeterminate(t *testing.T) {
 		t.Fatalf("NewMinInclusive() error = %v", err)
 	}
 
-	valueDur, err := ParseXSDDuration("P30D")
+	valueDur, err := durationlex.Parse("P30D")
 	if err != nil {
 		t.Fatalf("ParseXSDDuration() error = %v", err)
 	}

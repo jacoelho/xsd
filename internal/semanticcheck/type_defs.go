@@ -4,14 +4,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/types"
 )
-
-// isValidNCName checks if a string is a valid NCName
-func isValidNCName(s string) bool {
-	return types.IsValidNCName(s)
-}
 
 // ElementTypesCompatible checks if two element declaration types are consistent.
 // Treats nil types as compatible only when both are nil (implicit anyType).
@@ -32,22 +27,12 @@ func ElementTypesCompatible(a, b types.Type) bool {
 	return a == b
 }
 
-// ResolveTypeReference resolves a type reference in schema validation contexts.
-func ResolveTypeReference(schema *parser.Schema, typ types.Type, policy typeops.TypeReferencePolicy) types.Type {
-	return typeops.ResolveTypeReference(schema, typ, policy)
-}
-
-// resolveTypeForFinalValidation resolves a type reference for substitution group final checks.
-func resolveTypeForFinalValidation(schema *parser.Schema, typ types.Type) types.Type {
-	return ResolveTypeReference(schema, typ, typeops.TypeReferenceAllowMissing)
-}
-
 // validateTypeDefStructure validates structural constraints of a type definition
 // Does not validate references (which might be forward references or imports)
-func validateTypeDefStructure(schema *parser.Schema, qname types.QName, typ types.Type) error {
+func validateTypeDefStructure(schema *parser.Schema, typeQName types.QName, typ types.Type) error {
 	// this is a structural constraint that is definitely invalid if violated
-	if !isValidNCName(qname.Local) {
-		return fmt.Errorf("invalid type name '%s': must be a valid NCName", qname.Local)
+	if !qname.IsValidNCName(typeQName.Local) {
+		return fmt.Errorf("invalid type name '%s': must be a valid NCName", typeQName.Local)
 	}
 
 	switch t := typ.(type) {

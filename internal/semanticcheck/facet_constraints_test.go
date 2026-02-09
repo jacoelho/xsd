@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	facetengine "github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -14,9 +15,9 @@ func TestCompareGYearValues(t *testing.T) {
 		t.Fatal("builtin.Get(\"gYear\") returned nil")
 	}
 
-	result, err := compareFacetValues("2002", "1998", bt)
+	result, err := facetengine.CompareFacetValues("2002", "1998", bt)
 	if err != nil || result != 1 {
-		t.Errorf("compareFacetValues(\"2002\", \"1998\", gYear) = %d, %v; want 1, nil", result, err)
+		t.Errorf("facetengine.CompareFacetValues(\"2002\", \"1998\", gYear) = %d, %v; want 1, nil", result, err)
 	}
 }
 
@@ -27,7 +28,7 @@ func TestGYearTimezoneEquivalence(t *testing.T) {
 		t.Fatal("builtin.Get(\"gYear\") returned nil")
 	}
 
-	result, err := compareFacetValues("2000Z", "2000+00:00", bt)
+	result, err := facetengine.CompareFacetValues("2000Z", "2000+00:00", bt)
 	if err != nil {
 		t.Fatalf("compareFacetValues failed: %v", err)
 	}
@@ -36,7 +37,7 @@ func TestGYearTimezoneEquivalence(t *testing.T) {
 	}
 
 	// Test reverse order
-	result, err = compareFacetValues("2000+00:00", "2000Z", bt)
+	result, err = facetengine.CompareFacetValues("2000+00:00", "2000Z", bt)
 	if err != nil {
 		t.Fatalf("compareFacetValues failed: %v", err)
 	}
@@ -50,7 +51,7 @@ func TestValidateRangeFacetsGYear(t *testing.T) {
 	maxInclusive := "1998"
 	bt := types.GetBuiltin(types.TypeNameGYear)
 
-	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
+	err := facetengine.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
 		t.Error("validateRangeFacets should return error for minInclusive > maxInclusive")
 	}
@@ -61,7 +62,7 @@ func TestValidateRangeFacetsDateTimeTimezoneDefiniteOrder(t *testing.T) {
 	maxInclusive := "1999-12-31T00:00:00"
 	bt := types.GetBuiltin(types.TypeNameDateTime)
 
-	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
+	err := facetengine.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
 		t.Fatal("expected timezone mismatch comparison to detect minInclusive > maxInclusive")
 	}
@@ -72,7 +73,7 @@ func TestValidateRangeFacetsDateTimeTimezoneIndeterminate(t *testing.T) {
 	maxInclusive := "2000-01-01T12:00:00"
 	bt := types.GetBuiltin(types.TypeNameDateTime)
 
-	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
+	err := facetengine.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err != nil {
 		t.Fatalf("expected indeterminate timezone comparison to be ignored, got %v", err)
 	}
@@ -83,7 +84,7 @@ func TestValidateRangeFacetsLargeIntegerPrecision(t *testing.T) {
 	maxInclusive := "9007199254740992"
 	bt := types.GetBuiltin(types.TypeNameInteger)
 
-	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
+	err := facetengine.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
 		t.Fatal("expected range facet comparison to detect minInclusive > maxInclusive")
 	}
@@ -94,7 +95,7 @@ func TestValidateRangeFacetsDecimalPrecision(t *testing.T) {
 	maxInclusive := "0.1234567890123456789012345678900"
 	bt := types.GetBuiltin(types.TypeNameDecimal)
 
-	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
+	err := facetengine.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
 		t.Fatal("expected range facet comparison to detect minInclusive > maxInclusive")
 	}
@@ -105,17 +106,17 @@ func TestValidateRangeFacetsFloatNaNNotComparable(t *testing.T) {
 	maxInclusive := "1.0"
 	bt := types.GetBuiltin(types.TypeNameFloat)
 
-	err := validateRangeFacets(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
+	err := facetengine.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err != nil {
 		t.Fatalf("expected NaN range comparison to be ignored, got %v", err)
 	}
 }
 
 func TestCompareFloatFacetValuesNaN(t *testing.T) {
-	if _, err := compareFloatFacetValues("NaN", "1.0"); !errors.Is(err, errFloatNotComparable) {
+	if _, err := facetengine.CompareFloatFacetValues("NaN", "1.0"); !errors.Is(err, errFloatNotComparable) {
 		t.Fatalf("expected errFloatNotComparable, got %v", err)
 	}
-	cmp, err := compareFloatFacetValues("NaN", "NaN")
+	cmp, err := facetengine.CompareFloatFacetValues("NaN", "NaN")
 	if err != nil {
 		t.Fatalf("compareFloatFacetValues NaN error = %v", err)
 	}
@@ -128,7 +129,7 @@ func TestValidateDurationRangeFacetsInvalidLexical(t *testing.T) {
 	minExclusive := "P"
 	maxExclusive := "P1D"
 
-	if err := validateDurationRangeFacets(&minExclusive, &maxExclusive, nil, nil); err == nil {
+	if err := facetengine.ValidateDurationRangeConsistency(&minExclusive, &maxExclusive, nil, nil); err == nil {
 		t.Fatal("expected invalid duration lexical value to return error")
 	}
 }

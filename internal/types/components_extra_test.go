@@ -229,8 +229,8 @@ func TestDerivationSetHelpers(t *testing.T) {
 	if !expanded.Has(DerivationList) {
 		t.Fatalf("expected derivation set to include list")
 	}
-	all := AllDerivations()
+	all := DerivationSet(DerivationExtension | DerivationRestriction | DerivationList | DerivationUnion | DerivationSubstitution)
 	if !all.Has(DerivationExtension) || !all.Has(DerivationRestriction) || !all.Has(DerivationList) || !all.Has(DerivationUnion) {
-		t.Fatalf("expected AllDerivations to include all methods")
+		t.Fatalf("expected derivation set to include all methods")
 	}
 }

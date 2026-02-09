@@ -19,20 +19,8 @@ const (
 )
 
 var (
-	xmlPrefixBytes    = []byte(XMLPrefix)
-	xmlnsPrefixBytes  = []byte(XMLNSPrefix)
 	xmlNamespaceBytes = []byte(XMLNamespace)
 )
-
-// IsXMLPrefix reports whether prefix is the reserved xml prefix.
-func IsXMLPrefix(prefix []byte) bool {
-	return bytes.Equal(prefix, xmlPrefixBytes)
-}
-
-// IsXMLNSPrefix reports whether prefix is the reserved xmlns prefix.
-func IsXMLNSPrefix(prefix []byte) bool {
-	return bytes.Equal(prefix, xmlnsPrefixBytes)
-}
 
 // XMLNamespaceBytes returns the XML namespace URI as bytes.
 // The returned slice must be treated as read-only.

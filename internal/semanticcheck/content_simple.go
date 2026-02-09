@@ -5,13 +5,14 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateSimpleContentStructure validates structural constraints of simple content.
 func validateSimpleContentStructure(schema *parser.Schema, sc *types.SimpleContent, context typeDefinitionContext) error {
 	if sc.Restriction != nil {
-		baseType, baseOK := lookupTypeDef(schema, sc.Restriction.Base)
+		baseType, baseOK := typegraph.LookupType(schema, sc.Restriction.Base)
 		if baseOK {
 			if _, isSimpleType := baseType.(*types.SimpleType); isSimpleType {
 				return fmt.Errorf("simpleContent restriction cannot have simpleType base '%s'", sc.Restriction.Base)
@@ -70,7 +71,7 @@ func validateSimpleContentStructure(schema *parser.Schema, sc *types.SimpleConte
 		}
 	}
 	if sc.Extension != nil {
-		baseType, _ := lookupTypeDef(schema, sc.Extension.Base)
+		baseType, _ := typegraph.LookupType(schema, sc.Extension.Base)
 		if baseCT, ok := baseType.(*types.ComplexType); ok {
 			if _, isSimpleContent := baseCT.Content().(*types.SimpleContent); !isSimpleContent {
 				return fmt.Errorf("simpleContent extension cannot derive from complexType '%s' which does not have simpleContent", sc.Extension.Base)

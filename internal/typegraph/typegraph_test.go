@@ -24,15 +24,15 @@ func TestLookupTypeAndComplexType(t *testing.T) {
 }
 
 func TestIsAnyTypeQName(t *testing.T) {
-	if !IsAnyTypeQName(types.QName{Namespace: types.XSDNamespace, Local: string(types.TypeNameAnyType)}) {
-		t.Fatalf("IsAnyTypeQName() = false, want true")
+	if !types.IsAnyTypeQName(types.QName{Namespace: types.XSDNamespace, Local: string(types.TypeNameAnyType)}) {
+		t.Fatalf("types.IsAnyTypeQName() = false, want true")
 	}
-	if IsAnyTypeQName(types.QName{Namespace: "urn:test", Local: "anyType"}) {
-		t.Fatalf("IsAnyTypeQName() = true, want false")
+	if types.IsAnyTypeQName(types.QName{Namespace: "urn:test", Local: "anyType"}) {
+		t.Fatalf("types.IsAnyTypeQName() = true, want false")
 	}
 }
 
-func TestCollectComplexTypeChain(t *testing.T) {
+func TestCollectComplexTypeChainExplicitBaseOnly(t *testing.T) {
 	schema := parser.NewSchema()
 	baseName := types.QName{Namespace: "urn:test", Local: "Base"}
 	derivedName := types.QName{Namespace: "urn:test", Local: "Derived"}
@@ -47,25 +47,25 @@ func TestCollectComplexTypeChain(t *testing.T) {
 	schema.TypeDefs[baseName] = base
 	schema.TypeDefs[derivedName] = derived
 
-	chain := CollectComplexTypeChain(schema, derived)
+	chain := CollectComplexTypeChain(schema, derived, ComplexTypeChainExplicitBaseOnly)
 	if len(chain) != 2 || chain[0] != derived || chain[1] != base {
 		t.Fatalf("CollectComplexTypeChain() unexpected chain: %#v", chain)
 	}
 }
 
-func TestCollectComplexTypeChainWithImplicitAnyType(t *testing.T) {
+func TestCollectComplexTypeChainAllowImplicitAnyType(t *testing.T) {
 	ct := types.NewComplexType(types.QName{Namespace: "urn:test", Local: "LocalType"}, "urn:test")
 	ct.SetContent(&types.EmptyContent{})
 
-	chain := CollectComplexTypeChainWithImplicitAnyType(nil, ct)
+	chain := CollectComplexTypeChain(nil, ct, ComplexTypeChainAllowImplicitAnyType)
 	if len(chain) != 2 {
-		t.Fatalf("CollectComplexTypeChainWithImplicitAnyType() len = %d, want 2", len(chain))
+		t.Fatalf("CollectComplexTypeChain() len = %d, want 2", len(chain))
 	}
 	if chain[0] != ct {
-		t.Fatalf("CollectComplexTypeChainWithImplicitAnyType()[0] mismatch")
+		t.Fatalf("CollectComplexTypeChain()[0] mismatch")
 	}
-	if !IsAnyTypeQName(chain[1].QName) {
-		t.Fatalf("CollectComplexTypeChainWithImplicitAnyType()[1] = %s, want xs:anyType", chain[1].QName)
+	if !types.IsAnyTypeQName(chain[1].QName) {
+		t.Fatalf("CollectComplexTypeChain()[1] = %s, want xs:anyType", chain[1].QName)
 	}
 }
 

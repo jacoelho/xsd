@@ -57,7 +57,7 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 	}
 	canon := tmp
 	if needKey {
-		listKey := valuekey.StartListKey(s.keyTmp[:0], count)
+		listKey := valuekey.AppendUvarint(s.keyTmp[:0], uint64(count))
 		listKey = append(listKey, keyTmp...)
 		s.keyTmp = listKey
 		s.setKey(metrics, runtime.VKList, listKey, false)

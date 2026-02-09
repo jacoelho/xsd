@@ -6,12 +6,8 @@ import (
 	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
-func temporalSpecFor(kind runtime.ValidatorKind) (runtime.TemporalSpec, bool) {
-	return runtime.TemporalSpecForValidatorKind(kind)
-}
-
 func (s *Session) canonicalizeTemporal(kind runtime.ValidatorKind, normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
-	spec, ok := temporalSpecFor(kind)
+	spec, ok := runtime.TemporalSpecForValidatorKind(kind)
 	if !ok {
 		return nil, valueErrorf(valueErrInvalid, "unsupported temporal kind %d", kind)
 	}
@@ -29,7 +25,7 @@ func (s *Session) canonicalizeTemporal(kind runtime.ValidatorKind, normalized []
 }
 
 func validateTemporalNoCanonical(kind runtime.ValidatorKind, normalized []byte) error {
-	spec, ok := temporalSpecFor(kind)
+	spec, ok := runtime.TemporalSpecForValidatorKind(kind)
 	if !ok {
 		return valueErrorf(valueErrInvalid, "unsupported temporal kind %d", kind)
 	}
@@ -40,7 +36,7 @@ func validateTemporalNoCanonical(kind runtime.ValidatorKind, normalized []byte) 
 }
 
 func temporalSubkind(kind runtime.ValidatorKind) byte {
-	spec, ok := temporalSpecFor(kind)
+	spec, ok := runtime.TemporalSpecForValidatorKind(kind)
 	if !ok {
 		return 0
 	}
@@ -48,7 +44,7 @@ func temporalSubkind(kind runtime.ValidatorKind) byte {
 }
 
 func parseTemporalForKind(kind runtime.ValidatorKind, lexical []byte) (temporal.Value, error) {
-	spec, ok := temporalSpecFor(kind)
+	spec, ok := runtime.TemporalSpecForValidatorKind(kind)
 	if !ok {
 		return temporal.Value{}, valueErrorf(valueErrInvalid, "unsupported temporal kind %d", kind)
 	}

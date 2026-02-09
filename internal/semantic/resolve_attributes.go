@@ -37,7 +37,10 @@ func (r *referenceResolver) resolveAttributeReference(attr *types.AttributeDecl)
 	if !ok {
 		return fmt.Errorf("attribute ref %s missing ID", attr.Name)
 	}
-	r.refs.AttributeRefs[attr] = id
+	if existing, exists := r.refs.AttributeRefs[attr.Name]; exists && existing != id {
+		return fmt.Errorf("attribute ref %s resolved inconsistently (%d != %d)", attr.Name, existing, id)
+	}
+	r.refs.AttributeRefs[attr.Name] = id
 	return nil
 }
 

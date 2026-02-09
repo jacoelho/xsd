@@ -26,13 +26,13 @@ func validateLocalElementValueConstraints(sch *parser.Schema) []error {
 			}
 		}
 	}
-	for _, qname := range sortedQNames(sch.ElementDecls) {
+	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if ct, ok := decl.Type.(*types.ComplexType); ok {
 			validateLocals(ct)
 		}
 	}
-	for _, qname := range sortedQNames(sch.TypeDefs) {
+	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			validateLocals(ct)

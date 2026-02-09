@@ -34,7 +34,7 @@ func collectEffectiveAttributeUses(schema *parser.Schema, ct *types.ComplexType)
 	if ct == nil {
 		return nil
 	}
-	chain := typegraph.CollectComplexTypeChain(schema, ct)
+	chain := typegraph.CollectComplexTypeChain(schema, ct, typegraph.ComplexTypeChainExplicitBaseOnly)
 	attrMap := make(map[types.QName]*types.AttributeDecl)
 	for i := len(chain) - 1; i >= 0; i-- {
 		mergeAttributesFromTypeForValidation(schema, chain[i], attrMap)

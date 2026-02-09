@@ -2,10 +2,13 @@ package types
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
+
+	qnamelex "github.com/jacoelho/xsd/internal/qname"
 )
 
 type Enumeration struct {
@@ -53,7 +56,7 @@ func (e *Enumeration) AppendValue(value string, context map[string]string) {
 		copy(next, contexts)
 		contexts = next
 	}
-	contexts[len(contexts)-1] = copyNamespaceContext(context)
+	contexts[len(contexts)-1] = maps.Clone(context)
 	e.setAux(contexts, nil)
 }
 
@@ -122,7 +125,7 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 
 	normalized := NormalizeWhiteSpace(lexical, baseType)
 
-	if isQNameOrNotationType(baseType) {
+	if IsQNameOrNotationType(baseType) {
 		if slices.Contains(e.values, normalized) {
 			return nil
 		}
@@ -169,14 +172,14 @@ func (e *Enumeration) ValidateLexicalQName(lexical string, baseType Type, contex
 	if baseType == nil {
 		return fmt.Errorf("enumeration: missing base type")
 	}
-	if !isQNameOrNotationType(baseType) {
+	if !IsQNameOrNotationType(baseType) {
 		return e.ValidateLexical(lexical, baseType)
 	}
 	if context == nil {
 		return fmt.Errorf("namespace context unavailable for QName/NOTATION enumeration")
 	}
 	normalized := NormalizeWhiteSpace(lexical, baseType)
-	qname, err := ParseQNameValue(normalized, context)
+	qname, err := qnamelex.ParseQNameValue(normalized, context)
 	if err != nil {
 		return err
 	}
@@ -277,7 +280,7 @@ func cloneValueContexts(values []map[string]string) []map[string]string {
 	}
 	copied := make([]map[string]string, len(values))
 	for i, ctx := range values {
-		copied[i] = copyNamespaceContext(ctx)
+		copied[i] = maps.Clone(ctx)
 	}
 	return copied
 }
@@ -505,7 +508,7 @@ func (e *Enumeration) ResolveQNameValues() ([]QName, error) {
 		if context == nil {
 			return nil, fmt.Errorf("missing namespace context for enumeration value %q", value)
 		}
-		qname, err := ParseQNameValue(value, context)
+		qname, err := qnamelex.ParseQNameValue(value, context)
 		if err != nil {
 			return nil, fmt.Errorf("invalid QName enumeration value %q: %w", value, err)
 		}

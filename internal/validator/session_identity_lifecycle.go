@@ -52,7 +52,7 @@ func (s *identityState) rollback(snapshot identitySnapshot) {
 	s.active = snapshot.active
 }
 
-func (s *identityState) start(rt *runtime.Schema, in identityStartInput) error {
+func (s *identityState) start(rt *runtime.Schema, in identityStartInput, attrs []rtIdentityAttr) error {
 	if rt == nil {
 		return fmt.Errorf("identity: schema missing")
 	}
@@ -90,7 +90,6 @@ func (s *identityState) start(rt *runtime.Schema, in identityStartInput) error {
 	}
 
 	s.matchSelectors(rt, current.depth)
-	attrs := collectIdentityAttrs(rt, in.Attrs, in.Applied)
 	s.applyFieldSelections(rt, current.depth, attrs)
 	return nil
 }

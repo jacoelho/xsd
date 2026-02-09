@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -37,7 +38,7 @@ func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *types.Compl
 	if ext == nil || ext.Base.IsZero() {
 		return nil
 	}
-	baseCT, ok := lookupComplexType(schema, ext.Base)
+	baseCT, ok := typegraph.LookupComplexType(schema, ext.Base)
 	if !ok || baseCT == nil {
 		return nil
 	}

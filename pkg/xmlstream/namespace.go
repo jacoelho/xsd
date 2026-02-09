@@ -198,14 +198,14 @@ func collectNamespaceScope(dec *xmltext.Decoder, nsBuf []byte, declBuf []Namespa
 			} else {
 				nsBuf, value = appendNamespaceValue(nsBuf, tok.AttrValue(i))
 			}
-			if xmlnames.IsXMLPrefix(local) {
+			if len(local) == 3 && local[0] == 'x' && local[1] == 'm' && local[2] == 'l' {
 				if err := xmlnames.ValidateXMLPrefixBinding(value, true); err != nil {
 					return nsScope{}, nsBuf, declBuf, namespaceDeclError(dec, tok.Line, tok.Column,
 						fmt.Errorf("%w: %w", errReservedNamespacePrefix, err))
 				}
 				continue
 			}
-			if xmlnames.IsXMLNSPrefix(local) {
+			if len(local) == 5 && local[0] == 'x' && local[1] == 'm' && local[2] == 'l' && local[3] == 'n' && local[4] == 's' {
 				return nsScope{}, nsBuf, declBuf, namespaceDeclError(dec, tok.Line, tok.Column,
 					fmt.Errorf("%w: prefix %q must not be declared", errReservedNamespacePrefix, xmlnames.XMLNSPrefix))
 			}
@@ -219,7 +219,7 @@ func collectNamespaceScope(dec *xmltext.Decoder, nsBuf []byte, declBuf []Namespa
 func resolveAttrName(dec *xmltext.Decoder, ns *nsStack, name []byte, nameColon, depth, line, column int) (string, []byte, error) {
 	prefix, local, hasPrefix := splitQNameWithColon(name, nameColon)
 	if !hasPrefix {
-		if xmlnames.IsXMLNSPrefix(local) {
+		if len(local) == 5 && local[0] == 'x' && local[1] == 'm' && local[2] == 'l' && local[3] == 'n' && local[4] == 's' {
 			return XMLNSNamespace, local, nil
 		}
 		return "", local, nil
@@ -236,7 +236,7 @@ func resolveAttrName(dec *xmltext.Decoder, ns *nsStack, name []byte, nameColon, 
 }
 
 func isDefaultNamespaceDecl(name []byte) bool {
-	return xmlnames.IsXMLNSPrefix(name)
+	return len(name) == 5 && name[0] == 'x' && name[1] == 'm' && name[2] == 'l' && name[3] == 'n' && name[4] == 's'
 }
 
 func prefixedNamespaceDecl(name []byte) ([]byte, bool) {
@@ -244,7 +244,7 @@ func prefixedNamespaceDecl(name []byte) ([]byte, bool) {
 	if !hasPrefix {
 		return nil, false
 	}
-	if !xmlnames.IsXMLNSPrefix(prefix) {
+	if !(len(prefix) == 5 && prefix[0] == 'x' && prefix[1] == 'm' && prefix[2] == 'l' && prefix[3] == 'n' && prefix[4] == 's') {
 		return nil, false
 	}
 	return local, true

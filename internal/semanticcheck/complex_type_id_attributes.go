@@ -15,7 +15,7 @@ func validateIDAttributeCount(schema *parser.Schema, complexType *types.ComplexT
 		if attr.Use == types.Prohibited || attr.Type == nil {
 			continue
 		}
-		resolvedType := ResolveTypeReference(schema, attr.Type, typeops.TypeReferenceAllowMissing)
+		resolvedType := typeops.ResolveTypeReference(schema, attr.Type, typeops.TypeReferenceAllowMissing)
 		if resolvedType == nil {
 			continue
 		}

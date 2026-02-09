@@ -4,20 +4,21 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 // validateAttributeDeclStructure validates structural constraints of an attribute declaration
 // Does not validate references (which might be forward references or imports)
-func validateAttributeDeclStructure(schemaDef *parser.Schema, qname types.QName, decl *types.AttributeDecl) error {
-	if !isValidNCName(qname.Local) {
-		return fmt.Errorf("invalid attribute name '%s': must be a valid NCName", qname.Local)
+func validateAttributeDeclStructure(schemaDef *parser.Schema, attrQName types.QName, decl *types.AttributeDecl) error {
+	if !qname.IsValidNCName(attrQName.Local) {
+		return fmt.Errorf("invalid attribute name '%s': must be a valid NCName", attrQName.Local)
 	}
-	if qname.Local == "xmlns" {
-		return fmt.Errorf("invalid attribute name '%s': reserved XMLNS name", qname.Local)
+	if attrQName.Local == "xmlns" {
+		return fmt.Errorf("invalid attribute name '%s': reserved XMLNS name", attrQName.Local)
 	}
-	effectiveNamespace := qname.Namespace
+	effectiveNamespace := attrQName.Namespace
 	if !decl.IsReference {
 		switch decl.Form {
 		case types.FormQualified:
@@ -31,7 +32,7 @@ func validateAttributeDeclStructure(schemaDef *parser.Schema, qname types.QName,
 		}
 	}
 	if effectiveNamespace == xsdxml.XSINamespace {
-		return fmt.Errorf("invalid attribute name '%s': attributes in the xsi namespace are not allowed", qname.Local)
+		return fmt.Errorf("invalid attribute name '%s': attributes in the xsi namespace are not allowed", attrQName.Local)
 	}
 
 	if decl.Type != nil {
@@ -66,9 +67,9 @@ func validateAttributeDeclStructure(schemaDef *parser.Schema, qname types.QName,
 }
 
 // validateAttributeGroupStructure validates structural constraints of an attribute group
-func validateAttributeGroupStructure(schema *parser.Schema, qname types.QName, ag *types.AttributeGroup) error {
-	if !isValidNCName(qname.Local) {
-		return fmt.Errorf("invalid attributeGroup name '%s': must be a valid NCName", qname.Local)
+func validateAttributeGroupStructure(schema *parser.Schema, groupQName types.QName, ag *types.AttributeGroup) error {
+	if !qname.IsValidNCName(groupQName.Local) {
+		return fmt.Errorf("invalid attributeGroup name '%s': must be a valid NCName", groupQName.Local)
 	}
 	for _, attr := range ag.Attributes {
 		if err := validateAttributeDeclStructure(schema, attr.Name, attr); err != nil {

@@ -22,7 +22,12 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 		key := typeops.EffectiveAttributeQName(schema, effectiveRestriction)
 		baseAttr, exists := baseAttrMap[key]
 		if !exists {
-			if baseAnyAttr == nil || !baseAnyAttr.AllowsQName(key) {
+			if baseAnyAttr == nil || !types.AllowsNamespace(
+				baseAnyAttr.Namespace,
+				baseAnyAttr.NamespaceList,
+				baseAnyAttr.TargetNamespace,
+				key.Namespace,
+			) {
 				return fmt.Errorf("%s: attribute '%s' not present in base type", context, restrictionAttr.Name.Local)
 			}
 			continue
@@ -38,7 +43,7 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 			if !effectiveRestriction.HasFixed {
 				return fmt.Errorf("%s: attribute '%s' fixed value must match base type", context, restrictionAttr.Name.Local)
 			}
-			baseType := ResolveTypeReference(schema, effectiveBase.Type, typeops.TypeReferenceAllowMissing)
+			baseType := typeops.ResolveTypeReference(schema, effectiveBase.Type, typeops.TypeReferenceAllowMissing)
 			if baseType == nil {
 				baseType = effectiveBase.Type
 			}
@@ -48,14 +53,20 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 				return fmt.Errorf("%s: attribute '%s' fixed value must match base type", context, restrictionAttr.Name.Local)
 			}
 		}
-		baseTypeQName := getTypeQName(effectiveBase.Type)
-		restrictionTypeQName := getTypeQName(effectiveRestriction.Type)
+		baseTypeQName := types.QName{}
+		if effectiveBase.Type != nil {
+			baseTypeQName = effectiveBase.Type.Name()
+		}
+		restrictionTypeQName := types.QName{}
+		if effectiveRestriction.Type != nil {
+			restrictionTypeQName = effectiveRestriction.Type.Name()
+		}
 		if baseTypeQName.IsZero() || restrictionTypeQName.IsZero() {
 			continue
 		}
 		if baseTypeQName != restrictionTypeQName {
-			baseType := ResolveTypeReference(schema, effectiveBase.Type, typeops.TypeReferenceAllowMissing)
-			restrictionType := ResolveTypeReference(schema, effectiveRestriction.Type, typeops.TypeReferenceAllowMissing)
+			baseType := typeops.ResolveTypeReference(schema, effectiveBase.Type, typeops.TypeReferenceAllowMissing)
+			restrictionType := typeops.ResolveTypeReference(schema, effectiveRestriction.Type, typeops.TypeReferenceAllowMissing)
 			if baseType == nil {
 				baseType = effectiveBase.Type
 			}

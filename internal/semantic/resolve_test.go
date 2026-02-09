@@ -1,9 +1,11 @@
 package semantic_test
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/parser"
 	schema "github.com/jacoelho/xsd/internal/semantic"
 	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
@@ -127,18 +129,18 @@ func TestReferenceResolution(t *testing.T) {
 	attrRef := findAttributeRef(t, ct.Attributes())
 
 	leafID := registry.Elements[types.QName{Namespace: "urn:ref", Local: "leaf"}]
-	if refs.ElementRefs[elemRef] != leafID {
-		t.Fatalf("element ref ID = %d, want %d", refs.ElementRefs[elemRef], leafID)
+	if refs.ElementRefs[elemRef.Name] != leafID {
+		t.Fatalf("element ref ID = %d, want %d", refs.ElementRefs[elemRef.Name], leafID)
 	}
 
 	attrID := registry.Attributes[types.QName{Namespace: "urn:ref", Local: "ga"}]
-	if refs.AttributeRefs[attrRef] != attrID {
-		t.Fatalf("attribute ref ID = %d, want %d", refs.AttributeRefs[attrRef], attrID)
+	if refs.AttributeRefs[attrRef.Name] != attrID {
+		t.Fatalf("attribute ref ID = %d, want %d", refs.AttributeRefs[attrRef.Name], attrID)
 	}
 
 	groupQName := types.QName{Namespace: "urn:ref", Local: "G"}
-	if refs.GroupRefs[groupRef] != sch.Groups[groupQName] {
-		t.Fatalf("group ref resolved to unexpected target")
+	if refs.GroupRefs[groupRef.RefQName] != groupQName {
+		t.Fatalf("group ref resolved to unexpected target: %s", refs.GroupRefs[groupRef.RefQName])
 	}
 }
 
@@ -203,5 +205,54 @@ func TestReferenceResolutionMissingSubstitutionGroupHead(t *testing.T) {
 	}
 	if _, err := schema.ResolveReferences(sch, registry); err == nil {
 		t.Fatalf("expected missing substitutionGroup head to fail reference resolution")
+	}
+}
+
+func TestResolvedReferencesStableAcrossEquivalentClones(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:stable"
+           xmlns:tns="urn:stable"
+           elementFormDefault="qualified">
+  <xs:element name="root" type="tns:T"/>
+  <xs:complexType name="T">
+    <xs:sequence>
+      <xs:element ref="tns:leaf"/>
+    </xs:sequence>
+    <xs:attribute ref="tns:a"/>
+  </xs:complexType>
+  <xs:element name="leaf" type="xs:string"/>
+  <xs:attribute name="a" type="xs:string"/>
+  <xs:group name="G">
+    <xs:sequence>
+      <xs:element name="inside" type="xs:string"/>
+    </xs:sequence>
+  </xs:group>
+</xs:schema>`
+
+	original := mustResolveSchema(t, schemaXML)
+	regA, err := schema.AssignIDs(original)
+	if err != nil {
+		t.Fatalf("AssignIDs(original) error = %v", err)
+	}
+	refsA, err := schema.ResolveReferences(original, regA)
+	if err != nil {
+		t.Fatalf("ResolveReferences(original) error = %v", err)
+	}
+
+	cloned, err := loadmerge.CloneSchemaDeep(original)
+	if err != nil {
+		t.Fatalf("CloneSchemaDeep() error = %v", err)
+	}
+	regB, err := schema.AssignIDs(cloned)
+	if err != nil {
+		t.Fatalf("AssignIDs(clone) error = %v", err)
+	}
+	refsB, err := schema.ResolveReferences(cloned, regB)
+	if err != nil {
+		t.Fatalf("ResolveReferences(clone) error = %v", err)
+	}
+	if !reflect.DeepEqual(refsA, refsB) {
+		t.Fatalf("resolved references mismatch across equivalent clones:\nA=%+v\nB=%+v", refsA, refsB)
 	}
 }

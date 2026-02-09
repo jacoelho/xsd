@@ -4,8 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	qnamelex "github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/valueparse"
 )
 
 func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) (bool, error) {
@@ -24,11 +26,11 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 	}
 
 	if types.IsQNameOrNotationType(resolvedType) {
-		leftQName, qerr := types.ParseQNameValue(left, attr.FixedContext)
+		leftQName, qerr := qnamelex.ParseQNameValue(left, attr.FixedContext)
 		if qerr != nil {
 			return false, qerr
 		}
-		rightQName, qerr := types.ParseQNameValue(right, target.FixedContext)
+		rightQName, qerr := qnamelex.ParseQNameValue(right, target.FixedContext)
 		if qerr != nil {
 			return false, qerr
 		}
@@ -36,15 +38,22 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 	}
 
 	if itemType, ok := types.ListItemType(resolvedType); ok {
-		leftItems, lerr := parseListValueVariants(schema, left, itemType, attr.FixedContext)
+		if itemType == nil {
+			return false, fmt.Errorf("list item type is nil")
+		}
+		leftItems, lerr := valueparse.ParseListValueVariants(left, func(item string) ([]types.TypedValue, error) {
+			return parseValueVariants(schema, item, itemType, attr.FixedContext)
+		})
 		if lerr != nil {
 			return false, lerr
 		}
-		rightItems, rerr := parseListValueVariants(schema, right, itemType, target.FixedContext)
+		rightItems, rerr := valueparse.ParseListValueVariants(right, func(item string) ([]types.TypedValue, error) {
+			return parseValueVariants(schema, item, itemType, target.FixedContext)
+		})
 		if rerr != nil {
 			return false, rerr
 		}
-		return types.ListValuesEqual(leftItems, rightItems), nil
+		return valueparse.ListValuesEqual(leftItems, rightItems), nil
 	}
 
 	leftValues, err := parseValueVariants(schema, left, resolvedType, attr.FixedContext)
@@ -55,13 +64,13 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 	if err != nil {
 		return false, err
 	}
-	return types.AnyValueEqual(leftValues, rightValues), nil
+	return valueparse.AnyValueEqual(leftValues, rightValues), nil
 }
 
 func parseValueVariants(schema *parser.Schema, lexical string, typ types.Type, context map[string]string) ([]types.TypedValue, error) {
 	if st, ok := typ.(*types.SimpleType); ok && st.Variety() == types.UnionVariety {
 		memberTypes := typeops.ResolveUnionMemberTypes(schema, st)
-		return types.ParseUnionValueVariants(lexical, memberTypes, func(value string, member types.Type) ([]types.TypedValue, error) {
+		return valueparse.ParseUnionValueVariants(lexical, memberTypes, func(value string, member types.Type) ([]types.TypedValue, error) {
 			typed, err := parseTypedValueWithContext(value, member, context)
 			if err != nil {
 				return nil, err
@@ -76,19 +85,10 @@ func parseValueVariants(schema *parser.Schema, lexical string, typ types.Type, c
 	return []types.TypedValue{typed}, nil
 }
 
-func parseListValueVariants(schema *parser.Schema, lexical string, itemType types.Type, context map[string]string) ([][]types.TypedValue, error) {
-	if itemType == nil {
-		return nil, fmt.Errorf("list item type is nil")
-	}
-	return types.ParseListValueVariants(lexical, func(item string) ([]types.TypedValue, error) {
-		return parseValueVariants(schema, item, itemType, context)
-	})
-}
-
 func parseTypedValueWithContext(lexical string, typ types.Type, context map[string]string) (types.TypedValue, error) {
 	if types.IsQNameOrNotationType(typ) {
 		normalized := types.NormalizeWhiteSpace(lexical, typ)
-		qname, err := types.ParseQNameValue(normalized, context)
+		qname, err := qnamelex.ParseQNameValue(normalized, context)
 		if err != nil {
 			return nil, err
 		}

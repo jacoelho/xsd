@@ -9,7 +9,7 @@ import (
 
 // parseComplexType parses a top-level complexType definition.
 func parseComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := getNameAttr(doc, elem)
+	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("complexType missing name attribute")
 	}
