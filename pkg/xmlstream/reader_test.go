@@ -319,7 +319,7 @@ func TestRawNameFromBytesColonOnly(t *testing.T) {
 
 func TestXMLDeclarationSkipped(t *testing.T) {
 	input := `<?xml version="1.0" encoding="UTF-8"?><root/>`
-	r, err := NewReader(strings.NewReader(input), EmitPI(true))
+	r, err := NewReader(strings.NewReader(input), xmltext.EmitPI(true))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -334,7 +334,7 @@ func TestXMLDeclarationSkipped(t *testing.T) {
 
 func TestScopeDepthBeforeRoot(t *testing.T) {
 	input := `<!--c--><root/>`
-	r, err := NewReader(strings.NewReader(input), EmitComments(true))
+	r, err := NewReader(strings.NewReader(input), xmltext.EmitComments(true))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -461,7 +461,7 @@ func TestReaderResetOptions(t *testing.T) {
 	if _, err = r.Next(); err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
-	if err = r.Reset(strings.NewReader("<root/>"), TrackLineColumn(false)); err != nil {
+	if err = r.Reset(strings.NewReader("<root/>"), xmltext.TrackLineColumn(false)); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
 	ev, err := r.Next()
@@ -474,7 +474,7 @@ func TestReaderResetOptions(t *testing.T) {
 }
 
 func TestReaderResetMaxDepth(t *testing.T) {
-	r, err := NewReader(strings.NewReader("<a><b/></a>"), MaxDepth(1))
+	r, err := NewReader(strings.NewReader("<a><b/></a>"), xmltext.MaxDepth(1))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -484,7 +484,7 @@ func TestReaderResetMaxDepth(t *testing.T) {
 	if _, err = r.Next(); err == nil {
 		t.Fatalf("depth error = nil, want error")
 	}
-	if err = r.Reset(strings.NewReader("<a><b/></a>"), MaxDepth(2)); err != nil {
+	if err = r.Reset(strings.NewReader("<a><b/></a>"), xmltext.MaxDepth(2)); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
 	if _, err = r.Next(); err != nil {
@@ -536,14 +536,14 @@ func TestReaderNextRecreatesNames(t *testing.T) {
 }
 
 func TestQNameCacheMaxEntriesOption(t *testing.T) {
-	r, err := NewReader(strings.NewReader("<root/>"), MaxQNameInternEntries(7))
+	r, err := NewReader(strings.NewReader("<root/>"), xmltext.MaxQNameInternEntries(7))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
 	if r.names.maxEntries != 7 {
 		t.Fatalf("maxEntries = %d, want 7", r.names.maxEntries)
 	}
-	if err = r.Reset(strings.NewReader("<root/>"), MaxQNameInternEntries(3)); err != nil {
+	if err = r.Reset(strings.NewReader("<root/>"), xmltext.MaxQNameInternEntries(3)); err != nil {
 		t.Fatalf("Reset error = %v", err)
 	}
 	if r.names.maxEntries != 3 {
@@ -561,7 +561,7 @@ func TestQNameCacheLimitNegativeOption(t *testing.T) {
 	if got := qnameCacheLimit([]xmltext.Options{xmltext.MaxQNameInternEntries(-5)}); got != 0 {
 		t.Fatalf("qnameCacheLimit(-5) = %d, want 0", got)
 	}
-	r, err := NewReader(strings.NewReader("<root/>"), MaxQNameInternEntries(-5))
+	r, err := NewReader(strings.NewReader("<root/>"), xmltext.MaxQNameInternEntries(-5))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}

@@ -9,7 +9,7 @@ import (
 
 // parseTopLevelAttribute parses a top-level attribute declaration
 func parseTopLevelAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := getNameAttr(doc, elem)
+	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("attribute missing name attribute")
 	}

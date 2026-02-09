@@ -85,27 +85,3 @@ type NamespaceURI = qname.NamespaceURI
 const NamespaceEmpty = qname.NamespaceEmpty
 
 type QName = qname.QName
-
-func ResolveNamespace(prefix string, context map[string]string) (NamespaceURI, bool) {
-	return qname.ResolveNamespace(prefix, context)
-}
-
-func CompareQName(a, b QName) int {
-	return qname.CompareQName(a, b)
-}
-
-func SplitQName(name string) (prefix, local string, hasPrefix bool) {
-	return qname.SplitQName(name)
-}
-
-func ParseQName(name string) (prefix, local string, hasPrefix bool, err error) {
-	return qname.ParseQName(name)
-}
-
-func IsValidNCName(s string) bool {
-	return qname.IsValidNCName(s)
-}
-
-func IsValidQName(s string) bool {
-	return qname.IsValidQName(s)
-}

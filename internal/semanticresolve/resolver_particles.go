@@ -8,17 +8,6 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (r *Resolver) resolveGroup(qname types.QName, mg *types.ModelGroup) error {
-	if r.detector.IsVisited(qname) {
-		return nil
-	}
-
-	return r.detector.WithScope(qname, func() error {
-		// resolve group particles (expand GroupRefs)
-		return r.resolveParticles(mg.Particles)
-	})
-}
-
 func (r *Resolver) resolveParticles(particles []types.Particle) error {
 	// use iterative approach with work queue to avoid stack overflow
 	// inline ModelGroups are tree-structured (no pointer cycles)
@@ -31,13 +20,29 @@ func (r *Resolver) resolveParticles(particles []types.Particle) error {
 
 		switch particle := p.(type) {
 		case *types.GroupRef:
-			if err := r.resolveGroupRefParticle(particle); err != nil {
+			group, ok := r.schema.Groups[particle.RefQName]
+			if !ok {
+				return fmt.Errorf("group %s not found", particle.RefQName)
+			}
+			if r.detector.IsVisited(particle.RefQName) {
+				continue
+			}
+			if err := r.detector.WithScope(particle.RefQName, func() error {
+				return r.resolveParticles(group.Particles)
+			}); err != nil {
 				return err
 			}
 		case *types.ModelGroup:
 			queue = append(queue, particle.Particles...)
 		case *types.ElementDecl:
-			if err := r.resolveElementParticle(particle); err != nil {
+			if particle.IsReference || particle.Type == nil {
+				continue
+			}
+			if err := r.resolveElementType(particle, particle.Name, elementTypeOptions{
+				simpleContext:  "element %s type: %w",
+				complexContext: "element %s anonymous type: %w",
+				allowResolving: true,
+			}); err != nil {
 				return err
 			}
 		case *types.AnyElement:
@@ -45,14 +50,6 @@ func (r *Resolver) resolveParticles(particles []types.Particle) error {
 		}
 	}
 	return nil
-}
-
-func (r *Resolver) resolveGroupRefParticle(ref *types.GroupRef) error {
-	group, ok := r.schema.Groups[ref.RefQName]
-	if !ok {
-		return fmt.Errorf("group %s not found", ref.RefQName)
-	}
-	return r.resolveGroup(ref.RefQName, group)
 }
 
 func (r *Resolver) resolveContentParticles(content types.Content) error {

@@ -27,7 +27,7 @@ func (s *Session) fixedValueMatches(
 			actualKind = kind
 			actualKey = key
 		}
-		return actualKind == fixedKey.Kind && bytes.Equal(actualKey, valueKeyBytes(s.rt.Values, fixedKey)), nil
+		return actualKind == fixedKey.Kind && bytes.Equal(actualKey, valueBytes(s.rt.Values, fixedKey.Ref)), nil
 	}
 	return bytes.Equal(canonical, valueBytes(s.rt.Values, fixed)), nil
 }

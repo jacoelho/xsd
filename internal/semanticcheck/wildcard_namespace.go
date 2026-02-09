@@ -15,10 +15,6 @@ func processContentsStrongerOrEqual(derived, base types.ProcessContents) bool {
 	}
 }
 
-func namespaceMatchesWildcard(ns types.NamespaceURI, constraint types.NamespaceConstraint, list []types.NamespaceURI, target types.NamespaceURI) bool {
-	return types.AllowsNamespace(constraint, list, target, ns)
-}
-
 func namespaceConstraintSubset(
 	ns1 types.NamespaceConstraint,
 	list1 []types.NamespaceURI,
@@ -42,15 +38,15 @@ func namespaceConstraintSubset(
 			if ns == types.NamespaceTargetPlaceholder {
 				resolved = target1
 			}
-			if !namespaceMatchesWildcard(resolved, ns2, list2, target2) {
+			if !types.AllowsNamespace(ns2, list2, target2, resolved) {
 				return false
 			}
 		}
 		return true
 	case types.NSCTargetNamespace:
-		return namespaceMatchesWildcard(target1, ns2, list2, target2)
+		return types.AllowsNamespace(ns2, list2, target2, target1)
 	case types.NSCLocal:
-		return namespaceMatchesWildcard(types.NamespaceEmpty, ns2, list2, target2)
+		return types.AllowsNamespace(ns2, list2, target2, types.NamespaceEmpty)
 	case types.NSCOther:
 		if ns2 == types.NSCAny || ns2 == types.NSCNotAbsent {
 			return true

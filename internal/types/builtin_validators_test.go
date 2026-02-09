@@ -3,6 +3,7 @@ package types
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -93,10 +94,10 @@ func TestValidateStringDerivedTypes(t *testing.T) {
 		t.Fatalf("unexpected Name error: %v", err)
 	}
 
-	if err := validateID("good"); err != nil {
+	if err := validateNCName("good"); err != nil {
 		t.Fatalf("unexpected ID error: %v", err)
 	}
-	if err := validateIDREF("1bad"); err == nil {
+	if err := validateNCName("1bad"); err == nil {
 		t.Fatalf("expected IDREF error")
 	}
 	if err := validateIDREFS("id1 id2"); err != nil {
@@ -106,7 +107,7 @@ func TestValidateStringDerivedTypes(t *testing.T) {
 		t.Fatalf("expected IDREFS error")
 	}
 
-	if err := validateENTITY("good"); err != nil {
+	if err := validateNCName("good"); err != nil {
 		t.Fatalf("unexpected ENTITY error: %v", err)
 	}
 	if err := validateENTITIES("good ent2"); err != nil {
@@ -191,10 +192,10 @@ func TestValidateDateTimeFamily(t *testing.T) {
 	if err := validateDuration("P"); err == nil {
 		t.Fatalf("expected duration error")
 	}
-	if _, err := ParseXSDDuration("PT1H"); err != nil {
+	if _, err := durationlex.Parse("PT1H"); err != nil {
 		t.Fatalf("unexpected ParseXSDDuration error: %v", err)
 	}
-	if _, err := ParseXSDDuration(""); err == nil {
+	if _, err := durationlex.Parse(""); err == nil {
 		t.Fatalf("expected ParseXSDDuration error")
 	}
 
@@ -337,7 +338,7 @@ func TestValidateBinaryURIAndQName(t *testing.T) {
 	if err := validateQName("xmlns:local"); err == nil {
 		t.Fatalf("expected QName reserved prefix error")
 	}
-	if err := validateNOTATION("n:note"); err != nil {
+	if err := validateQName("n:note"); err != nil {
 		t.Fatalf("unexpected NOTATION error: %v", err)
 	}
 }

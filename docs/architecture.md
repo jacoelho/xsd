@@ -67,6 +67,7 @@ pure helpers live in small reusable internal packages:
 - `internal/schemaflow`: schema-time resolve+validate orchestration shared by preparation flows.
 - `internal/traversal`: particle/content tree walkers reused by resolver and semanticcheck.
 - `internal/valuekey`: canonical key encoding used by runtime build and runtime validation.
+- `internal/durationlex`: shared xs:duration lexical parser reused by `types` and `valueparse`.
 
 These packages are intentionally dependency-light and do not depend on
 loading, resolver orchestration, or validator session state.
@@ -107,9 +108,9 @@ flowchart TD
 
 ## Phase 2: Resolve + Validate
 
-`internal/schemaflow.ResolveAndValidate` clones the parsed schema, resolves group
-and type references, runs structure/reference checks, and returns a validated schema
-without mutating the parse-phase model.
+`internal/schemaflow.ResolveAndValidate` clones the parsed schema for defensive
+callers, while `ResolveAndValidateOwned` validates in-place for owned pipeline
+paths. Both resolve group/type references and run structure/reference checks.
 
 ## Phase 3: Assign IDs
 
@@ -135,9 +136,9 @@ registry and builds ID-based lookup maps without mutating parser.Schema.
 
 ```go
 type ResolvedReferences struct {
-    ElementRefs   map[*types.ElementDecl]semantic.ElemID
-    AttributeRefs map[*types.AttributeDecl]semantic.AttrID
-    GroupRefs     map[*types.GroupRef]*types.ModelGroup
+    ElementRefs   map[types.QName]semantic.ElemID
+    AttributeRefs map[types.QName]semantic.AttrID
+    GroupRefs     map[types.QName]types.QName
 }
 ```
 
@@ -154,9 +155,15 @@ the validated schema and assigned registry.
 ## Phase 6: Build Runtime Schema
 
 internal/pipeline.PreparedSchema.BuildRuntime (backed by
-internal/runtimecompile) compiles prepared artifacts into an optimized runtime
-representation. The runtime schema is dense, ID-based, and immutable so it can
-be shared across goroutines.
+internal/runtimebuild and internal/validatorcompile) compiles prepared
+artifacts into an optimized runtime representation. The runtime schema is
+dense, ID-based, and immutable so it can be shared across goroutines.
+
+At the public API layer, `xsd.PreparedSchema.Build`/`BuildWithOptions` memoize
+compiled runtime schemas by compile-affecting runtime options (`maxDFAStates`,
+`maxOccursLimit`). Instance XML parse limits are applied per engine/session and
+do not force runtime recompilation. The memoization cache is bounded to avoid
+unbounded memory growth.
 
 runtime.Schema contains:
 

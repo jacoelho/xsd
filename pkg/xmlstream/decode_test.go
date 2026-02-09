@@ -189,7 +189,7 @@ func TestReadSubtreeBytesEmptyElement(t *testing.T) {
 
 func TestReadSubtreeBytesWithCommentsAndPI(t *testing.T) {
 	input := `<root><item><!--c--><?pi data?></item></root>`
-	r, err := NewReader(strings.NewReader(input), EmitComments(true), EmitPI(true))
+	r, err := NewReader(strings.NewReader(input), xmltext.EmitComments(true), xmltext.EmitPI(true))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}

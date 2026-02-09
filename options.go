@@ -33,6 +33,7 @@ type resolvedLoadOptions struct {
 
 type resolvedRuntimeOptions struct {
 	instanceParseOptions []xmlstream.Option
+	instanceLimits       xmlParseLimits
 	maxDFAStates         uint32
 	maxOccursLimit       uint32
 }
@@ -97,42 +98,6 @@ func (o LoadOptions) WithSchemaMaxQNameInternEntries(value int) LoadOptions {
 // WithRuntimeOptions sets all runtime options in one call.
 func (o LoadOptions) WithRuntimeOptions(value RuntimeOptions) LoadOptions {
 	o.runtime = value
-	return o
-}
-
-// WithMaxDFAStates sets the runtime DFA state limit (0 uses default).
-func (o LoadOptions) WithMaxDFAStates(value uint32) LoadOptions {
-	o.runtime.maxDFAStates = value
-	return o
-}
-
-// WithMaxOccursLimit sets the runtime maxOccurs compilation limit (0 uses default).
-func (o LoadOptions) WithMaxOccursLimit(value uint32) LoadOptions {
-	o.runtime.maxOccursLimit = value
-	return o
-}
-
-// WithInstanceMaxDepth sets the instance XML max depth limit (0 uses default).
-func (o LoadOptions) WithInstanceMaxDepth(value int) LoadOptions {
-	o.runtime.instanceMaxDepth = value
-	return o
-}
-
-// WithInstanceMaxAttrs sets the instance XML max attributes limit (0 uses default).
-func (o LoadOptions) WithInstanceMaxAttrs(value int) LoadOptions {
-	o.runtime.instanceMaxAttrs = value
-	return o
-}
-
-// WithInstanceMaxTokenSize sets the instance XML max token size limit (0 uses default).
-func (o LoadOptions) WithInstanceMaxTokenSize(value int) LoadOptions {
-	o.runtime.instanceMaxTokenSize = value
-	return o
-}
-
-// WithInstanceMaxQNameInternEntries sets the instance QName interning cache size (0 leaves xmlstream default).
-func (o LoadOptions) WithInstanceMaxQNameInternEntries(value int) LoadOptions {
-	o.runtime.instanceMaxQNameInternEntries = value
 	return o
 }
 
@@ -205,6 +170,7 @@ func (o RuntimeOptions) withDefaults() (resolvedRuntimeOptions, error) {
 	return resolvedRuntimeOptions{
 		maxDFAStates:         o.maxDFAStates,
 		maxOccursLimit:       o.maxOccursLimit,
+		instanceLimits:       instanceLimits,
 		instanceParseOptions: instanceLimits.options(),
 	}, nil
 }

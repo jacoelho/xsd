@@ -4,25 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
-
-// EffectiveContentParticle returns the effective element particle for a complex type.
-// For derived types, it resolves restriction or extension content.
-func EffectiveContentParticle(schema *parser.Schema, typ types.Type) types.Particle {
-	return typegraph.EffectiveContentParticle(schema, typ)
-}
-
-func lookupTypeDef(schema *parser.Schema, qname types.QName) (types.Type, bool) {
-	return typegraph.LookupType(schema, qname)
-}
-
-func lookupComplexType(schema *parser.Schema, qname types.QName) (*types.ComplexType, bool) {
-	return typegraph.LookupComplexType(schema, qname)
-}
 
 // modelGroupContainsWildcard checks if a model group contains any wildcard particles
 func modelGroupContainsWildcard(mg *types.ModelGroup) bool {
@@ -51,14 +35,6 @@ func groupKindName(kind types.GroupKind) string {
 	default:
 		return "unknown"
 	}
-}
-
-// getTypeQName returns the QName of a type, or zero QName if nil
-func getTypeQName(typ types.Type) types.QName {
-	if typ == nil {
-		return types.QName{}
-	}
-	return typ.Name()
 }
 
 // validateDeferredFacetApplicability validates a deferred facet now that the base type is resolved.

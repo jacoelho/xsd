@@ -43,14 +43,14 @@ func parseRestrictionDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema
 				return nil, fmt.Errorf("restriction cannot have both base attribute and inline simpleType child")
 			}
 		}
-		baseQName, err := resolveQName(doc, base, elem, schema)
+		baseQName, err := resolveQNameWithPolicy(doc, base, elem, schema, useDefaultNamespace)
 		if err != nil {
 			return nil, err
 		}
 		restriction.Base = baseQName
 	}
 
-	if err := parseFacets(doc, elem, restriction, facetType, schema); err != nil {
+	if err := parseFacetsWithPolicy(doc, elem, restriction, facetType, schema, facetAttributesDisallowed); err != nil {
 		return nil, fmt.Errorf("parse facets: %w", err)
 	}
 

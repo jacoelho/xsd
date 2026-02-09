@@ -23,6 +23,7 @@ func TestImportEdges(t *testing.T) {
 		{
 			scopePath: "internal/pipeline",
 			banned: []string{
+				"github.com/jacoelho/xsd/internal/validatorcompile",
 				"github.com/jacoelho/xsd/internal/semanticcheck",
 				"github.com/jacoelho/xsd/internal/semanticresolve",
 			},
@@ -30,7 +31,8 @@ func TestImportEdges(t *testing.T) {
 		{
 			scopePath: "internal/parser",
 			banned: []string{
-				"github.com/jacoelho/xsd/internal/runtimecompile",
+				"github.com/jacoelho/xsd/internal/runtimebuild",
+				"github.com/jacoelho/xsd/internal/validatorcompile",
 				"github.com/jacoelho/xsd/internal/semantic",
 				"github.com/jacoelho/xsd/internal/semanticcheck",
 				"github.com/jacoelho/xsd/internal/semanticresolve",
@@ -42,7 +44,8 @@ func TestImportEdges(t *testing.T) {
 			scopePath: "internal/source",
 			banned: []string{
 				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimecompile",
+				"github.com/jacoelho/xsd/internal/runtimebuild",
+				"github.com/jacoelho/xsd/internal/validatorcompile",
 				"github.com/jacoelho/xsd/internal/schemaflow",
 				"github.com/jacoelho/xsd/internal/semantic",
 				"github.com/jacoelho/xsd/internal/semanticcheck",
@@ -71,9 +74,18 @@ func TestImportEdges(t *testing.T) {
 			},
 		},
 		{
-			scopePath: "internal/runtimecompile",
+			scopePath: "internal/runtimebuild",
 			banned: []string{
 				"github.com/jacoelho/xsd/internal/pipeline",
+				"github.com/jacoelho/xsd/internal/source",
+				"github.com/jacoelho/xsd/internal/validator",
+			},
+		},
+		{
+			scopePath: "internal/validatorcompile",
+			banned: []string{
+				"github.com/jacoelho/xsd/internal/pipeline",
+				"github.com/jacoelho/xsd/internal/runtimebuild",
 				"github.com/jacoelho/xsd/internal/source",
 				"github.com/jacoelho/xsd/internal/validator",
 			},
@@ -88,7 +100,8 @@ func TestImportEdges(t *testing.T) {
 			scopePath: "internal/loadmerge",
 			banned: []string{
 				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimecompile",
+				"github.com/jacoelho/xsd/internal/runtimebuild",
+				"github.com/jacoelho/xsd/internal/validatorcompile",
 				"github.com/jacoelho/xsd/internal/semantic",
 				"github.com/jacoelho/xsd/internal/semanticcheck",
 				"github.com/jacoelho/xsd/internal/semanticresolve",
@@ -101,7 +114,8 @@ func TestImportEdges(t *testing.T) {
 			banned: []string{
 				"github.com/jacoelho/xsd/internal/parser",
 				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimecompile",
+				"github.com/jacoelho/xsd/internal/runtimebuild",
+				"github.com/jacoelho/xsd/internal/validatorcompile",
 				"github.com/jacoelho/xsd/internal/semantic",
 				"github.com/jacoelho/xsd/internal/semanticcheck",
 				"github.com/jacoelho/xsd/internal/semanticresolve",
@@ -110,10 +124,40 @@ func TestImportEdges(t *testing.T) {
 			},
 		},
 		{
+			scopePath: "internal/valueparse",
+			banned: []string{
+				"github.com/jacoelho/xsd/internal/parser",
+				"github.com/jacoelho/xsd/internal/pipeline",
+				"github.com/jacoelho/xsd/internal/runtimebuild",
+				"github.com/jacoelho/xsd/internal/validatorcompile",
+				"github.com/jacoelho/xsd/internal/semantic",
+				"github.com/jacoelho/xsd/internal/semanticcheck",
+				"github.com/jacoelho/xsd/internal/semanticresolve",
+				"github.com/jacoelho/xsd/internal/source",
+				"github.com/jacoelho/xsd/internal/validator",
+			},
+		},
+		{
+			scopePath: "internal/durationlex",
+			banned: []string{
+				"github.com/jacoelho/xsd/internal/parser",
+				"github.com/jacoelho/xsd/internal/pipeline",
+				"github.com/jacoelho/xsd/internal/runtimebuild",
+				"github.com/jacoelho/xsd/internal/validatorcompile",
+				"github.com/jacoelho/xsd/internal/semantic",
+				"github.com/jacoelho/xsd/internal/semanticcheck",
+				"github.com/jacoelho/xsd/internal/semanticresolve",
+				"github.com/jacoelho/xsd/internal/source",
+				"github.com/jacoelho/xsd/internal/types",
+				"github.com/jacoelho/xsd/internal/validator",
+			},
+		},
+		{
 			scopePath: "internal/schemaflow",
 			banned: []string{
 				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimecompile",
+				"github.com/jacoelho/xsd/internal/runtimebuild",
+				"github.com/jacoelho/xsd/internal/validatorcompile",
 				"github.com/jacoelho/xsd/internal/source",
 				"github.com/jacoelho/xsd/internal/validator",
 			},
@@ -123,7 +167,8 @@ func TestImportEdges(t *testing.T) {
 			banned: []string{
 				"github.com/jacoelho/xsd/internal/parser",
 				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimecompile",
+				"github.com/jacoelho/xsd/internal/runtimebuild",
+				"github.com/jacoelho/xsd/internal/validatorcompile",
 				"github.com/jacoelho/xsd/internal/semantic",
 				"github.com/jacoelho/xsd/internal/semanticcheck",
 				"github.com/jacoelho/xsd/internal/semanticresolve",
@@ -134,7 +179,8 @@ func TestImportEdges(t *testing.T) {
 		{
 			scopePath: "internal/semantic",
 			banned: []string{
-				"github.com/jacoelho/xsd/internal/runtimecompile",
+				"github.com/jacoelho/xsd/internal/runtimebuild",
+				"github.com/jacoelho/xsd/internal/validatorcompile",
 				"github.com/jacoelho/xsd/internal/semanticresolve",
 				"github.com/jacoelho/xsd/internal/source",
 				"github.com/jacoelho/xsd/internal/validator",
@@ -151,17 +197,20 @@ func TestImportEdges(t *testing.T) {
 			banned: []string{
 				"github.com/jacoelho/xsd/internal/parser",
 				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimecompile",
+				"github.com/jacoelho/xsd/internal/runtimebuild",
+				"github.com/jacoelho/xsd/internal/validatorcompile",
 				"github.com/jacoelho/xsd/internal/semantic",
 				"github.com/jacoelho/xsd/internal/semanticcheck",
 				"github.com/jacoelho/xsd/internal/semanticresolve",
 				"github.com/jacoelho/xsd/internal/source",
+				"github.com/jacoelho/xsd/internal/xsdxml",
 			},
 		},
 		{
 			scopePath: "xsd.go",
 			banned: []string{
-				"github.com/jacoelho/xsd/internal/runtimecompile",
+				"github.com/jacoelho/xsd/internal/runtimebuild",
+				"github.com/jacoelho/xsd/internal/validatorcompile",
 			},
 		},
 	}

@@ -105,4 +105,10 @@ func (s *Session) shrinkBuffers() {
 	if len(s.idTable) > maxSessionIDTableEntries {
 		s.idTable = nil
 	}
+	if cap(s.identityAttrNames) > maxSessionEntries {
+		s.identityAttrNames = nil
+	}
+	if len(s.identityAttrBuckets) > maxSessionEntries {
+		s.identityAttrBuckets = nil
+	}
 }

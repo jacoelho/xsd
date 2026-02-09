@@ -2,10 +2,12 @@ package validator
 
 import (
 	"bytes"
+	"unsafe"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 	"github.com/jacoelho/xsd/internal/valuekey"
 )
@@ -38,7 +40,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if perr != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid integer")
 		}
-		key := num.EncodeIntKey(s.keyTmp[:0], intVal)
+		key := num.EncodeDecKey(s.keyTmp[:0], intVal.AsDec())
 		s.keyTmp = key
 		return runtime.VKDecimal, key, nil
 	case runtime.VFloat:
@@ -50,7 +52,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		s.keyTmp = key
 		return runtime.VKFloat32, key, nil
 	case runtime.VDouble:
-		v, class, perr := num.ParseFloat64(canonical)
+		v, class, perr := num.ParseFloat(canonical, 64)
 		if perr != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid double")
 		}
@@ -73,7 +75,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		s.keyTmp = key
 		return runtime.VKQName, key, nil
 	case runtime.VHexBinary:
-		decoded, err := types.ParseHexBinaryBytes(canonical)
+		decoded, err := value.ParseHexBinary(canonical)
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
@@ -81,7 +83,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		s.keyTmp = key
 		return runtime.VKBinary, key, nil
 	case runtime.VBase64Binary:
-		decoded, err := types.ParseBase64BinaryBytes(canonical)
+		decoded, err := value.ParseBase64Binary(canonical)
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
@@ -89,7 +91,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		s.keyTmp = key
 		return runtime.VKBinary, key, nil
 	case runtime.VDuration:
-		dur, err := types.ParseXSDDurationBytes(canonical)
+		dur, err := durationlex.Parse(unsafe.String(unsafe.SliceData(canonical), len(canonical)))
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
@@ -159,7 +161,7 @@ func (s *Session) float64ForCanonical(canonical []byte, metrics *valueMetrics) (
 	if metrics != nil && metrics.float64Set {
 		return metrics.float64Val, metrics.float64Class, nil
 	}
-	val, class, perr := num.ParseFloat64(canonical)
+	val, class, perr := num.ParseFloat(canonical, 64)
 	if perr != nil {
 		return 0, num.FloatFinite, valueErrorMsg(valueErrInvalid, "invalid double")
 	}

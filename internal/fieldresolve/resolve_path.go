@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
@@ -70,7 +71,7 @@ func resolvePathElementDecl(schema *parser.Schema, startDecl *types.ElementDecl,
 // findElementDeclDescendant searches for an element declaration at any depth in the content model.
 func findElementDeclDescendant(schema *parser.Schema, elementDecl *types.ElementDecl, test xpath.NodeTest) (*types.ElementDecl, error) {
 	elementDecl = resolveElementReference(schema, elementDecl)
-	elementType := resolveTypeForValidation(schema, elementDecl.Type)
+	elementType := typeops.ResolveTypeReference(schema, elementDecl.Type, typeops.TypeReferenceMustExist)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
 	}
@@ -124,7 +125,7 @@ func findElementDeclInParticleDescendant(schema *parser.Schema, particle types.P
 			return elem, nil
 		}
 		if elem.Type != nil {
-			if resolvedType := resolveTypeForValidation(schema, elem.Type); resolvedType != nil {
+			if resolvedType := typeops.ResolveTypeReference(schema, elem.Type, typeops.TypeReferenceMustExist); resolvedType != nil {
 				if ct, ok := resolvedType.(*types.ComplexType); ok {
 					if _, seen := visited[ct]; !seen {
 						visited[ct] = struct{}{}
@@ -161,7 +162,7 @@ func findElementDecl(schema *parser.Schema, elementDecl *types.ElementDecl, test
 		return nil, fmt.Errorf("%w: wildcard element", ErrXPathUnresolvable)
 	}
 	elementDecl = resolveElementReference(schema, elementDecl)
-	elementType := resolveTypeForValidation(schema, elementDecl.Type)
+	elementType := typeops.ResolveTypeReference(schema, elementDecl.Type, typeops.TypeReferenceMustExist)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
 	}

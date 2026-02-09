@@ -4,10 +4,10 @@ import (
 	"bytes"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/xmllex"
 )
 
-func collectIdentityAttrs(rt *runtime.Schema, attrs []StartAttr, applied []AttrApplied) []rtIdentityAttr {
+func collectIdentityAttrs(rt *runtime.Schema, attrs []StartAttr, applied []AttrApplied, intern func(ns, local []byte) identityAttrNameID) []rtIdentityAttr {
 	if len(attrs) == 0 && len(applied) == 0 {
 		return nil
 	}
@@ -21,6 +21,10 @@ func collectIdentityAttrs(rt *runtime.Schema, attrs []StartAttr, applied []AttrA
 		if len(nsBytes) == 0 && attr.NS != 0 {
 			nsBytes = rt.Namespaces.Bytes(attr.NS)
 		}
+		nameID := identityAttrNameID(0)
+		if attr.Sym == 0 && intern != nil {
+			nameID = intern(nsBytes, local)
+		}
 		out = append(out, rtIdentityAttr{
 			sym:      attr.Sym,
 			ns:       attr.NS,
@@ -28,6 +32,7 @@ func collectIdentityAttrs(rt *runtime.Schema, attrs []StartAttr, applied []AttrA
 			local:    local,
 			keyKind:  attr.KeyKind,
 			keyBytes: attr.KeyBytes,
+			nameID:   nameID,
 		})
 	}
 	for _, ap := range applied {
@@ -45,6 +50,7 @@ func collectIdentityAttrs(rt *runtime.Schema, attrs []StartAttr, applied []AttrA
 			local:    rt.Symbols.LocalBytes(ap.Name),
 			keyKind:  ap.KeyKind,
 			keyBytes: ap.KeyBytes,
+			nameID:   0,
 		})
 	}
 	return out
@@ -56,9 +62,9 @@ func isXMLNSAttr(attr *rtIdentityAttr, rt *runtime.Schema) bool {
 	}
 	if attr.ns != 0 {
 		nsBytes := rt.Namespaces.Bytes(attr.ns)
-		return bytes.Equal(nsBytes, []byte(xsdxml.XMLNSNamespace))
+		return bytes.Equal(nsBytes, []byte(xmllex.XMLNSNamespace))
 	}
-	return bytes.Equal(attr.nsBytes, []byte(xsdxml.XMLNSNamespace))
+	return bytes.Equal(attr.nsBytes, []byte(xmllex.XMLNSNamespace))
 }
 
 func attrNamespaceMatches(attr *rtIdentityAttr, ns runtime.NamespaceID, rt *runtime.Schema) bool {
@@ -89,15 +95,4 @@ func attrNameMatches(attr *rtIdentityAttr, op runtime.PathOp, rt *runtime.Schema
 		return false
 	}
 	return attrNamespaceMatches(attr, op.NS, rt)
-}
-
-func makeAttrKey(nsBytes, local []byte) string {
-	if len(nsBytes) == 0 && len(local) == 0 {
-		return ""
-	}
-	key := make([]byte, 0, len(nsBytes)+1+len(local))
-	key = append(key, nsBytes...)
-	key = append(key, 0)
-	key = append(key, local...)
-	return string(key)
 }

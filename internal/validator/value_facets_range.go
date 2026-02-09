@@ -1,6 +1,9 @@
 package validator
 
 import (
+	"unsafe"
+
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/types"
@@ -30,11 +33,11 @@ func (s *Session) compareValue(kind runtime.ValidatorKind, canonical, bound []by
 		}
 		return val.Compare(boundVal), nil
 	case runtime.VDuration:
-		val, err := types.ParseXSDDurationBytes(canonical)
+		val, err := durationlex.Parse(unsafe.String(unsafe.SliceData(canonical), len(canonical)))
 		if err != nil {
 			return 0, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		boundVal, err := types.ParseXSDDurationBytes(bound)
+		boundVal, err := durationlex.Parse(unsafe.String(unsafe.SliceData(bound), len(bound)))
 		if err != nil {
 			return 0, valueErrorMsg(valueErrInvalid, err.Error())
 		}
@@ -74,7 +77,7 @@ func (s *Session) checkFloat32Range(op runtime.FacetOp, canonical, bound []byte,
 	if boundClass == num.FloatNaN || valClass == num.FloatNaN {
 		return rangeViolation(op)
 	}
-	cmp, _ := num.CompareFloat32(val, valClass, boundVal, boundClass)
+	cmp, _ := num.CompareFloat(float64(val), valClass, float64(boundVal), boundClass)
 	return compareRange(op, cmp)
 }
 
@@ -83,14 +86,14 @@ func (s *Session) checkFloat64Range(op runtime.FacetOp, canonical, bound []byte,
 	if err != nil {
 		return err
 	}
-	boundVal, boundClass, perr := num.ParseFloat64(bound)
+	boundVal, boundClass, perr := num.ParseFloat(bound, 64)
 	if perr != nil {
 		return valueErrorMsg(valueErrInvalid, "invalid double")
 	}
 	if boundClass == num.FloatNaN || valClass == num.FloatNaN {
 		return rangeViolation(op)
 	}
-	cmp, _ := num.CompareFloat64(val, valClass, boundVal, boundClass)
+	cmp, _ := num.CompareFloat(val, valClass, boundVal, boundClass)
 	return compareRange(op, cmp)
 }
 

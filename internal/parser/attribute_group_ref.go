@@ -15,7 +15,7 @@ func parseAttributeGroupRefQName(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 	if ref == "" {
 		return types.QName{}, fmt.Errorf("attributeGroup reference missing ref attribute")
 	}
-	refQName, err := resolveQName(doc, ref, elem, schema)
+	refQName, err := resolveQNameWithPolicy(doc, ref, elem, schema, useDefaultNamespace)
 	if err != nil {
 		return types.QName{}, fmt.Errorf("resolve attributeGroup ref %s: %w", ref, err)
 	}

@@ -82,7 +82,7 @@ func applyTopLevelElementDerivations(doc *xsdxml.Document, elem xsdxml.NodeID, s
 
 func applyTopLevelElementSubstitutionGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *types.ElementDecl) error {
 	if subGroup := doc.GetAttribute(elem, "substitutionGroup"); subGroup != "" {
-		subGroupQName, err := resolveElementQName(doc, subGroup, elem, schema)
+		subGroupQName, err := resolveQNameWithPolicy(doc, subGroup, elem, schema, useDefaultNamespace)
 		if err != nil {
 			return fmt.Errorf("resolve substitutionGroup %s: %w", subGroup, err)
 		}

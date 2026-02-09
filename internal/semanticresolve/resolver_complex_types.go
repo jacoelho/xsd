@@ -44,7 +44,7 @@ func (r *Resolver) doResolveComplexType(qname types.QName, ct *types.ComplexType
 }
 
 func (r *Resolver) resolveComplexTypeBase(qname types.QName, ct *types.ComplexType) error {
-	baseQName := r.getBaseQName(ct)
+	baseQName := ct.Content().BaseTypeQName()
 	if baseQName.IsZero() {
 		return nil
 	}
@@ -113,8 +113,4 @@ func (r *Resolver) resolveComplexTypeAttributes(qname types.QName, ct *types.Com
 	}
 
 	return nil
-}
-
-func (r *Resolver) getBaseQName(ct *types.ComplexType) types.QName {
-	return ct.Content().BaseTypeQName()
 }

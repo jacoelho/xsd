@@ -8,22 +8,17 @@ import (
 
 // ValidateFacetConstraints validates facet consistency and values for a base type.
 func ValidateFacetConstraints(schema *parser.Schema, facetList []types.Facet, baseType types.Type, baseQName types.QName) error {
-	return facetengine.ValidateSchemaConstraints(
-		facetengine.SchemaConstraintInput{
-			FacetList: facetList,
-			BaseType:  baseType,
-			BaseQName: baseQName,
+	input := facetengine.SchemaConstraintInput{
+		FacetList: facetList,
+		BaseType:  baseType,
+		BaseQName: baseQName,
+	}
+	callbacks := facetengine.SchemaConstraintCallbacks{
+		ValidateRangeConsistency: facetengine.ValidateRangeConsistency,
+		ValidateRangeValues:      facetengine.ValidateRangeValues,
+		ValidateEnumerationValue: func(value string, baseType types.Type, context map[string]string) error {
+			return validateValueAgainstTypeWithFacets(schema, value, baseType, context, make(map[types.Type]bool))
 		},
-		facetengine.SchemaConstraintCallbacks{
-			ValidateRangeConsistency: validateRangeFacets,
-			ValidateRangeValues:      validateRangeFacetValues,
-			ValidateEnumerationValue: func(value string, baseType types.Type, context map[string]string) error {
-				return validateValueAgainstTypeWithFacets(schema, value, baseType, context, make(map[types.Type]bool))
-			},
-		},
-	)
-}
-
-func isValidFacetName(name string) bool {
-	return facetengine.IsValidFacetName(name)
+	}
+	return facetengine.ValidateSchemaConstraints(input, callbacks)
 }

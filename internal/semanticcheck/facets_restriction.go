@@ -23,7 +23,7 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Fa
 		if baseValStr == "" || derivedValStr == "" {
 			return nil
 		}
-		cmp, err := compareFacetValues(derivedValStr, baseValStr, baseType)
+		cmp, err := facetengine.CompareFacetValues(derivedValStr, baseValStr, baseType)
 		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}
@@ -46,7 +46,7 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Fa
 		if baseValStr == "" || derivedValStr == "" {
 			return nil
 		}
-		cmp, err := compareFacetValues(derivedValStr, baseValStr, baseType)
+		cmp, err := facetengine.CompareFacetValues(derivedValStr, baseValStr, baseType)
 		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}
@@ -133,24 +133,4 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Fa
 	}
 
 	return nil
-}
-
-func compareFacetValues(val1, val2 string, baseType types.Type) (int, error) {
-	return facetengine.CompareFacetValues(val1, val2, baseType)
-}
-
-func compareFloatFacetValues(val1, val2 string) (int, error) {
-	return facetengine.CompareFloatFacetValues(val1, val2)
-}
-
-func validateRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseType types.Type, baseQName types.QName) error {
-	return facetengine.ValidateRangeConsistency(minExclusive, maxExclusive, minInclusive, maxInclusive, baseType, baseQName)
-}
-
-func validateDurationRangeFacets(minExclusive, maxExclusive, minInclusive, maxInclusive *string) error {
-	return facetengine.ValidateDurationRangeConsistency(minExclusive, maxExclusive, minInclusive, maxInclusive)
-}
-
-func validateRangeFacetValues(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseType types.Type, bt *types.BuiltinType) error {
-	return facetengine.ValidateRangeValues(minExclusive, maxExclusive, minInclusive, maxInclusive, baseType, bt)
 }

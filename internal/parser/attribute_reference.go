@@ -18,7 +18,7 @@ func parseAttributeReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 		return nil, err
 	}
 
-	refQName, err := resolveAttributeRefQName(doc, ref, elem, schema)
+	refQName, err := resolveQNameWithPolicy(doc, ref, elem, schema, forceEmptyNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("resolve ref %s: %w", ref, err)
 	}

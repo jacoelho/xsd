@@ -5,6 +5,7 @@ import (
 	"io"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 const maxNameMapSize = 1 << 20
@@ -36,20 +37,30 @@ func (s *Session) ValidateWithDocument(r io.Reader, document string) error {
 	s.Reset()
 	s.documentURI = document
 
-	stream := newStreamController(s)
-	if err := stream.Reset(r); err != nil {
-		return err
+	if s.reader == nil {
+		factory := s.readerFactory
+		if factory == nil {
+			factory = xmlstream.NewReader
+		}
+		reader, err := factory(r, s.parseOptions...)
+		if err != nil {
+			return readerSetupError(err, s.documentURI)
+		}
+		s.reader = reader
+	} else if err := s.reader.Reset(r, s.parseOptions...); err != nil {
+		return readerSetupError(err, s.documentURI)
 	}
+
 	executor := newValidationExecutor(s)
 	for {
-		ev, err := stream.NextResolved()
+		ev, err := s.reader.NextResolved()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			return xsderrors.ValidationList{s.newValidation(xsderrors.ErrXMLParse, err.Error(), s.pathString(), 0, 0)}
 		}
-		if err := executor.process(&ev, stream); err != nil {
+		if err := executor.process(&ev, s.reader); err != nil {
 			return err
 		}
 	}

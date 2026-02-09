@@ -56,7 +56,7 @@ func parseModelGroupGroupRef(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 	if ref == "" {
 		return nil, fmt.Errorf("group reference missing ref attribute")
 	}
-	refQName, err := resolveQName(doc, ref, elem, schema)
+	refQName, err := resolveQNameWithPolicy(doc, ref, elem, schema, useDefaultNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("resolve group ref %s: %w", ref, err)
 	}

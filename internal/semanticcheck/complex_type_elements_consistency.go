@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -21,24 +22,33 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *t
 	}
 
 	baseQName := content.BaseTypeQName()
-	baseComplexType, ok := lookupComplexType(schema, baseQName)
+	baseComplexType, ok := typegraph.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}
 
-	baseElements := CollectAllElementDeclarationsFromType(schema, baseComplexType)
+	baseElements := traversal.CollectElementDeclsFromComplexType(schema, baseComplexType)
 	if ext.Particle == nil {
 		return nil
 	}
-	extElements := traversal.CollectElements(ext.Particle)
+	extElements := traversal.CollectFromParticlesWithVisited([]types.Particle{ext.Particle}, nil, func(p types.Particle) (*types.ElementDecl, bool) {
+		elem, ok := p.(*types.ElementDecl)
+		return elem, ok
+	})
 
 	for _, extElem := range extElements {
 		for _, baseElem := range baseElements {
 			if extElem.Name != baseElem.Name {
 				continue
 			}
-			extTypeQName := getTypeQName(extElem.Type)
-			baseTypeQName := getTypeQName(baseElem.Type)
+			extTypeQName := types.QName{}
+			if extElem.Type != nil {
+				extTypeQName = extElem.Type.Name()
+			}
+			baseTypeQName := types.QName{}
+			if baseElem.Type != nil {
+				baseTypeQName = baseElem.Type.Name()
+			}
 			if extTypeQName != baseTypeQName {
 				return fmt.Errorf("element '%s' in extension has type '%s' but base type has type '%s' (Element Declarations Consistent violation)", extElem.Name.Local, extTypeQName, baseTypeQName)
 			}
@@ -46,9 +56,4 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *t
 	}
 
 	return nil
-}
-
-// CollectAllElementDeclarationsFromType collects all element declarations from a complex type.
-func CollectAllElementDeclarationsFromType(schema *parser.Schema, complexType *types.ComplexType) []*types.ElementDecl {
-	return traversal.CollectElementDeclsFromComplexType(schema, complexType)
 }

@@ -136,7 +136,7 @@ func TestNextRawAttrValueError(t *testing.T) {
 
 func TestNextRawNonElementEvents(t *testing.T) {
 	input := `<!--c--><?pi test?><!DOCTYPE root><root/>`
-	r, err := NewReader(strings.NewReader(input), EmitComments(true), EmitPI(true), EmitDirectives(true))
+	r, err := NewReader(strings.NewReader(input), xmltext.EmitComments(true), xmltext.EmitPI(true), xmltext.EmitDirectives(true))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -172,7 +172,7 @@ func TestNextRawNonElementEvents(t *testing.T) {
 
 func TestRawEventScopeDepthPI(t *testing.T) {
 	input := `<root><?pi data?></root>`
-	r, err := NewReader(strings.NewReader(input), EmitPI(true))
+	r, err := NewReader(strings.NewReader(input), xmltext.EmitPI(true))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -193,7 +193,7 @@ func TestRawEventScopeDepthPI(t *testing.T) {
 
 func TestRawEventScopeDepthDirective(t *testing.T) {
 	input := `<!DOCTYPE root><root/>`
-	r, err := NewReader(strings.NewReader(input), EmitDirectives(true))
+	r, err := NewReader(strings.NewReader(input), xmltext.EmitDirectives(true))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -211,7 +211,7 @@ func TestRawEventScopeDepthDirective(t *testing.T) {
 
 func TestNextRawCommentNestedScopeDepth(t *testing.T) {
 	input := `<root><child><!--comment--></child></root>`
-	r, err := NewReader(strings.NewReader(input), EmitComments(true))
+	r, err := NewReader(strings.NewReader(input), xmltext.EmitComments(true))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -251,7 +251,7 @@ func TestNextRawNilReader(t *testing.T) {
 
 func TestNextRawXMLDeclSkipped(t *testing.T) {
 	input := `<?xml version="1.0" encoding="UTF-8"?><root/>`
-	r, err := NewReader(strings.NewReader(input), EmitPI(true))
+	r, err := NewReader(strings.NewReader(input), xmltext.EmitPI(true))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -15,13 +16,19 @@ func validateWildcardDerivation(schema *parser.Schema, ct *types.ComplexType) er
 		return nil
 	}
 
-	baseCT, ok := lookupComplexType(schema, baseQName)
+	baseCT, ok := typegraph.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}
 
-	baseWildcards := collectWildcardsFromContent(baseCT.Content())
-	derivedWildcards := collectWildcardsFromContent(ct.Content())
+	baseWildcards := traversal.CollectFromContent(baseCT.Content(), func(p types.Particle) (*types.AnyElement, bool) {
+		wildcard, ok := p.(*types.AnyElement)
+		return wildcard, ok
+	})
+	derivedWildcards := traversal.CollectFromContent(ct.Content(), func(p types.Particle) (*types.AnyElement, bool) {
+		wildcard, ok := p.(*types.AnyElement)
+		return wildcard, ok
+	})
 
 	if ct.IsRestriction() {
 		if len(baseWildcards) == 0 && len(derivedWildcards) > 0 {
@@ -30,7 +37,11 @@ func validateWildcardDerivation(schema *parser.Schema, ct *types.ComplexType) er
 		for _, derivedWildcard := range derivedWildcards {
 			foundSubset := false
 			for _, baseWildcard := range baseWildcards {
-				if wildcardIsSubset(derivedWildcard, baseWildcard) {
+				if processContentsStrongerOrEqual(derivedWildcard.ProcessContents, baseWildcard.ProcessContents) &&
+					namespaceConstraintSubset(
+						derivedWildcard.Namespace, derivedWildcard.NamespaceList, derivedWildcard.TargetNamespace,
+						baseWildcard.Namespace, baseWildcard.NamespaceList, baseWildcard.TargetNamespace,
+					) {
 					foundSubset = true
 					break
 				}
@@ -42,29 +53,4 @@ func validateWildcardDerivation(schema *parser.Schema, ct *types.ComplexType) er
 	}
 
 	return nil
-}
-
-// collectWildcardsFromContent collects all AnyElement wildcards from content model
-func collectWildcardsFromContent(content types.Content) []*types.AnyElement {
-	return traversal.CollectFromContent(content, func(p types.Particle) (*types.AnyElement, bool) {
-		wildcard, ok := p.(*types.AnyElement)
-		return wildcard, ok
-	})
-}
-
-// wildcardIsSubset checks if wildcard1's namespace constraint is a subset of wildcard2's
-// This is used for restriction validation
-// w1 is a subset of w2 if every namespace that matches w1 also matches w2
-func wildcardIsSubset(w1, w2 *types.AnyElement) bool {
-	if !processContentsStrongerOrEqual(w1.ProcessContents, w2.ProcessContents) {
-		return false
-	}
-	return wildcardNamespaceSubset(w1, w2)
-}
-
-func wildcardNamespaceSubset(w1, w2 *types.AnyElement) bool {
-	return namespaceConstraintSubset(
-		w1.Namespace, w1.NamespaceList, w1.TargetNamespace,
-		w2.Namespace, w2.NamespaceList, w2.TargetNamespace,
-	)
 }

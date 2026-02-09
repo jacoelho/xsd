@@ -9,11 +9,6 @@ import (
 
 const noOriginLocation = ""
 
-// validateTypeReferenceFromType validates that a type reference exists (from a Type interface).
-func validateTypeReferenceFromType(schema *parser.Schema, typ types.Type, contextNamespace types.NamespaceURI) error {
-	return validateTypeReferenceFromTypeAtLocation(schema, typ, contextNamespace, noOriginLocation)
-}
-
 func validateTypeReferenceFromTypeAtLocation(schema *parser.Schema, typ types.Type, contextNamespace types.NamespaceURI, originLocation string) error {
 	visited := make(map[*types.ModelGroup]bool)
 	return validateTypeReferenceFromTypeWithVisited(schema, typ, visited, contextNamespace, originLocation)

@@ -63,7 +63,7 @@ func validateWildcardNamespaceRestriction(schema *parser.Schema, baseAny *types.
 			return validateWildcardNamespaceRestriction(schema, baseAny, group, visitedMG, visitedGroups)
 		}
 	case *types.ElementDecl:
-		if !namespaceMatchesWildcard(p.Name.Namespace, baseAny.Namespace, baseAny.NamespaceList, baseAny.TargetNamespace) {
+		if !types.AllowsNamespace(baseAny.Namespace, baseAny.NamespaceList, baseAny.TargetNamespace, p.Name.Namespace) {
 			return fmt.Errorf("ComplexContent restriction: element namespace %q not allowed by base wildcard", p.Name.Namespace)
 		}
 	case *types.AnyElement:
@@ -85,7 +85,10 @@ func validateWildcardToWildcardRestriction(baseAny, restrictionAny *types.AnyEle
 			processContentsName(restrictionAny.ProcessContents),
 		)
 	}
-	if !wildcardNamespaceSubset(restrictionAny, baseAny) {
+	if !namespaceConstraintSubset(
+		restrictionAny.Namespace, restrictionAny.NamespaceList, restrictionAny.TargetNamespace,
+		baseAny.Namespace, baseAny.NamespaceList, baseAny.TargetNamespace,
+	) {
 		return fmt.Errorf("ComplexContent restriction: wildcard restriction: wildcard is not a subset of base wildcard")
 	}
 	return nil

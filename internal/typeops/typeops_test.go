@@ -157,8 +157,8 @@ func TestDefaultDeferredFacetConverter(t *testing.T) {
 func TestHelpersNilInputs(t *testing.T) {
 	t.Parallel()
 
-	if got, err := ResolveSimpleTypeReference(nil, types.QName{}); err != nil || got != nil {
-		t.Fatalf("ResolveSimpleTypeReference nil input = (%v, %v), want (nil, nil)", got, err)
+	if got, err := ResolveTypeQName(nil, types.QName{}, TypeReferenceMustExist); err != nil || got != nil {
+		t.Fatalf("ResolveTypeQName nil input = (%v, %v), want (nil, nil)", got, err)
 	}
 	if got := ResolveSimpleTypeReferenceAllowMissing(nil, types.QName{}); got != nil {
 		t.Fatalf("ResolveSimpleTypeReferenceAllowMissing nil input = %v, want nil", got)
@@ -181,7 +181,7 @@ func TestHelpersNilInputs(t *testing.T) {
 func TestResolveSimpleTypeReferenceMissingTypeReturnsError(t *testing.T) {
 	t.Parallel()
 
-	_, err := ResolveSimpleTypeReference(nil, types.QName{Namespace: "urn:test", Local: "Missing"})
+	_, err := ResolveTypeQName(nil, types.QName{Namespace: "urn:test", Local: "Missing"}, TypeReferenceMustExist)
 	if err == nil || !strings.Contains(err.Error(), "type {urn:test}Missing not found") {
 		t.Fatalf("expected missing type error, got %v", err)
 	}

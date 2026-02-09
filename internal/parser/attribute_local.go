@@ -3,19 +3,20 @@ package parser
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 func parseLocalAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, local bool) (*types.AttributeDecl, error) {
-	name := getNameAttr(doc, elem)
+	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return nil, fmt.Errorf("attribute missing name and ref")
 	}
 	if name == "xmlns" {
 		return nil, fmt.Errorf("attribute name cannot be 'xmlns'")
 	}
-	if !types.IsValidNCName(name) {
+	if !qname.IsValidNCName(name) {
 		return nil, fmt.Errorf("attribute name '%s' must be a valid NCName", name)
 	}
 
@@ -52,7 +53,7 @@ func parseLocalAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 	}
 
 	if typeName != "" {
-		typeQName, err := resolveQName(doc, typeName, elem, schema)
+		typeQName, err := resolveQNameWithPolicy(doc, typeName, elem, schema, useDefaultNamespace)
 		if err != nil {
 			return nil, fmt.Errorf("resolve type %s: %w", typeName, err)
 		}

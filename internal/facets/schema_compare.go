@@ -6,7 +6,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
@@ -105,11 +107,11 @@ func CompareFacetValues(val1, val2 string, baseType types.Type) (int, error) {
 }
 
 func compareNumericFacetValues(val1, val2 string) (int, error) {
-	d1, err := types.ParseDecimal(val1)
+	d1, err := value.ParseDecimal([]byte(val1))
 	if err != nil {
 		return 0, err
 	}
-	d2, err := types.ParseDecimal(val2)
+	d2, err := value.ParseDecimal([]byte(val2))
 	if err != nil {
 		return 0, err
 	}
@@ -118,11 +120,11 @@ func compareNumericFacetValues(val1, val2 string) (int, error) {
 
 // CompareFloatFacetValues compares float lexical values with NaN handling.
 func CompareFloatFacetValues(val1, val2 string) (int, error) {
-	f1, err := types.ParseFloat(val1)
+	f1, err := value.ParseFloat([]byte(val1))
 	if err != nil {
 		return 0, err
 	}
-	f2, err := types.ParseFloat(val2)
+	f2, err := value.ParseFloat([]byte(val2))
 	if err != nil {
 		return 0, err
 	}
@@ -130,11 +132,11 @@ func CompareFloatFacetValues(val1, val2 string) (int, error) {
 }
 
 func compareDoubleFacetValues(val1, val2 string) (int, error) {
-	f1, err := types.ParseDouble(val1)
+	f1, err := value.ParseDouble([]byte(val1))
 	if err != nil {
 		return 0, err
 	}
-	f2, err := types.ParseDouble(val2)
+	f2, err := value.ParseDouble([]byte(val2))
 	if err != nil {
 		return 0, err
 	}
@@ -259,11 +261,11 @@ func compareDateTimeOrder(t1, t2 temporal.Value) (int, error) {
 }
 
 func compareDurationValues(v1, v2 string) (int, error) {
-	left, err := types.ParseXSDDuration(v1)
+	left, err := durationlex.Parse(v1)
 	if err != nil {
 		return 0, err
 	}
-	right, err := types.ParseXSDDuration(v2)
+	right, err := durationlex.Parse(v2)
 	if err != nil {
 		return 0, err
 	}

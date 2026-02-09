@@ -10,7 +10,11 @@ import (
 
 // validateSubstitutionGroupDerivation validates that the member element's type is derived from the head element's type.
 func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName types.QName, memberDecl, headDecl *types.ElementDecl) error {
-	if isDefaultAnyType(memberDecl) && headDecl.Type != nil {
+	if memberDecl != nil &&
+		!memberDecl.TypeExplicit &&
+		memberDecl.Type != nil &&
+		types.IsAnyTypeQName(memberDecl.Type.Name()) &&
+		headDecl.Type != nil {
 		memberDecl.Type = headDecl.Type
 	}
 
@@ -19,7 +23,10 @@ func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName types.Q
 	if memberType == nil || headType == nil {
 		return nil
 	}
-	if !memberDecl.SubstitutionGroup.IsZero() && !memberDecl.TypeExplicit && isDefaultAnyType(memberDecl) {
+	if !memberDecl.SubstitutionGroup.IsZero() &&
+		!memberDecl.TypeExplicit &&
+		memberDecl.Type != nil &&
+		types.IsAnyTypeQName(memberDecl.Type.Name()) {
 		memberType = headType
 	}
 
@@ -74,11 +81,4 @@ func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName types.Q
 	}
 
 	return nil
-}
-
-func isDefaultAnyType(decl *types.ElementDecl) bool {
-	if decl == nil || decl.TypeExplicit {
-		return false
-	}
-	return types.IsAnyType(decl.Type)
 }

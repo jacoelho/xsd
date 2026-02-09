@@ -127,15 +127,6 @@ func collectFromParticles[T any](particles []types.Particle, visited map[*types.
 	return result
 }
 
-// CollectFromParticle collects values from a particle tree using a typed predicate.
-func CollectFromParticle[T any](particle types.Particle, collect func(types.Particle) (T, bool)) []T {
-	if particle == nil {
-		return nil
-	}
-
-	return collectFromParticles([]types.Particle{particle}, nil, collect)
-}
-
 // CollectFromContent collects values from all particles present in a content model.
 func CollectFromContent[T any](content types.Content, collect func(types.Particle) (T, bool)) []T {
 	switch c := content.(type) {
@@ -164,20 +155,4 @@ func CollectFromParticlesWithVisited[T any](particles []types.Particle, visited 
 		visited = make(map[*types.ModelGroup]bool)
 	}
 	return collectFromParticles(particles, visited, collect)
-}
-
-// CollectElements returns all element declarations in a particle tree.
-func CollectElements(particle types.Particle) []*types.ElementDecl {
-	return CollectFromParticle(particle, func(p types.Particle) (*types.ElementDecl, bool) {
-		elem, ok := p.(*types.ElementDecl)
-		return elem, ok
-	})
-}
-
-// CollectWildcards returns all wildcard particles in a tree.
-func CollectWildcards(particle types.Particle) []*types.AnyElement {
-	return CollectFromParticle(particle, func(p types.Particle) (*types.AnyElement, bool) {
-		wildcard, ok := p.(*types.AnyElement)
-		return wildcard, ok
-	})
 }

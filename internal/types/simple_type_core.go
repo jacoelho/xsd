@@ -98,7 +98,7 @@ func NewBuiltinSimpleType(name TypeName) (*SimpleType, error) {
 		return nil, fmt.Errorf("failed to build built-in type %s", name)
 	}
 	if st.List != nil {
-		if itemName, ok := builtinListItemTypeName(string(name)); ok {
+		if itemName, ok := BuiltinListItemTypeName(string(name)); ok {
 			if itemType := GetBuiltin(itemName); itemType != nil {
 				st.ItemType = itemType
 			}
@@ -534,7 +534,7 @@ func (s *SimpleType) MeasureLength(lexical string) int {
 					// restriction of list type: length is number of items
 					return countXMLFields(lexical)
 				}
-				if builtinType, ok := AsBuiltinType(s.ResolvedBase); ok && isBuiltinListType(builtinType.Name().Local) {
+				if builtinType, ok := AsBuiltinType(s.ResolvedBase); ok && IsBuiltinListTypeName(builtinType.Name().Local) {
 					// restriction of built-in list type: length is number of items
 					return countXMLFields(lexical)
 				}
@@ -546,7 +546,7 @@ func (s *SimpleType) MeasureLength(lexical string) int {
 		if !s.Restriction.Base.IsZero() {
 			baseLocal := s.Restriction.Base.Local
 			if strings.HasPrefix(strings.ToLower(baseLocal), "list") ||
-				isBuiltinListType(baseLocal) {
+				IsBuiltinListTypeName(baseLocal) {
 				// likely a list type - count items
 				return countXMLFields(lexical)
 			}
@@ -603,18 +603,18 @@ func (s *SimpleType) Variety() SimpleTypeVariety {
 			case *SimpleType:
 				return base.Variety()
 			case *BuiltinType:
-				if isBuiltinListType(base.Name().Local) {
+				if IsBuiltinListTypeName(base.Name().Local) {
 					return ListVariety
 				}
 			}
 		}
 		if !s.Restriction.Base.IsZero() &&
 			s.Restriction.Base.Namespace == XSDNamespace &&
-			isBuiltinListType(s.Restriction.Base.Local) {
+			IsBuiltinListTypeName(s.Restriction.Base.Local) {
 			return ListVariety
 		}
 	}
-	if s.builtin && isBuiltinListType(s.QName.Local) {
+	if s.builtin && IsBuiltinListTypeName(s.QName.Local) {
 		return ListVariety
 	}
 	return AtomicVariety

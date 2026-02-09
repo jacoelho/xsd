@@ -22,14 +22,6 @@ func (l EntryLifecycle[E]) Begin() (*E, func(), error) {
 	return entry, cleanup, nil
 }
 
-// Initialize populates entry state.
-func (l EntryLifecycle[E]) Initialize(entry *E) error {
-	if l.Init == nil {
-		return nil
-	}
-	return l.Init(entry)
-}
-
 // Commit marks the entry as fully loaded.
 func (l EntryLifecycle[E]) Commit(entry *E) {
 	if l.Finalize == nil {

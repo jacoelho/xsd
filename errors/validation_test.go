@@ -95,19 +95,6 @@ func TestNewValidation(t *testing.T) {
 	}
 }
 
-func TestNewValidationf(t *testing.T) {
-	v := NewValidationf(ErrElementNotDeclared, "/root", "element %s not declared", "child")
-	if v.Code != string(ErrElementNotDeclared) {
-		t.Fatalf("Code = %q, want %q", v.Code, ErrElementNotDeclared)
-	}
-	if v.Message != "element child not declared" {
-		t.Fatalf("Message = %q, want %q", v.Message, "element child not declared")
-	}
-	if v.Path != "/root" {
-		t.Fatalf("Path = %q, want %q", v.Path, "/root")
-	}
-}
-
 func TestValidationListError(t *testing.T) {
 	one := Validation{Code: "cvc-elt.1", Message: "missing element"}
 	two := Validation{Code: "cvc-elt.2", Message: "element is abstract"}

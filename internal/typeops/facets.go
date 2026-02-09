@@ -31,68 +31,70 @@ func DefaultDeferredFacetConverter(df *types.DeferredFacet, baseType types.Type)
 
 // CollectSimpleTypeFacets collects inherited and local facets for a simple type.
 func CollectSimpleTypeFacets(schema *parser.Schema, st *types.SimpleType, convert DeferredFacetConverter) ([]types.Facet, error) {
-	return collectSimpleTypeFacetsVisited(schema, st, make(map[*types.SimpleType]bool), convert)
-}
-
-func collectSimpleTypeFacetsVisited(schema *parser.Schema, st *types.SimpleType, visited map[*types.SimpleType]bool, convert DeferredFacetConverter) ([]types.Facet, error) {
-	if st == nil {
-		return nil, nil
-	}
-	if visited[st] {
-		return nil, nil
-	}
-	visited[st] = true
-	defer delete(visited, st)
-
-	var result []types.Facet
-	if st.ResolvedBase != nil {
-		if baseST, ok := st.ResolvedBase.(*types.SimpleType); ok {
-			baseFacets, err := collectSimpleTypeFacetsVisited(schema, baseST, visited, convert)
-			if err != nil {
-				return nil, err
-			}
-			result = append(result, baseFacets...)
+	visited := make(map[*types.SimpleType]bool)
+	var visit func(current *types.SimpleType) ([]types.Facet, error)
+	visit = func(current *types.SimpleType) ([]types.Facet, error) {
+		if current == nil {
+			return nil, nil
 		}
-	} else if st.Restriction != nil && !st.Restriction.Base.IsZero() {
-		if base := ResolveSimpleTypeReferenceAllowMissing(schema, st.Restriction.Base); base != nil {
-			if baseST, ok := base.(*types.SimpleType); ok {
-				baseFacets, err := collectSimpleTypeFacetsVisited(schema, baseST, visited, convert)
+		if visited[current] {
+			return nil, nil
+		}
+		visited[current] = true
+		defer delete(visited, current)
+
+		var result []types.Facet
+		if current.ResolvedBase != nil {
+			if baseST, ok := current.ResolvedBase.(*types.SimpleType); ok {
+				baseFacets, err := visit(baseST)
 				if err != nil {
 					return nil, err
 				}
 				result = append(result, baseFacets...)
 			}
+		} else if current.Restriction != nil && !current.Restriction.Base.IsZero() {
+			if base := ResolveSimpleTypeReferenceAllowMissing(schema, current.Restriction.Base); base != nil {
+				if baseST, ok := base.(*types.SimpleType); ok {
+					baseFacets, err := visit(baseST)
+					if err != nil {
+						return nil, err
+					}
+					result = append(result, baseFacets...)
+				}
+			}
 		}
-	}
 
-	switch {
-	case st.IsBuiltin() && types.IsBuiltinListTypeName(st.QName.Local):
-		result = append(result, &types.MinLength{Value: 1})
-	case st.ResolvedBase != nil:
-		if bt, ok := st.ResolvedBase.(*types.BuiltinType); ok && types.IsBuiltinListTypeName(bt.Name().Local) {
+		switch {
+		case current.IsBuiltin() && types.IsBuiltinListTypeName(current.QName.Local):
+			result = append(result, &types.MinLength{Value: 1})
+		case current.ResolvedBase != nil:
+			if bt, ok := current.ResolvedBase.(*types.BuiltinType); ok && types.IsBuiltinListTypeName(bt.Name().Local) {
+				result = append(result, &types.MinLength{Value: 1})
+			}
+		case current.Restriction != nil && !current.Restriction.Base.IsZero() &&
+			current.Restriction.Base.Namespace == types.XSDNamespace &&
+			types.IsBuiltinListTypeName(current.Restriction.Base.Local):
 			result = append(result, &types.MinLength{Value: 1})
 		}
-	case st.Restriction != nil && !st.Restriction.Base.IsZero() &&
-		st.Restriction.Base.Namespace == types.XSDNamespace &&
-		types.IsBuiltinListTypeName(st.Restriction.Base.Local):
-		result = append(result, &types.MinLength{Value: 1})
+
+		if current.Restriction != nil {
+			var baseType types.Type
+			if current.ResolvedBase != nil {
+				baseType = current.ResolvedBase
+			} else if !current.Restriction.Base.IsZero() {
+				baseType = ResolveSimpleTypeReferenceAllowMissing(schema, current.Restriction.Base)
+			}
+			restrictionFacets, err := CollectRestrictionFacets(schema, current.Restriction, baseType, convert)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, restrictionFacets...)
+		}
+
+		return result, nil
 	}
 
-	if st.Restriction != nil {
-		var baseType types.Type
-		if st.ResolvedBase != nil {
-			baseType = st.ResolvedBase
-		} else if !st.Restriction.Base.IsZero() {
-			baseType = ResolveSimpleTypeReferenceAllowMissing(schema, st.Restriction.Base)
-		}
-		restrictionFacets, err := CollectRestrictionFacets(schema, st.Restriction, baseType, convert)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, restrictionFacets...)
-	}
-
-	return result, nil
+	return visit(st)
 }
 
 // CollectRestrictionFacets collects restriction facets and composes patterns when valid.

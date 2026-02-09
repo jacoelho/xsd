@@ -82,7 +82,7 @@ func (i *nameInterner) internBytes(name []byte, prefixLen int) qnameSpan {
 	if len(name) == 0 {
 		return qnameSpan{}
 	}
-	hash := hashBytes(name)
+	hash := maphash.Bytes(hashSeed, name)
 	return i.internBytesHash(name, prefixLen, hash)
 }
 
@@ -180,8 +180,4 @@ func makeQNameSpan(buf *spanBuffer, start, end, colon int) qnameSpan {
 	prefix := makeSpan(buf, start, colon)
 	local := makeSpan(buf, colon+1, end)
 	return qnameSpan{Full: full, Prefix: prefix, Local: local, HasPrefix: true}
-}
-
-func hashBytes(data []byte) uint64 {
-	return maphash.Bytes(hashSeed, data)
 }

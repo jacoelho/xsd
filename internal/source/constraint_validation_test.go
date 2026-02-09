@@ -24,7 +24,7 @@ func TestFacetLengthWithMinMaxLength(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		// parser may reject this during parse-time facet checks.
 		return
@@ -61,7 +61,7 @@ func TestFacetLengthWithMaxLength(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		// parser may reject this during parse-time facet checks.
 		return
@@ -85,7 +85,7 @@ func TestFacetLengthOnBoolean(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		// parser may reject this during parse-time facet checks.
 		return
@@ -109,7 +109,7 @@ func TestFacetTotalDigitsOnNonDecimal(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		// parser may reject this during parse-time facet checks.
 		return
@@ -153,7 +153,7 @@ func TestKeyrefAnonymousFieldTypesIncompatible(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestElementDefaultEmptyViolatesMinLength(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestAttributeDefaultEmptyViolatesMinLength(t *testing.T) {
   </xs:attribute>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestFacetRangeOnNonOrderedType(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		// parser might reject this - that's fine, it's still a constraint violation
 		return
@@ -268,7 +268,7 @@ func TestAttributeDefaultValueValidation(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -291,7 +291,7 @@ func TestAttributeFixedValueValidation(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -318,7 +318,7 @@ func TestQNameEnumerationDefaultValueNamespaceEquivalent(t *testing.T) {
   <xs:element name="root" type="tns:QNameType" default="q:foo"/>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -345,7 +345,7 @@ func TestQNameEnumerationDefaultValueNamespaceMismatch(t *testing.T) {
   <xs:element name="root" type="tns:QNameType" default="q:foo"/>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -375,7 +375,7 @@ func TestDefaultValueInheritsBaseFacets(t *testing.T) {
   <xs:element name="root" type="tns:Derived" default="aa"/>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -403,7 +403,7 @@ func TestListDefaultValueViolatesLengthFacet(t *testing.T) {
   <xs:element name="root" type="tns:RestrictedIntList" default="1 2 3"/>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -431,7 +431,7 @@ func TestUnionDefaultValueViolatesEnumerationFacet(t *testing.T) {
   <xs:element name="root" type="tns:RestrictedUnion" default="2"/>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -461,7 +461,7 @@ func TestKeyFieldSelectsNillableElement(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -509,7 +509,7 @@ func TestKeyrefFieldSelectsNillableElement(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -541,7 +541,7 @@ func TestUniqueFieldSelectsNillableElement(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -578,7 +578,7 @@ func TestUniqueAllowsMixedContentField(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -597,7 +597,7 @@ func TestElementDefaultValueValidation(t *testing.T) {
   <xs:element name="count" type="xs:integer" default="not-a-number"/>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -638,7 +638,7 @@ func TestElementFixedValueUnionValidation(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -737,7 +737,7 @@ func TestIDTypeDefaultValueRejection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := parser.ParseWithImports(strings.NewReader(tt.schemaXML))
+			result, err := parser.ParseWithImportsOptions(strings.NewReader(tt.schemaXML))
 			if err != nil {
 				t.Fatalf("Parse schema: %v", err)
 			}
@@ -784,7 +784,7 @@ func TestMultipleIDAttributesViaDerivedTypes(t *testing.T) {
   </xs:complexType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -813,7 +813,7 @@ func TestExtensionDuplicateAttributeRejected(t *testing.T) {
   </xs:complexType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -845,7 +845,7 @@ func TestExtensionDuplicateAttributeGroupRejected(t *testing.T) {
   </xs:complexType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -874,7 +874,7 @@ func TestGYearFacetValueSpaceEqualityAccepted(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -903,7 +903,7 @@ func TestGYearFacetValueSpaceOrderingRejectsDerived(t *testing.T) {
   </xs:simpleType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -933,7 +933,7 @@ func TestAnyAttributeIntersectionInvalid(t *testing.T) {
   </xs:complexType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -963,7 +963,7 @@ func TestAnyAttributeIntersectionValid(t *testing.T) {
   </xs:complexType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -993,7 +993,7 @@ func TestUPAWithGroupRefInChoiceInvalid(t *testing.T) {
   </xs:complexType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -1024,7 +1024,7 @@ func TestUPAWithGroupRefValid(t *testing.T) {
   </xs:complexType>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		t.Fatalf("Parse schema: %v", err)
 	}
@@ -1051,7 +1051,7 @@ func TestWildcardInvalidNamespace(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	result, err := parser.ParseWithImports(strings.NewReader(schemaXML))
+	result, err := parser.ParseWithImportsOptions(strings.NewReader(schemaXML))
 	if err != nil {
 		// parser might reject this - that's fine, it's still a constraint violation
 		return

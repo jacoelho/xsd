@@ -4,10 +4,6 @@ import "github.com/jacoelho/xsd/internal/types"
 
 // HasPlaceholders reports whether unresolved type placeholders remain.
 func HasPlaceholders(schema *Schema) bool {
-	return hasPlaceholders(schema)
-}
-
-func hasPlaceholders(schema *Schema) bool {
 	if schema == nil {
 		return false
 	}

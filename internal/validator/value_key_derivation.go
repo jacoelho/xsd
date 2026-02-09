@@ -33,7 +33,7 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte,
 		}); err != nil {
 			return runtime.VKInvalid, nil, err
 		}
-		listKey := valuekey.StartListKey(s.keyTmp[:0], count)
+		listKey := valuekey.AppendUvarint(s.keyTmp[:0], uint64(count))
 		listKey = append(listKey, keyBytes...)
 		s.keyTmp = listKey
 		return runtime.VKList, listKey, nil

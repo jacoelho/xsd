@@ -29,11 +29,6 @@ func (d DerivationSet) Add(method DerivationMethod) DerivationSet {
 	return DerivationSet(int(d) | int(method))
 }
 
-// AllDerivations returns a set containing all derivation methods
-func AllDerivations() DerivationSet {
-	return DerivationSet(DerivationExtension | DerivationRestriction | DerivationList | DerivationUnion | DerivationSubstitution)
-}
-
 // Restriction represents a type restriction
 type Restriction struct {
 	Particle     Particle

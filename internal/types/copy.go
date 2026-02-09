@@ -172,14 +172,6 @@ func copyAttributeDecls(attrs []*AttributeDecl, opts CopyOptions) []*AttributeDe
 	return out
 }
 
-func copyFields(fields []Field) []Field {
-	return slices.Clone(fields)
-}
-
-func copyNamespaceContext(src map[string]string) map[string]string {
-	return maps.Clone(src)
-}
-
 func copyValueNamespaceContext(src map[string]string, opts CopyOptions) map[string]string {
 	if src == nil {
 		return nil
@@ -218,8 +210,8 @@ func copyIdentityConstraints(constraints []*IdentityConstraint, opts CopyOptions
 		if !constraint.ReferQName.IsZero() && constraint.ReferQName.Namespace.IsEmpty() {
 			clone.ReferQName = opts.RemapQName(constraint.ReferQName)
 		}
-		clone.Fields = copyFields(constraint.Fields)
-		clone.NamespaceContext = copyNamespaceContext(constraint.NamespaceContext)
+		clone.Fields = slices.Clone(constraint.Fields)
+		clone.NamespaceContext = maps.Clone(constraint.NamespaceContext)
 		out = append(out, &clone)
 	}
 	if len(out) == 0 {

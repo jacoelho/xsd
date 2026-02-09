@@ -2,6 +2,15 @@ package xsdxml
 
 import "sync"
 
+const (
+	maxPooledNodeEntries        = 1 << 15
+	maxPooledAttrEntries        = 1 << 15
+	maxPooledChildEntries       = 1 << 16
+	maxPooledTextSegmentEntries = 1 << 15
+	maxPooledTextScratchEntries = 1 << 15
+	maxPooledCountEntries       = 1 << 15
+)
+
 var documentPool = sync.Pool{
 	New: func() any {
 		return &Document{root: InvalidNode}
@@ -24,5 +33,6 @@ func ReleaseDocument(doc *Document) {
 		return
 	}
 	doc.reset()
+	doc.trimForPool()
 	documentPool.Put(doc)
 }

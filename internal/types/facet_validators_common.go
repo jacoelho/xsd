@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
@@ -19,11 +20,6 @@ func getXSDTypeName(value TypedValue) string {
 	return typ.Name().Local
 }
 
-// parseTemporalValue parses a lexical value according to its primitive type name.
-func parseTemporalValue(primitiveName, lexical string) (temporal.Value, error) {
-	return temporal.ParsePrimitive(primitiveName, []byte(lexical))
-}
-
 // durationToXSD converts a time.Duration to XSDDuration.
 func durationToXSD(d time.Duration) XSDDuration {
 	negative := d < 0
@@ -34,7 +30,7 @@ func durationToXSD(d time.Duration) XSDDuration {
 	d %= time.Hour
 	minutes := int(d / time.Minute)
 	d %= time.Minute
-	seconds := decFromDurationSeconds(d)
+	seconds := num.DecFromScaledInt(num.FromInt64(int64(d)), 9)
 	return XSDDuration{
 		Negative: negative,
 		Years:    0,
@@ -219,7 +215,7 @@ func parseStringToComparableValue(value TypedValue, lexical string, typ Type) (C
 		return ComparableDec{Value: rat, Typ: typ}, nil
 
 	case "dateTime", "date", "time", "gYear", "gYearMonth", "gMonth", "gMonthDay", "gDay":
-		timeVal, err := parseTemporalValue(primitiveName, lexical)
+		timeVal, err := temporal.ParsePrimitive(primitiveName, []byte(lexical))
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse date/time: %w", err)
 		}
@@ -246,7 +242,7 @@ func parseStringToComparableValue(value TypedValue, lexical string, typ Type) (C
 		return ComparableFloat64{Value: doubleVal, Typ: typ}, nil
 
 	case "duration":
-		xsdDur, err := ParseXSDDuration(lexical)
+		xsdDur, err := durationlex.Parse(lexical)
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse duration: %w", err)
 		}

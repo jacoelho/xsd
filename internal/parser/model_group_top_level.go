@@ -10,7 +10,7 @@ import (
 // parseTopLevelGroup parses a top-level <group> definition.
 // Content model: (annotation?, (all | choice | sequence))
 func parseTopLevelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := getNameAttr(doc, elem)
+	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("group missing name attribute")
 	}

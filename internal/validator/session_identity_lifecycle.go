@@ -52,10 +52,11 @@ func (s *identityState) rollback(snapshot identitySnapshot) {
 	s.active = snapshot.active
 }
 
-func (s *identityState) start(rt *runtime.Schema, in identityStartInput) error {
-	if rt == nil {
+func (s *identityState) start(sess *Session, in identityStartInput) error {
+	if sess == nil || sess.rt == nil {
 		return fmt.Errorf("identity: schema missing")
 	}
+	rt := sess.rt
 	elem, ok := elementByID(rt, in.Elem)
 	if !ok {
 		return fmt.Errorf("identity: element %d not found", in.Elem)
@@ -89,8 +90,11 @@ func (s *identityState) start(rt *runtime.Schema, in identityStartInput) error {
 		return nil
 	}
 
+	var attrs []rtIdentityAttr
+	if len(in.Attrs) != 0 || len(in.Applied) != 0 {
+		attrs = collectIdentityAttrs(rt, in.Attrs, in.Applied, sess.internIdentityAttrName)
+	}
 	s.matchSelectors(rt, current.depth)
-	attrs := collectIdentityAttrs(rt, in.Attrs, in.Applied)
 	s.applyFieldSelections(rt, current.depth, attrs)
 	return nil
 }

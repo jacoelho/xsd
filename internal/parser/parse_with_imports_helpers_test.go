@@ -73,7 +73,7 @@ func parseSchemaDoc(t *testing.T, src string) (*xsdxml.Document, xsdxml.NodeID) 
 	t.Cleanup(func() {
 		xsdxml.ReleaseDocument(doc)
 	})
-	if err := xsdxml.ParseInto(strings.NewReader(src), doc); err != nil {
+	if err := xsdxml.ParseIntoWithOptions(strings.NewReader(src), doc); err != nil {
 		t.Fatalf("parse XML: %v", err)
 	}
 	root := doc.DocumentElement()

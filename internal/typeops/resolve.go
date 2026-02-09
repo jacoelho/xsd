@@ -54,12 +54,6 @@ func ResolveTypeReference(schema *parser.Schema, typ types.Type, policy TypeRefe
 	return typ
 }
 
-// ResolveSimpleTypeReference resolves a simple type QName against built-ins and schema types.
-// It returns an error when the referenced type cannot be found.
-func ResolveSimpleTypeReference(schema *parser.Schema, qname types.QName) (types.Type, error) {
-	return ResolveTypeQName(schema, qname, TypeReferenceMustExist)
-}
-
 // ResolveSimpleTypeReferenceAllowMissing resolves a simple type QName when present.
 func ResolveSimpleTypeReferenceAllowMissing(schema *parser.Schema, qname types.QName) types.Type {
 	resolved, err := ResolveTypeQName(schema, qname, TypeReferenceAllowMissing)
@@ -97,40 +91,42 @@ func ResolveSimpleContentBaseTypeFromContent(schema *parser.Schema, sc *types.Si
 
 // ResolveUnionMemberTypes returns flattened member types for union simple types.
 func ResolveUnionMemberTypes(schema *parser.Schema, st *types.SimpleType) []types.Type {
-	return resolveUnionMemberTypesVisited(schema, st, make(map[*types.SimpleType]bool))
-}
-
-func resolveUnionMemberTypesVisited(schema *parser.Schema, st *types.SimpleType, visited map[*types.SimpleType]bool) []types.Type {
-	if st == nil {
-		return nil
-	}
-	if visited[st] {
-		return nil
-	}
-	visited[st] = true
-	defer delete(visited, st)
-
-	if len(st.MemberTypes) > 0 {
-		return st.MemberTypes
-	}
-	if st.Union != nil {
-		memberTypes := make([]types.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
-		for _, inline := range st.Union.InlineTypes {
-			memberTypes = append(memberTypes, inline)
+	visited := make(map[*types.SimpleType]bool)
+	var visit func(*types.SimpleType) []types.Type
+	visit = func(current *types.SimpleType) []types.Type {
+		if current == nil {
+			return nil
 		}
-		for _, memberQName := range st.Union.MemberTypes {
-			if member := ResolveSimpleTypeReferenceAllowMissing(schema, memberQName); member != nil {
-				memberTypes = append(memberTypes, member)
+		if visited[current] {
+			return nil
+		}
+		visited[current] = true
+		defer delete(visited, current)
+
+		if len(current.MemberTypes) > 0 {
+			return current.MemberTypes
+		}
+		if current.Union != nil {
+			memberTypes := make([]types.Type, 0, len(current.Union.MemberTypes)+len(current.Union.InlineTypes))
+			for _, inline := range current.Union.InlineTypes {
+				memberTypes = append(memberTypes, inline)
+			}
+			for _, memberQName := range current.Union.MemberTypes {
+				if member := ResolveSimpleTypeReferenceAllowMissing(schema, memberQName); member != nil {
+					memberTypes = append(memberTypes, member)
+				}
+			}
+			return memberTypes
+		}
+		if current.Restriction != nil && !current.Restriction.Base.IsZero() {
+			if baseST, ok := ResolveSimpleTypeReferenceAllowMissing(schema, current.Restriction.Base).(*types.SimpleType); ok {
+				return visit(baseST)
 			}
 		}
-		return memberTypes
+		return nil
 	}
-	if st.Restriction != nil && !st.Restriction.Base.IsZero() {
-		if baseST, ok := ResolveSimpleTypeReferenceAllowMissing(schema, st.Restriction.Base).(*types.SimpleType); ok {
-			return resolveUnionMemberTypesVisited(schema, baseST, visited)
-		}
-	}
-	return nil
+
+	return visit(st)
 }
 
 // ResolveListItemType returns the list item type for explicit or derived list simple types.
@@ -173,37 +169,39 @@ func IsIDOnlyType(qname types.QName) bool {
 
 // IsIDOnlyDerivedType reports whether a simple type derives from xs:ID.
 func IsIDOnlyDerivedType(schema *parser.Schema, st *types.SimpleType) bool {
-	return isIDOnlyDerivedTypeVisited(schema, st, make(map[*types.SimpleType]bool))
-}
+	visited := make(map[*types.SimpleType]bool)
+	var visit func(*types.SimpleType) bool
+	visit = func(current *types.SimpleType) bool {
+		if current == nil || current.Restriction == nil {
+			return false
+		}
+		if visited[current] {
+			return false
+		}
+		visited[current] = true
+		defer delete(visited, current)
 
-func isIDOnlyDerivedTypeVisited(schema *parser.Schema, st *types.SimpleType, visited map[*types.SimpleType]bool) bool {
-	if st == nil || st.Restriction == nil {
-		return false
-	}
-	if visited[st] {
-		return false
-	}
-	visited[st] = true
-	defer delete(visited, st)
+		baseQName := current.Restriction.Base
+		if IsIDOnlyType(baseQName) {
+			return true
+		}
 
-	baseQName := st.Restriction.Base
-	if IsIDOnlyType(baseQName) {
-		return true
+		var baseType types.Type
+		if current.ResolvedBase != nil {
+			baseType = current.ResolvedBase
+		} else if !baseQName.IsZero() {
+			baseType = ResolveSimpleTypeReferenceAllowMissing(schema, baseQName)
+		}
+
+		switch typed := baseType.(type) {
+		case *types.SimpleType:
+			return visit(typed)
+		case *types.BuiltinType:
+			return IsIDOnlyType(typed.Name())
+		default:
+			return false
+		}
 	}
 
-	var baseType types.Type
-	if st.ResolvedBase != nil {
-		baseType = st.ResolvedBase
-	} else if !baseQName.IsZero() {
-		baseType = ResolveSimpleTypeReferenceAllowMissing(schema, baseQName)
-	}
-
-	switch typed := baseType.(type) {
-	case *types.SimpleType:
-		return isIDOnlyDerivedTypeVisited(schema, typed, visited)
-	case *types.BuiltinType:
-		return IsIDOnlyType(typed.Name())
-	default:
-		return false
-	}
+	return visit(st)
 }

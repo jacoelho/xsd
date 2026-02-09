@@ -1,6 +1,7 @@
 package source
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/jacoelho/xsd/internal/parser"
@@ -17,7 +18,10 @@ func (l *SchemaLoader) Load(location string) (*parser.Schema, error) {
 
 // loadRoot loads the root schema by resolving the provided location.
 func (l *SchemaLoader) loadRoot(location string) (*parser.Schema, error) {
-	doc, systemID, err := l.resolve(ResolveRequest{
+	if l == nil || l.resolver == nil {
+		return nil, fmt.Errorf("no resolver configured")
+	}
+	doc, systemID, err := l.resolver.Resolve(ResolveRequest{
 		BaseSystemID:   "",
 		SchemaLocation: location,
 		Kind:           ResolveInclude,
@@ -53,7 +57,7 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 		return loadedSchema, err
 	}
 
-	result, err := session.parseSchema()
+	result, err := parseSchemaDocument(session.doc, session.systemID, session.loader.config.SchemaParseOptions...)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,12 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+
+	"github.com/jacoelho/xsd/internal/durationlex"
+	"github.com/jacoelho/xsd/internal/value"
+)
 
 // ValueParserFunc parses a lexical value and returns a TypedValue.
 // The typ parameter is the type that should be used in the resulting TypedValue.
@@ -26,14 +32,14 @@ var valueParsers = map[TypeName]ValueParserFunc{
 	TypeNameDecimal:       parserFor(ParseDecimal, NewDecimalValue),
 	TypeNameInteger:       parserFor(ParseInteger, NewIntegerValue),
 	TypeNameDateTime:      parserFor(ParseDateTime, NewDateTimeValue),
-	TypeNameTime:          parserFor(ParseTime, NewDateTimeValue),
-	TypeNameDate:          parserFor(ParseDate, NewDateTimeValue),
-	TypeNameDuration:      parserFor(ParseXSDDuration, NewXSDDurationValue),
-	TypeNameGYear:         parserFor(ParseGYear, NewDateTimeValue),
-	TypeNameGYearMonth:    parserFor(ParseGYearMonth, NewDateTimeValue),
-	TypeNameGMonth:        parserFor(ParseGMonth, NewDateTimeValue),
-	TypeNameGMonthDay:     parserFor(ParseGMonthDay, NewDateTimeValue),
-	TypeNameGDay:          parserFor(ParseGDay, NewDateTimeValue),
+	TypeNameTime:          parserFor(func(lexical string) (time.Time, error) { return value.ParseTime([]byte(lexical)) }, NewDateTimeValue),
+	TypeNameDate:          parserFor(func(lexical string) (time.Time, error) { return value.ParseDate([]byte(lexical)) }, NewDateTimeValue),
+	TypeNameDuration:      parserFor(durationlex.Parse, NewXSDDurationValue),
+	TypeNameGYear:         parserFor(func(lexical string) (time.Time, error) { return value.ParseGYear([]byte(lexical)) }, NewDateTimeValue),
+	TypeNameGYearMonth:    parserFor(func(lexical string) (time.Time, error) { return value.ParseGYearMonth([]byte(lexical)) }, NewDateTimeValue),
+	TypeNameGMonth:        parserFor(func(lexical string) (time.Time, error) { return value.ParseGMonth([]byte(lexical)) }, NewDateTimeValue),
+	TypeNameGMonthDay:     parserFor(func(lexical string) (time.Time, error) { return value.ParseGMonthDay([]byte(lexical)) }, NewDateTimeValue),
+	TypeNameGDay:          parserFor(func(lexical string) (time.Time, error) { return value.ParseGDay([]byte(lexical)) }, NewDateTimeValue),
 	TypeNameBoolean:       parserFor(ParseBoolean, NewBooleanValue),
 	TypeNameFloat:         parserFor(ParseFloat, NewFloatValue),
 	TypeNameDouble:        parserFor(ParseDouble, NewDoubleValue),

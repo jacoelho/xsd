@@ -3,6 +3,9 @@ package types
 import (
 	"errors"
 	"fmt"
+
+	"github.com/jacoelho/xsd/internal/durationlex"
+	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 var (
@@ -275,7 +278,7 @@ func parseRangeDecimal(facetName, lexical string, baseType Type) (ComparableValu
 }
 
 func parseRangeTemporal(facetName, lexical string, baseType Type, primitiveName string) (ComparableValue, error) {
-	timeVal, err := parseTemporalValue(primitiveName, lexical)
+	timeVal, err := temporal.ParsePrimitive(primitiveName, []byte(lexical))
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", facetName, err)
 	}
@@ -305,7 +308,7 @@ func parseRangeDouble(facetName, lexical string, baseType Type) (ComparableValue
 }
 
 func parseRangeDuration(facetName, lexical string, baseType Type) (ComparableValue, error) {
-	xsdDur, err := ParseXSDDuration(lexical)
+	xsdDur, err := durationlex.Parse(lexical)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", facetName, err)
 	}

@@ -2,6 +2,7 @@ package facets
 
 import (
 	"github.com/jacoelho/xsd/internal/parser"
+	qnamelex "github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -23,12 +24,7 @@ func ValidateRestrictionFacets(
 	if err != nil {
 		return err
 	}
-	return ValidateSchemaValue(SchemaInput{
-		Value:    normalized,
-		BaseType: baseType,
-		Facets:   facets,
-		Context:  context,
-	})
+	return types.ValidateValueAgainstFacets(normalized, baseType, facets, context)
 }
 
 // ValidateSimpleTypeFacets validates collected simpleType facets against a value.
@@ -47,16 +43,11 @@ func ValidateSimpleTypeFacets(
 	if err != nil {
 		return err
 	}
-	return ValidateSchemaValue(SchemaInput{
-		Value:    normalized,
-		BaseType: st,
-		Facets:   facets,
-		Context:  context,
-	})
+	return types.ValidateValueAgainstFacets(normalized, st, facets, context)
 }
 
 // ValidateQNameContext validates QName/NOTATION lexical context.
 func ValidateQNameContext(value string, context map[string]string) error {
-	_, err := types.ParseQNameValue(value, context)
+	_, err := qnamelex.ParseQNameValue(value, context)
 	return err
 }

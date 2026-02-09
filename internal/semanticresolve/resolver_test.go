@@ -614,7 +614,10 @@ func TestResolveW3CInlineUnionAnonymousTypes(t *testing.T) {
 		t.Fatalf("expected uid content particle")
 	}
 	var pid *types.ElementDecl
-	for _, elem := range traversal.CollectElements(particle) {
+	for _, elem := range traversal.CollectFromParticlesWithVisited([]types.Particle{particle}, nil, func(p types.Particle) (*types.ElementDecl, bool) {
+		elem, ok := p.(*types.ElementDecl)
+		return elem, ok
+	}) {
 		if elem.Name.Local == "pid" {
 			pid = elem
 			break

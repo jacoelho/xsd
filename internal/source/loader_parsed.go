@@ -20,8 +20,10 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 	}
 	defer cleanup()
 
-	if err := lifecycle.Initialize(entry); err != nil {
-		return nil, err
+	if lifecycle.Init != nil {
+		if err := lifecycle.Init(entry); err != nil {
+			return nil, err
+		}
 	}
 	if err := l.applyParsedDirectives(systemID, key, sch, result.Directives); err != nil {
 		return nil, err
@@ -40,7 +42,7 @@ func (l *SchemaLoader) cachedOrCircularSchema(key loadKey, systemID string) (*pa
 	if loadedSchema, ok := l.state.loadedSchema(key); ok {
 		return loadedSchema, nil
 	}
-	return loadgraph.CheckCircular[loadKey, *parser.Schema](loadingSchemaState{state: &l.state}, key, systemID)
+	return loadgraph.CheckCircular[loadKey, *parser.Schema](&l.state, key, systemID)
 }
 
 func (l *SchemaLoader) parsedEntryLifecycle(

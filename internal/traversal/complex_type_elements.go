@@ -20,19 +20,25 @@ func collectElementDeclsRecursive(schema *parser.Schema, complexType *types.Comp
 		return nil
 	}
 	visited[complexType] = true
+	collectElements := func(particle types.Particle) []*types.ElementDecl {
+		return CollectFromParticlesWithVisited([]types.Particle{particle}, nil, func(p types.Particle) (*types.ElementDecl, bool) {
+			elem, ok := p.(*types.ElementDecl)
+			return elem, ok
+		})
+	}
 
 	var out []*types.ElementDecl
 	switch content := complexType.Content().(type) {
 	case *types.ElementContent:
 		if content.Particle != nil {
-			out = append(out, CollectElements(content.Particle)...)
+			out = append(out, collectElements(content.Particle)...)
 		}
 	case *types.ComplexContent:
 		if content.Extension != nil && content.Extension.Particle != nil {
-			out = append(out, CollectElements(content.Extension.Particle)...)
+			out = append(out, collectElements(content.Extension.Particle)...)
 		}
 		if content.Restriction != nil && content.Restriction.Particle != nil {
-			out = append(out, CollectElements(content.Restriction.Particle)...)
+			out = append(out, collectElements(content.Restriction.Particle)...)
 		}
 
 		var baseQName types.QName

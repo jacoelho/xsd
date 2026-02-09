@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
@@ -147,7 +148,7 @@ func validateIdentityConstraint(constraint *types.IdentityConstraint) error {
 	// the XSD spec does not restrict identity constraints to complex types only.
 
 	// per XSD spec section 3.11.1, identity constraint name must be an NCName
-	if !isValidNCName(constraint.Name) {
+	if !qname.IsValidNCName(constraint.Name) {
 		return fmt.Errorf("identity constraint name '%s' must be a valid NCName (no colons)", constraint.Name)
 	}
 
@@ -170,7 +171,7 @@ func validateIdentityConstraint(constraint *types.IdentityConstraint) error {
 	if err := validateSelectorXPathRestrictions(constraint.Selector.XPath); err != nil {
 		return fmt.Errorf("identity constraint selector: %w", err)
 	}
-	if err := validateRestrictedSelectorXPathGrammar(constraint.Selector.XPath, constraint.NamespaceContext); err != nil {
+	if err := validateRestrictedXPathGrammar(constraint.Selector.XPath, constraint.NamespaceContext, xpath.AttributesDisallowed); err != nil {
 		return fmt.Errorf("identity constraint selector: %w", err)
 	}
 
@@ -188,7 +189,7 @@ func validateIdentityConstraint(constraint *types.IdentityConstraint) error {
 		if err := validateFieldXPath(field.XPath); err != nil {
 			return fmt.Errorf("identity constraint field %d: %w", i+1, err)
 		}
-		if err := validateRestrictedFieldXPathGrammar(field.XPath, constraint.NamespaceContext); err != nil {
+		if err := validateRestrictedXPathGrammar(field.XPath, constraint.NamespaceContext, xpath.AttributesAllowed); err != nil {
 			return fmt.Errorf("identity constraint field %d: %w", i+1, err)
 		}
 	}
@@ -202,14 +203,6 @@ func validateIdentityConstraint(constraint *types.IdentityConstraint) error {
 	}
 
 	return nil
-}
-
-func validateRestrictedSelectorXPathGrammar(expr string, nsContext map[string]string) error {
-	return validateRestrictedXPathGrammar(expr, nsContext, xpath.AttributesDisallowed)
-}
-
-func validateRestrictedFieldXPathGrammar(expr string, nsContext map[string]string) error {
-	return validateRestrictedXPathGrammar(expr, nsContext, xpath.AttributesAllowed)
 }
 
 func validateRestrictedXPathGrammar(expr string, nsContext map[string]string, policy xpath.AttributePolicy) error {

@@ -8,8 +8,6 @@ func IsQNameOrNotationType(typ Type) bool {
 	switch t := typ.(type) {
 	case *SimpleType:
 		return t.IsQNameOrNotationType()
-	case *BuiltinType:
-		return t.IsQNameOrNotationType()
 	default:
 		return IsQNameOrNotation(typ.Name())
 	}

@@ -6,8 +6,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/value"
-	wsmode "github.com/jacoelho/xsd/internal/whitespace"
 )
 
 type valueErrorKind uint8
@@ -125,8 +123,4 @@ func (s *Session) finalizeValue(canonical []byte, opts valueOptions, metrics *va
 		s.setKey(metrics, metrics.keyKind, metrics.keyBytes, true)
 	}
 	return canonStored
-}
-
-func valueWhitespaceMode(mode runtime.WhitespaceMode) value.WhitespaceMode {
-	return wsmode.ToValue(mode)
 }

@@ -6,6 +6,7 @@ import (
 	models "github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemaops"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -71,7 +72,7 @@ func upaParticles(schema *parser.Schema, content types.Content) (types.Particle,
 		if c.Extension != nil {
 			particle = c.Extension.Particle
 			if !c.Extension.Base.IsZero() {
-				if baseCT, ok := lookupComplexType(schema, c.Extension.Base); ok {
+				if baseCT, ok := typegraph.LookupComplexType(schema, c.Extension.Base); ok {
 					if baseEC, ok := baseCT.Content().(*types.ElementContent); ok {
 						baseParticle = baseEC.Particle
 					}

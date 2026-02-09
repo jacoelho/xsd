@@ -3,6 +3,7 @@ package xmltext
 import (
 	"bytes"
 	"errors"
+	"hash/maphash"
 	"io"
 	"unicode/utf8"
 )
@@ -961,7 +962,7 @@ func (d *Decoder) markAttrSeen(name *qnameSpan) (uint64, error) {
 	if len(data) == 0 {
 		return 0, errInvalidName
 	}
-	hash := hashBytes(data)
+	hash := maphash.Bytes(hashSeed, data)
 	if d.attrSeenSmallCount < attrSeenSmallMax {
 		for i := 0; i < d.attrSeenSmallCount; i++ {
 			entry := d.attrSeenSmall[i]

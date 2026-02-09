@@ -14,17 +14,12 @@ const (
 	facetAttributesAllowed
 )
 
-func parseFacets(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema) error {
-	return parseFacetsWithPolicy(doc, restrictionElem, restriction, st, schema, facetAttributesDisallowed)
-}
-
-func parseFacetsWithAttributes(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema) error {
-	return parseFacetsWithPolicy(doc, restrictionElem, restriction, st, schema, facetAttributesAllowed)
-}
-
 // parseFacetsWithPolicy parses facet elements from a restriction element.
 func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema, policy facetAttributePolicy) error {
-	baseType := resolveFacetBaseType(restriction, st, schema)
+	baseType := tryResolveBaseType(restriction, schema)
+	if st != nil && st.Restriction != nil {
+		baseType = tryResolveBaseType(st.Restriction, schema)
+	}
 
 	for _, child := range doc.Children(restrictionElem) {
 		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
@@ -90,11 +85,4 @@ func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, 
 	}
 
 	return nil
-}
-
-func resolveFacetBaseType(restriction *types.Restriction, st *types.SimpleType, schema *Schema) types.Type {
-	if st != nil && st.Restriction != nil {
-		return tryResolveBaseType(st.Restriction, schema)
-	}
-	return tryResolveBaseType(restriction, schema)
 }

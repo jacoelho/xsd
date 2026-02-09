@@ -2,6 +2,7 @@ package semanticcheck
 
 import (
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -164,7 +165,7 @@ func resolveTypeByQName(schema *parser.Schema, qname types.QName) types.Type {
 	if schema == nil {
 		return nil
 	}
-	if def, ok := lookupTypeDef(schema, qname); ok {
+	if def, ok := typegraph.LookupType(schema, qname); ok {
 		return def
 	}
 	return nil

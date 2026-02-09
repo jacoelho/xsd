@@ -89,7 +89,7 @@ func primitiveTypeName(baseType Type, baseQName QName) string {
 }
 
 func isListType(baseType Type, baseTypeName string) bool {
-	if baseTypeName != "" && isBuiltinListType(baseTypeName) {
+	if baseTypeName != "" && IsBuiltinListTypeName(baseTypeName) {
 		return true
 	}
 	if baseType == nil {

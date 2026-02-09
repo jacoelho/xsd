@@ -9,9 +9,9 @@ import (
 
 // ResolvedReferences records resolved references without mutating the parsed schema.
 type ResolvedReferences struct {
-	ElementRefs   map[*types.ElementDecl]ElemID
-	AttributeRefs map[*types.AttributeDecl]AttrID
-	GroupRefs     map[*types.GroupRef]*types.ModelGroup
+	ElementRefs   map[types.QName]ElemID
+	AttributeRefs map[types.QName]AttrID
+	GroupRefs     map[types.QName]types.QName
 }
 
 type resolveState uint8
@@ -57,9 +57,9 @@ func newReferenceResolver(schema *parser.Schema, registry *Registry) *referenceR
 		schema:   schema,
 		registry: registry,
 		refs: &ResolvedReferences{
-			ElementRefs:   make(map[*types.ElementDecl]ElemID),
-			AttributeRefs: make(map[*types.AttributeDecl]AttrID),
-			GroupRefs:     make(map[*types.GroupRef]*types.ModelGroup),
+			ElementRefs:   make(map[types.QName]ElemID),
+			AttributeRefs: make(map[types.QName]AttrID),
+			GroupRefs:     make(map[types.QName]types.QName),
 		},
 		elementState:     make(map[*types.ElementDecl]resolveState),
 		modelGroupState:  make(map[*types.ModelGroup]resolveState),

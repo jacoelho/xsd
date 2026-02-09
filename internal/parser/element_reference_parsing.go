@@ -33,7 +33,7 @@ func parseElementReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 		return nil, err
 	}
 
-	refQName, err := resolveElementQName(doc, attrs.ref, elem, schema)
+	refQName, err := resolveQNameWithPolicy(doc, attrs.ref, elem, schema, useDefaultNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("resolve ref %s: %w", attrs.ref, err)
 	}

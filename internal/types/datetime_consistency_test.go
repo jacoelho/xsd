@@ -1,6 +1,10 @@
 package types
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jacoelho/xsd/internal/value"
+)
 
 func TestTemporalParseValidateConsistency(t *testing.T) {
 	type caseDef struct {
@@ -34,8 +38,8 @@ func TestTemporalParseValidateConsistency(t *testing.T) {
 		},
 		{
 			name: "time",
-			parse: func(value string) error {
-				_, err := ParseTime(value)
+			parse: func(lexical string) error {
+				_, err := value.ParseTime([]byte(lexical))
 				return err
 			},
 			validate: validateTime,
@@ -49,8 +53,8 @@ func TestTemporalParseValidateConsistency(t *testing.T) {
 		},
 		{
 			name: "date",
-			parse: func(value string) error {
-				_, err := ParseDate(value)
+			parse: func(lexical string) error {
+				_, err := value.ParseDate([]byte(lexical))
 				return err
 			},
 			validate: validateDate,
@@ -63,8 +67,8 @@ func TestTemporalParseValidateConsistency(t *testing.T) {
 		},
 		{
 			name: "gYear",
-			parse: func(value string) error {
-				_, err := ParseGYear(value)
+			parse: func(lexical string) error {
+				_, err := value.ParseGYear([]byte(lexical))
 				return err
 			},
 			validate: validateGYear,
@@ -77,8 +81,8 @@ func TestTemporalParseValidateConsistency(t *testing.T) {
 		},
 		{
 			name: "gYearMonth",
-			parse: func(value string) error {
-				_, err := ParseGYearMonth(value)
+			parse: func(lexical string) error {
+				_, err := value.ParseGYearMonth([]byte(lexical))
 				return err
 			},
 			validate: validateGYearMonth,
@@ -90,8 +94,8 @@ func TestTemporalParseValidateConsistency(t *testing.T) {
 		},
 		{
 			name: "gMonth",
-			parse: func(value string) error {
-				_, err := ParseGMonth(value)
+			parse: func(lexical string) error {
+				_, err := value.ParseGMonth([]byte(lexical))
 				return err
 			},
 			validate: validateGMonth,
@@ -103,8 +107,8 @@ func TestTemporalParseValidateConsistency(t *testing.T) {
 		},
 		{
 			name: "gMonthDay",
-			parse: func(value string) error {
-				_, err := ParseGMonthDay(value)
+			parse: func(lexical string) error {
+				_, err := value.ParseGMonthDay([]byte(lexical))
 				return err
 			},
 			validate: validateGMonthDay,
@@ -116,8 +120,8 @@ func TestTemporalParseValidateConsistency(t *testing.T) {
 		},
 		{
 			name: "gDay",
-			parse: func(value string) error {
-				_, err := ParseGDay(value)
+			parse: func(lexical string) error {
+				_, err := value.ParseGDay([]byte(lexical))
 				return err
 			},
 			validate: validateGDay,

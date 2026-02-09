@@ -1,6 +1,7 @@
 package loadmerge
 
 import (
+	"cmp"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/types"
@@ -14,7 +15,12 @@ func (c *mergeContext) mergeSubstitutionGroups() {
 	for head := range c.source.SubstitutionGroups {
 		heads = append(heads, head)
 	}
-	slices.SortFunc(heads, types.CompareQName)
+	slices.SortFunc(heads, func(a, b types.QName) int {
+		if a.Namespace != b.Namespace {
+			return cmp.Compare(a.Namespace, b.Namespace)
+		}
+		return cmp.Compare(a.Local, b.Local)
+	})
 	for _, head := range heads {
 		members := c.source.SubstitutionGroups[head]
 		targetHead := c.remapQName(head)
@@ -43,7 +49,12 @@ func sortAndDedupeQNames(names []types.QName) []types.QName {
 	if len(names) < 2 {
 		return names
 	}
-	slices.SortFunc(names, types.CompareQName)
+	slices.SortFunc(names, func(a, b types.QName) int {
+		if a.Namespace != b.Namespace {
+			return cmp.Compare(a.Namespace, b.Namespace)
+		}
+		return cmp.Compare(a.Local, b.Local)
+	})
 	out := names[:0]
 	var last types.QName
 	for i, name := range names {

@@ -9,7 +9,7 @@ import (
 
 // parseSimpleType parses a top-level simpleType definition
 func parseSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := getNameAttr(doc, elem)
+	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("simpleType missing name attribute")
 	}
@@ -34,7 +34,7 @@ func parseSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) e
 		if types.TrimXMLWhitespace(finalAttr) == "" {
 			return fmt.Errorf("final attribute cannot be empty")
 		}
-		final, err := parseSimpleTypeFinal(finalAttr)
+		final, err := parseDerivationSetWithValidation(finalAttr, types.DerivationSet(types.DerivationRestriction|types.DerivationList|types.DerivationUnion))
 		if err != nil {
 			return fmt.Errorf("invalid final attribute value '%s': %w", finalAttr, err)
 		}
@@ -50,12 +50,6 @@ func parseSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) e
 	schema.TypeDefs[st.QName] = st
 	schema.addGlobalDecl(GlobalDeclType, st.QName)
 	return nil
-}
-
-// parseSimpleTypeFinal parses the final attribute value for simpleType
-// Valid values: #all, restriction, list, union (space-separated)
-func parseSimpleTypeFinal(value string) (types.DerivationSet, error) {
-	return parseDerivationSetWithValidation(value, types.DerivationSet(types.DerivationRestriction|types.DerivationList|types.DerivationUnion))
 }
 
 // parseInlineSimpleType parses an inline simpleType definition.

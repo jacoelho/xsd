@@ -81,6 +81,30 @@ func (d *Document) reset() {
 	d.root = InvalidNode
 }
 
+func (d *Document) trimForPool() {
+	if d == nil {
+		return
+	}
+	if cap(d.nodes) > maxPooledNodeEntries {
+		d.nodes = nil
+	}
+	if cap(d.attrs) > maxPooledAttrEntries {
+		d.attrs = nil
+	}
+	if cap(d.children) > maxPooledChildEntries {
+		d.children = nil
+	}
+	if cap(d.textSegments) > maxPooledTextSegmentEntries {
+		d.textSegments = nil
+	}
+	if cap(d.textScratch) > maxPooledTextScratchEntries {
+		d.textScratch = nil
+	}
+	if cap(d.countsScratch) > maxPooledCountEntries {
+		d.countsScratch = nil
+	}
+}
+
 // DocumentElement returns the document root node.
 func (d *Document) DocumentElement() NodeID {
 	if d == nil {
@@ -146,14 +170,6 @@ func (d *Document) Children(id NodeID) []NodeID {
 		return nil
 	}
 	return d.children[n.childrenOff : n.childrenOff+n.childrenLen]
-}
-
-// DirectTextContent returns only the text directly under the element.
-func (d *Document) DirectTextContent(id NodeID) string {
-	if !d.validNode(id) {
-		return ""
-	}
-	return string(d.nodes[id].text)
 }
 
 // DirectTextContentBytes returns only the text directly under the element as bytes.

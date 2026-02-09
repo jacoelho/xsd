@@ -3,34 +3,15 @@ package types
 import (
 	"errors"
 	"fmt"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 )
 
-var (
-	// durationDatePattern matches date components in XSD duration format: Y, M, D
-	// Examples: "1Y", "2M", "3D", "1Y2M3D"
-	durationDatePattern = regexp.MustCompile(`(\d+)Y|(\d+)M|(\d+)D`)
-
-	// durationTimePattern matches time components in XSD duration format: H, M, S
-	// Examples: "1H", "2M", "3S", "1.5S", "1H2M3.4S"
-	durationTimePattern = regexp.MustCompile(`(\d+)H|(\d+)M|(\d+(\.\d+)?)S`)
-)
-
-// XSDDuration represents a full XSD duration with all components
-type XSDDuration struct {
-	Seconds  num.Dec
-	Years    int
-	Months   int
-	Days     int
-	Hours    int
-	Minutes  int
-	Negative bool
-}
+// XSDDuration represents a full XSD duration with all components.
+type XSDDuration = durationlex.Duration
 
 // ComparableXSDDuration wraps XSDDuration to implement ComparableValue
 // This supports full XSD durations including years and months
@@ -40,147 +21,6 @@ type ComparableXSDDuration struct {
 }
 
 var errIndeterminateDurationComparison = errors.New("duration comparison indeterminate")
-
-// ParseXSDDuration parses an XSD duration string into an XSDDuration struct
-// Supports all XSD duration components including years and months
-func ParseXSDDuration(s string) (XSDDuration, error) {
-	if s == "" {
-		return XSDDuration{}, fmt.Errorf("empty duration")
-	}
-
-	input := s
-	negative := s[0] == '-'
-	if negative {
-		s = s[1:]
-	}
-
-	if s == "" || s[0] != 'P' {
-		return XSDDuration{}, fmt.Errorf("duration must start with P")
-	}
-	s = s[1:]
-
-	datePart := s
-	timePart := ""
-	sawTimeDesignator := false
-	if before, after, ok := strings.Cut(s, "T"); ok {
-		sawTimeDesignator = true
-		datePart = before
-		timePart = after
-		if strings.IndexByte(timePart, 'T') != -1 {
-			return XSDDuration{}, fmt.Errorf("invalid duration format: multiple T separators")
-		}
-	}
-
-	if !durationPattern.MatchString(input) {
-		return XSDDuration{}, fmt.Errorf("invalid duration format: %s", input)
-	}
-
-	var years, months, days, hours, minutes int
-	var seconds num.Dec
-	hasDateComponent := false
-	hasTimeComponent := false
-	maxComponent := uint64(^uint(0) >> 1)
-	parseComponent := func(value, label string) (int, error) {
-		u, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			if errors.Is(err, strconv.ErrRange) {
-				return 0, fmt.Errorf("%s value too large", label)
-			}
-			return 0, fmt.Errorf("invalid %s value: %w", label, err)
-		}
-		if u > maxComponent {
-			return 0, fmt.Errorf("%s value too large", label)
-		}
-		return int(u), nil
-	}
-
-	// parse date part (years, months, days)
-	if datePart != "" {
-		matches := durationDatePattern.FindAllStringSubmatch(datePart, -1)
-		for _, match := range matches {
-			if match[1] != "" {
-				val, err := parseComponent(match[1], "year")
-				if err != nil {
-					return XSDDuration{}, err
-				}
-				years = val
-				hasDateComponent = true
-			}
-			if match[2] != "" {
-				val, err := parseComponent(match[2], "month")
-				if err != nil {
-					return XSDDuration{}, err
-				}
-				months = val
-				hasDateComponent = true
-			}
-			if match[3] != "" {
-				val, err := parseComponent(match[3], "day")
-				if err != nil {
-					return XSDDuration{}, err
-				}
-				days = val
-				hasDateComponent = true
-			}
-		}
-	}
-
-	// parse time part (hours, minutes, seconds)
-	if timePart != "" {
-		matches := durationTimePattern.FindAllStringSubmatch(timePart, -1)
-		for _, match := range matches {
-			if match[1] != "" {
-				val, err := parseComponent(match[1], "hour")
-				if err != nil {
-					return XSDDuration{}, err
-				}
-				hours = val
-				hasTimeComponent = true
-			}
-			if match[2] != "" {
-				val, err := parseComponent(match[2], "minute")
-				if err != nil {
-					return XSDDuration{}, err
-				}
-				minutes = val
-				hasTimeComponent = true
-			}
-			if match[3] != "" {
-				dec, perr := num.ParseDec([]byte(match[3]))
-				if perr != nil {
-					return XSDDuration{}, fmt.Errorf("invalid second value: %w", perr)
-				}
-				if dec.Sign < 0 {
-					return XSDDuration{}, fmt.Errorf("second value cannot be negative")
-				}
-				seconds = dec
-				hasTimeComponent = true
-			}
-		}
-	}
-
-	// check if we actually parsed any components
-	hasAnyComponent := hasDateComponent || hasTimeComponent
-	if !hasAnyComponent {
-		return XSDDuration{}, fmt.Errorf("duration must have at least one component")
-	}
-	if sawTimeDesignator && !hasTimeComponent {
-		return XSDDuration{}, fmt.Errorf("time designator present but no time components specified")
-	}
-
-	if years == 0 && months == 0 && days == 0 && hours == 0 && minutes == 0 && seconds.Sign == 0 {
-		negative = false
-	}
-	return XSDDuration{
-		Negative: negative,
-		Years:    years,
-		Months:   months,
-		Days:     days,
-		Hours:    hours,
-		Minutes:  minutes,
-		Seconds:  seconds,
-	}, nil
-}
 
 type durationFields struct {
 	seconds num.Dec
@@ -278,7 +118,7 @@ func compareDateTimeFields(left, right dateTimeFields) int {
 func addDurationToDateTime(start dateTimeFields, dur durationFields) dateTimeFields {
 	tempMonth := start.month + dur.months
 	month := moduloIntRange(tempMonth, 1, 13)
-	carry := fQuotientIntRange(tempMonth, 1, 13)
+	carry := fQuotientInt(tempMonth-1, 12)
 
 	year := start.year + dur.years + carry
 
@@ -318,7 +158,7 @@ loop:
 		}
 		tempMonth = month + carry
 		month = moduloIntRange(tempMonth, 1, 13)
-		year += fQuotientIntRange(tempMonth, 1, 13)
+		year += fQuotientInt(tempMonth-1, 12)
 	}
 
 	return dateTimeFields{
@@ -333,7 +173,7 @@ loop:
 
 func maximumDayInMonthFor(year, month int) int {
 	m := moduloIntRange(month, 1, 13)
-	y := year + fQuotientIntRange(month, 1, 13)
+	y := year + fQuotientInt(month-1, 12)
 	switch m {
 	case 1, 3, 5, 7, 8, 10, 12:
 		return 31
@@ -367,10 +207,6 @@ func fQuotientInt(a, b int) int {
 		return a / b
 	}
 	return -(((-a) + b - 1) / b)
-}
-
-func fQuotientIntRange(a, low, high int) int {
-	return fQuotientInt(a-low, high-low)
 }
 
 func moduloInt(a, b int) int {
@@ -425,16 +261,8 @@ func decDivModInt(dec num.Dec, divisor int) (int, num.Dec) {
 			q = -q
 		}
 	}
-	remainder := decAdd(dec, decFromInt64(int64(-q*divisor)))
+	remainder := decAdd(dec, num.FromInt64(int64(-q*divisor)).AsDec())
 	return q, remainder
-}
-
-func decFromInt64(v int64) num.Dec {
-	return num.FromInt64(v).AsDec()
-}
-
-func decFromDurationSeconds(d time.Duration) num.Dec {
-	return num.DecFromScaledInt(num.FromInt64(int64(d)), 9)
 }
 
 func formatDurationSeconds(sec num.Dec) string {

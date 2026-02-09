@@ -44,7 +44,7 @@ func loadSchema(t *testing.T) *xsd.Schema {
 		"simple.xsd": &fstest.MapFile{Data: []byte(testSchema)},
 	}
 
-	s, err := xsd.Load(fsys, "simple.xsd")
+	s, err := xsd.LoadWithOptions(fsys, "simple.xsd", xsd.NewLoadOptions())
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
@@ -119,6 +119,12 @@ func TestSchemaValidateNilSchema(t *testing.T) {
 	requireSingleViolation(t, s.Validate(strings.NewReader("<root/>")), errors.ErrSchemaNotLoaded)
 }
 
+func TestSchemaValidateFileNilSchemaReturnsSchemaNotLoaded(t *testing.T) {
+	var s *xsd.Schema
+
+	requireSingleViolation(t, s.ValidateFile(filepath.Join(t.TempDir(), "missing.xml")), errors.ErrSchemaNotLoaded)
+}
+
 func TestSchemaValidateNilReader(t *testing.T) {
 	s := loadSchema(t)
 
@@ -150,7 +156,7 @@ func TestSchemaValidateConcurrent(t *testing.T) {
 	fsys := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
-	schema, err := xsd.Load(fsys, "schema.xsd")
+	schema, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
 	if err != nil {
 		t.Fatalf("Load schema: %v", err)
 	}
@@ -216,7 +222,7 @@ func TestSchemaValidateConcurrentIdentityConstraints(t *testing.T) {
 	fsys := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
-	schema, err := xsd.Load(fsys, "schema.xsd")
+	schema, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
 	if err != nil {
 		t.Fatalf("Load schema: %v", err)
 	}
@@ -331,7 +337,7 @@ func TestStreamValidatorConstantMemory(t *testing.T) {
 	fsys := fstest.MapFS{
 		"stream.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
-	schema, err := xsd.Load(fsys, "stream.xsd")
+	schema, err := xsd.LoadWithOptions(fsys, "stream.xsd", xsd.NewLoadOptions())
 	if err != nil {
 		t.Fatalf("Load schema: %v", err)
 	}
@@ -1371,7 +1377,7 @@ func TestSchemaValidatePain008(t *testing.T) {
 		"pain.008.001.02.xsd": &fstest.MapFile{Data: []byte(pain008Schema)},
 	}
 
-	s, err := xsd.Load(fsys, "pain.008.001.02.xsd")
+	s, err := xsd.LoadWithOptions(fsys, "pain.008.001.02.xsd", xsd.NewLoadOptions())
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
@@ -1401,7 +1407,7 @@ func loadPain008Schema(tb testing.TB) *xsd.Schema {
 			"pain.008.001.02.xsd": &fstest.MapFile{Data: []byte(pain008Schema)},
 		}
 
-		pain008SchemaInstance, errPain008Schema = xsd.Load(fsys, "pain.008.001.02.xsd")
+		pain008SchemaInstance, errPain008Schema = xsd.LoadWithOptions(fsys, "pain.008.001.02.xsd", xsd.NewLoadOptions())
 	})
 
 	if errPain008Schema != nil {
@@ -1436,7 +1442,7 @@ func BenchmarkPain008Load(b *testing.B) {
 		fsys := fstest.MapFS{
 			"pain.008.001.02.xsd": &fstest.MapFile{Data: schemaBytes},
 		}
-		if _, err := xsd.Load(fsys, "pain.008.001.02.xsd"); err != nil {
+		if _, err := xsd.LoadWithOptions(fsys, "pain.008.001.02.xsd", xsd.NewLoadOptions()); err != nil {
 			b.Fatal(err)
 		}
 	}

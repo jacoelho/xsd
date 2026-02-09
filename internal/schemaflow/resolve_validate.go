@@ -22,13 +22,18 @@ func ResolveAndValidate(sch *parser.Schema) (*parser.Schema, error) {
 	if err != nil {
 		return nil, fmt.Errorf("clone schema: %w", err)
 	}
-	if err := resolveAndValidateInPlace(cloned); err != nil {
+	if err := ResolveAndValidateOwned(cloned); err != nil {
 		return nil, err
 	}
 	return cloned, nil
 }
 
-func resolveAndValidateInPlace(sch *parser.Schema) error {
+// ResolveAndValidateOwned resolves and validates schema references in place.
+// The caller must own the provided schema and expect mutation.
+func ResolveAndValidateOwned(sch *parser.Schema) error {
+	if sch == nil {
+		return fmt.Errorf("schema is nil")
+	}
 	if err := semanticresolve.ResolveGroupReferences(sch); err != nil {
 		return fmt.Errorf("resolve group references: %w", err)
 	}

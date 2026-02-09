@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
+	qnamelex "github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -478,19 +479,19 @@ func parseTemporalForType(typeName TypeName, lexical string) (time.Time, error) 
 	case TypeNameDateTime:
 		return ParseDateTime(lexical)
 	case TypeNameDate:
-		return ParseDate(lexical)
+		return value.ParseDate([]byte(lexical))
 	case TypeNameTime:
-		return ParseTime(lexical)
+		return value.ParseTime([]byte(lexical))
 	case TypeNameGYear:
-		return ParseGYear(lexical)
+		return value.ParseGYear([]byte(lexical))
 	case TypeNameGYearMonth:
-		return ParseGYearMonth(lexical)
+		return value.ParseGYearMonth([]byte(lexical))
 	case TypeNameGMonthDay:
-		return ParseGMonthDay(lexical)
+		return value.ParseGMonthDay([]byte(lexical))
 	case TypeNameGMonth:
-		return ParseGMonth(lexical)
+		return value.ParseGMonth([]byte(lexical))
 	case TypeNameGDay:
-		return ParseGDay(lexical)
+		return value.ParseGDay([]byte(lexical))
 	default:
 		return time.Time{}, fmt.Errorf("unsupported temporal type %s", typeName)
 	}
@@ -544,7 +545,7 @@ func TestParseQNameValue_DefaultNamespace(t *testing.T) {
 		"p": "urn:pref",
 	}
 
-	qname, err := ParseQNameValue("local", context)
+	qname, err := qnamelex.ParseQNameValue("local", context)
 	if err != nil {
 		t.Fatalf("ParseQNameValue() error = %v", err)
 	}
@@ -552,7 +553,7 @@ func TestParseQNameValue_DefaultNamespace(t *testing.T) {
 		t.Fatalf("ParseQNameValue() = %v, want {urn:default}local", qname)
 	}
 
-	qname, err = ParseQNameValue("p:local", context)
+	qname, err = qnamelex.ParseQNameValue("p:local", context)
 	if err != nil {
 		t.Fatalf("ParseQNameValue() error = %v", err)
 	}
@@ -560,7 +561,7 @@ func TestParseQNameValue_DefaultNamespace(t *testing.T) {
 		t.Fatalf("ParseQNameValue() = %v, want {urn:pref}local", qname)
 	}
 
-	qname, err = ParseQNameValue("local", map[string]string{"p": "urn:pref"})
+	qname, err = qnamelex.ParseQNameValue("local", map[string]string{"p": "urn:pref"})
 	if err != nil {
 		t.Fatalf("ParseQNameValue() error = %v", err)
 	}
@@ -570,7 +571,7 @@ func TestParseQNameValue_DefaultNamespace(t *testing.T) {
 }
 
 func TestParseQNameValue_XMLPrefixBinding(t *testing.T) {
-	qname, err := ParseQNameValue("xml:lang", nil)
+	qname, err := qnamelex.ParseQNameValue("xml:lang", nil)
 	if err != nil {
 		t.Fatalf("ParseQNameValue(xml:lang) error = %v", err)
 	}
@@ -578,7 +579,7 @@ func TestParseQNameValue_XMLPrefixBinding(t *testing.T) {
 		t.Fatalf("ParseQNameValue(xml:lang) = %v, want {%s}lang", qname, XMLNamespace)
 	}
 
-	qname, err = ParseQNameValue("xml:lang", map[string]string{"xml": XMLNamespace.String()})
+	qname, err = qnamelex.ParseQNameValue("xml:lang", map[string]string{"xml": XMLNamespace.String()})
 	if err != nil {
 		t.Fatalf("ParseQNameValue(xml:lang) error = %v", err)
 	}
@@ -586,7 +587,7 @@ func TestParseQNameValue_XMLPrefixBinding(t *testing.T) {
 		t.Fatalf("ParseQNameValue(xml:lang) = %v, want {%s}lang", qname, XMLNamespace)
 	}
 
-	if _, err := ParseQNameValue("xml:lang", map[string]string{"xml": "urn:wrong"}); err == nil {
+	if _, err := qnamelex.ParseQNameValue("xml:lang", map[string]string{"xml": "urn:wrong"}); err == nil {
 		t.Fatalf("expected ParseQNameValue to reject wrong xml prefix binding")
 	}
 }

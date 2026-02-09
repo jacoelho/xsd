@@ -14,14 +14,6 @@ func (g *cacheGuard) ensure() {
 	})
 }
 
-func (b *BuiltinType) guard() *cacheGuard {
-	if b == nil {
-		return nil
-	}
-	b.cacheGuard.ensure()
-	return &b.cacheGuard
-}
-
 func (s *SimpleType) guard() *cacheGuard {
 	if s == nil {
 		return nil

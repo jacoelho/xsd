@@ -42,7 +42,7 @@ func (s *complexTypeParseState) handleGroupRef(child xsdxml.NodeID) error {
 	if ref == "" {
 		return fmt.Errorf("group reference missing ref attribute")
 	}
-	refQName, err := resolveQName(s.doc, ref, child, s.schema)
+	refQName, err := resolveQNameWithPolicy(s.doc, ref, child, s.schema, useDefaultNamespace)
 	if err != nil {
 		return fmt.Errorf("resolve group ref %s: %w", ref, err)
 	}

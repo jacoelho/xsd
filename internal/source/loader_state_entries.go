@@ -60,12 +60,12 @@ func (s *loadState) loadedSchema(key loadKey) (*parser.Schema, bool) {
 	return entry.schema, true
 }
 
-func (s *loadState) isLoading(key loadKey) bool {
+func (s *loadState) IsLoading(key loadKey) bool {
 	entry, ok := s.entries[key]
 	return ok && entry.state == schemaStateLoading
 }
 
-func (s *loadState) loadingSchema(key loadKey) (*parser.Schema, bool) {
+func (s *loadState) LoadingValue(key loadKey) (*parser.Schema, bool) {
 	entry, ok := s.entries[key]
 	if !ok || entry.state != schemaStateLoading {
 		return nil, false
@@ -79,24 +79,6 @@ func (s *loadState) schemaForKey(key loadKey) *parser.Schema {
 		return nil
 	}
 	return entry.schema
-}
-
-type loadingSchemaState struct {
-	state *loadState
-}
-
-func (s loadingSchemaState) IsLoading(key loadKey) bool {
-	if s.state == nil {
-		return false
-	}
-	return s.state.isLoading(key)
-}
-
-func (s loadingSchemaState) LoadingValue(key loadKey) (*parser.Schema, bool) {
-	if s.state == nil {
-		return nil, false
-	}
-	return s.state.loadingSchema(key)
 }
 
 type pendingDirective struct {

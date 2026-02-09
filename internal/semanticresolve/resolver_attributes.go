@@ -34,36 +34,24 @@ func (r *Resolver) resolveAttributeGroup(qname types.QName, ag *types.AttributeG
 	}
 
 	return r.detector.WithScope(qname, func() error {
-		return r.doResolveAttributeGroup(qname, ag)
-	})
-}
-
-func (r *Resolver) doResolveAttributeGroup(qname types.QName, ag *types.AttributeGroup) error {
-
-	for _, agRef := range ag.AttrGroups {
-		nestedAG, err := r.lookupAttributeGroup(agRef)
-		if err != nil {
-			return fmt.Errorf("attribute group %s: nested group %s: %w", qname, agRef, err)
+		for _, agRef := range ag.AttrGroups {
+			nestedAG, err := r.lookupAttributeGroup(agRef)
+			if err != nil {
+				return fmt.Errorf("attribute group %s: nested group %s: %w", qname, agRef, err)
+			}
+			if err := r.resolveAttributeGroup(agRef, nestedAG); err != nil {
+				return err
+			}
 		}
-		if err := r.resolveAttributeGroup(agRef, nestedAG); err != nil {
-			return err
+
+		for _, attr := range ag.Attributes {
+			if err := r.resolveAttributeType(attr); err != nil {
+				return err
+			}
 		}
-	}
 
-	for _, attr := range ag.Attributes {
-		if err := r.resolveAttributeType(attr); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (r *Resolver) resolveAttribute(attr *types.AttributeDecl) error {
-	if attr == nil {
 		return nil
-	}
-	return r.resolveAttributeType(attr)
+	})
 }
 
 func (r *Resolver) resolveAttributeType(attr *types.AttributeDecl) error {

@@ -21,7 +21,7 @@ func elementHasInlineType(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
 
 func resolveElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs *elementAttrScan) (types.Type, error) {
 	if typeName := attrs.typ; typeName != "" {
-		typeQName, err := resolveQName(doc, typeName, elem, schema)
+		typeQName, err := resolveQNameWithPolicy(doc, typeName, elem, schema, useDefaultNamespace)
 		if err != nil {
 			return nil, fmt.Errorf("resolve type %s: %w", typeName, err)
 		}
@@ -61,7 +61,7 @@ func resolveElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 	}
 
 	if typ == nil {
-		typ = makeAnyType()
+		typ = types.GetBuiltin(types.TypeNameAnyType)
 	}
 
 	return typ, nil

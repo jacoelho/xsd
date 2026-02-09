@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/pkg/xmlstream"
+	"github.com/jacoelho/xsd/pkg/xmltext"
 )
 
 const (
@@ -34,29 +35,25 @@ func resolveXMLParseLimits(maxDepth, maxAttrs, maxTokenSize, maxQName int) (xmlP
 		return xmlParseLimits{}, fmt.Errorf("xml max qname intern entries must be >= 0")
 	}
 	return xmlParseLimits{
-		maxDepth:              defaultXMLLimit(maxDepth, defaultXMLMaxDepth),
-		maxAttrs:              defaultXMLLimit(maxAttrs, defaultXMLMaxAttrs),
-		maxTokenSize:          defaultXMLLimit(maxTokenSize, defaultXMLMaxTokenSize),
+		maxDepth:              cmp.Or(maxDepth, defaultXMLMaxDepth),
+		maxAttrs:              cmp.Or(maxAttrs, defaultXMLMaxAttrs),
+		maxTokenSize:          cmp.Or(maxTokenSize, defaultXMLMaxTokenSize),
 		maxQNameInternEntries: maxQName,
 	}, nil
 }
 
 func (l xmlParseLimits) options() []xmlstream.Option {
-	depth := defaultXMLLimit(l.maxDepth, defaultXMLMaxDepth)
-	attrs := defaultXMLLimit(l.maxAttrs, defaultXMLMaxAttrs)
-	tokenSize := defaultXMLLimit(l.maxTokenSize, defaultXMLMaxTokenSize)
+	depth := cmp.Or(l.maxDepth, defaultXMLMaxDepth)
+	attrs := cmp.Or(l.maxAttrs, defaultXMLMaxAttrs)
+	tokenSize := cmp.Or(l.maxTokenSize, defaultXMLMaxTokenSize)
 
 	opts := []xmlstream.Option{
-		xmlstream.MaxDepth(depth),
-		xmlstream.MaxAttrs(attrs),
-		xmlstream.MaxTokenSize(tokenSize),
+		xmltext.MaxDepth(depth),
+		xmltext.MaxAttrs(attrs),
+		xmltext.MaxTokenSize(tokenSize),
 	}
 	if l.maxQNameInternEntries != 0 {
-		opts = append(opts, xmlstream.MaxQNameInternEntries(l.maxQNameInternEntries))
+		opts = append(opts, xmltext.MaxQNameInternEntries(l.maxQNameInternEntries))
 	}
 	return opts
-}
-
-func defaultXMLLimit(value, fallback int) int {
-	return cmp.Or(value, fallback)
 }

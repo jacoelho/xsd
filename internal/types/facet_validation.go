@@ -42,7 +42,7 @@ func isListTypeForFacetValidation(typ Type) bool {
 	case *SimpleType:
 		return t.Variety() == ListVariety || t.List != nil
 	case *BuiltinType:
-		return isBuiltinListType(t.Name().Local)
+		return IsBuiltinListTypeName(t.Name().Local)
 	default:
 		return false
 	}

@@ -56,9 +56,5 @@ func newLoadSession(loader *SchemaLoader, systemID string, key loadKey, doc io.R
 }
 
 func (s *loadSession) handleCircularLoad() (*parser.Schema, error) {
-	return loadgraph.CheckCircular[loadKey, *parser.Schema](loadingSchemaState{state: &s.loader.state}, s.key, s.systemID)
-}
-
-func (s *loadSession) parseSchema() (result *parser.ParseResult, err error) {
-	return parseSchemaDocument(s.doc, s.systemID, s.loader.config.SchemaParseOptions...)
+	return loadgraph.CheckCircular[loadKey, *parser.Schema](&s.loader.state, s.key, s.systemID)
 }

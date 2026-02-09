@@ -71,7 +71,7 @@ func precomputeIdentityNormalization(s *SimpleType, state map[*SimpleType]identi
 
 	switch s.Variety() {
 	case ListVariety:
-		itemType, ok := listItemType(s, make(map[Type]bool))
+		itemType, ok := ListItemType(s)
 		if ok && itemType != nil {
 			listItem = itemType
 			calculatedNormalizable = identityNormalizableType(itemType, state)
@@ -180,7 +180,7 @@ func IdentityListItemType(typ Type) (Type, bool) {
 		return listItem, true
 	}
 	if bt, ok := AsBuiltinType(typ); ok {
-		if itemName, ok := builtinListItemTypeName(bt.Name().Local); ok {
+		if itemName, ok := BuiltinListItemTypeName(bt.Name().Local); ok {
 			if item := GetBuiltin(itemName); item != nil {
 				return item, true
 			}

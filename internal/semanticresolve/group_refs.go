@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemaops"
+	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -31,7 +32,7 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 		LeafClone:    schemaops.LeafReuse,
 	}
 
-	for _, qname := range sortedQNames(sch.Groups) {
+	for _, qname := range traversal.SortedQNames(sch.Groups) {
 		group := sch.Groups[qname]
 		if group == nil {
 			continue
@@ -47,7 +48,7 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 		sch.Groups[qname] = expandedGroup
 	}
 
-	for _, qname := range sortedQNames(sch.TypeDefs) {
+	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		ct, ok := typ.(*types.ComplexType)
 		if !ok {
@@ -58,7 +59,7 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 		}
 	}
 
-	for _, qname := range sortedQNames(sch.ElementDecls) {
+	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
 		elem := sch.ElementDecls[qname]
 		ct, ok := elem.Type.(*types.ComplexType)
 		if !ok {

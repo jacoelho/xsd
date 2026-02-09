@@ -61,7 +61,10 @@ func (r *referenceResolver) resolveElementReference(decl *types.ElementDecl) err
 	if !ok {
 		return fmt.Errorf("element ref %s missing ID", decl.Name)
 	}
-	r.refs.ElementRefs[decl] = id
+	if existing, exists := r.refs.ElementRefs[decl.Name]; exists && existing != id {
+		return fmt.Errorf("element ref %s resolved inconsistently (%d != %d)", decl.Name, existing, id)
+	}
+	r.refs.ElementRefs[decl.Name] = id
 	return nil
 }
 
@@ -103,6 +106,10 @@ func (r *referenceResolver) resolveGroupRef(ref *types.GroupRef) error {
 	if group == nil {
 		return fmt.Errorf("group ref %s not found", ref.RefQName)
 	}
-	r.refs.GroupRefs[ref] = group
+	targetName := ref.RefQName
+	if existing, exists := r.refs.GroupRefs[ref.RefQName]; exists && existing != targetName {
+		return fmt.Errorf("group ref %s resolved inconsistently (%s != %s)", ref.RefQName, existing, targetName)
+	}
+	r.refs.GroupRefs[ref.RefQName] = targetName
 	return nil
 }

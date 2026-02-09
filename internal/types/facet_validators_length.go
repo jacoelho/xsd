@@ -5,10 +5,6 @@ import (
 	"unicode/utf8"
 )
 
-func isQNameOrNotationType(t Type) bool {
-	return IsQNameOrNotationType(t)
-}
-
 // Length represents a length facet
 type Length struct {
 	Value int
@@ -32,7 +28,7 @@ func (l *Length) Validate(value TypedValue, baseType Type) error {
 // ValidateLexical checks if the lexical value has the exact length.
 func (l *Length) ValidateLexical(lexical string, baseType Type) error {
 	// per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
-	if isQNameOrNotationType(baseType) {
+	if IsQNameOrNotationType(baseType) {
 		return nil
 	}
 	length := getLength(lexical, baseType)
@@ -65,7 +61,7 @@ func (m *MinLength) Validate(value TypedValue, baseType Type) error {
 // ValidateLexical checks if the lexical value meets minimum length.
 func (m *MinLength) ValidateLexical(lexical string, baseType Type) error {
 	// per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
-	if isQNameOrNotationType(baseType) {
+	if IsQNameOrNotationType(baseType) {
 		return nil
 	}
 	length := getLength(lexical, baseType)
@@ -98,7 +94,7 @@ func (m *MaxLength) Validate(value TypedValue, baseType Type) error {
 // ValidateLexical checks if the lexical value meets maximum length.
 func (m *MaxLength) ValidateLexical(lexical string, baseType Type) error {
 	// per XSD 1.0 errata, length facets are ignored for QName and NOTATION types
-	if isQNameOrNotationType(baseType) {
+	if IsQNameOrNotationType(baseType) {
 		return nil
 	}
 	length := getLength(lexical, baseType)

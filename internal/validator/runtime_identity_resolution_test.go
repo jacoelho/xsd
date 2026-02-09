@@ -46,11 +46,11 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("identityStart item: %v", err)
 		}
-		if err := sess.identityEnd(identityEndInput{}); err != nil {
+		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd item: %v", err)
 		}
 	}
-	if err := sess.identityEnd(identityEndInput{}); err != nil {
+	if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
@@ -111,7 +111,7 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("identityStart item: %v", err)
 		}
-		if err := sess.identityEnd(identityEndInput{}); err != nil {
+		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd item: %v", err)
 		}
 		if err := sess.identityStart(identityStartInput{
@@ -132,13 +132,13 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("identityStart item: %v", err)
 		}
-		if err := sess.identityEnd(identityEndInput{}); err != nil {
+		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd item: %v", err)
 		}
-		if err := sess.identityEnd(identityEndInput{}); err != nil {
+		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd group: %v", err)
 		}
-		if err := sess.identityEnd(identityEndInput{}); err != nil {
+		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd root: %v", err)
 		}
 		return len(sess.icState.drainCommitted())

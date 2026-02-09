@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
@@ -56,13 +57,13 @@ func forEachLocalConstraintElement(sch *parser.Schema, visit func(*types.Element
 		}
 	}
 
-	for _, qname := range sortedQNames(sch.ElementDecls) {
+	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if ct, ok := decl.Type.(*types.ComplexType); ok {
 			validateLocals(ct)
 		}
 	}
-	for _, qname := range sortedQNames(sch.TypeDefs) {
+	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*types.ComplexType); ok {
 			validateLocals(ct)

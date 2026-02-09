@@ -14,7 +14,7 @@ import (
 
 func TestEmitCommentPIAndDirective(t *testing.T) {
 	input := `<!--c--><?pi test?><!DOCTYPE root><root/>`
-	r, err := NewReader(strings.NewReader(input), EmitComments(true), EmitPI(true), EmitDirectives(true))
+	r, err := NewReader(strings.NewReader(input), xmltext.EmitComments(true), xmltext.EmitPI(true), xmltext.EmitDirectives(true))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -53,7 +53,7 @@ func TestEmitCommentPIAndDirective(t *testing.T) {
 
 func TestNestedCommentsAndPI(t *testing.T) {
 	input := `<root><!--outer--><child><?pi data?></child></root>`
-	r, err := NewReader(strings.NewReader(input), EmitComments(true), EmitPI(true))
+	r, err := NewReader(strings.NewReader(input), xmltext.EmitComments(true), xmltext.EmitPI(true))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -89,7 +89,7 @@ func TestNestedCommentsAndPI(t *testing.T) {
 
 func TestCoalesceCharDataFalse(t *testing.T) {
 	input := `<root>one<![CDATA[two]]>three</root>`
-	r, err := NewReader(strings.NewReader(input), CoalesceCharData(false))
+	r, err := NewReader(strings.NewReader(input), xmltext.CoalesceCharData(false))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -118,7 +118,7 @@ func TestCoalesceCharDataFalse(t *testing.T) {
 
 func TestTrackLineColumnFalse(t *testing.T) {
 	input := "<root>\n<child/></root>"
-	r, err := NewReader(strings.NewReader(input), TrackLineColumn(false))
+	r, err := NewReader(strings.NewReader(input), xmltext.TrackLineColumn(false))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -136,7 +136,7 @@ func TestTrackLineColumnFalse(t *testing.T) {
 
 func TestOptionOverrideOrder(t *testing.T) {
 	input := `<!--c--><root/>`
-	r, err := NewReader(strings.NewReader(input), EmitComments(true), EmitComments(false))
+	r, err := NewReader(strings.NewReader(input), xmltext.EmitComments(true), xmltext.EmitComments(false))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -161,7 +161,7 @@ func TestBuildOptionsEmpty(t *testing.T) {
 }
 
 func TestReaderMaxDepth(t *testing.T) {
-	r, err := NewReader(strings.NewReader("<a><b/></a>"), MaxDepth(1))
+	r, err := NewReader(strings.NewReader("<a><b/></a>"), xmltext.MaxDepth(1))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -179,7 +179,7 @@ func TestReaderMaxDepth(t *testing.T) {
 }
 
 func TestReaderMaxAttrs(t *testing.T) {
-	r, err := NewReader(strings.NewReader(`<a b="1" c="2"/>`), MaxAttrs(1))
+	r, err := NewReader(strings.NewReader(`<a b="1" c="2"/>`), xmltext.MaxAttrs(1))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -194,7 +194,7 @@ func TestReaderMaxAttrs(t *testing.T) {
 }
 
 func TestReaderMaxTokenSize(t *testing.T) {
-	r, err := NewReader(strings.NewReader("<root>abcdefgh</root>"), MaxTokenSize(6))
+	r, err := NewReader(strings.NewReader("<root>abcdefgh</root>"), xmltext.MaxTokenSize(6))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}
@@ -231,7 +231,7 @@ func TestWithCharsetReader(t *testing.T) {
 		}
 		return bytes.NewReader(out), nil
 	}
-	r, err := NewReader(bytes.NewReader(input), WithCharsetReader(decoder))
+	r, err := NewReader(bytes.NewReader(input), xmltext.WithCharsetReader(decoder))
 	if err != nil {
 		t.Fatalf("NewReader error = %v", err)
 	}

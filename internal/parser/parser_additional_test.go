@@ -199,7 +199,7 @@ func TestNamespaceResolutionHelpers(t *testing.T) {
 		t.Fatalf("expected namespace context to include tns and xml")
 	}
 
-	refQName, err := resolveElementQName(doc, doc.GetAttribute(refElem, "ref"), refElem, schema)
+	refQName, err := resolveQNameWithPolicy(doc, doc.GetAttribute(refElem, "ref"), refElem, schema, useDefaultNamespace)
 	if err != nil {
 		t.Fatalf("resolveElementQName error = %v", err)
 	}
@@ -211,7 +211,7 @@ func TestNamespaceResolutionHelpers(t *testing.T) {
 	if attrElem == xsdxml.InvalidNode {
 		t.Fatalf("expected attribute ref element to be found")
 	}
-	attrQName, err := resolveAttributeRefQName(doc, doc.GetAttribute(attrElem, "ref"), attrElem, schema)
+	attrQName, err := resolveQNameWithPolicy(doc, doc.GetAttribute(attrElem, "ref"), attrElem, schema, forceEmptyNamespace)
 	if err != nil {
 		t.Fatalf("resolveAttributeRefQName error = %v", err)
 	}
@@ -219,7 +219,7 @@ func TestNamespaceResolutionHelpers(t *testing.T) {
 		t.Fatalf("unexpected attribute ref QName: %s", attrQName)
 	}
 
-	idQName, err := resolveIdentityConstraintQName(doc, "tns:key", refElem, schema)
+	idQName, err := resolveQNameWithPolicy(doc, "tns:key", refElem, schema, useDefaultNamespace)
 	if err != nil {
 		t.Fatalf("resolveIdentityConstraintQName error = %v", err)
 	}
@@ -252,10 +252,11 @@ func TestParseDerivationSetWithValidation(t *testing.T) {
 }
 
 func TestParseSimpleTypeFinal(t *testing.T) {
-	if _, err := parseSimpleTypeFinal("restriction list"); err != nil {
-		t.Fatalf("parseSimpleTypeFinal error = %v", err)
+	allowed := types.DerivationSet(types.DerivationRestriction | types.DerivationList | types.DerivationUnion)
+	if _, err := parseDerivationSetWithValidation("restriction list", allowed); err != nil {
+		t.Fatalf("parseDerivationSetWithValidation simpleType final error = %v", err)
 	}
-	if _, err := parseSimpleTypeFinal("extension"); err == nil {
+	if _, err := parseDerivationSetWithValidation("extension", allowed); err == nil {
 		t.Fatalf("expected error for invalid simpleType final value")
 	}
 }
@@ -1171,14 +1172,14 @@ func TestResolveQNameDefaultNamespace(t *testing.T) {
 	schema := NewSchema()
 	root := doc.DocumentElement()
 
-	qname, err := resolveQName(doc, "string", root, schema)
+	qname, err := resolveQNameWithPolicy(doc, "string", root, schema, useDefaultNamespace)
 	if err != nil {
 		t.Fatalf("resolveQNameWithoutBuiltin error = %v", err)
 	}
 	if qname.Namespace != types.XSDNamespace || qname.Local != "string" {
 		t.Fatalf("unexpected QName result: %s", qname)
 	}
-	if _, err := resolveQName(doc, "bad:local", root, schema); err == nil {
+	if _, err := resolveQNameWithPolicy(doc, "bad:local", root, schema, useDefaultNamespace); err == nil {
 		t.Fatalf("expected undefined prefix error")
 	}
 }

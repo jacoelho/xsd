@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/xmllex"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -61,7 +61,7 @@ func (e *validationExecutor) process(ev *xmlstream.ResolvedEvent, stream subtree
 		e.allowBOM = false
 	case xmlstream.EventCharData:
 		if len(e.s.elemStack) == 0 {
-			if !xsdxml.IsIgnorableOutsideRoot(ev.Text, e.allowBOM) {
+			if !xmllex.IsIgnorableOutsideRoot(ev.Text, e.allowBOM) {
 				if fatal := e.s.recordValidationError(fmt.Errorf("unexpected character data outside root element"), ev.Line, ev.Column); fatal != nil {
 					return fatal
 				}

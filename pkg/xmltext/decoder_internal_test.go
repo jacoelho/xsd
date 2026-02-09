@@ -3,6 +3,7 @@ package xmltext
 import (
 	"bytes"
 	"errors"
+	"hash/maphash"
 	"io"
 	"strings"
 	"testing"
@@ -605,7 +606,7 @@ func TestDecoderInternQNameHelpers(t *testing.T) {
 		t.Fatalf("internQName local = %q, want local", got)
 	}
 
-	hash := hashBytes(buf.data)
+	hash := maphash.Bytes(hashSeed, buf.data)
 	dec = &Decoder{}
 	interned = dec.internQNameHash(&name, hash)
 	if got := string(interned.Prefix.bytes()); got != "ns" {

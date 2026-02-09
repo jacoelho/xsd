@@ -27,14 +27,6 @@ func newEngine(rt *runtime.Schema, opts ...xmlstream.Option) *engine {
 	return e
 }
 
-func (e *engine) validate(r io.Reader) error {
-	return e.validateDocument(r, "")
-}
-
-func (e *engine) validateWithDocument(r io.Reader, document string) error {
-	return e.validateDocument(r, document)
-}
-
 func (e *engine) validateDocument(r io.Reader, document string) error {
 	if e == nil || e.rt == nil {
 		return schemaNotLoadedError()

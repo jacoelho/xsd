@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
@@ -34,7 +35,7 @@ func resolveFieldPathType(schema *parser.Schema, selectedElementDecl *types.Elem
 		return attrType, nil
 	}
 
-	elementType := resolveTypeForValidation(schema, elementDecl.Type)
+	elementType := typeops.ResolveTypeReference(schema, elementDecl.Type, typeops.TypeReferenceMustExist)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
 	}

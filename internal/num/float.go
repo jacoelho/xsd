@@ -20,7 +20,7 @@ const (
 
 // ParseFloat32 parses an XSD float lexical value.
 func ParseFloat32(b []byte) (float32, FloatClass, *ParseError) {
-	f, class, err := parseFloat(b, 32)
+	f, class, err := ParseFloat(b, 32)
 	return float32(f), class, err
 }
 
@@ -43,12 +43,8 @@ func ValidateFloatLexical(b []byte) *ParseError {
 	return nil
 }
 
-// ParseFloat64 parses an XSD double lexical value.
-func ParseFloat64(b []byte) (float64, FloatClass, *ParseError) {
-	return parseFloat(b, 64)
-}
-
-func parseFloat(b []byte, bits int) (float64, FloatClass, *ParseError) {
+// ParseFloat parses an XSD float/double lexical value for the requested bit size.
+func ParseFloat(b []byte, bits int) (float64, FloatClass, *ParseError) {
 	if len(b) == 0 {
 		return 0, FloatFinite, &ParseError{Kind: ParseEmpty}
 	}
@@ -65,7 +61,11 @@ func parseFloat(b []byte, bits int) (float64, FloatClass, *ParseError) {
 	if !isFloatLexical(b) {
 		return 0, FloatFinite, &ParseError{Kind: ParseBadChar}
 	}
-	f, err := strconv.ParseFloat(unsafeString(b), bits)
+	lexical := ""
+	if len(b) != 0 {
+		lexical = unsafe.String(unsafe.SliceData(b), len(b))
+	}
+	f, err := strconv.ParseFloat(lexical, bits)
 	if err != nil {
 		if errors.Is(err, strconv.ErrRange) {
 			class := FloatFinite
@@ -81,17 +81,9 @@ func parseFloat(b []byte, bits int) (float64, FloatClass, *ParseError) {
 	return f, FloatFinite, nil
 }
 
-// CompareFloat32 compares two float32 values using XSD ordering rules.
-func CompareFloat32(a float32, ac FloatClass, b float32, bc FloatClass) (int, bool) {
-	return compareFloat(float64(a), ac, float64(b), bc)
-}
-
-// CompareFloat64 compares two float64 values using XSD ordering rules.
-func CompareFloat64(a float64, ac FloatClass, b float64, bc FloatClass) (int, bool) {
-	return compareFloat(a, ac, b, bc)
-}
-
-func compareFloat(a float64, ac FloatClass, b float64, bc FloatClass) (int, bool) {
+// CompareFloat compares two parsed float/double values.
+// The boolean result is false when either side is NaN (unordered).
+func CompareFloat(a float64, ac FloatClass, b float64, bc FloatClass) (int, bool) {
 	if ac == FloatNaN || bc == FloatNaN {
 		return 0, false
 	}
@@ -121,13 +113,6 @@ func compareFloat(a float64, ac FloatClass, b float64, bc FloatClass) (int, bool
 	default:
 		return 0, true
 	}
-}
-
-func unsafeString(b []byte) string {
-	if len(b) == 0 {
-		return ""
-	}
-	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
 func isFloatLexical(value []byte) bool {

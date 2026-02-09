@@ -25,7 +25,7 @@ func resolveTopLevelElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema
 		if hasInlineTypeChild(doc, elem) {
 			return nil, false, fmt.Errorf("element cannot have both 'type' attribute and inline type definition")
 		}
-		typeQName, err := resolveQName(doc, typeName, elem, schema)
+		typeQName, err := resolveQNameWithPolicy(doc, typeName, elem, schema, useDefaultNamespace)
 		if err != nil {
 			return nil, false, fmt.Errorf("resolve type %s: %w", typeName, err)
 		}
@@ -66,7 +66,7 @@ func resolveTopLevelElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema
 		}
 	}
 	if resolved == nil {
-		return makeAnyType(), false, nil
+		return types.GetBuiltin(types.TypeNameAnyType), false, nil
 	}
 	return resolved, explicit, nil
 }

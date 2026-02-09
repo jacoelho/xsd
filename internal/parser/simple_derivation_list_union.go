@@ -40,7 +40,7 @@ func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 				return nil, fmt.Errorf("list cannot have multiple restriction children")
 			}
 			restriction = &types.Restriction{}
-			if err := parseFacets(doc, child, restriction, facetType, schema); err != nil {
+			if err := parseFacetsWithPolicy(doc, child, restriction, facetType, schema, facetAttributesDisallowed); err != nil {
 				return nil, fmt.Errorf("parse facets in list restriction: %w", err)
 			}
 		}
@@ -69,7 +69,7 @@ func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 			return nil, fmt.Errorf("simpleType: %w", err)
 		}
 	} else {
-		itemTypeQName, err := resolveQName(doc, itemType, elem, schema)
+		itemTypeQName, err := resolveQNameWithPolicy(doc, itemType, elem, schema, useDefaultNamespace)
 		if err != nil {
 			return nil, err
 		}
@@ -104,7 +104,7 @@ func parseUnionDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 
 	if memberTypesAttr != "" {
 		for memberTypeName := range types.FieldsXMLWhitespaceSeq(memberTypesAttr) {
-			memberTypeQName, err := resolveQName(doc, memberTypeName, elem, schema)
+			memberTypeQName, err := resolveQNameWithPolicy(doc, memberTypeName, elem, schema, useDefaultNamespace)
 			if err != nil {
 				return nil, fmt.Errorf("resolve member type %s: %w", memberTypeName, err)
 			}

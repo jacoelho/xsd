@@ -19,11 +19,3 @@ func IsAnyTypeQName(qname QName) bool {
 func IsAnySimpleTypeQName(qname QName) bool {
 	return qname == AnySimpleTypeQName()
 }
-
-// IsAnyType reports whether typ is xs:anyType.
-func IsAnyType(typ Type) bool {
-	if typ == nil {
-		return false
-	}
-	return IsAnyTypeQName(typ.Name())
-}

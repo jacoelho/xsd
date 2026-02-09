@@ -283,6 +283,10 @@ func TestValidateCharDataOutsideRoot(t *testing.T) {
 		{name: "text after root", doc: "<root xmlns=\"urn:test\"/>x", wantErr: true},
 		{name: "whitespace before root", doc: " \n\t<root xmlns=\"urn:test\"/>", wantErr: false},
 		{name: "whitespace after root", doc: "<root xmlns=\"urn:test\"/> \n\t", wantErr: false},
+		{name: "bom before root", doc: "\uFEFF<root xmlns=\"urn:test\"/>", wantErr: false},
+		{name: "bom before root with whitespace", doc: "\uFEFF \n<root xmlns=\"urn:test\"/>", wantErr: false},
+		{name: "double bom before root", doc: "\uFEFF\uFEFF<root xmlns=\"urn:test\"/>", wantErr: true},
+		{name: "bom after root", doc: "<root xmlns=\"urn:test\"/>\uFEFF", wantErr: true},
 	}
 
 	for _, tc := range cases {

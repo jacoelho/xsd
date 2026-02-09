@@ -2,6 +2,7 @@ package semanticresolve
 
 import (
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeops"
 	"github.com/jacoelho/xsd/internal/types"
 )
 
@@ -74,7 +75,7 @@ func derivationStep(sch *parser.Schema, typ types.Type) (types.Type, types.Deriv
 		if base == nil {
 			baseQName := typed.Content().BaseTypeQName()
 			if !baseQName.IsZero() {
-				resolved, err := lookupTypeInSchema(sch, baseQName)
+				resolved, err := typeops.ResolveTypeQName(sch, baseQName, typeops.TypeReferenceMustExist)
 				if err != nil {
 					return nil, typed.DerivationMethod, err
 				}
@@ -95,7 +96,7 @@ func derivationStep(sch *parser.Schema, typ types.Type) (types.Type, types.Deriv
 				base = typed.Restriction.SimpleType
 			}
 			if base == nil && !typed.Restriction.Base.IsZero() {
-				resolved, err := lookupTypeInSchema(sch, typed.Restriction.Base)
+				resolved, err := typeops.ResolveTypeQName(sch, typed.Restriction.Base, typeops.TypeReferenceMustExist)
 				if err != nil {
 					return nil, types.DerivationRestriction, err
 				}

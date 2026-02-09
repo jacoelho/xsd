@@ -56,8 +56,10 @@ func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 	if err := validateOccursValue(minOccursAttr); err != nil {
 		return nil, fmt.Errorf("invalid minOccurs value '%s': %w", minOccursAttr, err)
 	}
-	if err := validateOccursValueAllowUnbounded(maxOccursAttr); err != nil {
-		return nil, fmt.Errorf("invalid maxOccurs value '%s': %w", maxOccursAttr, err)
+	if maxOccursAttr != "" && maxOccursAttr != "unbounded" {
+		if err := validateOccursInteger(maxOccursAttr); err != nil {
+			return nil, fmt.Errorf("invalid maxOccurs value '%s': %w", maxOccursAttr, err)
+		}
 	}
 
 	minOccurs, err := parseOccursAttr(doc, elem, "minOccurs")
@@ -86,13 +88,6 @@ func validateOccursValue(value string) error {
 	}
 	if value == "unbounded" {
 		return fmt.Errorf("occurs value must be a non-negative integer")
-	}
-	return validateOccursInteger(value)
-}
-
-func validateOccursValueAllowUnbounded(value string) error {
-	if value == "" || value == "unbounded" {
-		return nil
 	}
 	return validateOccursInteger(value)
 }

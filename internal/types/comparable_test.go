@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -547,11 +548,11 @@ func TestComparableXSDDuration_Compare(t *testing.T) {
 		QName: QName{Namespace: XSDNamespace, Local: "duration"},
 	}
 
-	left, err := ParseXSDDuration("PT26H")
+	left, err := durationlex.Parse("PT26H")
 	if err != nil {
 		t.Fatalf("ParseXSDDuration() error = %v", err)
 	}
-	right, err := ParseXSDDuration("P1DT2H")
+	right, err := durationlex.Parse("P1DT2H")
 	if err != nil {
 		t.Fatalf("ParseXSDDuration() error = %v", err)
 	}
@@ -566,11 +567,11 @@ func TestComparableXSDDuration_Compare(t *testing.T) {
 		t.Errorf("PT26H should equal P1DT2H, cmp=%d", cmp)
 	}
 
-	longer, err := ParseXSDDuration("P32D")
+	longer, err := durationlex.Parse("P32D")
 	if err != nil {
 		t.Fatalf("ParseXSDDuration() error = %v", err)
 	}
-	month, err := ParseXSDDuration("P1M")
+	month, err := durationlex.Parse("P1M")
 	if err != nil {
 		t.Fatalf("ParseXSDDuration() error = %v", err)
 	}
@@ -622,11 +623,11 @@ func TestComparableXSDDuration_CarryBorrow(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			left, err := ParseXSDDuration(tt.a)
+			left, err := durationlex.Parse(tt.a)
 			if err != nil {
 				t.Fatalf("ParseXSDDuration(%q) error = %v", tt.a, err)
 			}
-			right, err := ParseXSDDuration(tt.b)
+			right, err := durationlex.Parse(tt.b)
 			if err != nil {
 				t.Fatalf("ParseXSDDuration(%q) error = %v", tt.b, err)
 			}
@@ -653,11 +654,11 @@ func TestComparableXSDDuration_Indeterminate(t *testing.T) {
 		QName: QName{Namespace: XSDNamespace, Local: "duration"},
 	}
 
-	month, err := ParseXSDDuration("P1M")
+	month, err := durationlex.Parse("P1M")
 	if err != nil {
 		t.Fatalf("ParseXSDDuration() error = %v", err)
 	}
-	days, err := ParseXSDDuration("P30D")
+	days, err := durationlex.Parse("P30D")
 	if err != nil {
 		t.Fatalf("ParseXSDDuration() error = %v", err)
 	}
@@ -687,7 +688,7 @@ func TestComparableXSDDuration_StringCanonical(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			dur, err := ParseXSDDuration(tt.input)
+			dur, err := durationlex.Parse(tt.input)
 			if err != nil {
 				t.Fatalf("ParseXSDDuration() error = %v", err)
 			}

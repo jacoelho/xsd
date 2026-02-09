@@ -94,17 +94,21 @@ func derivationRules() []derivationRule {
 		},
 		{
 			name: "standard derivation chain",
-			when: isStandardDerivation,
+			when: IsDerivedFrom,
 			then: alwaysTrue,
 		},
 		{
 			name: "union member exact match",
-			when: isUnionMemberType,
+			when: func(derived, base Type) bool {
+				return matchesUnionMember(derived, base, hasSameQName)
+			},
 			then: alwaysTrue,
 		},
 		{
 			name: "union member derivation",
-			when: isDerivedFromUnionMember,
+			when: func(derived, base Type) bool {
+				return matchesUnionMember(derived, base, IsDerivedFrom)
+			},
 			then: alwaysTrue,
 		},
 		{
@@ -129,18 +133,6 @@ func hasSameQName(derived, base Type) bool {
 		return false
 	}
 	return nameA == nameB
-}
-
-func isStandardDerivation(derived, base Type) bool {
-	return IsDerivedFrom(derived, base)
-}
-
-func isUnionMemberType(derived, base Type) bool {
-	return matchesUnionMember(derived, base, hasSameQName)
-}
-
-func isDerivedFromUnionMember(derived, base Type) bool {
-	return matchesUnionMember(derived, base, IsDerivedFrom)
 }
 
 func matchesUnionMember(derived, base Type, matches func(derived, base Type) bool) bool {

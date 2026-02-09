@@ -8,7 +8,7 @@ import (
 	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/runtimecompile"
+	"github.com/jacoelho/xsd/internal/runtimebuild"
 	"github.com/jacoelho/xsd/internal/schemaflow"
 	"github.com/jacoelho/xsd/internal/semantic"
 	"github.com/jacoelho/xsd/internal/types"
@@ -90,10 +90,8 @@ func Transform(validated *ValidatedSchema) (*PreparedSchema, error) {
 	if validated == nil {
 		return nil, fmt.Errorf("prepare schema: validated schema is nil")
 	}
-	return transformSchema(validated.schema, validated.registry)
-}
-
-func transformSchema(sch *parser.Schema, reg *semantic.Registry) (*PreparedSchema, error) {
+	sch := validated.schema
+	reg := validated.registry
 	if sch == nil {
 		return nil, fmt.Errorf("prepare schema: schema is nil")
 	}
@@ -114,9 +112,12 @@ func validateSchema(sch *parser.Schema) (*parser.Schema, *semantic.Registry, err
 	if sch == nil {
 		return nil, nil, fmt.Errorf("prepare schema: schema is nil")
 	}
-	resolvedSchema, err := schemaflow.ResolveAndValidate(sch)
+	resolvedSchema, err := loadmerge.CloneSchemaDeep(sch)
 	if err != nil {
-		return nil, nil, fmt.Errorf("prepare schema: %w", err)
+		return nil, nil, fmt.Errorf("prepare schema: clone schema: %w", err)
+	}
+	if resolveErr := schemaflow.ResolveAndValidateOwned(resolvedSchema); resolveErr != nil {
+		return nil, nil, fmt.Errorf("prepare schema: %w", resolveErr)
 	}
 	reg, err := semantic.AssignIDs(resolvedSchema)
 	if err != nil {
@@ -142,7 +143,7 @@ func newBuildRuntimeFunc(sch *parser.Schema, reg *semantic.Registry, refs *seman
 		if refs == nil {
 			return nil, fmt.Errorf("runtime build: prepared references are nil")
 		}
-		return runtimecompile.BuildArtifacts(sch, reg, refs, runtimecompile.BuildConfig{
+		return runtimebuild.BuildArtifacts(sch, reg, refs, runtimebuild.BuildConfig{
 			Limits:         cfg.Limits,
 			MaxOccursLimit: cfg.MaxOccursLimit,
 		})

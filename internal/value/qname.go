@@ -20,7 +20,7 @@ func CanonicalQName(value []byte, resolver NSResolver, dst []byte) ([]byte, erro
 	if len(trimmed) == 0 {
 		return nil, fmt.Errorf("invalid QName: empty string")
 	}
-	if containsXMLWhitespace(trimmed) {
+	if slices.ContainsFunc(trimmed, IsXMLWhitespaceByte) {
 		return nil, fmt.Errorf("invalid QName: contains whitespace")
 	}
 	prefix, local, hasPrefix, err := parseQName(trimmed)
@@ -29,7 +29,7 @@ func CanonicalQName(value []byte, resolver NSResolver, dst []byte) ([]byte, erro
 	}
 	var ns []byte
 	if hasPrefix {
-		if xmlnames.IsXMLPrefix(prefix) {
+		if len(prefix) == 3 && prefix[0] == 'x' && prefix[1] == 'm' && prefix[2] == 'l' {
 			if resolver != nil {
 				resolved, ok := resolver.ResolvePrefix(prefix)
 				if err := xmlnames.ValidateXMLPrefixBindingBytes(resolved, ok); err != nil {
@@ -81,10 +81,7 @@ func parseQName(value []byte) ([]byte, []byte, bool, error) {
 	return value[:colon], value[colon+1:], true, nil
 }
 
-// ValidateQName validates xs:QName lexical constraints.
-func ValidateQName(value []byte) error {
-	return validateQName(value)
-}
+var ValidateQName = validateQName
 
 func validateQName(value []byte) error {
 	if len(value) == 0 {
@@ -110,7 +107,7 @@ func validateQName(value []byte) error {
 	}
 	prefix := value[:colon]
 	local := value[colon+1:]
-	if xmlnames.IsXMLNSPrefix(prefix) {
+	if len(prefix) == 5 && prefix[0] == 'x' && prefix[1] == 'm' && prefix[2] == 'l' && prefix[3] == 'n' && prefix[4] == 's' {
 		return fmt.Errorf("QName cannot use reserved prefix 'xmlns'")
 	}
 	if err := validateNCName(prefix); err != nil {
@@ -171,8 +168,4 @@ func isNameChar(r rune) bool {
 		r == 0xB7 ||
 		(r >= 0x0300 && r <= 0x036F) ||
 		(r >= 0x203F && r <= 0x2040)
-}
-
-func containsXMLWhitespace(value []byte) bool {
-	return slices.ContainsFunc(value, IsXMLWhitespaceByte)
 }

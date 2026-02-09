@@ -35,7 +35,7 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 			}
 			if storeAttrs {
 				kind := use.FixedKey.Kind
-				key := valueKeyBytes(s.rt.Values, use.FixedKey)
+				key := valueBytes(s.rt.Values, use.FixedKey.Ref)
 				if !use.FixedKey.Ref.Present {
 					var err error
 					kind, key, err = s.keyForCanonicalValue(use.Validator, fixedValue, nil, use.FixedMember)
@@ -68,7 +68,7 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 			}
 			if storeAttrs {
 				kind := use.DefaultKey.Kind
-				key := valueKeyBytes(s.rt.Values, use.DefaultKey)
+				key := valueBytes(s.rt.Values, use.DefaultKey.Ref)
 				if !use.DefaultKey.Ref.Present {
 					var err error
 					kind, key, err = s.keyForCanonicalValue(use.Validator, defaultValue, nil, use.DefaultMember)

@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/valuekey"
 )
@@ -31,7 +30,7 @@ func validateAnyURINoCanonical(normalized []byte) error {
 }
 
 func (s *Session) canonicalizeHexBinary(normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
-	decoded, err := types.ParseHexBinaryBytes(normalized)
+	decoded, err := value.ParseHexBinary(normalized)
 	if err != nil {
 		return nil, valueErrorMsg(valueErrInvalid, err.Error())
 	}
@@ -50,14 +49,14 @@ func (s *Session) canonicalizeHexBinary(normalized []byte, needKey bool, metrics
 }
 
 func validateHexBinaryNoCanonical(normalized []byte) error {
-	if _, err := types.ParseHexBinaryBytes(normalized); err != nil {
+	if _, err := value.ParseHexBinary(normalized); err != nil {
 		return valueErrorMsg(valueErrInvalid, err.Error())
 	}
 	return nil
 }
 
 func (s *Session) canonicalizeBase64Binary(normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
-	decoded, err := types.ParseBase64BinaryBytes(normalized)
+	decoded, err := value.ParseBase64Binary(normalized)
 	if err != nil {
 		return nil, valueErrorMsg(valueErrInvalid, err.Error())
 	}
@@ -83,7 +82,7 @@ func (s *Session) canonicalizeBase64Binary(normalized []byte, needKey bool, metr
 }
 
 func validateBase64BinaryNoCanonical(normalized []byte) error {
-	if _, err := types.ParseBase64BinaryBytes(normalized); err != nil {
+	if _, err := value.ParseBase64Binary(normalized); err != nil {
 		return valueErrorMsg(valueErrInvalid, err.Error())
 	}
 	return nil
