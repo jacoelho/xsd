@@ -173,7 +173,6 @@ func TestBinaryOctetLengthAllocationsStayAtParserBaseline(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			parseAllocs := testing.AllocsPerRun(200, func() {
 				if _, err := tc.parse(tc.value); err != nil {

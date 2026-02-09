@@ -11,13 +11,12 @@ import (
 // validateFacetInheritance validates that derived facets are valid restrictions of base type facets
 func validateFacetInheritance(derivedFacets []types.Facet, baseType types.Type) error {
 	visited := make(map[types.Type]bool)
-	var walk func(types.Type) error
-	walk = func(current types.Type) error {
+	var walk = func(current types.Type) error {
 		if current == nil {
-			return nil // no base type, nothing to inherit
+			return nil
 		}
 		if visited[current] {
-			return nil // already visited, skip to avoid infinite recursion
+			return nil
 		}
 		visited[current] = true
 
@@ -28,7 +27,7 @@ func validateFacetInheritance(derivedFacets []types.Facet, baseType types.Type) 
 			if bt.Restriction == nil {
 				return nil
 			}
-			// convert []interface{} to []types.Facet
+
 			baseFacets = make([]types.Facet, 0, len(bt.Restriction.Facets))
 			for _, f := range bt.Restriction.Facets {
 				switch facet := f.(type) {
@@ -44,18 +43,16 @@ func validateFacetInheritance(derivedFacets []types.Facet, baseType types.Type) 
 					}
 				}
 			}
-			// note: We don't recursively validate base type's base type here
-			// that validation happens when the base type itself is validated
+
 		case *types.BuiltinType:
 			baseFacets = implicitRangeFacetsForBuiltin(bt)
 		default:
-			// built-in types don't have explicit facets in Restriction.Facets
-			// they have implicit facets defined by the type itself
+
 			return nil
 		}
 
 		if len(baseFacets) == 0 {
-			return nil // no base facets to inherit
+			return nil
 		}
 
 		baseFacetMap := make(map[string]types.Facet)
@@ -70,12 +67,12 @@ func validateFacetInheritance(derivedFacets []types.Facet, baseType types.Type) 
 		for _, derivedFacet := range derivedFacets {
 			facetName := derivedFacet.Name()
 			if baseFacet, exists := baseFacetMap[facetName]; exists {
-				// facet exists in base - validate that derived is stricter
+
 				if err := validateFacetRestriction(facetName, baseFacet, derivedFacet, current); err != nil {
 					return err
 				}
 			}
-			// if facet doesn't exist in base, it's a new facet (allowed if applicable)
+
 		}
 
 		return nil

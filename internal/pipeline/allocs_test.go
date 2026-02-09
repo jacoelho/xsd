@@ -65,7 +65,7 @@ func allocationHeavySchema(typeCount int) string {
 	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"`)
 	b.WriteString(` targetNamespace="urn:alloc" xmlns:tns="urn:alloc"`)
 	b.WriteString(` elementFormDefault="qualified">`)
-	for i := 0; i < typeCount; i++ {
+	for i := range typeCount {
 		b.WriteString(`<xs:simpleType name="T`)
 		b.WriteString(fmt.Sprintf("%d", i))
 		b.WriteString(`"><xs:restriction base="xs:string"><xs:minLength value="1"/>`)

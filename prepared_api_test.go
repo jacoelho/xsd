@@ -91,8 +91,8 @@ func TestLoadWithOptionsRejectsInvalidSchemaLimits(t *testing.T) {
 }
 
 func TestQNameTypeAliasAssignability(t *testing.T) {
-	var apiQName xsd.QName = xmlstream.QName{Namespace: "urn:test", Local: "root"}
-	var streamQName xmlstream.QName = apiQName
+	var apiQName = xmlstream.QName{Namespace: "urn:test", Local: "root"}
+	var streamQName = apiQName
 
 	if got, want := apiQName.String(), "{urn:test}root"; got != want {
 		t.Fatalf("xsd.QName.String() = %q, want %q", got, want)

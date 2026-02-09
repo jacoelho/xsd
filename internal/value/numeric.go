@@ -71,17 +71,3 @@ func ParseDouble(lexical []byte) (float64, error) {
 	}
 	return 0, fmt.Errorf("invalid double: %s", string(trimmed))
 }
-
-func validateFloatLexical(lexical []byte, label string) error {
-	trimmed := TrimXMLWhitespace(lexical)
-	if len(trimmed) == 0 {
-		return fmt.Errorf("invalid %s: empty string", label)
-	}
-	if perr := num.ValidateFloatLexical(trimmed); perr != nil {
-		if perr.Kind == num.ParseEmpty {
-			return fmt.Errorf("invalid %s: empty string", label)
-		}
-		return fmt.Errorf("invalid %s: %s", label, string(trimmed))
-	}
-	return nil
-}

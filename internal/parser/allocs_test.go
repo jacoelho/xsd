@@ -38,7 +38,7 @@ func allocationScaleSchema(componentPairs int) string {
 	b.WriteString(` elementFormDefault="qualified">`)
 	b.WriteString(`<xs:import namespace="urn:dep" schemaLocation="dep.xsd"/>`)
 	b.WriteString(`<xs:include schemaLocation="inc.xsd"/>`)
-	for i := 0; i < componentPairs; i++ {
+	for i := range componentPairs {
 		b.WriteString(`<xs:simpleType name="T`)
 		b.WriteString(fmt.Sprintf("%d", i))
 		b.WriteString(`"><xs:restriction base="xs:string"><xs:minLength value="1"/>`)

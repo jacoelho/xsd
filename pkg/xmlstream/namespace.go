@@ -244,7 +244,7 @@ func prefixedNamespaceDecl(name []byte) ([]byte, bool) {
 	if !hasPrefix {
 		return nil, false
 	}
-	if !(len(prefix) == 5 && prefix[0] == 'x' && prefix[1] == 'm' && prefix[2] == 'l' && prefix[3] == 'n' && prefix[4] == 's') {
+	if len(prefix) != 5 || prefix[0] != 'x' || prefix[1] != 'm' || prefix[2] != 'l' || prefix[3] != 'n' || prefix[4] != 's' {
 		return nil, false
 	}
 	return local, true

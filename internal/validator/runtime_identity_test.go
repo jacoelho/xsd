@@ -365,7 +365,7 @@ func TestIdentityAttrSelectionAllocationsScaleLinearly(t *testing.T) {
 	buildAttrs := func(extra int) []StartAttr {
 		out := make([]StartAttr, 0, extra+1)
 		for i := range extra {
-			local := []byte(fmt.Sprintf("attr%d", i))
+			local := fmt.Appendf(nil, "attr%d", i)
 			out = append(out, StartAttr{
 				NSBytes:  []byte("urn:other"),
 				Local:    local,

@@ -27,12 +27,11 @@ type QName = xmlstream.QName
 
 // PreparedSchema stores immutable, precompiled schema artifacts.
 type PreparedSchema struct {
-	prepared *pipeline.PreparedSchema
-	runtime  resolvedRuntimeOptions
-
-	buildCacheMu sync.RWMutex
+	prepared     *pipeline.PreparedSchema
 	buildCache   map[runtimeBuildCacheKey]*runtime.Schema
 	buildOrder   []runtimeBuildCacheKey
+	runtime      resolvedRuntimeOptions
+	buildCacheMu sync.RWMutex
 }
 
 type runtimeBuildCacheKey struct {

@@ -116,8 +116,8 @@ func validateSchema(sch *parser.Schema) (*parser.Schema, *semantic.Registry, err
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepare schema: clone schema: %w", err)
 	}
-	if err := schemaflow.ResolveAndValidateOwned(resolvedSchema); err != nil {
-		return nil, nil, fmt.Errorf("prepare schema: %w", err)
+	if resolveErr := schemaflow.ResolveAndValidateOwned(resolvedSchema); resolveErr != nil {
+		return nil, nil, fmt.Errorf("prepare schema: %w", resolveErr)
 	}
 	reg, err := semantic.AssignIDs(resolvedSchema)
 	if err != nil {

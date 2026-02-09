@@ -36,7 +36,7 @@ func TestReleaseDocumentTrimsLargeBuffers(t *testing.T) {
 }
 
 func BenchmarkAcquireReleaseLargeDocument(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		doc := AcquireDocument()
 		doc.nodes = make([]node, 0, maxPooledNodeEntries*2)
 		doc.children = make([]NodeID, 0, maxPooledChildEntries*2)
