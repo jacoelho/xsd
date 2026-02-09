@@ -898,3 +898,20 @@ func TestParseXMLErrorHandling(t *testing.T) {
 		})
 	}
 }
+
+func TestParseSubtreeReadErrorIncludesElementContext(t *testing.T) {
+	schemaXML := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="bad">
+    <xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	_, err := Parse(strings.NewReader(schemaXML))
+	if err == nil {
+		t.Fatal("Parse() error = nil, want parse error")
+	}
+	want := "xml read for element {http://www.w3.org/2001/XMLSchema}element"
+	if !strings.Contains(err.Error(), want) {
+		t.Fatalf("Parse() error = %v, want message containing %q", err, want)
+	}
+}

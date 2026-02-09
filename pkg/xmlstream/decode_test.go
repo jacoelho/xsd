@@ -37,6 +37,55 @@ func readSubtreeInto(r *Reader, dst []byte) (int, error) {
 	return int(n), nil
 }
 
+func firstStartElement(t *testing.T, data []byte) xml.StartElement {
+	t.Helper()
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	for {
+		tok, err := dec.Token()
+		if errors.Is(err, io.EOF) {
+			t.Fatalf("first start element missing")
+		}
+		if err != nil {
+			t.Fatalf("decode token error = %v", err)
+		}
+		if start, ok := tok.(xml.StartElement); ok {
+			return start
+		}
+	}
+}
+
+func collectStartElements(t *testing.T, data []byte) []xml.StartElement {
+	t.Helper()
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	starts := make([]xml.StartElement, 0, 4)
+	for {
+		tok, err := dec.Token()
+		if errors.Is(err, io.EOF) {
+			return starts
+		}
+		if err != nil {
+			t.Fatalf("decode token error = %v", err)
+		}
+		if start, ok := tok.(xml.StartElement); ok {
+			starts = append(starts, start)
+		}
+	}
+}
+
+func hasNamespaceDecl(start xml.StartElement, prefix, uri string) bool {
+	for _, attr := range start.Attr {
+		switch {
+		case prefix == "" && attr.Name.Space == "" && attr.Name.Local == "xmlns" && attr.Value == uri:
+			return true
+		case attr.Name.Space == "xmlns" && attr.Name.Local == prefix && attr.Value == uri:
+			return true
+		default:
+			continue
+		}
+	}
+	return false
+}
+
 type subtreeWriterCompat struct {
 	dst   []byte
 	n     int
@@ -158,6 +207,141 @@ func TestReadSubtreeBytesWithCommentsAndPI(t *testing.T) {
 	}
 	if got := string(data); got != "<item><!--c--><?pi data?></item>" {
 		t.Fatalf("ReadSubtreeBytes = %q, want <item><!--c--><?pi data?></item>", got)
+	}
+}
+
+func TestReadSubtreeToNilWriter(t *testing.T) {
+	input := `<root><item/></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // root
+		t.Fatalf("root start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // item
+		t.Fatalf("item start error = %v", err)
+	}
+	if _, err = r.ReadSubtreeTo(nil); !errors.Is(err, errNilWriter) {
+		t.Fatalf("ReadSubtreeTo(nil) error = %v, want %v", err, errNilWriter)
+	}
+}
+
+func TestReadSubtreeBytesInheritedPrefixedAttributeNamespace(t *testing.T) {
+	input := `<root xmlns:a="urn:a"><item a:code="x"/></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // root
+		t.Fatalf("root start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // item
+		t.Fatalf("item start error = %v", err)
+	}
+	data, err := readSubtreeBytes(r)
+	if err != nil {
+		t.Fatalf("ReadSubtreeBytes error = %v", err)
+	}
+	start := firstStartElement(t, data)
+	if !hasNamespaceDecl(start, "a", "urn:a") {
+		t.Fatalf("item start missing inherited namespace decl for prefix a in %q", string(data))
+	}
+	foundAttr := false
+	for _, attr := range start.Attr {
+		if attr.Name.Space == "urn:a" && attr.Name.Local == "code" && attr.Value == "x" {
+			foundAttr = true
+			break
+		}
+	}
+	if !foundAttr {
+		t.Fatalf("item start missing namespaced attribute in %q", string(data))
+	}
+}
+
+func TestReadSubtreeBytesDoesNotDuplicateNamespaceDeclarations(t *testing.T) {
+	input := `<root xmlns:foo="urn:foo"><item foo:attr="v"/></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // root
+		t.Fatalf("root start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // item
+		t.Fatalf("item start error = %v", err)
+	}
+	data, err := readSubtreeBytes(r)
+	if err != nil {
+		t.Fatalf("ReadSubtreeBytes error = %v", err)
+	}
+	if got := strings.Count(string(data), `xmlns:foo="urn:foo"`); got != 1 {
+		t.Fatalf("xmlns:foo declaration count = %d, want 1 in %q", got, string(data))
+	}
+}
+
+func TestReadSubtreeBytesNamespaceShadowingUsesInnermostBinding(t *testing.T) {
+	input := `<root xmlns:p="urn:outer"><p:outer><inner xmlns:p="urn:inner"><p:leaf/></inner></p:outer></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // root
+		t.Fatalf("root start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // p:outer
+		t.Fatalf("outer start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // inner
+		t.Fatalf("inner start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // p:leaf
+		t.Fatalf("leaf start error = %v", err)
+	}
+	data, err := readSubtreeBytes(r)
+	if err != nil {
+		t.Fatalf("ReadSubtreeBytes error = %v", err)
+	}
+	start := firstStartElement(t, data)
+	if start.Name.Space != "urn:inner" || start.Name.Local != "leaf" {
+		t.Fatalf("leaf QName = {%s}%s, want {urn:inner}leaf", start.Name.Space, start.Name.Local)
+	}
+	if !hasNamespaceDecl(start, "p", "urn:inner") {
+		t.Fatalf("leaf start missing innermost namespace binding in %q", string(data))
+	}
+}
+
+func TestReadSubtreeBytesDefaultAndPrefixedNamespaces(t *testing.T) {
+	input := `<root xmlns="urn:root" xmlns:a="urn:a"><container><a:item/></container></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // root
+		t.Fatalf("root start error = %v", err)
+	}
+	if _, err = r.Next(); err != nil { // container
+		t.Fatalf("container start error = %v", err)
+	}
+	data, err := readSubtreeBytes(r)
+	if err != nil {
+		t.Fatalf("ReadSubtreeBytes error = %v", err)
+	}
+	starts := collectStartElements(t, data)
+	if len(starts) < 2 {
+		t.Fatalf("start element count = %d, want at least 2", len(starts))
+	}
+	if starts[0].Name.Space != "urn:root" || starts[0].Name.Local != "container" {
+		t.Fatalf("container QName = {%s}%s, want {urn:root}container", starts[0].Name.Space, starts[0].Name.Local)
+	}
+	if starts[1].Name.Space != "urn:a" || starts[1].Name.Local != "item" {
+		t.Fatalf("item QName = {%s}%s, want {urn:a}item", starts[1].Name.Space, starts[1].Name.Local)
+	}
+	if !hasNamespaceDecl(starts[0], "", "urn:root") {
+		t.Fatalf("container start missing default namespace declaration in %q", string(data))
+	}
+	if !hasNamespaceDecl(starts[0], "a", "urn:a") {
+		t.Fatalf("container start missing prefixed namespace declaration in %q", string(data))
 	}
 }
 

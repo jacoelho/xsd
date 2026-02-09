@@ -17,6 +17,9 @@ func ValidateUPA(schema *parser.Schema, registry *semantic.Registry) error {
 	if registry == nil {
 		return fmt.Errorf("registry is nil")
 	}
+	if err := semantic.RequireResolved(schema); err != nil {
+		return err
+	}
 
 	for _, entry := range registry.TypeOrder {
 		ct, ok := entry.Type.(*types.ComplexType)

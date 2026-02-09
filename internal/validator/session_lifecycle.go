@@ -51,6 +51,7 @@ func (s *Session) Reset() {
 	s.errBuf = s.errBuf[:0]
 	s.validationErrors = s.validationErrors[:0]
 	s.valueBuf = s.valueBuf[:0]
+	s.valueScratch = s.valueScratch[:0]
 	s.AttributeTracker.Reset()
 	s.icState.reset()
 	s.documentURI = ""

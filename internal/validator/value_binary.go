@@ -39,8 +39,8 @@ func (s *Session) canonicalizeHexBinary(normalized []byte, needKey bool, metrics
 		metrics.length = len(decoded)
 		metrics.lengthSet = true
 	}
-	canon := upperHex(s.valueBuf[:0], decoded)
-	s.valueBuf = canon
+	canon := upperHex(s.valueScratch[:0], decoded)
+	s.valueScratch = canon
 	if needKey {
 		key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 0, decoded)
 		s.keyTmp = key
@@ -66,14 +66,14 @@ func (s *Session) canonicalizeBase64Binary(normalized []byte, needKey bool, metr
 		metrics.lengthSet = true
 	}
 	canonLen := base64.StdEncoding.EncodedLen(len(decoded))
-	canon := s.valueBuf[:0]
+	canon := s.valueScratch[:0]
 	if cap(canon) < canonLen {
 		canon = make([]byte, canonLen)
 	} else {
 		canon = canon[:canonLen]
 	}
 	base64.StdEncoding.Encode(canon, decoded)
-	s.valueBuf = canon
+	s.valueScratch = canon
 	if needKey {
 		key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 1, decoded)
 		s.keyTmp = key

@@ -168,28 +168,10 @@ func (r *Reader) withInScopeNamespaceDecls(start Event) Event {
 	if len(prefixURI) == 0 {
 		return start
 	}
-	skipPrefix := make(map[string]struct{}, 2)
-	for _, attr := range start.Attrs {
-		if attr.Name.Namespace == "" || attr.Name.Namespace == XMLNSNamespace {
-			continue
-		}
-		for _, prefix := range prefixOrder {
-			if prefix == "" {
-				continue
-			}
-			if prefixURI[prefix] == attr.Name.Namespace {
-				skipPrefix[prefix] = struct{}{}
-				break
-			}
-		}
-	}
 
 	attrs := start.Attrs
 	for _, prefix := range prefixOrder {
 		if _, exists := prefixSeen[prefix]; exists {
-			continue
-		}
-		if _, exists := skipPrefix[prefix]; exists {
 			continue
 		}
 		local := prefix
@@ -230,27 +212,42 @@ func encodeEvent(enc *xml.Encoder, ev Event) error {
 func encodeStartEvent(enc *xml.Encoder, ev Event) (xml.Name, error) {
 	prefixByNS := make(map[string]string, 8)
 	prefixByNS[XMLNamespace] = "xml"
+	declAttrs := make([]xml.Attr, 0, len(ev.Attrs))
 	attrs := make([]xml.Attr, 0, len(ev.Attrs))
 	for _, attr := range ev.Attrs {
-		if attr.Name.Namespace == XMLNSNamespace {
-			prefix := ""
-			local := "xmlns"
-			if attr.Name.Local != "xmlns" {
-				local = "xmlns:" + attr.Name.Local
-				prefix = attr.Name.Local
-			}
-			ns := string(attr.Value)
-			if existing, ok := prefixByNS[ns]; !ok || (existing == "" && prefix != "") {
-				prefixByNS[ns] = prefix
-			}
-			attrs = append(attrs, xml.Attr{
-				Name:  xml.Name{Local: local},
-				Value: string(attr.Value),
-			})
+		if attr.Name.Namespace != XMLNSNamespace {
 			continue
 		}
+		prefix := ""
+		local := "xmlns"
+		if attr.Name.Local != "xmlns" {
+			local = "xmlns:" + attr.Name.Local
+			prefix = attr.Name.Local
+		}
+		ns := string(attr.Value)
+		if existing, ok := prefixByNS[ns]; !ok || (existing == "" && prefix != "") {
+			prefixByNS[ns] = prefix
+		}
+		declAttrs = append(declAttrs, xml.Attr{
+			Name:  xml.Name{Local: local},
+			Value: string(attr.Value),
+		})
+	}
+	attrs = append(attrs, declAttrs...)
+	for _, attr := range ev.Attrs {
+		if attr.Name.Namespace == XMLNSNamespace {
+			continue
+		}
+		name := xml.Name{Local: attr.Name.Local}
+		if attr.Name.Namespace != "" {
+			if prefix, ok := prefixByNS[attr.Name.Namespace]; ok && prefix != "" {
+				name = xml.Name{Local: prefix + ":" + attr.Name.Local}
+			} else {
+				name = xml.Name{Space: attr.Name.Namespace, Local: attr.Name.Local}
+			}
+		}
 		attrs = append(attrs, xml.Attr{
-			Name:  xml.Name{Space: attr.Name.Namespace, Local: attr.Name.Local},
+			Name:  name,
 			Value: string(attr.Value),
 		})
 	}

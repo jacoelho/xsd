@@ -148,7 +148,7 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 
 			subtreeData, err := readSubtreeBytes(reader, &subtreeBuf)
 			if err != nil {
-				return nil, newParseError("parse XML", fmt.Errorf("xml read: %w", err))
+				return nil, newParseError("parse XML", fmt.Errorf("xml read for element %s: %w", ev.Name.String(), err))
 			}
 			if ev.Name.Namespace != xsdxml.XSDNamespace {
 				continue
@@ -159,15 +159,9 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 				if err != nil {
 					return nil, newParseError("parse XML", err)
 				}
-				if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
-					xsdxml.ReleaseDocument(doc)
+				if err := parseDirectiveSubtree(doc, root, schema, result, importedNamespaces, &dirState); err != nil {
 					return nil, err
 				}
-				if err := parseDirectiveElement(doc, root, schema, result, importedNamespaces, &dirState); err != nil {
-					xsdxml.ReleaseDocument(doc)
-					return nil, err
-				}
-				xsdxml.ReleaseDocument(doc)
 			case "redefine":
 				return nil, fmt.Errorf("redefine is not supported")
 			default:
@@ -209,15 +203,9 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 		if err != nil {
 			return nil, newParseError("parse XML", err)
 		}
-		if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
-			xsdxml.ReleaseDocument(doc)
+		if err := parseTopLevelComponentSubtree(doc, root, schema); err != nil {
 			return nil, err
 		}
-		if err := parseTopLevelComponent(doc, root, schema); err != nil {
-			xsdxml.ReleaseDocument(doc)
-			return nil, err
-		}
-		xsdxml.ReleaseDocument(doc)
 	}
 	return result, nil
 }
@@ -246,6 +234,22 @@ func parseSubtreeIntoDoc(data []byte, opts ...xmlstream.Option) (*xsdxml.Documen
 		return nil, xsdxml.InvalidNode, io.ErrUnexpectedEOF
 	}
 	return doc, root, nil
+}
+
+func parseDirectiveSubtree(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, result *ParseResult, importedNamespaces map[types.NamespaceURI]bool, state *directiveState) error {
+	defer xsdxml.ReleaseDocument(doc)
+	if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
+		return err
+	}
+	return parseDirectiveElement(doc, root, schema, result, importedNamespaces, state)
+}
+
+func parseTopLevelComponentSubtree(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema) error {
+	defer xsdxml.ReleaseDocument(doc)
+	if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
+		return err
+	}
+	return parseTopLevelComponent(doc, root, schema)
 }
 
 func isTopLevelComponentElement(localName string) bool {
