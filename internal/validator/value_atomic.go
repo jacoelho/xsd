@@ -130,7 +130,7 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		}
 		return canon, nil
 	case runtime.VDuration:
-		dur, err := types.ParseXSDDuration(string(normalized))
+		dur, err := types.ParseXSDDurationBytes(normalized)
 		if err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
@@ -186,7 +186,7 @@ func (s *Session) validateAtomicNoCanonical(meta runtime.ValidatorMeta, normaliz
 			return valueErrorMsg(valueErrInvalid, "invalid double")
 		}
 	case runtime.VDuration:
-		if _, err := types.ParseXSDDuration(string(normalized)); err != nil {
+		if _, err := types.ParseXSDDurationBytes(normalized); err != nil {
 			return valueErrorMsg(valueErrInvalid, err.Error())
 		}
 	default:

@@ -12,7 +12,7 @@ import (
 	"github.com/jacoelho/xsd/internal/types"
 )
 
-func TestLoadInvalidSchemaTripsFailStop(t *testing.T) {
+func TestLoadInvalidSchemaAllowsRetry(t *testing.T) {
 	badSchema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:unknownType"/>
@@ -50,8 +50,8 @@ func TestLoadWithoutResolverFailsFast(t *testing.T) {
 	if _, err := loader.Load("schema.xsd"); err == nil || !strings.Contains(err.Error(), "no resolver configured") {
 		t.Fatalf("expected resolver configuration error, got %v", err)
 	}
-	if _, err := loader.Load("schema.xsd"); !errors.Is(err, errLoaderFailed) {
-		t.Fatalf("expected fail-stop error on second call, got %v", err)
+	if _, err := loader.Load("schema.xsd"); err == nil || !strings.Contains(err.Error(), "no resolver configured") {
+		t.Fatalf("expected resolver configuration error on second call, got %v", err)
 	}
 }
 
@@ -215,14 +215,13 @@ func TestLoadRollbackClearsPendingAndMerges(t *testing.T) {
 	}
 
 	fs["d.xsd"] = &fstest.MapFile{Data: []byte(fixedImport)}
-	if _, err := loader.Load("a.xsd"); !errors.Is(err, errLoaderFailed) {
-		t.Fatalf("expected fail-stop error, got %v", err)
+	if _, err := loader.Load("a.xsd"); err != nil {
+		t.Fatalf("expected retry to succeed after fixing import, got %v", err)
 	}
 
-	fresh := NewLoader(Config{FS: fs})
-	schema, err := fresh.Load("a.xsd")
+	schema, err := loader.Load("a.xsd")
 	if err != nil {
-		t.Fatalf("expected load with fresh loader to succeed, got %v", err)
+		t.Fatalf("expected subsequent load to succeed, got %v", err)
 	}
 	if _, ok := schema.ElementDecls[types.QName{Namespace: "urn:root", Local: "fromB"}]; !ok {
 		t.Fatalf("expected included declaration from b.xsd to be present")
@@ -415,7 +414,7 @@ func TestGroupResolutionDeterministic(t *testing.T) {
 	}
 }
 
-func TestImportNamespaceMismatchTripsFailStop(t *testing.T) {
+func TestImportNamespaceMismatchAllowsRetry(t *testing.T) {
 	rootSchema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:root"
@@ -449,13 +448,11 @@ func TestImportNamespaceMismatchTripsFailStop(t *testing.T) {
 		t.Fatalf("expected namespace mismatch error")
 	}
 	fs["other.xsd"] = &fstest.MapFile{Data: []byte(fixedSchema)}
-	if _, err := loader.Load("root.xsd"); !errors.Is(err, errLoaderFailed) {
-		t.Fatalf("expected fail-stop error, got %v", err)
+	if _, err := loader.Load("root.xsd"); err != nil {
+		t.Fatalf("expected retry after fixing namespace mismatch to succeed, got %v", err)
 	}
-
-	fresh := NewLoader(Config{FS: fs})
-	if _, err := fresh.Load("root.xsd"); err != nil {
-		t.Fatalf("expected load with fresh loader to succeed, got %v", err)
+	if _, err := loader.Load("root.xsd"); err != nil {
+		t.Fatalf("expected subsequent load to succeed, got %v", err)
 	}
 }
 

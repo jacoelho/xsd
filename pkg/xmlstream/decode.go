@@ -1,7 +1,6 @@
 package xmlstream
 
 import (
-	"bytes"
 	"encoding/xml"
 	"errors"
 	"io"
@@ -9,6 +8,7 @@ import (
 
 var errNoStartElement = errors.New("expected start element event")
 var errNilUnmarshaler = errors.New("nil Unmarshaler")
+var errNilWriter = errors.New("nil writer")
 
 // Unmarshaler is implemented by types that can unmarshal themselves from XML.
 type Unmarshaler interface {
@@ -52,34 +52,16 @@ func sameStartEvent(a, b Event) bool {
 	return a.Name == b.Name
 }
 
-// ReadSubtreeInto writes the current element subtree into dst.
-// It returns io.ErrShortBuffer if dst is too small and still consumes the subtree.
-func (r *Reader) ReadSubtreeInto(dst []byte) (int, error) {
+// ReadSubtreeTo streams the current element subtree to w.
+func (r *Reader) ReadSubtreeTo(w io.Writer) (int64, error) {
+	if w == nil {
+		return 0, errNilWriter
+	}
 	start, ok := r.consumeStart()
 	if !ok {
 		return 0, errNoStartElement
 	}
-	writer := subtreeWriter{dst: dst}
-	if err := r.writeSubtree(&writer, start); err != nil {
-		return writer.n, err
-	}
-	if writer.short {
-		return writer.n, io.ErrShortBuffer
-	}
-	return writer.n, nil
-}
-
-// ReadSubtreeBytes returns the current element subtree as a newly allocated slice.
-func (r *Reader) ReadSubtreeBytes() ([]byte, error) {
-	start, ok := r.consumeStart()
-	if !ok {
-		return nil, errNoStartElement
-	}
-	var buf bytes.Buffer
-	if err := r.writeSubtree(&buf, start); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return r.writeSubtree(w, start)
 }
 
 func (r *Reader) consumeStart() (Event, bool) {
@@ -109,44 +91,107 @@ func (r *Reader) consumeStart() (Event, bool) {
 	return start, true
 }
 
-func (r *Reader) writeSubtree(w io.Writer, start Event) error {
-	enc := xml.NewEncoder(w)
-	if err := encodeEvent(enc, start); err != nil {
-		return err
+func (r *Reader) writeSubtree(w io.Writer, start Event) (int64, error) {
+	cw := &countingWriter{w: w}
+	enc := xml.NewEncoder(cw)
+	start = r.withInScopeNamespaceDecls(start)
+	startName, err := encodeStartEvent(enc, start)
+	if err != nil {
+		return cw.n, err
 	}
+	nameStack := []xml.Name{startName}
 	depth := 1
 	for depth > 0 {
 		ev, err := r.Next()
 		if err != nil {
-			return err
-		}
-		if err := encodeEvent(enc, ev); err != nil {
-			return err
+			return cw.n, err
 		}
 		switch ev.Kind {
 		case EventStartElement:
+			ev = r.withInScopeNamespaceDecls(ev)
+			name, err := encodeStartEvent(enc, ev)
+			if err != nil {
+				return cw.n, err
+			}
+			nameStack = append(nameStack, name)
 			depth++
 		case EventEndElement:
+			last := len(nameStack) - 1
+			if last < 0 {
+				if err := encodeEvent(enc, ev); err != nil {
+					return cw.n, err
+				}
+				depth--
+				continue
+			}
+			if err := enc.EncodeToken(xml.EndElement{Name: nameStack[last]}); err != nil {
+				return cw.n, err
+			}
+			nameStack = nameStack[:last]
 			depth--
+		default:
+			if err := encodeEvent(enc, ev); err != nil {
+				return cw.n, err
+			}
 		}
 	}
-	return enc.Flush()
+	return cw.n, enc.Flush()
+}
+
+func (r *Reader) withInScopeNamespaceDecls(start Event) Event {
+	if r == nil || start.Kind != EventStartElement || start.ScopeDepth < 0 {
+		return start
+	}
+
+	prefixSeen := make(map[string]struct{}, len(start.Attrs))
+	for _, attr := range start.Attrs {
+		if attr.Name.Namespace != XMLNSNamespace {
+			continue
+		}
+		prefix := attr.Name.Local
+		if prefix == "xmlns" {
+			prefix = ""
+		}
+		prefixSeen[prefix] = struct{}{}
+	}
+
+	prefixOrder := make([]string, 0, 8)
+	prefixURI := make(map[string]string, 8)
+	for depth := 0; depth <= start.ScopeDepth; depth++ {
+		for decl := range r.NamespaceDeclsSeq(depth) {
+			if _, exists := prefixURI[decl.Prefix]; !exists {
+				prefixOrder = append(prefixOrder, decl.Prefix)
+			}
+			prefixURI[decl.Prefix] = decl.URI
+		}
+	}
+	if len(prefixURI) == 0 {
+		return start
+	}
+
+	attrs := start.Attrs
+	for _, prefix := range prefixOrder {
+		if _, exists := prefixSeen[prefix]; exists {
+			continue
+		}
+		local := prefix
+		if local == "" {
+			local = "xmlns"
+		}
+		attrs = append(attrs, Attr{
+			Name:  QName{Namespace: XMLNSNamespace, Local: local},
+			Value: append([]byte(nil), prefixURI[prefix]...),
+		})
+	}
+	start.Attrs = attrs
+	return start
 }
 
 func encodeEvent(enc *xml.Encoder, ev Event) error {
 	switch ev.Kind {
 	case EventStartElement:
-		attrs := make([]xml.Attr, 0, len(ev.Attrs))
-		for _, attr := range ev.Attrs {
-			attrs = append(attrs, xml.Attr{
-				Name:  xml.Name{Space: attr.Name.Namespace, Local: attr.Name.Local},
-				Value: string(attr.Value),
-			})
-		}
-		return enc.EncodeToken(xml.StartElement{
-			Name: xml.Name{Space: ev.Name.Namespace, Local: ev.Name.Local},
-			Attr: attrs,
-		})
+		_, err := encodeStartEvent(enc, ev)
+		return err
 	case EventEndElement:
 		return enc.EncodeToken(xml.EndElement{
 			Name: xml.Name{Space: ev.Name.Namespace, Local: ev.Name.Local},
@@ -164,40 +209,114 @@ func encodeEvent(enc *xml.Encoder, ev Event) error {
 	return nil
 }
 
+func encodeStartEvent(enc *xml.Encoder, ev Event) (xml.Name, error) {
+	prefixByNS := make(map[string]string, 8)
+	prefixByNS[XMLNamespace] = "xml"
+	declAttrs := make([]xml.Attr, 0, len(ev.Attrs))
+	attrs := make([]xml.Attr, 0, len(ev.Attrs))
+	for _, attr := range ev.Attrs {
+		if attr.Name.Namespace != XMLNSNamespace {
+			continue
+		}
+		prefix := ""
+		local := "xmlns"
+		if attr.Name.Local != "xmlns" {
+			local = "xmlns:" + attr.Name.Local
+			prefix = attr.Name.Local
+		}
+		ns := string(attr.Value)
+		if existing, ok := prefixByNS[ns]; !ok || (existing == "" && prefix != "") {
+			prefixByNS[ns] = prefix
+		}
+		declAttrs = append(declAttrs, xml.Attr{
+			Name:  xml.Name{Local: local},
+			Value: string(attr.Value),
+		})
+	}
+	attrs = append(attrs, declAttrs...)
+	for _, attr := range ev.Attrs {
+		if attr.Name.Namespace == XMLNSNamespace {
+			continue
+		}
+		name := xml.Name{Local: attr.Name.Local}
+		if attr.Name.Namespace != "" {
+			if prefix, ok := prefixByNS[attr.Name.Namespace]; ok && prefix != "" {
+				name = xml.Name{Local: prefix + ":" + attr.Name.Local}
+			} else {
+				name = xml.Name{Space: attr.Name.Namespace, Local: attr.Name.Local}
+			}
+		}
+		attrs = append(attrs, xml.Attr{
+			Name:  name,
+			Value: string(attr.Value),
+		})
+	}
+	name := xml.Name{Space: ev.Name.Namespace, Local: ev.Name.Local}
+	if ev.Name.Namespace != "" {
+		if prefix, ok := prefixByNS[ev.Name.Namespace]; ok {
+			if prefix == "" {
+				name = xml.Name{Local: ev.Name.Local}
+			} else {
+				name = xml.Name{Local: prefix + ":" + ev.Name.Local}
+			}
+		}
+	}
+	if err := enc.EncodeToken(xml.StartElement{Name: name, Attr: attrs}); err != nil {
+		return xml.Name{}, err
+	}
+	return name, nil
+}
+
 func splitPI(data []byte) (string, []byte) {
-	data = bytes.TrimSpace(data)
+	start := 0
+	end := len(data)
+	for start < end && isXMLSpace(data[start]) {
+		start++
+	}
+	for end > start && isXMLSpace(data[end-1]) {
+		end--
+	}
+	data = data[start:end]
 	if len(data) == 0 {
 		return "", nil
 	}
-	idx := bytes.IndexAny(data, " \t\n\r")
+	idx := -1
+	for i, b := range data {
+		if isXMLSpace(b) {
+			idx = i
+			break
+		}
+	}
 	if idx < 0 {
 		return string(data), nil
 	}
 	target := string(data[:idx])
-	inst := bytes.TrimSpace(data[idx:])
-	return target, inst
+	rest := data[idx:]
+	for len(rest) > 0 && isXMLSpace(rest[0]) {
+		rest = rest[1:]
+	}
+	for len(rest) > 0 && isXMLSpace(rest[len(rest)-1]) {
+		rest = rest[:len(rest)-1]
+	}
+	return target, rest
 }
 
-type subtreeWriter struct {
-	dst   []byte
-	n     int
-	short bool
+func isXMLSpace(b byte) bool {
+	switch b {
+	case ' ', '\t', '\n', '\r':
+		return true
+	default:
+		return false
+	}
 }
 
-func (w *subtreeWriter) Write(p []byte) (int, error) {
-	if len(p) == 0 {
-		return 0, nil
-	}
-	if w.n >= len(w.dst) {
-		w.short = true
-		return len(p), nil
-	}
-	avail := len(w.dst) - w.n
-	if len(p) > avail {
-		w.n += copy(w.dst[w.n:], p[:avail])
-		w.short = true
-		return len(p), nil
-	}
-	w.n += copy(w.dst[w.n:], p)
-	return len(p), nil
+type countingWriter struct {
+	w io.Writer
+	n int64
+}
+
+func (w *countingWriter) Write(p []byte) (int, error) {
+	n, err := w.w.Write(p)
+	w.n += int64(n)
+	return n, err
 }

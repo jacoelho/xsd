@@ -2,8 +2,8 @@ package runtimecompile
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
-	"strings"
 
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -129,24 +129,42 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 		}
 		return []byte(temporal.Canonical(tv)), nil
 	case "duration":
-		dur, err := types.ParseXSDDuration(normalized)
+		dur, err := types.ParseXSDDurationBytes([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
 		return []byte(types.ComparableXSDDuration{Value: dur}.String()), nil
 	case "hexBinary":
-		b, err := types.ParseHexBinary(normalized)
+		b, err := types.ParseHexBinaryBytes([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		return []byte(strings.ToUpper(fmt.Sprintf("%x", b))), nil
+		return upperHex(nil, b), nil
 	case "base64Binary":
-		b, err := types.ParseBase64Binary(normalized)
+		b, err := types.ParseBase64BinaryBytes([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		return []byte(base64.StdEncoding.EncodeToString(b)), nil
+		out := make([]byte, base64.StdEncoding.EncodedLen(len(b)))
+		base64.StdEncoding.Encode(out, b)
+		return out, nil
 	default:
 		return nil, fmt.Errorf("unsupported primitive type %s", primName)
 	}
+}
+
+func upperHex(dst, src []byte) []byte {
+	size := hex.EncodedLen(len(src))
+	if cap(dst) < size {
+		dst = make([]byte, size)
+	} else {
+		dst = dst[:size]
+	}
+	hex.Encode(dst, src)
+	for i := range dst {
+		if dst[i] >= 'a' && dst[i] <= 'f' {
+			dst[i] -= 'a' - 'A'
+		}
+	}
+	return dst
 }

@@ -30,11 +30,11 @@ func (s *Session) compareValue(kind runtime.ValidatorKind, canonical, bound []by
 		}
 		return val.Compare(boundVal), nil
 	case runtime.VDuration:
-		val, err := types.ParseXSDDuration(string(canonical))
+		val, err := types.ParseXSDDurationBytes(canonical)
 		if err != nil {
 			return 0, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		boundVal, err := types.ParseXSDDuration(string(bound))
+		boundVal, err := types.ParseXSDDurationBytes(bound)
 		if err != nil {
 			return 0, valueErrorMsg(valueErrInvalid, err.Error())
 		}

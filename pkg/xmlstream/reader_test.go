@@ -192,10 +192,10 @@ func TestReaderNilErrors(t *testing.T) {
 	if err = r.SkipSubtree(); !errors.Is(err, errNilReader) {
 		t.Fatalf("SkipSubtree nil error = %v, want %v", err, errNilReader)
 	}
-	if _, err = r.ReadSubtreeBytes(); !errors.Is(err, errNoStartElement) {
+	if _, err = readSubtreeBytes(r); !errors.Is(err, errNoStartElement) {
 		t.Fatalf("ReadSubtreeBytes nil error = %v, want %v", err, errNoStartElement)
 	}
-	if _, err = r.ReadSubtreeInto(nil); !errors.Is(err, errNoStartElement) {
+	if _, err = readSubtreeInto(r, nil); !errors.Is(err, errNoStartElement) {
 		t.Fatalf("ReadSubtreeInto nil error = %v, want %v", err, errNoStartElement)
 	}
 	if line, col := r.CurrentPos(); line != 0 || col != 0 {
@@ -745,7 +745,7 @@ func TestNamespaceDeclsAfterSkipSubtree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
-	rootDecls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth))
+	rootDecls := declsToMap(namespaceDeclsAt(r, ev.ScopeDepth))
 	if rootDecls["a"] != "urn:a" {
 		t.Fatalf("root prefix a = %q, want urn:a", rootDecls["a"])
 	}
@@ -759,7 +759,7 @@ func TestNamespaceDeclsAfterSkipSubtree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("after start error = %v", err)
 	}
-	if decls := r.NamespaceDeclsAt(ev.ScopeDepth); decls != nil {
+	if decls := namespaceDeclsAt(r, ev.ScopeDepth); decls != nil {
 		t.Fatalf("after decls = %v, want nil", decls)
 	}
 	if ns, ok := r.LookupNamespaceAt("b", ev.ScopeDepth); ok || ns != "" {

@@ -40,6 +40,9 @@ func (s *Session) shrinkBuffers() {
 	if cap(s.valueBuf) > maxSessionBuffer {
 		s.valueBuf = nil
 	}
+	if cap(s.valueScratch) > maxSessionBuffer {
+		s.valueScratch = nil
+	}
 	if cap(s.keyBuf) > maxSessionBuffer {
 		s.keyBuf = nil
 	}

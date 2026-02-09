@@ -16,8 +16,7 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 	sym := entry.Sym
 	nsID := entry.NS
 
-	decls := s.reader.NamespaceDeclsAt(ev.ScopeDepth)
-	s.pushNamespaceScope(decls)
+	s.pushNamespaceScope(s.reader.NamespaceDeclsSeq(ev.ScopeDepth))
 
 	var match StartMatch
 	if len(s.elemStack) == 0 {

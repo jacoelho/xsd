@@ -83,7 +83,7 @@ func BenchmarkXMLStream_SubtreeCopyUnmarshal(b *testing.B) {
 				b.Fatalf("Next error = %v", err)
 			}
 			if ev.Kind == EventStartElement && ev.Name.Local == "item" {
-				buf, err := r.ReadSubtreeBytes()
+				buf, err := readSubtreeBytes(r)
 				if err != nil {
 					b.Fatalf("ReadSubtreeBytes error = %v", err)
 				}

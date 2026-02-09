@@ -79,6 +79,12 @@ func TestImportEdges(t *testing.T) {
 			},
 		},
 		{
+			scopePath: "internal/runtime",
+			banned: []string{
+				"github.com/jacoelho/xsd/pkg/xmlstream",
+			},
+		},
+		{
 			scopePath: "internal/loadmerge",
 			banned: []string{
 				"github.com/jacoelho/xsd/internal/pipeline",

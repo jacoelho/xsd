@@ -62,7 +62,7 @@ func TestNamespaceDeclsAt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
-	rootDecls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth))
+	rootDecls := declsToMap(namespaceDeclsAt(r, ev.ScopeDepth))
 	if rootDecls[""] != "urn:root" {
 		t.Fatalf("root default namespace = %q, want urn:root", rootDecls[""])
 	}
@@ -74,7 +74,7 @@ func TestNamespaceDeclsAt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("child start error = %v", err)
 	}
-	childDecls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth))
+	childDecls := declsToMap(namespaceDeclsAt(r, ev.ScopeDepth))
 	if childDecls["b"] != "urn:b" {
 		t.Fatalf("child prefix b = %q, want urn:b", childDecls["b"])
 	}
@@ -90,7 +90,7 @@ func TestNamespaceDeclsAtDepthOverflow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
-	decls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth + 10))
+	decls := declsToMap(namespaceDeclsAt(r, ev.ScopeDepth+10))
 	if decls[""] != "urn:root" {
 		t.Fatalf("root default namespace = %q, want urn:root", decls[""])
 	}
@@ -108,7 +108,7 @@ func TestNamespaceDecls(t *testing.T) {
 	if _, err = r.Next(); err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
-	decls := declsToMap(r.NamespaceDecls())
+	decls := declsToMap(namespaceDeclsCurrent(r))
 	if decls[""] != "urn:root" {
 		t.Fatalf("root default namespace = %q, want urn:root", decls[""])
 	}
@@ -127,7 +127,7 @@ func TestNamespaceDeclsOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("root start error = %v", err)
 	}
-	decls := r.NamespaceDeclsAt(ev.ScopeDepth)
+	decls := namespaceDeclsAt(r, ev.ScopeDepth)
 	want := []NamespaceDecl{
 		{Prefix: "", URI: "urn:default"},
 		{Prefix: "b", URI: "urn:b"},
@@ -146,10 +146,10 @@ func TestNamespaceDeclsOrder(t *testing.T) {
 
 func TestNamespaceDeclsNilReader(t *testing.T) {
 	var r *Reader
-	if decls := r.NamespaceDecls(); decls != nil {
+	if decls := namespaceDeclsCurrent(r); decls != nil {
 		t.Fatalf("NamespaceDecls nil = %v, want nil", decls)
 	}
-	if decls := r.NamespaceDeclsAt(0); decls != nil {
+	if decls := namespaceDeclsAt(r, 0); decls != nil {
 		t.Fatalf("NamespaceDeclsAt nil = %v, want nil", decls)
 	}
 }
@@ -167,7 +167,7 @@ func TestNamespaceDeclsUndeclare(t *testing.T) {
 	if err != nil {
 		t.Fatalf("child start error = %v", err)
 	}
-	childDecls := declsToMap(r.NamespaceDeclsAt(ev.ScopeDepth))
+	childDecls := declsToMap(namespaceDeclsAt(r, ev.ScopeDepth))
 	value, ok := childDecls[""]
 	if !ok {
 		t.Fatalf("child default namespace missing")

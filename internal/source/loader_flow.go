@@ -7,17 +7,12 @@ import (
 )
 
 // Load loads and merges a schema graph from location.
-// It is fail-stop and requires a configured resolver for root resolution.
+// It requires a configured resolver for root resolution and is retryable after failures.
 func (l *SchemaLoader) Load(location string) (*parser.Schema, error) {
 	if err := l.beginLocationLoad(); err != nil {
 		return nil, err
 	}
-	sch, err := l.loadRoot(location)
-	if err != nil {
-		l.markFailed(err)
-		return nil, err
-	}
-	return sch, nil
+	return l.loadRoot(location)
 }
 
 // loadRoot loads the root schema by resolving the provided location.
