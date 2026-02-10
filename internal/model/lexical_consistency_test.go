@@ -114,9 +114,9 @@ func TestParseValidateConsistency_Primitives(t *testing.T) {
 			typ := mustBuiltinSimpleType(t, tt.typeName)
 			for _, tc := range tt.cases {
 				t.Run(tc.name, func(t *testing.T) {
-					normalized, err := NormalizeValue(tc.value, typ)
+					normalized, err := normalizeValue(tc.value, typ)
 					if err != nil {
-						t.Fatalf("NormalizeValue(%q) error = %v", tc.value, err)
+						t.Fatalf("normalizeValue(%q) error = %v", tc.value, err)
 					}
 					parseErr := tt.parse(normalized)
 					validateErr := tt.validate(normalized)

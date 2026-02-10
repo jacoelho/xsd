@@ -410,9 +410,9 @@ func TestGenericFacet_Duration(t *testing.T) {
 	durationType := mustBuiltinSimpleType(t, TypeNameDuration)
 
 	// test minInclusive with duration
-	minDur, err := ParseDurationToTimeDuration("P1D")
+	minDur, err := parseDurationToTimeDuration("P1D")
 	if err != nil {
-		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
+		t.Fatalf("parseDurationToTimeDuration() error = %v", err)
 	}
 	compMin := ComparableDuration{Value: minDur, Typ: durationType}
 	minFacet := &RangeFacet{
@@ -424,9 +424,9 @@ func TestGenericFacet_Duration(t *testing.T) {
 	}
 
 	// should pass (P2D >= P1D)
-	testDur, err := ParseDurationToTimeDuration("P2D")
+	testDur, err := parseDurationToTimeDuration("P2D")
 	if err != nil {
-		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
+		t.Fatalf("parseDurationToTimeDuration() error = %v", err)
 	}
 	testValue := &DurationTypedValue{
 		Value: "P2D",
@@ -439,9 +439,9 @@ func TestGenericFacet_Duration(t *testing.T) {
 	}
 
 	// should fail (PT12H < P1D, since 12 hours < 1 day)
-	failDur, err := ParseDurationToTimeDuration("PT12H")
+	failDur, err := parseDurationToTimeDuration("PT12H")
 	if err != nil {
-		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
+		t.Fatalf("parseDurationToTimeDuration() error = %v", err)
 	}
 	failValue := &DurationTypedValue{
 		Value: "PT12H",
@@ -454,9 +454,9 @@ func TestGenericFacet_Duration(t *testing.T) {
 	}
 
 	// test maxInclusive with duration
-	maxDur, err := ParseDurationToTimeDuration("P30D")
+	maxDur, err := parseDurationToTimeDuration("P30D")
 	if err != nil {
-		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
+		t.Fatalf("parseDurationToTimeDuration() error = %v", err)
 	}
 	compMax := ComparableDuration{Value: maxDur, Typ: durationType}
 	maxFacet := &RangeFacet{
@@ -468,9 +468,9 @@ func TestGenericFacet_Duration(t *testing.T) {
 	}
 
 	// should pass (P7D <= P30D)
-	testDur2, err := ParseDurationToTimeDuration("P7D")
+	testDur2, err := parseDurationToTimeDuration("P7D")
 	if err != nil {
-		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
+		t.Fatalf("parseDurationToTimeDuration() error = %v", err)
 	}
 	testValue2 := &DurationTypedValue{
 		Value: "P7D",
@@ -485,9 +485,9 @@ func TestGenericFacet_Duration(t *testing.T) {
 func TestRangeFacet_DurationIndeterminate(t *testing.T) {
 	durationType := mustBuiltinSimpleType(t, TypeNameDuration)
 
-	facet, err := NewMinInclusive("P1M", durationType)
+	facet, err := newMinInclusive("P1M", durationType)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v", err)
+		t.Fatalf("newMinInclusive() error = %v", err)
 	}
 
 	valueDur, err := durationlex.Parse("P30D")
@@ -644,9 +644,9 @@ func TestDateTimeBoundsFacet_IndeterminateComparison(t *testing.T) {
 	dateTimeType := mustBuiltinSimpleType(t, TypeNameDateTime)
 
 	// Create a minInclusive facet with a timezone-aware value (noon UTC)
-	facet, err := NewMinInclusive("2000-01-01T12:00:00Z", dateTimeType)
+	facet, err := newMinInclusive("2000-01-01T12:00:00Z", dateTimeType)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v", err)
+		t.Fatalf("newMinInclusive() error = %v", err)
 	}
 
 	// Parse a value WITHOUT timezone - same date/time but no timezone info.

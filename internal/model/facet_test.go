@@ -149,9 +149,9 @@ func TestMaxLength(t *testing.T) {
 func TestMinInclusive(t *testing.T) {
 	baseType := mustBuiltinSimpleType(t, TypeNameInteger)
 
-	m, err := NewMinInclusive("10", baseType)
+	m, err := newMinInclusive("10", baseType)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v", err)
+		t.Fatalf("newMinInclusive() error = %v", err)
 	}
 
 	tests := []struct {
@@ -183,9 +183,9 @@ func TestMinInclusive(t *testing.T) {
 func TestMaxInclusive(t *testing.T) {
 	baseType := mustBuiltinSimpleType(t, TypeNameInteger)
 
-	m, err := NewMaxInclusive("100", baseType)
+	m, err := newMaxInclusive("100", baseType)
 	if err != nil {
-		t.Fatalf("NewMaxInclusive() error = %v", err)
+		t.Fatalf("newMaxInclusive() error = %v", err)
 	}
 
 	tests := []struct {
@@ -216,9 +216,9 @@ func TestMaxInclusive(t *testing.T) {
 func TestMinExclusive(t *testing.T) {
 	baseType := mustBuiltinSimpleType(t, TypeNameInteger)
 
-	m, err := NewMinExclusive("10", baseType)
+	m, err := newMinExclusive("10", baseType)
 	if err != nil {
-		t.Fatalf("NewMinExclusive() error = %v", err)
+		t.Fatalf("newMinExclusive() error = %v", err)
 	}
 
 	tests := []struct {
@@ -248,9 +248,9 @@ func TestMinExclusive(t *testing.T) {
 func TestMaxExclusive(t *testing.T) {
 	baseType := mustBuiltinSimpleType(t, TypeNameInteger)
 
-	m, err := NewMaxExclusive("100", baseType)
+	m, err := newMaxExclusive("100", baseType)
 	if err != nil {
-		t.Fatalf("NewMaxExclusive() error = %v", err)
+		t.Fatalf("newMaxExclusive() error = %v", err)
 	}
 
 	tests := []struct {

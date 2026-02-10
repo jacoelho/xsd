@@ -12,14 +12,14 @@ func TestValuesEqual_NaN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseValue(NaN) error = %v", err)
 	}
-	if !ValuesEqual(left, right) {
+	if !valuesEqual(left, right) {
 		t.Fatalf("expected NaN values to be equal")
 	}
 	nonNaN, err := floatType.ParseValue("1.0")
 	if err != nil {
 		t.Fatalf("ParseValue(1.0) error = %v", err)
 	}
-	if ValuesEqual(left, nonNaN) {
+	if valuesEqual(left, nonNaN) {
 		t.Fatalf("expected NaN to differ from non-NaN value")
 	}
 
@@ -32,7 +32,7 @@ func TestValuesEqual_NaN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseValue(NaN) error = %v", err)
 	}
-	if !ValuesEqual(leftDouble, rightDouble) {
+	if !valuesEqual(leftDouble, rightDouble) {
 		t.Fatalf("expected double NaN values to be equal")
 	}
 }
@@ -47,7 +47,7 @@ func TestValuesEqual_DurationBinary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseValue(PT24H) error = %v", err)
 	}
-	if !ValuesEqual(leftDur, rightDur) {
+	if !valuesEqual(leftDur, rightDur) {
 		t.Fatalf("expected duration values to be equal")
 	}
 
@@ -60,7 +60,7 @@ func TestValuesEqual_DurationBinary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseValue(0a) error = %v", err)
 	}
-	if !ValuesEqual(leftHex, rightHex) {
+	if !valuesEqual(leftHex, rightHex) {
 		t.Fatalf("expected hexBinary values to be equal")
 	}
 
@@ -73,7 +73,7 @@ func TestValuesEqual_DurationBinary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseValue(A Q I D) error = %v", err)
 	}
-	if !ValuesEqual(leftB64, rightB64) {
+	if !valuesEqual(leftB64, rightB64) {
 		t.Fatalf("expected base64Binary values to be equal")
 	}
 }
@@ -88,7 +88,7 @@ func TestValuesEqual_DateTimeTimezonePresence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseValue(with timezone) error = %v", err)
 	}
-	if ValuesEqual(noTimezone, withTimezone) {
+	if valuesEqual(noTimezone, withTimezone) {
 		t.Fatalf("expected dateTime values with and without timezone to differ")
 	}
 }
@@ -103,7 +103,7 @@ func TestValuesEqual_TimeTimezoneWrap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseValue(00:30:00Z) error = %v", err)
 	}
-	if !ValuesEqual(left, right) {
+	if !valuesEqual(left, right) {
 		t.Fatalf("expected time values with equivalent UTC time-of-day to be equal")
 	}
 }
@@ -118,7 +118,7 @@ func TestValuesEqual_TimeLeapSecondDistinctFromMidnight(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseValue(00:00:00) error = %v", err)
 	}
-	if ValuesEqual(leap, midnight) {
+	if valuesEqual(leap, midnight) {
 		t.Fatalf("expected leap second to differ from plain midnight")
 	}
 }
@@ -133,7 +133,7 @@ func TestValuesEqual_DateTimeLeapSecondDistinctFromNextSecond(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseValue(nextSecond) error = %v", err)
 	}
-	if ValuesEqual(leap, nextSecond) {
+	if valuesEqual(leap, nextSecond) {
 		t.Fatalf("expected leap dateTime to differ from next second")
 	}
 }

@@ -9,13 +9,13 @@ import (
 func TestNewMinInclusive_Decimal(t *testing.T) {
 	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
-	facet, err := NewMinInclusive("100.5", decimalType)
+	facet, err := newMinInclusive("100.5", decimalType)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v", err)
+		t.Fatalf("newMinInclusive() error = %v", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMinInclusive() returned nil")
+		t.Fatal("newMinInclusive() returned nil")
 	}
 
 	if facet.Name() != "minInclusive" {
@@ -40,13 +40,13 @@ func TestNewMinInclusive_Decimal(t *testing.T) {
 func TestNewMaxInclusive_Integer(t *testing.T) {
 	integerType := mustBuiltinSimpleType(t, TypeNameInteger)
 
-	facet, err := NewMaxInclusive("100", integerType)
+	facet, err := newMaxInclusive("100", integerType)
 	if err != nil {
-		t.Fatalf("NewMaxInclusive() error = %v", err)
+		t.Fatalf("newMaxInclusive() error = %v", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMaxInclusive() returned nil")
+		t.Fatal("newMaxInclusive() returned nil")
 	}
 
 	// test validation
@@ -60,13 +60,13 @@ func TestNewMaxInclusive_Integer(t *testing.T) {
 func TestNewMinInclusive_DateTime(t *testing.T) {
 	dateTimeType := mustBuiltinSimpleType(t, TypeNameDateTime)
 
-	facet, err := NewMinInclusive("2001-01-01T00:00:00", dateTimeType)
+	facet, err := newMinInclusive("2001-01-01T00:00:00", dateTimeType)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v", err)
+		t.Fatalf("newMinInclusive() error = %v", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMinInclusive() returned nil")
+		t.Fatal("newMinInclusive() returned nil")
 	}
 
 	// test validation
@@ -80,13 +80,13 @@ func TestNewMinInclusive_DateTime(t *testing.T) {
 func TestNewMinExclusive(t *testing.T) {
 	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
-	facet, err := NewMinExclusive("100", decimalType)
+	facet, err := newMinExclusive("100", decimalType)
 	if err != nil {
-		t.Fatalf("NewMinExclusive() error = %v", err)
+		t.Fatalf("newMinExclusive() error = %v", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMinExclusive() returned nil")
+		t.Fatal("newMinExclusive() returned nil")
 	}
 
 	// test validation - value equal to min should fail (exclusive)
@@ -100,13 +100,13 @@ func TestNewMinExclusive(t *testing.T) {
 func TestNewMaxExclusive(t *testing.T) {
 	decimalType := mustBuiltinSimpleType(t, TypeNameDecimal)
 
-	facet, err := NewMaxExclusive("100", decimalType)
+	facet, err := newMaxExclusive("100", decimalType)
 	if err != nil {
-		t.Fatalf("NewMaxExclusive() error = %v", err)
+		t.Fatalf("newMaxExclusive() error = %v", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMaxExclusive() returned nil")
+		t.Fatal("newMaxExclusive() returned nil")
 	}
 
 	// test validation - value equal to max should fail (exclusive)
@@ -122,9 +122,9 @@ func TestNewMinInclusive_InvalidType(t *testing.T) {
 	stringType := mustBuiltinSimpleType(t, TypeNameString)
 
 	// should return error for non-comparable type
-	_, err := NewMinInclusive("test", stringType)
+	_, err := newMinInclusive("test", stringType)
 	if err == nil {
-		t.Error("NewMinInclusive() should return error for non-comparable type")
+		t.Error("newMinInclusive() should return error for non-comparable type")
 	}
 }
 
@@ -149,13 +149,13 @@ func TestNewMinInclusive_WithBuiltinBase(t *testing.T) {
 	derivedType.ResolvedBase = intBuiltin
 
 	// create facet using constructor - should work now that PrimitiveType() handles BuiltinType
-	facet, err := NewMinInclusive("5", derivedType)
+	facet, err := newMinInclusive("5", derivedType)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v (this was failing before the fix)", err)
+		t.Fatalf("newMinInclusive() error = %v (this was failing before the fix)", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMinInclusive() returned nil")
+		t.Fatal("newMinInclusive() returned nil")
 	}
 
 	if facet.Name() != "minInclusive" {
@@ -196,13 +196,13 @@ func TestNewMinInclusive_NestedDerivation(t *testing.T) {
 	moreDerivedType.ResolvedBase = derivedType
 
 	// create facet using constructor - should work with nested derivation
-	facet, err := NewMinInclusive("10", moreDerivedType)
+	facet, err := newMinInclusive("10", moreDerivedType)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v (this was failing before the fix)", err)
+		t.Fatalf("newMinInclusive() error = %v (this was failing before the fix)", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMinInclusive() returned nil")
+		t.Fatal("newMinInclusive() returned nil")
 	}
 }
 
@@ -213,13 +213,13 @@ func TestNewMinInclusive_Date(t *testing.T) {
 	}
 
 	// create facet using constructor - should parse as date, not dateTime
-	facet, err := NewMinInclusive("1999-05-31", dateBuiltin)
+	facet, err := newMinInclusive("1999-05-31", dateBuiltin)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v (should parse date value correctly)", err)
+		t.Fatalf("newMinInclusive() error = %v (should parse date value correctly)", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMinInclusive() returned nil")
+		t.Fatal("newMinInclusive() returned nil")
 	}
 
 	if facet.Name() != "minInclusive" {
@@ -243,13 +243,13 @@ func TestNewMinInclusive_Time(t *testing.T) {
 
 	// create facet using constructor - should parse as time, not dateTime
 	// note: ParseTime currently has format bugs, but this test verifies the correct parser is called
-	facet, err := NewMinInclusive("13:20:00", timeBuiltin)
+	facet, err := newMinInclusive("13:20:00", timeBuiltin)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v (should parse time value correctly)", err)
+		t.Fatalf("newMinInclusive() error = %v (should parse time value correctly)", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMinInclusive() returned nil")
+		t.Fatal("newMinInclusive() returned nil")
 	}
 
 	if facet.Name() != "minInclusive" {
@@ -264,13 +264,13 @@ func TestNewMinInclusive_GYear(t *testing.T) {
 	}
 
 	// create facet using constructor - should parse as gYear, not dateTime
-	facet, err := NewMinInclusive("2000", gYearBuiltin)
+	facet, err := newMinInclusive("2000", gYearBuiltin)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v (should parse gYear value correctly)", err)
+		t.Fatalf("newMinInclusive() error = %v (should parse gYear value correctly)", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMinInclusive() returned nil")
+		t.Fatal("newMinInclusive() returned nil")
 	}
 
 	if facet.Name() != "minInclusive" {
@@ -285,13 +285,13 @@ func TestNewMinInclusive_GYearMonth(t *testing.T) {
 	}
 
 	// create facet using constructor - should parse as gYearMonth, not dateTime
-	facet, err := NewMinInclusive("2001-03", gYearMonthBuiltin)
+	facet, err := newMinInclusive("2001-03", gYearMonthBuiltin)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v (should parse gYearMonth value correctly)", err)
+		t.Fatalf("newMinInclusive() error = %v (should parse gYearMonth value correctly)", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMinInclusive() returned nil")
+		t.Fatal("newMinInclusive() returned nil")
 	}
 
 	if facet.Name() != "minInclusive" {
@@ -306,13 +306,13 @@ func TestNewMinInclusive_GMonthDay(t *testing.T) {
 	}
 
 	// create facet using constructor - should parse as gMonthDay, not dateTime
-	facet, err := NewMinInclusive("--03-15", gMonthDayBuiltin)
+	facet, err := newMinInclusive("--03-15", gMonthDayBuiltin)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v (should parse gMonthDay value correctly)", err)
+		t.Fatalf("newMinInclusive() error = %v (should parse gMonthDay value correctly)", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMinInclusive() returned nil")
+		t.Fatal("newMinInclusive() returned nil")
 	}
 
 	if facet.Name() != "minInclusive" {
@@ -327,13 +327,13 @@ func TestNewMinInclusive_GDay(t *testing.T) {
 	}
 
 	// create facet using constructor - should parse as gDay, not dateTime
-	facet, err := NewMinInclusive("---15", gDayBuiltin)
+	facet, err := newMinInclusive("---15", gDayBuiltin)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v (should parse gDay value correctly)", err)
+		t.Fatalf("newMinInclusive() error = %v (should parse gDay value correctly)", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMinInclusive() returned nil")
+		t.Fatal("newMinInclusive() returned nil")
 	}
 
 	if facet.Name() != "minInclusive" {
@@ -348,13 +348,13 @@ func TestNewMinInclusive_GMonth(t *testing.T) {
 	}
 
 	// create facet using constructor - should parse as gMonth, not dateTime
-	facet, err := NewMinInclusive("--03", gMonthBuiltin)
+	facet, err := newMinInclusive("--03", gMonthBuiltin)
 	if err != nil {
-		t.Fatalf("NewMinInclusive() error = %v (should parse gMonth value correctly)", err)
+		t.Fatalf("newMinInclusive() error = %v (should parse gMonth value correctly)", err)
 	}
 
 	if facet == nil {
-		t.Fatal("NewMinInclusive() returned nil")
+		t.Fatal("newMinInclusive() returned nil")
 	}
 
 	if facet.Name() != "minInclusive" {

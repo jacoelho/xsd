@@ -224,7 +224,7 @@ func validateRestrictionFacetApplicability(facets []any, baseType Type) error {
 			continue
 		}
 		facetName := namer.Name()
-		if err := ValidateFacetApplicability(facetName, baseType, baseType.Name()); err != nil {
+		if err := validateFacetApplicability(facetName, baseType, baseType.Name()); err != nil {
 			return err
 		}
 	}

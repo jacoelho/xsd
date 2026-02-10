@@ -322,12 +322,12 @@ func TestValidateBinaryURIAndQName(t *testing.T) {
 		t.Fatalf("unexpected anyURI delimiter error: %v", err)
 	}
 	anyURIType := GetBuiltin(TypeNameAnyURI)
-	normalized, err := NormalizeValue(" http://ex\tample.com ", anyURIType)
+	normalized, err := normalizeValue(" http://ex\tample.com ", anyURIType)
 	if err != nil {
-		t.Fatalf("NormalizeValue(anyURI) error: %v", err)
+		t.Fatalf("normalizeValue(anyURI) error: %v", err)
 	}
 	if normalized != "http://ex ample.com" {
-		t.Fatalf("NormalizeValue(anyURI) = %q", normalized)
+		t.Fatalf("normalizeValue(anyURI) = %q", normalized)
 	}
 	if err := validateAnyURI("http://example.com/%G1"); err == nil {
 		t.Fatalf("expected anyURI percent-encoding error")

@@ -8,9 +8,9 @@ import (
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
-// ValuesEqual reports whether two typed values are equal in the value space.
+// valuesEqual reports whether two typed values are equal in the value space.
 // It follows XSD equality rules, not lexical equality.
-func ValuesEqual(left, right TypedValue) bool {
+func valuesEqual(left, right TypedValue) bool {
 	if left == nil || right == nil {
 		return false
 	}

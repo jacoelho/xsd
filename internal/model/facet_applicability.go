@@ -2,9 +2,9 @@ package model
 
 import "fmt"
 
-// ValidateFacetApplicability checks if a facet is applicable to the base type.
+// validateFacetApplicability checks if a facet is applicable to the base type.
 // It returns an error that mirrors schema validation messages for inapplicable facets.
-func ValidateFacetApplicability(facetName string, baseType Type, baseQName QName) error {
+func validateFacetApplicability(facetName string, baseType Type, baseQName QName) error {
 	baseTypeName := baseTypeNameForApplicability(baseType, baseQName)
 
 	if baseType != nil {

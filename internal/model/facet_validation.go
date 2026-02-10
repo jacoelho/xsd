@@ -6,9 +6,9 @@ import (
 	typefacetcore "github.com/jacoelho/xsd/internal/typefacet/internalcore"
 )
 
-// ValidateValueAgainstFacets checks a normalized lexical value against facets.
+// validateValueAgainstFacets checks a normalized lexical value against facets.
 // It applies lexical and typed facets in order, including QName/NOTATION handling.
-func ValidateValueAgainstFacets(value string, baseType Type, facets []Facet, context map[string]string) error {
+func validateValueAgainstFacets(value string, baseType Type, facets []Facet, context map[string]string) error {
 	facetsAny := make([]any, len(facets))
 	for i, facet := range facets {
 		facetsAny[i] = facet
@@ -35,7 +35,7 @@ func ValidateValueAgainstFacets(value string, baseType Type, facets []Facet, con
 		},
 		IsQNameOrNotationType: func(baseType any) bool {
 			bt, ok := baseType.(Type)
-			return ok && IsQNameOrNotationType(bt)
+			return ok && isQNameOrNotationType(bt)
 		},
 		IsListTypeForFacetValidation: func(baseType any) bool {
 			bt, ok := baseType.(Type)
@@ -68,7 +68,7 @@ func ValidateValueAgainstFacets(value string, baseType Type, facets []Facet, con
 			if !ok {
 				return &StringTypedValue{Value: value}
 			}
-			return TypedValueForFacet(value, bt)
+			return typedValueForFacet(value, bt)
 		},
 		ValidateFacet: func(facet any, value any, baseType any) error {
 			f, ok := facet.(Facet)
@@ -100,11 +100,11 @@ func isListTypeForFacetValidation(typ Type) bool {
 }
 
 func shouldSkipLengthFacet(baseType Type, facet Facet) bool {
-	if !IsLengthFacet(facet) {
+	if !isLengthFacet(facet) {
 		return false
 	}
 	if isListTypeForFacetValidation(baseType) {
 		return false
 	}
-	return IsQNameOrNotationType(baseType)
+	return isQNameOrNotationType(baseType)
 }

@@ -15,7 +15,7 @@ func (s *SimpleType) ValidateWithContext(lexical string, context map[string]stri
 	if s == nil {
 		return fmt.Errorf("cannot validate value for nil simple type")
 	}
-	normalized, err := NormalizeValue(lexical, s)
+	normalized, err := normalizeValue(lexical, s)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (s *SimpleType) validateNormalizedLexicalWithContext(normalized string, vis
 }
 
 func (s *SimpleType) validateAtomicLexicalWithContext(normalized string, context map[string]string) error {
-	if context != nil && IsQNameOrNotationType(s) {
+	if context != nil && isQNameOrNotationType(s) {
 		if _, err := qnamelex.ParseQNameValue(normalized, context); err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ func validateTypeLexicalWithContext(typ Type, lexical string, visited map[*Simpl
 	if typ == nil {
 		return nil
 	}
-	normalized, err := NormalizeValue(lexical, typ)
+	normalized, err := normalizeValue(lexical, typ)
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func validateTypeLexicalWithContext(typ Type, lexical string, visited map[*Simpl
 		return st.validateNormalizedWithContext(normalized, visited, context)
 	}
 	if bt, ok := AsBuiltinType(typ); ok {
-		if context != nil && IsQNameOrNotationType(bt) {
+		if context != nil && isQNameOrNotationType(bt) {
 			if _, err := qnamelex.ParseQNameValue(normalized, context); err != nil {
 				return err
 			}
@@ -208,7 +208,7 @@ func needsBuiltinListMinLength(st *SimpleType) bool {
 func validateNormalizedFacetsWithContext(normalized string, baseType Type, facets []Facet, context map[string]string) error {
 	var typed TypedValue
 	for _, facet := range facets {
-		if enumFacet, ok := facet.(*Enumeration); ok && context != nil && IsQNameOrNotationType(baseType) {
+		if enumFacet, ok := facet.(*Enumeration); ok && context != nil && isQNameOrNotationType(baseType) {
 			if err := enumFacet.ValidateLexicalQName(normalized, baseType, context); err != nil {
 				return err
 			}
@@ -221,7 +221,7 @@ func validateNormalizedFacetsWithContext(normalized string, baseType Type, facet
 			continue
 		}
 		if typed == nil {
-			typed = TypedValueForFacet(normalized, baseType)
+			typed = typedValueForFacet(normalized, baseType)
 		}
 		if err := facet.Validate(typed, baseType); err != nil {
 			return err
@@ -239,7 +239,7 @@ func (s *SimpleType) parseValueInternal(lexical string, validateFacets bool) (Ty
 	if s == nil {
 		return nil, fmt.Errorf("cannot parse value for nil simple type")
 	}
-	normalized, err := NormalizeValue(lexical, s)
+	normalized, err := normalizeValue(lexical, s)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +253,7 @@ func (s *SimpleType) parseValueInternal(lexical string, validateFacets bool) (Ty
 	if s.IsBuiltin() {
 		typeName := TypeName(s.QName.Local)
 		var result TypedValue
-		result, err = ParseValueForType(normalized, typeName, s)
+		result, err = parseValueForType(normalized, typeName, s)
 		if err == nil {
 			return result, nil
 		}
@@ -281,7 +281,7 @@ func (s *SimpleType) parseValueInternal(lexical string, validateFacets bool) (Ty
 	}
 
 	primitiveName := TypeName(primitiveST.QName.Local)
-	parsed, err := ParseValueForType(normalized, primitiveName, s)
+	parsed, err := parseValueForType(normalized, primitiveName, s)
 	if err == nil {
 		return parsed, nil
 	}

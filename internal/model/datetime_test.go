@@ -216,12 +216,12 @@ func TestNormalizeValue_DateTime(t *testing.T) {
 		t.Fatal("GetBuiltin(TypeNameDateTime) returned nil")
 	}
 
-	normalized, err := NormalizeValue(" 2001-10-26T21:32:52 ", dateTimeType)
+	normalized, err := normalizeValue(" 2001-10-26T21:32:52 ", dateTimeType)
 	if err != nil {
-		t.Fatalf("NormalizeValue() error = %v", err)
+		t.Fatalf("normalizeValue() error = %v", err)
 	}
 	if normalized != "2001-10-26T21:32:52" {
-		t.Errorf("NormalizeValue() = %q, want %q", normalized, "2001-10-26T21:32:52")
+		t.Errorf("normalizeValue() = %q, want %q", normalized, "2001-10-26T21:32:52")
 	}
 }
 

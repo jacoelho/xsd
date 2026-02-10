@@ -73,8 +73,8 @@ var coreValueParsers = func() map[string]typedvaluecore.ValueParserFunc {
 	return parsers
 }()
 
-// ParseValueForType parses a lexical value using the registry for the given type name.
-func ParseValueForType(lexical string, typeName TypeName, typ Type) (TypedValue, error) {
+// parseValueForType parses a lexical value using the registry for the given type name.
+func parseValueForType(lexical string, typeName TypeName, typ Type) (TypedValue, error) {
 	parsed, err := typedvaluecore.ParseValueForType(lexical, string(typeName), typ, coreValueParsers)
 	if err != nil {
 		return nil, err

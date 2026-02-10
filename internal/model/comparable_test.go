@@ -467,23 +467,23 @@ func TestParseDurationToTimeDuration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseDurationToTimeDuration(tt.input)
+			got, err := parseDurationToTimeDuration(tt.input)
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("ParseDurationToTimeDuration(%q) expected error, got nil", tt.input)
+					t.Errorf("parseDurationToTimeDuration(%q) expected error, got nil", tt.input)
 					return
 				}
 				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("ParseDurationToTimeDuration(%q) error = %v, want error containing %q", tt.input, err, tt.errMsg)
+					t.Errorf("parseDurationToTimeDuration(%q) error = %v, want error containing %q", tt.input, err, tt.errMsg)
 				}
 				return
 			}
 			if err != nil {
-				t.Errorf("ParseDurationToTimeDuration(%q) error = %v, want nil", tt.input, err)
+				t.Errorf("parseDurationToTimeDuration(%q) error = %v, want nil", tt.input, err)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("ParseDurationToTimeDuration(%q) = %v, want %v", tt.input, got, tt.want)
+				t.Errorf("parseDurationToTimeDuration(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}
@@ -491,17 +491,17 @@ func TestParseDurationToTimeDuration(t *testing.T) {
 
 func TestComparableDuration(t *testing.T) {
 	// test valid durations
-	dur1, err := ParseDurationToTimeDuration("P1DT2H")
+	dur1, err := parseDurationToTimeDuration("P1DT2H")
 	if err != nil {
-		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
+		t.Fatalf("parseDurationToTimeDuration() error = %v", err)
 	}
-	dur2, err := ParseDurationToTimeDuration("P2DT4H")
+	dur2, err := parseDurationToTimeDuration("P2DT4H")
 	if err != nil {
-		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
+		t.Fatalf("parseDurationToTimeDuration() error = %v", err)
 	}
-	dur3, err := ParseDurationToTimeDuration("P1DT2H")
+	dur3, err := parseDurationToTimeDuration("P1DT2H")
 	if err != nil {
-		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
+		t.Fatalf("parseDurationToTimeDuration() error = %v", err)
 	}
 
 	durationType := &SimpleType{
@@ -537,9 +537,9 @@ func TestComparableDuration(t *testing.T) {
 	}
 
 	// test negative durations
-	negDur, err := ParseDurationToTimeDuration("-P1DT2H")
+	negDur, err := parseDurationToTimeDuration("-P1DT2H")
 	if err != nil {
-		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
+		t.Fatalf("parseDurationToTimeDuration() error = %v", err)
 	}
 	negComp := ComparableDuration{Value: negDur, Typ: durationType}
 
@@ -713,9 +713,9 @@ func TestComparableDuration_Unwrap(t *testing.T) {
 	durationType := &SimpleType{
 		QName: QName{Namespace: XSDNamespace, Local: "duration"},
 	}
-	dur, err := ParseDurationToTimeDuration("P1DT2H")
+	dur, err := parseDurationToTimeDuration("P1DT2H")
 	if err != nil {
-		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
+		t.Fatalf("parseDurationToTimeDuration() error = %v", err)
 	}
 	comp := ComparableDuration{Value: dur, Typ: durationType}
 

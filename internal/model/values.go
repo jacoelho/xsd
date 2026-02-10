@@ -62,8 +62,8 @@ var builtinValueNormalizers = map[TypeName]ValueNormalizer{
 	TypeNameGMonth:     dateTimeNormalizer{},
 }
 
-// NormalizeValue normalizes lexical values based on their type rules.
-func NormalizeValue(lexical string, typ Type) (string, error) {
+// normalizeValue normalizes lexical values based on their type rules.
+func normalizeValue(lexical string, typ Type) (string, error) {
 	return typedvaluecore.NormalizeValue(lexical, typ, typedvaluecore.NormalizeOps{
 		IsNilType: func(typ any) bool {
 			t, ok := typ.(Type)

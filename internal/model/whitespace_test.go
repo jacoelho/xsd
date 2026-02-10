@@ -109,12 +109,12 @@ func TestNormalizeValue_WhiteSpace(t *testing.T) {
 	}
 	typ.SetWhiteSpace(WhiteSpaceCollapse)
 
-	normalized, err := NormalizeValue(" \talpha \n  beta\r\n", typ)
+	normalized, err := normalizeValue(" \talpha \n  beta\r\n", typ)
 	if err != nil {
-		t.Fatalf("NormalizeValue() error = %v", err)
+		t.Fatalf("normalizeValue() error = %v", err)
 	}
 	if normalized != "alpha beta" {
-		t.Errorf("NormalizeValue() = %q, want %q", normalized, "alpha beta")
+		t.Errorf("normalizeValue() = %q, want %q", normalized, "alpha beta")
 	}
 }
 
@@ -128,12 +128,12 @@ func TestNormalizeValue_XMLWhitespaceOnly(t *testing.T) {
 	typ.SetWhiteSpace(WhiteSpaceCollapse)
 
 	input := "alpha\u00a0beta"
-	normalized, err := NormalizeValue(input, typ)
+	normalized, err := normalizeValue(input, typ)
 	if err != nil {
-		t.Fatalf("NormalizeValue() error = %v", err)
+		t.Fatalf("normalizeValue() error = %v", err)
 	}
 	if normalized != input {
-		t.Errorf("NormalizeValue() = %q, want %q", normalized, input)
+		t.Errorf("normalizeValue() = %q, want %q", normalized, input)
 	}
 }
 

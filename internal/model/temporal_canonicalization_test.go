@@ -29,9 +29,9 @@ func TestTemporalCanonicalizationMatchesValue(t *testing.T) {
 			if bt == nil {
 				t.Fatalf("builtin %s missing", tc.kind)
 			}
-			tv, err := ParseValueForType(tc.lexical, tc.kind, bt)
+			tv, err := parseValueForType(tc.lexical, tc.kind, bt)
 			if err != nil {
-				t.Fatalf("ParseValueForType(%s) error = %v", tc.kind, err)
+				t.Fatalf("parseValueForType(%s) error = %v", tc.kind, err)
 			}
 			got := tv.String()
 
@@ -70,9 +70,9 @@ func TestTemporalCanonicalizationRoundTripParseable(t *testing.T) {
 			if bt == nil {
 				t.Fatalf("builtin %s missing", tc.kind)
 			}
-			tv, err := ParseValueForType(tc.lexical, tc.kind, bt)
+			tv, err := parseValueForType(tc.lexical, tc.kind, bt)
 			if err != nil {
-				t.Fatalf("ParseValueForType(%s) error = %v", tc.kind, err)
+				t.Fatalf("parseValueForType(%s) error = %v", tc.kind, err)
 			}
 			canonical := tv.String()
 			if _, err := parseTemporalForKind(tc.kind, canonical); err != nil {

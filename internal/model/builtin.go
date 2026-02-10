@@ -244,7 +244,7 @@ func (b *BuiltinType) HasByteValidator() bool {
 
 // ParseValue converts a lexical value to a TypedValue
 func (b *BuiltinType) ParseValue(lexical string) (TypedValue, error) {
-	normalized, err := NormalizeValue(lexical, b)
+	normalized, err := normalizeValue(lexical, b)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +255,7 @@ func (b *BuiltinType) ParseValue(lexical string) (TypedValue, error) {
 	}
 
 	typeName := TypeName(b.name)
-	result, err := ParseValueForType(normalized, typeName, b)
+	result, err := parseValueForType(normalized, typeName, b)
 	if err == nil {
 		return result, nil
 	}

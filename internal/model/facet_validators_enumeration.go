@@ -125,11 +125,11 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 
 	normalized := NormalizeWhiteSpace(lexical, baseType)
 
-	if IsQNameOrNotationType(baseType) {
+	if isQNameOrNotationType(baseType) {
 		if slices.Contains(e.values, normalized) {
 			return nil
 		}
-		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.values))
+		return fmt.Errorf("value %s not in enumeration: %s", lexical, formatEnumerationValues(e.values))
 	}
 
 	if itemType, ok := ListItemType(baseType); ok {
@@ -140,7 +140,7 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 		if match {
 			return nil
 		}
-		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.values))
+		return fmt.Errorf("value %s not in enumeration: %s", lexical, formatEnumerationValues(e.values))
 	}
 
 	if memberTypes := unionMemberTypes(baseType); len(memberTypes) > 0 {
@@ -151,7 +151,7 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 		if match {
 			return nil
 		}
-		return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.values))
+		return fmt.Errorf("value %s not in enumeration: %s", lexical, formatEnumerationValues(e.values))
 	}
 
 	match, err := e.matchesAtomicEnumeration(normalized, baseType)
@@ -161,7 +161,7 @@ func (e *Enumeration) ValidateLexical(lexical string, baseType Type) error {
 	if match {
 		return nil
 	}
-	return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.values))
+	return fmt.Errorf("value %s not in enumeration: %s", lexical, formatEnumerationValues(e.values))
 }
 
 // ValidateLexicalQName validates QName/NOTATION enumerations using namespace context.
@@ -172,7 +172,7 @@ func (e *Enumeration) ValidateLexicalQName(lexical string, baseType Type, contex
 	if baseType == nil {
 		return fmt.Errorf("enumeration: missing base type")
 	}
-	if !IsQNameOrNotationType(baseType) {
+	if !isQNameOrNotationType(baseType) {
 		return e.ValidateLexical(lexical, baseType)
 	}
 	if context == nil {
@@ -190,7 +190,7 @@ func (e *Enumeration) ValidateLexicalQName(lexical string, baseType Type, contex
 	if slices.Contains(allowed, qname) {
 		return nil
 	}
-	return fmt.Errorf("value %s not in enumeration: %s", lexical, FormatEnumerationValues(e.values))
+	return fmt.Errorf("value %s not in enumeration: %s", lexical, formatEnumerationValues(e.values))
 }
 
 // ValueContexts returns namespace contexts aligned with Values.
@@ -295,7 +295,7 @@ func (e *Enumeration) matchesAtomicEnumeration(lexical string, baseType Type) (b
 		return false, err
 	}
 	for _, candidate := range allowed {
-		if ValuesEqual(actual, candidate) {
+		if valuesEqual(actual, candidate) {
 			return true, nil
 		}
 	}
@@ -313,7 +313,7 @@ func (e *Enumeration) matchesUnionEnumeration(lexical string, baseType Type, mem
 	}
 	for _, actual := range actualValues {
 		for _, candidate := range allowed {
-			if ValuesEqual(actual, candidate) {
+			if valuesEqual(actual, candidate) {
 				return true, nil
 			}
 		}
@@ -484,7 +484,7 @@ func listValuesEqual(left, right [][]TypedValue) bool {
 func anyValueEqual(left, right []TypedValue) bool {
 	for _, l := range left {
 		for _, r := range right {
-			if ValuesEqual(l, r) {
+			if valuesEqual(l, r) {
 				return true
 			}
 		}
@@ -517,8 +517,8 @@ func (e *Enumeration) ResolveQNameValues() ([]QName, error) {
 	return qnames, nil
 }
 
-// FormatEnumerationValues returns a quoted list for enumeration errors.
-func FormatEnumerationValues(values []string) string {
+// formatEnumerationValues returns a quoted list for enumeration errors.
+func formatEnumerationValues(values []string) string {
 	if len(values) == 0 {
 		return "[]"
 	}

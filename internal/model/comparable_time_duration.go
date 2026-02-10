@@ -88,10 +88,10 @@ type ComparableDuration struct {
 	Value time.Duration
 }
 
-// ParseDurationToTimeDuration parses an XSD duration string into a time.Duration
+// parseDurationToTimeDuration parses an XSD duration string into a time.Duration
 // Returns an error if the duration contains years or months (which cannot be converted to time.Duration)
 // or if the duration string is invalid.
-func ParseDurationToTimeDuration(s string) (time.Duration, error) {
+func parseDurationToTimeDuration(s string) (time.Duration, error) {
 	xsdDur, err := durationlex.Parse(s)
 	if err != nil {
 		return 0, err

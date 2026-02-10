@@ -15,7 +15,7 @@ func TestSimpleTypeValidateAppliesFacets(t *testing.T) {
 	}
 	maxFacet, err := typefacet.NewMaxInclusive("10", base)
 	if err != nil {
-		t.Fatalf("NewMaxInclusive: %v", err)
+		t.Fatalf("newMaxInclusive: %v", err)
 	}
 	st, err := model.NewAtomicSimpleType(model.QName{Namespace: "urn:test", Local: "Int10"}, "urn:test", &model.Restriction{
 		Base:   model.QName{Namespace: model.XSDNamespace, Local: "integer"},
@@ -39,7 +39,7 @@ func TestSimpleTypeParseValueAppliesFacets(t *testing.T) {
 	}
 	maxFacet, err := typefacet.NewMaxInclusive("10", base)
 	if err != nil {
-		t.Fatalf("NewMaxInclusive: %v", err)
+		t.Fatalf("newMaxInclusive: %v", err)
 	}
 	st, err := model.NewAtomicSimpleType(model.QName{Namespace: "urn:test", Local: "Int10"}, "urn:test", &model.Restriction{
 		Base:   model.QName{Namespace: model.XSDNamespace, Local: "integer"},
@@ -63,7 +63,7 @@ func TestSimpleTypeValidateUnionMembers(t *testing.T) {
 	}
 	maxFacet, err := typefacet.NewMaxInclusive("10", base)
 	if err != nil {
-		t.Fatalf("NewMaxInclusive: %v", err)
+		t.Fatalf("newMaxInclusive: %v", err)
 	}
 	int10, err := model.NewAtomicSimpleType(model.QName{Namespace: "urn:test", Local: "Int10"}, "urn:test", &model.Restriction{
 		Base:   model.QName{Namespace: model.XSDNamespace, Local: "integer"},

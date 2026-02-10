@@ -21,9 +21,9 @@ var (
 	_ Facet = (*RangeFacet)(nil)
 )
 
-// IsLengthFacet reports whether the facet is a length-related facet
+// isLengthFacet reports whether the facet is a length-related facet
 // (length, minLength, or maxLength).
-func IsLengthFacet(facet Facet) bool {
+func isLengthFacet(facet Facet) bool {
 	switch facet.(type) {
 	case *Length, *MinLength, *MaxLength:
 		return true
@@ -58,8 +58,8 @@ func (s *StringTypedValue) Native() any { return s.Value }
 // String returns the lexical value for error messages.
 func (s *StringTypedValue) String() string { return s.Value }
 
-// TypedValueForFacet creates a TypedValue for facet schemacheck.
-func TypedValueForFacet(value string, typ Type) TypedValue {
+// typedValueForFacet creates a TypedValue for facet schemacheck.
+func typedValueForFacet(value string, typ Type) TypedValue {
 	switch t := typ.(type) {
 	case *SimpleType:
 		if parsed, err := t.parseValueInternal(value, false); err == nil {
@@ -99,8 +99,8 @@ type IntValueFacet interface {
 	GetIntValue() int
 }
 
-// ApplyFacets applies all facets to a TypedValue
-func ApplyFacets(value TypedValue, facets []Facet, baseType Type) error {
+// applyFacets applies all facets to a TypedValue
+func applyFacets(value TypedValue, facets []Facet, baseType Type) error {
 	facetsAny := make([]any, len(facets))
 	for i, facet := range facets {
 		facetsAny[i] = facet
@@ -128,9 +128,9 @@ func ApplyFacets(value TypedValue, facets []Facet, baseType Type) error {
 // determined during parsing; schema validation handles this later.
 var ErrCannotDeterminePrimitiveType = errors.New("cannot determine primitive type")
 
-// NewMinInclusive creates a minInclusive facet based on the base type
+// newMinInclusive creates a minInclusive facet based on the base type
 // It automatically determines the correct ComparableValue type and parses the value
-func NewMinInclusive(lexical string, baseType Type) (Facet, error) {
+func newMinInclusive(lexical string, baseType Type) (Facet, error) {
 	compVal, err := newRangeFacet("minInclusive", lexical, baseType)
 	if err != nil {
 		return nil, err
@@ -144,8 +144,8 @@ func NewMinInclusive(lexical string, baseType Type) (Facet, error) {
 	}, nil
 }
 
-// NewMaxInclusive creates a maxInclusive facet based on the base type
-func NewMaxInclusive(lexical string, baseType Type) (Facet, error) {
+// newMaxInclusive creates a maxInclusive facet based on the base type
+func newMaxInclusive(lexical string, baseType Type) (Facet, error) {
 	compVal, err := newRangeFacet("maxInclusive", lexical, baseType)
 	if err != nil {
 		return nil, err
@@ -159,8 +159,8 @@ func NewMaxInclusive(lexical string, baseType Type) (Facet, error) {
 	}, nil
 }
 
-// NewMinExclusive creates a minExclusive facet based on the base type
-func NewMinExclusive(lexical string, baseType Type) (Facet, error) {
+// newMinExclusive creates a minExclusive facet based on the base type
+func newMinExclusive(lexical string, baseType Type) (Facet, error) {
 	compVal, err := newRangeFacet("minExclusive", lexical, baseType)
 	if err != nil {
 		return nil, err
@@ -174,8 +174,8 @@ func NewMinExclusive(lexical string, baseType Type) (Facet, error) {
 	}, nil
 }
 
-// NewMaxExclusive creates a maxExclusive facet based on the base type
-func NewMaxExclusive(lexical string, baseType Type) (Facet, error) {
+// newMaxExclusive creates a maxExclusive facet based on the base type
+func newMaxExclusive(lexical string, baseType Type) (Facet, error) {
 	compVal, err := newRangeFacet("maxExclusive", lexical, baseType)
 	if err != nil {
 		return nil, err
