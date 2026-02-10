@@ -3,9 +3,6 @@ package model
 import (
 	"errors"
 	"fmt"
-
-	"github.com/jacoelho/xsd/internal/durationlex"
-	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 var (
@@ -91,64 +88,42 @@ type IntValueFacet interface {
 // determined during parsing; schema validation handles this later.
 var ErrCannotDeterminePrimitiveType = errors.New("cannot determine primitive type")
 
-// newMinInclusive creates a minInclusive facet based on the base type
-// It automatically determines the correct ComparableValue type and parses the value
-func newMinInclusive(lexical string, baseType Type) (Facet, error) {
-	compVal, err := newRangeFacet("minInclusive", lexical, baseType)
-	if err != nil {
-		return nil, err
-	}
-	return &RangeFacet{
-		name:    "minInclusive",
-		lexical: lexical,
-		value:   compVal,
-		cmpFunc: func(cmp int) bool { return cmp >= 0 },
-		errOp:   ">=",
-	}, nil
+// NewMinInclusive creates a minInclusive facet based on the base type.
+func NewMinInclusive(lexical string, baseType Type) (Facet, error) {
+	return newRangeBoundFacet("minInclusive", lexical, baseType, func(cmp int) bool { return cmp >= 0 }, ">=")
 }
 
-// newMaxInclusive creates a maxInclusive facet based on the base type
-func newMaxInclusive(lexical string, baseType Type) (Facet, error) {
-	compVal, err := newRangeFacet("maxInclusive", lexical, baseType)
-	if err != nil {
-		return nil, err
-	}
-	return &RangeFacet{
-		name:    "maxInclusive",
-		lexical: lexical,
-		value:   compVal,
-		cmpFunc: func(cmp int) bool { return cmp <= 0 },
-		errOp:   "<=",
-	}, nil
+// NewMaxInclusive creates a maxInclusive facet based on the base type.
+func NewMaxInclusive(lexical string, baseType Type) (Facet, error) {
+	return newRangeBoundFacet("maxInclusive", lexical, baseType, func(cmp int) bool { return cmp <= 0 }, "<=")
 }
 
-// newMinExclusive creates a minExclusive facet based on the base type
-func newMinExclusive(lexical string, baseType Type) (Facet, error) {
-	compVal, err := newRangeFacet("minExclusive", lexical, baseType)
-	if err != nil {
-		return nil, err
-	}
-	return &RangeFacet{
-		name:    "minExclusive",
-		lexical: lexical,
-		value:   compVal,
-		cmpFunc: func(cmp int) bool { return cmp > 0 },
-		errOp:   ">",
-	}, nil
+// NewMinExclusive creates a minExclusive facet based on the base type.
+func NewMinExclusive(lexical string, baseType Type) (Facet, error) {
+	return newRangeBoundFacet("minExclusive", lexical, baseType, func(cmp int) bool { return cmp > 0 }, ">")
 }
 
-// newMaxExclusive creates a maxExclusive facet based on the base type
-func newMaxExclusive(lexical string, baseType Type) (Facet, error) {
-	compVal, err := newRangeFacet("maxExclusive", lexical, baseType)
+// NewMaxExclusive creates a maxExclusive facet based on the base type.
+func NewMaxExclusive(lexical string, baseType Type) (Facet, error) {
+	return newRangeBoundFacet("maxExclusive", lexical, baseType, func(cmp int) bool { return cmp < 0 }, "<")
+}
+
+func newRangeBoundFacet(
+	name, lexical string,
+	baseType Type,
+	cmpFunc func(int) bool,
+	errOp string,
+) (Facet, error) {
+	compVal, err := newRangeFacet(name, lexical, baseType)
 	if err != nil {
 		return nil, err
 	}
 	return &RangeFacet{
-		name:    "maxExclusive",
+		name:    name,
 		lexical: lexical,
 		value:   compVal,
-		cmpFunc: func(cmp int) bool { return cmp < 0 },
-		errOp:   "<",
+		cmpFunc: cmpFunc,
+		errOp:   errOp,
 	}, nil
 }
 
@@ -193,103 +168,16 @@ func rangeFacetFundamentalFacets(baseType Type) *FundamentalFacets {
 }
 
 func parseRangeFacetValue(facetName, lexical string, baseType Type) (ComparableValue, error) {
-	typeName := baseType.Name().Local
-	if value, handled, err := parseRangeFacetValueForTypeName(facetName, lexical, baseType, typeName); handled {
-		return value, err
-	}
-	return parseRangeFacetValueForPrimitive(facetName, lexical, baseType)
-}
-
-func parseRangeFacetValueForTypeName(facetName, lexical string, baseType Type, typeName string) (ComparableValue, bool, error) {
-	switch typeName {
-	case "integer", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
-		value, err := parseRangeInteger(facetName, lexical, baseType)
-		return value, true, err
-	default:
-		return nil, false, nil
-	}
-}
-
-func parseRangeFacetValueForPrimitive(facetName, lexical string, baseType Type) (ComparableValue, error) {
-	primitiveType := baseType.PrimitiveType()
-	if primitiveType == nil {
+	if baseType == nil {
 		return nil, fmt.Errorf("%s: %w", facetName, ErrCannotDeterminePrimitiveType)
 	}
-
-	primitiveName := primitiveType.Name().Local
-	isIntegerDerived := isIntegerDerivedType(baseType)
-
-	switch primitiveName {
-	case "decimal":
-		if isIntegerDerived {
-			return parseRangeInteger(facetName, lexical, baseType)
-		}
-		return parseRangeDecimal(facetName, lexical, baseType)
-	case "integer":
-		return parseRangeInteger(facetName, lexical, baseType)
-	case "dateTime", "date", "time", "gYear", "gYearMonth", "gMonth", "gMonthDay", "gDay":
-		return parseRangeTemporal(facetName, lexical, baseType, primitiveName)
-	case "float":
-		return parseRangeFloat(facetName, lexical, baseType)
-	case "double":
-		return parseRangeDouble(facetName, lexical, baseType)
-	case "duration":
-		return parseRangeDuration(facetName, lexical, baseType)
-	default:
-		return nil, fmt.Errorf("%s: no parser available for primitive type %s", facetName, primitiveName)
+	comparable, err := parseLexicalToComparable(lexical, baseType)
+	if err == nil {
+		return comparable, nil
 	}
-}
-
-func parseRangeInteger(facetName, lexical string, baseType Type) (ComparableValue, error) {
-	intVal, err := ParseInteger(lexical)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", facetName, err)
+	var unsupported unsupportedComparablePrimitiveError
+	if errors.As(err, &unsupported) {
+		return nil, fmt.Errorf("%s: no parser available for primitive type %s", facetName, unsupported.primitive)
 	}
-	return ComparableInt{Value: intVal, Typ: baseType}, nil
-}
-
-func parseRangeDecimal(facetName, lexical string, baseType Type) (ComparableValue, error) {
-	rat, err := ParseDecimal(lexical)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", facetName, err)
-	}
-	return ComparableDec{Value: rat, Typ: baseType}, nil
-}
-
-func parseRangeTemporal(facetName, lexical string, baseType Type, primitiveName string) (ComparableValue, error) {
-	timeVal, err := temporal.ParsePrimitive(primitiveName, []byte(lexical))
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", facetName, err)
-	}
-	return ComparableTime{
-		Value:        timeVal.Time,
-		Typ:          baseType,
-		TimezoneKind: TimezoneKind(lexical),
-		Kind:         timeVal.Kind,
-		LeapSecond:   timeVal.LeapSecond,
-	}, nil
-}
-
-func parseRangeFloat(facetName, lexical string, baseType Type) (ComparableValue, error) {
-	floatVal, err := ParseFloat(lexical)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", facetName, err)
-	}
-	return ComparableFloat32{Value: floatVal, Typ: baseType}, nil
-}
-
-func parseRangeDouble(facetName, lexical string, baseType Type) (ComparableValue, error) {
-	doubleVal, err := ParseDouble(lexical)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", facetName, err)
-	}
-	return ComparableFloat64{Value: doubleVal, Typ: baseType}, nil
-}
-
-func parseRangeDuration(facetName, lexical string, baseType Type) (ComparableValue, error) {
-	xsdDur, err := durationlex.Parse(lexical)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", facetName, err)
-	}
-	return ComparableXSDDuration{Value: xsdDur, Typ: baseType}, nil
+	return nil, fmt.Errorf("%s: %w", facetName, err)
 }

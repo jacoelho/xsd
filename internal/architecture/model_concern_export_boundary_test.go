@@ -20,10 +20,6 @@ func TestModelConcernFunctionsNotExported(t *testing.T) {
 		"ValuesEqual",
 		"FormatEnumerationValues",
 		"ParseDurationToTimeDuration",
-		"NewMinInclusive",
-		"NewMaxInclusive",
-		"NewMinExclusive",
-		"NewMaxExclusive",
 		"IsQNameOrNotationType",
 	}
 

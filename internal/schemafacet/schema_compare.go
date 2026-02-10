@@ -20,15 +20,6 @@ var ErrDurationNotComparable = errors.New("duration values are not comparable")
 // ErrFloatNotComparable reports NaN-involved float comparisons.
 var ErrFloatNotComparable = errors.New("float values are not comparable")
 
-func isDateTimeTypeName(typeName string) bool {
-	switch typeName {
-	case "dateTime", "date", "time", "gYearMonth", "gYear", "gMonthDay", "gDay", "gMonth":
-		return true
-	default:
-		return false
-	}
-}
-
 // CompareFacetValues compares two facet lexical values for a base type.
 func CompareFacetValues(val1, val2 string, baseType model.Type) (int, error) {
 	primitiveType := resolvePrimitiveType(baseType)
@@ -45,7 +36,7 @@ func CompareFacetValues(val1, val2 string, baseType model.Type) (int, error) {
 		if model.IsNumericTypeName(typeName) {
 			return compareNumericFacetValues(val1, val2)
 		}
-		if isDateTimeTypeName(typeName) {
+		if model.IsDateTimeTypeName(typeName) {
 			return compareDateTimeValues(val1, val2, typeName)
 		}
 		if facets := primitiveType.FundamentalFacets(); facets != nil {

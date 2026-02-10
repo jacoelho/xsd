@@ -58,3 +58,29 @@ func TestIsNumericTypeName(t *testing.T) {
 		})
 	}
 }
+
+func TestIsDateTimeTypeName(t *testing.T) {
+	t.Parallel()
+
+	dateTimeTypeNames := []string{
+		"dateTime", "date", "time", "gYearMonth", "gYear", "gMonthDay", "gDay", "gMonth",
+	}
+	for _, typeName := range dateTimeTypeNames {
+		t.Run(typeName, func(t *testing.T) {
+			t.Parallel()
+			if !IsDateTimeTypeName(typeName) {
+				t.Fatalf("IsDateTimeTypeName(%q) = false, want true", typeName)
+			}
+		})
+	}
+
+	nonDateTimeTypeNames := []string{"string", "decimal", "duration", "boolean"}
+	for _, typeName := range nonDateTimeTypeNames {
+		t.Run("not_"+typeName, func(t *testing.T) {
+			t.Parallel()
+			if IsDateTimeTypeName(typeName) {
+				t.Fatalf("IsDateTimeTypeName(%q) = true, want false", typeName)
+			}
+		})
+	}
+}

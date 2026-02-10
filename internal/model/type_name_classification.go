@@ -21,3 +21,13 @@ func IsNumericTypeName(typeName string) bool {
 		return IsIntegerTypeName(typeName)
 	}
 }
+
+// IsDateTimeTypeName reports whether typeName is an XSD built-in date/time type.
+func IsDateTimeTypeName(typeName string) bool {
+	switch typeName {
+	case "dateTime", "date", "time", "gYearMonth", "gYear", "gMonthDay", "gDay", "gMonth":
+		return true
+	default:
+		return false
+	}
+}

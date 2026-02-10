@@ -101,19 +101,19 @@ func NewEnumeration(values []string) *model.Enumeration {
 }
 
 func NewMinInclusive(lexical string, baseType model.Type) (model.Facet, error) {
-	return newMinInclusiveFacet(lexical, baseType)
+	return model.NewMinInclusive(lexical, baseType)
 }
 
 func NewMaxInclusive(lexical string, baseType model.Type) (model.Facet, error) {
-	return newMaxInclusiveFacet(lexical, baseType)
+	return model.NewMaxInclusive(lexical, baseType)
 }
 
 func NewMinExclusive(lexical string, baseType model.Type) (model.Facet, error) {
-	return newMinExclusiveFacet(lexical, baseType)
+	return model.NewMinExclusive(lexical, baseType)
 }
 
 func NewMaxExclusive(lexical string, baseType model.Type) (model.Facet, error) {
-	return newMaxExclusiveFacet(lexical, baseType)
+	return model.NewMaxExclusive(lexical, baseType)
 }
 
 // FormatEnumerationValues returns a quoted list for enumeration errors.

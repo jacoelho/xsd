@@ -75,11 +75,12 @@ func TestModelTypedValueAdaptersOnlyUsedByModelPackage(t *testing.T) {
 	assertModelSelectorBoundary(t, allowedScopes, adapterNames, "typedvalue")
 }
 
-func TestModelFacetAdaptersOnlyUsedByModelPackage(t *testing.T) {
+func TestModelFacetAdaptersOnlyUsedByModelOrFacetvaluePackage(t *testing.T) {
 	t.Parallel()
 
 	allowedScopes := []string{
 		"internal/model",
+		"internal/facetvalue",
 	}
 	adapterNames := []string{
 		"ApplyFacets",
