@@ -466,7 +466,7 @@ func ParseDurationToTimeDuration(text string) (time.Duration, error) {
 		return 0, err
 	}
 
-	secondsDuration, err := secondsToDuration(xsdDur.Seconds)
+	secondsDuration, err := model.SecondsToDuration(xsdDur.Seconds)
 	if err != nil {
 		return 0, err
 	}
@@ -614,41 +614,4 @@ func isDateTimeTypeName(typeName string) bool {
 	default:
 		return false
 	}
-}
-
-func secondsToDuration(sec num.Dec) (time.Duration, error) {
-	if sec.Sign < 0 {
-		return 0, fmt.Errorf("second value cannot be negative")
-	}
-	scaled, err := num.DecToScaledIntExact(sec, 9)
-	if err != nil {
-		return 0, err
-	}
-	const maxDuration = time.Duration(^uint64(0) >> 1)
-	maxSeconds := num.FromInt64(int64(maxDuration))
-	if scaled.Compare(maxSeconds) > 0 {
-		return 0, fmt.Errorf("second value too large")
-	}
-	val, ok := int64FromDigits(scaled.Digits)
-	if !ok {
-		return 0, fmt.Errorf("second value too large")
-	}
-	if scaled.Sign < 0 {
-		val = -val
-	}
-	return time.Duration(val), nil
-}
-
-func int64FromDigits(digits []byte) (int64, bool) {
-	if len(digits) == 0 {
-		return 0, true
-	}
-	var n int64
-	for _, digit := range digits {
-		if n > (int64(^uint64(0)>>1)-int64(digit-'0'))/10 {
-			return 0, false
-		}
-		n = n*10 + int64(digit-'0')
-	}
-	return n, true
 }

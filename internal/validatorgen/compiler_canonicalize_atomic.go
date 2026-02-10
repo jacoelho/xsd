@@ -57,15 +57,6 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ model.Type, ctx map
 			return nil, fmt.Errorf("invalid decimal: %s", normalized)
 		}
 		return v.RenderCanonical(nil), nil
-	case "integer", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte", "nonNegativeInteger", "positiveInteger", "negativeInteger", "nonPositiveInteger":
-		v, perr := num.ParseInt([]byte(normalized))
-		if perr != nil {
-			return nil, fmt.Errorf("invalid integer: %s", normalized)
-		}
-		if err := runtime.ValidateIntegerKind(c.integerKindForType(typ), v); err != nil {
-			return nil, err
-		}
-		return v.RenderCanonical(nil), nil
 	case "boolean":
 		v, err := value.ParseBoolean([]byte(normalized))
 		if err != nil {

@@ -61,20 +61,20 @@ func buildAncestorChain(schema *parser.Schema, registry *Registry, typ model.Typ
 	current := typ
 
 	for current != nil {
-		baseQName, method := baseForType(current)
-		if baseQName.IsZero() {
+		baseType, method, err := baseTypeFor(schema, current)
+		if err != nil {
+			return nil, nil, fmt.Errorf("type %s: %w", typeNameOrKind(current), err)
+		}
+		if baseType == nil {
 			break
 		}
+		baseQName := baseType.Name()
 		if baseQName.Namespace == model.XSDNamespace {
 			break
 		}
-		baseType := schema.TypeDefs[baseQName]
-		if baseType == nil {
-			return nil, nil, fmt.Errorf("type %s base %s not found", current.Name(), baseQName)
-		}
-		baseID, ok := registry.Types[baseQName]
+		baseID, ok := lookupAncestorTypeID(registry, baseType)
 		if !ok {
-			return nil, nil, fmt.Errorf("type %s base %s missing ID", current.Name(), baseQName)
+			return nil, nil, fmt.Errorf("type %s base %s missing ID", typeNameOrKind(current), typeNameOrKind(baseType))
 		}
 		cumulative |= method
 		ids = append(ids, baseID)
@@ -85,50 +85,25 @@ func buildAncestorChain(schema *parser.Schema, registry *Registry, typ model.Typ
 	return ids, masks, nil
 }
 
-func baseForType(typ model.Type) (model.QName, model.DerivationMethod) {
-	switch typed := typ.(type) {
-	case *model.SimpleType:
-		return baseForSimpleType(typed)
-	case *model.ComplexType:
-		return baseForComplexType(typed)
-	default:
-		return model.QName{}, 0
+func lookupAncestorTypeID(registry *Registry, typ model.Type) (TypeID, bool) {
+	if typ == nil || registry == nil {
+		return 0, false
 	}
+	name := typ.Name()
+	if !name.IsZero() {
+		id, ok := registry.Types[name]
+		return id, ok
+	}
+	return registry.LookupAnonymousTypeID(typ)
 }
 
-func baseForSimpleType(st *model.SimpleType) (model.QName, model.DerivationMethod) {
-	if st == nil {
-		return model.QName{}, 0
+func typeNameOrKind(typ model.Type) string {
+	if typ == nil {
+		return "<nil>"
 	}
-	if st.List != nil {
-		return model.AnySimpleTypeQName(), model.DerivationList
+	name := typ.Name()
+	if !name.IsZero() {
+		return name.String()
 	}
-	if st.Union != nil {
-		return model.AnySimpleTypeQName(), model.DerivationUnion
-	}
-	if st.Restriction != nil {
-		return st.Restriction.Base, model.DerivationRestriction
-	}
-	return model.QName{}, 0
-}
-
-func baseForComplexType(ct *model.ComplexType) (model.QName, model.DerivationMethod) {
-	if ct == nil {
-		return model.QName{}, 0
-	}
-	baseQName := model.QName{}
-	if content := ct.Content(); content != nil {
-		baseQName = content.BaseTypeQName()
-	}
-	if baseQName.IsZero() {
-		if ct.QName.Namespace == model.XSDNamespace && ct.QName.Local == "anyType" {
-			return model.QName{}, 0
-		}
-		return model.AnyTypeQName(), model.DerivationRestriction
-	}
-	method := ct.DerivationMethod
-	if method == 0 {
-		method = model.DerivationRestriction
-	}
-	return baseQName, method
+	return fmt.Sprintf("%T", typ)
 }
