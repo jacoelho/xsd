@@ -8,118 +8,57 @@ import (
 
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/durationlex"
-	internalcore "github.com/jacoelho/xsd/internal/facetvalue/internalcore"
 	model "github.com/jacoelho/xsd/internal/model"
 )
 
 func Apply(value model.TypedValue, facets []model.Facet, baseType model.Type) error {
-	facetsAny := make([]any, len(facets))
-	for i, facet := range facets {
-		facetsAny[i] = facet
+	for _, facet := range facets {
+		if err := facet.Validate(value, baseType); err != nil {
+			return err
+		}
 	}
-	return internalcore.ApplyFacets(value, facetsAny, baseType, internalcore.ApplyFacetOps{
-		ValidateFacet: func(facet any, value any, baseType any) error {
-			f, ok := facet.(model.Facet)
-			if !ok {
-				return fmt.Errorf("invalid facet %T", facet)
-			}
-			tv, ok := value.(model.TypedValue)
-			if !ok {
-				return fmt.Errorf("invalid typed value %T", value)
-			}
-			bt, ok := baseType.(model.Type)
-			if !ok {
-				return fmt.Errorf("invalid base type %T", baseType)
-			}
-			return f.Validate(tv, bt)
-		},
-	})
+	return nil
 }
 
 func Validate(value string, baseType model.Type, facets []model.Facet, context map[string]string) error {
-	facetsAny := make([]any, len(facets))
-	for i, facet := range facets {
-		facetsAny[i] = facet
+	if len(facets) == 0 {
+		return nil
 	}
 
-	return internalcore.ValidateValueAgainstFacets(value, baseType, facetsAny, context, internalcore.ValidateFacetOps{
-		FacetName: func(facet any) string {
-			f, ok := facet.(model.Facet)
-			if !ok {
-				return fmt.Sprintf("invalid facet %T", facet)
+	isQNameOrNotation := IsQNameOrNotationType(baseType)
+	isListType := isListTypeForFacetValidation(baseType)
+
+	var typed model.TypedValue
+	for _, facet := range facets {
+		if IsLengthFacet(facet) && !isListType && isQNameOrNotation {
+			continue
+		}
+
+		if isQNameOrNotation && !isListType {
+			if enumFacet, ok := facet.(*model.Enumeration); ok {
+				if err := enumFacet.ValidateLexicalQName(value, baseType, context); err != nil {
+					return err
+				}
+				continue
 			}
-			return f.Name()
-		},
-		ShouldSkipLengthFacet: func(baseType any, facet any) bool {
-			bt, ok := baseType.(model.Type)
-			if !ok {
-				return false
+		}
+
+		if lexicalFacet, ok := facet.(model.LexicalValidator); ok {
+			if err := lexicalFacet.ValidateLexical(value, baseType); err != nil {
+				return fmt.Errorf("facet '%s' violation: %w", facet.Name(), err)
 			}
-			f, ok := facet.(model.Facet)
-			if !ok {
-				return false
-			}
-			if !IsLengthFacet(f) {
-				return false
-			}
-			if isListTypeForFacetValidation(bt) {
-				return false
-			}
-			return IsQNameOrNotationType(bt)
-		},
-		IsQNameOrNotationType: func(baseType any) bool {
-			bt, ok := baseType.(model.Type)
-			return ok && IsQNameOrNotationType(bt)
-		},
-		IsListTypeForFacetValidation: func(baseType any) bool {
-			bt, ok := baseType.(model.Type)
-			return ok && isListTypeForFacetValidation(bt)
-		},
-		ValidateQNameEnumerationLexical: func(facet any, value string, baseType any, context map[string]string) (bool, error) {
-			enumFacet, ok := facet.(*model.Enumeration)
-			if !ok {
-				return false, nil
-			}
-			bt, ok := baseType.(model.Type)
-			if !ok {
-				return true, fmt.Errorf("invalid base type %T", baseType)
-			}
-			return true, enumFacet.ValidateLexicalQName(value, bt, context)
-		},
-		ValidateLexicalFacet: func(facet any, value string, baseType any) (bool, error) {
-			lexicalFacet, ok := facet.(model.LexicalValidator)
-			if !ok {
-				return false, nil
-			}
-			bt, ok := baseType.(model.Type)
-			if !ok {
-				return true, fmt.Errorf("invalid base type %T", baseType)
-			}
-			return true, lexicalFacet.ValidateLexical(value, bt)
-		},
-		TypedValueForFacet: func(value string, baseType any) any {
-			bt, ok := baseType.(model.Type)
-			if !ok {
-				return &model.StringTypedValue{Value: value}
-			}
-			return TypedValueForFacet(value, bt)
-		},
-		ValidateFacet: func(facet any, value any, baseType any) error {
-			f, ok := facet.(model.Facet)
-			if !ok {
-				return fmt.Errorf("invalid facet %T", facet)
-			}
-			tv, ok := value.(model.TypedValue)
-			if !ok {
-				return fmt.Errorf("invalid typed value %T", value)
-			}
-			bt, ok := baseType.(model.Type)
-			if !ok {
-				return fmt.Errorf("invalid base type %T", baseType)
-			}
-			return f.Validate(tv, bt)
-		},
-	})
+			continue
+		}
+
+		if typed == nil {
+			typed = TypedValueForFacet(value, baseType)
+		}
+		if err := facet.Validate(typed, baseType); err != nil {
+			return fmt.Errorf("facet '%s' violation: %w", facet.Name(), err)
+		}
+	}
+
+	return nil
 }
 
 // ValuesEqual reports whether two typed values are equal in the value space.
@@ -154,53 +93,7 @@ func IsLengthFacet(facet model.Facet) bool {
 
 // ValidateApplicability checks whether a facet can be applied to a base type.
 func ValidateApplicability(facetName string, baseType model.Type, baseQName model.QName) error {
-	baseTypeName := baseTypeNameForApplicability(baseType, baseQName)
-
-	if baseType != nil {
-		if baseST, ok := baseType.(*model.SimpleType); ok && baseST.Variety() == model.UnionVariety {
-			switch facetName {
-			case "pattern", "enumeration":
-			default:
-				return fmt.Errorf("facet %s is not applicable to union type %s", facetName, baseTypeName)
-			}
-		}
-	}
-
-	if isRangeFacetName(facetName) {
-		if isListType(baseType, baseTypeName) {
-			return fmt.Errorf("facet %s is not applicable to list type %s", facetName, baseTypeName)
-		}
-		facets := fundamentalFacetsFor(baseType, baseQName)
-		if facets == nil || (facets.Ordered != model.OrderedTotal && facets.Ordered != model.OrderedPartial) {
-			return fmt.Errorf("facet %s is only applicable to ordered types, but base type %s is not ordered", facetName, baseTypeName)
-		}
-	}
-
-	if isDigitFacetName(facetName) {
-		facets := fundamentalFacetsFor(baseType, baseQName)
-		if facets == nil || !facets.Numeric {
-			return fmt.Errorf("facet %s is only applicable to numeric types, but base type %s is not numeric", facetName, baseTypeName)
-		}
-	}
-
-	if isLengthFacetName(facetName) {
-		if isListType(baseType, baseTypeName) {
-			return nil
-		}
-		primitiveName := primitiveTypeName(baseType, baseQName)
-		switch {
-		case primitiveName == "boolean":
-			return fmt.Errorf("facet %s is not applicable to boolean type", facetName)
-		case primitiveName == "duration":
-			return fmt.Errorf("facet %s is not applicable to duration type", facetName)
-		case isNumericTypeName(primitiveName):
-			return fmt.Errorf("facet %s is not applicable to numeric type %s", facetName, baseTypeName)
-		case isDateTimeTypeName(primitiveName):
-			return fmt.Errorf("facet %s is not applicable to date/time type %s", facetName, baseTypeName)
-		}
-	}
-
-	return nil
+	return model.ValidateFacetApplicability(facetName, baseType, baseQName)
 }
 
 func NewEnumeration(values []string) *model.Enumeration {
@@ -336,99 +229,5 @@ func IsQNameOrNotationType(typ model.Type) bool {
 		return t.IsQNameOrNotationType()
 	default:
 		return model.IsQNameOrNotation(typ.Name())
-	}
-}
-
-func baseTypeNameForApplicability(baseType model.Type, baseQName model.QName) string {
-	if baseType != nil {
-		return baseType.Name().Local
-	}
-	return baseQName.Local
-}
-
-func fundamentalFacetsFor(baseType model.Type, baseQName model.QName) *model.FundamentalFacets {
-	if baseType != nil {
-		if baseType.IsBuiltin() {
-			return baseType.FundamentalFacets()
-		}
-		if primitive := baseType.PrimitiveType(); primitive != nil {
-			return primitive.FundamentalFacets()
-		}
-	}
-	if baseQName.Namespace == model.XSDNamespace && baseQName.Local != "" {
-		if builtin := builtins.Get(builtins.TypeName(baseQName.Local)); builtin != nil {
-			return builtin.FundamentalFacets()
-		}
-	}
-	return nil
-}
-
-func primitiveTypeName(baseType model.Type, baseQName model.QName) string {
-	if baseType != nil {
-		if primitive := baseType.PrimitiveType(); primitive != nil {
-			return primitive.Name().Local
-		}
-		return baseType.Name().Local
-	}
-	return baseQName.Local
-}
-
-func isListType(baseType model.Type, baseTypeName string) bool {
-	if baseTypeName != "" && builtins.IsBuiltinListTypeName(baseTypeName) {
-		return true
-	}
-	if baseType == nil {
-		return false
-	}
-	if baseST, ok := baseType.(*model.SimpleType); ok {
-		return baseST.Variety() == model.ListVariety
-	}
-	return false
-}
-
-func isRangeFacetName(name string) bool {
-	switch name {
-	case "minExclusive", "maxExclusive", "minInclusive", "maxInclusive":
-		return true
-	default:
-		return false
-	}
-}
-
-func isDigitFacetName(name string) bool {
-	switch name {
-	case "totalDigits", "fractionDigits":
-		return true
-	default:
-		return false
-	}
-}
-
-func isLengthFacetName(name string) bool {
-	switch name {
-	case "length", "minLength", "maxLength":
-		return true
-	default:
-		return false
-	}
-}
-
-func isNumericTypeName(typeName string) bool {
-	switch typeName {
-	case "decimal", "float", "double", "integer", "long", "int", "short", "byte",
-		"nonNegativeInteger", "positiveInteger", "unsignedLong", "unsignedInt",
-		"unsignedShort", "unsignedByte", "nonPositiveInteger", "negativeInteger":
-		return true
-	default:
-		return false
-	}
-}
-
-func isDateTimeTypeName(typeName string) bool {
-	switch typeName {
-	case "dateTime", "date", "time", "gYearMonth", "gYear", "gMonthDay", "gDay", "gMonth":
-		return true
-	default:
-		return false
 	}
 }

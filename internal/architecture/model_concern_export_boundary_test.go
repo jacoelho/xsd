@@ -18,7 +18,6 @@ func TestModelConcernFunctionsNotExported(t *testing.T) {
 		"TypedValueForFacet",
 		"IsLengthFacet",
 		"ValuesEqual",
-		"ValidateFacetApplicability",
 		"FormatEnumerationValues",
 		"ParseDurationToTimeDuration",
 		"NewMinInclusive",
