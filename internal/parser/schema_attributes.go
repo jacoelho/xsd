@@ -1,9 +1,6 @@
 package parser
 
 import (
-	"fmt"
-
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
@@ -11,98 +8,25 @@ func parseSchemaAttributes(doc *schemaxml.Document, root schemaxml.NodeID, schem
 	if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
 		return err
 	}
-	targetNSAttr := ""
-	targetNSFound := false
+	attrs := make([]schemaAttribute, 0, len(doc.Attributes(root)))
+	nsDecls := make([]schemaNamespaceDecl, 0, len(doc.Attributes(root)))
 	for _, attr := range doc.Attributes(root) {
-		if attr.LocalName() == "targetNamespace" {
-			switch attr.NamespaceURI() {
-			case "":
-				targetNSAttr = model.ApplyWhiteSpace(attr.Value(), model.WhiteSpaceCollapse)
-				targetNSFound = true
-			case schemaxml.XSDNamespace:
-				return fmt.Errorf("schema attribute 'targetNamespace' must be unprefixed (found '%s:targetNamespace')", attr.NamespaceURI())
-			default:
-				continue
+		attrs = append(attrs, schemaAttribute{
+			namespace: attr.NamespaceURI(),
+			local:     attr.LocalName(),
+			value:     attr.Value(),
+		})
+		if isXMLNSDeclaration(attr) {
+			prefix := attr.LocalName()
+			if prefix == "xmlns" {
+				prefix = ""
 			}
-		}
-	}
-	if !targetNSFound {
-		schema.TargetNamespace = model.NamespaceEmpty
-	} else {
-		if targetNSAttr == "" {
-			return fmt.Errorf("targetNamespace attribute cannot be empty (must be absent or have a non-empty value)")
-		}
-		schema.TargetNamespace = targetNSAttr
-	}
-
-	for _, attr := range doc.Attributes(root) {
-		if !isXMLNSDeclaration(attr) {
-			continue
-		}
-		if attr.LocalName() == "xmlns" {
-			schema.NamespaceDecls[""] = attr.Value()
-			continue
-		}
-		prefix := attr.LocalName()
-		if attr.Value() == "" {
-			return fmt.Errorf("namespace prefix %q cannot be bound to empty namespace", prefix)
-		}
-		schema.NamespaceDecls[prefix] = attr.Value()
-	}
-
-	if doc.HasAttribute(root, "elementFormDefault") {
-		elemForm := model.ApplyWhiteSpace(doc.GetAttribute(root, "elementFormDefault"), model.WhiteSpaceCollapse)
-		if elemForm == "" {
-			return fmt.Errorf("elementFormDefault attribute cannot be empty")
-		}
-		switch elemForm {
-		case "qualified":
-			schema.ElementFormDefault = Qualified
-		case "unqualified":
-			schema.ElementFormDefault = Unqualified
-		default:
-			return fmt.Errorf("invalid elementFormDefault attribute value '%s': must be 'qualified' or 'unqualified'", elemForm)
+			nsDecls = append(nsDecls, schemaNamespaceDecl{
+				prefix: prefix,
+				uri:    attr.Value(),
+			})
 		}
 	}
 
-	if doc.HasAttribute(root, "attributeFormDefault") {
-		attrForm := model.ApplyWhiteSpace(doc.GetAttribute(root, "attributeFormDefault"), model.WhiteSpaceCollapse)
-		if attrForm == "" {
-			return fmt.Errorf("attributeFormDefault attribute cannot be empty")
-		}
-		switch attrForm {
-		case "qualified":
-			schema.AttributeFormDefault = Qualified
-		case "unqualified":
-			schema.AttributeFormDefault = Unqualified
-		default:
-			return fmt.Errorf("invalid attributeFormDefault attribute value '%s': must be 'qualified' or 'unqualified'", attrForm)
-		}
-	}
-
-	if doc.HasAttribute(root, "blockDefault") {
-		blockDefaultAttr := doc.GetAttribute(root, "blockDefault")
-		if model.TrimXMLWhitespace(blockDefaultAttr) == "" {
-			return fmt.Errorf("blockDefault attribute cannot be empty")
-		}
-		block, err := parseDerivationSetWithValidation(blockDefaultAttr, model.DerivationSet(model.DerivationSubstitution|model.DerivationExtension|model.DerivationRestriction))
-		if err != nil {
-			return fmt.Errorf("invalid blockDefault attribute value '%s': %w", blockDefaultAttr, err)
-		}
-		schema.BlockDefault = block
-	}
-
-	if doc.HasAttribute(root, "finalDefault") {
-		finalDefaultAttr := doc.GetAttribute(root, "finalDefault")
-		if model.TrimXMLWhitespace(finalDefaultAttr) == "" {
-			return fmt.Errorf("finalDefault attribute cannot be empty")
-		}
-		final, err := parseDerivationSetWithValidation(finalDefaultAttr, model.DerivationSet(model.DerivationExtension|model.DerivationRestriction|model.DerivationList|model.DerivationUnion))
-		if err != nil {
-			return fmt.Errorf("invalid finalDefault attribute value '%s': %w", finalDefaultAttr, err)
-		}
-		schema.FinalDefault = final
-	}
-
-	return nil
+	return applySchemaRootAttributes(schema, attrs, nsDecls)
 }

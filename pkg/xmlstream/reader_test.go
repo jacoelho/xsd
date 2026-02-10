@@ -1,6 +1,7 @@
 package xmlstream
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -347,6 +348,55 @@ func TestScopeDepthBeforeRoot(t *testing.T) {
 	}
 	if ev.ScopeDepth != 0 {
 		t.Fatalf("comment scope depth = %d, want 0", ev.ScopeDepth)
+	}
+}
+
+func TestNextAndNextResolvedParity(t *testing.T) {
+	input := `<?xml version="1.0"?>
+<!--lead-->
+<root xmlns="urn:default" xmlns:p="urn:p"><p:child attr="v">txt</p:child></root>`
+
+	eventReader, err := NewReader(strings.NewReader(input), xmltext.EmitComments(true))
+	if err != nil {
+		t.Fatalf("NewReader(event) error = %v", err)
+	}
+	resolvedReader, err := NewReader(strings.NewReader(input), xmltext.EmitComments(true))
+	if err != nil {
+		t.Fatalf("NewReader(resolved) error = %v", err)
+	}
+
+	for {
+		ev, evErr := eventReader.Next()
+		rev, revErr := resolvedReader.NextResolved()
+		if errors.Is(evErr, io.EOF) || errors.Is(revErr, io.EOF) {
+			if !errors.Is(evErr, io.EOF) || !errors.Is(revErr, io.EOF) {
+				t.Fatalf("EOF mismatch: evErr=%v revErr=%v", evErr, revErr)
+			}
+			break
+		}
+		if evErr != nil || revErr != nil {
+			t.Fatalf("read errors: evErr=%v revErr=%v", evErr, revErr)
+		}
+		if ev.Kind != rev.Kind {
+			t.Fatalf("kind mismatch: event=%v resolved=%v", ev.Kind, rev.Kind)
+		}
+		if ev.ScopeDepth != rev.ScopeDepth {
+			t.Fatalf("scope depth mismatch: event=%d resolved=%d", ev.ScopeDepth, rev.ScopeDepth)
+		}
+
+		switch ev.Kind {
+		case EventStartElement, EventEndElement:
+			if ev.Name.Namespace != string(rev.NS) {
+				t.Fatalf("namespace mismatch: event=%q resolved=%q", ev.Name.Namespace, rev.NS)
+			}
+			if ev.Name.Local != string(rev.Local) {
+				t.Fatalf("local mismatch: event=%q resolved=%q", ev.Name.Local, rev.Local)
+			}
+		case EventCharData, EventComment, EventPI, EventDirective:
+			if !bytes.Equal(ev.Text, rev.Text) {
+				t.Fatalf("text mismatch: event=%q resolved=%q", ev.Text, rev.Text)
+			}
+		}
 	}
 }
 

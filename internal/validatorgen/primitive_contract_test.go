@@ -80,11 +80,11 @@ func TestIntegerDerivedFlowsUseDecimalPrimitivePath(t *testing.T) {
 		t.Fatalf("keyBytesAtomic(MyInt).bytes = %v, want %v", key.bytes, wantKey)
 	}
 
-	comparable, err := comp.comparableValue("01", myInt)
+	comparableValue, err := comp.comparableValue("01", myInt)
 	if err != nil {
 		t.Fatalf("comparableValue(MyInt) error = %v", err)
 	}
-	if _, ok := comparable.(model.ComparableInt); !ok {
-		t.Fatalf("comparableValue(MyInt) type = %T, want model.ComparableInt", comparable)
+	if _, ok := comparableValue.(model.ComparableInt); !ok {
+		t.Fatalf("comparableValue(MyInt) type = %T, want model.ComparableInt", comparableValue)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
 	"github.com/jacoelho/xsd/internal/typechain"
 )
 
@@ -94,7 +95,20 @@ func validateRestriction(schema *parser.Schema, st *model.SimpleType, restrictio
 		}
 	}
 
-	if err := ValidateFacetConstraints(schema, facetList, baseType, baseQName); err != nil {
+	if err := facetengine.ValidateSchemaConstraints(
+		facetengine.SchemaConstraintInput{
+			FacetList: facetList,
+			BaseType:  baseType,
+			BaseQName: baseQName,
+		},
+		facetengine.SchemaConstraintCallbacks{
+			ValidateRangeConsistency: facetengine.ValidateRangeConsistency,
+			ValidateRangeValues:      facetengine.ValidateRangeValues,
+			ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
+				return validateValueAgainstTypeWithFacets(schema, value, baseType, context)
+			},
+		},
+	); err != nil {
 		return err
 	}
 
@@ -192,7 +206,20 @@ func validateSimpleContentRestrictionFacets(schema *parser.Schema, restriction *
 		}
 	}
 
-	if err := ValidateFacetConstraints(schema, facetList, baseType, baseQName); err != nil {
+	if err := facetengine.ValidateSchemaConstraints(
+		facetengine.SchemaConstraintInput{
+			FacetList: facetList,
+			BaseType:  baseType,
+			BaseQName: baseQName,
+		},
+		facetengine.SchemaConstraintCallbacks{
+			ValidateRangeConsistency: facetengine.ValidateRangeConsistency,
+			ValidateRangeValues:      facetengine.ValidateRangeValues,
+			ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
+				return validateValueAgainstTypeWithFacets(schema, value, baseType, context)
+			},
+		},
+	); err != nil {
 		return err
 	}
 

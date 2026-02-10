@@ -68,11 +68,11 @@ func ValidateWithFacets(
 }
 
 type validationSettings struct {
+	convert             typeresolve.DeferredFacetConverter
 	mode                mode
 	idPolicy            IDPolicy
 	errorOnPlaceholder  bool
 	requireQNameContext bool
-	convert             typeresolve.DeferredFacetConverter
 }
 
 func validateValue(

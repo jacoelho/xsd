@@ -1,6 +1,7 @@
 package model
 
 import (
+	"maps"
 	"unicode/utf8"
 
 	"github.com/jacoelho/xsd/internal/xmlnames"
@@ -152,9 +153,7 @@ var builtinBaseTypes = func() map[TypeName]TypeName {
 		TypeNameNonPositiveInteger: TypeNameInteger,
 		TypeNameNegativeInteger:    TypeNameNonPositiveInteger,
 	}
-	for listType, itemType := range builtinListItemTypes {
-		baseTypes[listType] = itemType
-	}
+	maps.Copy(baseTypes, builtinListItemTypes)
 	return baseTypes
 }()
 

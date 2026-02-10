@@ -2,7 +2,6 @@ package facetvalue
 
 import (
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -11,8 +10,6 @@ import (
 	"github.com/jacoelho/xsd/internal/durationlex"
 	internalcore "github.com/jacoelho/xsd/internal/facetvalue/internalcore"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 func Apply(value model.TypedValue, facets []model.Facet, baseType model.Type) error {
@@ -127,169 +124,7 @@ func Validate(value string, baseType model.Type, facets []model.Facet, context m
 
 // ValuesEqual reports whether two typed values are equal in the value space.
 func ValuesEqual(left, right model.TypedValue) bool {
-	if left == nil || right == nil {
-		return false
-	}
-	if left == right {
-		return true
-	}
-
-	leftNative := left.Native()
-	rightNative := right.Native()
-	if leftNative == nil || rightNative == nil {
-		return leftNative == rightNative
-	}
-
-	switch l := leftNative.(type) {
-	case num.Dec:
-		switch r := rightNative.(type) {
-		case num.Dec:
-			return l.Compare(r) == 0
-		case num.Int:
-			return l.Compare(r.AsDec()) == 0
-		default:
-			return false
-		}
-
-	case num.Int:
-		switch r := rightNative.(type) {
-		case num.Int:
-			return l.Compare(r) == 0
-		case num.Dec:
-			return l.CompareDec(r) == 0
-		default:
-			return false
-		}
-
-	case time.Time:
-		r, ok := rightNative.(time.Time)
-		if !ok {
-			return false
-		}
-		leftKind, leftTemporal := temporalKindFromType(left.Type())
-		rightKind, rightTemporal := temporalKindFromType(right.Type())
-		if leftTemporal || rightTemporal {
-			if !leftTemporal || !rightTemporal || leftKind != rightKind {
-				return false
-			}
-			leftVal, lerr := temporal.Parse(leftKind, []byte(left.Lexical()))
-			rightVal, rerr := temporal.Parse(rightKind, []byte(right.Lexical()))
-			if lerr != nil || rerr != nil {
-				return false
-			}
-			return temporal.Equal(leftVal, rightVal)
-		}
-		return l.Equal(r)
-
-	case bool:
-		r, ok := rightNative.(bool)
-		if !ok {
-			return false
-		}
-		return l == r
-
-	case string:
-		r, ok := rightNative.(string)
-		if !ok {
-			return false
-		}
-		return l == r
-
-	case float32:
-		switch r := rightNative.(type) {
-		case float32:
-			if math.IsNaN(float64(l)) || math.IsNaN(float64(r)) {
-				return math.IsNaN(float64(l)) && math.IsNaN(float64(r))
-			}
-			return l == r
-		case float64:
-			if math.IsNaN(float64(l)) || math.IsNaN(r) {
-				return math.IsNaN(float64(l)) && math.IsNaN(r)
-			}
-			return float64(l) == r
-		default:
-			return false
-		}
-
-	case float64:
-		switch r := rightNative.(type) {
-		case float64:
-			if math.IsNaN(l) || math.IsNaN(r) {
-				return math.IsNaN(l) && math.IsNaN(r)
-			}
-			return l == r
-		case float32:
-			if math.IsNaN(l) || math.IsNaN(float64(r)) {
-				return math.IsNaN(l) && math.IsNaN(float64(r))
-			}
-			return l == float64(r)
-		default:
-			return false
-		}
-
-	case model.QName:
-		r, ok := rightNative.(model.QName)
-		return ok && l.Equal(r)
-
-	case model.XSDDuration:
-		switch r := rightNative.(type) {
-		case model.XSDDuration:
-			return durationsEqual(l, r, left.Type(), right.Type())
-		case model.ComparableXSDDuration:
-			return durationsEqual(l, r.Value, left.Type(), right.Type())
-		default:
-			return false
-		}
-
-	case model.ComparableXSDDuration:
-		switch r := rightNative.(type) {
-		case model.ComparableXSDDuration:
-			cmp, err := l.Compare(r)
-			return err == nil && cmp == 0
-		case model.XSDDuration:
-			return durationsEqual(l.Value, r, left.Type(), right.Type())
-		default:
-			return false
-		}
-
-	case int64:
-		r, ok := rightNative.(int64)
-		return ok && l == r
-	case int32:
-		r, ok := rightNative.(int32)
-		return ok && l == r
-	case int16:
-		r, ok := rightNative.(int16)
-		return ok && l == r
-	case int8:
-		r, ok := rightNative.(int8)
-		return ok && l == r
-	case uint64:
-		r, ok := rightNative.(uint64)
-		return ok && l == r
-	case uint32:
-		r, ok := rightNative.(uint32)
-		return ok && l == r
-	case uint16:
-		r, ok := rightNative.(uint16)
-		return ok && l == r
-	case uint8:
-		r, ok := rightNative.(uint8)
-		return ok && l == r
-	case []byte:
-		r, ok := rightNative.([]byte)
-		if !ok || len(l) != len(r) {
-			return false
-		}
-		for i := range l {
-			if l[i] != r[i] {
-				return false
-			}
-		}
-		return true
-	}
-
-	return left.Lexical() == right.Lexical()
+	return model.CompareTypedValues(left, right)
 }
 
 // TypedValueForFacet creates a typed value used during facet validation.
@@ -502,24 +337,6 @@ func IsQNameOrNotationType(typ model.Type) bool {
 	default:
 		return model.IsQNameOrNotation(typ.Name())
 	}
-}
-
-func durationsEqual(left, right model.XSDDuration, leftType, rightType model.Type) bool {
-	leftComp := model.ComparableXSDDuration{Value: left, Typ: leftType}
-	rightComp := model.ComparableXSDDuration{Value: right, Typ: rightType}
-	cmp, err := leftComp.Compare(rightComp)
-	return err == nil && cmp == 0
-}
-
-func temporalKindFromType(typ model.Type) (temporal.Kind, bool) {
-	if typ == nil {
-		return temporal.KindInvalid, false
-	}
-	primitive := typ.PrimitiveType()
-	if primitive == nil {
-		primitive = typ
-	}
-	return temporal.KindFromPrimitiveName(primitive.Name().Local)
 }
 
 func baseTypeNameForApplicability(baseType model.Type, baseQName model.QName) string {

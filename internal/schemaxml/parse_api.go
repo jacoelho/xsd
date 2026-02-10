@@ -79,10 +79,10 @@ const (
 type domBuilder struct {
 	doc             *Document
 	reader          *xmlstream.Reader
-	namespaceMode   namespaceAttrsMode
 	nodeStack       state.StateStack[NodeID]
 	childCountStack state.StateStack[int]
 	attrsScratch    []Attr
+	namespaceMode   namespaceAttrsMode
 }
 
 func newDOMBuilder(doc *Document, reader *xmlstream.Reader, namespaceMode namespaceAttrsMode) *domBuilder {
@@ -179,10 +179,7 @@ func parseDOM(reader *xmlstream.Reader, doc *Document, mode parseMode, namespace
 		depth = 1
 	}
 
-	for {
-		if mode == parseModeSubtree && depth == 0 {
-			break
-		}
+	for mode != parseModeSubtree || depth != 0 {
 
 		event, err := reader.Next()
 		if mode == parseModeDocument && errors.Is(err, io.EOF) {

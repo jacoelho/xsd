@@ -32,31 +32,15 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 				if use.Use == runtime.AttrProhibited {
 					return nil, seenID, newValidationError(xsderrors.ErrAttributeProhibited, "attribute prohibited")
 				}
-				canon, metrics, err := s.validateValueInternalWithMetrics(use.Validator, attr.Value, resolver, valueOptions{
-					applyWhitespace:  true,
-					trackIDs:         true,
-					requireCanonical: use.Fixed.Present,
-					storeValue:       storeAttrs,
-					needKey:          use.Fixed.Present,
-				})
+				var err error
+				validated, err = s.validateComplexAttrValue(validated, attr, resolver, storeAttrs, attrValidationSpec{
+					validator:   use.Validator,
+					fixed:       use.Fixed,
+					fixedKey:    use.FixedKey,
+					fixedMember: use.FixedMember,
+				}, &seenID)
 				if err != nil {
-					return nil, seenID, wrapValueError(err)
-				}
-				if s.isIDValidator(use.Validator) {
-					if seenID {
-						return nil, seenID, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
-					}
-					seenID = true
-				}
-				validated = s.appendValidatedAttr(validated, attr, storeAttrs, canon, metrics.keyKind, metrics.keyBytes)
-				if use.Fixed.Present {
-					match, err := s.fixedValueMatches(use.Validator, use.FixedMember, canon, metrics, resolver, use.Fixed, use.FixedKey)
-					if err != nil {
-						return nil, seenID, err
-					}
-					if !match {
-						return nil, seenID, newValidationError(xsderrors.ErrAttributeFixedValue, "fixed attribute value mismatch")
-					}
+					return nil, seenID, err
 				}
 				if idx >= 0 && idx < len(present) {
 					present[idx] = true
@@ -102,31 +86,15 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 				return nil, seenID, fmt.Errorf("attribute %d out of range", id)
 			}
 			globalAttr := s.rt.Attributes[id]
-			canon, metrics, err := s.validateValueInternalWithMetrics(globalAttr.Validator, attr.Value, resolver, valueOptions{
-				applyWhitespace:  true,
-				trackIDs:         true,
-				requireCanonical: globalAttr.Fixed.Present,
-				storeValue:       storeAttrs,
-				needKey:          globalAttr.Fixed.Present,
-			})
+			var err error
+			validated, err = s.validateComplexAttrValue(validated, attr, resolver, storeAttrs, attrValidationSpec{
+				validator:   globalAttr.Validator,
+				fixed:       globalAttr.Fixed,
+				fixedKey:    globalAttr.FixedKey,
+				fixedMember: globalAttr.FixedMember,
+			}, &seenID)
 			if err != nil {
-				return nil, seenID, wrapValueError(err)
-			}
-			if s.isIDValidator(globalAttr.Validator) {
-				if seenID {
-					return nil, seenID, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
-				}
-				seenID = true
-			}
-			validated = s.appendValidatedAttr(validated, attr, storeAttrs, canon, metrics.keyKind, metrics.keyBytes)
-			if globalAttr.Fixed.Present {
-				match, err := s.fixedValueMatches(globalAttr.Validator, globalAttr.FixedMember, canon, metrics, resolver, globalAttr.Fixed, globalAttr.FixedKey)
-				if err != nil {
-					return nil, seenID, err
-				}
-				if !match {
-					return nil, seenID, newValidationError(xsderrors.ErrAttributeFixedValue, "fixed attribute value mismatch")
-				}
+				return nil, seenID, err
 			}
 		default:
 			return nil, seenID, fmt.Errorf("unknown wildcard processContents %d", rule.PC)
@@ -156,4 +124,48 @@ func (s *Session) appendValidatedAttr(validated []StartAttr, attr StartAttr, sto
 	attr.KeyKind = keyKind
 	attr.KeyBytes = keyBytes
 	return append(validated, attr)
+}
+
+type attrValidationSpec struct {
+	validator   runtime.ValidatorID
+	fixedMember runtime.ValidatorID
+	fixed       runtime.ValueRef
+	fixedKey    runtime.ValueKeyRef
+}
+
+func (s *Session) validateComplexAttrValue(
+	validated []StartAttr,
+	attr StartAttr,
+	resolver value.NSResolver,
+	storeAttrs bool,
+	spec attrValidationSpec,
+	seenID *bool,
+) ([]StartAttr, error) {
+	canon, metrics, err := s.validateValueInternalWithMetrics(spec.validator, attr.Value, resolver, valueOptions{
+		applyWhitespace:  true,
+		trackIDs:         true,
+		requireCanonical: spec.fixed.Present,
+		storeValue:       storeAttrs,
+		needKey:          spec.fixed.Present,
+	})
+	if err != nil {
+		return nil, wrapValueError(err)
+	}
+	if s.isIDValidator(spec.validator) {
+		if *seenID {
+			return nil, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
+		}
+		*seenID = true
+	}
+	validated = s.appendValidatedAttr(validated, attr, storeAttrs, canon, metrics.keyKind, metrics.keyBytes)
+	if spec.fixed.Present {
+		match, err := s.fixedValueMatches(spec.validator, spec.fixedMember, canon, metrics, resolver, spec.fixed, spec.fixedKey)
+		if err != nil {
+			return nil, err
+		}
+		if !match {
+			return nil, newValidationError(xsderrors.ErrAttributeFixedValue, "fixed attribute value mismatch")
+		}
+	}
+	return validated, nil
 }
