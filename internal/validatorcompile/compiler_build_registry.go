@@ -3,8 +3,9 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	schema "github.com/jacoelho/xsd/internal/semantic"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (c *compiler) compileRegistry(registry *schema.Registry) error {
@@ -22,10 +23,10 @@ func (c *compiler) compileRegistry(registry *schema.Registry) error {
 
 func (c *compiler) compileBuiltinRegistry() error {
 	for _, name := range builtinTypeNames() {
-		if name == types.TypeNameAnyType {
+		if name == builtins.TypeNameAnyType {
 			continue
 		}
-		bt := types.GetBuiltin(name)
+		bt := builtins.Get(name)
 		if bt == nil {
 			continue
 		}
@@ -38,11 +39,11 @@ func (c *compiler) compileBuiltinRegistry() error {
 
 func (c *compiler) compileSimpleTypeRegistry(registry *schema.Registry) error {
 	for _, entry := range registry.TypeOrder {
-		st, ok := types.AsSimpleType(entry.Type)
+		st, ok := model.AsSimpleType(entry.Type)
 		if !ok {
 			continue
 		}
-		if types.IsPlaceholderSimpleType(st) {
+		if model.IsPlaceholderSimpleType(st) {
 			return fmt.Errorf("type %s: unresolved placeholder", entry.QName)
 		}
 		_, err := c.compileType(st)
@@ -55,11 +56,11 @@ func (c *compiler) compileSimpleTypeRegistry(registry *schema.Registry) error {
 
 func (c *compiler) compileSimpleContentRegistry(registry *schema.Registry) error {
 	for _, entry := range registry.TypeOrder {
-		ct, ok := types.AsComplexType(entry.Type)
+		ct, ok := model.AsComplexType(entry.Type)
 		if !ok {
 			continue
 		}
-		if _, ok := ct.Content().(*types.SimpleContent); !ok {
+		if _, ok := ct.Content().(*model.SimpleContent); !ok {
 			continue
 		}
 		textType, err := c.simpleContentTextType(ct)

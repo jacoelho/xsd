@@ -1,23 +1,24 @@
 package validatorcompile
 
 import (
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *compiler) typeIDForType(typ types.Type) (runtime.TypeID, bool) {
+func (c *compiler) typeIDForType(typ model.Type) (runtime.TypeID, bool) {
 	if c == nil || c.registry == nil || typ == nil {
 		return 0, false
 	}
-	if bt, ok := types.AsBuiltinType(typ); ok && bt != nil {
-		if id, ok := c.builtinTypeIDs[types.TypeName(bt.Name().Local)]; ok {
+	if bt, ok := model.AsBuiltinType(typ); ok && bt != nil {
+		if id, ok := c.builtinTypeIDs[model.TypeName(bt.Name().Local)]; ok {
 			return id, true
 		}
 	}
-	if st, ok := types.AsSimpleType(typ); ok && st != nil {
+	if st, ok := model.AsSimpleType(typ); ok && st != nil {
 		if st.IsBuiltin() {
-			if builtin := types.GetBuiltin(types.TypeName(st.Name().Local)); builtin != nil {
-				if id, ok := c.builtinTypeIDs[types.TypeName(builtin.Name().Local)]; ok {
+			if builtin := builtins.Get(builtins.TypeName(st.Name().Local)); builtin != nil {
+				if id, ok := c.builtinTypeIDs[model.TypeName(builtin.Name().Local)]; ok {
 					return id, true
 				}
 			}

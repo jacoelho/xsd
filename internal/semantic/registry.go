@@ -2,7 +2,7 @@ package semantic
 
 import (
 	"github.com/jacoelho/xsd/internal/ids"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 // TypeID identifies a type definition.
@@ -25,36 +25,36 @@ const (
 
 // TypeEntry records a type ID assignment in traversal order.
 type TypeEntry struct {
-	Type   types.Type
-	QName  types.QName
+	Type   model.Type
+	QName  model.QName
 	ID     TypeID
 	Global bool
 }
 
 // ElementEntry records an element ID assignment in traversal order.
 type ElementEntry struct {
-	Decl   *types.ElementDecl
-	QName  types.QName
+	Decl   *model.ElementDecl
+	QName  model.QName
 	ID     ElemID
 	Global bool
 }
 
 // AttributeEntry records an attribute ID assignment in traversal order.
 type AttributeEntry struct {
-	Decl   *types.AttributeDecl
-	QName  types.QName
+	Decl   *model.AttributeDecl
+	QName  model.QName
 	ID     AttrID
 	Global bool
 }
 
 // Registry holds deterministic ID assignments for schema components.
 type Registry struct {
-	Types           map[types.QName]TypeID
-	Elements        map[types.QName]ElemID
-	Attributes      map[types.QName]AttrID
-	localElements   map[*types.ElementDecl]ElemID
-	localAttributes map[*types.AttributeDecl]AttrID
-	anonymousTypes  map[types.Type]TypeID
+	Types           map[model.QName]TypeID
+	Elements        map[model.QName]ElemID
+	Attributes      map[model.QName]AttrID
+	localElements   map[*model.ElementDecl]ElemID
+	localAttributes map[*model.AttributeDecl]AttrID
+	anonymousTypes  map[model.Type]TypeID
 	TypeOrder       []TypeEntry
 	ElementOrder    []ElementEntry
 	AttributeOrder  []AttributeEntry
@@ -62,20 +62,20 @@ type Registry struct {
 
 func newRegistry() *Registry {
 	return &Registry{
-		Types:           make(map[types.QName]TypeID),
-		Elements:        make(map[types.QName]ElemID),
-		Attributes:      make(map[types.QName]AttrID),
+		Types:           make(map[model.QName]TypeID),
+		Elements:        make(map[model.QName]ElemID),
+		Attributes:      make(map[model.QName]AttrID),
 		TypeOrder:       []TypeEntry{},
 		ElementOrder:    []ElementEntry{},
 		AttributeOrder:  []AttributeEntry{},
-		localElements:   make(map[*types.ElementDecl]ElemID),
-		localAttributes: make(map[*types.AttributeDecl]AttrID),
-		anonymousTypes:  make(map[types.Type]TypeID),
+		localElements:   make(map[*model.ElementDecl]ElemID),
+		localAttributes: make(map[*model.AttributeDecl]AttrID),
+		anonymousTypes:  make(map[model.Type]TypeID),
 	}
 }
 
 // LookupLocalElementID resolves a local element declaration to its assigned ID.
-func (r *Registry) LookupLocalElementID(decl *types.ElementDecl) (ElemID, bool) {
+func (r *Registry) LookupLocalElementID(decl *model.ElementDecl) (ElemID, bool) {
 	if r == nil || decl == nil {
 		return 0, false
 	}
@@ -84,7 +84,7 @@ func (r *Registry) LookupLocalElementID(decl *types.ElementDecl) (ElemID, bool) 
 }
 
 // LookupLocalAttributeID resolves a local attribute declaration to its assigned ID.
-func (r *Registry) LookupLocalAttributeID(decl *types.AttributeDecl) (AttrID, bool) {
+func (r *Registry) LookupLocalAttributeID(decl *model.AttributeDecl) (AttrID, bool) {
 	if r == nil || decl == nil {
 		return 0, false
 	}
@@ -93,7 +93,7 @@ func (r *Registry) LookupLocalAttributeID(decl *types.AttributeDecl) (AttrID, bo
 }
 
 // LookupAnonymousTypeID resolves an anonymous type definition to its assigned ID.
-func (r *Registry) LookupAnonymousTypeID(typ types.Type) (TypeID, bool) {
+func (r *Registry) LookupAnonymousTypeID(typ model.Type) (TypeID, bool) {
 	if r == nil || typ == nil {
 		return 0, false
 	}

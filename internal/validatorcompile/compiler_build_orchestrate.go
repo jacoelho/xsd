@@ -3,10 +3,10 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	schema "github.com/jacoelho/xsd/internal/semantic"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func Compile(sch *parser.Schema, registry *schema.Registry) (*CompiledValidators, error) {
@@ -37,7 +37,7 @@ func (c *compiler) initRuntimeTypeIDs(registry *schema.Registry) {
 		return
 	}
 	c.runtimeTypeIDs = make(map[schema.TypeID]runtime.TypeID, len(registry.TypeOrder))
-	c.builtinTypeIDs = make(map[types.TypeName]runtime.TypeID, len(builtinTypeNames()))
+	c.builtinTypeIDs = make(map[model.TypeName]runtime.TypeID, len(builtinTypeNames()))
 
 	next := runtime.TypeID(1)
 	for _, name := range builtinTypeNames() {

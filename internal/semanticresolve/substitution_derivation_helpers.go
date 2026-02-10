@@ -1,22 +1,23 @@
 package semanticresolve
 
 import (
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // typesAreEqual checks if a QName refers to the same type.
-func typesAreEqual(qname types.QName, typ types.Type) bool {
+func typesAreEqual(qname model.QName, typ model.Type) bool {
 	return typ.Name() == qname
 }
 
 // isTypeInDerivationChain checks if the given QName is anywhere in the derivation chain of the target type.
-func isTypeInDerivationChain(sch *parser.Schema, qname types.QName, targetType types.Type) bool {
+func isTypeInDerivationChain(sch *parser.Schema, qname model.QName, targetType model.Type) bool {
 	targetQName := targetType.Name()
 
 	current := qname
-	visited := make(map[types.QName]bool)
+	visited := make(map[model.QName]bool)
 
 	for !current.IsZero() && !visited[current] {
 		visited[current] = true
@@ -30,7 +31,7 @@ func isTypeInDerivationChain(sch *parser.Schema, qname types.QName, targetType t
 			return false
 		}
 
-		ct, ok := typeDef.(*types.ComplexType)
+		ct, ok := typeDef.(*model.ComplexType)
 		if !ok {
 			return false
 		}
@@ -41,7 +42,7 @@ func isTypeInDerivationChain(sch *parser.Schema, qname types.QName, targetType t
 	return false
 }
 
-func typesMatch(a, b types.Type) bool {
+func typesMatch(a, b model.Type) bool {
 	if a == nil || b == nil {
 		return false
 	}
@@ -53,21 +54,21 @@ func typesMatch(a, b types.Type) bool {
 	return !nameA.IsZero() && nameA == nameB
 }
 
-func derivationStep(sch *parser.Schema, typ types.Type) (types.Type, types.DerivationMethod, error) {
+func derivationStep(sch *parser.Schema, typ model.Type) (model.Type, model.DerivationMethod, error) {
 	switch typed := typ.(type) {
-	case *types.BuiltinType:
+	case *model.BuiltinType:
 		name := typed.Name().Local
-		if name == string(types.TypeNameAnyType) {
+		if name == string(model.TypeNameAnyType) {
 			return nil, 0, nil
 		}
-		if name == string(types.TypeNameAnySimpleType) {
-			return types.GetBuiltin(types.TypeNameAnyType), types.DerivationRestriction, nil
+		if name == string(model.TypeNameAnySimpleType) {
+			return builtins.Get(builtins.TypeNameAnyType), model.DerivationRestriction, nil
 		}
-		if st, ok := types.AsSimpleType(typed); ok && st.List != nil {
-			return types.GetBuiltin(types.TypeNameAnySimpleType), types.DerivationList, nil
+		if st, ok := model.AsSimpleType(typed); ok && st.List != nil {
+			return builtins.Get(builtins.TypeNameAnySimpleType), model.DerivationList, nil
 		}
-		return typed.BaseType(), types.DerivationRestriction, nil
-	case *types.ComplexType:
+		return typed.BaseType(), model.DerivationRestriction, nil
+	case *model.ComplexType:
 		if typed.DerivationMethod == 0 {
 			return typed.ResolvedBase, 0, nil
 		}
@@ -83,12 +84,12 @@ func derivationStep(sch *parser.Schema, typ types.Type) (types.Type, types.Deriv
 			}
 		}
 		return base, typed.DerivationMethod, nil
-	case *types.SimpleType:
+	case *model.SimpleType:
 		if typed.List != nil {
-			return types.GetBuiltin(types.TypeNameAnySimpleType), types.DerivationList, nil
+			return builtins.Get(builtins.TypeNameAnySimpleType), model.DerivationList, nil
 		}
 		if typed.Union != nil {
-			return types.GetBuiltin(types.TypeNameAnySimpleType), types.DerivationUnion, nil
+			return builtins.Get(builtins.TypeNameAnySimpleType), model.DerivationUnion, nil
 		}
 		if typed.Restriction != nil {
 			base := typed.ResolvedBase
@@ -98,25 +99,25 @@ func derivationStep(sch *parser.Schema, typ types.Type) (types.Type, types.Deriv
 			if base == nil && !typed.Restriction.Base.IsZero() {
 				resolved, err := typeops.ResolveTypeQName(sch, typed.Restriction.Base, typeops.TypeReferenceMustExist)
 				if err != nil {
-					return nil, types.DerivationRestriction, err
+					return nil, model.DerivationRestriction, err
 				}
 				base = resolved
 			}
-			return base, types.DerivationRestriction, nil
+			return base, model.DerivationRestriction, nil
 		}
 	}
 	return nil, 0, nil
 }
 
-func derivationMethodLabel(method types.DerivationMethod) string {
+func derivationMethodLabel(method model.DerivationMethod) string {
 	switch method {
-	case types.DerivationExtension:
+	case model.DerivationExtension:
 		return "extension"
-	case types.DerivationRestriction:
+	case model.DerivationRestriction:
 		return "restriction"
-	case types.DerivationList:
+	case model.DerivationList:
 		return "list"
-	case types.DerivationUnion:
+	case model.DerivationUnion:
 		return "union"
 	default:
 		return "unknown"

@@ -3,11 +3,12 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *compiler) compileType(typ types.Type) (runtime.ValidatorID, error) {
+func (c *compiler) compileType(typ model.Type) (runtime.ValidatorID, error) {
 	if typ == nil {
 		return 0, nil
 	}
@@ -22,14 +23,14 @@ func (c *compiler) compileType(typ types.Type) (runtime.ValidatorID, error) {
 	defer delete(c.compiling, key)
 
 	switch t := key.(type) {
-	case *types.SimpleType:
+	case *model.SimpleType:
 		id, err := c.compileSimpleType(t)
 		if err != nil {
 			return 0, err
 		}
 		c.validatorByType[key] = id
 		return id, nil
-	case *types.BuiltinType:
+	case *model.BuiltinType:
 		id, err := c.compileBuiltin(t)
 		if err != nil {
 			return 0, err
@@ -41,9 +42,9 @@ func (c *compiler) compileType(typ types.Type) (runtime.ValidatorID, error) {
 	}
 }
 
-func (c *compiler) canonicalTypeKey(typ types.Type) types.Type {
-	if st, ok := types.AsSimpleType(typ); ok && st.IsBuiltin() {
-		if builtin := types.GetBuiltin(types.TypeName(st.Name().Local)); builtin != nil {
+func (c *compiler) canonicalTypeKey(typ model.Type) model.Type {
+	if st, ok := model.AsSimpleType(typ); ok && st.IsBuiltin() {
+		if builtin := builtins.Get(builtins.TypeName(st.Name().Local)); builtin != nil {
 			return builtin
 		}
 	}

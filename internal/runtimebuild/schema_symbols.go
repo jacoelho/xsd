@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/model"
 	schema "github.com/jacoelho/xsd/internal/semantic"
 	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validatorcompile"
 )
 
@@ -15,9 +15,9 @@ func (b *schemaBuilder) initSymbols() error {
 	if b.builder == nil {
 		return fmt.Errorf("runtime build: symbol builder missing")
 	}
-	xsdNS := types.XSDNamespace
+	xsdNS := model.XSDNamespace
 	for _, name := range validatorcompile.BuiltinTypeNames() {
-		b.internQName(types.QName{Namespace: xsdNS, Local: string(name)})
+		b.internQName(model.QName{Namespace: xsdNS, Local: string(name)})
 	}
 
 	for _, entry := range b.registry.TypeOrder {
@@ -33,7 +33,7 @@ func (b *schemaBuilder) initSymbols() error {
 		b.internQName(entry.QName)
 	}
 	for _, entry := range b.registry.TypeOrder {
-		ct, ok := types.AsComplexType(entry.Type)
+		ct, ok := model.AsComplexType(entry.Type)
 		if !ok || ct == nil {
 			continue
 		}
@@ -61,7 +61,7 @@ func (b *schemaBuilder) initSymbols() error {
 			continue
 		}
 		for _, constraint := range decl.Constraints {
-			qname := types.QName{Namespace: constraint.TargetNamespace, Local: constraint.Name}
+			qname := model.QName{Namespace: constraint.TargetNamespace, Local: constraint.Name}
 			b.internQName(qname)
 		}
 	}

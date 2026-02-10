@@ -4,16 +4,16 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/durationlex"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/num"
 	qnamelex "github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
-func (c *compiler) keyBytesAtomic(normalized string, typ types.Type, ctx map[string]string) (keyBytes, error) {
+func (c *compiler) keyBytesAtomic(normalized string, typ model.Type, ctx map[string]string) (keyBytes, error) {
 	primName, err := c.res.primitiveName(typ)
 	if err != nil {
 		return keyBytes{}, err

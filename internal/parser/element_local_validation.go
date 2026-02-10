@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
@@ -43,10 +43,10 @@ func validateLocalElementChildren(doc *xsdxml.Document, elem xsdxml.NodeID) erro
 	return nil
 }
 
-func resolveLocalElementForm(attrs *elementAttrScan, schema *Schema) (Form, types.NamespaceURI, error) {
+func resolveLocalElementForm(attrs *elementAttrScan, schema *Schema) (Form, model.NamespaceURI, error) {
 	var effectiveForm Form
 	if formAttr := attrs.form; formAttr != "" {
-		formAttr = types.ApplyWhiteSpace(formAttr, types.WhiteSpaceCollapse)
+		formAttr = model.ApplyWhiteSpace(formAttr, model.WhiteSpaceCollapse)
 		switch formAttr {
 		case "qualified":
 			effectiveForm = Qualified
@@ -59,7 +59,7 @@ func resolveLocalElementForm(attrs *elementAttrScan, schema *Schema) (Form, type
 		effectiveForm = schema.ElementFormDefault
 	}
 
-	var elementNamespace types.NamespaceURI
+	var elementNamespace model.NamespaceURI
 	if effectiveForm == Qualified {
 		elementNamespace = schema.TargetNamespace
 	}

@@ -3,16 +3,17 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *compiler) compileBuiltin(bt *types.BuiltinType) (runtime.ValidatorID, error) {
+func (c *compiler) compileBuiltin(bt *model.BuiltinType) (runtime.ValidatorID, error) {
 	name := bt.Name().Local
 	ws := c.res.whitespaceMode(bt)
 
-	if itemName, ok := types.BuiltinListItemTypeName(name); ok {
-		itemType := types.GetBuiltin(itemName)
+	if itemName, ok := builtins.BuiltinListItemTypeName(name); ok {
+		itemType := builtins.Get(itemName)
 		if itemType == nil {
 			return 0, fmt.Errorf("builtin list %s: item type %s not found", name, itemName)
 		}

@@ -3,14 +3,14 @@ package runtimebuild
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	schema "github.com/jacoelho/xsd/internal/semantic"
 	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validatorcompile"
 )
 
-func (b *schemaBuilder) collectAttrUses(ct *types.ComplexType) ([]runtime.AttrUse, *types.AnyAttribute, error) {
+func (b *schemaBuilder) collectAttrUses(ct *model.ComplexType) ([]runtime.AttrUse, *model.AnyAttribute, error) {
 	if ct == nil {
 		return nil, nil, nil
 	}
@@ -83,7 +83,7 @@ func (b *schemaBuilder) collectAttrUses(ct *types.ComplexType) ([]runtime.AttrUs
 	return out, wildcard, nil
 }
 
-func (b *schemaBuilder) resolveAttributeDecl(decl *types.AttributeDecl) *types.AttributeDecl {
+func (b *schemaBuilder) resolveAttributeDecl(decl *model.AttributeDecl) *model.AttributeDecl {
 	if decl == nil {
 		return nil
 	}
@@ -93,7 +93,7 @@ func (b *schemaBuilder) resolveAttributeDecl(decl *types.AttributeDecl) *types.A
 	return b.schema.AttributeDecls[decl.Name]
 }
 
-func (b *schemaBuilder) schemaAttrID(decl *types.AttributeDecl) (schema.AttrID, bool) {
+func (b *schemaBuilder) schemaAttrID(decl *model.AttributeDecl) (schema.AttrID, bool) {
 	if decl == nil {
 		return 0, false
 	}

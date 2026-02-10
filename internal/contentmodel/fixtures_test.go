@@ -4,12 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 type modelFixture struct {
-	particle  types.Particle
+	particle  model.Particle
 	name      string
 	wantError string
 	matchers  []runtime.PosMatcher
@@ -44,7 +44,7 @@ func TestContentModelFixtures(t *testing.T) {
 		},
 		{
 			name:      "all-group-rejected",
-			particle:  &types.ModelGroup{Kind: types.AllGroup, MinOccurs: types.OccursFromInt(1), MaxOccurs: types.OccursFromInt(1)},
+			particle:  &model.ModelGroup{Kind: model.AllGroup, MinOccurs: model.OccursFromInt(1), MaxOccurs: model.OccursFromInt(1)},
 			wantError: "all group",
 		},
 		{

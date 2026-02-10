@@ -3,49 +3,49 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *compiler) compileFacetProgram(st *types.SimpleType, facets, partial []types.Facet) (runtime.FacetProgramRef, error) {
+func (c *compiler) compileFacetProgram(st *model.SimpleType, facets, partial []model.Facet) (runtime.FacetProgramRef, error) {
 	if len(facets) == 0 {
 		return runtime.FacetProgramRef{}, nil
 	}
 	start := len(c.facets)
 	for _, facet := range facets {
 		switch f := facet.(type) {
-		case *types.Pattern:
+		case *model.Pattern:
 			pid, err := c.addPattern(f)
 			if err != nil {
 				return runtime.FacetProgramRef{}, err
 			}
 			c.facets = append(c.facets, runtime.FacetInstr{Op: runtime.FPattern, Arg0: uint32(pid)})
-		case *types.PatternSet:
+		case *model.PatternSet:
 			pid, err := c.addPatternSet(f)
 			if err != nil {
 				return runtime.FacetProgramRef{}, err
 			}
 			c.facets = append(c.facets, runtime.FacetInstr{Op: runtime.FPattern, Arg0: uint32(pid)})
-		case *types.Enumeration:
+		case *model.Enumeration:
 			enumID, err := c.compileEnumeration(f, st, partial)
 			if err != nil {
 				return runtime.FacetProgramRef{}, err
 			}
 			c.facets = append(c.facets, runtime.FacetInstr{Op: runtime.FEnum, Arg0: uint32(enumID)})
-		case *types.Length:
+		case *model.Length:
 			c.facets = append(c.facets, runtime.FacetInstr{Op: runtime.FLength, Arg0: uint32(f.Value)})
-		case *types.MinLength:
+		case *model.MinLength:
 			c.facets = append(c.facets, runtime.FacetInstr{Op: runtime.FMinLength, Arg0: uint32(f.Value)})
-		case *types.MaxLength:
+		case *model.MaxLength:
 			c.facets = append(c.facets, runtime.FacetInstr{Op: runtime.FMaxLength, Arg0: uint32(f.Value)})
-		case *types.TotalDigits:
+		case *model.TotalDigits:
 			c.facets = append(c.facets, runtime.FacetInstr{Op: runtime.FTotalDigits, Arg0: uint32(f.Value)})
-		case *types.FractionDigits:
+		case *model.FractionDigits:
 			c.facets = append(c.facets, runtime.FacetInstr{Op: runtime.FFractionDigits, Arg0: uint32(f.Value)})
-		case *types.RangeFacet:
+		case model.LexicalFacet:
 			op, ok := rangeFacetOp(f.Name())
 			if !ok {
-				return runtime.FacetProgramRef{}, fmt.Errorf("unknown range facet %s", f.Name())
+				continue
 			}
 			lexical := f.GetLexical()
 			normalized := c.normalizeLexical(lexical, st)
@@ -62,7 +62,7 @@ func (c *compiler) compileFacetProgram(st *types.SimpleType, facets, partial []t
 	return runtime.FacetProgramRef{Off: uint32(start), Len: uint32(len(c.facets) - start)}, nil
 }
 
-func (c *compiler) compileEnumeration(enum *types.Enumeration, st *types.SimpleType, partial []types.Facet) (runtime.EnumID, error) {
+func (c *compiler) compileEnumeration(enum *model.Enumeration, st *model.SimpleType, partial []model.Facet) (runtime.EnumID, error) {
 	if enum == nil {
 		return 0, nil
 	}

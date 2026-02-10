@@ -3,11 +3,11 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
-func parseModelGroupChildParticle(doc *xsdxml.Document, child xsdxml.NodeID, schema *Schema, parentKind types.GroupKind, parentName string) (types.Particle, error) {
+func parseModelGroupChildParticle(doc *xsdxml.Document, child xsdxml.NodeID, schema *Schema, parentKind model.GroupKind, parentName string) (model.Particle, error) {
 	childName := doc.LocalName(child)
 	switch childName {
 	case "element":
@@ -17,7 +17,7 @@ func parseModelGroupChildParticle(doc *xsdxml.Document, child xsdxml.NodeID, sch
 		}
 		return el, nil
 	case "sequence", "choice", "all":
-		if parentKind == types.AllGroup {
+		if parentKind == model.AllGroup {
 			return nil, fmt.Errorf("xs:all cannot contain model groups (only element declarations are allowed)")
 		}
 		group, err := parseModelGroup(doc, child, schema)
@@ -26,12 +26,12 @@ func parseModelGroupChildParticle(doc *xsdxml.Document, child xsdxml.NodeID, sch
 		}
 		return group, nil
 	case "group":
-		if parentKind == types.AllGroup {
+		if parentKind == model.AllGroup {
 			return nil, fmt.Errorf("xs:all cannot contain group references (only element declarations are allowed)")
 		}
 		return parseModelGroupGroupRef(doc, child, schema)
 	case "any":
-		if parentKind == types.AllGroup {
+		if parentKind == model.AllGroup {
 			return nil, fmt.Errorf("xs:all cannot contain any wildcards (only element declarations are allowed)")
 		}
 		anyElem, err := parseAnyElement(doc, child, schema)
@@ -48,7 +48,7 @@ func parseModelGroupChildParticle(doc *xsdxml.Document, child xsdxml.NodeID, sch
 	}
 }
 
-func parseModelGroupGroupRef(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (types.Particle, error) {
+func parseModelGroupGroupRef(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (model.Particle, error) {
 	if err := validateElementConstraints(doc, elem, "group", schema); err != nil {
 		return nil, err
 	}
@@ -68,5 +68,5 @@ func parseModelGroupGroupRef(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 	if err != nil {
 		return nil, err
 	}
-	return &types.GroupRef{RefQName: refQName, MinOccurs: minOccurs, MaxOccurs: maxOccurs}, nil
+	return &model.GroupRef{RefQName: refQName, MinOccurs: minOccurs, MaxOccurs: maxOccurs}, nil
 }

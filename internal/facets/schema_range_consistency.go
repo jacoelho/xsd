@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 )
 
-func isDurationType(baseType types.Type, baseQName types.QName) bool {
-	if baseQName.Namespace == types.XSDNamespace && baseQName.Local == "duration" {
+func isDurationType(baseType model.Type, baseQName model.QName) bool {
+	if baseQName.Namespace == model.XSDNamespace && baseQName.Local == "duration" {
 		return true
 	}
 	if baseType == nil {
@@ -18,11 +19,11 @@ func isDurationType(baseType types.Type, baseQName types.QName) bool {
 	if primitive == nil {
 		return false
 	}
-	return primitive.Name().Namespace == types.XSDNamespace && primitive.Name().Local == "duration"
+	return primitive.Name().Namespace == model.XSDNamespace && primitive.Name().Local == "duration"
 }
 
 // ValidateRangeConsistency validates min/max range facet combinations.
-func ValidateRangeConsistency(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseType types.Type, baseQName types.QName) error {
+func ValidateRangeConsistency(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseType model.Type, baseQName model.QName) error {
 	if isDurationType(baseType, baseQName) {
 		return ValidateDurationRangeConsistency(minExclusive, maxExclusive, minInclusive, maxInclusive)
 	}
@@ -35,7 +36,7 @@ func ValidateRangeConsistency(minExclusive, maxExclusive, minInclusive, maxInclu
 
 	baseTypeForCompare := baseType
 	if baseTypeForCompare == nil {
-		if bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local); bt != nil {
+		if bt := builtins.GetNS(baseQName.Namespace, baseQName.Local); bt != nil {
 			baseTypeForCompare = bt
 		}
 	}
@@ -44,7 +45,7 @@ func ValidateRangeConsistency(minExclusive, maxExclusive, minInclusive, maxInclu
 		if baseTypeForCompare == nil {
 			return 0, false, nil
 		}
-		if facets := baseTypeForCompare.FundamentalFacets(); facets != nil && facets.Ordered == types.OrderedNone {
+		if facets := baseTypeForCompare.FundamentalFacets(); facets != nil && facets.Ordered == model.OrderedNone {
 			return 0, false, nil
 		}
 		cmp, err := CompareFacetValues(v1, v2, baseTypeForCompare)

@@ -3,14 +3,14 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 // parseTopLevelGroup parses a top-level <group> definition.
 // Content model: (annotation?, (all | choice | sequence))
 func parseTopLevelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
+	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("group missing name attribute")
 	}
@@ -29,14 +29,14 @@ func parseTopLevelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 		return err
 	}
 
-	qname := types.QName{Namespace: schema.TargetNamespace, Local: name}
+	qname := model.QName{Namespace: schema.TargetNamespace, Local: name}
 	if _, exists := schema.Groups[qname]; exists {
 		return fmt.Errorf("duplicate group definition: '%s'", name)
 	}
 
 	hasAnnotation := false
 	hasModelGroup := false
-	var mg *types.ModelGroup
+	var mg *model.ModelGroup
 
 	for _, child := range doc.Children(elem) {
 		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {

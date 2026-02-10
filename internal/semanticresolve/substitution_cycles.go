@@ -3,9 +3,9 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateNoCyclicSubstitutionGroups checks for cycles in substitution group chains.
@@ -16,9 +16,9 @@ func validateNoCyclicSubstitutionGroups(sch *parser.Schema) error {
 			continue
 		}
 
-		detector := NewCycleDetector[types.QName]()
-		var visit func(types.QName) error
-		visit = func(qname types.QName) error {
+		detector := NewCycleDetector[model.QName]()
+		var visit func(model.QName) error
+		visit = func(qname model.QName) error {
 			if detector.IsVisited(qname) {
 				return nil
 			}

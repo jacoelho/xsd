@@ -3,11 +3,11 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
-func applyTopLevelElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *types.ElementDecl) error {
+func applyTopLevelElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	if ok, value, err := parseBoolAttribute(doc, elem, "nillable"); err != nil {
 		return err
 	} else if ok {
@@ -48,39 +48,39 @@ func applyTopLevelElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, sc
 	return nil
 }
 
-func applyTopLevelElementDerivations(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *types.ElementDecl) error {
+func applyTopLevelElementDerivations(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	if doc.HasAttribute(elem, "block") {
 		blockAttr := doc.GetAttribute(elem, "block")
-		if types.TrimXMLWhitespace(blockAttr) == "" {
+		if model.TrimXMLWhitespace(blockAttr) == "" {
 			return fmt.Errorf("block attribute cannot be empty")
 		}
-		block, err := parseDerivationSetWithValidation(blockAttr, types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction))
+		block, err := parseDerivationSetWithValidation(blockAttr, model.DerivationSet(model.DerivationSubstitution|model.DerivationExtension|model.DerivationRestriction))
 		if err != nil {
 			return fmt.Errorf("invalid block attribute value '%s': %w", blockAttr, err)
 		}
 		decl.Block = block
 	} else if schema.BlockDefault != 0 {
-		decl.Block = schema.BlockDefault & types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction)
+		decl.Block = schema.BlockDefault & model.DerivationSet(model.DerivationSubstitution|model.DerivationExtension|model.DerivationRestriction)
 	}
 
 	if doc.HasAttribute(elem, "final") {
 		finalAttr := doc.GetAttribute(elem, "final")
-		if types.TrimXMLWhitespace(finalAttr) == "" {
+		if model.TrimXMLWhitespace(finalAttr) == "" {
 			return fmt.Errorf("final attribute cannot be empty")
 		}
-		final, err := parseDerivationSetWithValidation(finalAttr, types.DerivationSet(types.DerivationExtension|types.DerivationRestriction))
+		final, err := parseDerivationSetWithValidation(finalAttr, model.DerivationSet(model.DerivationExtension|model.DerivationRestriction))
 		if err != nil {
 			return fmt.Errorf("invalid final attribute value '%s': %w", finalAttr, err)
 		}
 		decl.Final = final
 	} else if schema.FinalDefault != 0 {
-		decl.Final = schema.FinalDefault & types.DerivationSet(types.DerivationExtension|types.DerivationRestriction)
+		decl.Final = schema.FinalDefault & model.DerivationSet(model.DerivationExtension|model.DerivationRestriction)
 	}
 
 	return nil
 }
 
-func applyTopLevelElementSubstitutionGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *types.ElementDecl) error {
+func applyTopLevelElementSubstitutionGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	if subGroup := doc.GetAttribute(elem, "substitutionGroup"); subGroup != "" {
 		subGroupQName, err := resolveQNameWithPolicy(doc, subGroup, elem, schema, useDefaultNamespace)
 		if err != nil {
@@ -89,14 +89,14 @@ func applyTopLevelElementSubstitutionGroup(doc *xsdxml.Document, elem xsdxml.Nod
 		decl.SubstitutionGroup = subGroupQName
 
 		if schema.SubstitutionGroups[subGroupQName] == nil {
-			schema.SubstitutionGroups[subGroupQName] = []types.QName{}
+			schema.SubstitutionGroups[subGroupQName] = []model.QName{}
 		}
 		schema.SubstitutionGroups[subGroupQName] = append(schema.SubstitutionGroups[subGroupQName], decl.Name)
 	}
 	return nil
 }
 
-func applyTopLevelElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *types.ElementDecl) error {
+func applyTopLevelElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	for _, child := range doc.Children(elem) {
 		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
 			continue

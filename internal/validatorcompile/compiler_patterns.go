@@ -4,11 +4,11 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *compiler) addPattern(p *types.Pattern) (runtime.PatternID, error) {
+func (c *compiler) addPattern(p *model.Pattern) (runtime.PatternID, error) {
 	if p.GoPattern == "" {
 		if err := p.ValidateSyntax(); err != nil {
 			return 0, err
@@ -22,7 +22,7 @@ func (c *compiler) addPattern(p *types.Pattern) (runtime.PatternID, error) {
 	return runtime.PatternID(len(c.patterns) - 1), nil
 }
 
-func (c *compiler) addPatternSet(set *types.PatternSet) (runtime.PatternID, error) {
+func (c *compiler) addPatternSet(set *model.PatternSet) (runtime.PatternID, error) {
 	if set == nil || len(set.Patterns) == 0 {
 		return 0, nil
 	}

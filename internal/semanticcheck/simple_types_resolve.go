@@ -1,14 +1,15 @@
 package semanticcheck
 
 import (
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // resolveSimpleTypeRestrictionBase resolves the base type for a simple type restriction
-func resolveSimpleTypeRestrictionBase(schema *parser.Schema, st *types.SimpleType, restriction *types.Restriction) types.Type {
+func resolveSimpleTypeRestrictionBase(schema *parser.Schema, st *model.SimpleType, restriction *model.Restriction) model.Type {
 	if st != nil && st.ResolvedBase != nil {
 		return st.ResolvedBase
 	}
@@ -22,10 +23,10 @@ func resolveSimpleTypeRestrictionBase(schema *parser.Schema, st *types.SimpleTyp
 }
 
 // resolveSimpleContentBaseType resolves the base type for a simpleContent restriction
-func resolveSimpleContentBaseType(schema *parser.Schema, baseQName types.QName) (types.Type, types.QName) {
-	visited := make(map[types.QName]bool)
-	var visit func(qname types.QName) (types.Type, types.QName)
-	visit = func(qname types.QName) (types.Type, types.QName) {
+func resolveSimpleContentBaseType(schema *parser.Schema, baseQName model.QName) (model.Type, model.QName) {
+	visited := make(map[model.QName]bool)
+	var visit func(qname model.QName) (model.Type, model.QName)
+	visit = func(qname model.QName) (model.Type, model.QName) {
 		if qname.IsZero() {
 			return nil, qname
 		}
@@ -34,8 +35,8 @@ func resolveSimpleContentBaseType(schema *parser.Schema, baseQName types.QName) 
 		}
 		visited[qname] = true
 
-		if qname.Namespace == types.XSDNamespace {
-			if bt := types.GetBuiltin(types.TypeName(qname.Local)); bt != nil {
+		if qname.Namespace == model.XSDNamespace {
+			if bt := builtins.Get(builtins.TypeName(qname.Local)); bt != nil {
 				return bt, qname
 			}
 		}
@@ -45,11 +46,11 @@ func resolveSimpleContentBaseType(schema *parser.Schema, baseQName types.QName) 
 			return nil, qname
 		}
 
-		ct, ok := baseType.(*types.ComplexType)
+		ct, ok := baseType.(*model.ComplexType)
 		if !ok {
 			return baseType, qname
 		}
-		sc, ok := ct.Content().(*types.SimpleContent)
+		sc, ok := ct.Content().(*model.SimpleContent)
 		if !ok {
 			return baseType, qname
 		}

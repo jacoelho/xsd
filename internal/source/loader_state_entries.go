@@ -1,13 +1,13 @@
 package source
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 type loadKey struct {
 	systemID string
-	etn      types.NamespaceURI
+	etn      model.NamespaceURI
 }
 
 type loadState struct {

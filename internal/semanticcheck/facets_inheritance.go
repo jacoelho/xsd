@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	facetengine "github.com/jacoelho/xsd/internal/facets"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 // validateFacetInheritance validates that derived facets are valid restrictions of base type facets
-func validateFacetInheritance(derivedFacets []types.Facet, baseType types.Type) error {
-	visited := make(map[types.Type]bool)
-	var walk = func(current types.Type) error {
+func validateFacetInheritance(derivedFacets []model.Facet, baseType model.Type) error {
+	visited := make(map[model.Type]bool)
+	var walk = func(current model.Type) error {
 		if current == nil {
 			return nil
 		}
@@ -21,19 +21,19 @@ func validateFacetInheritance(derivedFacets []types.Facet, baseType types.Type) 
 		visited[current] = true
 
 		// get base type facets if it's a user-defined simple type with restrictions
-		var baseFacets []types.Facet
+		var baseFacets []model.Facet
 		switch bt := current.(type) {
-		case *types.SimpleType:
+		case *model.SimpleType:
 			if bt.Restriction == nil {
 				return nil
 			}
 
-			baseFacets = make([]types.Facet, 0, len(bt.Restriction.Facets))
+			baseFacets = make([]model.Facet, 0, len(bt.Restriction.Facets))
 			for _, f := range bt.Restriction.Facets {
 				switch facet := f.(type) {
-				case types.Facet:
+				case model.Facet:
 					baseFacets = append(baseFacets, facet)
-				case *types.DeferredFacet:
+				case *model.DeferredFacet:
 					resolvedFacet, err := convertDeferredFacet(facet, bt.BaseType())
 					if err != nil {
 						return err
@@ -44,7 +44,7 @@ func validateFacetInheritance(derivedFacets []types.Facet, baseType types.Type) 
 				}
 			}
 
-		case *types.BuiltinType:
+		case *model.BuiltinType:
 			baseFacets = implicitRangeFacetsForBuiltin(bt)
 		default:
 
@@ -55,7 +55,7 @@ func validateFacetInheritance(derivedFacets []types.Facet, baseType types.Type) 
 			return nil
 		}
 
-		baseFacetMap := make(map[string]types.Facet)
+		baseFacetMap := make(map[string]model.Facet)
 		for _, facet := range baseFacets {
 			baseFacetMap[facet.Name()] = facet
 		}
@@ -85,7 +85,7 @@ func validateFacetInheritance(derivedFacets []types.Facet, baseType types.Type) 
 	return nil
 }
 
-func validateRangeFacetInheritance(derivedFacets, baseFacets []types.Facet, baseType types.Type) error {
+func validateRangeFacetInheritance(derivedFacets, baseFacets []model.Facet, baseType model.Type) error {
 	base := extractRangeFacetInfo(baseFacets)
 	derived := extractRangeFacetInfo(derivedFacets)
 

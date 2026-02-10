@@ -3,8 +3,8 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	schema "github.com/jacoelho/xsd/internal/semantic"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (c *compiler) compileAttributeDefaults(registry *schema.Registry) error {
@@ -13,10 +13,10 @@ func (c *compiler) compileAttributeDefaults(registry *schema.Registry) error {
 		if decl == nil {
 			continue
 		}
-		if st, ok := types.AsSimpleType(decl.Type); ok && types.IsPlaceholderSimpleType(st) {
+		if st, ok := model.AsSimpleType(decl.Type); ok && model.IsPlaceholderSimpleType(st) {
 			return fmt.Errorf("attribute %s type not resolved", entry.QName)
 		}
-		var typ types.Type
+		var typ model.Type
 		if decl.HasDefault || decl.HasFixed {
 			var err error
 			typ, err = c.valueTypeForAttribute(decl)
@@ -42,8 +42,8 @@ func (c *compiler) compileAttributeDefaults(registry *schema.Registry) error {
 	return nil
 }
 
-func (c *compiler) compileAttributeUseDefaultFixed(decl *types.AttributeDecl) error {
-	if st, ok := types.AsSimpleType(decl.Type); ok && types.IsPlaceholderSimpleType(st) {
+func (c *compiler) compileAttributeUseDefaultFixed(decl *model.AttributeDecl) error {
+	if st, ok := model.AsSimpleType(decl.Type); ok && model.IsPlaceholderSimpleType(st) {
 		return fmt.Errorf("attribute use %s type not resolved", decl.Name)
 	}
 	if !decl.HasDefault && !decl.HasFixed {

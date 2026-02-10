@@ -3,19 +3,20 @@ package runtimebuild
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validatorcompile"
 )
 
 func (b *schemaBuilder) buildTypes() error {
-	xsdNS := types.XSDNamespace
+	xsdNS := model.XSDNamespace
 	nextComplex := uint32(1)
 	for _, name := range validatorcompile.BuiltinTypeNames() {
 		id := b.builtinIDs[name]
-		sym := b.internQName(types.QName{Namespace: xsdNS, Local: string(name)})
+		sym := b.internQName(model.QName{Namespace: xsdNS, Local: string(name)})
 		typ := runtime.Type{Name: sym}
-		if builtin := types.GetBuiltin(name); builtin != nil {
+		if builtin := builtins.Get(name); builtin != nil {
 			base := builtin.BaseType()
 			if base != nil {
 				baseID, ok := b.runtimeTypeID(base)
@@ -26,7 +27,7 @@ func (b *schemaBuilder) buildTypes() error {
 				typ.Derivation = runtime.DerRestriction
 			}
 		}
-		if name == types.TypeNameAnyType {
+		if name == model.TypeNameAnyType {
 			typ.Kind = runtime.TypeComplex
 			typ.Complex = runtime.ComplexTypeRef{ID: nextComplex}
 			b.anyTypeComplex = nextComplex
@@ -37,10 +38,10 @@ func (b *schemaBuilder) buildTypes() error {
 		}
 		b.rt.Types[id] = typ
 		b.rt.GlobalTypes[sym] = id
-		if name == types.TypeNameAnyType {
+		if name == model.TypeNameAnyType {
 			b.rt.Builtin.AnyType = id
 		}
-		if name == types.TypeNameAnySimpleType {
+		if name == model.TypeNameAnySimpleType {
 			b.rt.Builtin.AnySimpleType = id
 		}
 	}
@@ -55,7 +56,7 @@ func (b *schemaBuilder) buildTypes() error {
 		}
 		typ := runtime.Type{Name: sym}
 		switch t := entry.Type.(type) {
-		case *types.SimpleType:
+		case *model.SimpleType:
 			typ.Kind = runtime.TypeSimple
 			if vid, ok := b.validators.TypeValidators[entry.ID]; ok {
 				typ.Validator = vid
@@ -72,7 +73,7 @@ func (b *schemaBuilder) buildTypes() error {
 				typ.Derivation = method
 			}
 			typ.Final = toRuntimeDerivationSet(t.Final)
-		case *types.ComplexType:
+		case *model.ComplexType:
 			typ.Kind = runtime.TypeComplex
 			if t.Abstract {
 				typ.Flags |= runtime.TypeAbstract
@@ -87,7 +88,7 @@ func (b *schemaBuilder) buildTypes() error {
 			}
 			method := t.DerivationMethod
 			if method == 0 {
-				method = types.DerivationRestriction
+				method = model.DerivationRestriction
 			}
 			typ.Derivation = toRuntimeDerivation(method)
 			typ.Final = toRuntimeDerivationSet(t.Final)

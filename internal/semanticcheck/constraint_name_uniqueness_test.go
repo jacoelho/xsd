@@ -4,67 +4,67 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestDuplicateConstraintNameDirect(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
-		ElementDecls:    make(map[types.QName]*types.ElementDecl),
+		TypeDefs:        make(map[model.QName]model.Type),
+		ElementDecls:    make(map[model.QName]*model.ElementDecl),
 	}
 
-	complexType := &types.ComplexType{
-		QName: types.QName{
+	complexType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "PurchaseReportType",
 		},
 	}
-	complexType.SetContent(&types.ElementContent{
-		Particle: &types.ModelGroup{
-			Kind:      types.Sequence,
-			MinOccurs: types.OccursFromInt(1),
-			MaxOccurs: types.OccursFromInt(1),
+	complexType.SetContent(&model.ElementContent{
+		Particle: &model.ModelGroup{
+			Kind:      model.Sequence,
+			MinOccurs: model.OccursFromInt(1),
+			MaxOccurs: model.OccursFromInt(1),
 		},
 	})
-	complexTypeQName := types.QName{
+	complexTypeQName := model.QName{
 		Namespace: "http://example.com",
 		Local:     "PurchaseReportType",
 	}
 	schema.TypeDefs[complexTypeQName] = complexType
 
-	elementDecl := &types.ElementDecl{
-		Name: types.QName{
+	elementDecl := &model.ElementDecl{
+		Name: model.QName{
 			Namespace: "http://example.com",
 			Local:     "purchaseReport",
 		},
 		Type: complexType,
-		Constraints: []*types.IdentityConstraint{
+		Constraints: []*model.IdentityConstraint{
 			{
 				Name: "partKey",
-				Type: types.KeyConstraint,
-				Selector: types.Selector{
+				Type: model.KeyConstraint,
+				Selector: model.Selector{
 					XPath: "parts/part",
 				},
-				Fields: []types.Field{
+				Fields: []model.Field{
 					{XPath: "@number"},
 				},
 			},
 			{
 				Name: "partKey", // duplicate name
-				Type: types.KeyConstraint,
-				Selector: types.Selector{
+				Type: model.KeyConstraint,
+				Selector: model.Selector{
 					XPath: "parts/part",
 				},
-				Fields: []types.Field{
+				Fields: []model.Field{
 					{XPath: "@id"},
 				},
 			},
 		},
 	}
 
-	elementQName := types.QName{
+	elementQName := model.QName{
 		Namespace: "http://example.com",
 		Local:     "purchaseReport",
 	}
@@ -82,37 +82,37 @@ func TestDuplicateConstraintNameDirect(t *testing.T) {
 	}
 
 	// test with unique constraint names (should pass)
-	elementDecl2 := &types.ElementDecl{
-		Name: types.QName{
+	elementDecl2 := &model.ElementDecl{
+		Name: model.QName{
 			Namespace: "http://example.com",
 			Local:     "purchaseReport2",
 		},
 		Type: complexType,
-		Constraints: []*types.IdentityConstraint{
+		Constraints: []*model.IdentityConstraint{
 			{
 				Name: "partKey",
-				Type: types.KeyConstraint,
-				Selector: types.Selector{
+				Type: model.KeyConstraint,
+				Selector: model.Selector{
 					XPath: "parts/part",
 				},
-				Fields: []types.Field{
+				Fields: []model.Field{
 					{XPath: "@number"},
 				},
 			},
 			{
 				Name: "regionKey", // different name - should pass
-				Type: types.UniqueConstraint,
-				Selector: types.Selector{
+				Type: model.UniqueConstraint,
+				Selector: model.Selector{
 					XPath: "regions/region",
 				},
-				Fields: []types.Field{
+				Fields: []model.Field{
 					{XPath: "@code"},
 				},
 			},
 		},
 	}
 
-	elementQName2 := types.QName{
+	elementQName2 := model.QName{
 		Namespace: "http://example.com",
 		Local:     "purchaseReport2",
 	}

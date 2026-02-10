@@ -3,15 +3,15 @@ package semantic
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func detectAttributeGroupCycles(schema *parser.Schema) error {
-	states := make(map[types.QName]visitState)
+	states := make(map[model.QName]visitState)
 
-	var visit func(name types.QName, group *types.AttributeGroup) error
-	visit = func(name types.QName, group *types.AttributeGroup) error {
+	var visit func(name model.QName, group *model.AttributeGroup) error
+	visit = func(name model.QName, group *model.AttributeGroup) error {
 		switch states[name] {
 		case stateVisiting:
 			return fmt.Errorf("attributeGroup cycle detected at %s", name)

@@ -25,8 +25,9 @@ func TestParseSubtreeIntoPreservesInScopeNamespacesAndConsumesSubtree(t *testing
 		t.Fatalf("start event = %+v, want item start", start)
 	}
 
-	doc := AcquireDocument()
-	defer ReleaseDocument(doc)
+	pool := NewDocumentPool()
+	doc := pool.Acquire()
+	defer pool.Release(doc)
 
 	if err := ParseSubtreeInto(reader, start, doc); err != nil {
 		t.Fatalf("ParseSubtreeInto() error = %v", err)

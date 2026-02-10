@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func ensureNamespaceMap(m map[types.NamespaceURI]map[types.NamespaceURI]bool, key types.NamespaceURI) map[types.NamespaceURI]bool {
+func ensureNamespaceMap(m map[model.NamespaceURI]map[model.NamespaceURI]bool, key model.NamespaceURI) map[model.NamespaceURI]bool {
 	if m[key] == nil {
-		m[key] = make(map[types.NamespaceURI]bool)
+		m[key] = make(map[model.NamespaceURI]bool)
 	}
 	return m[key]
 }
@@ -21,12 +21,12 @@ func registerImports(sch *parser.Schema, imports []parser.ImportInfo) {
 		return
 	}
 	if sch.ImportedNamespaces == nil {
-		sch.ImportedNamespaces = make(map[types.NamespaceURI]map[types.NamespaceURI]bool)
+		sch.ImportedNamespaces = make(map[model.NamespaceURI]map[model.NamespaceURI]bool)
 	}
 	fromNS := sch.TargetNamespace
 	imported := ensureNamespaceMap(sch.ImportedNamespaces, fromNS)
 	for _, imp := range imports {
-		ns := types.NamespaceURI(imp.Namespace)
+		ns := model.NamespaceURI(imp.Namespace)
 		imported[ns] = true
 	}
 
@@ -36,11 +36,11 @@ func registerImports(sch *parser.Schema, imports []parser.ImportInfo) {
 	if sch.Location != "" {
 		ctx := sch.ImportContexts[sch.Location]
 		if ctx.Imports == nil {
-			ctx.Imports = make(map[types.NamespaceURI]bool)
+			ctx.Imports = make(map[model.NamespaceURI]bool)
 		}
 		ctx.TargetNamespace = sch.TargetNamespace
 		for _, imp := range imports {
-			ns := types.NamespaceURI(imp.Namespace)
+			ns := model.NamespaceURI(imp.Namespace)
 			ctx.Imports[ns] = true
 		}
 		sch.ImportContexts[sch.Location] = ctx
@@ -48,7 +48,7 @@ func registerImports(sch *parser.Schema, imports []parser.ImportInfo) {
 }
 
 func validateImportConstraints(sch *parser.Schema, imports []parser.ImportInfo) error {
-	if sch.TargetNamespace.IsEmpty() {
+	if sch.TargetNamespace == "" {
 		for _, imp := range imports {
 			if imp.Namespace == "" {
 				return fmt.Errorf("schema without targetNamespace cannot use import without namespace attribute (namespace attribute is required)")
@@ -59,7 +59,7 @@ func validateImportConstraints(sch *parser.Schema, imports []parser.ImportInfo) 
 		if imp.Namespace == "" {
 			continue
 		}
-		if !sch.TargetNamespace.IsEmpty() && types.NamespaceURI(imp.Namespace) == sch.TargetNamespace {
+		if sch.TargetNamespace != "" && model.NamespaceURI(imp.Namespace) == sch.TargetNamespace {
 			return fmt.Errorf("import namespace %s must be different from target namespace", imp.Namespace)
 		}
 	}
@@ -103,12 +103,12 @@ func initSchemaOrigins(sch *parser.Schema, location string) {
 	}
 }
 
-func sortedQNames[V any](m map[types.QName]V) []types.QName {
-	keys := make([]types.QName, 0, len(m))
+func sortedQNames[V any](m map[model.QName]V) []model.QName {
+	keys := make([]model.QName, 0, len(m))
 	for qname := range m {
 		keys = append(keys, qname)
 	}
-	slices.SortFunc(keys, func(a, b types.QName) int {
+	slices.SortFunc(keys, func(a, b model.QName) int {
 		if a.Namespace != b.Namespace {
 			return cmp.Compare(a.Namespace, b.Namespace)
 		}

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 type errCloseReader struct {
@@ -113,7 +113,7 @@ func TestLoadDirectiveSchemaMissingImportIsSkippedNotDeferred(t *testing.T) {
 	session := newLoadSession(
 		loader,
 		"root.xsd",
-		loader.loadKey("root.xsd", types.NamespaceURI("urn:root")),
+		loader.loadKey("root.xsd", model.NamespaceURI("urn:root")),
 		nil,
 	)
 
@@ -126,7 +126,7 @@ func TestLoadDirectiveSchemaMissingImportIsSkippedNotDeferred(t *testing.T) {
 			Kind:           ResolveImport,
 		},
 		func(systemID string) loadKey {
-			return loader.loadKey(systemID, types.NamespaceURI("urn:other"))
+			return loader.loadKey(systemID, model.NamespaceURI("urn:other"))
 		},
 		true,
 		nil,

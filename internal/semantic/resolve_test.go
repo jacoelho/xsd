@@ -6,17 +6,17 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	schema "github.com/jacoelho/xsd/internal/semantic"
 	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
 	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func findElementRef(t *testing.T, group *types.ModelGroup) *types.ElementDecl {
+func findElementRef(t *testing.T, group *model.ModelGroup) *model.ElementDecl {
 	t.Helper()
 	for _, particle := range group.Particles {
-		decl, ok := particle.(*types.ElementDecl)
+		decl, ok := particle.(*model.ElementDecl)
 		if !ok {
 			continue
 		}
@@ -28,10 +28,10 @@ func findElementRef(t *testing.T, group *types.ModelGroup) *types.ElementDecl {
 	return nil
 }
 
-func findGroupRef(t *testing.T, group *types.ModelGroup) *types.GroupRef {
+func findGroupRef(t *testing.T, group *model.ModelGroup) *model.GroupRef {
 	t.Helper()
 	for _, particle := range group.Particles {
-		ref, ok := particle.(*types.GroupRef)
+		ref, ok := particle.(*model.GroupRef)
 		if ok {
 			return ref
 		}
@@ -40,7 +40,7 @@ func findGroupRef(t *testing.T, group *types.ModelGroup) *types.GroupRef {
 	return nil
 }
 
-func findAttributeRef(t *testing.T, attrs []*types.AttributeDecl) *types.AttributeDecl {
+func findAttributeRef(t *testing.T, attrs []*model.AttributeDecl) *model.AttributeDecl {
 	t.Helper()
 	for _, attr := range attrs {
 		if attr.IsReference {
@@ -101,44 +101,44 @@ func TestReferenceResolution(t *testing.T) {
 		t.Fatalf("ResolveReferences error = %v", err)
 	}
 
-	rootQName := types.QName{Namespace: "urn:ref", Local: "root"}
+	rootQName := model.QName{Namespace: "urn:ref", Local: "root"}
 	root := sch.ElementDecls[rootQName]
 	if root == nil {
 		t.Fatalf("root element not found")
 	}
-	if _, ok := root.Type.(*types.ComplexType); !ok {
-		t.Fatalf("root type = %T, want *types.ComplexType", root.Type)
+	if _, ok := root.Type.(*model.ComplexType); !ok {
+		t.Fatalf("root type = %T, want *model.ComplexType", root.Type)
 	}
 
-	ctQName := types.QName{Namespace: "urn:ref", Local: "T"}
-	ct, ok := sch.TypeDefs[ctQName].(*types.ComplexType)
+	ctQName := model.QName{Namespace: "urn:ref", Local: "T"}
+	ct, ok := sch.TypeDefs[ctQName].(*model.ComplexType)
 	if !ok {
 		t.Fatalf("type T not found")
 	}
-	content, ok := ct.Content().(*types.ElementContent)
+	content, ok := ct.Content().(*model.ElementContent)
 	if !ok {
-		t.Fatalf("type T content = %T, want *types.ElementContent", ct.Content())
+		t.Fatalf("type T content = %T, want *model.ElementContent", ct.Content())
 	}
-	group, ok := content.Particle.(*types.ModelGroup)
+	group, ok := content.Particle.(*model.ModelGroup)
 	if !ok {
-		t.Fatalf("type T particle = %T, want *types.ModelGroup", content.Particle)
+		t.Fatalf("type T particle = %T, want *model.ModelGroup", content.Particle)
 	}
 
 	elemRef := findElementRef(t, group)
 	groupRef := findGroupRef(t, group)
 	attrRef := findAttributeRef(t, ct.Attributes())
 
-	leafID := registry.Elements[types.QName{Namespace: "urn:ref", Local: "leaf"}]
+	leafID := registry.Elements[model.QName{Namespace: "urn:ref", Local: "leaf"}]
 	if refs.ElementRefs[elemRef.Name] != leafID {
 		t.Fatalf("element ref ID = %d, want %d", refs.ElementRefs[elemRef.Name], leafID)
 	}
 
-	attrID := registry.Attributes[types.QName{Namespace: "urn:ref", Local: "ga"}]
+	attrID := registry.Attributes[model.QName{Namespace: "urn:ref", Local: "ga"}]
 	if refs.AttributeRefs[attrRef.Name] != attrID {
 		t.Fatalf("attribute ref ID = %d, want %d", refs.AttributeRefs[attrRef.Name], attrID)
 	}
 
-	groupQName := types.QName{Namespace: "urn:ref", Local: "G"}
+	groupQName := model.QName{Namespace: "urn:ref", Local: "G"}
 	if refs.GroupRefs[groupRef.RefQName] != groupQName {
 		t.Fatalf("group ref resolved to unexpected target: %s", refs.GroupRefs[groupRef.RefQName])
 	}

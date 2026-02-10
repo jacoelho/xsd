@@ -3,8 +3,8 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	schema "github.com/jacoelho/xsd/internal/semantic"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (c *compiler) compileDefaults(registry *schema.Registry) error {
@@ -25,7 +25,7 @@ func (c *compiler) compileAttributeUses(registry *schema.Registry) error {
 		return fmt.Errorf("registry is nil")
 	}
 	for _, entry := range registry.TypeOrder {
-		ct, ok := types.AsComplexType(entry.Type)
+		ct, ok := model.AsComplexType(entry.Type)
 		if !ok || ct == nil {
 			continue
 		}

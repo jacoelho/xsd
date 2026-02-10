@@ -4,20 +4,20 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 // ResolveSelectorElementType resolves the type of the element selected by the selector XPath.
-func ResolveSelectorElementType(schema *parser.Schema, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (types.Type, error) {
+func ResolveSelectorElementType(schema *parser.Schema, constraintElement *model.ElementDecl, selectorXPath string, nsContext map[string]string) (model.Type, error) {
 	selectorDecls, err := resolveSelectorElementDecls(schema, constraintElement, selectorXPath, nsContext)
 	if err != nil {
 		return nil, err
 	}
 
-	var elementType types.Type
+	var elementType model.Type
 	for _, decl := range selectorDecls {
 		resolved := typeops.ResolveTypeReference(schema, decl.Type, typeops.TypeReferenceMustExist)
 		if resolved == nil {
@@ -37,7 +37,7 @@ func ResolveSelectorElementType(schema *parser.Schema, constraintElement *types.
 	return elementType, nil
 }
 
-func resolveSelectorElementDecls(schema *parser.Schema, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) ([]*types.ElementDecl, error) {
+func resolveSelectorElementDecls(schema *parser.Schema, constraintElement *model.ElementDecl, selectorXPath string, nsContext map[string]string) ([]*model.ElementDecl, error) {
 	if constraintElement == nil {
 		return nil, fmt.Errorf("constraint element is nil")
 	}
@@ -45,7 +45,7 @@ func resolveSelectorElementDecls(schema *parser.Schema, constraintElement *types
 	if err != nil {
 		return nil, err
 	}
-	decls := make([]*types.ElementDecl, 0, len(expr.Paths))
+	decls := make([]*model.ElementDecl, 0, len(expr.Paths))
 	unresolved := false
 	for i, path := range expr.Paths {
 		if path.Attribute != nil {

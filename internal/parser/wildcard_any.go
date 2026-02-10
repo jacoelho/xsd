@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 // parseAnyElement parses an <any> wildcard element
 // Content model: (annotation?)
-func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.AnyElement, error) {
+func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.AnyElement, error) {
 	nsConstraint, nsList, processContents, parseErr := parseWildcardConstraints(
 		doc,
 		elem,
@@ -70,7 +70,7 @@ func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 	if err != nil {
 		return nil, err
 	}
-	anyElem := &types.AnyElement{
+	anyElem := &model.AnyElement{
 		MinOccurs:       minOccurs,
 		MaxOccurs:       maxOccurs,
 		ProcessContents: processContents,
@@ -107,21 +107,21 @@ func validateOccursInteger(value string) error {
 }
 
 // parseNamespaceConstraint parses a namespace constraint value
-func parseNamespaceConstraint(value string) (types.NamespaceConstraint, []types.NamespaceURI, error) {
+func parseNamespaceConstraint(value string) (model.NamespaceConstraint, []model.NamespaceURI, error) {
 	switch value {
 	case "##any":
-		return types.NSCAny, nil, nil
+		return model.NSCAny, nil, nil
 	case "##other":
-		return types.NSCOther, nil, nil
+		return model.NSCOther, nil, nil
 	case "##targetNamespace":
-		return types.NSCTargetNamespace, nil, nil
+		return model.NSCTargetNamespace, nil, nil
 	case "##local":
-		return types.NSCLocal, nil, nil
+		return model.NSCLocal, nil, nil
 	}
 
-	var resultList []types.NamespaceURI
+	var resultList []model.NamespaceURI
 	seen := false
-	for ns := range types.FieldsXMLWhitespaceSeq(value) {
+	for ns := range model.FieldsXMLWhitespaceSeq(value) {
 		seen = true
 		if strings.HasPrefix(ns, "##") && !validNamespaceConstraintTokens[ns] {
 			if ns == "##any" || ns == "##other" {
@@ -132,16 +132,16 @@ func parseNamespaceConstraint(value string) (types.NamespaceConstraint, []types.
 
 		switch ns {
 		case "##targetNamespace":
-			resultList = append(resultList, types.NamespaceTargetPlaceholder)
+			resultList = append(resultList, model.NamespaceTargetPlaceholder)
 		case "##local":
-			resultList = append(resultList, types.NamespaceEmpty)
+			resultList = append(resultList, model.NamespaceEmpty)
 		default:
-			resultList = append(resultList, types.NamespaceURI(ns))
+			resultList = append(resultList, model.NamespaceURI(ns))
 		}
 	}
 	if !seen {
 		return 0, nil, fmt.Errorf("invalid namespace constraint: empty namespace list")
 	}
 
-	return types.NSCList, resultList, nil
+	return model.NSCList, resultList, nil
 }

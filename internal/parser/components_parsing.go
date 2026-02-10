@@ -3,8 +3,8 @@ package parser
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
@@ -81,7 +81,7 @@ func parseTopLevelNotation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 		return err
 	}
 
-	if types.TrimXMLWhitespace(string(doc.DirectTextContentBytes(elem))) != "" {
+	if model.TrimXMLWhitespace(string(doc.DirectTextContentBytes(elem))) != "" {
 		return fmt.Errorf("notation must not contain character data")
 	}
 
@@ -123,12 +123,12 @@ func parseTopLevelNotation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 		}
 	}
 
-	notationQName := types.QName{Local: name, Namespace: schema.TargetNamespace}
+	notationQName := model.QName{Local: name, Namespace: schema.TargetNamespace}
 	if _, exists := schema.NotationDecls[notationQName]; exists {
 		return fmt.Errorf("duplicate notation declaration %s", notationQName.String())
 	}
 
-	notation := &types.NotationDecl{
+	notation := &model.NotationDecl{
 		Name:            notationQName,
 		Public:          public,
 		System:          system,

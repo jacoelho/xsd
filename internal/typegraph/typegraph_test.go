@@ -3,14 +3,14 @@ package typegraph
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestLookupTypeAndComplexType(t *testing.T) {
 	schema := parser.NewSchema()
-	name := types.QName{Namespace: "urn:test", Local: "T"}
-	ct := types.NewComplexType(name, "urn:test")
+	name := model.QName{Namespace: "urn:test", Local: "T"}
+	ct := model.NewComplexType(name, "urn:test")
 	schema.TypeDefs[name] = ct
 
 	gotType, ok := LookupType(schema, name)
@@ -24,24 +24,24 @@ func TestLookupTypeAndComplexType(t *testing.T) {
 }
 
 func TestIsAnyTypeQName(t *testing.T) {
-	if !types.IsAnyTypeQName(types.QName{Namespace: types.XSDNamespace, Local: string(types.TypeNameAnyType)}) {
-		t.Fatalf("types.IsAnyTypeQName() = false, want true")
+	if !model.IsAnyTypeQName(model.QName{Namespace: model.XSDNamespace, Local: string(model.TypeNameAnyType)}) {
+		t.Fatalf("model.IsAnyTypeQName() = false, want true")
 	}
-	if types.IsAnyTypeQName(types.QName{Namespace: "urn:test", Local: "anyType"}) {
-		t.Fatalf("types.IsAnyTypeQName() = true, want false")
+	if model.IsAnyTypeQName(model.QName{Namespace: "urn:test", Local: "anyType"}) {
+		t.Fatalf("model.IsAnyTypeQName() = true, want false")
 	}
 }
 
 func TestCollectComplexTypeChainExplicitBaseOnly(t *testing.T) {
 	schema := parser.NewSchema()
-	baseName := types.QName{Namespace: "urn:test", Local: "Base"}
-	derivedName := types.QName{Namespace: "urn:test", Local: "Derived"}
+	baseName := model.QName{Namespace: "urn:test", Local: "Base"}
+	derivedName := model.QName{Namespace: "urn:test", Local: "Derived"}
 
-	base := types.NewComplexType(baseName, baseName.Namespace)
-	base.SetContent(&types.EmptyContent{})
-	derived := types.NewComplexType(derivedName, derivedName.Namespace)
-	derived.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{Base: baseName},
+	base := model.NewComplexType(baseName, baseName.Namespace)
+	base.SetContent(&model.EmptyContent{})
+	derived := model.NewComplexType(derivedName, derivedName.Namespace)
+	derived.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{Base: baseName},
 	})
 
 	schema.TypeDefs[baseName] = base
@@ -54,8 +54,8 @@ func TestCollectComplexTypeChainExplicitBaseOnly(t *testing.T) {
 }
 
 func TestCollectComplexTypeChainAllowImplicitAnyType(t *testing.T) {
-	ct := types.NewComplexType(types.QName{Namespace: "urn:test", Local: "LocalType"}, "urn:test")
-	ct.SetContent(&types.EmptyContent{})
+	ct := model.NewComplexType(model.QName{Namespace: "urn:test", Local: "LocalType"}, "urn:test")
+	ct.SetContent(&model.EmptyContent{})
 
 	chain := CollectComplexTypeChain(nil, ct, ComplexTypeChainAllowImplicitAnyType)
 	if len(chain) != 2 {
@@ -64,32 +64,32 @@ func TestCollectComplexTypeChainAllowImplicitAnyType(t *testing.T) {
 	if chain[0] != ct {
 		t.Fatalf("CollectComplexTypeChain()[0] mismatch")
 	}
-	if !types.IsAnyTypeQName(chain[1].QName) {
+	if !model.IsAnyTypeQName(chain[1].QName) {
 		t.Fatalf("CollectComplexTypeChain()[1] = %s, want xs:anyType", chain[1].QName)
 	}
 }
 
 func TestEffectiveContentParticle_Extension(t *testing.T) {
 	schema := parser.NewSchema()
-	baseName := types.QName{Namespace: "urn:test", Local: "Base"}
-	derivedName := types.QName{Namespace: "urn:test", Local: "Derived"}
+	baseName := model.QName{Namespace: "urn:test", Local: "Base"}
+	derivedName := model.QName{Namespace: "urn:test", Local: "Derived"}
 
-	baseParticle := &types.ElementDecl{
-		Name:      types.QName{Namespace: "urn:test", Local: "a"},
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
+	baseParticle := &model.ElementDecl{
+		Name:      model.QName{Namespace: "urn:test", Local: "a"},
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 	}
-	extParticle := &types.ElementDecl{
-		Name:      types.QName{Namespace: "urn:test", Local: "b"},
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
+	extParticle := &model.ElementDecl{
+		Name:      model.QName{Namespace: "urn:test", Local: "b"},
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 	}
 
-	base := types.NewComplexType(baseName, baseName.Namespace)
-	base.SetContent(&types.ElementContent{Particle: baseParticle})
-	derived := types.NewComplexType(derivedName, derivedName.Namespace)
-	derived.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
+	base := model.NewComplexType(baseName, baseName.Namespace)
+	base.SetContent(&model.ElementContent{Particle: baseParticle})
+	derived := model.NewComplexType(derivedName, derivedName.Namespace)
+	derived.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
 			Base:     baseName,
 			Particle: extParticle,
 		},
@@ -99,11 +99,11 @@ func TestEffectiveContentParticle_Extension(t *testing.T) {
 	schema.TypeDefs[derivedName] = derived
 
 	got := EffectiveContentParticle(schema, derived)
-	mg, ok := got.(*types.ModelGroup)
+	mg, ok := got.(*model.ModelGroup)
 	if !ok {
-		t.Fatalf("EffectiveContentParticle() type = %T, want *types.ModelGroup", got)
+		t.Fatalf("EffectiveContentParticle() type = %T, want *model.ModelGroup", got)
 	}
-	if mg.Kind != types.Sequence || len(mg.Particles) != 2 {
+	if mg.Kind != model.Sequence || len(mg.Particles) != 2 {
 		t.Fatalf("EffectiveContentParticle() model group mismatch: %#v", mg)
 	}
 	if mg.Particles[0] != baseParticle || mg.Particles[1] != extParticle {

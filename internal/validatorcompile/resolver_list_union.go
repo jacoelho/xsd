@@ -1,11 +1,14 @@
 package validatorcompile
 
-import "github.com/jacoelho/xsd/internal/types"
+import (
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
+)
 
-func (r *typeResolver) listItemTypeFromType(typ types.Type) (types.Type, bool) {
-	seen := make(map[types.Type]bool)
-	var walk func(types.Type) (types.Type, bool)
-	walk = func(current types.Type) (types.Type, bool) {
+func (r *typeResolver) listItemTypeFromType(typ model.Type) (model.Type, bool) {
+	seen := make(map[model.Type]bool)
+	var walk func(model.Type) (model.Type, bool)
+	walk = func(current model.Type) (model.Type, bool) {
 		if current == nil {
 			return nil, false
 		}
@@ -16,19 +19,19 @@ func (r *typeResolver) listItemTypeFromType(typ types.Type) (types.Type, bool) {
 		defer delete(seen, current)
 
 		if bt := builtinForType(current); bt != nil {
-			if itemName, ok := types.BuiltinListItemTypeName(bt.Name().Local); ok {
-				if item := types.GetBuiltin(itemName); item != nil {
+			if itemName, ok := builtins.BuiltinListItemTypeName(bt.Name().Local); ok {
+				if item := builtins.Get(itemName); item != nil {
 					return item, true
 				}
 			}
 			return nil, false
 		}
 
-		st, ok := types.AsSimpleType(current)
+		st, ok := model.AsSimpleType(current)
 		if !ok {
 			return nil, false
 		}
-		if r.variety(st) != types.ListVariety {
+		if r.variety(st) != model.ListVariety {
 			return nil, false
 		}
 		if st.ItemType != nil {
@@ -52,10 +55,10 @@ func (r *typeResolver) listItemTypeFromType(typ types.Type) (types.Type, bool) {
 	return walk(typ)
 }
 
-func (r *typeResolver) unionMemberTypesFromType(typ types.Type) []types.Type {
-	seen := make(map[types.Type]bool)
-	var walk func(types.Type) []types.Type
-	walk = func(current types.Type) []types.Type {
+func (r *typeResolver) unionMemberTypesFromType(typ model.Type) []model.Type {
+	seen := make(map[model.Type]bool)
+	var walk func(model.Type) []model.Type
+	walk = func(current model.Type) []model.Type {
 		if current == nil {
 			return nil
 		}
@@ -65,18 +68,18 @@ func (r *typeResolver) unionMemberTypesFromType(typ types.Type) []types.Type {
 		seen[current] = true
 		defer delete(seen, current)
 
-		st, ok := types.AsSimpleType(current)
+		st, ok := model.AsSimpleType(current)
 		if !ok {
 			return nil
 		}
-		if r.variety(st) != types.UnionVariety {
+		if r.variety(st) != model.UnionVariety {
 			return nil
 		}
 		if len(st.MemberTypes) > 0 {
 			return st.MemberTypes
 		}
 		if st.Union != nil {
-			members := make([]types.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
+			members := make([]model.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
 			for _, qname := range st.Union.MemberTypes {
 				if member := r.resolveQName(qname); member != nil {
 					members = append(members, member)

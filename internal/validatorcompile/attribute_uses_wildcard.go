@@ -3,16 +3,16 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func localAttributeWildcard(schema *parser.Schema, ct *types.ComplexType) (*types.AnyAttribute, error) {
+func localAttributeWildcard(schema *parser.Schema, ct *model.ComplexType) (*model.AnyAttribute, error) {
 	if schema == nil || ct == nil {
 		return nil, nil
 	}
-	var groups []types.QName
-	var explicit []*types.AnyAttribute
+	var groups []model.QName
+	var explicit []*model.AnyAttribute
 
 	groups = append(groups, ct.AttrGroups...)
 	if anyAttr := ct.AnyAttribute(); anyAttr != nil {
@@ -49,12 +49,12 @@ func localAttributeWildcard(schema *parser.Schema, ct *types.ComplexType) (*type
 	return wildcard, nil
 }
 
-func collectAttributeGroupWildcard(schema *parser.Schema, groups []types.QName) (*types.AnyAttribute, error) {
+func collectAttributeGroupWildcard(schema *parser.Schema, groups []model.QName) (*model.AnyAttribute, error) {
 	if schema == nil || len(groups) == 0 {
 		return nil, nil
 	}
-	visited := make(map[*types.AttributeGroup]bool)
-	var wildcard *types.AnyAttribute
+	visited := make(map[*model.AttributeGroup]bool)
+	var wildcard *model.AnyAttribute
 	for _, ref := range groups {
 		group, ok := schema.AttributeGroups[ref]
 		if !ok {
@@ -72,7 +72,7 @@ func collectAttributeGroupWildcard(schema *parser.Schema, groups []types.QName) 
 	return wildcard, nil
 }
 
-func attributeGroupWildcard(schema *parser.Schema, group *types.AttributeGroup, visited map[*types.AttributeGroup]bool) (*types.AnyAttribute, error) {
+func attributeGroupWildcard(schema *parser.Schema, group *model.AttributeGroup, visited map[*model.AttributeGroup]bool) (*model.AnyAttribute, error) {
 	if schema == nil || group == nil {
 		return nil, nil
 	}
@@ -98,14 +98,14 @@ func attributeGroupWildcard(schema *parser.Schema, group *types.AttributeGroup, 
 	return wildcard, nil
 }
 
-func intersectLocalAnyAttribute(a, b *types.AnyAttribute) (*types.AnyAttribute, error) {
+func intersectLocalAnyAttribute(a, b *model.AnyAttribute) (*model.AnyAttribute, error) {
 	if a == nil {
 		return b, nil
 	}
 	if b == nil {
 		return a, nil
 	}
-	intersected, expressible, empty := types.IntersectAnyAttributeDetailed(a, b)
+	intersected, expressible, empty := model.IntersectAnyAttributeDetailed(a, b)
 	if !expressible {
 		return nil, fmt.Errorf("attribute wildcard intersection not expressible")
 	}
@@ -115,15 +115,15 @@ func intersectLocalAnyAttribute(a, b *types.AnyAttribute) (*types.AnyAttribute, 
 	return intersected, nil
 }
 
-func applyDerivedWildcard(base, local *types.AnyAttribute, ct *types.ComplexType) (*types.AnyAttribute, error) {
-	method := types.DerivationRestriction
+func applyDerivedWildcard(base, local *model.AnyAttribute, ct *model.ComplexType) (*model.AnyAttribute, error) {
+	method := model.DerivationRestriction
 	if ct != nil && ct.DerivationMethod != 0 {
 		method = ct.DerivationMethod
 	}
 	switch method {
-	case types.DerivationExtension:
+	case model.DerivationExtension:
 		return unionAnyAttribute(local, base)
-	case types.DerivationRestriction:
+	case model.DerivationRestriction:
 		return restrictAnyAttribute(base, local)
 	default:
 		if local != nil {
@@ -133,28 +133,28 @@ func applyDerivedWildcard(base, local *types.AnyAttribute, ct *types.ComplexType
 	}
 }
 
-func unionAnyAttribute(derived, base *types.AnyAttribute) (*types.AnyAttribute, error) {
+func unionAnyAttribute(derived, base *model.AnyAttribute) (*model.AnyAttribute, error) {
 	if derived == nil {
 		return base, nil
 	}
 	if base == nil {
 		return derived, nil
 	}
-	merged := types.UnionAnyAttribute(derived, base)
+	merged := model.UnionAnyAttribute(derived, base)
 	if merged == nil {
 		return nil, fmt.Errorf("attribute wildcard union not expressible")
 	}
 	return merged, nil
 }
 
-func restrictAnyAttribute(base, derived *types.AnyAttribute) (*types.AnyAttribute, error) {
+func restrictAnyAttribute(base, derived *model.AnyAttribute) (*model.AnyAttribute, error) {
 	if derived == nil {
 		return nil, nil
 	}
 	if base == nil {
 		return nil, fmt.Errorf("attribute wildcard restriction adds wildcard")
 	}
-	intersected, expressible, empty := types.IntersectAnyAttributeDetailed(derived, base)
+	intersected, expressible, empty := model.IntersectAnyAttributeDetailed(derived, base)
 	if !expressible {
 		return nil, fmt.Errorf("attribute wildcard restriction not expressible")
 	}

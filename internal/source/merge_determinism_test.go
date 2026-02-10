@@ -4,8 +4,8 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestMergeOriginsDeterministic(t *testing.T) {
@@ -35,7 +35,7 @@ func TestMergeOriginsDeterministic(t *testing.T) {
 		t.Fatalf("load schema: %v", err)
 	}
 
-	qname := types.QName{Namespace: "urn:root", Local: "e"}
+	qname := model.QName{Namespace: "urn:root", Local: "e"}
 	origin := schema.ElementOrigins[qname]
 	if parser.ImportContextLocation(origin) != "a.xsd" {
 		t.Fatalf("origin = %q, want root schema location", origin)

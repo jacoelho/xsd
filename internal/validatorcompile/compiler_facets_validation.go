@@ -3,7 +3,8 @@ package validatorcompile
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/typefacet"
 )
 
 type canonicalizeMode uint8
@@ -15,7 +16,7 @@ const (
 	canonicalizeDefault
 )
 
-func (c *compiler) validatePartialFacets(normalized string, typ types.Type, facets []types.Facet) error {
+func (c *compiler) validatePartialFacets(normalized string, typ model.Type, facets []model.Facet) error {
 	if len(facets) == 0 {
 		return nil
 	}
@@ -23,15 +24,17 @@ func (c *compiler) validatePartialFacets(normalized string, typ types.Type, face
 		if c.shouldSkipLengthFacet(typ, facet) {
 			continue
 		}
-		switch f := facet.(type) {
-		case *types.RangeFacet:
-			if err := c.validateRangeFacet(normalized, typ, f); err != nil {
+		if facetName, lexical, ok := rangeFacetLexical(facet); ok {
+			if err := c.validateRangeFacet(normalized, typ, facetName, lexical); err != nil {
 				return err
 			}
-		case *types.Enumeration:
+			continue
+		}
+		switch f := facet.(type) {
+		case *model.Enumeration:
 			// enumeration handled separately
 			continue
-		case types.LexicalValidator:
+		case model.LexicalValidator:
 			if err := f.ValidateLexical(normalized, typ); err != nil {
 				return err
 			}
@@ -42,7 +45,7 @@ func (c *compiler) validatePartialFacets(normalized string, typ types.Type, face
 	return nil
 }
 
-func (c *compiler) validateMemberFacets(normalized string, typ types.Type, facets []types.Facet, ctx map[string]string, includeEnum bool) error {
+func (c *compiler) validateMemberFacets(normalized string, typ model.Type, facets []model.Facet, ctx map[string]string, includeEnum bool) error {
 	if len(facets) == 0 {
 		return nil
 	}
@@ -50,12 +53,14 @@ func (c *compiler) validateMemberFacets(normalized string, typ types.Type, facet
 		if c.shouldSkipLengthFacet(typ, facet) {
 			continue
 		}
-		switch f := facet.(type) {
-		case *types.RangeFacet:
-			if err := c.validateRangeFacet(normalized, typ, f); err != nil {
+		if facetName, lexical, ok := rangeFacetLexical(facet); ok {
+			if err := c.validateRangeFacet(normalized, typ, facetName, lexical); err != nil {
 				return err
 			}
-		case *types.Enumeration:
+			continue
+		}
+		switch f := facet.(type) {
+		case *model.Enumeration:
 			if !includeEnum {
 				continue
 			}
@@ -68,7 +73,7 @@ func (c *compiler) validateMemberFacets(normalized string, typ types.Type, facet
 			if err := f.ValidateLexical(normalized, typ); err != nil {
 				return err
 			}
-		case types.LexicalValidator:
+		case model.LexicalValidator:
 			if err := f.ValidateLexical(normalized, typ); err != nil {
 				return err
 			}
@@ -79,12 +84,12 @@ func (c *compiler) validateMemberFacets(normalized string, typ types.Type, facet
 	return nil
 }
 
-func (c *compiler) validateRangeFacet(normalized string, typ types.Type, facet *types.RangeFacet) error {
+func (c *compiler) validateRangeFacet(normalized string, typ model.Type, facetName, facetLexical string) error {
 	actual, err := c.comparableValue(normalized, typ)
 	if err != nil {
 		return err
 	}
-	bound, err := c.comparableValue(facet.GetLexical(), typ)
+	bound, err := c.comparableValue(facetLexical, typ)
 	if err != nil {
 		return err
 	}
@@ -93,7 +98,7 @@ func (c *compiler) validateRangeFacet(normalized string, typ types.Type, facet *
 		return err
 	}
 	ok := false
-	switch facet.Name() {
+	switch facetName {
 	case "minInclusive":
 		ok = cmp >= 0
 	case "maxInclusive":
@@ -103,16 +108,28 @@ func (c *compiler) validateRangeFacet(normalized string, typ types.Type, facet *
 	case "maxExclusive":
 		ok = cmp < 0
 	default:
-		return fmt.Errorf("unknown range facet %s", facet.Name())
+		return fmt.Errorf("unknown range facet %s", facetName)
 	}
 	if !ok {
-		return fmt.Errorf("facet %s violation", facet.Name())
+		return fmt.Errorf("facet %s violation", facetName)
 	}
 	return nil
 }
 
-func (c *compiler) shouldSkipLengthFacet(typ types.Type, facet types.Facet) bool {
-	if !types.IsLengthFacet(facet) {
+func rangeFacetLexical(facet model.Facet) (string, string, bool) {
+	facetName := facet.Name()
+	if _, ok := rangeFacetOp(facetName); !ok {
+		return "", "", false
+	}
+	lexicalFacet, ok := facet.(model.LexicalFacet)
+	if !ok {
+		return "", "", false
+	}
+	return facetName, lexicalFacet.GetLexical(), true
+}
+
+func (c *compiler) shouldSkipLengthFacet(typ model.Type, facet model.Facet) bool {
+	if !typefacet.IsLengthFacet(facet) {
 		return false
 	}
 	if c.res.isListType(typ) {

@@ -3,21 +3,21 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateElementDeclarationsConsistentInParticle validates "Element Declarations Consistent"
 // across a particle tree, including nested model groups and group references.
-func validateElementDeclarationsConsistentInParticle(schema *parser.Schema, particle types.Particle) error {
-	seen := make(map[types.QName]types.Type)
+func validateElementDeclarationsConsistentInParticle(schema *parser.Schema, particle model.Particle) error {
+	seen := make(map[model.QName]model.Type)
 	visited := newModelGroupVisit()
 	return validateElementDeclarationsConsistentWithVisited(schema, particle, seen, visited)
 }
 
-func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, particle types.Particle, seen map[types.QName]types.Type, visited modelGroupVisit) error {
+func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, particle model.Particle, seen map[model.QName]model.Type, visited modelGroupVisit) error {
 	switch p := particle.(type) {
-	case *types.ModelGroup:
+	case *model.ModelGroup:
 		if !visited.Enter(p) {
 			return nil
 		}
@@ -26,14 +26,14 @@ func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, par
 				return err
 			}
 		}
-	case *types.GroupRef:
+	case *model.GroupRef:
 		if schema == nil {
 			return nil
 		}
 		if group, ok := schema.Groups[p.RefQName]; ok {
 			return validateElementDeclarationsConsistentWithVisited(schema, group, seen, visited)
 		}
-	case *types.ElementDecl:
+	case *model.ElementDecl:
 		elemType := p.Type
 		if p.IsReference && schema != nil {
 			if refDecl, ok := schema.ElementDecls[p.Name]; ok {

@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	models "github.com/jacoelho/xsd/internal/contentmodel"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	schema "github.com/jacoelho/xsd/internal/semantic"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validatorcompile"
 )
 
@@ -100,7 +100,7 @@ func buildArtifactsWithValidators(
 		typeIDs:    make(map[schema.TypeID]runtime.TypeID),
 		elemIDs:    make(map[schema.ElemID]runtime.ElemID),
 		attrIDs:    make(map[schema.AttrID]runtime.AttrID),
-		builtinIDs: make(map[types.TypeName]runtime.TypeID),
+		builtinIDs: make(map[model.TypeName]runtime.TypeID),
 		complexIDs: make(map[runtime.TypeID]uint32),
 		maxOccurs:  maxOccursLimit,
 	}
@@ -121,9 +121,9 @@ type schemaBuilder struct {
 	builder         *runtime.Builder
 	schema          *parser.Schema
 	complexIDs      map[runtime.TypeID]uint32
-	builtinIDs      map[types.TypeName]runtime.TypeID
+	builtinIDs      map[model.TypeName]runtime.TypeID
 	refs            *schema.ResolvedReferences
-	anyElementRules map[*types.AnyElement]runtime.WildcardID
+	anyElementRules map[*model.AnyElement]runtime.WildcardID
 	rt              *runtime.Schema
 	paths           []runtime.PathProgram
 	wildcards       []runtime.WildcardRule

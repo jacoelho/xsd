@@ -1,11 +1,11 @@
 package semanticresolve
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
-func isDirectNotationType(typ types.Type) bool {
+func isDirectNotationType(typ model.Type) bool {
 	if typ == nil || !typ.IsBuiltin() {
 		return false
 	}
 	name := typ.Name()
-	return name.Namespace == types.XSDNamespace && name.Local == string(types.TypeNameNOTATION)
+	return name.Namespace == model.XSDNamespace && name.Local == string(model.TypeNameNOTATION)
 }

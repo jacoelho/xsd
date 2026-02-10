@@ -4,10 +4,10 @@ import (
 	"cmp"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 type attrCollectionMode uint8
@@ -19,13 +19,13 @@ const (
 
 // CollectAttributeUses resolves effective attribute uses and wildcard.
 // It follows complex-type derivation from base to leaf in deterministic order.
-func CollectAttributeUses(schema *parser.Schema, ct *types.ComplexType) ([]*types.AttributeDecl, *types.AnyAttribute, error) {
+func CollectAttributeUses(schema *parser.Schema, ct *model.ComplexType) ([]*model.AttributeDecl, *model.AnyAttribute, error) {
 	if schema == nil || ct == nil {
 		return nil, nil, nil
 	}
-	attrMap := make(map[types.QName]*types.AttributeDecl)
+	attrMap := make(map[model.QName]*model.AttributeDecl)
 	chain := typegraph.CollectComplexTypeChain(schema, ct, typegraph.ComplexTypeChainAllowImplicitAnyType)
-	var wildcard *types.AnyAttribute
+	var wildcard *model.AnyAttribute
 	for i := len(chain) - 1; i >= 0; i-- {
 		current := chain[i]
 		if err := mergeAttributesFromComplexType(schema, current, attrMap); err != nil {
@@ -44,11 +44,11 @@ func CollectAttributeUses(schema *parser.Schema, ct *types.ComplexType) ([]*type
 			}
 		}
 	}
-	out := make([]*types.AttributeDecl, 0, len(attrMap))
+	out := make([]*model.AttributeDecl, 0, len(attrMap))
 	for _, decl := range attrMap {
 		out = append(out, decl)
 	}
-	slices.SortFunc(out, func(a, b *types.AttributeDecl) int {
+	slices.SortFunc(out, func(a, b *model.AttributeDecl) int {
 		left := typeops.EffectiveAttributeQName(schema, a)
 		right := typeops.EffectiveAttributeQName(schema, b)
 		if left.Namespace != right.Namespace {
@@ -59,7 +59,7 @@ func CollectAttributeUses(schema *parser.Schema, ct *types.ComplexType) ([]*type
 	return out, wildcard, nil
 }
 
-func mergeAttributesFromComplexType(schema *parser.Schema, ct *types.ComplexType, attrMap map[types.QName]*types.AttributeDecl) error {
+func mergeAttributesFromComplexType(schema *parser.Schema, ct *model.ComplexType, attrMap map[model.QName]*model.AttributeDecl) error {
 	if ct == nil {
 		return nil
 	}

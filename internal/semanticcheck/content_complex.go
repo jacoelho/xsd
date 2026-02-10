@@ -4,27 +4,27 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateComplexContentStructure validates structural constraints of complex content
-func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexContent) error {
+func validateComplexContentStructure(schema *parser.Schema, cc *model.ComplexContent) error {
 	if cc.Extension != nil {
 		baseType, baseOK := typegraph.LookupType(schema, cc.Extension.Base)
 		if baseOK {
-			if _, isSimple := baseType.(*types.SimpleType); isSimple {
+			if _, isSimple := baseType.(*model.SimpleType); isSimple {
 				return fmt.Errorf("complexContent extension cannot derive from simpleType '%s'", cc.Extension.Base)
 			}
 		}
 		if cc.Extension.Particle != nil {
-			if baseCT, ok := baseType.(*types.ComplexType); ok {
-				if _, isSimpleContent := baseCT.Content().(*types.SimpleContent); isSimpleContent {
+			if baseCT, ok := baseType.(*model.ComplexType); ok {
+				if _, isSimpleContent := baseCT.Content().(*model.SimpleContent); isSimpleContent {
 					return fmt.Errorf("cannot extend simpleContent type '%s' with particles", cc.Extension.Base)
 				}
 				if baseParticle := typegraph.EffectiveContentParticle(schema, baseCT); baseParticle != nil {
-					if baseMG, ok := baseParticle.(*types.ModelGroup); ok && baseMG.Kind == types.AllGroup {
+					if baseMG, ok := baseParticle.(*model.ModelGroup); ok && baseMG.Kind == model.AllGroup {
 						if !isEmptiableParticle(baseMG) {
 							return fmt.Errorf("cannot extend type with non-emptiable xs:all content model (XSD 1.0)")
 						}
@@ -32,12 +32,12 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 				}
 			}
 			containsAll := false
-			if mg, ok := cc.Extension.Particle.(*types.ModelGroup); ok {
-				if mg.Kind == types.AllGroup {
+			if mg, ok := cc.Extension.Particle.(*model.ModelGroup); ok {
+				if mg.Kind == model.AllGroup {
 					containsAll = true
-				} else if mg.Kind == types.Sequence || mg.Kind == types.Choice {
+				} else if mg.Kind == model.Sequence || mg.Kind == model.Choice {
 					for _, p := range mg.Particles {
-						if pmg, ok := p.(*types.ModelGroup); ok && pmg.Kind == types.AllGroup {
+						if pmg, ok := p.(*model.ModelGroup); ok && pmg.Kind == model.AllGroup {
 							containsAll = true
 							break
 						}
@@ -48,7 +48,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 			if containsAll {
 				baseIsEmptiable := false
 				if baseOK {
-					if baseCT, ok := baseType.(*types.ComplexType); ok {
+					if baseCT, ok := baseType.(*model.ComplexType); ok {
 						if baseParticle := typegraph.EffectiveContentParticle(schema, baseCT); baseParticle != nil {
 							baseIsEmptiable = isEmptiableParticle(baseParticle)
 						} else {
@@ -73,11 +73,11 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 	if cc.Restriction != nil {
 		baseType, baseOK := typegraph.LookupType(schema, cc.Restriction.Base)
 		if baseOK {
-			if _, isSimple := baseType.(*types.SimpleType); isSimple {
+			if _, isSimple := baseType.(*model.SimpleType); isSimple {
 				return fmt.Errorf("complexContent restriction cannot derive from simpleType '%s'", cc.Restriction.Base)
 			}
-			if baseCT, ok := baseType.(*types.ComplexType); ok {
-				if _, isSimpleContent := baseCT.Content().(*types.SimpleContent); isSimpleContent {
+			if baseCT, ok := baseType.(*model.ComplexType); ok {
+				if _, isSimpleContent := baseCT.Content().(*model.SimpleContent); isSimpleContent {
 					return fmt.Errorf("complexContent restriction cannot derive from simpleContent type '%s'", cc.Restriction.Base)
 				}
 			}
@@ -97,7 +97,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *types.ComplexCon
 				return err
 			}
 		}
-		if baseCT, ok := baseType.(*types.ComplexType); ok {
+		if baseCT, ok := baseType.(*model.ComplexType); ok {
 			restrictionAttrs := slices.Clone(cc.Restriction.Attributes)
 			restrictionAttrs = append(restrictionAttrs, collectAttributesFromGroups(schema, cc.Restriction.AttrGroups, nil)...)
 			if err := validateRestrictionAttributes(schema, baseCT, restrictionAttrs, "complexContent restriction"); err != nil {

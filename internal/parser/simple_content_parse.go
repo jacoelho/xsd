@@ -3,12 +3,12 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
-func parseSimpleContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleContent, error) {
-	sc := &types.SimpleContent{}
+func parseSimpleContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.SimpleContent, error) {
+	sc := &model.SimpleContent{}
 
 	if err := validateOptionalID(doc, elem, "simpleContent", schema); err != nil {
 		return nil, err

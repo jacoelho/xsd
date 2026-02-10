@@ -3,8 +3,8 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	schema "github.com/jacoelho/xsd/internal/semantic"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (c *compiler) compileElementDefaults(registry *schema.Registry) error {
@@ -13,10 +13,10 @@ func (c *compiler) compileElementDefaults(registry *schema.Registry) error {
 		if decl == nil || decl.IsReference {
 			continue
 		}
-		if st, ok := types.AsSimpleType(decl.Type); ok && types.IsPlaceholderSimpleType(st) {
+		if st, ok := model.AsSimpleType(decl.Type); ok && model.IsPlaceholderSimpleType(st) {
 			return fmt.Errorf("element %s type not resolved", entry.QName)
 		}
-		var typ types.Type
+		var typ model.Type
 		if decl.HasDefault || decl.HasFixed {
 			var err error
 			typ, err = c.valueTypeForElement(decl)

@@ -3,8 +3,8 @@ package semantic_test
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	schema "github.com/jacoelho/xsd/internal/semantic"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestBuildAncestorsMasks(t *testing.T) {
@@ -36,9 +36,9 @@ func TestBuildAncestorsMasks(t *testing.T) {
 		t.Fatalf("BuildAncestors error = %v", err)
 	}
 
-	baseQName := types.QName{Namespace: "urn:anc", Local: "Base"}
-	extQName := types.QName{Namespace: "urn:anc", Local: "Ext"}
-	restQName := types.QName{Namespace: "urn:anc", Local: "Restrict"}
+	baseQName := model.QName{Namespace: "urn:anc", Local: "Base"}
+	extQName := model.QName{Namespace: "urn:anc", Local: "Ext"}
+	restQName := model.QName{Namespace: "urn:anc", Local: "Restrict"}
 
 	baseID := registry.Types[baseQName]
 	extID := registry.Types[extQName]
@@ -52,8 +52,8 @@ func TestBuildAncestorsMasks(t *testing.T) {
 	if got := ancestors.IDs[extOff]; got != baseID {
 		t.Fatalf("Ext ancestor ID = %d, want %d", got, baseID)
 	}
-	if got := ancestors.Masks[extOff]; got != types.DerivationExtension {
-		t.Fatalf("Ext mask = %v, want %v", got, types.DerivationExtension)
+	if got := ancestors.Masks[extOff]; got != model.DerivationExtension {
+		t.Fatalf("Ext mask = %v, want %v", got, model.DerivationExtension)
 	}
 
 	restOff := ancestors.Offsets[restID]
@@ -64,13 +64,13 @@ func TestBuildAncestorsMasks(t *testing.T) {
 	if got := ancestors.IDs[restOff]; got != extID {
 		t.Fatalf("Restrict ancestor[0] ID = %d, want %d", got, extID)
 	}
-	if got := ancestors.Masks[restOff]; got != types.DerivationRestriction {
-		t.Fatalf("Restrict mask[0] = %v, want %v", got, types.DerivationRestriction)
+	if got := ancestors.Masks[restOff]; got != model.DerivationRestriction {
+		t.Fatalf("Restrict mask[0] = %v, want %v", got, model.DerivationRestriction)
 	}
 	if got := ancestors.IDs[restOff+1]; got != baseID {
 		t.Fatalf("Restrict ancestor[1] ID = %d, want %d", got, baseID)
 	}
-	wantMask := types.DerivationRestriction | types.DerivationExtension
+	wantMask := model.DerivationRestriction | model.DerivationExtension
 	if got := ancestors.Masks[restOff+1]; got != wantMask {
 		t.Fatalf("Restrict mask[1] = %v, want %v", got, wantMask)
 	}

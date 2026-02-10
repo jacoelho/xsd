@@ -1,48 +1,49 @@
 package semanticcheck
 
 import (
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func isRestrictionDerivedFrom(schema *parser.Schema, derived, base types.Type) bool {
+func isRestrictionDerivedFrom(schema *parser.Schema, derived, base model.Type) bool {
 	if derived == nil || base == nil {
 		return false
 	}
-	if baseCT, ok := base.(*types.ComplexType); ok {
+	if baseCT, ok := base.(*model.ComplexType); ok {
 		return isRestrictionDerivedFromComplex(schema, derived, baseCT)
 	}
-	if baseST, ok := base.(*types.SimpleType); ok && baseST.Variety() == types.UnionVariety {
+	if baseST, ok := base.(*model.SimpleType); ok && baseST.Variety() == model.UnionVariety {
 		if unionAllowsDerived(schema, derived, baseST) {
 			return true
 		}
 	}
-	if types.IsValidlyDerivedFrom(derived, base) {
+	if model.IsValidlyDerivedFrom(derived, base) {
 		return true
 	}
-	if derivedST, ok := derived.(*types.SimpleType); ok {
+	if derivedST, ok := derived.(*model.SimpleType); ok {
 		return isRestrictionDerivedFromSimple(schema, derivedST, base)
 	}
 	return false
 }
 
-func isRestrictionDerivedFromComplex(schema *parser.Schema, derived types.Type, base *types.ComplexType) bool {
-	derivedCT, ok := derived.(*types.ComplexType)
+func isRestrictionDerivedFromComplex(schema *parser.Schema, derived model.Type, base *model.ComplexType) bool {
+	derivedCT, ok := derived.(*model.ComplexType)
 	if !ok {
 		return false
 	}
 	if derivedCT == base {
 		return true
 	}
-	visited := make(map[*types.ComplexType]bool)
+	visited := make(map[*model.ComplexType]bool)
 	current := derivedCT
 	for current != nil && !visited[current] {
 		visited[current] = true
 		if current == base {
 			return true
 		}
-		if current.DerivationMethod != types.DerivationRestriction {
+		if current.DerivationMethod != model.DerivationRestriction {
 			return false
 		}
 		next := current.ResolvedBase
@@ -62,7 +63,7 @@ func isRestrictionDerivedFromComplex(schema *parser.Schema, derived types.Type, 
 		if next == base {
 			return true
 		}
-		nextCT, ok := next.(*types.ComplexType)
+		nextCT, ok := next.(*model.ComplexType)
 		if !ok {
 			return false
 		}
@@ -71,7 +72,7 @@ func isRestrictionDerivedFromComplex(schema *parser.Schema, derived types.Type, 
 	return false
 }
 
-func isRestrictionDerivedFromSimple(schema *parser.Schema, derived *types.SimpleType, base types.Type) bool {
+func isRestrictionDerivedFromSimple(schema *parser.Schema, derived *model.SimpleType, base model.Type) bool {
 	if derived == nil || base == nil {
 		return false
 	}
@@ -79,10 +80,10 @@ func isRestrictionDerivedFromSimple(schema *parser.Schema, derived *types.Simple
 		return true
 	}
 	baseName := base.Name()
-	if baseName.Namespace == types.XSDNamespace && baseName.Local == string(types.TypeNameAnySimpleType) {
+	if baseName.Namespace == model.XSDNamespace && baseName.Local == string(model.TypeNameAnySimpleType) {
 		return true
 	}
-	visited := make(map[*types.SimpleType]bool)
+	visited := make(map[*model.SimpleType]bool)
 	current := derived
 	for current != nil && !visited[current] {
 		visited[current] = true
@@ -90,10 +91,10 @@ func isRestrictionDerivedFromSimple(schema *parser.Schema, derived *types.Simple
 			return true
 		}
 		if current.ResolvedBase != nil {
-			if sameTypeOrQName(current.ResolvedBase, base) || types.IsValidlyDerivedFrom(current.ResolvedBase, base) {
+			if sameTypeOrQName(current.ResolvedBase, base) || model.IsValidlyDerivedFrom(current.ResolvedBase, base) {
 				return true
 			}
-			nextST, ok := current.ResolvedBase.(*types.SimpleType)
+			nextST, ok := current.ResolvedBase.(*model.SimpleType)
 			if !ok {
 				return false
 			}
@@ -111,10 +112,10 @@ func isRestrictionDerivedFromSimple(schema *parser.Schema, derived *types.Simple
 		if next == nil {
 			return false
 		}
-		if sameTypeOrQName(next, base) || types.IsValidlyDerivedFrom(next, base) {
+		if sameTypeOrQName(next, base) || model.IsValidlyDerivedFrom(next, base) {
 			return true
 		}
-		nextST, ok := next.(*types.SimpleType)
+		nextST, ok := next.(*model.SimpleType)
 		if !ok {
 			return false
 		}
@@ -123,16 +124,16 @@ func isRestrictionDerivedFromSimple(schema *parser.Schema, derived *types.Simple
 	return false
 }
 
-func unionAllowsDerived(schema *parser.Schema, derived types.Type, baseUnion *types.SimpleType) bool {
+func unionAllowsDerived(schema *parser.Schema, derived model.Type, baseUnion *model.SimpleType) bool {
 	if derived == nil || baseUnion == nil {
 		return false
 	}
-	if types.IsValidlyDerivedFrom(derived, baseUnion) {
+	if model.IsValidlyDerivedFrom(derived, baseUnion) {
 		return true
 	}
 	members := baseUnion.MemberTypes
 	if len(members) == 0 && baseUnion.Union != nil {
-		members = make([]types.Type, 0, len(baseUnion.Union.MemberTypes)+len(baseUnion.Union.InlineTypes))
+		members = make([]model.Type, 0, len(baseUnion.Union.MemberTypes)+len(baseUnion.Union.InlineTypes))
 		for _, inline := range baseUnion.Union.InlineTypes {
 			members = append(members, inline)
 		}
@@ -148,18 +149,18 @@ func unionAllowsDerived(schema *parser.Schema, derived types.Type, baseUnion *ty
 		if member == nil {
 			continue
 		}
-		if types.IsValidlyDerivedFrom(derived, member) || sameTypeOrQName(derived, member) {
+		if model.IsValidlyDerivedFrom(derived, member) || sameTypeOrQName(derived, member) {
 			return true
 		}
 	}
 	return false
 }
 
-func resolveTypeByQName(schema *parser.Schema, qname types.QName) types.Type {
+func resolveTypeByQName(schema *parser.Schema, qname model.QName) model.Type {
 	if qname.IsZero() {
 		return nil
 	}
-	if bt := types.GetBuiltinNS(qname.Namespace, qname.Local); bt != nil {
+	if bt := builtins.GetNS(qname.Namespace, qname.Local); bt != nil {
 		return bt
 	}
 	if schema == nil {
@@ -171,7 +172,7 @@ func resolveTypeByQName(schema *parser.Schema, qname types.QName) types.Type {
 	return nil
 }
 
-func sameTypeOrQName(a, b types.Type) bool {
+func sameTypeOrQName(a, b model.Type) bool {
 	if a == nil || b == nil {
 		return false
 	}

@@ -3,17 +3,18 @@ package xsdxml
 import "testing"
 
 func TestReleaseDocumentTrimsLargeBuffers(t *testing.T) {
-	doc := AcquireDocument()
+	pool := NewDocumentPool()
+	doc := pool.Acquire()
 	doc.nodes = make([]node, 0, maxPooledNodeEntries+1)
 	doc.attrs = make([]Attr, 0, maxPooledAttrEntries+1)
 	doc.children = make([]NodeID, 0, maxPooledChildEntries+1)
 	doc.textSegments = make([]textSegment, 0, maxPooledTextSegmentEntries+1)
 	doc.textScratch = make([]textScratchEntry, 0, maxPooledTextScratchEntries+1)
 	doc.countsScratch = make([]int, 0, maxPooledCountEntries+1)
-	ReleaseDocument(doc)
+	pool.Release(doc)
 
-	reused := AcquireDocument()
-	defer ReleaseDocument(reused)
+	reused := pool.Acquire()
+	defer pool.Release(reused)
 
 	if cap(reused.nodes) > maxPooledNodeEntries {
 		t.Fatalf("nodes cap = %d, want <= %d", cap(reused.nodes), maxPooledNodeEntries)
@@ -36,11 +37,12 @@ func TestReleaseDocumentTrimsLargeBuffers(t *testing.T) {
 }
 
 func BenchmarkAcquireReleaseLargeDocument(b *testing.B) {
+	pool := NewDocumentPool()
 	for b.Loop() {
-		doc := AcquireDocument()
+		doc := pool.Acquire()
 		doc.nodes = make([]node, 0, maxPooledNodeEntries*2)
 		doc.children = make([]NodeID, 0, maxPooledChildEntries*2)
 		doc.attrs = make([]Attr, 0, maxPooledAttrEntries*2)
-		ReleaseDocument(doc)
+		pool.Release(doc)
 	}
 }

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/durationlex"
-	"github.com/jacoelho/xsd/internal/types"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
@@ -40,9 +40,9 @@ func isDateTimeTypeName(typeName string) bool {
 }
 
 // CompareFacetValues compares two facet lexical values for a base type.
-func CompareFacetValues(val1, val2 string, baseType types.Type) (int, error) {
-	var primitiveType types.Type
-	if st, ok := baseType.(*types.SimpleType); ok {
+func CompareFacetValues(val1, val2 string, baseType model.Type) (int, error) {
+	var primitiveType model.Type
+	if st, ok := baseType.(*model.SimpleType); ok {
 		primitiveType = st.PrimitiveType()
 		if primitiveType == nil {
 			primitiveType = baseType
@@ -51,7 +51,7 @@ func CompareFacetValues(val1, val2 string, baseType types.Type) (int, error) {
 		primitiveType = baseType
 	}
 
-	if st, ok := primitiveType.(*types.SimpleType); ok {
+	if st, ok := primitiveType.(*model.SimpleType); ok {
 		typeName := st.QName.Local
 		switch typeName {
 		case "duration":
@@ -71,12 +71,12 @@ func CompareFacetValues(val1, val2 string, baseType types.Type) (int, error) {
 			if isDateTimeTypeName(typeName) {
 				return compareDateTimeValues(val1, val2, typeName)
 			}
-			if facets.Ordered == types.OrderedTotal {
+			if facets.Ordered == model.OrderedTotal {
 				return strings.Compare(val1, val2), nil
 			}
 		}
 	}
-	if bt, ok := primitiveType.(*types.BuiltinType); ok {
+	if bt, ok := primitiveType.(*model.BuiltinType); ok {
 		typeName := bt.Name().Local
 		switch typeName {
 		case "duration":
@@ -92,7 +92,7 @@ func CompareFacetValues(val1, val2 string, baseType types.Type) (int, error) {
 		if bt.FundamentalFacets() != nil && bt.FundamentalFacets().Numeric {
 			return compareNumericFacetValues(val1, val2)
 		}
-		if bt.FundamentalFacets() != nil && bt.FundamentalFacets().Ordered == types.OrderedTotal {
+		if bt.FundamentalFacets() != nil && bt.FundamentalFacets().Ordered == model.OrderedTotal {
 			return strings.Compare(val1, val2), nil
 		}
 	}
@@ -269,7 +269,7 @@ func compareDurationValues(v1, v2 string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	cmp, err := types.ComparableXSDDuration{Value: left}.Compare(types.ComparableXSDDuration{Value: right})
+	cmp, err := model.ComparableXSDDuration{Value: left}.Compare(model.ComparableXSDDuration{Value: right})
 	if err != nil {
 		return 0, ErrDurationNotComparable
 	}

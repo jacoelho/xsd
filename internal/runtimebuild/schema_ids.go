@@ -1,8 +1,8 @@
 package runtimebuild
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validatorcompile"
 )
 
@@ -13,7 +13,7 @@ func (b *schemaBuilder) initIDs() {
 
 	complexCount := 0
 	for _, entry := range b.registry.TypeOrder {
-		if _, ok := types.AsComplexType(entry.Type); ok {
+		if _, ok := model.AsComplexType(entry.Type); ok {
 			complexCount++
 		}
 	}

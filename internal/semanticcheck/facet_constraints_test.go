@@ -5,12 +5,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/builtins"
 	facetengine "github.com/jacoelho/xsd/internal/facets"
-	"github.com/jacoelho/xsd/internal/types"
+	model "github.com/jacoelho/xsd/internal/model"
 )
 
 func TestCompareGYearValues(t *testing.T) {
-	bt := types.GetBuiltin(types.TypeNameGYear)
+	bt := builtins.Get(model.TypeNameGYear)
 	if bt == nil {
 		t.Fatal("builtin.Get(\"gYear\") returned nil")
 	}
@@ -23,7 +24,7 @@ func TestCompareGYearValues(t *testing.T) {
 
 func TestGYearTimezoneEquivalence(t *testing.T) {
 	// Test that "2000Z" and "2000+00:00" are considered equal in value space
-	bt := types.GetBuiltin(types.TypeNameGYear)
+	bt := builtins.Get(model.TypeNameGYear)
 	if bt == nil {
 		t.Fatal("builtin.Get(\"gYear\") returned nil")
 	}
@@ -49,7 +50,7 @@ func TestGYearTimezoneEquivalence(t *testing.T) {
 func TestValidateRangeFacetsGYear(t *testing.T) {
 	minInclusive := "2002"
 	maxInclusive := "1998"
-	bt := types.GetBuiltin(types.TypeNameGYear)
+	bt := builtins.Get(model.TypeNameGYear)
 
 	err := facetengine.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
@@ -60,7 +61,7 @@ func TestValidateRangeFacetsGYear(t *testing.T) {
 func TestValidateRangeFacetsDateTimeTimezoneDefiniteOrder(t *testing.T) {
 	minInclusive := "2000-01-01T00:00:00Z"
 	maxInclusive := "1999-12-31T00:00:00"
-	bt := types.GetBuiltin(types.TypeNameDateTime)
+	bt := builtins.Get(model.TypeNameDateTime)
 
 	err := facetengine.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
@@ -71,7 +72,7 @@ func TestValidateRangeFacetsDateTimeTimezoneDefiniteOrder(t *testing.T) {
 func TestValidateRangeFacetsDateTimeTimezoneIndeterminate(t *testing.T) {
 	minInclusive := "2000-01-01T12:00:00Z"
 	maxInclusive := "2000-01-01T12:00:00"
-	bt := types.GetBuiltin(types.TypeNameDateTime)
+	bt := builtins.Get(model.TypeNameDateTime)
 
 	err := facetengine.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err != nil {
@@ -82,7 +83,7 @@ func TestValidateRangeFacetsDateTimeTimezoneIndeterminate(t *testing.T) {
 func TestValidateRangeFacetsLargeIntegerPrecision(t *testing.T) {
 	minInclusive := "9007199254740993"
 	maxInclusive := "9007199254740992"
-	bt := types.GetBuiltin(types.TypeNameInteger)
+	bt := builtins.Get(model.TypeNameInteger)
 
 	err := facetengine.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
@@ -93,7 +94,7 @@ func TestValidateRangeFacetsLargeIntegerPrecision(t *testing.T) {
 func TestValidateRangeFacetsDecimalPrecision(t *testing.T) {
 	minInclusive := "0.1234567890123456789012345678901"
 	maxInclusive := "0.1234567890123456789012345678900"
-	bt := types.GetBuiltin(types.TypeNameDecimal)
+	bt := builtins.Get(model.TypeNameDecimal)
 
 	err := facetengine.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
@@ -104,7 +105,7 @@ func TestValidateRangeFacetsDecimalPrecision(t *testing.T) {
 func TestValidateRangeFacetsFloatNaNNotComparable(t *testing.T) {
 	minInclusive := "NaN"
 	maxInclusive := "1.0"
-	bt := types.GetBuiltin(types.TypeNameFloat)
+	bt := builtins.Get(model.TypeNameFloat)
 
 	err := facetengine.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err != nil {
@@ -164,15 +165,15 @@ func TestValidatePatternFacetSyntax(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			patternFacet := &types.Pattern{Value: tt.pattern}
-			baseQName := types.QName{Namespace: types.XSDNamespace, Local: "string"}
+			patternFacet := &model.Pattern{Value: tt.pattern}
+			baseQName := model.QName{Namespace: model.XSDNamespace, Local: "string"}
 
-			baseType, err := types.NewBuiltinSimpleType(types.TypeNameString)
+			baseType, err := builtins.NewSimpleType(model.TypeNameString)
 			if err != nil {
 				t.Fatalf("NewBuiltinSimpleType(string) failed: %v", err)
 			}
 
-			facetList := []types.Facet{patternFacet}
+			facetList := []model.Facet{patternFacet}
 			err = ValidateFacetConstraints(nil, facetList, baseType, baseQName)
 			if tt.valid && err != nil {
 				t.Errorf("Pattern %q should be valid but got error: %v", tt.pattern, err)

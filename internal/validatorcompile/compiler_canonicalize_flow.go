@@ -3,19 +3,19 @@ package validatorcompile
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func (c *compiler) canonicalizeNormalizedCore(lexical, normalized string, typ types.Type, ctx map[string]string, mode canonicalizeMode) ([]byte, error) {
+func (c *compiler) canonicalizeNormalizedCore(lexical, normalized string, typ model.Type, ctx map[string]string, mode canonicalizeMode) ([]byte, error) {
 	switch c.res.varietyForType(typ) {
-	case types.ListVariety:
+	case model.ListVariety:
 		item, ok := c.res.listItemTypeFromType(typ)
 		if !ok || item == nil {
 			return nil, fmt.Errorf("list type missing item type")
 		}
 		var buf []byte
 		count := 0
-		for itemLex := range types.FieldsXMLWhitespaceSeq(normalized) {
+		for itemLex := range model.FieldsXMLWhitespaceSeq(normalized) {
 			itemNorm := c.normalizeLexical(itemLex, item)
 			canon, err := c.canonicalizeNormalizedCore(itemLex, itemNorm, item, ctx, mode)
 			if err != nil {
@@ -31,7 +31,7 @@ func (c *compiler) canonicalizeNormalizedCore(lexical, normalized string, typ ty
 			return []byte{}, nil
 		}
 		return buf, nil
-	case types.UnionVariety:
+	case model.UnionVariety:
 		members := c.res.unionMemberTypesFromType(typ)
 		if len(members) == 0 {
 			return nil, fmt.Errorf("union has no member types")

@@ -3,14 +3,14 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 // parseTopLevelAttributeGroup parses a top-level <attributeGroup> definition
 // Content model: (annotation?, ((attribute | attributeGroup)*, anyAttribute?))
 func parseTopLevelAttributeGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
+	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("attributeGroup missing name attribute")
 	}
@@ -19,13 +19,13 @@ func parseTopLevelAttributeGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 		return err
 	}
 
-	attrGroup := &types.AttributeGroup{
-		Name: types.QName{
+	attrGroup := &model.AttributeGroup{
+		Name: model.QName{
 			Namespace: schema.TargetNamespace,
 			Local:     name,
 		},
-		Attributes:      []*types.AttributeDecl{},
-		AttrGroups:      []types.QName{},
+		Attributes:      []*model.AttributeDecl{},
+		AttrGroups:      []model.QName{},
 		SourceNamespace: schema.TargetNamespace,
 	}
 
@@ -86,7 +86,7 @@ func parseTopLevelAttributeGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 		}
 	}
 
-	qname := types.QName{
+	qname := model.QName{
 		Namespace: schema.TargetNamespace,
 		Local:     name,
 	}

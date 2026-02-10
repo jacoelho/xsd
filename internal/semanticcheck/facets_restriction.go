@@ -5,16 +5,16 @@ import (
 	"fmt"
 
 	facetengine "github.com/jacoelho/xsd/internal/facets"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 // validateFacetRestriction validates that a derived facet is a valid restriction of the base facet
-func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Facet, baseType types.Type) error {
+func validateFacetRestriction(facetName string, baseFacet, derivedFacet model.Facet, baseType model.Type) error {
 	switch facetName {
 	case "maxInclusive", "maxExclusive":
 		// for max facets, derived value must be <= base value (stricter = smaller)
-		baseLexical, baseOk := baseFacet.(types.LexicalFacet)
-		derivedLexical, derivedOk := derivedFacet.(types.LexicalFacet)
+		baseLexical, baseOk := baseFacet.(model.LexicalFacet)
+		derivedLexical, derivedOk := derivedFacet.(model.LexicalFacet)
 		if !baseOk || !derivedOk {
 			return nil
 		}
@@ -36,8 +36,8 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Fa
 
 	case "minInclusive", "minExclusive":
 		// for min facets, derived value must be >= base value (stricter = larger)
-		baseLexical, baseOk := baseFacet.(types.LexicalFacet)
-		derivedLexical, derivedOk := derivedFacet.(types.LexicalFacet)
+		baseLexical, baseOk := baseFacet.(model.LexicalFacet)
+		derivedLexical, derivedOk := derivedFacet.(model.LexicalFacet)
 		if !baseOk || !derivedOk {
 			return nil
 		}
@@ -59,8 +59,8 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Fa
 
 	case "maxLength":
 		// for maxLength, derived value must be <= base value
-		baseIntValue, baseOk := baseFacet.(types.IntValueFacet)
-		derivedIntValue, derivedOk := derivedFacet.(types.IntValueFacet)
+		baseIntValue, baseOk := baseFacet.(model.IntValueFacet)
+		derivedIntValue, derivedOk := derivedFacet.(model.IntValueFacet)
 		if baseOk && derivedOk {
 			baseValInt := baseIntValue.GetIntValue()
 			derivedValInt := derivedIntValue.GetIntValue()
@@ -71,8 +71,8 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Fa
 
 	case "minLength":
 		// for minLength, derived value must be >= base value
-		baseIntValue, baseOk := baseFacet.(types.IntValueFacet)
-		derivedIntValue, derivedOk := derivedFacet.(types.IntValueFacet)
+		baseIntValue, baseOk := baseFacet.(model.IntValueFacet)
+		derivedIntValue, derivedOk := derivedFacet.(model.IntValueFacet)
 		if baseOk && derivedOk {
 			baseValInt := baseIntValue.GetIntValue()
 			derivedValInt := derivedIntValue.GetIntValue()
@@ -83,8 +83,8 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Fa
 
 	case "length":
 		// for length, derived value must equal base value (can't change length in restriction)
-		baseIntValue, baseOk := baseFacet.(types.IntValueFacet)
-		derivedIntValue, derivedOk := derivedFacet.(types.IntValueFacet)
+		baseIntValue, baseOk := baseFacet.(model.IntValueFacet)
+		derivedIntValue, derivedOk := derivedFacet.(model.IntValueFacet)
 		if baseOk && derivedOk {
 			baseValInt := baseIntValue.GetIntValue()
 			derivedValInt := derivedIntValue.GetIntValue()
@@ -95,8 +95,8 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Fa
 
 	case "totalDigits", "fractionDigits":
 		// for digit facets, derived value must be <= base value
-		baseIntValue, baseOk := baseFacet.(types.IntValueFacet)
-		derivedIntValue, derivedOk := derivedFacet.(types.IntValueFacet)
+		baseIntValue, baseOk := baseFacet.(model.IntValueFacet)
+		derivedIntValue, derivedOk := derivedFacet.(model.IntValueFacet)
 		if baseOk && derivedOk {
 			baseValInt := baseIntValue.GetIntValue()
 			derivedValInt := derivedIntValue.GetIntValue()
@@ -112,8 +112,8 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet types.Fa
 
 	case "enumeration":
 		// enumeration: derived values must be a subset of base values
-		baseEnum, baseOk := baseFacet.(*types.Enumeration)
-		derivedEnum, derivedOk := derivedFacet.(*types.Enumeration)
+		baseEnum, baseOk := baseFacet.(*model.Enumeration)
+		derivedEnum, derivedOk := derivedFacet.(*model.Enumeration)
 		if baseOk && derivedOk {
 			baseValues := make(map[string]bool)
 			for _, val := range baseEnum.Values() {

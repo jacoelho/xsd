@@ -3,13 +3,13 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 // parseAnyAttribute parses an <anyAttribute> wildcard
 // Content model: (annotation?)
-func parseAnyAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.AnyAttribute, error) {
+func parseAnyAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.AnyAttribute, error) {
 	nsConstraint, nsList, processContents, err := parseWildcardConstraints(
 		doc,
 		elem,
@@ -41,7 +41,7 @@ func parseAnyAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema)
 		}
 	}
 
-	anyAttr := &types.AnyAttribute{
+	anyAttr := &model.AnyAttribute{
 		ProcessContents: processContents,
 		TargetNamespace: schema.TargetNamespace,
 	}

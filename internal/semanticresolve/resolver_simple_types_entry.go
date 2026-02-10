@@ -3,10 +3,10 @@ package semanticresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func (r *Resolver) resolveSimpleType(qname types.QName, st *types.SimpleType) error {
+func (r *Resolver) resolveSimpleType(qname model.QName, st *model.SimpleType) error {
 	if qname.IsZero() {
 		if r.resolvedPtrs[st] {
 			return nil
@@ -31,7 +31,7 @@ func (r *Resolver) resolveSimpleType(qname types.QName, st *types.SimpleType) er
 	})
 }
 
-func (r *Resolver) doResolveSimpleType(qname types.QName, st *types.SimpleType) error {
+func (r *Resolver) doResolveSimpleType(qname model.QName, st *model.SimpleType) error {
 	if err := r.resolveSimpleTypeRestriction(qname, st); err != nil {
 		return err
 	}

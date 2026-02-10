@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
@@ -68,7 +68,7 @@ func validateAnnotationAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) erro
 			if attr.LocalName() != "id" {
 				return fmt.Errorf("annotation: unexpected attribute '%s'", attr.LocalName())
 			}
-			if types.TrimXMLWhitespace(attr.Value()) == "" {
+			if model.TrimXMLWhitespace(attr.Value()) == "" {
 				return fmt.Errorf("annotation: id attribute cannot be empty")
 			}
 			continue
@@ -106,7 +106,7 @@ func validateAnnotationChildAttributes(doc *xsdxml.Document, elem xsdxml.NodeID)
 				continue
 			}
 			if attr.NamespaceURI() == xsdxml.XMLNamespace && attr.LocalName() == "lang" {
-				if types.TrimXMLWhitespace(attr.Value()) == "" {
+				if model.TrimXMLWhitespace(attr.Value()) == "" {
 					return fmt.Errorf("documentation: xml:lang must not be empty")
 				}
 				continue

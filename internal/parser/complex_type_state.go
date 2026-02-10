@@ -3,14 +3,14 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 type complexTypeParseState struct {
 	doc    *xsdxml.Document
 	schema *Schema
-	ct     *types.ComplexType
+	ct     *model.ComplexType
 
 	hasAnnotation     bool
 	hasNonAnnotation  bool

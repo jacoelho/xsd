@@ -3,10 +3,10 @@ package semantic
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func (r *referenceResolver) resolveGlobalElement(decl *types.ElementDecl) error {
+func (r *referenceResolver) resolveGlobalElement(decl *model.ElementDecl) error {
 	if decl != nil && !decl.SubstitutionGroup.IsZero() {
 		if _, ok := r.schema.ElementDecls[decl.SubstitutionGroup]; !ok {
 			return fmt.Errorf("element %s substitutionGroup %s not found", decl.Name, decl.SubstitutionGroup)
@@ -15,7 +15,7 @@ func (r *referenceResolver) resolveGlobalElement(decl *types.ElementDecl) error 
 	return r.resolveElement(decl)
 }
 
-func (r *referenceResolver) resolveElement(decl *types.ElementDecl) error {
+func (r *referenceResolver) resolveElement(decl *model.ElementDecl) error {
 	if decl == nil {
 		return nil
 	}
@@ -36,7 +36,7 @@ func (r *referenceResolver) resolveElement(decl *types.ElementDecl) error {
 		r.elementState[decl] = resolveResolved
 		return nil
 	}
-	if st, ok := decl.Type.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) {
+	if st, ok := decl.Type.(*model.SimpleType); ok && model.IsPlaceholderSimpleType(st) {
 		if err := r.resolveTypeQName(st.QName); err != nil {
 			delete(r.elementState, decl)
 			return fmt.Errorf("element %s: %w", decl.Name, err)
@@ -52,7 +52,7 @@ func (r *referenceResolver) resolveElement(decl *types.ElementDecl) error {
 	return nil
 }
 
-func (r *referenceResolver) resolveElementReference(decl *types.ElementDecl) error {
+func (r *referenceResolver) resolveElementReference(decl *model.ElementDecl) error {
 	target := r.schema.ElementDecls[decl.Name]
 	if target == nil {
 		return fmt.Errorf("element ref %s not found", decl.Name)
@@ -68,7 +68,7 @@ func (r *referenceResolver) resolveElementReference(decl *types.ElementDecl) err
 	return nil
 }
 
-func (r *referenceResolver) resolveModelGroup(group *types.ModelGroup) error {
+func (r *referenceResolver) resolveModelGroup(group *model.ModelGroup) error {
 	if group == nil {
 		return nil
 	}
@@ -87,21 +87,21 @@ func (r *referenceResolver) resolveModelGroup(group *types.ModelGroup) error {
 	return nil
 }
 
-func (r *referenceResolver) resolveParticle(particle types.Particle) error {
+func (r *referenceResolver) resolveParticle(particle model.Particle) error {
 	switch typed := particle.(type) {
-	case *types.ElementDecl:
+	case *model.ElementDecl:
 		return r.resolveElement(typed)
-	case *types.ModelGroup:
+	case *model.ModelGroup:
 		return r.resolveModelGroup(typed)
-	case *types.GroupRef:
+	case *model.GroupRef:
 		return r.resolveGroupRef(typed)
-	case *types.AnyElement:
+	case *model.AnyElement:
 		return nil
 	}
 	return nil
 }
 
-func (r *referenceResolver) resolveGroupRef(ref *types.GroupRef) error {
+func (r *referenceResolver) resolveGroupRef(ref *model.GroupRef) error {
 	group := r.schema.Groups[ref.RefQName]
 	if group == nil {
 		return fmt.Errorf("group ref %s not found", ref.RefQName)

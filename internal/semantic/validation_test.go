@@ -3,8 +3,8 @@ package semantic
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestValidateSchemaInput(t *testing.T) {
@@ -17,7 +17,7 @@ func TestValidateSchemaInput(t *testing.T) {
 		t.Fatalf("unexpected error for empty schema: %v", err)
 	}
 
-	schema.ElementDecls[types.QName{Local: "root"}] = &types.ElementDecl{}
+	schema.ElementDecls[model.QName{Local: "root"}] = &model.ElementDecl{}
 	if err := validateSchemaInput(schema); err == nil {
 		t.Fatalf("expected missing global declaration order error")
 	}

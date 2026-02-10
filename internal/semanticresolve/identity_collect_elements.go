@@ -1,21 +1,21 @@
 package semanticresolve
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
-func collectConstraintElementsFromContent(content types.Content) []*types.ElementDecl {
-	visitedGroups := make(map[*types.ModelGroup]bool)
-	visitedTypes := make(map[*types.ComplexType]bool)
-	var collectParticles func([]types.Particle, map[*types.ModelGroup]bool, map[*types.ComplexType]bool) []*types.ElementDecl
-	collectParticles = func(particles []types.Particle, visited map[*types.ModelGroup]bool, visitedComplex map[*types.ComplexType]bool) []*types.ElementDecl {
-		return collectFromParticlesWithVisited(particles, visited, visitedComplex, func(p *types.ElementDecl, visitedNestedGroups map[*types.ModelGroup]bool, visitedNestedTypes map[*types.ComplexType]bool) []*types.ElementDecl {
-			var elements []*types.ElementDecl
+func collectConstraintElementsFromContent(content model.Content) []*model.ElementDecl {
+	visitedGroups := make(map[*model.ModelGroup]bool)
+	visitedTypes := make(map[*model.ComplexType]bool)
+	var collectParticles func([]model.Particle, map[*model.ModelGroup]bool, map[*model.ComplexType]bool) []*model.ElementDecl
+	collectParticles = func(particles []model.Particle, visited map[*model.ModelGroup]bool, visitedComplex map[*model.ComplexType]bool) []*model.ElementDecl {
+		return collectFromParticlesWithVisited(particles, visited, visitedComplex, func(p *model.ElementDecl, visitedNestedGroups map[*model.ModelGroup]bool, visitedNestedTypes map[*model.ComplexType]bool) []*model.ElementDecl {
+			var elements []*model.ElementDecl
 			if p != nil && !p.IsReference && len(p.Constraints) > 0 {
 				elements = append(elements, p)
 			}
 			if p == nil {
 				return elements
 			}
-			ct, ok := p.Type.(*types.ComplexType)
+			ct, ok := p.Type.(*model.ComplexType)
 			if !ok || ct == nil {
 				return elements
 			}

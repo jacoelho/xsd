@@ -3,18 +3,18 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typegraph"
 	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateAttributeUniqueness validates that no two attributes in a complex type
 // share the same name and namespace.
-func validateAttributeUniqueness(schema *parser.Schema, ct *types.ComplexType) error {
+func validateAttributeUniqueness(schema *parser.Schema, ct *model.ComplexType) error {
 	allAttributes := collectAllAttributesForValidation(schema, ct)
 
-	seen := make(map[types.QName]bool)
+	seen := make(map[model.QName]bool)
 	for _, attr := range allAttributes {
 		key := typeops.EffectiveAttributeQName(schema, attr)
 		if seen[key] {
@@ -26,7 +26,7 @@ func validateAttributeUniqueness(schema *parser.Schema, ct *types.ComplexType) e
 	return nil
 }
 
-func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *types.ComplexType) error {
+func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *model.ComplexType) error {
 	if ct == nil {
 		return nil
 	}
@@ -48,7 +48,7 @@ func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *types.Compl
 		return nil
 	}
 
-	attrs := append([]*types.AttributeDecl{}, ext.Attributes...)
+	attrs := append([]*model.AttributeDecl{}, ext.Attributes...)
 	attrs = append(attrs, collectAttributesFromGroups(schema, ext.AttrGroups, nil)...)
 	for _, attr := range attrs {
 		key := typeops.EffectiveAttributeQName(schema, attr)
@@ -61,8 +61,8 @@ func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *types.Compl
 
 // validateAttributeGroupUniqueness validates that no two attributes in the group
 // share the same name and namespace.
-func validateAttributeGroupUniqueness(schema *parser.Schema, ag *types.AttributeGroup) error {
-	seen := make(map[types.QName]bool)
+func validateAttributeGroupUniqueness(schema *parser.Schema, ag *model.AttributeGroup) error {
+	seen := make(map[model.QName]bool)
 	for _, attr := range ag.Attributes {
 		key := typeops.EffectiveAttributeQName(schema, attr)
 		if seen[key] {

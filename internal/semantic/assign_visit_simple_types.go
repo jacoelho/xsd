@@ -1,8 +1,8 @@
 package semantic
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
-func (b *builder) visitSimpleType(st *types.SimpleType) error {
+func (b *builder) visitSimpleType(st *model.SimpleType) error {
 	if st == nil {
 		return nil
 	}

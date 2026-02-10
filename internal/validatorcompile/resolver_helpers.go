@@ -1,16 +1,19 @@
 package validatorcompile
 
-import "github.com/jacoelho/xsd/internal/types"
+import (
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
+)
 
-func builtinForType(typ types.Type) *types.BuiltinType {
+func builtinForType(typ model.Type) *model.BuiltinType {
 	if typ == nil {
 		return nil
 	}
-	if bt, ok := types.AsBuiltinType(typ); ok {
+	if bt, ok := model.AsBuiltinType(typ); ok {
 		return bt
 	}
-	if st, ok := types.AsSimpleType(typ); ok && st.IsBuiltin() {
-		return types.GetBuiltin(types.TypeName(st.Name().Local))
+	if st, ok := model.AsSimpleType(typ); ok && st.IsBuiltin() {
+		return builtins.Get(builtins.TypeName(st.Name().Local))
 	}
 	return nil
 }
@@ -26,10 +29,10 @@ func isIntegerTypeName(name string) bool {
 	}
 }
 
-func isAnySimpleType(typ types.Type) bool {
+func isAnySimpleType(typ model.Type) bool {
 	bt := builtinForType(typ)
 	if bt == nil {
 		return false
 	}
-	return bt.Name().Local == string(types.TypeNameAnySimpleType)
+	return bt.Name().Local == string(builtins.TypeNameAnySimpleType)
 }

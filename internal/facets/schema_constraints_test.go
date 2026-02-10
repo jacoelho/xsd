@@ -4,22 +4,24 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/typefacet"
 )
 
 type invalidFacet struct{}
 
 func (invalidFacet) Name() string { return "invalidFacet" }
-func (invalidFacet) Validate(types.TypedValue, types.Type) error {
+func (invalidFacet) Validate(model.TypedValue, model.Type) error {
 	return nil
 }
 
 func TestValidateSchemaConstraintsRejectsInvalidFacetName(t *testing.T) {
 	err := ValidateSchemaConstraints(
 		SchemaConstraintInput{
-			FacetList: []types.Facet{invalidFacet{}},
-			BaseType:  types.GetBuiltin(types.TypeNameString),
-			BaseQName: types.QName{Namespace: types.XSDNamespace, Local: string(types.TypeNameString)},
+			FacetList: []model.Facet{invalidFacet{}},
+			BaseType:  builtins.Get(model.TypeNameString),
+			BaseQName: model.QName{Namespace: model.XSDNamespace, Local: string(model.TypeNameString)},
 		},
 		SchemaConstraintCallbacks{},
 	)
@@ -29,15 +31,15 @@ func TestValidateSchemaConstraintsRejectsInvalidFacetName(t *testing.T) {
 }
 
 func TestValidateSchemaConstraintsDelegatesRangeChecks(t *testing.T) {
-	base := types.GetBuiltin(types.TypeNameInt)
+	base := builtins.Get(model.TypeNameInt)
 	if base == nil {
 		t.Fatal("builtin int is nil")
 	}
-	minFacet, err := types.NewMinInclusive("1", base)
+	minFacet, err := typefacet.NewMinInclusive("1", base)
 	if err != nil {
 		t.Fatalf("minInclusive: %v", err)
 	}
-	maxFacet, err := types.NewMaxInclusive("0", base)
+	maxFacet, err := typefacet.NewMaxInclusive("0", base)
 	if err != nil {
 		t.Fatalf("maxInclusive: %v", err)
 	}
@@ -46,12 +48,12 @@ func TestValidateSchemaConstraintsDelegatesRangeChecks(t *testing.T) {
 	rangeCalled := false
 	err = ValidateSchemaConstraints(
 		SchemaConstraintInput{
-			FacetList: []types.Facet{minFacet, maxFacet},
+			FacetList: []model.Facet{minFacet, maxFacet},
 			BaseType:  base,
 			BaseQName: base.Name(),
 		},
 		SchemaConstraintCallbacks{
-			ValidateRangeConsistency: func(minExclusive, maxExclusive, minInclusive, maxInclusive *string, _ types.Type, _ types.QName) error {
+			ValidateRangeConsistency: func(minExclusive, maxExclusive, minInclusive, maxInclusive *string, _ model.Type, _ model.QName) error {
 				rangeCalled = true
 				if minInclusive == nil || *minInclusive != "1" {
 					t.Fatalf("minInclusive = %v, want 1", minInclusive)
@@ -72,7 +74,7 @@ func TestValidateSchemaConstraintsDelegatesRangeChecks(t *testing.T) {
 }
 
 func TestValidateSchemaConstraintsValidatesEnumerationValues(t *testing.T) {
-	enum := types.NewEnumeration([]string{"a", "b"})
+	enum := model.NewEnumeration([]string{"a", "b"})
 	enum.SetValueContexts([]map[string]string{
 		{"p": "urn:a"},
 		{"p": "urn:b"},
@@ -82,12 +84,12 @@ func TestValidateSchemaConstraintsValidatesEnumerationValues(t *testing.T) {
 	contexts := make([]map[string]string, 0, 2)
 	err := ValidateSchemaConstraints(
 		SchemaConstraintInput{
-			FacetList: []types.Facet{enum},
-			BaseType:  types.GetBuiltin(types.TypeNameString),
-			BaseQName: types.QName{Namespace: types.XSDNamespace, Local: string(types.TypeNameString)},
+			FacetList: []model.Facet{enum},
+			BaseType:  builtins.Get(model.TypeNameString),
+			BaseQName: model.QName{Namespace: model.XSDNamespace, Local: string(model.TypeNameString)},
 		},
 		SchemaConstraintCallbacks{
-			ValidateEnumerationValue: func(value string, _ types.Type, context map[string]string) error {
+			ValidateEnumerationValue: func(value string, _ model.Type, context map[string]string) error {
 				seen = append(seen, value)
 				contexts = append(contexts, context)
 				return nil
@@ -106,23 +108,23 @@ func TestValidateSchemaConstraintsValidatesEnumerationValues(t *testing.T) {
 }
 
 func TestValidateSchemaConstraintsDefersEnumerationForUnresolvedBase(t *testing.T) {
-	enum := types.NewEnumeration([]string{"a"})
-	base := &types.SimpleType{
-		QName: types.QName{Namespace: "urn:test", Local: "MyType"},
-		Restriction: &types.Restriction{
-			Base: types.QName{Namespace: "urn:external", Local: "BaseType"},
+	enum := model.NewEnumeration([]string{"a"})
+	base := &model.SimpleType{
+		QName: model.QName{Namespace: "urn:test", Local: "MyType"},
+		Restriction: &model.Restriction{
+			Base: model.QName{Namespace: "urn:external", Local: "BaseType"},
 		},
 	}
 
 	calls := 0
 	err := ValidateSchemaConstraints(
 		SchemaConstraintInput{
-			FacetList: []types.Facet{enum},
+			FacetList: []model.Facet{enum},
 			BaseType:  base,
 			BaseQName: base.Name(),
 		},
 		SchemaConstraintCallbacks{
-			ValidateEnumerationValue: func(string, types.Type, map[string]string) error {
+			ValidateEnumerationValue: func(string, model.Type, map[string]string) error {
 				calls++
 				return nil
 			},

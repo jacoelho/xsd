@@ -1,11 +1,12 @@
 package validatorcompile
 
 import (
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *compiler) collectFacets(st *types.SimpleType) ([]types.Facet, error) {
+func (c *compiler) collectFacets(st *model.SimpleType) ([]model.Facet, error) {
 	if st == nil {
 		return nil, nil
 	}
@@ -13,7 +14,7 @@ func (c *compiler) collectFacets(st *types.SimpleType) ([]types.Facet, error) {
 		return cached, nil
 	}
 
-	seen := make(map[*types.SimpleType]bool)
+	seen := make(map[*model.SimpleType]bool)
 	facets, err := c.collectFacetsRecursive(st, seen)
 	if err != nil {
 		return nil, err
@@ -22,7 +23,7 @@ func (c *compiler) collectFacets(st *types.SimpleType) ([]types.Facet, error) {
 	return facets, nil
 }
 
-func (c *compiler) collectFacetsRecursive(st *types.SimpleType, seen map[*types.SimpleType]bool) ([]types.Facet, error) {
+func (c *compiler) collectFacetsRecursive(st *model.SimpleType, seen map[*model.SimpleType]bool) ([]model.Facet, error) {
 	if st == nil {
 		return nil, nil
 	}
@@ -32,9 +33,9 @@ func (c *compiler) collectFacetsRecursive(st *types.SimpleType, seen map[*types.
 	seen[st] = true
 	defer delete(seen, st)
 
-	var result []types.Facet
+	var result []model.Facet
 	if base := c.res.baseType(st); base != nil {
-		if baseST, ok := types.AsSimpleType(base); ok {
+		if baseST, ok := model.AsSimpleType(base); ok {
 			baseFacets, err := c.collectFacetsRecursive(baseST, seen)
 			if err != nil {
 				return nil, err
@@ -43,20 +44,20 @@ func (c *compiler) collectFacetsRecursive(st *types.SimpleType, seen map[*types.
 		}
 	}
 
-	if st.IsBuiltin() && types.IsBuiltinListTypeName(st.Name().Local) {
-		result = append(result, &types.MinLength{Value: 1})
+	if st.IsBuiltin() && builtins.IsBuiltinListTypeName(st.Name().Local) {
+		result = append(result, &model.MinLength{Value: 1})
 	} else if base := c.res.baseType(st); base != nil {
-		if bt := builtinForType(base); bt != nil && types.IsBuiltinListTypeName(bt.Name().Local) {
-			result = append(result, &types.MinLength{Value: 1})
+		if bt := builtinForType(base); bt != nil && builtins.IsBuiltinListTypeName(bt.Name().Local) {
+			result = append(result, &model.MinLength{Value: 1})
 		}
 	}
 
 	if st.Restriction != nil {
-		var stepPatterns []*types.Pattern
+		var stepPatterns []*model.Pattern
 		for _, f := range st.Restriction.Facets {
 			switch facet := f.(type) {
-			case types.Facet:
-				if patternFacet, ok := facet.(*types.Pattern); ok {
+			case model.Facet:
+				if patternFacet, ok := facet.(*model.Pattern); ok {
 					if err := patternFacet.ValidateSyntax(); err != nil {
 						continue
 					}
@@ -69,7 +70,7 @@ func (c *compiler) collectFacetsRecursive(st *types.SimpleType, seen map[*types.
 					}
 				}
 				result = append(result, facet)
-			case *types.DeferredFacet:
+			case *model.DeferredFacet:
 				base := c.res.baseType(st)
 				resolved, err := typeops.DefaultDeferredFacetConverter(facet, base)
 				if err != nil {
@@ -83,30 +84,30 @@ func (c *compiler) collectFacetsRecursive(st *types.SimpleType, seen map[*types.
 		if len(stepPatterns) == 1 {
 			result = append(result, stepPatterns[0])
 		} else if len(stepPatterns) > 1 {
-			result = append(result, &types.PatternSet{Patterns: stepPatterns})
+			result = append(result, &model.PatternSet{Patterns: stepPatterns})
 		}
 	}
 
 	return result, nil
 }
 
-func (c *compiler) facetsForType(typ types.Type) ([]types.Facet, error) {
-	if st, ok := types.AsSimpleType(typ); ok {
+func (c *compiler) facetsForType(typ model.Type) ([]model.Facet, error) {
+	if st, ok := model.AsSimpleType(typ); ok {
 		return c.collectFacets(st)
 	}
-	if bt, ok := types.AsBuiltinType(typ); ok {
-		if types.IsBuiltinListTypeName(bt.Name().Local) {
-			return []types.Facet{&types.MinLength{Value: 1}}, nil
+	if bt, ok := model.AsBuiltinType(typ); ok {
+		if builtins.IsBuiltinListTypeName(bt.Name().Local) {
+			return []model.Facet{&model.MinLength{Value: 1}}, nil
 		}
 	}
 	return nil, nil
 }
 
-func filterFacets(facets []types.Facet, keep func(types.Facet) bool) []types.Facet {
+func filterFacets(facets []model.Facet, keep func(model.Facet) bool) []model.Facet {
 	if len(facets) == 0 {
 		return nil
 	}
-	out := make([]types.Facet, 0, len(facets))
+	out := make([]model.Facet, 0, len(facets))
 	for _, facet := range facets {
 		if keep(facet) {
 			out = append(out, facet)

@@ -3,15 +3,15 @@ package semantic
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func detectSubstitutionGroupCycles(schema *parser.Schema) error {
-	states := make(map[types.QName]visitState)
+	states := make(map[model.QName]visitState)
 
-	var visit func(name types.QName) error
-	visit = func(name types.QName) error {
+	var visit func(name model.QName) error
+	visit = func(name model.QName) error {
 		switch states[name] {
 		case stateVisiting:
 			return fmt.Errorf("substitution group cycle detected at %s", name)

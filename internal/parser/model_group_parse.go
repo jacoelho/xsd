@@ -3,11 +3,11 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
-func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.ModelGroup, error) {
+func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.ModelGroup, error) {
 	kind, err := parseModelGroupKind(doc, elem)
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 	if err != nil {
 		return nil, err
 	}
-	if kind == types.AllGroup {
+	if kind == model.AllGroup {
 		if !minOccurs.IsZero() && !minOccurs.IsOne() {
 			return nil, fmt.Errorf("xs:all must have minOccurs='0' or '1'")
 		}
@@ -39,9 +39,9 @@ func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 		}
 	}
 
-	mg := &types.ModelGroup{
+	mg := &model.ModelGroup{
 		Kind:      kind,
-		Particles: []types.Particle{},
+		Particles: []model.Particle{},
 		MinOccurs: minOccurs,
 		MaxOccurs: maxOccurs,
 	}
@@ -75,14 +75,14 @@ func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 	return mg, nil
 }
 
-func parseModelGroupKind(doc *xsdxml.Document, elem xsdxml.NodeID) (types.GroupKind, error) {
+func parseModelGroupKind(doc *xsdxml.Document, elem xsdxml.NodeID) (model.GroupKind, error) {
 	switch doc.LocalName(elem) {
 	case "sequence":
-		return types.Sequence, nil
+		return model.Sequence, nil
 	case "choice":
-		return types.Choice, nil
+		return model.Choice, nil
 	case "all":
-		return types.AllGroup, nil
+		return model.AllGroup, nil
 	default:
 		return 0, fmt.Errorf("unknown model group: %s", doc.LocalName(elem))
 	}

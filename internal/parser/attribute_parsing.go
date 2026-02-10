@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
@@ -18,7 +18,7 @@ var validAttributeAttributes = map[string]bool{
 	"id":      true,
 }
 
-func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, local bool) (*types.AttributeDecl, error) {
+func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, local bool) (*model.AttributeDecl, error) {
 	if err := validateOptionalID(doc, elem, "attribute", schema); err != nil {
 		return nil, err
 	}
@@ -54,20 +54,20 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, lo
 	return parseLocalAttribute(doc, elem, schema, local)
 }
 
-func parseAttributeUse(doc *xsdxml.Document, elem xsdxml.NodeID) (types.AttributeUse, error) {
+func parseAttributeUse(doc *xsdxml.Document, elem xsdxml.NodeID) (model.AttributeUse, error) {
 	if doc.HasAttribute(elem, "use") {
-		useAttr := types.ApplyWhiteSpace(doc.GetAttribute(elem, "use"), types.WhiteSpaceCollapse)
+		useAttr := model.ApplyWhiteSpace(doc.GetAttribute(elem, "use"), model.WhiteSpaceCollapse)
 		switch useAttr {
 		case "optional":
-			return types.Optional, nil
+			return model.Optional, nil
 		case "required":
-			return types.Required, nil
+			return model.Required, nil
 		case "prohibited":
-			return types.Prohibited, nil
+			return model.Prohibited, nil
 		default:
-			return types.Optional, fmt.Errorf("invalid use attribute value '%s': must be 'optional', 'prohibited', or 'required'", useAttr)
+			return model.Optional, fmt.Errorf("invalid use attribute value '%s': must be 'optional', 'prohibited', or 'required'", useAttr)
 		}
 	}
 
-	return types.Optional, nil
+	return model.Optional, nil
 }

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (l *SchemaLoader) applyPendingInclude(directive pendingDirective, source *parser.Schema, target *stagedPendingTarget) error {
@@ -15,7 +15,7 @@ func (l *SchemaLoader) applyPendingInclude(directive pendingDirective, source *p
 			directive.schemaLocation, source.TargetNamespace, includingNS)
 	}
 	remapMode := loadmerge.KeepNamespace
-	if !includingNS.IsEmpty() && source.TargetNamespace.IsEmpty() {
+	if includingNS != "" && source.TargetNamespace == "" {
 		remapMode = loadmerge.RemapNamespace
 	}
 	includeInfo := parser.IncludeInfo{
@@ -36,11 +36,11 @@ func (l *SchemaLoader) applyPendingInclude(directive pendingDirective, source *p
 }
 
 func (l *SchemaLoader) applyPendingImport(directive pendingDirective, source *parser.Schema, target *stagedPendingTarget) error {
-	if directive.expectedNamespace != "" && source.TargetNamespace != types.NamespaceURI(directive.expectedNamespace) {
+	if directive.expectedNamespace != "" && source.TargetNamespace != model.NamespaceURI(directive.expectedNamespace) {
 		return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
 			directive.schemaLocation, directive.expectedNamespace, source.TargetNamespace)
 	}
-	if directive.expectedNamespace == "" && !source.TargetNamespace.IsEmpty() {
+	if directive.expectedNamespace == "" && source.TargetNamespace != "" {
 		return fmt.Errorf("imported schema %s namespace mismatch: expected no namespace, got %s",
 			directive.schemaLocation, source.TargetNamespace)
 	}

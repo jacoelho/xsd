@@ -2,12 +2,12 @@ package semanticcheck
 
 import (
 	facetengine "github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // ValidateFacetConstraints validates facet consistency and values for a base type.
-func ValidateFacetConstraints(schema *parser.Schema, facetList []types.Facet, baseType types.Type, baseQName types.QName) error {
+func ValidateFacetConstraints(schema *parser.Schema, facetList []model.Facet, baseType model.Type, baseQName model.QName) error {
 	input := facetengine.SchemaConstraintInput{
 		FacetList: facetList,
 		BaseType:  baseType,
@@ -16,8 +16,8 @@ func ValidateFacetConstraints(schema *parser.Schema, facetList []types.Facet, ba
 	callbacks := facetengine.SchemaConstraintCallbacks{
 		ValidateRangeConsistency: facetengine.ValidateRangeConsistency,
 		ValidateRangeValues:      facetengine.ValidateRangeValues,
-		ValidateEnumerationValue: func(value string, baseType types.Type, context map[string]string) error {
-			return validateValueAgainstTypeWithFacets(schema, value, baseType, context, make(map[types.Type]bool))
+		ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
+			return validateValueAgainstTypeWithFacets(schema, value, baseType, context, make(map[model.Type]bool))
 		},
 	}
 	return facetengine.ValidateSchemaConstraints(input, callbacks)

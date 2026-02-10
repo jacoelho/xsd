@@ -4,19 +4,20 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestCollectRestrictionFacetsPatternSyntaxError(t *testing.T) {
 	t.Parallel()
 
-	restriction := &types.Restriction{
-		Base:   types.QName{Namespace: types.XSDNamespace, Local: "string"},
-		Facets: []any{&types.Pattern{Value: "["}},
+	restriction := &model.Restriction{
+		Base:   model.QName{Namespace: model.XSDNamespace, Local: "string"},
+		Facets: []any{&model.Pattern{Value: "["}},
 	}
 
-	_, err := CollectRestrictionFacets(nil, restriction, types.GetBuiltin(types.TypeNameString), nil)
+	_, err := CollectRestrictionFacets(nil, restriction, builtins.Get(model.TypeNameString), nil)
 	if err == nil {
 		t.Fatalf("expected pattern syntax error")
 	}
@@ -25,7 +26,7 @@ func TestCollectRestrictionFacetsPatternSyntaxError(t *testing.T) {
 func TestCollectRestrictionFacetsDeferredFacetErrors(t *testing.T) {
 	t.Parallel()
 
-	baseType := types.GetBuiltin(types.TypeNameInt)
+	baseType := builtins.Get(model.TypeNameInt)
 	if baseType == nil {
 		t.Fatalf("builtin int type not found")
 	}
@@ -42,10 +43,10 @@ func TestCollectRestrictionFacetsDeferredFacetErrors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			restriction := &types.Restriction{
-				Base: types.QName{Namespace: types.XSDNamespace, Local: "int"},
+			restriction := &model.Restriction{
+				Base: model.QName{Namespace: model.XSDNamespace, Local: "int"},
 				Facets: []any{
-					&types.DeferredFacet{FacetName: tc.facetName, FacetValue: tc.value},
+					&model.DeferredFacet{FacetName: tc.facetName, FacetValue: tc.value},
 				},
 			}
 			_, err := CollectRestrictionFacets(nil, restriction, baseType, nil)
@@ -59,11 +60,11 @@ func TestCollectRestrictionFacetsDeferredFacetErrors(t *testing.T) {
 func TestCollectSimpleTypeFacetsPropagatesRestrictionErrors(t *testing.T) {
 	t.Parallel()
 
-	st := &types.SimpleType{
-		QName: types.QName{Local: "bad"},
-		Restriction: &types.Restriction{
-			Base:   types.QName{Namespace: types.XSDNamespace, Local: "string"},
-			Facets: []any{&types.Pattern{Value: "["}},
+	st := &model.SimpleType{
+		QName: model.QName{Local: "bad"},
+		Restriction: &model.Restriction{
+			Base:   model.QName{Namespace: model.XSDNamespace, Local: "string"},
+			Facets: []any{&model.Pattern{Value: "["}},
 		},
 	}
 
@@ -77,10 +78,10 @@ func TestResolveUnionMemberTypesHandlesCycles(t *testing.T) {
 	t.Parallel()
 
 	schema := parser.NewSchema()
-	qname := types.QName{Namespace: "urn:test", Local: "A"}
-	st := &types.SimpleType{
+	qname := model.QName{Namespace: "urn:test", Local: "A"}
+	st := &model.SimpleType{
 		QName:       qname,
-		Restriction: &types.Restriction{Base: qname},
+		Restriction: &model.Restriction{Base: qname},
 	}
 	schema.TypeDefs[qname] = st
 
@@ -94,16 +95,16 @@ func TestIsIDOnlyDerivedTypeHandlesCycles(t *testing.T) {
 	t.Parallel()
 
 	schema := parser.NewSchema()
-	aQName := types.QName{Namespace: "urn:test", Local: "A"}
-	bQName := types.QName{Namespace: "urn:test", Local: "B"}
+	aQName := model.QName{Namespace: "urn:test", Local: "A"}
+	bQName := model.QName{Namespace: "urn:test", Local: "B"}
 
-	a := &types.SimpleType{
+	a := &model.SimpleType{
 		QName:       aQName,
-		Restriction: &types.Restriction{Base: bQName},
+		Restriction: &model.Restriction{Base: bQName},
 	}
-	b := &types.SimpleType{
+	b := &model.SimpleType{
 		QName:       bQName,
-		Restriction: &types.Restriction{Base: aQName},
+		Restriction: &model.Restriction{Base: aQName},
 	}
 	schema.TypeDefs[aQName] = a
 	schema.TypeDefs[bQName] = b
@@ -112,9 +113,9 @@ func TestIsIDOnlyDerivedTypeHandlesCycles(t *testing.T) {
 		t.Fatalf("expected cyclic non-ID derivation to be false")
 	}
 
-	idDerived := &types.SimpleType{
-		Restriction: &types.Restriction{
-			Base: types.QName{Namespace: types.XSDNamespace, Local: string(types.TypeNameID)},
+	idDerived := &model.SimpleType{
+		Restriction: &model.Restriction{
+			Base: model.QName{Namespace: model.XSDNamespace, Local: string(model.TypeNameID)},
 		},
 	}
 	if !IsIDOnlyDerivedType(nil, idDerived) {
@@ -125,7 +126,7 @@ func TestIsIDOnlyDerivedTypeHandlesCycles(t *testing.T) {
 func TestDefaultDeferredFacetConverter(t *testing.T) {
 	t.Parallel()
 
-	baseType := types.GetBuiltin(types.TypeNameInt)
+	baseType := builtins.Get(model.TypeNameInt)
 	if baseType == nil {
 		t.Fatalf("builtin int type not found")
 	}
@@ -134,7 +135,7 @@ func TestDefaultDeferredFacetConverter(t *testing.T) {
 		t.Fatalf("nil deferred facet should be ignored, got facet=%v err=%v", facet, err)
 	}
 
-	facet, err := DefaultDeferredFacetConverter(&types.DeferredFacet{
+	facet, err := DefaultDeferredFacetConverter(&model.DeferredFacet{
 		FacetName:  "minInclusive",
 		FacetValue: "1",
 	}, baseType)
@@ -145,7 +146,7 @@ func TestDefaultDeferredFacetConverter(t *testing.T) {
 		t.Fatalf("expected non-nil converted facet")
 	}
 
-	_, err = DefaultDeferredFacetConverter(&types.DeferredFacet{
+	_, err = DefaultDeferredFacetConverter(&model.DeferredFacet{
 		FacetName:  "unknownFacet",
 		FacetValue: "1",
 	}, baseType)
@@ -157,10 +158,10 @@ func TestDefaultDeferredFacetConverter(t *testing.T) {
 func TestHelpersNilInputs(t *testing.T) {
 	t.Parallel()
 
-	if got, err := ResolveTypeQName(nil, types.QName{}, TypeReferenceMustExist); err != nil || got != nil {
+	if got, err := ResolveTypeQName(nil, model.QName{}, TypeReferenceMustExist); err != nil || got != nil {
 		t.Fatalf("ResolveTypeQName nil input = (%v, %v), want (nil, nil)", got, err)
 	}
-	if got := ResolveSimpleTypeReferenceAllowMissing(nil, types.QName{}); got != nil {
+	if got := ResolveSimpleTypeReferenceAllowMissing(nil, model.QName{}); got != nil {
 		t.Fatalf("ResolveSimpleTypeReferenceAllowMissing nil input = %v, want nil", got)
 	}
 	if got := ResolveSimpleContentBaseTypeFromContent(nil, nil); got != nil {
@@ -181,7 +182,7 @@ func TestHelpersNilInputs(t *testing.T) {
 func TestResolveSimpleTypeReferenceMissingTypeReturnsError(t *testing.T) {
 	t.Parallel()
 
-	_, err := ResolveTypeQName(nil, types.QName{Namespace: "urn:test", Local: "Missing"}, TypeReferenceMustExist)
+	_, err := ResolveTypeQName(nil, model.QName{Namespace: "urn:test", Local: "Missing"}, TypeReferenceMustExist)
 	if err == nil || !strings.Contains(err.Error(), "type {urn:test}Missing not found") {
 		t.Fatalf("expected missing type error, got %v", err)
 	}

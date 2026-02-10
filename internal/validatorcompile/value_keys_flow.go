@@ -3,8 +3,8 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/valuekey"
 )
 
@@ -13,7 +13,7 @@ type keyBytes struct {
 	kind  runtime.ValueKind
 }
 
-func (c *compiler) valueKeysForNormalized(lexical, normalized string, typ types.Type, ctx map[string]string) ([]runtime.ValueKey, error) {
+func (c *compiler) valueKeysForNormalized(lexical, normalized string, typ model.Type, ctx map[string]string) ([]runtime.ValueKey, error) {
 	keys, err := c.keyBytesForNormalized(lexical, normalized, typ, ctx)
 	if err != nil {
 		return nil, err
@@ -25,11 +25,11 @@ func (c *compiler) valueKeysForNormalized(lexical, normalized string, typ types.
 	return out, nil
 }
 
-func (c *compiler) keyBytesForNormalized(lexical, normalized string, typ types.Type, ctx map[string]string) ([]keyBytes, error) {
+func (c *compiler) keyBytesForNormalized(lexical, normalized string, typ model.Type, ctx map[string]string) ([]keyBytes, error) {
 	switch c.res.varietyForType(typ) {
-	case types.ListVariety:
+	case model.ListVariety:
 		return c.keyBytesForList(normalized, typ, ctx)
-	case types.UnionVariety:
+	case model.UnionVariety:
 		return c.keyBytesForUnion(lexical, typ, ctx)
 	default:
 		key, err := c.keyBytesAtomic(normalized, typ, ctx)
@@ -40,7 +40,7 @@ func (c *compiler) keyBytesForNormalized(lexical, normalized string, typ types.T
 	}
 }
 
-func (c *compiler) keyBytesForNormalizedSingle(normalized string, typ types.Type, ctx map[string]string) (keyBytes, error) {
+func (c *compiler) keyBytesForNormalizedSingle(normalized string, typ model.Type, ctx map[string]string) (keyBytes, error) {
 	keys, err := c.keyBytesForNormalized(normalized, normalized, typ, ctx)
 	if err != nil {
 		return keyBytes{}, err
@@ -51,17 +51,17 @@ func (c *compiler) keyBytesForNormalizedSingle(normalized string, typ types.Type
 	return keys[0], nil
 }
 
-func (c *compiler) keyBytesForList(normalized string, typ types.Type, ctx map[string]string) ([]keyBytes, error) {
+func (c *compiler) keyBytesForList(normalized string, typ model.Type, ctx map[string]string) ([]keyBytes, error) {
 	item, ok := c.res.listItemTypeFromType(typ)
 	if !ok || item == nil {
 		return nil, fmt.Errorf("list type missing item type")
 	}
 	count := 0
-	for range types.FieldsXMLWhitespaceSeq(normalized) {
+	for range model.FieldsXMLWhitespaceSeq(normalized) {
 		count++
 	}
 	keyBytesBuf := valuekey.AppendUvarint(nil, uint64(count))
-	for itemLex := range types.FieldsXMLWhitespaceSeq(normalized) {
+	for itemLex := range model.FieldsXMLWhitespaceSeq(normalized) {
 		itemKey, err := c.keyBytesForNormalizedSingle(itemLex, item, ctx)
 		if err != nil {
 			return nil, err
@@ -71,7 +71,7 @@ func (c *compiler) keyBytesForList(normalized string, typ types.Type, ctx map[st
 	return []keyBytes{{kind: runtime.VKList, bytes: keyBytesBuf}}, nil
 }
 
-func (c *compiler) keyBytesForUnion(lexical string, typ types.Type, ctx map[string]string) ([]keyBytes, error) {
+func (c *compiler) keyBytesForUnion(lexical string, typ model.Type, ctx map[string]string) ([]keyBytes, error) {
 	members := c.res.unionMemberTypesFromType(typ)
 	if len(members) == 0 {
 		return nil, fmt.Errorf("union has no member types")

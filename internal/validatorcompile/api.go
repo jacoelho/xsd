@@ -1,9 +1,9 @@
 package validatorcompile
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	schema "github.com/jacoelho/xsd/internal/semantic"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // CompiledValidators stores precompiled validator artifacts used by runtime build.
@@ -65,7 +65,7 @@ func (c *compiledValidators) AttributeFixed(id schema.AttrID) (DefaultFixedValue
 }
 
 // AttrUseDefault returns the compiled default value for a specific attribute use.
-func (c *compiledValidators) AttrUseDefault(attr *types.AttributeDecl) (DefaultFixedValue, bool) {
+func (c *compiledValidators) AttrUseDefault(attr *model.AttributeDecl) (DefaultFixedValue, bool) {
 	if c == nil {
 		return DefaultFixedValue{}, false
 	}
@@ -77,7 +77,7 @@ func (c *compiledValidators) AttrUseDefault(attr *types.AttributeDecl) (DefaultF
 }
 
 // AttrUseFixed returns the compiled fixed value for a specific attribute use.
-func (c *compiledValidators) AttrUseFixed(attr *types.AttributeDecl) (DefaultFixedValue, bool) {
+func (c *compiledValidators) AttrUseFixed(attr *model.AttributeDecl) (DefaultFixedValue, bool) {
 	if c == nil {
 		return DefaultFixedValue{}, false
 	}

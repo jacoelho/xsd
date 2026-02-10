@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestDefaultCanonicalizationMatchesGeneral(t *testing.T) {
@@ -42,7 +42,7 @@ func TestDefaultCanonicalizationMatchesGeneral(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			typ := sch.TypeDefs[types.QName{Namespace: sch.TargetNamespace, Local: tc.typeName}]
+			typ := sch.TypeDefs[model.QName{Namespace: sch.TargetNamespace, Local: tc.typeName}]
 			if typ == nil {
 				t.Fatalf("type %s not found", tc.typeName)
 			}

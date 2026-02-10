@@ -1,35 +1,35 @@
 package typeops
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // EffectiveAttributeQName resolves an attribute's effective QName using form defaults.
-func EffectiveAttributeQName(schema *parser.Schema, attr *types.AttributeDecl) types.QName {
+func EffectiveAttributeQName(schema *parser.Schema, attr *model.AttributeDecl) model.QName {
 	if attr == nil {
-		return types.QName{}
+		return model.QName{}
 	}
 	if attr.IsReference {
 		return attr.Name
 	}
 	form := attr.Form
-	if form == types.FormDefault {
+	if form == model.FormDefault {
 		if schema != nil && schema.AttributeFormDefault == parser.Qualified {
-			form = types.FormQualified
+			form = model.FormQualified
 		} else {
-			form = types.FormUnqualified
+			form = model.FormUnqualified
 		}
 	}
-	if form == types.FormQualified {
-		ns := types.NamespaceEmpty
+	if form == model.FormQualified {
+		ns := model.NamespaceEmpty
 		if schema != nil {
 			ns = schema.TargetNamespace
 		}
-		if !attr.SourceNamespace.IsEmpty() {
+		if attr.SourceNamespace != "" {
 			ns = attr.SourceNamespace
 		}
-		return types.QName{Namespace: ns, Local: attr.Name.Local}
+		return model.QName{Namespace: ns, Local: attr.Name.Local}
 	}
-	return types.QName{Namespace: types.NamespaceEmpty, Local: attr.Name.Local}
+	return model.QName{Namespace: model.NamespaceEmpty, Local: attr.Name.Local}
 }

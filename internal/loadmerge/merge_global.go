@@ -1,8 +1,8 @@
 package loadmerge
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func existingGlobalDecls(sch *parser.Schema) map[globalDeclKey]struct{} {
@@ -56,7 +56,7 @@ func insertGlobalDecls(dst []parser.GlobalDecl, insertAt int, insert []parser.Gl
 	return merged
 }
 
-func (c *mergeContext) globalDeclExists(kind parser.GlobalDeclKind, name types.QName) bool {
+func (c *mergeContext) globalDeclExists(kind parser.GlobalDeclKind, name model.QName) bool {
 	switch kind {
 	case parser.GlobalDeclElement:
 		_, ok := c.target.ElementDecls[name]

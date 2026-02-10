@@ -4,21 +4,23 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/typefacet"
 )
 
 // SchemaConstraintInput carries schema-time facet consistency inputs.
 type SchemaConstraintInput struct {
-	BaseType  types.Type
-	BaseQName types.QName
-	FacetList []types.Facet
+	BaseType  model.Type
+	BaseQName model.QName
+	FacetList []model.Facet
 }
 
 // SchemaConstraintCallbacks provides semantic checks delegated to callers.
 type SchemaConstraintCallbacks struct {
-	ValidateRangeConsistency func(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseType types.Type, baseQName types.QName) error
-	ValidateRangeValues      func(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseType types.Type, bt *types.BuiltinType) error
-	ValidateEnumerationValue func(value string, baseType types.Type, context map[string]string) error
+	ValidateRangeConsistency func(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseType model.Type, baseQName model.QName) error
+	ValidateRangeValues      func(minExclusive, maxExclusive, minInclusive, maxInclusive *string, baseType model.Type, bt *model.BuiltinType) error
+	ValidateEnumerationValue func(value string, baseType model.Type, context map[string]string) error
 }
 
 type facetConstraintState struct {
@@ -37,10 +39,10 @@ type facetConstraintState struct {
 // ValidateSchemaConstraints validates schema-time facet consistency for a base type.
 func ValidateSchemaConstraints(in SchemaConstraintInput, cb SchemaConstraintCallbacks) error {
 	baseTypeName := in.BaseQName.Local
-	isBuiltin := in.BaseQName.Namespace == types.XSDNamespace
-	var bt *types.BuiltinType
+	isBuiltin := in.BaseQName.Namespace == model.XSDNamespace
+	var bt *model.BuiltinType
 	if isBuiltin {
-		bt = types.GetBuiltin(types.TypeName(baseTypeName))
+		bt = builtins.Get(builtins.TypeName(baseTypeName))
 	}
 
 	state := facetConstraintState{}
@@ -53,7 +55,7 @@ func ValidateSchemaConstraints(in SchemaConstraintInput, cb SchemaConstraintCall
 		if err := state.captureFacet(name, facet); err != nil {
 			return err
 		}
-		if err := types.ValidateFacetApplicability(name, in.BaseType, in.BaseQName); err != nil {
+		if err := typefacet.ValidateApplicability(name, in.BaseType, in.BaseQName); err != nil {
 			return err
 		}
 	}
@@ -96,10 +98,10 @@ func IsValidFacetName(name string) bool {
 	}
 }
 
-func (s *facetConstraintState) captureFacet(name string, facet types.Facet) error {
+func (s *facetConstraintState) captureFacet(name string, facet model.Facet) error {
 	switch name {
 	case "minExclusive", "maxExclusive", "minInclusive", "maxInclusive":
-		if lf, ok := facet.(types.LexicalFacet); ok {
+		if lf, ok := facet.(model.LexicalFacet); ok {
 			val := lf.GetLexical()
 			if val == "" {
 				return nil
@@ -116,29 +118,29 @@ func (s *facetConstraintState) captureFacet(name string, facet types.Facet) erro
 			}
 		}
 	case "length":
-		if ivf, ok := facet.(types.IntValueFacet); ok {
+		if ivf, ok := facet.(model.IntValueFacet); ok {
 			val := ivf.GetIntValue()
 			s.length = &val
 		}
 	case "minLength":
-		if ivf, ok := facet.(types.IntValueFacet); ok {
+		if ivf, ok := facet.(model.IntValueFacet); ok {
 			val := ivf.GetIntValue()
 			s.minLength = &val
 		}
 	case "maxLength":
-		if ivf, ok := facet.(types.IntValueFacet); ok {
+		if ivf, ok := facet.(model.IntValueFacet); ok {
 			val := ivf.GetIntValue()
 			s.maxLength = &val
 		}
 	case "enumeration":
 		s.hasEnumeration = true
 	case "totalDigits":
-		if ivf, ok := facet.(types.IntValueFacet); ok {
+		if ivf, ok := facet.(model.IntValueFacet); ok {
 			val := ivf.GetIntValue()
 			s.totalDigits = &val
 		}
 	case "fractionDigits":
-		if ivf, ok := facet.(types.IntValueFacet); ok {
+		if ivf, ok := facet.(model.IntValueFacet); ok {
 			val := ivf.GetIntValue()
 			s.fractionDigits = &val
 		}
@@ -152,7 +154,7 @@ func (s *facetConstraintState) captureFacet(name string, facet types.Facet) erro
 	return nil
 }
 
-func validateLengthFacetConstraints(state *facetConstraintState, baseType types.Type, baseQName types.QName, baseTypeName string) error {
+func validateLengthFacetConstraints(state *facetConstraintState, baseType model.Type, baseQName model.QName, baseTypeName string) error {
 	if state.length != nil && (state.minLength != nil || state.maxLength != nil) {
 		if !isListTypeForFacets(baseType, baseQName) {
 			return fmt.Errorf("length facet cannot be used together with minLength or maxLength")
@@ -168,7 +170,7 @@ func validateLengthFacetConstraints(state *facetConstraintState, baseType types.
 		}
 	}
 
-	if types.IsBuiltinListTypeName(baseTypeName) {
+	if builtins.IsBuiltinListTypeName(baseTypeName) {
 		if state.length != nil && *state.length < 1 {
 			return fmt.Errorf("length (%d) must be >= 1 for list type %s", *state.length, baseTypeName)
 		}
@@ -183,7 +185,7 @@ func validateLengthFacetConstraints(state *facetConstraintState, baseType types.
 	return nil
 }
 
-func validateDigitsConstraints(state *facetConstraintState, baseType types.Type, baseTypeName string, isBuiltin bool) error {
+func validateDigitsConstraints(state *facetConstraintState, baseType model.Type, baseTypeName string, isBuiltin bool) error {
 	if state.totalDigits != nil && state.fractionDigits != nil {
 		if *state.fractionDigits > *state.totalDigits {
 			return fmt.Errorf("fractionDigits (%d) must be <= totalDigits (%d)", *state.fractionDigits, *state.totalDigits)
@@ -205,13 +207,13 @@ func validateDigitsConstraints(state *facetConstraintState, baseType types.Type,
 	return nil
 }
 
-func isListTypeForFacets(baseType types.Type, baseQName types.QName) bool {
-	if st, ok := baseType.(*types.SimpleType); ok {
-		if st.Variety() == types.ListVariety {
+func isListTypeForFacets(baseType model.Type, baseQName model.QName) bool {
+	if st, ok := baseType.(*model.SimpleType); ok {
+		if st.Variety() == model.ListVariety {
 			return true
 		}
 	}
-	if baseQName.Namespace == types.XSDNamespace && types.IsBuiltinListTypeName(baseQName.Local) {
+	if baseQName.Namespace == model.XSDNamespace && builtins.IsBuiltinListTypeName(baseQName.Local) {
 		return true
 	}
 	return false
@@ -226,18 +228,18 @@ func isIntegerTypeName(typeName string) bool {
 	return slices.Contains(integerTypes, typeName)
 }
 
-func getEffectiveIntegerTypeName(t types.Type) string {
-	visited := make(map[types.Type]bool)
+func getEffectiveIntegerTypeName(t model.Type) string {
+	visited := make(map[model.Type]bool)
 	current := t
 	for current != nil && !visited[current] {
 		visited[current] = true
 
 		var typeName string
 		switch ct := current.(type) {
-		case *types.BuiltinType:
+		case *model.BuiltinType:
 			typeName = ct.Name().Local
-		case *types.SimpleType:
-			if ct.IsBuiltin() || ct.QName.Namespace == types.XSDNamespace {
+		case *model.SimpleType:
+			if ct.IsBuiltin() || ct.QName.Namespace == model.XSDNamespace {
 				typeName = ct.QName.Local
 			}
 		}
@@ -251,8 +253,8 @@ func getEffectiveIntegerTypeName(t types.Type) string {
 	return ""
 }
 
-func shouldDeferEnumerationValidation(baseType types.Type) bool {
-	st, ok := baseType.(*types.SimpleType)
+func shouldDeferEnumerationValidation(baseType model.Type) bool {
+	st, ok := baseType.(*model.SimpleType)
 	if !ok {
 		return false
 	}
@@ -262,10 +264,10 @@ func shouldDeferEnumerationValidation(baseType types.Type) bool {
 	if st.Restriction == nil || st.Restriction.Base.IsZero() {
 		return false
 	}
-	return st.Restriction.Base.Namespace != types.XSDNamespace
+	return st.Restriction.Base.Namespace != model.XSDNamespace
 }
 
-func validateEnumerationValues(facetList []types.Facet, baseType types.Type, validateValue func(value string, baseType types.Type, context map[string]string) error) error {
+func validateEnumerationValues(facetList []model.Facet, baseType model.Type, validateValue func(value string, baseType model.Type, context map[string]string) error) error {
 	if baseType == nil || validateValue == nil {
 		return nil
 	}
@@ -276,7 +278,7 @@ func validateEnumerationValues(facetList []types.Facet, baseType types.Type, val
 		if f.Name() != "enumeration" {
 			continue
 		}
-		enum, ok := f.(*types.Enumeration)
+		enum, ok := f.(*model.Enumeration)
 		if !ok {
 			continue
 		}
@@ -291,7 +293,7 @@ func validateEnumerationValues(facetList []types.Facet, baseType types.Type, val
 	return nil
 }
 
-func enumContext(enum *types.Enumeration, index int) map[string]string {
+func enumContext(enum *model.Enumeration, index int) map[string]string {
 	if enum == nil {
 		return nil
 	}

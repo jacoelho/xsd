@@ -3,9 +3,10 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateElementRestriction validates that a restriction element properly restricts a base element.
@@ -14,7 +15,7 @@ import (
 // - fixed: If base has fixed value, restriction must have same fixed value
 // - block: Restriction block must be superset of base block (cannot allow more derivations)
 // - type: Restriction type must be same as or derived from base type
-func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem *types.ElementDecl) error {
+func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem *model.ElementDecl) error {
 	if !baseElem.Nillable && restrictionElem.Nillable {
 		return fmt.Errorf("ComplexContent restriction: element '%s' nillable cannot be true when base element nillable is false", restrictionElem.Name)
 	}
@@ -44,12 +45,12 @@ func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem
 	baseTypeName := baseType.Name()
 	restrictionTypeName := restrictionType.Name()
 
-	if baseTypeName.Namespace == types.XSDNamespace && baseTypeName.Local == "anyType" {
+	if baseTypeName.Namespace == model.XSDNamespace && baseTypeName.Local == "anyType" {
 		return nil
 	}
-	if baseTypeName.Namespace == types.XSDNamespace && baseTypeName.Local == "anySimpleType" {
+	if baseTypeName.Namespace == model.XSDNamespace && baseTypeName.Local == "anySimpleType" {
 		switch restrictionType.(type) {
-		case *types.SimpleType, *types.BuiltinType:
+		case *model.SimpleType, *model.BuiltinType:
 			return nil
 		}
 	}
@@ -60,7 +61,7 @@ func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem
 
 	if restrictionTypeName.Local == "" {
 		if !isRestrictionDerivedFrom(schema, restrictionType, baseType) {
-			if st, ok := restrictionType.(*types.SimpleType); ok {
+			if st, ok := restrictionType.(*model.SimpleType); ok {
 				if st.Restriction != nil && st.Restriction.Base == baseTypeName {
 					return nil
 				}
@@ -80,7 +81,7 @@ func validateElementRestriction(schema *parser.Schema, baseElem, restrictionElem
 	return nil
 }
 
-func effectiveElementType(schema *parser.Schema, elem *types.ElementDecl) types.Type {
+func effectiveElementType(schema *parser.Schema, elem *model.ElementDecl) model.Type {
 	if elem == nil {
 		return nil
 	}
@@ -91,22 +92,22 @@ func effectiveElementType(schema *parser.Schema, elem *types.ElementDecl) types.
 	return elem.Type
 }
 
-func normalizeFixedValue(value string, typ types.Type) string {
+func normalizeFixedValue(value string, typ model.Type) string {
 	if typ == nil {
 		return value
 	}
-	if st, ok := typ.(*types.SimpleType); ok {
-		if st.List != nil || st.Variety() == types.ListVariety {
-			return types.ApplyWhiteSpace(value, types.WhiteSpaceCollapse)
+	if st, ok := typ.(*model.SimpleType); ok {
+		if st.List != nil || st.Variety() == model.ListVariety {
+			return model.ApplyWhiteSpace(value, model.WhiteSpaceCollapse)
 		}
 		if st.Restriction != nil && !st.Restriction.Base.IsZero() &&
-			st.Restriction.Base.Namespace == types.XSDNamespace &&
-			types.IsBuiltinListTypeName(st.Restriction.Base.Local) {
-			return types.ApplyWhiteSpace(value, types.WhiteSpaceCollapse)
+			st.Restriction.Base.Namespace == model.XSDNamespace &&
+			builtins.IsBuiltinListTypeName(st.Restriction.Base.Local) {
+			return model.ApplyWhiteSpace(value, model.WhiteSpaceCollapse)
 		}
 	}
-	if bt, ok := typ.(*types.BuiltinType); ok && types.IsBuiltinListTypeName(bt.Name().Local) {
-		return types.ApplyWhiteSpace(value, types.WhiteSpaceCollapse)
+	if bt, ok := typ.(*model.BuiltinType); ok && builtins.IsBuiltinListTypeName(bt.Name().Local) {
+		return model.ApplyWhiteSpace(value, model.WhiteSpaceCollapse)
 	}
-	return types.NormalizeWhiteSpace(value, typ)
+	return model.NormalizeWhiteSpace(value, typ)
 }

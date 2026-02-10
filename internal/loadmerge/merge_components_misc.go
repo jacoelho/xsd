@@ -4,18 +4,18 @@ import (
 	"cmp"
 	"slices"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func (c *mergeContext) mergeSubstitutionGroups() {
 	if c.target.SubstitutionGroups == nil {
-		c.target.SubstitutionGroups = make(map[types.QName][]types.QName)
+		c.target.SubstitutionGroups = make(map[model.QName][]model.QName)
 	}
-	heads := make([]types.QName, 0, len(c.source.SubstitutionGroups))
+	heads := make([]model.QName, 0, len(c.source.SubstitutionGroups))
 	for head := range c.source.SubstitutionGroups {
 		heads = append(heads, head)
 	}
-	slices.SortFunc(heads, func(a, b types.QName) int {
+	slices.SortFunc(heads, func(a, b model.QName) int {
 		if a.Namespace != b.Namespace {
 			return cmp.Compare(a.Namespace, b.Namespace)
 		}
@@ -24,7 +24,7 @@ func (c *mergeContext) mergeSubstitutionGroups() {
 	for _, head := range heads {
 		members := c.source.SubstitutionGroups[head]
 		targetHead := c.remapQName(head)
-		remappedMembers := make([]types.QName, 0, len(members))
+		remappedMembers := make([]model.QName, 0, len(members))
 		for _, member := range members {
 			remapped := c.remapQName(member)
 			remappedMembers = append(remappedMembers, remapped)
@@ -45,18 +45,18 @@ func (c *mergeContext) mergeSubstitutionGroups() {
 	}
 }
 
-func sortAndDedupeQNames(names []types.QName) []types.QName {
+func sortAndDedupeQNames(names []model.QName) []model.QName {
 	if len(names) < 2 {
 		return names
 	}
-	slices.SortFunc(names, func(a, b types.QName) int {
+	slices.SortFunc(names, func(a, b model.QName) int {
 		if a.Namespace != b.Namespace {
 			return cmp.Compare(a.Namespace, b.Namespace)
 		}
 		return cmp.Compare(a.Local, b.Local)
 	})
 	out := names[:0]
-	var last types.QName
+	var last model.QName
 	for i, name := range names {
 		if i == 0 || !name.Equal(last) {
 			out = append(out, name)
@@ -72,8 +72,8 @@ func (c *mergeContext) mergeNotationDecls() error {
 		c.target.NotationDecls,
 		c.target.NotationOrigins,
 		c.remapQName,
-		func(qname types.QName) string { return c.originFor(c.source.NotationOrigins, qname) },
-		func(notation *types.NotationDecl) *types.NotationDecl { return notation.Copy(c.opts) },
+		func(qname model.QName) string { return c.originFor(c.source.NotationOrigins, qname) },
+		func(notation *model.NotationDecl) *model.NotationDecl { return notation.Copy(c.opts) },
 		nil,
 		nil,
 		"notation",
@@ -93,7 +93,7 @@ func (c *mergeContext) mergeIDAttributes() error {
 	return nil
 }
 
-func (c *mergeContext) originFor(origins map[types.QName]string, qname types.QName) string {
+func (c *mergeContext) originFor(origins map[model.QName]string, qname model.QName) string {
 	origin := origins[qname]
 	if origin == "" {
 		origin = c.source.Location

@@ -3,15 +3,15 @@ package loadmerge
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func mergeNamed[V any](
-	source map[types.QName]V,
-	target map[types.QName]V,
-	targetOrigins map[types.QName]string,
-	remap func(types.QName) types.QName,
-	originFor func(types.QName) string,
+	source map[model.QName]V,
+	target map[model.QName]V,
+	targetOrigins map[model.QName]string,
+	remap func(model.QName) model.QName,
+	originFor func(model.QName) string,
 	insert func(V) V,
 	candidate func(V) V,
 	equivalent func(existing V, candidate V) bool,

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestBuildSchemaOccursLimitError(t *testing.T) {
@@ -23,7 +23,7 @@ func TestBuildSchemaOccursLimitError(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected maxOccurs limit error")
 	}
-	if !errors.Is(err, types.ErrOccursTooLarge) {
-		t.Fatalf("expected %v, got %v", types.ErrOccursTooLarge, err)
+	if !errors.Is(err, model.ErrOccursTooLarge) {
+		t.Fatalf("expected %v, got %v", model.ErrOccursTooLarge, err)
 	}
 }

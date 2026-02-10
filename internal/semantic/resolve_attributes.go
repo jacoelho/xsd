@@ -3,10 +3,10 @@ package semantic
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func (r *referenceResolver) resolveAttribute(attr *types.AttributeDecl) error {
+func (r *referenceResolver) resolveAttribute(attr *model.AttributeDecl) error {
 	if attr == nil {
 		return nil
 	}
@@ -16,7 +16,7 @@ func (r *referenceResolver) resolveAttribute(attr *types.AttributeDecl) error {
 	if attr.Type == nil {
 		return nil
 	}
-	if st, ok := attr.Type.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) {
+	if st, ok := attr.Type.(*model.SimpleType); ok && model.IsPlaceholderSimpleType(st) {
 		if err := r.resolveTypeQName(st.QName); err != nil {
 			return fmt.Errorf("attribute %s: %w", attr.Name, err)
 		}
@@ -28,7 +28,7 @@ func (r *referenceResolver) resolveAttribute(attr *types.AttributeDecl) error {
 	return nil
 }
 
-func (r *referenceResolver) resolveAttributeReference(attr *types.AttributeDecl) error {
+func (r *referenceResolver) resolveAttributeReference(attr *model.AttributeDecl) error {
 	target := r.schema.AttributeDecls[attr.Name]
 	if target == nil {
 		return fmt.Errorf("attribute ref %s not found", attr.Name)
@@ -44,7 +44,7 @@ func (r *referenceResolver) resolveAttributeReference(attr *types.AttributeDecl)
 	return nil
 }
 
-func (r *referenceResolver) resolveAttributeGroup(name types.QName, group *types.AttributeGroup) error {
+func (r *referenceResolver) resolveAttributeGroup(name model.QName, group *model.AttributeGroup) error {
 	for _, ref := range group.AttrGroups {
 		if _, ok := r.schema.AttributeGroups[ref]; !ok {
 			return fmt.Errorf("attributeGroup %s: nested group %s not found", name, ref)
@@ -58,7 +58,7 @@ func (r *referenceResolver) resolveAttributeGroup(name types.QName, group *types
 	return nil
 }
 
-func (r *referenceResolver) resolveAttributes(attrs []*types.AttributeDecl, groups []types.QName) error {
+func (r *referenceResolver) resolveAttributes(attrs []*model.AttributeDecl, groups []model.QName) error {
 	for _, ref := range groups {
 		if _, ok := r.schema.AttributeGroups[ref]; !ok {
 			return fmt.Errorf("attributeGroup ref %s not found", ref)

@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestResolveAndValidateRejectsNilSchema(t *testing.T) {
@@ -41,9 +41,9 @@ func TestResolveAndValidateResolvesTypeReferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveAndValidate() error = %v", err)
 	}
-	derivedQName := types.QName{Namespace: "urn:test", Local: "Derived"}
+	derivedQName := model.QName{Namespace: "urn:test", Local: "Derived"}
 
-	derived, ok := sch.TypeDefs[derivedQName].(*types.ComplexType)
+	derived, ok := sch.TypeDefs[derivedQName].(*model.ComplexType)
 	if !ok || derived == nil {
 		t.Fatalf("expected complex type %s", derivedQName)
 	}
@@ -51,7 +51,7 @@ func TestResolveAndValidateResolvesTypeReferences(t *testing.T) {
 		t.Fatal("expected parse schema to remain unresolved")
 	}
 
-	resolvedDerived, ok := resolved.TypeDefs[derivedQName].(*types.ComplexType)
+	resolvedDerived, ok := resolved.TypeDefs[derivedQName].(*model.ComplexType)
 	if !ok || resolvedDerived == nil {
 		t.Fatalf("expected resolved complex type %s", derivedQName)
 	}
@@ -74,8 +74,8 @@ func TestResolveAndValidateReturnsIndependentClone(t *testing.T) {
 		t.Fatalf("ResolveAndValidate() error = %v", err)
 	}
 
-	delete(sch.ElementDecls, types.QName{Local: "root"})
-	if _, ok := resolved.ElementDecls[types.QName{Local: "root"}]; !ok {
+	delete(sch.ElementDecls, model.QName{Local: "root"})
+	if _, ok := resolved.ElementDecls[model.QName{Local: "root"}]; !ok {
 		t.Fatal("resolved clone should remain independent from caller mutations")
 	}
 }

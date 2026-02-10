@@ -1,11 +1,11 @@
 package validatorcompile
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
-func (r *typeResolver) builtinNameForType(typ types.Type) (types.TypeName, bool) {
-	seen := make(map[types.Type]bool)
-	var walk func(types.Type) (types.TypeName, bool)
-	walk = func(current types.Type) (types.TypeName, bool) {
+func (r *typeResolver) builtinNameForType(typ model.Type) (model.TypeName, bool) {
+	seen := make(map[model.Type]bool)
+	var walk func(model.Type) (model.TypeName, bool)
+	walk = func(current model.Type) (model.TypeName, bool) {
 		if current == nil {
 			return "", false
 		}
@@ -16,9 +16,9 @@ func (r *typeResolver) builtinNameForType(typ types.Type) (types.TypeName, bool)
 		defer delete(seen, current)
 
 		if bt := builtinForType(current); bt != nil {
-			return types.TypeName(bt.Name().Local), true
+			return model.TypeName(bt.Name().Local), true
 		}
-		st, ok := types.AsSimpleType(current)
+		st, ok := model.AsSimpleType(current)
 		if !ok {
 			return "", false
 		}

@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/schemaflow"
 	schema "github.com/jacoelho/xsd/internal/semantic"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validatorcompile"
 )
 
@@ -28,7 +28,7 @@ func TestCompileProducesNamedSimpleTypeValidator(t *testing.T) {
 
 	compiled, sch, reg := mustCompileSchema(t, schemaXML)
 
-	typeName := types.QName{Namespace: "urn:compile", Local: "Code"}
+	typeName := model.QName{Namespace: "urn:compile", Local: "Code"}
 	typeID, ok := reg.Types[typeName]
 	if !ok {
 		t.Fatalf("missing type ID for %s", typeName)
@@ -59,7 +59,7 @@ func TestCompilePreservesElementDefaultAndAttributeFixed(t *testing.T) {
 
 	compiled, _, reg := mustCompileSchema(t, schemaXML)
 
-	elemName := types.QName{Namespace: "urn:defaults", Local: "root"}
+	elemName := model.QName{Namespace: "urn:defaults", Local: "root"}
 	elemID, ok := reg.Elements[elemName]
 	if !ok {
 		t.Fatalf("missing element ID for %s", elemName)
@@ -72,7 +72,7 @@ func TestCompilePreservesElementDefaultAndAttributeFixed(t *testing.T) {
 		t.Fatalf("element default value = %q, want %q", got, "hello")
 	}
 
-	attrName := types.QName{Namespace: "urn:defaults", Local: "status"}
+	attrName := model.QName{Namespace: "urn:defaults", Local: "status"}
 	attrID, ok := reg.Attributes[attrName]
 	if !ok {
 		t.Fatalf("missing attribute ID for %s", attrName)

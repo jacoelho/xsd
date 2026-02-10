@@ -1,12 +1,12 @@
 package semanticcheck
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func isSubstitutableElement(schema *parser.Schema, head, member types.QName) bool {
+func isSubstitutableElement(schema *parser.Schema, head, member model.QName) bool {
 	if schema == nil || head == member {
 		return true
 	}
@@ -14,7 +14,7 @@ func isSubstitutableElement(schema *parser.Schema, head, member types.QName) boo
 	if headDecl == nil {
 		return false
 	}
-	if headDecl.Block.Has(types.DerivationSubstitution) {
+	if headDecl.Block.Has(model.DerivationSubstitution) {
 		return false
 	}
 	if !isSubstitutionGroupMember(schema, head, member) {
@@ -30,8 +30,8 @@ func isSubstitutableElement(schema *parser.Schema, head, member types.QName) boo
 		return true
 	}
 	combinedBlock := headDecl.Block
-	if headCT, ok := headType.(*types.ComplexType); ok {
-		combinedBlock = combinedBlock.Add(types.DerivationMethod(headCT.Block))
+	if headCT, ok := headType.(*model.ComplexType); ok {
+		combinedBlock = combinedBlock.Add(model.DerivationMethod(headCT.Block))
 	}
 	if isDerivationBlocked(memberType, headType, combinedBlock) {
 		return false
@@ -39,13 +39,13 @@ func isSubstitutableElement(schema *parser.Schema, head, member types.QName) boo
 	return true
 }
 
-func isSubstitutionGroupMember(schema *parser.Schema, head, member types.QName) bool {
+func isSubstitutionGroupMember(schema *parser.Schema, head, member model.QName) bool {
 	if schema == nil {
 		return false
 	}
-	visited := make(map[types.QName]bool)
-	var walk func(types.QName) bool
-	walk = func(current types.QName) bool {
+	visited := make(map[model.QName]bool)
+	var walk func(model.QName) bool
+	walk = func(current model.QName) bool {
 		if visited[current] {
 			return false
 		}
@@ -63,7 +63,7 @@ func isSubstitutionGroupMember(schema *parser.Schema, head, member types.QName) 
 	return walk(head)
 }
 
-func isDerivationBlocked(memberType, headType types.Type, block types.DerivationSet) bool {
+func isDerivationBlocked(memberType, headType model.Type, block model.DerivationSet) bool {
 	if memberType == nil || headType == nil || block == 0 {
 		return false
 	}
@@ -73,7 +73,7 @@ func isDerivationBlocked(memberType, headType types.Type, block types.Derivation
 		if method != 0 && block.Has(method) {
 			return true
 		}
-		derived, ok := types.AsDerivedType(current)
+		derived, ok := model.AsDerivedType(current)
 		if !ok {
 			return false
 		}
@@ -82,22 +82,22 @@ func isDerivationBlocked(memberType, headType types.Type, block types.Derivation
 	return false
 }
 
-func derivationMethodForType(typ types.Type) types.DerivationMethod {
+func derivationMethodForType(typ model.Type) model.DerivationMethod {
 	switch typed := typ.(type) {
-	case *types.ComplexType:
+	case *model.ComplexType:
 		return typed.DerivationMethod
-	case *types.SimpleType:
-		if typed.List != nil || typed.Variety() == types.ListVariety {
-			return types.DerivationList
+	case *model.SimpleType:
+		if typed.List != nil || typed.Variety() == model.ListVariety {
+			return model.DerivationList
 		}
-		if typed.Union != nil || typed.Variety() == types.UnionVariety {
-			return types.DerivationUnion
+		if typed.Union != nil || typed.Variety() == model.UnionVariety {
+			return model.DerivationUnion
 		}
 		if typed.Restriction != nil || typed.ResolvedBase != nil {
-			return types.DerivationRestriction
+			return model.DerivationRestriction
 		}
-	case *types.BuiltinType:
-		return types.DerivationRestriction
+	case *model.BuiltinType:
+		return model.DerivationRestriction
 	}
 	return 0
 }

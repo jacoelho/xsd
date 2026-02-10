@@ -3,15 +3,15 @@ package semantic
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // ResolvedReferences records resolved references without mutating the parsed schema.
 type ResolvedReferences struct {
-	ElementRefs   map[types.QName]ElemID
-	AttributeRefs map[types.QName]AttrID
-	GroupRefs     map[types.QName]types.QName
+	ElementRefs   map[model.QName]ElemID
+	AttributeRefs map[model.QName]AttrID
+	GroupRefs     map[model.QName]model.QName
 }
 
 type resolveState uint8
@@ -46,10 +46,10 @@ type referenceResolver struct {
 	schema           *parser.Schema
 	registry         *Registry
 	refs             *ResolvedReferences
-	elementState     map[*types.ElementDecl]resolveState
-	modelGroupState  map[*types.ModelGroup]resolveState
-	simpleTypeState  map[*types.SimpleType]resolveState
-	complexTypeState map[*types.ComplexType]resolveState
+	elementState     map[*model.ElementDecl]resolveState
+	modelGroupState  map[*model.ModelGroup]resolveState
+	simpleTypeState  map[*model.SimpleType]resolveState
+	complexTypeState map[*model.ComplexType]resolveState
 }
 
 func newReferenceResolver(schema *parser.Schema, registry *Registry) *referenceResolver {
@@ -57,14 +57,14 @@ func newReferenceResolver(schema *parser.Schema, registry *Registry) *referenceR
 		schema:   schema,
 		registry: registry,
 		refs: &ResolvedReferences{
-			ElementRefs:   make(map[types.QName]ElemID),
-			AttributeRefs: make(map[types.QName]AttrID),
-			GroupRefs:     make(map[types.QName]types.QName),
+			ElementRefs:   make(map[model.QName]ElemID),
+			AttributeRefs: make(map[model.QName]AttrID),
+			GroupRefs:     make(map[model.QName]model.QName),
 		},
-		elementState:     make(map[*types.ElementDecl]resolveState),
-		modelGroupState:  make(map[*types.ModelGroup]resolveState),
-		simpleTypeState:  make(map[*types.SimpleType]resolveState),
-		complexTypeState: make(map[*types.ComplexType]resolveState),
+		elementState:     make(map[*model.ElementDecl]resolveState),
+		modelGroupState:  make(map[*model.ModelGroup]resolveState),
+		simpleTypeState:  make(map[*model.SimpleType]resolveState),
+		complexTypeState: make(map[*model.ComplexType]resolveState),
 	}
 }
 

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	models "github.com/jacoelho/xsd/internal/contentmodel"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (b *schemaBuilder) buildMatchers(glu *models.Glushkov) ([]runtime.PosMatcher, error) {
@@ -45,12 +45,12 @@ func (b *schemaBuilder) buildMatchers(glu *models.Glushkov) ([]runtime.PosMatche
 	return matchers, nil
 }
 
-func (b *schemaBuilder) addWildcardAnyElement(anyElem *types.AnyElement) runtime.WildcardID {
+func (b *schemaBuilder) addWildcardAnyElement(anyElem *model.AnyElement) runtime.WildcardID {
 	if anyElem == nil {
 		return 0
 	}
 	if b.anyElementRules == nil {
-		b.anyElementRules = make(map[*types.AnyElement]runtime.WildcardID)
+		b.anyElementRules = make(map[*model.AnyElement]runtime.WildcardID)
 	}
 	if id, ok := b.anyElementRules[anyElem]; ok {
 		return id
@@ -60,7 +60,7 @@ func (b *schemaBuilder) addWildcardAnyElement(anyElem *types.AnyElement) runtime
 	return id
 }
 
-func (b *schemaBuilder) addWildcard(constraint types.NamespaceConstraint, list []types.NamespaceURI, target types.NamespaceURI, pc types.ProcessContents) runtime.WildcardID {
+func (b *schemaBuilder) addWildcard(constraint model.NamespaceConstraint, list []model.NamespaceURI, target model.NamespaceURI, pc model.ProcessContents) runtime.WildcardID {
 	rule := runtime.WildcardRule{
 		PC:       toRuntimeProcessContents(pc),
 		TargetNS: b.internNamespace(target),
@@ -68,27 +68,27 @@ func (b *schemaBuilder) addWildcard(constraint types.NamespaceConstraint, list [
 
 	off := len(b.wildcardNS)
 	switch constraint {
-	case types.NSCAny:
+	case model.NSCAny:
 		rule.NS.Kind = runtime.NSAny
-	case types.NSCOther:
+	case model.NSCOther:
 		rule.NS.Kind = runtime.NSOther
 		rule.NS.HasTarget = true
-	case types.NSCTargetNamespace:
+	case model.NSCTargetNamespace:
 		rule.NS.Kind = runtime.NSEnumeration
 		rule.NS.HasTarget = true
-	case types.NSCLocal:
+	case model.NSCLocal:
 		rule.NS.Kind = runtime.NSEnumeration
 		rule.NS.HasLocal = true
-	case types.NSCNotAbsent:
+	case model.NSCNotAbsent:
 		rule.NS.Kind = runtime.NSNotAbsent
-	case types.NSCList:
+	case model.NSCList:
 		rule.NS.Kind = runtime.NSEnumeration
 		for _, ns := range list {
-			if ns == types.NamespaceTargetPlaceholder {
+			if ns == model.NamespaceTargetPlaceholder {
 				rule.NS.HasTarget = true
 				continue
 			}
-			if ns.IsEmpty() {
+			if ns == "" {
 				rule.NS.HasLocal = true
 				continue
 			}

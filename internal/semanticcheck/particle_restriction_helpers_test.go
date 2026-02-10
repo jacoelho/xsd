@@ -3,17 +3,17 @@ package semanticcheck
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestValidateSequenceRestrictionSkipsOptionalBase(t *testing.T) {
-	baseChildren := []types.Particle{
+	baseChildren := []model.Particle{
 		makeElement("a", 1),
 		makeElement("b", 0),
 		makeElement("c", 1),
 	}
-	restrictionChildren := []types.Particle{
+	restrictionChildren := []model.Particle{
 		makeElement("a", 1),
 		makeElement("c", 1),
 	}
@@ -24,11 +24,11 @@ func TestValidateSequenceRestrictionSkipsOptionalBase(t *testing.T) {
 }
 
 func TestValidateSequenceRestrictionMissingRequiredBase(t *testing.T) {
-	baseChildren := []types.Particle{
+	baseChildren := []model.Particle{
 		makeElement("a", 1),
 		makeElement("b", 1),
 	}
-	restrictionChildren := []types.Particle{
+	restrictionChildren := []model.Particle{
 		makeElement("a", 1),
 	}
 
@@ -38,11 +38,11 @@ func TestValidateSequenceRestrictionMissingRequiredBase(t *testing.T) {
 }
 
 func TestValidateChoiceRestrictionMatchesBase(t *testing.T) {
-	baseChildren := []types.Particle{
+	baseChildren := []model.Particle{
 		makeElement("a", 1),
 		makeElement("b", 1),
 	}
-	restrictionChildren := []types.Particle{
+	restrictionChildren := []model.Particle{
 		makeElement("b", 1),
 	}
 
@@ -52,23 +52,23 @@ func TestValidateChoiceRestrictionMatchesBase(t *testing.T) {
 }
 
 func TestValidateSingleWildcardGroupRestriction(t *testing.T) {
-	baseMG := &types.ModelGroup{
-		Kind:      types.Sequence,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
-		Particles: []types.Particle{
-			&types.AnyElement{
-				MinOccurs: types.OccursFromInt(1),
-				MaxOccurs: types.OccursFromInt(1),
-				Namespace: types.NSCAny,
+	baseMG := &model.ModelGroup{
+		Kind:      model.Sequence,
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
+		Particles: []model.Particle{
+			&model.AnyElement{
+				MinOccurs: model.OccursFromInt(1),
+				MaxOccurs: model.OccursFromInt(1),
+				Namespace: model.NSCAny,
 			},
 		},
 	}
-	restrictionMG := &types.ModelGroup{
-		Kind:      types.Sequence,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
-		Particles: []types.Particle{
+	restrictionMG := &model.ModelGroup{
+		Kind:      model.Sequence,
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
+		Particles: []model.Particle{
 			makeElement("a", 1),
 		},
 	}
@@ -78,10 +78,10 @@ func TestValidateSingleWildcardGroupRestriction(t *testing.T) {
 	}
 }
 
-func makeElement(local string, minOccurs int) *types.ElementDecl {
-	return &types.ElementDecl{
-		Name:      types.QName{Local: local},
-		MinOccurs: types.OccursFromInt(minOccurs),
-		MaxOccurs: types.OccursFromInt(1),
+func makeElement(local string, minOccurs int) *model.ElementDecl {
+	return &model.ElementDecl{
+		Name:      model.QName{Local: local},
+		MinOccurs: model.OccursFromInt(minOccurs),
+		MaxOccurs: model.OccursFromInt(1),
 	}
 }

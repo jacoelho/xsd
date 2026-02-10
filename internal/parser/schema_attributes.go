@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
@@ -17,7 +17,7 @@ func parseSchemaAttributes(doc *xsdxml.Document, root xsdxml.NodeID, schema *Sch
 		if attr.LocalName() == "targetNamespace" {
 			switch attr.NamespaceURI() {
 			case "":
-				targetNSAttr = types.ApplyWhiteSpace(attr.Value(), types.WhiteSpaceCollapse)
+				targetNSAttr = model.ApplyWhiteSpace(attr.Value(), model.WhiteSpaceCollapse)
 				targetNSFound = true
 			case xsdxml.XSDNamespace:
 				return fmt.Errorf("schema attribute 'targetNamespace' must be unprefixed (found '%s:targetNamespace')", attr.NamespaceURI())
@@ -27,12 +27,12 @@ func parseSchemaAttributes(doc *xsdxml.Document, root xsdxml.NodeID, schema *Sch
 		}
 	}
 	if !targetNSFound {
-		schema.TargetNamespace = types.NamespaceEmpty
+		schema.TargetNamespace = model.NamespaceEmpty
 	} else {
 		if targetNSAttr == "" {
 			return fmt.Errorf("targetNamespace attribute cannot be empty (must be absent or have a non-empty value)")
 		}
-		schema.TargetNamespace = types.NamespaceURI(targetNSAttr)
+		schema.TargetNamespace = model.NamespaceURI(targetNSAttr)
 	}
 
 	for _, attr := range doc.Attributes(root) {
@@ -51,7 +51,7 @@ func parseSchemaAttributes(doc *xsdxml.Document, root xsdxml.NodeID, schema *Sch
 	}
 
 	if doc.HasAttribute(root, "elementFormDefault") {
-		elemForm := types.ApplyWhiteSpace(doc.GetAttribute(root, "elementFormDefault"), types.WhiteSpaceCollapse)
+		elemForm := model.ApplyWhiteSpace(doc.GetAttribute(root, "elementFormDefault"), model.WhiteSpaceCollapse)
 		if elemForm == "" {
 			return fmt.Errorf("elementFormDefault attribute cannot be empty")
 		}
@@ -66,7 +66,7 @@ func parseSchemaAttributes(doc *xsdxml.Document, root xsdxml.NodeID, schema *Sch
 	}
 
 	if doc.HasAttribute(root, "attributeFormDefault") {
-		attrForm := types.ApplyWhiteSpace(doc.GetAttribute(root, "attributeFormDefault"), types.WhiteSpaceCollapse)
+		attrForm := model.ApplyWhiteSpace(doc.GetAttribute(root, "attributeFormDefault"), model.WhiteSpaceCollapse)
 		if attrForm == "" {
 			return fmt.Errorf("attributeFormDefault attribute cannot be empty")
 		}
@@ -82,10 +82,10 @@ func parseSchemaAttributes(doc *xsdxml.Document, root xsdxml.NodeID, schema *Sch
 
 	if doc.HasAttribute(root, "blockDefault") {
 		blockDefaultAttr := doc.GetAttribute(root, "blockDefault")
-		if types.TrimXMLWhitespace(blockDefaultAttr) == "" {
+		if model.TrimXMLWhitespace(blockDefaultAttr) == "" {
 			return fmt.Errorf("blockDefault attribute cannot be empty")
 		}
-		block, err := parseDerivationSetWithValidation(blockDefaultAttr, types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction))
+		block, err := parseDerivationSetWithValidation(blockDefaultAttr, model.DerivationSet(model.DerivationSubstitution|model.DerivationExtension|model.DerivationRestriction))
 		if err != nil {
 			return fmt.Errorf("invalid blockDefault attribute value '%s': %w", blockDefaultAttr, err)
 		}
@@ -94,10 +94,10 @@ func parseSchemaAttributes(doc *xsdxml.Document, root xsdxml.NodeID, schema *Sch
 
 	if doc.HasAttribute(root, "finalDefault") {
 		finalDefaultAttr := doc.GetAttribute(root, "finalDefault")
-		if types.TrimXMLWhitespace(finalDefaultAttr) == "" {
+		if model.TrimXMLWhitespace(finalDefaultAttr) == "" {
 			return fmt.Errorf("finalDefault attribute cannot be empty")
 		}
-		final, err := parseDerivationSetWithValidation(finalDefaultAttr, types.DerivationSet(types.DerivationExtension|types.DerivationRestriction|types.DerivationList|types.DerivationUnion))
+		final, err := parseDerivationSetWithValidation(finalDefaultAttr, model.DerivationSet(model.DerivationExtension|model.DerivationRestriction|model.DerivationList|model.DerivationUnion))
 		if err != nil {
 			return fmt.Errorf("invalid finalDefault attribute value '%s': %w", finalDefaultAttr, err)
 		}

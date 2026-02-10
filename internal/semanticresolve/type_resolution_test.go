@@ -3,23 +3,23 @@ package semanticresolve
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestResolveSimpleTypeRestriction(t *testing.T) {
 	schema := parser.NewSchema()
-	baseQName := types.QName{Local: "base"}
-	base := &types.SimpleType{
+	baseQName := model.QName{Local: "base"}
+	base := &model.SimpleType{
 		QName: baseQName,
-		Restriction: &types.Restriction{
-			Base: types.QName{Namespace: types.XSDNamespace, Local: "string"},
+		Restriction: &model.Restriction{
+			Base: model.QName{Namespace: model.XSDNamespace, Local: "string"},
 		},
 	}
-	derivedQName := types.QName{Local: "derived"}
-	derived := &types.SimpleType{
+	derivedQName := model.QName{Local: "derived"}
+	derived := &model.SimpleType{
 		QName: derivedQName,
-		Restriction: &types.Restriction{
+		Restriction: &model.Restriction{
 			Base: baseQName,
 		},
 	}
@@ -40,17 +40,17 @@ func TestResolveSimpleTypeRestriction(t *testing.T) {
 
 func TestResolveSimpleTypeList(t *testing.T) {
 	schema := parser.NewSchema()
-	itemQName := types.QName{Local: "item"}
-	item := &types.SimpleType{
+	itemQName := model.QName{Local: "item"}
+	item := &model.SimpleType{
 		QName: itemQName,
-		Restriction: &types.Restriction{
-			Base: types.QName{Namespace: types.XSDNamespace, Local: "string"},
+		Restriction: &model.Restriction{
+			Base: model.QName{Namespace: model.XSDNamespace, Local: "string"},
 		},
 	}
-	listQName := types.QName{Local: "list"}
-	list := &types.SimpleType{
+	listQName := model.QName{Local: "list"}
+	list := &model.SimpleType{
 		QName: listQName,
-		List: &types.ListType{
+		List: &model.ListType{
 			ItemType: itemQName,
 		},
 	}
@@ -64,32 +64,32 @@ func TestResolveSimpleTypeList(t *testing.T) {
 	if list.ItemType != item {
 		t.Fatalf("expected list item type to resolve to %v", itemQName)
 	}
-	if list.WhiteSpace() != types.WhiteSpaceCollapse {
+	if list.WhiteSpace() != model.WhiteSpaceCollapse {
 		t.Fatalf("expected list whitespace collapse, got %v", list.WhiteSpace())
 	}
 }
 
 func TestResolveSimpleTypeUnion(t *testing.T) {
 	schema := parser.NewSchema()
-	leftQName := types.QName{Local: "left"}
-	left := &types.SimpleType{
+	leftQName := model.QName{Local: "left"}
+	left := &model.SimpleType{
 		QName: leftQName,
-		Restriction: &types.Restriction{
-			Base: types.QName{Namespace: types.XSDNamespace, Local: "string"},
+		Restriction: &model.Restriction{
+			Base: model.QName{Namespace: model.XSDNamespace, Local: "string"},
 		},
 	}
-	rightQName := types.QName{Local: "right"}
-	right := &types.SimpleType{
+	rightQName := model.QName{Local: "right"}
+	right := &model.SimpleType{
 		QName: rightQName,
-		Restriction: &types.Restriction{
-			Base: types.QName{Namespace: types.XSDNamespace, Local: "int"},
+		Restriction: &model.Restriction{
+			Base: model.QName{Namespace: model.XSDNamespace, Local: "int"},
 		},
 	}
-	unionQName := types.QName{Local: "union"}
-	union := &types.SimpleType{
+	unionQName := model.QName{Local: "union"}
+	union := &model.SimpleType{
 		QName: unionQName,
-		Union: &types.UnionType{
-			MemberTypes: []types.QName{leftQName, rightQName},
+		Union: &model.UnionType{
+			MemberTypes: []model.QName{leftQName, rightQName},
 		},
 	}
 	schema.TypeDefs[leftQName] = left

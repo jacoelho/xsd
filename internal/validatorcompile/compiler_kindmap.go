@@ -3,13 +3,13 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 type mapResolver map[string]string
 
-func (c *compiler) validatorKind(st *types.SimpleType) (runtime.ValidatorKind, error) {
+func (c *compiler) validatorKind(st *model.SimpleType) (runtime.ValidatorKind, error) {
 	primName, err := c.res.primitiveName(st)
 	if err != nil {
 		return 0, err
@@ -69,7 +69,7 @@ func builtinValidatorKind(name string) (runtime.ValidatorKind, error) {
 	}
 }
 
-func (c *compiler) stringKindForType(typ types.Type) runtime.StringKind {
+func (c *compiler) stringKindForType(typ model.Type) runtime.StringKind {
 	if c == nil || c.res == nil {
 		return runtime.StringAny
 	}
@@ -80,7 +80,7 @@ func (c *compiler) stringKindForType(typ types.Type) runtime.StringKind {
 	return stringKindForBuiltin(string(name))
 }
 
-func (c *compiler) integerKindForType(typ types.Type) runtime.IntegerKind {
+func (c *compiler) integerKindForType(typ model.Type) runtime.IntegerKind {
 	if c == nil || c.res == nil {
 		return runtime.IntegerAny
 	}

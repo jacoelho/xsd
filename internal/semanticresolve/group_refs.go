@@ -3,10 +3,10 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemaops"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // ResolveGroupReferences expands group references across named groups and content models.
@@ -16,16 +16,16 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 	}
 
 	options := schemaops.ExpandGroupRefsOptions{
-		Lookup: func(ref *types.GroupRef) *types.ModelGroup {
+		Lookup: func(ref *model.GroupRef) *model.ModelGroup {
 			if ref == nil {
 				return nil
 			}
 			return sch.Groups[ref.RefQName]
 		},
-		MissingError: func(ref types.QName) error {
+		MissingError: func(ref model.QName) error {
 			return fmt.Errorf("group '%s' not found", ref)
 		},
-		CycleError: func(ref types.QName) error {
+		CycleError: func(ref model.QName) error {
 			return fmt.Errorf("circular group reference detected: %s", ref)
 		},
 		AllGroupMode: schemaops.AllGroupKeep,
@@ -41,7 +41,7 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 		if err != nil {
 			return fmt.Errorf("resolve group refs in group %s: %w", qname, err)
 		}
-		expandedGroup, ok := expanded.(*types.ModelGroup)
+		expandedGroup, ok := expanded.(*model.ModelGroup)
 		if !ok || expandedGroup == nil {
 			return fmt.Errorf("resolve group refs in group %s: expanded group is nil", qname)
 		}
@@ -50,7 +50,7 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 
 	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
-		ct, ok := typ.(*types.ComplexType)
+		ct, ok := typ.(*model.ComplexType)
 		if !ok {
 			continue
 		}
@@ -61,7 +61,7 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 
 	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
 		elem := sch.ElementDecls[qname]
-		ct, ok := elem.Type.(*types.ComplexType)
+		ct, ok := elem.Type.(*model.ComplexType)
 		if !ok {
 			continue
 		}
@@ -73,9 +73,9 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 	return nil
 }
 
-func resolveGroupRefsInContent(content types.Content, options schemaops.ExpandGroupRefsOptions) error {
+func resolveGroupRefsInContent(content model.Content, options schemaops.ExpandGroupRefsOptions) error {
 	switch c := content.(type) {
-	case *types.ElementContent:
+	case *model.ElementContent:
 		if c.Particle == nil {
 			return nil
 		}
@@ -86,7 +86,7 @@ func resolveGroupRefsInContent(content types.Content, options schemaops.ExpandGr
 		if expanded != nil {
 			c.Particle = expanded
 		}
-	case *types.ComplexContent:
+	case *model.ComplexContent:
 		if c.Restriction != nil && c.Restriction.Particle != nil {
 			expanded, err := schemaops.ExpandGroupRefs(c.Restriction.Particle, options)
 			if err != nil {

@@ -6,7 +6,7 @@ import (
 	"io"
 	"iter"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xmllex"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
@@ -90,6 +90,11 @@ func Parse(r io.Reader) (*Schema, error) {
 
 // ParseWithImportsOptions parses an XSD schema with XML reader options.
 func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResult, error) {
+	return ParseWithImportsOptionsWithPool(r, xsdxml.NewDocumentPool(), opts...)
+}
+
+// ParseWithImportsOptionsWithPool parses an XSD schema with XML reader options and an explicit document pool.
+func ParseWithImportsOptionsWithPool(r io.Reader, pool *xsdxml.DocumentPool, opts ...xmlstream.Option) (*ParseResult, error) {
 	reader, err := xmlstream.NewReader(r, opts...)
 	if err != nil {
 		return nil, newParseError("parse XML", fmt.Errorf("xml reader: %w", err))
@@ -101,7 +106,7 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 		Imports:    []ImportInfo{},
 		Includes:   []IncludeInfo{},
 	}
-	importedNamespaces := make(map[types.NamespaceURI]bool)
+	importedNamespaces := make(map[model.NamespaceURI]bool)
 	dirState := directiveState{}
 	allowBOM := true
 	rootSeen := false
@@ -140,14 +145,14 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 				continue
 			}
 
-			doc, root, err := parseSubtreeIntoDoc(reader, ev)
+			doc, root, err := parseSubtreeIntoDoc(reader, ev, pool)
 			if err != nil {
 				return nil, newParseError("parse XML", fmt.Errorf("xml read for element %s: %w", ev.Name.String(), err))
 			}
 
 			switch ev.Name.Local {
 			case "annotation", "import", "include":
-				if err := parseDirectiveSubtree(doc, root, schema, result, importedNamespaces, &dirState); err != nil {
+				if err := parseDirectiveSubtree(doc, root, schema, result, importedNamespaces, &dirState, pool); err != nil {
 					return nil, err
 				}
 				applyImportedNamespaces(schema, importedNamespaces)
@@ -155,13 +160,13 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 				return nil, fmt.Errorf("redefine is not supported")
 			default:
 				if !isTopLevelComponentElement(ev.Name.Local) {
-					xsdxml.ReleaseDocument(doc)
+					pool.Release(doc)
 					return nil, fmt.Errorf("unexpected top-level element '%s'", ev.Name.Local)
 				}
 				if isGlobalDeclElement(ev.Name.Local) {
 					dirState.declIndex++
 				}
-				if err := parseTopLevelComponentSubtree(doc, root, schema); err != nil {
+				if err := parseTopLevelComponentSubtree(doc, root, schema, pool); err != nil {
 					return nil, err
 				}
 			}
@@ -193,30 +198,30 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 	return result, nil
 }
 
-func parseSubtreeIntoDoc(reader *xmlstream.Reader, start xmlstream.Event) (*xsdxml.Document, xsdxml.NodeID, error) {
-	doc := xsdxml.AcquireDocument()
+func parseSubtreeIntoDoc(reader *xmlstream.Reader, start xmlstream.Event, pool *xsdxml.DocumentPool) (*xsdxml.Document, xsdxml.NodeID, error) {
+	doc := pool.Acquire()
 	if err := xsdxml.ParseSubtreeInto(reader, start, doc); err != nil {
-		xsdxml.ReleaseDocument(doc)
+		pool.Release(doc)
 		return nil, xsdxml.InvalidNode, err
 	}
 	root := doc.DocumentElement()
 	if root == xsdxml.InvalidNode {
-		xsdxml.ReleaseDocument(doc)
+		pool.Release(doc)
 		return nil, xsdxml.InvalidNode, io.ErrUnexpectedEOF
 	}
 	return doc, root, nil
 }
 
-func parseDirectiveSubtree(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, result *ParseResult, importedNamespaces map[types.NamespaceURI]bool, state *directiveState) error {
-	defer xsdxml.ReleaseDocument(doc)
+func parseDirectiveSubtree(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, result *ParseResult, importedNamespaces map[model.NamespaceURI]bool, state *directiveState, pool *xsdxml.DocumentPool) error {
+	defer pool.Release(doc)
 	if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
 		return err
 	}
 	return parseDirectiveElement(doc, root, schema, result, importedNamespaces, state)
 }
 
-func parseTopLevelComponentSubtree(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema) error {
-	defer xsdxml.ReleaseDocument(doc)
+func parseTopLevelComponentSubtree(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, pool *xsdxml.DocumentPool) error {
+	defer pool.Release(doc)
 	if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
 		return err
 	}
@@ -245,19 +250,19 @@ func parseSchemaAttributesFromStart(start xmlstream.Event, decls iter.Seq[xmlstr
 		}
 		switch attr.Name.Namespace {
 		case "":
-			targetNSAttr = types.ApplyWhiteSpace(string(attr.Value), types.WhiteSpaceCollapse)
+			targetNSAttr = model.ApplyWhiteSpace(string(attr.Value), model.WhiteSpaceCollapse)
 			targetNSFound = true
 		case xsdxml.XSDNamespace:
 			return fmt.Errorf("schema attribute 'targetNamespace' must be unprefixed (found '%s:targetNamespace')", attr.Name.Namespace)
 		}
 	}
 	if !targetNSFound {
-		schema.TargetNamespace = types.NamespaceEmpty
+		schema.TargetNamespace = model.NamespaceEmpty
 	} else {
 		if targetNSAttr == "" {
 			return fmt.Errorf("targetNamespace attribute cannot be empty (must be absent or have a non-empty value)")
 		}
-		schema.TargetNamespace = types.NamespaceURI(targetNSAttr)
+		schema.TargetNamespace = model.NamespaceURI(targetNSAttr)
 	}
 
 	if decls != nil {
@@ -274,7 +279,7 @@ func parseSchemaAttributesFromStart(start xmlstream.Event, decls iter.Seq[xmlstr
 	}
 
 	if elemForm, ok := findStartAttr(start.Attrs, "elementFormDefault"); ok {
-		elemForm = types.ApplyWhiteSpace(elemForm, types.WhiteSpaceCollapse)
+		elemForm = model.ApplyWhiteSpace(elemForm, model.WhiteSpaceCollapse)
 		if elemForm == "" {
 			return fmt.Errorf("elementFormDefault attribute cannot be empty")
 		}
@@ -289,7 +294,7 @@ func parseSchemaAttributesFromStart(start xmlstream.Event, decls iter.Seq[xmlstr
 	}
 
 	if attrForm, ok := findStartAttr(start.Attrs, "attributeFormDefault"); ok {
-		attrForm = types.ApplyWhiteSpace(attrForm, types.WhiteSpaceCollapse)
+		attrForm = model.ApplyWhiteSpace(attrForm, model.WhiteSpaceCollapse)
 		if attrForm == "" {
 			return fmt.Errorf("attributeFormDefault attribute cannot be empty")
 		}
@@ -304,12 +309,12 @@ func parseSchemaAttributesFromStart(start xmlstream.Event, decls iter.Seq[xmlstr
 	}
 
 	if blockDefault, ok := findStartAttr(start.Attrs, "blockDefault"); ok {
-		if types.TrimXMLWhitespace(blockDefault) == "" {
+		if model.TrimXMLWhitespace(blockDefault) == "" {
 			return fmt.Errorf("blockDefault attribute cannot be empty")
 		}
 		block, err := parseDerivationSetWithValidation(
 			blockDefault,
-			types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction),
+			model.DerivationSet(model.DerivationSubstitution|model.DerivationExtension|model.DerivationRestriction),
 		)
 		if err != nil {
 			return fmt.Errorf("invalid blockDefault attribute value '%s': %w", blockDefault, err)
@@ -318,12 +323,12 @@ func parseSchemaAttributesFromStart(start xmlstream.Event, decls iter.Seq[xmlstr
 	}
 
 	if finalDefault, ok := findStartAttr(start.Attrs, "finalDefault"); ok {
-		if types.TrimXMLWhitespace(finalDefault) == "" {
+		if model.TrimXMLWhitespace(finalDefault) == "" {
 			return fmt.Errorf("finalDefault attribute cannot be empty")
 		}
 		final, err := parseDerivationSetWithValidation(
 			finalDefault,
-			types.DerivationSet(types.DerivationExtension|types.DerivationRestriction|types.DerivationList|types.DerivationUnion),
+			model.DerivationSet(model.DerivationExtension|model.DerivationRestriction|model.DerivationList|model.DerivationUnion),
 		)
 		if err != nil {
 			return fmt.Errorf("invalid finalDefault attribute value '%s': %w", finalDefault, err)

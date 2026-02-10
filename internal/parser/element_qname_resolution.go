@@ -3,8 +3,8 @@ package parser
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	qnamelex "github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
@@ -21,20 +21,20 @@ func resolveQNameWithPolicy(
 	elem xsdxml.NodeID,
 	schema *Schema,
 	policy defaultNamespacePolicy,
-) (types.QName, error) {
+) (model.QName, error) {
 	prefix, local, hasPrefix, err := qnamelex.ParseQName(qname)
 	if err != nil {
-		return types.QName{}, err
+		return model.QName{}, err
 	}
 
 	namespace, err := namespaceFromPrefixPolicy(doc, elem, schema, qname, prefix, hasPrefix, policy)
 	if err != nil {
-		return types.QName{}, err
+		return model.QName{}, err
 	}
 	if err := validateQNameNamespace(schema, namespace); err != nil {
-		return types.QName{}, err
+		return model.QName{}, err
 	}
-	return types.QName{Namespace: namespace, Local: local}, nil
+	return model.QName{Namespace: namespace, Local: local}, nil
 }
 
 func namespaceFromPrefixPolicy(
@@ -45,21 +45,21 @@ func namespaceFromPrefixPolicy(
 	prefix string,
 	hasPrefix bool,
 	policy defaultNamespacePolicy,
-) (types.NamespaceURI, error) {
+) (model.NamespaceURI, error) {
 	if !hasPrefix {
 		if policy == forceEmptyNamespace {
-			return types.NamespaceEmpty, nil
+			return model.NamespaceEmpty, nil
 		}
 		defaultNS := namespaceForPrefix(doc, elem, schema, "")
 		if defaultNS != "" {
-			return types.NamespaceURI(defaultNS), nil
+			return model.NamespaceURI(defaultNS), nil
 		}
-		return types.NamespaceEmpty, nil
+		return model.NamespaceEmpty, nil
 	}
 
 	namespaceStr := namespaceForPrefix(doc, elem, schema, prefix)
 	if namespaceStr == "" {
-		return types.NamespaceURI(""), fmt.Errorf("undefined namespace prefix '%s' in '%s'", prefix, qname)
+		return model.NamespaceURI(""), fmt.Errorf("undefined namespace prefix '%s' in '%s'", prefix, qname)
 	}
-	return types.NamespaceURI(namespaceStr), nil
+	return model.NamespaceURI(namespaceStr), nil
 }

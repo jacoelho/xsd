@@ -5,20 +5,20 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // ValidateStructure validates that a parsed schema conforms to XSD structural constraints.
 // Reference validation is handled separately during the resolver phase.
 func ValidateStructure(schema *parser.Schema) []error {
 	var errors []error
-	seen := make(map[parser.GlobalDeclKind]map[types.QName]struct{})
+	seen := make(map[parser.GlobalDeclKind]map[model.QName]struct{})
 
-	markSeen := func(kind parser.GlobalDeclKind, name types.QName) bool {
+	markSeen := func(kind parser.GlobalDeclKind, name model.QName) bool {
 		m := seen[kind]
 		if m == nil {
-			m = make(map[types.QName]struct{})
+			m = make(map[model.QName]struct{})
 			seen[kind] = m
 		}
 		if _, ok := m[name]; ok {
@@ -104,12 +104,12 @@ func ValidateStructure(schema *parser.Schema) []error {
 	return errors
 }
 
-func collectUnseenKeys[T any](kind parser.GlobalDeclKind, seen map[parser.GlobalDeclKind]map[types.QName]struct{}, m map[types.QName]T) []types.QName {
+func collectUnseenKeys[T any](kind parser.GlobalDeclKind, seen map[parser.GlobalDeclKind]map[model.QName]struct{}, m map[model.QName]T) []model.QName {
 	if len(m) == 0 {
 		return nil
 	}
 	seenKind := seen[kind]
-	keys := make([]types.QName, 0, len(m))
+	keys := make([]model.QName, 0, len(m))
 	for qname := range m {
 		if seenKind != nil {
 			if _, ok := seenKind[qname]; ok {
@@ -122,8 +122,8 @@ func collectUnseenKeys[T any](kind parser.GlobalDeclKind, seen map[parser.Global
 	return keys
 }
 
-func sortQNames(keys []types.QName) {
-	slices.SortFunc(keys, func(a, b types.QName) int {
+func sortQNames(keys []model.QName) {
+	slices.SortFunc(keys, func(a, b model.QName) int {
 		if a.Namespace != b.Namespace {
 			return cmp.Compare(a.Namespace, b.Namespace)
 		}

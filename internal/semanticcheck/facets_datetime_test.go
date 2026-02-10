@@ -3,13 +3,14 @@ package semanticcheck
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/builtins"
 	facetengine "github.com/jacoelho/xsd/internal/facets"
-	"github.com/jacoelho/xsd/internal/types"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestCompareFacetValuesDateTimeSpecials(t *testing.T) {
-	bt := types.GetBuiltin(types.TypeNameDateTime)
+	bt := builtins.Get(model.TypeNameDateTime)
 	if bt == nil {
 		t.Fatal("builtin dateTime not found")
 	}
@@ -51,7 +52,7 @@ func TestCompareFacetValuesDateTimeSpecials(t *testing.T) {
 }
 
 func TestCompareFacetValuesTimeSpecials(t *testing.T) {
-	bt := types.GetBuiltin(types.TypeNameTime)
+	bt := builtins.Get(model.TypeNameTime)
 	if bt == nil {
 		t.Fatal("builtin time not found")
 	}
@@ -78,7 +79,7 @@ func TestCompareFacetValuesTimeSpecials(t *testing.T) {
 }
 
 func TestCompareFacetValuesDateTimeRejectsInvalidOffsets(t *testing.T) {
-	bt := types.GetBuiltin(types.TypeNameDateTime)
+	bt := builtins.Get(model.TypeNameDateTime)
 	if bt == nil {
 		t.Fatal("builtin dateTime not found")
 	}

@@ -3,11 +3,11 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *compiler) canonicalizeDefaultFixed(lexical string, typ types.Type, ctx map[string]string) ([]byte, runtime.ValidatorID, runtime.ValueKeyRef, error) {
+func (c *compiler) canonicalizeDefaultFixed(lexical string, typ model.Type, ctx map[string]string) ([]byte, runtime.ValidatorID, runtime.ValueKeyRef, error) {
 	normalized := c.normalizeLexical(lexical, typ)
 	facets, err := c.facetsForType(typ)
 	if err != nil {
@@ -39,7 +39,7 @@ func (c *compiler) canonicalizeDefaultFixed(lexical string, typ types.Type, ctx 
 	return canon, memberID, keyRef, nil
 }
 
-func (c *compiler) defaultFixedKeyRef(lexical, normalized string, typ, memberType types.Type, ctx map[string]string) (runtime.ValueKeyRef, error) {
+func (c *compiler) defaultFixedKeyRef(lexical, normalized string, typ, memberType model.Type, ctx map[string]string) (runtime.ValueKeyRef, error) {
 	keyType := typ
 	keyLexical := normalized
 	if memberType != nil {
@@ -60,8 +60,8 @@ func (c *compiler) defaultFixedKeyRef(lexical, normalized string, typ, memberTyp
 	}, nil
 }
 
-func (c *compiler) canonicalizeNormalizedDefaultWithMember(lexical, normalized string, typ types.Type, ctx map[string]string) ([]byte, types.Type, error) {
-	if c.res.varietyForType(typ) != types.UnionVariety {
+func (c *compiler) canonicalizeNormalizedDefaultWithMember(lexical, normalized string, typ model.Type, ctx map[string]string) ([]byte, model.Type, error) {
+	if c.res.varietyForType(typ) != model.UnionVariety {
 		canon, err := c.canonicalizeNormalizedCore(lexical, normalized, typ, ctx, canonicalizeDefault)
 		return canon, nil, err
 	}

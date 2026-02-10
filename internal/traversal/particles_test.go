@@ -3,24 +3,24 @@ package traversal
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestCollectFromParticle(t *testing.T) {
-	root := &types.ModelGroup{
-		Particles: []types.Particle{
-			&types.ElementDecl{Name: types.QName{Local: "a"}},
-			&types.ModelGroup{
-				Particles: []types.Particle{
-					&types.AnyElement{},
-					&types.ElementDecl{Name: types.QName{Local: "b"}},
+	root := &model.ModelGroup{
+		Particles: []model.Particle{
+			&model.ElementDecl{Name: model.QName{Local: "a"}},
+			&model.ModelGroup{
+				Particles: []model.Particle{
+					&model.AnyElement{},
+					&model.ElementDecl{Name: model.QName{Local: "b"}},
 				},
 			},
 		},
 	}
 
-	got := CollectFromParticlesWithVisited([]types.Particle{root}, nil, func(p types.Particle) (string, bool) {
-		elem, ok := p.(*types.ElementDecl)
+	got := CollectFromParticlesWithVisited([]model.Particle{root}, nil, func(p model.Particle) (string, bool) {
+		elem, ok := p.(*model.ElementDecl)
 		if !ok {
 			return "", false
 		}
@@ -33,17 +33,17 @@ func TestCollectFromParticle(t *testing.T) {
 }
 
 func TestCollectFromContent(t *testing.T) {
-	content := &types.ComplexContent{
-		Extension: &types.Extension{
-			Particle: &types.ElementDecl{Name: types.QName{Local: "ext"}},
+	content := &model.ComplexContent{
+		Extension: &model.Extension{
+			Particle: &model.ElementDecl{Name: model.QName{Local: "ext"}},
 		},
-		Restriction: &types.Restriction{
-			Particle: &types.ElementDecl{Name: types.QName{Local: "restr"}},
+		Restriction: &model.Restriction{
+			Particle: &model.ElementDecl{Name: model.QName{Local: "restr"}},
 		},
 	}
 
-	got := CollectFromContent(content, func(p types.Particle) (string, bool) {
-		elem, ok := p.(*types.ElementDecl)
+	got := CollectFromContent(content, func(p model.Particle) (string, bool) {
+		elem, ok := p.(*model.ElementDecl)
 		if !ok {
 			return "", false
 		}
@@ -56,20 +56,20 @@ func TestCollectFromContent(t *testing.T) {
 }
 
 func TestCollectFromParticlesWithVisited(t *testing.T) {
-	g1 := &types.ModelGroup{}
-	g2 := &types.ModelGroup{}
+	g1 := &model.ModelGroup{}
+	g2 := &model.ModelGroup{}
 
-	g1.Particles = []types.Particle{
-		&types.ElementDecl{Name: types.QName{Local: "a"}, IsReference: true},
+	g1.Particles = []model.Particle{
+		&model.ElementDecl{Name: model.QName{Local: "a"}, IsReference: true},
 		g2,
 	}
-	g2.Particles = []types.Particle{
-		&types.ElementDecl{Name: types.QName{Local: "b"}, IsReference: true},
+	g2.Particles = []model.Particle{
+		&model.ElementDecl{Name: model.QName{Local: "b"}, IsReference: true},
 		g1,
 	}
 
-	got := CollectFromParticlesWithVisited([]types.Particle{g1}, nil, func(p types.Particle) (string, bool) {
-		elem, ok := p.(*types.ElementDecl)
+	got := CollectFromParticlesWithVisited([]model.Particle{g1}, nil, func(p model.Particle) (string, bool) {
+		elem, ok := p.(*model.ElementDecl)
 		if !ok || !elem.IsReference {
 			return "", false
 		}

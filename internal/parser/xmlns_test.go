@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
@@ -49,7 +49,7 @@ func TestResolveQNameIgnoresForeignXMLNSLocalName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveQName error = %v", err)
 	}
-	if qname.Namespace != types.NamespaceEmpty {
+	if qname.Namespace != model.NamespaceEmpty {
 		t.Fatalf("qname namespace = %q, want empty", qname.Namespace)
 	}
 }

@@ -3,8 +3,9 @@ package typeops
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // TypeReferencePolicy controls how missing type references are handled.
@@ -17,12 +18,12 @@ const (
 	TypeReferenceAllowMissing
 )
 
-// ResolveTypeQName resolves a type QName against built-ins and schema types.
-func ResolveTypeQName(schema *parser.Schema, qname types.QName, policy TypeReferencePolicy) (types.Type, error) {
+// ResolveTypeQName resolves a type QName against built-ins and schema model.
+func ResolveTypeQName(schema *parser.Schema, qname model.QName, policy TypeReferencePolicy) (model.Type, error) {
 	if qname.IsZero() {
 		return nil, nil
 	}
-	if builtinType := types.GetBuiltinNS(qname.Namespace, qname.Local); builtinType != nil {
+	if builtinType := builtins.GetNS(qname.Namespace, qname.Local); builtinType != nil {
 		return builtinType, nil
 	}
 	if schema != nil {
@@ -37,11 +38,11 @@ func ResolveTypeQName(schema *parser.Schema, qname types.QName, policy TypeRefer
 }
 
 // ResolveTypeReference resolves a type reference in schema validation contexts.
-func ResolveTypeReference(schema *parser.Schema, typ types.Type, policy TypeReferencePolicy) types.Type {
+func ResolveTypeReference(schema *parser.Schema, typ model.Type, policy TypeReferencePolicy) model.Type {
 	if typ == nil {
 		return nil
 	}
-	if simpleType, ok := typ.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(simpleType) {
+	if simpleType, ok := typ.(*model.SimpleType); ok && model.IsPlaceholderSimpleType(simpleType) {
 		resolvedType, err := ResolveTypeQName(schema, simpleType.QName, policy)
 		if err != nil {
 			return nil
@@ -55,7 +56,7 @@ func ResolveTypeReference(schema *parser.Schema, typ types.Type, policy TypeRefe
 }
 
 // ResolveSimpleTypeReferenceAllowMissing resolves a simple type QName when present.
-func ResolveSimpleTypeReferenceAllowMissing(schema *parser.Schema, qname types.QName) types.Type {
+func ResolveSimpleTypeReferenceAllowMissing(schema *parser.Schema, qname model.QName) model.Type {
 	resolved, err := ResolveTypeQName(schema, qname, TypeReferenceAllowMissing)
 	if err != nil {
 		return nil
@@ -64,11 +65,11 @@ func ResolveSimpleTypeReferenceAllowMissing(schema *parser.Schema, qname types.Q
 }
 
 // ResolveSimpleContentBaseTypeFromContent resolves the base type of a simpleContent definition.
-func ResolveSimpleContentBaseTypeFromContent(schema *parser.Schema, sc *types.SimpleContent) types.Type {
+func ResolveSimpleContentBaseTypeFromContent(schema *parser.Schema, sc *model.SimpleContent) model.Type {
 	if sc == nil {
 		return nil
 	}
-	var baseQName types.QName
+	var baseQName model.QName
 	if sc.Extension != nil {
 		baseQName = sc.Extension.Base
 	} else if sc.Restriction != nil {
@@ -77,7 +78,7 @@ func ResolveSimpleContentBaseTypeFromContent(schema *parser.Schema, sc *types.Si
 	if baseQName.IsZero() {
 		return nil
 	}
-	if bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local); bt != nil {
+	if bt := builtins.GetNS(baseQName.Namespace, baseQName.Local); bt != nil {
 		return bt
 	}
 	if schema == nil {
@@ -89,11 +90,11 @@ func ResolveSimpleContentBaseTypeFromContent(schema *parser.Schema, sc *types.Si
 	return nil
 }
 
-// ResolveUnionMemberTypes returns flattened member types for union simple types.
-func ResolveUnionMemberTypes(schema *parser.Schema, st *types.SimpleType) []types.Type {
-	visited := make(map[*types.SimpleType]bool)
-	var visit func(*types.SimpleType) []types.Type
-	visit = func(current *types.SimpleType) []types.Type {
+// ResolveUnionMemberTypes returns flattened member types for union simple model.
+func ResolveUnionMemberTypes(schema *parser.Schema, st *model.SimpleType) []model.Type {
+	visited := make(map[*model.SimpleType]bool)
+	var visit func(*model.SimpleType) []model.Type
+	visit = func(current *model.SimpleType) []model.Type {
 		if current == nil {
 			return nil
 		}
@@ -107,7 +108,7 @@ func ResolveUnionMemberTypes(schema *parser.Schema, st *types.SimpleType) []type
 			return current.MemberTypes
 		}
 		if current.Union != nil {
-			memberTypes := make([]types.Type, 0, len(current.Union.MemberTypes)+len(current.Union.InlineTypes))
+			memberTypes := make([]model.Type, 0, len(current.Union.MemberTypes)+len(current.Union.InlineTypes))
 			for _, inline := range current.Union.InlineTypes {
 				memberTypes = append(memberTypes, inline)
 			}
@@ -119,7 +120,7 @@ func ResolveUnionMemberTypes(schema *parser.Schema, st *types.SimpleType) []type
 			return memberTypes
 		}
 		if current.Restriction != nil && !current.Restriction.Base.IsZero() {
-			if baseST, ok := ResolveSimpleTypeReferenceAllowMissing(schema, current.Restriction.Base).(*types.SimpleType); ok {
+			if baseST, ok := ResolveSimpleTypeReferenceAllowMissing(schema, current.Restriction.Base).(*model.SimpleType); ok {
 				return visit(baseST)
 			}
 		}
@@ -129,18 +130,18 @@ func ResolveUnionMemberTypes(schema *parser.Schema, st *types.SimpleType) []type
 	return visit(st)
 }
 
-// ResolveListItemType returns the list item type for explicit or derived list simple types.
-func ResolveListItemType(schema *parser.Schema, st *types.SimpleType) types.Type {
+// ResolveListItemType returns the list item type for explicit or derived list simple model.
+func ResolveListItemType(schema *parser.Schema, st *model.SimpleType) model.Type {
 	if st == nil || st.List == nil {
 		if st == nil {
 			return nil
 		}
-		if itemType, ok := types.ListItemType(st); ok {
+		if itemType, ok := model.ListItemType(st); ok {
 			return itemType
 		}
 		if st.Restriction != nil && !st.Restriction.Base.IsZero() {
 			if base := ResolveSimpleTypeReferenceAllowMissing(schema, st.Restriction.Base); base != nil {
-				if itemType, ok := types.ListItemType(base); ok {
+				if itemType, ok := model.ListItemType(base); ok {
 					return itemType
 				}
 			}
@@ -156,22 +157,22 @@ func ResolveListItemType(schema *parser.Schema, st *types.SimpleType) types.Type
 	if !st.List.ItemType.IsZero() {
 		return ResolveSimpleTypeReferenceAllowMissing(schema, st.List.ItemType)
 	}
-	if itemType, ok := types.ListItemType(st); ok {
+	if itemType, ok := model.ListItemType(st); ok {
 		return itemType
 	}
 	return nil
 }
 
 // IsIDOnlyType reports whether the QName identifies xs:ID.
-func IsIDOnlyType(qname types.QName) bool {
-	return qname.Namespace == types.XSDNamespace && qname.Local == string(types.TypeNameID)
+func IsIDOnlyType(qname model.QName) bool {
+	return qname.Namespace == model.XSDNamespace && qname.Local == string(model.TypeNameID)
 }
 
 // IsIDOnlyDerivedType reports whether a simple type derives from xs:ID.
-func IsIDOnlyDerivedType(schema *parser.Schema, st *types.SimpleType) bool {
-	visited := make(map[*types.SimpleType]bool)
-	var visit func(*types.SimpleType) bool
-	visit = func(current *types.SimpleType) bool {
+func IsIDOnlyDerivedType(schema *parser.Schema, st *model.SimpleType) bool {
+	visited := make(map[*model.SimpleType]bool)
+	var visit func(*model.SimpleType) bool
+	visit = func(current *model.SimpleType) bool {
 		if current == nil || current.Restriction == nil {
 			return false
 		}
@@ -186,7 +187,7 @@ func IsIDOnlyDerivedType(schema *parser.Schema, st *types.SimpleType) bool {
 			return true
 		}
 
-		var baseType types.Type
+		var baseType model.Type
 		if current.ResolvedBase != nil {
 			baseType = current.ResolvedBase
 		} else if !baseQName.IsZero() {
@@ -194,9 +195,9 @@ func IsIDOnlyDerivedType(schema *parser.Schema, st *types.SimpleType) bool {
 		}
 
 		switch typed := baseType.(type) {
-		case *types.SimpleType:
+		case *model.SimpleType:
 			return visit(typed)
-		case *types.BuiltinType:
+		case *model.BuiltinType:
 			return IsIDOnlyType(typed.Name())
 		default:
 			return false

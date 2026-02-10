@@ -3,14 +3,14 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateWildcardDerivation validates wildcard constraints in type derivation
-func validateWildcardDerivation(schema *parser.Schema, ct *types.ComplexType) error {
+func validateWildcardDerivation(schema *parser.Schema, ct *model.ComplexType) error {
 	baseQName := ct.Content().BaseTypeQName()
 	if baseQName.IsZero() {
 		return nil
@@ -21,12 +21,12 @@ func validateWildcardDerivation(schema *parser.Schema, ct *types.ComplexType) er
 		return nil
 	}
 
-	baseWildcards := traversal.CollectFromContent(baseCT.Content(), func(p types.Particle) (*types.AnyElement, bool) {
-		wildcard, ok := p.(*types.AnyElement)
+	baseWildcards := traversal.CollectFromContent(baseCT.Content(), func(p model.Particle) (*model.AnyElement, bool) {
+		wildcard, ok := p.(*model.AnyElement)
 		return wildcard, ok
 	})
-	derivedWildcards := traversal.CollectFromContent(ct.Content(), func(p types.Particle) (*types.AnyElement, bool) {
-		wildcard, ok := p.(*types.AnyElement)
+	derivedWildcards := traversal.CollectFromContent(ct.Content(), func(p model.Particle) (*model.AnyElement, bool) {
+		wildcard, ok := p.(*model.AnyElement)
 		return wildcard, ok
 	})
 

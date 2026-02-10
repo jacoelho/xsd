@@ -3,12 +3,12 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/schemaops"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *compiler) compileDefaultFixedValue(lexical string, typ types.Type, ctx map[string]string) (compiledDefaultFixed, error) {
+func (c *compiler) compileDefaultFixedValue(lexical string, typ model.Type, ctx map[string]string) (compiledDefaultFixed, error) {
 	canon, member, key, err := c.canonicalizeDefaultFixed(lexical, typ, ctx)
 	if err != nil {
 		return compiledDefaultFixed{}, err
@@ -21,14 +21,14 @@ func (c *compiler) compileDefaultFixedValue(lexical string, typ types.Type, ctx 
 	}, nil
 }
 
-func (c *compiler) valueTypeForElement(decl *types.ElementDecl) (types.Type, error) {
+func (c *compiler) valueTypeForElement(decl *model.ElementDecl) (model.Type, error) {
 	if decl == nil || decl.Type == nil {
 		return nil, fmt.Errorf("missing type")
 	}
 	switch typed := decl.Type.(type) {
-	case *types.SimpleType, *types.BuiltinType:
+	case *model.SimpleType, *model.BuiltinType:
 		return typed, nil
-	case *types.ComplexType:
+	case *model.ComplexType:
 		textType, err := c.simpleContentTextType(typed)
 		if err != nil {
 			return nil, err
@@ -42,7 +42,7 @@ func (c *compiler) valueTypeForElement(decl *types.ElementDecl) (types.Type, err
 	}
 }
 
-func (c *compiler) valueTypeForAttribute(decl *types.AttributeDecl) (types.Type, error) {
+func (c *compiler) valueTypeForAttribute(decl *model.AttributeDecl) (model.Type, error) {
 	if decl == nil {
 		return nil, fmt.Errorf("missing attribute")
 	}
@@ -57,7 +57,7 @@ func (c *compiler) valueTypeForAttribute(decl *types.AttributeDecl) (types.Type,
 	return nil, fmt.Errorf("missing attribute type")
 }
 
-func (c *compiler) simpleContentTextType(ct *types.ComplexType) (types.Type, error) {
+func (c *compiler) simpleContentTextType(ct *model.ComplexType) (model.Type, error) {
 	return schemaops.ResolveSimpleContentTextType(ct, schemaops.SimpleContentTextTypeOptions{
 		ResolveQName: c.res.resolveQName,
 		Cache:        c.simpleContent,

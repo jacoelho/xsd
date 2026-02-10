@@ -3,11 +3,11 @@ package validatorcompile
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (c *compiler) validateEnumSets(lexical, normalized string, typ types.Type, ctx map[string]string) error {
+func (c *compiler) validateEnumSets(lexical, normalized string, typ model.Type, ctx map[string]string) error {
 	validatorID, err := c.compileType(typ)
 	if err != nil {
 		return err

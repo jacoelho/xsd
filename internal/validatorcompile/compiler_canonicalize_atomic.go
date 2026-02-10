@@ -6,14 +6,14 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/durationlex"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
-func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map[string]string) ([]byte, error) {
+func (c *compiler) canonicalizeAtomic(normalized string, typ model.Type, ctx map[string]string) ([]byte, error) {
 	if c.res.isQNameOrNotation(typ) {
 		resolver := mapResolver(ctx)
 		return value.CanonicalQName([]byte(normalized), resolver, nil)
@@ -134,7 +134,7 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ types.Type, ctx map
 		if err != nil {
 			return nil, err
 		}
-		return []byte(types.ComparableXSDDuration{Value: dur}.String()), nil
+		return []byte(model.ComparableXSDDuration{Value: dur}.String()), nil
 	case "hexBinary":
 		b, err := value.ParseHexBinary([]byte(normalized))
 		if err != nil {

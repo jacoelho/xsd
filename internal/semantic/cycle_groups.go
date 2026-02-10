@@ -3,15 +3,15 @@ package semantic
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func detectGroupCycles(schema *parser.Schema) error {
-	states := make(map[types.QName]visitState)
+	states := make(map[model.QName]visitState)
 
-	var visit func(name types.QName, group *types.ModelGroup) error
-	visit = func(name types.QName, group *types.ModelGroup) error {
+	var visit func(name model.QName, group *model.ModelGroup) error
+	visit = func(name model.QName, group *model.ModelGroup) error {
 		switch states[name] {
 		case stateVisiting:
 			return fmt.Errorf("group cycle detected at %s", name)
@@ -47,26 +47,26 @@ func detectGroupCycles(schema *parser.Schema) error {
 	return nil
 }
 
-func collectGroupRefs(group *types.ModelGroup) []*types.GroupRef {
+func collectGroupRefs(group *model.ModelGroup) []*model.GroupRef {
 	if group == nil {
 		return nil
 	}
-	var refs []*types.GroupRef
+	var refs []*model.GroupRef
 	for _, particle := range group.Particles {
 		refs = collectGroupRefsFromParticle(particle, refs)
 	}
 	return refs
 }
 
-func collectGroupRefsFromParticle(particle types.Particle, refs []*types.GroupRef) []*types.GroupRef {
+func collectGroupRefsFromParticle(particle model.Particle, refs []*model.GroupRef) []*model.GroupRef {
 	switch typed := particle.(type) {
-	case *types.GroupRef:
+	case *model.GroupRef:
 		return append(refs, typed)
-	case *types.ModelGroup:
+	case *model.ModelGroup:
 		for _, child := range typed.Particles {
 			refs = collectGroupRefsFromParticle(child, refs)
 		}
-	case *types.ElementDecl, *types.AnyElement:
+	case *model.ElementDecl, *model.AnyElement:
 		return refs
 	}
 	return refs

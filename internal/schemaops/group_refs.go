@@ -3,14 +3,14 @@ package schemaops
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 // GroupRefLookupFunc resolves a group reference to a model group definition.
-type GroupRefLookupFunc func(ref *types.GroupRef) *types.ModelGroup
+type GroupRefLookupFunc func(ref *model.GroupRef) *model.ModelGroup
 
 // GroupRefErrorFunc builds an expansion error for a referenced group QName.
-type GroupRefErrorFunc func(ref types.QName) error
+type GroupRefErrorFunc func(ref model.QName) error
 
 // AllGroupMode controls how xs:all groups are represented in expanded trees.
 type AllGroupMode uint8
@@ -42,23 +42,23 @@ type ExpandGroupRefsOptions struct {
 }
 
 // ExpandGroupRefs expands group references and returns an equivalent particle tree.
-func ExpandGroupRefs(particle types.Particle, opts ExpandGroupRefsOptions) (types.Particle, error) {
+func ExpandGroupRefs(particle model.Particle, opts ExpandGroupRefsOptions) (model.Particle, error) {
 	cfg := opts.withDefaults()
-	return expandGroupRefs(particle, cfg, make(map[types.QName]bool))
+	return expandGroupRefs(particle, cfg, make(map[model.QName]bool))
 }
 
 func (opts ExpandGroupRefsOptions) withDefaults() ExpandGroupRefsOptions {
 	cfg := opts
 	if cfg.Lookup == nil {
-		cfg.Lookup = func(_ *types.GroupRef) *types.ModelGroup { return nil }
+		cfg.Lookup = func(_ *model.GroupRef) *model.ModelGroup { return nil }
 	}
 	if cfg.MissingError == nil {
-		cfg.MissingError = func(ref types.QName) error {
+		cfg.MissingError = func(ref model.QName) error {
 			return fmt.Errorf("group reference %s not found", ref)
 		}
 	}
 	if cfg.CycleError == nil {
-		cfg.CycleError = func(ref types.QName) error {
+		cfg.CycleError = func(ref model.QName) error {
 			return fmt.Errorf("group reference cycle detected: %s", ref)
 		}
 	}
@@ -66,12 +66,12 @@ func (opts ExpandGroupRefsOptions) withDefaults() ExpandGroupRefsOptions {
 }
 
 func expandGroupRefs(
-	particle types.Particle,
+	particle model.Particle,
 	opts ExpandGroupRefsOptions,
-	stack map[types.QName]bool,
-) (types.Particle, error) {
+	stack map[model.QName]bool,
+) (model.Particle, error) {
 	switch typed := particle.(type) {
-	case *types.GroupRef:
+	case *model.GroupRef:
 		if typed == nil {
 			return nil, nil
 		}
@@ -93,18 +93,18 @@ func expandGroupRefs(
 		expanded.MinOccurs = typed.MinOccurs
 		expanded.MaxOccurs = typed.MaxOccurs
 		return expanded, nil
-	case *types.ModelGroup:
+	case *model.ModelGroup:
 		if typed == nil {
 			return nil, nil
 		}
 		return cloneExpandedModelGroup(typed, opts, stack)
-	case *types.ElementDecl:
+	case *model.ElementDecl:
 		if opts.LeafClone != LeafClone || typed == nil {
 			return typed, nil
 		}
 		clone := *typed
 		return &clone, nil
-	case *types.AnyElement:
+	case *model.AnyElement:
 		if opts.LeafClone != LeafClone || typed == nil {
 			return typed, nil
 		}
@@ -116,15 +116,15 @@ func expandGroupRefs(
 }
 
 func cloneExpandedModelGroup(
-	group *types.ModelGroup,
+	group *model.ModelGroup,
 	opts ExpandGroupRefsOptions,
-	stack map[types.QName]bool,
-) (*types.ModelGroup, error) {
-	clone := &types.ModelGroup{
+	stack map[model.QName]bool,
+) (*model.ModelGroup, error) {
+	clone := &model.ModelGroup{
 		Kind:      normalizeGroupKind(group.Kind, opts.AllGroupMode),
 		MinOccurs: group.MinOccurs,
 		MaxOccurs: group.MaxOccurs,
-		Particles: make([]types.Particle, 0, len(group.Particles)),
+		Particles: make([]model.Particle, 0, len(group.Particles)),
 	}
 	for _, child := range group.Particles {
 		expanded, err := expandGroupRefs(child, opts, stack)
@@ -136,9 +136,9 @@ func cloneExpandedModelGroup(
 	return clone, nil
 }
 
-func normalizeGroupKind(kind types.GroupKind, mode AllGroupMode) types.GroupKind {
-	if kind == types.AllGroup && mode == AllGroupAsChoice {
-		return types.Choice
+func normalizeGroupKind(kind model.GroupKind, mode AllGroupMode) model.GroupKind {
+	if kind == model.AllGroup && mode == AllGroupAsChoice {
+		return model.Choice
 	}
 	return kind
 }

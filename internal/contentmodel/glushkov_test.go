@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestGlushkovSequence(t *testing.T) {
@@ -148,39 +148,39 @@ func bitsetPositions(blob runtime.BitsetBlob, ref runtime.BitsetRef) []int {
 	return out
 }
 
-func elem(local string, minOccurs, maxOccurs int) *types.ElementDecl {
-	decl := &types.ElementDecl{
-		Name: types.QName{Local: local},
+func elem(local string, minOccurs, maxOccurs int) *model.ElementDecl {
+	decl := &model.ElementDecl{
+		Name: model.QName{Local: local},
 	}
-	decl.MinOccurs = types.OccursFromInt(minOccurs)
+	decl.MinOccurs = model.OccursFromInt(minOccurs)
 	if maxOccurs < 0 {
-		decl.MaxOccurs = types.OccursUnbounded
+		decl.MaxOccurs = model.OccursUnbounded
 	} else {
-		decl.MaxOccurs = types.OccursFromInt(maxOccurs)
+		decl.MaxOccurs = model.OccursFromInt(maxOccurs)
 	}
 	return decl
 }
 
-func sequence(particles ...types.Particle) *types.ModelGroup {
-	group := &types.ModelGroup{
-		Kind:      types.Sequence,
+func sequence(particles ...model.Particle) *model.ModelGroup {
+	group := &model.ModelGroup{
+		Kind:      model.Sequence,
 		Particles: particles,
 	}
-	group.MinOccurs = types.OccursFromInt(1)
-	group.MaxOccurs = types.OccursFromInt(1)
+	group.MinOccurs = model.OccursFromInt(1)
+	group.MaxOccurs = model.OccursFromInt(1)
 	return group
 }
 
-func choice(minOccurs, maxOccurs int, particles ...types.Particle) *types.ModelGroup {
-	group := &types.ModelGroup{
-		Kind:      types.Choice,
+func choice(minOccurs, maxOccurs int, particles ...model.Particle) *model.ModelGroup {
+	group := &model.ModelGroup{
+		Kind:      model.Choice,
 		Particles: particles,
 	}
-	group.MinOccurs = types.OccursFromInt(minOccurs)
+	group.MinOccurs = model.OccursFromInt(minOccurs)
 	if maxOccurs < 0 {
-		group.MaxOccurs = types.OccursUnbounded
+		group.MaxOccurs = model.OccursUnbounded
 	} else {
-		group.MaxOccurs = types.OccursFromInt(maxOccurs)
+		group.MaxOccurs = model.OccursFromInt(maxOccurs)
 	}
 	return group
 }

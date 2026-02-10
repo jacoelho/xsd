@@ -3,7 +3,8 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
@@ -20,7 +21,7 @@ func hasInlineTypeChild(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
 	return false
 }
 
-func resolveTopLevelElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (types.Type, bool, error) {
+func resolveTopLevelElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (model.Type, bool, error) {
 	if typeName := doc.GetAttribute(elem, "type"); typeName != "" {
 		if hasInlineTypeChild(doc, elem) {
 			return nil, false, fmt.Errorf("element cannot have both 'type' attribute and inline type definition")
@@ -30,13 +31,13 @@ func resolveTopLevelElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema
 			return nil, false, fmt.Errorf("resolve type %s: %w", typeName, err)
 		}
 
-		if builtinType := types.GetBuiltinNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
+		if builtinType := builtins.GetNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
 			return builtinType, true, nil
 		}
-		return types.NewPlaceholderSimpleType(typeQName), true, nil
+		return model.NewPlaceholderSimpleType(typeQName), true, nil
 	}
 
-	var resolved types.Type
+	var resolved model.Type
 	var explicit bool
 	for _, child := range doc.Children(elem) {
 		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
@@ -66,7 +67,7 @@ func resolveTopLevelElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema
 		}
 	}
 	if resolved == nil {
-		return types.GetBuiltin(types.TypeNameAnyType), false, nil
+		return builtins.Get(builtins.TypeNameAnyType), false, nil
 	}
 	return resolved, explicit, nil
 }

@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	models "github.com/jacoelho/xsd/internal/contentmodel"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/schemaops"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (b *schemaBuilder) compileParticleModel(particle types.Particle) (runtime.ModelRef, runtime.ContentKind, error) {
+func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.ModelRef, runtime.ContentKind, error) {
 	if particle == nil {
 		return runtime.ModelRef{Kind: runtime.ModelNone}, runtime.ContentEmpty, nil
 	}
@@ -25,7 +25,7 @@ func (b *schemaBuilder) compileParticleModel(particle types.Particle) (runtime.M
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
-	if group, ok := particle.(*types.ModelGroup); ok && group.Kind == types.AllGroup {
+	if group, ok := particle.(*model.ModelGroup); ok && group.Kind == model.AllGroup {
 		ref, addErr := b.addAllModel(group)
 		if addErr != nil {
 			return runtime.ModelRef{}, 0, addErr
@@ -65,7 +65,7 @@ func (b *schemaBuilder) compileParticleModel(particle types.Particle) (runtime.M
 
 func (b *schemaBuilder) groupRefExpansionOptions() schemaops.ExpandGroupRefsOptions {
 	return schemaops.ExpandGroupRefsOptions{
-		Lookup: func(ref *types.GroupRef) *types.ModelGroup {
+		Lookup: func(ref *model.GroupRef) *model.ModelGroup {
 			if ref == nil {
 				return nil
 			}
@@ -84,10 +84,10 @@ func (b *schemaBuilder) groupRefExpansionOptions() schemaops.ExpandGroupRefsOpti
 			}
 			return b.schema.Groups[ref.RefQName]
 		},
-		MissingError: func(ref types.QName) error {
+		MissingError: func(ref model.QName) error {
 			return fmt.Errorf("group ref %s not resolved", ref)
 		},
-		CycleError: func(ref types.QName) error {
+		CycleError: func(ref model.QName) error {
 			return fmt.Errorf("group ref cycle detected: %s", ref)
 		},
 		AllGroupMode: schemaops.AllGroupKeep,
@@ -95,9 +95,9 @@ func (b *schemaBuilder) groupRefExpansionOptions() schemaops.ExpandGroupRefsOpti
 	}
 }
 
-func isEmptyChoice(particle types.Particle) bool {
-	group, ok := particle.(*types.ModelGroup)
-	if !ok || group == nil || group.Kind != types.Choice {
+func isEmptyChoice(particle model.Particle) bool {
+	group, ok := particle.(*model.ModelGroup)
+	if !ok || group == nil || group.Kind != model.Choice {
 		return false
 	}
 	for _, child := range group.Particles {
@@ -112,7 +112,7 @@ func isEmptyChoice(particle types.Particle) bool {
 	return true
 }
 
-func (b *schemaBuilder) validateOccursLimit(particle types.Particle) error {
+func (b *schemaBuilder) validateOccursLimit(particle model.Particle) error {
 	if particle == nil || b.maxOccurs == 0 {
 		return nil
 	}
@@ -122,7 +122,7 @@ func (b *schemaBuilder) validateOccursLimit(particle types.Particle) error {
 	if err := b.checkOccursValue("maxOccurs", particle.MaxOcc()); err != nil {
 		return err
 	}
-	if group, ok := particle.(*types.ModelGroup); ok {
+	if group, ok := particle.(*model.ModelGroup); ok {
 		for _, child := range group.Particles {
 			if err := b.validateOccursLimit(child); err != nil {
 				return err
@@ -132,7 +132,7 @@ func (b *schemaBuilder) validateOccursLimit(particle types.Particle) error {
 	return nil
 }
 
-func (b *schemaBuilder) checkOccursValue(attr string, occ types.Occurs) error {
+func (b *schemaBuilder) checkOccursValue(attr string, occ model.Occurs) error {
 	if b == nil || b.maxOccurs == 0 {
 		return nil
 	}
@@ -140,10 +140,10 @@ func (b *schemaBuilder) checkOccursValue(attr string, occ types.Occurs) error {
 		return nil
 	}
 	if occ.IsOverflow() {
-		return fmt.Errorf("%w: %s value %s exceeds uint32", types.ErrOccursOverflow, attr, occ.String())
+		return fmt.Errorf("%w: %s value %s exceeds uint32", model.ErrOccursOverflow, attr, occ.String())
 	}
 	if occ.GreaterThanInt(int(b.maxOccurs)) {
-		return fmt.Errorf("%w: %s value %s exceeds limit %d", types.ErrOccursTooLarge, attr, occ.String(), b.maxOccurs)
+		return fmt.Errorf("%w: %s value %s exceeds limit %d", model.ErrOccursTooLarge, attr, occ.String(), b.maxOccurs)
 	}
 	return nil
 }

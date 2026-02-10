@@ -4,35 +4,37 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typefacet"
 )
 
 func TestFacetInheritance_SimpleType(t *testing.T) {
 	// test that facets are inherited from base type
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// base type with maxInclusive=100
-	decimalBaseType := types.GetBuiltin(types.TypeNameDecimal)
+	decimalBaseType := builtins.Get(model.TypeNameDecimal)
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
 	}
-	maxInclusive100, err := types.NewMaxInclusive("100", decimalBaseType)
+	maxInclusive100, err := typefacet.NewMaxInclusive("100", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMaxInclusive() error = %v", err)
 	}
-	baseType := &types.SimpleType{
-		QName: types.QName{
+	baseType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		Restriction: &types.Restriction{
-			Base: types.QName{
+		Restriction: &model.Restriction{
+			Base: model.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
-				Local:     string(types.TypeNameDecimal),
+				Local:     string(model.TypeNameDecimal),
 			},
 			Facets: []any{
 				maxInclusive100,
@@ -44,16 +46,16 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 
 	// derived type with maxInclusive=50 (stricter - should be valid)
 	// use the primitive type (decimal) for facet creation
-	maxInclusive50, err := types.NewMaxInclusive("50", decimalBaseType)
+	maxInclusive50, err := typefacet.NewMaxInclusive("50", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMaxInclusive() error = %v", err)
 	}
-	derivedType := &types.SimpleType{
-		QName: types.QName{
+	derivedType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		Restriction: &types.Restriction{
+		Restriction: &model.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
 				maxInclusive50,
@@ -85,27 +87,27 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 	// test that relaxing facets is rejected
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// base type with maxInclusive=100
-	decimalBaseType := types.GetBuiltin(types.TypeNameDecimal)
+	decimalBaseType := builtins.Get(model.TypeNameDecimal)
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
 	}
-	maxInclusive100, err := types.NewMaxInclusive("100", decimalBaseType)
+	maxInclusive100, err := typefacet.NewMaxInclusive("100", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMaxInclusive() error = %v", err)
 	}
-	baseType := &types.SimpleType{
-		QName: types.QName{
+	baseType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		Restriction: &types.Restriction{
-			Base: types.QName{
+		Restriction: &model.Restriction{
+			Base: model.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
-				Local:     string(types.TypeNameDecimal),
+				Local:     string(model.TypeNameDecimal),
 			},
 			Facets: []any{
 				maxInclusive100,
@@ -117,16 +119,16 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 
 	// derived type with maxInclusive=200 (relaxed - should be invalid)
 	// use the primitive type (decimal) for facet creation
-	maxInclusive200, err := types.NewMaxInclusive("200", decimalBaseType)
+	maxInclusive200, err := typefacet.NewMaxInclusive("200", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMaxInclusive() error = %v", err)
 	}
-	derivedType := &types.SimpleType{
-		QName: types.QName{
+	derivedType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		Restriction: &types.Restriction{
+		Restriction: &model.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
 				maxInclusive200,
@@ -154,27 +156,27 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 	// test minInclusive facet inheritance
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// base type with minInclusive=10
-	decimalBaseType := types.GetBuiltin(types.TypeNameDecimal)
+	decimalBaseType := builtins.Get(model.TypeNameDecimal)
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
 	}
-	minInclusive10, err := types.NewMinInclusive("10", decimalBaseType)
+	minInclusive10, err := typefacet.NewMinInclusive("10", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMinInclusive() error = %v", err)
 	}
-	baseType := &types.SimpleType{
-		QName: types.QName{
+	baseType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		Restriction: &types.Restriction{
-			Base: types.QName{
+		Restriction: &model.Restriction{
+			Base: model.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
-				Local:     string(types.TypeNameDecimal),
+				Local:     string(model.TypeNameDecimal),
 			},
 			Facets: []any{
 				minInclusive10,
@@ -186,16 +188,16 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 
 	// derived type with minInclusive=20 (stricter - should be valid)
 	// use the primitive type (decimal) for facet creation
-	minInclusive20, err := types.NewMinInclusive("20", decimalBaseType)
+	minInclusive20, err := typefacet.NewMinInclusive("20", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMinInclusive() error = %v", err)
 	}
-	derivedType := &types.SimpleType{
-		QName: types.QName{
+	derivedType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		Restriction: &types.Restriction{
+		Restriction: &model.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
 				minInclusive20,
@@ -220,16 +222,16 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 
 	// test invalid relaxation: minInclusive=5 (relaxed - should be invalid)
 	// use the primitive type (decimal) for facet creation
-	minInclusive5, err := types.NewMinInclusive("5", decimalBaseType)
+	minInclusive5, err := typefacet.NewMinInclusive("5", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMinInclusive() error = %v", err)
 	}
-	invalidDerived := &types.SimpleType{
-		QName: types.QName{
+	invalidDerived := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "InvalidDerived",
 		},
-		Restriction: &types.Restriction{
+		Restriction: &model.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
 				minInclusive5,
@@ -253,19 +255,19 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 }
 
 func TestFacetInheritance_DeferredFacetConversionError(t *testing.T) {
-	baseType := &types.SimpleType{
-		QName: types.QName{Namespace: "http://example.com", Local: "BaseType"},
-		Restriction: &types.Restriction{
-			Base: types.QName{
-				Namespace: types.XSDNamespace,
-				Local:     string(types.TypeNameInt),
+	baseType := &model.SimpleType{
+		QName: model.QName{Namespace: "http://example.com", Local: "BaseType"},
+		Restriction: &model.Restriction{
+			Base: model.QName{
+				Namespace: model.XSDNamespace,
+				Local:     string(model.TypeNameInt),
 			},
 			Facets: []any{
-				&types.DeferredFacet{FacetName: "minInclusive", FacetValue: "not-an-int"},
+				&model.DeferredFacet{FacetName: "minInclusive", FacetValue: "not-an-int"},
 			},
 		},
 	}
-	baseType.ResolvedBase = types.GetBuiltin(types.TypeNameInt)
+	baseType.ResolvedBase = builtins.Get(model.TypeNameInt)
 
 	if err := validateFacetInheritance(nil, baseType); err == nil {
 		t.Fatalf("expected deferred facet conversion error")
@@ -275,43 +277,43 @@ func TestFacetInheritance_DeferredFacetConversionError(t *testing.T) {
 func TestFacetInheritance_DigitsRelaxation(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
-	decimalBaseType := types.GetBuiltin(types.TypeNameDecimal)
+	decimalBaseType := builtins.Get(model.TypeNameDecimal)
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
 	}
 
-	baseType := &types.SimpleType{
-		QName: types.QName{
+	baseType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		Restriction: &types.Restriction{
-			Base: types.QName{
+		Restriction: &model.Restriction{
+			Base: model.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
-				Local:     string(types.TypeNameDecimal),
+				Local:     string(model.TypeNameDecimal),
 			},
 			Facets: []any{
-				&types.TotalDigits{Value: 4},
-				&types.FractionDigits{Value: 2},
+				&model.TotalDigits{Value: 4},
+				&model.FractionDigits{Value: 2},
 			},
 		},
 	}
 	baseType.ResolvedBase = decimalBaseType
 	schema.TypeDefs[baseType.QName] = baseType
 
-	derivedType := &types.SimpleType{
-		QName: types.QName{
+	derivedType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		Restriction: &types.Restriction{
+		Restriction: &model.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
-				&types.TotalDigits{Value: 5},
-				&types.FractionDigits{Value: 4},
+				&model.TotalDigits{Value: 5},
+				&model.FractionDigits{Value: 4},
 			},
 		},
 	}
@@ -335,37 +337,37 @@ func TestFacetInheritance_MaxLength(t *testing.T) {
 	// test maxLength facet inheritance
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// base type with maxLength=100
-	baseType := &types.SimpleType{
-		QName: types.QName{
+	baseType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
-		Restriction: &types.Restriction{
-			Base: types.QName{
+		Restriction: &model.Restriction{
+			Base: model.QName{
 				Namespace: "http://www.w3.org/2001/XMLSchema",
-				Local:     string(types.TypeNameString),
+				Local:     string(model.TypeNameString),
 			},
 			Facets: []any{
-				&types.MaxLength{Value: 100},
+				&model.MaxLength{Value: 100},
 			},
 		},
 	}
 	schema.TypeDefs[baseType.QName] = baseType
 
 	// derived type with maxLength=50 (stricter - should be valid)
-	derivedType := &types.SimpleType{
-		QName: types.QName{
+	derivedType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		Restriction: &types.Restriction{
+		Restriction: &model.Restriction{
 			Base: baseType.QName,
 			Facets: []any{
-				&types.MaxLength{Value: 50},
+				&model.MaxLength{Value: 50},
 			},
 		},
 	}

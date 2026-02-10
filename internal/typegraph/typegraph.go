@@ -1,12 +1,12 @@
 package typegraph
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // LookupType returns a type definition by QName from the schema.
-func LookupType(schema *parser.Schema, qname types.QName) (types.Type, bool) {
+func LookupType(schema *parser.Schema, qname model.QName) (model.Type, bool) {
 	if schema == nil {
 		return nil, false
 	}
@@ -15,28 +15,28 @@ func LookupType(schema *parser.Schema, qname types.QName) (types.Type, bool) {
 }
 
 // LookupComplexType returns a complex type definition by QName.
-func LookupComplexType(schema *parser.Schema, qname types.QName) (*types.ComplexType, bool) {
+func LookupComplexType(schema *parser.Schema, qname model.QName) (*model.ComplexType, bool) {
 	typ, ok := LookupType(schema, qname)
 	if !ok {
 		return nil, false
 	}
-	ct, ok := types.AsComplexType(typ)
+	ct, ok := model.AsComplexType(typ)
 	return ct, ok
 }
 
 // ResolveBaseComplexType resolves a complex base type, including xs:anyType.
-func ResolveBaseComplexType(schema *parser.Schema, ct *types.ComplexType, baseQName types.QName) *types.ComplexType {
+func ResolveBaseComplexType(schema *parser.Schema, ct *model.ComplexType, baseQName model.QName) *model.ComplexType {
 	if ct != nil && ct.ResolvedBase != nil {
-		if baseCT, ok := types.AsComplexType(ct.ResolvedBase); ok {
+		if baseCT, ok := model.AsComplexType(ct.ResolvedBase); ok {
 			return baseCT
 		}
-		if types.IsAnyTypeQName(ct.ResolvedBase.Name()) {
-			return types.NewAnyTypeComplexType()
+		if model.IsAnyTypeQName(ct.ResolvedBase.Name()) {
+			return model.NewAnyTypeComplexType()
 		}
 	}
 	if schema != nil && !baseQName.IsZero() {
-		if types.IsAnyTypeQName(baseQName) {
-			return types.NewAnyTypeComplexType()
+		if model.IsAnyTypeQName(baseQName) {
+			return model.NewAnyTypeComplexType()
 		}
 		if baseCT, ok := LookupComplexType(schema, baseQName); ok {
 			return baseCT
@@ -46,15 +46,15 @@ func ResolveBaseComplexType(schema *parser.Schema, ct *types.ComplexType, baseQN
 }
 
 // EffectiveContentParticle returns the effective element particle for a type.
-func EffectiveContentParticle(schema *parser.Schema, typ types.Type) types.Particle {
-	ct, ok := types.AsComplexType(typ)
+func EffectiveContentParticle(schema *parser.Schema, typ model.Type) model.Particle {
+	ct, ok := model.AsComplexType(typ)
 	if !ok || ct == nil {
 		return nil
 	}
-	return effectiveContentParticleForComplexType(schema, ct, make(map[*types.ComplexType]bool))
+	return effectiveContentParticleForComplexType(schema, ct, make(map[*model.ComplexType]bool))
 }
 
-func effectiveContentParticleForComplexType(schema *parser.Schema, ct *types.ComplexType, visited map[*types.ComplexType]bool) types.Particle {
+func effectiveContentParticleForComplexType(schema *parser.Schema, ct *model.ComplexType, visited map[*model.ComplexType]bool) model.Particle {
 	if ct == nil {
 		return nil
 	}
@@ -65,11 +65,11 @@ func effectiveContentParticleForComplexType(schema *parser.Schema, ct *types.Com
 	defer delete(visited, ct)
 
 	switch content := ct.Content().(type) {
-	case *types.ElementContent:
+	case *model.ElementContent:
 		return content.Particle
-	case *types.SimpleContent, *types.EmptyContent:
+	case *model.SimpleContent, *model.EmptyContent:
 		return nil
-	case *types.ComplexContent:
+	case *model.ComplexContent:
 		if content.Restriction != nil {
 			return content.Restriction.Particle
 		}
@@ -82,18 +82,18 @@ func effectiveContentParticleForComplexType(schema *parser.Schema, ct *types.Com
 	return nil
 }
 
-func combineExtensionParticles(baseParticle, extParticle types.Particle) types.Particle {
+func combineExtensionParticles(baseParticle, extParticle model.Particle) model.Particle {
 	if baseParticle == nil {
 		return extParticle
 	}
 	if extParticle == nil {
 		return baseParticle
 	}
-	return &types.ModelGroup{
-		Kind:      types.Sequence,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
-		Particles: []types.Particle{baseParticle, extParticle},
+	return &model.ModelGroup{
+		Kind:      model.Sequence,
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
+		Particles: []model.Particle{baseParticle, extParticle},
 	}
 }
 
@@ -106,9 +106,9 @@ const (
 )
 
 // CollectComplexTypeChain walks base links from a complex type to root.
-func CollectComplexTypeChain(schema *parser.Schema, ct *types.ComplexType, mode ComplexTypeChainMode) []*types.ComplexType {
-	var chain []*types.ComplexType
-	visited := make(map[*types.ComplexType]bool)
+func CollectComplexTypeChain(schema *parser.Schema, ct *model.ComplexType, mode ComplexTypeChainMode) []*model.ComplexType {
+	var chain []*model.ComplexType
+	visited := make(map[*model.ComplexType]bool)
 	for current := ct; current != nil; {
 		if visited[current] {
 			break
@@ -124,28 +124,28 @@ func CollectComplexTypeChain(schema *parser.Schema, ct *types.ComplexType, mode 
 	return chain
 }
 
-func nextBaseComplexType(schema *parser.Schema, current *types.ComplexType, mode ComplexTypeChainMode) *types.ComplexType {
+func nextBaseComplexType(schema *parser.Schema, current *model.ComplexType, mode ComplexTypeChainMode) *model.ComplexType {
 	if current == nil {
 		return nil
 	}
-	if baseCT, ok := current.ResolvedBase.(*types.ComplexType); ok {
+	if baseCT, ok := current.ResolvedBase.(*model.ComplexType); ok {
 		return baseCT
 	}
 	if current.ResolvedBase != nil {
-		if mode == ComplexTypeChainAllowImplicitAnyType && types.IsAnyTypeQName(current.ResolvedBase.Name()) {
-			return types.NewAnyTypeComplexType()
+		if mode == ComplexTypeChainAllowImplicitAnyType && model.IsAnyTypeQName(current.ResolvedBase.Name()) {
+			return model.NewAnyTypeComplexType()
 		}
 		return nil
 	}
 
-	baseQName := types.QName{}
+	baseQName := model.QName{}
 	if content := current.Content(); content != nil {
 		baseQName = content.BaseTypeQName()
 	}
 	if !baseQName.IsZero() {
-		if types.IsAnyTypeQName(baseQName) {
+		if model.IsAnyTypeQName(baseQName) {
 			if mode == ComplexTypeChainAllowImplicitAnyType {
-				return types.NewAnyTypeComplexType()
+				return model.NewAnyTypeComplexType()
 			}
 			return nil
 		}
@@ -154,8 +154,8 @@ func nextBaseComplexType(schema *parser.Schema, current *types.ComplexType, mode
 		}
 		return nil
 	}
-	if mode == ComplexTypeChainAllowImplicitAnyType && !types.IsAnyTypeQName(current.QName) {
-		return types.NewAnyTypeComplexType()
+	if mode == ComplexTypeChainAllowImplicitAnyType && !model.IsAnyTypeQName(current.QName) {
+		return model.NewAnyTypeComplexType()
 	}
 	return nil
 }

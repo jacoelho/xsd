@@ -4,34 +4,34 @@ import (
 	"fmt"
 
 	models "github.com/jacoelho/xsd/internal/contentmodel"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/schemaops"
 	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // ValidateUPA validates Unique Particle Attribution for a content model.
 // UPA requires that no element can be matched by more than one particle.
-func ValidateUPA(schema *parser.Schema, content types.Content, _ types.NamespaceURI) error {
+func ValidateUPA(schema *parser.Schema, content model.Content, _ model.NamespaceURI) error {
 	particle, baseParticle := upaParticles(schema, content)
 	if particle == nil && baseParticle == nil {
 		return nil
 	}
 
 	expandOptions := schemaops.ExpandGroupRefsOptions{
-		Lookup: func(ref *types.GroupRef) *types.ModelGroup {
+		Lookup: func(ref *model.GroupRef) *model.ModelGroup {
 			if schema == nil || ref == nil {
 				return nil
 			}
 			return schema.Groups[ref.RefQName]
 		},
-		MissingError: func(ref types.QName) error {
+		MissingError: func(ref model.QName) error {
 			if schema == nil {
 				return fmt.Errorf("group ref %s not resolved", ref)
 			}
 			return fmt.Errorf("group '%s' not found", ref)
 		},
-		CycleError: func(ref types.QName) error {
+		CycleError: func(ref model.QName) error {
 			return fmt.Errorf("circular group reference detected for %s", ref)
 		},
 		AllGroupMode: schemaops.AllGroupAsChoice,
@@ -61,19 +61,19 @@ func ValidateUPA(schema *parser.Schema, content types.Content, _ types.Namespace
 	return models.CheckDeterminism(glu, checker.positionsOverlap)
 }
 
-func upaParticles(schema *parser.Schema, content types.Content) (types.Particle, types.Particle) {
-	var particle types.Particle
-	var baseParticle types.Particle
+func upaParticles(schema *parser.Schema, content model.Content) (model.Particle, model.Particle) {
+	var particle model.Particle
+	var baseParticle model.Particle
 
 	switch c := content.(type) {
-	case *types.ElementContent:
+	case *model.ElementContent:
 		particle = c.Particle
-	case *types.ComplexContent:
+	case *model.ComplexContent:
 		if c.Extension != nil {
 			particle = c.Extension.Particle
 			if !c.Extension.Base.IsZero() {
 				if baseCT, ok := typegraph.LookupComplexType(schema, c.Extension.Base); ok {
-					if baseEC, ok := baseCT.Content().(*types.ElementContent); ok {
+					if baseEC, ok := baseCT.Content().(*model.ElementContent); ok {
 						baseParticle = baseEC.Particle
 					}
 				}
@@ -87,7 +87,7 @@ func upaParticles(schema *parser.Schema, content types.Content) (types.Particle,
 	return particle, baseParticle
 }
 
-func expandAndRelaxParticle(particle types.Particle, opts schemaops.ExpandGroupRefsOptions) (types.Particle, error) {
+func expandAndRelaxParticle(particle model.Particle, opts schemaops.ExpandGroupRefsOptions) (model.Particle, error) {
 	if particle == nil {
 		return nil, nil
 	}
@@ -98,13 +98,13 @@ func expandAndRelaxParticle(particle types.Particle, opts schemaops.ExpandGroupR
 	return relaxOccursCopy(expanded), nil
 }
 
-func combineBaseAndDerivedUPAParticles(baseParticle, particle types.Particle) types.Particle {
+func combineBaseAndDerivedUPAParticles(baseParticle, particle model.Particle) model.Particle {
 	if baseParticle != nil && particle != nil {
-		return &types.ModelGroup{
-			Kind:      types.Sequence,
-			MinOccurs: types.OccursFromInt(1),
-			MaxOccurs: types.OccursFromInt(1),
-			Particles: []types.Particle{baseParticle, particle},
+		return &model.ModelGroup{
+			Kind:      model.Sequence,
+			MinOccurs: model.OccursFromInt(1),
+			MaxOccurs: model.OccursFromInt(1),
+			Particles: []model.Particle{baseParticle, particle},
 		}
 	}
 	if particle == nil {

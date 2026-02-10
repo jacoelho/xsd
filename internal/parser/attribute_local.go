@@ -3,13 +3,14 @@ package parser
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
-func parseLocalAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, local bool) (*types.AttributeDecl, error) {
-	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
+func parseLocalAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, local bool) (*model.AttributeDecl, error) {
+	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return nil, fmt.Errorf("attribute missing name and ref")
 	}
@@ -20,12 +21,12 @@ func parseLocalAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 		return nil, fmt.Errorf("attribute name '%s' must be a valid NCName", name)
 	}
 
-	attr := &types.AttributeDecl{
-		Name: types.QName{
+	attr := &model.AttributeDecl{
+		Name: model.QName{
 			Namespace: "",
 			Local:     name,
 		},
-		Use:             types.Optional,
+		Use:             model.Optional,
 		SourceNamespace: schema.TargetNamespace,
 	}
 
@@ -58,10 +59,10 @@ func parseLocalAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 			return nil, fmt.Errorf("resolve type %s: %w", typeName, err)
 		}
 
-		if builtinType := types.GetBuiltinNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
+		if builtinType := builtins.GetNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
 			attr.Type = builtinType
 		} else {
-			attr.Type = types.NewPlaceholderSimpleType(typeQName)
+			attr.Type = model.NewPlaceholderSimpleType(typeQName)
 		}
 	} else {
 		for _, child := range doc.Children(elem) {
@@ -79,7 +80,7 @@ func parseLocalAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 		}
 	}
 	if attr.Type == nil {
-		attr.Type = types.GetBuiltin(types.TypeNameAnySimpleType)
+		attr.Type = builtins.Get(builtins.TypeNameAnySimpleType)
 	}
 
 	use, err := parseAttributeUse(doc, elem)
@@ -88,10 +89,10 @@ func parseLocalAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 	}
 	attr.Use = use
 
-	if attr.Use == types.Required && doc.HasAttribute(elem, "default") {
+	if attr.Use == model.Required && doc.HasAttribute(elem, "default") {
 		return nil, fmt.Errorf("attribute with use='required' cannot have default value")
 	}
-	if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
+	if attr.Use == model.Prohibited && doc.HasAttribute(elem, "default") {
 		return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
 	}
 
@@ -112,24 +113,24 @@ func parseLocalAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 
 	formExplicit := doc.HasAttribute(elem, "form")
 	if formExplicit {
-		formAttr := types.ApplyWhiteSpace(doc.GetAttribute(elem, "form"), types.WhiteSpaceCollapse)
+		formAttr := model.ApplyWhiteSpace(doc.GetAttribute(elem, "form"), model.WhiteSpaceCollapse)
 		switch formAttr {
 		case "qualified":
-			attr.Form = types.FormQualified
+			attr.Form = model.FormQualified
 		case "unqualified":
-			attr.Form = types.FormUnqualified
+			attr.Form = model.FormUnqualified
 		default:
 			return nil, fmt.Errorf("invalid form attribute value '%s': must be 'qualified' or 'unqualified'", formAttr)
 		}
 	} else if local {
 		if schema.AttributeFormDefault == Qualified {
-			attr.Form = types.FormQualified
+			attr.Form = model.FormQualified
 		} else {
-			attr.Form = types.FormUnqualified
+			attr.Form = model.FormUnqualified
 		}
 	}
 
-	parsed, err := types.NewAttributeDeclFromParsed(attr)
+	parsed, err := model.NewAttributeDeclFromParsed(attr)
 	if err != nil {
 		return nil, err
 	}

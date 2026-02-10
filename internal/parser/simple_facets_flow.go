@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
@@ -15,7 +15,7 @@ const (
 )
 
 // parseFacetsWithPolicy parses facet elements from a restriction element.
-func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, restriction *types.Restriction, st *types.SimpleType, schema *Schema, policy facetAttributePolicy) error {
+func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, restriction *model.Restriction, st *model.SimpleType, schema *Schema, policy facetAttributePolicy) error {
 	baseType := tryResolveBaseType(restriction, schema)
 	if st != nil && st.Restriction != nil {
 		baseType = tryResolveBaseType(st.Restriction, schema)
@@ -40,14 +40,14 @@ func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, 
 		}
 
 		var (
-			facet types.Facet
+			facet model.Facet
 			err   error
 		)
 
 		if localName == "whiteSpace" {
 			if st == nil {
 				if restriction != nil && restriction.SimpleType == nil {
-					restriction.SimpleType = &types.SimpleType{}
+					restriction.SimpleType = &model.SimpleType{}
 				}
 				st = restriction.SimpleType
 			}
@@ -79,7 +79,7 @@ func parseFacetsWithPolicy(doc *xsdxml.Document, restrictionElem xsdxml.NodeID, 
 	}
 
 	for _, facet := range restriction.Facets {
-		if enum, ok := facet.(*types.Enumeration); ok {
+		if enum, ok := facet.(*model.Enumeration); ok {
 			enum.Seal()
 		}
 	}

@@ -1,74 +1,74 @@
 package runtimebuild
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func toRuntimeAttrUse(use types.AttributeUse) runtime.AttrUseKind {
+func toRuntimeAttrUse(use model.AttributeUse) runtime.AttrUseKind {
 	switch use {
-	case types.Required:
+	case model.Required:
 		return runtime.AttrRequired
-	case types.Prohibited:
+	case model.Prohibited:
 		return runtime.AttrProhibited
 	default:
 		return runtime.AttrOptional
 	}
 }
 
-func toRuntimeElemBlock(block types.DerivationSet) runtime.ElemBlock {
+func toRuntimeElemBlock(block model.DerivationSet) runtime.ElemBlock {
 	var out runtime.ElemBlock
-	if block.Has(types.DerivationSubstitution) {
+	if block.Has(model.DerivationSubstitution) {
 		out |= runtime.ElemBlockSubstitution
 	}
-	if block.Has(types.DerivationExtension) {
+	if block.Has(model.DerivationExtension) {
 		out |= runtime.ElemBlockExtension
 	}
-	if block.Has(types.DerivationRestriction) {
+	if block.Has(model.DerivationRestriction) {
 		out |= runtime.ElemBlockRestriction
 	}
 	return out
 }
 
-func toRuntimeDerivation(mask types.DerivationMethod) runtime.DerivationMethod {
+func toRuntimeDerivation(mask model.DerivationMethod) runtime.DerivationMethod {
 	var out runtime.DerivationMethod
-	if mask&types.DerivationExtension != 0 {
+	if mask&model.DerivationExtension != 0 {
 		out |= runtime.DerExtension
 	}
-	if mask&types.DerivationRestriction != 0 {
+	if mask&model.DerivationRestriction != 0 {
 		out |= runtime.DerRestriction
 	}
-	if mask&types.DerivationList != 0 {
+	if mask&model.DerivationList != 0 {
 		out |= runtime.DerList
 	}
-	if mask&types.DerivationUnion != 0 {
+	if mask&model.DerivationUnion != 0 {
 		out |= runtime.DerUnion
 	}
 	return out
 }
 
-func toRuntimeDerivationSet(set types.DerivationSet) runtime.DerivationMethod {
+func toRuntimeDerivationSet(set model.DerivationSet) runtime.DerivationMethod {
 	var out runtime.DerivationMethod
-	if set.Has(types.DerivationExtension) {
+	if set.Has(model.DerivationExtension) {
 		out |= runtime.DerExtension
 	}
-	if set.Has(types.DerivationRestriction) {
+	if set.Has(model.DerivationRestriction) {
 		out |= runtime.DerRestriction
 	}
-	if set.Has(types.DerivationList) {
+	if set.Has(model.DerivationList) {
 		out |= runtime.DerList
 	}
-	if set.Has(types.DerivationUnion) {
+	if set.Has(model.DerivationUnion) {
 		out |= runtime.DerUnion
 	}
 	return out
 }
 
-func toRuntimeProcessContents(pc types.ProcessContents) runtime.ProcessContents {
+func toRuntimeProcessContents(pc model.ProcessContents) runtime.ProcessContents {
 	switch pc {
-	case types.Lax:
+	case model.Lax:
 		return runtime.PCLax
-	case types.Skip:
+	case model.Skip:
 		return runtime.PCSkip
 	default:
 		return runtime.PCStrict

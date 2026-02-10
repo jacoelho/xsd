@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	models "github.com/jacoelho/xsd/internal/contentmodel"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (b *schemaBuilder) addAllModel(group *types.ModelGroup) (runtime.ModelRef, error) {
+func (b *schemaBuilder) addAllModel(group *model.ModelGroup) (runtime.ModelRef, error) {
 	if group == nil {
 		return runtime.ModelRef{Kind: runtime.ModelNone}, nil
 	}
@@ -23,12 +23,12 @@ func (b *schemaBuilder) addAllModel(group *types.ModelGroup) (runtime.ModelRef, 
 		return runtime.ModelRef{}, fmt.Errorf("runtime build: all group maxOccurs must be <= 1")
 	}
 
-	model := runtime.AllModel{
+	allModel := runtime.AllModel{
 		MinOccurs: uint32(minOccurs),
 		Mixed:     false,
 	}
 	for _, particle := range group.Particles {
-		elem, ok := particle.(*types.ElementDecl)
+		elem, ok := particle.(*model.ElementDecl)
 		if !ok || elem == nil {
 			return runtime.ModelRef{}, fmt.Errorf("runtime build: all group member must be element")
 		}
@@ -67,11 +67,11 @@ func (b *schemaBuilder) addAllModel(group *types.ModelGroup) (runtime.ModelRef, 
 				member.SubstLen = uint32(len(b.rt.Models.AllSubst)) - member.SubstOff
 			}
 		}
-		model.Members = append(model.Members, member)
+		allModel.Members = append(allModel.Members, member)
 	}
 
 	id := uint32(len(b.rt.Models.All))
-	b.rt.Models.All = append(b.rt.Models.All, model)
+	b.rt.Models.All = append(b.rt.Models.All, allModel)
 	return runtime.ModelRef{Kind: runtime.ModelAll, ID: id}, nil
 }
 
@@ -87,14 +87,14 @@ func (b *schemaBuilder) addRejectAllModel() runtime.ModelRef {
 	return runtime.ModelRef{Kind: runtime.ModelNFA, ID: id}
 }
 
-func (b *schemaBuilder) substitutionMembers(head *types.ElementDecl) []*types.ElementDecl {
+func (b *schemaBuilder) substitutionMembers(head *model.ElementDecl) []*model.ElementDecl {
 	if head == nil {
 		return nil
 	}
-	queue := []types.QName{head.Name}
-	seen := make(map[types.QName]bool)
+	queue := []model.QName{head.Name}
+	seen := make(map[model.QName]bool)
 	seen[head.Name] = true
-	out := make([]*types.ElementDecl, 0)
+	out := make([]*model.ElementDecl, 0)
 
 	for len(queue) > 0 {
 		name := queue[0]
@@ -115,7 +115,7 @@ func (b *schemaBuilder) substitutionMembers(head *types.ElementDecl) []*types.El
 	return out
 }
 
-func (b *schemaBuilder) resolveSubstitutionHead(decl *types.ElementDecl) *types.ElementDecl {
+func (b *schemaBuilder) resolveSubstitutionHead(decl *model.ElementDecl) *model.ElementDecl {
 	if decl == nil || !decl.IsReference || b == nil || b.schema == nil {
 		return decl
 	}

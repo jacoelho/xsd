@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
@@ -14,7 +14,7 @@ func TestParseSchemaAttributes(t *testing.T) {
 	if err := parseSchemaAttributes(doc, root, schema); err != nil {
 		t.Fatalf("parseSchemaAttributes: %v", err)
 	}
-	if schema.TargetNamespace != types.NamespaceURI("urn:test") {
+	if schema.TargetNamespace != model.NamespaceURI("urn:test") {
 		t.Fatalf("target namespace = %q, want %q", schema.TargetNamespace, "urn:test")
 	}
 }
@@ -39,7 +39,7 @@ func TestParseDirectives(t *testing.T) {
 	if result.Directives[0].Kind != DirectiveImport || result.Directives[1].Kind != DirectiveInclude {
 		t.Fatalf("directive order = %v, want import then include", []DirectiveKind{result.Directives[0].Kind, result.Directives[1].Kind})
 	}
-	if !imported[types.NamespaceURI("urn:one")] {
+	if !imported[model.NamespaceURI("urn:one")] {
 		t.Fatalf("expected namespace urn:one to be recorded as imported")
 	}
 }
@@ -61,7 +61,7 @@ func TestParseComponents(t *testing.T) {
 	if err := parseComponents(doc, root, schema); err != nil {
 		t.Fatalf("parseComponents: %v", err)
 	}
-	qname := types.QName{Namespace: types.NamespaceURI("urn:test"), Local: "root"}
+	qname := model.QName{Namespace: model.NamespaceURI("urn:test"), Local: "root"}
 	if _, ok := schema.ElementDecls[qname]; !ok {
 		t.Fatalf("expected element %s to be parsed", qname)
 	}
@@ -69,9 +69,10 @@ func TestParseComponents(t *testing.T) {
 
 func parseSchemaDoc(t *testing.T, src string) (*xsdxml.Document, xsdxml.NodeID) {
 	t.Helper()
-	doc := xsdxml.AcquireDocument()
+	pool := xsdxml.NewDocumentPool()
+	doc := pool.Acquire()
 	t.Cleanup(func() {
-		xsdxml.ReleaseDocument(doc)
+		pool.Release(doc)
 	})
 	if err := xsdxml.ParseIntoWithOptions(strings.NewReader(src), doc); err != nil {
 		t.Fatalf("parse XML: %v", err)

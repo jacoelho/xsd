@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func elementDeclEquivalent(a, b *types.ElementDecl) bool {
+func elementDeclEquivalent(a, b *model.ElementDecl) bool {
 	if a == nil || b == nil {
 		return false
 	}
@@ -39,7 +39,7 @@ func elementDeclEquivalent(a, b *types.ElementDecl) bool {
 	return identityConstraintsEquivalent(a.Constraints, b.Constraints)
 }
 
-func elementTypesCompatible(a, b types.Type) bool {
+func elementTypesCompatible(a, b model.Type) bool {
 	if a == nil && b == nil {
 		return true
 	}
@@ -54,7 +54,7 @@ func elementTypesCompatible(a, b types.Type) bool {
 	return a == b
 }
 
-func identityConstraintsEquivalent(a, b []*types.IdentityConstraint) bool {
+func identityConstraintsEquivalent(a, b []*model.IdentityConstraint) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -74,7 +74,7 @@ func identityConstraintsEquivalent(a, b []*types.IdentityConstraint) bool {
 	return slices.Equal(keysA, keysB)
 }
 
-func identityConstraintKey(constraint *types.IdentityConstraint) string {
+func identityConstraintKey(constraint *model.IdentityConstraint) string {
 	if constraint == nil {
 		return "<nil>"
 	}

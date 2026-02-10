@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestMergeImportContextsKeepsDistinctKeys(t *testing.T) {
@@ -21,12 +21,12 @@ func TestMergeImportContextsKeepsDistinctKeys(t *testing.T) {
 
 	left.ImportContexts = map[string]parser.ImportContext{
 		keyA: {
-			TargetNamespace: types.NamespaceURI("urn:left"),
+			TargetNamespace: model.NamespaceURI("urn:left"),
 		},
 	}
 	right.ImportContexts = map[string]parser.ImportContext{
 		keyB: {
-			TargetNamespace: types.NamespaceURI("urn:right"),
+			TargetNamespace: model.NamespaceURI("urn:right"),
 		},
 	}
 

@@ -3,14 +3,14 @@ package semantic
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // AncestorIndex stores ancestor chains and cumulative derivation masks by TypeID.
 type AncestorIndex struct {
 	IDs     []TypeID
-	Masks   []types.DerivationMethod
+	Masks   []model.DerivationMethod
 	Offsets []uint32
 	Lengths []uint32
 }
@@ -31,7 +31,7 @@ func BuildAncestors(schema *parser.Schema, registry *Registry) (*AncestorIndex, 
 	maxID := len(registry.TypeOrder)
 	index := &AncestorIndex{
 		IDs:     []TypeID{},
-		Masks:   []types.DerivationMethod{},
+		Masks:   []model.DerivationMethod{},
 		Offsets: make([]uint32, maxID+1),
 		Lengths: make([]uint32, maxID+1),
 	}
@@ -54,10 +54,10 @@ func BuildAncestors(schema *parser.Schema, registry *Registry) (*AncestorIndex, 
 	return index, nil
 }
 
-func buildAncestorChain(schema *parser.Schema, registry *Registry, typ types.Type) ([]TypeID, []types.DerivationMethod, error) {
+func buildAncestorChain(schema *parser.Schema, registry *Registry, typ model.Type) ([]TypeID, []model.DerivationMethod, error) {
 	var ids []TypeID
-	var masks []types.DerivationMethod
-	cumulative := types.DerivationMethod(0)
+	var masks []model.DerivationMethod
+	cumulative := model.DerivationMethod(0)
 	current := typ
 
 	for current != nil {
@@ -65,7 +65,7 @@ func buildAncestorChain(schema *parser.Schema, registry *Registry, typ types.Typ
 		if baseQName.IsZero() {
 			break
 		}
-		if baseQName.Namespace == types.XSDNamespace {
+		if baseQName.Namespace == model.XSDNamespace {
 			break
 		}
 		baseType := schema.TypeDefs[baseQName]
@@ -85,50 +85,50 @@ func buildAncestorChain(schema *parser.Schema, registry *Registry, typ types.Typ
 	return ids, masks, nil
 }
 
-func baseForType(typ types.Type) (types.QName, types.DerivationMethod) {
+func baseForType(typ model.Type) (model.QName, model.DerivationMethod) {
 	switch typed := typ.(type) {
-	case *types.SimpleType:
+	case *model.SimpleType:
 		return baseForSimpleType(typed)
-	case *types.ComplexType:
+	case *model.ComplexType:
 		return baseForComplexType(typed)
 	default:
-		return types.QName{}, 0
+		return model.QName{}, 0
 	}
 }
 
-func baseForSimpleType(st *types.SimpleType) (types.QName, types.DerivationMethod) {
+func baseForSimpleType(st *model.SimpleType) (model.QName, model.DerivationMethod) {
 	if st == nil {
-		return types.QName{}, 0
+		return model.QName{}, 0
 	}
 	if st.List != nil {
-		return types.AnySimpleTypeQName(), types.DerivationList
+		return model.AnySimpleTypeQName(), model.DerivationList
 	}
 	if st.Union != nil {
-		return types.AnySimpleTypeQName(), types.DerivationUnion
+		return model.AnySimpleTypeQName(), model.DerivationUnion
 	}
 	if st.Restriction != nil {
-		return st.Restriction.Base, types.DerivationRestriction
+		return st.Restriction.Base, model.DerivationRestriction
 	}
-	return types.QName{}, 0
+	return model.QName{}, 0
 }
 
-func baseForComplexType(ct *types.ComplexType) (types.QName, types.DerivationMethod) {
+func baseForComplexType(ct *model.ComplexType) (model.QName, model.DerivationMethod) {
 	if ct == nil {
-		return types.QName{}, 0
+		return model.QName{}, 0
 	}
-	baseQName := types.QName{}
+	baseQName := model.QName{}
 	if content := ct.Content(); content != nil {
 		baseQName = content.BaseTypeQName()
 	}
 	if baseQName.IsZero() {
-		if ct.QName.Namespace == types.XSDNamespace && ct.QName.Local == "anyType" {
-			return types.QName{}, 0
+		if ct.QName.Namespace == model.XSDNamespace && ct.QName.Local == "anyType" {
+			return model.QName{}, 0
 		}
-		return types.AnyTypeQName(), types.DerivationRestriction
+		return model.AnyTypeQName(), model.DerivationRestriction
 	}
 	method := ct.DerivationMethod
 	if method == 0 {
-		method = types.DerivationRestriction
+		method = model.DerivationRestriction
 	}
 	return baseQName, method
 }

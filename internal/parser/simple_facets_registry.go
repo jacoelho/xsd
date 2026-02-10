@@ -1,20 +1,21 @@
 package parser
 
 import (
-	"github.com/jacoelho/xsd/internal/types"
+	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/typefacet"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
-type orderedFacetConstructor func(string, types.Type) (types.Facet, error)
+type orderedFacetConstructor func(string, model.Type) (model.Facet, error)
 
 var orderedFacetConstructors = map[string]orderedFacetConstructor{
-	"minInclusive": types.NewMinInclusive,
-	"maxInclusive": types.NewMaxInclusive,
-	"minExclusive": types.NewMinExclusive,
-	"maxExclusive": types.NewMaxExclusive,
+	"minInclusive": typefacet.NewMinInclusive,
+	"maxInclusive": typefacet.NewMaxInclusive,
+	"minExclusive": typefacet.NewMinExclusive,
+	"maxExclusive": typefacet.NewMaxExclusive,
 }
 
-type facetParserFunc func(doc *xsdxml.Document, elem xsdxml.NodeID) (types.Facet, error)
+type facetParserFunc func(doc *xsdxml.Document, elem xsdxml.NodeID) (model.Facet, error)
 
 var directFacetParsers = map[string]facetParserFunc{
 	"pattern":        parsePatternFacet,

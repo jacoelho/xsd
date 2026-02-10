@@ -3,23 +3,23 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
-func parseSimpleContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.Restriction, types.QName, error) {
+func parseSimpleContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.Restriction, model.QName, error) {
 	if err := validateOptionalID(doc, elem, "restriction", schema); err != nil {
-		return nil, types.QName{}, err
+		return nil, model.QName{}, err
 	}
 	base := doc.GetAttribute(elem, "base")
 	if base == "" {
-		return nil, types.QName{}, fmt.Errorf("restriction missing base")
+		return nil, model.QName{}, fmt.Errorf("restriction missing base")
 	}
 	baseQName, err := resolveQNameWithPolicy(doc, base, elem, schema, useDefaultNamespace)
 	if err != nil {
-		return nil, types.QName{}, err
+		return nil, model.QName{}, err
 	}
-	restriction := &types.Restriction{Base: baseQName}
+	restriction := &model.Restriction{Base: baseQName}
 
 	err = validateSimpleContentRestrictionOrder(doc, elem)
 	if err != nil {
@@ -80,7 +80,7 @@ func validateSimpleContentRestrictionOrder(doc *xsdxml.Document, elem xsdxml.Nod
 	return nil
 }
 
-func parseSimpleContentNestedType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleType, error) {
+func parseSimpleContentNestedType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.SimpleType, error) {
 	for _, child := range doc.Children(elem) {
 		if doc.NamespaceURI(child) == xsdxml.XSDNamespace && doc.LocalName(child) == "simpleType" {
 			nestedSimpleType, err := parseInlineSimpleType(doc, child, schema)

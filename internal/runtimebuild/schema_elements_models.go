@@ -3,9 +3,9 @@ package runtimebuild
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (b *schemaBuilder) buildElements() error {
@@ -65,7 +65,7 @@ func (b *schemaBuilder) buildModels() error {
 		return err
 	}
 	for _, entry := range b.registry.TypeOrder {
-		ct, ok := types.AsComplexType(entry.Type)
+		ct, ok := model.AsComplexType(entry.Type)
 		if !ok || ct == nil {
 			continue
 		}
@@ -76,12 +76,12 @@ func (b *schemaBuilder) buildModels() error {
 		}
 
 		content := ct.Content()
-		model := &b.rt.ComplexTypes[complexID]
-		model.Mixed = ct.EffectiveMixed()
+		complexModel := &b.rt.ComplexTypes[complexID]
+		complexModel.Mixed = ct.EffectiveMixed()
 		switch content.(type) {
-		case *types.SimpleContent:
-			model.Content = runtime.ContentSimple
-			var textType types.Type
+		case *model.SimpleContent:
+			complexModel.Content = runtime.ContentSimple
+			var textType model.Type
 			if b.validators != nil && b.validators.SimpleContentTypes != nil {
 				textType = b.validators.SimpleContentTypes[ct]
 			}
@@ -99,21 +99,21 @@ func (b *schemaBuilder) buildModels() error {
 			if !ok || vid == 0 {
 				return fmt.Errorf("runtime build: complex type %s missing validator", entry.QName)
 			}
-			model.TextValidator = vid
-		case *types.EmptyContent:
-			model.Content = runtime.ContentEmpty
+			complexModel.TextValidator = vid
+		case *model.EmptyContent:
+			complexModel.Content = runtime.ContentEmpty
 		default:
 			particle := typegraph.EffectiveContentParticle(b.schema, ct)
 			if particle == nil {
-				model.Content = runtime.ContentEmpty
+				complexModel.Content = runtime.ContentEmpty
 				break
 			}
 			ref, kind, err := b.compileParticleModel(particle)
 			if err != nil {
 				return err
 			}
-			model.Content = kind
-			model.Model = ref
+			complexModel.Content = kind
+			complexModel.Model = ref
 		}
 
 	}
@@ -124,28 +124,28 @@ func (b *schemaBuilder) buildAnyTypeModel() error {
 	if b.anyTypeComplex == 0 || int(b.anyTypeComplex) >= len(b.rt.ComplexTypes) {
 		return nil
 	}
-	model := &b.rt.ComplexTypes[b.anyTypeComplex]
-	model.Mixed = true
+	complexModel := &b.rt.ComplexTypes[b.anyTypeComplex]
+	complexModel.Mixed = true
 
-	anyElem := &types.AnyElement{
-		Namespace:       types.NSCAny,
-		ProcessContents: types.Lax,
-		MinOccurs:       types.OccursFromInt(0),
-		MaxOccurs:       types.OccursUnbounded,
+	anyElem := &model.AnyElement{
+		Namespace:       model.NSCAny,
+		ProcessContents: model.Lax,
+		MinOccurs:       model.OccursFromInt(0),
+		MaxOccurs:       model.OccursUnbounded,
 	}
 	ref, kind, err := b.compileParticleModel(anyElem)
 	if err != nil {
 		return err
 	}
-	model.Content = kind
-	model.Model = ref
+	complexModel.Content = kind
+	complexModel.Model = ref
 
-	anyAttr := &types.AnyAttribute{
-		Namespace:       types.NSCAny,
-		ProcessContents: types.Lax,
-		TargetNamespace: types.NamespaceEmpty,
+	anyAttr := &model.AnyAttribute{
+		Namespace:       model.NSCAny,
+		ProcessContents: model.Lax,
+		TargetNamespace: model.NamespaceEmpty,
 	}
-	model.AnyAttr = b.addWildcard(
+	complexModel.AnyAttr = b.addWildcard(
 		anyAttr.Namespace,
 		anyAttr.NamespaceList,
 		anyAttr.TargetNamespace,

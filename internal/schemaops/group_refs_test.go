@@ -5,31 +5,31 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestExpandGroupRefsAllGroupAsChoice(t *testing.T) {
-	ref := types.QName{Namespace: "urn:test", Local: "G"}
-	leaf := &types.ElementDecl{
-		Name:      types.QName{Namespace: "urn:test", Local: "item"},
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
+	ref := model.QName{Namespace: "urn:test", Local: "G"}
+	leaf := &model.ElementDecl{
+		Name:      model.QName{Namespace: "urn:test", Local: "item"},
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 	}
-	groups := map[types.QName]*types.ModelGroup{
+	groups := map[model.QName]*model.ModelGroup{
 		ref: {
-			Kind:      types.AllGroup,
-			MinOccurs: types.OccursFromInt(1),
-			MaxOccurs: types.OccursFromInt(1),
-			Particles: []types.Particle{leaf},
+			Kind:      model.AllGroup,
+			MinOccurs: model.OccursFromInt(1),
+			MaxOccurs: model.OccursFromInt(1),
+			Particles: []model.Particle{leaf},
 		},
 	}
 
-	got, err := ExpandGroupRefs(&types.GroupRef{
+	got, err := ExpandGroupRefs(&model.GroupRef{
 		RefQName:  ref,
-		MinOccurs: types.OccursFromInt(0),
-		MaxOccurs: types.OccursFromInt(2),
+		MinOccurs: model.OccursFromInt(0),
+		MaxOccurs: model.OccursFromInt(2),
 	}, ExpandGroupRefsOptions{
-		Lookup:       func(gr *types.GroupRef) *types.ModelGroup { return groups[gr.RefQName] },
+		Lookup:       func(gr *model.GroupRef) *model.ModelGroup { return groups[gr.RefQName] },
 		AllGroupMode: AllGroupAsChoice,
 		LeafClone:    LeafClone,
 	})
@@ -37,12 +37,12 @@ func TestExpandGroupRefsAllGroupAsChoice(t *testing.T) {
 		t.Fatalf("ExpandGroupRefs error = %v", err)
 	}
 
-	group, ok := got.(*types.ModelGroup)
+	group, ok := got.(*model.ModelGroup)
 	if !ok || group == nil {
-		t.Fatalf("ExpandGroupRefs type = %T, want *types.ModelGroup", got)
+		t.Fatalf("ExpandGroupRefs type = %T, want *model.ModelGroup", got)
 	}
-	if group.Kind != types.Choice {
-		t.Fatalf("expanded kind = %v, want %v", group.Kind, types.Choice)
+	if group.Kind != model.Choice {
+		t.Fatalf("expanded kind = %v, want %v", group.Kind, model.Choice)
 	}
 	if !group.MinOccurs.IsZero() {
 		t.Fatalf("expanded minOccurs = %s, want 0", group.MinOccurs)
@@ -50,9 +50,9 @@ func TestExpandGroupRefsAllGroupAsChoice(t *testing.T) {
 	if !group.MaxOccurs.GreaterThanInt(1) {
 		t.Fatalf("expanded maxOccurs = %s, want >1", group.MaxOccurs)
 	}
-	child, ok := group.Particles[0].(*types.ElementDecl)
+	child, ok := group.Particles[0].(*model.ElementDecl)
 	if !ok || child == nil {
-		t.Fatalf("expanded child type = %T, want *types.ElementDecl", group.Particles[0])
+		t.Fatalf("expanded child type = %T, want *model.ElementDecl", group.Particles[0])
 	}
 	if child == leaf {
 		t.Fatalf("expanded child should be cloned when LeafClone is set")
@@ -60,32 +60,32 @@ func TestExpandGroupRefsAllGroupAsChoice(t *testing.T) {
 }
 
 func TestExpandGroupRefsReuseLeaves(t *testing.T) {
-	leaf := &types.ElementDecl{
-		Name:      types.QName{Namespace: "urn:test", Local: "item"},
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
+	leaf := &model.ElementDecl{
+		Name:      model.QName{Namespace: "urn:test", Local: "item"},
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 	}
-	root := &types.ModelGroup{
-		Kind:      types.Sequence,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
-		Particles: []types.Particle{leaf},
+	root := &model.ModelGroup{
+		Kind:      model.Sequence,
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
+		Particles: []model.Particle{leaf},
 	}
 
 	got, err := ExpandGroupRefs(root, ExpandGroupRefsOptions{LeafClone: LeafReuse})
 	if err != nil {
 		t.Fatalf("ExpandGroupRefs error = %v", err)
 	}
-	group, ok := got.(*types.ModelGroup)
+	group, ok := got.(*model.ModelGroup)
 	if !ok || group == nil {
-		t.Fatalf("ExpandGroupRefs type = %T, want *types.ModelGroup", got)
+		t.Fatalf("ExpandGroupRefs type = %T, want *model.ModelGroup", got)
 	}
 	if group == root {
 		t.Fatalf("ExpandGroupRefs should clone model-group nodes")
 	}
-	child, ok := group.Particles[0].(*types.ElementDecl)
+	child, ok := group.Particles[0].(*model.ElementDecl)
 	if !ok || child == nil {
-		t.Fatalf("expanded child type = %T, want *types.ElementDecl", group.Particles[0])
+		t.Fatalf("expanded child type = %T, want *model.ElementDecl", group.Particles[0])
 	}
 	if child != leaf {
 		t.Fatalf("expanded child pointer changed with LeafReuse")
@@ -96,32 +96,32 @@ func TestExpandGroupRefsUsesConfiguredErrors(t *testing.T) {
 	cycleSentinel := errors.New("cycle")
 	missingSentinel := errors.New("missing")
 
-	cycleQName := types.QName{Namespace: "urn:test", Local: "A"}
-	cycleGroup := &types.ModelGroup{
-		Kind: types.Sequence,
-		Particles: []types.Particle{
-			&types.GroupRef{
+	cycleQName := model.QName{Namespace: "urn:test", Local: "A"}
+	cycleGroup := &model.ModelGroup{
+		Kind: model.Sequence,
+		Particles: []model.Particle{
+			&model.GroupRef{
 				RefQName:  cycleQName,
-				MinOccurs: types.OccursFromInt(1),
-				MaxOccurs: types.OccursFromInt(1),
+				MinOccurs: model.OccursFromInt(1),
+				MaxOccurs: model.OccursFromInt(1),
 			},
 		},
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 	}
 
-	_, cycleErr := ExpandGroupRefs(&types.GroupRef{
+	_, cycleErr := ExpandGroupRefs(&model.GroupRef{
 		RefQName:  cycleQName,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 	}, ExpandGroupRefsOptions{
-		Lookup: func(gr *types.GroupRef) *types.ModelGroup {
+		Lookup: func(gr *model.GroupRef) *model.ModelGroup {
 			if gr.RefQName == cycleQName {
 				return cycleGroup
 			}
 			return nil
 		},
-		CycleError: func(ref types.QName) error {
+		CycleError: func(ref model.QName) error {
 			if ref != cycleQName {
 				t.Fatalf("cycle ref = %s, want %s", ref, cycleQName)
 			}
@@ -132,13 +132,13 @@ func TestExpandGroupRefsUsesConfiguredErrors(t *testing.T) {
 		t.Fatalf("cycle error = %v, want %v", cycleErr, cycleSentinel)
 	}
 
-	missingQName := types.QName{Namespace: "urn:test", Local: "Missing"}
-	_, missingErr := ExpandGroupRefs(&types.GroupRef{
+	missingQName := model.QName{Namespace: "urn:test", Local: "Missing"}
+	_, missingErr := ExpandGroupRefs(&model.GroupRef{
 		RefQName:  missingQName,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 	}, ExpandGroupRefsOptions{
-		MissingError: func(ref types.QName) error {
+		MissingError: func(ref model.QName) error {
 			if ref != missingQName {
 				t.Fatalf("missing ref = %s, want %s", ref, missingQName)
 			}

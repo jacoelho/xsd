@@ -1,16 +1,16 @@
 package semantic
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
-func (b *builder) visitAttributeDecls(attrs []*types.AttributeDecl) error {
+func (b *builder) visitAttributeDecls(attrs []*model.AttributeDecl) error {
 	return b.visitAttributeDeclsWithAssigner(attrs, nil)
 }
 
-func (b *builder) visitAttributeDeclsWithIDs(attrs []*types.AttributeDecl) error {
+func (b *builder) visitAttributeDeclsWithIDs(attrs []*model.AttributeDecl) error {
 	return b.visitAttributeDeclsWithAssigner(attrs, b.assignLocalAttribute)
 }
 
-func (b *builder) visitAttributeDeclsWithAssigner(attrs []*types.AttributeDecl, assign func(*types.AttributeDecl) error) error {
+func (b *builder) visitAttributeDeclsWithAssigner(attrs []*model.AttributeDecl, assign func(*model.AttributeDecl) error) error {
 	for _, attr := range attrs {
 		if attr == nil {
 			continue
@@ -27,7 +27,7 @@ func (b *builder) visitAttributeDeclsWithAssigner(attrs []*types.AttributeDecl, 
 	return nil
 }
 
-func (b *builder) visitAttributeType(attr *types.AttributeDecl) error {
+func (b *builder) visitAttributeType(attr *model.AttributeDecl) error {
 	if attr == nil || attr.IsReference || attr.Type == nil {
 		return nil
 	}

@@ -1,16 +1,16 @@
 package traversal
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/state"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // GetContentParticle extracts the particle from any content type.
-func GetContentParticle(content types.Content) types.Particle {
+func GetContentParticle(content model.Content) model.Particle {
 	switch c := content.(type) {
-	case *types.ElementContent:
+	case *model.ElementContent:
 		return c.Particle
-	case *types.ComplexContent:
+	case *model.ComplexContent:
 		if c.Extension != nil && c.Extension.Particle != nil {
 			return c.Extension.Particle
 		}
@@ -22,13 +22,13 @@ func GetContentParticle(content types.Content) types.Particle {
 }
 
 // WalkContentParticles visits all particles in content.
-func WalkContentParticles(content types.Content, fn func(types.Particle) error) error {
+func WalkContentParticles(content model.Content, fn func(model.Particle) error) error {
 	switch c := content.(type) {
-	case *types.ElementContent:
+	case *model.ElementContent:
 		if c.Particle != nil {
 			return fn(c.Particle)
 		}
-	case *types.ComplexContent:
+	case *model.ComplexContent:
 		if c.Extension != nil && c.Extension.Particle != nil {
 			if err := fn(c.Extension.Particle); err != nil {
 				return err
@@ -44,14 +44,14 @@ func WalkContentParticles(content types.Content, fn func(types.Particle) error) 
 }
 
 // WalkParticles recursively visits all particles in a tree.
-func WalkParticles(particle types.Particle, fn func(types.Particle) error) error {
+func WalkParticles(particle model.Particle, fn func(model.Particle) error) error {
 	if particle == nil {
 		return nil
 	}
 	if err := fn(particle); err != nil {
 		return err
 	}
-	if group, ok := particle.(*types.ModelGroup); ok {
+	if group, ok := particle.(*model.ModelGroup); ok {
 		for _, child := range group.Particles {
 			if err := WalkParticles(child, fn); err != nil {
 				return err
@@ -62,14 +62,14 @@ func WalkParticles(particle types.Particle, fn func(types.Particle) error) error
 }
 
 // WalkParticlesWithVisited recursively visits particles and skips previously seen model groups.
-func WalkParticlesWithVisited(particle types.Particle, visited map[*types.ModelGroup]bool, fn func(types.Particle) error) error {
+func WalkParticlesWithVisited(particle model.Particle, visited map[*model.ModelGroup]bool, fn func(model.Particle) error) error {
 	if particle == nil {
 		return nil
 	}
 	if visited == nil {
-		visited = make(map[*types.ModelGroup]bool)
+		visited = make(map[*model.ModelGroup]bool)
 	}
-	if group, ok := particle.(*types.ModelGroup); ok {
+	if group, ok := particle.(*model.ModelGroup); ok {
 		if visited[group] {
 			return nil
 		}
@@ -78,7 +78,7 @@ func WalkParticlesWithVisited(particle types.Particle, visited map[*types.ModelG
 	if err := fn(particle); err != nil {
 		return err
 	}
-	if group, ok := particle.(*types.ModelGroup); ok {
+	if group, ok := particle.(*model.ModelGroup); ok {
 		for _, child := range group.Particles {
 			if err := WalkParticlesWithVisited(child, visited, fn); err != nil {
 				return err
@@ -88,12 +88,12 @@ func WalkParticlesWithVisited(particle types.Particle, visited map[*types.ModelG
 	return nil
 }
 
-func collectFromParticles[T any](particles []types.Particle, visited map[*types.ModelGroup]bool, collect func(types.Particle) (T, bool)) []T {
+func collectFromParticles[T any](particles []model.Particle, visited map[*model.ModelGroup]bool, collect func(model.Particle) (T, bool)) []T {
 	if len(particles) == 0 {
 		return nil
 	}
 
-	stack := state.NewStateStack[types.Particle](len(particles))
+	stack := state.NewStateStack[model.Particle](len(particles))
 	for i := len(particles) - 1; i >= 0; i-- {
 		if particles[i] != nil {
 			stack.Push(particles[i])
@@ -104,7 +104,7 @@ func collectFromParticles[T any](particles []types.Particle, visited map[*types.
 	for stack.Len() > 0 {
 		particle, _ := stack.Pop()
 
-		group, ok := particle.(*types.ModelGroup)
+		group, ok := particle.(*model.ModelGroup)
 		if ok {
 			if visited != nil {
 				if visited[group] {
@@ -128,12 +128,12 @@ func collectFromParticles[T any](particles []types.Particle, visited map[*types.
 }
 
 // CollectFromContent collects values from all particles present in a content model.
-func CollectFromContent[T any](content types.Content, collect func(types.Particle) (T, bool)) []T {
+func CollectFromContent[T any](content model.Content, collect func(model.Particle) (T, bool)) []T {
 	switch c := content.(type) {
-	case *types.ElementContent:
-		return collectFromParticles([]types.Particle{c.Particle}, nil, collect)
-	case *types.ComplexContent:
-		var particles []types.Particle
+	case *model.ElementContent:
+		return collectFromParticles([]model.Particle{c.Particle}, nil, collect)
+	case *model.ComplexContent:
+		var particles []model.Particle
 		if c.Extension != nil && c.Extension.Particle != nil {
 			particles = append(particles, c.Extension.Particle)
 		}
@@ -147,12 +147,12 @@ func CollectFromContent[T any](content types.Content, collect func(types.Particl
 }
 
 // CollectFromParticlesWithVisited collects values and avoids revisiting model groups.
-func CollectFromParticlesWithVisited[T any](particles []types.Particle, visited map[*types.ModelGroup]bool, collect func(types.Particle) (T, bool)) []T {
+func CollectFromParticlesWithVisited[T any](particles []model.Particle, visited map[*model.ModelGroup]bool, collect func(model.Particle) (T, bool)) []T {
 	if len(particles) == 0 {
 		return nil
 	}
 	if visited == nil {
-		visited = make(map[*types.ModelGroup]bool)
+		visited = make(map[*model.ModelGroup]bool)
 	}
 	return collectFromParticles(particles, visited, collect)
 }

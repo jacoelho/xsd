@@ -3,20 +3,21 @@ package validatorcompile
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 )
 
-func (r *typeResolver) primitiveName(typ types.Type) (string, error) {
+func (r *typeResolver) primitiveName(typ model.Type) (string, error) {
 	if typ == nil {
 		return "", fmt.Errorf("missing type")
 	}
-	if r.varietyForType(typ) != types.AtomicVariety {
+	if r.varietyForType(typ) != model.AtomicVariety {
 		return "", fmt.Errorf("primitive type undefined for %s", typ.Name().Local)
 	}
-	return r.primitiveNameAtomic(typ, make(map[types.Type]bool))
+	return r.primitiveNameAtomic(typ, make(map[model.Type]bool))
 }
 
-func (r *typeResolver) primitiveNameAtomic(typ types.Type, seen map[types.Type]bool) (string, error) {
+func (r *typeResolver) primitiveNameAtomic(typ model.Type, seen map[model.Type]bool) (string, error) {
 	if typ == nil {
 		return "", fmt.Errorf("missing type")
 	}
@@ -33,12 +34,12 @@ func (r *typeResolver) primitiveNameAtomic(typ types.Type, seen map[types.Type]b
 		}
 		return primitive.Name().Local, nil
 	}
-	st, ok := types.AsSimpleType(typ)
+	st, ok := model.AsSimpleType(typ)
 	if !ok {
 		return "", fmt.Errorf("unsupported type")
 	}
 	if st.IsBuiltin() {
-		if builtin := types.GetBuiltin(types.TypeName(st.Name().Local)); builtin != nil {
+		if builtin := builtins.Get(builtins.TypeName(st.Name().Local)); builtin != nil {
 			primitive := builtin.PrimitiveType()
 			if primitive == nil {
 				return "", fmt.Errorf("primitive type not found")

@@ -1287,7 +1287,7 @@ func runtimeDeclaresElement(schema *runtime.Schema, root qname.QName) bool {
 		return false
 	}
 	nsID := runtime.NamespaceID(0)
-	if root.Namespace.IsEmpty() {
+	if root.Namespace == "" {
 		nsID = schema.PredefNS.Empty
 	} else {
 		nsID = schema.Namespaces.Lookup([]byte(root.Namespace))

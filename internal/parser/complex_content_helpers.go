@@ -3,7 +3,7 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
@@ -50,7 +50,7 @@ func findComplexContentParticleIndex(doc *xsdxml.Document, children []xsdxml.Nod
 	return particleIndex, nil
 }
 
-func parseComplexContentParticle(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, context string) (types.Particle, error) {
+func parseComplexContentParticle(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, context string) (model.Particle, error) {
 	switch doc.LocalName(elem) {
 	case "sequence", "choice", "all":
 		particle, err := parseModelGroup(doc, elem, schema)
@@ -75,7 +75,7 @@ func parseComplexContentParticle(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 		if err != nil {
 			return nil, err
 		}
-		return &types.GroupRef{RefQName: refQName, MinOccurs: minOccurs, MaxOccurs: maxOccurs}, nil
+		return &model.GroupRef{RefQName: refQName, MinOccurs: minOccurs, MaxOccurs: maxOccurs}, nil
 	case "element":
 		particle, err := parseElement(doc, elem, schema)
 		if err != nil {

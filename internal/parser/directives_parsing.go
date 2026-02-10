@@ -3,12 +3,12 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
-func parseDirectives(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, result *ParseResult) (map[types.NamespaceURI]bool, error) {
-	importedNamespaces := make(map[types.NamespaceURI]bool)
+func parseDirectives(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, result *ParseResult) (map[model.NamespaceURI]bool, error) {
+	importedNamespaces := make(map[model.NamespaceURI]bool)
 	state := directiveState{}
 	for _, child := range doc.Children(root) {
 		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
@@ -26,7 +26,7 @@ type directiveState struct {
 	includeIndex int
 }
 
-func parseDirectiveElement(doc *xsdxml.Document, child xsdxml.NodeID, schema *Schema, result *ParseResult, importedNamespaces map[types.NamespaceURI]bool, state *directiveState) error {
+func parseDirectiveElement(doc *xsdxml.Document, child xsdxml.NodeID, schema *Schema, result *ParseResult, importedNamespaces map[model.NamespaceURI]bool, state *directiveState) error {
 	if doc == nil {
 		return fmt.Errorf("directive document missing")
 	}
@@ -40,17 +40,17 @@ func parseDirectiveElement(doc *xsdxml.Document, child xsdxml.NodeID, schema *Sc
 		if err := validateElementConstraints(doc, child, "import", schema); err != nil {
 			return err
 		}
-		namespace := types.ApplyWhiteSpace(doc.GetAttribute(child, "namespace"), types.WhiteSpaceCollapse)
-		schemaLocation := types.ApplyWhiteSpace(doc.GetAttribute(child, "schemaLocation"), types.WhiteSpaceCollapse)
+		namespace := model.ApplyWhiteSpace(doc.GetAttribute(child, "namespace"), model.WhiteSpaceCollapse)
+		schemaLocation := model.ApplyWhiteSpace(doc.GetAttribute(child, "schemaLocation"), model.WhiteSpaceCollapse)
 		importInfo := ImportInfo{Namespace: namespace, SchemaLocation: schemaLocation}
 		result.Imports = append(result.Imports, importInfo)
 		result.Directives = append(result.Directives, Directive{Kind: DirectiveImport, Import: importInfo})
-		importedNamespaces[types.NamespaceURI(importInfo.Namespace)] = true
+		importedNamespaces[model.NamespaceURI(importInfo.Namespace)] = true
 	case "include":
 		if err := validateElementConstraints(doc, child, "include", schema); err != nil {
 			return err
 		}
-		schemaLocation := types.ApplyWhiteSpace(doc.GetAttribute(child, "schemaLocation"), types.WhiteSpaceCollapse)
+		schemaLocation := model.ApplyWhiteSpace(doc.GetAttribute(child, "schemaLocation"), model.WhiteSpaceCollapse)
 		includeInfo := IncludeInfo{
 			SchemaLocation: schemaLocation,
 			DeclIndex:      state.declIndex,
@@ -84,12 +84,12 @@ func isGlobalDeclElement(localName string) bool {
 	}
 }
 
-func applyImportedNamespaces(schema *Schema, importedNamespaces map[types.NamespaceURI]bool) {
+func applyImportedNamespaces(schema *Schema, importedNamespaces map[model.NamespaceURI]bool) {
 	if schema.ImportedNamespaces == nil {
-		schema.ImportedNamespaces = make(map[types.NamespaceURI]map[types.NamespaceURI]bool)
+		schema.ImportedNamespaces = make(map[model.NamespaceURI]map[model.NamespaceURI]bool)
 	}
 	if schema.ImportedNamespaces[schema.TargetNamespace] == nil {
-		schema.ImportedNamespaces[schema.TargetNamespace] = make(map[types.NamespaceURI]bool)
+		schema.ImportedNamespaces[schema.TargetNamespace] = make(map[model.NamespaceURI]bool)
 	}
 	for ns := range importedNamespaces {
 		schema.ImportedNamespaces[schema.TargetNamespace][ns] = true

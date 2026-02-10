@@ -1,8 +1,8 @@
 package semantic
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
-func (b *builder) visitElementNested(decl *types.ElementDecl) error {
+func (b *builder) visitElementNested(decl *model.ElementDecl) error {
 	if decl == nil || decl.IsReference || decl.Type == nil {
 		return nil
 	}
@@ -18,9 +18,9 @@ func (b *builder) visitElementNested(decl *types.ElementDecl) error {
 	return b.visitTypeChildren(decl.Type)
 }
 
-func (b *builder) visitParticle(particle types.Particle) error {
+func (b *builder) visitParticle(particle model.Particle) error {
 	switch typed := particle.(type) {
-	case *types.ElementDecl:
+	case *model.ElementDecl:
 		if typed.IsReference {
 			return nil
 		}
@@ -28,49 +28,49 @@ func (b *builder) visitParticle(particle types.Particle) error {
 			return err
 		}
 		return b.visitElementNested(typed)
-	case *types.ModelGroup:
+	case *model.ModelGroup:
 		for _, child := range typed.Particles {
 			if err := b.visitParticle(child); err != nil {
 				return err
 			}
 		}
-	case *types.GroupRef:
+	case *model.GroupRef:
 		return nil
-	case *types.AnyElement:
+	case *model.AnyElement:
 		return nil
 	}
 	return nil
 }
 
-func (b *builder) visitTypeChildren(typ types.Type) error {
+func (b *builder) visitTypeChildren(typ model.Type) error {
 	switch typed := typ.(type) {
-	case *types.ComplexType:
+	case *model.ComplexType:
 		return b.visitComplexType(typed)
-	case *types.SimpleType:
+	case *model.SimpleType:
 		return b.visitSimpleType(typed)
 	default:
 		return nil
 	}
 }
 
-func (b *builder) visitComplexType(ct *types.ComplexType) error {
+func (b *builder) visitComplexType(ct *model.ComplexType) error {
 	if ct == nil {
 		return nil
 	}
 	switch content := ct.Content().(type) {
-	case *types.ElementContent:
+	case *model.ElementContent:
 		if err := b.visitParticle(content.Particle); err != nil {
 			return err
 		}
-	case *types.ComplexContent:
+	case *model.ComplexContent:
 		if err := b.visitComplexContent(content); err != nil {
 			return err
 		}
-	case *types.SimpleContent:
+	case *model.SimpleContent:
 		if err := b.visitSimpleContent(content); err != nil {
 			return err
 		}
-	case *types.EmptyContent:
+	case *model.EmptyContent:
 		// no-op
 	}
 
@@ -81,7 +81,7 @@ func (b *builder) visitComplexType(ct *types.ComplexType) error {
 	return nil
 }
 
-func (b *builder) visitComplexContent(content *types.ComplexContent) error {
+func (b *builder) visitComplexContent(content *model.ComplexContent) error {
 	if content == nil {
 		return nil
 	}
@@ -105,7 +105,7 @@ func (b *builder) visitComplexContent(content *types.ComplexContent) error {
 	return nil
 }
 
-func (b *builder) visitSimpleContent(content *types.SimpleContent) error {
+func (b *builder) visitSimpleContent(content *model.SimpleContent) error {
 	if content == nil {
 		return nil
 	}
@@ -126,7 +126,7 @@ func (b *builder) visitSimpleContent(content *types.SimpleContent) error {
 	return nil
 }
 
-func (b *builder) visitSimpleContentRestriction(restr *types.Restriction) error {
+func (b *builder) visitSimpleContentRestriction(restr *model.Restriction) error {
 	if restr == nil || restr.SimpleType == nil {
 		return nil
 	}

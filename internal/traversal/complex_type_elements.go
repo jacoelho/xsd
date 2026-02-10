@@ -1,39 +1,39 @@
 package traversal
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // CollectElementDeclsFromComplexType collects element declarations in a complex
-// type content model and recursively through its complex base types.
-func CollectElementDeclsFromComplexType(schema *parser.Schema, complexType *types.ComplexType) []*types.ElementDecl {
+// type content model and recursively through its complex base model.
+func CollectElementDeclsFromComplexType(schema *parser.Schema, complexType *model.ComplexType) []*model.ElementDecl {
 	if schema == nil || complexType == nil {
 		return nil
 	}
-	visited := make(map[*types.ComplexType]bool)
+	visited := make(map[*model.ComplexType]bool)
 	return collectElementDeclsRecursive(schema, complexType, visited)
 }
 
-func collectElementDeclsRecursive(schema *parser.Schema, complexType *types.ComplexType, visited map[*types.ComplexType]bool) []*types.ElementDecl {
+func collectElementDeclsRecursive(schema *parser.Schema, complexType *model.ComplexType, visited map[*model.ComplexType]bool) []*model.ElementDecl {
 	if complexType == nil || visited[complexType] {
 		return nil
 	}
 	visited[complexType] = true
-	collectElements := func(particle types.Particle) []*types.ElementDecl {
-		return CollectFromParticlesWithVisited([]types.Particle{particle}, nil, func(p types.Particle) (*types.ElementDecl, bool) {
-			elem, ok := p.(*types.ElementDecl)
+	collectElements := func(particle model.Particle) []*model.ElementDecl {
+		return CollectFromParticlesWithVisited([]model.Particle{particle}, nil, func(p model.Particle) (*model.ElementDecl, bool) {
+			elem, ok := p.(*model.ElementDecl)
 			return elem, ok
 		})
 	}
 
-	var out []*types.ElementDecl
+	var out []*model.ElementDecl
 	switch content := complexType.Content().(type) {
-	case *types.ElementContent:
+	case *model.ElementContent:
 		if content.Particle != nil {
 			out = append(out, collectElements(content.Particle)...)
 		}
-	case *types.ComplexContent:
+	case *model.ComplexContent:
 		if content.Extension != nil && content.Extension.Particle != nil {
 			out = append(out, collectElements(content.Extension.Particle)...)
 		}
@@ -41,7 +41,7 @@ func collectElementDeclsRecursive(schema *parser.Schema, complexType *types.Comp
 			out = append(out, collectElements(content.Restriction.Particle)...)
 		}
 
-		var baseQName types.QName
+		var baseQName model.QName
 		if content.Extension != nil {
 			baseQName = content.Extension.Base
 		} else if content.Restriction != nil {
@@ -49,7 +49,7 @@ func collectElementDeclsRecursive(schema *parser.Schema, complexType *types.Comp
 		}
 		if !baseQName.IsZero() {
 			if baseType, ok := schema.TypeDefs[baseQName]; ok {
-				if baseComplex, ok := baseType.(*types.ComplexType); ok {
+				if baseComplex, ok := baseType.(*model.ComplexType); ok {
 					out = append(out, collectElementDeclsRecursive(schema, baseComplex, visited)...)
 				}
 			}

@@ -6,12 +6,12 @@ import (
 	"sync"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/runtimebuild"
 	"github.com/jacoelho/xsd/internal/schemaflow"
 	"github.com/jacoelho/xsd/internal/semantic"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 type buildRuntimeFunc func(CompileConfig) (*runtime.Schema, error)
@@ -33,7 +33,7 @@ func (v *ValidatedSchema) SchemaSnapshot() (*parser.Schema, error) {
 // PreparedSchema stores immutable runtime-build artifacts.
 type PreparedSchema struct {
 	build              buildRuntimeFunc
-	globalElementOrder []types.QName
+	globalElementOrder []model.QName
 }
 
 // CompileConfig configures runtime schema compilation from prepared artifacts.
@@ -51,8 +51,8 @@ func (p *PreparedSchema) BuildRuntime(cfg CompileConfig) (*runtime.Schema, error
 }
 
 // GlobalElementOrderSeq yields global element names in deterministic prepared order.
-func (p *PreparedSchema) GlobalElementOrderSeq() iter.Seq[types.QName] {
-	return func(yield func(types.QName) bool) {
+func (p *PreparedSchema) GlobalElementOrderSeq() iter.Seq[model.QName] {
+	return func(yield func(model.QName) bool) {
 		if p == nil || len(p.globalElementOrder) == 0 {
 			return
 		}
@@ -152,11 +152,11 @@ func newBuildRuntimeFunc(sch *parser.Schema, reg *semantic.Registry, refs *seman
 	}
 }
 
-func globalElementOrder(reg *semantic.Registry) []types.QName {
+func globalElementOrder(reg *semantic.Registry) []model.QName {
 	if reg == nil || len(reg.ElementOrder) == 0 {
 		return nil
 	}
-	order := make([]types.QName, 0, len(reg.ElementOrder))
+	order := make([]model.QName, 0, len(reg.ElementOrder))
 	for _, entry := range reg.ElementOrder {
 		if entry.Global {
 			order = append(order, entry.QName)

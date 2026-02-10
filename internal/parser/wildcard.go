@@ -3,16 +3,16 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
-func parseWildcardConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, elementName, allowedAttrs string, allowed map[string]bool) (types.NamespaceConstraint, []types.NamespaceURI, types.ProcessContents, error) {
+func parseWildcardConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, elementName, allowedAttrs string, allowed map[string]bool) (model.NamespaceConstraint, []model.NamespaceURI, model.ProcessContents, error) {
 	if doc.GetAttribute(elem, "notNamespace") != "" {
-		return types.NSCInvalid, nil, types.Strict, fmt.Errorf("notNamespace attribute is not supported in XSD 1.0 (XSD 1.1 feature)")
+		return model.NSCInvalid, nil, model.Strict, fmt.Errorf("notNamespace attribute is not supported in XSD 1.0 (XSD 1.1 feature)")
 	}
 	if doc.GetAttribute(elem, "notQName") != "" {
-		return types.NSCInvalid, nil, types.Strict, fmt.Errorf("notQName attribute is not supported in XSD 1.0 (XSD 1.1 feature)")
+		return model.NSCInvalid, nil, model.Strict, fmt.Errorf("notQName attribute is not supported in XSD 1.0 (XSD 1.1 feature)")
 	}
 
 	for _, attr := range doc.Attributes(elem) {
@@ -21,7 +21,7 @@ func parseWildcardConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, elementN
 			continue
 		}
 		if attr.NamespaceURI() == "" && !allowed[attrName] {
-			return types.NSCInvalid, nil, types.Strict, fmt.Errorf("invalid attribute '%s' on <%s> element (XSD 1.0 only allows: %s)", attrName, elementName, allowedAttrs)
+			return model.NSCInvalid, nil, model.Strict, fmt.Errorf("invalid attribute '%s' on <%s> element (XSD 1.0 only allows: %s)", attrName, elementName, allowedAttrs)
 		}
 	}
 
@@ -41,7 +41,7 @@ func parseWildcardConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, elementN
 
 	nsConstraint, nsList, err := parseNamespaceConstraint(namespaceAttr)
 	if err != nil {
-		return types.NSCInvalid, nil, types.Strict, fmt.Errorf("parse namespace constraint: %w", err)
+		return model.NSCInvalid, nil, model.Strict, fmt.Errorf("parse namespace constraint: %w", err)
 	}
 
 	processContents := doc.GetAttribute(elem, "processContents")
@@ -53,19 +53,19 @@ func parseWildcardConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, elementN
 		}
 	}
 	if hasProcessContents && processContents == "" {
-		return types.NSCInvalid, nil, types.Strict, fmt.Errorf("processContents attribute cannot be empty")
+		return model.NSCInvalid, nil, model.Strict, fmt.Errorf("processContents attribute cannot be empty")
 	}
 
 	switch processContents {
 	case "strict":
-		return nsConstraint, nsList, types.Strict, nil
+		return nsConstraint, nsList, model.Strict, nil
 	case "lax":
-		return nsConstraint, nsList, types.Lax, nil
+		return nsConstraint, nsList, model.Lax, nil
 	case "skip":
-		return nsConstraint, nsList, types.Skip, nil
+		return nsConstraint, nsList, model.Skip, nil
 	case "":
-		return nsConstraint, nsList, types.Strict, nil
+		return nsConstraint, nsList, model.Strict, nil
 	default:
-		return types.NSCInvalid, nil, types.Strict, fmt.Errorf("invalid processContents value '%s': must be 'strict', 'lax', or 'skip'", processContents)
+		return model.NSCInvalid, nil, model.Strict, fmt.Errorf("invalid processContents value '%s': must be 'strict', 'lax', or 'skip'", processContents)
 	}
 }

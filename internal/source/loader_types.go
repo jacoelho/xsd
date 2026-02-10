@@ -4,7 +4,8 @@ import (
 	"io/fs"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/xsdxml"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -15,6 +16,8 @@ type Config struct {
 	Merger                      loadmerge.SchemaMerger
 	SchemaParseOptions          []xmlstream.Option
 	AllowMissingImportLocations bool
+	// DocumentPool owns parser DOM scratch documents for this loader instance.
+	DocumentPool *xsdxml.DocumentPool
 }
 
 // SchemaLoader loads XML schemas with import/include resolution.
@@ -37,6 +40,9 @@ func NewLoader(cfg Config) *SchemaLoader {
 	if merger == nil {
 		merger = loadmerge.DefaultMerger{}
 	}
+	if cfg.DocumentPool == nil {
+		cfg.DocumentPool = xsdxml.NewDocumentPool()
+	}
 	return &SchemaLoader{
 		config:   cfg,
 		state:    newLoadState(),
@@ -46,7 +52,7 @@ func NewLoader(cfg Config) *SchemaLoader {
 	}
 }
 
-func (l *SchemaLoader) loadKey(systemID string, etn types.NamespaceURI) loadKey {
+func (l *SchemaLoader) loadKey(systemID string, etn model.NamespaceURI) loadKey {
 	return loadKey{systemID: systemID, etn: etn}
 }
 

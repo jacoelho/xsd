@@ -5,14 +5,14 @@ import (
 	"fmt"
 
 	fieldresolve "github.com/jacoelho/xsd/internal/fieldresolve"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateElementDeclStructure validates structural constraints of an element declaration
 // Does not validate references (which might be forward references or imports)
-func validateElementDeclStructure(schema *parser.Schema, elementQName types.QName, decl *types.ElementDecl) error {
+func validateElementDeclStructure(schema *parser.Schema, elementQName model.QName, decl *model.ElementDecl) error {
 	// validate element name is a valid NCName (no spaces, valid XML name)
 	// this is a structural constraint that is definitely invalid if violated
 	if !qname.IsValidNCName(elementQName.Local) {
@@ -56,7 +56,7 @@ func validateElementDeclStructure(schema *parser.Schema, elementQName types.QNam
 					if resolvedType != nil {
 						constraint.Fields[i].ResolvedType = resolvedType
 					}
-					if constraint.Type == types.KeyConstraint {
+					if constraint.Type == model.KeyConstraint {
 						return fmt.Errorf("element %s identity constraint '%s': field %d '%s' selects nillable element", decl.Name, constraint.Name, i+1, constraint.Fields[i].XPath)
 					}
 					// For unique/keyref, ignore nillable error and continue
@@ -92,11 +92,11 @@ func validateElementDeclStructure(schema *parser.Schema, elementQName types.QNam
 	// validate inline types (simpleType or complexType defined inline in the element)
 	if decl.Type != nil {
 		switch typ := decl.Type.(type) {
-		case *types.SimpleType:
+		case *model.SimpleType:
 			if err := validateSimpleTypeStructure(schema, typ); err != nil {
 				return fmt.Errorf("inline simpleType: %w", err)
 			}
-		case *types.ComplexType:
+		case *model.ComplexType:
 			if err := validateComplexTypeStructure(schema, typ, typeDefinitionGlobal); err != nil {
 				return fmt.Errorf("inline complexType: %w", err)
 			}

@@ -3,12 +3,12 @@ package semanticcheck
 import (
 	"slices"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func normalizePointlessParticle(p types.Particle) types.Particle {
+func normalizePointlessParticle(p model.Particle) model.Particle {
 	for {
-		mg, ok := p.(*types.ModelGroup)
+		mg, ok := p.(*model.ModelGroup)
 		if !ok || mg == nil {
 			return p
 		}
@@ -23,52 +23,52 @@ func normalizePointlessParticle(p types.Particle) types.Particle {
 	}
 }
 
-func derivationChildren(mg *types.ModelGroup) []types.Particle {
+func derivationChildren(mg *model.ModelGroup) []model.Particle {
 	if mg == nil {
 		return nil
 	}
-	children := make([]types.Particle, 0, len(mg.Particles))
+	children := make([]model.Particle, 0, len(mg.Particles))
 	for _, child := range mg.Particles {
 		children = append(children, gatherPointlessChildren(mg.Kind, child)...)
 	}
 	return children
 }
 
-func gatherPointlessChildren(parentKind types.GroupKind, particle types.Particle) []types.Particle {
+func gatherPointlessChildren(parentKind model.GroupKind, particle model.Particle) []model.Particle {
 	switch p := particle.(type) {
-	case *types.ElementDecl, *types.AnyElement:
-		return []types.Particle{p}
-	case *types.ModelGroup:
+	case *model.ElementDecl, *model.AnyElement:
+		return []model.Particle{p}
+	case *model.ModelGroup:
 		if !p.MinOccurs.IsOne() || !p.MaxOccurs.IsOne() {
-			return []types.Particle{p}
+			return []model.Particle{p}
 		}
 		if len(p.Particles) == 1 {
 			return gatherPointlessChildren(parentKind, p.Particles[0])
 		}
 		if p.Kind == parentKind {
-			var out []types.Particle
+			var out []model.Particle
 			for _, child := range p.Particles {
 				out = append(out, gatherPointlessChildren(parentKind, child)...)
 			}
 			return out
 		}
-		return []types.Particle{p}
+		return []model.Particle{p}
 	default:
-		return []types.Particle{p}
+		return []model.Particle{p}
 	}
 }
 
 // isBlockSuperset checks if restrictionBlock is a superset of baseBlock.
 // Restriction block must contain all derivation methods in base block
 // (i.e., restriction cannot allow more than base).
-func isBlockSuperset(restrictionBlock, baseBlock types.DerivationSet) bool {
-	if baseBlock.Has(types.DerivationExtension) && !restrictionBlock.Has(types.DerivationExtension) {
+func isBlockSuperset(restrictionBlock, baseBlock model.DerivationSet) bool {
+	if baseBlock.Has(model.DerivationExtension) && !restrictionBlock.Has(model.DerivationExtension) {
 		return false
 	}
-	if baseBlock.Has(types.DerivationRestriction) && !restrictionBlock.Has(types.DerivationRestriction) {
+	if baseBlock.Has(model.DerivationRestriction) && !restrictionBlock.Has(model.DerivationRestriction) {
 		return false
 	}
-	if baseBlock.Has(types.DerivationSubstitution) && !restrictionBlock.Has(types.DerivationSubstitution) {
+	if baseBlock.Has(model.DerivationSubstitution) && !restrictionBlock.Has(model.DerivationSubstitution) {
 		return false
 	}
 	return true
@@ -78,28 +78,28 @@ func isBlockSuperset(restrictionBlock, baseBlock types.DerivationSet) bool {
 // for a model group by considering the group's occurrence and its children.
 // For sequences: effective = group.occ * sum(children.occ)
 // For choices: effective = group.occ * max(children.occ) for max, group.occ * min(children.minOcc) for min
-func calculateEffectiveOccurrence(mg *types.ModelGroup) (minOcc, maxOcc types.Occurs) {
+func calculateEffectiveOccurrence(mg *model.ModelGroup) (minOcc, maxOcc model.Occurs) {
 	groupMinOcc := mg.MinOcc()
 	groupMaxOcc := mg.MaxOcc()
 
 	if len(mg.Particles) == 0 {
-		return types.OccursFromInt(0), types.OccursFromInt(0)
+		return model.OccursFromInt(0), model.OccursFromInt(0)
 	}
 
 	switch mg.Kind {
-	case types.Sequence:
-		sumMinOcc := types.OccursFromInt(0)
-		sumMaxOcc := types.OccursFromInt(0)
+	case model.Sequence:
+		sumMinOcc := model.OccursFromInt(0)
+		sumMaxOcc := model.OccursFromInt(0)
 		for _, p := range mg.Particles {
 			childMin, childMax := getParticleEffectiveOccurrence(p)
-			sumMinOcc = types.AddOccurs(sumMinOcc, childMin)
-			sumMaxOcc = types.AddOccurs(sumMaxOcc, childMax)
+			sumMinOcc = model.AddOccurs(sumMinOcc, childMin)
+			sumMaxOcc = model.AddOccurs(sumMaxOcc, childMax)
 		}
-		minOcc = types.MulOccurs(groupMinOcc, sumMinOcc)
-		maxOcc = types.MulOccurs(groupMaxOcc, sumMaxOcc)
-	case types.Choice:
-		childMinOcc := types.OccursFromInt(0)
-		childMaxOcc := types.OccursFromInt(0)
+		minOcc = model.MulOccurs(groupMinOcc, sumMinOcc)
+		maxOcc = model.MulOccurs(groupMaxOcc, sumMaxOcc)
+	case model.Choice:
+		childMinOcc := model.OccursFromInt(0)
+		childMaxOcc := model.OccursFromInt(0)
 		childMinOccSet := false
 		for _, p := range mg.Particles {
 			childMin, childMax := getParticleEffectiveOccurrence(p)
@@ -110,23 +110,23 @@ func calculateEffectiveOccurrence(mg *types.ModelGroup) (minOcc, maxOcc types.Oc
 				childMinOcc = childMin
 				childMinOccSet = true
 			}
-			childMaxOcc = types.MaxOccurs(childMaxOcc, childMax)
+			childMaxOcc = model.MaxOccurs(childMaxOcc, childMax)
 		}
 		if !childMinOccSet {
-			childMinOcc = types.OccursFromInt(0)
+			childMinOcc = model.OccursFromInt(0)
 		}
-		minOcc = types.MulOccurs(groupMinOcc, childMinOcc)
-		maxOcc = types.MulOccurs(groupMaxOcc, childMaxOcc)
-	case types.AllGroup:
-		sumMinOcc := types.OccursFromInt(0)
-		sumMaxOcc := types.OccursFromInt(0)
+		minOcc = model.MulOccurs(groupMinOcc, childMinOcc)
+		maxOcc = model.MulOccurs(groupMaxOcc, childMaxOcc)
+	case model.AllGroup:
+		sumMinOcc := model.OccursFromInt(0)
+		sumMaxOcc := model.OccursFromInt(0)
 		for _, p := range mg.Particles {
 			childMin, childMax := getParticleEffectiveOccurrence(p)
-			sumMinOcc = types.AddOccurs(sumMinOcc, childMin)
-			sumMaxOcc = types.AddOccurs(sumMaxOcc, childMax)
+			sumMinOcc = model.AddOccurs(sumMinOcc, childMin)
+			sumMaxOcc = model.AddOccurs(sumMaxOcc, childMax)
 		}
-		minOcc = types.MulOccurs(groupMinOcc, sumMinOcc)
-		maxOcc = types.MulOccurs(groupMaxOcc, sumMaxOcc)
+		minOcc = model.MulOccurs(groupMinOcc, sumMinOcc)
+		maxOcc = model.MulOccurs(groupMaxOcc, sumMaxOcc)
 	default:
 		minOcc = groupMinOcc
 		maxOcc = groupMaxOcc
@@ -135,13 +135,13 @@ func calculateEffectiveOccurrence(mg *types.ModelGroup) (minOcc, maxOcc types.Oc
 }
 
 // getParticleEffectiveOccurrence gets the effective occurrence of a single particle
-func getParticleEffectiveOccurrence(p types.Particle) (minOcc, maxOcc types.Occurs) {
+func getParticleEffectiveOccurrence(p model.Particle) (minOcc, maxOcc model.Occurs) {
 	switch particle := p.(type) {
-	case *types.ModelGroup:
+	case *model.ModelGroup:
 		return calculateEffectiveOccurrence(particle)
-	case *types.ElementDecl:
+	case *model.ElementDecl:
 		return particle.MinOcc(), particle.MaxOcc()
-	case *types.AnyElement:
+	case *model.AnyElement:
 		return particle.MinOccurs, particle.MaxOccurs
 	default:
 		return p.MinOcc(), p.MaxOcc()
@@ -150,7 +150,7 @@ func getParticleEffectiveOccurrence(p types.Particle) (minOcc, maxOcc types.Occu
 
 // isEffectivelyOptional checks if a ModelGroup is effectively optional
 // (all its particles are optional, making the group itself effectively optional)
-func isEffectivelyOptional(mg *types.ModelGroup) bool {
+func isEffectivelyOptional(mg *model.ModelGroup) bool {
 	if len(mg.Particles) == 0 {
 		return true
 	}
@@ -158,7 +158,7 @@ func isEffectivelyOptional(mg *types.ModelGroup) bool {
 		if particle.MinOcc().CmpInt(0) > 0 {
 			return false
 		}
-		if nestedMG, ok := particle.(*types.ModelGroup); ok {
+		if nestedMG, ok := particle.(*model.ModelGroup); ok {
 			if !isEffectivelyOptional(nestedMG) {
 				return false
 			}
@@ -170,7 +170,7 @@ func isEffectivelyOptional(mg *types.ModelGroup) bool {
 // isEmptiableParticle reports whether a particle can match the empty sequence.
 // Per XSD 1.0 Structures, a particle is emptiable if it can be satisfied without
 // consuming any element information items.
-func isEmptiableParticle(p types.Particle) bool {
+func isEmptiableParticle(p model.Particle) bool {
 	if p == nil {
 		return true
 	}
@@ -182,21 +182,21 @@ func isEmptiableParticle(p types.Particle) bool {
 	}
 
 	switch pt := p.(type) {
-	case *types.ModelGroup:
+	case *model.ModelGroup:
 		switch pt.Kind {
-		case types.Sequence, types.AllGroup:
+		case model.Sequence, model.AllGroup:
 			for _, child := range pt.Particles {
 				if !isEmptiableParticle(child) {
 					return false
 				}
 			}
 			return true
-		case types.Choice:
+		case model.Choice:
 			return slices.ContainsFunc(pt.Particles, isEmptiableParticle)
 		default:
 			return false
 		}
-	case *types.ElementDecl, *types.AnyElement:
+	case *model.ElementDecl, *model.AnyElement:
 		return false
 	default:
 		return p.MinOcc().IsZero()

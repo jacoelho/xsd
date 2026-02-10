@@ -3,13 +3,13 @@ package schemaflow
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/semantic"
 	"github.com/jacoelho/xsd/internal/semanticcheck"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-// ValidateUPA checks Unique Particle Attribution across all complex types.
+// ValidateUPA checks Unique Particle Attribution across all complex model.
 func ValidateUPA(schema *parser.Schema, registry *semantic.Registry) error {
 	if schema == nil {
 		return fmt.Errorf("schema is nil")
@@ -22,7 +22,7 @@ func ValidateUPA(schema *parser.Schema, registry *semantic.Registry) error {
 	}
 
 	for _, entry := range registry.TypeOrder {
-		ct, ok := entry.Type.(*types.ComplexType)
+		ct, ok := entry.Type.(*model.ComplexType)
 		if !ok {
 			continue
 		}
@@ -33,7 +33,7 @@ func ValidateUPA(schema *parser.Schema, registry *semantic.Registry) error {
 	return nil
 }
 
-func typeLabel(ct *types.ComplexType) string {
+func typeLabel(ct *model.ComplexType) string {
 	if ct == nil {
 		return "complexType"
 	}

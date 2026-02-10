@@ -3,12 +3,12 @@ package fieldresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
-func elementTypesCompatible(a, b types.Type) bool {
+func elementTypesCompatible(a, b model.Type) bool {
 	if a == nil && b == nil {
 		return true
 	}
@@ -38,7 +38,7 @@ func isWildcardNodeTest(test xpath.NodeTest) bool {
 	return test.Any || test.Local == "*"
 }
 
-func nodeTestMatchesQName(test xpath.NodeTest, name types.QName) bool {
+func nodeTestMatchesQName(test xpath.NodeTest, name model.QName) bool {
 	test = xpath.CanonicalizeNodeTest(test)
 	if test.Any {
 		return true
@@ -52,7 +52,7 @@ func nodeTestMatchesQName(test xpath.NodeTest, name types.QName) bool {
 	return true
 }
 
-func resolveElementReference(schema *parser.Schema, decl *types.ElementDecl) *types.ElementDecl {
+func resolveElementReference(schema *parser.Schema, decl *model.ElementDecl) *model.ElementDecl {
 	if decl == nil || !decl.IsReference || schema == nil {
 		return decl
 	}
@@ -66,13 +66,13 @@ func formatNodeTest(test xpath.NodeTest) string {
 	if isWildcardNodeTest(test) {
 		return "*"
 	}
-	if !test.NamespaceSpecified || test.Namespace.IsEmpty() {
+	if !test.NamespaceSpecified || test.Namespace == "" {
 		return test.Local
 	}
-	return "{" + test.Namespace.String() + "}" + test.Local
+	return "{" + string(test.Namespace) + "}" + test.Local
 }
 
-func fieldTypeName(typ types.Type) string {
+func fieldTypeName(typ model.Type) string {
 	if typ == nil {
 		return "<nil>"
 	}
@@ -83,7 +83,7 @@ func fieldTypeName(typ types.Type) string {
 	return fmt.Sprintf("%T", typ)
 }
 
-func fieldTypeKey(typ types.Type) string {
+func fieldTypeKey(typ model.Type) string {
 	if typ == nil {
 		return ""
 	}
@@ -94,12 +94,12 @@ func fieldTypeKey(typ types.Type) string {
 	return fmt.Sprintf("%T:%p", typ, typ)
 }
 
-func uniqueFieldTypes(values []types.Type) []types.Type {
+func uniqueFieldTypes(values []model.Type) []model.Type {
 	if len(values) == 0 {
 		return nil
 	}
 	seen := make(map[string]struct{}, len(values))
-	unique := make([]types.Type, 0, len(values))
+	unique := make([]model.Type, 0, len(values))
 	for _, typ := range values {
 		if typ == nil {
 			continue
@@ -114,14 +114,14 @@ func uniqueFieldTypes(values []types.Type) []types.Type {
 	return unique
 }
 
-func fieldTypesCompatible(a, b types.Type) bool {
+func fieldTypesCompatible(a, b model.Type) bool {
 	if a == nil || b == nil {
 		return false
 	}
 	if a.Name() == b.Name() {
 		return true
 	}
-	if types.IsDerivedFrom(a, b) || types.IsDerivedFrom(b, a) {
+	if model.IsDerivedFrom(a, b) || model.IsDerivedFrom(b, a) {
 		return true
 	}
 	primA := a.PrimitiveType()
@@ -132,7 +132,7 @@ func fieldTypesCompatible(a, b types.Type) bool {
 	return false
 }
 
-func combineFieldTypes(fieldXPath string, values []types.Type) (types.Type, error) {
+func combineFieldTypes(fieldXPath string, values []model.Type) (model.Type, error) {
 	unique := uniqueFieldTypes(values)
 	if len(unique) == 0 {
 		return nil, fmt.Errorf("field xpath '%s' resolves to no types", fieldXPath)
@@ -147,8 +147,8 @@ func combineFieldTypes(fieldXPath string, values []types.Type) (types.Type, erro
 			}
 		}
 	}
-	return &types.SimpleType{
-		Union:       &types.UnionType{},
+	return &model.SimpleType{
+		Union:       &model.UnionType{},
 		MemberTypes: unique,
 	}, nil
 }
@@ -176,12 +176,12 @@ func isDescendantOnlySteps(steps []xpath.Step) bool {
 	return sawDescendant
 }
 
-func uniqueElementDecls(decls []*types.ElementDecl) []*types.ElementDecl {
+func uniqueElementDecls(decls []*model.ElementDecl) []*model.ElementDecl {
 	if len(decls) == 0 {
 		return nil
 	}
-	seen := make(map[types.QName]struct{}, len(decls))
-	unique := make([]*types.ElementDecl, 0, len(decls))
+	seen := make(map[model.QName]struct{}, len(decls))
+	unique := make([]*model.ElementDecl, 0, len(decls))
 	for _, decl := range decls {
 		if decl == nil {
 			continue

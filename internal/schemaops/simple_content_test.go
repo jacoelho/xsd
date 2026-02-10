@@ -4,30 +4,31 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 )
 
 func TestResolveSimpleContentTextTypeResolvesExtensionAndRestriction(t *testing.T) {
-	baseQName := types.QName{Namespace: "urn:test", Local: "Base"}
-	base := types.NewComplexType(baseQName, "urn:test")
-	base.SetContent(&types.SimpleContent{
-		Extension: &types.Extension{Base: types.GetBuiltin(types.TypeNameString).Name()},
+	baseQName := model.QName{Namespace: "urn:test", Local: "Base"}
+	base := model.NewComplexType(baseQName, "urn:test")
+	base.SetContent(&model.SimpleContent{
+		Extension: &model.Extension{Base: builtins.Get(model.TypeNameString).Name()},
 	})
 
-	derived := types.NewComplexType(types.QName{Namespace: "urn:test", Local: "Derived"}, "urn:test")
-	derivedRestriction := &types.Restriction{}
-	derived.SetContent(&types.SimpleContent{
+	derived := model.NewComplexType(model.QName{Namespace: "urn:test", Local: "Derived"}, "urn:test")
+	derivedRestriction := &model.Restriction{}
+	derived.SetContent(&model.SimpleContent{
 		Restriction: derivedRestriction,
 		Base:        baseQName,
 	})
 
-	cache := make(map[*types.ComplexType]types.Type)
+	cache := make(map[*model.ComplexType]model.Type)
 	got, err := ResolveSimpleContentTextType(derived, SimpleContentTextTypeOptions{
-		ResolveQName: func(name types.QName) types.Type {
+		ResolveQName: func(name model.QName) model.Type {
 			if name == baseQName {
 				return base
 			}
-			return types.GetBuiltinNS(name.Namespace, name.Local)
+			return builtins.GetNS(name.Namespace, name.Local)
 		},
 		Cache: cache,
 	})
@@ -35,11 +36,11 @@ func TestResolveSimpleContentTextTypeResolvesExtensionAndRestriction(t *testing.
 		t.Fatalf("ResolveSimpleContentTextType error = %v", err)
 	}
 
-	restricted, ok := got.(*types.SimpleType)
+	restricted, ok := got.(*model.SimpleType)
 	if !ok || restricted == nil {
-		t.Fatalf("resolved type = %T, want *types.SimpleType", got)
+		t.Fatalf("resolved type = %T, want *model.SimpleType", got)
 	}
-	if restricted.ResolvedBase != types.GetBuiltin(types.TypeNameString) {
+	if restricted.ResolvedBase != builtins.Get(model.TypeNameString) {
 		t.Fatalf("resolved base = %v, want xs:string", restricted.ResolvedBase)
 	}
 	if restricted.Restriction != derivedRestriction {
@@ -51,10 +52,10 @@ func TestResolveSimpleContentTextTypeResolvesExtensionAndRestriction(t *testing.
 }
 
 func TestResolveSimpleContentTextTypeReportsCycle(t *testing.T) {
-	ct := types.NewComplexType(types.QName{Namespace: "urn:test", Local: "Self"}, "urn:test")
+	ct := model.NewComplexType(model.QName{Namespace: "urn:test", Local: "Self"}, "urn:test")
 	ct.ResolvedBase = ct
-	ct.SetContent(&types.SimpleContent{
-		Extension: &types.Extension{Base: types.QName{Namespace: "urn:test", Local: "Self"}},
+	ct.SetContent(&model.SimpleContent{
+		Extension: &model.Extension{Base: model.QName{Namespace: "urn:test", Local: "Self"}},
 	})
 
 	_, err := ResolveSimpleContentTextType(ct, SimpleContentTextTypeOptions{})
@@ -64,13 +65,13 @@ func TestResolveSimpleContentTextTypeReportsCycle(t *testing.T) {
 }
 
 func TestResolveSimpleContentTextTypeReportsMissingBase(t *testing.T) {
-	ct := types.NewComplexType(types.QName{Namespace: "urn:test", Local: "Missing"}, "urn:test")
-	ct.SetContent(&types.SimpleContent{
-		Extension: &types.Extension{Base: types.QName{Namespace: "urn:test", Local: "Unknown"}},
+	ct := model.NewComplexType(model.QName{Namespace: "urn:test", Local: "Missing"}, "urn:test")
+	ct.SetContent(&model.SimpleContent{
+		Extension: &model.Extension{Base: model.QName{Namespace: "urn:test", Local: "Unknown"}},
 	})
 
 	_, err := ResolveSimpleContentTextType(ct, SimpleContentTextTypeOptions{
-		ResolveQName: func(_ types.QName) types.Type { return nil },
+		ResolveQName: func(_ model.QName) model.Type { return nil },
 	})
 	if err == nil || !strings.Contains(err.Error(), "simpleContent base missing") {
 		t.Fatalf("error = %v, want missing base", err)
@@ -78,12 +79,12 @@ func TestResolveSimpleContentTextTypeReportsMissingBase(t *testing.T) {
 }
 
 func TestResolveSimpleContentTextTypeReturnsNilForNonSimpleContent(t *testing.T) {
-	ct := types.NewComplexType(types.QName{Namespace: "urn:test", Local: "ElementContent"}, "urn:test")
-	ct.SetContent(&types.ElementContent{
-		Particle: &types.ElementDecl{
-			Name:      types.QName{Namespace: "urn:test", Local: "item"},
-			MinOccurs: types.OccursFromInt(1),
-			MaxOccurs: types.OccursFromInt(1),
+	ct := model.NewComplexType(model.QName{Namespace: "urn:test", Local: "ElementContent"}, "urn:test")
+	ct.SetContent(&model.ElementContent{
+		Particle: &model.ElementDecl{
+			Name:      model.QName{Namespace: "urn:test", Local: "item"},
+			MinOccurs: model.OccursFromInt(1),
+			MaxOccurs: model.OccursFromInt(1),
 		},
 	})
 

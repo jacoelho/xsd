@@ -1,6 +1,9 @@
 package xsdxml
 
-import "sync"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 const (
 	maxPooledNodeEntries        = 1 << 15
@@ -11,28 +14,67 @@ const (
 	maxPooledCountEntries       = 1 << 15
 )
 
-var documentPool = sync.Pool{
-	New: func() any {
-		return &Document{root: InvalidNode}
-	},
+// DocumentPool stores reusable document arenas.
+type DocumentPool struct {
+	pool sync.Pool
+
+	acquires atomic.Uint64
+	releases atomic.Uint64
 }
 
-// AcquireDocument returns a reusable XML document arena.
+// DocumentPoolStats reports pool operation counts.
+type DocumentPoolStats struct {
+	Acquires uint64
+	Releases uint64
+}
+
+// NewDocumentPool returns a reusable document arena pool.
+func NewDocumentPool() *DocumentPool {
+	p := &DocumentPool{}
+	p.pool.New = func() any {
+		return &Document{root: InvalidNode}
+	}
+	return p
+}
+
+// Acquire returns a reusable XML document arena.
 // The caller owns the document until it is released back to the pool.
-func AcquireDocument() *Document {
-	// documentPool stores only *Document values by construction.
-	doc := documentPool.Get().(*Document)
+func (p *DocumentPool) Acquire() *Document {
+	if p == nil {
+		doc := &Document{root: InvalidNode}
+		doc.reset()
+		return doc
+	}
+
+	p.acquires.Add(1)
+	// p.pool stores only *Document values by construction.
+	doc := p.pool.Get().(*Document)
 	doc.reset()
 	return doc
 }
 
-// ReleaseDocument returns a document to the pool after resetting it.
-// After ReleaseDocument, the caller must not retain or use the document.
-func ReleaseDocument(doc *Document) {
+// Release returns a document to the pool after resetting it.
+// After Release, the caller must not retain or use the document.
+func (p *DocumentPool) Release(doc *Document) {
 	if doc == nil {
 		return
 	}
 	doc.reset()
 	doc.trimForPool()
-	documentPool.Put(doc)
+	if p == nil {
+		return
+	}
+	p.releases.Add(1)
+	p.pool.Put(doc)
+}
+
+// Stats returns acquire/release counters for the pool.
+func (p *DocumentPool) Stats() DocumentPoolStats {
+	if p == nil {
+		return DocumentPoolStats{}
+	}
+	return DocumentPoolStats{
+		Acquires: p.acquires.Load(),
+		Releases: p.releases.Load(),
+	}
 }
