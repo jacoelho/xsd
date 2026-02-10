@@ -192,7 +192,7 @@ func TestNewMinInclusive_UnresolvedPrimitiveReturnsDeferredSentinel(t *testing.T
 	}
 }
 
-func TestNewMinInclusive_ReturnsFacetValueOwnedRangeFacet(t *testing.T) {
+func TestNewMinInclusive_ReturnsModelRangeFacet(t *testing.T) {
 	t.Parallel()
 
 	baseType := builtins.Get(builtins.TypeNameInteger)
@@ -210,8 +210,8 @@ func TestNewMinInclusive_ReturnsFacetValueOwnedRangeFacet(t *testing.T) {
 	if _, ok := facet.(model.LexicalFacet); !ok {
 		t.Fatalf("facet type = %T, want model.LexicalFacet", facet)
 	}
-	if _, ok := facet.(*model.RangeFacet); ok {
-		t.Fatalf("facet type = %T, want facetvalue-owned implementation", facet)
+	if _, ok := facet.(*model.RangeFacet); !ok {
+		t.Fatalf("facet type = %T, want *model.RangeFacet", facet)
 	}
 }
 

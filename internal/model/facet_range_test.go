@@ -485,9 +485,9 @@ func TestGenericFacet_Duration(t *testing.T) {
 func TestRangeFacet_DurationIndeterminate(t *testing.T) {
 	durationType := mustBuiltinSimpleType(t, TypeNameDuration)
 
-	facet, err := newMinInclusive("P1M", durationType)
+	facet, err := NewMinInclusive("P1M", durationType)
 	if err != nil {
-		t.Fatalf("newMinInclusive() error = %v", err)
+		t.Fatalf("NewMinInclusive() error = %v", err)
 	}
 
 	valueDur, err := durationlex.Parse("P30D")
@@ -507,6 +507,33 @@ func TestRangeFacet_DurationIndeterminate(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "cannot compare") {
 		t.Fatalf("expected facet violation error, got %v", err)
+	}
+}
+
+func TestRangeFacet_DurationParsedNativeValue(t *testing.T) {
+	t.Parallel()
+
+	durationType := mustBuiltinSimpleType(t, TypeNameDuration)
+
+	facet, err := NewMinInclusive("P1D", durationType)
+	if err != nil {
+		t.Fatalf("NewMinInclusive() error = %v", err)
+	}
+
+	passValue, err := durationType.ParseValue("P2D")
+	if err != nil {
+		t.Fatalf("ParseValue(pass) error = %v", err)
+	}
+	if err := facet.Validate(passValue, durationType); err != nil {
+		t.Fatalf("Validate(pass) error = %v", err)
+	}
+
+	failValue, err := durationType.ParseValue("PT12H")
+	if err != nil {
+		t.Fatalf("ParseValue(fail) error = %v", err)
+	}
+	if err := facet.Validate(failValue, durationType); err == nil {
+		t.Fatal("Validate(fail) should return error")
 	}
 }
 
@@ -644,9 +671,9 @@ func TestDateTimeBoundsFacet_IndeterminateComparison(t *testing.T) {
 	dateTimeType := mustBuiltinSimpleType(t, TypeNameDateTime)
 
 	// Create a minInclusive facet with a timezone-aware value (noon UTC)
-	facet, err := newMinInclusive("2000-01-01T12:00:00Z", dateTimeType)
+	facet, err := NewMinInclusive("2000-01-01T12:00:00Z", dateTimeType)
 	if err != nil {
-		t.Fatalf("newMinInclusive() error = %v", err)
+		t.Fatalf("NewMinInclusive() error = %v", err)
 	}
 
 	// Parse a value WITHOUT timezone - same date/time but no timezone info.
