@@ -134,9 +134,9 @@ func TestFundamentalFacets_FacetApplicability(t *testing.T) {
 			if bt == nil {
 				t.Fatalf("missing builtin type %s", tt.typeName)
 			}
-			err := validateFacetApplicability(tt.facetName, bt, bt.Name())
+			err := ValidateFacetApplicability(tt.facetName, bt, bt.Name())
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateFacetApplicability(%q, %s) = %v, wantErr=%v", tt.facetName, tt.typeName, err, tt.wantErr)
+				t.Errorf("ValidateFacetApplicability(%q, %s) = %v, wantErr=%v", tt.facetName, tt.typeName, err, tt.wantErr)
 			}
 		})
 	}
