@@ -51,3 +51,25 @@ func TestLoaderUsesConfiguredDocumentPool(t *testing.T) {
 		t.Fatalf("poolB stats did not advance: afterB=%+v finalB=%+v", afterB, finalB)
 	}
 }
+
+func TestLoaderAcceptsZeroValueDocumentPool(t *testing.T) {
+	t.Parallel()
+
+	fsys := fstest.MapFS{
+		"schema.xsd": &fstest.MapFile{
+			Data: []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root" type="xs:string"/></xs:schema>`),
+		},
+	}
+
+	pool := &xsdxml.DocumentPool{}
+	loader := NewLoader(Config{FS: fsys, DocumentPool: pool})
+
+	if _, err := loader.Load("schema.xsd"); err != nil {
+		t.Fatalf("loader.Load() error = %v", err)
+	}
+
+	stats := pool.Stats()
+	if stats.Acquires == 0 || stats.Releases == 0 {
+		t.Fatalf("zero-value pool stats did not advance: %+v", stats)
+	}
+}

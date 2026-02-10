@@ -17,6 +17,7 @@ const (
 // DocumentPool stores reusable document arenas.
 type DocumentPool struct {
 	pool sync.Pool
+	once sync.Once
 
 	acquires atomic.Uint64
 	releases atomic.Uint64
@@ -31,10 +32,19 @@ type DocumentPoolStats struct {
 // NewDocumentPool returns a reusable document arena pool.
 func NewDocumentPool() *DocumentPool {
 	p := &DocumentPool{}
-	p.pool.New = func() any {
-		return &Document{root: InvalidNode}
-	}
+	p.ensureInitialized()
 	return p
+}
+
+func (p *DocumentPool) ensureInitialized() {
+	if p == nil {
+		return
+	}
+	p.once.Do(func() {
+		p.pool.New = func() any {
+			return &Document{root: InvalidNode}
+		}
+	})
 }
 
 // Acquire returns a reusable XML document arena.
@@ -46,9 +56,13 @@ func (p *DocumentPool) Acquire() *Document {
 		return doc
 	}
 
+	p.ensureInitialized()
 	p.acquires.Add(1)
-	// p.pool stores only *Document values by construction.
-	doc := p.pool.Get().(*Document)
+	raw := p.pool.Get()
+	doc, ok := raw.(*Document)
+	if !ok || doc == nil {
+		doc = &Document{root: InvalidNode}
+	}
 	doc.reset()
 	return doc
 }

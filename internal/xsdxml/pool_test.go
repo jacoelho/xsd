@@ -2,6 +2,52 @@ package xsdxml
 
 import "testing"
 
+func TestAcquireZeroValuePoolDoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	pool := &DocumentPool{}
+	doc := pool.Acquire()
+	if doc == nil {
+		t.Fatal("Acquire() returned nil document")
+	}
+
+	pool.Release(doc)
+	reused := pool.Acquire()
+	if reused == nil {
+		t.Fatal("Acquire() returned nil document after release")
+	}
+	pool.Release(reused)
+}
+
+func TestAcquireZeroValuePoolStatsAdvance(t *testing.T) {
+	t.Parallel()
+
+	pool := &DocumentPool{}
+	before := pool.Stats()
+
+	doc := pool.Acquire()
+	pool.Release(doc)
+
+	after := pool.Stats()
+	if after.Acquires != before.Acquires+1 {
+		t.Fatalf("Acquires = %d, want %d", after.Acquires, before.Acquires+1)
+	}
+	if after.Releases != before.Releases+1 {
+		t.Fatalf("Releases = %d, want %d", after.Releases, before.Releases+1)
+	}
+}
+
+func TestAcquireNilReceiverDoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	var pool *DocumentPool
+	doc := pool.Acquire()
+	if doc == nil {
+		t.Fatal("Acquire() on nil receiver returned nil document")
+	}
+	pool.Release(doc)
+}
+
 func TestReleaseDocumentTrimsLargeBuffers(t *testing.T) {
 	pool := NewDocumentPool()
 	doc := pool.Acquire()
