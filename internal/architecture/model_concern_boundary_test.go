@@ -7,10 +7,11 @@ import (
 	"testing"
 )
 
+const modelImportPath = "github.com/jacoelho/xsd/internal/model"
+
 func TestModelBuiltinsAdaptersOnlyUsedByModelOrBuiltinsPackage(t *testing.T) {
 	t.Parallel()
 
-	const modelImport = "github.com/jacoelho/xsd/internal/model"
 	allowedScopes := []string{
 		"internal/model",
 		"internal/builtins",
@@ -21,13 +22,12 @@ func TestModelBuiltinsAdaptersOnlyUsedByModelOrBuiltinsPackage(t *testing.T) {
 		"NewBuiltinSimpleType",
 	}
 
-	assertModelSelectorBoundary(t, modelImport, allowedScopes, adapterNames, "builtins")
+	assertModelSelectorBoundary(t, allowedScopes, adapterNames, "builtins")
 }
 
 func TestModelTypedValueAdaptersOnlyUsedByModelPackage(t *testing.T) {
 	t.Parallel()
 
-	const modelImport = "github.com/jacoelho/xsd/internal/model"
 	allowedScopes := []string{
 		"internal/model",
 	}
@@ -72,13 +72,12 @@ func TestModelTypedValueAdaptersOnlyUsedByModelPackage(t *testing.T) {
 		"ParseString",
 	}
 
-	assertModelSelectorBoundary(t, modelImport, allowedScopes, adapterNames, "typedvalue")
+	assertModelSelectorBoundary(t, allowedScopes, adapterNames, "typedvalue")
 }
 
 func TestModelFacetAdaptersOnlyUsedByModelPackage(t *testing.T) {
 	t.Parallel()
 
-	const modelImport = "github.com/jacoelho/xsd/internal/model"
 	allowedScopes := []string{
 		"internal/model",
 	}
@@ -89,7 +88,6 @@ func TestModelFacetAdaptersOnlyUsedByModelPackage(t *testing.T) {
 		"IsQNameOrNotationType",
 		"ValuesEqual",
 		"TypedValueForFacet",
-		"ValidateFacetApplicability",
 		"NewMinInclusive",
 		"NewMaxInclusive",
 		"NewMinExclusive",
@@ -98,15 +96,29 @@ func TestModelFacetAdaptersOnlyUsedByModelPackage(t *testing.T) {
 		"ParseDurationToTimeDuration",
 	}
 
-	assertModelSelectorBoundary(t, modelImport, allowedScopes, adapterNames, "facetvalue")
+	assertModelSelectorBoundary(t, allowedScopes, adapterNames, "facetvalue")
 }
 
-func assertModelSelectorBoundary(t *testing.T, importPath string, allowedScopes, adapterNames []string, concern string) {
+func TestModelValidateFacetApplicabilityOnlyUsedByModelOrFacetvaluePackage(t *testing.T) {
+	t.Parallel()
+
+	allowedScopes := []string{
+		"internal/model",
+		"internal/facetvalue",
+	}
+	adapterNames := []string{
+		"ValidateFacetApplicability",
+	}
+
+	assertModelSelectorBoundary(t, allowedScopes, adapterNames, "facet applicability")
+}
+
+func assertModelSelectorBoundary(t *testing.T, allowedScopes, adapterNames []string, concern string) {
 	t.Helper()
 
 	forEachParsedRepoProductionGoFile(t, parser.ParseComments, func(file repoGoFile, parsed *ast.File) {
 		allowedScope := withinAnyScope(file.relPath, allowedScopes)
-		aliases := importAliasesForPath(parsed, importPath, "model")
+		aliases := importAliasesForPath(parsed, modelImportPath, "model")
 		if len(aliases) == 0 {
 			return
 		}

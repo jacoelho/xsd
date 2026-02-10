@@ -10,6 +10,34 @@ import (
 	model "github.com/jacoelho/xsd/internal/model"
 )
 
+type testFacet struct {
+	name       string
+	validateFn func(value model.TypedValue, baseType model.Type) error
+}
+
+func (f testFacet) Name() string {
+	return f.name
+}
+
+func (f testFacet) Validate(value model.TypedValue, baseType model.Type) error {
+	if f.validateFn == nil {
+		return nil
+	}
+	return f.validateFn(value, baseType)
+}
+
+type testLexicalFacet struct {
+	testFacet
+	validateLexicalFn func(lexical string, baseType model.Type) error
+}
+
+func (f testLexicalFacet) ValidateLexical(lexical string, baseType model.Type) error {
+	if f.validateLexicalFn == nil {
+		return nil
+	}
+	return f.validateLexicalFn(lexical, baseType)
+}
+
 func TestValuesEqual_DecimalAndInteger(t *testing.T) {
 	t.Parallel()
 
@@ -184,5 +212,134 @@ func TestNewMinInclusive_ReturnsFacetValueOwnedRangeFacet(t *testing.T) {
 	}
 	if _, ok := facet.(*model.RangeFacet); ok {
 		t.Fatalf("facet type = %T, want facetvalue-owned implementation", facet)
+	}
+}
+
+func TestApplyStopsOnFirstError(t *testing.T) {
+	t.Parallel()
+
+	calls := 0
+	wantErr := errors.New("boom")
+	facets := []model.Facet{
+		testFacet{
+			name: "ok",
+			validateFn: func(model.TypedValue, model.Type) error {
+				calls++
+				return nil
+			},
+		},
+		testFacet{
+			name: "bad",
+			validateFn: func(model.TypedValue, model.Type) error {
+				calls++
+				return wantErr
+			},
+		},
+		testFacet{
+			name: "later",
+			validateFn: func(model.TypedValue, model.Type) error {
+				calls++
+				return nil
+			},
+		},
+	}
+
+	err := Apply(nil, facets, nil)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("Apply() error = %v, want %v", err, wantErr)
+	}
+	if calls != 2 {
+		t.Fatalf("Apply() calls = %d, want 2", calls)
+	}
+}
+
+func TestValidateWrapsLexicalErrors(t *testing.T) {
+	t.Parallel()
+
+	typedValidated := false
+	facets := []model.Facet{
+		testLexicalFacet{
+			testFacet: testFacet{
+				name: "lex",
+				validateFn: func(model.TypedValue, model.Type) error {
+					typedValidated = true
+					return nil
+				},
+			},
+			validateLexicalFn: func(string, model.Type) error {
+				return errors.New("bad lexical")
+			},
+		},
+	}
+
+	err := Validate("v", nil, facets, nil)
+	if err == nil {
+		t.Fatal("expected lexical validation error")
+	}
+	if !strings.Contains(err.Error(), "facet 'lex' violation: bad lexical") {
+		t.Fatalf("error = %v", err)
+	}
+	if typedValidated {
+		t.Fatal("typed validation should not run for lexical-only errors")
+	}
+}
+
+func TestValidateBuildsTypedValueOnce(t *testing.T) {
+	t.Parallel()
+
+	baseType := builtins.Get(builtins.TypeNameInteger)
+	if baseType == nil {
+		t.Fatal("missing builtin integer type")
+	}
+
+	var firstTyped model.TypedValue
+	facets := []model.Facet{
+		testFacet{
+			name: "first",
+			validateFn: func(value model.TypedValue, _ model.Type) error {
+				firstTyped = value
+				return nil
+			},
+		},
+		testFacet{
+			name: "second",
+			validateFn: func(value model.TypedValue, _ model.Type) error {
+				if firstTyped == nil {
+					return errors.New("first facet received nil typed value")
+				}
+				if value != firstTyped {
+					return errors.New("typed value created more than once")
+				}
+				return nil
+			},
+		},
+	}
+
+	if err := Validate("not-an-integer", baseType, facets, nil); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+	if firstTyped == nil {
+		t.Fatal("first facet did not receive typed value")
+	}
+}
+
+func TestValidateKeepsQNameEnumerationErrorsUnwrapped(t *testing.T) {
+	t.Parallel()
+
+	qnameType := builtins.Get(builtins.TypeNameQName)
+	if qnameType == nil {
+		t.Fatal("missing builtin QName type")
+	}
+
+	enumFacet := model.NewEnumeration([]string{"ns:allowed"})
+	err := Validate("ns:value", qnameType, []model.Facet{enumFacet}, nil)
+	if err == nil {
+		t.Fatal("expected QName enumeration error")
+	}
+	if !strings.Contains(err.Error(), "namespace context unavailable for QName/NOTATION enumeration") {
+		t.Fatalf("error = %v", err)
+	}
+	if strings.Contains(err.Error(), "facet 'enumeration' violation") {
+		t.Fatalf("QName enumeration error was unexpectedly wrapped: %v", err)
 	}
 }
