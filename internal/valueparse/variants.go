@@ -2,7 +2,6 @@ package valueparse
 
 import (
 	"fmt"
-	"iter"
 
 	"github.com/jacoelho/xsd/internal/value"
 )
@@ -36,7 +35,7 @@ func ParseUnionValueVariants[T any, V any](lexical string, members []T, parseMem
 // ParseListValueVariants parses list items into per-item variants using XML whitespace splitting.
 func ParseListValueVariants[V any](lexical string, parseItem func(string) ([]V, error)) ([][]V, error) {
 	parsed := make([][]V, 0, 4)
-	for item := range fieldsXMLWhitespaceSeq(lexical) {
+	for item := range value.FieldsXMLWhitespaceStringSeq(lexical) {
 		values, err := parseItem(item)
 		if err != nil {
 			return nil, fmt.Errorf("invalid list item %q: %w", item, err)
@@ -78,25 +77,4 @@ func ListValuesEqual[V any](left, right [][]V, equal func(V, V) bool) bool {
 		}
 	}
 	return true
-}
-
-func fieldsXMLWhitespaceSeq(lexical string) iter.Seq[string] {
-	return func(yield func(string) bool) {
-		i := 0
-		for i < len(lexical) {
-			for i < len(lexical) && value.IsXMLWhitespaceByte(lexical[i]) {
-				i++
-			}
-			if i >= len(lexical) {
-				return
-			}
-			start := i
-			for i < len(lexical) && !value.IsXMLWhitespaceByte(lexical[i]) {
-				i++
-			}
-			if !yield(lexical[start:i]) {
-				return
-			}
-		}
-	}
 }

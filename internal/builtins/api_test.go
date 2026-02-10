@@ -50,3 +50,31 @@ func TestNewSimpleTypeUnknownReturnsError(t *testing.T) {
 		t.Fatal("expected error for unknown builtin simple type")
 	}
 }
+
+func TestBuiltinListTypeMapping(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name       string
+		item       TypeName
+		shouldFind bool
+	}{
+		{name: "NMTOKENS", item: TypeNameNMTOKEN, shouldFind: true},
+		{name: "IDREFS", item: TypeNameIDREF, shouldFind: true},
+		{name: "ENTITIES", item: TypeNameENTITY, shouldFind: true},
+		{name: "string", shouldFind: false},
+	}
+
+	for _, tc := range cases {
+		item, ok := BuiltinListItemTypeName(tc.name)
+		if ok != tc.shouldFind {
+			t.Fatalf("BuiltinListItemTypeName(%q) found=%v, want %v", tc.name, ok, tc.shouldFind)
+		}
+		if item != tc.item {
+			t.Fatalf("BuiltinListItemTypeName(%q) = %q, want %q", tc.name, item, tc.item)
+		}
+		if IsBuiltinListTypeName(tc.name) != tc.shouldFind {
+			t.Fatalf("IsBuiltinListTypeName(%q) mismatch", tc.name)
+		}
+	}
+}

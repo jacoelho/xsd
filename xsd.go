@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/pipeline"
 	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -193,34 +192,37 @@ func (s *Schema) Validate(r io.Reader) error {
 
 // ValidateFSFile validates an XML file from the provided filesystem.
 func (s *Schema) ValidateFSFile(fsys fs.FS, path string) (err error) {
-	if s == nil || s.engine == nil {
-		return schemaNotLoadedError()
-	}
-	if fsys == nil {
-		return fmt.Errorf("open xml file %s: nil fs", path)
-	}
-
-	f, err := fsys.Open(path)
-	if err != nil {
-		return fmt.Errorf("open xml file %s: %w", path, err)
-	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("close xml file %s: %w", path, closeErr)
+	return s.validateFile(path, func(filePath string) (io.ReadCloser, error) {
+		if fsys == nil {
+			return nil, fmt.Errorf("nil fs")
 		}
-	}()
-
-	err = s.validateReader(f, path)
-	return err
+		return fsys.Open(filePath)
+	}, func(reader io.Reader, document string) error {
+		return s.validateReader(reader, document)
+	})
 }
 
 // ValidateFile validates an XML file against the schema.
 func (s *Schema) ValidateFile(path string) (err error) {
+	return s.validateFile(path, func(filePath string) (io.ReadCloser, error) {
+		return os.Open(filePath)
+	}, func(reader io.Reader, document string) error {
+		return s.validateReader(reader, document)
+	})
+}
+
+func (s *Schema) validateFile(path string, openFile func(string) (io.ReadCloser, error), validate func(io.Reader, string) error) (err error) {
 	if s == nil || s.engine == nil {
 		return schemaNotLoadedError()
 	}
+	if openFile == nil {
+		return fmt.Errorf("open xml file %s: nil opener", path)
+	}
+	if validate == nil {
+		return fmt.Errorf("validate xml file %s: nil validator", path)
+	}
 
-	f, err := os.Open(path)
+	f, err := openFile(path)
 	if err != nil {
 		return fmt.Errorf("open xml file %s: %w", path, err)
 	}
@@ -230,18 +232,16 @@ func (s *Schema) ValidateFile(path string) (err error) {
 		}
 	}()
 
-	err = s.validateReader(f, path)
+	err = validate(f, path)
 	return err
 }
 
 func (s *Schema) validateReader(r io.Reader, document string) error {
-	if s == nil || s.engine == nil {
-		return errors.ValidationList{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}
+	var eng *engine
+	if s != nil {
+		eng = s.engine
 	}
-	if r == nil {
-		return errors.ValidationList{errors.NewValidation(errors.ErrXMLParse, "nil reader", "")}
-	}
-	return s.engine.validateDocument(r, document)
+	return eng.validateDocument(r, document)
 }
 
 func buildCompileConfig(opts resolvedRuntimeOptions) pipeline.CompileConfig {

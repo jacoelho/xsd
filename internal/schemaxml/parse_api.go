@@ -37,97 +37,7 @@ func ParseIntoWithOptions(r io.Reader, doc *Document, opts ...xmlstream.Option) 
 		return fmt.Errorf("xml reader: %w", err)
 	}
 
-	nodeStack := state.NewStateStack[NodeID](16)
-	childCountStack := state.NewStateStack[int](16)
-	var attrsScratch []Attr
-	rootClosed := false
-	allowBOM := true
-	for {
-		event, err := decoder.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return fmt.Errorf("xml read: %w", err)
-		}
-
-		switch event.Kind {
-		case xmlstream.EventStartElement:
-			if rootClosed {
-				return fmt.Errorf("unexpected element %s after document end", event.Name.Local)
-			}
-
-			parent := InvalidNode
-			if p, ok := nodeStack.Peek(); ok {
-				parent = p
-			}
-			if parent != InvalidNode {
-				count, _ := childCountStack.Pop()
-				childCountStack.Push(count + 1)
-			}
-			attrsScratch = attrsScratch[:0]
-			for _, attr := range event.Attrs {
-				attrsScratch = append(attrsScratch, Attr{
-					namespace: attr.Name.Namespace,
-					local:     attr.Name.Local,
-					value:     string(attr.Value),
-				})
-			}
-			for decl := range decoder.NamespaceDeclsSeq(event.ScopeDepth) {
-				local := decl.Prefix
-				if local == "" {
-					local = "xmlns"
-				}
-				attrsScratch = append(attrsScratch, Attr{
-					namespace: XMLNSNamespace,
-					local:     local,
-					value:     decl.URI,
-				})
-			}
-			id := doc.addNode(event.Name.Namespace, event.Name.Local, attrsScratch, parent)
-			if parent == InvalidNode {
-				doc.root = id
-				allowBOM = false
-			}
-			nodeStack.Push(id)
-			childCountStack.Push(0)
-
-		case xmlstream.EventEndElement:
-			if _, ok := nodeStack.Pop(); ok {
-				_, _ = childCountStack.Pop()
-				if nodeStack.Len() == 0 && doc.root != InvalidNode {
-					rootClosed = true
-				}
-			}
-
-		case xmlstream.EventCharData:
-			if nodeStack.Len() == 0 {
-				if !xmllex.IsIgnorableOutsideRoot(event.Text, allowBOM) {
-					return fmt.Errorf("unexpected character data outside root element")
-				}
-				allowBOM = false
-				continue
-			}
-			nodeID, _ := nodeStack.Peek()
-			node := &doc.nodes[nodeID]
-			textOff := len(node.text)
-			node.text = append(node.text, event.Text...)
-			count, _ := childCountStack.Peek()
-			doc.addTextSegment(nodeID, count, textOff, len(event.Text))
-		case xmlstream.EventComment, xmlstream.EventPI, xmlstream.EventDirective:
-			if nodeStack.Len() == 0 {
-				allowBOM = false
-			}
-		}
-	}
-
-	if doc.root == InvalidNode {
-		return io.ErrUnexpectedEOF
-	}
-
-	doc.buildChildren()
-	doc.buildTextSegments()
-	return nil
+	return parseDOM(decoder, doc, parseModeDocument, namespaceAttrsScopeOnly, xmlstream.Event{})
 }
 
 // ParseSubtreeInto builds a document from a subtree rooted at start.
@@ -149,68 +59,175 @@ func ParseSubtreeInto(reader *xmlstream.Reader, start xmlstream.Event, doc *Docu
 		return fmt.Errorf("expected start element event")
 	}
 
-	nodeStack := state.NewStateStack[NodeID](16)
-	childCountStack := state.NewStateStack[int](16)
-	var attrsScratch []Attr
+	return parseDOM(reader, doc, parseModeSubtree, namespaceAttrsSubtreeRootInScope, start)
+}
 
-	addStart := func(event xmlstream.Event) {
-		parent := InvalidNode
-		if p, ok := nodeStack.Peek(); ok {
-			parent = p
-		}
-		if parent != InvalidNode {
-			count, _ := childCountStack.Pop()
-			childCountStack.Push(count + 1)
-		}
-		attrsScratch = attrsScratch[:0]
-		for _, attr := range event.Attrs {
-			attrsScratch = append(attrsScratch, Attr{
-				namespace: attr.Name.Namespace,
-				local:     attr.Name.Local,
-				value:     string(attr.Value),
-			})
-		}
-		if nodeStack.Len() == 0 {
-			attrsScratch = appendInScopeNamespaceAttrs(attrsScratch, reader, event.ScopeDepth)
-		} else {
-			attrsScratch = appendScopeNamespaceAttrs(attrsScratch, reader, event.ScopeDepth)
-		}
-		id := doc.addNode(event.Name.Namespace, event.Name.Local, attrsScratch, parent)
-		if parent == InvalidNode {
-			doc.root = id
-		}
-		nodeStack.Push(id)
-		childCountStack.Push(0)
+type parseMode uint8
+
+const (
+	parseModeDocument parseMode = iota
+	parseModeSubtree
+)
+
+type namespaceAttrsMode uint8
+
+const (
+	namespaceAttrsScopeOnly namespaceAttrsMode = iota
+	namespaceAttrsSubtreeRootInScope
+)
+
+type domBuilder struct {
+	doc             *Document
+	reader          *xmlstream.Reader
+	namespaceMode   namespaceAttrsMode
+	nodeStack       state.StateStack[NodeID]
+	childCountStack state.StateStack[int]
+	attrsScratch    []Attr
+}
+
+func newDOMBuilder(doc *Document, reader *xmlstream.Reader, namespaceMode namespaceAttrsMode) *domBuilder {
+	return &domBuilder{
+		doc:             doc,
+		reader:          reader,
+		namespaceMode:   namespaceMode,
+		nodeStack:       state.NewStateStack[NodeID](16),
+		childCountStack: state.NewStateStack[int](16),
+	}
+}
+
+func (b *domBuilder) hasOpenNode() bool {
+	return b != nil && b.nodeStack.Len() > 0
+}
+
+func (b *domBuilder) addStart(event xmlstream.Event) {
+	if b == nil {
+		return
 	}
 
-	addStart(start)
-	for depth := 1; depth > 0; {
-		event, readErr := reader.Next()
-		if readErr != nil {
-			return fmt.Errorf("xml read: %w", readErr)
+	parent := InvalidNode
+	if p, ok := b.nodeStack.Peek(); ok {
+		parent = p
+	}
+	if parent != InvalidNode {
+		count, _ := b.childCountStack.Pop()
+		b.childCountStack.Push(count + 1)
+	}
+
+	b.attrsScratch = b.attrsScratch[:0]
+	for _, attr := range event.Attrs {
+		b.attrsScratch = append(b.attrsScratch, Attr{
+			namespace: attr.Name.Namespace,
+			local:     attr.Name.Local,
+			value:     string(attr.Value),
+		})
+	}
+	b.attrsScratch = b.appendNamespaceAttrs(b.attrsScratch, event.ScopeDepth)
+
+	id := b.doc.addNode(event.Name.Namespace, event.Name.Local, b.attrsScratch, parent)
+	if parent == InvalidNode {
+		b.doc.root = id
+	}
+	b.nodeStack.Push(id)
+	b.childCountStack.Push(0)
+}
+
+func (b *domBuilder) addEnd() bool {
+	if b == nil {
+		return false
+	}
+	if _, ok := b.nodeStack.Pop(); ok {
+		_, _ = b.childCountStack.Pop()
+		return b.nodeStack.Len() == 0 && b.doc.root != InvalidNode
+	}
+	return false
+}
+
+func (b *domBuilder) addCharData(text []byte) {
+	if b == nil {
+		return
+	}
+	nodeID, ok := b.nodeStack.Peek()
+	if !ok {
+		return
+	}
+	node := &b.doc.nodes[nodeID]
+	textOff := len(node.text)
+	node.text = append(node.text, text...)
+	count, _ := b.childCountStack.Peek()
+	b.doc.addTextSegment(nodeID, count, textOff, len(text))
+}
+
+func (b *domBuilder) appendNamespaceAttrs(attrs []Attr, scopeDepth int) []Attr {
+	if b == nil {
+		return attrs
+	}
+	isRoot := b.nodeStack.Len() == 0
+	if b.namespaceMode == namespaceAttrsSubtreeRootInScope && isRoot {
+		return appendInScopeNamespaceAttrs(attrs, b.reader, scopeDepth)
+	}
+	return appendScopeNamespaceAttrs(attrs, b.reader, scopeDepth)
+}
+
+func parseDOM(reader *xmlstream.Reader, doc *Document, mode parseMode, namespaceMode namespaceAttrsMode, start xmlstream.Event) error {
+	builder := newDOMBuilder(doc, reader, namespaceMode)
+	allowBOM := true
+	rootClosed := false
+	depth := 0
+
+	if mode == parseModeSubtree {
+		builder.addStart(start)
+		depth = 1
+	}
+
+	for {
+		if mode == parseModeSubtree && depth == 0 {
+			break
+		}
+
+		event, err := reader.Next()
+		if mode == parseModeDocument && errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("xml read: %w", err)
 		}
 
 		switch event.Kind {
 		case xmlstream.EventStartElement:
-			addStart(event)
-			depth++
+			if mode == parseModeDocument && rootClosed {
+				return fmt.Errorf("unexpected element %s after document end", event.Name.Local)
+			}
+			builder.addStart(event)
+			if mode == parseModeSubtree {
+				depth++
+			}
+			allowBOM = false
 
 		case xmlstream.EventEndElement:
-			if _, ok := nodeStack.Pop(); ok {
-				_, _ = childCountStack.Pop()
+			if builder.addEnd() && mode == parseModeDocument {
+				rootClosed = true
 			}
-			depth--
+			if mode == parseModeSubtree {
+				depth--
+			}
 
 		case xmlstream.EventCharData:
-			nodeID, ok := nodeStack.Peek()
-			if !ok {
+			if !builder.hasOpenNode() {
+				if mode == parseModeSubtree {
+					continue
+				}
+				if !xmllex.IsIgnorableOutsideRoot(event.Text, allowBOM) {
+					return fmt.Errorf("unexpected character data outside root element")
+				}
+				allowBOM = false
 				continue
 			}
-			node := &doc.nodes[nodeID]
-			textOff := len(node.text)
-			node.text = append(node.text, event.Text...)
-			count, _ := childCountStack.Peek()
-			doc.addTextSegment(nodeID, count, textOff, len(event.Text))
+			builder.addCharData(event.Text)
+
+		case xmlstream.EventComment, xmlstream.EventPI, xmlstream.EventDirective:
+			if mode == parseModeDocument && !builder.hasOpenNode() {
+				allowBOM = false
+			}
 		}
 	}
 

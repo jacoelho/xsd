@@ -25,6 +25,28 @@ func TestNormalize_TemporalBuiltinTrimsWhitespace(t *testing.T) {
 	}
 }
 
+func TestNormalize_MatchesModelNormalizeTypeValue(t *testing.T) {
+	t.Parallel()
+
+	typ := builtins.Get(builtins.TypeNameToken)
+	if typ == nil {
+		t.Fatal("missing builtin token type")
+	}
+
+	in := " \ta \n b\r\n "
+	got, err := Normalize(in, typ)
+	if err != nil {
+		t.Fatalf("Normalize() error = %v", err)
+	}
+	want, err := model.NormalizeTypeValue(in, typ)
+	if err != nil {
+		t.Fatalf("NormalizeTypeValue() error = %v", err)
+	}
+	if got != want {
+		t.Fatalf("Normalize() = %q, want %q", got, want)
+	}
+}
+
 func TestParseForType_BuiltinType(t *testing.T) {
 	t.Parallel()
 
