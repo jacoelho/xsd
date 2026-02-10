@@ -62,12 +62,12 @@ flowchart TD
 To keep package boundaries one-way and avoid drift between phases, shared
 pure helpers live in small reusable internal packages:
 
-- `internal/typeops`: type reference resolution policy and facet traversal helpers.
-- `internal/typegraph`: base-chain navigation and anyType semantics.
-- `internal/schemaflow`: schema-time resolve+validate orchestration shared by preparation flows.
+- `internal/typeresolve`: type reference resolution policy and facet traversal helpers.
+- `internal/typechain`: base-chain navigation and anyType semantics.
+- `internal/schemaprep`: schema-time resolve+validate orchestration shared by preparation flows.
 - `internal/traversal`: particle/content tree walkers reused by resolver and semanticcheck.
-- `internal/valuekey`: canonical key encoding used by runtime build and runtime validation.
-- `internal/durationlex`: shared xs:duration lexical parser reused by `types` and `valueparse`.
+- `internal/valuecodec`: canonical key encoding used by runtime build and runtime validation.
+- `internal/durationlex`: shared xs:duration lexical parser reused by `model`, `facetvalue`, and `valueparse`.
 
 These packages are intentionally dependency-light and do not depend on
 loading, resolver orchestration, or validator session state.
@@ -108,21 +108,21 @@ flowchart TD
 
 ## Phase 2: Resolve + Validate
 
-`internal/schemaflow.ResolveAndValidate` clones the parsed schema for defensive
+`internal/schemaprep.ResolveAndValidate` clones the parsed schema for defensive
 callers, while `ResolveAndValidateOwned` validates in-place for owned pipeline
 paths. Both resolve group/type references and run structure/reference checks.
 
 ## Phase 3: Assign IDs
 
-`internal/semantic.AssignIDs` walks the validated schema in deterministic order and
+`internal/schemaanalysis.AssignIDs` walks the validated schema in deterministic order and
 assigns stable IDs to globally visible declarations plus local/anonymous components.
 These IDs back the runtime registry.
 
 ```go
 type Registry struct {
-    Types        map[types.QName]TypeID
-    Elements     map[types.QName]ElemID
-    Attributes   map[types.QName]AttrID
+    Types        map[model.QName]TypeID
+    Elements     map[model.QName]ElemID
+    Attributes   map[model.QName]AttrID
     TypeOrder    []TypeEntry
     ElementOrder []ElementEntry
     AttributeOrder []AttributeEntry
@@ -131,14 +131,14 @@ type Registry struct {
 
 ## Phase 4: Resolve References
 
-`internal/semantic.ResolveReferences` validates QName references against the
+`internal/schemaanalysis.ResolveReferences` validates QName references against the
 registry and builds ID-based lookup maps without mutating parser.Schema.
 
 ```go
 type ResolvedReferences struct {
-    ElementRefs   map[types.QName]semantic.ElemID
-    AttributeRefs map[types.QName]semantic.AttrID
-    GroupRefs     map[types.QName]types.QName
+    ElementRefs   map[model.QName]ElemID
+    AttributeRefs map[model.QName]AttrID
+    GroupRefs     map[model.QName]model.QName
 }
 ```
 
@@ -149,13 +149,13 @@ After this phase, runtime validation no longer needs QName lookups.
 
 ## Phase 5: Semantic Checks
 
-Before runtime build, `internal/semantic` runs cycle detection and UPA checks on
+Before runtime build, `internal/schemaanalysis` runs cycle detection and UPA checks on
 the validated schema and assigned registry.
 
 ## Phase 6: Build Runtime Schema
 
 internal/pipeline.PreparedSchema.BuildRuntime (backed by
-internal/runtimebuild and internal/validatorcompile) compiles prepared
+internal/runtimeassemble and internal/validatorgen) compiles prepared
 artifacts into an optimized runtime representation. The runtime schema is
 dense, ID-based, and immutable so it can be shared across goroutines.
 
