@@ -22,22 +22,6 @@ type rangeFacet struct {
 	errOp   string
 }
 
-var integerDerivedTypeNames = map[string]bool{
-	"integer":            true,
-	"long":               true,
-	"int":                true,
-	"short":              true,
-	"byte":               true,
-	"unsignedLong":       true,
-	"unsignedInt":        true,
-	"unsignedShort":      true,
-	"unsignedByte":       true,
-	"nonNegativeInteger": true,
-	"positiveInteger":    true,
-	"negativeInteger":    true,
-	"nonPositiveInteger": true,
-}
-
 func newMinInclusiveFacet(lexical string, baseType model.Type) (model.Facet, error) {
 	compVal, err := newRangeFacetComparable("minInclusive", lexical, baseType)
 	if err != nil {
@@ -197,13 +181,11 @@ func parseRangeFacetValueForTypeName(
 	baseType model.Type,
 	typeName string,
 ) (model.ComparableValue, bool, error) {
-	switch typeName {
-	case "integer", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
+	if model.IsIntegerTypeName(typeName) {
 		parsed, err := parseRangeInteger(facetName, lexical, baseType)
 		return parsed, true, err
-	default:
-		return nil, false, nil
 	}
+	return nil, false, nil
 }
 
 func parseRangeFacetValueForPrimitive(facetName, lexical string, baseType model.Type) (model.ComparableValue, error) {
@@ -242,7 +224,7 @@ func isIntegerDerivedType(typ model.Type) bool {
 	}
 
 	typeName := typ.Name().Local
-	if integerDerivedTypeNames[typeName] {
+	if model.IsIntegerTypeName(typeName) {
 		return true
 	}
 
@@ -254,7 +236,7 @@ func isIntegerDerivedType(typ model.Type) bool {
 	current := simpleType.ResolvedBase
 	for current != nil {
 		currentName := current.Name().Local
-		if integerDerivedTypeNames[currentName] {
+		if model.IsIntegerTypeName(currentName) {
 			return true
 		}
 		next, ok := current.(*model.SimpleType)

@@ -40,34 +40,20 @@ func (c *mergeContext) elementDeclForInsert(decl *model.ElementDecl) *model.Elem
 }
 
 func (c *mergeContext) mergeTypeDefs() error {
-	insert := func(typ model.Type) model.Type {
-		if c.isImport {
-			return c.copyTypeForImport(typ)
-		}
-		return c.copyTypeForInclude(typ)
-	}
 	return mergeNamed(
 		c.source.TypeDefs,
 		c.target.TypeDefs,
 		c.target.TypeOrigins,
 		c.remapQName,
 		func(qname model.QName) string { return c.originFor(c.source.TypeOrigins, qname) },
-		insert,
+		c.copyType,
 		nil,
 		nil,
 		"type definition",
 	)
 }
 
-func (c *mergeContext) copyTypeForImport(typ model.Type) model.Type {
-	copied := model.CopyType(typ, c.opts)
-	if complexType, ok := copied.(*model.ComplexType); ok {
-		normalizeAttributeForms(complexType, c.source.AttributeFormDefault)
-	}
-	return copied
-}
-
-func (c *mergeContext) copyTypeForInclude(typ model.Type) model.Type {
+func (c *mergeContext) copyType(typ model.Type) model.Type {
 	copiedType := model.CopyType(typ, c.opts)
 	if complexType, ok := copiedType.(*model.ComplexType); ok {
 		normalizeAttributeForms(complexType, c.source.AttributeFormDefault)

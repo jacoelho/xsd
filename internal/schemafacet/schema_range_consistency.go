@@ -57,37 +57,7 @@ func ValidateRangeConsistency(minExclusive, maxExclusive, minInclusive, maxInclu
 		}
 		return cmp, true, nil
 	}
-
-	if minExclusive != nil && maxInclusive != nil {
-		if cmp, ok, err := compare(*minExclusive, *maxInclusive); err != nil {
-			return fmt.Errorf("minExclusive/maxInclusive: %w", err)
-		} else if ok && cmp >= 0 {
-			return fmt.Errorf("minExclusive (%s) must be < maxInclusive (%s)", *minExclusive, *maxInclusive)
-		}
-	}
-	if minExclusive != nil && maxExclusive != nil {
-		if cmp, ok, err := compare(*minExclusive, *maxExclusive); err != nil {
-			return fmt.Errorf("minExclusive/maxExclusive: %w", err)
-		} else if ok && cmp >= 0 {
-			return fmt.Errorf("minExclusive (%s) must be < maxExclusive (%s)", *minExclusive, *maxExclusive)
-		}
-	}
-	if minInclusive != nil && maxInclusive != nil {
-		if cmp, ok, err := compare(*minInclusive, *maxInclusive); err != nil {
-			return fmt.Errorf("minInclusive/maxInclusive: %w", err)
-		} else if ok && cmp > 0 {
-			return fmt.Errorf("minInclusive (%s) must be <= maxInclusive (%s)", *minInclusive, *maxInclusive)
-		}
-	}
-	if minInclusive != nil && maxExclusive != nil {
-		if cmp, ok, err := compare(*minInclusive, *maxExclusive); err != nil {
-			return fmt.Errorf("minInclusive/maxExclusive: %w", err)
-		} else if ok && cmp >= 0 {
-			return fmt.Errorf("minInclusive (%s) must be < maxExclusive (%s)", *minInclusive, *maxExclusive)
-		}
-	}
-
-	return nil
+	return checkRangeConstraints(minExclusive, maxExclusive, minInclusive, maxInclusive, compare)
 }
 
 // ValidateDurationRangeConsistency validates duration min/max facet combinations.
@@ -109,41 +79,66 @@ func ValidateDurationRangeConsistency(minExclusive, maxExclusive, minInclusive, 
 	if minInclusive != nil && minExclusive != nil {
 		return fmt.Errorf("minInclusive and minExclusive cannot both be specified")
 	}
-	if minExclusive != nil && maxInclusive != nil {
-		if cmp, ok, err := compare(*minExclusive, *maxInclusive); err != nil {
-			return fmt.Errorf("minExclusive/maxInclusive: %w", err)
-		} else if ok && cmp >= 0 {
-			return fmt.Errorf("minExclusive (%s) must be < maxInclusive (%s)", *minExclusive, *maxInclusive)
-		}
-	}
-	if minExclusive != nil && maxExclusive != nil {
-		if cmp, ok, err := compare(*minExclusive, *maxExclusive); err != nil {
-			return fmt.Errorf("minExclusive/maxExclusive: %w", err)
-		} else if ok && cmp >= 0 {
-			return fmt.Errorf("minExclusive (%s) must be < maxExclusive (%s)", *minExclusive, *maxExclusive)
-		}
-	}
-	if minInclusive != nil && maxInclusive != nil {
-		if cmp, ok, err := compare(*minInclusive, *maxInclusive); err != nil {
-			return fmt.Errorf("minInclusive/maxInclusive: %w", err)
-		} else if ok && cmp > 0 {
-			return fmt.Errorf("minInclusive (%s) must be <= maxInclusive (%s)", *minInclusive, *maxInclusive)
-		}
-	}
-	if minInclusive != nil && maxExclusive != nil {
-		if cmp, ok, err := compare(*minInclusive, *maxExclusive); err != nil {
-			return fmt.Errorf("minInclusive/maxExclusive: %w", err)
-		} else if ok && cmp >= 0 {
-			return fmt.Errorf("minInclusive (%s) must be < maxExclusive (%s)", *minInclusive, *maxExclusive)
-		}
-	}
-	if minExclusive != nil && maxInclusive != nil {
-		if cmp, ok, err := compare(*minExclusive, *maxInclusive); err != nil {
-			return fmt.Errorf("minExclusive/maxInclusive: %w", err)
-		} else if ok && cmp >= 0 {
-			return fmt.Errorf("minExclusive (%s) must be < maxInclusive (%s)", *minExclusive, *maxInclusive)
-		}
+	return checkRangeConstraints(minExclusive, maxExclusive, minInclusive, maxInclusive, compare)
+}
+
+func checkRangeConstraints(
+	minExclusive, maxExclusive, minInclusive, maxInclusive *string,
+	compare func(v1, v2 string) (int, bool, error),
+) error {
+	checks := [...]struct {
+		left      *string
+		right     *string
+		failWhen  func(int) bool
+		leftName  string
+		rightName string
+		op        string
+	}{
+		{
+			left:      minExclusive,
+			right:     maxInclusive,
+			leftName:  "minExclusive",
+			rightName: "maxInclusive",
+			op:        "<",
+			failWhen:  func(cmp int) bool { return cmp >= 0 },
+		},
+		{
+			left:      minExclusive,
+			right:     maxExclusive,
+			leftName:  "minExclusive",
+			rightName: "maxExclusive",
+			op:        "<",
+			failWhen:  func(cmp int) bool { return cmp >= 0 },
+		},
+		{
+			left:      minInclusive,
+			right:     maxInclusive,
+			leftName:  "minInclusive",
+			rightName: "maxInclusive",
+			op:        "<=",
+			failWhen:  func(cmp int) bool { return cmp > 0 },
+		},
+		{
+			left:      minInclusive,
+			right:     maxExclusive,
+			leftName:  "minInclusive",
+			rightName: "maxExclusive",
+			op:        "<",
+			failWhen:  func(cmp int) bool { return cmp >= 0 },
+		},
 	}
 
+	for _, check := range checks {
+		if check.left == nil || check.right == nil {
+			continue
+		}
+		cmp, ok, err := compare(*check.left, *check.right)
+		if err != nil {
+			return fmt.Errorf("%s/%s: %w", check.leftName, check.rightName, err)
+		}
+		if ok && check.failWhen(cmp) {
+			return fmt.Errorf("%s (%s) must be %s %s (%s)", check.leftName, *check.left, check.op, check.rightName, *check.right)
+		}
+	}
 	return nil
 }

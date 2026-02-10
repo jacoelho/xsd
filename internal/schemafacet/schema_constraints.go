@@ -2,7 +2,6 @@ package schemafacet
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/facetvalue"
@@ -193,7 +192,7 @@ func validateDigitsConstraints(state *facetConstraintState, baseType model.Type,
 	}
 
 	if state.fractionDigits != nil && *state.fractionDigits != 0 {
-		if isBuiltin && isIntegerTypeName(baseTypeName) {
+		if isBuiltin && model.IsIntegerTypeName(baseTypeName) {
 			return fmt.Errorf("fractionDigits must be 0 for integer type %s, got %d", baseTypeName, *state.fractionDigits)
 		}
 		if baseType != nil {
@@ -219,15 +218,6 @@ func isListTypeForFacets(baseType model.Type, baseQName model.QName) bool {
 	return false
 }
 
-func isIntegerTypeName(typeName string) bool {
-	integerTypes := []string{
-		"integer", "long", "int", "short", "byte",
-		"nonNegativeInteger", "positiveInteger", "unsignedLong", "unsignedInt",
-		"unsignedShort", "unsignedByte", "nonPositiveInteger", "negativeInteger",
-	}
-	return slices.Contains(integerTypes, typeName)
-}
-
 func getEffectiveIntegerTypeName(t model.Type) string {
 	visited := make(map[model.Type]bool)
 	current := t
@@ -244,7 +234,7 @@ func getEffectiveIntegerTypeName(t model.Type) string {
 			}
 		}
 
-		if typeName != "" && isIntegerTypeName(typeName) {
+		if typeName != "" && model.IsIntegerTypeName(typeName) {
 			return typeName
 		}
 

@@ -64,28 +64,21 @@ func ValidateRangeValues(minExclusive, maxExclusive, minInclusive, maxInclusive 
 		}
 	}
 
-	if minExclusive != nil {
-		normalized := normalizeValue(*minExclusive)
-		if err := validator(normalized); err != nil {
-			return fmt.Errorf("minExclusive value %q is not valid for base type: %w", *minExclusive, err)
+	for _, rangeFacet := range [...]struct {
+		value *string
+		name  string
+	}{
+		{name: "minExclusive", value: minExclusive},
+		{name: "maxExclusive", value: maxExclusive},
+		{name: "minInclusive", value: minInclusive},
+		{name: "maxInclusive", value: maxInclusive},
+	} {
+		if rangeFacet.value == nil {
+			continue
 		}
-	}
-	if maxExclusive != nil {
-		normalized := normalizeValue(*maxExclusive)
+		normalized := normalizeValue(*rangeFacet.value)
 		if err := validator(normalized); err != nil {
-			return fmt.Errorf("maxExclusive value %q is not valid for base type: %w", *maxExclusive, err)
-		}
-	}
-	if minInclusive != nil {
-		normalized := normalizeValue(*minInclusive)
-		if err := validator(normalized); err != nil {
-			return fmt.Errorf("minInclusive value %q is not valid for base type: %w", *minInclusive, err)
-		}
-	}
-	if maxInclusive != nil {
-		normalized := normalizeValue(*maxInclusive)
-		if err := validator(normalized); err != nil {
-			return fmt.Errorf("maxInclusive value %q is not valid for base type: %w", *maxInclusive, err)
+			return fmt.Errorf("%s value %q is not valid for base type: %w", rangeFacet.name, *rangeFacet.value, err)
 		}
 	}
 
