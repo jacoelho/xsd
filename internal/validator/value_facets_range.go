@@ -64,31 +64,41 @@ func (s *Session) compareValue(kind runtime.ValidatorKind, canonical, bound []by
 	}
 }
 
-func (s *Session) checkFloat32Range(op runtime.FacetOp, canonical, bound []byte, metrics *valueMetrics) error {
-	val, valClass, err := s.float32ForCanonical(canonical, metrics)
-	if err != nil {
-		return err
-	}
-	boundVal, boundClass, perr := num.ParseFloat32(bound)
-	if perr != nil {
-		return valueErrorMsg(valueErrInvalid, "invalid float")
-	}
-	if boundClass == num.FloatNaN || valClass == num.FloatNaN {
-		return rangeViolation(op)
-	}
-	cmp, _ := num.CompareFloat(float64(val), valClass, float64(boundVal), boundClass)
-	return compareRange(op, cmp)
-}
+func (s *Session) checkFloatRange(kind runtime.ValidatorKind, op runtime.FacetOp, canonical, bound []byte, metrics *valueMetrics) error {
+	var (
+		val, boundVal        float64
+		valClass, boundClass num.FloatClass
+		err                  error
+	)
 
-func (s *Session) checkFloat64Range(op runtime.FacetOp, canonical, bound []byte, metrics *valueMetrics) error {
-	val, valClass, err := s.float64ForCanonical(canonical, metrics)
-	if err != nil {
-		return err
+	switch kind {
+	case runtime.VFloat:
+		var floatVal, floatBound float32
+		floatVal, valClass, err = s.float32ForCanonical(canonical, metrics)
+		if err != nil {
+			return err
+		}
+		var parseErr *num.ParseError
+		floatBound, boundClass, parseErr = num.ParseFloat32(bound)
+		if parseErr != nil {
+			return valueErrorMsg(valueErrInvalid, "invalid float")
+		}
+		val = float64(floatVal)
+		boundVal = float64(floatBound)
+	case runtime.VDouble:
+		val, valClass, err = s.float64ForCanonical(canonical, metrics)
+		if err != nil {
+			return err
+		}
+		var parseErr *num.ParseError
+		boundVal, boundClass, parseErr = num.ParseFloat(bound, 64)
+		if parseErr != nil {
+			return valueErrorMsg(valueErrInvalid, "invalid double")
+		}
+	default:
+		return valueErrorf(valueErrInvalid, "unsupported float range kind %d", kind)
 	}
-	boundVal, boundClass, perr := num.ParseFloat(bound, 64)
-	if perr != nil {
-		return valueErrorMsg(valueErrInvalid, "invalid double")
-	}
+
 	if boundClass == num.FloatNaN || valClass == num.FloatNaN {
 		return rangeViolation(op)
 	}

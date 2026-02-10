@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/num"
-	typedvaluecore "github.com/jacoelho/xsd/internal/typedvalue/internalcore"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
@@ -62,53 +61,49 @@ var builtinValueNormalizers = map[TypeName]ValueNormalizer{
 	TypeNameGMonth:     dateTimeNormalizer{},
 }
 
-var normalizeTypeOps = typedvaluecore.NormalizeOps{
-	IsNilType: func(typ any) bool {
-		t, ok := typ.(Type)
-		if !ok {
-			return true
-		}
-		return isNilType(t)
-	},
-	IsBuiltinType: func(typ any) bool {
-		t, ok := typ.(Type)
-		return ok && !isNilType(t) && t.IsBuiltin()
-	},
-	TypeNameLocal: func(typ any) string {
-		t, ok := typ.(Type)
-		if !ok || isNilType(t) {
-			return ""
-		}
-		return t.Name().Local
-	},
-	PrimitiveType: func(typ any) any {
-		t, ok := typ.(Type)
-		if !ok || isNilType(t) {
-			return nil
-		}
-		return t.PrimitiveType()
-	},
-	WhiteSpaceMode: func(typ any) int {
-		t, ok := typ.(Type)
-		if !ok || isNilType(t) {
-			return int(WhiteSpacePreserve)
-		}
-		return int(t.WhiteSpace())
-	},
-	ApplyWhiteSpace: func(lexical string, whiteSpaceMode int) string {
-		return ApplyWhiteSpace(lexical, WhiteSpace(whiteSpaceMode))
-	},
-	TrimXMLWhitespace: TrimXMLWhitespace,
+var temporalTypeNames = map[string]struct{}{
+	"dateTime":   {},
+	"date":       {},
+	"time":       {},
+	"gYearMonth": {},
+	"gYear":      {},
+	"gMonthDay":  {},
+	"gDay":       {},
+	"gMonth":     {},
 }
 
 // NormalizeTypeValue applies model type-based lexical normalization.
 func NormalizeTypeValue(lexical string, typ Type) (string, error) {
-	return typedvaluecore.NormalizeValue(lexical, typ, normalizeTypeOps)
+	if typ == nil || isNilType(typ) {
+		return lexical, fmt.Errorf("cannot normalize value for nil type")
+	}
+
+	normalized := ApplyWhiteSpace(lexical, typ.WhiteSpace())
+	if isTemporalType(normalizationTypeName(typ)) {
+		return TrimXMLWhitespace(normalized), nil
+	}
+	return normalized, nil
 }
 
 // normalizeValue normalizes lexical values based on their type rules.
 func normalizeValue(lexical string, typ Type) (string, error) {
 	return NormalizeTypeValue(lexical, typ)
+}
+
+func normalizationTypeName(typ Type) string {
+	if typ.IsBuiltin() {
+		return typ.Name().Local
+	}
+	primitive := typ.PrimitiveType()
+	if primitive == nil || isNilType(primitive) {
+		return ""
+	}
+	return primitive.Name().Local
+}
+
+func isTemporalType(typeName string) bool {
+	_, ok := temporalTypeNames[typeName]
+	return ok
 }
 
 func normalizerForType(typ Type) ValueNormalizer {

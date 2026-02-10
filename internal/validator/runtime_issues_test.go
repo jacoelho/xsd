@@ -708,6 +708,30 @@ func TestFloatNaNRangeFacet(t *testing.T) {
 	}
 }
 
+func TestDoubleNaNRangeFacet(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="D">
+    <xs:restriction base="xs:double">
+      <xs:minInclusive value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:D"/>
+</xs:schema>`
+
+	err := validateRuntimeDoc(t, schemaXML, `<root xmlns="urn:test">NaN</root>`)
+	if err == nil {
+		t.Fatalf("expected NaN to violate range facet")
+	}
+	list := mustValidationList(t, err)
+	if !hasValidationCode(list, xsderrors.ErrFacetViolation) {
+		t.Fatalf("expected ErrFacetViolation, got %+v", list)
+	}
+}
+
 func TestTimeFacetComparisonIgnoresDateShift(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
