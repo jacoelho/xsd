@@ -3,19 +3,19 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typechain"
 )
 
 // validateNoCircularDerivation validates that a complex type doesn't have circular derivation.
-func validateNoCircularDerivation(schema *parser.Schema, complexType *types.ComplexType) error {
-	visited := make(map[types.QName]bool)
+func validateNoCircularDerivation(schema *parser.Schema, complexType *model.ComplexType) error {
+	visited := make(map[model.QName]bool)
 	return checkCircularDerivation(schema, complexType.QName, complexType, visited)
 }
 
 // checkCircularDerivation recursively checks for circular derivation.
-func checkCircularDerivation(schema *parser.Schema, originalQName types.QName, complexType *types.ComplexType, visited map[types.QName]bool) error {
+func checkCircularDerivation(schema *parser.Schema, originalQName model.QName, complexType *model.ComplexType, visited map[model.QName]bool) error {
 	baseQName := complexType.Content().BaseTypeQName()
 	if visited[complexType.QName] {
 		if baseQName.IsZero() || baseQName == complexType.QName {
@@ -30,7 +30,7 @@ func checkCircularDerivation(schema *parser.Schema, originalQName types.QName, c
 	visited[complexType.QName] = true
 	defer delete(visited, complexType.QName)
 
-	baseComplexType, ok := typegraph.LookupComplexType(schema, baseQName)
+	baseComplexType, ok := typechain.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}
@@ -38,31 +38,31 @@ func checkCircularDerivation(schema *parser.Schema, originalQName types.QName, c
 }
 
 // validateDerivationConstraints validates final/block constraints on type derivation.
-func validateDerivationConstraints(schema *parser.Schema, complexType *types.ComplexType) error {
+func validateDerivationConstraints(schema *parser.Schema, complexType *model.ComplexType) error {
 	content := complexType.Content()
 	baseQName := content.BaseTypeQName()
 	if baseQName.IsZero() {
 		return nil
 	}
-	baseCT, ok := typegraph.LookupComplexType(schema, baseQName)
+	baseCT, ok := typechain.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}
-	if ext := content.ExtensionDef(); ext != nil && baseCT.Final.Has(types.DerivationExtension) {
+	if ext := content.ExtensionDef(); ext != nil && baseCT.Final.Has(model.DerivationExtension) {
 		return fmt.Errorf("cannot extend type '%s': base type is final for extension", baseQName)
 	}
-	if restr := content.RestrictionDef(); restr != nil && baseCT.Final.Has(types.DerivationRestriction) {
+	if restr := content.RestrictionDef(); restr != nil && baseCT.Final.Has(model.DerivationRestriction) {
 		return fmt.Errorf("cannot restrict type '%s': base type is final for restriction", baseQName)
 	}
 	return nil
 }
 
 // validateMixedContentDerivation validates mixed content derivation constraints.
-func validateMixedContentDerivation(schema *parser.Schema, complexType *types.ComplexType) error {
+func validateMixedContentDerivation(schema *parser.Schema, complexType *model.ComplexType) error {
 	if !complexType.IsDerived() {
 		return nil
 	}
-	if _, isComplexContent := complexType.Content().(*types.ComplexContent); !isComplexContent {
+	if _, isComplexContent := complexType.Content().(*model.ComplexContent); !isComplexContent {
 		return nil
 	}
 
@@ -70,7 +70,7 @@ func validateMixedContentDerivation(schema *parser.Schema, complexType *types.Co
 	if baseQName.IsZero() {
 		return nil
 	}
-	baseComplexType, ok := typegraph.LookupComplexType(schema, baseQName)
+	baseComplexType, ok := typechain.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}
@@ -79,12 +79,12 @@ func validateMixedContentDerivation(schema *parser.Schema, complexType *types.Co
 	derivedMixed := complexType.EffectiveMixed()
 
 	if complexType.IsExtension() {
-		if cc, ok := complexType.Content().(*types.ComplexContent); ok {
+		if cc, ok := complexType.Content().(*model.ComplexContent); ok {
 			if ext := cc.Extension; ext != nil {
 				if ext.Particle == nil && !derivedMixed {
 					return nil
 				}
-				if mg, ok := ext.Particle.(*types.ModelGroup); ok && len(mg.Particles) == 0 && !derivedMixed {
+				if mg, ok := ext.Particle.(*model.ModelGroup); ok && len(mg.Particles) == 0 && !derivedMixed {
 					return nil
 				}
 			}

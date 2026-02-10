@@ -92,7 +92,9 @@ func TestLoadWithOptionsRejectsInvalidSchemaLimits(t *testing.T) {
 
 func TestQNameCompatibility(t *testing.T) {
 	apiQName := xsd.QName{Namespace: "urn:test", Local: "root"}
-	streamQName := xmlstream.QName{Namespace: apiQName.Namespace, Local: apiQName.Local}
+	var streamQName xmlstream.QName
+	streamQName.Namespace = apiQName.Namespace
+	streamQName.Local = apiQName.Local
 
 	if got, want := apiQName.String(), "{urn:test}root"; got != want {
 		t.Fatalf("xsd.QName.String() = %q, want %q", got, want)

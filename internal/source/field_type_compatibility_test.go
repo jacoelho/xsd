@@ -5,7 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 // TestKeyRef_FieldCountMismatch tests that keyref with wrong number of fields fails validation
@@ -266,7 +266,7 @@ func TestKeyRef_CompatibleFieldTypes(t *testing.T) {
 	}
 
 	// verify the constraints are present
-	purchaseReportQName := types.QName{
+	purchaseReportQName := model.QName{
 		Namespace: "http://example.com",
 		Local:     "purchaseReport",
 	}
@@ -275,7 +275,7 @@ func TestKeyRef_CompatibleFieldTypes(t *testing.T) {
 		t.Fatal("element 'purchaseReport' not found")
 	}
 
-	var keyrefConstraint *types.IdentityConstraint
+	var keyrefConstraint *model.IdentityConstraint
 	for _, constraint := range decl.Constraints {
 		if constraint.Name == "partRef" {
 			keyrefConstraint = constraint
@@ -499,7 +499,7 @@ func TestKeyRef_DescendantOrSelfPrefix(t *testing.T) {
 	}
 
 	// verify field types are resolved
-	containerQName := types.QName{
+	containerQName := model.QName{
 		Namespace: "http://example.com",
 		Local:     "container",
 	}
@@ -508,7 +508,7 @@ func TestKeyRef_DescendantOrSelfPrefix(t *testing.T) {
 		t.Fatal("element 'container' not found")
 	}
 
-	var keyConstraint *types.IdentityConstraint
+	var keyConstraint *model.IdentityConstraint
 	for _, constraint := range decl.Constraints {
 		if constraint.Name == "targetKey" {
 			keyConstraint = constraint

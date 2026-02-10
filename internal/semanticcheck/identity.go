@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 // validateSelectorXPath validates that a selector XPath selects element nodes
 // Selectors cannot select attributes or text nodes per XSD 1.0 spec
 func validateSelectorXPath(expr string) error {
-	expr = types.TrimXMLWhitespace(expr)
+	expr = model.TrimXMLWhitespace(expr)
 
 	if expr == "" {
 		return fmt.Errorf("selector xpath cannot be empty")
@@ -46,7 +46,7 @@ func validateSelectorXPath(expr string) error {
 // validateFieldXPath performs basic checks for field XPath expressions.
 // Restricted XPath grammar is enforced separately.
 func validateFieldXPath(expr string) error {
-	expr = types.TrimXMLWhitespace(expr)
+	expr = model.TrimXMLWhitespace(expr)
 	axisCheck := strings.Map(func(r rune) rune {
 		switch r {
 		case ' ', '\t', '\n', '\r':
@@ -116,7 +116,7 @@ func validateFieldXPath(expr string) error {
 // Selectors can use wildcards but are still restricted to certain axes
 // Per XSD spec section 3.11.4.2, selector XPath must be a restricted subset
 func validateSelectorXPathRestrictions(expr string) error {
-	expr = types.TrimXMLWhitespace(expr)
+	expr = model.TrimXMLWhitespace(expr)
 
 	// selector XPath must be a relative path expression.
 	if strings.HasPrefix(expr, "/") {
@@ -142,8 +142,8 @@ func validateSelectorXPathRestrictions(expr string) error {
 }
 
 // validateIdentityConstraint validates an identity constraint (key, keyref, unique)
-func validateIdentityConstraint(constraint *types.IdentityConstraint) error {
-	// note: Identity constraints can be placed on elements with either simple or complex types.
+func validateIdentityConstraint(constraint *model.IdentityConstraint) error {
+	// note: Identity constraints can be placed on elements with either simple or complex model.
 	// for simple types, the selector/field XPath expressions typically target "." (the element itself).
 	// the XSD spec does not restrict identity constraints to complex types only.
 
@@ -154,7 +154,7 @@ func validateIdentityConstraint(constraint *types.IdentityConstraint) error {
 
 	// per XSD spec, 'refer' attribute is only allowed on keyref constraints
 	// if present on unique or key, the schema is invalid
-	if constraint.Type != types.KeyRefConstraint && !constraint.ReferQName.IsZero() {
+	if constraint.Type != model.KeyRefConstraint && !constraint.ReferQName.IsZero() {
 		return fmt.Errorf("'refer' attribute is only allowed on keyref constraints, not on %s", constraint.Type)
 	}
 
@@ -195,7 +195,7 @@ func validateIdentityConstraint(constraint *types.IdentityConstraint) error {
 	}
 
 	// keyref must have a refer attribute
-	if constraint.Type == types.KeyRefConstraint {
+	if constraint.Type == model.KeyRefConstraint {
 		if constraint.ReferQName.IsZero() {
 			return fmt.Errorf("keyref constraint must have a refer attribute")
 		}

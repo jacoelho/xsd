@@ -4,7 +4,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestIncludeCycleMergesSchemas(t *testing.T) {
@@ -37,10 +37,10 @@ func TestIncludeCycleMergesSchemas(t *testing.T) {
 		t.Fatalf("Load(a.xsd) error = %v", err)
 	}
 
-	if schemaA.ElementDecls[types.QName{Namespace: "urn:cycle", Local: "a"}] == nil {
+	if schemaA.ElementDecls[model.QName{Namespace: "urn:cycle", Local: "a"}] == nil {
 		t.Fatalf("expected element a in schemaA")
 	}
-	if schemaA.ElementDecls[types.QName{Namespace: "urn:cycle", Local: "b"}] == nil {
+	if schemaA.ElementDecls[model.QName{Namespace: "urn:cycle", Local: "b"}] == nil {
 		t.Fatalf("expected element b in schemaA")
 	}
 
@@ -48,10 +48,10 @@ func TestIncludeCycleMergesSchemas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load(b.xsd) error = %v", err)
 	}
-	if schemaB.ElementDecls[types.QName{Namespace: "urn:cycle", Local: "a"}] == nil {
+	if schemaB.ElementDecls[model.QName{Namespace: "urn:cycle", Local: "a"}] == nil {
 		t.Fatalf("expected element a in schemaB")
 	}
-	if schemaB.ElementDecls[types.QName{Namespace: "urn:cycle", Local: "b"}] == nil {
+	if schemaB.ElementDecls[model.QName{Namespace: "urn:cycle", Local: "b"}] == nil {
 		t.Fatalf("expected element b in schemaB")
 	}
 }

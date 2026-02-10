@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestResolvePendingIncludesDrainsPending(t *testing.T) {
@@ -52,11 +52,11 @@ func TestResolvePendingImportsRejectsNamespaceMismatch(t *testing.T) {
 		imports: newImportTracker(),
 	}
 
-	sourceKey := loadKey{systemID: "imported.xsd", etn: types.NamespaceURI("urn:actual")}
+	sourceKey := loadKey{systemID: "imported.xsd", etn: model.NamespaceURI("urn:actual")}
 	targetKey := loadKey{systemID: "root.xsd"}
 
 	source := parser.NewSchema()
-	source.TargetNamespace = types.NamespaceURI("urn:actual")
+	source.TargetNamespace = model.NamespaceURI("urn:actual")
 	target := parser.NewSchema()
 
 	sourceEntry := loader.state.ensureEntry(sourceKey)

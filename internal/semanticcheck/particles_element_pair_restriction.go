@@ -3,26 +3,26 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func validateElementPairRestriction(schema *parser.Schema, baseParticle, restrictionParticle types.Particle) (bool, error) {
-	baseElem, baseIsElem := baseParticle.(*types.ElementDecl)
+func validateElementPairRestriction(schema *parser.Schema, baseParticle, restrictionParticle model.Particle) (bool, error) {
+	baseElem, baseIsElem := baseParticle.(*model.ElementDecl)
 	if !baseIsElem {
 		return false, nil
 	}
 	switch restriction := restrictionParticle.(type) {
-	case *types.ElementDecl:
+	case *model.ElementDecl:
 		return true, validateElementToElementRestriction(schema, baseElem, restriction)
-	case *types.ModelGroup:
+	case *model.ModelGroup:
 		return true, validateElementToChoiceRestriction(schema, baseElem, restriction)
 	default:
 		return false, nil
 	}
 }
 
-func validateElementToElementRestriction(schema *parser.Schema, baseElem, restrictionElem *types.ElementDecl) error {
+func validateElementToElementRestriction(schema *parser.Schema, baseElem, restrictionElem *model.ElementDecl) error {
 	if restrictionElem.MinOcc().IsZero() && restrictionElem.MaxOcc().IsZero() {
 		return nil
 	}
@@ -34,15 +34,15 @@ func validateElementToElementRestriction(schema *parser.Schema, baseElem, restri
 	return validateElementRestriction(schema, baseElem, restrictionElem)
 }
 
-func validateElementToChoiceRestriction(schema *parser.Schema, baseElem *types.ElementDecl, restrictionGroup *types.ModelGroup) error {
-	if restrictionGroup.Kind != types.Choice {
+func validateElementToChoiceRestriction(schema *parser.Schema, baseElem *model.ElementDecl, restrictionGroup *model.ModelGroup) error {
+	if restrictionGroup.Kind != model.Choice {
 		return fmt.Errorf("ComplexContent restriction: cannot restrict element %s to model group", baseElem.Name)
 	}
 	for _, p := range restrictionGroup.Particles {
 		if p.MinOcc().IsZero() && p.MaxOcc().IsZero() {
 			continue
 		}
-		childElem, ok := p.(*types.ElementDecl)
+		childElem, ok := p.(*model.ElementDecl)
 		if !ok {
 			return fmt.Errorf("ComplexContent restriction: element %s restriction choice must contain only elements", baseElem.Name)
 		}

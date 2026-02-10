@@ -3,8 +3,8 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateModelGroupToElementRestriction validates ModelGroup:Element derivation.
@@ -12,17 +12,17 @@ import (
 // treat the derived element as if it were wrapped in a group of the same kind
 // as the base with minOccurs=maxOccurs=1, then apply recurse mapping.
 // Returns false if no matching element is found (to allow fall-through).
-func validateModelGroupToElementRestriction(schema *parser.Schema, baseMG *types.ModelGroup, restrictionElem *types.ElementDecl) (bool, error) {
+func validateModelGroupToElementRestriction(schema *parser.Schema, baseMG *model.ModelGroup, restrictionElem *model.ElementDecl) (bool, error) {
 	baseChildren := derivationChildren(baseMG)
 	if len(baseChildren) == 0 {
 		return false, nil
 	}
 
-	if err := validateOccurrenceConstraints(baseMG.MinOcc(), baseMG.MaxOcc(), types.OccursFromInt(1), types.OccursFromInt(1)); err != nil {
+	if err := validateOccurrenceConstraints(baseMG.MinOcc(), baseMG.MaxOcc(), model.OccursFromInt(1), model.OccursFromInt(1)); err != nil {
 		return false, err
 	}
 
-	if baseMG.Kind == types.Choice {
+	if baseMG.Kind == model.Choice {
 		var constraintErr error
 		for _, baseParticle := range baseChildren {
 			matched, err := validateGroupChildElementRestriction(schema, baseMG, baseChildren, baseParticle, restrictionElem)
@@ -73,11 +73,11 @@ func validateModelGroupToElementRestriction(schema *parser.Schema, baseMG *types
 	return true, nil
 }
 
-func validateGroupChildElementRestriction(schema *parser.Schema, baseMG *types.ModelGroup, baseChildren []types.Particle, baseParticle types.Particle, restrictionElem *types.ElementDecl) (bool, error) {
+func validateGroupChildElementRestriction(schema *parser.Schema, baseMG *model.ModelGroup, baseChildren []model.Particle, baseParticle model.Particle, restrictionElem *model.ElementDecl) (bool, error) {
 	switch typed := baseParticle.(type) {
-	case *types.ElementDecl:
+	case *model.ElementDecl:
 		return validateElementRestrictionWithGroupOccurrence(schema, baseMG, baseChildren, typed, restrictionElem)
-	case *types.AnyElement:
+	case *model.AnyElement:
 		return validateWildcardRestrictionWithGroupOccurrence(baseMG, baseChildren, typed, restrictionElem)
 	default:
 		if err := validateParticlePairRestriction(schema, baseParticle, restrictionElem); err != nil {
@@ -87,7 +87,7 @@ func validateGroupChildElementRestriction(schema *parser.Schema, baseMG *types.M
 	}
 }
 
-func validateElementRestrictionWithGroupOccurrence(schema *parser.Schema, baseMG *types.ModelGroup, baseChildren []types.Particle, baseElem, restrictionElem *types.ElementDecl) (bool, error) {
+func validateElementRestrictionWithGroupOccurrence(schema *parser.Schema, baseMG *model.ModelGroup, baseChildren []model.Particle, baseElem, restrictionElem *model.ElementDecl) (bool, error) {
 	if baseElem.Name != restrictionElem.Name {
 		if !isSubstitutableElement(schema, baseElem.Name, restrictionElem.Name) {
 			return false, nil
@@ -95,7 +95,7 @@ func validateElementRestrictionWithGroupOccurrence(schema *parser.Schema, baseMG
 	}
 	baseMinOcc := baseElem.MinOcc()
 	baseMaxOcc := baseElem.MaxOcc()
-	if baseMG != nil && baseMG.Kind == types.Choice && !baseMG.MaxOcc().IsOne() {
+	if baseMG != nil && baseMG.Kind == model.Choice && !baseMG.MaxOcc().IsOne() {
 		baseMinOcc, baseMaxOcc = choiceChildOccurrenceRange(baseMG, baseChildren, baseElem)
 	}
 	if err := validateOccurrenceConstraints(baseMinOcc, baseMaxOcc, restrictionElem.MinOcc(), restrictionElem.MaxOcc()); err != nil {
@@ -110,10 +110,10 @@ func validateElementRestrictionWithGroupOccurrence(schema *parser.Schema, baseMG
 	return true, nil
 }
 
-func validateWildcardRestrictionWithGroupOccurrence(baseMG *types.ModelGroup, baseChildren []types.Particle, baseAny *types.AnyElement, restrictionElem *types.ElementDecl) (bool, error) {
+func validateWildcardRestrictionWithGroupOccurrence(baseMG *model.ModelGroup, baseChildren []model.Particle, baseAny *model.AnyElement, restrictionElem *model.ElementDecl) (bool, error) {
 	baseMinOcc := baseAny.MinOccurs
 	baseMaxOcc := baseAny.MaxOccurs
-	if baseMG != nil && baseMG.Kind == types.Choice && !baseMG.MaxOcc().IsOne() {
+	if baseMG != nil && baseMG.Kind == model.Choice && !baseMG.MaxOcc().IsOne() {
 		baseMinOcc, baseMaxOcc = choiceChildOccurrenceRange(baseMG, baseChildren, baseAny)
 	}
 	if restrictionElem.MinOcc().IsZero() && restrictionElem.MaxOcc().IsZero() {
@@ -122,7 +122,7 @@ func validateWildcardRestrictionWithGroupOccurrence(baseMG *types.ModelGroup, ba
 		}
 		return true, nil
 	}
-	if !types.AllowsNamespace(baseAny.Namespace, baseAny.NamespaceList, baseAny.TargetNamespace, restrictionElem.Name.Namespace) {
+	if !model.AllowsNamespace(baseAny.Namespace, baseAny.NamespaceList, baseAny.TargetNamespace, restrictionElem.Name.Namespace) {
 		return false, nil
 	}
 	if err := validateOccurrenceConstraints(baseMinOcc, baseMaxOcc, restrictionElem.MinOcc(), restrictionElem.MaxOcc()); err != nil {
@@ -131,19 +131,19 @@ func validateWildcardRestrictionWithGroupOccurrence(baseMG *types.ModelGroup, ba
 	return true, nil
 }
 
-func choiceChildOccurrenceRange(baseMG *types.ModelGroup, baseChildren []types.Particle, child types.Particle) (types.Occurs, types.Occurs) {
+func choiceChildOccurrenceRange(baseMG *model.ModelGroup, baseChildren []model.Particle, child model.Particle) (model.Occurs, model.Occurs) {
 	childMin := child.MinOcc()
 	childMax := child.MaxOcc()
 	groupMin := baseMG.MinOcc()
 	groupMax := baseMG.MaxOcc()
 
-	minOcc := types.OccursFromInt(0)
+	minOcc := model.OccursFromInt(0)
 	if len(baseChildren) == 1 {
-		minOcc = types.MulOccurs(groupMin, childMin)
+		minOcc = model.MulOccurs(groupMin, childMin)
 	}
 
 	if groupMax.IsUnbounded() || childMax.IsUnbounded() {
-		return minOcc, types.OccursUnbounded
+		return minOcc, model.OccursUnbounded
 	}
-	return minOcc, types.MulOccurs(groupMax, childMax)
+	return minOcc, model.MulOccurs(groupMax, childMax)
 }

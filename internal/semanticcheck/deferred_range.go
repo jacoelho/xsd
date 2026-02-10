@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // ValidateDeferredRangeFacetValues validates deferred range facets once bases resolve.
@@ -14,36 +14,36 @@ func ValidateDeferredRangeFacetValues(sch *parser.Schema) []error {
 	var errs []error
 
 	for _, qname := range sortedTypeQNames(sch.TypeDefs) {
-		st, ok := sch.TypeDefs[qname].(*types.SimpleType)
+		st, ok := sch.TypeDefs[qname].(*model.SimpleType)
 		if !ok || st == nil || st.Restriction == nil {
 			continue
 		}
 
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = typeops.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
+			baseType = typeresolve.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue
 		}
 
 		var (
-			rangeFacets  []types.Facet
+			rangeFacets  []model.Facet
 			seenDeferred bool
 		)
 
 		for _, facet := range st.Restriction.Facets {
 			switch f := facet.(type) {
-			case types.Facet:
+			case model.Facet:
 				if isRangeFacetName(f.Name()) {
 					rangeFacets = append(rangeFacets, f)
 				}
-			case *types.DeferredFacet:
+			case *model.DeferredFacet:
 				if !isRangeFacetName(f.FacetName) {
 					continue
 				}
 				seenDeferred = true
-				resolved, err := typeops.DefaultDeferredFacetConverter(f, baseType)
+				resolved, err := typeresolve.DefaultDeferredFacetConverter(f, baseType)
 				if err != nil {
 					errs = append(errs, fmt.Errorf("type %s: restriction: %w", qname, err))
 					continue
@@ -79,8 +79,8 @@ func isRangeFacetName(name string) bool {
 	}
 }
 
-func sortedTypeQNames[V any](m map[types.QName]V) []types.QName {
-	out := make([]types.QName, 0, len(m))
+func sortedTypeQNames[V any](m map[model.QName]V) []model.QName {
+	out := make([]model.QName, 0, len(m))
 	for qname := range m {
 		out = append(out, qname)
 	}

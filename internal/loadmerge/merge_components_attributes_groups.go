@@ -1,8 +1,8 @@
 package loadmerge
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (c *mergeContext) mergeAttributeDecls() error {
@@ -11,7 +11,7 @@ func (c *mergeContext) mergeAttributeDecls() error {
 		c.target.AttributeDecls,
 		c.target.AttributeOrigins,
 		c.remapQName,
-		func(qname types.QName) string { return c.originFor(c.source.AttributeOrigins, qname) },
+		func(qname model.QName) string { return c.originFor(c.source.AttributeOrigins, qname) },
 		c.copyAttributeDecl,
 		nil,
 		nil,
@@ -19,7 +19,7 @@ func (c *mergeContext) mergeAttributeDecls() error {
 	)
 }
 
-func (c *mergeContext) copyAttributeDecl(decl *types.AttributeDecl) *types.AttributeDecl {
+func (c *mergeContext) copyAttributeDecl(decl *model.AttributeDecl) *model.AttributeDecl {
 	if c.isImport {
 		declCopy := *decl
 		declCopy.Name = c.remapQName(decl.Name)
@@ -30,14 +30,14 @@ func (c *mergeContext) copyAttributeDecl(decl *types.AttributeDecl) *types.Attri
 }
 
 func (c *mergeContext) mergeAttributeGroups() error {
-	insert := func(group *types.AttributeGroup) *types.AttributeGroup {
+	insert := func(group *model.AttributeGroup) *model.AttributeGroup {
 		groupCopy := group.Copy(c.opts)
 		for _, attr := range groupCopy.Attributes {
-			if attr.Form == types.FormDefault {
+			if attr.Form == model.FormDefault {
 				if c.source.AttributeFormDefault == parser.Qualified {
-					attr.Form = types.FormQualified
+					attr.Form = model.FormQualified
 				} else {
-					attr.Form = types.FormUnqualified
+					attr.Form = model.FormUnqualified
 				}
 			}
 		}
@@ -48,7 +48,7 @@ func (c *mergeContext) mergeAttributeGroups() error {
 		c.target.AttributeGroups,
 		c.target.AttributeGroupOrigins,
 		c.remapQName,
-		func(qname types.QName) string { return c.originFor(c.source.AttributeGroupOrigins, qname) },
+		func(qname model.QName) string { return c.originFor(c.source.AttributeGroupOrigins, qname) },
 		insert,
 		nil,
 		nil,
@@ -62,8 +62,8 @@ func (c *mergeContext) mergeGroups() error {
 		c.target.Groups,
 		c.target.GroupOrigins,
 		c.remapQName,
-		func(qname types.QName) string { return c.originFor(c.source.GroupOrigins, qname) },
-		func(group *types.ModelGroup) *types.ModelGroup { return group.Copy(c.opts) },
+		func(qname model.QName) string { return c.originFor(c.source.GroupOrigins, qname) },
+		func(group *model.ModelGroup) *model.ModelGroup { return group.Copy(c.opts) },
 		nil,
 		nil,
 		"group",
@@ -74,13 +74,13 @@ func (c *mergeContext) mergeGroups() error {
 // based on the source schema's attributeFormDefault. This ensures that when types from
 // imported or chameleon-included schemas are merged into a main schema, the attributes
 // retain their original form semantics regardless of the main schema's attributeFormDefault.
-func normalizeAttributeForms(complexType *types.ComplexType, sourceAttrFormDefault parser.Form) {
-	normalizeAttr := func(attr *types.AttributeDecl) {
-		if attr.Form == types.FormDefault {
+func normalizeAttributeForms(complexType *model.ComplexType, sourceAttrFormDefault parser.Form) {
+	normalizeAttr := func(attr *model.AttributeDecl) {
+		if attr.Form == model.FormDefault {
 			if sourceAttrFormDefault == parser.Qualified {
-				attr.Form = types.FormQualified
+				attr.Form = model.FormQualified
 			} else {
-				attr.Form = types.FormUnqualified
+				attr.Form = model.FormUnqualified
 			}
 		}
 	}

@@ -3,16 +3,18 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/facetvalue"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	qnamelex "github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // validateDefaultOrFixedValueWithContext validates that a default or fixed value is valid for the given type.
 // This is used during structure validation; full facet validation happens after resolution.
-func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string, typ types.Type, nsContext map[string]string) error {
+func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string, typ model.Type, nsContext map[string]string) error {
 	if typ == nil {
 		// type not resolved yet - might be forward reference, skip validation
 		return nil
@@ -22,17 +24,17 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 		return nil
 	}
 
-	if st, ok := typ.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) && schema != nil {
-		if resolved, ok := typegraph.LookupType(schema, st.QName); ok {
+	if st, ok := typ.(*model.SimpleType); ok && model.IsPlaceholderSimpleType(st) && schema != nil {
+		if resolved, ok := typechain.LookupType(schema, st.QName); ok {
 			return validateDefaultOrFixedValueWithContext(schema, value, resolved, nsContext)
 		}
 	}
 
 	// normalize value according to type's whitespace facet before validation
 	// even for basic validation, we need to normalize to match XSD spec behavior
-	normalizedValue := types.NormalizeWhiteSpace(value, typ)
+	normalizedValue := model.NormalizeWhiteSpace(value, typ)
 
-	if types.IsQNameOrNotationType(typ) {
+	if facetvalue.IsQNameOrNotationType(typ) {
 		if nsContext == nil {
 			// Can't validate QName without context, skip for now
 			return nil
@@ -43,10 +45,10 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 	}
 
 	if typ.IsBuiltin() {
-		bt := types.GetBuiltinNS(typ.Name().Namespace, typ.Name().Local)
+		bt := builtins.GetNS(typ.Name().Namespace, typ.Name().Local)
 		if bt != nil {
 			// ID types cannot have default or fixed values
-			if typeops.IsIDOnlyType(typ.Name()) {
+			if typeresolve.IsIDOnlyType(typ.Name()) {
 				return fmt.Errorf("type '%s' cannot have default or fixed values", typ.Name().Local)
 			}
 			if err := bt.Validate(normalizedValue); err != nil {
@@ -56,33 +58,33 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 		return nil
 	}
 
-	if st, ok := typ.(*types.SimpleType); ok {
+	if st, ok := typ.(*model.SimpleType); ok {
 		// check if derived from ID type
 		// First check the direct base QName
 		if st.Restriction != nil && !st.Restriction.Base.IsZero() {
-			if typeops.IsIDOnlyType(st.Restriction.Base) {
+			if typeresolve.IsIDOnlyType(st.Restriction.Base) {
 				return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 			}
 		}
 		// Also check resolved base if available
 		if st.ResolvedBase != nil {
-			if bt, ok := st.ResolvedBase.(*types.BuiltinType); ok && typeops.IsIDOnlyType(bt.Name()) {
+			if bt, ok := st.ResolvedBase.(*model.BuiltinType); ok && typeresolve.IsIDOnlyType(bt.Name()) {
 				return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 			}
-			if baseST, ok := st.ResolvedBase.(*types.SimpleType); ok && schema != nil && typeops.IsIDOnlyDerivedType(schema, baseST) {
+			if baseST, ok := st.ResolvedBase.(*model.SimpleType); ok && schema != nil && typeresolve.IsIDOnlyDerivedType(schema, baseST) {
 				return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 			}
-		} else if schema != nil && typeops.IsIDOnlyDerivedType(schema, st) {
+		} else if schema != nil && typeresolve.IsIDOnlyDerivedType(schema, st) {
 			return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 		}
-		return validateValueAgainstTypeWithFacets(schema, value, st, nsContext, make(map[types.Type]bool))
+		return validateValueAgainstTypeWithFacets(schema, value, st, nsContext, make(map[model.Type]bool))
 	}
 
 	// handle complex types with simpleContent - need to validate against the text type
-	if ct, ok := typ.(*types.ComplexType); ok {
-		if content, ok := ct.Content().(*types.SimpleContent); ok {
+	if ct, ok := typ.(*model.ComplexType); ok {
+		if content, ok := ct.Content().(*model.SimpleContent); ok {
 			// for extension or restriction, validate against the base type
-			var baseQName types.QName
+			var baseQName model.QName
 			if content.Extension != nil {
 				baseQName = content.Extension.Base
 			} else if content.Restriction != nil {
@@ -91,10 +93,10 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 
 			if !baseQName.IsZero() {
 				// check if base is a built-in type
-				bt := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local)
+				bt := builtins.GetNS(baseQName.Namespace, baseQName.Local)
 				if bt != nil {
 					if err := validateDefaultOrFixedValueWithContext(schema, value, bt, nsContext); err != nil {
-						if typeops.IsIDOnlyType(baseQName) {
+						if typeresolve.IsIDOnlyType(baseQName) {
 							return fmt.Errorf("type '%s' (with simpleContent from ID) cannot have default or fixed values", typ.Name().Local)
 						}
 						return err
@@ -107,22 +109,22 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 	return nil
 }
 
-func shouldDeferValueValidation(schema *parser.Schema, typ types.Type) bool {
-	st, ok := typ.(*types.SimpleType)
+func shouldDeferValueValidation(schema *parser.Schema, typ model.Type) bool {
+	st, ok := typ.(*model.SimpleType)
 	if !ok {
 		return false
 	}
-	if types.IsPlaceholderSimpleType(st) {
+	if model.IsPlaceholderSimpleType(st) {
 		if schema == nil {
 			return true
 		}
-		if _, ok := typegraph.LookupType(schema, st.QName); !ok {
+		if _, ok := typechain.LookupType(schema, st.QName); !ok {
 			return true
 		}
 		return false
 	}
-	if st.Variety() == types.AtomicVariety && st.PrimitiveType() == nil {
-		if st.Restriction != nil && !st.Restriction.Base.IsZero() && st.Restriction.Base.Namespace != types.XSDNamespace {
+	if st.Variety() == model.AtomicVariety && st.PrimitiveType() == nil {
+		if st.Restriction != nil && !st.Restriction.Base.IsZero() && st.Restriction.Base.Namespace != model.XSDNamespace {
 			return true
 		}
 	}

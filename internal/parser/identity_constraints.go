@@ -3,13 +3,13 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 // parseIdentityConstraint parses a key, keyref, or unique constraint
-func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.IdentityConstraint, error) {
-	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
+func parseIdentityConstraint(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.IdentityConstraint, error) {
+	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return nil, fmt.Errorf("identity constraint missing name attribute")
 	}
@@ -20,20 +20,20 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 
 	nsContext := namespaceContextForElement(doc, elem, schema)
 
-	constraint := &types.IdentityConstraint{
+	constraint := &model.IdentityConstraint{
 		Name:             name,
 		TargetNamespace:  schema.TargetNamespace,
-		Fields:           []types.Field{},
+		Fields:           []model.Field{},
 		NamespaceContext: nsContext,
 	}
 
 	switch doc.LocalName(elem) {
 	case "key":
-		constraint.Type = types.KeyConstraint
+		constraint.Type = model.KeyConstraint
 	case "keyref":
-		constraint.Type = types.KeyRefConstraint
+		constraint.Type = model.KeyRefConstraint
 	case "unique":
-		constraint.Type = types.UniqueConstraint
+		constraint.Type = model.UniqueConstraint
 	default:
 		return nil, fmt.Errorf("unknown identity constraint type: %s", doc.LocalName(elem))
 	}
@@ -45,7 +45,7 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 			return nil, fmt.Errorf("resolve refer QName %s: %w", refer, err)
 		}
 		constraint.ReferQName = referQName
-	} else if constraint.Type == types.KeyRefConstraint {
+	} else if constraint.Type == model.KeyRefConstraint {
 		return nil, fmt.Errorf("keyref missing refer attribute")
 	}
 
@@ -54,7 +54,7 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 	seenField := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 
@@ -82,7 +82,7 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 			if err := validateElementConstraints(doc, child, "selector", schema); err != nil {
 				return nil, err
 			}
-			constraint.Selector = types.Selector{XPath: xpath}
+			constraint.Selector = model.Selector{XPath: xpath}
 			seenSelector = true
 
 		case "field":
@@ -99,7 +99,7 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 			if err := validateElementConstraints(doc, child, "field", schema); err != nil {
 				return nil, err
 			}
-			constraint.Fields = append(constraint.Fields, types.Field{XPath: xpath})
+			constraint.Fields = append(constraint.Fields, model.Field{XPath: xpath})
 			seenField = true
 		}
 	}
@@ -115,13 +115,13 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 	return constraint, nil
 }
 
-func validateAllowedAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, elementName string, allowed map[string]bool) error {
+func validateAllowedAttributes(doc *schemaxml.Document, elem schemaxml.NodeID, elementName string, allowed map[string]bool) error {
 	for _, attr := range doc.Attributes(elem) {
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
 		if attr.NamespaceURI() != "" {
-			if attr.NamespaceURI() == xsdxml.XSDNamespace {
+			if attr.NamespaceURI() == schemaxml.XSDNamespace {
 				return fmt.Errorf("%s: attribute '%s' must be unprefixed", elementName, attr.LocalName())
 			}
 			continue

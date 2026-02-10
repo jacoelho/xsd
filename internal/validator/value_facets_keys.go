@@ -9,13 +9,13 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
-	"github.com/jacoelho/xsd/internal/valuekey"
+	"github.com/jacoelho/xsd/internal/valuecodec"
 )
 
 func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical []byte) (runtime.ValueKind, []byte, error) {
 	switch kind {
 	case runtime.VString:
-		key := valuekey.StringKeyBytes(s.keyTmp[:0], 0, canonical)
+		key := valuecodec.StringKeyBytes(s.keyTmp[:0], 0, canonical)
 		s.keyTmp = key
 		return runtime.VKString, key, nil
 	case runtime.VBoolean:
@@ -48,7 +48,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if perr != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid float")
 		}
-		key := valuekey.Float32Key(s.keyTmp[:0], v, class)
+		key := valuecodec.Float32Key(s.keyTmp[:0], v, class)
 		s.keyTmp = key
 		return runtime.VKFloat32, key, nil
 	case runtime.VDouble:
@@ -56,11 +56,11 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if perr != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid double")
 		}
-		key := valuekey.Float64Key(s.keyTmp[:0], v, class)
+		key := valuecodec.Float64Key(s.keyTmp[:0], v, class)
 		s.keyTmp = key
 		return runtime.VKFloat64, key, nil
 	case runtime.VAnyURI:
-		key := valuekey.StringKeyBytes(s.keyTmp[:0], 1, canonical)
+		key := valuecodec.StringKeyBytes(s.keyTmp[:0], 1, canonical)
 		s.keyTmp = key
 		return runtime.VKString, key, nil
 	case runtime.VQName, runtime.VNotation:
@@ -68,7 +68,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if kind == runtime.VNotation {
 			tag = 1
 		}
-		key := valuekey.QNameKeyCanonical(s.keyTmp[:0], tag, canonical)
+		key := valuecodec.QNameKeyCanonical(s.keyTmp[:0], tag, canonical)
 		if len(key) == 0 {
 			return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "invalid QName key")
 		}
@@ -79,7 +79,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 0, decoded)
+		key := valuecodec.BinaryKeyBytes(s.keyTmp[:0], 0, decoded)
 		s.keyTmp = key
 		return runtime.VKBinary, key, nil
 	case runtime.VBase64Binary:
@@ -87,7 +87,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 1, decoded)
+		key := valuecodec.BinaryKeyBytes(s.keyTmp[:0], 1, decoded)
 		s.keyTmp = key
 		return runtime.VKBinary, key, nil
 	case runtime.VDuration:
@@ -95,7 +95,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if err != nil {
 			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		key := valuekey.DurationKeyBytes(s.keyTmp[:0], dur)
+		key := valuecodec.DurationKeyBytes(s.keyTmp[:0], dur)
 		s.keyTmp = key
 		return runtime.VKDuration, key, nil
 	case runtime.VDateTime, runtime.VDate, runtime.VTime, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
@@ -103,7 +103,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		if err != nil {
 			return runtime.VKInvalid, nil, err
 		}
-		key := valuekey.TemporalKeyBytes(s.keyTmp[:0], temporalSubkind(kind), tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)
+		key := valuecodec.TemporalKeyBytes(s.keyTmp[:0], temporalSubkind(kind), tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)
 		s.keyTmp = key
 		return runtime.VKDateTime, key, nil
 	default:

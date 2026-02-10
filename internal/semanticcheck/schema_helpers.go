@@ -4,17 +4,17 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // modelGroupContainsWildcard checks if a model group contains any wildcard particles
-func modelGroupContainsWildcard(mg *types.ModelGroup) bool {
+func modelGroupContainsWildcard(mg *model.ModelGroup) bool {
 	for _, particle := range mg.Particles {
-		if _, isWildcard := particle.(*types.AnyElement); isWildcard {
+		if _, isWildcard := particle.(*model.AnyElement); isWildcard {
 			return true
 		}
-		if nestedMG, isMG := particle.(*types.ModelGroup); isMG {
+		if nestedMG, isMG := particle.(*model.ModelGroup); isMG {
 			if modelGroupContainsWildcard(nestedMG) {
 				return true
 			}
@@ -24,13 +24,13 @@ func modelGroupContainsWildcard(mg *types.ModelGroup) bool {
 }
 
 // groupKindName returns the string name of a GroupKind
-func groupKindName(kind types.GroupKind) string {
+func groupKindName(kind model.GroupKind) string {
 	switch kind {
-	case types.Sequence:
+	case model.Sequence:
 		return "sequence"
-	case types.Choice:
+	case model.Choice:
 		return "choice"
-	case types.AllGroup:
+	case model.AllGroup:
 		return "all"
 	default:
 		return "unknown"
@@ -40,17 +40,17 @@ func groupKindName(kind types.GroupKind) string {
 // validateDeferredFacetApplicability validates a deferred facet now that the base type is resolved.
 // Deferred facets are range facets (min/max Inclusive/Exclusive) that couldn't be constructed
 // during parsing because the base type wasn't available.
-func validateDeferredFacetApplicability(df *types.DeferredFacet, baseType types.Type, baseQName types.QName) error {
+func validateDeferredFacetApplicability(df *model.DeferredFacet, baseType model.Type, baseQName model.QName) error {
 	// check if facet is applicable to the base type
 	switch df.FacetName {
 	case "minInclusive", "maxInclusive", "minExclusive", "maxExclusive":
 		// range facets are NOT applicable to list types
 		if baseType != nil {
-			if baseST, ok := types.AsSimpleType(baseType); ok {
-				if baseST.Variety() == types.ListVariety {
+			if baseST, ok := model.AsSimpleType(baseType); ok {
+				if baseST.Variety() == model.ListVariety {
 					return fmt.Errorf("facet %s is not applicable to list type %s", df.FacetName, baseQName)
 				}
-				if baseST.Variety() == types.UnionVariety {
+				if baseST.Variety() == model.UnionVariety {
 					return fmt.Errorf("facet %s is not applicable to union type %s", df.FacetName, baseQName)
 				}
 			}
@@ -61,16 +61,16 @@ func validateDeferredFacetApplicability(df *types.DeferredFacet, baseType types.
 
 // convertDeferredFacet converts a DeferredFacet to an actual Facet now that the base type is resolved.
 // This is needed for facet inheritance validation.
-func convertDeferredFacet(df *types.DeferredFacet, baseType types.Type) (types.Facet, error) {
-	facet, err := typeops.DefaultDeferredFacetConverter(df, baseType)
-	if errors.Is(err, types.ErrCannotDeterminePrimitiveType) {
+func convertDeferredFacet(df *model.DeferredFacet, baseType model.Type) (model.Facet, error) {
+	facet, err := typeresolve.DefaultDeferredFacetConverter(df, baseType)
+	if errors.Is(err, model.ErrCannotDeterminePrimitiveType) {
 		return nil, nil
 	}
 	return facet, err
 }
 
 // isNotationType checks if a type is or derives from xs:NOTATION
-func isNotationType(t types.Type) bool {
+func isNotationType(t model.Type) bool {
 	if t == nil {
 		return false
 	}
@@ -78,14 +78,14 @@ func isNotationType(t types.Type) bool {
 	if primitive == nil {
 		return false
 	}
-	return primitive.Name().Local == string(types.TypeNameNOTATION) &&
-		primitive.Name().Namespace == types.XSDNamespace
+	return primitive.Name().Local == string(model.TypeNameNOTATION) &&
+		primitive.Name().Namespace == model.XSDNamespace
 }
 
 // hasEnumerationFacet checks if a facet list contains an enumeration facet
-func hasEnumerationFacet(facetList []types.Facet) bool {
+func hasEnumerationFacet(facetList []model.Facet) bool {
 	for _, f := range facetList {
-		if _, ok := f.(*types.Enumeration); ok {
+		if _, ok := f.(*model.Enumeration); ok {
 			return true
 		}
 	}
@@ -93,13 +93,13 @@ func hasEnumerationFacet(facetList []types.Facet) bool {
 }
 
 // whiteSpaceName returns the string name of a WhiteSpace value
-func whiteSpaceName(ws types.WhiteSpace) string {
+func whiteSpaceName(ws model.WhiteSpace) string {
 	switch ws {
-	case types.WhiteSpacePreserve:
+	case model.WhiteSpacePreserve:
 		return "preserve"
-	case types.WhiteSpaceReplace:
+	case model.WhiteSpaceReplace:
 		return "replace"
-	case types.WhiteSpaceCollapse:
+	case model.WhiteSpaceCollapse:
 		return "collapse"
 	default:
 		return "unknown"

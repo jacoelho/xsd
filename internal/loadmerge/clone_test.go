@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestCloneSchemaDeepIsolation(t *testing.T) {
@@ -33,14 +33,14 @@ func TestCloneSchemaDeepIsolation(t *testing.T) {
 		t.Fatalf("CloneSchemaDeep() error = %v", err)
 	}
 
-	codeName := types.QName{Namespace: "urn:test", Local: "Code"}
-	rootName := types.QName{Namespace: "urn:test", Local: "root"}
+	codeName := model.QName{Namespace: "urn:test", Local: "Code"}
+	rootName := model.QName{Namespace: "urn:test", Local: "root"}
 
-	origType, ok := parsed.TypeDefs[codeName].(*types.SimpleType)
+	origType, ok := parsed.TypeDefs[codeName].(*model.SimpleType)
 	if !ok || origType == nil {
 		t.Fatalf("expected original simple type %s", codeName)
 	}
-	clonedType, ok := cloned.TypeDefs[codeName].(*types.SimpleType)
+	clonedType, ok := cloned.TypeDefs[codeName].(*model.SimpleType)
 	if !ok || clonedType == nil {
 		t.Fatalf("expected cloned simple type %s", codeName)
 	}
@@ -57,7 +57,7 @@ func TestCloneSchemaDeepIsolation(t *testing.T) {
 		t.Fatal("expected deep-cloned element pointer")
 	}
 
-	origType.Restriction.Base = types.QName{Namespace: types.XSDNamespace, Local: "int"}
+	origType.Restriction.Base = model.QName{Namespace: model.XSDNamespace, Local: "int"}
 	if clonedType.Restriction == nil {
 		t.Fatal("expected cloned restriction")
 	}

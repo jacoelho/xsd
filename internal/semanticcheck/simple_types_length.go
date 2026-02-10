@@ -3,10 +3,10 @@ package semanticcheck
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func validateLengthFacetInheritance(derivedFacets []types.Facet, baseType *types.SimpleType) error {
+func validateLengthFacetInheritance(derivedFacets []model.Facet, baseType *model.SimpleType) error {
 	if baseType == nil || baseType.Restriction == nil {
 		return nil
 	}
@@ -50,25 +50,25 @@ func validateLengthFacetInheritance(derivedFacets []types.Facet, baseType *types
 	return nil
 }
 
-func facetsFromRestriction(restriction *types.Restriction) []types.Facet {
+func facetsFromRestriction(restriction *model.Restriction) []model.Facet {
 	if restriction == nil {
 		return nil
 	}
-	result := make([]types.Facet, 0, len(restriction.Facets))
+	result := make([]model.Facet, 0, len(restriction.Facets))
 	for _, f := range restriction.Facets {
-		if facet, ok := f.(types.Facet); ok {
+		if facet, ok := f.(model.Facet); ok {
 			result = append(result, facet)
 		}
 	}
 	return result
 }
 
-func findIntFacet(facetList []types.Facet, name string) (int, bool) {
+func findIntFacet(facetList []model.Facet, name string) (int, bool) {
 	for _, facet := range facetList {
 		if facet.Name() != name {
 			continue
 		}
-		if iv, ok := facet.(types.IntValueFacet); ok {
+		if iv, ok := facet.(model.IntValueFacet); ok {
 			return iv.GetIntValue(), true
 		}
 	}

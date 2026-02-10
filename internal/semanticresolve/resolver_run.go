@@ -1,8 +1,8 @@
 package semanticresolve
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // Resolve resolves all references in the schema.
@@ -34,7 +34,7 @@ func (r *Resolver) resolveSimpleTypesPhase() error {
 	// 1. Simple types (only depend on built-ins or other simple types)
 	for _, qname := range traversal.SortedQNames(r.schema.TypeDefs) {
 		typ := r.schema.TypeDefs[qname]
-		if st, ok := typ.(*types.SimpleType); ok {
+		if st, ok := typ.(*model.SimpleType); ok {
 			if err := r.resolveSimpleType(qname, st); err != nil {
 				return err
 			}
@@ -47,7 +47,7 @@ func (r *Resolver) resolveComplexTypesPhase() error {
 	// 2. Complex types (may depend on simple types)
 	for _, qname := range traversal.SortedQNames(r.schema.TypeDefs) {
 		typ := r.schema.TypeDefs[qname]
-		if ct, ok := typ.(*types.ComplexType); ok {
+		if ct, ok := typ.(*model.ComplexType); ok {
 			if err := r.resolveComplexType(qname, ct); err != nil {
 				return err
 			}

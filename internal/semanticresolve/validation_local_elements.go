@@ -3,16 +3,16 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func validateLocalElementValueConstraints(sch *parser.Schema) []error {
 	var errs []error
 
-	seenLocal := make(map[*types.ElementDecl]bool)
-	validateLocals := func(ct *types.ComplexType) {
+	seenLocal := make(map[*model.ElementDecl]bool)
+	validateLocals := func(ct *model.ComplexType) {
 		for _, elem := range traversal.CollectElementDeclsFromComplexType(sch, ct) {
 			if elem == nil || elem.IsReference {
 				continue
@@ -28,13 +28,13 @@ func validateLocalElementValueConstraints(sch *parser.Schema) []error {
 	}
 	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
-		if ct, ok := decl.Type.(*types.ComplexType); ok {
+		if ct, ok := decl.Type.(*model.ComplexType); ok {
 			validateLocals(ct)
 		}
 	}
 	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
-		if ct, ok := typ.(*types.ComplexType); ok {
+		if ct, ok := typ.(*model.ComplexType); ok {
 			validateLocals(ct)
 		}
 	}

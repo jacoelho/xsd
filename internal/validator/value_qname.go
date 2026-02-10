@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/valuekey"
+	"github.com/jacoelho/xsd/internal/valuecodec"
 )
 
 func (s *Session) canonicalizeQName(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, needKey bool, metrics *valueMetrics) ([]byte, error) {
@@ -22,7 +22,7 @@ func (s *Session) canonicalizeQName(meta runtime.ValidatorMeta, normalized []byt
 		if meta.Kind == runtime.VNotation {
 			tag = 1
 		}
-		key := valuekey.QNameKeyCanonical(s.keyTmp[:0], tag, canonStored)
+		key := valuecodec.QNameKeyCanonical(s.keyTmp[:0], tag, canonStored)
 		if len(key) == 0 {
 			return nil, valueErrorf(valueErrInvalid, "invalid QName key")
 		}

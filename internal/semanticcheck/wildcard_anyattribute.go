@@ -3,22 +3,22 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typechain"
 )
 
 // validateAnyAttributeDerivation validates anyAttribute constraints in type derivation
 // According to XSD 1.0 spec:
 // - For extension: anyAttribute must union with base type's anyAttribute (cos-aw-union)
 // - For restriction: anyAttribute namespace constraint must be a subset of base type's anyAttribute (cos-aw-subset)
-func validateAnyAttributeDerivation(schema *parser.Schema, ct *types.ComplexType) error {
+func validateAnyAttributeDerivation(schema *parser.Schema, ct *model.ComplexType) error {
 	baseQName := ct.Content().BaseTypeQName()
 	if baseQName.IsZero() {
 		return nil
 	}
 
-	baseCT, ok := typegraph.LookupComplexType(schema, baseQName)
+	baseCT, ok := typechain.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}
@@ -34,7 +34,7 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *types.ComplexType
 
 	if ct.IsExtension() {
 		if baseAnyAttr != nil && derivedAnyAttr != nil {
-			union := types.UnionAnyAttribute(derivedAnyAttr, baseAnyAttr)
+			union := model.UnionAnyAttribute(derivedAnyAttr, baseAnyAttr)
 			if union == nil {
 				return fmt.Errorf("anyAttribute extension: union of derived and base anyAttribute is not expressible")
 			}
@@ -59,8 +59,8 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *types.ComplexType
 
 // collectAnyAttributeFromType collects anyAttribute from a complex type
 // Checks both direct anyAttribute and anyAttribute in extension/restriction
-func collectAnyAttributeFromType(schema *parser.Schema, ct *types.ComplexType) (*types.AnyAttribute, error) {
-	var anyAttrs []*types.AnyAttribute
+func collectAnyAttributeFromType(schema *parser.Schema, ct *model.ComplexType) (*model.AnyAttribute, error) {
+	var anyAttrs []*model.AnyAttribute
 
 	if ct.AnyAttribute() != nil {
 		anyAttrs = append(anyAttrs, ct.AnyAttribute())
@@ -87,7 +87,7 @@ func collectAnyAttributeFromType(schema *parser.Schema, ct *types.ComplexType) (
 
 	result := anyAttrs[0]
 	for i := 1; i < len(anyAttrs); i++ {
-		intersected, expressible, empty := types.IntersectAnyAttributeDetailed(result, anyAttrs[i])
+		intersected, expressible, empty := model.IntersectAnyAttributeDetailed(result, anyAttrs[i])
 		if !expressible {
 			return nil, fmt.Errorf("anyAttribute intersection is not expressible")
 		}
@@ -100,11 +100,11 @@ func collectAnyAttributeFromType(schema *parser.Schema, ct *types.ComplexType) (
 }
 
 // collectAnyAttributeFromGroups collects anyAttribute from attribute groups (recursively)
-func collectAnyAttributeFromGroups(schema *parser.Schema, agRefs []types.QName, visited map[types.QName]bool) []*types.AnyAttribute {
+func collectAnyAttributeFromGroups(schema *parser.Schema, agRefs []model.QName, visited map[model.QName]bool) []*model.AnyAttribute {
 	if visited == nil {
-		visited = make(map[types.QName]bool)
+		visited = make(map[model.QName]bool)
 	}
-	var result []*types.AnyAttribute
+	var result []*model.AnyAttribute
 	for _, ref := range agRefs {
 		if visited[ref] {
 			continue

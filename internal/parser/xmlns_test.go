@@ -3,8 +3,8 @@ package parser
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 func TestParseSchemaAttributesRegistersXMLNS(t *testing.T) {
@@ -34,14 +34,14 @@ func TestResolveQNameIgnoresForeignXMLNSLocalName(t *testing.T) {
 		t.Fatalf("parseSchemaAttributes error = %v", err)
 	}
 
-	elem := xsdxml.InvalidNode
+	elem := schemaxml.InvalidNode
 	for _, child := range doc.Children(root) {
-		if doc.NamespaceURI(child) == xsdxml.XSDNamespace && doc.LocalName(child) == "element" {
+		if doc.NamespaceURI(child) == schemaxml.XSDNamespace && doc.LocalName(child) == "element" {
 			elem = child
 			break
 		}
 	}
-	if elem == xsdxml.InvalidNode {
+	if elem == schemaxml.InvalidNode {
 		t.Fatalf("expected element node")
 	}
 
@@ -49,7 +49,7 @@ func TestResolveQNameIgnoresForeignXMLNSLocalName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveQName error = %v", err)
 	}
-	if qname.Namespace != types.NamespaceEmpty {
+	if qname.Namespace != model.NamespaceEmpty {
 		t.Fatalf("qname namespace = %q, want empty", qname.Namespace)
 	}
 }

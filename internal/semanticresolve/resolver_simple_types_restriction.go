@@ -3,10 +3,10 @@ package semanticresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func (r *Resolver) resolveSimpleTypeRestriction(qname types.QName, st *types.SimpleType) error {
+func (r *Resolver) resolveSimpleTypeRestriction(qname model.QName, st *model.SimpleType) error {
 	if st.Restriction == nil {
 		return nil
 	}
@@ -29,8 +29,8 @@ func (r *Resolver) resolveSimpleTypeRestriction(qname types.QName, st *types.Sim
 
 	if base != nil {
 		st.ResolvedBase = base
-		if baseST, ok := base.(*types.SimpleType); ok {
-			if baseST.Variety() == types.UnionVariety && len(st.MemberTypes) == 0 {
+		if baseST, ok := base.(*model.SimpleType); ok {
+			if baseST.Variety() == model.UnionVariety && len(st.MemberTypes) == 0 {
 				if len(baseST.MemberTypes) == 0 {
 					baseQName := baseST.QName
 					if baseQName.IsZero() {
@@ -44,13 +44,13 @@ func (r *Resolver) resolveSimpleTypeRestriction(qname types.QName, st *types.Sim
 					}
 				}
 				if len(baseST.MemberTypes) > 0 {
-					st.MemberTypes = append([]types.Type(nil), baseST.MemberTypes...)
+					st.MemberTypes = append([]model.Type(nil), baseST.MemberTypes...)
 				}
 			}
 		}
 	}
 
-	if st.WhiteSpace() == types.WhiteSpacePreserve && base != nil {
+	if st.WhiteSpace() == model.WhiteSpacePreserve && base != nil {
 		st.SetWhiteSpace(base.WhiteSpace())
 	}
 	return nil

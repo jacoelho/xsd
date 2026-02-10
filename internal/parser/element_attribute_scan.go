@@ -1,6 +1,6 @@
 package parser
 
-import "github.com/jacoelho/xsd/internal/xsdxml"
+import "github.com/jacoelho/xsd/internal/schemaxml"
 
 var (
 	validTopLevelElementAttributes = map[string]bool{
@@ -65,13 +65,13 @@ type elementAttrScan struct {
 	hasID            bool
 }
 
-func scanElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) elementAttrScan {
+func scanElementAttributes(doc *schemaxml.Document, elem schemaxml.NodeID) elementAttrScan {
 	var attrs elementAttrScan
 	for _, attr := range doc.Attributes(elem) {
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
-		if attr.NamespaceURI() == xsdxml.XSDNamespace {
+		if attr.NamespaceURI() == schemaxml.XSDNamespace {
 			if attrs.invalidRefAttr == "" {
 				attrs.invalidRefAttr = attr.LocalName()
 			}

@@ -13,13 +13,13 @@ import (
 func TestBuiltinRegistryCacheMutationBoundary(t *testing.T) {
 	t.Parallel()
 
-	const allowedMutationFile = "internal/types/builtin.go"
+	const allowedMutationFile = "internal/model/builtin.go"
 	mutationFields := map[string]struct{}{
 		"fundamentalFacets": {},
 	}
 
 	root := repoRoot(t)
-	typesDir := filepath.Join(root, "internal", "types")
+	typesDir := filepath.Join(root, "internal", "model")
 	fset := token.NewFileSet()
 
 	err := filepath.WalkDir(typesDir, func(path string, d fs.DirEntry, walkErr error) error {
@@ -68,7 +68,7 @@ func TestBuiltinRegistryCacheMutationBoundary(t *testing.T) {
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("scan internal/types files: %v", err)
+		t.Fatalf("scan internal/model files: %v", err)
 	}
 }
 
@@ -76,7 +76,7 @@ func TestBuiltinRegistryAccessorsAreFunctions(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	path := filepath.Join(root, "internal", "types", "builtin.go")
+	path := filepath.Join(root, "internal", "model", "builtin.go")
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, path, nil, 0)
 	if err != nil {

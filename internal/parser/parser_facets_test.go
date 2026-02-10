@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestParser_UsesFacetConstructors(t *testing.T) {
@@ -26,7 +26,7 @@ func TestParser_UsesFacetConstructors(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	qname := types.QName{
+	qname := model.QName{
 		Namespace: "http://example.com",
 		Local:     "restrictedDecimal",
 	}
@@ -35,7 +35,7 @@ func TestParser_UsesFacetConstructors(t *testing.T) {
 		t.Fatal("restrictedDecimal type not found")
 	}
 
-	st, ok := typeDef.(*types.SimpleType)
+	st, ok := typeDef.(*model.SimpleType)
 	if !ok {
 		t.Fatal("type is not a SimpleType")
 	}
@@ -49,7 +49,7 @@ func TestParser_UsesFacetConstructors(t *testing.T) {
 	foundMaxInclusive := false
 
 	for _, f := range st.Restriction.Facets {
-		if facet, ok := f.(types.Facet); ok {
+		if facet, ok := f.(model.Facet); ok {
 			name := facet.Name()
 			switch name {
 			case "minInclusive":
@@ -87,7 +87,7 @@ func TestParser_UsesFacetConstructors_Integer(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	qname := types.QName{
+	qname := model.QName{
 		Namespace: "http://example.com",
 		Local:     "restrictedInteger",
 	}
@@ -96,13 +96,13 @@ func TestParser_UsesFacetConstructors_Integer(t *testing.T) {
 		t.Fatal("restrictedInteger type not found")
 	}
 
-	st, ok := typeDef.(*types.SimpleType)
+	st, ok := typeDef.(*model.SimpleType)
 	if !ok {
 		t.Fatal("type is not a SimpleType")
 	}
 
 	for _, f := range st.Restriction.Facets {
-		if facet, ok := f.(types.Facet); ok {
+		if facet, ok := f.(model.Facet); ok {
 			if facet.Name() == "minInclusive" || facet.Name() == "maxInclusive" {
 				// good - using constructor
 				return
@@ -138,7 +138,7 @@ func TestParser_FallbackToStringFacets_UserDefinedType(t *testing.T) {
 	// during parsing, baseType might not be available yet, so facets won't be created
 	// after semantic resolution in the loader, facets should be created.
 	// for now, we just verify it doesn't crash and the type is parsed correctly
-	qname := types.QName{
+	qname := model.QName{
 		Namespace: "http://example.com",
 		Local:     "restrictedType",
 	}
@@ -147,7 +147,7 @@ func TestParser_FallbackToStringFacets_UserDefinedType(t *testing.T) {
 		t.Fatal("restrictedType not found")
 	}
 
-	st, ok := typeDef.(*types.SimpleType)
+	st, ok := typeDef.(*model.SimpleType)
 	if !ok {
 		t.Fatal("type is not a SimpleType")
 	}
@@ -184,7 +184,7 @@ func TestParser_RestrictionWithInlineSimpleType(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	qname := types.QName{
+	qname := model.QName{
 		Namespace: "http://example.com",
 		Local:     "type_c",
 	}
@@ -193,7 +193,7 @@ func TestParser_RestrictionWithInlineSimpleType(t *testing.T) {
 		t.Fatal("type_c not found")
 	}
 
-	st, ok := typeDef.(*types.SimpleType)
+	st, ok := typeDef.(*model.SimpleType)
 	if !ok {
 		t.Fatal("type is not a SimpleType")
 	}
@@ -225,12 +225,12 @@ func TestParser_RestrictionWithInlineSimpleType(t *testing.T) {
 	if baseST.Restriction.Base.IsZero() {
 		t.Error("Inline base type's restriction should have a base QName")
 	}
-	if baseST.Restriction.Base.Local != "string" || baseST.Restriction.Base.Namespace != types.XSDNamespace {
+	if baseST.Restriction.Base.Local != "string" || baseST.Restriction.Base.Namespace != model.XSDNamespace {
 		t.Errorf("Inline base type should restrict xs:string, got %v", baseST.Restriction.Base)
 	}
 
 	// verify whiteSpace facet is set on the outer type (value="replace")
-	if st.WhiteSpace() != types.WhiteSpaceReplace {
+	if st.WhiteSpace() != model.WhiteSpaceReplace {
 		t.Errorf("WhiteSpace should be Replace, got %v", st.WhiteSpace())
 	}
 }
@@ -257,7 +257,7 @@ func TestParser_RestrictionWithInlineSimpleTypeUnion(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	qname := types.QName{
+	qname := model.QName{
 		Namespace: "http://example.com",
 		Local:     "st.unionType",
 	}
@@ -266,7 +266,7 @@ func TestParser_RestrictionWithInlineSimpleTypeUnion(t *testing.T) {
 		t.Fatal("st.unionType not found")
 	}
 
-	st, ok := typeDef.(*types.SimpleType)
+	st, ok := typeDef.(*model.SimpleType)
 	if !ok {
 		t.Fatal("type is not a SimpleType")
 	}
@@ -291,7 +291,7 @@ func TestParser_RestrictionWithInlineSimpleTypeUnion(t *testing.T) {
 		t.Fatal("Restriction.SimpleType should be present")
 	}
 
-	if baseST.Variety() != types.UnionVariety {
+	if baseST.Variety() != model.UnionVariety {
 		t.Errorf("Inline base type should have Union variety, got %v", baseST.Variety())
 	}
 
@@ -302,12 +302,12 @@ func TestParser_RestrictionWithInlineSimpleTypeUnion(t *testing.T) {
 	// verify enumeration facet is present
 	foundEnum := false
 	for _, f := range st.Restriction.Facets {
-		if facet, ok := f.(types.Facet); ok {
+		if facet, ok := f.(model.Facet); ok {
 			if facet.Name() == "enumeration" {
 				foundEnum = true
-				enum, ok := facet.(*types.Enumeration)
+				enum, ok := facet.(*model.Enumeration)
 				if !ok {
-					t.Fatal("enumeration facet should be *types.Enumeration")
+					t.Fatal("enumeration facet should be *model.Enumeration")
 				}
 				values := enum.Values()
 				if len(values) != 1 || values[0] != "a" {

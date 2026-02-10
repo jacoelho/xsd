@@ -3,45 +3,45 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 // parseDerivationSetWithValidation parses and validates a derivation set.
 // Returns an error if any token is not a valid derivation method.
 // Per XSD spec, #all cannot be combined with other values.
-func parseDerivationSetWithValidation(value string, allowed types.DerivationSet) (types.DerivationSet, error) {
-	var set types.DerivationSet
+func parseDerivationSetWithValidation(value string, allowed model.DerivationSet) (model.DerivationSet, error) {
+	var set model.DerivationSet
 	hasAll := false
-	for token := range types.FieldsXMLWhitespaceSeq(value) {
+	for token := range model.FieldsXMLWhitespaceSeq(value) {
 		if hasAll {
 			return set, fmt.Errorf("derivation set cannot combine '#all' with other values")
 		}
 		switch token {
 		case "extension":
-			if !allowed.Has(types.DerivationExtension) {
+			if !allowed.Has(model.DerivationExtension) {
 				return set, fmt.Errorf("invalid derivation method '%s'", token)
 			}
-			set = set.Add(types.DerivationExtension)
+			set = set.Add(model.DerivationExtension)
 		case "restriction":
-			if !allowed.Has(types.DerivationRestriction) {
+			if !allowed.Has(model.DerivationRestriction) {
 				return set, fmt.Errorf("invalid derivation method '%s'", token)
 			}
-			set = set.Add(types.DerivationRestriction)
+			set = set.Add(model.DerivationRestriction)
 		case "list":
-			if !allowed.Has(types.DerivationList) {
+			if !allowed.Has(model.DerivationList) {
 				return set, fmt.Errorf("invalid derivation method '%s'", token)
 			}
-			set = set.Add(types.DerivationList)
+			set = set.Add(model.DerivationList)
 		case "union":
-			if !allowed.Has(types.DerivationUnion) {
+			if !allowed.Has(model.DerivationUnion) {
 				return set, fmt.Errorf("invalid derivation method '%s'", token)
 			}
-			set = set.Add(types.DerivationUnion)
+			set = set.Add(model.DerivationUnion)
 		case "substitution":
-			if !allowed.Has(types.DerivationSubstitution) {
+			if !allowed.Has(model.DerivationSubstitution) {
 				return set, fmt.Errorf("invalid derivation method '%s'", token)
 			}
-			set = set.Add(types.DerivationSubstitution)
+			set = set.Add(model.DerivationSubstitution)
 		case "#all":
 			if set != 0 {
 				return set, fmt.Errorf("derivation set cannot combine '#all' with other values")

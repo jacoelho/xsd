@@ -3,11 +3,11 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseAttributeReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, ref string) (*types.AttributeDecl, error) {
+func parseAttributeReference(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, ref string) (*model.AttributeDecl, error) {
 	if doc.HasAttribute(elem, "type") {
 		return nil, fmt.Errorf("attribute reference cannot have 'type' attribute")
 	}
@@ -23,9 +23,9 @@ func parseAttributeReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 		return nil, fmt.Errorf("resolve ref %s: %w", ref, err)
 	}
 
-	attr := &types.AttributeDecl{
+	attr := &model.AttributeDecl{
 		Name:        refQName,
-		Use:         types.Optional,
+		Use:         model.Optional,
 		IsReference: true,
 	}
 	use, err := parseAttributeUse(doc, elem)
@@ -33,10 +33,10 @@ func parseAttributeReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 		return nil, err
 	}
 	attr.Use = use
-	if attr.Use == types.Required && doc.HasAttribute(elem, "default") {
+	if attr.Use == model.Required && doc.HasAttribute(elem, "default") {
 		return nil, fmt.Errorf("attribute with use='required' cannot have default value")
 	}
-	if attr.Use == types.Prohibited && doc.HasAttribute(elem, "default") {
+	if attr.Use == model.Prohibited && doc.HasAttribute(elem, "default") {
 		return nil, fmt.Errorf("attribute with use='prohibited' cannot have default value")
 	}
 	if doc.HasAttribute(elem, "default") {
@@ -52,7 +52,7 @@ func parseAttributeReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 	if attr.HasDefault || attr.HasFixed {
 		attr.ValueContext = namespaceContextForElement(doc, elem, schema)
 	}
-	parsed, err := types.NewAttributeDeclFromParsed(attr)
+	parsed, err := model.NewAttributeDeclFromParsed(attr)
 	if err != nil {
 		return nil, err
 	}

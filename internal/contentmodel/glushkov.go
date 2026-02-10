@@ -3,8 +3,8 @@ package contentmodel
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 const maxInt = int(^uint(0) >> 1)
@@ -19,8 +19,8 @@ const (
 
 // Position represents a single element or wildcard occurrence in the model.
 type Position struct {
-	Element     *types.ElementDecl
-	Wildcard    *types.AnyElement
+	Element     *model.ElementDecl
+	Wildcard    *model.AnyElement
 	Kind        PositionKind
 	AllowsSubst bool
 }
@@ -39,7 +39,7 @@ type Glushkov struct {
 }
 
 // BuildGlushkov compiles a particle into Glushkov positions and followpos sets.
-func BuildGlushkov(particle types.Particle) (*Glushkov, error) {
+func BuildGlushkov(particle model.Particle) (*Glushkov, error) {
 	b := &builder{}
 	size, err := b.countPositions(particle)
 	if err != nil {
@@ -98,7 +98,7 @@ type builder struct {
 	size      int
 }
 
-func (b *builder) countPositions(particle types.Particle) (int, error) {
+func (b *builder) countPositions(particle model.Particle) (int, error) {
 	if particle == nil {
 		return 0, nil
 	}
@@ -126,14 +126,14 @@ func (b *builder) countPositions(particle types.Particle) (int, error) {
 	return mulCount(base, maxOccurs)
 }
 
-func (b *builder) countSingle(particle types.Particle) (int, error) {
+func (b *builder) countSingle(particle model.Particle) (int, error) {
 	switch typed := particle.(type) {
-	case *types.ElementDecl:
+	case *model.ElementDecl:
 		return 1, nil
-	case *types.AnyElement:
+	case *model.AnyElement:
 		return 1, nil
-	case *types.ModelGroup:
-		if typed.Kind == types.AllGroup {
+	case *model.ModelGroup:
+		if typed.Kind == model.AllGroup {
 			return 0, fmt.Errorf("all group not supported in Glushkov builder")
 		}
 		total := 0
@@ -148,14 +148,14 @@ func (b *builder) countSingle(particle types.Particle) (int, error) {
 			}
 		}
 		return total, nil
-	case *types.GroupRef:
+	case *model.GroupRef:
 		return 0, fmt.Errorf("group ref %s not resolved", typed.RefQName)
 	default:
 		return 0, fmt.Errorf("unsupported particle %T", particle)
 	}
 }
 
-func (b *builder) buildParticle(particle types.Particle, nextPos *int) (node, error) {
+func (b *builder) buildParticle(particle model.Particle, nextPos *int) (node, error) {
 	if particle == nil {
 		return nil, nil
 	}
@@ -172,7 +172,7 @@ func (b *builder) buildParticle(particle types.Particle, nextPos *int) (node, er
 	return b.buildBounded(particle, minOccurs, maxOccurs, nextPos)
 }
 
-func (b *builder) buildUnbounded(particle types.Particle, minOccurs int, nextPos *int) (node, error) {
+func (b *builder) buildUnbounded(particle model.Particle, minOccurs int, nextPos *int) (node, error) {
 	if minOccurs == 0 {
 		child, err := b.buildSingle(particle, nextPos)
 		if err != nil {
@@ -214,7 +214,7 @@ func (b *builder) buildUnbounded(particle types.Particle, minOccurs int, nextPos
 	return b.sequence(nodes), nil
 }
 
-func (b *builder) buildBounded(particle types.Particle, minOccurs, maxOccurs int, nextPos *int) (node, error) {
+func (b *builder) buildBounded(particle model.Particle, minOccurs, maxOccurs int, nextPos *int) (node, error) {
 	if maxOccurs < minOccurs {
 		return nil, fmt.Errorf("particle maxOccurs %d less than minOccurs %d", maxOccurs, minOccurs)
 	}
@@ -244,9 +244,9 @@ func (b *builder) buildBounded(particle types.Particle, minOccurs, maxOccurs int
 	return b.sequence(nodes), nil
 }
 
-func (b *builder) buildSingle(particle types.Particle, nextPos *int) (node, error) {
+func (b *builder) buildSingle(particle model.Particle, nextPos *int) (node, error) {
 	switch typed := particle.(type) {
-	case *types.ElementDecl:
+	case *model.ElementDecl:
 		pos := *nextPos
 		*nextPos = pos + 1
 		b.positions = append(b.positions, Position{
@@ -255,7 +255,7 @@ func (b *builder) buildSingle(particle types.Particle, nextPos *int) (node, erro
 			AllowsSubst: typed.IsReference,
 		})
 		return newLeaf(pos, b.size), nil
-	case *types.AnyElement:
+	case *model.AnyElement:
 		pos := *nextPos
 		*nextPos = pos + 1
 		b.positions = append(b.positions, Position{
@@ -263,30 +263,30 @@ func (b *builder) buildSingle(particle types.Particle, nextPos *int) (node, erro
 			Wildcard: typed,
 		})
 		return newLeaf(pos, b.size), nil
-	case *types.ModelGroup:
-		if typed.Kind == types.AllGroup {
+	case *model.ModelGroup:
+		if typed.Kind == model.AllGroup {
 			return nil, fmt.Errorf("all group not supported in Glushkov builder")
 		}
 		return b.buildGroup(typed, nextPos)
-	case *types.GroupRef:
+	case *model.GroupRef:
 		return nil, fmt.Errorf("group ref %s not resolved", typed.RefQName)
 	default:
 		return nil, fmt.Errorf("unsupported particle %T", particle)
 	}
 }
 
-func (b *builder) buildGroup(group *types.ModelGroup, nextPos *int) (node, error) {
+func (b *builder) buildGroup(group *model.ModelGroup, nextPos *int) (node, error) {
 	switch group.Kind {
-	case types.Sequence:
+	case model.Sequence:
 		return b.buildSequence(group.Particles, nextPos)
-	case types.Choice:
+	case model.Choice:
 		return b.buildChoice(group.Particles, nextPos)
 	default:
 		return nil, fmt.Errorf("unsupported group kind %v", group.Kind)
 	}
 }
 
-func (b *builder) buildSequence(particles []types.Particle, nextPos *int) (node, error) {
+func (b *builder) buildSequence(particles []model.Particle, nextPos *int) (node, error) {
 	if len(particles) == 0 {
 		return nil, nil
 	}
@@ -303,7 +303,7 @@ func (b *builder) buildSequence(particles []types.Particle, nextPos *int) (node,
 	return b.sequence(parts), nil
 }
 
-func (b *builder) buildChoice(particles []types.Particle, nextPos *int) (node, error) {
+func (b *builder) buildChoice(particles []model.Particle, nextPos *int) (node, error) {
 	if len(particles) == 0 {
 		return nil, nil
 	}
@@ -342,7 +342,7 @@ func (b *builder) choice(nodes []node) node {
 	return result
 }
 
-func occursBounds(minOccurs, maxOccurs types.Occurs) (int, int, bool, error) {
+func occursBounds(minOccurs, maxOccurs model.Occurs) (int, int, bool, error) {
 	if minOccurs.IsUnbounded() {
 		return 0, 0, false, fmt.Errorf("minOccurs cannot be unbounded")
 	}

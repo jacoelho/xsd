@@ -3,13 +3,13 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 // parseTopLevelAttribute parses a top-level attribute declaration
-func parseTopLevelAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
+func parseTopLevelAttribute(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) error {
+	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("attribute missing name attribute")
 	}
@@ -29,7 +29,7 @@ func parseTopLevelAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sc
 		return err
 	}
 
-	attrQName := types.QName{
+	attrQName := model.QName{
 		Local:     name,
 		Namespace: schema.TargetNamespace,
 	}

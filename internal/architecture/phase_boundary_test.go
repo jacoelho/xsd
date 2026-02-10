@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-const semanticImportPath = "github.com/jacoelho/xsd/internal/semantic"
+const schemaanalysisImportPath = "github.com/jacoelho/xsd/internal/schemaanalysis"
 
 var semanticPhaseFunctions = map[string]struct{}{
 	"AssignIDs":         {},
@@ -14,14 +14,14 @@ var semanticPhaseFunctions = map[string]struct{}{
 	"ValidateUPA":       {},
 }
 
-func TestSemanticPhaseFunctionsOnlyInPipeline(t *testing.T) {
+func TestSchemaanalysisPhaseFunctionsOnlyInPipeline(t *testing.T) {
 	t.Parallel()
 
 	forEachParsedRepoProductionGoFile(t, 0, func(file repoGoFile, parsed *ast.File) {
 		if withinScope(file.relPath, "internal/pipeline") {
 			return
 		}
-		aliases := importAliasesForPath(parsed, semanticImportPath, "semantic")
+		aliases := importAliasesForPath(parsed, schemaanalysisImportPath, "schemaanalysis")
 		if len(aliases) == 0 {
 			return
 		}

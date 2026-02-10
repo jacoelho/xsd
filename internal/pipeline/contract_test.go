@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/pipeline"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestPrepareBuildRuntimeContract(t *testing.T) {
@@ -95,7 +95,7 @@ func TestPrepareIsolatedFromInputMapMutation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepare schema: %v", err)
 	}
-	delete(parsed.ElementDecls, types.QName{Local: "root"})
+	delete(parsed.ElementDecls, model.QName{Local: "root"})
 	parsed.GlobalDecls = nil
 
 	if _, err := prepared.BuildRuntime(pipeline.CompileConfig{}); err != nil {
@@ -133,12 +133,12 @@ func TestPrepareIsolatedFromInputObjectMutation(t *testing.T) {
 		t.Fatalf("compile prepared schema: %v", err)
 	}
 
-	codeName := types.QName{Namespace: "urn:test", Local: "Code"}
-	codeType, ok := parsed.TypeDefs[codeName].(*types.SimpleType)
+	codeName := model.QName{Namespace: "urn:test", Local: "Code"}
+	codeType, ok := parsed.TypeDefs[codeName].(*model.SimpleType)
 	if !ok || codeType == nil || codeType.Restriction == nil {
 		t.Fatalf("expected mutable parsed simple type")
 	}
-	codeType.Restriction.Base = types.QName{Namespace: types.XSDNamespace, Local: "int"}
+	codeType.Restriction.Base = model.QName{Namespace: model.XSDNamespace, Local: "int"}
 
 	rtAfter, err := prepared.BuildRuntime(pipeline.CompileConfig{})
 	if err != nil {
@@ -180,12 +180,12 @@ func TestTransformIsolatedFromInputObjectMutation(t *testing.T) {
 		t.Fatalf("compile transformed schema: %v", err)
 	}
 
-	codeName := types.QName{Namespace: "urn:test", Local: "Code"}
-	codeType, ok := parsed.TypeDefs[codeName].(*types.SimpleType)
+	codeName := model.QName{Namespace: "urn:test", Local: "Code"}
+	codeType, ok := parsed.TypeDefs[codeName].(*model.SimpleType)
 	if !ok || codeType == nil || codeType.Restriction == nil {
 		t.Fatalf("expected mutable parsed simple type")
 	}
-	codeType.Restriction.Base = types.QName{Namespace: types.XSDNamespace, Local: "int"}
+	codeType.Restriction.Base = model.QName{Namespace: model.XSDNamespace, Local: "int"}
 
 	rtAfter, err := prepared.BuildRuntime(pipeline.CompileConfig{})
 	if err != nil {
@@ -246,7 +246,7 @@ func TestValidateDeterministicAcrossRepeatedCalls(t *testing.T) {
 	}
 }
 
-func equalQNameSlices(a, b []types.QName) bool {
+func equalQNameSlices(a, b []model.QName) bool {
 	if len(a) != len(b) {
 		return false
 	}

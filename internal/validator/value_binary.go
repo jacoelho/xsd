@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/valuekey"
+	"github.com/jacoelho/xsd/internal/valuecodec"
 )
 
 func (s *Session) canonicalizeAnyURI(normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
@@ -15,7 +15,7 @@ func (s *Session) canonicalizeAnyURI(normalized []byte, needKey bool, metrics *v
 	}
 	canon := normalized
 	if needKey {
-		key := valuekey.StringKeyBytes(s.keyTmp[:0], 1, canon)
+		key := valuecodec.StringKeyBytes(s.keyTmp[:0], 1, canon)
 		s.keyTmp = key
 		s.setKey(metrics, runtime.VKString, key, false)
 	}
@@ -41,7 +41,7 @@ func (s *Session) canonicalizeHexBinary(normalized []byte, needKey bool, metrics
 	canon := upperHex(s.valueScratch[:0], decoded)
 	s.valueScratch = canon
 	if needKey {
-		key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 0, decoded)
+		key := valuecodec.BinaryKeyBytes(s.keyTmp[:0], 0, decoded)
 		s.keyTmp = key
 		s.setKey(metrics, runtime.VKBinary, key, false)
 	}
@@ -74,7 +74,7 @@ func (s *Session) canonicalizeBase64Binary(normalized []byte, needKey bool, metr
 	base64.StdEncoding.Encode(canon, decoded)
 	s.valueScratch = canon
 	if needKey {
-		key := valuekey.BinaryKeyBytes(s.keyTmp[:0], 1, decoded)
+		key := valuecodec.BinaryKeyBytes(s.keyTmp[:0], 1, decoded)
 		s.keyTmp = key
 		s.setKey(metrics, runtime.VKBinary, key, false)
 	}

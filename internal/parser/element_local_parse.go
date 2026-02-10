@@ -3,11 +3,11 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseLocalElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs *elementAttrScan) (*types.ElementDecl, error) {
+func parseLocalElement(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, attrs *elementAttrScan) (*model.ElementDecl, error) {
 	if attrs.name == "" {
 		return nil, fmt.Errorf("element missing name and ref")
 	}
@@ -36,8 +36,8 @@ func parseLocalElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema,
 		return nil, err
 	}
 
-	decl := &types.ElementDecl{
-		Name: types.QName{
+	decl := &model.ElementDecl{
+		Name: model.QName{
 			Namespace: elementNamespace,
 			Local:     attrs.name,
 		},
@@ -47,9 +47,9 @@ func parseLocalElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema,
 	}
 	decl.TypeExplicit = attrs.hasType || hasInlineType
 	if effectiveForm == Qualified {
-		decl.Form = types.FormQualified
+		decl.Form = model.FormQualified
 	} else {
-		decl.Form = types.FormUnqualified
+		decl.Form = model.FormUnqualified
 	}
 
 	typ, err := resolveElementType(doc, elem, schema, attrs)
@@ -64,7 +64,7 @@ func parseLocalElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema,
 		return nil, err
 	}
 
-	parsed, err := types.NewElementDeclFromParsed(decl)
+	parsed, err := model.NewElementDeclFromParsed(decl)
 	if err != nil {
 		return nil, err
 	}

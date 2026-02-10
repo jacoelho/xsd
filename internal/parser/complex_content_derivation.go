@@ -3,23 +3,23 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseComplexContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.Restriction, types.QName, error) {
+func parseComplexContentRestriction(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.Restriction, model.QName, error) {
 	if err := validateOptionalID(doc, elem, "restriction", schema); err != nil {
-		return nil, types.QName{}, err
+		return nil, model.QName{}, err
 	}
 	base := doc.GetAttribute(elem, "base")
 	if base == "" {
-		return nil, types.QName{}, fmt.Errorf("restriction missing base")
+		return nil, model.QName{}, fmt.Errorf("restriction missing base")
 	}
 	baseQName, err := resolveQNameWithPolicy(doc, base, elem, schema, useDefaultNamespace)
 	if err != nil {
-		return nil, types.QName{}, err
+		return nil, model.QName{}, err
 	}
-	restriction := &types.Restriction{Base: baseQName}
+	restriction := &model.Restriction{Base: baseQName}
 
 	children := collectXSDChildren(doc, elem)
 	err = validateComplexContentChildren(doc, children, "restriction")
@@ -31,7 +31,7 @@ func parseComplexContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, sc
 		return nil, baseQName, err
 	}
 	if particleIndex != -1 {
-		var particle types.Particle
+		var particle model.Particle
 		particle, err = parseComplexContentParticle(doc, children[particleIndex], schema, "restriction")
 		if err != nil {
 			return nil, baseQName, err
@@ -50,19 +50,19 @@ func parseComplexContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, sc
 	return restriction, baseQName, nil
 }
 
-func parseComplexContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.Extension, types.QName, error) {
+func parseComplexContentExtension(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.Extension, model.QName, error) {
 	if err := validateOptionalID(doc, elem, "extension", schema); err != nil {
-		return nil, types.QName{}, err
+		return nil, model.QName{}, err
 	}
 	base := doc.GetAttribute(elem, "base")
 	if base == "" {
-		return nil, types.QName{}, fmt.Errorf("extension missing base")
+		return nil, model.QName{}, fmt.Errorf("extension missing base")
 	}
 	baseQName, err := resolveQNameWithPolicy(doc, base, elem, schema, useDefaultNamespace)
 	if err != nil {
-		return nil, types.QName{}, err
+		return nil, model.QName{}, err
 	}
-	extension := &types.Extension{Base: baseQName}
+	extension := &model.Extension{Base: baseQName}
 
 	children := collectXSDChildren(doc, elem)
 	err = validateComplexContentChildren(doc, children, "extension")
@@ -74,7 +74,7 @@ func parseComplexContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, sche
 		return nil, baseQName, err
 	}
 	if particleIndex != -1 {
-		var particle types.Particle
+		var particle model.Particle
 		particle, err = parseComplexContentParticle(doc, children[particleIndex], schema, "extension")
 		if err != nil {
 			return nil, baseQName, err

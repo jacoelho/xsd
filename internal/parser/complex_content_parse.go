@@ -3,12 +3,12 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseComplexContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.ComplexContent, error) {
-	cc := &types.ComplexContent{}
+func parseComplexContent(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.ComplexContent, error) {
+	cc := &model.ComplexContent{}
 
 	if err := validateOptionalID(doc, elem, "complexContent", schema); err != nil {
 		return nil, err
@@ -25,7 +25,7 @@ func parseComplexContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 	seenAnnotation := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 

@@ -3,12 +3,12 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
-func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexType, restrictionAttrs []*types.AttributeDecl, context string) error {
+func validateRestrictionAttributes(schema *parser.Schema, baseCT *model.ComplexType, restrictionAttrs []*model.AttributeDecl, context string) error {
 	if baseCT == nil {
 		return nil
 	}
@@ -19,10 +19,10 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 	}
 	for _, restrictionAttr := range restrictionAttrs {
 		effectiveRestriction := effectiveAttributeUse(schema, restrictionAttr)
-		key := typeops.EffectiveAttributeQName(schema, effectiveRestriction)
+		key := typeresolve.EffectiveAttributeQName(schema, effectiveRestriction)
 		baseAttr, exists := baseAttrMap[key]
 		if !exists {
-			if baseAnyAttr == nil || !types.AllowsNamespace(
+			if baseAnyAttr == nil || !model.AllowsNamespace(
 				baseAnyAttr.Namespace,
 				baseAnyAttr.NamespaceList,
 				baseAnyAttr.TargetNamespace,
@@ -33,17 +33,17 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 			continue
 		}
 		effectiveBase := effectiveAttributeUse(schema, baseAttr)
-		if effectiveBase.Use == types.Required && effectiveRestriction.Use != types.Required {
+		if effectiveBase.Use == model.Required && effectiveRestriction.Use != model.Required {
 			return fmt.Errorf("%s: required attribute '%s' cannot be relaxed", context, restrictionAttr.Name.Local)
 		}
-		if effectiveRestriction.Use == types.Prohibited {
+		if effectiveRestriction.Use == model.Prohibited {
 			continue
 		}
 		if effectiveBase.HasFixed {
 			if !effectiveRestriction.HasFixed {
 				return fmt.Errorf("%s: attribute '%s' fixed value must match base type", context, restrictionAttr.Name.Local)
 			}
-			baseType := typeops.ResolveTypeReference(schema, effectiveBase.Type, typeops.TypeReferenceAllowMissing)
+			baseType := typeresolve.ResolveTypeReference(schema, effectiveBase.Type, typeresolve.TypeReferenceAllowMissing)
 			if baseType == nil {
 				baseType = effectiveBase.Type
 			}
@@ -53,11 +53,11 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 				return fmt.Errorf("%s: attribute '%s' fixed value must match base type", context, restrictionAttr.Name.Local)
 			}
 		}
-		baseTypeQName := types.QName{}
+		baseTypeQName := model.QName{}
 		if effectiveBase.Type != nil {
 			baseTypeQName = effectiveBase.Type.Name()
 		}
-		restrictionTypeQName := types.QName{}
+		restrictionTypeQName := model.QName{}
 		if effectiveRestriction.Type != nil {
 			restrictionTypeQName = effectiveRestriction.Type.Name()
 		}
@@ -65,8 +65,8 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 			continue
 		}
 		if baseTypeQName != restrictionTypeQName {
-			baseType := typeops.ResolveTypeReference(schema, effectiveBase.Type, typeops.TypeReferenceAllowMissing)
-			restrictionType := typeops.ResolveTypeReference(schema, effectiveRestriction.Type, typeops.TypeReferenceAllowMissing)
+			baseType := typeresolve.ResolveTypeReference(schema, effectiveBase.Type, typeresolve.TypeReferenceAllowMissing)
+			restrictionType := typeresolve.ResolveTypeReference(schema, effectiveRestriction.Type, typeresolve.TypeReferenceAllowMissing)
 			if baseType == nil {
 				baseType = effectiveBase.Type
 			}
@@ -81,7 +81,7 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *types.ComplexT
 	return nil
 }
 
-func effectiveAttributeUse(schema *parser.Schema, attr *types.AttributeDecl) *types.AttributeDecl {
+func effectiveAttributeUse(schema *parser.Schema, attr *model.AttributeDecl) *model.AttributeDecl {
 	if attr == nil || !attr.IsReference {
 		return attr
 	}

@@ -3,7 +3,7 @@ package contentmodel
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestExpandSubstitutionSequence(t *testing.T) {
@@ -19,9 +19,9 @@ func TestExpandSubstitutionSequence(t *testing.T) {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
 
-	expanded, err := ExpandSubstitution(glu, nil, func(h *types.ElementDecl) []*types.ElementDecl {
+	expanded, err := ExpandSubstitution(glu, nil, func(h *model.ElementDecl) []*model.ElementDecl {
 		if h == head {
-			return []*types.ElementDecl{member1, member2}
+			return []*model.ElementDecl{member1, member2}
 		}
 		return nil
 	})
@@ -51,7 +51,7 @@ func TestExpandSubstitutionSequence(t *testing.T) {
 func TestExpandSubstitutionBlockSubstitution(t *testing.T) {
 	head := elem("head", 1, 1)
 	head.IsReference = true
-	head.Block = head.Block.Add(types.DerivationSubstitution)
+	head.Block = head.Block.Add(model.DerivationSubstitution)
 	member := elem("m1", 1, 1)
 	group := sequence(head)
 
@@ -60,9 +60,9 @@ func TestExpandSubstitutionBlockSubstitution(t *testing.T) {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
 
-	expanded, err := ExpandSubstitution(glu, nil, func(h *types.ElementDecl) []*types.ElementDecl {
+	expanded, err := ExpandSubstitution(glu, nil, func(h *model.ElementDecl) []*model.ElementDecl {
 		if h == head {
-			return []*types.ElementDecl{member}
+			return []*model.ElementDecl{member}
 		}
 		return nil
 	})
@@ -89,9 +89,9 @@ func TestExpandSubstitutionAbstractHead(t *testing.T) {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
 
-	expanded, err := ExpandSubstitution(glu, nil, func(h *types.ElementDecl) []*types.ElementDecl {
+	expanded, err := ExpandSubstitution(glu, nil, func(h *model.ElementDecl) []*model.ElementDecl {
 		if h == head {
-			return []*types.ElementDecl{member}
+			return []*model.ElementDecl{member}
 		}
 		return nil
 	})
@@ -107,16 +107,16 @@ func TestExpandSubstitutionAbstractHead(t *testing.T) {
 }
 
 func TestExpandSubstitutionBlockExtension(t *testing.T) {
-	baseType := &types.ComplexType{QName: types.QName{Local: "HeadType"}}
+	baseType := &model.ComplexType{QName: model.QName{Local: "HeadType"}}
 	head := elem("head", 1, 1)
 	head.IsReference = true
 	head.Type = baseType
 	head.Abstract = true
-	head.Block = head.Block.Add(types.DerivationExtension)
+	head.Block = head.Block.Add(model.DerivationExtension)
 
-	memberType := &types.ComplexType{QName: types.QName{Local: "MemberType"}}
+	memberType := &model.ComplexType{QName: model.QName{Local: "MemberType"}}
 	memberType.ResolvedBase = baseType
-	memberType.DerivationMethod = types.DerivationExtension
+	memberType.DerivationMethod = model.DerivationExtension
 	member := elem("m1", 1, 1)
 	member.Type = memberType
 
@@ -126,9 +126,9 @@ func TestExpandSubstitutionBlockExtension(t *testing.T) {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
 
-	_, err = ExpandSubstitution(glu, nil, func(h *types.ElementDecl) []*types.ElementDecl {
+	_, err = ExpandSubstitution(glu, nil, func(h *model.ElementDecl) []*model.ElementDecl {
 		if h == head {
-			return []*types.ElementDecl{member}
+			return []*model.ElementDecl{member}
 		}
 		return nil
 	})
@@ -141,7 +141,7 @@ func TestExpandSubstitutionAbstractBlocked(t *testing.T) {
 	head := elem("head", 1, 1)
 	head.IsReference = true
 	head.Abstract = true
-	head.Block = head.Block.Add(types.DerivationSubstitution)
+	head.Block = head.Block.Add(model.DerivationSubstitution)
 	group := sequence(head)
 
 	glu, err := BuildGlushkov(group)
@@ -149,7 +149,7 @@ func TestExpandSubstitutionAbstractBlocked(t *testing.T) {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
 
-	_, err = ExpandSubstitution(glu, nil, func(h *types.ElementDecl) []*types.ElementDecl {
+	_, err = ExpandSubstitution(glu, nil, func(h *model.ElementDecl) []*model.ElementDecl {
 		return nil
 	})
 	if err == nil {
@@ -168,7 +168,7 @@ func TestExpandSubstitutionAbstractNoMembers(t *testing.T) {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
 
-	expanded, err := ExpandSubstitution(glu, nil, func(h *types.ElementDecl) []*types.ElementDecl {
+	expanded, err := ExpandSubstitution(glu, nil, func(h *model.ElementDecl) []*model.ElementDecl {
 		return nil
 	})
 	if err != nil {

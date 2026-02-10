@@ -3,25 +3,25 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 type attributeUses struct {
-	anyAttribute *types.AnyAttribute
-	attributes   []*types.AttributeDecl
-	attrGroups   []types.QName
+	anyAttribute *model.AnyAttribute
+	attributes   []*model.AttributeDecl
+	attrGroups   []model.QName
 }
 
-func parseAttributeUses(doc *xsdxml.Document, children []xsdxml.NodeID, schema *Schema, context string) (attributeUses, error) {
+func parseAttributeUses(doc *schemaxml.Document, children []schemaxml.NodeID, schema *Schema, context string) (attributeUses, error) {
 	uses := attributeUses{
-		attributes: []*types.AttributeDecl{},
-		attrGroups: []types.QName{},
+		attributes: []*model.AttributeDecl{},
+		attrGroups: []model.QName{},
 	}
 	hasAnyAttribute := false
 
 	for _, child := range children {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {

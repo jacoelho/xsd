@@ -3,10 +3,10 @@ package semanticresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func (r *Resolver) resolveAttributeGroupRefs(qname types.QName, groups []types.QName) error {
+func (r *Resolver) resolveAttributeGroupRefs(qname model.QName, groups []model.QName) error {
 	for _, agRef := range groups {
 		ag, err := r.lookupAttributeGroup(agRef)
 		if err != nil {
@@ -19,7 +19,7 @@ func (r *Resolver) resolveAttributeGroupRefs(qname types.QName, groups []types.Q
 	return nil
 }
 
-func (r *Resolver) resolveAttributeDecls(attrs []*types.AttributeDecl) error {
+func (r *Resolver) resolveAttributeDecls(attrs []*model.AttributeDecl) error {
 	for _, attr := range attrs {
 		if err := r.resolveAttributeType(attr); err != nil {
 			return err
@@ -28,7 +28,7 @@ func (r *Resolver) resolveAttributeDecls(attrs []*types.AttributeDecl) error {
 	return nil
 }
 
-func (r *Resolver) resolveAttributeGroup(qname types.QName, ag *types.AttributeGroup) error {
+func (r *Resolver) resolveAttributeGroup(qname model.QName, ag *model.AttributeGroup) error {
 	if r.detector.IsVisited(qname) {
 		return nil
 	}
@@ -54,7 +54,7 @@ func (r *Resolver) resolveAttributeGroup(qname types.QName, ag *types.AttributeG
 	})
 }
 
-func (r *Resolver) resolveAttributeType(attr *types.AttributeDecl) error {
+func (r *Resolver) resolveAttributeType(attr *model.AttributeDecl) error {
 	if attr == nil || attr.Type == nil || attr.IsReference {
 		return nil
 	}
@@ -66,10 +66,10 @@ func (r *Resolver) resolveAttributeType(attr *types.AttributeDecl) error {
 		}
 	}
 
-	if st, ok := attr.Type.(*types.SimpleType); ok {
+	if st, ok := attr.Type.(*model.SimpleType); ok {
 		// if it's a placeholder (has QName but no content), resolve it
-		if types.IsPlaceholderSimpleType(st) {
-			actualType, err := r.lookupType(st.QName, types.QName{})
+		if model.IsPlaceholderSimpleType(st) {
+			actualType, err := r.lookupType(st.QName, model.QName{})
 			if err != nil {
 				return fmt.Errorf("attribute %s type: %w", attr.Name, err)
 			}
@@ -84,7 +84,7 @@ func (r *Resolver) resolveAttributeType(attr *types.AttributeDecl) error {
 	return nil
 }
 
-func (r *Resolver) lookupAttributeGroup(qname types.QName) (*types.AttributeGroup, error) {
+func (r *Resolver) lookupAttributeGroup(qname model.QName) (*model.AttributeGroup, error) {
 	ag, ok := r.schema.AttributeGroups[qname]
 	if !ok {
 		return nil, fmt.Errorf("attribute group %s not found", qname)

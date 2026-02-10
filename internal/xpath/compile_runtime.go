@@ -85,7 +85,7 @@ func compileNodeTest(test NodeTest, schema *runtime.Schema, attribute bool) (run
 		if !test.NamespaceSpecified {
 			return runtime.PathOp{}, xpathErrorf("xpath wildcard namespace missing prefix")
 		}
-		nsID, err := resolveNamespace(schema, string(test.Namespace))
+		nsID, err := resolveNamespace(schema, test.Namespace)
 		if err != nil {
 			return runtime.PathOp{}, err
 		}
@@ -97,7 +97,7 @@ func compileNodeTest(test NodeTest, schema *runtime.Schema, attribute bool) (run
 
 	nsURI := ""
 	if test.NamespaceSpecified {
-		nsURI = string(test.Namespace)
+		nsURI = test.Namespace
 	}
 	nsID, err := resolveNamespace(schema, nsURI)
 	if err != nil {

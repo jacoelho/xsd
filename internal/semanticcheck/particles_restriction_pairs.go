@@ -3,12 +3,12 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateParticlePairRestriction validates that a restriction particle is a valid restriction of a base particle
-func validateParticlePairRestriction(schema *parser.Schema, baseParticle, restrictionParticle types.Particle) error {
+func validateParticlePairRestriction(schema *parser.Schema, baseParticle, restrictionParticle model.Particle) error {
 	baseParticle = normalizePointlessParticle(baseParticle)
 	restrictionParticle = normalizePointlessParticle(restrictionParticle)
 
@@ -39,9 +39,9 @@ func validateParticlePairRestriction(schema *parser.Schema, baseParticle, restri
 	return nil
 }
 
-func validateModelGroupElementRestriction(schema *parser.Schema, baseParticle, restrictionParticle types.Particle) (bool, error) {
-	baseMG, baseIsMG := baseParticle.(*types.ModelGroup)
-	restrictionElem, restrictionIsElem := restrictionParticle.(*types.ElementDecl)
+func validateModelGroupElementRestriction(schema *parser.Schema, baseParticle, restrictionParticle model.Particle) (bool, error) {
+	baseMG, baseIsMG := baseParticle.(*model.ModelGroup)
+	restrictionElem, restrictionIsElem := restrictionParticle.(*model.ElementDecl)
 	if !baseIsMG || !restrictionIsElem {
 		return false, nil
 	}
@@ -55,9 +55,9 @@ func validateModelGroupElementRestriction(schema *parser.Schema, baseParticle, r
 	return true, fmt.Errorf("ComplexContent restriction: element %s does not match any element in base model group", restrictionElem.Name)
 }
 
-func validateModelGroupPairRestriction(schema *parser.Schema, baseParticle, restrictionParticle types.Particle) (bool, error) {
-	baseMG, baseIsMG := baseParticle.(*types.ModelGroup)
-	restrictionMG, restrictionIsMG := restrictionParticle.(*types.ModelGroup)
+func validateModelGroupPairRestriction(schema *parser.Schema, baseParticle, restrictionParticle model.Particle) (bool, error) {
+	baseMG, baseIsMG := baseParticle.(*model.ModelGroup)
+	restrictionMG, restrictionIsMG := restrictionParticle.(*model.ModelGroup)
 	if !baseIsMG || !restrictionIsMG {
 		return false, nil
 	}

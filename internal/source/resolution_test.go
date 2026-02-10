@@ -4,20 +4,20 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestTypeResolution_SimpleType(t *testing.T) {
 	// simple type base types resolve during semantic resolution.
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
-	baseType := &types.SimpleType{
-		QName: types.QName{
+	baseType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
@@ -25,12 +25,12 @@ func TestTypeResolution_SimpleType(t *testing.T) {
 	schema.TypeDefs[baseType.QName] = baseType
 
 	// create derived type with QName reference (not yet resolved)
-	derivedType := &types.SimpleType{
-		QName: types.QName{
+	derivedType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		Restriction: &types.Restriction{
+		Restriction: &model.Restriction{
 			Base: baseType.QName,
 		},
 		// BaseType is nil initially (not resolved)
@@ -73,8 +73,8 @@ func TestLoadCachesSchema(t *testing.T) {
 		t.Fatalf("Load error: %v", err)
 	}
 
-	ctQName := types.QName{Namespace: "urn:test", Local: "CT"}
-	ct, ok := schema.TypeDefs[ctQName].(*types.ComplexType)
+	ctQName := model.QName{Namespace: "urn:test", Local: "CT"}
+	ct, ok := schema.TypeDefs[ctQName].(*model.ComplexType)
 	if !ok || ct == nil || len(ct.Attributes()) == 0 {
 		t.Fatalf("expected complex type %s with attributes", ctQName)
 	}
@@ -85,12 +85,12 @@ func TestLoadCachesSchema(t *testing.T) {
 	}
 	before := attr.Type
 
-	key := loader.loadKey("main.xsd", types.NamespaceURI("urn:test"))
+	key := loader.loadKey("main.xsd", model.NamespaceURI("urn:test"))
 	loaded, ok := loader.state.loadedSchema(key)
 	if !ok {
 		t.Fatalf("loader state did not return cached schema")
 	}
-	ctLoaded, ok := loaded.TypeDefs[ctQName].(*types.ComplexType)
+	ctLoaded, ok := loaded.TypeDefs[ctQName].(*model.ComplexType)
 	if !ok || ctLoaded == nil || len(ctLoaded.Attributes()) == 0 {
 		t.Fatalf("expected complex type %s after Load", ctQName)
 	}
@@ -103,30 +103,30 @@ func TestTypeResolution_ComplexType(t *testing.T) {
 	// complex type base types resolve during semantic resolution.
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
-	baseType := &types.ComplexType{
-		QName: types.QName{
+	baseType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
 		// content set via SetContent
 	}
-	baseType.SetContent(&types.ElementContent{})
+	baseType.SetContent(&model.ElementContent{})
 	schema.TypeDefs[baseType.QName] = baseType
 
-	derivedType := &types.ComplexType{
-		QName: types.QName{
+	derivedType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
 		// content set via SetContent
 		// BaseType is nil initially
 	}
-	derivedType.SetContent(&types.ComplexContent{
+	derivedType.SetContent(&model.ComplexContent{
 		Base: baseType.QName,
-		Extension: &types.Extension{
+		Extension: &model.Extension{
 			Base: baseType.QName,
 		},
 	})
@@ -149,17 +149,17 @@ func TestTypeResolution_ForwardReference(t *testing.T) {
 	// forward references should resolve even when the base type is declared later.
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// create type A that references type B (forward reference)
-	typeA := &types.SimpleType{
-		QName: types.QName{
+	typeA := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "TypeA",
 		},
-		Restriction: &types.Restriction{
-			Base: types.QName{
+		Restriction: &model.Restriction{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "TypeB",
 			},
@@ -168,8 +168,8 @@ func TestTypeResolution_ForwardReference(t *testing.T) {
 	schema.TypeDefs[typeA.QName] = typeA
 
 	// create type B (defined after type A)
-	typeB := &types.SimpleType{
-		QName: types.QName{
+	typeB := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "TypeB",
 		},
@@ -193,17 +193,17 @@ func TestTypeResolution_CircularDependency(t *testing.T) {
 	// circular dependencies must be detected
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// type A references Type B
-	typeA := &types.SimpleType{
-		QName: types.QName{
+	typeA := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "TypeA",
 		},
-		Restriction: &types.Restriction{
-			Base: types.QName{
+		Restriction: &model.Restriction{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "TypeB",
 			},
@@ -212,13 +212,13 @@ func TestTypeResolution_CircularDependency(t *testing.T) {
 	schema.TypeDefs[typeA.QName] = typeA
 
 	// type B references Type A (circular)
-	typeB := &types.SimpleType{
-		QName: types.QName{
+	typeB := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "TypeB",
 		},
-		Restriction: &types.Restriction{
-			Base: types.QName{
+		Restriction: &model.Restriction{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "TypeA",
 			},
@@ -240,17 +240,17 @@ func TestTypeResolution_MissingBaseType(t *testing.T) {
 	// missing base types must be detected
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// type that references non-existent base type
-	derivedType := &types.SimpleType{
-		QName: types.QName{
+	derivedType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "DerivedType",
 		},
-		Restriction: &types.Restriction{
-			Base: types.QName{
+		Restriction: &model.Restriction{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "NonExistentType",
 			},
@@ -270,18 +270,18 @@ func TestTypeResolution_ValidCircularUnion(t *testing.T) {
 	// this is based on MS-SimpleType2006-07-15/ste110 test case
 	schema := &parser.Schema{
 		TargetNamespace: "",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// type st is a union with member types: xsd:int, xsd:string, and st2
-	st := &types.SimpleType{
-		QName: types.QName{
+	st := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "",
 			Local:     "st",
 		},
 	}
-	st.Union = &types.UnionType{
-		MemberTypes: []types.QName{
+	st.Union = &model.UnionType{
+		MemberTypes: []model.QName{
 			{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "int"},
 			{Namespace: "http://www.w3.org/2001/XMLSchema", Local: "string"},
 			{Namespace: "", Local: "st2"},
@@ -290,14 +290,14 @@ func TestTypeResolution_ValidCircularUnion(t *testing.T) {
 	schema.TypeDefs[st.QName] = st
 
 	// type st2 is a union with member type: st (circular reference)
-	st2 := &types.SimpleType{
-		QName: types.QName{
+	st2 := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "",
 			Local:     "st2",
 		},
 	}
-	st2.Union = &types.UnionType{
-		MemberTypes: []types.QName{
+	st2.Union = &model.UnionType{
+		MemberTypes: []model.QName{
 			{Namespace: "", Local: "st"},
 		},
 	}

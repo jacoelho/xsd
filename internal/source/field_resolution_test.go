@@ -4,7 +4,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 // TestFieldResolution_AttributeField tests field type resolution for attribute fields
@@ -39,7 +39,7 @@ func TestFieldResolution_AttributeField(t *testing.T) {
 		t.Fatalf("Load() failed: %v", err)
 	}
 
-	partQName := types.QName{
+	partQName := model.QName{
 		Namespace: "http://example.com",
 		Local:     "part",
 	}
@@ -48,7 +48,7 @@ func TestFieldResolution_AttributeField(t *testing.T) {
 		t.Fatal("element 'part' not found")
 	}
 
-	var keyConstraint *types.IdentityConstraint
+	var keyConstraint *model.IdentityConstraint
 	for _, constraint := range decl.Constraints {
 		if constraint.Name == "partKey" {
 			keyConstraint = constraint
@@ -105,7 +105,7 @@ func TestFieldResolution_AttributeAxis(t *testing.T) {
 		t.Fatalf("Load() failed: %v", err)
 	}
 
-	partQName := types.QName{
+	partQName := model.QName{
 		Namespace: "http://example.com",
 		Local:     "part",
 	}
@@ -114,7 +114,7 @@ func TestFieldResolution_AttributeAxis(t *testing.T) {
 		t.Fatal("element 'part' not found")
 	}
 
-	var keyConstraint *types.IdentityConstraint
+	var keyConstraint *model.IdentityConstraint
 	for _, constraint := range decl.Constraints {
 		if constraint.Name == "partKey" {
 			keyConstraint = constraint
@@ -368,7 +368,7 @@ func TestFieldResolution_DescendantAttributeField(t *testing.T) {
 		t.Fatalf("Load() failed: %v", err)
 	}
 
-	containerQName := types.QName{
+	containerQName := model.QName{
 		Namespace: "http://example.com",
 		Local:     "container",
 	}
@@ -377,7 +377,7 @@ func TestFieldResolution_DescendantAttributeField(t *testing.T) {
 		t.Fatal("element 'container' not found")
 	}
 
-	var keyConstraint *types.IdentityConstraint
+	var keyConstraint *model.IdentityConstraint
 	for _, constraint := range decl.Constraints {
 		if constraint.Name == "partKey" {
 			keyConstraint = constraint
@@ -436,7 +436,7 @@ func TestFieldResolution_ChildElementField(t *testing.T) {
 		t.Fatalf("Load() failed: %v", err)
 	}
 
-	partQName := types.QName{
+	partQName := model.QName{
 		Namespace: "http://example.com",
 		Local:     "part",
 	}
@@ -445,7 +445,7 @@ func TestFieldResolution_ChildElementField(t *testing.T) {
 		t.Fatal("element 'part' not found")
 	}
 
-	var keyConstraint *types.IdentityConstraint
+	var keyConstraint *model.IdentityConstraint
 	for _, constraint := range decl.Constraints {
 		if constraint.Name == "partKey" {
 			keyConstraint = constraint
@@ -515,7 +515,7 @@ func TestFieldResolution_DescendantElementField(t *testing.T) {
 		t.Fatalf("Load() failed: %v", err)
 	}
 
-	containerQName := types.QName{
+	containerQName := model.QName{
 		Namespace: "http://example.com",
 		Local:     "container",
 	}
@@ -524,7 +524,7 @@ func TestFieldResolution_DescendantElementField(t *testing.T) {
 		t.Fatal("element 'container' not found")
 	}
 
-	var keyConstraint *types.IdentityConstraint
+	var keyConstraint *model.IdentityConstraint
 	for _, constraint := range decl.Constraints {
 		if constraint.Name == "partKey" {
 			keyConstraint = constraint

@@ -3,12 +3,12 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func validateElementParticle(schema *parser.Schema, elem *types.ElementDecl) error {
+func validateElementParticle(schema *parser.Schema, elem *model.ElementDecl) error {
 	if err := validateElementConstraints(elem); err != nil {
 		return err
 	}
@@ -24,7 +24,7 @@ func validateElementParticle(schema *parser.Schema, elem *types.ElementDecl) err
 	return validateInlineElementType(schema, elem)
 }
 
-func validateElementConstraints(elem *types.ElementDecl) error {
+func validateElementConstraints(elem *model.ElementDecl) error {
 	for _, constraint := range elem.Constraints {
 		if err := validateIdentityConstraint(constraint); err != nil {
 			return fmt.Errorf("element '%s' identity constraint '%s': %w", elem.Name, constraint.Name, err)
@@ -33,7 +33,7 @@ func validateElementConstraints(elem *types.ElementDecl) error {
 	return nil
 }
 
-func validateElementConstraintNames(elem *types.ElementDecl) error {
+func validateElementConstraintNames(elem *model.ElementDecl) error {
 	constraintNames := make(map[string]bool)
 	for _, constraint := range elem.Constraints {
 		if constraintNames[constraint.Name] {
@@ -44,7 +44,7 @@ func validateElementConstraintNames(elem *types.ElementDecl) error {
 	return nil
 }
 
-func validateReferencedElementType(schema *parser.Schema, elem *types.ElementDecl) error {
+func validateReferencedElementType(schema *parser.Schema, elem *model.ElementDecl) error {
 	if refDecl, exists := schema.ElementDecls[elem.Name]; exists {
 		if refDecl.Type == nil {
 			return fmt.Errorf("referenced element '%s' must have a type", elem.Name)
@@ -53,14 +53,14 @@ func validateReferencedElementType(schema *parser.Schema, elem *types.ElementDec
 	return nil
 }
 
-func validateInlineElementType(schema *parser.Schema, elem *types.ElementDecl) error {
-	if st, ok := elem.Type.(*types.SimpleType); ok && st.QName.IsZero() {
+func validateInlineElementType(schema *parser.Schema, elem *model.ElementDecl) error {
+	if st, ok := elem.Type.(*model.SimpleType); ok && st.QName.IsZero() {
 		if err := validateSimpleTypeStructure(schema, st); err != nil {
 			return fmt.Errorf("inline simpleType in element '%s': %w", elem.Name, err)
 		}
 		return nil
 	}
-	if complexType, ok := elem.Type.(*types.ComplexType); ok && complexType.QName.IsZero() {
+	if complexType, ok := elem.Type.(*model.ComplexType); ok && complexType.QName.IsZero() {
 		if err := validateComplexTypeStructure(schema, complexType, typeDefinitionInline); err != nil {
 			return fmt.Errorf("inline complexType in element '%s': %w", elem.Name, err)
 		}
@@ -70,7 +70,7 @@ func validateInlineElementType(schema *parser.Schema, elem *types.ElementDecl) e
 
 // validateGroupStructure validates structural constraints of a group definition
 // Does not validate references (which might be forward references or imports)
-func validateGroupStructure(groupQName types.QName, group *types.ModelGroup) error {
+func validateGroupStructure(groupQName model.QName, group *model.ModelGroup) error {
 	if !qname.IsValidNCName(groupQName.Local) {
 		return fmt.Errorf("invalid group name '%s': must be a valid NCName", groupQName.Local)
 	}

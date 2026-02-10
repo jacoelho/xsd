@@ -8,25 +8,10 @@ import (
 )
 
 // NamespaceURI represents a namespace URI.
-type NamespaceURI string
+type NamespaceURI = string
 
 // NamespaceEmpty represents an empty namespace URI (no namespace).
 const NamespaceEmpty NamespaceURI = ""
-
-// String returns the namespace URI as a string.
-func (ns NamespaceURI) String() string {
-	return string(ns)
-}
-
-// IsEmpty returns true if the namespace URI is empty.
-func (ns NamespaceURI) IsEmpty() bool {
-	return ns == NamespaceEmpty
-}
-
-// Equal returns true if two namespace URIs are equal.
-func (ns NamespaceURI) Equal(other NamespaceURI) bool {
-	return ns == other
-}
 
 // ResolveNamespace looks up a prefix in a namespace context map.
 func ResolveNamespace(prefix string, context map[string]string) (NamespaceURI, bool) {
@@ -37,7 +22,7 @@ func ResolveNamespace(prefix string, context map[string]string) (NamespaceURI, b
 	if !ok {
 		return NamespaceEmpty, false
 	}
-	return NamespaceURI(uri), true
+	return uri, true
 }
 
 // QName represents a qualified name with namespace and local part.
@@ -46,17 +31,27 @@ type QName struct {
 	Local     string
 }
 
+// Is reports whether the QName matches the namespace and local name.
+func (q QName) Is(namespace, local string) bool {
+	return q.Namespace == namespace && q.Local == local
+}
+
+// HasLocal reports whether the local name matches, ignoring namespace.
+func (q QName) HasLocal(local string) bool {
+	return q.Local == local
+}
+
 // String returns the QName in {namespace}local format, or just local if no namespace.
 func (q QName) String() string {
-	if q.Namespace.IsEmpty() {
+	if q.Namespace == NamespaceEmpty {
 		return q.Local
 	}
-	return "{" + q.Namespace.String() + "}" + q.Local
+	return "{" + q.Namespace + "}" + q.Local
 }
 
 // IsZero returns true if the QName is the zero value.
 func (q QName) IsZero() bool {
-	return q.Namespace.IsEmpty() && q.Local == ""
+	return q.Namespace == NamespaceEmpty && q.Local == ""
 }
 
 // Equal returns true if two QNames are equal.

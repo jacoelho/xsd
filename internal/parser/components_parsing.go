@@ -3,9 +3,9 @@ package parser
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 var validNotationAttributes = map[string]bool{
@@ -15,9 +15,9 @@ var validNotationAttributes = map[string]bool{
 	"system": true,
 }
 
-func parseComponents(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema) error {
+func parseComponents(doc *schemaxml.Document, root schemaxml.NodeID, schema *Schema) error {
 	for _, child := range doc.Children(root) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		if err := parseTopLevelComponent(doc, child, schema); err != nil {
@@ -27,7 +27,7 @@ func parseComponents(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema) e
 	return nil
 }
 
-func parseTopLevelComponent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
+func parseTopLevelComponent(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) error {
 	switch doc.LocalName(elem) {
 	case "annotation", "import", "include":
 		return nil
@@ -76,12 +76,12 @@ func parseTopLevelComponent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sc
 }
 
 // parseTopLevelNotation parses a top-level notation declaration
-func parseTopLevelNotation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
+func parseTopLevelNotation(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) error {
 	if err := validateAllowedAttributes(doc, elem, "notation", validNotationAttributes); err != nil {
 		return err
 	}
 
-	if types.TrimXMLWhitespace(string(doc.DirectTextContentBytes(elem))) != "" {
+	if model.TrimXMLWhitespace(string(doc.DirectTextContentBytes(elem))) != "" {
 		return fmt.Errorf("notation must not contain character data")
 	}
 
@@ -108,7 +108,7 @@ func parseTopLevelNotation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 
 	hasAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			return fmt.Errorf("notation '%s': unexpected child element '%s'", name, doc.LocalName(child))
 		}
 
@@ -123,12 +123,12 @@ func parseTopLevelNotation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 		}
 	}
 
-	notationQName := types.QName{Local: name, Namespace: schema.TargetNamespace}
+	notationQName := model.QName{Local: name, Namespace: schema.TargetNamespace}
 	if _, exists := schema.NotationDecls[notationQName]; exists {
 		return fmt.Errorf("duplicate notation declaration %s", notationQName.String())
 	}
 
-	notation := &types.NotationDecl{
+	notation := &model.NotationDecl{
 		Name:            notationQName,
 		Public:          public,
 		System:          system,

@@ -3,12 +3,12 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateParticleRestriction validates that particles in a restriction are valid restrictions of base particles
-func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *types.ModelGroup) error {
+func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *model.ModelGroup) error {
 	if baseMG.MaxOcc().IsZero() && restrictionMG.MaxOcc().IsZero() {
 		return nil
 	}
@@ -24,28 +24,28 @@ func validateParticleRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 	baseChildren := derivationChildren(baseMG)
 	restrictionChildren := derivationChildren(restrictionMG)
 	switch baseMG.Kind {
-	case types.Sequence:
+	case model.Sequence:
 		return validateSequenceRestriction(schema, baseChildren, restrictionChildren)
-	case types.Choice:
+	case model.Choice:
 		return validateChoiceRestriction(schema, baseChildren, restrictionChildren)
-	case types.AllGroup:
+	case model.AllGroup:
 		return validateAllGroupRestriction(schema, baseMG, restrictionMG)
 	}
 	return nil
 }
 
-func validateSingleWildcardGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *types.ModelGroup) error {
+func validateSingleWildcardGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *model.ModelGroup) error {
 	if len(baseMG.Particles) != 1 {
 		return nil
 	}
-	baseAny, ok := baseMG.Particles[0].(*types.AnyElement)
+	baseAny, ok := baseMG.Particles[0].(*model.AnyElement)
 	if !ok {
 		return nil
 	}
 	return validateParticlePairRestriction(schema, baseAny, restrictionMG)
 }
 
-func validateSequenceRestriction(schema *parser.Schema, baseChildren, restrictionChildren []types.Particle) error {
+func validateSequenceRestriction(schema *parser.Schema, baseChildren, restrictionChildren []model.Particle) error {
 	baseIdx := 0
 	matchedBaseParticles := make(map[int]bool)
 	for _, restrictionParticle := range restrictionChildren {
@@ -58,7 +58,7 @@ func validateSequenceRestriction(schema *parser.Schema, baseChildren, restrictio
 			err := validateParticlePairRestriction(schema, baseParticle, restrictionParticle)
 			if err == nil {
 				matchedBaseParticles[baseIdx] = true
-				if baseAny, isWildcard := baseParticle.(*types.AnyElement); isWildcard {
+				if baseAny, isWildcard := baseParticle.(*model.AnyElement); isWildcard {
 					if baseAny.MaxOccurs.IsOne() {
 						baseIdx++
 					}
@@ -70,7 +70,7 @@ func validateSequenceRestriction(schema *parser.Schema, baseChildren, restrictio
 			}
 			skippable := baseParticle.MinOcc().IsZero()
 			if !skippable {
-				if baseGroup, ok := baseParticle.(*types.ModelGroup); ok {
+				if baseGroup, ok := baseParticle.(*model.ModelGroup); ok {
 					skippable = isEffectivelyOptional(baseGroup)
 				}
 			}
@@ -90,7 +90,7 @@ func validateSequenceRestriction(schema *parser.Schema, baseChildren, restrictio
 			continue
 		}
 		if baseParticle.MinOcc().CmpInt(0) > 0 {
-			if baseMG2, ok := baseParticle.(*types.ModelGroup); ok {
+			if baseMG2, ok := baseParticle.(*model.ModelGroup); ok {
 				if isEffectivelyOptional(baseMG2) {
 					continue
 				}
@@ -101,7 +101,7 @@ func validateSequenceRestriction(schema *parser.Schema, baseChildren, restrictio
 	return nil
 }
 
-func validateChoiceRestriction(schema *parser.Schema, baseChildren, restrictionChildren []types.Particle) error {
+func validateChoiceRestriction(schema *parser.Schema, baseChildren, restrictionChildren []model.Particle) error {
 	baseIdx := 0
 	for _, restrictionParticle := range restrictionChildren {
 		if restrictionParticle.MaxOcc().IsZero() && restrictionParticle.MinOcc().IsZero() {
@@ -123,7 +123,7 @@ func validateChoiceRestriction(schema *parser.Schema, baseChildren, restrictionC
 	return nil
 }
 
-func validateAllGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *types.ModelGroup) error {
+func validateAllGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *model.ModelGroup) error {
 	baseChildren := derivationChildren(baseMG)
 	restrictionChildren := derivationChildren(restrictionMG)
 
@@ -143,7 +143,7 @@ func validateAllGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 			}
 			skippable := baseParticle.MinOcc().IsZero()
 			if !skippable {
-				if baseGroup, ok := baseParticle.(*types.ModelGroup); ok {
+				if baseGroup, ok := baseParticle.(*model.ModelGroup); ok {
 					skippable = isEffectivelyOptional(baseGroup)
 				}
 			}
@@ -158,7 +158,7 @@ func validateAllGroupRestriction(schema *parser.Schema, baseMG, restrictionMG *t
 	for i := baseIdx; i < len(baseChildren); i++ {
 		baseParticle := baseChildren[i]
 		if baseParticle.MinOcc().CmpInt(0) > 0 {
-			if baseGroup, ok := baseParticle.(*types.ModelGroup); ok {
+			if baseGroup, ok := baseParticle.(*model.ModelGroup); ok {
 				if isEffectivelyOptional(baseGroup) {
 					continue
 				}

@@ -3,11 +3,11 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleType, error) {
+func parseListDerivation(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.SimpleType, error) {
 	if err := validateAnnotationOrder(doc, elem); err != nil {
 		return nil, err
 	}
@@ -16,13 +16,13 @@ func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 	}
 
 	itemType := doc.GetAttribute(elem, "itemType")
-	facetType := &types.SimpleType{}
-	facetType.SetWhiteSpace(types.WhiteSpaceCollapse)
+	facetType := &model.SimpleType{}
+	facetType.SetWhiteSpace(model.WhiteSpaceCollapse)
 
-	var inlineItemType *types.SimpleType
-	var restriction *types.Restriction
+	var inlineItemType *model.SimpleType
+	var restriction *model.Restriction
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -39,14 +39,14 @@ func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 			if restriction != nil {
 				return nil, fmt.Errorf("list cannot have multiple restriction children")
 			}
-			restriction = &types.Restriction{}
+			restriction = &model.Restriction{}
 			if err := parseFacetsWithPolicy(doc, child, restriction, facetType, schema, facetAttributesDisallowed); err != nil {
 				return nil, fmt.Errorf("parse facets in list restriction: %w", err)
 			}
 		}
 	}
 
-	if facetType.WhiteSpaceExplicit() && facetType.WhiteSpace() != types.WhiteSpaceCollapse {
+	if facetType.WhiteSpaceExplicit() && facetType.WhiteSpace() != model.WhiteSpaceCollapse {
 		return nil, fmt.Errorf("list whiteSpace facet must be 'collapse'")
 	}
 
@@ -57,14 +57,14 @@ func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 		return nil, fmt.Errorf("list must have either itemType attribute or inline simpleType child")
 	}
 
-	var parsed *types.SimpleType
+	var parsed *model.SimpleType
 	var err error
 	if inlineItemType != nil {
-		list := &types.ListType{
-			ItemType:       types.QName{},
+		list := &model.ListType{
+			ItemType:       model.QName{},
 			InlineItemType: inlineItemType,
 		}
-		parsed, err = types.NewListSimpleType(types.QName{}, "", list, restriction)
+		parsed, err = model.NewListSimpleType(model.QName{}, "", list, restriction)
 		if err != nil {
 			return nil, fmt.Errorf("simpleType: %w", err)
 		}
@@ -73,8 +73,8 @@ func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 		if err != nil {
 			return nil, err
 		}
-		list := &types.ListType{ItemType: itemTypeQName}
-		parsed, err = types.NewListSimpleType(types.QName{}, "", list, restriction)
+		list := &model.ListType{ItemType: itemTypeQName}
+		parsed, err = model.NewListSimpleType(model.QName{}, "", list, restriction)
 		if err != nil {
 			return nil, fmt.Errorf("simpleType: %w", err)
 		}
@@ -88,7 +88,7 @@ func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 	return parsed, nil
 }
 
-func parseUnionDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleType, error) {
+func parseUnionDerivation(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.SimpleType, error) {
 	if err := validateAnnotationOrder(doc, elem); err != nil {
 		return nil, err
 	}
@@ -97,13 +97,13 @@ func parseUnionDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 	}
 
 	memberTypesAttr := doc.GetAttribute(elem, "memberTypes")
-	union := &types.UnionType{
-		MemberTypes: []types.QName{},
-		InlineTypes: []*types.SimpleType{},
+	union := &model.UnionType{
+		MemberTypes: []model.QName{},
+		InlineTypes: []*model.SimpleType{},
 	}
 
 	if memberTypesAttr != "" {
-		for memberTypeName := range types.FieldsXMLWhitespaceSeq(memberTypesAttr) {
+		for memberTypeName := range model.FieldsXMLWhitespaceSeq(memberTypesAttr) {
 			memberTypeQName, err := resolveQNameWithPolicy(doc, memberTypeName, elem, schema, useDefaultNamespace)
 			if err != nil {
 				return nil, fmt.Errorf("resolve member type %s: %w", memberTypeName, err)
@@ -113,7 +113,7 @@ func parseUnionDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		if doc.LocalName(child) == "simpleType" {
@@ -125,7 +125,7 @@ func parseUnionDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 		}
 	}
 
-	parsed, err := types.NewUnionSimpleType(types.QName{}, "", union)
+	parsed, err := model.NewUnionSimpleType(model.QName{}, "", union)
 	if err != nil {
 		return nil, fmt.Errorf("simpleType: %w", err)
 	}

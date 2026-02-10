@@ -4,7 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 )
 
 func TestFacetApplicability_LengthOnListType(t *testing.T) {
@@ -12,25 +13,25 @@ func TestFacetApplicability_LengthOnListType(t *testing.T) {
 	// per XSD spec: for list types, length counts list items, not string length
 
 	// create a list type with numeric itemType (integer)
-	integerType := types.GetBuiltin(types.TypeNameInteger)
+	integerType := builtins.Get(model.TypeNameInteger)
 	if integerType == nil {
 		t.Fatal("integer type not found")
 	}
 
-	listType := &types.SimpleType{
-		QName: types.QName{
+	listType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "IntegerList",
 		},
-		List: &types.ListType{
+		List: &model.ListType{
 			ItemType: integerType.Name(),
 		},
 	}
 	listType.ItemType = integerType
 
 	// test length facet on list type
-	lengthFacet := &types.Length{Value: 5}
-	facetList := []types.Facet{lengthFacet}
+	lengthFacet := &model.Length{Value: 5}
+	facetList := []model.Facet{lengthFacet}
 	baseQName := listType.QName
 
 	err := ValidateFacetConstraints(nil, facetList, listType, baseQName)
@@ -42,25 +43,25 @@ func TestFacetApplicability_LengthOnListType(t *testing.T) {
 func TestFacetApplicability_MaxLengthOnListType(t *testing.T) {
 	// maxLength facets are applicable to list types, even if itemType is numeric
 
-	integerType := types.GetBuiltin(types.TypeNameInteger)
+	integerType := builtins.Get(model.TypeNameInteger)
 	if integerType == nil {
 		t.Fatal("integer type not found")
 	}
 
-	listType := &types.SimpleType{
-		QName: types.QName{
+	listType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "IntegerList",
 		},
-		List: &types.ListType{
+		List: &model.ListType{
 			ItemType: integerType.Name(),
 		},
 	}
 	listType.ItemType = integerType
 
 	// test maxLength facet on list type
-	maxLengthFacet := &types.MaxLength{Value: 3}
-	facetList := []types.Facet{maxLengthFacet}
+	maxLengthFacet := &model.MaxLength{Value: 3}
+	facetList := []model.Facet{maxLengthFacet}
 	baseQName := listType.QName
 
 	err := ValidateFacetConstraints(nil, facetList, listType, baseQName)
@@ -72,25 +73,25 @@ func TestFacetApplicability_MaxLengthOnListType(t *testing.T) {
 func TestFacetApplicability_MinLengthOnListType(t *testing.T) {
 	// minLength facets are applicable to list types, even if itemType is numeric
 
-	decimalType := types.GetBuiltin(types.TypeNameDecimal)
+	decimalType := builtins.Get(model.TypeNameDecimal)
 	if decimalType == nil {
 		t.Fatal("decimal type not found")
 	}
 
-	listType := &types.SimpleType{
-		QName: types.QName{
+	listType := &model.SimpleType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "DecimalList",
 		},
-		List: &types.ListType{
+		List: &model.ListType{
 			ItemType: decimalType.Name(),
 		},
 	}
 	listType.ItemType = decimalType
 
 	// test minLength facet on list type
-	minLengthFacet := &types.MinLength{Value: 2}
-	facetList := []types.Facet{minLengthFacet}
+	minLengthFacet := &model.MinLength{Value: 2}
+	facetList := []model.Facet{minLengthFacet}
 	baseQName := listType.QName
 
 	err := ValidateFacetConstraints(nil, facetList, listType, baseQName)
@@ -102,13 +103,13 @@ func TestFacetApplicability_MinLengthOnListType(t *testing.T) {
 func TestFacetApplicability_LengthOnAtomicNumericType(t *testing.T) {
 	// length facets are NOT applicable to atomic numeric types (should fail)
 
-	atomicType, err := types.NewBuiltinSimpleType(types.TypeNameInteger)
+	atomicType, err := builtins.NewSimpleType(model.TypeNameInteger)
 	if err != nil {
 		t.Fatalf("NewBuiltinSimpleType(integer) failed: %v", err)
 	}
 
-	lengthFacet := &types.Length{Value: 5}
-	facetList := []types.Facet{lengthFacet}
+	lengthFacet := &model.Length{Value: 5}
+	facetList := []model.Facet{lengthFacet}
 	baseQName := atomicType.Name()
 
 	err = ValidateFacetConstraints(nil, facetList, atomicType, baseQName)
@@ -120,13 +121,13 @@ func TestFacetApplicability_LengthOnAtomicNumericType(t *testing.T) {
 }
 
 func TestFacetApplicability_LengthOnDurationType(t *testing.T) {
-	durationType, err := types.NewBuiltinSimpleType(types.TypeNameDuration)
+	durationType, err := builtins.NewSimpleType(model.TypeNameDuration)
 	if err != nil {
 		t.Fatalf("NewBuiltinSimpleType(duration) failed: %v", err)
 	}
 
-	lengthFacet := &types.Length{Value: 3}
-	facetList := []types.Facet{lengthFacet}
+	lengthFacet := &model.Length{Value: 3}
+	facetList := []model.Facet{lengthFacet}
 	baseQName := durationType.Name()
 
 	err = ValidateFacetConstraints(nil, facetList, durationType, baseQName)

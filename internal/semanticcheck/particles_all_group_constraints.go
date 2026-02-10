@@ -3,12 +3,12 @@ package semanticcheck
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func validateAllGroupConstraints(group *types.ModelGroup, parentKind *types.GroupKind) error {
+func validateAllGroupConstraints(group *model.ModelGroup, parentKind *model.GroupKind) error {
 	if parentKind != nil {
-		if *parentKind == types.Sequence || *parentKind == types.Choice {
+		if *parentKind == model.Sequence || *parentKind == model.Choice {
 			return fmt.Errorf("xs:all cannot appear as a child of xs:sequence or xs:choice (XSD 1.0)")
 		}
 	}
@@ -27,10 +27,10 @@ func validateAllGroupConstraints(group *types.ModelGroup, parentKind *types.Grou
 	return nil
 }
 
-func validateAllGroupUniqueElements(particles []types.Particle) error {
-	seenElements := make(map[types.QName]bool)
+func validateAllGroupUniqueElements(particles []model.Particle) error {
+	seenElements := make(map[model.QName]bool)
 	for _, childParticle := range particles {
-		childElem, ok := childParticle.(*types.ElementDecl)
+		childElem, ok := childParticle.(*model.ElementDecl)
 		if !ok {
 			continue
 		}
@@ -42,7 +42,7 @@ func validateAllGroupUniqueElements(particles []types.Particle) error {
 	return nil
 }
 
-func validateAllGroupOccurrence(group *types.ModelGroup) error {
+func validateAllGroupOccurrence(group *model.ModelGroup) error {
 	if !group.MinOccurs.IsZero() && !group.MinOccurs.IsOne() {
 		return fmt.Errorf("xs:all must have minOccurs='0' or '1' (got %s)", group.MinOccurs)
 	}
@@ -52,7 +52,7 @@ func validateAllGroupOccurrence(group *types.ModelGroup) error {
 	return nil
 }
 
-func validateAllGroupParticleOccurs(particles []types.Particle) error {
+func validateAllGroupParticleOccurs(particles []model.Particle) error {
 	for _, childParticle := range particles {
 		if childParticle.MaxOcc().CmpInt(1) > 0 {
 			return fmt.Errorf("xs:all: all particles must have maxOccurs <= 1 (got %s)", childParticle.MaxOcc())
@@ -61,13 +61,13 @@ func validateAllGroupParticleOccurs(particles []types.Particle) error {
 	return nil
 }
 
-func validateAllGroupNested(particles []types.Particle) error {
+func validateAllGroupNested(particles []model.Particle) error {
 	for _, childParticle := range particles {
-		childMG, ok := childParticle.(*types.ModelGroup)
+		childMG, ok := childParticle.(*model.ModelGroup)
 		if !ok {
 			continue
 		}
-		if childMG.Kind == types.AllGroup && childMG.MinOccurs.CmpInt(0) > 0 {
+		if childMG.Kind == model.AllGroup && childMG.MinOccurs.CmpInt(0) > 0 {
 			return fmt.Errorf("xs:all: nested xs:all cannot have minOccurs > 0 (got %s)", childMG.MinOccurs)
 		}
 	}

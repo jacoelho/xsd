@@ -1,25 +1,25 @@
 package semanticresolve
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // collectAllIdentityConstraints collects all identity constraints from the schema
 // including constraints on local elements in content models.
-func collectAllIdentityConstraints(sch *parser.Schema) []*types.IdentityConstraint {
-	var all []*types.IdentityConstraint
-	visitedGroups := make(map[*types.ModelGroup]bool)
-	visitedTypes := make(map[*types.ComplexType]bool)
-	var collectParticles func([]types.Particle, map[*types.ModelGroup]bool, map[*types.ComplexType]bool) []*types.IdentityConstraint
-	collectParticles = func(particles []types.Particle, visited map[*types.ModelGroup]bool, visitedComplex map[*types.ComplexType]bool) []*types.IdentityConstraint {
-		return collectFromParticlesWithVisited(particles, visited, visitedComplex, func(p *types.ElementDecl, visitedNestedGroups map[*types.ModelGroup]bool, visitedNestedTypes map[*types.ComplexType]bool) []*types.IdentityConstraint {
+func collectAllIdentityConstraints(sch *parser.Schema) []*model.IdentityConstraint {
+	var all []*model.IdentityConstraint
+	visitedGroups := make(map[*model.ModelGroup]bool)
+	visitedTypes := make(map[*model.ComplexType]bool)
+	var collectParticles func([]model.Particle, map[*model.ModelGroup]bool, map[*model.ComplexType]bool) []*model.IdentityConstraint
+	collectParticles = func(particles []model.Particle, visited map[*model.ModelGroup]bool, visitedComplex map[*model.ComplexType]bool) []*model.IdentityConstraint {
+		return collectFromParticlesWithVisited(particles, visited, visitedComplex, func(p *model.ElementDecl, visitedNestedGroups map[*model.ModelGroup]bool, visitedNestedTypes map[*model.ComplexType]bool) []*model.IdentityConstraint {
 			if p == nil {
 				return nil
 			}
-			constraints := append([]*types.IdentityConstraint(nil), p.Constraints...)
-			ct, ok := p.Type.(*types.ComplexType)
+			constraints := append([]*model.IdentityConstraint(nil), p.Constraints...)
+			ct, ok := p.Type.(*model.ComplexType)
 			if !ok || ct == nil {
 				return constraints
 			}
@@ -32,21 +32,21 @@ func collectAllIdentityConstraints(sch *parser.Schema) []*types.IdentityConstrai
 		})
 	}
 
-	collectFromContent := func(content types.Content) {
+	collectFromContent := func(content model.Content) {
 		all = append(all, collectFromContentParticlesWithVisited(content, visitedGroups, visitedTypes, collectParticles)...)
 	}
 
 	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		all = append(all, decl.Constraints...)
-		if ct, ok := decl.Type.(*types.ComplexType); ok {
+		if ct, ok := decl.Type.(*model.ComplexType); ok {
 			collectFromContent(ct.Content())
 		}
 	}
 
 	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
-		if ct, ok := typ.(*types.ComplexType); ok {
+		if ct, ok := typ.(*model.ComplexType); ok {
 			collectFromContent(ct.Content())
 		}
 	}

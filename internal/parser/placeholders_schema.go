@@ -1,14 +1,14 @@
 package parser
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
 // HasPlaceholders reports whether unresolved type placeholders remain.
 func HasPlaceholders(schema *Schema) bool {
 	if schema == nil {
 		return false
 	}
-	visitedTypes := make(map[types.Type]bool)
-	visitedGroups := make(map[*types.ModelGroup]bool)
+	visitedTypes := make(map[model.Type]bool)
+	visitedGroups := make(map[*model.ModelGroup]bool)
 
 	for _, typ := range schema.TypeDefs {
 		if hasPlaceholderType(typ, visitedTypes, visitedGroups) {
@@ -44,7 +44,7 @@ func HasPlaceholders(schema *Schema) bool {
 	return false
 }
 
-func hasPlaceholderInAttributeGroup(group *types.AttributeGroup, visitedTypes map[types.Type]bool, visitedGroups map[*types.ModelGroup]bool) bool {
+func hasPlaceholderInAttributeGroup(group *model.AttributeGroup, visitedTypes map[model.Type]bool, visitedGroups map[*model.ModelGroup]bool) bool {
 	if group == nil {
 		return false
 	}

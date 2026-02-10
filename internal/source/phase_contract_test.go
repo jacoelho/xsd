@@ -4,7 +4,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestLoadKeepsTypeReferencesSymbolic(t *testing.T) {
@@ -32,8 +32,8 @@ func TestLoadKeepsTypeReferencesSymbolic(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	derivedQName := types.QName{Namespace: "urn:test", Local: "DerivedType"}
-	derived, ok := sch.TypeDefs[derivedQName].(*types.ComplexType)
+	derivedQName := model.QName{Namespace: "urn:test", Local: "DerivedType"}
+	derived, ok := sch.TypeDefs[derivedQName].(*model.ComplexType)
 	if !ok || derived == nil {
 		t.Fatalf("expected complex type %s", derivedQName)
 	}
@@ -67,7 +67,7 @@ func TestLoadKeepsIdentityFieldTypesUnresolved(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	root := sch.ElementDecls[types.QName{Namespace: "urn:test", Local: "root"}]
+	root := sch.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
 	if root == nil || len(root.Constraints) == 0 || len(root.Constraints[0].Fields) == 0 {
 		t.Fatal("expected root key field")
 	}

@@ -5,8 +5,8 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func CloneSchemaForMerge(sch *parser.Schema) *parser.Schema {
@@ -86,12 +86,12 @@ func cloneMap[K comparable, V any](src map[K]V) map[K]V {
 	return dst
 }
 
-func sortedQNames[V any](m map[types.QName]V) []types.QName {
-	keys := make([]types.QName, 0, len(m))
+func sortedQNames[V any](m map[model.QName]V) []model.QName {
+	keys := make([]model.QName, 0, len(m))
 	for qname := range m {
 		keys = append(keys, qname)
 	}
-	slices.SortFunc(keys, func(a, b types.QName) int {
+	slices.SortFunc(keys, func(a, b model.QName) int {
 		if a.Namespace != b.Namespace {
 			return cmp.Compare(a.Namespace, b.Namespace)
 		}
@@ -108,7 +108,7 @@ func copyImportContexts(src map[string]parser.ImportContext) map[string]parser.I
 	for key, ctx := range src {
 		copied := ctx
 		if ctx.Imports != nil {
-			imports := make(map[types.NamespaceURI]bool, len(ctx.Imports))
+			imports := make(map[model.NamespaceURI]bool, len(ctx.Imports))
 			for ns := range ctx.Imports {
 				imports[ns] = true
 			}
@@ -121,17 +121,17 @@ func copyImportContexts(src map[string]parser.ImportContext) map[string]parser.I
 	return dst
 }
 
-func copyImportedNamespaces(src map[types.NamespaceURI]map[types.NamespaceURI]bool) map[types.NamespaceURI]map[types.NamespaceURI]bool {
+func copyImportedNamespaces(src map[model.NamespaceURI]map[model.NamespaceURI]bool) map[model.NamespaceURI]map[model.NamespaceURI]bool {
 	if src == nil {
 		return nil
 	}
-	dst := make(map[types.NamespaceURI]map[types.NamespaceURI]bool, len(src))
+	dst := make(map[model.NamespaceURI]map[model.NamespaceURI]bool, len(src))
 	for ns, imports := range src {
 		if imports == nil {
 			dst[ns] = nil
 			continue
 		}
-		copied := make(map[types.NamespaceURI]bool, len(imports))
+		copied := make(map[model.NamespaceURI]bool, len(imports))
 		for imported := range imports {
 			copied[imported] = true
 		}
@@ -140,17 +140,17 @@ func copyImportedNamespaces(src map[types.NamespaceURI]map[types.NamespaceURI]bo
 	return dst
 }
 
-func copyQNameSliceMap(src map[types.QName][]types.QName) map[types.QName][]types.QName {
+func copyQNameSliceMap(src map[model.QName][]model.QName) map[model.QName][]model.QName {
 	if src == nil {
 		return nil
 	}
-	dst := make(map[types.QName][]types.QName, len(src))
+	dst := make(map[model.QName][]model.QName, len(src))
 	for key, value := range src {
 		if value == nil {
 			dst[key] = nil
 			continue
 		}
-		copied := make([]types.QName, len(value))
+		copied := make([]model.QName, len(value))
 		copy(copied, value)
 		dst[key] = copied
 	}

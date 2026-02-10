@@ -1,12 +1,12 @@
 package semanticcheck
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-type modelGroupVisit = traversal.VisitTracker[*types.ModelGroup]
+type modelGroupVisit = traversal.VisitTracker[*model.ModelGroup]
 
 func newModelGroupVisit() modelGroupVisit {
-	return traversal.NewVisitTracker[*types.ModelGroup]()
+	return traversal.NewVisitTracker[*model.ModelGroup]()
 }

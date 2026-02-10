@@ -3,21 +3,21 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseSimpleContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.Extension, types.QName, error) {
+func parseSimpleContentExtension(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.Extension, model.QName, error) {
 	if err := validateOptionalID(doc, elem, "extension", schema); err != nil {
-		return nil, types.QName{}, err
+		return nil, model.QName{}, err
 	}
 	base := doc.GetAttribute(elem, "base")
 	if base == "" {
-		return nil, types.QName{}, fmt.Errorf("extension missing base")
+		return nil, model.QName{}, fmt.Errorf("extension missing base")
 	}
 	baseQName, err := resolveQNameWithPolicy(doc, base, elem, schema, useDefaultNamespace)
 	if err != nil {
-		return nil, types.QName{}, err
+		return nil, model.QName{}, err
 	}
 
 	err = validateSimpleContentExtensionChildren(doc, elem)
@@ -25,7 +25,7 @@ func parseSimpleContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 		return nil, baseQName, err
 	}
 
-	extension := &types.Extension{Base: baseQName}
+	extension := &model.Extension{Base: baseQName}
 	uses, err := parseAttributeUses(doc, doc.Children(elem), schema, "extension")
 	if err != nil {
 		return nil, baseQName, err
@@ -37,9 +37,9 @@ func parseSimpleContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 	return extension, baseQName, nil
 }
 
-func validateSimpleContentExtensionChildren(doc *xsdxml.Document, elem xsdxml.NodeID) error {
+func validateSimpleContentExtensionChildren(doc *schemaxml.Document, elem schemaxml.NodeID) error {
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 

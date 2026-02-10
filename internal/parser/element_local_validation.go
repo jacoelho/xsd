@@ -3,8 +3,8 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 func validateLocalElementAttributes(attrs *elementAttrScan) error {
@@ -20,7 +20,7 @@ func validateLocalElementAttributes(attrs *elementAttrScan) error {
 	return nil
 }
 
-func validateLocalElementChildren(doc *xsdxml.Document, elem xsdxml.NodeID) error {
+func validateLocalElementChildren(doc *schemaxml.Document, elem schemaxml.NodeID) error {
 	if err := validateAnnotationOrder(doc, elem); err != nil {
 		return err
 	}
@@ -29,7 +29,7 @@ func validateLocalElementChildren(doc *xsdxml.Document, elem xsdxml.NodeID) erro
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -43,10 +43,10 @@ func validateLocalElementChildren(doc *xsdxml.Document, elem xsdxml.NodeID) erro
 	return nil
 }
 
-func resolveLocalElementForm(attrs *elementAttrScan, schema *Schema) (Form, types.NamespaceURI, error) {
+func resolveLocalElementForm(attrs *elementAttrScan, schema *Schema) (Form, model.NamespaceURI, error) {
 	var effectiveForm Form
 	if formAttr := attrs.form; formAttr != "" {
-		formAttr = types.ApplyWhiteSpace(formAttr, types.WhiteSpaceCollapse)
+		formAttr = model.ApplyWhiteSpace(formAttr, model.WhiteSpaceCollapse)
 		switch formAttr {
 		case "qualified":
 			effectiveForm = Qualified
@@ -59,7 +59,7 @@ func resolveLocalElementForm(attrs *elementAttrScan, schema *Schema) (Form, type
 		effectiveForm = schema.ElementFormDefault
 	}
 
-	var elementNamespace types.NamespaceURI
+	var elementNamespace model.NamespaceURI
 	if effectiveForm == Qualified {
 		elementNamespace = schema.TargetNamespace
 	}

@@ -3,8 +3,8 @@ package contentmodel
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestDeterminizeSequence(t *testing.T) {
@@ -22,15 +22,15 @@ func TestDeterminizeSequence(t *testing.T) {
 		{Kind: runtime.PosExact, Sym: 2, Elem: 20},
 	}
 
-	model, err := Compile(glu, matchers, Limits{MaxDFAStates: 16})
+	compiled, err := Compile(glu, matchers, Limits{MaxDFAStates: 16})
 	if err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
-	if model.Kind != runtime.ModelDFA {
-		t.Fatalf("model kind = %v, want DFA", model.Kind)
+	if compiled.Kind != runtime.ModelDFA {
+		t.Fatalf("model kind = %v, want DFA", compiled.Kind)
 	}
 
-	dfa := model.DFA
+	dfa := compiled.DFA
 	if len(dfa.States) != 3 {
 		t.Fatalf("states = %d, want 3", len(dfa.States))
 	}
@@ -79,25 +79,25 @@ func TestDeterminizeFallbackToNFA(t *testing.T) {
 		{Kind: runtime.PosExact, Sym: 2, Elem: 20},
 	}
 
-	model, err := Compile(glu, matchers, Limits{MaxDFAStates: 1})
+	compiled, err := Compile(glu, matchers, Limits{MaxDFAStates: 1})
 	if err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
-	if model.Kind != runtime.ModelNFA {
-		t.Fatalf("model kind = %v, want NFA", model.Kind)
+	if compiled.Kind != runtime.ModelNFA {
+		t.Fatalf("model kind = %v, want NFA", compiled.Kind)
 	}
-	if len(model.NFA.Matchers) != len(matchers) {
-		t.Fatalf("matchers = %d, want %d", len(model.NFA.Matchers), len(matchers))
+	if len(compiled.NFA.Matchers) != len(matchers) {
+		t.Fatalf("matchers = %d, want %d", len(compiled.NFA.Matchers), len(matchers))
 	}
-	if model.NFA.Start.Len == 0 {
+	if compiled.NFA.Start.Len == 0 {
 		t.Fatalf("expected non-empty start set")
 	}
 }
 
 func TestDeterminizeWildcardEdges(t *testing.T) {
-	anyElem := &types.AnyElement{
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
+	anyElem := &model.AnyElement{
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 	}
 
 	glu, err := BuildGlushkov(anyElem)
@@ -109,21 +109,21 @@ func TestDeterminizeWildcardEdges(t *testing.T) {
 		{Kind: runtime.PosWildcard, Rule: 3},
 	}
 
-	model, err := Compile(glu, matchers, Limits{MaxDFAStates: 8})
+	compiled, err := Compile(glu, matchers, Limits{MaxDFAStates: 8})
 	if err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
-	if model.Kind != runtime.ModelDFA {
-		t.Fatalf("model kind = %v, want DFA", model.Kind)
+	if compiled.Kind != runtime.ModelDFA {
+		t.Fatalf("model kind = %v, want DFA", compiled.Kind)
 	}
-	if len(model.DFA.Wildcards) != 1 {
-		t.Fatalf("wildcard edges = %d, want 1", len(model.DFA.Wildcards))
+	if len(compiled.DFA.Wildcards) != 1 {
+		t.Fatalf("wildcard edges = %d, want 1", len(compiled.DFA.Wildcards))
 	}
-	state0 := model.DFA.States[0]
+	state0 := compiled.DFA.States[0]
 	if state0.WildLen != 1 {
 		t.Fatalf("state0 wildcard len = %d, want 1", state0.WildLen)
 	}
-	if model.DFA.Wildcards[state0.WildOff].Rule != 3 {
-		t.Fatalf("wildcard rule = %d, want 3", model.DFA.Wildcards[state0.WildOff].Rule)
+	if compiled.DFA.Wildcards[state0.WildOff].Rule != 3 {
+		t.Fatalf("wildcard rule = %d, want 3", compiled.DFA.Wildcards[state0.WildOff].Rule)
 	}
 }

@@ -3,9 +3,10 @@ package semanticcheck
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // TestCollectElementDeclarationsFromType tests the element collection logic
@@ -13,64 +14,64 @@ import (
 func TestCollectElementDeclarationsFromType(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// base type with one element
-	baseType := &types.ComplexType{
-		QName: types.QName{Namespace: "http://example.com", Local: "BaseType"},
+	baseType := &model.ComplexType{
+		QName: model.QName{Namespace: "http://example.com", Local: "BaseType"},
 	}
-	baseType.SetContent(&types.ElementContent{
-		Particle: &types.ModelGroup{
-			Kind: types.Sequence,
-			Particles: []types.Particle{
-				&types.ElementDecl{
-					Name: types.QName{Namespace: "http://example.com", Local: "baseElement"},
-					Type: types.GetBuiltin(types.TypeNameString),
+	baseType.SetContent(&model.ElementContent{
+		Particle: &model.ModelGroup{
+			Kind: model.Sequence,
+			Particles: []model.Particle{
+				&model.ElementDecl{
+					Name: model.QName{Namespace: "http://example.com", Local: "baseElement"},
+					Type: builtins.Get(model.TypeNameString),
 				},
 			},
 		},
 	})
 
 	// middle type extending base
-	middleType := &types.ComplexType{
-		QName: types.QName{Namespace: "http://example.com", Local: "MiddleType"},
+	middleType := &model.ComplexType{
+		QName: model.QName{Namespace: "http://example.com", Local: "MiddleType"},
 	}
-	middleType.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
+	middleType.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
 			Base: baseType.QName,
-			Particle: &types.ModelGroup{
-				Kind: types.Sequence,
-				Particles: []types.Particle{
-					&types.ElementDecl{
-						Name: types.QName{Namespace: "http://example.com", Local: "middleElement"},
-						Type: types.GetBuiltin(types.TypeNameInteger),
+			Particle: &model.ModelGroup{
+				Kind: model.Sequence,
+				Particles: []model.Particle{
+					&model.ElementDecl{
+						Name: model.QName{Namespace: "http://example.com", Local: "middleElement"},
+						Type: builtins.Get(model.TypeNameInteger),
 					},
 				},
 			},
 		},
 	})
-	middleType.DerivationMethod = types.DerivationExtension
+	middleType.DerivationMethod = model.DerivationExtension
 
 	// extended type extending middle
-	extendedType := &types.ComplexType{
-		QName: types.QName{Namespace: "http://example.com", Local: "ExtendedType"},
+	extendedType := &model.ComplexType{
+		QName: model.QName{Namespace: "http://example.com", Local: "ExtendedType"},
 	}
-	extendedType.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
+	extendedType.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
 			Base: middleType.QName,
-			Particle: &types.ModelGroup{
-				Kind: types.Sequence,
-				Particles: []types.Particle{
-					&types.ElementDecl{
-						Name: types.QName{Namespace: "http://example.com", Local: "extendedElement"},
-						Type: types.GetBuiltin(types.TypeNameDate),
+			Particle: &model.ModelGroup{
+				Kind: model.Sequence,
+				Particles: []model.Particle{
+					&model.ElementDecl{
+						Name: model.QName{Namespace: "http://example.com", Local: "extendedElement"},
+						Type: builtins.Get(model.TypeNameDate),
 					},
 				},
 			},
 		},
 	})
-	extendedType.DerivationMethod = types.DerivationExtension
+	extendedType.DerivationMethod = model.DerivationExtension
 
 	schema.TypeDefs[baseType.QName] = baseType
 	schema.TypeDefs[middleType.QName] = middleType

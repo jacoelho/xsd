@@ -3,12 +3,13 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateTypeQNameReference validates that a type QName reference exists.
-func validateTypeQNameReference(schema *parser.Schema, qname types.QName, contextNamespace types.NamespaceURI) error {
+func validateTypeQNameReference(schema *parser.Schema, qname model.QName, contextNamespace model.NamespaceURI) error {
 	if qname.IsZero() {
 		return nil
 	}
@@ -17,8 +18,8 @@ func validateTypeQNameReference(schema *parser.Schema, qname types.QName, contex
 		return err
 	}
 
-	if qname.Namespace == types.XSDNamespace {
-		if types.GetBuiltin(types.TypeName(qname.Local)) == nil {
+	if qname.Namespace == model.XSDNamespace {
+		if builtins.Get(builtins.TypeName(qname.Local)) == nil {
 			return fmt.Errorf("type '%s' not found in XSD namespace", qname.Local)
 		}
 		return nil

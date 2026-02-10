@@ -3,13 +3,14 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func elementHasInlineType(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
+func elementHasInlineType(doc *schemaxml.Document, elem schemaxml.NodeID) bool {
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) == xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) == schemaxml.XSDNamespace {
 			name := doc.LocalName(child)
 			if name == "complexType" || name == "simpleType" {
 				return true
@@ -19,22 +20,22 @@ func elementHasInlineType(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
 	return false
 }
 
-func resolveElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs *elementAttrScan) (types.Type, error) {
+func resolveElementType(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, attrs *elementAttrScan) (model.Type, error) {
 	if typeName := attrs.typ; typeName != "" {
 		typeQName, err := resolveQNameWithPolicy(doc, typeName, elem, schema, useDefaultNamespace)
 		if err != nil {
 			return nil, fmt.Errorf("resolve type %s: %w", typeName, err)
 		}
 
-		if builtinType := types.GetBuiltinNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
+		if builtinType := builtins.GetNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
 			return builtinType, nil
 		}
-		return types.NewPlaceholderSimpleType(typeQName), nil
+		return model.NewPlaceholderSimpleType(typeQName), nil
 	}
 
-	var typ types.Type
+	var typ model.Type
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 
@@ -61,7 +62,7 @@ func resolveElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 	}
 
 	if typ == nil {
-		typ = types.GetBuiltin(types.TypeNameAnyType)
+		typ = builtins.Get(builtins.TypeNameAnyType)
 	}
 
 	return typ, nil

@@ -3,24 +3,24 @@ package semanticcheck
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestListWhiteSpaceFacetOverrideRejected(t *testing.T) {
 	cases := []struct {
 		name       string
-		whiteSpace types.WhiteSpace
+		whiteSpace model.WhiteSpace
 	}{
-		{"preserve", types.WhiteSpacePreserve},
-		{"replace", types.WhiteSpaceReplace},
+		{"preserve", model.WhiteSpacePreserve},
+		{"replace", model.WhiteSpaceReplace},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			schema := parser.NewSchema()
-			list := &types.ListType{ItemType: types.QName{Namespace: types.XSDNamespace, Local: "string"}}
-			st, err := types.NewListSimpleType(types.QName{Namespace: "urn:test", Local: "list"}, "urn:test", list, nil)
+			list := &model.ListType{ItemType: model.QName{Namespace: model.XSDNamespace, Local: "string"}}
+			st, err := model.NewListSimpleType(model.QName{Namespace: "urn:test", Local: "list"}, "urn:test", list, nil)
 			if err != nil {
 				t.Fatalf("NewListSimpleType error = %v", err)
 			}
@@ -36,12 +36,12 @@ func TestListWhiteSpaceFacetOverrideRejected(t *testing.T) {
 
 func TestListWhiteSpaceCollapseAllowed(t *testing.T) {
 	schema := parser.NewSchema()
-	list := &types.ListType{ItemType: types.QName{Namespace: types.XSDNamespace, Local: "string"}}
-	st, err := types.NewListSimpleType(types.QName{Namespace: "urn:test", Local: "list"}, "urn:test", list, nil)
+	list := &model.ListType{ItemType: model.QName{Namespace: model.XSDNamespace, Local: "string"}}
+	st, err := model.NewListSimpleType(model.QName{Namespace: "urn:test", Local: "list"}, "urn:test", list, nil)
 	if err != nil {
 		t.Fatalf("NewListSimpleType error = %v", err)
 	}
-	st.SetWhiteSpaceExplicit(types.WhiteSpaceCollapse)
+	st.SetWhiteSpaceExplicit(model.WhiteSpaceCollapse)
 	schema.TypeDefs[st.QName] = st
 
 	if errs := ValidateStructure(schema); len(errs) != 0 {

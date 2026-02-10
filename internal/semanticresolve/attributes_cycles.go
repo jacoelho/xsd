@@ -1,16 +1,16 @@
 package semanticresolve
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateNoCyclicAttributeGroups detects cycles between attribute group definitions.
 func validateNoCyclicAttributeGroups(sch *parser.Schema) error {
-	detector := NewCycleDetector[types.QName]()
-	var visit func(types.QName) error
-	visit = func(qname types.QName) error {
+	detector := NewCycleDetector[model.QName]()
+	var visit func(model.QName) error
+	visit = func(qname model.QName) error {
 		if detector.IsVisited(qname) {
 			return nil
 		}

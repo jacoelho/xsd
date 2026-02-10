@@ -1,8 +1,8 @@
 package parser
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
-func hasPlaceholderType(typ types.Type, visitedTypes map[types.Type]bool, visitedGroups map[*types.ModelGroup]bool) bool {
+func hasPlaceholderType(typ model.Type, visitedTypes map[model.Type]bool, visitedGroups map[*model.ModelGroup]bool) bool {
 	if typ == nil {
 		return false
 	}
@@ -12,11 +12,11 @@ func hasPlaceholderType(typ types.Type, visitedTypes map[types.Type]bool, visite
 	visitedTypes[typ] = true
 
 	switch t := typ.(type) {
-	case *types.SimpleType:
+	case *model.SimpleType:
 		if hasPlaceholderInSimpleType(t, visitedTypes, visitedGroups) {
 			return true
 		}
-	case *types.ComplexType:
+	case *model.ComplexType:
 		if hasPlaceholderInComplexType(t, visitedTypes, visitedGroups) {
 			return true
 		}
@@ -25,8 +25,8 @@ func hasPlaceholderType(typ types.Type, visitedTypes map[types.Type]bool, visite
 	return false
 }
 
-func hasPlaceholderInSimpleType(t *types.SimpleType, visitedTypes map[types.Type]bool, visitedGroups map[*types.ModelGroup]bool) bool {
-	if types.IsPlaceholderSimpleType(t) {
+func hasPlaceholderInSimpleType(t *model.SimpleType, visitedTypes map[model.Type]bool, visitedGroups map[*model.ModelGroup]bool) bool {
+	if model.IsPlaceholderSimpleType(t) {
 		return true
 	}
 	if t.Restriction != nil {
@@ -60,7 +60,7 @@ func hasPlaceholderInSimpleType(t *types.SimpleType, visitedTypes map[types.Type
 	return false
 }
 
-func hasPlaceholderInComplexType(t *types.ComplexType, visitedTypes map[types.Type]bool, visitedGroups map[*types.ModelGroup]bool) bool {
+func hasPlaceholderInComplexType(t *model.ComplexType, visitedTypes map[model.Type]bool, visitedGroups map[*model.ModelGroup]bool) bool {
 	if t.ResolvedBase != nil && hasPlaceholderType(t.ResolvedBase, visitedTypes, visitedGroups) {
 		return true
 	}

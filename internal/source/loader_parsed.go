@@ -1,7 +1,7 @@
 package source
 
 import (
-	"github.com/jacoelho/xsd/internal/loadgraph"
+	"github.com/jacoelho/xsd/internal/loadguard"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -42,7 +42,7 @@ func (l *SchemaLoader) cachedOrCircularSchema(key loadKey, systemID string) (*pa
 	if loadedSchema, ok := l.state.loadedSchema(key); ok {
 		return loadedSchema, nil
 	}
-	return loadgraph.CheckCircular[loadKey, *parser.Schema](&l.state, key, systemID)
+	return loadguard.CheckCircular[loadKey, *parser.Schema](&l.state, key, systemID)
 }
 
 func (l *SchemaLoader) parsedEntryLifecycle(
@@ -51,8 +51,8 @@ func (l *SchemaLoader) parsedEntryLifecycle(
 	sch *parser.Schema,
 	includes []parser.IncludeInfo,
 	imports []parser.ImportInfo,
-) loadgraph.EntryLifecycle[schemaEntry] {
-	return loadgraph.EntryLifecycle[schemaEntry]{
+) loadguard.EntryLifecycle[schemaEntry] {
+	return loadguard.EntryLifecycle[schemaEntry]{
 		Enter: func() (*schemaEntry, func()) {
 			return l.enterLoading(key)
 		},

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestGroupRefUsesDefaultNamespace(t *testing.T) {
@@ -30,19 +30,19 @@ func TestGroupRefUsesDefaultNamespace(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	ct, ok := schema.TypeDefs[types.QName{Namespace: "urn:t", Local: "ct"}].(*types.ComplexType)
+	ct, ok := schema.TypeDefs[model.QName{Namespace: "urn:t", Local: "ct"}].(*model.ComplexType)
 	if !ok {
 		t.Fatalf("complexType ct not found")
 	}
 
-	content, ok := ct.Content().(*types.ElementContent)
+	content, ok := ct.Content().(*model.ElementContent)
 	if !ok || content.Particle == nil {
 		t.Fatalf("expected element content with particle")
 	}
 
-	var refQName types.QName
-	err = types.WalkParticles([]types.Particle{content.Particle}, types.ParticleHandlers{
-		OnGroupRef: func(gr *types.GroupRef) error {
+	var refQName model.QName
+	err = model.WalkParticles([]model.Particle{content.Particle}, model.ParticleHandlers{
+		OnGroupRef: func(gr *model.GroupRef) error {
 			refQName = gr.RefQName
 			return nil
 		},
@@ -74,7 +74,7 @@ func TestAttributeGroupRefUsesDefaultNamespace(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	ct, ok := schema.TypeDefs[types.QName{Namespace: "urn:t", Local: "ct"}].(*types.ComplexType)
+	ct, ok := schema.TypeDefs[model.QName{Namespace: "urn:t", Local: "ct"}].(*model.ComplexType)
 	if !ok {
 		t.Fatalf("complexType ct not found")
 	}

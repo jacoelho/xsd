@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 func TestParseTopLevelDefinitions(t *testing.T) {
@@ -80,42 +80,42 @@ func TestParseTopLevelDefinitions(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	noteQName := types.QName{Namespace: "urn:example", Local: "note"}
+	noteQName := model.QName{Namespace: "urn:example", Local: "note"}
 	if schema.NotationDecls[noteQName] == nil {
 		t.Fatalf("expected notation %s to be parsed", noteQName)
 	}
 
-	attrQName := types.QName{Namespace: "urn:example", Local: "attr"}
+	attrQName := model.QName{Namespace: "urn:example", Local: "attr"}
 	if schema.AttributeDecls[attrQName] == nil {
 		t.Fatalf("expected attribute %s to be parsed", attrQName)
 	}
 
-	groupQName := types.QName{Namespace: "urn:example", Local: "g"}
+	groupQName := model.QName{Namespace: "urn:example", Local: "g"}
 	if schema.Groups[groupQName] == nil {
 		t.Fatalf("expected group %s to be parsed", groupQName)
 	}
 
-	attrGroupQName := types.QName{Namespace: "urn:example", Local: "ag"}
+	attrGroupQName := model.QName{Namespace: "urn:example", Local: "ag"}
 	if schema.AttributeGroups[attrGroupQName] == nil {
 		t.Fatalf("expected attributeGroup %s to be parsed", attrGroupQName)
 	}
 
-	finalQName := types.QName{Namespace: "urn:example", Local: "finalType"}
-	if st, ok := schema.TypeDefs[finalQName].(*types.SimpleType); !ok || st.Final == 0 {
+	finalQName := model.QName{Namespace: "urn:example", Local: "finalType"}
+	if st, ok := schema.TypeDefs[finalQName].(*model.SimpleType); !ok || st.Final == 0 {
 		t.Fatalf("expected simpleType final to be parsed")
 	}
 
-	extendedQName := types.QName{Namespace: "urn:example", Local: "extended"}
-	ct, ok := schema.TypeDefs[extendedQName].(*types.ComplexType)
+	extendedQName := model.QName{Namespace: "urn:example", Local: "extended"}
+	ct, ok := schema.TypeDefs[extendedQName].(*model.ComplexType)
 	if !ok {
 		t.Fatalf("expected complexType %s to be parsed", extendedQName)
 	}
-	content, ok := ct.Content().(*types.ComplexContent)
+	content, ok := ct.Content().(*model.ComplexContent)
 	if !ok || content.Extension == nil || content.Extension.AnyAttribute == nil {
 		t.Fatalf("expected complexContent extension with anyAttribute")
 	}
 
-	rootQName := types.QName{Namespace: "urn:example", Local: "root"}
+	rootQName := model.QName{Namespace: "urn:example", Local: "root"}
 	root := schema.ElementDecls[rootQName]
 	if root == nil || len(root.Constraints) != 2 {
 		t.Fatalf("expected identity constraints on root element")
@@ -146,12 +146,12 @@ func TestParseSimpleContentRestrictionWithAttributes(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	qname := types.QName{Namespace: "urn:sc", Local: "withSimpleContent"}
-	ct, ok := schema.TypeDefs[qname].(*types.ComplexType)
+	qname := model.QName{Namespace: "urn:sc", Local: "withSimpleContent"}
+	ct, ok := schema.TypeDefs[qname].(*model.ComplexType)
 	if !ok {
 		t.Fatalf("expected complexType with simpleContent to be parsed")
 	}
-	content, ok := ct.Content().(*types.SimpleContent)
+	content, ok := ct.Content().(*model.SimpleContent)
 	if !ok || content.Restriction == nil {
 		t.Fatalf("expected simpleContent restriction to be parsed")
 	}
@@ -182,7 +182,7 @@ func TestNamespaceResolutionHelpers(t *testing.T) {
 	doc := parseDoc(t, xmlStr)
 	root := doc.DocumentElement()
 	refElem := findElementWithAttr(doc, root, "element", "ref")
-	if refElem == xsdxml.InvalidNode {
+	if refElem == schemaxml.InvalidNode {
 		t.Fatalf("expected ref element to be found")
 	}
 
@@ -190,8 +190,8 @@ func TestNamespaceResolutionHelpers(t *testing.T) {
 	schema.TargetNamespace = "urn:test"
 	schema.NamespaceDecls["tns"] = "urn:test"
 	schema.NamespaceDecls["ex"] = "urn:extra"
-	schema.ImportedNamespaces[schema.TargetNamespace] = map[types.NamespaceURI]bool{
-		types.NamespaceURI("urn:extra"): true,
+	schema.ImportedNamespaces[schema.TargetNamespace] = map[model.NamespaceURI]bool{
+		model.NamespaceURI("urn:extra"): true,
 	}
 
 	ctx := namespaceContextForElement(doc, refElem, schema)
@@ -208,7 +208,7 @@ func TestNamespaceResolutionHelpers(t *testing.T) {
 	}
 
 	attrElem := findElementWithAttr(doc, root, "attribute", "ref")
-	if attrElem == xsdxml.InvalidNode {
+	if attrElem == schemaxml.InvalidNode {
 		t.Fatalf("expected attribute ref element to be found")
 	}
 	attrQName, err := resolveQNameWithPolicy(doc, doc.GetAttribute(attrElem, "ref"), attrElem, schema, forceEmptyNamespace)
@@ -229,12 +229,12 @@ func TestNamespaceResolutionHelpers(t *testing.T) {
 }
 
 func TestParseDerivationSetWithValidation(t *testing.T) {
-	allowed := types.DerivationSet(types.DerivationExtension | types.DerivationRestriction)
+	allowed := model.DerivationSet(model.DerivationExtension | model.DerivationRestriction)
 	set, err := parseDerivationSetWithValidation("extension restriction", allowed)
 	if err != nil {
 		t.Fatalf("parseDerivationSetWithValidation error = %v", err)
 	}
-	if !set.Has(types.DerivationExtension) || !set.Has(types.DerivationRestriction) {
+	if !set.Has(model.DerivationExtension) || !set.Has(model.DerivationRestriction) {
 		t.Fatalf("expected both derivation methods in set")
 	}
 
@@ -252,7 +252,7 @@ func TestParseDerivationSetWithValidation(t *testing.T) {
 }
 
 func TestParseSimpleTypeFinal(t *testing.T) {
-	allowed := types.DerivationSet(types.DerivationRestriction | types.DerivationList | types.DerivationUnion)
+	allowed := model.DerivationSet(model.DerivationRestriction | model.DerivationList | model.DerivationUnion)
 	if _, err := parseDerivationSetWithValidation("restriction list", allowed); err != nil {
 		t.Fatalf("parseDerivationSetWithValidation simpleType final error = %v", err)
 	}
@@ -502,7 +502,7 @@ func TestInlineTypesAndModelGroups(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	qname := types.QName{Namespace: "urn:inline", Local: "outer"}
+	qname := model.QName{Namespace: "urn:inline", Local: "outer"}
 	if _, ok := schema.TypeDefs[qname]; !ok {
 		t.Fatalf("expected inline simpleType to be parsed")
 	}
@@ -566,8 +566,8 @@ func TestParseBoolAndOccursValues(t *testing.T) {
 	tooLarge := strconv.FormatUint(uint64(^uint32(0))+1, 10)
 	if _, err := parseOccursValue("maxOccurs", tooLarge); err == nil {
 		t.Fatalf("expected overflow error for maxOccurs")
-	} else if !errors.Is(err, types.ErrOccursOverflow) {
-		t.Fatalf("expected %v, got %v", types.ErrOccursOverflow, err)
+	} else if !errors.Is(err, model.ErrOccursOverflow) {
+		t.Fatalf("expected %v, got %v", model.ErrOccursOverflow, err)
 	}
 	if err := validateOccursValue("unbounded"); err == nil {
 		t.Fatalf("expected validateOccursValue error")
@@ -627,7 +627,7 @@ func TestParseAttributeGroupWithAnyAttribute(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	qname := types.QName{Namespace: "urn:attr", Local: "combo"}
+	qname := model.QName{Namespace: "urn:attr", Local: "combo"}
 	attrGroup := schema.AttributeGroups[qname]
 	if attrGroup == nil {
 		t.Fatalf("expected attributeGroup %s", qname)
@@ -672,12 +672,12 @@ func TestParseComplexContentRestriction(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	qname := types.QName{Namespace: "urn:cc", Local: "restricted"}
-	ct, ok := schema.TypeDefs[qname].(*types.ComplexType)
+	qname := model.QName{Namespace: "urn:cc", Local: "restricted"}
+	ct, ok := schema.TypeDefs[qname].(*model.ComplexType)
 	if !ok {
 		t.Fatalf("expected complexType %s", qname)
 	}
-	content, ok := ct.Content().(*types.ComplexContent)
+	content, ok := ct.Content().(*model.ComplexContent)
 	if !ok || content.Restriction == nil {
 		t.Fatalf("expected complexContent restriction")
 	}
@@ -712,12 +712,12 @@ func TestParseSimpleContentExtension(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	qname := types.QName{Namespace: "urn:scx", Local: "withExt"}
-	ct, ok := schema.TypeDefs[qname].(*types.ComplexType)
+	qname := model.QName{Namespace: "urn:scx", Local: "withExt"}
+	ct, ok := schema.TypeDefs[qname].(*model.ComplexType)
 	if !ok {
 		t.Fatalf("expected complexType %s", qname)
 	}
-	content, ok := ct.Content().(*types.SimpleContent)
+	content, ok := ct.Content().(*model.SimpleContent)
 	if !ok || content.Extension == nil {
 		t.Fatalf("expected simpleContent extension")
 	}
@@ -742,7 +742,7 @@ func TestParseModelGroupAllErrors(t *testing.T) {
 	doc := parseDoc(t, xmlStr)
 	root := doc.DocumentElement()
 	allElem := findElementWithAttr(doc, root, "all", "id")
-	if allElem == xsdxml.InvalidNode {
+	if allElem == schemaxml.InvalidNode {
 		t.Fatalf("expected all element to be found")
 	}
 
@@ -795,18 +795,18 @@ func TestParseSimpleTypeListAndUnion(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	listQName := types.QName{Namespace: "urn:list", Local: "listType"}
-	listType, ok := schema.TypeDefs[listQName].(*types.SimpleType)
-	if !ok || listType.Variety() != types.ListVariety {
+	listQName := model.QName{Namespace: "urn:list", Local: "listType"}
+	listType, ok := schema.TypeDefs[listQName].(*model.SimpleType)
+	if !ok || listType.Variety() != model.ListVariety {
 		t.Fatalf("expected list simpleType")
 	}
 	if listType.List == nil {
 		t.Fatalf("expected list definition")
 	}
 
-	unionQName := types.QName{Namespace: "urn:list", Local: "unionType"}
-	unionType, ok := schema.TypeDefs[unionQName].(*types.SimpleType)
-	if !ok || unionType.Variety() != types.UnionVariety {
+	unionQName := model.QName{Namespace: "urn:list", Local: "unionType"}
+	unionType, ok := schema.TypeDefs[unionQName].(*model.SimpleType)
+	if !ok || unionType.Variety() != model.UnionVariety {
 		t.Fatalf("expected union simpleType")
 	}
 	if unionType.Union == nil || len(unionType.Union.MemberTypes) == 0 {
@@ -887,7 +887,7 @@ func TestParseElementReferenceAndLocal(t *testing.T) {
 
 	root := doc.DocumentElement()
 	refElem := findElementWithAttr(doc, root, "element", "ref")
-	if refElem == xsdxml.InvalidNode {
+	if refElem == schemaxml.InvalidNode {
 		t.Fatalf("expected ref element to be found")
 	}
 	refDecl, err := parseElement(doc, refElem, schema)
@@ -899,7 +899,7 @@ func TestParseElementReferenceAndLocal(t *testing.T) {
 	}
 
 	localElem := findElementWithAttr(doc, root, "element", "name")
-	if localElem == xsdxml.InvalidNode {
+	if localElem == schemaxml.InvalidNode {
 		t.Fatalf("expected local element to be found")
 	}
 	localDecl, err := parseElement(doc, localElem, schema)
@@ -909,7 +909,7 @@ func TestParseElementReferenceAndLocal(t *testing.T) {
 	if !localDecl.Nillable || !localDecl.HasFixed || localDecl.Fixed != "x" {
 		t.Fatalf("unexpected local element attributes")
 	}
-	if _, ok := localDecl.Type.(*types.SimpleType); !ok {
+	if _, ok := localDecl.Type.(*model.SimpleType); !ok {
 		t.Fatalf("expected inline simpleType")
 	}
 }
@@ -928,8 +928,8 @@ func TestParseTopLevelElementSubstitutionGroup(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	headQName := types.QName{Namespace: "urn:subs", Local: "head"}
-	subQName := types.QName{Namespace: "urn:subs", Local: "sub"}
+	headQName := model.QName{Namespace: "urn:subs", Local: "head"}
+	subQName := model.QName{Namespace: "urn:subs", Local: "sub"}
 	head := schema.ElementDecls[headQName]
 	if head == nil || !head.Abstract {
 		t.Fatalf("expected abstract head element")
@@ -964,29 +964,29 @@ func TestParseAttributeLocalAndReference(t *testing.T) {
 
 	root := doc.DocumentElement()
 	refAttr := findElementWithAttr(doc, root, "attribute", "ref")
-	if refAttr == xsdxml.InvalidNode {
+	if refAttr == schemaxml.InvalidNode {
 		t.Fatalf("expected ref attribute to be found")
 	}
 	refDecl, err := parseAttribute(doc, refAttr, schema, true)
 	if err != nil {
 		t.Fatalf("parseAttribute ref error = %v", err)
 	}
-	if !refDecl.IsReference || refDecl.Use != types.Required || !refDecl.HasFixed {
+	if !refDecl.IsReference || refDecl.Use != model.Required || !refDecl.HasFixed {
 		t.Fatalf("unexpected reference attribute declaration")
 	}
 
 	localAttr := findElementWithAttr(doc, root, "attribute", "default")
-	if localAttr == xsdxml.InvalidNode {
+	if localAttr == schemaxml.InvalidNode {
 		t.Fatalf("expected local attribute to be found")
 	}
 	localDecl, err := parseAttribute(doc, localAttr, schema, true)
 	if err != nil {
 		t.Fatalf("parseAttribute local error = %v", err)
 	}
-	if localDecl.Default != "d" || localDecl.Form != types.FormQualified {
+	if localDecl.Default != "d" || localDecl.Form != model.FormQualified {
 		t.Fatalf("unexpected local attribute values")
 	}
-	if _, ok := localDecl.Type.(*types.SimpleType); !ok {
+	if _, ok := localDecl.Type.(*model.SimpleType); !ok {
 		t.Fatalf("expected inline simpleType for local attribute")
 	}
 }
@@ -1006,7 +1006,7 @@ func TestParseAttributeProhibitedFixedLocalAllowed(t *testing.T) {
 
 	root := doc.DocumentElement()
 	attrElem := findElementWithAttr(doc, root, "attribute", "fixed")
-	if attrElem == xsdxml.InvalidNode {
+	if attrElem == schemaxml.InvalidNode {
 		t.Fatalf("expected attribute with fixed to be found")
 	}
 	if _, err := parseAttribute(doc, attrElem, schema, true); err != nil {
@@ -1032,7 +1032,7 @@ func TestParseAttributeProhibitedFixedReferenceAllowed(t *testing.T) {
 
 	root := doc.DocumentElement()
 	attrElem := findElementWithAttr(doc, root, "attribute", "ref")
-	if attrElem == xsdxml.InvalidNode {
+	if attrElem == schemaxml.InvalidNode {
 		t.Fatalf("expected attribute ref to be found")
 	}
 	if _, err := parseAttribute(doc, attrElem, schema, true); err != nil {
@@ -1073,12 +1073,12 @@ func TestParseComplexContentExtension(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	qname := types.QName{Namespace: "urn:ccx", Local: "extended"}
-	ct, ok := schema.TypeDefs[qname].(*types.ComplexType)
+	qname := model.QName{Namespace: "urn:ccx", Local: "extended"}
+	ct, ok := schema.TypeDefs[qname].(*model.ComplexType)
 	if !ok {
 		t.Fatalf("expected complexType %s", qname)
 	}
-	content, ok := ct.Content().(*types.ComplexContent)
+	content, ok := ct.Content().(*model.ComplexContent)
 	if !ok || content.Extension == nil {
 		t.Fatalf("expected complexContent extension")
 	}
@@ -1114,7 +1114,7 @@ func TestParseInlineComplexTypeMixedAny(t *testing.T) {
 	if ct.AnyAttribute() == nil || len(ct.Attributes()) != 1 {
 		t.Fatalf("expected attributes and anyAttribute")
 	}
-	if _, ok := ct.Content().(*types.ElementContent); !ok {
+	if _, ok := ct.Content().(*model.ElementContent); !ok {
 		t.Fatalf("expected element content with any")
 	}
 }
@@ -1150,12 +1150,12 @@ func TestParseFacetsWithPolicy(t *testing.T) {
 	schema := NewSchema()
 	elem := doc.DocumentElement()
 
-	restriction := &types.Restriction{Base: types.QName{Namespace: types.XSDNamespace, Local: "string"}}
+	restriction := &model.Restriction{Base: model.QName{Namespace: model.XSDNamespace, Local: "string"}}
 	if err := parseFacetsWithPolicy(doc, elem, restriction, nil, schema, facetAttributesDisallowed); err == nil {
 		t.Fatalf("expected facet attribute policy error")
 	}
 
-	restriction = &types.Restriction{Base: types.QName{Namespace: types.XSDNamespace, Local: "string"}}
+	restriction = &model.Restriction{Base: model.QName{Namespace: model.XSDNamespace, Local: "string"}}
 	if err := parseFacetsWithPolicy(doc, elem, restriction, nil, schema, facetAttributesAllowed); err != nil {
 		t.Fatalf("parseFacetsWithPolicy allowed error = %v", err)
 	}
@@ -1176,7 +1176,7 @@ func TestResolveQNameDefaultNamespace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveQNameWithoutBuiltin error = %v", err)
 	}
-	if qname.Namespace != types.XSDNamespace || qname.Local != "string" {
+	if qname.Namespace != model.XSDNamespace || qname.Local != "string" {
 		t.Fatalf("unexpected QName result: %s", qname)
 	}
 	if _, err := resolveQNameWithPolicy(doc, "bad:local", root, schema, useDefaultNamespace); err == nil {
@@ -1207,7 +1207,7 @@ func TestParseModelGroupNestedAndGroupRef(t *testing.T) {
 
 	root := doc.DocumentElement()
 	seqElem := findElementWithAttr(doc, root, "sequence", "id")
-	if seqElem == xsdxml.InvalidNode {
+	if seqElem == schemaxml.InvalidNode {
 		t.Fatalf("expected sequence element to be found")
 	}
 	if _, err := parseModelGroup(doc, seqElem, schema); err != nil {
@@ -1243,7 +1243,7 @@ func TestParseModelGroupRejectsEmptyID(t *testing.T) {
 			doc := parseDoc(t, xmlStr)
 			root := doc.DocumentElement()
 			groupElem := findElementWithAttr(doc, root, tt.group, "id")
-			if groupElem == xsdxml.InvalidNode {
+			if groupElem == schemaxml.InvalidNode {
 				t.Fatalf("expected %s element to be found", tt.group)
 			}
 
@@ -1280,16 +1280,16 @@ func TestParseElement_IgnoresNamespacedTypeAttribute(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	decl, ok := schema.ElementDecls[types.QName{Local: "root"}]
+	decl, ok := schema.ElementDecls[model.QName{Local: "root"}]
 	if !ok {
 		t.Fatalf("element 'root' not found in schema")
 	}
 
-	bt, ok := decl.Type.(*types.BuiltinType)
+	bt, ok := decl.Type.(*model.BuiltinType)
 	if !ok {
 		t.Fatalf("element type = %T, want anyType builtin type", decl.Type)
 	}
-	if bt.Name().Namespace != types.XSDNamespace || bt.Name().Local != "anyType" {
+	if bt.Name().Namespace != model.XSDNamespace || bt.Name().Local != "anyType" {
 		t.Fatalf("element type = %s, want xs:anyType", bt.Name())
 	}
 }
@@ -1327,7 +1327,7 @@ func TestParseAttributeDefaultsToAnySimpleType(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	qname := types.QName{Namespace: "urn:attr", Local: "Code"}
+	qname := model.QName{Namespace: "urn:attr", Local: "Code"}
 	decl := schema.AttributeDecls[qname]
 	if decl == nil {
 		t.Fatalf("attribute %s not found in schema", qname)
@@ -1335,33 +1335,33 @@ func TestParseAttributeDefaultsToAnySimpleType(t *testing.T) {
 	if decl.Type == nil {
 		t.Fatalf("attribute %s type is nil", qname)
 	}
-	if decl.Type.Name().Local != string(types.TypeNameAnySimpleType) {
+	if decl.Type.Name().Local != string(model.TypeNameAnySimpleType) {
 		t.Fatalf("attribute %s type = %s, want xs:anySimpleType", qname, decl.Type.Name())
 	}
 }
 
-func parseDoc(t *testing.T, xmlStr string) *xsdxml.Document {
+func parseDoc(t *testing.T, xmlStr string) *schemaxml.Document {
 	t.Helper()
-	doc, err := xsdxml.Parse(strings.NewReader(xmlStr))
+	doc, err := schemaxml.Parse(strings.NewReader(xmlStr))
 	if err != nil {
 		t.Fatalf("parse xml: %v", err)
 	}
 	return doc
 }
 
-func findElementWithAttr(doc *xsdxml.Document, elem xsdxml.NodeID, localName, attrName string) xsdxml.NodeID {
-	if elem == xsdxml.InvalidNode {
-		return xsdxml.InvalidNode
+func findElementWithAttr(doc *schemaxml.Document, elem schemaxml.NodeID, localName, attrName string) schemaxml.NodeID {
+	if elem == schemaxml.InvalidNode {
+		return schemaxml.InvalidNode
 	}
-	if doc.NamespaceURI(elem) == xsdxml.XSDNamespace && doc.LocalName(elem) == localName {
+	if doc.NamespaceURI(elem) == schemaxml.XSDNamespace && doc.LocalName(elem) == localName {
 		if doc.HasAttribute(elem, attrName) {
 			return elem
 		}
 	}
 	for _, child := range doc.Children(elem) {
-		if found := findElementWithAttr(doc, child, localName, attrName); found != xsdxml.InvalidNode {
+		if found := findElementWithAttr(doc, child, localName, attrName); found != schemaxml.InvalidNode {
 			return found
 		}
 	}
-	return xsdxml.InvalidNode
+	return schemaxml.InvalidNode
 }

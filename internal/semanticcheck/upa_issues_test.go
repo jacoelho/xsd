@@ -3,28 +3,28 @@ package semanticcheck
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestValidateUPA_DoesNotMutateOccurs(t *testing.T) {
 	schema := &parser.Schema{
-		TargetNamespace:    types.NamespaceURI("urn:test"),
-		SubstitutionGroups: map[types.QName][]types.QName{},
+		TargetNamespace:    model.NamespaceURI("urn:test"),
+		SubstitutionGroups: map[model.QName][]model.QName{},
 	}
 
-	elem := &types.ElementDecl{
-		Name:      types.QName{Namespace: schema.TargetNamespace, Local: "item"},
-		MinOccurs: types.OccursFromInt(0),
-		MaxOccurs: types.OccursFromInt(2),
+	elem := &model.ElementDecl{
+		Name:      model.QName{Namespace: schema.TargetNamespace, Local: "item"},
+		MinOccurs: model.OccursFromInt(0),
+		MaxOccurs: model.OccursFromInt(2),
 	}
-	group := &types.ModelGroup{
-		Kind:      types.Sequence,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
-		Particles: []types.Particle{elem},
+	group := &model.ModelGroup{
+		Kind:      model.Sequence,
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
+		Particles: []model.Particle{elem},
 	}
-	content := &types.ElementContent{Particle: group}
+	content := &model.ElementContent{Particle: group}
 
 	if err := ValidateUPA(schema, content, schema.TargetNamespace); err != nil {
 		t.Fatalf("ValidateUPA error = %v", err)
@@ -39,28 +39,28 @@ func TestValidateUPA_DoesNotMutateOccurs(t *testing.T) {
 
 func TestValidateUPA_DuplicateElementRefs(t *testing.T) {
 	schema := &parser.Schema{
-		TargetNamespace:    types.NamespaceURI("urn:test"),
-		SubstitutionGroups: map[types.QName][]types.QName{},
+		TargetNamespace:    model.NamespaceURI("urn:test"),
+		SubstitutionGroups: map[model.QName][]model.QName{},
 	}
 
-	name := types.QName{Namespace: schema.TargetNamespace, Local: "a"}
-	elem1 := &types.ElementDecl{
+	name := model.QName{Namespace: schema.TargetNamespace, Local: "a"}
+	elem1 := &model.ElementDecl{
 		Name:      name,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 	}
-	elem2 := &types.ElementDecl{
+	elem2 := &model.ElementDecl{
 		Name:      name,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 	}
-	choice := &types.ModelGroup{
-		Kind:      types.Choice,
-		MinOccurs: types.OccursFromInt(1),
-		MaxOccurs: types.OccursFromInt(1),
-		Particles: []types.Particle{elem1, elem2},
+	choice := &model.ModelGroup{
+		Kind:      model.Choice,
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
+		Particles: []model.Particle{elem1, elem2},
 	}
-	content := &types.ElementContent{Particle: choice}
+	content := &model.ElementContent{Particle: choice}
 
 	if err := ValidateUPA(schema, content, schema.TargetNamespace); err == nil {
 		t.Fatalf("expected UPA error for duplicate element references")

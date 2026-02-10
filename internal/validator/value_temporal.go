@@ -3,7 +3,7 @@ package validator
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value/temporal"
-	"github.com/jacoelho/xsd/internal/valuekey"
+	"github.com/jacoelho/xsd/internal/valuecodec"
 )
 
 func (s *Session) canonicalizeTemporal(kind runtime.ValidatorKind, normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
@@ -17,7 +17,7 @@ func (s *Session) canonicalizeTemporal(kind runtime.ValidatorKind, normalized []
 	}
 	canon := []byte(temporal.Canonical(tv))
 	if needKey {
-		key := valuekey.TemporalKeyBytes(s.keyTmp[:0], spec.KeyTag, tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)
+		key := valuecodec.TemporalKeyBytes(s.keyTmp[:0], spec.KeyTag, tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)
 		s.keyTmp = key
 		s.setKey(metrics, runtime.VKDateTime, key, false)
 	}

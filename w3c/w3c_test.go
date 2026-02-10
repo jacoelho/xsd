@@ -18,9 +18,9 @@ import (
 	"github.com/jacoelho/xsd/internal/pipeline"
 	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 	loader "github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/validator"
-	"github.com/jacoelho/xsd/internal/xsdxml"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -1216,7 +1216,7 @@ func readInstanceInfo(r io.Reader) (instanceInfo, error) {
 			rootNS:    ev.Name.Namespace,
 		}
 		for _, attr := range ev.Attrs {
-			if attr.Name.Namespace != xsdxml.XSINamespace {
+			if attr.Name.Namespace != schemaxml.XSINamespace {
 				continue
 			}
 			switch attr.Name.Local {
@@ -1237,7 +1237,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup,
 	}
 	rootNS := info.rootNS
 	rootQName := qname.QName{
-		Namespace: qname.NamespaceURI(rootNS),
+		Namespace: rootNS,
 		Local:     info.rootLocal,
 	}
 
@@ -1287,7 +1287,7 @@ func runtimeDeclaresElement(schema *runtime.Schema, root qname.QName) bool {
 		return false
 	}
 	nsID := runtime.NamespaceID(0)
-	if root.Namespace.IsEmpty() {
+	if root.Namespace == "" {
 		nsID = schema.PredefNS.Empty
 	} else {
 		nsID = schema.Namespaces.Lookup([]byte(root.Namespace))

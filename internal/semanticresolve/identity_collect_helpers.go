@@ -1,24 +1,24 @@
 package semanticresolve
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
-func collectFromContentParticlesWithVisited[T any](content types.Content, visited map[*types.ModelGroup]bool, visitedTypes map[*types.ComplexType]bool, collect func([]types.Particle, map[*types.ModelGroup]bool, map[*types.ComplexType]bool) []T) []T {
+func collectFromContentParticlesWithVisited[T any](content model.Content, visited map[*model.ModelGroup]bool, visitedTypes map[*model.ComplexType]bool, collect func([]model.Particle, map[*model.ModelGroup]bool, map[*model.ComplexType]bool) []T) []T {
 	if content == nil {
 		return nil
 	}
 	if visited == nil {
-		visited = make(map[*types.ModelGroup]bool)
+		visited = make(map[*model.ModelGroup]bool)
 	}
 	if visitedTypes == nil {
-		visitedTypes = make(map[*types.ComplexType]bool)
+		visitedTypes = make(map[*model.ComplexType]bool)
 	}
-	var particles []types.Particle
+	var particles []model.Particle
 	switch c := content.(type) {
-	case *types.ElementContent:
+	case *model.ElementContent:
 		if c.Particle != nil {
 			particles = append(particles, c.Particle)
 		}
-	case *types.ComplexContent:
+	case *model.ComplexContent:
 		if c.Extension != nil && c.Extension.Particle != nil {
 			particles = append(particles, c.Extension.Particle)
 		}
@@ -28,27 +28,27 @@ func collectFromContentParticlesWithVisited[T any](content types.Content, visite
 	}
 	var out []T
 	for _, particle := range particles {
-		out = append(out, collect([]types.Particle{particle}, visited, visitedTypes)...)
+		out = append(out, collect([]model.Particle{particle}, visited, visitedTypes)...)
 	}
 	return out
 }
 
-func collectFromParticlesWithVisited[T any](particles []types.Particle, visited map[*types.ModelGroup]bool, visitedTypes map[*types.ComplexType]bool, collectElement func(*types.ElementDecl, map[*types.ModelGroup]bool, map[*types.ComplexType]bool) []T) []T {
+func collectFromParticlesWithVisited[T any](particles []model.Particle, visited map[*model.ModelGroup]bool, visitedTypes map[*model.ComplexType]bool, collectElement func(*model.ElementDecl, map[*model.ModelGroup]bool, map[*model.ComplexType]bool) []T) []T {
 	if len(particles) == 0 {
 		return nil
 	}
 	if visited == nil {
-		visited = make(map[*types.ModelGroup]bool)
+		visited = make(map[*model.ModelGroup]bool)
 	}
 	if visitedTypes == nil {
-		visitedTypes = make(map[*types.ComplexType]bool)
+		visitedTypes = make(map[*model.ComplexType]bool)
 	}
 	var out []T
 	for _, particle := range particles {
 		switch p := particle.(type) {
-		case *types.ElementDecl:
+		case *model.ElementDecl:
 			out = append(out, collectElement(p, visited, visitedTypes)...)
-		case *types.ModelGroup:
+		case *model.ModelGroup:
 			if p == nil || visited[p] {
 				continue
 			}

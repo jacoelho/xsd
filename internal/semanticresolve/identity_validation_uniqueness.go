@@ -3,8 +3,8 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateIdentityConstraintUniqueness validates that identity constraint names are unique within the target namespace.
@@ -15,9 +15,9 @@ func validateIdentityConstraintUniqueness(sch *parser.Schema) []error {
 
 	type constraintKey struct {
 		name      string
-		namespace types.NamespaceURI
+		namespace model.NamespaceURI
 	}
-	constraintsByKey := make(map[constraintKey][]*types.IdentityConstraint)
+	constraintsByKey := make(map[constraintKey][]*model.IdentityConstraint)
 
 	allConstraints := collectAllIdentityConstraints(sch)
 	for _, constraint := range allConstraints {

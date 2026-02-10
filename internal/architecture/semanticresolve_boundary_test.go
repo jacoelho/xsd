@@ -13,7 +13,7 @@ func TestSemanticResolveImportsScopedToSchemaflow(t *testing.T) {
 	t.Parallel()
 
 	forEachParsedRepoProductionGoFile(t, parser.ImportsOnly, func(file repoGoFile, parsed *ast.File) {
-		if withinScope(file.relPath, "internal/schemaflow") || withinScope(file.relPath, "internal/semanticresolve") {
+		if withinScope(file.relPath, "internal/schemaprep") || withinScope(file.relPath, "internal/semanticresolve") {
 			return
 		}
 		for _, imp := range parsed.Imports {

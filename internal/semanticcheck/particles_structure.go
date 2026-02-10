@@ -3,37 +3,37 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateParticleStructure validates structural constraints of particles.
-func validateParticleStructure(schema *parser.Schema, particle types.Particle) error {
+func validateParticleStructure(schema *parser.Schema, particle model.Particle) error {
 	visited := newModelGroupVisit()
 	return validateParticleStructureWithVisited(schema, particle, nil, visited)
 }
 
 // validateParticleStructureWithVisited validates structural constraints with cycle detection
-func validateParticleStructureWithVisited(schema *parser.Schema, particle types.Particle, parentKind *types.GroupKind, visited modelGroupVisit) error {
+func validateParticleStructureWithVisited(schema *parser.Schema, particle model.Particle, parentKind *model.GroupKind, visited modelGroupVisit) error {
 	if err := validateParticleOccurs(particle); err != nil {
 		return err
 	}
 	switch p := particle.(type) {
-	case *types.ModelGroup:
+	case *model.ModelGroup:
 		return validateModelGroupStructure(schema, p, parentKind, visited)
-	case *types.GroupRef:
-	case *types.AnyElement:
-	case *types.ElementDecl:
+	case *model.GroupRef:
+	case *model.AnyElement:
+	case *model.ElementDecl:
 		return validateElementParticle(schema, p)
 	}
 	return nil
 }
 
-func validateParticleOccurs(particle types.Particle) error {
+func validateParticleOccurs(particle model.Particle) error {
 	maxOcc := particle.MaxOcc()
 	minOcc := particle.MinOcc()
 	if maxOcc.IsOverflow() || minOcc.IsOverflow() {
-		return fmt.Errorf("%w: occurrence value exceeds uint32", types.ErrOccursOverflow)
+		return fmt.Errorf("%w: occurrence value exceeds uint32", model.ErrOccursOverflow)
 	}
 
 	if maxOcc.IsZero() && !minOcc.IsZero() {
@@ -45,7 +45,7 @@ func validateParticleOccurs(particle types.Particle) error {
 	return nil
 }
 
-func validateModelGroupStructure(schema *parser.Schema, group *types.ModelGroup, parentKind *types.GroupKind, visited modelGroupVisit) error {
+func validateModelGroupStructure(schema *parser.Schema, group *model.ModelGroup, parentKind *model.GroupKind, visited modelGroupVisit) error {
 	if !visited.Enter(group) {
 		return nil
 	}
@@ -53,7 +53,7 @@ func validateModelGroupStructure(schema *parser.Schema, group *types.ModelGroup,
 	if err := validateLocalElementTypes(group.Particles); err != nil {
 		return err
 	}
-	if group.Kind == types.AllGroup {
+	if group.Kind == model.AllGroup {
 		if err := validateAllGroupConstraints(group, parentKind); err != nil {
 			return err
 		}
@@ -67,10 +67,10 @@ func validateModelGroupStructure(schema *parser.Schema, group *types.ModelGroup,
 	return nil
 }
 
-func validateLocalElementTypes(particles []types.Particle) error {
-	localElementTypes := make(map[types.QName]types.Type)
+func validateLocalElementTypes(particles []model.Particle) error {
+	localElementTypes := make(map[model.QName]model.Type)
 	for _, childParticle := range particles {
-		childElem, ok := childParticle.(*types.ElementDecl)
+		childElem, ok := childParticle.(*model.ElementDecl)
 		if !ok || childElem.IsReference {
 			continue
 		}

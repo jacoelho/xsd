@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // TestValidateSelectorXPathDirect tests validateSelectorXPath directly.
@@ -124,51 +124,51 @@ func TestValidateSelectorXPathDirect(t *testing.T) {
 func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
-		ElementDecls:    make(map[types.QName]*types.ElementDecl),
+		TypeDefs:        make(map[model.QName]model.Type),
+		ElementDecls:    make(map[model.QName]*model.ElementDecl),
 	}
 
-	complexType := &types.ComplexType{
-		QName: types.QName{
+	complexType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "PurchaseReportType",
 		},
 	}
-	complexType.SetContent(&types.ElementContent{
-		Particle: &types.ModelGroup{
-			Kind:      types.Sequence,
-			MinOccurs: types.OccursFromInt(1),
-			MaxOccurs: types.OccursFromInt(1),
+	complexType.SetContent(&model.ElementContent{
+		Particle: &model.ModelGroup{
+			Kind:      model.Sequence,
+			MinOccurs: model.OccursFromInt(1),
+			MaxOccurs: model.OccursFromInt(1),
 		},
 	})
-	complexTypeQName := types.QName{
+	complexTypeQName := model.QName{
 		Namespace: "http://example.com",
 		Local:     "PurchaseReportType",
 	}
 	schema.TypeDefs[complexTypeQName] = complexType
 
 	// test invalid selector - attribute selection
-	elementDecl := &types.ElementDecl{
-		Name: types.QName{
+	elementDecl := &model.ElementDecl{
+		Name: model.QName{
 			Namespace: "http://example.com",
 			Local:     "purchaseReport",
 		},
 		Type: complexType,
-		Constraints: []*types.IdentityConstraint{
+		Constraints: []*model.IdentityConstraint{
 			{
 				Name: "partKey",
-				Type: types.KeyConstraint,
-				Selector: types.Selector{
+				Type: model.KeyConstraint,
+				Selector: model.Selector{
 					XPath: "@number", // invalid - selects attribute
 				},
-				Fields: []types.Field{
+				Fields: []model.Field{
 					{XPath: "@number"},
 				},
 			},
 		},
 	}
 
-	elementQName := types.QName{
+	elementQName := model.QName{
 		Namespace: "http://example.com",
 		Local:     "purchaseReport",
 	}
@@ -181,27 +181,27 @@ func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 	}
 
 	// test invalid selector - text node selection
-	elementDecl2 := &types.ElementDecl{
-		Name: types.QName{
+	elementDecl2 := &model.ElementDecl{
+		Name: model.QName{
 			Namespace: "http://example.com",
 			Local:     "purchaseReport2",
 		},
 		Type: complexType,
-		Constraints: []*types.IdentityConstraint{
+		Constraints: []*model.IdentityConstraint{
 			{
 				Name: "partKey",
-				Type: types.KeyConstraint,
-				Selector: types.Selector{
+				Type: model.KeyConstraint,
+				Selector: model.Selector{
 					XPath: "child::text()", // invalid - selects text
 				},
-				Fields: []types.Field{
+				Fields: []model.Field{
 					{XPath: "@number"},
 				},
 			},
 		},
 	}
 
-	elementQName2 := types.QName{
+	elementQName2 := model.QName{
 		Namespace: "http://example.com",
 		Local:     "purchaseReport2",
 	}
@@ -214,27 +214,27 @@ func TestSelectorXPathInIdentityConstraint(t *testing.T) {
 	}
 
 	// test valid selector - element selection
-	elementDecl3 := &types.ElementDecl{
-		Name: types.QName{
+	elementDecl3 := &model.ElementDecl{
+		Name: model.QName{
 			Namespace: "http://example.com",
 			Local:     "purchaseReport3",
 		},
 		Type: complexType,
-		Constraints: []*types.IdentityConstraint{
+		Constraints: []*model.IdentityConstraint{
 			{
 				Name: "partKey",
-				Type: types.KeyConstraint,
-				Selector: types.Selector{
+				Type: model.KeyConstraint,
+				Selector: model.Selector{
 					XPath: "parts/part", // valid - selects elements
 				},
-				Fields: []types.Field{
+				Fields: []model.Field{
 					{XPath: "@number"},
 				},
 			},
 		},
 	}
 
-	elementQName3 := types.QName{
+	elementQName3 := model.QName{
 		Namespace: "http://example.com",
 		Local:     "purchaseReport3",
 	}

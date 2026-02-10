@@ -5,10 +5,11 @@ import (
 	"io"
 
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
-func parseSchemaDocument(doc io.ReadCloser, systemID string, opts ...xmlstream.Option) (result *parser.ParseResult, err error) {
+func parseSchemaDocument(doc io.ReadCloser, systemID string, pool *schemaxml.DocumentPool, opts ...xmlstream.Option) (result *parser.ParseResult, err error) {
 	if doc == nil {
 		return nil, fmt.Errorf("nil schema reader")
 	}
@@ -18,7 +19,7 @@ func parseSchemaDocument(doc io.ReadCloser, systemID string, opts ...xmlstream.O
 		}
 	}()
 
-	result, err = parser.ParseWithImportsOptions(doc, opts...)
+	result, err = parser.ParseWithImportsOptionsWithPool(doc, pool, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", systemID, err)
 	}

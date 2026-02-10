@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestParseSimpleSchema(t *testing.T) {
@@ -30,20 +30,20 @@ func TestParseSimpleSchema(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	if schema.TargetNamespace != types.NamespaceURI("http://example.com/simple") {
+	if schema.TargetNamespace != model.NamespaceURI("http://example.com/simple") {
 		t.Errorf("TargetNamespace = %q, want %q", schema.TargetNamespace, "http://example.com/simple")
 	}
 
-	messageQName := types.QName{
-		Namespace: types.NamespaceURI("http://example.com/simple"),
+	messageQName := model.QName{
+		Namespace: model.NamespaceURI("http://example.com/simple"),
 		Local:     "message",
 	}
 	if _, ok := schema.ElementDecls[messageQName]; !ok {
 		t.Errorf("element 'message' not found in schema")
 	}
 
-	personQName := types.QName{
-		Namespace: types.NamespaceURI("http://example.com/simple"),
+	personQName := model.QName{
+		Namespace: model.NamespaceURI("http://example.com/simple"),
 		Local:     "person",
 	}
 	if _, ok := schema.ElementDecls[personQName]; !ok {
@@ -67,19 +67,19 @@ func TestParseBooleanAttributesWithWhitespace(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	typ, ok := schema.TypeDefs[types.QName{Local: "T"}]
+	typ, ok := schema.TypeDefs[model.QName{Local: "T"}]
 	if !ok {
 		t.Fatalf("complexType 'T' not found in schema")
 	}
-	ct, ok := typ.(*types.ComplexType)
+	ct, ok := typ.(*model.ComplexType)
 	if !ok {
-		t.Fatalf("complexType 'T' = %T, want *types.ComplexType", typ)
+		t.Fatalf("complexType 'T' = %T, want *model.ComplexType", typ)
 	}
 	if !ct.Mixed() {
 		t.Fatalf("complexType 'T' mixed = false, want true")
 	}
 
-	elem, ok := schema.ElementDecls[types.QName{Local: "root"}]
+	elem, ok := schema.ElementDecls[model.QName{Local: "root"}]
 	if !ok {
 		t.Fatalf("element 'root' not found in schema")
 	}
@@ -109,16 +109,16 @@ func TestParseEnumAttributesWithWhitespace(t *testing.T) {
 		t.Fatalf("ElementFormDefault = %v, want Qualified", schema.ElementFormDefault)
 	}
 
-	root := schema.ElementDecls[types.QName{Namespace: "urn:enum", Local: "root"}]
+	root := schema.ElementDecls[model.QName{Namespace: "urn:enum", Local: "root"}]
 	if root == nil {
 		t.Fatalf("element 'root' not found in schema")
 	}
-	ct, ok := root.Type.(*types.ComplexType)
+	ct, ok := root.Type.(*model.ComplexType)
 	if !ok {
-		t.Fatalf("root type = %T, want *types.ComplexType", root.Type)
+		t.Fatalf("root type = %T, want *model.ComplexType", root.Type)
 	}
 	attrs := ct.Attributes()
-	if len(attrs) != 1 || attrs[0].Use != types.Required {
+	if len(attrs) != 1 || attrs[0].Use != model.Required {
 		t.Fatalf("attribute use = %v, want Required", attrs)
 	}
 }
@@ -259,7 +259,7 @@ func TestElementWithoutTypeDefaultsToAnyType(t *testing.T) {
 		schema       string
 		elementName  string
 		wantTypeName string
-		wantTypeNS   types.NamespaceURI
+		wantTypeNS   model.NamespaceURI
 		// "BuiltinType", "ComplexType", or "SimpleType"
 		wantTypeKind string
 	}{
@@ -271,7 +271,7 @@ func TestElementWithoutTypeDefaultsToAnyType(t *testing.T) {
 </xs:schema>`,
 			elementName:  "testElement",
 			wantTypeName: "anyType",
-			wantTypeNS:   types.XSDNamespace,
+			wantTypeNS:   model.XSDNamespace,
 			wantTypeKind: "BuiltinType",
 		},
 		{
@@ -286,7 +286,7 @@ func TestElementWithoutTypeDefaultsToAnyType(t *testing.T) {
 </xs:schema>`,
 			elementName:  "child",
 			wantTypeName: "anyType",
-			wantTypeNS:   types.XSDNamespace,
+			wantTypeNS:   model.XSDNamespace,
 			wantTypeKind: "BuiltinType",
 		},
 		{
@@ -297,7 +297,7 @@ func TestElementWithoutTypeDefaultsToAnyType(t *testing.T) {
 </xs:schema>`,
 			elementName:  "testElement",
 			wantTypeName: "anyType",
-			wantTypeNS:   types.XSDNamespace,
+			wantTypeNS:   model.XSDNamespace,
 			wantTypeKind: "BuiltinType",
 		},
 	}
@@ -312,8 +312,8 @@ func TestElementWithoutTypeDefaultsToAnyType(t *testing.T) {
 
 			// for top-level elements, check ElementDecls
 			if tt.name == "top-level element without type defaults to anyType" || tt.name == "element with explicit xs:anyType type" {
-				qname := types.QName{
-					Namespace: types.NamespaceURI("http://example.com/test"),
+				qname := model.QName{
+					Namespace: model.NamespaceURI("http://example.com/test"),
 					Local:     tt.elementName,
 				}
 				decl, ok := schema.ElementDecls[qname]
@@ -336,23 +336,23 @@ func TestElementWithoutTypeDefaultsToAnyType(t *testing.T) {
 				// verify it's the expected type kind and has the correct name
 				switch tt.wantTypeKind {
 				case "BuiltinType":
-					bt, ok := decl.Type.(*types.BuiltinType)
+					bt, ok := decl.Type.(*model.BuiltinType)
 					if !ok {
-						t.Errorf("element type is %T, want *types.BuiltinType", decl.Type)
+						t.Errorf("element type is %T, want *model.BuiltinType", decl.Type)
 					} else if bt.Name().Local != tt.wantTypeName {
 						t.Errorf("element type Local = %q, want %q", bt.Name().Local, tt.wantTypeName)
 					}
 				case "ComplexType":
-					ct, ok := decl.Type.(*types.ComplexType)
+					ct, ok := decl.Type.(*model.ComplexType)
 					if !ok {
-						t.Errorf("element type is %T, want *types.ComplexType", decl.Type)
+						t.Errorf("element type is %T, want *model.ComplexType", decl.Type)
 					} else if ct.Name().Local != tt.wantTypeName {
 						t.Errorf("element type Local = %q, want %q", ct.Name().Local, tt.wantTypeName)
 					}
 				case "SimpleType":
-					st, ok := decl.Type.(*types.SimpleType)
+					st, ok := decl.Type.(*model.SimpleType)
 					if !ok {
-						t.Errorf("element type is %T, want *types.SimpleType", decl.Type)
+						t.Errorf("element type is %T, want *model.SimpleType", decl.Type)
 					} else if st.Name().Local != tt.wantTypeName {
 						t.Errorf("element type Local = %q, want %q", st.Name().Local, tt.wantTypeName)
 					}
@@ -368,7 +368,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 		schema       string
 		elementName  string
 		wantTypeName string
-		wantTypeNS   types.NamespaceURI
+		wantTypeNS   model.NamespaceURI
 	}{
 		{
 			name: "unqualified type without default namespace resolves to no namespace",
@@ -379,7 +379,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 </xs:schema>`,
 			elementName:  "testElement",
 			wantTypeName: "string",
-			wantTypeNS:   types.NamespaceEmpty,
+			wantTypeNS:   model.NamespaceEmpty,
 		},
 		{
 			name: "unqualified string type resolves to XSD namespace",
@@ -389,7 +389,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 </xs:schema>`,
 			elementName:  "testElement",
 			wantTypeName: "string",
-			wantTypeNS:   types.XSDNamespace,
+			wantTypeNS:   model.XSDNamespace,
 		},
 		{
 			name: "unqualified integer type resolves to XSD namespace",
@@ -399,7 +399,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 </xs:schema>`,
 			elementName:  "testElement",
 			wantTypeName: "integer",
-			wantTypeNS:   types.XSDNamespace,
+			wantTypeNS:   model.XSDNamespace,
 		},
 		{
 			name: "unqualified positiveInteger type resolves to XSD namespace",
@@ -409,7 +409,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 </xs:schema>`,
 			elementName:  "testElement",
 			wantTypeName: "positiveInteger",
-			wantTypeNS:   types.XSDNamespace,
+			wantTypeNS:   model.XSDNamespace,
 		},
 		{
 			name: "unqualified boolean type resolves to XSD namespace",
@@ -419,7 +419,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 </xs:schema>`,
 			elementName:  "testElement",
 			wantTypeName: "boolean",
-			wantTypeNS:   types.XSDNamespace,
+			wantTypeNS:   model.XSDNamespace,
 		},
 		{
 			name: "unqualified type in attribute resolves to XSD namespace",
@@ -431,7 +431,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 </xs:schema>`,
 			elementName:  "TestType",
 			wantTypeName: "string",
-			wantTypeNS:   types.XSDNamespace,
+			wantTypeNS:   model.XSDNamespace,
 		},
 		{
 			name: "unqualified type in simpleType restriction resolves to XSD namespace",
@@ -443,7 +443,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 </xs:schema>`,
 			elementName:  "MyString",
 			wantTypeName: "string",
-			wantTypeNS:   types.XSDNamespace,
+			wantTypeNS:   model.XSDNamespace,
 		},
 		{
 			name: "unqualified type in complexType extension resolves to XSD namespace",
@@ -459,7 +459,7 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 </xs:schema>`,
 			elementName:  "TestType",
 			wantTypeName: "string",
-			wantTypeNS:   types.XSDNamespace,
+			wantTypeNS:   model.XSDNamespace,
 		},
 	}
 
@@ -473,8 +473,8 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 
 			switch {
 			case strings.Contains(tt.name, "element"):
-				qname := types.QName{
-					Namespace: types.NamespaceURI("http://example.com/test"),
+				qname := model.QName{
+					Namespace: model.NamespaceURI("http://example.com/test"),
 					Local:     tt.elementName,
 				}
 				decl, ok := schema.ElementDecls[qname]
@@ -494,11 +494,11 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 					t.Errorf("element type Namespace = %q, want %q", typeQName.Namespace, tt.wantTypeNS)
 				}
 			case strings.Contains(tt.name, "attribute"):
-				qname := types.QName{
-					Namespace: types.NamespaceURI("http://example.com/test"),
+				qname := model.QName{
+					Namespace: model.NamespaceURI("http://example.com/test"),
 					Local:     tt.elementName,
 				}
-				ct, ok := schema.TypeDefs[qname].(*types.ComplexType)
+				ct, ok := schema.TypeDefs[qname].(*model.ComplexType)
 				if !ok {
 					t.Fatalf("complexType %s not found in schema", tt.elementName)
 				}
@@ -520,11 +520,11 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 					t.Errorf("attribute type Namespace = %q, want %q", typeQName.Namespace, tt.wantTypeNS)
 				}
 			case strings.Contains(tt.name, "simpleType"):
-				qname := types.QName{
-					Namespace: types.NamespaceURI("http://example.com/test"),
+				qname := model.QName{
+					Namespace: model.NamespaceURI("http://example.com/test"),
 					Local:     tt.elementName,
 				}
-				st, ok := schema.TypeDefs[qname].(*types.SimpleType)
+				st, ok := schema.TypeDefs[qname].(*model.SimpleType)
 				if !ok {
 					t.Fatalf("simpleType %s not found in schema", tt.elementName)
 				}
@@ -541,16 +541,16 @@ func TestUnqualifiedTypeReferences(t *testing.T) {
 					t.Errorf("simpleType base Namespace = %q, want %q", baseQName.Namespace, tt.wantTypeNS)
 				}
 			case strings.Contains(tt.name, "extension"):
-				qname := types.QName{
-					Namespace: types.NamespaceURI("http://example.com/test"),
+				qname := model.QName{
+					Namespace: model.NamespaceURI("http://example.com/test"),
 					Local:     tt.elementName,
 				}
-				ct, ok := schema.TypeDefs[qname].(*types.ComplexType)
+				ct, ok := schema.TypeDefs[qname].(*model.ComplexType)
 				if !ok {
 					t.Fatalf("complexType %s not found in schema", tt.elementName)
 				}
 
-				sc, ok := ct.Content().(*types.SimpleContent)
+				sc, ok := ct.Content().(*model.SimpleContent)
 				if !ok {
 					t.Fatalf("complexType %s should have SimpleContent", tt.elementName)
 				}
@@ -598,16 +598,16 @@ func TestComplexContentRestrictionWithAttributesOnly(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	derivedQName := types.QName{
-		Namespace: types.NamespaceEmpty,
+	derivedQName := model.QName{
+		Namespace: model.NamespaceEmpty,
 		Local:     "DerivedType",
 	}
-	ct, ok := parsed.TypeDefs[derivedQName].(*types.ComplexType)
+	ct, ok := parsed.TypeDefs[derivedQName].(*model.ComplexType)
 	if !ok {
 		t.Fatalf("DerivedType not found or not a ComplexType")
 	}
 
-	cc, ok := ct.Content().(*types.ComplexContent)
+	cc, ok := ct.Content().(*model.ComplexContent)
 	if !ok {
 		t.Fatalf("DerivedType content is not ComplexContent, got %T", ct.Content())
 	}
@@ -624,8 +624,8 @@ func TestComplexContentRestrictionWithAttributesOnly(t *testing.T) {
 		t.Errorf("First attribute name = %q, want %q", cc.Restriction.Attributes[0].Name.Local, "att1")
 	}
 
-	if cc.Restriction.Attributes[0].Use != types.Prohibited {
-		t.Errorf("Attribute use = %v, want %v", cc.Restriction.Attributes[0].Use, types.Prohibited)
+	if cc.Restriction.Attributes[0].Use != model.Prohibited {
+		t.Errorf("Attribute use = %v, want %v", cc.Restriction.Attributes[0].Use, model.Prohibited)
 	}
 }
 

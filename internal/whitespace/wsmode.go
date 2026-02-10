@@ -1,17 +1,17 @@
 package whitespace
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
 // ToRuntime converts a schema whitespace facet to runtime mode.
-func ToRuntime(ws types.WhiteSpace) runtime.WhitespaceMode {
+func ToRuntime(ws model.WhiteSpace) runtime.WhitespaceMode {
 	switch ws {
-	case types.WhiteSpaceReplace:
+	case model.WhiteSpaceReplace:
 		return runtime.WS_Replace
-	case types.WhiteSpaceCollapse:
+	case model.WhiteSpaceCollapse:
 		return runtime.WS_Collapse
 	default:
 		return runtime.WS_Preserve

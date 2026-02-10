@@ -4,15 +4,15 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 // ResolveFieldType resolves the type of a field XPath expression.
 // Returns the type of the attribute or element selected by the field.
 // The selectorXPath is used to determine the context element (the element selected by the selector).
-func ResolveFieldType(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (types.Type, error) {
+func ResolveFieldType(schema *parser.Schema, field *model.Field, constraintElement *model.ElementDecl, selectorXPath string, nsContext map[string]string) (model.Type, error) {
 	if field == nil {
 		return nil, fmt.Errorf("field is nil")
 	}
@@ -34,7 +34,7 @@ func ResolveFieldType(schema *parser.Schema, field *types.Field, constraintEleme
 	selectorHasUnion := len(selectorDecls) > 1
 	hasUnion := fieldHasUnion || selectorHasUnion
 
-	var resolvedTypes []types.Type
+	var resolvedTypes []model.Type
 	unresolved := false
 	nillableFound := false
 	for _, selectorDecl := range selectorDecls {

@@ -1,8 +1,9 @@
 package semanticcheck
 
 import (
-	facetengine "github.com/jacoelho/xsd/internal/facets"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/facetvalue"
+	model "github.com/jacoelho/xsd/internal/model"
+	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
 )
 
 var errDurationNotComparable = facetengine.ErrDurationNotComparable
@@ -48,37 +49,37 @@ func builtinRangeFacetInfoFor(typeName string) (rangeFacetInfo, bool) {
 	}
 }
 
-func implicitRangeFacetsForBuiltin(bt *types.BuiltinType) []types.Facet {
+func implicitRangeFacetsForBuiltin(bt *model.BuiltinType) []model.Facet {
 	info, ok := builtinRangeFacetInfoFor(bt.Name().Local)
 	if !ok {
 		return nil
 	}
-	var result []types.Facet
+	var result []model.Facet
 	if info.hasMin {
 		if info.minInclusive {
-			if facet, err := types.NewMinInclusive(info.minValue, bt); err == nil {
+			if facet, err := facetvalue.NewMinInclusive(info.minValue, bt); err == nil {
 				result = append(result, facet)
 			}
-		} else if facet, err := types.NewMinExclusive(info.minValue, bt); err == nil {
+		} else if facet, err := facetvalue.NewMinExclusive(info.minValue, bt); err == nil {
 			result = append(result, facet)
 		}
 	}
 	if info.hasMax {
 		if info.maxInclusive {
-			if facet, err := types.NewMaxInclusive(info.maxValue, bt); err == nil {
+			if facet, err := facetvalue.NewMaxInclusive(info.maxValue, bt); err == nil {
 				result = append(result, facet)
 			}
-		} else if facet, err := types.NewMaxExclusive(info.maxValue, bt); err == nil {
+		} else if facet, err := facetvalue.NewMaxExclusive(info.maxValue, bt); err == nil {
 			result = append(result, facet)
 		}
 	}
 	return result
 }
 
-func extractRangeFacetInfo(facetsList []types.Facet) rangeFacetInfo {
+func extractRangeFacetInfo(facetsList []model.Facet) rangeFacetInfo {
 	var info rangeFacetInfo
 	for _, facet := range facetsList {
-		lex, ok := facet.(types.LexicalFacet)
+		lex, ok := facet.(model.LexicalFacet)
 		if !ok {
 			continue
 		}

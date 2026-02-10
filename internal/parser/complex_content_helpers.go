@@ -3,21 +3,21 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func collectXSDChildren(doc *xsdxml.Document, elem xsdxml.NodeID) []xsdxml.NodeID {
-	var children []xsdxml.NodeID
+func collectXSDChildren(doc *schemaxml.Document, elem schemaxml.NodeID) []schemaxml.NodeID {
+	var children []schemaxml.NodeID
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) == xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) == schemaxml.XSDNamespace {
 			children = append(children, child)
 		}
 	}
 	return children
 }
 
-func validateComplexContentChildren(doc *xsdxml.Document, children []xsdxml.NodeID, context string) error {
+func validateComplexContentChildren(doc *schemaxml.Document, children []schemaxml.NodeID, context string) error {
 	for _, child := range children {
 		if !validChildElementNames[childSetComplexContentChild][doc.LocalName(child)] {
 			return fmt.Errorf("complexContent %s has unexpected child element '%s'", context, doc.LocalName(child))
@@ -26,7 +26,7 @@ func validateComplexContentChildren(doc *xsdxml.Document, children []xsdxml.Node
 	return nil
 }
 
-func findComplexContentParticleIndex(doc *xsdxml.Document, children []xsdxml.NodeID, context string) (int, error) {
+func findComplexContentParticleIndex(doc *schemaxml.Document, children []schemaxml.NodeID, context string) (int, error) {
 	particleIndex := -1
 	firstAttributeIndex := -1
 
@@ -50,7 +50,7 @@ func findComplexContentParticleIndex(doc *xsdxml.Document, children []xsdxml.Nod
 	return particleIndex, nil
 }
 
-func parseComplexContentParticle(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, context string) (types.Particle, error) {
+func parseComplexContentParticle(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, context string) (model.Particle, error) {
 	switch doc.LocalName(elem) {
 	case "sequence", "choice", "all":
 		particle, err := parseModelGroup(doc, elem, schema)
@@ -75,7 +75,7 @@ func parseComplexContentParticle(doc *xsdxml.Document, elem xsdxml.NodeID, schem
 		if err != nil {
 			return nil, err
 		}
-		return &types.GroupRef{RefQName: refQName, MinOccurs: minOccurs, MaxOccurs: maxOccurs}, nil
+		return &model.GroupRef{RefQName: refQName, MinOccurs: minOccurs, MaxOccurs: maxOccurs}, nil
 	case "element":
 		particle, err := parseElement(doc, elem, schema)
 		if err != nil {

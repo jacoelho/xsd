@@ -7,19 +7,19 @@ import (
 	"testing"
 )
 
-func TestTypesParseAdaptersOnlyUsedByTypes(t *testing.T) {
+func TestModelParseAdaptersOnlyUsedByModel(t *testing.T) {
 	t.Parallel()
 
-	const typesImport = "github.com/jacoelho/xsd/internal/types"
+	const modelImport = "github.com/jacoelho/xsd/internal/model"
 
 	allowedScopes := []string{
-		"internal/types",
+		"internal/model",
 	}
 
 	forEachParsedRepoProductionGoFile(t, parser.ParseComments, func(file repoGoFile, parsed *ast.File) {
 		allowedScope := withinAnyScope(file.relPath, allowedScopes)
-		typesAliases := importAliasesForPath(parsed, typesImport, "types")
-		if len(typesAliases) == 0 {
+		modelAliases := importAliasesForPath(parsed, modelImport, "model")
+		if len(modelAliases) == 0 {
 			return
 		}
 
@@ -32,7 +32,7 @@ func TestTypesParseAdaptersOnlyUsedByTypes(t *testing.T) {
 			if !ok {
 				return true
 			}
-			if !typesAliases[pkgIdent.Name] {
+			if !modelAliases[pkgIdent.Name] {
 				return true
 			}
 			if !strings.HasPrefix(selector.Sel.Name, "Parse") {
@@ -41,7 +41,7 @@ func TestTypesParseAdaptersOnlyUsedByTypes(t *testing.T) {
 			if allowedScope {
 				return true
 			}
-			t.Fatalf("types parse adapter boundary violation: %s uses %s.%s", file.relPath, pkgIdent.Name, selector.Sel.Name)
+			t.Fatalf("model parse adapter boundary violation: %s uses %s.%s", file.relPath, pkgIdent.Name, selector.Sel.Name)
 			return false
 		})
 	})

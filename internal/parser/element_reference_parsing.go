@@ -3,12 +3,12 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 // parseElement parses an element reference or declaration within a content model
-func parseElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.ElementDecl, error) {
+func parseElement(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.ElementDecl, error) {
 	attrs := scanElementAttributes(doc, elem)
 
 	if attrs.hasID {
@@ -28,7 +28,7 @@ func parseElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*ty
 	return parseLocalElement(doc, elem, schema, &attrs)
 }
 
-func parseElementReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs *elementAttrScan) (*types.ElementDecl, error) {
+func parseElementReference(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, attrs *elementAttrScan) (*model.ElementDecl, error) {
 	if err := validateElementReferenceAttributes(doc, elem, attrs); err != nil {
 		return nil, err
 	}
@@ -43,20 +43,20 @@ func parseElementReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 		return nil, err
 	}
 
-	decl := &types.ElementDecl{
+	decl := &model.ElementDecl{
 		Name:        refQName,
 		MinOccurs:   minOccurs,
 		MaxOccurs:   maxOccurs,
 		IsReference: true,
 	}
-	parsed, err := types.NewElementDeclFromParsed(decl)
+	parsed, err := model.NewElementDeclFromParsed(decl)
 	if err != nil {
 		return nil, err
 	}
 	return parsed, nil
 }
 
-func validateElementReferenceAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, attrs *elementAttrScan) error {
+func validateElementReferenceAttributes(doc *schemaxml.Document, elem schemaxml.NodeID, attrs *elementAttrScan) error {
 	if attrs.invalidRefAttr != "" {
 		return fmt.Errorf("invalid attribute '%s' on element reference", attrs.invalidRefAttr)
 	}
@@ -90,21 +90,21 @@ func validateElementReferenceAttributes(doc *xsdxml.Document, elem xsdxml.NodeID
 	return nil
 }
 
-func parseElementOccurs(attrs *elementAttrScan) (types.Occurs, types.Occurs, error) {
-	minOccurs := types.OccursFromInt(1)
+func parseElementOccurs(attrs *elementAttrScan) (model.Occurs, model.Occurs, error) {
+	minOccurs := model.OccursFromInt(1)
 	if attrs.hasMinOccurs {
 		var err error
 		minOccurs, err = parseOccursValue("minOccurs", attrs.minOccurs)
 		if err != nil {
-			return types.OccursFromInt(0), types.OccursFromInt(0), err
+			return model.OccursFromInt(0), model.OccursFromInt(0), err
 		}
 	}
-	maxOccurs := types.OccursFromInt(1)
+	maxOccurs := model.OccursFromInt(1)
 	if attrs.hasMaxOccurs {
 		var err error
 		maxOccurs, err = parseOccursValue("maxOccurs", attrs.maxOccurs)
 		if err != nil {
-			return types.OccursFromInt(0), types.OccursFromInt(0), err
+			return model.OccursFromInt(0), model.OccursFromInt(0), err
 		}
 	}
 	return minOccurs, maxOccurs, nil

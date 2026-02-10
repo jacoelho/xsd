@@ -3,14 +3,15 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // ElementTypesCompatible checks if two element declaration types are consistent.
 // Treats nil types as compatible only when both are nil (implicit anyType).
-func ElementTypesCompatible(a, b types.Type) bool {
+func ElementTypesCompatible(a, b model.Type) bool {
 	if a == nil && b == nil {
 		return true
 	}
@@ -29,16 +30,16 @@ func ElementTypesCompatible(a, b types.Type) bool {
 
 // validateTypeDefStructure validates structural constraints of a type definition
 // Does not validate references (which might be forward references or imports)
-func validateTypeDefStructure(schema *parser.Schema, typeQName types.QName, typ types.Type) error {
+func validateTypeDefStructure(schema *parser.Schema, typeQName model.QName, typ model.Type) error {
 	// this is a structural constraint that is definitely invalid if violated
 	if !qname.IsValidNCName(typeQName.Local) {
 		return fmt.Errorf("invalid type name '%s': must be a valid NCName", typeQName.Local)
 	}
 
 	switch t := typ.(type) {
-	case *types.SimpleType:
+	case *model.SimpleType:
 		return validateSimpleTypeStructure(schema, t)
-	case *types.ComplexType:
+	case *model.ComplexType:
 		// named type definitions (top-level types), so isInline=false
 		return validateComplexTypeStructure(schema, t, typeDefinitionGlobal)
 	default:
@@ -49,7 +50,7 @@ func validateTypeDefStructure(schema *parser.Schema, typeQName types.QName, typ 
 // validateWhiteSpaceRestriction validates that a derived type's whiteSpace is not less
 // restrictive than the base type's. Order: preserve (0) < replace (1) < collapse (2)
 // Only checks if whiteSpace was explicitly set in the restriction.
-func validateWhiteSpaceRestriction(derivedType *types.SimpleType, baseType types.Type, baseQName types.QName) error {
+func validateWhiteSpaceRestriction(derivedType *model.SimpleType, baseType model.Type, baseQName model.QName) error {
 	if derivedType == nil {
 		return nil
 	}
@@ -63,17 +64,17 @@ func validateWhiteSpaceRestriction(derivedType *types.SimpleType, baseType types
 	derivedWS := derivedType.WhiteSpace()
 
 	// get base type's whiteSpace
-	var baseWS types.WhiteSpace
+	var baseWS model.WhiteSpace
 	if baseType != nil {
 		switch bt := baseType.(type) {
-		case *types.SimpleType:
+		case *model.SimpleType:
 			baseWS = bt.WhiteSpace()
-		case *types.BuiltinType:
+		case *model.BuiltinType:
 			baseWS = bt.WhiteSpace()
 		}
-	} else if !baseQName.IsZero() && baseQName.Namespace == types.XSDNamespace {
+	} else if !baseQName.IsZero() && baseQName.Namespace == model.XSDNamespace {
 		// built-in type by QName
-		builtinType := types.GetBuiltinNS(baseQName.Namespace, baseQName.Local)
+		builtinType := builtins.GetNS(baseQName.Namespace, baseQName.Local)
 		if builtinType != nil {
 			baseWS = builtinType.WhiteSpace()
 		}
@@ -90,12 +91,12 @@ func validateWhiteSpaceRestriction(derivedType *types.SimpleType, baseType types
 
 // validateNotationEnumeration validates that enumeration values for NOTATION types
 // reference declared notations in the schema.
-func validateNotationEnumeration(schema *parser.Schema, facetList []types.Facet) error {
+func validateNotationEnumeration(schema *parser.Schema, facetList []model.Facet) error {
 	if schema == nil {
 		return nil
 	}
 	for _, facet := range facetList {
-		enum, ok := facet.(*types.Enumeration)
+		enum, ok := facet.(*model.Enumeration)
 		if !ok {
 			continue
 		}

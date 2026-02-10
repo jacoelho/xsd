@@ -4,27 +4,28 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // TestCircularDerivation_TrueCycle tests that a true circular derivation (A -> B -> A) is correctly detected.
 func TestCircularDerivation_TrueCycle(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// type A extends Type B
-	typeA := &types.ComplexType{
-		QName: types.QName{
+	typeA := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "TypeA",
 		},
 	}
-	typeA.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
+	typeA.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "TypeB",
 			},
@@ -33,15 +34,15 @@ func TestCircularDerivation_TrueCycle(t *testing.T) {
 	schema.TypeDefs[typeA.QName] = typeA
 
 	// type B extends Type A (circular)
-	typeB := &types.ComplexType{
-		QName: types.QName{
+	typeB := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "TypeB",
 		},
 	}
-	typeB.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
+	typeB.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "TypeA",
 			},
@@ -63,20 +64,20 @@ func TestCircularDerivation_TrueCycle(t *testing.T) {
 func TestCircularDerivation_ValidDeepHierarchy(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// type C extends anyType (built-in)
-	typeC := &types.ComplexType{
-		QName: types.QName{
+	typeC := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "TypeC",
 		},
 	}
-	typeC.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
-				Namespace: types.XSDNamespace,
+	typeC.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
+				Namespace: model.XSDNamespace,
 				Local:     "anyType",
 			},
 		},
@@ -84,15 +85,15 @@ func TestCircularDerivation_ValidDeepHierarchy(t *testing.T) {
 	schema.TypeDefs[typeC.QName] = typeC
 
 	// type B extends Type C
-	typeB := &types.ComplexType{
-		QName: types.QName{
+	typeB := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "TypeB",
 		},
 	}
-	typeB.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
+	typeB.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "TypeC",
 			},
@@ -101,15 +102,15 @@ func TestCircularDerivation_ValidDeepHierarchy(t *testing.T) {
 	schema.TypeDefs[typeB.QName] = typeB
 
 	// type A extends Type B
-	typeA := &types.ComplexType{
-		QName: types.QName{
+	typeA := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "TypeA",
 		},
 	}
-	typeA.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
+	typeA.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "TypeB",
 			},
@@ -128,16 +129,16 @@ func TestValidateStructureDeterministicOrder(t *testing.T) {
 	schema := parser.NewSchema()
 	schema.TargetNamespace = "urn:test"
 
-	attrQName := types.QName{Namespace: "urn:test", Local: "1bad"}
-	schema.AttributeDecls[attrQName] = &types.AttributeDecl{Name: attrQName}
+	attrQName := model.QName{Namespace: "urn:test", Local: "1bad"}
+	schema.AttributeDecls[attrQName] = &model.AttributeDecl{Name: attrQName}
 	schema.GlobalDecls = append(schema.GlobalDecls, parser.GlobalDecl{Kind: parser.GlobalDeclAttribute, Name: attrQName})
 
-	elemQName := types.QName{Namespace: "urn:test", Local: "2bad"}
-	schema.ElementDecls[elemQName] = &types.ElementDecl{Name: elemQName}
+	elemQName := model.QName{Namespace: "urn:test", Local: "2bad"}
+	schema.ElementDecls[elemQName] = &model.ElementDecl{Name: elemQName}
 	schema.GlobalDecls = append(schema.GlobalDecls, parser.GlobalDecl{Kind: parser.GlobalDeclElement, Name: elemQName})
 
-	typeQName := types.QName{Namespace: "urn:test", Local: "3bad"}
-	schema.TypeDefs[typeQName] = &types.SimpleType{QName: typeQName}
+	typeQName := model.QName{Namespace: "urn:test", Local: "3bad"}
+	schema.TypeDefs[typeQName] = &model.SimpleType{QName: typeQName}
 	schema.GlobalDecls = append(schema.GlobalDecls, parser.GlobalDecl{Kind: parser.GlobalDeclType, Name: typeQName})
 
 	errs := ValidateStructure(schema)
@@ -180,20 +181,20 @@ func TestProhibitedAttributeWithFixedAllowed(t *testing.T) {
 func TestCircularDerivation_MultipleTypesFromSameBase(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// base type extends anyType
-	baseType := &types.ComplexType{
-		QName: types.QName{
+	baseType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "BaseType",
 		},
 	}
-	baseType.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
-				Namespace: types.XSDNamespace,
+	baseType.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
+				Namespace: model.XSDNamespace,
 				Local:     "anyType",
 			},
 		},
@@ -201,15 +202,15 @@ func TestCircularDerivation_MultipleTypesFromSameBase(t *testing.T) {
 	schema.TypeDefs[baseType.QName] = baseType
 
 	// type A extends BaseType
-	typeA := &types.ComplexType{
-		QName: types.QName{
+	typeA := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "TypeA",
 		},
 	}
-	typeA.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
+	typeA.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "BaseType",
 			},
@@ -218,15 +219,15 @@ func TestCircularDerivation_MultipleTypesFromSameBase(t *testing.T) {
 	schema.TypeDefs[typeA.QName] = typeA
 
 	// type B extends BaseType (same base as TypeA)
-	typeB := &types.ComplexType{
-		QName: types.QName{
+	typeB := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "TypeB",
 		},
 	}
-	typeB.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
+	typeB.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "BaseType",
 			},
@@ -251,23 +252,23 @@ func TestCircularDerivation_MultipleTypesFromSameBase(t *testing.T) {
 func TestCircularDerivation_RedefineSelfExtension(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// original AddressType (from base schema)
-	originalAddressType := &types.ComplexType{
-		QName: types.QName{
+	originalAddressType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "AddressType",
 		},
 	}
-	originalAddressType.SetContent(&types.ElementContent{
-		Particle: &types.ModelGroup{
-			Kind: types.Sequence,
-			Particles: []types.Particle{
-				&types.ElementDecl{
-					Name: types.QName{Local: "name"},
-					Type: types.GetBuiltin(types.TypeName("string")),
+	originalAddressType.SetContent(&model.ElementContent{
+		Particle: &model.ModelGroup{
+			Kind: model.Sequence,
+			Particles: []model.Particle{
+				&model.ElementDecl{
+					Name: model.QName{Local: "name"},
+					Type: builtins.Get(model.TypeName("string")),
 				},
 			},
 		},
@@ -275,15 +276,15 @@ func TestCircularDerivation_RedefineSelfExtension(t *testing.T) {
 	schema.TypeDefs[originalAddressType.QName] = originalAddressType
 
 	// redefined AddressType extends itself (valid in redefine context)
-	redefinedAddressType := &types.ComplexType{
-		QName: types.QName{
+	redefinedAddressType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "AddressType",
 		},
 	}
-	redefinedAddressType.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
+	redefinedAddressType.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "AddressType",
 			},
@@ -299,15 +300,15 @@ func TestCircularDerivation_RedefineSelfExtension(t *testing.T) {
 	}
 
 	// also test that types extending the redefined AddressType work correctly
-	usAddress := &types.ComplexType{
-		QName: types.QName{
+	usAddress := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "USAddress",
 		},
 	}
-	usAddress.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
+	usAddress.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "AddressType",
 			},
@@ -326,24 +327,24 @@ func TestCircularDerivation_RedefineSelfExtension(t *testing.T) {
 func TestMixedContentDerivation_ExtensionFromMixedToElementOnly(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// base type with mixed content
-	baseType := &types.ComplexType{
-		QName: types.QName{
+	baseType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "MixedBaseType",
 		},
 	}
 	baseType.SetMixed(true)
-	baseType.SetContent(&types.ElementContent{
-		Particle: &types.ModelGroup{
-			Kind: types.Sequence,
-			Particles: []types.Particle{
-				&types.ElementDecl{
-					Name: types.QName{Local: "child"},
-					Type: types.GetBuiltin(types.TypeName("string")),
+	baseType.SetContent(&model.ElementContent{
+		Particle: &model.ModelGroup{
+			Kind: model.Sequence,
+			Particles: []model.Particle{
+				&model.ElementDecl{
+					Name: model.QName{Local: "child"},
+					Type: builtins.Get(model.TypeName("string")),
 				},
 			},
 		},
@@ -351,26 +352,26 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnly(t *testing.T) {
 	schema.TypeDefs[baseType.QName] = baseType
 
 	// derived type extending base with element-only content (removing mixed)
-	derivedType := &types.ComplexType{
-		QName: types.QName{
+	derivedType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "ElementOnlyType",
 		},
-		DerivationMethod: types.DerivationExtension,
+		DerivationMethod: model.DerivationExtension,
 	}
 	derivedType.SetMixed(false) // element-only
-	derivedType.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
+	derivedType.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "MixedBaseType",
 			},
-			Particle: &types.ModelGroup{
-				Kind: types.Sequence,
-				Particles: []types.Particle{
-					&types.ElementDecl{
-						Name: types.QName{Local: "extra"},
-						Type: types.GetBuiltin(types.TypeName("string")),
+			Particle: &model.ModelGroup{
+				Kind: model.Sequence,
+				Particles: []model.Particle{
+					&model.ElementDecl{
+						Name: model.QName{Local: "extra"},
+						Type: builtins.Get(model.TypeName("string")),
 					},
 				},
 			},
@@ -391,40 +392,40 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnly(t *testing.T) {
 func TestMixedContentDerivation_ExtensionFromMixedToElementOnlyNoParticle(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
-	baseType := &types.ComplexType{
-		QName: types.QName{
+	baseType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "MixedBaseType",
 		},
 	}
 	baseType.SetMixed(true)
-	baseType.SetContent(&types.ElementContent{
-		Particle: &types.ModelGroup{
-			Kind: types.Sequence,
-			Particles: []types.Particle{
-				&types.ElementDecl{
-					Name: types.QName{Local: "child"},
-					Type: types.GetBuiltin(types.TypeName("string")),
+	baseType.SetContent(&model.ElementContent{
+		Particle: &model.ModelGroup{
+			Kind: model.Sequence,
+			Particles: []model.Particle{
+				&model.ElementDecl{
+					Name: model.QName{Local: "child"},
+					Type: builtins.Get(model.TypeName("string")),
 				},
 			},
 		},
 	})
 	schema.TypeDefs[baseType.QName] = baseType
 
-	derivedType := &types.ComplexType{
-		QName: types.QName{
+	derivedType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "ElementOnlyType",
 		},
-		DerivationMethod: types.DerivationExtension,
+		DerivationMethod: model.DerivationExtension,
 	}
 	derivedType.SetMixed(false)
-	derivedType.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
+	derivedType.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "MixedBaseType",
 			},
@@ -442,24 +443,24 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnlyNoParticle(t *tes
 func TestMixedContentDerivation_RestrictionFromElementOnlyToMixed(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// base type with element-only content
-	baseType := &types.ComplexType{
-		QName: types.QName{
+	baseType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "ElementOnlyBaseType",
 		},
 	}
 	baseType.SetMixed(false)
-	baseType.SetContent(&types.ElementContent{
-		Particle: &types.ModelGroup{
-			Kind: types.Sequence,
-			Particles: []types.Particle{
-				&types.ElementDecl{
-					Name: types.QName{Local: "child"},
-					Type: types.GetBuiltin(types.TypeName("string")),
+	baseType.SetContent(&model.ElementContent{
+		Particle: &model.ModelGroup{
+			Kind: model.Sequence,
+			Particles: []model.Particle{
+				&model.ElementDecl{
+					Name: model.QName{Local: "child"},
+					Type: builtins.Get(model.TypeName("string")),
 				},
 			},
 		},
@@ -467,18 +468,18 @@ func TestMixedContentDerivation_RestrictionFromElementOnlyToMixed(t *testing.T) 
 	schema.TypeDefs[baseType.QName] = baseType
 
 	// derived type restricting base to mixed content (adding mixed)
-	derivedType := &types.ComplexType{
-		QName: types.QName{
+	derivedType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "MixedType",
 		},
-		DerivationMethod: types.DerivationRestriction,
+		DerivationMethod: model.DerivationRestriction,
 	}
 	derivedType.SetMixed(true) // mixed
-	derivedType.SetContent(&types.ComplexContent{
+	derivedType.SetContent(&model.ComplexContent{
 		Mixed: true,
-		Restriction: &types.Restriction{
-			Base: types.QName{
+		Restriction: &model.Restriction{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "ElementOnlyBaseType",
 			},
@@ -500,24 +501,24 @@ func TestMixedContentDerivation_RestrictionFromElementOnlyToMixed(t *testing.T) 
 func TestMixedContentDerivation_ExtensionFromElementOnlyToElementOnly(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// base type with element-only content
-	baseType := &types.ComplexType{
-		QName: types.QName{
+	baseType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "ElementOnlyBaseType",
 		},
 	}
 	baseType.SetMixed(false)
-	baseType.SetContent(&types.ElementContent{
-		Particle: &types.ModelGroup{
-			Kind: types.Sequence,
-			Particles: []types.Particle{
-				&types.ElementDecl{
-					Name: types.QName{Local: "child"},
-					Type: types.GetBuiltin(types.TypeName("string")),
+	baseType.SetContent(&model.ElementContent{
+		Particle: &model.ModelGroup{
+			Kind: model.Sequence,
+			Particles: []model.Particle{
+				&model.ElementDecl{
+					Name: model.QName{Local: "child"},
+					Type: builtins.Get(model.TypeName("string")),
 				},
 			},
 		},
@@ -525,17 +526,17 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToElementOnly(t *testing
 	schema.TypeDefs[baseType.QName] = baseType
 
 	// derived type extending base with element-only content
-	derivedType := &types.ComplexType{
-		QName: types.QName{
+	derivedType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "ElementOnlyDerivedType",
 		},
-		DerivationMethod: types.DerivationExtension,
+		DerivationMethod: model.DerivationExtension,
 	}
 	derivedType.SetMixed(false) // element-only
-	derivedType.SetContent(&types.ComplexContent{
-		Extension: &types.Extension{
-			Base: types.QName{
+	derivedType.SetContent(&model.ComplexContent{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "ElementOnlyBaseType",
 			},
@@ -554,24 +555,24 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToElementOnly(t *testing
 func TestMixedContentDerivation_ExtensionFromMixedToMixed(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// base type with mixed content
-	baseType := &types.ComplexType{
-		QName: types.QName{
+	baseType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "MixedBaseType",
 		},
 	}
 	baseType.SetMixed(true)
-	baseType.SetContent(&types.ElementContent{
-		Particle: &types.ModelGroup{
-			Kind: types.Sequence,
-			Particles: []types.Particle{
-				&types.ElementDecl{
-					Name: types.QName{Local: "child"},
-					Type: types.GetBuiltin(types.TypeName("string")),
+	baseType.SetContent(&model.ElementContent{
+		Particle: &model.ModelGroup{
+			Kind: model.Sequence,
+			Particles: []model.Particle{
+				&model.ElementDecl{
+					Name: model.QName{Local: "child"},
+					Type: builtins.Get(model.TypeName("string")),
 				},
 			},
 		},
@@ -579,18 +580,18 @@ func TestMixedContentDerivation_ExtensionFromMixedToMixed(t *testing.T) {
 	schema.TypeDefs[baseType.QName] = baseType
 
 	// derived type extending base with mixed content
-	derivedType := &types.ComplexType{
-		QName: types.QName{
+	derivedType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "MixedDerivedType",
 		},
-		DerivationMethod: types.DerivationExtension,
+		DerivationMethod: model.DerivationExtension,
 	}
 	derivedType.SetMixed(true) // mixed
-	derivedType.SetContent(&types.ComplexContent{
+	derivedType.SetContent(&model.ComplexContent{
 		Mixed: true,
-		Extension: &types.Extension{
-			Base: types.QName{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "MixedBaseType",
 			},
@@ -609,24 +610,24 @@ func TestMixedContentDerivation_ExtensionFromMixedToMixed(t *testing.T) {
 func TestMixedContentDerivation_ExtensionFromElementOnlyToMixed(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// base type with element-only content
-	baseType := &types.ComplexType{
-		QName: types.QName{
+	baseType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "ElementOnlyBaseType",
 		},
 	}
 	baseType.SetMixed(false)
-	baseType.SetContent(&types.ElementContent{
-		Particle: &types.ModelGroup{
-			Kind: types.Sequence,
-			Particles: []types.Particle{
-				&types.ElementDecl{
-					Name: types.QName{Local: "child"},
-					Type: types.GetBuiltin(types.TypeName("string")),
+	baseType.SetContent(&model.ElementContent{
+		Particle: &model.ModelGroup{
+			Kind: model.Sequence,
+			Particles: []model.Particle{
+				&model.ElementDecl{
+					Name: model.QName{Local: "child"},
+					Type: builtins.Get(model.TypeName("string")),
 				},
 			},
 		},
@@ -634,18 +635,18 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToMixed(t *testing.T) {
 	schema.TypeDefs[baseType.QName] = baseType
 
 	// derived type extending base with mixed content (adding mixed)
-	derivedType := &types.ComplexType{
-		QName: types.QName{
+	derivedType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "MixedType",
 		},
-		DerivationMethod: types.DerivationExtension,
+		DerivationMethod: model.DerivationExtension,
 	}
 	derivedType.SetMixed(true) // mixed
-	derivedType.SetContent(&types.ComplexContent{
+	derivedType.SetContent(&model.ComplexContent{
 		Mixed: true,
-		Extension: &types.Extension{
-			Base: types.QName{
+		Extension: &model.Extension{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "ElementOnlyBaseType",
 			},
@@ -667,24 +668,24 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToMixed(t *testing.T) {
 func TestMixedContentDerivation_RestrictionFromMixedToElementOnly(t *testing.T) {
 	schema := &parser.Schema{
 		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[types.QName]types.Type),
+		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
 	// base type with mixed content
-	baseType := &types.ComplexType{
-		QName: types.QName{
+	baseType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "MixedBaseType",
 		},
 	}
 	baseType.SetMixed(true)
-	baseType.SetContent(&types.ElementContent{
-		Particle: &types.ModelGroup{
-			Kind: types.Sequence,
-			Particles: []types.Particle{
-				&types.ElementDecl{
-					Name: types.QName{Local: "child"},
-					Type: types.GetBuiltin(types.TypeName("string")),
+	baseType.SetContent(&model.ElementContent{
+		Particle: &model.ModelGroup{
+			Kind: model.Sequence,
+			Particles: []model.Particle{
+				&model.ElementDecl{
+					Name: model.QName{Local: "child"},
+					Type: builtins.Get(model.TypeName("string")),
 				},
 			},
 		},
@@ -692,17 +693,17 @@ func TestMixedContentDerivation_RestrictionFromMixedToElementOnly(t *testing.T) 
 	schema.TypeDefs[baseType.QName] = baseType
 
 	// derived type restricting base to element-only content (removing mixed)
-	derivedType := &types.ComplexType{
-		QName: types.QName{
+	derivedType := &model.ComplexType{
+		QName: model.QName{
 			Namespace: "http://example.com",
 			Local:     "ElementOnlyType",
 		},
-		DerivationMethod: types.DerivationRestriction,
+		DerivationMethod: model.DerivationRestriction,
 	}
 	derivedType.SetMixed(false) // element-only
-	derivedType.SetContent(&types.ComplexContent{
-		Restriction: &types.Restriction{
-			Base: types.QName{
+	derivedType.SetContent(&model.ComplexContent{
+		Restriction: &model.Restriction{
+			Base: model.QName{
 				Namespace: "http://example.com",
 				Local:     "MixedBaseType",
 			},

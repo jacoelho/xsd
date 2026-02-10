@@ -3,31 +3,12 @@ package xmlstream
 import (
 	"bytes"
 	"fmt"
+
+	"github.com/jacoelho/xsd/internal/qname"
 )
 
 // QName represents a namespace-qualified name.
-type QName struct {
-	Namespace string
-	Local     string
-}
-
-// Is reports whether the QName matches the namespace and local name.
-func (q QName) Is(namespace, local string) bool {
-	return q.Namespace == namespace && q.Local == local
-}
-
-// HasLocal reports whether the local name matches, ignoring namespace.
-func (q QName) HasLocal(local string) bool {
-	return q.Local == local
-}
-
-// String returns the QName in Clark notation: "{namespace}local".
-func (q QName) String() string {
-	if q.Namespace == "" {
-		return q.Local
-	}
-	return "{" + q.Namespace + "}" + q.Local
-}
+type QName = qname.QName
 
 // EventKind identifies the kind of streaming XML event.
 type EventKind int
