@@ -6,19 +6,19 @@ import (
 	"sync"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/runtimebuild"
-	"github.com/jacoelho/xsd/internal/schemaflow"
-	"github.com/jacoelho/xsd/internal/semantic"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/runtimeassemble"
+	"github.com/jacoelho/xsd/internal/schemaanalysis"
+	"github.com/jacoelho/xsd/internal/schemaprep"
 )
 
 type buildRuntimeFunc func(CompileConfig) (*runtime.Schema, error)
 
 // ValidatedSchema stores validated schema artifacts for transformation.
 type ValidatedSchema struct {
-	registry *semantic.Registry
+	registry *schemaanalysis.Registry
 	schema   *parser.Schema
 }
 
@@ -33,7 +33,7 @@ func (v *ValidatedSchema) SchemaSnapshot() (*parser.Schema, error) {
 // PreparedSchema stores immutable runtime-build artifacts.
 type PreparedSchema struct {
 	build              buildRuntimeFunc
-	globalElementOrder []types.QName
+	globalElementOrder []model.QName
 }
 
 // CompileConfig configures runtime schema compilation from prepared artifacts.
@@ -51,8 +51,8 @@ func (p *PreparedSchema) BuildRuntime(cfg CompileConfig) (*runtime.Schema, error
 }
 
 // GlobalElementOrderSeq yields global element names in deterministic prepared order.
-func (p *PreparedSchema) GlobalElementOrderSeq() iter.Seq[types.QName] {
-	return func(yield func(types.QName) bool) {
+func (p *PreparedSchema) GlobalElementOrderSeq() iter.Seq[model.QName] {
+	return func(yield func(model.QName) bool) {
 		if p == nil || len(p.globalElementOrder) == 0 {
 			return
 		}
@@ -98,7 +98,7 @@ func Transform(validated *ValidatedSchema) (*PreparedSchema, error) {
 	if reg == nil {
 		return nil, fmt.Errorf("prepare schema: registry is nil")
 	}
-	refs, err := semantic.ResolveReferences(sch, reg)
+	refs, err := schemaanalysis.ResolveReferences(sch, reg)
 	if err != nil {
 		return nil, fmt.Errorf("prepare schema: resolve references: %w", err)
 	}
@@ -108,7 +108,7 @@ func Transform(validated *ValidatedSchema) (*PreparedSchema, error) {
 	}, nil
 }
 
-func validateSchema(sch *parser.Schema) (*parser.Schema, *semantic.Registry, error) {
+func validateSchema(sch *parser.Schema) (*parser.Schema, *schemaanalysis.Registry, error) {
 	if sch == nil {
 		return nil, nil, fmt.Errorf("prepare schema: schema is nil")
 	}
@@ -116,47 +116,47 @@ func validateSchema(sch *parser.Schema) (*parser.Schema, *semantic.Registry, err
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepare schema: clone schema: %w", err)
 	}
-	if resolveErr := schemaflow.ResolveAndValidateOwned(resolvedSchema); resolveErr != nil {
+	if resolveErr := schemaprep.ResolveAndValidateOwned(resolvedSchema); resolveErr != nil {
 		return nil, nil, fmt.Errorf("prepare schema: %w", resolveErr)
 	}
-	reg, err := semantic.AssignIDs(resolvedSchema)
+	reg, err := schemaanalysis.AssignIDs(resolvedSchema)
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepare schema: assign IDs: %w", err)
 	}
-	if cycleErr := semantic.DetectCycles(resolvedSchema); cycleErr != nil {
+	if cycleErr := schemaanalysis.DetectCycles(resolvedSchema); cycleErr != nil {
 		return nil, nil, fmt.Errorf("prepare schema: detect cycles: %w", cycleErr)
 	}
-	if upaErr := schemaflow.ValidateUPA(resolvedSchema, reg); upaErr != nil {
+	if upaErr := schemaprep.ValidateUPA(resolvedSchema, reg); upaErr != nil {
 		return nil, nil, fmt.Errorf("prepare schema: validate UPA: %w", upaErr)
 	}
 	return resolvedSchema, reg, nil
 }
 
-func newBuildRuntimeFunc(sch *parser.Schema, reg *semantic.Registry, refs *semantic.ResolvedReferences) buildRuntimeFunc {
+func newBuildRuntimeFunc(sch *parser.Schema, reg *schemaanalysis.Registry, refs *schemaanalysis.ResolvedReferences) buildRuntimeFunc {
 	var (
 		once     sync.Once
-		prepared *runtimebuild.PreparedArtifacts
+		prepared *runtimeassemble.PreparedArtifacts
 		prepErr  error
 	)
 	return func(cfg CompileConfig) (*runtime.Schema, error) {
 		once.Do(func() {
-			prepared, prepErr = runtimebuild.PrepareBuildArtifacts(sch, reg, refs)
+			prepared, prepErr = runtimeassemble.PrepareBuildArtifacts(sch, reg, refs)
 		})
 		if prepErr != nil {
 			return nil, prepErr
 		}
-		return prepared.Build(runtimebuild.BuildConfig{
+		return prepared.Build(runtimeassemble.BuildConfig{
 			MaxDFAStates:   cfg.MaxDFAStates,
 			MaxOccursLimit: cfg.MaxOccursLimit,
 		})
 	}
 }
 
-func globalElementOrder(reg *semantic.Registry) []types.QName {
+func globalElementOrder(reg *schemaanalysis.Registry) []model.QName {
 	if reg == nil || len(reg.ElementOrder) == 0 {
 		return nil
 	}
-	order := make([]types.QName, 0, len(reg.ElementOrder))
+	order := make([]model.QName, 0, len(reg.ElementOrder))
 	for _, entry := range reg.ElementOrder {
 		if entry.Global {
 			order = append(order, entry.QName)

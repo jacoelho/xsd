@@ -3,11 +3,11 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func applyElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs *elementAttrScan, decl *types.ElementDecl) error {
+func applyElementConstraints(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, attrs *elementAttrScan, decl *model.ElementDecl) error {
 	if attrs.hasNillable {
 		value, err := parseBoolValue("nillable", attrs.nillable)
 		if err != nil {
@@ -33,20 +33,20 @@ func applyElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 
 	if attrs.hasBlock {
 		blockAttr := attrs.block
-		if types.TrimXMLWhitespace(blockAttr) == "" {
+		if model.TrimXMLWhitespace(blockAttr) == "" {
 			return fmt.Errorf("block attribute cannot be empty")
 		}
-		block, err := parseDerivationSetWithValidation(blockAttr, types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction))
+		block, err := parseDerivationSetWithValidation(blockAttr, model.DerivationSet(model.DerivationSubstitution|model.DerivationExtension|model.DerivationRestriction))
 		if err != nil {
 			return fmt.Errorf("invalid block attribute value '%s': %w", blockAttr, err)
 		}
 		decl.Block = block
 	} else if schema.BlockDefault != 0 {
-		decl.Block = schema.BlockDefault & types.DerivationSet(types.DerivationSubstitution|types.DerivationExtension|types.DerivationRestriction)
+		decl.Block = schema.BlockDefault & model.DerivationSet(model.DerivationSubstitution|model.DerivationExtension|model.DerivationRestriction)
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 

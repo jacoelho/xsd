@@ -3,29 +3,29 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func validateEnumerationFacetValues(sch *parser.Schema) []error {
 	var errs []error
 
 	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
-		st, ok := sch.TypeDefs[qname].(*types.SimpleType)
+		st, ok := sch.TypeDefs[qname].(*model.SimpleType)
 		if !ok || st == nil || st.Restriction == nil {
 			continue
 		}
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = typeops.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
+			baseType = typeresolve.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue
 		}
 		for _, facet := range st.Restriction.Facets {
-			enum, ok := facet.(*types.Enumeration)
+			enum, ok := facet.(*model.Enumeration)
 			if !ok {
 				continue
 			}
@@ -36,7 +36,7 @@ func validateEnumerationFacetValues(sch *parser.Schema) []error {
 				if i < len(contexts) {
 					ctx = contexts[i]
 				}
-				if err := validateDefaultOrFixedValueResolved(sch, val, baseType, ctx, make(map[types.Type]bool), idValuesAllowed); err != nil {
+				if err := validateDefaultOrFixedValueResolved(sch, val, baseType, ctx, make(map[model.Type]bool), idValuesAllowed); err != nil {
 					errs = append(errs, fmt.Errorf("type %s: restriction: enumeration value %d (%q) is not valid for base type %s: %w", qname, i+1, val, baseType.Name().Local, err))
 				}
 			}
@@ -56,7 +56,7 @@ func validateInlineTypeReferences(sch *parser.Schema) []error {
 				if err := validateTypeReferences(sch, qname, decl.Type); err != nil {
 					errs = append(errs, fmt.Errorf("element %s inline type: %w", qname, err))
 				}
-				if ct, ok := decl.Type.(*types.ComplexType); ok {
+				if ct, ok := decl.Type.(*model.ComplexType); ok {
 					for _, agRef := range ct.AttrGroups {
 						if err := validateAttributeGroupReference(sch, agRef, qname); err != nil {
 							errs = append(errs, err)

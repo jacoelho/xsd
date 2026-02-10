@@ -3,15 +3,15 @@ package semanticcheck
 import (
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // collectAllAttributesForValidation collects all attributes from a complex type.
 // This includes attributes from extensions, restrictions, and attribute groups.
-func collectAllAttributesForValidation(schema *parser.Schema, ct *types.ComplexType) []*types.AttributeDecl {
+func collectAllAttributesForValidation(schema *parser.Schema, ct *model.ComplexType) []*model.AttributeDecl {
 	allAttrs := slices.Clone(ct.Attributes())
 	allAttrs = append(allAttrs, collectAttributesFromGroups(schema, ct.AttrGroups, nil)...)
 
@@ -30,22 +30,22 @@ func collectAllAttributesForValidation(schema *parser.Schema, ct *types.ComplexT
 	return allAttrs
 }
 
-func collectEffectiveAttributeUses(schema *parser.Schema, ct *types.ComplexType) map[types.QName]*types.AttributeDecl {
+func collectEffectiveAttributeUses(schema *parser.Schema, ct *model.ComplexType) map[model.QName]*model.AttributeDecl {
 	if ct == nil {
 		return nil
 	}
-	chain := typegraph.CollectComplexTypeChain(schema, ct, typegraph.ComplexTypeChainExplicitBaseOnly)
-	attrMap := make(map[types.QName]*types.AttributeDecl)
+	chain := typechain.CollectComplexTypeChain(schema, ct, typechain.ComplexTypeChainExplicitBaseOnly)
+	attrMap := make(map[model.QName]*model.AttributeDecl)
 	for i := len(chain) - 1; i >= 0; i-- {
 		mergeAttributesFromTypeForValidation(schema, chain[i], attrMap)
 	}
 	return attrMap
 }
 
-func mergeAttributesFromTypeForValidation(schema *parser.Schema, ct *types.ComplexType, attrMap map[types.QName]*types.AttributeDecl) {
-	addAttr := func(attr *types.AttributeDecl) {
-		key := typeops.EffectiveAttributeQName(schema, attr)
-		if attr.Use == types.Prohibited && !attr.HasFixed {
+func mergeAttributesFromTypeForValidation(schema *parser.Schema, ct *model.ComplexType, attrMap map[model.QName]*model.AttributeDecl) {
+	addAttr := func(attr *model.AttributeDecl) {
+		key := typeresolve.EffectiveAttributeQName(schema, attr)
+		if attr.Use == model.Prohibited && !attr.HasFixed {
 			delete(attrMap, key)
 			return
 		}
@@ -75,7 +75,7 @@ func mergeAttributesFromTypeForValidation(schema *parser.Schema, ct *types.Compl
 	}
 }
 
-func mergeAttributesFromGroupsForValidation(schema *parser.Schema, agRefs []types.QName, attrMap map[types.QName]*types.AttributeDecl) {
+func mergeAttributesFromGroupsForValidation(schema *parser.Schema, agRefs []model.QName, attrMap map[model.QName]*model.AttributeDecl) {
 	for _, agRef := range agRefs {
 		ag, ok := schema.AttributeGroups[agRef]
 		if !ok {
@@ -85,9 +85,9 @@ func mergeAttributesFromGroupsForValidation(schema *parser.Schema, agRefs []type
 	}
 }
 
-func mergeAttributesFromGroupForValidation(schema *parser.Schema, ag *types.AttributeGroup, attrMap map[types.QName]*types.AttributeDecl) {
-	visited := make(map[*types.AttributeGroup]bool)
-	queue := []*types.AttributeGroup{ag}
+func mergeAttributesFromGroupForValidation(schema *parser.Schema, ag *model.AttributeGroup, attrMap map[model.QName]*model.AttributeDecl) {
+	visited := make(map[*model.AttributeGroup]bool)
+	queue := []*model.AttributeGroup{ag}
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
@@ -96,8 +96,8 @@ func mergeAttributesFromGroupForValidation(schema *parser.Schema, ag *types.Attr
 		}
 		visited[current] = true
 		for _, attr := range current.Attributes {
-			key := typeops.EffectiveAttributeQName(schema, attr)
-			if attr.Use == types.Prohibited && !attr.HasFixed {
+			key := typeresolve.EffectiveAttributeQName(schema, attr)
+			if attr.Use == model.Prohibited && !attr.HasFixed {
 				delete(attrMap, key)
 				continue
 			}
@@ -112,11 +112,11 @@ func mergeAttributesFromGroupForValidation(schema *parser.Schema, ag *types.Attr
 }
 
 // collectAttributesFromGroups collects attributes from attribute group references.
-func collectAttributesFromGroups(schema *parser.Schema, agRefs []types.QName, visited map[types.QName]bool) []*types.AttributeDecl {
+func collectAttributesFromGroups(schema *parser.Schema, agRefs []model.QName, visited map[model.QName]bool) []*model.AttributeDecl {
 	if visited == nil {
-		visited = make(map[types.QName]bool)
+		visited = make(map[model.QName]bool)
 	}
-	var result []*types.AttributeDecl
+	var result []*model.AttributeDecl
 	for _, ref := range agRefs {
 		if visited[ref] {
 			continue

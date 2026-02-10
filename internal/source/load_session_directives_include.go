@@ -41,7 +41,7 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 		return fmt.Errorf("included schema %s has different target namespace: %s != %s",
 			include.SchemaLocation, includedSchema.TargetNamespace, includingNS)
 	}
-	needsNamespaceRemap := !includingNS.IsEmpty() && includedSchema.TargetNamespace.IsEmpty()
+	needsNamespaceRemap := includingNS != "" && includedSchema.TargetNamespace == ""
 	remapMode := loadmerge.KeepNamespace
 	if needsNamespaceRemap {
 		remapMode = loadmerge.RemapNamespace

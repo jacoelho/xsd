@@ -3,8 +3,10 @@ package semanticresolve
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/facetvalue"
+	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func TestResolverResolveAnonymousContent(t *testing.T) {
@@ -26,7 +28,7 @@ func TestValidateSimpleTypeFinalUnion(t *testing.T) {
 
 func TestValidateTypeQNameReferenceMissing(t *testing.T) {
 	schema := parseW3CSchema(t, "saxonData/Missing/missing001.xsd")
-	err := validateTypeQNameReference(schema, types.QName{Local: "absent"}, schema.TargetNamespace)
+	err := validateTypeQNameReference(schema, model.QName{Local: "absent"}, schema.TargetNamespace)
 	if err == nil {
 		t.Fatalf("expected missing type reference error")
 	}
@@ -34,20 +36,20 @@ func TestValidateTypeQNameReferenceMissing(t *testing.T) {
 
 func TestResolveUnionAndListItemTypes(t *testing.T) {
 	unionSchema := parseW3CSchema(t, "saxonData/Simple/simple085.xsd")
-	unionType, ok := unionSchema.TypeDefs[types.QName{Local: "myUnion"}].(*types.SimpleType)
+	unionType, ok := unionSchema.TypeDefs[model.QName{Local: "myUnion"}].(*model.SimpleType)
 	if !ok || unionType == nil {
 		t.Fatalf("expected myUnion simple type")
 	}
-	if members := typeops.ResolveUnionMemberTypes(unionSchema, unionType); len(members) == 0 {
+	if members := typeresolve.ResolveUnionMemberTypes(unionSchema, unionType); len(members) == 0 {
 		t.Fatalf("expected union member types")
 	}
 
 	listSchema := parseW3CSchema(t, "ibmData/instance_invalid/S3_3_4/s3_3_4ii08.xsd")
-	listType, ok := listSchema.TypeDefs[types.QName{Local: "listOfIDs"}].(*types.SimpleType)
+	listType, ok := listSchema.TypeDefs[model.QName{Local: "listOfIDs"}].(*model.SimpleType)
 	if !ok || listType == nil {
 		t.Fatalf("expected listOfIDs simple type")
 	}
-	item := typeops.ResolveListItemType(listSchema, listType)
+	item := typeresolve.ResolveListItemType(listSchema, listType)
 	if item == nil || item.Name().Local != "ID" {
 		t.Fatalf("expected listOfIDs item type ID, got %v", item)
 	}
@@ -55,33 +57,33 @@ func TestResolveUnionAndListItemTypes(t *testing.T) {
 
 func TestValidateValueAgainstFacets(t *testing.T) {
 	schema := parseW3CSchema(t, "sunData/combined/xsd001/xsd001.xsd")
-	st, ok := schema.TypeDefs[types.QName{Namespace: schema.TargetNamespace, Local: "mytype"}].(*types.SimpleType)
+	st, ok := schema.TypeDefs[model.QName{Namespace: schema.TargetNamespace, Local: "mytype"}].(*model.SimpleType)
 	if !ok || st == nil {
 		t.Fatalf("expected mytype simple type")
 	}
-	facets, err := typeops.CollectSimpleTypeFacets(schema, st, nil)
+	facets, err := typeresolve.CollectSimpleTypeFacets(schema, st, nil)
 	if err != nil {
 		t.Fatalf("collect simple type facets: %v", err)
 	}
-	if err := types.ValidateValueAgainstFacets("abcd", st, facets, nil); err != nil {
+	if err := facetvalue.Validate("abcd", st, facets, nil); err != nil {
 		t.Fatalf("expected valid facet value, got %v", err)
 	}
-	if err := types.ValidateValueAgainstFacets("ab", st, facets, nil); err == nil {
+	if err := facetvalue.Validate("ab", st, facets, nil); err == nil {
 		t.Fatalf("expected facet violation for short value")
 	}
 }
 
 func TestResolveSimpleContentBaseType(t *testing.T) {
 	schema := resolveW3CSchema(t, "sunData/CType/baseTD/baseTD00101m/baseTD00101m1.xsd")
-	ct, ok := schema.TypeDefs[types.QName{Namespace: schema.TargetNamespace, Local: "Test2"}].(*types.ComplexType)
+	ct, ok := schema.TypeDefs[model.QName{Namespace: schema.TargetNamespace, Local: "Test2"}].(*model.ComplexType)
 	if !ok || ct == nil {
 		t.Fatalf("expected Test2 complex type")
 	}
-	sc, ok := ct.Content().(*types.SimpleContent)
+	sc, ok := ct.Content().(*model.SimpleContent)
 	if !ok || sc == nil {
 		t.Fatalf("expected simpleContent on Test2")
 	}
-	textType := typeops.ResolveSimpleContentBaseTypeFromContent(schema, sc)
+	textType := typeresolve.ResolveSimpleContentBaseTypeFromContent(schema, sc)
 	if textType == nil || textType.Name().Local != "int" {
 		t.Fatalf("expected text content type xsd:int")
 	}
@@ -89,9 +91,9 @@ func TestResolveSimpleContentBaseType(t *testing.T) {
 
 func TestTypeDerivationHelpers(t *testing.T) {
 	schema := parseW3CSchema(t, "sunData/combined/006/test.xsd")
-	bQName := types.QName{Namespace: schema.TargetNamespace, Local: "B"}
-	drrQName := types.QName{Namespace: schema.TargetNamespace, Local: "Drr"}
-	bType, ok := schema.TypeDefs[bQName].(*types.ComplexType)
+	bQName := model.QName{Namespace: schema.TargetNamespace, Local: "B"}
+	drrQName := model.QName{Namespace: schema.TargetNamespace, Local: "Drr"}
+	bType, ok := schema.TypeDefs[bQName].(*model.ComplexType)
 	if !ok || bType == nil {
 		t.Fatalf("expected B complex type")
 	}
@@ -106,15 +108,15 @@ func TestTypeDerivationHelpers(t *testing.T) {
 	if err := NewResolver(xsdSchema).Resolve(); err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	derived, ok := xsdSchema.TypeDefs[types.QName{Namespace: xsdSchema.TargetNamespace, Local: "mytype"}].(*types.SimpleType)
+	derived, ok := xsdSchema.TypeDefs[model.QName{Namespace: xsdSchema.TargetNamespace, Local: "mytype"}].(*model.SimpleType)
 	if !ok || derived == nil {
 		t.Fatalf("expected mytype simple type")
 	}
-	base := types.GetBuiltin(types.TypeNameString)
+	base := builtins.Get(model.TypeNameString)
 	if base == nil {
 		t.Fatalf("expected builtin string type")
 	}
-	if !types.IsDerivedFrom(derived, base) {
+	if !model.IsDerivedFrom(derived, base) {
 		t.Fatalf("expected mytype derived from string")
 	}
 	if prim := getPrimitiveType(derived); prim == nil || prim.Name().Local != "string" {

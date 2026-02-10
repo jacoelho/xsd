@@ -3,19 +3,19 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parsePatternFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (types.Facet, error) {
+func parsePatternFacet(doc *schemaxml.Document, elem schemaxml.NodeID) (model.Facet, error) {
 	if err := validateOnlyAnnotationChildren(doc, elem, "pattern"); err != nil {
 		return nil, err
 	}
 	value := doc.GetAttribute(elem, "value")
-	return &types.Pattern{Value: value}, nil
+	return &model.Pattern{Value: value}, nil
 }
 
-func parseEnumerationFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction *types.Restriction, schema *Schema) (types.Facet, error) {
+func parseEnumerationFacet(doc *schemaxml.Document, elem schemaxml.NodeID, restriction *model.Restriction, schema *Schema) (model.Facet, error) {
 	if err := validateOnlyAnnotationChildren(doc, elem, "enumeration"); err != nil {
 		return nil, err
 	}
@@ -28,14 +28,14 @@ func parseEnumerationFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction
 		enum.AppendValue(value, context)
 		return nil, nil
 	}
-	enum := types.NewEnumeration([]string{value})
+	enum := model.NewEnumeration([]string{value})
 	enum.SetValueContexts([]map[string]string{context})
 	return enum, nil
 }
 
-func findEnumerationFacet(facets []any) *types.Enumeration {
+func findEnumerationFacet(facets []any) *model.Enumeration {
 	for _, facet := range facets {
-		if enum, ok := facet.(*types.Enumeration); ok {
+		if enum, ok := facet.(*model.Enumeration); ok {
 			return enum
 		}
 	}

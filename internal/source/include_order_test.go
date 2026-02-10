@@ -6,9 +6,9 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/pipeline"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestIncludeGlobalDeclOrder(t *testing.T) {
@@ -23,7 +23,7 @@ func TestIncludeGlobalDeclOrder(t *testing.T) {
 	cases := []struct {
 		name     string
 		rootDoc  string
-		expected []types.QName
+		expected []model.QName
 	}{
 		{
 			name: "include-between-decls",
@@ -36,7 +36,7 @@ func TestIncludeGlobalDeclOrder(t *testing.T) {
   <xs:include schemaLocation="b.xsd"/>
   <xs:element name="C" type="xs:string"/>
 </xs:schema>`,
-			expected: []types.QName{
+			expected: []model.QName{
 				{Namespace: "urn:order", Local: "A"},
 				{Namespace: "urn:order", Local: "B"},
 				{Namespace: "urn:order", Local: "C"},
@@ -53,7 +53,7 @@ func TestIncludeGlobalDeclOrder(t *testing.T) {
   <xs:element name="C" type="xs:string"/>
   <xs:include schemaLocation="b.xsd"/>
 </xs:schema>`,
-			expected: []types.QName{
+			expected: []model.QName{
 				{Namespace: "urn:order", Local: "A"},
 				{Namespace: "urn:order", Local: "C"},
 				{Namespace: "urn:order", Local: "B"},
@@ -91,11 +91,11 @@ func TestIncludeGlobalDeclOrder(t *testing.T) {
 	}
 }
 
-func globalDeclNames(decls []parser.GlobalDecl) []types.QName {
+func globalDeclNames(decls []parser.GlobalDecl) []model.QName {
 	if len(decls) == 0 {
 		return nil
 	}
-	names := make([]types.QName, 0, len(decls))
+	names := make([]model.QName, 0, len(decls))
 	for _, decl := range decls {
 		names = append(names, decl.Name)
 	}

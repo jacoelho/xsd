@@ -4,7 +4,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestPendingMergesRemainConsistentOnFailure(t *testing.T) {
@@ -35,9 +35,9 @@ func TestPendingMergesRemainConsistentOnFailure(t *testing.T) {
 		t.Fatalf("expected load error for missing c.xsd")
 	}
 
-	rootKey := loader.loadKey("a.xsd", types.NamespaceURI("urn:root"))
+	rootKey := loader.loadKey("a.xsd", model.NamespaceURI("urn:root"))
 	if entry, ok := loader.state.entry(rootKey); ok && entry.schema != nil {
-		if _, ok := entry.schema.ElementDecls[types.QName{Namespace: "urn:root", Local: "fromB"}]; ok {
+		if _, ok := entry.schema.ElementDecls[model.QName{Namespace: "urn:root", Local: "fromB"}]; ok {
 			t.Fatalf("include merge should not be committed on failure")
 		}
 		if entry.pendingCount != 0 || len(entry.pendingDirectives) != 0 {

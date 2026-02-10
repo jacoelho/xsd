@@ -11,7 +11,9 @@ import (
 
 	"github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/pipeline"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 	"github.com/jacoelho/xsd/internal/source"
 )
 
@@ -21,28 +23,7 @@ type Schema struct {
 }
 
 // QName is a public qualified name with namespace and local part.
-type QName struct {
-	Namespace string
-	Local     string
-}
-
-// Is reports whether the QName matches the namespace and local name.
-func (q QName) Is(namespace, local string) bool {
-	return q.Namespace == namespace && q.Local == local
-}
-
-// HasLocal reports whether the local name matches, ignoring namespace.
-func (q QName) HasLocal(local string) bool {
-	return q.Local == local
-}
-
-// String returns the QName in Clark notation: "{namespace}local".
-func (q QName) String() string {
-	if q.Namespace == "" {
-		return q.Local
-	}
-	return "{" + q.Namespace + "}" + q.Local
-}
+type QName = qname.QName
 
 // PreparedSchema stores immutable, precompiled schema artifacts.
 type PreparedSchema struct {
@@ -73,6 +54,7 @@ func prepareSchema(fsys fs.FS, location string, opts LoadOptions) (*pipeline.Pre
 		FS:                          fsys,
 		AllowMissingImportLocations: resolvedLoad.allowMissingImportLocations,
 		SchemaParseOptions:          resolvedLoad.schemaLimits.options(),
+		DocumentPool:                schemaxml.NewDocumentPool(),
 	})
 	parsed, err := loader.Load(location)
 	if err != nil {
@@ -129,10 +111,7 @@ func (p *PreparedSchema) GlobalElementOrderSeq() iter.Seq[QName] {
 			return
 		}
 		for item := range p.prepared.GlobalElementOrderSeq() {
-			if !yield(QName{
-				Namespace: item.Namespace.String(),
-				Local:     item.Local,
-			}) {
+			if !yield(item) {
 				return
 			}
 		}

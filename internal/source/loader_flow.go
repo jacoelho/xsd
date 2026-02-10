@@ -29,7 +29,7 @@ func (l *SchemaLoader) loadRoot(location string) (*parser.Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	result, err := parseSchemaDocument(doc, systemID, l.config.SchemaParseOptions...)
+	result, err := parseSchemaDocument(doc, systemID, l.config.DocumentPool, l.config.SchemaParseOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 		return loadedSchema, err
 	}
 
-	result, err := parseSchemaDocument(session.doc, session.systemID, session.loader.config.SchemaParseOptions...)
+	result, err := parseSchemaDocument(session.doc, session.systemID, session.loader.config.DocumentPool, session.loader.config.SchemaParseOptions...)
 	if err != nil {
 		return nil, err
 	}

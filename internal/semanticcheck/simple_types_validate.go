@@ -3,30 +3,30 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // validateSimpleTypeStructure validates structural constraints of a simple type
 // Does not validate type references (which might be forward references or imports)
-func validateSimpleTypeStructure(schema *parser.Schema, st *types.SimpleType) error {
+func validateSimpleTypeStructure(schema *parser.Schema, st *model.SimpleType) error {
 	switch st.Variety() {
-	case types.AtomicVariety:
+	case model.AtomicVariety:
 		if st.Restriction != nil {
 			if err := validateRestriction(schema, st, st.Restriction); err != nil {
 				return fmt.Errorf("restriction: %w", err)
 			}
 			if baseType := resolveSimpleTypeRestrictionBase(schema, st, st.Restriction); baseType != nil {
-				if baseST, ok := baseType.(*types.SimpleType); ok {
+				if baseST, ok := baseType.(*model.SimpleType); ok {
 					if err := validateLengthFacetInheritance(facetsFromRestriction(st.Restriction), baseST); err != nil {
 						return fmt.Errorf("restriction: %w", err)
 					}
 				}
 			}
 		}
-	case types.ListVariety:
+	case model.ListVariety:
 		// list types can be defined by xs:list or by restriction of a list type
 		if st.List != nil {
 			if err := validateListType(schema, st.List); err != nil {
@@ -38,7 +38,7 @@ func validateSimpleTypeStructure(schema *parser.Schema, st *types.SimpleType) er
 				return fmt.Errorf("restriction: %w", err)
 			}
 		}
-	case types.UnionVariety:
+	case model.UnionVariety:
 		// union types can be defined by xs:union or by restriction of a union type
 		if st.Union != nil {
 			if err := validateUnionType(schema, st.Union); err != nil {
@@ -51,7 +51,7 @@ func validateSimpleTypeStructure(schema *parser.Schema, st *types.SimpleType) er
 			}
 		}
 	}
-	if st.Variety() == types.ListVariety && st.WhiteSpace() != types.WhiteSpaceCollapse {
+	if st.Variety() == model.ListVariety && st.WhiteSpace() != model.WhiteSpaceCollapse {
 		return fmt.Errorf("list whiteSpace facet must be 'collapse'")
 	}
 	if err := validateSimpleTypeDerivationConstraints(schema, st); err != nil {
@@ -61,15 +61,15 @@ func validateSimpleTypeStructure(schema *parser.Schema, st *types.SimpleType) er
 }
 
 // validateSimpleTypeDerivationConstraints validates final constraints on simple type derivation
-func validateSimpleTypeDerivationConstraints(schema *parser.Schema, st *types.SimpleType) error {
+func validateSimpleTypeDerivationConstraints(schema *parser.Schema, st *model.SimpleType) error {
 	if st == nil {
 		return nil
 	}
 
 	if st.Restriction != nil {
 		baseType := resolveSimpleTypeRestrictionBase(schema, st, st.Restriction)
-		if baseST, ok := baseType.(*types.SimpleType); ok {
-			if baseST.Final.Has(types.DerivationRestriction) {
+		if baseST, ok := baseType.(*model.SimpleType); ok {
+			if baseST.Final.Has(model.DerivationRestriction) {
 				return fmt.Errorf("cannot restrict type '%s': base type is final for restriction", baseST.Name())
 			}
 		}
@@ -81,10 +81,10 @@ func validateSimpleTypeDerivationConstraints(schema *parser.Schema, st *types.Si
 			itemType = st.List.InlineItemType
 		}
 		if itemType == nil && !st.List.ItemType.IsZero() {
-			itemType = typeops.ResolveSimpleTypeReferenceAllowMissing(schema, st.List.ItemType)
+			itemType = typeresolve.ResolveSimpleTypeReferenceAllowMissing(schema, st.List.ItemType)
 		}
-		if itemST, ok := itemType.(*types.SimpleType); ok {
-			if itemST.Final.Has(types.DerivationList) {
+		if itemST, ok := itemType.(*model.SimpleType); ok {
+			if itemST.Final.Has(model.DerivationList) {
 				return fmt.Errorf("cannot derive list from type '%s': base type is final for list", itemST.Name())
 			}
 		}
@@ -97,14 +97,14 @@ func validateSimpleTypeDerivationConstraints(schema *parser.Schema, st *types.Si
 				memberTypes = append(memberTypes, inlineType)
 			}
 			for _, memberQName := range st.Union.MemberTypes {
-				if member := typeops.ResolveSimpleTypeReferenceAllowMissing(schema, memberQName); member != nil {
+				if member := typeresolve.ResolveSimpleTypeReferenceAllowMissing(schema, memberQName); member != nil {
 					memberTypes = append(memberTypes, member)
 				}
 			}
 		}
 		for _, member := range memberTypes {
-			if memberST, ok := member.(*types.SimpleType); ok {
-				if memberST.Final.Has(types.DerivationUnion) {
+			if memberST, ok := member.(*model.SimpleType); ok {
+				if memberST.Final.Has(model.DerivationUnion) {
 					return fmt.Errorf("cannot derive union from type '%s': base type is final for union", memberST.Name())
 				}
 			}
@@ -115,7 +115,7 @@ func validateSimpleTypeDerivationConstraints(schema *parser.Schema, st *types.Si
 }
 
 // validateUnionType validates a union type definition
-func validateUnionType(schema *parser.Schema, unionType *types.UnionType) error {
+func validateUnionType(schema *parser.Schema, unionType *model.UnionType) error {
 	// union must have at least one member type (from attribute or inline)
 	if len(unionType.MemberTypes) == 0 && len(unionType.InlineTypes) == 0 {
 		return fmt.Errorf("union type must have at least one member type")
@@ -125,7 +125,7 @@ func validateUnionType(schema *parser.Schema, unionType *types.UnionType) error 
 	// union types can only have simple types as members
 	for i, memberQName := range unionType.MemberTypes {
 		// check if it's a built-in type (all built-in types in XSD namespace are simple)
-		if memberQName.Namespace == types.XSDNamespace {
+		if memberQName.Namespace == model.XSDNamespace {
 			// check if it's an XSD 1.1 type (not supported)
 			if isXSD11Type(memberQName.Local) {
 				return fmt.Errorf("union memberType %d: '%s' is an XSD 1.1 type (not supported in XSD 1.0)", i+1, memberQName.Local)
@@ -134,9 +134,9 @@ func validateUnionType(schema *parser.Schema, unionType *types.UnionType) error 
 			continue
 		}
 
-		if memberType, ok := typegraph.LookupType(schema, memberQName); ok {
+		if memberType, ok := typechain.LookupType(schema, memberQName); ok {
 			// union members must be simple types, not complex types
-			if _, isComplex := memberType.(*types.ComplexType); isComplex {
+			if _, isComplex := memberType.(*model.ComplexType); isComplex {
 				return fmt.Errorf("union memberType %d: '%s' is a complex type (union types can only have simple types as members)", i+1, memberQName.Local)
 			}
 		}
@@ -161,7 +161,7 @@ func isXSD11Type(typeName string) bool {
 }
 
 // validateListType validates a list type definition
-func validateListType(schema *parser.Schema, listType *types.ListType) error {
+func validateListType(schema *parser.Schema, listType *model.ListType) error {
 	// list type must have itemType (either via itemType attribute or inline simpleType child per XSD spec)
 	if listType.ItemType.IsZero() {
 		if listType.InlineItemType == nil {
@@ -173,7 +173,7 @@ func validateListType(schema *parser.Schema, listType *types.ListType) error {
 		}
 		// list itemType must be atomic or union (NOT list)
 		variety := listType.InlineItemType.Variety()
-		if variety != types.AtomicVariety && variety != types.UnionVariety {
+		if variety != model.AtomicVariety && variety != model.UnionVariety {
 			return fmt.Errorf("list itemType must be atomic or union, got %s", variety)
 		}
 		return nil // inline simpleType is valid
@@ -181,19 +181,19 @@ func validateListType(schema *parser.Schema, listType *types.ListType) error {
 
 	// list itemType must be atomic or union (NOT list)
 	// check if it's a built-in type (always atomic)
-	if listType.ItemType.Namespace == types.XSDNamespace {
+	if listType.ItemType.Namespace == model.XSDNamespace {
 		return nil // built-in types are always atomic
 	}
 
 	// check if it's a user-defined type in this schema
-	if defType, ok := typegraph.LookupType(schema, listType.ItemType); ok {
-		st, ok := defType.(*types.SimpleType)
+	if defType, ok := typechain.LookupType(schema, listType.ItemType); ok {
+		st, ok := defType.(*model.SimpleType)
 		if !ok {
 			return fmt.Errorf("list itemType must be a simple type, got %T", defType)
 		}
 		// list itemType must be atomic or union
 		variety := st.Variety()
-		if variety != types.AtomicVariety && variety != types.UnionVariety {
+		if variety != model.AtomicVariety && variety != model.UnionVariety {
 			return fmt.Errorf("list itemType must be atomic or union, got %s", variety)
 		}
 	}

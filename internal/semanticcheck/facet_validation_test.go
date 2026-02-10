@@ -4,8 +4,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/facetvalue"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // TestOrderedTypeFacetApplicability tests that range facets (minInclusive, maxInclusive, etc.)
@@ -196,23 +198,23 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bt := types.GetBuiltin(types.TypeName(tt.baseTypeName))
+			bt := builtins.Get(model.TypeName(tt.baseTypeName))
 			if bt == nil {
 				t.Fatalf("Built-in type %s not found", tt.baseTypeName)
 			}
 
-			var facet types.Facet
+			var facet model.Facet
 			var err error
 
 			switch tt.facetName {
 			case "minInclusive":
-				facet, err = types.NewMinInclusive(tt.facetValue, bt)
+				facet, err = facetvalue.NewMinInclusive(tt.facetValue, bt)
 			case "maxInclusive":
-				facet, err = types.NewMaxInclusive(tt.facetValue, bt)
+				facet, err = facetvalue.NewMaxInclusive(tt.facetValue, bt)
 			case "minExclusive":
-				facet, err = types.NewMinExclusive(tt.facetValue, bt)
+				facet, err = facetvalue.NewMinExclusive(tt.facetValue, bt)
 			case "maxExclusive":
-				facet, err = types.NewMaxExclusive(tt.facetValue, bt)
+				facet, err = facetvalue.NewMaxExclusive(tt.facetValue, bt)
 			default:
 				t.Fatalf("Unknown facet name: %s", tt.facetName)
 			}
@@ -232,17 +234,17 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 
 			schema := &parser.Schema{
 				TargetNamespace: "http://example.com",
-				TypeDefs:        make(map[types.QName]types.Type),
+				TypeDefs:        make(map[model.QName]model.Type),
 			}
 
-			simpleType := &types.SimpleType{
-				QName: types.QName{
+			simpleType := &model.SimpleType{
+				QName: model.QName{
 					Namespace: "http://example.com",
 					Local:     "TestType",
 				},
-				Restriction: &types.Restriction{
-					Base: types.QName{
-						Namespace: types.XSDNamespace,
+				Restriction: &model.Restriction{
+					Base: model.QName{
+						Namespace: model.XSDNamespace,
 						Local:     tt.baseTypeName,
 					},
 					Facets: []any{facet},
@@ -296,6 +298,6 @@ func (m *mockRangeFacet) GetLexical() string {
 	return m.lexical
 }
 
-func (m *mockRangeFacet) Validate(value types.TypedValue, baseType types.Type) error {
+func (m *mockRangeFacet) Validate(value model.TypedValue, baseType model.Type) error {
 	return nil // not used for applicability testing
 }

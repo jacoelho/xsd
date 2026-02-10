@@ -3,11 +3,11 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseBoolAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, name string) (bool, bool, error) {
+func parseBoolAttribute(doc *schemaxml.Document, elem schemaxml.NodeID, name string) (bool, bool, error) {
 	if !doc.HasAttribute(elem, name) {
 		return false, false, nil
 	}
@@ -19,7 +19,7 @@ func parseBoolAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, name string) (
 }
 
 func parseBoolValue(name, value string) (bool, error) {
-	value = types.ApplyWhiteSpace(value, types.WhiteSpaceCollapse)
+	value = model.ApplyWhiteSpace(value, model.WhiteSpaceCollapse)
 	switch value {
 	case "true", "1":
 		return true, nil

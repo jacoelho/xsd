@@ -7,8 +7,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/schemaflow"
-	"github.com/jacoelho/xsd/internal/semantic"
+	"github.com/jacoelho/xsd/internal/schemaanalysis"
+	"github.com/jacoelho/xsd/internal/schemaprep"
 )
 
 func TestValidateSchemaOwnedPathAllocatesLessThanLegacyClonePath(t *testing.T) {
@@ -33,7 +33,7 @@ func TestValidateSchemaOwnedPathAllocatesLessThanLegacyClonePath(t *testing.T) {
 	}
 }
 
-func validateSchemaLegacyClonePath(sch *parser.Schema) (*parser.Schema, *semantic.Registry, error) {
+func validateSchemaLegacyClonePath(sch *parser.Schema) (*parser.Schema, *schemaanalysis.Registry, error) {
 	if sch == nil {
 		return nil, nil, fmt.Errorf("prepare schema: schema is nil")
 	}
@@ -41,18 +41,18 @@ func validateSchemaLegacyClonePath(sch *parser.Schema) (*parser.Schema, *semanti
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepare schema: clone schema: %w", err)
 	}
-	resolvedSchema, err := schemaflow.ResolveAndValidate(cloned)
+	resolvedSchema, err := schemaprep.ResolveAndValidate(cloned)
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepare schema: %w", err)
 	}
-	reg, err := semantic.AssignIDs(resolvedSchema)
+	reg, err := schemaanalysis.AssignIDs(resolvedSchema)
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepare schema: assign IDs: %w", err)
 	}
-	if cycleErr := semantic.DetectCycles(resolvedSchema); cycleErr != nil {
+	if cycleErr := schemaanalysis.DetectCycles(resolvedSchema); cycleErr != nil {
 		return nil, nil, fmt.Errorf("prepare schema: detect cycles: %w", cycleErr)
 	}
-	if upaErr := schemaflow.ValidateUPA(resolvedSchema, reg); upaErr != nil {
+	if upaErr := schemaprep.ValidateUPA(resolvedSchema, reg); upaErr != nil {
 		return nil, nil, fmt.Errorf("prepare schema: validate UPA: %w", upaErr)
 	}
 	return resolvedSchema, reg, nil

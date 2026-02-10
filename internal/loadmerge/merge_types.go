@@ -1,8 +1,8 @@
 package loadmerge
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 type Kind int
@@ -20,15 +20,15 @@ const (
 )
 
 type globalDeclKey struct {
-	name types.QName
+	name model.QName
 	kind parser.GlobalDeclKind
 }
 
 type mergeContext struct {
 	target              *parser.Schema
 	source              *parser.Schema
-	remapQName          func(types.QName) types.QName
-	opts                types.CopyOptions
+	remapQName          func(model.QName) model.QName
+	opts                model.CopyOptions
 	isImport            bool
 	needsNamespaceRemap bool
 }
@@ -43,9 +43,9 @@ type DefaultMerger struct{}
 func newMergeContext(target, source *parser.Schema, kind Kind, remap NamespaceRemapMode) mergeContext {
 	isImport := kind == MergeImport
 	needsNamespaceRemap := remap == RemapNamespace
-	remapQName := func(qname types.QName) types.QName {
-		if needsNamespaceRemap && qname.Namespace.IsEmpty() {
-			return types.QName{
+	remapQName := func(qname model.QName) model.QName {
+		if needsNamespaceRemap && qname.Namespace == "" {
+			return model.QName{
 				Namespace: target.TargetNamespace,
 				Local:     qname.Local,
 			}
@@ -58,11 +58,11 @@ func newMergeContext(target, source *parser.Schema, kind Kind, remap NamespaceRe
 		sourceNamespace = target.TargetNamespace
 	}
 
-	opts := types.CopyOptions{
+	opts := model.CopyOptions{
 		SourceNamespace: sourceNamespace,
 		RemapQName:      remapQName,
 	}
-	opts = types.WithGraphMemo(opts)
+	opts = model.WithGraphMemo(opts)
 
 	return mergeContext{
 		target:              target,

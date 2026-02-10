@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestPrepareBuildsSemanticArtifacts(t *testing.T) {
@@ -77,7 +77,7 @@ func TestPrepareDoesNotMutateInputSchema(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	root := sch.ElementDecls[types.QName{Namespace: "urn:test", Local: "root"}]
+	root := sch.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
 	if root == nil || len(root.Constraints) == 0 || len(root.Constraints[0].Fields) == 0 {
 		t.Fatal("expected root key field")
 	}
@@ -90,7 +90,7 @@ func TestPrepareDoesNotMutateInputSchema(t *testing.T) {
 		t.Fatalf("Prepare() error = %v", err)
 	}
 
-	rootAfter := sch.ElementDecls[types.QName{Namespace: "urn:test", Local: "root"}]
+	rootAfter := sch.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
 	if rootAfter == nil || len(rootAfter.Constraints) == 0 || len(rootAfter.Constraints[0].Fields) == 0 {
 		t.Fatal("expected root key field after Prepare()")
 	}
@@ -120,7 +120,7 @@ func TestValidateReturnsArtifactsWithoutMutatingInputSchema(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	root := sch.ElementDecls[types.QName{Namespace: "urn:test", Local: "root"}]
+	root := sch.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
 	if root == nil || len(root.Constraints) == 0 || len(root.Constraints[0].Fields) == 0 {
 		t.Fatal("expected root key field")
 	}
@@ -137,7 +137,7 @@ func TestValidateReturnsArtifactsWithoutMutatingInputSchema(t *testing.T) {
 		t.Fatal("Validate() returned nil")
 	}
 
-	rootAfter := sch.ElementDecls[types.QName{Namespace: "urn:test", Local: "root"}]
+	rootAfter := sch.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
 	if rootAfter == nil || len(rootAfter.Constraints) == 0 || len(rootAfter.Constraints[0].Fields) == 0 {
 		t.Fatal("expected root key field after Validate()")
 	}
@@ -178,8 +178,8 @@ func TestValidateReturnsIndependentResolvedSchema(t *testing.T) {
 		t.Fatal("Validate() should return an independent schema artifact")
 	}
 
-	inputRoot := sch.ElementDecls[types.QName{Namespace: "urn:test", Local: "root"}]
-	resolvedRoot := validated.schema.ElementDecls[types.QName{Namespace: "urn:test", Local: "root"}]
+	inputRoot := sch.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
+	resolvedRoot := validated.schema.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
 	if inputRoot == nil || resolvedRoot == nil {
 		t.Fatal("expected root element in both schemas")
 	}
@@ -252,14 +252,14 @@ func TestValidatedSchemaSnapshotIsDefensiveCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SchemaSnapshot() error = %v", err)
 	}
-	delete(first.ElementDecls, types.QName{Local: "root"})
+	delete(first.ElementDecls, model.QName{Local: "root"})
 	first.GlobalDecls = nil
 
 	second, err := validated.SchemaSnapshot()
 	if err != nil {
 		t.Fatalf("SchemaSnapshot() second error = %v", err)
 	}
-	if _, ok := second.ElementDecls[types.QName{Local: "root"}]; !ok {
+	if _, ok := second.ElementDecls[model.QName{Local: "root"}]; !ok {
 		t.Fatal("snapshot mutation leaked into validated artifact")
 	}
 	if len(second.GlobalDecls) == 0 {

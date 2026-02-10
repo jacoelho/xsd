@@ -3,42 +3,42 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // validateSubstitutionGroupDerivation validates that the member element's type is derived from the head element's type.
-func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName types.QName, memberDecl, headDecl *types.ElementDecl) error {
+func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName model.QName, memberDecl, headDecl *model.ElementDecl) error {
 	if memberDecl != nil &&
 		!memberDecl.TypeExplicit &&
 		memberDecl.Type != nil &&
-		types.IsAnyTypeQName(memberDecl.Type.Name()) &&
+		model.IsAnyTypeQName(memberDecl.Type.Name()) &&
 		headDecl.Type != nil {
 		memberDecl.Type = headDecl.Type
 	}
 
-	memberType := typeops.ResolveTypeReference(sch, memberDecl.Type, typeops.TypeReferenceAllowMissing)
-	headType := typeops.ResolveTypeReference(sch, headDecl.Type, typeops.TypeReferenceAllowMissing)
+	memberType := typeresolve.ResolveTypeReference(sch, memberDecl.Type, typeresolve.TypeReferenceAllowMissing)
+	headType := typeresolve.ResolveTypeReference(sch, headDecl.Type, typeresolve.TypeReferenceAllowMissing)
 	if memberType == nil || headType == nil {
 		return nil
 	}
 	if !memberDecl.SubstitutionGroup.IsZero() &&
 		!memberDecl.TypeExplicit &&
 		memberDecl.Type != nil &&
-		types.IsAnyTypeQName(memberDecl.Type.Name()) {
+		model.IsAnyTypeQName(memberDecl.Type.Name()) {
 		memberType = headType
 	}
 
 	if memberDecl.TypeExplicit && memberDecl.Type != nil {
 		memberTypeName := memberDecl.Type.Name()
-		if memberTypeName.Namespace == types.XSDNamespace && memberTypeName.Local == "anyType" {
+		if memberTypeName.Namespace == model.XSDNamespace && memberTypeName.Local == "anyType" {
 			headIsAnyType := false
 			headTypeName := headType.Name()
-			headIsAnyType = headTypeName.Namespace == types.XSDNamespace && headTypeName.Local == "anyType"
+			headIsAnyType = headTypeName.Namespace == model.XSDNamespace && headTypeName.Local == "anyType"
 			if !headIsAnyType && headDecl.Type != nil {
 				headTypeName = headDecl.Type.Name()
-				headIsAnyType = headTypeName.Namespace == types.XSDNamespace && headTypeName.Local == "anyType"
+				headIsAnyType = headTypeName.Namespace == model.XSDNamespace && headTypeName.Local == "anyType"
 			}
 
 			if !headIsAnyType {
@@ -48,13 +48,13 @@ func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName types.Q
 		}
 	}
 
-	if headType.Name().Namespace == types.XSDNamespace && headType.Name().Local == "anyType" {
+	if headType.Name().Namespace == model.XSDNamespace && headType.Name().Local == "anyType" {
 		return nil
 	}
 
-	if headType.Name().Namespace == types.XSDNamespace && headType.Name().Local == "anySimpleType" {
+	if headType.Name().Namespace == model.XSDNamespace && headType.Name().Local == "anySimpleType" {
 		switch memberType.(type) {
-		case *types.SimpleType, *types.BuiltinType:
+		case *model.SimpleType, *model.BuiltinType:
 			return nil
 		}
 	}
@@ -67,8 +67,8 @@ func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName types.Q
 			derivedValid = true
 		}
 	}
-	if !derivedValid && !types.IsValidlyDerivedFrom(memberType, headType) {
-		if memberCT, ok := memberType.(*types.ComplexType); ok {
+	if !derivedValid && !model.IsValidlyDerivedFrom(memberType, headType) {
+		if memberCT, ok := memberType.(*model.ComplexType); ok {
 			baseQName := memberCT.Content().BaseTypeQName()
 			if typesAreEqual(baseQName, headType) || isTypeInDerivationChain(sch, baseQName, headType) {
 				derivedValid = true

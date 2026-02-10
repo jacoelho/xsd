@@ -1,8 +1,8 @@
 package validator
 
 import (
-	facetengine "github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/runtime"
+	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
 	"github.com/jacoelho/xsd/internal/value"
 	wsmode "github.com/jacoelho/xsd/internal/whitespace"
 )

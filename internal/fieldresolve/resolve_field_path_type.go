@@ -3,13 +3,13 @@ package fieldresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
-func resolveFieldPathType(schema *parser.Schema, selectedElementDecl *types.ElementDecl, fieldPath xpath.Path) (types.Type, error) {
+func resolveFieldPathType(schema *parser.Schema, selectedElementDecl *model.ElementDecl, fieldPath xpath.Path) (model.Type, error) {
 	if selectedElementDecl == nil {
 		return nil, fmt.Errorf("cannot resolve field without selector element")
 	}
@@ -35,7 +35,7 @@ func resolveFieldPathType(schema *parser.Schema, selectedElementDecl *types.Elem
 		return attrType, nil
 	}
 
-	elementType := typeops.ResolveTypeReference(schema, elementDecl.Type, typeops.TypeReferenceMustExist)
+	elementType := typeresolve.ResolveTypeReference(schema, elementDecl.Type, typeresolve.TypeReferenceMustExist)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
 	}
@@ -43,8 +43,8 @@ func resolveFieldPathType(schema *parser.Schema, selectedElementDecl *types.Elem
 		return elementType, ErrFieldSelectsNillable
 	}
 
-	if ct, ok := elementType.(*types.ComplexType); ok {
-		if _, ok := ct.Content().(*types.SimpleContent); ok {
+	if ct, ok := elementType.(*model.ComplexType); ok {
+		if _, ok := ct.Content().(*model.SimpleContent); ok {
 			baseType := ct.BaseType()
 			if baseType != nil {
 				return baseType, nil

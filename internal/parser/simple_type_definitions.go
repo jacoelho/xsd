@@ -3,13 +3,13 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 // parseSimpleType parses a top-level simpleType definition
-func parseSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
-	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
+func parseSimpleType(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) error {
+	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("simpleType missing name attribute")
 	}
@@ -23,7 +23,7 @@ func parseSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) e
 		return err
 	}
 
-	st.QName = types.QName{
+	st.QName = model.QName{
 		Namespace: schema.TargetNamespace,
 		Local:     name,
 	}
@@ -31,16 +31,16 @@ func parseSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) e
 
 	if doc.HasAttribute(elem, "final") {
 		finalAttr := doc.GetAttribute(elem, "final")
-		if types.TrimXMLWhitespace(finalAttr) == "" {
+		if model.TrimXMLWhitespace(finalAttr) == "" {
 			return fmt.Errorf("final attribute cannot be empty")
 		}
-		final, err := parseDerivationSetWithValidation(finalAttr, types.DerivationSet(types.DerivationRestriction|types.DerivationList|types.DerivationUnion))
+		final, err := parseDerivationSetWithValidation(finalAttr, model.DerivationSet(model.DerivationRestriction|model.DerivationList|model.DerivationUnion))
 		if err != nil {
 			return fmt.Errorf("invalid final attribute value '%s': %w", finalAttr, err)
 		}
 		st.Final = final
 	} else if schema.FinalDefault != 0 {
-		st.Final = schema.FinalDefault & types.DerivationSet(types.DerivationRestriction|types.DerivationList|types.DerivationUnion)
+		st.Final = schema.FinalDefault & model.DerivationSet(model.DerivationRestriction|model.DerivationList|model.DerivationUnion)
 	}
 
 	if _, exists := schema.TypeDefs[st.QName]; exists {
@@ -53,7 +53,7 @@ func parseSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) e
 }
 
 // parseInlineSimpleType parses an inline simpleType definition.
-func parseInlineSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleType, error) {
+func parseInlineSimpleType(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.SimpleType, error) {
 	if doc.GetAttribute(elem, "name") != "" {
 		return nil, fmt.Errorf("inline simpleType cannot have 'name' attribute")
 	}
@@ -64,8 +64,8 @@ func parseInlineSimpleType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 }
 
 // parseSimpleTypeDefinition parses the derivation content of a simpleType element.
-func parseSimpleTypeDefinition(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*types.SimpleType, error) {
-	var parsed *types.SimpleType
+func parseSimpleTypeDefinition(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.SimpleType, error) {
+	var parsed *model.SimpleType
 	seenDerivation := false
 
 	if err := validateAnnotationOrder(doc, elem); err != nil {
@@ -73,7 +73,7 @@ func parseSimpleTypeDefinition(doc *xsdxml.Document, elem xsdxml.NodeID, schema 
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 

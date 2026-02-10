@@ -1,14 +1,14 @@
 package semanticcheck
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
-func processContentsStrongerOrEqual(derived, base types.ProcessContents) bool {
+func processContentsStrongerOrEqual(derived, base model.ProcessContents) bool {
 	switch base {
-	case types.Strict:
-		return derived == types.Strict
-	case types.Lax:
-		return derived == types.Lax || derived == types.Strict
-	case types.Skip:
+	case model.Strict:
+		return derived == model.Strict
+	case model.Lax:
+		return derived == model.Lax || derived == model.Strict
+	case model.Skip:
 		return true
 	default:
 		return false
@@ -16,54 +16,54 @@ func processContentsStrongerOrEqual(derived, base types.ProcessContents) bool {
 }
 
 func namespaceConstraintSubset(
-	ns1 types.NamespaceConstraint,
-	list1 []types.NamespaceURI,
-	target1 types.NamespaceURI,
-	ns2 types.NamespaceConstraint,
-	list2 []types.NamespaceURI,
-	target2 types.NamespaceURI,
+	ns1 model.NamespaceConstraint,
+	list1 []model.NamespaceURI,
+	target1 model.NamespaceURI,
+	ns2 model.NamespaceConstraint,
+	list2 []model.NamespaceURI,
+	target2 model.NamespaceURI,
 ) bool {
-	if ns2 == types.NSCAny {
+	if ns2 == model.NSCAny {
 		return true
 	}
 
-	if ns1 == types.NSCAny {
+	if ns1 == model.NSCAny {
 		return false
 	}
 
 	switch ns1 {
-	case types.NSCList:
+	case model.NSCList:
 		for _, ns := range list1 {
 			resolved := ns
-			if ns == types.NamespaceTargetPlaceholder {
+			if ns == model.NamespaceTargetPlaceholder {
 				resolved = target1
 			}
-			if !types.AllowsNamespace(ns2, list2, target2, resolved) {
+			if !model.AllowsNamespace(ns2, list2, target2, resolved) {
 				return false
 			}
 		}
 		return true
-	case types.NSCTargetNamespace:
-		return types.AllowsNamespace(ns2, list2, target2, target1)
-	case types.NSCLocal:
-		return types.AllowsNamespace(ns2, list2, target2, types.NamespaceEmpty)
-	case types.NSCOther:
-		if ns2 == types.NSCAny || ns2 == types.NSCNotAbsent {
+	case model.NSCTargetNamespace:
+		return model.AllowsNamespace(ns2, list2, target2, target1)
+	case model.NSCLocal:
+		return model.AllowsNamespace(ns2, list2, target2, model.NamespaceEmpty)
+	case model.NSCOther:
+		if ns2 == model.NSCAny || ns2 == model.NSCNotAbsent {
 			return true
 		}
-		if ns2 != types.NSCOther {
+		if ns2 != model.NSCOther {
 			return false
 		}
-		if target2.IsEmpty() {
+		if target2 == "" {
 			return true
 		}
 		return target1 == target2
-	case types.NSCNotAbsent:
+	case model.NSCNotAbsent:
 		switch ns2 {
-		case types.NSCAny, types.NSCNotAbsent:
+		case model.NSCAny, model.NSCNotAbsent:
 			return true
-		case types.NSCOther:
-			return target2.IsEmpty()
+		case model.NSCOther:
+			return target2 == ""
 		default:
 			return false
 		}
@@ -72,13 +72,13 @@ func namespaceConstraintSubset(
 	}
 }
 
-func processContentsName(pc types.ProcessContents) string {
+func processContentsName(pc model.ProcessContents) string {
 	switch pc {
-	case types.Strict:
+	case model.Strict:
 		return "strict"
-	case types.Lax:
+	case model.Lax:
 		return "lax"
-	case types.Skip:
+	case model.Skip:
 		return "skip"
 	default:
 		return "unknown"

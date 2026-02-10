@@ -3,11 +3,11 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func (s *complexTypeParseState) handleModelGroup(child xsdxml.NodeID) error {
+func (s *complexTypeParseState) handleModelGroup(child schemaxml.NodeID) error {
 	if err := s.beginElementContent(); err != nil {
 		return err
 	}
@@ -15,11 +15,11 @@ func (s *complexTypeParseState) handleModelGroup(child xsdxml.NodeID) error {
 	if err != nil {
 		return fmt.Errorf("parse model group: %w", err)
 	}
-	s.ct.SetContent(&types.ElementContent{Particle: mg})
+	s.ct.SetContent(&model.ElementContent{Particle: mg})
 	return nil
 }
 
-func (s *complexTypeParseState) handleAny(child xsdxml.NodeID) error {
+func (s *complexTypeParseState) handleAny(child schemaxml.NodeID) error {
 	if err := s.beginElementContent(); err != nil {
 		return err
 	}
@@ -27,11 +27,11 @@ func (s *complexTypeParseState) handleAny(child xsdxml.NodeID) error {
 	if err != nil {
 		return fmt.Errorf("parse any element: %w", err)
 	}
-	s.ct.SetContent(&types.ElementContent{Particle: anyElem})
+	s.ct.SetContent(&model.ElementContent{Particle: anyElem})
 	return nil
 }
 
-func (s *complexTypeParseState) handleGroupRef(child xsdxml.NodeID) error {
+func (s *complexTypeParseState) handleGroupRef(child schemaxml.NodeID) error {
 	if err := s.beginElementContent(); err != nil {
 		return err
 	}
@@ -54,16 +54,16 @@ func (s *complexTypeParseState) handleGroupRef(child xsdxml.NodeID) error {
 	if err != nil {
 		return err
 	}
-	groupRef := &types.GroupRef{
+	groupRef := &model.GroupRef{
 		RefQName:  refQName,
 		MinOccurs: minOccurs,
 		MaxOccurs: maxOccurs,
 	}
-	s.ct.SetContent(&types.ElementContent{Particle: groupRef})
+	s.ct.SetContent(&model.ElementContent{Particle: groupRef})
 	return nil
 }
 
-func (s *complexTypeParseState) handleSimpleContent(child xsdxml.NodeID) error {
+func (s *complexTypeParseState) handleSimpleContent(child schemaxml.NodeID) error {
 	if err := s.beginDerivationContent("simpleContent"); err != nil {
 		return err
 	}
@@ -74,14 +74,14 @@ func (s *complexTypeParseState) handleSimpleContent(child xsdxml.NodeID) error {
 	}
 	s.ct.SetContent(sc)
 	if sc.Extension != nil {
-		s.ct.DerivationMethod = types.DerivationExtension
+		s.ct.DerivationMethod = model.DerivationExtension
 	} else if sc.Restriction != nil {
-		s.ct.DerivationMethod = types.DerivationRestriction
+		s.ct.DerivationMethod = model.DerivationRestriction
 	}
 	return nil
 }
 
-func (s *complexTypeParseState) handleComplexContent(child xsdxml.NodeID) error {
+func (s *complexTypeParseState) handleComplexContent(child schemaxml.NodeID) error {
 	if err := s.beginDerivationContent("complexContent"); err != nil {
 		return err
 	}
@@ -92,9 +92,9 @@ func (s *complexTypeParseState) handleComplexContent(child xsdxml.NodeID) error 
 	}
 	s.ct.SetContent(cc)
 	if cc.Extension != nil {
-		s.ct.DerivationMethod = types.DerivationExtension
+		s.ct.DerivationMethod = model.DerivationExtension
 	} else if cc.Restriction != nil {
-		s.ct.DerivationMethod = types.DerivationRestriction
+		s.ct.DerivationMethod = model.DerivationRestriction
 	}
 	return nil
 }

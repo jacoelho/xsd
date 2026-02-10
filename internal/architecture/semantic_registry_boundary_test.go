@@ -12,7 +12,7 @@ func TestSemanticRegistryDoesNotExposePointerKeyMaps(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	path := filepath.Join(root, "internal", "semantic", "registry.go")
+	path := filepath.Join(root, "internal", "schemaanalysis", "registry.go")
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, path, nil, 0)
 	if err != nil {
@@ -40,7 +40,7 @@ func TestSemanticRegistryDoesNotExposePointerKeyMaps(t *testing.T) {
 		}
 	}
 	if registryStruct == nil {
-		t.Fatal("semantic registry boundary violation: type Registry not found")
+		t.Fatal("schemaanalysis registry boundary violation: type Registry not found")
 	}
 
 	for _, field := range registryStruct.Fields.List {
@@ -49,7 +49,7 @@ func TestSemanticRegistryDoesNotExposePointerKeyMaps(t *testing.T) {
 				continue
 			}
 			if name.Name == "AnonymousTypes" || name.Name == "LocalElements" || name.Name == "LocalAttributes" {
-				t.Fatalf("semantic registry boundary violation: exported identity map field %s", name.Name)
+				t.Fatalf("schemaanalysis registry boundary violation: exported identity map field %s", name.Name)
 			}
 		}
 
@@ -67,7 +67,7 @@ func TestSemanticRegistryDoesNotExposePointerKeyMaps(t *testing.T) {
 			if !name.IsExported() {
 				continue
 			}
-			t.Fatalf("semantic registry boundary violation: exported pointer-key map field %s", name.Name)
+			t.Fatalf("schemaanalysis registry boundary violation: exported pointer-key map field %s", name.Name)
 		}
 	}
 }

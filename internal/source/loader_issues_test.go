@@ -7,9 +7,9 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/pipeline"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestLoadInvalidSchemaAllowsRetry(t *testing.T) {
@@ -132,16 +132,16 @@ func TestAllowMissingImportLocationsChameleonIncludeResolves(t *testing.T) {
 	if parser.HasPlaceholders(schema) {
 		t.Fatalf("expected no placeholders after load")
 	}
-	typeQName := types.QName{Namespace: "urn:root", Local: "ChameleonType"}
+	typeQName := model.QName{Namespace: "urn:root", Local: "ChameleonType"}
 	if _, ok := schema.TypeDefs[typeQName]; !ok {
 		t.Fatalf("expected chameleon type %s to be present", typeQName)
 	}
-	rootQName := types.QName{Namespace: "urn:root", Local: "root"}
+	rootQName := model.QName{Namespace: "urn:root", Local: "root"}
 	rootDecl := schema.ElementDecls[rootQName]
 	if rootDecl == nil {
 		t.Fatalf("expected root element %s", rootQName)
 	}
-	if st, ok := rootDecl.Type.(*types.SimpleType); !ok || types.IsPlaceholderSimpleType(st) {
+	if st, ok := rootDecl.Type.(*model.SimpleType); !ok || model.IsPlaceholderSimpleType(st) {
 		t.Fatalf("expected resolved root type, got %T", rootDecl.Type)
 	}
 }
@@ -192,9 +192,9 @@ func TestLoadRollbackClearsPendingAndMerges(t *testing.T) {
 		t.Fatalf("expected load error for missing d.xsd")
 	}
 
-	rootKey := loader.loadKey("a.xsd", types.NamespaceURI("urn:root"))
-	includeKey := loader.loadKey("b.xsd", types.NamespaceURI("urn:root"))
-	importKey := loader.loadKey("c.xsd", types.NamespaceURI("urn:c"))
+	rootKey := loader.loadKey("a.xsd", model.NamespaceURI("urn:root"))
+	includeKey := loader.loadKey("b.xsd", model.NamespaceURI("urn:root"))
+	importKey := loader.loadKey("c.xsd", model.NamespaceURI("urn:c"))
 
 	if loader.imports.alreadyMerged(parser.DirectiveInclude, rootKey, includeKey) {
 		t.Fatalf("include merge should be rolled back")
@@ -223,10 +223,10 @@ func TestLoadRollbackClearsPendingAndMerges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected subsequent load to succeed, got %v", err)
 	}
-	if _, ok := schema.ElementDecls[types.QName{Namespace: "urn:root", Local: "fromB"}]; !ok {
+	if _, ok := schema.ElementDecls[model.QName{Namespace: "urn:root", Local: "fromB"}]; !ok {
 		t.Fatalf("expected included declaration from b.xsd to be present")
 	}
-	if _, ok := schema.ElementDecls[types.QName{Namespace: "urn:c", Local: "fromC"}]; !ok {
+	if _, ok := schema.ElementDecls[model.QName{Namespace: "urn:c", Local: "fromC"}]; !ok {
 		t.Fatalf("expected imported declaration from c.xsd to be present")
 	}
 }
@@ -236,26 +236,26 @@ func TestMergeSchemaRollbackOnError(t *testing.T) {
 	target := parser.NewSchema()
 	target.TargetNamespace = "urn:root"
 
-	dupQName := types.QName{Namespace: target.TargetNamespace, Local: "Dup"}
-	target.TypeDefs[dupQName] = &types.SimpleType{QName: dupQName}
+	dupQName := model.QName{Namespace: target.TargetNamespace, Local: "Dup"}
+	target.TypeDefs[dupQName] = &model.SimpleType{QName: dupQName}
 	target.TypeOrigins[dupQName] = "target"
 
 	source := parser.NewSchema()
 	source.TargetNamespace = "urn:root"
-	source.ElementDecls[types.QName{Namespace: source.TargetNamespace, Local: "Added"}] = &types.ElementDecl{
-		Name:            types.QName{Namespace: source.TargetNamespace, Local: "Added"},
+	source.ElementDecls[model.QName{Namespace: source.TargetNamespace, Local: "Added"}] = &model.ElementDecl{
+		Name:            model.QName{Namespace: source.TargetNamespace, Local: "Added"},
 		SourceNamespace: source.TargetNamespace,
 	}
-	source.ElementOrigins[types.QName{Namespace: source.TargetNamespace, Local: "Added"}] = "source"
-	source.TypeDefs[dupQName] = &types.SimpleType{QName: dupQName}
+	source.ElementOrigins[model.QName{Namespace: source.TargetNamespace, Local: "Added"}] = "source"
+	source.TypeDefs[dupQName] = &model.SimpleType{QName: dupQName}
 	source.TypeOrigins[dupQName] = "source"
-	source.ImportedNamespaces[source.TargetNamespace] = map[types.NamespaceURI]bool{
-		types.NamespaceURI("urn:other"): true,
+	source.ImportedNamespaces[source.TargetNamespace] = map[model.NamespaceURI]bool{
+		model.NamespaceURI("urn:other"): true,
 	}
 	source.ImportContexts["loc"] = parser.ImportContext{
 		TargetNamespace: source.TargetNamespace,
-		Imports: map[types.NamespaceURI]bool{
-			types.NamespaceURI("urn:other"): true,
+		Imports: map[model.NamespaceURI]bool{
+			model.NamespaceURI("urn:other"): true,
 		},
 	}
 
@@ -270,7 +270,7 @@ func TestMergeSchemaRollbackOnError(t *testing.T) {
 	if len(target.ImportContexts) != 0 {
 		t.Fatalf("ImportContexts mutated on failed merge")
 	}
-	if _, ok := target.ElementDecls[types.QName{Namespace: target.TargetNamespace, Local: "Added"}]; ok {
+	if _, ok := target.ElementDecls[model.QName{Namespace: target.TargetNamespace, Local: "Added"}]; ok {
 		t.Fatalf("element declaration inserted on failed merge")
 	}
 	if len(target.GlobalDecls) != 0 {
@@ -286,13 +286,13 @@ func TestLoadResolvedClosesDocForLoadedSchema(t *testing.T) {
 		state:   newLoadState(),
 		imports: newImportTracker(),
 	}
-	key := loader.loadKey("schema.xsd", types.NamespaceURI("urn:test"))
+	key := loader.loadKey("schema.xsd", model.NamespaceURI("urn:test"))
 	entry := loader.state.ensureEntry(key)
 	entry.state = schemaStateLoaded
 	entry.schema = parser.NewSchema()
 	entry.pendingDirectives = []pendingDirective{{
 		kind:      parser.DirectiveImport,
-		targetKey: loadKey{systemID: "missing.xsd", etn: types.NamespaceURI("urn:missing")},
+		targetKey: loadKey{systemID: "missing.xsd", etn: model.NamespaceURI("urn:missing")},
 	}}
 
 	doc := &testReadCloser{}
@@ -326,8 +326,8 @@ func TestSubstitutionGroupOrderDeterministic(t *testing.T) {
 		"root.xsd": &fstest.MapFile{Data: []byte(rootSchema)},
 		"sub.xsd":  &fstest.MapFile{Data: []byte(subSchema)},
 	}
-	head := types.QName{Namespace: "urn:test", Local: "head"}
-	expected := []types.QName{
+	head := model.QName{Namespace: "urn:test", Local: "head"}
+	expected := []model.QName{
 		{Namespace: "urn:test", Local: "a"},
 		{Namespace: "urn:test", Local: "b"},
 	}
@@ -518,7 +518,7 @@ func TestLoadResolvedCloseErrorIncludesSystemID(t *testing.T) {
 	closeErr := errors.New("close failure")
 	doc := &testReadCloser{reader: strings.NewReader(schemaXML), closeErr: closeErr}
 	loader := &SchemaLoader{state: newLoadState(), imports: newImportTracker()}
-	key := loader.loadKey("schema.xsd", types.NamespaceEmpty)
+	key := loader.loadKey("schema.xsd", model.NamespaceEmpty)
 	if _, err := loader.loadResolved(doc, "schema.xsd", key); err == nil {
 		t.Fatalf("expected close error")
 	} else {
@@ -536,13 +536,13 @@ func TestLoadResolvedCloseErrorForLoadedSchema(t *testing.T) {
 		state:   newLoadState(),
 		imports: newImportTracker(),
 	}
-	key := loader.loadKey("schema.xsd", types.NamespaceURI("urn:test"))
+	key := loader.loadKey("schema.xsd", model.NamespaceURI("urn:test"))
 	entry := loader.state.ensureEntry(key)
 	entry.state = schemaStateLoaded
 	entry.schema = parser.NewSchema()
 	entry.pendingDirectives = []pendingDirective{{
 		kind:      parser.DirectiveImport,
-		targetKey: loadKey{systemID: "missing.xsd", etn: types.NamespaceURI("urn:missing")},
+		targetKey: loadKey{systemID: "missing.xsd", etn: model.NamespaceURI("urn:missing")},
 	}}
 
 	closeErr := errors.New("close failure")
@@ -554,7 +554,7 @@ func TestLoadResolvedCloseErrorForLoadedSchema(t *testing.T) {
 	}
 }
 
-func equalQNameSlices(a, b []types.QName) bool {
+func equalQNameSlices(a, b []model.QName) bool {
 	if len(a) != len(b) {
 		return false
 	}

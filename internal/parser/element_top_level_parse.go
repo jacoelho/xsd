@@ -3,12 +3,12 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 // parseTopLevelElement parses a top-level element declaration.
-func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
+func parseTopLevelElement(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) error {
 	name, nameErr := validateTopLevelElementStructure(doc, elem, schema)
 	if nameErr != nil {
 		return nameErr
@@ -26,7 +26,7 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 		return attrErr
 	}
 
-	decl, declErr := types.NewElementDeclFromParsed(decl)
+	decl, declErr := model.NewElementDeclFromParsed(decl)
 	if declErr != nil {
 		return declErr
 	}
@@ -39,8 +39,8 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 	return nil
 }
 
-func validateTopLevelElementStructure(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (string, error) {
-	name := types.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
+func validateTopLevelElementStructure(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (string, error) {
+	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return "", fmt.Errorf("element missing name attribute")
 	}
@@ -62,7 +62,7 @@ func validateTopLevelElementStructure(doc *xsdxml.Document, elem xsdxml.NodeID, 
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -80,15 +80,15 @@ func validateTopLevelElementStructure(doc *xsdxml.Document, elem xsdxml.NodeID, 
 	return name, nil
 }
 
-func newTopLevelElementDecl(name string, schema *Schema) *types.ElementDecl {
-	return &types.ElementDecl{
-		Name: types.QName{
+func newTopLevelElementDecl(name string, schema *Schema) *model.ElementDecl {
+	return &model.ElementDecl{
+		Name: model.QName{
 			Namespace: schema.TargetNamespace,
 			Local:     name,
 		},
-		MinOccurs:       types.OccursFromInt(1),
-		MaxOccurs:       types.OccursFromInt(1),
+		MinOccurs:       model.OccursFromInt(1),
+		MaxOccurs:       model.OccursFromInt(1),
 		SourceNamespace: schema.TargetNamespace,
-		Form:            types.FormQualified,
+		Form:            model.FormQualified,
 	}
 }

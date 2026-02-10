@@ -1,6 +1,6 @@
 package loadmerge
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
 func (c *mergeContext) mergeElementDecls() error {
 	return mergeNamed(
@@ -8,7 +8,7 @@ func (c *mergeContext) mergeElementDecls() error {
 		c.target.ElementDecls,
 		c.target.ElementOrigins,
 		c.remapQName,
-		func(qname types.QName) string { return c.originFor(c.source.ElementOrigins, qname) },
+		func(qname model.QName) string { return c.originFor(c.source.ElementOrigins, qname) },
 		c.elementDeclForInsert,
 		c.elementDeclCandidate,
 		elementDeclEquivalent,
@@ -16,7 +16,7 @@ func (c *mergeContext) mergeElementDecls() error {
 	)
 }
 
-func (c *mergeContext) elementDeclCandidate(decl *types.ElementDecl) *types.ElementDecl {
+func (c *mergeContext) elementDeclCandidate(decl *model.ElementDecl) *model.ElementDecl {
 	if c.isImport {
 		declCopy := *decl
 		declCopy.Name = c.remapQName(decl.Name)
@@ -29,7 +29,7 @@ func (c *mergeContext) elementDeclCandidate(decl *types.ElementDecl) *types.Elem
 	return decl
 }
 
-func (c *mergeContext) elementDeclForInsert(decl *types.ElementDecl) *types.ElementDecl {
+func (c *mergeContext) elementDeclForInsert(decl *model.ElementDecl) *model.ElementDecl {
 	if c.isImport {
 		declCopy := *decl
 		declCopy.Name = c.remapQName(decl.Name)
@@ -40,7 +40,7 @@ func (c *mergeContext) elementDeclForInsert(decl *types.ElementDecl) *types.Elem
 }
 
 func (c *mergeContext) mergeTypeDefs() error {
-	insert := func(typ types.Type) types.Type {
+	insert := func(typ model.Type) model.Type {
 		if c.isImport {
 			return c.copyTypeForImport(typ)
 		}
@@ -51,7 +51,7 @@ func (c *mergeContext) mergeTypeDefs() error {
 		c.target.TypeDefs,
 		c.target.TypeOrigins,
 		c.remapQName,
-		func(qname types.QName) string { return c.originFor(c.source.TypeOrigins, qname) },
+		func(qname model.QName) string { return c.originFor(c.source.TypeOrigins, qname) },
 		insert,
 		nil,
 		nil,
@@ -59,17 +59,17 @@ func (c *mergeContext) mergeTypeDefs() error {
 	)
 }
 
-func (c *mergeContext) copyTypeForImport(typ types.Type) types.Type {
-	copied := types.CopyType(typ, c.opts)
-	if complexType, ok := copied.(*types.ComplexType); ok {
+func (c *mergeContext) copyTypeForImport(typ model.Type) model.Type {
+	copied := model.CopyType(typ, c.opts)
+	if complexType, ok := copied.(*model.ComplexType); ok {
 		normalizeAttributeForms(complexType, c.source.AttributeFormDefault)
 	}
 	return copied
 }
 
-func (c *mergeContext) copyTypeForInclude(typ types.Type) types.Type {
-	copiedType := types.CopyType(typ, c.opts)
-	if complexType, ok := copiedType.(*types.ComplexType); ok {
+func (c *mergeContext) copyTypeForInclude(typ model.Type) model.Type {
+	copiedType := model.CopyType(typ, c.opts)
+	if complexType, ok := copiedType.(*model.ComplexType); ok {
 		normalizeAttributeForms(complexType, c.source.AttributeFormDefault)
 	}
 	return copiedType

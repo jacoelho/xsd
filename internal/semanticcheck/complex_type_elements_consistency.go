@@ -3,14 +3,14 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typechain"
 )
 
 // validateElementDeclarationsConsistent validates extension element consistency with base.
-func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *types.ComplexType) error {
+func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *model.ComplexType) error {
 	if !complexType.IsExtension() {
 		return nil
 	}
@@ -22,7 +22,7 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *t
 	}
 
 	baseQName := content.BaseTypeQName()
-	baseComplexType, ok := typegraph.LookupComplexType(schema, baseQName)
+	baseComplexType, ok := typechain.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}
@@ -31,8 +31,8 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *t
 	if ext.Particle == nil {
 		return nil
 	}
-	extElements := traversal.CollectFromParticlesWithVisited([]types.Particle{ext.Particle}, nil, func(p types.Particle) (*types.ElementDecl, bool) {
-		elem, ok := p.(*types.ElementDecl)
+	extElements := traversal.CollectFromParticlesWithVisited([]model.Particle{ext.Particle}, nil, func(p model.Particle) (*model.ElementDecl, bool) {
+		elem, ok := p.(*model.ElementDecl)
 		return elem, ok
 	})
 
@@ -41,11 +41,11 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *t
 			if extElem.Name != baseElem.Name {
 				continue
 			}
-			extTypeQName := types.QName{}
+			extTypeQName := model.QName{}
 			if extElem.Type != nil {
 				extTypeQName = extElem.Type.Name()
 			}
-			baseTypeQName := types.QName{}
+			baseTypeQName := model.QName{}
 			if baseElem.Type != nil {
 				baseTypeQName = baseElem.Type.Name()
 			}

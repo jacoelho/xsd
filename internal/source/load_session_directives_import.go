@@ -5,7 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo) error {
@@ -15,7 +14,7 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 		}
 		return fmt.Errorf("import missing schemaLocation")
 	}
-	importNS := types.NamespaceURI(imp.Namespace)
+	importNS := imp.Namespace
 	result, err := s.loadDirectiveSchema(
 		parser.DirectiveImport,
 		ResolveRequest{
@@ -43,7 +42,7 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 	importKey := result.target
 
 	if imp.Namespace == "" {
-		if !importedSchema.TargetNamespace.IsEmpty() {
+		if importedSchema.TargetNamespace != "" {
 			s.resetTrackedEntry(importKey)
 			return fmt.Errorf("imported schema %s namespace mismatch: expected no namespace, got %s",
 				imp.SchemaLocation, importedSchema.TargetNamespace)

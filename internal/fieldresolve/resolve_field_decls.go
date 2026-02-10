@@ -4,14 +4,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 // ResolveFieldElementDecl resolves a field XPath to the selected element declaration.
 // Returns nil if the field selects an attribute.
-func ResolveFieldElementDecl(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) (*types.ElementDecl, error) {
+func ResolveFieldElementDecl(schema *parser.Schema, field *model.Field, constraintElement *model.ElementDecl, selectorXPath string, nsContext map[string]string) (*model.ElementDecl, error) {
 	if field == nil {
 		return nil, fmt.Errorf("field is nil")
 	}
@@ -29,7 +29,7 @@ func ResolveFieldElementDecl(schema *parser.Schema, field *types.Field, constrai
 		return nil, fmt.Errorf("%w: resolve selector '%s': %w", ErrFieldXPathUnresolved, selectorXPath, err)
 	}
 
-	var decls []*types.ElementDecl
+	var decls []*model.ElementDecl
 	for _, selectorDecl := range selectorDecls {
 		for pathIndex, fieldPath := range fieldExpr.Paths {
 			if fieldPath.Attribute != nil {
@@ -50,7 +50,7 @@ func ResolveFieldElementDecl(schema *parser.Schema, field *types.Field, constrai
 	return unique[0], nil
 }
 
-func ResolveFieldElementDecls(schema *parser.Schema, field *types.Field, constraintElement *types.ElementDecl, selectorXPath string, nsContext map[string]string) ([]*types.ElementDecl, error) {
+func ResolveFieldElementDecls(schema *parser.Schema, field *model.Field, constraintElement *model.ElementDecl, selectorXPath string, nsContext map[string]string) ([]*model.ElementDecl, error) {
 	if field == nil {
 		return nil, fmt.Errorf("field is nil")
 	}
@@ -63,7 +63,7 @@ func ResolveFieldElementDecls(schema *parser.Schema, field *types.Field, constra
 		return nil, fmt.Errorf("resolve selector '%s': %w", selectorXPath, err)
 	}
 	hasUnion := len(fieldExpr.Paths) > 1 || len(selectorDecls) > 1
-	var decls []*types.ElementDecl
+	var decls []*model.ElementDecl
 	unresolved := false
 	for _, selectorDecl := range selectorDecls {
 		for pathIndex, fieldPath := range fieldExpr.Paths {

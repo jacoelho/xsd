@@ -3,15 +3,15 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func validateElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, validAttributes map[string]bool, context string) error {
+func validateElementAttributes(doc *schemaxml.Document, elem schemaxml.NodeID, validAttributes map[string]bool, context string) error {
 	for _, attr := range doc.Attributes(elem) {
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
-		if attr.NamespaceURI() == xsdxml.XSDNamespace {
+		if attr.NamespaceURI() == schemaxml.XSDNamespace {
 			return fmt.Errorf("%s: attribute '%s' must be unprefixed", context, attr.LocalName())
 		}
 		if attr.NamespaceURI() != "" {

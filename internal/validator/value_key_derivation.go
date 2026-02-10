@@ -3,7 +3,7 @@ package validator
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/valuekey"
+	"github.com/jacoelho/xsd/internal/valuecodec"
 )
 
 func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver, member runtime.ValidatorID) (runtime.ValueKind, []byte, error) {
@@ -27,13 +27,13 @@ func (s *Session) keyForCanonicalValue(id runtime.ValidatorID, canonical []byte,
 			if err != nil {
 				return err
 			}
-			keyBytes = valuekey.AppendListEntry(keyBytes, byte(kind), key)
+			keyBytes = valuecodec.AppendListEntry(keyBytes, byte(kind), key)
 			count++
 			return nil
 		}); err != nil {
 			return runtime.VKInvalid, nil, err
 		}
-		listKey := valuekey.AppendUvarint(s.keyTmp[:0], uint64(count))
+		listKey := valuecodec.AppendUvarint(s.keyTmp[:0], uint64(count))
 		listKey = append(listKey, keyBytes...)
 		s.keyTmp = listKey
 		return runtime.VKList, listKey, nil

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestParseWithImportsPreservesDirectiveAndDeclarationOrder(t *testing.T) {
@@ -56,8 +56,8 @@ func TestParseWithImportsPreservesDirectiveAndDeclarationOrder(t *testing.T) {
 	}
 
 	wantDecls := []GlobalDecl{
-		{Kind: GlobalDeclElement, Name: types.QName{Namespace: "urn:test", Local: "root"}},
-		{Kind: GlobalDeclType, Name: types.QName{Namespace: "urn:test", Local: "Code"}},
+		{Kind: GlobalDeclElement, Name: model.QName{Namespace: "urn:test", Local: "root"}},
+		{Kind: GlobalDeclType, Name: model.QName{Namespace: "urn:test", Local: "Code"}},
 	}
 	if len(result.Schema.GlobalDecls) != len(wantDecls) {
 		t.Fatalf("GlobalDecls length = %d, want %d", len(result.Schema.GlobalDecls), len(wantDecls))

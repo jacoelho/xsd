@@ -3,14 +3,14 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // validateSubstitutionGroupFinal validates that the substitution group member's derivation
 // method is not blocked by the head element's final attribute.
-func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName types.QName, memberDecl, headDecl *types.ElementDecl) error {
+func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName model.QName, memberDecl, headDecl *model.ElementDecl) error {
 	if headDecl.Final == 0 {
 		return nil
 	}
@@ -22,8 +22,8 @@ func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName types.QName,
 		return nil
 	}
 
-	memberType = typeops.ResolveTypeReference(sch, memberType, typeops.TypeReferenceAllowMissing)
-	headType = typeops.ResolveTypeReference(sch, headType, typeops.TypeReferenceAllowMissing)
+	memberType = typeresolve.ResolveTypeReference(sch, memberType, typeresolve.TypeReferenceAllowMissing)
+	headType = typeresolve.ResolveTypeReference(sch, headType, typeresolve.TypeReferenceAllowMissing)
 
 	if memberType == nil || headType == nil {
 		return nil
@@ -34,7 +34,7 @@ func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName types.QName,
 	}
 
 	current := memberType
-	visited := make(map[types.Type]bool)
+	visited := make(map[model.Type]bool)
 	for current != nil && !typesMatch(current, headType) {
 		if visited[current] {
 			break

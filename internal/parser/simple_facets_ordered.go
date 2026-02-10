@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseOrderedFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction *types.Restriction, baseType types.Type, facetName string, constructor orderedFacetConstructor) (types.Facet, error) {
+func parseOrderedFacet(doc *schemaxml.Document, elem schemaxml.NodeID, restriction *model.Restriction, baseType model.Type, facetName string, constructor orderedFacetConstructor) (model.Facet, error) {
 	if err := validateOnlyAnnotationChildren(doc, elem, facetName); err != nil {
 		return nil, err
 	}
@@ -25,7 +25,7 @@ func parseOrderedFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction *ty
 	if err == nil && facet != nil {
 		return facet, nil
 	}
-	if errors.Is(err, types.ErrCannotDeterminePrimitiveType) {
+	if errors.Is(err, model.ErrCannotDeterminePrimitiveType) {
 		deferFacet(restriction, facetName, value)
 		return nil, nil
 	}
@@ -35,8 +35,8 @@ func parseOrderedFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction *ty
 	return nil, fmt.Errorf("%s facet: %w", facetName, err)
 }
 
-func deferFacet(restriction *types.Restriction, facetName, facetValue string) {
-	restriction.Facets = append(restriction.Facets, &types.DeferredFacet{
+func deferFacet(restriction *model.Restriction, facetName, facetValue string) {
+	restriction.Facets = append(restriction.Facets, &model.DeferredFacet{
 		FacetName:  facetName,
 		FacetValue: facetValue,
 	})

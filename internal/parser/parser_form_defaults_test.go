@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func parseFixture(t *testing.T, name string) *Schema {
@@ -28,10 +28,10 @@ func parseFixture(t *testing.T, name string) *Schema {
 	return schema
 }
 
-func findLocalElement(t *testing.T, group *types.ModelGroup, local string) *types.ElementDecl {
+func findLocalElement(t *testing.T, group *model.ModelGroup, local string) *model.ElementDecl {
 	t.Helper()
 	for _, particle := range group.Particles {
-		elem, ok := particle.(*types.ElementDecl)
+		elem, ok := particle.(*model.ElementDecl)
 		if !ok {
 			continue
 		}
@@ -43,7 +43,7 @@ func findLocalElement(t *testing.T, group *types.ModelGroup, local string) *type
 	return nil
 }
 
-func findAttribute(t *testing.T, attrs []*types.AttributeDecl, local string) *types.AttributeDecl {
+func findAttribute(t *testing.T, attrs []*model.AttributeDecl, local string) *model.AttributeDecl {
 	t.Helper()
 	for _, attr := range attrs {
 		if attr.Name.Local == local {
@@ -63,33 +63,33 @@ func TestParseFormDefaultsQualified(t *testing.T) {
 		t.Fatalf("AttributeFormDefault = %v, want Unqualified", schema.AttributeFormDefault)
 	}
 
-	root := schema.ElementDecls[types.QName{Namespace: "urn:qualified", Local: "root"}]
+	root := schema.ElementDecls[model.QName{Namespace: "urn:qualified", Local: "root"}]
 	if root == nil {
 		t.Fatalf("element 'root' not found")
 	}
-	ct, ok := root.Type.(*types.ComplexType)
+	ct, ok := root.Type.(*model.ComplexType)
 	if !ok {
-		t.Fatalf("root type = %T, want *types.ComplexType", root.Type)
+		t.Fatalf("root type = %T, want *model.ComplexType", root.Type)
 	}
-	content, ok := ct.Content().(*types.ElementContent)
+	content, ok := ct.Content().(*model.ElementContent)
 	if !ok {
-		t.Fatalf("root content = %T, want *types.ElementContent", ct.Content())
+		t.Fatalf("root content = %T, want *model.ElementContent", ct.Content())
 	}
-	group, ok := content.Particle.(*types.ModelGroup)
+	group, ok := content.Particle.(*model.ModelGroup)
 	if !ok {
-		t.Fatalf("root particle = %T, want *types.ModelGroup", content.Particle)
+		t.Fatalf("root particle = %T, want *model.ModelGroup", content.Particle)
 	}
 
 	child := findLocalElement(t, group, "child")
-	if child.Form != types.FormQualified {
+	if child.Form != model.FormQualified {
 		t.Fatalf("child form = %v, want FormQualified", child.Form)
 	}
-	if child.Name.Namespace != types.NamespaceURI("urn:qualified") {
+	if child.Name.Namespace != model.NamespaceURI("urn:qualified") {
 		t.Fatalf("child namespace = %q, want %q", child.Name.Namespace, "urn:qualified")
 	}
 
 	childUnq := findLocalElement(t, group, "childUnq")
-	if childUnq.Form != types.FormUnqualified {
+	if childUnq.Form != model.FormUnqualified {
 		t.Fatalf("childUnq form = %v, want FormUnqualified", childUnq.Form)
 	}
 	if childUnq.Name.Namespace != "" {
@@ -97,21 +97,21 @@ func TestParseFormDefaultsQualified(t *testing.T) {
 	}
 
 	childAnon := findLocalElement(t, group, "childAnon")
-	st, ok := childAnon.Type.(*types.SimpleType)
+	st, ok := childAnon.Type.(*model.SimpleType)
 	if !ok {
-		t.Fatalf("childAnon type = %T, want *types.SimpleType", childAnon.Type)
+		t.Fatalf("childAnon type = %T, want *model.SimpleType", childAnon.Type)
 	}
 	if !st.QName.IsZero() {
 		t.Fatalf("childAnon type QName = %s, want zero", st.QName)
 	}
 
 	attr := findAttribute(t, ct.Attributes(), "attr")
-	if attr.Form != types.FormUnqualified {
+	if attr.Form != model.FormUnqualified {
 		t.Fatalf("attr form = %v, want FormUnqualified", attr.Form)
 	}
 
 	attrQ := findAttribute(t, ct.Attributes(), "attrQ")
-	if attrQ.Form != types.FormQualified {
+	if attrQ.Form != model.FormQualified {
 		t.Fatalf("attrQ form = %v, want FormQualified", attrQ.Form)
 	}
 }
@@ -125,25 +125,25 @@ func TestParseFormDefaultsUnqualifiedDefaultNamespace(t *testing.T) {
 		t.Fatalf("AttributeFormDefault = %v, want Qualified", schema.AttributeFormDefault)
 	}
 
-	root := schema.ElementDecls[types.QName{Namespace: "urn:unqualified", Local: "root"}]
+	root := schema.ElementDecls[model.QName{Namespace: "urn:unqualified", Local: "root"}]
 	if root == nil {
 		t.Fatalf("element 'root' not found")
 	}
-	ct, ok := root.Type.(*types.ComplexType)
+	ct, ok := root.Type.(*model.ComplexType)
 	if !ok {
-		t.Fatalf("root type = %T, want *types.ComplexType", root.Type)
+		t.Fatalf("root type = %T, want *model.ComplexType", root.Type)
 	}
-	content, ok := ct.Content().(*types.ElementContent)
+	content, ok := ct.Content().(*model.ElementContent)
 	if !ok {
-		t.Fatalf("root content = %T, want *types.ElementContent", ct.Content())
+		t.Fatalf("root content = %T, want *model.ElementContent", ct.Content())
 	}
-	group, ok := content.Particle.(*types.ModelGroup)
+	group, ok := content.Particle.(*model.ModelGroup)
 	if !ok {
-		t.Fatalf("root particle = %T, want *types.ModelGroup", content.Particle)
+		t.Fatalf("root particle = %T, want *model.ModelGroup", content.Particle)
 	}
 
 	child := findLocalElement(t, group, "child")
-	if child.Form != types.FormUnqualified {
+	if child.Form != model.FormUnqualified {
 		t.Fatalf("child form = %v, want FormUnqualified", child.Form)
 	}
 	if child.Name.Namespace != "" {
@@ -151,20 +151,20 @@ func TestParseFormDefaultsUnqualifiedDefaultNamespace(t *testing.T) {
 	}
 
 	childQ := findLocalElement(t, group, "childQ")
-	if childQ.Form != types.FormQualified {
+	if childQ.Form != model.FormQualified {
 		t.Fatalf("childQ form = %v, want FormQualified", childQ.Form)
 	}
-	if childQ.Name.Namespace != types.NamespaceURI("urn:unqualified") {
+	if childQ.Name.Namespace != model.NamespaceURI("urn:unqualified") {
 		t.Fatalf("childQ namespace = %q, want %q", childQ.Name.Namespace, "urn:unqualified")
 	}
 
 	attr := findAttribute(t, ct.Attributes(), "attr")
-	if attr.Form != types.FormQualified {
+	if attr.Form != model.FormQualified {
 		t.Fatalf("attr form = %v, want FormQualified", attr.Form)
 	}
 
 	attrU := findAttribute(t, ct.Attributes(), "attrU")
-	if attrU.Form != types.FormUnqualified {
+	if attrU.Form != model.FormUnqualified {
 		t.Fatalf("attrU form = %v, want FormUnqualified", attrU.Form)
 	}
 }

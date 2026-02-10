@@ -4,21 +4,21 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestAttributeUseProhibitedDisallowsDefault(t *testing.T) {
-	qname := types.QName{Namespace: "urn:test", Local: "a"}
-	decl := &types.AttributeDecl{
+	qname := model.QName{Namespace: "urn:test", Local: "a"}
+	decl := &model.AttributeDecl{
 		Name:       qname,
-		Use:        types.Prohibited,
+		Use:        model.Prohibited,
 		HasDefault: true,
 		Default:    "d",
 	}
 	schema := &parser.Schema{
 		TargetNamespace: "urn:test",
-		AttributeDecls: map[types.QName]*types.AttributeDecl{
+		AttributeDecls: map[model.QName]*model.AttributeDecl{
 			qname: decl,
 		},
 	}
@@ -33,16 +33,16 @@ func TestAttributeUseProhibitedDisallowsDefault(t *testing.T) {
 }
 
 func TestAttributeUseProhibitedAllowsFixed(t *testing.T) {
-	qname := types.QName{Namespace: "urn:test", Local: "a"}
-	decl := &types.AttributeDecl{
+	qname := model.QName{Namespace: "urn:test", Local: "a"}
+	decl := &model.AttributeDecl{
 		Name:     qname,
-		Use:      types.Prohibited,
+		Use:      model.Prohibited,
 		HasFixed: true,
 		Fixed:    "x",
 	}
 	schema := &parser.Schema{
 		TargetNamespace: "urn:test",
-		AttributeDecls: map[types.QName]*types.AttributeDecl{
+		AttributeDecls: map[model.QName]*model.AttributeDecl{
 			qname: decl,
 		},
 	}
@@ -56,13 +56,13 @@ func TestMergeAttributesFromTypeForValidationNilContent(t *testing.T) {
 	schema := parser.NewSchema()
 	schema.TargetNamespace = "urn:test"
 
-	attr := &types.AttributeDecl{
-		Name: types.QName{Local: "a"},
+	attr := &model.AttributeDecl{
+		Name: model.QName{Local: "a"},
 	}
-	ct := &types.ComplexType{}
-	ct.SetAttributes([]*types.AttributeDecl{attr})
+	ct := &model.ComplexType{}
+	ct.SetAttributes([]*model.AttributeDecl{attr})
 
-	attrMap := make(map[types.QName]*types.AttributeDecl)
+	attrMap := make(map[model.QName]*model.AttributeDecl)
 	mergeAttributesFromTypeForValidation(schema, ct, attrMap)
 
 	if len(attrMap) != 1 {

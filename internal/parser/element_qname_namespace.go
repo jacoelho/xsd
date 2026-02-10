@@ -3,26 +3,26 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func validateQNameNamespace(schema *Schema, namespace types.NamespaceURI) error {
+func validateQNameNamespace(schema *Schema, namespace model.NamespaceURI) error {
 	if schema == nil {
 		return nil
 	}
-	if namespace == types.XSDNamespace || namespace == xsdxml.XMLNamespace {
+	if namespace == model.XSDNamespace || namespace == schemaxml.XMLNamespace {
 		return nil
 	}
 	if namespace == schema.TargetNamespace {
 		return nil
 	}
 	imports := schema.ImportedNamespaces[schema.TargetNamespace]
-	if namespace.IsEmpty() {
-		if schema.TargetNamespace.IsEmpty() {
+	if namespace == "" {
+		if schema.TargetNamespace == "" {
 			return nil
 		}
-		if imports != nil && imports[types.NamespaceEmpty] {
+		if imports != nil && imports[model.NamespaceEmpty] {
 			return nil
 		}
 		return fmt.Errorf("namespace %s not imported for %s", namespace, schema.TargetNamespace)

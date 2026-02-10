@@ -1,19 +1,19 @@
 package parser
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
-func hasPlaceholderInContent(content types.Content, visitedTypes map[types.Type]bool, visitedGroups map[*types.ModelGroup]bool) bool {
+func hasPlaceholderInContent(content model.Content, visitedTypes map[model.Type]bool, visitedGroups map[*model.ModelGroup]bool) bool {
 	switch c := content.(type) {
-	case *types.ElementContent:
+	case *model.ElementContent:
 		return hasPlaceholderInParticle(c.Particle, visitedTypes, visitedGroups)
-	case *types.ComplexContent:
+	case *model.ComplexContent:
 		if c.Extension != nil && hasPlaceholderInParticle(c.Extension.Particle, visitedTypes, visitedGroups) {
 			return true
 		}
 		if c.Restriction != nil && hasPlaceholderInParticle(c.Restriction.Particle, visitedTypes, visitedGroups) {
 			return true
 		}
-	case *types.SimpleContent:
+	case *model.SimpleContent:
 		if c.Extension != nil {
 			for _, attr := range c.Extension.Attributes {
 				if attr == nil {
@@ -41,7 +41,7 @@ func hasPlaceholderInContent(content types.Content, visitedTypes map[types.Type]
 	return false
 }
 
-func hasPlaceholderInModelGroup(group *types.ModelGroup, visitedTypes map[types.Type]bool, visitedGroups map[*types.ModelGroup]bool) bool {
+func hasPlaceholderInModelGroup(group *model.ModelGroup, visitedTypes map[model.Type]bool, visitedGroups map[*model.ModelGroup]bool) bool {
 	if group == nil {
 		return false
 	}
@@ -57,14 +57,14 @@ func hasPlaceholderInModelGroup(group *types.ModelGroup, visitedTypes map[types.
 	return false
 }
 
-func hasPlaceholderInParticle(particle types.Particle, visitedTypes map[types.Type]bool, visitedGroups map[*types.ModelGroup]bool) bool {
+func hasPlaceholderInParticle(particle model.Particle, visitedTypes map[model.Type]bool, visitedGroups map[*model.ModelGroup]bool) bool {
 	switch p := particle.(type) {
-	case *types.ElementDecl:
+	case *model.ElementDecl:
 		if p == nil {
 			return false
 		}
 		return hasPlaceholderType(p.Type, visitedTypes, visitedGroups)
-	case *types.ModelGroup:
+	case *model.ModelGroup:
 		return hasPlaceholderInModelGroup(p, visitedTypes, visitedGroups)
 	default:
 		return false

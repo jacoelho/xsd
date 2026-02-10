@@ -3,14 +3,15 @@ package semanticcheck
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/builtins"
+	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/typechain"
 )
 
 // validateRestriction validates a simple type restriction
-func validateRestriction(schema *parser.Schema, st *types.SimpleType, restriction *types.Restriction) error {
-	var baseType types.Type
+func validateRestriction(schema *parser.Schema, st *model.SimpleType, restriction *model.Restriction) error {
+	var baseType model.Type
 
 	switch {
 	// use ResolvedBase if available (after semantic resolution).
@@ -24,8 +25,8 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 		baseTypeName := restriction.Base.Local
 
 		// check if it's a built-in type
-		if restriction.Base.Namespace == types.XSDNamespace {
-			bt := types.GetBuiltin(types.TypeName(baseTypeName))
+		if restriction.Base.Namespace == model.XSDNamespace {
+			bt := builtins.Get(builtins.TypeName(baseTypeName))
 			if bt == nil {
 				// unknown built-in type - might be a forward reference issue, skip for now
 				baseType = nil
@@ -34,21 +35,21 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 			}
 		} else {
 			// check if it's a user-defined type in this schema
-			if defType, ok := typegraph.LookupType(schema, restriction.Base); ok {
+			if defType, ok := typechain.LookupType(schema, restriction.Base); ok {
 				baseType = defType
 			}
 		}
 	}
 
-	// convert facets to []types.Facet for validation
+	// convert facets to []model.Facet for validation
 	// also process deferred facets (range facets that couldn't be constructed during parsing)
-	facetList := make([]types.Facet, 0, len(restriction.Facets))
-	var deferredFacets []*types.DeferredFacet
+	facetList := make([]model.Facet, 0, len(restriction.Facets))
+	var deferredFacets []*model.DeferredFacet
 	for _, f := range restriction.Facets {
 		switch facet := f.(type) {
-		case types.Facet:
+		case model.Facet:
 			facetList = append(facetList, facet)
-		case *types.DeferredFacet:
+		case *model.DeferredFacet:
 			deferredFacets = append(deferredFacets, facet)
 		}
 	}
@@ -61,16 +62,16 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 
 	// simple type restrictions must have a simple type base.
 	// anyType is a complex type and cannot be restricted by a simpleType.
-	if baseQName.Namespace == types.XSDNamespace && baseQName.Local == string(types.TypeNameAnyType) {
+	if baseQName.Namespace == model.XSDNamespace && baseQName.Local == string(model.TypeNameAnyType) {
 		return fmt.Errorf("simpleType restriction cannot have base type anyType")
 	}
 
 	// per XSD 1.0 tests: anySimpleType cannot be used as a restriction base in schema definitions.
-	if baseQName.Namespace == types.XSDNamespace && baseQName.Local == string(types.TypeNameAnySimpleType) {
+	if baseQName.Namespace == model.XSDNamespace && baseQName.Local == string(model.TypeNameAnySimpleType) {
 		return fmt.Errorf("simpleType restriction cannot have base type anySimpleType")
 	}
 
-	if _, isComplex := baseType.(*types.ComplexType); isComplex {
+	if _, isComplex := baseType.(*model.ComplexType); isComplex {
 		return fmt.Errorf("simpleType restriction cannot have complex base type '%s'", baseQName)
 	}
 
@@ -104,7 +105,7 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 		}
 	}
 
-	if st.Variety() == types.ListVariety && st.WhiteSpace() != types.WhiteSpaceCollapse {
+	if st.Variety() == model.ListVariety && st.WhiteSpace() != model.WhiteSpaceCollapse {
 		return fmt.Errorf("list whiteSpace facet must be 'collapse'")
 	}
 
@@ -118,8 +119,8 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 	// however, if restricting a NOTATION-derived type that already has enumeration, additional
 	// restrictions (like length facets) are allowed without re-specifying enumeration.
 	isDirectNotation := !baseQName.IsZero() &&
-		baseQName.Namespace == types.XSDNamespace &&
-		baseQName.Local == string(types.TypeNameNOTATION)
+		baseQName.Namespace == model.XSDNamespace &&
+		baseQName.Local == string(model.TypeNameNOTATION)
 	if isDirectNotation {
 		// directly restricting xs:NOTATION - must have enumeration in this restriction
 		if !hasEnumerationFacet(facetList) {
@@ -135,7 +136,7 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 		if baseType != nil {
 			isNotation = isNotationType(baseType)
 		} else if !baseQName.IsZero() {
-			if defType, ok := typegraph.LookupType(schema, baseQName); ok {
+			if defType, ok := typechain.LookupType(schema, baseQName); ok {
 				isNotation = isNotationType(defType)
 			}
 		}
@@ -150,7 +151,7 @@ func validateRestriction(schema *parser.Schema, st *types.SimpleType, restrictio
 }
 
 // validateSimpleContentRestrictionFacets validates facets in a simpleContent restriction
-func validateSimpleContentRestrictionFacets(schema *parser.Schema, restriction *types.Restriction) error {
+func validateSimpleContentRestrictionFacets(schema *parser.Schema, restriction *model.Restriction) error {
 	if restriction == nil {
 		return nil
 	}
@@ -160,27 +161,27 @@ func validateSimpleContentRestrictionFacets(schema *parser.Schema, restriction *
 		baseQName = restriction.Base
 	}
 
-	if baseQName.Namespace == types.XSDNamespace && baseQName.Local == string(types.TypeNameAnyType) {
+	if baseQName.Namespace == model.XSDNamespace && baseQName.Local == string(model.TypeNameAnyType) {
 		return fmt.Errorf("simpleContent restriction cannot have base type anyType")
 	}
-	if baseQName.Namespace == types.XSDNamespace && baseQName.Local == string(types.TypeNameAnySimpleType) {
+	if baseQName.Namespace == model.XSDNamespace && baseQName.Local == string(model.TypeNameAnySimpleType) {
 		if len(restriction.Facets) > 0 {
 			return fmt.Errorf("simpleContent restriction cannot apply facets to base type anySimpleType")
 		}
 	}
 
-	if _, isComplex := baseType.(*types.ComplexType); isComplex {
+	if _, isComplex := baseType.(*model.ComplexType); isComplex {
 		return fmt.Errorf("simpleContent restriction cannot have complex base type '%s'", baseQName)
 	}
 
-	// convert facets to []types.Facet for validation
-	facetList := make([]types.Facet, 0, len(restriction.Facets))
-	var deferredFacets []*types.DeferredFacet
+	// convert facets to []model.Facet for validation
+	facetList := make([]model.Facet, 0, len(restriction.Facets))
+	var deferredFacets []*model.DeferredFacet
 	for _, f := range restriction.Facets {
 		switch facet := f.(type) {
-		case types.Facet:
+		case model.Facet:
 			facetList = append(facetList, facet)
-		case *types.DeferredFacet:
+		case *model.DeferredFacet:
 			deferredFacets = append(deferredFacets, facet)
 		}
 	}
@@ -196,7 +197,7 @@ func validateSimpleContentRestrictionFacets(schema *parser.Schema, restriction *
 	}
 
 	if baseType != nil {
-		if baseST, ok := baseType.(*types.SimpleType); ok {
+		if baseST, ok := baseType.(*model.SimpleType); ok {
 			if err := validateFacetInheritance(facetList, baseST); err != nil {
 				return err
 			}
