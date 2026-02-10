@@ -100,7 +100,7 @@ func TestPrepareDoesNotMutateInputSchema(t *testing.T) {
 	}
 }
 
-func TestValidateReturnsArtifactsWithoutMutatingInputSchema(t *testing.T) {
+func TestPrepareReturnsArtifactsWithoutMutatingInputSchema(t *testing.T) {
 	sch, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:test"
@@ -126,78 +126,28 @@ func TestValidateReturnsArtifactsWithoutMutatingInputSchema(t *testing.T) {
 	}
 	before := root.Constraints[0].Fields[0].ResolvedType
 	if before != nil {
-		t.Fatalf("expected unresolved field before Validate(), got %v", before.Name())
+		t.Fatalf("expected unresolved field before Prepare(), got %v", before.Name())
 	}
 
-	validated, err := Validate(sch)
+	prepared, err := Prepare(sch)
 	if err != nil {
-		t.Fatalf("Validate() error = %v", err)
+		t.Fatalf("Prepare() error = %v", err)
 	}
-	if validated == nil {
-		t.Fatal("Validate() returned nil")
+	if prepared == nil {
+		t.Fatal("Prepare() returned nil")
 	}
 
 	rootAfter := sch.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
 	if rootAfter == nil || len(rootAfter.Constraints) == 0 || len(rootAfter.Constraints[0].Fields) == 0 {
-		t.Fatal("expected root key field after Validate()")
+		t.Fatal("expected root key field after Prepare()")
 	}
 	after := rootAfter.Constraints[0].Fields[0].ResolvedType
 	if after != nil {
-		t.Fatalf("expected input schema field to remain unresolved after Validate(), got %v", after.Name())
+		t.Fatalf("expected input schema field to remain unresolved after Prepare(), got %v", after.Name())
 	}
 }
 
-func TestValidateReturnsIndependentResolvedSchema(t *testing.T) {
-	sch, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-           targetNamespace="urn:test"
-           xmlns:tns="urn:test"
-           elementFormDefault="qualified">
-  <xs:element name="root">
-    <xs:complexType>
-      <xs:attribute name="number" type="xs:integer"/>
-    </xs:complexType>
-    <xs:key name="rootKey">
-      <xs:selector xpath="."/>
-      <xs:field xpath="@number"/>
-    </xs:key>
-  </xs:element>
-</xs:schema>`))
-	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
-	}
-
-	validated, err := Validate(sch)
-	if err != nil {
-		t.Fatalf("Validate() error = %v", err)
-	}
-	if validated == nil || validated.schema == nil {
-		t.Fatal("Validate() returned nil artifacts")
-	}
-	if validated.schema == sch {
-		t.Fatal("Validate() should return an independent schema artifact")
-	}
-
-	inputRoot := sch.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
-	resolvedRoot := validated.schema.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
-	if inputRoot == nil || resolvedRoot == nil {
-		t.Fatal("expected root element in both schemas")
-	}
-	if len(inputRoot.Constraints) == 0 || len(inputRoot.Constraints[0].Fields) == 0 {
-		t.Fatal("expected input key field")
-	}
-	if len(resolvedRoot.Constraints) == 0 || len(resolvedRoot.Constraints[0].Fields) == 0 {
-		t.Fatal("expected resolved key field")
-	}
-	if inputRoot.Constraints[0].Fields[0].ResolvedType != nil {
-		t.Fatal("input schema should remain unresolved")
-	}
-	if resolvedRoot.Constraints[0].Fields[0].ResolvedType == nil {
-		t.Fatal("validated schema should contain resolved field type")
-	}
-}
-
-func TestTransformFromValidatedArtifactsBuildsRuntime(t *testing.T) {
+func TestPrepareBuildsRuntimeFromArtifacts(t *testing.T) {
 	sch, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:string"/>
@@ -206,13 +156,9 @@ func TestTransformFromValidatedArtifactsBuildsRuntime(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	validated, err := Validate(sch)
+	prepared, err := Prepare(sch)
 	if err != nil {
-		t.Fatalf("Validate() error = %v", err)
-	}
-	prepared, err := Transform(validated)
-	if err != nil {
-		t.Fatalf("Transform() error = %v", err)
+		t.Fatalf("Prepare() error = %v", err)
 	}
 	rt, err := prepared.BuildRuntime(CompileConfig{})
 	if err != nil {
@@ -223,54 +169,9 @@ func TestTransformFromValidatedArtifactsBuildsRuntime(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsNilSchema(t *testing.T) {
-	if _, err := Validate(nil); err == nil {
-		t.Fatal("Validate(nil) expected error")
-	}
-}
-
-func TestTransformRejectsNilValidatedSchema(t *testing.T) {
-	if _, err := Transform(nil); err == nil {
-		t.Fatal("Transform(nil) expected error")
-	}
-}
-
-func TestValidatedSchemaSnapshotIsDefensiveCopy(t *testing.T) {
-	sch, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="root" type="xs:string"/>
-</xs:schema>`))
-	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
-	}
-
-	validated, err := Validate(sch)
-	if err != nil {
-		t.Fatalf("Validate() error = %v", err)
-	}
-	first, err := validated.SchemaSnapshot()
-	if err != nil {
-		t.Fatalf("SchemaSnapshot() error = %v", err)
-	}
-	delete(first.ElementDecls, model.QName{Local: "root"})
-	first.GlobalDecls = nil
-
-	second, err := validated.SchemaSnapshot()
-	if err != nil {
-		t.Fatalf("SchemaSnapshot() second error = %v", err)
-	}
-	if _, ok := second.ElementDecls[model.QName{Local: "root"}]; !ok {
-		t.Fatal("snapshot mutation leaked into validated artifact")
-	}
-	if len(second.GlobalDecls) == 0 {
-		t.Fatal("snapshot mutation leaked into validated global declarations")
-	}
-}
-
-func TestValidatedSchemaSnapshotRejectsNilValidatedSchema(t *testing.T) {
-	var validated *ValidatedSchema
-	if _, err := validated.SchemaSnapshot(); err == nil {
-		t.Fatal("SchemaSnapshot() expected error for nil validated schema")
+func TestPrepareRejectsNilSchema(t *testing.T) {
+	if _, err := Prepare(nil); err == nil {
+		t.Fatal("Prepare(nil) expected error")
 	}
 }
 

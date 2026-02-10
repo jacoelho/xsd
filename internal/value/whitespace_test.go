@@ -124,6 +124,29 @@ func TestFieldsXMLWhitespaceSeq(t *testing.T) {
 	}
 }
 
+func TestFieldsXMLWhitespaceStringSeq(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{in: "a b c", want: []string{"a", "b", "c"}},
+		{in: "  a  b  ", want: []string{"a", "b"}},
+		{in: "a\tb\nc", want: []string{"a", "b", "c"}},
+		{in: " \t\n\r ", want: nil},
+		{in: "", want: nil},
+		{in: "a\u00A0b", want: []string{"a\u00A0b"}},
+	}
+	for _, tc := range cases {
+		var got []string
+		for field := range FieldsXMLWhitespaceStringSeq(tc.in) {
+			got = append(got, field)
+		}
+		if !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("FieldsXMLWhitespaceStringSeq(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}
+
 func TestIsXMLWhitespaceByte(t *testing.T) {
 	for _, b := range []byte{' ', '\t', '\n', '\r'} {
 		if !IsXMLWhitespaceByte(b) {

@@ -25,12 +25,12 @@ func validateAttributeDeclarations(sch *parser.Schema) []error {
 			errs = append(errs, fmt.Errorf("attribute %s: type must be a simple type", qname))
 		}
 		if decl.HasDefault {
-			if err := validateDefaultOrFixedValueResolved(sch, decl.Default, resolvedType, decl.DefaultContext, make(map[model.Type]bool), idValuesDisallowed); err != nil {
+			if err := validateDefaultOrFixedValueResolved(sch, decl.Default, resolvedType, decl.DefaultContext, idValuesDisallowed); err != nil {
 				errs = append(errs, fmt.Errorf("attribute %s: invalid default value '%s': %w", qname, decl.Default, err))
 			}
 		}
 		if decl.HasFixed {
-			if err := validateDefaultOrFixedValueResolved(sch, decl.Fixed, resolvedType, decl.FixedContext, make(map[model.Type]bool), idValuesDisallowed); err != nil {
+			if err := validateDefaultOrFixedValueResolved(sch, decl.Fixed, resolvedType, decl.FixedContext, idValuesDisallowed); err != nil {
 				errs = append(errs, fmt.Errorf("attribute %s: invalid fixed value '%s': %w", qname, decl.Fixed, err))
 			}
 		}

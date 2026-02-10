@@ -1,6 +1,7 @@
 package model
 
 import (
+	"maps"
 	"unicode/utf8"
 
 	"github.com/jacoelho/xsd/internal/xmlnames"
@@ -125,35 +126,36 @@ var primitiveTypeNames = map[TypeName]struct{}{
 	TypeNameNOTATION:     {},
 }
 
-var builtinBaseTypes = map[TypeName]TypeName{
-	// Derived from string
-	TypeNameNormalizedString: TypeNameString,
-	TypeNameToken:            TypeNameNormalizedString,
-	TypeNameLanguage:         TypeNameToken,
-	TypeNameName:             TypeNameToken,
-	TypeNameNCName:           TypeNameName,
-	TypeNameID:               TypeNameNCName,
-	TypeNameIDREF:            TypeNameNCName,
-	TypeNameIDREFS:           TypeNameIDREF,
-	TypeNameENTITY:           TypeNameNCName,
-	TypeNameENTITIES:         TypeNameENTITY,
-	TypeNameNMTOKEN:          TypeNameToken,
-	TypeNameNMTOKENS:         TypeNameNMTOKEN,
-	// Derived from decimal
-	TypeNameInteger:            TypeNameDecimal,
-	TypeNameLong:               TypeNameInteger,
-	TypeNameInt:                TypeNameLong,
-	TypeNameShort:              TypeNameInt,
-	TypeNameByte:               TypeNameShort,
-	TypeNameNonNegativeInteger: TypeNameInteger,
-	TypeNamePositiveInteger:    TypeNameNonNegativeInteger,
-	TypeNameUnsignedLong:       TypeNameNonNegativeInteger,
-	TypeNameUnsignedInt:        TypeNameUnsignedLong,
-	TypeNameUnsignedShort:      TypeNameUnsignedInt,
-	TypeNameUnsignedByte:       TypeNameUnsignedShort,
-	TypeNameNonPositiveInteger: TypeNameInteger,
-	TypeNameNegativeInteger:    TypeNameNonPositiveInteger,
-}
+var builtinBaseTypes = func() map[TypeName]TypeName {
+	baseTypes := map[TypeName]TypeName{
+		// Derived from string
+		TypeNameNormalizedString: TypeNameString,
+		TypeNameToken:            TypeNameNormalizedString,
+		TypeNameLanguage:         TypeNameToken,
+		TypeNameName:             TypeNameToken,
+		TypeNameNCName:           TypeNameName,
+		TypeNameID:               TypeNameNCName,
+		TypeNameIDREF:            TypeNameNCName,
+		TypeNameENTITY:           TypeNameNCName,
+		TypeNameNMTOKEN:          TypeNameToken,
+		// Derived from decimal
+		TypeNameInteger:            TypeNameDecimal,
+		TypeNameLong:               TypeNameInteger,
+		TypeNameInt:                TypeNameLong,
+		TypeNameShort:              TypeNameInt,
+		TypeNameByte:               TypeNameShort,
+		TypeNameNonNegativeInteger: TypeNameInteger,
+		TypeNamePositiveInteger:    TypeNameNonNegativeInteger,
+		TypeNameUnsignedLong:       TypeNameNonNegativeInteger,
+		TypeNameUnsignedInt:        TypeNameUnsignedLong,
+		TypeNameUnsignedShort:      TypeNameUnsignedInt,
+		TypeNameUnsignedByte:       TypeNameUnsignedShort,
+		TypeNameNonPositiveInteger: TypeNameInteger,
+		TypeNameNegativeInteger:    TypeNameNonPositiveInteger,
+	}
+	maps.Copy(baseTypes, builtinListItemTypes)
+	return baseTypes
+}()
 
 // GetBuiltin returns a built-in XSD type by local name.
 func GetBuiltin(name TypeName) *BuiltinType {

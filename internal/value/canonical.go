@@ -1,6 +1,7 @@
 package value
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math"
 	"strconv"
@@ -117,4 +118,22 @@ func formatTimezone(value time.Time) string {
 	hours := offset / 3600
 	minutes := (offset % 3600) / 60
 	return fmt.Sprintf("%s%02d:%02d", sign, hours, minutes)
+}
+
+// UpperHex renders src as uppercase hexadecimal into dst.
+// It reuses dst when capacity allows and returns the resulting slice.
+func UpperHex(dst, src []byte) []byte {
+	size := hex.EncodedLen(len(src))
+	if cap(dst) < size {
+		dst = make([]byte, size)
+	} else {
+		dst = dst[:size]
+	}
+	hex.Encode(dst, src)
+	for i := range dst {
+		if dst[i] >= 'a' && dst[i] <= 'f' {
+			dst[i] -= 'a' - 'A'
+		}
+	}
+	return dst
 }

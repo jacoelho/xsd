@@ -82,6 +82,28 @@ func FieldsXMLWhitespaceSeq(in []byte) iter.Seq[[]byte] {
 	}
 }
 
+// FieldsXMLWhitespaceStringSeq yields XML whitespace-separated string fields.
+func FieldsXMLWhitespaceStringSeq(in string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		i := 0
+		for i < len(in) {
+			for i < len(in) && IsXMLWhitespaceByte(in[i]) {
+				i++
+			}
+			if i >= len(in) {
+				return
+			}
+			start := i
+			for i < len(in) && !IsXMLWhitespaceByte(in[i]) {
+				i++
+			}
+			if !yield(in[start:i]) {
+				return
+			}
+		}
+	}
+}
+
 // ForEachXMLWhitespaceField splits input on XML whitespace and calls fn per field.
 // It returns the number of fields seen; iteration itself does not allocate.
 func ForEachXMLWhitespaceField(in []byte, fn func([]byte) error) (int, error) {

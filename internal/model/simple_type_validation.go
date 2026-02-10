@@ -63,10 +63,7 @@ func (s *SimpleType) validateNormalizedLexicalWithContext(normalized string, vis
 		}
 		return nil
 	case UnionVariety:
-		members := s.MemberTypes
-		if len(members) == 0 {
-			members = unionMemberTypes(s)
-		}
+		members := unionMemberTypes(s)
 		if len(members) == 0 {
 			return fmt.Errorf("union has no member types")
 		}

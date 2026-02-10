@@ -1,7 +1,6 @@
 package builtins
 
 import (
-	"github.com/jacoelho/xsd/internal/listtypes"
 	model "github.com/jacoelho/xsd/internal/model"
 )
 
@@ -78,10 +77,9 @@ func NewSimpleType(name TypeName) (*SimpleType, error) {
 }
 
 func IsBuiltinListTypeName(name string) bool {
-	return listtypes.IsTypeName(name)
+	return model.IsBuiltinListTypeName(name)
 }
 
 func BuiltinListItemTypeName(name string) (TypeName, bool) {
-	item, ok := listtypes.ItemTypeName(name)
-	return TypeName(item), ok
+	return model.BuiltinListItemTypeName(name)
 }

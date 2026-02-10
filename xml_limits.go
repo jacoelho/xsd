@@ -43,14 +43,10 @@ func resolveXMLParseLimits(maxDepth, maxAttrs, maxTokenSize, maxQName int) (xmlP
 }
 
 func (l xmlParseLimits) options() []xmlstream.Option {
-	depth := cmp.Or(l.maxDepth, defaultXMLMaxDepth)
-	attrs := cmp.Or(l.maxAttrs, defaultXMLMaxAttrs)
-	tokenSize := cmp.Or(l.maxTokenSize, defaultXMLMaxTokenSize)
-
 	opts := []xmlstream.Option{
-		xmltext.MaxDepth(depth),
-		xmltext.MaxAttrs(attrs),
-		xmltext.MaxTokenSize(tokenSize),
+		xmltext.MaxDepth(l.maxDepth),
+		xmltext.MaxAttrs(l.maxAttrs),
+		xmltext.MaxTokenSize(l.maxTokenSize),
 	}
 	if l.maxQNameInternEntries != 0 {
 		opts = append(opts, xmltext.MaxQNameInternEntries(l.maxQNameInternEntries))

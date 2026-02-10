@@ -21,7 +21,9 @@ type ComparableXSDDuration struct {
 
 var errIndeterminateDurationComparison = errors.New("duration comparison indeterminate")
 
-func secondsToDuration(sec num.Dec) (time.Duration, error) {
+// SecondsToDuration converts a non-negative XSD seconds value to time.Duration.
+// The conversion keeps nanosecond precision and rejects overflow.
+func SecondsToDuration(sec num.Dec) (time.Duration, error) {
 	if sec.Sign < 0 {
 		return 0, fmt.Errorf("second value cannot be negative")
 	}

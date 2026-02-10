@@ -75,7 +75,7 @@ func validateLocalElementTypes(particles []model.Particle) error {
 			continue
 		}
 		if existingType, exists := localElementTypes[childElem.Name]; exists {
-			if !ElementTypesCompatible(existingType, childElem.Type) {
+			if !model.ElementTypesCompatible(existingType, childElem.Type) {
 				return fmt.Errorf("duplicate local element declaration '%s' with different types", childElem.Name)
 			}
 			continue

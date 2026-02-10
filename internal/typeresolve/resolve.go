@@ -92,72 +92,19 @@ func ResolveSimpleContentBaseTypeFromContent(schema *parser.Schema, sc *model.Si
 
 // ResolveUnionMemberTypes returns flattened member types for union simple model.
 func ResolveUnionMemberTypes(schema *parser.Schema, st *model.SimpleType) []model.Type {
-	visited := make(map[*model.SimpleType]bool)
-	var visit func(*model.SimpleType) []model.Type
-	visit = func(current *model.SimpleType) []model.Type {
-		if current == nil {
-			return nil
-		}
-		if visited[current] {
-			return nil
-		}
-		visited[current] = true
-		defer delete(visited, current)
-
-		if len(current.MemberTypes) > 0 {
-			return current.MemberTypes
-		}
-		if current.Union != nil {
-			memberTypes := make([]model.Type, 0, len(current.Union.MemberTypes)+len(current.Union.InlineTypes))
-			for _, inline := range current.Union.InlineTypes {
-				memberTypes = append(memberTypes, inline)
-			}
-			for _, memberQName := range current.Union.MemberTypes {
-				if member := ResolveSimpleTypeReferenceAllowMissing(schema, memberQName); member != nil {
-					memberTypes = append(memberTypes, member)
-				}
-			}
-			return memberTypes
-		}
-		if current.Restriction != nil && !current.Restriction.Base.IsZero() {
-			if baseST, ok := ResolveSimpleTypeReferenceAllowMissing(schema, current.Restriction.Base).(*model.SimpleType); ok {
-				return visit(baseST)
-			}
-		}
-		return nil
-	}
-
-	return visit(st)
+	return model.UnionMemberTypesWithResolver(st, func(name model.QName) model.Type {
+		return ResolveSimpleTypeReferenceAllowMissing(schema, name)
+	})
 }
 
 // ResolveListItemType returns the list item type for explicit or derived list simple model.
 func ResolveListItemType(schema *parser.Schema, st *model.SimpleType) model.Type {
-	if st == nil || st.List == nil {
-		if st == nil {
-			return nil
-		}
-		if itemType, ok := model.ListItemType(st); ok {
-			return itemType
-		}
-		if st.Restriction != nil && !st.Restriction.Base.IsZero() {
-			if base := ResolveSimpleTypeReferenceAllowMissing(schema, st.Restriction.Base); base != nil {
-				if itemType, ok := model.ListItemType(base); ok {
-					return itemType
-				}
-			}
-		}
+	if st == nil {
 		return nil
 	}
-	if st.ItemType != nil {
-		return st.ItemType
-	}
-	if st.List.InlineItemType != nil {
-		return st.List.InlineItemType
-	}
-	if !st.List.ItemType.IsZero() {
-		return ResolveSimpleTypeReferenceAllowMissing(schema, st.List.ItemType)
-	}
-	if itemType, ok := model.ListItemType(st); ok {
+	if itemType, ok := model.ListItemTypeWithResolver(st, func(name model.QName) model.Type {
+		return ResolveSimpleTypeReferenceAllowMissing(schema, name)
+	}); ok {
 		return itemType
 	}
 	return nil
