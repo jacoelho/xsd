@@ -22,7 +22,7 @@ func ResolveNamespace(prefix string, context map[string]string) (NamespaceURI, b
 	if !ok {
 		return NamespaceEmpty, false
 	}
-	return NamespaceURI(uri), true
+	return uri, true
 }
 
 // QName represents a qualified name with namespace and local part.

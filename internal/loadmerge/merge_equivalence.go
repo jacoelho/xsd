@@ -87,7 +87,7 @@ func identityConstraintKey(constraint *model.IdentityConstraint) string {
 	builder.WriteByte('|')
 	builder.WriteString(constraint.ReferQName.String())
 	builder.WriteByte('|')
-	builder.WriteString(string(constraint.TargetNamespace))
+	builder.WriteString(constraint.TargetNamespace)
 	builder.WriteByte('|')
 	for _, field := range constraint.Fields {
 		builder.WriteString(field.XPath)

@@ -262,7 +262,7 @@ func parseSchemaAttributesFromStart(start xmlstream.Event, decls iter.Seq[xmlstr
 		if targetNSAttr == "" {
 			return fmt.Errorf("targetNamespace attribute cannot be empty (must be absent or have a non-empty value)")
 		}
-		schema.TargetNamespace = model.NamespaceURI(targetNSAttr)
+		schema.TargetNamespace = targetNSAttr
 	}
 
 	if decls != nil {

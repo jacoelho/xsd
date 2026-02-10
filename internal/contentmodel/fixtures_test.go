@@ -85,12 +85,12 @@ func TestContentModelFixtures(t *testing.T) {
 				t.Fatalf("nullable = %v, want %v", glu.Nullable, fx.nullable)
 			}
 
-			model, err := Compile(glu, fx.matchers, fx.limits)
+			compiled, err := Compile(glu, fx.matchers, fx.limits)
 			if err != nil {
 				t.Fatalf("Compile: %v", err)
 			}
-			if model.Kind != fx.wantKind {
-				t.Fatalf("model kind = %v, want %v", model.Kind, fx.wantKind)
+			if compiled.Kind != fx.wantKind {
+				t.Fatalf("model kind = %v, want %v", compiled.Kind, fx.wantKind)
 			}
 		})
 	}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -36,7 +35,7 @@ func (l *SchemaLoader) applyPendingInclude(directive pendingDirective, source *p
 }
 
 func (l *SchemaLoader) applyPendingImport(directive pendingDirective, source *parser.Schema, target *stagedPendingTarget) error {
-	if directive.expectedNamespace != "" && source.TargetNamespace != model.NamespaceURI(directive.expectedNamespace) {
+	if directive.expectedNamespace != "" && source.TargetNamespace != directive.expectedNamespace {
 		return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
 			directive.schemaLocation, directive.expectedNamespace, source.TargetNamespace)
 	}

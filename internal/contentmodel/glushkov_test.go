@@ -14,29 +14,29 @@ func TestGlushkovSequence(t *testing.T) {
 	b := elem("b", 1, 1)
 	group := sequence(a, b)
 
-	model, err := BuildGlushkov(group)
+	gluModel, err := BuildGlushkov(group)
 	if err != nil {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
-	if model.Nullable {
+	if gluModel.Nullable {
 		t.Fatalf("expected non-nullable model")
 	}
-	if len(model.Positions) != 2 {
-		t.Fatalf("positions = %d, want 2", len(model.Positions))
+	if len(gluModel.Positions) != 2 {
+		t.Fatalf("positions = %d, want 2", len(gluModel.Positions))
 	}
-	if model.Positions[0].Element != a || model.Positions[1].Element != b {
+	if gluModel.Positions[0].Element != a || gluModel.Positions[1].Element != b {
 		t.Fatalf("position order mismatch")
 	}
-	if got := bitsetPositions(model.Bitsets, model.First); !reflect.DeepEqual(got, []int{0}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.First); !reflect.DeepEqual(got, []int{0}) {
 		t.Fatalf("firstPos = %v, want [0]", got)
 	}
-	if got := bitsetPositions(model.Bitsets, model.Last); !reflect.DeepEqual(got, []int{1}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.Last); !reflect.DeepEqual(got, []int{1}) {
 		t.Fatalf("lastPos = %v, want [1]", got)
 	}
-	if got := bitsetPositions(model.Bitsets, model.Follow[0]); !reflect.DeepEqual(got, []int{1}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.Follow[0]); !reflect.DeepEqual(got, []int{1}) {
 		t.Fatalf("follow[0] = %v, want [1]", got)
 	}
-	if got := bitsetPositions(model.Bitsets, model.Follow[1]); len(got) != 0 {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.Follow[1]); len(got) != 0 {
 		t.Fatalf("follow[1] = %v, want empty", got)
 	}
 }
@@ -46,18 +46,18 @@ func TestGlushkovChoice(t *testing.T) {
 	b := elem("b", 1, 1)
 	group := choice(1, 1, a, b)
 
-	model, err := BuildGlushkov(group)
+	gluModel, err := BuildGlushkov(group)
 	if err != nil {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
-	if got := bitsetPositions(model.Bitsets, model.First); !reflect.DeepEqual(got, []int{0, 1}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.First); !reflect.DeepEqual(got, []int{0, 1}) {
 		t.Fatalf("firstPos = %v, want [0 1]", got)
 	}
-	if got := bitsetPositions(model.Bitsets, model.Last); !reflect.DeepEqual(got, []int{0, 1}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.Last); !reflect.DeepEqual(got, []int{0, 1}) {
 		t.Fatalf("lastPos = %v, want [0 1]", got)
 	}
-	for i := range model.Follow {
-		if got := bitsetPositions(model.Bitsets, model.Follow[i]); len(got) != 0 {
+	for i := range gluModel.Follow {
+		if got := bitsetPositions(gluModel.Bitsets, gluModel.Follow[i]); len(got) != 0 {
 			t.Fatalf("follow[%d] = %v, want empty", i, got)
 		}
 	}
@@ -68,66 +68,66 @@ func TestGlushkovNullableSequence(t *testing.T) {
 	b := elem("b", 1, 1)
 	group := sequence(a, b)
 
-	model, err := BuildGlushkov(group)
+	gluModel, err := BuildGlushkov(group)
 	if err != nil {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
-	if model.Nullable {
+	if gluModel.Nullable {
 		t.Fatalf("expected non-nullable model")
 	}
-	if got := bitsetPositions(model.Bitsets, model.First); !reflect.DeepEqual(got, []int{0, 1}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.First); !reflect.DeepEqual(got, []int{0, 1}) {
 		t.Fatalf("firstPos = %v, want [0 1]", got)
 	}
-	if got := bitsetPositions(model.Bitsets, model.Last); !reflect.DeepEqual(got, []int{1}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.Last); !reflect.DeepEqual(got, []int{1}) {
 		t.Fatalf("lastPos = %v, want [1]", got)
 	}
-	if got := bitsetPositions(model.Bitsets, model.Follow[0]); !reflect.DeepEqual(got, []int{1}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.Follow[0]); !reflect.DeepEqual(got, []int{1}) {
 		t.Fatalf("follow[0] = %v, want [1]", got)
 	}
 }
 
 func TestGlushkovStar(t *testing.T) {
 	a := elem("a", 0, -1)
-	model, err := BuildGlushkov(a)
+	gluModel, err := BuildGlushkov(a)
 	if err != nil {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
-	if !model.Nullable {
+	if !gluModel.Nullable {
 		t.Fatalf("expected nullable model")
 	}
-	if got := bitsetPositions(model.Bitsets, model.First); !reflect.DeepEqual(got, []int{0}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.First); !reflect.DeepEqual(got, []int{0}) {
 		t.Fatalf("firstPos = %v, want [0]", got)
 	}
-	if got := bitsetPositions(model.Bitsets, model.Last); !reflect.DeepEqual(got, []int{0}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.Last); !reflect.DeepEqual(got, []int{0}) {
 		t.Fatalf("lastPos = %v, want [0]", got)
 	}
-	if got := bitsetPositions(model.Bitsets, model.Follow[0]); !reflect.DeepEqual(got, []int{0}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.Follow[0]); !reflect.DeepEqual(got, []int{0}) {
 		t.Fatalf("follow[0] = %v, want [0]", got)
 	}
 }
 
 func TestGlushkovBoundedOccurs(t *testing.T) {
 	a := elem("a", 2, 3)
-	model, err := BuildGlushkov(a)
+	gluModel, err := BuildGlushkov(a)
 	if err != nil {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
-	if model.Nullable {
+	if gluModel.Nullable {
 		t.Fatalf("expected non-nullable model")
 	}
-	if len(model.Positions) != 3 {
-		t.Fatalf("positions = %d, want 3", len(model.Positions))
+	if len(gluModel.Positions) != 3 {
+		t.Fatalf("positions = %d, want 3", len(gluModel.Positions))
 	}
-	if got := bitsetPositions(model.Bitsets, model.First); !reflect.DeepEqual(got, []int{0}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.First); !reflect.DeepEqual(got, []int{0}) {
 		t.Fatalf("firstPos = %v, want [0]", got)
 	}
-	if got := bitsetPositions(model.Bitsets, model.Last); !reflect.DeepEqual(got, []int{1, 2}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.Last); !reflect.DeepEqual(got, []int{1, 2}) {
 		t.Fatalf("lastPos = %v, want [1 2]", got)
 	}
-	if got := bitsetPositions(model.Bitsets, model.Follow[0]); !reflect.DeepEqual(got, []int{1}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.Follow[0]); !reflect.DeepEqual(got, []int{1}) {
 		t.Fatalf("follow[0] = %v, want [1]", got)
 	}
-	if got := bitsetPositions(model.Bitsets, model.Follow[1]); !reflect.DeepEqual(got, []int{2}) {
+	if got := bitsetPositions(gluModel.Bitsets, gluModel.Follow[1]); !reflect.DeepEqual(got, []int{2}) {
 		t.Fatalf("follow[1] = %v, want [2]", got)
 	}
 }

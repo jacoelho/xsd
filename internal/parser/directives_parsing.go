@@ -45,7 +45,7 @@ func parseDirectiveElement(doc *xsdxml.Document, child xsdxml.NodeID, schema *Sc
 		importInfo := ImportInfo{Namespace: namespace, SchemaLocation: schemaLocation}
 		result.Imports = append(result.Imports, importInfo)
 		result.Directives = append(result.Directives, Directive{Kind: DirectiveImport, Import: importInfo})
-		importedNamespaces[model.NamespaceURI(importInfo.Namespace)] = true
+		importedNamespaces[importInfo.Namespace] = true
 	case "include":
 		if err := validateElementConstraints(doc, child, "include", schema); err != nil {
 			return err

@@ -579,7 +579,7 @@ func TestParseQNameValue_XMLPrefixBinding(t *testing.T) {
 		t.Fatalf("ParseQNameValue(xml:lang) = %v, want {%s}lang", qname, XMLNamespace)
 	}
 
-	qname, err = qnamelex.ParseQNameValue("xml:lang", map[string]string{"xml": string(XMLNamespace)})
+	qname, err = qnamelex.ParseQNameValue("xml:lang", map[string]string{"xml": XMLNamespace})
 	if err != nil {
 		t.Fatalf("ParseQNameValue(xml:lang) error = %v", err)
 	}

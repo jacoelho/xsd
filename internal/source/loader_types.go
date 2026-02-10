@@ -14,10 +14,9 @@ type Config struct {
 	FS                          fs.FS
 	Resolver                    Resolver
 	Merger                      loadmerge.SchemaMerger
+	DocumentPool                *xsdxml.DocumentPool
 	SchemaParseOptions          []xmlstream.Option
 	AllowMissingImportLocations bool
-	// DocumentPool owns parser DOM scratch documents for this loader instance.
-	DocumentPool *xsdxml.DocumentPool
 }
 
 // SchemaLoader loads XML schemas with import/include resolution.

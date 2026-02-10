@@ -136,7 +136,7 @@ func parseNamespaceConstraint(value string) (model.NamespaceConstraint, []model.
 		case "##local":
 			resultList = append(resultList, model.NamespaceEmpty)
 		default:
-			resultList = append(resultList, model.NamespaceURI(ns))
+			resultList = append(resultList, ns)
 		}
 	}
 	if !seen {

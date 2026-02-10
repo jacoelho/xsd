@@ -52,7 +52,7 @@ func namespaceFromPrefixPolicy(
 		}
 		defaultNS := namespaceForPrefix(doc, elem, schema, "")
 		if defaultNS != "" {
-			return model.NamespaceURI(defaultNS), nil
+			return defaultNS, nil
 		}
 		return model.NamespaceEmpty, nil
 	}
@@ -61,5 +61,5 @@ func namespaceFromPrefixPolicy(
 	if namespaceStr == "" {
 		return model.NamespaceURI(""), fmt.Errorf("undefined namespace prefix '%s' in '%s'", prefix, qname)
 	}
-	return model.NamespaceURI(namespaceStr), nil
+	return namespaceStr, nil
 }

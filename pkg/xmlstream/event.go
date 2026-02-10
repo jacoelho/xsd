@@ -146,7 +146,7 @@ func (e RawEvent) AttrLocal(local []byte) ([]byte, bool) {
 // Attr returns the attribute value by namespace and local name.
 func (e Event) Attr(namespace, local string) ([]byte, bool) {
 	for _, attr := range e.Attrs {
-		if attr.Name.Namespace == qname.NamespaceURI(namespace) && attr.Name.Local == local {
+		if attr.Name.Namespace == namespace && attr.Name.Local == local {
 			return attr.Value, true
 		}
 	}

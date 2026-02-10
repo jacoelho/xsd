@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/durationlex"
-	typefacetcore "github.com/jacoelho/xsd/internal/typefacet/internalcore"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
@@ -20,17 +19,6 @@ var (
 	_ Facet = (*FractionDigits)(nil)
 	_ Facet = (*RangeFacet)(nil)
 )
-
-// isLengthFacet reports whether the facet is a length-related facet
-// (length, minLength, or maxLength).
-func isLengthFacet(facet Facet) bool {
-	switch facet.(type) {
-	case *Length, *MinLength, *MaxLength:
-		return true
-	default:
-		return false
-	}
-}
 
 // StringTypedValue is a simple TypedValue wrapper for string values
 // Used when parsing to native type fails but we still need to validate facets
@@ -97,31 +85,6 @@ type LexicalValidator interface {
 type IntValueFacet interface {
 	Facet
 	GetIntValue() int
-}
-
-// applyFacets applies all facets to a TypedValue
-func applyFacets(value TypedValue, facets []Facet, baseType Type) error {
-	facetsAny := make([]any, len(facets))
-	for i, facet := range facets {
-		facetsAny[i] = facet
-	}
-	return typefacetcore.ApplyFacets(value, facetsAny, baseType, typefacetcore.ApplyFacetOps{
-		ValidateFacet: func(facet any, value any, baseType any) error {
-			f, ok := facet.(Facet)
-			if !ok {
-				return fmt.Errorf("invalid facet %T", facet)
-			}
-			tv, ok := value.(TypedValue)
-			if !ok {
-				return fmt.Errorf("invalid typed value %T", value)
-			}
-			bt, ok := baseType.(Type)
-			if !ok {
-				return fmt.Errorf("invalid base type %T", baseType)
-			}
-			return f.Validate(tv, bt)
-		},
-	})
 }
 
 // ErrCannotDeterminePrimitiveType is returned when the primitive type cannot be

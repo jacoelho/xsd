@@ -32,7 +32,7 @@ func parseSchemaAttributes(doc *xsdxml.Document, root xsdxml.NodeID, schema *Sch
 		if targetNSAttr == "" {
 			return fmt.Errorf("targetNamespace attribute cannot be empty (must be absent or have a non-empty value)")
 		}
-		schema.TargetNamespace = model.NamespaceURI(targetNSAttr)
+		schema.TargetNamespace = targetNSAttr
 	}
 
 	for _, attr := range doc.Attributes(root) {

@@ -26,7 +26,7 @@ func registerImports(sch *parser.Schema, imports []parser.ImportInfo) {
 	fromNS := sch.TargetNamespace
 	imported := ensureNamespaceMap(sch.ImportedNamespaces, fromNS)
 	for _, imp := range imports {
-		ns := model.NamespaceURI(imp.Namespace)
+		ns := imp.Namespace
 		imported[ns] = true
 	}
 
@@ -40,7 +40,7 @@ func registerImports(sch *parser.Schema, imports []parser.ImportInfo) {
 		}
 		ctx.TargetNamespace = sch.TargetNamespace
 		for _, imp := range imports {
-			ns := model.NamespaceURI(imp.Namespace)
+			ns := imp.Namespace
 			ctx.Imports[ns] = true
 		}
 		sch.ImportContexts[sch.Location] = ctx
@@ -59,7 +59,7 @@ func validateImportConstraints(sch *parser.Schema, imports []parser.ImportInfo) 
 		if imp.Namespace == "" {
 			continue
 		}
-		if sch.TargetNamespace != "" && model.NamespaceURI(imp.Namespace) == sch.TargetNamespace {
+		if sch.TargetNamespace != "" && imp.Namespace == sch.TargetNamespace {
 			return fmt.Errorf("import namespace %s must be different from target namespace", imp.Namespace)
 		}
 	}

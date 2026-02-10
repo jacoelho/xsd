@@ -102,17 +102,17 @@ func (r *rangeFacet) GetLexical() string {
 	return r.lexical
 }
 
-func (r *rangeFacet) Validate(value model.TypedValue, baseType model.Type) error {
-	if value == nil {
+func (r *rangeFacet) Validate(typed model.TypedValue, baseType model.Type) error {
+	if typed == nil {
 		return fmt.Errorf("%s: cannot compare nil value", r.name)
 	}
 
-	valueType := value.Type()
+	valueType := typed.Type()
 	if valueType == nil {
 		valueType = baseType
 	}
 
-	compVal, err := parseRangeFacetValue(r.name, value.Lexical(), valueType)
+	compVal, err := parseRangeFacetValue(r.name, typed.Lexical(), valueType)
 	if err != nil {
 		return err
 	}
@@ -120,12 +120,12 @@ func (r *rangeFacet) Validate(value model.TypedValue, baseType model.Type) error
 	cmp, err := compVal.Compare(r.value)
 	if err != nil {
 		if isIndeterminateComparison(err) {
-			return fmt.Errorf("value %s must be %s %s", value.String(), r.errOp, r.lexical)
+			return fmt.Errorf("value %s must be %s %s", typed.String(), r.errOp, r.lexical)
 		}
 		return fmt.Errorf("%s: cannot compare values: %w", r.name, err)
 	}
 	if !r.cmpFunc(cmp) {
-		return fmt.Errorf("value %s must be %s %s", value.String(), r.errOp, r.lexical)
+		return fmt.Errorf("value %s must be %s %s", typed.String(), r.errOp, r.lexical)
 	}
 	return nil
 }
@@ -186,8 +186,8 @@ func parseRangeFacetValue(facetName, lexical string, baseType model.Type) (model
 		return nil, fmt.Errorf("%s: %w", facetName, model.ErrCannotDeterminePrimitiveType)
 	}
 	typeName := baseType.Name().Local
-	if value, handled, err := parseRangeFacetValueForTypeName(facetName, lexical, baseType, typeName); handled {
-		return value, err
+	if parsed, handled, err := parseRangeFacetValueForTypeName(facetName, lexical, baseType, typeName); handled {
+		return parsed, err
 	}
 	return parseRangeFacetValueForPrimitive(facetName, lexical, baseType)
 }
@@ -199,8 +199,8 @@ func parseRangeFacetValueForTypeName(
 ) (model.ComparableValue, bool, error) {
 	switch typeName {
 	case "integer", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte":
-		value, err := parseRangeInteger(facetName, lexical, baseType)
-		return value, true, err
+		parsed, err := parseRangeInteger(facetName, lexical, baseType)
+		return parsed, true, err
 	default:
 		return nil, false, nil
 	}

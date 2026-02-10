@@ -95,13 +95,13 @@ func (c *compiler) keyBytesAtomic(normalized string, typ model.Type, ctx map[str
 		if err != nil {
 			return keyBytes{}, err
 		}
-		return keyBytes{kind: runtime.VKQName, bytes: valuekey.QNameKeyStrings(0, string(qname.Namespace), qname.Local)}, nil
+		return keyBytes{kind: runtime.VKQName, bytes: valuekey.QNameKeyStrings(0, qname.Namespace, qname.Local)}, nil
 	case "NOTATION":
 		qname, err := qnamelex.ParseQNameValue(normalized, ctx)
 		if err != nil {
 			return keyBytes{}, err
 		}
-		return keyBytes{kind: runtime.VKQName, bytes: valuekey.QNameKeyStrings(1, string(qname.Namespace), qname.Local)}, nil
+		return keyBytes{kind: runtime.VKQName, bytes: valuekey.QNameKeyStrings(1, qname.Namespace, qname.Local)}, nil
 	default:
 		return keyBytes{}, fmt.Errorf("unsupported primitive type %s", primName)
 	}

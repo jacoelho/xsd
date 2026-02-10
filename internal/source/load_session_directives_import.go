@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -15,7 +14,7 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 		}
 		return fmt.Errorf("import missing schemaLocation")
 	}
-	importNS := model.NamespaceURI(imp.Namespace)
+	importNS := imp.Namespace
 	result, err := s.loadDirectiveSchema(
 		parser.DirectiveImport,
 		ResolveRequest{

@@ -23,7 +23,7 @@ func ParseQNameValue(lexical string, nsContext map[string]string) (QName, error)
 	if hasPrefix {
 		if prefix == xmlnames.XMLPrefix {
 			resolved, ok := ResolveNamespace(prefix, nsContext)
-			if err := xmlnames.ValidateXMLPrefixBinding(string(resolved), ok); err != nil {
+			if err := xmlnames.ValidateXMLPrefixBinding(resolved, ok); err != nil {
 				return QName{}, err
 			}
 			return QName{Namespace: NamespaceURI(xmlnames.XMLNamespace), Local: local}, nil

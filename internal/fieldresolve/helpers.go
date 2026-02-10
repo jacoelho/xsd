@@ -69,7 +69,7 @@ func formatNodeTest(test xpath.NodeTest) string {
 	if !test.NamespaceSpecified || test.Namespace == "" {
 		return test.Local
 	}
-	return "{" + string(test.Namespace) + "}" + test.Local
+	return "{" + test.Namespace + "}" + test.Local
 }
 
 func fieldTypeName(typ model.Type) string {

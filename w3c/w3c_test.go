@@ -1237,7 +1237,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup,
 	}
 	rootNS := info.rootNS
 	rootQName := qname.QName{
-		Namespace: qname.NamespaceURI(rootNS),
+		Namespace: rootNS,
 		Local:     info.rootLocal,
 	}
 

@@ -180,7 +180,7 @@ func copyValueNamespaceContext(src map[string]string, opts CopyOptions) map[stri
 	if !isChameleonRemap(opts) {
 		return clone
 	}
-	clone[""] = string(opts.SourceNamespace)
+	clone[""] = opts.SourceNamespace
 	return clone
 }
 
