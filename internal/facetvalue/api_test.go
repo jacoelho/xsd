@@ -95,17 +95,53 @@ func TestValidateApplicability_ListRangeFacetRejected(t *testing.T) {
 func TestParseDurationToTimeDuration(t *testing.T) {
 	t.Parallel()
 
-	got, err := ParseDurationToTimeDuration("P1DT2H3M4.5S")
-	if err != nil {
-		t.Fatalf("ParseDurationToTimeDuration() error = %v", err)
-	}
-	want := 26*time.Hour + 3*time.Minute + 4500*time.Millisecond
-	if got != want {
-		t.Fatalf("ParseDurationToTimeDuration() = %v, want %v", got, want)
+	tests := []struct {
+		name    string
+		input   string
+		want    time.Duration
+		wantErr string
+	}{
+		{
+			name:  "day hour minute and fractional seconds",
+			input: "P1DT2H3M4.5S",
+			want:  26*time.Hour + 3*time.Minute + 4500*time.Millisecond,
+		},
+		{
+			name:  "negative duration",
+			input: "-PT1S",
+			want:  -1 * time.Second,
+		},
+		{
+			name:    "month-based duration rejected",
+			input:   "P1M",
+			wantErr: "years or months",
+		},
+		{
+			name:    "second overflow rejected",
+			input:   "PT999999999999999999999S",
+			wantErr: "second value too large",
+		},
 	}
 
-	if _, err := ParseDurationToTimeDuration("P1M"); err == nil {
-		t.Fatal("expected error for month-based duration")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseDurationToTimeDuration(tt.input)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("ParseDurationToTimeDuration(%q) expected error, got nil", tt.input)
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("ParseDurationToTimeDuration(%q) error = %v, want substring %q", tt.input, err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseDurationToTimeDuration(%q) error = %v", tt.input, err)
+			}
+			if got != tt.want {
+				t.Fatalf("ParseDurationToTimeDuration(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
 	}
 }
 

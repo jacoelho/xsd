@@ -14,11 +14,7 @@ func buildRuntimeSchema(schemaXML string) (*runtime.Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	validated, err := pipeline.Validate(parsed)
-	if err != nil {
-		return nil, err
-	}
-	prepared, err := pipeline.Transform(validated)
+	prepared, err := pipeline.Prepare(parsed)
 	if err != nil {
 		return nil, err
 	}

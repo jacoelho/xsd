@@ -1,5 +1,7 @@
 package model
 
+import "slices"
+
 // NamespaceConstraint represents a namespace constraint
 type NamespaceConstraint int
 
@@ -436,10 +438,8 @@ func unionOtherWithList(list []NamespaceURI, otherTargetNS, resultTargetNS Names
 }
 
 func unionNotAbsentWithList(list []NamespaceURI) intersectedNamespace {
-	for _, ns := range list {
-		if ns == "" {
-			return intersectedNamespace{Constraint: NSCAny, NamespaceList: nil}
-		}
+	if slices.Contains(list, "") {
+		return intersectedNamespace{Constraint: NSCAny, NamespaceList: nil}
 	}
 	return intersectedNamespace{Constraint: NSCNotAbsent, NamespaceList: nil}
 }

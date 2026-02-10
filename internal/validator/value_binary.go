@@ -2,7 +2,6 @@ package validator
 
 import (
 	"encoding/base64"
-	"encoding/hex"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
@@ -38,7 +37,7 @@ func (s *Session) canonicalizeHexBinary(normalized []byte, needKey bool, metrics
 		metrics.length = len(decoded)
 		metrics.lengthSet = true
 	}
-	canon := upperHex(s.valueScratch[:0], decoded)
+	canon := value.UpperHex(s.valueScratch[:0], decoded)
 	s.valueScratch = canon
 	if needKey {
 		key := valuecodec.BinaryKeyBytes(s.keyTmp[:0], 0, decoded)
@@ -86,20 +85,4 @@ func validateBase64BinaryNoCanonical(normalized []byte) error {
 		return valueErrorMsg(valueErrInvalid, err.Error())
 	}
 	return nil
-}
-
-func upperHex(dst, src []byte) []byte {
-	size := hex.EncodedLen(len(src))
-	if cap(dst) < size {
-		dst = make([]byte, size)
-	} else {
-		dst = dst[:size]
-	}
-	hex.Encode(dst, src)
-	for i := range dst {
-		if dst[i] >= 'a' && dst[i] <= 'f' {
-			dst[i] -= 'a' - 'A'
-		}
-	}
-	return dst
 }

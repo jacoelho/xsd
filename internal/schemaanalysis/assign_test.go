@@ -6,8 +6,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/pipeline"
 	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
+	"github.com/jacoelho/xsd/internal/schemaprep"
 )
 
 func mustResolveSchema(t *testing.T, schemaXML string) *parser.Schema {
@@ -16,13 +16,9 @@ func mustResolveSchema(t *testing.T, schemaXML string) *parser.Schema {
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	validated, err := pipeline.Validate(sch)
+	resolved, err := schemaprep.ResolveAndValidate(sch)
 	if err != nil {
-		t.Fatalf("Validate() error = %v", err)
-	}
-	resolved, err := validated.SchemaSnapshot()
-	if err != nil {
-		t.Fatalf("SchemaSnapshot() error = %v", err)
+		t.Fatalf("ResolveAndValidate() error = %v", err)
 	}
 	return resolved
 }

@@ -149,7 +149,7 @@ func TestPrepareIsolatedFromInputObjectMutation(t *testing.T) {
 	}
 }
 
-func TestTransformIsolatedFromInputObjectMutation(t *testing.T) {
+func TestPrepareIsolationAcrossInputObjectMutation(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:test"
@@ -167,17 +167,13 @@ func TestTransformIsolatedFromInputObjectMutation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	validated, err := pipeline.Validate(parsed)
+	prepared, err := pipeline.Prepare(parsed)
 	if err != nil {
-		t.Fatalf("validate schema: %v", err)
-	}
-	prepared, err := pipeline.Transform(validated)
-	if err != nil {
-		t.Fatalf("transform schema: %v", err)
+		t.Fatalf("prepare schema: %v", err)
 	}
 	rtBefore, err := prepared.BuildRuntime(pipeline.CompileConfig{})
 	if err != nil {
-		t.Fatalf("compile transformed schema: %v", err)
+		t.Fatalf("compile prepared schema: %v", err)
 	}
 
 	codeName := model.QName{Namespace: "urn:test", Local: "Code"}
@@ -189,14 +185,14 @@ func TestTransformIsolatedFromInputObjectMutation(t *testing.T) {
 
 	rtAfter, err := prepared.BuildRuntime(pipeline.CompileConfig{})
 	if err != nil {
-		t.Fatalf("compile transformed schema after input mutation: %v", err)
+		t.Fatalf("compile prepared schema after input mutation: %v", err)
 	}
 	if rtAfter.BuildHash != rtBefore.BuildHash {
-		t.Fatalf("transformed runtime hash changed after input object mutation: %d != %d", rtAfter.BuildHash, rtBefore.BuildHash)
+		t.Fatalf("prepared runtime hash changed after input object mutation: %d != %d", rtAfter.BuildHash, rtBefore.BuildHash)
 	}
 }
 
-func TestValidateDeterministicAcrossRepeatedCalls(t *testing.T) {
+func TestPrepareDeterministicAcrossRepeatedCalls(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:test"
@@ -215,26 +211,18 @@ func TestValidateDeterministicAcrossRepeatedCalls(t *testing.T) {
 		t.Fatalf("parse schema: %v", err)
 	}
 
-	validatedA, err := pipeline.Validate(parsed)
+	preparedA, err := pipeline.Prepare(parsed)
 	if err != nil {
-		t.Fatalf("first validate schema: %v", err)
-	}
-	preparedA, err := pipeline.Transform(validatedA)
-	if err != nil {
-		t.Fatalf("first transform schema: %v", err)
+		t.Fatalf("first prepare schema: %v", err)
 	}
 	rtA, err := preparedA.BuildRuntime(pipeline.CompileConfig{})
 	if err != nil {
 		t.Fatalf("first compile prepared schema: %v", err)
 	}
 
-	validatedB, err := pipeline.Validate(parsed)
+	preparedB, err := pipeline.Prepare(parsed)
 	if err != nil {
-		t.Fatalf("second validate schema: %v", err)
-	}
-	preparedB, err := pipeline.Transform(validatedB)
-	if err != nil {
-		t.Fatalf("second transform schema: %v", err)
+		t.Fatalf("second prepare schema: %v", err)
 	}
 	rtB, err := preparedB.BuildRuntime(pipeline.CompileConfig{})
 	if err != nil {
@@ -242,7 +230,7 @@ func TestValidateDeterministicAcrossRepeatedCalls(t *testing.T) {
 	}
 
 	if rtA.BuildHash != rtB.BuildHash {
-		t.Fatalf("runtime build hash mismatch across repeated validate/transform: %d != %d", rtA.BuildHash, rtB.BuildHash)
+		t.Fatalf("runtime build hash mismatch across repeated prepare: %d != %d", rtA.BuildHash, rtB.BuildHash)
 	}
 }
 

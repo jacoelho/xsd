@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -62,7 +63,20 @@ func ValidateDeferredRangeFacetValues(sch *parser.Schema) []error {
 		if baseQName.IsZero() {
 			baseQName = baseType.Name()
 		}
-		if err := ValidateFacetConstraints(sch, rangeFacets, baseType, baseQName); err != nil {
+		if err := facetengine.ValidateSchemaConstraints(
+			facetengine.SchemaConstraintInput{
+				FacetList: rangeFacets,
+				BaseType:  baseType,
+				BaseQName: baseQName,
+			},
+			facetengine.SchemaConstraintCallbacks{
+				ValidateRangeConsistency: facetengine.ValidateRangeConsistency,
+				ValidateRangeValues:      facetengine.ValidateRangeValues,
+				ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
+					return validateValueAgainstTypeWithFacets(sch, value, baseType, context)
+				},
+			},
+		); err != nil {
 			errs = append(errs, fmt.Errorf("type %s: restriction: %w", qname, err))
 		}
 	}

@@ -9,25 +9,6 @@ import (
 	"github.com/jacoelho/xsd/internal/qname"
 )
 
-// ElementTypesCompatible checks if two element declaration types are consistent.
-// Treats nil types as compatible only when both are nil (implicit anyType).
-func ElementTypesCompatible(a, b model.Type) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-
-	nameA := a.Name()
-	nameB := b.Name()
-	if !nameA.IsZero() || !nameB.IsZero() {
-		return nameA == nameB
-	}
-
-	return a == b
-}
-
 // validateTypeDefStructure validates structural constraints of a type definition
 // Does not validate references (which might be forward references or imports)
 func validateTypeDefStructure(schema *parser.Schema, typeQName model.QName, typ model.Type) error {

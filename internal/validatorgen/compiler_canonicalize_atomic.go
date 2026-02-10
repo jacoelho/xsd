@@ -2,7 +2,6 @@ package validatorgen
 
 import (
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/durationlex"
@@ -22,6 +21,13 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ model.Type, ctx map
 	primName, err := c.res.primitiveName(typ)
 	if err != nil {
 		return nil, err
+	}
+	if kind, ok := temporal.KindFromPrimitiveName(primName); ok {
+		tv, err := temporal.Parse(kind, []byte(normalized))
+		if err != nil {
+			return nil, err
+		}
+		return []byte(temporal.Canonical(tv)), nil
 	}
 
 	switch primName {
@@ -51,15 +57,6 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ model.Type, ctx map
 			return nil, fmt.Errorf("invalid decimal: %s", normalized)
 		}
 		return v.RenderCanonical(nil), nil
-	case "integer", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte", "nonNegativeInteger", "positiveInteger", "negativeInteger", "nonPositiveInteger":
-		v, perr := num.ParseInt([]byte(normalized))
-		if perr != nil {
-			return nil, fmt.Errorf("invalid integer: %s", normalized)
-		}
-		if err := runtime.ValidateIntegerKind(c.integerKindForType(typ), v); err != nil {
-			return nil, err
-		}
-		return v.RenderCanonical(nil), nil
 	case "boolean":
 		v, err := value.ParseBoolean([]byte(normalized))
 		if err != nil {
@@ -81,54 +78,6 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ model.Type, ctx map
 			return nil, err
 		}
 		return []byte(value.CanonicalFloat(v, 64)), nil
-	case "dateTime":
-		tv, err := temporal.Parse(temporal.KindDateTime, []byte(normalized))
-		if err != nil {
-			return nil, err
-		}
-		return []byte(temporal.Canonical(tv)), nil
-	case "date":
-		tv, err := temporal.Parse(temporal.KindDate, []byte(normalized))
-		if err != nil {
-			return nil, err
-		}
-		return []byte(temporal.Canonical(tv)), nil
-	case "time":
-		tv, err := temporal.Parse(temporal.KindTime, []byte(normalized))
-		if err != nil {
-			return nil, err
-		}
-		return []byte(temporal.Canonical(tv)), nil
-	case "gYearMonth":
-		tv, err := temporal.Parse(temporal.KindGYearMonth, []byte(normalized))
-		if err != nil {
-			return nil, err
-		}
-		return []byte(temporal.Canonical(tv)), nil
-	case "gYear":
-		tv, err := temporal.Parse(temporal.KindGYear, []byte(normalized))
-		if err != nil {
-			return nil, err
-		}
-		return []byte(temporal.Canonical(tv)), nil
-	case "gMonthDay":
-		tv, err := temporal.Parse(temporal.KindGMonthDay, []byte(normalized))
-		if err != nil {
-			return nil, err
-		}
-		return []byte(temporal.Canonical(tv)), nil
-	case "gDay":
-		tv, err := temporal.Parse(temporal.KindGDay, []byte(normalized))
-		if err != nil {
-			return nil, err
-		}
-		return []byte(temporal.Canonical(tv)), nil
-	case "gMonth":
-		tv, err := temporal.Parse(temporal.KindGMonth, []byte(normalized))
-		if err != nil {
-			return nil, err
-		}
-		return []byte(temporal.Canonical(tv)), nil
 	case "duration":
 		dur, err := durationlex.Parse(normalized)
 		if err != nil {
@@ -140,7 +89,7 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ model.Type, ctx map
 		if err != nil {
 			return nil, err
 		}
-		return upperHex(nil, b), nil
+		return value.UpperHex(nil, b), nil
 	case "base64Binary":
 		b, err := value.ParseBase64Binary([]byte(normalized))
 		if err != nil {
@@ -152,20 +101,4 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ model.Type, ctx map
 	default:
 		return nil, fmt.Errorf("unsupported primitive type %s", primName)
 	}
-}
-
-func upperHex(dst, src []byte) []byte {
-	size := hex.EncodedLen(len(src))
-	if cap(dst) < size {
-		dst = make([]byte, size)
-	} else {
-		dst = dst[:size]
-	}
-	hex.Encode(dst, src)
-	for i := range dst {
-		if dst[i] >= 'a' && dst[i] <= 'f' {
-			dst[i] -= 'a' - 'A'
-		}
-	}
-	return dst
 }

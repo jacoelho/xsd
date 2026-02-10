@@ -16,20 +16,6 @@ import (
 
 type buildRuntimeFunc func(CompileConfig) (*runtime.Schema, error)
 
-// ValidatedSchema stores validated schema artifacts for transformation.
-type ValidatedSchema struct {
-	registry *schemaanalysis.Registry
-	schema   *parser.Schema
-}
-
-// SchemaSnapshot returns a deep-copied resolved schema for inspection.
-func (v *ValidatedSchema) SchemaSnapshot() (*parser.Schema, error) {
-	if v == nil || v.schema == nil {
-		return nil, fmt.Errorf("prepare schema: validated schema is nil")
-	}
-	return loadmerge.CloneSchemaDeep(v.schema)
-}
-
 // PreparedSchema stores immutable runtime-build artifacts.
 type PreparedSchema struct {
 	build              buildRuntimeFunc
@@ -66,70 +52,43 @@ func (p *PreparedSchema) GlobalElementOrderSeq() iter.Seq[model.QName] {
 
 // Prepare validates and transforms a parsed schema for runtime compilation.
 func Prepare(sch *parser.Schema) (*PreparedSchema, error) {
-	validated, err := Validate(sch)
+	validatedSchema, reg, refs, err := validateSchema(sch)
 	if err != nil {
 		return nil, err
-	}
-	return Transform(validated)
-}
-
-// Validate runs schema semantic checks and returns immutable preparation artifacts.
-func Validate(sch *parser.Schema) (*ValidatedSchema, error) {
-	validatedSchema, reg, err := validateSchema(sch)
-	if err != nil {
-		return nil, err
-	}
-	return &ValidatedSchema{
-		registry: reg,
-		schema:   validatedSchema,
-	}, nil
-}
-
-// Transform compiles validated semantic artifacts into a prepared schema.
-func Transform(validated *ValidatedSchema) (*PreparedSchema, error) {
-	if validated == nil {
-		return nil, fmt.Errorf("prepare schema: validated schema is nil")
-	}
-	sch := validated.schema
-	reg := validated.registry
-	if sch == nil {
-		return nil, fmt.Errorf("prepare schema: schema is nil")
-	}
-	if reg == nil {
-		return nil, fmt.Errorf("prepare schema: registry is nil")
-	}
-	refs, err := schemaanalysis.ResolveReferences(sch, reg)
-	if err != nil {
-		return nil, fmt.Errorf("prepare schema: resolve references: %w", err)
 	}
 	return &PreparedSchema{
-		build:              newBuildRuntimeFunc(sch, reg, refs),
+		build:              newBuildRuntimeFunc(validatedSchema, reg, refs),
 		globalElementOrder: globalElementOrder(reg),
 	}, nil
 }
 
-func validateSchema(sch *parser.Schema) (*parser.Schema, *schemaanalysis.Registry, error) {
+func validateSchema(sch *parser.Schema) (*parser.Schema, *schemaanalysis.Registry, *schemaanalysis.ResolvedReferences, error) {
 	if sch == nil {
-		return nil, nil, fmt.Errorf("prepare schema: schema is nil")
+		return nil, nil, nil, fmt.Errorf("prepare schema: schema is nil")
 	}
+
 	resolvedSchema, err := loadmerge.CloneSchemaDeep(sch)
 	if err != nil {
-		return nil, nil, fmt.Errorf("prepare schema: clone schema: %w", err)
+		return nil, nil, nil, fmt.Errorf("prepare schema: clone schema: %w", err)
 	}
 	if resolveErr := schemaprep.ResolveAndValidateOwned(resolvedSchema); resolveErr != nil {
-		return nil, nil, fmt.Errorf("prepare schema: %w", resolveErr)
+		return nil, nil, nil, fmt.Errorf("prepare schema: %w", resolveErr)
 	}
 	reg, err := schemaanalysis.AssignIDs(resolvedSchema)
 	if err != nil {
-		return nil, nil, fmt.Errorf("prepare schema: assign IDs: %w", err)
+		return nil, nil, nil, fmt.Errorf("prepare schema: assign IDs: %w", err)
 	}
 	if cycleErr := schemaanalysis.DetectCycles(resolvedSchema); cycleErr != nil {
-		return nil, nil, fmt.Errorf("prepare schema: detect cycles: %w", cycleErr)
+		return nil, nil, nil, fmt.Errorf("prepare schema: detect cycles: %w", cycleErr)
 	}
 	if upaErr := schemaprep.ValidateUPA(resolvedSchema, reg); upaErr != nil {
-		return nil, nil, fmt.Errorf("prepare schema: validate UPA: %w", upaErr)
+		return nil, nil, nil, fmt.Errorf("prepare schema: validate UPA: %w", upaErr)
 	}
-	return resolvedSchema, reg, nil
+	refs, err := schemaanalysis.ResolveReferences(resolvedSchema, reg)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("prepare schema: resolve references: %w", err)
+	}
+	return resolvedSchema, reg, refs, nil
 }
 
 func newBuildRuntimeFunc(sch *parser.Schema, reg *schemaanalysis.Registry, refs *schemaanalysis.ResolvedReferences) buildRuntimeFunc {

@@ -155,7 +155,7 @@ func parseDurationToTimeDuration(s string) (time.Duration, error) {
 		return 0, err
 	}
 
-	secondsDuration, err := secondsToDuration(xsdDur.Seconds)
+	secondsDuration, err := SecondsToDuration(xsdDur.Seconds)
 	if err != nil {
 		return 0, err
 	}

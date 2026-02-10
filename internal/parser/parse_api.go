@@ -241,102 +241,25 @@ func parseSchemaAttributesFromStart(start xmlstream.Event, decls iter.Seq[xmlstr
 	if err := validateSchemaStartAttributeNamespaces(start); err != nil {
 		return err
 	}
-
-	targetNSAttr := ""
-	targetNSFound := false
+	attrs := make([]schemaAttribute, 0, len(start.Attrs))
 	for _, attr := range start.Attrs {
-		if attr.Name.Local != "targetNamespace" {
-			continue
-		}
-		switch attr.Name.Namespace {
-		case "":
-			targetNSAttr = model.ApplyWhiteSpace(string(attr.Value), model.WhiteSpaceCollapse)
-			targetNSFound = true
-		case schemaxml.XSDNamespace:
-			return fmt.Errorf("schema attribute 'targetNamespace' must be unprefixed (found '%s:targetNamespace')", attr.Name.Namespace)
-		}
+		attrs = append(attrs, schemaAttribute{
+			namespace: attr.Name.Namespace,
+			local:     attr.Name.Local,
+			value:     string(attr.Value),
+		})
 	}
-	if !targetNSFound {
-		schema.TargetNamespace = model.NamespaceEmpty
-	} else {
-		if targetNSAttr == "" {
-			return fmt.Errorf("targetNamespace attribute cannot be empty (must be absent or have a non-empty value)")
-		}
-		schema.TargetNamespace = targetNSAttr
-	}
-
+	var nsDecls []schemaNamespaceDecl
 	if decls != nil {
+		nsDecls = make([]schemaNamespaceDecl, 0, 8)
 		for decl := range decls {
-			if decl.Prefix == "" {
-				schema.NamespaceDecls[""] = decl.URI
-				continue
-			}
-			if decl.URI == "" {
-				return fmt.Errorf("namespace prefix %q cannot be bound to empty namespace", decl.Prefix)
-			}
-			schema.NamespaceDecls[decl.Prefix] = decl.URI
+			nsDecls = append(nsDecls, schemaNamespaceDecl{
+				prefix: decl.Prefix,
+				uri:    decl.URI,
+			})
 		}
 	}
-
-	if elemForm, ok := findStartAttr(start.Attrs, "elementFormDefault"); ok {
-		elemForm = model.ApplyWhiteSpace(elemForm, model.WhiteSpaceCollapse)
-		if elemForm == "" {
-			return fmt.Errorf("elementFormDefault attribute cannot be empty")
-		}
-		switch elemForm {
-		case "qualified":
-			schema.ElementFormDefault = Qualified
-		case "unqualified":
-			schema.ElementFormDefault = Unqualified
-		default:
-			return fmt.Errorf("invalid elementFormDefault attribute value '%s': must be 'qualified' or 'unqualified'", elemForm)
-		}
-	}
-
-	if attrForm, ok := findStartAttr(start.Attrs, "attributeFormDefault"); ok {
-		attrForm = model.ApplyWhiteSpace(attrForm, model.WhiteSpaceCollapse)
-		if attrForm == "" {
-			return fmt.Errorf("attributeFormDefault attribute cannot be empty")
-		}
-		switch attrForm {
-		case "qualified":
-			schema.AttributeFormDefault = Qualified
-		case "unqualified":
-			schema.AttributeFormDefault = Unqualified
-		default:
-			return fmt.Errorf("invalid attributeFormDefault attribute value '%s': must be 'qualified' or 'unqualified'", attrForm)
-		}
-	}
-
-	if blockDefault, ok := findStartAttr(start.Attrs, "blockDefault"); ok {
-		if model.TrimXMLWhitespace(blockDefault) == "" {
-			return fmt.Errorf("blockDefault attribute cannot be empty")
-		}
-		block, err := parseDerivationSetWithValidation(
-			blockDefault,
-			model.DerivationSet(model.DerivationSubstitution|model.DerivationExtension|model.DerivationRestriction),
-		)
-		if err != nil {
-			return fmt.Errorf("invalid blockDefault attribute value '%s': %w", blockDefault, err)
-		}
-		schema.BlockDefault = block
-	}
-
-	if finalDefault, ok := findStartAttr(start.Attrs, "finalDefault"); ok {
-		if model.TrimXMLWhitespace(finalDefault) == "" {
-			return fmt.Errorf("finalDefault attribute cannot be empty")
-		}
-		final, err := parseDerivationSetWithValidation(
-			finalDefault,
-			model.DerivationSet(model.DerivationExtension|model.DerivationRestriction|model.DerivationList|model.DerivationUnion),
-		)
-		if err != nil {
-			return fmt.Errorf("invalid finalDefault attribute value '%s': %w", finalDefault, err)
-		}
-		schema.FinalDefault = final
-	}
-
-	return nil
+	return applySchemaRootAttributes(schema, attrs, nsDecls)
 }
 
 func validateSchemaStartAttributeNamespaces(start xmlstream.Event) error {
@@ -349,16 +272,4 @@ func validateSchemaStartAttributeNamespaces(start xmlstream.Event) error {
 		}
 	}
 	return nil
-}
-
-func findStartAttr(attrs []xmlstream.Attr, local string) (string, bool) {
-	for _, attr := range attrs {
-		if attr.Name.Namespace != "" {
-			continue
-		}
-		if attr.Name.Local == local {
-			return string(attr.Value), true
-		}
-	}
-	return "", false
 }

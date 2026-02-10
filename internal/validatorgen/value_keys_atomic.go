@@ -42,15 +42,6 @@ func (c *compiler) keyBytesAtomic(normalized string, typ model.Type, ctx map[str
 			return keyBytes{}, err
 		}
 		return keyBytes{kind: runtime.VKDecimal, bytes: num.EncodeDecKey(nil, decVal)}, nil
-	case "integer", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte", "nonNegativeInteger", "positiveInteger", "negativeInteger", "nonPositiveInteger":
-		intVal, err := parseInt(normalized)
-		if err != nil {
-			return keyBytes{}, err
-		}
-		if err := runtime.ValidateIntegerKind(c.integerKindForType(typ), intVal); err != nil {
-			return keyBytes{}, err
-		}
-		return keyBytes{kind: runtime.VKDecimal, bytes: num.EncodeDecKey(nil, intVal.AsDec())}, nil
 	case "boolean":
 		v, err := value.ParseBoolean([]byte(normalized))
 		if err != nil {

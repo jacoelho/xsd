@@ -14,10 +14,7 @@ func validateLocalElementAttributes(attrs *elementAttrScan) error {
 	if attrs.hasFinal {
 		return fmt.Errorf("local element cannot have 'final' attribute (only global elements can be final)")
 	}
-	if attrs.hasDefault && attrs.hasFixed {
-		return fmt.Errorf("element cannot have both 'default' and 'fixed' attributes")
-	}
-	return nil
+	return validateElementDefaultFixedConflict(attrs.hasDefault, attrs.hasFixed)
 }
 
 func validateLocalElementChildren(doc *schemaxml.Document, elem schemaxml.NodeID) error {
@@ -28,19 +25,7 @@ func validateLocalElementChildren(doc *schemaxml.Document, elem schemaxml.NodeID
 		return err
 	}
 
-	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
-			continue
-		}
-		switch doc.LocalName(child) {
-		case "annotation", "complexType", "simpleType", "key", "keyref", "unique":
-			continue
-		default:
-			return fmt.Errorf("invalid child element <%s> in <element> declaration", doc.LocalName(child))
-		}
-	}
-
-	return nil
+	return validateElementChildren(doc, elem)
 }
 
 func resolveLocalElementForm(attrs *elementAttrScan, schema *Schema) (Form, model.NamespaceURI, error) {
@@ -65,4 +50,26 @@ func resolveLocalElementForm(attrs *elementAttrScan, schema *Schema) (Form, mode
 	}
 
 	return effectiveForm, elementNamespace, nil
+}
+
+func validateElementChildren(doc *schemaxml.Document, elem schemaxml.NodeID) error {
+	for _, child := range doc.Children(elem) {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
+			continue
+		}
+		switch doc.LocalName(child) {
+		case "annotation", "complexType", "simpleType", "key", "keyref", "unique":
+			continue
+		default:
+			return fmt.Errorf("invalid child element <%s> in <element> declaration", doc.LocalName(child))
+		}
+	}
+	return nil
+}
+
+func validateElementDefaultFixedConflict(hasDefault, hasFixed bool) error {
+	if hasDefault && hasFixed {
+		return fmt.Errorf("element cannot have both 'default' and 'fixed' attributes")
+	}
+	return nil
 }

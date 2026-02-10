@@ -8,21 +8,6 @@ import (
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
-func elementTypesCompatible(a, b model.Type) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	nameA := a.Name()
-	nameB := b.Name()
-	if !nameA.IsZero() || !nameB.IsZero() {
-		return nameA == nameB
-	}
-	return a == b
-}
-
 func parseXPathExpression(expr string, nsContext map[string]string, policy xpath.AttributePolicy) (xpath.Expression, error) {
 	parsed, err := xpath.Parse(expr, nsContext, policy)
 	if err != nil {

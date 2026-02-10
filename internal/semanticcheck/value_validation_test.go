@@ -12,7 +12,7 @@ func TestSchemacheckListAcceptsEmptyValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewListSimpleType: %v", err)
 	}
-	if err := validateValueAgainstTypeWithFacets(nil, "", st, nil, make(map[model.Type]bool)); err != nil {
+	if err := validateValueAgainstTypeWithFacets(nil, "", st, nil); err != nil {
 		t.Fatalf("unexpected empty list error: %v", err)
 	}
 }
@@ -24,7 +24,7 @@ func TestSchemacheckListMinLengthRejectsEmpty(t *testing.T) {
 		t.Fatalf("NewListSimpleType: %v", err)
 	}
 	st.Restriction = &model.Restriction{Facets: []any{&model.MinLength{Value: 1}}}
-	if err := validateValueAgainstTypeWithFacets(nil, "", st, nil, make(map[model.Type]bool)); err == nil {
+	if err := validateValueAgainstTypeWithFacets(nil, "", st, nil); err == nil {
 		t.Fatalf("expected empty list to fail minLength")
 	}
 }

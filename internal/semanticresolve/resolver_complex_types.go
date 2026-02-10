@@ -75,40 +75,20 @@ func (r *Resolver) resolveComplexTypeAttributes(qname model.QName, ct *model.Com
 	if content == nil {
 		return nil
 	}
-	switch c := content.(type) {
-	case *model.ComplexContent:
-		if ext := c.ExtensionDef(); ext != nil {
-			if err := r.resolveAttributeGroupRefs(qname, ext.AttrGroups); err != nil {
-				return err
-			}
-			if err := r.resolveAttributeDecls(ext.Attributes); err != nil {
-				return err
-			}
+	if ext := content.ExtensionDef(); ext != nil {
+		if err := r.resolveAttributeGroupRefs(qname, ext.AttrGroups); err != nil {
+			return err
 		}
-		if restr := c.RestrictionDef(); restr != nil {
-			if err := r.resolveAttributeGroupRefs(qname, restr.AttrGroups); err != nil {
-				return err
-			}
-			if err := r.resolveAttributeDecls(restr.Attributes); err != nil {
-				return err
-			}
+		if err := r.resolveAttributeDecls(ext.Attributes); err != nil {
+			return err
 		}
-	case *model.SimpleContent:
-		if ext := c.ExtensionDef(); ext != nil {
-			if err := r.resolveAttributeGroupRefs(qname, ext.AttrGroups); err != nil {
-				return err
-			}
-			if err := r.resolveAttributeDecls(ext.Attributes); err != nil {
-				return err
-			}
+	}
+	if restr := content.RestrictionDef(); restr != nil {
+		if err := r.resolveAttributeGroupRefs(qname, restr.AttrGroups); err != nil {
+			return err
 		}
-		if restr := c.RestrictionDef(); restr != nil {
-			if err := r.resolveAttributeGroupRefs(qname, restr.AttrGroups); err != nil {
-				return err
-			}
-			if err := r.resolveAttributeDecls(restr.Attributes); err != nil {
-				return err
-			}
+		if err := r.resolveAttributeDecls(restr.Attributes); err != nil {
+			return err
 		}
 	}
 

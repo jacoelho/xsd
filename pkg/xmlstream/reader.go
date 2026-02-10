@@ -124,19 +124,42 @@ func (r *Reader) Reset(src io.Reader, opts ...Option) error {
 
 // Next returns the next XML event.
 func (r *Reader) Next() (Event, error) {
-	ev, _, err := r.next(nextResolved)
+	var ev Event
+	err := r.next(nextEvent, &ev, nil, nil)
 	return ev, err
 }
 
 // NextResolved returns the next XML event with namespace-resolved byte slices.
 func (r *Reader) NextResolved() (ResolvedEvent, error) {
+	var ev ResolvedEvent
+	err := r.next(nextResolved, nil, nil, &ev)
+	return ev, err
+}
+
+// NextRaw returns the next XML event with raw names.
+// Raw name and value slices are valid until the next Next or NextRaw call.
+func (r *Reader) NextRaw() (RawEvent, error) {
+	var ev RawEvent
+	err := r.next(nextRaw, nil, &ev, nil)
+	return ev, err
+}
+
+type nextMode uint8
+
+const (
+	nextEvent nextMode = iota
+	nextRaw
+	nextResolved
+)
+
+func (r *Reader) next(mode nextMode, event *Event, raw *RawEvent, resolved *ResolvedEvent) error {
 	if r == nil || r.dec == nil {
-		return ResolvedEvent{}, errNilReader
+		return errNilReader
 	}
 	if r.names == nil {
 		r.names = newQNameCache()
 	}
-	if r.nameIDs == nil {
+	if mode == nextResolved && r.nameIDs == nil {
 		r.nameIDs = newNameCache()
 	}
 	if r.pendingPop {
@@ -147,7 +170,7 @@ func (r *Reader) NextResolved() (ResolvedEvent, error) {
 
 	for {
 		if err := r.dec.ReadTokenRawSpansInto(&r.tok); err != nil {
-			return ResolvedEvent{}, err
+			return err
 		}
 		tok := &r.tok
 		line, column := tok.Line, tok.Column
@@ -157,187 +180,211 @@ func (r *Reader) NextResolved() (ResolvedEvent, error) {
 
 		switch tok.Kind {
 		case xmltext.KindStartElement:
-			return r.startResolvedEvent(tok, line, column)
-
-		case xmltext.KindEndElement:
-			return r.endResolvedEvent(tok, line, column)
-
-		case xmltext.KindCharData, xmltext.KindCDATA:
-			text, err := r.textBytes(tok.Text, tok.TextNeeds)
-			if err != nil {
-				return ResolvedEvent{}, wrapSyntaxError(r.dec, line, column, err)
-			}
-			scopeDepth := r.currentScopeDepth()
-			return ResolvedEvent{
-				Kind:       EventCharData,
-				Text:       text,
-				Line:       line,
-				Column:     column,
-				ScopeDepth: scopeDepth,
-			}, nil
-
-		case xmltext.KindComment:
-			scopeDepth := r.currentScopeDepth()
-			return ResolvedEvent{
-				Kind:       EventComment,
-				Text:       tok.Text,
-				Line:       line,
-				Column:     column,
-				ScopeDepth: scopeDepth,
-			}, nil
-
-		case xmltext.KindPI:
-			if tok.IsXMLDecl {
-				continue
-			}
-			scopeDepth := r.currentScopeDepth()
-			return ResolvedEvent{
-				Kind:       EventPI,
-				Text:       tok.Text,
-				Line:       line,
-				Column:     column,
-				ScopeDepth: scopeDepth,
-			}, nil
-
-		case xmltext.KindDirective:
-			scopeDepth := r.currentScopeDepth()
-			return ResolvedEvent{
-				Kind:       EventDirective,
-				Text:       tok.Text,
-				Line:       line,
-				Column:     column,
-				ScopeDepth: scopeDepth,
-			}, nil
-		}
-	}
-}
-
-// NextRaw returns the next XML event with raw names.
-// Raw name and value slices are valid until the next Next or NextRaw call.
-func (r *Reader) NextRaw() (RawEvent, error) {
-	_, ev, err := r.next(nextRaw)
-	return ev, err
-}
-
-type nextMode uint8
-
-const (
-	nextResolved nextMode = iota
-	nextRaw
-)
-
-func (r *Reader) next(mode nextMode) (Event, RawEvent, error) {
-	if r == nil || r.dec == nil {
-		return Event{}, RawEvent{}, errNilReader
-	}
-	if r.names == nil {
-		r.names = newQNameCache()
-	}
-	if r.pendingPop {
-		r.ns.pop()
-		r.pendingPop = false
-	}
-	r.lastWasStart = false
-
-	for {
-		if err := r.dec.ReadTokenRawSpansInto(&r.tok); err != nil {
-			return Event{}, RawEvent{}, err
-		}
-		tok := &r.tok
-		line, column := tok.Line, tok.Column
-		r.lastLine = line
-		r.lastColumn = column
-		r.valueBuf = r.valueBuf[:0]
-
-		switch tok.Kind {
-		case xmltext.KindStartElement:
-			return r.startEvent(mode, tok, line, column)
-
-		case xmltext.KindEndElement:
-			return r.endEvent(mode, tok, line, column)
-
-		case xmltext.KindCharData, xmltext.KindCDATA:
-			text, err := r.textBytes(tok.Text, tok.TextNeeds)
-			if err != nil {
-				return Event{}, RawEvent{}, wrapSyntaxError(r.dec, line, column, err)
-			}
-			scopeDepth := r.currentScopeDepth()
 			if mode == nextResolved {
-				return Event{
+				ev, err := r.startResolvedEvent(tok, line, column)
+				if err != nil {
+					return err
+				}
+				if resolved != nil {
+					*resolved = ev
+				}
+				return nil
+			}
+			ev, rawEv, err := r.startEvent(mode, tok, line, column)
+			if err != nil {
+				return err
+			}
+			if mode == nextEvent {
+				if event != nil {
+					*event = ev
+				}
+				return nil
+			}
+			if raw != nil {
+				*raw = rawEv
+			}
+			return nil
+
+		case xmltext.KindEndElement:
+			if mode == nextResolved {
+				ev, err := r.endResolvedEvent(tok, line, column)
+				if err != nil {
+					return err
+				}
+				if resolved != nil {
+					*resolved = ev
+				}
+				return nil
+			}
+			ev, rawEv, err := r.endEvent(mode, tok, line, column)
+			if err != nil {
+				return err
+			}
+			if mode == nextEvent {
+				if event != nil {
+					*event = ev
+				}
+				return nil
+			}
+			if raw != nil {
+				*raw = rawEv
+			}
+			return nil
+
+		case xmltext.KindCharData, xmltext.KindCDATA:
+			text, err := r.textBytes(tok.Text, tok.TextNeeds)
+			if err != nil {
+				return wrapSyntaxError(r.dec, line, column, err)
+			}
+			scopeDepth := r.currentScopeDepth()
+			if mode == nextEvent {
+				if event != nil {
+					*event = Event{
+						Kind:       EventCharData,
+						Text:       text,
+						Line:       line,
+						Column:     column,
+						ScopeDepth: scopeDepth,
+					}
+				}
+				return nil
+			}
+			if mode == nextResolved {
+				if resolved != nil {
+					*resolved = ResolvedEvent{
+						Kind:       EventCharData,
+						Text:       text,
+						Line:       line,
+						Column:     column,
+						ScopeDepth: scopeDepth,
+					}
+				}
+				return nil
+			}
+			if raw != nil {
+				*raw = RawEvent{
 					Kind:       EventCharData,
 					Text:       text,
 					Line:       line,
 					Column:     column,
 					ScopeDepth: scopeDepth,
-				}, RawEvent{}, nil
+				}
 			}
-			return Event{}, RawEvent{
-				Kind:       EventCharData,
-				Text:       text,
-				Line:       line,
-				Column:     column,
-				ScopeDepth: scopeDepth,
-			}, nil
+			return nil
 
 		case xmltext.KindComment:
 			scopeDepth := r.currentScopeDepth()
+			if mode == nextEvent {
+				if event != nil {
+					*event = Event{
+						Kind:       EventComment,
+						Text:       tok.Text,
+						Line:       line,
+						Column:     column,
+						ScopeDepth: scopeDepth,
+					}
+				}
+				return nil
+			}
 			if mode == nextResolved {
-				return Event{
+				if resolved != nil {
+					*resolved = ResolvedEvent{
+						Kind:       EventComment,
+						Text:       tok.Text,
+						Line:       line,
+						Column:     column,
+						ScopeDepth: scopeDepth,
+					}
+				}
+				return nil
+			}
+			if raw != nil {
+				*raw = RawEvent{
 					Kind:       EventComment,
 					Text:       tok.Text,
 					Line:       line,
 					Column:     column,
 					ScopeDepth: scopeDepth,
-				}, RawEvent{}, nil
+				}
 			}
-			return Event{}, RawEvent{
-				Kind:       EventComment,
-				Text:       tok.Text,
-				Line:       line,
-				Column:     column,
-				ScopeDepth: scopeDepth,
-			}, nil
+			return nil
 
 		case xmltext.KindPI:
 			if tok.IsXMLDecl {
 				continue
 			}
 			scopeDepth := r.currentScopeDepth()
+			if mode == nextEvent {
+				if event != nil {
+					*event = Event{
+						Kind:       EventPI,
+						Text:       tok.Text,
+						Line:       line,
+						Column:     column,
+						ScopeDepth: scopeDepth,
+					}
+				}
+				return nil
+			}
 			if mode == nextResolved {
-				return Event{
+				if resolved != nil {
+					*resolved = ResolvedEvent{
+						Kind:       EventPI,
+						Text:       tok.Text,
+						Line:       line,
+						Column:     column,
+						ScopeDepth: scopeDepth,
+					}
+				}
+				return nil
+			}
+			if raw != nil {
+				*raw = RawEvent{
 					Kind:       EventPI,
 					Text:       tok.Text,
 					Line:       line,
 					Column:     column,
 					ScopeDepth: scopeDepth,
-				}, RawEvent{}, nil
+				}
 			}
-			return Event{}, RawEvent{
-				Kind:       EventPI,
-				Text:       tok.Text,
-				Line:       line,
-				Column:     column,
-				ScopeDepth: scopeDepth,
-			}, nil
+			return nil
 
 		case xmltext.KindDirective:
 			scopeDepth := r.currentScopeDepth()
+			if mode == nextEvent {
+				if event != nil {
+					*event = Event{
+						Kind:       EventDirective,
+						Text:       tok.Text,
+						Line:       line,
+						Column:     column,
+						ScopeDepth: scopeDepth,
+					}
+				}
+				return nil
+			}
 			if mode == nextResolved {
-				return Event{
+				if resolved != nil {
+					*resolved = ResolvedEvent{
+						Kind:       EventDirective,
+						Text:       tok.Text,
+						Line:       line,
+						Column:     column,
+						ScopeDepth: scopeDepth,
+					}
+				}
+				return nil
+			}
+			if raw != nil {
+				*raw = RawEvent{
 					Kind:       EventDirective,
 					Text:       tok.Text,
 					Line:       line,
 					Column:     column,
 					ScopeDepth: scopeDepth,
-				}, RawEvent{}, nil
+				}
 			}
-			return Event{}, RawEvent{
-				Kind:       EventDirective,
-				Text:       tok.Text,
-				Line:       line,
-				Column:     column,
-				ScopeDepth: scopeDepth,
-			}, nil
+			return nil
 		}
 	}
 }
@@ -360,7 +407,7 @@ func (r *Reader) startEvent(mode nextMode, tok *xmltext.RawTokenSpan, line, colu
 	}
 
 	attrCount := tok.AttrCount()
-	if mode == nextResolved {
+	if mode == nextEvent {
 		if cap(r.attrBuf) < attrCount {
 			r.attrBuf = make([]Attr, 0, attrCount)
 		} else {
@@ -398,7 +445,7 @@ func (r *Reader) startEvent(mode nextMode, tok *xmltext.RawTokenSpan, line, colu
 		if err != nil {
 			return Event{}, RawEvent{}, wrapSyntaxError(r.dec, line, column, err)
 		}
-		if mode == nextResolved {
+		if mode == nextEvent {
 			r.attrBuf = append(r.attrBuf, Attr{
 				Name:  r.names.internBytes(attrNamespace, attrLocal),
 				Value: value,
@@ -437,7 +484,7 @@ func (r *Reader) startEvent(mode nextMode, tok *xmltext.RawTokenSpan, line, colu
 		r.lastRawAttrs = nil
 		r.lastRawInfo = nil
 	}
-	if mode == nextResolved {
+	if mode == nextEvent {
 		return event, RawEvent{}, nil
 	}
 	return Event{}, RawEvent{
@@ -556,7 +603,7 @@ func (r *Reader) endEvent(mode nextMode, tok *xmltext.RawTokenSpan, line, column
 		return Event{}, RawEvent{}, err
 	}
 	r.pendingPop = true
-	if mode == nextResolved {
+	if mode == nextEvent {
 		return Event{
 			Kind:       EventEndElement,
 			Name:       name,

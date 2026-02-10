@@ -7,7 +7,6 @@ import (
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	qnamelex "github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/typedvalue"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 	"github.com/jacoelho/xsd/internal/valueparse"
 )
@@ -18,11 +17,11 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *model.AttributeDecl) 
 		return attr.Fixed == target.Fixed, nil
 	}
 
-	left, err := typedvalue.Normalize(attr.Fixed, resolvedType)
+	left, err := model.NormalizeTypeValue(attr.Fixed, resolvedType)
 	if err != nil {
 		return false, err
 	}
-	right, err := typedvalue.Normalize(target.Fixed, resolvedType)
+	right, err := model.NormalizeTypeValue(target.Fixed, resolvedType)
 	if err != nil {
 		return false, err
 	}

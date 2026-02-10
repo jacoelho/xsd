@@ -88,6 +88,55 @@ func TestSimpleTypeValidateUnionMembers(t *testing.T) {
 	}
 }
 
+func TestSimpleTypeValidateUnionInlineMembers(t *testing.T) {
+	base := builtins.Get(model.TypeNameInteger)
+	if base == nil {
+		t.Fatalf("expected builtin integer")
+	}
+	maxFacet, err := facetvalue.NewMaxInclusive("10", base)
+	if err != nil {
+		t.Fatalf("newMaxInclusive: %v", err)
+	}
+	int10, err := model.NewAtomicSimpleType(model.QName{Namespace: "urn:test", Local: "Int10"}, "urn:test", &model.Restriction{
+		Base:   model.QName{Namespace: model.XSDNamespace, Local: "integer"},
+		Facets: []any{maxFacet},
+	})
+	if err != nil {
+		t.Fatalf("NewAtomicSimpleType: %v", err)
+	}
+	union, err := model.NewUnionSimpleType(model.QName{Namespace: "urn:test", Local: "InlineUnion"}, "urn:test", &model.UnionType{
+		InlineTypes: []*model.SimpleType{int10},
+	})
+	if err != nil {
+		t.Fatalf("NewUnionSimpleType: %v", err)
+	}
+
+	if err := union.Validate("11"); err == nil {
+		t.Fatalf("expected union inline member validation error")
+	}
+	if err := union.Validate("10"); err != nil {
+		t.Fatalf("unexpected union inline validation error: %v", err)
+	}
+}
+
+func TestSimpleTypeValidateUnionMemberQNames(t *testing.T) {
+	union, err := model.NewUnionSimpleType(model.QName{Namespace: "urn:test", Local: "QNameUnion"}, "urn:test", &model.UnionType{
+		MemberTypes: []model.QName{
+			{Namespace: model.XSDNamespace, Local: "int"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewUnionSimpleType: %v", err)
+	}
+
+	if err := union.Validate("12"); err != nil {
+		t.Fatalf("unexpected union QName member validation error: %v", err)
+	}
+	if err := union.Validate("abc"); err == nil {
+		t.Fatalf("expected union QName member validation error")
+	}
+}
+
 func TestSimpleTypeValidateListMembers(t *testing.T) {
 	item, err := builtins.NewSimpleType(model.TypeNameInteger)
 	if err != nil {
@@ -107,6 +156,47 @@ func TestSimpleTypeValidateListMembers(t *testing.T) {
 	}
 	if err := list.Validate(""); err != nil {
 		t.Fatalf("unexpected empty list validation error: %v", err)
+	}
+}
+
+func TestListItemTypeWithResolverResolvesNamedRestrictionBase(t *testing.T) {
+	baseList := &model.SimpleType{
+		QName: model.QName{Namespace: "urn:test", Local: "BaseList"},
+		List: &model.ListType{
+			ItemType: model.QName{Namespace: model.XSDNamespace, Local: "int"},
+		},
+	}
+	derived := &model.SimpleType{
+		QName: model.QName{Namespace: "urn:test", Local: "DerivedList"},
+		Restriction: &model.Restriction{
+			Base: baseList.QName,
+		},
+	}
+
+	item, ok := model.ListItemTypeWithResolver(derived, func(name model.QName) model.Type {
+		if name == baseList.QName {
+			return baseList
+		}
+		return nil
+	})
+	if !ok || item == nil {
+		t.Fatalf("expected list item type from named restriction base")
+	}
+	if item.Name().Local != "int" {
+		t.Fatalf("item type local name = %q, want %q", item.Name().Local, "int")
+	}
+}
+
+func TestListItemTypeHandlesTypedNilBase(t *testing.T) {
+	var nilBase *model.BuiltinType
+	list := &model.SimpleType{
+		QName:        model.QName{Namespace: "urn:test", Local: "TypedNilBaseList"},
+		List:         &model.ListType{},
+		ResolvedBase: nilBase,
+	}
+
+	if item, ok := model.ListItemType(list); ok || item != nil {
+		t.Fatalf("ListItemType() = (%v, %v), want (nil, false)", item, ok)
 	}
 }
 

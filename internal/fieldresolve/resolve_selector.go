@@ -27,7 +27,7 @@ func ResolveSelectorElementType(schema *parser.Schema, constraintElement *model.
 			elementType = resolved
 			continue
 		}
-		if !elementTypesCompatible(elementType, resolved) {
+		if !model.ElementTypesCompatible(elementType, resolved) {
 			return nil, fmt.Errorf("selector xpath '%s' resolves to multiple element types", selectorXPath)
 		}
 	}

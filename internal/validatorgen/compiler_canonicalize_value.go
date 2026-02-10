@@ -32,12 +32,6 @@ func (c *compiler) comparableValue(lexical string, typ model.Type) (model.Compar
 			return nil, fmt.Errorf("invalid decimal: %s", lexical)
 		}
 		return model.ComparableDec{Value: dec}, nil
-	case "integer", "long", "int", "short", "byte", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte", "nonNegativeInteger", "positiveInteger", "negativeInteger", "nonPositiveInteger":
-		v, perr := num.ParseInt([]byte(lexical))
-		if perr != nil {
-			return nil, fmt.Errorf("invalid integer: %s", lexical)
-		}
-		return model.ComparableInt{Value: v}, nil
 	case "float":
 		v, err := value.ParseFloat([]byte(lexical))
 		if err != nil {

@@ -44,7 +44,7 @@ func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, par
 			return nil
 		}
 		if existing, ok := seen[p.Name]; ok {
-			if !ElementTypesCompatible(existing, elemType) {
+			if !model.ElementTypesCompatible(existing, elemType) {
 				return fmt.Errorf("element declarations consistent violation for element '%s'", p.Name)
 			}
 			return nil

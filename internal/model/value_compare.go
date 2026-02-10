@@ -8,6 +8,11 @@ import (
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
+// CompareTypedValues reports whether two typed values are equal in the value space.
+func CompareTypedValues(left, right TypedValue) bool {
+	return valuesEqual(left, right)
+}
+
 // valuesEqual reports whether two typed values are equal in the value space.
 // It follows XSD equality rules, not lexical equality.
 func valuesEqual(left, right TypedValue) bool {

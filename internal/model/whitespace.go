@@ -62,22 +62,5 @@ var TrimXMLWhitespace = value.TrimXMLWhitespaceString
 // FieldsXMLWhitespaceSeq yields fields split on XML whitespace (space, tab, CR, LF).
 // It is equivalent to strings.FieldsSeq for XML whitespace only.
 func FieldsXMLWhitespaceSeq(lexical string) iter.Seq[string] {
-	return func(yield func(string) bool) {
-		i := 0
-		for i < len(lexical) {
-			for i < len(lexical) && value.IsXMLWhitespaceByte(lexical[i]) {
-				i++
-			}
-			if i >= len(lexical) {
-				return
-			}
-			start := i
-			for i < len(lexical) && !value.IsXMLWhitespaceByte(lexical[i]) {
-				i++
-			}
-			if !yield(lexical[start:i]) {
-				return
-			}
-		}
-	}
+	return value.FieldsXMLWhitespaceStringSeq(lexical)
 }

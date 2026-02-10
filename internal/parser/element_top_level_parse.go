@@ -61,20 +61,11 @@ func validateTopLevelElementStructure(doc *schemaxml.Document, elem schemaxml.No
 		return "", err
 	}
 
-	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
-			continue
-		}
-		switch doc.LocalName(child) {
-		case "annotation", "complexType", "simpleType", "key", "keyref", "unique":
-			// allowed.
-		default:
-			return "", fmt.Errorf("invalid child element <%s> in <element> declaration", doc.LocalName(child))
-		}
+	if err := validateElementChildren(doc, elem); err != nil {
+		return "", err
 	}
-
-	if doc.HasAttribute(elem, "default") && doc.HasAttribute(elem, "fixed") {
-		return "", fmt.Errorf("element cannot have both 'default' and 'fixed' attributes")
+	if err := validateElementDefaultFixedConflict(doc.HasAttribute(elem, "default"), doc.HasAttribute(elem, "fixed")); err != nil {
+		return "", err
 	}
 
 	return name, nil

@@ -22,14 +22,16 @@ func detectTypeCycles(schema *parser.Schema) error {
 			return nil
 		}
 		states[name] = stateVisiting
-		base := typeBaseQName(typ)
-		if !base.IsZero() && base.Namespace != model.XSDNamespace {
-			baseType := schema.TypeDefs[base]
-			if baseType == nil {
-				return fmt.Errorf("type %s base %s not found", name, base)
-			}
-			if err := visit(base, baseType); err != nil {
-				return err
+		baseType, _, err := baseTypeFor(schema, typ)
+		if err != nil {
+			return fmt.Errorf("type %s: %w", name, err)
+		}
+		if baseType != nil {
+			baseName := baseType.Name()
+			if !baseName.IsZero() && baseName.Namespace != model.XSDNamespace {
+				if err := visit(baseName, baseType); err != nil {
+					return err
+				}
 			}
 		}
 		states[name] = stateDone
@@ -49,21 +51,4 @@ func detectTypeCycles(schema *parser.Schema) error {
 		}
 	}
 	return nil
-}
-
-func typeBaseQName(typ model.Type) model.QName {
-	switch typed := typ.(type) {
-	case *model.SimpleType:
-		if typed.Restriction == nil {
-			return model.QName{}
-		}
-		return typed.Restriction.Base
-	case *model.ComplexType:
-		if typed.Content() == nil {
-			return model.QName{}
-		}
-		return typed.Content().BaseTypeQName()
-	default:
-		return model.QName{}
-	}
 }

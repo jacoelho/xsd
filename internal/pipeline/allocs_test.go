@@ -23,7 +23,7 @@ func TestValidateSchemaOwnedPathAllocatesLessThanLegacyClonePath(t *testing.T) {
 		}
 	})
 	ownedAllocs := testing.AllocsPerRun(8, func() {
-		if _, _, allocErr := validateSchema(sch); allocErr != nil {
+		if _, _, _, allocErr := validateSchema(sch); allocErr != nil {
 			panic(allocErr)
 		}
 	})

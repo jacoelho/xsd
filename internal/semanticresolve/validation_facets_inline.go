@@ -36,7 +36,7 @@ func validateEnumerationFacetValues(sch *parser.Schema) []error {
 				if i < len(contexts) {
 					ctx = contexts[i]
 				}
-				if err := validateDefaultOrFixedValueResolved(sch, val, baseType, ctx, make(map[model.Type]bool), idValuesAllowed); err != nil {
+				if err := validateDefaultOrFixedValueResolved(sch, val, baseType, ctx, idValuesAllowed); err != nil {
 					errs = append(errs, fmt.Errorf("type %s: restriction: enumeration value %d (%q) is not valid for base type %s: %w", qname, i+1, val, baseType.Name().Local, err))
 				}
 			}
