@@ -271,34 +271,28 @@ var (
 	validateNCName = validateFromBytes(value.ValidateNCName)
 )
 
-// validateIDREFS validates xs:IDREFS (space-separated list of IDREFs)
-func validateIDREFS(lexical string) error {
+func validateWhitespaceSeparatedList(typeName string, itemValidator TypeValidator, lexical string) error {
 	count := 0
 	for part := range FieldsXMLWhitespaceSeq(lexical) {
 		count++
-		if err := validateNCName(part); err != nil {
-			return fmt.Errorf("invalid IDREFS: %w", err)
+		if err := itemValidator(part); err != nil {
+			return fmt.Errorf("invalid %s: %w", typeName, err)
 		}
 	}
 	if count == 0 {
-		return fmt.Errorf("invalid IDREFS: empty value")
+		return fmt.Errorf("invalid %s: empty value", typeName)
 	}
 	return nil
 }
 
+// validateIDREFS validates xs:IDREFS (space-separated list of IDREFs)
+func validateIDREFS(lexical string) error {
+	return validateWhitespaceSeparatedList("IDREFS", validateNCName, lexical)
+}
+
 // validateENTITIES validates xs:ENTITIES (space-separated list of ENTITYs)
 func validateENTITIES(lexical string) error {
-	count := 0
-	for part := range FieldsXMLWhitespaceSeq(lexical) {
-		count++
-		if err := validateNCName(part); err != nil {
-			return fmt.Errorf("invalid ENTITIES: %w", err)
-		}
-	}
-	if count == 0 {
-		return fmt.Errorf("invalid ENTITIES: empty value")
-	}
-	return nil
+	return validateWhitespaceSeparatedList("ENTITIES", validateNCName, lexical)
 }
 
 var (
@@ -308,17 +302,7 @@ var (
 
 // validateNMTOKENS validates xs:NMTOKENS (space-separated list of NMTOKENs)
 func validateNMTOKENS(lexical string) error {
-	count := 0
-	for part := range FieldsXMLWhitespaceSeq(lexical) {
-		count++
-		if err := validateNMTOKEN(part); err != nil {
-			return fmt.Errorf("invalid NMTOKENS: %w", err)
-		}
-	}
-	if count == 0 {
-		return fmt.Errorf("invalid NMTOKENS: empty value")
-	}
-	return nil
+	return validateWhitespaceSeparatedList("NMTOKENS", validateNMTOKEN, lexical)
 }
 
 // validateLanguage validates xs:language
