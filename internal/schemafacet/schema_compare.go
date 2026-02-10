@@ -3,7 +3,6 @@ package schemafacet
 import (
 	"errors"
 	"math"
-	"slices"
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/durationlex"
@@ -21,15 +20,6 @@ var ErrDurationNotComparable = errors.New("duration values are not comparable")
 // ErrFloatNotComparable reports NaN-involved float comparisons.
 var ErrFloatNotComparable = errors.New("float values are not comparable")
 
-func isNumericTypeName(typeName string) bool {
-	numericTypes := []string{
-		"decimal", "float", "double", "integer", "long", "int", "short", "byte",
-		"nonNegativeInteger", "positiveInteger", "unsignedLong", "unsignedInt",
-		"unsignedShort", "unsignedByte", "nonPositiveInteger", "negativeInteger",
-	}
-	return slices.Contains(numericTypes, typeName)
-}
-
 func isDateTimeTypeName(typeName string) bool {
 	switch typeName {
 	case "dateTime", "date", "time", "gYearMonth", "gYear", "gMonthDay", "gDay", "gMonth":
@@ -41,18 +31,9 @@ func isDateTimeTypeName(typeName string) bool {
 
 // CompareFacetValues compares two facet lexical values for a base type.
 func CompareFacetValues(val1, val2 string, baseType model.Type) (int, error) {
-	var primitiveType model.Type
-	if st, ok := baseType.(*model.SimpleType); ok {
-		primitiveType = st.PrimitiveType()
-		if primitiveType == nil {
-			primitiveType = baseType
-		}
-	} else {
-		primitiveType = baseType
-	}
-
-	if st, ok := primitiveType.(*model.SimpleType); ok {
-		typeName := st.QName.Local
+	primitiveType := resolvePrimitiveType(baseType)
+	if primitiveType != nil {
+		typeName := primitiveType.Name().Local
 		switch typeName {
 		case "duration":
 			return compareDurationValues(val1, val2)
@@ -61,39 +42,19 @@ func CompareFacetValues(val1, val2 string, baseType model.Type) (int, error) {
 		case "double":
 			return compareDoubleFacetValues(val1, val2)
 		}
-		if isNumericTypeName(typeName) {
+		if model.IsNumericTypeName(typeName) {
 			return compareNumericFacetValues(val1, val2)
-		}
-		if facets := st.FundamentalFacets(); facets != nil {
-			if facets.Numeric {
-				return compareNumericFacetValues(val1, val2)
-			}
-			if isDateTimeTypeName(typeName) {
-				return compareDateTimeValues(val1, val2, typeName)
-			}
-			if facets.Ordered == model.OrderedTotal {
-				return strings.Compare(val1, val2), nil
-			}
-		}
-	}
-	if bt, ok := primitiveType.(*model.BuiltinType); ok {
-		typeName := bt.Name().Local
-		switch typeName {
-		case "duration":
-			return compareDurationValues(val1, val2)
-		case "float":
-			return CompareFloatFacetValues(val1, val2)
-		case "double":
-			return compareDoubleFacetValues(val1, val2)
 		}
 		if isDateTimeTypeName(typeName) {
 			return compareDateTimeValues(val1, val2, typeName)
 		}
-		if bt.FundamentalFacets() != nil && bt.FundamentalFacets().Numeric {
-			return compareNumericFacetValues(val1, val2)
-		}
-		if bt.FundamentalFacets() != nil && bt.FundamentalFacets().Ordered == model.OrderedTotal {
-			return strings.Compare(val1, val2), nil
+		if facets := primitiveType.FundamentalFacets(); facets != nil {
+			if facets.Numeric {
+				return compareNumericFacetValues(val1, val2)
+			}
+			if facets.Ordered == model.OrderedTotal {
+				return strings.Compare(val1, val2), nil
+			}
 		}
 	}
 
@@ -104,6 +65,16 @@ func CompareFacetValues(val1, val2 string, baseType model.Type) (int, error) {
 		return cmp, nil
 	}
 	return strings.Compare(val1, val2), nil
+}
+
+func resolvePrimitiveType(baseType model.Type) model.Type {
+	if st, ok := baseType.(*model.SimpleType); ok {
+		if primitiveType := st.PrimitiveType(); primitiveType != nil {
+			return primitiveType
+		}
+		return baseType
+	}
+	return baseType
 }
 
 func compareNumericFacetValues(val1, val2 string) (int, error) {
@@ -160,96 +131,19 @@ func compareFloatValues(v1, v2 float64) (int, error) {
 }
 
 func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
-	switch baseTypeName {
-	case "date":
-		t1, err := temporal.Parse(temporal.KindDate, []byte(v1))
-		if err != nil {
-			return 0, err
-		}
-		t2, err := temporal.Parse(temporal.KindDate, []byte(v2))
-		if err != nil {
-			return 0, err
-		}
-		return compareDateTimeOrder(t1, t2)
-	case "dateTime":
-		t1, err := temporal.Parse(temporal.KindDateTime, []byte(v1))
-		if err != nil {
-			return 0, err
-		}
-		t2, err := temporal.Parse(temporal.KindDateTime, []byte(v2))
-		if err != nil {
-			return 0, err
-		}
-		return compareDateTimeOrder(t1, t2)
-	case "time":
-		t1, err := temporal.Parse(temporal.KindTime, []byte(v1))
-		if err != nil {
-			return 0, err
-		}
-		t2, err := temporal.Parse(temporal.KindTime, []byte(v2))
-		if err != nil {
-			return 0, err
-		}
-		return compareDateTimeOrder(t1, t2)
-	case "gYear":
-		t1, err := temporal.Parse(temporal.KindGYear, []byte(v1))
-		if err != nil {
-			return 0, err
-		}
-		t2, err := temporal.Parse(temporal.KindGYear, []byte(v2))
-		if err != nil {
-			return 0, err
-		}
-		return compareDateTimeOrder(t1, t2)
-	case "gYearMonth":
-		t1, err := temporal.Parse(temporal.KindGYearMonth, []byte(v1))
-		if err != nil {
-			return 0, err
-		}
-		t2, err := temporal.Parse(temporal.KindGYearMonth, []byte(v2))
-		if err != nil {
-			return 0, err
-		}
-		return compareDateTimeOrder(t1, t2)
-	case "gMonth":
-		t1, err := temporal.Parse(temporal.KindGMonth, []byte(v1))
-		if err != nil {
-			return 0, err
-		}
-		t2, err := temporal.Parse(temporal.KindGMonth, []byte(v2))
-		if err != nil {
-			return 0, err
-		}
-		return compareDateTimeOrder(t1, t2)
-	case "gMonthDay":
-		t1, err := temporal.Parse(temporal.KindGMonthDay, []byte(v1))
-		if err != nil {
-			return 0, err
-		}
-		t2, err := temporal.Parse(temporal.KindGMonthDay, []byte(v2))
-		if err != nil {
-			return 0, err
-		}
-		return compareDateTimeOrder(t1, t2)
-	case "gDay":
-		t1, err := temporal.Parse(temporal.KindGDay, []byte(v1))
-		if err != nil {
-			return 0, err
-		}
-		t2, err := temporal.Parse(temporal.KindGDay, []byte(v2))
-		if err != nil {
-			return 0, err
-		}
-		return compareDateTimeOrder(t1, t2)
+	kind, ok := temporal.KindFromPrimitiveName(baseTypeName)
+	if !ok {
+		return strings.Compare(v1, v2), nil
 	}
-
-	if v1 < v2 {
-		return -1, nil
+	t1, err := temporal.Parse(kind, []byte(v1))
+	if err != nil {
+		return 0, err
 	}
-	if v1 > v2 {
-		return 1, nil
+	t2, err := temporal.Parse(kind, []byte(v2))
+	if err != nil {
+		return 0, err
 	}
-	return 0, nil
+	return compareDateTimeOrder(t1, t2)
 }
 
 func compareDateTimeOrder(t1, t2 temporal.Value) (int, error) {

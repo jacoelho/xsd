@@ -44,7 +44,7 @@ func ValidateFacetApplicability(facetName string, baseType Type, baseQName QName
 			return fmt.Errorf("facet %s is not applicable to boolean type", facetName)
 		case primitiveName == "duration":
 			return fmt.Errorf("facet %s is not applicable to duration type", facetName)
-		case isNumericTypeName(primitiveName):
+		case IsNumericTypeName(primitiveName):
 			return fmt.Errorf("facet %s is not applicable to numeric type %s", facetName, baseTypeName)
 		case isDateTimeTypeName(primitiveName):
 			return fmt.Errorf("facet %s is not applicable to date/time type %s", facetName, baseTypeName)
@@ -122,17 +122,6 @@ func isDigitFacetName(name string) bool {
 func isLengthFacetName(name string) bool {
 	switch name {
 	case "length", "minLength", "maxLength":
-		return true
-	default:
-		return false
-	}
-}
-
-func isNumericTypeName(typeName string) bool {
-	switch typeName {
-	case "decimal", "float", "double", "integer", "long", "int", "short", "byte",
-		"nonNegativeInteger", "positiveInteger", "unsignedLong", "unsignedInt",
-		"unsignedShort", "unsignedByte", "nonPositiveInteger", "negativeInteger":
 		return true
 	default:
 		return false
