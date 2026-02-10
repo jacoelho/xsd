@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/pipeline"
+	"github.com/jacoelho/xsd/internal/schemaprep"
 )
 
 func loadAndPrepare(t *testing.T, loader *SchemaLoader, location string) (*parser.Schema, error) {
@@ -13,17 +14,12 @@ func loadAndPrepare(t *testing.T, loader *SchemaLoader, location string) (*parse
 	if err != nil {
 		return nil, err
 	}
-	validated, err := pipeline.Validate(sch)
-	if err != nil {
-		return nil, err
-	}
-	// ensure transform-phase reference checks run for source integration tests.
-	if _, err := pipeline.Transform(validated); err != nil {
+	if _, err := pipeline.Prepare(sch); err != nil {
 		return nil, err
 	}
 	// source tests assert resolved parser-model fields directly.
-	// use validated artifact snapshots instead of mutating parse-phase inputs.
-	resolved, err := validated.SchemaSnapshot()
+	// prepare() returns runtime artifacts, so build a resolved schema snapshot for assertions.
+	resolved, err := schemaprep.ResolveAndValidate(sch)
 	if err != nil {
 		return nil, err
 	}

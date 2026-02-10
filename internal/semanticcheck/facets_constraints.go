@@ -17,7 +17,7 @@ func ValidateFacetConstraints(schema *parser.Schema, facetList []model.Facet, ba
 		ValidateRangeConsistency: facetengine.ValidateRangeConsistency,
 		ValidateRangeValues:      facetengine.ValidateRangeValues,
 		ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
-			return validateValueAgainstTypeWithFacets(schema, value, baseType, context, make(map[model.Type]bool))
+			return validateValueAgainstTypeWithFacets(schema, value, baseType, context)
 		},
 	}
 	return facetengine.ValidateSchemaConstraints(input, callbacks)

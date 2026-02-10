@@ -77,7 +77,7 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 		} else if schema != nil && typeresolve.IsIDOnlyDerivedType(schema, st) {
 			return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 		}
-		return validateValueAgainstTypeWithFacets(schema, value, st, nsContext, make(map[model.Type]bool))
+		return validateValueAgainstTypeWithFacets(schema, value, st, nsContext)
 	}
 
 	// handle complex types with simpleContent - need to validate against the text type

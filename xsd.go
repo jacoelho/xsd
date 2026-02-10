@@ -61,13 +61,9 @@ func prepareSchema(fsys fs.FS, location string, opts LoadOptions) (*pipeline.Pre
 		return nil, resolvedRuntimeOptions{}, fmt.Errorf("load parsed schema: %w", err)
 	}
 
-	validated, err := pipeline.Validate(parsed)
+	prepared, err := pipeline.Prepare(parsed)
 	if err != nil {
-		return nil, resolvedRuntimeOptions{}, fmt.Errorf("validate schema: %w", err)
-	}
-	prepared, err := pipeline.Transform(validated)
-	if err != nil {
-		return nil, resolvedRuntimeOptions{}, fmt.Errorf("transform schema: %w", err)
+		return nil, resolvedRuntimeOptions{}, fmt.Errorf("prepare schema: %w", err)
 	}
 	return prepared, runtimeOpts, nil
 }
