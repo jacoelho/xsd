@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	facetengine "github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typefacet"
-	"github.com/jacoelho/xsd/internal/typeops"
+	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, typ model.Type, context map[string]string, visited map[model.Type]bool, policy idValuePolicy) error {
@@ -30,7 +30,7 @@ func validateDefaultOrFixedValueResolved(schema *parser.Schema, value string, ty
 	}
 
 	normalizedValue := model.NormalizeWhiteSpace(value, typ)
-	if typefacet.IsQNameOrNotationType(typ) {
+	if facetvalue.IsQNameOrNotationType(typ) {
 		if err := facetengine.ValidateQNameContext(normalizedValue, context); err != nil {
 			return err
 		}
@@ -56,7 +56,7 @@ func validateDefaultOrFixedComplexType(
 	if !ok {
 		return nil
 	}
-	baseType := typeops.ResolveSimpleContentBaseTypeFromContent(schema, sc)
+	baseType := typeresolve.ResolveSimpleContentBaseTypeFromContent(schema, sc)
 	if baseType == nil {
 		return nil
 	}
@@ -74,13 +74,13 @@ func validateDefaultOrFixedBuiltinType(typ model.Type, normalizedValue string, c
 	if bt == nil {
 		return nil
 	}
-	if policy == idValuesDisallowed && typeops.IsIDOnlyType(typ.Name()) {
+	if policy == idValuesDisallowed && typeresolve.IsIDOnlyType(typ.Name()) {
 		return fmt.Errorf("type '%s' cannot have default or fixed values", typ.Name().Local)
 	}
 	if err := bt.Validate(normalizedValue); err != nil {
 		return err
 	}
-	if typefacet.IsQNameOrNotationType(typ) {
+	if facetvalue.IsQNameOrNotationType(typ) {
 		if err := facetengine.ValidateQNameContext(normalizedValue, context); err != nil {
 			return err
 		}
@@ -96,7 +96,7 @@ func validateDefaultOrFixedSimpleType(
 	visited map[model.Type]bool,
 	policy idValuePolicy,
 ) error {
-	if policy == idValuesDisallowed && typeops.IsIDOnlyDerivedType(schema, st) {
+	if policy == idValuesDisallowed && typeresolve.IsIDOnlyDerivedType(schema, st) {
 		return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", st.Name().Local)
 	}
 	switch st.Variety() {
@@ -105,7 +105,7 @@ func validateDefaultOrFixedSimpleType(
 	case model.ListVariety:
 		return validateDefaultOrFixedList(schema, normalizedValue, st, context, visited, policy)
 	default:
-		if typefacet.IsQNameOrNotationType(st) {
+		if facetvalue.IsQNameOrNotationType(st) {
 			if err := facetengine.ValidateQNameContext(normalizedValue, context); err != nil {
 				return err
 			}
@@ -123,7 +123,7 @@ func validateDefaultOrFixedUnion(
 	context map[string]string,
 	visited map[model.Type]bool,
 ) error {
-	memberTypes := typeops.ResolveUnionMemberTypes(schema, st)
+	memberTypes := typeresolve.ResolveUnionMemberTypes(schema, st)
 	if len(memberTypes) == 0 {
 		return nil
 	}
@@ -155,7 +155,7 @@ func validateDefaultOrFixedList(
 	visited map[model.Type]bool,
 	policy idValuePolicy,
 ) error {
-	itemType := typeops.ResolveListItemType(schema, st)
+	itemType := typeresolve.ResolveListItemType(schema, st)
 	if itemType != nil {
 		for item := range model.FieldsXMLWhitespaceSeq(normalizedValue) {
 			if err := validateDefaultOrFixedValueResolved(schema, item, itemType, context, visited, policy); err != nil {

@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
@@ -19,7 +19,7 @@ func ResolveSelectorElementType(schema *parser.Schema, constraintElement *model.
 
 	var elementType model.Type
 	for _, decl := range selectorDecls {
-		resolved := typeops.ResolveTypeReference(schema, decl.Type, typeops.TypeReferenceMustExist)
+		resolved := typeresolve.ResolveTypeReference(schema, decl.Type, typeresolve.TypeReferenceMustExist)
 		if resolved == nil {
 			return nil, fmt.Errorf("cannot resolve constraint element type")
 		}

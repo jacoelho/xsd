@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	models "github.com/jacoelho/xsd/internal/contentmodel"
+	"github.com/jacoelho/xsd/internal/grouprefs"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/schemaops"
-	"github.com/jacoelho/xsd/internal/typegraph"
+	"github.com/jacoelho/xsd/internal/typechain"
 )
 
 // ValidateUPA validates Unique Particle Attribution for a content model.
@@ -18,7 +18,7 @@ func ValidateUPA(schema *parser.Schema, content model.Content, _ model.Namespace
 		return nil
 	}
 
-	expandOptions := schemaops.ExpandGroupRefsOptions{
+	expandOptions := grouprefs.ExpandGroupRefsOptions{
 		Lookup: func(ref *model.GroupRef) *model.ModelGroup {
 			if schema == nil || ref == nil {
 				return nil
@@ -34,8 +34,8 @@ func ValidateUPA(schema *parser.Schema, content model.Content, _ model.Namespace
 		CycleError: func(ref model.QName) error {
 			return fmt.Errorf("circular group reference detected for %s", ref)
 		},
-		AllGroupMode: schemaops.AllGroupAsChoice,
-		LeafClone:    schemaops.LeafClone,
+		AllGroupMode: grouprefs.AllGroupAsChoice,
+		LeafClone:    grouprefs.LeafClone,
 	}
 
 	var err error
@@ -72,7 +72,7 @@ func upaParticles(schema *parser.Schema, content model.Content) (model.Particle,
 		if c.Extension != nil {
 			particle = c.Extension.Particle
 			if !c.Extension.Base.IsZero() {
-				if baseCT, ok := typegraph.LookupComplexType(schema, c.Extension.Base); ok {
+				if baseCT, ok := typechain.LookupComplexType(schema, c.Extension.Base); ok {
 					if baseEC, ok := baseCT.Content().(*model.ElementContent); ok {
 						baseParticle = baseEC.Particle
 					}
@@ -87,11 +87,11 @@ func upaParticles(schema *parser.Schema, content model.Content) (model.Particle,
 	return particle, baseParticle
 }
 
-func expandAndRelaxParticle(particle model.Particle, opts schemaops.ExpandGroupRefsOptions) (model.Particle, error) {
+func expandAndRelaxParticle(particle model.Particle, opts grouprefs.ExpandGroupRefsOptions) (model.Particle, error) {
 	if particle == nil {
 		return nil, nil
 	}
-	expanded, err := schemaops.ExpandGroupRefs(particle, opts)
+	expanded, err := grouprefs.ExpandGroupRefs(particle, opts)
 	if err != nil {
 		return nil, err
 	}

@@ -6,10 +6,10 @@ import (
 	"strconv"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseOccursAttr(doc *xsdxml.Document, elem xsdxml.NodeID, attr string) (model.Occurs, error) {
+func parseOccursAttr(doc *schemaxml.Document, elem schemaxml.NodeID, attr string) (model.Occurs, error) {
 	if !doc.HasAttribute(elem, attr) {
 		return model.OccursFromInt(1), nil
 	}

@@ -1,9 +1,9 @@
 package semanticcheck
 
 import (
-	facetengine "github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/typefacet"
+	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
 )
 
 var errDurationNotComparable = facetengine.ErrDurationNotComparable
@@ -57,19 +57,19 @@ func implicitRangeFacetsForBuiltin(bt *model.BuiltinType) []model.Facet {
 	var result []model.Facet
 	if info.hasMin {
 		if info.minInclusive {
-			if facet, err := typefacet.NewMinInclusive(info.minValue, bt); err == nil {
+			if facet, err := facetvalue.NewMinInclusive(info.minValue, bt); err == nil {
 				result = append(result, facet)
 			}
-		} else if facet, err := typefacet.NewMinExclusive(info.minValue, bt); err == nil {
+		} else if facet, err := facetvalue.NewMinExclusive(info.minValue, bt); err == nil {
 			result = append(result, facet)
 		}
 	}
 	if info.hasMax {
 		if info.maxInclusive {
-			if facet, err := typefacet.NewMaxInclusive(info.maxValue, bt); err == nil {
+			if facet, err := facetvalue.NewMaxInclusive(info.maxValue, bt); err == nil {
 				result = append(result, facet)
 			}
-		} else if facet, err := typefacet.NewMaxExclusive(info.maxValue, bt); err == nil {
+		} else if facet, err := facetvalue.NewMaxExclusive(info.maxValue, bt); err == nil {
 			result = append(result, facet)
 		}
 	}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 type attributeUses struct {
@@ -13,7 +13,7 @@ type attributeUses struct {
 	attrGroups   []model.QName
 }
 
-func parseAttributeUses(doc *xsdxml.Document, children []xsdxml.NodeID, schema *Schema, context string) (attributeUses, error) {
+func parseAttributeUses(doc *schemaxml.Document, children []schemaxml.NodeID, schema *Schema, context string) (attributeUses, error) {
 	uses := attributeUses{
 		attributes: []*model.AttributeDecl{},
 		attrGroups: []model.QName{},
@@ -21,7 +21,7 @@ func parseAttributeUses(doc *xsdxml.Document, children []xsdxml.NodeID, schema *
 	hasAnyAttribute := false
 
 	for _, child := range children {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {

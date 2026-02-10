@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/typefacet"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func TestResolverResolveAnonymousContent(t *testing.T) {
@@ -40,7 +40,7 @@ func TestResolveUnionAndListItemTypes(t *testing.T) {
 	if !ok || unionType == nil {
 		t.Fatalf("expected myUnion simple type")
 	}
-	if members := typeops.ResolveUnionMemberTypes(unionSchema, unionType); len(members) == 0 {
+	if members := typeresolve.ResolveUnionMemberTypes(unionSchema, unionType); len(members) == 0 {
 		t.Fatalf("expected union member types")
 	}
 
@@ -49,7 +49,7 @@ func TestResolveUnionAndListItemTypes(t *testing.T) {
 	if !ok || listType == nil {
 		t.Fatalf("expected listOfIDs simple type")
 	}
-	item := typeops.ResolveListItemType(listSchema, listType)
+	item := typeresolve.ResolveListItemType(listSchema, listType)
 	if item == nil || item.Name().Local != "ID" {
 		t.Fatalf("expected listOfIDs item type ID, got %v", item)
 	}
@@ -61,14 +61,14 @@ func TestValidateValueAgainstFacets(t *testing.T) {
 	if !ok || st == nil {
 		t.Fatalf("expected mytype simple type")
 	}
-	facets, err := typeops.CollectSimpleTypeFacets(schema, st, nil)
+	facets, err := typeresolve.CollectSimpleTypeFacets(schema, st, nil)
 	if err != nil {
 		t.Fatalf("collect simple type facets: %v", err)
 	}
-	if err := typefacet.Validate("abcd", st, facets, nil); err != nil {
+	if err := facetvalue.Validate("abcd", st, facets, nil); err != nil {
 		t.Fatalf("expected valid facet value, got %v", err)
 	}
-	if err := typefacet.Validate("ab", st, facets, nil); err == nil {
+	if err := facetvalue.Validate("ab", st, facets, nil); err == nil {
 		t.Fatalf("expected facet violation for short value")
 	}
 }
@@ -83,7 +83,7 @@ func TestResolveSimpleContentBaseType(t *testing.T) {
 	if !ok || sc == nil {
 		t.Fatalf("expected simpleContent on Test2")
 	}
-	textType := typeops.ResolveSimpleContentBaseTypeFromContent(schema, sc)
+	textType := typeresolve.ResolveSimpleContentBaseTypeFromContent(schema, sc)
 	if textType == nil || textType.Name().Local != "int" {
 		t.Fatalf("expected text content type xsd:int")
 	}

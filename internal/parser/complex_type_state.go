@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 type complexTypeParseState struct {
-	doc    *xsdxml.Document
+	doc    *schemaxml.Document
 	schema *Schema
 	ct     *model.ComplexType
 
@@ -21,7 +21,7 @@ type complexTypeParseState struct {
 	hasAttributeLike  bool
 }
 
-func (s *complexTypeParseState) handleChild(child xsdxml.NodeID) error {
+func (s *complexTypeParseState) handleChild(child schemaxml.NodeID) error {
 	switch s.doc.LocalName(child) {
 	case "annotation":
 		return s.handleAnnotation()

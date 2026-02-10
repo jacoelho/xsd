@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseDirectives(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema, result *ParseResult) (map[model.NamespaceURI]bool, error) {
+func parseDirectives(doc *schemaxml.Document, root schemaxml.NodeID, schema *Schema, result *ParseResult) (map[model.NamespaceURI]bool, error) {
 	importedNamespaces := make(map[model.NamespaceURI]bool)
 	state := directiveState{}
 	for _, child := range doc.Children(root) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		if err := parseDirectiveElement(doc, child, schema, result, importedNamespaces, &state); err != nil {
@@ -26,7 +26,7 @@ type directiveState struct {
 	includeIndex int
 }
 
-func parseDirectiveElement(doc *xsdxml.Document, child xsdxml.NodeID, schema *Schema, result *ParseResult, importedNamespaces map[model.NamespaceURI]bool, state *directiveState) error {
+func parseDirectiveElement(doc *schemaxml.Document, child schemaxml.NodeID, schema *Schema, result *ParseResult, importedNamespaces map[model.NamespaceURI]bool, state *directiveState) error {
 	if doc == nil {
 		return fmt.Errorf("directive document missing")
 	}

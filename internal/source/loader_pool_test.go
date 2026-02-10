@@ -4,7 +4,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 func TestLoaderUsesConfiguredDocumentPool(t *testing.T) {
@@ -16,8 +16,8 @@ func TestLoaderUsesConfiguredDocumentPool(t *testing.T) {
 		},
 	}
 
-	poolA := xsdxml.NewDocumentPool()
-	poolB := xsdxml.NewDocumentPool()
+	poolA := schemaxml.NewDocumentPool()
+	poolB := schemaxml.NewDocumentPool()
 
 	loaderA := NewLoader(Config{FS: fsys, DocumentPool: poolA})
 	loaderB := NewLoader(Config{FS: fsys, DocumentPool: poolB})
@@ -61,7 +61,7 @@ func TestLoaderAcceptsZeroValueDocumentPool(t *testing.T) {
 		},
 	}
 
-	pool := &xsdxml.DocumentPool{}
+	pool := &schemaxml.DocumentPool{}
 	loader := NewLoader(Config{FS: fsys, DocumentPool: pool})
 
 	if _, err := loader.Load("schema.xsd"); err != nil {

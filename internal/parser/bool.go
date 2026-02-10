@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseBoolAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, name string) (bool, bool, error) {
+func parseBoolAttribute(doc *schemaxml.Document, elem schemaxml.NodeID, name string) (bool, bool, error) {
 	if !doc.HasAttribute(elem, name) {
 		return false, false, nil
 	}

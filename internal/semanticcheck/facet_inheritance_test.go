@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typefacet"
 )
 
 func TestFacetInheritance_SimpleType(t *testing.T) {
@@ -22,7 +22,7 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
 	}
-	maxInclusive100, err := typefacet.NewMaxInclusive("100", decimalBaseType)
+	maxInclusive100, err := facetvalue.NewMaxInclusive("100", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMaxInclusive() error = %v", err)
 	}
@@ -46,7 +46,7 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 
 	// derived type with maxInclusive=50 (stricter - should be valid)
 	// use the primitive type (decimal) for facet creation
-	maxInclusive50, err := typefacet.NewMaxInclusive("50", decimalBaseType)
+	maxInclusive50, err := facetvalue.NewMaxInclusive("50", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMaxInclusive() error = %v", err)
 	}
@@ -95,7 +95,7 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
 	}
-	maxInclusive100, err := typefacet.NewMaxInclusive("100", decimalBaseType)
+	maxInclusive100, err := facetvalue.NewMaxInclusive("100", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMaxInclusive() error = %v", err)
 	}
@@ -119,7 +119,7 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 
 	// derived type with maxInclusive=200 (relaxed - should be invalid)
 	// use the primitive type (decimal) for facet creation
-	maxInclusive200, err := typefacet.NewMaxInclusive("200", decimalBaseType)
+	maxInclusive200, err := facetvalue.NewMaxInclusive("200", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMaxInclusive() error = %v", err)
 	}
@@ -164,7 +164,7 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
 	}
-	minInclusive10, err := typefacet.NewMinInclusive("10", decimalBaseType)
+	minInclusive10, err := facetvalue.NewMinInclusive("10", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMinInclusive() error = %v", err)
 	}
@@ -188,7 +188,7 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 
 	// derived type with minInclusive=20 (stricter - should be valid)
 	// use the primitive type (decimal) for facet creation
-	minInclusive20, err := typefacet.NewMinInclusive("20", decimalBaseType)
+	minInclusive20, err := facetvalue.NewMinInclusive("20", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMinInclusive() error = %v", err)
 	}
@@ -222,7 +222,7 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 
 	// test invalid relaxation: minInclusive=5 (relaxed - should be invalid)
 	// use the primitive type (decimal) for facet creation
-	minInclusive5, err := typefacet.NewMinInclusive("5", decimalBaseType)
+	minInclusive5, err := facetvalue.NewMinInclusive("5", decimalBaseType)
 	if err != nil {
 		t.Fatalf("NewMinInclusive() error = %v", err)
 	}

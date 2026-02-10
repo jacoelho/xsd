@@ -4,7 +4,7 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typegraph"
+	"github.com/jacoelho/xsd/internal/typechain"
 )
 
 func isRestrictionDerivedFrom(schema *parser.Schema, derived, base model.Type) bool {
@@ -166,7 +166,7 @@ func resolveTypeByQName(schema *parser.Schema, qname model.QName) model.Type {
 	if schema == nil {
 		return nil
 	}
-	if def, ok := typegraph.LookupType(schema, qname); ok {
+	if def, ok := typechain.LookupType(schema, qname); ok {
 		return def
 	}
 	return nil

@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 // parseIdentityConstraint parses a key, keyref, or unique constraint
-func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.IdentityConstraint, error) {
+func parseIdentityConstraint(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.IdentityConstraint, error) {
 	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return nil, fmt.Errorf("identity constraint missing name attribute")
@@ -54,7 +54,7 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 	seenField := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 
@@ -115,13 +115,13 @@ func parseIdentityConstraint(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 	return constraint, nil
 }
 
-func validateAllowedAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, elementName string, allowed map[string]bool) error {
+func validateAllowedAttributes(doc *schemaxml.Document, elem schemaxml.NodeID, elementName string, allowed map[string]bool) error {
 	for _, attr := range doc.Attributes(elem) {
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
 		if attr.NamespaceURI() != "" {
-			if attr.NamespaceURI() == xsdxml.XSDNamespace {
+			if attr.NamespaceURI() == schemaxml.XSDNamespace {
 				return fmt.Errorf("%s: attribute '%s' must be unprefixed", elementName, attr.LocalName())
 			}
 			continue

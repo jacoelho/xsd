@@ -6,12 +6,12 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 // parseAnyElement parses an <any> wildcard element
 // Content model: (annotation?)
-func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.AnyElement, error) {
+func parseAnyElement(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.AnyElement, error) {
 	nsConstraint, nsList, processContents, parseErr := parseWildcardConstraints(
 		doc,
 		elem,
@@ -29,7 +29,7 @@ func parseAnyElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 
 	hasAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {

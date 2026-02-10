@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func validateAttributeDeclarations(sch *parser.Schema) []error {
@@ -20,7 +20,7 @@ func validateAttributeDeclarations(sch *parser.Schema) []error {
 			}
 		}
 
-		resolvedType := typeops.ResolveTypeReference(sch, decl.Type, typeops.TypeReferenceAllowMissing)
+		resolvedType := typeresolve.ResolveTypeReference(sch, decl.Type, typeresolve.TypeReferenceAllowMissing)
 		if _, ok := resolvedType.(*model.ComplexType); ok {
 			errs = append(errs, fmt.Errorf("attribute %s: type must be a simple type", qname))
 		}

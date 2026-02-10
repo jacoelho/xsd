@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func validateEnumerationFacetValues(sch *parser.Schema) []error {
@@ -19,7 +19,7 @@ func validateEnumerationFacetValues(sch *parser.Schema) []error {
 		}
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = typeops.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
+			baseType = typeresolve.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue

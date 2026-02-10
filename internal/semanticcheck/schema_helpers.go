@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // modelGroupContainsWildcard checks if a model group contains any wildcard particles
@@ -62,7 +62,7 @@ func validateDeferredFacetApplicability(df *model.DeferredFacet, baseType model.
 // convertDeferredFacet converts a DeferredFacet to an actual Facet now that the base type is resolved.
 // This is needed for facet inheritance validation.
 func convertDeferredFacet(df *model.DeferredFacet, baseType model.Type) (model.Facet, error) {
-	facet, err := typeops.DefaultDeferredFacetConverter(df, baseType)
+	facet, err := typeresolve.DefaultDeferredFacetConverter(df, baseType)
 	if errors.Is(err, model.ErrCannotDeterminePrimitiveType) {
 		return nil, nil
 	}

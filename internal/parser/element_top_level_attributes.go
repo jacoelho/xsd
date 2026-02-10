@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func applyTopLevelElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func applyTopLevelElementAttributes(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	if ok, value, err := parseBoolAttribute(doc, elem, "nillable"); err != nil {
 		return err
 	} else if ok {
@@ -48,7 +48,7 @@ func applyTopLevelElementAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, sc
 	return nil
 }
 
-func applyTopLevelElementDerivations(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func applyTopLevelElementDerivations(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	if doc.HasAttribute(elem, "block") {
 		blockAttr := doc.GetAttribute(elem, "block")
 		if model.TrimXMLWhitespace(blockAttr) == "" {
@@ -80,7 +80,7 @@ func applyTopLevelElementDerivations(doc *xsdxml.Document, elem xsdxml.NodeID, s
 	return nil
 }
 
-func applyTopLevelElementSubstitutionGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func applyTopLevelElementSubstitutionGroup(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	if subGroup := doc.GetAttribute(elem, "substitutionGroup"); subGroup != "" {
 		subGroupQName, err := resolveQNameWithPolicy(doc, subGroup, elem, schema, useDefaultNamespace)
 		if err != nil {
@@ -96,9 +96,9 @@ func applyTopLevelElementSubstitutionGroup(doc *xsdxml.Document, elem xsdxml.Nod
 	return nil
 }
 
-func applyTopLevelElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func applyTopLevelElementConstraints(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 

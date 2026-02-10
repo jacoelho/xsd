@@ -3,7 +3,7 @@ package semanticcheck
 import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func isSubstitutableElement(schema *parser.Schema, head, member model.QName) bool {
@@ -24,8 +24,8 @@ func isSubstitutableElement(schema *parser.Schema, head, member model.QName) boo
 	if memberDecl == nil {
 		return false
 	}
-	headType := typeops.ResolveTypeReference(schema, headDecl.Type, typeops.TypeReferenceAllowMissing)
-	memberType := typeops.ResolveTypeReference(schema, memberDecl.Type, typeops.TypeReferenceAllowMissing)
+	headType := typeresolve.ResolveTypeReference(schema, headDecl.Type, typeresolve.TypeReferenceAllowMissing)
+	memberType := typeresolve.ResolveTypeReference(schema, memberDecl.Type, typeresolve.TypeReferenceAllowMissing)
 	if headType == nil || memberType == nil {
 		return true
 	}

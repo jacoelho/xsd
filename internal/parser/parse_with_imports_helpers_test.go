@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 func TestParseSchemaAttributes(t *testing.T) {
@@ -67,18 +67,18 @@ func TestParseComponents(t *testing.T) {
 	}
 }
 
-func parseSchemaDoc(t *testing.T, src string) (*xsdxml.Document, xsdxml.NodeID) {
+func parseSchemaDoc(t *testing.T, src string) (*schemaxml.Document, schemaxml.NodeID) {
 	t.Helper()
-	pool := xsdxml.NewDocumentPool()
+	pool := schemaxml.NewDocumentPool()
 	doc := pool.Acquire()
 	t.Cleanup(func() {
 		pool.Release(doc)
 	})
-	if err := xsdxml.ParseIntoWithOptions(strings.NewReader(src), doc); err != nil {
+	if err := schemaxml.ParseIntoWithOptions(strings.NewReader(src), doc); err != nil {
 		t.Fatalf("parse XML: %v", err)
 	}
 	root := doc.DocumentElement()
-	if root == xsdxml.InvalidNode {
+	if root == schemaxml.InvalidNode {
 		t.Fatalf("empty document")
 	}
 	return doc, root

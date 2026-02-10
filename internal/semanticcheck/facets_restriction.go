@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	facetengine "github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
+	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
 )
 
 // validateFacetRestriction validates that a derived facet is a valid restriction of the base facet

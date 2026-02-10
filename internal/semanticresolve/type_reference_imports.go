@@ -5,14 +5,14 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 func validateImportForNamespace(schema *parser.Schema, contextNamespace, referenceNamespace model.NamespaceURI) error {
 	if schema == nil {
 		return nil
 	}
-	if referenceNamespace == model.XSDNamespace || referenceNamespace == xsdxml.XMLNamespace {
+	if referenceNamespace == model.XSDNamespace || referenceNamespace == schemaxml.XMLNamespace {
 		return nil
 	}
 	if referenceNamespace == "" {
@@ -37,7 +37,7 @@ func validateImportForNamespaceAtLocation(schema *parser.Schema, location string
 	if schema == nil {
 		return nil
 	}
-	if referenceNamespace == model.XSDNamespace || referenceNamespace == xsdxml.XMLNamespace {
+	if referenceNamespace == model.XSDNamespace || referenceNamespace == schemaxml.XMLNamespace {
 		return nil
 	}
 	if location == "" || schema.ImportContexts == nil {

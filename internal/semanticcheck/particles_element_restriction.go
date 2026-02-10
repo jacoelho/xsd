@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // validateElementRestriction validates that a restriction element properly restricts a base element.
@@ -85,7 +85,7 @@ func effectiveElementType(schema *parser.Schema, elem *model.ElementDecl) model.
 	if elem == nil {
 		return nil
 	}
-	resolved := typeops.ResolveTypeReference(schema, elem.Type, typeops.TypeReferenceAllowMissing)
+	resolved := typeresolve.ResolveTypeReference(schema, elem.Type, typeresolve.TypeReferenceAllowMissing)
 	if resolved != nil {
 		return resolved
 	}

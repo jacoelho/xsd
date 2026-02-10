@@ -5,12 +5,12 @@ import (
 
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func hasInlineTypeChild(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
+func hasInlineTypeChild(doc *schemaxml.Document, elem schemaxml.NodeID) bool {
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -21,7 +21,7 @@ func hasInlineTypeChild(doc *xsdxml.Document, elem xsdxml.NodeID) bool {
 	return false
 }
 
-func resolveTopLevelElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (model.Type, bool, error) {
+func resolveTopLevelElementType(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (model.Type, bool, error) {
 	if typeName := doc.GetAttribute(elem, "type"); typeName != "" {
 		if hasInlineTypeChild(doc, elem) {
 			return nil, false, fmt.Errorf("element cannot have both 'type' attribute and inline type definition")
@@ -40,7 +40,7 @@ func resolveTopLevelElementType(doc *xsdxml.Document, elem xsdxml.NodeID, schema
 	var resolved model.Type
 	var explicit bool
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {

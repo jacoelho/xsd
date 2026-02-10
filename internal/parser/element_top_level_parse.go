@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 // parseTopLevelElement parses a top-level element declaration.
-func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
+func parseTopLevelElement(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) error {
 	name, nameErr := validateTopLevelElementStructure(doc, elem, schema)
 	if nameErr != nil {
 		return nameErr
@@ -39,7 +39,7 @@ func parseTopLevelElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 	return nil
 }
 
-func validateTopLevelElementStructure(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (string, error) {
+func validateTopLevelElementStructure(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (string, error) {
 	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return "", fmt.Errorf("element missing name attribute")
@@ -62,7 +62,7 @@ func validateTopLevelElementStructure(doc *xsdxml.Document, elem xsdxml.NodeID, 
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {

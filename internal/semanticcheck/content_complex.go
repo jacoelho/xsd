@@ -6,13 +6,13 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typegraph"
+	"github.com/jacoelho/xsd/internal/typechain"
 )
 
 // validateComplexContentStructure validates structural constraints of complex content
 func validateComplexContentStructure(schema *parser.Schema, cc *model.ComplexContent) error {
 	if cc.Extension != nil {
-		baseType, baseOK := typegraph.LookupType(schema, cc.Extension.Base)
+		baseType, baseOK := typechain.LookupType(schema, cc.Extension.Base)
 		if baseOK {
 			if _, isSimple := baseType.(*model.SimpleType); isSimple {
 				return fmt.Errorf("complexContent extension cannot derive from simpleType '%s'", cc.Extension.Base)
@@ -23,7 +23,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *model.ComplexCon
 				if _, isSimpleContent := baseCT.Content().(*model.SimpleContent); isSimpleContent {
 					return fmt.Errorf("cannot extend simpleContent type '%s' with particles", cc.Extension.Base)
 				}
-				if baseParticle := typegraph.EffectiveContentParticle(schema, baseCT); baseParticle != nil {
+				if baseParticle := typechain.EffectiveContentParticle(schema, baseCT); baseParticle != nil {
 					if baseMG, ok := baseParticle.(*model.ModelGroup); ok && baseMG.Kind == model.AllGroup {
 						if !isEmptiableParticle(baseMG) {
 							return fmt.Errorf("cannot extend type with non-emptiable xs:all content model (XSD 1.0)")
@@ -49,7 +49,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *model.ComplexCon
 				baseIsEmptiable := false
 				if baseOK {
 					if baseCT, ok := baseType.(*model.ComplexType); ok {
-						if baseParticle := typegraph.EffectiveContentParticle(schema, baseCT); baseParticle != nil {
+						if baseParticle := typechain.EffectiveContentParticle(schema, baseCT); baseParticle != nil {
 							baseIsEmptiable = isEmptiableParticle(baseParticle)
 						} else {
 							baseIsEmptiable = true
@@ -71,7 +71,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *model.ComplexCon
 		}
 	}
 	if cc.Restriction != nil {
-		baseType, baseOK := typegraph.LookupType(schema, cc.Restriction.Base)
+		baseType, baseOK := typechain.LookupType(schema, cc.Restriction.Base)
 		if baseOK {
 			if _, isSimple := baseType.(*model.SimpleType); isSimple {
 				return fmt.Errorf("complexContent restriction cannot derive from simpleType '%s'", cc.Restriction.Base)
@@ -84,7 +84,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *model.ComplexCon
 		}
 		if cc.Restriction.Particle != nil {
 			if baseOK {
-				if baseParticle := typegraph.EffectiveContentParticle(schema, baseType); baseParticle != nil {
+				if baseParticle := typechain.EffectiveContentParticle(schema, baseType); baseParticle != nil {
 					if err := validateParticlePairRestriction(schema, baseParticle, cc.Restriction.Particle); err != nil {
 						return err
 					}

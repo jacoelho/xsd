@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parsePatternFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (model.Facet, error) {
+func parsePatternFacet(doc *schemaxml.Document, elem schemaxml.NodeID) (model.Facet, error) {
 	if err := validateOnlyAnnotationChildren(doc, elem, "pattern"); err != nil {
 		return nil, err
 	}
@@ -15,7 +15,7 @@ func parsePatternFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (model.Facet, e
 	return &model.Pattern{Value: value}, nil
 }
 
-func parseEnumerationFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction *model.Restriction, schema *Schema) (model.Facet, error) {
+func parseEnumerationFacet(doc *schemaxml.Document, elem schemaxml.NodeID, restriction *model.Restriction, schema *Schema) (model.Facet, error) {
 	if err := validateOnlyAnnotationChildren(doc, elem, "enumeration"); err != nil {
 		return nil, err
 	}

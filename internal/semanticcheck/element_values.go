@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	qnamelex "github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/typefacet"
-	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // validateDefaultOrFixedValueWithContext validates that a default or fixed value is valid for the given type.
@@ -25,7 +25,7 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 	}
 
 	if st, ok := typ.(*model.SimpleType); ok && model.IsPlaceholderSimpleType(st) && schema != nil {
-		if resolved, ok := typegraph.LookupType(schema, st.QName); ok {
+		if resolved, ok := typechain.LookupType(schema, st.QName); ok {
 			return validateDefaultOrFixedValueWithContext(schema, value, resolved, nsContext)
 		}
 	}
@@ -34,7 +34,7 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 	// even for basic validation, we need to normalize to match XSD spec behavior
 	normalizedValue := model.NormalizeWhiteSpace(value, typ)
 
-	if typefacet.IsQNameOrNotationType(typ) {
+	if facetvalue.IsQNameOrNotationType(typ) {
 		if nsContext == nil {
 			// Can't validate QName without context, skip for now
 			return nil
@@ -48,7 +48,7 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 		bt := builtins.GetNS(typ.Name().Namespace, typ.Name().Local)
 		if bt != nil {
 			// ID types cannot have default or fixed values
-			if typeops.IsIDOnlyType(typ.Name()) {
+			if typeresolve.IsIDOnlyType(typ.Name()) {
 				return fmt.Errorf("type '%s' cannot have default or fixed values", typ.Name().Local)
 			}
 			if err := bt.Validate(normalizedValue); err != nil {
@@ -62,19 +62,19 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 		// check if derived from ID type
 		// First check the direct base QName
 		if st.Restriction != nil && !st.Restriction.Base.IsZero() {
-			if typeops.IsIDOnlyType(st.Restriction.Base) {
+			if typeresolve.IsIDOnlyType(st.Restriction.Base) {
 				return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 			}
 		}
 		// Also check resolved base if available
 		if st.ResolvedBase != nil {
-			if bt, ok := st.ResolvedBase.(*model.BuiltinType); ok && typeops.IsIDOnlyType(bt.Name()) {
+			if bt, ok := st.ResolvedBase.(*model.BuiltinType); ok && typeresolve.IsIDOnlyType(bt.Name()) {
 				return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 			}
-			if baseST, ok := st.ResolvedBase.(*model.SimpleType); ok && schema != nil && typeops.IsIDOnlyDerivedType(schema, baseST) {
+			if baseST, ok := st.ResolvedBase.(*model.SimpleType); ok && schema != nil && typeresolve.IsIDOnlyDerivedType(schema, baseST) {
 				return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 			}
-		} else if schema != nil && typeops.IsIDOnlyDerivedType(schema, st) {
+		} else if schema != nil && typeresolve.IsIDOnlyDerivedType(schema, st) {
 			return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", typ.Name().Local)
 		}
 		return validateValueAgainstTypeWithFacets(schema, value, st, nsContext, make(map[model.Type]bool))
@@ -96,7 +96,7 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 				bt := builtins.GetNS(baseQName.Namespace, baseQName.Local)
 				if bt != nil {
 					if err := validateDefaultOrFixedValueWithContext(schema, value, bt, nsContext); err != nil {
-						if typeops.IsIDOnlyType(baseQName) {
+						if typeresolve.IsIDOnlyType(baseQName) {
 							return fmt.Errorf("type '%s' (with simpleContent from ID) cannot have default or fixed values", typ.Name().Local)
 						}
 						return err
@@ -118,7 +118,7 @@ func shouldDeferValueValidation(schema *parser.Schema, typ model.Type) bool {
 		if schema == nil {
 			return true
 		}
-		if _, ok := typegraph.LookupType(schema, st.QName); !ok {
+		if _, ok := typechain.LookupType(schema, st.QName); !ok {
 			return true
 		}
 		return false

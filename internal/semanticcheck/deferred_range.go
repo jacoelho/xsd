@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // ValidateDeferredRangeFacetValues validates deferred range facets once bases resolve.
@@ -21,7 +21,7 @@ func ValidateDeferredRangeFacetValues(sch *parser.Schema) []error {
 
 		baseType := st.ResolvedBase
 		if baseType == nil && !st.Restriction.Base.IsZero() {
-			baseType = typeops.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
+			baseType = typeresolve.ResolveSimpleTypeReferenceAllowMissing(sch, st.Restriction.Base)
 		}
 		if baseType == nil {
 			continue
@@ -43,7 +43,7 @@ func ValidateDeferredRangeFacetValues(sch *parser.Schema) []error {
 					continue
 				}
 				seenDeferred = true
-				resolved, err := typeops.DefaultDeferredFacetConverter(f, baseType)
+				resolved, err := typeresolve.DefaultDeferredFacetConverter(f, baseType)
 				if err != nil {
 					errs = append(errs, fmt.Errorf("type %s: restriction: %w", qname, err))
 					continue

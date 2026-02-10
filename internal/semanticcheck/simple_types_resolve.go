@@ -4,8 +4,8 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // resolveSimpleTypeRestrictionBase resolves the base type for a simple type restriction
@@ -19,7 +19,7 @@ func resolveSimpleTypeRestrictionBase(schema *parser.Schema, st *model.SimpleTyp
 	if restriction == nil || restriction.Base.IsZero() {
 		return nil
 	}
-	return typeops.ResolveSimpleTypeReferenceAllowMissing(schema, restriction.Base)
+	return typeresolve.ResolveSimpleTypeReferenceAllowMissing(schema, restriction.Base)
 }
 
 // resolveSimpleContentBaseType resolves the base type for a simpleContent restriction
@@ -41,7 +41,7 @@ func resolveSimpleContentBaseType(schema *parser.Schema, baseQName model.QName) 
 			}
 		}
 
-		baseType, ok := typegraph.LookupType(schema, qname)
+		baseType, ok := typechain.LookupType(schema, qname)
 		if !ok || baseType == nil {
 			return nil, qname
 		}

@@ -5,10 +5,10 @@ import (
 	"strconv"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseLengthFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (model.Facet, error) {
+func parseLengthFacet(doc *schemaxml.Document, elem schemaxml.NodeID) (model.Facet, error) {
 	length, err := parseFacetValueInt(doc, elem, "length")
 	if err != nil {
 		return nil, err
@@ -19,7 +19,7 @@ func parseLengthFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (model.Facet, er
 	return &model.Length{Value: length}, nil
 }
 
-func parseMinLengthFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (model.Facet, error) {
+func parseMinLengthFacet(doc *schemaxml.Document, elem schemaxml.NodeID) (model.Facet, error) {
 	length, err := parseFacetValueInt(doc, elem, "minLength")
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ func parseMinLengthFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (model.Facet,
 	return &model.MinLength{Value: length}, nil
 }
 
-func parseMaxLengthFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (model.Facet, error) {
+func parseMaxLengthFacet(doc *schemaxml.Document, elem schemaxml.NodeID) (model.Facet, error) {
 	length, err := parseFacetValueInt(doc, elem, "maxLength")
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func parseMaxLengthFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (model.Facet,
 	return &model.MaxLength{Value: length}, nil
 }
 
-func parseTotalDigitsFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (model.Facet, error) {
+func parseTotalDigitsFacet(doc *schemaxml.Document, elem schemaxml.NodeID) (model.Facet, error) {
 	digits, err := parseFacetValueInt(doc, elem, "totalDigits")
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func parseTotalDigitsFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (model.Face
 	return &model.TotalDigits{Value: digits}, nil
 }
 
-func parseFractionDigitsFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (model.Facet, error) {
+func parseFractionDigitsFacet(doc *schemaxml.Document, elem schemaxml.NodeID) (model.Facet, error) {
 	digits, err := parseFacetValueInt(doc, elem, "fractionDigits")
 	if err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func parseFractionDigitsFacet(doc *xsdxml.Document, elem xsdxml.NodeID) (model.F
 	return &model.FractionDigits{Value: digits}, nil
 }
 
-func parseFacetValueInt(doc *xsdxml.Document, elem xsdxml.NodeID, facetName string) (int, error) {
+func parseFacetValueInt(doc *schemaxml.Document, elem schemaxml.NodeID, facetName string) (int, error) {
 	if err := validateOnlyAnnotationChildren(doc, elem, facetName); err != nil {
 		return 0, err
 	}

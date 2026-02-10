@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.SimpleType, error) {
+func parseListDerivation(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.SimpleType, error) {
 	if err := validateAnnotationOrder(doc, elem); err != nil {
 		return nil, err
 	}
@@ -22,7 +22,7 @@ func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 	var inlineItemType *model.SimpleType
 	var restriction *model.Restriction
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -88,7 +88,7 @@ func parseListDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schem
 	return parsed, nil
 }
 
-func parseUnionDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.SimpleType, error) {
+func parseUnionDerivation(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.SimpleType, error) {
 	if err := validateAnnotationOrder(doc, elem); err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func parseUnionDerivation(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sche
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		if doc.LocalName(child) == "simpleType" {

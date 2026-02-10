@@ -3,17 +3,17 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	qnamelex "github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typedvalue"
-	"github.com/jacoelho/xsd/internal/typefacet"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 	"github.com/jacoelho/xsd/internal/valueparse"
 )
 
 func fixedValuesEqual(schema *parser.Schema, attr, target *model.AttributeDecl) (bool, error) {
-	resolvedType := typeops.ResolveTypeReference(schema, target.Type, typeops.TypeReferenceAllowMissing)
+	resolvedType := typeresolve.ResolveTypeReference(schema, target.Type, typeresolve.TypeReferenceAllowMissing)
 	if resolvedType == nil {
 		return attr.Fixed == target.Fixed, nil
 	}
@@ -27,7 +27,7 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *model.AttributeDecl) 
 		return false, err
 	}
 
-	if typefacet.IsQNameOrNotationType(resolvedType) {
+	if facetvalue.IsQNameOrNotationType(resolvedType) {
 		leftQName, qerr := qnamelex.ParseQNameValue(left, attr.FixedContext)
 		if qerr != nil {
 			return false, qerr
@@ -55,7 +55,7 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *model.AttributeDecl) 
 		if rerr != nil {
 			return false, rerr
 		}
-		return valueparse.ListValuesEqual(leftItems, rightItems, typefacet.ValuesEqual), nil
+		return valueparse.ListValuesEqual(leftItems, rightItems, facetvalue.ValuesEqual), nil
 	}
 
 	leftValues, err := parseValueVariants(schema, left, resolvedType, attr.FixedContext)
@@ -66,12 +66,12 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *model.AttributeDecl) 
 	if err != nil {
 		return false, err
 	}
-	return valueparse.AnyValueEqual(leftValues, rightValues, typefacet.ValuesEqual), nil
+	return valueparse.AnyValueEqual(leftValues, rightValues, facetvalue.ValuesEqual), nil
 }
 
 func parseValueVariants(schema *parser.Schema, lexical string, typ model.Type, context map[string]string) ([]model.TypedValue, error) {
 	if st, ok := typ.(*model.SimpleType); ok && st.Variety() == model.UnionVariety {
-		memberTypes := typeops.ResolveUnionMemberTypes(schema, st)
+		memberTypes := typeresolve.ResolveUnionMemberTypes(schema, st)
 		return valueparse.ParseUnionValueVariants(lexical, memberTypes, func(value string, member model.Type) ([]model.TypedValue, error) {
 			typed, err := parseTypedValueWithContext(value, member, context)
 			if err != nil {
@@ -88,7 +88,7 @@ func parseValueVariants(schema *parser.Schema, lexical string, typ model.Type, c
 }
 
 func parseTypedValueWithContext(lexical string, typ model.Type, context map[string]string) (model.TypedValue, error) {
-	if typefacet.IsQNameOrNotationType(typ) {
+	if facetvalue.IsQNameOrNotationType(typ) {
 		normalized := model.NormalizeWhiteSpace(lexical, typ)
 		qname, err := qnamelex.ParseQNameValue(normalized, context)
 		if err != nil {

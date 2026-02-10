@@ -4,7 +4,7 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // typesAreEqual checks if a QName refers to the same type.
@@ -76,7 +76,7 @@ func derivationStep(sch *parser.Schema, typ model.Type) (model.Type, model.Deriv
 		if base == nil {
 			baseQName := typed.Content().BaseTypeQName()
 			if !baseQName.IsZero() {
-				resolved, err := typeops.ResolveTypeQName(sch, baseQName, typeops.TypeReferenceMustExist)
+				resolved, err := typeresolve.ResolveTypeQName(sch, baseQName, typeresolve.TypeReferenceMustExist)
 				if err != nil {
 					return nil, typed.DerivationMethod, err
 				}
@@ -97,7 +97,7 @@ func derivationStep(sch *parser.Schema, typ model.Type) (model.Type, model.Deriv
 				base = typed.Restriction.SimpleType
 			}
 			if base == nil && !typed.Restriction.Base.IsZero() {
-				resolved, err := typeops.ResolveTypeQName(sch, typed.Restriction.Base, typeops.TypeReferenceMustExist)
+				resolved, err := typeresolve.ResolveTypeQName(sch, typed.Restriction.Base, typeresolve.TypeReferenceMustExist)
 				if err != nil {
 					return nil, model.DerivationRestriction, err
 				}

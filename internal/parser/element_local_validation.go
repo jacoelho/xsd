@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 func validateLocalElementAttributes(attrs *elementAttrScan) error {
@@ -20,7 +20,7 @@ func validateLocalElementAttributes(attrs *elementAttrScan) error {
 	return nil
 }
 
-func validateLocalElementChildren(doc *xsdxml.Document, elem xsdxml.NodeID) error {
+func validateLocalElementChildren(doc *schemaxml.Document, elem schemaxml.NodeID) error {
 	if err := validateAnnotationOrder(doc, elem); err != nil {
 		return err
 	}
@@ -29,7 +29,7 @@ func validateLocalElementChildren(doc *xsdxml.Document, elem xsdxml.NodeID) erro
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {

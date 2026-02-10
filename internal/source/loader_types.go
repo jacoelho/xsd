@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -14,7 +14,7 @@ type Config struct {
 	FS                          fs.FS
 	Resolver                    Resolver
 	Merger                      loadmerge.SchemaMerger
-	DocumentPool                *xsdxml.DocumentPool
+	DocumentPool                *schemaxml.DocumentPool
 	SchemaParseOptions          []xmlstream.Option
 	AllowMissingImportLocations bool
 }
@@ -40,7 +40,7 @@ func NewLoader(cfg Config) *SchemaLoader {
 		merger = loadmerge.DefaultMerger{}
 	}
 	if cfg.DocumentPool == nil {
-		cfg.DocumentPool = xsdxml.NewDocumentPool()
+		cfg.DocumentPool = schemaxml.NewDocumentPool()
 	}
 	return &SchemaLoader{
 		config:   cfg,

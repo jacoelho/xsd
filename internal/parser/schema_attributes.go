@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseSchemaAttributes(doc *xsdxml.Document, root xsdxml.NodeID, schema *Schema) error {
+func parseSchemaAttributes(doc *schemaxml.Document, root schemaxml.NodeID, schema *Schema) error {
 	if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
 		return err
 	}
@@ -19,7 +19,7 @@ func parseSchemaAttributes(doc *xsdxml.Document, root xsdxml.NodeID, schema *Sch
 			case "":
 				targetNSAttr = model.ApplyWhiteSpace(attr.Value(), model.WhiteSpaceCollapse)
 				targetNSFound = true
-			case xsdxml.XSDNamespace:
+			case schemaxml.XSDNamespace:
 				return fmt.Errorf("schema attribute 'targetNamespace' must be unprefixed (found '%s:targetNamespace')", attr.NamespaceURI())
 			default:
 				continue

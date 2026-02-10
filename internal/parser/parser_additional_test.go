@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 func TestParseTopLevelDefinitions(t *testing.T) {
@@ -182,7 +182,7 @@ func TestNamespaceResolutionHelpers(t *testing.T) {
 	doc := parseDoc(t, xmlStr)
 	root := doc.DocumentElement()
 	refElem := findElementWithAttr(doc, root, "element", "ref")
-	if refElem == xsdxml.InvalidNode {
+	if refElem == schemaxml.InvalidNode {
 		t.Fatalf("expected ref element to be found")
 	}
 
@@ -208,7 +208,7 @@ func TestNamespaceResolutionHelpers(t *testing.T) {
 	}
 
 	attrElem := findElementWithAttr(doc, root, "attribute", "ref")
-	if attrElem == xsdxml.InvalidNode {
+	if attrElem == schemaxml.InvalidNode {
 		t.Fatalf("expected attribute ref element to be found")
 	}
 	attrQName, err := resolveQNameWithPolicy(doc, doc.GetAttribute(attrElem, "ref"), attrElem, schema, forceEmptyNamespace)
@@ -742,7 +742,7 @@ func TestParseModelGroupAllErrors(t *testing.T) {
 	doc := parseDoc(t, xmlStr)
 	root := doc.DocumentElement()
 	allElem := findElementWithAttr(doc, root, "all", "id")
-	if allElem == xsdxml.InvalidNode {
+	if allElem == schemaxml.InvalidNode {
 		t.Fatalf("expected all element to be found")
 	}
 
@@ -887,7 +887,7 @@ func TestParseElementReferenceAndLocal(t *testing.T) {
 
 	root := doc.DocumentElement()
 	refElem := findElementWithAttr(doc, root, "element", "ref")
-	if refElem == xsdxml.InvalidNode {
+	if refElem == schemaxml.InvalidNode {
 		t.Fatalf("expected ref element to be found")
 	}
 	refDecl, err := parseElement(doc, refElem, schema)
@@ -899,7 +899,7 @@ func TestParseElementReferenceAndLocal(t *testing.T) {
 	}
 
 	localElem := findElementWithAttr(doc, root, "element", "name")
-	if localElem == xsdxml.InvalidNode {
+	if localElem == schemaxml.InvalidNode {
 		t.Fatalf("expected local element to be found")
 	}
 	localDecl, err := parseElement(doc, localElem, schema)
@@ -964,7 +964,7 @@ func TestParseAttributeLocalAndReference(t *testing.T) {
 
 	root := doc.DocumentElement()
 	refAttr := findElementWithAttr(doc, root, "attribute", "ref")
-	if refAttr == xsdxml.InvalidNode {
+	if refAttr == schemaxml.InvalidNode {
 		t.Fatalf("expected ref attribute to be found")
 	}
 	refDecl, err := parseAttribute(doc, refAttr, schema, true)
@@ -976,7 +976,7 @@ func TestParseAttributeLocalAndReference(t *testing.T) {
 	}
 
 	localAttr := findElementWithAttr(doc, root, "attribute", "default")
-	if localAttr == xsdxml.InvalidNode {
+	if localAttr == schemaxml.InvalidNode {
 		t.Fatalf("expected local attribute to be found")
 	}
 	localDecl, err := parseAttribute(doc, localAttr, schema, true)
@@ -1006,7 +1006,7 @@ func TestParseAttributeProhibitedFixedLocalAllowed(t *testing.T) {
 
 	root := doc.DocumentElement()
 	attrElem := findElementWithAttr(doc, root, "attribute", "fixed")
-	if attrElem == xsdxml.InvalidNode {
+	if attrElem == schemaxml.InvalidNode {
 		t.Fatalf("expected attribute with fixed to be found")
 	}
 	if _, err := parseAttribute(doc, attrElem, schema, true); err != nil {
@@ -1032,7 +1032,7 @@ func TestParseAttributeProhibitedFixedReferenceAllowed(t *testing.T) {
 
 	root := doc.DocumentElement()
 	attrElem := findElementWithAttr(doc, root, "attribute", "ref")
-	if attrElem == xsdxml.InvalidNode {
+	if attrElem == schemaxml.InvalidNode {
 		t.Fatalf("expected attribute ref to be found")
 	}
 	if _, err := parseAttribute(doc, attrElem, schema, true); err != nil {
@@ -1207,7 +1207,7 @@ func TestParseModelGroupNestedAndGroupRef(t *testing.T) {
 
 	root := doc.DocumentElement()
 	seqElem := findElementWithAttr(doc, root, "sequence", "id")
-	if seqElem == xsdxml.InvalidNode {
+	if seqElem == schemaxml.InvalidNode {
 		t.Fatalf("expected sequence element to be found")
 	}
 	if _, err := parseModelGroup(doc, seqElem, schema); err != nil {
@@ -1243,7 +1243,7 @@ func TestParseModelGroupRejectsEmptyID(t *testing.T) {
 			doc := parseDoc(t, xmlStr)
 			root := doc.DocumentElement()
 			groupElem := findElementWithAttr(doc, root, tt.group, "id")
-			if groupElem == xsdxml.InvalidNode {
+			if groupElem == schemaxml.InvalidNode {
 				t.Fatalf("expected %s element to be found", tt.group)
 			}
 
@@ -1340,28 +1340,28 @@ func TestParseAttributeDefaultsToAnySimpleType(t *testing.T) {
 	}
 }
 
-func parseDoc(t *testing.T, xmlStr string) *xsdxml.Document {
+func parseDoc(t *testing.T, xmlStr string) *schemaxml.Document {
 	t.Helper()
-	doc, err := xsdxml.Parse(strings.NewReader(xmlStr))
+	doc, err := schemaxml.Parse(strings.NewReader(xmlStr))
 	if err != nil {
 		t.Fatalf("parse xml: %v", err)
 	}
 	return doc
 }
 
-func findElementWithAttr(doc *xsdxml.Document, elem xsdxml.NodeID, localName, attrName string) xsdxml.NodeID {
-	if elem == xsdxml.InvalidNode {
-		return xsdxml.InvalidNode
+func findElementWithAttr(doc *schemaxml.Document, elem schemaxml.NodeID, localName, attrName string) schemaxml.NodeID {
+	if elem == schemaxml.InvalidNode {
+		return schemaxml.InvalidNode
 	}
-	if doc.NamespaceURI(elem) == xsdxml.XSDNamespace && doc.LocalName(elem) == localName {
+	if doc.NamespaceURI(elem) == schemaxml.XSDNamespace && doc.LocalName(elem) == localName {
 		if doc.HasAttribute(elem, attrName) {
 			return elem
 		}
 	}
 	for _, child := range doc.Children(elem) {
-		if found := findElementWithAttr(doc, child, localName, attrName); found != xsdxml.InvalidNode {
+		if found := findElementWithAttr(doc, child, localName, attrName); found != schemaxml.InvalidNode {
 			return found
 		}
 	}
-	return xsdxml.InvalidNode
+	return schemaxml.InvalidNode
 }

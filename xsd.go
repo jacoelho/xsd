@@ -13,8 +13,8 @@ import (
 	"github.com/jacoelho/xsd/internal/pipeline"
 	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 	"github.com/jacoelho/xsd/internal/source"
-	"github.com/jacoelho/xsd/internal/xsdxml"
 )
 
 // Schema wraps a compiled schema with convenience methods.
@@ -54,7 +54,7 @@ func prepareSchema(fsys fs.FS, location string, opts LoadOptions) (*pipeline.Pre
 		FS:                          fsys,
 		AllowMissingImportLocations: resolvedLoad.allowMissingImportLocations,
 		SchemaParseOptions:          resolvedLoad.schemaLimits.options(),
-		DocumentPool:                xsdxml.NewDocumentPool(),
+		DocumentPool:                schemaxml.NewDocumentPool(),
 	})
 	parsed, err := loader.Load(location)
 	if err != nil {

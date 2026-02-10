@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseSimpleContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.Restriction, model.QName, error) {
+func parseSimpleContentRestriction(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.Restriction, model.QName, error) {
 	if err := validateOptionalID(doc, elem, "restriction", schema); err != nil {
 		return nil, model.QName{}, err
 	}
@@ -48,13 +48,13 @@ func parseSimpleContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, sch
 	return restriction, baseQName, nil
 }
 
-func validateSimpleContentRestrictionOrder(doc *xsdxml.Document, elem xsdxml.NodeID) error {
+func validateSimpleContentRestrictionOrder(doc *schemaxml.Document, elem schemaxml.NodeID) error {
 	seenSimpleType := false
 	seenAttributeLike := false
 	seenFacet := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -80,9 +80,9 @@ func validateSimpleContentRestrictionOrder(doc *xsdxml.Document, elem xsdxml.Nod
 	return nil
 }
 
-func parseSimpleContentNestedType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.SimpleType, error) {
+func parseSimpleContentNestedType(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.SimpleType, error) {
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) == xsdxml.XSDNamespace && doc.LocalName(child) == "simpleType" {
+		if doc.NamespaceURI(child) == schemaxml.XSDNamespace && doc.LocalName(child) == "simpleType" {
 			nestedSimpleType, err := parseInlineSimpleType(doc, child, schema)
 			if err != nil {
 				return nil, fmt.Errorf("parse nested simpleType: %w", err)

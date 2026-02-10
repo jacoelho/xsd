@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func validateAttributeValueConstraintsForType(sch *parser.Schema, typ model.Type) error {
@@ -38,7 +38,7 @@ func validateAttributeValueConstraintsForType(sch *parser.Schema, typ model.Type
 }
 
 func validateAttributeValueConstraints(sch *parser.Schema, decl *model.AttributeDecl) error {
-	resolvedType := typeops.ResolveTypeReference(sch, decl.Type, typeops.TypeReferenceAllowMissing)
+	resolvedType := typeresolve.ResolveTypeReference(sch, decl.Type, typeresolve.TypeReferenceAllowMissing)
 	if _, ok := resolvedType.(*model.ComplexType); ok {
 		return fmt.Errorf("type must be a simple type")
 	}

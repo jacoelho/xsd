@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 // parseComplexType parses a top-level complexType definition.
-func parseComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) error {
+func parseComplexType(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) error {
 	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("complexType missing name attribute")

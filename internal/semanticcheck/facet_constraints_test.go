@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	facetengine "github.com/jacoelho/xsd/internal/facets"
 	model "github.com/jacoelho/xsd/internal/model"
+	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
 )
 
 func TestCompareGYearValues(t *testing.T) {

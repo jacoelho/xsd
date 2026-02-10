@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 // parseInlineComplexType parses a complexType definition (inline or named).
-func parseInlineComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.ComplexType, error) {
+func parseInlineComplexType(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.ComplexType, error) {
 	ct := &model.ComplexType{}
 
 	if doc.GetAttribute(elem, "name") == "" {
@@ -59,7 +59,7 @@ func parseInlineComplexType(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sc
 
 	state := complexTypeParseState{doc: doc, schema: schema, ct: ct}
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		if err := state.handleChild(child); err != nil {

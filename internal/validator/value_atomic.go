@@ -7,7 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/valuekey"
+	"github.com/jacoelho/xsd/internal/valuecodec"
 )
 
 func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
@@ -22,7 +22,7 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		}
 		canon := normalized
 		if needKey {
-			key := valuekey.StringKeyBytes(s.keyTmp[:0], 0, canon)
+			key := valuecodec.StringKeyBytes(s.keyTmp[:0], 0, canon)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKString, key, false)
 		}
@@ -108,7 +108,7 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		canonRaw := []byte(value.CanonicalFloat(float64(v), 32))
 		canon := canonRaw
 		if needKey {
-			key := valuekey.Float32Key(s.keyTmp[:0], v, class)
+			key := valuecodec.Float32Key(s.keyTmp[:0], v, class)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKFloat32, key, false)
 		}
@@ -126,7 +126,7 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		canonRaw := []byte(value.CanonicalFloat(v, 64))
 		canon := canonRaw
 		if needKey {
-			key := valuekey.Float64Key(s.keyTmp[:0], v, class)
+			key := valuecodec.Float64Key(s.keyTmp[:0], v, class)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKFloat64, key, false)
 		}
@@ -139,7 +139,7 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		canonRaw := []byte(durationlex.CanonicalString(dur))
 		canon := canonRaw
 		if needKey {
-			key := valuekey.DurationKeyBytes(s.keyTmp[:0], dur)
+			key := valuecodec.DurationKeyBytes(s.keyTmp[:0], dur)
 			s.keyTmp = key
 			s.setKey(metrics, runtime.VKDuration, key, false)
 		}

@@ -3,7 +3,7 @@ package validator
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/valuekey"
+	"github.com/jacoelho/xsd/internal/valuecodec"
 )
 
 func (s *Session) listItemValidator(meta runtime.ValidatorMeta) (runtime.ValidatorID, bool) {
@@ -43,7 +43,7 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 			if !itemMetrics.keySet {
 				return valueErrorf(valueErrInvalid, "list item key missing")
 			}
-			keyTmp = valuekey.AppendListEntry(keyTmp, byte(itemMetrics.keyKind), itemMetrics.keyBytes)
+			keyTmp = valuecodec.AppendListEntry(keyTmp, byte(itemMetrics.keyKind), itemMetrics.keyBytes)
 		}
 		count++
 		return nil
@@ -57,7 +57,7 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 	}
 	canon := tmp
 	if needKey {
-		listKey := valuekey.AppendUvarint(s.keyTmp[:0], uint64(count))
+		listKey := valuecodec.AppendUvarint(s.keyTmp[:0], uint64(count))
 		listKey = append(listKey, keyTmp...)
 		s.keyTmp = listKey
 		s.setKey(metrics, runtime.VKList, listKey, false)

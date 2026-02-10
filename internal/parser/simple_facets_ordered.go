@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseOrderedFacet(doc *xsdxml.Document, elem xsdxml.NodeID, restriction *model.Restriction, baseType model.Type, facetName string, constructor orderedFacetConstructor) (model.Facet, error) {
+func parseOrderedFacet(doc *schemaxml.Document, elem schemaxml.NodeID, restriction *model.Restriction, baseType model.Type, facetName string, constructor orderedFacetConstructor) (model.Facet, error) {
 	if err := validateOnlyAnnotationChildren(doc, elem, facetName); err != nil {
 		return nil, err
 	}

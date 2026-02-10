@@ -1,9 +1,9 @@
 package semanticcheck
 
 import (
-	facetengine "github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
 )
 
 // ValidateFacetConstraints validates facet consistency and values for a base type.

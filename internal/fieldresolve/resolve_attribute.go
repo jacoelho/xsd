@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
@@ -16,7 +16,7 @@ func findAttributeType(schema *parser.Schema, elementDecl *model.ElementDecl, te
 		return nil, fmt.Errorf("%w: wildcard attribute", ErrXPathUnresolvable)
 	}
 	elementDecl = resolveElementReference(schema, elementDecl)
-	elementType := typeops.ResolveTypeReference(schema, elementDecl.Type, typeops.TypeReferenceMustExist)
+	elementType := typeresolve.ResolveTypeReference(schema, elementDecl.Type, typeresolve.TypeReferenceMustExist)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
 	}
@@ -28,7 +28,7 @@ func findAttributeType(schema *parser.Schema, elementDecl *model.ElementDecl, te
 
 	for _, attrUse := range ct.Attributes() {
 		if nodeTestMatchesQName(test, attrUse.Name) {
-			resolvedType := typeops.ResolveTypeReference(schema, attrUse.Type, typeops.TypeReferenceMustExist)
+			resolvedType := typeresolve.ResolveTypeReference(schema, attrUse.Type, typeresolve.TypeReferenceMustExist)
 			if resolvedType == nil {
 				return nil, fmt.Errorf("cannot resolve attribute type for '%s'", formatNodeTest(test))
 			}
@@ -40,7 +40,7 @@ func findAttributeType(schema *parser.Schema, elementDecl *model.ElementDecl, te
 		if attrGroup, ok := schema.AttributeGroups[attrGroupQName]; ok {
 			for _, attr := range attrGroup.Attributes {
 				if nodeTestMatchesQName(test, attr.Name) {
-					resolvedType := typeops.ResolveTypeReference(schema, attr.Type, typeops.TypeReferenceMustExist)
+					resolvedType := typeresolve.ResolveTypeReference(schema, attr.Type, typeresolve.TypeReferenceMustExist)
 					if resolvedType == nil {
 						return nil, fmt.Errorf("cannot resolve attribute type for '%s' in attribute group", formatNodeTest(test))
 					}
@@ -51,7 +51,7 @@ func findAttributeType(schema *parser.Schema, elementDecl *model.ElementDecl, te
 				if nestedAttrGroup, ok := schema.AttributeGroups[nestedAttrGroupQName]; ok {
 					for _, attr := range nestedAttrGroup.Attributes {
 						if nodeTestMatchesQName(test, attr.Name) {
-							resolvedType := typeops.ResolveTypeReference(schema, attr.Type, typeops.TypeReferenceMustExist)
+							resolvedType := typeresolve.ResolveTypeReference(schema, attr.Type, typeresolve.TypeReferenceMustExist)
 							if resolvedType == nil {
 								return nil, fmt.Errorf("cannot resolve attribute type for '%s' in nested attribute group", formatNodeTest(test))
 							}
@@ -79,7 +79,7 @@ func findAttributeTypeDescendant(schema *parser.Schema, elementDecl *model.Eleme
 		return attrType, nil
 	}
 
-	elementType := typeops.ResolveTypeReference(schema, elementDecl.Type, typeops.TypeReferenceMustExist)
+	elementType := typeresolve.ResolveTypeReference(schema, elementDecl.Type, typeresolve.TypeReferenceMustExist)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
 	}
@@ -129,7 +129,7 @@ func findAttributeTypeInParticleDescendant(schema *parser.Schema, particle model
 			return attrType, nil
 		}
 		if elem.Type != nil {
-			if resolvedType := typeops.ResolveTypeReference(schema, elem.Type, typeops.TypeReferenceMustExist); resolvedType != nil {
+			if resolvedType := typeresolve.ResolveTypeReference(schema, elem.Type, typeresolve.TypeReferenceMustExist); resolvedType != nil {
 				if ct, ok := resolvedType.(*model.ComplexType); ok {
 					if _, seen := visited[ct]; !seen {
 						visited[ct] = struct{}{}

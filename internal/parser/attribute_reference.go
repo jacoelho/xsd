@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseAttributeReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, ref string) (*model.AttributeDecl, error) {
+func parseAttributeReference(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, ref string) (*model.AttributeDecl, error) {
 	if doc.HasAttribute(elem, "type") {
 		return nil, fmt.Errorf("attribute reference cannot have 'type' attribute")
 	}

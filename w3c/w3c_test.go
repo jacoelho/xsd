@@ -18,9 +18,9 @@ import (
 	"github.com/jacoelho/xsd/internal/pipeline"
 	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 	loader "github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/validator"
-	"github.com/jacoelho/xsd/internal/xsdxml"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -1216,7 +1216,7 @@ func readInstanceInfo(r io.Reader) (instanceInfo, error) {
 			rootNS:    ev.Name.Namespace,
 		}
 		for _, attr := range ev.Attrs {
-			if attr.Name.Namespace != xsdxml.XSINamespace {
+			if attr.Name.Namespace != schemaxml.XSINamespace {
 				continue
 			}
 			switch attr.Name.Local {

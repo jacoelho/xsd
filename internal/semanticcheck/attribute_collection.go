@@ -5,8 +5,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // collectAllAttributesForValidation collects all attributes from a complex type.
@@ -34,7 +34,7 @@ func collectEffectiveAttributeUses(schema *parser.Schema, ct *model.ComplexType)
 	if ct == nil {
 		return nil
 	}
-	chain := typegraph.CollectComplexTypeChain(schema, ct, typegraph.ComplexTypeChainExplicitBaseOnly)
+	chain := typechain.CollectComplexTypeChain(schema, ct, typechain.ComplexTypeChainExplicitBaseOnly)
 	attrMap := make(map[model.QName]*model.AttributeDecl)
 	for i := len(chain) - 1; i >= 0; i-- {
 		mergeAttributesFromTypeForValidation(schema, chain[i], attrMap)
@@ -44,7 +44,7 @@ func collectEffectiveAttributeUses(schema *parser.Schema, ct *model.ComplexType)
 
 func mergeAttributesFromTypeForValidation(schema *parser.Schema, ct *model.ComplexType, attrMap map[model.QName]*model.AttributeDecl) {
 	addAttr := func(attr *model.AttributeDecl) {
-		key := typeops.EffectiveAttributeQName(schema, attr)
+		key := typeresolve.EffectiveAttributeQName(schema, attr)
 		if attr.Use == model.Prohibited && !attr.HasFixed {
 			delete(attrMap, key)
 			return
@@ -96,7 +96,7 @@ func mergeAttributesFromGroupForValidation(schema *parser.Schema, ag *model.Attr
 		}
 		visited[current] = true
 		for _, attr := range current.Attributes {
-			key := typeops.EffectiveAttributeQName(schema, attr)
+			key := typeresolve.EffectiveAttributeQName(schema, attr)
 			if attr.Use == model.Prohibited && !attr.HasFixed {
 				delete(attrMap, key)
 				continue

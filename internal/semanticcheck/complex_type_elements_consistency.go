@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/typegraph"
+	"github.com/jacoelho/xsd/internal/typechain"
 )
 
 // validateElementDeclarationsConsistent validates extension element consistency with base.
@@ -22,7 +22,7 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *m
 	}
 
 	baseQName := content.BaseTypeQName()
-	baseComplexType, ok := typegraph.LookupComplexType(schema, baseQName)
+	baseComplexType, ok := typechain.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}

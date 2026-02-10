@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typegraph"
+	"github.com/jacoelho/xsd/internal/typechain"
 )
 
 // validateRestriction validates a simple type restriction
@@ -35,7 +35,7 @@ func validateRestriction(schema *parser.Schema, st *model.SimpleType, restrictio
 			}
 		} else {
 			// check if it's a user-defined type in this schema
-			if defType, ok := typegraph.LookupType(schema, restriction.Base); ok {
+			if defType, ok := typechain.LookupType(schema, restriction.Base); ok {
 				baseType = defType
 			}
 		}
@@ -136,7 +136,7 @@ func validateRestriction(schema *parser.Schema, st *model.SimpleType, restrictio
 		if baseType != nil {
 			isNotation = isNotationType(baseType)
 		} else if !baseQName.IsZero() {
-			if defType, ok := typegraph.LookupType(schema, baseQName); ok {
+			if defType, ok := typechain.LookupType(schema, baseQName); ok {
 				isNotation = isNotationType(defType)
 			}
 		}

@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseAttributeGroupRefQName(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (model.QName, error) {
+func parseAttributeGroupRefQName(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (model.QName, error) {
 	if err := validateElementConstraints(doc, elem, "attributeGroup", schema); err != nil {
 		return model.QName{}, err
 	}

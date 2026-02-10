@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 var validAttributeAttributes = map[string]bool{
@@ -18,7 +18,7 @@ var validAttributeAttributes = map[string]bool{
 	"id":      true,
 }
 
-func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, local bool) (*model.AttributeDecl, error) {
+func parseAttribute(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, local bool) (*model.AttributeDecl, error) {
 	if err := validateOptionalID(doc, elem, "attribute", schema); err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, lo
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
-		if attr.NamespaceURI() == xsdxml.XSDNamespace {
+		if attr.NamespaceURI() == schemaxml.XSDNamespace {
 			return nil, fmt.Errorf("attribute: attribute '%s' must be unprefixed", attr.LocalName())
 		}
 		if attr.NamespaceURI() == "" && !validAttributeAttributes[attr.LocalName()] {
@@ -54,7 +54,7 @@ func parseAttribute(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, lo
 	return parseLocalAttribute(doc, elem, schema, local)
 }
 
-func parseAttributeUse(doc *xsdxml.Document, elem xsdxml.NodeID) (model.AttributeUse, error) {
+func parseAttributeUse(doc *schemaxml.Document, elem schemaxml.NodeID) (model.AttributeUse, error) {
 	if doc.HasAttribute(elem, "use") {
 		useAttr := model.ApplyWhiteSpace(doc.GetAttribute(elem, "use"), model.WhiteSpaceCollapse)
 		switch useAttr {

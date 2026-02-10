@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func applyWhiteSpaceFacet(doc *xsdxml.Document, elem xsdxml.NodeID, st *model.SimpleType) error {
+func applyWhiteSpaceFacet(doc *schemaxml.Document, elem schemaxml.NodeID, st *model.SimpleType) error {
 	if err := validateOnlyAnnotationChildren(doc, elem, "whiteSpace"); err != nil {
 		return err
 	}

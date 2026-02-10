@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseSimpleContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.SimpleContent, error) {
+func parseSimpleContent(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.SimpleContent, error) {
 	sc := &model.SimpleContent{}
 
 	if err := validateOptionalID(doc, elem, "simpleContent", schema); err != nil {
@@ -18,7 +18,7 @@ func parseSimpleContent(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema
 	seenAnnotation := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 

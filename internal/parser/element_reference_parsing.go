@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 // parseElement parses an element reference or declaration within a content model
-func parseElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.ElementDecl, error) {
+func parseElement(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.ElementDecl, error) {
 	attrs := scanElementAttributes(doc, elem)
 
 	if attrs.hasID {
@@ -28,7 +28,7 @@ func parseElement(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*mo
 	return parseLocalElement(doc, elem, schema, &attrs)
 }
 
-func parseElementReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs *elementAttrScan) (*model.ElementDecl, error) {
+func parseElementReference(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, attrs *elementAttrScan) (*model.ElementDecl, error) {
 	if err := validateElementReferenceAttributes(doc, elem, attrs); err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func parseElementReference(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Sch
 	return parsed, nil
 }
 
-func validateElementReferenceAttributes(doc *xsdxml.Document, elem xsdxml.NodeID, attrs *elementAttrScan) error {
+func validateElementReferenceAttributes(doc *schemaxml.Document, elem schemaxml.NodeID, attrs *elementAttrScan) error {
 	if attrs.invalidRefAttr != "" {
 		return fmt.Errorf("invalid attribute '%s' on element reference", attrs.invalidRefAttr)
 	}

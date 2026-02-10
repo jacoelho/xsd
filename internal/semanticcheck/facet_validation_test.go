@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typefacet"
 )
 
 // TestOrderedTypeFacetApplicability tests that range facets (minInclusive, maxInclusive, etc.)
@@ -208,13 +208,13 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 
 			switch tt.facetName {
 			case "minInclusive":
-				facet, err = typefacet.NewMinInclusive(tt.facetValue, bt)
+				facet, err = facetvalue.NewMinInclusive(tt.facetValue, bt)
 			case "maxInclusive":
-				facet, err = typefacet.NewMaxInclusive(tt.facetValue, bt)
+				facet, err = facetvalue.NewMaxInclusive(tt.facetValue, bt)
 			case "minExclusive":
-				facet, err = typefacet.NewMinExclusive(tt.facetValue, bt)
+				facet, err = facetvalue.NewMinExclusive(tt.facetValue, bt)
 			case "maxExclusive":
-				facet, err = typefacet.NewMaxExclusive(tt.facetValue, bt)
+				facet, err = facetvalue.NewMaxExclusive(tt.facetValue, bt)
 			default:
 				t.Fatalf("Unknown facet name: %s", tt.facetName)
 			}

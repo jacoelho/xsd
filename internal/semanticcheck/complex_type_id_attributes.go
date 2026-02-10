@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func validateIDAttributeCount(schema *parser.Schema, complexType *model.ComplexType) error {
@@ -15,7 +15,7 @@ func validateIDAttributeCount(schema *parser.Schema, complexType *model.ComplexT
 		if attr.Use == model.Prohibited || attr.Type == nil {
 			continue
 		}
-		resolvedType := typeops.ResolveTypeReference(schema, attr.Type, typeops.TypeReferenceAllowMissing)
+		resolvedType := typeresolve.ResolveTypeReference(schema, attr.Type, typeresolve.TypeReferenceAllowMissing)
 		if resolvedType == nil {
 			continue
 		}
@@ -25,7 +25,7 @@ func validateIDAttributeCount(schema *parser.Schema, complexType *model.ComplexT
 			continue
 		}
 		if simpleType, ok := resolvedType.(*model.SimpleType); ok {
-			if typeops.IsIDOnlyDerivedType(schema, simpleType) {
+			if typeresolve.IsIDOnlyDerivedType(schema, simpleType) {
 				idCount++
 			}
 		}

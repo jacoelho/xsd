@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseComplexContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.Restriction, model.QName, error) {
+func parseComplexContentRestriction(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.Restriction, model.QName, error) {
 	if err := validateOptionalID(doc, elem, "restriction", schema); err != nil {
 		return nil, model.QName{}, err
 	}
@@ -50,7 +50,7 @@ func parseComplexContentRestriction(doc *xsdxml.Document, elem xsdxml.NodeID, sc
 	return restriction, baseQName, nil
 }
 
-func parseComplexContentExtension(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.Extension, model.QName, error) {
+func parseComplexContentExtension(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.Extension, model.QName, error) {
 	if err := validateOptionalID(doc, elem, "extension", schema); err != nil {
 		return nil, model.QName{}, err
 	}

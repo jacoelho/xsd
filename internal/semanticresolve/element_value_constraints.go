@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func validateElementValueConstraints(sch *parser.Schema, decl *model.ElementDecl) error {
@@ -13,7 +13,7 @@ func validateElementValueConstraints(sch *parser.Schema, decl *model.ElementDecl
 		return nil
 	}
 
-	resolvedType := typeops.ResolveTypeReference(sch, decl.Type, typeops.TypeReferenceAllowMissing)
+	resolvedType := typeresolve.ResolveTypeReference(sch, decl.Type, typeresolve.TypeReferenceAllowMissing)
 	if isDirectNotationType(resolvedType) {
 		return fmt.Errorf("element cannot use NOTATION type")
 	}

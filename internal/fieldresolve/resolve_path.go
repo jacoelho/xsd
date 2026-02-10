@@ -7,7 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
@@ -71,7 +71,7 @@ func resolvePathElementDecl(schema *parser.Schema, startDecl *model.ElementDecl,
 // findElementDeclDescendant searches for an element declaration at any depth in the content model.
 func findElementDeclDescendant(schema *parser.Schema, elementDecl *model.ElementDecl, test xpath.NodeTest) (*model.ElementDecl, error) {
 	elementDecl = resolveElementReference(schema, elementDecl)
-	elementType := typeops.ResolveTypeReference(schema, elementDecl.Type, typeops.TypeReferenceMustExist)
+	elementType := typeresolve.ResolveTypeReference(schema, elementDecl.Type, typeresolve.TypeReferenceMustExist)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
 	}
@@ -125,7 +125,7 @@ func findElementDeclInParticleDescendant(schema *parser.Schema, particle model.P
 			return elem, nil
 		}
 		if elem.Type != nil {
-			if resolvedType := typeops.ResolveTypeReference(schema, elem.Type, typeops.TypeReferenceMustExist); resolvedType != nil {
+			if resolvedType := typeresolve.ResolveTypeReference(schema, elem.Type, typeresolve.TypeReferenceMustExist); resolvedType != nil {
 				if ct, ok := resolvedType.(*model.ComplexType); ok {
 					if _, seen := visited[ct]; !seen {
 						visited[ct] = struct{}{}
@@ -162,7 +162,7 @@ func findElementDecl(schema *parser.Schema, elementDecl *model.ElementDecl, test
 		return nil, fmt.Errorf("%w: wildcard element", ErrXPathUnresolvable)
 	}
 	elementDecl = resolveElementReference(schema, elementDecl)
-	elementType := typeops.ResolveTypeReference(schema, elementDecl.Type, typeops.TypeReferenceMustExist)
+	elementType := typeresolve.ResolveTypeReference(schema, elementDecl.Type, typeresolve.TypeReferenceMustExist)
 	if elementType == nil {
 		return nil, fmt.Errorf("cannot resolve element type")
 	}

@@ -3,7 +3,7 @@ package source
 import (
 	"io"
 
-	"github.com/jacoelho/xsd/internal/loadgraph"
+	"github.com/jacoelho/xsd/internal/loadguard"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -56,5 +56,5 @@ func newLoadSession(loader *SchemaLoader, systemID string, key loadKey, doc io.R
 }
 
 func (s *loadSession) handleCircularLoad() (*parser.Schema, error) {
-	return loadgraph.CheckCircular[loadKey, *parser.Schema](&s.loader.state, s.key, s.systemID)
+	return loadguard.CheckCircular[loadKey, *parser.Schema](&s.loader.state, s.key, s.systemID)
 }

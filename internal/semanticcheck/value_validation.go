@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	facetengine "github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typefacet"
-	"github.com/jacoelho/xsd/internal/typeops"
+	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ model.Type, context map[string]string, visited map[model.Type]bool) error {
@@ -26,7 +26,7 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 		if !ok {
 			return nil
 		}
-		baseType := typeops.ResolveSimpleContentBaseTypeFromContent(schema, sc)
+		baseType := typeresolve.ResolveSimpleContentBaseTypeFromContent(schema, sc)
 		if baseType == nil {
 			return nil
 		}
@@ -40,7 +40,7 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 
 	normalized := model.NormalizeWhiteSpace(value, typ)
 
-	if typefacet.IsQNameOrNotationType(typ) {
+	if facetvalue.IsQNameOrNotationType(typ) {
 		if context == nil {
 			return fmt.Errorf("namespace context unavailable for QName/NOTATION value")
 		}
@@ -67,7 +67,7 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 
 	switch st.Variety() {
 	case model.UnionVariety:
-		memberTypes := typeops.ResolveUnionMemberTypes(schema, st)
+		memberTypes := typeresolve.ResolveUnionMemberTypes(schema, st)
 		if len(memberTypes) == 0 {
 			return fmt.Errorf("union has no member types")
 		}
@@ -78,7 +78,7 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 		}
 		return fmt.Errorf("value %q does not match any member type of union", normalized)
 	case model.ListVariety:
-		itemType := typeops.ResolveListItemType(schema, st)
+		itemType := typeresolve.ResolveListItemType(schema, st)
 		if itemType == nil {
 			return nil
 		}
@@ -89,7 +89,7 @@ func validateValueAgainstTypeWithFacets(schema *parser.Schema, value string, typ
 		}
 		return facetengine.ValidateSimpleTypeFacets(schema, st, normalized, context, convertDeferredFacet)
 	default:
-		if !typefacet.IsQNameOrNotationType(st) {
+		if !facetvalue.IsQNameOrNotationType(st) {
 			if err := st.Validate(normalized); err != nil {
 				return err
 			}

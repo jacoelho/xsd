@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/typefacet"
 )
 
 func TestSimpleTypeValidateAppliesFacets(t *testing.T) {
@@ -13,7 +13,7 @@ func TestSimpleTypeValidateAppliesFacets(t *testing.T) {
 	if base == nil {
 		t.Fatalf("expected builtin integer")
 	}
-	maxFacet, err := typefacet.NewMaxInclusive("10", base)
+	maxFacet, err := facetvalue.NewMaxInclusive("10", base)
 	if err != nil {
 		t.Fatalf("newMaxInclusive: %v", err)
 	}
@@ -37,7 +37,7 @@ func TestSimpleTypeParseValueAppliesFacets(t *testing.T) {
 	if base == nil {
 		t.Fatalf("expected builtin integer")
 	}
-	maxFacet, err := typefacet.NewMaxInclusive("10", base)
+	maxFacet, err := facetvalue.NewMaxInclusive("10", base)
 	if err != nil {
 		t.Fatalf("newMaxInclusive: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestSimpleTypeValidateUnionMembers(t *testing.T) {
 	if base == nil {
 		t.Fatalf("expected builtin integer")
 	}
-	maxFacet, err := typefacet.NewMaxInclusive("10", base)
+	maxFacet, err := facetvalue.NewMaxInclusive("10", base)
 	if err != nil {
 		t.Fatalf("newMaxInclusive: %v", err)
 	}

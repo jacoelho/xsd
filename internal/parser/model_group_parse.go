@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (*model.ModelGroup, error) {
+func parseModelGroup(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.ModelGroup, error) {
 	kind, err := parseModelGroupKind(doc, elem)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 	hasAnnotation := false
 	hasNonAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 		if doc.LocalName(child) == "annotation" {
@@ -75,7 +75,7 @@ func parseModelGroup(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema) (
 	return mg, nil
 }
 
-func parseModelGroupKind(doc *xsdxml.Document, elem xsdxml.NodeID) (model.GroupKind, error) {
+func parseModelGroupKind(doc *schemaxml.Document, elem schemaxml.NodeID) (model.GroupKind, error) {
 	switch doc.LocalName(elem) {
 	case "sequence":
 		return model.Sequence, nil
@@ -88,7 +88,7 @@ func parseModelGroupKind(doc *xsdxml.Document, elem xsdxml.NodeID) (model.GroupK
 	}
 }
 
-func validateModelGroupAttributes(doc *xsdxml.Document, elem xsdxml.NodeID) error {
+func validateModelGroupAttributes(doc *schemaxml.Document, elem schemaxml.NodeID) error {
 	for _, attr := range doc.Attributes(elem) {
 		if attr.NamespaceURI() != "" {
 			continue

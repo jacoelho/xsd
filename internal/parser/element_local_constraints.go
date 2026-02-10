@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-func applyElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *Schema, attrs *elementAttrScan, decl *model.ElementDecl) error {
+func applyElementConstraints(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, attrs *elementAttrScan, decl *model.ElementDecl) error {
 	if attrs.hasNillable {
 		value, err := parseBoolValue("nillable", attrs.nillable)
 		if err != nil {
@@ -46,7 +46,7 @@ func applyElementConstraints(doc *xsdxml.Document, elem xsdxml.NodeID, schema *S
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xsdxml.XSDNamespace {
+		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
 

@@ -98,7 +98,7 @@ func TestModelFacetAdaptersOnlyUsedByModelPackage(t *testing.T) {
 		"ParseDurationToTimeDuration",
 	}
 
-	assertModelSelectorBoundary(t, modelImport, allowedScopes, adapterNames, "typefacet")
+	assertModelSelectorBoundary(t, modelImport, allowedScopes, adapterNames, "facetvalue")
 }
 
 func assertModelSelectorBoundary(t *testing.T, importPath string, allowedScopes, adapterNames []string, concern string) {

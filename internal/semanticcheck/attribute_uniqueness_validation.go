@@ -5,8 +5,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typegraph"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // validateAttributeUniqueness validates that no two attributes in a complex type
@@ -16,7 +16,7 @@ func validateAttributeUniqueness(schema *parser.Schema, ct *model.ComplexType) e
 
 	seen := make(map[model.QName]bool)
 	for _, attr := range allAttributes {
-		key := typeops.EffectiveAttributeQName(schema, attr)
+		key := typeresolve.EffectiveAttributeQName(schema, attr)
 		if seen[key] {
 			return fmt.Errorf("duplicate attribute '%s' in namespace '%s'", attr.Name.Local, attr.Name.Namespace)
 		}
@@ -38,7 +38,7 @@ func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *model.Compl
 	if ext == nil || ext.Base.IsZero() {
 		return nil
 	}
-	baseCT, ok := typegraph.LookupComplexType(schema, ext.Base)
+	baseCT, ok := typechain.LookupComplexType(schema, ext.Base)
 	if !ok || baseCT == nil {
 		return nil
 	}
@@ -51,7 +51,7 @@ func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *model.Compl
 	attrs := append([]*model.AttributeDecl{}, ext.Attributes...)
 	attrs = append(attrs, collectAttributesFromGroups(schema, ext.AttrGroups, nil)...)
 	for _, attr := range attrs {
-		key := typeops.EffectiveAttributeQName(schema, attr)
+		key := typeresolve.EffectiveAttributeQName(schema, attr)
 		if _, exists := baseAttrs[key]; exists {
 			return fmt.Errorf("extension attribute '%s' in namespace '%s' duplicates base attribute", attr.Name.Local, attr.Name.Namespace)
 		}
@@ -64,7 +64,7 @@ func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *model.Compl
 func validateAttributeGroupUniqueness(schema *parser.Schema, ag *model.AttributeGroup) error {
 	seen := make(map[model.QName]bool)
 	for _, attr := range ag.Attributes {
-		key := typeops.EffectiveAttributeQName(schema, attr)
+		key := typeresolve.EffectiveAttributeQName(schema, attr)
 		if seen[key] {
 			return fmt.Errorf("duplicate attribute '%s' in namespace '%s'", attr.Name.Local, attr.Name.Namespace)
 		}

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xsdxml"
+	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
 func TestParseSchemaAttributesRegistersXMLNS(t *testing.T) {
@@ -34,14 +34,14 @@ func TestResolveQNameIgnoresForeignXMLNSLocalName(t *testing.T) {
 		t.Fatalf("parseSchemaAttributes error = %v", err)
 	}
 
-	elem := xsdxml.InvalidNode
+	elem := schemaxml.InvalidNode
 	for _, child := range doc.Children(root) {
-		if doc.NamespaceURI(child) == xsdxml.XSDNamespace && doc.LocalName(child) == "element" {
+		if doc.NamespaceURI(child) == schemaxml.XSDNamespace && doc.LocalName(child) == "element" {
 			elem = child
 			break
 		}
 	}
-	if elem == xsdxml.InvalidNode {
+	if elem == schemaxml.InvalidNode {
 		t.Fatalf("expected element node")
 	}
 

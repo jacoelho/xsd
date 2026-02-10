@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeops"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func validateRestrictionAttributes(schema *parser.Schema, baseCT *model.ComplexType, restrictionAttrs []*model.AttributeDecl, context string) error {
@@ -19,7 +19,7 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *model.ComplexT
 	}
 	for _, restrictionAttr := range restrictionAttrs {
 		effectiveRestriction := effectiveAttributeUse(schema, restrictionAttr)
-		key := typeops.EffectiveAttributeQName(schema, effectiveRestriction)
+		key := typeresolve.EffectiveAttributeQName(schema, effectiveRestriction)
 		baseAttr, exists := baseAttrMap[key]
 		if !exists {
 			if baseAnyAttr == nil || !model.AllowsNamespace(
@@ -43,7 +43,7 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *model.ComplexT
 			if !effectiveRestriction.HasFixed {
 				return fmt.Errorf("%s: attribute '%s' fixed value must match base type", context, restrictionAttr.Name.Local)
 			}
-			baseType := typeops.ResolveTypeReference(schema, effectiveBase.Type, typeops.TypeReferenceAllowMissing)
+			baseType := typeresolve.ResolveTypeReference(schema, effectiveBase.Type, typeresolve.TypeReferenceAllowMissing)
 			if baseType == nil {
 				baseType = effectiveBase.Type
 			}
@@ -65,8 +65,8 @@ func validateRestrictionAttributes(schema *parser.Schema, baseCT *model.ComplexT
 			continue
 		}
 		if baseTypeQName != restrictionTypeQName {
-			baseType := typeops.ResolveTypeReference(schema, effectiveBase.Type, typeops.TypeReferenceAllowMissing)
-			restrictionType := typeops.ResolveTypeReference(schema, effectiveRestriction.Type, typeops.TypeReferenceAllowMissing)
+			baseType := typeresolve.ResolveTypeReference(schema, effectiveBase.Type, typeresolve.TypeReferenceAllowMissing)
+			restrictionType := typeresolve.ResolveTypeReference(schema, effectiveRestriction.Type, typeresolve.TypeReferenceAllowMissing)
 			if baseType == nil {
 				baseType = effectiveBase.Type
 			}
