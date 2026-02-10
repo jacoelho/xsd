@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/durationlex"
-	typedvaluecore "github.com/jacoelho/xsd/internal/typedvalue/internalcore"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -57,33 +56,17 @@ var valueParsers = map[TypeName]ValueParserFunc{
 	TypeNameBase64Binary:  parserFor(ParseBase64Binary, NewBase64BinaryValue),
 }
 
-var coreValueParsers = func() map[string]typedvaluecore.ValueParserFunc {
-	parsers := make(map[string]typedvaluecore.ValueParserFunc, len(valueParsers))
-	for typeName, parser := range valueParsers {
-		name := string(typeName)
-		parse := parser
-		parsers[name] = func(lexical string, typ any) (any, error) {
-			modelType, ok := typ.(Type)
-			if !ok {
-				return nil, fmt.Errorf("cannot parse value for type %T", typ)
-			}
-			return parse(lexical, modelType)
-		}
-	}
-	return parsers
-}()
-
 // parseValueForType parses a lexical value using the registry for the given type name.
 func parseValueForType(lexical string, typeName TypeName, typ Type) (TypedValue, error) {
-	parsed, err := typedvaluecore.ParseValueForType(lexical, string(typeName), typ, coreValueParsers)
-	if err != nil {
-		return nil, err
-	}
-	typed, ok := parsed.(TypedValue)
+	return parseValueForTypeWithParsers(lexical, typeName, typ, valueParsers)
+}
+
+func parseValueForTypeWithParsers(lexical string, typeName TypeName, typ Type, parsers map[TypeName]ValueParserFunc) (TypedValue, error) {
+	parser, ok := parsers[typeName]
 	if !ok {
-		return nil, fmt.Errorf("parser for type %s returned %T", typeName, parsed)
+		return nil, fmt.Errorf("no parser for type %s", typeName)
 	}
-	return typed, nil
+	return parser(lexical, typ)
 }
 
 // asSimpleType converts a Type to *SimpleType, creating a wrapper for BuiltinType if needed.

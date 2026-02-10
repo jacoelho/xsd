@@ -117,10 +117,8 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 			},
 			CheckRange: func(op runtime.FacetOp, kind runtime.ValidatorKind, canonical, bound []byte) error {
 				switch kind {
-				case runtime.VFloat:
-					return s.checkFloat32Range(op, canonical, bound, metrics)
-				case runtime.VDouble:
-					return s.checkFloat64Range(op, canonical, bound, metrics)
+				case runtime.VFloat, runtime.VDouble:
+					return s.checkFloatRange(kind, op, canonical, bound, metrics)
 				default:
 					cmp, err := s.compareValue(kind, canonical, bound, metrics)
 					if err != nil {
