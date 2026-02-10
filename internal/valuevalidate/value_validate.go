@@ -194,10 +194,7 @@ func validateUnion(
 ) error {
 	memberTypes := typeresolve.ResolveUnionMemberTypes(schema, st)
 	if len(memberTypes) == 0 {
-		if settings.mode == modeFacet {
-			return fmt.Errorf("union has no member types")
-		}
-		return nil
+		return fmt.Errorf("union has no member types")
 	}
 
 	var (
@@ -242,18 +239,16 @@ func validateList(
 	settings validationSettings,
 ) error {
 	itemType := typeresolve.ResolveListItemType(schema, st)
-	if itemType != nil {
-		for item := range model.FieldsXMLWhitespaceSeq(normalizedValue) {
-			if err := validateValue(schema, item, itemType, context, visited, settings); err != nil {
-				if settings.mode == modeDefaultFixed && errors.Is(err, ErrCircularReference) {
-					return fmt.Errorf("cannot validate default/fixed value for circular list item type '%s'", st.Name().Local)
-				}
-				return err
-			}
-		}
+	if itemType == nil {
+		return fmt.Errorf("list item type is missing")
 	}
-	if settings.mode == modeFacet && itemType == nil {
-		return nil
+	for item := range model.FieldsXMLWhitespaceSeq(normalizedValue) {
+		if err := validateValue(schema, item, itemType, context, visited, settings); err != nil {
+			if settings.mode == modeDefaultFixed && errors.Is(err, ErrCircularReference) {
+				return fmt.Errorf("cannot validate default/fixed value for circular list item type '%s'", st.Name().Local)
+			}
+			return err
+		}
 	}
 	return facetengine.ValidateSimpleTypeFacets(schema, st, normalizedValue, context, settings.convert)
 }

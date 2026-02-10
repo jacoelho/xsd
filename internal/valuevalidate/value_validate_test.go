@@ -61,6 +61,54 @@ func TestValidateWithFacetsRequiresQNameContext(t *testing.T) {
 	}
 }
 
+func TestValidateDefaultOrFixedResolvedRejectsEmptyUnion(t *testing.T) {
+	union := &model.SimpleType{
+		QName: model.QName{Namespace: "urn:test", Local: "BrokenUnion"},
+		Union: &model.UnionType{},
+	}
+
+	err := valuevalidate.ValidateDefaultOrFixedResolved(nil, "abc", union, nil, valuevalidate.IDPolicyDisallow)
+	if err == nil || !strings.Contains(err.Error(), "union has no member types") {
+		t.Fatalf("ValidateDefaultOrFixedResolved() error = %v, want union member error", err)
+	}
+}
+
+func TestValidateWithFacetsRejectsEmptyUnion(t *testing.T) {
+	union := &model.SimpleType{
+		QName: model.QName{Namespace: "urn:test", Local: "BrokenUnion"},
+		Union: &model.UnionType{},
+	}
+
+	err := valuevalidate.ValidateWithFacets(nil, "abc", union, nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "union has no member types") {
+		t.Fatalf("ValidateWithFacets() error = %v, want union member error", err)
+	}
+}
+
+func TestValidateDefaultOrFixedResolvedRejectsMissingListItemType(t *testing.T) {
+	list := &model.SimpleType{
+		QName: model.QName{Namespace: "urn:test", Local: "BrokenList"},
+		List:  &model.ListType{},
+	}
+
+	err := valuevalidate.ValidateDefaultOrFixedResolved(nil, "1 2", list, nil, valuevalidate.IDPolicyDisallow)
+	if err == nil || !strings.Contains(err.Error(), "list item type is missing") {
+		t.Fatalf("ValidateDefaultOrFixedResolved() error = %v, want list item error", err)
+	}
+}
+
+func TestValidateWithFacetsRejectsMissingListItemType(t *testing.T) {
+	list := &model.SimpleType{
+		QName: model.QName{Namespace: "urn:test", Local: "BrokenList"},
+		List:  &model.ListType{},
+	}
+
+	err := valuevalidate.ValidateWithFacets(nil, "1 2", list, nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "list item type is missing") {
+		t.Fatalf("ValidateWithFacets() error = %v, want list item error", err)
+	}
+}
+
 func mustResolvedSchema(t *testing.T, schemaXML string) *parser.Schema {
 	t.Helper()
 	sch, err := parser.Parse(strings.NewReader(schemaXML))

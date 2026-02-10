@@ -155,6 +155,74 @@ func TestDefaultDeferredFacetConverter(t *testing.T) {
 	}
 }
 
+func TestResolveUnionMemberTypesResolvesInlineAndNamedMembers(t *testing.T) {
+	t.Parallel()
+
+	schema := parser.NewSchema()
+	namedMemberQName := model.QName{Namespace: "urn:test", Local: "NamedMember"}
+	namedMember := &model.SimpleType{
+		QName: namedMemberQName,
+		Restriction: &model.Restriction{
+			Base: model.QName{Namespace: model.XSDNamespace, Local: "int"},
+		},
+	}
+	schema.TypeDefs[namedMemberQName] = namedMember
+
+	inlineMember := &model.SimpleType{
+		QName: model.QName{Namespace: "urn:test", Local: "InlineMember"},
+		Restriction: &model.Restriction{
+			Base: model.QName{Namespace: model.XSDNamespace, Local: "string"},
+		},
+	}
+	union := &model.SimpleType{
+		QName: model.QName{Namespace: "urn:test", Local: "U"},
+		Union: &model.UnionType{
+			MemberTypes: []model.QName{namedMemberQName},
+			InlineTypes: []*model.SimpleType{inlineMember},
+		},
+	}
+
+	members := ResolveUnionMemberTypes(schema, union)
+	if len(members) != 2 {
+		t.Fatalf("ResolveUnionMemberTypes() len = %d, want 2", len(members))
+	}
+	if members[0] != inlineMember {
+		t.Fatalf("ResolveUnionMemberTypes()[0] = %v, want inline member", members[0].Name())
+	}
+	if members[1] != namedMember {
+		t.Fatalf("ResolveUnionMemberTypes()[1] = %v, want named member", members[1].Name())
+	}
+}
+
+func TestResolveListItemTypeResolvesNamedRestrictionBase(t *testing.T) {
+	t.Parallel()
+
+	schema := parser.NewSchema()
+	baseQName := model.QName{Namespace: "urn:test", Local: "BaseList"}
+	baseList := &model.SimpleType{
+		QName: baseQName,
+		List: &model.ListType{
+			ItemType: model.QName{Namespace: model.XSDNamespace, Local: "int"},
+		},
+	}
+	schema.TypeDefs[baseQName] = baseList
+
+	derived := &model.SimpleType{
+		QName: model.QName{Namespace: "urn:test", Local: "DerivedList"},
+		Restriction: &model.Restriction{
+			Base: baseQName,
+		},
+	}
+
+	itemType := ResolveListItemType(schema, derived)
+	if itemType == nil {
+		t.Fatalf("ResolveListItemType() returned nil")
+	}
+	if itemType.Name().Local != "int" {
+		t.Fatalf("ResolveListItemType() local name = %q, want %q", itemType.Name().Local, "int")
+	}
+}
+
 func TestHelpersNilInputs(t *testing.T) {
 	t.Parallel()
 
