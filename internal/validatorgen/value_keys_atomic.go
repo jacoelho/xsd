@@ -15,12 +15,12 @@ func (c *compiler) keyBytesAtomic(normalized string, typ model.Type, ctx map[str
 		return keyBytes{}, err
 	}
 	if primName == "decimal" && c.res.isIntegerDerived(typ) {
-		intVal, err := parseInt(normalized)
-		if err != nil {
-			return keyBytes{}, err
+		intVal, parseErr := parseInt(normalized)
+		if parseErr != nil {
+			return keyBytes{}, parseErr
 		}
-		if err := runtime.ValidateIntegerKind(c.integerKindForType(typ), intVal); err != nil {
-			return keyBytes{}, err
+		if validateErr := runtime.ValidateIntegerKind(c.integerKindForType(typ), intVal); validateErr != nil {
+			return keyBytes{}, validateErr
 		}
 		return keyBytes{kind: runtime.VKDecimal, bytes: num.EncodeDecKey(nil, intVal.AsDec())}, nil
 	}

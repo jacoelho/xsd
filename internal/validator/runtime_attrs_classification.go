@@ -27,10 +27,10 @@ const (
 )
 
 type attrClassification struct {
+	duplicateErr error
 	classes      []attrClass
 	xsiType      []byte
 	xsiNil       []byte
-	duplicateErr error
 }
 
 func (s *Session) classifyAttrs(attrs []StartAttr, checkDuplicates bool) (attrClassification, error) {
@@ -84,7 +84,7 @@ func (s *Session) classifyAttrs(attrs []StartAttr, checkDuplicates bool) (attrCl
 					slot = (slot + 1) & int(mask)
 				}
 			} else {
-				for j := 0; j < i; j++ {
+				for j := range i {
 					if s.attrNamesEqual(&attrs[j], &attrs[i]) {
 						if out.duplicateErr == nil {
 							out.duplicateErr = newValidationError(xsderrors.ErrXMLParse, "duplicate attribute")
@@ -162,4 +162,3 @@ func (s *Session) xsiAttrRole(attr *StartAttr) xsiAttrRole {
 		return xsiAttrNone
 	}
 }
-

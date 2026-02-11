@@ -39,30 +39,6 @@ func (s *Session) ensureAttrNameStable(attr *StartAttr) {
 	attr.NameCached = true
 }
 
-func (s *Session) isXsiAttribute(attr *StartAttr) bool {
-	return s.xsiAttrRole(attr) != xsiAttrNone
-}
-
-func (s *Session) isUnknownXsiAttribute(attr *StartAttr) bool {
-	class, _ := s.classifyAttr(attr)
-	return class == attrClassXsiUnknown
-}
-
-func isXsiLocalName(local []byte) bool {
-	switch {
-	case bytes.Equal(local, xsiLocalType):
-		return true
-	case bytes.Equal(local, xsiLocalNil):
-		return true
-	case bytes.Equal(local, xsiLocalSchemaLocation):
-		return true
-	case bytes.Equal(local, xsiLocalNoNamespaceSchemaLocation):
-		return true
-	default:
-		return false
-	}
-}
-
 func (s *Session) isXsiNamespaceAttr(attr *StartAttr) bool {
 	if attr.NS != 0 {
 		return attr.NS == s.rt.PredefNS.Xsi

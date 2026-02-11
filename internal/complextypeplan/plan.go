@@ -14,10 +14,10 @@ type ComputeFuncs struct {
 }
 
 type Entry struct {
-	Attributes      []*model.AttributeDecl
-	Wildcard        *model.AnyAttribute
 	ContentParticle model.Particle
 	SimpleTextType  model.Type
+	Wildcard        *model.AnyAttribute
+	Attributes      []*model.AttributeDecl
 }
 
 // Plan stores precomputed complex-type artifacts for reuse across compile/build phases.

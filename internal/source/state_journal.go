@@ -11,11 +11,10 @@ const (
 )
 
 type stateJournalOp struct {
-	kind stateJournalOpKind
-
-	directiveKind parser.DirectiveKind
 	sourceKey     loadKey
 	targetKey     loadKey
+	kind          stateJournalOpKind
+	directiveKind parser.DirectiveKind
 }
 
 type stateJournal struct {

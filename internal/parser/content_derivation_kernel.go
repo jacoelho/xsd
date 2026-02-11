@@ -11,9 +11,9 @@ type derivationRestrictionParser func(*schemaxml.Document, schemaxml.NodeID, *Sc
 type derivationExtensionParser func(*schemaxml.Document, schemaxml.NodeID, *Schema) (*model.Extension, model.QName, error)
 
 type parsedDerivationContent struct {
-	base        model.QName
 	restriction *model.Restriction
 	extension   *model.Extension
+	base        model.QName
 }
 
 func parseDerivationContent(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, context string, parseRestriction derivationRestrictionParser, parseExtension derivationExtensionParser) (parsedDerivationContent, error) {
@@ -28,7 +28,7 @@ func parseDerivationContent(doc *schemaxml.Document, elem schemaxml.NodeID, sche
 
 		switch doc.LocalName(child) {
 		case "annotation":
-			handled, err := handleSingleLeadingAnnotation(
+			_, err := handleSingleLeadingAnnotation(
 				"annotation",
 				&seenAnnotation,
 				seenDerivation,
@@ -38,9 +38,7 @@ func parseDerivationContent(doc *schemaxml.Document, elem schemaxml.NodeID, sche
 			if err != nil {
 				return parsed, err
 			}
-			if handled {
-				continue
-			}
+			continue
 		case "restriction":
 			if err := validateAnnotationOrder(doc, child); err != nil {
 				return parsed, err

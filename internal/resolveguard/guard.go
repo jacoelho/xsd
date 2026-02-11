@@ -33,7 +33,7 @@ func (g *Pointer[K]) state(key K) pointerState {
 }
 
 // Resolve runs fn inside guarded pointer scope.
-func (g *Pointer[K]) Resolve(key K, onResolving func() error, fn func() error) error {
+func (g *Pointer[K]) Resolve(key K, onResolving, fn func() error) error {
 	switch g.state(key) {
 	case pointerResolved:
 		return nil

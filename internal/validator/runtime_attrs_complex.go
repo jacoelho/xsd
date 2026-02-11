@@ -27,7 +27,7 @@ func (s *Session) validateComplexAttrsClassified(ct *runtime.ComplexType, presen
 	seenID := false
 
 	for i, attr := range attrs {
-		class := attrClassOther
+		var class attrClass
 		if i < len(classes) {
 			class = classes[i]
 		} else {

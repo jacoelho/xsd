@@ -43,9 +43,9 @@ func TestWalkMissingPolicy(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected missing attributeGroup error")
 	}
-	var missing ErrMissing
+	var missing AttrGroupMissingError
 	if !errors.As(err, &missing) {
-		t.Fatalf("expected ErrMissing, got %T", err)
+		t.Fatalf("expected AttrGroupMissingError, got %T", err)
 	}
 	if missing.QName != ref {
 		t.Fatalf("missing QName = %s, want %s", missing.QName, ref)
@@ -66,9 +66,9 @@ func TestWalkCyclePolicyError(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected cycle error")
 	}
-	var cycle ErrCycle
+	var cycle AttrGroupCycleError
 	if !errors.As(err, &cycle) {
-		t.Fatalf("expected ErrCycle, got %T", err)
+		t.Fatalf("expected AttrGroupCycleError, got %T", err)
 	}
 	if cycle.QName != a {
 		t.Fatalf("cycle QName = %s, want %s", cycle.QName, a)

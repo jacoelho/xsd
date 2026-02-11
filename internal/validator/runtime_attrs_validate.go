@@ -65,7 +65,7 @@ func (s *Session) validateSimpleTypeAttrs(attrs []StartAttr, storeAttrs bool) (A
 
 func (s *Session) validateSimpleTypeAttrsClassified(attrs []StartAttr, classes []attrClass, storeAttrs bool) (AttrResult, error) {
 	for i, attr := range attrs {
-		class := attrClassOther
+		var class attrClass
 		if i < len(classes) {
 			class = classes[i]
 		} else {
@@ -107,4 +107,3 @@ func (s *Session) prepareAttrPresent(size int) []bool {
 	s.attrPresent = present
 	return present
 }
-

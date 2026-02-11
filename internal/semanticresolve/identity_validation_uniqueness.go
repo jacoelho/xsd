@@ -7,13 +7,6 @@ import (
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
-// validateIdentityConstraintUniqueness validates that identity constraint names are unique within the target namespace.
-// Per XSD spec 3.11.2: "Constraint definition identities must be unique within an XML Schema"
-// Constraints are identified by (name, target namespace).
-func validateIdentityConstraintUniqueness(sch *parser.Schema) []error {
-	return validateIdentityConstraintUniquenessWithConstraints(sch, collectAllIdentityConstraints(sch))
-}
-
 func validateIdentityConstraintUniquenessWithConstraints(_ *parser.Schema, allConstraints []*model.IdentityConstraint) []error {
 	var errs []error
 

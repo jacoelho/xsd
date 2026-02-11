@@ -8,10 +8,6 @@ import (
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
-func validateEnumerationFacetValues(sch *parser.Schema) []error {
-	return validateEnumerationFacetValuesWithIndex(sch, buildIterationIndex(sch))
-}
-
 func validateEnumerationFacetValuesWithIndex(sch *parser.Schema, index *iterationIndex) []error {
 	var errs []error
 	if index == nil {
@@ -50,10 +46,6 @@ func validateEnumerationFacetValuesWithIndex(sch *parser.Schema, index *iteratio
 	}
 
 	return errs
-}
-
-func validateInlineTypeReferences(sch *parser.Schema) []error {
-	return validateInlineTypeReferencesWithIndex(sch, buildIterationIndex(sch))
 }
 
 func validateInlineTypeReferencesWithIndex(sch *parser.Schema, index *iterationIndex) []error {

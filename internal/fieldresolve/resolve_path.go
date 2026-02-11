@@ -89,11 +89,6 @@ func findElementDeclInContentDescendant(schema *parser.Schema, content model.Con
 	return findElementDeclInContentWithMode(schema, content, test, elementPathSearchDescendant, visited)
 }
 
-// findElementDeclInParticleDescendant searches for an element declaration at any depth in a particle tree.
-func findElementDeclInParticleDescendant(schema *parser.Schema, particle model.Particle, test xpath.NodeTest, visited map[*model.ComplexType]struct{}) (*model.ElementDecl, error) {
-	return findElementDeclInParticleWithMode(schema, particle, test, elementPathSearchDescendant, visited)
-}
-
 // findElementDecl finds an element declaration in an element's content model.
 func findElementDecl(schema *parser.Schema, elementDecl *model.ElementDecl, test xpath.NodeTest) (*model.ElementDecl, error) {
 	if isWildcardNodeTest(test) {
@@ -110,11 +105,6 @@ func findElementDecl(schema *parser.Schema, elementDecl *model.ElementDecl, test
 // findElementDeclInContent searches for an element declaration in a content model.
 func findElementDeclInContent(content model.Content, test xpath.NodeTest) (*model.ElementDecl, error) {
 	return findElementDeclInContentWithMode(nil, content, test, elementPathSearchDirect, nil)
-}
-
-// findElementDeclInParticle searches for an element declaration in a particle tree.
-func findElementDeclInParticle(particle model.Particle, test xpath.NodeTest) (*model.ElementDecl, error) {
-	return findElementDeclInParticleWithMode(nil, particle, test, elementPathSearchDirect, nil)
 }
 
 type elementPathSearchMode uint8
@@ -161,7 +151,7 @@ func findElementDeclInContentWithMode(schema *parser.Schema, content model.Conte
 			if c.Extension != nil && c.Extension.Particle != nil {
 				if decl, err := findElementDeclInParticleWithMode(schema, c.Extension.Particle, test, mode, visited); err == nil {
 					return decl, nil
-				} else if resultErr == nil {
+				} else {
 					resultErr = err
 				}
 			}

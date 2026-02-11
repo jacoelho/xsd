@@ -26,19 +26,19 @@ type Options struct {
 	Cycles  CyclePolicy
 }
 
-type ErrMissing struct {
+type AttrGroupMissingError struct {
 	QName model.QName
 }
 
-func (e ErrMissing) Error() string {
+func (e AttrGroupMissingError) Error() string {
 	return fmt.Sprintf("attributeGroup %s not found", e.QName)
 }
 
-type ErrCycle struct {
+type AttrGroupCycleError struct {
 	QName model.QName
 }
 
-func (e ErrCycle) Error() string {
+func (e AttrGroupCycleError) Error() string {
 	return fmt.Sprintf("attributeGroup cycle detected at %s", e.QName)
 }
 
@@ -50,15 +50,15 @@ const (
 )
 
 type closureResult struct {
-	order []model.QName
 	err   error
+	order []model.QName
 }
 
 // Context memoizes attribute-group closure traversal for repeated passes.
 type Context struct {
 	schema *parser.Schema
-	opts   Options
 	cache  map[model.QName]closureResult
+	opts   Options
 }
 
 // NewContext creates a traversal context that can be reused across passes.
@@ -128,7 +128,7 @@ func (c *Context) walkClosure(ref model.QName, state map[model.QName]walkState) 
 		return nil, nil
 	case walkStateVisiting:
 		if c.opts.Cycles == CycleError {
-			return nil, ErrCycle{QName: ref}
+			return nil, AttrGroupCycleError{QName: ref}
 		}
 		return nil, nil
 	}
@@ -140,7 +140,7 @@ func (c *Context) walkClosure(ref model.QName, state map[model.QName]walkState) 
 	group, ok := c.schema.AttributeGroups[ref]
 	if !ok || group == nil {
 		if c.opts.Missing == MissingError {
-			return nil, ErrMissing{QName: ref}
+			return nil, AttrGroupMissingError{QName: ref}
 		}
 		return nil, nil
 	}

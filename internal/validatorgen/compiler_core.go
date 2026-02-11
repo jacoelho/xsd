@@ -16,12 +16,12 @@ type compiledValidators struct {
 	TypeValidators     map[schema.TypeID]runtime.ValidatorID
 	ValidatorByType    map[model.Type]runtime.ValidatorID
 	SimpleContentTypes map[*model.ComplexType]model.Type
+	ComplexTypes       *complextypeplan.Plan
 	Validators         runtime.ValidatorsBundle
 	Enums              runtime.EnumTable
 	Facets             []runtime.FacetInstr
 	Patterns           []runtime.Pattern
 	Values             runtime.ValueBlob
-	ComplexTypes       *complextypeplan.Plan
 }
 
 // ValidatorForType returns the validator ID for a type when available.

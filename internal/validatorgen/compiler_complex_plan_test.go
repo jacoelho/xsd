@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 )
 
 func TestCompileBuildsComplexTypePlan(t *testing.T) {
@@ -95,7 +94,7 @@ func TestCompileBuildsComplexTypePlan_AllRegistryComplexTypesPresent(t *testing.
 			continue
 		}
 		if _, ok := compiled.ComplexTypes.Entry(ct); !ok {
-			t.Fatalf("complex plan missing type entry %s (id=%d)", entry.QName, schema.TypeID(entry.ID))
+			t.Fatalf("complex plan missing type entry %s (id=%d)", entry.QName, entry.ID)
 		}
 	}
 }

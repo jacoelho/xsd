@@ -18,7 +18,7 @@ func validateNoCyclicAttributeGroups(sch *parser.Schema) error {
 
 	for _, qname := range traversal.SortedQNames(sch.AttributeGroups) {
 		if err := ctx.Walk([]model.QName{qname}, nil); err != nil {
-			var cycleErr attrgroupwalk.ErrCycle
+			var cycleErr attrgroupwalk.AttrGroupCycleError
 			if errors.As(err, &cycleErr) {
 				return CycleError[model.QName]{Key: cycleErr.QName}
 			}

@@ -1,6 +1,8 @@
 package runtimeassemble
 
 import (
+	"maps"
+
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/runtimeids"
@@ -26,20 +28,12 @@ func (b *schemaBuilder) initIDs() error {
 	b.rt.Elements = make([]runtime.Element, len(b.registry.ElementOrder)+1)
 	b.rt.Attributes = make([]runtime.Attribute, len(b.registry.AttributeOrder)+1)
 
-	for name, id := range plan.BuiltinTypeIDs {
-		b.builtinIDs[name] = id
-	}
-	for id, runtimeID := range plan.TypeIDs {
-		b.typeIDs[id] = runtimeID
-	}
+	maps.Copy(b.builtinIDs, plan.BuiltinTypeIDs)
+	maps.Copy(b.typeIDs, plan.TypeIDs)
 
-	for id, runtimeID := range plan.ElementIDs {
-		b.elemIDs[id] = runtimeID
-	}
+	maps.Copy(b.elemIDs, plan.ElementIDs)
 
-	for id, runtimeID := range plan.AttributeIDs {
-		b.attrIDs[id] = runtimeID
-	}
+	maps.Copy(b.attrIDs, plan.AttributeIDs)
 
 	b.rt.GlobalTypes = make([]runtime.TypeID, b.rt.Symbols.Count()+1)
 	b.rt.GlobalElements = make([]runtime.ElemID, b.rt.Symbols.Count()+1)

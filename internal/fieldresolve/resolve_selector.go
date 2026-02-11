@@ -52,13 +52,13 @@ func resolveSelectorElementDecls(schema *parser.Schema, constraintElement *model
 		if branch.path.Attribute != nil {
 			return fmt.Errorf("selector xpath cannot select attributes: %s", selectorXPath)
 		}
-		decl, err := resolvePathElementDecl(schema, branch.selectorDecl, branch.path.Steps)
-		if err != nil {
-			if errors.Is(err, ErrXPathUnresolvable) {
+		decl, resolveErr := resolvePathElementDecl(schema, branch.selectorDecl, branch.path.Steps)
+		if resolveErr != nil {
+			if errors.Is(resolveErr, ErrXPathUnresolvable) {
 				unresolved = true
 				return nil
 			}
-			return wrapXPathBranchError("selector", selectorXPath, branch, err)
+			return wrapXPathBranchError("selector", selectorXPath, branch, resolveErr)
 		}
 		decls = append(decls, decl)
 		return nil

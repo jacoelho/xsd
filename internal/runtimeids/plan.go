@@ -11,11 +11,11 @@ import (
 
 // Plan stores deterministic runtime ID assignments derived from a schema registry.
 type Plan struct {
-	BuiltinTypeNames []model.TypeName
 	BuiltinTypeIDs   map[model.TypeName]runtime.TypeID
 	TypeIDs          map[schema.TypeID]runtime.TypeID
 	ElementIDs       map[schema.ElemID]runtime.ElemID
 	AttributeIDs     map[schema.AttrID]runtime.AttrID
+	BuiltinTypeNames []model.TypeName
 }
 
 // Build constructs a deterministic runtime ID assignment plan.

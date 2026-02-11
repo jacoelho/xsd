@@ -33,10 +33,10 @@ func (s *Session) stepDFA(model *runtime.DFAModel, state *ModelState, sym runtim
 		if !s.rt.WildcardAccepts(edge.Rule, nsBytes, nsID) {
 			continue
 		}
-		if err := acc.add(StartMatch{Kind: MatchWildcard, Wildcard: edge.Rule}, func() error {
+		if addErr := acc.add(StartMatch{Kind: MatchWildcard, Wildcard: edge.Rule}, func() error {
 			return fmt.Errorf("ambiguous wildcard match")
-		}); err != nil {
-			return StartMatch{}, err
+		}); addErr != nil {
+			return StartMatch{}, addErr
 		}
 		next = edge.Next
 	}

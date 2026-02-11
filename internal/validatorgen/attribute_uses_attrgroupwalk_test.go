@@ -69,9 +69,9 @@ func TestCollectAttributeUsesMissingNestedAttributeGroup(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected missing attributeGroup error")
 	}
-	var missingErr attrgroupwalk.ErrMissing
+	var missingErr attrgroupwalk.AttrGroupMissingError
 	if !errors.As(err, &missingErr) {
-		t.Fatalf("expected ErrMissing, got %T (%v)", err, err)
+		t.Fatalf("expected AttrGroupMissingError, got %T (%v)", err, err)
 	}
 	if missingErr.QName != missingGroup {
 		t.Fatalf("missing QName = %s, want %s", missingErr.QName, missingGroup)

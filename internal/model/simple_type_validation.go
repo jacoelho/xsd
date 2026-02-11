@@ -28,11 +28,6 @@ func (s *SimpleType) validateNormalizedWithContext(normalized string, visited ma
 	return validateSimpleTypeNormalizedWithOptions(s, normalized, context, visited, SimpleTypeValidationOptions{})
 }
 
-func collectSimpleTypeFacets(st *SimpleType, visited map[*SimpleType]bool) ([]Facet, error) {
-	_ = visited
-	return CollectSimpleTypeFacetsWithResolver(st, nil, nil)
-}
-
 func needsBuiltinListMinLength(st *SimpleType) bool {
 	if st == nil {
 		return false

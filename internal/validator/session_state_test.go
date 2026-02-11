@@ -124,7 +124,7 @@ func TestSessionResetShrinksOversizedBuffers(t *testing.T) {
 
 func TestSessionResetDropsOversizedStacks(t *testing.T) {
 	s := &Session{}
-	for i := 0; i < maxSessionEntries+1; i++ {
+	for range maxSessionEntries + 1 {
 		s.nsStack.Push(nsFrame{})
 		s.icState.frames.Push(rtIdentityFrame{})
 		s.icState.scopes.Push(rtIdentityScope{})

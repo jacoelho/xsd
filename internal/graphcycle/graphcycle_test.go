@@ -1,6 +1,9 @@
 package graphcycle
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestDetectCycle(t *testing.T) {
 	graph := map[int][]int{
@@ -22,7 +25,8 @@ func TestDetectCycle(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Detect() expected cycle error")
 	}
-	if _, ok := err.(CycleError[int]); !ok {
+	var cycleError CycleError[int]
+	if !errors.As(err, &cycleError) {
 		t.Fatalf("Detect() error = %T, want CycleError[int]", err)
 	}
 }
@@ -45,7 +49,8 @@ func TestDetectMissingPolicy(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Detect() expected missing error")
 	}
-	missing, ok := err.(MissingError[int])
+	var missing MissingError[int]
+	ok := errors.As(err, &missing)
 	if !ok {
 		t.Fatalf("Detect() error = %T, want MissingError[int]", err)
 	}

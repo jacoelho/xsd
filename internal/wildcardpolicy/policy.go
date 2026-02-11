@@ -17,9 +17,9 @@ const (
 )
 
 type NamespaceConstraint struct {
-	Kind     NamespaceConstraintKind
-	List     []string
 	TargetNS string
+	List     []string
+	Kind     NamespaceConstraintKind
 }
 
 // AllowsNamespace reports whether the namespace is permitted by a model wildcard constraint.

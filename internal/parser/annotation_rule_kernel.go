@@ -2,7 +2,7 @@ package parser
 
 import "errors"
 
-func handleSingleLeadingAnnotation(name string, seenAnnotation *bool, seenNonAnnotation bool, duplicateMessage string, orderingMessage string) (bool, error) {
+func handleSingleLeadingAnnotation(name string, seenAnnotation *bool, seenNonAnnotation bool, duplicateMessage, orderingMessage string) (bool, error) {
 	if name != "annotation" {
 		return false, nil
 	}

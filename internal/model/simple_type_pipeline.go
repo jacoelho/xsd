@@ -9,21 +9,17 @@ import (
 
 // SimpleTypeValidationOptions configures shared simple-type validation behavior.
 type SimpleTypeValidationOptions struct {
-	ResolveListItem     func(*SimpleType) Type
-	ResolveUnionMembers func(*SimpleType) []Type
-
+	CycleError            error
+	ResolveListItem       func(*SimpleType) Type
+	ResolveUnionMembers   func(*SimpleType) []Type
 	ResolveFacetType      FacetTypeResolver
 	ConvertDeferredFacets DeferredFacetConverter
 	ValidateFacets        func(normalized string, st *SimpleType, context map[string]string) error
-
-	RequireQNameContext bool
-	CycleError          error
-
-	UnionNoMatch func(st *SimpleType, normalized string, firstErr error, sawCycle bool) error
-	ListItemErr  func(st *SimpleType, err error, isCycle bool) error
-
-	ValidateType    func(typ Type, scope SimpleTypeValidationScope) error
-	ValidationScope SimpleTypeValidationScope
+	UnionNoMatch          func(st *SimpleType, normalized string, firstErr error, sawCycle bool) error
+	ListItemErr           func(st *SimpleType, err error, isCycle bool) error
+	ValidateType          func(typ Type, scope SimpleTypeValidationScope) error
+	RequireQNameContext   bool
+	ValidationScope       SimpleTypeValidationScope
 }
 
 // SimpleTypeValidationScope identifies how type validation reached a nested type.

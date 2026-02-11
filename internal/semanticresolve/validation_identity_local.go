@@ -9,10 +9,6 @@ import (
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
-func validateLocalIdentityConstraintKeyrefs(sch *parser.Schema, allConstraints []*model.IdentityConstraint) []error {
-	return validateLocalIdentityConstraintKeyrefsWithIndex(sch, buildIterationIndex(sch), allConstraints)
-}
-
 func validateLocalIdentityConstraintKeyrefsWithIndex(sch *parser.Schema, index *iterationIndex, allConstraints []*model.IdentityConstraint) []error {
 	var errs []error
 

@@ -35,10 +35,10 @@ func (e MissingError[K]) Error() string {
 
 // Config configures generic cycle detection traversal.
 type Config[K comparable] struct {
-	Starts  []K
-	Missing MissingPolicy
 	Exists  func(K) bool
 	Next    func(K) ([]K, error)
+	Starts  []K
+	Missing MissingPolicy
 }
 
 // Detect walks directed edges from Starts and reports first cycle or traversal error.

@@ -5,12 +5,6 @@ import (
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
-// collectAllIdentityConstraints collects all identity constraints from the schema
-// including constraints on local elements in content models.
-func collectAllIdentityConstraints(sch *parser.Schema) []*model.IdentityConstraint {
-	return collectAllIdentityConstraintsWithIndex(sch, buildIterationIndex(sch))
-}
-
 func collectAllIdentityConstraintsWithIndex(sch *parser.Schema, index *iterationIndex) []*model.IdentityConstraint {
 	var all []*model.IdentityConstraint
 	state := newIdentityTraversalState()

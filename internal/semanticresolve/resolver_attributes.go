@@ -46,7 +46,7 @@ func (r *Resolver) resolveAttributeGroupClosure(roots []model.QName) error {
 	if err == nil {
 		return nil
 	}
-	var cycleErr attrgroupwalk.ErrCycle
+	var cycleErr attrgroupwalk.AttrGroupCycleError
 	if errors.As(err, &cycleErr) {
 		return CycleError[model.QName]{Key: cycleErr.QName}
 	}

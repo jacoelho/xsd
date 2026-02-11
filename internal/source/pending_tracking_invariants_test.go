@@ -32,7 +32,7 @@ func TestPendingTrackingInvariantAfterDeferredFailureRetry(t *testing.T) {
 	}
 
 	loader := NewLoader(Config{FS: fs})
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		if _, err := loader.Load("a.xsd"); err == nil {
 			t.Fatalf("expected load failure for missing import on iteration %d", i+1)
 		}

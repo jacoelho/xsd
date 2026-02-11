@@ -44,10 +44,6 @@ func ValidateReferences(sch *parser.Schema) []error {
 	return errs
 }
 
-func collectElementReferencesInSchema(sch *parser.Schema) []*model.ElementDecl {
-	return collectElementReferencesInSchemaWithIndex(sch, buildIterationIndex(sch))
-}
-
 func collectElementReferencesInSchemaWithIndex(sch *parser.Schema, index *iterationIndex) []*model.ElementDecl {
 	var elementRefsInContent []*model.ElementDecl
 
