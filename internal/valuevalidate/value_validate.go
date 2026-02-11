@@ -86,56 +86,89 @@ func validateValue(
 	if typ == nil {
 		return nil
 	}
-	if settings.errorOnPlaceholder {
-		if st, ok := typ.(*model.SimpleType); ok && model.IsPlaceholderSimpleType(st) {
-			return fmt.Errorf("type %s not resolved", st.QName)
-		}
+	if err := validateTypePolicies(schema, typ, settings.errorOnPlaceholder, settings.idPolicy); err != nil {
+		return err
 	}
-	if visited[typ] {
-		return ErrCircularReference
-	}
-	visited[typ] = true
-	defer delete(visited, typ)
-
 	if ct, ok := typ.(*model.ComplexType); ok {
+		if visited[typ] {
+			return ErrCircularReference
+		}
+		visited[typ] = true
+		defer delete(visited, typ)
 		return validateComplexType(schema, value, ct, context, visited, settings)
 	}
 
-	normalized := model.NormalizeWhiteSpace(value, typ)
-	if facetvalue.IsQNameOrNotationType(typ) {
-		if settings.requireQNameContext && context == nil {
-			return fmt.Errorf("namespace context unavailable for QName/NOTATION value")
-		}
-		if err := facetengine.ValidateQNameContext(normalized, context); err != nil {
-			return err
-		}
-	}
-
 	if typ.IsBuiltin() {
-		return validateBuiltin(typ, normalized, settings.idPolicy)
+		normalized := model.NormalizeWhiteSpace(value, typ)
+		if facetvalue.IsQNameOrNotationType(typ) {
+			if settings.requireQNameContext && context == nil {
+				return fmt.Errorf("namespace context unavailable for QName/NOTATION value")
+			}
+			if err := facetengine.ValidateQNameContext(normalized, context); err != nil {
+				return err
+			}
+		}
+		return validateBuiltin(typ, normalized)
 	}
 
 	st, ok := typ.(*model.SimpleType)
 	if !ok {
 		return nil
 	}
-	if settings.idPolicy == IDPolicyDisallow && typeresolve.IsIDOnlyDerivedType(schema, st) {
-		return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", st.Name().Local)
+
+	validateTypeWithPolicy := func(current model.Type, scope model.SimpleTypeValidationScope) error {
+		idPolicy := settings.idPolicy
+		if settings.mode == modeDefaultFixed && scope == model.SimpleTypeValidationScopeUnionMember {
+			idPolicy = IDPolicyAllow
+		}
+		return validateTypePolicies(schema, current, settings.errorOnPlaceholder, idPolicy)
+	}
+	opts := model.SimpleTypeValidationOptions{
+		ResolveListItem: func(current *model.SimpleType) model.Type {
+			return typeresolve.ResolveListItemType(schema, current)
+		},
+		ResolveUnionMembers: func(current *model.SimpleType) []model.Type {
+			return typeresolve.ResolveUnionMemberTypes(schema, current)
+		},
+		ResolveFacetType: func(name model.QName) model.Type {
+			return typeresolve.ResolveSimpleTypeReferenceAllowMissing(schema, name)
+		},
+		ConvertDeferredFacets: settings.convert,
+		RequireQNameContext:   settings.requireQNameContext,
+		CycleError:            ErrCircularReference,
+		ValidateType:          validateTypeWithPolicy,
+		ValidateFacets: func(normalized string, current *model.SimpleType, ctx map[string]string) error {
+			return facetengine.ValidateSimpleTypeFacets(schema, current, normalized, ctx, settings.convert)
+		},
 	}
 
-	switch st.Variety() {
-	case model.UnionVariety:
-		return validateUnion(schema, normalized, st, context, visited, settings)
-	case model.ListVariety:
-		return validateList(schema, normalized, st, context, visited, settings)
-	default:
-		if !facetvalue.IsQNameOrNotationType(st) {
-			if err := st.Validate(normalized); err != nil {
-				return err
+	switch settings.mode {
+	case modeDefaultFixed:
+		opts.UnionNoMatch = func(current *model.SimpleType, normalized string, firstErr error, sawCycle bool) error {
+			if firstErr != nil {
+				return firstErr
 			}
+			if sawCycle {
+				return fmt.Errorf("cannot validate default/fixed value for circular union type '%s'", current.Name().Local)
+			}
+			return fmt.Errorf("value '%s' does not match any member type of union '%s'", normalized, current.Name().Local)
 		}
-		return facetengine.ValidateSimpleTypeFacets(schema, st, normalized, context, settings.convert)
+		opts.ListItemErr = func(current *model.SimpleType, err error, isCycle bool) error {
+			if isCycle {
+				return fmt.Errorf("cannot validate default/fixed value for circular list item type '%s'", current.Name().Local)
+			}
+			return err
+		}
+	default:
+		opts.UnionNoMatch = func(_ *model.SimpleType, normalized string, firstErr error, _ bool) error {
+			if firstErr != nil {
+				return firstErr
+			}
+			return fmt.Errorf("value %q does not match any member type of union", normalized)
+		}
 	}
+
+	return model.ValidateSimpleTypeWithOptions(st, value, context, opts)
 }
 
 func validateComplexType(
@@ -173,82 +206,38 @@ func validateComplexType(
 	return validateValue(schema, value, baseType, context, visited, settings)
 }
 
-func validateBuiltin(typ model.Type, normalizedValue string, policy IDPolicy) error {
+func validateBuiltin(typ model.Type, normalizedValue string) error {
 	bt := builtins.GetNS(typ.Name().Namespace, typ.Name().Local)
 	if bt == nil {
 		return nil
 	}
-	if policy == IDPolicyDisallow && typeresolve.IsIDOnlyType(typ.Name()) {
-		return fmt.Errorf("type '%s' cannot have default or fixed values", typ.Name().Local)
-	}
 	return bt.Validate(normalizedValue)
 }
 
-func validateUnion(
-	schema *parser.Schema,
-	normalizedValue string,
-	st *model.SimpleType,
-	context map[string]string,
-	visited map[model.Type]bool,
-	settings validationSettings,
-) error {
-	memberTypes := typeresolve.ResolveUnionMemberTypes(schema, st)
-	if len(memberTypes) == 0 {
-		return fmt.Errorf("union has no member types")
+func validateTypePolicies(schema *parser.Schema, typ model.Type, errorOnPlaceholder bool, policy IDPolicy) error {
+	if typ == nil {
+		return nil
 	}
-
-	var (
-		firstErr error
-		sawCycle bool
-	)
-	memberSettings := settings
-	if settings.mode == modeDefaultFixed {
-		memberSettings.idPolicy = IDPolicyAllow
-	}
-	for _, member := range memberTypes {
-		if err := validateValue(schema, normalizedValue, member, context, visited, memberSettings); err == nil {
-			return facetengine.ValidateSimpleTypeFacets(schema, st, normalizedValue, context, settings.convert)
-		} else if settings.mode == modeDefaultFixed {
-			if errors.Is(err, ErrCircularReference) {
-				sawCycle = true
-			} else if firstErr == nil {
-				firstErr = err
-			}
+	if errorOnPlaceholder {
+		if st, ok := typ.(*model.SimpleType); ok && model.IsPlaceholderSimpleType(st) {
+			return fmt.Errorf("type %s not resolved", st.QName)
 		}
 	}
-
-	if settings.mode == modeDefaultFixed {
-		if firstErr != nil {
-			return firstErr
-		}
-		if sawCycle {
-			return fmt.Errorf("cannot validate default/fixed value for circular union type '%s'", st.Name().Local)
-		}
-		return fmt.Errorf("value '%s' does not match any member type of union '%s'", normalizedValue, st.Name().Local)
+	if policy != IDPolicyDisallow {
+		return nil
 	}
-
-	return fmt.Errorf("value %q does not match any member type of union", normalizedValue)
-}
-
-func validateList(
-	schema *parser.Schema,
-	normalizedValue string,
-	st *model.SimpleType,
-	context map[string]string,
-	visited map[model.Type]bool,
-	settings validationSettings,
-) error {
-	itemType := typeresolve.ResolveListItemType(schema, st)
-	if itemType == nil {
-		return fmt.Errorf("list item type is missing")
-	}
-	for item := range model.FieldsXMLWhitespaceSeq(normalizedValue) {
-		if err := validateValue(schema, item, itemType, context, visited, settings); err != nil {
-			if settings.mode == modeDefaultFixed && errors.Is(err, ErrCircularReference) {
-				return fmt.Errorf("cannot validate default/fixed value for circular list item type '%s'", st.Name().Local)
-			}
-			return err
+	if typ.IsBuiltin() {
+		if typeresolve.IsIDOnlyType(typ.Name()) {
+			return fmt.Errorf("type '%s' cannot have default or fixed values", typ.Name().Local)
 		}
+		return nil
 	}
-	return facetengine.ValidateSimpleTypeFacets(schema, st, normalizedValue, context, settings.convert)
+	st, ok := typ.(*model.SimpleType)
+	if !ok {
+		return nil
+	}
+	if typeresolve.IsIDOnlyDerivedType(schema, st) {
+		return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", st.Name().Local)
+	}
+	return nil
 }

@@ -29,9 +29,13 @@ func (c *compiler) compileAttributeUses(registry *schema.Registry) error {
 		if !ok || ct == nil {
 			continue
 		}
-		attrs, _, err := CollectAttributeUses(c.schema, ct)
-		if err != nil {
-			return err
+		attrs, _, cached := c.complexTypes.AttributeUses(ct)
+		if !cached {
+			var err error
+			attrs, _, err = CollectAttributeUses(c.schema, ct)
+			if err != nil {
+				return err
+			}
 		}
 		for _, decl := range attrs {
 			if decl == nil {

@@ -108,9 +108,7 @@ func ParseWithImportsOptionsWithPool(r io.Reader, pool *schemaxml.DocumentPool, 
 	}
 	importedNamespaces := make(map[model.NamespaceURI]bool)
 	dirState := directiveState{}
-	allowBOM := true
-	rootSeen := false
-	rootClosed := false
+	docState := xmllex.NewDocumentState()
 
 	for {
 		ev, err := reader.Next()
@@ -123,12 +121,12 @@ func ParseWithImportsOptionsWithPool(r io.Reader, pool *schemaxml.DocumentPool, 
 
 		switch ev.Kind {
 		case xmlstream.EventStartElement:
-			if rootClosed {
+			if !docState.StartElementAllowed() {
 				return nil, newParseError("parse XML", fmt.Errorf("unexpected element %s after document end", ev.Name.Local))
 			}
-			allowBOM = false
+			rootSeen := docState.RootSeen()
+			docState.OnStartElement()
 			if !rootSeen {
-				rootSeen = true
 				if ev.Name.Local != "schema" || ev.Name.Namespace != schemaxml.XSDNamespace {
 					return nil, fmt.Errorf("root element must be xs:schema, got {%s}%s", ev.Name.Namespace, ev.Name.Local)
 				}
@@ -172,25 +170,21 @@ func ParseWithImportsOptionsWithPool(r io.Reader, pool *schemaxml.DocumentPool, 
 			}
 
 		case xmlstream.EventEndElement:
-			if rootSeen && !rootClosed {
-				rootClosed = true
-			}
-			allowBOM = false
+			docState.OnEndElement(docState.RootSeen() && !docState.RootClosed())
 		case xmlstream.EventCharData:
-			if !rootSeen || rootClosed {
-				if !xmllex.IsIgnorableOutsideRoot(ev.Text, allowBOM) {
+			if !docState.RootSeen() || docState.RootClosed() {
+				if !docState.ValidateOutsideCharData(ev.Text) {
 					return nil, newParseError("parse XML", fmt.Errorf("unexpected character data outside root element"))
 				}
-				allowBOM = false
 			}
 		case xmlstream.EventComment, xmlstream.EventPI, xmlstream.EventDirective:
-			if !rootSeen || rootClosed {
-				allowBOM = false
+			if !docState.RootSeen() || docState.RootClosed() {
+				docState.OnOutsideMarkup()
 			}
 		}
 	}
 
-	if !rootSeen {
+	if !docState.RootSeen() {
 		return nil, fmt.Errorf("empty document")
 	}
 

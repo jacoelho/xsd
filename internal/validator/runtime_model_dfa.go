@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -28,21 +27,22 @@ func (s *Session) stepDFA(model *runtime.DFAModel, state *ModelState, sym runtim
 	if err != nil {
 		return StartMatch{}, err
 	}
-	var matched StartMatch
+	var acc modelMatchAccumulator
 	var next uint32
-	found := false
 	for _, edge := range wild {
-		if s.rt.WildcardAccepts(edge.Rule, nsBytes, nsID) {
-			if found {
-				return StartMatch{}, fmt.Errorf("ambiguous wildcard match")
-			}
-			found = true
-			next = edge.Next
-			matched = StartMatch{Kind: MatchWildcard, Wildcard: edge.Rule}
+		if !s.rt.WildcardAccepts(edge.Rule, nsBytes, nsID) {
+			continue
 		}
+		if addErr := acc.add(StartMatch{Kind: MatchWildcard, Wildcard: edge.Rule}, func() error {
+			return fmt.Errorf("ambiguous wildcard match")
+		}); addErr != nil {
+			return StartMatch{}, addErr
+		}
+		next = edge.Next
 	}
-	if !found {
-		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
+	matched, err := acc.result()
+	if err != nil {
+		return StartMatch{}, err
 	}
 	state.DFA = next
 	return matched, nil

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/bits"
 
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -47,12 +46,11 @@ func (s *Session) stepNFA(model *runtime.NFAModel, state *ModelState, sym runtim
 	}
 
 	if bitsetEmpty(reachable) {
-		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
+		return StartMatch{}, noContentModelMatchError()
 	}
 
-	bitsetZero(state.NFA)
-	matchCount := 0
-	var match StartMatch
+	var acc modelMatchAccumulator
+	matchPos := -1
 	var matchErr error
 	forEachBit(reachable, len(model.Matchers), func(pos int) {
 		if matchErr != nil {
@@ -64,24 +62,20 @@ func (s *Session) stepNFA(model *runtime.NFAModel, state *ModelState, sym runtim
 			if sym == 0 || m.Sym != sym {
 				return
 			}
-			matchCount++
-			if matchCount > 1 {
-				matchErr = newValidationError(xsderrors.ErrContentModelInvalid, "ambiguous content model match")
+			if err := acc.add(StartMatch{Kind: MatchElem, Elem: m.Elem}, ambiguousContentModelMatchError); err != nil {
+				matchErr = err
 				return
 			}
-			match = StartMatch{Kind: MatchElem, Elem: m.Elem}
-			setBit(state.NFA, pos)
+			matchPos = pos
 		case runtime.PosWildcard:
 			if !s.rt.WildcardAccepts(m.Rule, nsBytes, nsID) {
 				return
 			}
-			matchCount++
-			if matchCount > 1 {
-				matchErr = newValidationError(xsderrors.ErrContentModelInvalid, "ambiguous content model match")
+			if err := acc.add(StartMatch{Kind: MatchWildcard, Wildcard: m.Rule}, ambiguousContentModelMatchError); err != nil {
+				matchErr = err
 				return
 			}
-			match = StartMatch{Kind: MatchWildcard, Wildcard: m.Rule}
-			setBit(state.NFA, pos)
+			matchPos = pos
 		default:
 			matchErr = fmt.Errorf("unknown matcher kind %d", m.Kind)
 			return
@@ -90,9 +84,12 @@ func (s *Session) stepNFA(model *runtime.NFAModel, state *ModelState, sym runtim
 	if matchErr != nil {
 		return StartMatch{}, matchErr
 	}
-	if matchCount == 0 {
-		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
+	match, err := acc.result()
+	if err != nil {
+		return StartMatch{}, err
 	}
+	bitsetZero(state.NFA)
+	setBit(state.NFA, matchPos)
 	return match, nil
 }
 

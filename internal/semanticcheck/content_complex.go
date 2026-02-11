@@ -19,11 +19,13 @@ func validateComplexContentStructure(schema *parser.Schema, cc *model.ComplexCon
 			}
 		}
 		if cc.Extension.Particle != nil {
+			var baseParticle model.Particle
 			if baseCT, ok := baseType.(*model.ComplexType); ok {
 				if _, isSimpleContent := baseCT.Content().(*model.SimpleContent); isSimpleContent {
 					return fmt.Errorf("cannot extend simpleContent type '%s' with particles", cc.Extension.Base)
 				}
-				if baseParticle := typechain.EffectiveContentParticle(schema, baseCT); baseParticle != nil {
+				baseParticle = typechain.EffectiveContentParticle(schema, baseCT)
+				if baseParticle != nil {
 					if baseMG, ok := baseParticle.(*model.ModelGroup); ok && baseMG.Kind == model.AllGroup {
 						if !isEmptiableParticle(baseMG) {
 							return fmt.Errorf("cannot extend type with non-emptiable xs:all content model (XSD 1.0)")
@@ -49,7 +51,10 @@ func validateComplexContentStructure(schema *parser.Schema, cc *model.ComplexCon
 				baseIsEmptiable := false
 				if baseOK {
 					if baseCT, ok := baseType.(*model.ComplexType); ok {
-						if baseParticle := typechain.EffectiveContentParticle(schema, baseCT); baseParticle != nil {
+						if baseParticle == nil {
+							baseParticle = typechain.EffectiveContentParticle(schema, baseCT)
+						}
+						if baseParticle != nil {
 							baseIsEmptiable = isEmptiableParticle(baseParticle)
 						} else {
 							baseIsEmptiable = true
@@ -99,7 +104,7 @@ func validateComplexContentStructure(schema *parser.Schema, cc *model.ComplexCon
 		}
 		if baseCT, ok := baseType.(*model.ComplexType); ok {
 			restrictionAttrs := slices.Clone(cc.Restriction.Attributes)
-			restrictionAttrs = append(restrictionAttrs, collectAttributesFromGroups(schema, cc.Restriction.AttrGroups, nil)...)
+			restrictionAttrs = append(restrictionAttrs, collectAttributesFromGroups(schema, cc.Restriction.AttrGroups)...)
 			if err := validateRestrictionAttributes(schema, baseCT, restrictionAttrs, "complexContent restriction"); err != nil {
 				return err
 			}

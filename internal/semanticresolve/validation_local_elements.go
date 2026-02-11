@@ -8,8 +8,11 @@ import (
 	"github.com/jacoelho/xsd/internal/traversal"
 )
 
-func validateLocalElementValueConstraints(sch *parser.Schema) []error {
+func validateLocalElementValueConstraints(sch *parser.Schema, index *iterationIndex) []error {
 	var errs []error
+	if index == nil {
+		index = buildIterationIndex(sch)
+	}
 
 	seenLocal := make(map[*model.ElementDecl]bool)
 	validateLocals := func(ct *model.ComplexType) {
@@ -26,13 +29,13 @@ func validateLocalElementValueConstraints(sch *parser.Schema) []error {
 			}
 		}
 	}
-	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
+	for _, qname := range index.elementQNames {
 		decl := sch.ElementDecls[qname]
 		if ct, ok := decl.Type.(*model.ComplexType); ok {
 			validateLocals(ct)
 		}
 	}
-	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
+	for _, qname := range index.typeQNames {
 		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*model.ComplexType); ok {
 			validateLocals(ct)

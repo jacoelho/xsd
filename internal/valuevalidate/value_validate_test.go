@@ -50,6 +50,47 @@ func TestValidateDefaultOrFixedResolvedDisallowsDerivedID(t *testing.T) {
 	}
 }
 
+func TestValidateDefaultOrFixedResolvedRejectsListItemBuiltinID(t *testing.T) {
+	list, err := model.NewListSimpleType(model.QName{Namespace: "urn:test", Local: "IDs"}, "urn:test", &model.ListType{
+		ItemType: model.QName{Namespace: model.XSDNamespace, Local: "ID"},
+	}, nil)
+	if err != nil {
+		t.Fatalf("NewListSimpleType() error = %v", err)
+	}
+
+	err = valuevalidate.ValidateDefaultOrFixedResolved(nil, "abc", list, nil, valuevalidate.IDPolicyDisallow)
+	if err == nil || !strings.Contains(err.Error(), "cannot have default or fixed values") {
+		t.Fatalf("ValidateDefaultOrFixedResolved() error = %v, want ID policy error", err)
+	}
+}
+
+func TestValidateDefaultOrFixedResolvedRejectsPlaceholderUnionMember(t *testing.T) {
+	missing := model.NewPlaceholderSimpleType(model.QName{Namespace: "urn:test", Local: "MissingType"})
+	union := &model.SimpleType{
+		QName:       model.QName{Namespace: "urn:test", Local: "BrokenUnion"},
+		Union:       &model.UnionType{},
+		MemberTypes: []model.Type{missing},
+	}
+
+	err := valuevalidate.ValidateDefaultOrFixedResolved(nil, "abc", union, nil, valuevalidate.IDPolicyDisallow)
+	if err == nil || !strings.Contains(err.Error(), "not resolved") {
+		t.Fatalf("ValidateDefaultOrFixedResolved() error = %v, want unresolved type error", err)
+	}
+}
+
+func TestValidateWithFacetsAllowsPlaceholderUnionMember(t *testing.T) {
+	missing := model.NewPlaceholderSimpleType(model.QName{Namespace: "urn:test", Local: "MissingType"})
+	union := &model.SimpleType{
+		QName:       model.QName{Namespace: "urn:test", Local: "BrokenUnion"},
+		Union:       &model.UnionType{},
+		MemberTypes: []model.Type{missing},
+	}
+
+	if err := valuevalidate.ValidateWithFacets(nil, "abc", union, nil, nil); err != nil {
+		t.Fatalf("ValidateWithFacets() error = %v, want nil", err)
+	}
+}
+
 func TestValidateWithFacetsRequiresQNameContext(t *testing.T) {
 	qnameType := builtins.Get(builtins.TypeNameQName)
 	if qnameType == nil {
@@ -58,6 +99,20 @@ func TestValidateWithFacetsRequiresQNameContext(t *testing.T) {
 	err := valuevalidate.ValidateWithFacets(nil, "p:name", qnameType, nil, nil)
 	if err == nil {
 		t.Fatal("ValidateWithFacets() expected QName context error")
+	}
+}
+
+func TestValidateDefaultOrFixedResolvedRejectsDerivedQNameWithUnboundPrefix(t *testing.T) {
+	typ, err := model.NewAtomicSimpleType(model.QName{Namespace: "urn:test", Local: "QNameAlias"}, "urn:test", &model.Restriction{
+		Base: model.QName{Namespace: model.XSDNamespace, Local: "QName"},
+	})
+	if err != nil {
+		t.Fatalf("NewAtomicSimpleType() error = %v", err)
+	}
+
+	err = valuevalidate.ValidateDefaultOrFixedResolved(nil, "p:name", typ, nil, valuevalidate.IDPolicyDisallow)
+	if err == nil || !strings.Contains(err.Error(), "prefix p not found") {
+		t.Fatalf("ValidateDefaultOrFixedResolved() error = %v, want unbound prefix error", err)
 	}
 }
 

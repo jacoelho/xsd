@@ -58,6 +58,14 @@ func (c *compiler) valueTypeForAttribute(decl *model.AttributeDecl) (model.Type,
 }
 
 func (c *compiler) simpleContentTextType(ct *model.ComplexType) (model.Type, error) {
+	if c != nil && c.complexTypes != nil {
+		if textType, ok := c.complexTypes.SimpleContentType(ct); ok {
+			if textType != nil && c.simpleContent != nil {
+				c.simpleContent[ct] = textType
+			}
+			return textType, nil
+		}
+	}
 	return grouprefs.ResolveSimpleContentTextType(ct, grouprefs.SimpleContentTextTypeOptions{
 		ResolveQName: c.res.resolveQName,
 		Cache:        c.simpleContent,

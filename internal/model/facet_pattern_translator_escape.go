@@ -2,6 +2,24 @@ package model
 
 import "fmt"
 
+type escapeStepHandler func(*patternTranslator, byte) (bool, error)
+
+var escapeStepHandlers = []escapeStepHandler{
+	func(t *patternTranslator, nextChar byte) (bool, error) {
+		return t.handleNameEscape(nextChar), nil
+	},
+	func(t *patternTranslator, nextChar byte) (bool, error) {
+		return t.handleDigitEscape(nextChar), nil
+	},
+	(*patternTranslator).handleWhitespaceEscape,
+	(*patternTranslator).handleWordEscape,
+	(*patternTranslator).handleControlEscape,
+	(*patternTranslator).handleUnsupportedAnchorEscape,
+	(*patternTranslator).handleEscapedBackslash,
+	(*patternTranslator).handleEscapedMetachar,
+	(*patternTranslator).handleEscapedDash,
+}
+
 func (t *patternTranslator) handleEscape() (bool, error) {
 	if t.pattern[t.i] != '\\' {
 		return false, nil
@@ -31,32 +49,14 @@ func (t *patternTranslator) handleEscape() (bool, error) {
 		return true, nil
 	}
 
-	if t.handleNameEscape(nextChar) {
-		return true, nil
-	}
-	if t.handleDigitEscape(nextChar) {
-		return true, nil
-	}
-	if handled, err := t.handleWhitespaceEscape(nextChar); handled {
-		return true, err
-	}
-	if handled, err := t.handleWordEscape(nextChar); handled {
-		return true, err
-	}
-	if handled, err := t.handleControlEscape(nextChar); handled {
-		return true, err
-	}
-	if handled, err := t.handleUnsupportedAnchorEscape(nextChar); handled {
-		return true, err
-	}
-	if handled, err := t.handleEscapedBackslash(nextChar); handled {
-		return true, err
-	}
-	if handled, err := t.handleEscapedMetachar(nextChar); handled {
-		return true, err
-	}
-	if handled, err := t.handleEscapedDash(nextChar); handled {
-		return true, err
+	for _, handler := range escapeStepHandlers {
+		handled, err := handler(t, nextChar)
+		if err != nil {
+			return true, err
+		}
+		if handled {
+			return true, nil
+		}
 	}
 
 	if nextChar >= '0' && nextChar <= '9' {
@@ -99,8 +99,7 @@ func (t *patternTranslator) handleNameEscape(nextChar byte) bool {
 		return false
 	}
 
-	t.i += 2
-	t.justWroteQuantifier = false
+	t.consumeEscape()
 	return true
 }
 
@@ -124,8 +123,7 @@ func (t *patternTranslator) handleDigitEscape(nextChar byte) bool {
 		return false
 	}
 
-	t.i += 2
-	t.justWroteQuantifier = false
+	t.consumeEscape()
 	return true
 }
 
@@ -152,8 +150,7 @@ func (t *patternTranslator) handleWhitespaceEscape(nextChar byte) (bool, error) 
 		return false, nil
 	}
 
-	t.i += 2
-	t.justWroteQuantifier = false
+	t.consumeEscape()
 	return true, nil
 }
 
@@ -180,8 +177,7 @@ func (t *patternTranslator) handleWordEscape(nextChar byte) (bool, error) {
 		return false, nil
 	}
 
-	t.i += 2
-	t.justWroteQuantifier = false
+	t.consumeEscape()
 	return true, nil
 }
 
@@ -217,8 +213,7 @@ func (t *patternTranslator) handleControlEscape(nextChar byte) (bool, error) {
 		t.writeEscapedLiteral(nextChar)
 	}
 
-	t.i += 2
-	t.justWroteQuantifier = false
+	t.consumeEscape()
 	return true, nil
 }
 
@@ -242,8 +237,7 @@ func (t *patternTranslator) handleEscapedBackslash(nextChar byte) (bool, error) 
 	} else {
 		t.result.WriteString(`\\`)
 	}
-	t.i += 2
-	t.justWroteQuantifier = false
+	t.consumeEscape()
 	return true, nil
 }
 
@@ -261,8 +255,7 @@ func (t *patternTranslator) handleEscapedMetachar(nextChar byte) (bool, error) {
 	} else {
 		t.writeEscapedLiteral(nextChar)
 	}
-	t.i += 2
-	t.justWroteQuantifier = false
+	t.consumeEscape()
 	return true, nil
 }
 
@@ -277,7 +270,6 @@ func (t *patternTranslator) handleEscapedDash(nextChar byte) (bool, error) {
 	} else {
 		t.result.WriteString(`\-`)
 	}
-	t.i += 2
-	t.justWroteQuantifier = false
+	t.consumeEscape()
 	return true, nil
 }

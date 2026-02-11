@@ -78,14 +78,14 @@ func validateWildcardNamespaceRestriction(schema *parser.Schema, baseAny *model.
 // Namespace constraint in restriction must be a subset of base, and processContents
 // in restriction must be identical or stronger than base.
 func validateWildcardToWildcardRestriction(baseAny, restrictionAny *model.AnyElement) error {
-	if !processContentsStrongerOrEqual(restrictionAny.ProcessContents, baseAny.ProcessContents) {
+	if !model.ProcessContentsStrongerOrEqual(restrictionAny.ProcessContents, baseAny.ProcessContents) {
 		return fmt.Errorf(
 			"ComplexContent restriction: wildcard restriction: processContents in restriction must be identical or stronger than base (base is %s, restriction is %s)",
 			processContentsName(baseAny.ProcessContents),
 			processContentsName(restrictionAny.ProcessContents),
 		)
 	}
-	if !namespaceConstraintSubset(
+	if !model.NamespaceConstraintSubset(
 		restrictionAny.Namespace, restrictionAny.NamespaceList, restrictionAny.TargetNamespace,
 		baseAny.Namespace, baseAny.NamespaceList, baseAny.TargetNamespace,
 	) {

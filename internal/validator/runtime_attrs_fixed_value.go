@@ -17,15 +17,9 @@ func (s *Session) fixedValueMatches(
 	fixedKey runtime.ValueKeyRef,
 ) (bool, error) {
 	if fixedKey.Ref.Present {
-		actualKind := metrics.keyKind
-		actualKey := metrics.keyBytes
-		if actualKind == runtime.VKInvalid {
-			kind, key, err := s.keyForCanonicalValue(validator, canonical, resolver, member)
-			if err != nil {
-				return false, err
-			}
-			actualKind = kind
-			actualKey = key
+		actualKind, actualKey, err := s.materializeObservedKey(validator, canonical, resolver, member, metrics)
+		if err != nil {
+			return false, err
 		}
 		return actualKind == fixedKey.Kind && bytes.Equal(actualKey, valueBytes(s.rt.Values, fixedKey.Ref)), nil
 	}

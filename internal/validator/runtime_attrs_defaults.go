@@ -22,70 +22,35 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 		if use.Use == runtime.AttrRequired {
 			return nil, newValidationError(xsderrors.ErrRequiredAttributeMissing, "required attribute missing")
 		}
-		if use.Fixed.Present {
-			if s.isIDValidator(use.Validator) {
-				if seenID {
-					return nil, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
-				}
-				seenID = true
-			}
-			fixedValue := valueBytes(s.rt.Values, use.Fixed)
-			if err := s.trackDefaultValue(use.Validator, fixedValue, nil, use.FixedMember); err != nil {
-				return nil, err
-			}
-			if storeAttrs {
-				kind := use.FixedKey.Kind
-				key := valueBytes(s.rt.Values, use.FixedKey.Ref)
-				if !use.FixedKey.Ref.Present {
-					var err error
-					kind, key, err = s.keyForCanonicalValue(use.Validator, fixedValue, nil, use.FixedMember)
-					if err != nil {
-						return nil, err
-					}
-				}
-				applied = append(applied, AttrApplied{
-					Name:     use.Name,
-					Value:    use.Fixed,
-					Fixed:    true,
-					KeyKind:  kind,
-					KeyBytes: s.storeKey(key),
-				})
-			} else {
-				applied = append(applied, AttrApplied{Name: use.Name, Value: use.Fixed, Fixed: true})
-			}
+		selection := selectAttrDefaultFixed(use)
+		if !selection.present {
 			continue
 		}
-		if use.Default.Present {
-			if s.isIDValidator(use.Validator) {
-				if seenID {
-					return nil, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
-				}
-				seenID = true
+		if s.isIDValidator(use.Validator) {
+			if seenID {
+				return nil, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
 			}
-			defaultValue := valueBytes(s.rt.Values, use.Default)
-			if err := s.trackDefaultValue(use.Validator, defaultValue, nil, use.DefaultMember); err != nil {
+			seenID = true
+		}
+		canonical := valueBytes(s.rt.Values, selection.value)
+		if err := s.trackDefaultValue(use.Validator, canonical, nil, selection.member); err != nil {
+			return nil, err
+		}
+		if storeAttrs {
+			kind, key, err := s.materializePolicyKey(use.Validator, canonical, selection.member, selection.key)
+			if err != nil {
 				return nil, err
 			}
-			if storeAttrs {
-				kind := use.DefaultKey.Kind
-				key := valueBytes(s.rt.Values, use.DefaultKey.Ref)
-				if !use.DefaultKey.Ref.Present {
-					var err error
-					kind, key, err = s.keyForCanonicalValue(use.Validator, defaultValue, nil, use.DefaultMember)
-					if err != nil {
-						return nil, err
-					}
-				}
-				applied = append(applied, AttrApplied{
-					Name:     use.Name,
-					Value:    use.Default,
-					KeyKind:  kind,
-					KeyBytes: s.storeKey(key),
-				})
-			} else {
-				applied = append(applied, AttrApplied{Name: use.Name, Value: use.Default})
-			}
+			applied = append(applied, AttrApplied{
+				Name:     use.Name,
+				Value:    selection.value,
+				Fixed:    selection.fixed,
+				KeyKind:  kind,
+				KeyBytes: s.storeKey(key),
+			})
+			continue
 		}
+		applied = append(applied, AttrApplied{Name: use.Name, Value: selection.value, Fixed: selection.fixed})
 	}
 
 	return applied, nil

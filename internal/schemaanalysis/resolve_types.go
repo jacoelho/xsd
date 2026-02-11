@@ -1,10 +1,8 @@
 package schemaanalysis
 
 import (
-	"fmt"
-
-	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func (r *referenceResolver) resolveType(typ model.Type) error {
@@ -29,91 +27,72 @@ func (r *referenceResolver) resolveSimpleType(st *model.SimpleType) error {
 	if st == nil {
 		return nil
 	}
-	switch r.simpleTypeState[st] {
-	case resolveResolving, resolveResolved:
+	return r.simpleTypeState.Resolve(st, nil, func() error {
+		if st.Restriction != nil {
+			if err := r.resolveTypeQName(st.Restriction.Base); err != nil {
+				return err
+			}
+			if st.Restriction.SimpleType != nil {
+				if err := r.resolveType(st.Restriction.SimpleType); err != nil {
+					return err
+				}
+			}
+		}
+		if st.List != nil {
+			if st.List.InlineItemType != nil {
+				if err := r.resolveType(st.List.InlineItemType); err != nil {
+					return err
+				}
+			}
+			if !st.List.ItemType.IsZero() {
+				if err := r.resolveTypeQName(st.List.ItemType); err != nil {
+					return err
+				}
+			}
+		}
+		if st.Union != nil {
+			for _, member := range st.Union.MemberTypes {
+				if err := r.resolveTypeQName(member); err != nil {
+					return err
+				}
+			}
+			for _, inline := range st.Union.InlineTypes {
+				if err := r.resolveType(inline); err != nil {
+					return err
+				}
+			}
+		}
 		return nil
-	}
-	r.simpleTypeState[st] = resolveResolving
-	if st.Restriction != nil {
-		if err := r.resolveTypeQName(st.Restriction.Base); err != nil {
-			delete(r.simpleTypeState, st)
-			return err
-		}
-		if st.Restriction.SimpleType != nil {
-			if err := r.resolveType(st.Restriction.SimpleType); err != nil {
-				delete(r.simpleTypeState, st)
-				return err
-			}
-		}
-	}
-	if st.List != nil {
-		if st.List.InlineItemType != nil {
-			if err := r.resolveType(st.List.InlineItemType); err != nil {
-				delete(r.simpleTypeState, st)
-				return err
-			}
-		}
-		if !st.List.ItemType.IsZero() {
-			if err := r.resolveTypeQName(st.List.ItemType); err != nil {
-				delete(r.simpleTypeState, st)
-				return err
-			}
-		}
-	}
-	if st.Union != nil {
-		for _, member := range st.Union.MemberTypes {
-			if err := r.resolveTypeQName(member); err != nil {
-				delete(r.simpleTypeState, st)
-				return err
-			}
-		}
-		for _, inline := range st.Union.InlineTypes {
-			if err := r.resolveType(inline); err != nil {
-				delete(r.simpleTypeState, st)
-				return err
-			}
-		}
-	}
-	r.simpleTypeState[st] = resolveResolved
-	return nil
+	})
 }
 
 func (r *referenceResolver) resolveComplexType(ct *model.ComplexType) error {
 	if ct == nil {
 		return nil
 	}
-	switch r.complexTypeState[ct] {
-	case resolveResolving, resolveResolved:
+	return r.complexTypeState.Resolve(ct, nil, func() error {
+		switch content := ct.Content().(type) {
+		case *model.ElementContent:
+			if err := r.resolveParticle(content.Particle); err != nil {
+				return err
+			}
+		case *model.SimpleContent:
+			if err := r.resolveSimpleContent(content); err != nil {
+				return err
+			}
+		case *model.ComplexContent:
+			if err := r.resolveComplexContent(content); err != nil {
+				return err
+			}
+		case *model.EmptyContent:
+			// no-op
+		}
+
+		if err := r.resolveAttributes(ct.Attributes(), ct.AttrGroups); err != nil {
+			return err
+		}
 		return nil
-	}
-	r.complexTypeState[ct] = resolveResolving
-
-	switch content := ct.Content().(type) {
-	case *model.ElementContent:
-		if err := r.resolveParticle(content.Particle); err != nil {
-			delete(r.complexTypeState, ct)
-			return err
-		}
-	case *model.SimpleContent:
-		if err := r.resolveSimpleContent(content); err != nil {
-			delete(r.complexTypeState, ct)
-			return err
-		}
-	case *model.ComplexContent:
-		if err := r.resolveComplexContent(content); err != nil {
-			delete(r.complexTypeState, ct)
-			return err
-		}
-	case *model.EmptyContent:
-		// no-op
-	}
-
-	if err := r.resolveAttributes(ct.Attributes(), ct.AttrGroups); err != nil {
-		delete(r.complexTypeState, ct)
-		return err
-	}
-	r.complexTypeState[ct] = resolveResolved
-	return nil
+	})
 }
 
 func (r *referenceResolver) resolveSimpleContent(content *model.SimpleContent) error {
@@ -176,17 +155,5 @@ func (r *referenceResolver) resolveComplexContent(content *model.ComplexContent)
 }
 
 func (r *referenceResolver) resolveTypeQName(qname model.QName) error {
-	if qname.IsZero() {
-		return nil
-	}
-	if qname.Namespace == model.XSDNamespace {
-		if builtins.Get(builtins.TypeName(qname.Local)) == nil {
-			return fmt.Errorf("type '%s' not found in XSD namespace", qname.Local)
-		}
-		return nil
-	}
-	if _, ok := r.schema.TypeDefs[qname]; ok {
-		return nil
-	}
-	return fmt.Errorf("type %s not found", qname)
+	return typeresolve.ValidateTypeQName(r.schema, qname)
 }

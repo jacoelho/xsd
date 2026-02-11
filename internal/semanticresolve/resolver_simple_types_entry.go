@@ -4,29 +4,18 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/resolveguard"
 )
 
 func (r *Resolver) resolveSimpleType(qname model.QName, st *model.SimpleType) error {
 	if qname.IsZero() {
-		if r.resolvedPtrs[st] {
-			return nil
-		}
-		if r.resolvingPtrs[st] {
+		return r.anonymousTypeGuard.Resolve(st, func() error {
 			return fmt.Errorf("circular anonymous type definition")
-		}
-		r.resolvingPtrs[st] = true
-		defer func() {
-			delete(r.resolvingPtrs, st)
-			r.resolvedPtrs[st] = true
-		}()
-		return r.doResolveSimpleType(qname, st)
+		}, func() error {
+			return r.doResolveSimpleType(qname, st)
+		})
 	}
-
-	if r.detector.IsVisited(qname) {
-		return nil
-	}
-
-	return r.detector.WithScope(qname, func() error {
+	return resolveguard.ResolveNamed[model.QName](r.detector, qname, func() error {
 		return r.doResolveSimpleType(qname, st)
 	})
 }

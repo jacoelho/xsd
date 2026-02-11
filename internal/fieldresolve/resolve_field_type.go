@@ -32,33 +32,10 @@ func ResolveFieldType(schema *parser.Schema, field *model.Field, constraintEleme
 
 	fieldHasUnion := len(fieldExpr.Paths) > 1
 	selectorHasUnion := len(selectorDecls) > 1
-	hasUnion := fieldHasUnion || selectorHasUnion
 
-	var resolvedTypes []model.Type
-	unresolved := false
-	nillableFound := false
-	for _, selectorDecl := range selectorDecls {
-		for _, fieldPath := range fieldExpr.Paths {
-			typ, pathErr := resolveFieldPathType(schema, selectorDecl, fieldPath)
-			if pathErr != nil {
-				if errors.Is(pathErr, ErrFieldSelectsNillable) {
-					if typ != nil {
-						resolvedTypes = append(resolvedTypes, typ)
-					}
-					nillableFound = true
-					if hasUnion {
-						continue
-					}
-					return nil, fmt.Errorf("resolve field xpath '%s': %w", field.XPath, pathErr)
-				}
-				if hasUnion {
-					unresolved = true
-					continue
-				}
-				return nil, fmt.Errorf("resolve field xpath '%s': %w", field.XPath, pathErr)
-			}
-			resolvedTypes = append(resolvedTypes, typ)
-		}
+	resolvedTypes, unresolved, nillableFound, err := resolveFieldTypeBranches(schema, selectorDecls, field.XPath, fieldExpr.Paths)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(resolvedTypes) == 0 {
@@ -81,4 +58,42 @@ func ResolveFieldType(schema *parser.Schema, field *model.Field, constraintEleme
 		return combined, fmt.Errorf("%w: field xpath '%s' contains wildcard branches", ErrXPathUnresolvable, field.XPath)
 	}
 	return combined, nil
+}
+
+func resolveFieldTypeBranches(
+	schema *parser.Schema,
+	selectorDecls []*model.ElementDecl,
+	fieldXPath string,
+	paths []xpath.Path,
+) ([]model.Type, bool, bool, error) {
+	hasUnion := hasFieldPathUnion(selectorDecls, paths)
+	var resolvedTypes []model.Type
+	unresolved := false
+	nillableFound := false
+	err := forEachFieldPathBranch(selectorDecls, paths, func(branch fieldPathBranch) error {
+		typ, pathErr := resolveFieldPathType(schema, branch.selectorDecl, branch.path)
+		if pathErr == nil {
+			resolvedTypes = append(resolvedTypes, typ)
+			return nil
+		}
+		if errors.Is(pathErr, ErrFieldSelectsNillable) {
+			if typ != nil {
+				resolvedTypes = append(resolvedTypes, typ)
+			}
+			nillableFound = true
+			if hasUnion {
+				return nil
+			}
+			return wrapFieldPathBranchError(fieldXPath, branch, pathErr)
+		}
+		if hasUnion {
+			unresolved = true
+			return nil
+		}
+		return wrapFieldPathBranchError(fieldXPath, branch, pathErr)
+	})
+	if err != nil {
+		return nil, false, false, err
+	}
+	return resolvedTypes, unresolved, nillableFound, nil
 }

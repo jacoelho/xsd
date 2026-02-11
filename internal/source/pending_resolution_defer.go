@@ -2,39 +2,40 @@ package source
 
 import "github.com/jacoelho/xsd/internal/parser"
 
-func (l *SchemaLoader) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string) bool {
-	sourceEntry := l.state.ensureEntry(sourceKey)
-	for _, pending := range sourceEntry.pendingDirectives {
-		if pending.kind == parser.DirectiveImport && pending.targetKey == targetKey {
-			return false
-		}
-	}
-	sourceEntry.pendingDirectives = append(sourceEntry.pendingDirectives, pendingDirective{
+func (l *SchemaLoader) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string, journal *stateJournal) bool {
+	directive := pendingDirective{
 		kind:              parser.DirectiveImport,
 		targetKey:         targetKey,
 		schemaLocation:    schemaLocation,
 		expectedNamespace: expectedNamespace,
-	})
-	targetEntry := l.state.ensureEntry(targetKey)
-	targetEntry.pendingCount++
-	return true
+	}
+	return l.deferDirective(sourceKey, directive, journal)
 }
 
-func (l *SchemaLoader) deferInclude(sourceKey, targetKey loadKey, include parser.IncludeInfo) bool {
-	sourceEntry := l.state.ensureEntry(sourceKey)
-	for _, pending := range sourceEntry.pendingDirectives {
-		if pending.kind == parser.DirectiveInclude && pending.targetKey == targetKey {
-			return false
-		}
-	}
-	sourceEntry.pendingDirectives = append(sourceEntry.pendingDirectives, pendingDirective{
+func (l *SchemaLoader) deferInclude(sourceKey, targetKey loadKey, include parser.IncludeInfo, journal *stateJournal) bool {
+	directive := pendingDirective{
 		kind:             parser.DirectiveInclude,
 		targetKey:        targetKey,
 		schemaLocation:   include.SchemaLocation,
 		includeDeclIndex: include.DeclIndex,
 		includeIndex:     include.IncludeIndex,
-	})
-	targetEntry := l.state.ensureEntry(targetKey)
-	targetEntry.pendingCount++
+	}
+	return l.deferDirective(sourceKey, directive, journal)
+}
+
+func (l *SchemaLoader) deferDirective(sourceKey loadKey, directive pendingDirective, journal *stateJournal) bool {
+	sourceEntry := l.state.ensureEntry(sourceKey)
+	if !appendPendingDirective(sourceEntry, directive) {
+		return false
+	}
+	if journal != nil {
+		journal.recordAppendPendingDirective(directive.kind, sourceKey, directive.targetKey)
+	}
+
+	targetEntry := l.state.ensureEntry(directive.targetKey)
+	incPendingCount(targetEntry)
+	if journal != nil {
+		journal.recordIncPendingCount(directive.targetKey)
+	}
 	return true
 }

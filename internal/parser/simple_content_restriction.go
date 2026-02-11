@@ -8,14 +8,7 @@ import (
 )
 
 func parseSimpleContentRestriction(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.Restriction, model.QName, error) {
-	if err := validateOptionalID(doc, elem, "restriction", schema); err != nil {
-		return nil, model.QName{}, err
-	}
-	base := doc.GetAttribute(elem, "base")
-	if base == "" {
-		return nil, model.QName{}, fmt.Errorf("restriction missing base")
-	}
-	baseQName, err := resolveQNameWithPolicy(doc, base, elem, schema, useDefaultNamespace)
+	baseQName, err := parseDerivationBaseQName(doc, elem, schema, "restriction")
 	if err != nil {
 		return nil, model.QName{}, err
 	}

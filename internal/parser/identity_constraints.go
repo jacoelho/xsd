@@ -49,7 +49,7 @@ func parseIdentityConstraint(doc *schemaxml.Document, elem schemaxml.NodeID, sch
 		return nil, fmt.Errorf("keyref missing refer attribute")
 	}
 
-	annotationCount := 0
+	seenAnnotation := false
 	seenSelector := false
 	seenField := false
 
@@ -58,16 +58,22 @@ func parseIdentityConstraint(doc *schemaxml.Document, elem schemaxml.NodeID, sch
 			continue
 		}
 
-		switch doc.LocalName(child) {
-		case "annotation":
-			if seenSelector || seenField {
-				return nil, fmt.Errorf("identity constraint '%s': annotation must appear before selector and field", name)
-			}
-			annotationCount++
-			if annotationCount > 1 {
-				return nil, fmt.Errorf("identity constraint '%s': at most one annotation allowed", name)
-			}
+		childName := doc.LocalName(child)
+		handled, err := handleSingleLeadingAnnotation(
+			childName,
+			&seenAnnotation,
+			seenSelector || seenField,
+			fmt.Sprintf("identity constraint '%s': at most one annotation allowed", name),
+			fmt.Sprintf("identity constraint '%s': annotation must appear before selector and field", name),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if handled {
+			continue
+		}
 
+		switch childName {
 		case "selector":
 			if seenSelector {
 				return nil, fmt.Errorf("identity constraint '%s': only one selector allowed", name)

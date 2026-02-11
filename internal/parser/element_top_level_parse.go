@@ -45,7 +45,7 @@ func validateTopLevelElementStructure(doc *schemaxml.Document, elem schemaxml.No
 		return "", fmt.Errorf("element missing name attribute")
 	}
 
-	if err := validateElementAttributes(doc, elem, validTopLevelElementAttributes, "top-level element"); err != nil {
+	if err := validateElementAttributes(doc, elem, topLevelElementAttributeProfile.allowed, "top-level element"); err != nil {
 		return "", err
 	}
 	if err := validateOptionalID(doc, elem, "element", schema); err != nil {

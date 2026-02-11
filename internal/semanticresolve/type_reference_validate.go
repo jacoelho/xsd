@@ -1,11 +1,9 @@
 package semanticresolve
 
 import (
-	"fmt"
-
-	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 const noOriginLocation = ""
@@ -32,14 +30,8 @@ func validateTypeReferenceFromTypeWithVisited(schema *parser.Schema, typ model.T
 
 	if st, ok := model.AsSimpleType(typ); ok {
 		if !st.IsBuiltin() && st.Restriction == nil && st.List == nil && st.Union == nil {
-			if _, exists := schema.TypeDefs[st.QName]; !exists {
-				if st.QName.Namespace == model.XSDNamespace {
-					if builtins.Get(builtins.TypeName(st.QName.Local)) == nil {
-						return fmt.Errorf("type '%s' not found in XSD namespace", st.QName.Local)
-					}
-					return nil
-				}
-				return fmt.Errorf("type %s not found", st.QName)
+			if err := typeresolve.ValidateTypeQName(schema, st.QName); err != nil {
+				return err
 			}
 		}
 	}

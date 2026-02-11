@@ -1,11 +1,10 @@
 package schemaanalysis
 
 import (
-	"fmt"
-
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func baseTypeFor(schema *parser.Schema, typ model.Type) (model.Type, model.DerivationMethod, error) {
@@ -34,7 +33,7 @@ func baseTypeForSimpleType(schema *parser.Schema, st *model.SimpleType) (model.T
 			return st.Restriction.SimpleType, model.DerivationRestriction, nil
 		}
 		if !st.Restriction.Base.IsZero() {
-			base, err := resolveTypeQName(schema, st.Restriction.Base)
+			base, err := typeresolve.ResolveTypeQName(schema, st.Restriction.Base, typeresolve.TypeReferenceMustExist)
 			if err != nil {
 				return nil, 0, err
 			}
@@ -65,25 +64,9 @@ func baseTypeForComplexType(schema *parser.Schema, ct *model.ComplexType) (model
 	if method == 0 {
 		method = model.DerivationRestriction
 	}
-	base, err := resolveTypeQName(schema, baseQName)
+	base, err := typeresolve.ResolveTypeQName(schema, baseQName, typeresolve.TypeReferenceMustExist)
 	if err != nil {
 		return nil, 0, err
 	}
 	return base, method, nil
-}
-
-func resolveTypeQName(schema *parser.Schema, qname model.QName) (model.Type, error) {
-	if qname.IsZero() {
-		return nil, nil
-	}
-	if builtin := builtins.GetNS(qname.Namespace, qname.Local); builtin != nil {
-		return builtin, nil
-	}
-	if schema == nil {
-		return nil, fmt.Errorf("type %s not found", qname)
-	}
-	if resolved := schema.TypeDefs[qname]; resolved != nil {
-		return resolved, nil
-	}
-	return nil, fmt.Errorf("type %s not found", qname)
 }

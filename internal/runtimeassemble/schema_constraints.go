@@ -3,9 +3,9 @@ package runtimeassemble
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/identitypath"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 func (b *schemaBuilder) buildIdentityConstraints() error {
@@ -33,7 +33,11 @@ func (b *schemaBuilder) buildIdentityConstraints() error {
 		for _, constraint := range decl.Constraints {
 			icID := runtime.ICID(len(b.rt.ICs))
 			selectorOff := uint32(len(b.rt.ICSelectors))
-			selectorPrograms, err := xpath.CompilePrograms(constraint.Selector.XPath, constraint.NamespaceContext, xpath.AttributesDisallowed, b.rt)
+			selectorExpr, err := identitypath.ParseSelector(constraint.Selector.XPath, constraint.NamespaceContext)
+			if err != nil {
+				return fmt.Errorf("runtime build: selector %s: %w", constraint.Name, err)
+			}
+			selectorPrograms, err := identitypath.CompileSelector(selectorExpr, b.rt)
 			if err != nil {
 				return fmt.Errorf("runtime build: selector %s: %w", constraint.Name, err)
 			}
@@ -45,7 +49,11 @@ func (b *schemaBuilder) buildIdentityConstraints() error {
 
 			fieldOff := uint32(len(b.rt.ICFields))
 			for fieldIdx, field := range constraint.Fields {
-				fieldPrograms, err := xpath.CompilePrograms(field.XPath, constraint.NamespaceContext, xpath.AttributesAllowed, b.rt)
+				fieldExpr, err := identitypath.ParseField(field.XPath, constraint.NamespaceContext)
+				if err != nil {
+					return fmt.Errorf("runtime build: field %d %s: %w", fieldIdx+1, constraint.Name, err)
+				}
+				fieldPrograms, err := identitypath.CompileField(fieldExpr, b.rt)
 				if err != nil {
 					return fmt.Errorf("runtime build: field %d %s: %w", fieldIdx+1, constraint.Name, err)
 				}

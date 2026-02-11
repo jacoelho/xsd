@@ -3,6 +3,7 @@ package semanticresolve
 import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/resolveguard"
 )
 
 // Resolver resolves all QName references in a schema.
@@ -15,16 +16,14 @@ type Resolver struct {
 
 	// Pointer-based tracking for anonymous types (which have empty QNames) to
 	// avoid false cycle matches while still detecting self-references.
-	resolvingPtrs map[model.Type]bool
-	resolvedPtrs  map[model.Type]bool
+	anonymousTypeGuard *resolveguard.Pointer[model.Type]
 }
 
 // NewResolver creates a new resolver for the given schema.
 func NewResolver(sch *parser.Schema) *Resolver {
 	return &Resolver{
-		schema:        sch,
-		detector:      NewCycleDetector[model.QName](),
-		resolvingPtrs: make(map[model.Type]bool),
-		resolvedPtrs:  make(map[model.Type]bool),
+		schema:             sch,
+		detector:           NewCycleDetector[model.QName](),
+		anonymousTypeGuard: resolveguard.NewPointer[model.Type](),
 	}
 }

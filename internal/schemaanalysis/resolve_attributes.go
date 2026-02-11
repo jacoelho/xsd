@@ -1,8 +1,10 @@
 package schemaanalysis
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/attrgroupwalk"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -45,10 +47,12 @@ func (r *referenceResolver) resolveAttributeReference(attr *model.AttributeDecl)
 }
 
 func (r *referenceResolver) resolveAttributeGroup(name model.QName, group *model.AttributeGroup) error {
-	for _, ref := range group.AttrGroups {
-		if _, ok := r.schema.AttributeGroups[ref]; !ok {
-			return fmt.Errorf("attributeGroup %s: nested group %s not found", name, ref)
+	if err := attrgroupwalk.Walk(r.schema, group.AttrGroups, attrgroupwalk.MissingError, nil); err != nil {
+		var missingErr attrgroupwalk.AttrGroupMissingError
+		if errors.As(err, &missingErr) {
+			return fmt.Errorf("attributeGroup %s: nested group %s not found", name, missingErr.QName)
 		}
+		return err
 	}
 	for _, attr := range group.Attributes {
 		if err := r.resolveAttribute(attr); err != nil {
@@ -59,10 +63,12 @@ func (r *referenceResolver) resolveAttributeGroup(name model.QName, group *model
 }
 
 func (r *referenceResolver) resolveAttributes(attrs []*model.AttributeDecl, groups []model.QName) error {
-	for _, ref := range groups {
-		if _, ok := r.schema.AttributeGroups[ref]; !ok {
-			return fmt.Errorf("attributeGroup ref %s not found", ref)
+	if err := attrgroupwalk.Walk(r.schema, groups, attrgroupwalk.MissingError, nil); err != nil {
+		var missingErr attrgroupwalk.AttrGroupMissingError
+		if errors.As(err, &missingErr) {
+			return fmt.Errorf("attributeGroup ref %s not found", missingErr.QName)
 		}
+		return err
 	}
 	for _, attr := range attrs {
 		if err := r.resolveAttribute(attr); err != nil {

@@ -38,16 +38,22 @@ func parseTopLevelAttributeGroup(doc *schemaxml.Document, elem schemaxml.NodeID,
 			continue
 		}
 
-		switch doc.LocalName(child) {
-		case "annotation":
-			if hasAnnotation {
-				return fmt.Errorf("attributeGroup '%s': at most one annotation is allowed", name)
-			}
-			if hasNonAnnotation {
-				return fmt.Errorf("attributeGroup '%s': annotation must appear before other elements", name)
-			}
-			hasAnnotation = true
+		childName := doc.LocalName(child)
+		handled, err := handleSingleLeadingAnnotation(
+			childName,
+			&hasAnnotation,
+			hasNonAnnotation,
+			fmt.Sprintf("attributeGroup '%s': at most one annotation is allowed", name),
+			fmt.Sprintf("attributeGroup '%s': annotation must appear before other elements", name),
+		)
+		if err != nil {
+			return err
+		}
+		if handled {
+			continue
+		}
 
+		switch childName {
 		case "attribute":
 			hasNonAnnotation = true
 			attr, err := parseAttribute(doc, child, schema, true)

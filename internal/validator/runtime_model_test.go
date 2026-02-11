@@ -3,6 +3,7 @@ package validator
 import (
 	"testing"
 
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -157,6 +158,32 @@ func TestModelStateDFAWildcardAmbiguous(t *testing.T) {
 	}
 }
 
+func TestModelStateDFANoMatchErrorCode(t *testing.T) {
+	fx := buildModelFixture(t)
+	fx.schema.Models.DFA = make([]runtime.DFAModel, 2)
+	fx.schema.Models.DFA[1] = runtime.DFAModel{
+		Start: 0,
+		States: []runtime.DFAState{
+			{Accept: true},
+		},
+	}
+	ref := runtime.ModelRef{Kind: runtime.ModelDFA, ID: 1}
+	sess := NewSession(fx.schema)
+
+	state, err := sess.InitModelState(ref)
+	if err != nil {
+		t.Fatalf("InitModelState: %v", err)
+	}
+	_, err = sess.StepModel(ref, &state, fx.symA, fx.ns, []byte("urn:test"))
+	if err == nil {
+		t.Fatalf("expected no-match error")
+	}
+	code, _, ok := validationErrorInfo(err)
+	if !ok || code != xsderrors.ErrUnexpectedElement {
+		t.Fatalf("error code = %v, want %v", code, xsderrors.ErrUnexpectedElement)
+	}
+}
+
 func TestModelStateNFASequence(t *testing.T) {
 	fx := buildModelFixture(t)
 	fx.schema.Models.NFA = make([]runtime.NFAModel, 2)
@@ -204,6 +231,41 @@ func TestModelStateNFANullableAcceptsEmpty(t *testing.T) {
 	}
 	if err := sess.AcceptModel(ref, &state); err != nil {
 		t.Fatalf("AcceptModel: %v", err)
+	}
+}
+
+func TestModelStateNFAAmbiguousErrorCode(t *testing.T) {
+	fx := buildModelFixture(t)
+	fx.schema.Models.NFA = make([]runtime.NFAModel, 2)
+	fx.schema.Models.NFA[1] = runtime.NFAModel{
+		Bitsets: runtime.BitsetBlob{
+			Words: []uint64{3},
+		},
+		Start: runtime.BitsetRef{Off: 0, Len: 1},
+		Matchers: []runtime.PosMatcher{
+			{Kind: runtime.PosExact, Sym: fx.symA, Elem: fx.elemA},
+			{Kind: runtime.PosExact, Sym: fx.symA, Elem: fx.elemB},
+		},
+		FollowLen: 2,
+		Follow: []runtime.BitsetRef{
+			{},
+			{},
+		},
+	}
+	ref := runtime.ModelRef{Kind: runtime.ModelNFA, ID: 1}
+	sess := NewSession(fx.schema)
+
+	state, err := sess.InitModelState(ref)
+	if err != nil {
+		t.Fatalf("InitModelState: %v", err)
+	}
+	_, err = sess.StepModel(ref, &state, fx.symA, fx.ns, []byte("urn:test"))
+	if err == nil {
+		t.Fatalf("expected ambiguous-match error")
+	}
+	code, _, ok := validationErrorInfo(err)
+	if !ok || code != xsderrors.ErrContentModelInvalid {
+		t.Fatalf("error code = %v, want %v", code, xsderrors.ErrContentModelInvalid)
 	}
 }
 
@@ -282,6 +344,36 @@ func TestModelStateAllGroup(t *testing.T) {
 	state, _ = sess.InitModelState(ref)
 	if err := sess.AcceptModel(ref, &state); err != nil {
 		t.Fatalf("AcceptModel empty: %v", err)
+	}
+}
+
+func TestModelStateAllAmbiguousErrorCode(t *testing.T) {
+	fx := buildModelFixture(t)
+	fx.schema.Models.All = make([]runtime.AllModel, 2)
+	fx.schema.Models.AllSubst = []runtime.ElemID{
+		fx.elemA, fx.elemC,
+		fx.elemB, fx.elemC,
+	}
+	fx.schema.Models.All[1] = runtime.AllModel{
+		Members: []runtime.AllMember{
+			{Elem: fx.elemA, AllowsSubst: true, SubstOff: 0, SubstLen: 2},
+			{Elem: fx.elemB, AllowsSubst: true, SubstOff: 2, SubstLen: 2},
+		},
+	}
+	ref := runtime.ModelRef{Kind: runtime.ModelAll, ID: 1}
+	sess := NewSession(fx.schema)
+
+	state, err := sess.InitModelState(ref)
+	if err != nil {
+		t.Fatalf("InitModelState: %v", err)
+	}
+	_, err = sess.StepModel(ref, &state, fx.symC, fx.ns, []byte("urn:test"))
+	if err == nil {
+		t.Fatalf("expected ambiguous-match error")
+	}
+	code, _, ok := validationErrorInfo(err)
+	if !ok || code != xsderrors.ErrContentModelInvalid {
+		t.Fatalf("error code = %v, want %v", code, xsderrors.ErrContentModelInvalid)
 	}
 }
 

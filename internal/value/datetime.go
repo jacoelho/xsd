@@ -112,24 +112,13 @@ func ParseDate(lexical []byte) (time.Time, error) {
 	if err := validateOptionalTimezone(trimmed); err != nil {
 		return time.Time{}, err
 	}
-	formats := []string{
+	layouts := []string{
 		"2006-01-02Z",
 		"2006-01-02-07:00",
 		"2006-01-02+07:00",
 		"2006-01-02",
 	}
-	for _, format := range formats {
-		if t, err := time.Parse(format, trimmed); err == nil {
-			if tzKind == TZKnown {
-				utc := t.UTC()
-				if utc.Year() < 1 || utc.Year() > 9999 {
-					return time.Time{}, fmt.Errorf("invalid date: %s", trimmed)
-				}
-			}
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("invalid date: %s", trimmed)
+	return parseTemporalByLayouts("date", trimmed, trimmed, layouts, tzKind)
 }
 
 // ParseTime parses an xs:time lexical value.
@@ -190,24 +179,13 @@ func ParseGYear(lexical []byte) (time.Time, error) {
 	if err := validateOptionalTimezone(trimmed); err != nil {
 		return time.Time{}, err
 	}
-	formats := []string{
+	layouts := []string{
 		"2006Z",
 		"2006-07:00",
 		"2006+07:00",
 		"2006",
 	}
-	for _, format := range formats {
-		if t, err := time.Parse(format, trimmed); err == nil {
-			if tzKind == TZKnown {
-				utc := t.UTC()
-				if utc.Year() < 1 || utc.Year() > 9999 {
-					return time.Time{}, fmt.Errorf("invalid gYear: %s", trimmed)
-				}
-			}
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("invalid gYear: %s", trimmed)
+	return parseTemporalByLayouts("gYear", trimmed, trimmed, layouts, tzKind)
 }
 
 // ParseGYearMonth parses an xs:gYearMonth lexical value.
@@ -220,24 +198,13 @@ func ParseGYearMonth(lexical []byte) (time.Time, error) {
 	if err := validateOptionalTimezone(trimmed); err != nil {
 		return time.Time{}, err
 	}
-	formats := []string{
+	layouts := []string{
 		"2006-01Z",
 		"2006-01-07:00",
 		"2006-01+07:00",
 		"2006-01",
 	}
-	for _, format := range formats {
-		if t, err := time.Parse(format, trimmed); err == nil {
-			if tzKind == TZKnown {
-				utc := t.UTC()
-				if utc.Year() < 1 || utc.Year() > 9999 {
-					return time.Time{}, fmt.Errorf("invalid gYearMonth: %s", trimmed)
-				}
-			}
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("invalid gYearMonth: %s", trimmed)
+	return parseTemporalByLayouts("gYearMonth", trimmed, trimmed, layouts, tzKind)
 }
 
 // ParseGMonth parses an xs:gMonth lexical value.
@@ -249,18 +216,12 @@ func ParseGMonth(lexical []byte) (time.Time, error) {
 	if err := validateOptionalTimezone(trimmed); err != nil {
 		return time.Time{}, err
 	}
-	formats := []string{
+	layouts := []string{
 		"2006--01Z",
 		"2006--01-07:00",
 		"2006--01",
 	}
-	testValue := "2000" + trimmed
-	for _, format := range formats {
-		if t, err := time.Parse(format, testValue); err == nil {
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("invalid gMonth: %s", trimmed)
+	return parseTemporalByLayouts("gMonth", trimmed, "2000"+trimmed, layouts, TZNone)
 }
 
 // ParseGMonthDay parses an xs:gMonthDay lexical value.
@@ -272,18 +233,12 @@ func ParseGMonthDay(lexical []byte) (time.Time, error) {
 	if err := validateOptionalTimezone(trimmed); err != nil {
 		return time.Time{}, err
 	}
-	formats := []string{
+	layouts := []string{
 		"2006--01-02Z",
 		"2006--01-02-07:00",
 		"2006--01-02",
 	}
-	testValue := "2000" + trimmed
-	for _, format := range formats {
-		if t, err := time.Parse(format, testValue); err == nil {
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("invalid gMonthDay: %s", trimmed)
+	return parseTemporalByLayouts("gMonthDay", trimmed, "2000"+trimmed, layouts, TZNone)
 }
 
 // ParseGDay parses an xs:gDay lexical value.
@@ -295,18 +250,12 @@ func ParseGDay(lexical []byte) (time.Time, error) {
 	if err := validateOptionalTimezone(trimmed); err != nil {
 		return time.Time{}, err
 	}
-	formats := []string{
+	layouts := []string{
 		"2006-01---02Z",
 		"2006-01---02-07:00",
 		"2006-01---02",
 	}
-	testValue := "2000-01" + trimmed
-	for _, format := range formats {
-		if t, err := time.Parse(format, testValue); err == nil {
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("invalid gDay: %s", trimmed)
+	return parseTemporalByLayouts("gDay", trimmed, "2000-01"+trimmed, layouts, TZNone)
 }
 
 func validateYearPrefix(lexical, kind string) error {
@@ -399,4 +348,21 @@ func timezoneKindFromTZ(tz string) TimezoneKind {
 	default:
 		return TZKnown
 	}
+}
+
+func parseTemporalByLayouts(kind, lexical, parseValue string, layouts []string, tzKind TimezoneKind) (time.Time, error) {
+	for _, layout := range layouts {
+		t, err := time.Parse(layout, parseValue)
+		if err != nil {
+			continue
+		}
+		if tzKind == TZKnown {
+			utc := t.UTC()
+			if utc.Year() < 1 || utc.Year() > 9999 {
+				return time.Time{}, fmt.Errorf("invalid %s: %s", kind, lexical)
+			}
+		}
+		return t, nil
+	}
+	return time.Time{}, fmt.Errorf("invalid %s: %s", kind, lexical)
 }

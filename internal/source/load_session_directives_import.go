@@ -3,7 +3,6 @@ package source
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -41,21 +40,14 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 	importedSchema := result.schema
 	importKey := result.target
 
-	if imp.Namespace == "" {
-		if importedSchema.TargetNamespace != "" {
-			s.resetTrackedEntry(importKey)
-			return fmt.Errorf("imported schema %s namespace mismatch: expected no namespace, got %s",
-				imp.SchemaLocation, importedSchema.TargetNamespace)
-		}
-	} else if importedSchema.TargetNamespace != importNS {
+	plan, err := s.loader.planImportMerge(imp.SchemaLocation, imp.Namespace, importedSchema, len(schema.GlobalDecls))
+	if err != nil {
 		s.resetTrackedEntry(importKey)
-		return fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s",
-			imp.SchemaLocation, imp.Namespace, importedSchema.TargetNamespace)
+		return err
 	}
-	if err := s.loader.mergeSchema(schema, importedSchema, loadmerge.MergeImport, loadmerge.KeepNamespace, len(schema.GlobalDecls)); err != nil {
-		return fmt.Errorf("merge imported schema %s: %w", imp.SchemaLocation, err)
+	if _, err := s.loader.applyDirectiveMerge(schema, importedSchema, plan, "imported", imp.SchemaLocation); err != nil {
+		return err
 	}
-	s.loader.imports.markMerged(parser.DirectiveImport, s.key, importKey)
-	s.merged.imports = append(s.merged.imports, mergeRecord{base: s.key, target: importKey})
+	s.markDirectiveMerged(parser.DirectiveImport, s.key, importKey)
 	return nil
 }

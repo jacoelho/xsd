@@ -49,7 +49,7 @@ func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *model.Compl
 	}
 
 	attrs := append([]*model.AttributeDecl{}, ext.Attributes...)
-	attrs = append(attrs, collectAttributesFromGroups(schema, ext.AttrGroups, nil)...)
+	attrs = append(attrs, collectAttributesFromGroups(schema, ext.AttrGroups)...)
 	for _, attr := range attrs {
 		key := typeresolve.EffectiveAttributeQName(schema, attr)
 		if _, exists := baseAttrs[key]; exists {

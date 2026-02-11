@@ -4,12 +4,12 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
+	"github.com/jacoelho/xsd/internal/valuesemantics"
 )
 
 func (c *compiler) canonicalizeAtomic(normalized string, typ model.Type, ctx map[string]string) ([]byte, error) {
@@ -43,47 +43,43 @@ func (c *compiler) canonicalizeAtomic(normalized string, typ model.Type, ctx map
 		return []byte(normalized), nil
 	case "decimal":
 		if c.res.isIntegerDerived(typ) {
-			v, perr := num.ParseInt([]byte(normalized))
-			if perr != nil {
-				return nil, fmt.Errorf("invalid integer: %s", normalized)
-			}
-			if err := runtime.ValidateIntegerKind(c.integerKindForType(typ), v); err != nil {
+			_, canon, err := valuesemantics.CanonicalizeInteger([]byte(normalized), func(v num.Int) error {
+				return runtime.ValidateIntegerKind(c.integerKindForType(typ), v)
+			})
+			if err != nil {
 				return nil, err
 			}
-			return v.RenderCanonical(nil), nil
+			return canon, nil
 		}
-		v, perr := num.ParseDec([]byte(normalized))
-		if perr != nil {
-			return nil, fmt.Errorf("invalid decimal: %s", normalized)
+		_, canon, err := valuesemantics.CanonicalizeDecimal([]byte(normalized))
+		if err != nil {
+			return nil, err
 		}
-		return v.RenderCanonical(nil), nil
+		return canon, nil
 	case "boolean":
-		v, err := value.ParseBoolean([]byte(normalized))
+		_, canon, err := valuesemantics.CanonicalizeBoolean([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		if v {
-			return []byte("true"), nil
-		}
-		return []byte("false"), nil
+		return canon, nil
 	case "float":
-		v, err := value.ParseFloat([]byte(normalized))
+		_, _, canon, err := valuesemantics.CanonicalizeFloat32([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		return []byte(value.CanonicalFloat(float64(v), 32)), nil
+		return canon, nil
 	case "double":
-		v, err := value.ParseDouble([]byte(normalized))
+		_, _, canon, err := valuesemantics.CanonicalizeFloat64([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		return []byte(value.CanonicalFloat(v, 64)), nil
+		return canon, nil
 	case "duration":
-		dur, err := durationlex.Parse(normalized)
+		_, canon, err := valuesemantics.CanonicalizeDuration([]byte(normalized))
 		if err != nil {
 			return nil, err
 		}
-		return []byte(model.ComparableXSDDuration{Value: dur}.String()), nil
+		return canon, nil
 	case "hexBinary":
 		b, err := value.ParseHexBinary([]byte(normalized))
 		if err != nil {

@@ -1,12 +1,11 @@
 package loadmerge
 
 import (
-	"cmp"
 	"maps"
-	"slices"
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	qnameorder "github.com/jacoelho/xsd/internal/qname"
 )
 
 func CloneSchemaForMerge(sch *parser.Schema) *parser.Schema {
@@ -87,17 +86,7 @@ func cloneMap[K comparable, V any](src map[K]V) map[K]V {
 }
 
 func sortedQNames[V any](m map[model.QName]V) []model.QName {
-	keys := make([]model.QName, 0, len(m))
-	for qname := range m {
-		keys = append(keys, qname)
-	}
-	slices.SortFunc(keys, func(a, b model.QName) int {
-		if a.Namespace != b.Namespace {
-			return cmp.Compare(a.Namespace, b.Namespace)
-		}
-		return cmp.Compare(a.Local, b.Local)
-	})
-	return keys
+	return qnameorder.SortedMapKeys(m)
 }
 
 func copyImportContexts(src map[string]parser.ImportContext) map[string]parser.ImportContext {

@@ -8,6 +8,7 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/valuecodec"
+	"github.com/jacoelho/xsd/internal/valuesemantics"
 )
 
 func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
@@ -28,15 +29,10 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		}
 		return canon, nil
 	case runtime.VBoolean:
-		v, err := value.ParseBoolean(normalized)
+		v, canon, err := valuesemantics.CanonicalizeBoolean(normalized)
 		if err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		canonRaw := []byte("false")
-		if v {
-			canonRaw = []byte("true")
-		}
-		canon := canonRaw
 		if needKey {
 			key := byte(0)
 			if v {
@@ -96,17 +92,15 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		}
 		return canon, nil
 	case runtime.VFloat:
-		v, class, perr := num.ParseFloat32(normalized)
-		if perr != nil {
-			return nil, valueErrorMsg(valueErrInvalid, "invalid float")
+		v, class, canon, err := valuesemantics.CanonicalizeFloat32(normalized)
+		if err != nil {
+			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
 		if metrics != nil {
 			metrics.float32Val = v
 			metrics.float32Class = class
 			metrics.float32Set = true
 		}
-		canonRaw := []byte(value.CanonicalFloat(float64(v), 32))
-		canon := canonRaw
 		if needKey {
 			key := valuecodec.Float32Key(s.keyTmp[:0], v, class)
 			s.keyTmp = key
@@ -114,17 +108,15 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		}
 		return canon, nil
 	case runtime.VDouble:
-		v, class, perr := num.ParseFloat(normalized, 64)
-		if perr != nil {
-			return nil, valueErrorMsg(valueErrInvalid, "invalid double")
+		v, class, canon, err := valuesemantics.CanonicalizeFloat64(normalized)
+		if err != nil {
+			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
 		if metrics != nil {
 			metrics.float64Val = v
 			metrics.float64Class = class
 			metrics.float64Set = true
 		}
-		canonRaw := []byte(value.CanonicalFloat(v, 64))
-		canon := canonRaw
 		if needKey {
 			key := valuecodec.Float64Key(s.keyTmp[:0], v, class)
 			s.keyTmp = key
@@ -132,12 +124,10 @@ func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []by
 		}
 		return canon, nil
 	case runtime.VDuration:
-		dur, err := durationlex.Parse(unsafe.String(unsafe.SliceData(normalized), len(normalized)))
+		dur, canon, err := valuesemantics.CanonicalizeDuration(normalized)
 		if err != nil {
 			return nil, valueErrorMsg(valueErrInvalid, err.Error())
 		}
-		canonRaw := []byte(durationlex.CanonicalString(dur))
-		canon := canonRaw
 		if needKey {
 			key := valuecodec.DurationKeyBytes(s.keyTmp[:0], dur)
 			s.keyTmp = key

@@ -6,20 +6,6 @@ import (
 	"github.com/jacoelho/xsd/pkg/xmltext"
 )
 
-func resolveElementName(names *qnameCache, ns *nsStack, dec *xmltext.Decoder, name []byte, nameColon, depth, line, column int) (QName, error) {
-	prefix, local, hasPrefix := splitQNameWithColon(name, nameColon)
-	if hasPrefix {
-		prefixName := unsafeString(prefix)
-		namespace, ok := ns.lookup(prefixName, depth)
-		if !ok {
-			return QName{}, unboundPrefixError(dec, line, column)
-		}
-		return names.internBytes(namespace, local), nil
-	}
-	namespace, _ := ns.lookup("", depth)
-	return names.internBytes(namespace, local), nil
-}
-
 func resolveElementParts(ns *nsStack, dec *xmltext.Decoder, name []byte, nameColon, depth, line, column int) (string, []byte, error) {
 	prefix, local, hasPrefix := splitQNameWithColon(name, nameColon)
 	if hasPrefix {

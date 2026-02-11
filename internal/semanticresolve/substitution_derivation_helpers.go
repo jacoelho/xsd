@@ -1,9 +1,9 @@
 package semanticresolve
 
 import (
-	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/substpolicy"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -55,71 +55,7 @@ func typesMatch(a, b model.Type) bool {
 }
 
 func derivationStep(sch *parser.Schema, typ model.Type) (model.Type, model.DerivationMethod, error) {
-	switch typed := typ.(type) {
-	case *model.BuiltinType:
-		name := typed.Name().Local
-		if name == string(model.TypeNameAnyType) {
-			return nil, 0, nil
-		}
-		if name == string(model.TypeNameAnySimpleType) {
-			return builtins.Get(builtins.TypeNameAnyType), model.DerivationRestriction, nil
-		}
-		if st, ok := model.AsSimpleType(typed); ok && st.List != nil {
-			return builtins.Get(builtins.TypeNameAnySimpleType), model.DerivationList, nil
-		}
-		return typed.BaseType(), model.DerivationRestriction, nil
-	case *model.ComplexType:
-		if typed.DerivationMethod == 0 {
-			return typed.ResolvedBase, 0, nil
-		}
-		base := typed.ResolvedBase
-		if base == nil {
-			baseQName := typed.Content().BaseTypeQName()
-			if !baseQName.IsZero() {
-				resolved, err := typeresolve.ResolveTypeQName(sch, baseQName, typeresolve.TypeReferenceMustExist)
-				if err != nil {
-					return nil, typed.DerivationMethod, err
-				}
-				base = resolved
-			}
-		}
-		return base, typed.DerivationMethod, nil
-	case *model.SimpleType:
-		if typed.List != nil {
-			return builtins.Get(builtins.TypeNameAnySimpleType), model.DerivationList, nil
-		}
-		if typed.Union != nil {
-			return builtins.Get(builtins.TypeNameAnySimpleType), model.DerivationUnion, nil
-		}
-		if typed.Restriction != nil {
-			base := typed.ResolvedBase
-			if base == nil && typed.Restriction.SimpleType != nil {
-				base = typed.Restriction.SimpleType
-			}
-			if base == nil && !typed.Restriction.Base.IsZero() {
-				resolved, err := typeresolve.ResolveTypeQName(sch, typed.Restriction.Base, typeresolve.TypeReferenceMustExist)
-				if err != nil {
-					return nil, model.DerivationRestriction, err
-				}
-				base = resolved
-			}
-			return base, model.DerivationRestriction, nil
-		}
-	}
-	return nil, 0, nil
-}
-
-func derivationMethodLabel(method model.DerivationMethod) string {
-	switch method {
-	case model.DerivationExtension:
-		return "extension"
-	case model.DerivationRestriction:
-		return "restriction"
-	case model.DerivationList:
-		return "list"
-	case model.DerivationUnion:
-		return "union"
-	default:
-		return "unknown"
-	}
+	return substpolicy.NextDerivationStep(typ, func(name model.QName) (model.Type, error) {
+		return typeresolve.ResolveTypeQName(sch, name, typeresolve.TypeReferenceMustExist)
+	})
 }

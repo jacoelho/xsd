@@ -223,3 +223,27 @@ func TestCompileProgramsMissingSymbol(t *testing.T) {
 		t.Fatalf("expected missing symbol error")
 	}
 }
+
+func TestCompileExpressionParity(t *testing.T) {
+	schema, _ := buildRuntimeXPathFixture(t)
+	nsContext := map[string]string{"t": "urn:test"}
+	expr := "t:a|t:b"
+
+	parsed, err := Parse(expr, nsContext, AttributesDisallowed)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+
+	fromParsed, err := CompileExpression(parsed, schema)
+	if err != nil {
+		t.Fatalf("CompileExpression: %v", err)
+	}
+	direct, err := CompilePrograms(expr, nsContext, AttributesDisallowed, schema)
+	if err != nil {
+		t.Fatalf("CompilePrograms: %v", err)
+	}
+
+	if !reflect.DeepEqual(fromParsed, direct) {
+		t.Fatalf("from parsed = %#v, direct = %#v", fromParsed, direct)
+	}
+}

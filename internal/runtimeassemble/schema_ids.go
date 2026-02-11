@@ -1,14 +1,19 @@
 package runtimeassemble
 
 import (
+	"maps"
+
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validatorgen"
+	"github.com/jacoelho/xsd/internal/runtimeids"
 )
 
-func (b *schemaBuilder) initIDs() {
-	builtin := validatorgen.BuiltinTypeNames()
-	totalTypes := len(builtin) + len(b.registry.TypeOrder)
+func (b *schemaBuilder) initIDs() error {
+	plan, err := runtimeids.Build(b.registry)
+	if err != nil {
+		return err
+	}
+	totalTypes := len(plan.BuiltinTypeNames) + len(b.registry.TypeOrder)
 	b.rt.Types = make([]runtime.Type, totalTypes+1)
 
 	complexCount := 0
@@ -23,27 +28,12 @@ func (b *schemaBuilder) initIDs() {
 	b.rt.Elements = make([]runtime.Element, len(b.registry.ElementOrder)+1)
 	b.rt.Attributes = make([]runtime.Attribute, len(b.registry.AttributeOrder)+1)
 
-	nextType := runtime.TypeID(1)
-	for _, name := range builtin {
-		b.builtinIDs[name] = nextType
-		nextType++
-	}
-	for _, entry := range b.registry.TypeOrder {
-		b.typeIDs[entry.ID] = nextType
-		nextType++
-	}
+	maps.Copy(b.builtinIDs, plan.BuiltinTypeIDs)
+	maps.Copy(b.typeIDs, plan.TypeIDs)
 
-	nextElem := runtime.ElemID(1)
-	for _, entry := range b.registry.ElementOrder {
-		b.elemIDs[entry.ID] = nextElem
-		nextElem++
-	}
+	maps.Copy(b.elemIDs, plan.ElementIDs)
 
-	nextAttr := runtime.AttrID(1)
-	for _, entry := range b.registry.AttributeOrder {
-		b.attrIDs[entry.ID] = nextAttr
-		nextAttr++
-	}
+	maps.Copy(b.attrIDs, plan.AttributeIDs)
 
 	b.rt.GlobalTypes = make([]runtime.TypeID, b.rt.Symbols.Count()+1)
 	b.rt.GlobalElements = make([]runtime.ElemID, b.rt.Symbols.Count()+1)
@@ -60,4 +50,5 @@ func (b *schemaBuilder) initIDs() {
 	}
 	b.paths = make([]runtime.PathProgram, 1)
 	b.rt.ICs = make([]runtime.IdentityConstraint, 1)
+	return nil
 }

@@ -4,14 +4,6 @@ import (
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
-type visitState uint8
-
-const (
-	stateUnseen visitState = iota
-	stateVisiting
-	stateDone
-)
-
 // DetectCycles validates that type derivation, group refs, attribute group refs,
 // and substitution groups are acyclic.
 func DetectCycles(schema *parser.Schema) error {

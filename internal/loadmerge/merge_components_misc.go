@@ -1,10 +1,8 @@
 package loadmerge
 
 import (
-	"cmp"
-	"slices"
-
 	"github.com/jacoelho/xsd/internal/model"
+	qnameorder "github.com/jacoelho/xsd/internal/qname"
 )
 
 func (c *mergeContext) mergeSubstitutionGroups() {
@@ -15,12 +13,7 @@ func (c *mergeContext) mergeSubstitutionGroups() {
 	for head := range c.source.SubstitutionGroups {
 		heads = append(heads, head)
 	}
-	slices.SortFunc(heads, func(a, b model.QName) int {
-		if a.Namespace != b.Namespace {
-			return cmp.Compare(a.Namespace, b.Namespace)
-		}
-		return cmp.Compare(a.Local, b.Local)
-	})
+	qnameorder.SortInPlace(heads)
 	for _, head := range heads {
 		members := c.source.SubstitutionGroups[head]
 		targetHead := c.remapQName(head)
@@ -46,24 +39,7 @@ func (c *mergeContext) mergeSubstitutionGroups() {
 }
 
 func sortAndDedupeQNames(names []model.QName) []model.QName {
-	if len(names) < 2 {
-		return names
-	}
-	slices.SortFunc(names, func(a, b model.QName) int {
-		if a.Namespace != b.Namespace {
-			return cmp.Compare(a.Namespace, b.Namespace)
-		}
-		return cmp.Compare(a.Local, b.Local)
-	})
-	out := names[:0]
-	var last model.QName
-	for i, name := range names {
-		if i == 0 || !name.Equal(last) {
-			out = append(out, name)
-			last = name
-		}
-	}
-	return out
+	return qnameorder.SortAndDedupe(names)
 }
 
 func (c *mergeContext) mergeNotationDecls() error {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/durationlex"
+	"github.com/jacoelho/xsd/internal/durationconv"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
@@ -92,79 +92,18 @@ type ComparableDuration struct {
 // Returns an error if the duration contains years or months (which cannot be converted to time.Duration)
 // or if the duration string is invalid.
 func parseDurationToTimeDuration(s string) (time.Duration, error) {
-	xsdDur, err := durationlex.Parse(s)
+	dur, err := durationconv.ParseToStdDuration(s)
 	if err != nil {
-		return 0, err
-	}
-	if xsdDur.Years != 0 || xsdDur.Months != 0 {
-		return 0, fmt.Errorf("durations with years or months cannot be converted to time.Duration (indeterminate)")
-	}
-	const maxDuration = time.Duration(^uint64(0) >> 1)
-
-	componentDuration := func(value int, unit time.Duration) (time.Duration, error) {
-		if value == 0 {
-			return 0, nil
-		}
-		if value < 0 {
-			return 0, fmt.Errorf("duration component out of range")
-		}
-		limit := int64(maxDuration / unit)
-		if int64(value) > limit {
+		switch {
+		case errors.Is(err, durationconv.ErrIndeterminate):
+			return 0, fmt.Errorf("durations with years or months cannot be converted to time.Duration (indeterminate)")
+		case errors.Is(err, durationconv.ErrOverflow):
 			return 0, fmt.Errorf("duration too large")
-		}
-		return time.Duration(value) * unit, nil
-	}
-
-	addDuration := func(total, delta time.Duration) (time.Duration, error) {
-		if delta < 0 {
+		case errors.Is(err, durationconv.ErrComponentRange):
 			return 0, fmt.Errorf("duration component out of range")
+		default:
+			return 0, err
 		}
-		if total > maxDuration-delta {
-			return 0, fmt.Errorf("duration too large")
-		}
-		return total + delta, nil
-	}
-
-	dur := time.Duration(0)
-	var delta time.Duration
-
-	delta, err = componentDuration(xsdDur.Days, 24*time.Hour)
-	if err != nil {
-		return 0, err
-	}
-	dur, err = addDuration(dur, delta)
-	if err != nil {
-		return 0, err
-	}
-
-	delta, err = componentDuration(xsdDur.Hours, time.Hour)
-	if err != nil {
-		return 0, err
-	}
-	dur, err = addDuration(dur, delta)
-	if err != nil {
-		return 0, err
-	}
-
-	delta, err = componentDuration(xsdDur.Minutes, time.Minute)
-	if err != nil {
-		return 0, err
-	}
-	dur, err = addDuration(dur, delta)
-	if err != nil {
-		return 0, err
-	}
-
-	secondsDuration, err := SecondsToDuration(xsdDur.Seconds)
-	if err != nil {
-		return 0, err
-	}
-	if dur, err = addDuration(dur, secondsDuration); err != nil {
-		return 0, err
-	}
-
-	if xsdDur.Negative {
-		dur = -dur
 	}
 	return dur, nil
 }

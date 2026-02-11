@@ -63,31 +63,7 @@ func validateElementReferenceAttributes(doc *schemaxml.Document, elem schemaxml.
 	if err := validateOnlyAnnotationChildren(doc, elem, "element"); err != nil {
 		return err
 	}
-	if attrs.hasType {
-		return fmt.Errorf("element reference cannot have 'type' attribute")
-	}
-	if attrs.hasDefault {
-		return fmt.Errorf("element reference cannot have 'default' attribute")
-	}
-	if attrs.hasFixed {
-		return fmt.Errorf("element reference cannot have 'fixed' attribute")
-	}
-	if attrs.hasNillable {
-		return fmt.Errorf("element reference cannot have 'nillable' attribute")
-	}
-	if attrs.hasBlock {
-		return fmt.Errorf("element reference cannot have 'block' attribute")
-	}
-	if attrs.hasFinal {
-		return fmt.Errorf("element reference cannot have 'final' attribute")
-	}
-	if attrs.hasForm {
-		return fmt.Errorf("element reference cannot have 'form' attribute")
-	}
-	if attrs.hasAbstract {
-		return fmt.Errorf("element reference cannot have 'abstract' attribute")
-	}
-	return nil
+	return validateElementReferenceConflicts(attrs)
 }
 
 func parseElementOccurs(attrs *elementAttrScan) (model.Occurs, model.Occurs, error) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/occurspolicy"
 	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
@@ -31,10 +32,10 @@ func parseModelGroup(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Sch
 		return nil, err
 	}
 	if kind == model.AllGroup {
-		if !minOccurs.IsZero() && !minOccurs.IsOne() {
+		switch occurspolicy.CheckAllGroupBounds(minOccurs, maxOccurs) {
+		case occurspolicy.AllGroupMinNotZeroOrOne:
 			return nil, fmt.Errorf("xs:all must have minOccurs='0' or '1'")
-		}
-		if !maxOccurs.IsOne() {
+		case occurspolicy.AllGroupMaxNotOne:
 			return nil, fmt.Errorf("xs:all must have maxOccurs='1'")
 		}
 	}
@@ -48,22 +49,28 @@ func parseModelGroup(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Sch
 
 	hasAnnotation := false
 	hasNonAnnotation := false
+	parentName := doc.LocalName(elem)
 	for _, child := range doc.Children(elem) {
 		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
 			continue
 		}
-		if doc.LocalName(child) == "annotation" {
-			if hasAnnotation {
-				return nil, fmt.Errorf("%s: at most one annotation is allowed", doc.LocalName(elem))
-			}
-			if hasNonAnnotation {
-				return nil, fmt.Errorf("%s: annotation must appear before other elements", doc.LocalName(elem))
-			}
-			hasAnnotation = true
+
+		childName := doc.LocalName(child)
+		handled, err := handleSingleLeadingAnnotation(
+			childName,
+			&hasAnnotation,
+			hasNonAnnotation,
+			fmt.Sprintf("%s: at most one annotation is allowed", parentName),
+			fmt.Sprintf("%s: annotation must appear before other elements", parentName),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if handled {
 			continue
 		}
 		hasNonAnnotation = true
-		particle, err := parseModelGroupChildParticle(doc, child, schema, kind, doc.LocalName(elem))
+		particle, err := parseModelGroupChildParticle(doc, child, schema, kind, parentName)
 		if err != nil {
 			return nil, err
 		}

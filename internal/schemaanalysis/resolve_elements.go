@@ -19,37 +19,27 @@ func (r *referenceResolver) resolveElement(decl *model.ElementDecl) error {
 	if decl == nil {
 		return nil
 	}
-	switch r.elementState[decl] {
-	case resolveResolving, resolveResolved:
-		return nil
-	}
-	r.elementState[decl] = resolveResolving
-	if decl.IsReference {
-		if err := r.resolveElementReference(decl); err != nil {
-			delete(r.elementState, decl)
-			return err
+	return r.elementState.Resolve(decl, nil, func() error {
+		if decl.IsReference {
+			if err := r.resolveElementReference(decl); err != nil {
+				return err
+			}
+			return nil
 		}
-		r.elementState[decl] = resolveResolved
-		return nil
-	}
-	if decl.Type == nil {
-		r.elementState[decl] = resolveResolved
-		return nil
-	}
-	if st, ok := decl.Type.(*model.SimpleType); ok && model.IsPlaceholderSimpleType(st) {
-		if err := r.resolveTypeQName(st.QName); err != nil {
-			delete(r.elementState, decl)
+		if decl.Type == nil {
+			return nil
+		}
+		if st, ok := decl.Type.(*model.SimpleType); ok && model.IsPlaceholderSimpleType(st) {
+			if err := r.resolveTypeQName(st.QName); err != nil {
+				return fmt.Errorf("element %s: %w", decl.Name, err)
+			}
+			return nil
+		}
+		if err := r.resolveType(decl.Type); err != nil {
 			return fmt.Errorf("element %s: %w", decl.Name, err)
 		}
-		r.elementState[decl] = resolveResolved
 		return nil
-	}
-	if err := r.resolveType(decl.Type); err != nil {
-		delete(r.elementState, decl)
-		return fmt.Errorf("element %s: %w", decl.Name, err)
-	}
-	r.elementState[decl] = resolveResolved
-	return nil
+	})
 }
 
 func (r *referenceResolver) resolveElementReference(decl *model.ElementDecl) error {
@@ -72,19 +62,14 @@ func (r *referenceResolver) resolveModelGroup(group *model.ModelGroup) error {
 	if group == nil {
 		return nil
 	}
-	switch r.modelGroupState[group] {
-	case resolveResolving, resolveResolved:
-		return nil
-	}
-	r.modelGroupState[group] = resolveResolving
-	for _, particle := range group.Particles {
-		if err := r.resolveParticle(particle); err != nil {
-			delete(r.modelGroupState, group)
-			return err
+	return r.modelGroupState.Resolve(group, nil, func() error {
+		for _, particle := range group.Particles {
+			if err := r.resolveParticle(particle); err != nil {
+				return err
+			}
 		}
-	}
-	r.modelGroupState[group] = resolveResolved
-	return nil
+		return nil
+	})
 }
 
 func (r *referenceResolver) resolveParticle(particle model.Particle) error {

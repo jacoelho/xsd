@@ -15,6 +15,7 @@ func (c *compiler) result(registry *schema.Registry) *compiledValidators {
 		Patterns:        c.patterns,
 		Enums:           c.enums.table(),
 		Values:          c.values.table(),
+		ComplexTypes:    c.complexTypes,
 		TypeValidators:  make(map[schema.TypeID]runtime.ValidatorID),
 		ValidatorByType: make(map[model.Type]runtime.ValidatorID),
 		elements:        c.elements,

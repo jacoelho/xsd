@@ -171,9 +171,9 @@ func parseRangeFacetValue(facetName, lexical string, baseType Type) (ComparableV
 	if baseType == nil {
 		return nil, fmt.Errorf("%s: %w", facetName, ErrCannotDeterminePrimitiveType)
 	}
-	comparable, err := parseLexicalToComparable(lexical, baseType)
+	comparableValue, err := parseLexicalToComparable(lexical, baseType)
 	if err == nil {
-		return comparable, nil
+		return comparableValue, nil
 	}
 	var unsupported unsupportedComparablePrimitiveError
 	if errors.As(err, &unsupported) {

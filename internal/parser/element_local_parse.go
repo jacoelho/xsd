@@ -21,11 +21,6 @@ func parseLocalElement(doc *schemaxml.Document, elem schemaxml.NodeID, schema *S
 		return nil, err
 	}
 
-	hasInlineType := elementHasInlineType(doc, elem)
-	if attrs.typ != "" && hasInlineType {
-		return nil, fmt.Errorf("element cannot have both 'type' attribute and inline type definition")
-	}
-
 	effectiveForm, elementNamespace, err := resolveLocalElementForm(attrs, schema)
 	if err != nil {
 		return nil, err
@@ -45,14 +40,13 @@ func parseLocalElement(doc *schemaxml.Document, elem schemaxml.NodeID, schema *S
 		MinOccurs:       minOccurs,
 		MaxOccurs:       maxOccurs,
 	}
-	decl.TypeExplicit = attrs.hasType || hasInlineType
 	if effectiveForm == Qualified {
 		decl.Form = model.FormQualified
 	} else {
 		decl.Form = model.FormUnqualified
 	}
 
-	typ, err := resolveElementType(doc, elem, schema, attrs)
+	typ, hasInlineType, err := resolveElementType(doc, elem, schema, attrs)
 	if err != nil {
 		return nil, err
 	}

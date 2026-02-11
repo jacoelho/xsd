@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/occurspolicy"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -32,14 +33,12 @@ func validateParticleStructureWithVisited(schema *parser.Schema, particle model.
 func validateParticleOccurs(particle model.Particle) error {
 	maxOcc := particle.MaxOcc()
 	minOcc := particle.MinOcc()
-	if maxOcc.IsOverflow() || minOcc.IsOverflow() {
+	switch occurspolicy.CheckBounds(minOcc, maxOcc) {
+	case occurspolicy.BoundsOverflow:
 		return fmt.Errorf("%w: occurrence value exceeds uint32", model.ErrOccursOverflow)
-	}
-
-	if maxOcc.IsZero() && !minOcc.IsZero() {
+	case occurspolicy.BoundsMaxZeroWithMinNonZero:
 		return fmt.Errorf("maxOccurs cannot be 0 when minOccurs > 0")
-	}
-	if !maxOcc.IsUnbounded() && !maxOcc.IsZero() && maxOcc.Cmp(minOcc) < 0 {
+	case occurspolicy.BoundsMinGreaterThanMax:
 		return fmt.Errorf("minOccurs (%s) cannot be greater than maxOccurs (%s)", minOcc, maxOcc)
 	}
 	return nil

@@ -11,8 +11,16 @@ func CompilePrograms(expr string, nsContext map[string]string, policy AttributeP
 	if err != nil {
 		return nil, err
 	}
+	return CompileExpression(parsed, schema)
+}
+
+// CompileExpression compiles a parsed restricted XPath expression into runtime path programs.
+func CompileExpression(parsed Expression, schema *runtime.Schema) ([]runtime.PathProgram, error) {
+	if schema == nil {
+		return nil, xpathErrorf("schema is nil")
+	}
 	if len(parsed.Paths) == 0 {
-		return nil, xpathErrorf("xpath contains no paths: %s", expr)
+		return nil, xpathErrorf("xpath contains no paths")
 	}
 	programs := make([]runtime.PathProgram, 0, len(parsed.Paths))
 	for _, path := range parsed.Paths {

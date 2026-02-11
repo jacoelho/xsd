@@ -58,3 +58,11 @@ func (r *typeResolver) resolveQName(name model.QName) model.Type {
 	}
 	return nil
 }
+
+func (r *typeResolver) nextType(current model.Type) model.Type {
+	st, ok := model.AsSimpleType(current)
+	if !ok || st == nil {
+		return nil
+	}
+	return r.baseType(st)
+}

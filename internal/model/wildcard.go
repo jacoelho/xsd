@@ -1,6 +1,10 @@
 package model
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/jacoelho/xsd/internal/wildcardpolicy"
+)
 
 // NamespaceConstraint represents a namespace constraint
 type NamespaceConstraint int
@@ -79,27 +83,76 @@ type wildcardConstraint struct {
 
 // AllowsNamespace reports whether a namespace is permitted by a wildcard constraint.
 func AllowsNamespace(constraint NamespaceConstraint, list []NamespaceURI, targetNS, ns NamespaceURI) bool {
+	return wildcardpolicy.AllowsNamespace(
+		modelConstraintToPolicy(constraint),
+		list,
+		targetNS,
+		ns,
+	)
+}
+
+// ProcessContentsStrongerOrEqual reports whether derived is as strict as base.
+func ProcessContentsStrongerOrEqual(derived, base ProcessContents) bool {
+	return wildcardpolicy.ProcessContentsStrongerOrEqual(
+		modelProcessContentsToPolicy(derived),
+		modelProcessContentsToPolicy(base),
+	)
+}
+
+func modelConstraintToPolicy(constraint NamespaceConstraint) wildcardpolicy.NamespaceConstraintKind {
 	switch constraint {
 	case NSCAny:
-		return true
-	case NSCLocal:
-		return ns == ""
-	case NSCTargetNamespace:
-		return ns == targetNS
+		return wildcardpolicy.NamespaceAny
 	case NSCOther:
-		return ns != targetNS && ns != ""
-	case NSCNotAbsent:
-		return ns != ""
+		return wildcardpolicy.NamespaceOther
+	case NSCTargetNamespace:
+		return wildcardpolicy.NamespaceTargetNamespace
+	case NSCLocal:
+		return wildcardpolicy.NamespaceLocal
 	case NSCList:
-		for _, allowed := range list {
-			if resolveNamespaceToken(allowed, targetNS) == ns {
-				return true
-			}
-		}
-		return false
+		return wildcardpolicy.NamespaceList
+	case NSCNotAbsent:
+		return wildcardpolicy.NamespaceNotAbsent
 	default:
-		return false
+		return wildcardpolicy.NamespaceAny + 255
 	}
+}
+
+func modelProcessContentsToPolicy(pc ProcessContents) wildcardpolicy.ProcessContents {
+	switch pc {
+	case Strict:
+		return wildcardpolicy.ProcessStrict
+	case Lax:
+		return wildcardpolicy.ProcessLax
+	case Skip:
+		return wildcardpolicy.ProcessSkip
+	default:
+		return wildcardpolicy.ProcessStrict + 255
+	}
+}
+
+// NamespaceConstraintSubset reports whether the first wildcard namespace constraint
+// is a subset of the second constraint.
+func NamespaceConstraintSubset(
+	derivedConstraint NamespaceConstraint,
+	derivedList []NamespaceURI,
+	derivedTargetNS NamespaceURI,
+	baseConstraint NamespaceConstraint,
+	baseList []NamespaceURI,
+	baseTargetNS NamespaceURI,
+) bool {
+	return wildcardpolicy.NamespaceConstraintSubset(
+		wildcardpolicy.NamespaceConstraint{
+			Kind:     modelConstraintToPolicy(derivedConstraint),
+			List:     derivedList,
+			TargetNS: derivedTargetNS,
+		},
+		wildcardpolicy.NamespaceConstraint{
+			Kind:     modelConstraintToPolicy(baseConstraint),
+			List:     baseList,
+			TargetNS: baseTargetNS,
+		},
+	)
 }
 
 func resolveNamespaceToken(ns, targetNS NamespaceURI) NamespaceURI {
@@ -127,44 +180,18 @@ func resolvedNamespaceList(list []NamespaceURI, targetNS NamespaceURI) []Namespa
 }
 
 func isWildcardSubset(a, b wildcardConstraint) bool {
-	switch a.constraint {
-	case NSCAny:
-		return b.constraint == NSCAny
-	case NSCOther:
-		if b.constraint == NSCAny {
-			return true
-		}
-		if b.constraint == NSCOther && a.target == b.target {
-			return true
-		}
-		if b.constraint == NSCNotAbsent {
-			return true
-		}
-		return false
-	case NSCNotAbsent:
-		switch b.constraint {
-		case NSCAny, NSCNotAbsent:
-			return true
-		case NSCOther:
-			return b.target == ""
-		default:
-			return false
-		}
-	case NSCTargetNamespace:
-		return AllowsNamespace(b.constraint, b.list, b.target, a.target)
-	case NSCLocal:
-		return AllowsNamespace(b.constraint, b.list, b.target, NamespaceEmpty)
-	case NSCList:
-		for _, ns := range a.list {
-			resolved := resolveNamespaceToken(ns, a.target)
-			if !AllowsNamespace(b.constraint, b.list, b.target, resolved) {
-				return false
-			}
-		}
-		return true
-	default:
-		return false
-	}
+	return wildcardpolicy.NamespaceConstraintSubset(
+		wildcardpolicy.NamespaceConstraint{
+			Kind:     modelConstraintToPolicy(a.constraint),
+			List:     a.list,
+			TargetNS: a.target,
+		},
+		wildcardpolicy.NamespaceConstraint{
+			Kind:     modelConstraintToPolicy(b.constraint),
+			List:     b.list,
+			TargetNS: b.target,
+		},
+	)
 }
 
 func intersectWildcards(a, b wildcardConstraint) (wildcardConstraint, bool) {

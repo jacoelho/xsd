@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/runtimeids"
 	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 	"github.com/jacoelho/xsd/internal/typechain"
 	"github.com/jacoelho/xsd/internal/typeresolve"
@@ -16,7 +17,7 @@ func (b *schemaBuilder) initSymbols() error {
 		return fmt.Errorf("runtime build: symbol builder missing")
 	}
 	xsdNS := model.XSDNamespace
-	for _, name := range validatorgen.BuiltinTypeNames() {
+	for _, name := range runtimeids.BuiltinTypeNames() {
 		b.internQName(model.QName{Namespace: xsdNS, Local: string(name)})
 	}
 
@@ -37,9 +38,13 @@ func (b *schemaBuilder) initSymbols() error {
 		if !ok || ct == nil {
 			continue
 		}
-		attrs, wildcard, err := validatorgen.CollectAttributeUses(b.schema, ct)
-		if err != nil {
-			return err
+		attrs, wildcard, cached := b.complexTypes.AttributeUses(ct)
+		if !cached {
+			var err error
+			attrs, wildcard, err = validatorgen.CollectAttributeUses(b.schema, ct)
+			if err != nil {
+				return err
+			}
 		}
 		for _, attr := range attrs {
 			if attr == nil {
@@ -50,7 +55,10 @@ func (b *schemaBuilder) initSymbols() error {
 		if wildcard != nil {
 			b.internNamespaceConstraint(wildcard.Namespace, wildcard.NamespaceList, wildcard.TargetNamespace)
 		}
-		particle := typechain.EffectiveContentParticle(b.schema, ct)
+		particle, ok := b.complexTypes.Content(ct)
+		if !ok {
+			particle = typechain.EffectiveContentParticle(b.schema, ct)
+		}
 		if particle != nil {
 			b.internWildcardNamespaces(particle)
 		}

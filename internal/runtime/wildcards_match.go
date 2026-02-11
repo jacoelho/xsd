@@ -1,35 +1,47 @@
 package runtime
 
-import "bytes"
+import (
+	"bytes"
+
+	"github.com/jacoelho/xsd/internal/wildcardpolicy"
+)
 
 // Accepts reports whether the namespace is allowed by the wildcard rule.
 // nsID==0 triggers byte comparisons against the namespace table.
 func (w WildcardRule) Accepts(nsBytes []byte, nsID NamespaceID, nsTable *NamespaceTable, nsList []NamespaceID) bool {
-	switch w.NS.Kind {
+	localMatch := isLocalNamespace(nsBytes, nsID, nsTable)
+	targetMatch := matchesNamespace(w.TargetNS, nsBytes, nsID, nsTable)
+	enumMatch := false
+	for _, id := range nsList {
+		if matchesNamespace(id, nsBytes, nsID, nsTable) {
+			enumMatch = true
+			break
+		}
+	}
+	return wildcardpolicy.AllowsRuntimeNamespace(
+		wildcardpolicy.RuntimeNamespaceConstraint{
+			Kind:      runtimeConstraintToPolicy(w.NS.Kind),
+			HasTarget: w.NS.HasTarget,
+			HasLocal:  w.NS.HasLocal,
+		},
+		targetMatch,
+		localMatch,
+		enumMatch,
+	)
+}
+
+func runtimeConstraintToPolicy(kind NSConstraintKind) wildcardpolicy.RuntimeNamespaceConstraintKind {
+	switch kind {
 	case NSAny:
-		return true
+		return wildcardpolicy.RuntimeNamespaceAny
 	case NSOther:
-		if matchesNamespace(w.TargetNS, nsBytes, nsID, nsTable) {
-			return false
-		}
-		return !isLocalNamespace(nsBytes, nsID, nsTable)
-	case NSNotAbsent:
-		return !isLocalNamespace(nsBytes, nsID, nsTable)
+		return wildcardpolicy.RuntimeNamespaceOther
 	case NSEnumeration:
-		if w.NS.HasLocal && isLocalNamespace(nsBytes, nsID, nsTable) {
-			return true
-		}
-		if w.NS.HasTarget && matchesNamespace(w.TargetNS, nsBytes, nsID, nsTable) {
-			return true
-		}
-		for _, id := range nsList {
-			if matchesNamespace(id, nsBytes, nsID, nsTable) {
-				return true
-			}
-		}
-		return false
+		return wildcardpolicy.RuntimeNamespaceEnumeration
+	case NSNotAbsent:
+		return wildcardpolicy.RuntimeNamespaceNotAbsent
 	default:
-		return false
+		return wildcardpolicy.RuntimeNamespaceAny + 255
 	}
 }
 

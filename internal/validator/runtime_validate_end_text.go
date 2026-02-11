@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"bytes"
 	"fmt"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
@@ -61,32 +60,16 @@ func (s *Session) validateEndElementText(frame elemFrame, typ runtime.Type, type
 		}
 	}
 
-	switch {
-	case !hasContent && elemOK && elem.Fixed.Present:
-		result.canonText = valueBytes(s.rt.Values, elem.Fixed)
-		result.textMember = elem.FixedMember
-		if elem.FixedKey.Ref.Present {
-			result.textKeyKind = elem.FixedKey.Kind
-			result.textKeyBytes = valueBytes(s.rt.Values, elem.FixedKey.Ref)
+	fallback := selectTextDefaultFixed(hasContent, elem, elemOK, ct, hasComplexText)
+	if fallback.present {
+		result.canonText = valueBytes(s.rt.Values, fallback.value)
+		result.textMember = fallback.member
+		if fallback.key.Ref.Present {
+			result.textKeyKind = fallback.key.Kind
+			result.textKeyBytes = valueBytes(s.rt.Values, fallback.key.Ref)
 		}
 		trackDefault(result.canonText, result.textMember)
-	case !hasContent && elemOK && elem.Default.Present:
-		result.canonText = valueBytes(s.rt.Values, elem.Default)
-		result.textMember = elem.DefaultMember
-		if elem.DefaultKey.Ref.Present {
-			result.textKeyKind = elem.DefaultKey.Kind
-			result.textKeyBytes = valueBytes(s.rt.Values, elem.DefaultKey.Ref)
-		}
-		trackDefault(result.canonText, result.textMember)
-	case !hasContent && hasComplexText && ct.TextFixed.Present:
-		result.canonText = valueBytes(s.rt.Values, ct.TextFixed)
-		result.textMember = ct.TextFixedMember
-		trackDefault(result.canonText, result.textMember)
-	case !hasContent && hasComplexText && ct.TextDefault.Present:
-		result.canonText = valueBytes(s.rt.Values, ct.TextDefault)
-		result.textMember = ct.TextDefaultMember
-		trackDefault(result.canonText, result.textMember)
-	default:
+	} else {
 		requireCanonical := (elemOK && elem.Fixed.Present) || (hasComplexText && ct.TextFixed.Present)
 		canon, metrics, err := s.ValidateTextValue(frame.typ, rawText, resolver, TextValueOptions{
 			RequireCanonical: requireCanonical,
@@ -102,37 +85,21 @@ func (s *Session) validateEndElementText(frame elemFrame, typ runtime.Type, type
 		}
 	}
 
-	if result.canonText != nil && elemOK && (frame.text.HasText || hasContent) && elem.Fixed.Present {
-		matched := false
-		keyCompareErr := false
-		if elem.FixedKey.Ref.Present {
-			actualKind := result.textKeyKind
-			actualKey := result.textKeyBytes
-			if actualKind == runtime.VKInvalid {
-				kind, key, err := s.keyForCanonicalValue(result.textValidator, result.canonText, resolver, result.textMember)
-				if err != nil {
-					s.ensurePath(path)
-					errs = append(errs, err)
-					keyCompareErr = true
-				} else {
-					actualKind = kind
-					actualKey = key
-				}
-			}
-			if actualKind == elem.FixedKey.Kind && bytes.Equal(actualKey, valueBytes(s.rt.Values, elem.FixedKey.Ref)) {
-				matched = true
-			}
-		} else {
-			fixed := valueBytes(s.rt.Values, elem.Fixed)
-			matched = bytes.Equal(result.canonText, fixed)
-		}
-		if !matched && !keyCompareErr {
+	fixed := selectTextFixedConstraint(elem, elemOK, ct, hasComplexText)
+	if result.canonText != nil && hasContent && fixed.present {
+		matched, err := s.fixedValueMatches(
+			result.textValidator,
+			fixed.member,
+			result.canonText,
+			valueMetrics{keyKind: result.textKeyKind, keyBytes: result.textKeyBytes},
+			resolver,
+			fixed.value,
+			fixed.key,
+		)
+		if err != nil {
 			s.ensurePath(path)
-			errs = append(errs, newValidationError(xsderrors.ErrElementFixedValue, "fixed element value mismatch"))
-		}
-	} else if result.canonText != nil && (frame.text.HasText || hasContent) && hasComplexText && ct.TextFixed.Present && (!elemOK || !elem.Fixed.Present) {
-		fixed := valueBytes(s.rt.Values, ct.TextFixed)
-		if !bytes.Equal(result.canonText, fixed) {
+			errs = append(errs, err)
+		} else if !matched {
 			s.ensurePath(path)
 			errs = append(errs, newValidationError(xsderrors.ErrElementFixedValue, "fixed element value mismatch"))
 		}

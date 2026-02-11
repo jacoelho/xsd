@@ -6,13 +6,13 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validatorgen"
+	"github.com/jacoelho/xsd/internal/runtimeids"
 )
 
 func (b *schemaBuilder) buildTypes() error {
 	xsdNS := model.XSDNamespace
 	nextComplex := uint32(1)
-	for _, name := range validatorgen.BuiltinTypeNames() {
+	for _, name := range runtimeids.BuiltinTypeNames() {
 		id := b.builtinIDs[name]
 		sym := b.internQName(model.QName{Namespace: xsdNS, Local: string(name)})
 		typ := runtime.Type{Name: sym}

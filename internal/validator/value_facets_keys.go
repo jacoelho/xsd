@@ -1,64 +1,20 @@
 package validator
 
 import (
-	"bytes"
-	"unsafe"
-
-	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/value/temporal"
 	"github.com/jacoelho/xsd/internal/valuecodec"
+	"github.com/jacoelho/xsd/internal/valuesemantics"
 )
 
 func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical []byte) (runtime.ValueKind, []byte, error) {
+	if vk, key, err := valuesemantics.KeyForValidatorKind(kind, canonical); err == nil {
+		s.keyTmp = append(s.keyTmp[:0], key...)
+		return vk, s.keyTmp, nil
+	}
+
 	switch kind {
-	case runtime.VString:
-		key := valuecodec.StringKeyBytes(s.keyTmp[:0], 0, canonical)
-		s.keyTmp = key
-		return runtime.VKString, key, nil
-	case runtime.VBoolean:
-		switch {
-		case bytes.Equal(canonical, []byte("true")):
-			return runtime.VKBool, []byte{1}, nil
-		case bytes.Equal(canonical, []byte("false")):
-			return runtime.VKBool, []byte{0}, nil
-		default:
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid boolean")
-		}
-	case runtime.VDecimal:
-		decVal, perr := num.ParseDec(canonical)
-		if perr != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid decimal")
-		}
-		key := num.EncodeDecKey(s.keyTmp[:0], decVal)
-		s.keyTmp = key
-		return runtime.VKDecimal, key, nil
-	case runtime.VInteger:
-		intVal, perr := num.ParseInt(canonical)
-		if perr != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid integer")
-		}
-		key := num.EncodeDecKey(s.keyTmp[:0], intVal.AsDec())
-		s.keyTmp = key
-		return runtime.VKDecimal, key, nil
-	case runtime.VFloat:
-		v, class, perr := num.ParseFloat32(canonical)
-		if perr != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid float")
-		}
-		key := valuecodec.Float32Key(s.keyTmp[:0], v, class)
-		s.keyTmp = key
-		return runtime.VKFloat32, key, nil
-	case runtime.VDouble:
-		v, class, perr := num.ParseFloat(canonical, 64)
-		if perr != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, "invalid double")
-		}
-		key := valuecodec.Float64Key(s.keyTmp[:0], v, class)
-		s.keyTmp = key
-		return runtime.VKFloat64, key, nil
 	case runtime.VAnyURI:
 		key := valuecodec.StringKeyBytes(s.keyTmp[:0], 1, canonical)
 		s.keyTmp = key
@@ -90,22 +46,6 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 		key := valuecodec.BinaryKeyBytes(s.keyTmp[:0], 1, decoded)
 		s.keyTmp = key
 		return runtime.VKBinary, key, nil
-	case runtime.VDuration:
-		dur, err := durationlex.Parse(unsafe.String(unsafe.SliceData(canonical), len(canonical)))
-		if err != nil {
-			return runtime.VKInvalid, nil, valueErrorMsg(valueErrInvalid, err.Error())
-		}
-		key := valuecodec.DurationKeyBytes(s.keyTmp[:0], dur)
-		s.keyTmp = key
-		return runtime.VKDuration, key, nil
-	case runtime.VDateTime, runtime.VDate, runtime.VTime, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
-		tv, err := parseTemporalForKind(kind, canonical)
-		if err != nil {
-			return runtime.VKInvalid, nil, err
-		}
-		key := valuecodec.TemporalKeyBytes(s.keyTmp[:0], temporalSubkind(kind), tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond)
-		s.keyTmp = key
-		return runtime.VKDateTime, key, nil
 	default:
 		return runtime.VKInvalid, nil, valueErrorf(valueErrInvalid, "unsupported validator kind %d", kind)
 	}

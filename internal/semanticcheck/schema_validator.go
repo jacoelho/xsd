@@ -1,12 +1,12 @@
 package semanticcheck
 
 import (
-	"cmp"
 	"fmt"
-	"slices"
 
+	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	qnameorder "github.com/jacoelho/xsd/internal/qname"
 )
 
 // ValidateStructure validates that a parsed schema conforms to XSD structural constraints.
@@ -28,43 +28,71 @@ func ValidateStructure(schema *parser.Schema) []error {
 		return true
 	}
 
-	for _, decl := range schema.GlobalDecls {
-		if !markSeen(decl.Kind, decl.Name) {
-			continue
-		}
-		switch decl.Kind {
-		case parser.GlobalDeclElement:
-			if def, ok := schema.ElementDecls[decl.Name]; ok {
-				if err := validateElementDeclStructure(schema, decl.Name, def); err != nil {
-					errors = append(errors, fmt.Errorf("element %s: %w", decl.Name, err))
+	_ = globaldecl.ForEach(schema, globaldecl.Handlers{
+		Element: func(name model.QName, decl *model.ElementDecl) error {
+			if !markSeen(parser.GlobalDeclElement, name) {
+				return nil
+			}
+			if decl != nil {
+				if err := validateElementDeclStructure(schema, name, decl); err != nil {
+					errors = append(errors, fmt.Errorf("element %s: %w", name, err))
 				}
 			}
-		case parser.GlobalDeclAttribute:
-			if def, ok := schema.AttributeDecls[decl.Name]; ok {
-				if err := validateAttributeDeclStructure(schema, decl.Name, def); err != nil {
-					errors = append(errors, fmt.Errorf("attribute %s: %w", decl.Name, err))
+			return nil
+		},
+		Attribute: func(name model.QName, decl *model.AttributeDecl) error {
+			if !markSeen(parser.GlobalDeclAttribute, name) {
+				return nil
+			}
+			if decl != nil {
+				if err := validateAttributeDeclStructure(schema, name, decl); err != nil {
+					errors = append(errors, fmt.Errorf("attribute %s: %w", name, err))
 				}
 			}
-		case parser.GlobalDeclType:
-			if def, ok := schema.TypeDefs[decl.Name]; ok {
-				if err := validateTypeDefStructure(schema, decl.Name, def); err != nil {
-					errors = append(errors, fmt.Errorf("type %s: %w", decl.Name, err))
+			return nil
+		},
+		Type: func(name model.QName, typ model.Type) error {
+			if !markSeen(parser.GlobalDeclType, name) {
+				return nil
+			}
+			if typ != nil {
+				if err := validateTypeDefStructure(schema, name, typ); err != nil {
+					errors = append(errors, fmt.Errorf("type %s: %w", name, err))
 				}
 			}
-		case parser.GlobalDeclGroup:
-			if def, ok := schema.Groups[decl.Name]; ok {
-				if err := validateGroupStructure(decl.Name, def); err != nil {
-					errors = append(errors, fmt.Errorf("group %s: %w", decl.Name, err))
+			return nil
+		},
+		Group: func(name model.QName, group *model.ModelGroup) error {
+			if !markSeen(parser.GlobalDeclGroup, name) {
+				return nil
+			}
+			if group != nil {
+				if err := validateGroupStructure(name, group); err != nil {
+					errors = append(errors, fmt.Errorf("group %s: %w", name, err))
 				}
 			}
-		case parser.GlobalDeclAttributeGroup:
-			if def, ok := schema.AttributeGroups[decl.Name]; ok {
-				if err := validateAttributeGroupStructure(schema, decl.Name, def); err != nil {
-					errors = append(errors, fmt.Errorf("attributeGroup %s: %w", decl.Name, err))
+			return nil
+		},
+		AttributeGroup: func(name model.QName, group *model.AttributeGroup) error {
+			if !markSeen(parser.GlobalDeclAttributeGroup, name) {
+				return nil
+			}
+			if group != nil {
+				if err := validateAttributeGroupStructure(schema, name, group); err != nil {
+					errors = append(errors, fmt.Errorf("attributeGroup %s: %w", name, err))
 				}
 			}
-		}
-	}
+			return nil
+		},
+		Notation: func(name model.QName, _ *model.NotationDecl) error {
+			markSeen(parser.GlobalDeclNotation, name)
+			return nil
+		},
+		Unknown: func(kind parser.GlobalDeclKind, name model.QName) error {
+			markSeen(kind, name)
+			return nil
+		},
+	})
 
 	elementKeys := collectUnseenKeys(parser.GlobalDeclElement, seen, schema.ElementDecls)
 	for _, qname := range elementKeys {
@@ -123,10 +151,5 @@ func collectUnseenKeys[T any](kind parser.GlobalDeclKind, seen map[parser.Global
 }
 
 func sortQNames(keys []model.QName) {
-	slices.SortFunc(keys, func(a, b model.QName) int {
-		if a.Namespace != b.Namespace {
-			return cmp.Compare(a.Namespace, b.Namespace)
-		}
-		return cmp.Compare(a.Local, b.Local)
-	})
+	qnameorder.SortInPlace(keys)
 }

@@ -170,13 +170,13 @@ func (b *domBuilder) appendNamespaceAttrs(attrs []Attr, scopeDepth int) []Attr {
 
 func parseDOM(reader *xmlstream.Reader, doc *Document, mode parseMode, namespaceMode namespaceAttrsMode, start xmlstream.Event) error {
 	builder := newDOMBuilder(doc, reader, namespaceMode)
-	allowBOM := true
-	rootClosed := false
+	docState := xmllex.NewDocumentState()
 	depth := 0
 
 	if mode == parseModeSubtree {
 		builder.addStart(start)
 		depth = 1
+		docState.OnStartElement()
 	}
 
 	for mode != parseModeSubtree || depth != 0 {
@@ -191,19 +191,18 @@ func parseDOM(reader *xmlstream.Reader, doc *Document, mode parseMode, namespace
 
 		switch event.Kind {
 		case xmlstream.EventStartElement:
-			if mode == parseModeDocument && rootClosed {
+			if mode == parseModeDocument && !docState.StartElementAllowed() {
 				return fmt.Errorf("unexpected element %s after document end", event.Name.Local)
 			}
 			builder.addStart(event)
 			if mode == parseModeSubtree {
 				depth++
 			}
-			allowBOM = false
+			docState.OnStartElement()
 
 		case xmlstream.EventEndElement:
-			if builder.addEnd() && mode == parseModeDocument {
-				rootClosed = true
-			}
+			closeRoot := builder.addEnd() && mode == parseModeDocument
+			docState.OnEndElement(closeRoot)
 			if mode == parseModeSubtree {
 				depth--
 			}
@@ -213,17 +212,16 @@ func parseDOM(reader *xmlstream.Reader, doc *Document, mode parseMode, namespace
 				if mode == parseModeSubtree {
 					continue
 				}
-				if !xmllex.IsIgnorableOutsideRoot(event.Text, allowBOM) {
+				if !docState.ValidateOutsideCharData(event.Text) {
 					return fmt.Errorf("unexpected character data outside root element")
 				}
-				allowBOM = false
 				continue
 			}
 			builder.addCharData(event.Text)
 
 		case xmlstream.EventComment, xmlstream.EventPI, xmlstream.EventDirective:
 			if mode == parseModeDocument && !builder.hasOpenNode() {
-				allowBOM = false
+				docState.OnOutsideMarkup()
 			}
 		}
 	}
