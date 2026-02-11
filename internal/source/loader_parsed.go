@@ -6,6 +6,15 @@ import (
 )
 
 func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, key loadKey) (*parser.Schema, error) {
+	return l.loadParsedWithJournal(result, systemID, key, nil)
+}
+
+func (l *SchemaLoader) loadParsedWithJournal(
+	result *parser.ParseResult,
+	systemID string,
+	key loadKey,
+	parentJournal *stateJournal,
+) (*parser.Schema, error) {
 	sch, err := l.cachedOrCircularSchema(key, systemID)
 	if err != nil || sch != nil {
 		return sch, err
@@ -25,12 +34,13 @@ func (l *SchemaLoader) loadParsed(result *parser.ParseResult, systemID string, k
 			return nil, err
 		}
 	}
-	if err := l.applyParsedDirectives(systemID, key, sch, result.Directives); err != nil {
+	if err := l.applyParsedDirectives(systemID, key, sch, result.Directives, parentJournal); err != nil {
 		return nil, err
 	}
 
 	lifecycle.Commit(entry)
 	if err := l.resolvePendingImportsFor(key); err != nil {
+		rollbackSourcePending(l, key)
 		lifecycle.Rollback(entry)
 		return nil, err
 	}
@@ -68,7 +78,13 @@ func (l *SchemaLoader) parsedEntryLifecycle(
 	}
 }
 
-func (l *SchemaLoader) applyParsedDirectives(systemID string, key loadKey, sch *parser.Schema, directives []parser.Directive) (err error) {
+func (l *SchemaLoader) applyParsedDirectives(
+	systemID string,
+	key loadKey,
+	sch *parser.Schema,
+	directives []parser.Directive,
+	parentJournal *stateJournal,
+) (err error) {
 	session := newLoadSession(l, systemID, key, nil)
 	defer func() {
 		if err != nil {
@@ -77,6 +93,9 @@ func (l *SchemaLoader) applyParsedDirectives(systemID string, key loadKey, sch *
 	}()
 	if err := session.processDirectives(sch, directives); err != nil {
 		return err
+	}
+	if parentJournal != nil {
+		parentJournal.append(&session.journal)
 	}
 	return nil
 }

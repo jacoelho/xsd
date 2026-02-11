@@ -6,14 +6,17 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 func validateLocalIdentityConstraintKeyrefs(sch *parser.Schema, allConstraints []*model.IdentityConstraint) []error {
+	return validateLocalIdentityConstraintKeyrefsWithIndex(sch, buildIterationIndex(sch), allConstraints)
+}
+
+func validateLocalIdentityConstraintKeyrefsWithIndex(sch *parser.Schema, index *iterationIndex, allConstraints []*model.IdentityConstraint) []error {
 	var errs []error
 
-	forEachLocalConstraintElement(sch, func(elem *model.ElementDecl) {
+	forEachLocalConstraintElement(sch, index, func(elem *model.ElementDecl) {
 		if err := validateKeyrefConstraints(elem.Name, elem.Constraints, allConstraints); err != nil {
 			errs = append(errs, err...)
 		}
@@ -22,10 +25,10 @@ func validateLocalIdentityConstraintKeyrefs(sch *parser.Schema, allConstraints [
 	return errs
 }
 
-func validateLocalIdentityConstraintResolution(sch *parser.Schema) []error {
+func validateLocalIdentityConstraintResolution(sch *parser.Schema, index *iterationIndex) []error {
 	var errs []error
 
-	forEachLocalConstraintElement(sch, func(elem *model.ElementDecl) {
+	forEachLocalConstraintElement(sch, index, func(elem *model.ElementDecl) {
 		for _, constraint := range elem.Constraints {
 			if err := validateIdentityConstraintResolution(sch, constraint, elem); err != nil {
 				if errors.Is(err, xpath.ErrInvalidXPath) {
@@ -39,13 +42,29 @@ func validateLocalIdentityConstraintResolution(sch *parser.Schema) []error {
 	return errs
 }
 
-func forEachLocalConstraintElement(sch *parser.Schema, visit func(*model.ElementDecl)) {
+func forEachLocalConstraintElement(sch *parser.Schema, index *iterationIndex, visit func(*model.ElementDecl)) {
 	if sch == nil || visit == nil {
 		return
 	}
+	if index == nil {
+		index = buildIterationIndex(sch)
+	}
+	for _, elem := range index.localConstraintElems {
+		visit(elem)
+	}
+}
+
+func collectLocalConstraintElementsWithIndex(sch *parser.Schema, index *iterationIndex) []*model.ElementDecl {
+	if sch == nil {
+		return nil
+	}
+	if index == nil {
+		index = buildIterationIndex(sch)
+	}
 	seen := make(map[*model.ElementDecl]bool)
-	validateLocals := func(ct *model.ComplexType) {
-		for _, elem := range collectConstraintElementsFromContent(ct.Content()) {
+	out := make([]*model.ElementDecl, 0)
+	collect := func(content model.Content) {
+		for _, elem := range collectConstraintElementsFromContent(content) {
 			if elem == nil || elem.IsReference || len(elem.Constraints) == 0 {
 				continue
 			}
@@ -53,20 +72,20 @@ func forEachLocalConstraintElement(sch *parser.Schema, visit func(*model.Element
 				continue
 			}
 			seen[elem] = true
-			visit(elem)
+			out = append(out, elem)
 		}
 	}
-
-	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
+	for _, qname := range index.elementQNames {
 		decl := sch.ElementDecls[qname]
 		if ct, ok := decl.Type.(*model.ComplexType); ok {
-			validateLocals(ct)
+			collect(ct.Content())
 		}
 	}
-	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
+	for _, qname := range index.typeQNames {
 		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*model.ComplexType); ok {
-			validateLocals(ct)
+			collect(ct.Content())
 		}
 	}
+	return out
 }

@@ -20,31 +20,31 @@ func (b *digestBuilder) write(p []byte) {
 	_, _ = b.h.Write(p)
 }
 
-func (b *digestBuilder) u8(v uint8) {
+func (b *digestBuilder) WriteU8(v uint8) {
 	b.buf[0] = v
 	b.write(b.buf[:1])
 }
 
-func (b *digestBuilder) u32(v uint32) {
+func (b *digestBuilder) WriteU32(v uint32) {
 	binary.LittleEndian.PutUint32(b.buf[:4], v)
 	b.write(b.buf[:4])
 }
 
-func (b *digestBuilder) u64(v uint64) {
+func (b *digestBuilder) WriteU64(v uint64) {
 	binary.LittleEndian.PutUint64(b.buf[:8], v)
 	b.write(b.buf[:8])
 }
 
-func (b *digestBuilder) bool(v bool) {
+func (b *digestBuilder) WriteBool(v bool) {
 	if v {
-		b.u8(1)
+		b.WriteU8(1)
 		return
 	}
-	b.u8(0)
+	b.WriteU8(0)
 }
 
-func (b *digestBuilder) bytes(data []byte) {
-	b.u32(uint32(len(data)))
+func (b *digestBuilder) WriteBytes(data []byte) {
+	b.WriteU32(uint32(len(data)))
 	if len(data) == 0 {
 		return
 	}
@@ -64,31 +64,6 @@ func (s *Schema) CanonicalDigest() [32]byte {
 		return [32]byte{}
 	}
 	h := newDigestBuilder()
-
-	digestNamespaces(h, &s.Namespaces)
-	digestSymbols(h, &s.Symbols)
-
-	digestPredef(h, s.Predef, s.PredefNS, s.Builtin, s.RootPolicy)
-	digestGlobalIndices(h, s.GlobalTypes, s.GlobalElements, s.GlobalAttributes)
-
-	digestTypes(h, s.Types)
-	digestAncestors(h, s.Ancestors)
-	digestComplexTypes(h, s.ComplexTypes)
-	digestElements(h, s.Elements)
-	digestAttributes(h, s.Attributes)
-	digestAttrIndex(h, s.AttrIndex)
-
-	digestValidators(h, &s.Validators)
-	digestFacets(h, s.Facets)
-	digestPatterns(h, s.Patterns)
-	digestEnums(h, &s.Enums)
-	digestValues(h, s.Values)
-	digestSymbolIDs(h, s.Notations)
-
-	digestModels(h, s.Models)
-	digestWildcards(h, s.Wildcards, s.WildcardNS)
-
-	digestIdentity(h, s.ICs, s.ElemICs, s.ICSelectors, s.ICFields, s.Paths)
-
+	WriteFingerprint(h, s)
 	return h.sum()
 }

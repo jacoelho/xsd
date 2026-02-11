@@ -23,7 +23,7 @@ func (l *SchemaLoader) resolvePendingImportsFor(sourceKey loadKey) error {
 		return err
 	}
 	l.markPendingMerged(sourceKey, pendingDirectives)
-	sourceEntry.pendingDirectives = nil
+	clearPendingDirectives(sourceEntry)
 	return l.resolvePendingTargets(pendingDirectives)
 }
 

@@ -65,7 +65,7 @@ func validateSimpleContentStructure(schema *parser.Schema, sc *model.SimpleConte
 		}
 		if baseCT, ok := baseType.(*model.ComplexType); ok {
 			restrictionAttrs := slices.Clone(sc.Restriction.Attributes)
-			restrictionAttrs = append(restrictionAttrs, collectAttributesFromGroups(schema, sc.Restriction.AttrGroups, nil)...)
+			restrictionAttrs = append(restrictionAttrs, collectAttributesFromGroups(schema, sc.Restriction.AttrGroups)...)
 			if err := validateRestrictionAttributes(schema, baseCT, restrictionAttrs, "simpleContent restriction"); err != nil {
 				return err
 			}

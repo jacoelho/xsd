@@ -69,7 +69,7 @@ func (s *Session) StepModel(ref runtime.ModelRef, state *ModelState, sym runtime
 	}
 	switch ref.Kind {
 	case runtime.ModelNone:
-		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
+		return StartMatch{}, noContentModelMatchError()
 	case runtime.ModelDFA:
 		model, err := s.dfaByRef(ref)
 		if err != nil {

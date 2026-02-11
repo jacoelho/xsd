@@ -82,8 +82,13 @@ func (b *schemaBuilder) buildModels() error {
 		case *model.SimpleContent:
 			complexModel.Content = runtime.ContentSimple
 			var textType model.Type
+			if cachedType, ok := b.complexTypes.SimpleContentType(ct); ok {
+				textType = cachedType
+			}
 			if b.validators != nil && b.validators.SimpleContentTypes != nil {
-				textType = b.validators.SimpleContentTypes[ct]
+				if textType == nil {
+					textType = b.validators.SimpleContentTypes[ct]
+				}
 			}
 			if textType == nil {
 				var err error
@@ -103,7 +108,10 @@ func (b *schemaBuilder) buildModels() error {
 		case *model.EmptyContent:
 			complexModel.Content = runtime.ContentEmpty
 		default:
-			particle := typechain.EffectiveContentParticle(b.schema, ct)
+			particle, ok := b.complexTypes.Content(ct)
+			if !ok {
+				particle = typechain.EffectiveContentParticle(b.schema, ct)
+			}
 			if particle == nil {
 				complexModel.Content = runtime.ContentEmpty
 				break

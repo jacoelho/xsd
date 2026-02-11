@@ -78,6 +78,22 @@ func TestDetectAttributeGroupCycle(t *testing.T) {
 	}
 }
 
+func TestDetectAttributeGroupMissingReference(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:attrgroup"
+           xmlns:tns="urn:attrgroup">
+  <xs:attributeGroup name="AG1">
+    <xs:attributeGroup ref="tns:Missing"/>
+  </xs:attributeGroup>
+</xs:schema>`
+
+	sch := mustParsedResolved(t, schemaXML)
+	if err := schema.DetectCycles(sch); err == nil {
+		t.Fatalf("expected missing attributeGroup reference error")
+	}
+}
+
 func TestDetectSubstitutionGroupCycle(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"

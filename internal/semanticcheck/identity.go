@@ -4,156 +4,116 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jacoelho/xsd/internal/identitypath"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/xpath"
 )
 
-// validateSelectorXPath validates that a selector XPath selects element nodes
-// Selectors cannot select attributes or text nodes per XSD 1.0 spec
+// validateSelectorXPath validates that a selector XPath selects element nodes.
 func validateSelectorXPath(expr string) error {
-	expr = model.TrimXMLWhitespace(expr)
+	return validateSelectorXPathWithContext(expr, nil)
+}
 
+func validateSelectorXPathWithContext(expr string, nsContext map[string]string) error {
+	expr = model.TrimXMLWhitespace(expr)
 	if expr == "" {
 		return fmt.Errorf("selector xpath cannot be empty")
 	}
 
-	// selector cannot select text nodes
+	// keep selector-specific diagnostics while using shared parser policy.
 	if strings.Contains(expr, "/text()") || strings.HasSuffix(expr, "text()") {
 		return fmt.Errorf("selector xpath cannot select text nodes: %s", expr)
 	}
-
-	if strings.Contains(expr, "(") || strings.Contains(expr, ")") {
-		return fmt.Errorf("selector xpath cannot use functions or parentheses: %s", expr)
-	}
-
-	// selector cannot select attributes (@ is not allowed anywhere in selector XPath per BNF grammar)
-	if strings.Contains(expr, "@") {
-		return fmt.Errorf("selector xpath cannot select attributes: %s", expr)
-	}
-
-	// selector cannot use parent navigation (upward navigation not allowed)
 	if strings.Contains(expr, "..") || strings.Contains(expr, "parent::") {
 		return fmt.Errorf("selector xpath cannot use parent navigation: %s", expr)
 	}
+	if strings.Contains(expr, "attribute::") {
+		return fmt.Errorf("selector xpath cannot use axis 'attribute::': %s", expr)
+	}
 
-	// note: attribute:: and namespace:: axes are checked in validateSelectorXPathRestrictions()
-	// to avoid duplication and maintain separation of concerns
-
-	return nil
+	_, err := identitypath.ParseSelector(expr, nsContext)
+	if err == nil {
+		return nil
+	}
+	return normalizeSelectorXPathError(expr, err)
 }
 
-// validateFieldXPath performs basic checks for field XPath expressions.
-// Restricted XPath grammar is enforced separately.
+// validateFieldXPath performs checks for field XPath expressions.
 func validateFieldXPath(expr string) error {
-	expr = model.TrimXMLWhitespace(expr)
-	axisCheck := strings.Map(func(r rune) rune {
-		switch r {
-		case ' ', '\t', '\n', '\r':
-			return -1
-		default:
-			return r
-		}
-	}, expr)
+	return validateFieldXPathWithContext(expr, nil)
+}
 
+func validateFieldXPathWithContext(expr string, nsContext map[string]string) error {
+	expr = model.TrimXMLWhitespace(expr)
 	if expr == "" {
 		return fmt.Errorf("field xpath cannot be empty")
 	}
-
-	if strings.Contains(expr, "(") || strings.Contains(expr, ")") {
-		return fmt.Errorf("field xpath cannot use functions or parentheses: %s", expr)
+	_, err := identitypath.ParseField(expr, nsContext)
+	if err == nil {
+		return nil
 	}
-
-	// fields can only use child/attribute axes; descendant-or-self is allowed only via ".//".
-	disallowedAxes := []string{
-		"parent::", "ancestor::", "ancestor-or-self::",
-		"following::", "following-sibling::",
-		"preceding::", "preceding-sibling::",
-		"self::", "descendant::", "descendant-or-self::",
-		"namespace::",
-	}
-
-	for _, axis := range disallowedAxes {
-		if strings.Contains(axisCheck, axis) {
-			return fmt.Errorf("field xpath cannot use axis '%s': %s", axis, expr)
-		}
-	}
-
-	// validate allowed axes only
-	hasAllowedAxis := false
-	allowedPatterns := []string{
-		"child::", "attribute::",
-		"@", // attribute abbreviation
-	}
-
-	// if starts with @, it's an attribute (allowed)
-	if strings.HasPrefix(expr, "@") {
-		hasAllowedAxis = true
-	} else {
-		if strings.HasPrefix(axisCheck, "//") || strings.HasPrefix(axisCheck, ".//") {
-			hasAllowedAxis = true
-		}
-		for _, pattern := range allowedPatterns {
-			if strings.Contains(axisCheck, pattern) {
-				hasAllowedAxis = true
-				break
-			}
-		}
-		// if no axis specified, default is child (allowed)
-		if !strings.Contains(axisCheck, "::") && !strings.HasPrefix(axisCheck, "//") {
-			hasAllowedAxis = true
-		}
-	}
-
-	if !hasAllowedAxis && strings.Contains(axisCheck, "::") {
-		return fmt.Errorf("field xpath uses disallowed axis: %s", expr)
-	}
-
-	return nil
+	return normalizeFieldXPathError(expr, err)
 }
 
-// validateSelectorXPathRestrictions validates selector XPath restrictions
-// Selectors can use wildcards but are still restricted to certain axes
-// Per XSD spec section 3.11.4.2, selector XPath must be a restricted subset
-func validateSelectorXPathRestrictions(expr string) error {
-	expr = model.TrimXMLWhitespace(expr)
-
-	// selector XPath must be a relative path expression.
-	if strings.HasPrefix(expr, "/") {
+func normalizeSelectorXPathError(expr string, err error) error {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "xpath cannot be empty"):
+		return fmt.Errorf("selector xpath cannot be empty")
+	case strings.Contains(msg, "xpath must be a relative path"):
 		return fmt.Errorf("selector xpath must be a relative path: %s", expr)
-	}
-
-	// selectors can use wildcards, but check for disallowed axes
-	disallowedAxes := []string{
-		"parent::", "ancestor::", "ancestor-or-self::",
-		"following::", "following-sibling::",
-		"preceding::", "preceding-sibling::",
-		"namespace::", "attribute::",
-		"self::", "descendant::", "descendant-or-self::",
-	}
-
-	for _, axis := range disallowedAxes {
-		if strings.Contains(expr, axis) {
+	case strings.Contains(msg, "xpath cannot select attributes"):
+		return fmt.Errorf("selector xpath cannot select attributes: %s", expr)
+	case strings.Contains(msg, "xpath cannot use functions or parentheses"):
+		return fmt.Errorf("selector xpath cannot use functions or parentheses: %s", expr)
+	case strings.Contains(msg, "xpath uses disallowed axis"):
+		if axis := disallowedAxisFromError(msg); axis != "" {
 			return fmt.Errorf("selector xpath cannot use axis '%s': %s", axis, expr)
 		}
+		return fmt.Errorf("selector xpath uses disallowed axis: %s", expr)
+	default:
+		return err
 	}
-
-	return nil
 }
 
-// validateIdentityConstraint validates an identity constraint (key, keyref, unique)
-func validateIdentityConstraint(constraint *model.IdentityConstraint) error {
-	// note: Identity constraints can be placed on elements with either simple or complex model.
-	// for simple types, the selector/field XPath expressions typically target "." (the element itself).
-	// the XSD spec does not restrict identity constraints to complex types only.
+func normalizeFieldXPathError(expr string, err error) error {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "xpath cannot be empty"):
+		return fmt.Errorf("field xpath cannot be empty")
+	case strings.Contains(msg, "xpath cannot use functions or parentheses"):
+		return fmt.Errorf("field xpath cannot use functions or parentheses: %s", expr)
+	case strings.Contains(msg, "xpath uses disallowed axis"):
+		if axis := disallowedAxisFromError(msg); axis != "" {
+			return fmt.Errorf("field xpath cannot use axis '%s': %s", axis, expr)
+		}
+		return fmt.Errorf("field xpath uses disallowed axis: %s", expr)
+	default:
+		return err
+	}
+}
 
+func disallowedAxisFromError(msg string) string {
+	idx := strings.Index(msg, "'")
+	if idx < 0 || idx+1 >= len(msg) {
+		return ""
+	}
+	rest := msg[idx+1:]
+	end := strings.Index(rest, "'")
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
+}
+
+// validateIdentityConstraint validates an identity constraint (key, keyref, unique).
+func validateIdentityConstraint(constraint *model.IdentityConstraint) error {
 	// per XSD spec section 3.11.1, identity constraint name must be an NCName
 	if !qname.IsValidNCName(constraint.Name) {
 		return fmt.Errorf("identity constraint name '%s' must be a valid NCName (no colons)", constraint.Name)
 	}
 
 	// per XSD spec, 'refer' attribute is only allowed on keyref constraints
-	// if present on unique or key, the schema is invalid
 	if constraint.Type != model.KeyRefConstraint && !constraint.ReferQName.IsZero() {
 		return fmt.Errorf("'refer' attribute is only allowed on keyref constraints, not on %s", constraint.Type)
 	}
@@ -163,15 +123,7 @@ func validateIdentityConstraint(constraint *model.IdentityConstraint) error {
 		return fmt.Errorf("identity constraint selector xpath is required")
 	}
 
-	// validate selector selects elements (not attributes or text)
-	if err := validateSelectorXPath(constraint.Selector.XPath); err != nil {
-		return fmt.Errorf("identity constraint selector: %w", err)
-	}
-
-	if err := validateSelectorXPathRestrictions(constraint.Selector.XPath); err != nil {
-		return fmt.Errorf("identity constraint selector: %w", err)
-	}
-	if err := validateRestrictedXPathGrammar(constraint.Selector.XPath, constraint.NamespaceContext, xpath.AttributesDisallowed); err != nil {
+	if err := validateSelectorXPathWithContext(constraint.Selector.XPath, constraint.NamespaceContext); err != nil {
 		return fmt.Errorf("identity constraint selector: %w", err)
 	}
 
@@ -185,11 +137,7 @@ func validateIdentityConstraint(constraint *model.IdentityConstraint) error {
 		if field.XPath == "" {
 			return fmt.Errorf("identity constraint field %d xpath is required", i+1)
 		}
-
-		if err := validateFieldXPath(field.XPath); err != nil {
-			return fmt.Errorf("identity constraint field %d: %w", i+1, err)
-		}
-		if err := validateRestrictedXPathGrammar(field.XPath, constraint.NamespaceContext, xpath.AttributesAllowed); err != nil {
+		if err := validateFieldXPathWithContext(field.XPath, constraint.NamespaceContext); err != nil {
 			return fmt.Errorf("identity constraint field %d: %w", i+1, err)
 		}
 	}
@@ -199,13 +147,7 @@ func validateIdentityConstraint(constraint *model.IdentityConstraint) error {
 		if constraint.ReferQName.IsZero() {
 			return fmt.Errorf("keyref constraint must have a refer attribute")
 		}
-		// refer attribute is a QName (can have namespace prefix) - validation happens during resolution
 	}
 
 	return nil
-}
-
-func validateRestrictedXPathGrammar(expr string, nsContext map[string]string, policy xpath.AttributePolicy) error {
-	_, err := xpath.Parse(expr, nsContext, policy)
-	return err
 }

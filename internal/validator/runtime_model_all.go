@@ -9,8 +9,8 @@ func (s *Session) stepAll(model *runtime.AllModel, state *ModelState, sym runtim
 	if sym == 0 {
 		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "unknown element name")
 	}
+	var acc modelMatchAccumulator
 	matchIdx := -1
-	matchElem := runtime.ElemID(0)
 	for i, member := range model.Members {
 		elem, ok := s.element(member.Elem)
 		if !ok {
@@ -20,11 +20,10 @@ func (s *Session) stepAll(model *runtime.AllModel, state *ModelState, sym runtim
 			if elem.Name != sym {
 				continue
 			}
-			if matchIdx != -1 {
-				return StartMatch{}, newValidationError(xsderrors.ErrContentModelInvalid, "ambiguous content model match")
+			if err := acc.add(StartMatch{Kind: MatchElem, Elem: member.Elem}, ambiguousContentModelMatchError); err != nil {
+				return StartMatch{}, err
 			}
 			matchIdx = i
-			matchElem = member.Elem
 			continue
 		}
 		actual, ok := s.globalElementBySymbol(sym)
@@ -34,21 +33,21 @@ func (s *Session) stepAll(model *runtime.AllModel, state *ModelState, sym runtim
 		if !s.allMemberAllowsSubst(member, actual) {
 			continue
 		}
-		if matchIdx != -1 {
-			return StartMatch{}, newValidationError(xsderrors.ErrContentModelInvalid, "ambiguous content model match")
+		if err := acc.add(StartMatch{Kind: MatchElem, Elem: actual}, ambiguousContentModelMatchError); err != nil {
+			return StartMatch{}, err
 		}
 		matchIdx = i
-		matchElem = actual
 	}
-	if matchIdx == -1 {
-		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
+	match, err := acc.result()
+	if err != nil {
+		return StartMatch{}, err
 	}
 	if allHas(state.All, matchIdx) {
 		return StartMatch{}, newValidationError(xsderrors.ErrContentModelInvalid, "duplicate element in all group")
 	}
 	allSet(state.All, matchIdx)
 	state.AllCount++
-	return StartMatch{Kind: MatchElem, Elem: matchElem}, nil
+	return match, nil
 }
 
 func allHas(words []uint64, idx int) bool {

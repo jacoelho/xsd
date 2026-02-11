@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/resolveguard"
 	"github.com/jacoelho/xsd/internal/traversal"
 )
 
@@ -24,10 +25,7 @@ func (r *Resolver) resolveParticles(particles []model.Particle) error {
 			if !ok {
 				return fmt.Errorf("group %s not found", particle.RefQName)
 			}
-			if r.detector.IsVisited(particle.RefQName) {
-				continue
-			}
-			if err := r.detector.WithScope(particle.RefQName, func() error {
+			if err := resolveguard.ResolveNamed[model.QName](r.detector, particle.RefQName, func() error {
 				return r.resolveParticles(group.Particles)
 			}); err != nil {
 				return err

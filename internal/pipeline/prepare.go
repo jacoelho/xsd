@@ -5,6 +5,7 @@ import (
 	"iter"
 	"sync"
 
+	"github.com/jacoelho/xsd/internal/complextypeplan"
 	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -52,46 +53,85 @@ func (p *PreparedSchema) GlobalElementOrderSeq() iter.Seq[model.QName] {
 
 // Prepare validates and transforms a parsed schema for runtime compilation.
 func Prepare(sch *parser.Schema) (*PreparedSchema, error) {
-	validatedSchema, reg, refs, err := validateSchema(sch)
+	validatedSchema, reg, refs, complexTypes, err := validateSchema(sch, false)
 	if err != nil {
 		return nil, err
 	}
-	return &PreparedSchema{
-		build:              newBuildRuntimeFunc(validatedSchema, reg, refs),
-		globalElementOrder: globalElementOrder(reg),
-	}, nil
+	return newPreparedSchema(validatedSchema, reg, refs, complexTypes), nil
 }
 
-func validateSchema(sch *parser.Schema) (*parser.Schema, *schemaanalysis.Registry, *schemaanalysis.ResolvedReferences, error) {
-	if sch == nil {
-		return nil, nil, nil, fmt.Errorf("prepare schema: schema is nil")
-	}
-
-	resolvedSchema, err := loadmerge.CloneSchemaDeep(sch)
+// PrepareOwned validates and transforms a parsed schema in place.
+func PrepareOwned(sch *parser.Schema) (*PreparedSchema, error) {
+	validatedSchema, reg, refs, complexTypes, err := validateSchema(sch, true)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("prepare schema: clone schema: %w", err)
+		return nil, err
 	}
+	return newPreparedSchema(validatedSchema, reg, refs, complexTypes), nil
+}
+
+func newPreparedSchema(
+	sch *parser.Schema,
+	reg *schemaanalysis.Registry,
+	refs *schemaanalysis.ResolvedReferences,
+	complexTypes *complextypeplan.Plan,
+) *PreparedSchema {
+	return &PreparedSchema{
+		build:              newBuildRuntimeFunc(sch, reg, refs, complexTypes),
+		globalElementOrder: globalElementOrder(reg),
+	}
+}
+
+func validateSchema(
+	sch *parser.Schema,
+	mutateOwned bool,
+) (*parser.Schema, *schemaanalysis.Registry, *schemaanalysis.ResolvedReferences, *complextypeplan.Plan, error) {
+	if sch == nil {
+		return nil, nil, nil, nil, fmt.Errorf("prepare schema: schema is nil")
+	}
+	resolvedSchema := sch
+	if !mutateOwned {
+		cloned, err := loadmerge.CloneSchemaDeep(sch)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("prepare schema: clone schema: %w", err)
+		}
+		resolvedSchema = cloned
+	}
+	return prepareResolvedSchema(resolvedSchema)
+}
+
+func prepareResolvedSchema(
+	resolvedSchema *parser.Schema,
+) (*parser.Schema, *schemaanalysis.Registry, *schemaanalysis.ResolvedReferences, *complextypeplan.Plan, error) {
 	if resolveErr := schemaprep.ResolveAndValidateOwned(resolvedSchema); resolveErr != nil {
-		return nil, nil, nil, fmt.Errorf("prepare schema: %w", resolveErr)
+		return nil, nil, nil, nil, fmt.Errorf("prepare schema: %w", resolveErr)
 	}
 	reg, err := schemaanalysis.AssignIDs(resolvedSchema)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("prepare schema: assign IDs: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("prepare schema: assign IDs: %w", err)
 	}
 	if cycleErr := schemaanalysis.DetectCycles(resolvedSchema); cycleErr != nil {
-		return nil, nil, nil, fmt.Errorf("prepare schema: detect cycles: %w", cycleErr)
+		return nil, nil, nil, nil, fmt.Errorf("prepare schema: detect cycles: %w", cycleErr)
 	}
 	if upaErr := schemaprep.ValidateUPA(resolvedSchema, reg); upaErr != nil {
-		return nil, nil, nil, fmt.Errorf("prepare schema: validate UPA: %w", upaErr)
+		return nil, nil, nil, nil, fmt.Errorf("prepare schema: validate UPA: %w", upaErr)
 	}
 	refs, err := schemaanalysis.ResolveReferences(resolvedSchema, reg)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("prepare schema: resolve references: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("prepare schema: resolve references: %w", err)
 	}
-	return resolvedSchema, reg, refs, nil
+	complexTypes, err := runtimeassemble.BuildComplexTypePlan(resolvedSchema, reg)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("prepare schema: complex type plan: %w", err)
+	}
+	return resolvedSchema, reg, refs, complexTypes, nil
 }
 
-func newBuildRuntimeFunc(sch *parser.Schema, reg *schemaanalysis.Registry, refs *schemaanalysis.ResolvedReferences) buildRuntimeFunc {
+func newBuildRuntimeFunc(
+	sch *parser.Schema,
+	reg *schemaanalysis.Registry,
+	refs *schemaanalysis.ResolvedReferences,
+	complexTypes *complextypeplan.Plan,
+) buildRuntimeFunc {
 	var (
 		once     sync.Once
 		prepared *runtimeassemble.PreparedArtifacts
@@ -99,7 +139,7 @@ func newBuildRuntimeFunc(sch *parser.Schema, reg *schemaanalysis.Registry, refs 
 	)
 	return func(cfg CompileConfig) (*runtime.Schema, error) {
 		once.Do(func() {
-			prepared, prepErr = runtimeassemble.PrepareBuildArtifacts(sch, reg, refs)
+			prepared, prepErr = runtimeassemble.PrepareBuildArtifactsWithComplexTypePlan(sch, reg, refs, complexTypes)
 		})
 		if prepErr != nil {
 			return nil, prepErr

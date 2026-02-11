@@ -1,6 +1,7 @@
 package model_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/builtins"
@@ -137,6 +138,68 @@ func TestSimpleTypeValidateUnionMemberQNames(t *testing.T) {
 	}
 }
 
+func TestValidateSimpleTypeWithOptionsUnionCycleThenMatchSucceeds(t *testing.T) {
+	stringType := builtins.Get(model.TypeNameString)
+	if stringType == nil {
+		t.Fatalf("expected builtin string")
+	}
+	cycleMember := newSelfReferentialListSimpleType(model.QName{Namespace: "urn:test", Local: "CycleMember"})
+	union := &model.SimpleType{
+		QName:       model.QName{Namespace: "urn:test", Local: "CycleThenString"},
+		Union:       &model.UnionType{},
+		MemberTypes: []model.Type{cycleMember, stringType},
+	}
+
+	cycleErr := errors.New("cycle")
+	var calledUnionNoMatch bool
+	err := model.ValidateSimpleTypeWithOptions(union, "abc", nil, model.SimpleTypeValidationOptions{
+		CycleError: cycleErr,
+		UnionNoMatch: func(_ *model.SimpleType, _ string, _ error, _ bool) error {
+			calledUnionNoMatch = true
+			return errors.New("unexpected union no match")
+		},
+	})
+	if err != nil {
+		t.Fatalf("ValidateSimpleTypeWithOptions() error = %v, want nil", err)
+	}
+	if calledUnionNoMatch {
+		t.Fatalf("UnionNoMatch callback called after union member validation succeeded")
+	}
+}
+
+func TestValidateSimpleTypeWithOptionsUnionAllCycleReportsNoMatch(t *testing.T) {
+	cycleMember := newSelfReferentialListSimpleType(model.QName{Namespace: "urn:test", Local: "CycleOnly"})
+	union := &model.SimpleType{
+		QName:       model.QName{Namespace: "urn:test", Local: "CycleUnion"},
+		Union:       &model.UnionType{},
+		MemberTypes: []model.Type{cycleMember},
+	}
+
+	cycleErr := errors.New("cycle")
+	unionNoMatchErr := errors.New("union no match")
+	var (
+		gotSawCycle bool
+		gotFirstErr error
+	)
+	err := model.ValidateSimpleTypeWithOptions(union, "abc", nil, model.SimpleTypeValidationOptions{
+		CycleError: cycleErr,
+		UnionNoMatch: func(_ *model.SimpleType, _ string, firstErr error, sawCycle bool) error {
+			gotFirstErr = firstErr
+			gotSawCycle = sawCycle
+			return unionNoMatchErr
+		},
+	})
+	if !errors.Is(err, unionNoMatchErr) {
+		t.Fatalf("ValidateSimpleTypeWithOptions() error = %v, want %v", err, unionNoMatchErr)
+	}
+	if !gotSawCycle {
+		t.Fatalf("UnionNoMatch sawCycle = false, want true")
+	}
+	if gotFirstErr != nil {
+		t.Fatalf("UnionNoMatch firstErr = %v, want nil", gotFirstErr)
+	}
+}
+
 func TestSimpleTypeValidateListMembers(t *testing.T) {
 	item, err := builtins.NewSimpleType(model.TypeNameInteger)
 	if err != nil {
@@ -223,4 +286,13 @@ func TestSimpleTypeValidateWithContextQNameEnumeration(t *testing.T) {
 	if err := st.ValidateWithContext("c:red", map[string]string{"c": "urn:other"}); err == nil {
 		t.Fatalf("expected QName enum mismatch for different namespace")
 	}
+}
+
+func newSelfReferentialListSimpleType(name model.QName) *model.SimpleType {
+	st := &model.SimpleType{
+		QName: name,
+		List:  &model.ListType{},
+	}
+	st.ItemType = st
+	return st
 }

@@ -9,11 +9,12 @@ import (
 // ValidateReferences validates cross-component references for schema loading.
 func ValidateReferences(sch *parser.Schema) []error {
 	var errs []error
+	index := buildIterationIndex(sch)
 
-	elementRefsInContent := collectElementReferencesInSchema(sch)
-	allConstraints := collectAllIdentityConstraints(sch)
+	elementRefsInContent := index.elementRefsInContent
+	allConstraints := index.allIdentityConstraints
 
-	if uniquenessErrors := validateIdentityConstraintUniqueness(sch); len(uniquenessErrors) > 0 {
+	if uniquenessErrors := validateIdentityConstraintUniquenessWithConstraints(sch, allConstraints); len(uniquenessErrors) > 0 {
 		errs = append(errs, uniquenessErrors...)
 	}
 
@@ -25,15 +26,15 @@ func ValidateReferences(sch *parser.Schema) []error {
 		errs = append(errs, err)
 	}
 
-	errs = append(errs, validateLocalIdentityConstraintKeyrefs(sch, allConstraints)...)
-	errs = append(errs, validateLocalIdentityConstraintResolution(sch)...)
+	errs = append(errs, validateLocalIdentityConstraintKeyrefsWithIndex(sch, index, allConstraints)...)
+	errs = append(errs, validateLocalIdentityConstraintResolution(sch, index)...)
 	errs = append(errs, validateAttributeDeclarations(sch)...)
 	errs = append(errs, validateTypeDefinitionReferences(sch)...)
-	errs = append(errs, validateEnumerationFacetValues(sch)...)
-	errs = append(errs, validateInlineTypeReferences(sch)...)
+	errs = append(errs, validateEnumerationFacetValuesWithIndex(sch, index)...)
+	errs = append(errs, validateInlineTypeReferencesWithIndex(sch, index)...)
 	errs = append(errs, validateComplexTypeReferences(sch)...)
 	errs = append(errs, validateAttributeGroupReferencesInSchema(sch)...)
-	errs = append(errs, validateLocalElementValueConstraints(sch)...)
+	errs = append(errs, validateLocalElementValueConstraints(sch, index)...)
 	errs = append(errs, validateGroupReferencesInSchema(sch)...)
 
 	if err := validateNoCyclicAttributeGroups(sch); err != nil {
@@ -44,9 +45,13 @@ func ValidateReferences(sch *parser.Schema) []error {
 }
 
 func collectElementReferencesInSchema(sch *parser.Schema) []*model.ElementDecl {
+	return collectElementReferencesInSchemaWithIndex(sch, buildIterationIndex(sch))
+}
+
+func collectElementReferencesInSchemaWithIndex(sch *parser.Schema, index *iterationIndex) []*model.ElementDecl {
 	var elementRefsInContent []*model.ElementDecl
 
-	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
+	for _, qname := range index.elementQNames {
 		decl := sch.ElementDecls[qname]
 		if ct, ok := decl.Type.(*model.ComplexType); ok {
 			elementRefsInContent = append(elementRefsInContent, traversal.CollectFromContent(ct.Content(), func(p model.Particle) (*model.ElementDecl, bool) {
@@ -56,7 +61,7 @@ func collectElementReferencesInSchema(sch *parser.Schema) []*model.ElementDecl {
 		}
 	}
 
-	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
+	for _, qname := range index.typeQNames {
 		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*model.ComplexType); ok {
 			elementRefsInContent = append(elementRefsInContent, traversal.CollectFromContent(ct.Content(), func(p model.Particle) (*model.ElementDecl, bool) {
@@ -66,7 +71,7 @@ func collectElementReferencesInSchema(sch *parser.Schema) []*model.ElementDecl {
 		}
 	}
 
-	for _, qname := range traversal.SortedQNames(sch.Groups) {
+	for _, qname := range index.groupQNames {
 		group := sch.Groups[qname]
 		for _, particle := range group.Particles {
 			if elem, ok := particle.(*model.ElementDecl); ok && elem.IsReference {

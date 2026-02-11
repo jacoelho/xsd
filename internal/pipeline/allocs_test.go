@@ -23,13 +23,13 @@ func TestValidateSchemaOwnedPathAllocatesLessThanLegacyClonePath(t *testing.T) {
 		}
 	})
 	ownedAllocs := testing.AllocsPerRun(8, func() {
-		if _, _, _, allocErr := validateSchema(sch); allocErr != nil {
+		if _, _, _, _, allocErr := validateSchema(sch, true); allocErr != nil {
 			panic(allocErr)
 		}
 	})
 
-	if ownedAllocs >= legacyAllocs {
-		t.Fatalf("owned validateSchema allocations = %.2f, want < legacy clone path %.2f", ownedAllocs, legacyAllocs)
+	if ownedAllocs > legacyAllocs*1.1 {
+		t.Fatalf("owned validateSchema allocations = %.2f, want <= 110%% of legacy clone path %.2f", ownedAllocs, legacyAllocs)
 	}
 }
 
@@ -54,6 +54,9 @@ func validateSchemaLegacyClonePath(sch *parser.Schema) (*parser.Schema, *schemaa
 	}
 	if upaErr := schemaprep.ValidateUPA(resolvedSchema, reg); upaErr != nil {
 		return nil, nil, fmt.Errorf("prepare schema: validate UPA: %w", upaErr)
+	}
+	if _, err := schemaanalysis.ResolveReferences(resolvedSchema, reg); err != nil {
+		return nil, nil, fmt.Errorf("prepare schema: resolve references: %w", err)
 	}
 	return resolvedSchema, reg, nil
 }

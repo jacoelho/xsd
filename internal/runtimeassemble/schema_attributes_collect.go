@@ -14,9 +14,13 @@ func (b *schemaBuilder) collectAttrUses(ct *model.ComplexType) ([]runtime.AttrUs
 	if ct == nil {
 		return nil, nil, nil
 	}
-	attrs, wildcard, err := validatorgen.CollectAttributeUses(b.schema, ct)
-	if err != nil {
-		return nil, nil, err
+	attrs, wildcard, cached := b.complexTypes.AttributeUses(ct)
+	if !cached {
+		var err error
+		attrs, wildcard, err = validatorgen.CollectAttributeUses(b.schema, ct)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	if len(attrs) == 0 {
 		return nil, wildcard, nil

@@ -6,145 +6,105 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/typewalk"
 	wsmode "github.com/jacoelho/xsd/internal/whitespace"
 )
 
 func (r *typeResolver) builtinNameForType(typ model.Type) (model.TypeName, bool) {
-	seen := make(map[model.Type]bool)
-	var walk func(model.Type) (model.TypeName, bool)
-	walk = func(current model.Type) (model.TypeName, bool) {
-		if current == nil {
-			return "", false
-		}
-		if seen[current] {
-			return "", false
-		}
-		seen[current] = true
-		defer delete(seen, current)
-
+	var (
+		out   model.TypeName
+		found bool
+	)
+	typewalk.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
-			return model.TypeName(bt.Name().Local), true
+			out = model.TypeName(bt.Name().Local)
+			found = true
+			return false
 		}
-		st, ok := model.AsSimpleType(current)
-		if !ok {
-			return "", false
-		}
-		if base := r.baseType(st); base != nil {
-			return walk(base)
-		}
-		return "", false
-	}
-	return walk(typ)
+		_, ok := model.AsSimpleType(current)
+		return ok
+	})
+	return out, found
 }
 
 func (r *typeResolver) isQNameOrNotation(typ model.Type) bool {
-	seen := make(map[model.Type]bool)
-	var walk func(model.Type) bool
-	walk = func(current model.Type) bool {
-		if current == nil {
-			return false
-		}
-		if seen[current] {
-			return false
-		}
-		seen[current] = true
-		defer delete(seen, current)
-
+	result := false
+	typewalk.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
-			return model.IsQNameOrNotation(bt.Name())
+			result = model.IsQNameOrNotation(bt.Name())
+			return false
 		}
 		st, ok := model.AsSimpleType(current)
 		if !ok {
+			result = false
 			return false
 		}
 		if r.variety(st) != model.AtomicVariety {
+			result = false
 			return false
 		}
 		if model.IsQNameOrNotation(st.Name()) {
-			return true
+			result = true
+			return false
 		}
 		if st.Restriction != nil && !st.Restriction.Base.IsZero() {
 			base := st.Restriction.Base
 			if (base.Namespace == model.XSDNamespace || base.Namespace == "") &&
 				(base.Local == string(model.TypeNameQName) || base.Local == string(model.TypeNameNOTATION)) {
-				return true
+				result = true
+				return false
 			}
 		}
-		if base := r.baseType(st); base != nil {
-			return walk(base)
-		}
-		return false
-	}
-	return walk(typ)
+		return true
+	})
+	return result
 }
 
 func (r *typeResolver) isIntegerDerived(typ model.Type) bool {
-	seen := make(map[model.Type]bool)
-	var walk func(model.Type) bool
-	walk = func(current model.Type) bool {
-		if current == nil {
-			return false
-		}
-		if seen[current] {
-			return false
-		}
-		seen[current] = true
-		defer delete(seen, current)
-
+	result := false
+	typewalk.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
-			return isIntegerTypeName(bt.Name().Local)
+			result = isIntegerTypeName(bt.Name().Local)
+			return false
 		}
 		st, ok := model.AsSimpleType(current)
 		if !ok {
+			result = false
 			return false
 		}
 		if r.variety(st) != model.AtomicVariety {
+			result = false
 			return false
 		}
 		if isIntegerTypeName(st.Name().Local) {
-			return true
-		}
-		base := r.baseType(st)
-		if base == nil {
+			result = true
 			return false
 		}
-		return walk(base)
-	}
-	return walk(typ)
+		return true
+	})
+	return result
 }
 
 func (r *typeResolver) whitespaceMode(typ model.Type) runtime.WhitespaceMode {
-	seen := make(map[model.Type]bool)
-	var walk func(model.Type) runtime.WhitespaceMode
-	walk = func(current model.Type) runtime.WhitespaceMode {
-		if current == nil {
-			return runtime.WS_Preserve
-		}
-		if seen[current] {
-			return runtime.WS_Preserve
-		}
-		seen[current] = true
-		defer delete(seen, current)
-
+	mode := runtime.WS_Preserve
+	typewalk.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
-			return wsmode.ToRuntime(bt.WhiteSpace())
+			mode = wsmode.ToRuntime(bt.WhiteSpace())
+			return false
 		}
 		st, ok := model.AsSimpleType(current)
 		if !ok {
-			return runtime.WS_Preserve
+			mode = runtime.WS_Preserve
+			return false
 		}
-		if st.WhiteSpaceExplicit() {
-			return wsmode.ToRuntime(st.WhiteSpace())
+		if st.WhiteSpaceExplicit() || st.List != nil || st.Union != nil {
+			mode = wsmode.ToRuntime(st.WhiteSpace())
+			return false
 		}
-		if st.List != nil || st.Union != nil {
-			return wsmode.ToRuntime(st.WhiteSpace())
-		}
-		if base := r.baseType(st); base != nil {
-			return walk(base)
-		}
-		return wsmode.ToRuntime(st.WhiteSpace())
-	}
-	return walk(typ)
+		mode = wsmode.ToRuntime(st.WhiteSpace())
+		return true
+	})
+	return mode
 }
 
 func (r *typeResolver) primitiveName(typ model.Type) (string, error) {

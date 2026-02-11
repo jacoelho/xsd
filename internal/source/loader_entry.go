@@ -40,7 +40,6 @@ func (l *SchemaLoader) finalizeLoad(entry *schemaEntry, sch *parser.Schema) {
 func (l *SchemaLoader) resetEntry(entry *schemaEntry, key loadKey) {
 	entry.schema = nil
 	entry.state = schemaStateUnknown
-	entry.pendingDirectives = nil
-	entry.pendingCount = 0
+	resetPendingTracking(entry)
 	l.cleanupEntryIfUnused(key)
 }

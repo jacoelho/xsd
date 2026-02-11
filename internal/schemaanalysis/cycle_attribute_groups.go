@@ -1,48 +1,36 @@
 package schemaanalysis
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/attrgroupwalk"
+	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func detectAttributeGroupCycles(schema *parser.Schema) error {
-	states := make(map[model.QName]visitState)
+	ctx := attrgroupwalk.NewContext(schema, attrgroupwalk.Options{
+		Missing: attrgroupwalk.MissingError,
+		Cycles:  attrgroupwalk.CycleError,
+	})
 
-	var visit func(name model.QName, group *model.AttributeGroup) error
-	visit = func(name model.QName, group *model.AttributeGroup) error {
-		switch states[name] {
-		case stateVisiting:
-			return fmt.Errorf("attributeGroup cycle detected at %s", name)
-		case stateDone:
-			return nil
-		}
-		states[name] = stateVisiting
-		for _, ref := range group.AttrGroups {
-			target := schema.AttributeGroups[ref]
-			if target == nil {
-				return fmt.Errorf("attributeGroup %s ref %s not found", name, ref)
-			}
-			if err := visit(ref, target); err != nil {
-				return err
-			}
-		}
-		states[name] = stateDone
-		return nil
-	}
-
-	for _, decl := range schema.GlobalDecls {
-		if decl.Kind != parser.GlobalDeclAttributeGroup {
-			continue
-		}
-		group := schema.AttributeGroups[decl.Name]
+	return globaldecl.ForEachAttributeGroup(schema, func(name model.QName, group *model.AttributeGroup) error {
 		if group == nil {
-			return fmt.Errorf("missing attributeGroup %s", decl.Name)
+			return fmt.Errorf("missing attributeGroup %s", name)
 		}
-		if err := visit(decl.Name, group); err != nil {
+		if err := ctx.Walk([]model.QName{name}, nil); err != nil {
+			var cycleErr attrgroupwalk.ErrCycle
+			if errors.As(err, &cycleErr) {
+				return fmt.Errorf("attributeGroup cycle detected at %s", cycleErr.QName)
+			}
+			var missingErr attrgroupwalk.ErrMissing
+			if errors.As(err, &missingErr) {
+				return fmt.Errorf("attributeGroup %s ref %s not found", name, missingErr.QName)
+			}
 			return err
 		}
-	}
-	return nil
+		return nil
+	})
 }

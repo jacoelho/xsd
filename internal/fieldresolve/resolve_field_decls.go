@@ -29,18 +29,9 @@ func ResolveFieldElementDecl(schema *parser.Schema, field *model.Field, constrai
 		return nil, fmt.Errorf("%w: resolve selector '%s': %w", ErrFieldXPathUnresolved, selectorXPath, err)
 	}
 
-	var decls []*model.ElementDecl
-	for _, selectorDecl := range selectorDecls {
-		for pathIndex, fieldPath := range fieldExpr.Paths {
-			if fieldPath.Attribute != nil {
-				return nil, fmt.Errorf("field xpath selects attribute: %s", field.XPath)
-			}
-			decl, err := resolvePathElementDecl(schema, selectorDecl, fieldPath.Steps)
-			if err != nil {
-				return nil, fmt.Errorf("resolve field xpath '%s' branch %d: %w", field.XPath, pathIndex+1, err)
-			}
-			decls = append(decls, decl)
-		}
+	decls, _, err := resolveFieldElementDeclBranches(schema, selectorDecls, field.XPath, fieldExpr.Paths, false)
+	if err != nil {
+		return nil, err
 	}
 
 	unique := uniqueElementDecls(decls)
@@ -62,32 +53,47 @@ func ResolveFieldElementDecls(schema *parser.Schema, field *model.Field, constra
 	if err != nil {
 		return nil, fmt.Errorf("resolve selector '%s': %w", selectorXPath, err)
 	}
-	hasUnion := len(fieldExpr.Paths) > 1 || len(selectorDecls) > 1
-	var decls []*model.ElementDecl
-	unresolved := false
-	for _, selectorDecl := range selectorDecls {
-		for pathIndex, fieldPath := range fieldExpr.Paths {
-			if fieldPath.Attribute != nil {
-				continue
-			}
-			decl, err := resolvePathElementDecl(schema, selectorDecl, fieldPath.Steps)
-			if err != nil {
-				if hasUnion {
-					unresolved = true
-					continue
-				}
-				if errors.Is(err, ErrXPathUnresolvable) {
-					unresolved = true
-					continue
-				}
-				return nil, fmt.Errorf("resolve field xpath '%s' branch %d: %w", field.XPath, pathIndex+1, err)
-			}
-			decls = append(decls, decl)
-		}
+	decls, unresolved, err := resolveFieldElementDeclBranches(schema, selectorDecls, field.XPath, fieldExpr.Paths, true)
+	if err != nil {
+		return nil, err
 	}
 	unique := uniqueElementDecls(decls)
 	if len(unique) == 0 && unresolved {
 		return nil, fmt.Errorf("%w: field xpath '%s'", ErrXPathUnresolvable, field.XPath)
 	}
 	return unique, nil
+}
+
+func resolveFieldElementDeclBranches(
+	schema *parser.Schema,
+	selectorDecls []*model.ElementDecl,
+	fieldXPath string,
+	paths []xpath.Path,
+	tolerateUnresolved bool,
+) ([]*model.ElementDecl, bool, error) {
+	hasUnion := hasFieldPathUnion(selectorDecls, paths)
+	var decls []*model.ElementDecl
+	unresolved := false
+	err := forEachFieldPathBranch(selectorDecls, paths, func(branch fieldPathBranch) error {
+		if branch.path.Attribute != nil {
+			if tolerateUnresolved {
+				return nil
+			}
+			return fmt.Errorf("field xpath selects attribute: %s", fieldXPath)
+		}
+		decl, err := resolvePathElementDecl(schema, branch.selectorDecl, branch.path.Steps)
+		if err != nil {
+			if tolerateUnresolved && (hasUnion || errors.Is(err, ErrXPathUnresolvable)) {
+				unresolved = true
+				return nil
+			}
+			return wrapFieldPathBranchError(fieldXPath, branch, err)
+		}
+		decls = append(decls, decl)
+		return nil
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	return decls, unresolved, nil
 }

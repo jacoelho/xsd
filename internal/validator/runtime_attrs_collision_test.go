@@ -10,8 +10,8 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
-func collisionSchemaSession(t *testing.T) (*Session, runtime.TypeID) {
-	t.Helper()
+func collisionSchemaSession(tb testing.TB) (*Session, runtime.TypeID) {
+	tb.Helper()
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
@@ -21,12 +21,12 @@ func collisionSchemaSession(t *testing.T) (*Session, runtime.TypeID) {
   </xs:element>
 </xs:schema>`
 
-	rt := mustBuildRuntimeSchema(t, schema)
+	rt := mustBuildRuntimeSchema(tb, schema)
 	sess := NewSession(rt)
 	sym := rt.Symbols.Lookup(rt.PredefNS.Empty, []byte("root"))
 	elemID, ok := sess.globalElementBySymbol(sym)
 	if !ok {
-		t.Fatalf("root element symbol not found")
+		tb.Fatalf("root element symbol not found")
 	}
 	elem := rt.Elements[elemID]
 	return sess, elem.Type
@@ -72,11 +72,15 @@ func Benchmark_AttrDuplicateDetection_CollisionSafe(b *testing.B) {
 			Value:   []byte("v"),
 		}
 	}
-	sess := &Session{}
+	sess, _ := collisionSchemaSession(b)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		if err := sess.checkDuplicateAttrs(attrs); err != nil {
+		classified, err := sess.classifyAttrs(attrs, true)
+		if err != nil {
 			b.Fatalf("unexpected error: %v", err)
+		}
+		if classified.duplicateErr != nil {
+			b.Fatalf("unexpected duplicate error: %v", classified.duplicateErr)
 		}
 	}
 }

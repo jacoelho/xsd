@@ -12,25 +12,32 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 	if s == nil || s.rt == nil {
 		return AttrResult{}, newValidationError(xsderrors.ErrSchemaNotLoaded, "schema not loaded")
 	}
+	classified, err := s.classifyAttrs(attrs, true)
+	if err != nil {
+		return AttrResult{}, err
+	}
+	return s.validateAttributesClassified(typeID, attrs, resolver, classified)
+}
+
+func (s *Session) validateAttributesClassified(typeID runtime.TypeID, attrs []StartAttr, resolver value.NSResolver, classified attrClassification) (AttrResult, error) {
 	typ, ok := s.typeByID(typeID)
 	if !ok {
 		return AttrResult{}, fmt.Errorf("type %d not found", typeID)
 	}
 	storeAttrs := s.hasIdentityConstraints()
+	if classified.duplicateErr != nil {
+		return AttrResult{}, classified.duplicateErr
+	}
 
 	if typ.Kind != runtime.TypeComplex {
-		return s.validateSimpleTypeAttrs(attrs, storeAttrs)
+		return s.validateSimpleTypeAttrsClassified(attrs, classified.classes, storeAttrs)
 	}
 
 	ct := &s.rt.ComplexTypes[typ.Complex.ID]
 	uses := s.attrUses(ct.Attrs)
 	present := s.prepareAttrPresent(len(uses))
 
-	if err := s.checkDuplicateAttrs(attrs); err != nil {
-		return AttrResult{}, err
-	}
-
-	validated, seenID, err := s.validateComplexAttrs(ct, present, attrs, resolver, storeAttrs)
+	validated, seenID, err := s.validateComplexAttrsClassified(ct, present, attrs, classified.classes, resolver, storeAttrs)
 	if err != nil {
 		return AttrResult{}, err
 	}
@@ -49,11 +56,27 @@ func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, r
 }
 
 func (s *Session) validateSimpleTypeAttrs(attrs []StartAttr, storeAttrs bool) (AttrResult, error) {
-	for _, attr := range attrs {
-		if s.isUnknownXsiAttribute(&attr) {
-			return AttrResult{}, newValidationError(xsderrors.ErrValidateSimpleTypeAttrNotAllowed, "unknown xsi attribute")
+	classified, err := s.classifyAttrs(attrs, false)
+	if err != nil {
+		return AttrResult{}, err
+	}
+	return s.validateSimpleTypeAttrsClassified(attrs, classified.classes, storeAttrs)
+}
+
+func (s *Session) validateSimpleTypeAttrsClassified(attrs []StartAttr, classes []attrClass, storeAttrs bool) (AttrResult, error) {
+	for i, attr := range attrs {
+		class := attrClassOther
+		if i < len(classes) {
+			class = classes[i]
+		} else {
+			class, _ = s.classifyAttr(&attr)
 		}
-		if !s.isXsiAttribute(&attr) && !s.isXMLAttribute(&attr) {
+		switch class {
+		case attrClassXsiUnknown:
+			return AttrResult{}, newValidationError(xsderrors.ErrValidateSimpleTypeAttrNotAllowed, "unknown xsi attribute")
+		case attrClassXsiKnown, attrClassXML:
+			continue
+		default:
 			return AttrResult{}, newValidationError(xsderrors.ErrValidateSimpleTypeAttrNotAllowed, "attribute not allowed on simple type")
 		}
 	}
@@ -84,3 +107,4 @@ func (s *Session) prepareAttrPresent(size int) []bool {
 	s.attrPresent = present
 	return present
 }
+

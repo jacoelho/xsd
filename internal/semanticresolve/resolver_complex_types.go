@@ -4,28 +4,18 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/resolveguard"
 )
 
 func (r *Resolver) resolveComplexType(qname model.QName, ct *model.ComplexType) error {
 	if qname.IsZero() {
-		if r.resolvedPtrs[ct] {
-			return nil
-		}
-		if r.resolvingPtrs[ct] {
+		return r.anonymousTypeGuard.Resolve(ct, func() error {
 			return fmt.Errorf("circular anonymous type definition")
-		}
-		r.resolvingPtrs[ct] = true
-		defer func() {
-			delete(r.resolvingPtrs, ct)
-			r.resolvedPtrs[ct] = true
-		}()
-		return r.doResolveComplexType(qname, ct)
+		}, func() error {
+			return r.doResolveComplexType(qname, ct)
+		})
 	}
-
-	if r.detector.IsVisited(qname) {
-		return nil
-	}
-	return r.detector.WithScope(qname, func() error {
+	return resolveguard.ResolveNamed[model.QName](r.detector, qname, func() error {
 		return r.doResolveComplexType(qname, ct)
 	})
 }

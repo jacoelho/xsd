@@ -2,6 +2,7 @@ package validatorgen
 
 import (
 	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/complextypeplan"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -20,6 +21,7 @@ type compiledValidators struct {
 	Facets             []runtime.FacetInstr
 	Patterns           []runtime.Pattern
 	Values             runtime.ValueBlob
+	ComplexTypes       *complextypeplan.Plan
 }
 
 // ValidatorForType returns the validator ID for a type when available.
@@ -42,6 +44,7 @@ func (c *compiledValidators) ValidatorForType(typ model.Type) (runtime.Validator
 type compiler struct {
 	facetsCache     map[*model.SimpleType][]model.Facet
 	builtinTypeIDs  map[model.TypeName]runtime.TypeID
+	complexTypes    *complextypeplan.Plan
 	simpleContent   map[*model.ComplexType]model.Type
 	res             *typeResolver
 	runtimeTypeIDs  map[schema.TypeID]runtime.TypeID

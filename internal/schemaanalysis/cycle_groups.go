@@ -1,50 +1,58 @@
 package schemaanalysis
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/graphcycle"
+	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func detectGroupCycles(schema *parser.Schema) error {
-	states := make(map[model.QName]visitState)
+	starts := make([]model.QName, 0, len(schema.Groups))
+	if err := globaldecl.ForEachGroup(schema, func(name model.QName, group *model.ModelGroup) error {
+		if group == nil {
+			return fmt.Errorf("missing group %s", name)
+		}
+		starts = append(starts, name)
+		return nil
+	}); err != nil {
+		return err
+	}
 
-	var visit func(name model.QName, group *model.ModelGroup) error
-	visit = func(name model.QName, group *model.ModelGroup) error {
-		switch states[name] {
-		case stateVisiting:
-			return fmt.Errorf("group cycle detected at %s", name)
-		case stateDone:
-			return nil
-		}
-		states[name] = stateVisiting
-		for _, ref := range collectGroupRefs(group) {
-			target := schema.Groups[ref.RefQName]
-			if target == nil {
-				return fmt.Errorf("group %s ref %s not found", name, ref.RefQName)
+	err := graphcycle.Detect(graphcycle.Config[model.QName]{
+		Starts:  starts,
+		Missing: graphcycle.MissingPolicyError,
+		Exists: func(name model.QName) bool {
+			return schema.Groups[name] != nil
+		},
+		Next: func(name model.QName) ([]model.QName, error) {
+			group := schema.Groups[name]
+			if group == nil {
+				return nil, nil
 			}
-			if err := visit(ref.RefQName, target); err != nil {
-				return err
+			refs := collectGroupRefs(group)
+			out := make([]model.QName, 0, len(refs))
+			for _, ref := range refs {
+				out = append(out, ref.RefQName)
 			}
-		}
-		states[name] = stateDone
+			return out, nil
+		},
+	})
+	if err == nil {
 		return nil
 	}
-
-	for _, decl := range schema.GlobalDecls {
-		if decl.Kind != parser.GlobalDeclGroup {
-			continue
-		}
-		group := schema.Groups[decl.Name]
-		if group == nil {
-			return fmt.Errorf("missing group %s", decl.Name)
-		}
-		if err := visit(decl.Name, group); err != nil {
-			return err
-		}
+	var cycleErr graphcycle.CycleError[model.QName]
+	if errors.As(err, &cycleErr) {
+		return fmt.Errorf("group cycle detected at %s", cycleErr.Key)
 	}
-	return nil
+	var missingErr graphcycle.MissingError[model.QName]
+	if errors.As(err, &missingErr) {
+		return fmt.Errorf("group %s ref %s not found", missingErr.From, missingErr.Key)
+	}
+	return err
 }
 
 func collectGroupRefs(group *model.ModelGroup) []*model.GroupRef {

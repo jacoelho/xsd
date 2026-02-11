@@ -152,6 +152,13 @@ const (
 	nextResolved
 )
 
+type startElementCore struct {
+	name       QName
+	namespace  string
+	local      []byte
+	scopeDepth int
+}
+
 func (r *Reader) next(mode nextMode, event *Event, raw *RawEvent, resolved *ResolvedEvent) error {
 	if r == nil || r.dec == nil {
 		return errNilReader
@@ -180,343 +187,244 @@ func (r *Reader) next(mode nextMode, event *Event, raw *RawEvent, resolved *Reso
 
 		switch tok.Kind {
 		case xmltext.KindStartElement:
-			if mode == nextResolved {
-				ev, err := r.startResolvedEvent(tok, line, column)
-				if err != nil {
-					return err
-				}
-				if resolved != nil {
-					*resolved = ev
-				}
-				return nil
-			}
-			ev, rawEv, err := r.startEvent(mode, tok, line, column)
-			if err != nil {
-				return err
-			}
-			if mode == nextEvent {
-				if event != nil {
-					*event = ev
-				}
-				return nil
-			}
-			if raw != nil {
-				*raw = rawEv
-			}
-			return nil
+			return r.emitStart(mode, tok, line, column, event, raw, resolved)
 
 		case xmltext.KindEndElement:
-			if mode == nextResolved {
-				ev, err := r.endResolvedEvent(tok, line, column)
-				if err != nil {
-					return err
-				}
-				if resolved != nil {
-					*resolved = ev
-				}
-				return nil
-			}
-			ev, rawEv, err := r.endEvent(mode, tok, line, column)
-			if err != nil {
-				return err
-			}
-			if mode == nextEvent {
-				if event != nil {
-					*event = ev
-				}
-				return nil
-			}
-			if raw != nil {
-				*raw = rawEv
-			}
-			return nil
-
-		case xmltext.KindCharData, xmltext.KindCDATA:
-			text, err := r.textBytes(tok.Text, tok.TextNeeds)
-			if err != nil {
-				return wrapSyntaxError(r.dec, line, column, err)
-			}
-			scopeDepth := r.currentScopeDepth()
-			if mode == nextEvent {
-				if event != nil {
-					*event = Event{
-						Kind:       EventCharData,
-						Text:       text,
-						Line:       line,
-						Column:     column,
-						ScopeDepth: scopeDepth,
-					}
-				}
-				return nil
-			}
-			if mode == nextResolved {
-				if resolved != nil {
-					*resolved = ResolvedEvent{
-						Kind:       EventCharData,
-						Text:       text,
-						Line:       line,
-						Column:     column,
-						ScopeDepth: scopeDepth,
-					}
-				}
-				return nil
-			}
-			if raw != nil {
-				*raw = RawEvent{
-					Kind:       EventCharData,
-					Text:       text,
-					Line:       line,
-					Column:     column,
-					ScopeDepth: scopeDepth,
-				}
-			}
-			return nil
-
-		case xmltext.KindComment:
-			scopeDepth := r.currentScopeDepth()
-			if mode == nextEvent {
-				if event != nil {
-					*event = Event{
-						Kind:       EventComment,
-						Text:       tok.Text,
-						Line:       line,
-						Column:     column,
-						ScopeDepth: scopeDepth,
-					}
-				}
-				return nil
-			}
-			if mode == nextResolved {
-				if resolved != nil {
-					*resolved = ResolvedEvent{
-						Kind:       EventComment,
-						Text:       tok.Text,
-						Line:       line,
-						Column:     column,
-						ScopeDepth: scopeDepth,
-					}
-				}
-				return nil
-			}
-			if raw != nil {
-				*raw = RawEvent{
-					Kind:       EventComment,
-					Text:       tok.Text,
-					Line:       line,
-					Column:     column,
-					ScopeDepth: scopeDepth,
-				}
-			}
-			return nil
+			return r.emitEnd(mode, tok, line, column, event, raw, resolved)
 
 		case xmltext.KindPI:
 			if tok.IsXMLDecl {
 				continue
 			}
-			scopeDepth := r.currentScopeDepth()
-			if mode == nextEvent {
-				if event != nil {
-					*event = Event{
-						Kind:       EventPI,
-						Text:       tok.Text,
-						Line:       line,
-						Column:     column,
-						ScopeDepth: scopeDepth,
-					}
-				}
-				return nil
-			}
-			if mode == nextResolved {
-				if resolved != nil {
-					*resolved = ResolvedEvent{
-						Kind:       EventPI,
-						Text:       tok.Text,
-						Line:       line,
-						Column:     column,
-						ScopeDepth: scopeDepth,
-					}
-				}
-				return nil
-			}
-			if raw != nil {
-				*raw = RawEvent{
-					Kind:       EventPI,
-					Text:       tok.Text,
-					Line:       line,
-					Column:     column,
-					ScopeDepth: scopeDepth,
-				}
-			}
-			return nil
+			fallthrough
 
-		case xmltext.KindDirective:
-			scopeDepth := r.currentScopeDepth()
-			if mode == nextEvent {
-				if event != nil {
-					*event = Event{
-						Kind:       EventDirective,
-						Text:       tok.Text,
-						Line:       line,
-						Column:     column,
-						ScopeDepth: scopeDepth,
-					}
-				}
-				return nil
-			}
-			if mode == nextResolved {
-				if resolved != nil {
-					*resolved = ResolvedEvent{
-						Kind:       EventDirective,
-						Text:       tok.Text,
-						Line:       line,
-						Column:     column,
-						ScopeDepth: scopeDepth,
-					}
-				}
-				return nil
-			}
-			if raw != nil {
-				*raw = RawEvent{
-					Kind:       EventDirective,
-					Text:       tok.Text,
-					Line:       line,
-					Column:     column,
-					ScopeDepth: scopeDepth,
-				}
-			}
-			return nil
+		case xmltext.KindCharData, xmltext.KindCDATA, xmltext.KindComment, xmltext.KindDirective:
+			return r.emitTokenText(mode, tok, line, column, event, raw, resolved)
 		}
 	}
 }
 
-func (r *Reader) startEvent(mode nextMode, tok *xmltext.RawTokenSpan, line, column int) (Event, RawEvent, error) {
-	declStart := len(r.ns.decls)
-	scope, nsBuf, decls, err := collectNamespaceScope(r.dec, r.nsBuf, r.ns.decls, tok)
-	if err != nil {
-		r.nsBuf = nsBuf
-		return Event{}, RawEvent{}, wrapSyntaxError(r.dec, line, column, err)
+func (r *Reader) emitStart(mode nextMode, tok *xmltext.RawTokenSpan, line, column int, event *Event, raw *RawEvent, resolved *ResolvedEvent) error {
+	switch mode {
+	case nextEvent:
+		ev, err := r.startEvent(tok, line, column)
+		if err != nil {
+			return err
+		}
+		if event != nil {
+			*event = ev
+		}
+	case nextResolved:
+		ev, err := r.startResolvedEvent(tok, line, column)
+		if err != nil {
+			return err
+		}
+		if resolved != nil {
+			*resolved = ev
+		}
+	default:
+		ev, err := r.startRawEvent(tok, line, column)
+		if err != nil {
+			return err
+		}
+		if raw != nil {
+			*raw = ev
+		}
 	}
-	r.nsBuf = nsBuf
-	r.ns.decls = decls
-	scope.declStart = declStart
-	scope.declLen = len(r.ns.decls) - declStart
-	scopeDepth := r.ns.push(scope)
-	name, err := resolveElementName(r.names, &r.ns, r.dec, tok.Name, tok.NameColon, scopeDepth, line, column)
+	return nil
+}
+
+func (r *Reader) emitEnd(mode nextMode, tok *xmltext.RawTokenSpan, line, column int, event *Event, raw *RawEvent, resolved *ResolvedEvent) error {
+	switch mode {
+	case nextEvent:
+		ev, err := r.endEvent(tok, line, column)
+		if err != nil {
+			return err
+		}
+		if event != nil {
+			*event = ev
+		}
+	case nextResolved:
+		ev, err := r.endResolvedEvent(tok, line, column)
+		if err != nil {
+			return err
+		}
+		if resolved != nil {
+			*resolved = ev
+		}
+	default:
+		ev, err := r.endRawEvent(tok, line, column)
+		if err != nil {
+			return err
+		}
+		if raw != nil {
+			*raw = ev
+		}
+	}
+	return nil
+}
+
+func (r *Reader) emitTokenText(mode nextMode, tok *xmltext.RawTokenSpan, line, column int, event *Event, raw *RawEvent, resolved *ResolvedEvent) error {
+	kind, ok := tokenEventKind(tok.Kind)
+	if !ok {
+		return nil
+	}
+	text, err := r.tokenText(tok)
 	if err != nil {
-		return Event{}, RawEvent{}, err
+		return wrapSyntaxError(r.dec, line, column, err)
+	}
+	scopeDepth := r.currentScopeDepth()
+	r.projectTokenEvent(mode, kind, text, line, column, scopeDepth, event, raw, resolved)
+	return nil
+}
+
+func tokenEventKind(kind xmltext.Kind) (EventKind, bool) {
+	switch kind {
+	case xmltext.KindCharData, xmltext.KindCDATA:
+		return EventCharData, true
+	case xmltext.KindComment:
+		return EventComment, true
+	case xmltext.KindPI:
+		return EventPI, true
+	case xmltext.KindDirective:
+		return EventDirective, true
+	default:
+		return 0, false
+	}
+}
+
+func (r *Reader) tokenText(tok *xmltext.RawTokenSpan) ([]byte, error) {
+	switch tok.Kind {
+	case xmltext.KindCharData, xmltext.KindCDATA:
+		return r.textBytes(tok.Text, tok.TextNeeds)
+	default:
+		return tok.Text, nil
+	}
+}
+
+func (r *Reader) projectTokenEvent(mode nextMode, kind EventKind, text []byte, line, column, scopeDepth int, event *Event, raw *RawEvent, resolved *ResolvedEvent) {
+	switch mode {
+	case nextEvent:
+		if event != nil {
+			*event = Event{
+				Kind:       kind,
+				Text:       text,
+				Line:       line,
+				Column:     column,
+				ScopeDepth: scopeDepth,
+			}
+		}
+	case nextResolved:
+		if resolved != nil {
+			*resolved = ResolvedEvent{
+				Kind:       kind,
+				Text:       text,
+				Line:       line,
+				Column:     column,
+				ScopeDepth: scopeDepth,
+			}
+		}
+	default:
+		if raw != nil {
+			*raw = RawEvent{
+				Kind:       kind,
+				Text:       text,
+				Line:       line,
+				Column:     column,
+				ScopeDepth: scopeDepth,
+			}
+		}
+	}
+}
+
+func (r *Reader) startEvent(tok *xmltext.RawTokenSpan, line, column int) (Event, error) {
+	core, err := r.beginStartElementCore(tok, line, column)
+	if err != nil {
+		return Event{}, err
 	}
 
 	attrCount := tok.AttrCount()
-	if mode == nextEvent {
-		if cap(r.attrBuf) < attrCount {
-			r.attrBuf = make([]Attr, 0, attrCount)
-		} else {
-			r.attrBuf = r.attrBuf[:0]
-		}
+	if cap(r.attrBuf) < attrCount {
+		r.attrBuf = make([]Attr, 0, attrCount)
 	} else {
 		r.attrBuf = r.attrBuf[:0]
 	}
-	if mode == nextRaw {
-		if cap(r.rawAttrBuf) < attrCount {
-			r.rawAttrBuf = make([]RawAttr, 0, attrCount)
-		} else {
-			r.rawAttrBuf = r.rawAttrBuf[:0]
-		}
-		if cap(r.rawAttrInfo) < attrCount {
-			r.rawAttrInfo = make([]rawAttrInfo, 0, attrCount)
-		} else {
-			r.rawAttrInfo = r.rawAttrInfo[:0]
-		}
+
+	err = r.scanStartAttributes(tok, core.scopeDepth, line, column, func(attrName []byte, attrNamespace string, attrLocal, value []byte) error {
+		r.attrBuf = append(r.attrBuf, Attr{
+			Name:  r.names.internBytes(attrNamespace, attrLocal),
+			Value: value,
+		})
+		return nil
+	})
+	if err != nil {
+		return Event{}, err
 	}
 
-	for i := range attrCount {
-		attrName := tok.AttrName(i)
-		if isDefaultNamespaceDecl(attrName) {
-			continue
-		}
-		if _, ok := prefixedNamespaceDecl(attrName); ok {
-			continue
-		}
-		attrNamespace, attrLocal, err := resolveAttrName(r.dec, &r.ns, attrName, tok.AttrNameColon(i), scopeDepth, line, column)
-		if err != nil {
-			return Event{}, RawEvent{}, err
-		}
-		value, err := r.attrValueBytes(tok.AttrValue(i), tok.AttrValueNeeds(i))
-		if err != nil {
-			return Event{}, RawEvent{}, wrapSyntaxError(r.dec, line, column, err)
-		}
-		if mode == nextEvent {
-			r.attrBuf = append(r.attrBuf, Attr{
-				Name:  r.names.internBytes(attrNamespace, attrLocal),
-				Value: value,
-			})
-		}
-		if mode == nextRaw {
-			r.rawAttrBuf = append(r.rawAttrBuf, RawAttr{
-				Name:  rawNameFromBytes(attrName),
-				Value: value,
-			})
-			r.rawAttrInfo = append(r.rawAttrInfo, rawAttrInfo{
-				namespace: attrNamespace,
-				local:     attrLocal,
-			})
-		}
+	_ = r.commitStartEvent(core.name, line, column, core.scopeDepth)
+	r.lastStart.Attrs = r.attrBuf
+	r.lastRawAttrs = nil
+	r.lastRawInfo = nil
+	return r.lastStart, nil
+}
+
+func (r *Reader) startRawEvent(tok *xmltext.RawTokenSpan, line, column int) (RawEvent, error) {
+	core, err := r.beginStartElementCore(tok, line, column)
+	if err != nil {
+		return RawEvent{}, err
 	}
 
-	id := r.nextID
-	r.nextID++
-	r.elemStack = append(r.elemStack, name)
-	event := Event{
-		Kind:       EventStartElement,
-		Name:       name,
-		Attrs:      r.attrBuf,
-		Line:       line,
-		Column:     column,
-		ID:         id,
-		ScopeDepth: scopeDepth,
-	}
-	r.lastStart = event
-	r.lastWasStart = true
-	if mode == nextRaw {
-		r.lastRawAttrs = r.rawAttrBuf
-		r.lastRawInfo = r.rawAttrInfo
+	attrCount := tok.AttrCount()
+	r.attrBuf = r.attrBuf[:0]
+	if cap(r.rawAttrBuf) < attrCount {
+		r.rawAttrBuf = make([]RawAttr, 0, attrCount)
 	} else {
-		r.lastRawAttrs = nil
-		r.lastRawInfo = nil
+		r.rawAttrBuf = r.rawAttrBuf[:0]
 	}
-	if mode == nextEvent {
-		return event, RawEvent{}, nil
+	if cap(r.rawAttrInfo) < attrCount {
+		r.rawAttrInfo = make([]rawAttrInfo, 0, attrCount)
+	} else {
+		r.rawAttrInfo = r.rawAttrInfo[:0]
 	}
-	return Event{}, RawEvent{
+
+	err = r.scanStartAttributes(tok, core.scopeDepth, line, column, func(attrName []byte, attrNamespace string, attrLocal, value []byte) error {
+		r.rawAttrBuf = append(r.rawAttrBuf, RawAttr{
+			Name:  rawNameFromBytes(attrName),
+			Value: value,
+		})
+		r.rawAttrInfo = append(r.rawAttrInfo, rawAttrInfo{
+			namespace: attrNamespace,
+			local:     attrLocal,
+		})
+		return nil
+	})
+	if err != nil {
+		return RawEvent{}, err
+	}
+
+	id := r.commitStartEvent(core.name, line, column, core.scopeDepth)
+	r.lastStart.Attrs = r.attrBuf
+	r.lastRawAttrs = r.rawAttrBuf
+	r.lastRawInfo = r.rawAttrInfo
+	return RawEvent{
 		Kind:       EventStartElement,
 		Name:       rawNameFromBytes(tok.Name),
 		Attrs:      r.rawAttrBuf,
 		Line:       line,
 		Column:     column,
 		ID:         id,
-		ScopeDepth: scopeDepth,
+		ScopeDepth: core.scopeDepth,
 	}, nil
 }
 
 func (r *Reader) startResolvedEvent(tok *xmltext.RawTokenSpan, line, column int) (ResolvedEvent, error) {
-	declStart := len(r.ns.decls)
-	scope, nsBuf, decls, err := collectNamespaceScope(r.dec, r.nsBuf, r.ns.decls, tok)
-	if err != nil {
-		r.nsBuf = nsBuf
-		return ResolvedEvent{}, wrapSyntaxError(r.dec, line, column, err)
-	}
-	r.nsBuf = nsBuf
-	r.ns.decls = decls
-	scope.declStart = declStart
-	scope.declLen = len(r.ns.decls) - declStart
-	scopeDepth := r.ns.push(scope)
-	namespace, local, err := resolveElementParts(&r.ns, r.dec, tok.Name, tok.NameColon, scopeDepth, line, column)
+	core, err := r.beginStartElementCore(tok, line, column)
 	if err != nil {
 		return ResolvedEvent{}, err
 	}
 
-	nameID := r.nameIDs.internBytes(namespace, local)
-	nsBytes := r.nsBytes.intern(namespace)
+	nameID := r.nameIDs.internBytes(core.namespace, core.local)
+	nsBytes := r.nsBytes.intern(core.namespace)
 
 	attrCount := tok.AttrCount()
 	if cap(r.resolvedAttr) < attrCount {
@@ -531,22 +439,7 @@ func (r *Reader) startResolvedEvent(tok *xmltext.RawTokenSpan, line, column int)
 		r.attrEpoch = 1
 	}
 
-	for i := range attrCount {
-		attrName := tok.AttrName(i)
-		if isDefaultNamespaceDecl(attrName) {
-			continue
-		}
-		if _, ok := prefixedNamespaceDecl(attrName); ok {
-			continue
-		}
-		attrNamespace, attrLocal, err := resolveAttrName(r.dec, &r.ns, attrName, tok.AttrNameColon(i), scopeDepth, line, column)
-		if err != nil {
-			return ResolvedEvent{}, err
-		}
-		value, err := r.attrValueBytes(tok.AttrValue(i), tok.AttrValueNeeds(i))
-		if err != nil {
-			return ResolvedEvent{}, wrapSyntaxError(r.dec, line, column, err)
-		}
+	err = r.scanStartAttributes(tok, core.scopeDepth, line, column, func(_ []byte, attrNamespace string, attrLocal, value []byte) error {
 		attrID := r.nameIDs.internBytes(attrNamespace, attrLocal)
 		if attrID != 0 {
 			idx := int(attrID)
@@ -554,7 +447,7 @@ func (r *Reader) startResolvedEvent(tok *xmltext.RawTokenSpan, line, column int)
 				r.attrSeen = append(r.attrSeen, make([]uint32, idx-len(r.attrSeen)+1)...)
 			}
 			if r.attrSeen[idx] == r.attrEpoch {
-				return ResolvedEvent{}, wrapSyntaxError(r.dec, line, column, errDuplicateAttribute)
+				return wrapSyntaxError(r.dec, line, column, errDuplicateAttribute)
 			}
 			r.attrSeen[idx] = r.attrEpoch
 		}
@@ -565,11 +458,32 @@ func (r *Reader) startResolvedEvent(tok *xmltext.RawTokenSpan, line, column int)
 			Local:  attrLocal,
 			Value:  value,
 		})
+		return nil
+	})
+	if err != nil {
+		return ResolvedEvent{}, err
 	}
 
+	id := r.commitStartEvent(core.name, line, column, core.scopeDepth)
+	r.lastRawAttrs = nil
+	r.lastRawInfo = nil
+
+	return ResolvedEvent{
+		Kind:       EventStartElement,
+		NameID:     nameID,
+		NS:         nsBytes,
+		Local:      core.local,
+		Attrs:      r.resolvedAttr,
+		Line:       line,
+		Column:     column,
+		ID:         id,
+		ScopeDepth: core.scopeDepth,
+	}, nil
+}
+
+func (r *Reader) commitStartEvent(name QName, line, column, scopeDepth int) ElementID {
 	id := r.nextID
 	r.nextID++
-	name := r.names.internBytes(namespace, local)
 	r.elemStack = append(r.elemStack, name)
 	r.lastWasStart = true
 	r.lastStart = Event{
@@ -580,39 +494,88 @@ func (r *Reader) startResolvedEvent(tok *xmltext.RawTokenSpan, line, column int)
 		ID:         id,
 		ScopeDepth: scopeDepth,
 	}
-	r.lastRawAttrs = nil
-	r.lastRawInfo = nil
+	return id
+}
 
-	return ResolvedEvent{
-		Kind:       EventStartElement,
-		NameID:     nameID,
-		NS:         nsBytes,
-		Local:      local,
-		Attrs:      r.resolvedAttr,
+func (r *Reader) beginStartElement(tok *xmltext.RawTokenSpan, line, column int) (int, error) {
+	declStart := len(r.ns.decls)
+	scope, nsBuf, decls, err := collectNamespaceScope(r.dec, r.nsBuf, r.ns.decls, tok)
+	if err != nil {
+		r.nsBuf = nsBuf
+		return 0, wrapSyntaxError(r.dec, line, column, err)
+	}
+	r.nsBuf = nsBuf
+	r.ns.decls = decls
+	scope.declStart = declStart
+	scope.declLen = len(r.ns.decls) - declStart
+	return r.ns.push(scope), nil
+}
+
+func (r *Reader) beginStartElementCore(tok *xmltext.RawTokenSpan, line, column int) (startElementCore, error) {
+	scopeDepth, err := r.beginStartElement(tok, line, column)
+	if err != nil {
+		return startElementCore{}, err
+	}
+	namespace, local, err := resolveElementParts(&r.ns, r.dec, tok.Name, tok.NameColon, scopeDepth, line, column)
+	if err != nil {
+		return startElementCore{}, err
+	}
+	return startElementCore{
+		name:       r.names.internBytes(namespace, local),
+		namespace:  namespace,
+		local:      local,
+		scopeDepth: scopeDepth,
+	}, nil
+}
+
+func (r *Reader) scanStartAttributes(
+	tok *xmltext.RawTokenSpan,
+	scopeDepth, line, column int,
+	emit func(attrName []byte, namespace string, local, value []byte) error,
+) error {
+	for i := range tok.AttrCount() {
+		attrName := tok.AttrName(i)
+		if isDefaultNamespaceDecl(attrName) {
+			continue
+		}
+		if _, ok := prefixedNamespaceDecl(attrName); ok {
+			continue
+		}
+		attrNamespace, attrLocal, err := resolveAttrName(r.dec, &r.ns, attrName, tok.AttrNameColon(i), scopeDepth, line, column)
+		if err != nil {
+			return err
+		}
+		value, err := r.attrValueBytes(tok.AttrValue(i), tok.AttrValueNeeds(i))
+		if err != nil {
+			return wrapSyntaxError(r.dec, line, column, err)
+		}
+		if err := emit(attrName, attrNamespace, attrLocal, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Reader) endEvent(_ *xmltext.RawTokenSpan, line, column int) (Event, error) {
+	name, scopeDepth, err := r.beginEndElement()
+	if err != nil {
+		return Event{}, err
+	}
+	return Event{
+		Kind:       EventEndElement,
+		Name:       name,
 		Line:       line,
 		Column:     column,
-		ID:         id,
 		ScopeDepth: scopeDepth,
 	}, nil
 }
 
-func (r *Reader) endEvent(mode nextMode, tok *xmltext.RawTokenSpan, line, column int) (Event, RawEvent, error) {
-	scopeDepth := r.ns.depth() - 1
-	name, err := r.popElementName()
+func (r *Reader) endRawEvent(tok *xmltext.RawTokenSpan, line, column int) (RawEvent, error) {
+	_, scopeDepth, err := r.beginEndElement()
 	if err != nil {
-		return Event{}, RawEvent{}, err
+		return RawEvent{}, err
 	}
-	r.pendingPop = true
-	if mode == nextEvent {
-		return Event{
-			Kind:       EventEndElement,
-			Name:       name,
-			Line:       line,
-			Column:     column,
-			ScopeDepth: scopeDepth,
-		}, RawEvent{}, nil
-	}
-	return Event{}, RawEvent{
+	return RawEvent{
 		Kind:       EventEndElement,
 		Name:       rawNameFromBytes(tok.Name),
 		Line:       line,
@@ -622,12 +585,10 @@ func (r *Reader) endEvent(mode nextMode, tok *xmltext.RawTokenSpan, line, column
 }
 
 func (r *Reader) endResolvedEvent(tok *xmltext.RawTokenSpan, line, column int) (ResolvedEvent, error) {
-	scopeDepth := r.ns.depth() - 1
-	name, err := r.popElementName()
+	name, scopeDepth, err := r.beginEndElement()
 	if err != nil {
 		return ResolvedEvent{}, err
 	}
-	r.pendingPop = true
 
 	_, local, _ := splitQNameWithColon(tok.Name, tok.NameColon)
 	namespace := name.Namespace
@@ -642,6 +603,16 @@ func (r *Reader) endResolvedEvent(tok *xmltext.RawTokenSpan, line, column int) (
 		Column:     column,
 		ScopeDepth: scopeDepth,
 	}, nil
+}
+
+func (r *Reader) beginEndElement() (QName, int, error) {
+	scopeDepth := r.ns.depth() - 1
+	name, err := r.popElementName()
+	if err != nil {
+		return QName{}, 0, err
+	}
+	r.pendingPop = true
+	return name, scopeDepth, nil
 }
 
 // SkipSubtree skips the current element subtree after a StartElement event.

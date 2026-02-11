@@ -2,6 +2,7 @@ package fieldresolve
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/builtins"
@@ -50,6 +51,8 @@ func TestResolveSelectorElementTypeUnionMissingBranch(t *testing.T) {
 
 	if _, err := ResolveSelectorElementType(schema, root, "tns:a | tns:missing", schema.NamespaceDecls); err == nil {
 		t.Fatalf("expected selector union missing branch error")
+	} else if !strings.Contains(err.Error(), "branch 2") {
+		t.Fatalf("expected selector error to include branch index, got %v", err)
 	}
 }
 
@@ -89,6 +92,38 @@ func TestResolveFieldTypeUnionComplexContent(t *testing.T) {
 	_, err := ResolveFieldType(schema, field, root, "tns:container", schema.NamespaceDecls)
 	if !errors.Is(err, ErrXPathUnresolvable) {
 		t.Fatalf("expected ErrXPathUnresolvable, got %v", err)
+	}
+}
+
+func TestResolveFieldElementDeclBranchIndexDiagnostics(t *testing.T) {
+	schema := parser.NewSchema()
+	schema.TargetNamespace = "urn:field"
+	schema.NamespaceDecls["tns"] = "urn:field"
+
+	item := &model.ElementDecl{
+		Name: model.QName{Namespace: "urn:field", Local: "item"},
+		Type: builtins.Get(model.TypeName("string")),
+	}
+	containerType := model.NewComplexType(model.QName{Namespace: "urn:field", Local: "containerType"}, "urn:field")
+	containerType.SetContent(&model.ElementContent{Particle: item})
+	container := &model.ElementDecl{
+		Name: model.QName{Namespace: "urn:field", Local: "container"},
+		Type: containerType,
+	}
+	rootType := model.NewComplexType(model.QName{Namespace: "urn:field", Local: "rootType"}, "urn:field")
+	rootType.SetContent(&model.ElementContent{Particle: container})
+	root := &model.ElementDecl{
+		Name: model.QName{Namespace: "urn:field", Local: "root"},
+		Type: rootType,
+	}
+
+	field := &model.Field{XPath: "tns:item | tns:missing"}
+	_, err := ResolveFieldElementDecl(schema, field, root, "tns:container", schema.NamespaceDecls)
+	if err == nil {
+		t.Fatalf("expected branch-specific resolution error")
+	}
+	if !strings.Contains(err.Error(), "branch 2") {
+		t.Fatalf("expected error to include branch index, got %v", err)
 	}
 }
 

@@ -1,18 +1,16 @@
 package semanticresolve
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/attrgroupwalk"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
 func (r *Resolver) resolveAttributeGroupRefs(qname model.QName, groups []model.QName) error {
 	for _, agRef := range groups {
-		ag, err := r.lookupAttributeGroup(agRef)
-		if err != nil {
-			return fmt.Errorf("type %s attribute group %s: %w", qname, agRef, err)
-		}
-		if err := r.resolveAttributeGroup(agRef, ag); err != nil {
+		if err := r.resolveAttributeGroupClosure([]model.QName{agRef}); err != nil {
 			return fmt.Errorf("type %s attribute group %s: %w", qname, agRef, err)
 		}
 	}
@@ -28,30 +26,31 @@ func (r *Resolver) resolveAttributeDecls(attrs []*model.AttributeDecl) error {
 	return nil
 }
 
-func (r *Resolver) resolveAttributeGroup(qname model.QName, ag *model.AttributeGroup) error {
-	if r.detector.IsVisited(qname) {
+func (r *Resolver) resolveAttributeGroup(qname model.QName, _ *model.AttributeGroup) error {
+	if err := r.resolveAttributeGroupClosure([]model.QName{qname}); err != nil {
+		return fmt.Errorf("attribute group %s: %w", qname, err)
+	}
+	return nil
+}
+
+func (r *Resolver) resolveAttributeGroupClosure(roots []model.QName) error {
+	if len(roots) == 0 {
 		return nil
 	}
-
-	return r.detector.WithScope(qname, func() error {
-		for _, agRef := range ag.AttrGroups {
-			nestedAG, err := r.lookupAttributeGroup(agRef)
-			if err != nil {
-				return fmt.Errorf("attribute group %s: nested group %s: %w", qname, agRef, err)
-			}
-			if err := r.resolveAttributeGroup(agRef, nestedAG); err != nil {
-				return err
-			}
-		}
-
-		for _, attr := range ag.Attributes {
-			if err := r.resolveAttributeType(attr); err != nil {
-				return err
-			}
-		}
-
-		return nil
+	err := attrgroupwalk.WalkWithOptions(r.schema, roots, attrgroupwalk.Options{
+		Missing: attrgroupwalk.MissingError,
+		Cycles:  attrgroupwalk.CycleError,
+	}, func(_ model.QName, ag *model.AttributeGroup) error {
+		return r.resolveAttributeDecls(ag.Attributes)
 	})
+	if err == nil {
+		return nil
+	}
+	var cycleErr attrgroupwalk.ErrCycle
+	if errors.As(err, &cycleErr) {
+		return CycleError[model.QName]{Key: cycleErr.QName}
+	}
+	return err
 }
 
 func (r *Resolver) resolveAttributeType(attr *model.AttributeDecl) error {
@@ -80,14 +79,5 @@ func (r *Resolver) resolveAttributeType(attr *model.AttributeDecl) error {
 			return fmt.Errorf("attribute %s type: %w", attr.Name, err)
 		}
 	}
-
 	return nil
-}
-
-func (r *Resolver) lookupAttributeGroup(qname model.QName) (*model.AttributeGroup, error) {
-	ag, ok := r.schema.AttributeGroups[qname]
-	if !ok {
-		return nil, fmt.Errorf("attribute group %s not found", qname)
-	}
-	return ag, nil
 }

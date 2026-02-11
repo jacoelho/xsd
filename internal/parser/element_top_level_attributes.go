@@ -20,20 +20,18 @@ func applyTopLevelElementAttributes(doc *schemaxml.Document, elem schemaxml.Node
 		decl.Abstract = value
 	}
 
-	if doc.HasAttribute(elem, "default") {
-		decl.Default = doc.GetAttribute(elem, "default")
-		decl.HasDefault = true
-		decl.DefaultContext = namespaceContextForElement(doc, elem, schema)
-	}
-
-	if doc.HasAttribute(elem, "fixed") {
-		decl.Fixed = doc.GetAttribute(elem, "fixed")
-		decl.HasFixed = true
-		decl.FixedContext = namespaceContextForElement(doc, elem, schema)
-	}
-	if decl.HasDefault || decl.HasFixed {
-		decl.ValueContext = namespaceContextForElement(doc, elem, schema)
-	}
+	hasDefault := doc.HasAttribute(elem, "default")
+	hasFixed := doc.HasAttribute(elem, "fixed")
+	applyElementValueConstraintFields(
+		doc,
+		elem,
+		schema,
+		hasDefault,
+		doc.GetAttribute(elem, "default"),
+		hasFixed,
+		doc.GetAttribute(elem, "fixed"),
+		decl,
+	)
 
 	if err := applyTopLevelElementDerivations(doc, elem, schema, decl); err != nil {
 		return err
@@ -49,18 +47,8 @@ func applyTopLevelElementAttributes(doc *schemaxml.Document, elem schemaxml.Node
 }
 
 func applyTopLevelElementDerivations(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
-	if doc.HasAttribute(elem, "block") {
-		blockAttr := doc.GetAttribute(elem, "block")
-		if model.TrimXMLWhitespace(blockAttr) == "" {
-			return fmt.Errorf("block attribute cannot be empty")
-		}
-		block, err := parseDerivationSetWithValidation(blockAttr, model.DerivationSet(model.DerivationSubstitution|model.DerivationExtension|model.DerivationRestriction))
-		if err != nil {
-			return fmt.Errorf("invalid block attribute value '%s': %w", blockAttr, err)
-		}
-		decl.Block = block
-	} else if schema.BlockDefault != 0 {
-		decl.Block = schema.BlockDefault & model.DerivationSet(model.DerivationSubstitution|model.DerivationExtension|model.DerivationRestriction)
+	if err := applyElementBlockDerivation(schema, decl, doc.HasAttribute(elem, "block"), doc.GetAttribute(elem, "block")); err != nil {
+		return err
 	}
 
 	if doc.HasAttribute(elem, "final") {
@@ -97,19 +85,5 @@ func applyTopLevelElementSubstitutionGroup(doc *schemaxml.Document, elem schemax
 }
 
 func applyTopLevelElementConstraints(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
-	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
-			continue
-		}
-
-		switch doc.LocalName(child) {
-		case "key", "keyref", "unique":
-			constraint, err := parseIdentityConstraint(doc, child, schema)
-			if err != nil {
-				return fmt.Errorf("parse identity constraint: %w", err)
-			}
-			decl.Constraints = append(decl.Constraints, constraint)
-		}
-	}
-	return nil
+	return appendElementIdentityConstraints(doc, elem, schema, decl)
 }

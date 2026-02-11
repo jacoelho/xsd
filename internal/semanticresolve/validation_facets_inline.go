@@ -5,14 +5,20 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func validateEnumerationFacetValues(sch *parser.Schema) []error {
-	var errs []error
+	return validateEnumerationFacetValuesWithIndex(sch, buildIterationIndex(sch))
+}
 
-	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
+func validateEnumerationFacetValuesWithIndex(sch *parser.Schema, index *iterationIndex) []error {
+	var errs []error
+	if index == nil {
+		index = buildIterationIndex(sch)
+	}
+
+	for _, qname := range index.typeQNames {
 		st, ok := sch.TypeDefs[qname].(*model.SimpleType)
 		if !ok || st == nil || st.Restriction == nil {
 			continue
@@ -47,9 +53,16 @@ func validateEnumerationFacetValues(sch *parser.Schema) []error {
 }
 
 func validateInlineTypeReferences(sch *parser.Schema) []error {
-	var errs []error
+	return validateInlineTypeReferencesWithIndex(sch, buildIterationIndex(sch))
+}
 
-	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
+func validateInlineTypeReferencesWithIndex(sch *parser.Schema, index *iterationIndex) []error {
+	var errs []error
+	if index == nil {
+		index = buildIterationIndex(sch)
+	}
+
+	for _, qname := range index.elementQNames {
 		decl := sch.ElementDecls[qname]
 		if decl.Type != nil && !decl.Type.IsBuiltin() {
 			if _, exists := sch.TypeDefs[decl.Type.Name()]; !exists {

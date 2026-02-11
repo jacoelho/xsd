@@ -8,11 +8,8 @@ import (
 )
 
 func parseAttributeReference(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, ref string) (*model.AttributeDecl, error) {
-	if doc.HasAttribute(elem, "type") {
-		return nil, fmt.Errorf("attribute reference cannot have 'type' attribute")
-	}
-	if doc.HasAttribute(elem, "form") {
-		return nil, fmt.Errorf("attribute reference cannot have 'form' attribute")
+	if err := validateAttributeConflicts(doc, elem, attributeReferenceConflictRules); err != nil {
+		return nil, err
 	}
 	if err := validateOnlyAnnotationChildren(doc, elem, "attribute"); err != nil {
 		return nil, err

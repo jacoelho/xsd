@@ -47,19 +47,24 @@ func resolveSelectorElementDecls(schema *parser.Schema, constraintElement *model
 	}
 	decls := make([]*model.ElementDecl, 0, len(expr.Paths))
 	unresolved := false
-	for i, path := range expr.Paths {
-		if path.Attribute != nil {
-			return nil, fmt.Errorf("selector xpath cannot select attributes: %s", selectorXPath)
+	branches := []*model.ElementDecl{constraintElement}
+	err = forEachFieldPathBranch(branches, expr.Paths, func(branch fieldPathBranch) error {
+		if branch.path.Attribute != nil {
+			return fmt.Errorf("selector xpath cannot select attributes: %s", selectorXPath)
 		}
-		decl, err := resolvePathElementDecl(schema, constraintElement, path.Steps)
+		decl, err := resolvePathElementDecl(schema, branch.selectorDecl, branch.path.Steps)
 		if err != nil {
 			if errors.Is(err, ErrXPathUnresolvable) {
 				unresolved = true
-				continue
+				return nil
 			}
-			return nil, fmt.Errorf("resolve selector xpath '%s' branch %d: %w", selectorXPath, i+1, err)
+			return wrapXPathBranchError("selector", selectorXPath, branch, err)
 		}
 		decls = append(decls, decl)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	if len(decls) == 0 {
 		if unresolved {

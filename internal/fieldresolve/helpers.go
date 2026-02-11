@@ -179,3 +179,36 @@ func uniqueElementDecls(decls []*model.ElementDecl) []*model.ElementDecl {
 	}
 	return unique
 }
+
+type fieldPathBranch struct {
+	selectorDecl *model.ElementDecl
+	path         xpath.Path
+	pathIndex    int
+}
+
+func hasFieldPathUnion(selectorDecls []*model.ElementDecl, paths []xpath.Path) bool {
+	return len(selectorDecls) > 1 || len(paths) > 1
+}
+
+func forEachFieldPathBranch(selectorDecls []*model.ElementDecl, paths []xpath.Path, fn func(fieldPathBranch) error) error {
+	for _, selectorDecl := range selectorDecls {
+		for pathIndex, path := range paths {
+			if err := fn(fieldPathBranch{
+				selectorDecl: selectorDecl,
+				path:         path,
+				pathIndex:    pathIndex,
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func wrapFieldPathBranchError(fieldXPath string, branch fieldPathBranch, err error) error {
+	return wrapXPathBranchError("field", fieldXPath, branch, err)
+}
+
+func wrapXPathBranchError(kind, expr string, branch fieldPathBranch, err error) error {
+	return fmt.Errorf("resolve %s xpath '%s' branch %d: %w", kind, expr, branch.pathIndex+1, err)
+}

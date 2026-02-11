@@ -3,6 +3,7 @@ package runtimeassemble
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/complextypeplan"
 	models "github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -25,6 +26,11 @@ type PreparedArtifacts struct {
 	validators *validatorgen.CompiledValidators
 }
 
+// BuildComplexTypePlan precomputes shared complex-type artifacts during prepare.
+func BuildComplexTypePlan(sch *parser.Schema, reg *schema.Registry) (*complextypeplan.Plan, error) {
+	return validatorgen.BuildComplexTypePlan(sch, reg)
+}
+
 // BuildArtifacts compiles resolved semantic artifacts into a runtime schema model.
 func BuildArtifacts(sch *parser.Schema, reg *schema.Registry, refs *schema.ResolvedReferences, cfg BuildConfig) (*runtime.Schema, error) {
 	prepared, err := PrepareBuildArtifacts(sch, reg, refs)
@@ -36,10 +42,20 @@ func BuildArtifacts(sch *parser.Schema, reg *schema.Registry, refs *schema.Resol
 
 // PrepareBuildArtifacts compiles validator artifacts once for repeated runtime builds.
 func PrepareBuildArtifacts(sch *parser.Schema, reg *schema.Registry, refs *schema.ResolvedReferences) (*PreparedArtifacts, error) {
+	return PrepareBuildArtifactsWithComplexTypePlan(sch, reg, refs, nil)
+}
+
+// PrepareBuildArtifactsWithComplexTypePlan compiles validator artifacts once for repeated runtime builds.
+func PrepareBuildArtifactsWithComplexTypePlan(
+	sch *parser.Schema,
+	reg *schema.Registry,
+	refs *schema.ResolvedReferences,
+	complexTypes *complextypeplan.Plan,
+) (*PreparedArtifacts, error) {
 	if err := validateBuildInputs(sch, reg, refs); err != nil {
 		return nil, err
 	}
-	validators, err := validatorgen.Compile(sch, reg)
+	validators, err := validatorgen.CompileWithComplexTypePlan(sch, reg, complexTypes)
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: compile validators: %w", err)
 	}
@@ -91,18 +107,19 @@ func buildArtifactsWithValidators(
 	}
 
 	builder := &schemaBuilder{
-		schema:     sch,
-		registry:   reg,
-		refs:       refs,
-		validators: validators,
-		limits:     models.Limits{MaxDFAStates: cfg.MaxDFAStates},
-		builder:    runtime.NewBuilder(),
-		typeIDs:    make(map[schema.TypeID]runtime.TypeID),
-		elemIDs:    make(map[schema.ElemID]runtime.ElemID),
-		attrIDs:    make(map[schema.AttrID]runtime.AttrID),
-		builtinIDs: make(map[model.TypeName]runtime.TypeID),
-		complexIDs: make(map[runtime.TypeID]uint32),
-		maxOccurs:  maxOccursLimit,
+		schema:       sch,
+		registry:     reg,
+		refs:         refs,
+		validators:   validators,
+		limits:       models.Limits{MaxDFAStates: cfg.MaxDFAStates},
+		builder:      runtime.NewBuilder(),
+		typeIDs:      make(map[schema.TypeID]runtime.TypeID),
+		elemIDs:      make(map[schema.ElemID]runtime.ElemID),
+		attrIDs:      make(map[schema.AttrID]runtime.AttrID),
+		builtinIDs:   make(map[model.TypeName]runtime.TypeID),
+		complexIDs:   make(map[runtime.TypeID]uint32),
+		maxOccurs:    maxOccursLimit,
+		complexTypes: validators.ComplexTypes,
 	}
 	rt, err := builder.build()
 	if err != nil {
@@ -121,6 +138,7 @@ type schemaBuilder struct {
 	builder         *runtime.Builder
 	schema          *parser.Schema
 	complexIDs      map[runtime.TypeID]uint32
+	complexTypes    *complextypeplan.Plan
 	builtinIDs      map[model.TypeName]runtime.TypeID
 	refs            *schema.ResolvedReferences
 	anyElementRules map[*model.AnyElement]runtime.WildcardID
@@ -157,7 +175,9 @@ func (b *schemaBuilder) build() (*runtime.Schema, error) {
 	b.rt.Notations = b.notations
 	b.wildcards = make([]runtime.WildcardRule, 1)
 
-	b.initIDs()
+	if err := b.initIDs(); err != nil {
+		return nil, err
+	}
 	if err := b.buildTypes(); err != nil {
 		return nil, err
 	}

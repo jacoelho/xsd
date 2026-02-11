@@ -3,6 +3,7 @@ package typechain
 import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/substpolicy"
 )
 
 // LookupType returns a type definition by QName from the schema.
@@ -128,33 +129,37 @@ func nextBaseComplexType(schema *parser.Schema, current *model.ComplexType, mode
 	if current == nil {
 		return nil
 	}
-	if baseCT, ok := current.ResolvedBase.(*model.ComplexType); ok {
-		return baseCT
+	baseQName := model.QName{}
+	if content := current.Content(); content != nil {
+		baseQName = content.BaseTypeQName()
 	}
-	if current.ResolvedBase != nil {
-		if mode == ComplexTypeChainAllowImplicitAnyType && model.IsAnyTypeQName(current.ResolvedBase.Name()) {
+	if current.ResolvedBase == nil && baseQName.IsZero() {
+		if mode == ComplexTypeChainAllowImplicitAnyType && !model.IsAnyTypeQName(current.QName) {
 			return model.NewAnyTypeComplexType()
 		}
 		return nil
 	}
 
-	baseQName := model.QName{}
-	if content := current.Content(); content != nil {
-		baseQName = content.BaseTypeQName()
-	}
-	if !baseQName.IsZero() {
-		if model.IsAnyTypeQName(baseQName) {
-			if mode == ComplexTypeChainAllowImplicitAnyType {
-				return model.NewAnyTypeComplexType()
-			}
-			return nil
+	next, _, err := substpolicy.NextDerivationStep(current, func(name model.QName) (model.Type, error) {
+		if name.IsZero() {
+			return nil, nil
 		}
-		if baseCT, ok := LookupComplexType(schema, baseQName); ok {
-			return baseCT
+		if model.IsAnyTypeQName(name) {
+			return model.NewAnyTypeComplexType(), nil
 		}
+		typ, ok := LookupType(schema, name)
+		if !ok {
+			return nil, nil
+		}
+		return typ, nil
+	})
+	if err != nil {
 		return nil
 	}
-	if mode == ComplexTypeChainAllowImplicitAnyType && !model.IsAnyTypeQName(current.QName) {
+	if baseCT, ok := model.AsComplexType(next); ok {
+		return baseCT
+	}
+	if mode == ComplexTypeChainAllowImplicitAnyType && next != nil && model.IsAnyTypeQName(next.Name()) {
 		return model.NewAnyTypeComplexType()
 	}
 	return nil
