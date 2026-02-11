@@ -6,6 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/typewalk"
 )
 
 // TypeReferencePolicy controls how missing type references are handled.
@@ -35,6 +36,21 @@ func ResolveTypeQName(schema *parser.Schema, qname model.QName, policy TypeRefer
 		return nil, nil
 	}
 	return nil, fmt.Errorf("type %s not found", qname)
+}
+
+// ValidateTypeQName checks that qname resolves to a known type.
+func ValidateTypeQName(schema *parser.Schema, qname model.QName) error {
+	if qname.IsZero() {
+		return nil
+	}
+	_, err := ResolveTypeQName(schema, qname, TypeReferenceMustExist)
+	if err == nil {
+		return nil
+	}
+	if qname.Namespace == model.XSDNamespace {
+		return fmt.Errorf("type '%s' not found in XSD namespace", qname.Local)
+	}
+	return err
 }
 
 // ResolveTypeReference resolves a type reference in schema validation contexts.
@@ -117,39 +133,40 @@ func IsIDOnlyType(qname model.QName) bool {
 
 // IsIDOnlyDerivedType reports whether a simple type derives from xs:ID.
 func IsIDOnlyDerivedType(schema *parser.Schema, st *model.SimpleType) bool {
-	visited := make(map[*model.SimpleType]bool)
-	var visit func(*model.SimpleType) bool
-	visit = func(current *model.SimpleType) bool {
-		if current == nil || current.Restriction == nil {
-			return false
+	if st == nil {
+		return false
+	}
+	found := false
+	typewalk.Walk(st, func(current model.Type) model.Type {
+		simple, ok := model.AsSimpleType(current)
+		if !ok || simple == nil || simple.Restriction == nil {
+			return nil
 		}
-		if visited[current] {
-			return false
+		if simple.ResolvedBase != nil {
+			return simple.ResolvedBase
 		}
-		visited[current] = true
-		defer delete(visited, current)
-
-		baseQName := current.Restriction.Base
-		if IsIDOnlyType(baseQName) {
-			return true
+		baseQName := simple.Restriction.Base
+		if baseQName.IsZero() {
+			return nil
 		}
-
-		var baseType model.Type
-		if current.ResolvedBase != nil {
-			baseType = current.ResolvedBase
-		} else if !baseQName.IsZero() {
-			baseType = ResolveSimpleTypeReferenceAllowMissing(schema, baseQName)
-		}
-
-		switch typed := baseType.(type) {
-		case *model.SimpleType:
-			return visit(typed)
+		return ResolveSimpleTypeReferenceAllowMissing(schema, baseQName)
+	}, func(current model.Type) bool {
+		switch typed := current.(type) {
 		case *model.BuiltinType:
-			return IsIDOnlyType(typed.Name())
+			found = IsIDOnlyType(typed.Name())
+			return false
+		case *model.SimpleType:
+			if typed.Restriction == nil {
+				return false
+			}
+			if IsIDOnlyType(typed.Restriction.Base) {
+				found = true
+				return false
+			}
+			return true
 		default:
 			return false
 		}
-	}
-
-	return visit(st)
+	})
+	return found
 }

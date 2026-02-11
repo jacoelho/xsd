@@ -149,9 +149,9 @@ func parseStringToComparableValue(lexical string, typ Type) (ComparableValue, er
 		return nil, fmt.Errorf("cannot parse string: value has no type")
 	}
 
-	comparable, err := parseLexicalToComparable(lexical, typ)
+	comparableValue, err := parseLexicalToComparable(lexical, typ)
 	if err == nil {
-		return comparable, nil
+		return comparableValue, nil
 	}
 	if errors.Is(err, ErrCannotDeterminePrimitiveType) {
 		return nil, fmt.Errorf("cannot parse string: cannot determine primitive type")

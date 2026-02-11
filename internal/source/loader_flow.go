@@ -39,6 +39,15 @@ func (l *SchemaLoader) loadRoot(location string) (*parser.Schema, error) {
 
 // loadResolved loads a schema from an already-resolved reader and systemID.
 func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key loadKey) (*parser.Schema, error) {
+	return l.loadResolvedWithJournal(doc, systemID, key, nil)
+}
+
+func (l *SchemaLoader) loadResolvedWithJournal(
+	doc io.ReadCloser,
+	systemID string,
+	key loadKey,
+	parentJournal *stateJournal,
+) (*parser.Schema, error) {
 	session := newLoadSession(l, systemID, key, doc)
 
 	if sch, ok := l.state.loadedSchema(key); ok {
@@ -61,5 +70,5 @@ func (l *SchemaLoader) loadResolved(doc io.ReadCloser, systemID string, key load
 	if err != nil {
 		return nil, err
 	}
-	return l.loadParsed(result, systemID, key)
+	return l.loadParsedWithJournal(result, systemID, key, parentJournal)
 }

@@ -175,6 +175,53 @@ func TestPrepareRejectsNilSchema(t *testing.T) {
 	}
 }
 
+func TestPrepareOwnedRejectsNilSchema(t *testing.T) {
+	if _, err := PrepareOwned(nil); err == nil {
+		t.Fatal("PrepareOwned(nil) expected error")
+	}
+}
+
+func TestPrepareOwnedMutatesInputSchema(t *testing.T) {
+	sch, err := parser.Parse(strings.NewReader(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="number" type="xs:integer"/>
+    </xs:complexType>
+    <xs:key name="rootKey">
+      <xs:selector xpath="."/>
+      <xs:field xpath="@number"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	root := sch.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
+	if root == nil || len(root.Constraints) == 0 || len(root.Constraints[0].Fields) == 0 {
+		t.Fatal("expected root key field")
+	}
+	if got := root.Constraints[0].Fields[0].ResolvedType; got != nil {
+		t.Fatalf("expected unresolved field before PrepareOwned(), got %v", got.Name())
+	}
+
+	if _, err := PrepareOwned(sch); err != nil {
+		t.Fatalf("PrepareOwned() error = %v", err)
+	}
+
+	rootAfter := sch.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
+	if rootAfter == nil || len(rootAfter.Constraints) == 0 || len(rootAfter.Constraints[0].Fields) == 0 {
+		t.Fatal("expected root key field after PrepareOwned()")
+	}
+	if got := rootAfter.Constraints[0].Fields[0].ResolvedType; got == nil {
+		t.Fatal("expected input schema field to be resolved after PrepareOwned()")
+	}
+}
+
 func TestPreparedSchemaBuildRuntimeRejectsNilPreparedSchema(t *testing.T) {
 	var prepared *PreparedSchema
 	if _, err := prepared.BuildRuntime(CompileConfig{}); err == nil {

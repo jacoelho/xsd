@@ -889,7 +889,7 @@ func TestPopElementNameEmpty(t *testing.T) {
 func TestEndEventRawEmptyStack(t *testing.T) {
 	r := &Reader{}
 	tok := xmltext.RawTokenSpan{Name: []byte("root")}
-	if _, _, err := r.endEvent(nextRaw, &tok, 1, 1); err == nil {
+	if _, err := r.endRawEvent(&tok, 1, 1); err == nil {
 		t.Fatalf("endEvent error = nil, want error")
 	}
 }

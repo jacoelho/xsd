@@ -1,20 +1,13 @@
 package validatorgen
 
 import (
-	"cmp"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	qnameorder "github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typechain"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-)
-
-type attrCollectionMode uint8
-
-const (
-	attrMerge attrCollectionMode = iota
-	attrRestriction
 )
 
 // CollectAttributeUses resolves effective attribute uses and wildcard.
@@ -24,7 +17,7 @@ func CollectAttributeUses(schema *parser.Schema, ct *model.ComplexType) ([]*mode
 		return nil, nil, nil
 	}
 	attrMap := make(map[model.QName]*model.AttributeDecl)
-	chain := typechain.CollectComplexTypeChain(schema, ct, typechain.ComplexTypeChainAllowImplicitAnyType)
+	chain := typechain.CollectComplexTypeChain(schema, ct, typechain.ComplexTypeChainExplicitBaseOnly)
 	var wildcard *model.AnyAttribute
 	for i := len(chain) - 1; i >= 0; i-- {
 		current := chain[i]
@@ -51,10 +44,7 @@ func CollectAttributeUses(schema *parser.Schema, ct *model.ComplexType) ([]*mode
 	slices.SortFunc(out, func(a, b *model.AttributeDecl) int {
 		left := typeresolve.EffectiveAttributeQName(schema, a)
 		right := typeresolve.EffectiveAttributeQName(schema, b)
-		if left.Namespace != right.Namespace {
-			return cmp.Compare(left.Namespace, right.Namespace)
-		}
-		return cmp.Compare(left.Local, right.Local)
+		return qnameorder.Compare(left, right)
 	})
 	return out, wildcard, nil
 }
@@ -63,7 +53,7 @@ func mergeAttributesFromComplexType(schema *parser.Schema, ct *model.ComplexType
 	if ct == nil {
 		return nil
 	}
-	if err := mergeAttributes(schema, ct.Attributes(), ct.AttrGroups, attrMap, attrMerge); err != nil {
+	if err := mergeAttributes(schema, ct.Attributes(), ct.AttrGroups, attrMap); err != nil {
 		return err
 	}
 	content := ct.Content()
@@ -71,12 +61,12 @@ func mergeAttributesFromComplexType(schema *parser.Schema, ct *model.ComplexType
 		return nil
 	}
 	if ext := content.ExtensionDef(); ext != nil {
-		if err := mergeAttributes(schema, ext.Attributes, ext.AttrGroups, attrMap, attrMerge); err != nil {
+		if err := mergeAttributes(schema, ext.Attributes, ext.AttrGroups, attrMap); err != nil {
 			return err
 		}
 	}
 	if restr := content.RestrictionDef(); restr != nil {
-		if err := mergeAttributes(schema, restr.Attributes, restr.AttrGroups, attrMap, attrRestriction); err != nil {
+		if err := mergeAttributes(schema, restr.Attributes, restr.AttrGroups, attrMap); err != nil {
 			return err
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/jacoelho/xsd/internal/durationlex"
+	"github.com/jacoelho/xsd/internal/facetrules"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value/temporal"
@@ -107,40 +108,16 @@ func (s *Session) checkFloatRange(kind runtime.ValidatorKind, op runtime.FacetOp
 }
 
 func compareRange(op runtime.FacetOp, cmp int) error {
-	switch op {
-	case runtime.FMinInclusive:
-		if cmp < 0 {
-			return rangeViolation(op)
-		}
-	case runtime.FMaxInclusive:
-		if cmp > 0 {
-			return rangeViolation(op)
-		}
-	case runtime.FMinExclusive:
-		if cmp <= 0 {
-			return rangeViolation(op)
-		}
-	case runtime.FMaxExclusive:
-		if cmp >= 0 {
-			return rangeViolation(op)
-		}
-	default:
+	matches, ok := facetrules.RuntimeRangeSatisfied(op, cmp)
+	if !ok || !matches {
 		return rangeViolation(op)
 	}
 	return nil
 }
 
 func rangeViolation(op runtime.FacetOp) error {
-	switch op {
-	case runtime.FMinInclusive:
-		return valueErrorf(valueErrFacet, "minInclusive violation")
-	case runtime.FMaxInclusive:
-		return valueErrorf(valueErrFacet, "maxInclusive violation")
-	case runtime.FMinExclusive:
-		return valueErrorf(valueErrFacet, "minExclusive violation")
-	case runtime.FMaxExclusive:
-		return valueErrorf(valueErrFacet, "maxExclusive violation")
-	default:
-		return valueErrorf(valueErrFacet, "range violation")
+	if rule, ok := facetrules.RuntimeRange(op); ok {
+		return valueErrorMsg(valueErrFacet, rule.Violation)
 	}
+	return valueErrorMsg(valueErrFacet, "range violation")
 }

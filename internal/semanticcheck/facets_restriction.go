@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/facetrules"
 	"github.com/jacoelho/xsd/internal/model"
 	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
 )
@@ -11,8 +12,7 @@ import (
 // validateFacetRestriction validates that a derived facet is a valid restriction of the base facet
 func validateFacetRestriction(facetName string, baseFacet, derivedFacet model.Facet, baseType model.Type) error {
 	switch facetName {
-	case "maxInclusive", "maxExclusive":
-		// for max facets, derived value must be <= base value (stricter = smaller)
+	case "maxInclusive", "maxExclusive", "minInclusive", "minExclusive":
 		baseLexical, baseOk := baseFacet.(model.LexicalFacet)
 		derivedLexical, derivedOk := derivedFacet.(model.LexicalFacet)
 		if !baseOk || !derivedOk {
@@ -30,31 +30,13 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet model.Fa
 		if err != nil {
 			return fmt.Errorf("facet %s: cannot compare values: %w", facetName, err)
 		}
-		if cmp > 0 {
-			return fmt.Errorf("facet %s: derived value (%s) must be <= base value (%s) to be a valid restriction", facetName, derivedValStr, baseValStr)
-		}
-
-	case "minInclusive", "minExclusive":
-		// for min facets, derived value must be >= base value (stricter = larger)
-		baseLexical, baseOk := baseFacet.(model.LexicalFacet)
-		derivedLexical, derivedOk := derivedFacet.(model.LexicalFacet)
-		if !baseOk || !derivedOk {
+		matches, ok := facetrules.RestrictionRangeSatisfied(facetName, cmp)
+		if !ok {
 			return nil
 		}
-		baseValStr := baseLexical.GetLexical()
-		derivedValStr := derivedLexical.GetLexical()
-		if baseValStr == "" || derivedValStr == "" {
-			return nil
-		}
-		cmp, err := facetengine.CompareFacetValues(derivedValStr, baseValStr, baseType)
-		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("facet %s: cannot compare values: %w", facetName, err)
-		}
-		if cmp < 0 {
-			return fmt.Errorf("facet %s: derived value (%s) must be >= base value (%s) to be a valid restriction", facetName, derivedValStr, baseValStr)
+		if !matches {
+			rule, _ := facetrules.RestrictionRange(facetName)
+			return fmt.Errorf("facet %s: derived value (%s) must be %s base value (%s) to be a valid restriction", facetName, derivedValStr, rule.Comparator, baseValStr)
 		}
 
 	case "maxLength":

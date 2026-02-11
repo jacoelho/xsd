@@ -7,17 +7,6 @@ import (
 	"github.com/jacoelho/xsd/internal/schemaxml"
 )
 
-var validAttributeAttributes = map[string]bool{
-	"name":    true,
-	"ref":     true,
-	"type":    true,
-	"use":     true,
-	"default": true,
-	"fixed":   true,
-	"form":    true,
-	"id":      true,
-}
-
 func parseAttribute(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, local bool) (*model.AttributeDecl, error) {
 	if err := validateOptionalID(doc, elem, "attribute", schema); err != nil {
 		return nil, err
@@ -39,7 +28,7 @@ func parseAttribute(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Sche
 		if attr.NamespaceURI() == schemaxml.XSDNamespace {
 			return nil, fmt.Errorf("attribute: attribute '%s' must be unprefixed", attr.LocalName())
 		}
-		if attr.NamespaceURI() == "" && !validAttributeAttributes[attr.LocalName()] {
+		if attr.NamespaceURI() == "" && !attributeDeclarationProfile.allows(attr.LocalName()) {
 			return nil, fmt.Errorf("invalid attribute '%s' on <attribute> element", attr.LocalName())
 		}
 	}

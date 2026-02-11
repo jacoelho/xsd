@@ -1,48 +1,51 @@
 package schemaanalysis
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/globaldecl"
+	"github.com/jacoelho/xsd/internal/graphcycle"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func detectSubstitutionGroupCycles(schema *parser.Schema) error {
-	states := make(map[model.QName]visitState)
+	starts := make([]model.QName, 0, len(schema.ElementDecls))
+	if err := globaldecl.ForEachElement(schema, func(name model.QName, _ *model.ElementDecl) error {
+		starts = append(starts, name)
+		return nil
+	}); err != nil {
+		return err
+	}
 
-	var visit func(name model.QName) error
-	visit = func(name model.QName) error {
-		switch states[name] {
-		case stateVisiting:
-			return fmt.Errorf("substitution group cycle detected at %s", name)
-		case stateDone:
-			return nil
-		}
-		states[name] = stateVisiting
-		decl := schema.ElementDecls[name]
-		if decl == nil {
-			return fmt.Errorf("element %s not found", name)
-		}
-		if !decl.SubstitutionGroup.IsZero() {
-			head := decl.SubstitutionGroup
-			if _, ok := schema.ElementDecls[head]; !ok {
-				return fmt.Errorf("element %s substitutionGroup %s not found", name, head)
+	err := graphcycle.Detect(graphcycle.Config[model.QName]{
+		Starts:  starts,
+		Missing: graphcycle.MissingPolicyError,
+		Exists: func(name model.QName) bool {
+			return schema.ElementDecls[name] != nil
+		},
+		Next: func(name model.QName) ([]model.QName, error) {
+			decl := schema.ElementDecls[name]
+			if decl == nil || decl.SubstitutionGroup.IsZero() {
+				return nil, nil
 			}
-			if err := visit(head); err != nil {
-				return err
-			}
-		}
-		states[name] = stateDone
+			return []model.QName{decl.SubstitutionGroup}, nil
+		},
+	})
+	if err == nil {
 		return nil
 	}
-
-	for _, decl := range schema.GlobalDecls {
-		if decl.Kind != parser.GlobalDeclElement {
-			continue
-		}
-		if err := visit(decl.Name); err != nil {
-			return err
-		}
+	var cycleErr graphcycle.CycleError[model.QName]
+	if errors.As(err, &cycleErr) {
+		return fmt.Errorf("substitution group cycle detected at %s", cycleErr.Key)
 	}
-	return nil
+	var missingErr graphcycle.MissingError[model.QName]
+	if errors.As(err, &missingErr) {
+		if missingErr.From.IsZero() {
+			return fmt.Errorf("element %s not found", missingErr.Key)
+		}
+		return fmt.Errorf("element %s substitutionGroup %s not found", missingErr.From, missingErr.Key)
+	}
+	return err
 }

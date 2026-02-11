@@ -67,6 +67,21 @@ type patternTranslator struct {
 	justWroteQuantifier  bool
 }
 
+type patternStepHandler func(*patternTranslator) (bool, error)
+
+var (
+	charClassStepHandlers = []patternStepHandler{
+		(*patternTranslator).handleCharClassEnd,
+		(*patternTranslator).handleCharClassSubtraction,
+		(*patternTranslator).handleCharClassDash,
+	}
+	outsideClassStepHandlers = []patternStepHandler{
+		(*patternTranslator).handleRepeatQuantifier,
+		(*patternTranslator).handleOutsideMeta,
+		(*patternTranslator).handleGroupPrefix,
+	}
+)
+
 func newPatternTranslator(pattern string) *patternTranslator {
 	t := &patternTranslator{pattern: pattern}
 	t.result.Grow(len(pattern) * 4)
@@ -85,30 +100,16 @@ func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
 
 func (t *patternTranslator) translate() (string, error) {
 	for t.i < len(t.pattern) {
-		if handled, err := t.handleEscape(); handled {
-			if err != nil {
-				return "", err
-			}
+		if handled, err := t.handleEscape(); err != nil {
+			return "", err
+		} else if handled {
 			continue
 		}
 
 		if t.classDepth > 0 {
-			if handled, err := t.handleCharClassEnd(); handled {
-				if err != nil {
-					return "", err
-				}
-				continue
-			}
-			if handled, err := t.handleCharClassSubtraction(); handled {
-				if err != nil {
-					return "", err
-				}
-				continue
-			}
-			if handled, err := t.handleCharClassDash(); handled {
-				if err != nil {
-					return "", err
-				}
+			if handled, err := t.runStepHandlers(charClassStepHandlers); err != nil {
+				return "", err
+			} else if handled {
 				continue
 			}
 			if err := t.handleCharClassChar(); err != nil {
@@ -117,10 +118,9 @@ func (t *patternTranslator) translate() (string, error) {
 			continue
 		}
 
-		if handled, err := t.handleCharClassStart(); handled {
-			if err != nil {
-				return "", err
-			}
+		if handled, err := t.handleCharClassStart(); err != nil {
+			return "", err
+		} else if handled {
 			continue
 		}
 
@@ -128,24 +128,9 @@ func (t *patternTranslator) translate() (string, error) {
 			return "", err
 		}
 
-		if handled, err := t.handleRepeatQuantifier(); handled {
-			if err != nil {
-				return "", err
-			}
-			continue
-		}
-
-		if handled, err := t.handleOutsideMeta(); handled {
-			if err != nil {
-				return "", err
-			}
-			continue
-		}
-
-		if handled, err := t.handleGroupPrefix(); handled {
-			if err != nil {
-				return "", err
-			}
+		if handled, err := t.runStepHandlers(outsideClassStepHandlers); err != nil {
+			return "", err
+		} else if handled {
 			continue
 		}
 
@@ -153,9 +138,7 @@ func (t *patternTranslator) translate() (string, error) {
 			return "", err
 		}
 
-		t.result.WriteByte(t.pattern[t.i])
-		t.i++
-		t.justWroteQuantifier = false
+		t.appendLiteralByte(t.pattern[t.i])
 	}
 
 	if t.classDepth > 0 {
@@ -172,12 +155,36 @@ func (t *patternTranslator) inCharClass() bool {
 	return t.classDepth > 0
 }
 
+func (t *patternTranslator) runStepHandlers(handlers []patternStepHandler) (bool, error) {
+	for _, handler := range handlers {
+		handled, err := handler(t)
+		if err != nil {
+			return true, err
+		}
+		if handled {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (t *patternTranslator) appendLiteralByte(ch byte) {
+	t.result.WriteByte(ch)
+	t.i++
+	t.justWroteQuantifier = false
+}
+
 func (t *patternTranslator) appendClassEscaped(char rune, escapeText string) error {
 	if err := t.classState.handleChar(char, t.classStart, t.pattern); err != nil {
 		return err
 	}
 	t.classBuf.WriteString(escapeText)
 	return nil
+}
+
+func (t *patternTranslator) consumeEscape() {
+	t.i += 2
+	t.justWroteQuantifier = false
 }
 
 func (t *patternTranslator) writeEscapedLiteral(ch byte) {

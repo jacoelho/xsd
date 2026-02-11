@@ -12,7 +12,14 @@ func (s *Session) StartElement(match StartMatch, sym runtime.SymbolID, nsID runt
 	if s == nil || s.rt == nil {
 		return StartResult{}, newValidationError(xsderrors.ErrSchemaNotLoaded, "schema not loaded")
 	}
+	classified, err := s.classifyAttrs(attrs, false)
+	if err != nil {
+		return StartResult{}, err
+	}
+	return s.startElementClassified(match, sym, nsID, nsBytes, resolver, classified)
+}
 
+func (s *Session) startElementClassified(match StartMatch, sym runtime.SymbolID, nsID runtime.NamespaceID, nsBytes []byte, resolver value.NSResolver, classified attrClassification) (StartResult, error) {
 	decl, err := s.resolveMatch(match, sym, nsID, nsBytes)
 	if err != nil {
 		return StartResult{}, err
@@ -28,12 +35,9 @@ func (s *Session) StartElement(match StartMatch, sym runtime.SymbolID, nsID runt
 		return StartResult{}, newValidationError(xsderrors.ErrElementAbstract, "element is abstract")
 	}
 
-	xsiType, xsiNil, err := s.scanXsiAttributes(attrs)
-	if err != nil {
-		return StartResult{}, err
-	}
-
 	actualType := elem.Type
+	xsiType := classified.xsiType
+	xsiNil := classified.xsiNil
 	if len(xsiType) > 0 {
 		resolved, err := s.resolveXsiType(xsiType, resolver)
 		if err != nil {

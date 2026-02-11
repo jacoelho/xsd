@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/substpolicy"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -33,23 +34,26 @@ func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName model.QName,
 		return nil
 	}
 
-	current := memberType
-	visited := make(map[model.Type]bool)
-	for current != nil && !typesMatch(current, headType) {
-		if visited[current] {
-			break
-		}
-		visited[current] = true
+	mask, ok, err := substpolicy.DerivationMask(memberType, headType, func(current model.Type) (model.Type, model.DerivationMethod, error) {
+		return derivationStep(sch, current)
+	})
+	if err != nil {
+		return fmt.Errorf("resolve substitution group derivation for %s: %w", memberQName, err)
+	}
+	if !ok {
+		return nil
+	}
 
-		base, method, err := derivationStep(sch, current)
-		if err != nil {
-			return fmt.Errorf("resolve substitution group derivation for %s: %w", memberQName, err)
-		}
-		if method != 0 && headDecl.Final.Has(method) {
+	for _, method := range []model.DerivationMethod{
+		model.DerivationExtension,
+		model.DerivationRestriction,
+		model.DerivationList,
+		model.DerivationUnion,
+	} {
+		if mask&method != 0 && headDecl.Final.Has(method) {
 			return fmt.Errorf("element %s cannot substitute for %s: head element is final for %s",
-				memberQName, headDecl.Name, derivationMethodLabel(method))
+				memberQName, headDecl.Name, substpolicy.MethodLabel(method))
 		}
-		current = base
 	}
 
 	return nil

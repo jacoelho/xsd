@@ -9,6 +9,14 @@ import (
 )
 
 func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, attrs []StartAttr, resolver value.NSResolver, storeAttrs bool) ([]StartAttr, bool, error) {
+	classified, err := s.classifyAttrs(attrs, false)
+	if err != nil {
+		return nil, false, err
+	}
+	return s.validateComplexAttrsClassified(ct, present, attrs, classified.classes, resolver, storeAttrs)
+}
+
+func (s *Session) validateComplexAttrsClassified(ct *runtime.ComplexType, present []bool, attrs []StartAttr, classes []attrClass, resolver value.NSResolver, storeAttrs bool) ([]StartAttr, bool, error) {
 	var validated []StartAttr
 	if storeAttrs {
 		validated = s.attrValidatedBuf[:0]
@@ -18,11 +26,18 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 	}
 	seenID := false
 
-	for _, attr := range attrs {
-		if s.isUnknownXsiAttribute(&attr) {
+	for i, attr := range attrs {
+		var class attrClass
+		if i < len(classes) {
+			class = classes[i]
+		} else {
+			class, _ = s.classifyAttr(&attr)
+		}
+
+		if class == attrClassXsiUnknown {
 			return nil, seenID, newValidationError(xsderrors.ErrAttributeNotDeclared, "unknown xsi attribute")
 		}
-		if s.isXsiAttribute(&attr) {
+		if class == attrClassXsiKnown {
 			validated = s.appendRawValidatedAttr(validated, attr, storeAttrs)
 			continue
 		}
@@ -49,7 +64,7 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 			}
 		}
 
-		if s.isXMLAttribute(&attr) {
+		if class == attrClassXML {
 			validated = s.appendRawValidatedAttr(validated, attr, storeAttrs)
 			continue
 		}
@@ -62,42 +77,36 @@ func (s *Session) validateComplexAttrs(ct *runtime.ComplexType, present []bool, 
 		}
 
 		rule := s.rt.Wildcards[ct.AnyAttr]
-		switch rule.PC {
-		case runtime.PCSkip:
+		var wildcardAttr runtime.AttrID
+		resolved, err := resolveWildcardSymbol(rule.PC, attr.Sym, func(symbol runtime.SymbolID) bool {
+			id, ok := s.globalAttributeBySymbol(symbol)
+			if !ok {
+				return false
+			}
+			wildcardAttr = id
+			return true
+		}, func() error {
+			return newValidationError(xsderrors.ErrValidateWildcardAttrStrictUnresolved, "attribute wildcard strict unresolved")
+		})
+		if err != nil {
+			return nil, seenID, err
+		}
+		if !resolved {
 			validated = s.appendRawValidatedAttr(validated, attr, storeAttrs)
 			continue
-		case runtime.PCLax, runtime.PCStrict:
-			if attr.Sym == 0 {
-				if rule.PC == runtime.PCStrict {
-					return nil, seenID, newValidationError(xsderrors.ErrValidateWildcardAttrStrictUnresolved, "attribute wildcard strict unresolved")
-				}
-				validated = s.appendRawValidatedAttr(validated, attr, storeAttrs)
-				continue
-			}
-			id, ok := s.globalAttributeBySymbol(attr.Sym)
-			if !ok {
-				if rule.PC == runtime.PCStrict {
-					return nil, seenID, newValidationError(xsderrors.ErrValidateWildcardAttrStrictUnresolved, "attribute wildcard strict unresolved")
-				}
-				validated = s.appendRawValidatedAttr(validated, attr, storeAttrs)
-				continue
-			}
-			if int(id) >= len(s.rt.Attributes) {
-				return nil, seenID, fmt.Errorf("attribute %d out of range", id)
-			}
-			globalAttr := s.rt.Attributes[id]
-			var err error
-			validated, err = s.validateComplexAttrValue(validated, attr, resolver, storeAttrs, attrValidationSpec{
-				validator:   globalAttr.Validator,
-				fixed:       globalAttr.Fixed,
-				fixedKey:    globalAttr.FixedKey,
-				fixedMember: globalAttr.FixedMember,
-			}, &seenID)
-			if err != nil {
-				return nil, seenID, err
-			}
-		default:
-			return nil, seenID, fmt.Errorf("unknown wildcard processContents %d", rule.PC)
+		}
+		if int(wildcardAttr) >= len(s.rt.Attributes) {
+			return nil, seenID, fmt.Errorf("attribute %d out of range", wildcardAttr)
+		}
+		globalAttr := s.rt.Attributes[wildcardAttr]
+		validated, err = s.validateComplexAttrValue(validated, attr, resolver, storeAttrs, attrValidationSpec{
+			validator:   globalAttr.Validator,
+			fixed:       globalAttr.Fixed,
+			fixedKey:    globalAttr.FixedKey,
+			fixedMember: globalAttr.FixedMember,
+		}, &seenID)
+		if err != nil {
+			return nil, seenID, err
 		}
 	}
 

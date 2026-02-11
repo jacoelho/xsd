@@ -41,7 +41,12 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 	}
 
 	attrs := s.makeStartAttrs(ev.Attrs)
-	result, err := s.StartElement(match, sym, nsID, ev.NS, attrs, resolver)
+	classified, err := s.classifyAttrs(attrs, true)
+	if err != nil {
+		s.popNamespaceScope()
+		return err
+	}
+	result, err := s.startElementClassified(match, sym, nsID, ev.NS, resolver, classified)
 	if err != nil {
 		s.popNamespaceScope()
 		return err
@@ -50,7 +55,7 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 		return s.skipSubtreeAndPopScope()
 	}
 
-	attrResult, err := s.ValidateAttributes(result.Type, attrs, resolver)
+	attrResult, err := s.validateAttributesClassified(result.Type, attrs, resolver, classified)
 	if err != nil {
 		s.popNamespaceScope()
 		return err

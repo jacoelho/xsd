@@ -35,14 +35,6 @@ func validateTemporalNoCanonical(kind runtime.ValidatorKind, normalized []byte) 
 	return nil
 }
 
-func temporalSubkind(kind runtime.ValidatorKind) byte {
-	spec, ok := runtime.TemporalSpecForValidatorKind(kind)
-	if !ok {
-		return 0
-	}
-	return spec.KeyTag
-}
-
 func parseTemporalForKind(kind runtime.ValidatorKind, lexical []byte) (temporal.Value, error) {
 	spec, ok := runtime.TemporalSpecForValidatorKind(kind)
 	if !ok {

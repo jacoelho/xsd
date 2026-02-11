@@ -1,8 +1,10 @@
 package semanticresolve
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/graphcycle"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
@@ -16,29 +18,23 @@ func validateNoCyclicSubstitutionGroups(sch *parser.Schema) error {
 			continue
 		}
 
-		detector := NewCycleDetector[model.QName]()
-		var visit func(model.QName) error
-		visit = func(qname model.QName) error {
-			if detector.IsVisited(qname) {
-				return nil
-			}
-			return detector.WithScope(qname, func() error {
-				decl, exists := sch.ElementDecls[qname]
-				if !exists {
-					return nil
+		err := graphcycle.Detect(graphcycle.Config[model.QName]{
+			Starts:  []model.QName{startQName},
+			Missing: graphcycle.MissingPolicyIgnore,
+			Exists: func(name model.QName) bool {
+				return sch.ElementDecls[name] != nil
+			},
+			Next: func(name model.QName) ([]model.QName, error) {
+				decl, exists := sch.ElementDecls[name]
+				if !exists || decl.SubstitutionGroup.IsZero() {
+					return nil, nil
 				}
-				next := decl.SubstitutionGroup
-				if next.IsZero() {
-					return nil
-				}
-				if _, ok := sch.ElementDecls[next]; !ok {
-					return nil
-				}
-				return visit(next)
-			})
-		}
-		if err := visit(startQName); err != nil {
-			if IsCycleError(err) {
+				return []model.QName{decl.SubstitutionGroup}, nil
+			},
+		})
+		if err != nil {
+			var cycleErr graphcycle.CycleError[model.QName]
+			if errors.As(err, &cycleErr) {
 				return fmt.Errorf("cyclic substitution group detected: element %s is part of a cycle", startQName)
 			}
 			return err

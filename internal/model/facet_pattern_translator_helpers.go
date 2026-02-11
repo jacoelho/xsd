@@ -7,6 +7,38 @@ import (
 	"strings"
 )
 
+type outsideMetaHandler func(*patternTranslator) error
+
+var outsideMetaHandlers = map[byte]outsideMetaHandler{
+	'^': func(t *patternTranslator) error {
+		t.emitOutsideLiteral(`\^`)
+		return nil
+	},
+	'$': func(t *patternTranslator) error {
+		t.emitOutsideLiteral(`\$`)
+		return nil
+	},
+	'.': func(t *patternTranslator) error {
+		t.emitOutsideLiteral(`[^\n\r]`)
+		return nil
+	},
+	'*': func(t *patternTranslator) error {
+		t.emitOutsideQuantifier('*')
+		return nil
+	},
+	'+': func(t *patternTranslator) error {
+		t.emitOutsideQuantifier('+')
+		return nil
+	},
+	'?': func(t *patternTranslator) error {
+		t.emitOutsideQuantifier('?')
+		return nil
+	},
+	']': func(*patternTranslator) error {
+		return fmt.Errorf("pattern-syntax-error: ']' is not valid outside a character class")
+	},
+}
+
 func (t *patternTranslator) checkLazyQuantifier() error {
 	if !t.justWroteQuantifier {
 		return nil
@@ -40,42 +72,14 @@ func (t *patternTranslator) handleRepeatQuantifier() (bool, error) {
 }
 
 func (t *patternTranslator) handleOutsideMeta() (bool, error) {
-	switch t.pattern[t.i] {
-	case '^':
-		t.result.WriteString(`\^`)
-		t.i++
-		t.justWroteQuantifier = false
-		return true, nil
-	case '$':
-		t.result.WriteString(`\$`)
-		t.i++
-		t.justWroteQuantifier = false
-		return true, nil
-	case ']':
-		return true, fmt.Errorf("pattern-syntax-error: ']' is not valid outside a character class")
-	case '.':
-		t.result.WriteString(`[^\n\r]`)
-		t.i++
-		t.justWroteQuantifier = false
-		return true, nil
-	case '*':
-		t.result.WriteByte('*')
-		t.i++
-		t.justWroteQuantifier = true
-		return true, nil
-	case '+':
-		t.result.WriteByte('+')
-		t.i++
-		t.justWroteQuantifier = true
-		return true, nil
-	case '?':
-		t.result.WriteByte('?')
-		t.i++
-		t.justWroteQuantifier = true
-		return true, nil
-	default:
+	handler, ok := outsideMetaHandlers[t.pattern[t.i]]
+	if !ok {
 		return false, nil
 	}
+	if err := handler(t); err != nil {
+		return true, err
+	}
+	return true, nil
 }
 
 func (t *patternTranslator) handleGroupPrefix() (bool, error) {
@@ -102,6 +106,18 @@ func (t *patternTranslator) handleGroupDepth() error {
 		t.groupDepth--
 	}
 	return nil
+}
+
+func (t *patternTranslator) emitOutsideLiteral(value string) {
+	t.result.WriteString(value)
+	t.i++
+	t.justWroteQuantifier = false
+}
+
+func (t *patternTranslator) emitOutsideQuantifier(ch byte) {
+	t.result.WriteByte(ch)
+	t.i++
+	t.justWroteQuantifier = true
 }
 
 // translateUnicodePropertyEscape translates \p{...} or \P{...} escapes

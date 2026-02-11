@@ -3,99 +3,88 @@ package validatorgen
 import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/typewalk"
 )
 
 func (r *typeResolver) listItemTypeFromType(typ model.Type) (model.Type, bool) {
-	seen := make(map[model.Type]bool)
-	var walk func(model.Type) (model.Type, bool)
-	walk = func(current model.Type) (model.Type, bool) {
-		if current == nil {
-			return nil, false
-		}
-		if seen[current] {
-			return nil, false
-		}
-		seen[current] = true
-		defer delete(seen, current)
-
+	var (
+		item  model.Type
+		found bool
+	)
+	typewalk.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
 			if itemName, ok := builtins.BuiltinListItemTypeName(bt.Name().Local); ok {
-				if item := builtins.Get(itemName); item != nil {
-					return item, true
-				}
+				item = builtins.Get(itemName)
+				found = item != nil
 			}
-			return nil, false
+			return false
 		}
 
 		st, ok := model.AsSimpleType(current)
 		if !ok {
-			return nil, false
+			found = false
+			return false
 		}
 		if r.variety(st) != model.ListVariety {
-			return nil, false
+			found = false
+			return false
 		}
 		if st.ItemType != nil {
-			return st.ItemType, true
+			item = st.ItemType
+			found = true
+			return false
 		}
 		if st.List != nil {
 			if st.List.InlineItemType != nil {
-				return st.List.InlineItemType, true
+				item = st.List.InlineItemType
+				found = true
+				return false
 			}
 			if !st.List.ItemType.IsZero() {
-				if item := r.resolveQName(st.List.ItemType); item != nil {
-					return item, true
+				if resolved := r.resolveQName(st.List.ItemType); resolved != nil {
+					item = resolved
+					found = true
 				}
+				return false
 			}
 		}
-		if base := r.baseType(st); base != nil {
-			return walk(base)
-		}
-		return nil, false
-	}
-	return walk(typ)
+		return true
+	})
+	return item, found
 }
 
 func (r *typeResolver) unionMemberTypesFromType(typ model.Type) []model.Type {
-	seen := make(map[model.Type]bool)
-	var walk func(model.Type) []model.Type
-	walk = func(current model.Type) []model.Type {
-		if current == nil {
-			return nil
-		}
-		if seen[current] {
-			return nil
-		}
-		seen[current] = true
-		defer delete(seen, current)
-
+	var members []model.Type
+	typewalk.Walk(typ, r.nextType, func(current model.Type) bool {
 		st, ok := model.AsSimpleType(current)
 		if !ok {
-			return nil
+			members = nil
+			return false
 		}
 		if r.variety(st) != model.UnionVariety {
-			return nil
+			members = nil
+			return false
 		}
 		if len(st.MemberTypes) > 0 {
-			return st.MemberTypes
+			members = st.MemberTypes
+			return false
 		}
 		if st.Union != nil {
-			members := make([]model.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
+			resolved := make([]model.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
 			for _, qname := range st.Union.MemberTypes {
 				if member := r.resolveQName(qname); member != nil {
-					members = append(members, member)
+					resolved = append(resolved, member)
 				}
 			}
 			for _, inline := range st.Union.InlineTypes {
-				members = append(members, inline)
+				resolved = append(resolved, inline)
 			}
-			if len(members) > 0 {
-				return members
+			if len(resolved) > 0 {
+				members = resolved
 			}
+			return false
 		}
-		if base := r.baseType(st); base != nil {
-			return walk(base)
-		}
-		return nil
-	}
-	return walk(typ)
+		return true
+	})
+	return members
 }

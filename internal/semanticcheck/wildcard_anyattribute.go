@@ -1,8 +1,11 @@
 package semanticcheck
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/attrgroupwalk"
+	"github.com/jacoelho/xsd/internal/attrwildcard"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
@@ -34,8 +37,7 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *model.ComplexType
 
 	if ct.IsExtension() {
 		if baseAnyAttr != nil && derivedAnyAttr != nil {
-			union := model.UnionAnyAttribute(derivedAnyAttr, baseAnyAttr)
-			if union == nil {
+			if _, err := attrwildcard.Union(derivedAnyAttr, baseAnyAttr); err != nil {
 				return fmt.Errorf("anyAttribute extension: union of derived and base anyAttribute is not expressible")
 			}
 		}
@@ -44,11 +46,7 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *model.ComplexType
 			return fmt.Errorf("anyAttribute restriction: cannot add anyAttribute when base type has no anyAttribute")
 		}
 		if derivedAnyAttr != nil && baseAnyAttr != nil {
-			if !processContentsStrongerOrEqual(derivedAnyAttr.ProcessContents, baseAnyAttr.ProcessContents) ||
-				!namespaceConstraintSubset(
-					derivedAnyAttr.Namespace, derivedAnyAttr.NamespaceList, derivedAnyAttr.TargetNamespace,
-					baseAnyAttr.Namespace, baseAnyAttr.NamespaceList, baseAnyAttr.TargetNamespace,
-				) {
+			if _, err := attrwildcard.Restrict(baseAnyAttr, derivedAnyAttr); err != nil {
 				return fmt.Errorf("anyAttribute restriction: derived anyAttribute is not a valid subset of base anyAttribute")
 			}
 		}
@@ -60,66 +58,36 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *model.ComplexType
 // collectAnyAttributeFromType collects anyAttribute from a complex type
 // Checks both direct anyAttribute and anyAttribute in extension/restriction
 func collectAnyAttributeFromType(schema *parser.Schema, ct *model.ComplexType) (*model.AnyAttribute, error) {
-	var anyAttrs []*model.AnyAttribute
-
-	if ct.AnyAttribute() != nil {
-		anyAttrs = append(anyAttrs, ct.AnyAttribute())
-	}
-	anyAttrs = append(anyAttrs, collectAnyAttributeFromGroups(schema, ct.AttrGroups, nil)...)
-
-	content := ct.Content()
-	if ext := content.ExtensionDef(); ext != nil {
-		if ext.AnyAttribute != nil {
-			anyAttrs = append(anyAttrs, ext.AnyAttribute)
-		}
-		anyAttrs = append(anyAttrs, collectAnyAttributeFromGroups(schema, ext.AttrGroups, nil)...)
-	}
-	if restr := content.RestrictionDef(); restr != nil {
-		if restr.AnyAttribute != nil {
-			anyAttrs = append(anyAttrs, restr.AnyAttribute)
-		}
-		anyAttrs = append(anyAttrs, collectAnyAttributeFromGroups(schema, restr.AttrGroups, nil)...)
-	}
-
-	if len(anyAttrs) == 0 {
-		return nil, nil
-	}
-
-	result := anyAttrs[0]
-	for i := 1; i < len(anyAttrs); i++ {
-		intersected, expressible, empty := model.IntersectAnyAttributeDetailed(result, anyAttrs[i])
-		if !expressible {
+	result, err := attrwildcard.CollectFromComplexType(schema, ct, attrwildcard.CollectOptions{
+		Missing:      attrgroupwalk.MissingIgnore,
+		Cycles:       attrgroupwalk.CycleIgnore,
+		EmptyIsError: false,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, attrwildcard.ErrIntersectionNotExpressible):
 			return nil, fmt.Errorf("anyAttribute intersection is not expressible")
-		}
-		if empty {
+		case errors.Is(err, attrwildcard.ErrIntersectionEmpty):
 			return nil, nil
+		default:
+			return nil, err
 		}
-		result = intersected
 	}
 	return result, nil
 }
 
 // collectAnyAttributeFromGroups collects anyAttribute from attribute groups (recursively)
-func collectAnyAttributeFromGroups(schema *parser.Schema, agRefs []model.QName, visited map[model.QName]bool) []*model.AnyAttribute {
-	if visited == nil {
-		visited = make(map[model.QName]bool)
-	}
+func collectAnyAttributeFromGroups(schema *parser.Schema, agRefs []model.QName) []*model.AnyAttribute {
+	ctx := attrgroupwalk.NewContext(schema, attrgroupwalk.Options{
+		Missing: attrgroupwalk.MissingIgnore,
+		Cycles:  attrgroupwalk.CycleIgnore,
+	})
 	var result []*model.AnyAttribute
-	for _, ref := range agRefs {
-		if visited[ref] {
-			continue
-		}
-		visited[ref] = true
-		ag, ok := schema.AttributeGroups[ref]
-		if !ok {
-			continue
-		}
+	_ = ctx.Walk(agRefs, func(_ model.QName, ag *model.AttributeGroup) error {
 		if ag.AnyAttribute != nil {
 			result = append(result, ag.AnyAttribute)
 		}
-		if len(ag.AttrGroups) > 0 {
-			result = append(result, collectAnyAttributeFromGroups(schema, ag.AttrGroups, visited)...)
-		}
-	}
+		return nil
+	})
 	return result
 }

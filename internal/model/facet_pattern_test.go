@@ -588,3 +588,45 @@ func TestPatternValidateWithoutValidateSyntax(t *testing.T) {
 		t.Errorf("error should mention ValidateSyntax, got: %v", err)
 	}
 }
+
+func FuzzTranslateXSDPatternToGo(f *testing.F) {
+	seeds := []string{
+		"",
+		"abc",
+		`[abc]`,
+		`[\d]`,
+		`[^\D]`,
+		`[a\S]`,
+		`\p{Lu}+`,
+		`a{3}`,
+		`a{1001}`,
+		`[A-Z-[AEIOU]]`,
+		`(`,
+		`[`,
+		`\`,
+	}
+	for _, seed := range seeds {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, pattern string) {
+		firstOut, firstErr := TranslateXSDPatternToGo(pattern)
+		secondOut, secondErr := TranslateXSDPatternToGo(pattern)
+
+		if (firstErr == nil) != (secondErr == nil) {
+			t.Fatalf("non-deterministic error state for %q: first=%v second=%v", pattern, firstErr, secondErr)
+		}
+		if firstErr != nil {
+			if firstErr.Error() != secondErr.Error() {
+				t.Fatalf("non-deterministic errors for %q: first=%q second=%q", pattern, firstErr.Error(), secondErr.Error())
+			}
+			return
+		}
+		if firstOut != secondOut {
+			t.Fatalf("non-deterministic translation for %q: first=%q second=%q", pattern, firstOut, secondOut)
+		}
+		if _, err := regexp.Compile(firstOut); err != nil {
+			t.Fatalf("compiled pattern %q is invalid: %v", firstOut, err)
+		}
+	})
+}

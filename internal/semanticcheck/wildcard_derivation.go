@@ -37,8 +37,8 @@ func validateWildcardDerivation(schema *parser.Schema, ct *model.ComplexType) er
 		for _, derivedWildcard := range derivedWildcards {
 			foundSubset := false
 			for _, baseWildcard := range baseWildcards {
-				if processContentsStrongerOrEqual(derivedWildcard.ProcessContents, baseWildcard.ProcessContents) &&
-					namespaceConstraintSubset(
+				if model.ProcessContentsStrongerOrEqual(derivedWildcard.ProcessContents, baseWildcard.ProcessContents) &&
+					model.NamespaceConstraintSubset(
 						derivedWildcard.Namespace, derivedWildcard.NamespaceList, derivedWildcard.TargetNamespace,
 						baseWildcard.Namespace, baseWildcard.NamespaceList, baseWildcard.TargetNamespace,
 					) {

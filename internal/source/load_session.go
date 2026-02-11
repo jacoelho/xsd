@@ -12,8 +12,7 @@ type loadSession struct {
 	loader   *SchemaLoader
 	key      loadKey
 	systemID string
-	pending  []pendingChange
-	merged   mergedChanges
+	journal  stateJournal
 }
 
 type directiveLoadStatus uint8
@@ -28,22 +27,6 @@ type directiveLoadResult struct {
 	schema *parser.Schema
 	target loadKey
 	status directiveLoadStatus
-}
-
-type pendingChange struct {
-	sourceKey loadKey
-	targetKey loadKey
-	kind      parser.DirectiveKind
-}
-
-type mergedChanges struct {
-	includes []mergeRecord
-	imports  []mergeRecord
-}
-
-type mergeRecord struct {
-	base   loadKey
-	target loadKey
 }
 
 func newLoadSession(loader *SchemaLoader, systemID string, key loadKey, doc io.ReadCloser) *loadSession {

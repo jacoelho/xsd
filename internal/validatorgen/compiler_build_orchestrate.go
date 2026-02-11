@@ -3,13 +3,22 @@ package validatorgen
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/complextypeplan"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/runtimeids"
 	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 )
 
 func Compile(sch *parser.Schema, registry *schema.Registry) (*CompiledValidators, error) {
+	return CompileWithComplexTypePlan(sch, registry, nil)
+}
+
+// CompileWithComplexTypePlan compiles validators, optionally reusing a precomputed complex-type plan.
+func CompileWithComplexTypePlan(
+	sch *parser.Schema,
+	registry *schema.Registry,
+	complexTypes *complextypeplan.Plan,
+) (*CompiledValidators, error) {
 	if sch == nil {
 		return nil, fmt.Errorf("schema is nil")
 	}
@@ -19,8 +28,12 @@ func Compile(sch *parser.Schema, registry *schema.Registry) (*CompiledValidators
 
 	comp := newCompiler(sch)
 	comp.registry = registry
+	comp.complexTypes = complexTypes
 	comp.initRuntimeTypeIDs(registry)
 	if err := comp.compileRegistry(registry); err != nil {
+		return nil, err
+	}
+	if err := comp.prepareComplexTypePlan(registry); err != nil {
 		return nil, err
 	}
 	if err := comp.compileDefaults(registry); err != nil {
@@ -36,16 +49,10 @@ func (c *compiler) initRuntimeTypeIDs(registry *schema.Registry) {
 	if registry == nil {
 		return
 	}
-	c.runtimeTypeIDs = make(map[schema.TypeID]runtime.TypeID, len(registry.TypeOrder))
-	c.builtinTypeIDs = make(map[model.TypeName]runtime.TypeID, len(builtinTypeNames()))
-
-	next := runtime.TypeID(1)
-	for _, name := range builtinTypeNames() {
-		c.builtinTypeIDs[name] = next
-		next++
+	plan, err := runtimeids.Build(registry)
+	if err != nil {
+		return
 	}
-	for _, entry := range registry.TypeOrder {
-		c.runtimeTypeIDs[entry.ID] = next
-		next++
-	}
+	c.runtimeTypeIDs = plan.TypeIDs
+	c.builtinTypeIDs = plan.BuiltinTypeIDs
 }

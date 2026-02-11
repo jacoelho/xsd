@@ -3,6 +3,7 @@ package schemaanalysis
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -17,10 +18,42 @@ func AssignIDs(schema *parser.Schema) (*Registry, error) {
 	}
 
 	b := newBuilder(schema)
-	for _, decl := range schema.GlobalDecls {
-		if err := b.visitGlobalDeclaration(decl); err != nil {
-			return nil, err
-		}
+	if err := globaldecl.ForEach(schema, globaldecl.Handlers{
+		Element: func(name model.QName, decl *model.ElementDecl) error {
+			if decl == nil {
+				return fmt.Errorf("missing global element %s", name)
+			}
+			return b.visitGlobalElement(decl)
+		},
+		Type: func(name model.QName, typ model.Type) error {
+			if typ == nil {
+				return fmt.Errorf("missing global type %s", name)
+			}
+			return b.visitGlobalType(name, typ)
+		},
+		Attribute: func(name model.QName, attr *model.AttributeDecl) error {
+			if attr == nil {
+				return fmt.Errorf("missing global attribute %s", name)
+			}
+			return b.visitGlobalAttribute(name, attr)
+		},
+		AttributeGroup: func(name model.QName, group *model.AttributeGroup) error {
+			if group == nil {
+				return fmt.Errorf("missing attributeGroup %s", name)
+			}
+			return b.visitAttributeGroup(group)
+		},
+		Group: func(name model.QName, group *model.ModelGroup) error {
+			if group == nil {
+				return fmt.Errorf("missing group %s", name)
+			}
+			return b.visitGroup(group)
+		},
+		Notation: func(model.QName, *model.NotationDecl) error {
+			return nil
+		},
+	}); err != nil {
+		return nil, err
 	}
 
 	return b.registry, nil
@@ -49,44 +82,5 @@ func newBuilder(schema *parser.Schema) *builder {
 		nextType: 1,
 		nextElem: 1,
 		nextAttr: 1,
-	}
-}
-
-func (b *builder) visitGlobalDeclaration(decl parser.GlobalDecl) error {
-	switch decl.Kind {
-	case parser.GlobalDeclElement:
-		declared := b.schema.ElementDecls[decl.Name]
-		if declared == nil {
-			return fmt.Errorf("missing global element %s", decl.Name)
-		}
-		return b.visitGlobalElement(declared)
-	case parser.GlobalDeclType:
-		typeDef := b.schema.TypeDefs[decl.Name]
-		if typeDef == nil {
-			return fmt.Errorf("missing global type %s", decl.Name)
-		}
-		return b.visitGlobalType(decl.Name, typeDef)
-	case parser.GlobalDeclAttribute:
-		attr := b.schema.AttributeDecls[decl.Name]
-		if attr == nil {
-			return fmt.Errorf("missing global attribute %s", decl.Name)
-		}
-		return b.visitGlobalAttribute(decl.Name, attr)
-	case parser.GlobalDeclAttributeGroup:
-		group := b.schema.AttributeGroups[decl.Name]
-		if group == nil {
-			return fmt.Errorf("missing attributeGroup %s", decl.Name)
-		}
-		return b.visitAttributeGroup(group)
-	case parser.GlobalDeclGroup:
-		group := b.schema.Groups[decl.Name]
-		if group == nil {
-			return fmt.Errorf("missing group %s", decl.Name)
-		}
-		return b.visitGroup(group)
-	case parser.GlobalDeclNotation:
-		return nil
-	default:
-		return fmt.Errorf("unknown global declaration kind %d", decl.Kind)
 	}
 }

@@ -10,105 +10,88 @@ func (s *Session) shrinkBuffers() {
 	if s == nil {
 		return
 	}
-	if cap(s.nameLocal) > maxSessionBuffer {
-		s.nameLocal = nil
-	}
-	if cap(s.nameNS) > maxSessionBuffer {
-		s.nameNS = nil
-	}
-	if cap(s.textBuf) > maxSessionBuffer {
-		s.textBuf = nil
-	}
-	if cap(s.normBuf) > maxSessionBuffer {
-		s.normBuf = nil
-	}
-	if len(s.normStack) > 0 {
-		for i, buf := range s.normStack {
-			if cap(buf) > maxSessionBuffer {
-				s.normStack[i] = nil
-			} else {
-				s.normStack[i] = buf[:0]
-			}
-		}
-		if len(s.normStack) > maxSessionEntries {
-			s.normStack = nil
-		}
-	}
-	if cap(s.errBuf) > maxSessionBuffer {
-		s.errBuf = nil
-	}
-	if cap(s.valueBuf) > maxSessionBuffer {
-		s.valueBuf = nil
-	}
-	if cap(s.valueScratch) > maxSessionBuffer {
-		s.valueScratch = nil
-	}
-	if cap(s.keyBuf) > maxSessionBuffer {
-		s.keyBuf = nil
-	}
-	if cap(s.keyTmp) > maxSessionBuffer {
-		s.keyTmp = nil
-	}
+	s.shrinkByteBuffers()
+	s.normStack = shrinkNormStack(s.normStack, maxSessionBuffer, maxSessionEntries)
+	s.shrinkEntryBuffers()
+	s.shrinkIdentityBuffers()
+	dropStacksOverCap(maxSessionEntries, &s.nsStack, &s.icState.frames, &s.icState.scopes)
+}
 
-	if cap(s.attrPresent) > maxSessionEntries {
-		s.attrPresent = nil
-	}
-	if cap(s.attrAppliedBuf) > maxSessionEntries {
-		s.attrAppliedBuf = nil
-	}
-	if cap(s.nameMap) > maxSessionEntries {
-		s.nameMap = nil
-	}
-	if len(s.nameMapSparse) > maxSessionEntries {
-		s.nameMapSparse = nil
-	}
-	if cap(s.attrBuf) > maxSessionEntries {
-		s.attrBuf = nil
-	}
-	if cap(s.attrValidatedBuf) > maxSessionEntries {
-		s.attrValidatedBuf = nil
-	}
-	if cap(s.elemStack) > maxSessionEntries {
-		s.elemStack = nil
-	}
-	if cap(s.nsDecls) > maxSessionEntries {
-		s.nsDecls = nil
-	}
-	if cap(s.idRefs) > maxSessionEntries {
-		s.idRefs = nil
-	}
-	if s.nsStack.Cap() > maxSessionEntries {
-		s.nsStack.Drop()
-	}
-	if cap(s.prefixCache) > maxSessionEntries {
-		s.prefixCache = nil
-	}
-	if cap(s.attrSeenTable) > maxSessionEntries {
-		s.attrSeenTable = nil
-	}
-	if cap(s.validationErrors) > maxSessionEntries {
-		s.validationErrors = nil
-	}
-	if s.icState.frames.Cap() > maxSessionEntries {
-		s.icState.frames.Drop()
-	}
-	if s.icState.scopes.Cap() > maxSessionEntries {
-		s.icState.scopes.Drop()
-	}
-	if cap(s.icState.uncommittedViolations) > maxSessionEntries {
-		s.icState.uncommittedViolations = nil
-	}
-	if cap(s.icState.committedViolations) > maxSessionEntries {
-		s.icState.committedViolations = nil
-	}
+func (s *Session) shrinkByteBuffers() {
+	shrinkSliceCapRefs(maxSessionBuffer,
+		&s.nameLocal,
+		&s.nameNS,
+		&s.textBuf,
+		&s.normBuf,
+		&s.errBuf,
+		&s.valueBuf,
+		&s.valueScratch,
+		&s.keyBuf,
+		&s.keyTmp,
+	)
+}
 
-	if len(s.idTable) > maxSessionIDTableEntries {
-		s.idTable = nil
+func (s *Session) shrinkEntryBuffers() {
+	s.attrPresent = shrinkSliceCap(s.attrPresent, maxSessionEntries)
+	s.attrAppliedBuf = shrinkSliceCap(s.attrAppliedBuf, maxSessionEntries)
+	s.nameMap = shrinkSliceCap(s.nameMap, maxSessionEntries)
+	s.attrBuf = shrinkSliceCap(s.attrBuf, maxSessionEntries)
+	s.attrValidatedBuf = shrinkSliceCap(s.attrValidatedBuf, maxSessionEntries)
+	s.attrClassBuf = shrinkSliceCap(s.attrClassBuf, maxSessionEntries)
+	s.elemStack = shrinkSliceCap(s.elemStack, maxSessionEntries)
+	s.nsDecls = shrinkSliceCap(s.nsDecls, maxSessionEntries)
+	s.idRefs = shrinkSliceCap(s.idRefs, maxSessionEntries)
+	s.prefixCache = shrinkSliceCap(s.prefixCache, maxSessionEntries)
+	s.attrSeenTable = shrinkSliceCap(s.attrSeenTable, maxSessionEntries)
+	s.validationErrors = shrinkSliceCap(s.validationErrors, maxSessionEntries)
+}
+
+func (s *Session) shrinkIdentityBuffers() {
+	s.icState.uncommittedViolations = shrinkSliceCap(s.icState.uncommittedViolations, maxSessionEntries)
+	s.icState.committedViolations = shrinkSliceCap(s.icState.committedViolations, maxSessionEntries)
+	s.identityAttrNames = shrinkSliceCap(s.identityAttrNames, maxSessionEntries)
+}
+
+func shrinkSliceCapRefs[T any](limit int, refs ...*[]T) {
+	for _, ref := range refs {
+		if ref == nil {
+			continue
+		}
+		*ref = shrinkSliceCap(*ref, limit)
 	}
-	if cap(s.identityAttrNames) > maxSessionEntries {
-		s.identityAttrNames = nil
+}
+
+func dropStacksOverCap(limit int, stacks ...interface {
+	Cap() int
+	Drop()
+}) {
+	for _, stack := range stacks {
+		if stack != nil && stack.Cap() > limit {
+			stack.Drop()
+		}
 	}
-	if len(s.identityAttrBuckets) > maxSessionEntries {
-		s.identityAttrBuckets = nil
+}
+
+func shrinkSliceCap[T any](in []T, limit int) []T {
+	if cap(in) > limit {
+		return nil
 	}
+	return in
+}
+
+func shrinkNormStack(stack [][]byte, byteLimit, entryLimit int) [][]byte {
+	if len(stack) == 0 {
+		return stack
+	}
+	for i, buf := range stack {
+		if cap(buf) > byteLimit {
+			stack[i] = nil
+		} else {
+			stack[i] = buf[:0]
+		}
+	}
+	if len(stack) > entryLimit {
+		return nil
+	}
+	return stack
 }

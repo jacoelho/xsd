@@ -2,40 +2,6 @@ package parser
 
 import "github.com/jacoelho/xsd/internal/schemaxml"
 
-var (
-	validTopLevelElementAttributes = map[string]bool{
-		"id":                true,
-		"name":              true,
-		"type":              true,
-		"default":           true,
-		"fixed":             true,
-		"nillable":          true,
-		"abstract":          true,
-		"block":             true,
-		"final":             true,
-		"substitutionGroup": true,
-	}
-	validElementReferenceAttributes = map[string]bool{
-		"id":        true,
-		"ref":       true,
-		"minOccurs": true,
-		"maxOccurs": true,
-	}
-	validLocalElementAttributes = map[string]bool{
-		"id":        true,
-		"name":      true,
-		"type":      true,
-		"minOccurs": true,
-		"maxOccurs": true,
-		"default":   true,
-		"fixed":     true,
-		"nillable":  true,
-		"block":     true,
-		"form":      true,
-		"ref":       true,
-	}
-)
-
 type elementAttrScan struct {
 	defaultVal       string
 	ref              string
@@ -147,10 +113,10 @@ func scanElementAttributes(doc *schemaxml.Document, elem schemaxml.NodeID) eleme
 		if attr.NamespaceURI() != "" {
 			continue
 		}
-		if attrs.invalidRefAttr == "" && !validElementReferenceAttributes[attrName] {
+		if attrs.invalidRefAttr == "" && !elementReferenceAttributeProfile.allows(attrName) {
 			attrs.invalidRefAttr = attrName
 		}
-		if attrs.invalidLocalAttr == "" && !validLocalElementAttributes[attrName] {
+		if attrs.invalidLocalAttr == "" && !localElementAttributeProfile.allows(attrName) {
 			attrs.invalidLocalAttr = attrName
 		}
 	}

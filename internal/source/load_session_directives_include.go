@@ -3,7 +3,6 @@ package source
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -36,33 +35,22 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 	includedSchema := result.schema
 	includeKey := result.target
 
-	if !s.loader.isIncludeNamespaceCompatible(includingNS, includedSchema.TargetNamespace) {
-		s.resetTrackedEntry(includeKey)
-		return fmt.Errorf("included schema %s has different target namespace: %s != %s",
-			include.SchemaLocation, includedSchema.TargetNamespace, includingNS)
-	}
-	needsNamespaceRemap := includingNS != "" && includedSchema.TargetNamespace == ""
-	remapMode := loadmerge.KeepNamespace
-	if needsNamespaceRemap {
-		remapMode = loadmerge.RemapNamespace
-	}
 	entry, ok := s.loader.state.entry(s.key)
 	if !ok || entry == nil {
 		return fmt.Errorf("include tracking missing for %s", s.key.systemID)
 	}
-	insertAt, err := includeInsertIndex(entry, include, len(schema.GlobalDecls))
+	plan, err := s.loader.planIncludeMerge(includingNS, entry, schema, include, include.SchemaLocation, includedSchema)
+	if err != nil {
+		s.resetTrackedEntry(includeKey)
+		return err
+	}
+	inserted, err := s.loader.applyDirectiveMerge(schema, includedSchema, plan, "included", include.SchemaLocation)
 	if err != nil {
 		return err
 	}
-	beforeLen := len(schema.GlobalDecls)
-	if err := s.loader.mergeSchema(schema, includedSchema, loadmerge.MergeInclude, remapMode, insertAt); err != nil {
-		return fmt.Errorf("merge included schema %s: %w", include.SchemaLocation, err)
-	}
-	inserted := len(schema.GlobalDecls) - beforeLen
 	if err := recordIncludeInserted(entry, include.IncludeIndex, inserted); err != nil {
 		return err
 	}
-	s.loader.imports.markMerged(parser.DirectiveInclude, s.key, includeKey)
-	s.merged.includes = append(s.merged.includes, mergeRecord{base: s.key, target: includeKey})
+	s.markDirectiveMerged(parser.DirectiveInclude, s.key, includeKey)
 	return nil
 }

@@ -47,7 +47,7 @@ func (s *loadSession) loadDirectiveSchema(
 		}, nil
 	}
 
-	loadedSchema, err := s.loader.loadResolved(doc, systemID, targetKey)
+	loadedSchema, err := s.loader.loadResolvedWithJournal(doc, systemID, targetKey, &s.journal)
 	if err != nil {
 		return directiveLoadResult{}, err
 	}
@@ -67,21 +67,9 @@ func (s *loadSession) resetTrackedEntry(key loadKey) {
 }
 
 func (s *loadSession) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string) {
-	if s.loader.deferImport(sourceKey, targetKey, schemaLocation, expectedNamespace) {
-		s.pending = append(s.pending, pendingChange{
-			sourceKey: sourceKey,
-			targetKey: targetKey,
-			kind:      parser.DirectiveImport,
-		})
-	}
+	_ = s.loader.deferImport(sourceKey, targetKey, schemaLocation, expectedNamespace, &s.journal)
 }
 
 func (s *loadSession) deferInclude(sourceKey, targetKey loadKey, include parser.IncludeInfo) {
-	if s.loader.deferInclude(sourceKey, targetKey, include) {
-		s.pending = append(s.pending, pendingChange{
-			sourceKey: sourceKey,
-			targetKey: targetKey,
-			kind:      parser.DirectiveInclude,
-		})
-	}
+	_ = s.loader.deferInclude(sourceKey, targetKey, include, &s.journal)
 }

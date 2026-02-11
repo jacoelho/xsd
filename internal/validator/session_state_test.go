@@ -27,6 +27,7 @@ func TestSessionReset(t *testing.T) {
 	s.icState.committedViolations = []error{dummyError{}}
 	s.prefixCache = []prefixEntry{{hash: 1}}
 	s.attrSeenTable = []attrSeenEntry{{hash: 1, idx: 1}}
+	s.attrClassBuf = []attrClass{attrClassOther}
 	s.identityAttrBuckets = map[uint64][]identityAttrNameID{1: {1}}
 	s.identityAttrNames = []identityAttrName{{ns: []byte("urn"), local: []byte("id")}}
 
@@ -68,6 +69,9 @@ func TestSessionReset(t *testing.T) {
 	if len(s.prefixCache) != 0 || len(s.attrSeenTable) != 0 {
 		t.Fatalf("session caches not reset")
 	}
+	if len(s.attrClassBuf) != 0 {
+		t.Fatalf("attrClassBuf len = %d, want 0", len(s.attrClassBuf))
+	}
 	if len(s.identityAttrBuckets) != 0 || len(s.identityAttrNames) != 0 {
 		t.Fatalf("identity attr interner not reset")
 	}
@@ -82,6 +86,7 @@ func TestSessionResetShrinksOversizedBuffers(t *testing.T) {
 	s.nameLocal = make([]byte, maxSessionBuffer+1)
 	s.elemStack = make([]elemFrame, maxSessionEntries+1)
 	s.attrPresent = make([]bool, maxSessionEntries+1)
+	s.attrClassBuf = make([]attrClass, maxSessionEntries+1)
 	s.idTable = make(map[string]struct{}, maxSessionIDTableEntries+1)
 	s.identityAttrNames = make([]identityAttrName, maxSessionEntries+1)
 	s.identityAttrBuckets = make(map[uint64][]identityAttrNameID, maxSessionEntries+1)
@@ -103,6 +108,9 @@ func TestSessionResetShrinksOversizedBuffers(t *testing.T) {
 	if s.attrPresent != nil {
 		t.Fatalf("expected attrPresent to be shrunk")
 	}
+	if s.attrClassBuf != nil {
+		t.Fatalf("expected attrClassBuf to be shrunk")
+	}
 	if s.idTable != nil {
 		t.Fatalf("expected idTable to be dropped")
 	}
@@ -111,5 +119,67 @@ func TestSessionResetShrinksOversizedBuffers(t *testing.T) {
 	}
 	if s.identityAttrBuckets != nil {
 		t.Fatalf("expected identityAttrBuckets to be dropped")
+	}
+}
+
+func TestSessionResetDropsOversizedStacks(t *testing.T) {
+	s := &Session{}
+	for range maxSessionEntries + 1 {
+		s.nsStack.Push(nsFrame{})
+		s.icState.frames.Push(rtIdentityFrame{})
+		s.icState.scopes.Push(rtIdentityScope{})
+	}
+
+	if s.nsStack.Cap() <= maxSessionEntries {
+		t.Fatalf("test setup failed: nsStack cap = %d, want > %d", s.nsStack.Cap(), maxSessionEntries)
+	}
+	if s.icState.frames.Cap() <= maxSessionEntries {
+		t.Fatalf("test setup failed: frames cap = %d, want > %d", s.icState.frames.Cap(), maxSessionEntries)
+	}
+	if s.icState.scopes.Cap() <= maxSessionEntries {
+		t.Fatalf("test setup failed: scopes cap = %d, want > %d", s.icState.scopes.Cap(), maxSessionEntries)
+	}
+
+	s.Reset()
+
+	if s.nsStack.Cap() != 0 {
+		t.Fatalf("nsStack cap = %d, want 0", s.nsStack.Cap())
+	}
+	if s.icState.frames.Cap() != 0 {
+		t.Fatalf("frames cap = %d, want 0", s.icState.frames.Cap())
+	}
+	if s.icState.scopes.Cap() != 0 {
+		t.Fatalf("scopes cap = %d, want 0", s.icState.scopes.Cap())
+	}
+}
+
+func TestShrinkNormStackMixedCapBehavior(t *testing.T) {
+	small := make([]byte, 2, 8)
+	large := make([]byte, 2, maxSessionBuffer+1)
+	stack := [][]byte{small, large}
+
+	got := shrinkNormStack(stack, maxSessionBuffer, maxSessionEntries)
+	if len(got) != 2 {
+		t.Fatalf("normStack len = %d, want 2", len(got))
+	}
+	if got[0] == nil {
+		t.Fatalf("small entry unexpectedly dropped")
+	}
+	if len(got[0]) != 0 {
+		t.Fatalf("small entry len = %d, want 0", len(got[0]))
+	}
+	if cap(got[0]) != cap(small) {
+		t.Fatalf("small entry cap = %d, want %d", cap(got[0]), cap(small))
+	}
+	if got[1] != nil {
+		t.Fatalf("large entry not dropped")
+	}
+}
+
+func TestShrinkNormStackDropsOversizedEntries(t *testing.T) {
+	stack := make([][]byte, maxSessionEntries+1)
+	got := shrinkNormStack(stack, maxSessionBuffer, maxSessionEntries)
+	if got != nil {
+		t.Fatalf("expected oversized normStack to be dropped")
 	}
 }

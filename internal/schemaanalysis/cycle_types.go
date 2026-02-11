@@ -1,54 +1,62 @@
 package schemaanalysis
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/globaldecl"
+	"github.com/jacoelho/xsd/internal/graphcycle"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func detectTypeCycles(schema *parser.Schema) error {
-	states := make(map[model.QName]visitState)
+	starts := make([]model.QName, 0, len(schema.TypeDefs))
+	if err := globaldecl.ForEachType(schema, func(name model.QName, typ model.Type) error {
+		if typ == nil {
+			return fmt.Errorf("missing global type %s", name)
+		}
+		starts = append(starts, name)
+		return nil
+	}); err != nil {
+		return err
+	}
 
-	var visit func(name model.QName, typ model.Type) error
-	visit = func(name model.QName, typ model.Type) error {
-		if name.IsZero() {
-			return nil
-		}
-		switch states[name] {
-		case stateVisiting:
-			return fmt.Errorf("type cycle detected at %s", name)
-		case stateDone:
-			return nil
-		}
-		states[name] = stateVisiting
-		baseType, _, err := baseTypeFor(schema, typ)
-		if err != nil {
-			return fmt.Errorf("type %s: %w", name, err)
-		}
-		if baseType != nil {
-			baseName := baseType.Name()
-			if !baseName.IsZero() && baseName.Namespace != model.XSDNamespace {
-				if err := visit(baseName, baseType); err != nil {
-					return err
-				}
+	err := graphcycle.Detect(graphcycle.Config[model.QName]{
+		Starts:  starts,
+		Missing: graphcycle.MissingPolicyError,
+		Exists: func(name model.QName) bool {
+			return schema.TypeDefs[name] != nil
+		},
+		Next: func(name model.QName) ([]model.QName, error) {
+			typ := schema.TypeDefs[name]
+			if typ == nil {
+				return nil, nil
 			}
-		}
-		states[name] = stateDone
+			baseType, _, err := baseTypeFor(schema, typ)
+			if err != nil {
+				return nil, fmt.Errorf("type %s: %w", name, err)
+			}
+			if baseType == nil {
+				return nil, nil
+			}
+			baseName := baseType.Name()
+			if baseName.IsZero() || baseName.Namespace == model.XSDNamespace {
+				return nil, nil
+			}
+			return []model.QName{baseName}, nil
+		},
+	})
+	if err == nil {
 		return nil
 	}
-
-	for _, decl := range schema.GlobalDecls {
-		if decl.Kind != parser.GlobalDeclType {
-			continue
-		}
-		typ := schema.TypeDefs[decl.Name]
-		if typ == nil {
-			return fmt.Errorf("missing global type %s", decl.Name)
-		}
-		if err := visit(decl.Name, typ); err != nil {
-			return err
-		}
+	var cycleErr graphcycle.CycleError[model.QName]
+	if errors.As(err, &cycleErr) {
+		return fmt.Errorf("type cycle detected at %s", cycleErr.Key)
 	}
-	return nil
+	var missingErr graphcycle.MissingError[model.QName]
+	if errors.As(err, &missingErr) {
+		return fmt.Errorf("missing global type %s", missingErr.Key)
+	}
+	return err
 }
