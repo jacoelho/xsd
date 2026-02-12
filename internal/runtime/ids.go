@@ -1,37 +1,37 @@
 package runtime
 
-// SymbolID defines an exported type.
+// SymbolID identifies an interned symbol in Schema.Symbols.
 type SymbolID uint32
 
-// NamespaceID defines an exported type.
+// NamespaceID identifies an interned namespace URI in Schema.Namespaces.
 type NamespaceID uint32
 
-// TypeID defines an exported type.
+// TypeID identifies an entry in Schema.Types.
 type TypeID uint32
 
-// ElemID defines an exported type.
+// ElemID identifies an entry in Schema.Elements.
 type ElemID uint32
 
-// AttrID defines an exported type.
+// AttrID identifies an entry in Schema.Attributes.
 type AttrID uint32
 
-// ModelID defines an exported type.
+// ModelID identifies a compiled content-model entry.
 type ModelID uint32
 
-// WildcardID defines an exported type.
+// WildcardID identifies an entry in Schema.Wildcards.
 type WildcardID uint32
 
-// ICID defines an exported type.
+// ICID identifies an identity-constraint program entry.
 type ICID uint32
 
-// PathID defines an exported type.
+// PathID identifies a compiled selector/field path program.
 type PathID uint32
 
-// ValidatorID defines an exported type.
+// ValidatorID identifies a compiled value validator.
 type ValidatorID uint32
 
-// PatternID defines an exported type.
+// PatternID identifies a compiled regular expression.
 type PatternID uint32
 
-// EnumID defines an exported type.
+// EnumID identifies an enumeration table entry.
 type EnumID uint32

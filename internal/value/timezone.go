@@ -4,9 +4,7 @@ package value
 type TimezoneKind uint8
 
 const (
-	// TZNone is an exported constant.
 	TZNone TimezoneKind = iota
-	// TZKnown is an exported constant.
 	TZKnown
 )
 

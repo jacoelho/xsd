@@ -1,6 +1,6 @@
 package validator
 
-// SessionBuffers defines an exported type.
+// SessionBuffers owns reusable scratch buffers for value and text processing.
 type SessionBuffers struct {
 	normBuf      []byte
 	valueBuf     []byte

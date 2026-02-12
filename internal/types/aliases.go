@@ -12,88 +12,51 @@ type NamespaceURI = model.NamespaceURI
 type TypeName = model.TypeName
 
 const (
-	// XSDNamespace is an exported constant.
-	XSDNamespace = model.XSDNamespace
-	// XMLNamespace is an exported constant.
-	XMLNamespace = model.XMLNamespace
-	// NamespaceEmpty is an exported constant.
+	XSDNamespace   = model.XSDNamespace
+	XMLNamespace   = model.XMLNamespace
 	NamespaceEmpty = model.NamespaceEmpty
 
-	// DerivationExtension is an exported constant.
-	DerivationExtension = model.DerivationExtension
-	// DerivationRestriction is an exported constant.
-	DerivationRestriction = model.DerivationRestriction
-	// DerivationSubstitution is an exported constant.
+	DerivationExtension    = model.DerivationExtension
+	DerivationRestriction  = model.DerivationRestriction
 	DerivationSubstitution = model.DerivationSubstitution
-	// DerivationList is an exported constant.
-	DerivationList = model.DerivationList
-	// DerivationUnion is an exported constant.
-	DerivationUnion = model.DerivationUnion
+	DerivationList         = model.DerivationList
+	DerivationUnion        = model.DerivationUnion
 
-	// TypeNameAnyType is an exported constant.
-	TypeNameAnyType = model.TypeNameAnyType
-	// TypeNameAnySimpleType is an exported constant.
+	TypeNameAnyType       = model.TypeNameAnyType
 	TypeNameAnySimpleType = model.TypeNameAnySimpleType
-	// TypeNameString is an exported constant.
-	TypeNameString = model.TypeNameString
-	// TypeNameQName is an exported constant.
-	TypeNameQName = model.TypeNameQName
-	// TypeNameNOTATION is an exported constant.
-	TypeNameNOTATION = model.TypeNameNOTATION
+	TypeNameString        = model.TypeNameString
+	TypeNameQName         = model.TypeNameQName
+	TypeNameNOTATION      = model.TypeNameNOTATION
 
-	// WhiteSpacePreserve is an exported constant.
 	WhiteSpacePreserve = model.WhiteSpacePreserve
-	// WhiteSpaceReplace is an exported constant.
-	WhiteSpaceReplace = model.WhiteSpaceReplace
-	// WhiteSpaceCollapse is an exported constant.
+	WhiteSpaceReplace  = model.WhiteSpaceReplace
 	WhiteSpaceCollapse = model.WhiteSpaceCollapse
 
-	// AtomicVariety is an exported constant.
 	AtomicVariety = model.AtomicVariety
-	// ListVariety is an exported constant.
-	ListVariety = model.ListVariety
-	// UnionVariety is an exported constant.
-	UnionVariety = model.UnionVariety
+	ListVariety   = model.ListVariety
+	UnionVariety  = model.UnionVariety
 
-	// Optional is an exported constant.
-	Optional = model.Optional
-	// Required is an exported constant.
-	Required = model.Required
-	// Prohibited is an exported constant.
+	Optional   = model.Optional
+	Required   = model.Required
 	Prohibited = model.Prohibited
 
-	// Strict is an exported constant.
 	Strict = model.Strict
-	// Lax is an exported constant.
-	Lax = model.Lax
-	// Skip is an exported constant.
-	Skip = model.Skip
+	Lax    = model.Lax
+	Skip   = model.Skip
 
-	// NSCAny is an exported constant.
-	NSCAny = model.NSCAny
-	// NSCOther is an exported constant.
-	NSCOther = model.NSCOther
-	// NSCTargetNamespace is an exported constant.
+	NSCAny             = model.NSCAny
+	NSCOther           = model.NSCOther
 	NSCTargetNamespace = model.NSCTargetNamespace
-	// NSCLocal is an exported constant.
-	NSCLocal = model.NSCLocal
-	// NSCList is an exported constant.
-	NSCList = model.NSCList
-	// NSCNotAbsent is an exported constant.
-	NSCNotAbsent = model.NSCNotAbsent
+	NSCLocal           = model.NSCLocal
+	NSCList            = model.NSCList
+	NSCNotAbsent       = model.NSCNotAbsent
 
-	// Sequence is an exported constant.
 	Sequence = model.Sequence
-	// Choice is an exported constant.
-	Choice = model.Choice
-	// AllGroup is an exported constant.
+	Choice   = model.Choice
 	AllGroup = model.AllGroup
 
-	// UniqueConstraint is an exported constant.
 	UniqueConstraint = model.UniqueConstraint
-	// KeyConstraint is an exported constant.
-	KeyConstraint = model.KeyConstraint
-	// KeyRefConstraint is an exported constant.
+	KeyConstraint    = model.KeyConstraint
 	KeyRefConstraint = model.KeyRefConstraint
 )
 
@@ -202,70 +165,69 @@ type DerivationMethod = model.DerivationMethod
 // DerivationSet is an alias of model.DerivationSet.
 type DerivationSet = model.DerivationSet
 
-// AsSimpleType is an exported function.
+// AsSimpleType returns simple type when the type assertion succeeds.
 func AsSimpleType(t Type) (*SimpleType, bool) {
 	return model.AsSimpleType(t)
 }
 
-// AsComplexType is an exported function.
+// AsComplexType returns complex type when the type assertion succeeds.
 func AsComplexType(t Type) (*ComplexType, bool) {
 	return model.AsComplexType(t)
 }
 
-// AsBuiltinType is an exported function.
+// AsBuiltinType returns builtin type when the type assertion succeeds.
 func AsBuiltinType(t Type) (*BuiltinType, bool) {
 	return model.AsBuiltinType(t)
 }
 
-// AsDerivedType is an exported function.
+// AsDerivedType returns derived type when the type assertion succeeds.
 func AsDerivedType(t Type) (DerivedType, bool) {
 	return model.AsDerivedType(t)
 }
 
-// NewComplexType is an exported function.
+// NewComplexType constructs a complex type.
 func NewComplexType(name QName, sourceNamespace NamespaceURI) *ComplexType {
 	return model.NewComplexType(name, sourceNamespace)
 }
 
-// IsAnyTypeQName is an exported function.
+// IsAnyTypeQName reports whether qname is xs:anyType.
 func IsAnyTypeQName(qname QName) bool {
 	return model.IsAnyTypeQName(qname)
 }
 
-// IsDerivedFrom is an exported function.
+// IsDerivedFrom reports whether derived is in the derivation chain of base.
 func IsDerivedFrom(derived, base Type) bool {
 	return model.IsDerivedFrom(derived, base)
 }
 
-// IsValidlyDerivedFrom is an exported function.
+// IsValidlyDerivedFrom reports whether derived is validly derived from base.
 func IsValidlyDerivedFrom(derived, base Type) bool {
 	return model.IsValidlyDerivedFrom(derived, base)
 }
 
-// ListItemType is an exported function.
+// ListItemType returns the member type for list simple types.
 func ListItemType(typ Type) (Type, bool) {
 	return model.ListItemType(typ)
 }
 
-// NormalizeTypeValue is an exported function.
+// NormalizeTypeValue applies whitespace normalization and type-specific value normalization.
 func NormalizeTypeValue(lexical string, typ Type) (string, error) {
 	return model.NormalizeTypeValue(lexical, typ)
 }
 
-// NormalizeWhiteSpace is an exported function.
+// NormalizeWhiteSpace applies XML Schema whitespace normalization for typ.
 func NormalizeWhiteSpace(lexical string, typ Type) string {
 	return model.NormalizeWhiteSpace(lexical, typ)
 }
 
-// NewPlaceholderSimpleType is an exported function.
+// NewPlaceholderSimpleType constructs a placeholder simple type.
 func NewPlaceholderSimpleType(name QName) *SimpleType {
 	return model.NewPlaceholderSimpleType(name)
 }
 
-// IsPlaceholderSimpleType is an exported function.
+// IsPlaceholderSimpleType reports whether simpleType is a placeholder forward reference.
 func IsPlaceholderSimpleType(simpleType *SimpleType) bool {
 	return model.IsPlaceholderSimpleType(simpleType)
 }
 
-// NamespaceTargetPlaceholder is an exported constant.
 const NamespaceTargetPlaceholder = model.NamespaceTargetPlaceholder

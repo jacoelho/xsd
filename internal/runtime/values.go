@@ -2,7 +2,7 @@ package runtime
 
 import "regexp"
 
-// ValueRef defines an exported type.
+// ValueRef references value ref data in packed tables.
 type ValueRef struct {
 	Off     uint32
 	Len     uint32
@@ -10,18 +10,18 @@ type ValueRef struct {
 	Present bool
 }
 
-// ValueBlob defines an exported type.
+// ValueBlob stores canonical lexical bytes used by defaults/fixed/enums.
 type ValueBlob struct {
 	Blob []byte
 }
 
-// Pattern defines an exported type.
+// Pattern stores one compiled regex plus its original source.
 type Pattern struct {
 	Re     *regexp.Regexp
 	Source []byte
 }
 
-// EnumTable defines an exported type.
+// EnumTable stores packed enumeration keys and hash indexes.
 type EnumTable struct {
 	Off []uint32
 	Len []uint32

@@ -2,7 +2,7 @@ package runtime
 
 import "bytes"
 
-// NamespaceTable defines an exported type.
+// NamespaceTable stores interned namespace URIs and their hash index.
 type NamespaceTable struct {
 	Blob  []byte
 	Off   []uint32
@@ -10,13 +10,13 @@ type NamespaceTable struct {
 	Index NamespaceIndex
 }
 
-// NamespaceIndex defines an exported type.
+// NamespaceIndex is the open-addressing hash index for NamespaceTable.
 type NamespaceIndex struct {
 	Hash []uint64
 	ID   []NamespaceID
 }
 
-// Count is an exported function.
+// Count returns the number of stored entries.
 func (t *NamespaceTable) Count() int {
 	if len(t.Off) == 0 {
 		return 0
@@ -24,7 +24,7 @@ func (t *NamespaceTable) Count() int {
 	return len(t.Off) - 1
 }
 
-// Bytes is an exported function.
+// Bytes returns the raw bytes for the referenced entry.
 func (t *NamespaceTable) Bytes(id NamespaceID) []byte {
 	if id == 0 || int(id) >= len(t.Off) {
 		return nil
@@ -37,7 +37,7 @@ func (t *NamespaceTable) Bytes(id NamespaceID) []byte {
 	return t.Blob[off : off+ln]
 }
 
-// Lookup is an exported function.
+// Lookup resolves a value to its interned identifier.
 func (t *NamespaceTable) Lookup(ns []byte) NamespaceID {
 	if len(t.Index.ID) == 0 {
 		return 0
@@ -74,7 +74,7 @@ func (t *NamespaceTable) equalNamespace(id NamespaceID, ns []byte) bool {
 	return bytes.Equal(t.Blob[int(off):int(end)], ns)
 }
 
-// SymbolsTable defines an exported type.
+// SymbolsTable stores interned symbols and their hash index.
 type SymbolsTable struct {
 	NS        []NamespaceID
 	LocalOff  []uint32
@@ -84,13 +84,13 @@ type SymbolsTable struct {
 	Index SymbolsIndex
 }
 
-// SymbolsIndex defines an exported type.
+// SymbolsIndex is the open-addressing hash index for SymbolsTable.
 type SymbolsIndex struct {
 	Hash []uint64
 	ID   []SymbolID
 }
 
-// Count is an exported function.
+// Count returns the number of stored entries.
 func (t *SymbolsTable) Count() int {
 	if len(t.NS) == 0 {
 		return 0
@@ -98,7 +98,7 @@ func (t *SymbolsTable) Count() int {
 	return len(t.NS) - 1
 }
 
-// LocalBytes is an exported function.
+// LocalBytes returns the local-name bytes for the symbol.
 func (t *SymbolsTable) LocalBytes(id SymbolID) []byte {
 	if id == 0 || int(id) >= len(t.LocalOff) {
 		return nil
@@ -111,7 +111,7 @@ func (t *SymbolsTable) LocalBytes(id SymbolID) []byte {
 	return t.LocalBlob[off : off+ln]
 }
 
-// Lookup is an exported function.
+// Lookup resolves a value to its interned identifier.
 func (t *SymbolsTable) Lookup(nsID NamespaceID, local []byte) SymbolID {
 	if len(t.Index.ID) == 0 {
 		return 0

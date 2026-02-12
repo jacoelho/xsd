@@ -81,7 +81,7 @@ func parseQName(value []byte) ([]byte, []byte, bool, error) {
 	return value[:colon], value[colon+1:], true, nil
 }
 
-// ValidateQName is an exported variable.
+// ValidateQName validates xs:QName lexical constraints.
 var ValidateQName = validateQName
 
 func validateQName(value []byte) error {

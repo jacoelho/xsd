@@ -12,13 +12,9 @@ import (
 type FloatClass uint8
 
 const (
-	// FloatFinite is an exported constant.
 	FloatFinite FloatClass = iota
-	// FloatPosInf is an exported constant.
 	FloatPosInf
-	// FloatNegInf is an exported constant.
 	FloatNegInf
-	// FloatNaN is an exported constant.
 	FloatNaN
 )
 

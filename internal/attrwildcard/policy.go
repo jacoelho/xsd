@@ -9,21 +9,21 @@ import (
 )
 
 var (
-	// ErrIntersectionNotExpressible is an exported variable.
+	// ErrIntersectionNotExpressible is returned when wildcard intersection cannot be expressed in XSD.
 	ErrIntersectionNotExpressible = errors.New("attribute wildcard intersection not expressible")
-	// ErrIntersectionEmpty is an exported variable.
+	// ErrIntersectionEmpty is returned when wildcard intersection yields an empty set.
 	ErrIntersectionEmpty = errors.New("attribute wildcard intersection empty")
-	// ErrUnionNotExpressible is an exported variable.
+	// ErrUnionNotExpressible is returned when wildcard union cannot be expressed in XSD.
 	ErrUnionNotExpressible = errors.New("attribute wildcard union not expressible")
-	// ErrRestrictionAddsWildcard is an exported variable.
+	// ErrRestrictionAddsWildcard is returned when a restriction introduces a wildcard where none existed.
 	ErrRestrictionAddsWildcard = errors.New("attribute wildcard restriction adds wildcard")
-	// ErrRestrictionNotExpressible is an exported variable.
+	// ErrRestrictionNotExpressible is returned when derived wildcard constraints are not a valid restriction.
 	ErrRestrictionNotExpressible = errors.New("attribute wildcard restriction not expressible")
-	// ErrRestrictionEmpty is an exported variable.
+	// ErrRestrictionEmpty is returned when restriction collapses to an empty wildcard.
 	ErrRestrictionEmpty = errors.New("attribute wildcard restriction empty")
 )
 
-// CollectOptions defines an exported type.
+// CollectOptions controls attribute-group traversal and empty-intersection handling.
 type CollectOptions struct {
 	Missing      attrgroupwalk.MissingPolicy
 	Cycles       attrgroupwalk.CyclePolicy

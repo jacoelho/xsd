@@ -5,23 +5,19 @@ import (
 	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
-// Kind defines an exported type.
+// Kind enumerates kind values.
 type Kind int
 
 const (
-	// MergeInclude is an exported constant.
 	MergeInclude Kind = iota
-	// MergeImport is an exported constant.
 	MergeImport
 )
 
-// NamespaceRemapMode defines an exported type.
+// NamespaceRemapMode enumerates namespace remap mode values.
 type NamespaceRemapMode int
 
 const (
-	// RemapNamespace is an exported constant.
 	RemapNamespace NamespaceRemapMode = iota
-	// KeepNamespace is an exported constant.
 	KeepNamespace
 )
 
@@ -44,7 +40,7 @@ type SchemaMerger interface {
 	Merge(target, source *parser.Schema, kind Kind, remap NamespaceRemapMode, insertAt int) error
 }
 
-// DefaultMerger defines an exported type.
+// DefaultMerger applies include/import merge semantics over parsed schemas.
 type DefaultMerger struct{}
 
 func newMergeContext(target, source *parser.Schema, kind Kind, remap NamespaceRemapMode) mergeContext {

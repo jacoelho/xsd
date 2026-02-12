@@ -15,41 +15,41 @@ func parseFromBytes[T any](parse func([]byte) (T, error)) func(string) (T, error
 }
 
 var (
-	// ParseDecimal is an exported variable.
+	// ParseDecimal parses xs:decimal lexical values.
 	ParseDecimal = parseFromBytes(value.ParseDecimal)
-	// ParseInteger is an exported variable.
+	// ParseInteger parses xs:integer lexical values.
 	ParseInteger = parseFromBytes(value.ParseInteger)
-	// ParseBoolean is an exported variable.
+	// ParseBoolean parses xs:boolean lexical values.
 	ParseBoolean = parseFromBytes(value.ParseBoolean)
-	// ParseFloat is an exported variable.
+	// ParseFloat parses xs:float lexical values.
 	ParseFloat = parseFromBytes(value.ParseFloat)
-	// ParseDouble is an exported variable.
+	// ParseDouble parses xs:double lexical values.
 	ParseDouble = parseFromBytes(value.ParseDouble)
-	// ParseDateTime is an exported variable.
+	// ParseDateTime parses xs:dateTime lexical values.
 	ParseDateTime = parseFromBytes(value.ParseDateTime)
-	// ParseLong is an exported variable.
+	// ParseLong parses xs:long lexical values.
 	ParseLong = parseFromBytes(value.ParseLong)
-	// ParseInt is an exported variable.
+	// ParseInt parses xs:int lexical values.
 	ParseInt = parseFromBytes(value.ParseInt)
-	// ParseShort is an exported variable.
+	// ParseShort parses xs:short lexical values.
 	ParseShort = parseFromBytes(value.ParseShort)
-	// ParseByte is an exported variable.
+	// ParseByte parses xs:byte lexical values.
 	ParseByte = parseFromBytes(value.ParseByte)
-	// ParseUnsignedLong is an exported variable.
+	// ParseUnsignedLong parses xs:unsignedLong lexical values.
 	ParseUnsignedLong = parseFromBytes(value.ParseUnsignedLong)
-	// ParseUnsignedInt is an exported variable.
+	// ParseUnsignedInt parses xs:unsignedInt lexical values.
 	ParseUnsignedInt = parseFromBytes(value.ParseUnsignedInt)
-	// ParseUnsignedShort is an exported variable.
+	// ParseUnsignedShort parses xs:unsignedShort lexical values.
 	ParseUnsignedShort = parseFromBytes(value.ParseUnsignedShort)
-	// ParseUnsignedByte is an exported variable.
+	// ParseUnsignedByte parses xs:unsignedByte lexical values.
 	ParseUnsignedByte = parseFromBytes(value.ParseUnsignedByte)
-	// ParseHexBinary is an exported variable.
+	// ParseHexBinary parses xs:hexBinary lexical values.
 	ParseHexBinary = parseFromBytes(value.ParseHexBinary)
-	// ParseBase64Binary is an exported variable.
+	// ParseBase64Binary parses xs:base64Binary lexical values.
 	ParseBase64Binary = parseFromBytes(value.ParseBase64Binary)
-	// ParseAnyURI is an exported variable.
+	// ParseAnyURI parses xs:anyURI lexical values.
 	ParseAnyURI = parseFromBytes(value.ParseAnyURI)
-	// ParseString is an exported variable.
+	// ParseString returns the lexical string unchanged.
 	ParseString = func(lexical string) (string, error) {
 		return lexical, nil
 	}

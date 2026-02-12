@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-// StartElement is an exported function.
+// StartElement validates one start-element event and returns resolved runtime metadata.
 func (s *Session) StartElement(match StartMatch, sym runtime.SymbolID, nsID runtime.NamespaceID, nsBytes []byte, attrs []StartAttr, resolver value.NSResolver) (StartResult, error) {
 	if s == nil || s.rt == nil {
 		return StartResult{}, newValidationError(xsderrors.ErrSchemaNotLoaded, "schema not loaded")

@@ -2,33 +2,26 @@ package occurspolicy
 
 import "github.com/jacoelho/xsd/internal/occurs"
 
-// BoundsIssue defines an exported type.
+// BoundsIssue enumerates bounds issue values.
 type BoundsIssue uint8
 
 const (
-	// BoundsOK is an exported constant.
 	BoundsOK BoundsIssue = iota
-	// BoundsOverflow is an exported constant.
 	BoundsOverflow
-	// BoundsMaxZeroWithMinNonZero is an exported constant.
 	BoundsMaxZeroWithMinNonZero
-	// BoundsMinGreaterThanMax is an exported constant.
 	BoundsMinGreaterThanMax
 )
 
-// AllGroupIssue defines an exported type.
+// AllGroupIssue enumerates all group issue values.
 type AllGroupIssue uint8
 
 const (
-	// AllGroupOK is an exported constant.
 	AllGroupOK AllGroupIssue = iota
-	// AllGroupMinNotZeroOrOne is an exported constant.
 	AllGroupMinNotZeroOrOne
-	// AllGroupMaxNotOne is an exported constant.
 	AllGroupMaxNotOne
 )
 
-// CheckBounds is an exported function.
+// CheckBounds validates general minOccurs/maxOccurs consistency.
 func CheckBounds(minOccurs, maxOccurs occurs.Occurs) BoundsIssue {
 	if maxOccurs.IsOverflow() || minOccurs.IsOverflow() {
 		return BoundsOverflow
@@ -42,7 +35,7 @@ func CheckBounds(minOccurs, maxOccurs occurs.Occurs) BoundsIssue {
 	return BoundsOK
 }
 
-// CheckAllGroupBounds is an exported function.
+// CheckAllGroupBounds validates minOccurs/maxOccurs constraints for xs:all particles.
 func CheckAllGroupBounds(minOccurs, maxOccurs occurs.Occurs) AllGroupIssue {
 	if !minOccurs.IsZero() && !minOccurs.IsOne() {
 		return AllGroupMinNotZeroOrOne
@@ -53,7 +46,7 @@ func CheckAllGroupBounds(minOccurs, maxOccurs occurs.Occurs) AllGroupIssue {
 	return AllGroupOK
 }
 
-// IsAllGroupChildMaxValid is an exported function.
+// IsAllGroupChildMaxValid reports whether an xs:all child maxOccurs is within the XSD 1.0 limit.
 func IsAllGroupChildMaxValid(maxOccurs occurs.Occurs) bool {
 	return maxOccurs.CmpInt(1) <= 0
 }

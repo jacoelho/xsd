@@ -1,42 +1,33 @@
 package runtime
 
-// ContentKind defines an exported type.
+// ContentKind enumerates content kind values.
 type ContentKind uint8
 
 const (
-	// ContentEmpty is an exported constant.
 	ContentEmpty ContentKind = iota
-	// ContentSimple is an exported constant.
 	ContentSimple
-	// ContentMixed is an exported constant.
 	ContentMixed
-	// ContentElementOnly is an exported constant.
 	ContentElementOnly
-	// ContentAll is an exported constant.
 	ContentAll
 )
 
-// ModelRef defines an exported type.
+// ModelRef references model ref data in packed tables.
 type ModelRef struct {
 	Kind ModelKind
 	ID   uint32
 }
 
-// ModelKind defines an exported type.
+// ModelKind enumerates model kind values.
 type ModelKind uint8
 
 const (
-	// ModelNone is an exported constant.
 	ModelNone ModelKind = iota
-	// ModelDFA is an exported constant.
 	ModelDFA
-	// ModelNFA is an exported constant.
 	ModelNFA
-	// ModelAll is an exported constant.
 	ModelAll
 )
 
-// ModelsBundle defines an exported type.
+// ModelsBundle groups all compiled content-model tables.
 type ModelsBundle struct {
 	DFA      []DFAModel
 	NFA      []NFAModel
@@ -44,7 +35,7 @@ type ModelsBundle struct {
 	AllSubst []ElemID
 }
 
-// DFAModel defines an exported type.
+// DFAModel stores a deterministic content model.
 type DFAModel struct {
 	States      []DFAState
 	Transitions []DFATransition
@@ -52,7 +43,7 @@ type DFAModel struct {
 	Start       uint32
 }
 
-// DFAState defines an exported type.
+// DFAState stores one DFA state and its transition spans.
 type DFAState struct {
 	Accept   bool
 	TransOff uint32
@@ -61,27 +52,27 @@ type DFAState struct {
 	WildLen  uint32
 }
 
-// DFATransition defines an exported type.
+// DFATransition stores one symbol-driven DFA edge.
 type DFATransition struct {
 	Sym  SymbolID
 	Next uint32
 	Elem ElemID
 }
 
-// DFAWildcardEdge defines an exported type.
+// DFAWildcardEdge stores one wildcard DFA edge.
 type DFAWildcardEdge struct {
 	Rule WildcardID
 	Next uint32
 }
 
-// AllModel defines an exported type.
+// AllModel stores the flattened representation of an xs:all model group.
 type AllModel struct {
 	Members   []AllMember
 	MinOccurs uint32
 	Mixed     bool
 }
 
-// AllMember defines an exported type.
+// AllMember stores one member constraint in an xs:all model.
 type AllMember struct {
 	Elem        ElemID
 	Optional    bool
@@ -90,28 +81,26 @@ type AllMember struct {
 	SubstLen    uint32
 }
 
-// BitsetRef defines an exported type.
+// BitsetRef references bitset ref data in packed tables.
 type BitsetRef struct {
 	Off uint32
 	Len uint32
 }
 
-// BitsetBlob defines an exported type.
+// BitsetBlob stores packed NFA bitset words.
 type BitsetBlob struct {
 	Words []uint64
 }
 
-// PosMatchKind defines an exported type.
+// PosMatchKind enumerates pos match kind values.
 type PosMatchKind uint8
 
 const (
-	// PosExact is an exported constant.
 	PosExact PosMatchKind = iota
-	// PosWildcard is an exported constant.
 	PosWildcard
 )
 
-// PosMatcher defines an exported type.
+// PosMatcher describes one position matcher in the Glushkov/NFA model.
 type PosMatcher struct {
 	Kind PosMatchKind
 	Sym  SymbolID
@@ -119,7 +108,7 @@ type PosMatcher struct {
 	Rule WildcardID
 }
 
-// NFAModel defines an exported type.
+// NFAModel stores a nondeterministic content model.
 type NFAModel struct {
 	Bitsets   BitsetBlob
 	Matchers  []PosMatcher

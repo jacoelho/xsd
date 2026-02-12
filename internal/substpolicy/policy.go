@@ -5,10 +5,10 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 )
 
-// DerivationStepFunc defines an exported type.
+// DerivationStepFunc returns the next base type and derivation method in a derivation chain.
 type DerivationStepFunc func(model.Type) (model.Type, model.DerivationMethod, error)
 
-// TypeQNameResolver defines an exported type.
+// TypeQNameResolver resolves a type QName into a type declaration.
 type TypeQNameResolver func(model.QName) (model.Type, error)
 
 // NextDerivationStep returns the next base type and derivation method for one step.

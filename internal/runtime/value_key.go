@@ -6,27 +6,16 @@ import "encoding/binary"
 type ValueKind uint8
 
 const (
-	// VKInvalid is an exported constant.
 	VKInvalid ValueKind = iota
-	// VKBool is an exported constant.
 	VKBool
-	// VKDecimal is an exported constant.
 	VKDecimal
-	// VKFloat32 is an exported constant.
 	VKFloat32
-	// VKFloat64 is an exported constant.
 	VKFloat64
-	// VKString is an exported constant.
 	VKString
-	// VKBinary is an exported constant.
 	VKBinary
-	// VKQName is an exported constant.
 	VKQName
-	// VKDateTime is an exported constant.
 	VKDateTime
-	// VKDuration is an exported constant.
 	VKDuration
-	// VKList is an exported constant.
 	VKList
 )
 

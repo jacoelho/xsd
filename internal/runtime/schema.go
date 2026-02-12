@@ -1,6 +1,6 @@
 package runtime
 
-// Schema defines an exported type.
+// Schema is the immutable runtime representation used by validation sessions.
 type Schema struct {
 	Symbols    SymbolsTable
 	Namespaces NamespaceTable
@@ -42,13 +42,13 @@ type Schema struct {
 	BuildHash uint64
 }
 
-// BuiltinIDs defines an exported type.
+// BuiltinIDs caches frequently accessed built-in type IDs.
 type BuiltinIDs struct {
 	AnyType       TypeID
 	AnySimpleType TypeID
 }
 
-// PredefinedSymbols defines an exported type.
+// PredefinedSymbols caches interned symbols for XML and xsi attributes.
 type PredefinedSymbols struct {
 	XsiType                      SymbolID
 	XsiNil                       SymbolID
@@ -59,19 +59,17 @@ type PredefinedSymbols struct {
 	XMLSpace SymbolID
 }
 
-// PredefinedNamespaces defines an exported type.
+// PredefinedNamespaces caches interned namespace IDs for XML/xsi/empty namespaces.
 type PredefinedNamespaces struct {
 	Xsi   NamespaceID
 	XML   NamespaceID
 	Empty NamespaceID
 }
 
-// RootPolicy defines an exported type.
+// RootPolicy enumerates root policy values.
 type RootPolicy uint8
 
 const (
-	// RootStrict is an exported constant.
 	RootStrict RootPolicy = iota
-	// RootAny is an exported constant.
 	RootAny
 )

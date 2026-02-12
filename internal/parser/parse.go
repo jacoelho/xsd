@@ -60,9 +60,7 @@ type IncludeInfo struct {
 type DirectiveKind uint8
 
 const (
-	// DirectiveInclude is an exported constant.
 	DirectiveInclude DirectiveKind = iota
-	// DirectiveImport is an exported constant.
 	DirectiveImport
 )
 

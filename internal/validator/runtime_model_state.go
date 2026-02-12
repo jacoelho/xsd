@@ -16,7 +16,7 @@ type ModelState struct {
 	Kind       runtime.ModelKind
 }
 
-// InitModelState is an exported function.
+// InitModelState allocates and initializes model state for a compiled model reference.
 func (s *Session) InitModelState(ref runtime.ModelRef) (ModelState, error) {
 	if s == nil || s.rt == nil {
 		return ModelState{}, fmt.Errorf("session missing runtime schema")

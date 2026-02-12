@@ -6,13 +6,13 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
-// Row defines an exported type.
+// Row stores a hashed identity-constraint row.
 type Row struct {
 	Values []runtime.ValueKey
 	Hash   uint64
 }
 
-// Constraint defines an exported type.
+// Constraint groups rows for one key/unique/keyref constraint.
 type Constraint struct {
 	Rows       []Row
 	Keyrefs    []Row
@@ -21,19 +21,16 @@ type Constraint struct {
 	Category   runtime.ICCategory
 }
 
-// IssueKind defines an exported type.
+// IssueKind enumerates issue kind values.
 type IssueKind uint8
 
 const (
-	// IssueDuplicate is an exported constant.
 	IssueDuplicate IssueKind = iota
-	// IssueKeyrefMissing is an exported constant.
 	IssueKeyrefMissing
-	// IssueKeyrefUndefined is an exported constant.
 	IssueKeyrefUndefined
 )
 
-// Issue defines an exported type.
+// Issue describes one identity-constraint violation.
 type Issue struct {
 	Kind       IssueKind
 	Category   runtime.ICCategory
@@ -42,14 +39,14 @@ type Issue struct {
 	Row        int
 }
 
-// Table defines an exported type.
+// Table is a hash table used for key/unique row lookups.
 type Table struct {
 	hashes []uint64
 	slots  []uint32
 	rows   []Row
 }
 
-// Resolve is an exported function.
+// Resolve evaluates key, unique, and keyref constraints and returns violations.
 func Resolve(constraints []Constraint) []Issue {
 	if len(constraints) == 0 {
 		return nil
@@ -115,7 +112,7 @@ func Resolve(constraints []Constraint) []Issue {
 	return issues
 }
 
-// HashRow is an exported function.
+// HashRow computes a stable hash for a row of value keys.
 func HashRow(values []runtime.ValueKey) uint64 {
 	h := uint64(runtime.FNVOffset64)
 	for _, value := range values {
@@ -140,7 +137,7 @@ func HashRow(values []runtime.ValueKey) uint64 {
 	return h
 }
 
-// BuildTable is an exported function.
+// BuildTable builds a lookup table and returns indices of duplicate rows.
 func BuildTable(rows []Row) (*Table, []int) {
 	if len(rows) == 0 {
 		return nil, nil
@@ -180,7 +177,7 @@ func BuildTable(rows []Row) (*Table, []int) {
 	return table, dupes
 }
 
-// Contains is an exported function.
+// Contains reports whether row exists in the lookup table.
 func (t *Table) Contains(row Row) bool {
 	if t == nil || len(t.slots) == 0 {
 		return false

@@ -1,6 +1,6 @@
 package validator
 
-// ResetText is an exported function.
+// ResetText resets text capture offsets for a new element scope.
 func (s *Session) ResetText(state *TextState) {
 	if s == nil || state == nil {
 		return
@@ -11,7 +11,7 @@ func (s *Session) ResetText(state *TextState) {
 	state.HasNonWS = false
 }
 
-// TextSlice is an exported function.
+// TextSlice returns the captured text slice for state.
 func (s *Session) TextSlice(state TextState) []byte {
 	if s == nil {
 		return nil

@@ -9,7 +9,7 @@ import (
 	qnameorder "github.com/jacoelho/xsd/internal/qname"
 )
 
-// CloneSchemaForMerge is an exported function.
+// CloneSchemaForMerge returns a deep copy of schema for merge.
 func CloneSchemaForMerge(sch *parser.Schema) *parser.Schema {
 	// include/import merging runs during schema compilation only, so a full
 	// defensive clone is preferred over aliasing mutable maps across documents.

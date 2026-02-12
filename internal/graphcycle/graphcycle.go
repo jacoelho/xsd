@@ -7,13 +7,11 @@ const (
 	stateDone
 )
 
-// MissingPolicy defines an exported type.
+// MissingPolicy controls behavior when a referenced node is missing.
 type MissingPolicy uint8
 
 const (
-	// MissingPolicyIgnore is an exported constant.
 	MissingPolicyIgnore MissingPolicy = iota
-	// MissingPolicyError is an exported constant.
 	MissingPolicyError
 )
 
@@ -22,7 +20,7 @@ type CycleError[K comparable] struct {
 	Key K
 }
 
-// Error is an exported function.
+// Error returns the error string.
 func (e CycleError[K]) Error() string {
 	return "cycle detected"
 }
@@ -33,7 +31,7 @@ type MissingError[K comparable] struct {
 	Key  K
 }
 
-// Error is an exported function.
+// Error returns the error string.
 func (e MissingError[K]) Error() string {
 	return "missing node"
 }
