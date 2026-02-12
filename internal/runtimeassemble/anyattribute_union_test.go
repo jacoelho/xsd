@@ -1,23 +1,30 @@
 package runtimeassemble
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
 func TestAnyAttributeUnionNamespaceList(t *testing.T) {
-	path := filepath.Join("..", "..", "testdata", "xsdtests", "sunData", "combined", "008", "test.xsd")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			t.Skipf("schema fixture missing: %s", path)
-		}
-		t.Fatalf("read schema: %v", err)
-	}
-	parsed := mustResolveSchema(t, string(data))
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:foo"
+           xmlns:tns="urn:foo"
+           elementFormDefault="qualified">
+  <xs:complexType name="BaseType">
+    <xs:anyAttribute namespace="urn:a urn:b"/>
+  </xs:complexType>
+  <xs:complexType name="ExtensionType">
+    <xs:complexContent>
+      <xs:extension base="tns:BaseType">
+        <xs:anyAttribute namespace="urn:b urn:c"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="extension" type="tns:ExtensionType"/>
+</xs:schema>`
+	parsed := mustResolveSchema(t, schemaXML)
 	rt, err := buildSchemaForTest(parsed, BuildConfig{})
 	if err != nil {
 		t.Fatalf("build runtime: %v", err)
