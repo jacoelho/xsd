@@ -58,7 +58,7 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 	if len(pending) != 1 {
 		t.Fatalf("violations = %d, want 1", len(pending))
 	}
-	code, _, ok := validationErrorInfo(pending[0])
+	code, ok := validationErrorInfo(pending[0])
 	if !ok || code != xsderrors.ErrIdentityDuplicate {
 		t.Fatalf("expected %s, got %v", xsderrors.ErrIdentityDuplicate, pending[0])
 	}

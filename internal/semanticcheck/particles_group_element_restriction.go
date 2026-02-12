@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/occurs"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
 // validateModelGroupToElementRestriction validates ModelGroup:Element derivation.
@@ -18,7 +19,7 @@ func validateModelGroupToElementRestriction(schema *parser.Schema, baseMG *model
 		return false, nil
 	}
 
-	if err := validateOccurrenceConstraints(baseMG.MinOcc(), baseMG.MaxOcc(), model.OccursFromInt(1), model.OccursFromInt(1)); err != nil {
+	if err := validateOccurrenceConstraints(baseMG.MinOcc(), baseMG.MaxOcc(), occurs.OccursFromInt(1), occurs.OccursFromInt(1)); err != nil {
 		return false, err
 	}
 
@@ -131,19 +132,19 @@ func validateWildcardRestrictionWithGroupOccurrence(baseMG *model.ModelGroup, ba
 	return true, nil
 }
 
-func choiceChildOccurrenceRange(baseMG *model.ModelGroup, baseChildren []model.Particle, child model.Particle) (model.Occurs, model.Occurs) {
+func choiceChildOccurrenceRange(baseMG *model.ModelGroup, baseChildren []model.Particle, child model.Particle) (occurs.Occurs, occurs.Occurs) {
 	childMin := child.MinOcc()
 	childMax := child.MaxOcc()
 	groupMin := baseMG.MinOcc()
 	groupMax := baseMG.MaxOcc()
 
-	minOcc := model.OccursFromInt(0)
+	minOcc := occurs.OccursFromInt(0)
 	if len(baseChildren) == 1 {
-		minOcc = model.MulOccurs(groupMin, childMin)
+		minOcc = occurs.MulOccurs(groupMin, childMin)
 	}
 
 	if groupMax.IsUnbounded() || childMax.IsUnbounded() {
-		return minOcc, model.OccursUnbounded
+		return minOcc, occurs.OccursUnbounded
 	}
-	return minOcc, model.MulOccurs(groupMax, childMax)
+	return minOcc, occurs.MulOccurs(groupMax, childMax)
 }

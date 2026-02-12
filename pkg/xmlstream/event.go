@@ -14,11 +14,17 @@ type QName = qname.QName
 type EventKind int
 
 const (
+	// EventStartElement is an exported constant.
 	EventStartElement EventKind = iota
+	// EventEndElement is an exported constant.
 	EventEndElement
+	// EventCharData is an exported constant.
 	EventCharData
+	// EventComment is an exported constant.
 	EventComment
+	// EventPI is an exported constant.
 	EventPI
+	// EventDirective is an exported constant.
 	EventDirective
 )
 

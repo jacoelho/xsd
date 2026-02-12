@@ -3,8 +3,8 @@ package semanticresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 // validateParticleReferences validates references within particles.

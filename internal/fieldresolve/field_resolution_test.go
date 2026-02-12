@@ -7,7 +7,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/occurs"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
@@ -75,8 +76,8 @@ func TestResolveFieldTypeUnionComplexContent(t *testing.T) {
 	containerType := model.NewComplexType(model.QName{Namespace: "urn:field", Local: "containerType"}, "urn:field")
 	containerType.SetContent(&model.ElementContent{Particle: &model.ModelGroup{
 		Kind:      model.Sequence,
-		MinOccurs: model.OccursFromInt(1),
-		MaxOccurs: model.OccursFromInt(1),
+		MinOccurs: occurs.OccursFromInt(1),
+		MaxOccurs: occurs.OccursFromInt(1),
 		Particles: []model.Particle{simple, complexElem},
 	}})
 	container := &model.ElementDecl{

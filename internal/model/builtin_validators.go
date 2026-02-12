@@ -15,17 +15,17 @@ import (
 )
 
 // validateAnyType accepts any value (anyType is the base type for all types)
-func validateAnyType(lexical string) error {
+func validateAnyType(_ string) error {
 	return nil
 }
 
 // validateAnySimpleType accepts any simple type value (anySimpleType is the base of all simple types)
-func validateAnySimpleType(lexical string) error {
+func validateAnySimpleType(_ string) error {
 	return nil
 }
 
 // validateString accepts any string
-func validateString(lexical string) error {
+func validateString(_ string) error {
 	return nil
 }
 

@@ -4,8 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/occurspolicy"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/traversal"
 )
 
 // validateParticleStructure validates structural constraints of particles.
@@ -15,7 +17,7 @@ func validateParticleStructure(schema *parser.Schema, particle model.Particle) e
 }
 
 // validateParticleStructureWithVisited validates structural constraints with cycle detection
-func validateParticleStructureWithVisited(schema *parser.Schema, particle model.Particle, parentKind *model.GroupKind, visited modelGroupVisit) error {
+func validateParticleStructureWithVisited(schema *parser.Schema, particle model.Particle, parentKind *model.GroupKind, visited traversal.VisitTracker[*model.ModelGroup]) error {
 	if err := validateParticleOccurs(particle); err != nil {
 		return err
 	}
@@ -35,7 +37,7 @@ func validateParticleOccurs(particle model.Particle) error {
 	minOcc := particle.MinOcc()
 	switch occurspolicy.CheckBounds(minOcc, maxOcc) {
 	case occurspolicy.BoundsOverflow:
-		return fmt.Errorf("%w: occurrence value exceeds uint32", model.ErrOccursOverflow)
+		return fmt.Errorf("%w: occurrence value exceeds uint32", occurs.ErrOccursOverflow)
 	case occurspolicy.BoundsMaxZeroWithMinNonZero:
 		return fmt.Errorf("maxOccurs cannot be 0 when minOccurs > 0")
 	case occurspolicy.BoundsMinGreaterThanMax:
@@ -44,7 +46,7 @@ func validateParticleOccurs(particle model.Particle) error {
 	return nil
 }
 
-func validateModelGroupStructure(schema *parser.Schema, group *model.ModelGroup, parentKind *model.GroupKind, visited modelGroupVisit) error {
+func validateModelGroupStructure(schema *parser.Schema, group *model.ModelGroup, parentKind *model.GroupKind, visited traversal.VisitTracker[*model.ModelGroup]) error {
 	if !visited.Enter(group) {
 		return nil
 	}

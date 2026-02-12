@@ -1,8 +1,8 @@
 package semanticresolve
 
 import (
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/resolveguard"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 // Resolve resolves all references in the schema.

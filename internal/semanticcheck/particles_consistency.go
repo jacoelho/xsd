@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/traversal"
 )
 
 // validateElementDeclarationsConsistentInParticle validates "Element Declarations Consistent"
@@ -15,7 +16,7 @@ func validateElementDeclarationsConsistentInParticle(schema *parser.Schema, part
 	return validateElementDeclarationsConsistentWithVisited(schema, particle, seen, visited)
 }
 
-func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, particle model.Particle, seen map[model.QName]model.Type, visited modelGroupVisit) error {
+func validateElementDeclarationsConsistentWithVisited(schema *parser.Schema, particle model.Particle, seen map[model.QName]model.Type, visited traversal.VisitTracker[*model.ModelGroup]) error {
 	switch p := particle.(type) {
 	case *model.ModelGroup:
 		if !visited.Enter(p) {

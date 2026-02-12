@@ -3,8 +3,8 @@ package semanticresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/resolveguard"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func (r *Resolver) resolveSimpleType(qname model.QName, st *model.SimpleType) error {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
@@ -149,16 +149,18 @@ func findElementDeclInContentWithMode(schema *parser.Schema, content model.Conte
 		default:
 			var resultErr error
 			if c.Extension != nil && c.Extension.Particle != nil {
-				if decl, err := findElementDeclInParticleWithMode(schema, c.Extension.Particle, test, mode, visited); err == nil {
+				decl, err := findElementDeclInParticleWithMode(schema, c.Extension.Particle, test, mode, visited)
+				if err == nil {
 					return decl, nil
-				} else {
-					resultErr = err
 				}
+				resultErr = err
 			}
 			if c.Restriction != nil && c.Restriction.Particle != nil {
-				if decl, err := findElementDeclInParticleWithMode(schema, c.Restriction.Particle, test, mode, visited); err == nil {
+				decl, err := findElementDeclInParticleWithMode(schema, c.Restriction.Particle, test, mode, visited)
+				if err == nil {
 					return decl, nil
-				} else if resultErr == nil {
+				}
+				if resultErr == nil {
 					resultErr = err
 				}
 			}

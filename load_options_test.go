@@ -31,7 +31,7 @@ func TestLoadWithOptionsAllowsMissingImportLocation(t *testing.T) {
 	}
 }
 
-func TestPrepareWithOptionsAppliesRuntimeOptions(t *testing.T) {
+func TestSchemaSetCompileAppliesRuntimeOptions(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:string"/>
@@ -43,8 +43,12 @@ func TestPrepareWithOptionsAppliesRuntimeOptions(t *testing.T) {
 
 	runtimeOpts := xsd.NewRuntimeOptions().WithInstanceMaxDepth(-1)
 	loadOpts := xsd.NewLoadOptions().WithRuntimeOptions(runtimeOpts)
-	if _, err := xsd.PrepareWithOptions(fsys, "schema.xsd", loadOpts); err == nil {
-		t.Fatal("PrepareWithOptions() error = nil, want invalid runtime options error")
+	set := xsd.NewSchemaSet(loadOpts)
+	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
+		t.Fatalf("AddFS() error = %v", err)
+	}
+	if _, err := set.Compile(); err == nil {
+		t.Fatal("Compile() error = nil, want invalid runtime options error")
 	}
 }
 
@@ -78,7 +82,11 @@ func TestLoadOptionsRejectsMixedRuntimeConfiguration(t *testing.T) {
 	opts := xsd.NewLoadOptions().WithRuntimeOptions(
 		xsd.NewRuntimeOptions().WithInstanceMaxDepth(-1),
 	)
-	if _, err := xsd.PrepareWithOptions(fsys, "schema.xsd", opts); err == nil {
-		t.Fatal("PrepareWithOptions() error = nil, want runtime options validation error")
+	set := xsd.NewSchemaSet(opts)
+	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
+		t.Fatalf("AddFS() error = %v", err)
+	}
+	if _, err := set.Compile(); err == nil {
+		t.Fatal("Compile() error = nil, want runtime options validation error")
 	}
 }

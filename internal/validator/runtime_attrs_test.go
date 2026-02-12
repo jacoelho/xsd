@@ -14,7 +14,7 @@ func TestValidateAttributesNilSession(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected schema not loaded error")
 	}
-	if code, _, ok := validationErrorInfo(err); !ok || code != xsderrors.ErrSchemaNotLoaded {
+	if code, ok := validationErrorInfo(err); !ok || code != xsderrors.ErrSchemaNotLoaded {
 		t.Fatalf("error code = %v, want %v", code, xsderrors.ErrSchemaNotLoaded)
 	}
 }
@@ -67,7 +67,7 @@ func TestValidateAttributesAllowsXMLNamespace(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
-	xmlAttrs := []StartAttr{{Sym: schema.Predef.XmlLang, NS: schema.PredefNS.Xml, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
+	xmlAttrs := []StartAttr{{Sym: schema.Predef.XMLLang, NS: schema.PredefNS.XML, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
 	_, err := sess.ValidateAttributes(ids.typeBase, xmlAttrs, nil)
 	if err != nil {
 		t.Fatalf("expected xml attribute to be allowed, got %v", err)
@@ -90,7 +90,7 @@ func TestValidateAttributesSimpleTypeXsiOnly(t *testing.T) {
 		t.Fatalf("expected xsi attribute to be allowed")
 	}
 
-	xmlAttrs := []StartAttr{{Sym: schema.Predef.XmlLang, NS: schema.PredefNS.Xml, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
+	xmlAttrs := []StartAttr{{Sym: schema.Predef.XMLLang, NS: schema.PredefNS.XML, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
 	_, err = sess.ValidateAttributes(ids.typeSimple, xmlAttrs, nil)
 	if err != nil {
 		t.Fatalf("expected xml attribute to be allowed")
@@ -251,7 +251,7 @@ func buildAttrFixtureNoRequired(tb testing.TB) (*runtime.Schema, attrFixtureIDs)
 			{
 				Kind:       runtime.VString,
 				Index:      0,
-				WhiteSpace: runtime.WS_Preserve,
+				WhiteSpace: runtime.WSPreserve,
 			},
 		},
 	}

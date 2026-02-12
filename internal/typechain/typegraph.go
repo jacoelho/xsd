@@ -2,7 +2,8 @@ package typechain
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/occurs"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/substpolicy"
 )
 
@@ -92,8 +93,8 @@ func combineExtensionParticles(baseParticle, extParticle model.Particle) model.P
 	}
 	return &model.ModelGroup{
 		Kind:      model.Sequence,
-		MinOccurs: model.OccursFromInt(1),
-		MaxOccurs: model.OccursFromInt(1),
+		MinOccurs: occurs.OccursFromInt(1),
+		MaxOccurs: occurs.OccursFromInt(1),
 		Particles: []model.Particle{baseParticle, extParticle},
 	}
 }
@@ -102,7 +103,9 @@ func combineExtensionParticles(baseParticle, extParticle model.Particle) model.P
 type ComplexTypeChainMode uint8
 
 const (
+	// ComplexTypeChainExplicitBaseOnly is an exported constant.
 	ComplexTypeChainExplicitBaseOnly ComplexTypeChainMode = iota
+	// ComplexTypeChainAllowImplicitAnyType is an exported constant.
 	ComplexTypeChainAllowImplicitAnyType
 )
 

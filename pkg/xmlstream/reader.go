@@ -350,7 +350,7 @@ func (r *Reader) startEvent(tok *xmltext.RawTokenSpan, line, column int) (Event,
 		r.attrBuf = r.attrBuf[:0]
 	}
 
-	err = r.scanStartAttributes(tok, core.scopeDepth, line, column, func(attrName []byte, attrNamespace string, attrLocal, value []byte) error {
+	err = r.scanStartAttributes(tok, core.scopeDepth, line, column, func(_ []byte, attrNamespace string, attrLocal, value []byte) error {
 		r.attrBuf = append(r.attrBuf, Attr{
 			Name:  r.names.internBytes(attrNamespace, attrLocal),
 			Value: value,
@@ -691,23 +691,29 @@ func (r *Reader) LookupNamespaceAt(prefix string, depth int) (string, bool) {
 // NamespaceDeclsSeq yields namespace declarations at the given scope depth.
 func (r *Reader) NamespaceDeclsSeq(depth int) iter.Seq[NamespaceDecl] {
 	return func(yield func(NamespaceDecl) bool) {
-		if r == nil || len(r.ns.scopes) == 0 || depth < 0 {
-			return
-		}
-		if depth >= len(r.ns.scopes) {
-			depth = len(r.ns.scopes) - 1
-		}
-		scope := r.ns.scopes[depth]
-		if scope.declLen == 0 {
-			return
-		}
-		decls := r.ns.decls[scope.declStart : scope.declStart+scope.declLen]
+		decls := r.NamespaceDecls(depth)
 		for _, decl := range decls {
 			if !yield(decl) {
 				return
 			}
 		}
 	}
+}
+
+// NamespaceDecls returns namespace declarations at the given scope depth.
+// The returned slice aliases reader-owned storage and is valid until the next read.
+func (r *Reader) NamespaceDecls(depth int) []NamespaceDecl {
+	if r == nil || len(r.ns.scopes) == 0 || depth < 0 {
+		return nil
+	}
+	if depth >= len(r.ns.scopes) {
+		depth = len(r.ns.scopes) - 1
+	}
+	scope := r.ns.scopes[depth]
+	if scope.declLen == 0 {
+		return nil
+	}
+	return r.ns.decls[scope.declStart : scope.declStart+scope.declLen]
 }
 
 // CurrentNamespaceDeclsSeq yields namespace declarations in the current scope.

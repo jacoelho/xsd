@@ -4,7 +4,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/occurs"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
 func TestLookupTypeAndComplexType(t *testing.T) {
@@ -76,13 +77,13 @@ func TestEffectiveContentParticle_Extension(t *testing.T) {
 
 	baseParticle := &model.ElementDecl{
 		Name:      model.QName{Namespace: "urn:test", Local: "a"},
-		MinOccurs: model.OccursFromInt(1),
-		MaxOccurs: model.OccursFromInt(1),
+		MinOccurs: occurs.OccursFromInt(1),
+		MaxOccurs: occurs.OccursFromInt(1),
 	}
 	extParticle := &model.ElementDecl{
 		Name:      model.QName{Namespace: "urn:test", Local: "b"},
-		MinOccurs: model.OccursFromInt(1),
-		MaxOccurs: model.OccursFromInt(1),
+		MinOccurs: occurs.OccursFromInt(1),
+		MaxOccurs: occurs.OccursFromInt(1),
 	}
 
 	base := model.NewComplexType(baseName, baseName.Namespace)

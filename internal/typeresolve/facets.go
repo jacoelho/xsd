@@ -5,11 +5,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
-
-// DeferredFacetConverter converts deferred facets once the base type is known.
-type DeferredFacetConverter = model.DeferredFacetConverter
 
 // DefaultDeferredFacetConverter converts deferred range facets using built-in constructors.
 func DefaultDeferredFacetConverter(df *model.DeferredFacet, baseType model.Type) (model.Facet, error) {
@@ -31,7 +28,7 @@ func DefaultDeferredFacetConverter(df *model.DeferredFacet, baseType model.Type)
 }
 
 // CollectSimpleTypeFacets collects inherited and local facets for a simple type.
-func CollectSimpleTypeFacets(schema *parser.Schema, st *model.SimpleType, convert DeferredFacetConverter) ([]model.Facet, error) {
+func CollectSimpleTypeFacets(schema *parser.Schema, st *model.SimpleType, convert model.DeferredFacetConverter) ([]model.Facet, error) {
 	if convert == nil {
 		convert = DefaultDeferredFacetConverter
 	}
@@ -45,7 +42,7 @@ func CollectSimpleTypeFacets(schema *parser.Schema, st *model.SimpleType, conver
 }
 
 // CollectRestrictionFacets collects restriction facets and composes patterns when valid.
-func CollectRestrictionFacets(schema *parser.Schema, restriction *model.Restriction, baseType model.Type, convert DeferredFacetConverter) ([]model.Facet, error) {
+func CollectRestrictionFacets(schema *parser.Schema, restriction *model.Restriction, baseType model.Type, convert model.DeferredFacetConverter) ([]model.Facet, error) {
 	if convert == nil {
 		convert = DefaultDeferredFacetConverter
 	}

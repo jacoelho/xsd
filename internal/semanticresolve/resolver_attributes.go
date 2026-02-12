@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/attrgroupwalk"
-	"github.com/jacoelho/xsd/internal/model"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func (r *Resolver) resolveAttributeGroupRefs(qname model.QName, groups []model.QName) error {

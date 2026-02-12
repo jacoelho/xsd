@@ -9,7 +9,7 @@ import (
 
 func TestUnionValidatorMismatchReturnsError(t *testing.T) {
 	comp := newCompiler(nil)
-	_, err := comp.addUnionValidator(runtime.WS_Preserve, runtime.FacetProgramRef{}, []runtime.ValidatorID{1}, nil, "U", 0)
+	_, err := comp.addUnionValidator(runtime.WSPreserve, runtime.FacetProgramRef{}, []runtime.ValidatorID{1}, nil, "U", 0)
 	if err == nil {
 		t.Fatalf("expected union member mismatch error")
 	}

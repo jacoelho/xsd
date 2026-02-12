@@ -181,7 +181,7 @@ func IdentityListItemType(typ Type) (Type, bool) {
 	}
 	if bt, ok := AsBuiltinType(typ); ok {
 		if itemName, ok := builtinListItemTypeName(bt.Name().Local); ok {
-			if item := GetBuiltin(itemName); item != nil {
+			if item := getBuiltin(itemName); item != nil {
 				return item, true
 			}
 		}

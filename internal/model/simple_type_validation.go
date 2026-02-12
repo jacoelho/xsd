@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// Validate is an exported function.
 func (s *SimpleType) Validate(lexical string) error {
 	return s.ValidateWithContext(lexical, nil)
 }

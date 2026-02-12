@@ -11,7 +11,7 @@ func (s *Session) fixedValueMatches(
 	validator runtime.ValidatorID,
 	member runtime.ValidatorID,
 	canonical []byte,
-	metrics valueMetrics,
+	metrics ValueMetrics,
 	resolver value.NSResolver,
 	fixed runtime.ValueRef,
 	fixedKey runtime.ValueKeyRef,

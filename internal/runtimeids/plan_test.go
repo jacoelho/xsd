@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
+	schema "github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
-	"github.com/jacoelho/xsd/internal/schemaprep"
+	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/prep"
 )
 
 func TestBuildDeterministicIDs(t *testing.T) {
@@ -21,7 +21,7 @@ func TestBuildDeterministicIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseString() error = %v", err)
 	}
-	if err := schemaprep.ResolveAndValidateOwned(sch); err != nil {
+	if err := prep.ResolveAndValidateOwned(sch); err != nil {
 		t.Fatalf("ResolveAndValidateOwned() error = %v", err)
 	}
 	reg, err := schema.AssignIDs(sch)

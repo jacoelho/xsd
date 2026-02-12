@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/resolveguard"
 	"github.com/jacoelho/xsd/internal/traversal"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func (r *Resolver) resolveParticles(particles []model.Particle) error {

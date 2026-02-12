@@ -1346,7 +1346,7 @@ type flushFailWriter struct {
 	calls int
 }
 
-func (w *flushFailWriter) Write(p []byte) (int, error) {
+func (w *flushFailWriter) Write(_ []byte) (int, error) {
 	w.calls++
 	return 0, w.err
 }

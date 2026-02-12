@@ -44,7 +44,7 @@ func (c *compiler) compileType(typ model.Type) (runtime.ValidatorID, error) {
 
 func (c *compiler) canonicalTypeKey(typ model.Type) model.Type {
 	if st, ok := model.AsSimpleType(typ); ok && st.IsBuiltin() {
-		if builtin := builtins.Get(builtins.TypeName(st.Name().Local)); builtin != nil {
+		if builtin := builtins.Get(model.TypeName(st.Name().Local)); builtin != nil {
 			return builtin
 		}
 	}

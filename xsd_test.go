@@ -70,12 +70,368 @@ func requireSingleViolation(t *testing.T, err error, code errors.ErrorCode) {
 	}
 }
 
+func requireContainsViolationCode(t *testing.T, err error, code errors.ErrorCode) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("Validate() err = nil, want code %s", code)
+	}
+	violations, ok := errors.AsValidations(err)
+	if !ok {
+		t.Fatalf("AsValidations() ok = false, want true")
+	}
+	for _, violation := range violations {
+		if violation.Code == string(code) {
+			return
+		}
+	}
+	t.Fatalf("Validate() codes = %v, want %q", violations, code)
+}
+
+func requireViolationExpectedContainsLocal(t *testing.T, err error, code errors.ErrorCode, local string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("Validate() err = nil, want code %s", code)
+	}
+	violations, ok := errors.AsValidations(err)
+	if !ok {
+		t.Fatalf("AsValidations() ok = false, want true")
+	}
+	for _, violation := range violations {
+		if violation.Code != string(code) {
+			continue
+		}
+		for _, expected := range violation.Expected {
+			if expected == local || strings.HasSuffix(expected, "}"+local) {
+				return
+			}
+		}
+		t.Fatalf("violation expected = %v, want local name %q", violation.Expected, local)
+	}
+	t.Fatalf("Validate() codes = %v, want %q", violations, code)
+}
+
 func TestSchemaValidateFileValid(t *testing.T) {
 	s := loadSchema(t)
 
 	if err := s.Validate(strings.NewReader(validPersonXML)); err != nil {
 		t.Fatalf("Validate() err = %v, want nil", err)
 	}
+}
+
+func TestSchemaValidateIgnoresSchemaLocationHints(t *testing.T) {
+	s := loadSchema(t)
+
+	withSchemaLocation := `<?xml version="1.0"?>
+<person xmlns="http://example.com/simple"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://example.com/simple missing.xsd">
+  <name>John Doe</name>
+  <age>30</age>
+</person>`
+
+	if err := s.Validate(strings.NewReader(withSchemaLocation)); err != nil {
+		t.Fatalf("Validate() with xsi:schemaLocation err = %v, want nil", err)
+	}
+
+	withNoNamespaceLocation := `<?xml version="1.0"?>
+<person xmlns="http://example.com/simple"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="missing-no-ns.xsd">
+  <name>John Doe</name>
+  <age>30</age>
+</person>`
+
+	if err := s.Validate(strings.NewReader(withNoNamespaceLocation)); err != nil {
+		t.Fatalf("Validate() with xsi:noNamespaceSchemaLocation err = %v, want nil", err)
+	}
+}
+
+func TestSchemaValidateIDREFResolvedByLaterID(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:ID"/>
+            <xs:attribute name="ref" type="xs:IDREF"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
+	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+
+	doc := `<root><item ref="id-2"/><item id="id-2"/></root>`
+	if err := s.Validate(strings.NewReader(doc)); err != nil {
+		t.Fatalf("Validate() err = %v, want nil", err)
+	}
+}
+
+func TestSchemaValidateIDREFSReportsMissingTargets(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:ID"/>
+            <xs:attribute name="refs" type="xs:IDREFS"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
+	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+
+	doc := `<root><item id="id-1"/><item refs="id-1 missing-id"/></root>`
+	requireContainsViolationCode(t, s.Validate(strings.NewReader(doc)), errors.ErrIDRefNotFound)
+}
+
+func TestSchemaValidateIDClosureMatrix(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:ID"/>
+            <xs:attribute name="ref" type="xs:IDREF"/>
+            <xs:attribute name="refs" type="xs:IDREFS"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
+	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		doc       string
+		wantCode  errors.ErrorCode
+		expectErr bool
+	}{
+		{
+			name:      "idref-resolved-by-prior-id",
+			doc:       `<root><item id="id-1"/><item ref="id-1"/></root>`,
+			expectErr: false,
+		},
+		{
+			name:      "idref-resolved-by-later-id",
+			doc:       `<root><item ref="id-2"/><item id="id-2"/></root>`,
+			expectErr: false,
+		},
+		{
+			name:      "idref-missing-target",
+			doc:       `<root><item ref="missing"/></root>`,
+			expectErr: true,
+			wantCode:  errors.ErrIDRefNotFound,
+		},
+		{
+			name:      "idrefs-all-resolved",
+			doc:       `<root><item id="a"/><item id="b"/><item refs="a b"/></root>`,
+			expectErr: false,
+		},
+		{
+			name:      "idrefs-missing-target",
+			doc:       `<root><item id="a"/><item refs="a c"/></root>`,
+			expectErr: true,
+			wantCode:  errors.ErrIDRefNotFound,
+		},
+		{
+			name:      "duplicate-id-rejected",
+			doc:       `<root><item id="dup"/><item id="dup"/></root>`,
+			expectErr: true,
+			wantCode:  errors.ErrDuplicateID,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := s.Validate(strings.NewReader(tc.doc))
+			if !tc.expectErr {
+				if err != nil {
+					t.Fatalf("Validate() err = %v, want nil", err)
+				}
+				return
+			}
+			requireContainsViolationCode(t, err, tc.wantCode)
+		})
+	}
+}
+
+func TestSchemaValidateSubstitutionGroupBehavior(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="head" type="xs:string" abstract="true"/>
+  <xs:element name="member" substitutionGroup="tns:head" type="xs:string"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="tns:head"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
+	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+
+	validDoc := `<root xmlns="urn:test"><member>ok</member></root>`
+	if err := s.Validate(strings.NewReader(validDoc)); err != nil {
+		t.Fatalf("Validate(validDoc) err = %v, want nil", err)
+	}
+
+	invalidDoc := `<root xmlns="urn:test"><unknown>bad</unknown></root>`
+	requireContainsViolationCode(t, s.Validate(strings.NewReader(invalidDoc)), errors.ErrUnexpectedElement)
+}
+
+func TestSchemaValidateExpectedElementsForUnexpectedChild(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:string"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
+	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+
+	doc := `<root xmlns="urn:test"><c>bad</c></root>`
+	requireViolationExpectedContainsLocal(t, s.Validate(strings.NewReader(doc)), errors.ErrUnexpectedElement, "a")
+}
+
+func TestSchemaValidateExpectedElementsForIncompleteContent(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="a" type="xs:string"/>
+        <xs:element name="b" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
+	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+
+	doc := `<root xmlns="urn:test"><a>ok</a></root>`
+	requireViolationExpectedContainsLocal(t, s.Validate(strings.NewReader(doc)), errors.ErrContentModelInvalid, "b")
+}
+
+func TestSchemaValidateExpectedElementsIncludeSubstitutionMembers(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           elementFormDefault="qualified">
+  <xs:element name="head" type="xs:string" abstract="true"/>
+  <xs:element name="member" substitutionGroup="tns:head" type="xs:string"/>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="tns:head"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
+	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+
+	doc := `<root xmlns="urn:test"><unknown>bad</unknown></root>`
+	requireViolationExpectedContainsLocal(t, s.Validate(strings.NewReader(doc)), errors.ErrUnexpectedElement, "member")
+}
+
+func TestSchemaValidateDoesNotProcessInlineSchemaDeclarations(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`
+	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
+	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+
+	doc := `<root xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:schema/></root>`
+	requireContainsViolationCode(t, s.Validate(strings.NewReader(doc)), errors.ErrTextInElementOnly)
+}
+
+func TestSchemaValidateNoPartialValidationMode(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test">
+  <xs:complexType name="OnlyType">
+    <xs:sequence>
+      <xs:element name="child" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>`
+	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
+	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+
+	doc := `<child xmlns="urn:test">ok</child>`
+	requireContainsViolationCode(t, s.Validate(strings.NewReader(doc)), errors.ErrValidateRootNotDeclared)
+}
+
+func TestSchemaValidateNoWarningModeForUndeclaredRoot(t *testing.T) {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
+	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
+	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+
+	doc := `<root/>`
+	requireContainsViolationCode(t, s.Validate(strings.NewReader(doc)), errors.ErrValidateRootNotDeclared)
 }
 
 func TestSchemaValidateFileSetsDocument(t *testing.T) {

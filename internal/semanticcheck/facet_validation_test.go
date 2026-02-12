@@ -7,7 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
 // TestOrderedTypeFacetApplicability tests that range facets (minInclusive, maxInclusive, etc.)
@@ -298,6 +298,6 @@ func (m *mockRangeFacet) GetLexical() string {
 	return m.lexical
 }
 
-func (m *mockRangeFacet) Validate(value model.TypedValue, baseType model.Type) error {
+func (m *mockRangeFacet) Validate(_ model.TypedValue, _ model.Type) error {
 	return nil // not used for applicability testing
 }

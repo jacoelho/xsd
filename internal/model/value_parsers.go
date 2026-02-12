@@ -15,24 +15,42 @@ func parseFromBytes[T any](parse func([]byte) (T, error)) func(string) (T, error
 }
 
 var (
-	ParseDecimal       = parseFromBytes(value.ParseDecimal)
-	ParseInteger       = parseFromBytes(value.ParseInteger)
-	ParseBoolean       = parseFromBytes(value.ParseBoolean)
-	ParseFloat         = parseFromBytes(value.ParseFloat)
-	ParseDouble        = parseFromBytes(value.ParseDouble)
-	ParseDateTime      = parseFromBytes(value.ParseDateTime)
-	ParseLong          = parseFromBytes(value.ParseLong)
-	ParseInt           = parseFromBytes(value.ParseInt)
-	ParseShort         = parseFromBytes(value.ParseShort)
-	ParseByte          = parseFromBytes(value.ParseByte)
-	ParseUnsignedLong  = parseFromBytes(value.ParseUnsignedLong)
-	ParseUnsignedInt   = parseFromBytes(value.ParseUnsignedInt)
+	// ParseDecimal is an exported variable.
+	ParseDecimal = parseFromBytes(value.ParseDecimal)
+	// ParseInteger is an exported variable.
+	ParseInteger = parseFromBytes(value.ParseInteger)
+	// ParseBoolean is an exported variable.
+	ParseBoolean = parseFromBytes(value.ParseBoolean)
+	// ParseFloat is an exported variable.
+	ParseFloat = parseFromBytes(value.ParseFloat)
+	// ParseDouble is an exported variable.
+	ParseDouble = parseFromBytes(value.ParseDouble)
+	// ParseDateTime is an exported variable.
+	ParseDateTime = parseFromBytes(value.ParseDateTime)
+	// ParseLong is an exported variable.
+	ParseLong = parseFromBytes(value.ParseLong)
+	// ParseInt is an exported variable.
+	ParseInt = parseFromBytes(value.ParseInt)
+	// ParseShort is an exported variable.
+	ParseShort = parseFromBytes(value.ParseShort)
+	// ParseByte is an exported variable.
+	ParseByte = parseFromBytes(value.ParseByte)
+	// ParseUnsignedLong is an exported variable.
+	ParseUnsignedLong = parseFromBytes(value.ParseUnsignedLong)
+	// ParseUnsignedInt is an exported variable.
+	ParseUnsignedInt = parseFromBytes(value.ParseUnsignedInt)
+	// ParseUnsignedShort is an exported variable.
 	ParseUnsignedShort = parseFromBytes(value.ParseUnsignedShort)
-	ParseUnsignedByte  = parseFromBytes(value.ParseUnsignedByte)
-	ParseHexBinary     = parseFromBytes(value.ParseHexBinary)
-	ParseBase64Binary  = parseFromBytes(value.ParseBase64Binary)
-	ParseAnyURI        = parseFromBytes(value.ParseAnyURI)
-	ParseString        = func(lexical string) (string, error) {
+	// ParseUnsignedByte is an exported variable.
+	ParseUnsignedByte = parseFromBytes(value.ParseUnsignedByte)
+	// ParseHexBinary is an exported variable.
+	ParseHexBinary = parseFromBytes(value.ParseHexBinary)
+	// ParseBase64Binary is an exported variable.
+	ParseBase64Binary = parseFromBytes(value.ParseBase64Binary)
+	// ParseAnyURI is an exported variable.
+	ParseAnyURI = parseFromBytes(value.ParseAnyURI)
+	// ParseString is an exported variable.
+	ParseString = func(lexical string) (string, error) {
 		return lexical, nil
 	}
 )

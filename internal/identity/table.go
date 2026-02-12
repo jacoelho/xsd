@@ -6,11 +6,13 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
+// Row defines an exported type.
 type Row struct {
 	Values []runtime.ValueKey
 	Hash   uint64
 }
 
+// Constraint defines an exported type.
 type Constraint struct {
 	Rows       []Row
 	Keyrefs    []Row
@@ -19,14 +21,19 @@ type Constraint struct {
 	Category   runtime.ICCategory
 }
 
+// IssueKind defines an exported type.
 type IssueKind uint8
 
 const (
+	// IssueDuplicate is an exported constant.
 	IssueDuplicate IssueKind = iota
+	// IssueKeyrefMissing is an exported constant.
 	IssueKeyrefMissing
+	// IssueKeyrefUndefined is an exported constant.
 	IssueKeyrefUndefined
 )
 
+// Issue defines an exported type.
 type Issue struct {
 	Kind       IssueKind
 	Category   runtime.ICCategory
@@ -35,12 +42,14 @@ type Issue struct {
 	Row        int
 }
 
+// Table defines an exported type.
 type Table struct {
 	hashes []uint64
 	slots  []uint32
 	rows   []Row
 }
 
+// Resolve is an exported function.
 func Resolve(constraints []Constraint) []Issue {
 	if len(constraints) == 0 {
 		return nil
@@ -106,6 +115,7 @@ func Resolve(constraints []Constraint) []Issue {
 	return issues
 }
 
+// HashRow is an exported function.
 func HashRow(values []runtime.ValueKey) uint64 {
 	h := uint64(runtime.FNVOffset64)
 	for _, value := range values {
@@ -130,6 +140,7 @@ func HashRow(values []runtime.ValueKey) uint64 {
 	return h
 }
 
+// BuildTable is an exported function.
 func BuildTable(rows []Row) (*Table, []int) {
 	if len(rows) == 0 {
 		return nil, nil
@@ -169,6 +180,7 @@ func BuildTable(rows []Row) (*Table, []int) {
 	return table, dupes
 }
 
+// Contains is an exported function.
 func (t *Table) Contains(row Row) bool {
 	if t == nil || len(t.slots) == 0 {
 		return false

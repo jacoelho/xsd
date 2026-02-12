@@ -1,9 +1,9 @@
 package semanticcheck
 
 import (
+	facetengine "github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
-	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
 )
 
 var errDurationNotComparable = facetengine.ErrDurationNotComparable

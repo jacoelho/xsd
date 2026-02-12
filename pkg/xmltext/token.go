@@ -194,6 +194,7 @@ func reserveAttrs(buf []Attr, size int) []Attr {
 	return make([]Attr, 0, size)
 }
 
+// Reserve is an exported function.
 func (t *RawToken) Reserve(sizes TokenSizes) {
 	if t == nil {
 		return

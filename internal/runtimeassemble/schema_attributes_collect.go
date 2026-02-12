@@ -3,10 +3,10 @@ package runtimeassemble
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/runtime"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 	"github.com/jacoelho/xsd/internal/typeresolve"
+	model "github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validatorgen"
 )
 
@@ -97,7 +97,7 @@ func (b *schemaBuilder) resolveAttributeDecl(decl *model.AttributeDecl) *model.A
 	return b.schema.AttributeDecls[decl.Name]
 }
 
-func (b *schemaBuilder) schemaAttrID(decl *model.AttributeDecl) (schema.AttrID, bool) {
+func (b *schemaBuilder) schemaAttrID(decl *model.AttributeDecl) (ids.AttrID, bool) {
 	if decl == nil {
 		return 0, false
 	}

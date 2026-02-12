@@ -4,40 +4,51 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
+// MissingPolicy defines an exported type.
 type MissingPolicy uint8
 
 const (
+	// MissingIgnore is an exported constant.
 	MissingIgnore MissingPolicy = iota
+	// MissingError is an exported constant.
 	MissingError
 )
 
+// CyclePolicy defines an exported type.
 type CyclePolicy uint8
 
 const (
+	// CycleIgnore is an exported constant.
 	CycleIgnore CyclePolicy = iota
+	// CycleError is an exported constant.
 	CycleError
 )
 
+// Options defines an exported type.
 type Options struct {
 	Missing MissingPolicy
 	Cycles  CyclePolicy
 }
 
+// AttrGroupMissingError defines an exported type.
 type AttrGroupMissingError struct {
 	QName model.QName
 }
 
+// Error is an exported function.
 func (e AttrGroupMissingError) Error() string {
 	return fmt.Sprintf("attributeGroup %s not found", e.QName)
 }
 
+// AttrGroupCycleError defines an exported type.
 type AttrGroupCycleError struct {
 	QName model.QName
 }
 
+// Error is an exported function.
 func (e AttrGroupCycleError) Error() string {
 	return fmt.Sprintf("attributeGroup cycle detected at %s", e.QName)
 }
@@ -70,10 +81,12 @@ func NewContext(schema *parser.Schema, opts Options) *Context {
 	}
 }
 
+// Walk is an exported function.
 func Walk(schema *parser.Schema, refs []model.QName, missing MissingPolicy, visit func(model.QName, *model.AttributeGroup) error) error {
 	return WalkWithOptions(schema, refs, Options{Missing: missing, Cycles: CycleIgnore}, visit)
 }
 
+// WalkWithOptions is an exported function.
 func WalkWithOptions(schema *parser.Schema, refs []model.QName, opts Options, visit func(model.QName, *model.AttributeGroup) error) error {
 	return NewContext(schema, opts).Walk(refs, visit)
 }

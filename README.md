@@ -68,6 +68,28 @@ func main() {
 }
 ```
 
+## SchemaSet API
+
+```go
+set := xsd.NewSchemaSet(xsd.NewLoadOptions())
+if err := set.AddFS(fsys, "schema-a.xsd"); err != nil {
+    // handle
+}
+if err := set.AddFS(fsys, "schema-b.xsd"); err != nil {
+    // handle
+}
+schema, err := set.Compile()
+if err != nil {
+    // handle
+}
+if err := schema.Validate(strings.NewReader(xmlDoc)); err != nil {
+    // handle
+}
+```
+
+This snippet assumes `fsys` and `xmlDoc` are defined as in Quickstart.
+`SchemaSet` compiles all added roots into one runtime schema.
+
 ## Validate from files
 
 ```go
@@ -128,18 +150,18 @@ Options:
 - `WithAllowMissingImportLocations`: when true, imports without `schemaLocation` are skipped.
   Missing import files are also skipped when the filesystem returns `fs.ErrNotExist`.
 - `WithRuntimeOptions`: applies runtime compilation/validation limits from `RuntimeOptions`.
-- `WithSchemaMaxDepth` / `WithSchemaMaxAttrs` / `WithSchemaMaxTokenSize`: schema parser XML limits.
+- `WithSchemaMaxDepth` / `WithSchemaMaxAttrs` / `WithSchemaMaxTokenSize` / `WithSchemaMaxQNameInternEntries`: schema parser XML limits.
 - instance limits (`WithInstanceMaxDepth`, `WithInstanceMaxAttrs`, `WithInstanceMaxTokenSize`, `WithInstanceMaxQNameInternEntries`) are set on `RuntimeOptions`.
 
-## Prepare Once, Build Many
+## Compile with Runtime Options
 
 ```go
-prepared, err := xsd.PrepareWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
-if err != nil {
+set := xsd.NewSchemaSet(xsd.NewLoadOptions())
+if err := set.AddFS(fsys, "schema.xsd"); err != nil {
     // handle
 }
 
-schemaA, err := prepared.Build()
+schemaA, err := set.Compile()
 if err != nil {
     // handle
 }
@@ -147,7 +169,7 @@ if err != nil {
 runtimeOpts := xsd.NewRuntimeOptions().
     WithMaxDFAStates(2048).
     WithInstanceMaxDepth(512)
-schemaB, err := prepared.BuildWithOptions(runtimeOpts)
+schemaB, err := set.CompileWithRuntimeOptions(runtimeOpts)
 if err != nil {
     // handle
 }
@@ -167,7 +189,7 @@ if err != nil {
 
 ## Error handling
 
-`Schema.Validate` returns `errors.ValidationList` for validation and XML parsing failures.
+`Schema.Validate` returns `errors.ValidationList` for validation failures, XML parsing failures, and validation calls made without a loaded schema.
 `Schema.ValidateFile` can return file I/O errors before validation starts.
 
 Each `errors.Validation` includes:
@@ -196,6 +218,8 @@ make xmllint
 
 Options:
 - `--schema` (required): path to the XSD schema file
+- `--cpuprofile`: write a CPU profile to a file
+- `--memprofile`: write a heap profile to a file
 
 ## Testing
 

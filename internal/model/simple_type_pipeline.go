@@ -26,8 +26,11 @@ type SimpleTypeValidationOptions struct {
 type SimpleTypeValidationScope uint8
 
 const (
+	// SimpleTypeValidationScopeRoot is an exported constant.
 	SimpleTypeValidationScopeRoot SimpleTypeValidationScope = iota
+	// SimpleTypeValidationScopeListItem is an exported constant.
 	SimpleTypeValidationScopeListItem
+	// SimpleTypeValidationScopeUnionMember is an exported constant.
 	SimpleTypeValidationScopeUnionMember
 )
 
@@ -174,7 +177,7 @@ func validateAtomicLexicalWithOptions(st *SimpleType, normalized string, context
 		}
 	}
 	if st.IsBuiltin() {
-		if builtinType := GetBuiltinNS(st.QName.Namespace, st.QName.Local); builtinType != nil {
+		if builtinType := getBuiltinNS(st.QName.Namespace, st.QName.Local); builtinType != nil {
 			return builtinType.Validate(normalized)
 		}
 	}
@@ -184,7 +187,7 @@ func validateAtomicLexicalWithOptions(st *SimpleType, normalized string, context
 			return builtinType.Validate(normalized)
 		}
 		if primitiveST, ok := AsSimpleType(primitive); ok && primitiveST.IsBuiltin() {
-			if builtinType := GetBuiltinNS(primitiveST.QName.Namespace, primitiveST.QName.Local); builtinType != nil {
+			if builtinType := getBuiltinNS(primitiveST.QName.Namespace, primitiveST.QName.Local); builtinType != nil {
 				return builtinType.Validate(normalized)
 			}
 		}

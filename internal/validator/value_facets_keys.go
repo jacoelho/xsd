@@ -51,7 +51,7 @@ func (s *Session) deriveKeyFromCanonical(kind runtime.ValidatorKind, canonical [
 	}
 }
 
-func (s *Session) decForCanonical(canonical []byte, metrics *valueMetrics) (num.Dec, error) {
+func (s *Session) decForCanonical(canonical []byte, metrics *ValueMetrics) (num.Dec, error) {
 	if metrics != nil && metrics.decSet {
 		return metrics.decVal, nil
 	}
@@ -66,7 +66,7 @@ func (s *Session) decForCanonical(canonical []byte, metrics *valueMetrics) (num.
 	return val, nil
 }
 
-func (s *Session) intForCanonical(canonical []byte, metrics *valueMetrics) (num.Int, error) {
+func (s *Session) intForCanonical(canonical []byte, metrics *ValueMetrics) (num.Int, error) {
 	if metrics != nil && metrics.intSet {
 		return metrics.intVal, nil
 	}
@@ -81,7 +81,7 @@ func (s *Session) intForCanonical(canonical []byte, metrics *valueMetrics) (num.
 	return val, nil
 }
 
-func (s *Session) float32ForCanonical(canonical []byte, metrics *valueMetrics) (float32, num.FloatClass, error) {
+func (s *Session) float32ForCanonical(canonical []byte, metrics *ValueMetrics) (float32, num.FloatClass, error) {
 	if metrics != nil && metrics.float32Set {
 		return metrics.float32Val, metrics.float32Class, nil
 	}
@@ -97,7 +97,7 @@ func (s *Session) float32ForCanonical(canonical []byte, metrics *valueMetrics) (
 	return val, class, nil
 }
 
-func (s *Session) float64ForCanonical(canonical []byte, metrics *valueMetrics) (float64, num.FloatClass, error) {
+func (s *Session) float64ForCanonical(canonical []byte, metrics *ValueMetrics) (float64, num.FloatClass, error) {
 	if metrics != nil && metrics.float64Set {
 		return metrics.float64Val, metrics.float64Class, nil
 	}

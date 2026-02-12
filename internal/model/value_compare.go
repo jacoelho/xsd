@@ -4,6 +4,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
@@ -120,9 +121,9 @@ func valuesEqual(left, right TypedValue) bool {
 		r, ok := rightNative.(QName)
 		return ok && l.Equal(r)
 
-	case XSDDuration:
+	case durationlex.Duration:
 		switch r := rightNative.(type) {
-		case XSDDuration:
+		case durationlex.Duration:
 			return durationsEqual(l, r, left.Type(), right.Type())
 		case ComparableXSDDuration:
 			return durationsEqual(l, r.Value, left.Type(), right.Type())
@@ -135,7 +136,7 @@ func valuesEqual(left, right TypedValue) bool {
 		case ComparableXSDDuration:
 			cmp, err := l.Compare(r)
 			return err == nil && cmp == 0
-		case XSDDuration:
+		case durationlex.Duration:
 			return durationsEqual(l.Value, r, left.Type(), right.Type())
 		default:
 			return false
@@ -181,7 +182,7 @@ func valuesEqual(left, right TypedValue) bool {
 	return left.Lexical() == right.Lexical()
 }
 
-func durationsEqual(left, right XSDDuration, leftType, rightType Type) bool {
+func durationsEqual(left, right durationlex.Duration, leftType, rightType Type) bool {
 	leftComp := ComparableXSDDuration{Value: left, Typ: leftType}
 	rightComp := ComparableXSDDuration{Value: right, Typ: rightType}
 	cmp, err := leftComp.Compare(rightComp)

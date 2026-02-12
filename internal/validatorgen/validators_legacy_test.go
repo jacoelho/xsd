@@ -2,12 +2,14 @@ package validatorgen
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
 
+	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 	"github.com/jacoelho/xsd/internal/valuecodec"
 )
 
@@ -180,7 +182,7 @@ func TestUnionEnumViolatesUnionPattern_CompileError(t *testing.T) {
 	}
 }
 
-func compileSchema(t *testing.T, schemaXML string) (*compiledValidators, *schema.Registry) {
+func compileSchema(t *testing.T, schemaXML string) (*CompiledValidators, *schema.Registry) {
 	t.Helper()
 	sch := mustResolveSchema(t, schemaXML)
 	reg, err := schema.AssignIDs(sch)
@@ -197,9 +199,9 @@ func compileSchema(t *testing.T, schemaXML string) (*compiledValidators, *schema
 	return compiled, reg
 }
 
-func validatorIDForType(t *testing.T, reg *schema.Registry, compiled *compiledValidators, local string) runtime.ValidatorID {
+func validatorIDForType(t *testing.T, reg *schema.Registry, compiled *CompiledValidators, local string) runtime.ValidatorID {
 	t.Helper()
-	var typeID schema.TypeID
+	var typeID ids.TypeID
 	for _, entry := range reg.TypeOrder {
 		if entry.QName.Local == local {
 			typeID = entry.ID
@@ -216,7 +218,7 @@ func validatorIDForType(t *testing.T, reg *schema.Registry, compiled *compiledVa
 	return id
 }
 
-func facetOps(compiled *compiledValidators, id runtime.ValidatorID) map[runtime.FacetOp]bool {
+func facetOps(compiled *CompiledValidators, id runtime.ValidatorID) map[runtime.FacetOp]bool {
 	meta := compiled.Validators.Meta[id]
 	if meta.Facets.Len == 0 {
 		return map[runtime.FacetOp]bool{}
@@ -229,7 +231,7 @@ func facetOps(compiled *compiledValidators, id runtime.ValidatorID) map[runtime.
 	return ops
 }
 
-func enumIDForValidator(t *testing.T, compiled *compiledValidators, id runtime.ValidatorID) runtime.EnumID {
+func enumIDForValidator(t *testing.T, compiled *CompiledValidators, id runtime.ValidatorID) runtime.EnumID {
 	t.Helper()
 	meta := compiled.Validators.Meta[id]
 	start := meta.Facets.Off
@@ -248,7 +250,7 @@ type enumKey struct {
 	bytes []byte
 }
 
-func enumKeys(t *testing.T, compiled *compiledValidators, enumID runtime.EnumID) []enumKey {
+func enumKeys(t *testing.T, compiled *CompiledValidators, enumID runtime.EnumID) []enumKey {
 	t.Helper()
 	if enumID == 0 {
 		t.Fatalf("enum ID is zero")
@@ -261,7 +263,7 @@ func enumKeys(t *testing.T, compiled *compiledValidators, enumID runtime.EnumID)
 	out := make([]enumKey, 0, ln)
 	for i := range ln {
 		key := compiled.Enums.Keys[off+i]
-		out = append(out, enumKey{kind: key.Kind, bytes: append([]byte(nil), key.Bytes...)})
+		out = append(out, enumKey{kind: key.Kind, bytes: slices.Clone(key.Bytes)})
 	}
 	return out
 }

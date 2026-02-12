@@ -1,19 +1,21 @@
 package validatorgen
 
 import (
+	schema "github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/complextypeplan"
+	"github.com/jacoelho/xsd/internal/ids"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 )
 
-type compiledValidators struct {
-	elements           defaultFixedSet[schema.ElemID]
-	attributes         defaultFixedSet[schema.AttrID]
+// CompiledValidators defines an exported type.
+type CompiledValidators struct {
+	elements           defaultFixedSet[ids.ElemID]
+	attributes         defaultFixedSet[ids.AttrID]
 	attrUses           defaultFixedSet[*model.AttributeDecl]
-	TypeValidators     map[schema.TypeID]runtime.ValidatorID
+	TypeValidators     map[ids.TypeID]runtime.ValidatorID
 	ValidatorByType    map[model.Type]runtime.ValidatorID
 	SimpleContentTypes map[*model.ComplexType]model.Type
 	ComplexTypes       *complextypeplan.Plan
@@ -25,12 +27,12 @@ type compiledValidators struct {
 }
 
 // ValidatorForType returns the validator ID for a type when available.
-func (c *compiledValidators) ValidatorForType(typ model.Type) (runtime.ValidatorID, bool) {
+func (c *CompiledValidators) ValidatorForType(typ model.Type) (runtime.ValidatorID, bool) {
 	if c == nil || typ == nil {
 		return 0, false
 	}
 	if st, ok := model.AsSimpleType(typ); ok && st.IsBuiltin() {
-		if builtin := builtins.Get(builtins.TypeName(st.Name().Local)); builtin != nil {
+		if builtin := builtins.Get(model.TypeName(st.Name().Local)); builtin != nil {
 			typ = builtin
 		}
 	}
@@ -47,13 +49,13 @@ type compiler struct {
 	complexTypes    *complextypeplan.Plan
 	simpleContent   map[*model.ComplexType]model.Type
 	res             *typeResolver
-	runtimeTypeIDs  map[schema.TypeID]runtime.TypeID
+	runtimeTypeIDs  map[ids.TypeID]runtime.TypeID
 	registry        *schema.Registry
 	schema          *parser.Schema
 	compiling       map[model.Type]bool
 	validatorByType map[model.Type]runtime.ValidatorID
-	elements        defaultFixedSet[schema.ElemID]
-	attributes      defaultFixedSet[schema.AttrID]
+	elements        defaultFixedSet[ids.ElemID]
+	attributes      defaultFixedSet[ids.AttrID]
 	attrUses        defaultFixedSet[*model.AttributeDecl]
 	bundle          runtime.ValidatorsBundle
 	enums           enumBuilder
@@ -70,12 +72,12 @@ func newCompiler(sch *parser.Schema) *compiler {
 		compiling:       make(map[model.Type]bool),
 		facetsCache:     make(map[*model.SimpleType][]model.Facet),
 		elements: newDefaultFixedSet(
-			newDefaultFixedTable[schema.ElemID](),
-			newDefaultFixedTable[schema.ElemID](),
+			newDefaultFixedTable[ids.ElemID](),
+			newDefaultFixedTable[ids.ElemID](),
 		),
 		attributes: newDefaultFixedSet(
-			newDefaultFixedTable[schema.AttrID](),
-			newDefaultFixedTable[schema.AttrID](),
+			newDefaultFixedTable[ids.AttrID](),
+			newDefaultFixedTable[ids.AttrID](),
 		),
 		attrUses: newDefaultFixedSet(
 			newDefaultFixedTable[*model.AttributeDecl](),

@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// RangeFacet defines an exported type.
 type RangeFacet struct {
 	// Facet name (minInclusive, maxInclusive, etc.)
 	name string

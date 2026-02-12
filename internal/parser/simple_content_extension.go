@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseSimpleContentExtension(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.Extension, model.QName, error) {
+func parseSimpleContentExtension(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.Extension, model.QName, error) {
 	baseQName, err := parseDerivationBaseQName(doc, elem, schema, "extension")
 	if err != nil {
 		return nil, model.QName{}, err
@@ -30,9 +30,9 @@ func parseSimpleContentExtension(doc *schemaxml.Document, elem schemaxml.NodeID,
 	return extension, baseQName, nil
 }
 
-func validateSimpleContentExtensionChildren(doc *schemaxml.Document, elem schemaxml.NodeID) error {
+func validateSimpleContentExtensionChildren(doc *xmltree.Document, elem xmltree.NodeID) error {
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
+		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
 			continue
 		}
 

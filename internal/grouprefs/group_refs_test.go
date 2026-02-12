@@ -6,28 +6,29 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/occurs"
 )
 
 func TestExpandGroupRefsAllGroupAsChoice(t *testing.T) {
 	ref := model.QName{Namespace: "urn:test", Local: "G"}
 	leaf := &model.ElementDecl{
 		Name:      model.QName{Namespace: "urn:test", Local: "item"},
-		MinOccurs: model.OccursFromInt(1),
-		MaxOccurs: model.OccursFromInt(1),
+		MinOccurs: occurs.OccursFromInt(1),
+		MaxOccurs: occurs.OccursFromInt(1),
 	}
 	groups := map[model.QName]*model.ModelGroup{
 		ref: {
 			Kind:      model.AllGroup,
-			MinOccurs: model.OccursFromInt(1),
-			MaxOccurs: model.OccursFromInt(1),
+			MinOccurs: occurs.OccursFromInt(1),
+			MaxOccurs: occurs.OccursFromInt(1),
 			Particles: []model.Particle{leaf},
 		},
 	}
 
 	got, err := ExpandGroupRefs(&model.GroupRef{
 		RefQName:  ref,
-		MinOccurs: model.OccursFromInt(0),
-		MaxOccurs: model.OccursFromInt(2),
+		MinOccurs: occurs.OccursFromInt(0),
+		MaxOccurs: occurs.OccursFromInt(2),
 	}, ExpandGroupRefsOptions{
 		Lookup:       func(gr *model.GroupRef) *model.ModelGroup { return groups[gr.RefQName] },
 		AllGroupMode: AllGroupAsChoice,
@@ -62,13 +63,13 @@ func TestExpandGroupRefsAllGroupAsChoice(t *testing.T) {
 func TestExpandGroupRefsReuseLeaves(t *testing.T) {
 	leaf := &model.ElementDecl{
 		Name:      model.QName{Namespace: "urn:test", Local: "item"},
-		MinOccurs: model.OccursFromInt(1),
-		MaxOccurs: model.OccursFromInt(1),
+		MinOccurs: occurs.OccursFromInt(1),
+		MaxOccurs: occurs.OccursFromInt(1),
 	}
 	root := &model.ModelGroup{
 		Kind:      model.Sequence,
-		MinOccurs: model.OccursFromInt(1),
-		MaxOccurs: model.OccursFromInt(1),
+		MinOccurs: occurs.OccursFromInt(1),
+		MaxOccurs: occurs.OccursFromInt(1),
 		Particles: []model.Particle{leaf},
 	}
 
@@ -102,18 +103,18 @@ func TestExpandGroupRefsUsesConfiguredErrors(t *testing.T) {
 		Particles: []model.Particle{
 			&model.GroupRef{
 				RefQName:  cycleQName,
-				MinOccurs: model.OccursFromInt(1),
-				MaxOccurs: model.OccursFromInt(1),
+				MinOccurs: occurs.OccursFromInt(1),
+				MaxOccurs: occurs.OccursFromInt(1),
 			},
 		},
-		MinOccurs: model.OccursFromInt(1),
-		MaxOccurs: model.OccursFromInt(1),
+		MinOccurs: occurs.OccursFromInt(1),
+		MaxOccurs: occurs.OccursFromInt(1),
 	}
 
 	_, cycleErr := ExpandGroupRefs(&model.GroupRef{
 		RefQName:  cycleQName,
-		MinOccurs: model.OccursFromInt(1),
-		MaxOccurs: model.OccursFromInt(1),
+		MinOccurs: occurs.OccursFromInt(1),
+		MaxOccurs: occurs.OccursFromInt(1),
 	}, ExpandGroupRefsOptions{
 		Lookup: func(gr *model.GroupRef) *model.ModelGroup {
 			if gr.RefQName == cycleQName {
@@ -135,8 +136,8 @@ func TestExpandGroupRefsUsesConfiguredErrors(t *testing.T) {
 	missingQName := model.QName{Namespace: "urn:test", Local: "Missing"}
 	_, missingErr := ExpandGroupRefs(&model.GroupRef{
 		RefQName:  missingQName,
-		MinOccurs: model.OccursFromInt(1),
-		MaxOccurs: model.OccursFromInt(1),
+		MinOccurs: occurs.OccursFromInt(1),
+		MaxOccurs: occurs.OccursFromInt(1),
 	}, ExpandGroupRefsOptions{
 		MissingError: func(ref model.QName) error {
 			if ref != missingQName {

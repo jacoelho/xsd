@@ -1,6 +1,9 @@
 package model
 
-import "slices"
+import (
+	"maps"
+	"slices"
+)
 
 type builtinRegistry struct {
 	byName  map[string]*BuiltinType
@@ -8,12 +11,8 @@ type builtinRegistry struct {
 }
 
 func newBuiltinRegistry(byName map[string]*BuiltinType) *builtinRegistry {
-	cloned := make(map[string]*BuiltinType, len(byName))
-	names := make([]string, 0, len(byName))
-	for name, builtin := range byName {
-		cloned[name] = builtin
-		names = append(names, name)
-	}
+	cloned := maps.Clone(byName)
+	names := slices.Collect(maps.Keys(cloned))
 	slices.Sort(names)
 	ordered := make([]*BuiltinType, 0, len(names))
 	for _, name := range names {

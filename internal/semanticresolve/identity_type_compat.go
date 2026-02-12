@@ -1,6 +1,6 @@
 package semanticresolve
 
-import "github.com/jacoelho/xsd/internal/model"
+import model "github.com/jacoelho/xsd/internal/types"
 
 // areFieldTypesCompatible checks if two field types are compatible for keyref schemacheck.
 // Types are compatible if:

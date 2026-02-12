@@ -1,6 +1,9 @@
 package num
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // DecToScaledInt converts a Dec into an Int scaled by 10^scale.
 // It truncates fractional digits when scale < dec.Scale.
@@ -82,7 +85,7 @@ func DecFromScaledInt(val Int, scale uint32) Dec {
 	if len(digits) == 0 || allZeros(digits) {
 		return Dec{}
 	}
-	coef := append([]byte(nil), digits...)
+	coef := slices.Clone(digits)
 	for scale > 0 && len(coef) > 0 && coef[len(coef)-1] == '0' {
 		coef = coef[:len(coef)-1]
 		scale--

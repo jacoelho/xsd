@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseAttributeReference(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, ref string) (*model.AttributeDecl, error) {
+func parseAttributeReference(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, ref string) (*model.AttributeDecl, error) {
 	if err := validateAttributeConflicts(doc, elem, attributeReferenceConflictRules); err != nil {
 		return nil, err
 	}

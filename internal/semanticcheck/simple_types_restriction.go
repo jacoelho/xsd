@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/builtins"
+	facetengine "github.com/jacoelho/xsd/internal/facets"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
-	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
 )
 
@@ -27,7 +27,7 @@ func validateRestriction(schema *parser.Schema, st *model.SimpleType, restrictio
 
 		// check if it's a built-in type
 		if restriction.Base.Namespace == model.XSDNamespace {
-			bt := builtins.Get(builtins.TypeName(baseTypeName))
+			bt := builtins.Get(model.TypeName(baseTypeName))
 			if bt == nil {
 				// unknown built-in type - might be a forward reference issue, skip for now
 				baseType = nil

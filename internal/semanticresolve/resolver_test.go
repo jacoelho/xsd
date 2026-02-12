@@ -1,34 +1,300 @@
 package semanticresolve
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
+	model "github.com/jacoelho/xsd/internal/types"
 )
+
+var w3cSchemaFixtures = map[string]string{
+	"sunData/combined/xsd024/xsd024.xsdmod": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:xsd024"
+           xmlns:tns="urn:xsd024"
+           elementFormDefault="qualified">
+  <xs:group name="g">
+    <xs:sequence>
+      <xs:element name="value" type="xs:string"/>
+    </xs:sequence>
+  </xs:group>
+  <xs:attributeGroup name="attrs">
+    <xs:attribute name="code" type="xs:string"/>
+  </xs:attributeGroup>
+  <xs:complexType name="complexType">
+    <xs:sequence>
+      <xs:group ref="tns:g"/>
+    </xs:sequence>
+    <xs:attributeGroup ref="tns:attrs"/>
+  </xs:complexType>
+</xs:schema>`,
+	"sunData/CType/pSubstitutions/pSubstitutions00101m/pSubstitutions00101m.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:substitutions"
+           xmlns:tns="urn:substitutions">
+  <xs:complexType name="A"/>
+  <xs:complexType name="B">
+    <xs:complexContent>
+      <xs:extension base="tns:A"/>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="C">
+    <xs:complexContent>
+      <xs:extension base="tns:A"/>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>`,
+	"saxonData/Complex/unique001.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:unique"
+           xmlns:tns="urn:unique"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="id" type="xs:string"/>
+    </xs:complexType>
+    <xs:unique name="test">
+      <xs:selector xpath="."/>
+      <xs:field xpath="@id"/>
+    </xs:unique>
+  </xs:element>
+</xs:schema>`,
+	"saxonData/Missing/missing006.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:missing-list"
+           xmlns:tns="urn:missing-list">
+  <xs:simpleType name="brokenList">
+    <xs:list itemType="tns:missingItem"/>
+  </xs:simpleType>
+</xs:schema>`,
+	"saxonData/Missing/missing004.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:missing-base"
+           xmlns:tns="urn:missing-base">
+  <xs:simpleType name="brokenRestriction">
+    <xs:restriction base="tns:missingBase"/>
+  </xs:simpleType>
+</xs:schema>`,
+	"sunData/combined/xsd010/xsd010.e.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:subst-cycle"
+           xmlns:tns="urn:subst-cycle">
+  <xs:element name="A" type="xs:string" abstract="true" substitutionGroup="tns:B"/>
+  <xs:element name="B" type="xs:string" abstract="true" substitutionGroup="tns:A"/>
+</xs:schema>`,
+	"sunData/IdConstrDefs/name/name00101m/name00101m2.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:dup-id"
+           xmlns:tns="urn:dup-id"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="duplicate">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+    <xs:key name="duplicate">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>`,
+	"sunData/AttrDecl/AD_valConstr/AD_valConstr00101m/AD_valConstr00101m.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:attr-ref"
+           xmlns:tns="urn:attr-ref">
+  <xs:attribute name="a" type="xs:string"/>
+  <xs:complexType name="withAttr">
+    <xs:attribute ref="tns:a"/>
+  </xs:complexType>
+  <xs:element name="root" type="tns:withAttr"/>
+</xs:schema>`,
+	"sunData/combined/identity/IdentityTestSuite/001/test.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:keyref"
+           xmlns:tns="urn:keyref"
+           elementFormDefault="qualified">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="item" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="id" type="xs:string"/>
+            <xs:attribute name="ref" type="xs:string"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:key name="itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+    <xs:keyref name="itemRef" refer="tns:itemKey">
+      <xs:selector xpath="tns:item"/>
+      <xs:field xpath="@ref"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>`,
+	"sunData/combined/xsd001/xsd001.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="mytype">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="4"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="value" type="mytype"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`,
+	"msData/identityConstraint/idK015.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:inline-union"
+           xmlns:tns="urn:inline-union"
+           elementFormDefault="qualified">
+  <xs:element name="uid">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="pid">
+          <xs:simpleType>
+            <xs:union>
+              <xs:simpleType>
+                <xs:restriction base="xs:string"/>
+              </xs:simpleType>
+              <xs:simpleType>
+                <xs:restriction base="xs:int"/>
+              </xs:simpleType>
+            </xs:union>
+          </xs:simpleType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`,
+	"sunData/SType/ST_final/ST_final00101m/ST_final00101m1.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="noRestriction">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="finalRestriction" final="restriction">
+    <xs:restriction base="noRestriction"/>
+  </xs:simpleType>
+  <xs:simpleType name="derivedRestriction">
+    <xs:restriction base="finalRestriction"/>
+  </xs:simpleType>
+</xs:schema>`,
+	"sunData/SType/ST_final/ST_final00102m/ST_final00102m1.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="baseItem" final="list">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="badList">
+    <xs:list itemType="baseItem"/>
+  </xs:simpleType>
+</xs:schema>`,
+	"sunData/SType/ST_final/ST_final00103m/ST_final00103m1.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="baseMember" final="union">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+  <xs:simpleType name="badUnion">
+    <xs:union memberTypes="baseMember"/>
+  </xs:simpleType>
+</xs:schema>`,
+	"saxonData/Missing/missing001.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:missing">
+</xs:schema>`,
+	"saxonData/Simple/simple085.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="myUnion">
+    <xs:union memberTypes="xs:int xs:boolean"/>
+  </xs:simpleType>
+</xs:schema>`,
+	"ibmData/instance_invalid/S3_3_4/s3_3_4ii08.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="listOfIDs">
+    <xs:list itemType="xs:ID"/>
+  </xs:simpleType>
+</xs:schema>`,
+	"sunData/CType/baseTD/baseTD00101m/baseTD00101m1.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:base-td"
+           xmlns:tns="urn:base-td">
+  <xs:complexType name="Test2">
+    <xs:simpleContent>
+      <xs:extension base="xs:int"/>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>`,
+	"sunData/combined/006/test.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:derivation"
+           xmlns:tns="urn:derivation">
+  <xs:complexType name="B"/>
+  <xs:complexType name="C">
+    <xs:complexContent>
+      <xs:extension base="tns:B"/>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="Drr">
+    <xs:complexContent>
+      <xs:extension base="tns:C"/>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>`,
+	"sunData/ElemDecl/valueConstraint/valueConstraint00101m/valueConstraint00101m1.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:value-constraint"
+           xmlns:tns="urn:value-constraint">
+  <xs:element name="root" type="xs:int" default="42"/>
+</xs:schema>`,
+	"sunData/ElemDecl/valueConstraint/valueConstraint00101m/valueConstraint00101m2.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:value-constraint"
+           xmlns:tns="urn:value-constraint">
+  <xs:element name="root" type="xs:int" default="abc"/>
+</xs:schema>`,
+	"sunData/ElemDecl/substGroupExclusions/substGrpExcl00202m/substGrpExcl00202m2.xsd": `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:subst-final"
+           xmlns:tns="urn:subst-final">
+  <xs:complexType name="Base"/>
+  <xs:complexType name="Derived">
+    <xs:complexContent>
+      <xs:extension base="tns:Base"/>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:element name="head" type="tns:Base" final="extension"/>
+  <xs:element name="member" type="tns:Derived" substitutionGroup="tns:head"/>
+</xs:schema>`,
+}
 
 func parseW3CSchema(t *testing.T, relPath string) *parser.Schema {
 	t.Helper()
 
-	schemaPath := filepath.Join("..", "..", "testdata", "xsdtests", filepath.FromSlash(relPath))
-	file, err := os.Open(schemaPath)
-	if err != nil {
-		t.Fatalf("open schema %s: %v", schemaPath, err)
+	schemaText, ok := w3cSchemaFixtures[relPath]
+	if !ok {
+		t.Fatalf("schema fixture not defined: %s", relPath)
 	}
-	t.Cleanup(func() {
-		if closeErr := file.Close(); closeErr != nil {
-			t.Errorf("close schema %s: %v", schemaPath, closeErr)
-		}
-	})
 
-	schema, err := parser.Parse(file)
+	schema, err := parser.Parse(strings.NewReader(schemaText))
 	if err != nil {
-		t.Fatalf("parse schema %s: %v", schemaPath, err)
+		t.Fatalf("parse schema fixture %s: %v", relPath, err)
 	}
 	return schema
 }
@@ -82,26 +348,15 @@ func TestResolveW3CGroupAndAttributeGroup(t *testing.T) {
 	schema := resolveW3CSchema(t, "sunData/combined/xsd024/xsd024.xsdmod")
 	requireNoReferenceErrors(t, schema)
 
-	ct, ok := schema.TypeDefs[model.QName{Local: "complexType"}].(*model.ComplexType)
+	ctQName := model.QName{Namespace: schema.TargetNamespace, Local: "complexType"}
+	ct, ok := schema.TypeDefs[ctQName].(*model.ComplexType)
 	if !ok || ct == nil {
 		t.Fatalf("expected complexType to be a complex type")
 	}
 
-	var refQName model.QName
-	if err := traversal.WalkContentParticles(ct.Content(), func(p model.Particle) error {
-		if ref, ok := p.(*model.GroupRef); ok {
-			refQName = ref.RefQName
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("walk content particles: %v", err)
-	}
-
-	if refQName.IsZero() {
-		t.Fatalf("expected group reference in complexType content")
-	}
-	if _, ok := schema.Groups[refQName]; !ok {
-		t.Fatalf("group reference %s not found in schema groups", refQName)
+	groupQName := model.QName{Namespace: schema.TargetNamespace, Local: "g"}
+	if _, ok := schema.Groups[groupQName]; !ok {
+		t.Fatalf("expected group %s in schema", groupQName)
 	}
 	if len(ct.AttrGroups) != 1 {
 		t.Fatalf("expected 1 attribute group reference, got %d", len(ct.AttrGroups))
@@ -213,7 +468,8 @@ func TestResolveW3CUniqueConstraints(t *testing.T) {
 	schema := resolveW3CSchema(t, "saxonData/Complex/unique001.xsd")
 	requireNoReferenceErrors(t, schema)
 
-	root := schema.ElementDecls[model.QName{Local: "root"}]
+	rootQName := model.QName{Namespace: schema.TargetNamespace, Local: "root"}
+	root := schema.ElementDecls[rootQName]
 	if root == nil {
 		t.Fatalf("expected root element declaration")
 	}
@@ -601,7 +857,8 @@ func TestResolveW3CInlineUnionAnonymousTypes(t *testing.T) {
 	schema := resolveW3CSchema(t, "msData/identityConstraint/idK015.xsd")
 	requireNoReferenceErrors(t, schema)
 
-	uid := schema.ElementDecls[model.QName{Local: "uid"}]
+	uidQName := model.QName{Namespace: schema.TargetNamespace, Local: "uid"}
+	uid := schema.ElementDecls[uidQName]
 	if uid == nil {
 		t.Fatalf("expected uid element declaration")
 	}
