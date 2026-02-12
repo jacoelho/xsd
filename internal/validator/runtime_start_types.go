@@ -2,26 +2,23 @@ package validator
 
 import "github.com/jacoelho/xsd/internal/runtime"
 
-// StartMatchKind defines an exported type.
+// StartMatchKind enumerates start match kind values.
 type StartMatchKind uint8
 
 const (
-	// MatchNone is an exported constant.
 	MatchNone StartMatchKind = iota
-	// MatchElem is an exported constant.
 	MatchElem
-	// MatchWildcard is an exported constant.
 	MatchWildcard
 )
 
-// StartMatch defines an exported type.
+// StartMatch describes the matched particle for a start-element step.
 type StartMatch struct {
 	Kind     StartMatchKind
 	Elem     runtime.ElemID
 	Wildcard runtime.WildcardID
 }
 
-// StartAttr defines an exported type.
+// StartAttr carries one start-element attribute and its interned metadata.
 type StartAttr struct {
 	NSBytes    []byte
 	Local      []byte
@@ -33,7 +30,7 @@ type StartAttr struct {
 	KeyKind    runtime.ValueKind
 }
 
-// StartResult defines an exported type.
+// StartResult describes the resolved element/type and xsi:nil handling for a start event.
 type StartResult struct {
 	Elem   runtime.ElemID
 	Type   runtime.TypeID

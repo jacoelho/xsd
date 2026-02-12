@@ -7,13 +7,13 @@ import (
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-// TextValueOptions defines an exported type.
+// TextValueOptions controls canonicalization and key-derivation behavior for text validation.
 type TextValueOptions struct {
 	RequireCanonical bool
 	NeedKey          bool
 }
 
-// ValidateTextValue is an exported function.
+// ValidateTextValue validates simple-content text and returns canonical bytes plus value metrics.
 func (s *Session) ValidateTextValue(typeID runtime.TypeID, text []byte, resolver value.NSResolver, textOpts TextValueOptions) ([]byte, ValueMetrics, error) {
 	metrics := s.acquireValueMetrics()
 	defer s.releaseValueMetrics()

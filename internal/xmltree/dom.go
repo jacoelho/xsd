@@ -52,22 +52,22 @@ type Attr struct {
 	value     string
 }
 
-// Name is an exported function.
+// Name returns the attribute local name.
 func (a Attr) Name() string {
 	return a.local
 }
 
-// NamespaceURI is an exported function.
+// NamespaceURI returns the attribute namespace URI.
 func (a Attr) NamespaceURI() string {
 	return a.namespace
 }
 
-// LocalName is an exported function.
+// LocalName returns the attribute local name.
 func (a Attr) LocalName() string {
 	return a.local
 }
 
-// Value is an exported function.
+// Value returns the attribute lexical value.
 func (a Attr) Value() string {
 	return a.value
 }

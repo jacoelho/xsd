@@ -10,15 +10,10 @@ import (
 type IntegerSignRule uint8
 
 const (
-	// IntegerSignAny is an exported constant.
 	IntegerSignAny IntegerSignRule = iota
-	// IntegerSignNonNegative is an exported constant.
 	IntegerSignNonNegative
-	// IntegerSignPositive is an exported constant.
 	IntegerSignPositive
-	// IntegerSignNonPositive is an exported constant.
 	IntegerSignNonPositive
-	// IntegerSignNegative is an exported constant.
 	IntegerSignNegative
 )
 

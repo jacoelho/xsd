@@ -12,7 +12,7 @@ import (
 	model "github.com/jacoelho/xsd/internal/model"
 )
 
-// Apply is an exported function.
+// Apply validates value against all facets in declaration order.
 func Apply(value model.TypedValue, facets []model.Facet, baseType model.Type) error {
 	for _, facet := range facets {
 		if err := facet.Validate(value, baseType); err != nil {
@@ -22,7 +22,7 @@ func Apply(value model.TypedValue, facets []model.Facet, baseType model.Type) er
 	return nil
 }
 
-// Validate is an exported function.
+// Validate validates a lexical value against the provided facets and base type.
 func Validate(value string, baseType model.Type, facets []model.Facet, context map[string]string) error {
 	if len(facets) == 0 {
 		return nil
@@ -99,27 +99,27 @@ func ValidateApplicability(facetName string, baseType model.Type, baseQName mode
 	return model.ValidateFacetApplicability(facetName, baseType, baseQName)
 }
 
-// NewEnumeration is an exported function.
+// NewEnumeration creates an enumeration facet from lexical values.
 func NewEnumeration(values []string) *model.Enumeration {
 	return model.NewEnumeration(values)
 }
 
-// NewMinInclusive is an exported function.
+// NewMinInclusive constructs a minInclusive facet.
 func NewMinInclusive(lexical string, baseType model.Type) (model.Facet, error) {
 	return model.NewMinInclusive(lexical, baseType)
 }
 
-// NewMaxInclusive is an exported function.
+// NewMaxInclusive constructs a maxInclusive facet.
 func NewMaxInclusive(lexical string, baseType model.Type) (model.Facet, error) {
 	return model.NewMaxInclusive(lexical, baseType)
 }
 
-// NewMinExclusive is an exported function.
+// NewMinExclusive constructs a minExclusive facet.
 func NewMinExclusive(lexical string, baseType model.Type) (model.Facet, error) {
 	return model.NewMinExclusive(lexical, baseType)
 }
 
-// NewMaxExclusive is an exported function.
+// NewMaxExclusive constructs a maxExclusive facet.
 func NewMaxExclusive(lexical string, baseType model.Type) (model.Facet, error) {
 	return model.NewMaxExclusive(lexical, baseType)
 }

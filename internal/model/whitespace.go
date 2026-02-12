@@ -10,11 +10,8 @@ import (
 type WhiteSpace int
 
 const (
-	// WhiteSpacePreserve is an exported constant.
 	WhiteSpacePreserve WhiteSpace = iota
-	// WhiteSpaceReplace is an exported constant.
 	WhiteSpaceReplace
-	// WhiteSpaceCollapse is an exported constant.
 	WhiteSpaceCollapse
 )
 
@@ -51,7 +48,7 @@ func NormalizeWhiteSpace(lexical string, typ Type) string {
 	}
 }
 
-// TrimXMLWhitespace is an exported variable.
+// TrimXMLWhitespace trims XML whitespace according to the active normalization mode.
 var TrimXMLWhitespace = value.TrimXMLWhitespaceString
 
 // FieldsXMLWhitespaceSeq yields fields split on XML whitespace (space, tab, CR, LF).

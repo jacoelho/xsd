@@ -6,9 +6,7 @@ import "io"
 type ResolveKind uint8
 
 const (
-	// ResolveInclude is an exported constant.
 	ResolveInclude ResolveKind = iota
-	// ResolveImport is an exported constant.
 	ResolveImport
 )
 

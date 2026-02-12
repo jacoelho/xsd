@@ -7,7 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/num"
 )
 
-// TotalDigits defines an exported type.
+// TotalDigits validates the xs:totalDigits facet.
 type TotalDigits struct {
 	Value int
 }

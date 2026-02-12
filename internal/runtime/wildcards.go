@@ -1,32 +1,25 @@
 package runtime
 
-// ProcessContents defines an exported type.
+// ProcessContents encodes strict/lax/skip wildcard processing.
 type ProcessContents uint8
 
 const (
-	// PCStrict is an exported constant.
 	PCStrict ProcessContents = iota
-	// PCLax is an exported constant.
 	PCLax
-	// PCSkip is an exported constant.
 	PCSkip
 )
 
-// NSConstraintKind defines an exported type.
+// NSConstraintKind enumerates ns constraint kind values.
 type NSConstraintKind uint8
 
 const (
-	// NSAny is an exported constant.
 	NSAny NSConstraintKind = iota
-	// NSOther is an exported constant.
 	NSOther
-	// NSEnumeration is an exported constant.
 	NSEnumeration
-	// NSNotAbsent is an exported constant.
 	NSNotAbsent
 )
 
-// NSConstraint defines an exported type.
+// NSConstraint stores lowered namespace-matching rules for wildcards.
 type NSConstraint struct {
 	Kind      NSConstraintKind
 	HasTarget bool
@@ -35,7 +28,7 @@ type NSConstraint struct {
 	Len       uint32
 }
 
-// WildcardRule defines an exported type.
+// WildcardRule stores one compiled wildcard namespace/process policy.
 type WildcardRule struct {
 	NS       NSConstraint
 	PC       ProcessContents

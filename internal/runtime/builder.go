@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
-// Builder defines an exported type.
+// Builder interns namespaces/symbols and assembles a runtime Schema.
 type Builder struct {
 	namespaces namespaceBuilder
 	symbols    symbolBuilder
@@ -19,7 +19,7 @@ type Builder struct {
 	predef PredefinedSymbols
 }
 
-// NewBuilder is an exported function.
+// NewBuilder creates a mutable runtime schema builder with predefined XML/xsi symbols.
 func NewBuilder() *Builder {
 	b := &Builder{
 		namespaces: newNamespaceBuilder(),
@@ -41,7 +41,7 @@ func NewBuilder() *Builder {
 	return b
 }
 
-// InternNamespace is an exported function.
+// InternNamespace interns uri and returns its stable namespace ID.
 func (b *Builder) InternNamespace(uri []byte) (NamespaceID, error) {
 	if err := b.ensureMutable(); err != nil {
 		return 0, err
@@ -49,7 +49,7 @@ func (b *Builder) InternNamespace(uri []byte) (NamespaceID, error) {
 	return b.namespaces.intern(uri), nil
 }
 
-// InternSymbol is an exported function.
+// InternSymbol interns a local name under nsID and returns its stable symbol ID.
 func (b *Builder) InternSymbol(nsID NamespaceID, local []byte) (SymbolID, error) {
 	if err := b.ensureMutable(); err != nil {
 		return 0, err
@@ -57,7 +57,7 @@ func (b *Builder) InternSymbol(nsID NamespaceID, local []byte) (SymbolID, error)
 	return b.symbols.intern(nsID, local), nil
 }
 
-// Build is an exported function.
+// Build seals the builder and returns the immutable runtime schema.
 func (b *Builder) Build() (*Schema, error) {
 	if err := b.ensureMutable(); err != nil {
 		return nil, err

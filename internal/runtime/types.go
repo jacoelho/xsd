@@ -1,18 +1,15 @@
 package runtime
 
-// TypeKind defines an exported type.
+// TypeKind enumerates type kind values.
 type TypeKind uint8
 
 const (
-	// TypeBuiltin is an exported constant.
 	TypeBuiltin TypeKind = iota
-	// TypeSimple is an exported constant.
 	TypeSimple
-	// TypeComplex is an exported constant.
 	TypeComplex
 )
 
-// Type defines an exported type.
+// Type stores the compiled runtime descriptor for a schema type.
 type Type struct {
 	Name       SymbolID
 	Flags      TypeFlags
@@ -28,42 +25,36 @@ type Type struct {
 	Block      DerivationMethod
 }
 
-// TypeFlags defines an exported type.
+// TypeFlags is a bitset for type flags options.
 type TypeFlags uint32
 
 const (
-	// TypeAbstract is an exported constant.
 	TypeAbstract TypeFlags = 1 << iota
 )
 
-// DerivationMethod defines an exported type.
+// DerivationMethod enumerates derivation method values.
 type DerivationMethod uint8
 
 const (
-	// DerNone is an exported constant.
-	DerNone DerivationMethod = 0
-	// DerExtension is an exported constant.
-	DerExtension DerivationMethod = 1 << 0
-	// DerRestriction is an exported constant.
+	DerNone        DerivationMethod = 0
+	DerExtension   DerivationMethod = 1 << 0
 	DerRestriction DerivationMethod = 1 << 1
-	// DerList is an exported constant.
-	DerList DerivationMethod = 1 << 2
-	// DerUnion is an exported constant.
-	DerUnion DerivationMethod = 1 << 3
+	DerList        DerivationMethod = 1 << 2
+	DerUnion       DerivationMethod = 1 << 3
 )
 
-// TypeAncestors defines an exported type.
+// TypeAncestors stores precomputed ancestor IDs and derivation masks.
 type TypeAncestors struct {
 	IDs   []TypeID
 	Masks []DerivationMethod
 }
 
-// ComplexTypeRef defines an exported type.
+// ComplexTypeRef references complex type ref data in packed tables.
 type ComplexTypeRef struct {
 	ID uint32
 }
 
-// ComplexType defines an exported type.
+// ComplexType stores runtime metadata for complex-type validation.
 type ComplexType struct {
 	TextFixed         ValueRef
 	TextDefault       ValueRef
@@ -77,7 +68,7 @@ type ComplexType struct {
 	Mixed             bool
 }
 
-// Element defines an exported type.
+// Element stores runtime metadata for an element declaration.
 type Element struct {
 	Name SymbolID
 
@@ -99,29 +90,24 @@ type Element struct {
 	ICLen uint32
 }
 
-// ElemFlags defines an exported type.
+// ElemFlags is a bitset for elem flags options.
 type ElemFlags uint32
 
 const (
-	// ElemNillable is an exported constant.
 	ElemNillable ElemFlags = 1 << iota
-	// ElemAbstract is an exported constant.
 	ElemAbstract
 )
 
-// ElemBlock defines an exported type.
+// ElemBlock is a bitmask of blocked substitution derivations.
 type ElemBlock uint8
 
 const (
-	// ElemBlockSubstitution is an exported constant.
 	ElemBlockSubstitution ElemBlock = 1 << iota
-	// ElemBlockExtension is an exported constant.
 	ElemBlockExtension
-	// ElemBlockRestriction is an exported constant.
 	ElemBlockRestriction
 )
 
-// Attribute defines an exported type.
+// Attribute stores runtime metadata for an attribute declaration.
 type Attribute struct {
 	Name          SymbolID
 	Validator     ValidatorID
@@ -133,7 +119,7 @@ type Attribute struct {
 	FixedMember   ValidatorID
 }
 
-// AttrUse defines an exported type.
+// AttrUse stores runtime metadata for an attribute use.
 type AttrUse struct {
 	Name          SymbolID
 	Validator     ValidatorID
@@ -146,19 +132,16 @@ type AttrUse struct {
 	FixedMember   ValidatorID
 }
 
-// AttrUseKind defines an exported type.
+// AttrUseKind enumerates attr use kind values.
 type AttrUseKind uint8
 
 const (
-	// AttrOptional is an exported constant.
 	AttrOptional AttrUseKind = iota
-	// AttrRequired is an exported constant.
 	AttrRequired
-	// AttrProhibited is an exported constant.
 	AttrProhibited
 )
 
-// AttrIndexRef defines an exported type.
+// AttrIndexRef references attr index ref data in packed tables.
 type AttrIndexRef struct {
 	Off       uint32
 	Len       uint32
@@ -166,25 +149,22 @@ type AttrIndexRef struct {
 	HashTable uint32
 }
 
-// AttrIndexMode defines an exported type.
+// AttrIndexMode enumerates attr index mode values.
 type AttrIndexMode uint8
 
 const (
-	// AttrIndexSmallLinear is an exported constant.
 	AttrIndexSmallLinear AttrIndexMode = iota
-	// AttrIndexSortedBinary is an exported constant.
 	AttrIndexSortedBinary
-	// AttrIndexHash is an exported constant.
 	AttrIndexHash
 )
 
-// ComplexAttrIndex defines an exported type.
+// ComplexAttrIndex stores flattened attribute-use tables for complex types.
 type ComplexAttrIndex struct {
 	Uses       []AttrUse
 	HashTables []AttrHashTable
 }
 
-// AttrHashTable defines an exported type.
+// AttrHashTable stores an open-addressing hash table for attribute lookup.
 type AttrHashTable struct {
 	Hash []uint64
 	Slot []uint32
