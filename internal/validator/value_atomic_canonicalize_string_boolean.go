@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/valuesemantics"
 )
 
-func (s *Session) canonicalizeAtomicString(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeAtomicString(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	kind, ok := s.stringKind(meta)
 	if !ok {
 		return nil, valueErrorf(valueErrInvalid, "string validator out of range")
@@ -23,7 +23,7 @@ func (s *Session) canonicalizeAtomicString(meta runtime.ValidatorMeta, normalize
 	return canon, nil
 }
 
-func (s *Session) canonicalizeAtomicBoolean(normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeAtomicBoolean(normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	v, canon, err := valuesemantics.CanonicalizeBoolean(normalized)
 	if err != nil {
 		return nil, valueErrorMsg(valueErrInvalid, err.Error())

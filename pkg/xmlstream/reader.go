@@ -350,7 +350,7 @@ func (r *Reader) startEvent(tok *xmltext.RawTokenSpan, line, column int) (Event,
 		r.attrBuf = r.attrBuf[:0]
 	}
 
-	err = r.scanStartAttributes(tok, core.scopeDepth, line, column, func(attrName []byte, attrNamespace string, attrLocal, value []byte) error {
+	err = r.scanStartAttributes(tok, core.scopeDepth, line, column, func(_ []byte, attrNamespace string, attrLocal, value []byte) error {
 		r.attrBuf = append(r.attrBuf, Attr{
 			Name:  r.names.internBytes(attrNamespace, attrLocal),
 			Value: value,

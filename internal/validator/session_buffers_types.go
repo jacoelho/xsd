@@ -1,11 +1,12 @@
 package validator
 
+// SessionBuffers defines an exported type.
 type SessionBuffers struct {
 	normBuf      []byte
 	valueBuf     []byte
 	valueScratch []byte
 	normStack    [][]byte
-	metricsPool  []*valueMetrics
+	metricsPool  []*ValueMetrics
 	prefixCache  []prefixEntry
 	nameLocal    []byte
 	errBuf       []byte

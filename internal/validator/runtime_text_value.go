@@ -7,22 +7,24 @@ import (
 	"github.com/jacoelho/xsd/internal/value"
 )
 
+// TextValueOptions defines an exported type.
 type TextValueOptions struct {
 	RequireCanonical bool
 	NeedKey          bool
 }
 
-func (s *Session) ValidateTextValue(typeID runtime.TypeID, text []byte, resolver value.NSResolver, textOpts TextValueOptions) ([]byte, valueMetrics, error) {
+// ValidateTextValue is an exported function.
+func (s *Session) ValidateTextValue(typeID runtime.TypeID, text []byte, resolver value.NSResolver, textOpts TextValueOptions) ([]byte, ValueMetrics, error) {
 	metrics := s.acquireValueMetrics()
 	defer s.releaseValueMetrics()
 	canon, err := s.validateTextValueCore(typeID, text, resolver, textOpts, metrics)
 	if err != nil {
-		return nil, valueMetrics{}, err
+		return nil, ValueMetrics{}, err
 	}
 	return canon, *metrics, nil
 }
 
-func (s *Session) validateTextValueCore(typeID runtime.TypeID, text []byte, resolver value.NSResolver, textOpts TextValueOptions, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) validateTextValueCore(typeID runtime.TypeID, text []byte, resolver value.NSResolver, textOpts TextValueOptions, metrics *ValueMetrics) ([]byte, error) {
 	if s == nil || s.rt == nil {
 		return nil, fmt.Errorf("session missing runtime schema")
 	}

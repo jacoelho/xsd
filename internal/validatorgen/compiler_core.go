@@ -10,6 +10,7 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
+// CompiledValidators defines an exported type.
 type CompiledValidators struct {
 	elements           defaultFixedSet[ids.ElemID]
 	attributes         defaultFixedSet[ids.AttrID]

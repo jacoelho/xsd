@@ -103,7 +103,9 @@ func combineExtensionParticles(baseParticle, extParticle model.Particle) model.P
 type ComplexTypeChainMode uint8
 
 const (
+	// ComplexTypeChainExplicitBaseOnly is an exported constant.
 	ComplexTypeChainExplicitBaseOnly ComplexTypeChainMode = iota
+	// ComplexTypeChainAllowImplicitAnyType is an exported constant.
 	ComplexTypeChainAllowImplicitAnyType
 )
 

@@ -28,7 +28,7 @@ func (s *Session) validateEndTextFixed(
 		result.textValidator,
 		fixed.member,
 		result.canonText,
-		valueMetrics{keyKind: result.textKeyKind, keyBytes: result.textKeyBytes},
+		ValueMetrics{keyKind: result.textKeyKind, keyBytes: result.textKeyBytes},
 		resolver,
 		fixed.value,
 		fixed.key,

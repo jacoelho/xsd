@@ -1,12 +1,14 @@
 package validator
 
 import (
+	"slices"
+
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 	wsmode "github.com/jacoelho/xsd/internal/whitespace"
 )
 
-func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, resolver value.NSResolver, opts valueOptions, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, resolver value.NSResolver, opts valueOptions, metrics *ValueMetrics) ([]byte, error) {
 	if s == nil || s.rt == nil {
 		return nil, valueErrorf(valueErrInvalid, "runtime schema missing")
 	}
@@ -28,7 +30,7 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 			needsLocalMetrics = true
 		}
 		if needsLocalMetrics {
-			localMetrics := &valueMetrics{}
+			localMetrics := &ValueMetrics{}
 			metrics = localMetrics
 			metricsInternal = true
 		}
@@ -72,7 +74,7 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 		return nil, err
 	}
 	if !opts.storeValue && (meta.Kind == runtime.VHexBinary || meta.Kind == runtime.VBase64Binary) {
-		canon = append([]byte(nil), canon...)
+		canon = slices.Clone(canon)
 	}
 	canon = s.finalizeValue(canon, opts, metrics, metricsInternal)
 	if opts.trackIDs {

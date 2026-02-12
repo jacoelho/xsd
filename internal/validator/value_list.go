@@ -13,7 +13,7 @@ func (s *Session) listItemValidator(meta runtime.ValidatorMeta) (runtime.Validat
 	return s.rt.Validators.List[meta.Index].Item, true
 }
 
-func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	itemValidator, ok := s.listItemValidator(meta)
 	if !ok {
 		return nil, valueErrorf(valueErrInvalid, "list validator out of range")
@@ -24,7 +24,7 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 	if needKey {
 		keyTmp = make([]byte, 0, len(normalized))
 	}
-	spaceOnly := opts.applyWhitespace && meta.WhiteSpace == runtime.WS_Collapse
+	spaceOnly := opts.applyWhitespace && meta.WhiteSpace == runtime.WSCollapse
 	err := forEachListItem(normalized, spaceOnly, func(item []byte) error {
 		itemOpts := opts
 		itemOpts.applyWhitespace = false
@@ -71,7 +71,7 @@ func (s *Session) validateListNoCanonical(meta runtime.ValidatorMeta, normalized
 	if !ok {
 		return valueErrorf(valueErrInvalid, "list validator out of range")
 	}
-	spaceOnly := opts.applyWhitespace && meta.WhiteSpace == runtime.WS_Collapse
+	spaceOnly := opts.applyWhitespace && meta.WhiteSpace == runtime.WSCollapse
 	err := forEachListItem(normalized, spaceOnly, func(item []byte) error {
 		itemOpts := opts
 		itemOpts.applyWhitespace = false

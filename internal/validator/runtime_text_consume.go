@@ -8,6 +8,7 @@ import (
 	"github.com/jacoelho/xsd/internal/value"
 )
 
+// ConsumeText is an exported function.
 func (s *Session) ConsumeText(state *TextState, kind runtime.ContentKind, mixed, nilled bool, text []byte) error {
 	if s == nil || state == nil {
 		return fmt.Errorf("text state missing")

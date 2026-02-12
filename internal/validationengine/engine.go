@@ -2,6 +2,7 @@ package validationengine
 
 import (
 	"io"
+	"slices"
 	"sync"
 
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -20,7 +21,7 @@ type Engine struct {
 func NewEngine(schema *runtime.Schema, opts ...xmlstream.Option) *Engine {
 	engine := &Engine{rt: schema}
 	if len(opts) != 0 {
-		engine.opts = append([]xmlstream.Option(nil), opts...)
+		engine.opts = slices.Clone(opts)
 	}
 	engine.pool.New = func() any {
 		return validator.NewSession(schema, engine.opts...)

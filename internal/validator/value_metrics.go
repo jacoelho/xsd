@@ -5,7 +5,8 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
-type valueMetrics struct {
+// ValueMetrics captures cached parsed values and derived keys for one validation.
+type ValueMetrics struct {
 	intVal          num.Int
 	keyBytes        []byte
 	decVal          num.Dec

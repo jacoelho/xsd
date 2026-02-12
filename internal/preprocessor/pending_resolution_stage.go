@@ -2,6 +2,7 @@ package preprocessor
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
 	parser "github.com/jacoelho/xsd/internal/parser"
@@ -44,7 +45,7 @@ func (l *Loader) stagePendingTargets(pendingDirectives []pendingDirective) (map[
 		}
 		stagedEntry := &schemaEntry{}
 		if len(entry.includeInserted) > 0 {
-			stagedEntry.includeInserted = append([]int(nil), entry.includeInserted...)
+			stagedEntry.includeInserted = slices.Clone(entry.includeInserted)
 		}
 		staged[directive.targetKey] = &stagedPendingTarget{
 			schema: loadmerge.CloneSchemaForMerge(target),

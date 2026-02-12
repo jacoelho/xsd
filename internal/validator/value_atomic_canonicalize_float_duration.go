@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/valuesemantics"
 )
 
-func (s *Session) canonicalizeAtomicFloat(normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeAtomicFloat(normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	v, class, canon, err := valuesemantics.CanonicalizeFloat32(normalized)
 	if err != nil {
 		return nil, valueErrorMsg(valueErrInvalid, err.Error())
@@ -24,7 +24,7 @@ func (s *Session) canonicalizeAtomicFloat(normalized []byte, needKey bool, metri
 	return canon, nil
 }
 
-func (s *Session) canonicalizeAtomicDouble(normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeAtomicDouble(normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	v, class, canon, err := valuesemantics.CanonicalizeFloat64(normalized)
 	if err != nil {
 		return nil, valueErrorMsg(valueErrInvalid, err.Error())
@@ -42,7 +42,7 @@ func (s *Session) canonicalizeAtomicDouble(normalized []byte, needKey bool, metr
 	return canon, nil
 }
 
-func (s *Session) canonicalizeAtomicDuration(normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeAtomicDuration(normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	dur, canon, err := valuesemantics.CanonicalizeDuration(normalized)
 	if err != nil {
 		return nil, valueErrorMsg(valueErrInvalid, err.Error())

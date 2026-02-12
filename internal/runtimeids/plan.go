@@ -2,6 +2,7 @@ package runtimeids
 
 import (
 	"fmt"
+	"slices"
 
 	schema "github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/builtins"
@@ -26,7 +27,7 @@ func Build(registry *schema.Registry) (*Plan, error) {
 	}
 	builtin := builtinTypeNames()
 	plan := &Plan{
-		BuiltinTypeNames: append([]model.TypeName(nil), builtin...),
+		BuiltinTypeNames: slices.Clone(builtin),
 		BuiltinTypeIDs:   make(map[model.TypeName]runtime.TypeID, len(builtin)),
 		TypeIDs:          make(map[ids.TypeID]runtime.TypeID, len(registry.TypeOrder)),
 		ElementIDs:       make(map[ids.ElemID]runtime.ElemID, len(registry.ElementOrder)),
@@ -61,9 +62,7 @@ func Build(registry *schema.Registry) (*Plan, error) {
 // BuiltinTypeNames returns the deterministic builtin type runtime order.
 func BuiltinTypeNames() []model.TypeName {
 	builtin := builtinTypeNames()
-	out := make([]model.TypeName, len(builtin))
-	copy(out, builtin)
-	return out
+	return slices.Clone(builtin)
 }
 
 func builtinTypeNames() []model.TypeName {

@@ -8,7 +8,7 @@ import (
 	"github.com/jacoelho/xsd/internal/valuecodec"
 )
 
-func (s *Session) canonicalizeQName(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeQName(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	canon, err := value.CanonicalQName(normalized, resolver, nil)
 	if err != nil {
 		return nil, valueErrorMsg(valueErrInvalid, err.Error())

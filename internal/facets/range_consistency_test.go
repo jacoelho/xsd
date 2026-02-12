@@ -14,7 +14,7 @@ func TestCheckRangeConstraintsChecksEachPairOnce(t *testing.T) {
 	maxInclusive := "6"
 
 	calls := 0
-	err := checkRangeConstraints(&minExclusive, &maxExclusive, &minInclusive, &maxInclusive, func(v1, v2 string) (int, bool, error) {
+	err := checkRangeConstraints(&minExclusive, &maxExclusive, &minInclusive, &maxInclusive, func(_, _ string) (int, bool, error) {
 		calls++
 		return -1, true, nil
 	})

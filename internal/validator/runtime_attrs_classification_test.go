@@ -25,8 +25,8 @@ func TestClassifyAttrsClasses(t *testing.T) {
 			Value:   []byte("1"),
 		},
 		{
-			Sym:     schema.Predef.XmlLang,
-			NS:      schema.PredefNS.Xml,
+			Sym:     schema.Predef.XMLLang,
+			NS:      schema.PredefNS.XML,
 			NSBytes: []byte("http://www.w3.org/XML/1998/namespace"),
 			Local:   []byte("lang"),
 			Value:   []byte("en"),

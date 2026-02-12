@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"slices"
 	"strconv"
 	"testing"
 
@@ -141,7 +142,7 @@ func Benchmark_EnumLookup_TypedKeys(b *testing.B) {
 	if err != nil {
 		b.Fatalf("enum validate: %v", err)
 	}
-	key := append([]byte(nil), metrics.keyBytes...)
+	key := slices.Clone(metrics.keyBytes)
 	kind := metrics.keyKind
 
 	b.ReportAllocs()

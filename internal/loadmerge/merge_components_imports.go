@@ -1,6 +1,8 @@
 package loadmerge
 
 import (
+	"maps"
+
 	"github.com/jacoelho/xsd/internal/model"
 	parser "github.com/jacoelho/xsd/internal/parser"
 )
@@ -20,9 +22,7 @@ func (c *mergeContext) mergeImportedNamespaces() {
 		if _, ok := c.target.ImportedNamespaces[mappedFrom]; !ok {
 			c.target.ImportedNamespaces[mappedFrom] = make(map[model.NamespaceURI]bool)
 		}
-		for ns := range imports {
-			c.target.ImportedNamespaces[mappedFrom][ns] = true
-		}
+		maps.Copy(c.target.ImportedNamespaces[mappedFrom], imports)
 	}
 }
 
@@ -45,9 +45,7 @@ func (c *mergeContext) mergeImportContexts() {
 			if existing.Imports == nil {
 				existing.Imports = make(map[model.NamespaceURI]bool)
 			}
-			for ns := range merged.Imports {
-				existing.Imports[ns] = true
-			}
+			maps.Copy(existing.Imports, merged.Imports)
 			if existing.TargetNamespace == "" {
 				existing.TargetNamespace = merged.TargetNamespace
 			}

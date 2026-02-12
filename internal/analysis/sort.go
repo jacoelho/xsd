@@ -19,7 +19,7 @@ func SortedGlobalDecls(decls []parser.GlobalDecl) []parser.GlobalDecl {
 	if len(decls) == 0 {
 		return nil
 	}
-	out := append([]parser.GlobalDecl(nil), decls...)
+	out := slices.Clone(decls)
 	slices.SortFunc(out, compareGlobalDecl)
 	return out
 }

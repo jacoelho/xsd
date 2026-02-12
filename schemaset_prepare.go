@@ -43,6 +43,7 @@ func (s *SchemaSet) loadAndMergeAll(load resolvedLoadOptions) (*parser.Schema, e
 		if err != nil {
 			return nil, fmt.Errorf("load parsed schema %s: %w", entry.location, err)
 		}
+		disambiguateSchemaOriginsForRoot(parsed, schemaSetRootKey(i))
 		if i == 0 {
 			merged = parsed
 			insertAt = len(merged.GlobalDecls)

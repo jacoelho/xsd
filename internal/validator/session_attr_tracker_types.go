@@ -5,6 +5,7 @@ type attrSeenEntry struct {
 	idx  uint32
 }
 
+// AttributeTracker defines an exported type.
 type AttributeTracker struct {
 	attrAppliedBuf   []AttrApplied
 	attrClassBuf     []attrClass

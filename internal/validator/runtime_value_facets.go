@@ -13,7 +13,7 @@ func (s *Session) hasLengthFacet(meta runtime.ValidatorMeta) bool {
 	return err == nil && ok
 }
 
-func (s *Session) validateRuntimeFacets(meta runtime.ValidatorMeta, normalized, canon []byte, metrics *valueMetrics) error {
+func (s *Session) validateRuntimeFacets(meta runtime.ValidatorMeta, normalized, canon []byte, metrics *ValueMetrics) error {
 	return facetengine.ValidateRuntimeProgram(
 		facetengine.RuntimeProgram{
 			Meta:       meta,

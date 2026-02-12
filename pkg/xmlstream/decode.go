@@ -180,7 +180,7 @@ func (r *Reader) withInScopeNamespaceDecls(start Event) Event {
 		}
 		attrs = append(attrs, Attr{
 			Name:  QName{Namespace: XMLNSNamespace, Local: local},
-			Value: append([]byte(nil), prefixURI[prefix]...),
+			Value: []byte(prefixURI[prefix]),
 		})
 	}
 	start.Attrs = attrs

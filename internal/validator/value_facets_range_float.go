@@ -5,7 +5,7 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
-func (s *Session) checkFloatRange(kind runtime.ValidatorKind, op runtime.FacetOp, canonical, bound []byte, metrics *valueMetrics) error {
+func (s *Session) checkFloatRange(kind runtime.ValidatorKind, op runtime.FacetOp, canonical, bound []byte, metrics *ValueMetrics) error {
 	var (
 		val, boundVal        float64
 		valClass, boundClass num.FloatClass

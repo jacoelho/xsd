@@ -4,7 +4,7 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
-func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	switch meta.Kind {
 	case runtime.VString:
 		return s.canonicalizeAtomicString(meta, normalized, needKey, metrics)

@@ -12,6 +12,7 @@ import (
 	model "github.com/jacoelho/xsd/internal/model"
 )
 
+// Apply is an exported function.
 func Apply(value model.TypedValue, facets []model.Facet, baseType model.Type) error {
 	for _, facet := range facets {
 		if err := facet.Validate(value, baseType); err != nil {
@@ -21,6 +22,7 @@ func Apply(value model.TypedValue, facets []model.Facet, baseType model.Type) er
 	return nil
 }
 
+// Validate is an exported function.
 func Validate(value string, baseType model.Type, facets []model.Facet, context map[string]string) error {
 	if len(facets) == 0 {
 		return nil
@@ -97,22 +99,27 @@ func ValidateApplicability(facetName string, baseType model.Type, baseQName mode
 	return model.ValidateFacetApplicability(facetName, baseType, baseQName)
 }
 
+// NewEnumeration is an exported function.
 func NewEnumeration(values []string) *model.Enumeration {
 	return model.NewEnumeration(values)
 }
 
+// NewMinInclusive is an exported function.
 func NewMinInclusive(lexical string, baseType model.Type) (model.Facet, error) {
 	return model.NewMinInclusive(lexical, baseType)
 }
 
+// NewMaxInclusive is an exported function.
 func NewMaxInclusive(lexical string, baseType model.Type) (model.Facet, error) {
 	return model.NewMaxInclusive(lexical, baseType)
 }
 
+// NewMinExclusive is an exported function.
 func NewMinExclusive(lexical string, baseType model.Type) (model.Facet, error) {
 	return model.NewMinExclusive(lexical, baseType)
 }
 
+// NewMaxExclusive is an exported function.
 func NewMaxExclusive(lexical string, baseType model.Type) (model.Facet, error) {
 	return model.NewMaxExclusive(lexical, baseType)
 }

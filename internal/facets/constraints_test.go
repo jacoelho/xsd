@@ -53,7 +53,7 @@ func TestValidateSchemaConstraintsDelegatesRangeChecks(t *testing.T) {
 			BaseQName: base.Name(),
 		},
 		SchemaConstraintCallbacks{
-			ValidateRangeConsistency: func(minExclusive, maxExclusive, minInclusive, maxInclusive *string, _ model.Type, _ model.QName) error {
+			ValidateRangeConsistency: func(_, _, minInclusive, maxInclusive *string, _ model.Type, _ model.QName) error {
 				rangeCalled = true
 				if minInclusive == nil || *minInclusive != "1" {
 					t.Fatalf("minInclusive = %v, want 1", minInclusive)

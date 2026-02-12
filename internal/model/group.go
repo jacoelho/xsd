@@ -24,7 +24,9 @@ const (
 	AllGroup
 )
 
-// ModelGroup represents sequence, choice, or all groups
+// ModelGroup represents sequence, choice, or all groups.
+//
+//nolint:revive // keep explicit name to match XSD terminology across packages.
 type ModelGroup struct {
 	SourceNamespace NamespaceURI
 	Particles       []Particle

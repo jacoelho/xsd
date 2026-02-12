@@ -2,6 +2,7 @@ package runtime
 
 import "bytes"
 
+// NamespaceTable defines an exported type.
 type NamespaceTable struct {
 	Blob  []byte
 	Off   []uint32
@@ -9,11 +10,13 @@ type NamespaceTable struct {
 	Index NamespaceIndex
 }
 
+// NamespaceIndex defines an exported type.
 type NamespaceIndex struct {
 	Hash []uint64
 	ID   []NamespaceID
 }
 
+// Count is an exported function.
 func (t *NamespaceTable) Count() int {
 	if len(t.Off) == 0 {
 		return 0
@@ -21,6 +24,7 @@ func (t *NamespaceTable) Count() int {
 	return len(t.Off) - 1
 }
 
+// Bytes is an exported function.
 func (t *NamespaceTable) Bytes(id NamespaceID) []byte {
 	if id == 0 || int(id) >= len(t.Off) {
 		return nil
@@ -33,6 +37,7 @@ func (t *NamespaceTable) Bytes(id NamespaceID) []byte {
 	return t.Blob[off : off+ln]
 }
 
+// Lookup is an exported function.
 func (t *NamespaceTable) Lookup(ns []byte) NamespaceID {
 	if len(t.Index.ID) == 0 {
 		return 0
@@ -69,6 +74,7 @@ func (t *NamespaceTable) equalNamespace(id NamespaceID, ns []byte) bool {
 	return bytes.Equal(t.Blob[int(off):int(end)], ns)
 }
 
+// SymbolsTable defines an exported type.
 type SymbolsTable struct {
 	NS        []NamespaceID
 	LocalOff  []uint32
@@ -78,11 +84,13 @@ type SymbolsTable struct {
 	Index SymbolsIndex
 }
 
+// SymbolsIndex defines an exported type.
 type SymbolsIndex struct {
 	Hash []uint64
 	ID   []SymbolID
 }
 
+// Count is an exported function.
 func (t *SymbolsTable) Count() int {
 	if len(t.NS) == 0 {
 		return 0
@@ -90,6 +98,7 @@ func (t *SymbolsTable) Count() int {
 	return len(t.NS) - 1
 }
 
+// LocalBytes is an exported function.
 func (t *SymbolsTable) LocalBytes(id SymbolID) []byte {
 	if id == 0 || int(id) >= len(t.LocalOff) {
 		return nil
@@ -102,6 +111,7 @@ func (t *SymbolsTable) LocalBytes(id SymbolID) []byte {
 	return t.LocalBlob[off : off+ln]
 }
 
+// Lookup is an exported function.
 func (t *SymbolsTable) Lookup(nsID NamespaceID, local []byte) SymbolID {
 	if len(t.Index.ID) == 0 {
 		return 0

@@ -1,17 +1,17 @@
 package validator
 
-func (s *Session) acquireValueMetrics() *valueMetrics {
+func (s *Session) acquireValueMetrics() *ValueMetrics {
 	if s == nil {
-		return &valueMetrics{}
+		return &ValueMetrics{}
 	}
 	idx := s.metricsDepth
 	if idx < len(s.metricsPool) {
 		metrics := s.metricsPool[idx]
-		*metrics = valueMetrics{}
+		*metrics = ValueMetrics{}
 		s.metricsDepth++
 		return metrics
 	}
-	metrics := &valueMetrics{}
+	metrics := &ValueMetrics{}
 	s.metricsPool = append(s.metricsPool, metrics)
 	s.metricsDepth++
 	return metrics

@@ -2,6 +2,7 @@ package validator
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
@@ -16,10 +17,10 @@ func (s *Session) buildStartFrame(entry nameEntry, ev *xmlstream.ResolvedEvent, 
 	}
 	if entry.LocalLen == 0 && entry.NSLen == 0 {
 		if len(ev.Local) > 0 {
-			frame.local = append([]byte(nil), ev.Local...)
+			frame.local = slices.Clone(ev.Local)
 		}
 		if len(ev.NS) > 0 {
-			frame.ns = append([]byte(nil), ev.NS...)
+			frame.ns = slices.Clone(ev.NS)
 		}
 	}
 

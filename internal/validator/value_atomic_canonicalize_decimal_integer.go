@@ -5,7 +5,7 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
-func (s *Session) canonicalizeAtomicDecimal(normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeAtomicDecimal(normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	dec, buf, perr := num.ParseDecInto(normalized, s.Scratch.Buf1)
 	if perr != nil {
 		return nil, valueErrorMsg(valueErrInvalid, "invalid decimal")
@@ -29,7 +29,7 @@ func (s *Session) canonicalizeAtomicDecimal(normalized []byte, needKey bool, met
 	return canon, nil
 }
 
-func (s *Session) canonicalizeAtomicInteger(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeAtomicInteger(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	kind, ok := s.integerKind(meta)
 	if !ok {
 		return nil, valueErrorf(valueErrInvalid, "integer validator out of range")

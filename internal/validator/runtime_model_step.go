@@ -6,6 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
+// StepModel is an exported function.
 func (s *Session) StepModel(ref runtime.ModelRef, state *ModelState, sym runtime.SymbolID, nsID runtime.NamespaceID, nsBytes []byte) (StartMatch, error) {
 	if s == nil || s.rt == nil {
 		return StartMatch{}, fmt.Errorf("session missing runtime schema")

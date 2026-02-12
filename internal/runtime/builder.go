@@ -6,6 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
+// Builder defines an exported type.
 type Builder struct {
 	namespaces namespaceBuilder
 	symbols    symbolBuilder
@@ -18,6 +19,7 @@ type Builder struct {
 	predef PredefinedSymbols
 }
 
+// NewBuilder is an exported function.
 func NewBuilder() *Builder {
 	b := &Builder{
 		namespaces: newNamespaceBuilder(),
@@ -32,13 +34,14 @@ func NewBuilder() *Builder {
 		XsiNil:                       b.symbols.intern(b.xsiNS, []byte("nil")),
 		XsiSchemaLocation:            b.symbols.intern(b.xsiNS, []byte("schemaLocation")),
 		XsiNoNamespaceSchemaLocation: b.symbols.intern(b.xsiNS, []byte("noNamespaceSchemaLocation")),
-		XmlLang:                      b.symbols.intern(b.xmlNS, []byte("lang")),
-		XmlSpace:                     b.symbols.intern(b.xmlNS, []byte("space")),
+		XMLLang:                      b.symbols.intern(b.xmlNS, []byte("lang")),
+		XMLSpace:                     b.symbols.intern(b.xmlNS, []byte("space")),
 	}
 
 	return b
 }
 
+// InternNamespace is an exported function.
 func (b *Builder) InternNamespace(uri []byte) (NamespaceID, error) {
 	if err := b.ensureMutable(); err != nil {
 		return 0, err
@@ -46,6 +49,7 @@ func (b *Builder) InternNamespace(uri []byte) (NamespaceID, error) {
 	return b.namespaces.intern(uri), nil
 }
 
+// InternSymbol is an exported function.
 func (b *Builder) InternSymbol(nsID NamespaceID, local []byte) (SymbolID, error) {
 	if err := b.ensureMutable(); err != nil {
 		return 0, err
@@ -53,6 +57,7 @@ func (b *Builder) InternSymbol(nsID NamespaceID, local []byte) (SymbolID, error)
 	return b.symbols.intern(nsID, local), nil
 }
 
+// Build is an exported function.
 func (b *Builder) Build() (*Schema, error) {
 	if err := b.ensureMutable(); err != nil {
 		return nil, err
@@ -72,7 +77,7 @@ func (b *Builder) Build() (*Schema, error) {
 		Predef:     b.predef,
 		PredefNS: PredefinedNamespaces{
 			Empty: b.emptyNS,
-			Xml:   b.xmlNS,
+			XML:   b.xmlNS,
 			Xsi:   b.xsiNS,
 		},
 	}, nil

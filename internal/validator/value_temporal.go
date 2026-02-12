@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/valuecodec"
 )
 
-func (s *Session) canonicalizeTemporal(kind runtime.ValidatorKind, normalized []byte, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeTemporal(kind runtime.ValidatorKind, normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	spec, ok := runtime.TemporalSpecForValidatorKind(kind)
 	if !ok {
 		return nil, valueErrorf(valueErrInvalid, "unsupported temporal kind %d", kind)

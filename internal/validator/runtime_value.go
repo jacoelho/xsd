@@ -9,12 +9,12 @@ func (s *Session) validateValueInternalOptions(id runtime.ValidatorID, lexical [
 	return s.validateValueCore(id, lexical, resolver, opts, nil)
 }
 
-func (s *Session) validateValueInternalWithMetrics(id runtime.ValidatorID, lexical []byte, resolver value.NSResolver, opts valueOptions) ([]byte, valueMetrics, error) {
+func (s *Session) validateValueInternalWithMetrics(id runtime.ValidatorID, lexical []byte, resolver value.NSResolver, opts valueOptions) ([]byte, ValueMetrics, error) {
 	metrics := s.acquireValueMetrics()
 	defer s.releaseValueMetrics()
 	canon, err := s.validateValueCore(id, lexical, resolver, opts, metrics)
 	if err != nil {
-		return nil, valueMetrics{}, err
+		return nil, ValueMetrics{}, err
 	}
 	return canon, *metrics, nil
 }

@@ -86,7 +86,7 @@ func (r *typeResolver) isIntegerDerived(typ model.Type) bool {
 }
 
 func (r *typeResolver) whitespaceMode(typ model.Type) runtime.WhitespaceMode {
-	mode := runtime.WS_Preserve
+	mode := runtime.WSPreserve
 	typewalk.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
 			mode = wsmode.ToRuntime(bt.WhiteSpace())
@@ -94,7 +94,7 @@ func (r *typeResolver) whitespaceMode(typ model.Type) runtime.WhitespaceMode {
 		}
 		st, ok := model.AsSimpleType(current)
 		if !ok {
-			mode = runtime.WS_Preserve
+			mode = runtime.WSPreserve
 			return false
 		}
 		if st.WhiteSpaceExplicit() || st.List != nil || st.Union != nil {

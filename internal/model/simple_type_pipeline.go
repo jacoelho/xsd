@@ -26,8 +26,11 @@ type SimpleTypeValidationOptions struct {
 type SimpleTypeValidationScope uint8
 
 const (
+	// SimpleTypeValidationScopeRoot is an exported constant.
 	SimpleTypeValidationScopeRoot SimpleTypeValidationScope = iota
+	// SimpleTypeValidationScopeListItem is an exported constant.
 	SimpleTypeValidationScopeListItem
+	// SimpleTypeValidationScopeUnionMember is an exported constant.
 	SimpleTypeValidationScopeUnionMember
 )
 

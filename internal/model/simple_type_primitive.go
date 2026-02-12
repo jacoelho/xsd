@@ -39,7 +39,7 @@ func (s *SimpleType) PrimitiveType() Type {
 	return cached
 }
 
-// isQNameOrNotationType reports whether this type derives from QName or NOTATION.
+// IsQNameOrNotationType reports whether this type derives from QName or NOTATION.
 func (s *SimpleType) IsQNameOrNotationType() bool {
 	if s == nil {
 		return false

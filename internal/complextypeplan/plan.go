@@ -7,12 +7,14 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 )
 
+// ComputeFuncs defines an exported type.
 type ComputeFuncs struct {
 	AttributeUses     func(*model.ComplexType) ([]*model.AttributeDecl, *model.AnyAttribute, error)
 	ContentParticle   func(*model.ComplexType) model.Particle
 	SimpleContentType func(*model.ComplexType) (model.Type, error)
 }
 
+// Entry defines an exported type.
 type Entry struct {
 	ContentParticle model.Particle
 	SimpleTextType  model.Type

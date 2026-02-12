@@ -9,14 +9,21 @@ import (
 )
 
 var (
+	// ErrIntersectionNotExpressible is an exported variable.
 	ErrIntersectionNotExpressible = errors.New("attribute wildcard intersection not expressible")
-	ErrIntersectionEmpty          = errors.New("attribute wildcard intersection empty")
-	ErrUnionNotExpressible        = errors.New("attribute wildcard union not expressible")
-	ErrRestrictionAddsWildcard    = errors.New("attribute wildcard restriction adds wildcard")
-	ErrRestrictionNotExpressible  = errors.New("attribute wildcard restriction not expressible")
-	ErrRestrictionEmpty           = errors.New("attribute wildcard restriction empty")
+	// ErrIntersectionEmpty is an exported variable.
+	ErrIntersectionEmpty = errors.New("attribute wildcard intersection empty")
+	// ErrUnionNotExpressible is an exported variable.
+	ErrUnionNotExpressible = errors.New("attribute wildcard union not expressible")
+	// ErrRestrictionAddsWildcard is an exported variable.
+	ErrRestrictionAddsWildcard = errors.New("attribute wildcard restriction adds wildcard")
+	// ErrRestrictionNotExpressible is an exported variable.
+	ErrRestrictionNotExpressible = errors.New("attribute wildcard restriction not expressible")
+	// ErrRestrictionEmpty is an exported variable.
+	ErrRestrictionEmpty = errors.New("attribute wildcard restriction empty")
 )
 
+// CollectOptions defines an exported type.
 type CollectOptions struct {
 	Missing      attrgroupwalk.MissingPolicy
 	Cycles       attrgroupwalk.CyclePolicy

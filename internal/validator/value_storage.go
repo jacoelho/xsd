@@ -2,7 +2,7 @@ package validator
 
 import "github.com/jacoelho/xsd/internal/runtime"
 
-func (s *Session) setKey(metrics *valueMetrics, kind runtime.ValueKind, key []byte, store bool) {
+func (s *Session) setKey(metrics *ValueMetrics, kind runtime.ValueKind, key []byte, store bool) {
 	if s == nil || metrics == nil {
 		return
 	}
@@ -40,7 +40,7 @@ func (s *Session) storeKey(data []byte) []byte {
 	return s.keyBuf[start:len(s.keyBuf)]
 }
 
-func (s *Session) finalizeValue(canonical []byte, opts valueOptions, metrics *valueMetrics, metricsInternal bool) []byte {
+func (s *Session) finalizeValue(canonical []byte, opts valueOptions, metrics *ValueMetrics, metricsInternal bool) []byte {
 	if !opts.storeValue {
 		return canonical
 	}

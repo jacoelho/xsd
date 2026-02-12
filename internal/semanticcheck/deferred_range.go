@@ -2,11 +2,11 @@ package semanticcheck
 
 import (
 	"fmt"
-	"sort"
 
 	facetengine "github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
 	parser "github.com/jacoelho/xsd/internal/parser"
+	qnameorder "github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -94,15 +94,5 @@ func isRangeFacetName(name string) bool {
 }
 
 func sortedTypeQNames[V any](m map[model.QName]V) []model.QName {
-	out := make([]model.QName, 0, len(m))
-	for qname := range m {
-		out = append(out, qname)
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Namespace == out[j].Namespace {
-			return out[i].Local < out[j].Local
-		}
-		return out[i].Namespace < out[j].Namespace
-	})
-	return out
+	return qnameorder.SortedMapKeys(m)
 }

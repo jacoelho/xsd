@@ -1,5 +1,6 @@
 package validator
 
+// ResetText is an exported function.
 func (s *Session) ResetText(state *TextState) {
 	if s == nil || state == nil {
 		return
@@ -10,6 +11,7 @@ func (s *Session) ResetText(state *TextState) {
 	state.HasNonWS = false
 }
 
+// TextSlice is an exported function.
 func (s *Session) TextSlice(state TextState) []byte {
 	if s == nil {
 		return nil

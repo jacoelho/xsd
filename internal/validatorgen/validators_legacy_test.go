@@ -2,6 +2,7 @@ package validatorgen
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
 
@@ -262,7 +263,7 @@ func enumKeys(t *testing.T, compiled *CompiledValidators, enumID runtime.EnumID)
 	out := make([]enumKey, 0, ln)
 	for i := range ln {
 		key := compiled.Enums.Keys[off+i]
-		out = append(out, enumKey{kind: key.Kind, bytes: append([]byte(nil), key.Bytes...)})
+		out = append(out, enumKey{kind: key.Kind, bytes: slices.Clone(key.Bytes)})
 	}
 	return out
 }

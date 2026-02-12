@@ -14,7 +14,9 @@ const maxInt = int(^uint(0) >> 1)
 type PositionKind uint8
 
 const (
+	// PositionElement is an exported constant.
 	PositionElement PositionKind = iota
+	// PositionWildcard is an exported constant.
 	PositionWildcard
 )
 

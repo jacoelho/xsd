@@ -2,6 +2,7 @@ package semanticresolve
 
 import (
 	"fmt"
+	"slices"
 
 	model "github.com/jacoelho/xsd/internal/types"
 )
@@ -44,7 +45,7 @@ func (r *Resolver) resolveSimpleTypeRestriction(qname model.QName, st *model.Sim
 					}
 				}
 				if len(baseST.MemberTypes) > 0 {
-					st.MemberTypes = append([]model.Type(nil), baseST.MemberTypes...)
+					st.MemberTypes = slices.Clone(baseST.MemberTypes)
 				}
 			}
 		}

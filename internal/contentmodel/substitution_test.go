@@ -149,7 +149,7 @@ func TestExpandSubstitutionAbstractBlocked(t *testing.T) {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
 
-	_, err = ExpandSubstitution(glu, nil, func(h *model.ElementDecl) []*model.ElementDecl {
+	_, err = ExpandSubstitution(glu, nil, func(_ *model.ElementDecl) []*model.ElementDecl {
 		return nil
 	})
 	if err == nil {
@@ -168,7 +168,7 @@ func TestExpandSubstitutionAbstractNoMembers(t *testing.T) {
 		t.Fatalf("BuildGlushkov: %v", err)
 	}
 
-	expanded, err := ExpandSubstitution(glu, nil, func(h *model.ElementDecl) []*model.ElementDecl {
+	expanded, err := ExpandSubstitution(glu, nil, func(_ *model.ElementDecl) []*model.ElementDecl {
 		return nil
 	})
 	if err != nil {

@@ -1143,14 +1143,14 @@ func TestWrapCharsetReaderFromBufioErrors(t *testing.T) {
 	input := `<?xml version="1.0" encoding="ISO-8859-1"?><root/>`
 	reader := bufio.NewReader(strings.NewReader(input))
 	sentinel := errors.New("decode")
-	if _, err := wrapCharsetReaderFromBufio(reader, func(label string, r io.Reader) (io.Reader, error) {
+	if _, err := wrapCharsetReaderFromBufio(reader, func(_ string, _ io.Reader) (io.Reader, error) {
 		return nil, sentinel
 	}); !errors.Is(err, sentinel) {
 		t.Fatalf("wrapCharsetReaderFromBufio decode error = %v, want %v", err, sentinel)
 	}
 
 	reader = bufio.NewReader(strings.NewReader(input))
-	if _, err := wrapCharsetReaderFromBufio(reader, func(label string, r io.Reader) (io.Reader, error) {
+	if _, err := wrapCharsetReaderFromBufio(reader, func(_ string, _ io.Reader) (io.Reader, error) {
 		return nil, nil
 	}); !errors.Is(err, errUnsupportedEncoding) {
 		t.Fatalf("wrapCharsetReaderFromBufio nil error = %v, want %v", err, errUnsupportedEncoding)
@@ -1587,7 +1587,7 @@ func TestCharsetReader(t *testing.T) {
 	}
 
 	called := false
-	reader, err = wrapCharsetReaderFromBufio(bufio.NewReader(bytes.NewReader([]byte{0xFE, 0xFF, 0x00, 0x3C})), func(label string, r io.Reader) (io.Reader, error) {
+	reader, err = wrapCharsetReaderFromBufio(bufio.NewReader(bytes.NewReader([]byte{0xFE, 0xFF, 0x00, 0x3C})), func(label string, _ io.Reader) (io.Reader, error) {
 		called = true
 		if label == "" {
 			t.Fatalf("label is empty")
@@ -1659,6 +1659,6 @@ type errReader struct {
 	err error
 }
 
-func (r errReader) Read(p []byte) (int, error) {
+func (r errReader) Read(_ []byte) (int, error) {
 	return 0, r.err
 }

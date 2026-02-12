@@ -7,7 +7,7 @@ import (
 
 type unionMemberRunInput struct {
 	resolver          value.NSResolver
-	callerMetrics     *valueMetrics
+	callerMetrics     *ValueMetrics
 	memberValidators  []runtime.ValidatorID
 	memberTypes       []runtime.TypeID
 	memberSameWS      []uint8
@@ -50,8 +50,8 @@ func (s *Session) tryUnionMembers(in unionMemberRunInput) unionMemberOutcome {
 			continue
 		}
 
-		var memberMetrics valueMetrics
-		var memberMetricsPtr *valueMetrics
+		var memberMetrics ValueMetrics
+		var memberMetricsPtr *ValueMetrics
 		if in.needMemberMetrics {
 			memberMetricsPtr = &memberMetrics
 		}

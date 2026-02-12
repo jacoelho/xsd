@@ -7,6 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
+// AcceptModel is an exported function.
 func (s *Session) AcceptModel(ref runtime.ModelRef, state *ModelState) error {
 	if s == nil || s.rt == nil {
 		return fmt.Errorf("session missing runtime schema")

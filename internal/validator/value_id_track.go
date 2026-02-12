@@ -17,7 +17,7 @@ func (s *Session) trackIDs(kind runtime.StringKind, canonical []byte) error {
 	return nil
 }
 
-func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver, metrics *valueMetrics) error {
+func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver, metrics *ValueMetrics) error {
 	if s == nil || s.rt == nil || id == 0 {
 		return nil
 	}

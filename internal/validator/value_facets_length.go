@@ -8,7 +8,7 @@ import (
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-func (s *Session) valueLength(meta runtime.ValidatorMeta, normalized []byte, metrics *valueMetrics) (int, error) {
+func (s *Session) valueLength(meta runtime.ValidatorMeta, normalized []byte, metrics *ValueMetrics) (int, error) {
 	if metrics != nil && metrics.lengthSet {
 		return metrics.length, nil
 	}
@@ -34,7 +34,7 @@ func (s *Session) valueLength(meta runtime.ValidatorMeta, normalized []byte, met
 	}
 }
 
-func binaryOctetLength(parse func([]byte) ([]byte, error), normalized []byte, metrics *valueMetrics, label string) (int, error) {
+func binaryOctetLength(parse func([]byte) ([]byte, error), normalized []byte, metrics *ValueMetrics, label string) (int, error) {
 	decoded, err := parse(normalized)
 	if err != nil {
 		return 0, valueErrorf(valueErrInvalid, "invalid %s", label)
@@ -47,7 +47,7 @@ func binaryOctetLength(parse func([]byte) ([]byte, error), normalized []byte, me
 	return length, nil
 }
 
-func digitCounts(kind runtime.ValidatorKind, canonical []byte, metrics *valueMetrics) (int, int, error) {
+func digitCounts(kind runtime.ValidatorKind, canonical []byte, metrics *ValueMetrics) (int, int, error) {
 	if metrics != nil && metrics.digitsSet {
 		return metrics.totalDigits, metrics.fractionDigits, nil
 	}

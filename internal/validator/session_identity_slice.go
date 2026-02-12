@@ -39,7 +39,7 @@ func splitFieldPaths(ids []runtime.PathID) ([][]runtime.PathID, error) {
 	}
 	hasSep := slices.Contains(ids, 0)
 	if !hasSep {
-		return [][]runtime.PathID{append([]runtime.PathID(nil), ids...)}, nil
+		return [][]runtime.PathID{slices.Clone(ids)}, nil
 	}
 	fields := make([][]runtime.PathID, 0, len(ids))
 	cur := make([]runtime.PathID, 0, 4)

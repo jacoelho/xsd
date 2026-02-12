@@ -1,5 +1,6 @@
 package validator
 
+// Reset is an exported function.
 func (t *AttributeTracker) Reset() {
 	if t == nil {
 		return

@@ -2,6 +2,7 @@ package parser
 
 import (
 	"io"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/xmltree"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
@@ -15,9 +16,13 @@ type Parser struct {
 
 // NewParser creates a parser with optional xmlstream parse options.
 func NewParser(opts ...xmlstream.Option) *Parser {
+	var parseOpts []xmlstream.Option
+	if len(opts) > 0 {
+		parseOpts = slices.Clone(opts)
+	}
 	return &Parser{
 		pool: xmltree.NewDocumentPool(),
-		opts: append([]xmlstream.Option(nil), opts...),
+		opts: parseOpts,
 	}
 }
 

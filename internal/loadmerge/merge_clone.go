@@ -2,12 +2,14 @@ package loadmerge
 
 import (
 	"maps"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/model"
 	parser "github.com/jacoelho/xsd/internal/parser"
 	qnameorder "github.com/jacoelho/xsd/internal/qname"
 )
 
+// CloneSchemaForMerge is an exported function.
 func CloneSchemaForMerge(sch *parser.Schema) *parser.Schema {
 	// include/import merging runs during schema compilation only, so a full
 	// defensive clone is preferred over aliasing mutable maps across documents.
@@ -28,7 +30,7 @@ func CloneSchemaForMerge(sch *parser.Schema) *parser.Schema {
 	clone.NotationDecls = cloneMap(sch.NotationDecls)
 	clone.NotationOrigins = cloneMap(sch.NotationOrigins)
 	clone.IDAttributes = cloneMap(sch.IDAttributes)
-	clone.GlobalDecls = append([]parser.GlobalDecl(nil), sch.GlobalDecls...)
+	clone.GlobalDecls = slices.Clone(sch.GlobalDecls)
 	return &clone
 }
 
@@ -77,12 +79,7 @@ func CloneSchemaDeep(sch *parser.Schema) (*parser.Schema, error) {
 }
 
 func cloneMap[K comparable, V any](src map[K]V) map[K]V {
-	if src == nil {
-		return nil
-	}
-	dst := make(map[K]V, len(src))
-	maps.Copy(dst, src)
-	return dst
+	return maps.Clone(src)
 }
 
 func sortedQNames[V any](m map[model.QName]V) []model.QName {
@@ -96,15 +93,7 @@ func copyImportContexts(src map[string]parser.ImportContext) map[string]parser.I
 	dst := make(map[string]parser.ImportContext, len(src))
 	for key, ctx := range src {
 		copied := ctx
-		if ctx.Imports != nil {
-			imports := make(map[model.NamespaceURI]bool, len(ctx.Imports))
-			for ns := range ctx.Imports {
-				imports[ns] = true
-			}
-			copied.Imports = imports
-		} else {
-			copied.Imports = nil
-		}
+		copied.Imports = maps.Clone(ctx.Imports)
 		dst[key] = copied
 	}
 	return dst
@@ -116,15 +105,7 @@ func copyImportedNamespaces(src map[model.NamespaceURI]map[model.NamespaceURI]bo
 	}
 	dst := make(map[model.NamespaceURI]map[model.NamespaceURI]bool, len(src))
 	for ns, imports := range src {
-		if imports == nil {
-			dst[ns] = nil
-			continue
-		}
-		copied := make(map[model.NamespaceURI]bool, len(imports))
-		for imported := range imports {
-			copied[imported] = true
-		}
-		dst[ns] = copied
+		dst[ns] = maps.Clone(imports)
 	}
 	return dst
 }
@@ -135,13 +116,7 @@ func copyQNameSliceMap(src map[model.QName][]model.QName) map[model.QName][]mode
 	}
 	dst := make(map[model.QName][]model.QName, len(src))
 	for key, value := range src {
-		if value == nil {
-			dst[key] = nil
-			continue
-		}
-		copied := make([]model.QName, len(value))
-		copy(copied, value)
-		dst[key] = copied
+		dst[key] = slices.Clone(value)
 	}
 	return dst
 }

@@ -29,7 +29,7 @@ func TestNamespaceInterner(t *testing.T) {
 	if schema.PredefNS.Empty != emptyID {
 		t.Fatalf("PredefNS.Empty = %d, want %d", schema.PredefNS.Empty, emptyID)
 	}
-	if schema.PredefNS.Xml == 0 || schema.PredefNS.Xsi == 0 {
+	if schema.PredefNS.XML == 0 || schema.PredefNS.Xsi == 0 {
 		t.Fatalf("expected predefined XML/XSI namespaces")
 	}
 	if got := schema.Namespaces.Lookup([]byte("urn:a")); got != aID {
@@ -47,7 +47,7 @@ func TestPredefinedSymbols(t *testing.T) {
 		t.Fatalf("Build() error = %v", err)
 	}
 
-	if schema.PredefNS.Xml == 0 || schema.PredefNS.Xsi == 0 {
+	if schema.PredefNS.XML == 0 || schema.PredefNS.Xsi == 0 {
 		t.Fatalf("expected predefined XML/XSI namespaces")
 	}
 
@@ -63,14 +63,14 @@ func TestPredefinedSymbols(t *testing.T) {
 	if got := schema.Symbols.Lookup(schema.PredefNS.Xsi, []byte("noNamespaceSchemaLocation")); got != schema.Predef.XsiNoNamespaceSchemaLocation {
 		t.Fatalf("predef xsi:noNamespaceSchemaLocation = %d, lookup = %d", schema.Predef.XsiNoNamespaceSchemaLocation, got)
 	}
-	if got := schema.Symbols.Lookup(schema.PredefNS.Xml, []byte("lang")); got != schema.Predef.XmlLang {
-		t.Fatalf("predef xml:lang = %d, lookup = %d", schema.Predef.XmlLang, got)
+	if got := schema.Symbols.Lookup(schema.PredefNS.XML, []byte("lang")); got != schema.Predef.XMLLang {
+		t.Fatalf("predef xml:lang = %d, lookup = %d", schema.Predef.XMLLang, got)
 	}
-	if got := schema.Symbols.Lookup(schema.PredefNS.Xml, []byte("space")); got != schema.Predef.XmlSpace {
-		t.Fatalf("predef xml:space = %d, lookup = %d", schema.Predef.XmlSpace, got)
+	if got := schema.Symbols.Lookup(schema.PredefNS.XML, []byte("space")); got != schema.Predef.XMLSpace {
+		t.Fatalf("predef xml:space = %d, lookup = %d", schema.Predef.XMLSpace, got)
 	}
 
-	if schema.Namespaces.Lookup([]byte(xmltree.XMLNamespace)) != schema.PredefNS.Xml {
+	if schema.Namespaces.Lookup([]byte(xmltree.XMLNamespace)) != schema.PredefNS.XML {
 		t.Fatalf("xml namespace lookup mismatch")
 	}
 	if schema.Namespaces.Lookup([]byte(xmltree.XSINamespace)) != schema.PredefNS.Xsi {

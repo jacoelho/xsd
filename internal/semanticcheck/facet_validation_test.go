@@ -298,6 +298,6 @@ func (m *mockRangeFacet) GetLexical() string {
 	return m.lexical
 }
 
-func (m *mockRangeFacet) Validate(value model.TypedValue, baseType model.Type) error {
+func (m *mockRangeFacet) Validate(_ model.TypedValue, _ model.Type) error {
 	return nil // not used for applicability testing
 }

@@ -37,6 +37,7 @@ const (
 	Strict ProcessContents = iota
 	// Lax validates only if a declaration is found.
 	Lax
+	// Skip is an exported constant.
 	Skip
 )
 

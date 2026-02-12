@@ -3,6 +3,7 @@ package xiter
 import (
 	"cmp"
 	"iter"
+	"maps"
 	"slices"
 )
 
@@ -33,20 +34,14 @@ func Count[T any](seq iter.Seq[T]) int {
 
 // SortedKeys yields map keys in deterministic sorted order.
 func SortedKeys[K cmp.Ordered, V any](m map[K]V) iter.Seq[K] {
-	keys := make([]K, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
+	keys := slices.Collect(maps.Keys(m))
 	slices.Sort(keys)
 	return Slice(keys)
 }
 
 // ValuesBySortedKeys yields map values following sorted key order.
 func ValuesBySortedKeys[K cmp.Ordered, V any](m map[K]V) iter.Seq[V] {
-	keys := make([]K, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
+	keys := slices.Collect(maps.Keys(m))
 	slices.Sort(keys)
 	return func(yield func(V) bool) {
 		for _, key := range keys {

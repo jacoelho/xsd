@@ -1,5 +1,6 @@
 package validator
 
+// SessionIdentity defines an exported type.
 type SessionIdentity struct {
 	idTable             map[string]struct{}
 	identityAttrBuckets map[uint64][]identityAttrNameID

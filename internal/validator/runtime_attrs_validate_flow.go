@@ -8,6 +8,7 @@ import (
 	"github.com/jacoelho/xsd/internal/value"
 )
 
+// ValidateAttributes is an exported function.
 func (s *Session) ValidateAttributes(typeID runtime.TypeID, attrs []StartAttr, resolver value.NSResolver) (AttrResult, error) {
 	if s == nil || s.rt == nil {
 		return AttrResult{}, newValidationError(xsderrors.ErrSchemaNotLoaded, "schema not loaded")

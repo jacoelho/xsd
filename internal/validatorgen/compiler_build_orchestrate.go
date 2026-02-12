@@ -9,6 +9,7 @@ import (
 	"github.com/jacoelho/xsd/internal/runtimeids"
 )
 
+// Compile is an exported function.
 func Compile(sch *parser.Schema, registry *schema.Registry) (*CompiledValidators, error) {
 	return CompileWithComplexTypePlan(sch, registry, nil)
 }

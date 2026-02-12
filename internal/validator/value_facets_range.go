@@ -9,7 +9,7 @@ import (
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
-func (s *Session) compareValue(kind runtime.ValidatorKind, canonical, bound []byte, metrics *valueMetrics) (int, error) {
+func (s *Session) compareValue(kind runtime.ValidatorKind, canonical, bound []byte, metrics *ValueMetrics) (int, error) {
 	switch kind {
 	case runtime.VDecimal:
 		val, err := s.decForCanonical(canonical, metrics)

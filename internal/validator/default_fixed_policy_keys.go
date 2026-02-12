@@ -19,7 +19,7 @@ func (s *Session) materializeObservedKey(
 	canonical []byte,
 	resolver value.NSResolver,
 	member runtime.ValidatorID,
-	metrics valueMetrics,
+	metrics ValueMetrics,
 ) (runtime.ValueKind, []byte, error) {
 	if metrics.keyKind != runtime.VKInvalid {
 		return metrics.keyKind, metrics.keyBytes, nil

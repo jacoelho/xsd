@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexical []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexical []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	memberValidators, memberTypes, memberSameWS, ok := s.unionMemberInfo(meta)
 	if !ok || len(memberValidators) == 0 {
 		return nil, valueErrorf(valueErrInvalid, "union validator out of range")
