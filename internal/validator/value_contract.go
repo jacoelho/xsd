@@ -12,11 +12,8 @@ type Path string
 type NodeKind uint8
 
 const (
-	// NodeUnknown is an exported constant.
 	NodeUnknown NodeKind = iota
-	// NodeAttribute is an exported constant.
 	NodeAttribute
-	// NodeElementText is an exported constant.
 	NodeElementText
 )
 

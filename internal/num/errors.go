@@ -5,7 +5,7 @@ type ParseError struct {
 	Kind ParseErrKind
 }
 
-// Error is an exported function.
+// Error returns the formatted error message.
 func (e *ParseError) Error() string {
 	if e == nil {
 		return ""
@@ -17,21 +17,15 @@ func (e *ParseError) Error() string {
 type ParseErrKind uint8
 
 const (
-	// ParseInvalid is an exported constant.
 	ParseInvalid ParseErrKind = iota
-	// ParseEmpty is an exported constant.
 	ParseEmpty
-	// ParseBadChar is an exported constant.
 	ParseBadChar
-	// ParseMultipleSigns is an exported constant.
 	ParseMultipleSigns
-	// ParseMultipleDots is an exported constant.
 	ParseMultipleDots
-	// ParseNoDigits is an exported constant.
 	ParseNoDigits
 )
 
-// String is an exported function.
+// String returns a stable label for the parse error kind.
 func (k ParseErrKind) String() string {
 	switch k {
 	case ParseEmpty:

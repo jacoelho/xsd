@@ -8,13 +8,13 @@ var builtinListItemTypes = map[schematypes.TypeName]schematypes.TypeName{
 	TypeNameENTITIES: TypeNameENTITY,
 }
 
-// IsBuiltinListTypeName is an exported function.
+// IsBuiltinListTypeName reports whether name is one of the built-in list simple types.
 func IsBuiltinListTypeName(name string) bool {
 	_, ok := BuiltinListItemTypeName(name)
 	return ok
 }
 
-// BuiltinListItemTypeName is an exported function.
+// BuiltinListItemTypeName returns the built-in item type for a built-in list type.
 func BuiltinListItemTypeName(name string) (schematypes.TypeName, bool) {
 	item, ok := builtinListItemTypes[schematypes.TypeName(name)]
 	return item, ok

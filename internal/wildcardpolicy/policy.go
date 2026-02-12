@@ -5,25 +5,19 @@ import "fmt"
 // NamespaceTargetPlaceholder marks a namespace token that resolves to targetNamespace.
 const NamespaceTargetPlaceholder = "##targetNamespace"
 
-// NamespaceConstraintKind defines an exported type.
+// NamespaceConstraintKind enumerates namespace constraint kind values.
 type NamespaceConstraintKind uint8
 
 const (
-	// NamespaceAny is an exported constant.
 	NamespaceAny NamespaceConstraintKind = iota
-	// NamespaceOther is an exported constant.
 	NamespaceOther
-	// NamespaceTargetNamespace is an exported constant.
 	NamespaceTargetNamespace
-	// NamespaceLocal is an exported constant.
 	NamespaceLocal
-	// NamespaceList is an exported constant.
 	NamespaceList
-	// NamespaceNotAbsent is an exported constant.
 	NamespaceNotAbsent
 )
 
-// NamespaceConstraint defines an exported type.
+// NamespaceConstraint represents wildcard namespace matching in schema form.
 type NamespaceConstraint struct {
 	TargetNS string
 	List     []string
@@ -103,15 +97,12 @@ func NamespaceConstraintSubset(derived, base NamespaceConstraint) bool {
 	}
 }
 
-// ProcessContents defines an exported type.
+// ProcessContents encodes strict/lax/skip wildcard processing.
 type ProcessContents uint8
 
 const (
-	// ProcessStrict is an exported constant.
 	ProcessStrict ProcessContents = iota
-	// ProcessLax is an exported constant.
 	ProcessLax
-	// ProcessSkip is an exported constant.
 	ProcessSkip
 )
 
@@ -147,21 +138,17 @@ func ResolveSymbolByProcessContents(pc ProcessContents, hasSymbol bool, resolve 
 	}
 }
 
-// RuntimeNamespaceConstraintKind defines an exported type.
+// RuntimeNamespaceConstraintKind enumerates runtime namespace constraint kind values.
 type RuntimeNamespaceConstraintKind uint8
 
 const (
-	// RuntimeNamespaceAny is an exported constant.
 	RuntimeNamespaceAny RuntimeNamespaceConstraintKind = iota
-	// RuntimeNamespaceOther is an exported constant.
 	RuntimeNamespaceOther
-	// RuntimeNamespaceEnumeration is an exported constant.
 	RuntimeNamespaceEnumeration
-	// RuntimeNamespaceNotAbsent is an exported constant.
 	RuntimeNamespaceNotAbsent
 )
 
-// RuntimeNamespaceConstraint defines an exported type.
+// RuntimeNamespaceConstraint represents wildcard matching in lowered runtime form.
 type RuntimeNamespaceConstraint struct {
 	Kind      RuntimeNamespaceConstraintKind
 	HasTarget bool

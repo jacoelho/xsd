@@ -2,7 +2,7 @@ package validator
 
 import "github.com/jacoelho/xsd/internal/runtime"
 
-// AttrApplied defines an exported type.
+// AttrApplied records a defaulted/fixed attribute applied by the validator.
 type AttrApplied struct {
 	KeyBytes []byte
 	Value    runtime.ValueRef
@@ -11,7 +11,7 @@ type AttrApplied struct {
 	KeyKind  runtime.ValueKind
 }
 
-// AttrResult defines an exported type.
+// AttrResult holds validated input attributes and applied default/fixed attributes.
 type AttrResult struct {
 	Applied []AttrApplied
 	Attrs   []StartAttr

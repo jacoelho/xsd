@@ -6,55 +6,55 @@ import (
 	"github.com/jacoelho/xsd/internal/valuesemantics"
 )
 
-// ValidateToken is an exported variable.
+// ValidateToken validates xs:token lexical values.
 var ValidateToken = valuelex.ValidateToken
 
-// ValidateName is an exported variable.
+// ValidateName validates xs:Name lexical values.
 var ValidateName = valuelex.ValidateName
 
-// ValidateNCName is an exported variable.
+// ValidateNCName validates xs:NCName lexical values.
 var ValidateNCName = valuelex.ValidateNCName
 
-// ValidateNMTOKEN is an exported variable.
+// ValidateNMTOKEN validates xs:NMTOKEN lexical values.
 var ValidateNMTOKEN = valuelex.ValidateNMTOKEN
 
-// ValidateLanguage is an exported variable.
+// ValidateLanguage validates xs:language lexical values.
 var ValidateLanguage = valuelex.ValidateLanguage
 
-// ValidateAnyURI is an exported variable.
+// ValidateAnyURI validates xs:anyURI lexical values.
 var ValidateAnyURI = valuelex.ValidateAnyURI
 
-// ValidateQName is an exported variable.
+// ValidateQName validates xs:QName lexical values.
 var ValidateQName = valuelex.ValidateQName
 
-// ParseBoolean is an exported variable.
+// ParseBoolean parses xs:boolean lexical values.
 var ParseBoolean = valuelex.ParseBoolean
 
-// ParseDecimal is an exported variable.
+// ParseDecimal parses xs:decimal lexical values.
 var ParseDecimal = valuelex.ParseDecimal
 
-// ParseInteger is an exported variable.
+// ParseInteger parses xs:integer lexical values.
 var ParseInteger = valuelex.ParseInteger
 
-// ParseFloat is an exported variable.
+// ParseFloat parses xs:float lexical values.
 var ParseFloat = valuelex.ParseFloat
 
-// ParseDouble is an exported variable.
+// ParseDouble parses xs:double lexical values.
 var ParseDouble = valuelex.ParseDouble
 
-// CanonicalFloat is an exported variable.
+// CanonicalFloat canonicalizes float values for value-space comparisons.
 var CanonicalFloat = valuelex.CanonicalFloat
 
-// CanonicalDateTimeString is an exported variable.
+// CanonicalDateTimeString canonicalizes dateTime lexical values.
 var CanonicalDateTimeString = valuelex.CanonicalDateTimeString
 
-// HasTimezone is an exported variable.
+// HasTimezone reports whether a lexical temporal value contains a timezone.
 var HasTimezone = valuelex.HasTimezone
 
-// FormatFraction is an exported variable.
+// FormatFraction formats the fractional component for canonical decimal output.
 var FormatFraction = valuelex.FormatFraction
 
-// UpperHex is an exported variable.
+// UpperHex uppercases hexadecimal digits.
 var UpperHex = valuelex.UpperHex
 
 // KeyForValidatorKind derives deterministic value-key encoding from canonical lexical bytes.

@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// RangeFacet defines an exported type.
+// RangeFacet validates min/max inclusive/exclusive bounds for comparable values.
 type RangeFacet struct {
 	// Facet name (minInclusive, maxInclusive, etc.)
 	name string

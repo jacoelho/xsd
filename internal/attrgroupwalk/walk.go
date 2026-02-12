@@ -7,48 +7,44 @@ import (
 	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
-// MissingPolicy defines an exported type.
+// MissingPolicy controls behavior when a referenced attribute group is not found.
 type MissingPolicy uint8
 
 const (
-	// MissingIgnore is an exported constant.
 	MissingIgnore MissingPolicy = iota
-	// MissingError is an exported constant.
 	MissingError
 )
 
-// CyclePolicy defines an exported type.
+// CyclePolicy controls behavior when a traversal cycle is found.
 type CyclePolicy uint8
 
 const (
-	// CycleIgnore is an exported constant.
 	CycleIgnore CyclePolicy = iota
-	// CycleError is an exported constant.
 	CycleError
 )
 
-// Options defines an exported type.
+// Options configures attribute-group traversal behavior.
 type Options struct {
 	Missing MissingPolicy
 	Cycles  CyclePolicy
 }
 
-// AttrGroupMissingError defines an exported type.
+// AttrGroupMissingError reports a missing attributeGroup reference.
 type AttrGroupMissingError struct {
 	QName model.QName
 }
 
-// Error is an exported function.
+// Error returns the formatted error message.
 func (e AttrGroupMissingError) Error() string {
 	return fmt.Sprintf("attributeGroup %s not found", e.QName)
 }
 
-// AttrGroupCycleError defines an exported type.
+// AttrGroupCycleError reports a cycle in attributeGroup references.
 type AttrGroupCycleError struct {
 	QName model.QName
 }
 
-// Error is an exported function.
+// Error returns the formatted error message.
 func (e AttrGroupCycleError) Error() string {
 	return fmt.Sprintf("attributeGroup cycle detected at %s", e.QName)
 }
@@ -81,12 +77,12 @@ func NewContext(schema *parser.Schema, opts Options) *Context {
 	}
 }
 
-// Walk is an exported function.
+// Walk traverses referenced attribute groups using the default cycle policy.
 func Walk(schema *parser.Schema, refs []model.QName, missing MissingPolicy, visit func(model.QName, *model.AttributeGroup) error) error {
 	return WalkWithOptions(schema, refs, Options{Missing: missing, Cycles: CycleIgnore}, visit)
 }
 
-// WalkWithOptions is an exported function.
+// WalkWithOptions traverses referenced attribute groups using explicit options.
 func WalkWithOptions(schema *parser.Schema, refs []model.QName, opts Options, visit func(model.QName, *model.AttributeGroup) error) error {
 	return NewContext(schema, opts).Walk(refs, visit)
 }

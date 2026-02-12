@@ -1,6 +1,6 @@
 package validator
 
-// Reset is an exported function.
+// Reset clears reusable attribute-tracking buffers.
 func (t *AttributeTracker) Reset() {
 	if t == nil {
 		return

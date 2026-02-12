@@ -11,7 +11,7 @@ import (
 	qnamelex "github.com/jacoelho/xsd/internal/qname"
 )
 
-// Enumeration defines an exported type.
+// Enumeration validates the xs:enumeration facet across atomic, list, and union types.
 type Enumeration struct {
 	aux    atomic.Pointer[enumAux]
 	values []string
