@@ -7,7 +7,12 @@ import (
 
 func (s *Session) stepAll(model *runtime.AllModel, state *ModelState, sym runtime.SymbolID) (StartMatch, error) {
 	if sym == 0 {
-		return StartMatch{}, newValidationError(xsderrors.ErrUnexpectedElement, "unknown element name")
+		return StartMatch{}, newValidationErrorWithDetails(
+			xsderrors.ErrUnexpectedElement,
+			"unknown element name",
+			"",
+			s.expectedFromAllRemaining(model, state.All, false),
+		)
 	}
 	var acc modelMatchAccumulator
 	matchIdx := -1
@@ -38,38 +43,19 @@ func (s *Session) stepAll(model *runtime.AllModel, state *ModelState, sym runtim
 		}
 		matchIdx = i
 	}
-	match, err := acc.result()
-	if err != nil {
-		return StartMatch{}, err
+	if !acc.found {
+		return StartMatch{}, newValidationErrorWithDetails(
+			xsderrors.ErrUnexpectedElement,
+			"no content model match",
+			s.actualElementName(sym, 0),
+			s.expectedFromAllRemaining(model, state.All, false),
+		)
 	}
+	match := acc.match
 	if allHas(state.All, matchIdx) {
 		return StartMatch{}, newValidationError(xsderrors.ErrContentModelInvalid, "duplicate element in all group")
 	}
 	allSet(state.All, matchIdx)
 	state.AllCount++
 	return match, nil
-}
-
-func allHas(words []uint64, idx int) bool {
-	if idx < 0 {
-		return false
-	}
-	word := idx / 64
-	bit := uint(idx % 64)
-	if word >= len(words) {
-		return false
-	}
-	return words[word]&(1<<bit) != 0
-}
-
-func allSet(words []uint64, idx int) {
-	if idx < 0 {
-		return
-	}
-	word := idx / 64
-	bit := uint(idx % 64)
-	if word >= len(words) {
-		return
-	}
-	words[word] |= 1 << bit
 }

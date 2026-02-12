@@ -3,6 +3,7 @@ package model
 import (
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/wildcardpolicy"
 )
 
@@ -43,19 +44,19 @@ const (
 type AnyElement struct {
 	TargetNamespace NamespaceURI
 	NamespaceList   []NamespaceURI
-	MinOccurs       Occurs
-	MaxOccurs       Occurs
+	MinOccurs       occurs.Occurs
+	MaxOccurs       occurs.Occurs
 	Namespace       NamespaceConstraint
 	ProcessContents ProcessContents
 }
 
 // MinOcc implements Particle interface
-func (a *AnyElement) MinOcc() Occurs {
+func (a *AnyElement) MinOcc() occurs.Occurs {
 	return a.MinOccurs
 }
 
 // MaxOcc implements Particle interface
-func (a *AnyElement) MaxOcc() Occurs {
+func (a *AnyElement) MaxOcc() occurs.Occurs {
 	return a.MaxOccurs
 }
 
@@ -596,10 +597,10 @@ func IntersectAnyElement(w1, w2 *AnyElement) *AnyElement {
 	}
 
 	// MinOccurs: use maximum (more restrictive).
-	minOccurs := MaxOccurs(w2.MinOccurs, w1.MinOccurs)
+	minOccurs := occurs.MaxOccurs(w2.MinOccurs, w1.MinOccurs)
 
 	// MaxOccurs: use minimum (more restrictive), treating unbounded as infinity.
-	maxOccurs := MinOccurs(w2.MaxOccurs, w1.MaxOccurs)
+	maxOccurs := occurs.MinOccurs(w2.MaxOccurs, w1.MaxOccurs)
 
 	return &AnyElement{
 		Namespace:       intersectedNS.Constraint,

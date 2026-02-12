@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/parser"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
-	"github.com/jacoelho/xsd/internal/schemaprep"
+	schema "github.com/jacoelho/xsd/internal/analysis"
+	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/prep"
 )
 
 func resolveSchema(schemaXML string) (*parser.Schema, error) {
@@ -14,7 +14,7 @@ func resolveSchema(schemaXML string) (*parser.Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := schemaprep.ResolveAndValidate(sch)
+	resolved, err := prep.ResolveAndValidate(sch)
 	if err != nil {
 		return nil, err
 	}

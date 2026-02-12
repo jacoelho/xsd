@@ -1,13 +1,11 @@
 package runtime
 
-import "github.com/jacoelho/xsd/internal/ids"
-
 type SymbolID uint32
 type NamespaceID uint32
 
-type TypeID = ids.TypeID
-type ElemID = ids.ElemID
-type AttrID = ids.AttrID
+type TypeID uint32
+type ElemID uint32
+type AttrID uint32
 type ModelID uint32
 type WildcardID uint32
 type ICID uint32

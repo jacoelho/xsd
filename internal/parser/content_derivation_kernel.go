@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-type derivationRestrictionParser func(*schemaxml.Document, schemaxml.NodeID, *Schema) (*model.Restriction, model.QName, error)
-type derivationExtensionParser func(*schemaxml.Document, schemaxml.NodeID, *Schema) (*model.Extension, model.QName, error)
+type derivationRestrictionParser func(*xmltree.Document, xmltree.NodeID, *Schema) (*model.Restriction, model.QName, error)
+type derivationExtensionParser func(*xmltree.Document, xmltree.NodeID, *Schema) (*model.Extension, model.QName, error)
 
 type parsedDerivationContent struct {
 	restriction *model.Restriction
@@ -16,13 +16,13 @@ type parsedDerivationContent struct {
 	base        model.QName
 }
 
-func parseDerivationContent(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, context string, parseRestriction derivationRestrictionParser, parseExtension derivationExtensionParser) (parsedDerivationContent, error) {
+func parseDerivationContent(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, context string, parseRestriction derivationRestrictionParser, parseExtension derivationExtensionParser) (parsedDerivationContent, error) {
 	parsed := parsedDerivationContent{}
 	seenDerivation := false
 	seenAnnotation := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
+		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
 			continue
 		}
 
@@ -79,7 +79,7 @@ func parseDerivationContent(doc *schemaxml.Document, elem schemaxml.NodeID, sche
 	return parsed, nil
 }
 
-func parseDerivationBaseQName(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, kind string) (model.QName, error) {
+func parseDerivationBaseQName(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, kind string) (model.QName, error) {
 	if err := validateOptionalID(doc, elem, kind, schema); err != nil {
 		return model.QName{}, err
 	}

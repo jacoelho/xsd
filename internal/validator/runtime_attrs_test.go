@@ -14,7 +14,7 @@ func TestValidateAttributesNilSession(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected schema not loaded error")
 	}
-	if code, _, ok := validationErrorInfo(err); !ok || code != xsderrors.ErrSchemaNotLoaded {
+	if code, ok := validationErrorInfo(err); !ok || code != xsderrors.ErrSchemaNotLoaded {
 		t.Fatalf("error code = %v, want %v", code, xsderrors.ErrSchemaNotLoaded)
 	}
 }

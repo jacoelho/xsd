@@ -3,7 +3,7 @@ package semanticcheck
 import (
 	"testing"
 
-	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
+	facetengine "github.com/jacoelho/xsd/internal/facets"
 )
 
 func TestIsValidFacetName(t *testing.T) {

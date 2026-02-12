@@ -3,10 +3,10 @@ package validatorgen
 import (
 	"fmt"
 
+	schema "github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/complextypeplan"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
 )
 

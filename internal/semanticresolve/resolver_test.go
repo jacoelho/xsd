@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func parseW3CSchema(t *testing.T, relPath string) *parser.Schema {
@@ -18,6 +18,9 @@ func parseW3CSchema(t *testing.T, relPath string) *parser.Schema {
 	schemaPath := filepath.Join("..", "..", "testdata", "xsdtests", filepath.FromSlash(relPath))
 	file, err := os.Open(schemaPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			t.Skipf("w3c schema fixture missing: %s", schemaPath)
+		}
 		t.Fatalf("open schema %s: %v", schemaPath, err)
 	}
 	t.Cleanup(func() {

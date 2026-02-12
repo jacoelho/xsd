@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
@@ -41,24 +42,6 @@ func NewParsedValue[T any](lexical string, native T) ParsedValue[T] {
 		Lexical: lexical,
 		Native:  native,
 	}
-}
-
-// ValueNormalizer normalizes lexical values based on type rules.
-type ValueNormalizer interface {
-	Normalize(lexical string, typ Type) (string, error)
-}
-
-var defaultValueNormalizer ValueNormalizer = whiteSpaceNormalizer{}
-
-var builtinValueNormalizers = map[TypeName]ValueNormalizer{
-	TypeNameDateTime:   dateTimeNormalizer{},
-	TypeNameDate:       dateTimeNormalizer{},
-	TypeNameTime:       dateTimeNormalizer{},
-	TypeNameGYearMonth: dateTimeNormalizer{},
-	TypeNameGYear:      dateTimeNormalizer{},
-	TypeNameGMonthDay:  dateTimeNormalizer{},
-	TypeNameGDay:       dateTimeNormalizer{},
-	TypeNameGMonth:     dateTimeNormalizer{},
 }
 
 var temporalTypeNames = map[string]struct{}{
@@ -106,29 +89,6 @@ func isTemporalType(typeName string) bool {
 	return ok
 }
 
-func normalizerForType(typ Type) ValueNormalizer {
-	if typ == nil {
-		return defaultValueNormalizer
-	}
-	if typ.IsBuiltin() {
-		if normalizer, ok := builtinValueNormalizers[TypeName(typ.Name().Local)]; ok {
-			return normalizer
-		}
-	}
-	if bt, ok := as[*BuiltinType](typ); ok {
-		if normalizer, ok := builtinValueNormalizers[TypeName(bt.Name().Local)]; ok {
-			return normalizer
-		}
-		return defaultValueNormalizer
-	}
-	if primitive := typ.PrimitiveType(); primitive != nil {
-		if normalizer, ok := builtinValueNormalizers[TypeName(primitive.Name().Local)]; ok {
-			return normalizer
-		}
-	}
-	return defaultValueNormalizer
-}
-
 type simpleValue[T any] struct {
 	native   T
 	typ      *SimpleType
@@ -174,11 +134,11 @@ func (v *DecimalValue) String() string {
 
 // XSDDurationValue represents a duration value.
 type XSDDurationValue struct {
-	simpleValue[XSDDuration]
+	simpleValue[durationlex.Duration]
 }
 
 // NewXSDDurationValue creates a new XSDDurationValue.
-func NewXSDDurationValue(parsed ParsedValue[XSDDuration], typ *SimpleType) TypedValue {
+func NewXSDDurationValue(parsed ParsedValue[durationlex.Duration], typ *SimpleType) TypedValue {
 	return &XSDDurationValue{simpleValue: newSimpleValue(parsed, typ, nil)}
 }
 

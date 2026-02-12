@@ -86,7 +86,7 @@ func TestClassifyAttrsDuplicateAttributeSmallAndLarge(t *testing.T) {
 		if classified.duplicateErr == nil {
 			t.Fatalf("expected duplicate attribute error")
 		}
-		code, _, ok := validationErrorInfo(classified.duplicateErr)
+		code, ok := validationErrorInfo(classified.duplicateErr)
 		if !ok || code != xsderrors.ErrXMLParse {
 			t.Fatalf("duplicate error code = %v, want %v", code, xsderrors.ErrXMLParse)
 		}
@@ -110,7 +110,7 @@ func TestClassifyAttrsDuplicateAttributeSmallAndLarge(t *testing.T) {
 		if classified.duplicateErr == nil {
 			t.Fatalf("expected duplicate attribute error")
 		}
-		code, _, ok := validationErrorInfo(classified.duplicateErr)
+		code, ok := validationErrorInfo(classified.duplicateErr)
 		if !ok || code != xsderrors.ErrXMLParse {
 			t.Fatalf("duplicate error code = %v, want %v", code, xsderrors.ErrXMLParse)
 		}
@@ -135,7 +135,7 @@ func TestClassifyAttrsDuplicateXsiTypeAndNil(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected duplicate xsi:type error")
 		}
-		code, _, ok := validationErrorInfo(err)
+		code, ok := validationErrorInfo(err)
 		if !ok || code != xsderrors.ErrDatatypeInvalid {
 			t.Fatalf("error code = %v, want %v", code, xsderrors.ErrDatatypeInvalid)
 		}
@@ -155,7 +155,7 @@ func TestClassifyAttrsDuplicateXsiTypeAndNil(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected duplicate xsi:nil error")
 		}
-		code, _, ok := validationErrorInfo(err)
+		code, ok := validationErrorInfo(err)
 		if !ok || code != xsderrors.ErrDatatypeInvalid {
 			t.Fatalf("error code = %v, want %v", code, xsderrors.ErrDatatypeInvalid)
 		}

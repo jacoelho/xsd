@@ -2,10 +2,10 @@ package parser
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseComplexContentRestriction(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.Restriction, model.QName, error) {
+func parseComplexContentRestriction(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.Restriction, model.QName, error) {
 	baseQName, err := parseDerivationBaseQName(doc, elem, schema, "restriction")
 	if err != nil {
 		return nil, model.QName{}, err
@@ -24,7 +24,7 @@ func parseComplexContentRestriction(doc *schemaxml.Document, elem schemaxml.Node
 	return restriction, baseQName, nil
 }
 
-func parseComplexContentExtension(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.Extension, model.QName, error) {
+func parseComplexContentExtension(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.Extension, model.QName, error) {
 	baseQName, err := parseDerivationBaseQName(doc, elem, schema, "extension")
 	if err != nil {
 		return nil, model.QName{}, err
@@ -48,7 +48,7 @@ type parsedComplexDerivationBody struct {
 	uses     attributeUses
 }
 
-func parseComplexDerivationBody(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, context string) (parsedComplexDerivationBody, error) {
+func parseComplexDerivationBody(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, context string) (parsedComplexDerivationBody, error) {
 	parsed := parsedComplexDerivationBody{}
 	children := collectXSDChildren(doc, elem)
 	err := validateComplexContentChildren(doc, children, context)

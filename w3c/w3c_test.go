@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -15,12 +16,11 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/occurs"
-	"github.com/jacoelho/xsd/internal/pipeline"
 	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/schemaxml"
-	loader "github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/internal/set"
 	"github.com/jacoelho/xsd/internal/validator"
+	"github.com/jacoelho/xsd/internal/xmltree"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -1024,11 +1024,12 @@ func (r *W3CTestRunner) runSchemaTest(t *testing.T, testSet, testGroup string, t
 			entryDoc = test.SchemaDocuments[len(test.SchemaDocuments)-1]
 		}
 		entryPath := r.resolvePath(metadataDir, entryDoc.Href)
-		l, entryFile := r.loaderForSchemaPath(entryPath)
-		parsed, err := l.Load(entryFile)
-		if err == nil {
-			_, err = pipeline.Prepare(parsed)
-		}
+		fsys, entryFile := r.schemaFSForPath(entryPath)
+		_, err := set.Prepare(set.PrepareConfig{
+			FS:                          fsys,
+			Location:                    entryFile,
+			AllowMissingImportLocations: true,
+		})
 		schemaPath := entryDoc.Href
 		if err != nil {
 			err = fmt.Errorf("load schema %s: %w", entryDoc.Href, err)
@@ -1216,7 +1217,7 @@ func readInstanceInfo(r io.Reader) (instanceInfo, error) {
 			rootNS:    ev.Name.Namespace,
 		}
 		for _, attr := range ev.Attrs {
-			if attr.Name.Namespace != schemaxml.XSINamespace {
+			if attr.Name.Namespace != xmltree.XSINamespace {
 				continue
 			}
 			switch attr.Name.Local {
@@ -1311,20 +1312,18 @@ func (r *W3CTestRunner) loadSchemaFromPath(schemaPath string) (*runtime.Schema, 
 	if entry, ok := r.schemaCache[key]; ok {
 		return entry.schema, entry.err
 	}
-	l, relPath := r.loaderForSchemaPath(schemaPath)
-	parsed, err := l.Load(relPath)
+	fsys, relPath := r.schemaFSForPath(schemaPath)
+	prepared, err := set.Prepare(set.PrepareConfig{
+		FS:                          fsys,
+		Location:                    relPath,
+		AllowMissingImportLocations: true,
+	})
 	if err != nil {
 		err = fmt.Errorf("load schema %s: %w", schemaPath, err)
 		r.schemaCache[key] = schemaCacheEntry{err: err}
 		return nil, err
 	}
-	prepared, err := pipeline.Prepare(parsed)
-	if err != nil {
-		err = fmt.Errorf("prepare schema %s: %w", schemaPath, err)
-		r.schemaCache[key] = schemaCacheEntry{err: err}
-		return nil, err
-	}
-	schema, err := prepared.BuildRuntime(pipeline.CompileConfig{})
+	schema, err := prepared.BuildRuntime(set.CompileConfig{})
 	if err != nil {
 		err = fmt.Errorf("build runtime schema %s: %w", schemaPath, err)
 		r.schemaCache[key] = schemaCacheEntry{err: err}
@@ -1358,7 +1357,7 @@ func (r *W3CTestRunner) resolvePath(metadataDir, href string) string {
 	return path
 }
 
-func (r *W3CTestRunner) loaderForSchemaPath(schemaPath string) (*loader.SchemaLoader, string) {
+func (r *W3CTestRunner) schemaFSForPath(schemaPath string) (fs.FS, string) {
 	fsys := os.DirFS(filepath.Dir(schemaPath))
 	relPath := filepath.Base(schemaPath)
 	if r.TestSuiteDir != "" {
@@ -1368,10 +1367,7 @@ func (r *W3CTestRunner) loaderForSchemaPath(schemaPath string) (*loader.SchemaLo
 			fsys = os.DirFS(r.TestSuiteDir)
 		}
 	}
-	return loader.NewLoader(loader.Config{
-		FS:                          fsys,
-		AllowMissingImportLocations: true,
-	}), relPath
+	return fsys, relPath
 }
 
 // formatViolations formats validation violations for readable error output

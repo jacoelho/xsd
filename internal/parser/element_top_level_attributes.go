@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func applyTopLevelElementAttributes(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func applyTopLevelElementAttributes(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	if ok, value, err := parseBoolAttribute(doc, elem, "nillable"); err != nil {
 		return err
 	} else if ok {
@@ -46,7 +46,7 @@ func applyTopLevelElementAttributes(doc *schemaxml.Document, elem schemaxml.Node
 	return nil
 }
 
-func applyTopLevelElementDerivations(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func applyTopLevelElementDerivations(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	if err := applyElementBlockDerivation(schema, decl, doc.HasAttribute(elem, "block"), doc.GetAttribute(elem, "block")); err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func applyTopLevelElementDerivations(doc *schemaxml.Document, elem schemaxml.Nod
 	return nil
 }
 
-func applyTopLevelElementSubstitutionGroup(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func applyTopLevelElementSubstitutionGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	if subGroup := doc.GetAttribute(elem, "substitutionGroup"); subGroup != "" {
 		subGroupQName, err := resolveQNameWithPolicy(doc, subGroup, elem, schema, useDefaultNamespace)
 		if err != nil {
@@ -84,6 +84,6 @@ func applyTopLevelElementSubstitutionGroup(doc *schemaxml.Document, elem schemax
 	return nil
 }
 
-func applyTopLevelElementConstraints(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func applyTopLevelElementConstraints(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	return appendElementIdentityConstraints(doc, elem, schema, decl)
 }

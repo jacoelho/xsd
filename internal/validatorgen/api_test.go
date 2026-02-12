@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
+	schema "github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/prep"
 	"github.com/jacoelho/xsd/internal/runtime"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
-	"github.com/jacoelho/xsd/internal/schemaprep"
 	"github.com/jacoelho/xsd/internal/validatorgen"
 )
 
@@ -93,7 +93,7 @@ func mustCompileSchema(t *testing.T, schemaXML string) (*validatorgen.CompiledVa
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	resolvedSchema, err := schemaprep.ResolveAndValidate(sch)
+	resolvedSchema, err := prep.ResolveAndValidate(sch)
 	if err != nil {
 		t.Fatalf("resolve and validate schema: %v", err)
 	}

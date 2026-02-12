@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sort"
 
+	facetengine "github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
-	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 

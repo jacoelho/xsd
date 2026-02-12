@@ -6,7 +6,8 @@ import (
 	models "github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/grouprefs"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/occurs"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
 )
 
@@ -102,8 +103,8 @@ func combineBaseAndDerivedUPAParticles(baseParticle, particle model.Particle) mo
 	if baseParticle != nil && particle != nil {
 		return &model.ModelGroup{
 			Kind:      model.Sequence,
-			MinOccurs: model.OccursFromInt(1),
-			MaxOccurs: model.OccursFromInt(1),
+			MinOccurs: occurs.OccursFromInt(1),
+			MaxOccurs: occurs.OccursFromInt(1),
 			Particles: []model.Particle{baseParticle, particle},
 		}
 	}

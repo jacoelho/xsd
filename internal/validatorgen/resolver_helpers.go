@@ -13,7 +13,7 @@ func builtinForType(typ model.Type) *model.BuiltinType {
 		return bt
 	}
 	if st, ok := model.AsSimpleType(typ); ok && st.IsBuiltin() {
-		return builtins.Get(builtins.TypeName(st.Name().Local))
+		return builtins.Get(model.TypeName(st.Name().Local))
 	}
 	return nil
 }

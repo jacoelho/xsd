@@ -5,8 +5,6 @@ import (
 	"github.com/jacoelho/xsd/internal/traversal"
 )
 
-type modelGroupVisit = traversal.VisitTracker[*model.ModelGroup]
-
-func newModelGroupVisit() modelGroupVisit {
+func newModelGroupVisit() traversal.VisitTracker[*model.ModelGroup] {
 	return traversal.NewVisitTracker[*model.ModelGroup]()
 }

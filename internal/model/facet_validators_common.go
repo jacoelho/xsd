@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )
@@ -20,8 +21,8 @@ func getXSDTypeName(value TypedValue) string {
 	return typ.Name().Local
 }
 
-// durationToXSD converts a time.Duration to XSDDuration.
-func durationToXSD(d time.Duration) XSDDuration {
+// durationToXSD converts a time.Duration to durationlex.Duration.
+func durationToXSD(d time.Duration) durationlex.Duration {
 	negative := d < 0
 	if negative {
 		d = -d
@@ -31,7 +32,7 @@ func durationToXSD(d time.Duration) XSDDuration {
 	minutes := int(d / time.Minute)
 	d %= time.Minute
 	seconds := num.DecFromScaledInt(num.FromInt64(int64(d)), 9)
-	return XSDDuration{
+	return durationlex.Duration{
 		Negative: negative,
 		Years:    0,
 		Months:   0,
@@ -127,7 +128,7 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 	case time.Duration:
 		xsdDur := durationToXSD(v)
 		return ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
-	case XSDDuration:
+	case durationlex.Duration:
 		return ComparableXSDDuration{Value: v, Typ: typ}, nil
 	case float64:
 		return ComparableFloat64{Value: v, Typ: typ}, nil

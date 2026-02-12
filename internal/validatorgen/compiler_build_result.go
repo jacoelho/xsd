@@ -3,20 +3,21 @@ package validatorgen
 import (
 	"maps"
 
+	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 )
 
-func (c *compiler) result(registry *schema.Registry) *compiledValidators {
-	out := &compiledValidators{
+func (c *compiler) result(registry *schema.Registry) *CompiledValidators {
+	out := &CompiledValidators{
 		Validators:      c.bundle,
 		Facets:          c.facets,
 		Patterns:        c.patterns,
 		Enums:           c.enums.table(),
 		Values:          c.values.table(),
 		ComplexTypes:    c.complexTypes,
-		TypeValidators:  make(map[schema.TypeID]runtime.ValidatorID),
+		TypeValidators:  make(map[ids.TypeID]runtime.ValidatorID),
 		ValidatorByType: make(map[model.Type]runtime.ValidatorID),
 		elements:        c.elements,
 		attributes:      c.attributes,

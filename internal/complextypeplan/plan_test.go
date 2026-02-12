@@ -3,8 +3,8 @@ package complextypeplan
 import (
 	"testing"
 
+	schema "github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 )
 
 func TestBuildAndLookup(t *testing.T) {

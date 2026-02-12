@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	model "github.com/jacoelho/xsd/internal/model"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func (r *Resolver) lookupType(qname, referrer model.QName) (model.Type, error) {

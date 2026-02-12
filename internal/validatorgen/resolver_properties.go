@@ -139,7 +139,7 @@ func (r *typeResolver) primitiveNameAtomic(typ model.Type, seen map[model.Type]b
 		return "", fmt.Errorf("unsupported type")
 	}
 	if st.IsBuiltin() {
-		if builtin := builtins.Get(builtins.TypeName(st.Name().Local)); builtin != nil {
+		if builtin := builtins.Get(model.TypeName(st.Name().Local)); builtin != nil {
 			primitive := builtin.PrimitiveType()
 			if primitive == nil {
 				return "", fmt.Errorf("primitive type not found")

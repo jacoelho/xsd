@@ -3,8 +3,8 @@ package complextypeplan
 import (
 	"fmt"
 
+	schema "github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 )
 
 type ComputeFuncs struct {

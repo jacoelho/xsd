@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/model"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func TestCycleDetectorEnterReturnsTypedCycleError(t *testing.T) {

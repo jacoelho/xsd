@@ -55,7 +55,7 @@ func NextDerivationStep(current model.Type, resolve TypeQNameResolver) (model.Ty
 		}
 		return nil, 0, nil
 	case *model.BuiltinType:
-		name := builtins.TypeName(typed.Name().Local)
+		name := model.TypeName(typed.Name().Local)
 		switch name {
 		case builtins.TypeNameAnyType:
 			return nil, 0, nil

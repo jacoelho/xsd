@@ -1,13 +1,10 @@
 package validatorgen
 
 import (
+	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 )
-
-// CompiledValidators stores precompiled validator artifacts used by runtime build.
-type CompiledValidators = compiledValidators
 
 // DefaultFixedValue stores canonical default/fixed metadata for runtime tables.
 type DefaultFixedValue struct {
@@ -17,7 +14,7 @@ type DefaultFixedValue struct {
 }
 
 // ElementDefault returns the compiled default value for a global/local element.
-func (c *compiledValidators) ElementDefault(id schema.ElemID) (DefaultFixedValue, bool) {
+func (c *CompiledValidators) ElementDefault(id ids.ElemID) (DefaultFixedValue, bool) {
 	if c == nil {
 		return DefaultFixedValue{}, false
 	}
@@ -29,7 +26,7 @@ func (c *compiledValidators) ElementDefault(id schema.ElemID) (DefaultFixedValue
 }
 
 // ElementFixed returns the compiled fixed value for a global/local element.
-func (c *compiledValidators) ElementFixed(id schema.ElemID) (DefaultFixedValue, bool) {
+func (c *CompiledValidators) ElementFixed(id ids.ElemID) (DefaultFixedValue, bool) {
 	if c == nil {
 		return DefaultFixedValue{}, false
 	}
@@ -41,7 +38,7 @@ func (c *compiledValidators) ElementFixed(id schema.ElemID) (DefaultFixedValue, 
 }
 
 // AttributeDefault returns the compiled default value for an attribute declaration.
-func (c *compiledValidators) AttributeDefault(id schema.AttrID) (DefaultFixedValue, bool) {
+func (c *CompiledValidators) AttributeDefault(id ids.AttrID) (DefaultFixedValue, bool) {
 	if c == nil {
 		return DefaultFixedValue{}, false
 	}
@@ -53,7 +50,7 @@ func (c *compiledValidators) AttributeDefault(id schema.AttrID) (DefaultFixedVal
 }
 
 // AttributeFixed returns the compiled fixed value for an attribute declaration.
-func (c *compiledValidators) AttributeFixed(id schema.AttrID) (DefaultFixedValue, bool) {
+func (c *CompiledValidators) AttributeFixed(id ids.AttrID) (DefaultFixedValue, bool) {
 	if c == nil {
 		return DefaultFixedValue{}, false
 	}
@@ -65,7 +62,7 @@ func (c *compiledValidators) AttributeFixed(id schema.AttrID) (DefaultFixedValue
 }
 
 // AttrUseDefault returns the compiled default value for a specific attribute use.
-func (c *compiledValidators) AttrUseDefault(attr *model.AttributeDecl) (DefaultFixedValue, bool) {
+func (c *CompiledValidators) AttrUseDefault(attr *model.AttributeDecl) (DefaultFixedValue, bool) {
 	if c == nil {
 		return DefaultFixedValue{}, false
 	}
@@ -77,7 +74,7 @@ func (c *compiledValidators) AttrUseDefault(attr *model.AttributeDecl) (DefaultF
 }
 
 // AttrUseFixed returns the compiled fixed value for a specific attribute use.
-func (c *compiledValidators) AttrUseFixed(attr *model.AttributeDecl) (DefaultFixedValue, bool) {
+func (c *CompiledValidators) AttrUseFixed(attr *model.AttributeDecl) (DefaultFixedValue, bool) {
 	if c == nil {
 		return DefaultFixedValue{}, false
 	}

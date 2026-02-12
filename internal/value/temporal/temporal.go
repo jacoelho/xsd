@@ -72,9 +72,6 @@ func (k Kind) String() string {
 	}
 }
 
-// TimezoneKind mirrors timezone presence for temporal values.
-type TimezoneKind = value.TimezoneKind
-
 const (
 	TZNone  = value.TZNone
 	TZKnown = value.TZKnown
@@ -84,7 +81,7 @@ const (
 type Value struct {
 	Time         time.Time
 	Kind         Kind
-	TimezoneKind TimezoneKind
+	TimezoneKind value.TimezoneKind
 	LeapSecond   bool
 }
 
@@ -242,11 +239,6 @@ func Canonical(v Value) string {
 		return canonicalLeap(v)
 	}
 	return value.CanonicalDateTimeString(v.Time, v.Kind.String(), v.TimezoneKind)
-}
-
-// ValueTimezoneKind converts temporal timezone kind to value.TimezoneKind.
-func ValueTimezoneKind(kind TimezoneKind) value.TimezoneKind {
-	return kind
 }
 
 func compareSameTimezone(left, right Value) int {

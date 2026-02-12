@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // parseAnyAttribute parses an <anyAttribute> wildcard
 // Content model: (annotation?)
-func parseAnyAttribute(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.AnyAttribute, error) {
+func parseAnyAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.AnyAttribute, error) {
 	nsConstraint, nsList, processContents, err := parseWildcardConstraints(
 		doc,
 		elem,
@@ -27,7 +27,7 @@ func parseAnyAttribute(doc *schemaxml.Document, elem schemaxml.NodeID, schema *S
 
 	hasAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
+		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {

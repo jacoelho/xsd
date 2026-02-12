@@ -45,7 +45,7 @@ func ComparableForPrimitiveName(primitive, lexical string, integerDerived bool) 
 		}
 		return model.ComparableTime{
 			Value:        tv.Time,
-			TimezoneKind: temporal.ValueTimezoneKind(tv.TimezoneKind),
+			TimezoneKind: tv.TimezoneKind,
 			Kind:         tv.Kind,
 			LeapSecond:   tv.LeapSecond,
 		}, nil

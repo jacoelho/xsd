@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"slices"
 	"strconv"
 	"testing"
 
@@ -39,7 +38,7 @@ func Benchmark_QNameValueParsing_PrefixHeavy(b *testing.B) {
 		b.Fatalf("Build() error = %v", err)
 	}
 	sess := NewSession(schema)
-	sess.pushNamespaceScope(slices.Values(decls))
+	sess.pushNamespaceScope(decls)
 	resolver := sessionResolver{s: sess}
 
 	dst := make([]byte, 0, maxLen)

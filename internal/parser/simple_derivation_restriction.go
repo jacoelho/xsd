@@ -5,10 +5,10 @@ import (
 
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseRestrictionDerivation(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.SimpleType, error) {
+func parseRestrictionDerivation(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.SimpleType, error) {
 	if err := validateAnnotationOrder(doc, elem); err != nil {
 		return nil, err
 	}
@@ -23,7 +23,7 @@ func parseRestrictionDerivation(doc *schemaxml.Document, elem schemaxml.NodeID, 
 	if base == "" {
 		var inlineBaseType *model.SimpleType
 		for _, child := range doc.Children(elem) {
-			if doc.NamespaceURI(child) == schemaxml.XSDNamespace && doc.LocalName(child) == "simpleType" {
+			if doc.NamespaceURI(child) == xmltree.XSDNamespace && doc.LocalName(child) == "simpleType" {
 				if inlineBaseType != nil {
 					return nil, fmt.Errorf("restriction cannot have multiple simpleType children")
 				}
@@ -40,7 +40,7 @@ func parseRestrictionDerivation(doc *schemaxml.Document, elem schemaxml.NodeID, 
 		restriction.SimpleType = inlineBaseType
 	} else {
 		for _, child := range doc.Children(elem) {
-			if doc.NamespaceURI(child) == schemaxml.XSDNamespace && doc.LocalName(child) == "simpleType" {
+			if doc.NamespaceURI(child) == xmltree.XSDNamespace && doc.LocalName(child) == "simpleType" {
 				return nil, fmt.Errorf("restriction cannot have both base attribute and inline simpleType child")
 			}
 		}

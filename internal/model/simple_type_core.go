@@ -89,7 +89,7 @@ func NewUnionSimpleType(name QName, sourceNamespace NamespaceURI, union *UnionTy
 
 // NewBuiltinSimpleType creates a SimpleType wrapper for a built-in type name.
 func NewBuiltinSimpleType(name TypeName) (*SimpleType, error) {
-	builtin := GetBuiltin(name)
+	builtin := getBuiltin(name)
 	if builtin == nil {
 		return nil, fmt.Errorf("unknown built-in type %s", name)
 	}
@@ -99,7 +99,7 @@ func NewBuiltinSimpleType(name TypeName) (*SimpleType, error) {
 	}
 	if st.List != nil {
 		if itemName, ok := builtinListItemTypeName(string(name)); ok {
-			if itemType := GetBuiltin(itemName); itemType != nil {
+			if itemType := getBuiltin(itemName); itemType != nil {
 				st.ItemType = itemType
 			}
 		}
@@ -188,7 +188,7 @@ func restrictionBaseType(simpleType *SimpleType) Type {
 	if simpleType.Restriction.Base.IsZero() {
 		return nil
 	}
-	base := GetBuiltinNS(simpleType.Restriction.Base.Namespace, simpleType.Restriction.Base.Local)
+	base := getBuiltinNS(simpleType.Restriction.Base.Namespace, simpleType.Restriction.Base.Local)
 	if base == nil {
 		return nil
 	}
@@ -405,7 +405,7 @@ func (s *SimpleType) BaseType() Type {
 		return nil
 	}
 	if s.ResolvedBase == nil {
-		return GetBuiltin(TypeNameAnySimpleType)
+		return getBuiltin(TypeNameAnySimpleType)
 	}
 	return s.ResolvedBase
 }

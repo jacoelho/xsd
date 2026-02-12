@@ -12,6 +12,9 @@ func TestAnyAttributeUnionNamespaceList(t *testing.T) {
 	path := filepath.Join("..", "..", "testdata", "xsdtests", "sunData", "combined", "008", "test.xsd")
 	data, err := os.ReadFile(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			t.Skipf("schema fixture missing: %s", path)
+		}
 		t.Fatalf("read schema: %v", err)
 	}
 	parsed := mustResolveSchema(t, string(data))

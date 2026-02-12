@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	qnameorder "github.com/jacoelho/xsd/internal/qname"
 )
 

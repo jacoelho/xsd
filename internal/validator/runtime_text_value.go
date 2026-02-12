@@ -13,9 +13,13 @@ type TextValueOptions struct {
 }
 
 func (s *Session) ValidateTextValue(typeID runtime.TypeID, text []byte, resolver value.NSResolver, textOpts TextValueOptions) ([]byte, valueMetrics, error) {
-	var metrics valueMetrics
-	canon, err := s.validateTextValueCore(typeID, text, resolver, textOpts, &metrics)
-	return canon, metrics, err
+	metrics := s.acquireValueMetrics()
+	defer s.releaseValueMetrics()
+	canon, err := s.validateTextValueCore(typeID, text, resolver, textOpts, metrics)
+	if err != nil {
+		return nil, valueMetrics{}, err
+	}
+	return canon, *metrics, nil
 }
 
 func (s *Session) validateTextValueCore(typeID runtime.TypeID, text []byte, resolver value.NSResolver, textOpts TextValueOptions, metrics *valueMetrics) ([]byte, error) {

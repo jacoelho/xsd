@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/occurs"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // parseElement parses an element reference or declaration within a content model
-func parseElement(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.ElementDecl, error) {
+func parseElement(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.ElementDecl, error) {
 	attrs := scanElementAttributes(doc, elem)
 
 	if attrs.hasID {
@@ -28,7 +29,7 @@ func parseElement(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema
 	return parseLocalElement(doc, elem, schema, &attrs)
 }
 
-func parseElementReference(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, attrs *elementAttrScan) (*model.ElementDecl, error) {
+func parseElementReference(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, attrs *elementAttrScan) (*model.ElementDecl, error) {
 	if err := validateElementReferenceAttributes(doc, elem, attrs); err != nil {
 		return nil, err
 	}
@@ -56,7 +57,7 @@ func parseElementReference(doc *schemaxml.Document, elem schemaxml.NodeID, schem
 	return parsed, nil
 }
 
-func validateElementReferenceAttributes(doc *schemaxml.Document, elem schemaxml.NodeID, attrs *elementAttrScan) error {
+func validateElementReferenceAttributes(doc *xmltree.Document, elem xmltree.NodeID, attrs *elementAttrScan) error {
 	if attrs.invalidRefAttr != "" {
 		return fmt.Errorf("invalid attribute '%s' on element reference", attrs.invalidRefAttr)
 	}
@@ -66,21 +67,21 @@ func validateElementReferenceAttributes(doc *schemaxml.Document, elem schemaxml.
 	return validateElementReferenceConflicts(attrs)
 }
 
-func parseElementOccurs(attrs *elementAttrScan) (model.Occurs, model.Occurs, error) {
-	minOccurs := model.OccursFromInt(1)
+func parseElementOccurs(attrs *elementAttrScan) (occurs.Occurs, occurs.Occurs, error) {
+	minOccurs := occurs.OccursFromInt(1)
 	if attrs.hasMinOccurs {
 		var err error
 		minOccurs, err = parseOccursValue("minOccurs", attrs.minOccurs)
 		if err != nil {
-			return model.OccursFromInt(0), model.OccursFromInt(0), err
+			return occurs.OccursFromInt(0), occurs.OccursFromInt(0), err
 		}
 	}
-	maxOccurs := model.OccursFromInt(1)
+	maxOccurs := occurs.OccursFromInt(1)
 	if attrs.hasMaxOccurs {
 		var err error
 		maxOccurs, err = parseOccursValue("maxOccurs", attrs.maxOccurs)
 		if err != nil {
-			return model.OccursFromInt(0), model.OccursFromInt(0), err
+			return occurs.OccursFromInt(0), occurs.OccursFromInt(0), err
 		}
 	}
 	return minOccurs, maxOccurs, nil

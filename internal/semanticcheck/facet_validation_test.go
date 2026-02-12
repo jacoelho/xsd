@@ -7,7 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
 // TestOrderedTypeFacetApplicability tests that range facets (minInclusive, maxInclusive, etc.)

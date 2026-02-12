@@ -17,12 +17,9 @@ const (
 	NodeElementText
 )
 
-// NamespaceContext resolves QName prefixes to namespace URIs.
-type NamespaceContext = value.NSResolver
-
 // ValueContext carries contextual information for simple value validation.
 type ValueContext struct {
-	NS       NamespaceContext
+	NS       value.NSResolver
 	Path     Path
 	NodeKind NodeKind
 }

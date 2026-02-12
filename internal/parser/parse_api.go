@@ -7,8 +7,8 @@ import (
 	"iter"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
 	"github.com/jacoelho/xsd/internal/xmllex"
+	"github.com/jacoelho/xsd/internal/xmltree"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -32,11 +32,11 @@ func (e *ParseError) Unwrap() error {
 	return e.Err
 }
 
-// newParseError creates a new ParseError with the schema-parse-error code
-func newParseError(msg string, err error) *ParseError {
+// newParseError creates a new ParseError with the schema-parse-error code.
+func newParseError(err error) *ParseError {
 	return &ParseError{
 		Code:    "schema-parse-error",
-		Message: msg,
+		Message: "parse XML",
 		Err:     err,
 	}
 }
@@ -90,14 +90,14 @@ func Parse(r io.Reader) (*Schema, error) {
 
 // ParseWithImportsOptions parses an XSD schema with XML reader options.
 func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResult, error) {
-	return ParseWithImportsOptionsWithPool(r, schemaxml.NewDocumentPool(), opts...)
+	return ParseWithImportsOptionsWithPool(r, xmltree.NewDocumentPool(), opts...)
 }
 
 // ParseWithImportsOptionsWithPool parses an XSD schema with XML reader options and an explicit document pool.
-func ParseWithImportsOptionsWithPool(r io.Reader, pool *schemaxml.DocumentPool, opts ...xmlstream.Option) (*ParseResult, error) {
+func ParseWithImportsOptionsWithPool(r io.Reader, pool *xmltree.DocumentPool, opts ...xmlstream.Option) (*ParseResult, error) {
 	reader, err := xmlstream.NewReader(r, opts...)
 	if err != nil {
-		return nil, newParseError("parse XML", fmt.Errorf("xml reader: %w", err))
+		return nil, newParseError(fmt.Errorf("xml reader: %w", err))
 	}
 	schema := NewSchema()
 	result := &ParseResult{
@@ -116,18 +116,18 @@ func ParseWithImportsOptionsWithPool(r io.Reader, pool *schemaxml.DocumentPool, 
 			break
 		}
 		if err != nil {
-			return nil, newParseError("parse XML", fmt.Errorf("xml read: %w", err))
+			return nil, newParseError(fmt.Errorf("xml read: %w", err))
 		}
 
 		switch ev.Kind {
 		case xmlstream.EventStartElement:
 			if !docState.StartElementAllowed() {
-				return nil, newParseError("parse XML", fmt.Errorf("unexpected element %s after document end", ev.Name.Local))
+				return nil, newParseError(fmt.Errorf("unexpected element %s after document end", ev.Name.Local))
 			}
 			rootSeen := docState.RootSeen()
 			docState.OnStartElement()
 			if !rootSeen {
-				if ev.Name.Local != "schema" || ev.Name.Namespace != schemaxml.XSDNamespace {
+				if ev.Name.Local != "schema" || ev.Name.Namespace != xmltree.XSDNamespace {
 					return nil, fmt.Errorf("root element must be xs:schema, got {%s}%s", ev.Name.Namespace, ev.Name.Local)
 				}
 				if err := parseSchemaAttributesFromStart(ev, reader.NamespaceDeclsSeq(ev.ScopeDepth), schema); err != nil {
@@ -136,16 +136,16 @@ func ParseWithImportsOptionsWithPool(r io.Reader, pool *schemaxml.DocumentPool, 
 				applyImportedNamespaces(schema, importedNamespaces)
 				continue
 			}
-			if ev.Name.Namespace != schemaxml.XSDNamespace {
+			if ev.Name.Namespace != xmltree.XSDNamespace {
 				if err := reader.SkipSubtree(); err != nil {
-					return nil, newParseError("parse XML", fmt.Errorf("xml skip for element %s: %w", ev.Name.String(), err))
+					return nil, newParseError(fmt.Errorf("xml skip for element %s: %w", ev.Name.String(), err))
 				}
 				continue
 			}
 
 			doc, root, err := parseSubtreeIntoDoc(reader, ev, pool)
 			if err != nil {
-				return nil, newParseError("parse XML", fmt.Errorf("xml read for element %s: %w", ev.Name.String(), err))
+				return nil, newParseError(fmt.Errorf("xml read for element %s: %w", ev.Name.String(), err))
 			}
 
 			switch ev.Name.Local {
@@ -174,7 +174,7 @@ func ParseWithImportsOptionsWithPool(r io.Reader, pool *schemaxml.DocumentPool, 
 		case xmlstream.EventCharData:
 			if !docState.RootSeen() || docState.RootClosed() {
 				if !docState.ValidateOutsideCharData(ev.Text) {
-					return nil, newParseError("parse XML", fmt.Errorf("unexpected character data outside root element"))
+					return nil, newParseError(fmt.Errorf("unexpected character data outside root element"))
 				}
 			}
 		case xmlstream.EventComment, xmlstream.EventPI, xmlstream.EventDirective:
@@ -192,21 +192,21 @@ func ParseWithImportsOptionsWithPool(r io.Reader, pool *schemaxml.DocumentPool, 
 	return result, nil
 }
 
-func parseSubtreeIntoDoc(reader *xmlstream.Reader, start xmlstream.Event, pool *schemaxml.DocumentPool) (*schemaxml.Document, schemaxml.NodeID, error) {
+func parseSubtreeIntoDoc(reader *xmlstream.Reader, start xmlstream.Event, pool *xmltree.DocumentPool) (*xmltree.Document, xmltree.NodeID, error) {
 	doc := pool.Acquire()
-	if err := schemaxml.ParseSubtreeInto(reader, start, doc); err != nil {
+	if err := xmltree.ParseSubtreeInto(reader, start, doc); err != nil {
 		pool.Release(doc)
-		return nil, schemaxml.InvalidNode, err
+		return nil, xmltree.InvalidNode, err
 	}
 	root := doc.DocumentElement()
-	if root == schemaxml.InvalidNode {
+	if root == xmltree.InvalidNode {
 		pool.Release(doc)
-		return nil, schemaxml.InvalidNode, io.ErrUnexpectedEOF
+		return nil, xmltree.InvalidNode, io.ErrUnexpectedEOF
 	}
 	return doc, root, nil
 }
 
-func parseDirectiveSubtree(doc *schemaxml.Document, root schemaxml.NodeID, schema *Schema, result *ParseResult, importedNamespaces map[model.NamespaceURI]bool, state *directiveState, pool *schemaxml.DocumentPool) error {
+func parseDirectiveSubtree(doc *xmltree.Document, root xmltree.NodeID, schema *Schema, result *ParseResult, importedNamespaces map[model.NamespaceURI]bool, state *directiveState, pool *xmltree.DocumentPool) error {
 	defer pool.Release(doc)
 	if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
 		return err
@@ -214,7 +214,7 @@ func parseDirectiveSubtree(doc *schemaxml.Document, root schemaxml.NodeID, schem
 	return parseDirectiveElement(doc, root, schema, result, importedNamespaces, state)
 }
 
-func parseTopLevelComponentSubtree(doc *schemaxml.Document, root schemaxml.NodeID, schema *Schema, pool *schemaxml.DocumentPool) error {
+func parseTopLevelComponentSubtree(doc *xmltree.Document, root xmltree.NodeID, schema *Schema, pool *xmltree.DocumentPool) error {
 	defer pool.Release(doc)
 	if err := validateSchemaAttributeNamespaces(doc, root); err != nil {
 		return err
@@ -258,10 +258,10 @@ func parseSchemaAttributesFromStart(start xmlstream.Event, decls iter.Seq[xmlstr
 
 func validateSchemaStartAttributeNamespaces(start xmlstream.Event) error {
 	for _, attr := range start.Attrs {
-		if attr.Name.Namespace == schemaxml.XMLNSNamespace {
+		if attr.Name.Namespace == xmltree.XMLNSNamespace {
 			continue
 		}
-		if attr.Name.Namespace == schemaxml.XSDNamespace {
+		if attr.Name.Namespace == xmltree.XSDNamespace {
 			return fmt.Errorf("schema attribute '%s' on <schema> must be unprefixed", attr.Name.Local)
 		}
 	}

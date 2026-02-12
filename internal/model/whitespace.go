@@ -15,15 +15,6 @@ const (
 	WhiteSpaceCollapse
 )
 
-type whiteSpaceNormalizer struct{}
-
-func (n whiteSpaceNormalizer) Normalize(lexical string, typ Type) (string, error) {
-	if typ == nil {
-		return lexical, nil
-	}
-	return ApplyWhiteSpace(lexical, typ.WhiteSpace()), nil
-}
-
 // ApplyWhiteSpace applies whitespace normalization
 func ApplyWhiteSpace(lexical string, ws WhiteSpace) string {
 	if lexical == "" {

@@ -111,7 +111,7 @@ func resolveFacetType(qname QName, resolve FacetTypeResolver) Type {
 	if qname.IsZero() {
 		return nil
 	}
-	if builtin := GetBuiltinNS(qname.Namespace, qname.Local); builtin != nil {
+	if builtin := getBuiltinNS(qname.Namespace, qname.Local); builtin != nil {
 		return builtin
 	}
 	if resolve == nil {

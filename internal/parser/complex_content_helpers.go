@@ -4,20 +4,20 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func collectXSDChildren(doc *schemaxml.Document, elem schemaxml.NodeID) []schemaxml.NodeID {
-	var children []schemaxml.NodeID
+func collectXSDChildren(doc *xmltree.Document, elem xmltree.NodeID) []xmltree.NodeID {
+	var children []xmltree.NodeID
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) == schemaxml.XSDNamespace {
+		if doc.NamespaceURI(child) == xmltree.XSDNamespace {
 			children = append(children, child)
 		}
 	}
 	return children
 }
 
-func validateComplexContentChildren(doc *schemaxml.Document, children []schemaxml.NodeID, context string) error {
+func validateComplexContentChildren(doc *xmltree.Document, children []xmltree.NodeID, context string) error {
 	for _, child := range children {
 		if !validChildElementNames[childSetComplexContentChild][doc.LocalName(child)] {
 			return fmt.Errorf("complexContent %s has unexpected child element '%s'", context, doc.LocalName(child))
@@ -26,7 +26,7 @@ func validateComplexContentChildren(doc *schemaxml.Document, children []schemaxm
 	return nil
 }
 
-func findComplexContentParticleIndex(doc *schemaxml.Document, children []schemaxml.NodeID, context string) (int, error) {
+func findComplexContentParticleIndex(doc *xmltree.Document, children []xmltree.NodeID, context string) (int, error) {
 	particleIndex := -1
 	firstAttributeIndex := -1
 
@@ -50,7 +50,7 @@ func findComplexContentParticleIndex(doc *schemaxml.Document, children []schemax
 	return particleIndex, nil
 }
 
-func parseComplexContentParticle(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, context string) (model.Particle, error) {
+func parseComplexContentParticle(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, context string) (model.Particle, error) {
 	switch doc.LocalName(elem) {
 	case "sequence", "choice", "all":
 		particle, err := parseModelGroup(doc, elem, schema)

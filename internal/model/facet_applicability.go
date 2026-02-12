@@ -71,7 +71,7 @@ func fundamentalFacetsFor(baseType Type, baseQName QName) *FundamentalFacets {
 		}
 	}
 	if baseQName.Namespace == XSDNamespace && baseQName.Local != "" {
-		if bt := GetBuiltin(TypeName(baseQName.Local)); bt != nil {
+		if bt := getBuiltin(TypeName(baseQName.Local)); bt != nil {
 			return bt.FundamentalFacets()
 		}
 	}

@@ -1,7 +1,6 @@
 package xsd_test
 
 import (
-	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -10,7 +9,7 @@ import (
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
-func TestPrepareAndBuild(t *testing.T) {
+func TestSchemaSetAddCompile(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="urn:test"
@@ -23,28 +22,17 @@ func TestPrepareAndBuild(t *testing.T) {
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	prepared, err := xsd.PrepareWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
-	if err != nil {
-		t.Fatalf("PrepareWithOptions() error = %v", err)
-	}
-	if prepared == nil {
-		t.Fatal("PrepareWithOptions() returned nil")
+	set := xsd.NewSchemaSet(xsd.NewLoadOptions())
+	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
+		t.Fatalf("AddFS() error = %v", err)
 	}
 
-	order := slices.Collect(prepared.GlobalElementOrderSeq())
-	if len(order) != 1 {
-		t.Fatalf("GlobalElementOrderSeq() length = %d, want 1", len(order))
-	}
-	if order[0].Local != "root" {
-		t.Fatalf("GlobalElementOrderSeq()[0].Local = %q, want root", order[0].Local)
-	}
-
-	schema, err := prepared.Build()
+	schema, err := set.Compile()
 	if err != nil {
-		t.Fatalf("Build() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 	if schema == nil {
-		t.Fatal("Build() returned nil")
+		t.Fatal("Compile() returned nil")
 	}
 
 	doc := `<root xmlns="urn:test">ok</root>`
@@ -53,7 +41,7 @@ func TestPrepareAndBuild(t *testing.T) {
 	}
 }
 
-func TestPreparedSchemaBuildWithOptionsRejectsInvalidRuntimeLimits(t *testing.T) {
+func TestSchemaSetCompileWithRuntimeOptionsRejectsInvalidRuntimeLimits(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:string"/>
@@ -63,14 +51,14 @@ func TestPreparedSchemaBuildWithOptionsRejectsInvalidRuntimeLimits(t *testing.T)
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	prepared, err := xsd.PrepareWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
-	if err != nil {
-		t.Fatalf("PrepareWithOptions() error = %v", err)
+	set := xsd.NewSchemaSet(xsd.NewLoadOptions())
+	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
+		t.Fatalf("AddFS() error = %v", err)
 	}
 
 	opts := xsd.NewRuntimeOptions().WithInstanceMaxDepth(-1)
-	if _, err := prepared.BuildWithOptions(opts); err == nil {
-		t.Fatal("BuildWithOptions() error = nil, want invalid runtime options error")
+	if _, err := set.CompileWithRuntimeOptions(opts); err == nil {
+		t.Fatal("CompileWithRuntimeOptions() error = nil, want invalid runtime options error")
 	}
 }
 
@@ -135,7 +123,7 @@ func TestValidateFSFile(t *testing.T) {
 	}
 }
 
-func TestRuntimeOptionsAppliedThroughPrepareBuild(t *testing.T) {
+func TestRuntimeOptionsAppliedThroughSchemaSetCompile(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType"/>
@@ -145,9 +133,9 @@ func TestRuntimeOptionsAppliedThroughPrepareBuild(t *testing.T) {
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	prepared, err := xsd.PrepareWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
-	if err != nil {
-		t.Fatalf("PrepareWithOptions() error = %v", err)
+	set := xsd.NewSchemaSet(xsd.NewLoadOptions())
+	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
+		t.Fatalf("AddFS() error = %v", err)
 	}
 
 	compileOpts := xsd.NewRuntimeOptions().
@@ -156,13 +144,13 @@ func TestRuntimeOptionsAppliedThroughPrepareBuild(t *testing.T) {
 	tightOpts := compileOpts.WithInstanceMaxDepth(4)
 	looseOpts := compileOpts.WithInstanceMaxDepth(64)
 
-	tightSchema, err := prepared.BuildWithOptions(tightOpts)
+	tightSchema, err := set.CompileWithRuntimeOptions(tightOpts)
 	if err != nil {
-		t.Fatalf("BuildWithOptions(tight) error = %v", err)
+		t.Fatalf("CompileWithRuntimeOptions(tight) error = %v", err)
 	}
-	looseSchema, err := prepared.BuildWithOptions(looseOpts)
+	looseSchema, err := set.CompileWithRuntimeOptions(looseOpts)
 	if err != nil {
-		t.Fatalf("BuildWithOptions(loose) error = %v", err)
+		t.Fatalf("CompileWithRuntimeOptions(loose) error = %v", err)
 	}
 
 	if tightSchema == nil {

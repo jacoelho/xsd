@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"strings"
 	"testing"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
@@ -178,9 +179,83 @@ func TestModelStateDFANoMatchErrorCode(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected no-match error")
 	}
-	code, _, ok := validationErrorInfo(err)
+	code, ok := validationErrorInfo(err)
 	if !ok || code != xsderrors.ErrUnexpectedElement {
 		t.Fatalf("error code = %v, want %v", code, xsderrors.ErrUnexpectedElement)
+	}
+}
+
+func TestModelStateDFANoMatchIncludesExpectedAndActual(t *testing.T) {
+	fx := buildModelFixture(t)
+	fx.schema.Models.DFA = make([]runtime.DFAModel, 2)
+	fx.schema.Models.DFA[1] = runtime.DFAModel{
+		Start: 0,
+		States: []runtime.DFAState{
+			{Accept: false, TransOff: 0, TransLen: 1},
+		},
+		Transitions: []runtime.DFATransition{
+			{Sym: fx.symA, Next: 0, Elem: fx.elemA},
+		},
+	}
+	ref := runtime.ModelRef{Kind: runtime.ModelDFA, ID: 1}
+	sess := NewSession(fx.schema)
+
+	state, err := sess.InitModelState(ref)
+	if err != nil {
+		t.Fatalf("InitModelState: %v", err)
+	}
+	_, err = sess.StepModel(ref, &state, fx.symB, fx.ns, []byte("urn:test"))
+	if err == nil {
+		t.Fatalf("expected no-match error")
+	}
+	details := validationErrorDetails(err)
+	if !details.ok {
+		t.Fatalf("validation details not found: %v", err)
+	}
+	if details.code != xsderrors.ErrUnexpectedElement {
+		t.Fatalf("error code = %v, want %v", details.code, xsderrors.ErrUnexpectedElement)
+	}
+	if !containsExpectedLocal(details.expected, "a") {
+		t.Fatalf("expected names = %v, want local name a", details.expected)
+	}
+	if !containsExpectedLocal([]string{details.actual}, "b") {
+		t.Fatalf("actual = %q, want local name b", details.actual)
+	}
+}
+
+func TestModelStateDFAAcceptIncludesExpected(t *testing.T) {
+	fx := buildModelFixture(t)
+	fx.schema.Models.DFA = make([]runtime.DFAModel, 2)
+	fx.schema.Models.DFA[1] = runtime.DFAModel{
+		Start: 0,
+		States: []runtime.DFAState{
+			{Accept: false, TransOff: 0, TransLen: 1},
+			{Accept: true},
+		},
+		Transitions: []runtime.DFATransition{
+			{Sym: fx.symB, Next: 1, Elem: fx.elemB},
+		},
+	}
+	ref := runtime.ModelRef{Kind: runtime.ModelDFA, ID: 1}
+	sess := NewSession(fx.schema)
+
+	state, err := sess.InitModelState(ref)
+	if err != nil {
+		t.Fatalf("InitModelState: %v", err)
+	}
+	err = sess.AcceptModel(ref, &state)
+	if err == nil {
+		t.Fatalf("expected accept failure")
+	}
+	details := validationErrorDetails(err)
+	if !details.ok {
+		t.Fatalf("validation details not found: %v", err)
+	}
+	if details.code != xsderrors.ErrContentModelInvalid {
+		t.Fatalf("error code = %v, want %v", details.code, xsderrors.ErrContentModelInvalid)
+	}
+	if !containsExpectedLocal(details.expected, "b") {
+		t.Fatalf("expected names = %v, want local name b", details.expected)
 	}
 }
 
@@ -263,7 +338,7 @@ func TestModelStateNFAAmbiguousErrorCode(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected ambiguous-match error")
 	}
-	code, _, ok := validationErrorInfo(err)
+	code, ok := validationErrorInfo(err)
 	if !ok || code != xsderrors.ErrContentModelInvalid {
 		t.Fatalf("error code = %v, want %v", code, xsderrors.ErrContentModelInvalid)
 	}
@@ -347,6 +422,42 @@ func TestModelStateAllGroup(t *testing.T) {
 	}
 }
 
+func TestModelStateAllMissingRequiredIncludesExpectedMembers(t *testing.T) {
+	fx := buildModelFixture(t)
+	fx.schema.Models.All = make([]runtime.AllModel, 2)
+	fx.schema.Models.AllSubst = []runtime.ElemID{fx.elemA, fx.elemC}
+	fx.schema.Models.All[1] = runtime.AllModel{
+		MinOccurs: 1,
+		Members: []runtime.AllMember{
+			{Elem: fx.elemA, Optional: false, AllowsSubst: true, SubstOff: 0, SubstLen: 2},
+		},
+	}
+	ref := runtime.ModelRef{Kind: runtime.ModelAll, ID: 1}
+	sess := NewSession(fx.schema)
+
+	state, err := sess.InitModelState(ref)
+	if err != nil {
+		t.Fatalf("InitModelState: %v", err)
+	}
+	err = sess.AcceptModel(ref, &state)
+	if err == nil {
+		t.Fatalf("expected required-element error")
+	}
+	details := validationErrorDetails(err)
+	if !details.ok {
+		t.Fatalf("validation details not found: %v", err)
+	}
+	if details.code != xsderrors.ErrRequiredElementMissing {
+		t.Fatalf("error code = %v, want %v", details.code, xsderrors.ErrRequiredElementMissing)
+	}
+	if !containsExpectedLocal(details.expected, "a") {
+		t.Fatalf("expected names = %v, want local name a", details.expected)
+	}
+	if !containsExpectedLocal(details.expected, "c") {
+		t.Fatalf("expected names = %v, want substitution member c", details.expected)
+	}
+}
+
 func TestModelStateAllAmbiguousErrorCode(t *testing.T) {
 	fx := buildModelFixture(t)
 	fx.schema.Models.All = make([]runtime.AllModel, 2)
@@ -371,10 +482,22 @@ func TestModelStateAllAmbiguousErrorCode(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected ambiguous-match error")
 	}
-	code, _, ok := validationErrorInfo(err)
+	code, ok := validationErrorInfo(err)
 	if !ok || code != xsderrors.ErrContentModelInvalid {
 		t.Fatalf("error code = %v, want %v", code, xsderrors.ErrContentModelInvalid)
 	}
+}
+
+func containsExpectedLocal(values []string, local string) bool {
+	for _, value := range values {
+		if value == local {
+			return true
+		}
+		if strings.HasSuffix(value, "}"+local) {
+			return true
+		}
+	}
+	return false
 }
 
 func buildNFASequence(symA, symB runtime.SymbolID, elemA, elemB runtime.ElemID) runtime.NFAModel {

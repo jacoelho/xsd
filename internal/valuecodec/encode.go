@@ -172,7 +172,7 @@ func TemporalKeyFromValue(dst []byte, v temporal.Value) ([]byte, error) {
 	if !ok {
 		return nil, fmt.Errorf("unsupported temporal kind %d", v.Kind)
 	}
-	return TemporalKeyBytes(dst, subkind, v.Time, temporal.ValueTimezoneKind(v.TimezoneKind), v.LeapSecond), nil
+	return TemporalKeyBytes(dst, subkind, v.Time, v.TimezoneKind, v.LeapSecond), nil
 }
 
 // DurationKeyBytes appends a canonical duration key encoding to dst.

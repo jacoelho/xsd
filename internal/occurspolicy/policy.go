@@ -1,6 +1,6 @@
 package occurspolicy
 
-import "github.com/jacoelho/xsd/internal/model"
+import "github.com/jacoelho/xsd/internal/occurs"
 
 type BoundsIssue uint8
 
@@ -19,7 +19,7 @@ const (
 	AllGroupMaxNotOne
 )
 
-func CheckBounds(minOccurs, maxOccurs model.Occurs) BoundsIssue {
+func CheckBounds(minOccurs, maxOccurs occurs.Occurs) BoundsIssue {
 	if maxOccurs.IsOverflow() || minOccurs.IsOverflow() {
 		return BoundsOverflow
 	}
@@ -32,7 +32,7 @@ func CheckBounds(minOccurs, maxOccurs model.Occurs) BoundsIssue {
 	return BoundsOK
 }
 
-func CheckAllGroupBounds(minOccurs, maxOccurs model.Occurs) AllGroupIssue {
+func CheckAllGroupBounds(minOccurs, maxOccurs occurs.Occurs) AllGroupIssue {
 	if !minOccurs.IsZero() && !minOccurs.IsOne() {
 		return AllGroupMinNotZeroOrOne
 	}
@@ -42,6 +42,6 @@ func CheckAllGroupBounds(minOccurs, maxOccurs model.Occurs) AllGroupIssue {
 	return AllGroupOK
 }
 
-func IsAllGroupChildMaxValid(maxOccurs model.Occurs) bool {
+func IsAllGroupChildMaxValid(maxOccurs occurs.Occurs) bool {
 	return maxOccurs.CmpInt(1) <= 0
 }

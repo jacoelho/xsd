@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/jacoelho/xsd/internal/model"
+	schema "github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/runtimeids"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 	"github.com/jacoelho/xsd/internal/typechain"
 	"github.com/jacoelho/xsd/internal/typeresolve"
+	model "github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/validatorgen"
 )
 
