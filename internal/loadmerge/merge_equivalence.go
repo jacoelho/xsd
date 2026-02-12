@@ -1,6 +1,7 @@
 package loadmerge
 
 import (
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -82,10 +83,7 @@ func identityConstraintKey(constraint *model.IdentityConstraint) string {
 	if len(constraint.NamespaceContext) == 0 {
 		return builder.String()
 	}
-	keys := make([]string, 0, len(constraint.NamespaceContext))
-	for key := range constraint.NamespaceContext {
-		keys = append(keys, key)
-	}
+	keys := slices.Collect(maps.Keys(constraint.NamespaceContext))
 	slices.Sort(keys)
 	for _, key := range keys {
 		builder.WriteString(key)

@@ -1,6 +1,6 @@
 package semanticresolve
 
-import "github.com/jacoelho/xsd/internal/model"
+import model "github.com/jacoelho/xsd/internal/types"
 
 func collectConstraintElementsFromContent(content model.Content) []*model.ElementDecl {
 	state := newIdentityTraversalState()

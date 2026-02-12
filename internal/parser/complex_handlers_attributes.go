@@ -3,10 +3,10 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func (s *complexTypeParseState) handleAttribute(child schemaxml.NodeID) error {
+func (s *complexTypeParseState) handleAttribute(child xmltree.NodeID) error {
 	if err := s.beginAttributeLike(); err != nil {
 		return err
 	}
@@ -18,7 +18,7 @@ func (s *complexTypeParseState) handleAttribute(child schemaxml.NodeID) error {
 	return nil
 }
 
-func (s *complexTypeParseState) handleAttributeGroup(child schemaxml.NodeID) error {
+func (s *complexTypeParseState) handleAttributeGroup(child xmltree.NodeID) error {
 	if err := s.beginAttributeLike(); err != nil {
 		return err
 	}
@@ -30,7 +30,7 @@ func (s *complexTypeParseState) handleAttributeGroup(child schemaxml.NodeID) err
 	return nil
 }
 
-func (s *complexTypeParseState) handleAnyAttribute(child schemaxml.NodeID) error {
+func (s *complexTypeParseState) handleAnyAttribute(child xmltree.NodeID) error {
 	s.hasNonAnnotation = true
 	s.hasAttributeLike = true
 	if s.hasSimpleContent || s.hasComplexContent {

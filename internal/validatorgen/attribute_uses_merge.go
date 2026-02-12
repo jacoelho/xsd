@@ -3,7 +3,7 @@ package validatorgen
 import (
 	"github.com/jacoelho/xsd/internal/attrgroupwalk"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 

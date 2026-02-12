@@ -1,3 +1,3 @@
-// Package parser parses XSD schema documents into parser.Schema structures.
-// The output keeps QName references symbolic for semantic resolution.
+// Package parser parses XSD documents into raw symbolic components.
+// References remain unresolved at this phase.
 package parser

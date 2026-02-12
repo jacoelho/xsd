@@ -39,7 +39,7 @@ func Benchmark_QNameValueParsing_PrefixHeavy(b *testing.B) {
 		b.Fatalf("Build() error = %v", err)
 	}
 	sess := NewSession(schema)
-	sess.pushNamespaceScope(slices.Values(decls))
+	sess.pushNamespaceScope(decls)
 	resolver := sessionResolver{s: sess}
 
 	dst := make([]byte, 0, maxLen)
@@ -142,7 +142,7 @@ func Benchmark_EnumLookup_TypedKeys(b *testing.B) {
 	if err != nil {
 		b.Fatalf("enum validate: %v", err)
 	}
-	key := append([]byte(nil), metrics.keyBytes...)
+	key := slices.Clone(metrics.keyBytes)
 	kind := metrics.keyKind
 
 	b.ReportAllocs()

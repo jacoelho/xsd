@@ -3,6 +3,7 @@ package contentmodel
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -58,8 +59,8 @@ func buildNFA(glu *Glushkov, matchers []runtime.PosMatcher) runtime.NFAModel {
 		Nullable:  glu.Nullable,
 		FollowOff: 0,
 		FollowLen: uint32(len(glu.Follow)),
-		Matchers:  append([]runtime.PosMatcher(nil), matchers...),
-		Follow:    append([]runtime.BitsetRef(nil), glu.Follow...),
+		Matchers:  slices.Clone(matchers),
+		Follow:    slices.Clone(glu.Follow),
 	}
 }
 
@@ -165,10 +166,7 @@ func scanReachablePositions(reachable *bitset, matchers []runtime.PosMatcher, si
 }
 
 func appendSymbolTransitions(symNext map[runtime.SymbolID]*bitset, symElem map[runtime.SymbolID]runtime.ElemID, states []*bitset, stateIDs map[string]uint32, queue []uint32, maxStates uint32, model *runtime.DFAModel) ([]*bitset, []uint32, error) {
-	symbols := make([]runtime.SymbolID, 0, len(symNext))
-	for sym := range symNext {
-		symbols = append(symbols, sym)
-	}
+	symbols := slices.Collect(maps.Keys(symNext))
 	slices.Sort(symbols)
 	for _, sym := range symbols {
 		next := symNext[sym]
@@ -191,10 +189,7 @@ func appendSymbolTransitions(symNext map[runtime.SymbolID]*bitset, symElem map[r
 }
 
 func appendWildcardTransitions(wildNext map[runtime.WildcardID]*bitset, states []*bitset, stateIDs map[string]uint32, queue []uint32, maxStates uint32, model *runtime.DFAModel) ([]*bitset, []uint32, error) {
-	wildcards := make([]runtime.WildcardID, 0, len(wildNext))
-	for rule := range wildNext {
-		wildcards = append(wildcards, rule)
-	}
+	wildcards := slices.Collect(maps.Keys(wildNext))
 	slices.Sort(wildcards)
 	for _, rule := range wildcards {
 		next := wildNext[rule]

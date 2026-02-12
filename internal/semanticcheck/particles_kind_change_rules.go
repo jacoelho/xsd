@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/occurs"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
 func validateParticleRestrictionWithKindChange(schema *parser.Schema, baseMG, restrictionMG *model.ModelGroup) error {
@@ -96,9 +97,9 @@ func validateAllGroupKindChange(schema *parser.Schema, baseMG, restrictionMG *mo
 
 func validateChoiceToSequenceRestriction(schema *parser.Schema, baseMG, restrictionMG *model.ModelGroup, baseChildren, restrictionChildren []model.Particle) error {
 	derivedCount := len(restrictionChildren)
-	countOccurs := model.OccursFromInt(derivedCount)
-	derivedMin := model.MulOccurs(restrictionMG.MinOccurs, countOccurs)
-	derivedMax := model.MulOccurs(restrictionMG.MaxOccurs, countOccurs)
+	countOccurs := occurs.OccursFromInt(derivedCount)
+	derivedMin := occurs.MulOccurs(restrictionMG.MinOccurs, countOccurs)
+	derivedMax := occurs.MulOccurs(restrictionMG.MaxOccurs, countOccurs)
 	if err := validateOccurrenceConstraints(baseMG.MinOcc(), baseMG.MaxOcc(), derivedMin, derivedMax); err != nil {
 		return err
 	}

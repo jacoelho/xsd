@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func (s *complexTypeParseState) handleModelGroup(child schemaxml.NodeID) error {
+func (s *complexTypeParseState) handleModelGroup(child xmltree.NodeID) error {
 	if err := s.beginElementContent(); err != nil {
 		return err
 	}
@@ -19,7 +19,7 @@ func (s *complexTypeParseState) handleModelGroup(child schemaxml.NodeID) error {
 	return nil
 }
 
-func (s *complexTypeParseState) handleAny(child schemaxml.NodeID) error {
+func (s *complexTypeParseState) handleAny(child xmltree.NodeID) error {
 	if err := s.beginElementContent(); err != nil {
 		return err
 	}
@@ -31,7 +31,7 @@ func (s *complexTypeParseState) handleAny(child schemaxml.NodeID) error {
 	return nil
 }
 
-func (s *complexTypeParseState) handleGroupRef(child schemaxml.NodeID) error {
+func (s *complexTypeParseState) handleGroupRef(child xmltree.NodeID) error {
 	if err := s.beginElementContent(); err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (s *complexTypeParseState) handleGroupRef(child schemaxml.NodeID) error {
 	return nil
 }
 
-func (s *complexTypeParseState) handleSimpleContent(child schemaxml.NodeID) error {
+func (s *complexTypeParseState) handleSimpleContent(child xmltree.NodeID) error {
 	if err := s.beginDerivationContent("simpleContent"); err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (s *complexTypeParseState) handleSimpleContent(child schemaxml.NodeID) erro
 	return nil
 }
 
-func (s *complexTypeParseState) handleComplexContent(child schemaxml.NodeID) error {
+func (s *complexTypeParseState) handleComplexContent(child xmltree.NodeID) error {
 	if err := s.beginDerivationContent("complexContent"); err != nil {
 		return err
 	}

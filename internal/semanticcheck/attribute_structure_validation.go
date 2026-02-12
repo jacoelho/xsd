@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // validateAttributeDeclStructure validates structural constraints of an attribute declaration
@@ -31,7 +31,7 @@ func validateAttributeDeclStructure(schemaDef *parser.Schema, attrQName model.QN
 			}
 		}
 	}
-	if effectiveNamespace == schemaxml.XSINamespace {
+	if effectiveNamespace == xmltree.XSINamespace {
 		return fmt.Errorf("invalid attribute name '%s': attributes in the xsi namespace are not allowed", attrQName.Local)
 	}
 

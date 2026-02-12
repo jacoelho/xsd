@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/occurs"
 )
 
 func TestResolveSimpleContentTextTypeResolvesExtensionAndRestriction(t *testing.T) {
@@ -83,8 +84,8 @@ func TestResolveSimpleContentTextTypeReturnsNilForNonSimpleContent(t *testing.T)
 	ct.SetContent(&model.ElementContent{
 		Particle: &model.ElementDecl{
 			Name:      model.QName{Namespace: "urn:test", Local: "item"},
-			MinOccurs: model.OccursFromInt(1),
-			MaxOccurs: model.OccursFromInt(1),
+			MinOccurs: occurs.OccursFromInt(1),
+			MaxOccurs: occurs.OccursFromInt(1),
 		},
 	})
 

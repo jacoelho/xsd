@@ -2,9 +2,10 @@ package semanticcheck
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
@@ -48,7 +49,7 @@ func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *model.Compl
 		return nil
 	}
 
-	attrs := append([]*model.AttributeDecl{}, ext.Attributes...)
+	attrs := slices.Clone(ext.Attributes)
 	attrs = append(attrs, collectAttributesFromGroups(schema, ext.AttrGroups)...)
 	for _, attr := range attrs {
 		key := typeresolve.EffectiveAttributeQName(schema, attr)

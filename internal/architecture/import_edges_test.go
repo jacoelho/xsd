@@ -1,276 +1,124 @@
 package architecture_test
 
 import (
-	"go/ast"
-	"go/parser"
-	"slices"
-	"strings"
 	"testing"
 )
 
-type edgeRule struct {
-	scopePath string
-	banned    []string
-}
+func TestCorePhaseImportEdges(t *testing.T) {
+	imports := collectPackageImports(t)
 
-func TestImportEdges(t *testing.T) {
-	t.Parallel()
-
-	rules := []edgeRule{
-		{
-			scopePath: "internal/pipeline",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/contentmodel",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-			},
+	rules := map[string][]string{
+		internalPkg("preprocessor"): {
+			internalPkg("semanticresolve"),
+			internalPkg("semanticcheck"),
+			internalPkg("analysis"),
+			internalPkg("prep"),
+			internalPkg("normalize"),
+			internalPkg("compiler"),
+			internalPkg("runtimeassemble"),
+			internalPkg("validatorgen"),
+			internalPkg("validationengine"),
+			internalPkg("validator"),
 		},
-		{
-			scopePath: "internal/parser",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
+		internalPkg("parser"): {
+			internalPkg("semanticresolve"),
+			internalPkg("semanticcheck"),
+			internalPkg("analysis"),
+			internalPkg("prep"),
+			internalPkg("normalize"),
+			internalPkg("compiler"),
+			internalPkg("runtimeassemble"),
+			internalPkg("validatorgen"),
+			internalPkg("validationengine"),
+			internalPkg("validator"),
+			internalPkg("set"),
 		},
-		{
-			scopePath: "internal/source",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/schemaprep",
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
+		internalPkg("semanticresolve"): {
+			internalPkg("preprocessor"),
+			internalPkg("normalize"),
+			internalPkg("compiler"),
+			internalPkg("set"),
+			internalPkg("runtimeassemble"),
+			internalPkg("validatorgen"),
+			internalPkg("validationengine"),
+			internalPkg("validator"),
 		},
-		{
-			scopePath: "internal/schemafacet",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
+		internalPkg("semanticcheck"): {
+			internalPkg("preprocessor"),
+			internalPkg("normalize"),
+			internalPkg("compiler"),
+			internalPkg("set"),
+			internalPkg("runtimeassemble"),
+			internalPkg("validatorgen"),
+			internalPkg("validationengine"),
+			internalPkg("validator"),
 		},
-		{
-			scopePath: "internal/fieldresolve",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
+		internalPkg("analysis"): {
+			internalPkg("preprocessor"),
+			internalPkg("normalize"),
+			internalPkg("compiler"),
+			internalPkg("set"),
+			internalPkg("runtimeassemble"),
+			internalPkg("validatorgen"),
+			internalPkg("validationengine"),
+			internalPkg("validator"),
 		},
-		{
-			scopePath: "internal/runtimeassemble",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
+		internalPkg("runtimeassemble"): {
+			internalPkg("preprocessor"),
+			internalPkg("semanticresolve"),
+			internalPkg("semanticcheck"),
+			internalPkg("normalize"),
+			internalPkg("compiler"),
+			internalPkg("set"),
+			internalPkg("validationengine"),
+			internalPkg("validator"),
 		},
-		{
-			scopePath: "internal/validatorgen",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
+		internalPkg("validationengine"): {
+			internalPkg("preprocessor"),
+			internalPkg("parser"),
+			internalPkg("semanticresolve"),
+			internalPkg("semanticcheck"),
+			internalPkg("analysis"),
+			internalPkg("normalize"),
+			internalPkg("compiler"),
+			internalPkg("runtimeassemble"),
+			internalPkg("validatorgen"),
+			internalPkg("set"),
 		},
-		{
-			scopePath: "internal/runtime",
-			banned: []string{
-				"github.com/jacoelho/xsd/pkg/xmlstream",
-			},
+		internalPkg("validator"): {
+			internalPkg("preprocessor"),
+			internalPkg("parser"),
+			internalPkg("semanticresolve"),
+			internalPkg("semanticcheck"),
+			internalPkg("analysis"),
+			internalPkg("normalize"),
+			internalPkg("compiler"),
+			internalPkg("runtimeassemble"),
+			internalPkg("validatorgen"),
+			internalPkg("set"),
 		},
-		{
-			scopePath: "internal/loadmerge",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
-		},
-		{
-			scopePath: "internal/loadguard",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/parser",
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
-		},
-		{
-			scopePath: "internal/valueparse",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/parser",
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/model",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
-		},
-		{
-			scopePath: "internal/builtins",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/parser",
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/facetvalue",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
-		},
-		{
-			scopePath: "internal/facetvalue",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/parser",
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
-		},
-		{
-			scopePath: "internal/valuecodec",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/parser",
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/model",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
-		},
-		{
-			scopePath: "internal/durationlex",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/parser",
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/model",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
-		},
-		{
-			scopePath: "internal/schemaprep",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
-		},
-		{
-			scopePath: "internal/state",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/parser",
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
-		},
-		{
-			scopePath: "internal/schemaanalysis",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/validator",
-			},
-		},
-		{
-			scopePath: "internal/semanticresolve",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-			},
-		},
-		{
-			scopePath: "internal/validator",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/parser",
-				"github.com/jacoelho/xsd/internal/pipeline",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-				"github.com/jacoelho/xsd/internal/schemaanalysis",
-				"github.com/jacoelho/xsd/internal/semanticcheck",
-				"github.com/jacoelho/xsd/internal/semanticresolve",
-				"github.com/jacoelho/xsd/internal/source",
-				"github.com/jacoelho/xsd/internal/model",
-				"github.com/jacoelho/xsd/internal/schemaxml",
-			},
-		},
-		{
-			scopePath: "xsd.go",
-			banned: []string{
-				"github.com/jacoelho/xsd/internal/contentmodel",
-				"github.com/jacoelho/xsd/internal/runtimeassemble",
-				"github.com/jacoelho/xsd/internal/validatorgen",
-			},
+		internalPkg("set"): {
+			internalPkg("semanticresolve"),
+			internalPkg("semanticcheck"),
+			internalPkg("analysis"),
+			internalPkg("runtimeassemble"),
+			internalPkg("validatorgen"),
+			internalPkg("validationengine"),
+			internalPkg("validator"),
 		},
 	}
 
-	forEachParsedRepoProductionGoFile(t, parser.ImportsOnly, func(file repoGoFile, parsed *ast.File) {
-		for _, rule := range rules {
-			if !withinScope(file.relPath, rule.scopePath) {
-				continue
-			}
-			for _, imp := range parsed.Imports {
-				importPath := strings.Trim(imp.Path.Value, "\"")
-				if slices.Contains(rule.banned, importPath) {
-					t.Fatalf("import edge violation: %s imports %s", file.relPath, importPath)
+	for pkg, forbidden := range rules {
+		pkgImports, ok := imports[pkg]
+		if !ok {
+			t.Fatalf("package %s not found in import graph", pkg)
+		}
+		for imp := range pkgImports {
+			for _, bad := range forbidden {
+				if hasPkgPrefix(imp, bad) {
+					t.Errorf("%s must not import %s", pkg, imp)
 				}
 			}
 		}
-	})
+	}
 }

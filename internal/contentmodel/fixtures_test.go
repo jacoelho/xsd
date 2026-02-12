@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -44,7 +45,7 @@ func TestContentModelFixtures(t *testing.T) {
 		},
 		{
 			name:      "all-group-rejected",
-			particle:  &model.ModelGroup{Kind: model.AllGroup, MinOccurs: model.OccursFromInt(1), MaxOccurs: model.OccursFromInt(1)},
+			particle:  &model.ModelGroup{Kind: model.AllGroup, MinOccurs: occurs.OccursFromInt(1), MaxOccurs: occurs.OccursFromInt(1)},
 			wantError: "all group",
 		},
 		{

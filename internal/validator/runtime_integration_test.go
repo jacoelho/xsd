@@ -58,9 +58,9 @@ func TestRuntimeAllowsXMLNamespaceAttributes(t *testing.T) {
   </xs:element>
 </xs:schema>`
 
-	doc := `<root xml:lang="en"/>`
+	doc := `<root xml:lang="en" xml:space="preserve" xml:base="https://example.com/base"/>`
 	if err := validateRuntimeDoc(t, schema, doc); err != nil {
-		t.Fatalf("expected xml:lang to be accepted: %v", err)
+		t.Fatalf("expected xml namespace attributes to be accepted: %v", err)
 	}
 }
 

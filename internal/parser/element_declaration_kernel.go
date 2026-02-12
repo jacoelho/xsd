@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func applyElementValueConstraintFields(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, hasDefault bool, defaultValue string, hasFixed bool, fixedValue string, decl *model.ElementDecl) {
+func applyElementValueConstraintFields(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, hasDefault bool, defaultValue string, hasFixed bool, fixedValue string, decl *model.ElementDecl) {
 	if hasDefault {
 		decl.Default = defaultValue
 		decl.HasDefault = true
@@ -44,9 +44,9 @@ func applyElementBlockDerivation(schema *Schema, decl *model.ElementDecl, hasBlo
 	return nil
 }
 
-func appendElementIdentityConstraints(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, decl *model.ElementDecl) error {
+func appendElementIdentityConstraints(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
+		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
 			continue
 		}
 

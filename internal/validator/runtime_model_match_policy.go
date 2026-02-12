@@ -23,13 +23,6 @@ func (a *modelMatchAccumulator) add(match StartMatch, onAmbiguous func() error) 
 	return onAmbiguous()
 }
 
-func (a *modelMatchAccumulator) result() (StartMatch, error) {
-	if !a.found {
-		return StartMatch{}, noContentModelMatchError()
-	}
-	return a.match, nil
-}
-
 func noContentModelMatchError() error {
 	return newValidationError(xsderrors.ErrUnexpectedElement, "no content model match")
 }

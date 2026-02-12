@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/graphcycle"
-	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 // validateNoCyclicSubstitutionGroups checks for cycles in substitution group chains.

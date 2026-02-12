@@ -61,7 +61,7 @@ func KeyForValidatorKind(kind runtime.ValidatorKind, canonical []byte) (runtime.
 		if err != nil {
 			return runtime.VKInvalid, nil, err
 		}
-		return runtime.VKDateTime, valuecodec.TemporalKeyBytes(nil, byte(temporalSubkind(kind)), tv.Time, temporal.ValueTimezoneKind(tv.TimezoneKind), tv.LeapSecond), nil
+		return runtime.VKDateTime, valuecodec.TemporalKeyBytes(nil, byte(temporalSubkind(kind)), tv.Time, tv.TimezoneKind, tv.LeapSecond), nil
 	default:
 		return runtime.VKInvalid, nil, fmt.Errorf("unsupported validator kind %d", kind)
 	}

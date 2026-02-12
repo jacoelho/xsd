@@ -1,3 +1,4 @@
+//nolint:revive // package name intentionally matches public API package.
 package errors
 
 import (

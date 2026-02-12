@@ -3,7 +3,7 @@ package semanticcheck
 import (
 	models "github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
 type upaChecker struct {

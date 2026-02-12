@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
 func validateElementPairRestriction(schema *parser.Schema, baseParticle, restrictionParticle model.Particle) (bool, error) {

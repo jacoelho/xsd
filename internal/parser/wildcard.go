@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseWildcardConstraints(doc *schemaxml.Document, elem schemaxml.NodeID, elementName, allowedAttrs string, allowed map[string]bool) (model.NamespaceConstraint, []model.NamespaceURI, model.ProcessContents, error) {
+func parseWildcardConstraints(doc *xmltree.Document, elem xmltree.NodeID, elementName, allowedAttrs string, allowed map[string]bool) (model.NamespaceConstraint, []model.NamespaceURI, model.ProcessContents, error) {
 	if doc.GetAttribute(elem, "notNamespace") != "" {
 		return model.NSCInvalid, nil, model.Strict, fmt.Errorf("notNamespace attribute is not supported in XSD 1.0 (XSD 1.1 feature)")
 	}

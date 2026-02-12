@@ -208,7 +208,7 @@ func TestIdentityKeyMissingFieldErrors(t *testing.T) {
 	if len(pending) == 0 {
 		t.Fatalf("expected missing field violation")
 	}
-	code, _, ok := validationErrorInfo(pending[0])
+	code, ok := validationErrorInfo(pending[0])
 	if !ok || code != xsderrors.ErrIdentityAbsent {
 		t.Fatalf("expected %s, got %v", xsderrors.ErrIdentityAbsent, pending[0])
 	}

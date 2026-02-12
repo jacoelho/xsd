@@ -1,6 +1,10 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jacoelho/xsd/internal/occurs"
+)
 
 // ComplexType represents a complex type definition
 type ComplexType struct {
@@ -37,8 +41,8 @@ func NewAnyTypeComplexType() *ComplexType {
 		Particle: &AnyElement{
 			Namespace:       NSCAny,
 			ProcessContents: Lax,
-			MinOccurs:       OccursFromInt(0),
-			MaxOccurs:       OccursUnbounded,
+			MinOccurs:       occurs.OccursFromInt(0),
+			MaxOccurs:       occurs.OccursUnbounded,
 		},
 	})
 	ct.SetAnyAttribute(&AnyAttribute{
@@ -119,7 +123,7 @@ func (c *ComplexType) IsBuiltin() bool {
 // If ResolvedBase is nil, returns anyType (the base of all types)
 func (c *ComplexType) BaseType() Type {
 	if c.ResolvedBase == nil {
-		return GetBuiltin(TypeNameAnyType)
+		return getBuiltin(TypeNameAnyType)
 	}
 	return c.ResolvedBase
 }

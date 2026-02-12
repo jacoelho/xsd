@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func (b *schemaBuilder) buildAttributes() error {

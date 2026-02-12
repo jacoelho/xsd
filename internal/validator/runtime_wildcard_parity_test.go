@@ -93,7 +93,7 @@ func runElementWildcardPolicyCase(t *testing.T, pc runtime.ProcessContents, with
 	if err == nil {
 		return "", result.Skip
 	}
-	code, _, ok := validationErrorInfo(err)
+	code, ok := validationErrorInfo(err)
 	if !ok {
 		t.Fatalf("element wildcard error is not validation error: %v", err)
 	}
@@ -129,7 +129,7 @@ func runAttributeWildcardPolicyCase(t *testing.T, pc runtime.ProcessContents, wi
 	if err == nil {
 		return ""
 	}
-	code, _, ok := validationErrorInfo(err)
+	code, ok := validationErrorInfo(err)
 	if !ok {
 		t.Fatalf("attribute wildcard error is not validation error: %v", err)
 	}

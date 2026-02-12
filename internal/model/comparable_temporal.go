@@ -9,14 +9,11 @@ import (
 	"github.com/jacoelho/xsd/internal/num"
 )
 
-// XSDDuration represents a full XSD duration with all components.
-type XSDDuration = durationlex.Duration
-
-// ComparableXSDDuration wraps XSDDuration to implement ComparableValue
+// ComparableXSDDuration wraps durationlex.Duration to implement ComparableValue
 // This supports full XSD durations including years and months
 type ComparableXSDDuration struct {
 	Typ   Type
-	Value XSDDuration
+	Value durationlex.Duration
 }
 
 var errIndeterminateDurationComparison = errors.New("duration comparison indeterminate")
@@ -91,7 +88,7 @@ func (c ComparableXSDDuration) Type() Type {
 	return c.Typ
 }
 
-// Unwrap returns the inner XSDDuration value
+// Unwrap returns the inner duration value
 func (c ComparableXSDDuration) Unwrap() any {
 	return c.Value
 }

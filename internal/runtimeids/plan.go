@@ -2,19 +2,21 @@ package runtimeids
 
 import (
 	"fmt"
+	"slices"
 
+	schema "github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 )
 
 // Plan stores deterministic runtime ID assignments derived from a schema registry.
 type Plan struct {
 	BuiltinTypeIDs   map[model.TypeName]runtime.TypeID
-	TypeIDs          map[schema.TypeID]runtime.TypeID
-	ElementIDs       map[schema.ElemID]runtime.ElemID
-	AttributeIDs     map[schema.AttrID]runtime.AttrID
+	TypeIDs          map[ids.TypeID]runtime.TypeID
+	ElementIDs       map[ids.ElemID]runtime.ElemID
+	AttributeIDs     map[ids.AttrID]runtime.AttrID
 	BuiltinTypeNames []model.TypeName
 }
 
@@ -25,11 +27,11 @@ func Build(registry *schema.Registry) (*Plan, error) {
 	}
 	builtin := builtinTypeNames()
 	plan := &Plan{
-		BuiltinTypeNames: append([]model.TypeName(nil), builtin...),
+		BuiltinTypeNames: slices.Clone(builtin),
 		BuiltinTypeIDs:   make(map[model.TypeName]runtime.TypeID, len(builtin)),
-		TypeIDs:          make(map[schema.TypeID]runtime.TypeID, len(registry.TypeOrder)),
-		ElementIDs:       make(map[schema.ElemID]runtime.ElemID, len(registry.ElementOrder)),
-		AttributeIDs:     make(map[schema.AttrID]runtime.AttrID, len(registry.AttributeOrder)),
+		TypeIDs:          make(map[ids.TypeID]runtime.TypeID, len(registry.TypeOrder)),
+		ElementIDs:       make(map[ids.ElemID]runtime.ElemID, len(registry.ElementOrder)),
+		AttributeIDs:     make(map[ids.AttrID]runtime.AttrID, len(registry.AttributeOrder)),
 	}
 
 	nextType := runtime.TypeID(1)
@@ -60,9 +62,7 @@ func Build(registry *schema.Registry) (*Plan, error) {
 // BuiltinTypeNames returns the deterministic builtin type runtime order.
 func BuiltinTypeNames() []model.TypeName {
 	builtin := builtinTypeNames()
-	out := make([]model.TypeName, len(builtin))
-	copy(out, builtin)
-	return out
+	return slices.Clone(builtin)
 }
 
 func builtinTypeNames() []model.TypeName {

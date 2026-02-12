@@ -1,5 +1,7 @@
 package validator
 
+import "slices"
+
 func (s *identityState) closeScopes(frameID uint64) {
 	for {
 		scope, ok := s.scopes.Peek()
@@ -38,7 +40,7 @@ func (s *identityState) drainUncommitted() []error {
 	if s == nil || len(s.uncommittedViolations) == 0 {
 		return nil
 	}
-	out := append([]error(nil), s.uncommittedViolations...)
+	out := slices.Clone(s.uncommittedViolations)
 	s.uncommittedViolations = s.uncommittedViolations[:0]
 	return out
 }

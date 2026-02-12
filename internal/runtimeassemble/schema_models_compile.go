@@ -5,8 +5,9 @@ import (
 
 	models "github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/grouprefs"
-	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/runtime"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.ModelRef, runtime.ContentKind, error) {
@@ -132,7 +133,7 @@ func (b *schemaBuilder) validateOccursLimit(particle model.Particle) error {
 	return nil
 }
 
-func (b *schemaBuilder) checkOccursValue(attr string, occ model.Occurs) error {
+func (b *schemaBuilder) checkOccursValue(attr string, occ occurs.Occurs) error {
 	if b == nil || b.maxOccurs == 0 {
 		return nil
 	}
@@ -140,10 +141,10 @@ func (b *schemaBuilder) checkOccursValue(attr string, occ model.Occurs) error {
 		return nil
 	}
 	if occ.IsOverflow() {
-		return fmt.Errorf("%w: %s value %s exceeds uint32", model.ErrOccursOverflow, attr, occ.String())
+		return fmt.Errorf("%w: %s value %s exceeds uint32", occurs.ErrOccursOverflow, attr, occ.String())
 	}
 	if occ.GreaterThanInt(int(b.maxOccurs)) {
-		return fmt.Errorf("%w: %s value %s exceeds limit %d", model.ErrOccursTooLarge, attr, occ.String(), b.maxOccurs)
+		return fmt.Errorf("%w: %s value %s exceeds limit %d", occurs.ErrOccursTooLarge, attr, occ.String(), b.maxOccurs)
 	}
 	return nil
 }

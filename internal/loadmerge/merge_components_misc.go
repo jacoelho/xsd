@@ -9,11 +9,7 @@ func (c *mergeContext) mergeSubstitutionGroups() {
 	if c.target.SubstitutionGroups == nil {
 		c.target.SubstitutionGroups = make(map[model.QName][]model.QName)
 	}
-	heads := make([]model.QName, 0, len(c.source.SubstitutionGroups))
-	for head := range c.source.SubstitutionGroups {
-		heads = append(heads, head)
-	}
-	qnameorder.SortInPlace(heads)
+	heads := qnameorder.SortedMapKeys(c.source.SubstitutionGroups)
 	for _, head := range heads {
 		members := c.source.SubstitutionGroups[head]
 		targetHead := c.remapQName(head)

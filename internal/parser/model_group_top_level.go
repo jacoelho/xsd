@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // parseTopLevelGroup parses a top-level <group> definition.
 // Content model: (annotation?, (all | choice | sequence))
-func parseTopLevelGroup(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) error {
+func parseTopLevelGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) error {
 	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("group missing name attribute")
@@ -39,7 +39,7 @@ func parseTopLevelGroup(doc *schemaxml.Document, elem schemaxml.NodeID, schema *
 	var mg *model.ModelGroup
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
+		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
 			continue
 		}
 

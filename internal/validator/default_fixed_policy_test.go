@@ -2,6 +2,7 @@ package validator
 
 import (
 	"bytes"
+	"slices"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -217,7 +218,7 @@ func TestMaterializeObservedKeyUsesMetricsAndFallback(t *testing.T) {
 		[]byte("ignored"),
 		nil,
 		0,
-		valueMetrics{keyKind: runtime.VKQName, keyBytes: []byte("provided")},
+		ValueMetrics{keyKind: runtime.VKQName, keyBytes: []byte("provided")},
 	)
 	if err != nil {
 		t.Fatalf("materializeObservedKey(metrics): %v", err)
@@ -234,7 +235,7 @@ func TestMaterializeObservedKeyUsesMetricsAndFallback(t *testing.T) {
 		[]byte("abc"),
 		nil,
 		0,
-		valueMetrics{},
+		ValueMetrics{},
 	)
 	if err != nil {
 		t.Fatalf("materializeObservedKey(derived): %v", err)
@@ -254,13 +255,13 @@ func TestFixedValueMatchesDerivesObservedKeyFromPolicyKernel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("keyForCanonicalValue() error = %v", err)
 	}
-	schema.Values.Blob = append([]byte(nil), expectedKey...)
+	schema.Values.Blob = slices.Clone(expectedKey)
 
 	match, err := sess.fixedValueMatches(
 		1,
 		0,
 		[]byte("abc"),
-		valueMetrics{},
+		ValueMetrics{},
 		nil,
 		runtime.ValueRef{},
 		runtime.ValueKeyRef{
@@ -289,7 +290,7 @@ func TestFixedValueMatchesUsesProvidedMetricsWithoutDerivation(t *testing.T) {
 		999, // invalid validator id: this would fail if derivation were attempted
 		0,
 		[]byte("ignored"),
-		valueMetrics{keyKind: runtime.VKString, keyBytes: []byte("provided")},
+		ValueMetrics{keyKind: runtime.VKString, keyBytes: []byte("provided")},
 		nil,
 		runtime.ValueRef{},
 		runtime.ValueKeyRef{

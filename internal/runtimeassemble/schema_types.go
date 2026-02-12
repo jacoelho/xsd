@@ -3,8 +3,8 @@ package runtimeassemble
 import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/grouprefs"
-	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func (b *schemaBuilder) runtimeTypeID(typ model.Type) (runtime.TypeID, bool) {
@@ -15,7 +15,7 @@ func (b *schemaBuilder) runtimeTypeID(typ model.Type) (runtime.TypeID, bool) {
 		return b.builtinIDs[model.TypeName(bt.Name().Local)], true
 	}
 	if st, ok := model.AsSimpleType(typ); ok && st.IsBuiltin() {
-		if builtin := builtins.Get(builtins.TypeName(st.Name().Local)); builtin != nil {
+		if builtin := builtins.Get(model.TypeName(st.Name().Local)); builtin != nil {
 			return b.builtinIDs[model.TypeName(builtin.Name().Local)], true
 		}
 	}
@@ -54,7 +54,7 @@ func (b *schemaBuilder) resolveTypeQName(qname model.QName) model.Type {
 		return nil
 	}
 	if qname.Namespace == model.XSDNamespace {
-		return builtins.Get(builtins.TypeName(qname.Local))
+		return builtins.Get(model.TypeName(qname.Local))
 	}
 	return b.schema.TypeDefs[qname]
 }

@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"testing"
 
+	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/runtime"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 	"github.com/jacoelho/xsd/internal/valuecodec"
 )
@@ -158,7 +159,7 @@ func TestElementFixedTimeLeapSecondOffsetKeyPreservesLeapIdentity(t *testing.T) 
 	if err != nil {
 		t.Fatalf("parse leap value: %v", err)
 	}
-	want := valuecodec.TemporalKeyBytes(nil, 2, leapValue.Time, temporal.ValueTimezoneKind(leapValue.TimezoneKind), leapValue.LeapSecond)
+	want := valuecodec.TemporalKeyBytes(nil, 2, leapValue.Time, leapValue.TimezoneKind, leapValue.LeapSecond)
 	if !bytes.Equal(got, want) {
 		t.Fatalf("fixed key = %x, want %x", got, want)
 	}
@@ -167,13 +168,13 @@ func TestElementFixedTimeLeapSecondOffsetKeyPreservesLeapIdentity(t *testing.T) 
 	if err != nil {
 		t.Fatalf("parse non-leap value: %v", err)
 	}
-	nonLeapKey := valuecodec.TemporalKeyBytes(nil, 2, nonLeapValue.Time, temporal.ValueTimezoneKind(nonLeapValue.TimezoneKind), nonLeapValue.LeapSecond)
+	nonLeapKey := valuecodec.TemporalKeyBytes(nil, 2, nonLeapValue.Time, nonLeapValue.TimezoneKind, nonLeapValue.LeapSecond)
 	if bytes.Equal(got, nonLeapKey) {
 		t.Fatalf("fixed key unexpectedly matches non-leap equivalent")
 	}
 }
 
-func elementIDForLocal(t *testing.T, reg *schema.Registry, local string) schema.ElemID {
+func elementIDForLocal(t *testing.T, reg *schema.Registry, local string) ids.ElemID {
 	t.Helper()
 	for _, entry := range reg.ElementOrder {
 		if entry.QName.Local == local {
@@ -184,7 +185,7 @@ func elementIDForLocal(t *testing.T, reg *schema.Registry, local string) schema.
 	return 0
 }
 
-func attributeIDForLocal(t *testing.T, reg *schema.Registry, local string) schema.AttrID {
+func attributeIDForLocal(t *testing.T, reg *schema.Registry, local string) ids.AttrID {
 	t.Helper()
 	for _, entry := range reg.AttributeOrder {
 		if entry.QName.Local == local {

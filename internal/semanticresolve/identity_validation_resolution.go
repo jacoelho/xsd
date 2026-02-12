@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	fieldresolve "github.com/jacoelho/xsd/internal/fieldresolve"
-	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 // validateIdentityConstraintResolution validates that identity constraint selector and fields can be resolved.

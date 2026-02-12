@@ -17,13 +17,3 @@ func builtinListItemTypeName(name string) (TypeName, bool) {
 	item, ok := builtinListItemTypes[TypeName(name)]
 	return item, ok
 }
-
-// IsBuiltinListTypeName reports whether name is a built-in list datatype.
-func IsBuiltinListTypeName(name string) bool {
-	return isBuiltinListTypeName(name)
-}
-
-// BuiltinListItemTypeName returns the built-in item type name for name.
-func BuiltinListItemTypeName(name string) (TypeName, bool) {
-	return builtinListItemTypeName(name)
-}

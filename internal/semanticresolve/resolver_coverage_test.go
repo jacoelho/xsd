@@ -5,8 +5,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/facetvalue"
-	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/typeresolve"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func TestResolverResolveAnonymousContent(t *testing.T) {

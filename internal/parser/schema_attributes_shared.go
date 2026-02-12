@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 type schemaAttribute struct {
@@ -29,7 +29,7 @@ func applySchemaRootAttributes(schema *Schema, attrs []schemaAttribute, decls []
 		case "":
 			targetNSAttr = model.ApplyWhiteSpace(attr.value, model.WhiteSpaceCollapse)
 			targetNSFound = true
-		case schemaxml.XSDNamespace:
+		case xmltree.XSDNamespace:
 			return fmt.Errorf("schema attribute 'targetNamespace' must be unprefixed (found '%s:targetNamespace')", attr.namespace)
 		}
 	}

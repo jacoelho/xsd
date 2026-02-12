@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/facetvalue"
-	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	qnamelex "github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typeresolve"
+	model "github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/valueparse"
 )
 

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
 func TestValidateSubstitutionGroupImplicitAnyTypeUsesHeadType(t *testing.T) {

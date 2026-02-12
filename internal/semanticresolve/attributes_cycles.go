@@ -4,9 +4,9 @@ import (
 	"errors"
 
 	"github.com/jacoelho/xsd/internal/attrgroupwalk"
-	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 // validateNoCyclicAttributeGroups detects cycles between attribute group definitions.

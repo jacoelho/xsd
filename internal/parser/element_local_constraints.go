@@ -2,10 +2,10 @@ package parser
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func applyElementConstraints(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, attrs *elementAttrScan, decl *model.ElementDecl) error {
+func applyElementConstraints(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, attrs *elementAttrScan, decl *model.ElementDecl) error {
 	if attrs.hasNillable {
 		value, err := parseBoolValue("nillable", attrs.nillable)
 		if err != nil {

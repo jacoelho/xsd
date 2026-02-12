@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
 )
 
@@ -19,7 +19,7 @@ func validateSimpleContentStructure(schema *parser.Schema, sc *model.SimpleConte
 				return fmt.Errorf("simpleContent restriction cannot have simpleType base '%s'", sc.Restriction.Base)
 			}
 		} else if sc.Restriction.Base.Namespace == model.XSDNamespace {
-			if builtins.Get(builtins.TypeName(sc.Restriction.Base.Local)) != nil {
+			if builtins.Get(model.TypeName(sc.Restriction.Base.Local)) != nil {
 				return fmt.Errorf("simpleContent restriction cannot have simpleType base '%s'", sc.Restriction.Base)
 			}
 		}

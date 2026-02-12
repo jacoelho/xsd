@@ -1,9 +1,9 @@
 package semanticcheck
 
 import (
+	facetengine "github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
-	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
 func ValidateFacetConstraints(schema *parser.Schema, facetList []model.Facet, baseType model.Type, baseQName model.QName) error {

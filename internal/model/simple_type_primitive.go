@@ -39,7 +39,7 @@ func (s *SimpleType) PrimitiveType() Type {
 	return cached
 }
 
-// isQNameOrNotationType reports whether this type derives from QName or NOTATION.
+// IsQNameOrNotationType reports whether this type derives from QName or NOTATION.
 func (s *SimpleType) IsQNameOrNotationType() bool {
 	if s == nil {
 		return false
@@ -144,7 +144,7 @@ func (s *SimpleType) computePrimitiveType(visited map[*SimpleType]bool) Type {
 
 func (s *SimpleType) primitiveFromSelf() Type {
 	if s.builtin && s.QName.Namespace == XSDNamespace && s.Variety() == AtomicVariety {
-		if builtin := GetBuiltin(TypeName(s.QName.Local)); builtin != nil {
+		if builtin := getBuiltin(TypeName(s.QName.Local)); builtin != nil {
 			return builtin.PrimitiveType()
 		}
 	}
@@ -164,7 +164,7 @@ func (s *SimpleType) primitiveFromRestriction(visited map[*SimpleType]bool) Type
 	if s.Restriction.Base.Namespace != XSDNamespace {
 		return nil
 	}
-	builtinType := GetBuiltin(TypeName(s.Restriction.Base.Local))
+	builtinType := getBuiltin(TypeName(s.Restriction.Base.Local))
 	if builtinType == nil {
 		return nil
 	}
@@ -179,7 +179,7 @@ func (s *SimpleType) primitiveFromList(visited map[*SimpleType]bool) Type {
 		return primitiveFromBaseType(s.ItemType, visited)
 	}
 	if !s.List.ItemType.IsZero() {
-		if builtin := GetBuiltinNS(s.List.ItemType.Namespace, s.List.ItemType.Local); builtin != nil {
+		if builtin := getBuiltinNS(s.List.ItemType.Namespace, s.List.ItemType.Local); builtin != nil {
 			return builtin.PrimitiveType()
 		}
 	}

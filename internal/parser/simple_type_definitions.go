@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // parseSimpleType parses a top-level simpleType definition
-func parseSimpleType(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) error {
+func parseSimpleType(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) error {
 	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("simpleType missing name attribute")
@@ -53,7 +53,7 @@ func parseSimpleType(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Sch
 }
 
 // parseInlineSimpleType parses an inline simpleType definition.
-func parseInlineSimpleType(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.SimpleType, error) {
+func parseInlineSimpleType(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.SimpleType, error) {
 	if doc.GetAttribute(elem, "name") != "" {
 		return nil, fmt.Errorf("inline simpleType cannot have 'name' attribute")
 	}
@@ -64,7 +64,7 @@ func parseInlineSimpleType(doc *schemaxml.Document, elem schemaxml.NodeID, schem
 }
 
 // parseSimpleTypeDefinition parses the derivation content of a simpleType element.
-func parseSimpleTypeDefinition(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (*model.SimpleType, error) {
+func parseSimpleTypeDefinition(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.SimpleType, error) {
 	var parsed *model.SimpleType
 	seenDerivation := false
 
@@ -73,7 +73,7 @@ func parseSimpleTypeDefinition(doc *schemaxml.Document, elem schemaxml.NodeID, s
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
+		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
 			continue
 		}
 

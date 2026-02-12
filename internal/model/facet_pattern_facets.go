@@ -134,11 +134,11 @@ func (ps *PatternSet) ValidateLexical(lexical string, _ Type) error {
 	// value must match at least one pattern (OR)
 	var lastErr error
 	for _, p := range ps.Patterns {
-		if err := p.validateLexical(lexical); err == nil {
+		err := p.validateLexical(lexical)
+		if err == nil {
 			return nil // matched at least one pattern
-		} else {
-			lastErr = err
 		}
+		lastErr = err
 	}
 
 	// none matched - return an error listing all patterns

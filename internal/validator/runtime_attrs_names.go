@@ -55,9 +55,9 @@ func (s *Session) isXMLAttribute(attr *StartAttr) bool {
 		return false
 	}
 	if attr.NS != 0 {
-		return attr.NS == s.rt.PredefNS.Xml
+		return attr.NS == s.rt.PredefNS.XML
 	}
-	target := s.rt.Namespaces.Bytes(s.rt.PredefNS.Xml)
+	target := s.rt.Namespaces.Bytes(s.rt.PredefNS.XML)
 	if len(target) == 0 {
 		return false
 	}

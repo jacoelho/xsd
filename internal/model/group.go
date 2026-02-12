@@ -1,11 +1,15 @@
 package model
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/jacoelho/xsd/internal/occurs"
+)
 
 // Particle represents a content model particle
 type Particle interface {
-	MinOcc() Occurs
-	MaxOcc() Occurs
+	MinOcc() occurs.Occurs
+	MaxOcc() occurs.Occurs
 }
 
 // GroupKind represents the kind of model group in XSD content models.
@@ -20,22 +24,24 @@ const (
 	AllGroup
 )
 
-// ModelGroup represents sequence, choice, or all groups
+// ModelGroup represents sequence, choice, or all groups.
+//
+//nolint:revive // keep explicit name to match XSD terminology across packages.
 type ModelGroup struct {
 	SourceNamespace NamespaceURI
 	Particles       []Particle
-	MinOccurs       Occurs
-	MaxOccurs       Occurs
+	MinOccurs       occurs.Occurs
+	MaxOccurs       occurs.Occurs
 	Kind            GroupKind
 }
 
 // MinOcc implements Particle interface
-func (m *ModelGroup) MinOcc() Occurs {
+func (m *ModelGroup) MinOcc() occurs.Occurs {
 	return m.MinOccurs
 }
 
 // MaxOcc implements Particle interface
-func (m *ModelGroup) MaxOcc() Occurs {
+func (m *ModelGroup) MaxOcc() occurs.Occurs {
 	return m.MaxOccurs
 }
 
@@ -288,16 +294,16 @@ func copyEnumerationFacet(enum *Enumeration, opts CopyOptions) *Enumeration {
 // This allows forward references and references to groups in imported schemas
 type GroupRef struct {
 	RefQName  QName
-	MinOccurs Occurs
-	MaxOccurs Occurs
+	MinOccurs occurs.Occurs
+	MaxOccurs occurs.Occurs
 }
 
 // MinOcc implements Particle interface
-func (g *GroupRef) MinOcc() Occurs {
+func (g *GroupRef) MinOcc() occurs.Occurs {
 	return g.MinOccurs
 }
 
 // MaxOcc implements Particle interface
-func (g *GroupRef) MaxOcc() Occurs {
+func (g *GroupRef) MaxOcc() occurs.Occurs {
 	return g.MaxOccurs
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	qnamelex "github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 type defaultNamespacePolicy uint8
@@ -16,9 +16,9 @@ const (
 )
 
 func resolveQNameWithPolicy(
-	doc *schemaxml.Document,
+	doc *xmltree.Document,
 	qname string,
-	elem schemaxml.NodeID,
+	elem xmltree.NodeID,
 	schema *Schema,
 	policy defaultNamespacePolicy,
 ) (model.QName, error) {
@@ -38,8 +38,8 @@ func resolveQNameWithPolicy(
 }
 
 func namespaceFromPrefixPolicy(
-	doc *schemaxml.Document,
-	elem schemaxml.NodeID,
+	doc *xmltree.Document,
+	elem xmltree.NodeID,
 	schema *Schema,
 	qname string,
 	prefix string,

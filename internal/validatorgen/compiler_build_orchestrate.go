@@ -3,12 +3,13 @@ package validatorgen
 import (
 	"fmt"
 
+	schema "github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/complextypeplan"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtimeids"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
 )
 
+// Compile is an exported function.
 func Compile(sch *parser.Schema, registry *schema.Registry) (*CompiledValidators, error) {
 	return CompileWithComplexTypePlan(sch, registry, nil)
 }

@@ -4,13 +4,21 @@ package xmltext
 type Kind byte
 
 const (
+	// KindNone is an exported constant.
 	KindNone Kind = iota
+	// KindStartElement is an exported constant.
 	KindStartElement
+	// KindEndElement is an exported constant.
 	KindEndElement
+	// KindCharData is an exported constant.
 	KindCharData
+	// KindComment is an exported constant.
 	KindComment
+	// KindPI is an exported constant.
 	KindPI
+	// KindDirective is an exported constant.
 	KindDirective
+	// KindCDATA is an exported constant.
 	KindCDATA
 )
 

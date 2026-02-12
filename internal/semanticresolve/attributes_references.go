@@ -3,9 +3,9 @@ package semanticresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	parser "github.com/jacoelho/xsd/internal/parser"
+	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // validateAttributeReference validates that an attribute reference exists.
@@ -62,7 +62,7 @@ func validateAttributeReference(sch *parser.Schema, contextQName model.QName, at
 // isBuiltinXMLAttribute checks if an attribute is a built-in XML namespace attribute.
 // XML namespace attributes (xml:base, xml:lang, xml:space) are built-in and always available.
 func isBuiltinXMLAttribute(attr *model.AttributeDecl) bool {
-	return attr.Name.Namespace == schemaxml.XMLNamespace
+	return attr.Name.Namespace == xmltree.XMLNamespace
 }
 
 // validateAttributeGroupReference validates that an attribute group reference exists.

@@ -123,7 +123,7 @@ func TestQNameCacheSetMaxEntriesNegative(t *testing.T) {
 	}
 }
 
-func TestQNameCacheSetMaxEntriesNil(t *testing.T) {
+func TestQNameCacheSetMaxEntriesNil(_ *testing.T) {
 	var cache *qnameCache
 	cache.setMaxEntries(10)
 }
@@ -150,7 +150,7 @@ func TestQNameCacheCompactWrappedRing(t *testing.T) {
 	}
 }
 
-func TestQNameCacheCompactNil(t *testing.T) {
+func TestQNameCacheCompactNil(_ *testing.T) {
 	var cache *qnameCache
 	cache.compact()
 }
@@ -246,7 +246,7 @@ func TestQNameCacheReset(t *testing.T) {
 	}
 }
 
-func TestQNameCacheResetNil(t *testing.T) {
+func TestQNameCacheResetNil(_ *testing.T) {
 	var cache *qnameCache
 	cache.reset()
 }

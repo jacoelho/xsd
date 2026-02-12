@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -152,11 +153,11 @@ func elem(local string, minOccurs, maxOccurs int) *model.ElementDecl {
 	decl := &model.ElementDecl{
 		Name: model.QName{Local: local},
 	}
-	decl.MinOccurs = model.OccursFromInt(minOccurs)
+	decl.MinOccurs = occurs.OccursFromInt(minOccurs)
 	if maxOccurs < 0 {
-		decl.MaxOccurs = model.OccursUnbounded
+		decl.MaxOccurs = occurs.OccursUnbounded
 	} else {
-		decl.MaxOccurs = model.OccursFromInt(maxOccurs)
+		decl.MaxOccurs = occurs.OccursFromInt(maxOccurs)
 	}
 	return decl
 }
@@ -166,8 +167,8 @@ func sequence(particles ...model.Particle) *model.ModelGroup {
 		Kind:      model.Sequence,
 		Particles: particles,
 	}
-	group.MinOccurs = model.OccursFromInt(1)
-	group.MaxOccurs = model.OccursFromInt(1)
+	group.MinOccurs = occurs.OccursFromInt(1)
+	group.MaxOccurs = occurs.OccursFromInt(1)
 	return group
 }
 
@@ -176,11 +177,11 @@ func choice(minOccurs, maxOccurs int, particles ...model.Particle) *model.ModelG
 		Kind:      model.Choice,
 		Particles: particles,
 	}
-	group.MinOccurs = model.OccursFromInt(minOccurs)
+	group.MinOccurs = occurs.OccursFromInt(minOccurs)
 	if maxOccurs < 0 {
-		group.MaxOccurs = model.OccursUnbounded
+		group.MaxOccurs = occurs.OccursUnbounded
 	} else {
-		group.MaxOccurs = model.OccursFromInt(maxOccurs)
+		group.MaxOccurs = occurs.OccursFromInt(maxOccurs)
 	}
 	return group
 }

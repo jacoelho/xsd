@@ -2,6 +2,7 @@ package qname
 
 import (
 	"cmp"
+	"maps"
 	"slices"
 )
 
@@ -18,10 +19,7 @@ func SortedMapKeys[V any](m map[QName]V) []QName {
 	if len(m) == 0 {
 		return nil
 	}
-	keys := make([]QName, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
+	keys := slices.Collect(maps.Keys(m))
 	SortInPlace(keys)
 	return keys
 }

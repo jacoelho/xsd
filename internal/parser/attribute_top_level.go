@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // parseTopLevelAttribute parses a top-level attribute declaration
-func parseTopLevelAttribute(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) error {
+func parseTopLevelAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) error {
 	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("attribute missing name attribute")

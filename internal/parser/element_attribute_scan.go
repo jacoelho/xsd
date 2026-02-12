@@ -1,6 +1,6 @@
 package parser
 
-import "github.com/jacoelho/xsd/internal/schemaxml"
+import "github.com/jacoelho/xsd/internal/xmltree"
 
 type elementAttrScan struct {
 	defaultVal       string
@@ -31,13 +31,13 @@ type elementAttrScan struct {
 	hasID            bool
 }
 
-func scanElementAttributes(doc *schemaxml.Document, elem schemaxml.NodeID) elementAttrScan {
+func scanElementAttributes(doc *xmltree.Document, elem xmltree.NodeID) elementAttrScan {
 	var attrs elementAttrScan
 	for _, attr := range doc.Attributes(elem) {
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
-		if attr.NamespaceURI() == schemaxml.XSDNamespace {
+		if attr.NamespaceURI() == xmltree.XSDNamespace {
 			if attrs.invalidRefAttr == "" {
 				attrs.invalidRefAttr = attr.LocalName()
 			}

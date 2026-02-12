@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
@@ -41,6 +41,7 @@ func ResolveFieldElementDecl(schema *parser.Schema, field *model.Field, constrai
 	return unique[0], nil
 }
 
+// ResolveFieldElementDecls is an exported function.
 func ResolveFieldElementDecls(schema *parser.Schema, field *model.Field, constraintElement *model.ElementDecl, selectorXPath string, nsContext map[string]string) ([]*model.ElementDecl, error) {
 	if field == nil {
 		return nil, fmt.Errorf("field is nil")

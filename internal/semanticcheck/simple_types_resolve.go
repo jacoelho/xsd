@@ -3,7 +3,7 @@ package semanticcheck
 import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
@@ -36,7 +36,7 @@ func resolveSimpleContentBaseType(schema *parser.Schema, baseQName model.QName) 
 		visited[qname] = true
 
 		if qname.Namespace == model.XSDNamespace {
-			if bt := builtins.Get(builtins.TypeName(qname.Local)); bt != nil {
+			if bt := builtins.Get(model.TypeName(qname.Local)); bt != nil {
 				return bt, qname
 			}
 		}

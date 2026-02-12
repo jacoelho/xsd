@@ -53,7 +53,7 @@ func TestAttrDuplicateDetectionCollisionSafeDuplicate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected duplicate attribute error")
 	}
-	code, _, ok := validationErrorInfo(err)
+	code, ok := validationErrorInfo(err)
 	if !ok || code != xsderrors.ErrXMLParse {
 		t.Fatalf("expected %s, got %v", xsderrors.ErrXMLParse, err)
 	}

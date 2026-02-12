@@ -63,6 +63,7 @@ func ValidateName(value []byte) error {
 	return nil
 }
 
+// ValidateNCName is an exported variable.
 var ValidateNCName = validateNCName
 
 // ValidateNMTOKEN validates xs:NMTOKEN lexical constraints.

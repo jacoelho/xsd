@@ -10,20 +10,20 @@ import (
 func ToRuntime(ws model.WhiteSpace) runtime.WhitespaceMode {
 	switch ws {
 	case model.WhiteSpaceReplace:
-		return runtime.WS_Replace
+		return runtime.WSReplace
 	case model.WhiteSpaceCollapse:
-		return runtime.WS_Collapse
+		return runtime.WSCollapse
 	default:
-		return runtime.WS_Preserve
+		return runtime.WSPreserve
 	}
 }
 
 // ToValue converts runtime whitespace mode to lexical normalization mode.
 func ToValue(mode runtime.WhitespaceMode) value.WhitespaceMode {
 	switch mode {
-	case runtime.WS_Replace:
+	case runtime.WSReplace:
 		return value.WhitespaceReplace
-	case runtime.WS_Collapse:
+	case runtime.WSCollapse:
 		return value.WhitespaceCollapse
 	default:
 		return value.WhitespacePreserve

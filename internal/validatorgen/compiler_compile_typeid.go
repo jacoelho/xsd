@@ -17,7 +17,7 @@ func (c *compiler) typeIDForType(typ model.Type) (runtime.TypeID, bool) {
 	}
 	if st, ok := model.AsSimpleType(typ); ok && st != nil {
 		if st.IsBuiltin() {
-			if builtin := builtins.Get(builtins.TypeName(st.Name().Local)); builtin != nil {
+			if builtin := builtins.Get(model.TypeName(st.Name().Local)); builtin != nil {
 				if id, ok := c.builtinTypeIDs[model.TypeName(builtin.Name().Local)]; ok {
 					return id, true
 				}

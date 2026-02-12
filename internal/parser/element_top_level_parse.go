@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/occurs"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // parseTopLevelElement parses a top-level element declaration.
-func parseTopLevelElement(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) error {
+func parseTopLevelElement(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) error {
 	name, nameErr := validateTopLevelElementStructure(doc, elem, schema)
 	if nameErr != nil {
 		return nameErr
@@ -39,7 +40,7 @@ func parseTopLevelElement(doc *schemaxml.Document, elem schemaxml.NodeID, schema
 	return nil
 }
 
-func validateTopLevelElementStructure(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema) (string, error) {
+func validateTopLevelElementStructure(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (string, error) {
 	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return "", fmt.Errorf("element missing name attribute")
@@ -77,8 +78,8 @@ func newTopLevelElementDecl(name string, schema *Schema) *model.ElementDecl {
 			Namespace: schema.TargetNamespace,
 			Local:     name,
 		},
-		MinOccurs:       model.OccursFromInt(1),
-		MaxOccurs:       model.OccursFromInt(1),
+		MinOccurs:       occurs.OccursFromInt(1),
+		MaxOccurs:       occurs.OccursFromInt(1),
 		SourceNamespace: schema.TargetNamespace,
 		Form:            model.FormQualified,
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/durationconv"
+	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
@@ -69,16 +69,9 @@ func (c ComparableTime) semanticValue() temporal.Value {
 	return temporal.Value{
 		Kind:         kind,
 		Time:         c.Value,
-		TimezoneKind: temporalTimezoneKind(c.TimezoneKind),
+		TimezoneKind: c.TimezoneKind,
 		LeapSecond:   c.LeapSecond,
 	}
-}
-
-func temporalTimezoneKind(kind value.TimezoneKind) temporal.TimezoneKind {
-	if kind == value.TZKnown {
-		return temporal.TZKnown
-	}
-	return temporal.TZNone
 }
 
 // ComparableDuration wraps time.Duration to implement ComparableValue
@@ -86,26 +79,6 @@ func temporalTimezoneKind(kind value.TimezoneKind) temporal.TimezoneKind {
 type ComparableDuration struct {
 	Typ   Type
 	Value time.Duration
-}
-
-// parseDurationToTimeDuration parses an XSD duration string into a time.Duration
-// Returns an error if the duration contains years or months (which cannot be converted to time.Duration)
-// or if the duration string is invalid.
-func parseDurationToTimeDuration(s string) (time.Duration, error) {
-	dur, err := durationconv.ParseToStdDuration(s)
-	if err != nil {
-		switch {
-		case errors.Is(err, durationconv.ErrIndeterminate):
-			return 0, fmt.Errorf("durations with years or months cannot be converted to time.Duration (indeterminate)")
-		case errors.Is(err, durationconv.ErrOverflow):
-			return 0, fmt.Errorf("duration too large")
-		case errors.Is(err, durationconv.ErrComponentRange):
-			return 0, fmt.Errorf("duration component out of range")
-		default:
-			return 0, err
-		}
-	}
-	return dur, nil
 }
 
 // Compare compares with another ComparableValue (implements ComparableValue)
@@ -124,7 +97,7 @@ func (c ComparableDuration) Compare(other ComparableValue) (int, error) {
 		durVal %= time.Minute
 		seconds := num.DecFromScaledInt(num.FromInt64(int64(durVal)), 9)
 		thisXSDDur := ComparableXSDDuration{
-			Value: XSDDuration{
+			Value: durationlex.Duration{
 				Negative: negative,
 				Years:    0,
 				Months:   0,

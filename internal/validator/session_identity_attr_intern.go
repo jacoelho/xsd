@@ -1,6 +1,9 @@
 package validator
 
-import "bytes"
+import (
+	"bytes"
+	"slices"
+)
 
 func (s *Session) internIdentityAttrName(ns, local []byte) identityAttrNameID {
 	if s == nil {
@@ -22,8 +25,8 @@ func (s *Session) internIdentityAttrName(ns, local []byte) identityAttrNameID {
 	}
 	id := identityAttrNameID(len(s.identityAttrNames) + 1)
 	s.identityAttrNames = append(s.identityAttrNames, identityAttrName{
-		ns:    append([]byte(nil), ns...),
-		local: append([]byte(nil), local...),
+		ns:    slices.Clone(ns),
+		local: slices.Clone(local),
 	})
 	s.identityAttrBuckets[hash] = append(bucket, id)
 	return id

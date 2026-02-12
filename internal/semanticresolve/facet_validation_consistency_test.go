@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
 	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
 )

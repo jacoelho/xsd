@@ -38,6 +38,8 @@ type Occurs struct {
 }
 
 // OccursFromInt returns an Occurs value from a non-negative integer.
+//
+//nolint:revive // keep explicit name for package-level API clarity.
 func OccursFromInt(value int) Occurs {
 	if value < 0 {
 		return Occurs{kind: occursBig, big: num.FromInt64(int64(value))}
@@ -46,6 +48,8 @@ func OccursFromInt(value int) Occurs {
 }
 
 // OccursFromUint64 returns an Occurs value from a non-negative uint64.
+//
+//nolint:revive // keep explicit name for package-level API clarity.
 func OccursFromUint64(value uint64) Occurs {
 	if value > maxOccursValue {
 		return Occurs{kind: occursBig, big: num.FromUint64(value)}

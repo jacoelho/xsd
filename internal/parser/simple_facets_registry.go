@@ -3,7 +3,7 @@ package parser
 import (
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 type orderedFacetConstructor func(string, model.Type) (model.Facet, error)
@@ -15,7 +15,7 @@ var orderedFacetConstructors = map[string]orderedFacetConstructor{
 	"maxExclusive": facetvalue.NewMaxExclusive,
 }
 
-type facetParserFunc func(doc *schemaxml.Document, elem schemaxml.NodeID) (model.Facet, error)
+type facetParserFunc func(doc *xmltree.Document, elem xmltree.NodeID) (model.Facet, error)
 
 var directFacetParsers = map[string]facetParserFunc{
 	"pattern":        parsePatternFacet,

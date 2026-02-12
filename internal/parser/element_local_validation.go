@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 func validateLocalElementAttributes(attrs *elementAttrScan) error {
@@ -17,7 +17,7 @@ func validateLocalElementAttributes(attrs *elementAttrScan) error {
 	return validateElementDefaultFixedConflict(attrs.hasDefault, attrs.hasFixed)
 }
 
-func validateLocalElementChildren(doc *schemaxml.Document, elem schemaxml.NodeID) error {
+func validateLocalElementChildren(doc *xmltree.Document, elem xmltree.NodeID) error {
 	if err := validateAnnotationOrder(doc, elem); err != nil {
 		return err
 	}
@@ -52,9 +52,9 @@ func resolveLocalElementForm(attrs *elementAttrScan, schema *Schema) (Form, mode
 	return effectiveForm, elementNamespace, nil
 }
 
-func validateElementChildren(doc *schemaxml.Document, elem schemaxml.NodeID) error {
+func validateElementChildren(doc *xmltree.Document, elem xmltree.NodeID) error {
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
+		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {

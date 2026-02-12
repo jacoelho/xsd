@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -96,8 +97,8 @@ func TestDeterminizeFallbackToNFA(t *testing.T) {
 
 func TestDeterminizeWildcardEdges(t *testing.T) {
 	anyElem := &model.AnyElement{
-		MinOccurs: model.OccursFromInt(1),
-		MaxOccurs: model.OccursFromInt(1),
+		MinOccurs: occurs.OccursFromInt(1),
+		MaxOccurs: occurs.OccursFromInt(1),
 	}
 
 	glu, err := BuildGlushkov(anyElem)

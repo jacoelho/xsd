@@ -2,7 +2,7 @@ package traversal
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
 // CollectElementDeclsFromComplexType collects element declarations in a complex

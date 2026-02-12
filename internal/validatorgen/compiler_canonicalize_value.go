@@ -18,7 +18,7 @@ func (c *compiler) comparableValue(lexical string, typ model.Type) (model.Compar
 
 func (c *compiler) normalizeLexical(lexical string, typ model.Type) string {
 	ws := c.res.whitespaceMode(typ)
-	if ws == runtime.WS_Preserve || lexical == "" {
+	if ws == runtime.WSPreserve || lexical == "" {
 		return lexical
 	}
 	normalized := value.NormalizeWhitespace(wsmode.ToValue(ws), []byte(lexical), nil)

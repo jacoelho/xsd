@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 )
 
 // TestCircularDerivation_TrueCycle tests that a true circular derivation (A -> B -> A) is correctly detected.

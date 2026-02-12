@@ -1,6 +1,6 @@
 package loadmerge
 
-import "github.com/jacoelho/xsd/internal/parser"
+import parser "github.com/jacoelho/xsd/internal/parser"
 
 // Merge merges a source schema into a target schema.
 // For imports, preserves source namespace.

@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/builtins"
+	facetengine "github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
-	facetengine "github.com/jacoelho/xsd/internal/schemafacet"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -55,7 +55,7 @@ func ValidateWithFacets(
 	value string,
 	typ model.Type,
 	context map[string]string,
-	convert typeresolve.DeferredFacetConverter,
+	convert model.DeferredFacetConverter,
 ) error {
 	settings := validationSettings{
 		mode:                modeFacet,
@@ -68,7 +68,7 @@ func ValidateWithFacets(
 }
 
 type validationSettings struct {
-	convert             typeresolve.DeferredFacetConverter
+	convert             model.DeferredFacetConverter
 	mode                mode
 	idPolicy            IDPolicy
 	errorOnPlaceholder  bool

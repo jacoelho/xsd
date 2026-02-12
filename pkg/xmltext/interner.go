@@ -3,6 +3,7 @@ package xmltext
 import (
 	"bytes"
 	"hash/maphash"
+	"slices"
 )
 
 type internStats struct {
@@ -140,7 +141,7 @@ func (i *nameInterner) internBytesHash(name []byte, prefixLen int, hash uint64) 
 
 	i.stats.Misses++
 	if i.maxEntries > 0 && i.stats.Count >= i.maxEntries {
-		buf := spanBuffer{data: append([]byte(nil), name...), stable: true}
+		buf := spanBuffer{data: slices.Clone(name), stable: true}
 		colon := -1
 		if prefixLen > 0 && prefixLen < len(name) {
 			colon = prefixLen

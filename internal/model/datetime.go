@@ -7,17 +7,6 @@ import (
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-type dateTimeNormalizer struct{}
-
-// Normalize applies whitespace normalization for date/time lexical values.
-func (n dateTimeNormalizer) Normalize(lexical string, typ Type) (string, error) {
-	if typ == nil {
-		return TrimXMLWhitespace(lexical), nil
-	}
-	normalized := ApplyWhiteSpace(lexical, typ.WhiteSpace())
-	return TrimXMLWhitespace(normalized), nil
-}
-
 // TimezoneKind reports the timezone kind for a lexical date/time value.
 func TimezoneKind(lexical string) value.TimezoneKind {
 	lexical = TrimXMLWhitespace(lexical)

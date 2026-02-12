@@ -7,10 +7,13 @@ const (
 	stateDone
 )
 
+// MissingPolicy defines an exported type.
 type MissingPolicy uint8
 
 const (
+	// MissingPolicyIgnore is an exported constant.
 	MissingPolicyIgnore MissingPolicy = iota
+	// MissingPolicyError is an exported constant.
 	MissingPolicyError
 )
 
@@ -19,6 +22,7 @@ type CycleError[K comparable] struct {
 	Key K
 }
 
+// Error is an exported function.
 func (e CycleError[K]) Error() string {
 	return "cycle detected"
 }
@@ -29,6 +33,7 @@ type MissingError[K comparable] struct {
 	Key  K
 }
 
+// Error is an exported function.
 func (e MissingError[K]) Error() string {
 	return "missing node"
 }

@@ -1,6 +1,10 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jacoelho/xsd/internal/occurs"
+)
 
 // NamedComponent exposes the component name without namespace details.
 type NamedComponent interface {
@@ -44,8 +48,8 @@ type ElementDecl struct {
 	Fixed             string
 	Default           string
 	Constraints       []*IdentityConstraint
-	MinOccurs         Occurs
-	MaxOccurs         Occurs
+	MinOccurs         occurs.Occurs
+	MaxOccurs         occurs.Occurs
 	Final             DerivationSet
 	Block             DerivationSet
 	Form              FormChoice
@@ -78,12 +82,12 @@ func NewElementDeclFromParsed(decl *ElementDecl) (*ElementDecl, error) {
 }
 
 // MinOcc implements Particle interface
-func (e *ElementDecl) MinOcc() Occurs {
+func (e *ElementDecl) MinOcc() occurs.Occurs {
 	return e.MinOccurs
 }
 
 // MaxOcc implements Particle interface
-func (e *ElementDecl) MaxOcc() Occurs {
+func (e *ElementDecl) MaxOcc() occurs.Occurs {
 	return e.MaxOccurs
 }
 

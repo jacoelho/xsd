@@ -4,116 +4,195 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
 
-type repoGoFile struct {
-	absPath string
-	relPath string
-}
+const modulePath = "github.com/jacoelho/xsd"
 
 func repoRoot(t *testing.T) string {
 	t.Helper()
-	wd, err := os.Getwd()
+
+	dir, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("resolve working directory: %v", err)
+		t.Fatalf("getwd: %v", err)
 	}
-	root := filepath.Clean(filepath.Join(wd, "..", ".."))
-	if _, err := os.Stat(root); err != nil {
-		t.Fatalf("resolve repo root %s: %v", root, err)
-	}
-	return root
-}
-
-func withinScope(path, scope string) bool {
-	if strings.HasSuffix(scope, ".go") {
-		return filepath.Clean(path) == filepath.Clean(scope)
-	}
-	cleanScope := filepath.Clean(scope) + string(filepath.Separator)
-	return strings.HasPrefix(filepath.Clean(path), cleanScope)
-}
-
-func withinAnyScope(path string, scopes []string) bool {
-	for _, scope := range scopes {
-		if withinScope(path, scope) {
-			return true
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
 		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatalf("repository root with go.mod not found from %s", dir)
+		}
+		dir = parent
 	}
-	return false
 }
 
-func repoProductionGoFiles(t *testing.T) []repoGoFile {
+func internalPkg(name string) string {
+	return modulePath + "/internal/" + strings.TrimPrefix(name, "/")
+}
+
+func hasPkgPrefix(pkg, prefix string) bool {
+	return pkg == prefix || strings.HasPrefix(pkg, prefix+"/")
+}
+
+func collectPackageImports(t *testing.T) map[string]map[string]struct{} {
 	t.Helper()
 
 	root := repoRoot(t)
-	files := make([]repoGoFile, 0, 128)
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+	internalRoot := filepath.Join(root, "internal")
+
+	graph := make(map[string]map[string]struct{})
+	fset := token.NewFileSet()
+
+	err := filepath.WalkDir(internalRoot, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if d.IsDir() {
-			if d.Name() == ".git" {
-				return filepath.SkipDir
-			}
+		if !d.IsDir() {
 			return nil
 		}
-		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-		relPath, err := filepath.Rel(root, path)
+
+		entries, err := os.ReadDir(path)
 		if err != nil {
 			return err
 		}
-		files = append(files, repoGoFile{
-			absPath: path,
-			relPath: relPath,
-		})
+
+		var files []string
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+				continue
+			}
+			files = append(files, filepath.Join(path, name))
+		}
+		if len(files) == 0 {
+			return nil
+		}
+
+		relDir, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		importPath := modulePath + "/" + filepath.ToSlash(relDir)
+		imports := graph[importPath]
+		if imports == nil {
+			imports = make(map[string]struct{})
+			graph[importPath] = imports
+		}
+
+		for _, file := range files {
+			node, err := parser.ParseFile(fset, file, nil, parser.ImportsOnly)
+			if err != nil {
+				return err
+			}
+			for _, imp := range node.Imports {
+				pathValue, err := strconv.Unquote(imp.Path.Value)
+				if err != nil {
+					return err
+				}
+				imports[pathValue] = struct{}{}
+			}
+		}
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("walk go files: %v", err)
+		t.Fatalf("collect package imports: %v", err)
 	}
 
-	slices.SortFunc(files, func(left, right repoGoFile) int {
-		return strings.Compare(left.relPath, right.relPath)
-	})
-	return files
+	return graph
 }
 
-func forEachParsedRepoProductionGoFile(t *testing.T, mode parser.Mode, visit func(file repoGoFile, parsed *ast.File)) {
+func collectRootExports(t *testing.T) map[string]struct{} {
 	t.Helper()
 
-	files := repoProductionGoFiles(t)
-	fset := token.NewFileSet()
-	for _, file := range files {
-		parsed, err := parser.ParseFile(fset, file.absPath, nil, mode)
-		if err != nil {
-			t.Fatalf("parse file %s: %v", file.relPath, err)
-		}
-		visit(file, parsed)
+	root := repoRoot(t)
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatalf("read repo root: %v", err)
 	}
+
+	exports := make(map[string]struct{})
+	fset := token.NewFileSet()
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+
+		path := filepath.Join(root, name)
+		node, err := parser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			t.Fatalf("parse %s: %v", path, err)
+		}
+		if node.Name.Name != "xsd" {
+			continue
+		}
+
+		for _, decl := range node.Decls {
+			switch d := decl.(type) {
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						if ast.IsExported(s.Name.Name) {
+							exports["type "+s.Name.Name] = struct{}{}
+						}
+					case *ast.ValueSpec:
+						for _, n := range s.Names {
+							if !ast.IsExported(n.Name) {
+								continue
+							}
+							switch d.Tok {
+							case token.CONST:
+								exports["const "+n.Name] = struct{}{}
+							case token.VAR:
+								exports["var "+n.Name] = struct{}{}
+							}
+						}
+					}
+				}
+			case *ast.FuncDecl:
+				if d.Recv == nil {
+					if ast.IsExported(d.Name.Name) {
+						exports["func "+d.Name.Name] = struct{}{}
+					}
+					continue
+				}
+				if !ast.IsExported(d.Name.Name) {
+					continue
+				}
+				recvName := receiverTypeName(d.Recv.List[0].Type)
+				if recvName == "" || !ast.IsExported(recvName) {
+					continue
+				}
+				exports["method "+recvName+"."+d.Name.Name] = struct{}{}
+			}
+		}
+	}
+
+	return exports
 }
 
-func importAliasesForPath(parsed *ast.File, importPath, defaultAlias string) map[string]bool {
-	aliases := make(map[string]bool)
-	for _, imp := range parsed.Imports {
-		path := strings.Trim(imp.Path.Value, "\"")
-		if path != importPath {
-			continue
+func receiverTypeName(expr ast.Expr) string {
+	switch t := expr.(type) {
+	case *ast.StarExpr:
+		if ident, ok := t.X.(*ast.Ident); ok {
+			return ident.Name
 		}
-		if imp.Name != nil {
-			if imp.Name.Name == "." || imp.Name.Name == "_" {
-				continue
-			}
-			aliases[imp.Name.Name] = true
-			continue
-		}
-		aliases[defaultAlias] = true
+	case *ast.Ident:
+		return t.Name
 	}
-	return aliases
+	return ""
 }

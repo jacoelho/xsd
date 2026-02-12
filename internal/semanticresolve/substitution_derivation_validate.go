@@ -3,9 +3,9 @@ package semanticresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 // validateSubstitutionGroupDerivation validates that the member element's type is derived from the head element's type.

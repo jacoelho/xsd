@@ -24,7 +24,7 @@ func TestEntityMapCopy(t *testing.T) {
 }
 
 func TestJoinOptionsOverrides(t *testing.T) {
-	reader := func(label string, r io.Reader) (io.Reader, error) {
+	reader := func(_ string, r io.Reader) (io.Reader, error) {
 		return r, nil
 	}
 	opts := JoinOptions(

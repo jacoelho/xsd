@@ -1,6 +1,6 @@
 package semanticresolve
 
-import "github.com/jacoelho/xsd/internal/model"
+import model "github.com/jacoelho/xsd/internal/types"
 
 type identityTraversalState struct {
 	visitedGroups map[*model.ModelGroup]bool

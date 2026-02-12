@@ -3,9 +3,10 @@ package runtimeassemble
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/typechain"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func (b *schemaBuilder) buildElements() error {
@@ -138,8 +139,8 @@ func (b *schemaBuilder) buildAnyTypeModel() error {
 	anyElem := &model.AnyElement{
 		Namespace:       model.NSCAny,
 		ProcessContents: model.Lax,
-		MinOccurs:       model.OccursFromInt(0),
-		MaxOccurs:       model.OccursUnbounded,
+		MinOccurs:       occurs.OccursFromInt(0),
+		MaxOccurs:       occurs.OccursUnbounded,
 	}
 	ref, kind, err := b.compileParticleModel(anyElem)
 	if err != nil {

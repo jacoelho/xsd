@@ -6,10 +6,10 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	model "github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/schemaxml"
+	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseLocalAttribute(doc *schemaxml.Document, elem schemaxml.NodeID, schema *Schema, local bool) (*model.AttributeDecl, error) {
+func parseLocalAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, local bool) (*model.AttributeDecl, error) {
 	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return nil, fmt.Errorf("attribute missing name and ref")
@@ -33,9 +33,9 @@ func parseLocalAttribute(doc *schemaxml.Document, elem schemaxml.NodeID, schema 
 	typeName := doc.GetAttribute(elem, "type")
 	simpleTypeCount := 0
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) == schemaxml.XSDNamespace && doc.LocalName(child) == "simpleType" {
+		if doc.NamespaceURI(child) == xmltree.XSDNamespace && doc.LocalName(child) == "simpleType" {
 			simpleTypeCount++
-		} else if doc.NamespaceURI(child) == schemaxml.XSDNamespace {
+		} else if doc.NamespaceURI(child) == xmltree.XSDNamespace {
 			switch doc.LocalName(child) {
 			case "key", "keyref", "unique":
 				return nil, fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(child))
@@ -66,7 +66,7 @@ func parseLocalAttribute(doc *schemaxml.Document, elem schemaxml.NodeID, schema 
 		}
 	} else {
 		for _, child := range doc.Children(elem) {
-			if doc.NamespaceURI(child) != schemaxml.XSDNamespace {
+			if doc.NamespaceURI(child) != xmltree.XSDNamespace {
 				continue
 			}
 

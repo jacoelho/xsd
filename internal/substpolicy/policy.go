@@ -5,7 +5,10 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 )
 
+// DerivationStepFunc defines an exported type.
 type DerivationStepFunc func(model.Type) (model.Type, model.DerivationMethod, error)
+
+// TypeQNameResolver defines an exported type.
 type TypeQNameResolver func(model.QName) (model.Type, error)
 
 // NextDerivationStep returns the next base type and derivation method for one step.
@@ -55,7 +58,7 @@ func NextDerivationStep(current model.Type, resolve TypeQNameResolver) (model.Ty
 		}
 		return nil, 0, nil
 	case *model.BuiltinType:
-		name := builtins.TypeName(typed.Name().Local)
+		name := model.TypeName(typed.Name().Local)
 		switch name {
 		case builtins.TypeNameAnyType:
 			return nil, 0, nil

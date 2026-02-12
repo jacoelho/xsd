@@ -1,9 +1,9 @@
 package semanticresolve
 
 import (
-	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
+	parser "github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolveguard"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 // Resolver resolves all QName references in a schema.

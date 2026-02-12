@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/parser"
+	schema "github.com/jacoelho/xsd/internal/analysis"
+	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/prep"
 	"github.com/jacoelho/xsd/internal/runtime"
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
-	"github.com/jacoelho/xsd/internal/schemaprep"
 )
 
 func resolveSchema(schemaXML string) (*parser.Schema, error) {
@@ -16,7 +16,7 @@ func resolveSchema(schemaXML string) (*parser.Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := schemaprep.ResolveAndValidate(sch)
+	resolved, err := prep.ResolveAndValidate(sch)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func buildSchemaForTest(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, e
 	if sch == nil {
 		return nil, fmt.Errorf("runtime build: schema is nil")
 	}
-	resolvedSchema, err := schemaprep.ResolveAndValidate(sch)
+	resolvedSchema, err := prep.ResolveAndValidate(sch)
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: %w", err)
 	}
@@ -51,7 +51,7 @@ func buildSchemaForTest(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, e
 	if err := schema.DetectCycles(resolvedSchema); err != nil {
 		return nil, fmt.Errorf("runtime build: detect cycles: %w", err)
 	}
-	if err := schemaprep.ValidateUPA(resolvedSchema, reg); err != nil {
+	if err := prep.ValidateUPA(resolvedSchema, reg); err != nil {
 		return nil, fmt.Errorf("runtime build: validate UPA: %w", err)
 	}
 	return BuildArtifacts(resolvedSchema, reg, refs, cfg)

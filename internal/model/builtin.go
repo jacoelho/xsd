@@ -157,13 +157,23 @@ var builtinBaseTypes = func() map[TypeName]TypeName {
 	return baseTypes
 }()
 
-// GetBuiltin returns a built-in XSD type by local name.
-func GetBuiltin(name TypeName) *BuiltinType {
+// getBuiltin returns a built-in XSD type by local name.
+func getBuiltin(name TypeName) *BuiltinType {
 	return defaultBuiltinRegistry.get(name)
 }
 
-// GetBuiltinNS returns a built-in XSD type for an expanded name.
-func GetBuiltinNS(namespace NamespaceURI, local string) *BuiltinType {
+// BuiltinTypes returns built-in XSD types in deterministic order.
+func BuiltinTypes() []*BuiltinType {
+	if defaultBuiltinRegistry == nil || len(defaultBuiltinRegistry.ordered) == 0 {
+		return nil
+	}
+	out := make([]*BuiltinType, len(defaultBuiltinRegistry.ordered))
+	copy(out, defaultBuiltinRegistry.ordered)
+	return out
+}
+
+// getBuiltinNS returns a built-in XSD type for an expanded name.
+func getBuiltinNS(namespace NamespaceURI, local string) *BuiltinType {
 	return defaultBuiltinRegistry.getNS(namespace, local)
 }
 
@@ -339,12 +349,12 @@ func (b *BuiltinType) BaseType() Type {
 	}
 	// anySimpleType derives from anyType
 	if b.name == string(TypeNameAnySimpleType) {
-		return GetBuiltin(TypeNameAnyType)
+		return getBuiltin(TypeNameAnyType)
 	}
 
 	// primitive types have anySimpleType as base
 	if isPrimitiveName(TypeName(b.name)) {
-		return GetBuiltin(TypeNameAnySimpleType)
+		return getBuiltin(TypeNameAnySimpleType)
 	}
 
 	// for derived types, compute base type from type hierarchy
@@ -366,10 +376,10 @@ func isPrimitiveName(name TypeName) bool {
 func computeBaseType(name string) Type {
 	// map derived types to their bases according to XSD 1.0 type hierarchy
 	if baseName, ok := builtinBaseTypes[TypeName(name)]; ok {
-		return GetBuiltin(baseName)
+		return getBuiltin(baseName)
 	}
 	// if not found in map, return anySimpleType as fallback (base of all simple types)
-	return GetBuiltin(TypeNameAnySimpleType)
+	return getBuiltin(TypeNameAnySimpleType)
 }
 
 // PrimitiveType returns the primitive type for this built-in type

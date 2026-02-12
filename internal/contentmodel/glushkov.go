@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -13,7 +14,9 @@ const maxInt = int(^uint(0) >> 1)
 type PositionKind uint8
 
 const (
+	// PositionElement is an exported constant.
 	PositionElement PositionKind = iota
+	// PositionWildcard is an exported constant.
 	PositionWildcard
 )
 
@@ -342,7 +345,7 @@ func (b *builder) choice(nodes []node) node {
 	return result
 }
 
-func occursBounds(minOccurs, maxOccurs model.Occurs) (int, int, bool, error) {
+func occursBounds(minOccurs, maxOccurs occurs.Occurs) (int, int, bool, error) {
 	if minOccurs.IsUnbounded() {
 		return 0, 0, false, fmt.Errorf("minOccurs cannot be unbounded")
 	}

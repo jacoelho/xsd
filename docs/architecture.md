@@ -9,15 +9,15 @@ This validator implements W3C XML Schema 1.0 validation with the following prior
 - Pure Go with no CGO dependencies
 - io/fs integration for flexible schema loading
 - W3C compliance tested against the W3C XSD Test Suite
-- Streaming validation with constant memory use
+- Streaming validation without building a DOM
 - Multi-phase processing for clean separation of concerns
 
 ## Schema Location Hints
 
 Instance-document schema hints (`xsi:schemaLocation`, `xsi:noNamespaceSchemaLocation`) are ignored.
-Validation always uses the compiled schema provided to `xsd.Load`/`xsd.LoadFile`, keeping
-validation deterministic and goroutine-safe.
-
+Validation always uses the compiled schema created by
+`xsd.NewSchemaSet(...).Compile(...)`, `xsd.LoadWithOptions`, or `xsd.LoadFile`.
+This keeps validation deterministic and goroutine-safe.
 
 ## Processing Pipeline
 
@@ -47,35 +47,64 @@ flowchart TD
 ```mermaid
 flowchart TD
   subgraph PublicAPI["Public API"]
-    Load["xsd.Load / xsd.LoadWithOptions / xsd.Prepare"] --> Loader["internal/source.SchemaLoader.Load<br/>(parse + import/include)"] --> Prepare["internal/pipeline.Prepare<br/>(semantic validation + artifacts)"] --> Build["xsd.PreparedSchema.Build<br/>or BuildWithOptions"] --> Runtime["internal/runtime.Schema"]
+    Load["xsd.NewSchemaSet / xsd.LoadWithOptions"] --> Loader["internal/preprocessor.Loader.Load<br/>(parse + import/include)"] --> Compile["internal/compiler.Prepare*<br/>(semantic normalization + compile artifacts)"] --> Build["internal/set.PreparedSchema.BuildRuntime"] --> Runtime["internal/runtime.Schema"]
   end
   subgraph Validation
-    Validate["Schema.Validate"] --> ValidatorPkg["internal/validator<br/>(session, streaming checks)"]
+    Validate["Schema.Validate"] --> ValidatorPkg["internal/validationengine + internal/validator<br/>(engine, session, streaming checks)"]
     ValidatorPkg --> Runtime
     ValidatorPkg --> XMLPkg["pkg/xmlstream.Reader"]
     XMLPkg --> XMLText["pkg/xmltext.Decoder"]
   end
 ```
 
-## Shared Internal Kernels
+## Package Organization
+
+The codebase uses phase-oriented package boundaries instead of type-name parity.
+Each package owns one phase-level responsibility:
+
+- `internal/preprocessor`: source loading, include/import resolution, origin tracking.
+- `internal/parser`: raw XSD component parsing with symbolic references.
+- `internal/normalize`: orchestration of schema normalization stages.
+- `internal/semanticresolve`: schema reference wiring and semantic link resolution.
+- `internal/semanticcheck`: structural/spec validation (`cvc-*`/schema rules, UPA checks).
+- `internal/analysis`: deterministic IDs, ordering, and resolved-reference indexes.
+- `internal/set`: prepare/build orchestration for reusable schema artifacts.
+- `internal/runtimeassemble`: compilation of normalized artifacts into runtime tables.
+- `internal/validationengine`: engine/session validation entrypoints.
+- `internal/validator`: mutable runtime session execution over immutable runtime schema.
+
+Public package organization follows the same single-responsibility rule:
+
+- `schema_types.go`: public schema/QName types.
+- `load.go`: schema loading entrypoints.
+- `schema_validate.go`: validation entrypoints and file-reader plumbing.
+- `schemaset_*.go`: schema-set ingestion, prepare/compile orchestration, and merge flow.
+- `options_*.go`: option types, fluent API, and resolution/defaulting.
+
+Architecture boundaries are enforced by tests in `internal/architecture/`:
+
+- import-edge checks for core phases (`import_edges_test.go`)
+- public export allowlist checks (`public_api_allowlist_test.go`)
+- legacy package removal and required phase docs (`layout_test.go`)
+
+## Shared Internal Helpers
 
 To keep package boundaries one-way and avoid drift between phases, shared
-pure helpers live in small reusable internal packages:
+helpers live in reusable internal packages:
 
 - `internal/typeresolve`: type reference resolution policy and facet traversal helpers.
 - `internal/typechain`: base-chain navigation and anyType semantics.
-- `internal/schemaprep`: schema-time resolve+validate orchestration shared by preparation flows.
-- `internal/traversal`: particle/content tree walkers reused by resolver and semanticcheck.
+- `internal/traversal`: particle/content tree walkers reused by resolver and semantic checks.
 - `internal/valuecodec`: canonical key encoding used by runtime build and runtime validation.
 - `internal/durationlex`: shared xs:duration lexical parser reused by `model`, `facetvalue`, and `valueparse`.
 
-These packages are intentionally dependency-light and do not depend on
-loading, resolver orchestration, or validator session state.
+These packages are intentionally dependency-light and avoid load orchestration
+or validator session state.
 
 
 ## Phase 1: Load + Parse
 
-Schema loading uses `internal/source` and `internal/parser` to parse XSD documents,
+Schema loading uses `internal/preprocessor` and `internal/parser` to parse XSD documents,
 resolve includes/imports, and build a single parser.Schema. QName references and
 origin locations are recorded, but no runtime IDs or compiled models exist yet.
 
@@ -108,13 +137,13 @@ flowchart TD
 
 ## Phase 2: Resolve + Validate
 
-`internal/schemaprep.ResolveAndValidate` clones the parsed schema for defensive
-callers, while `ResolveAndValidateOwned` validates in-place for owned pipeline
-paths. Both resolve group/type references and run structure/reference checks.
+`internal/compiler.Prepare` clones the parsed schema for defensive callers,
+while `PrepareOwned` validates in-place for owned pipeline paths. Both resolve
+group/type references and run structure/reference checks.
 
 ## Phase 3: Assign IDs
 
-`internal/schemaanalysis.AssignIDs` walks the validated schema in deterministic order and
+`internal/compiler` (via registry planning passes) walks the validated schema in deterministic order and
 assigns stable IDs to globally visible declarations plus local/anonymous components.
 These IDs back the runtime registry.
 
@@ -131,7 +160,7 @@ type Registry struct {
 
 ## Phase 4: Resolve References
 
-`internal/schemaanalysis.ResolveReferences` validates QName references against the
+`internal/compiler` validates QName references against the
 registry and builds ID-based lookup maps without mutating parser.Schema.
 
 ```go
@@ -149,21 +178,20 @@ After this phase, runtime validation no longer needs QName lookups.
 
 ## Phase 5: Semantic Checks
 
-Before runtime build, `internal/schemaanalysis` runs cycle detection and UPA checks on
+Before runtime build, compiler semantic passes run cycle detection and UPA checks on
 the validated schema and assigned registry.
 
 ## Phase 6: Build Runtime Schema
 
-internal/pipeline.PreparedSchema.BuildRuntime (backed by
-internal/runtimeassemble and internal/validatorgen) compiles prepared
-artifacts into an optimized runtime representation. The runtime schema is
+`internal/set.PreparedSchema.BuildRuntime` (backed by
+`internal/compiler`, `internal/runtimeassemble`, and `internal/validatorgen`)
+compiles prepared artifacts into an optimized runtime representation. The runtime schema is
 dense, ID-based, and immutable so it can be shared across goroutines.
 
-At the public API layer, `xsd.PreparedSchema.Build`/`BuildWithOptions` memoize
-compiled runtime schemas by compile-affecting runtime options (`maxDFAStates`,
-`maxOccursLimit`). Instance XML parse limits are applied per engine/session and
-do not force runtime recompilation. The memoization cache is bounded to avoid
-unbounded memory growth.
+At the public API layer, `xsd.SchemaSet.Compile`/`CompileWithRuntimeOptions`
+compile runtime schemas from the set’s added roots using compile-affecting
+runtime options (`maxDFAStates`, `maxOccursLimit`). Instance XML parse limits
+are applied per engine/session and do not change schema semantics.
 
 runtime.Schema contains:
 
@@ -174,13 +202,22 @@ runtime.Schema contains:
 - Pre-compiled simple-type validators and default/fixed values
 
 ```go
+// abridged from internal/runtime/schema.go
 type Schema struct {
-    Types        []runtime.Type
-    ComplexTypes []runtime.ComplexType
-    Elements     []runtime.Element
-    Attributes   []runtime.Attribute
-    Models       runtime.ModelsBundle
-    Validators   runtime.ValidatorsBundle
+    Symbols    SymbolsTable
+    Namespaces NamespaceTable
+
+    GlobalElements []ElemID
+
+    Types        []Type
+    Ancestors    TypeAncestors
+    ComplexTypes []ComplexType
+    Elements     []Element
+    Attributes   []Attribute
+    AttrIndex    ComplexAttrIndex
+
+    Models     ModelsBundle
+    Validators ValidatorsBundle
 }
 ```
 
@@ -264,34 +301,41 @@ State is final if it contains the end-of-content position
 ### Automaton Structure
 
 ```go
-type Automaton struct {
-    symbols   []Symbol      // Alphabet (element QNames, wildcards)
-    trans     []int         // [state*symbolCount + symbol] -> next state (-1)
-    accepting []bool        // Final states
-    counting  []*Counter    // Occurrence constraints per state
-    emptyOK   bool          // Can content be empty?
+// from internal/runtime/models.go
+type DFAModel struct {
+    States      []DFAState
+    Transitions []DFATransition
+    Wildcards   []DFAWildcardEdge
+    Start       uint32
+}
+
+type DFAState struct {
+    Accept   bool
+    TransOff uint32
+    TransLen uint32
+    WildOff  uint32
+    WildLen  uint32
+}
+
+type DFATransition struct {
+    Sym  SymbolID
+    Next uint32
+    Elem ElemID
 }
 ```
 
 ### Validation (O(n) time, no backtracking)
 
 ```
-state = 0
+state = model.Start
 for each child element:
-    symbolIdx = findMatchingSymbol(child)
-    if symbolIdx < 0:
-        return error: element not allowed
-    
-    nextState = trans[state*symbolCount+symbolIdx]
-    if nextState < 0:
+    edge = match transition in state.Transitions/state.Wildcards
+    if edge is absent:
         return error: element not expected here
-    
-    if counting[state] != nil:
-        check occurrence constraints
-    
-    state = nextState
 
-if not accepting[state]:
+    state = edge.Next
+
+if not state.Accept:
     return error: content incomplete
 ```
 
@@ -307,67 +351,38 @@ which keeps validation deterministic.
 
 ## Pattern Facet (Regex Translation)
 
-XSD patterns are translated to Go regexp (RE2) with fail-closed semantics:
-either produce a provably equivalent pattern or return an error.
+XSD patterns are translated to Go regexp (RE2) using fail-closed semantics:
+either produce a valid translation or return an error.
 
-### Translation Rules
+Source of truth: `internal/model/TranslateXSDPatternToGo`.
 
-| XSD Pattern           | Go/RE2 Pattern                    |
-|-----------------------|-----------------------------------|
-| (implicit anchoring)  | \A(?:PAT)\z                       |
-| ^ $ (outside class)   | \^ \$                             |
-| .                     | [^\n\r]                           |
-| \d                    | Unicode 3.1 decimal digit ranges  |
-| \D                    | Complement of Unicode 3.1 digits  |
-| \s                    | [\x20\t\n\r]                      |
-| \S                    | [^\x20\t\n\r]                     |
-| \w                    | Unicode 3.1 word characters       |
-| \W                    | Complement of Unicode 3.1 word chars |
-| \p{Lu}                | \p{Lu} (supported categories only)|
-| \X (unknown escape)   | literal X                         |
+### Key behavior
 
-### Supported Features
+- Patterns are implicitly anchored by wrapping as `^(?:...)$`.
+- `.` is translated as `[^\n\r]` per XSD line-end rules.
+- XSD shorthands are supported: `\d`, `\D`, `\s`, `\S`, `\w`, `\W`,
+  `\i`, `\I`, `\c`, `\C`.
+- Unicode property escapes `\p{...}` / `\P{...}` are accepted when Go regexp
+  supports the property.
 
-- Literals, grouping (), alternation |, concatenation
-- Quantifiers ? * + {m} {m,} {m,n} with bounds <= 1000
-- Character classes [...] without subtraction
-- Unicode property escapes for Go-supported categories
-- XSD shorthands: . \d \D \s \S \w \W
+### Rejected patterns
 
-### Rejected Features (fail closed)
-
-- Character-class subtraction: [A-Z-[AEIOU]]
-- Unicode block escapes: \p{IsBasicLatin}
-- XML NameChar escapes: \i \c \I \C
-- Counted repeats > 1000 (RE2 limit)
-- \w \S inside negated character classes
-- Non-greedy quantifiers (not in XSD 1.0)
-
-### Unicode Version Note
-
-XSD 1.0 regex semantics are defined over Unicode 3.1. Go regexp uses the
-current Unicode version. The \d \D \w \W shorthands are implemented as
-explicit Unicode 3.1 character ranges to maintain spec compliance.
+- Character-class subtraction (`-[` form).
+- Nested character classes.
+- Non-greedy quantifiers (lazy quantifiers).
+- Backreferences and non-XSD escape sequences.
+- Unicode block escapes (`\p{Is...}` / `\p{In...}`).
+- Repeat bounds above the RE2 limit.
 
 
 ## DateTime Handling
 
-DateTime types use Go time.Parse with the following limitations:
+Temporal primitive parsing uses Go's time APIs and internal temporal helpers,
+with these limits:
 
 - Supported year range: 0001-9999
 - No support for year 0, BCE dates, or years > 9999
 - XSD allows arbitrary precision years; Go does not
-
-```go
-// DateTime parsing attempts multiple formats
-func validateDateTime(value string) error {
-    _, err := time.Parse(time.RFC3339, value)
-    if err != nil {
-        _, err = time.Parse("2006-01-02T15:04:05", value)
-    }
-    return err
-}
-```
 
 
 ## Built-in Types
@@ -427,32 +442,24 @@ anyType
 
 ## W3C Error Codes
 
-Validation errors use standard W3C codes:
+Validation errors use W3C-style `cvc-*` codes plus a small set of project
+codes for loader/runtime conditions.
 
 ```
-cvc-elt.1              Cannot find declaration for element
-cvc-elt.2              Element is abstract
-cvc-elt.3.1            xsi:nil on non-nillable element
-cvc-elt.3.2.2          Non-empty content in nilled element
-cvc-elt.5.2.2          Fixed value mismatch
-cvc-type.2             Abstract type used directly
-cvc-complex-type.2.1   Non-empty content for empty type
-cvc-complex-type.2.3   Text in element-only content
-cvc-complex-type.2.4.a Invalid child element
-cvc-complex-type.2.4.b Missing required element
-cvc-complex-type.2.4.d Unexpected element
-cvc-complex-type.3.2.2 Undeclared attribute
-cvc-complex-type.4     Missing required attribute
-cvc-attribute.4        Attribute fixed value mismatch
-cvc-datatype-valid.1   Invalid datatype value
-cvc-facet-valid        Facet constraint violation
-cvc-id.1               IDREF without matching ID
-cvc-id.2               Duplicate ID
-cvc-identity-constraint.4.1  Duplicate key/unique value
-cvc-identity-constraint.4.3  Keyref without matching key
-cvc-wildcard.2         Namespace constraint violation
-cvc-assess-elt.1.1.1   No declaration for strict wildcard
+cvc-elt.1                         element declaration not found
+cvc-elt.2                         abstract element used
+cvc-complex-type.2.4             content model violation
+cvc-complex-type.3.2.1           undeclared attribute
+cvc-attribute.1                  fixed attribute mismatch
+cvc-datatype-valid               datatype lexical/value failure
+cvc-facet-valid                  facet failure
+cvc-id.2                         duplicate ID
+cvc-identity-constraint.4.3      keyref mismatch
+xsd-schema-not-loaded            validation attempted without schema
+xml-parse-error                  malformed XML input
 ```
+
+Source of truth: `errors/validation.go`.
 
 
 ## Design Decisions
@@ -470,7 +477,8 @@ correctly. This validator does not support it.
 ### Go-Compatible Regex Only
 
 Patterns that cannot be safely translated to RE2 are rejected. This includes
-character-class subtraction, Unicode block escapes, and XML NameChar escapes.
+character-class subtraction, unsupported Unicode properties/blocks, and
+constructs outside XSD 1.0 pattern syntax.
 
 ### Go Time Limitations
 

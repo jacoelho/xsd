@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/schemaanalysis"
+	schema "github.com/jacoelho/xsd/internal/analysis"
 )
 
 func mustPreparedArtifacts(t *testing.T, schemaXML string) (*PreparedArtifacts, *schema.Registry, *schema.ResolvedReferences) {

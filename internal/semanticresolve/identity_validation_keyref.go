@@ -3,7 +3,7 @@ package semanticresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/model"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 // validateKeyrefConstraints validates keyref constraints against all known constraints.

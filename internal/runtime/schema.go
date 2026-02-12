@@ -1,5 +1,6 @@
 package runtime
 
+// Schema defines an exported type.
 type Schema struct {
 	Symbols    SymbolsTable
 	Namespaces NamespaceTable
@@ -41,30 +42,36 @@ type Schema struct {
 	BuildHash uint64
 }
 
+// BuiltinIDs defines an exported type.
 type BuiltinIDs struct {
 	AnyType       TypeID
 	AnySimpleType TypeID
 }
 
+// PredefinedSymbols defines an exported type.
 type PredefinedSymbols struct {
 	XsiType                      SymbolID
 	XsiNil                       SymbolID
 	XsiSchemaLocation            SymbolID
 	XsiNoNamespaceSchemaLocation SymbolID
 
-	XmlLang  SymbolID
-	XmlSpace SymbolID
+	XMLLang  SymbolID
+	XMLSpace SymbolID
 }
 
+// PredefinedNamespaces defines an exported type.
 type PredefinedNamespaces struct {
 	Xsi   NamespaceID
-	Xml   NamespaceID
+	XML   NamespaceID
 	Empty NamespaceID
 }
 
+// RootPolicy defines an exported type.
 type RootPolicy uint8
 
 const (
+	// RootStrict is an exported constant.
 	RootStrict RootPolicy = iota
+	// RootAny is an exported constant.
 	RootAny
 )

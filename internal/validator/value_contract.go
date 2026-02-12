@@ -12,17 +12,17 @@ type Path string
 type NodeKind uint8
 
 const (
+	// NodeUnknown is an exported constant.
 	NodeUnknown NodeKind = iota
+	// NodeAttribute is an exported constant.
 	NodeAttribute
+	// NodeElementText is an exported constant.
 	NodeElementText
 )
 
-// NamespaceContext resolves QName prefixes to namespace URIs.
-type NamespaceContext = value.NSResolver
-
 // ValueContext carries contextual information for simple value validation.
 type ValueContext struct {
-	NS       NamespaceContext
+	NS       value.NSResolver
 	Path     Path
 	NodeKind NodeKind
 }

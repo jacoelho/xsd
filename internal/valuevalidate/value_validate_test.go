@@ -6,8 +6,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/schemaprep"
+	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/prep"
 	"github.com/jacoelho/xsd/internal/valuevalidate"
 )
 
@@ -170,7 +170,7 @@ func mustResolvedSchema(t *testing.T, schemaXML string) *parser.Schema {
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	resolved, err := schemaprep.ResolveAndValidate(sch)
+	resolved, err := prep.ResolveAndValidate(sch)
 	if err != nil {
 		t.Fatalf("ResolveAndValidate() error = %v", err)
 	}

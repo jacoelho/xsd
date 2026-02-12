@@ -3,9 +3,9 @@ package runtimeassemble
 import (
 	"maps"
 
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/runtimeids"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func (b *schemaBuilder) initIDs() error {

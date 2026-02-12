@@ -14,14 +14,23 @@ import (
 type Kind uint8
 
 const (
+	// KindInvalid is an exported constant.
 	KindInvalid Kind = iota
+	// KindDateTime is an exported constant.
 	KindDateTime
+	// KindDate is an exported constant.
 	KindDate
+	// KindTime is an exported constant.
 	KindTime
+	// KindGYearMonth is an exported constant.
 	KindGYearMonth
+	// KindGYear is an exported constant.
 	KindGYear
+	// KindGMonthDay is an exported constant.
 	KindGMonthDay
+	// KindGDay is an exported constant.
 	KindGDay
+	// KindGMonth is an exported constant.
 	KindGMonth
 )
 
@@ -49,6 +58,7 @@ func KindFromPrimitiveName(name string) (Kind, bool) {
 	}
 }
 
+// String is an exported function.
 func (k Kind) String() string {
 	switch k {
 	case KindDateTime:
@@ -72,11 +82,10 @@ func (k Kind) String() string {
 	}
 }
 
-// TimezoneKind mirrors timezone presence for temporal values.
-type TimezoneKind = value.TimezoneKind
-
 const (
-	TZNone  = value.TZNone
+	// TZNone is an exported constant.
+	TZNone = value.TZNone
+	// TZKnown is an exported constant.
 	TZKnown = value.TZKnown
 )
 
@@ -84,7 +93,7 @@ const (
 type Value struct {
 	Time         time.Time
 	Kind         Kind
-	TimezoneKind TimezoneKind
+	TimezoneKind value.TimezoneKind
 	LeapSecond   bool
 }
 
@@ -242,11 +251,6 @@ func Canonical(v Value) string {
 		return canonicalLeap(v)
 	}
 	return value.CanonicalDateTimeString(v.Time, v.Kind.String(), v.TimezoneKind)
-}
-
-// ValueTimezoneKind converts temporal timezone kind to value.TimezoneKind.
-func ValueTimezoneKind(kind TimezoneKind) value.TimezoneKind {
-	return kind
 }
 
 func compareSameTimezone(left, right Value) int {

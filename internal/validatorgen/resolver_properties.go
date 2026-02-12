@@ -86,7 +86,7 @@ func (r *typeResolver) isIntegerDerived(typ model.Type) bool {
 }
 
 func (r *typeResolver) whitespaceMode(typ model.Type) runtime.WhitespaceMode {
-	mode := runtime.WS_Preserve
+	mode := runtime.WSPreserve
 	typewalk.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
 			mode = wsmode.ToRuntime(bt.WhiteSpace())
@@ -94,7 +94,7 @@ func (r *typeResolver) whitespaceMode(typ model.Type) runtime.WhitespaceMode {
 		}
 		st, ok := model.AsSimpleType(current)
 		if !ok {
-			mode = runtime.WS_Preserve
+			mode = runtime.WSPreserve
 			return false
 		}
 		if st.WhiteSpaceExplicit() || st.List != nil || st.Union != nil {
@@ -139,7 +139,7 @@ func (r *typeResolver) primitiveNameAtomic(typ model.Type, seen map[model.Type]b
 		return "", fmt.Errorf("unsupported type")
 	}
 	if st.IsBuiltin() {
-		if builtin := builtins.Get(builtins.TypeName(st.Name().Local)); builtin != nil {
+		if builtin := builtins.Get(model.TypeName(st.Name().Local)); builtin != nil {
 			primitive := builtin.PrimitiveType()
 			if primitive == nil {
 				return "", fmt.Errorf("primitive type not found")

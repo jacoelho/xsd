@@ -7,6 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/num"
 )
 
+// TotalDigits defines an exported type.
 type TotalDigits struct {
 	Value int
 }

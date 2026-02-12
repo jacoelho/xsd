@@ -21,7 +21,7 @@ func ListItemTypeWithResolver(typ Type, resolve func(QName) Type) (Type, bool) {
 				return nil, false
 			}
 			if itemName, ok := builtinListItemTypeName(bt.Name().Local); ok {
-				if item := GetBuiltin(itemName); item != nil {
+				if item := getBuiltin(itemName); item != nil {
 					return item, true
 				}
 			}
@@ -140,7 +140,7 @@ func resolveQNameType(name QName, resolve func(QName) Type) Type {
 			return resolved
 		}
 	}
-	if builtin := GetBuiltinNS(name.Namespace, name.Local); !isNilType(builtin) {
+	if builtin := getBuiltinNS(name.Namespace, name.Local); !isNilType(builtin) {
 		return builtin
 	}
 	return nil

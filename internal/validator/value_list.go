@@ -13,7 +13,7 @@ func (s *Session) listItemValidator(meta runtime.ValidatorMeta) (runtime.Validat
 	return s.rt.Validators.List[meta.Index].Item, true
 }
 
-func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *valueMetrics) ([]byte, error) {
+func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *ValueMetrics) ([]byte, error) {
 	itemValidator, ok := s.listItemValidator(meta)
 	if !ok {
 		return nil, valueErrorf(valueErrInvalid, "list validator out of range")
@@ -24,7 +24,8 @@ func (s *Session) canonicalizeList(meta runtime.ValidatorMeta, normalized []byte
 	if needKey {
 		keyTmp = make([]byte, 0, len(normalized))
 	}
-	err := forEachListItem(normalized, func(item []byte) error {
+	spaceOnly := opts.applyWhitespace && meta.WhiteSpace == runtime.WSCollapse
+	err := forEachListItem(normalized, spaceOnly, func(item []byte) error {
 		itemOpts := opts
 		itemOpts.applyWhitespace = false
 		itemOpts.requireCanonical = true
@@ -70,7 +71,8 @@ func (s *Session) validateListNoCanonical(meta runtime.ValidatorMeta, normalized
 	if !ok {
 		return valueErrorf(valueErrInvalid, "list validator out of range")
 	}
-	err := forEachListItem(normalized, func(item []byte) error {
+	spaceOnly := opts.applyWhitespace && meta.WhiteSpace == runtime.WSCollapse
+	err := forEachListItem(normalized, spaceOnly, func(item []byte) error {
 		itemOpts := opts
 		itemOpts.applyWhitespace = false
 		itemOpts.requireCanonical = false
@@ -83,10 +85,27 @@ func (s *Session) validateListNoCanonical(meta runtime.ValidatorMeta, normalized
 	return err
 }
 
-func forEachListItem(normalized []byte, fn func([]byte) error) error {
-	for field := range value.FieldsXMLWhitespaceSeq(normalized) {
+func forEachListItem(normalized []byte, spaceOnly bool, fn func([]byte) error) error {
+	if len(normalized) == 0 {
+		return nil
+	}
+	if spaceOnly {
+		return forEachSpaceSeparatedItem(normalized, fn)
+	}
+	i := 0
+	for i < len(normalized) {
+		for i < len(normalized) && value.IsXMLWhitespaceByte(normalized[i]) {
+			i++
+		}
+		if i >= len(normalized) {
+			return nil
+		}
+		start := i
+		for i < len(normalized) && !value.IsXMLWhitespaceByte(normalized[i]) {
+			i++
+		}
 		if fn != nil {
-			if err := fn(field); err != nil {
+			if err := fn(normalized[start:i]); err != nil {
 				return err
 			}
 		}
@@ -96,8 +115,31 @@ func forEachListItem(normalized []byte, fn func([]byte) error) error {
 
 func listItemCount(normalized []byte) int {
 	count := 0
-	for range value.FieldsXMLWhitespaceSeq(normalized) {
+	_ = forEachListItem(normalized, false, func(_ []byte) error {
 		count++
-	}
+		return nil
+	})
 	return count
+}
+
+func forEachSpaceSeparatedItem(normalized []byte, fn func([]byte) error) error {
+	i := 0
+	for i < len(normalized) {
+		for i < len(normalized) && normalized[i] == ' ' {
+			i++
+		}
+		if i >= len(normalized) {
+			return nil
+		}
+		start := i
+		for i < len(normalized) && normalized[i] != ' ' {
+			i++
+		}
+		if fn != nil {
+			if err := fn(normalized[start:i]); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

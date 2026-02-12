@@ -13,9 +13,13 @@ import (
 type Axis int
 
 const (
+	// AxisChild is an exported constant.
 	AxisChild Axis = iota
+	// AxisDescendant is an exported constant.
 	AxisDescendant
+	// AxisDescendantOrSelf is an exported constant.
 	AxisDescendantOrSelf
+	// AxisSelf is an exported constant.
 	AxisSelf
 )
 

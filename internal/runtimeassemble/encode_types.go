@@ -1,8 +1,8 @@
 package runtimeassemble
 
 import (
-	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
+	model "github.com/jacoelho/xsd/internal/types"
 )
 
 func toRuntimeAttrUse(use model.AttributeUse) runtime.AttrUseKind {

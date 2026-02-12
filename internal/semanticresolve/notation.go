@@ -1,6 +1,6 @@
 package semanticresolve
 
-import "github.com/jacoelho/xsd/internal/model"
+import model "github.com/jacoelho/xsd/internal/types"
 
 func isDirectNotationType(typ model.Type) bool {
 	if typ == nil || !typ.IsBuiltin() {
