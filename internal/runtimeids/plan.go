@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
@@ -21,7 +21,7 @@ type Plan struct {
 }
 
 // Build constructs a deterministic runtime ID assignment plan.
-func Build(registry *schema.Registry) (*Plan, error) {
+func Build(registry *analysis.Registry) (*Plan, error) {
 	if registry == nil {
 		return nil, fmt.Errorf("runtime ids: registry is nil")
 	}

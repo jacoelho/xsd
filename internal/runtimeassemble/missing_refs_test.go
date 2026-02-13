@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestBuildSchemaMissingAttributeGroupRefFails(t *testing.T) {
@@ -50,7 +50,7 @@ func TestBuildSchemaAllGroupSubstitutionMemberMissingID(t *testing.T) {
 		t.Fatalf("resolve schema: %v", err)
 	}
 
-	memberQName := model.QName{Namespace: "urn:test", Local: "member"}
+	memberQName := types.QName{Namespace: "urn:test", Local: "member"}
 	filtered := sch.GlobalDecls[:0]
 	for _, decl := range sch.GlobalDecls {
 		if decl.Kind == parser.GlobalDeclElement && decl.Name == memberQName {

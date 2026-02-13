@@ -1,7 +1,7 @@
 package validator
 
 import (
-	facetengine "github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -9,13 +9,13 @@ func (s *Session) hasLengthFacet(meta runtime.ValidatorMeta) bool {
 	if s == nil || s.rt == nil || meta.Facets.Len == 0 {
 		return false
 	}
-	ok, err := facetengine.RuntimeProgramHasOp(meta, s.rt.Facets, runtime.FLength, runtime.FMinLength, runtime.FMaxLength)
+	ok, err := facets.RuntimeProgramHasOp(meta, s.rt.Facets, runtime.FLength, runtime.FMinLength, runtime.FMaxLength)
 	return err == nil && ok
 }
 
 func (s *Session) validateRuntimeFacets(meta runtime.ValidatorMeta, normalized, canon []byte, metrics *ValueMetrics) error {
-	return facetengine.ValidateRuntimeProgram(
-		facetengine.RuntimeProgram{
+	return facets.ValidateRuntimeProgram(
+		facets.RuntimeProgram{
 			Meta:       meta,
 			Facets:     s.rt.Facets,
 			Patterns:   s.rt.Patterns,
@@ -24,7 +24,7 @@ func (s *Session) validateRuntimeFacets(meta runtime.ValidatorMeta, normalized, 
 			Normalized: normalized,
 			Canonical:  canon,
 		},
-		facetengine.RuntimeCallbacks{
+		facets.RuntimeCallbacks{
 			SkipPattern: func() bool {
 				return metrics != nil && metrics.patternChecked
 			},

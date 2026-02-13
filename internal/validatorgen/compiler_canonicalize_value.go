@@ -5,7 +5,7 @@ import (
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/valuesemantics"
-	wsmode "github.com/jacoelho/xsd/internal/whitespace"
+	"github.com/jacoelho/xsd/internal/whitespace"
 )
 
 func (c *compiler) comparableValue(lexical string, typ model.Type) (model.ComparableValue, error) {
@@ -21,6 +21,6 @@ func (c *compiler) normalizeLexical(lexical string, typ model.Type) string {
 	if ws == runtime.WSPreserve || lexical == "" {
 		return lexical
 	}
-	normalized := value.NormalizeWhitespace(wsmode.ToValue(ws), []byte(lexical), nil)
+	normalized := value.NormalizeWhitespace(whitespace.ToValue(ws), []byte(lexical), nil)
 	return string(normalized)
 }

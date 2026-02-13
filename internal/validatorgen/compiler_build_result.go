@@ -3,13 +3,13 @@ package validatorgen
 import (
 	"maps"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
-func (c *compiler) result(registry *schema.Registry) *CompiledValidators {
+func (c *compiler) result(registry *analysis.Registry) *CompiledValidators {
 	out := &CompiledValidators{
 		Validators:      c.bundle,
 		Facets:          c.facets,

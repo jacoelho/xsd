@@ -6,15 +6,15 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/runtimeids"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (b *schemaBuilder) buildTypes() error {
-	xsdNS := model.XSDNamespace
+	xsdNS := types.XSDNamespace
 	nextComplex := uint32(1)
 	for _, name := range runtimeids.BuiltinTypeNames() {
 		id := b.builtinIDs[name]
-		sym := b.internQName(model.QName{Namespace: xsdNS, Local: string(name)})
+		sym := b.internQName(types.QName{Namespace: xsdNS, Local: string(name)})
 		typ := runtime.Type{Name: sym}
 		if builtin := builtins.Get(name); builtin != nil {
 			base := builtin.BaseType()
@@ -27,7 +27,7 @@ func (b *schemaBuilder) buildTypes() error {
 				typ.Derivation = runtime.DerRestriction
 			}
 		}
-		if name == model.TypeNameAnyType {
+		if name == types.TypeNameAnyType {
 			typ.Kind = runtime.TypeComplex
 			typ.Complex = runtime.ComplexTypeRef{ID: nextComplex}
 			b.anyTypeComplex = nextComplex
@@ -38,10 +38,10 @@ func (b *schemaBuilder) buildTypes() error {
 		}
 		b.rt.Types[id] = typ
 		b.rt.GlobalTypes[sym] = id
-		if name == model.TypeNameAnyType {
+		if name == types.TypeNameAnyType {
 			b.rt.Builtin.AnyType = id
 		}
-		if name == model.TypeNameAnySimpleType {
+		if name == types.TypeNameAnySimpleType {
 			b.rt.Builtin.AnySimpleType = id
 		}
 	}
@@ -56,7 +56,7 @@ func (b *schemaBuilder) buildTypes() error {
 		}
 		typ := runtime.Type{Name: sym}
 		switch t := entry.Type.(type) {
-		case *model.SimpleType:
+		case *types.SimpleType:
 			typ.Kind = runtime.TypeSimple
 			if vid, ok := b.validators.TypeValidators[entry.ID]; ok {
 				typ.Validator = vid
@@ -73,7 +73,7 @@ func (b *schemaBuilder) buildTypes() error {
 				typ.Derivation = method
 			}
 			typ.Final = toRuntimeDerivationSet(t.Final)
-		case *model.ComplexType:
+		case *types.ComplexType:
 			typ.Kind = runtime.TypeComplex
 			if t.Abstract {
 				typ.Flags |= runtime.TypeAbstract
@@ -88,7 +88,7 @@ func (b *schemaBuilder) buildTypes() error {
 			}
 			method := t.DerivationMethod
 			if method == 0 {
-				method = model.DerivationRestriction
+				method = types.DerivationRestriction
 			}
 			typ.Derivation = toRuntimeDerivation(method)
 			typ.Final = toRuntimeDerivationSet(t.Final)

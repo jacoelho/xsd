@@ -1,6 +1,6 @@
 package preprocessor
 
-import parser "github.com/jacoelho/xsd/internal/parser"
+import "github.com/jacoelho/xsd/internal/parser"
 
 func (l *Loader) deferImport(sourceKey, targetKey loadKey, schemaLocation, expectedNamespace string, journal *stateJournal) bool {
 	directive := pendingDirective{

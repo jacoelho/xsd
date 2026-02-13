@@ -1,6 +1,6 @@
 package preprocessor
 
-import parser "github.com/jacoelho/xsd/internal/parser"
+import "github.com/jacoelho/xsd/internal/parser"
 
 func (l *Loader) enterLoading(key loadKey) (*schemaEntry, func()) {
 	entry := l.state.ensureEntry(key)

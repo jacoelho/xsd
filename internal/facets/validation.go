@@ -2,9 +2,9 @@ package facets
 
 import (
 	"github.com/jacoelho/xsd/internal/facetvalue"
-	model "github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
-	qnamelex "github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -49,6 +49,6 @@ func ValidateSimpleTypeFacets(
 
 // ValidateQNameContext validates QName/NOTATION lexical context.
 func ValidateQNameContext(value string, context map[string]string) error {
-	_, err := qnamelex.ParseQNameValue(value, context)
+	_, err := qname.ParseQNameValue(value, context)
 	return err
 }

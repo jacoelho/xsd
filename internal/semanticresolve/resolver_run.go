@@ -2,7 +2,7 @@ package semanticresolve
 
 import (
 	"github.com/jacoelho/xsd/internal/resolveguard"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 // Resolve resolves all references in the schema.
@@ -35,7 +35,7 @@ func (r *Resolver) resolveSimpleTypesPhase(index *iterationIndex) error {
 	// 1. Simple types (only depend on built-ins or other simple types)
 	for _, qname := range index.typeQNames {
 		typ := r.schema.TypeDefs[qname]
-		if st, ok := typ.(*model.SimpleType); ok {
+		if st, ok := typ.(*types.SimpleType); ok {
 			if err := r.resolveSimpleType(qname, st); err != nil {
 				return err
 			}
@@ -48,7 +48,7 @@ func (r *Resolver) resolveComplexTypesPhase(index *iterationIndex) error {
 	// 2. Complex types (may depend on simple types)
 	for _, qname := range index.typeQNames {
 		typ := r.schema.TypeDefs[qname]
-		if ct, ok := typ.(*model.ComplexType); ok {
+		if ct, ok := typ.(*types.ComplexType); ok {
 			if err := r.resolveComplexType(qname, ct); err != nil {
 				return err
 			}
@@ -61,7 +61,7 @@ func (r *Resolver) resolveGroupsPhase(index *iterationIndex) error {
 	// 3. Groups (reference types and other groups)
 	for _, qname := range index.groupQNames {
 		grp := r.schema.Groups[qname]
-		if err := resolveguard.ResolveNamed[model.QName](r.detector, qname, func() error {
+		if err := resolveguard.ResolveNamed[types.QName](r.detector, qname, func() error {
 			return r.resolveParticles(grp.Particles)
 		}); err != nil {
 			return err

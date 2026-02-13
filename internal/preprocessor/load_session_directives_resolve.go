@@ -3,7 +3,7 @@ package preprocessor
 import (
 	"fmt"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func (s *loadSession) loadDirectiveSchema(

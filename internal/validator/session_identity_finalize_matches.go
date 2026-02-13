@@ -1,7 +1,7 @@
 package validator
 
 import (
-	ic "github.com/jacoelho/xsd/internal/identity"
+	"github.com/jacoelho/xsd/internal/identity"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -38,7 +38,7 @@ func (s *identityState) finalizeSelectorMatch(match *rtSelectorMatch) {
 			values = append(values, freezeIdentityKey(s.arena, field.keyKind, field.keyBytes))
 		}
 	}
-	row := rtIdentityRow{values: values, hash: ic.HashRow(values)}
+	row := rtIdentityRow{values: values, hash: identity.HashRow(values)}
 	if state.category == runtime.ICKeyRef {
 		state.keyrefRows = append(state.keyrefRows, row)
 		return

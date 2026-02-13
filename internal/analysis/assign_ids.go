@@ -3,10 +3,10 @@ package analysis
 import (
 	"fmt"
 
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (b *builder) assignGlobalType(name model.QName, typ model.Type) error {
+func (b *builder) assignGlobalType(name types.QName, typ types.Type) error {
 	if typ == nil {
 		return fmt.Errorf("global type %s is nil", name)
 	}
@@ -26,7 +26,7 @@ func (b *builder) assignGlobalType(name model.QName, typ model.Type) error {
 	return nil
 }
 
-func (b *builder) assignAnonymousType(typ model.Type) error {
+func (b *builder) assignAnonymousType(typ types.Type) error {
 	if typ == nil {
 		return nil
 	}
@@ -45,14 +45,14 @@ func (b *builder) assignAnonymousType(typ model.Type) error {
 	b.registry.anonymousTypes[typ] = id
 	b.registry.TypeOrder = append(b.registry.TypeOrder, TypeEntry{
 		ID:     id,
-		QName:  model.QName{},
+		QName:  types.QName{},
 		Type:   typ,
 		Global: false,
 	})
 	return nil
 }
 
-func (b *builder) assignGlobalElement(decl *model.ElementDecl) error {
+func (b *builder) assignGlobalElement(decl *types.ElementDecl) error {
 	if decl == nil {
 		return fmt.Errorf("global element is nil")
 	}
@@ -71,7 +71,7 @@ func (b *builder) assignGlobalElement(decl *model.ElementDecl) error {
 	return nil
 }
 
-func (b *builder) assignLocalElement(decl *model.ElementDecl) error {
+func (b *builder) assignLocalElement(decl *types.ElementDecl) error {
 	if decl == nil {
 		return fmt.Errorf("local element is nil")
 	}
@@ -90,7 +90,7 @@ func (b *builder) assignLocalElement(decl *model.ElementDecl) error {
 	return nil
 }
 
-func (b *builder) assignGlobalAttribute(name model.QName, decl *model.AttributeDecl) error {
+func (b *builder) assignGlobalAttribute(name types.QName, decl *types.AttributeDecl) error {
 	if decl == nil {
 		return fmt.Errorf("global attribute %s is nil", name)
 	}
@@ -109,7 +109,7 @@ func (b *builder) assignGlobalAttribute(name model.QName, decl *model.AttributeD
 	return nil
 }
 
-func (b *builder) assignLocalAttribute(decl *model.AttributeDecl) error {
+func (b *builder) assignLocalAttribute(decl *types.AttributeDecl) error {
 	if decl == nil {
 		return fmt.Errorf("local attribute is nil")
 	}

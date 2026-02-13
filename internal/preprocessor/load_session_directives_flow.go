@@ -3,7 +3,7 @@ package preprocessor
 import (
 	"fmt"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func (s *loadSession) processDirectives(schema *parser.Schema, directives []parser.Directive) error {

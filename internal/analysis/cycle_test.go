@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func mustParsedResolved(t *testing.T, schemaXML string) *parser.Schema {
@@ -31,7 +31,7 @@ func TestDetectTypeCycle(t *testing.T) {
 </xs:schema>`
 
 	sch := mustParsedResolved(t, schemaXML)
-	if err := schema.DetectCycles(sch); err == nil {
+	if err := analysis.DetectCycles(sch); err == nil {
 		t.Fatalf("expected type cycle error")
 	}
 }
@@ -54,7 +54,7 @@ func TestDetectGroupCycle(t *testing.T) {
 </xs:schema>`
 
 	sch := mustParsedResolved(t, schemaXML)
-	if err := schema.DetectCycles(sch); err == nil {
+	if err := analysis.DetectCycles(sch); err == nil {
 		t.Fatalf("expected group cycle error")
 	}
 }
@@ -73,7 +73,7 @@ func TestDetectAttributeGroupCycle(t *testing.T) {
 </xs:schema>`
 
 	sch := mustParsedResolved(t, schemaXML)
-	if err := schema.DetectCycles(sch); err == nil {
+	if err := analysis.DetectCycles(sch); err == nil {
 		t.Fatalf("expected attributeGroup cycle error")
 	}
 }
@@ -89,7 +89,7 @@ func TestDetectAttributeGroupMissingReference(t *testing.T) {
 </xs:schema>`
 
 	sch := mustParsedResolved(t, schemaXML)
-	if err := schema.DetectCycles(sch); err == nil {
+	if err := analysis.DetectCycles(sch); err == nil {
 		t.Fatalf("expected missing attributeGroup reference error")
 	}
 }
@@ -105,7 +105,7 @@ func TestDetectSubstitutionGroupCycle(t *testing.T) {
 </xs:schema>`
 
 	sch := mustParsedResolved(t, schemaXML)
-	if err := schema.DetectCycles(sch); err == nil {
+	if err := analysis.DetectCycles(sch); err == nil {
 		t.Fatalf("expected substitutionGroup cycle error")
 	}
 }
@@ -120,7 +120,7 @@ func TestDetectSubstitutionGroupMissingHead(t *testing.T) {
 </xs:schema>`
 
 	sch := mustParsedResolved(t, schemaXML)
-	if err := schema.DetectCycles(sch); err == nil {
+	if err := analysis.DetectCycles(sch); err == nil {
 		t.Fatalf("expected missing substitutionGroup head error")
 	}
 }

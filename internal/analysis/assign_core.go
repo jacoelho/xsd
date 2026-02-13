@@ -5,8 +5,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/ids"
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 // AssignIDs walks the parsed schema in deterministic order and assigns IDs.
@@ -20,37 +20,37 @@ func AssignIDs(schema *parser.Schema) (*Registry, error) {
 
 	b := newBuilder(schema)
 	if err := globaldecl.ForEach(schema, globaldecl.Handlers{
-		Element: func(name model.QName, decl *model.ElementDecl) error {
+		Element: func(name types.QName, decl *types.ElementDecl) error {
 			if decl == nil {
 				return fmt.Errorf("missing global element %s", name)
 			}
 			return b.visitGlobalElement(decl)
 		},
-		Type: func(name model.QName, typ model.Type) error {
+		Type: func(name types.QName, typ types.Type) error {
 			if typ == nil {
 				return fmt.Errorf("missing global type %s", name)
 			}
 			return b.visitGlobalType(name, typ)
 		},
-		Attribute: func(name model.QName, attr *model.AttributeDecl) error {
+		Attribute: func(name types.QName, attr *types.AttributeDecl) error {
 			if attr == nil {
 				return fmt.Errorf("missing global attribute %s", name)
 			}
 			return b.visitGlobalAttribute(name, attr)
 		},
-		AttributeGroup: func(name model.QName, group *model.AttributeGroup) error {
+		AttributeGroup: func(name types.QName, group *types.AttributeGroup) error {
 			if group == nil {
 				return fmt.Errorf("missing attributeGroup %s", name)
 			}
 			return b.visitAttributeGroup(group)
 		},
-		Group: func(name model.QName, group *model.ModelGroup) error {
+		Group: func(name types.QName, group *types.ModelGroup) error {
 			if group == nil {
 				return fmt.Errorf("missing group %s", name)
 			}
 			return b.visitGroup(group)
 		},
-		Notation: func(model.QName, *model.NotationDecl) error {
+		Notation: func(types.QName, *types.NotationDecl) error {
 			return nil
 		},
 	}); err != nil {
@@ -69,7 +69,7 @@ func hasGlobalDecls(schema *parser.Schema) bool {
 type builder struct {
 	schema   *parser.Schema
 	registry *Registry
-	typeIDs  map[model.Type]ids.TypeID
+	typeIDs  map[types.Type]ids.TypeID
 	nextType ids.TypeID
 	nextElem ids.ElemID
 	nextAttr ids.AttrID
@@ -79,7 +79,7 @@ func newBuilder(schema *parser.Schema) *builder {
 	return &builder{
 		schema:   schema,
 		registry: newRegistry(),
-		typeIDs:  make(map[model.Type]ids.TypeID),
+		typeIDs:  make(map[types.Type]ids.TypeID),
 		nextType: 1,
 		nextElem: 1,
 		nextAttr: 1,

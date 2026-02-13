@@ -3,19 +3,19 @@ package runtimeassemble
 import (
 	"fmt"
 
-	models "github.com/jacoelho/xsd/internal/contentmodel"
+	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/runtime"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (b *schemaBuilder) buildMatchers(glu *models.Glushkov) ([]runtime.PosMatcher, error) {
+func (b *schemaBuilder) buildMatchers(glu *contentmodel.Glushkov) ([]runtime.PosMatcher, error) {
 	if glu == nil {
 		return nil, fmt.Errorf("runtime build: glushkov model missing")
 	}
 	matchers := make([]runtime.PosMatcher, len(glu.Positions))
 	for i, pos := range glu.Positions {
 		switch pos.Kind {
-		case models.PositionElement:
+		case contentmodel.PositionElement:
 			if pos.Element == nil {
 				return nil, fmt.Errorf("runtime build: position %d missing element", i)
 			}
@@ -29,7 +29,7 @@ func (b *schemaBuilder) buildMatchers(glu *models.Glushkov) ([]runtime.PosMatche
 				Sym:  sym,
 				Elem: elemID,
 			}
-		case models.PositionWildcard:
+		case contentmodel.PositionWildcard:
 			if pos.Wildcard == nil {
 				return nil, fmt.Errorf("runtime build: position %d missing wildcard", i)
 			}
@@ -45,12 +45,12 @@ func (b *schemaBuilder) buildMatchers(glu *models.Glushkov) ([]runtime.PosMatche
 	return matchers, nil
 }
 
-func (b *schemaBuilder) addWildcardAnyElement(anyElem *model.AnyElement) runtime.WildcardID {
+func (b *schemaBuilder) addWildcardAnyElement(anyElem *types.AnyElement) runtime.WildcardID {
 	if anyElem == nil {
 		return 0
 	}
 	if b.anyElementRules == nil {
-		b.anyElementRules = make(map[*model.AnyElement]runtime.WildcardID)
+		b.anyElementRules = make(map[*types.AnyElement]runtime.WildcardID)
 	}
 	if id, ok := b.anyElementRules[anyElem]; ok {
 		return id
@@ -60,7 +60,7 @@ func (b *schemaBuilder) addWildcardAnyElement(anyElem *model.AnyElement) runtime
 	return id
 }
 
-func (b *schemaBuilder) addWildcard(constraint model.NamespaceConstraint, list []model.NamespaceURI, target model.NamespaceURI, pc model.ProcessContents) runtime.WildcardID {
+func (b *schemaBuilder) addWildcard(constraint types.NamespaceConstraint, list []types.NamespaceURI, target types.NamespaceURI, pc types.ProcessContents) runtime.WildcardID {
 	rule := runtime.WildcardRule{
 		PC:       toRuntimeProcessContents(pc),
 		TargetNS: b.internNamespace(target),
@@ -68,23 +68,23 @@ func (b *schemaBuilder) addWildcard(constraint model.NamespaceConstraint, list [
 
 	off := len(b.wildcardNS)
 	switch constraint {
-	case model.NSCAny:
+	case types.NSCAny:
 		rule.NS.Kind = runtime.NSAny
-	case model.NSCOther:
+	case types.NSCOther:
 		rule.NS.Kind = runtime.NSOther
 		rule.NS.HasTarget = true
-	case model.NSCTargetNamespace:
+	case types.NSCTargetNamespace:
 		rule.NS.Kind = runtime.NSEnumeration
 		rule.NS.HasTarget = true
-	case model.NSCLocal:
+	case types.NSCLocal:
 		rule.NS.Kind = runtime.NSEnumeration
 		rule.NS.HasLocal = true
-	case model.NSCNotAbsent:
+	case types.NSCNotAbsent:
 		rule.NS.Kind = runtime.NSNotAbsent
-	case model.NSCList:
+	case types.NSCList:
 		rule.NS.Kind = runtime.NSEnumeration
 		for _, ns := range list {
-			if ns == model.NamespaceTargetPlaceholder {
+			if ns == types.NamespaceTargetPlaceholder {
 				rule.NS.HasTarget = true
 				continue
 			}

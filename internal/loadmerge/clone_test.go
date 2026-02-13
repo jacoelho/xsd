@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func TestCloneSchemaDeepIsolation(t *testing.T) {

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"slices"
 
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (r *Resolver) resolveSimpleTypeRestriction(qname model.QName, st *model.SimpleType) error {
+func (r *Resolver) resolveSimpleTypeRestriction(qname types.QName, st *types.SimpleType) error {
 	if st.Restriction == nil {
 		return nil
 	}
@@ -30,8 +30,8 @@ func (r *Resolver) resolveSimpleTypeRestriction(qname model.QName, st *model.Sim
 
 	if base != nil {
 		st.ResolvedBase = base
-		if baseST, ok := base.(*model.SimpleType); ok {
-			if baseST.Variety() == model.UnionVariety && len(st.MemberTypes) == 0 {
+		if baseST, ok := base.(*types.SimpleType); ok {
+			if baseST.Variety() == types.UnionVariety && len(st.MemberTypes) == 0 {
 				if len(baseST.MemberTypes) == 0 {
 					baseQName := baseST.QName
 					if baseQName.IsZero() {
@@ -51,7 +51,7 @@ func (r *Resolver) resolveSimpleTypeRestriction(qname model.QName, st *model.Sim
 		}
 	}
 
-	if st.WhiteSpace() == model.WhiteSpacePreserve && base != nil {
+	if st.WhiteSpace() == types.WhiteSpacePreserve && base != nil {
 		st.SetWhiteSpace(base.WhiteSpace())
 	}
 	return nil

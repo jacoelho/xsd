@@ -9,7 +9,7 @@ import (
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/complextypeplan"
 	"github.com/jacoelho/xsd/internal/loadmerge"
-	expnormalize "github.com/jacoelho/xsd/internal/normalize"
+	"github.com/jacoelho/xsd/internal/normalize"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/prep"
 	"github.com/jacoelho/xsd/internal/runtimeassemble"
@@ -53,7 +53,7 @@ func TestPrepareOwnedParityWithLegacyPipelineSteps(t *testing.T) {
 	}
 
 	legacyReg, legacyRefs, legacyComplex := prepareLegacyNormalization(t, legacySchema)
-	expArtifacts, err := expnormalize.PrepareOwned(expSchema)
+	expArtifacts, err := normalize.PrepareOwned(expSchema)
 	if err != nil {
 		t.Fatalf("exp normalize: %v", err)
 	}

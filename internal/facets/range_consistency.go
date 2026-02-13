@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func isDurationType(baseType model.Type, baseQName model.QName) bool {

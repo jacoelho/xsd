@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/typechain"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (b *schemaBuilder) buildElements() error {
@@ -66,7 +66,7 @@ func (b *schemaBuilder) buildModels() error {
 		return err
 	}
 	for _, entry := range b.registry.TypeOrder {
-		ct, ok := model.AsComplexType(entry.Type)
+		ct, ok := types.AsComplexType(entry.Type)
 		if !ok || ct == nil {
 			continue
 		}
@@ -80,9 +80,9 @@ func (b *schemaBuilder) buildModels() error {
 		complexModel := &b.rt.ComplexTypes[complexID]
 		complexModel.Mixed = ct.EffectiveMixed()
 		switch content.(type) {
-		case *model.SimpleContent:
+		case *types.SimpleContent:
 			complexModel.Content = runtime.ContentSimple
-			var textType model.Type
+			var textType types.Type
 			if cachedType, ok := b.complexTypes.SimpleContentType(ct); ok {
 				textType = cachedType
 			}
@@ -106,7 +106,7 @@ func (b *schemaBuilder) buildModels() error {
 				return fmt.Errorf("runtime build: complex type %s missing validator", entry.QName)
 			}
 			complexModel.TextValidator = vid
-		case *model.EmptyContent:
+		case *types.EmptyContent:
 			complexModel.Content = runtime.ContentEmpty
 		default:
 			particle, ok := b.complexTypes.Content(ct)
@@ -136,9 +136,9 @@ func (b *schemaBuilder) buildAnyTypeModel() error {
 	complexModel := &b.rt.ComplexTypes[b.anyTypeComplex]
 	complexModel.Mixed = true
 
-	anyElem := &model.AnyElement{
-		Namespace:       model.NSCAny,
-		ProcessContents: model.Lax,
+	anyElem := &types.AnyElement{
+		Namespace:       types.NSCAny,
+		ProcessContents: types.Lax,
 		MinOccurs:       occurs.OccursFromInt(0),
 		MaxOccurs:       occurs.OccursUnbounded,
 	}
@@ -149,10 +149,10 @@ func (b *schemaBuilder) buildAnyTypeModel() error {
 	complexModel.Content = kind
 	complexModel.Model = ref
 
-	anyAttr := &model.AnyAttribute{
-		Namespace:       model.NSCAny,
-		ProcessContents: model.Lax,
-		TargetNamespace: model.NamespaceEmpty,
+	anyAttr := &types.AnyAttribute{
+		Namespace:       types.NSCAny,
+		ProcessContents: types.Lax,
+		TargetNamespace: types.NamespaceEmpty,
 	}
 	complexModel.AnyAttr = b.addWildcard(
 		anyAttr.Namespace,

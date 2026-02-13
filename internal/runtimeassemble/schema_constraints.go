@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/identitypath"
 	"github.com/jacoelho/xsd/internal/runtime"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (b *schemaBuilder) buildIdentityConstraints() error {
@@ -13,9 +13,9 @@ func (b *schemaBuilder) buildIdentityConstraints() error {
 	b.rt.ICFields = nil
 	b.rt.ElemICs = nil
 
-	icByElem := make(map[runtime.ElemID]map[model.QName]runtime.ICID)
+	icByElem := make(map[runtime.ElemID]map[types.QName]runtime.ICID)
 	type keyrefPending struct {
-		name model.QName
+		name types.QName
 		elem runtime.ElemID
 		id   runtime.ICID
 	}
@@ -69,15 +69,15 @@ func (b *schemaBuilder) buildIdentityConstraints() error {
 
 			category := runtime.ICUnique
 			switch constraint.Type {
-			case model.UniqueConstraint:
+			case types.UniqueConstraint:
 				category = runtime.ICUnique
-			case model.KeyConstraint:
+			case types.KeyConstraint:
 				category = runtime.ICKey
-			case model.KeyRefConstraint:
+			case types.KeyRefConstraint:
 				category = runtime.ICKeyRef
 			}
 
-			name := model.QName{Namespace: constraint.TargetNamespace, Local: constraint.Name}
+			name := types.QName{Namespace: constraint.TargetNamespace, Local: constraint.Name}
 			nameSym := b.internQName(name)
 			ic := runtime.IdentityConstraint{
 				Name:        nameSym,
@@ -91,12 +91,12 @@ func (b *schemaBuilder) buildIdentityConstraints() error {
 			b.rt.ElemICs = append(b.rt.ElemICs, icID)
 			scope := icByElem[elemID]
 			if scope == nil {
-				scope = make(map[model.QName]runtime.ICID)
+				scope = make(map[types.QName]runtime.ICID)
 				icByElem[elemID] = scope
 			}
 			scope[name] = icID
 
-			if constraint.Type == model.KeyRefConstraint {
+			if constraint.Type == types.KeyRefConstraint {
 				pending = append(pending, keyrefPending{
 					elem: elemID,
 					id:   icID,

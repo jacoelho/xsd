@@ -2,7 +2,7 @@ package typeresolve
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 // EffectiveAttributeQName resolves an attribute's effective QName using form defaults.
