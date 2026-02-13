@@ -5,8 +5,8 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
-	qnameorder "github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/qname"
 )
 
 // CloneSchemaForMerge returns a deep copy of schema for merge.
@@ -83,7 +83,7 @@ func cloneMap[K comparable, V any](src map[K]V) map[K]V {
 }
 
 func sortedQNames[V any](m map[model.QName]V) []model.QName {
-	return qnameorder.SortedMapKeys(m)
+	return qname.SortedMapKeys(m)
 }
 
 func copyImportContexts(src map[string]parser.ImportContext) map[string]parser.ImportContext {

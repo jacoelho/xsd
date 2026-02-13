@@ -2,7 +2,7 @@ package validatorgen
 
 import (
 	"github.com/jacoelho/xsd/internal/builtins"
-	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func builtinForType(typ model.Type) *model.BuiltinType {

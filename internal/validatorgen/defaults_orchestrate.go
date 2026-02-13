@@ -3,11 +3,11 @@ package validatorgen
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
-func (c *compiler) compileDefaults(registry *schema.Registry) error {
+func (c *compiler) compileDefaults(registry *analysis.Registry) error {
 	if registry == nil {
 		return fmt.Errorf("registry is nil")
 	}
@@ -20,7 +20,7 @@ func (c *compiler) compileDefaults(registry *schema.Registry) error {
 	return nil
 }
 
-func (c *compiler) compileAttributeUses(registry *schema.Registry) error {
+func (c *compiler) compileAttributeUses(registry *analysis.Registry) error {
 	if registry == nil {
 		return fmt.Errorf("registry is nil")
 	}

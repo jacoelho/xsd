@@ -1,21 +1,21 @@
 package semanticcheck
 
 import (
-	facetengine "github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func ValidateFacetConstraints(schema *parser.Schema, facetList []model.Facet, baseType model.Type, baseQName model.QName) error {
-	return facetengine.ValidateSchemaConstraints(
-		facetengine.SchemaConstraintInput{
+	return facets.ValidateSchemaConstraints(
+		facets.SchemaConstraintInput{
 			FacetList: facetList,
 			BaseType:  baseType,
 			BaseQName: baseQName,
 		},
-		facetengine.SchemaConstraintCallbacks{
-			ValidateRangeConsistency: facetengine.ValidateRangeConsistency,
-			ValidateRangeValues:      facetengine.ValidateRangeValues,
+		facets.SchemaConstraintCallbacks{
+			ValidateRangeConsistency: facets.ValidateRangeConsistency,
+			ValidateRangeValues:      facets.ValidateRangeValues,
 			ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
 				return validateValueAgainstTypeWithFacets(schema, value, baseType, context)
 			},

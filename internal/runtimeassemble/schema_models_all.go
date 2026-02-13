@@ -3,12 +3,12 @@ package runtimeassemble
 import (
 	"fmt"
 
-	models "github.com/jacoelho/xsd/internal/contentmodel"
+	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/runtime"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (b *schemaBuilder) addAllModel(group *model.ModelGroup) (runtime.ModelRef, error) {
+func (b *schemaBuilder) addAllModel(group *types.ModelGroup) (runtime.ModelRef, error) {
 	if group == nil {
 		return runtime.ModelRef{Kind: runtime.ModelNone}, nil
 	}
@@ -28,7 +28,7 @@ func (b *schemaBuilder) addAllModel(group *model.ModelGroup) (runtime.ModelRef, 
 		Mixed:     false,
 	}
 	for _, particle := range group.Particles {
-		elem, ok := particle.(*model.ElementDecl)
+		elem, ok := particle.(*types.ElementDecl)
 		if !ok || elem == nil {
 			return runtime.ModelRef{}, fmt.Errorf("runtime build: all group member must be element")
 		}
@@ -48,7 +48,7 @@ func (b *schemaBuilder) addAllModel(group *model.ModelGroup) (runtime.ModelRef, 
 			if resolved := b.resolveSubstitutionHead(elem); resolved != nil {
 				head = resolved
 			}
-			list, err := models.ExpandSubstitutionMembers(head, b.substitutionMembers)
+			list, err := contentmodel.ExpandSubstitutionMembers(head, b.substitutionMembers)
 			if err != nil {
 				return runtime.ModelRef{}, err
 			}
@@ -87,14 +87,14 @@ func (b *schemaBuilder) addRejectAllModel() runtime.ModelRef {
 	return runtime.ModelRef{Kind: runtime.ModelNFA, ID: id}
 }
 
-func (b *schemaBuilder) substitutionMembers(head *model.ElementDecl) []*model.ElementDecl {
+func (b *schemaBuilder) substitutionMembers(head *types.ElementDecl) []*types.ElementDecl {
 	if head == nil {
 		return nil
 	}
-	queue := []model.QName{head.Name}
-	seen := make(map[model.QName]bool)
+	queue := []types.QName{head.Name}
+	seen := make(map[types.QName]bool)
 	seen[head.Name] = true
-	out := make([]*model.ElementDecl, 0)
+	out := make([]*types.ElementDecl, 0)
 
 	for len(queue) > 0 {
 		name := queue[0]
@@ -115,7 +115,7 @@ func (b *schemaBuilder) substitutionMembers(head *model.ElementDecl) []*model.El
 	return out
 }
 
-func (b *schemaBuilder) resolveSubstitutionHead(decl *model.ElementDecl) *model.ElementDecl {
+func (b *schemaBuilder) resolveSubstitutionHead(decl *types.ElementDecl) *types.ElementDecl {
 	if decl == nil || !decl.IsReference || b == nil || b.schema == nil {
 		return decl
 	}

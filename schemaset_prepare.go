@@ -6,14 +6,14 @@ import (
 	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/preprocessor"
-	internalset "github.com/jacoelho/xsd/internal/set"
+	"github.com/jacoelho/xsd/internal/set"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func (s *SchemaSet) prepareResolved(load resolvedLoadOptions) (*internalset.PreparedSchema, error) {
+func (s *SchemaSet) prepareResolved(load resolvedLoadOptions) (*set.PreparedSchema, error) {
 	if len(s.entries) == 1 {
 		entry := s.entries[0]
-		return internalset.Prepare(internalset.PrepareConfig{
+		return set.Prepare(set.PrepareConfig{
 			FS:                          entry.fsys,
 			Location:                    entry.location,
 			AllowMissingImportLocations: load.allowMissingImportLocations,
@@ -24,7 +24,7 @@ func (s *SchemaSet) prepareResolved(load resolvedLoadOptions) (*internalset.Prep
 	if err != nil {
 		return nil, err
 	}
-	return internalset.PrepareParsedOwned(merged)
+	return set.PrepareParsedOwned(merged)
 }
 
 func (s *SchemaSet) loadAndMergeAll(load resolvedLoadOptions) (*parser.Schema, error) {

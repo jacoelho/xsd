@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value/temporal"
@@ -174,7 +174,7 @@ func TestElementFixedTimeLeapSecondOffsetKeyPreservesLeapIdentity(t *testing.T) 
 	}
 }
 
-func elementIDForLocal(t *testing.T, reg *schema.Registry, local string) ids.ElemID {
+func elementIDForLocal(t *testing.T, reg *analysis.Registry, local string) ids.ElemID {
 	t.Helper()
 	for _, entry := range reg.ElementOrder {
 		if entry.QName.Local == local {
@@ -185,7 +185,7 @@ func elementIDForLocal(t *testing.T, reg *schema.Registry, local string) ids.Ele
 	return 0
 }
 
-func attributeIDForLocal(t *testing.T, reg *schema.Registry, local string) ids.AttrID {
+func attributeIDForLocal(t *testing.T, reg *analysis.Registry, local string) ids.AttrID {
 	t.Helper()
 	for _, entry := range reg.AttributeOrder {
 		if entry.QName.Local == local {

@@ -2,14 +2,14 @@ package loadmerge
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	qnameorder "github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/qname"
 )
 
 func (c *mergeContext) mergeSubstitutionGroups() {
 	if c.target.SubstitutionGroups == nil {
 		c.target.SubstitutionGroups = make(map[model.QName][]model.QName)
 	}
-	heads := qnameorder.SortedMapKeys(c.source.SubstitutionGroups)
+	heads := qname.SortedMapKeys(c.source.SubstitutionGroups)
 	for _, head := range heads {
 		members := c.source.SubstitutionGroups[head]
 		targetHead := c.remapQName(head)
@@ -35,7 +35,7 @@ func (c *mergeContext) mergeSubstitutionGroups() {
 }
 
 func sortAndDedupeQNames(names []model.QName) []model.QName {
-	return qnameorder.SortAndDedupe(names)
+	return qname.SortAndDedupe(names)
 }
 
 func (c *mergeContext) mergeNotationDecls() error {
@@ -44,7 +44,7 @@ func (c *mergeContext) mergeNotationDecls() error {
 		c.target.NotationDecls,
 		c.target.NotationOrigins,
 		c.remapQName,
-		func(qname model.QName) string { return c.originFor(c.source.NotationOrigins, qname) },
+		func(name model.QName) string { return c.originFor(c.source.NotationOrigins, name) },
 		func(notation *model.NotationDecl) *model.NotationDecl { return notation.Copy(c.opts) },
 		nil,
 		nil,
@@ -65,8 +65,8 @@ func (c *mergeContext) mergeIDAttributes() error {
 	return nil
 }
 
-func (c *mergeContext) originFor(origins map[model.QName]string, qname model.QName) string {
-	origin := origins[qname]
+func (c *mergeContext) originFor(origins map[model.QName]string, name model.QName) string {
+	origin := origins[name]
 	if origin == "" {
 		origin = c.source.Location
 	}

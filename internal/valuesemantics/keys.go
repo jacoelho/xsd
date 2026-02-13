@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
-	qnamelex "github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
@@ -120,13 +120,13 @@ func KeyForPrimitiveName(primitive, normalized string, ctx map[string]string) (r
 		}
 		return runtime.VKBinary, valuecodec.BinaryKeyBytes(nil, 1, b), nil
 	case "QName":
-		qn, err := qnamelex.ParseQNameValue(normalized, ctx)
+		qn, err := qname.ParseQNameValue(normalized, ctx)
 		if err != nil {
 			return runtime.VKInvalid, nil, err
 		}
 		return runtime.VKQName, valuecodec.QNameKeyStrings(0, qn.Namespace, qn.Local), nil
 	case "NOTATION":
-		qn, err := qnamelex.ParseQNameValue(normalized, ctx)
+		qn, err := qname.ParseQNameValue(normalized, ctx)
 		if err != nil {
 			return runtime.VKInvalid, nil, err
 		}

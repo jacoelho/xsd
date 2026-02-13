@@ -6,10 +6,10 @@ import (
 
 	"github.com/jacoelho/xsd/internal/resolveguard"
 	"github.com/jacoelho/xsd/internal/traversal"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (r *Resolver) resolveParticles(particles []model.Particle) error {
+func (r *Resolver) resolveParticles(particles []types.Particle) error {
 	// use iterative approach with work queue to avoid stack overflow
 	// inline ModelGroups are tree-structured (no pointer cycles)
 	// named groups (GroupRef) have cycle detection via r.detector
@@ -20,19 +20,19 @@ func (r *Resolver) resolveParticles(particles []model.Particle) error {
 		queue = queue[1:]
 
 		switch particle := p.(type) {
-		case *model.GroupRef:
+		case *types.GroupRef:
 			group, ok := r.schema.Groups[particle.RefQName]
 			if !ok {
 				return fmt.Errorf("group %s not found", particle.RefQName)
 			}
-			if err := resolveguard.ResolveNamed[model.QName](r.detector, particle.RefQName, func() error {
+			if err := resolveguard.ResolveNamed[types.QName](r.detector, particle.RefQName, func() error {
 				return r.resolveParticles(group.Particles)
 			}); err != nil {
 				return err
 			}
-		case *model.ModelGroup:
+		case *types.ModelGroup:
 			queue = append(queue, particle.Particles...)
-		case *model.ElementDecl:
+		case *types.ElementDecl:
 			if particle.IsReference || particle.Type == nil {
 				continue
 			}
@@ -43,15 +43,15 @@ func (r *Resolver) resolveParticles(particles []model.Particle) error {
 			}); err != nil {
 				return err
 			}
-		case *model.AnyElement:
+		case *types.AnyElement:
 			// wildcards don't need resolution
 		}
 	}
 	return nil
 }
 
-func (r *Resolver) resolveContentParticles(content model.Content) error {
-	return traversal.WalkContentParticles(content, func(particle model.Particle) error {
-		return r.resolveParticles([]model.Particle{particle})
+func (r *Resolver) resolveContentParticles(content types.Content) error {
+	return traversal.WalkContentParticles(content, func(particle types.Particle) error {
+		return r.resolveParticles([]types.Particle{particle})
 	})
 }

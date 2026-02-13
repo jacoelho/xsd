@@ -9,7 +9,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/durationconv"
-	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 // Apply validates value against all facets in declaration order.

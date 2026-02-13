@@ -3,18 +3,18 @@ package semanticresolve
 import (
 	"fmt"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func validateIdentityConstraintUniquenessWithConstraints(_ *parser.Schema, allConstraints []*model.IdentityConstraint) []error {
+func validateIdentityConstraintUniquenessWithConstraints(_ *parser.Schema, allConstraints []*types.IdentityConstraint) []error {
 	var errs []error
 
 	type constraintKey struct {
 		name      string
-		namespace model.NamespaceURI
+		namespace types.NamespaceURI
 	}
-	constraintsByKey := make(map[constraintKey][]*model.IdentityConstraint)
+	constraintsByKey := make(map[constraintKey][]*types.IdentityConstraint)
 
 	for _, constraint := range allConstraints {
 		key := constraintKey{

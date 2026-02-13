@@ -1,16 +1,16 @@
 package builtins
 
-import schematypes "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/types"
 
-func newRegistry(items []*schematypes.BuiltinType) registry {
-	byName := make(map[schematypes.TypeName]*schematypes.BuiltinType, len(items))
-	ordered := make([]*schematypes.BuiltinType, 0, len(items))
+func newRegistry(items []*types.BuiltinType) registry {
+	byName := make(map[types.TypeName]*types.BuiltinType, len(items))
+	ordered := make([]*types.BuiltinType, 0, len(items))
 
 	for _, item := range items {
 		if item == nil {
 			continue
 		}
-		name := schematypes.TypeName(item.Name().Local)
+		name := types.TypeName(item.Name().Local)
 		if _, exists := byName[name]; exists {
 			continue
 		}

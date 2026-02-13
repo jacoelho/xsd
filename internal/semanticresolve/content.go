@@ -3,20 +3,20 @@ package semanticresolve
 import (
 	"fmt"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateParticleReferences validates references within particles.
-func validateParticleReferences(schema *parser.Schema, particle model.Particle, originLocation string) error {
-	visited := make(map[*model.ModelGroup]bool)
+func validateParticleReferences(schema *parser.Schema, particle types.Particle, originLocation string) error {
+	visited := make(map[*types.ModelGroup]bool)
 	return validateParticleReferencesWithVisited(schema, particle, visited, originLocation)
 }
 
 // validateParticleReferencesWithVisited validates references with cycle detection.
-func validateParticleReferencesWithVisited(schema *parser.Schema, particle model.Particle, visited map[*model.ModelGroup]bool, originLocation string) error {
+func validateParticleReferencesWithVisited(schema *parser.Schema, particle types.Particle, visited map[*types.ModelGroup]bool, originLocation string) error {
 	switch p := particle.(type) {
-	case *model.ModelGroup:
+	case *types.ModelGroup:
 		// skip if already visited (prevents infinite recursion in cyclic groups).
 		if visited[p] {
 			return nil
@@ -28,7 +28,7 @@ func validateParticleReferencesWithVisited(schema *parser.Schema, particle model
 				return err
 			}
 		}
-	case *model.ElementDecl:
+	case *types.ElementDecl:
 		if p.IsReference {
 			if err := validateImportForNamespaceAtLocation(schema, originLocation, p.Name.Namespace); err != nil {
 				return fmt.Errorf("element reference %s: %w", p.Name, err)
@@ -49,15 +49,15 @@ func validateParticleReferencesWithVisited(schema *parser.Schema, particle model
 				return fmt.Errorf("element %s: %w", p.Name, err)
 			}
 		}
-	case *model.AnyElement:
+	case *types.AnyElement:
 		// wildcards don't have references.
 	}
 	return nil
 }
 
 // validateGroupReferences validates references within group definitions.
-func validateGroupReferences(schema *parser.Schema, qname model.QName, group *model.ModelGroup) error {
-	visited := make(map[*model.ModelGroup]bool)
+func validateGroupReferences(schema *parser.Schema, qname types.QName, group *types.ModelGroup) error {
+	visited := make(map[*types.ModelGroup]bool)
 	origin := schema.GroupOrigins[qname]
 	// recursively validate particles in the group.
 	for _, particle := range group.Particles {

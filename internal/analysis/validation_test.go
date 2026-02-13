@@ -3,8 +3,8 @@ package analysis
 import (
 	"testing"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestValidateSchemaInput(t *testing.T) {
@@ -17,7 +17,7 @@ func TestValidateSchemaInput(t *testing.T) {
 		t.Fatalf("unexpected error for empty schema: %v", err)
 	}
 
-	schema.ElementDecls[model.QName{Local: "root"}] = &model.ElementDecl{}
+	schema.ElementDecls[types.QName{Local: "root"}] = &types.ElementDecl{}
 	if err := validateSchemaInput(schema); err == nil {
 		t.Fatalf("expected missing global declaration order error")
 	}

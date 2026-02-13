@@ -4,17 +4,17 @@ import (
 	"strings"
 	"testing"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestResolverAttributeGroupCycleReturnsCycleError(t *testing.T) {
 	schema := parser.NewSchema()
-	a := model.QName{Namespace: "urn:test", Local: "A"}
-	b := model.QName{Namespace: "urn:test", Local: "B"}
+	a := types.QName{Namespace: "urn:test", Local: "A"}
+	b := types.QName{Namespace: "urn:test", Local: "B"}
 
-	schema.AttributeGroups[a] = &model.AttributeGroup{Name: a, AttrGroups: []model.QName{b}}
-	schema.AttributeGroups[b] = &model.AttributeGroup{Name: b, AttrGroups: []model.QName{a}}
+	schema.AttributeGroups[a] = &types.AttributeGroup{Name: a, AttrGroups: []types.QName{b}}
+	schema.AttributeGroups[b] = &types.AttributeGroup{Name: b, AttrGroups: []types.QName{a}}
 
 	err := NewResolver(schema).Resolve()
 	if err == nil {
@@ -27,17 +27,17 @@ func TestResolverAttributeGroupCycleReturnsCycleError(t *testing.T) {
 
 func TestResolverComplexTypeReportsMissingNestedAttributeGroup(t *testing.T) {
 	schema := parser.NewSchema()
-	typeQName := model.QName{Namespace: "urn:test", Local: "T"}
-	rootGroup := model.QName{Namespace: "urn:test", Local: "AG"}
-	missingGroup := model.QName{Namespace: "urn:test", Local: "Missing"}
+	typeQName := types.QName{Namespace: "urn:test", Local: "T"}
+	rootGroup := types.QName{Namespace: "urn:test", Local: "AG"}
+	missingGroup := types.QName{Namespace: "urn:test", Local: "Missing"}
 
-	ct := model.NewComplexType(typeQName, "urn:test")
-	ct.SetContent(&model.EmptyContent{})
-	ct.AttrGroups = []model.QName{rootGroup}
+	ct := types.NewComplexType(typeQName, "urn:test")
+	ct.SetContent(&types.EmptyContent{})
+	ct.AttrGroups = []types.QName{rootGroup}
 	schema.TypeDefs[typeQName] = ct
-	schema.AttributeGroups[rootGroup] = &model.AttributeGroup{
+	schema.AttributeGroups[rootGroup] = &types.AttributeGroup{
 		Name:       rootGroup,
-		AttrGroups: []model.QName{missingGroup},
+		AttrGroups: []types.QName{missingGroup},
 	}
 
 	err := NewResolver(schema).Resolve()

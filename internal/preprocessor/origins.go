@@ -2,8 +2,8 @@ package preprocessor
 
 import (
 	"github.com/jacoelho/xsd/internal/objects"
-	parser "github.com/jacoelho/xsd/internal/parser"
-	qnameorder "github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/qname"
 )
 
 func initSchemaOrigins(sch *parser.Schema, location string) {
@@ -44,5 +44,5 @@ func initSchemaOrigins(sch *parser.Schema, location string) {
 }
 
 func sortedQNames[V any](m map[objects.QName]V) []objects.QName {
-	return qnameorder.SortedMapKeys(m)
+	return qname.SortedMapKeys(m)
 }

@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	fieldresolve "github.com/jacoelho/xsd/internal/fieldresolve"
+	"github.com/jacoelho/xsd/internal/fieldresolve"
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/qname"
 )
 

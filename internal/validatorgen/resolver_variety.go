@@ -2,7 +2,7 @@ package validatorgen
 
 import (
 	"github.com/jacoelho/xsd/internal/builtins"
-	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func (r *typeResolver) variety(st *model.SimpleType) model.SimpleTypeVariety {

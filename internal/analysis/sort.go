@@ -4,14 +4,14 @@ import (
 	"cmp"
 	"slices"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
-	qnameorder "github.com/jacoelho/xsd/internal/qname"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 // SortedQNames returns QNames in deterministic order (namespace, local).
-func SortedQNames[V any](m map[model.QName]V) []model.QName {
-	return qnameorder.SortedMapKeys(m)
+func SortedQNames[V any](m map[types.QName]V) []types.QName {
+	return qname.SortedMapKeys(m)
 }
 
 // SortedGlobalDecls returns a sorted copy of global declarations.

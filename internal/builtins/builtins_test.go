@@ -3,7 +3,7 @@ package builtins
 import (
 	"testing"
 
-	schematypes "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestGetReturnsCanonicalBuiltinPointer(t *testing.T) {
@@ -48,7 +48,7 @@ func TestNewSimpleTypeBuildsBuiltinWrapper(t *testing.T) {
 func TestNewSimpleTypeUnknownReturnsError(t *testing.T) {
 	t.Parallel()
 
-	if _, err := NewSimpleType(schematypes.TypeName("unknown")); err == nil {
+	if _, err := NewSimpleType(types.TypeName("unknown")); err == nil {
 		t.Fatal("expected error for unknown builtin simple type")
 	}
 }
@@ -58,7 +58,7 @@ func TestBuiltinListTypeMapping(t *testing.T) {
 
 	cases := []struct {
 		name       string
-		item       schematypes.TypeName
+		item       types.TypeName
 		shouldFind bool
 	}{
 		{name: "NMTOKENS", item: TypeNameNMTOKEN, shouldFind: true},
@@ -105,10 +105,10 @@ func TestMustGetAndIsBuiltin(t *testing.T) {
 	if got == nil {
 		t.Fatal("MustGet(string) returned nil")
 	}
-	if !IsBuiltin(schematypes.QName{Namespace: XSDNamespace, Local: string(TypeNameString)}) {
+	if !IsBuiltin(types.QName{Namespace: XSDNamespace, Local: string(TypeNameString)}) {
 		t.Fatal("IsBuiltin(string QName) = false, want true")
 	}
-	if IsBuiltin(schematypes.QName{Namespace: "urn:test", Local: "string"}) {
+	if IsBuiltin(types.QName{Namespace: "urn:test", Local: "string"}) {
 		t.Fatal("IsBuiltin(non-xsd QName) = true, want false")
 	}
 
@@ -117,5 +117,5 @@ func TestMustGetAndIsBuiltin(t *testing.T) {
 			t.Fatal("MustGet(unknown) did not panic")
 		}
 	}()
-	_ = MustGet(schematypes.TypeName("unknown"))
+	_ = MustGet(types.TypeName("unknown"))
 }

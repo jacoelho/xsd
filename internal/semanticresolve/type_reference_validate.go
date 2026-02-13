@@ -1,20 +1,20 @@
 package semanticresolve
 
 import (
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 const noOriginLocation = ""
 
-func validateTypeReferenceFromTypeAtLocation(schema *parser.Schema, typ model.Type, contextNamespace model.NamespaceURI, originLocation string) error {
-	visited := make(map[*model.ModelGroup]bool)
+func validateTypeReferenceFromTypeAtLocation(schema *parser.Schema, typ types.Type, contextNamespace types.NamespaceURI, originLocation string) error {
+	visited := make(map[*types.ModelGroup]bool)
 	return validateTypeReferenceFromTypeWithVisited(schema, typ, visited, contextNamespace, originLocation)
 }
 
 // validateTypeReferenceFromTypeWithVisited validates type reference with cycle detection.
-func validateTypeReferenceFromTypeWithVisited(schema *parser.Schema, typ model.Type, visited map[*model.ModelGroup]bool, contextNamespace model.NamespaceURI, originLocation string) error {
+func validateTypeReferenceFromTypeWithVisited(schema *parser.Schema, typ types.Type, visited map[*types.ModelGroup]bool, contextNamespace types.NamespaceURI, originLocation string) error {
 	if typ == nil {
 		return nil
 	}
@@ -28,7 +28,7 @@ func validateTypeReferenceFromTypeWithVisited(schema *parser.Schema, typ model.T
 		return nil
 	}
 
-	if st, ok := model.AsSimpleType(typ); ok {
+	if st, ok := types.AsSimpleType(typ); ok {
 		if !st.IsBuiltin() && st.Restriction == nil && st.List == nil && st.Union == nil {
 			if err := typeresolve.ValidateTypeQName(schema, st.QName); err != nil {
 				return err
@@ -36,9 +36,9 @@ func validateTypeReferenceFromTypeWithVisited(schema *parser.Schema, typ model.T
 		}
 	}
 
-	if ct, ok := model.AsComplexType(typ); ok {
+	if ct, ok := types.AsComplexType(typ); ok {
 		if content := ct.Content(); content != nil {
-			if ec, ok := content.(*model.ElementContent); ok && ec.Particle != nil {
+			if ec, ok := content.(*types.ElementContent); ok && ec.Particle != nil {
 				if err := validateParticleReferencesWithVisited(schema, ec.Particle, visited, originLocation); err != nil {
 					return err
 				}

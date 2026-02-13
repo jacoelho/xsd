@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 // Load loads and merges a schema graph from location.

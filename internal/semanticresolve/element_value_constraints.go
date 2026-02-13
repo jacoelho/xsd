@@ -3,12 +3,12 @@ package semanticresolve
 import (
 	"fmt"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func validateElementValueConstraints(sch *parser.Schema, decl *model.ElementDecl) error {
+func validateElementValueConstraints(sch *parser.Schema, decl *types.ElementDecl) error {
 	if decl == nil {
 		return nil
 	}
@@ -22,8 +22,8 @@ func validateElementValueConstraints(sch *parser.Schema, decl *model.ElementDecl
 		return nil
 	}
 
-	if ct, ok := resolvedType.(*model.ComplexType); ok {
-		_, isSimpleContent := ct.Content().(*model.SimpleContent)
+	if ct, ok := resolvedType.(*types.ComplexType); ok {
+		_, isSimpleContent := ct.Content().(*types.SimpleContent)
 		if !isSimpleContent && !ct.EffectiveMixed() {
 			if decl.HasDefault {
 				return fmt.Errorf("element with element-only complex type cannot have default value")

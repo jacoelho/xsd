@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func TestRestrictionProhibitedSkipsFixed(t *testing.T) {

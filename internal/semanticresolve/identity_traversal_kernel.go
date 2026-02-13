@@ -1,20 +1,20 @@
 package semanticresolve
 
-import model "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/types"
 
 type identityTraversalState struct {
-	visitedGroups map[*model.ModelGroup]bool
-	visitedTypes  map[*model.ComplexType]bool
+	visitedGroups map[*types.ModelGroup]bool
+	visitedTypes  map[*types.ComplexType]bool
 }
 
 func newIdentityTraversalState() *identityTraversalState {
 	return &identityTraversalState{
-		visitedGroups: make(map[*model.ModelGroup]bool),
-		visitedTypes:  make(map[*model.ComplexType]bool),
+		visitedGroups: make(map[*types.ModelGroup]bool),
+		visitedTypes:  make(map[*types.ComplexType]bool),
 	}
 }
 
-func walkIdentityContent(content model.Content, state *identityTraversalState, visit func(*model.ElementDecl)) {
+func walkIdentityContent(content types.Content, state *identityTraversalState, visit func(*types.ElementDecl)) {
 	if content == nil {
 		return
 	}
@@ -23,11 +23,11 @@ func walkIdentityContent(content model.Content, state *identityTraversalState, v
 	}
 
 	switch c := content.(type) {
-	case *model.ElementContent:
+	case *types.ElementContent:
 		if c.Particle != nil {
 			walkIdentityParticle(c.Particle, state, visit)
 		}
-	case *model.ComplexContent:
+	case *types.ComplexContent:
 		if c.Extension != nil && c.Extension.Particle != nil {
 			walkIdentityParticle(c.Extension.Particle, state, visit)
 		}
@@ -37,7 +37,7 @@ func walkIdentityContent(content model.Content, state *identityTraversalState, v
 	}
 }
 
-func walkIdentityParticles(particles []model.Particle, state *identityTraversalState, visit func(*model.ElementDecl)) {
+func walkIdentityParticles(particles []types.Particle, state *identityTraversalState, visit func(*types.ElementDecl)) {
 	if len(particles) == 0 {
 		return
 	}
@@ -49,18 +49,18 @@ func walkIdentityParticles(particles []model.Particle, state *identityTraversalS
 	}
 }
 
-func walkIdentityParticle(particle model.Particle, state *identityTraversalState, visit func(*model.ElementDecl)) {
+func walkIdentityParticle(particle types.Particle, state *identityTraversalState, visit func(*types.ElementDecl)) {
 	if particle == nil || state == nil || visit == nil {
 		return
 	}
 
 	switch p := particle.(type) {
-	case *model.ElementDecl:
+	case *types.ElementDecl:
 		visit(p)
 		if p == nil {
 			return
 		}
-		ct, ok := p.Type.(*model.ComplexType)
+		ct, ok := p.Type.(*types.ComplexType)
 		if !ok || ct == nil {
 			return
 		}
@@ -69,7 +69,7 @@ func walkIdentityParticle(particle model.Particle, state *identityTraversalState
 		}
 		state.visitedTypes[ct] = true
 		walkIdentityContent(ct.Content(), state, visit)
-	case *model.ModelGroup:
+	case *types.ModelGroup:
 		if p == nil || state.visitedGroups[p] {
 			return
 		}

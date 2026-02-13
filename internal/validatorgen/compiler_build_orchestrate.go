@@ -3,21 +3,21 @@ package validatorgen
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/complextypeplan"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtimeids"
 )
 
 // Compile builds validators and value tables for the prepared schema.
-func Compile(sch *parser.Schema, registry *schema.Registry) (*CompiledValidators, error) {
+func Compile(sch *parser.Schema, registry *analysis.Registry) (*CompiledValidators, error) {
 	return CompileWithComplexTypePlan(sch, registry, nil)
 }
 
 // CompileWithComplexTypePlan compiles validators, optionally reusing a precomputed complex-type plan.
 func CompileWithComplexTypePlan(
 	sch *parser.Schema,
-	registry *schema.Registry,
+	registry *analysis.Registry,
 	complexTypes *complextypeplan.Plan,
 ) (*CompiledValidators, error) {
 	if sch == nil {
@@ -46,7 +46,7 @@ func CompileWithComplexTypePlan(
 	return comp.result(registry), nil
 }
 
-func (c *compiler) initRuntimeTypeIDs(registry *schema.Registry) {
+func (c *compiler) initRuntimeTypeIDs(registry *analysis.Registry) {
 	if registry == nil {
 		return
 	}

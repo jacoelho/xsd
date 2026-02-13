@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"testing"
 
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestCycleDetectorEnterReturnsTypedCycleError(t *testing.T) {
-	detector := NewCycleDetector[model.QName]()
-	key := model.QName{Namespace: "urn:test", Local: "A"}
+	detector := NewCycleDetector[types.QName]()
+	key := types.QName{Namespace: "urn:test", Local: "A"}
 
 	if err := detector.Enter(key); err != nil {
 		t.Fatalf("first enter should succeed, got %v", err)
@@ -24,7 +24,7 @@ func TestCycleDetectorEnterReturnsTypedCycleError(t *testing.T) {
 		t.Fatalf("expected cycle error, got %v", err)
 	}
 
-	var cycleErr CycleError[model.QName]
+	var cycleErr CycleError[types.QName]
 	if !errors.As(err, &cycleErr) {
 		t.Fatalf("expected typed cycle error, got %T", err)
 	}
@@ -34,8 +34,8 @@ func TestCycleDetectorEnterReturnsTypedCycleError(t *testing.T) {
 }
 
 func TestIsCycleErrorDetectsWrappedCycleErrors(t *testing.T) {
-	key := model.QName{Namespace: "urn:test", Local: "B"}
-	err := fmt.Errorf("outer: %w", CycleError[model.QName]{Key: key})
+	key := types.QName{Namespace: "urn:test", Local: "B"}
+	err := fmt.Errorf("outer: %w", CycleError[types.QName]{Key: key})
 	if !IsCycleError(err) {
 		t.Fatalf("expected wrapped cycle error to be detected")
 	}

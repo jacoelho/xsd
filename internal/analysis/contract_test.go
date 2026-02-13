@@ -3,14 +3,14 @@ package analysis
 import (
 	"testing"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestAssignIDsRejectsPlaceholders(t *testing.T) {
 	sch := parser.NewSchema()
-	name := model.QName{Namespace: "urn:test", Local: "MissingType"}
-	sch.TypeDefs[name] = model.NewPlaceholderSimpleType(name)
+	name := types.QName{Namespace: "urn:test", Local: "MissingType"}
+	sch.TypeDefs[name] = types.NewPlaceholderSimpleType(name)
 	sch.GlobalDecls = append(sch.GlobalDecls, parser.GlobalDecl{
 		Kind: parser.GlobalDeclType,
 		Name: name,
@@ -22,8 +22,8 @@ func TestAssignIDsRejectsPlaceholders(t *testing.T) {
 
 func TestResolveReferencesRejectsPlaceholders(t *testing.T) {
 	sch := parser.NewSchema()
-	name := model.QName{Namespace: "urn:test", Local: "MissingType"}
-	sch.TypeDefs[name] = model.NewPlaceholderSimpleType(name)
+	name := types.QName{Namespace: "urn:test", Local: "MissingType"}
+	sch.TypeDefs[name] = types.NewPlaceholderSimpleType(name)
 	sch.GlobalDecls = append(sch.GlobalDecls, parser.GlobalDecl{
 		Kind: parser.GlobalDeclType,
 		Name: name,
@@ -35,8 +35,8 @@ func TestResolveReferencesRejectsPlaceholders(t *testing.T) {
 
 func TestRequireResolvedRejectsPlaceholders(t *testing.T) {
 	sch := parser.NewSchema()
-	name := model.QName{Namespace: "urn:test", Local: "MissingType"}
-	sch.TypeDefs[name] = model.NewPlaceholderSimpleType(name)
+	name := types.QName{Namespace: "urn:test", Local: "MissingType"}
+	sch.TypeDefs[name] = types.NewPlaceholderSimpleType(name)
 	sch.GlobalDecls = append(sch.GlobalDecls, parser.GlobalDecl{
 		Kind: parser.GlobalDeclType,
 		Name: name,

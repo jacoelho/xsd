@@ -3,7 +3,7 @@ package complextypeplan
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -28,7 +28,7 @@ type Plan struct {
 }
 
 // Build computes immutable per-complex-type artifacts in registry order.
-func Build(registry *schema.Registry, funcs ComputeFuncs) (*Plan, error) {
+func Build(registry *analysis.Registry, funcs ComputeFuncs) (*Plan, error) {
 	if registry == nil {
 		return nil, fmt.Errorf("complex type plan: registry is nil")
 	}

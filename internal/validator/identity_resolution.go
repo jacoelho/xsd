@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
-	ic "github.com/jacoelho/xsd/internal/identity"
+	"github.com/jacoelho/xsd/internal/identity"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -12,19 +12,19 @@ func resolveScopeErrors(scope *rtIdentityScope) []error {
 	if scope == nil {
 		return nil
 	}
-	constraints := make([]ic.Constraint, len(scope.constraints))
+	constraints := make([]identity.Constraint, len(scope.constraints))
 	names := make(map[runtime.ICID]string, len(scope.constraints))
 	for i := range scope.constraints {
 		constraint := &scope.constraints[i]
-		rows := make([]ic.Row, len(constraint.rows))
+		rows := make([]identity.Row, len(constraint.rows))
 		for j, row := range constraint.rows {
-			rows[j] = ic.Row{Values: row.values, Hash: row.hash}
+			rows[j] = identity.Row{Values: row.values, Hash: row.hash}
 		}
-		keyrefs := make([]ic.Row, len(constraint.keyrefRows))
+		keyrefs := make([]identity.Row, len(constraint.keyrefRows))
 		for j, row := range constraint.keyrefRows {
-			keyrefs[j] = ic.Row{Values: row.values, Hash: row.hash}
+			keyrefs[j] = identity.Row{Values: row.values, Hash: row.hash}
 		}
-		constraints[i] = ic.Constraint{
+		constraints[i] = identity.Constraint{
 			ID:         constraint.id,
 			Category:   constraint.category,
 			Referenced: constraint.referenced,
@@ -36,7 +36,7 @@ func resolveScopeErrors(scope *rtIdentityScope) []error {
 		}
 	}
 
-	issues := ic.Resolve(constraints)
+	issues := identity.Resolve(constraints)
 	if len(issues) == 0 {
 		return nil
 	}
@@ -48,11 +48,11 @@ func resolveScopeErrors(scope *rtIdentityScope) []error {
 			label = fmt.Sprintf("identity constraint %s", name)
 		}
 		switch issue.Kind {
-		case ic.IssueDuplicate:
+		case identity.IssueDuplicate:
 			errs = append(errs, newValidationError(xsderrors.ErrIdentityDuplicate, fmt.Sprintf("%s duplicate", label)))
-		case ic.IssueKeyrefMissing:
+		case identity.IssueKeyrefMissing:
 			errs = append(errs, newValidationError(xsderrors.ErrIdentityKeyRefFailed, fmt.Sprintf("%s keyref missing", label)))
-		case ic.IssueKeyrefUndefined:
+		case identity.IssueKeyrefUndefined:
 			errs = append(errs, newValidationError(xsderrors.ErrIdentityAbsent, fmt.Sprintf("%s keyref undefined", label)))
 		default:
 			errs = append(errs, newValidationError(xsderrors.ErrIdentityAbsent, fmt.Sprintf("%s violation", label)))

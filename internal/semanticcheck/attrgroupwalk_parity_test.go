@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func TestMergeAttributesFromGroupsForValidationTraversesNestedCycle(t *testing.T) {

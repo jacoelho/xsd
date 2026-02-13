@@ -1,10 +1,10 @@
 package builtins
 
-import schematypes "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/types"
 
 type registry struct {
-	byName  map[schematypes.TypeName]*schematypes.BuiltinType
-	ordered []*schematypes.BuiltinType
+	byName  map[types.TypeName]*types.BuiltinType
+	ordered []*types.BuiltinType
 }
 
-var defaultRegistry = newRegistry(schematypes.BuiltinTypes())
+var defaultRegistry = newRegistry(types.BuiltinTypes())

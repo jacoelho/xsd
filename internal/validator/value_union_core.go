@@ -1,7 +1,7 @@
 package validator
 
 import (
-	facetengine "github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 )
@@ -14,20 +14,20 @@ func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexi
 	if s == nil || s.rt == nil {
 		return nil, valueErrorf(valueErrInvalid, "runtime schema missing")
 	}
-	facets, err := facetengine.RuntimeProgramSlice(meta, s.rt.Facets)
+	program, err := facets.RuntimeProgramSlice(meta, s.rt.Facets)
 	if err != nil {
 		return nil, valueErrorMsg(valueErrInvalid, err.Error())
 	}
-	enumIDs := facetengine.RuntimeProgramEnumIDs(facets)
+	enumIDs := facets.RuntimeProgramEnumIDs(program)
 	hasPatterns := false
-	for _, instr := range facets {
+	for _, instr := range program {
 		if instr.Op == runtime.FPattern {
 			hasPatterns = true
 			break
 		}
 	}
 	if hasPatterns {
-		checked, err := s.checkUnionPatterns(facets, normalized)
+		checked, err := s.checkUnionPatterns(program, normalized)
 		if err != nil {
 			return nil, err
 		}

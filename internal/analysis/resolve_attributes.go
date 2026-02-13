@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/attrgroupwalk"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (r *referenceResolver) resolveAttribute(attr *model.AttributeDecl) error {
+func (r *referenceResolver) resolveAttribute(attr *types.AttributeDecl) error {
 	if attr == nil {
 		return nil
 	}
@@ -18,7 +18,7 @@ func (r *referenceResolver) resolveAttribute(attr *model.AttributeDecl) error {
 	if attr.Type == nil {
 		return nil
 	}
-	if st, ok := attr.Type.(*model.SimpleType); ok && model.IsPlaceholderSimpleType(st) {
+	if st, ok := attr.Type.(*types.SimpleType); ok && types.IsPlaceholderSimpleType(st) {
 		if err := r.resolveTypeQName(st.QName); err != nil {
 			return fmt.Errorf("attribute %s: %w", attr.Name, err)
 		}
@@ -30,7 +30,7 @@ func (r *referenceResolver) resolveAttribute(attr *model.AttributeDecl) error {
 	return nil
 }
 
-func (r *referenceResolver) resolveAttributeReference(attr *model.AttributeDecl) error {
+func (r *referenceResolver) resolveAttributeReference(attr *types.AttributeDecl) error {
 	target := r.schema.AttributeDecls[attr.Name]
 	if target == nil {
 		return fmt.Errorf("attribute ref %s not found", attr.Name)
@@ -46,7 +46,7 @@ func (r *referenceResolver) resolveAttributeReference(attr *model.AttributeDecl)
 	return nil
 }
 
-func (r *referenceResolver) resolveAttributeGroup(name model.QName, group *model.AttributeGroup) error {
+func (r *referenceResolver) resolveAttributeGroup(name types.QName, group *types.AttributeGroup) error {
 	if err := attrgroupwalk.Walk(r.schema, group.AttrGroups, attrgroupwalk.MissingError, nil); err != nil {
 		var missingErr attrgroupwalk.AttrGroupMissingError
 		if errors.As(err, &missingErr) {
@@ -62,7 +62,7 @@ func (r *referenceResolver) resolveAttributeGroup(name model.QName, group *model
 	return nil
 }
 
-func (r *referenceResolver) resolveAttributes(attrs []*model.AttributeDecl, groups []model.QName) error {
+func (r *referenceResolver) resolveAttributes(attrs []*types.AttributeDecl, groups []types.QName) error {
 	if err := attrgroupwalk.Walk(r.schema, groups, attrgroupwalk.MissingError, nil); err != nil {
 		var missingErr attrgroupwalk.AttrGroupMissingError
 		if errors.As(err, &missingErr) {

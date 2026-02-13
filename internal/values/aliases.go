@@ -2,60 +2,60 @@ package values
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	valuelex "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/valuesemantics"
 )
 
 // ValidateToken validates xs:token lexical values.
-var ValidateToken = valuelex.ValidateToken
+var ValidateToken = value.ValidateToken
 
 // ValidateName validates xs:Name lexical values.
-var ValidateName = valuelex.ValidateName
+var ValidateName = value.ValidateName
 
 // ValidateNCName validates xs:NCName lexical values.
-var ValidateNCName = valuelex.ValidateNCName
+var ValidateNCName = value.ValidateNCName
 
 // ValidateNMTOKEN validates xs:NMTOKEN lexical values.
-var ValidateNMTOKEN = valuelex.ValidateNMTOKEN
+var ValidateNMTOKEN = value.ValidateNMTOKEN
 
 // ValidateLanguage validates xs:language lexical values.
-var ValidateLanguage = valuelex.ValidateLanguage
+var ValidateLanguage = value.ValidateLanguage
 
 // ValidateAnyURI validates xs:anyURI lexical values.
-var ValidateAnyURI = valuelex.ValidateAnyURI
+var ValidateAnyURI = value.ValidateAnyURI
 
 // ValidateQName validates xs:QName lexical values.
-var ValidateQName = valuelex.ValidateQName
+var ValidateQName = value.ValidateQName
 
 // ParseBoolean parses xs:boolean lexical values.
-var ParseBoolean = valuelex.ParseBoolean
+var ParseBoolean = value.ParseBoolean
 
 // ParseDecimal parses xs:decimal lexical values.
-var ParseDecimal = valuelex.ParseDecimal
+var ParseDecimal = value.ParseDecimal
 
 // ParseInteger parses xs:integer lexical values.
-var ParseInteger = valuelex.ParseInteger
+var ParseInteger = value.ParseInteger
 
 // ParseFloat parses xs:float lexical values.
-var ParseFloat = valuelex.ParseFloat
+var ParseFloat = value.ParseFloat
 
 // ParseDouble parses xs:double lexical values.
-var ParseDouble = valuelex.ParseDouble
+var ParseDouble = value.ParseDouble
 
 // CanonicalFloat canonicalizes float values for value-space comparisons.
-var CanonicalFloat = valuelex.CanonicalFloat
+var CanonicalFloat = value.CanonicalFloat
 
 // CanonicalDateTimeString canonicalizes dateTime lexical values.
-var CanonicalDateTimeString = valuelex.CanonicalDateTimeString
+var CanonicalDateTimeString = value.CanonicalDateTimeString
 
 // HasTimezone reports whether a lexical temporal value contains a timezone.
-var HasTimezone = valuelex.HasTimezone
+var HasTimezone = value.HasTimezone
 
 // FormatFraction formats the fractional component for canonical decimal output.
-var FormatFraction = valuelex.FormatFraction
+var FormatFraction = value.FormatFraction
 
 // UpperHex uppercases hexadecimal digits.
-var UpperHex = valuelex.UpperHex
+var UpperHex = value.UpperHex
 
 // KeyForValidatorKind derives deterministic value-key encoding from canonical lexical bytes.
 func KeyForValidatorKind(kind runtime.ValidatorKind, canonical []byte) (runtime.ValueKind, []byte, error) {

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/durationlex"
-	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/value/temporal"
 )

@@ -3,14 +3,14 @@ package validatorgen
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/complextypeplan"
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
 )
 
-func (c *compiler) prepareComplexTypePlan(registry *schema.Registry) error {
+func (c *compiler) prepareComplexTypePlan(registry *analysis.Registry) error {
 	if c.complexTypes != nil {
 		return nil
 	}
@@ -22,7 +22,7 @@ func (c *compiler) prepareComplexTypePlan(registry *schema.Registry) error {
 	return nil
 }
 
-func (c *compiler) buildComplexTypePlan(registry *schema.Registry) (*complextypeplan.Plan, error) {
+func (c *compiler) buildComplexTypePlan(registry *analysis.Registry) (*complextypeplan.Plan, error) {
 	if c == nil {
 		return nil, fmt.Errorf("compiler is nil")
 	}
@@ -47,7 +47,7 @@ func (c *compiler) buildComplexTypePlan(registry *schema.Registry) (*complextype
 }
 
 // BuildComplexTypePlan precomputes shared complex-type artifacts for compile/build phases.
-func BuildComplexTypePlan(sch *parser.Schema, registry *schema.Registry) (*complextypeplan.Plan, error) {
+func BuildComplexTypePlan(sch *parser.Schema, registry *analysis.Registry) (*complextypeplan.Plan, error) {
 	if sch == nil {
 		return nil, fmt.Errorf("schema is nil")
 	}

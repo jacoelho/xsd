@@ -3,9 +3,9 @@ package runtimeassemble
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/complextypeplan"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validatorgen"
 )
@@ -19,18 +19,18 @@ type BuildConfig struct {
 // PreparedArtifacts stores immutable runtime-build prerequisites.
 type PreparedArtifacts struct {
 	schema     *parser.Schema
-	registry   *schema.Registry
-	refs       *schema.ResolvedReferences
+	registry   *analysis.Registry
+	refs       *analysis.ResolvedReferences
 	validators *validatorgen.CompiledValidators
 }
 
 // BuildComplexTypePlan precomputes shared complex-type artifacts during prepare.
-func BuildComplexTypePlan(sch *parser.Schema, reg *schema.Registry) (*complextypeplan.Plan, error) {
+func BuildComplexTypePlan(sch *parser.Schema, reg *analysis.Registry) (*complextypeplan.Plan, error) {
 	return validatorgen.BuildComplexTypePlan(sch, reg)
 }
 
 // BuildArtifacts compiles resolved semantic artifacts into a runtime schema model.
-func BuildArtifacts(sch *parser.Schema, reg *schema.Registry, refs *schema.ResolvedReferences, cfg BuildConfig) (*runtime.Schema, error) {
+func BuildArtifacts(sch *parser.Schema, reg *analysis.Registry, refs *analysis.ResolvedReferences, cfg BuildConfig) (*runtime.Schema, error) {
 	prepared, err := PrepareBuildArtifacts(sch, reg, refs)
 	if err != nil {
 		return nil, err
@@ -39,15 +39,15 @@ func BuildArtifacts(sch *parser.Schema, reg *schema.Registry, refs *schema.Resol
 }
 
 // PrepareBuildArtifacts compiles validator artifacts once for repeated runtime builds.
-func PrepareBuildArtifacts(sch *parser.Schema, reg *schema.Registry, refs *schema.ResolvedReferences) (*PreparedArtifacts, error) {
+func PrepareBuildArtifacts(sch *parser.Schema, reg *analysis.Registry, refs *analysis.ResolvedReferences) (*PreparedArtifacts, error) {
 	return PrepareBuildArtifactsWithComplexTypePlan(sch, reg, refs, nil)
 }
 
 // PrepareBuildArtifactsWithComplexTypePlan compiles validator artifacts once for repeated runtime builds.
 func PrepareBuildArtifactsWithComplexTypePlan(
 	sch *parser.Schema,
-	reg *schema.Registry,
-	refs *schema.ResolvedReferences,
+	reg *analysis.Registry,
+	refs *analysis.ResolvedReferences,
 	complexTypes *complextypeplan.Plan,
 ) (*PreparedArtifacts, error) {
 	if err := validateBuildInputs(sch, reg, refs); err != nil {

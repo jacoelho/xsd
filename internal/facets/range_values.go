@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 // ValidateRangeValues validates range facet literals against base-type lexical space.

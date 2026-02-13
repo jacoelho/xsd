@@ -3,7 +3,7 @@ package analysis
 import (
 	"fmt"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func validateSchemaInput(schema *parser.Schema) error {

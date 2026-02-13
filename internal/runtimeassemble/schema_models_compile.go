@@ -3,14 +3,14 @@ package runtimeassemble
 import (
 	"fmt"
 
-	models "github.com/jacoelho/xsd/internal/contentmodel"
+	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/grouprefs"
 	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/runtime"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.ModelRef, runtime.ContentKind, error) {
+func (b *schemaBuilder) compileParticleModel(particle types.Particle) (runtime.ModelRef, runtime.ContentKind, error) {
 	if particle == nil {
 		return runtime.ModelRef{Kind: runtime.ModelNone}, runtime.ContentEmpty, nil
 	}
@@ -26,7 +26,7 @@ func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.M
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
-	if group, ok := particle.(*model.ModelGroup); ok && group.Kind == model.AllGroup {
+	if group, ok := particle.(*types.ModelGroup); ok && group.Kind == types.AllGroup {
 		ref, addErr := b.addAllModel(group)
 		if addErr != nil {
 			return runtime.ModelRef{}, 0, addErr
@@ -34,11 +34,11 @@ func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.M
 		return ref, runtime.ContentAll, nil
 	}
 
-	glu, err := models.BuildGlushkov(particle)
+	glu, err := contentmodel.BuildGlushkov(particle)
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
-	glu, err = models.ExpandSubstitution(glu, b.resolveSubstitutionHead, b.substitutionMembers)
+	glu, err = contentmodel.ExpandSubstitution(glu, b.resolveSubstitutionHead, b.substitutionMembers)
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
@@ -46,7 +46,7 @@ func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.M
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
-	compiled, err := models.Compile(glu, matchers, b.limits)
+	compiled, err := contentmodel.Compile(glu, matchers, b.limits)
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
@@ -66,7 +66,7 @@ func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.M
 
 func (b *schemaBuilder) groupRefExpansionOptions() grouprefs.ExpandGroupRefsOptions {
 	return grouprefs.ExpandGroupRefsOptions{
-		Lookup: func(ref *model.GroupRef) *model.ModelGroup {
+		Lookup: func(ref *types.GroupRef) *types.ModelGroup {
 			if ref == nil {
 				return nil
 			}
@@ -85,10 +85,10 @@ func (b *schemaBuilder) groupRefExpansionOptions() grouprefs.ExpandGroupRefsOpti
 			}
 			return b.schema.Groups[ref.RefQName]
 		},
-		MissingError: func(ref model.QName) error {
+		MissingError: func(ref types.QName) error {
 			return fmt.Errorf("group ref %s not resolved", ref)
 		},
-		CycleError: func(ref model.QName) error {
+		CycleError: func(ref types.QName) error {
 			return fmt.Errorf("group ref cycle detected: %s", ref)
 		},
 		AllGroupMode: grouprefs.AllGroupKeep,
@@ -96,9 +96,9 @@ func (b *schemaBuilder) groupRefExpansionOptions() grouprefs.ExpandGroupRefsOpti
 	}
 }
 
-func isEmptyChoice(particle model.Particle) bool {
-	group, ok := particle.(*model.ModelGroup)
-	if !ok || group == nil || group.Kind != model.Choice {
+func isEmptyChoice(particle types.Particle) bool {
+	group, ok := particle.(*types.ModelGroup)
+	if !ok || group == nil || group.Kind != types.Choice {
 		return false
 	}
 	for _, child := range group.Particles {
@@ -113,7 +113,7 @@ func isEmptyChoice(particle model.Particle) bool {
 	return true
 }
 
-func (b *schemaBuilder) validateOccursLimit(particle model.Particle) error {
+func (b *schemaBuilder) validateOccursLimit(particle types.Particle) error {
 	if particle == nil || b.maxOccurs == 0 {
 		return nil
 	}
@@ -123,7 +123,7 @@ func (b *schemaBuilder) validateOccursLimit(particle model.Particle) error {
 	if err := b.checkOccursValue("maxOccurs", particle.MaxOcc()); err != nil {
 		return err
 	}
-	if group, ok := particle.(*model.ModelGroup); ok {
+	if group, ok := particle.(*types.ModelGroup); ok {
 		for _, child := range group.Particles {
 			if err := b.validateOccursLimit(child); err != nil {
 				return err

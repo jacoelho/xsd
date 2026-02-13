@@ -3,14 +3,14 @@ package semanticresolve
 import (
 	"fmt"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateTypeReferences validates all type references within a type definition.
-func validateTypeReferences(schema *parser.Schema, qname model.QName, typ model.Type) error {
+func validateTypeReferences(schema *parser.Schema, qname types.QName, typ types.Type) error {
 	switch t := typ.(type) {
-	case *model.SimpleType:
+	case *types.SimpleType:
 		if t.Restriction != nil {
 			if !t.Restriction.Base.IsZero() {
 				if err := validateTypeQNameReference(schema, t.Restriction.Base, qname.Namespace); err != nil {
@@ -19,14 +19,14 @@ func validateTypeReferences(schema *parser.Schema, qname model.QName, typ model.
 				if err := validateSimpleTypeFinal(
 					schema,
 					t.Restriction.Base,
-					model.DerivationRestriction,
+					types.DerivationRestriction,
 					"cannot derive by restriction from type '%s' which is final for restriction",
 				); err != nil {
 					return err
 				}
 			}
 			if t.ResolvedBase != nil {
-				if baseST, ok := model.AsSimpleType(t.ResolvedBase); ok && baseST.Final.Has(model.DerivationRestriction) {
+				if baseST, ok := types.AsSimpleType(t.ResolvedBase); ok && baseST.Final.Has(types.DerivationRestriction) {
 					return fmt.Errorf("cannot derive by restriction from type '%s' which is final for restriction", baseST.QName)
 				}
 			}
@@ -38,7 +38,7 @@ func validateTypeReferences(schema *parser.Schema, qname model.QName, typ model.
 			if err := validateSimpleTypeFinal(
 				schema,
 				t.List.ItemType,
-				model.DerivationList,
+				types.DerivationList,
 				"cannot use type '%s' as list item type because it is final for list",
 			); err != nil {
 				return err
@@ -52,15 +52,15 @@ func validateTypeReferences(schema *parser.Schema, qname model.QName, typ model.
 				if err := validateSimpleTypeFinal(
 					schema,
 					memberType,
-					model.DerivationUnion,
+					types.DerivationUnion,
 					"cannot use type '%s' as union member type because it is final for union",
 				); err != nil {
 					return fmt.Errorf("union memberType %d: %w", i+1, err)
 				}
 			}
 		}
-	case *model.ComplexType:
-		if cc, ok := t.Content().(*model.ComplexContent); ok {
+	case *types.ComplexType:
+		if cc, ok := t.Content().(*types.ComplexContent); ok {
 			if cc.Extension != nil {
 				if err := validateTypeQNameReference(schema, cc.Extension.Base, qname.Namespace); err != nil {
 					return fmt.Errorf("extension base type: %w", err)
@@ -72,7 +72,7 @@ func validateTypeReferences(schema *parser.Schema, qname model.QName, typ model.
 				}
 			}
 		}
-		if sc, ok := t.Content().(*model.SimpleContent); ok {
+		if sc, ok := t.Content().(*types.SimpleContent); ok {
 			if sc.Extension != nil {
 				if err := validateTypeQNameReference(schema, sc.Extension.Base, qname.Namespace); err != nil {
 					return fmt.Errorf("extension base type: %w", err)
@@ -92,12 +92,12 @@ func validateTypeReferences(schema *parser.Schema, qname model.QName, typ model.
 	return nil
 }
 
-func validateSimpleTypeFinal(schema *parser.Schema, qname model.QName, method model.DerivationMethod, errFmt string) error {
+func validateSimpleTypeFinal(schema *parser.Schema, qname types.QName, method types.DerivationMethod, errFmt string) error {
 	if qname.IsZero() {
 		return nil
 	}
 
-	if qname.Namespace == model.XSDNamespace {
+	if qname.Namespace == types.XSDNamespace {
 		return nil
 	}
 
@@ -106,7 +106,7 @@ func validateSimpleTypeFinal(schema *parser.Schema, qname model.QName, method mo
 		return nil
 	}
 
-	if st, ok := model.AsSimpleType(typ); ok {
+	if st, ok := types.AsSimpleType(typ); ok {
 		if st.Final.Has(method) {
 			return fmt.Errorf(errFmt, qname)
 		}

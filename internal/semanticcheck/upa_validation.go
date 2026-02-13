@@ -3,11 +3,11 @@ package semanticcheck
 import (
 	"fmt"
 
-	models "github.com/jacoelho/xsd/internal/contentmodel"
+	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/grouprefs"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/occurs"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
 )
 
@@ -54,12 +54,12 @@ func ValidateUPA(schema *parser.Schema, content model.Content, _ model.Namespace
 		return nil
 	}
 
-	glu, err := models.BuildGlushkov(particle)
+	glu, err := contentmodel.BuildGlushkov(particle)
 	if err != nil {
 		return err
 	}
 	checker := newUPAChecker(schema)
-	return models.CheckDeterminism(glu, checker.positionsOverlap)
+	return contentmodel.CheckDeterminism(glu, checker.positionsOverlap)
 }
 
 func upaParticles(schema *parser.Schema, content model.Content) (model.Particle, model.Particle) {

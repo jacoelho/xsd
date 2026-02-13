@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
-	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
-	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semanticcheck"
+	"github.com/jacoelho/xsd/internal/semanticresolve"
 )
 
 func TestFacetValidationConsistentAcrossPhases(t *testing.T) {
@@ -98,7 +98,7 @@ func runSchemacheck(t *testing.T, schemaXML string) (bool, []error) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	errs := schemacheck.ValidateStructure(schema)
+	errs := semanticcheck.ValidateStructure(schema)
 	return len(errs) == 0, errs
 }
 
@@ -108,10 +108,10 @@ func runResolverValidation(t *testing.T, schemaXML string) (bool, []error) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	res := resolver.NewResolver(schema)
+	res := semanticresolve.NewResolver(schema)
 	if err := res.Resolve(); err != nil {
 		t.Fatalf("resolve schema: %v", err)
 	}
-	errs := resolver.ValidateReferences(schema)
+	errs := semanticresolve.ValidateReferences(schema)
 	return len(errs) == 0, errs
 }

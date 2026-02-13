@@ -3,8 +3,8 @@ package semanticresolve
 import (
 	"fmt"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -18,7 +18,7 @@ import (
 // - IsReference=false: came from name="..." in XSD, local declaration that doesn't need to exist
 //
 // contextType should be "element" or "type" for error message formatting.
-func validateAttributeReference(sch *parser.Schema, contextQName model.QName, attr *model.AttributeDecl, contextType string) error {
+func validateAttributeReference(sch *parser.Schema, contextQName types.QName, attr *types.AttributeDecl, contextType string) error {
 	// skip local attribute declarations - they're not references.
 	if !attr.IsReference {
 		return nil
@@ -61,7 +61,7 @@ func validateAttributeReference(sch *parser.Schema, contextQName model.QName, at
 
 // isBuiltinXMLAttribute checks if an attribute is a built-in XML namespace attribute.
 // XML namespace attributes (xml:base, xml:lang, xml:space) are built-in and always available.
-func isBuiltinXMLAttribute(attr *model.AttributeDecl) bool {
+func isBuiltinXMLAttribute(attr *types.AttributeDecl) bool {
 	return attr.Name.Namespace == xmltree.XMLNamespace
 }
 
@@ -69,13 +69,13 @@ func isBuiltinXMLAttribute(attr *model.AttributeDecl) bool {
 // If the reference has the target namespace and is not found, also checks the no-namespace.
 // This handles cases where attribute groups from imported schemas with no target namespace
 // are referenced without a prefix (resolved to target namespace).
-func validateAttributeGroupReference(sch *parser.Schema, agRef, contextQName model.QName) error {
+func validateAttributeGroupReference(sch *parser.Schema, agRef, contextQName types.QName) error {
 	if _, exists := sch.AttributeGroups[agRef]; !exists {
 		// if reference has target namespace and not found, also check no-namespace.
 		// this handles cases where attribute groups from imported schemas with no
 		// target namespace are referenced without a prefix (resolved to target namespace).
 		if agRef.Namespace == sch.TargetNamespace && sch.TargetNamespace != "" {
-			noNSRef := model.QName{
+			noNSRef := types.QName{
 				Namespace: "",
 				Local:     agRef.Local,
 			}

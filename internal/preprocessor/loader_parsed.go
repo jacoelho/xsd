@@ -2,7 +2,7 @@ package preprocessor
 
 import (
 	"github.com/jacoelho/xsd/internal/loadguard"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func (l *Loader) loadParsed(result *parser.ParseResult, systemID string, key loadKey) (*parser.Schema, error) {

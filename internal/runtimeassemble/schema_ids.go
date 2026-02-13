@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/runtimeids"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (b *schemaBuilder) initIDs() error {
@@ -18,7 +18,7 @@ func (b *schemaBuilder) initIDs() error {
 
 	complexCount := 0
 	for _, entry := range b.registry.TypeOrder {
-		if _, ok := model.AsComplexType(entry.Type); ok {
+		if _, ok := types.AsComplexType(entry.Type); ok {
 			complexCount++
 		}
 	}

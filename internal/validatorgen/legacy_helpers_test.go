@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/prep"
 )
 
@@ -21,16 +21,16 @@ func resolveSchema(schemaXML string) (*parser.Schema, error) {
 	return resolved, nil
 }
 
-func parseAndAssign(schemaXML string) (*parser.Schema, *schema.Registry, error) {
+func parseAndAssign(schemaXML string) (*parser.Schema, *analysis.Registry, error) {
 	sch, err := resolveSchema(schemaXML)
 	if err != nil {
 		return nil, nil, err
 	}
-	reg, err := schema.AssignIDs(sch)
+	reg, err := analysis.AssignIDs(sch)
 	if err != nil {
 		return nil, nil, err
 	}
-	if _, err := schema.ResolveReferences(sch, reg); err != nil {
+	if _, err := analysis.ResolveReferences(sch, reg); err != nil {
 		return nil, nil, err
 	}
 	return sch, reg, nil

@@ -4,7 +4,7 @@ import (
 	"io"
 
 	"github.com/jacoelho/xsd/internal/loadguard"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 type loadSession struct {

@@ -6,41 +6,41 @@ import (
 
 	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/graphcycle"
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func detectSubstitutionGroupCycles(schema *parser.Schema) error {
-	starts := make([]model.QName, 0, len(schema.ElementDecls))
-	if err := globaldecl.ForEachElement(schema, func(name model.QName, _ *model.ElementDecl) error {
+	starts := make([]types.QName, 0, len(schema.ElementDecls))
+	if err := globaldecl.ForEachElement(schema, func(name types.QName, _ *types.ElementDecl) error {
 		starts = append(starts, name)
 		return nil
 	}); err != nil {
 		return err
 	}
 
-	err := graphcycle.Detect(graphcycle.Config[model.QName]{
+	err := graphcycle.Detect(graphcycle.Config[types.QName]{
 		Starts:  starts,
 		Missing: graphcycle.MissingPolicyError,
-		Exists: func(name model.QName) bool {
+		Exists: func(name types.QName) bool {
 			return schema.ElementDecls[name] != nil
 		},
-		Next: func(name model.QName) ([]model.QName, error) {
+		Next: func(name types.QName) ([]types.QName, error) {
 			decl := schema.ElementDecls[name]
 			if decl == nil || decl.SubstitutionGroup.IsZero() {
 				return nil, nil
 			}
-			return []model.QName{decl.SubstitutionGroup}, nil
+			return []types.QName{decl.SubstitutionGroup}, nil
 		},
 	})
 	if err == nil {
 		return nil
 	}
-	var cycleErr graphcycle.CycleError[model.QName]
+	var cycleErr graphcycle.CycleError[types.QName]
 	if errors.As(err, &cycleErr) {
 		return fmt.Errorf("substitution group cycle detected at %s", cycleErr.Key)
 	}
-	var missingErr graphcycle.MissingError[model.QName]
+	var missingErr graphcycle.MissingError[types.QName]
 	if errors.As(err, &missingErr) {
 		if missingErr.From.IsZero() {
 			return fmt.Errorf("element %s not found", missingErr.Key)

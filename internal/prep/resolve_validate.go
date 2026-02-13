@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/semanticcheck"
 	"github.com/jacoelho/xsd/internal/semanticresolve"
 )

@@ -1,7 +1,7 @@
 package analysis
 
 import (
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 // DetectCycles validates that type derivation, group refs, attribute group refs,

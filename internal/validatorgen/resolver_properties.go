@@ -7,7 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/typewalk"
-	wsmode "github.com/jacoelho/xsd/internal/whitespace"
+	"github.com/jacoelho/xsd/internal/whitespace"
 )
 
 func (r *typeResolver) builtinNameForType(typ model.Type) (model.TypeName, bool) {
@@ -89,7 +89,7 @@ func (r *typeResolver) whitespaceMode(typ model.Type) runtime.WhitespaceMode {
 	mode := runtime.WSPreserve
 	typewalk.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
-			mode = wsmode.ToRuntime(bt.WhiteSpace())
+			mode = whitespace.ToRuntime(bt.WhiteSpace())
 			return false
 		}
 		st, ok := model.AsSimpleType(current)
@@ -98,10 +98,10 @@ func (r *typeResolver) whitespaceMode(typ model.Type) runtime.WhitespaceMode {
 			return false
 		}
 		if st.WhiteSpaceExplicit() || st.List != nil || st.Union != nil {
-			mode = wsmode.ToRuntime(st.WhiteSpace())
+			mode = whitespace.ToRuntime(st.WhiteSpace())
 			return false
 		}
-		mode = wsmode.ToRuntime(st.WhiteSpace())
+		mode = whitespace.ToRuntime(st.WhiteSpace())
 		return true
 	})
 	return mode

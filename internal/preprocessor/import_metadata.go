@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/objects"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func ensureNamespaceMap(m map[objects.NamespaceURI]map[objects.NamespaceURI]bool, key objects.NamespaceURI) map[objects.NamespaceURI]bool {

@@ -2,7 +2,7 @@ package preprocessor
 
 import (
 	"github.com/jacoelho/xsd/internal/objects"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 type loadKey struct {

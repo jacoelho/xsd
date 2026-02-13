@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestResolverResolveAnonymousContent(t *testing.T) {
@@ -28,7 +28,7 @@ func TestValidateSimpleTypeFinalUnion(t *testing.T) {
 
 func TestValidateTypeQNameReferenceMissing(t *testing.T) {
 	schema := parseW3CSchema(t, "saxonData/Missing/missing001.xsd")
-	err := validateTypeQNameReference(schema, model.QName{Local: "absent"}, schema.TargetNamespace)
+	err := validateTypeQNameReference(schema, types.QName{Local: "absent"}, schema.TargetNamespace)
 	if err == nil {
 		t.Fatalf("expected missing type reference error")
 	}
@@ -36,7 +36,7 @@ func TestValidateTypeQNameReferenceMissing(t *testing.T) {
 
 func TestResolveUnionAndListItemTypes(t *testing.T) {
 	unionSchema := parseW3CSchema(t, "saxonData/Simple/simple085.xsd")
-	unionType, ok := unionSchema.TypeDefs[model.QName{Local: "myUnion"}].(*model.SimpleType)
+	unionType, ok := unionSchema.TypeDefs[types.QName{Local: "myUnion"}].(*types.SimpleType)
 	if !ok || unionType == nil {
 		t.Fatalf("expected myUnion simple type")
 	}
@@ -45,7 +45,7 @@ func TestResolveUnionAndListItemTypes(t *testing.T) {
 	}
 
 	listSchema := parseW3CSchema(t, "ibmData/instance_invalid/S3_3_4/s3_3_4ii08.xsd")
-	listType, ok := listSchema.TypeDefs[model.QName{Local: "listOfIDs"}].(*model.SimpleType)
+	listType, ok := listSchema.TypeDefs[types.QName{Local: "listOfIDs"}].(*types.SimpleType)
 	if !ok || listType == nil {
 		t.Fatalf("expected listOfIDs simple type")
 	}
@@ -57,7 +57,7 @@ func TestResolveUnionAndListItemTypes(t *testing.T) {
 
 func TestValidateValueAgainstFacets(t *testing.T) {
 	schema := parseW3CSchema(t, "sunData/combined/xsd001/xsd001.xsd")
-	st, ok := schema.TypeDefs[model.QName{Namespace: schema.TargetNamespace, Local: "mytype"}].(*model.SimpleType)
+	st, ok := schema.TypeDefs[types.QName{Namespace: schema.TargetNamespace, Local: "mytype"}].(*types.SimpleType)
 	if !ok || st == nil {
 		t.Fatalf("expected mytype simple type")
 	}
@@ -75,11 +75,11 @@ func TestValidateValueAgainstFacets(t *testing.T) {
 
 func TestResolveSimpleContentBaseType(t *testing.T) {
 	schema := resolveW3CSchema(t, "sunData/CType/baseTD/baseTD00101m/baseTD00101m1.xsd")
-	ct, ok := schema.TypeDefs[model.QName{Namespace: schema.TargetNamespace, Local: "Test2"}].(*model.ComplexType)
+	ct, ok := schema.TypeDefs[types.QName{Namespace: schema.TargetNamespace, Local: "Test2"}].(*types.ComplexType)
 	if !ok || ct == nil {
 		t.Fatalf("expected Test2 complex type")
 	}
-	sc, ok := ct.Content().(*model.SimpleContent)
+	sc, ok := ct.Content().(*types.SimpleContent)
 	if !ok || sc == nil {
 		t.Fatalf("expected simpleContent on Test2")
 	}
@@ -91,9 +91,9 @@ func TestResolveSimpleContentBaseType(t *testing.T) {
 
 func TestTypeDerivationHelpers(t *testing.T) {
 	schema := parseW3CSchema(t, "sunData/combined/006/test.xsd")
-	bQName := model.QName{Namespace: schema.TargetNamespace, Local: "B"}
-	drrQName := model.QName{Namespace: schema.TargetNamespace, Local: "Drr"}
-	bType, ok := schema.TypeDefs[bQName].(*model.ComplexType)
+	bQName := types.QName{Namespace: schema.TargetNamespace, Local: "B"}
+	drrQName := types.QName{Namespace: schema.TargetNamespace, Local: "Drr"}
+	bType, ok := schema.TypeDefs[bQName].(*types.ComplexType)
 	if !ok || bType == nil {
 		t.Fatalf("expected B complex type")
 	}
@@ -108,15 +108,15 @@ func TestTypeDerivationHelpers(t *testing.T) {
 	if err := NewResolver(xsdSchema).Resolve(); err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
-	derived, ok := xsdSchema.TypeDefs[model.QName{Namespace: xsdSchema.TargetNamespace, Local: "mytype"}].(*model.SimpleType)
+	derived, ok := xsdSchema.TypeDefs[types.QName{Namespace: xsdSchema.TargetNamespace, Local: "mytype"}].(*types.SimpleType)
 	if !ok || derived == nil {
 		t.Fatalf("expected mytype simple type")
 	}
-	base := builtins.Get(model.TypeNameString)
+	base := builtins.Get(types.TypeNameString)
 	if base == nil {
 		t.Fatalf("expected builtin string type")
 	}
-	if !model.IsDerivedFrom(derived, base) {
+	if !types.IsDerivedFrom(derived, base) {
 		t.Fatalf("expected mytype derived from string")
 	}
 	if prim := getPrimitiveType(derived); prim == nil || prim.Name().Local != "string" {

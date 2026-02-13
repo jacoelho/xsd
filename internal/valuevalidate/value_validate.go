@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	facetengine "github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -104,7 +104,7 @@ func validateValue(
 			if settings.requireQNameContext && context == nil {
 				return fmt.Errorf("namespace context unavailable for QName/NOTATION value")
 			}
-			if err := facetengine.ValidateQNameContext(normalized, context); err != nil {
+			if err := facets.ValidateQNameContext(normalized, context); err != nil {
 				return err
 			}
 		}
@@ -138,7 +138,7 @@ func validateValue(
 		CycleError:            ErrCircularReference,
 		ValidateType:          validateTypeWithPolicy,
 		ValidateFacets: func(normalized string, current *model.SimpleType, ctx map[string]string) error {
-			return facetengine.ValidateSimpleTypeFacets(schema, current, normalized, ctx, settings.convert)
+			return facets.ValidateSimpleTypeFacets(schema, current, normalized, ctx, settings.convert)
 		},
 	}
 
@@ -193,13 +193,13 @@ func validateComplexType(
 			if err := validateValue(schema, value, baseType, context, visited, settings); err != nil {
 				return err
 			}
-			return facetengine.ValidateRestrictionFacets(schema, sc.Restriction, baseType, value, context, settings.convert)
+			return facets.ValidateRestrictionFacets(schema, sc.Restriction, baseType, value, context, settings.convert)
 		}
 		return validateValue(schema, value, baseType, context, visited, settings)
 	}
 
 	if sc.Restriction != nil {
-		if err := facetengine.ValidateRestrictionFacets(schema, sc.Restriction, baseType, value, context, settings.convert); err != nil {
+		if err := facets.ValidateRestrictionFacets(schema, sc.Restriction, baseType, value, context, settings.convert); err != nil {
 			return err
 		}
 	}

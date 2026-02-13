@@ -3,7 +3,7 @@ package xsd
 import (
 	"fmt"
 
-	internalset "github.com/jacoelho/xsd/internal/set"
+	"github.com/jacoelho/xsd/internal/set"
 )
 
 // Compile compiles all added schema roots using set load options.
@@ -44,8 +44,8 @@ func (s *SchemaSet) compileWithRuntimeOverride(runtimeOverride *RuntimeOptions) 
 	return &Schema{engine: newEngine(rt, runtimeOpts.instanceParseOptions...)}, nil
 }
 
-func toCompileConfig(opts resolvedRuntimeOptions) internalset.CompileConfig {
-	return internalset.CompileConfig{
+func toCompileConfig(opts resolvedRuntimeOptions) set.CompileConfig {
+	return set.CompileConfig{
 		MaxDFAStates:   opts.maxDFAStates,
 		MaxOccursLimit: opts.maxOccursLimit,
 	}

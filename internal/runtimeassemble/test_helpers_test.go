@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/prep"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
@@ -40,15 +40,15 @@ func buildSchemaForTest(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, e
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: %w", err)
 	}
-	reg, err := schema.AssignIDs(resolvedSchema)
+	reg, err := analysis.AssignIDs(resolvedSchema)
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: assign IDs: %w", err)
 	}
-	refs, err := schema.ResolveReferences(resolvedSchema, reg)
+	refs, err := analysis.ResolveReferences(resolvedSchema, reg)
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: resolve references: %w", err)
 	}
-	if err := schema.DetectCycles(resolvedSchema); err != nil {
+	if err := analysis.DetectCycles(resolvedSchema); err != nil {
 		return nil, fmt.Errorf("runtime build: detect cycles: %w", err)
 	}
 	if err := prep.ValidateUPA(resolvedSchema, reg); err != nil {

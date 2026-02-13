@@ -3,11 +3,11 @@ package validatorgen
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
-func (c *compiler) compileElementDefaults(registry *schema.Registry) error {
+func (c *compiler) compileElementDefaults(registry *analysis.Registry) error {
 	for _, entry := range registry.ElementOrder {
 		decl := entry.Decl
 		if decl == nil || decl.IsReference {

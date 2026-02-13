@@ -1,6 +1,6 @@
 package xsd
 
-import expqname "github.com/jacoelho/xsd/internal/qname"
+import "github.com/jacoelho/xsd/internal/qname"
 
 // Schema wraps a compiled schema with convenience methods.
 type Schema struct {
@@ -8,4 +8,4 @@ type Schema struct {
 }
 
 // QName is a public qualified name with namespace and local part.
-type QName = expqname.QName
+type QName = qname.QName

@@ -5,13 +5,13 @@ import (
 
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/loadmerge"
-	expparser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/prep"
 	"github.com/jacoelho/xsd/internal/runtimeassemble"
 )
 
 // Prepare clones, resolves, and validates a parsed schema.
-func Prepare(sch *expparser.Schema) (*Artifacts, error) {
+func Prepare(sch *parser.Schema) (*Artifacts, error) {
 	if sch == nil {
 		return nil, fmt.Errorf("prepare schema: schema is nil")
 	}
@@ -23,7 +23,7 @@ func Prepare(sch *expparser.Schema) (*Artifacts, error) {
 }
 
 // PrepareOwned resolves and validates a parsed schema in place.
-func PrepareOwned(sch *expparser.Schema) (*Artifacts, error) {
+func PrepareOwned(sch *parser.Schema) (*Artifacts, error) {
 	if sch == nil {
 		return nil, fmt.Errorf("prepare schema: schema is nil")
 	}

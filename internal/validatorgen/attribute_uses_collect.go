@@ -4,8 +4,8 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
-	qnameorder "github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typechain"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
@@ -44,7 +44,7 @@ func CollectAttributeUses(schema *parser.Schema, ct *model.ComplexType) ([]*mode
 	slices.SortFunc(out, func(a, b *model.AttributeDecl) int {
 		left := typeresolve.EffectiveAttributeQName(schema, a)
 		right := typeresolve.EffectiveAttributeQName(schema, b)
-		return qnameorder.Compare(left, right)
+		return qname.Compare(left, right)
 	})
 	return out, wildcard, nil
 }

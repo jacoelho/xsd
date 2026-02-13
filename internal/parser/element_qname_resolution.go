@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	qnamelex "github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -17,17 +17,17 @@ const (
 
 func resolveQNameWithPolicy(
 	doc *xmltree.Document,
-	qname string,
+	rawQName string,
 	elem xmltree.NodeID,
 	schema *Schema,
 	policy defaultNamespacePolicy,
 ) (model.QName, error) {
-	prefix, local, hasPrefix, err := qnamelex.ParseQName(qname)
+	prefix, local, hasPrefix, err := qname.ParseQName(rawQName)
 	if err != nil {
 		return model.QName{}, err
 	}
 
-	namespace, err := namespaceFromPrefixPolicy(doc, elem, schema, qname, prefix, hasPrefix, policy)
+	namespace, err := namespaceFromPrefixPolicy(doc, elem, schema, rawQName, prefix, hasPrefix, policy)
 	if err != nil {
 		return model.QName{}, err
 	}
@@ -41,7 +41,7 @@ func namespaceFromPrefixPolicy(
 	doc *xmltree.Document,
 	elem xmltree.NodeID,
 	schema *Schema,
-	qname string,
+	rawQName string,
 	prefix string,
 	hasPrefix bool,
 	policy defaultNamespacePolicy,
@@ -59,7 +59,7 @@ func namespaceFromPrefixPolicy(
 
 	namespaceStr := namespaceForPrefix(doc, elem, schema, prefix)
 	if namespaceStr == "" {
-		return model.NamespaceURI(""), fmt.Errorf("undefined namespace prefix '%s' in '%s'", prefix, qname)
+		return model.NamespaceURI(""), fmt.Errorf("undefined namespace prefix '%s' in '%s'", prefix, rawQName)
 	}
 	return namespaceStr, nil
 }

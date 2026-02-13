@@ -3,12 +3,12 @@ package validatorgen
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/builtins"
-	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func (c *compiler) compileRegistry(registry *schema.Registry) error {
+func (c *compiler) compileRegistry(registry *analysis.Registry) error {
 	if err := c.compileBuiltinRegistry(); err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func (c *compiler) compileBuiltinRegistry() error {
 	return nil
 }
 
-func (c *compiler) compileSimpleTypeRegistry(registry *schema.Registry) error {
+func (c *compiler) compileSimpleTypeRegistry(registry *analysis.Registry) error {
 	for _, entry := range registry.TypeOrder {
 		st, ok := model.AsSimpleType(entry.Type)
 		if !ok {
@@ -54,7 +54,7 @@ func (c *compiler) compileSimpleTypeRegistry(registry *schema.Registry) error {
 	return nil
 }
 
-func (c *compiler) compileSimpleContentRegistry(registry *schema.Registry) error {
+func (c *compiler) compileSimpleContentRegistry(registry *analysis.Registry) error {
 	for _, entry := range registry.TypeOrder {
 		ct, ok := model.AsComplexType(entry.Type)
 		if !ok {

@@ -3,7 +3,7 @@ package complextypeplan
 import (
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -12,8 +12,8 @@ func TestBuildAndLookup(t *testing.T) {
 	attr := &model.AttributeDecl{Name: model.QName{Namespace: "urn:test", Local: "a"}}
 	particle := &model.AnyElement{Namespace: model.NSCAny}
 	textType := &model.SimpleType{QName: model.QName{Namespace: model.XSDNamespace, Local: "string"}}
-	registry := &schema.Registry{
-		TypeOrder: []schema.TypeEntry{
+	registry := &analysis.Registry{
+		TypeOrder: []analysis.TypeEntry{
 			{
 				Type:  ct,
 				QName: ct.QName,

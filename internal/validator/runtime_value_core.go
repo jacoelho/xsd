@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
-	wsmode "github.com/jacoelho/xsd/internal/whitespace"
+	"github.com/jacoelho/xsd/internal/whitespace"
 )
 
 func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, resolver value.NSResolver, opts valueOptions, metrics *ValueMetrics) ([]byte, error) {
@@ -41,9 +41,9 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 		if meta.Kind == runtime.VList || meta.Kind == runtime.VUnion {
 			buf := s.pushNormBuf(len(lexical))
 			popNorm = true
-			normalized = value.NormalizeWhitespace(wsmode.ToValue(meta.WhiteSpace), lexical, buf)
+			normalized = value.NormalizeWhitespace(whitespace.ToValue(meta.WhiteSpace), lexical, buf)
 		} else {
-			normalized = value.NormalizeWhitespace(wsmode.ToValue(meta.WhiteSpace), lexical, s.normBuf)
+			normalized = value.NormalizeWhitespace(whitespace.ToValue(meta.WhiteSpace), lexical, s.normBuf)
 		}
 	}
 	if popNorm {

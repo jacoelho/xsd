@@ -3,8 +3,8 @@ package analysis_test
 import (
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestBuildAncestorsMasks(t *testing.T) {
@@ -26,19 +26,19 @@ func TestBuildAncestorsMasks(t *testing.T) {
 </xs:schema>`
 
 	sch := mustResolveSchema(t, schemaXML)
-	registry, err := schema.AssignIDs(sch)
+	registry, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 
-	ancestors, err := schema.BuildAncestors(sch, registry)
+	ancestors, err := analysis.BuildAncestors(sch, registry)
 	if err != nil {
 		t.Fatalf("BuildAncestors error = %v", err)
 	}
 
-	baseQName := model.QName{Namespace: "urn:anc", Local: "Base"}
-	extQName := model.QName{Namespace: "urn:anc", Local: "Ext"}
-	restQName := model.QName{Namespace: "urn:anc", Local: "Restrict"}
+	baseQName := types.QName{Namespace: "urn:anc", Local: "Base"}
+	extQName := types.QName{Namespace: "urn:anc", Local: "Ext"}
+	restQName := types.QName{Namespace: "urn:anc", Local: "Restrict"}
 
 	baseID := registry.Types[baseQName]
 	extID := registry.Types[extQName]
@@ -52,8 +52,8 @@ func TestBuildAncestorsMasks(t *testing.T) {
 	if got := ancestors.IDs[extOff]; got != baseID {
 		t.Fatalf("Ext ancestor ID = %d, want %d", got, baseID)
 	}
-	if got := ancestors.Masks[extOff]; got != model.DerivationExtension {
-		t.Fatalf("Ext mask = %v, want %v", got, model.DerivationExtension)
+	if got := ancestors.Masks[extOff]; got != types.DerivationExtension {
+		t.Fatalf("Ext mask = %v, want %v", got, types.DerivationExtension)
 	}
 
 	restOff := ancestors.Offsets[restID]
@@ -64,13 +64,13 @@ func TestBuildAncestorsMasks(t *testing.T) {
 	if got := ancestors.IDs[restOff]; got != extID {
 		t.Fatalf("Restrict ancestor[0] ID = %d, want %d", got, extID)
 	}
-	if got := ancestors.Masks[restOff]; got != model.DerivationRestriction {
-		t.Fatalf("Restrict mask[0] = %v, want %v", got, model.DerivationRestriction)
+	if got := ancestors.Masks[restOff]; got != types.DerivationRestriction {
+		t.Fatalf("Restrict mask[0] = %v, want %v", got, types.DerivationRestriction)
 	}
 	if got := ancestors.IDs[restOff+1]; got != baseID {
 		t.Fatalf("Restrict ancestor[1] ID = %d, want %d", got, baseID)
 	}
-	wantMask := model.DerivationRestriction | model.DerivationExtension
+	wantMask := types.DerivationRestriction | types.DerivationExtension
 	if got := ancestors.Masks[restOff+1]; got != wantMask {
 		t.Fatalf("Restrict mask[1] = %v, want %v", got, wantMask)
 	}
@@ -91,8 +91,8 @@ func TestBuildAncestorsSimpleTypeInlineRestrictionBase(t *testing.T) {
 </xs:schema>`
 
 	sch := mustResolveSchema(t, schemaXML)
-	outerQName := model.QName{Namespace: "urn:anc", Local: "Outer"}
-	outerType, ok := sch.TypeDefs[outerQName].(*model.SimpleType)
+	outerQName := types.QName{Namespace: "urn:anc", Local: "Outer"}
+	outerType, ok := sch.TypeDefs[outerQName].(*types.SimpleType)
 	if !ok {
 		t.Fatalf("Outer type = %T, want *model.SimpleType", sch.TypeDefs[outerQName])
 	}
@@ -100,11 +100,11 @@ func TestBuildAncestorsSimpleTypeInlineRestrictionBase(t *testing.T) {
 		t.Fatalf("Outer restriction simpleType not resolved")
 	}
 
-	registry, err := schema.AssignIDs(sch)
+	registry, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
-	ancestors, err := schema.BuildAncestors(sch, registry)
+	ancestors, err := analysis.BuildAncestors(sch, registry)
 	if err != nil {
 		t.Fatalf("BuildAncestors error = %v", err)
 	}
@@ -121,8 +121,8 @@ func TestBuildAncestorsSimpleTypeInlineRestrictionBase(t *testing.T) {
 	if got := ancestors.IDs[outerOff]; got != inlineID {
 		t.Fatalf("Outer ancestor ID = %d, want %d", got, inlineID)
 	}
-	if got := ancestors.Masks[outerOff]; got != model.DerivationRestriction {
-		t.Fatalf("Outer mask = %v, want %v", got, model.DerivationRestriction)
+	if got := ancestors.Masks[outerOff]; got != types.DerivationRestriction {
+		t.Fatalf("Outer mask = %v, want %v", got, types.DerivationRestriction)
 	}
 }
 
@@ -140,23 +140,23 @@ func TestBuildAncestorsSimpleTypeResolvedBaseFallback(t *testing.T) {
 </xs:schema>`
 
 	sch := mustResolveSchema(t, schemaXML)
-	baseQName := model.QName{Namespace: "urn:anc", Local: "Base"}
-	derivedQName := model.QName{Namespace: "urn:anc", Local: "Derived"}
+	baseQName := types.QName{Namespace: "urn:anc", Local: "Base"}
+	derivedQName := types.QName{Namespace: "urn:anc", Local: "Derived"}
 	baseType := sch.TypeDefs[baseQName]
-	derivedType, ok := sch.TypeDefs[derivedQName].(*model.SimpleType)
+	derivedType, ok := sch.TypeDefs[derivedQName].(*types.SimpleType)
 	if !ok {
 		t.Fatalf("Derived type = %T, want *model.SimpleType", sch.TypeDefs[derivedQName])
 	}
 
 	// exercise the ResolvedBase fallback path used by runtime assembly.
-	derivedType.Restriction.Base = model.QName{}
+	derivedType.Restriction.Base = types.QName{}
 	derivedType.ResolvedBase = baseType
 
-	registry, err := schema.AssignIDs(sch)
+	registry, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
-	ancestors, err := schema.BuildAncestors(sch, registry)
+	ancestors, err := analysis.BuildAncestors(sch, registry)
 	if err != nil {
 		t.Fatalf("BuildAncestors error = %v", err)
 	}
@@ -170,7 +170,7 @@ func TestBuildAncestorsSimpleTypeResolvedBaseFallback(t *testing.T) {
 	if got := ancestors.IDs[derivedOff]; got != baseID {
 		t.Fatalf("Derived ancestor ID = %d, want %d", got, baseID)
 	}
-	if got := ancestors.Masks[derivedOff]; got != model.DerivationRestriction {
-		t.Fatalf("Derived mask = %v, want %v", got, model.DerivationRestriction)
+	if got := ancestors.Masks[derivedOff]; got != types.DerivationRestriction {
+		t.Fatalf("Derived mask = %v, want %v", got, types.DerivationRestriction)
 	}
 }

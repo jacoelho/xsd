@@ -6,19 +6,19 @@ import (
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/complextypeplan"
 	"github.com/jacoelho/xsd/internal/model"
-	expparser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 // Artifacts stores normalized schema artifacts for runtime compilation.
 type Artifacts struct {
-	schema       *expparser.Schema
+	schema       *parser.Schema
 	registry     *analysis.Registry
 	refs         *analysis.ResolvedReferences
 	complexTypes *complextypeplan.Plan
 }
 
 // Schema returns the normalized schema graph.
-func (a *Artifacts) Schema() *expparser.Schema {
+func (a *Artifacts) Schema() *parser.Schema {
 	if a == nil {
 		return nil
 	}

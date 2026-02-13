@@ -5,18 +5,18 @@ import (
 	"strings"
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/loadmerge"
-	parser "github.com/jacoelho/xsd/internal/parser"
-	schemacheck "github.com/jacoelho/xsd/internal/semanticcheck"
-	resolver "github.com/jacoelho/xsd/internal/semanticresolve"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semanticcheck"
+	"github.com/jacoelho/xsd/internal/semanticresolve"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func findElementRef(t *testing.T, group *model.ModelGroup) *model.ElementDecl {
+func findElementRef(t *testing.T, group *types.ModelGroup) *types.ElementDecl {
 	t.Helper()
 	for _, particle := range group.Particles {
-		decl, ok := particle.(*model.ElementDecl)
+		decl, ok := particle.(*types.ElementDecl)
 		if !ok {
 			continue
 		}
@@ -28,10 +28,10 @@ func findElementRef(t *testing.T, group *model.ModelGroup) *model.ElementDecl {
 	return nil
 }
 
-func findGroupRef(t *testing.T, group *model.ModelGroup) *model.GroupRef {
+func findGroupRef(t *testing.T, group *types.ModelGroup) *types.GroupRef {
 	t.Helper()
 	for _, particle := range group.Particles {
-		ref, ok := particle.(*model.GroupRef)
+		ref, ok := particle.(*types.GroupRef)
 		if ok {
 			return ref
 		}
@@ -40,7 +40,7 @@ func findGroupRef(t *testing.T, group *model.ModelGroup) *model.GroupRef {
 	return nil
 }
 
-func findAttributeRef(t *testing.T, attrs []*model.AttributeDecl) *model.AttributeDecl {
+func findAttributeRef(t *testing.T, attrs []*types.AttributeDecl) *types.AttributeDecl {
 	t.Helper()
 	for _, attr := range attrs {
 		if attr.IsReference {
@@ -82,44 +82,44 @@ func TestReferenceResolution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	if errs := schemacheck.ValidateStructure(sch); len(errs) != 0 {
+	if errs := semanticcheck.ValidateStructure(sch); len(errs) != 0 {
 		t.Fatalf("ValidateStructure errors = %v", errs)
 	}
-	if err := resolver.NewResolver(sch).Resolve(); err != nil {
+	if err := semanticresolve.NewResolver(sch).Resolve(); err != nil {
 		t.Fatalf("Resolve error = %v", err)
 	}
-	if errs := resolver.ValidateReferences(sch); len(errs) != 0 {
+	if errs := semanticresolve.ValidateReferences(sch); len(errs) != 0 {
 		t.Fatalf("ValidateReferences errors = %v", errs)
 	}
-	registry, err := schema.AssignIDs(sch)
+	registry, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 
-	refs, err := schema.ResolveReferences(sch, registry)
+	refs, err := analysis.ResolveReferences(sch, registry)
 	if err != nil {
 		t.Fatalf("ResolveReferences error = %v", err)
 	}
 
-	rootQName := model.QName{Namespace: "urn:ref", Local: "root"}
+	rootQName := types.QName{Namespace: "urn:ref", Local: "root"}
 	root := sch.ElementDecls[rootQName]
 	if root == nil {
 		t.Fatalf("root element not found")
 	}
-	if _, ok := root.Type.(*model.ComplexType); !ok {
+	if _, ok := root.Type.(*types.ComplexType); !ok {
 		t.Fatalf("root type = %T, want *model.ComplexType", root.Type)
 	}
 
-	ctQName := model.QName{Namespace: "urn:ref", Local: "T"}
-	ct, ok := sch.TypeDefs[ctQName].(*model.ComplexType)
+	ctQName := types.QName{Namespace: "urn:ref", Local: "T"}
+	ct, ok := sch.TypeDefs[ctQName].(*types.ComplexType)
 	if !ok {
 		t.Fatalf("type T not found")
 	}
-	content, ok := ct.Content().(*model.ElementContent)
+	content, ok := ct.Content().(*types.ElementContent)
 	if !ok {
 		t.Fatalf("type T content = %T, want *model.ElementContent", ct.Content())
 	}
-	group, ok := content.Particle.(*model.ModelGroup)
+	group, ok := content.Particle.(*types.ModelGroup)
 	if !ok {
 		t.Fatalf("type T particle = %T, want *model.ModelGroup", content.Particle)
 	}
@@ -128,17 +128,17 @@ func TestReferenceResolution(t *testing.T) {
 	groupRef := findGroupRef(t, group)
 	attrRef := findAttributeRef(t, ct.Attributes())
 
-	leafID := registry.Elements[model.QName{Namespace: "urn:ref", Local: "leaf"}]
+	leafID := registry.Elements[types.QName{Namespace: "urn:ref", Local: "leaf"}]
 	if refs.ElementRefs[elemRef.Name] != leafID {
 		t.Fatalf("element ref ID = %d, want %d", refs.ElementRefs[elemRef.Name], leafID)
 	}
 
-	attrID := registry.Attributes[model.QName{Namespace: "urn:ref", Local: "ga"}]
+	attrID := registry.Attributes[types.QName{Namespace: "urn:ref", Local: "ga"}]
 	if refs.AttributeRefs[attrRef.Name] != attrID {
 		t.Fatalf("attribute ref ID = %d, want %d", refs.AttributeRefs[attrRef.Name], attrID)
 	}
 
-	groupQName := model.QName{Namespace: "urn:ref", Local: "G"}
+	groupQName := types.QName{Namespace: "urn:ref", Local: "G"}
 	if refs.GroupRefs[groupRef.RefQName] != groupQName {
 		t.Fatalf("group ref resolved to unexpected target: %s", refs.GroupRefs[groupRef.RefQName])
 	}
@@ -157,10 +157,10 @@ func TestReferenceResolutionMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	if errs := schemacheck.ValidateStructure(sch); len(errs) != 0 {
+	if errs := semanticcheck.ValidateStructure(sch); len(errs) != 0 {
 		t.Fatalf("ValidateStructure errors = %v", errs)
 	}
-	if errs := resolver.ValidateReferences(sch); len(errs) == 0 {
+	if errs := semanticresolve.ValidateReferences(sch); len(errs) == 0 {
 		t.Fatalf("expected missing type to fail reference validation")
 	}
 }
@@ -179,12 +179,12 @@ func TestReferenceResolutionRecursiveType(t *testing.T) {
 </xs:schema>`
 
 	sch := mustResolveSchema(t, schemaXML)
-	registry, err := schema.AssignIDs(sch)
+	registry, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 
-	if _, err := schema.ResolveReferences(sch, registry); err != nil {
+	if _, err := analysis.ResolveReferences(sch, registry); err != nil {
 		t.Fatalf("ResolveReferences error = %v", err)
 	}
 }
@@ -199,11 +199,11 @@ func TestReferenceResolutionMissingSubstitutionGroupHead(t *testing.T) {
 </xs:schema>`
 
 	sch := mustParsedResolved(t, schemaXML)
-	registry, err := schema.AssignIDs(sch)
+	registry, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
-	if _, err := schema.ResolveReferences(sch, registry); err == nil {
+	if _, err := analysis.ResolveReferences(sch, registry); err == nil {
 		t.Fatalf("expected missing substitutionGroup head to fail reference resolution")
 	}
 }
@@ -231,11 +231,11 @@ func TestResolvedReferencesStableAcrossEquivalentClones(t *testing.T) {
 </xs:schema>`
 
 	original := mustResolveSchema(t, schemaXML)
-	regA, err := schema.AssignIDs(original)
+	regA, err := analysis.AssignIDs(original)
 	if err != nil {
 		t.Fatalf("AssignIDs(original) error = %v", err)
 	}
-	refsA, err := schema.ResolveReferences(original, regA)
+	refsA, err := analysis.ResolveReferences(original, regA)
 	if err != nil {
 		t.Fatalf("ResolveReferences(original) error = %v", err)
 	}
@@ -244,11 +244,11 @@ func TestResolvedReferencesStableAcrossEquivalentClones(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CloneSchemaDeep() error = %v", err)
 	}
-	regB, err := schema.AssignIDs(cloned)
+	regB, err := analysis.AssignIDs(cloned)
 	if err != nil {
 		t.Fatalf("AssignIDs(clone) error = %v", err)
 	}
-	refsB, err := schema.ResolveReferences(cloned, regB)
+	refsB, err := analysis.ResolveReferences(cloned, regB)
 	if err != nil {
 		t.Fatalf("ResolveReferences(clone) error = %v", err)
 	}
