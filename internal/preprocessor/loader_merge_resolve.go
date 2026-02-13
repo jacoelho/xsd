@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/loadmerge"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func (l *Loader) mergeSchema(target, source *parser.Schema, kind loadmerge.Kind, remap loadmerge.NamespaceRemapMode, insertAt int) error {

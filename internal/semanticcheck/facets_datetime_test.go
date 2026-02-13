@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	facetengine "github.com/jacoelho/xsd/internal/facets"
-	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -40,7 +40,7 @@ func TestCompareFacetValuesDateTimeSpecials(t *testing.T) {
 			if _, err := value.ParseDateTime([]byte(tc.v1)); err != nil {
 				t.Fatalf("runtime parse %q: %v", tc.v1, err)
 			}
-			cmp, err := facetengine.CompareFacetValues(tc.v1, tc.v2, bt)
+			cmp, err := facets.CompareFacetValues(tc.v1, tc.v2, bt)
 			if err != nil {
 				t.Fatalf("facetengine.CompareFacetValues(%q, %q) error: %v", tc.v1, tc.v2, err)
 			}
@@ -67,7 +67,7 @@ func TestCompareFacetValuesTimeSpecials(t *testing.T) {
 			if _, err := value.ParseTime([]byte(val)); err != nil {
 				t.Fatalf("runtime parse %q: %v", val, err)
 			}
-			cmp, err := facetengine.CompareFacetValues(val, val, bt)
+			cmp, err := facets.CompareFacetValues(val, val, bt)
 			if err != nil {
 				t.Fatalf("facetengine.CompareFacetValues(%q, %q) error: %v", val, val, err)
 			}
@@ -94,7 +94,7 @@ func TestCompareFacetValuesDateTimeRejectsInvalidOffsets(t *testing.T) {
 			if _, err := value.ParseDateTime([]byte(val)); err == nil {
 				t.Fatalf("runtime parse %q: expected error", val)
 			}
-			if _, err := facetengine.CompareFacetValues(val, val, bt); err == nil {
+			if _, err := facets.CompareFacetValues(val, val, bt); err == nil {
 				t.Fatalf("facetengine.CompareFacetValues(%q) expected error", val)
 			}
 		})

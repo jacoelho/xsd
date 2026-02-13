@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/prep"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validatorgen"
@@ -86,7 +86,7 @@ func TestCompilePreservesElementDefaultAndAttributeFixed(t *testing.T) {
 	}
 }
 
-func mustCompileSchema(t *testing.T, schemaXML string) (*validatorgen.CompiledValidators, *parser.Schema, *schema.Registry) {
+func mustCompileSchema(t *testing.T, schemaXML string) (*validatorgen.CompiledValidators, *parser.Schema, *analysis.Registry) {
 	t.Helper()
 
 	sch, err := parser.Parse(strings.NewReader(schemaXML))
@@ -97,11 +97,11 @@ func mustCompileSchema(t *testing.T, schemaXML string) (*validatorgen.CompiledVa
 	if err != nil {
 		t.Fatalf("resolve and validate schema: %v", err)
 	}
-	reg, err := schema.AssignIDs(resolvedSchema)
+	reg, err := analysis.AssignIDs(resolvedSchema)
 	if err != nil {
 		t.Fatalf("assign IDs: %v", err)
 	}
-	if _, err := schema.ResolveReferences(resolvedSchema, reg); err != nil {
+	if _, err := analysis.ResolveReferences(resolvedSchema, reg); err != nil {
 		t.Fatalf("resolve references: %v", err)
 	}
 	compiled, err := validatorgen.Compile(resolvedSchema, reg)

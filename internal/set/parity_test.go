@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/objects"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/set"
 )
 

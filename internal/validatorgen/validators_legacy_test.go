@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -166,11 +166,11 @@ func TestUnionEnumViolatesUnionPattern_CompileError(t *testing.T) {
 </xs:schema>`
 
 	sch := mustResolveSchema(t, schemaXML)
-	reg, err := schema.AssignIDs(sch)
+	reg, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("assign ids: %v", err)
 	}
-	if _, err := schema.ResolveReferences(sch, reg); err != nil {
+	if _, err := analysis.ResolveReferences(sch, reg); err != nil {
 		t.Fatalf("resolve references: %v", err)
 	}
 	_, err = Compile(sch, reg)
@@ -182,14 +182,14 @@ func TestUnionEnumViolatesUnionPattern_CompileError(t *testing.T) {
 	}
 }
 
-func compileSchema(t *testing.T, schemaXML string) (*CompiledValidators, *schema.Registry) {
+func compileSchema(t *testing.T, schemaXML string) (*CompiledValidators, *analysis.Registry) {
 	t.Helper()
 	sch := mustResolveSchema(t, schemaXML)
-	reg, err := schema.AssignIDs(sch)
+	reg, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("assign ids: %v", err)
 	}
-	if _, err := schema.ResolveReferences(sch, reg); err != nil {
+	if _, err := analysis.ResolveReferences(sch, reg); err != nil {
 		t.Fatalf("resolve references: %v", err)
 	}
 	compiled, err := Compile(sch, reg)
@@ -199,7 +199,7 @@ func compileSchema(t *testing.T, schemaXML string) (*CompiledValidators, *schema
 	return compiled, reg
 }
 
-func validatorIDForType(t *testing.T, reg *schema.Registry, compiled *CompiledValidators, local string) runtime.ValidatorID {
+func validatorIDForType(t *testing.T, reg *analysis.Registry, compiled *CompiledValidators, local string) runtime.ValidatorID {
 	t.Helper()
 	var typeID ids.TypeID
 	for _, entry := range reg.TypeOrder {

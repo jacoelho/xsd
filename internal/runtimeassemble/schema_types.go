@@ -4,19 +4,19 @@ import (
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/grouprefs"
 	"github.com/jacoelho/xsd/internal/runtime"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (b *schemaBuilder) runtimeTypeID(typ model.Type) (runtime.TypeID, bool) {
+func (b *schemaBuilder) runtimeTypeID(typ types.Type) (runtime.TypeID, bool) {
 	if typ == nil {
 		return 0, false
 	}
-	if bt, ok := model.AsBuiltinType(typ); ok {
-		return b.builtinIDs[model.TypeName(bt.Name().Local)], true
+	if bt, ok := types.AsBuiltinType(typ); ok {
+		return b.builtinIDs[types.TypeName(bt.Name().Local)], true
 	}
-	if st, ok := model.AsSimpleType(typ); ok && st.IsBuiltin() {
-		if builtin := builtins.Get(model.TypeName(st.Name().Local)); builtin != nil {
-			return b.builtinIDs[model.TypeName(builtin.Name().Local)], true
+	if st, ok := types.AsSimpleType(typ); ok && st.IsBuiltin() {
+		if builtin := builtins.Get(types.TypeName(st.Name().Local)); builtin != nil {
+			return b.builtinIDs[types.TypeName(builtin.Name().Local)], true
 		}
 	}
 	if !typ.Name().IsZero() {
@@ -30,7 +30,7 @@ func (b *schemaBuilder) runtimeTypeID(typ model.Type) (runtime.TypeID, bool) {
 	return 0, false
 }
 
-func (b *schemaBuilder) runtimeElemID(decl *model.ElementDecl) (runtime.ElemID, bool) {
+func (b *schemaBuilder) runtimeElemID(decl *types.ElementDecl) (runtime.ElemID, bool) {
 	if decl == nil {
 		return 0, false
 	}
@@ -49,23 +49,23 @@ func (b *schemaBuilder) runtimeElemID(decl *model.ElementDecl) (runtime.ElemID, 
 	return 0, false
 }
 
-func (b *schemaBuilder) resolveTypeQName(qname model.QName) model.Type {
+func (b *schemaBuilder) resolveTypeQName(qname types.QName) types.Type {
 	if qname.IsZero() {
 		return nil
 	}
-	if qname.Namespace == model.XSDNamespace {
-		return builtins.Get(model.TypeName(qname.Local))
+	if qname.Namespace == types.XSDNamespace {
+		return builtins.Get(types.TypeName(qname.Local))
 	}
 	return b.schema.TypeDefs[qname]
 }
 
-func (b *schemaBuilder) simpleContentTextType(ct *model.ComplexType) (model.Type, error) {
+func (b *schemaBuilder) simpleContentTextType(ct *types.ComplexType) (types.Type, error) {
 	return grouprefs.ResolveSimpleContentTextType(ct, grouprefs.SimpleContentTextTypeOptions{
 		ResolveQName: b.resolveTypeQName,
 	})
 }
 
-func (b *schemaBuilder) baseForSimpleType(st *model.SimpleType) (model.Type, runtime.DerivationMethod) {
+func (b *schemaBuilder) baseForSimpleType(st *types.SimpleType) (types.Type, runtime.DerivationMethod) {
 	if st == nil {
 		return nil, runtime.DerNone
 	}
@@ -89,7 +89,7 @@ func (b *schemaBuilder) baseForSimpleType(st *model.SimpleType) (model.Type, run
 	return builtins.Get(builtins.TypeNameAnySimpleType), runtime.DerRestriction
 }
 
-func (b *schemaBuilder) validatorForBuiltin(name model.TypeName) runtime.ValidatorID {
+func (b *schemaBuilder) validatorForBuiltin(name types.TypeName) runtime.ValidatorID {
 	if b.validators == nil {
 		return 0
 	}

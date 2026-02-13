@@ -3,10 +3,10 @@ package semanticresolve
 import (
 	"fmt"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func validateAttributeDeclarations(sch *parser.Schema) []error {
@@ -21,7 +21,7 @@ func validateAttributeDeclarations(sch *parser.Schema) []error {
 		}
 
 		resolvedType := typeresolve.ResolveTypeReference(sch, decl.Type, typeresolve.TypeReferenceAllowMissing)
-		if _, ok := resolvedType.(*model.ComplexType); ok {
+		if _, ok := resolvedType.(*types.ComplexType); ok {
 			errs = append(errs, fmt.Errorf("attribute %s: type must be a simple type", qname))
 		}
 		if decl.HasDefault {

@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/ids"
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 // AncestorIndex stores ancestor chains and cumulative derivation masks by TypeID.
 type AncestorIndex struct {
 	IDs     []ids.TypeID
-	Masks   []model.DerivationMethod
+	Masks   []types.DerivationMethod
 	Offsets []uint32
 	Lengths []uint32
 }
@@ -32,7 +32,7 @@ func BuildAncestors(schema *parser.Schema, registry *Registry) (*AncestorIndex, 
 	maxID := len(registry.TypeOrder)
 	index := &AncestorIndex{
 		IDs:     []ids.TypeID{},
-		Masks:   []model.DerivationMethod{},
+		Masks:   []types.DerivationMethod{},
 		Offsets: make([]uint32, maxID+1),
 		Lengths: make([]uint32, maxID+1),
 	}
@@ -55,10 +55,10 @@ func BuildAncestors(schema *parser.Schema, registry *Registry) (*AncestorIndex, 
 	return index, nil
 }
 
-func buildAncestorChain(schema *parser.Schema, registry *Registry, typ model.Type) ([]ids.TypeID, []model.DerivationMethod, error) {
+func buildAncestorChain(schema *parser.Schema, registry *Registry, typ types.Type) ([]ids.TypeID, []types.DerivationMethod, error) {
 	var typeIDs []ids.TypeID
-	var masks []model.DerivationMethod
-	cumulative := model.DerivationMethod(0)
+	var masks []types.DerivationMethod
+	cumulative := types.DerivationMethod(0)
 	current := typ
 
 	for current != nil {
@@ -70,7 +70,7 @@ func buildAncestorChain(schema *parser.Schema, registry *Registry, typ model.Typ
 			break
 		}
 		baseQName := baseType.Name()
-		if baseQName.Namespace == model.XSDNamespace {
+		if baseQName.Namespace == types.XSDNamespace {
 			break
 		}
 		baseID, ok := lookupAncestorTypeID(registry, baseType)
@@ -86,7 +86,7 @@ func buildAncestorChain(schema *parser.Schema, registry *Registry, typ model.Typ
 	return typeIDs, masks, nil
 }
 
-func lookupAncestorTypeID(registry *Registry, typ model.Type) (ids.TypeID, bool) {
+func lookupAncestorTypeID(registry *Registry, typ types.Type) (ids.TypeID, bool) {
 	if typ == nil || registry == nil {
 		return 0, false
 	}
@@ -98,7 +98,7 @@ func lookupAncestorTypeID(registry *Registry, typ model.Type) (ids.TypeID, bool)
 	return registry.LookupAnonymousTypeID(typ)
 }
 
-func typeNameOrKind(typ model.Type) string {
+func typeNameOrKind(typ types.Type) string {
 	if typ == nil {
 		return "<nil>"
 	}

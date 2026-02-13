@@ -2,7 +2,7 @@ package loadmerge
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func existingGlobalDecls(sch *parser.Schema) map[globalDeclKey]struct{} {

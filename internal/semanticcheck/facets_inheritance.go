@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	facetengine "github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -90,7 +90,7 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []model.Facet, base
 	derived := extractRangeFacetInfo(derivedFacets)
 
 	if base.hasMin && derived.hasMin {
-		cmp, err := facetengine.CompareFacetValues(derived.minValue, base.minValue, baseType)
+		cmp, err := facets.CompareFacetValues(derived.minValue, base.minValue, baseType)
 		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}
@@ -106,7 +106,7 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []model.Facet, base
 	}
 
 	if base.hasMax && derived.hasMax {
-		cmp, err := facetengine.CompareFacetValues(derived.maxValue, base.maxValue, baseType)
+		cmp, err := facets.CompareFacetValues(derived.maxValue, base.maxValue, baseType)
 		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}
@@ -123,7 +123,7 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []model.Facet, base
 
 	// ensure derived min does not exceed base max (inherited constraint).
 	if base.hasMax && derived.hasMin {
-		cmp, err := facetengine.CompareFacetValues(derived.minValue, base.maxValue, baseType)
+		cmp, err := facets.CompareFacetValues(derived.minValue, base.maxValue, baseType)
 		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}
@@ -140,7 +140,7 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []model.Facet, base
 
 	// ensure derived max does not fall below base min (inherited constraint).
 	if base.hasMin && derived.hasMax {
-		cmp, err := facetengine.CompareFacetValues(derived.maxValue, base.minValue, baseType)
+		cmp, err := facets.CompareFacetValues(derived.maxValue, base.minValue, baseType)
 		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}

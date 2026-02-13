@@ -3,48 +3,48 @@ package semanticresolve
 import (
 	"testing"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestValidateTypeReferenceFromTypeNil(t *testing.T) {
 	schema := &parser.Schema{}
-	if err := validateTypeReferenceFromTypeAtLocation(schema, nil, model.NamespaceURI(""), noOriginLocation); err != nil {
+	if err := validateTypeReferenceFromTypeAtLocation(schema, nil, types.NamespaceURI(""), noOriginLocation); err != nil {
 		t.Fatalf("expected nil error for nil type, got %v", err)
 	}
 }
 
 func TestValidateSimpleTypeFinals(t *testing.T) {
 	schema := parser.NewSchema()
-	qname := model.QName{Namespace: "urn:test", Local: "base"}
-	st := &model.SimpleType{QName: qname}
+	qname := types.QName{Namespace: "urn:test", Local: "base"}
+	st := &types.SimpleType{QName: qname}
 	schema.TypeDefs[qname] = st
 
 	cases := []struct {
 		name    string
-		final   model.DerivationMethod
-		method  model.DerivationMethod
+		final   types.DerivationMethod
+		method  types.DerivationMethod
 		errFmt  string
 		wantErr bool
 	}{
 		{
 			name:    "restriction",
-			final:   model.DerivationRestriction,
-			method:  model.DerivationRestriction,
+			final:   types.DerivationRestriction,
+			method:  types.DerivationRestriction,
 			errFmt:  "cannot derive by restriction from type '%s' which is final for restriction",
 			wantErr: true,
 		},
 		{
 			name:    "list",
-			final:   model.DerivationList,
-			method:  model.DerivationList,
+			final:   types.DerivationList,
+			method:  types.DerivationList,
 			errFmt:  "cannot use type '%s' as list item type because it is final for list",
 			wantErr: true,
 		},
 		{
 			name:    "union",
-			final:   model.DerivationUnion,
-			method:  model.DerivationUnion,
+			final:   types.DerivationUnion,
+			method:  types.DerivationUnion,
 			errFmt:  "cannot use type '%s' as union member type because it is final for union",
 			wantErr: true,
 		},
@@ -52,7 +52,7 @@ func TestValidateSimpleTypeFinals(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			st.Final = model.DerivationSet(tc.final)
+			st.Final = types.DerivationSet(tc.final)
 			err := validateSimpleTypeFinal(schema, qname, tc.method, tc.errFmt)
 			if tc.wantErr && err == nil {
 				t.Fatalf("expected error, got nil")
@@ -64,7 +64,7 @@ func TestValidateSimpleTypeFinals(t *testing.T) {
 	}
 
 	st.Final = 0
-	if err := validateSimpleTypeFinal(schema, qname, model.DerivationRestriction, "cannot derive by restriction from type '%s' which is final for restriction"); err != nil {
+	if err := validateSimpleTypeFinal(schema, qname, types.DerivationRestriction, "cannot derive by restriction from type '%s' which is final for restriction"); err != nil {
 		t.Fatalf("unexpected error when final is empty: %v", err)
 	}
 }

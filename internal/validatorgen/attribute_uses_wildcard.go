@@ -7,7 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/attrgroupwalk"
 	"github.com/jacoelho/xsd/internal/attrwildcard"
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func localAttributeWildcard(schema *parser.Schema, ct *model.ComplexType) (*model.AnyAttribute, error) {

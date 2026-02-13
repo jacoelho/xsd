@@ -1,12 +1,12 @@
 package validatorgen
 
 import (
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/complextypeplan"
 	"github.com/jacoelho/xsd/internal/ids"
-	model "github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -50,7 +50,7 @@ type compiler struct {
 	simpleContent   map[*model.ComplexType]model.Type
 	res             *typeResolver
 	runtimeTypeIDs  map[ids.TypeID]runtime.TypeID
-	registry        *schema.Registry
+	registry        *analysis.Registry
 	schema          *parser.Schema
 	compiling       map[model.Type]bool
 	validatorByType map[model.Type]runtime.ValidatorID

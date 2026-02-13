@@ -1,6 +1,6 @@
 package preprocessor
 
-import parser "github.com/jacoelho/xsd/internal/parser"
+import "github.com/jacoelho/xsd/internal/parser"
 
 func (l *Loader) applyPendingInclude(directive pendingDirective, source *parser.Schema, target *stagedPendingTarget) error {
 	includingNS := directive.targetKey.etn

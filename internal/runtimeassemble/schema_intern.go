@@ -2,19 +2,19 @@ package runtimeassemble
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (b *schemaBuilder) internNamespaceConstraint(constraint model.NamespaceConstraint, list []model.NamespaceURI, target model.NamespaceURI) {
+func (b *schemaBuilder) internNamespaceConstraint(constraint types.NamespaceConstraint, list []types.NamespaceURI, target types.NamespaceURI) {
 	if b == nil {
 		return
 	}
 	switch constraint {
-	case model.NSCTargetNamespace, model.NSCOther:
+	case types.NSCTargetNamespace, types.NSCOther:
 		b.internNamespace(target)
-	case model.NSCList:
+	case types.NSCList:
 		for _, ns := range list {
-			if ns == model.NamespaceTargetPlaceholder {
+			if ns == types.NamespaceTargetPlaceholder {
 				b.internNamespace(target)
 				continue
 			}
@@ -26,22 +26,22 @@ func (b *schemaBuilder) internNamespaceConstraint(constraint model.NamespaceCons
 	}
 }
 
-func (b *schemaBuilder) internWildcardNamespaces(particle model.Particle) {
+func (b *schemaBuilder) internWildcardNamespaces(particle types.Particle) {
 	if particle == nil || b == nil {
 		return
 	}
-	visited := make(map[*model.ModelGroup]bool)
+	visited := make(map[*types.ModelGroup]bool)
 	b.internWildcardNamespacesInParticle(particle, visited)
 }
 
-func (b *schemaBuilder) internWildcardNamespacesInParticle(particle model.Particle, visited map[*model.ModelGroup]bool) {
+func (b *schemaBuilder) internWildcardNamespacesInParticle(particle types.Particle, visited map[*types.ModelGroup]bool) {
 	if particle == nil {
 		return
 	}
 	switch typed := particle.(type) {
-	case *model.AnyElement:
+	case *types.AnyElement:
 		b.internNamespaceConstraint(typed.Namespace, typed.NamespaceList, typed.TargetNamespace)
-	case *model.ModelGroup:
+	case *types.ModelGroup:
 		if visited[typed] {
 			return
 		}
@@ -49,7 +49,7 @@ func (b *schemaBuilder) internWildcardNamespacesInParticle(particle model.Partic
 		for _, child := range typed.Particles {
 			b.internWildcardNamespacesInParticle(child, visited)
 		}
-	case *model.GroupRef:
+	case *types.GroupRef:
 		if b.schema == nil {
 			return
 		}
@@ -66,7 +66,7 @@ func (b *schemaBuilder) addPath(program runtime.PathProgram) runtime.PathID {
 	return runtime.PathID(len(b.paths) - 1)
 }
 
-func (b *schemaBuilder) internNamespace(ns model.NamespaceURI) runtime.NamespaceID {
+func (b *schemaBuilder) internNamespace(ns types.NamespaceURI) runtime.NamespaceID {
 	if b == nil {
 		return 0
 	}
@@ -92,7 +92,7 @@ func (b *schemaBuilder) internNamespace(ns model.NamespaceURI) runtime.Namespace
 	return id
 }
 
-func (b *schemaBuilder) internQName(qname model.QName) runtime.SymbolID {
+func (b *schemaBuilder) internQName(qname types.QName) runtime.SymbolID {
 	if b == nil {
 		return 0
 	}

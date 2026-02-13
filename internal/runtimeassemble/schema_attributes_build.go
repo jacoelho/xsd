@@ -6,7 +6,7 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func (b *schemaBuilder) buildAttributes() error {
@@ -54,7 +54,7 @@ func (b *schemaBuilder) buildGlobalAttributes() error {
 
 func (b *schemaBuilder) buildComplexTypeAttributeIndexes() error {
 	for _, entry := range b.registry.TypeOrder {
-		ct, ok := model.AsComplexType(entry.Type)
+		ct, ok := types.AsComplexType(entry.Type)
 		if !ok || ct == nil {
 			continue
 		}

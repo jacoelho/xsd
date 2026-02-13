@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	model "github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func TestCollectRestrictionFacetsPatternSyntaxError(t *testing.T) {

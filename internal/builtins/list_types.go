@@ -1,8 +1,8 @@
 package builtins
 
-import schematypes "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/types"
 
-var builtinListItemTypes = map[schematypes.TypeName]schematypes.TypeName{
+var builtinListItemTypes = map[types.TypeName]types.TypeName{
 	TypeNameNMTOKENS: TypeNameNMTOKEN,
 	TypeNameIDREFS:   TypeNameIDREF,
 	TypeNameENTITIES: TypeNameENTITY,
@@ -15,7 +15,7 @@ func IsBuiltinListTypeName(name string) bool {
 }
 
 // BuiltinListItemTypeName returns the built-in item type for a built-in list type.
-func BuiltinListItemTypeName(name string) (schematypes.TypeName, bool) {
-	item, ok := builtinListItemTypes[schematypes.TypeName(name)]
+func BuiltinListItemTypeName(name string) (types.TypeName, bool) {
+	item, ok := builtinListItemTypes[types.TypeName(name)]
 	return item, ok
 }

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 type testFacet struct {

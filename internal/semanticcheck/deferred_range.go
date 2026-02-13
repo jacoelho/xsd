@@ -3,10 +3,10 @@ package semanticcheck
 import (
 	"fmt"
 
-	facetengine "github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
-	qnameorder "github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -63,15 +63,15 @@ func ValidateDeferredRangeFacetValues(sch *parser.Schema) []error {
 		if baseQName.IsZero() {
 			baseQName = baseType.Name()
 		}
-		if err := facetengine.ValidateSchemaConstraints(
-			facetengine.SchemaConstraintInput{
+		if err := facets.ValidateSchemaConstraints(
+			facets.SchemaConstraintInput{
 				FacetList: rangeFacets,
 				BaseType:  baseType,
 				BaseQName: baseQName,
 			},
-			facetengine.SchemaConstraintCallbacks{
-				ValidateRangeConsistency: facetengine.ValidateRangeConsistency,
-				ValidateRangeValues:      facetengine.ValidateRangeValues,
+			facets.SchemaConstraintCallbacks{
+				ValidateRangeConsistency: facets.ValidateRangeConsistency,
+				ValidateRangeValues:      facets.ValidateRangeValues,
 				ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
 					return validateValueAgainstTypeWithFacets(sch, value, baseType, context)
 				},
@@ -94,5 +94,5 @@ func isRangeFacetName(name string) bool {
 }
 
 func sortedTypeQNames[V any](m map[model.QName]V) []model.QName {
-	return qnameorder.SortedMapKeys(m)
+	return qname.SortedMapKeys(m)
 }

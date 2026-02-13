@@ -1,13 +1,13 @@
 package semanticcheck
 
 import (
-	facetengine "github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/facetvalue"
-	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-var errDurationNotComparable = facetengine.ErrDurationNotComparable
-var errFloatNotComparable = facetengine.ErrFloatNotComparable
+var errDurationNotComparable = facets.ErrDurationNotComparable
+var errFloatNotComparable = facets.ErrFloatNotComparable
 
 type rangeFacetInfo struct {
 	minValue     string

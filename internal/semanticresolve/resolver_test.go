@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 var w3cSchemaFixtures = map[string]string{
@@ -348,13 +348,13 @@ func TestResolveW3CGroupAndAttributeGroup(t *testing.T) {
 	schema := resolveW3CSchema(t, "sunData/combined/xsd024/xsd024.xsdmod")
 	requireNoReferenceErrors(t, schema)
 
-	ctQName := model.QName{Namespace: schema.TargetNamespace, Local: "complexType"}
-	ct, ok := schema.TypeDefs[ctQName].(*model.ComplexType)
+	ctQName := types.QName{Namespace: schema.TargetNamespace, Local: "complexType"}
+	ct, ok := schema.TypeDefs[ctQName].(*types.ComplexType)
 	if !ok || ct == nil {
 		t.Fatalf("expected complexType to be a complex type")
 	}
 
-	groupQName := model.QName{Namespace: schema.TargetNamespace, Local: "g"}
+	groupQName := types.QName{Namespace: schema.TargetNamespace, Local: "g"}
 	if _, ok := schema.Groups[groupQName]; !ok {
 		t.Fatalf("expected group %s in schema", groupQName)
 	}
@@ -367,9 +367,9 @@ func TestResolveW3CComplexTypeBases(t *testing.T) {
 	schema := resolveW3CSchema(t, "sunData/CType/pSubstitutions/pSubstitutions00101m/pSubstitutions00101m.xsd")
 	requireNoReferenceErrors(t, schema)
 
-	baseQName := model.QName{Namespace: schema.TargetNamespace, Local: "A"}
+	baseQName := types.QName{Namespace: schema.TargetNamespace, Local: "A"}
 	for _, local := range []string{"B", "C"} {
-		ct, ok := schema.TypeDefs[model.QName{Namespace: schema.TargetNamespace, Local: local}].(*model.ComplexType)
+		ct, ok := schema.TypeDefs[types.QName{Namespace: schema.TargetNamespace, Local: local}].(*types.ComplexType)
 		if !ok || ct == nil {
 			t.Fatalf("expected %s to be a complex type", local)
 		}
@@ -403,22 +403,22 @@ func TestResolveAnyTypeUsesBuiltin(t *testing.T) {
 		t.Fatalf("resolve schema: %v", err)
 	}
 
-	derivedQName := model.QName{Namespace: schema.TargetNamespace, Local: "Derived"}
-	derived, ok := schema.TypeDefs[derivedQName].(*model.ComplexType)
+	derivedQName := types.QName{Namespace: schema.TargetNamespace, Local: "Derived"}
+	derived, ok := schema.TypeDefs[derivedQName].(*types.ComplexType)
 	if !ok || derived == nil {
 		t.Fatalf("expected Derived to be a complex type")
 	}
 	if derived.ResolvedBase == nil {
 		t.Fatalf("expected Derived base type to be resolved")
 	}
-	builtinAny := builtins.Get(model.TypeNameAnyType)
+	builtinAny := builtins.Get(types.TypeNameAnyType)
 	if builtinAny == nil {
 		t.Fatalf("expected builtin xs:anyType")
 	}
 	if derived.ResolvedBase != builtinAny {
 		t.Fatalf("expected anyType base to use builtin instance, got %T", derived.ResolvedBase)
 	}
-	if !model.IsDerivedFrom(derived, builtinAny) {
+	if !types.IsDerivedFrom(derived, builtinAny) {
 		t.Fatalf("expected Derived to be derived from builtin anyType")
 	}
 }
@@ -446,13 +446,13 @@ func TestResolveSimpleTypeRestrictionInheritsUnionMembers(t *testing.T) {
 		t.Fatalf("resolve schema: %v", err)
 	}
 
-	baseQName := model.QName{Namespace: schema.TargetNamespace, Local: "U"}
-	derivedQName := model.QName{Namespace: schema.TargetNamespace, Local: "R"}
-	base, ok := schema.TypeDefs[baseQName].(*model.SimpleType)
+	baseQName := types.QName{Namespace: schema.TargetNamespace, Local: "U"}
+	derivedQName := types.QName{Namespace: schema.TargetNamespace, Local: "R"}
+	base, ok := schema.TypeDefs[baseQName].(*types.SimpleType)
 	if !ok || base == nil {
 		t.Fatalf("expected base union type U")
 	}
-	derived, ok := schema.TypeDefs[derivedQName].(*model.SimpleType)
+	derived, ok := schema.TypeDefs[derivedQName].(*types.SimpleType)
 	if !ok || derived == nil {
 		t.Fatalf("expected derived type R")
 	}
@@ -468,7 +468,7 @@ func TestResolveW3CUniqueConstraints(t *testing.T) {
 	schema := resolveW3CSchema(t, "saxonData/Complex/unique001.xsd")
 	requireNoReferenceErrors(t, schema)
 
-	rootQName := model.QName{Namespace: schema.TargetNamespace, Local: "root"}
+	rootQName := types.QName{Namespace: schema.TargetNamespace, Local: "root"}
 	root := schema.ElementDecls[rootQName]
 	if root == nil {
 		t.Fatalf("expected root element declaration")
@@ -857,12 +857,12 @@ func TestResolveW3CInlineUnionAnonymousTypes(t *testing.T) {
 	schema := resolveW3CSchema(t, "msData/identityConstraint/idK015.xsd")
 	requireNoReferenceErrors(t, schema)
 
-	uidQName := model.QName{Namespace: schema.TargetNamespace, Local: "uid"}
+	uidQName := types.QName{Namespace: schema.TargetNamespace, Local: "uid"}
 	uid := schema.ElementDecls[uidQName]
 	if uid == nil {
 		t.Fatalf("expected uid element declaration")
 	}
-	ct, ok := uid.Type.(*model.ComplexType)
+	ct, ok := uid.Type.(*types.ComplexType)
 	if !ok || ct == nil {
 		t.Fatalf("expected uid to have a complex type")
 	}
@@ -871,9 +871,9 @@ func TestResolveW3CInlineUnionAnonymousTypes(t *testing.T) {
 	if particle == nil {
 		t.Fatalf("expected uid content particle")
 	}
-	var pid *model.ElementDecl
-	for _, elem := range traversal.CollectFromParticlesWithVisited([]model.Particle{particle}, nil, func(p model.Particle) (*model.ElementDecl, bool) {
-		elem, ok := p.(*model.ElementDecl)
+	var pid *types.ElementDecl
+	for _, elem := range traversal.CollectFromParticlesWithVisited([]types.Particle{particle}, nil, func(p types.Particle) (*types.ElementDecl, bool) {
+		elem, ok := p.(*types.ElementDecl)
 		return elem, ok
 	}) {
 		if elem.Name.Local == "pid" {
@@ -884,7 +884,7 @@ func TestResolveW3CInlineUnionAnonymousTypes(t *testing.T) {
 	if pid == nil {
 		t.Fatalf("expected pid element in uid content")
 	}
-	st, ok := pid.Type.(*model.SimpleType)
+	st, ok := pid.Type.(*types.SimpleType)
 	if !ok || st == nil {
 		t.Fatalf("expected pid to have a simple type")
 	}
@@ -921,22 +921,22 @@ func TestResolveUnionRestrictionMemberTypes(t *testing.T) {
 		t.Fatalf("resolve schema: %v", err)
 	}
 
-	base, ok := schema.TypeDefs[model.QName{Local: "BaseUnion"}].(*model.SimpleType)
+	base, ok := schema.TypeDefs[types.QName{Local: "BaseUnion"}].(*types.SimpleType)
 	if !ok || base == nil {
 		t.Fatalf("expected BaseUnion simple type")
 	}
-	if base.Variety() != model.UnionVariety {
+	if base.Variety() != types.UnionVariety {
 		t.Fatalf("expected BaseUnion to be a union type")
 	}
 	if len(base.MemberTypes) != 2 {
 		t.Fatalf("expected BaseUnion to have 2 member types, got %d", len(base.MemberTypes))
 	}
 
-	restricted, ok := schema.TypeDefs[model.QName{Local: "RestrictedUnion"}].(*model.SimpleType)
+	restricted, ok := schema.TypeDefs[types.QName{Local: "RestrictedUnion"}].(*types.SimpleType)
 	if !ok || restricted == nil {
 		t.Fatalf("expected RestrictedUnion simple type")
 	}
-	if restricted.Variety() != model.UnionVariety {
+	if restricted.Variety() != types.UnionVariety {
 		t.Fatalf("expected RestrictedUnion to be a union type")
 	}
 	if len(restricted.MemberTypes) != len(base.MemberTypes) {

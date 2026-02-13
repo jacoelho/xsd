@@ -1,8 +1,8 @@
 package analysis
 
-import model "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/types"
 
-func (b *builder) visitSimpleType(st *model.SimpleType) error {
+func (b *builder) visitSimpleType(st *types.SimpleType) error {
 	if st == nil {
 		return nil
 	}

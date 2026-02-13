@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	facetengine "github.com/jacoelho/xsd/internal/facets"
-	model "github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
 )
 
@@ -95,15 +95,15 @@ func validateRestriction(schema *parser.Schema, st *model.SimpleType, restrictio
 		}
 	}
 
-	if err := facetengine.ValidateSchemaConstraints(
-		facetengine.SchemaConstraintInput{
+	if err := facets.ValidateSchemaConstraints(
+		facets.SchemaConstraintInput{
 			FacetList: facetList,
 			BaseType:  baseType,
 			BaseQName: baseQName,
 		},
-		facetengine.SchemaConstraintCallbacks{
-			ValidateRangeConsistency: facetengine.ValidateRangeConsistency,
-			ValidateRangeValues:      facetengine.ValidateRangeValues,
+		facets.SchemaConstraintCallbacks{
+			ValidateRangeConsistency: facets.ValidateRangeConsistency,
+			ValidateRangeValues:      facets.ValidateRangeValues,
 			ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
 				return validateValueAgainstTypeWithFacets(schema, value, baseType, context)
 			},
@@ -206,15 +206,15 @@ func validateSimpleContentRestrictionFacets(schema *parser.Schema, restriction *
 		}
 	}
 
-	if err := facetengine.ValidateSchemaConstraints(
-		facetengine.SchemaConstraintInput{
+	if err := facets.ValidateSchemaConstraints(
+		facets.SchemaConstraintInput{
 			FacetList: facetList,
 			BaseType:  baseType,
 			BaseQName: baseQName,
 		},
-		facetengine.SchemaConstraintCallbacks{
-			ValidateRangeConsistency: facetengine.ValidateRangeConsistency,
-			ValidateRangeValues:      facetengine.ValidateRangeValues,
+		facets.SchemaConstraintCallbacks{
+			ValidateRangeConsistency: facets.ValidateRangeConsistency,
+			ValidateRangeValues:      facets.ValidateRangeValues,
 			ValidateEnumerationValue: func(value string, baseType model.Type, context map[string]string) error {
 				return validateValueAgainstTypeWithFacets(schema, value, baseType, context)
 			},

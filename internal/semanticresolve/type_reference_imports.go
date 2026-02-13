@@ -3,23 +3,23 @@ package semanticresolve
 import (
 	"fmt"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func validateImportForNamespace(schema *parser.Schema, contextNamespace, referenceNamespace model.NamespaceURI) error {
+func validateImportForNamespace(schema *parser.Schema, contextNamespace, referenceNamespace types.NamespaceURI) error {
 	if schema == nil {
 		return nil
 	}
-	if referenceNamespace == model.XSDNamespace || referenceNamespace == xmltree.XMLNamespace {
+	if referenceNamespace == types.XSDNamespace || referenceNamespace == xmltree.XMLNamespace {
 		return nil
 	}
 	if referenceNamespace == "" {
 		if contextNamespace == "" {
 			return nil
 		}
-		if imports, ok := schema.ImportedNamespaces[contextNamespace]; ok && imports[model.NamespaceEmpty] {
+		if imports, ok := schema.ImportedNamespaces[contextNamespace]; ok && imports[types.NamespaceEmpty] {
 			return nil
 		}
 		return fmt.Errorf("namespace %s not imported for %s", referenceNamespace, contextNamespace)
@@ -33,11 +33,11 @@ func validateImportForNamespace(schema *parser.Schema, contextNamespace, referen
 	return fmt.Errorf("namespace %s not imported for %s", referenceNamespace, contextNamespace)
 }
 
-func validateImportForNamespaceAtLocation(schema *parser.Schema, location string, referenceNamespace model.NamespaceURI) error {
+func validateImportForNamespaceAtLocation(schema *parser.Schema, location string, referenceNamespace types.NamespaceURI) error {
 	if schema == nil {
 		return nil
 	}
-	if referenceNamespace == model.XSDNamespace || referenceNamespace == xmltree.XMLNamespace {
+	if referenceNamespace == types.XSDNamespace || referenceNamespace == xmltree.XMLNamespace {
 		return nil
 	}
 	if location == "" || schema.ImportContexts == nil {
@@ -51,7 +51,7 @@ func validateImportForNamespaceAtLocation(schema *parser.Schema, location string
 		if ctx.TargetNamespace == "" {
 			return nil
 		}
-		if ctx.Imports != nil && ctx.Imports[model.NamespaceEmpty] {
+		if ctx.Imports != nil && ctx.Imports[types.NamespaceEmpty] {
 			return nil
 		}
 		return fmt.Errorf("namespace %s must be imported by schema %s", referenceNamespace, parser.ImportContextLocation(location))

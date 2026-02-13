@@ -2,7 +2,7 @@ package semanticcheck
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/valuevalidate"
 )
 

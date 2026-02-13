@@ -1,6 +1,6 @@
 package preprocessor
 
-import parser "github.com/jacoelho/xsd/internal/parser"
+import "github.com/jacoelho/xsd/internal/parser"
 
 type stateJournalOpKind uint8
 

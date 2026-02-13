@@ -3,11 +3,11 @@ package validatorgen
 import (
 	"fmt"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
-func (c *compiler) compileAttributeDefaults(registry *schema.Registry) error {
+func (c *compiler) compileAttributeDefaults(registry *analysis.Registry) error {
 	for _, entry := range registry.AttributeOrder {
 		decl := entry.Decl
 		if decl == nil {

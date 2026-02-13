@@ -3,7 +3,7 @@ package contentmodel
 import (
 	"fmt"
 
-	model "github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/substpolicy"
 )

@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/builtins"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (r *Resolver) lookupType(qname, referrer model.QName) (model.Type, error) {
+func (r *Resolver) lookupType(qname, referrer types.QName) (types.Type, error) {
 	if bt := builtins.GetNS(qname.Namespace, qname.Local); bt != nil {
 		return bt, nil
 	}
@@ -29,11 +29,11 @@ func (r *Resolver) lookupType(qname, referrer model.QName) (model.Type, error) {
 	}
 
 	switch t := typ.(type) {
-	case *model.SimpleType:
+	case *types.SimpleType:
 		if err := r.resolveSimpleType(qname, t); err != nil {
 			return nil, err
 		}
-	case *model.ComplexType:
+	case *types.ComplexType:
 		if err := r.resolveComplexType(qname, t); err != nil {
 			return nil, err
 		}
@@ -48,11 +48,11 @@ type elementTypeOptions struct {
 	allowResolving bool
 }
 
-func (r *Resolver) resolveElementType(elem *model.ElementDecl, elemName model.QName, opts elementTypeOptions) error {
+func (r *Resolver) resolveElementType(elem *types.ElementDecl, elemName types.QName, opts elementTypeOptions) error {
 	switch t := elem.Type.(type) {
-	case *model.SimpleType:
-		if model.IsPlaceholderSimpleType(t) {
-			actualType, err := r.lookupType(t.QName, model.QName{})
+	case *types.SimpleType:
+		if types.IsPlaceholderSimpleType(t) {
+			actualType, err := r.lookupType(t.QName, types.QName{})
 			if err != nil {
 				return fmt.Errorf(opts.simpleContext, elemName, err)
 			}
@@ -62,7 +62,7 @@ func (r *Resolver) resolveElementType(elem *model.ElementDecl, elemName model.QN
 		if err := r.resolveSimpleType(t.QName, t); err != nil {
 			return fmt.Errorf(opts.simpleContext, elemName, err)
 		}
-	case *model.ComplexType:
+	case *types.ComplexType:
 		if opts.allowResolving && !t.QName.IsZero() && r.detector.IsResolving(t.QName) {
 			return nil
 		}

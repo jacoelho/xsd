@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/facetrules"
-	facetengine "github.com/jacoelho/xsd/internal/facets"
+	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -23,7 +23,7 @@ func validateFacetRestriction(facetName string, baseFacet, derivedFacet model.Fa
 		if baseValStr == "" || derivedValStr == "" {
 			return nil
 		}
-		cmp, err := facetengine.CompareFacetValues(derivedValStr, baseValStr, baseType)
+		cmp, err := facets.CompareFacetValues(derivedValStr, baseValStr, baseType)
 		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
 			return nil
 		}

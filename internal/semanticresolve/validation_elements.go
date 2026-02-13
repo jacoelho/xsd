@@ -3,9 +3,9 @@ package semanticresolve
 import (
 	"fmt"
 
-	parser "github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	model "github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/types"
 )
 
 func validateTopLevelElementReferences(sch *parser.Schema) []error {
@@ -26,7 +26,7 @@ func validateTopLevelElementReferences(sch *parser.Schema) []error {
 	return errs
 }
 
-func validateContentElementReferences(sch *parser.Schema, elementRefsInContent []*model.ElementDecl) []error {
+func validateContentElementReferences(sch *parser.Schema, elementRefsInContent []*types.ElementDecl) []error {
 	var errs []error
 
 	for _, elemRef := range elementRefsInContent {
@@ -41,7 +41,7 @@ func validateContentElementReferences(sch *parser.Schema, elementRefsInContent [
 	return errs
 }
 
-func validateElementDeclarationReferences(sch *parser.Schema, allConstraints []*model.IdentityConstraint) []error {
+func validateElementDeclarationReferences(sch *parser.Schema, allConstraints []*types.IdentityConstraint) []error {
 	var errs []error
 
 	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
@@ -57,7 +57,7 @@ func validateElementDeclarationReferences(sch *parser.Schema, allConstraints []*
 			errs = append(errs, fmt.Errorf("element %s: %w", qname, err))
 		}
 
-		if decl.SubstitutionGroup != (model.QName{}) {
+		if decl.SubstitutionGroup != (types.QName{}) {
 			headDecl, exists := sch.ElementDecls[decl.SubstitutionGroup]
 			if !exists {
 				errs = append(errs, fmt.Errorf("element %s substitutionGroup %s does not exist", qname, decl.SubstitutionGroup))

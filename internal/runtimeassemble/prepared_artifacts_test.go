@@ -4,17 +4,17 @@ import (
 	"sync"
 	"testing"
 
-	schema "github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/analysis"
 )
 
-func mustPreparedArtifacts(t *testing.T, schemaXML string) (*PreparedArtifacts, *schema.Registry, *schema.ResolvedReferences) {
+func mustPreparedArtifacts(t *testing.T, schemaXML string) (*PreparedArtifacts, *analysis.Registry, *analysis.ResolvedReferences) {
 	t.Helper()
 	sch := mustResolveSchema(t, schemaXML)
-	reg, err := schema.AssignIDs(sch)
+	reg, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs() error = %v", err)
 	}
-	refs, err := schema.ResolveReferences(sch, reg)
+	refs, err := analysis.ResolveReferences(sch, reg)
 	if err != nil {
 		t.Fatalf("ResolveReferences() error = %v", err)
 	}
@@ -31,11 +31,11 @@ func TestPrepareBuildArtifactsRejectsNilInputs(t *testing.T) {
   <xs:element name="root" type="xs:string"/>
 </xs:schema>`
 	sch := mustResolveSchema(t, schemaXML)
-	reg, err := schema.AssignIDs(sch)
+	reg, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs() error = %v", err)
 	}
-	refs, err := schema.ResolveReferences(sch, reg)
+	refs, err := analysis.ResolveReferences(sch, reg)
 	if err != nil {
 		t.Fatalf("ResolveReferences() error = %v", err)
 	}
@@ -121,11 +121,11 @@ func TestPrepareBuildArtifactsWithComplexTypePlanSimpleContentRestriction(t *tes
 </xs:schema>`
 
 	sch := mustResolveSchema(t, schemaXML)
-	reg, err := schema.AssignIDs(sch)
+	reg, err := analysis.AssignIDs(sch)
 	if err != nil {
 		t.Fatalf("AssignIDs() error = %v", err)
 	}
-	refs, err := schema.ResolveReferences(sch, reg)
+	refs, err := analysis.ResolveReferences(sch, reg)
 	if err != nil {
 		t.Fatalf("ResolveReferences() error = %v", err)
 	}
