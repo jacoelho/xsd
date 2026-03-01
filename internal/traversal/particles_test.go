@@ -80,3 +80,30 @@ func TestCollectFromParticlesWithVisited(t *testing.T) {
 		t.Fatalf("collect with visited = %v, want [a b]", got)
 	}
 }
+
+func TestCollectFromContentHandlesCycles(t *testing.T) {
+	g1 := &model.ModelGroup{}
+	g2 := &model.ModelGroup{}
+	g1.Particles = []model.Particle{
+		&model.ElementDecl{Name: model.QName{Local: "a"}},
+		g2,
+	}
+	g2.Particles = []model.Particle{
+		&model.ElementDecl{Name: model.QName{Local: "b"}},
+		g1,
+	}
+
+	content := &model.ComplexContent{
+		Extension: &model.Extension{Particle: g1},
+	}
+	got := CollectFromContent(content, func(p model.Particle) (string, bool) {
+		elem, ok := p.(*model.ElementDecl)
+		if !ok {
+			return "", false
+		}
+		return elem.Name.Local, true
+	})
+	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
+		t.Fatalf("collect from cyclic content = %v, want [a b]", got)
+	}
+}

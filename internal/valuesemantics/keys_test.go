@@ -31,3 +31,10 @@ func TestKeyForPrimitiveName(t *testing.T) {
 		t.Fatalf("string key is empty")
 	}
 }
+
+func TestKeyForValidatorKindUnsupportedTemporalKind(t *testing.T) {
+	_, _, err := KeyForValidatorKind(runtime.ValidatorKind(255), []byte("2001-01-01"))
+	if err == nil {
+		t.Fatal("KeyForValidatorKind() error = nil, want unsupported validator kind error")
+	}
+}

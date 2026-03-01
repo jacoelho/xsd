@@ -34,6 +34,9 @@ func (s *Session) validateAttributesClassified(typeID runtime.TypeID, attrs []St
 		return s.validateSimpleTypeAttrsClassified(attrs, classified.classes, storeAttrs)
 	}
 
+	if int(typ.Complex.ID) >= len(s.rt.ComplexTypes) {
+		return AttrResult{}, fmt.Errorf("complex type %d not found", typ.Complex.ID)
+	}
 	ct := &s.rt.ComplexTypes[typ.Complex.ID]
 	uses := s.attrUses(ct.Attrs)
 	present := s.prepareAttrPresent(len(uses))

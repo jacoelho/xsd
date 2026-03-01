@@ -322,11 +322,11 @@ func sameClock(left, right time.Time) bool {
 
 func hasDateTimeLeapSecond(lexical []byte) bool {
 	main, _ := datetime.SplitTimezone(string(lexical))
-	t := strings.IndexByte(main, 'T')
-	if t < 0 {
+	_, after, ok := strings.Cut(main, "T")
+	if !ok {
 		return false
 	}
-	timePart := main[t+1:]
+	timePart := after
 	hour, minute, second, _, ok := datetime.ParseTimeParts(timePart)
 	if !ok {
 		return false

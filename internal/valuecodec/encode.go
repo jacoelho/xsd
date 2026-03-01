@@ -48,12 +48,12 @@ func QNameKeyStrings(tag byte, ns, local string) []byte {
 
 // QNameKeyCanonical writes a tagged QName key into dst, reusing capacity; dst is overwritten from the start.
 func QNameKeyCanonical(dst []byte, tag byte, canonical []byte) []byte {
-	sep := bytes.IndexByte(canonical, 0)
-	if sep < 0 {
+	before, after, ok := bytes.Cut(canonical, []byte{0})
+	if !ok {
 		return nil
 	}
-	ns := canonical[:sep]
-	local := canonical[sep+1:]
+	ns := before
+	local := after
 	dst = append(dst[:0], tag)
 	dst = AppendUvarint(dst, uint64(len(ns)))
 	dst = append(dst, ns...)

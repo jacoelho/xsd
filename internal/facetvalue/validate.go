@@ -144,6 +144,9 @@ func ParseDurationToTimeDuration(text string) (time.Duration, error) {
 		case errors.Is(err, durationconv.ErrIndeterminate):
 			return 0, fmt.Errorf("durations with years or months cannot be converted to time.Duration (indeterminate)")
 		case errors.Is(err, durationconv.ErrOverflow):
+			if strings.Contains(err.Error(), "second value too large") {
+				return 0, fmt.Errorf("second value too large")
+			}
 			return 0, fmt.Errorf("duration too large")
 		case errors.Is(err, durationconv.ErrComponentRange):
 			return 0, fmt.Errorf("duration component out of range")

@@ -13,6 +13,8 @@ func (l *Loader) Load(location string) (*parser.Schema, error) {
 	if err := l.beginLocationLoad(); err != nil {
 		return nil, err
 	}
+	l.state = newLoadState()
+	l.imports = newImportTracker()
 	return l.loadRoot(location)
 }
 

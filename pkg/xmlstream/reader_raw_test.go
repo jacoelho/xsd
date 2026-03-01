@@ -437,6 +437,19 @@ func TestNextRawNamespaceDeclError(t *testing.T) {
 	}
 }
 
+func TestNextRawDuplicateAttributes(t *testing.T) {
+	input := `<root xmlns:a="urn:x" a:attr="1" xmlns:b="urn:x" b:attr="2"/>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.NextRaw(); err == nil {
+		t.Fatalf("expected duplicate attribute error")
+	} else if !errors.Is(err, errDuplicateAttribute) {
+		t.Fatalf("error = %v, want duplicate attribute error", err)
+	}
+}
+
 func TestNextRawAfterNextError(t *testing.T) {
 	input := `<root><child>`
 	r, err := NewReader(strings.NewReader(input))

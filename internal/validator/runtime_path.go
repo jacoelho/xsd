@@ -74,12 +74,18 @@ func (s *Session) nameParts(id NameID) ([]byte, []byte) {
 		}
 	}
 	var local []byte
-	if entry.LocalLen != 0 && int(entry.LocalOff+entry.LocalLen) <= len(s.nameLocal) {
-		local = s.nameLocal[entry.LocalOff : entry.LocalOff+entry.LocalLen]
+	if entry.LocalLen != 0 {
+		start, end, ok := checkedSpan(entry.LocalOff, entry.LocalLen, len(s.nameLocal))
+		if ok {
+			local = s.nameLocal[start:end]
+		}
 	}
 	var ns []byte
-	if entry.NSLen != 0 && int(entry.NSOff+entry.NSLen) <= len(s.nameNS) {
-		ns = s.nameNS[entry.NSOff : entry.NSOff+entry.NSLen]
+	if entry.NSLen != 0 {
+		start, end, ok := checkedSpan(entry.NSOff, entry.NSLen, len(s.nameNS))
+		if ok {
+			ns = s.nameNS[start:end]
+		}
 	}
 	return ns, local
 }

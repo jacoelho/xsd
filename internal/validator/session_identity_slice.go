@@ -14,23 +14,22 @@ func sliceElemICs(rt *runtime.Schema, elem *runtime.Element) ([]runtime.ICID, er
 	if elem.ICLen == 0 {
 		return nil, nil
 	}
-	off := elem.ICOff
-	end := off + elem.ICLen
-	if int(off) > len(rt.ElemICs) || int(end) > len(rt.ElemICs) {
+	start, end, ok := checkedSpan(elem.ICOff, elem.ICLen, len(rt.ElemICs))
+	if !ok {
 		return nil, fmt.Errorf("identity: elem ICs out of range")
 	}
-	return rt.ElemICs[off:end], nil
+	return rt.ElemICs[start:end], nil
 }
 
 func slicePathIDs(list []runtime.PathID, off, ln uint32) ([]runtime.PathID, error) {
 	if ln == 0 {
 		return nil, fmt.Errorf("identity: empty path list")
 	}
-	end := off + ln
-	if int(off) > len(list) || int(end) > len(list) {
+	start, end, ok := checkedSpan(off, ln, len(list))
+	if !ok {
 		return nil, fmt.Errorf("identity: path list out of range")
 	}
-	return list[off:end], nil
+	return list[start:end], nil
 }
 
 func splitFieldPaths(ids []runtime.PathID) ([][]runtime.PathID, error) {

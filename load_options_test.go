@@ -43,7 +43,7 @@ func TestSchemaSetCompileAppliesRuntimeOptions(t *testing.T) {
 
 	runtimeOpts := xsd.NewRuntimeOptions().WithInstanceMaxDepth(-1)
 	loadOpts := xsd.NewLoadOptions().WithRuntimeOptions(runtimeOpts)
-	set := xsd.NewSchemaSet(loadOpts)
+	set := xsd.NewSchemaSet().WithLoadOptions(loadOpts)
 	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
 		t.Fatalf("AddFS() error = %v", err)
 	}
@@ -82,7 +82,7 @@ func TestLoadOptionsRejectsMixedRuntimeConfiguration(t *testing.T) {
 	opts := xsd.NewLoadOptions().WithRuntimeOptions(
 		xsd.NewRuntimeOptions().WithInstanceMaxDepth(-1),
 	)
-	set := xsd.NewSchemaSet(opts)
+	set := xsd.NewSchemaSet().WithLoadOptions(opts)
 	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
 		t.Fatalf("AddFS() error = %v", err)
 	}
