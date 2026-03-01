@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/set"
+	"github.com/jacoelho/xsd/internal/validator"
 )
 
 // Compile compiles all added schema roots using set load options.
@@ -41,7 +42,7 @@ func (s *SchemaSet) compileWithRuntimeOverride(runtimeOverride *RuntimeOptions) 
 	if err != nil {
 		return nil, fmt.Errorf("compile schema set: build runtime: %w", err)
 	}
-	return &Schema{engine: newEngine(rt, runtimeOpts.instanceParseOptions...)}, nil
+	return &Schema{engine: validator.NewEngine(rt, runtimeOpts.instanceParseOptions...)}, nil
 }
 
 func toCompileConfig(opts resolvedRuntimeOptions) set.CompileConfig {

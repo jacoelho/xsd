@@ -23,8 +23,9 @@ func (s *Session) checkTypeDerivation(derived, base runtime.TypeID, block runtim
 	if ln == 0 {
 		return fmt.Errorf("type %d not derived from %d", derived, base)
 	}
-	end := off + ln
-	if int(end) > len(s.rt.Ancestors.IDs) || int(end) > len(s.rt.Ancestors.Masks) {
+	startIDs, endIDs, okIDs := checkedSpan(off, ln, len(s.rt.Ancestors.IDs))
+	startMasks, endMasks, okMasks := checkedSpan(off, ln, len(s.rt.Ancestors.Masks))
+	if !okIDs || !okMasks {
 		return fmt.Errorf("ancestor data out of range")
 	}
 
@@ -33,12 +34,16 @@ func (s *Session) checkTypeDerivation(derived, base runtime.TypeID, block runtim
 		blocked |= baseType.Block
 	}
 	found := false
-	for i := off; i < end; i++ {
+	for i := startIDs; i < endIDs; i++ {
 		ancID := s.rt.Ancestors.IDs[i]
 		if ancID == 0 {
 			continue
 		}
-		mask := s.rt.Ancestors.Masks[i]
+		maskIndex := startMasks + (i - startIDs)
+		if maskIndex < startMasks || maskIndex >= endMasks {
+			return fmt.Errorf("ancestor data out of range")
+		}
+		mask := s.rt.Ancestors.Masks[maskIndex]
 		ancType, ok := s.typeByID(ancID)
 		if !ok {
 			return fmt.Errorf("type %d not found", ancID)

@@ -165,9 +165,9 @@ func canonicalDecimalString(lexical string) string {
 
 	intPart := s
 	fracPart := ""
-	if dot := strings.IndexByte(s, '.'); dot >= 0 {
-		intPart = s[:dot]
-		fracPart = s[dot+1:]
+	if before, after, ok := strings.Cut(s, "."); ok {
+		intPart = before
+		fracPart = after
 	}
 
 	intPart = strings.TrimLeft(intPart, "0")

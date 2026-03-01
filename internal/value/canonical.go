@@ -26,9 +26,9 @@ func CanonicalFloat(value float64, bits int) string {
 	raw := formatFloat(value, bits)
 	exponent := "0"
 	mantissa := raw
-	if e := strings.IndexByte(raw, 'E'); e >= 0 {
-		mantissa = raw[:e]
-		exponent = raw[e+1:]
+	if before, after, ok := strings.Cut(raw, "E"); ok {
+		mantissa = before
+		exponent = after
 	}
 	if dot := strings.IndexByte(mantissa, '.'); dot == -1 {
 		mantissa += ".0"

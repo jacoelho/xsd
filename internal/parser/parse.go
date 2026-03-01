@@ -41,6 +41,17 @@ func newParseError(err error) *ParseError {
 	}
 }
 
+func wrapParseErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	var parseErr *ParseError
+	if errors.As(err, &parseErr) {
+		return err
+	}
+	return newParseError(err)
+}
+
 // ImportInfo represents an import directive from an XSD schema.
 // Imports allow referencing components from a different namespace.
 type ImportInfo struct {
@@ -95,6 +106,9 @@ func ParseWithImportsOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResul
 
 // ParseWithImportsOptionsWithPool parses an XSD schema with XML reader options and an explicit document pool.
 func ParseWithImportsOptionsWithPool(r io.Reader, pool *xmltree.DocumentPool, opts ...xmlstream.Option) (*ParseResult, error) {
+	if pool == nil {
+		pool = xmltree.NewDocumentPool()
+	}
 	reader, err := xmlstream.NewReader(r, opts...)
 	if err != nil {
 		return nil, newParseError(fmt.Errorf("xml reader: %w", err))
@@ -128,10 +142,10 @@ func ParseWithImportsOptionsWithPool(r io.Reader, pool *xmltree.DocumentPool, op
 			docState.OnStartElement()
 			if !rootSeen {
 				if ev.Name.Local != "schema" || ev.Name.Namespace != xmltree.XSDNamespace {
-					return nil, fmt.Errorf("root element must be xs:schema, got {%s}%s", ev.Name.Namespace, ev.Name.Local)
+					return nil, wrapParseErr(fmt.Errorf("root element must be xs:schema, got {%s}%s", ev.Name.Namespace, ev.Name.Local))
 				}
 				if err := parseSchemaAttributesFromStart(ev, reader.NamespaceDeclsSeq(ev.ScopeDepth), schema); err != nil {
-					return nil, err
+					return nil, wrapParseErr(err)
 				}
 				applyImportedNamespaces(schema, importedNamespaces)
 				continue
@@ -151,21 +165,21 @@ func ParseWithImportsOptionsWithPool(r io.Reader, pool *xmltree.DocumentPool, op
 			switch ev.Name.Local {
 			case "annotation", "import", "include":
 				if err := parseDirectiveSubtree(doc, root, schema, result, importedNamespaces, &dirState, pool); err != nil {
-					return nil, err
+					return nil, wrapParseErr(err)
 				}
 				applyImportedNamespaces(schema, importedNamespaces)
 			case "redefine":
-				return nil, fmt.Errorf("redefine is not supported")
+				return nil, wrapParseErr(fmt.Errorf("redefine is not supported"))
 			default:
 				if !isTopLevelComponentElement(ev.Name.Local) {
 					pool.Release(doc)
-					return nil, fmt.Errorf("unexpected top-level element '%s'", ev.Name.Local)
+					return nil, wrapParseErr(fmt.Errorf("unexpected top-level element '%s'", ev.Name.Local))
 				}
 				if isGlobalDeclElement(ev.Name.Local) {
 					dirState.declIndex++
 				}
 				if err := parseTopLevelComponentSubtree(doc, root, schema, pool); err != nil {
-					return nil, err
+					return nil, wrapParseErr(err)
 				}
 			}
 
@@ -185,7 +199,7 @@ func ParseWithImportsOptionsWithPool(r io.Reader, pool *xmltree.DocumentPool, op
 	}
 
 	if !docState.RootSeen() {
-		return nil, fmt.Errorf("empty document")
+		return nil, wrapParseErr(fmt.Errorf("empty document"))
 	}
 
 	applyImportedNamespaces(schema, importedNamespaces)

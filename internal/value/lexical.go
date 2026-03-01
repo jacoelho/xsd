@@ -64,7 +64,9 @@ func ValidateName(value []byte) error {
 }
 
 // ValidateNCName validates xs:NCName lexical constraints.
-var ValidateNCName = validateNCName
+func ValidateNCName(value []byte) error {
+	return validateNCName(value)
+}
 
 // ValidateNMTOKEN validates xs:NMTOKEN lexical constraints.
 func ValidateNMTOKEN(value []byte) error {

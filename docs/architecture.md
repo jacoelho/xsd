@@ -16,7 +16,7 @@ This validator implements W3C XML Schema 1.0 validation with the following prior
 
 Instance-document schema hints (`xsi:schemaLocation`, `xsi:noNamespaceSchemaLocation`) are ignored.
 Validation always uses the compiled schema created by
-`xsd.NewSchemaSet(...).Compile(...)`, `xsd.LoadWithOptions`, or `xsd.LoadFile`.
+`xsd.NewSchemaSet().WithLoadOptions(...).Compile(...)`, `xsd.LoadWithOptions`, or `xsd.LoadFile`.
 This keeps validation deterministic and goroutine-safe.
 
 ## Processing Pipeline
@@ -50,7 +50,7 @@ flowchart TD
     Load["xsd.NewSchemaSet / xsd.LoadWithOptions"] --> Loader["internal/preprocessor.Loader.Load<br/>(parse + import/include)"] --> Compile["internal/compiler.Prepare*<br/>(semantic normalization + compile artifacts)"] --> Build["internal/set.PreparedSchema.BuildRuntime"] --> Runtime["internal/runtime.Schema"]
   end
   subgraph Validation
-    Validate["Schema.Validate"] --> ValidatorPkg["internal/validationengine + internal/validator<br/>(engine, session, streaming checks)"]
+    Validate["Schema.Validate"] --> ValidatorPkg["internal/validator<br/>(engine, session, streaming checks)"]
     ValidatorPkg --> Runtime
     ValidatorPkg --> XMLPkg["pkg/xmlstream.Reader"]
     XMLPkg --> XMLText["pkg/xmltext.Decoder"]
@@ -70,7 +70,6 @@ Each package owns one phase-level responsibility:
 - `internal/analysis`: deterministic IDs, ordering, and resolved-reference indexes.
 - `internal/set`: prepare/build orchestration for reusable schema artifacts.
 - `internal/runtimeassemble`: compilation of normalized artifacts into runtime tables.
-- `internal/validationengine`: engine/session validation entrypoints.
 - `internal/validator`: mutable runtime session execution over immutable runtime schema.
 
 Public package organization follows the same single-responsibility rule:

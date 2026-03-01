@@ -19,22 +19,22 @@ func ImportContextKey(fsKey, location string) string {
 func ImportContextLocation(key string) string {
 	if after, ok := strings.CutPrefix(key, importContextPrefix); ok {
 		rest := after
-		idx := strings.IndexByte(rest, ':')
-		if idx == -1 {
+		before, after0, ok0 := strings.Cut(rest, ":")
+		if !ok0 {
 			return key
 		}
-		size, err := strconv.Atoi(rest[:idx])
+		size, err := strconv.Atoi(before)
 		if err != nil || size < 0 {
 			return key
 		}
-		payload := rest[idx+1:]
+		payload := after0
 		if size > len(payload) {
 			return key
 		}
 		return payload[size:]
 	}
-	if idx := strings.Index(key, importContextSeparator); idx != -1 {
-		return key[idx+len(importContextSeparator):]
+	if _, after, ok := strings.Cut(key, importContextSeparator); ok {
+		return after
 	}
 	return key
 }

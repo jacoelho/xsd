@@ -71,7 +71,7 @@ func main() {
 ## SchemaSet API
 
 ```go
-set := xsd.NewSchemaSet(xsd.NewLoadOptions())
+set := xsd.NewSchemaSet().WithLoadOptions(xsd.NewLoadOptions())
 if err := set.AddFS(fsys, "schema-a.xsd"); err != nil {
     // handle
 }
@@ -156,7 +156,7 @@ Options:
 ## Compile with Runtime Options
 
 ```go
-set := xsd.NewSchemaSet(xsd.NewLoadOptions())
+set := xsd.NewSchemaSet().WithLoadOptions(xsd.NewLoadOptions())
 if err := set.AddFS(fsys, "schema.xsd"); err != nil {
     // handle
 }

@@ -82,7 +82,9 @@ func parseQName(value []byte) ([]byte, []byte, bool, error) {
 }
 
 // ValidateQName validates xs:QName lexical constraints.
-var ValidateQName = validateQName
+func ValidateQName(value []byte) error {
+	return validateQName(value)
+}
 
 func validateQName(value []byte) error {
 	if len(value) == 0 {

@@ -1,6 +1,8 @@
 package semanticresolve
 
 import (
+	"fmt"
+
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/types"
@@ -8,6 +10,9 @@ import (
 
 // ValidateReferences validates cross-component references for schema loading.
 func ValidateReferences(sch *parser.Schema) []error {
+	if sch == nil {
+		return []error{fmt.Errorf("nil schema")}
+	}
 	var errs []error
 	index := buildIterationIndex(sch)
 

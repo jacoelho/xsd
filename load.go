@@ -9,7 +9,7 @@ import (
 
 // LoadWithOptions loads and compiles a schema with explicit configuration.
 func LoadWithOptions(fsys fs.FS, location string, opts LoadOptions) (*Schema, error) {
-	set := NewSchemaSet(opts)
+	set := NewSchemaSet().WithLoadOptions(opts)
 	if err := set.AddFS(fsys, location); err != nil {
 		return nil, fmt.Errorf("load schema %s: %w", location, err)
 	}

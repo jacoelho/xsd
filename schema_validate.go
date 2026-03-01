@@ -5,6 +5,8 @@ import (
 	"io"
 	"io/fs"
 	"os"
+
+	"github.com/jacoelho/xsd/errors"
 )
 
 // Validate validates a document against the schema.
@@ -18,9 +20,11 @@ func (s *Schema) ValidateFSFile(fsys fs.FS, path string) (err error) {
 		if fsys == nil {
 			return nil, fmt.Errorf("nil fs")
 		}
-		return fsys.Open(filePath)
-	}, func(reader io.Reader, document string) error {
-		return s.validateReader(reader, document)
+		f, openErr := fsys.Open(filePath)
+		if openErr != nil {
+			return nil, openErr
+		}
+		return f, nil
 	})
 }
 
@@ -28,20 +32,15 @@ func (s *Schema) ValidateFSFile(fsys fs.FS, path string) (err error) {
 func (s *Schema) ValidateFile(path string) (err error) {
 	return s.validateFile(path, func(filePath string) (io.ReadCloser, error) {
 		return os.Open(filePath)
-	}, func(reader io.Reader, document string) error {
-		return s.validateReader(reader, document)
 	})
 }
 
-func (s *Schema) validateFile(path string, openFile func(string) (io.ReadCloser, error), validate func(io.Reader, string) error) (err error) {
+func (s *Schema) validateFile(path string, openFile func(string) (io.ReadCloser, error)) (err error) {
 	if s == nil || s.engine == nil {
 		return schemaNotLoadedError()
 	}
 	if openFile == nil {
 		return fmt.Errorf("open xml file %s: nil opener", path)
-	}
-	if validate == nil {
-		return fmt.Errorf("validate xml file %s: nil validator", path)
 	}
 
 	f, err := openFile(path)
@@ -54,14 +53,17 @@ func (s *Schema) validateFile(path string, openFile func(string) (io.ReadCloser,
 		}
 	}()
 
-	err = validate(f, path)
+	err = s.validateReader(f, path)
 	return err
 }
 
 func (s *Schema) validateReader(r io.Reader, document string) error {
-	var eng *engine
-	if s != nil {
-		eng = s.engine
+	if s == nil || s.engine == nil {
+		return schemaNotLoadedError()
 	}
-	return eng.validateDocument(r, document)
+	return s.engine.ValidateWithDocument(r, document)
+}
+
+func schemaNotLoadedError() error {
+	return errors.ValidationList{errors.NewValidation(errors.ErrSchemaNotLoaded, "schema not loaded", "")}
 }

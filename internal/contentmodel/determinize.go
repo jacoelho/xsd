@@ -31,7 +31,18 @@ func Compile(glu *Glushkov, matchers []runtime.PosMatcher, limits Limits) (Model
 		return Model{}, fmt.Errorf("glushkov model is nil")
 	}
 	if len(glu.Positions) == 0 {
-		return Model{Kind: runtime.ModelNone}, nil
+		if glu.Nullable {
+			return Model{Kind: runtime.ModelNone}, nil
+		}
+		return Model{
+			Kind: runtime.ModelDFA,
+			DFA: runtime.DFAModel{
+				Start: 0,
+				States: []runtime.DFAState{
+					{},
+				},
+			},
+		}, nil
 	}
 	if len(matchers) != len(glu.Positions) {
 		return Model{}, fmt.Errorf("matcher count %d does not match positions %d", len(matchers), len(glu.Positions))

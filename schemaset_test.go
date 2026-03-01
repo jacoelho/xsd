@@ -22,7 +22,7 @@ func TestSchemaSetAddCompile(t *testing.T) {
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	set := xsd.NewSchemaSet(xsd.NewLoadOptions())
+	set := xsd.NewSchemaSet().WithLoadOptions(xsd.NewLoadOptions())
 	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
 		t.Fatalf("AddFS() error = %v", err)
 	}
@@ -51,7 +51,7 @@ func TestSchemaSetCompileWithRuntimeOptionsRejectsInvalidRuntimeLimits(t *testin
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	set := xsd.NewSchemaSet(xsd.NewLoadOptions())
+	set := xsd.NewSchemaSet().WithLoadOptions(xsd.NewLoadOptions())
 	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
 		t.Fatalf("AddFS() error = %v", err)
 	}
@@ -133,7 +133,7 @@ func TestRuntimeOptionsAppliedThroughSchemaSetCompile(t *testing.T) {
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	set := xsd.NewSchemaSet(xsd.NewLoadOptions())
+	set := xsd.NewSchemaSet().WithLoadOptions(xsd.NewLoadOptions())
 	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
 		t.Fatalf("AddFS() error = %v", err)
 	}

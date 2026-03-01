@@ -49,3 +49,30 @@ func ValidateXMLPrefixBindingBytes(binding []byte, ok bool) error {
 	}
 	return nil
 }
+
+// ValidateNamespaceDeclBinding verifies namespace declaration reserved bindings.
+func ValidateNamespaceDeclBinding(prefix, uri string) error {
+	switch prefix {
+	case "":
+		if uri == XMLNamespace {
+			return fmt.Errorf("default namespace must not be %s", XMLNamespace)
+		}
+		if uri == XMLNSNamespace {
+			return fmt.Errorf("default namespace must not be %s", XMLNSNamespace)
+		}
+	case XMLPrefix:
+		if uri != XMLNamespace {
+			return fmt.Errorf("prefix %s must be bound to %s", XMLPrefix, XMLNamespace)
+		}
+	case XMLNSPrefix:
+		return fmt.Errorf("prefix %s must not be declared", XMLNSPrefix)
+	default:
+		if uri == XMLNamespace {
+			return fmt.Errorf("prefix %s must not be bound to %s", prefix, XMLNamespace)
+		}
+		if uri == XMLNSNamespace {
+			return fmt.Errorf("prefix %s must not be bound to %s", prefix, XMLNSNamespace)
+		}
+	}
+	return nil
+}

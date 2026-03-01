@@ -582,6 +582,44 @@ func TestXMLNSXMLNSBindingRejected(t *testing.T) {
 	}
 }
 
+func TestDefaultXMLNamespaceURIRejected(t *testing.T) {
+	input := `<root xmlns="http://www.w3.org/XML/1998/namespace"/>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err == nil {
+		t.Fatalf("expected error for default xml namespace URI")
+	}
+}
+
+func TestNonXMLPrefixToXMLNamespaceRejected(t *testing.T) {
+	input := `<root xmlns:p="http://www.w3.org/XML/1998/namespace"><p:child/></root>`
+	r, err := NewReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("NewReader error = %v", err)
+	}
+	if _, err = r.Next(); err == nil {
+		t.Fatalf("expected error for non-xml prefix bound to XML namespace URI")
+	}
+}
+
+func TestXMLNSNamespaceURIRejected(t *testing.T) {
+	tests := []string{
+		`<root xmlns:p="http://www.w3.org/2000/xmlns/"><p:child/></root>`,
+		`<root xmlns="http://www.w3.org/2000/xmlns/"/>`,
+	}
+	for _, input := range tests {
+		r, err := NewReader(strings.NewReader(input))
+		if err != nil {
+			t.Fatalf("NewReader error = %v", err)
+		}
+		if _, err = r.Next(); err == nil {
+			t.Fatalf("expected error for XMLNS namespace URI binding: %s", input)
+		}
+	}
+}
+
 func TestNSStackLookupDepthOverflow(t *testing.T) {
 	var stack nsStack
 	stack.decls = append(stack.decls, NamespaceDecl{Prefix: "a", URI: "urn:a"})

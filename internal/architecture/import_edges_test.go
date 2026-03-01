@@ -17,7 +17,6 @@ func TestCorePhaseImportEdges(t *testing.T) {
 			internalPkg("compiler"),
 			internalPkg("runtimeassemble"),
 			internalPkg("validatorgen"),
-			internalPkg("validationengine"),
 			internalPkg("validator"),
 		},
 		internalPkg("parser"): {
@@ -29,7 +28,6 @@ func TestCorePhaseImportEdges(t *testing.T) {
 			internalPkg("compiler"),
 			internalPkg("runtimeassemble"),
 			internalPkg("validatorgen"),
-			internalPkg("validationengine"),
 			internalPkg("validator"),
 			internalPkg("set"),
 		},
@@ -40,7 +38,6 @@ func TestCorePhaseImportEdges(t *testing.T) {
 			internalPkg("set"),
 			internalPkg("runtimeassemble"),
 			internalPkg("validatorgen"),
-			internalPkg("validationengine"),
 			internalPkg("validator"),
 		},
 		internalPkg("semanticcheck"): {
@@ -50,7 +47,6 @@ func TestCorePhaseImportEdges(t *testing.T) {
 			internalPkg("set"),
 			internalPkg("runtimeassemble"),
 			internalPkg("validatorgen"),
-			internalPkg("validationengine"),
 			internalPkg("validator"),
 		},
 		internalPkg("analysis"): {
@@ -60,7 +56,6 @@ func TestCorePhaseImportEdges(t *testing.T) {
 			internalPkg("set"),
 			internalPkg("runtimeassemble"),
 			internalPkg("validatorgen"),
-			internalPkg("validationengine"),
 			internalPkg("validator"),
 		},
 		internalPkg("runtimeassemble"): {
@@ -70,20 +65,7 @@ func TestCorePhaseImportEdges(t *testing.T) {
 			internalPkg("normalize"),
 			internalPkg("compiler"),
 			internalPkg("set"),
-			internalPkg("validationengine"),
 			internalPkg("validator"),
-		},
-		internalPkg("validationengine"): {
-			internalPkg("preprocessor"),
-			internalPkg("parser"),
-			internalPkg("semanticresolve"),
-			internalPkg("semanticcheck"),
-			internalPkg("analysis"),
-			internalPkg("normalize"),
-			internalPkg("compiler"),
-			internalPkg("runtimeassemble"),
-			internalPkg("validatorgen"),
-			internalPkg("set"),
 		},
 		internalPkg("validator"): {
 			internalPkg("preprocessor"),
@@ -103,7 +85,6 @@ func TestCorePhaseImportEdges(t *testing.T) {
 			internalPkg("analysis"),
 			internalPkg("runtimeassemble"),
 			internalPkg("validatorgen"),
-			internalPkg("validationengine"),
 			internalPkg("validator"),
 		},
 	}

@@ -12,6 +12,9 @@ import (
 // ValidateStructure validates that a parsed schema conforms to XSD structural constraints.
 // Reference validation is handled separately during the resolver phase.
 func ValidateStructure(schema *parser.Schema) []error {
+	if schema == nil {
+		return []error{fmt.Errorf("nil schema")}
+	}
 	var errors []error
 	seen := make(map[parser.GlobalDeclKind]map[model.QName]struct{})
 

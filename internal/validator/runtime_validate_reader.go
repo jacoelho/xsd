@@ -36,3 +36,7 @@ func readerSetupError(err error, document string) error {
 		Document: document,
 	}}
 }
+
+func schemaNotLoadedError() error {
+	return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrSchemaNotLoaded, "schema not loaded", "")}
+}

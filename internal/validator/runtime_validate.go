@@ -15,7 +15,7 @@ func (s *Session) Validate(r io.Reader) error {
 // ValidateWithDocument validates an XML document with a known document URI.
 func (s *Session) ValidateWithDocument(r io.Reader, document string) error {
 	if s == nil || s.rt == nil {
-		return xsderrors.ValidationList{xsderrors.NewValidation(xsderrors.ErrSchemaNotLoaded, "schema not loaded", "")}
+		return schemaNotLoadedError()
 	}
 	if r == nil {
 		return readerSetupError(errors.New("nil reader"), document)

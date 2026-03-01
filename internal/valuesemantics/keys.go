@@ -57,11 +57,15 @@ func KeyForValidatorKind(kind runtime.ValidatorKind, canonical []byte) (runtime.
 		}
 		return runtime.VKDuration, valuecodec.DurationKeyBytes(nil, dur), nil
 	case runtime.VDateTime, runtime.VDate, runtime.VTime, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
-		tv, err := parseTemporalForValidatorKind(kind, canonical)
+		spec, ok := runtime.TemporalSpecForValidatorKind(kind)
+		if !ok {
+			return runtime.VKInvalid, nil, fmt.Errorf("unsupported temporal kind %d", kind)
+		}
+		tv, err := temporal.Parse(spec.Kind, canonical)
 		if err != nil {
 			return runtime.VKInvalid, nil, err
 		}
-		return runtime.VKDateTime, valuecodec.TemporalKeyBytes(nil, byte(temporalSubkind(kind)), tv.Time, tv.TimezoneKind, tv.LeapSecond), nil
+		return runtime.VKDateTime, valuecodec.TemporalKeyBytes(nil, spec.KeyTag, tv.Time, tv.TimezoneKind, tv.LeapSecond), nil
 	default:
 		return runtime.VKInvalid, nil, fmt.Errorf("unsupported validator kind %d", kind)
 	}
@@ -144,51 +148,5 @@ func KeyForPrimitiveName(primitive, normalized string, ctx map[string]string) (r
 			return runtime.VKDateTime, key, nil
 		}
 		return runtime.VKInvalid, nil, fmt.Errorf("unsupported primitive type %s", primitive)
-	}
-}
-
-func parseTemporalForValidatorKind(kind runtime.ValidatorKind, canonical []byte) (temporal.Value, error) {
-	switch kind {
-	case runtime.VDateTime:
-		return temporal.Parse(temporal.KindDateTime, canonical)
-	case runtime.VDate:
-		return temporal.Parse(temporal.KindDate, canonical)
-	case runtime.VTime:
-		return temporal.Parse(temporal.KindTime, canonical)
-	case runtime.VGYearMonth:
-		return temporal.Parse(temporal.KindGYearMonth, canonical)
-	case runtime.VGYear:
-		return temporal.Parse(temporal.KindGYear, canonical)
-	case runtime.VGMonthDay:
-		return temporal.Parse(temporal.KindGMonthDay, canonical)
-	case runtime.VGDay:
-		return temporal.Parse(temporal.KindGDay, canonical)
-	case runtime.VGMonth:
-		return temporal.Parse(temporal.KindGMonth, canonical)
-	default:
-		return temporal.Value{}, fmt.Errorf("unsupported temporal kind %d", kind)
-	}
-}
-
-func temporalSubkind(kind runtime.ValidatorKind) temporal.Kind {
-	switch kind {
-	case runtime.VDateTime:
-		return temporal.KindDateTime
-	case runtime.VDate:
-		return temporal.KindDate
-	case runtime.VTime:
-		return temporal.KindTime
-	case runtime.VGYearMonth:
-		return temporal.KindGYearMonth
-	case runtime.VGYear:
-		return temporal.KindGYear
-	case runtime.VGMonthDay:
-		return temporal.KindGMonthDay
-	case runtime.VGDay:
-		return temporal.KindGDay
-	case runtime.VGMonth:
-		return temporal.KindGMonth
-	default:
-		return temporal.KindDateTime
 	}
 }

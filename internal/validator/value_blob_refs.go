@@ -9,9 +9,8 @@ func valueBytes(values runtime.ValueBlob, ref runtime.ValueRef) []byte {
 	if ref.Len == 0 {
 		return []byte{}
 	}
-	start := int(ref.Off)
-	end := start + int(ref.Len)
-	if start < 0 || end < 0 || end > len(values.Blob) {
+	start, end, ok := checkedSpan(ref.Off, ref.Len, len(values.Blob))
+	if !ok {
 		return nil
 	}
 	return values.Blob[start:end]

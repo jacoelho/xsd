@@ -349,8 +349,12 @@ func (r *Reader) startEvent(tok *xmltext.RawTokenSpan, line, column int) (Event,
 	} else {
 		r.attrBuf = r.attrBuf[:0]
 	}
+	r.beginAttrDedup()
 
 	err = r.scanStartAttributes(tok, core.scopeDepth, line, column, func(_ []byte, attrNamespace string, attrLocal, value []byte) error {
+		if markErr := r.markAttrSeen(attrNamespace, attrLocal, line, column); markErr != nil {
+			return markErr
+		}
 		r.attrBuf = append(r.attrBuf, Attr{
 			Name:  r.names.internBytes(attrNamespace, attrLocal),
 			Value: value,
@@ -386,8 +390,12 @@ func (r *Reader) startRawEvent(tok *xmltext.RawTokenSpan, line, column int) (Raw
 	} else {
 		r.rawAttrInfo = r.rawAttrInfo[:0]
 	}
+	r.beginAttrDedup()
 
 	err = r.scanStartAttributes(tok, core.scopeDepth, line, column, func(attrName []byte, attrNamespace string, attrLocal, value []byte) error {
+		if markErr := r.markAttrSeen(attrNamespace, attrLocal, line, column); markErr != nil {
+			return markErr
+		}
 		r.rawAttrBuf = append(r.rawAttrBuf, RawAttr{
 			Name:  rawNameFromBytes(attrName),
 			Value: value,
@@ -432,24 +440,12 @@ func (r *Reader) startResolvedEvent(tok *xmltext.RawTokenSpan, line, column int)
 	} else {
 		r.resolvedAttr = r.resolvedAttr[:0]
 	}
-
-	r.attrEpoch++
-	if r.attrEpoch == 0 {
-		clear(r.attrSeen)
-		r.attrEpoch = 1
-	}
+	r.beginAttrDedup()
 
 	err = r.scanStartAttributes(tok, core.scopeDepth, line, column, func(_ []byte, attrNamespace string, attrLocal, value []byte) error {
-		attrID := r.nameIDs.internBytes(attrNamespace, attrLocal)
-		if attrID != 0 {
-			idx := int(attrID)
-			if idx >= len(r.attrSeen) {
-				r.attrSeen = append(r.attrSeen, make([]uint32, idx-len(r.attrSeen)+1)...)
-			}
-			if r.attrSeen[idx] == r.attrEpoch {
-				return wrapSyntaxError(r.dec, line, column, errDuplicateAttribute)
-			}
-			r.attrSeen[idx] = r.attrEpoch
+		attrID, attrErr := r.attrID(attrNamespace, attrLocal)
+		if attrErr != nil {
+			return wrapSyntaxError(r.dec, line, column, attrErr)
 		}
 		attrNSBytes := r.nsBytes.intern(attrNamespace)
 		r.resolvedAttr = append(r.resolvedAttr, ResolvedAttr{
@@ -479,6 +475,40 @@ func (r *Reader) startResolvedEvent(tok *xmltext.RawTokenSpan, line, column int)
 		ID:         id,
 		ScopeDepth: core.scopeDepth,
 	}, nil
+}
+
+func (r *Reader) beginAttrDedup() {
+	r.attrEpoch++
+	if r.attrEpoch == 0 {
+		clear(r.attrSeen)
+		r.attrEpoch = 1
+	}
+}
+
+func (r *Reader) attrID(namespace string, local []byte) (NameID, error) {
+	attrID := r.nameIDs.internBytes(namespace, local)
+	if attrID == 0 {
+		return 0, nil
+	}
+	idx := int(attrID)
+	if idx >= len(r.attrSeen) {
+		r.attrSeen = append(r.attrSeen, make([]uint32, idx-len(r.attrSeen)+1)...)
+	}
+	if r.attrSeen[idx] == r.attrEpoch {
+		return 0, errDuplicateAttribute
+	}
+	r.attrSeen[idx] = r.attrEpoch
+	return attrID, nil
+}
+
+func (r *Reader) markAttrSeen(namespace string, local []byte, line, column int) error {
+	if r.nameIDs == nil {
+		r.nameIDs = newNameCache()
+	}
+	if _, err := r.attrID(namespace, local); err != nil {
+		return wrapSyntaxError(r.dec, line, column, err)
+	}
+	return nil
 }
 
 func (r *Reader) commitStartEvent(name QName, line, column, scopeDepth int) ElementID {

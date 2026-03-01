@@ -106,7 +106,7 @@ func ToStdDuration(parsed durationlex.Duration) (time.Duration, error) {
 
 func secondsToDuration(sec num.Dec) (time.Duration, error) {
 	if sec.Sign < 0 {
-		return 0, fmt.Errorf("second value cannot be negative")
+		return 0, fmt.Errorf("%w: second value cannot be negative", ErrComponentRange)
 	}
 	scaled, err := num.DecToScaledIntExact(sec, 9)
 	if err != nil {
@@ -115,11 +115,11 @@ func secondsToDuration(sec num.Dec) (time.Duration, error) {
 	const maxDuration = time.Duration(^uint64(0) >> 1)
 	maxSeconds := num.FromInt64(int64(maxDuration))
 	if scaled.Compare(maxSeconds) > 0 {
-		return 0, fmt.Errorf("second value too large")
+		return 0, fmt.Errorf("%w: second value too large", ErrOverflow)
 	}
 	val, ok := int64FromDigits(scaled.Digits)
 	if !ok {
-		return 0, fmt.Errorf("second value too large")
+		return 0, fmt.Errorf("%w: second value too large", ErrOverflow)
 	}
 	if scaled.Sign < 0 {
 		val = -val

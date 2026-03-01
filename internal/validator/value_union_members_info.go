@@ -7,12 +7,14 @@ func (s *Session) unionMemberInfo(meta runtime.ValidatorMeta) ([]runtime.Validat
 		return nil, nil, nil, false
 	}
 	union := s.rt.Validators.Union[meta.Index]
-	end := union.MemberOff + union.MemberLen
-	if int(end) > len(s.rt.Validators.UnionMembers) || int(end) > len(s.rt.Validators.UnionMemberTypes) || int(end) > len(s.rt.Validators.UnionMemberSameWS) {
+	startMembers, endMembers, okMembers := checkedSpan(union.MemberOff, union.MemberLen, len(s.rt.Validators.UnionMembers))
+	startTypes, endTypes, okTypes := checkedSpan(union.MemberOff, union.MemberLen, len(s.rt.Validators.UnionMemberTypes))
+	startWS, endWS, okWS := checkedSpan(union.MemberOff, union.MemberLen, len(s.rt.Validators.UnionMemberSameWS))
+	if !okMembers || !okTypes || !okWS {
 		return nil, nil, nil, false
 	}
-	return s.rt.Validators.UnionMembers[union.MemberOff:end],
-		s.rt.Validators.UnionMemberTypes[union.MemberOff:end],
-		s.rt.Validators.UnionMemberSameWS[union.MemberOff:end],
+	return s.rt.Validators.UnionMembers[startMembers:endMembers],
+		s.rt.Validators.UnionMemberTypes[startTypes:endTypes],
+		s.rt.Validators.UnionMemberSameWS[startWS:endWS],
 		true
 }

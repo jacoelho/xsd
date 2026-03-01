@@ -1,4 +1,4 @@
-package validationengine
+package validator
 
 import (
 	"io"
@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -24,7 +23,7 @@ func NewEngine(schema *runtime.Schema, opts ...xmlstream.Option) *Engine {
 		engine.opts = slices.Clone(opts)
 	}
 	engine.pool.New = func() any {
-		return validator.NewSession(schema, engine.opts...)
+		return NewSession(schema, engine.opts...)
 	}
 	return engine
 }
@@ -37,7 +36,7 @@ func (e *Engine) Validate(r io.Reader) error {
 // ValidateWithDocument validates one XML document and attaches a document URI.
 func (e *Engine) ValidateWithDocument(r io.Reader, document string) error {
 	if e == nil || e.rt == nil {
-		return validator.NewSession(nil).ValidateWithDocument(r, document)
+		return schemaNotLoadedError()
 	}
 	session := e.acquire()
 	err := session.ValidateWithDocument(r, document)
@@ -45,17 +44,17 @@ func (e *Engine) ValidateWithDocument(r io.Reader, document string) error {
 	return err
 }
 
-func (e *Engine) acquire() *validator.Session {
+func (e *Engine) acquire() *Session {
 	if e == nil {
 		return nil
 	}
 	if session := e.pool.Get(); session != nil {
-		return session.(*validator.Session)
+		return session.(*Session)
 	}
-	return validator.NewSession(e.rt, e.opts...)
+	return NewSession(e.rt, e.opts...)
 }
 
-func (e *Engine) release(session *validator.Session) {
+func (e *Engine) release(session *Session) {
 	if e == nil || session == nil {
 		return
 	}

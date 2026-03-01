@@ -52,6 +52,10 @@ func (c *mergeContext) mergeImportContexts() {
 			c.target.ImportContexts[location] = existing
 			continue
 		}
+		merged.Imports = maps.Clone(merged.Imports)
+		if merged.Imports == nil {
+			merged.Imports = make(map[model.NamespaceURI]bool)
+		}
 		c.target.ImportContexts[location] = merged
 	}
 }
