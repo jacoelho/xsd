@@ -99,11 +99,11 @@ func disallowedAxisFromError(msg string) string {
 		return ""
 	}
 	rest := msg[idx+1:]
-	end := strings.Index(rest, "'")
-	if end < 0 {
+	before, _, ok := strings.Cut(rest, "'")
+	if !ok {
 		return ""
 	}
-	return rest[:end]
+	return before
 }
 
 // validateIdentityConstraint validates an identity constraint (key, keyref, unique).

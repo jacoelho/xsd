@@ -144,3 +144,30 @@ func TestAsValidations(t *testing.T) {
 		t.Fatalf("AsValidations() codes = %v, want [cvc-elt.1 cvc-elt.2]", []string{got[0].Code, got[1].Code})
 	}
 }
+
+func TestValidationListErrorDoesNotMutateOrder(t *testing.T) {
+	list := ValidationList{
+		{Code: "cvc-elt.2", Message: "two"},
+		{Code: "cvc-elt.1", Message: "one"},
+	}
+	_ = list.Error()
+	if list[0].Code != "cvc-elt.2" {
+		t.Fatalf("ValidationList mutated by Error(): first code = %q, want %q", list[0].Code, "cvc-elt.2")
+	}
+}
+
+func TestAsValidationsReturnsCopy(t *testing.T) {
+	list := ValidationList{
+		{Code: "cvc-elt.1", Message: "one"},
+		{Code: "cvc-elt.2", Message: "two"},
+	}
+	wrapped := fmt.Errorf("wrapped: %w", list)
+	got, ok := AsValidations(wrapped)
+	if !ok {
+		t.Fatal("AsValidations() ok = false, want true")
+	}
+	got[0].Code = "changed"
+	if list[0].Code == "changed" {
+		t.Fatal("AsValidations() returned aliased backing slice")
+	}
+}

@@ -16,6 +16,7 @@ func TestLegacyPackagesRemoved(t *testing.T) {
 		"internal/schemaxml",
 		"internal/source",
 		"internal/state",
+		"internal/validationengine",
 	}
 
 	for _, rel := range legacy {
@@ -39,7 +40,6 @@ func TestCorePhasePackagesHaveDoc(t *testing.T) {
 		"internal/normalize",
 		"internal/compiler",
 		"internal/runtimeassemble",
-		"internal/validationengine",
 		"internal/set",
 	}
 

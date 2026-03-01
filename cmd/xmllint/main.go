@@ -1,14 +1,16 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"runtime/pprof"
 
 	"github.com/jacoelho/xsd"
-	"github.com/jacoelho/xsd/errors"
+	xsderrors "github.com/jacoelho/xsd/errors"
 )
 
 func main() {
@@ -16,40 +18,65 @@ func main() {
 }
 
 func run() int {
-	schemaPath := flag.String("schema", "", "path to XSD schema file")
-	cpuProfilePath := flag.String("cpuprofile", "", "write CPU profile to file")
-	memProfilePath := flag.String("memprofile", "", "write memory profile to file")
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s --schema <schema.xsd> <document.xml>\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Validates an XML document against an XSD schema.\n\n")
-		fmt.Fprintf(os.Stderr, "Options:\n")
-		flag.PrintDefaults()
+	return runWithArgs(os.Args[1:], os.Stdout, os.Stderr)
+}
+
+func runWithArgs(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("xmllint", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	schemaPath := fs.String("schema", "", "path to XSD schema file")
+	cpuProfilePath := fs.String("cpuprofile", "", "write CPU profile to file")
+	memProfilePath := fs.String("memprofile", "", "write memory profile to file")
+	var usageErr error
+	fs.Usage = func() {
+		usageErr = errors.Join(
+			usageErr,
+			writef(stderr, "Usage: %s --schema <schema.xsd> <document.xml>\n\n", os.Args[0]),
+			writeln(stderr, "Validates an XML document against an XSD schema."),
+			writeln(stderr),
+			writeln(stderr, "Options:"),
+		)
+		fs.PrintDefaults()
 	}
-	flag.Parse()
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
 
 	if *schemaPath == "" {
-		fmt.Fprintln(os.Stderr, "error: --schema is required")
-		flag.Usage()
+		if err := writeln(stderr, "error: --schema is required"); err != nil {
+			return 1
+		}
+		fs.Usage()
+		if usageErr != nil {
+			return 1
+		}
 		return 2
 	}
 
-	args := flag.Args()
-	if len(args) != 1 {
-		fmt.Fprintln(os.Stderr, "error: exactly one XML file argument is required")
-		flag.Usage()
+	remaining := fs.Args()
+	if len(remaining) != 1 {
+		if err := writeln(stderr, "error: exactly one XML file argument is required"); err != nil {
+			return 1
+		}
+		fs.Usage()
+		if usageErr != nil {
+			return 1
+		}
 		return 2
 	}
-	xmlPath := args[0]
+	xmlPath := remaining[0]
 
 	if *cpuProfilePath != "" {
 		stopCPUProfile, err := startCPUProfile(*cpuProfilePath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error starting CPU profile: %v\n", err)
+			if writeErr := writef(stderr, "error starting CPU profile: %v\n", err); writeErr != nil {
+				return 1
+			}
 			return 1
 		}
 		defer func() {
 			if err := stopCPUProfile(); err != nil {
-				fmt.Fprintf(os.Stderr, "error stopping CPU profile: %v\n", err)
+				_ = writef(stderr, "error stopping CPU profile: %v\n", err)
 			}
 		}()
 	}
@@ -57,31 +84,51 @@ func run() int {
 	if *memProfilePath != "" {
 		defer func() {
 			if err := writeMemProfile(*memProfilePath); err != nil {
-				fmt.Fprintf(os.Stderr, "error writing memory profile: %v\n", err)
+				_ = writef(stderr, "error writing memory profile: %v\n", err)
 			}
 		}()
 	}
 
 	schema, err := xsd.LoadFile(*schemaPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error loading schema: %v\n", err)
+		if writeErr := writef(stderr, "error loading schema: %v\n", err); writeErr != nil {
+			return 1
+		}
 		return 1
 	}
 
 	if err := schema.ValidateFile(xmlPath); err != nil {
-		if violations, ok := errors.AsValidations(err); ok {
+		if violations, ok := xsderrors.AsValidations(err); ok {
 			for _, v := range violations {
-				fmt.Fprintln(os.Stderr, v.Error())
+				if writeErr := writeln(stderr, v.Error()); writeErr != nil {
+					return 1
+				}
 			}
-			fmt.Fprintf(os.Stderr, "%s fails to validate\n", xmlPath)
+			if writeErr := writef(stderr, "%s fails to validate\n", xmlPath); writeErr != nil {
+				return 1
+			}
 			return 1
 		}
-		fmt.Fprintf(os.Stderr, "error validating: %v\n", err)
+		if writeErr := writef(stderr, "error validating: %v\n", err); writeErr != nil {
+			return 1
+		}
 		return 1
 	}
 
-	fmt.Printf("%s validates\n", xmlPath)
+	if err := writef(stdout, "%s validates\n", xmlPath); err != nil {
+		return 1
+	}
 	return 0
+}
+
+func writef(w io.Writer, format string, args ...any) error {
+	_, err := fmt.Fprintf(w, format, args...)
+	return err
+}
+
+func writeln(w io.Writer, args ...any) error {
+	_, err := fmt.Fprintln(w, args...)
+	return err
 }
 
 func startCPUProfile(path string) (func() error, error) {

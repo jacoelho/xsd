@@ -10,10 +10,9 @@ func sliceAttrUses(uses []runtime.AttrUse, ref runtime.AttrIndexRef) []runtime.A
 	if ref.Len == 0 {
 		return nil
 	}
-	off := ref.Off
-	end := off + ref.Len
-	if int(off) >= len(uses) || int(end) > len(uses) {
+	start, end, ok := checkedSpan(ref.Off, ref.Len, len(uses))
+	if !ok || start == len(uses) {
 		return nil
 	}
-	return uses[off:end]
+	return uses[start:end]
 }

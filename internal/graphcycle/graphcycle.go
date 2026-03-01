@@ -1,5 +1,7 @@
 package graphcycle
 
+import "fmt"
+
 type visitState uint8
 
 const (
@@ -46,6 +48,9 @@ type Config[K comparable] struct {
 
 // Detect walks directed edges from Starts and reports first cycle or traversal error.
 func Detect[K comparable](cfg Config[K]) error {
+	if cfg.Next == nil {
+		return fmt.Errorf("cycle detect: next function is nil")
+	}
 	states := make(map[K]visitState, len(cfg.Starts))
 
 	var zero K

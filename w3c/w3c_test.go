@@ -1377,24 +1377,43 @@ func (r *W3CTestRunner) formatViolations(violations []xsderrors.Validation) stri
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("  Violations (%d):\n", len(violations)))
+	b.WriteString("  Violations (")
+	b.WriteString(strconv.Itoa(len(violations)))
+	b.WriteString("):\n")
 	for i, v := range violations {
-		b.WriteString(fmt.Sprintf("    %d. [%s] %s", i+1, v.Code, v.Message))
+		b.WriteString("    ")
+		b.WriteString(strconv.Itoa(i + 1))
+		b.WriteString(". [")
+		b.WriteString(v.Code)
+		b.WriteString("] ")
+		b.WriteString(v.Message)
 		if v.Path != "" {
-			b.WriteString(fmt.Sprintf(" at %s", v.Path))
+			b.WriteString(" at ")
+			b.WriteString(v.Path)
 		}
 		if v.Line > 0 && v.Column > 0 {
 			if v.Path == "" {
-				b.WriteString(fmt.Sprintf(" at line %d, column %d", v.Line, v.Column))
+				b.WriteString(" at line ")
+				b.WriteString(strconv.Itoa(v.Line))
+				b.WriteString(", column ")
+				b.WriteString(strconv.Itoa(v.Column))
 			} else {
-				b.WriteString(fmt.Sprintf(" (line %d, column %d)", v.Line, v.Column))
+				b.WriteString(" (line ")
+				b.WriteString(strconv.Itoa(v.Line))
+				b.WriteString(", column ")
+				b.WriteString(strconv.Itoa(v.Column))
+				b.WriteByte(')')
 			}
 		}
 		if len(v.Expected) > 0 {
-			b.WriteString(fmt.Sprintf(" (expected: %s)", strings.Join(v.Expected, ", ")))
+			b.WriteString(" (expected: ")
+			b.WriteString(strings.Join(v.Expected, ", "))
+			b.WriteByte(')')
 		}
 		if v.Actual != "" {
-			b.WriteString(fmt.Sprintf(" (actual: %s)", v.Actual))
+			b.WriteString(" (actual: ")
+			b.WriteString(v.Actual)
+			b.WriteByte(')')
 		}
 		b.WriteString("\n")
 	}

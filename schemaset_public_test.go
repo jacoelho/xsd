@@ -19,7 +19,7 @@ func TestSchemaSetCompileSingleRoot(t *testing.T) {
 </xs:schema>`)},
 	}
 
-	set := xsd.NewSchemaSet(xsd.NewLoadOptions())
+	set := xsd.NewSchemaSet().WithLoadOptions(xsd.NewLoadOptions())
 	if err := set.AddFS(fsys, "schema.xsd"); err != nil {
 		t.Fatalf("AddFS() error = %v", err)
 	}

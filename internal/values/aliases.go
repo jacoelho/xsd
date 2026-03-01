@@ -1,61 +1,98 @@
 package values
 
 import (
+	"time"
+
+	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/valuesemantics"
 )
 
 // ValidateToken validates xs:token lexical values.
-var ValidateToken = value.ValidateToken
+func ValidateToken(v []byte) error {
+	return value.ValidateToken(v)
+}
 
 // ValidateName validates xs:Name lexical values.
-var ValidateName = value.ValidateName
+func ValidateName(v []byte) error {
+	return value.ValidateName(v)
+}
 
 // ValidateNCName validates xs:NCName lexical values.
-var ValidateNCName = value.ValidateNCName
+func ValidateNCName(v []byte) error {
+	return value.ValidateNCName(v)
+}
 
 // ValidateNMTOKEN validates xs:NMTOKEN lexical values.
-var ValidateNMTOKEN = value.ValidateNMTOKEN
+func ValidateNMTOKEN(v []byte) error {
+	return value.ValidateNMTOKEN(v)
+}
 
 // ValidateLanguage validates xs:language lexical values.
-var ValidateLanguage = value.ValidateLanguage
+func ValidateLanguage(v []byte) error {
+	return value.ValidateLanguage(v)
+}
 
 // ValidateAnyURI validates xs:anyURI lexical values.
-var ValidateAnyURI = value.ValidateAnyURI
+func ValidateAnyURI(v []byte) error {
+	return value.ValidateAnyURI(v)
+}
 
 // ValidateQName validates xs:QName lexical values.
-var ValidateQName = value.ValidateQName
+func ValidateQName(v []byte) error {
+	return value.ValidateQName(v)
+}
 
 // ParseBoolean parses xs:boolean lexical values.
-var ParseBoolean = value.ParseBoolean
+func ParseBoolean(v []byte) (bool, error) {
+	return value.ParseBoolean(v)
+}
 
 // ParseDecimal parses xs:decimal lexical values.
-var ParseDecimal = value.ParseDecimal
+func ParseDecimal(v []byte) (num.Dec, error) {
+	return value.ParseDecimal(v)
+}
 
 // ParseInteger parses xs:integer lexical values.
-var ParseInteger = value.ParseInteger
+func ParseInteger(v []byte) (num.Int, error) {
+	return value.ParseInteger(v)
+}
 
 // ParseFloat parses xs:float lexical values.
-var ParseFloat = value.ParseFloat
+func ParseFloat(v []byte) (float32, error) {
+	return value.ParseFloat(v)
+}
 
 // ParseDouble parses xs:double lexical values.
-var ParseDouble = value.ParseDouble
+func ParseDouble(v []byte) (float64, error) {
+	return value.ParseDouble(v)
+}
 
 // CanonicalFloat canonicalizes float values for value-space comparisons.
-var CanonicalFloat = value.CanonicalFloat
+func CanonicalFloat(v float64, bits int) string {
+	return value.CanonicalFloat(v, bits)
+}
 
 // CanonicalDateTimeString canonicalizes dateTime lexical values.
-var CanonicalDateTimeString = value.CanonicalDateTimeString
+func CanonicalDateTimeString(v time.Time, kind string, tzKind value.TimezoneKind) string {
+	return value.CanonicalDateTimeString(v, kind, tzKind)
+}
 
 // HasTimezone reports whether a lexical temporal value contains a timezone.
-var HasTimezone = value.HasTimezone
+func HasTimezone(v []byte) bool {
+	return value.HasTimezone(v)
+}
 
 // FormatFraction formats the fractional component for canonical decimal output.
-var FormatFraction = value.FormatFraction
+func FormatFraction(nanos int) string {
+	return value.FormatFraction(nanos)
+}
 
 // UpperHex uppercases hexadecimal digits.
-var UpperHex = value.UpperHex
+func UpperHex(dst, src []byte) []byte {
+	return value.UpperHex(dst, src)
+}
 
 // KeyForValidatorKind derives deterministic value-key encoding from canonical lexical bytes.
 func KeyForValidatorKind(kind runtime.ValidatorKind, canonical []byte) (runtime.ValueKind, []byte, error) {

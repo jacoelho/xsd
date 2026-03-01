@@ -51,7 +51,38 @@ func TestToStdDurationSecondsErrorPassthrough(t *testing.T) {
 	if err == nil {
 		t.Fatal("ToStdDuration() expected error")
 	}
-	if !strings.Contains(err.Error(), "cannot be negative") {
-		t.Fatalf("ToStdDuration() error = %v, want substring %q", err, "cannot be negative")
+	if !errors.Is(err, ErrComponentRange) {
+		t.Fatalf("ToStdDuration() error = %v, want ErrComponentRange", err)
+	}
+}
+
+func TestToStdDurationSecondsOverflowUsesSentinel(t *testing.T) {
+	seconds, parseErr := num.ParseDec([]byte("9223372037"))
+	if parseErr != nil {
+		t.Fatalf("ParseDec() error = %v", parseErr)
+	}
+	_, err := ToStdDuration(durationlex.Duration{Seconds: seconds})
+	if err == nil {
+		t.Fatal("ToStdDuration() expected error")
+	}
+	if !errors.Is(err, ErrOverflow) {
+		t.Fatalf("ToStdDuration() error = %v, want ErrOverflow", err)
+	}
+}
+
+func TestToStdDurationSecondsPrecisionErrorIsNotOverflow(t *testing.T) {
+	seconds, parseErr := num.ParseDec([]byte("0.1234567891"))
+	if parseErr != nil {
+		t.Fatalf("ParseDec() error = %v", parseErr)
+	}
+	_, err := ToStdDuration(durationlex.Duration{Seconds: seconds})
+	if err == nil {
+		t.Fatal("ToStdDuration() expected error")
+	}
+	if errors.Is(err, ErrOverflow) {
+		t.Fatalf("ToStdDuration() error = %v, must not wrap ErrOverflow for precision errors", err)
+	}
+	if !strings.Contains(err.Error(), "precision exceeds") {
+		t.Fatalf("ToStdDuration() error = %v, want precision error", err)
 	}
 }

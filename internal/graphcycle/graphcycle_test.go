@@ -73,3 +73,10 @@ func TestDetectMissingPolicy(t *testing.T) {
 		t.Fatalf("Detect() with MissingIgnore error = %v", err)
 	}
 }
+
+func TestDetectNilNext(t *testing.T) {
+	err := Detect(Config[int]{Starts: []int{1}})
+	if err == nil {
+		t.Fatal("Detect() error = nil, want error")
+	}
+}

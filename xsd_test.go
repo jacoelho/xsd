@@ -481,6 +481,27 @@ func TestSchemaValidateFileNilSchemaReturnsSchemaNotLoaded(t *testing.T) {
 	requireSingleViolation(t, s.ValidateFile(filepath.Join(t.TempDir(), "missing.xml")), errors.ErrSchemaNotLoaded)
 }
 
+func TestSchemaValidateFSFileNilSchemaReturnsSchemaNotLoaded(t *testing.T) {
+	var s *xsd.Schema
+
+	requireSingleViolation(t, s.ValidateFSFile(nil, "missing.xml"), errors.ErrSchemaNotLoaded)
+}
+
+func TestSchemaValidateFSFileNilFSReturnsOpenErrorWhenSchemaLoaded(t *testing.T) {
+	s := loadSchema(t)
+
+	err := s.ValidateFSFile(nil, "missing.xml")
+	if err == nil {
+		t.Fatal("ValidateFSFile() err = nil, want open-file error")
+	}
+	if _, ok := errors.AsValidations(err); ok {
+		t.Fatalf("ValidateFSFile() returned validation list for nil fs: %v", err)
+	}
+	if !strings.Contains(err.Error(), "nil fs") {
+		t.Fatalf("ValidateFSFile() err = %v, want nil fs message", err)
+	}
+}
+
 func TestSchemaValidateNilReader(t *testing.T) {
 	s := loadSchema(t)
 

@@ -128,3 +128,20 @@ func TestDeterminizeWildcardEdges(t *testing.T) {
 		t.Fatalf("wildcard rule = %d, want 3", compiled.DFA.Wildcards[state0.WildOff].Rule)
 	}
 }
+
+func TestCompileRejectsNonNullableEmptyLanguage(t *testing.T) {
+	glu := &Glushkov{Nullable: false}
+	compiled, err := Compile(glu, nil, Limits{})
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	if compiled.Kind != runtime.ModelDFA {
+		t.Fatalf("model kind = %v, want DFA", compiled.Kind)
+	}
+	if len(compiled.DFA.States) != 1 {
+		t.Fatalf("states = %d, want 1", len(compiled.DFA.States))
+	}
+	if compiled.DFA.States[0].Accept {
+		t.Fatal("state[0].Accept = true, want false")
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -122,16 +123,18 @@ type ValidationList []Validation //nolint:errname // public API name, keep for c
 
 // Error returns a compact summary of the validation errors.
 func (v ValidationList) Error() string {
+	ordered := v
 	if len(v) > 1 {
-		v.Sort()
+		ordered = slices.Clone(v)
+		ordered.Sort()
 	}
-	switch len(v) {
+	switch len(ordered) {
 	case 0:
 		return "no validation errors"
 	case 1:
-		return v[0].Error()
+		return ordered[0].Error()
 	default:
-		return fmt.Sprintf("%s (and %d more)", v[0].Error(), len(v)-1)
+		return fmt.Sprintf("%s (and %d more)", ordered[0].Error(), len(ordered)-1)
 	}
 }
 
@@ -174,22 +177,37 @@ func (v *Validation) Error() string {
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("[%s] %s", v.Code, v.Message))
+	b.WriteByte('[')
+	b.WriteString(v.Code)
+	b.WriteString("] ")
+	b.WriteString(v.Message)
 	if v.Path != "" {
-		b.WriteString(fmt.Sprintf(" at %s", v.Path))
+		b.WriteString(" at ")
+		b.WriteString(v.Path)
 	}
 	if v.Line > 0 && v.Column > 0 {
 		if v.Path == "" {
-			b.WriteString(fmt.Sprintf(" at line %d, column %d", v.Line, v.Column))
+			b.WriteString(" at line ")
+			b.WriteString(strconv.Itoa(v.Line))
+			b.WriteString(", column ")
+			b.WriteString(strconv.Itoa(v.Column))
 		} else {
-			b.WriteString(fmt.Sprintf(" (line %d, column %d)", v.Line, v.Column))
+			b.WriteString(" (line ")
+			b.WriteString(strconv.Itoa(v.Line))
+			b.WriteString(", column ")
+			b.WriteString(strconv.Itoa(v.Column))
+			b.WriteByte(')')
 		}
 	}
 	if len(v.Expected) > 0 {
-		b.WriteString(fmt.Sprintf(" (expected: %s)", strings.Join(v.Expected, ", ")))
+		b.WriteString(" (expected: ")
+		b.WriteString(strings.Join(v.Expected, ", "))
+		b.WriteByte(')')
 	}
 	if v.Actual != "" {
-		b.WriteString(fmt.Sprintf(" (actual: %s)", v.Actual))
+		b.WriteString(" (actual: ")
+		b.WriteString(v.Actual)
+		b.WriteByte(')')
 	}
 	return b.String()
 }
@@ -205,8 +223,9 @@ func AsValidations(err error) ([]Validation, bool) {
 	if !ok {
 		return nil, false
 	}
-	list.Sort()
-	return []Validation(list), true
+	cloned := slices.Clone(list)
+	cloned.Sort()
+	return []Validation(cloned), true
 }
 
 func asValidationList(err error) (ValidationList, bool) {

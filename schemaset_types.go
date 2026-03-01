@@ -18,12 +18,8 @@ type SchemaSet struct {
 }
 
 // NewSchemaSet creates an empty schema set.
-func NewSchemaSet(opts ...LoadOptions) *SchemaSet {
-	loadOpts := NewLoadOptions()
-	if len(opts) > 0 {
-		loadOpts = opts[0]
-	}
-	return &SchemaSet{loadOpts: loadOpts}
+func NewSchemaSet() *SchemaSet {
+	return &SchemaSet{loadOpts: NewLoadOptions()}
 }
 
 // WithLoadOptions replaces schema-set load options.

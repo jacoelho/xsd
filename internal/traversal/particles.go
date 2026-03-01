@@ -129,9 +129,10 @@ func collectFromParticles[T any](particles []model.Particle, visited map[*model.
 
 // CollectFromContent collects values from all particles present in a content model.
 func CollectFromContent[T any](content model.Content, collect func(model.Particle) (T, bool)) []T {
+	visited := make(map[*model.ModelGroup]bool)
 	switch c := content.(type) {
 	case *model.ElementContent:
-		return collectFromParticles([]model.Particle{c.Particle}, nil, collect)
+		return collectFromParticles([]model.Particle{c.Particle}, visited, collect)
 	case *model.ComplexContent:
 		var particles []model.Particle
 		if c.Extension != nil && c.Extension.Particle != nil {
@@ -140,7 +141,7 @@ func CollectFromContent[T any](content model.Content, collect func(model.Particl
 		if c.Restriction != nil && c.Restriction.Particle != nil {
 			particles = append(particles, c.Restriction.Particle)
 		}
-		return collectFromParticles(particles, nil, collect)
+		return collectFromParticles(particles, visited, collect)
 	default:
 		return nil
 	}

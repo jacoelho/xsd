@@ -1,6 +1,8 @@
 package semanticresolve
 
 import (
+	"fmt"
+
 	"github.com/jacoelho/xsd/internal/resolveguard"
 	"github.com/jacoelho/xsd/internal/types"
 )
@@ -8,6 +10,9 @@ import (
 // Resolve resolves all references in the schema.
 // Returns an error if there are unresolvable references or invalid cycles.
 func (r *Resolver) Resolve() error {
+	if r == nil || r.schema == nil {
+		return fmt.Errorf("nil schema")
+	}
 	index := buildIterationIndex(r.schema)
 	// order matters: resolve in dependency order
 	if err := r.resolveSimpleTypesPhase(index); err != nil {

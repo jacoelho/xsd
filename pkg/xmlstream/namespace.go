@@ -182,6 +182,10 @@ func collectNamespaceScope(dec *xmltext.Decoder, nsBuf []byte, declBuf []Namespa
 			} else {
 				nsBuf, value = appendNamespaceValue(nsBuf, tok.AttrValue(i))
 			}
+			if err := xmlnames.ValidateNamespaceDeclBinding("", value); err != nil {
+				return nsScope{}, nsBuf, declBuf, namespaceDeclError(dec, tok.Line, tok.Column,
+					fmt.Errorf("%w: %w", errReservedNamespacePrefix, err))
+			}
 			scope.defaultNS = value
 			scope.defaultSet = true
 			declBuf = append(declBuf, NamespaceDecl{Prefix: "", URI: value})
@@ -210,6 +214,10 @@ func collectNamespaceScope(dec *xmltext.Decoder, nsBuf []byte, declBuf []Namespa
 					fmt.Errorf("%w: prefix %q must not be declared", errReservedNamespacePrefix, xmlnames.XMLNSPrefix))
 			}
 			prefix := string(local)
+			if err := xmlnames.ValidateNamespaceDeclBinding(prefix, value); err != nil {
+				return nsScope{}, nsBuf, declBuf, namespaceDeclError(dec, tok.Line, tok.Column,
+					fmt.Errorf("%w: %w", errReservedNamespacePrefix, err))
+			}
 			declBuf = append(declBuf, NamespaceDecl{Prefix: prefix, URI: value})
 		}
 	}
@@ -277,8 +285,8 @@ func namespaceDeclError(dec *xmltext.Decoder, line, column int, err error) error
 }
 
 func splitQName(name []byte) (prefix, local []byte, hasPrefix bool) {
-	if i := bytes.IndexByte(name, ':'); i >= 0 {
-		return name[:i], name[i+1:], true
+	if before, after, ok := bytes.Cut(name, []byte{':'}); ok {
+		return before, after, true
 	}
 	return nil, name, false
 }

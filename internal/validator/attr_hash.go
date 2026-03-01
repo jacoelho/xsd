@@ -1,5 +1,4 @@
 //go:build !forcedcollide
-// +build !forcedcollide
 
 package validator
 
