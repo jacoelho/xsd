@@ -7,12 +7,14 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -404,7 +406,7 @@ func isRemoteSchemaLocation(loc string) bool {
 func crawlSchemas(roots []string) ([]*doc, error) {
 	client := &http.Client{Timeout: 60 * time.Second}
 	seen := map[string]bool{}
-	queue := append([]string{}, roots...)
+	queue := slices.Clone(roots)
 	byURL := map[string]*doc{}
 
 	for len(queue) > 0 {
@@ -438,10 +440,7 @@ func crawlSchemas(roots []string) ([]*doc, error) {
 		}
 	}
 
-	docs := make([]*doc, 0, len(byURL))
-	for _, d := range byURL {
-		docs = append(docs, d)
-	}
+	docs := slices.Collect(maps.Values(byURL))
 	sort.Slice(docs, func(i, j int) bool { return docs[i].URL < docs[j].URL })
 	return docs, nil
 }
@@ -456,7 +455,7 @@ func downloadWithFallback(client *http.Client, raw string) ([]byte, error) {
 	}
 	var lastErr error
 	for _, c := range candidates {
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			b, err := downloadSchema(client, c)
 			if err == nil {
 				return b, nil
