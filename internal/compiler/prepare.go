@@ -28,10 +28,12 @@ func PrepareOwned(parsed *parser.Schema) (*Prepared, error) {
 	if err != nil {
 		return nil, fmt.Errorf("prepare schema: assign IDs: %w", err)
 	}
-	if err := analysis.DetectCycles(parsed); err != nil {
+	err = analysis.DetectCycles(parsed)
+	if err != nil {
 		return nil, fmt.Errorf("prepare schema: detect cycles: %w", err)
 	}
-	if err := validateUPA(parsed, registry); err != nil {
+	err = validateUPA(parsed, registry)
+	if err != nil {
 		return nil, fmt.Errorf("prepare schema: validate UPA: %w", err)
 	}
 	refs, err := analysis.ResolveReferences(parsed, registry)
