@@ -2,7 +2,6 @@ package validatorgen
 
 import (
 	"github.com/jacoelho/xsd/internal/analysis"
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/complextypeplan"
 	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
@@ -32,7 +31,7 @@ func (c *CompiledValidators) ValidatorForType(typ model.Type) (runtime.Validator
 		return 0, false
 	}
 	if st, ok := model.AsSimpleType(typ); ok && st.IsBuiltin() {
-		if builtin := builtins.Get(model.TypeName(st.Name().Local)); builtin != nil {
+		if builtin := model.GetBuiltin(model.TypeName(st.Name().Local)); builtin != nil {
 			typ = builtin
 		}
 	}

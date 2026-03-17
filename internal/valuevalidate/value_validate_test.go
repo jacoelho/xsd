@@ -4,10 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/compiler"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/prep"
 	"github.com/jacoelho/xsd/internal/valuevalidate"
 )
 
@@ -92,7 +91,7 @@ func TestValidateWithFacetsAllowsPlaceholderUnionMember(t *testing.T) {
 }
 
 func TestValidateWithFacetsRequiresQNameContext(t *testing.T) {
-	qnameType := builtins.Get(builtins.TypeNameQName)
+	qnameType := model.GetBuiltin(model.TypeNameQName)
 	if qnameType == nil {
 		t.Fatal("missing QName builtin")
 	}
@@ -170,9 +169,9 @@ func mustResolvedSchema(t *testing.T, schemaXML string) *parser.Schema {
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	resolved, err := prep.ResolveAndValidate(sch)
+	prepared, err := compiler.Prepare(sch)
 	if err != nil {
-		t.Fatalf("ResolveAndValidate() error = %v", err)
+		t.Fatalf("Prepare() error = %v", err)
 	}
-	return resolved
+	return prepared.Schema()
 }

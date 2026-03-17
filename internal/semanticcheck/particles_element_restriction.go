@@ -3,7 +3,6 @@ package semanticcheck
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
@@ -102,11 +101,11 @@ func normalizeFixedValue(value string, typ model.Type) string {
 		}
 		if st.Restriction != nil && !st.Restriction.Base.IsZero() &&
 			st.Restriction.Base.Namespace == model.XSDNamespace &&
-			builtins.IsBuiltinListTypeName(st.Restriction.Base.Local) {
+			model.IsBuiltinListTypeName(st.Restriction.Base.Local) {
 			return model.ApplyWhiteSpace(value, model.WhiteSpaceCollapse)
 		}
 	}
-	if bt, ok := typ.(*model.BuiltinType); ok && builtins.IsBuiltinListTypeName(bt.Name().Local) {
+	if bt, ok := typ.(*model.BuiltinType); ok && model.IsBuiltinListTypeName(bt.Name().Local) {
 		return model.ApplyWhiteSpace(value, model.WhiteSpaceCollapse)
 	}
 	return model.NormalizeWhiteSpace(value, typ)

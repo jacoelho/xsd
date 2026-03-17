@@ -3,9 +3,9 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func validateEnumerationFacetValuesWithIndex(sch *parser.Schema, index *iterationIndex) []error {
@@ -15,7 +15,7 @@ func validateEnumerationFacetValuesWithIndex(sch *parser.Schema, index *iteratio
 	}
 
 	for _, qname := range index.typeQNames {
-		st, ok := sch.TypeDefs[qname].(*types.SimpleType)
+		st, ok := sch.TypeDefs[qname].(*model.SimpleType)
 		if !ok || st == nil || st.Restriction == nil {
 			continue
 		}
@@ -27,7 +27,7 @@ func validateEnumerationFacetValuesWithIndex(sch *parser.Schema, index *iteratio
 			continue
 		}
 		for _, facet := range st.Restriction.Facets {
-			enum, ok := facet.(*types.Enumeration)
+			enum, ok := facet.(*model.Enumeration)
 			if !ok {
 				continue
 			}
@@ -61,7 +61,7 @@ func validateInlineTypeReferencesWithIndex(sch *parser.Schema, index *iterationI
 				if err := validateTypeReferences(sch, qname, decl.Type); err != nil {
 					errs = append(errs, fmt.Errorf("element %s inline type: %w", qname, err))
 				}
-				if ct, ok := decl.Type.(*types.ComplexType); ok {
+				if ct, ok := decl.Type.(*model.ComplexType); ok {
 					for _, agRef := range ct.AttrGroups {
 						if err := validateAttributeGroupReference(sch, agRef, qname); err != nil {
 							errs = append(errs, err)

@@ -1,15 +1,15 @@
 package semanticresolve
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/valuevalidate"
 )
 
 func validateDefaultOrFixedValueResolved(
 	schema *parser.Schema,
 	value string,
-	typ types.Type,
+	typ model.Type,
 	context map[string]string,
 	policy idValuePolicy,
 ) error {

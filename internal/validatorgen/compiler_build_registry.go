@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/analysis"
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -23,10 +22,10 @@ func (c *compiler) compileRegistry(registry *analysis.Registry) error {
 
 func (c *compiler) compileBuiltinRegistry() error {
 	for _, name := range builtinTypeNames() {
-		if name == builtins.TypeNameAnyType {
+		if name == model.TypeNameAnyType {
 			continue
 		}
-		bt := builtins.Get(name)
+		bt := model.GetBuiltin(name)
 		if bt == nil {
 			continue
 		}

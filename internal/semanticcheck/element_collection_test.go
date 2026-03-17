@@ -3,7 +3,6 @@ package semanticcheck
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
@@ -27,7 +26,7 @@ func TestCollectElementDeclarationsFromType(t *testing.T) {
 			Particles: []model.Particle{
 				&model.ElementDecl{
 					Name: model.QName{Namespace: "http://example.com", Local: "baseElement"},
-					Type: builtins.Get(model.TypeNameString),
+					Type: model.GetBuiltin(model.TypeNameString),
 				},
 			},
 		},
@@ -45,7 +44,7 @@ func TestCollectElementDeclarationsFromType(t *testing.T) {
 				Particles: []model.Particle{
 					&model.ElementDecl{
 						Name: model.QName{Namespace: "http://example.com", Local: "middleElement"},
-						Type: builtins.Get(model.TypeNameInteger),
+						Type: model.GetBuiltin(model.TypeNameInteger),
 					},
 				},
 			},
@@ -65,7 +64,7 @@ func TestCollectElementDeclarationsFromType(t *testing.T) {
 				Particles: []model.Particle{
 					&model.ElementDecl{
 						Name: model.QName{Namespace: "http://example.com", Local: "extendedElement"},
-						Type: builtins.Get(model.TypeNameDate),
+						Type: model.GetBuiltin(model.TypeNameDate),
 					},
 				},
 			},

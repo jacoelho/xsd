@@ -1,21 +1,21 @@
 package semanticresolve
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 type iterationIndex struct {
-	typeQNames           []types.QName
-	elementQNames        []types.QName
-	attributeQNames      []types.QName
-	groupQNames          []types.QName
-	attributeGroupQNames []types.QName
+	typeQNames           []model.QName
+	elementQNames        []model.QName
+	attributeQNames      []model.QName
+	groupQNames          []model.QName
+	attributeGroupQNames []model.QName
 
-	elementRefsInContent   []*types.ElementDecl
-	allIdentityConstraints []*types.IdentityConstraint
-	localConstraintElems   []*types.ElementDecl
+	elementRefsInContent   []*model.ElementDecl
+	allIdentityConstraints []*model.IdentityConstraint
+	localConstraintElems   []*model.ElementDecl
 }
 
 func buildIterationIndex(sch *parser.Schema) *iterationIndex {

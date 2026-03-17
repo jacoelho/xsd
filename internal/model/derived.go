@@ -48,7 +48,7 @@ func IsValidlyDerivedFrom(derived, base Type) bool {
 }
 
 // GetDerivationChain returns the chain of base types from t to its ultimate base.
-// Returns an empty slice for primitive types or types without base types.
+// Returns an empty slice for primitive types or types without base model.
 func GetDerivationChain(t Type) []Type {
 	if t == nil {
 		return nil

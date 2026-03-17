@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -18,7 +17,7 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 	}
 
 	// base type with maxInclusive=100
-	decimalBaseType := builtins.Get(model.TypeNameDecimal)
+	decimalBaseType := model.GetBuiltin(model.TypeNameDecimal)
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
 	}
@@ -91,7 +90,7 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 	}
 
 	// base type with maxInclusive=100
-	decimalBaseType := builtins.Get(model.TypeNameDecimal)
+	decimalBaseType := model.GetBuiltin(model.TypeNameDecimal)
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
 	}
@@ -160,7 +159,7 @@ func TestFacetInheritance_MinInclusive(t *testing.T) {
 	}
 
 	// base type with minInclusive=10
-	decimalBaseType := builtins.Get(model.TypeNameDecimal)
+	decimalBaseType := model.GetBuiltin(model.TypeNameDecimal)
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
 	}
@@ -267,7 +266,7 @@ func TestFacetInheritance_DeferredFacetConversionError(t *testing.T) {
 			},
 		},
 	}
-	baseType.ResolvedBase = builtins.Get(model.TypeNameInt)
+	baseType.ResolvedBase = model.GetBuiltin(model.TypeNameInt)
 
 	if err := validateFacetInheritance(nil, baseType); err == nil {
 		t.Fatalf("expected deferred facet conversion error")
@@ -280,7 +279,7 @@ func TestFacetInheritance_DigitsRelaxation(t *testing.T) {
 		TypeDefs:        make(map[model.QName]model.Type),
 	}
 
-	decimalBaseType := builtins.Get(model.TypeNameDecimal)
+	decimalBaseType := model.GetBuiltin(model.TypeNameDecimal)
 	if decimalBaseType == nil {
 		t.Fatal("decimal built-in type not found")
 	}

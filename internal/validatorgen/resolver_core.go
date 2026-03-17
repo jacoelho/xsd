@@ -1,7 +1,6 @@
 package validatorgen
 
 import (
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -47,7 +46,7 @@ func (r *typeResolver) resolveQName(name model.QName) model.Type {
 	if name.IsZero() {
 		return nil
 	}
-	if builtin := builtins.GetNS(name.Namespace, name.Local); builtin != nil {
+	if builtin := model.GetBuiltinNS(name.Namespace, name.Local); builtin != nil {
 		return builtin
 	}
 	if r.schema == nil {

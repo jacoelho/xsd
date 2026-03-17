@@ -3,7 +3,6 @@ package facets
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 )
@@ -41,7 +40,7 @@ func ValidateSchemaConstraints(in SchemaConstraintInput, cb SchemaConstraintCall
 	isBuiltin := in.BaseQName.Namespace == model.XSDNamespace
 	var bt *model.BuiltinType
 	if isBuiltin {
-		bt = builtins.Get(model.TypeName(baseTypeName))
+		bt = model.GetBuiltin(model.TypeName(baseTypeName))
 	}
 
 	state := facetConstraintState{}
@@ -169,7 +168,7 @@ func validateLengthFacetConstraints(state *facetConstraintState, baseType model.
 		}
 	}
 
-	if builtins.IsBuiltinListTypeName(baseTypeName) {
+	if model.IsBuiltinListTypeName(baseTypeName) {
 		if state.length != nil && *state.length < 1 {
 			return fmt.Errorf("length (%d) must be >= 1 for list type %s", *state.length, baseTypeName)
 		}
@@ -212,7 +211,7 @@ func isListTypeForFacets(baseType model.Type, baseQName model.QName) bool {
 			return true
 		}
 	}
-	if baseQName.Namespace == model.XSDNamespace && builtins.IsBuiltinListTypeName(baseQName.Local) {
+	if baseQName.Namespace == model.XSDNamespace && model.IsBuiltinListTypeName(baseQName.Local) {
 		return true
 	}
 	return false

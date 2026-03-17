@@ -1,7 +1,7 @@
 package model
 
 // ElementTypesCompatible reports whether two element declaration types are compatible.
-// It compares by QName when available and falls back to identity for anonymous types.
+// It compares by QName when available and falls back to identity for anonymous model.
 func ElementTypesCompatible(a, b Type) bool {
 	if a == nil && b == nil {
 		return true

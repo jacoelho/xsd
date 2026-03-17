@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
@@ -12,14 +11,14 @@ import (
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
-// ErrCircularReference reports a cycle while validating derived types.
+// ErrCircularReference reports a cycle while validating derived model.
 var ErrCircularReference = errors.New("circular type reference")
 
 // IDPolicy controls whether ID-only types are accepted.
 type IDPolicy uint8
 
 const (
-	// IDPolicyAllow allows validating ID-only types.
+	// IDPolicyAllow allows validating ID-only model.
 	IDPolicyAllow IDPolicy = iota
 	// IDPolicyDisallow rejects ID-only types for default/fixed values.
 	IDPolicyDisallow
@@ -32,7 +31,7 @@ const (
 	modeFacet
 )
 
-// ValidateDefaultOrFixedResolved validates default/fixed lexical values against resolved types.
+// ValidateDefaultOrFixedResolved validates default/fixed lexical values against resolved model.
 func ValidateDefaultOrFixedResolved(
 	schema *parser.Schema,
 	value string,
@@ -207,7 +206,7 @@ func validateComplexType(
 }
 
 func validateBuiltin(typ model.Type, normalizedValue string) error {
-	bt := builtins.GetNS(typ.Name().Namespace, typ.Name().Local)
+	bt := model.GetBuiltinNS(typ.Name().Namespace, typ.Name().Local)
 	if bt == nil {
 		return nil
 	}

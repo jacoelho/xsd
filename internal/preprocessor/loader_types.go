@@ -3,8 +3,7 @@ package preprocessor
 import (
 	"io/fs"
 
-	"github.com/jacoelho/xsd/internal/loadmerge"
-	"github.com/jacoelho/xsd/internal/objects"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xmltree"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -13,7 +12,6 @@ import (
 type Config struct {
 	FS                          fs.FS
 	Resolver                    Resolver
-	Merger                      loadmerge.SchemaMerger
 	DocumentPool                *xmltree.DocumentPool
 	SchemaParseOptions          []xmlstream.Option
 	AllowMissingImportLocations bool
@@ -23,7 +21,6 @@ type Config struct {
 // It is not safe for concurrent use.
 type Loader struct {
 	resolver Resolver
-	merger   loadmerge.SchemaMerger
 	imports  importTracker
 	state    loadState
 	config   Config
@@ -35,10 +32,6 @@ func NewLoader(cfg Config) *Loader {
 	if res == nil && cfg.FS != nil {
 		res = NewFSResolver(cfg.FS)
 	}
-	merger := cfg.Merger
-	if merger == nil {
-		merger = loadmerge.DefaultMerger{}
-	}
 	if cfg.DocumentPool == nil {
 		cfg.DocumentPool = xmltree.NewDocumentPool()
 	}
@@ -46,12 +39,11 @@ func NewLoader(cfg Config) *Loader {
 		config:   cfg,
 		state:    newLoadState(),
 		imports:  newImportTracker(),
-		merger:   merger,
 		resolver: res,
 	}
 }
 
-func (l *Loader) loadKey(systemID string, etn objects.NamespaceURI) loadKey {
+func (l *Loader) loadKey(systemID string, etn model.NamespaceURI) loadKey {
 	return loadKey{systemID: systemID, etn: etn}
 }
 

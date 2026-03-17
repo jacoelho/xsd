@@ -1,24 +1,51 @@
 package compiler
 
 import (
-	"github.com/jacoelho/xsd/internal/normalize"
+	"fmt"
+
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/validatorgen"
 )
 
 // Prepare clones, normalizes, and validates a parsed schema.
 func Prepare(parsed *parser.Schema) (*Prepared, error) {
-	artifacts, err := normalize.Prepare(parsed)
-	if err != nil {
-		return nil, err
+	if parsed == nil {
+		return nil, fmt.Errorf("prepare schema: schema is nil")
 	}
-	return &Prepared{artifacts: artifacts}, nil
+	return PrepareOwned(parser.CloneSchema(parsed))
 }
 
 // PrepareOwned normalizes and validates a parsed schema in place.
 func PrepareOwned(parsed *parser.Schema) (*Prepared, error) {
-	artifacts, err := normalize.PrepareOwned(parsed)
-	if err != nil {
-		return nil, err
+	if parsed == nil {
+		return nil, fmt.Errorf("prepare schema: schema is nil")
 	}
-	return &Prepared{artifacts: artifacts}, nil
+	if err := resolveAndValidateOwned(parsed); err != nil {
+		return nil, fmt.Errorf("prepare schema: %w", err)
+	}
+	registry, err := analysis.AssignIDs(parsed)
+	if err != nil {
+		return nil, fmt.Errorf("prepare schema: assign IDs: %w", err)
+	}
+	if err := analysis.DetectCycles(parsed); err != nil {
+		return nil, fmt.Errorf("prepare schema: detect cycles: %w", err)
+	}
+	if err := validateUPA(parsed, registry); err != nil {
+		return nil, fmt.Errorf("prepare schema: validate UPA: %w", err)
+	}
+	refs, err := analysis.ResolveReferences(parsed, registry)
+	if err != nil {
+		return nil, fmt.Errorf("prepare schema: resolve references: %w", err)
+	}
+	complexTypes, err := validatorgen.BuildComplexTypePlan(parsed, registry)
+	if err != nil {
+		return nil, fmt.Errorf("prepare schema: complex type plan: %w", err)
+	}
+	return &Prepared{
+		schema:       parsed,
+		registry:     registry,
+		refs:         refs,
+		complexTypes: complexTypes,
+	}, nil
 }

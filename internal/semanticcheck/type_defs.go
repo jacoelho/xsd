@@ -3,7 +3,6 @@ package semanticcheck
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/qname"
@@ -55,7 +54,7 @@ func validateWhiteSpaceRestriction(derivedType *model.SimpleType, baseType model
 		}
 	} else if !baseQName.IsZero() && baseQName.Namespace == model.XSDNamespace {
 		// built-in type by QName
-		builtinType := builtins.GetNS(baseQName.Namespace, baseQName.Local)
+		builtinType := model.GetBuiltinNS(baseQName.Namespace, baseQName.Local)
 		if builtinType != nil {
 			baseWS = builtinType.WhiteSpace()
 		}

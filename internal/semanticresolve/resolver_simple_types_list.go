@@ -3,10 +3,10 @@ package semanticresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func (r *Resolver) resolveSimpleTypeList(qname types.QName, st *types.SimpleType) error {
+func (r *Resolver) resolveSimpleTypeList(qname model.QName, st *model.SimpleType) error {
 	if st.List == nil {
 		return nil
 	}
@@ -16,13 +16,13 @@ func (r *Resolver) resolveSimpleTypeList(qname types.QName, st *types.SimpleType
 		}
 		st.ItemType = st.List.InlineItemType
 		if !st.WhiteSpaceExplicit() {
-			st.SetWhiteSpace(types.WhiteSpaceCollapse)
+			st.SetWhiteSpace(model.WhiteSpaceCollapse)
 		}
 		return nil
 	}
 	if st.List.ItemType.IsZero() {
 		if !st.WhiteSpaceExplicit() {
-			st.SetWhiteSpace(types.WhiteSpaceCollapse)
+			st.SetWhiteSpace(model.WhiteSpaceCollapse)
 		}
 		return nil
 	}
@@ -32,7 +32,7 @@ func (r *Resolver) resolveSimpleTypeList(qname types.QName, st *types.SimpleType
 	}
 	st.ItemType = item
 	if !st.WhiteSpaceExplicit() {
-		st.SetWhiteSpace(types.WhiteSpaceCollapse)
+		st.SetWhiteSpace(model.WhiteSpaceCollapse)
 	}
 	return nil
 }

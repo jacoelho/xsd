@@ -1,7 +1,6 @@
 package semanticcheck
 
 import (
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
@@ -160,7 +159,7 @@ func resolveTypeByQName(schema *parser.Schema, qname model.QName) model.Type {
 	if qname.IsZero() {
 		return nil
 	}
-	if bt := builtins.GetNS(qname.Namespace, qname.Local); bt != nil {
+	if bt := model.GetBuiltinNS(qname.Namespace, qname.Local); bt != nil {
 		return bt
 	}
 	if schema == nil {

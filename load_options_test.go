@@ -1,11 +1,17 @@
 package xsd_test
 
 import (
+	"errors"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd"
+	xsderrors "github.com/jacoelho/xsd/errors"
 )
 
 func TestLoadWithOptionsAllowsMissingImportLocation(t *testing.T) {
@@ -89,4 +95,82 @@ func TestLoadOptionsRejectsMixedRuntimeConfiguration(t *testing.T) {
 	if _, err := set.Compile(); err == nil {
 		t.Fatal("Compile() error = nil, want runtime options validation error")
 	}
+}
+
+func TestLoadFileWithOptionsResolvesRelativeImport(t *testing.T) {
+	tempDir := t.TempDir()
+	schemaPath := writeTempFile(t, tempDir, "schemas/main.xsd", `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main"
+           xmlns:tns="urn:main"
+           xmlns:dep="urn:dep"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:dep" schemaLocation="deps/dep.xsd"/>
+  <xs:element name="root" type="dep:codeType"/>
+</xs:schema>`)
+	writeTempFile(t, tempDir, "schemas/deps/dep.xsd", `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:dep"
+           xmlns:tns="urn:dep">
+  <xs:simpleType name="codeType">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`)
+
+	schema, err := xsd.LoadFileWithOptions(schemaPath, xsd.NewLoadOptions())
+	if err != nil {
+		t.Fatalf("LoadFileWithOptions() error = %v", err)
+	}
+	if err := schema.Validate(strings.NewReader(`<root xmlns="urn:main">ok</root>`)); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
+func TestLoadFileWithOptionsMissingFile(t *testing.T) {
+	missingPath := filepath.Join(t.TempDir(), "missing.xsd")
+
+	_, err := xsd.LoadFileWithOptions(missingPath, xsd.NewLoadOptions())
+	if err == nil {
+		t.Fatal("LoadFileWithOptions() error = nil, want missing file error")
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("LoadFileWithOptions() error = %v, want fs.ErrNotExist", err)
+	}
+	if !strings.Contains(err.Error(), "load schema missing.xsd") {
+		t.Fatalf("LoadFileWithOptions() error = %v, want wrapped schema location", err)
+	}
+}
+
+func TestLoadFileWithOptionsAppliesRuntimeOptions(t *testing.T) {
+	tempDir := t.TempDir()
+	schemaPath := writeTempFile(t, tempDir, "schema.xsd", `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`)
+
+	schema, err := xsd.LoadFileWithOptions(
+		schemaPath,
+		xsd.NewLoadOptions().WithRuntimeOptions(
+			xsd.NewRuntimeOptions().WithInstanceMaxTokenSize(8),
+		),
+	)
+	if err != nil {
+		t.Fatalf("LoadFileWithOptions() error = %v", err)
+	}
+
+	err = schema.Validate(strings.NewReader(`<root>abcdefghijklmnopqrstuvwxyz</root>`))
+	requireContainsViolationCode(t, err, xsderrors.ErrXMLParse)
+}
+
+func writeTempFile(t *testing.T, root, name, content string) string {
+	t.Helper()
+
+	path := filepath.Join(root, filepath.FromSlash(name))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll(%q) error = %v", path, err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", path, err)
+	}
+	return path
 }

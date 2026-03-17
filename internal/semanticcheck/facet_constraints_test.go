@@ -5,13 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestCompareGYearValues(t *testing.T) {
-	bt := builtins.Get(model.TypeNameGYear)
+	bt := model.GetBuiltin(model.TypeNameGYear)
 	if bt == nil {
 		t.Fatal("builtin.Get(\"gYear\") returned nil")
 	}
@@ -24,7 +23,7 @@ func TestCompareGYearValues(t *testing.T) {
 
 func TestGYearTimezoneEquivalence(t *testing.T) {
 	// Test that "2000Z" and "2000+00:00" are considered equal in value space
-	bt := builtins.Get(model.TypeNameGYear)
+	bt := model.GetBuiltin(model.TypeNameGYear)
 	if bt == nil {
 		t.Fatal("builtin.Get(\"gYear\") returned nil")
 	}
@@ -50,7 +49,7 @@ func TestGYearTimezoneEquivalence(t *testing.T) {
 func TestValidateRangeFacetsGYear(t *testing.T) {
 	minInclusive := "2002"
 	maxInclusive := "1998"
-	bt := builtins.Get(model.TypeNameGYear)
+	bt := model.GetBuiltin(model.TypeNameGYear)
 
 	err := facets.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
@@ -61,7 +60,7 @@ func TestValidateRangeFacetsGYear(t *testing.T) {
 func TestValidateRangeFacetsDateTimeTimezoneDefiniteOrder(t *testing.T) {
 	minInclusive := "2000-01-01T00:00:00Z"
 	maxInclusive := "1999-12-31T00:00:00"
-	bt := builtins.Get(model.TypeNameDateTime)
+	bt := model.GetBuiltin(model.TypeNameDateTime)
 
 	err := facets.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
@@ -72,7 +71,7 @@ func TestValidateRangeFacetsDateTimeTimezoneDefiniteOrder(t *testing.T) {
 func TestValidateRangeFacetsDateTimeTimezoneIndeterminate(t *testing.T) {
 	minInclusive := "2000-01-01T12:00:00Z"
 	maxInclusive := "2000-01-01T12:00:00"
-	bt := builtins.Get(model.TypeNameDateTime)
+	bt := model.GetBuiltin(model.TypeNameDateTime)
 
 	err := facets.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err != nil {
@@ -83,7 +82,7 @@ func TestValidateRangeFacetsDateTimeTimezoneIndeterminate(t *testing.T) {
 func TestValidateRangeFacetsLargeIntegerPrecision(t *testing.T) {
 	minInclusive := "9007199254740993"
 	maxInclusive := "9007199254740992"
-	bt := builtins.Get(model.TypeNameInteger)
+	bt := model.GetBuiltin(model.TypeNameInteger)
 
 	err := facets.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
@@ -94,7 +93,7 @@ func TestValidateRangeFacetsLargeIntegerPrecision(t *testing.T) {
 func TestValidateRangeFacetsDecimalPrecision(t *testing.T) {
 	minInclusive := "0.1234567890123456789012345678901"
 	maxInclusive := "0.1234567890123456789012345678900"
-	bt := builtins.Get(model.TypeNameDecimal)
+	bt := model.GetBuiltin(model.TypeNameDecimal)
 
 	err := facets.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err == nil {
@@ -105,7 +104,7 @@ func TestValidateRangeFacetsDecimalPrecision(t *testing.T) {
 func TestValidateRangeFacetsFloatNaNNotComparable(t *testing.T) {
 	minInclusive := "NaN"
 	maxInclusive := "1.0"
-	bt := builtins.Get(model.TypeNameFloat)
+	bt := model.GetBuiltin(model.TypeNameFloat)
 
 	err := facets.ValidateRangeConsistency(nil, nil, &minInclusive, &maxInclusive, bt, bt.Name())
 	if err != nil {
@@ -168,7 +167,7 @@ func TestValidatePatternFacetSyntax(t *testing.T) {
 			patternFacet := &model.Pattern{Value: tt.pattern}
 			baseQName := model.QName{Namespace: model.XSDNamespace, Local: "string"}
 
-			baseType, err := builtins.NewSimpleType(model.TypeNameString)
+			baseType, err := model.NewBuiltinSimpleType(model.TypeNameString)
 			if err != nil {
 				t.Fatalf("NewBuiltinSimpleType(string) failed: %v", err)
 			}

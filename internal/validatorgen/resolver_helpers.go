@@ -1,7 +1,6 @@
 package validatorgen
 
 import (
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -13,7 +12,7 @@ func builtinForType(typ model.Type) *model.BuiltinType {
 		return bt
 	}
 	if st, ok := model.AsSimpleType(typ); ok && st.IsBuiltin() {
-		return builtins.Get(model.TypeName(st.Name().Local))
+		return model.GetBuiltin(model.TypeName(st.Name().Local))
 	}
 	return nil
 }
@@ -34,5 +33,5 @@ func isAnySimpleType(typ model.Type) bool {
 	if bt == nil {
 		return false
 	}
-	return bt.Name().Local == string(builtins.TypeNameAnySimpleType)
+	return bt.Name().Local == string(model.TypeNameAnySimpleType)
 }
