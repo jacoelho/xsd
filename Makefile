@@ -2,6 +2,9 @@
 .SUFFIXES:
 MAKEFLAGS+=-r -R
 export GOBIN = $(CURDIR)/bin
+GML_INSTANCE_PATH = testdata/gml/example.gml
+GML_ENTRY_SCHEMA = testdata/gml/xsd/LandCoverVector.xsd
+GML_INSTANCE_MAX_TOKEN_SIZE = 134217728
 
 $(GOBIN)/staticcheck:
 	go install honnef.co/go/tools/cmd/staticcheck@latest
@@ -24,3 +27,8 @@ w3c: testdata/xsdtests
 .PHONY: test
 test: testdata/xsdtests
 	go test -timeout 2m -race -shuffle=on ./...
+
+.PHONY: gml
+gml: xmllint
+	go run ./testdata/gml/setup.go prepare
+	/usr/bin/time $(GOBIN)/xmllint --schema "$(GML_ENTRY_SCHEMA)" --instance-max-token-size "$(GML_INSTANCE_MAX_TOKEN_SIZE)" "$(GML_INSTANCE_PATH)"
