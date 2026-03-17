@@ -158,7 +158,7 @@ const (
 	AttrIndexHash
 )
 
-// ComplexAttrIndex stores flattened attribute-use tables for complex types.
+// ComplexAttrIndex stores flattened attribute-use tables for complex model.
 type ComplexAttrIndex struct {
 	Uses       []AttrUse
 	HashTables []AttrHashTable

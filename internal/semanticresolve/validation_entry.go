@@ -3,9 +3,9 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // ValidateReferences validates cross-component references for schema loading.
@@ -49,14 +49,14 @@ func ValidateReferences(sch *parser.Schema) []error {
 	return errs
 }
 
-func collectElementReferencesInSchemaWithIndex(sch *parser.Schema, index *iterationIndex) []*types.ElementDecl {
-	var elementRefsInContent []*types.ElementDecl
+func collectElementReferencesInSchemaWithIndex(sch *parser.Schema, index *iterationIndex) []*model.ElementDecl {
+	var elementRefsInContent []*model.ElementDecl
 
 	for _, qname := range index.elementQNames {
 		decl := sch.ElementDecls[qname]
-		if ct, ok := decl.Type.(*types.ComplexType); ok {
-			elementRefsInContent = append(elementRefsInContent, traversal.CollectFromContent(ct.Content(), func(p types.Particle) (*types.ElementDecl, bool) {
-				decl, ok := p.(*types.ElementDecl)
+		if ct, ok := decl.Type.(*model.ComplexType); ok {
+			elementRefsInContent = append(elementRefsInContent, traversal.CollectFromContent(ct.Content(), func(p model.Particle) (*model.ElementDecl, bool) {
+				decl, ok := p.(*model.ElementDecl)
 				return decl, ok && decl.IsReference
 			})...)
 		}
@@ -64,9 +64,9 @@ func collectElementReferencesInSchemaWithIndex(sch *parser.Schema, index *iterat
 
 	for _, qname := range index.typeQNames {
 		typ := sch.TypeDefs[qname]
-		if ct, ok := typ.(*types.ComplexType); ok {
-			elementRefsInContent = append(elementRefsInContent, traversal.CollectFromContent(ct.Content(), func(p types.Particle) (*types.ElementDecl, bool) {
-				decl, ok := p.(*types.ElementDecl)
+		if ct, ok := typ.(*model.ComplexType); ok {
+			elementRefsInContent = append(elementRefsInContent, traversal.CollectFromContent(ct.Content(), func(p model.Particle) (*model.ElementDecl, bool) {
+				decl, ok := p.(*model.ElementDecl)
 				return decl, ok && decl.IsReference
 			})...)
 		}
@@ -75,11 +75,11 @@ func collectElementReferencesInSchemaWithIndex(sch *parser.Schema, index *iterat
 	for _, qname := range index.groupQNames {
 		group := sch.Groups[qname]
 		for _, particle := range group.Particles {
-			if elem, ok := particle.(*types.ElementDecl); ok && elem.IsReference {
+			if elem, ok := particle.(*model.ElementDecl); ok && elem.IsReference {
 				elementRefsInContent = append(elementRefsInContent, elem)
-			} else if mg, ok := particle.(*types.ModelGroup); ok {
-				elementRefsInContent = append(elementRefsInContent, traversal.CollectFromParticlesWithVisited(mg.Particles, make(map[*types.ModelGroup]bool), func(p types.Particle) (*types.ElementDecl, bool) {
-					decl, ok := p.(*types.ElementDecl)
+			} else if mg, ok := particle.(*model.ModelGroup); ok {
+				elementRefsInContent = append(elementRefsInContent, traversal.CollectFromParticlesWithVisited(mg.Particles, make(map[*model.ModelGroup]bool), func(p model.Particle) (*model.ElementDecl, bool) {
+					decl, ok := p.(*model.ElementDecl)
 					return decl, ok && decl.IsReference
 				})...)
 			}

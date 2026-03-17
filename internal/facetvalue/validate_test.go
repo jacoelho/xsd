@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -41,11 +40,11 @@ func (f testLexicalFacet) ValidateLexical(lexical string, baseType model.Type) e
 func TestValuesEqual_DecimalAndInteger(t *testing.T) {
 	t.Parallel()
 
-	decimalType, err := builtins.NewSimpleType(builtins.TypeNameDecimal)
+	decimalType, err := model.NewBuiltinSimpleType(model.TypeNameDecimal)
 	if err != nil {
 		t.Fatalf("NewSimpleType(decimal) error = %v", err)
 	}
-	integerType, err := builtins.NewSimpleType(builtins.TypeNameInteger)
+	integerType, err := model.NewBuiltinSimpleType(model.TypeNameInteger)
 	if err != nil {
 		t.Fatalf("NewSimpleType(integer) error = %v", err)
 	}
@@ -67,7 +66,7 @@ func TestValuesEqual_DecimalAndInteger(t *testing.T) {
 func TestValuesEqual_FloatNaN(t *testing.T) {
 	t.Parallel()
 
-	floatType, err := builtins.NewSimpleType(builtins.TypeNameFloat)
+	floatType, err := model.NewBuiltinSimpleType(model.TypeNameFloat)
 	if err != nil {
 		t.Fatalf("NewSimpleType(float) error = %v", err)
 	}
@@ -89,7 +88,7 @@ func TestValuesEqual_FloatNaN(t *testing.T) {
 func TestTypedValueForFacet_FallbackStringValue(t *testing.T) {
 	t.Parallel()
 
-	baseType := builtins.Get(builtins.TypeNameInteger)
+	baseType := model.GetBuiltin(model.TypeNameInteger)
 	if baseType == nil {
 		t.Fatal("missing builtin integer type")
 	}
@@ -106,7 +105,7 @@ func TestTypedValueForFacet_FallbackStringValue(t *testing.T) {
 func TestValidateApplicability_ListRangeFacetRejected(t *testing.T) {
 	t.Parallel()
 
-	listType := builtins.Get(builtins.TypeNameNMTOKENS)
+	listType := model.GetBuiltin(model.TypeNameNMTOKENS)
 	if listType == nil {
 		t.Fatal("missing builtin NMTOKENS type")
 	}
@@ -195,7 +194,7 @@ func TestNewMinInclusive_UnresolvedPrimitiveReturnsDeferredSentinel(t *testing.T
 func TestNewMinInclusive_ReturnsModelRangeFacet(t *testing.T) {
 	t.Parallel()
 
-	baseType := builtins.Get(builtins.TypeNameInteger)
+	baseType := model.GetBuiltin(model.TypeNameInteger)
 	if baseType == nil {
 		t.Fatal("missing builtin integer type")
 	}
@@ -287,7 +286,7 @@ func TestValidateWrapsLexicalErrors(t *testing.T) {
 func TestValidateBuildsTypedValueOnce(t *testing.T) {
 	t.Parallel()
 
-	baseType := builtins.Get(builtins.TypeNameInteger)
+	baseType := model.GetBuiltin(model.TypeNameInteger)
 	if baseType == nil {
 		t.Fatal("missing builtin integer type")
 	}
@@ -326,7 +325,7 @@ func TestValidateBuildsTypedValueOnce(t *testing.T) {
 func TestValidateKeepsQNameEnumerationErrorsUnwrapped(t *testing.T) {
 	t.Parallel()
 
-	qnameType := builtins.Get(builtins.TypeNameQName)
+	qnameType := model.GetBuiltin(model.TypeNameQName)
 	if qnameType == nil {
 		t.Fatal("missing builtin QName type")
 	}

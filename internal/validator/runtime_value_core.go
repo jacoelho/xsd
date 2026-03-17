@@ -26,7 +26,7 @@ func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, reso
 		if !needsLocalMetrics && (meta.Kind == runtime.VHexBinary || meta.Kind == runtime.VBase64Binary) {
 			needsLocalMetrics = s.hasLengthFacet(meta)
 		}
-		if !needsLocalMetrics && opts.trackIDs && meta.Kind == runtime.VUnion {
+		if !needsLocalMetrics && opts.trackIDs && meta.Kind == runtime.VUnion && meta.Flags&runtime.ValidatorMayTrackIDs != 0 {
 			needsLocalMetrics = true
 		}
 		if needsLocalMetrics {

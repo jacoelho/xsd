@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -36,7 +35,7 @@ func ValidateRangeConsistency(minExclusive, maxExclusive, minInclusive, maxInclu
 
 	baseTypeForCompare := baseType
 	if baseTypeForCompare == nil {
-		if bt := builtins.GetNS(baseQName.Namespace, baseQName.Local); bt != nil {
+		if bt := model.GetBuiltinNS(baseQName.Namespace, baseQName.Local); bt != nil {
 			baseTypeForCompare = bt
 		}
 	}

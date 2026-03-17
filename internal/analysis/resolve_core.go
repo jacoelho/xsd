@@ -5,16 +5,16 @@ import (
 
 	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/ids"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/resolveguard"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // ResolvedReferences records resolved references without mutating the parsed schema.
 type ResolvedReferences struct {
-	ElementRefs   map[types.QName]ids.ElemID
-	AttributeRefs map[types.QName]ids.AttrID
-	GroupRefs     map[types.QName]types.QName
+	ElementRefs   map[model.QName]ids.ElemID
+	AttributeRefs map[model.QName]ids.AttrID
+	GroupRefs     map[model.QName]model.QName
 }
 
 // ResolveReferences validates and resolves QName references in the parsed schema.
@@ -41,10 +41,10 @@ type referenceResolver struct {
 	schema           *parser.Schema
 	registry         *Registry
 	refs             *ResolvedReferences
-	elementState     *resolveguard.Pointer[*types.ElementDecl]
-	modelGroupState  *resolveguard.Pointer[*types.ModelGroup]
-	simpleTypeState  *resolveguard.Pointer[*types.SimpleType]
-	complexTypeState *resolveguard.Pointer[*types.ComplexType]
+	elementState     *resolveguard.Pointer[*model.ElementDecl]
+	modelGroupState  *resolveguard.Pointer[*model.ModelGroup]
+	simpleTypeState  *resolveguard.Pointer[*model.SimpleType]
+	complexTypeState *resolveguard.Pointer[*model.ComplexType]
 }
 
 func newReferenceResolver(schema *parser.Schema, registry *Registry) *referenceResolver {
@@ -52,26 +52,26 @@ func newReferenceResolver(schema *parser.Schema, registry *Registry) *referenceR
 		schema:   schema,
 		registry: registry,
 		refs: &ResolvedReferences{
-			ElementRefs:   make(map[types.QName]ids.ElemID),
-			AttributeRefs: make(map[types.QName]ids.AttrID),
-			GroupRefs:     make(map[types.QName]types.QName),
+			ElementRefs:   make(map[model.QName]ids.ElemID),
+			AttributeRefs: make(map[model.QName]ids.AttrID),
+			GroupRefs:     make(map[model.QName]model.QName),
 		},
-		elementState:     resolveguard.NewPointer[*types.ElementDecl](),
-		modelGroupState:  resolveguard.NewPointer[*types.ModelGroup](),
-		simpleTypeState:  resolveguard.NewPointer[*types.SimpleType](),
-		complexTypeState: resolveguard.NewPointer[*types.ComplexType](),
+		elementState:     resolveguard.NewPointer[*model.ElementDecl](),
+		modelGroupState:  resolveguard.NewPointer[*model.ModelGroup](),
+		simpleTypeState:  resolveguard.NewPointer[*model.SimpleType](),
+		complexTypeState: resolveguard.NewPointer[*model.ComplexType](),
 	}
 }
 
 func (r *referenceResolver) resolveGlobalDeclarations() error {
 	return globaldecl.ForEach(r.schema, globaldecl.Handlers{
-		Element: func(name types.QName, decl *types.ElementDecl) error {
+		Element: func(name model.QName, decl *model.ElementDecl) error {
 			if decl == nil {
 				return fmt.Errorf("missing global element %s", name)
 			}
 			return r.resolveGlobalElement(decl)
 		},
-		Type: func(name types.QName, typ types.Type) error {
+		Type: func(name model.QName, typ model.Type) error {
 			if typ == nil {
 				return fmt.Errorf("missing global type %s", name)
 			}
@@ -80,7 +80,7 @@ func (r *referenceResolver) resolveGlobalDeclarations() error {
 			}
 			return nil
 		},
-		Attribute: func(name types.QName, attr *types.AttributeDecl) error {
+		Attribute: func(name model.QName, attr *model.AttributeDecl) error {
 			if attr == nil {
 				return fmt.Errorf("missing global attribute %s", name)
 			}
@@ -89,19 +89,19 @@ func (r *referenceResolver) resolveGlobalDeclarations() error {
 			}
 			return nil
 		},
-		AttributeGroup: func(name types.QName, group *types.AttributeGroup) error {
+		AttributeGroup: func(name model.QName, group *model.AttributeGroup) error {
 			if group == nil {
 				return fmt.Errorf("missing attributeGroup %s", name)
 			}
 			return r.resolveAttributeGroup(name, group)
 		},
-		Group: func(name types.QName, group *types.ModelGroup) error {
+		Group: func(name model.QName, group *model.ModelGroup) error {
 			if group == nil {
 				return fmt.Errorf("missing group %s", name)
 			}
 			return r.resolveModelGroup(group)
 		},
-		Notation: func(types.QName, *types.NotationDecl) error {
+		Notation: func(model.QName, *model.NotationDecl) error {
 			return nil
 		},
 	})

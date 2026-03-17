@@ -1,7 +1,6 @@
 package semanticcheck
 
 import (
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
@@ -36,7 +35,7 @@ func resolveSimpleContentBaseType(schema *parser.Schema, baseQName model.QName) 
 		visited[qname] = true
 
 		if qname.Namespace == model.XSDNamespace {
-			if bt := builtins.Get(model.TypeName(qname.Local)); bt != nil {
+			if bt := model.GetBuiltin(model.TypeName(qname.Local)); bt != nil {
 				return bt, qname
 			}
 		}

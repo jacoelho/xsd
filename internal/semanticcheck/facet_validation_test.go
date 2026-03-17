@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -198,7 +197,7 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bt := builtins.Get(model.TypeName(tt.baseTypeName))
+			bt := model.GetBuiltin(model.TypeName(tt.baseTypeName))
 			if bt == nil {
 				t.Fatalf("Built-in type %s not found", tt.baseTypeName)
 			}

@@ -55,7 +55,7 @@ var (
 	}
 )
 
-// measureLengthForPrimitive measures length for primitive types.
+// measureLengthForPrimitive measures length for primitive model.
 func measureLengthForPrimitive(lexical string, primitiveName TypeName) int {
 	switch primitiveName {
 	case TypeNameHexBinary:

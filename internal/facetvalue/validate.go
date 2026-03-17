@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/durationconv"
 	"github.com/jacoelho/xsd/internal/model"
 )
@@ -162,7 +161,7 @@ func isListTypeForFacetValidation(typ model.Type) bool {
 	case *model.SimpleType:
 		return t.Variety() == model.ListVariety || t.List != nil
 	case *model.BuiltinType:
-		return builtins.IsBuiltinListTypeName(t.Name().Local)
+		return model.IsBuiltinListTypeName(t.Name().Local)
 	default:
 		return false
 	}

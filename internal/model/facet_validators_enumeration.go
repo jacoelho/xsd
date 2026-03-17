@@ -11,7 +11,7 @@ import (
 	"github.com/jacoelho/xsd/internal/qname"
 )
 
-// Enumeration validates the xs:enumeration facet across atomic, list, and union types.
+// Enumeration validates the xs:enumeration facet across atomic, list, and union model.
 type Enumeration struct {
 	aux    atomic.Pointer[enumAux]
 	values []string

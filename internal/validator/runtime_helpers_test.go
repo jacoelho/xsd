@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/compiler"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/set"
 )
 
 func buildRuntimeSchema(schemaXML string) (*runtime.Schema, error) {
@@ -14,11 +14,11 @@ func buildRuntimeSchema(schemaXML string) (*runtime.Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	prepared, err := set.PrepareParsed(parsed)
+	prepared, err := compiler.Prepare(parsed)
 	if err != nil {
 		return nil, err
 	}
-	return prepared.BuildRuntime(set.CompileConfig{})
+	return prepared.Build(compiler.BuildConfig{})
 }
 
 func mustBuildRuntimeSchema(tb testing.TB, schemaXML string) *runtime.Schema {

@@ -18,20 +18,24 @@ func main() {
 }
 
 func run() int {
-	return runWithArgs(os.Args[1:], os.Stdout, os.Stderr)
+	return runWithArgs(os.Args[0], os.Args[1:], os.Stdout, os.Stderr)
 }
 
-func runWithArgs(args []string, stdout, stderr io.Writer) int {
+func runWithArgs(programName string, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("xmllint", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	schemaPath := fs.String("schema", "", "path to XSD schema file")
+	instanceMaxTokenSize := fs.Int("instance-max-token-size", 0, "instance XML max token size in bytes (0 uses default)")
 	cpuProfilePath := fs.String("cpuprofile", "", "write CPU profile to file")
 	memProfilePath := fs.String("memprofile", "", "write memory profile to file")
+	if programName == "" {
+		programName = fs.Name()
+	}
 	var usageErr error
 	fs.Usage = func() {
 		usageErr = errors.Join(
 			usageErr,
-			writef(stderr, "Usage: %s --schema <schema.xsd> <document.xml>\n\n", os.Args[0]),
+			writef(stderr, "Usage: %s --schema <schema.xsd> <document.xml>\n\n", programName),
 			writeln(stderr, "Validates an XML document against an XSD schema."),
 			writeln(stderr),
 			writeln(stderr, "Options:"),
@@ -65,6 +69,12 @@ func runWithArgs(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	xmlPath := remaining[0]
+	if *instanceMaxTokenSize < 0 {
+		if err := writeln(stderr, "error: --instance-max-token-size must be >= 0"); err != nil {
+			return 1
+		}
+		return 2
+	}
 
 	if *cpuProfilePath != "" {
 		stopCPUProfile, err := startCPUProfile(*cpuProfilePath)
@@ -89,7 +99,13 @@ func runWithArgs(args []string, stdout, stderr io.Writer) int {
 		}()
 	}
 
-	schema, err := xsd.LoadFile(*schemaPath)
+	loadOpts := xsd.NewLoadOptions()
+	if *instanceMaxTokenSize > 0 {
+		loadOpts = loadOpts.WithRuntimeOptions(
+			xsd.NewRuntimeOptions().WithInstanceMaxTokenSize(*instanceMaxTokenSize),
+		)
+	}
+	schema, err := xsd.LoadFileWithOptions(*schemaPath, loadOpts)
 	if err != nil {
 		if writeErr := writef(stderr, "error loading schema: %v\n", err); writeErr != nil {
 			return 1

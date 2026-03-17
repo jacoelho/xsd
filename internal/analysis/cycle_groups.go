@@ -6,13 +6,13 @@ import (
 
 	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/graphcycle"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func detectGroupCycles(schema *parser.Schema) error {
-	starts := make([]types.QName, 0, len(schema.Groups))
-	if err := globaldecl.ForEachGroup(schema, func(name types.QName, group *types.ModelGroup) error {
+	starts := make([]model.QName, 0, len(schema.Groups))
+	if err := globaldecl.ForEachGroup(schema, func(name model.QName, group *model.ModelGroup) error {
 		if group == nil {
 			return fmt.Errorf("missing group %s", name)
 		}
@@ -22,19 +22,19 @@ func detectGroupCycles(schema *parser.Schema) error {
 		return err
 	}
 
-	err := graphcycle.Detect(graphcycle.Config[types.QName]{
+	err := graphcycle.Detect(graphcycle.Config[model.QName]{
 		Starts:  starts,
 		Missing: graphcycle.MissingPolicyError,
-		Exists: func(name types.QName) bool {
+		Exists: func(name model.QName) bool {
 			return schema.Groups[name] != nil
 		},
-		Next: func(name types.QName) ([]types.QName, error) {
+		Next: func(name model.QName) ([]model.QName, error) {
 			group := schema.Groups[name]
 			if group == nil {
 				return nil, nil
 			}
 			refs := collectGroupRefs(group)
-			out := make([]types.QName, 0, len(refs))
+			out := make([]model.QName, 0, len(refs))
 			for _, ref := range refs {
 				out = append(out, ref.RefQName)
 			}
@@ -44,37 +44,37 @@ func detectGroupCycles(schema *parser.Schema) error {
 	if err == nil {
 		return nil
 	}
-	var cycleErr graphcycle.CycleError[types.QName]
+	var cycleErr graphcycle.CycleError[model.QName]
 	if errors.As(err, &cycleErr) {
 		return fmt.Errorf("group cycle detected at %s", cycleErr.Key)
 	}
-	var missingErr graphcycle.MissingError[types.QName]
+	var missingErr graphcycle.MissingError[model.QName]
 	if errors.As(err, &missingErr) {
 		return fmt.Errorf("group %s ref %s not found", missingErr.From, missingErr.Key)
 	}
 	return err
 }
 
-func collectGroupRefs(group *types.ModelGroup) []*types.GroupRef {
+func collectGroupRefs(group *model.ModelGroup) []*model.GroupRef {
 	if group == nil {
 		return nil
 	}
-	var refs []*types.GroupRef
+	var refs []*model.GroupRef
 	for _, particle := range group.Particles {
 		refs = collectGroupRefsFromParticle(particle, refs)
 	}
 	return refs
 }
 
-func collectGroupRefsFromParticle(particle types.Particle, refs []*types.GroupRef) []*types.GroupRef {
+func collectGroupRefsFromParticle(particle model.Particle, refs []*model.GroupRef) []*model.GroupRef {
 	switch typed := particle.(type) {
-	case *types.GroupRef:
+	case *model.GroupRef:
 		return append(refs, typed)
-	case *types.ModelGroup:
+	case *model.ModelGroup:
 		for _, child := range typed.Particles {
 			refs = collectGroupRefsFromParticle(child, refs)
 		}
-	case *types.ElementDecl, *types.AnyElement:
+	case *model.ElementDecl, *model.AnyElement:
 		return refs
 	}
 	return refs

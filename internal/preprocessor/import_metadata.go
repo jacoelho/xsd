@@ -3,13 +3,13 @@ package preprocessor
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/objects"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
-func ensureNamespaceMap(m map[objects.NamespaceURI]map[objects.NamespaceURI]bool, key objects.NamespaceURI) map[objects.NamespaceURI]bool {
+func ensureNamespaceMap(m map[model.NamespaceURI]map[model.NamespaceURI]bool, key model.NamespaceURI) map[model.NamespaceURI]bool {
 	if m[key] == nil {
-		m[key] = make(map[objects.NamespaceURI]bool)
+		m[key] = make(map[model.NamespaceURI]bool)
 	}
 	return m[key]
 }
@@ -19,7 +19,7 @@ func registerImports(sch *parser.Schema, imports []parser.ImportInfo) {
 		return
 	}
 	if sch.ImportedNamespaces == nil {
-		sch.ImportedNamespaces = make(map[objects.NamespaceURI]map[objects.NamespaceURI]bool)
+		sch.ImportedNamespaces = make(map[model.NamespaceURI]map[model.NamespaceURI]bool)
 	}
 	fromNS := sch.TargetNamespace
 	imported := ensureNamespaceMap(sch.ImportedNamespaces, fromNS)
@@ -34,7 +34,7 @@ func registerImports(sch *parser.Schema, imports []parser.ImportInfo) {
 	if sch.Location != "" {
 		ctx := sch.ImportContexts[sch.Location]
 		if ctx.Imports == nil {
-			ctx.Imports = make(map[objects.NamespaceURI]bool)
+			ctx.Imports = make(map[model.NamespaceURI]bool)
 		}
 		ctx.TargetNamespace = sch.TargetNamespace
 		for _, imp := range imports {

@@ -4,24 +4,24 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/facetvalue"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	"github.com/jacoelho/xsd/internal/types"
 	"github.com/jacoelho/xsd/internal/valueparse"
 )
 
-func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) (bool, error) {
+func fixedValuesEqual(schema *parser.Schema, attr, target *model.AttributeDecl) (bool, error) {
 	resolvedType := typeresolve.ResolveTypeReference(schema, target.Type, typeresolve.TypeReferenceAllowMissing)
 	if resolvedType == nil {
 		return attr.Fixed == target.Fixed, nil
 	}
 
-	left, err := types.NormalizeTypeValue(attr.Fixed, resolvedType)
+	left, err := model.NormalizeTypeValue(attr.Fixed, resolvedType)
 	if err != nil {
 		return false, err
 	}
-	right, err := types.NormalizeTypeValue(target.Fixed, resolvedType)
+	right, err := model.NormalizeTypeValue(target.Fixed, resolvedType)
 	if err != nil {
 		return false, err
 	}
@@ -38,17 +38,17 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 		return leftQName == rightQName, nil
 	}
 
-	if itemType, ok := types.ListItemType(resolvedType); ok {
+	if itemType, ok := model.ListItemType(resolvedType); ok {
 		if itemType == nil {
 			return false, fmt.Errorf("list item type is nil")
 		}
-		leftItems, lerr := valueparse.ParseListValueVariants(left, func(item string) ([]types.TypedValue, error) {
+		leftItems, lerr := valueparse.ParseListValueVariants(left, func(item string) ([]model.TypedValue, error) {
 			return parseValueVariants(schema, item, itemType, attr.FixedContext)
 		})
 		if lerr != nil {
 			return false, lerr
 		}
-		rightItems, rerr := valueparse.ParseListValueVariants(right, func(item string) ([]types.TypedValue, error) {
+		rightItems, rerr := valueparse.ParseListValueVariants(right, func(item string) ([]model.TypedValue, error) {
 			return parseValueVariants(schema, item, itemType, target.FixedContext)
 		})
 		if rerr != nil {
@@ -68,27 +68,27 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *types.AttributeDecl) 
 	return valueparse.AnyValueEqual(leftValues, rightValues, facetvalue.ValuesEqual), nil
 }
 
-func parseValueVariants(schema *parser.Schema, lexical string, typ types.Type, context map[string]string) ([]types.TypedValue, error) {
-	if st, ok := typ.(*types.SimpleType); ok && st.Variety() == types.UnionVariety {
+func parseValueVariants(schema *parser.Schema, lexical string, typ model.Type, context map[string]string) ([]model.TypedValue, error) {
+	if st, ok := typ.(*model.SimpleType); ok && st.Variety() == model.UnionVariety {
 		memberTypes := typeresolve.ResolveUnionMemberTypes(schema, st)
-		return valueparse.ParseUnionValueVariants(lexical, memberTypes, func(value string, member types.Type) ([]types.TypedValue, error) {
+		return valueparse.ParseUnionValueVariants(lexical, memberTypes, func(value string, member model.Type) ([]model.TypedValue, error) {
 			typed, err := parseTypedValueWithContext(value, member, context)
 			if err != nil {
 				return nil, err
 			}
-			return []types.TypedValue{typed}, nil
+			return []model.TypedValue{typed}, nil
 		})
 	}
 	typed, err := parseTypedValueWithContext(lexical, typ, context)
 	if err != nil {
 		return nil, err
 	}
-	return []types.TypedValue{typed}, nil
+	return []model.TypedValue{typed}, nil
 }
 
-func parseTypedValueWithContext(lexical string, typ types.Type, context map[string]string) (types.TypedValue, error) {
+func parseTypedValueWithContext(lexical string, typ model.Type, context map[string]string) (model.TypedValue, error) {
 	if facetvalue.IsQNameOrNotationType(typ) {
-		normalized := types.NormalizeWhiteSpace(lexical, typ)
+		normalized := model.NormalizeWhiteSpace(lexical, typ)
 		parsedQName, err := qname.ParseQNameValue(normalized, context)
 		if err != nil {
 			return nil, err
@@ -96,9 +96,9 @@ func parseTypedValueWithContext(lexical string, typ types.Type, context map[stri
 		return qnameTypedValue{typ: typ, lexical: normalized, value: parsedQName}, nil
 	}
 	switch t := typ.(type) {
-	case *types.SimpleType:
+	case *model.SimpleType:
 		return t.ParseValue(lexical)
-	case *types.BuiltinType:
+	case *model.BuiltinType:
 		return t.ParseValue(lexical)
 	default:
 		return nil, fmt.Errorf("unsupported type %T", typ)
@@ -106,12 +106,12 @@ func parseTypedValueWithContext(lexical string, typ types.Type, context map[stri
 }
 
 type qnameTypedValue struct {
-	typ     types.Type
+	typ     model.Type
 	lexical string
-	value   types.QName
+	value   model.QName
 }
 
-func (v qnameTypedValue) Type() types.Type { return v.typ }
+func (v qnameTypedValue) Type() model.Type { return v.typ }
 func (v qnameTypedValue) Lexical() string  { return v.lexical }
 func (v qnameTypedValue) Native() any      { return v.value }
 func (v qnameTypedValue) String() string   { return v.lexical }

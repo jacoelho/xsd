@@ -3,13 +3,12 @@ package preprocessor
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/loadmerge"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
 type directiveMergePlan struct {
-	kind   loadmerge.Kind
-	remap  loadmerge.NamespaceRemapMode
+	kind   MergeKind
+	remap  NamespaceRemapMode
 	insert int
 }
 
@@ -17,16 +16,16 @@ func (l *Loader) planIncludeMerge(includingNS string, targetEntry *schemaEntry, 
 	if !l.isIncludeNamespaceCompatible(includingNS, source.TargetNamespace) {
 		return directiveMergePlan{}, fmt.Errorf("included schema %s has different target namespace: %s != %s", schemaLocation, source.TargetNamespace, includingNS)
 	}
-	remap := loadmerge.KeepNamespace
+	remap := KeepNamespace
 	if includingNS != "" && source.TargetNamespace == "" {
-		remap = loadmerge.RemapNamespace
+		remap = RemapNamespace
 	}
 	insert, err := includeInsertIndex(targetEntry, includeInfo, len(target.GlobalDecls))
 	if err != nil {
 		return directiveMergePlan{}, err
 	}
 	return directiveMergePlan{
-		kind:   loadmerge.MergeInclude,
+		kind:   MergeInclude,
 		remap:  remap,
 		insert: insert,
 	}, nil
@@ -41,8 +40,8 @@ func (l *Loader) planImportMerge(schemaLocation, expectedNS string, source *pars
 		return directiveMergePlan{}, fmt.Errorf("imported schema %s namespace mismatch: expected %s, got %s", schemaLocation, expectedNS, source.TargetNamespace)
 	}
 	return directiveMergePlan{
-		kind:   loadmerge.MergeImport,
-		remap:  loadmerge.KeepNamespace,
+		kind:   MergeImport,
+		remap:  KeepNamespace,
 		insert: insertAt,
 	}, nil
 }

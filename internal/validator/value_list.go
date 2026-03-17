@@ -71,18 +71,19 @@ func (s *Session) validateListNoCanonical(meta runtime.ValidatorMeta, normalized
 	if !ok {
 		return valueErrorf(valueErrInvalid, "list validator out of range")
 	}
+	itemOpts := opts
+	itemOpts.applyWhitespace = false
+	itemOpts.requireCanonical = false
+	itemOpts.storeValue = false
+	itemOpts.trackIDs = false
 	spaceOnly := opts.applyWhitespace && meta.WhiteSpace == runtime.WSCollapse
-	err := forEachListItem(normalized, spaceOnly, func(item []byte) error {
-		itemOpts := opts
-		itemOpts.applyWhitespace = false
-		itemOpts.requireCanonical = false
-		itemOpts.storeValue = false
-		if _, err := s.validateValueInternalOptions(itemValidator, item, resolver, itemOpts); err != nil {
-			return err
-		}
-		return nil
-	})
-	return err
+	if spaceOnly && s.canValidateCollapsedFloatListFast(itemValidator) {
+		return validateCollapsedFloatList(normalized, s.rt.Validators.Meta[itemValidator].Kind)
+	}
+	if spaceOnly {
+		return s.validateSpaceSeparatedListItemsNoCanonical(itemValidator, normalized, resolver, itemOpts)
+	}
+	return s.validateWhitespaceListItemsNoCanonical(itemValidator, normalized, resolver, itemOpts)
 }
 
 func forEachListItem(normalized []byte, spaceOnly bool, fn func([]byte) error) error {
@@ -142,4 +143,212 @@ func forEachSpaceSeparatedItem(normalized []byte, fn func([]byte) error) error {
 		}
 	}
 	return nil
+}
+
+func (s *Session) canValidateCollapsedFloatListFast(itemValidator runtime.ValidatorID) bool {
+	if int(itemValidator) >= len(s.rt.Validators.Meta) {
+		return false
+	}
+	meta := s.rt.Validators.Meta[itemValidator]
+	if meta.Kind != runtime.VFloat && meta.Kind != runtime.VDouble {
+		return false
+	}
+	if meta.Facets.Len != 0 {
+		return false
+	}
+	return meta.Flags&(runtime.ValidatorHasEnum|runtime.ValidatorMayTrackIDs) == 0
+}
+
+func (s *Session) validateSpaceSeparatedListItemsNoCanonical(itemValidator runtime.ValidatorID, normalized []byte, resolver value.NSResolver, opts valueOptions) error {
+	i := 0
+	for i < len(normalized) {
+		for i < len(normalized) && normalized[i] == ' ' {
+			i++
+		}
+		if i >= len(normalized) {
+			return nil
+		}
+		start := i
+		for i < len(normalized) && normalized[i] != ' ' {
+			i++
+		}
+		if _, err := s.validateValueInternalOptions(itemValidator, normalized[start:i], resolver, opts); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Session) validateWhitespaceListItemsNoCanonical(itemValidator runtime.ValidatorID, normalized []byte, resolver value.NSResolver, opts valueOptions) error {
+	i := 0
+	for i < len(normalized) {
+		for i < len(normalized) && value.IsXMLWhitespaceByte(normalized[i]) {
+			i++
+		}
+		if i >= len(normalized) {
+			return nil
+		}
+		start := i
+		for i < len(normalized) && !value.IsXMLWhitespaceByte(normalized[i]) {
+			i++
+		}
+		if _, err := s.validateValueInternalOptions(itemValidator, normalized[start:i], resolver, opts); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateCollapsedFloatList(normalized []byte, kind runtime.ValidatorKind) error {
+	for i := 0; i < len(normalized); {
+		if normalized[i] == ' ' {
+			i++
+			continue
+		}
+		switch normalized[i] {
+		case 'I':
+			if next, ok := matchCollapsedINF(normalized, i); ok {
+				i = next
+				if i < len(normalized) {
+					i++
+				}
+				continue
+			}
+			return invalidCollapsedFloatList(kind)
+		case 'N':
+			if next, ok := matchCollapsedNaN(normalized, i); ok {
+				i = next
+				if i < len(normalized) {
+					i++
+				}
+				continue
+			}
+			return invalidCollapsedFloatList(kind)
+		case '-':
+			if next, ok := matchCollapsedNegINF(normalized, i); ok {
+				i = next
+				if i < len(normalized) {
+					i++
+				}
+				continue
+			}
+		case '+':
+			if _, ok := matchCollapsedPosINF(normalized, i); ok {
+				return invalidCollapsedFloatList(kind)
+			}
+		}
+		startDigits := 0
+		if normalized[i] == '+' || normalized[i] == '-' {
+			i++
+			if i >= len(normalized) || normalized[i] == ' ' {
+				return invalidCollapsedFloatList(kind)
+			}
+		}
+		for i < len(normalized) && isDigitByte(normalized[i]) {
+			i++
+			startDigits++
+		}
+		if i < len(normalized) && normalized[i] == '.' {
+			i++
+			fracDigits := 0
+			for i < len(normalized) && isDigitByte(normalized[i]) {
+				i++
+				fracDigits++
+			}
+			if startDigits == 0 && fracDigits == 0 {
+				return invalidCollapsedFloatList(kind)
+			}
+		} else if startDigits == 0 {
+			return invalidCollapsedFloatList(kind)
+		}
+		if i < len(normalized) && (normalized[i] == 'e' || normalized[i] == 'E') {
+			i++
+			if i >= len(normalized) || normalized[i] == ' ' {
+				return invalidCollapsedFloatList(kind)
+			}
+			if normalized[i] == '+' || normalized[i] == '-' {
+				i++
+				if i >= len(normalized) || normalized[i] == ' ' {
+					return invalidCollapsedFloatList(kind)
+				}
+			}
+			expDigits := 0
+			for i < len(normalized) && isDigitByte(normalized[i]) {
+				i++
+				expDigits++
+			}
+			if expDigits == 0 {
+				return invalidCollapsedFloatList(kind)
+			}
+		}
+		if i < len(normalized) && normalized[i] != ' ' {
+			return invalidCollapsedFloatList(kind)
+		}
+		if i < len(normalized) {
+			i++
+		}
+	}
+	return nil
+}
+
+func invalidCollapsedFloatList(kind runtime.ValidatorKind) error {
+	if kind == runtime.VDouble {
+		return valueErrorMsg(valueErrInvalid, "invalid double")
+	}
+	return valueErrorMsg(valueErrInvalid, "invalid float")
+}
+
+func matchCollapsedINF(normalized []byte, start int) (int, bool) {
+	end := start + 3
+	if end > len(normalized) {
+		return 0, false
+	}
+	if normalized[start] != 'I' || normalized[start+1] != 'N' || normalized[start+2] != 'F' {
+		return 0, false
+	}
+	return matchCollapsedLiteralEnd(normalized, end)
+}
+
+func matchCollapsedNaN(normalized []byte, start int) (int, bool) {
+	end := start + 3
+	if end > len(normalized) {
+		return 0, false
+	}
+	if normalized[start] != 'N' || normalized[start+1] != 'a' || normalized[start+2] != 'N' {
+		return 0, false
+	}
+	return matchCollapsedLiteralEnd(normalized, end)
+}
+
+func matchCollapsedNegINF(normalized []byte, start int) (int, bool) {
+	end := start + 4
+	if end > len(normalized) {
+		return 0, false
+	}
+	if normalized[start] != '-' || normalized[start+1] != 'I' || normalized[start+2] != 'N' || normalized[start+3] != 'F' {
+		return 0, false
+	}
+	return matchCollapsedLiteralEnd(normalized, end)
+}
+
+func matchCollapsedPosINF(normalized []byte, start int) (int, bool) {
+	end := start + 4
+	if end > len(normalized) {
+		return 0, false
+	}
+	if normalized[start] != '+' || normalized[start+1] != 'I' || normalized[start+2] != 'N' || normalized[start+3] != 'F' {
+		return 0, false
+	}
+	return matchCollapsedLiteralEnd(normalized, end)
+}
+
+func matchCollapsedLiteralEnd(normalized []byte, end int) (int, bool) {
+	if end < len(normalized) && normalized[end] != ' ' {
+		return 0, false
+	}
+	return end, true
+}
+
+func isDigitByte(b byte) bool {
+	return b >= '0' && b <= '9'
 }

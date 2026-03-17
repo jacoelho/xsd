@@ -1,13 +1,13 @@
 package semanticresolve
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
 // areFieldTypesCompatible checks if two field types are compatible for keyref schemacheck.
 // Types are compatible if:
 // 1. They are identical
 // 2. One is derived from the other
 // 3. Both derive from the same primitive type
-func areFieldTypesCompatible(field1Type, field2Type types.Type) bool {
+func areFieldTypesCompatible(field1Type, field2Type model.Type) bool {
 	if field1Type == nil || field2Type == nil {
 		return false
 	}
@@ -21,10 +21,10 @@ func areFieldTypesCompatible(field1Type, field2Type types.Type) bool {
 		return true
 	}
 
-	if types.IsDerivedFrom(field1Type, field2Type) {
+	if model.IsDerivedFrom(field1Type, field2Type) {
 		return true
 	}
-	if types.IsDerivedFrom(field2Type, field1Type) {
+	if model.IsDerivedFrom(field2Type, field1Type) {
 		return true
 	}
 
@@ -38,12 +38,12 @@ func areFieldTypesCompatible(field1Type, field2Type types.Type) bool {
 }
 
 // getPrimitiveType returns the primitive type for a given type.
-func getPrimitiveType(typ types.Type) types.Type {
+func getPrimitiveType(typ model.Type) model.Type {
 	if typ == nil {
 		return nil
 	}
 
-	if st, ok := typ.(*types.SimpleType); ok {
+	if st, ok := typ.(*model.SimpleType); ok {
 		return st.PrimitiveType()
 	}
 

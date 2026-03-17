@@ -65,6 +65,58 @@ var charDataByteClassLUT = func() [256]charDataByteClass {
 	return lut
 }()
 
+// scanPlainCharDataASCII skips a run of safe ASCII char-data bytes while bracketRun == 0.
+// It stops before '&', ']', invalid control bytes, or non-ASCII input.
+func scanPlainCharDataASCII(data []byte, start int) int {
+	i := start
+	for i+8 <= len(data) {
+		b0 := data[i]
+		b1 := data[i+1]
+		b2 := data[i+2]
+		b3 := data[i+3]
+		b4 := data[i+4]
+		b5 := data[i+5]
+		b6 := data[i+6]
+		b7 := data[i+7]
+		if !isPlainCharDataASCIIByte(b0) ||
+			!isPlainCharDataASCIIByte(b1) ||
+			!isPlainCharDataASCIIByte(b2) ||
+			!isPlainCharDataASCIIByte(b3) ||
+			!isPlainCharDataASCIIByte(b4) ||
+			!isPlainCharDataASCIIByte(b5) ||
+			!isPlainCharDataASCIIByte(b6) ||
+			!isPlainCharDataASCIIByte(b7) {
+			break
+		}
+		i += 8
+	}
+	for i < len(data) && isPlainCharDataASCIIByte(data[i]) {
+		i++
+	}
+	return i
+}
+
+func isPlainCharDataASCIIByte(b byte) bool {
+	if b >= utf8.RuneSelf {
+		return false
+	}
+	if b == '&' || b == ']' {
+		return false
+	}
+	return b >= 0x20 || b == '\t' || b == '\n' || b == '\r'
+}
+
+func validateCharDataRune(data []byte, i int) (int, error) {
+	r, size := utf8.DecodeRune(data[i:])
+	if r == utf8.RuneError && size == 1 {
+		return 0, errInvalidChar
+	}
+	if !isValidXMLChar(r) {
+		return 0, errInvalidChar
+	}
+	return i + size, nil
+}
+
 type stackEntry struct {
 	name       qnameSpan
 	index      int64
@@ -574,6 +626,15 @@ func scanCharDataSpanUntilEntity(data []byte, start int) (int, error) {
 	}
 	bracketRun := 0
 	for i := start; i < size; {
+		if bracketRun == 0 {
+			next := scanPlainCharDataASCII(data, i)
+			if next > i {
+				i = next
+				if i >= size {
+					return -1, nil
+				}
+			}
+		}
 		switch charDataByteClassLUT[data[i]] {
 		case charDataByteOK:
 			bracketRun = 0
@@ -593,14 +654,11 @@ func scanCharDataSpanUntilEntity(data []byte, start int) (int, error) {
 			return -1, errInvalidChar
 		case charDataByteNonASCII:
 			bracketRun = 0
-			r, size := utf8.DecodeRune(data[i:])
-			if r == utf8.RuneError && size == 1 {
-				return -1, errInvalidChar
+			next, err := validateCharDataRune(data, i)
+			if err != nil {
+				return -1, err
 			}
-			if !isValidXMLChar(r) {
-				return -1, errInvalidChar
-			}
-			i += size
+			i = next
 		default:
 			bracketRun = 0
 			i++
@@ -614,6 +672,15 @@ func unescapeCharDataInto(dst, data []byte, resolver *entityResolver, maxTokenSi
 	bracketRun := 0
 	start := 0
 	for i := 0; i < len(data); {
+		if bracketRun == 0 {
+			next := scanPlainCharDataASCII(data, i)
+			if next > i {
+				i = next
+				if i >= len(data) {
+					break
+				}
+			}
+		}
 		switch charDataByteClassLUT[data[i]] {
 		case charDataByteOK:
 			bracketRun = 0
@@ -662,14 +729,11 @@ func unescapeCharDataInto(dst, data []byte, resolver *entityResolver, maxTokenSi
 			return nil, rawNeeds, errInvalidChar
 		case charDataByteNonASCII:
 			bracketRun = 0
-			r, size := utf8.DecodeRune(data[i:])
-			if r == utf8.RuneError && size == 1 {
-				return nil, rawNeeds, errInvalidChar
+			next, err := validateCharDataRune(data, i)
+			if err != nil {
+				return nil, rawNeeds, err
 			}
-			if !isValidXMLChar(r) {
-				return nil, rawNeeds, errInvalidChar
-			}
-			i += size
+			i = next
 		default:
 			bracketRun = 0
 			i++
@@ -691,6 +755,15 @@ func scanCharDataSpanParse(data []byte, resolver *entityResolver) (bool, error) 
 	rawNeeds := false
 	bracketRun := 0
 	for i := 0; i < len(data); {
+		if bracketRun == 0 {
+			next := scanPlainCharDataASCII(data, i)
+			if next > i {
+				i = next
+				if i >= len(data) {
+					return rawNeeds, nil
+				}
+			}
+		}
 		switch charDataByteClassLUT[data[i]] {
 		case charDataByteOK:
 			bracketRun = 0
@@ -716,14 +789,11 @@ func scanCharDataSpanParse(data []byte, resolver *entityResolver) (bool, error) 
 			return rawNeeds, errInvalidChar
 		case charDataByteNonASCII:
 			bracketRun = 0
-			r, size := utf8.DecodeRune(data[i:])
-			if r == utf8.RuneError && size == 1 {
-				return rawNeeds, errInvalidChar
+			next, err := validateCharDataRune(data, i)
+			if err != nil {
+				return rawNeeds, err
 			}
-			if !isValidXMLChar(r) {
-				return rawNeeds, errInvalidChar
-			}
-			i += size
+			i = next
 		default:
 			bracketRun = 0
 			i++

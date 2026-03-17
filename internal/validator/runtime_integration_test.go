@@ -168,6 +168,66 @@ func TestRuntimeDefaultIDREFSInvalid(t *testing.T) {
 	}
 }
 
+func TestRuntimeCustomIDREFListInvalid(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="Refs">
+    <xs:list itemType="xs:IDREF"/>
+  </xs:simpleType>
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:attribute name="refs" type="Refs" use="required"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>`
+
+	doc := `<root refs="missing"/>`
+	err := validateRuntimeDoc(t, schema, doc)
+	if err == nil {
+		t.Fatalf("expected missing IDREF error, got nil")
+	}
+	var violations xsderrors.ValidationList
+	if !errors.As(err, &violations) {
+		t.Fatalf("expected ValidationList error, got %T", err)
+	}
+	if !hasViolationCode([]xsderrors.Validation(violations), xsderrors.ErrIDRefNotFound) {
+		t.Fatalf("expected code %s, got %v", xsderrors.ErrIDRefNotFound, violations)
+	}
+}
+
+func TestRuntimeDoubleListFastPathLexical(t *testing.T) {
+	schema := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:simpleType>
+      <xs:list itemType="xs:double"/>
+    </xs:simpleType>
+  </xs:element>
+</xs:schema>`
+
+	t.Run("valid", func(t *testing.T) {
+		doc := `<root>INF -INF NaN 1.5E2 -0.5 .25 1.</root>`
+		if err := validateRuntimeDoc(t, schema, doc); err != nil {
+			t.Fatalf("validate runtime: %v", err)
+		}
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		doc := `<root>1e</root>`
+		err := validateRuntimeDoc(t, schema, doc)
+		if err == nil {
+			t.Fatalf("expected invalid double list error, got nil")
+		}
+		var violations xsderrors.ValidationList
+		if !errors.As(err, &violations) {
+			t.Fatalf("expected ValidationList error, got %T", err)
+		}
+		if !hasViolationCode([]xsderrors.Validation(violations), xsderrors.ErrDatatypeInvalid) {
+			t.Fatalf("expected code %s, got %v", xsderrors.ErrDatatypeInvalid, violations)
+		}
+	})
+}
+
 func TestRuntimeAttributeGroupProhibitedIgnored(t *testing.T) {
 	schema := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

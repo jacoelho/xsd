@@ -3,7 +3,6 @@ package validatorgen
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/typewalk"
@@ -139,7 +138,7 @@ func (r *typeResolver) primitiveNameAtomic(typ model.Type, seen map[model.Type]b
 		return "", fmt.Errorf("unsupported type")
 	}
 	if st.IsBuiltin() {
-		if builtin := builtins.Get(model.TypeName(st.Name().Local)); builtin != nil {
+		if builtin := model.GetBuiltin(model.TypeName(st.Name().Local)); builtin != nil {
 			primitive := builtin.PrimitiveType()
 			if primitive == nil {
 				return "", fmt.Errorf("primitive type not found")

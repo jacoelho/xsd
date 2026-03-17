@@ -1,13 +1,13 @@
 package preprocessor
 
 import (
-	"github.com/jacoelho/xsd/internal/objects"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
 type loadKey struct {
 	systemID string
-	etn      objects.NamespaceURI
+	etn      model.NamespaceURI
 }
 
 type loadState struct {

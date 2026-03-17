@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -17,7 +16,7 @@ func TestCollectRestrictionFacetsPatternSyntaxError(t *testing.T) {
 		Facets: []any{&model.Pattern{Value: "["}},
 	}
 
-	_, err := CollectRestrictionFacets(nil, restriction, builtins.Get(model.TypeNameString), nil)
+	_, err := CollectRestrictionFacets(nil, restriction, model.GetBuiltin(model.TypeNameString), nil)
 	if err == nil {
 		t.Fatalf("expected pattern syntax error")
 	}
@@ -26,7 +25,7 @@ func TestCollectRestrictionFacetsPatternSyntaxError(t *testing.T) {
 func TestCollectRestrictionFacetsDeferredFacetErrors(t *testing.T) {
 	t.Parallel()
 
-	baseType := builtins.Get(model.TypeNameInt)
+	baseType := model.GetBuiltin(model.TypeNameInt)
 	if baseType == nil {
 		t.Fatalf("builtin int type not found")
 	}
@@ -126,7 +125,7 @@ func TestIsIDOnlyDerivedTypeHandlesCycles(t *testing.T) {
 func TestDefaultDeferredFacetConverter(t *testing.T) {
 	t.Parallel()
 
-	baseType := builtins.Get(model.TypeNameInt)
+	baseType := model.GetBuiltin(model.TypeNameInt)
 	if baseType == nil {
 		t.Fatalf("builtin int type not found")
 	}

@@ -1,7 +1,6 @@
 package validatorgen
 
 import (
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/typewalk"
 )
@@ -13,8 +12,8 @@ func (r *typeResolver) listItemTypeFromType(typ model.Type) (model.Type, bool) {
 	)
 	typewalk.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
-			if itemName, ok := builtins.BuiltinListItemTypeName(bt.Name().Local); ok {
-				item = builtins.Get(itemName)
+			if itemName, ok := model.BuiltinListItemTypeName(bt.Name().Local); ok {
+				item = model.GetBuiltin(itemName)
 				found = item != nil
 			}
 			return false

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -95,5 +96,34 @@ func BenchmarkEncodingXMLDecoder(b *testing.B) {
 				b.Fatalf("encoding/xml error = %v", err)
 			}
 		}
+	}
+}
+
+func BenchmarkScanCharDataSpanParse(b *testing.B) {
+	resolver := &entityResolver{}
+	benchmarks := []struct {
+		name string
+		data []byte
+	}{
+		{name: "PlainASCII", data: []byte(strings.Repeat("plain text > content ", 512))},
+		{name: "EntityHeavy", data: []byte(strings.Repeat("a&amp;b ", 512))},
+		{name: "BracketHeavy", data: []byte(strings.Repeat("]]a ", 512))},
+		{name: "UTF8", data: []byte(strings.Repeat("cafe\u00e9 text ", 512))},
+	}
+
+	for _, bench := range benchmarks {
+		b.Run(bench.name, func(b *testing.B) {
+			b.ReportAllocs()
+			b.SetBytes(int64(len(bench.data)))
+			for b.Loop() {
+				rawNeeds, err := scanCharDataSpanParse(bench.data, resolver)
+				if err != nil {
+					b.Fatalf("scanCharDataSpanParse error = %v", err)
+				}
+				if bench.name == "EntityHeavy" && !rawNeeds {
+					b.Fatalf("scanCharDataSpanParse rawNeeds = false, want true")
+				}
+			}
+		})
 	}
 }

@@ -34,7 +34,7 @@ func ApplyWhiteSpace(lexical string, ws WhiteSpace) string {
 	return string(normalized)
 }
 
-// NormalizeWhiteSpace applies whitespace normalization for simple types.
+// NormalizeWhiteSpace applies whitespace normalization for simple model.
 // Non-simple types are returned unchanged.
 func NormalizeWhiteSpace(lexical string, typ Type) string {
 	if typ == nil {

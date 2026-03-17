@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -268,7 +267,7 @@ func TestCircularDerivation_RedefineSelfExtension(t *testing.T) {
 			Particles: []model.Particle{
 				&model.ElementDecl{
 					Name: model.QName{Local: "name"},
-					Type: builtins.Get(model.TypeName("string")),
+					Type: model.GetBuiltin(model.TypeName("string")),
 				},
 			},
 		},
@@ -344,7 +343,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnly(t *testing.T) {
 			Particles: []model.Particle{
 				&model.ElementDecl{
 					Name: model.QName{Local: "child"},
-					Type: builtins.Get(model.TypeName("string")),
+					Type: model.GetBuiltin(model.TypeName("string")),
 				},
 			},
 		},
@@ -371,7 +370,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnly(t *testing.T) {
 				Particles: []model.Particle{
 					&model.ElementDecl{
 						Name: model.QName{Local: "extra"},
-						Type: builtins.Get(model.TypeName("string")),
+						Type: model.GetBuiltin(model.TypeName("string")),
 					},
 				},
 			},
@@ -408,7 +407,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToElementOnlyNoParticle(t *tes
 			Particles: []model.Particle{
 				&model.ElementDecl{
 					Name: model.QName{Local: "child"},
-					Type: builtins.Get(model.TypeName("string")),
+					Type: model.GetBuiltin(model.TypeName("string")),
 				},
 			},
 		},
@@ -460,7 +459,7 @@ func TestMixedContentDerivation_RestrictionFromElementOnlyToMixed(t *testing.T) 
 			Particles: []model.Particle{
 				&model.ElementDecl{
 					Name: model.QName{Local: "child"},
-					Type: builtins.Get(model.TypeName("string")),
+					Type: model.GetBuiltin(model.TypeName("string")),
 				},
 			},
 		},
@@ -518,7 +517,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToElementOnly(t *testing
 			Particles: []model.Particle{
 				&model.ElementDecl{
 					Name: model.QName{Local: "child"},
-					Type: builtins.Get(model.TypeName("string")),
+					Type: model.GetBuiltin(model.TypeName("string")),
 				},
 			},
 		},
@@ -572,7 +571,7 @@ func TestMixedContentDerivation_ExtensionFromMixedToMixed(t *testing.T) {
 			Particles: []model.Particle{
 				&model.ElementDecl{
 					Name: model.QName{Local: "child"},
-					Type: builtins.Get(model.TypeName("string")),
+					Type: model.GetBuiltin(model.TypeName("string")),
 				},
 			},
 		},
@@ -627,7 +626,7 @@ func TestMixedContentDerivation_ExtensionFromElementOnlyToMixed(t *testing.T) {
 			Particles: []model.Particle{
 				&model.ElementDecl{
 					Name: model.QName{Local: "child"},
-					Type: builtins.Get(model.TypeName("string")),
+					Type: model.GetBuiltin(model.TypeName("string")),
 				},
 			},
 		},
@@ -685,7 +684,7 @@ func TestMixedContentDerivation_RestrictionFromMixedToElementOnly(t *testing.T) 
 			Particles: []model.Particle{
 				&model.ElementDecl{
 					Name: model.QName{Local: "child"},
-					Type: builtins.Get(model.TypeName("string")),
+					Type: model.GetBuiltin(model.TypeName("string")),
 				},
 			},
 		},

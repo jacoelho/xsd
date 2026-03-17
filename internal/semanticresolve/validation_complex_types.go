@@ -3,9 +3,9 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/traversal"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func validateComplexTypeReferences(sch *parser.Schema) []error {
@@ -13,7 +13,7 @@ func validateComplexTypeReferences(sch *parser.Schema) []error {
 
 	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
-		ct, ok := typ.(*types.ComplexType)
+		ct, ok := typ.(*model.ComplexType)
 		if !ok {
 			continue
 		}
@@ -36,7 +36,7 @@ func validateComplexTypeReferences(sch *parser.Schema) []error {
 		}
 
 		origin := sch.TypeOrigins[qname]
-		if err := traversal.WalkContentParticles(ct.Content(), func(particle types.Particle) error {
+		if err := traversal.WalkContentParticles(ct.Content(), func(particle model.Particle) error {
 			return validateParticleReferences(sch, particle, origin)
 		}); err != nil {
 			errs = append(errs, fmt.Errorf("type %s: %w", qname, err))
@@ -46,14 +46,14 @@ func validateComplexTypeReferences(sch *parser.Schema) []error {
 	return errs
 }
 
-func collectComplexTypeAttrGroupRefs(ct *types.ComplexType) []types.QName {
+func collectComplexTypeAttrGroupRefs(ct *model.ComplexType) []model.QName {
 	if ct == nil {
 		return nil
 	}
-	out := make([]types.QName, 0, len(ct.AttrGroups))
+	out := make([]model.QName, 0, len(ct.AttrGroups))
 	out = append(out, ct.AttrGroups...)
 
-	if cc, ok := ct.Content().(*types.ComplexContent); ok {
+	if cc, ok := ct.Content().(*model.ComplexContent); ok {
 		if cc.Extension != nil {
 			out = append(out, cc.Extension.AttrGroups...)
 		}
@@ -61,7 +61,7 @@ func collectComplexTypeAttrGroupRefs(ct *types.ComplexType) []types.QName {
 			out = append(out, cc.Restriction.AttrGroups...)
 		}
 	}
-	if sc, ok := ct.Content().(*types.SimpleContent); ok {
+	if sc, ok := ct.Content().(*model.SimpleContent); ok {
 		if sc.Extension != nil {
 			out = append(out, sc.Extension.AttrGroups...)
 		}

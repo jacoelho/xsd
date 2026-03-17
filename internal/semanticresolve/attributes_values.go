@@ -3,17 +3,17 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func validateAttributeValueConstraintsForType(sch *parser.Schema, typ types.Type) error {
-	ct, ok := typ.(*types.ComplexType)
+func validateAttributeValueConstraintsForType(sch *parser.Schema, typ model.Type) error {
+	ct, ok := typ.(*model.ComplexType)
 	if !ok {
 		return nil
 	}
-	validateAttrs := func(attrs []*types.AttributeDecl) error {
+	validateAttrs := func(attrs []*model.AttributeDecl) error {
 		for _, attr := range attrs {
 			if err := validateAttributeValueConstraints(sch, attr); err != nil {
 				return fmt.Errorf("attribute %s: %w", attr.Name, err)
@@ -37,9 +37,9 @@ func validateAttributeValueConstraintsForType(sch *parser.Schema, typ types.Type
 	return nil
 }
 
-func validateAttributeValueConstraints(sch *parser.Schema, decl *types.AttributeDecl) error {
+func validateAttributeValueConstraints(sch *parser.Schema, decl *model.AttributeDecl) error {
 	resolvedType := typeresolve.ResolveTypeReference(sch, decl.Type, typeresolve.TypeReferenceAllowMissing)
-	if _, ok := resolvedType.(*types.ComplexType); ok {
+	if _, ok := resolvedType.(*model.ComplexType); ok {
 		return fmt.Errorf("type must be a simple type")
 	}
 	if isDirectNotationType(resolvedType) {

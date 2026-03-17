@@ -3,7 +3,7 @@ package xsd
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/set"
+	"github.com/jacoelho/xsd/internal/compiler"
 	"github.com/jacoelho/xsd/internal/validator"
 )
 
@@ -21,11 +21,14 @@ func (s *SchemaSet) compileWithRuntimeOverride(runtimeOverride *RuntimeOptions) 
 	if s == nil {
 		return nil, fmt.Errorf("compile schema set: nil set")
 	}
-	if len(s.entries) == 0 {
+	return compileEntries(s.entries, s.loadOpts, runtimeOverride)
+}
+
+func compileEntries(entries []schemaSetEntry, loadOpts LoadOptions, runtimeOverride *RuntimeOptions) (*Schema, error) {
+	if len(entries) == 0 {
 		return nil, fmt.Errorf("compile schema set: no schema roots added")
 	}
 
-	loadOpts := s.loadOpts
 	if runtimeOverride != nil {
 		loadOpts.runtime = *runtimeOverride
 	}
@@ -34,19 +37,19 @@ func (s *SchemaSet) compileWithRuntimeOverride(runtimeOverride *RuntimeOptions) 
 		return nil, fmt.Errorf("compile schema set: %w", err)
 	}
 
-	prepared, err := s.prepareResolved(resolvedLoad)
+	prepared, err := prepareEntries(entries, resolvedLoad)
 	if err != nil {
 		return nil, fmt.Errorf("compile schema set: %w", err)
 	}
-	rt, err := prepared.BuildRuntime(toCompileConfig(runtimeOpts))
+	rt, err := prepared.Build(toCompileConfig(runtimeOpts))
 	if err != nil {
 		return nil, fmt.Errorf("compile schema set: build runtime: %w", err)
 	}
 	return &Schema{engine: validator.NewEngine(rt, runtimeOpts.instanceParseOptions...)}, nil
 }
 
-func toCompileConfig(opts resolvedRuntimeOptions) set.CompileConfig {
-	return set.CompileConfig{
+func toCompileConfig(opts resolvedRuntimeOptions) compiler.BuildConfig {
+	return compiler.BuildConfig{
 		MaxDFAStates:   opts.maxDFAStates,
 		MaxOccursLimit: opts.maxOccursLimit,
 	}

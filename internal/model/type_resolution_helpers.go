@@ -1,8 +1,8 @@
 package model
 
-// ListItemTypeWithResolver returns the item type for list simple types.
+// ListItemTypeWithResolver returns the item type for list simple model.
 // The resolver can resolve non-builtin QNames when list definitions are
-// referenced through named base types.
+// referenced through named base model.
 func ListItemTypeWithResolver(typ Type, resolve func(QName) Type) (Type, bool) {
 	visited := make(map[Type]bool)
 	var visit func(current Type) (Type, bool)
@@ -70,7 +70,7 @@ func ListItemTypeWithResolver(typ Type, resolve func(QName) Type) (Type, bool) {
 	return visit(typ)
 }
 
-// UnionMemberTypesWithResolver returns flattened member types for union simple types.
+// UnionMemberTypesWithResolver returns flattened member types for union simple model.
 // The resolver can resolve non-builtin QNames from union memberTypes attributes
 // and named restriction bases.
 func UnionMemberTypesWithResolver(typ Type, resolve func(QName) Type) []Type {

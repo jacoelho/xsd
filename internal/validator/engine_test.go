@@ -8,8 +8,8 @@ import (
 	"testing/fstest"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/compiler"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/set"
 	"github.com/jacoelho/xsd/internal/validator"
 )
 
@@ -69,7 +69,7 @@ func TestEngineConcurrentValidation(t *testing.T) {
 
 func buildRuntimeForTest(t *testing.T) *runtime.Schema {
 	t.Helper()
-	prepared, err := set.Prepare(set.PrepareConfig{
+	prepared, err := compiler.PrepareRoots(compiler.LoadConfig{
 		FS: fstest.MapFS{
 			"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -84,16 +84,16 @@ func buildRuntimeForTest(t *testing.T) *runtime.Schema {
 	if err != nil {
 		t.Fatalf("Prepare() error = %v", err)
 	}
-	rt, err := prepared.BuildRuntime(set.CompileConfig{})
+	rt, err := prepared.Build(compiler.BuildConfig{})
 	if err != nil {
-		t.Fatalf("BuildRuntime() error = %v", err)
+		t.Fatalf("Build() error = %v", err)
 	}
 	return rt
 }
 
 func buildConcurrentRuntimeForTest(t *testing.T) *runtime.Schema {
 	t.Helper()
-	prepared, err := set.Prepare(set.PrepareConfig{
+	prepared, err := compiler.PrepareRoots(compiler.LoadConfig{
 		FS: fstest.MapFS{
 			"schema.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -114,7 +114,7 @@ func buildConcurrentRuntimeForTest(t *testing.T) *runtime.Schema {
 	if err != nil {
 		t.Fatalf("prepare schema: %v", err)
 	}
-	rt, err := prepared.BuildRuntime(set.CompileConfig{})
+	rt, err := prepared.Build(compiler.BuildConfig{})
 	if err != nil {
 		t.Fatalf("build runtime: %v", err)
 	}

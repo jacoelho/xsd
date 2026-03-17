@@ -21,7 +21,7 @@ This keeps validation deterministic and goroutine-safe.
 
 ## Processing Pipeline
 
-Schema loading and validation follows seven distinct phases:
+Schema loading and validation follows six compile-time phases plus streaming validation:
 
 ```mermaid
 flowchart TD
@@ -47,7 +47,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   subgraph PublicAPI["Public API"]
-    Load["xsd.NewSchemaSet / xsd.LoadWithOptions"] --> Loader["internal/preprocessor.Loader.Load<br/>(parse + import/include)"] --> Compile["internal/compiler.Prepare*<br/>(semantic normalization + compile artifacts)"] --> Build["internal/set.PreparedSchema.BuildRuntime"] --> Runtime["internal/runtime.Schema"]
+    Load["xsd.NewSchemaSet / xsd.LoadWithOptions"] --> Compile["internal/compiler.PrepareRoots / Prepare<br/>(load + merge + resolve + validate + index)"] --> Build["internal/compiler.Prepared.Build"] --> Runtime["internal/runtime.Schema"]
   end
   subgraph Validation
     Validate["Schema.Validate"] --> ValidatorPkg["internal/validator<br/>(engine, session, streaming checks)"]
@@ -64,12 +64,10 @@ Each package owns one phase-level responsibility:
 
 - `internal/preprocessor`: source loading, include/import resolution, origin tracking.
 - `internal/parser`: raw XSD component parsing with symbolic references.
-- `internal/normalize`: orchestration of schema normalization stages.
 - `internal/semanticresolve`: schema reference wiring and semantic link resolution.
 - `internal/semanticcheck`: structural/spec validation (`cvc-*`/schema rules, UPA checks).
 - `internal/analysis`: deterministic IDs, ordering, and resolved-reference indexes.
-- `internal/set`: prepare/build orchestration for reusable schema artifacts.
-- `internal/runtimeassemble`: compilation of normalized artifacts into runtime tables.
+- `internal/compiler`: schema-root loading, preparation, runtime assembly, and reusable build artifacts.
 - `internal/validator`: mutable runtime session execution over immutable runtime schema.
 
 Public package organization follows the same single-responsibility rule:
@@ -84,7 +82,7 @@ Architecture boundaries are enforced by tests in `internal/architecture/`:
 
 - import-edge checks for core phases (`import_edges_test.go`)
 - public export allowlist checks (`public_api_allowlist_test.go`)
-- legacy package removal and required phase docs (`layout_test.go`)
+- required phase docs (`layout_test.go`)
 
 ## Shared Internal Helpers
 
@@ -182,8 +180,8 @@ the validated schema and assigned registry.
 
 ## Phase 6: Build Runtime Schema
 
-`internal/set.PreparedSchema.BuildRuntime` (backed by
-`internal/compiler`, `internal/runtimeassemble`, and `internal/validatorgen`)
+`internal/compiler.Prepared.Build` (backed by
+`internal/compiler` and `internal/validatorgen`)
 compiles prepared artifacts into an optimized runtime representation. The runtime schema is
 dense, ID-based, and immutable so it can be shared across goroutines.
 

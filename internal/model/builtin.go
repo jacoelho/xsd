@@ -14,7 +14,7 @@ const XSDNamespace NamespaceURI = "http://www.w3.org/2001/XMLSchema"
 const XMLNamespace NamespaceURI = NamespaceURI(xmlnames.XMLNamespace)
 
 // TypeValidator validates a string value according to a type's rules.
-// It is used to implement validation logic for built-in XSD types.
+// It is used to implement validation logic for built-in XSD model.
 // Returns an error if the value is invalid, nil otherwise.
 type TypeValidator func(value string) error
 

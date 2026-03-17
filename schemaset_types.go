@@ -36,16 +36,21 @@ func (s *SchemaSet) AddFS(fsys fs.FS, location string) error {
 	if s == nil {
 		return fmt.Errorf("schema set: nil set")
 	}
+	entry, err := newSchemaSetEntry(fsys, location)
+	if err != nil {
+		return err
+	}
+	s.entries = append(s.entries, entry)
+	return nil
+}
+
+func newSchemaSetEntry(fsys fs.FS, location string) (schemaSetEntry, error) {
 	if fsys == nil {
-		return fmt.Errorf("schema set: nil fs")
+		return schemaSetEntry{}, fmt.Errorf("schema set: nil fs")
 	}
 	location = strings.TrimSpace(location)
 	if location == "" {
-		return fmt.Errorf("schema set: empty location")
+		return schemaSetEntry{}, fmt.Errorf("schema set: empty location")
 	}
-	s.entries = append(s.entries, schemaSetEntry{
-		fsys:     fsys,
-		location: location,
-	})
-	return nil
+	return schemaSetEntry{fsys: fsys, location: location}, nil
 }

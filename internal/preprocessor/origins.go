@@ -1,7 +1,7 @@
 package preprocessor
 
 import (
-	"github.com/jacoelho/xsd/internal/objects"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/qname"
 )
@@ -43,6 +43,6 @@ func initSchemaOrigins(sch *parser.Schema, location string) {
 	}
 }
 
-func sortedQNames[V any](m map[objects.QName]V) []objects.QName {
+func sortedQNames[V any](m map[model.QName]V) []model.QName {
 	return qname.SortedMapKeys(m)
 }

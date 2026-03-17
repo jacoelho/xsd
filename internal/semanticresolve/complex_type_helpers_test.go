@@ -3,20 +3,20 @@ package semanticresolve
 import (
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestResolveComplexTypeBase(t *testing.T) {
 	schema := parser.NewSchema()
-	baseQName := types.QName{Namespace: "urn:test", Local: "Base"}
-	base := types.NewComplexType(baseQName, types.NamespaceURI("urn:test"))
-	base.SetContent(&types.ElementContent{})
+	baseQName := model.QName{Namespace: "urn:test", Local: "Base"}
+	base := model.NewComplexType(baseQName, model.NamespaceURI("urn:test"))
+	base.SetContent(&model.ElementContent{})
 	schema.TypeDefs[baseQName] = base
 
-	derivedQName := types.QName{Namespace: "urn:test", Local: "Derived"}
-	derived := types.NewComplexType(derivedQName, types.NamespaceURI("urn:test"))
-	derived.SetContent(&types.ComplexContent{Base: baseQName})
+	derivedQName := model.QName{Namespace: "urn:test", Local: "Derived"}
+	derived := model.NewComplexType(derivedQName, model.NamespaceURI("urn:test"))
+	derived.SetContent(&model.ComplexContent{Base: baseQName})
 
 	resolver := NewResolver(schema)
 	if err := resolver.resolveComplexTypeBase(derivedQName, derived); err != nil {
@@ -29,15 +29,15 @@ func TestResolveComplexTypeBase(t *testing.T) {
 
 func TestResolveComplexTypeAttributes(t *testing.T) {
 	schema := parser.NewSchema()
-	agQName := types.QName{Namespace: "urn:test", Local: "ag"}
-	schema.AttributeGroups[agQName] = &types.AttributeGroup{
+	agQName := model.QName{Namespace: "urn:test", Local: "ag"}
+	schema.AttributeGroups[agQName] = &model.AttributeGroup{
 		Name:            agQName,
-		SourceNamespace: types.NamespaceURI("urn:test"),
+		SourceNamespace: model.NamespaceURI("urn:test"),
 	}
 
-	ctQName := types.QName{Namespace: "urn:test", Local: "ct"}
-	ct := types.NewComplexType(ctQName, types.NamespaceURI("urn:test"))
-	ct.AttrGroups = []types.QName{agQName}
+	ctQName := model.QName{Namespace: "urn:test", Local: "ct"}
+	ct := model.NewComplexType(ctQName, model.NamespaceURI("urn:test"))
+	ct.AttrGroups = []model.QName{agQName}
 
 	resolver := NewResolver(schema)
 	if err := resolver.resolveComplexTypeAttributes(ctQName, ct); err != nil {

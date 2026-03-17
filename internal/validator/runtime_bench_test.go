@@ -3,6 +3,7 @@ package validator
 import (
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -99,6 +100,63 @@ func Benchmark_UnionValidation_Overlap(b *testing.B) {
 	for b.Loop() {
 		if _, _, err := sess.validateValueInternalWithMetrics(validator, input, nil, opts); err != nil {
 			b.Fatalf("validate union: %v", err)
+		}
+	}
+}
+
+func Benchmark_ListValidation_DoubleCollapsed(b *testing.B) {
+	rt, validator := benchmarkCollapsedDoubleListRuntime()
+	sess := NewSession(rt)
+	input := benchmarkCollapsedDoubleList(4096)
+	opts := valueOptions{applyWhitespace: true}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(input)))
+	for b.Loop() {
+		if _, err := sess.validateValueInternalOptions(validator, input, nil, opts); err != nil {
+			b.Fatalf("validate collapsed list: %v", err)
+		}
+	}
+}
+
+func Benchmark_TrackValidatedIDs_NonIDList(b *testing.B) {
+	rt, validator := benchmarkCollapsedDoubleListRuntime()
+	sess := NewSession(rt)
+	input := benchmarkCollapsedDoubleList(4096)
+
+	if err := sess.trackValidatedIDs(validator, input, nil, nil); err != nil {
+		b.Fatalf("trackValidatedIDs warmup: %v", err)
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(input)))
+	for b.Loop() {
+		if err := sess.trackValidatedIDs(validator, input, nil, nil); err != nil {
+			b.Fatalf("trackValidatedIDs: %v", err)
+		}
+	}
+}
+
+func Benchmark_ValidateCollapsedFloatList_SpecialLiterals(b *testing.B) {
+	input := []byte(strings.Repeat("INF -INF NaN ", 1024))
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(input)))
+	for b.Loop() {
+		if err := validateCollapsedFloatList(input, runtime.VDouble); err != nil {
+			b.Fatalf("validateCollapsedFloatList special literals: %v", err)
+		}
+	}
+}
+
+func Benchmark_ValidateCollapsedFloatList_InvalidToken(b *testing.B) {
+	input := []byte(strings.Repeat("1.25 ", 1023) + "1x")
+
+	b.ReportAllocs()
+	b.SetBytes(int64(len(input)))
+	for b.Loop() {
+		if err := validateCollapsedFloatList(input, runtime.VDouble); err == nil {
+			b.Fatal("validateCollapsedFloatList invalid token: expected error")
 		}
 	}
 }
@@ -213,6 +271,38 @@ func Benchmark_IdentityAttrSelection_AttrHeavy(b *testing.B) {
 	for b.Loop() {
 		run()
 	}
+}
+
+func benchmarkCollapsedDoubleListRuntime() (*runtime.Schema, runtime.ValidatorID) {
+	const (
+		doubleValidatorID = runtime.ValidatorID(1)
+		listValidatorID   = runtime.ValidatorID(2)
+	)
+
+	return &runtime.Schema{
+		Validators: runtime.ValidatorsBundle{
+			Double: []runtime.DoubleValidator{{}},
+			List:   []runtime.ListValidator{{Item: doubleValidatorID}},
+			Meta: []runtime.ValidatorMeta{
+				{},
+				{Kind: runtime.VDouble, Index: 0, WhiteSpace: runtime.WSCollapse},
+				{Kind: runtime.VList, Index: 0, WhiteSpace: runtime.WSCollapse},
+			},
+		},
+	}, listValidatorID
+}
+
+func benchmarkCollapsedDoubleList(items int) []byte {
+	var buf strings.Builder
+	buf.Grow(items * 8)
+	for i := range items {
+		if i > 0 {
+			buf.WriteByte(' ')
+		}
+		buf.WriteString(strconv.Itoa(i))
+		buf.WriteString(".25")
+	}
+	return []byte(buf.String())
 }
 
 func Benchmark_IdentityStart_NoConstraints_AttrHeavy(b *testing.B) {

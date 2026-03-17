@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -66,20 +65,20 @@ func TestCompareFacetValuesBuiltinAndSimpleParity(t *testing.T) {
 		wantOrder int
 		wantErr   error
 	}{
-		{name: "numeric int", typeName: builtins.TypeNameInt, left: "2", right: "10", wantOrder: -1},
-		{name: "date", typeName: builtins.TypeNameDate, left: "2001-01-01Z", right: "2001-01-02Z", wantOrder: -1},
-		{name: "float NaN", typeName: builtins.TypeNameFloat, left: "NaN", right: "1", wantErr: ErrFloatNotComparable},
+		{name: "numeric int", typeName: model.TypeNameInt, left: "2", right: "10", wantOrder: -1},
+		{name: "date", typeName: model.TypeNameDate, left: "2001-01-01Z", right: "2001-01-02Z", wantOrder: -1},
+		{name: "float NaN", typeName: model.TypeNameFloat, left: "NaN", right: "1", wantErr: ErrFloatNotComparable},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			builtinType := builtins.Get(tc.typeName)
+			builtinType := model.GetBuiltin(tc.typeName)
 			if builtinType == nil {
 				t.Fatalf("missing builtin type %s", tc.typeName)
 			}
-			simpleType, err := builtins.NewSimpleType(tc.typeName)
+			simpleType, err := model.NewBuiltinSimpleType(tc.typeName)
 			if err != nil {
 				t.Fatalf("NewSimpleType(%s) error = %v", tc.typeName, err)
 			}

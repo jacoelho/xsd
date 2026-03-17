@@ -65,6 +65,33 @@ func BenchmarkXMLStream_NextRawScan(b *testing.B) {
 	}
 }
 
+func BenchmarkXMLStream_NextResolvedRepeatedNames(b *testing.B) {
+	data := benchmarkResolvedInput()
+	b.ReportAllocs()
+	b.SetBytes(int64(len(data)))
+	for b.Loop() {
+		r, err := NewReader(bytes.NewReader(data))
+		if err != nil {
+			b.Fatalf("NewReader error = %v", err)
+		}
+		for {
+			ev, err := r.NextResolved()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				b.Fatalf("NextResolved error = %v", err)
+			}
+			if ev.Kind == EventStartElement {
+				_ = ev.NameID
+				if len(ev.Attrs) > 0 {
+					_ = ev.Attrs[0].NameID
+				}
+			}
+		}
+	}
+}
+
 func BenchmarkXMLStream_SubtreeCopyUnmarshal(b *testing.B) {
 	data := benchmarkInput()
 	b.ReportAllocs()
@@ -183,5 +210,20 @@ func benchmarkInput() []byte {
 		b.WriteString("</author></item>")
 	}
 	b.WriteString("</root>")
+	return []byte(b.String())
+}
+
+func benchmarkResolvedInput() []byte {
+	var b strings.Builder
+	b.Grow(benchmarkItems * 96)
+	b.WriteString(`<p:root xmlns:p="urn:bench">`)
+	for i := range benchmarkItems {
+		b.WriteString(`<p:item p:id="`)
+		b.WriteString(strconv.Itoa(i))
+		b.WriteString(`" p:kind="entry"><p:title>Title`)
+		b.WriteString(strconv.Itoa(i))
+		b.WriteString(`</p:title></p:item>`)
+	}
+	b.WriteString(`</p:root>`)
 	return []byte(b.String())
 }

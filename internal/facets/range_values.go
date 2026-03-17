@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -27,7 +26,7 @@ func ValidateRangeValues(minExclusive, maxExclusive, minInclusive, maxInclusive 
 			whiteSpace = t.WhiteSpace()
 		case *model.SimpleType:
 			if t.IsBuiltin() || t.QName.Namespace == model.XSDNamespace {
-				if builtinType := builtins.GetNS(t.QName.Namespace, t.QName.Local); builtinType != nil {
+				if builtinType := model.GetBuiltinNS(t.QName.Namespace, t.QName.Local); builtinType != nil {
 					validator = func(value string) error {
 						return builtinType.Validate(value)
 					}
@@ -108,7 +107,7 @@ func findBuiltinAncestor(t model.Type) *model.BuiltinType {
 			return ct
 		case *model.SimpleType:
 			if ct.IsBuiltin() || ct.QName.Namespace == model.XSDNamespace {
-				if bt := builtins.GetNS(ct.QName.Namespace, ct.QName.Local); bt != nil {
+				if bt := model.GetBuiltinNS(ct.QName.Namespace, ct.QName.Local); bt != nil {
 					return bt
 				}
 			}

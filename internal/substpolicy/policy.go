@@ -1,7 +1,6 @@
 package substpolicy
 
 import (
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -36,10 +35,10 @@ func NextDerivationStep(current model.Type, resolve TypeQNameResolver) (model.Ty
 		return typed.BaseType(), method, nil
 	case *model.SimpleType:
 		if typed.List != nil {
-			return builtins.Get(builtins.TypeNameAnySimpleType), model.DerivationList, nil
+			return model.GetBuiltin(model.TypeNameAnySimpleType), model.DerivationList, nil
 		}
 		if typed.Union != nil {
-			return builtins.Get(builtins.TypeNameAnySimpleType), model.DerivationUnion, nil
+			return model.GetBuiltin(model.TypeNameAnySimpleType), model.DerivationUnion, nil
 		}
 		if typed.ResolvedBase != nil {
 			return typed.ResolvedBase, model.DerivationRestriction, nil
@@ -60,13 +59,13 @@ func NextDerivationStep(current model.Type, resolve TypeQNameResolver) (model.Ty
 	case *model.BuiltinType:
 		name := model.TypeName(typed.Name().Local)
 		switch name {
-		case builtins.TypeNameAnyType:
+		case model.TypeNameAnyType:
 			return nil, 0, nil
-		case builtins.TypeNameAnySimpleType:
-			return builtins.Get(builtins.TypeNameAnyType), model.DerivationRestriction, nil
+		case model.TypeNameAnySimpleType:
+			return model.GetBuiltin(model.TypeNameAnyType), model.DerivationRestriction, nil
 		default:
-			if _, ok := builtins.BuiltinListItemTypeName(typed.Name().Local); ok {
-				return builtins.Get(builtins.TypeNameAnySimpleType), model.DerivationList, nil
+			if _, ok := model.BuiltinListItemTypeName(typed.Name().Local); ok {
+				return model.GetBuiltin(model.TypeNameAnySimpleType), model.DerivationList, nil
 			}
 			base := typed.BaseType()
 			if base == nil {

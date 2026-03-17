@@ -13,6 +13,7 @@ func TestPublicAPIAllowlist(t *testing.T) {
 		"type LoadOptions":                                        {},
 		"type RuntimeOptions":                                     {},
 		"func LoadWithOptions":                                    {},
+		"func LoadFileWithOptions":                                {},
 		"func LoadFile":                                           {},
 		"func NewSchemaSet":                                       {},
 		"func NewLoadOptions":                                     {},

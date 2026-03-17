@@ -3,7 +3,6 @@ package typeresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typewalk"
@@ -24,7 +23,7 @@ func ResolveTypeQName(schema *parser.Schema, qname model.QName, policy TypeRefer
 	if qname.IsZero() {
 		return nil, nil
 	}
-	if builtinType := builtins.GetNS(qname.Namespace, qname.Local); builtinType != nil {
+	if builtinType := model.GetBuiltinNS(qname.Namespace, qname.Local); builtinType != nil {
 		return builtinType, nil
 	}
 	if schema != nil {
@@ -94,7 +93,7 @@ func ResolveSimpleContentBaseTypeFromContent(schema *parser.Schema, sc *model.Si
 	if baseQName.IsZero() {
 		return nil
 	}
-	if bt := builtins.GetNS(baseQName.Namespace, baseQName.Local); bt != nil {
+	if bt := model.GetBuiltinNS(baseQName.Namespace, baseQName.Local); bt != nil {
 		return bt
 	}
 	if schema == nil {

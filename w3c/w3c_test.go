@@ -15,10 +15,10 @@ import (
 	"unicode"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/compiler"
 	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/set"
 	"github.com/jacoelho/xsd/internal/validator"
 	"github.com/jacoelho/xsd/internal/xmltree"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
@@ -1025,7 +1025,7 @@ func (r *W3CTestRunner) runSchemaTest(t *testing.T, testSet, testGroup string, t
 		}
 		entryPath := r.resolvePath(metadataDir, entryDoc.Href)
 		fsys, entryFile := r.schemaFSForPath(entryPath)
-		_, err := set.Prepare(set.PrepareConfig{
+		_, err := compiler.PrepareRoots(compiler.LoadConfig{
 			FS:                          fsys,
 			Location:                    entryFile,
 			AllowMissingImportLocations: true,
@@ -1313,7 +1313,7 @@ func (r *W3CTestRunner) loadSchemaFromPath(schemaPath string) (*runtime.Schema, 
 		return entry.schema, entry.err
 	}
 	fsys, relPath := r.schemaFSForPath(schemaPath)
-	prepared, err := set.Prepare(set.PrepareConfig{
+	prepared, err := compiler.PrepareRoots(compiler.LoadConfig{
 		FS:                          fsys,
 		Location:                    relPath,
 		AllowMissingImportLocations: true,
@@ -1323,7 +1323,7 @@ func (r *W3CTestRunner) loadSchemaFromPath(schemaPath string) (*runtime.Schema, 
 		r.schemaCache[key] = schemaCacheEntry{err: err}
 		return nil, err
 	}
-	schema, err := prepared.BuildRuntime(set.CompileConfig{})
+	schema, err := prepared.Build(compiler.BuildConfig{})
 	if err != nil {
 		err = fmt.Errorf("build runtime schema %s: %w", schemaPath, err)
 		r.schemaCache[key] = schemaCacheEntry{err: err}

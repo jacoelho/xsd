@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 )
@@ -20,7 +19,7 @@ func TestValidateSchemaConstraintsRejectsInvalidFacetName(t *testing.T) {
 	err := ValidateSchemaConstraints(
 		SchemaConstraintInput{
 			FacetList: []model.Facet{invalidFacet{}},
-			BaseType:  builtins.Get(model.TypeNameString),
+			BaseType:  model.GetBuiltin(model.TypeNameString),
 			BaseQName: model.QName{Namespace: model.XSDNamespace, Local: string(model.TypeNameString)},
 		},
 		SchemaConstraintCallbacks{},
@@ -31,7 +30,7 @@ func TestValidateSchemaConstraintsRejectsInvalidFacetName(t *testing.T) {
 }
 
 func TestValidateSchemaConstraintsDelegatesRangeChecks(t *testing.T) {
-	base := builtins.Get(model.TypeNameInt)
+	base := model.GetBuiltin(model.TypeNameInt)
 	if base == nil {
 		t.Fatal("builtin int is nil")
 	}
@@ -85,7 +84,7 @@ func TestValidateSchemaConstraintsValidatesEnumerationValues(t *testing.T) {
 	err := ValidateSchemaConstraints(
 		SchemaConstraintInput{
 			FacetList: []model.Facet{enum},
-			BaseType:  builtins.Get(model.TypeNameString),
+			BaseType:  model.GetBuiltin(model.TypeNameString),
 			BaseQName: model.QName{Namespace: model.XSDNamespace, Local: string(model.TypeNameString)},
 		},
 		SchemaConstraintCallbacks{
