@@ -81,12 +81,16 @@ func (c *compiler) addAtomicValidator(kind runtime.ValidatorKind, ws runtime.Whi
 	}
 
 	id := runtime.ValidatorID(len(c.bundle.Meta))
+	flags := c.validatorFlags(facets)
+	if kind == runtime.VString && stringKindTracksIDs(stringKind) {
+		flags |= runtime.ValidatorMayTrackIDs
+	}
 	c.bundle.Meta = append(c.bundle.Meta, runtime.ValidatorMeta{
 		Kind:       kind,
 		Index:      index,
 		WhiteSpace: ws,
 		Facets:     facets,
-		Flags:      c.validatorFlags(facets),
+		Flags:      flags,
 	})
 	return id
 }
@@ -96,12 +100,16 @@ func (c *compiler) addListValidator(ws runtime.WhitespaceMode, facets runtime.Fa
 	c.bundle.List = append(c.bundle.List, runtime.ListValidator{Item: item})
 
 	id := runtime.ValidatorID(len(c.bundle.Meta))
+	flags := c.validatorFlags(facets)
+	if c.validatorTracksIDs(item) {
+		flags |= runtime.ValidatorMayTrackIDs
+	}
 	c.bundle.Meta = append(c.bundle.Meta, runtime.ValidatorMeta{
 		Kind:       runtime.VList,
 		Index:      index,
 		WhiteSpace: ws,
 		Facets:     facets,
-		Flags:      c.validatorFlags(facets),
+		Flags:      flags,
 	})
 	return id
 }
@@ -133,12 +141,19 @@ func (c *compiler) addUnionValidator(ws runtime.WhitespaceMode, facets runtime.F
 	})
 
 	id := runtime.ValidatorID(len(c.bundle.Meta))
+	flags := c.validatorFlags(facets)
+	for _, member := range members {
+		if c.validatorTracksIDs(member) {
+			flags |= runtime.ValidatorMayTrackIDs
+			break
+		}
+	}
 	c.bundle.Meta = append(c.bundle.Meta, runtime.ValidatorMeta{
 		Kind:       runtime.VUnion,
 		Index:      index,
 		WhiteSpace: ws,
 		Facets:     facets,
-		Flags:      c.validatorFlags(facets),
+		Flags:      flags,
 	})
 	return id, nil
 }
@@ -157,4 +172,20 @@ func (c *compiler) validatorFlags(facets runtime.FacetProgramRef) runtime.Valida
 		}
 	}
 	return 0
+}
+
+func (c *compiler) validatorTracksIDs(id runtime.ValidatorID) bool {
+	if int(id) >= len(c.bundle.Meta) {
+		return false
+	}
+	return c.bundle.Meta[id].Flags&runtime.ValidatorMayTrackIDs != 0
+}
+
+func stringKindTracksIDs(kind runtime.StringKind) bool {
+	switch kind {
+	case runtime.StringID, runtime.StringIDREF, runtime.StringEntity:
+		return true
+	default:
+		return false
+	}
 }

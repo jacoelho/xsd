@@ -25,6 +25,9 @@ func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte, re
 		return valueErrorf(valueErrInvalid, "validator %d out of range", id)
 	}
 	meta := s.rt.Validators.Meta[id]
+	if meta.Flags&runtime.ValidatorMayTrackIDs == 0 {
+		return nil
+	}
 	switch meta.Kind {
 	case runtime.VString:
 		kind, ok := s.stringKind(meta)
@@ -70,6 +73,9 @@ func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte, re
 		return valueErrorf(valueErrInvalid, "validator %d out of range", id)
 	}
 	meta := s.rt.Validators.Meta[id]
+	if meta.Flags&runtime.ValidatorMayTrackIDs == 0 {
+		return nil
+	}
 	switch meta.Kind {
 	case runtime.VString:
 		kind, ok := s.stringKind(meta)

@@ -17,30 +17,30 @@ var errDuplicateAttribute = errors.New("duplicate attribute")
 
 // Reader provides a streaming XML event interface with namespace tracking.
 type Reader struct {
-	nsBytes      namespaceBytesCache
-	reader       *bufio.Reader
-	nameIDs      *nameCache
-	dec          *xmltext.Decoder
-	names        *qnameCache
-	ns           nsStack
-	attrSeen     []uint32
-	rawAttrInfo  []rawAttrInfo
-	rawAttrBuf   []RawAttr
-	resolvedAttr []ResolvedAttr
-	attrBuf      []Attr
-	lastRawInfo  []rawAttrInfo
-	elemStack    []QName
-	valueBuf     []byte
-	nsBuf        []byte
-	lastRawAttrs []RawAttr
-	tok          xmltext.RawTokenSpan
-	lastStart    Event
-	nextID       ElementID
-	lastLine     int
-	lastColumn   int
-	attrEpoch    uint32
-	pendingPop   bool
-	lastWasStart bool
+	nsBytes       namespaceBytesCache
+	reader        *bufio.Reader
+	resolvedNames *resolvedNameCache
+	dec           *xmltext.Decoder
+	names         *qnameCache
+	ns            nsStack
+	attrSeen      []uint32
+	rawAttrInfo   []rawAttrInfo
+	rawAttrBuf    []RawAttr
+	resolvedAttr  []ResolvedAttr
+	attrBuf       []Attr
+	lastRawInfo   []rawAttrInfo
+	elemStack     []QName
+	valueBuf      []byte
+	nsBuf         []byte
+	lastRawAttrs  []RawAttr
+	tok           xmltext.RawTokenSpan
+	lastStart     Event
+	nextID        ElementID
+	lastLine      int
+	lastColumn    int
+	attrEpoch     uint32
+	pendingPop    bool
+	lastWasStart  bool
 }
 
 type rawAttrInfo struct {
@@ -60,13 +60,13 @@ func NewReader(r io.Reader, opts ...Option) (*Reader, error) {
 	names := newQNameCache()
 	names.setMaxEntries(qnameCacheLimit(options))
 	return &Reader{
-		reader:   reader,
-		dec:      dec,
-		names:    names,
-		nameIDs:  newNameCache(),
-		valueBuf: make([]byte, 0, 256),
-		nsBuf:    make([]byte, 0, 128),
-		tok:      tok,
+		reader:        reader,
+		dec:           dec,
+		names:         names,
+		resolvedNames: newResolvedNameCache(),
+		valueBuf:      make([]byte, 0, 256),
+		nsBuf:         make([]byte, 0, 128),
+		tok:           tok,
 	}, nil
 }
 
@@ -95,10 +95,10 @@ func (r *Reader) Reset(src io.Reader, opts ...Option) error {
 		r.names.reset()
 	}
 	r.names.setMaxEntries(qnameCacheLimit(options))
-	if r.nameIDs == nil {
-		r.nameIDs = newNameCache()
+	if r.resolvedNames == nil {
+		r.resolvedNames = newResolvedNameCache()
 	} else {
-		r.nameIDs.reset()
+		r.resolvedNames.reset()
 	}
 	r.nsBytes.reset()
 	r.ns.reset()
@@ -153,7 +153,6 @@ const (
 )
 
 type startElementCore struct {
-	name       QName
 	namespace  string
 	local      []byte
 	scopeDepth int
@@ -166,8 +165,8 @@ func (r *Reader) next(mode nextMode, event *Event, raw *RawEvent, resolved *Reso
 	if r.names == nil {
 		r.names = newQNameCache()
 	}
-	if mode == nextResolved && r.nameIDs == nil {
-		r.nameIDs = newNameCache()
+	if r.resolvedNames == nil {
+		r.resolvedNames = newResolvedNameCache()
 	}
 	if r.pendingPop {
 		r.ns.pop()
@@ -342,6 +341,7 @@ func (r *Reader) startEvent(tok *xmltext.RawTokenSpan, line, column int) (Event,
 	if err != nil {
 		return Event{}, err
 	}
+	name := r.names.internBytes(core.namespace, core.local)
 
 	attrCount := tok.AttrCount()
 	if cap(r.attrBuf) < attrCount {
@@ -365,7 +365,7 @@ func (r *Reader) startEvent(tok *xmltext.RawTokenSpan, line, column int) (Event,
 		return Event{}, err
 	}
 
-	_ = r.commitStartEvent(core.name, line, column, core.scopeDepth)
+	_ = r.commitStartEvent(name, line, column, core.scopeDepth)
 	r.lastStart.Attrs = r.attrBuf
 	r.lastRawAttrs = nil
 	r.lastRawInfo = nil
@@ -377,6 +377,7 @@ func (r *Reader) startRawEvent(tok *xmltext.RawTokenSpan, line, column int) (Raw
 	if err != nil {
 		return RawEvent{}, err
 	}
+	name := r.names.internBytes(core.namespace, core.local)
 
 	attrCount := tok.AttrCount()
 	r.attrBuf = r.attrBuf[:0]
@@ -410,7 +411,7 @@ func (r *Reader) startRawEvent(tok *xmltext.RawTokenSpan, line, column int) (Raw
 		return RawEvent{}, err
 	}
 
-	id := r.commitStartEvent(core.name, line, column, core.scopeDepth)
+	id := r.commitStartEvent(name, line, column, core.scopeDepth)
 	r.lastStart.Attrs = r.attrBuf
 	r.lastRawAttrs = r.rawAttrBuf
 	r.lastRawInfo = r.rawAttrInfo
@@ -431,7 +432,7 @@ func (r *Reader) startResolvedEvent(tok *xmltext.RawTokenSpan, line, column int)
 		return ResolvedEvent{}, err
 	}
 
-	nameID := r.nameIDs.internBytes(core.namespace, core.local)
+	name := r.resolvedNames.internBytes(core.namespace, core.local)
 	nsBytes := r.nsBytes.intern(core.namespace)
 
 	attrCount := tok.AttrCount()
@@ -460,13 +461,13 @@ func (r *Reader) startResolvedEvent(tok *xmltext.RawTokenSpan, line, column int)
 		return ResolvedEvent{}, err
 	}
 
-	id := r.commitStartEvent(core.name, line, column, core.scopeDepth)
+	id := r.commitStartEvent(name.qname, line, column, core.scopeDepth)
 	r.lastRawAttrs = nil
 	r.lastRawInfo = nil
 
 	return ResolvedEvent{
 		Kind:       EventStartElement,
-		NameID:     nameID,
+		NameID:     name.id,
 		NS:         nsBytes,
 		Local:      core.local,
 		Attrs:      r.resolvedAttr,
@@ -486,11 +487,11 @@ func (r *Reader) beginAttrDedup() {
 }
 
 func (r *Reader) attrID(namespace string, local []byte) (NameID, error) {
-	attrID := r.nameIDs.internBytes(namespace, local)
-	if attrID == 0 {
+	entry := r.resolvedNames.internBytes(namespace, local)
+	if entry.id == 0 {
 		return 0, nil
 	}
-	idx := int(attrID)
+	idx := int(entry.id)
 	if idx >= len(r.attrSeen) {
 		r.attrSeen = append(r.attrSeen, make([]uint32, idx-len(r.attrSeen)+1)...)
 	}
@@ -498,12 +499,12 @@ func (r *Reader) attrID(namespace string, local []byte) (NameID, error) {
 		return 0, errDuplicateAttribute
 	}
 	r.attrSeen[idx] = r.attrEpoch
-	return attrID, nil
+	return entry.id, nil
 }
 
 func (r *Reader) markAttrSeen(namespace string, local []byte, line, column int) error {
-	if r.nameIDs == nil {
-		r.nameIDs = newNameCache()
+	if r.resolvedNames == nil {
+		r.resolvedNames = newResolvedNameCache()
 	}
 	if _, err := r.attrID(namespace, local); err != nil {
 		return wrapSyntaxError(r.dec, line, column, err)
@@ -551,7 +552,6 @@ func (r *Reader) beginStartElementCore(tok *xmltext.RawTokenSpan, line, column i
 		return startElementCore{}, err
 	}
 	return startElementCore{
-		name:       r.names.internBytes(namespace, local),
 		namespace:  namespace,
 		local:      local,
 		scopeDepth: scopeDepth,
@@ -622,11 +622,11 @@ func (r *Reader) endResolvedEvent(tok *xmltext.RawTokenSpan, line, column int) (
 
 	_, local, _ := splitQNameWithColon(tok.Name, tok.NameColon)
 	namespace := name.Namespace
-	nameID := r.nameIDs.internBytes(namespace, local)
+	resolvedName := r.resolvedNames.internBytes(namespace, local)
 	nsBytes := r.nsBytes.intern(namespace)
 	return ResolvedEvent{
 		Kind:       EventEndElement,
-		NameID:     nameID,
+		NameID:     resolvedName.id,
 		NS:         nsBytes,
 		Local:      local,
 		Line:       line,
