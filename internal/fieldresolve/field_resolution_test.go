@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -44,7 +43,7 @@ func TestResolveSelectorElementTypeUnionMissingBranch(t *testing.T) {
 
 	child := &model.ElementDecl{
 		Name: model.QName{Namespace: "urn:field", Local: "a"},
-		Type: builtins.Get(model.TypeName("string")),
+		Type: model.GetBuiltin(model.TypeName("string")),
 	}
 	rootType := model.NewComplexType(model.QName{Namespace: "urn:field", Local: "rootType"}, "urn:field")
 	rootType.SetContent(&model.ElementContent{Particle: child})
@@ -64,7 +63,7 @@ func TestResolveFieldTypeUnionComplexContent(t *testing.T) {
 
 	simple := &model.ElementDecl{
 		Name: model.QName{Namespace: "urn:field", Local: "simple"},
-		Type: builtins.Get(model.TypeName("string")),
+		Type: model.GetBuiltin(model.TypeName("string")),
 	}
 	complexType := model.NewComplexType(model.QName{Namespace: "urn:field", Local: "complexType"}, "urn:field")
 	complexType.SetContent(&model.EmptyContent{})
@@ -103,7 +102,7 @@ func TestResolveFieldElementDeclBranchIndexDiagnostics(t *testing.T) {
 
 	item := &model.ElementDecl{
 		Name: model.QName{Namespace: "urn:field", Local: "item"},
-		Type: builtins.Get(model.TypeName("string")),
+		Type: model.GetBuiltin(model.TypeName("string")),
 	}
 	containerType := model.NewComplexType(model.QName{Namespace: "urn:field", Local: "containerType"}, "urn:field")
 	containerType.SetContent(&model.ElementContent{Particle: item})

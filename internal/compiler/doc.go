@@ -1,3 +1,3 @@
-// Package compiler orchestrates semantic normalization and runtime compilation.
-// It keeps compile-time work centralized and reusable across schema-set entrypoints.
+// Package compiler owns compile-time schema preparation and runtime compilation.
+// It keeps semantic validation, indexing, and build orchestration in one place.
 package compiler

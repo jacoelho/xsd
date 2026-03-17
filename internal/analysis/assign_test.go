@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/compiler"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/prep"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func mustResolveSchema(t *testing.T, schemaXML string) *parser.Schema {
@@ -16,17 +16,17 @@ func mustResolveSchema(t *testing.T, schemaXML string) *parser.Schema {
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	resolved, err := prep.ResolveAndValidate(sch)
+	prepared, err := compiler.Prepare(sch)
 	if err != nil {
-		t.Fatalf("ResolveAndValidate() error = %v", err)
+		t.Fatalf("Prepare() error = %v", err)
 	}
-	return resolved
+	return prepared.Schema()
 }
 
-func findLocalElement(t *testing.T, group *types.ModelGroup, local string) *types.ElementDecl {
+func findLocalElement(t *testing.T, group *model.ModelGroup, local string) *model.ElementDecl {
 	t.Helper()
 	for _, particle := range group.Particles {
-		decl, ok := particle.(*types.ElementDecl)
+		decl, ok := particle.(*model.ElementDecl)
 		if !ok {
 			continue
 		}
@@ -38,7 +38,7 @@ func findLocalElement(t *testing.T, group *types.ModelGroup, local string) *type
 	return nil
 }
 
-func findAttribute(t *testing.T, attrs []*types.AttributeDecl, local string) *types.AttributeDecl {
+func findAttribute(t *testing.T, attrs []*model.AttributeDecl, local string) *model.AttributeDecl {
 	t.Helper()
 	for _, attr := range attrs {
 		if attr.Name.Local == local {
@@ -93,19 +93,19 @@ func TestDeterministicIDs(t *testing.T) {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 
-	root := sch.ElementDecls[types.QName{Namespace: "urn:ids", Local: "root"}]
+	root := sch.ElementDecls[model.QName{Namespace: "urn:ids", Local: "root"}]
 	if root == nil {
 		t.Fatalf("root element not found")
 	}
-	rootCT, ok := root.Type.(*types.ComplexType)
+	rootCT, ok := root.Type.(*model.ComplexType)
 	if !ok {
 		t.Fatalf("root type = %T, want *model.ComplexType", root.Type)
 	}
-	rootContent, ok := rootCT.Content().(*types.ElementContent)
+	rootContent, ok := rootCT.Content().(*model.ElementContent)
 	if !ok {
 		t.Fatalf("root content = %T, want *model.ElementContent", rootCT.Content())
 	}
-	rootGroup, ok := rootContent.Particle.(*types.ModelGroup)
+	rootGroup, ok := rootContent.Particle.(*model.ModelGroup)
 	if !ok {
 		t.Fatalf("root particle = %T, want *model.ModelGroup", rootContent.Particle)
 	}
@@ -113,26 +113,26 @@ func TestDeterministicIDs(t *testing.T) {
 	second := findLocalElement(t, rootGroup, "second")
 	attrInline := findAttribute(t, rootCT.Attributes(), "attrInline")
 
-	typeQName := types.QName{Namespace: "urn:ids", Local: "T"}
-	globalType, ok := sch.TypeDefs[typeQName].(*types.ComplexType)
+	typeQName := model.QName{Namespace: "urn:ids", Local: "T"}
+	globalType, ok := sch.TypeDefs[typeQName].(*model.ComplexType)
 	if !ok {
 		t.Fatalf("global type T not found")
 	}
-	globalContent, ok := globalType.Content().(*types.ElementContent)
+	globalContent, ok := globalType.Content().(*model.ElementContent)
 	if !ok {
 		t.Fatalf("global type content = %T, want *model.ElementContent", globalType.Content())
 	}
-	globalGroup, ok := globalContent.Particle.(*types.ModelGroup)
+	globalGroup, ok := globalContent.Particle.(*model.ModelGroup)
 	if !ok {
 		t.Fatalf("global type particle = %T, want *model.ModelGroup", globalContent.Particle)
 	}
 	nested := findLocalElement(t, globalGroup, "nested")
 
-	globalAttr := sch.AttributeDecls[types.QName{Namespace: "urn:ids", Local: "gAttr"}]
+	globalAttr := sch.AttributeDecls[model.QName{Namespace: "urn:ids", Local: "gAttr"}]
 	if globalAttr == nil {
 		t.Fatalf("global attribute gAttr not found")
 	}
-	attrGroup := sch.AttributeGroups[types.QName{Namespace: "urn:ids", Local: "AG"}]
+	attrGroup := sch.AttributeGroups[model.QName{Namespace: "urn:ids", Local: "AG"}]
 	if attrGroup == nil {
 		t.Fatalf("attributeGroup AG not found")
 	}
@@ -142,7 +142,7 @@ func TestDeterministicIDs(t *testing.T) {
 	agAttr := attrGroup.Attributes[0]
 
 	wantElements := []struct {
-		decl   *types.ElementDecl
+		decl   *model.ElementDecl
 		global bool
 	}{
 		{root, true},
@@ -160,21 +160,21 @@ func TestDeterministicIDs(t *testing.T) {
 		}
 	}
 
-	firstType, ok := first.Type.(*types.SimpleType)
+	firstType, ok := first.Type.(*model.SimpleType)
 	if !ok {
 		t.Fatalf("first type = %T, want *model.SimpleType", first.Type)
 	}
-	attrInlineType, ok := attrInline.Type.(*types.SimpleType)
+	attrInlineType, ok := attrInline.Type.(*model.SimpleType)
 	if !ok {
 		t.Fatalf("attrInline type = %T, want *model.SimpleType", attrInline.Type)
 	}
-	globalAttrType, ok := globalAttr.Type.(*types.SimpleType)
+	globalAttrType, ok := globalAttr.Type.(*model.SimpleType)
 	if !ok {
 		t.Fatalf("global attribute type = %T, want *model.SimpleType", globalAttr.Type)
 	}
 
 	wantTypes := []struct {
-		typ    types.Type
+		typ    model.Type
 		global bool
 	}{
 		{rootCT, false},
@@ -194,7 +194,7 @@ func TestDeterministicIDs(t *testing.T) {
 	}
 
 	wantAttrs := []struct {
-		decl   *types.AttributeDecl
+		decl   *model.AttributeDecl
 		global bool
 	}{
 		{globalAttr, true},
@@ -252,8 +252,8 @@ func TestAssignIDs_AllowsSharedLocalElement(t *testing.T) {
 </xs:schema>`
 
 	sch := mustResolveSchema(t, schemaXML)
-	elemA := sch.ElementDecls[types.QName{Namespace: "urn:shared", Local: "A"}]
-	elemB := sch.ElementDecls[types.QName{Namespace: "urn:shared", Local: "B"}]
+	elemA := sch.ElementDecls[model.QName{Namespace: "urn:shared", Local: "A"}]
+	elemB := sch.ElementDecls[model.QName{Namespace: "urn:shared", Local: "B"}]
 	if elemA == nil || elemB == nil {
 		t.Fatalf("elements A/B not found")
 	}
@@ -276,17 +276,17 @@ func TestAssignIDs_AllowsSharedLocalElement(t *testing.T) {
 	}
 }
 
-func elementSequenceGroup(t *testing.T, decl *types.ElementDecl) *types.ModelGroup {
+func elementSequenceGroup(t *testing.T, decl *model.ElementDecl) *model.ModelGroup {
 	t.Helper()
-	ct, ok := decl.Type.(*types.ComplexType)
+	ct, ok := decl.Type.(*model.ComplexType)
 	if !ok {
 		t.Fatalf("element type = %T, want *model.ComplexType", decl.Type)
 	}
-	content, ok := ct.Content().(*types.ElementContent)
+	content, ok := ct.Content().(*model.ElementContent)
 	if !ok {
 		t.Fatalf("element content = %T, want *model.ElementContent", ct.Content())
 	}
-	group, ok := content.Particle.(*types.ModelGroup)
+	group, ok := content.Particle.(*model.ModelGroup)
 	if !ok {
 		t.Fatalf("element particle = %T, want *model.ModelGroup", content.Particle)
 	}

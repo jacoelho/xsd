@@ -1,29 +1,29 @@
 package analysis
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
-func (r *referenceResolver) resolveType(typ types.Type) error {
+func (r *referenceResolver) resolveType(typ model.Type) error {
 	if typ == nil || typ.IsBuiltin() {
 		return nil
 	}
 
 	switch typed := typ.(type) {
-	case *types.SimpleType:
-		if types.IsPlaceholderSimpleType(typed) {
+	case *model.SimpleType:
+		if model.IsPlaceholderSimpleType(typed) {
 			return r.resolveTypeQName(typed.QName)
 		}
 		return r.resolveSimpleType(typed)
-	case *types.ComplexType:
+	case *model.ComplexType:
 		return r.resolveComplexType(typed)
 	default:
 		return nil
 	}
 }
 
-func (r *referenceResolver) resolveSimpleType(st *types.SimpleType) error {
+func (r *referenceResolver) resolveSimpleType(st *model.SimpleType) error {
 	if st == nil {
 		return nil
 	}
@@ -66,25 +66,25 @@ func (r *referenceResolver) resolveSimpleType(st *types.SimpleType) error {
 	})
 }
 
-func (r *referenceResolver) resolveComplexType(ct *types.ComplexType) error {
+func (r *referenceResolver) resolveComplexType(ct *model.ComplexType) error {
 	if ct == nil {
 		return nil
 	}
 	return r.complexTypeState.Resolve(ct, nil, func() error {
 		switch content := ct.Content().(type) {
-		case *types.ElementContent:
+		case *model.ElementContent:
 			if err := r.resolveParticle(content.Particle); err != nil {
 				return err
 			}
-		case *types.SimpleContent:
+		case *model.SimpleContent:
 			if err := r.resolveSimpleContent(content); err != nil {
 				return err
 			}
-		case *types.ComplexContent:
+		case *model.ComplexContent:
 			if err := r.resolveComplexContent(content); err != nil {
 				return err
 			}
-		case *types.EmptyContent:
+		case *model.EmptyContent:
 			// no-op
 		}
 
@@ -95,7 +95,7 @@ func (r *referenceResolver) resolveComplexType(ct *types.ComplexType) error {
 	})
 }
 
-func (r *referenceResolver) resolveSimpleContent(content *types.SimpleContent) error {
+func (r *referenceResolver) resolveSimpleContent(content *model.SimpleContent) error {
 	if content == nil {
 		return nil
 	}
@@ -124,7 +124,7 @@ func (r *referenceResolver) resolveSimpleContent(content *types.SimpleContent) e
 	return nil
 }
 
-func (r *referenceResolver) resolveComplexContent(content *types.ComplexContent) error {
+func (r *referenceResolver) resolveComplexContent(content *model.ComplexContent) error {
 	if content == nil {
 		return nil
 	}
@@ -154,6 +154,6 @@ func (r *referenceResolver) resolveComplexContent(content *types.ComplexContent)
 	return nil
 }
 
-func (r *referenceResolver) resolveTypeQName(qname types.QName) error {
+func (r *referenceResolver) resolveTypeQName(qname model.QName) error {
 	return typeresolve.ValidateTypeQName(r.schema, qname)
 }

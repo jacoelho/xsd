@@ -4,17 +4,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 func TestCollectConstraintElementsFromContentSharedTraversal(t *testing.T) {
 	schema := parseIdentityTraversalSchema(t)
-	root := schema.ElementDecls[types.QName{Namespace: "urn:test", Local: "root"}]
+	root := schema.ElementDecls[model.QName{Namespace: "urn:test", Local: "root"}]
 	if root == nil {
 		t.Fatalf("root element not found")
 	}
-	ct, ok := root.Type.(*types.ComplexType)
+	ct, ok := root.Type.(*model.ComplexType)
 	if !ok || ct == nil {
 		t.Fatalf("root type = %T, want *model.ComplexType", root.Type)
 	}

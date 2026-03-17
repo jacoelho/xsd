@@ -1,31 +1,30 @@
 package xmlstream
 
-type nameCache struct {
-	table       map[qnameKey]nameCacheEntry
-	recent      [qnameCacheRecentSize]nameCacheEntry
+type resolvedNameCache struct {
+	table       map[qnameKey]resolvedNameEntry
+	recent      [qnameCacheRecentSize]resolvedNameEntry
 	recentCount int
 	recentIndex int
 	nextID      NameID
 }
 
-type nameCacheEntry struct {
-	namespace string
-	local     string
-	id        NameID
+type resolvedNameEntry struct {
+	qname QName
+	id    NameID
 }
 
-func newNameCache() *nameCache {
-	return &nameCache{
-		table: make(map[qnameKey]nameCacheEntry, 32),
+func newResolvedNameCache() *resolvedNameCache {
+	return &resolvedNameCache{
+		table: make(map[qnameKey]resolvedNameEntry, 32),
 	}
 }
 
-func (c *nameCache) reset() {
+func (c *resolvedNameCache) reset() {
 	if c == nil {
 		return
 	}
 	if c.table == nil {
-		c.table = make(map[qnameKey]nameCacheEntry, 32)
+		c.table = make(map[qnameKey]resolvedNameEntry, 32)
 	} else {
 		clear(c.table)
 	}
@@ -34,17 +33,17 @@ func (c *nameCache) reset() {
 	c.nextID = 0
 }
 
-func (c *nameCache) lookupRecent(namespace, local string) (NameID, bool) {
+func (c *resolvedNameCache) lookupRecent(namespace, local string) (resolvedNameEntry, bool) {
 	for idx := 0; idx < c.recentCount; idx++ {
 		entry := c.recent[idx]
-		if entry.namespace == namespace && entry.local == local {
-			return entry.id, true
+		if entry.qname.Namespace == namespace && entry.qname.Local == local {
+			return entry, true
 		}
 	}
-	return 0, false
+	return resolvedNameEntry{}, false
 }
 
-func (c *nameCache) rememberRecent(entry nameCacheEntry) {
+func (c *resolvedNameCache) rememberRecent(entry resolvedNameEntry) {
 	if c.recentCount < qnameCacheRecentSize {
 		c.recent[c.recentCount] = entry
 		c.recentCount++
@@ -57,43 +56,47 @@ func (c *nameCache) rememberRecent(entry nameCacheEntry) {
 	}
 }
 
-func (c *nameCache) internBytes(namespace string, local []byte) NameID {
+func (c *resolvedNameCache) internBytes(namespace string, local []byte) resolvedNameEntry {
 	if c == nil {
-		return 0
+		return resolvedNameEntry{}
 	}
 	if c.table == nil {
-		c.table = make(map[qnameKey]nameCacheEntry, 32)
+		c.table = make(map[qnameKey]resolvedNameEntry, 32)
 	}
 	if len(local) == 0 {
-		if id, ok := c.lookupRecent(namespace, ""); ok {
-			return id
+		if entry, ok := c.lookupRecent(namespace, ""); ok {
+			return entry
 		}
 		key := qnameKey{namespace: namespace, local: ""}
 		if entry, ok := c.table[key]; ok {
 			c.rememberRecent(entry)
-			return entry.id
+			return entry
 		}
 		c.nextID++
-		entry := nameCacheEntry{namespace: namespace, local: "", id: c.nextID}
+		entry := resolvedNameEntry{
+			qname: QName{Namespace: namespace, Local: ""},
+			id:    c.nextID,
+		}
 		c.table[key] = entry
 		c.rememberRecent(entry)
-		return entry.id
+		return entry
 	}
 	localKey := unsafeString(local)
-	if id, ok := c.lookupRecent(namespace, localKey); ok {
-		return id
+	if entry, ok := c.lookupRecent(namespace, localKey); ok {
+		return entry
 	}
 	key := qnameKey{namespace: namespace, local: localKey}
 	if entry, ok := c.table[key]; ok {
 		c.rememberRecent(entry)
-		return entry.id
+		return entry
 	}
 	localStable := string(local)
-	key = qnameKey{namespace: namespace, local: localStable}
 	c.nextID++
-	id := c.nextID
-	entry := nameCacheEntry{namespace: namespace, local: localStable, id: id}
-	c.table[key] = entry
+	entry := resolvedNameEntry{
+		qname: QName{Namespace: namespace, Local: localStable},
+		id:    c.nextID,
+	}
+	c.table[qnameKey{namespace: namespace, local: localStable}] = entry
 	c.rememberRecent(entry)
-	return entry.id
+	return entry
 }

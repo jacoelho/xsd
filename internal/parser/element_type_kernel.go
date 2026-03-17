@@ -3,7 +3,6 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
@@ -23,7 +22,7 @@ func resolveElementDeclType(doc *xmltree.Document, elem xmltree.NodeID, schema *
 		if err != nil {
 			return resolvedElementDeclType{}, fmt.Errorf("resolve type %s: %w", typeValue, err)
 		}
-		if builtinType := builtins.GetNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
+		if builtinType := model.GetBuiltinNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
 			return resolvedElementDeclType{typ: builtinType, hasTypeValue: true}, nil
 		}
 		return resolvedElementDeclType{typ: model.NewPlaceholderSimpleType(typeQName), hasTypeValue: true}, nil
@@ -60,7 +59,7 @@ func resolveElementDeclType(doc *xmltree.Document, elem xmltree.NodeID, schema *
 		}
 	}
 	if typ == nil {
-		typ = builtins.Get(builtins.TypeNameAnyType)
+		typ = model.GetBuiltin(model.TypeNameAnyType)
 	}
 	return resolvedElementDeclType{typ: typ, hasInline: hasInline}, nil
 }

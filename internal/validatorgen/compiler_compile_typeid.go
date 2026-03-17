@@ -1,7 +1,6 @@
 package validatorgen
 
 import (
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
@@ -17,7 +16,7 @@ func (c *compiler) typeIDForType(typ model.Type) (runtime.TypeID, bool) {
 	}
 	if st, ok := model.AsSimpleType(typ); ok && st != nil {
 		if st.IsBuiltin() {
-			if builtin := builtins.Get(model.TypeName(st.Name().Local)); builtin != nil {
+			if builtin := model.GetBuiltin(model.TypeName(st.Name().Local)); builtin != nil {
 				if id, ok := c.builtinTypeIDs[model.TypeName(builtin.Name().Local)]; ok {
 					return id, true
 				}

@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestValidateDefaultOrFixedValueWithContextQNameContextHandling(t *testing.T) {
-	qnameType := builtins.Get(builtins.TypeNameQName)
+	qnameType := model.GetBuiltin(model.TypeNameQName)
 	if qnameType == nil {
 		t.Fatal("missing QName builtin")
 	}
@@ -24,7 +24,7 @@ func TestValidateDefaultOrFixedValueWithContextQNameContextHandling(t *testing.T
 }
 
 func TestValidateDefaultOrFixedValueWithContextRejectsIDBuiltin(t *testing.T) {
-	idType := builtins.Get(builtins.TypeNameID)
+	idType := model.GetBuiltin(model.TypeNameID)
 	if idType == nil {
 		t.Fatal("missing ID builtin")
 	}

@@ -1,7 +1,6 @@
 package validatorgen
 
 import (
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -19,7 +18,7 @@ func (r *typeResolver) variety(st *model.SimpleType) model.SimpleTypeVariety {
 		if baseST, ok := model.AsSimpleType(st.ResolvedBase); ok {
 			return r.variety(baseST)
 		}
-		if bt := builtinForType(st.ResolvedBase); bt != nil && builtins.IsBuiltinListTypeName(bt.Name().Local) {
+		if bt := builtinForType(st.ResolvedBase); bt != nil && model.IsBuiltinListTypeName(bt.Name().Local) {
 			return model.ListVariety
 		}
 	}
@@ -28,7 +27,7 @@ func (r *typeResolver) variety(st *model.SimpleType) model.SimpleTypeVariety {
 			if baseST, ok := model.AsSimpleType(st.Restriction.SimpleType); ok {
 				return r.variety(baseST)
 			}
-			if bt := builtinForType(st.Restriction.SimpleType); bt != nil && builtins.IsBuiltinListTypeName(bt.Name().Local) {
+			if bt := builtinForType(st.Restriction.SimpleType); bt != nil && model.IsBuiltinListTypeName(bt.Name().Local) {
 				return model.ListVariety
 			}
 		}
@@ -37,13 +36,13 @@ func (r *typeResolver) variety(st *model.SimpleType) model.SimpleTypeVariety {
 				if baseST, ok := model.AsSimpleType(base); ok {
 					return r.variety(baseST)
 				}
-				if bt := builtinForType(base); bt != nil && builtins.IsBuiltinListTypeName(bt.Name().Local) {
+				if bt := builtinForType(base); bt != nil && model.IsBuiltinListTypeName(bt.Name().Local) {
 					return model.ListVariety
 				}
 			}
 		}
 	}
-	if st.IsBuiltin() && builtins.IsBuiltinListTypeName(st.Name().Local) {
+	if st.IsBuiltin() && model.IsBuiltinListTypeName(st.Name().Local) {
 		return model.ListVariety
 	}
 	return model.AtomicVariety
@@ -54,7 +53,7 @@ func (r *typeResolver) varietyForType(typ model.Type) model.SimpleTypeVariety {
 		return model.AtomicVariety
 	}
 	if bt := builtinForType(typ); bt != nil {
-		if builtins.IsBuiltinListTypeName(bt.Name().Local) {
+		if model.IsBuiltinListTypeName(bt.Name().Local) {
 			return model.ListVariety
 		}
 		return model.AtomicVariety

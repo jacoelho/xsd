@@ -3,7 +3,6 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
@@ -75,7 +74,7 @@ func tryResolveBaseType(restriction *model.Restriction, schema *Schema) model.Ty
 		return nil
 	}
 
-	if builtinType := builtins.GetNS(restriction.Base.Namespace, restriction.Base.Local); builtinType != nil {
+	if builtinType := model.GetBuiltinNS(restriction.Base.Namespace, restriction.Base.Local); builtinType != nil {
 		return builtinType
 	}
 

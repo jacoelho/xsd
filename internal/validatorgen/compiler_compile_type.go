@@ -3,7 +3,6 @@ package validatorgen
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
@@ -44,7 +43,7 @@ func (c *compiler) compileType(typ model.Type) (runtime.ValidatorID, error) {
 
 func (c *compiler) canonicalTypeKey(typ model.Type) model.Type {
 	if st, ok := model.AsSimpleType(typ); ok && st.IsBuiltin() {
-		if builtin := builtins.Get(model.TypeName(st.Name().Local)); builtin != nil {
+		if builtin := model.GetBuiltin(model.TypeName(st.Name().Local)); builtin != nil {
 			return builtin
 		}
 	}

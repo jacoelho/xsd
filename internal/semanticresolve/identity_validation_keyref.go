@@ -3,15 +3,15 @@ package semanticresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 // validateKeyrefConstraints validates keyref constraints against all known constraints.
-func validateKeyrefConstraints(contextQName types.QName, constraints, allConstraints []*types.IdentityConstraint) []error {
+func validateKeyrefConstraints(contextQName model.QName, constraints, allConstraints []*model.IdentityConstraint) []error {
 	var errs []error
 
 	for _, constraint := range constraints {
-		if constraint.Type != types.KeyRefConstraint {
+		if constraint.Type != model.KeyRefConstraint {
 			continue
 		}
 
@@ -27,10 +27,10 @@ func validateKeyrefConstraints(contextQName types.QName, constraints, allConstra
 			continue
 		}
 
-		var referencedConstraint *types.IdentityConstraint
+		var referencedConstraint *model.IdentityConstraint
 		for _, other := range allConstraints {
 			if other.Name == refQName.Local && other.TargetNamespace == refQName.Namespace {
-				if other.Type == types.KeyConstraint || other.Type == types.UniqueConstraint {
+				if other.Type == model.KeyConstraint || other.Type == model.UniqueConstraint {
 					referencedConstraint = other
 					break
 				}

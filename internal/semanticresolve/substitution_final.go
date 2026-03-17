@@ -3,15 +3,15 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/substpolicy"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateSubstitutionGroupFinal validates that the substitution group member's derivation
 // method is not blocked by the head element's final attribute.
-func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName types.QName, memberDecl, headDecl *types.ElementDecl) error {
+func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName model.QName, memberDecl, headDecl *model.ElementDecl) error {
 	if headDecl.Final == 0 {
 		return nil
 	}
@@ -34,7 +34,7 @@ func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName types.QName,
 		return nil
 	}
 
-	mask, ok, err := substpolicy.DerivationMask(memberType, headType, func(current types.Type) (types.Type, types.DerivationMethod, error) {
+	mask, ok, err := substpolicy.DerivationMask(memberType, headType, func(current model.Type) (model.Type, model.DerivationMethod, error) {
 		return derivationStep(sch, current)
 	})
 	if err != nil {
@@ -44,11 +44,11 @@ func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName types.QName,
 		return nil
 	}
 
-	for _, method := range []types.DerivationMethod{
-		types.DerivationExtension,
-		types.DerivationRestriction,
-		types.DerivationList,
-		types.DerivationUnion,
+	for _, method := range []model.DerivationMethod{
+		model.DerivationExtension,
+		model.DerivationRestriction,
+		model.DerivationList,
+		model.DerivationUnion,
 	} {
 		if mask&method != 0 && headDecl.Final.Has(method) {
 			return fmt.Errorf("element %s cannot substitute for %s: head element is final for %s",

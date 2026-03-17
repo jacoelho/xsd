@@ -3,7 +3,6 @@ package substpolicy
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -14,7 +13,7 @@ func TestMethodLabel(t *testing.T) {
 }
 
 func TestNextDerivationStep_BuiltinList(t *testing.T) {
-	typ := builtins.Get(builtins.TypeNameIDREFS)
+	typ := model.GetBuiltin(model.TypeNameIDREFS)
 	if typ == nil {
 		t.Fatal("builtin IDREFS missing")
 	}

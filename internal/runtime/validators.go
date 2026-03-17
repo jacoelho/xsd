@@ -73,6 +73,7 @@ type ValidatorFlags uint8
 
 const (
 	ValidatorHasEnum ValidatorFlags = 1 << iota
+	ValidatorMayTrackIDs
 )
 
 // WhitespaceMode enumerates whitespace mode values.

@@ -3,10 +3,10 @@ package semanticresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/types"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
-func (r *Resolver) resolveSimpleTypeUnion(qname types.QName, st *types.SimpleType) error {
+func (r *Resolver) resolveSimpleTypeUnion(qname model.QName, st *model.SimpleType) error {
 	if st.Union == nil {
 		return nil
 	}
@@ -19,11 +19,11 @@ func (r *Resolver) resolveSimpleTypeUnion(qname types.QName, st *types.SimpleTyp
 	return nil
 }
 
-func (r *Resolver) resolveUnionNamedMembers(qname types.QName, st *types.SimpleType) error {
+func (r *Resolver) resolveUnionNamedMembers(qname model.QName, st *model.SimpleType) error {
 	if len(st.Union.MemberTypes) == 0 {
 		return nil
 	}
-	st.MemberTypes = make([]types.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
+	st.MemberTypes = make([]model.Type, 0, len(st.Union.MemberTypes)+len(st.Union.InlineTypes))
 	for i, memberQName := range st.Union.MemberTypes {
 		if r.detector.IsResolving(memberQName) {
 			if member, ok := r.schema.TypeDefs[memberQName]; ok {
@@ -40,12 +40,12 @@ func (r *Resolver) resolveUnionNamedMembers(qname types.QName, st *types.SimpleT
 	return nil
 }
 
-func (r *Resolver) resolveUnionInlineMembers(qname types.QName, st *types.SimpleType) error {
+func (r *Resolver) resolveUnionInlineMembers(qname model.QName, st *model.SimpleType) error {
 	if len(st.Union.InlineTypes) == 0 {
 		return nil
 	}
 	if st.MemberTypes == nil {
-		st.MemberTypes = make([]types.Type, 0, len(st.Union.InlineTypes))
+		st.MemberTypes = make([]model.Type, 0, len(st.Union.InlineTypes))
 	}
 	for i, inlineType := range st.Union.InlineTypes {
 		if err := r.resolveSimpleType(inlineType.QName, inlineType); err != nil {

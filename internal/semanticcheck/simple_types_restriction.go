@@ -3,7 +3,6 @@ package semanticcheck
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -27,7 +26,7 @@ func validateRestriction(schema *parser.Schema, st *model.SimpleType, restrictio
 
 		// check if it's a built-in type
 		if restriction.Base.Namespace == model.XSDNamespace {
-			bt := builtins.Get(model.TypeName(baseTypeName))
+			bt := model.GetBuiltin(model.TypeName(baseTypeName))
 			if bt == nil {
 				// unknown built-in type - might be a forward reference issue, skip for now
 				baseType = nil

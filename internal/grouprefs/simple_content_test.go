@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/occurs"
 )
@@ -13,7 +12,7 @@ func TestResolveSimpleContentTextTypeResolvesExtensionAndRestriction(t *testing.
 	baseQName := model.QName{Namespace: "urn:test", Local: "Base"}
 	base := model.NewComplexType(baseQName, "urn:test")
 	base.SetContent(&model.SimpleContent{
-		Extension: &model.Extension{Base: builtins.Get(model.TypeNameString).Name()},
+		Extension: &model.Extension{Base: model.GetBuiltin(model.TypeNameString).Name()},
 	})
 
 	derived := model.NewComplexType(model.QName{Namespace: "urn:test", Local: "Derived"}, "urn:test")
@@ -29,7 +28,7 @@ func TestResolveSimpleContentTextTypeResolvesExtensionAndRestriction(t *testing.
 			if name == baseQName {
 				return base
 			}
-			return builtins.GetNS(name.Namespace, name.Local)
+			return model.GetBuiltinNS(name.Namespace, name.Local)
 		},
 		Cache: cache,
 	})
@@ -41,7 +40,7 @@ func TestResolveSimpleContentTextTypeResolvesExtensionAndRestriction(t *testing.
 	if !ok || restricted == nil {
 		t.Fatalf("resolved type = %T, want *model.SimpleType", got)
 	}
-	if restricted.ResolvedBase != builtins.Get(model.TypeNameString) {
+	if restricted.ResolvedBase != model.GetBuiltin(model.TypeNameString) {
 		t.Fatalf("resolved base = %v, want xs:string", restricted.ResolvedBase)
 	}
 	if restricted.Restriction != derivedRestriction {

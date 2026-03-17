@@ -1,11 +1,11 @@
 package semanticresolve
 
-import "github.com/jacoelho/xsd/internal/types"
+import "github.com/jacoelho/xsd/internal/model"
 
-func collectConstraintElementsFromContent(content types.Content) []*types.ElementDecl {
+func collectConstraintElementsFromContent(content model.Content) []*model.ElementDecl {
 	state := newIdentityTraversalState()
-	out := make([]*types.ElementDecl, 0)
-	walkIdentityContent(content, state, func(elem *types.ElementDecl) {
+	out := make([]*model.ElementDecl, 0)
+	walkIdentityContent(content, state, func(elem *model.ElementDecl) {
 		if elem == nil || elem.IsReference || len(elem.Constraints) == 0 {
 			return
 		}

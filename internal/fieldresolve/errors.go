@@ -10,7 +10,7 @@ var ErrFieldSelectsComplexContent = errors.New("field selects element with compl
 // statically, such as when wildcard steps are present.
 var ErrXPathUnresolvable = errors.New("xpath cannot be resolved statically")
 
-// ErrFieldXPathIncompatibleTypes indicates a field XPath resolves to elements with incompatible types.
+// ErrFieldXPathIncompatibleTypes indicates a field XPath resolves to elements with incompatible model.
 var ErrFieldXPathIncompatibleTypes = errors.New("field xpath resolves to incompatible element types")
 
 // ErrFieldXPathUnresolved indicates a field XPath cannot be resolved.

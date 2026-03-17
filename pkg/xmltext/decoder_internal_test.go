@@ -142,6 +142,35 @@ func TestUnescapeCharDataInto(t *testing.T) {
 	}
 }
 
+func TestScanCharDataSpanParse(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        []byte
+		wantRawNeeds bool
+		wantErr      error
+	}{
+		{name: "plain ascii", input: []byte("plain > text"), wantRawNeeds: false},
+		{name: "entity", input: []byte("a&amp;b"), wantRawNeeds: true},
+		{name: "bracket run valid", input: []byte("]]a"), wantRawNeeds: false},
+		{name: "cdata terminator invalid", input: []byte("]]>"), wantErr: errInvalidToken},
+		{name: "invalid control", input: []byte{0x01}, wantErr: errInvalidChar},
+		{name: "unicode", input: []byte("a\u00e9b"), wantRawNeeds: false},
+		{name: "invalid utf8", input: []byte{0xff}, wantErr: errInvalidChar},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rawNeeds, err := scanCharDataSpanParse(tt.input, &entityResolver{})
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("scanCharDataSpanParse(%q) error = %v, want %v", tt.input, err, tt.wantErr)
+			}
+			if rawNeeds != tt.wantRawNeeds {
+				t.Fatalf("scanCharDataSpanParse(%q) rawNeeds = %v, want %v", tt.input, rawNeeds, tt.wantRawNeeds)
+			}
+		})
+	}
+}
+
 func TestScanAttrValueBranches(t *testing.T) {
 	dec := newAttrValueDecoder([]byte("abc\""))
 	rawSpan, valueSpan, needs, rawNeeds, err := dec.scanAttrValue('"', false)

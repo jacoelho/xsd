@@ -1,7 +1,6 @@
 package validatorgen
 
 import (
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
@@ -44,10 +43,10 @@ func (c *compiler) collectFacetsRecursive(st *model.SimpleType, seen map[*model.
 		}
 	}
 
-	if st.IsBuiltin() && builtins.IsBuiltinListTypeName(st.Name().Local) {
+	if st.IsBuiltin() && model.IsBuiltinListTypeName(st.Name().Local) {
 		result = append(result, &model.MinLength{Value: 1})
 	} else if base := c.res.baseType(st); base != nil {
-		if bt := builtinForType(base); bt != nil && builtins.IsBuiltinListTypeName(bt.Name().Local) {
+		if bt := builtinForType(base); bt != nil && model.IsBuiltinListTypeName(bt.Name().Local) {
 			result = append(result, &model.MinLength{Value: 1})
 		}
 	}
@@ -96,7 +95,7 @@ func (c *compiler) facetsForType(typ model.Type) ([]model.Facet, error) {
 		return c.collectFacets(st)
 	}
 	if bt, ok := model.AsBuiltinType(typ); ok {
-		if builtins.IsBuiltinListTypeName(bt.Name().Local) {
+		if model.IsBuiltinListTypeName(bt.Name().Local) {
 			return []model.Facet{&model.MinLength{Value: 1}}, nil
 		}
 	}

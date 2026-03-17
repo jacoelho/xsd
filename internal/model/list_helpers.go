@@ -1,6 +1,6 @@
 package model
 
-// ListItemType returns the item type for list simple types.
+// ListItemType returns the item type for list simple model.
 // It resolves built-in list types and list derivations, returning false
 // when the item type cannot be determined.
 func ListItemType(typ Type) (Type, bool) {

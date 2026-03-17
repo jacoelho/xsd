@@ -1,13 +1,13 @@
 package semanticresolve
 
 import (
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	"github.com/jacoelho/xsd/internal/types"
 )
 
 // validateTypeQNameReference validates that a type QName reference exists.
-func validateTypeQNameReference(schema *parser.Schema, qname types.QName, contextNamespace types.NamespaceURI) error {
+func validateTypeQNameReference(schema *parser.Schema, qname model.QName, contextNamespace model.NamespaceURI) error {
 	if qname.IsZero() {
 		return nil
 	}

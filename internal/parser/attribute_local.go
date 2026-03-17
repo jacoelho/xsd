@@ -3,7 +3,6 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/xmltree"
@@ -59,7 +58,7 @@ func parseLocalAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Sch
 			return nil, fmt.Errorf("resolve type %s: %w", typeName, err)
 		}
 
-		if builtinType := builtins.GetNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
+		if builtinType := model.GetBuiltinNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
 			attr.Type = builtinType
 		} else {
 			attr.Type = model.NewPlaceholderSimpleType(typeQName)
@@ -80,7 +79,7 @@ func parseLocalAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Sch
 		}
 	}
 	if attr.Type == nil {
-		attr.Type = builtins.Get(builtins.TypeNameAnySimpleType)
+		attr.Type = model.GetBuiltin(model.TypeNameAnySimpleType)
 	}
 
 	use, err := parseAttributeUse(doc, elem)

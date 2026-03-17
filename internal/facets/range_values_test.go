@@ -4,13 +4,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 func TestValidateRangeValuesFacetNamesInErrors(t *testing.T) {
 	t.Parallel()
 
-	intType := builtins.Get(builtins.TypeNameInt)
+	intType := model.GetBuiltin(model.TypeNameInt)
 	if intType == nil {
 		t.Fatal("missing builtin int type")
 	}

@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/builtins"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -13,7 +12,7 @@ func TestFacetApplicability_LengthOnListType(t *testing.T) {
 	// per XSD spec: for list types, length counts list items, not string length
 
 	// create a list type with numeric itemType (integer)
-	integerType := builtins.Get(model.TypeNameInteger)
+	integerType := model.GetBuiltin(model.TypeNameInteger)
 	if integerType == nil {
 		t.Fatal("integer type not found")
 	}
@@ -43,7 +42,7 @@ func TestFacetApplicability_LengthOnListType(t *testing.T) {
 func TestFacetApplicability_MaxLengthOnListType(t *testing.T) {
 	// maxLength facets are applicable to list types, even if itemType is numeric
 
-	integerType := builtins.Get(model.TypeNameInteger)
+	integerType := model.GetBuiltin(model.TypeNameInteger)
 	if integerType == nil {
 		t.Fatal("integer type not found")
 	}
@@ -73,7 +72,7 @@ func TestFacetApplicability_MaxLengthOnListType(t *testing.T) {
 func TestFacetApplicability_MinLengthOnListType(t *testing.T) {
 	// minLength facets are applicable to list types, even if itemType is numeric
 
-	decimalType := builtins.Get(model.TypeNameDecimal)
+	decimalType := model.GetBuiltin(model.TypeNameDecimal)
 	if decimalType == nil {
 		t.Fatal("decimal type not found")
 	}
@@ -103,7 +102,7 @@ func TestFacetApplicability_MinLengthOnListType(t *testing.T) {
 func TestFacetApplicability_LengthOnAtomicNumericType(t *testing.T) {
 	// length facets are NOT applicable to atomic numeric types (should fail)
 
-	atomicType, err := builtins.NewSimpleType(model.TypeNameInteger)
+	atomicType, err := model.NewBuiltinSimpleType(model.TypeNameInteger)
 	if err != nil {
 		t.Fatalf("NewBuiltinSimpleType(integer) failed: %v", err)
 	}
@@ -121,7 +120,7 @@ func TestFacetApplicability_LengthOnAtomicNumericType(t *testing.T) {
 }
 
 func TestFacetApplicability_LengthOnDurationType(t *testing.T) {
-	durationType, err := builtins.NewSimpleType(model.TypeNameDuration)
+	durationType, err := model.NewBuiltinSimpleType(model.TypeNameDuration)
 	if err != nil {
 		t.Fatalf("NewBuiltinSimpleType(duration) failed: %v", err)
 	}
