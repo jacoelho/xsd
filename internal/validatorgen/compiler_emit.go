@@ -2,6 +2,7 @@ package validatorgen
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/runtime"
 )
@@ -142,11 +143,8 @@ func (c *compiler) addUnionValidator(ws runtime.WhitespaceMode, facets runtime.F
 
 	id := runtime.ValidatorID(len(c.bundle.Meta))
 	flags := c.validatorFlags(facets)
-	for _, member := range members {
-		if c.validatorTracksIDs(member) {
-			flags |= runtime.ValidatorMayTrackIDs
-			break
-		}
+	if slices.ContainsFunc(members, c.validatorTracksIDs) {
+		flags |= runtime.ValidatorMayTrackIDs
 	}
 	c.bundle.Meta = append(c.bundle.Meta, runtime.ValidatorMeta{
 		Kind:       runtime.VUnion,

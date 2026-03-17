@@ -63,44 +63,32 @@ func CloneSchema(sch *Schema) *Schema {
 	for _, name := range qname.SortedMapKeys(sch.ElementDecls) {
 		clone.ElementDecls[name] = sch.ElementDecls[name].Copy(opts)
 	}
-	for name, origin := range sch.ElementOrigins {
-		clone.ElementOrigins[name] = origin
-	}
+	maps.Copy(clone.ElementOrigins, sch.ElementOrigins)
 
 	for _, name := range qname.SortedMapKeys(sch.TypeDefs) {
 		clone.TypeDefs[name] = model.CopyType(sch.TypeDefs[name], opts)
 	}
-	for name, origin := range sch.TypeOrigins {
-		clone.TypeOrigins[name] = origin
-	}
+	maps.Copy(clone.TypeOrigins, sch.TypeOrigins)
 
 	for _, name := range qname.SortedMapKeys(sch.AttributeDecls) {
 		clone.AttributeDecls[name] = sch.AttributeDecls[name].Copy(opts)
 	}
-	for name, origin := range sch.AttributeOrigins {
-		clone.AttributeOrigins[name] = origin
-	}
+	maps.Copy(clone.AttributeOrigins, sch.AttributeOrigins)
 
 	for _, name := range qname.SortedMapKeys(sch.AttributeGroups) {
 		clone.AttributeGroups[name] = sch.AttributeGroups[name].Copy(opts)
 	}
-	for name, origin := range sch.AttributeGroupOrigins {
-		clone.AttributeGroupOrigins[name] = origin
-	}
+	maps.Copy(clone.AttributeGroupOrigins, sch.AttributeGroupOrigins)
 
 	for _, name := range qname.SortedMapKeys(sch.Groups) {
 		clone.Groups[name] = sch.Groups[name].Copy(opts)
 	}
-	for name, origin := range sch.GroupOrigins {
-		clone.GroupOrigins[name] = origin
-	}
+	maps.Copy(clone.GroupOrigins, sch.GroupOrigins)
 
 	for _, name := range qname.SortedMapKeys(sch.NotationDecls) {
 		clone.NotationDecls[name] = sch.NotationDecls[name].Copy(opts)
 	}
-	for name, origin := range sch.NotationOrigins {
-		clone.NotationOrigins[name] = origin
-	}
+	maps.Copy(clone.NotationOrigins, sch.NotationOrigins)
 
 	return clone
 }
