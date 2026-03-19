@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
 func validateQNameNamespace(schema *Schema, namespace model.NamespaceURI) error {
 	if schema == nil {
 		return nil
 	}
-	if namespace == model.XSDNamespace || namespace == xmltree.XMLNamespace {
+	if namespace == model.XSDNamespace || namespace == xmlnames.XMLNamespace {
 		return nil
 	}
 	if namespace == schema.TargetNamespace {

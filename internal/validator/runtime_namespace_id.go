@@ -1,16 +1,13 @@
 package validator
 
-import "github.com/jacoelho/xsd/internal/runtime"
+import (
+	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/names"
+)
 
 func (s *Session) namespaceID(nsBytes []byte) runtime.NamespaceID {
-	if len(nsBytes) == 0 {
-		if s.rt != nil {
-			return s.rt.PredefNS.Empty
-		}
+	if s == nil {
 		return 0
 	}
-	if s.rt == nil {
-		return 0
-	}
-	return s.rt.Namespaces.Lookup(nsBytes)
+	return names.NamespaceID(s.rt, nsBytes)
 }

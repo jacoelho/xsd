@@ -14,7 +14,7 @@ const (
 	XMLNamespace   = xmlnames.XMLNamespace
 	XMLNSNamespace = xmlnames.XMLNSNamespace
 	XSINamespace   = xmlnames.XSINamespace
-	XSDNamespace   = "http://www.w3.org/2001/XMLSchema"
+	XSDNamespace   = xmlnames.XSDNamespace
 )
 
 var errUnboundPrefix = errors.New("unbound namespace prefix")

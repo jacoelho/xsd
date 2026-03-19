@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -21,7 +22,7 @@ func parseAttributeUses(doc *xmltree.Document, children []xmltree.NodeID, schema
 	hasAnyAttribute := false
 
 	for _, child := range children {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {

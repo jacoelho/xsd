@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/attrgroupwalk"
-	"github.com/jacoelho/xsd/internal/attrwildcard"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
@@ -37,7 +36,7 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *model.ComplexType
 
 	if ct.IsExtension() {
 		if baseAnyAttr != nil && derivedAnyAttr != nil {
-			if _, err := attrwildcard.Union(derivedAnyAttr, baseAnyAttr); err != nil {
+			if _, err := attrgroupwalk.Union(derivedAnyAttr, baseAnyAttr); err != nil {
 				return fmt.Errorf("anyAttribute extension: union of derived and base anyAttribute is not expressible")
 			}
 		}
@@ -46,7 +45,7 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *model.ComplexType
 			return fmt.Errorf("anyAttribute restriction: cannot add anyAttribute when base type has no anyAttribute")
 		}
 		if derivedAnyAttr != nil && baseAnyAttr != nil {
-			if _, err := attrwildcard.Restrict(baseAnyAttr, derivedAnyAttr); err != nil {
+			if _, err := attrgroupwalk.Restrict(baseAnyAttr, derivedAnyAttr); err != nil {
 				return fmt.Errorf("anyAttribute restriction: derived anyAttribute is not a valid subset of base anyAttribute")
 			}
 		}
@@ -58,16 +57,16 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *model.ComplexType
 // collectAnyAttributeFromType collects anyAttribute from a complex type
 // Checks both direct anyAttribute and anyAttribute in extension/restriction
 func collectAnyAttributeFromType(schema *parser.Schema, ct *model.ComplexType) (*model.AnyAttribute, error) {
-	result, err := attrwildcard.CollectFromComplexType(schema, ct, attrwildcard.CollectOptions{
+	result, err := attrgroupwalk.CollectFromComplexType(schema, ct, attrgroupwalk.CollectOptions{
 		Missing:      attrgroupwalk.MissingIgnore,
 		Cycles:       attrgroupwalk.CycleIgnore,
 		EmptyIsError: false,
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, attrwildcard.ErrIntersectionNotExpressible):
+		case errors.Is(err, attrgroupwalk.ErrIntersectionNotExpressible):
 			return nil, fmt.Errorf("anyAttribute intersection is not expressible")
-		case errors.Is(err, attrwildcard.ErrIntersectionEmpty):
+		case errors.Is(err, attrgroupwalk.ErrIntersectionEmpty):
 			return nil, nil
 		default:
 			return nil, err

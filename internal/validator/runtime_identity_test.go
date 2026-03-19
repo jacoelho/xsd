@@ -7,6 +7,8 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+	"github.com/jacoelho/xsd/internal/validator/diag"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -129,7 +131,7 @@ func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
 		t.Fatalf("identityStart root: %v", err)
 	}
 
-	attrs := []StartAttr{{
+	startAttrs := []attrs.Start{{
 		Sym:      fx.symID,
 		NS:       fx.empty,
 		Local:    []byte("id"),
@@ -138,7 +140,7 @@ func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
 		KeyBytes: []byte("one"),
 	}}
 	if err := sess.identityStart(identityStartInput{
-		Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: attrs,
+		Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: startAttrs,
 	}); err != nil {
 		t.Fatalf("identityStart item: %v", err)
 	}
@@ -159,10 +161,10 @@ func TestIdentityUniqueMissingFieldIgnored(t *testing.T) {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	if len(sess.icState.uncommittedViolations) != 0 {
-		t.Fatalf("violations = %d, want 0", len(sess.icState.uncommittedViolations))
+	if len(sess.icState.Uncommitted) != 0 {
+		t.Fatalf("violations = %d, want 0", len(sess.icState.Uncommitted))
 	}
-	if pending := sess.icState.drainCommitted(); len(pending) != 0 {
+	if pending := diag.AppendIssues(nil, sess.icState.DrainCommitted()); len(pending) != 0 {
 		t.Fatalf("pending errors = %d, want 0", len(pending))
 	}
 }
@@ -204,7 +206,7 @@ func TestIdentityKeyMissingFieldErrors(t *testing.T) {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	pending := sess.icState.drainCommitted()
+	pending := diag.AppendIssues(nil, sess.icState.DrainCommitted())
 	if len(pending) == 0 {
 		t.Fatalf("expected missing field violation")
 	}
@@ -269,7 +271,7 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("identityStart group: %v", err)
 	}
-	attrs := []StartAttr{{
+	startAttrs := []attrs.Start{{
 		Sym:      fx.symID,
 		NS:       fx.empty,
 		Local:    []byte("id"),
@@ -278,7 +280,7 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 		KeyBytes: []byte("one"),
 	}}
 	if err := sess.identityStart(identityStartInput{
-		Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: attrs,
+		Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: startAttrs,
 	}); err != nil {
 		t.Fatalf("identityStart item: %v", err)
 	}
@@ -292,7 +294,7 @@ func TestIdentityKeyrefScopeIsolation(t *testing.T) {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	if pending := sess.icState.drainCommitted(); len(pending) != 0 {
+	if pending := diag.AppendIssues(nil, sess.icState.DrainCommitted()); len(pending) != 0 {
 		t.Fatalf("pending errors = %d, want 0", len(pending))
 	}
 }
@@ -348,8 +350,8 @@ func TestIdentityStartRollbackOnError(t *testing.T) {
 	if len(sess.elemStack) != 0 {
 		t.Fatalf("elemStack len = %d, want 0", len(sess.elemStack))
 	}
-	if sess.nsStack.Len() != 0 {
-		t.Fatalf("nsStack len = %d, want 0", sess.nsStack.Len())
+	if sess.Names.Scopes.Len() != 0 {
+		t.Fatalf("namespace scope depth = %d, want 0", sess.Names.Scopes.Len())
 	}
 }
 
@@ -357,10 +359,10 @@ func TestIdentityStartNoConstraintsSkipsAttrMaterialization(t *testing.T) {
 	fx := buildIdentityFixture(t)
 	sess := NewSession(fx.schema)
 
-	attrs := make([]StartAttr, 0, 64)
+	inputAttrs := make([]attrs.Start, 0, 64)
 	for i := range 64 {
 		local := fmt.Appendf(nil, "attr%d", i)
-		attrs = append(attrs, StartAttr{
+		inputAttrs = append(inputAttrs, attrs.Start{
 			NSBytes: []byte("urn:other"),
 			Local:   local,
 			Value:   []byte("x"),
@@ -372,28 +374,28 @@ func TestIdentityStartNoConstraintsSkipsAttrMaterialization(t *testing.T) {
 		Type:  fx.typeSimple,
 		Sym:   fx.symItem,
 		NS:    fx.nsID,
-		Attrs: attrs,
+		Attrs: inputAttrs,
 	}); err != nil {
 		t.Fatalf("identityStart: %v", err)
 	}
 
-	if sess.icState.active {
+	if sess.icState.Active {
 		t.Fatalf("identity state unexpectedly active")
 	}
-	if sess.icState.frames.Len() != 0 {
-		t.Fatalf("identity frames len = %d, want 0", sess.icState.frames.Len())
+	if sess.icState.Frames.Len() != 0 {
+		t.Fatalf("identity frames len = %d, want 0", sess.icState.Frames.Len())
 	}
-	if sess.icState.scopes.Len() != 0 {
-		t.Fatalf("identity scopes len = %d, want 0", sess.icState.scopes.Len())
+	if sess.icState.Scopes.Len() != 0 {
+		t.Fatalf("identity scopes len = %d, want 0", sess.icState.Scopes.Len())
 	}
-	if sess.icState.nextNodeID != 0 {
-		t.Fatalf("identity nextNodeID = %d, want 0", sess.icState.nextNodeID)
+	if sess.icState.NextNodeID != 0 {
+		t.Fatalf("identity nextNodeID = %d, want 0", sess.icState.NextNodeID)
 	}
-	if len(sess.identityAttrNames) != 0 {
-		t.Fatalf("identity attr names materialized: %d", len(sess.identityAttrNames))
+	if len(sess.identityAttrs.Names) != 0 {
+		t.Fatalf("identity attr names materialized: %d", len(sess.identityAttrs.Names))
 	}
-	if len(sess.identityAttrBuckets) != 0 {
-		t.Fatalf("identity attr buckets materialized: %d", len(sess.identityAttrBuckets))
+	if len(sess.identityAttrs.Buckets) != 0 {
+		t.Fatalf("identity attr buckets materialized: %d", len(sess.identityAttrs.Buckets))
 	}
 }
 
@@ -406,11 +408,11 @@ func TestIdentityAttrSelectionAllocationsScaleLinearly(t *testing.T) {
 	})
 	configureRootUniqueAttrConstraint(schema, fx.elemRoot, fx.pathChild, pathAttrNSAny)
 
-	buildAttrs := func(extra int) []StartAttr {
-		out := make([]StartAttr, 0, extra+1)
+	buildAttrs := func(extra int) []attrs.Start {
+		out := make([]attrs.Start, 0, extra+1)
 		for i := range extra {
 			local := fmt.Appendf(nil, "attr%d", i)
-			out = append(out, StartAttr{
+			out = append(out, attrs.Start{
 				NSBytes:  []byte("urn:other"),
 				Local:    local,
 				Value:    []byte("x"),
@@ -418,7 +420,7 @@ func TestIdentityAttrSelectionAllocationsScaleLinearly(t *testing.T) {
 				KeyBytes: []byte("x"),
 			})
 		}
-		out = append(out, StartAttr{
+		out = append(out, attrs.Start{
 			NS:       fx.empty,
 			NSBytes:  nil,
 			Local:    []byte("id"),
@@ -432,7 +434,7 @@ func TestIdentityAttrSelectionAllocationsScaleLinearly(t *testing.T) {
 	smallAttrs := buildAttrs(8)
 	largeAttrs := buildAttrs(80)
 	sess := NewSession(schema)
-	run := func(attrs []StartAttr) {
+	run := func(inputAttrs []attrs.Start) {
 		sess.Reset()
 		if err := sess.identityStart(identityStartInput{
 			Elem: fx.elemRoot, Type: fx.typeComplex, Sym: fx.symRoot, NS: fx.nsID,
@@ -440,7 +442,7 @@ func TestIdentityAttrSelectionAllocationsScaleLinearly(t *testing.T) {
 			panic(err)
 		}
 		if err := sess.identityStart(identityStartInput{
-			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: attrs,
+			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: inputAttrs,
 		}); err != nil {
 			panic(err)
 		}
@@ -450,7 +452,7 @@ func TestIdentityAttrSelectionAllocationsScaleLinearly(t *testing.T) {
 		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 			panic(err)
 		}
-		if pending := sess.icState.drainCommitted(); len(pending) != 0 {
+		if pending := diag.AppendIssues(nil, sess.icState.DrainCommitted()); len(pending) != 0 {
 			panic(pending[0])
 		}
 	}

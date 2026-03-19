@@ -8,16 +8,16 @@ import (
 )
 
 type stagedPendingTarget struct {
-	schema *parser.Schema
-	entry  *schemaEntry
+	schema          *parser.Schema
+	includeInserted []int
 }
 
-func (l *Loader) pendingResolutionInputs(sourceKey loadKey) (*schemaEntry, []pendingDirective, *parser.Schema, error) {
+func (l *Loader) pendingResolutionInputs(sourceKey loadKey) (*schemaEntry, []Directive[loadKey], *parser.Schema, error) {
 	sourceEntry := l.state.ensureEntry(sourceKey)
-	if sourceEntry.pendingCount > 0 {
+	if sourceEntry.pending.Count > 0 {
 		return sourceEntry, nil, nil, nil
 	}
-	pendingDirectives := sourceEntry.pendingDirectives
+	pendingDirectives := sourceEntry.pending.Directives
 	if len(pendingDirectives) == 0 {
 		return sourceEntry, nil, nil, nil
 	}
@@ -28,27 +28,23 @@ func (l *Loader) pendingResolutionInputs(sourceKey loadKey) (*schemaEntry, []pen
 	return sourceEntry, pendingDirectives, source, nil
 }
 
-func (l *Loader) stagePendingTargets(pendingDirectives []pendingDirective) (map[loadKey]*stagedPendingTarget, error) {
+func (l *Loader) stagePendingTargets(pendingDirectives []Directive[loadKey]) (map[loadKey]*stagedPendingTarget, error) {
 	staged := make(map[loadKey]*stagedPendingTarget, len(pendingDirectives))
 	for _, directive := range pendingDirectives {
-		if _, ok := staged[directive.targetKey]; ok {
+		if _, ok := staged[directive.TargetKey]; ok {
 			continue
 		}
-		target, err := l.schemaForKeyStrict(directive.targetKey)
+		target, err := l.schemaForKeyStrict(directive.TargetKey)
 		if err != nil {
 			return nil, err
 		}
-		entry, ok := l.state.entry(directive.targetKey)
+		entry, ok := l.state.entry(directive.TargetKey)
 		if !ok || entry == nil {
-			return nil, fmt.Errorf("pending directive tracking missing for %s", directive.targetKey.systemID)
+			return nil, fmt.Errorf("pending directive tracking missing for %s", directive.TargetKey.systemID)
 		}
-		stagedEntry := &schemaEntry{}
-		if len(entry.includeInserted) > 0 {
-			stagedEntry.includeInserted = slices.Clone(entry.includeInserted)
-		}
-		staged[directive.targetKey] = &stagedPendingTarget{
-			schema: parser.CloneSchemaForMerge(target),
-			entry:  stagedEntry,
+		staged[directive.TargetKey] = &stagedPendingTarget{
+			schema:          parser.CloneSchemaForMerge(target),
+			includeInserted: slices.Clone(entry.includeInserted),
 		}
 	}
 	return staged, nil

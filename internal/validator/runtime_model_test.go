@@ -6,6 +6,7 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/model"
 )
 
 type modelFixture struct {
@@ -78,7 +79,7 @@ func TestModelStateDFASequence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StepModel a: %v", err)
 	}
-	if match.Kind != MatchElem || match.Elem != fx.elemA {
+	if match.Kind != model.MatchElem || match.Elem != fx.elemA {
 		t.Fatalf("match = %+v, want elem %d", match, fx.elemA)
 	}
 	if err := sess.AcceptModel(ref, &state); err == nil {
@@ -89,7 +90,7 @@ func TestModelStateDFASequence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StepModel b: %v", err)
 	}
-	if match.Kind != MatchElem || match.Elem != fx.elemB {
+	if match.Kind != model.MatchElem || match.Elem != fx.elemB {
 		t.Fatalf("match = %+v, want elem %d", match, fx.elemB)
 	}
 	if err := sess.AcceptModel(ref, &state); err != nil {
@@ -124,7 +125,7 @@ func TestModelStateDFAWildcardMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StepModel wildcard: %v", err)
 	}
-	if match.Kind != MatchWildcard || match.Wildcard != 1 {
+	if match.Kind != model.MatchWildcard || match.Wildcard != 1 {
 		t.Fatalf("match = %+v, want wildcard 1", match)
 	}
 }
@@ -274,7 +275,7 @@ func TestModelStateNFASequence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StepModel a: %v", err)
 	}
-	if match.Kind != MatchElem || match.Elem != fx.elemA {
+	if match.Kind != model.MatchElem || match.Elem != fx.elemA {
 		t.Fatalf("match = %+v, want elem %d", match, fx.elemA)
 	}
 	if err := sess.AcceptModel(ref, &state); err == nil {
@@ -285,7 +286,7 @@ func TestModelStateNFASequence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StepModel b: %v", err)
 	}
-	if match.Kind != MatchElem || match.Elem != fx.elemB {
+	if match.Kind != model.MatchElem || match.Elem != fx.elemB {
 		t.Fatalf("match = %+v, want elem %d", match, fx.elemB)
 	}
 	if err := sess.AcceptModel(ref, &state); err != nil {
@@ -367,14 +368,14 @@ func TestModelStateAllGroup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StepModel b: %v", err)
 	}
-	if match.Kind != MatchElem || match.Elem != fx.elemB {
+	if match.Kind != model.MatchElem || match.Elem != fx.elemB {
 		t.Fatalf("match = %+v, want elem %d", match, fx.elemB)
 	}
 	match, err = sess.StepModel(ref, &state, fx.symA, fx.ns, []byte("urn:test"))
 	if err != nil {
 		t.Fatalf("StepModel a: %v", err)
 	}
-	if match.Kind != MatchElem || match.Elem != fx.elemA {
+	if match.Kind != model.MatchElem || match.Elem != fx.elemA {
 		t.Fatalf("match = %+v, want elem %d", match, fx.elemA)
 	}
 	if err := sess.AcceptModel(ref, &state); err != nil {
@@ -386,7 +387,7 @@ func TestModelStateAllGroup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StepModel subst: %v", err)
 	}
-	if match.Kind != MatchElem || match.Elem != fx.elemC {
+	if match.Kind != model.MatchElem || match.Elem != fx.elemC {
 		t.Fatalf("match = %+v, want elem %d", match, fx.elemC)
 	}
 	if err := sess.AcceptModel(ref, &state); err != nil {

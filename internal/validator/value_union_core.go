@@ -1,68 +1,36 @@
 package validator
 
 import (
-	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/diag"
+	"github.com/jacoelho/xsd/internal/validator/valruntime"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexical []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *ValueMetrics) ([]byte, error) {
-	memberValidators, memberTypes, memberSameWS, ok := s.unionMemberInfo(meta)
-	if !ok || len(memberValidators) == 0 {
-		return nil, valueErrorf(valueErrInvalid, "union validator out of range")
-	}
+func (s *Session) canonicalizeUnion(meta runtime.ValidatorMeta, normalized, lexical []byte, resolver value.NSResolver, opts valruntime.Options, needKey bool, metrics *valruntime.State) ([]byte, error) {
 	if s == nil || s.rt == nil {
-		return nil, valueErrorf(valueErrInvalid, "runtime schema missing")
+		return nil, diag.Invalid("runtime schema missing")
 	}
-	program, err := facets.RuntimeProgramSlice(meta, s.rt.Facets)
-	if err != nil {
-		return nil, valueErrorMsg(valueErrInvalid, err.Error())
-	}
-	enumIDs := facets.RuntimeProgramEnumIDs(program)
-	hasPatterns := false
-	for _, instr := range program {
-		if instr.Op == runtime.FPattern {
-			hasPatterns = true
-			break
-		}
-	}
-	if hasPatterns {
-		checked, err := s.checkUnionPatterns(program, normalized)
-		if err != nil {
-			return nil, err
-		}
-		if metrics != nil {
-			metrics.patternChecked = checked
-		}
-	}
-	memberLexical := lexical
-	if memberLexical == nil {
-		memberLexical = normalized
-	}
-	needMemberMetrics := needKey || len(enumIDs) > 0 || metrics != nil
-	outcome := s.tryUnionMembers(unionMemberRunInput{
-		memberValidators:  memberValidators,
-		memberTypes:       memberTypes,
-		memberSameWS:      memberSameWS,
-		normalized:        normalized,
-		memberLexical:     memberLexical,
-		resolver:          resolver,
-		opts:              opts,
-		needKey:           needKey,
-		enumIDs:           enumIDs,
-		needMemberMetrics: needMemberMetrics,
-		callerMetrics:     metrics,
-	})
-	if outcome.matched {
-		return outcome.canonical, nil
-	}
-	if outcome.sawValid {
-		if len(enumIDs) > 0 {
-			return nil, valueErrorf(valueErrFacet, "enumeration violation")
-		}
-	}
-	if outcome.firstErr == nil {
-		outcome.firstErr = valueErrorf(valueErrInvalid, "union value does not match any member type")
-	}
-	return nil, outcome.firstErr
+	outcome := valruntime.MatchUnion(
+		valruntime.UnionInput{
+			Patterns:        s.rt.Patterns,
+			Facets:          s.rt.Facets,
+			Normalized:      normalized,
+			Lexical:         lexical,
+			Enums:           &s.rt.Enums,
+			Validators:      s.rt.Validators,
+			Meta:            meta,
+			ApplyWhitespace: opts.ApplyWhitespace,
+			NeedKey:         needKey,
+		},
+		func(member runtime.ValidatorID, memberLex []byte, applyWhitespace, needKey bool) ([]byte, valruntime.UnionMemberResult, error) {
+			memberOpts := valruntime.UnionMemberOptions(opts, applyWhitespace, needKey)
+			canon, memberMetrics, err := s.validateValueInternalWithMetrics(member, memberLex, resolver, memberOpts)
+			if err != nil {
+				return nil, valruntime.UnionMemberResult{}, err
+			}
+			return canon, valruntime.UnionMemberResultOf(&memberMetrics.Result), nil
+		},
+	)
+	return valruntime.ResolveUnion(outcome, metrics.ResultState())
 }

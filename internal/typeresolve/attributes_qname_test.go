@@ -9,8 +9,10 @@ import (
 
 func TestEffectiveAttributeQName(t *testing.T) {
 	schema := &parser.Schema{
-		TargetNamespace:      "urn:schema",
-		AttributeFormDefault: parser.Unqualified,
+		SchemaMeta: parser.SchemaMeta{
+			TargetNamespace:      "urn:schema",
+			AttributeFormDefault: parser.Unqualified,
+		},
 	}
 
 	t.Run("nil attribute", func(t *testing.T) {

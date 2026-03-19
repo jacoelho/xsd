@@ -3,7 +3,6 @@ package semanticcheck
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/qname"
@@ -31,7 +30,7 @@ func ValidateStructure(schema *parser.Schema) []error {
 		return true
 	}
 
-	_ = globaldecl.ForEach(schema, globaldecl.Handlers{
+	_ = parser.ForEachGlobalDecl(&schema.SchemaGraph, parser.GlobalDeclHandlers{
 		Element: func(name model.QName, decl *model.ElementDecl) error {
 			if !markSeen(parser.GlobalDeclElement, name) {
 				return nil

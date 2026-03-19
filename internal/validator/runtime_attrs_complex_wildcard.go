@@ -5,25 +5,24 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+	"github.com/jacoelho/xsd/internal/validator/wildcard"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
 func (s *Session) validateComplexWildcardAttr(
-	ct *runtime.ComplexType,
-	validated []StartAttr,
-	attr StartAttr,
+	validated []attrs.Start,
+	attr attrs.Start,
 	resolver value.NSResolver,
 	storeAttrs bool,
+	anyAttr runtime.WildcardID,
 	seenID *bool,
-) ([]StartAttr, error) {
-	if ct.AnyAttr == 0 {
-		return nil, newValidationError(xsderrors.ErrAttributeNotDeclared, "attribute not declared")
-	}
-	if !s.rt.WildcardAccepts(ct.AnyAttr, attr.NSBytes, attr.NS) {
+) ([]attrs.Start, error) {
+	if !s.rt.WildcardAccepts(anyAttr, attr.NSBytes, attr.NS) {
 		return nil, newValidationError(xsderrors.ErrAttributeNotDeclared, "attribute wildcard rejected namespace")
 	}
 
-	rule := s.rt.Wildcards[ct.AnyAttr]
+	rule := s.rt.Wildcards[anyAttr]
 	wildcardAttr, resolved, err := s.resolveWildcardAttrID(rule.PC, attr.Sym)
 	if err != nil {
 		return nil, err
@@ -41,8 +40,8 @@ func (s *Session) validateComplexWildcardAttr(
 
 func (s *Session) resolveWildcardAttrID(pc runtime.ProcessContents, sym runtime.SymbolID) (runtime.AttrID, bool, error) {
 	var wildcardAttr runtime.AttrID
-	resolved, err := resolveWildcardSymbol(pc, sym, func(symbol runtime.SymbolID) bool {
-		id, ok := s.globalAttributeBySymbol(symbol)
+	resolved, err := wildcard.ResolveSymbol(pc, sym, func(symbol runtime.SymbolID) bool {
+		id, ok := attrs.GlobalAttributeBySymbol(s.rt, symbol)
 		if !ok {
 			return false
 		}

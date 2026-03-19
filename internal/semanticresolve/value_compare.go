@@ -8,7 +8,7 @@ import (
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	"github.com/jacoelho/xsd/internal/valueparse"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func fixedValuesEqual(schema *parser.Schema, attr, target *model.AttributeDecl) (bool, error) {
@@ -42,19 +42,19 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *model.AttributeDecl) 
 		if itemType == nil {
 			return false, fmt.Errorf("list item type is nil")
 		}
-		leftItems, lerr := valueparse.ParseListValueVariants(left, func(item string) ([]model.TypedValue, error) {
+		leftItems, lerr := value.ParseListValueVariants(left, func(item string) ([]model.TypedValue, error) {
 			return parseValueVariants(schema, item, itemType, attr.FixedContext)
 		})
 		if lerr != nil {
 			return false, lerr
 		}
-		rightItems, rerr := valueparse.ParseListValueVariants(right, func(item string) ([]model.TypedValue, error) {
+		rightItems, rerr := value.ParseListValueVariants(right, func(item string) ([]model.TypedValue, error) {
 			return parseValueVariants(schema, item, itemType, target.FixedContext)
 		})
 		if rerr != nil {
 			return false, rerr
 		}
-		return valueparse.ListValuesEqual(leftItems, rightItems, facetvalue.ValuesEqual), nil
+		return value.ListValuesEqual(leftItems, rightItems, facetvalue.ValuesEqual), nil
 	}
 
 	leftValues, err := parseValueVariants(schema, left, resolvedType, attr.FixedContext)
@@ -65,13 +65,13 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *model.AttributeDecl) 
 	if err != nil {
 		return false, err
 	}
-	return valueparse.AnyValueEqual(leftValues, rightValues, facetvalue.ValuesEqual), nil
+	return value.AnyValueEqual(leftValues, rightValues, facetvalue.ValuesEqual), nil
 }
 
 func parseValueVariants(schema *parser.Schema, lexical string, typ model.Type, context map[string]string) ([]model.TypedValue, error) {
 	if st, ok := typ.(*model.SimpleType); ok && st.Variety() == model.UnionVariety {
 		memberTypes := typeresolve.ResolveUnionMemberTypes(schema, st)
-		return valueparse.ParseUnionValueVariants(lexical, memberTypes, func(value string, member model.Type) ([]model.TypedValue, error) {
+		return value.ParseUnionValueVariants(lexical, memberTypes, func(value string, member model.Type) ([]model.TypedValue, error) {
 			typed, err := parseTypedValueWithContext(value, member, context)
 			if err != nil {
 				return nil, err

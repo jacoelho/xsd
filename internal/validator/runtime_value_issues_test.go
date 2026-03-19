@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/valruntime"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -22,10 +23,10 @@ func TestUnionStoredValueIsStable(t *testing.T) {
 	validatorID := mustValidatorID(t, rt, "U")
 	sess := NewSession(rt)
 
-	opts := valueOptions{
-		applyWhitespace:  true,
-		requireCanonical: true,
-		storeValue:       true,
+	opts := valruntime.Options{
+		ApplyWhitespace:  true,
+		RequireCanonical: true,
+		StoreValue:       true,
 	}
 	canon, err := sess.validateValueInternalOptions(validatorID, []byte("  a  "), nil, opts)
 	if err != nil {
@@ -58,10 +59,10 @@ func TestListNormalizedValueIsStable(t *testing.T) {
 	validatorID := mustValidatorID(t, rt, "L")
 	sess := NewSession(rt)
 
-	opts := valueOptions{
-		applyWhitespace:  true,
-		requireCanonical: false,
-		storeValue:       false,
+	opts := valruntime.Options{
+		ApplyWhitespace:  true,
+		RequireCanonical: false,
+		StoreValue:       false,
 	}
 	canon, err := sess.validateValueInternalOptions(validatorID, []byte("  a   b  "), nil, opts)
 	if err != nil {
@@ -94,10 +95,10 @@ func TestHexBinaryCanonicalValueIsStable(t *testing.T) {
 	validatorID := mustValidatorID(t, rt, "H")
 	sess := NewSession(rt)
 
-	opts := valueOptions{
-		applyWhitespace:  true,
-		requireCanonical: true,
-		storeValue:       false,
+	opts := valruntime.Options{
+		ApplyWhitespace:  true,
+		RequireCanonical: true,
+		StoreValue:       false,
 	}
 	canon, err := sess.validateValueInternalOptions(validatorID, []byte("0a"), nil, opts)
 	if err != nil {
@@ -130,10 +131,10 @@ func TestBase64BinaryCanonicalValueIsStable(t *testing.T) {
 	validatorID := mustValidatorID(t, rt, "B")
 	sess := NewSession(rt)
 
-	opts := valueOptions{
-		applyWhitespace:  true,
-		requireCanonical: true,
-		storeValue:       false,
+	opts := valruntime.Options{
+		ApplyWhitespace:  true,
+		RequireCanonical: true,
+		StoreValue:       false,
 	}
 	canon, err := sess.validateValueInternalOptions(validatorID, []byte(" YQ== "), nil, opts)
 	if err != nil {
@@ -155,18 +156,21 @@ func TestBinaryOctetLengthAllocationsStayAtParserBaseline(t *testing.T) {
 	cases := []struct {
 		name  string
 		label string
+		kind  runtime.ValidatorKind
 		value []byte
 		parse func([]byte) ([]byte, error)
 	}{
 		{
 			name:  "hexBinary",
 			label: "hexBinary",
+			kind:  runtime.VHexBinary,
 			value: []byte("0A0B0C0D"),
 			parse: value.ParseHexBinary,
 		},
 		{
 			name:  "base64Binary",
 			label: "base64Binary",
+			kind:  runtime.VBase64Binary,
 			value: []byte("AQIDBA=="),
 			parse: value.ParseBase64Binary,
 		},
@@ -180,7 +184,8 @@ func TestBinaryOctetLengthAllocationsStayAtParserBaseline(t *testing.T) {
 				}
 			})
 			lengthAllocs := testing.AllocsPerRun(200, func() {
-				if _, err := binaryOctetLength(tc.parse, tc.value, nil, tc.label); err != nil {
+				var cache *valruntime.Cache
+				if _, err := cache.Length(tc.kind, tc.value); err != nil {
 					panic(err)
 				}
 			})

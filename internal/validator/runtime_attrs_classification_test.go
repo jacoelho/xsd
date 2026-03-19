@@ -4,13 +4,14 @@ import (
 	"testing"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
 )
 
 func TestClassifyAttrsClasses(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{
+	inputAttrs := []attrs.Start{
 		{
 			Sym:     schema.Predef.XsiType,
 			NS:      schema.PredefNS.Xsi,
@@ -40,33 +41,33 @@ func TestClassifyAttrsClasses(t *testing.T) {
 		},
 	}
 
-	classified, err := sess.classifyAttrs(attrs, true)
+	classified, err := sess.classifyAttrs(inputAttrs, true)
 	if err != nil {
 		t.Fatalf("classifyAttrs: %v", err)
 	}
-	if classified.duplicateErr != nil {
-		t.Fatalf("unexpected duplicate error: %v", classified.duplicateErr)
+	if classified.DuplicateErr != nil {
+		t.Fatalf("unexpected duplicate error: %v", classified.DuplicateErr)
 	}
-	if len(classified.classes) != len(attrs) {
-		t.Fatalf("classes length = %d, want %d", len(classified.classes), len(attrs))
+	if len(classified.Classes) != len(inputAttrs) {
+		t.Fatalf("classes length = %d, want %d", len(classified.Classes), len(inputAttrs))
 	}
-	if got := classified.classes[0]; got != attrClassXsiKnown {
-		t.Fatalf("class[0] = %d, want %d", got, attrClassXsiKnown)
+	if got := classified.Classes[0]; got != attrs.ClassXSIKnown {
+		t.Fatalf("class[0] = %d, want %d", got, attrs.ClassXSIKnown)
 	}
-	if got := classified.classes[1]; got != attrClassXsiUnknown {
-		t.Fatalf("class[1] = %d, want %d", got, attrClassXsiUnknown)
+	if got := classified.Classes[1]; got != attrs.ClassXSIUnknown {
+		t.Fatalf("class[1] = %d, want %d", got, attrs.ClassXSIUnknown)
 	}
-	if got := classified.classes[2]; got != attrClassXML {
-		t.Fatalf("class[2] = %d, want %d", got, attrClassXML)
+	if got := classified.Classes[2]; got != attrs.ClassXML {
+		t.Fatalf("class[2] = %d, want %d", got, attrs.ClassXML)
 	}
-	if got := classified.classes[3]; got != attrClassOther {
-		t.Fatalf("class[3] = %d, want %d", got, attrClassOther)
+	if got := classified.Classes[3]; got != attrs.ClassOther {
+		t.Fatalf("class[3] = %d, want %d", got, attrs.ClassOther)
 	}
-	if got := string(classified.xsiType); got != "t:Derived" {
+	if got := string(classified.XSIType); got != "t:Derived" {
 		t.Fatalf("xsiType = %q, want %q", got, "t:Derived")
 	}
-	if len(classified.xsiNil) != 0 {
-		t.Fatalf("xsiNil = %q, want empty", string(classified.xsiNil))
+	if len(classified.XSINil) != 0 {
+		t.Fatalf("xsiNil = %q, want empty", string(classified.XSINil))
 	}
 }
 
@@ -75,42 +76,42 @@ func TestClassifyAttrsDuplicateAttributeSmallAndLarge(t *testing.T) {
 	sess := NewSession(schema)
 
 	t.Run("small", func(t *testing.T) {
-		attrs := []StartAttr{
+		inputAttrs := []attrs.Start{
 			{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")},
 			{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")},
 		}
-		classified, err := sess.classifyAttrs(attrs, true)
+		classified, err := sess.classifyAttrs(inputAttrs, true)
 		if err != nil {
 			t.Fatalf("classifyAttrs: %v", err)
 		}
-		if classified.duplicateErr == nil {
+		if classified.DuplicateErr == nil {
 			t.Fatalf("expected duplicate attribute error")
 		}
-		code, ok := validationErrorInfo(classified.duplicateErr)
+		code, ok := validationErrorInfo(classified.DuplicateErr)
 		if !ok || code != xsderrors.ErrXMLParse {
 			t.Fatalf("duplicate error code = %v, want %v", code, xsderrors.ErrXMLParse)
 		}
 	})
 
 	t.Run("large", func(t *testing.T) {
-		attrs := make([]StartAttr, smallAttrDupThreshold+2)
-		for i := range attrs {
-			attrs[i] = StartAttr{
+		inputAttrs := make([]attrs.Start, attrs.SmallDuplicateThreshold+2)
+		for i := range inputAttrs {
+			inputAttrs[i] = attrs.Start{
 				NS:      ids.nsID,
 				NSBytes: []byte("urn:test"),
 				Local:   []byte{byte('a' + i)},
 			}
 		}
-		attrs[len(attrs)-1].Local = attrs[0].Local
+		inputAttrs[len(inputAttrs)-1].Local = inputAttrs[0].Local
 
-		classified, err := sess.classifyAttrs(attrs, true)
+		classified, err := sess.classifyAttrs(inputAttrs, true)
 		if err != nil {
 			t.Fatalf("classifyAttrs: %v", err)
 		}
-		if classified.duplicateErr == nil {
+		if classified.DuplicateErr == nil {
 			t.Fatalf("expected duplicate attribute error")
 		}
-		code, ok := validationErrorInfo(classified.duplicateErr)
+		code, ok := validationErrorInfo(classified.DuplicateErr)
 		if !ok || code != xsderrors.ErrXMLParse {
 			t.Fatalf("duplicate error code = %v, want %v", code, xsderrors.ErrXMLParse)
 		}
@@ -122,7 +123,7 @@ func TestClassifyAttrsDuplicateXsiTypeAndNil(t *testing.T) {
 	sess := NewSession(schema)
 
 	t.Run("xsiType", func(t *testing.T) {
-		attrs := []StartAttr{
+		inputAttrs := []attrs.Start{
 			{Sym: schema.Predef.XsiType, Value: []byte("t:Derived")},
 			{
 				NS:      schema.PredefNS.Xsi,
@@ -131,7 +132,7 @@ func TestClassifyAttrsDuplicateXsiTypeAndNil(t *testing.T) {
 				Value:   []byte("t:Derived"),
 			},
 		}
-		_, err := sess.classifyAttrs(attrs, true)
+		_, err := sess.classifyAttrs(inputAttrs, true)
 		if err == nil {
 			t.Fatalf("expected duplicate xsi:type error")
 		}
@@ -142,7 +143,7 @@ func TestClassifyAttrsDuplicateXsiTypeAndNil(t *testing.T) {
 	})
 
 	t.Run("xsiNil", func(t *testing.T) {
-		attrs := []StartAttr{
+		inputAttrs := []attrs.Start{
 			{Sym: schema.Predef.XsiNil, Value: []byte("true")},
 			{
 				NS:      schema.PredefNS.Xsi,
@@ -151,7 +152,7 @@ func TestClassifyAttrsDuplicateXsiTypeAndNil(t *testing.T) {
 				Value:   []byte("true"),
 			},
 		}
-		_, err := sess.classifyAttrs(attrs, true)
+		_, err := sess.classifyAttrs(inputAttrs, true)
 		if err == nil {
 			t.Fatalf("expected duplicate xsi:nil error")
 		}

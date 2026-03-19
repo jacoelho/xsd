@@ -16,6 +16,8 @@ const (
 	XMLNSNamespace = "http://www.w3.org/2000/xmlns/"
 	// XSINamespace is the XML Schema instance namespace URI.
 	XSINamespace = "http://www.w3.org/2001/XMLSchema-instance"
+	// XSDNamespace is the XML Schema namespace URI.
+	XSDNamespace = "http://www.w3.org/2001/XMLSchema"
 )
 
 var (

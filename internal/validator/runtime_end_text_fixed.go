@@ -20,18 +20,23 @@ func (s *Session) validateEndTextFixed(
 	}
 
 	fixed := selectTextFixedConstraint(elem, elemOK, ct, hasComplexText)
-	if !fixed.present {
+	if !fixed.Present {
 		return nil
 	}
 
-	matched, err := s.fixedValueMatches(
+	matched, err := matchFixedValue(
 		result.textValidator,
-		fixed.member,
+		fixed.Member,
 		result.canonText,
-		ValueMetrics{keyKind: result.textKeyKind, keyBytes: result.textKeyBytes},
-		resolver,
-		fixed.value,
-		fixed.key,
+		result.textKeyKind,
+		result.textKeyBytes,
+		result.textKeyKind != runtime.VKInvalid,
+		fixed.Value,
+		fixed.Key,
+		func(ref runtime.ValueRef) []byte { return valueBytes(s.rt.Values, ref) },
+		func(validator runtime.ValidatorID, canonical []byte, member runtime.ValidatorID) (runtime.ValueKind, []byte, error) {
+			return s.keyForCanonicalValue(validator, canonical, resolver, member)
+		},
 	)
 	if err != nil {
 		s.ensurePath(path)

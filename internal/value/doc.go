@@ -1,2 +1,2 @@
-// Package value parses and normalizes XSD lexical value forms.
+// Package value parses lexical forms, canonicalizes values, and derives XSD value-space keys.
 package value

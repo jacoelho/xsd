@@ -327,11 +327,11 @@ func stripDirectiveComments(text string) string {
 			return text
 		}
 		rest := text[start+len("<!--"):]
-		end := strings.Index(rest, "-->")
-		if end < 0 {
+		_, after, ok := strings.Cut(rest, "-->")
+		if !ok {
 			return text
 		}
-		text = text[:start] + " " + rest[end+len("-->"):]
+		text = text[:start] + " " + after
 	}
 }
 

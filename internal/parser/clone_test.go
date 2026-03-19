@@ -60,4 +60,46 @@ func TestCloneSchemaIsolation(t *testing.T) {
 	if clonedType.Restriction.Base.Local != "string" {
 		t.Fatalf("cloned restriction base = %s, want string", clonedType.Restriction.Base.Local)
 	}
+
+	parsed.NamespaceDecls["tns"] = "urn:mutated"
+	if cloned.NamespaceDecls["tns"] != "urn:test" {
+		t.Fatalf("cloned namespace decl = %q, want urn:test", cloned.NamespaceDecls["tns"])
+	}
+}
+
+func TestCloneSchemaForMergeCopiesMetadataAndSlices(t *testing.T) {
+	t.Parallel()
+
+	schema := NewSchema()
+	schema.Location = "schema.xsd"
+	schema.TargetNamespace = "urn:test"
+	schema.NamespaceDecls["tns"] = "urn:test"
+	schema.ImportContexts[schema.Location] = ImportContext{
+		Imports: map[model.NamespaceURI]bool{
+			"urn:dep": true,
+		},
+		TargetNamespace: schema.TargetNamespace,
+	}
+
+	head := model.QName{Namespace: schema.TargetNamespace, Local: "head"}
+	member := model.QName{Namespace: schema.TargetNamespace, Local: "member"}
+	schema.SubstitutionGroups[head] = []model.QName{member}
+
+	cloned := CloneSchemaForMerge(schema)
+
+	schema.NamespaceDecls["tns"] = "urn:changed"
+	ctx := schema.ImportContexts[schema.Location]
+	ctx.Imports["urn:other"] = true
+	schema.ImportContexts[schema.Location] = ctx
+	schema.SubstitutionGroups[head][0] = model.QName{Namespace: schema.TargetNamespace, Local: "other"}
+
+	if cloned.NamespaceDecls["tns"] != "urn:test" {
+		t.Fatalf("cloned namespace decl = %q, want urn:test", cloned.NamespaceDecls["tns"])
+	}
+	if cloned.ImportContexts[schema.Location].Imports["urn:other"] {
+		t.Fatal("cloned import context unexpectedly shared imports map")
+	}
+	if got := cloned.SubstitutionGroups[head][0]; got != member {
+		t.Fatalf("cloned substitution group member = %v, want %v", got, member)
+	}
 }

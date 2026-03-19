@@ -1,29 +1,33 @@
 package validator
 
-import "github.com/jacoelho/xsd/pkg/xmlstream"
+import (
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
+)
 
-func (s *Session) makeStartAttrs(attrs []xmlstream.ResolvedAttr) []StartAttr {
-	if len(attrs) == 0 {
+func (s *Session) makeStartAttrs(resolvedAttrs []xmlstream.ResolvedAttr) []attrs.Start {
+	if len(resolvedAttrs) == 0 {
 		return nil
 	}
-	out := s.attrBuf[:0]
-	if cap(out) < len(attrs) {
-		out = make([]StartAttr, 0, len(attrs))
+	out := s.attrState.Starts[:0]
+	if cap(out) < len(resolvedAttrs) {
+		out = make([]attrs.Start, 0, len(resolvedAttrs))
 	}
-	for _, attr := range attrs {
+	for _, attr := range resolvedAttrs {
 		entry := s.internName(attr.NameID, attr.NS, attr.Local)
 		local := attr.Local
 		nsBytes := attr.NS
 		nameCached := false
+		storedNS, storedLocal := s.Names.EntryBytes(entry)
 		if entry.LocalLen != 0 {
-			local = s.nameLocal[entry.LocalOff : entry.LocalOff+entry.LocalLen]
+			local = storedLocal
 			nameCached = true
 		}
 		if entry.NSLen != 0 {
-			nsBytes = s.nameNS[entry.NSOff : entry.NSOff+entry.NSLen]
+			nsBytes = storedNS
 			nameCached = true
 		}
-		out = append(out, StartAttr{
+		out = append(out, attrs.Start{
 			Sym:        entry.Sym,
 			NS:         entry.NS,
 			NSBytes:    nsBytes,
@@ -32,6 +36,6 @@ func (s *Session) makeStartAttrs(attrs []xmlstream.ResolvedAttr) []StartAttr {
 			Value:      attr.Value,
 		})
 	}
-	s.attrBuf = out[:0]
+	s.attrState.Starts = out[:0]
 	return out
 }

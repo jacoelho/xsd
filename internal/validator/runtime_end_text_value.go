@@ -1,6 +1,8 @@
 package validator
 
-import "github.com/jacoelho/xsd/internal/runtime"
+import (
+	"github.com/jacoelho/xsd/internal/runtime"
+)
 
 func (s *Session) resolveEndTextValue(
 	result *endTextState,
@@ -29,13 +31,13 @@ func (s *Session) resolveEndTextValue(
 		}
 	}
 
-	fallback := selectTextDefaultFixed(hasContent, elem, elemOK, ct, hasComplexText)
-	if fallback.present {
-		result.canonText = valueBytes(s.rt.Values, fallback.value)
-		result.textMember = fallback.member
-		if fallback.key.Ref.Present {
-			result.textKeyKind = fallback.key.Kind
-			result.textKeyBytes = valueBytes(s.rt.Values, fallback.key.Ref)
+	fallback := selectTextDefaultOrFixed(hasContent, elem, elemOK, ct, hasComplexText)
+	if fallback.Present {
+		result.canonText = valueBytes(s.rt.Values, fallback.Value)
+		result.textMember = fallback.Member
+		if fallback.Key.Ref.Present {
+			result.textKeyKind = fallback.Key.Kind
+			result.textKeyBytes = valueBytes(s.rt.Values, fallback.Key.Ref)
 		}
 		trackDefault(result.canonText, result.textMember)
 		return errs
@@ -53,7 +55,6 @@ func (s *Session) resolveEndTextValue(
 	}
 
 	result.canonText = canon
-	result.textKeyKind = metrics.keyKind
-	result.textKeyBytes = metrics.keyBytes
+	result.textKeyKind, result.textKeyBytes, _ = metrics.Result.Key()
 	return errs
 }

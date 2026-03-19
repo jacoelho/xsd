@@ -12,8 +12,12 @@ import (
 // to ensure it correctly collects elements from base types recursively.
 func TestCollectElementDeclarationsFromType(t *testing.T) {
 	schema := &parser.Schema{
-		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[model.QName]model.Type),
+		SchemaGraph: parser.SchemaGraph{
+			TypeDefs: make(map[model.QName]model.Type),
+		},
+		SchemaMeta: parser.SchemaMeta{
+			TargetNamespace: "http://example.com",
+		},
 	}
 
 	// base type with one element

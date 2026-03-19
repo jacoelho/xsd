@@ -9,13 +9,7 @@ func (s *Session) Reset() {
 	s.Scratch.Reset()
 	s.icState.arena = &s.Arena
 	s.elemStack = s.elemStack[:0]
-	s.nsStack.Reset()
-	s.nsDecls = s.nsDecls[:0]
-	s.prefixCache = s.prefixCache[:0]
-	s.nameMap = s.nameMap[:0]
-	s.nameMapSparse = nil
-	s.nameLocal = s.nameLocal[:0]
-	s.nameNS = s.nameNS[:0]
+	s.Names.Reset()
 	s.textBuf = s.textBuf[:0]
 	s.keyBuf = s.keyBuf[:0]
 	s.keyTmp = s.keyTmp[:0]
@@ -27,12 +21,11 @@ func (s *Session) Reset() {
 	s.valueBuf = s.valueBuf[:0]
 	s.valueScratch = s.valueScratch[:0]
 	s.AttributeTracker.Reset()
-	s.icState.reset()
+	s.icState.Reset()
 	s.documentURI = ""
 	s.resetIDTable()
 	s.idRefs = s.idRefs[:0]
-	s.resetIdentityAttrBuckets()
-	s.identityAttrNames = s.identityAttrNames[:0]
+	s.identityAttrs.Reset(maxSessionEntries)
 	s.shrinkBuffers()
 }
 
@@ -45,15 +38,4 @@ func (s *Session) resetIDTable() {
 		return
 	}
 	clear(s.idTable)
-}
-
-func (s *Session) resetIdentityAttrBuckets() {
-	if s == nil || s.identityAttrBuckets == nil {
-		return
-	}
-	if len(s.identityAttrBuckets) > maxSessionEntries {
-		s.identityAttrBuckets = nil
-		return
-	}
-	clear(s.identityAttrBuckets)
 }

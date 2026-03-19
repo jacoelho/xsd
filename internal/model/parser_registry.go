@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -34,7 +33,7 @@ var valueParsers = map[TypeName]ValueParserFunc{
 	TypeNameDateTime:      parserFor(ParseDateTime, NewDateTimeValue),
 	TypeNameTime:          parserFor(func(lexical string) (time.Time, error) { return value.ParseTime([]byte(lexical)) }, NewDateTimeValue),
 	TypeNameDate:          parserFor(func(lexical string) (time.Time, error) { return value.ParseDate([]byte(lexical)) }, NewDateTimeValue),
-	TypeNameDuration:      parserFor(durationlex.Parse, NewXSDDurationValue),
+	TypeNameDuration:      parserFor(value.ParseDuration, NewXSDDurationValue),
 	TypeNameGYear:         parserFor(func(lexical string) (time.Time, error) { return value.ParseGYear([]byte(lexical)) }, NewDateTimeValue),
 	TypeNameGYearMonth:    parserFor(func(lexical string) (time.Time, error) { return value.ParseGYearMonth([]byte(lexical)) }, NewDateTimeValue),
 	TypeNameGMonth:        parserFor(func(lexical string) (time.Time, error) { return value.ParseGMonth([]byte(lexical)) }, NewDateTimeValue),

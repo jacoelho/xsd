@@ -1,31 +1,34 @@
 package preprocessor
 
-import "github.com/jacoelho/xsd/internal/parser"
+import (
+	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/preprocessor/merge"
+)
 
-func (l *Loader) applyPendingInclude(directive pendingDirective, source *parser.Schema, target *stagedPendingTarget) error {
-	includingNS := directive.targetKey.etn
+func (l *Loader) applyPendingInclude(directive Directive[loadKey], source *parser.Schema, target *stagedPendingTarget) error {
+	includingNS := directive.TargetKey.etn
 	includeInfo := parser.IncludeInfo{
-		SchemaLocation: directive.schemaLocation,
-		DeclIndex:      directive.includeDeclIndex,
-		IncludeIndex:   directive.includeIndex,
+		SchemaLocation: directive.SchemaLocation,
+		DeclIndex:      directive.IncludeDeclIndex,
+		IncludeIndex:   directive.IncludeIndex,
 	}
-	plan, err := l.planIncludeMerge(includingNS, target.entry, target.schema, includeInfo, directive.schemaLocation, source)
+	plan, err := merge.PlanInclude(includingNS, target.includeInserted, target.schema, includeInfo, directive.SchemaLocation, source)
 	if err != nil {
 		return err
 	}
-	inserted, err := l.applyDirectiveMerge(target.schema, source, plan, "included", directive.schemaLocation)
+	inserted, err := merge.ApplyPlanned(target.schema, source, plan, "included", directive.SchemaLocation)
 	if err != nil {
 		return err
 	}
-	return recordIncludeInserted(target.entry, directive.includeIndex, inserted)
+	return merge.RecordIncludeInserted(target.includeInserted, directive.IncludeIndex, inserted)
 }
 
-func (l *Loader) applyPendingImport(directive pendingDirective, source *parser.Schema, target *stagedPendingTarget) error {
-	plan, err := l.planImportMerge(directive.schemaLocation, directive.expectedNamespace, source, len(target.schema.GlobalDecls))
+func (l *Loader) applyPendingImport(directive Directive[loadKey], source *parser.Schema, target *stagedPendingTarget) error {
+	plan, err := merge.PlanImport(directive.SchemaLocation, directive.ExpectedNamespace, source, len(target.schema.GlobalDecls))
 	if err != nil {
 		return err
 	}
-	if _, err := l.applyDirectiveMerge(target.schema, source, plan, "imported", directive.schemaLocation); err != nil {
+	if _, err := merge.ApplyPlanned(target.schema, source, plan, "imported", directive.SchemaLocation); err != nil {
 		return err
 	}
 	return nil
@@ -39,14 +42,14 @@ func (l *Loader) commitStagedTargets(staged map[loadKey]*stagedPendingTarget) er
 		}
 		*target = *stagedTarget.schema
 		if entry, ok := l.state.entry(key); ok && entry != nil {
-			entry.includeInserted = stagedTarget.entry.includeInserted
+			entry.includeInserted = stagedTarget.includeInserted
 		}
 	}
 	return nil
 }
 
-func (l *Loader) markPendingMerged(sourceKey loadKey, pendingDirectives []pendingDirective) {
+func (l *Loader) markPendingMerged(sourceKey loadKey, pendingDirectives []Directive[loadKey]) {
 	for _, directive := range pendingDirectives {
-		l.imports.markMerged(directive.kind, directive.targetKey, sourceKey)
+		l.imports.MarkMerged(directive.Kind, directive.TargetKey, sourceKey)
 	}
 }

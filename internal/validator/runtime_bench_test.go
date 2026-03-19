@@ -7,6 +7,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+	"github.com/jacoelho/xsd/internal/validator/diag"
+	"github.com/jacoelho/xsd/internal/validator/valruntime"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -94,7 +97,7 @@ func Benchmark_UnionValidation_Overlap(b *testing.B) {
 	}
 	validator := rt.Types[typeID].Validator
 	input := []byte("12.5")
-	opts := valueOptions{applyWhitespace: true}
+	opts := valruntime.Options{ApplyWhitespace: true}
 
 	b.ReportAllocs()
 	for b.Loop() {
@@ -108,7 +111,7 @@ func Benchmark_ListValidation_DoubleCollapsed(b *testing.B) {
 	rt, validator := benchmarkCollapsedDoubleListRuntime()
 	sess := NewSession(rt)
 	input := benchmarkCollapsedDoubleList(4096)
-	opts := valueOptions{applyWhitespace: true}
+	opts := valruntime.Options{ApplyWhitespace: true}
 
 	b.ReportAllocs()
 	b.SetBytes(int64(len(input)))
@@ -143,7 +146,7 @@ func Benchmark_ValidateCollapsedFloatList_SpecialLiterals(b *testing.B) {
 	b.ReportAllocs()
 	b.SetBytes(int64(len(input)))
 	for b.Loop() {
-		if err := validateCollapsedFloatList(input, runtime.VDouble); err != nil {
+		if err := valruntime.ValidateCollapsedFloatList(input, runtime.VDouble); err != nil {
 			b.Fatalf("validateCollapsedFloatList special literals: %v", err)
 		}
 	}
@@ -155,7 +158,7 @@ func Benchmark_ValidateCollapsedFloatList_InvalidToken(b *testing.B) {
 	b.ReportAllocs()
 	b.SetBytes(int64(len(input)))
 	for b.Loop() {
-		if err := validateCollapsedFloatList(input, runtime.VDouble); err == nil {
+		if err := valruntime.ValidateCollapsedFloatList(input, runtime.VDouble); err == nil {
 			b.Fatal("validateCollapsedFloatList invalid token: expected error")
 		}
 	}
@@ -196,12 +199,15 @@ func Benchmark_EnumLookup_TypedKeys(b *testing.B) {
 	if enumID == 0 {
 		b.Fatalf("enum facet missing")
 	}
-	_, metrics, err := sess.validateValueInternalWithMetrics(validator, []byte("one"), nil, valueOptions{applyWhitespace: true})
+	_, metrics, err := sess.validateValueInternalWithMetrics(validator, []byte("one"), nil, valruntime.Options{ApplyWhitespace: true})
 	if err != nil {
 		b.Fatalf("enum validate: %v", err)
 	}
-	key := slices.Clone(metrics.keyBytes)
-	kind := metrics.keyKind
+	kind, key, ok := metrics.Result.Key()
+	if !ok {
+		b.Fatal("enum key missing")
+	}
+	key = slices.Clone(key)
 
 	b.ReportAllocs()
 	for b.Loop() {
@@ -220,9 +226,9 @@ func Benchmark_IdentityAttrSelection_AttrHeavy(b *testing.B) {
 	})
 	configureRootUniqueAttrConstraint(schema, fx.elemRoot, fx.pathChild, pathAttrNSAny)
 
-	attrs := make([]StartAttr, 0, 65)
+	inputAttrs := make([]attrs.Start, 0, 65)
 	for i := range 64 {
-		attrs = append(attrs, StartAttr{
+		inputAttrs = append(inputAttrs, attrs.Start{
 			NSBytes:  []byte("urn:other"),
 			Local:    []byte("attr" + strconv.Itoa(i)),
 			Value:    []byte("x"),
@@ -230,7 +236,7 @@ func Benchmark_IdentityAttrSelection_AttrHeavy(b *testing.B) {
 			KeyBytes: []byte("x"),
 		})
 	}
-	attrs = append(attrs, StartAttr{
+	inputAttrs = append(inputAttrs, attrs.Start{
 		NS:       fx.empty,
 		NSBytes:  nil,
 		Local:    []byte("id"),
@@ -248,7 +254,7 @@ func Benchmark_IdentityAttrSelection_AttrHeavy(b *testing.B) {
 			b.Fatalf("identityStart root: %v", err)
 		}
 		if err := sess.identityStart(identityStartInput{
-			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: attrs,
+			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: inputAttrs,
 		}); err != nil {
 			b.Fatalf("identityStart item: %v", err)
 		}
@@ -258,7 +264,7 @@ func Benchmark_IdentityAttrSelection_AttrHeavy(b *testing.B) {
 		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 			b.Fatalf("identityEnd root: %v", err)
 		}
-		if pending := sess.icState.drainCommitted(); len(pending) != 0 {
+		if pending := diag.AppendIssues(nil, sess.icState.DrainCommitted()); len(pending) != 0 {
 			b.Fatalf("identity violations: %v", pending[0])
 		}
 	}
@@ -308,9 +314,9 @@ func benchmarkCollapsedDoubleList(items int) []byte {
 func Benchmark_IdentityStart_NoConstraints_AttrHeavy(b *testing.B) {
 	fx := buildIdentityFixture(b)
 
-	attrs := make([]StartAttr, 0, 64)
+	inputAttrs := make([]attrs.Start, 0, 64)
 	for i := range 64 {
-		attrs = append(attrs, StartAttr{
+		inputAttrs = append(inputAttrs, attrs.Start{
 			NSBytes: []byte("urn:other"),
 			Local:   []byte("attr" + strconv.Itoa(i)),
 			Value:   []byte("x"),
@@ -321,7 +327,7 @@ func Benchmark_IdentityStart_NoConstraints_AttrHeavy(b *testing.B) {
 	run := func() {
 		sess.Reset()
 		if err := sess.identityStart(identityStartInput{
-			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: attrs,
+			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: inputAttrs,
 		}); err != nil {
 			b.Fatalf("identityStart item: %v", err)
 		}
