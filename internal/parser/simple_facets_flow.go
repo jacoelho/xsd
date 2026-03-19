@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -22,7 +23,7 @@ func parseFacetsWithPolicy(doc *xmltree.Document, restrictionElem xmltree.NodeID
 	}
 
 	for _, child := range doc.Children(restrictionElem) {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			continue
 		}
 

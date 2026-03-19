@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/compiler/lower"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validatorgen"
 )
 
 func resolveSchema(schemaXML string) (*parser.Schema, error) {
@@ -44,11 +44,11 @@ func buildSchemaForTest(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, e
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: resolve references: %w", err)
 	}
-	complexTypes, err := validatorgen.BuildComplexTypePlan(resolvedSchema, registry)
+	complexTypes, err := lower.BuildComplexTypePlan(resolvedSchema, registry)
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: complex type plan: %w", err)
 	}
-	validators, err := validatorgen.CompileWithComplexTypePlan(resolvedSchema, registry, complexTypes)
+	validators, err := lower.CompileWithComplexTypePlan(resolvedSchema, registry, complexTypes)
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: compile validators: %w", err)
 	}

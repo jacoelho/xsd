@@ -5,6 +5,7 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
 )
 
 func TestValidateAttributesNilSession(t *testing.T) {
@@ -33,8 +34,8 @@ func TestValidateAttributesProhibited(t *testing.T) {
 	schema, ids := buildAttrFixture(t)
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{Sym: ids.attrSymProhibited, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("prohib")}}
-	_, err := sess.ValidateAttributes(ids.typeBase, attrs, nil)
+	inputAttrs := []attrs.Start{{Sym: ids.attrSymProhibited, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("prohib")}}
+	_, err := sess.ValidateAttributes(ids.typeBase, inputAttrs, nil)
 	if err == nil {
 		t.Fatalf("expected prohibited attribute error")
 	}
@@ -67,7 +68,7 @@ func TestValidateAttributesAllowsXMLNamespace(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
-	xmlAttrs := []StartAttr{{Sym: schema.Predef.XMLLang, NS: schema.PredefNS.XML, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
+	xmlAttrs := []attrs.Start{{Sym: schema.Predef.XMLLang, NS: schema.PredefNS.XML, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
 	_, err := sess.ValidateAttributes(ids.typeBase, xmlAttrs, nil)
 	if err != nil {
 		t.Fatalf("expected xml attribute to be allowed, got %v", err)
@@ -78,19 +79,19 @@ func TestValidateAttributesSimpleTypeXsiOnly(t *testing.T) {
 	schema, ids := buildAttrFixture(t)
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
-	_, err := sess.ValidateAttributes(ids.typeSimple, attrs, nil)
+	inputAttrs := []attrs.Start{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
+	_, err := sess.ValidateAttributes(ids.typeSimple, inputAttrs, nil)
 	if err == nil {
 		t.Fatalf("expected simple type attribute error")
 	}
 
-	xsiAttrs := []StartAttr{{Sym: schema.Predef.XsiType, NS: schema.PredefNS.Xsi, NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"), Local: []byte("type")}}
+	xsiAttrs := []attrs.Start{{Sym: schema.Predef.XsiType, NS: schema.PredefNS.Xsi, NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"), Local: []byte("type")}}
 	_, err = sess.ValidateAttributes(ids.typeSimple, xsiAttrs, nil)
 	if err != nil {
 		t.Fatalf("expected xsi attribute to be allowed")
 	}
 
-	xmlAttrs := []StartAttr{{Sym: schema.Predef.XMLLang, NS: schema.PredefNS.XML, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
+	xmlAttrs := []attrs.Start{{Sym: schema.Predef.XMLLang, NS: schema.PredefNS.XML, NSBytes: []byte("http://www.w3.org/XML/1998/namespace"), Local: []byte("lang")}}
 	_, err = sess.ValidateAttributes(ids.typeSimple, xmlAttrs, nil)
 	if err != nil {
 		t.Fatalf("expected xml attribute to be allowed")
@@ -101,7 +102,7 @@ func TestValidateAttributesRejectsUnknownXsiAttribute(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
-	unknown := []StartAttr{{
+	unknown := []attrs.Start{{
 		NS:      schema.PredefNS.Xsi,
 		NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
 		Local:   []byte("unknown"),
@@ -114,7 +115,7 @@ func TestValidateAttributesRejectsUnknownXsiAttribute(t *testing.T) {
 		t.Fatalf("expected unknown xsi attribute error for simple type")
 	}
 
-	known := []StartAttr{{
+	known := []attrs.Start{{
 		NS:      schema.PredefNS.Xsi,
 		NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
 		Local:   []byte("nil"),
@@ -134,8 +135,8 @@ func TestValidateAttributesWildcardStrictUnresolved(t *testing.T) {
 	}
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{Sym: 0, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("unknown")}}
-	_, err := sess.ValidateAttributes(ids.typeBase, attrs, nil)
+	inputAttrs := []attrs.Start{{Sym: 0, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("unknown")}}
+	_, err := sess.ValidateAttributes(ids.typeBase, inputAttrs, nil)
 	if err == nil {
 		t.Fatalf("expected strict wildcard error")
 	}
@@ -150,8 +151,8 @@ func TestValidateAttributesWildcardLaxSkip(t *testing.T) {
 	}
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{Sym: 0, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("unknown")}}
-	_, err := sess.ValidateAttributes(ids.typeBase, attrs, nil)
+	inputAttrs := []attrs.Start{{Sym: 0, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("unknown")}}
+	_, err := sess.ValidateAttributes(ids.typeBase, inputAttrs, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -166,8 +167,8 @@ func TestValidateAttributesWildcardResolvesGlobal(t *testing.T) {
 	}
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{Sym: ids.attrSymGlobal, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("global")}}
-	_, err := sess.ValidateAttributes(ids.typeBase, attrs, nil)
+	inputAttrs := []attrs.Start{{Sym: ids.attrSymGlobal, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("global")}}
+	_, err := sess.ValidateAttributes(ids.typeBase, inputAttrs, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -177,8 +178,8 @@ func TestValidateAttributesDuplicate(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}, {Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
-	_, err := sess.ValidateAttributes(ids.typeBase, attrs, nil)
+	inputAttrs := []attrs.Start{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}, {Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
+	_, err := sess.ValidateAttributes(ids.typeBase, inputAttrs, nil)
 	if err == nil {
 		t.Fatalf("expected duplicate attribute error")
 	}
@@ -191,14 +192,14 @@ func TestValidateAttributesCopiesUncachedNamesWhenStored(t *testing.T) {
 
 	nsBuf := []byte("urn:test")
 	localBuf := []byte("default")
-	attrs := []StartAttr{{
+	inputAttrs := []attrs.Start{{
 		Sym:        ids.attrSymDefault,
 		NS:         ids.nsID,
 		NSBytes:    nsBuf,
 		Local:      localBuf,
 		NameCached: false,
 	}}
-	result, err := sess.ValidateAttributes(ids.typeBase, attrs, nil)
+	result, err := sess.ValidateAttributes(ids.typeBase, inputAttrs, nil)
 	if err != nil {
 		t.Fatalf("ValidateAttributes: %v", err)
 	}

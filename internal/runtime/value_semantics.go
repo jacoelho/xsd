@@ -2,24 +2,23 @@ package runtime
 
 import (
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 // TemporalSpec defines temporal parse and key-tag metadata for validator kinds.
 type TemporalSpec struct {
-	Kind   temporal.Kind
+	Kind   value.Kind
 	KeyTag byte
 }
 
 var temporalSpecs = [...]TemporalSpec{
-	VDateTime:   {Kind: temporal.KindDateTime, KeyTag: 0},
-	VTime:       {Kind: temporal.KindTime, KeyTag: 2},
-	VDate:       {Kind: temporal.KindDate, KeyTag: 1},
-	VGYearMonth: {Kind: temporal.KindGYearMonth, KeyTag: 3},
-	VGYear:      {Kind: temporal.KindGYear, KeyTag: 4},
-	VGMonthDay:  {Kind: temporal.KindGMonthDay, KeyTag: 5},
-	VGDay:       {Kind: temporal.KindGDay, KeyTag: 6},
-	VGMonth:     {Kind: temporal.KindGMonth, KeyTag: 7},
+	VDateTime:   {Kind: value.KindDateTime, KeyTag: 0},
+	VTime:       {Kind: value.KindTime, KeyTag: 2},
+	VDate:       {Kind: value.KindDate, KeyTag: 1},
+	VGYearMonth: {Kind: value.KindGYearMonth, KeyTag: 3},
+	VGYear:      {Kind: value.KindGYear, KeyTag: 4},
+	VGMonthDay:  {Kind: value.KindGMonthDay, KeyTag: 5},
+	VGDay:       {Kind: value.KindGDay, KeyTag: 6},
+	VGMonth:     {Kind: value.KindGMonth, KeyTag: 7},
 }
 
 // TemporalSpecForValidatorKind returns temporal metadata for a runtime validator kind.
@@ -28,7 +27,7 @@ func TemporalSpecForValidatorKind(kind ValidatorKind) (TemporalSpec, bool) {
 		return TemporalSpec{}, false
 	}
 	spec := temporalSpecs[kind]
-	if spec.Kind == temporal.KindInvalid {
+	if spec.Kind == value.KindInvalid {
 		return TemporalSpec{}, false
 	}
 	return spec, true

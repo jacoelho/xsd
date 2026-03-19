@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -25,7 +26,7 @@ func parseAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, 
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
-		if attr.NamespaceURI() == xmltree.XSDNamespace {
+		if attr.NamespaceURI() == xmlnames.XSDNamespace {
 			return nil, fmt.Errorf("attribute: attribute '%s' must be unprefixed", attr.LocalName())
 		}
 		if attr.NamespaceURI() == "" && !attributeDeclarationProfile.allows(attr.LocalName()) {

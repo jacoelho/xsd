@@ -1,0 +1,75 @@
+package xsd
+
+import (
+	"fmt"
+	"io/fs"
+
+	"github.com/jacoelho/xsd/internal/compiler"
+)
+
+// PreparedSchema stores prepared schema artifacts that can be built repeatedly.
+type PreparedSchema struct {
+	prepared *compiler.Prepared
+}
+
+// SourceSet owns schema sources and prepares/builds them through explicit phases.
+type SourceSet struct {
+	entries    []sourceEntry
+	sourceOpts SourceOptions
+}
+
+// NewSourceSet creates an empty source set.
+func NewSourceSet() *SourceSet {
+	return &SourceSet{sourceOpts: NewSourceOptions()}
+}
+
+// WithSourceOptions replaces source-set options.
+func (s *SourceSet) WithSourceOptions(opts SourceOptions) *SourceSet {
+	if s == nil {
+		return nil
+	}
+	s.sourceOpts = opts
+	return s
+}
+
+// AddFS adds one schema root location from fsys.
+func (s *SourceSet) AddFS(fsys fs.FS, location string) error {
+	if s == nil {
+		return fmt.Errorf("source set: nil set")
+	}
+	entry, err := newSourceEntry(fsys, location)
+	if err != nil {
+		return err
+	}
+	s.entries = append(s.entries, entry)
+	return nil
+}
+
+// Prepare loads and resolves all added schema roots into reusable prepared artifacts.
+func (s *SourceSet) Prepare() (*PreparedSchema, error) {
+	if s == nil {
+		return nil, fmt.Errorf("prepare source set: nil set")
+	}
+	return preparePreparedSchema(s.entries, s.sourceOpts)
+}
+
+// Build compiles all added schema roots into an immutable runtime schema.
+func (s *SourceSet) Build(opts BuildOptions) (*Schema, error) {
+	prepared, err := s.Prepare()
+	if err != nil {
+		return nil, err
+	}
+	schema, err := prepared.Build(opts)
+	if err != nil {
+		return nil, fmt.Errorf("build source set: %w", err)
+	}
+	return schema, nil
+}
+
+// Build compiles prepared schema artifacts into an immutable runtime schema.
+func (p *PreparedSchema) Build(opts BuildOptions) (*Schema, error) {
+	if p == nil {
+		return nil, fmt.Errorf("build prepared schema: nil prepared schema")
+	}
+	return buildSchema(p.prepared, opts, defaultResolvedValidateOptions())
+}

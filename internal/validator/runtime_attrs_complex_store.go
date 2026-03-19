@@ -1,25 +1,14 @@
 package validator
 
-import "github.com/jacoelho/xsd/internal/runtime"
+import (
+	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+)
 
-func (s *Session) appendRawValidatedAttr(validated []StartAttr, attr StartAttr, storeAttrs bool) []StartAttr {
-	if !storeAttrs {
-		return validated
-	}
-	s.ensureAttrNameStable(&attr)
-	attr.Value = s.storeValue(attr.Value)
-	attr.KeyKind = runtime.VKInvalid
-	attr.KeyBytes = nil
-	return append(validated, attr)
+func (s *Session) appendRawValidatedAttr(validated []attrs.Start, attr attrs.Start, storeAttrs bool) []attrs.Start {
+	return attrs.StoreRaw(validated, attr, storeAttrs, s.ensureAttrNameStable, s.storeValue)
 }
 
-func (s *Session) appendValidatedAttr(validated []StartAttr, attr StartAttr, storeAttrs bool, canonical []byte, keyKind runtime.ValueKind, keyBytes []byte) []StartAttr {
-	if !storeAttrs {
-		return validated
-	}
-	s.ensureAttrNameStable(&attr)
-	attr.Value = canonical
-	attr.KeyKind = keyKind
-	attr.KeyBytes = keyBytes
-	return append(validated, attr)
+func (s *Session) appendValidatedAttr(validated []attrs.Start, attr attrs.Start, storeAttrs bool, canonical []byte, keyKind runtime.ValueKind, keyBytes []byte) []attrs.Start {
+	return attrs.StoreCanonical(validated, attr, storeAttrs, s.ensureAttrNameStable, canonical, keyKind, keyBytes)
 }

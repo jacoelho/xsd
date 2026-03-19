@@ -1,6 +1,9 @@
 package parser
 
-import "github.com/jacoelho/xsd/internal/xmltree"
+import (
+	"github.com/jacoelho/xsd/internal/xmlnames"
+	"github.com/jacoelho/xsd/internal/xmltree"
+)
 
 type elementAttrScan struct {
 	defaultVal       string
@@ -37,7 +40,7 @@ func scanElementAttributes(doc *xmltree.Document, elem xmltree.NodeID) elementAt
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
-		if attr.NamespaceURI() == xmltree.XSDNamespace {
+		if attr.NamespaceURI() == xmlnames.XSDNamespace {
 			if attrs.invalidRefAttr == "" {
 				attrs.invalidRefAttr = attr.LocalName()
 			}

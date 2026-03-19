@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -46,7 +47,7 @@ func applyElementBlockDerivation(schema *Schema, decl *model.ElementDecl, hasBlo
 
 func appendElementIdentityConstraints(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, decl *model.ElementDecl) error {
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			continue
 		}
 

@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/durationconv"
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // Apply validates value against all facets in declaration order.
-func Apply(value model.TypedValue, facets []model.Facet, baseType model.Type) error {
+func Apply(typed model.TypedValue, facets []model.Facet, baseType model.Type) error {
 	for _, facet := range facets {
-		if err := facet.Validate(value, baseType); err != nil {
+		if err := facet.Validate(typed, baseType); err != nil {
 			return err
 		}
 	}
@@ -22,7 +22,7 @@ func Apply(value model.TypedValue, facets []model.Facet, baseType model.Type) er
 }
 
 // Validate validates a lexical value against the provided facets and base type.
-func Validate(value string, baseType model.Type, facets []model.Facet, context map[string]string) error {
+func Validate(lexical string, baseType model.Type, facets []model.Facet, context map[string]string) error {
 	if len(facets) == 0 {
 		return nil
 	}
@@ -38,7 +38,7 @@ func Validate(value string, baseType model.Type, facets []model.Facet, context m
 
 		if isQNameOrNotation && !isListType {
 			if enumFacet, ok := facet.(*model.Enumeration); ok {
-				if err := enumFacet.ValidateLexicalQName(value, baseType, context); err != nil {
+				if err := enumFacet.ValidateLexicalQName(lexical, baseType, context); err != nil {
 					return err
 				}
 				continue
@@ -46,14 +46,14 @@ func Validate(value string, baseType model.Type, facets []model.Facet, context m
 		}
 
 		if lexicalFacet, ok := facet.(model.LexicalValidator); ok {
-			if err := lexicalFacet.ValidateLexical(value, baseType); err != nil {
+			if err := lexicalFacet.ValidateLexical(lexical, baseType); err != nil {
 				return fmt.Errorf("facet '%s' violation: %w", facet.Name(), err)
 			}
 			continue
 		}
 
 		if typed == nil {
-			typed = TypedValueForFacet(value, baseType)
+			typed = TypedValueForFacet(lexical, baseType)
 		}
 		if err := facet.Validate(typed, baseType); err != nil {
 			return fmt.Errorf("facet '%s' violation: %w", facet.Name(), err)
@@ -69,18 +69,18 @@ func ValuesEqual(left, right model.TypedValue) bool {
 }
 
 // TypedValueForFacet creates a typed value used during facet validation.
-func TypedValueForFacet(value string, typ model.Type) model.TypedValue {
+func TypedValueForFacet(lexical string, typ model.Type) model.TypedValue {
 	switch t := typ.(type) {
 	case *model.SimpleType:
-		if parsed, err := t.ParseValue(value); err == nil {
+		if parsed, err := t.ParseValue(lexical); err == nil {
 			return parsed
 		}
 	case *model.BuiltinType:
-		if parsed, err := t.ParseValue(value); err == nil {
+		if parsed, err := t.ParseValue(lexical); err == nil {
 			return parsed
 		}
 	}
-	return &model.StringTypedValue{Value: value, Typ: typ}
+	return &model.StringTypedValue{Value: lexical, Typ: typ}
 }
 
 // IsLengthFacet reports whether facet is one of length, minLength, or maxLength.
@@ -137,17 +137,17 @@ func FormatEnumerationValues(values []string) string {
 
 // ParseDurationToTimeDuration parses an XSD duration into time.Duration.
 func ParseDurationToTimeDuration(text string) (time.Duration, error) {
-	dur, err := durationconv.ParseToStdDuration(text)
+	dur, err := value.ParseToStdDuration(text)
 	if err != nil {
 		switch {
-		case errors.Is(err, durationconv.ErrIndeterminate):
+		case errors.Is(err, value.ErrIndeterminate):
 			return 0, fmt.Errorf("durations with years or months cannot be converted to time.Duration (indeterminate)")
-		case errors.Is(err, durationconv.ErrOverflow):
+		case errors.Is(err, value.ErrOverflow):
 			if strings.Contains(err.Error(), "second value too large") {
 				return 0, fmt.Errorf("second value too large")
 			}
 			return 0, fmt.Errorf("duration too large")
-		case errors.Is(err, durationconv.ErrComponentRange):
+		case errors.Is(err, value.ErrComponentRange):
 			return 0, fmt.Errorf("duration component out of range")
 		default:
 			return 0, err

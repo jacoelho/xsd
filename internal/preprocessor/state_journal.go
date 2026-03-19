@@ -1,78 +1,25 @@
 package preprocessor
 
-import "github.com/jacoelho/xsd/internal/parser"
-
-type stateJournalOpKind uint8
-
-const (
-	stateJournalOpUnmarkMerged stateJournalOpKind = iota
-	stateJournalOpRemovePendingDirective
-	stateJournalOpDecPendingCount
+import (
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
-type stateJournalOp struct {
-	sourceKey     loadKey
-	targetKey     loadKey
-	kind          stateJournalOpKind
-	directiveKind parser.DirectiveKind
-}
-
-type stateJournal struct {
-	ops []stateJournalOp
-}
-
-func (j *stateJournal) append(other *stateJournal) {
-	if j == nil || other == nil || len(other.ops) == 0 {
-		return
-	}
-	j.ops = append(j.ops, other.ops...)
-}
-
-func (j *stateJournal) recordMarkMerged(kind parser.DirectiveKind, baseKey, targetKey loadKey) {
-	j.ops = append(j.ops, stateJournalOp{
-		kind:          stateJournalOpUnmarkMerged,
-		directiveKind: kind,
-		sourceKey:     baseKey,
-		targetKey:     targetKey,
-	})
-}
-
-func (j *stateJournal) recordAppendPendingDirective(kind parser.DirectiveKind, sourceKey, targetKey loadKey) {
-	j.ops = append(j.ops, stateJournalOp{
-		kind:          stateJournalOpRemovePendingDirective,
-		directiveKind: kind,
-		sourceKey:     sourceKey,
-		targetKey:     targetKey,
-	})
-}
-
-func (j *stateJournal) recordIncPendingCount(targetKey loadKey) {
-	j.ops = append(j.ops, stateJournalOp{
-		kind:      stateJournalOpDecPendingCount,
-		sourceKey: targetKey,
-	})
-}
-
-func (j *stateJournal) rollback(loader *Loader) {
-	if loader == nil {
-		return
-	}
-	for i := len(j.ops) - 1; i >= 0; i-- {
-		op := j.ops[i]
-		switch op.kind {
-		case stateJournalOpUnmarkMerged:
-			loader.imports.unmarkMerged(op.directiveKind, op.sourceKey, op.targetKey)
-		case stateJournalOpRemovePendingDirective:
-			if entry, ok := loader.state.entry(op.sourceKey); ok && entry != nil {
-				entry.pendingDirectives = removePendingDirective(entry.pendingDirectives, op.directiveKind, op.targetKey)
+func (l *Loader) stateRollbackCallbacks() RollbackCallbacks[loadKey] {
+	return RollbackCallbacks[loadKey]{
+		UnmarkMerged: func(kind parser.DirectiveKind, baseKey, targetKey loadKey) {
+			l.imports.UnmarkMerged(kind, baseKey, targetKey)
+		},
+		RemovePendingDirective: func(kind parser.DirectiveKind, sourceKey, targetKey loadKey) {
+			if entry, ok := l.state.entry(sourceKey); ok && entry != nil {
+				entry.pending.Remove(kind, targetKey)
 			}
-			loader.cleanupEntryIfUnused(op.sourceKey)
-		case stateJournalOpDecPendingCount:
-			if entry, ok := loader.state.entry(op.sourceKey); ok && entry != nil {
-				_ = decPendingCount(entry, op.sourceKey)
+		},
+		DecPendingCount: func(targetKey loadKey) {
+			if entry, ok := l.state.entry(targetKey); ok && entry != nil {
+				_ = entry.pending.Decrement(targetKey.systemID)
 			}
-			loader.cleanupEntryIfUnused(op.sourceKey)
-		}
+		},
+		CleanupKey: l.cleanupEntryIfUnused,
 	}
 }
 
@@ -81,15 +28,15 @@ func rollbackSourcePending(loader *Loader, sourceKey loadKey) {
 		return
 	}
 	entry, ok := loader.state.entry(sourceKey)
-	if !ok || entry == nil || len(entry.pendingDirectives) == 0 {
+	if !ok || entry == nil || len(entry.pending.Directives) == 0 {
 		return
 	}
-	for _, pending := range entry.pendingDirectives {
-		if target, ok := loader.state.entry(pending.targetKey); ok && target != nil {
-			_ = decPendingCount(target, pending.targetKey)
+	for _, directive := range entry.pending.Directives {
+		if target, ok := loader.state.entry(directive.TargetKey); ok && target != nil {
+			_ = target.pending.Decrement(directive.TargetKey.systemID)
 		}
-		loader.cleanupEntryIfUnused(pending.targetKey)
+		loader.cleanupEntryIfUnused(directive.TargetKey)
 	}
-	clearPendingDirectives(entry)
+	entry.pending.Clear()
 	loader.cleanupEntryIfUnused(sourceKey)
 }

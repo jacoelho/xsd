@@ -1,13 +1,21 @@
 package validator
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+)
 
 func TestValidateSimpleTypeAttrsRejectsNonXsi(t *testing.T) {
 	schema, ids := buildAttrFixture(t)
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
-	_, err := sess.validateSimpleTypeAttrs(attrs, false)
+	startAttrs := []attrs.Start{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
+	classified, err := sess.classifyAttrs(startAttrs, false)
+	if err != nil {
+		t.Fatalf("classifyAttrs: %v", err)
+	}
+	_, err = sess.validateSimpleTypeAttrsClassified(startAttrs, classified.Classes, false)
 	if err == nil {
 		t.Fatalf("expected non-xsi attribute error")
 	}
@@ -18,11 +26,23 @@ func TestValidateComplexAttrsMarksPresent(t *testing.T) {
 	sess := NewSession(schema)
 
 	ct := &schema.ComplexTypes[1]
-	uses := sess.attrUses(ct.Attrs)
-	present := sess.prepareAttrPresent(len(uses))
+	uses := attrs.Uses(sess.rt.AttrIndex.Uses, ct.Attrs)
+	present := sess.attrState.PreparePresent(len(uses))
 
-	attrs := []StartAttr{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
-	validated, seenID, err := sess.validateComplexAttrs(ct, present, attrs, nil, true)
+	startAttrs := []attrs.Start{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
+	classified, err := sess.classifyAttrs(startAttrs, false)
+	if err != nil {
+		t.Fatalf("classifyAttrs: %v", err)
+	}
+	validated, seenID, err := sess.validateComplexAttrsClassified(
+		ct,
+		present,
+		startAttrs,
+		classified.Classes,
+		nil,
+		true,
+		sess.attrState.PrepareValidated(true, len(startAttrs)),
+	)
 	if err != nil {
 		t.Fatalf("validateComplexAttrs: %v", err)
 	}
@@ -42,8 +62,8 @@ func TestApplyDefaultAttrsAddsDefault(t *testing.T) {
 	sess := NewSession(schema)
 
 	ct := &schema.ComplexTypes[1]
-	uses := sess.attrUses(ct.Attrs)
-	present := sess.prepareAttrPresent(len(uses))
+	uses := attrs.Uses(sess.rt.AttrIndex.Uses, ct.Attrs)
+	present := sess.attrState.PreparePresent(len(uses))
 
 	applied, err := sess.applyDefaultAttrs(uses, present, false, false)
 	if err != nil {

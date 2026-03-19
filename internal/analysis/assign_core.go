@@ -3,7 +3,6 @@ package analysis
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -19,7 +18,7 @@ func AssignIDs(schema *parser.Schema) (*Registry, error) {
 	}
 
 	b := newBuilder(schema)
-	if err := globaldecl.ForEach(schema, globaldecl.Handlers{
+	if err := parser.ForEachGlobalDecl(&schema.SchemaGraph, parser.GlobalDeclHandlers{
 		Element: func(name model.QName, decl *model.ElementDecl) error {
 			if decl == nil {
 				return fmt.Errorf("missing global element %s", name)

@@ -5,7 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typewalk"
 )
 
 // TypeReferencePolicy controls how missing type references are handled.
@@ -136,7 +135,7 @@ func IsIDOnlyDerivedType(schema *parser.Schema, st *model.SimpleType) bool {
 		return false
 	}
 	found := false
-	typewalk.Walk(st, func(current model.Type) model.Type {
+	Walk(st, func(current model.Type) model.Type {
 		simple, ok := model.AsSimpleType(current)
 		if !ok || simple == nil || simple.Restriction == nil {
 			return nil

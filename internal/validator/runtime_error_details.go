@@ -1,46 +1,44 @@
 package validator
 
 import (
-	"errors"
-	"slices"
-
 	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/validator/diag"
+	"github.com/jacoelho/xsd/internal/validator/model"
 )
 
 func validationErrorDetails(err error) validationDetails {
-	if err == nil {
-		return validationDetails{}
-	}
-	var ve validationError
-	if errors.As(err, &ve) {
+	details := diag.DetailsOf(err)
+	if details.OK {
 		return validationDetails{
-			code:     ve.code,
-			msg:      ve.msg,
-			actual:   ve.actual,
-			expected: slices.Clone(ve.expected),
+			code:     details.Code,
+			msg:      details.Message,
+			actual:   details.Actual,
+			expected: details.Expected,
 			ok:       true,
 		}
 	}
-	if kind, ok := valueErrorKindOf(err); ok {
-		switch kind {
-		case valueErrInvalid:
-			return validationDetails{
-				code: xsderrors.ErrDatatypeInvalid,
-				msg:  err.Error(),
-				ok:   true,
-			}
-		case valueErrFacet:
-			return validationDetails{
-				code: xsderrors.ErrFacetViolation,
-				msg:  err.Error(),
-				ok:   true,
-			}
+	modelDetails := model.DetailsOf(err)
+	if modelDetails.OK {
+		return validationDetails{
+			code:     modelDetails.Code,
+			msg:      modelDetails.Message,
+			actual:   modelDetails.Actual,
+			expected: modelDetails.Expected,
+			ok:       true,
 		}
 	}
-	return validationDetails{msg: err.Error()}
+	return validationDetails{
+		code:     details.Code,
+		msg:      details.Message,
+		actual:   details.Actual,
+		expected: details.Expected,
+		ok:       details.OK,
+	}
 }
 
 func validationErrorInfo(err error) (xsderrors.ErrorCode, bool) {
-	details := validationErrorDetails(err)
-	return details.code, details.ok
+	if code, ok := diag.Info(err); ok {
+		return code, true
+	}
+	return model.Info(err)
 }

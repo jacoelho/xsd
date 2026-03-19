@@ -1,51 +1,60 @@
 package validator
 
 import (
-	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+	"github.com/jacoelho/xsd/internal/validator/valruntime"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-type attrValidationSpec struct {
-	validator   runtime.ValidatorID
-	fixedMember runtime.ValidatorID
-	fixed       runtime.ValueRef
-	fixedKey    runtime.ValueKeyRef
-}
-
 func (s *Session) validateComplexAttrValue(
-	validated []StartAttr,
-	attr StartAttr,
+	validated []attrs.Start,
+	attr attrs.Start,
 	resolver value.NSResolver,
 	storeAttrs bool,
-	spec attrValidationSpec,
+	spec attrs.ValueSpec,
 	seenID *bool,
-) ([]StartAttr, error) {
-	canon, metrics, err := s.validateValueInternalWithMetrics(spec.validator, attr.Value, resolver, valueOptions{
-		applyWhitespace:  true,
-		trackIDs:         true,
-		requireCanonical: spec.fixed.Present,
-		storeValue:       storeAttrs,
-		needKey:          spec.fixed.Present,
-	})
-	if err != nil {
-		return nil, wrapValueError(err)
-	}
-	if s.isIDValidator(spec.validator) {
-		if *seenID {
-			return nil, newValidationError(xsderrors.ErrMultipleIDAttr, "multiple ID attributes on element")
-		}
-		*seenID = true
-	}
-	validated = s.appendValidatedAttr(validated, attr, storeAttrs, canon, metrics.keyKind, metrics.keyBytes)
-	if spec.fixed.Present {
-		match, err := s.fixedValueMatches(spec.validator, spec.fixedMember, canon, metrics, resolver, spec.fixed, spec.fixedKey)
-		if err != nil {
-			return nil, err
-		}
-		if !match {
-			return nil, newValidationError(xsderrors.ErrAttributeFixedValue, "fixed attribute value mismatch")
-		}
-	}
-	return validated, nil
+) ([]attrs.Start, error) {
+	return attrs.ValidateValue(
+		validated,
+		attr,
+		storeAttrs,
+		spec,
+		seenID,
+		attrs.ValidateValueCallbacks{
+			Validate: func(validator runtime.ValidatorID, lexical []byte, store bool) (attrs.ValueResult, error) {
+				canon, metrics, err := s.validateValueInternalWithMetrics(validator, lexical, resolver, valruntime.AttributeOptions(spec.Fixed.Present, store))
+				if err != nil {
+					return attrs.ValueResult{}, err
+				}
+				keyKind, keyBytes, _ := metrics.Result.Key()
+				return attrs.ValueResult{
+					Canonical: canon,
+					KeyKind:   keyKind,
+					KeyBytes:  keyBytes,
+					HasKey:    metrics.Result.HasKey(),
+				}, nil
+			},
+			IsIDValidator: s.isIDValidator,
+			AppendCanonical: func(validated []attrs.Start, attr attrs.Start, store bool, canonical []byte, keyKind runtime.ValueKind, keyBytes []byte) []attrs.Start {
+				return s.appendValidatedAttr(validated, attr, store, canonical, keyKind, keyBytes)
+			},
+			MatchFixed: func(spec attrs.ValueSpec, result attrs.ValueResult) (bool, error) {
+				return matchFixedValue(
+					spec.Validator,
+					spec.FixedMember,
+					result.Canonical,
+					result.KeyKind,
+					result.KeyBytes,
+					result.HasKey,
+					spec.Fixed,
+					spec.FixedKey,
+					func(ref runtime.ValueRef) []byte { return valueBytes(s.rt.Values, ref) },
+					func(validator runtime.ValidatorID, canonical []byte, member runtime.ValidatorID) (runtime.ValueKind, []byte, error) {
+						return s.keyForCanonicalValue(validator, canonical, resolver, member)
+					},
+				)
+			},
+		},
+	)
 }

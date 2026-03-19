@@ -3,8 +3,7 @@ package model
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/durationlex"
-	"github.com/jacoelho/xsd/internal/value/temporal"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 type unsupportedComparablePrimitiveError struct {
@@ -64,7 +63,7 @@ func parseLexicalToComparable(lexical string, typ Type) (ComparableValue, error)
 		return ComparableFloat64{Value: doubleVal, Typ: typ}, nil
 
 	case "duration":
-		xsdDur, err := durationlex.Parse(lexical)
+		xsdDur, err := value.ParseDuration(lexical)
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +72,7 @@ func parseLexicalToComparable(lexical string, typ Type) (ComparableValue, error)
 		if !IsDateTimeTypeName(primitiveName) {
 			return nil, unsupportedComparablePrimitiveError{primitive: primitiveName}
 		}
-		timeVal, err := temporal.ParsePrimitive(primitiveName, []byte(lexical))
+		timeVal, err := value.ParsePrimitive(primitiveName, []byte(lexical))
 		if err != nil {
 			return nil, err
 		}

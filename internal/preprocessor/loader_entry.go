@@ -1,6 +1,8 @@
 package preprocessor
 
-import "github.com/jacoelho/xsd/internal/parser"
+import (
+	"github.com/jacoelho/xsd/internal/parser"
+)
 
 func (l *Loader) enterLoading(key loadKey) (*schemaEntry, func()) {
 	entry := l.state.ensureEntry(key)
@@ -18,15 +20,15 @@ func (l *Loader) enterLoading(key loadKey) (*schemaEntry, func()) {
 }
 
 func (l *Loader) initLoadEntry(entry *schemaEntry, sch *parser.Schema, systemID string, includes []parser.IncludeInfo, imports []parser.ImportInfo) error {
-	initSchemaOrigins(sch, systemID)
+	InitOrigins(sch, systemID)
 	entry.schema = sch
 	if len(includes) > 0 {
 		entry.includeInserted = make([]int, len(includes))
 	} else {
 		entry.includeInserted = nil
 	}
-	registerImports(sch, imports)
-	if validateErr := validateImportConstraints(sch, imports); validateErr != nil {
+	RegisterImports(sch, imports)
+	if validateErr := ValidateImports(sch, imports); validateErr != nil {
 		return validateErr
 	}
 	return nil
@@ -40,6 +42,6 @@ func (l *Loader) finalizeLoad(entry *schemaEntry, sch *parser.Schema) {
 func (l *Loader) resetEntry(entry *schemaEntry, key loadKey) {
 	entry.schema = nil
 	entry.state = schemaStateUnknown
-	resetPendingTracking(entry)
+	entry.pending.Reset()
 	l.cleanupEntryIfUnused(key)
 }

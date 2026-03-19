@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/graphcycle"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -12,7 +11,7 @@ import (
 
 func detectGroupCycles(schema *parser.Schema) error {
 	starts := make([]model.QName, 0, len(schema.Groups))
-	if err := globaldecl.ForEachGroup(schema, func(name model.QName, group *model.ModelGroup) error {
+	if err := parser.ForEachGlobalGroup(&schema.SchemaGraph, func(name model.QName, group *model.ModelGroup) error {
 		if group == nil {
 			return fmt.Errorf("missing group %s", name)
 		}

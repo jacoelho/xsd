@@ -344,7 +344,7 @@ func validateLocalPreparedState(gmlPath string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := xsd.LoadFileWithOptions(entry, xsd.NewLoadOptions()); err != nil {
+	if _, err := xsd.CompileFile(entry, xsd.NewSourceOptions(), xsd.NewBuildOptions()); err != nil {
 		return fmt.Errorf("entry schema compile check failed: %w", err)
 	}
 	return nil

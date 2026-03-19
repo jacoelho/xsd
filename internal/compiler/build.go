@@ -6,7 +6,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validatorgen"
 )
 
 // Build compiles prepared artifacts into an immutable runtime schema.
@@ -41,12 +40,12 @@ func (p *Prepared) GlobalElementOrderSeq() iter.Seq[model.QName] {
 
 func (p *Prepared) ensureBuildArtifacts() (*PreparedArtifacts, error) {
 	p.buildOnce.Do(func() {
-		validators, err := validatorgen.CompileWithComplexTypePlan(p.schema, p.registry, p.complexTypes)
+		prepared, err := prepareBuildArtifactsFromPlan(p.schema, p.registry, p.refs, p.complexTypes)
 		if err != nil {
-			p.prepErr = fmt.Errorf("runtime build: compile validators: %w", err)
+			p.prepErr = err
 			return
 		}
-		p.prepared, p.prepErr = PrepareBuildArtifacts(p.schema, p.registry, p.refs, validators)
+		p.prepared = prepared
 	})
 	if p.prepErr != nil {
 		return nil, p.prepErr

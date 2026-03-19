@@ -929,11 +929,11 @@ func detectXMLDeclEncoding(r *bufio.Reader) (string, error) {
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, bufio.ErrBufferFull) {
 		return "", err
 	}
-	end := bytes.Index(decl, []byte("?>"))
-	if end < 0 {
+	before, _, ok := bytes.Cut(decl, []byte("?>"))
+	if !ok {
 		return "", nil
 	}
-	label := parseXMLDeclEncoding(decl[:end])
+	label := parseXMLDeclEncoding(before)
 	if label == "" {
 		return "", nil
 	}

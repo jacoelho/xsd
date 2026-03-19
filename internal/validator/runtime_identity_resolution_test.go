@@ -5,6 +5,8 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+	"github.com/jacoelho/xsd/internal/validator/diag"
 )
 
 func TestIdentityDuplicateUnique(t *testing.T) {
@@ -32,7 +34,7 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("identityStart root: %v", err)
 	}
-	attrs := []StartAttr{{
+	startAttrs := []attrs.Start{{
 		Sym:      fx.symID,
 		NS:       fx.empty,
 		Local:    []byte("id"),
@@ -42,7 +44,7 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 	}}
 	for range 2 {
 		if err := sess.identityStart(identityStartInput{
-			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: attrs,
+			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID, Attrs: startAttrs,
 		}); err != nil {
 			t.Fatalf("identityStart item: %v", err)
 		}
@@ -54,7 +56,7 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	pending := sess.icState.drainCommitted()
+	pending := diag.AppendIssues(nil, sess.icState.DrainCommitted())
 	if len(pending) != 1 {
 		t.Fatalf("violations = %d, want 1", len(pending))
 	}
@@ -100,7 +102,7 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		}
 		if err := sess.identityStart(identityStartInput{
 			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID,
-			Attrs: []StartAttr{{
+			Attrs: []attrs.Start{{
 				Sym:      fx.symID,
 				NS:       fx.empty,
 				Local:    []byte("id"),
@@ -121,7 +123,7 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		}
 		if err := sess.identityStart(identityStartInput{
 			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID,
-			Attrs: []StartAttr{{
+			Attrs: []attrs.Start{{
 				Sym:      fx.symID,
 				NS:       fx.empty,
 				Local:    []byte("id"),
@@ -141,7 +143,7 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd root: %v", err)
 		}
-		return len(sess.icState.drainCommitted())
+		return len(diag.AppendIssues(nil, sess.icState.DrainCommitted()))
 	}
 
 	if got := runCase("two", "one"); got != 1 {

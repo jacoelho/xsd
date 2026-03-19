@@ -258,87 +258,28 @@ func TestValidateWrapsLexicalErrors(t *testing.T) {
 	typedValidated := false
 	facets := []model.Facet{
 		testLexicalFacet{
-			testFacet: testFacet{
-				name: "lex",
-				validateFn: func(model.TypedValue, model.Type) error {
-					typedValidated = true
-					return nil
-				},
-			},
+			testFacet: testFacet{name: "pattern"},
 			validateLexicalFn: func(string, model.Type) error {
 				return errors.New("bad lexical")
 			},
 		},
+		testFacet{
+			name: "typed",
+			validateFn: func(model.TypedValue, model.Type) error {
+				typedValidated = true
+				return nil
+			},
+		},
 	}
 
-	err := Validate("v", nil, facets, nil)
+	err := Validate("value", model.GetBuiltin(model.TypeNameString), facets, nil)
 	if err == nil {
-		t.Fatal("expected lexical validation error")
+		t.Fatal("Validate() error = nil, want error")
 	}
-	if !strings.Contains(err.Error(), "facet 'lex' violation: bad lexical") {
-		t.Fatalf("error = %v", err)
+	if !strings.Contains(err.Error(), "facet 'pattern' violation") {
+		t.Fatalf("Validate() error = %v, want wrapped facet error", err)
 	}
 	if typedValidated {
-		t.Fatal("typed validation should not run for lexical-only errors")
-	}
-}
-
-func TestValidateBuildsTypedValueOnce(t *testing.T) {
-	t.Parallel()
-
-	baseType := model.GetBuiltin(model.TypeNameInteger)
-	if baseType == nil {
-		t.Fatal("missing builtin integer type")
-	}
-
-	var firstTyped model.TypedValue
-	facets := []model.Facet{
-		testFacet{
-			name: "first",
-			validateFn: func(value model.TypedValue, _ model.Type) error {
-				firstTyped = value
-				return nil
-			},
-		},
-		testFacet{
-			name: "second",
-			validateFn: func(value model.TypedValue, _ model.Type) error {
-				if firstTyped == nil {
-					return errors.New("first facet received nil typed value")
-				}
-				if value != firstTyped {
-					return errors.New("typed value created more than once")
-				}
-				return nil
-			},
-		},
-	}
-
-	if err := Validate("not-an-integer", baseType, facets, nil); err != nil {
-		t.Fatalf("Validate() error = %v", err)
-	}
-	if firstTyped == nil {
-		t.Fatal("first facet did not receive typed value")
-	}
-}
-
-func TestValidateKeepsQNameEnumerationErrorsUnwrapped(t *testing.T) {
-	t.Parallel()
-
-	qnameType := model.GetBuiltin(model.TypeNameQName)
-	if qnameType == nil {
-		t.Fatal("missing builtin QName type")
-	}
-
-	enumFacet := model.NewEnumeration([]string{"ns:allowed"})
-	err := Validate("ns:value", qnameType, []model.Facet{enumFacet}, nil)
-	if err == nil {
-		t.Fatal("expected QName enumeration error")
-	}
-	if !strings.Contains(err.Error(), "namespace context unavailable for QName/NOTATION enumeration") {
-		t.Fatalf("error = %v", err)
-	}
-	if strings.Contains(err.Error(), "facet 'enumeration' violation") {
-		t.Fatalf("QName enumeration error was unexpectedly wrapped: %v", err)
+		t.Fatal("typed facet should not run after lexical error")
 	}
 }

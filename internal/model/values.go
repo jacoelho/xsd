@@ -7,10 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 // TypedValue represents a value with its XSD type
@@ -134,11 +132,11 @@ func (v *DecimalValue) String() string {
 
 // XSDDurationValue represents a duration value.
 type XSDDurationValue struct {
-	simpleValue[durationlex.Duration]
+	simpleValue[value.Duration]
 }
 
 // NewXSDDurationValue creates a new XSDDurationValue.
-func NewXSDDurationValue(parsed ParsedValue[durationlex.Duration], typ *SimpleType) TypedValue {
+func NewXSDDurationValue(parsed ParsedValue[value.Duration], typ *SimpleType) TypedValue {
 	return &XSDDurationValue{simpleValue: newSimpleValue(parsed, typ, nil)}
 }
 
@@ -289,10 +287,10 @@ func (v *DateTimeValue) String() string {
 	if v == nil {
 		return ""
 	}
-	if kind, ok := temporal.KindFromPrimitiveName(string(v.kind)); ok {
-		parsed, err := temporal.Parse(kind, []byte(v.lexical))
+	if kind, ok := value.KindFromPrimitiveName(string(v.kind)); ok {
+		parsed, err := value.Parse(kind, []byte(v.lexical))
 		if err == nil {
-			return temporal.Canonical(parsed)
+			return value.Canonical(parsed)
 		}
 	}
 	return value.CanonicalDateTimeString(v.native, string(v.kind), v.tzKind)

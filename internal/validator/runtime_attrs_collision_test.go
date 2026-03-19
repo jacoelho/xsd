@@ -8,6 +8,8 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+	"github.com/jacoelho/xsd/internal/validator/model"
 )
 
 func collisionSchemaSession(tb testing.TB) (*Session, runtime.TypeID) {
@@ -24,7 +26,7 @@ func collisionSchemaSession(tb testing.TB) (*Session, runtime.TypeID) {
 	rt := mustBuildRuntimeSchema(tb, schema)
 	sess := NewSession(rt)
 	sym := rt.Symbols.Lookup(rt.PredefNS.Empty, []byte("root"))
-	elemID, ok := sess.globalElementBySymbol(sym)
+	elemID, ok := model.LookupGlobalElement(rt, sym)
 	if !ok {
 		tb.Fatalf("root element symbol not found")
 	}
@@ -34,7 +36,7 @@ func collisionSchemaSession(tb testing.TB) (*Session, runtime.TypeID) {
 
 func TestAttrDuplicateDetectionCollisionSafeDifferentNames(t *testing.T) {
 	sess, typeID := collisionSchemaSession(t)
-	attrs := []StartAttr{
+	attrs := []attrs.Start{
 		{Local: []byte("a"), NSBytes: []byte("urn:one"), Value: []byte("1")},
 		{Local: []byte("b"), NSBytes: []byte("urn:two"), Value: []byte("2")},
 	}
@@ -45,7 +47,7 @@ func TestAttrDuplicateDetectionCollisionSafeDifferentNames(t *testing.T) {
 
 func TestAttrDuplicateDetectionCollisionSafeDuplicate(t *testing.T) {
 	sess, typeID := collisionSchemaSession(t)
-	attrs := []StartAttr{
+	attrs := []attrs.Start{
 		{Local: []byte("dup"), NSBytes: []byte("urn:one"), Value: []byte("1")},
 		{Local: []byte("dup"), NSBytes: []byte("urn:one"), Value: []byte("2")},
 	}
@@ -61,12 +63,12 @@ func TestAttrDuplicateDetectionCollisionSafeDuplicate(t *testing.T) {
 
 func Benchmark_AttrDuplicateDetection_CollisionSafe(b *testing.B) {
 	const attrCount = 64
-	attrs := make([]StartAttr, attrCount)
+	inputAttrs := make([]attrs.Start, attrCount)
 	for i := 0; i < attrCount; i++ {
 		local := make([]byte, 0, 8)
 		local = append(local, 'a')
 		local = strconv.AppendInt(local, int64(i), 10)
-		attrs[i] = StartAttr{
+		inputAttrs[i] = attrs.Start{
 			Local:   local,
 			NSBytes: []byte("urn:bench"),
 			Value:   []byte("v"),
@@ -75,12 +77,12 @@ func Benchmark_AttrDuplicateDetection_CollisionSafe(b *testing.B) {
 	sess, _ := collisionSchemaSession(b)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		classified, err := sess.classifyAttrs(attrs, true)
+		classified, err := sess.classifyAttrs(inputAttrs, true)
 		if err != nil {
 			b.Fatalf("unexpected error: %v", err)
 		}
-		if classified.duplicateErr != nil {
-			b.Fatalf("unexpected duplicate error: %v", classified.duplicateErr)
+		if classified.DuplicateErr != nil {
+			b.Fatalf("unexpected duplicate error: %v", classified.DuplicateErr)
 		}
 	}
 }

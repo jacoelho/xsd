@@ -1,23 +1,25 @@
 package validator
 
-func (s *Session) acquireValueMetrics() *ValueMetrics {
+import "github.com/jacoelho/xsd/internal/validator/valruntime"
+
+func (s *Session) acquireMetricsState() *valruntime.State {
 	if s == nil {
-		return &ValueMetrics{}
+		return &valruntime.State{}
 	}
 	idx := s.metricsDepth
 	if idx < len(s.metricsPool) {
-		metrics := s.metricsPool[idx]
-		*metrics = ValueMetrics{}
+		state := s.metricsPool[idx]
+		*state = valruntime.State{}
 		s.metricsDepth++
-		return metrics
+		return state
 	}
-	metrics := &ValueMetrics{}
-	s.metricsPool = append(s.metricsPool, metrics)
+	state := &valruntime.State{}
+	s.metricsPool = append(s.metricsPool, state)
 	s.metricsDepth++
-	return metrics
+	return state
 }
 
-func (s *Session) releaseValueMetrics() {
+func (s *Session) releaseMetricsState() {
 	if s == nil {
 		return
 	}

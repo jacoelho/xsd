@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
 )
@@ -319,7 +318,7 @@ func validateLanguage(lexical string) error {
 // validateDuration validates xs:duration
 // Format: PnYnMnDTnHnMnS or -PnYnMnDTnHnMnS
 func validateDuration(lexical string) error {
-	_, err := durationlex.Parse(lexical)
+	_, err := value.ParseDuration(lexical)
 	return err
 }
 

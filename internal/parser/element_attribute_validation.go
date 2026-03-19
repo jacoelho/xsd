@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -11,7 +12,7 @@ func validateElementAttributes(doc *xmltree.Document, elem xmltree.NodeID, valid
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
-		if attr.NamespaceURI() == xmltree.XSDNamespace {
+		if attr.NamespaceURI() == xmlnames.XSDNamespace {
 			return fmt.Errorf("%s: attribute '%s' must be unprefixed", context, attr.LocalName())
 		}
 		if attr.NamespaceURI() != "" {

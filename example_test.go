@@ -9,7 +9,7 @@ import (
 	"github.com/jacoelho/xsd/errors"
 )
 
-func ExampleLoadWithOptions() {
+func ExampleCompile() {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/simple"
@@ -21,17 +21,17 @@ func ExampleLoadWithOptions() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	loaded, err := xsd.LoadWithOptions(fsys, "simple.xsd", xsd.NewLoadOptions())
+	schema, err := xsd.Compile(fsys, "simple.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
 	}
-	if loaded == nil {
+	if schema == nil {
 		fmt.Println("Error: schema is nil")
 		return
 	}
-	fmt.Println("Schema loaded successfully")
-	// Output: Schema loaded successfully
+	fmt.Println("Schema compiled successfully")
+	// Output: Schema compiled successfully
 }
 
 func ExampleSchema_Validate() {
@@ -53,7 +53,7 @@ func ExampleSchema_Validate() {
 		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
 
-	schema, err := xsd.LoadWithOptions(fsys, "simple.xsd", xsd.NewLoadOptions())
+	schema, err := xsd.Compile(fsys, "simple.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
 		fmt.Printf("Error loading schema: %v\n", err)
 		return
@@ -72,6 +72,41 @@ func ExampleSchema_Validate() {
 			}
 			return
 		}
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	fmt.Println("Document is valid")
+	// Output: Document is valid
+}
+
+func ExampleSchema_NewValidator() {
+	schemaXML := `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/simple"
+           elementFormDefault="qualified">
+  <xs:element name="message" type="xs:string"/>
+</xs:schema>`
+
+	fsys := fstest.MapFS{
+		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
+	}
+
+	schema, err := xsd.Compile(fsys, "simple.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	if err != nil {
+		fmt.Printf("Error loading schema: %v\n", err)
+		return
+	}
+
+	v, err := schema.NewValidator(xsd.NewValidateOptions())
+	if err != nil {
+		fmt.Printf("Error creating validator: %v\n", err)
+		return
+	}
+
+	xmlDoc := `<?xml version="1.0"?>
+<message xmlns="http://example.com/simple">hello</message>`
+
+	if err := v.Validate(strings.NewReader(xmlDoc)); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
 	}

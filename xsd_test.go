@@ -44,9 +44,9 @@ func loadSchema(t *testing.T) *xsd.Schema {
 		"simple.xsd": &fstest.MapFile{Data: []byte(testSchema)},
 	}
 
-	s, err := xsd.LoadWithOptions(fsys, "simple.xsd", xsd.NewLoadOptions())
+	s, err := xsd.Compile(fsys, "simple.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
-		t.Fatalf("Load() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 
 	return s
@@ -163,9 +163,9 @@ func TestSchemaValidateIDREFResolvedByLaterID(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	s, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root><item ref="id-2"/><item id="id-2"/></root>`
@@ -191,9 +191,9 @@ func TestSchemaValidateIDREFSReportsMissingTargets(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	s, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root><item id="id-1"/><item refs="id-1 missing-id"/></root>`
@@ -218,9 +218,9 @@ func TestSchemaValidateIDClosureMatrix(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	s, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 
 	tests := []struct {
@@ -295,9 +295,9 @@ func TestSchemaValidateSubstitutionGroupBehavior(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	s, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 
 	validDoc := `<root xmlns="urn:test"><member>ok</member></root>`
@@ -325,9 +325,9 @@ func TestSchemaValidateExpectedElementsForUnexpectedChild(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	s, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root xmlns="urn:test"><c>bad</c></root>`
@@ -350,9 +350,9 @@ func TestSchemaValidateExpectedElementsForIncompleteContent(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	s, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root xmlns="urn:test"><a>ok</a></root>`
@@ -376,9 +376,9 @@ func TestSchemaValidateExpectedElementsIncludeSubstitutionMembers(t *testing.T) 
   </xs:element>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	s, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root xmlns="urn:test"><unknown>bad</unknown></root>`
@@ -391,9 +391,9 @@ func TestSchemaValidateDoesNotProcessInlineSchemaDeclarations(t *testing.T) {
   <xs:element name="root" type="xs:string"/>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	s, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:schema/></root>`
@@ -412,9 +412,9 @@ func TestSchemaValidateNoPartialValidationMode(t *testing.T) {
   </xs:complexType>
 </xs:schema>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	s, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<child xmlns="urn:test">ok</child>`
@@ -425,9 +425,9 @@ func TestSchemaValidateNoWarningModeForUndeclaredRoot(t *testing.T) {
 	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
 	fsys := fstest.MapFS{"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)}}
-	s, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	s, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
-		t.Fatalf("LoadWithOptions() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 
 	doc := `<root/>`
@@ -533,7 +533,7 @@ func TestSchemaValidateConcurrent(t *testing.T) {
 	fsys := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
-	schema, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	schema, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
 		t.Fatalf("Load schema: %v", err)
 	}
@@ -599,7 +599,7 @@ func TestSchemaValidateConcurrentIdentityConstraints(t *testing.T) {
 	fsys := fstest.MapFS{
 		"schema.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
-	schema, err := xsd.LoadWithOptions(fsys, "schema.xsd", xsd.NewLoadOptions())
+	schema, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
 		t.Fatalf("Load schema: %v", err)
 	}
@@ -714,7 +714,7 @@ func TestStreamValidatorConstantMemory(t *testing.T) {
 	fsys := fstest.MapFS{
 		"stream.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
 	}
-	schema, err := xsd.LoadWithOptions(fsys, "stream.xsd", xsd.NewLoadOptions())
+	schema, err := xsd.Compile(fsys, "stream.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
 		t.Fatalf("Load schema: %v", err)
 	}
@@ -1754,9 +1754,9 @@ func TestSchemaValidatePain008(t *testing.T) {
 		"pain.008.001.02.xsd": &fstest.MapFile{Data: []byte(pain008Schema)},
 	}
 
-	s, err := xsd.LoadWithOptions(fsys, "pain.008.001.02.xsd", xsd.NewLoadOptions())
+	s, err := xsd.Compile(fsys, "pain.008.001.02.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
-		t.Fatalf("Load() error = %v", err)
+		t.Fatalf("Compile() error = %v", err)
 	}
 
 	if err := s.Validate(strings.NewReader(pain008XML)); err != nil {
@@ -1784,7 +1784,7 @@ func loadPain008Schema(tb testing.TB) *xsd.Schema {
 			"pain.008.001.02.xsd": &fstest.MapFile{Data: []byte(pain008Schema)},
 		}
 
-		pain008SchemaInstance, errPain008Schema = xsd.LoadWithOptions(fsys, "pain.008.001.02.xsd", xsd.NewLoadOptions())
+		pain008SchemaInstance, errPain008Schema = xsd.Compile(fsys, "pain.008.001.02.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	})
 
 	if errPain008Schema != nil {
@@ -1819,7 +1819,7 @@ func BenchmarkPain008Load(b *testing.B) {
 		fsys := fstest.MapFS{
 			"pain.008.001.02.xsd": &fstest.MapFile{Data: schemaBytes},
 		}
-		if _, err := xsd.LoadWithOptions(fsys, "pain.008.001.02.xsd", xsd.NewLoadOptions()); err != nil {
+		if _, err := xsd.Compile(fsys, "pain.008.001.02.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions()); err != nil {
 			b.Fatal(err)
 		}
 	}

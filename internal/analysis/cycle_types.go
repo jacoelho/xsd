@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/graphcycle"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -12,7 +11,7 @@ import (
 
 func detectTypeCycles(schema *parser.Schema) error {
 	starts := make([]model.QName, 0, len(schema.TypeDefs))
-	if err := globaldecl.ForEachType(schema, func(name model.QName, typ model.Type) error {
+	if err := parser.ForEachGlobalType(&schema.SchemaGraph, func(name model.QName, typ model.Type) error {
 		if typ == nil {
 			return fmt.Errorf("missing global type %s", name)
 		}

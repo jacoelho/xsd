@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -31,7 +32,7 @@ func resolveElementDeclType(doc *xmltree.Document, elem xmltree.NodeID, schema *
 	var typ model.Type
 	hasInline := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			continue
 		}
 
@@ -66,7 +67,7 @@ func resolveElementDeclType(doc *xmltree.Document, elem xmltree.NodeID, schema *
 
 func hasInlineElementTypeChild(doc *xmltree.Document, elem xmltree.NodeID) bool {
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {

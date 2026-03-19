@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/names"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -17,7 +18,7 @@ func TestPathStackStringIncludesNamespace(t *testing.T) {
 	id2 := xmlstream.NameID(2)
 	sess.internName(id1, []byte("urn:a"), []byte("root"))
 	sess.internName(id2, []byte("urn:b"), []byte("root"))
-	sess.elemStack = append(sess.elemStack, elemFrame{name: NameID(id1)}, elemFrame{name: NameID(id2)})
+	sess.elemStack = append(sess.elemStack, elemFrame{name: names.ID(id1)}, elemFrame{name: names.ID(id2)})
 
 	if got := sess.pathString(); got != "/{urn:a}root/{urn:b}root" {
 		t.Fatalf("path = %q, want %q", got, "/{urn:a}root/{urn:b}root")
@@ -32,13 +33,13 @@ func TestInternNameSparseIDUsesMap(t *testing.T) {
 	sess := NewSession(schema)
 	id := xmlstream.NameID(maxNameMapSize + 5)
 	sess.internName(id, []byte("urn:big"), []byte("root"))
-	if len(sess.nameMap) != 0 {
-		t.Fatalf("nameMap len = %d, want 0", len(sess.nameMap))
+	if len(sess.Names.Dense) != 0 {
+		t.Fatalf("dense name map len = %d, want 0", len(sess.Names.Dense))
 	}
-	if sess.nameMapSparse == nil {
-		t.Fatalf("expected nameMapSparse to be initialized")
+	if sess.Names.Sparse == nil {
+		t.Fatalf("expected sparse name map to be initialized")
 	}
-	sess.elemStack = append(sess.elemStack, elemFrame{name: NameID(id)})
+	sess.elemStack = append(sess.elemStack, elemFrame{name: names.ID(id)})
 	if got := sess.pathString(); got != "/{urn:big}root" {
 		t.Fatalf("path = %q, want %q", got, "/{urn:big}root")
 	}

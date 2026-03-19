@@ -27,11 +27,10 @@ const (
 )
 
 type schemaEntry struct {
-	schema            *parser.Schema
-	pendingDirectives []pendingDirective
-	includeInserted   []int
-	state             schemaLoadState
-	pendingCount      int
+	schema          *parser.Schema
+	includeInserted []int
+	pending         Tracking[loadKey]
+	state           schemaLoadState
 }
 
 func (s *loadState) entry(key loadKey) (*schemaEntry, bool) {
@@ -79,13 +78,4 @@ func (s *loadState) schemaForKey(key loadKey) *parser.Schema {
 		return nil
 	}
 	return entry.schema
-}
-
-type pendingDirective struct {
-	targetKey         loadKey
-	schemaLocation    string
-	expectedNamespace string
-	includeDeclIndex  int
-	includeIndex      int
-	kind              parser.DirectiveKind
 }

@@ -1,50 +1,37 @@
 package validator
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jacoelho/xsd/internal/validator/identity"
+)
+
+func (s *Session) identityStart(in identityStartInput) error {
+	if s == nil {
+		return nil
+	}
+	snapshot := s.icState.Checkpoint()
+	err := s.icState.start(s, in)
+	if err != nil {
+		s.icState.Rollback(snapshot)
+	}
+	return err
+}
 
 func (s *identityState) start(sess *Session, in identityStartInput) error {
 	if sess == nil || sess.rt == nil {
 		return fmt.Errorf("identity: schema missing")
 	}
-	rt := sess.rt
-	elem, ok := elementByID(rt, in.Elem)
-	if !ok {
-		return fmt.Errorf("identity: element %d not found", in.Elem)
-	}
-	hasConstraints := elem.ICLen > 0
-	if !s.active && !hasConstraints {
-		return nil
-	}
-	s.active = true
-
-	s.nextNodeID++
-	frame := rtIdentityFrame{
-		id:     s.nextNodeID,
-		depth:  s.frames.Len(),
-		sym:    in.Sym,
-		ns:     in.NS,
-		elem:   in.Elem,
-		typ:    in.Type,
-		nilled: in.Nilled,
-	}
-	s.frames.Push(frame)
-	frames := s.frames.Items()
-	current := &frames[len(frames)-1]
-
-	if hasConstraints {
-		if err := s.openScope(rt, current, elem); err != nil {
-			return err
+	return identity.StartFrame(sess.rt, &s.State, identity.StartInput{
+		Elem:   in.Elem,
+		Type:   in.Type,
+		Sym:    in.Sym,
+		NS:     in.NS,
+		Nilled: in.Nilled,
+	}, func() []identity.Attr {
+		if len(in.Attrs) == 0 && len(in.Applied) == 0 {
+			return nil
 		}
-	}
-	if s.scopes.Len() == 0 {
-		return nil
-	}
-
-	var attrs []rtIdentityAttr
-	if len(in.Attrs) != 0 || len(in.Applied) != 0 {
-		attrs = collectIdentityAttrs(rt, in.Attrs, in.Applied, sess.internIdentityAttrName)
-	}
-	s.matchSelectors(rt, current.depth)
-	s.applyFieldSelections(rt, current.depth, attrs)
-	return nil
+		return collectIdentityAttrs(sess.rt, in.Attrs, in.Applied, sess.internIdentityAttrName)
+	})
 }

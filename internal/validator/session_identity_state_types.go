@@ -2,33 +2,18 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/stack"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+	"github.com/jacoelho/xsd/internal/validator/identity"
 )
 
 type identityState struct {
-	arena  *Arena
-	frames stack.Stack[rtIdentityFrame]
-	scopes stack.Stack[rtIdentityScope]
-	// uncommittedViolations are immediate identity processing failures tied to the active frame.
-	uncommittedViolations []error
-	// committedViolations are scope-finalized violations emitted on the next event boundary.
-	committedViolations []error
-	nextNodeID          uint64
-	active              bool
-}
-
-type identitySnapshot struct {
-	nextNodeID  uint64
-	framesLen   int
-	scopesLen   int
-	uncommitted int
-	committed   int
-	active      bool
+	arena *Arena
+	identity.State[identity.RuntimeFrame]
 }
 
 type identityStartInput struct {
-	Attrs   []StartAttr
-	Applied []AttrApplied
+	Attrs   []attrs.Start
+	Applied []attrs.Applied
 	Elem    runtime.ElemID
 	Type    runtime.TypeID
 	Sym     runtime.SymbolID

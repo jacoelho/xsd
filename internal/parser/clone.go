@@ -13,25 +13,10 @@ func CloneSchemaForMerge(sch *Schema) *Schema {
 	if sch == nil {
 		return nil
 	}
-	clone := *sch
-	clone.ImportContexts = copyImportContexts(sch.ImportContexts)
-	clone.ImportedNamespaces = copyImportedNamespaces(sch.ImportedNamespaces)
-	clone.ElementDecls = maps.Clone(sch.ElementDecls)
-	clone.ElementOrigins = maps.Clone(sch.ElementOrigins)
-	clone.TypeDefs = maps.Clone(sch.TypeDefs)
-	clone.TypeOrigins = maps.Clone(sch.TypeOrigins)
-	clone.AttributeDecls = maps.Clone(sch.AttributeDecls)
-	clone.AttributeOrigins = maps.Clone(sch.AttributeOrigins)
-	clone.AttributeGroups = maps.Clone(sch.AttributeGroups)
-	clone.AttributeGroupOrigins = maps.Clone(sch.AttributeGroupOrigins)
-	clone.Groups = maps.Clone(sch.Groups)
-	clone.GroupOrigins = maps.Clone(sch.GroupOrigins)
-	clone.SubstitutionGroups = copyQNameSliceMap(sch.SubstitutionGroups)
-	clone.NotationDecls = maps.Clone(sch.NotationDecls)
-	clone.NotationOrigins = maps.Clone(sch.NotationOrigins)
-	clone.IDAttributes = maps.Clone(sch.IDAttributes)
-	clone.GlobalDecls = slices.Clone(sch.GlobalDecls)
-	return &clone
+	return &Schema{
+		SchemaGraph: cloneSchemaGraphForMerge(sch.SchemaGraph),
+		SchemaMeta:  cloneSchemaMeta(sch.SchemaMeta),
+	}
 }
 
 // CloneSchema deep-clones a parsed schema and its mutable declaration graph.
@@ -40,17 +25,10 @@ func CloneSchema(sch *Schema) *Schema {
 		return nil
 	}
 
-	clone := NewSchema()
-	clone.Location = sch.Location
-	clone.TargetNamespace = sch.TargetNamespace
-	clone.AttributeFormDefault = sch.AttributeFormDefault
-	clone.ElementFormDefault = sch.ElementFormDefault
-	clone.BlockDefault = sch.BlockDefault
-	clone.FinalDefault = sch.FinalDefault
-	clone.NamespaceDecls = maps.Clone(sch.NamespaceDecls)
-	clone.ImportContexts = copyImportContexts(sch.ImportContexts)
-	clone.ImportedNamespaces = copyImportedNamespaces(sch.ImportedNamespaces)
-	clone.IDAttributes = maps.Clone(sch.IDAttributes)
+	clone := &Schema{
+		SchemaGraph: newSchemaGraph(),
+		SchemaMeta:  cloneSchemaMeta(sch.SchemaMeta),
+	}
 	clone.GlobalDecls = slices.Clone(sch.GlobalDecls)
 	clone.SubstitutionGroups = copyQNameSliceMap(sch.SubstitutionGroups)
 
@@ -91,6 +69,40 @@ func CloneSchema(sch *Schema) *Schema {
 	maps.Copy(clone.NotationOrigins, sch.NotationOrigins)
 
 	return clone
+}
+
+func cloneSchemaGraphForMerge(src SchemaGraph) SchemaGraph {
+	return SchemaGraph{
+		Groups:             maps.Clone(src.Groups),
+		TypeDefs:           maps.Clone(src.TypeDefs),
+		AttributeDecls:     maps.Clone(src.AttributeDecls),
+		SubstitutionGroups: copyQNameSliceMap(src.SubstitutionGroups),
+		AttributeGroups:    maps.Clone(src.AttributeGroups),
+		ElementDecls:       maps.Clone(src.ElementDecls),
+		NotationDecls:      maps.Clone(src.NotationDecls),
+		GlobalDecls:        slices.Clone(src.GlobalDecls),
+	}
+}
+
+func cloneSchemaMeta(src SchemaMeta) SchemaMeta {
+	return SchemaMeta{
+		ImportContexts:        copyImportContexts(src.ImportContexts),
+		ElementOrigins:        maps.Clone(src.ElementOrigins),
+		TypeOrigins:           maps.Clone(src.TypeOrigins),
+		AttributeOrigins:      maps.Clone(src.AttributeOrigins),
+		AttributeGroupOrigins: maps.Clone(src.AttributeGroupOrigins),
+		ImportedNamespaces:    copyImportedNamespaces(src.ImportedNamespaces),
+		GroupOrigins:          maps.Clone(src.GroupOrigins),
+		NotationOrigins:       maps.Clone(src.NotationOrigins),
+		IDAttributes:          maps.Clone(src.IDAttributes),
+		NamespaceDecls:        maps.Clone(src.NamespaceDecls),
+		Location:              src.Location,
+		TargetNamespace:       src.TargetNamespace,
+		FinalDefault:          src.FinalDefault,
+		AttributeFormDefault:  src.AttributeFormDefault,
+		ElementFormDefault:    src.ElementFormDefault,
+		BlockDefault:          src.BlockDefault,
+	}
 }
 
 func copyImportContexts(src map[string]ImportContext) map[string]ImportContext {

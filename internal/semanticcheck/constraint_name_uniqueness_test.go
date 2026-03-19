@@ -11,9 +11,13 @@ import (
 
 func TestDuplicateConstraintNameDirect(t *testing.T) {
 	schema := &parser.Schema{
-		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[model.QName]model.Type),
-		ElementDecls:    make(map[model.QName]*model.ElementDecl),
+		SchemaGraph: parser.SchemaGraph{
+			TypeDefs:     make(map[model.QName]model.Type),
+			ElementDecls: make(map[model.QName]*model.ElementDecl),
+		},
+		SchemaMeta: parser.SchemaMeta{
+			TargetNamespace: "http://example.com",
+		},
 	}
 
 	complexType := &model.ComplexType{

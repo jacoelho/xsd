@@ -3,6 +3,9 @@ package validator
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/model"
+	"github.com/jacoelho/xsd/internal/validator/start"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -16,25 +19,20 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 
 	s.pushNamespaceScope(s.reader.NamespaceDecls(ev.ScopeDepth))
 
-	var match StartMatch
-	if len(s.elemStack) == 0 {
-		decision, err := s.resolveRootStartMatch(sym, nsID)
-		if err != nil {
-			s.popNamespaceScope()
-			return err
-		}
-		if decision.skip {
-			return s.skipSubtreeAndPopScope()
-		}
-		match = decision.match
-	} else {
-		parent := &s.elemStack[len(s.elemStack)-1]
+	eventInput := start.EventInput{
+		Root: len(s.elemStack) == 0,
+		Sym:  sym,
+		NSID: nsID,
+		NS:   ev.NS,
+	}
+	var parent *elemFrame
+	if !eventInput.Root {
+		parent = &s.elemStack[len(s.elemStack)-1]
 		parent.hasChildElements = true
-		var err error
-		match, err = s.resolveChildStartMatch(parent, sym, nsID, ev.NS)
-		if err != nil {
-			s.popNamespaceScope()
-			return err
+		eventInput.Parent = start.ChildInput{
+			Content: parent.content,
+			Model:   parent.model,
+			Nilled:  parent.nilled,
 		}
 	}
 
@@ -44,14 +42,26 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 		s.popNamespaceScope()
 		return err
 	}
-	result, err := s.startElementClassified(match, sym, nsID, ev.NS, resolver, classified)
+	eventInput.Attrs = classified
+	event, err := start.ResolveEvent(
+		s.rt,
+		eventInput,
+		resolver,
+		func(ref runtime.ModelRef, sym runtime.SymbolID, nsID runtime.NamespaceID, ns []byte) (model.Match, error) {
+			return s.StepModel(ref, &parent.modelState, sym, nsID, ns)
+		},
+	)
 	if err != nil {
+		if parent != nil && event.ChildErrorReported {
+			parent.childErrorReported = true
+		}
 		s.popNamespaceScope()
 		return err
 	}
-	if result.Skip {
+	if event.Result.Skip {
 		return s.skipSubtreeAndPopScope()
 	}
+	result := event.Result
 
 	attrResult, err := s.validateAttributesClassified(result.Type, attrs, resolver, classified)
 	if err != nil {

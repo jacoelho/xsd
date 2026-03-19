@@ -1,7 +1,6 @@
 package preprocessor
 
 import (
-	"github.com/jacoelho/xsd/internal/loadguard"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -13,7 +12,7 @@ func (l *Loader) loadParsedWithJournal(
 	result *parser.ParseResult,
 	systemID string,
 	key loadKey,
-	parentJournal *stateJournal,
+	parentJournal *Journal[loadKey],
 ) (*parser.Schema, error) {
 	sch, err := l.cachedOrCircularSchema(key, systemID)
 	if err != nil || sch != nil {
@@ -22,37 +21,28 @@ func (l *Loader) loadParsedWithJournal(
 
 	sch = result.Schema
 	lifecycle := l.parsedEntryLifecycle(key, systemID, sch, result.Includes, result.Imports)
-
-	entry, cleanup, err := lifecycle.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer cleanup()
-
-	if lifecycle.Init != nil {
-		if err := lifecycle.Init(entry); err != nil {
-			return nil, err
-		}
-	}
-	if err := l.applyParsedDirectives(systemID, key, sch, result.Directives, parentJournal); err != nil {
-		return nil, err
-	}
-
-	lifecycle.Commit(entry)
-	if err := l.resolvePendingImportsFor(key); err != nil {
-		rollbackSourcePending(l, key)
-		lifecycle.Rollback(entry)
-		return nil, err
-	}
-
-	return sch, nil
+	return ApplyParsed(sch, ApplyCallbacks[schemaEntry]{
+		Begin: lifecycle.Begin,
+		Init:  lifecycle.Init,
+		ApplyDirectives: func() error {
+			return l.applyParsedDirectives(systemID, key, sch, result.Directives, parentJournal)
+		},
+		Commit: lifecycle.Commit,
+		ResolvePending: func() error {
+			return l.resolvePendingImportsFor(key)
+		},
+		RollbackPending: func() {
+			rollbackSourcePending(l, key)
+		},
+		Rollback: lifecycle.Rollback,
+	})
 }
 
 func (l *Loader) cachedOrCircularSchema(key loadKey, systemID string) (*parser.Schema, error) {
 	if loadedSchema, ok := l.state.loadedSchema(key); ok {
 		return loadedSchema, nil
 	}
-	return loadguard.CheckCircular[loadKey, *parser.Schema](&l.state, key, systemID)
+	return checkCircularLoad[loadKey, *parser.Schema](&l.state, key, systemID)
 }
 
 func (l *Loader) parsedEntryLifecycle(
@@ -61,8 +51,8 @@ func (l *Loader) parsedEntryLifecycle(
 	sch *parser.Schema,
 	includes []parser.IncludeInfo,
 	imports []parser.ImportInfo,
-) loadguard.EntryLifecycle[schemaEntry] {
-	return loadguard.EntryLifecycle[schemaEntry]{
+) entryLifecycle[schemaEntry] {
+	return entryLifecycle[schemaEntry]{
 		Enter: func() (*schemaEntry, func()) {
 			return l.enterLoading(key)
 		},
@@ -83,7 +73,7 @@ func (l *Loader) applyParsedDirectives(
 	key loadKey,
 	sch *parser.Schema,
 	directives []parser.Directive,
-	parentJournal *stateJournal,
+	parentJournal *Journal[loadKey],
 ) (err error) {
 	session := newLoadSession(l, systemID, key, nil)
 	defer func() {
@@ -95,7 +85,7 @@ func (l *Loader) applyParsedDirectives(
 		return err
 	}
 	if parentJournal != nil {
-		parentJournal.append(&session.journal)
+		parentJournal.Append(&session.journal)
 	}
 	return nil
 }

@@ -10,8 +10,12 @@ import (
 
 func TestValidateUPA_DoesNotMutateOccurs(t *testing.T) {
 	schema := &parser.Schema{
-		TargetNamespace:    model.NamespaceURI("urn:test"),
-		SubstitutionGroups: map[model.QName][]model.QName{},
+		SchemaGraph: parser.SchemaGraph{
+			SubstitutionGroups: map[model.QName][]model.QName{},
+		},
+		SchemaMeta: parser.SchemaMeta{
+			TargetNamespace: model.NamespaceURI("urn:test"),
+		},
 	}
 
 	elem := &model.ElementDecl{
@@ -40,8 +44,12 @@ func TestValidateUPA_DoesNotMutateOccurs(t *testing.T) {
 
 func TestValidateUPA_DuplicateElementRefs(t *testing.T) {
 	schema := &parser.Schema{
-		TargetNamespace:    model.NamespaceURI("urn:test"),
-		SubstitutionGroups: map[model.QName][]model.QName{},
+		SchemaGraph: parser.SchemaGraph{
+			SubstitutionGroups: map[model.QName][]model.QName{},
+		},
+		SchemaMeta: parser.SchemaMeta{
+			TargetNamespace: model.NamespaceURI("urn:test"),
+		},
 	}
 
 	name := model.QName{Namespace: schema.TargetNamespace, Local: "a"}

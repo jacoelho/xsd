@@ -4,24 +4,25 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // validateSchemaAttributeNamespaces enforces that schema element attributes are unqualified.
 // Per validation-rules.md section 2.3.1, any non-xmlns attribute on an XSD element must be in no namespace.
 func validateSchemaAttributeNamespaces(doc *xmltree.Document, elem xmltree.NodeID) error {
-	if doc.NamespaceURI(elem) == xmltree.XSDNamespace {
+	if doc.NamespaceURI(elem) == xmlnames.XSDNamespace {
 		for _, attr := range doc.Attributes(elem) {
 			if isXMLNSDeclaration(attr) {
 				continue
 			}
-			if attr.NamespaceURI() == xmltree.XSDNamespace {
+			if attr.NamespaceURI() == xmlnames.XSDNamespace {
 				return fmt.Errorf("schema attribute '%s' on <%s> must be unprefixed", attr.LocalName(), doc.LocalName(elem))
 			}
 		}
 	}
 
-	if doc.NamespaceURI(elem) == xmltree.XSDNamespace && doc.LocalName(elem) == "annotation" {
+	if doc.NamespaceURI(elem) == xmlnames.XSDNamespace && doc.LocalName(elem) == "annotation" {
 		if err := validateAnnotationStructure(doc, elem); err != nil {
 			return err
 		}
@@ -42,7 +43,7 @@ func validateAnnotationStructure(doc *xmltree.Document, elem xmltree.NodeID) err
 	}
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			return fmt.Errorf("annotation: unexpected child element '%s'", doc.LocalName(child))
 		}
 		switch doc.LocalName(child) {
@@ -73,7 +74,7 @@ func validateAnnotationAttributes(doc *xmltree.Document, elem xmltree.NodeID) er
 			}
 			continue
 		}
-		if attr.NamespaceURI() == xmltree.XSDNamespace {
+		if attr.NamespaceURI() == xmlnames.XSDNamespace {
 			return fmt.Errorf("annotation: attribute '%s' must be unprefixed", attr.LocalName())
 		}
 	}
@@ -90,7 +91,7 @@ func validateAnnotationChildAttributes(doc *xmltree.Document, elem xmltree.NodeI
 			if attr.NamespaceURI() == "" && attr.LocalName() != "source" {
 				return fmt.Errorf("appinfo: unexpected attribute '%s'", attr.LocalName())
 			}
-			if attr.NamespaceURI() == xmltree.XSDNamespace {
+			if attr.NamespaceURI() == xmlnames.XSDNamespace {
 				return fmt.Errorf("appinfo: attribute '%s' must be unprefixed", attr.LocalName())
 			}
 		}
@@ -105,13 +106,13 @@ func validateAnnotationChildAttributes(doc *xmltree.Document, elem xmltree.NodeI
 				}
 				continue
 			}
-			if attr.NamespaceURI() == xmltree.XMLNamespace && attr.LocalName() == "lang" {
+			if attr.NamespaceURI() == xmlnames.XMLNamespace && attr.LocalName() == "lang" {
 				if model.TrimXMLWhitespace(attr.Value()) == "" {
 					return fmt.Errorf("documentation: xml:lang must not be empty")
 				}
 				continue
 			}
-			if attr.NamespaceURI() == xmltree.XSDNamespace {
+			if attr.NamespaceURI() == xmlnames.XSDNamespace {
 				return fmt.Errorf("documentation: attribute '%s' must be unprefixed", attr.LocalName())
 			}
 		}

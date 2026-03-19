@@ -1,6 +1,9 @@
 package validator
 
-import "github.com/jacoelho/xsd/pkg/xmlstream"
+import (
+	"github.com/jacoelho/xsd/internal/validator/diag"
+	"github.com/jacoelho/xsd/pkg/xmlstream"
+)
 
 func (e *validationExecutor) processEndElement(ev *xmlstream.ResolvedEvent) error {
 	errs, path := e.s.handleEndElement(ev, e.resolver)
@@ -9,9 +12,8 @@ func (e *validationExecutor) processEndElement(ev *xmlstream.ResolvedEvent) erro
 			return fatal
 		}
 	}
-	if e.s.icState.hasCommitted() {
-		pending := e.s.icState.drainCommitted()
-		if len(pending) > 0 {
+	if e.s.icState.HasCommitted() {
+		if pending := diag.AppendIssues(nil, e.s.icState.DrainCommitted()); len(pending) > 0 {
 			if fatal := e.s.recordValidationErrorsAtPath(pending, path, ev.Line, ev.Column); fatal != nil {
 				return fatal
 			}

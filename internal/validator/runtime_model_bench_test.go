@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/model"
 )
 
 func Benchmark_StepModel_DFA_Exact(b *testing.B) {
@@ -34,7 +35,7 @@ func Benchmark_StepModel_DFA_Exact(b *testing.B) {
 		if err != nil {
 			b.Fatalf("StepModel: %v", err)
 		}
-		if match.Kind != MatchElem || match.Elem != fx.elemA {
+		if match.Kind != model.MatchElem || match.Elem != fx.elemA {
 			b.Fatalf("match = %+v, want elem %d", match, fx.elemA)
 		}
 	}
@@ -54,12 +55,12 @@ func Benchmark_StepModel_NFA_Exact(b *testing.B) {
 
 	b.ReportAllocs()
 	for b.Loop() {
-		bitsetZero(state.NFA)
+		clear(state.NFA)
 		match, err := sess.StepModel(ref, &state, fx.symA, fx.ns, nsBytes)
 		if err != nil {
 			b.Fatalf("StepModel: %v", err)
 		}
-		if match.Kind != MatchElem || match.Elem != fx.elemA {
+		if match.Kind != model.MatchElem || match.Elem != fx.elemA {
 			b.Fatalf("match = %+v, want elem %d", match, fx.elemA)
 		}
 	}
@@ -89,7 +90,7 @@ func Benchmark_StepModel_All_Exact(b *testing.B) {
 		if err != nil {
 			b.Fatalf("StepModel: %v", err)
 		}
-		if match.Kind != MatchElem || match.Elem != fx.elemA {
+		if match.Kind != model.MatchElem || match.Elem != fx.elemA {
 			b.Fatalf("match = %+v, want elem %d", match, fx.elemA)
 		}
 	}

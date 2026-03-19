@@ -4,6 +4,7 @@ import (
 	"io/fs"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/preprocessor/resolve"
 	"github.com/jacoelho/xsd/internal/xmltree"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -11,7 +12,7 @@ import (
 // Config holds configuration for the schema loader
 type Config struct {
 	FS                          fs.FS
-	Resolver                    Resolver
+	Resolver                    resolve.Resolver
 	DocumentPool                *xmltree.DocumentPool
 	SchemaParseOptions          []xmlstream.Option
 	AllowMissingImportLocations bool
@@ -20,8 +21,8 @@ type Config struct {
 // Loader loads XML schemas with import/include resolution.
 // It is not safe for concurrent use.
 type Loader struct {
-	resolver Resolver
-	imports  importTracker
+	resolver resolve.Resolver
+	imports  Tracker[loadKey]
 	state    loadState
 	config   Config
 }
@@ -30,7 +31,7 @@ type Loader struct {
 func NewLoader(cfg Config) *Loader {
 	res := cfg.Resolver
 	if res == nil && cfg.FS != nil {
-		res = NewFSResolver(cfg.FS)
+		res = resolve.NewFSResolver(cfg.FS)
 	}
 	if cfg.DocumentPool == nil {
 		cfg.DocumentPool = xmltree.NewDocumentPool()
@@ -38,7 +39,7 @@ func NewLoader(cfg Config) *Loader {
 	return &Loader{
 		config:   cfg,
 		state:    newLoadState(),
-		imports:  newImportTracker(),
+		imports:  NewTracker[loadKey](),
 		resolver: res,
 	}
 }
@@ -55,7 +56,7 @@ func (l *Loader) cleanupEntryIfUnused(key loadKey) {
 	if entry.state != schemaStateUnknown || entry.schema != nil {
 		return
 	}
-	if entry.pendingCount != 0 || len(entry.pendingDirectives) != 0 {
+	if entry.pending.Count != 0 || len(entry.pending.Directives) != 0 {
 		return
 	}
 	l.state.deleteEntry(key)

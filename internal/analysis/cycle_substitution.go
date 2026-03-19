@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/graphcycle"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -12,7 +11,7 @@ import (
 
 func detectSubstitutionGroupCycles(schema *parser.Schema) error {
 	starts := make([]model.QName, 0, len(schema.ElementDecls))
-	if err := globaldecl.ForEachElement(schema, func(name model.QName, _ *model.ElementDecl) error {
+	if err := parser.ForEachGlobalElement(&schema.SchemaGraph, func(name model.QName, _ *model.ElementDecl) error {
 		starts = append(starts, name)
 		return nil
 	}); err != nil {

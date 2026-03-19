@@ -1,18 +1,22 @@
 package validator
 
-import "github.com/jacoelho/xsd/internal/runtime"
+import (
+	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/valruntime"
+)
 
-func (s *Session) setKey(metrics *ValueMetrics, kind runtime.ValueKind, key []byte, store bool) {
-	if s == nil || metrics == nil {
+func (s *Session) setKey(metrics *valruntime.State, kind runtime.ValueKind, key []byte, store bool) {
+	if s == nil {
 		return
 	}
-	metrics.keyKind = kind
-	if store {
-		metrics.keyBytes = s.storeKey(key)
-	} else {
-		metrics.keyBytes = key
+	state := metrics.ResultState()
+	if state == nil {
+		return
 	}
-	metrics.keySet = true
+	if store {
+		key = s.storeKey(key)
+	}
+	state.SetKey(kind, key)
 }
 
 func (s *Session) storeValue(data []byte) []byte {
@@ -40,13 +44,15 @@ func (s *Session) storeKey(data []byte) []byte {
 	return s.keyBuf[start:len(s.keyBuf)]
 }
 
-func (s *Session) finalizeValue(canonical []byte, opts valueOptions, metrics *ValueMetrics, metricsInternal bool) []byte {
-	if !opts.storeValue {
+func (s *Session) finalizeValue(canonical []byte, opts valruntime.Options, metrics *valruntime.State, metricsInternal bool) []byte {
+	if !opts.StoreValue {
 		return canonical
 	}
 	canonStored := s.storeValue(canonical)
-	if metrics != nil && metrics.keySet && !metricsInternal {
-		s.setKey(metrics, metrics.keyKind, metrics.keyBytes, true)
+	state := metrics.ResultState()
+	if state != nil && state.HasKey() && !metricsInternal {
+		kind, key, _ := state.Key()
+		s.setKey(metrics, kind, key, true)
 	}
 	return canonStored
 }

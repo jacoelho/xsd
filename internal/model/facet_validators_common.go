@@ -5,24 +5,23 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/value/temporal"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
-func getXSDTypeName(value TypedValue) string {
-	if value == nil {
+func getXSDTypeName(typed TypedValue) string {
+	if typed == nil {
 		return "unknown"
 	}
-	typ := value.Type()
+	typ := typed.Type()
 	if typ == nil {
 		return "unknown"
 	}
 	return typ.Name().Local
 }
 
-// durationToXSD converts a time.Duration to durationlex.Duration.
-func durationToXSD(d time.Duration) durationlex.Duration {
+// durationToXSD converts a time.Duration to value.Duration.
+func durationToXSD(d time.Duration) value.Duration {
 	negative := d < 0
 	if negative {
 		d = -d
@@ -32,7 +31,7 @@ func durationToXSD(d time.Duration) durationlex.Duration {
 	minutes := int(d / time.Minute)
 	d %= time.Minute
 	seconds := num.DecFromScaledInt(num.FromInt64(int64(d)), 9)
-	return durationlex.Duration{
+	return value.Duration{
 		Negative: negative,
 		Years:    0,
 		Months:   0,
@@ -80,13 +79,13 @@ func isIntegerDerivedType(t Type) bool {
 
 // extractComparableValue extracts a ComparableValue from a TypedValue.
 // This is the shared logic used by all range facet validators.
-func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, error) {
-	if value == nil {
+func extractComparableValue(typedValue TypedValue, baseType Type) (ComparableValue, error) {
+	if typedValue == nil {
 		return nil, fmt.Errorf("cannot compare nil value")
 	}
 
-	native := value.Native()
-	typ := value.Type()
+	native := typedValue.Native()
+	typ := typedValue.Type()
 	if typ == nil {
 		typ = baseType
 	}
@@ -105,10 +104,10 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 	case num.Int:
 		return ComparableInt{Value: v, Typ: typ}, nil
 	case time.Time:
-		tzKind := TimezoneKind(value.Lexical())
+		tzKind := TimezoneKind(typedValue.Lexical())
 		kind, ok := temporalKindFromType(typ)
 		if ok {
-			tval, err := temporal.Parse(kind, []byte(value.Lexical()))
+			tval, err := value.Parse(kind, []byte(typedValue.Lexical()))
 			if err == nil {
 				return ComparableTime{
 					Value:        tval.Time,
@@ -123,12 +122,12 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 			Value:        v,
 			Typ:          typ,
 			TimezoneKind: tzKind,
-			Kind:         temporal.KindDateTime,
+			Kind:         value.KindDateTime,
 		}, nil
 	case time.Duration:
 		xsdDur := durationToXSD(v)
 		return ComparableXSDDuration{Value: xsdDur, Typ: typ}, nil
-	case durationlex.Duration:
+	case value.Duration:
 		return ComparableXSDDuration{Value: v, Typ: typ}, nil
 	case float64:
 		return ComparableFloat64{Value: v, Typ: typ}, nil
@@ -139,7 +138,7 @@ func extractComparableValue(value TypedValue, baseType Type) (ComparableValue, e
 	}
 
 	// all conversion attempts failed
-	xsdTypeName := getXSDTypeName(value)
+	xsdTypeName := getXSDTypeName(typedValue)
 	return nil, fmt.Errorf("value type %s cannot be compared with facet value", xsdTypeName)
 }
 

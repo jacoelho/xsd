@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
-// ComparableXSDDuration wraps durationlex.Duration to implement ComparableValue
+// ComparableXSDDuration wraps value.Duration to implement ComparableValue
 // This supports full XSD durations including years and months
 type ComparableXSDDuration struct {
 	Typ   Type
-	Value durationlex.Duration
+	Value value.Duration
 }
 
 var errIndeterminateDurationComparison = errors.New("duration comparison indeterminate")
@@ -68,9 +68,9 @@ func (c ComparableXSDDuration) Compare(other ComparableValue) (int, error) {
 		}
 	}
 
-	cmp, err := durationlex.Compare(c.Value, otherDur.Value)
+	cmp, err := value.CompareDuration(c.Value, otherDur.Value)
 	if err != nil {
-		if errors.Is(err, durationlex.ErrIndeterminateComparison) {
+		if errors.Is(err, value.ErrIndeterminateDurationComparison) {
 			return 0, errIndeterminateDurationComparison
 		}
 		return 0, err
@@ -80,7 +80,7 @@ func (c ComparableXSDDuration) Compare(other ComparableValue) (int, error) {
 
 // String returns the string representation (implements ComparableValue)
 func (c ComparableXSDDuration) String() string {
-	return durationlex.CanonicalString(c.Value)
+	return value.CanonicalDurationString(c.Value)
 }
 
 // Type returns the XSD type (implements ComparableValue)

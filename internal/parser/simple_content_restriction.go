@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -47,7 +48,7 @@ func validateSimpleContentRestrictionOrder(doc *xmltree.Document, elem xmltree.N
 	seenFacet := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -75,7 +76,7 @@ func validateSimpleContentRestrictionOrder(doc *xmltree.Document, elem xmltree.N
 
 func parseSimpleContentNestedType(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.SimpleType, error) {
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) == xmltree.XSDNamespace && doc.LocalName(child) == "simpleType" {
+		if doc.NamespaceURI(child) == xmlnames.XSDNamespace && doc.LocalName(child) == "simpleType" {
 			nestedSimpleType, err := parseInlineSimpleType(doc, child, schema)
 			if err != nil {
 				return nil, fmt.Errorf("parse nested simpleType: %w", err)

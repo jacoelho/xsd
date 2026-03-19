@@ -1,30 +1,24 @@
 package validator
 
 import (
-	"fmt"
-
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/identity"
 )
 
 func (s *identityState) end(rt *runtime.Schema, in identityEndInput) error {
-	if rt == nil || !s.active || s.frames.Len() == 0 {
+	if rt == nil || !s.Active || s.Frames.Len() == 0 {
 		return nil
 	}
-	frames := s.frames.Items()
+	frames := s.Frames.Items()
 	index := len(frames) - 1
 	frame := &frames[index]
-	elem, ok := elementByID(rt, frame.elem)
-	if !ok {
-		return fmt.Errorf("identity: element %d not found", frame.elem)
+	if err := identity.CloseFrame(rt, s.arena, &s.State, frame.ID, frame.Elem, frame.Nilled, frame.Captures, frame.Matches, in.KeyKind, in.KeyBytes); err != nil {
+		return err
 	}
 
-	s.applyFieldCaptures(frame, elem, in)
-	s.finalizeMatches(frame)
-	s.closeScopes(frame.id)
-
-	s.frames.Pop()
-	if s.frames.Len() == 0 && s.scopes.Len() == 0 {
-		s.active = false
+	s.Frames.Pop()
+	if s.Frames.Len() == 0 && s.Scopes.Len() == 0 {
+		s.Active = false
 	}
 	return nil
 }

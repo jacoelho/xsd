@@ -1,27 +1,10 @@
 package validator
 
-import (
-	xsderrors "github.com/jacoelho/xsd/errors"
-)
+import "github.com/jacoelho/xsd/internal/validator/attrs"
 
-func (s *Session) classifyAttrs(attrs []StartAttr, checkDuplicates bool) (attrClassification, error) {
-	if s == nil || s.rt == nil || len(attrs) == 0 {
-		return attrClassification{}, nil
+func (s *Session) classifyAttrs(input []attrs.Start, checkDuplicates bool) (attrs.Classification, error) {
+	if s == nil {
+		return attrs.Classification{}, nil
 	}
-
-	out := attrClassification{classes: s.prepareAttrClasses(len(attrs))}
-	dup := s.prepareAttrDupState(len(attrs), checkDuplicates)
-
-	for i := range attrs {
-		if checkDuplicates && s.hasDuplicateAttrAt(attrs, i, &dup) && out.duplicateErr == nil {
-			out.duplicateErr = newValidationError(xsderrors.ErrXMLParse, "duplicate attribute")
-		}
-
-		if err := s.classifyAndCaptureAttr(&out, &attrs[i], i); err != nil {
-			return attrClassification{}, err
-		}
-	}
-
-	s.finalizeAttrDupState(dup)
-	return out, nil
+	return s.attrState.Classify(s.rt, input, checkDuplicates)
 }

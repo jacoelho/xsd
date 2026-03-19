@@ -5,14 +5,16 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+	"github.com/jacoelho/xsd/internal/validator/valruntime"
 )
 
 func TestSliceAttrUsesOverflowReturnsNil(t *testing.T) {
 	uses := []runtime.AttrUse{{}}
 	ref := runtime.AttrIndexRef{Off: ^uint32(0), Len: 2}
-	got := sliceAttrUses(uses, ref)
+	got := attrs.Uses(uses, ref)
 	if got != nil {
-		t.Fatalf("sliceAttrUses() = %#v, want nil", got)
+		t.Fatalf("attrs.Uses() = %#v, want nil", got)
 	}
 }
 
@@ -30,9 +32,9 @@ func TestUnionMemberInfoOverflowReturnsFalse(t *testing.T) {
 		},
 	}
 
-	_, _, _, ok := s.unionMemberInfo(runtime.ValidatorMeta{Index: 0})
+	_, ok := valruntime.UnionMembers(runtime.ValidatorMeta{Index: 0}, s.rt.Validators)
 	if ok {
-		t.Fatal("unionMemberInfo() ok = true, want false")
+		t.Fatal("UnionMembers() ok = true, want false")
 	}
 }
 

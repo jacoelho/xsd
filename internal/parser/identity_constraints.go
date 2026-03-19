@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -54,7 +55,7 @@ func parseIdentityConstraint(doc *xmltree.Document, elem xmltree.NodeID, schema 
 	seenField := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			continue
 		}
 
@@ -127,7 +128,7 @@ func validateAllowedAttributes(doc *xmltree.Document, elem xmltree.NodeID, eleme
 			continue
 		}
 		if attr.NamespaceURI() != "" {
-			if attr.NamespaceURI() == xmltree.XSDNamespace {
+			if attr.NamespaceURI() == xmlnames.XSDNamespace {
 				return fmt.Errorf("%s: attribute '%s' must be unprefixed", elementName, attr.LocalName())
 			}
 			continue

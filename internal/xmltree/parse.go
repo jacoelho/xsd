@@ -7,6 +7,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/stack"
 	"github.com/jacoelho/xsd/internal/xmllex"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -257,7 +258,7 @@ func appendInScopeNamespaceAttrs(attrs []Attr, reader *xmlstream.Reader, scopeDe
 			local = "xmlns"
 		}
 		attrs = append(attrs, Attr{
-			namespace: XMLNSNamespace,
+			namespace: xmlnames.XMLNSNamespace,
 			local:     local,
 			value:     prefixURI[prefix],
 		})
@@ -275,7 +276,7 @@ func appendScopeNamespaceAttrs(attrs []Attr, reader *xmlstream.Reader, scopeDept
 			local = "xmlns"
 		}
 		attrs = append(attrs, Attr{
-			namespace: XMLNSNamespace,
+			namespace: xmlnames.XMLNSNamespace,
 			local:     local,
 			value:     decl.URI,
 		})

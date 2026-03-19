@@ -99,13 +99,7 @@ func runWithArgs(programName string, args []string, stdout, stderr io.Writer) in
 		}()
 	}
 
-	loadOpts := xsd.NewLoadOptions()
-	if *instanceMaxTokenSize > 0 {
-		loadOpts = loadOpts.WithRuntimeOptions(
-			xsd.NewRuntimeOptions().WithInstanceMaxTokenSize(*instanceMaxTokenSize),
-		)
-	}
-	schema, err := xsd.LoadFileWithOptions(*schemaPath, loadOpts)
+	schema, err := xsd.CompileFile(*schemaPath, xsd.NewSourceOptions(), xsd.NewBuildOptions())
 	if err != nil {
 		if writeErr := writef(stderr, "error loading schema: %v\n", err); writeErr != nil {
 			return 1
@@ -113,7 +107,19 @@ func runWithArgs(programName string, args []string, stdout, stderr io.Writer) in
 		return 1
 	}
 
-	if err := schema.ValidateFile(xmlPath); err != nil {
+	validateOpts := xsd.NewValidateOptions()
+	if *instanceMaxTokenSize > 0 {
+		validateOpts = validateOpts.WithInstanceMaxTokenSize(*instanceMaxTokenSize)
+	}
+	v, err := schema.NewValidator(validateOpts)
+	if err != nil {
+		if writeErr := writef(stderr, "error creating validator: %v\n", err); writeErr != nil {
+			return 1
+		}
+		return 1
+	}
+
+	if err := v.ValidateFile(xmlPath); err != nil {
 		if violations, ok := xsderrors.AsValidations(err); ok {
 			for _, v := range violations {
 				if writeErr := writeln(stderr, v.Error()); writeErr != nil {

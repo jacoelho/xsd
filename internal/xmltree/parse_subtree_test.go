@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -47,7 +48,7 @@ func TestParseSubtreeIntoPreservesInScopeNamespacesAndConsumesSubtree(t *testing
 	foundDefault := false
 	foundPrefix := false
 	for _, attr := range doc.Attributes(root) {
-		if attr.NamespaceURI() != XMLNSNamespace {
+		if attr.NamespaceURI() != xmlnames.XMLNSNamespace {
 			continue
 		}
 		if attr.LocalName() == "xmlns" && attr.Value() == "urn:root" {

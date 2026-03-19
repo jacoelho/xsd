@@ -8,6 +8,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/xmllex"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -113,97 +114,147 @@ func ParseWithImportsOptionsWithPool(r io.Reader, pool *xmltree.DocumentPool, op
 	if err != nil {
 		return nil, newParseError(fmt.Errorf("xml reader: %w", err))
 	}
-	schema := NewSchema()
-	result := &ParseResult{
-		Schema:     schema,
-		Directives: []Directive{},
-		Imports:    []ImportInfo{},
-		Includes:   []IncludeInfo{},
+	session := newParseSession(reader, pool)
+	if err := session.parse(); err != nil {
+		return nil, err
 	}
-	importedNamespaces := make(map[model.NamespaceURI]bool)
-	dirState := directiveState{}
-	docState := xmllex.NewDocumentState()
+	return session.result, nil
+}
 
+type parseSession struct {
+	reader             *xmlstream.Reader
+	pool               *xmltree.DocumentPool
+	schema             *Schema
+	result             *ParseResult
+	importedNamespaces map[model.NamespaceURI]bool
+	dirState           directiveState
+	docState           xmllex.DocumentState
+}
+
+func newParseSession(reader *xmlstream.Reader, pool *xmltree.DocumentPool) *parseSession {
+	schema := NewSchema()
+	return &parseSession{
+		reader: reader,
+		pool:   pool,
+		schema: schema,
+		result: &ParseResult{
+			Schema:     schema,
+			Directives: []Directive{},
+			Imports:    []ImportInfo{},
+			Includes:   []IncludeInfo{},
+		},
+		importedNamespaces: make(map[model.NamespaceURI]bool),
+		docState:           xmllex.NewDocumentState(),
+	}
+}
+
+func (s *parseSession) parse() error {
 	for {
-		ev, err := reader.Next()
+		ev, err := s.reader.Next()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			return nil, newParseError(fmt.Errorf("xml read: %w", err))
+			return newParseError(fmt.Errorf("xml read: %w", err))
 		}
-
-		switch ev.Kind {
-		case xmlstream.EventStartElement:
-			if !docState.StartElementAllowed() {
-				return nil, newParseError(fmt.Errorf("unexpected element %s after document end", ev.Name.Local))
-			}
-			rootSeen := docState.RootSeen()
-			docState.OnStartElement()
-			if !rootSeen {
-				if ev.Name.Local != "schema" || ev.Name.Namespace != xmltree.XSDNamespace {
-					return nil, wrapParseErr(fmt.Errorf("root element must be xs:schema, got {%s}%s", ev.Name.Namespace, ev.Name.Local))
-				}
-				if err := parseSchemaAttributesFromStart(ev, reader.NamespaceDeclsSeq(ev.ScopeDepth), schema); err != nil {
-					return nil, wrapParseErr(err)
-				}
-				applyImportedNamespaces(schema, importedNamespaces)
-				continue
-			}
-			if ev.Name.Namespace != xmltree.XSDNamespace {
-				if err := reader.SkipSubtree(); err != nil {
-					return nil, newParseError(fmt.Errorf("xml skip for element %s: %w", ev.Name.String(), err))
-				}
-				continue
-			}
-
-			doc, root, err := parseSubtreeIntoDoc(reader, ev, pool)
-			if err != nil {
-				return nil, newParseError(fmt.Errorf("xml read for element %s: %w", ev.Name.String(), err))
-			}
-
-			switch ev.Name.Local {
-			case "annotation", "import", "include":
-				if err := parseDirectiveSubtree(doc, root, schema, result, importedNamespaces, &dirState, pool); err != nil {
-					return nil, wrapParseErr(err)
-				}
-				applyImportedNamespaces(schema, importedNamespaces)
-			case "redefine":
-				return nil, wrapParseErr(fmt.Errorf("redefine is not supported"))
-			default:
-				if !isTopLevelComponentElement(ev.Name.Local) {
-					pool.Release(doc)
-					return nil, wrapParseErr(fmt.Errorf("unexpected top-level element '%s'", ev.Name.Local))
-				}
-				if isGlobalDeclElement(ev.Name.Local) {
-					dirState.declIndex++
-				}
-				if err := parseTopLevelComponentSubtree(doc, root, schema, pool); err != nil {
-					return nil, wrapParseErr(err)
-				}
-			}
-
-		case xmlstream.EventEndElement:
-			docState.OnEndElement(docState.RootSeen() && !docState.RootClosed())
-		case xmlstream.EventCharData:
-			if !docState.RootSeen() || docState.RootClosed() {
-				if !docState.ValidateOutsideCharData(ev.Text) {
-					return nil, newParseError(fmt.Errorf("unexpected character data outside root element"))
-				}
-			}
-		case xmlstream.EventComment, xmlstream.EventPI, xmlstream.EventDirective:
-			if !docState.RootSeen() || docState.RootClosed() {
-				docState.OnOutsideMarkup()
-			}
+		if err := s.handleEvent(ev); err != nil {
+			return err
 		}
 	}
+	if !s.docState.RootSeen() {
+		return wrapParseErr(fmt.Errorf("empty document"))
+	}
+	applyImportedNamespaces(s.schema, s.importedNamespaces)
+	return nil
+}
 
-	if !docState.RootSeen() {
-		return nil, wrapParseErr(fmt.Errorf("empty document"))
+func (s *parseSession) handleEvent(ev xmlstream.Event) error {
+	switch ev.Kind {
+	case xmlstream.EventStartElement:
+		return s.handleStartElement(ev)
+	case xmlstream.EventEndElement:
+		s.docState.OnEndElement(s.docState.RootSeen() && !s.docState.RootClosed())
+	case xmlstream.EventCharData:
+		if err := s.handleCharData(ev); err != nil {
+			return err
+		}
+	case xmlstream.EventComment, xmlstream.EventPI, xmlstream.EventDirective:
+		if !s.docState.RootSeen() || s.docState.RootClosed() {
+			s.docState.OnOutsideMarkup()
+		}
+	}
+	return nil
+}
+
+func (s *parseSession) handleStartElement(ev xmlstream.Event) error {
+	if !s.docState.StartElementAllowed() {
+		return newParseError(fmt.Errorf("unexpected element %s after document end", ev.Name.Local))
+	}
+	rootSeen := s.docState.RootSeen()
+	s.docState.OnStartElement()
+	if !rootSeen {
+		return s.handleSchemaRoot(ev)
+	}
+	if ev.Name.Namespace != xmlnames.XSDNamespace {
+		return s.skipForeignSubtree(ev)
+	}
+	return s.handleTopLevelSubtree(ev)
+}
+
+func (s *parseSession) handleSchemaRoot(ev xmlstream.Event) error {
+	if ev.Name.Local != "schema" || ev.Name.Namespace != xmlnames.XSDNamespace {
+		return wrapParseErr(fmt.Errorf("root element must be xs:schema, got {%s}%s", ev.Name.Namespace, ev.Name.Local))
+	}
+	if err := parseSchemaAttributesFromStart(ev, s.reader.NamespaceDeclsSeq(ev.ScopeDepth), s.schema); err != nil {
+		return wrapParseErr(err)
+	}
+	applyImportedNamespaces(s.schema, s.importedNamespaces)
+	return nil
+}
+
+func (s *parseSession) skipForeignSubtree(ev xmlstream.Event) error {
+	if err := s.reader.SkipSubtree(); err != nil {
+		return newParseError(fmt.Errorf("xml skip for element %s: %w", ev.Name.String(), err))
+	}
+	return nil
+}
+
+func (s *parseSession) handleTopLevelSubtree(ev xmlstream.Event) error {
+	doc, root, err := parseSubtreeIntoDoc(s.reader, ev, s.pool)
+	if err != nil {
+		return newParseError(fmt.Errorf("xml read for element %s: %w", ev.Name.String(), err))
 	}
 
-	applyImportedNamespaces(schema, importedNamespaces)
-	return result, nil
+	switch ev.Name.Local {
+	case "annotation", "import", "include":
+		if err := parseDirectiveSubtree(doc, root, s.schema, s.result, s.importedNamespaces, &s.dirState, s.pool); err != nil {
+			return wrapParseErr(err)
+		}
+		applyImportedNamespaces(s.schema, s.importedNamespaces)
+		return nil
+	case "redefine":
+		s.pool.Release(doc)
+		return wrapParseErr(fmt.Errorf("redefine is not supported"))
+	default:
+		if !isTopLevelComponentElement(ev.Name.Local) {
+			s.pool.Release(doc)
+			return wrapParseErr(fmt.Errorf("unexpected top-level element '%s'", ev.Name.Local))
+		}
+		if isGlobalDeclElement(ev.Name.Local) {
+			s.dirState.declIndex++
+		}
+		return wrapParseErr(parseTopLevelComponentSubtree(doc, root, s.schema, s.pool))
+	}
+}
+
+func (s *parseSession) handleCharData(ev xmlstream.Event) error {
+	if s.docState.RootSeen() && !s.docState.RootClosed() {
+		return nil
+	}
+	if !s.docState.ValidateOutsideCharData(ev.Text) {
+		return newParseError(fmt.Errorf("unexpected character data outside root element"))
+	}
+	return nil
 }
 
 func parseSubtreeIntoDoc(reader *xmlstream.Reader, start xmlstream.Event, pool *xmltree.DocumentPool) (*xmltree.Document, xmltree.NodeID, error) {
@@ -272,10 +323,10 @@ func parseSchemaAttributesFromStart(start xmlstream.Event, decls iter.Seq[xmlstr
 
 func validateSchemaStartAttributeNamespaces(start xmlstream.Event) error {
 	for _, attr := range start.Attrs {
-		if attr.Name.Namespace == xmltree.XMLNSNamespace {
+		if attr.Name.Namespace == xmlnames.XMLNSNamespace {
 			continue
 		}
-		if attr.Name.Namespace == xmltree.XSDNamespace {
+		if attr.Name.Namespace == xmlnames.XSDNamespace {
 			return fmt.Errorf("schema attribute '%s' on <schema> must be unprefixed", attr.Name.Local)
 		}
 	}

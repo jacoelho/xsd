@@ -1,98 +1,33 @@
 package validator
 
 import (
-	"bytes"
-
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/xmllex"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+	"github.com/jacoelho/xsd/internal/validator/identity"
 )
 
-func collectIdentityAttrs(rt *runtime.Schema, attrs []StartAttr, applied []AttrApplied, intern func(ns, local []byte) identityAttrNameID) []rtIdentityAttr {
-	if len(attrs) == 0 && len(applied) == 0 {
+func collectIdentityAttrs(rt *runtime.Schema, startAttrs []attrs.Start, applied []attrs.Applied, intern func(ns, local []byte) identity.AttrNameID) []identity.Attr {
+	if len(startAttrs) == 0 && len(applied) == 0 {
 		return nil
 	}
-	out := make([]rtIdentityAttr, 0, len(attrs)+len(applied))
-	for _, attr := range attrs {
-		local := attr.Local
-		if len(local) == 0 && attr.Sym != 0 {
-			local = rt.Symbols.LocalBytes(attr.Sym)
-		}
-		nsBytes := attr.NSBytes
-		if len(nsBytes) == 0 && attr.NS != 0 {
-			nsBytes = rt.Namespaces.Bytes(attr.NS)
-		}
-		nameID := identityAttrNameID(0)
-		if attr.Sym == 0 && intern != nil {
-			nameID = intern(nsBytes, local)
-		}
-		out = append(out, rtIdentityAttr{
-			sym:      attr.Sym,
-			ns:       attr.NS,
-			nsBytes:  nsBytes,
-			local:    local,
-			keyKind:  attr.KeyKind,
-			keyBytes: attr.KeyBytes,
-			nameID:   nameID,
+	rawAttrs := make([]identity.RawAttr, 0, len(startAttrs))
+	for _, attr := range startAttrs {
+		rawAttrs = append(rawAttrs, identity.RawAttr{
+			NSBytes:  attr.NSBytes,
+			Local:    attr.Local,
+			KeyBytes: attr.KeyBytes,
+			Sym:      attr.Sym,
+			NS:       attr.NS,
+			KeyKind:  attr.KeyKind,
 		})
 	}
+	appliedAttrs := make([]identity.AppliedAttr, 0, len(applied))
 	for _, ap := range applied {
-		if ap.Name == 0 {
-			continue
-		}
-		nsID := runtime.NamespaceID(0)
-		if int(ap.Name) < len(rt.Symbols.NS) {
-			nsID = rt.Symbols.NS[ap.Name]
-		}
-		out = append(out, rtIdentityAttr{
-			sym:      ap.Name,
-			ns:       nsID,
-			nsBytes:  rt.Namespaces.Bytes(nsID),
-			local:    rt.Symbols.LocalBytes(ap.Name),
-			keyKind:  ap.KeyKind,
-			keyBytes: ap.KeyBytes,
-			nameID:   0,
+		appliedAttrs = append(appliedAttrs, identity.AppliedAttr{
+			Name:     ap.Name,
+			KeyBytes: ap.KeyBytes,
+			KeyKind:  ap.KeyKind,
 		})
 	}
-	return out
-}
-
-func isXMLNSAttr(attr *rtIdentityAttr, rt *runtime.Schema) bool {
-	if rt == nil || attr == nil {
-		return false
-	}
-	if attr.ns != 0 {
-		nsBytes := rt.Namespaces.Bytes(attr.ns)
-		return bytes.Equal(nsBytes, []byte(xmllex.XMLNSNamespace))
-	}
-	return bytes.Equal(attr.nsBytes, []byte(xmllex.XMLNSNamespace))
-}
-
-func attrNamespaceMatches(attr *rtIdentityAttr, ns runtime.NamespaceID, rt *runtime.Schema) bool {
-	if attr == nil {
-		return false
-	}
-	if attr.ns != 0 {
-		return attr.ns == ns
-	}
-	if rt == nil {
-		return false
-	}
-	return bytes.Equal(attr.nsBytes, rt.Namespaces.Bytes(ns))
-}
-
-func attrNameMatches(attr *rtIdentityAttr, op runtime.PathOp, rt *runtime.Schema) bool {
-	if attr == nil {
-		return false
-	}
-	if attr.sym != 0 {
-		return attr.sym == op.Sym
-	}
-	if rt == nil {
-		return false
-	}
-	targetLocal := rt.Symbols.LocalBytes(op.Sym)
-	if !bytes.Equal(attr.local, targetLocal) {
-		return false
-	}
-	return attrNamespaceMatches(attr, op.NS, rt)
+	return identity.CollectAttrs(rt, rawAttrs, appliedAttrs, intern)
 }

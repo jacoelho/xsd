@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/attrgroupwalk"
-	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -16,7 +15,7 @@ func detectAttributeGroupCycles(schema *parser.Schema) error {
 		Cycles:  attrgroupwalk.CycleError,
 	})
 
-	return globaldecl.ForEachAttributeGroup(schema, func(name model.QName, group *model.AttributeGroup) error {
+	return parser.ForEachGlobalAttributeGroup(&schema.SchemaGraph, func(name model.QName, group *model.AttributeGroup) error {
 		if group == nil {
 			return fmt.Errorf("missing attributeGroup %s", name)
 		}

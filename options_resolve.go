@@ -2,7 +2,7 @@ package xsd
 
 import "fmt"
 
-func (o LoadOptions) withDefaults() (resolvedLoadOptions, resolvedRuntimeOptions, error) {
+func (o SourceOptions) withDefaults() (resolvedSourceOptions, error) {
 	schemaLimits, err := resolveXMLParseLimits(
 		o.schemaMaxDepth.resolved(),
 		o.schemaMaxAttrs.resolved(),
@@ -10,19 +10,22 @@ func (o LoadOptions) withDefaults() (resolvedLoadOptions, resolvedRuntimeOptions
 		o.schemaMaxQNameInternEntries.resolved(),
 	)
 	if err != nil {
-		return resolvedLoadOptions{}, resolvedRuntimeOptions{}, fmt.Errorf("schema xml limits: %w", err)
+		return resolvedSourceOptions{}, fmt.Errorf("schema xml limits: %w", err)
 	}
-	runtimeOpts, err := o.runtime.withDefaults()
-	if err != nil {
-		return resolvedLoadOptions{}, resolvedRuntimeOptions{}, fmt.Errorf("runtime options: %w", err)
-	}
-	return resolvedLoadOptions{
+	return resolvedSourceOptions{
 		allowMissingImportLocations: o.allowMissingImportLocations,
 		schemaLimits:                schemaLimits,
-	}, runtimeOpts, nil
+	}, nil
 }
 
-func (o RuntimeOptions) withDefaults() (resolvedRuntimeOptions, error) {
+func (o BuildOptions) withDefaults() resolvedBuildOptions {
+	return resolvedBuildOptions{
+		maxDFAStates:   o.maxDFAStates.resolved(),
+		maxOccursLimit: o.maxOccursLimit.resolved(),
+	}
+}
+
+func (o ValidateOptions) withDefaults() (resolvedValidateOptions, error) {
 	instanceLimits, err := resolveXMLParseLimits(
 		o.instanceMaxDepth.resolved(),
 		o.instanceMaxAttrs.resolved(),
@@ -30,12 +33,18 @@ func (o RuntimeOptions) withDefaults() (resolvedRuntimeOptions, error) {
 		o.instanceMaxQNameInternEntries.resolved(),
 	)
 	if err != nil {
-		return resolvedRuntimeOptions{}, fmt.Errorf("instance xml limits: %w", err)
+		return resolvedValidateOptions{}, fmt.Errorf("instance xml limits: %w", err)
 	}
-	return resolvedRuntimeOptions{
-		maxDFAStates:         o.maxDFAStates.resolved(),
-		maxOccursLimit:       o.maxOccursLimit.resolved(),
+	return resolvedValidateOptions{
 		instanceLimits:       instanceLimits,
 		instanceParseOptions: instanceLimits.options(),
 	}, nil
+}
+
+func defaultResolvedValidateOptions() resolvedValidateOptions {
+	opts, err := NewValidateOptions().withDefaults()
+	if err != nil {
+		panic(err)
+	}
+	return opts
 }

@@ -7,28 +7,28 @@ import (
 	"path/filepath"
 )
 
-// LoadWithOptions loads and compiles a schema with explicit configuration.
-func LoadWithOptions(fsys fs.FS, location string, opts LoadOptions) (*Schema, error) {
-	entry, err := newSchemaSetEntry(fsys, location)
+// Compile loads, prepares, and builds one schema root with explicit source/build options.
+func Compile(fsys fs.FS, location string, sourceOpts SourceOptions, buildOpts BuildOptions) (*Schema, error) {
+	entry, err := newSourceEntry(fsys, location)
 	if err != nil {
-		return nil, fmt.Errorf("load schema %s: %w", location, err)
+		return nil, fmt.Errorf("compile schema %s: %w", location, err)
 	}
-	schema, err := compileEntries([]schemaSetEntry{entry}, opts, nil)
+
+	prepared, err := preparePreparedSchema([]sourceEntry{entry}, sourceOpts)
 	if err != nil {
-		return nil, fmt.Errorf("load schema %s: %w", location, err)
+		return nil, fmt.Errorf("compile schema %s: %w", location, err)
+	}
+	schema, err := prepared.Build(buildOpts)
+	if err != nil {
+		return nil, fmt.Errorf("compile schema %s: %w", location, err)
 	}
 	return schema, nil
 }
 
-// LoadFileWithOptions loads and compiles a schema from a file path with explicit configuration.
-func LoadFileWithOptions(path string, opts LoadOptions) (*Schema, error) {
+// CompileFile loads, prepares, and builds one schema file with explicit source/build options.
+func CompileFile(path string, sourceOpts SourceOptions, buildOpts BuildOptions) (*Schema, error) {
 	dir := filepath.Dir(path)
 	base := filepath.Base(path)
 
-	return LoadWithOptions(os.DirFS(dir), base, opts)
-}
-
-// LoadFile loads and compiles a schema from a file path.
-func LoadFile(path string) (*Schema, error) {
-	return LoadFileWithOptions(path, NewLoadOptions())
+	return Compile(os.DirFS(dir), base, sourceOpts, buildOpts)
 }

@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/analysis"
+	"github.com/jacoelho/xsd/internal/compiler/lower"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/validatorgen"
 )
 
 func mustPreparedArtifacts(t *testing.T, schemaXML string) (*PreparedArtifacts, *analysis.Registry, *analysis.ResolvedReferences) {
@@ -28,13 +28,13 @@ func mustPreparedArtifacts(t *testing.T, schemaXML string) (*PreparedArtifacts, 
 	return prepared, reg, refs
 }
 
-func mustCompiledValidators(t *testing.T, sch *parser.Schema, reg *analysis.Registry) *validatorgen.CompiledValidators {
+func mustCompiledValidators(t *testing.T, sch *parser.Schema, reg *analysis.Registry) *lower.CompiledValidators {
 	t.Helper()
-	complexTypes, err := validatorgen.BuildComplexTypePlan(sch, reg)
+	complexTypes, err := lower.BuildComplexTypePlan(sch, reg)
 	if err != nil {
 		t.Fatalf("BuildComplexTypePlan() error = %v", err)
 	}
-	validators, err := validatorgen.CompileWithComplexTypePlan(sch, reg, complexTypes)
+	validators, err := lower.CompileWithComplexTypePlan(sch, reg, complexTypes)
 	if err != nil {
 		t.Fatalf("CompileWithComplexTypePlan() error = %v", err)
 	}
@@ -83,7 +83,7 @@ func TestPreparedArtifactsBuildMatchesDirectBuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepared.Build() error = %v", err)
 	}
-	rtDirect, err := BuildArtifacts(prepared.schema, reg, refs, prepared.validators, BuildConfig{})
+	rtDirect, err := BuildArtifacts(prepared.Schema(), reg, refs, prepared.Validators(), BuildConfig{})
 	if err != nil {
 		t.Fatalf("BuildArtifacts() error = %v", err)
 	}
@@ -150,11 +150,11 @@ func TestPrepareBuildArtifactsWithPrecomputedValidatorsSimpleContentRestriction(
 	if err != nil {
 		t.Fatalf("ResolveReferences() error = %v", err)
 	}
-	complexTypes, err := validatorgen.BuildComplexTypePlan(sch, reg)
+	complexTypes, err := lower.BuildComplexTypePlan(sch, reg)
 	if err != nil {
 		t.Fatalf("BuildComplexTypePlan() error = %v", err)
 	}
-	validators, err := validatorgen.CompileWithComplexTypePlan(sch, reg, complexTypes)
+	validators, err := lower.CompileWithComplexTypePlan(sch, reg, complexTypes)
 	if err != nil {
 		t.Fatalf("CompileWithComplexTypePlan() error = %v", err)
 	}

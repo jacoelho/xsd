@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/xmllex"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
 func TestParse(t *testing.T) {
@@ -96,7 +97,7 @@ func TestParseNamespaceDeclarations(t *testing.T) {
 	foundDefault := false
 	foundPrefix := false
 	for _, attr := range attrs {
-		if attr.NamespaceURI() != XMLNSNamespace {
+		if attr.NamespaceURI() != xmlnames.XMLNSNamespace {
 			continue
 		}
 		if attr.LocalName() == "xmlns" && attr.Value() == "urn:default" {
@@ -145,7 +146,7 @@ func TestParseNamespaceUndeclareRedeclare(t *testing.T) {
 
 	rootXMLNS := ""
 	for _, attr := range doc.Attributes(root) {
-		if attr.NamespaceURI() == XMLNSNamespace && attr.LocalName() == "xmlns" {
+		if attr.NamespaceURI() == xmlnames.XMLNSNamespace && attr.LocalName() == "xmlns" {
 			rootXMLNS = attr.Value()
 		}
 	}
@@ -155,7 +156,7 @@ func TestParseNamespaceUndeclareRedeclare(t *testing.T) {
 
 	childXMLNS := ""
 	for _, attr := range doc.Attributes(child) {
-		if attr.NamespaceURI() == XMLNSNamespace && attr.LocalName() == "xmlns" {
+		if attr.NamespaceURI() == xmlnames.XMLNSNamespace && attr.LocalName() == "xmlns" {
 			childXMLNS = attr.Value()
 		}
 	}
@@ -165,7 +166,7 @@ func TestParseNamespaceUndeclareRedeclare(t *testing.T) {
 
 	grandXMLNS := ""
 	for _, attr := range doc.Attributes(grand) {
-		if attr.NamespaceURI() == XMLNSNamespace && attr.LocalName() == "xmlns" {
+		if attr.NamespaceURI() == xmlnames.XMLNSNamespace && attr.LocalName() == "xmlns" {
 			grandXMLNS = attr.Value()
 		}
 	}

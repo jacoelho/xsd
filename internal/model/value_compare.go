@@ -4,9 +4,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/value/temporal"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // CompareTypedValues reports whether two typed values are equal in the value space.
@@ -62,12 +61,12 @@ func valuesEqual(left, right TypedValue) bool {
 			if !leftTemporal || !rightTemporal || leftKind != rightKind {
 				return false
 			}
-			leftVal, lerr := temporal.Parse(leftKind, []byte(left.Lexical()))
-			rightVal, rerr := temporal.Parse(rightKind, []byte(right.Lexical()))
+			leftVal, lerr := value.Parse(leftKind, []byte(left.Lexical()))
+			rightVal, rerr := value.Parse(rightKind, []byte(right.Lexical()))
 			if lerr != nil || rerr != nil {
 				return false
 			}
-			return temporal.Equal(leftVal, rightVal)
+			return value.Equal(leftVal, rightVal)
 		}
 		return l.Equal(r)
 
@@ -121,9 +120,9 @@ func valuesEqual(left, right TypedValue) bool {
 		r, ok := rightNative.(QName)
 		return ok && l.Equal(r)
 
-	case durationlex.Duration:
+	case value.Duration:
 		switch r := rightNative.(type) {
-		case durationlex.Duration:
+		case value.Duration:
 			return durationsEqual(l, r, left.Type(), right.Type())
 		case ComparableXSDDuration:
 			return durationsEqual(l, r.Value, left.Type(), right.Type())
@@ -136,7 +135,7 @@ func valuesEqual(left, right TypedValue) bool {
 		case ComparableXSDDuration:
 			cmp, err := l.Compare(r)
 			return err == nil && cmp == 0
-		case durationlex.Duration:
+		case value.Duration:
 			return durationsEqual(l.Value, r, left.Type(), right.Type())
 		default:
 			return false
@@ -182,20 +181,20 @@ func valuesEqual(left, right TypedValue) bool {
 	return left.Lexical() == right.Lexical()
 }
 
-func durationsEqual(left, right durationlex.Duration, leftType, rightType Type) bool {
+func durationsEqual(left, right value.Duration, leftType, rightType Type) bool {
 	leftComp := ComparableXSDDuration{Value: left, Typ: leftType}
 	rightComp := ComparableXSDDuration{Value: right, Typ: rightType}
 	cmp, err := leftComp.Compare(rightComp)
 	return err == nil && cmp == 0
 }
 
-func temporalKindFromType(typ Type) (temporal.Kind, bool) {
+func temporalKindFromType(typ Type) (value.Kind, bool) {
 	if typ == nil {
-		return temporal.KindInvalid, false
+		return value.KindInvalid, false
 	}
 	primitive := typ.PrimitiveType()
 	if primitive == nil {
 		primitive = typ
 	}
-	return temporal.KindFromPrimitiveName(primitive.Name().Local)
+	return value.KindFromPrimitiveName(primitive.Name().Local)
 }
