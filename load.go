@@ -59,9 +59,9 @@ func CompileFile(path string, sourceOpts SourceOptions, buildOpts BuildOptions) 
 }
 
 type compileFileResolver struct {
+	nested   resolve.Resolver
 	path     string
 	systemID string
-	nested   resolve.Resolver
 }
 
 func (r *compileFileResolver) Resolve(req resolve.Request) (io.ReadCloser, string, error) {

@@ -10,8 +10,8 @@ import (
 
 type sourceEntry struct {
 	fsys     fs.FS
-	location string
 	resolver resolve.Resolver
+	location string
 }
 
 func newSourceEntry(fsys fs.FS, location string) (sourceEntry, error) {
