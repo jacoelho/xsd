@@ -1,6 +1,6 @@
 # XSD 1.0 Validator for Go
 
-XSD 1.0 validation for Go with io/fs schema loading and streaming XML validation.
+XSD 1.0 validation for Go with `io/fs` schema loading and streaming XML validation.
 
 ## Install
 
@@ -8,22 +8,22 @@ XSD 1.0 validation for Go with io/fs schema loading and streaming XML validation
 go get github.com/jacoelho/xsd
 ```
 
-## Quickstart (in-memory schema)
+## Quickstart
 
 ```go
 package main
 
 import (
-    "fmt"
-    "strings"
-    "testing/fstest"
+	"fmt"
+	"strings"
+	"testing/fstest"
 
-    "github.com/jacoelho/xsd"
-    "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd"
+	"github.com/jacoelho/xsd/errors"
 )
 
 func main() {
-    schemaXML := `<?xml version="1.0"?>
+	schemaXML := `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            targetNamespace="http://example.com/simple"
            elementFormDefault="qualified">
@@ -37,148 +37,144 @@ func main() {
   </xs:element>
 </xs:schema>`
 
-    fsys := fstest.MapFS{
-        "simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
-    }
+	fsys := fstest.MapFS{
+		"simple.xsd": &fstest.MapFile{Data: []byte(schemaXML)},
+	}
 
-    schema, err := xsd.LoadWithOptions(fsys, "simple.xsd", xsd.NewLoadOptions())
-    if err != nil {
-        fmt.Printf("Load schema: %v\n", err)
-        return
-    }
+	schema, err := xsd.Compile(fsys, "simple.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	if err != nil {
+		fmt.Printf("Compile schema: %v\n", err)
+		return
+	}
 
-    xmlDoc := `<?xml version="1.0"?>
+	xmlDoc := `<?xml version="1.0"?>
 <person xmlns="http://example.com/simple">
   <name>John Doe</name>
   <age>30</age>
 </person>`
 
-    if err := schema.Validate(strings.NewReader(xmlDoc)); err != nil {
-        if violations, ok := errors.AsValidations(err); ok {
-            for _, v := range violations {
-                fmt.Println(v.Error())
-            }
-            return
-        }
-        fmt.Printf("Validate: %v\n", err)
-        return
-    }
+	if err := schema.Validate(strings.NewReader(xmlDoc)); err != nil {
+		if violations, ok := errors.AsValidations(err); ok {
+			for _, v := range violations {
+				fmt.Println(v.Error())
+			}
+			return
+		}
+		fmt.Printf("Validate: %v\n", err)
+		return
+	}
 
-    fmt.Println("Document is valid")
+	fmt.Println("Document is valid")
 }
 ```
 
-## SchemaSet API
+## Phased API
+
+Single-root compile:
 
 ```go
-set := xsd.NewSchemaSet().WithLoadOptions(xsd.NewLoadOptions())
-if err := set.AddFS(fsys, "schema-a.xsd"); err != nil {
-    // handle
+schema, err := xsd.Compile(fsys, "schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
+```
+
+File-based compile:
+
+```go
+schema, err := xsd.CompileFile("schema.xsd", xsd.NewSourceOptions(), xsd.NewBuildOptions())
+```
+
+Multi-root or reusable prepared build:
+
+```go
+set := xsd.NewSourceSet().
+	WithSourceOptions(xsd.NewSourceOptions())
+
+if err := set.AddFS(fsysA, "schema-a.xsd"); err != nil {
+	// handle
 }
-if err := set.AddFS(fsys, "schema-b.xsd"); err != nil {
-    // handle
+if err := set.AddFS(fsysB, "schema-b.xsd"); err != nil {
+	// handle
 }
-schema, err := set.Compile()
+
+prepared, err := set.Prepare()
 if err != nil {
-    // handle
+	// handle
 }
+
+schema, err := prepared.Build(xsd.NewBuildOptions())
+if err != nil {
+	// handle
+}
+```
+
+## Validation
+
+Default validation:
+
+```go
 if err := schema.Validate(strings.NewReader(xmlDoc)); err != nil {
-    // handle
+	// handle
 }
 ```
 
-This snippet assumes `fsys` and `xmlDoc` are defined as in Quickstart.
-`SchemaSet` compiles all added roots into one runtime schema.
-
-## Validate from files
+Explicit validator configuration:
 
 ```go
-package main
-
-import (
-    "fmt"
-
-    "github.com/jacoelho/xsd"
-    "github.com/jacoelho/xsd/errors"
+validator, err := schema.NewValidator(
+	xsd.NewValidateOptions().
+		WithInstanceMaxDepth(512).
+		WithInstanceMaxTokenSize(1 << 20),
 )
-
-func main() {
-    schema, err := xsd.LoadFile("schema.xsd")
-    if err != nil {
-        fmt.Printf("Load schema: %v\n", err)
-        return
-    }
-
-    if err := schema.ValidateFile("document.xml"); err != nil {
-        if violations, ok := errors.AsValidations(err); ok {
-            for _, v := range violations {
-                fmt.Println(v.Error())
-            }
-            return
-        }
-        fmt.Printf("Validate: %v\n", err)
-        return
-    }
-
-    fmt.Println("Document is valid")
-}
-```
-
-To validate from any `fs.FS`:
-
-```go
-if err := schema.ValidateFSFile(fsys, "document.xml"); err != nil {
-    // handle
-}
-```
-
-## Load options
-
-```go
-opts := xsd.NewLoadOptions().
-    WithAllowMissingImportLocations(true).
-    WithRuntimeOptions(
-        xsd.NewRuntimeOptions().
-            WithMaxDFAStates(4096).
-            WithMaxOccursLimit(1_000_000),
-    )
-
-schema, err := xsd.LoadWithOptions(fsys, "schema.xsd", opts)
-```
-
-Options:
-- `WithAllowMissingImportLocations`: when true, imports without `schemaLocation` are skipped.
-  Missing import files are also skipped when the filesystem returns `fs.ErrNotExist`.
-- `WithRuntimeOptions`: applies runtime compilation/validation limits from `RuntimeOptions`.
-- `WithSchemaMaxDepth` / `WithSchemaMaxAttrs` / `WithSchemaMaxTokenSize` / `WithSchemaMaxQNameInternEntries`: schema parser XML limits.
-- instance limits (`WithInstanceMaxDepth`, `WithInstanceMaxAttrs`, `WithInstanceMaxTokenSize`, `WithInstanceMaxQNameInternEntries`) are set on `RuntimeOptions`.
-
-## Compile with Runtime Options
-
-```go
-set := xsd.NewSchemaSet().WithLoadOptions(xsd.NewLoadOptions())
-if err := set.AddFS(fsys, "schema.xsd"); err != nil {
-    // handle
-}
-
-schemaA, err := set.Compile()
 if err != nil {
-    // handle
+	// handle
 }
 
-runtimeOpts := xsd.NewRuntimeOptions().
-    WithMaxDFAStates(2048).
-    WithInstanceMaxDepth(512)
-schemaB, err := set.CompileWithRuntimeOptions(runtimeOpts)
-if err != nil {
-    // handle
+if err := validator.Validate(strings.NewReader(xmlDoc)); err != nil {
+	// handle
 }
+```
+
+Validate files:
+
+```go
+if err := schema.ValidateFile("document.xml"); err != nil {
+	// handle
+}
+if err := validator.ValidateFSFile(fsys, "document.xml"); err != nil {
+	// handle
+}
+```
+
+## Options
+
+Source options control schema loading and schema XML parsing:
+
+```go
+sourceOpts := xsd.NewSourceOptions().
+	WithAllowMissingImportLocations(true).
+	WithSchemaMaxDepth(512)
+```
+
+Build options control immutable runtime compilation:
+
+```go
+buildOpts := xsd.NewBuildOptions().
+	WithMaxDFAStates(4096).
+	WithMaxOccursLimit(1_000_000)
+```
+
+Validate options control instance XML parsing and validator sessions:
+
+```go
+validateOpts := xsd.NewValidateOptions().
+	WithInstanceMaxDepth(512).
+	WithInstanceMaxAttrs(256).
+	WithInstanceMaxTokenSize(1 << 20)
 ```
 
 ## Loading behavior
 
-- `LoadWithOptions` accepts any `fs.FS`; include/import locations resolve relative to the including schema path.
-- Includes MUST resolve successfully.
+- `Compile` and `SourceSet` accept any `fs.FS`; include/import locations resolve relative to the including schema path.
+- Includes must resolve successfully.
 - Imports without `schemaLocation` are rejected unless `WithAllowMissingImportLocations(true)` is set.
 
 ## Validation behavior
@@ -193,9 +189,10 @@ if err != nil {
 `Schema.ValidateFile` can return file I/O errors before validation starts.
 
 Each `errors.Validation` includes:
-- `Code` (W3C codes like `cvc-elt.1`, or local codes like `xsd-schema-not-loaded`)
+
+- `Code`
 - `Message`
-- `Path` (best-effort instance path)
+- `Path`
 - `Line` and `Column` when available
 - `Expected` and `Actual` when available
 
@@ -209,7 +206,7 @@ Each `errors.Validation` includes:
 - DTDs and external entity resolution are not supported.
 - Instance documents must be UTF-8.
 
-## CLI (xmllint)
+## CLI (`xmllint`)
 
 ```bash
 make xmllint
@@ -217,6 +214,7 @@ make xmllint
 ```
 
 Options:
+
 - `--schema` (required): path to the XSD schema file
 - `--cpuprofile`: write a CPU profile to a file
 - `--memprofile`: write a heap profile to a file
@@ -227,10 +225,6 @@ Options:
 go test -timeout 60s ./...
 make w3c
 ```
-
-## Architecture
-
-See `docs/architecture.md`.
 
 ## License
 
