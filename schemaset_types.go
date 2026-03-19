@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"io/fs"
 	"strings"
+
+	"github.com/jacoelho/xsd/internal/preprocessor/resolve"
 )
 
 type sourceEntry struct {
 	fsys     fs.FS
 	location string
+	resolver resolve.Resolver
 }
 
 func newSourceEntry(fsys fs.FS, location string) (sourceEntry, error) {
