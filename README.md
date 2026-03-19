@@ -174,6 +174,7 @@ validateOpts := xsd.NewValidateOptions().
 ## Loading behavior
 
 - `Compile` and `SourceSet` accept any `fs.FS`; include/import locations resolve relative to the including schema path.
+- `CompileFile` loads the explicit entry path as requested and confines nested include/import resolution to that path's containing directory tree.
 - Includes must resolve successfully.
 - Imports without `schemaLocation` are rejected unless `WithAllowMissingImportLocations(true)` is set.
 

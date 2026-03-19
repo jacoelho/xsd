@@ -7,6 +7,17 @@ import (
 )
 
 func prepareEntries(entries []sourceEntry, source resolvedSourceOptions) (*compiler.Prepared, error) {
+	if len(entries) == 1 {
+		entry := entries[0]
+		return compiler.PrepareRoots(compiler.LoadConfig{
+			FS:                          entry.fsys,
+			Location:                    entry.location,
+			Resolver:                    entry.resolver,
+			AllowMissingImportLocations: source.allowMissingImportLocations,
+			SchemaParseOptions:          source.schemaLimits.options(),
+		})
+	}
+
 	roots := make([]compiler.Root, 0, len(entries))
 	for _, entry := range entries {
 		roots = append(roots, compiler.Root{

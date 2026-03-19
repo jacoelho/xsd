@@ -295,6 +295,66 @@ func TestCompileFileResolvesRelativeImport(t *testing.T) {
 	}
 }
 
+func TestCompileFileAllowsSymlinkRootAndResolvesNestedImportsInRequestedTree(t *testing.T) {
+	tempDir := t.TempDir()
+	schemaPath := writePhaseTempFile(t, tempDir, "outside/main.xsd", `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main"
+           xmlns:tns="urn:main"
+           xmlns:dep="urn:dep"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:dep" schemaLocation="deps/dep.xsd"/>
+  <xs:element name="root" type="dep:codeType"/>
+</xs:schema>`)
+	writePhaseTempFile(t, tempDir, "links/deps/dep.xsd", `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:dep"
+           xmlns:tns="urn:dep">
+  <xs:simpleType name="codeType">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`)
+	linkPath := writePhaseTempSymlink(t, tempDir, "links/current.xsd", schemaPath)
+
+	schema, err := xsd.CompileFile(linkPath, xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	if err != nil {
+		t.Fatalf("CompileFile() error = %v", err)
+	}
+	if err := schema.Validate(strings.NewReader(`<root xmlns="urn:main">ok</root>`)); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
+func TestCompileFileRejectsSymlinkImportEscape(t *testing.T) {
+	tempDir := t.TempDir()
+	schemaPath := writePhaseTempFile(t, tempDir, "schemas/main.xsd", `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:main"
+           xmlns:tns="urn:main"
+           xmlns:dep="urn:dep"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:dep" schemaLocation="deps/dep.xsd"/>
+  <xs:element name="root" type="dep:codeType"/>
+</xs:schema>`)
+	outsidePath := writePhaseTempFile(t, tempDir, "outside/dep.xsd", `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:dep"
+           xmlns:tns="urn:dep">
+  <xs:simpleType name="codeType">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`)
+	writePhaseTempSymlink(t, tempDir, "schemas/deps/dep.xsd", outsidePath)
+
+	_, err := xsd.CompileFile(schemaPath, xsd.NewSourceOptions(), xsd.NewBuildOptions())
+	if err == nil {
+		t.Fatal("CompileFile() error = nil, want symlink escape rejection")
+	}
+	if !strings.Contains(err.Error(), "compile schema main.xsd") {
+		t.Fatalf("CompileFile() error = %v, want wrapped schema location", err)
+	}
+}
+
 func TestCompileFileMissingFile(t *testing.T) {
 	missingPath := filepath.Join(t.TempDir(), "missing.xsd")
 
@@ -339,6 +399,26 @@ func writePhaseTempFile(t *testing.T, root, name, content string) string {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("WriteFile(%q) error = %v", path, err)
+	}
+	return path
+}
+
+func writePhaseTempSymlink(t *testing.T, root, name, target string) string {
+	t.Helper()
+
+	path := filepath.Join(root, filepath.FromSlash(name))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll(%q) error = %v", filepath.Dir(path), err)
+	}
+	linkTarget, err := filepath.Rel(filepath.Dir(path), target)
+	if err != nil {
+		t.Fatalf("filepath.Rel(%q, %q) error = %v", filepath.Dir(path), target, err)
+	}
+	if err := os.Symlink(linkTarget, path); err != nil {
+		if errors.Is(err, fs.ErrPermission) || errors.Is(err, errors.ErrUnsupported) {
+			t.Skipf("symlink creation unavailable in test environment: %v", err)
+		}
+		t.Fatalf("Symlink(%q, %q) error = %v", linkTarget, path, err)
 	}
 	return path
 }

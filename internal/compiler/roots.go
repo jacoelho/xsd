@@ -41,8 +41,8 @@ func loadRoots(cfg LoadConfig) (*parser.Schema, error) {
 
 func prepareRoots(cfg LoadConfig) ([]Root, error) {
 	if len(cfg.Roots) > 0 {
-		if cfg.FS != nil || strings.TrimSpace(cfg.Location) != "" {
-			return nil, fmt.Errorf("prepare schema: roots and fs/location are mutually exclusive")
+		if cfg.FS != nil || strings.TrimSpace(cfg.Location) != "" || cfg.Resolver != nil {
+			return nil, fmt.Errorf("prepare schema: roots and fs/location/resolver are mutually exclusive")
 		}
 		roots := make([]Root, 0, len(cfg.Roots))
 		for i, root := range cfg.Roots {
@@ -105,6 +105,7 @@ func loadAndMergeRoots(roots []Root, cfg LoadConfig) (*parser.Schema, error) {
 func newLoader(root Root, cfg LoadConfig) *preprocessor.Loader {
 	return preprocessor.NewLoader(preprocessor.Config{
 		FS:                          root.FS,
+		Resolver:                    cfg.Resolver,
 		AllowMissingImportLocations: cfg.AllowMissingImportLocations,
 		SchemaParseOptions:          cfg.SchemaParseOptions,
 		DocumentPool:                xmltree.NewDocumentPool(),

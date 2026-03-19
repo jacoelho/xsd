@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -106,12 +108,69 @@ func TestRunWithArgs(t *testing.T) {
 	}
 }
 
+func TestRunWithArgsSupportsSymlinkedSchemaRoot(t *testing.T) {
+	tempDir := t.TempDir()
+	schemaPath := writeFile(t, tempDir, "outside/main.xsd", `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:test"
+           xmlns:tns="urn:test"
+           xmlns:dep="urn:dep"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:dep" schemaLocation="deps/dep.xsd"/>
+  <xs:element name="root" type="dep:codeType"/>
+</xs:schema>`)
+	writeFile(t, tempDir, "links/deps/dep.xsd", `<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:dep"
+           xmlns:tns="urn:dep">
+  <xs:simpleType name="codeType">
+    <xs:restriction base="xs:string"/>
+  </xs:simpleType>
+</xs:schema>`)
+	linkPath := writeSymlink(t, tempDir, "links/current.xsd", schemaPath)
+	validDocPath := writeFile(t, tempDir, "valid.xml", `<root xmlns="urn:test">ok</root>`)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	gotCode := runWithArgs("xmllint", []string{"--schema", linkPath, validDocPath}, &stdout, &stderr)
+	if gotCode != 0 {
+		t.Fatalf("runWithArgs() code = %d, want 0\nstdout:\n%s\nstderr:\n%s", gotCode, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), validDocPath+" validates") {
+		t.Fatalf("stdout = %q, want validation success", stdout.String())
+	}
+}
+
 func writeFile(t *testing.T, root, name, content string) string {
 	t.Helper()
 
 	path := filepath.Join(root, name)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll(%q) error = %v", filepath.Dir(path), err)
+	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("WriteFile(%q) error = %v", path, err)
+	}
+	return path
+}
+
+func writeSymlink(t *testing.T, root, name, target string) string {
+	t.Helper()
+
+	path := filepath.Join(root, name)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll(%q) error = %v", filepath.Dir(path), err)
+	}
+	linkTarget, err := filepath.Rel(filepath.Dir(path), target)
+	if err != nil {
+		t.Fatalf("filepath.Rel(%q, %q) error = %v", filepath.Dir(path), target, err)
+	}
+	if err := os.Symlink(linkTarget, path); err != nil {
+		if errors.Is(err, fs.ErrPermission) || errors.Is(err, errors.ErrUnsupported) {
+			t.Skipf("symlink creation unavailable in test environment: %v", err)
+		}
+		t.Fatalf("Symlink(%q, %q) error = %v", linkTarget, path, err)
 	}
 	return path
 }
