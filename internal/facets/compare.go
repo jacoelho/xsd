@@ -5,10 +5,8 @@ import (
 	"math"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 // ErrDateTimeNotComparable reports partially ordered date/time comparisons.
@@ -122,23 +120,23 @@ func compareFloatValues(v1, v2 float64) (int, error) {
 }
 
 func compareDateTimeValues(v1, v2, baseTypeName string) (int, error) {
-	kind, ok := temporal.KindFromPrimitiveName(baseTypeName)
+	kind, ok := value.KindFromPrimitiveName(baseTypeName)
 	if !ok {
 		return strings.Compare(v1, v2), nil
 	}
-	t1, err := temporal.Parse(kind, []byte(v1))
+	t1, err := value.Parse(kind, []byte(v1))
 	if err != nil {
 		return 0, err
 	}
-	t2, err := temporal.Parse(kind, []byte(v2))
+	t2, err := value.Parse(kind, []byte(v2))
 	if err != nil {
 		return 0, err
 	}
 	return compareDateTimeOrder(t1, t2)
 }
 
-func compareDateTimeOrder(t1, t2 temporal.Value) (int, error) {
-	cmp, err := temporal.Compare(t1, t2)
+func compareDateTimeOrder(t1, t2 value.Value) (int, error) {
+	cmp, err := value.Compare(t1, t2)
 	if err != nil {
 		return 0, ErrDateTimeNotComparable
 	}
@@ -146,11 +144,11 @@ func compareDateTimeOrder(t1, t2 temporal.Value) (int, error) {
 }
 
 func compareDurationValues(v1, v2 string) (int, error) {
-	left, err := durationlex.Parse(v1)
+	left, err := value.ParseDuration(v1)
 	if err != nil {
 		return 0, err
 	}
-	right, err := durationlex.Parse(v2)
+	right, err := value.ParseDuration(v2)
 	if err != nil {
 		return 0, err
 	}

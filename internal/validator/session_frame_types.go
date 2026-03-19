@@ -1,14 +1,18 @@
 package validator
 
-import "github.com/jacoelho/xsd/internal/runtime"
+import (
+	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/model"
+	"github.com/jacoelho/xsd/internal/validator/names"
+)
 
 type elemFrame struct {
 	local              []byte
 	ns                 []byte
-	modelState         ModelState
+	modelState         model.State
 	text               TextState
 	model              runtime.ModelRef
-	name               NameID
+	name               names.ID
 	elem               runtime.ElemID
 	typ                runtime.TypeID
 	content            runtime.ContentKind
@@ -16,10 +20,4 @@ type elemFrame struct {
 	nilled             bool
 	hasChildElements   bool
 	childErrorReported bool
-}
-
-type nsFrame struct {
-	off      uint32
-	len      uint32
-	cacheOff uint32
 }

@@ -12,8 +12,12 @@ import (
 func TestFacetInheritance_SimpleType(t *testing.T) {
 	// test that facets are inherited from base type
 	schema := &parser.Schema{
-		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[model.QName]model.Type),
+		SchemaGraph: parser.SchemaGraph{
+			TypeDefs: make(map[model.QName]model.Type),
+		},
+		SchemaMeta: parser.SchemaMeta{
+			TargetNamespace: "http://example.com",
+		},
 	}
 
 	// base type with maxInclusive=100
@@ -85,8 +89,12 @@ func TestFacetInheritance_SimpleType(t *testing.T) {
 func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 	// test that relaxing facets is rejected
 	schema := &parser.Schema{
-		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[model.QName]model.Type),
+		SchemaGraph: parser.SchemaGraph{
+			TypeDefs: make(map[model.QName]model.Type),
+		},
+		SchemaMeta: parser.SchemaMeta{
+			TargetNamespace: "http://example.com",
+		},
 	}
 
 	// base type with maxInclusive=100
@@ -154,8 +162,12 @@ func TestFacetInheritance_InvalidRelaxation(t *testing.T) {
 func TestFacetInheritance_MinInclusive(t *testing.T) {
 	// test minInclusive facet inheritance
 	schema := &parser.Schema{
-		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[model.QName]model.Type),
+		SchemaGraph: parser.SchemaGraph{
+			TypeDefs: make(map[model.QName]model.Type),
+		},
+		SchemaMeta: parser.SchemaMeta{
+			TargetNamespace: "http://example.com",
+		},
 	}
 
 	// base type with minInclusive=10
@@ -275,8 +287,12 @@ func TestFacetInheritance_DeferredFacetConversionError(t *testing.T) {
 
 func TestFacetInheritance_DigitsRelaxation(t *testing.T) {
 	schema := &parser.Schema{
-		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[model.QName]model.Type),
+		SchemaGraph: parser.SchemaGraph{
+			TypeDefs: make(map[model.QName]model.Type),
+		},
+		SchemaMeta: parser.SchemaMeta{
+			TargetNamespace: "http://example.com",
+		},
 	}
 
 	decimalBaseType := model.GetBuiltin(model.TypeNameDecimal)
@@ -335,8 +351,12 @@ func TestFacetInheritance_DigitsRelaxation(t *testing.T) {
 func TestFacetInheritance_MaxLength(t *testing.T) {
 	// test maxLength facet inheritance
 	schema := &parser.Schema{
-		TargetNamespace: "http://example.com",
-		TypeDefs:        make(map[model.QName]model.Type),
+		SchemaGraph: parser.SchemaGraph{
+			TypeDefs: make(map[model.QName]model.Type),
+		},
+		SchemaMeta: parser.SchemaMeta{
+			TargetNamespace: "http://example.com",
+		},
 	}
 
 	// base type with maxLength=100

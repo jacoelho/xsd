@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/jacoelho/xsd/internal/analysis"
-	"github.com/jacoelho/xsd/internal/complextypeplan"
+	"github.com/jacoelho/xsd/internal/compiler/lower"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -36,7 +36,7 @@ type Prepared struct {
 	schema       *parser.Schema
 	registry     *analysis.Registry
 	refs         *analysis.ResolvedReferences
-	complexTypes *complextypeplan.Plan
+	complexTypes *lower.ComplexTypePlan
 	prepared     *PreparedArtifacts
 	prepErr      error
 	buildOnce    sync.Once
@@ -67,7 +67,7 @@ func (p *Prepared) References() *analysis.ResolvedReferences {
 }
 
 // ComplexTypes returns the precomputed complex-type plan for validator compilation.
-func (p *Prepared) ComplexTypes() *complextypeplan.Plan {
+func (p *Prepared) ComplexTypes() *lower.ComplexTypePlan {
 	if p == nil {
 		return nil
 	}

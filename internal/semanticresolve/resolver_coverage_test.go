@@ -60,14 +60,14 @@ func TestValidateValueAgainstFacets(t *testing.T) {
 	if !ok || st == nil {
 		t.Fatalf("expected mytype simple type")
 	}
-	facets, err := typeresolve.CollectSimpleTypeFacets(schema, st, nil)
+	collectedFacets, err := typeresolve.CollectSimpleTypeFacets(schema, st, nil)
 	if err != nil {
 		t.Fatalf("collect simple type facets: %v", err)
 	}
-	if err := facetvalue.Validate("abcd", st, facets, nil); err != nil {
+	if err := facetvalue.Validate("abcd", st, collectedFacets, nil); err != nil {
 		t.Fatalf("expected valid facet value, got %v", err)
 	}
-	if err := facetvalue.Validate("ab", st, facets, nil); err == nil {
+	if err := facetvalue.Validate("ab", st, collectedFacets, nil); err == nil {
 		t.Fatalf("expected facet violation for short value")
 	}
 }

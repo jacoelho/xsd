@@ -7,6 +7,7 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
 	"github.com/jacoelho/xsd/pkg/xmltext"
 )
 
@@ -45,12 +46,12 @@ func TestValidatorZeroRejected(t *testing.T) {
 	if attrSym == 0 {
 		t.Fatalf("attribute symbol not found")
 	}
-	attrs := rt.ComplexTypes[rootType.Complex.ID].Attrs
-	uses := sliceAttrUses(rt.AttrIndex.Uses, attrs)
+	attrIndex := rt.ComplexTypes[rootType.Complex.ID].Attrs
+	uses := attrs.Uses(rt.AttrIndex.Uses, attrIndex)
 	if len(uses) == 0 {
 		t.Fatalf("expected attribute uses")
 	}
-	_, idx, ok := lookupAttrUse(rt, attrs, attrSym)
+	_, idx, ok := attrs.LookupUse(rt, attrIndex, attrSym)
 	if !ok {
 		t.Fatalf("attribute use not found")
 	}

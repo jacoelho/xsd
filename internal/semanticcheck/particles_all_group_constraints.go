@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurspolicy"
+	"github.com/jacoelho/xsd/internal/occurs"
 )
 
 func validateAllGroupConstraints(group *model.ModelGroup, parentKind *model.GroupKind) error {
@@ -44,10 +44,10 @@ func validateAllGroupUniqueElements(particles []model.Particle) error {
 }
 
 func validateAllGroupOccurrence(group *model.ModelGroup) error {
-	switch occurspolicy.CheckAllGroupBounds(group.MinOccurs, group.MaxOccurs) {
-	case occurspolicy.AllGroupMinNotZeroOrOne:
+	switch occurs.CheckAllGroupBounds(group.MinOccurs, group.MaxOccurs) {
+	case occurs.AllGroupMinNotZeroOrOne:
 		return fmt.Errorf("xs:all must have minOccurs='0' or '1' (got %s)", group.MinOccurs)
-	case occurspolicy.AllGroupMaxNotOne:
+	case occurs.AllGroupMaxNotOne:
 		return fmt.Errorf("xs:all must have maxOccurs='1' (got %s)", group.MaxOccurs)
 	}
 	return nil
@@ -55,7 +55,7 @@ func validateAllGroupOccurrence(group *model.ModelGroup) error {
 
 func validateAllGroupParticleOccurs(particles []model.Particle) error {
 	for _, childParticle := range particles {
-		if !occurspolicy.IsAllGroupChildMaxValid(childParticle.MaxOcc()) {
+		if !occurs.IsAllGroupChildMaxValid(childParticle.MaxOcc()) {
 			return fmt.Errorf("xs:all: all particles must have maxOccurs <= 1 (got %s)", childParticle.MaxOcc())
 		}
 	}

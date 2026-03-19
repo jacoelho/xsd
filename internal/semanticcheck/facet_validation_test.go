@@ -232,8 +232,12 @@ func TestOrderedTypeFacetApplicability(t *testing.T) {
 			}
 
 			schema := &parser.Schema{
-				TargetNamespace: "http://example.com",
-				TypeDefs:        make(map[model.QName]model.Type),
+				SchemaGraph: parser.SchemaGraph{
+					TypeDefs: make(map[model.QName]model.Type),
+				},
+				SchemaMeta: parser.SchemaMeta{
+					TargetNamespace: "http://example.com",
+				},
 			}
 
 			simpleType := &model.SimpleType{

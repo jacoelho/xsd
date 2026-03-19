@@ -3,7 +3,6 @@ package analysis
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/globaldecl"
 	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
@@ -64,7 +63,7 @@ func newReferenceResolver(schema *parser.Schema, registry *Registry) *referenceR
 }
 
 func (r *referenceResolver) resolveGlobalDeclarations() error {
-	return globaldecl.ForEach(r.schema, globaldecl.Handlers{
+	return parser.ForEachGlobalDecl(&r.schema.SchemaGraph, parser.GlobalDeclHandlers{
 		Element: func(name model.QName, decl *model.ElementDecl) error {
 			if decl == nil {
 				return fmt.Errorf("missing global element %s", name)

@@ -2,39 +2,9 @@ package validator
 
 import (
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/validator/valruntime"
 )
-
-func TestIsIntegerLexical(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		lexical string
-		want    bool
-	}{
-		{name: "plain", lexical: "12", want: true},
-		{name: "negative", lexical: "-12", want: true},
-		{name: "positive", lexical: "+12", want: true},
-		{name: "negative zero", lexical: "-0", want: true},
-		{name: "positive zero", lexical: "+0", want: true},
-		{name: "zero", lexical: "000", want: true},
-		{name: "empty", lexical: "", want: false},
-		{name: "sign only", lexical: "-", want: false},
-		{name: "decimal", lexical: "12.5", want: false},
-		{name: "exp", lexical: "12e3", want: false},
-		{name: "space", lexical: " 12 ", want: false},
-		{name: "word", lexical: "abc", want: false},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			if got := isIntegerLexical([]byte(tc.lexical)); got != tc.want {
-				t.Fatalf("isIntegerLexical(%q) = %v, want %v", tc.lexical, got, tc.want)
-			}
-		})
-	}
-}
 
 func TestUnionIntegerDecimalNoMemberMatch(t *testing.T) {
 	schema := `<?xml version="1.0"?>
@@ -57,7 +27,7 @@ func TestUnionIntegerDecimalNoMemberMatch(t *testing.T) {
 		validator,
 		[]byte("abc"),
 		nil,
-		valueOptions{applyWhitespace: true, requireCanonical: true, needKey: true},
+		valruntime.Options{ApplyWhitespace: true, RequireCanonical: true, NeedKey: true},
 	)
 	if err == nil {
 		t.Fatalf("expected error for value that matches no union member")
@@ -95,7 +65,7 @@ func TestUnionIntegerDecimalSelectsMatchingMember(t *testing.T) {
 				validator,
 				[]byte(tc.lexical),
 				nil,
-				valueOptions{applyWhitespace: true, requireCanonical: true, needKey: true},
+				valruntime.Options{ApplyWhitespace: true, RequireCanonical: true, NeedKey: true},
 			)
 			if err != nil {
 				t.Fatalf("validate union %q: %v", tc.lexical, err)

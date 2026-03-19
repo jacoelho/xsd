@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -96,7 +97,7 @@ func parseTopLevelNotation(doc *xmltree.Document, elem xmltree.NodeID, schema *S
 
 	hasAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			return fmt.Errorf("notation '%s': unexpected child element '%s'", name, doc.LocalName(child))
 		}
 

@@ -67,7 +67,7 @@ func (s *Session) handleEndElement(ev *xmlstream.ResolvedEvent, resolver session
 		errs = s.appendEndError(errs, &path, err)
 	}
 
-	if path == "" && s.icState.hasCommitted() {
+	if path == "" && s.icState.HasCommitted() {
 		path = s.pathString()
 	}
 

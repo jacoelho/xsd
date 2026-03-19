@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurspolicy"
+	"github.com/jacoelho/xsd/internal/occurs"
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -32,10 +33,10 @@ func parseModelGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema)
 		return nil, err
 	}
 	if kind == model.AllGroup {
-		switch occurspolicy.CheckAllGroupBounds(minOccurs, maxOccurs) {
-		case occurspolicy.AllGroupMinNotZeroOrOne:
+		switch occurs.CheckAllGroupBounds(minOccurs, maxOccurs) {
+		case occurs.AllGroupMinNotZeroOrOne:
 			return nil, fmt.Errorf("xs:all must have minOccurs='0' or '1'")
-		case occurspolicy.AllGroupMaxNotOne:
+		case occurs.AllGroupMaxNotOne:
 			return nil, fmt.Errorf("xs:all must have maxOccurs='1'")
 		}
 	}
@@ -51,7 +52,7 @@ func parseModelGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema)
 	hasNonAnnotation := false
 	parentName := doc.LocalName(elem)
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			continue
 		}
 

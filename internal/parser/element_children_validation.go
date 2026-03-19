@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -12,7 +13,7 @@ func validateAnnotationOrder(doc *xmltree.Document, elem xmltree.NodeID) error {
 	seenNonAnnotation := false
 	annotationCount := 0
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			continue
 		}
 
@@ -37,7 +38,7 @@ func validateElementChildrenOrder(doc *xmltree.Document, elem xmltree.NodeID) er
 	seenType := false
 	seenConstraint := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -61,7 +62,7 @@ func validateElementChildrenOrder(doc *xmltree.Document, elem xmltree.NodeID) er
 func validateOnlyAnnotationChildren(doc *xmltree.Document, elem xmltree.NodeID, elementName string) error {
 	seenAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmltree.XSDNamespace {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
 			continue
 		}
 		if doc.LocalName(child) == "annotation" {

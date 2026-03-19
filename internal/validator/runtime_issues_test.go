@@ -9,6 +9,7 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/names"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -322,26 +323,26 @@ func TestLookupNamespaceCacheDoesNotGrowBuffers(t *testing.T) {
 		})
 	}
 	sess.pushNamespaceScope(decls)
-	beforeLocal := len(sess.nameLocal)
-	beforeNS := len(sess.nameNS)
+	beforeLocal := len(sess.Names.Local)
+	beforeNS := len(sess.Names.NS)
 
 	ns, ok := sess.lookupNamespace([]byte("p10"))
 	if !ok || string(ns) != "urn:10" {
 		t.Fatalf("lookupNamespace result = %q, %v", ns, ok)
 	}
-	if len(sess.nameLocal) != beforeLocal || len(sess.nameNS) != beforeNS {
+	if len(sess.Names.Local) != beforeLocal || len(sess.Names.NS) != beforeNS {
 		t.Fatalf("name buffers grew after first lookup")
 	}
-	cacheLen := len(sess.prefixCache)
+	cacheLen := len(sess.Names.PrefixCache)
 
 	ns, ok = sess.lookupNamespace([]byte("p10"))
 	if !ok || string(ns) != "urn:10" {
 		t.Fatalf("lookupNamespace cached result = %q, %v", ns, ok)
 	}
-	if len(sess.nameLocal) != beforeLocal || len(sess.nameNS) != beforeNS {
+	if len(sess.Names.Local) != beforeLocal || len(sess.Names.NS) != beforeNS {
 		t.Fatalf("name buffers grew after cached lookup")
 	}
-	if len(sess.prefixCache) != cacheLen {
+	if len(sess.Names.PrefixCache) != cacheLen {
 		t.Fatalf("prefix cache grew after cached lookup")
 	}
 }
@@ -353,7 +354,7 @@ func TestPathStringFallbackUsesFrameName(t *testing.T) {
 	}
 	sess := NewSession(schema)
 	sess.elemStack = []elemFrame{{
-		name:  NameID(maxNameMapSize + 1),
+		name:  names.ID(maxNameMapSize + 1),
 		local: []byte("root"),
 		ns:    []byte("urn:test"),
 	}}

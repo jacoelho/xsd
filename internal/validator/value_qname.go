@@ -4,39 +4,24 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/valruntime"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/valuecodec"
 )
 
-func (s *Session) canonicalizeQName(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, needKey bool, metrics *ValueMetrics) ([]byte, error) {
-	canon, err := value.CanonicalQName(normalized, resolver, nil)
+func (s *Session) canonicalizeQName(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, needKey bool, metrics *valruntime.State) ([]byte, error) {
+	result, bufs, err := valruntime.QName(meta.Kind, normalized, resolver, needKey, s.notationDeclared, s.canonicalBuffers())
+	s.restoreCanonicalBuffers(bufs)
 	if err != nil {
-		return nil, valueErrorMsg(valueErrInvalid, err.Error())
+		return nil, err
 	}
-	if meta.Kind == runtime.VNotation && !s.notationDeclared(canon) {
-		return nil, valueErrorMsg(valueErrInvalid, "notation not declared")
-	}
-	canonStored := canon
-	if needKey {
-		tag := byte(0)
-		if meta.Kind == runtime.VNotation {
-			tag = 1
-		}
-		key := valuecodec.QNameKeyCanonical(s.keyTmp[:0], tag, canonStored)
-		if len(key) == 0 {
-			return nil, valueErrorf(valueErrInvalid, "invalid QName key")
-		}
-		s.keyTmp = key
-		s.setKey(metrics, runtime.VKQName, key, false)
-	}
-	return canonStored, nil
+	return s.finishCanonicalResult(metrics, result), nil
 }
 
 func (s *Session) notationDeclared(canon []byte) bool {
 	if s == nil || s.rt == nil || len(s.rt.Notations) == 0 {
 		return false
 	}
-	ns, local, err := splitCanonicalQName(canon)
+	ns, local, err := valruntime.SplitQName(canon)
 	if err != nil {
 		return false
 	}

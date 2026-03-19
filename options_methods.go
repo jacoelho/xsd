@@ -1,100 +1,100 @@
 package xsd
 
-// NewLoadOptions returns a default, valid load options value.
-func NewLoadOptions() LoadOptions {
-	return LoadOptions{}
+// NewSourceOptions returns a default, valid source options value.
+func NewSourceOptions() SourceOptions {
+	return SourceOptions{}
 }
 
-// NewRuntimeOptions returns a default, valid runtime options value.
-func NewRuntimeOptions() RuntimeOptions {
-	return RuntimeOptions{}
+// NewBuildOptions returns a default, valid build options value.
+func NewBuildOptions() BuildOptions {
+	return BuildOptions{}
 }
 
-// RuntimeOptions returns the runtime options embedded in the load options.
-func (o LoadOptions) RuntimeOptions() RuntimeOptions {
-	return o.runtime
+// NewValidateOptions returns a default, valid validate options value.
+func NewValidateOptions() ValidateOptions {
+	return ValidateOptions{}
 }
 
-// Validate validates load options values.
-func (o LoadOptions) Validate() error {
-	_, _, err := o.withDefaults()
+// Validate validates source options values.
+func (o SourceOptions) Validate() error {
+	_, err := o.withDefaults()
 	return err
 }
 
-// Validate validates runtime options values.
-func (o RuntimeOptions) Validate() error {
+// Validate validates build options values.
+func (o BuildOptions) Validate() error {
+	_ = o.withDefaults()
+	return nil
+}
+
+// Validate validates validate options values.
+func (o ValidateOptions) Validate() error {
 	_, err := o.withDefaults()
 	return err
 }
 
 // WithAllowMissingImportLocations controls whether imports without schemaLocation are skipped.
-func (o LoadOptions) WithAllowMissingImportLocations(value bool) LoadOptions {
+func (o SourceOptions) WithAllowMissingImportLocations(value bool) SourceOptions {
 	o.allowMissingImportLocations = value
 	return o
 }
 
 // WithSchemaMaxDepth sets the schema XML max depth limit (0 uses default).
-func (o LoadOptions) WithSchemaMaxDepth(value int) LoadOptions {
+func (o SourceOptions) WithSchemaMaxDepth(value int) SourceOptions {
 	o.schemaMaxDepth = intOption{value: value, set: true}
 	return o
 }
 
 // WithSchemaMaxAttrs sets the schema XML max attributes limit (0 uses default).
-func (o LoadOptions) WithSchemaMaxAttrs(value int) LoadOptions {
+func (o SourceOptions) WithSchemaMaxAttrs(value int) SourceOptions {
 	o.schemaMaxAttrs = intOption{value: value, set: true}
 	return o
 }
 
 // WithSchemaMaxTokenSize sets the schema XML max token size limit (0 uses default).
-func (o LoadOptions) WithSchemaMaxTokenSize(value int) LoadOptions {
+func (o SourceOptions) WithSchemaMaxTokenSize(value int) SourceOptions {
 	o.schemaMaxTokenSize = intOption{value: value, set: true}
 	return o
 }
 
 // WithSchemaMaxQNameInternEntries sets the schema QName interning cache size (0 leaves xmlstream default).
-func (o LoadOptions) WithSchemaMaxQNameInternEntries(value int) LoadOptions {
+func (o SourceOptions) WithSchemaMaxQNameInternEntries(value int) SourceOptions {
 	o.schemaMaxQNameInternEntries = intOption{value: value, set: true}
 	return o
 }
 
-// WithRuntimeOptions sets all runtime options in one call.
-func (o LoadOptions) WithRuntimeOptions(value RuntimeOptions) LoadOptions {
-	o.runtime = value
-	return o
-}
-
 // WithMaxDFAStates sets the runtime DFA state limit (0 uses default).
-func (o RuntimeOptions) WithMaxDFAStates(value uint32) RuntimeOptions {
+func (o BuildOptions) WithMaxDFAStates(value uint32) BuildOptions {
 	o.maxDFAStates = uint32Option{value: value, set: true}
 	return o
 }
 
 // WithMaxOccursLimit sets the runtime maxOccurs compilation limit (0 uses default).
-func (o RuntimeOptions) WithMaxOccursLimit(value uint32) RuntimeOptions {
+func (o BuildOptions) WithMaxOccursLimit(value uint32) BuildOptions {
 	o.maxOccursLimit = uint32Option{value: value, set: true}
 	return o
 }
 
 // WithInstanceMaxDepth sets the instance XML max depth limit (0 uses default).
-func (o RuntimeOptions) WithInstanceMaxDepth(value int) RuntimeOptions {
+func (o ValidateOptions) WithInstanceMaxDepth(value int) ValidateOptions {
 	o.instanceMaxDepth = intOption{value: value, set: true}
 	return o
 }
 
 // WithInstanceMaxAttrs sets the instance XML max attributes limit (0 uses default).
-func (o RuntimeOptions) WithInstanceMaxAttrs(value int) RuntimeOptions {
+func (o ValidateOptions) WithInstanceMaxAttrs(value int) ValidateOptions {
 	o.instanceMaxAttrs = intOption{value: value, set: true}
 	return o
 }
 
 // WithInstanceMaxTokenSize sets the instance XML max token size limit (0 uses default).
-func (o RuntimeOptions) WithInstanceMaxTokenSize(value int) RuntimeOptions {
+func (o ValidateOptions) WithInstanceMaxTokenSize(value int) ValidateOptions {
 	o.instanceMaxTokenSize = intOption{value: value, set: true}
 	return o
 }
 
 // WithInstanceMaxQNameInternEntries sets the instance QName interning cache size (0 leaves xmlstream default).
-func (o RuntimeOptions) WithInstanceMaxQNameInternEntries(value int) RuntimeOptions {
+func (o ValidateOptions) WithInstanceMaxQNameInternEntries(value int) ValidateOptions {
 	o.instanceMaxQNameInternEntries = intOption{value: value, set: true}
 	return o
 }

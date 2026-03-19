@@ -3,7 +3,7 @@ package validator
 import (
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/stack"
+	"github.com/jacoelho/xsd/internal/validator/names"
 )
 
 // Session holds per-document runtime validation state.
@@ -13,13 +13,11 @@ type Session struct {
 	SessionIdentity
 	AttributeTracker
 
-	nameMapSparse    map[NameID]nameEntry
+	Names            names.State
 	rt               *runtime.Schema
 	Scratch          Scratch
-	nameMap          []nameEntry
 	elemStack        []elemFrame
 	validationErrors []xsderrors.Validation
-	nsStack          stack.Stack[nsFrame]
 	Arena            Arena
 	normDepth        int
 }

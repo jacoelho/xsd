@@ -4,6 +4,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/validator/attrs"
+	"github.com/jacoelho/xsd/internal/validator/model"
+	"github.com/jacoelho/xsd/internal/validator/start"
 )
 
 type mapResolver map[string]string
@@ -23,11 +26,11 @@ func TestStartElementXsiTypeRetarget(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{
+	startAttrs := []attrs.Start{{
 		Sym:   schema.Predef.XsiType,
 		Value: []byte("t:Derived"),
 	}}
-	result, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, mapResolver{"t": "urn:test"})
+	result, err := sess.StartElement(model.Match{Kind: model.MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), startAttrs, mapResolver{"t": "urn:test"})
 	if err != nil {
 		t.Fatalf("StartElement: %v", err)
 	}
@@ -40,12 +43,12 @@ func TestStartElementXsiTypeNamespaceFallback(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{
+	startAttrs := []attrs.Start{{
 		NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
 		Local:   []byte("type"),
 		Value:   []byte("t:Derived"),
 	}}
-	result, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, mapResolver{"t": "urn:test"})
+	result, err := sess.StartElement(model.Match{Kind: model.MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), startAttrs, mapResolver{"t": "urn:test"})
 	if err != nil {
 		t.Fatalf("StartElement: %v", err)
 	}
@@ -59,11 +62,11 @@ func TestStartElementXsiTypeBlocked(t *testing.T) {
 	schema.Elements[ids.elemBase].Block = runtime.ElemBlockExtension
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{
+	startAttrs := []attrs.Start{{
 		Sym:   schema.Predef.XsiType,
 		Value: []byte("t:Derived"),
 	}}
-	_, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, mapResolver{"t": "urn:test"})
+	_, err := sess.StartElement(model.Match{Kind: model.MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), startAttrs, mapResolver{"t": "urn:test"})
 	if err == nil {
 		t.Fatalf("expected derivation blocked error")
 	}
@@ -74,11 +77,11 @@ func TestStartElementXsiNil(t *testing.T) {
 	schema.Elements[ids.elemBase].Flags |= runtime.ElemNillable
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{
+	startAttrs := []attrs.Start{{
 		Sym:   schema.Predef.XsiNil,
 		Value: []byte("true"),
 	}}
-	result, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, nil)
+	result, err := sess.StartElement(model.Match{Kind: model.MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), startAttrs, nil)
 	if err != nil {
 		t.Fatalf("StartElement: %v", err)
 	}
@@ -92,12 +95,12 @@ func TestStartElementXsiNilNamespaceFallback(t *testing.T) {
 	schema.Elements[ids.elemBase].Flags |= runtime.ElemNillable
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{
+	startAttrs := []attrs.Start{{
 		NSBytes: []byte("http://www.w3.org/2001/XMLSchema-instance"),
 		Local:   []byte("nil"),
 		Value:   []byte("true"),
 	}}
-	result, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, nil)
+	result, err := sess.StartElement(model.Match{Kind: model.MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), startAttrs, nil)
 	if err != nil {
 		t.Fatalf("StartElement: %v", err)
 	}
@@ -110,11 +113,11 @@ func TestStartElementXsiNilNotAllowed(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{{
+	startAttrs := []attrs.Start{{
 		Sym:   schema.Predef.XsiNil,
 		Value: []byte("1"),
 	}}
-	_, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, nil)
+	_, err := sess.StartElement(model.Match{Kind: model.MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), startAttrs, nil)
 	if err == nil {
 		t.Fatalf("expected nillable error")
 	}
@@ -124,7 +127,7 @@ func TestStartElementXsiTypeDuplicateMixed(t *testing.T) {
 	schema, ids := buildRuntimeFixture(t)
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{
+	startAttrs := []attrs.Start{
 		{
 			Sym:   schema.Predef.XsiType,
 			Value: []byte("t:Derived"),
@@ -135,7 +138,7 @@ func TestStartElementXsiTypeDuplicateMixed(t *testing.T) {
 			Value:   []byte("t:Derived"),
 		},
 	}
-	_, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, mapResolver{"t": "urn:test"})
+	_, err := sess.StartElement(model.Match{Kind: model.MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), startAttrs, mapResolver{"t": "urn:test"})
 	if err == nil {
 		t.Fatalf("expected duplicate xsi:type error")
 	}
@@ -146,7 +149,7 @@ func TestStartElementXsiNilDuplicateMixed(t *testing.T) {
 	schema.Elements[ids.elemBase].Flags |= runtime.ElemNillable
 	sess := NewSession(schema)
 
-	attrs := []StartAttr{
+	startAttrs := []attrs.Start{
 		{
 			Sym:   schema.Predef.XsiNil,
 			Value: []byte("true"),
@@ -157,7 +160,7 @@ func TestStartElementXsiNilDuplicateMixed(t *testing.T) {
 			Value:   []byte("true"),
 		},
 	}
-	_, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), attrs, nil)
+	_, err := sess.StartElement(model.Match{Kind: model.MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), startAttrs, nil)
 	if err == nil {
 		t.Fatalf("expected duplicate xsi:nil error")
 	}
@@ -168,7 +171,7 @@ func TestStartElementAbstract(t *testing.T) {
 	schema.Elements[ids.elemBase].Flags |= runtime.ElemAbstract
 	sess := NewSession(schema)
 
-	_, err := sess.StartElement(StartMatch{Kind: MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), nil, nil)
+	_, err := sess.StartElement(model.Match{Kind: model.MatchElem, Elem: ids.elemBase}, ids.elemSym, ids.nsID, []byte("urn:test"), nil, nil)
 	if err == nil {
 		t.Fatalf("expected abstract element error")
 	}
@@ -185,7 +188,7 @@ func TestStartElementWildcardStrictUnresolved(t *testing.T) {
 	}
 	sess := NewSession(schema)
 
-	_, err := sess.StartElement(StartMatch{Kind: MatchWildcard, Wildcard: 1}, 0, ids.nsID, []byte("urn:test"), nil, nil)
+	_, err := sess.StartElement(model.Match{Kind: model.MatchWildcard, Wildcard: 1}, 0, ids.nsID, []byte("urn:test"), nil, nil)
 	if err == nil {
 		t.Fatalf("expected strict wildcard error")
 	}
@@ -202,7 +205,7 @@ func TestStartElementWildcardLaxSkip(t *testing.T) {
 	}
 	sess := NewSession(schema)
 
-	result, err := sess.StartElement(StartMatch{Kind: MatchWildcard, Wildcard: 1}, 0, ids.nsID, []byte("urn:test"), nil, nil)
+	result, err := sess.StartElement(model.Match{Kind: model.MatchWildcard, Wildcard: 1}, 0, ids.nsID, []byte("urn:test"), nil, nil)
 	if err != nil {
 		t.Fatalf("StartElement: %v", err)
 	}
@@ -222,7 +225,7 @@ func TestStartElementWildcardResolvesGlobal(t *testing.T) {
 	}
 	sess := NewSession(schema)
 
-	result, err := sess.StartElement(StartMatch{Kind: MatchWildcard, Wildcard: 1}, ids.elemSym, ids.nsID, []byte("urn:test"), nil, nil)
+	result, err := sess.StartElement(model.Match{Kind: model.MatchWildcard, Wildcard: 1}, ids.elemSym, ids.nsID, []byte("urn:test"), nil, nil)
 	if err != nil {
 		t.Fatalf("StartElement: %v", err)
 	}
@@ -281,28 +284,26 @@ type fixtureIDs struct {
 
 func TestResolveXsiTypeUsesResolver(t *testing.T) {
 	schema, _ := buildRuntimeFixture(t)
-	sess := NewSession(schema)
-
-	_, err := sess.resolveXsiType([]byte("p:Derived"), mapResolver{"p": "urn:test"})
+	_, err := start.ResolveXSIType(schema, []byte("p:Derived"), mapResolver{"p": "urn:test"})
 	if err != nil {
-		t.Fatalf("resolveXsiType: %v", err)
+		t.Fatalf("ResolveXSIType: %v", err)
 	}
-	_, err = sess.resolveXsiType([]byte("p:Derived"), mapResolver{"p": "urn:missing"})
+	_, err = start.ResolveXSIType(schema, []byte("p:Derived"), mapResolver{"p": "urn:missing"})
 	if err == nil {
 		t.Fatalf("expected namespace lookup error")
 	}
 
-	_, err = sess.resolveXsiType([]byte("Bad QName"), mapResolver{"p": "urn:test"})
+	_, err = start.ResolveXSIType(schema, []byte("Bad QName"), mapResolver{"p": "urn:test"})
 	if err == nil {
 		t.Fatalf("expected QName parse error")
 	}
 
-	_, err = sess.resolveXsiType([]byte("Derived"), mapResolver{"": "urn:test"})
+	_, err = start.ResolveXSIType(schema, []byte("Derived"), mapResolver{"": "urn:test"})
 	if err != nil {
-		t.Fatalf("resolveXsiType default: %v", err)
+		t.Fatalf("ResolveXSIType default: %v", err)
 	}
 
-	_, err = sess.resolveXsiType([]byte("Derived"), mapResolver{})
+	_, err = start.ResolveXSIType(schema, []byte("Derived"), mapResolver{})
 	if err == nil {
 		t.Fatalf("expected missing default namespace error")
 	}

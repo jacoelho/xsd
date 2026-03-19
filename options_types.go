@@ -26,9 +26,8 @@ func (o uint32Option) resolved() uint32 {
 	return o.value
 }
 
-// LoadOptions configures schema loading and default runtime compilation.
-type LoadOptions struct {
-	runtime                     RuntimeOptions
+// SourceOptions configures schema loading and schema XML parsing.
+type SourceOptions struct {
 	allowMissingImportLocations bool
 	schemaMaxDepth              intOption
 	schemaMaxAttrs              intOption
@@ -36,24 +35,31 @@ type LoadOptions struct {
 	schemaMaxQNameInternEntries intOption
 }
 
-// RuntimeOptions configures runtime compilation and instance XML limits.
-type RuntimeOptions struct {
-	maxDFAStates                  uint32Option
-	maxOccursLimit                uint32Option
+// BuildOptions configures immutable runtime-schema compilation.
+type BuildOptions struct {
+	maxDFAStates   uint32Option
+	maxOccursLimit uint32Option
+}
+
+// ValidateOptions configures instance XML parsing and validator sessions.
+type ValidateOptions struct {
 	instanceMaxDepth              intOption
 	instanceMaxAttrs              intOption
 	instanceMaxTokenSize          intOption
 	instanceMaxQNameInternEntries intOption
 }
 
-type resolvedLoadOptions struct {
+type resolvedSourceOptions struct {
 	schemaLimits                xmlParseLimits
 	allowMissingImportLocations bool
 }
 
-type resolvedRuntimeOptions struct {
+type resolvedBuildOptions struct {
+	maxDFAStates   uint32
+	maxOccursLimit uint32
+}
+
+type resolvedValidateOptions struct {
 	instanceParseOptions []xmlstream.Option
 	instanceLimits       xmlParseLimits
-	maxDFAStates         uint32
-	maxOccursLimit       uint32
 }

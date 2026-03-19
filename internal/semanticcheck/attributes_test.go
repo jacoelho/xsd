@@ -17,9 +17,13 @@ func TestAttributeUseProhibitedDisallowsDefault(t *testing.T) {
 		Default:    "d",
 	}
 	schema := &parser.Schema{
-		TargetNamespace: "urn:test",
-		AttributeDecls: map[model.QName]*model.AttributeDecl{
-			qname: decl,
+		SchemaGraph: parser.SchemaGraph{
+			AttributeDecls: map[model.QName]*model.AttributeDecl{
+				qname: decl,
+			},
+		},
+		SchemaMeta: parser.SchemaMeta{
+			TargetNamespace: "urn:test",
 		},
 	}
 
@@ -41,9 +45,13 @@ func TestAttributeUseProhibitedAllowsFixed(t *testing.T) {
 		Fixed:    "x",
 	}
 	schema := &parser.Schema{
-		TargetNamespace: "urn:test",
-		AttributeDecls: map[model.QName]*model.AttributeDecl{
-			qname: decl,
+		SchemaGraph: parser.SchemaGraph{
+			AttributeDecls: map[model.QName]*model.AttributeDecl{
+				qname: decl,
+			},
+		},
+		SchemaMeta: parser.SchemaMeta{
+			TargetNamespace: "urn:test",
 		},
 	}
 

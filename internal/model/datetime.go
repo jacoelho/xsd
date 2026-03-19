@@ -3,7 +3,6 @@ package model
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -26,7 +25,7 @@ func ParseDuration(lexical string) (string, error) {
 		return "", fmt.Errorf("invalid duration: empty string")
 	}
 
-	if _, err := durationlex.Parse(lexical); err != nil {
+	if _, err := value.ParseDuration(lexical); err != nil {
 		return "", err
 	}
 

@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/durationlex"
 	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/value/temporal"
 )
 
 // ComparableTime wraps time.Time to implement ComparableValue
@@ -17,7 +15,7 @@ type ComparableTime struct {
 	// XSD type this value represents
 	Typ          Type
 	TimezoneKind value.TimezoneKind
-	Kind         temporal.Kind
+	Kind         value.Kind
 	LeapSecond   bool
 }
 
@@ -32,9 +30,9 @@ func (c ComparableTime) Compare(other ComparableValue) (int, error) {
 
 	leftValue := c.semanticValue()
 	rightValue := otherTime.semanticValue()
-	cmp, err := temporal.Compare(leftValue, rightValue)
+	cmp, err := value.Compare(leftValue, rightValue)
 	if err != nil {
-		if errors.Is(err, temporal.ErrIndeterminateComparison) {
+		if errors.Is(err, value.ErrIndeterminateComparison) {
 			return 0, errIndeterminateTimeComparison
 		}
 		return 0, err
@@ -44,7 +42,7 @@ func (c ComparableTime) Compare(other ComparableValue) (int, error) {
 
 // String returns the string representation (implements ComparableValue)
 func (c ComparableTime) String() string {
-	return temporal.Canonical(c.semanticValue())
+	return value.Canonical(c.semanticValue())
 }
 
 // Type returns the XSD type (implements ComparableValue)
@@ -57,16 +55,16 @@ func (c ComparableTime) Unwrap() any {
 	return c.Value
 }
 
-func (c ComparableTime) semanticValue() temporal.Value {
+func (c ComparableTime) semanticValue() value.Value {
 	kind := c.Kind
-	if kind == temporal.KindInvalid {
+	if kind == value.KindInvalid {
 		if inferred, ok := temporalKindFromType(c.Typ); ok {
 			kind = inferred
 		} else {
-			kind = temporal.KindDateTime
+			kind = value.KindDateTime
 		}
 	}
-	return temporal.Value{
+	return value.Value{
 		Kind:         kind,
 		Time:         c.Value,
 		TimezoneKind: c.TimezoneKind,
@@ -97,7 +95,7 @@ func (c ComparableDuration) Compare(other ComparableValue) (int, error) {
 		durVal %= time.Minute
 		seconds := num.DecFromScaledInt(num.FromInt64(int64(durVal)), 9)
 		thisXSDDur := ComparableXSDDuration{
-			Value: durationlex.Duration{
+			Value: value.Duration{
 				Negative: negative,
 				Years:    0,
 				Months:   0,

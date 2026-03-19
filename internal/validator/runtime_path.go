@@ -1,6 +1,10 @@
 package validator
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/jacoelho/xsd/internal/validator/names"
+)
 
 func (s *Session) pathString() string {
 	if s == nil || len(s.elemStack) == 0 {
@@ -53,39 +57,9 @@ func (s *Session) pathString() string {
 	return out
 }
 
-func (s *Session) nameParts(id NameID) ([]byte, []byte) {
-	if s == nil || id == 0 {
+func (s *Session) nameParts(id names.ID) ([]byte, []byte) {
+	if s == nil {
 		return nil, nil
 	}
-	idx := int(id)
-	var entry nameEntry
-	if idx < len(s.nameMap) {
-		entry = s.nameMap[idx]
-	}
-	if entry.LocalLen == 0 && entry.NSLen == 0 && entry.Sym == 0 && entry.NS == 0 {
-		if s.nameMapSparse != nil {
-			if sparse, ok := s.nameMapSparse[id]; ok {
-				entry = sparse
-			} else {
-				return nil, nil
-			}
-		} else {
-			return nil, nil
-		}
-	}
-	var local []byte
-	if entry.LocalLen != 0 {
-		start, end, ok := checkedSpan(entry.LocalOff, entry.LocalLen, len(s.nameLocal))
-		if ok {
-			local = s.nameLocal[start:end]
-		}
-	}
-	var ns []byte
-	if entry.NSLen != 0 {
-		start, end, ok := checkedSpan(entry.NSOff, entry.NSLen, len(s.nameNS))
-		if ok {
-			ns = s.nameNS[start:end]
-		}
-	}
-	return ns, local
+	return s.Names.Parts(id)
 }
