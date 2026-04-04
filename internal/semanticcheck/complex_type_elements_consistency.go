@@ -5,7 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/typechain"
 )
 
@@ -27,11 +26,11 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *m
 		return nil
 	}
 
-	baseElements := traversal.CollectElementDeclsFromComplexType(schema, baseComplexType)
+	baseElements := typechain.CollectElementDeclsFromComplexType(schema, baseComplexType)
 	if ext.Particle == nil {
 		return nil
 	}
-	extElements := traversal.CollectFromParticlesWithVisited([]model.Particle{ext.Particle}, nil, func(p model.Particle) (*model.ElementDecl, bool) {
+	extElements := model.CollectFromParticlesWithVisited([]model.Particle{ext.Particle}, nil, func(p model.Particle) (*model.ElementDecl, bool) {
 		elem, ok := p.(*model.ElementDecl)
 		return elem, ok
 	})

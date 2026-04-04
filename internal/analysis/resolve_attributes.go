@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/attrgroupwalk"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -47,8 +46,8 @@ func (r *referenceResolver) resolveAttributeReference(attr *model.AttributeDecl)
 }
 
 func (r *referenceResolver) resolveAttributeGroup(name model.QName, group *model.AttributeGroup) error {
-	if err := attrgroupwalk.Walk(r.schema, group.AttrGroups, attrgroupwalk.MissingError, nil); err != nil {
-		var missingErr attrgroupwalk.AttrGroupMissingError
+	if err := WalkAttributeGroups(r.schema, group.AttrGroups, MissingError, nil); err != nil {
+		var missingErr AttributeGroupMissingError
 		if errors.As(err, &missingErr) {
 			return fmt.Errorf("attributeGroup %s: nested group %s not found", name, missingErr.QName)
 		}
@@ -63,8 +62,8 @@ func (r *referenceResolver) resolveAttributeGroup(name model.QName, group *model
 }
 
 func (r *referenceResolver) resolveAttributes(attrs []*model.AttributeDecl, groups []model.QName) error {
-	if err := attrgroupwalk.Walk(r.schema, groups, attrgroupwalk.MissingError, nil); err != nil {
-		var missingErr attrgroupwalk.AttrGroupMissingError
+	if err := WalkAttributeGroups(r.schema, groups, MissingError, nil); err != nil {
+		var missingErr AttributeGroupMissingError
 		if errors.As(err, &missingErr) {
 			return fmt.Errorf("attributeGroup ref %s not found", missingErr.QName)
 		}

@@ -5,7 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
 	"github.com/jacoelho/xsd/internal/typechain"
 )
 
@@ -21,11 +20,11 @@ func validateWildcardDerivation(schema *parser.Schema, ct *model.ComplexType) er
 		return nil
 	}
 
-	baseWildcards := traversal.CollectFromContent(baseCT.Content(), func(p model.Particle) (*model.AnyElement, bool) {
+	baseWildcards := model.CollectFromContent(baseCT.Content(), func(p model.Particle) (*model.AnyElement, bool) {
 		wildcard, ok := p.(*model.AnyElement)
 		return wildcard, ok
 	})
-	derivedWildcards := traversal.CollectFromContent(ct.Content(), func(p model.Particle) (*model.AnyElement, bool) {
+	derivedWildcards := model.CollectFromContent(ct.Content(), func(p model.Particle) (*model.AnyElement, bool) {
 		wildcard, ok := p.(*model.AnyElement)
 		return wildcard, ok
 	})

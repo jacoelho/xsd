@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 // validateComplexTypeStructure validates structural constraints of a complex type.
@@ -13,7 +14,7 @@ func validateComplexTypeStructure(schema *parser.Schema, complexType *model.Comp
 	if err := validateContentStructure(schema, complexType.Content(), context); err != nil {
 		return fmt.Errorf("content: %w", err)
 	}
-	if err := ValidateUPA(schema, complexType.Content(), schema.TargetNamespace); err != nil {
+	if err := semantics.ValidateUPA(schema, complexType.Content(), schema.TargetNamespace); err != nil {
 		return fmt.Errorf("UPA violation: %w", err)
 	}
 	if err := validateElementDeclarationsConsistent(schema, complexType); err != nil {

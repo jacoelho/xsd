@@ -6,6 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func TestValidateUPA_DoesNotMutateOccurs(t *testing.T) {
@@ -31,7 +32,7 @@ func TestValidateUPA_DoesNotMutateOccurs(t *testing.T) {
 	}
 	content := &model.ElementContent{Particle: group}
 
-	if err := ValidateUPA(schema, content, schema.TargetNamespace); err != nil {
+	if err := semantics.ValidateUPA(schema, content, schema.TargetNamespace); err != nil {
 		t.Fatalf("ValidateUPA error = %v", err)
 	}
 	if elem.MinOcc().CmpInt(0) != 0 {
@@ -71,7 +72,7 @@ func TestValidateUPA_DuplicateElementRefs(t *testing.T) {
 	}
 	content := &model.ElementContent{Particle: choice}
 
-	if err := ValidateUPA(schema, content, schema.TargetNamespace); err == nil {
+	if err := semantics.ValidateUPA(schema, content, schema.TargetNamespace); err == nil {
 		t.Fatalf("expected UPA error for duplicate element references")
 	}
 }

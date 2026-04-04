@@ -5,14 +5,14 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
+	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func validateAttributeDeclarations(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range traversal.SortedQNames(sch.AttributeDecls) {
+	for _, qname := range qname.SortedMapKeys(sch.AttributeDecls) {
 		decl := sch.AttributeDecls[qname]
 		if decl.Type != nil {
 			if err := validateTypeReferenceFromTypeAtLocation(sch, decl.Type, qname.Namespace, noOriginLocation); err != nil {
@@ -42,7 +42,7 @@ func validateAttributeDeclarations(sch *parser.Schema) []error {
 func validateTypeDefinitionReferences(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
+	for _, qname := range qname.SortedMapKeys(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		if err := validateTypeReferences(sch, qname, typ); err != nil {
 			errs = append(errs, fmt.Errorf("type %s: %w", qname, err))

@@ -4,7 +4,6 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/substpolicy"
 )
 
 // LookupType returns a type definition by QName from the schema.
@@ -141,7 +140,7 @@ func nextBaseComplexType(schema *parser.Schema, current *model.ComplexType, mode
 		return nil
 	}
 
-	next, _, err := substpolicy.NextDerivationStep(current, func(name model.QName) (model.Type, error) {
+	next, _, err := nextDerivationStep(current, func(name model.QName) (model.Type, error) {
 		if name.IsZero() {
 			return nil, nil
 		}
@@ -164,4 +163,73 @@ func nextBaseComplexType(schema *parser.Schema, current *model.ComplexType, mode
 		return model.NewAnyTypeComplexType()
 	}
 	return nil
+}
+
+type typeQNameResolver func(model.QName) (model.Type, error)
+
+func nextDerivationStep(current model.Type, resolve typeQNameResolver) (model.Type, model.DerivationMethod, error) {
+	switch typed := current.(type) {
+	case *model.ComplexType:
+		method := typed.DerivationMethod
+		if method == 0 {
+			method = model.DerivationRestriction
+		}
+		if typed.ResolvedBase != nil {
+			return typed.ResolvedBase, method, nil
+		}
+		baseQName := model.QName{}
+		if content := typed.Content(); content != nil {
+			baseQName = content.BaseTypeQName()
+		}
+		if !baseQName.IsZero() && resolve != nil {
+			base, err := resolve(baseQName)
+			if err != nil {
+				return nil, method, err
+			}
+			return base, method, nil
+		}
+		return typed.BaseType(), method, nil
+	case *model.SimpleType:
+		if typed.List != nil {
+			return model.GetBuiltin(model.TypeNameAnySimpleType), model.DerivationList, nil
+		}
+		if typed.Union != nil {
+			return model.GetBuiltin(model.TypeNameAnySimpleType), model.DerivationUnion, nil
+		}
+		if typed.ResolvedBase != nil {
+			return typed.ResolvedBase, model.DerivationRestriction, nil
+		}
+		if typed.Restriction != nil {
+			if typed.Restriction.SimpleType != nil {
+				return typed.Restriction.SimpleType, model.DerivationRestriction, nil
+			}
+			if !typed.Restriction.Base.IsZero() && resolve != nil {
+				base, err := resolve(typed.Restriction.Base)
+				if err != nil {
+					return nil, model.DerivationRestriction, err
+				}
+				return base, model.DerivationRestriction, nil
+			}
+		}
+		return nil, 0, nil
+	case *model.BuiltinType:
+		name := model.TypeName(typed.Name().Local)
+		switch name {
+		case model.TypeNameAnyType:
+			return nil, 0, nil
+		case model.TypeNameAnySimpleType:
+			return model.GetBuiltin(model.TypeNameAnyType), model.DerivationRestriction, nil
+		default:
+			if _, ok := model.BuiltinListItemTypeName(typed.Name().Local); ok {
+				return model.GetBuiltin(model.TypeNameAnySimpleType), model.DerivationList, nil
+			}
+			base := typed.BaseType()
+			if base == nil {
+				return nil, 0, nil
+			}
+			return base, model.DerivationRestriction, nil
+		}
+	default:
+		return nil, 0, nil
+	}
 }

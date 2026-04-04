@@ -40,7 +40,7 @@ func (p *Prepared) GlobalElementOrderSeq() iter.Seq[model.QName] {
 
 func (p *Prepared) ensureBuildArtifacts() (*PreparedArtifacts, error) {
 	p.buildOnce.Do(func() {
-		prepared, err := prepareBuildArtifactsFromPlan(p.schema, p.registry, p.refs, p.complexTypes)
+		prepared, err := prepareBuildArtifactsFromSemantics(p.schema, p.registry, p.refs, p.semantics)
 		if err != nil {
 			p.prepErr = err
 			return

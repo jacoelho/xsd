@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/analysis"
-	"github.com/jacoelho/xsd/internal/compiler/lower"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func mustPreparedArtifacts(t *testing.T, schemaXML string) (*PreparedArtifacts, *analysis.Registry, *analysis.ResolvedReferences) {
@@ -28,15 +28,22 @@ func mustPreparedArtifacts(t *testing.T, schemaXML string) (*PreparedArtifacts, 
 	return prepared, reg, refs
 }
 
-func mustCompiledValidators(t *testing.T, sch *parser.Schema, reg *analysis.Registry) *lower.CompiledValidators {
+func mustCompiledValidators(t *testing.T, sch *parser.Schema, reg *analysis.Registry) *semantics.CompiledValidators {
 	t.Helper()
-	complexTypes, err := lower.BuildComplexTypePlan(sch, reg)
+	refs, err := analysis.ResolveReferences(sch, reg)
 	if err != nil {
-		t.Fatalf("BuildComplexTypePlan() error = %v", err)
+		t.Fatalf("ResolveReferences() error = %v", err)
 	}
-	validators, err := lower.CompileWithComplexTypePlan(sch, reg, complexTypes)
+	sem, err := semantics.Build(sch, reg, refs)
 	if err != nil {
-		t.Fatalf("CompileWithComplexTypePlan() error = %v", err)
+		t.Fatalf("semantics.Build() error = %v", err)
+	}
+	if err := sem.Particles().ValidateUPA(); err != nil {
+		t.Fatalf("Particles().ValidateUPA() error = %v", err)
+	}
+	validators, err := sem.CompiledValidators()
+	if err != nil {
+		t.Fatalf("CompiledValidators() error = %v", err)
 	}
 	return validators
 }
@@ -150,13 +157,16 @@ func TestPrepareBuildArtifactsWithPrecomputedValidatorsSimpleContentRestriction(
 	if err != nil {
 		t.Fatalf("ResolveReferences() error = %v", err)
 	}
-	complexTypes, err := lower.BuildComplexTypePlan(sch, reg)
+	sem, err := semantics.Build(sch, reg, refs)
 	if err != nil {
-		t.Fatalf("BuildComplexTypePlan() error = %v", err)
+		t.Fatalf("semantics.Build() error = %v", err)
 	}
-	validators, err := lower.CompileWithComplexTypePlan(sch, reg, complexTypes)
+	if err := sem.Particles().ValidateUPA(); err != nil {
+		t.Fatalf("Particles().ValidateUPA() error = %v", err)
+	}
+	validators, err := sem.CompiledValidators()
 	if err != nil {
-		t.Fatalf("CompileWithComplexTypePlan() error = %v", err)
+		t.Fatalf("CompiledValidators() error = %v", err)
 	}
 	prepared, err := PrepareBuildArtifacts(sch, reg, refs, validators)
 	if err != nil {

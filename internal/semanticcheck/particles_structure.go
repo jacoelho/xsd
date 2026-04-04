@@ -6,7 +6,6 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
 )
 
 // validateParticleStructure validates structural constraints of particles.
@@ -16,7 +15,7 @@ func validateParticleStructure(schema *parser.Schema, particle model.Particle) e
 }
 
 // validateParticleStructureWithVisited validates structural constraints with cycle detection
-func validateParticleStructureWithVisited(schema *parser.Schema, particle model.Particle, parentKind *model.GroupKind, visited traversal.VisitTracker[*model.ModelGroup]) error {
+func validateParticleStructureWithVisited(schema *parser.Schema, particle model.Particle, parentKind *model.GroupKind, visited modelGroupVisitTracker) error {
 	if err := validateParticleOccurs(particle); err != nil {
 		return err
 	}
@@ -45,7 +44,7 @@ func validateParticleOccurs(particle model.Particle) error {
 	return nil
 }
 
-func validateModelGroupStructure(schema *parser.Schema, group *model.ModelGroup, parentKind *model.GroupKind, visited traversal.VisitTracker[*model.ModelGroup]) error {
+func validateModelGroupStructure(schema *parser.Schema, group *model.ModelGroup, parentKind *model.GroupKind, visited modelGroupVisitTracker) error {
 	if !visited.Enter(group) {
 		return nil
 	}

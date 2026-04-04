@@ -7,12 +7,12 @@ import (
 	"github.com/jacoelho/xsd/internal/graphcycle"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
+	"github.com/jacoelho/xsd/internal/qname"
 )
 
 // validateNoCyclicSubstitutionGroups checks for cycles in substitution group chains.
 func validateNoCyclicSubstitutionGroups(sch *parser.Schema) error {
-	for _, startQName := range traversal.SortedQNames(sch.ElementDecls) {
+	for _, startQName := range qname.SortedMapKeys(sch.ElementDecls) {
 		decl := sch.ElementDecls[startQName]
 		if decl.SubstitutionGroup.IsZero() {
 			continue

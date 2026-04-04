@@ -82,3 +82,47 @@ func TestLoaderLoadIsIsolatedPerCall(t *testing.T) {
 		t.Fatal("second Load() did not reflect second resolver document")
 	}
 }
+
+func TestLoaderLoadMergesIncludesAndImports(t *testing.T) {
+	loader := NewLoader(Config{
+		FS: fstest.MapFS{
+			"main.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	targetNamespace="urn:main"
+	xmlns:main="urn:main"
+	elementFormDefault="qualified">
+  <xs:include schemaLocation="common.xsd"/>
+  <xs:import namespace="urn:dep" schemaLocation="dep.xsd"/>
+  <xs:element name="root" type="xs:string"/>
+</xs:schema>`)},
+			"common.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	targetNamespace="urn:main"
+	xmlns:main="urn:main"
+	elementFormDefault="qualified">
+  <xs:element name="common" type="xs:string"/>
+</xs:schema>`)},
+			"dep.xsd": &fstest.MapFile{Data: []byte(`<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	targetNamespace="urn:dep"
+	xmlns:dep="urn:dep"
+	elementFormDefault="qualified">
+  <xs:element name="dep" type="xs:string"/>
+</xs:schema>`)},
+		},
+	})
+
+	schema, err := loader.Load("main.xsd")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	for _, qname := range []model.QName{
+		{Namespace: "urn:main", Local: "root"},
+		{Namespace: "urn:main", Local: "common"},
+		{Namespace: "urn:dep", Local: "dep"},
+	} {
+		if schema.ElementDecls[qname] == nil {
+			t.Fatalf("Load() missing merged element %v", qname)
+		}
+	}
+}

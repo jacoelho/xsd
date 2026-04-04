@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/attrgroupwalk"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -37,16 +37,16 @@ func (r *Resolver) resolveAttributeGroupClosure(roots []model.QName) error {
 	if len(roots) == 0 {
 		return nil
 	}
-	err := attrgroupwalk.WalkWithOptions(r.schema, roots, attrgroupwalk.Options{
-		Missing: attrgroupwalk.MissingError,
-		Cycles:  attrgroupwalk.CycleError,
+	err := analysis.WalkAttributeGroupsWithOptions(r.schema, roots, analysis.AttributeGroupWalkOptions{
+		Missing: analysis.MissingError,
+		Cycles:  analysis.CycleError,
 	}, func(_ model.QName, ag *model.AttributeGroup) error {
 		return r.resolveAttributeDecls(ag.Attributes)
 	})
 	if err == nil {
 		return nil
 	}
-	var cycleErr attrgroupwalk.AttrGroupCycleError
+	var cycleErr analysis.AttributeGroupCycleError
 	if errors.As(err, &cycleErr) {
 		return CycleError[model.QName]{Key: cycleErr.QName}
 	}

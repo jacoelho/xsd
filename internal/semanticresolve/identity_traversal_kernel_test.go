@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func TestCollectConstraintElementsFromContentSharedTraversal(t *testing.T) {
@@ -19,7 +20,7 @@ func TestCollectConstraintElementsFromContentSharedTraversal(t *testing.T) {
 		t.Fatalf("root type = %T, want *model.ComplexType", root.Type)
 	}
 
-	elements := collectConstraintElementsFromContent(ct.Content())
+	elements := semantics.CollectConstraintElementsFromContent(ct.Content())
 	if len(elements) != 1 {
 		t.Fatalf("constraint elements = %d, want 1", len(elements))
 	}
@@ -30,11 +31,9 @@ func TestCollectConstraintElementsFromContentSharedTraversal(t *testing.T) {
 
 func TestCollectAllIdentityConstraintsDeterministic(t *testing.T) {
 	schema := parseIdentityTraversalSchema(t)
-	index := buildIterationIndex(schema)
-
 	var first []string
 	for i := range 5 {
-		constraints := collectAllIdentityConstraintsWithIndex(schema, index)
+		constraints := semantics.CollectAllIdentityConstraints(schema)
 		got := make([]string, len(constraints))
 		for i, c := range constraints {
 			got[i] = c.Name

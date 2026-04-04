@@ -7,18 +7,18 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/analysis"
-	"github.com/jacoelho/xsd/internal/compiler/lower"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/semanticcheck"
 	"github.com/jacoelho/xsd/internal/semanticresolve"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 type prepareResult struct {
-	schema       *parser.Schema
-	registry     *analysis.Registry
-	refs         *analysis.ResolvedReferences
-	complexTypes *lower.ComplexTypePlan
+	schema    *parser.Schema
+	registry  *analysis.Registry
+	refs      *analysis.ResolvedReferences
+	semantics *semantics.Context
 }
 
 // Prepare clones, normalizes, and validates a parsed schema.
@@ -44,7 +44,7 @@ func ResolveAndValidateOwned(sch *parser.Schema) error {
 	if sch == nil {
 		return fmt.Errorf("schema is nil")
 	}
-	if err := semanticresolve.ResolveGroupReferences(sch); err != nil {
+	if err := semantics.ResolveGroupReferences(sch); err != nil {
 		return fmt.Errorf("resolve group references: %w", err)
 	}
 	structureErrs := semanticcheck.ValidateStructure(sch)
@@ -58,36 +58,12 @@ func ResolveAndValidateOwned(sch *parser.Schema) error {
 	if len(refErrs) > 0 {
 		return formatValidationErrors(refErrs)
 	}
-	deferredRangeErrs := semanticcheck.ValidateDeferredRangeFacetValues(sch)
+	deferredRangeErrs := semantics.ValidateDeferredRangeFacetValues(sch)
 	if len(deferredRangeErrs) > 0 {
 		return formatValidationErrors(deferredRangeErrs)
 	}
 	if parser.HasPlaceholders(sch) {
 		return fmt.Errorf("schema has unresolved placeholders")
-	}
-	return nil
-}
-
-// ValidateUPA validates Unique Particle Attribution for all prepared complex types.
-func ValidateUPA(schema *parser.Schema, registry *analysis.Registry) error {
-	if schema == nil {
-		return fmt.Errorf("schema is nil")
-	}
-	if registry == nil {
-		return fmt.Errorf("registry is nil")
-	}
-	if err := analysis.RequireResolved(schema); err != nil {
-		return err
-	}
-
-	for _, entry := range registry.TypeOrder {
-		ct, ok := entry.Type.(*model.ComplexType)
-		if !ok {
-			continue
-		}
-		if err := semanticcheck.ValidateUPA(schema, ct.Content(), schema.TargetNamespace); err != nil {
-			return fmt.Errorf("%s: %w", complexTypeLabel(ct), err)
-		}
 	}
 	return nil
 }
@@ -110,23 +86,23 @@ func prepareParsedSchema(parsed *parser.Schema, clone bool) (*prepareResult, err
 	if err != nil {
 		return nil, fmt.Errorf("prepare schema: detect cycles: %w", err)
 	}
-	err = ValidateUPA(parsed, registry)
-	if err != nil {
-		return nil, fmt.Errorf("prepare schema: validate UPA: %w", err)
-	}
 	refs, err := analysis.ResolveReferences(parsed, registry)
 	if err != nil {
 		return nil, fmt.Errorf("prepare schema: resolve references: %w", err)
 	}
-	complexTypes, err := lower.BuildComplexTypePlan(parsed, registry)
+	semanticCtx, err := semantics.Build(parsed, registry, refs)
 	if err != nil {
-		return nil, fmt.Errorf("prepare schema: complex type plan: %w", err)
+		return nil, fmt.Errorf("prepare schema: semantics: %w", err)
+	}
+	err = semanticCtx.Particles().ValidateUPA()
+	if err != nil {
+		return nil, fmt.Errorf("prepare schema: validate UPA: %w", err)
 	}
 	return &prepareResult{
-		schema:       parsed,
-		registry:     registry,
-		refs:         refs,
-		complexTypes: complexTypes,
+		schema:    parsed,
+		registry:  registry,
+		refs:      refs,
+		semantics: semanticCtx,
 	}, nil
 }
 
@@ -135,10 +111,10 @@ func preparedFromResult(result *prepareResult) *Prepared {
 		return nil
 	}
 	return &Prepared{
-		schema:       result.schema,
-		registry:     result.registry,
-		refs:         result.refs,
-		complexTypes: result.complexTypes,
+		schema:    result.schema,
+		registry:  result.registry,
+		refs:      result.refs,
+		semantics: result.semantics,
 	}
 }
 

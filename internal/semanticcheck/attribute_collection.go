@@ -3,7 +3,7 @@ package semanticcheck
 import (
 	"slices"
 
-	"github.com/jacoelho/xsd/internal/attrgroupwalk"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
@@ -77,9 +77,9 @@ func mergeAttributesFromTypeForValidation(schema *parser.Schema, ct *model.Compl
 }
 
 func mergeAttributesFromGroupsForValidation(schema *parser.Schema, agRefs []model.QName, attrMap map[model.QName]*model.AttributeDecl) {
-	ctx := attrgroupwalk.NewContext(schema, attrgroupwalk.Options{
-		Missing: attrgroupwalk.MissingIgnore,
-		Cycles:  attrgroupwalk.CycleIgnore,
+	ctx := analysis.NewAttributeGroupContext(schema, analysis.AttributeGroupWalkOptions{
+		Missing: analysis.MissingIgnore,
+		Cycles:  analysis.CycleIgnore,
 	})
 	for _, agRef := range agRefs {
 		_ = ctx.Walk([]model.QName{agRef}, func(_ model.QName, current *model.AttributeGroup) error {
@@ -101,9 +101,9 @@ func mergeAttributesFromGroupsForValidation(schema *parser.Schema, agRefs []mode
 
 // collectAttributesFromGroups collects attributes from attribute group references.
 func collectAttributesFromGroups(schema *parser.Schema, agRefs []model.QName) []*model.AttributeDecl {
-	ctx := attrgroupwalk.NewContext(schema, attrgroupwalk.Options{
-		Missing: attrgroupwalk.MissingIgnore,
-		Cycles:  attrgroupwalk.CycleIgnore,
+	ctx := analysis.NewAttributeGroupContext(schema, analysis.AttributeGroupWalkOptions{
+		Missing: analysis.MissingIgnore,
+		Cycles:  analysis.CycleIgnore,
 	})
 	var result []*model.AttributeDecl
 	_ = ctx.Walk(agRefs, func(_ model.QName, ag *model.AttributeGroup) error {

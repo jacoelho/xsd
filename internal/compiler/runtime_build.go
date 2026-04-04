@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/analysis"
-	"github.com/jacoelho/xsd/internal/compiler/lower"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 // PreparedArtifacts stores immutable runtime-build prerequisites.
@@ -14,7 +14,7 @@ type PreparedArtifacts struct {
 	schema     *parser.Schema
 	registry   *analysis.Registry
 	refs       *analysis.ResolvedReferences
-	validators *lower.CompiledValidators
+	validators *semantics.CompiledValidators
 }
 
 // BuildArtifacts compiles resolved semantic artifacts into a runtime schema model.
@@ -22,7 +22,7 @@ func BuildArtifacts(
 	sch *parser.Schema,
 	reg *analysis.Registry,
 	refs *analysis.ResolvedReferences,
-	validators *lower.CompiledValidators,
+	validators *semantics.CompiledValidators,
 	cfg BuildConfig,
 ) (*runtime.Schema, error) {
 	prepared, err := PrepareBuildArtifacts(sch, reg, refs, validators)
@@ -37,7 +37,7 @@ func PrepareBuildArtifacts(
 	sch *parser.Schema,
 	reg *analysis.Registry,
 	refs *analysis.ResolvedReferences,
-	validators *lower.CompiledValidators,
+	validators *semantics.CompiledValidators,
 ) (*PreparedArtifacts, error) {
 	if err := validateBuildInputs(sch, reg, refs); err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (p *PreparedArtifacts) References() *analysis.ResolvedReferences {
 }
 
 // Validators returns the compiled validator bundle for the prepared schema.
-func (p *PreparedArtifacts) Validators() *lower.CompiledValidators {
+func (p *PreparedArtifacts) Validators() *semantics.CompiledValidators {
 	if p == nil {
 		return nil
 	}
@@ -90,37 +90,27 @@ func (p *PreparedArtifacts) Build(cfg BuildConfig) (*runtime.Schema, error) {
 	if p == nil {
 		return nil, fmt.Errorf("runtime build: prepared artifacts are nil")
 	}
-	return lower.Build(p.schema, p.registry, p.refs, p.validators, lower.Config{
+	return Build(p.schema, p.registry, p.refs, p.validators, Config{
 		MaxDFAStates:   cfg.MaxDFAStates,
 		MaxOccursLimit: cfg.MaxOccursLimit,
 	})
 }
 
-func prepareBuildArtifactsFromPlan(
+func prepareBuildArtifactsFromSemantics(
 	sch *parser.Schema,
 	reg *analysis.Registry,
 	refs *analysis.ResolvedReferences,
-	complexTypes *lower.ComplexTypePlan,
+	sem *semantics.Context,
 ) (*PreparedArtifacts, error) {
 	if err := validateBuildInputs(sch, reg, refs); err != nil {
 		return nil, err
 	}
-	validators, err := lower.CompileWithComplexTypePlan(sch, reg, complexTypes)
+	if sem == nil {
+		return nil, fmt.Errorf("runtime build: semantics are nil")
+	}
+	validators, err := sem.CompiledValidators()
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: compile validators: %w", err)
 	}
 	return PrepareBuildArtifacts(sch, reg, refs, validators)
-}
-
-func validateBuildInputs(sch *parser.Schema, reg *analysis.Registry, refs *analysis.ResolvedReferences) error {
-	if sch == nil {
-		return fmt.Errorf("runtime build: schema is nil")
-	}
-	if reg == nil {
-		return fmt.Errorf("runtime build: registry is nil")
-	}
-	if refs == nil {
-		return fmt.Errorf("runtime build: references are nil")
-	}
-	return nil
 }
