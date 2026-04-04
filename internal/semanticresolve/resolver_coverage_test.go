@@ -5,6 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -118,10 +119,10 @@ func TestTypeDerivationHelpers(t *testing.T) {
 	if !model.IsDerivedFrom(derived, base) {
 		t.Fatalf("expected mytype derived from string")
 	}
-	if prim := getPrimitiveType(derived); prim == nil || prim.Name().Local != "string" {
+	if prim := derived.PrimitiveType(); prim == nil || prim.Name().Local != "string" {
 		t.Fatalf("expected primitive type string")
 	}
-	if !areFieldTypesCompatible(derived, base) {
+	if !semantics.FieldTypesCompatible(derived, base) {
 		t.Fatalf("expected field types compatible for derived and base")
 	}
 }

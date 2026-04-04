@@ -3,7 +3,8 @@ package semanticresolve
 import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
+	"github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 type iterationIndex struct {
@@ -20,14 +21,14 @@ type iterationIndex struct {
 
 func buildIterationIndex(sch *parser.Schema) *iterationIndex {
 	idx := &iterationIndex{
-		typeQNames:           traversal.SortedQNames(sch.TypeDefs),
-		elementQNames:        traversal.SortedQNames(sch.ElementDecls),
-		attributeQNames:      traversal.SortedQNames(sch.AttributeDecls),
-		groupQNames:          traversal.SortedQNames(sch.Groups),
-		attributeGroupQNames: traversal.SortedQNames(sch.AttributeGroups),
+		typeQNames:           qname.SortedMapKeys(sch.TypeDefs),
+		elementQNames:        qname.SortedMapKeys(sch.ElementDecls),
+		attributeQNames:      qname.SortedMapKeys(sch.AttributeDecls),
+		groupQNames:          qname.SortedMapKeys(sch.Groups),
+		attributeGroupQNames: qname.SortedMapKeys(sch.AttributeGroups),
 	}
 	idx.elementRefsInContent = collectElementReferencesInSchemaWithIndex(sch, idx)
-	idx.allIdentityConstraints = collectAllIdentityConstraintsWithIndex(sch, idx)
-	idx.localConstraintElems = collectLocalConstraintElementsWithIndex(sch, idx)
+	idx.allIdentityConstraints = semantics.CollectAllIdentityConstraints(sch)
+	idx.localConstraintElems = semantics.CollectLocalConstraintElements(sch)
 	return idx
 }

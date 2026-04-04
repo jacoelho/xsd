@@ -4,8 +4,8 @@ import (
 	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/typechain"
-	"github.com/jacoelho/xsd/internal/valuevalidate"
 )
 
 // validateDefaultOrFixedValueWithContext validates that a default or fixed value is valid for the given type.
@@ -33,12 +33,12 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 		return nil
 	}
 
-	return valuevalidate.ValidateDefaultOrFixedResolved(
+	return semantics.ValidateDefaultOrFixedResolved(
 		schema,
 		value,
 		typ,
 		nsContext,
-		valuevalidate.IDPolicyDisallow,
+		semantics.IDPolicyDisallow,
 	)
 }
 

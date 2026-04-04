@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 // ValidateReferences validates cross-component references for schema loading.
@@ -19,7 +19,7 @@ func ValidateReferences(sch *parser.Schema) []error {
 	elementRefsInContent := index.elementRefsInContent
 	allConstraints := index.allIdentityConstraints
 
-	if uniquenessErrors := validateIdentityConstraintUniquenessWithConstraints(sch, allConstraints); len(uniquenessErrors) > 0 {
+	if uniquenessErrors := semantics.ValidateIdentityConstraintUniqueness(allConstraints); len(uniquenessErrors) > 0 {
 		errs = append(errs, uniquenessErrors...)
 	}
 
@@ -55,7 +55,7 @@ func collectElementReferencesInSchemaWithIndex(sch *parser.Schema, index *iterat
 	for _, qname := range index.elementQNames {
 		decl := sch.ElementDecls[qname]
 		if ct, ok := decl.Type.(*model.ComplexType); ok {
-			elementRefsInContent = append(elementRefsInContent, traversal.CollectFromContent(ct.Content(), func(p model.Particle) (*model.ElementDecl, bool) {
+			elementRefsInContent = append(elementRefsInContent, model.CollectFromContent(ct.Content(), func(p model.Particle) (*model.ElementDecl, bool) {
 				decl, ok := p.(*model.ElementDecl)
 				return decl, ok && decl.IsReference
 			})...)
@@ -65,7 +65,7 @@ func collectElementReferencesInSchemaWithIndex(sch *parser.Schema, index *iterat
 	for _, qname := range index.typeQNames {
 		typ := sch.TypeDefs[qname]
 		if ct, ok := typ.(*model.ComplexType); ok {
-			elementRefsInContent = append(elementRefsInContent, traversal.CollectFromContent(ct.Content(), func(p model.Particle) (*model.ElementDecl, bool) {
+			elementRefsInContent = append(elementRefsInContent, model.CollectFromContent(ct.Content(), func(p model.Particle) (*model.ElementDecl, bool) {
 				decl, ok := p.(*model.ElementDecl)
 				return decl, ok && decl.IsReference
 			})...)
@@ -78,7 +78,7 @@ func collectElementReferencesInSchemaWithIndex(sch *parser.Schema, index *iterat
 			if elem, ok := particle.(*model.ElementDecl); ok && elem.IsReference {
 				elementRefsInContent = append(elementRefsInContent, elem)
 			} else if mg, ok := particle.(*model.ModelGroup); ok {
-				elementRefsInContent = append(elementRefsInContent, traversal.CollectFromParticlesWithVisited(mg.Particles, make(map[*model.ModelGroup]bool), func(p model.Particle) (*model.ElementDecl, bool) {
+				elementRefsInContent = append(elementRefsInContent, model.CollectFromParticlesWithVisited(mg.Particles, make(map[*model.ModelGroup]bool), func(p model.Particle) (*model.ElementDecl, bool) {
 					decl, ok := p.(*model.ElementDecl)
 					return decl, ok && decl.IsReference
 				})...)

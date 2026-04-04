@@ -5,13 +5,14 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
+	"github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func validateTopLevelElementReferences(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
+	for _, qname := range qname.SortedMapKeys(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if decl.IsReference {
 			refDecl, exists := sch.ElementDecls[decl.Name]
@@ -44,7 +45,7 @@ func validateContentElementReferences(sch *parser.Schema, elementRefsInContent [
 func validateElementDeclarationReferences(sch *parser.Schema, allConstraints []*model.IdentityConstraint) []error {
 	var errs []error
 
-	for _, qname := range traversal.SortedQNames(sch.ElementDecls) {
+	for _, qname := range qname.SortedMapKeys(sch.ElementDecls) {
 		decl := sch.ElementDecls[qname]
 		if decl.Type != nil {
 			origin := sch.ElementOrigins[qname]
@@ -71,12 +72,12 @@ func validateElementDeclarationReferences(sch *parser.Schema, allConstraints []*
 			}
 		}
 
-		if err := validateKeyrefConstraints(qname, decl.Constraints, allConstraints); err != nil {
+		if err := semantics.ValidateKeyrefConstraints(qname, decl.Constraints, allConstraints); err != nil {
 			errs = append(errs, err...)
 		}
 
 		for _, constraint := range decl.Constraints {
-			if err := validateIdentityConstraintResolution(sch, constraint, decl); err != nil {
+			if err := semantics.ValidateIdentityConstraintResolution(sch, constraint, decl); err != nil {
 				errs = append(errs, fmt.Errorf("element %s identity constraint '%s': %w", qname, constraint.Name, err))
 			}
 		}
