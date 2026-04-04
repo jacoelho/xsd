@@ -1,16 +1,12 @@
-package model
+package xsdpattern
 
 import "fmt"
 
 type escapeStepHandler func(*patternTranslator, byte) (bool, error)
 
 var escapeStepHandlers = []escapeStepHandler{
-	func(t *patternTranslator, nextChar byte) (bool, error) {
-		return t.handleNameEscape(nextChar), nil
-	},
-	func(t *patternTranslator, nextChar byte) (bool, error) {
-		return t.handleDigitEscape(nextChar), nil
-	},
+	func(t *patternTranslator, nextChar byte) (bool, error) { return t.handleNameEscape(nextChar), nil },
+	func(t *patternTranslator, nextChar byte) (bool, error) { return t.handleDigitEscape(nextChar), nil },
 	(*patternTranslator).handleWhitespaceEscape,
 	(*patternTranslator).handleWordEscape,
 	(*patternTranslator).handleControlEscape,
@@ -28,11 +24,9 @@ func (t *patternTranslator) handleEscape() (bool, error) {
 		return true, fmt.Errorf("pattern-syntax-error: escape sequence at end of pattern")
 	}
 	nextChar := t.pattern[t.i+1]
-
 	if nextChar == 'u' {
 		return true, fmt.Errorf("pattern-syntax-error: \\u escape is not valid XSD 1.0 syntax (use XML character reference &#x; instead)")
 	}
-
 	if nextChar == 'p' || nextChar == 'P' {
 		translated, newIdx, err := translateUnicodePropertyEscape(t.pattern, t.i, t.inCharClass())
 		if err != nil {
@@ -48,7 +42,6 @@ func (t *patternTranslator) handleEscape() (bool, error) {
 		t.justWroteQuantifier = false
 		return true, nil
 	}
-
 	for _, handler := range escapeStepHandlers {
 		handled, err := handler(t, nextChar)
 		if err != nil {
@@ -58,7 +51,6 @@ func (t *patternTranslator) handleEscape() (bool, error) {
 			return true, nil
 		}
 	}
-
 	if nextChar >= '0' && nextChar <= '9' {
 		return true, fmt.Errorf("pattern-syntax-error: \\%c backreference is not valid XSD 1.0 syntax", nextChar)
 	}
@@ -98,7 +90,6 @@ func (t *patternTranslator) handleNameEscape(nextChar byte) bool {
 	default:
 		return false
 	}
-
 	t.consumeEscape()
 	return true
 }
@@ -122,7 +113,6 @@ func (t *patternTranslator) handleDigitEscape(nextChar byte) bool {
 	default:
 		return false
 	}
-
 	t.consumeEscape()
 	return true
 }
@@ -149,7 +139,6 @@ func (t *patternTranslator) handleWhitespaceEscape(nextChar byte) (bool, error) 
 	default:
 		return false, nil
 	}
-
 	t.consumeEscape()
 	return true, nil
 }
@@ -176,7 +165,6 @@ func (t *patternTranslator) handleWordEscape(nextChar byte) (bool, error) {
 	default:
 		return false, nil
 	}
-
 	t.consumeEscape()
 	return true, nil
 }
@@ -204,7 +192,6 @@ func (t *patternTranslator) handleControlEscape(nextChar byte) (bool, error) {
 	default:
 		return false, nil
 	}
-
 	if t.inCharClass() {
 		if err := t.appendClassEscaped(char, `\`+string(nextChar)); err != nil {
 			return true, err
@@ -212,7 +199,6 @@ func (t *patternTranslator) handleControlEscape(nextChar byte) (bool, error) {
 	} else {
 		t.writeEscapedLiteral(nextChar)
 	}
-
 	t.consumeEscape()
 	return true, nil
 }
@@ -247,7 +233,6 @@ func (t *patternTranslator) handleEscapedMetachar(nextChar byte) (bool, error) {
 	default:
 		return false, nil
 	}
-
 	if t.inCharClass() {
 		if err := t.appendClassEscaped(rune(nextChar), `\`+string(nextChar)); err != nil {
 			return true, err
@@ -268,7 +253,7 @@ func (t *patternTranslator) handleEscapedDash(nextChar byte) (bool, error) {
 			return true, err
 		}
 	} else {
-		t.result.WriteString(`\-`)
+		t.writeEscapedLiteral(nextChar)
 	}
 	t.consumeEscape()
 	return true, nil
