@@ -1,8 +1,29 @@
-package model
+package xsdpattern
 
 import (
 	"fmt"
 	"strings"
+)
+
+const (
+	re2MaxRepeat = 1000
+
+	xsdDigitClassContent = `\p{Nd}`
+	xsdDigitClass        = "[" + xsdDigitClassContent + "]"
+	xsdNotDigitClass     = "[^" + xsdDigitClassContent + "]"
+	xsdWordClass         = `[^\p{P}\p{Z}\p{C}]`
+	xsdNotWordClass      = `[\p{P}\p{Z}\p{C}]`
+
+	nameStartCharClassContent = `:A-Z_a-z` +
+		`\x{C0}-\x{D6}\x{D8}-\x{F6}\x{F8}-\x{2FF}\x{370}-\x{37D}\x{37F}-\x{1FFF}` +
+		`\x{200C}-\x{200D}\x{2070}-\x{218F}\x{2C00}-\x{2FEF}\x{3001}-\x{D7FF}` +
+		`\x{F900}-\x{FDCF}\x{FDF0}-\x{FFFD}\x{10000}-\x{EFFFF}`
+	nameCharClassContent = nameStartCharClassContent +
+		`\-.\x30-\x39\x{B7}\x{0300}-\x{036F}\x{203F}-\x{2040}`
+	nameStartCharClass    = "[" + nameStartCharClassContent + "]"
+	nameCharClass         = "[" + nameCharClassContent + "]"
+	nameNotStartCharClass = "[^" + nameStartCharClassContent + "]"
+	nameNotCharClass      = "[^" + nameCharClassContent + "]"
 )
 
 type charClassState struct {
@@ -30,8 +51,6 @@ func (s *charClassState) markNonChar() {
 
 func (s *charClassState) handleChar(char rune, classStart int, pattern string) error {
 	if s.lastWasDash {
-		// this completes a range: lastItem - char
-		// validate that the range is valid (start <= end)
 		if s.lastItem > char {
 			return fmt.Errorf("pattern-syntax-error: invalid range '%c-%c' (start > end) in character class starting at position %d in %q",
 				s.lastItem, char, classStart, pattern)
@@ -88,10 +107,7 @@ func newPatternTranslator(pattern string) *patternTranslator {
 	return t
 }
 
-// TranslateXSDPatternToGo translates an XSD 1.0 pattern to Go regexp (RE2) syntax.
-// Returns an error for unsupported features (fail-closed approach).
 func TranslateXSDPatternToGo(xsdPattern string) (string, error) {
-	// empty pattern matches only empty string
 	if xsdPattern == "" {
 		return `^(?:)$`, nil
 	}
@@ -105,7 +121,6 @@ func (t *patternTranslator) translate() (string, error) {
 		} else if handled {
 			continue
 		}
-
 		if t.classDepth > 0 {
 			if handled, err := t.runStepHandlers(charClassStepHandlers); err != nil {
 				return "", err
@@ -117,43 +132,34 @@ func (t *patternTranslator) translate() (string, error) {
 			}
 			continue
 		}
-
 		if handled, err := t.handleCharClassStart(); err != nil {
 			return "", err
 		} else if handled {
 			continue
 		}
-
 		if err := t.checkLazyQuantifier(); err != nil {
 			return "", err
 		}
-
 		if handled, err := t.runStepHandlers(outsideClassStepHandlers); err != nil {
 			return "", err
 		} else if handled {
 			continue
 		}
-
 		if err := t.handleGroupDepth(); err != nil {
 			return "", err
 		}
-
 		t.appendLiteralByte(t.pattern[t.i])
 	}
-
 	if t.classDepth > 0 {
 		return "", fmt.Errorf("pattern-syntax-error: unclosed character class")
 	}
 	if t.groupDepth > 0 {
 		return "", fmt.Errorf("pattern-syntax-error: unclosed '(' in pattern")
 	}
-
 	return `^(?:` + t.result.String() + `)$`, nil
 }
 
-func (t *patternTranslator) inCharClass() bool {
-	return t.classDepth > 0
-}
+func (t *patternTranslator) inCharClass() bool { return t.classDepth > 0 }
 
 func (t *patternTranslator) runStepHandlers(handlers []patternStepHandler) (bool, error) {
 	for _, handler := range handlers {

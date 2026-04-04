@@ -1,4 +1,4 @@
-package model
+package xsdpattern
 
 import (
 	"fmt"
@@ -12,7 +12,6 @@ func (t *patternTranslator) handleCharClassStart() (bool, error) {
 	if t.classDepth > 0 {
 		return true, fmt.Errorf("pattern-unsupported: nested character classes not supported")
 	}
-
 	t.classDepth++
 	t.classStart = t.i
 	t.classState.reset()
@@ -23,7 +22,6 @@ func (t *patternTranslator) handleCharClassStart() (bool, error) {
 	t.classHasNotD = false
 	t.classHasNotNameStart = false
 	t.classHasNotNameChar = false
-
 	t.i++
 	if t.i < len(t.pattern) && t.pattern[t.i] == '^' {
 		t.classNegated = true
@@ -49,7 +47,6 @@ func (t *patternTranslator) handleCharClassEnd() (bool, error) {
 		t.i++
 		return true, nil
 	}
-
 	if t.classHasW || t.classHasS || t.classHasNotD || t.classHasNotNameStart || t.classHasNotNameChar {
 		if t.classNegated {
 			return true, fmt.Errorf("pattern-unsupported: negated character class with \\w, \\S, \\I, or \\C is not expressible in RE2")
@@ -78,12 +75,10 @@ func (t *patternTranslator) handleCharClassEnd() (bool, error) {
 		} else {
 			t.result.WriteString(`(?:` + strings.Join(parts, "|") + `)`)
 		}
+	} else if t.classNegated {
+		t.result.WriteString(`[^` + classContent + `]`)
 	} else {
-		if t.classNegated {
-			t.result.WriteString(`[^` + classContent + `]`)
-		} else {
-			t.result.WriteString(`[` + classContent + `]`)
-		}
+		t.result.WriteString(`[` + classContent + `]`)
 	}
 	t.classDepth--
 	t.i++

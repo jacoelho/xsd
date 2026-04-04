@@ -1,39 +1,23 @@
-package model
+package xsdpattern
 
 import (
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 type outsideMetaHandler func(*patternTranslator) error
 
 var outsideMetaHandlers = map[byte]outsideMetaHandler{
-	'^': func(t *patternTranslator) error {
-		t.emitOutsideLiteral(`\^`)
-		return nil
-	},
-	'$': func(t *patternTranslator) error {
-		t.emitOutsideLiteral(`\$`)
-		return nil
-	},
-	'.': func(t *patternTranslator) error {
-		t.emitOutsideLiteral(`[^\n\r]`)
-		return nil
-	},
-	'*': func(t *patternTranslator) error {
-		t.emitOutsideQuantifier('*')
-		return nil
-	},
-	'+': func(t *patternTranslator) error {
-		t.emitOutsideQuantifier('+')
-		return nil
-	},
-	'?': func(t *patternTranslator) error {
-		t.emitOutsideQuantifier('?')
-		return nil
-	},
+	'^': func(t *patternTranslator) error { t.emitOutsideLiteral(`\^`); return nil },
+	'$': func(t *patternTranslator) error { t.emitOutsideLiteral(`\$`); return nil },
+	'.': func(t *patternTranslator) error { t.emitOutsideLiteral(`[^\n\r]`); return nil },
+	'*': func(t *patternTranslator) error { t.emitOutsideQuantifier('*'); return nil },
+	'+': func(t *patternTranslator) error { t.emitOutsideQuantifier('+'); return nil },
+	'?': func(t *patternTranslator) error { t.emitOutsideQuantifier('?'); return nil },
 	']': func(*patternTranslator) error {
 		return fmt.Errorf("pattern-syntax-error: ']' is not valid outside a character class")
 	},
@@ -108,8 +92,8 @@ func (t *patternTranslator) handleGroupDepth() error {
 	return nil
 }
 
-func (t *patternTranslator) emitOutsideLiteral(value string) {
-	t.result.WriteString(value)
+func (t *patternTranslator) emitOutsideLiteral(v string) {
+	t.result.WriteString(v)
 	t.i++
 	t.justWroteQuantifier = false
 }
@@ -120,12 +104,10 @@ func (t *patternTranslator) emitOutsideQuantifier(ch byte) {
 	t.justWroteQuantifier = true
 }
 
-// translateUnicodePropertyEscape translates \p{...} or \P{...} escapes
 func translateUnicodePropertyEscape(pattern string, startIdx int, inCharClass bool) (string, int, error) {
 	if startIdx+2 >= len(pattern) || pattern[startIdx+2] != '{' {
 		return "", startIdx, fmt.Errorf("pattern-syntax-error: invalid Unicode property escape")
 	}
-
 	closeIdx := startIdx + 3
 	for closeIdx < len(pattern) && pattern[closeIdx] != '}' {
 		closeIdx++
@@ -133,15 +115,10 @@ func translateUnicodePropertyEscape(pattern string, startIdx int, inCharClass bo
 	if closeIdx >= len(pattern) {
 		return "", startIdx, fmt.Errorf("pattern-syntax-error: incomplete Unicode property escape")
 	}
-
 	propName := pattern[startIdx+3 : closeIdx]
-
-	// reject block-style names (Is... or In...)
 	if strings.HasPrefix(propName, "Is") || strings.HasPrefix(propName, "In") {
 		return "", startIdx, fmt.Errorf("pattern-unsupported: Unicode block escape %q not supported (Go regexp limitation)", `\p{`+propName+`}`)
 	}
-
-	// verify Go supports this property by trying to compile it
 	testPattern := `\p{` + propName + `}`
 	if inCharClass {
 		testPattern = `[` + testPattern + `]`
@@ -149,21 +126,16 @@ func translateUnicodePropertyEscape(pattern string, startIdx int, inCharClass bo
 	if _, err := regexp.Compile(testPattern); err != nil {
 		return "", startIdx, fmt.Errorf("pattern-unsupported: Unicode property %q not supported by Go regexp", propName)
 	}
-
-	// pass through unchanged (Go supports it)
-	negated := pattern[startIdx+1] == 'P'
-	if negated {
+	if pattern[startIdx+1] == 'P' {
 		return `\P{` + propName + `}`, closeIdx + 1, nil
 	}
 	return `\p{` + propName + `}`, closeIdx + 1, nil
 }
 
-// parseAndValidateRepeat parses a repeat quantifier {m}, {m,}, or {m,n} and validates bounds
 func parseAndValidateRepeat(pattern string, startIdx int) (string, int, error) {
 	if pattern[startIdx] != '{' {
 		return "", startIdx, fmt.Errorf("parseAndValidateRepeat: expected '{'")
 	}
-
 	closeIdx := startIdx + 1
 	for closeIdx < len(pattern) && pattern[closeIdx] != '}' {
 		closeIdx++
@@ -171,31 +143,23 @@ func parseAndValidateRepeat(pattern string, startIdx int) (string, int, error) {
 	if closeIdx >= len(pattern) {
 		return "", startIdx, fmt.Errorf("pattern-syntax-error: unclosed repeat quantifier")
 	}
-
 	content := pattern[startIdx+1 : closeIdx]
-
-	// parse {m} or {m,} or {m,n}
 	var minCount, maxCount int
 	var hasMax bool
-
 	if strings.Contains(content, ",") {
 		parts := strings.SplitN(content, ",", 2)
 		if len(parts) != 2 {
 			return "", startIdx, fmt.Errorf("pattern-syntax-error: invalid repeat quantifier")
 		}
-
 		var err error
-		minCount, err = strconv.Atoi(TrimXMLWhitespace(parts[0]))
+		minCount, err = strconv.Atoi(value.TrimXMLWhitespaceString(parts[0]))
 		if err != nil {
 			return "", startIdx, fmt.Errorf("pattern-syntax-error: invalid repeat quantifier min value")
 		}
-
-		part2 := TrimXMLWhitespace(parts[1])
+		part2 := value.TrimXMLWhitespaceString(parts[1])
 		if part2 == "" {
-			// {m,} - no max
 			hasMax = false
 		} else {
-			// {m,n}
 			maxCount, err = strconv.Atoi(part2)
 			if err != nil {
 				return "", startIdx, fmt.Errorf("pattern-syntax-error: invalid repeat quantifier max value")
@@ -203,7 +167,6 @@ func parseAndValidateRepeat(pattern string, startIdx int) (string, int, error) {
 			hasMax = true
 		}
 	} else {
-		// {m}
 		var err error
 		minCount, err = strconv.Atoi(content)
 		if err != nil {
@@ -212,21 +175,17 @@ func parseAndValidateRepeat(pattern string, startIdx int) (string, int, error) {
 		maxCount = minCount
 		hasMax = true
 	}
-
 	if minCount < 0 {
 		return "", startIdx, fmt.Errorf("pattern-syntax-error: repeat quantifier min must be non-negative")
 	}
 	if hasMax && maxCount < minCount {
 		return "", startIdx, fmt.Errorf("pattern-syntax-error: repeat quantifier max must be >= min")
 	}
-
 	if minCount > re2MaxRepeat {
 		return "", startIdx, fmt.Errorf("pattern-unsupported: repeat {%d} exceeds RE2 limit of %d", minCount, re2MaxRepeat)
 	}
 	if hasMax && maxCount > re2MaxRepeat {
 		return "", startIdx, fmt.Errorf("pattern-unsupported: repeat {%d,%d} exceeds RE2 limit of %d", minCount, maxCount, re2MaxRepeat)
 	}
-
-	// return the original pattern (it's valid)
 	return pattern[startIdx : closeIdx+1], closeIdx + 1, nil
 }

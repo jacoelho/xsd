@@ -4,28 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-)
 
-const (
-	// re2MaxRepeat is the maximum repeat count supported by RE2
-	re2MaxRepeat = 1000
-	// Use Unicode decimal digits (Nd) from Go's regexp tables for XSD \d semantics.
-	xsdDigitClassContent = `\p{Nd}`
-	xsdDigitClass        = "[" + xsdDigitClassContent + "]"
-	xsdNotDigitClass     = "[^" + xsdDigitClassContent + "]"
-	xsdWordClass         = `[^\p{P}\p{Z}\p{C}]`
-	xsdNotWordClass      = `[\p{P}\p{Z}\p{C}]`
-	// XML 1.0 NameStartChar and NameChar ranges (XSD \i and \c).
-	nameStartCharClassContent = `:A-Z_a-z` +
-		`\x{C0}-\x{D6}\x{D8}-\x{F6}\x{F8}-\x{2FF}\x{370}-\x{37D}\x{37F}-\x{1FFF}` +
-		`\x{200C}-\x{200D}\x{2070}-\x{218F}\x{2C00}-\x{2FEF}\x{3001}-\x{D7FF}` +
-		`\x{F900}-\x{FDCF}\x{FDF0}-\x{FFFD}\x{10000}-\x{EFFFF}`
-	nameCharClassContent = nameStartCharClassContent +
-		`\-.\x30-\x39\x{B7}\x{0300}-\x{036F}\x{203F}-\x{2040}`
-	nameStartCharClass    = "[" + nameStartCharClassContent + "]"
-	nameCharClass         = "[" + nameCharClassContent + "]"
-	nameNotStartCharClass = "[^" + nameStartCharClassContent + "]"
-	nameNotCharClass      = "[^" + nameCharClassContent + "]"
+	"github.com/jacoelho/xsd/internal/xsdpattern"
 )
 
 // Pattern represents a pattern facet (regex)
@@ -46,7 +26,7 @@ func (p *Pattern) ValidateSyntax() error {
 	// empty pattern is valid per XSD spec (matches only empty string)
 	if p.Value == "" {
 		// empty pattern translates to ^(?:)$
-		goPattern, err := TranslateXSDPatternToGo("")
+		goPattern, err := xsdpattern.TranslateXSDPatternToGo("")
 		if err != nil {
 			return fmt.Errorf("pattern facet: %w", err)
 		}
@@ -60,7 +40,7 @@ func (p *Pattern) ValidateSyntax() error {
 	}
 
 	// translate XSD pattern to Go regex
-	goPattern, err := TranslateXSDPatternToGo(p.Value)
+	goPattern, err := xsdpattern.TranslateXSDPatternToGo(p.Value)
 	if err != nil {
 		return fmt.Errorf("pattern facet: %w", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"maps"
 	"unicode/utf8"
 
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
@@ -45,60 +46,60 @@ const (
 var defaultBuiltinRegistry = func() *builtinRegistry {
 	registry := newBuiltinRegistry(map[string]*BuiltinType{
 		// built-in complex type
-		string(TypeNameAnyType): newBuiltin(TypeNameAnyType, validateAnyType, nil, WhiteSpacePreserve, unordered),
+		string(TypeNameAnyType): newBuiltin(TypeNameAnyType, value.ValidateXSDAnyType, nil, WhiteSpacePreserve, unordered),
 
 		// base simple type (base of all simple types, must be registered before primitives)
-		string(TypeNameAnySimpleType): newBuiltin(TypeNameAnySimpleType, validateAnySimpleType, nil, WhiteSpacePreserve, unordered),
+		string(TypeNameAnySimpleType): newBuiltin(TypeNameAnySimpleType, value.ValidateXSDAnySimpleType, nil, WhiteSpacePreserve, unordered),
 
 		// primitive types (19 total)
-		string(TypeNameString):       newBuiltin(TypeNameString, validateString, nil, WhiteSpacePreserve, unordered),
-		string(TypeNameBoolean):      newBuiltin(TypeNameBoolean, validateBoolean, byteValidator(validateBoolean), WhiteSpaceCollapse, unordered),
-		string(TypeNameDecimal):      newBuiltin(TypeNameDecimal, validateDecimal, byteValidator(validateDecimal), WhiteSpaceCollapse, ordered),
-		string(TypeNameFloat):        newBuiltin(TypeNameFloat, validateFloat, byteValidator(validateFloat), WhiteSpaceCollapse, ordered),
-		string(TypeNameDouble):       newBuiltin(TypeNameDouble, validateDouble, byteValidator(validateDouble), WhiteSpaceCollapse, ordered),
-		string(TypeNameDuration):     newBuiltin(TypeNameDuration, validateDuration, nil, WhiteSpaceCollapse, unordered),
-		string(TypeNameDateTime):     newBuiltin(TypeNameDateTime, validateDateTime, nil, WhiteSpaceCollapse, ordered),
-		string(TypeNameTime):         newBuiltin(TypeNameTime, validateTime, nil, WhiteSpaceCollapse, ordered),
-		string(TypeNameDate):         newBuiltin(TypeNameDate, validateDate, nil, WhiteSpaceCollapse, ordered),
-		string(TypeNameGYearMonth):   newBuiltin(TypeNameGYearMonth, validateGYearMonth, nil, WhiteSpaceCollapse, ordered),
-		string(TypeNameGYear):        newBuiltin(TypeNameGYear, validateGYear, nil, WhiteSpaceCollapse, ordered),
-		string(TypeNameGMonthDay):    newBuiltin(TypeNameGMonthDay, validateGMonthDay, nil, WhiteSpaceCollapse, ordered),
-		string(TypeNameGDay):         newBuiltin(TypeNameGDay, validateGDay, nil, WhiteSpaceCollapse, ordered),
-		string(TypeNameGMonth):       newBuiltin(TypeNameGMonth, validateGMonth, nil, WhiteSpaceCollapse, ordered),
-		string(TypeNameHexBinary):    newBuiltin(TypeNameHexBinary, validateHexBinary, nil, WhiteSpaceCollapse, unordered),
-		string(TypeNameBase64Binary): newBuiltin(TypeNameBase64Binary, validateBase64Binary, nil, WhiteSpaceCollapse, unordered),
-		string(TypeNameAnyURI):       newBuiltin(TypeNameAnyURI, validateAnyURI, nil, WhiteSpaceCollapse, unordered),
-		string(TypeNameQName):        newBuiltin(TypeNameQName, validateQName, nil, WhiteSpaceCollapse, unordered),
-		string(TypeNameNOTATION):     newBuiltin(TypeNameNOTATION, validateQName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameString):       newBuiltin(TypeNameString, value.ValidateXSDString, nil, WhiteSpacePreserve, unordered),
+		string(TypeNameBoolean):      newBuiltin(TypeNameBoolean, value.ValidateXSDBoolean, byteValidator(value.ValidateXSDBoolean), WhiteSpaceCollapse, unordered),
+		string(TypeNameDecimal):      newBuiltin(TypeNameDecimal, value.ValidateXSDDecimal, byteValidator(value.ValidateXSDDecimal), WhiteSpaceCollapse, ordered),
+		string(TypeNameFloat):        newBuiltin(TypeNameFloat, value.ValidateXSDFloat, byteValidator(value.ValidateXSDFloat), WhiteSpaceCollapse, ordered),
+		string(TypeNameDouble):       newBuiltin(TypeNameDouble, value.ValidateXSDDouble, byteValidator(value.ValidateXSDDouble), WhiteSpaceCollapse, ordered),
+		string(TypeNameDuration):     newBuiltin(TypeNameDuration, value.ValidateXSDDuration, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameDateTime):     newBuiltin(TypeNameDateTime, value.ValidateXSDDateTime, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameTime):         newBuiltin(TypeNameTime, value.ValidateXSDTime, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameDate):         newBuiltin(TypeNameDate, value.ValidateXSDDate, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameGYearMonth):   newBuiltin(TypeNameGYearMonth, value.ValidateXSDGYearMonth, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameGYear):        newBuiltin(TypeNameGYear, value.ValidateXSDGYear, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameGMonthDay):    newBuiltin(TypeNameGMonthDay, value.ValidateXSDGMonthDay, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameGDay):         newBuiltin(TypeNameGDay, value.ValidateXSDGDay, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameGMonth):       newBuiltin(TypeNameGMonth, value.ValidateXSDGMonth, nil, WhiteSpaceCollapse, ordered),
+		string(TypeNameHexBinary):    newBuiltin(TypeNameHexBinary, value.ValidateXSDHexBinary, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameBase64Binary): newBuiltin(TypeNameBase64Binary, value.ValidateXSDBase64Binary, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameAnyURI):       newBuiltin(TypeNameAnyURI, value.ValidateXSDAnyURI, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameQName):        newBuiltin(TypeNameQName, value.ValidateXSDQName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameNOTATION):     newBuiltin(TypeNameNOTATION, value.ValidateXSDQName, nil, WhiteSpaceCollapse, unordered),
 
 		// derived string types
-		string(TypeNameNormalizedString): newBuiltin(TypeNameNormalizedString, validateNormalizedString, nil, WhiteSpaceReplace, unordered),
-		string(TypeNameToken):            newBuiltin(TypeNameToken, validateToken, nil, WhiteSpaceCollapse, unordered),
-		string(TypeNameLanguage):         newBuiltin(TypeNameLanguage, validateLanguage, nil, WhiteSpaceCollapse, unordered),
-		string(TypeNameName):             newBuiltin(TypeNameName, validateName, nil, WhiteSpaceCollapse, unordered),
-		string(TypeNameNCName):           newBuiltin(TypeNameNCName, validateNCName, nil, WhiteSpaceCollapse, unordered),
-		string(TypeNameID):               newBuiltin(TypeNameID, validateNCName, nil, WhiteSpaceCollapse, unordered),
-		string(TypeNameIDREF):            newBuiltin(TypeNameIDREF, validateNCName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameNormalizedString): newBuiltin(TypeNameNormalizedString, value.ValidateXSDNormalizedString, nil, WhiteSpaceReplace, unordered),
+		string(TypeNameToken):            newBuiltin(TypeNameToken, value.ValidateXSDToken, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameLanguage):         newBuiltin(TypeNameLanguage, value.ValidateXSDLanguage, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameName):             newBuiltin(TypeNameName, value.ValidateXSDName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameNCName):           newBuiltin(TypeNameNCName, value.ValidateXSDNCName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameID):               newBuiltin(TypeNameID, value.ValidateXSDNCName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameIDREF):            newBuiltin(TypeNameIDREF, value.ValidateXSDNCName, nil, WhiteSpaceCollapse, unordered),
 		string(TypeNameIDREFS):           newBuiltin(TypeNameIDREFS, validateIDREFS, nil, WhiteSpaceCollapse, unordered),
-		string(TypeNameENTITY):           newBuiltin(TypeNameENTITY, validateNCName, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameENTITY):           newBuiltin(TypeNameENTITY, value.ValidateXSDNCName, nil, WhiteSpaceCollapse, unordered),
 		string(TypeNameENTITIES):         newBuiltin(TypeNameENTITIES, validateENTITIES, nil, WhiteSpaceCollapse, unordered),
-		string(TypeNameNMTOKEN):          newBuiltin(TypeNameNMTOKEN, validateNMTOKEN, nil, WhiteSpaceCollapse, unordered),
+		string(TypeNameNMTOKEN):          newBuiltin(TypeNameNMTOKEN, value.ValidateXSDNMTOKEN, nil, WhiteSpaceCollapse, unordered),
 		string(TypeNameNMTOKENS):         newBuiltin(TypeNameNMTOKENS, validateNMTOKENS, nil, WhiteSpaceCollapse, unordered),
 
 		// derived numeric types
-		string(TypeNameInteger):            newBuiltin(TypeNameInteger, validateInteger, byteValidator(validateInteger), WhiteSpaceCollapse, ordered),
-		string(TypeNameLong):               newBuiltin(TypeNameLong, validateLong, byteValidator(validateLong), WhiteSpaceCollapse, ordered),
-		string(TypeNameInt):                newBuiltin(TypeNameInt, validateInt, byteValidator(validateInt), WhiteSpaceCollapse, ordered),
-		string(TypeNameShort):              newBuiltin(TypeNameShort, validateShort, byteValidator(validateShort), WhiteSpaceCollapse, ordered),
-		string(TypeNameByte):               newBuiltin(TypeNameByte, validateByte, byteValidator(validateByte), WhiteSpaceCollapse, ordered),
-		string(TypeNameNonNegativeInteger): newBuiltin(TypeNameNonNegativeInteger, validateNonNegativeInteger, byteValidator(validateNonNegativeInteger), WhiteSpaceCollapse, ordered),
-		string(TypeNamePositiveInteger):    newBuiltin(TypeNamePositiveInteger, validatePositiveInteger, byteValidator(validatePositiveInteger), WhiteSpaceCollapse, ordered),
-		string(TypeNameUnsignedLong):       newBuiltin(TypeNameUnsignedLong, validateUnsignedLong, byteValidator(validateUnsignedLong), WhiteSpaceCollapse, ordered),
-		string(TypeNameUnsignedInt):        newBuiltin(TypeNameUnsignedInt, validateUnsignedInt, byteValidator(validateUnsignedInt), WhiteSpaceCollapse, ordered),
-		string(TypeNameUnsignedShort):      newBuiltin(TypeNameUnsignedShort, validateUnsignedShort, byteValidator(validateUnsignedShort), WhiteSpaceCollapse, ordered),
-		string(TypeNameUnsignedByte):       newBuiltin(TypeNameUnsignedByte, validateUnsignedByte, byteValidator(validateUnsignedByte), WhiteSpaceCollapse, ordered),
-		string(TypeNameNonPositiveInteger): newBuiltin(TypeNameNonPositiveInteger, validateNonPositiveInteger, byteValidator(validateNonPositiveInteger), WhiteSpaceCollapse, ordered),
-		string(TypeNameNegativeInteger):    newBuiltin(TypeNameNegativeInteger, validateNegativeInteger, byteValidator(validateNegativeInteger), WhiteSpaceCollapse, ordered),
+		string(TypeNameInteger):            newBuiltin(TypeNameInteger, value.ValidateXSDInteger, byteValidator(value.ValidateXSDInteger), WhiteSpaceCollapse, ordered),
+		string(TypeNameLong):               newBuiltin(TypeNameLong, value.ValidateXSDLong, byteValidator(value.ValidateXSDLong), WhiteSpaceCollapse, ordered),
+		string(TypeNameInt):                newBuiltin(TypeNameInt, value.ValidateXSDInt, byteValidator(value.ValidateXSDInt), WhiteSpaceCollapse, ordered),
+		string(TypeNameShort):              newBuiltin(TypeNameShort, value.ValidateXSDShort, byteValidator(value.ValidateXSDShort), WhiteSpaceCollapse, ordered),
+		string(TypeNameByte):               newBuiltin(TypeNameByte, value.ValidateXSDByte, byteValidator(value.ValidateXSDByte), WhiteSpaceCollapse, ordered),
+		string(TypeNameNonNegativeInteger): newBuiltin(TypeNameNonNegativeInteger, value.ValidateXSDNonNegativeInteger, byteValidator(value.ValidateXSDNonNegativeInteger), WhiteSpaceCollapse, ordered),
+		string(TypeNamePositiveInteger):    newBuiltin(TypeNamePositiveInteger, value.ValidateXSDPositiveInteger, byteValidator(value.ValidateXSDPositiveInteger), WhiteSpaceCollapse, ordered),
+		string(TypeNameUnsignedLong):       newBuiltin(TypeNameUnsignedLong, value.ValidateXSDUnsignedLong, byteValidator(value.ValidateXSDUnsignedLong), WhiteSpaceCollapse, ordered),
+		string(TypeNameUnsignedInt):        newBuiltin(TypeNameUnsignedInt, value.ValidateXSDUnsignedInt, byteValidator(value.ValidateXSDUnsignedInt), WhiteSpaceCollapse, ordered),
+		string(TypeNameUnsignedShort):      newBuiltin(TypeNameUnsignedShort, value.ValidateXSDUnsignedShort, byteValidator(value.ValidateXSDUnsignedShort), WhiteSpaceCollapse, ordered),
+		string(TypeNameUnsignedByte):       newBuiltin(TypeNameUnsignedByte, value.ValidateXSDUnsignedByte, byteValidator(value.ValidateXSDUnsignedByte), WhiteSpaceCollapse, ordered),
+		string(TypeNameNonPositiveInteger): newBuiltin(TypeNameNonPositiveInteger, value.ValidateXSDNonPositiveInteger, byteValidator(value.ValidateXSDNonPositiveInteger), WhiteSpaceCollapse, ordered),
+		string(TypeNameNegativeInteger):    newBuiltin(TypeNameNegativeInteger, value.ValidateXSDNegativeInteger, byteValidator(value.ValidateXSDNegativeInteger), WhiteSpaceCollapse, ordered),
 	})
 	initializeBuiltinRegistry(registry)
 	return registry
