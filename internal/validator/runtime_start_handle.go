@@ -43,8 +43,7 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 		return err
 	}
 	eventInput.Attrs = classified
-	event, err := start.ResolveEvent(
-		s.rt,
+	event, err := s.resolveStartEvent(
 		eventInput,
 		resolver,
 		func(ref runtime.ModelRef, sym runtime.SymbolID, nsID runtime.NamespaceID, ns []byte) (model.Match, error) {
