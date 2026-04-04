@@ -18,5 +18,5 @@ func (s *Session) StartElement(match model.Match, sym runtime.SymbolID, nsID run
 	if err != nil {
 		return start.Result{}, err
 	}
-	return start.ResolveResult(s.rt, match, sym, nsID, nsBytes, classified, resolver)
+	return s.resolveStartResult(match, sym, nsID, nsBytes, classified, resolver)
 }
