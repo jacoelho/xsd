@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/attrgroupwalk"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typechain"
@@ -36,7 +36,7 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *model.ComplexType
 
 	if ct.IsExtension() {
 		if baseAnyAttr != nil && derivedAnyAttr != nil {
-			if _, err := attrgroupwalk.Union(derivedAnyAttr, baseAnyAttr); err != nil {
+			if _, err := analysis.UnionAttributeWildcards(derivedAnyAttr, baseAnyAttr); err != nil {
 				return fmt.Errorf("anyAttribute extension: union of derived and base anyAttribute is not expressible")
 			}
 		}
@@ -45,7 +45,7 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *model.ComplexType
 			return fmt.Errorf("anyAttribute restriction: cannot add anyAttribute when base type has no anyAttribute")
 		}
 		if derivedAnyAttr != nil && baseAnyAttr != nil {
-			if _, err := attrgroupwalk.Restrict(baseAnyAttr, derivedAnyAttr); err != nil {
+			if _, err := analysis.RestrictAttributeWildcard(baseAnyAttr, derivedAnyAttr); err != nil {
 				return fmt.Errorf("anyAttribute restriction: derived anyAttribute is not a valid subset of base anyAttribute")
 			}
 		}
@@ -57,16 +57,16 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *model.ComplexType
 // collectAnyAttributeFromType collects anyAttribute from a complex type
 // Checks both direct anyAttribute and anyAttribute in extension/restriction
 func collectAnyAttributeFromType(schema *parser.Schema, ct *model.ComplexType) (*model.AnyAttribute, error) {
-	result, err := attrgroupwalk.CollectFromComplexType(schema, ct, attrgroupwalk.CollectOptions{
-		Missing:      attrgroupwalk.MissingIgnore,
-		Cycles:       attrgroupwalk.CycleIgnore,
+	result, err := analysis.CollectComplexTypeWildcard(schema, ct, analysis.AttributeGroupCollectOptions{
+		Missing:      analysis.MissingIgnore,
+		Cycles:       analysis.CycleIgnore,
 		EmptyIsError: false,
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, attrgroupwalk.ErrIntersectionNotExpressible):
+		case errors.Is(err, analysis.ErrAttributeWildcardIntersectionNotExpressible):
 			return nil, fmt.Errorf("anyAttribute intersection is not expressible")
-		case errors.Is(err, attrgroupwalk.ErrIntersectionEmpty):
+		case errors.Is(err, analysis.ErrAttributeWildcardIntersectionEmpty):
 			return nil, nil
 		default:
 			return nil, err
@@ -77,9 +77,9 @@ func collectAnyAttributeFromType(schema *parser.Schema, ct *model.ComplexType) (
 
 // collectAnyAttributeFromGroups collects anyAttribute from attribute groups (recursively)
 func collectAnyAttributeFromGroups(schema *parser.Schema, agRefs []model.QName) []*model.AnyAttribute {
-	ctx := attrgroupwalk.NewContext(schema, attrgroupwalk.Options{
-		Missing: attrgroupwalk.MissingIgnore,
-		Cycles:  attrgroupwalk.CycleIgnore,
+	ctx := analysis.NewAttributeGroupContext(schema, analysis.AttributeGroupWalkOptions{
+		Missing: analysis.MissingIgnore,
+		Cycles:  analysis.CycleIgnore,
 	})
 	var result []*model.AnyAttribute
 	_ = ctx.Walk(agRefs, func(_ model.QName, ag *model.AttributeGroup) error {

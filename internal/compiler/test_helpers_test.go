@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/analysis"
-	"github.com/jacoelho/xsd/internal/compiler/lower"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func resolveSchema(schemaXML string) (*parser.Schema, error) {
@@ -44,11 +44,14 @@ func buildSchemaForTest(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, e
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: resolve references: %w", err)
 	}
-	complexTypes, err := lower.BuildComplexTypePlan(resolvedSchema, registry)
+	sem, err := semantics.Build(resolvedSchema, registry, refs)
 	if err != nil {
-		return nil, fmt.Errorf("runtime build: complex type plan: %w", err)
+		return nil, fmt.Errorf("runtime build: semantics: %w", err)
 	}
-	validators, err := lower.CompileWithComplexTypePlan(resolvedSchema, registry, complexTypes)
+	if err := sem.Particles().ValidateUPA(); err != nil {
+		return nil, fmt.Errorf("runtime build: validate UPA: %w", err)
+	}
+	validators, err := sem.CompiledValidators()
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: compile validators: %w", err)
 	}

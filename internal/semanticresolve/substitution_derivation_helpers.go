@@ -3,7 +3,7 @@ package semanticresolve
 import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/substpolicy"
+	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -55,7 +55,7 @@ func typesMatch(a, b model.Type) bool {
 }
 
 func derivationStep(sch *parser.Schema, typ model.Type) (model.Type, model.DerivationMethod, error) {
-	return substpolicy.NextDerivationStep(typ, func(name model.QName) (model.Type, error) {
+	return semantics.NextDerivationStep(typ, func(name model.QName) (model.Type, error) {
 		return typeresolve.ResolveTypeQName(sch, name, typeresolve.TypeReferenceMustExist)
 	})
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/xpath"
 )
 
@@ -13,7 +14,7 @@ func validateLocalIdentityConstraintKeyrefsWithIndex(sch *parser.Schema, index *
 	var errs []error
 
 	forEachLocalConstraintElement(sch, index, func(elem *model.ElementDecl) {
-		if err := validateKeyrefConstraints(elem.Name, elem.Constraints, allConstraints); err != nil {
+		if err := semantics.ValidateKeyrefConstraints(elem.Name, elem.Constraints, allConstraints); err != nil {
 			errs = append(errs, err...)
 		}
 	})
@@ -26,7 +27,7 @@ func validateLocalIdentityConstraintResolution(sch *parser.Schema, index *iterat
 
 	forEachLocalConstraintElement(sch, index, func(elem *model.ElementDecl) {
 		for _, constraint := range elem.Constraints {
-			if err := validateIdentityConstraintResolution(sch, constraint, elem); err != nil {
+			if err := semantics.ValidateIdentityConstraintResolution(sch, constraint, elem); err != nil {
 				if errors.Is(err, xpath.ErrInvalidXPath) {
 					continue
 				}
@@ -60,7 +61,7 @@ func collectLocalConstraintElementsWithIndex(sch *parser.Schema, index *iteratio
 	seen := make(map[*model.ElementDecl]bool)
 	out := make([]*model.ElementDecl, 0)
 	collect := func(content model.Content) {
-		for _, elem := range collectConstraintElementsFromContent(content) {
+		for _, elem := range semantics.CollectConstraintElementsFromContent(content) {
 			if elem == nil || elem.IsReference || len(elem.Constraints) == 0 {
 				continue
 			}

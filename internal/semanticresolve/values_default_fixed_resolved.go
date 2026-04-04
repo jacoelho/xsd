@@ -3,7 +3,7 @@ package semanticresolve
 import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/valuevalidate"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func validateDefaultOrFixedValueResolved(
@@ -13,12 +13,12 @@ func validateDefaultOrFixedValueResolved(
 	context map[string]string,
 	policy idValuePolicy,
 ) error {
-	return valuevalidate.ValidateDefaultOrFixedResolved(schema, value, typ, context, toIDPolicy(policy))
+	return semantics.ValidateDefaultOrFixedResolved(schema, value, typ, context, toIDPolicy(policy))
 }
 
-func toIDPolicy(policy idValuePolicy) valuevalidate.IDPolicy {
+func toIDPolicy(policy idValuePolicy) semantics.IDPolicy {
 	if policy == idValuesDisallowed {
-		return valuevalidate.IDPolicyDisallow
+		return semantics.IDPolicyDisallow
 	}
-	return valuevalidate.IDPolicyAllow
+	return semantics.IDPolicyAllow
 }

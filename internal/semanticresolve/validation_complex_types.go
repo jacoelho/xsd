@@ -5,13 +5,13 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
+	"github.com/jacoelho/xsd/internal/qname"
 )
 
 func validateComplexTypeReferences(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range traversal.SortedQNames(sch.TypeDefs) {
+	for _, qname := range qname.SortedMapKeys(sch.TypeDefs) {
 		typ := sch.TypeDefs[qname]
 		ct, ok := typ.(*model.ComplexType)
 		if !ok {
@@ -36,7 +36,7 @@ func validateComplexTypeReferences(sch *parser.Schema) []error {
 		}
 
 		origin := sch.TypeOrigins[qname]
-		if err := traversal.WalkContentParticles(ct.Content(), func(particle model.Particle) error {
+		if err := model.WalkContentParticles(ct.Content(), func(particle model.Particle) error {
 			return validateParticleReferences(sch, particle, origin)
 		}); err != nil {
 			errs = append(errs, fmt.Errorf("type %s: %w", qname, err))

@@ -6,7 +6,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
 )
 
 var w3cSchemaFixtures = map[string]string{
@@ -866,12 +865,12 @@ func TestResolveW3CInlineUnionAnonymousTypes(t *testing.T) {
 		t.Fatalf("expected uid to have a complex type")
 	}
 
-	particle := traversal.GetContentParticle(ct.Content())
+	particle := model.GetContentParticle(ct.Content())
 	if particle == nil {
 		t.Fatalf("expected uid content particle")
 	}
 	var pid *model.ElementDecl
-	for _, elem := range traversal.CollectFromParticlesWithVisited([]model.Particle{particle}, nil, func(p model.Particle) (*model.ElementDecl, bool) {
+	for _, elem := range model.CollectFromParticlesWithVisited([]model.Particle{particle}, nil, func(p model.Particle) (*model.ElementDecl, bool) {
 		elem, ok := p.(*model.ElementDecl)
 		return elem, ok
 	}) {

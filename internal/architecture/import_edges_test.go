@@ -59,10 +59,11 @@ func TestCorePhaseImportEdges(t *testing.T) {
 	assertNoExactImports(
 		t,
 		imports,
-		internalPkg("compiler/lower"),
+		internalPkg("semantics"),
 		internalPkg("preprocessor"),
 		internalPkg("semanticresolve"),
 		internalPkg("semanticcheck"),
+		internalPkg("compiler"),
 		internalPkg("validator"),
 	)
 

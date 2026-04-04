@@ -6,7 +6,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/resolveguard"
-	"github.com/jacoelho/xsd/internal/traversal"
 )
 
 func (r *Resolver) resolveParticles(particles []model.Particle) error {
@@ -51,7 +50,7 @@ func (r *Resolver) resolveParticles(particles []model.Particle) error {
 }
 
 func (r *Resolver) resolveContentParticles(content model.Content) error {
-	return traversal.WalkContentParticles(content, func(particle model.Particle) error {
+	return model.WalkContentParticles(content, func(particle model.Particle) error {
 		return r.resolveParticles([]model.Particle{particle})
 	})
 }

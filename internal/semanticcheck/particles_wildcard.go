@@ -5,7 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
 )
 
 // validateWildcardToElementRestriction validates Element:Wildcard derivation
@@ -38,7 +37,7 @@ func validateWildcardToModelGroupRestriction(schema *parser.Schema, baseAny *mod
 	return validateOccurrenceConstraints(baseAny.MinOccurs, baseAny.MaxOccurs, effectiveMinOcc, effectiveMaxOcc)
 }
 
-func validateWildcardNamespaceRestriction(schema *parser.Schema, baseAny *model.AnyElement, particle model.Particle, visitedMG traversal.VisitTracker[*model.ModelGroup], visitedGroups map[model.QName]bool) error {
+func validateWildcardNamespaceRestriction(schema *parser.Schema, baseAny *model.AnyElement, particle model.Particle, visitedMG modelGroupVisitTracker, visitedGroups map[model.QName]bool) error {
 	if particle != nil && particle.MinOcc().IsZero() && particle.MaxOcc().IsZero() {
 		return nil
 	}

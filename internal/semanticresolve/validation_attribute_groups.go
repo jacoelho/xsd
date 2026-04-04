@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/traversal"
+	"github.com/jacoelho/xsd/internal/qname"
 )
 
 func validateAttributeGroupReferencesInSchema(sch *parser.Schema) []error {
 	var errs []error
 
-	for _, qname := range traversal.SortedQNames(sch.AttributeGroups) {
+	for _, qname := range qname.SortedMapKeys(sch.AttributeGroups) {
 		ag := sch.AttributeGroups[qname]
 		for _, agRef := range ag.AttrGroups {
 			if err := validateAttributeGroupReference(sch, agRef, qname); err != nil {
