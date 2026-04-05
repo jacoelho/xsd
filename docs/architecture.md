@@ -59,15 +59,16 @@ flowchart TD
 
 ## Package Organization
 
-The codebase uses phase-oriented package boundaries instead of type-name parity.
-Each package owns one phase-level responsibility:
+The codebase uses concern-owned package boundaries instead of type-name parity.
+Each package owns one durable workflow boundary:
 
 - `internal/preprocessor`: source loading, include/import resolution, origin tracking.
 - `internal/parser`: raw XSD component parsing with symbolic references.
 - `internal/semanticresolve`: schema reference wiring and semantic link resolution.
-- `internal/semanticcheck`: structural/spec validation (`cvc-*`/schema rules, UPA checks).
+- `internal/semanticcheck`: structural/spec validation (`cvc-*`/schema rules).
 - `internal/analysis`: deterministic IDs, ordering, and resolved-reference indexes.
-- `internal/compiler`: schema-root loading, preparation, runtime assembly, and reusable build artifacts.
+- `internal/semantics`: compile-time semantic artifacts, validator compilation, particle preparation, and UPA checks.
+- `internal/compiler`: schema-root loading, prepared-schema ownership, runtime assembly, and reusable build artifacts.
 - `internal/validator`: mutable runtime session execution over immutable runtime schema.
 
 Public package organization follows the same single-responsibility rule:
@@ -84,19 +85,16 @@ Architecture boundaries are enforced by tests in `internal/architecture/`:
 - public export allowlist checks (`public_api_allowlist_test.go`)
 - required phase docs (`layout_test.go`)
 
-## Shared Internal Helpers
+## Shared Internal Primitives
 
-To keep package boundaries one-way and avoid drift between phases, shared
-helpers live in reusable internal packages:
+The remaining reusable internal primitives are intentionally small and
+dependency-light:
 
-- `internal/typeresolve`: type reference resolution policy and facet traversal helpers.
-- `internal/typechain`: base-chain navigation and anyType semantics.
-- `internal/traversal`: particle/content tree walkers reused by resolver and semantic checks.
-- `internal/valuecodec`: canonical key encoding used by runtime build and runtime validation.
-- `internal/durationlex`: shared xs:duration lexical parser reused by `model`, `facetvalue`, and `valueparse`.
+- `internal/qname`: deterministic QName ordering helpers used by schema preparation and validation passes.
+- `internal/graphcycle`: generic cycle detection used by semantic resolution and analysis passes.
 
-These packages are intentionally dependency-light and avoid load orchestration
-or validator session state.
+Compile-time schema meaning should flow through `internal/semantics.Context` and
+`internal/compiler.Prepared`, not through ad hoc helper-package recomposition.
 
 
 ## Phase 1: Load + Parse
@@ -181,7 +179,7 @@ the validated schema and assigned registry.
 ## Phase 6: Build Runtime Schema
 
 `internal/compiler.Prepared.Build` (backed by
-`internal/compiler` and `internal/validatorgen`)
+`internal/compiler`)
 compiles prepared artifacts into an optimized runtime representation. The runtime schema is
 dense, ID-based, and immutable so it can be shared across goroutines.
 
