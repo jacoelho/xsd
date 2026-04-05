@@ -3,8 +3,10 @@ package validator
 import (
 	"testing"
 
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validator/attrs"
+	"github.com/jacoelho/xsd/internal/validator/diag"
 	"github.com/jacoelho/xsd/internal/validator/model"
 	"github.com/jacoelho/xsd/internal/validator/start"
 )
@@ -36,6 +38,20 @@ func TestStartElementXsiTypeRetarget(t *testing.T) {
 	}
 	if result.Type != ids.typeDerived {
 		t.Fatalf("type = %d, want %d", result.Type, ids.typeDerived)
+	}
+}
+
+func TestResolveStartResultRejectsSchemaNotLoaded(t *testing.T) {
+	var nilSession *Session
+	_, err := nilSession.resolveStartResult(model.Match{}, 0, 0, nil, attrs.Classification{}, nil)
+	if code, ok := diag.Info(err); err == nil || !ok || code != xsderrors.ErrSchemaNotLoaded {
+		t.Fatalf("nil session error = %v, want %s", err, xsderrors.ErrSchemaNotLoaded)
+	}
+
+	sess := &Session{}
+	_, err = sess.resolveStartResult(model.Match{}, 0, 0, nil, attrs.Classification{}, nil)
+	if code, ok := diag.Info(err); err == nil || !ok || code != xsderrors.ErrSchemaNotLoaded {
+		t.Fatalf("nil schema error = %v, want %s", err, xsderrors.ErrSchemaNotLoaded)
 	}
 }
 
