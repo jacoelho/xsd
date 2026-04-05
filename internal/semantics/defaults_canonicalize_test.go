@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestCanonicalizeDefaultFixedUnionQNameMemberUsesContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("canonicalizeDefaultFixed() error = %v", err)
 	}
-	if string(got) != string(want) {
+	if !bytes.Equal(got, want) {
 		t.Fatalf("canonical bytes = %q, want %q", got, want)
 	}
 	if memberID == 0 {
