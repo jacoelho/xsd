@@ -10,17 +10,17 @@ import (
 
 // CompiledValidators contains all runtime validator artifacts generated from a schema.
 type CompiledValidators struct {
-	elements           defaultFixedSet[ids.ElemID]
-	attributes         defaultFixedSet[ids.AttrID]
-	attrUses           defaultFixedSet[*model.AttributeDecl]
-	TypeValidators     map[ids.TypeID]runtime.ValidatorID
-	ValidatorByType    map[model.Type]runtime.ValidatorID
-	ComplexTypes       *ComplexTypes
-	Validators         runtime.ValidatorsBundle
-	Enums              runtime.EnumTable
-	Facets             []runtime.FacetInstr
-	Patterns           []runtime.Pattern
-	Values             runtime.ValueBlob
+	elements        defaultFixedSet[ids.ElemID]
+	attributes      defaultFixedSet[ids.AttrID]
+	attrUses        defaultFixedSet[*model.AttributeDecl]
+	TypeValidators  map[ids.TypeID]runtime.ValidatorID
+	ValidatorByType map[model.Type]runtime.ValidatorID
+	ComplexTypes    *ComplexTypes
+	Validators      runtime.ValidatorsBundle
+	Enums           runtime.EnumTable
+	Facets          []runtime.FacetInstr
+	Patterns        []runtime.Pattern
+	Values          runtime.ValueBlob
 }
 
 // ValidatorForType returns the validator ID for a type when available.
