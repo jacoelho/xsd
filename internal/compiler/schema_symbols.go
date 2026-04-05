@@ -39,10 +39,10 @@ func (b *schemaBuilder) initSymbols() error {
 		if !ok || ct == nil {
 			continue
 		}
-			attrs, wildcard, ok := b.complexTypes.AttributeUses(ct)
-			if !ok {
-				return fmt.Errorf("runtime build: complex type %s missing derived attributes", ct.QName)
-			}
+		attrs, wildcard, ok := b.complexTypes.AttributeUses(ct)
+		if !ok {
+			return fmt.Errorf("runtime build: complex type %s missing derived attributes", ct.QName)
+		}
 		for _, attr := range attrs {
 			if attr == nil {
 				continue
@@ -52,10 +52,10 @@ func (b *schemaBuilder) initSymbols() error {
 		if wildcard != nil {
 			b.internNamespaceConstraint(wildcard.Namespace, wildcard.NamespaceList, wildcard.TargetNamespace)
 		}
-			particle, ok := b.complexTypes.Content(ct)
-			if !ok {
-				return fmt.Errorf("runtime build: complex type %s missing derived content", ct.QName)
-			}
+		particle, ok := b.complexTypes.Content(ct)
+		if !ok {
+			return fmt.Errorf("runtime build: complex type %s missing derived content", ct.QName)
+		}
 		if particle != nil {
 			b.internWildcardNamespaces(particle)
 		}

@@ -90,10 +90,7 @@ func (p *PreparedArtifacts) Build(cfg BuildConfig) (*runtime.Schema, error) {
 	if p == nil {
 		return nil, fmt.Errorf("runtime build: prepared artifacts are nil")
 	}
-	return Build(p.schema, p.registry, p.refs, p.validators, Config{
-		MaxDFAStates:   cfg.MaxDFAStates,
-		MaxOccursLimit: cfg.MaxOccursLimit,
-	})
+	return Build(p.schema, p.registry, p.refs, p.validators, Config(cfg))
 }
 
 func prepareBuildArtifactsFromSemantics(

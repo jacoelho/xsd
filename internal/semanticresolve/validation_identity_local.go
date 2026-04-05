@@ -50,39 +50,3 @@ func forEachLocalConstraintElement(sch *parser.Schema, index *iterationIndex, vi
 		visit(elem)
 	}
 }
-
-func collectLocalConstraintElementsWithIndex(sch *parser.Schema, index *iterationIndex) []*model.ElementDecl {
-	if sch == nil {
-		return nil
-	}
-	if index == nil {
-		index = buildIterationIndex(sch)
-	}
-	seen := make(map[*model.ElementDecl]bool)
-	out := make([]*model.ElementDecl, 0)
-	collect := func(content model.Content) {
-		for _, elem := range semantics.CollectConstraintElementsFromContent(content) {
-			if elem == nil || elem.IsReference || len(elem.Constraints) == 0 {
-				continue
-			}
-			if seen[elem] {
-				continue
-			}
-			seen[elem] = true
-			out = append(out, elem)
-		}
-	}
-	for _, qname := range index.elementQNames {
-		decl := sch.ElementDecls[qname]
-		if ct, ok := decl.Type.(*model.ComplexType); ok {
-			collect(ct.Content())
-		}
-	}
-	for _, qname := range index.typeQNames {
-		typ := sch.TypeDefs[qname]
-		if ct, ok := typ.(*model.ComplexType); ok {
-			collect(ct.Content())
-		}
-	}
-	return out
-}

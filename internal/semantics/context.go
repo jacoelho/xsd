@@ -15,22 +15,20 @@ type Context struct {
 	registry *analysis.Registry
 	refs     *analysis.ResolvedReferences
 
-	complexOnce sync.Once
-	complexErr  error
-	complex     *ComplexTypes
-
-	compiledOnce sync.Once
-	compiledErr  error
+	complex      *ComplexTypes
 	compiled     *CompiledValidators
+	particles    *Particles
+	simpleTypes  *SimpleTypes
+	substitution *Substitution
 
-	particlesOnce sync.Once
-	particles     *Particles
+	complexErr  error
+	compiledErr error
 
-	simpleTypesOnce sync.Once
-	simpleTypes     *SimpleTypes
-
+	complexOnce      sync.Once
+	compiledOnce     sync.Once
+	particlesOnce    sync.Once
+	simpleTypesOnce  sync.Once
 	substitutionOnce sync.Once
-	substitution     *Substitution
 }
 
 // Build creates a compile-time semantics context for a prepared schema graph.
@@ -184,19 +182,12 @@ func (c *ComplexTypes) SimpleContentType(ct *model.ComplexType) (model.Type, boo
 	return c.plan.SimpleContentType(ct)
 }
 
-func (c *ComplexTypes) planValue() *ComplexTypePlan {
-	if c == nil {
-		return nil
-	}
-	return c.plan
-}
-
 // ComplexTypeEntry is the effective semantic view of one complex type.
 type ComplexTypeEntry struct {
 	Content        model.Particle
-	Attributes     []*model.AttributeDecl
-	Wildcard       *model.AnyAttribute
 	SimpleTextType model.Type
+	Wildcard       *model.AnyAttribute
+	Attributes     []*model.AttributeDecl
 }
 
 // Particles exposes particle preparation and validation semantics.
