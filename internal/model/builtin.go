@@ -234,20 +234,20 @@ func (b *BuiltinType) IsBuiltin() bool {
 }
 
 // Validate validates a value against this type
-func (b *BuiltinType) Validate(value string) error {
+func (b *BuiltinType) Validate(lexical string) error {
 	if b == nil || b.validator == nil {
 		return nil
 	}
-	return b.validator(value)
+	return b.validator(lexical)
 }
 
 // ValidateBytes validates a byte slice value when a byte validator exists.
 // It returns false when no byte validator is configured.
-func (b *BuiltinType) ValidateBytes(value []byte) (bool, error) {
+func (b *BuiltinType) ValidateBytes(lexical []byte) (bool, error) {
 	if b == nil || b.validatorBytes == nil {
 		return false, nil
 	}
-	return true, b.validatorBytes(value)
+	return true, b.validatorBytes(lexical)
 }
 
 // HasByteValidator reports whether this type provides a byte validator.
@@ -294,22 +294,22 @@ func (b *BuiltinType) Ordered() bool {
 
 // MeasureLength returns length in type-appropriate units (octets, items, or characters).
 // Implements LengthMeasurable interface.
-func (b *BuiltinType) MeasureLength(value string) int {
+func (b *BuiltinType) MeasureLength(lexical string) int {
 	name := b.Name().Local
 
 	// check if it's a built-in list type (NMTOKENS, IDREFS, ENTITIES)
 	if isBuiltinListTypeName(name) {
 		// list type: length is number of items (space-separated)
-		return countXMLFields(value)
+		return countXMLFields(lexical)
 	}
 
 	primitiveType := b.PrimitiveType()
 	if primitiveType != nil {
-		return measureLengthForPrimitive(value, TypeName(primitiveType.Name().Local))
+		return measureLengthForPrimitive(lexical, TypeName(primitiveType.Name().Local))
 	}
 
 	// fallback: character count
-	return utf8.RuneCountInString(value)
+	return utf8.RuneCountInString(lexical)
 }
 
 // FundamentalFacets returns the fundamental facets for this built-in type

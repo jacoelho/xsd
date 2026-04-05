@@ -47,7 +47,8 @@ func (t *patternTranslator) handleCharClassEnd() (bool, error) {
 		t.i++
 		return true, nil
 	}
-	if t.classHasW || t.classHasS || t.classHasNotD || t.classHasNotNameStart || t.classHasNotNameChar {
+	switch {
+	case t.classHasW || t.classHasS || t.classHasNotD || t.classHasNotNameStart || t.classHasNotNameChar:
 		if t.classNegated {
 			return true, fmt.Errorf("pattern-unsupported: negated character class with \\w, \\S, \\I, or \\C is not expressible in RE2")
 		}
@@ -75,9 +76,9 @@ func (t *patternTranslator) handleCharClassEnd() (bool, error) {
 		} else {
 			t.result.WriteString(`(?:` + strings.Join(parts, "|") + `)`)
 		}
-	} else if t.classNegated {
+	case t.classNegated:
 		t.result.WriteString(`[^` + classContent + `]`)
-	} else {
+	default:
 		t.result.WriteString(`[` + classContent + `]`)
 	}
 	t.classDepth--
