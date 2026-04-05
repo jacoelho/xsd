@@ -138,7 +138,7 @@ func ExpandSubstitutionMembers(head *model.ElementDecl, members func(*model.Elem
 		return []*model.ElementDecl{head}, nil
 	}
 
-	blocked := blockedDerivations(head)
+	blocked := model.BlockedDerivations(head)
 	seen := make(map[*model.ElementDecl]bool)
 	out := make([]*model.ElementDecl, 0)
 	if !head.Abstract {
@@ -177,165 +177,9 @@ func ExpandSubstitutionMembers(head *model.ElementDecl, members func(*model.Elem
 }
 
 func derivationMask(derived, base model.Type) (model.DerivationMethod, bool) {
-	mask, ok, err := derivationMaskWithError(derived, base, func(current model.Type) (model.Type, model.DerivationMethod, error) {
-		return nextDerivationStep(current, nil)
-	})
+	mask, ok, err := model.DerivationMask(derived, base, nil)
 	if err != nil {
 		return 0, false
 	}
 	return mask, ok
-}
-
-type derivationStepFunc func(model.Type) (model.Type, model.DerivationMethod, error)
-type typeQNameResolver func(model.QName) (model.Type, error)
-
-func nextDerivationStep(current model.Type, resolve typeQNameResolver) (model.Type, model.DerivationMethod, error) {
-	switch typed := current.(type) {
-	case *model.ComplexType:
-		method := typed.DerivationMethod
-		if method == 0 {
-			method = model.DerivationRestriction
-		}
-		if typed.ResolvedBase != nil {
-			return typed.ResolvedBase, method, nil
-		}
-		baseQName := model.QName{}
-		if content := typed.Content(); content != nil {
-			baseQName = content.BaseTypeQName()
-		}
-		if !baseQName.IsZero() && resolve != nil {
-			base, err := resolve(baseQName)
-			if err != nil {
-				return nil, method, err
-			}
-			return base, method, nil
-		}
-		return typed.BaseType(), method, nil
-	case *model.SimpleType:
-		if typed.List != nil {
-			return model.GetBuiltin(model.TypeNameAnySimpleType), model.DerivationList, nil
-		}
-		if typed.Union != nil {
-			return model.GetBuiltin(model.TypeNameAnySimpleType), model.DerivationUnion, nil
-		}
-		if typed.ResolvedBase != nil {
-			return typed.ResolvedBase, model.DerivationRestriction, nil
-		}
-		if typed.Restriction != nil {
-			if typed.Restriction.SimpleType != nil {
-				return typed.Restriction.SimpleType, model.DerivationRestriction, nil
-			}
-			if !typed.Restriction.Base.IsZero() && resolve != nil {
-				base, err := resolve(typed.Restriction.Base)
-				if err != nil {
-					return nil, model.DerivationRestriction, err
-				}
-				return base, model.DerivationRestriction, nil
-			}
-		}
-		return nil, 0, nil
-	case *model.BuiltinType:
-		name := model.TypeName(typed.Name().Local)
-		switch name {
-		case model.TypeNameAnyType:
-			return nil, 0, nil
-		case model.TypeNameAnySimpleType:
-			return model.GetBuiltin(model.TypeNameAnyType), model.DerivationRestriction, nil
-		default:
-			if _, ok := model.BuiltinListItemTypeName(typed.Name().Local); ok {
-				return model.GetBuiltin(model.TypeNameAnySimpleType), model.DerivationList, nil
-			}
-			base := typed.BaseType()
-			if base == nil {
-				return nil, 0, nil
-			}
-			return base, model.DerivationRestriction, nil
-		}
-	default:
-		return nil, 0, nil
-	}
-}
-
-func derivationMaskWithError(derived, base model.Type, step derivationStepFunc) (model.DerivationMethod, bool, error) {
-	if derived == nil || base == nil {
-		return 0, false, nil
-	}
-	if derived == base {
-		return 0, true, nil
-	}
-	mask := model.DerivationMethod(0)
-	seen := make(map[model.Type]bool)
-	current := derived
-	for current != nil && current != base {
-		if seen[current] {
-			break
-		}
-		seen[current] = true
-		next, method, err := step(current)
-		if err != nil {
-			return 0, false, err
-		}
-		if next == nil {
-			break
-		}
-		mask |= method
-		current = next
-	}
-	if current == base {
-		return mask, true, nil
-	}
-	return 0, false, nil
-}
-
-func blockedDerivations(head *model.ElementDecl) model.DerivationMethod {
-	if head == nil {
-		return 0
-	}
-	var mask model.DerivationMethod
-	if head.Block.Has(model.DerivationExtension) {
-		mask |= model.DerivationExtension
-	}
-	if head.Block.Has(model.DerivationRestriction) {
-		mask |= model.DerivationRestriction
-	}
-	if head.Final.Has(model.DerivationExtension) {
-		mask |= model.DerivationExtension
-	}
-	if head.Final.Has(model.DerivationRestriction) {
-		mask |= model.DerivationRestriction
-	}
-	if head.Final.Has(model.DerivationList) {
-		mask |= model.DerivationList
-	}
-	if head.Final.Has(model.DerivationUnion) {
-		mask |= model.DerivationUnion
-	}
-
-	switch typ := head.Type.(type) {
-	case *model.ComplexType:
-		if typ.Block.Has(model.DerivationExtension) {
-			mask |= model.DerivationExtension
-		}
-		if typ.Block.Has(model.DerivationRestriction) {
-			mask |= model.DerivationRestriction
-		}
-		if typ.Final.Has(model.DerivationExtension) {
-			mask |= model.DerivationExtension
-		}
-		if typ.Final.Has(model.DerivationRestriction) {
-			mask |= model.DerivationRestriction
-		}
-	case *model.SimpleType:
-		if typ.Final.Has(model.DerivationRestriction) {
-			mask |= model.DerivationRestriction
-		}
-		if typ.Final.Has(model.DerivationList) {
-			mask |= model.DerivationList
-		}
-		if typ.Final.Has(model.DerivationUnion) {
-			mask |= model.DerivationUnion
-		}
-	}
-
-	return mask
 }

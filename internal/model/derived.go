@@ -149,6 +149,148 @@ func unionMemberTypes(base Type) []Type {
 	return UnionMemberTypesWithResolver(base, nil)
 }
 
+// DerivationStepFunc returns the next base type and derivation method in a derivation chain.
+type DerivationStepFunc func(Type) (Type, DerivationMethod, error)
+
+// TypeQNameResolver resolves a type QName into a type declaration.
+type TypeQNameResolver func(QName) (Type, error)
+
+// NextDerivationStep returns the next base type and derivation method for one step.
+func NextDerivationStep(current Type, resolve TypeQNameResolver) (Type, DerivationMethod, error) {
+	switch typed := current.(type) {
+	case *ComplexType:
+		method := typed.DerivationMethod
+		if method == 0 {
+			method = DerivationRestriction
+		}
+		if typed.ResolvedBase != nil {
+			return typed.ResolvedBase, method, nil
+		}
+		baseQName := QName{}
+		if content := typed.Content(); content != nil {
+			baseQName = content.BaseTypeQName()
+		}
+		if !baseQName.IsZero() && resolve != nil {
+			base, err := resolve(baseQName)
+			if err != nil {
+				return nil, method, err
+			}
+			return base, method, nil
+		}
+		return typed.BaseType(), method, nil
+	case *SimpleType:
+		if typed.List != nil {
+			return GetBuiltin(TypeNameAnySimpleType), DerivationList, nil
+		}
+		if typed.Union != nil {
+			return GetBuiltin(TypeNameAnySimpleType), DerivationUnion, nil
+		}
+		if typed.ResolvedBase != nil {
+			return typed.ResolvedBase, DerivationRestriction, nil
+		}
+		if typed.Restriction != nil {
+			if typed.Restriction.SimpleType != nil {
+				return typed.Restriction.SimpleType, DerivationRestriction, nil
+			}
+			if !typed.Restriction.Base.IsZero() && resolve != nil {
+				base, err := resolve(typed.Restriction.Base)
+				if err != nil {
+					return nil, DerivationRestriction, err
+				}
+				return base, DerivationRestriction, nil
+			}
+		}
+		return nil, 0, nil
+	case *BuiltinType:
+		name := TypeName(typed.Name().Local)
+		switch name {
+		case TypeNameAnyType:
+			return nil, 0, nil
+		case TypeNameAnySimpleType:
+			return GetBuiltin(TypeNameAnyType), DerivationRestriction, nil
+		default:
+			if _, ok := BuiltinListItemTypeName(typed.Name().Local); ok {
+				return GetBuiltin(TypeNameAnySimpleType), DerivationList, nil
+			}
+			base := typed.BaseType()
+			if base == nil {
+				return nil, 0, nil
+			}
+			return base, DerivationRestriction, nil
+		}
+	default:
+		return nil, 0, nil
+	}
+}
+
+// DerivationMask computes the derivation-method mask from derived to base.
+func DerivationMask(derived, base Type, step DerivationStepFunc) (DerivationMethod, bool, error) {
+	if derived == nil || base == nil {
+		return 0, false, nil
+	}
+	if derived == base {
+		return 0, true, nil
+	}
+	if step == nil {
+		step = func(current Type) (Type, DerivationMethod, error) {
+			return NextDerivationStep(current, nil)
+		}
+	}
+	mask := DerivationMethod(0)
+	seen := make(map[Type]bool)
+	current := derived
+	for current != nil && current != base {
+		if seen[current] {
+			break
+		}
+		seen[current] = true
+		next, method, err := step(current)
+		if err != nil {
+			return 0, false, err
+		}
+		if next == nil {
+			break
+		}
+		mask |= method
+		current = next
+	}
+	if current == base {
+		return mask, true, nil
+	}
+	return 0, false, nil
+}
+
+// BlockedDerivations computes effective blocked derivations from head element and head type.
+func BlockedDerivations(head *ElementDecl) DerivationMethod {
+	if head == nil {
+		return 0
+	}
+	mask := derivationSetMask(head.Block) | derivationSetMask(head.Final)
+	switch typ := head.Type.(type) {
+	case *ComplexType:
+		mask |= derivationSetMask(typ.Block)
+		mask |= derivationSetMask(typ.Final)
+	case *SimpleType:
+		mask |= derivationSetMask(typ.Final)
+	}
+	return mask
+}
+
+func derivationSetMask(set DerivationSet) DerivationMethod {
+	mask := DerivationMethod(0)
+	for _, method := range []DerivationMethod{
+		DerivationExtension,
+		DerivationRestriction,
+		DerivationList,
+		DerivationUnion,
+	} {
+		if set.Has(method) {
+			mask |= method
+		}
+	}
+	return mask
+}
+
 func alwaysTrue(Type, Type) bool {
 	return true
 }
