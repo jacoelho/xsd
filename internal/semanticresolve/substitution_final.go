@@ -5,7 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -34,7 +33,7 @@ func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName model.QName,
 		return nil
 	}
 
-	mask, ok, err := semantics.DerivationMask(memberType, headType, func(current model.Type) (model.Type, model.DerivationMethod, error) {
+	mask, ok, err := model.DerivationMask(memberType, headType, func(current model.Type) (model.Type, model.DerivationMethod, error) {
 		return derivationStep(sch, current)
 	})
 	if err != nil {
@@ -52,9 +51,24 @@ func validateSubstitutionGroupFinal(sch *parser.Schema, memberQName model.QName,
 	} {
 		if mask&method != 0 && headDecl.Final.Has(method) {
 			return fmt.Errorf("element %s cannot substitute for %s: head element is final for %s",
-				memberQName, headDecl.Name, semantics.MethodLabel(method))
+				memberQName, headDecl.Name, substitutionFinalMethodLabel(method))
 		}
 	}
 
 	return nil
+}
+
+func substitutionFinalMethodLabel(method model.DerivationMethod) string {
+	switch method {
+	case model.DerivationExtension:
+		return "extension"
+	case model.DerivationRestriction:
+		return "restriction"
+	case model.DerivationList:
+		return "list"
+	case model.DerivationUnion:
+		return "union"
+	default:
+		return "unknown"
+	}
 }

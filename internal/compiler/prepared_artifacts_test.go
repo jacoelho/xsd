@@ -172,7 +172,30 @@ func TestPrepareBuildArtifactsWithPrecomputedValidatorsSimpleContentRestriction(
 	if err != nil {
 		t.Fatalf("PrepareBuildArtifacts() error = %v", err)
 	}
-	if _, err := prepared.Build(BuildConfig{}); err != nil {
+	rtPrepared, err := prepared.Build(BuildConfig{})
+	if err != nil {
 		t.Fatalf("prepared.Build() error = %v", err)
+	}
+	rtDirect, err := BuildArtifacts(sch, reg, refs, validators, BuildConfig{})
+	if err != nil {
+		t.Fatalf("BuildArtifacts() error = %v", err)
+	}
+	if len(rtPrepared.Elements) != len(rtDirect.Elements) {
+		t.Fatalf("element count mismatch: prepared=%d direct=%d", len(rtPrepared.Elements), len(rtDirect.Elements))
+	}
+	rootPrepared := rtPrepared.Elements[1]
+	rootDirect := rtDirect.Elements[1]
+	if rootPrepared.Type != rootDirect.Type {
+		t.Fatalf("root type mismatch: prepared=%d direct=%d", rootPrepared.Type, rootDirect.Type)
+	}
+	typPrepared := rtPrepared.Types[rootPrepared.Type]
+	typDirect := rtDirect.Types[rootDirect.Type]
+	if typPrepared.Validator != typDirect.Validator {
+		t.Fatalf("root validator mismatch: prepared=%d direct=%d", typPrepared.Validator, typDirect.Validator)
+	}
+	ctPrepared := rtPrepared.ComplexTypes[typPrepared.Complex.ID]
+	ctDirect := rtDirect.ComplexTypes[typDirect.Complex.ID]
+	if ctPrepared.TextValidator != ctDirect.TextValidator {
+		t.Fatalf("simple-content text validator mismatch: prepared=%d direct=%d", ctPrepared.TextValidator, ctDirect.TextValidator)
 	}
 }
