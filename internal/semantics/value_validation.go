@@ -4,10 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // ErrCircularReference reports a cycle while validating derived type model.
@@ -31,7 +29,7 @@ const (
 )
 
 // ValidateDefaultOrFixedResolved validates default/fixed lexical values
-// against resolved schema-time type semantics.
+// against resolved schema-time type
 func ValidateDefaultOrFixedResolved(
 	schema *parser.Schema,
 	value string,
@@ -97,25 +95,41 @@ func validateValue(
 		defer delete(visited, typ)
 		return validateComplexType(schema, value, ct, context, visited, settings)
 	}
-
 	if typ.IsBuiltin() {
-		normalized := model.NormalizeWhiteSpace(value, typ)
-		if model.IsQNameOrNotationType(typ) {
-			if settings.requireQNameContext && context == nil {
-				return fmt.Errorf("namespace context unavailable for QName/NOTATION value")
-			}
-			if err := facets.ValidateQNameContext(normalized, context); err != nil {
-				return err
-			}
-		}
-		return validateBuiltin(typ, normalized)
+		return validateBuiltinValue(typ, value, context, settings.requireQNameContext)
 	}
-
 	st, ok := typ.(*model.SimpleType)
 	if !ok {
 		return nil
 	}
+	return validateSimpleTypeValue(schema, value, st, context, settings)
+}
 
+func validateBuiltinValue(typ model.Type, lexical string, context map[string]string, requireQNameContext bool) error {
+	normalized := model.NormalizeWhiteSpace(lexical, typ)
+	if model.IsQNameOrNotationType(typ) {
+		if requireQNameContext && context == nil {
+			return fmt.Errorf("namespace context unavailable for QName/NOTATION value")
+		}
+		if err := ValidateQNameContext(normalized, context); err != nil {
+			return err
+		}
+	}
+	return validateBuiltin(typ, normalized)
+}
+
+func validateSimpleTypeValue(
+	schema *parser.Schema,
+	lexical string,
+	st *model.SimpleType,
+	context map[string]string,
+	settings validationSettings,
+) error {
+	opts := buildSimpleTypeValidationOptions(schema, settings)
+	return model.ValidateSimpleTypeWithOptions(st, lexical, context, opts)
+}
+
+func buildSimpleTypeValidationOptions(schema *parser.Schema, settings validationSettings) model.SimpleTypeValidationOptions {
 	validateTypeWithPolicy := func(current model.Type, scope model.SimpleTypeValidationScope) error {
 		idPolicy := settings.idPolicy
 		if settings.mode == valueValidationDefaultFixed && scope == model.SimpleTypeValidationScopeUnionMember {
@@ -123,26 +137,32 @@ func validateValue(
 		}
 		return validateTypePolicies(schema, current, settings.errorOnPlaceholder, idPolicy)
 	}
+
 	opts := model.SimpleTypeValidationOptions{
 		ResolveListItem: func(current *model.SimpleType) model.Type {
-			return typeresolve.ResolveListItemType(schema, current)
+			return parser.ResolveListItemType(schema, current)
 		},
 		ResolveUnionMembers: func(current *model.SimpleType) []model.Type {
-			return typeresolve.ResolveUnionMemberTypes(schema, current)
+			return parser.ResolveUnionMemberTypes(schema, current)
 		},
 		ResolveFacetType: func(name model.QName) model.Type {
-			return typeresolve.ResolveSimpleTypeReferenceAllowMissing(schema, name)
+			return parser.ResolveSimpleTypeReferenceAllowMissing(schema, name)
 		},
 		ConvertDeferredFacets: settings.convert,
 		RequireQNameContext:   settings.requireQNameContext,
 		CycleError:            ErrCircularReference,
 		ValidateType:          validateTypeWithPolicy,
 		ValidateFacets: func(normalized string, current *model.SimpleType, ctx map[string]string) error {
-			return facets.ValidateSimpleTypeFacets(schema, current, normalized, ctx, settings.convert)
+			return ValidateSimpleTypeFacets(schema, current, normalized, ctx, settings.convert)
 		},
 	}
 
-	switch settings.mode {
+	configureSimpleTypeMode(&opts, settings.mode)
+	return opts
+}
+
+func configureSimpleTypeMode(opts *model.SimpleTypeValidationOptions, mode valueValidationMode) {
+	switch mode {
 	case valueValidationDefaultFixed:
 		opts.UnionNoMatch = func(current *model.SimpleType, normalized string, firstErr error, sawCycle bool) error {
 			if firstErr != nil {
@@ -167,8 +187,6 @@ func validateValue(
 			return fmt.Errorf("value %q does not match any member type of union", normalized)
 		}
 	}
-
-	return model.ValidateSimpleTypeWithOptions(st, value, context, opts)
 }
 
 func validateComplexType(
@@ -183,7 +201,7 @@ func validateComplexType(
 	if !ok {
 		return nil
 	}
-	baseType := typeresolve.ResolveSimpleContentBaseTypeFromContent(schema, sc)
+	baseType := parser.ResolveSimpleContentBaseTypeFromContent(schema, sc)
 	if baseType == nil {
 		return nil
 	}
@@ -193,13 +211,13 @@ func validateComplexType(
 			if err := validateValue(schema, value, baseType, context, visited, settings); err != nil {
 				return err
 			}
-			return facets.ValidateRestrictionFacets(schema, sc.Restriction, baseType, value, context, settings.convert)
+			return ValidateRestrictionFacets(schema, sc.Restriction, baseType, value, context, settings.convert)
 		}
 		return validateValue(schema, value, baseType, context, visited, settings)
 	}
 
 	if sc.Restriction != nil {
-		if err := facets.ValidateRestrictionFacets(schema, sc.Restriction, baseType, value, context, settings.convert); err != nil {
+		if err := ValidateRestrictionFacets(schema, sc.Restriction, baseType, value, context, settings.convert); err != nil {
 			return err
 		}
 	}
@@ -227,7 +245,7 @@ func validateTypePolicies(schema *parser.Schema, typ model.Type, errorOnPlacehol
 		return nil
 	}
 	if typ.IsBuiltin() {
-		if typeresolve.IsIDOnlyType(typ.Name()) {
+		if parser.IsIDOnlyType(typ.Name()) {
 			return fmt.Errorf("type '%s' cannot have default or fixed values", typ.Name().Local)
 		}
 		return nil
@@ -236,7 +254,7 @@ func validateTypePolicies(schema *parser.Schema, typ model.Type, errorOnPlacehol
 	if !ok {
 		return nil
 	}
-	if typeresolve.IsIDOnlyDerivedType(schema, st) {
+	if parser.IsIDOnlyDerivedType(schema, st) {
 		return fmt.Errorf("type '%s' (derived from ID) cannot have default or fixed values", st.Name().Local)
 	}
 	return nil

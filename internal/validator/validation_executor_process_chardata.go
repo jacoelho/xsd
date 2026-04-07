@@ -3,13 +3,13 @@ package validator
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/xmlnames"
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 func (e *validationExecutor) processCharData(ev *xmlstream.ResolvedEvent) error {
 	if len(e.s.elemStack) == 0 {
-		if !xmlnames.IsIgnorableOutsideRoot(ev.Text, e.allowBOM) {
+		if !value.IsIgnorableOutsideRoot(ev.Text, e.allowBOM) {
 			if fatal := e.s.recordValidationError(fmt.Errorf("unexpected character data outside root element"), ev.Line, ev.Column); fatal != nil {
 				return fatal
 			}

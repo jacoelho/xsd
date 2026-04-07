@@ -3,7 +3,7 @@ package runtime
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/xmlnames"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // Builder interns namespaces/symbols and assembles a runtime Schema.
@@ -26,8 +26,8 @@ func NewBuilder() *Builder {
 		symbols:    newSymbolBuilder(),
 	}
 	b.emptyNS = b.namespaces.intern(nil)
-	b.xmlNS = b.namespaces.intern([]byte(xmlnames.XMLNamespace))
-	b.xsiNS = b.namespaces.intern([]byte(xmlnames.XSINamespace))
+	b.xmlNS = b.namespaces.intern([]byte(value.XMLNamespace))
+	b.xsiNS = b.namespaces.intern([]byte(value.XSINamespace))
 
 	b.predef = PredefinedSymbols{
 		XsiType:                      b.symbols.intern(b.xsiNS, []byte("type")),

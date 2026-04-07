@@ -19,7 +19,7 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validator"
-	"github.com/jacoelho/xsd/internal/xmlnames"
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -1216,7 +1216,7 @@ func readInstanceInfo(r io.Reader) (instanceInfo, error) {
 			rootNS:    ev.Name.Namespace,
 		}
 		for _, attr := range ev.Attrs {
-			if attr.Name.Namespace != xmlnames.XSINamespace {
+			if attr.Name.Namespace != value.XSINamespace {
 				continue
 			}
 			switch attr.Name.Local {

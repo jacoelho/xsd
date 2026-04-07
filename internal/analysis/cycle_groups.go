@@ -10,12 +10,14 @@ import (
 
 func detectGroupCycles(schema *parser.Schema) error {
 	starts := make([]model.QName, 0, len(schema.Groups))
-	if err := parser.ForEachGlobalGroup(&schema.SchemaGraph, func(name model.QName, group *model.ModelGroup) error {
-		if group == nil {
-			return fmt.Errorf("missing group %s", name)
-		}
-		starts = append(starts, name)
-		return nil
+	if err := parser.ForEachGlobalDecl(&schema.SchemaGraph, parser.GlobalDeclHandlers{
+		Group: func(name model.QName, group *model.ModelGroup) error {
+			if group == nil {
+				return fmt.Errorf("missing group %s", name)
+			}
+			starts = append(starts, name)
+			return nil
+		},
 	}); err != nil {
 		return err
 	}

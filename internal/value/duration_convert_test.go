@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 func TestParseToStdDuration(t *testing.T) {

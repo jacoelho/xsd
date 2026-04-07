@@ -6,7 +6,6 @@ func TestLeafPackagesDoNotImportParentShell(t *testing.T) {
 	imports := collectPackageImports(t)
 	shells := []string{
 		internalPkg("compiler"),
-		internalPkg("preprocessor"),
 		internalPkg("validator"),
 	}
 

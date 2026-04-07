@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 // ParseBoolean parses a boolean lexical value into a bool.

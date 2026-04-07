@@ -4,26 +4,24 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // parseTopLevelGroup parses a top-level <group> definition.
 // Content model: (annotation?, (all | choice | sequence))
-func parseTopLevelGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) error {
+func parseTopLevelGroup(doc *Document, elem NodeID, schema *Schema) error {
 	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return fmt.Errorf("group missing name attribute")
 	}
 
-	for _, attr := range doc.Attributes(elem) {
-		if attr.NamespaceURI() != "" {
-			continue
-		}
-		attrName := attr.LocalName()
-		if !validAttributeNames[attrSetTopLevelGroup][attrName] {
-			return fmt.Errorf("invalid attribute '%s' on top-level group (only id, name allowed)", attrName)
-		}
+	if err := validateElementAttributes(
+		doc,
+		elem,
+		validAttributeNames[attrSetTopLevelGroup],
+		"top-level group (only id, name allowed)",
+	); err != nil {
+		return err
 	}
 
 	if err := validateOptionalID(doc, elem, "group", schema); err != nil {
@@ -36,25 +34,25 @@ func parseTopLevelGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Sche
 	}
 
 	hasAnnotation := false
-	hasModelGroup := false
 	var mg *model.ModelGroup
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+		if doc.NamespaceURI(child) != value.XSDNamespace {
 			continue
 		}
+		childName := doc.LocalName(child)
 
-		switch doc.LocalName(child) {
+		switch childName {
 		case "annotation":
 			if hasAnnotation {
 				return fmt.Errorf("group '%s': at most one annotation is allowed", name)
 			}
-			if hasModelGroup {
+			if mg != nil {
 				return fmt.Errorf("group '%s': annotation must appear before model group", name)
 			}
 			hasAnnotation = true
 		case "sequence", "choice", "all":
-			if hasModelGroup {
+			if mg != nil {
 				return fmt.Errorf("group '%s': exactly one model group (all, choice, or sequence) is allowed", name)
 			}
 			parsed, err := parseModelGroup(doc, child, schema)
@@ -62,9 +60,8 @@ func parseTopLevelGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Sche
 				return fmt.Errorf("parse model group: %w", err)
 			}
 			mg = parsed
-			hasModelGroup = true
 		case "key", "keyref", "unique":
-			return fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(child))
+			return fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", childName)
 		}
 	}
 

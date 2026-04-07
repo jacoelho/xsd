@@ -21,10 +21,7 @@ func (r *referenceResolver) resolveElement(decl *model.ElementDecl) error {
 	}
 	return r.elementState.Resolve(decl, nil, func() error {
 		if decl.IsReference {
-			if err := r.resolveElementReference(decl); err != nil {
-				return err
-			}
-			return nil
+			return r.resolveElementReference(decl)
 		}
 		if decl.Type == nil {
 			return nil
@@ -80,8 +77,6 @@ func (r *referenceResolver) resolveParticle(particle model.Particle) error {
 		return r.resolveModelGroup(typed)
 	case *model.GroupRef:
 		return r.resolveGroupRef(typed)
-	case *model.AnyElement:
-		return nil
 	}
 	return nil
 }

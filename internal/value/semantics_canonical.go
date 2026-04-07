@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 // CanonicalizeBoolean parses and canonicalizes XSD boolean lexical values.

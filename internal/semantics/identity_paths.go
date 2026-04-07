@@ -7,7 +7,6 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 // ResolveSelectorElementType resolves the type of the element selected by the
@@ -20,7 +19,7 @@ func ResolveSelectorElementType(schema *parser.Schema, constraintElement *model.
 
 	var elementType model.Type
 	for _, decl := range selectorDecls {
-		resolved := typeresolve.ResolveTypeReference(schema, decl.Type, typeresolve.TypeReferenceMustExist)
+		resolved := parser.ResolveTypeReference(schema, decl.Type)
 		if resolved == nil {
 			return nil, fmt.Errorf("cannot resolve constraint element type")
 		}

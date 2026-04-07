@@ -8,8 +8,7 @@ import (
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/semanticcheck"
-	"github.com/jacoelho/xsd/internal/semanticresolve"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func findElementRef(t *testing.T, group *model.ModelGroup) *model.ElementDecl {
@@ -81,13 +80,13 @@ func TestReferenceResolution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	if errs := semanticcheck.ValidateStructure(sch); len(errs) != 0 {
+	if errs := semantics.ValidateStructure(sch); len(errs) != 0 {
 		t.Fatalf("ValidateStructure errors = %v", errs)
 	}
-	if err := semanticresolve.NewResolver(sch).Resolve(); err != nil {
+	if err := semantics.NewResolver(sch).Resolve(); err != nil {
 		t.Fatalf("Resolve error = %v", err)
 	}
-	if errs := semanticresolve.ValidateReferences(sch); len(errs) != 0 {
+	if errs := semantics.ValidateReferences(sch); len(errs) != 0 {
 		t.Fatalf("ValidateReferences errors = %v", errs)
 	}
 	registry, err := analysis.AssignIDs(sch)
@@ -156,10 +155,10 @@ func TestReferenceResolutionMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	if errs := semanticcheck.ValidateStructure(sch); len(errs) != 0 {
+	if errs := semantics.ValidateStructure(sch); len(errs) != 0 {
 		t.Fatalf("ValidateStructure errors = %v", errs)
 	}
-	if errs := semanticresolve.ValidateReferences(sch); len(errs) == 0 {
+	if errs := semantics.ValidateReferences(sch); len(errs) == 0 {
 		t.Fatalf("expected missing type to fail reference validation")
 	}
 }

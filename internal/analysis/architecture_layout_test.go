@@ -9,10 +9,8 @@ import (
 func TestCorePhasePackagesHaveDoc(t *testing.T) {
 	root := repoRoot(t)
 	required := []string{
-		"internal/preprocessor",
 		"internal/parser",
-		"internal/semanticresolve",
-		"internal/semanticcheck",
+		"internal/semantics",
 		"internal/analysis",
 		"internal/compiler",
 	}

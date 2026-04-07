@@ -8,8 +8,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/preprocessor"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // PrepareRoots loads one or more schema roots and normalizes them for runtime builds.
@@ -85,11 +83,11 @@ func loadAndMergeRoots(roots []Root, cfg LoadConfig) (*parser.Schema, error) {
 			continue
 		}
 
-		kind := preprocessor.Import
+		kind := Import
 		if parsed.TargetNamespace == merged.TargetNamespace {
-			kind = preprocessor.Include
+			kind = Include
 		}
-		if err := preprocessor.Apply(merged, parsed, kind, preprocessor.KeepNamespace, insertAt); err != nil {
+		if err := Apply(merged, parsed, kind, KeepNamespace, insertAt); err != nil {
 			return nil, fmt.Errorf("merge schema %s: %w", root.Location, err)
 		}
 		insertAt = len(merged.GlobalDecls)
@@ -101,13 +99,13 @@ func loadAndMergeRoots(roots []Root, cfg LoadConfig) (*parser.Schema, error) {
 	return merged, nil
 }
 
-func newLoader(root Root, cfg LoadConfig) *preprocessor.Loader {
-	return preprocessor.NewLoader(preprocessor.Config{
+func newLoader(root Root, cfg LoadConfig) *Loader {
+	return NewLoader(LoaderConfig{
 		FS:                          root.FS,
 		Resolver:                    cfg.Resolver,
 		AllowMissingImportLocations: cfg.AllowMissingImportLocations,
 		SchemaParseOptions:          cfg.SchemaParseOptions,
-		DocumentPool:                xmltree.NewDocumentPool(),
+		DocumentPool:                parser.NewDocumentPool(),
 	})
 }
 

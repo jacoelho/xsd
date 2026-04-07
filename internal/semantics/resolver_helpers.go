@@ -23,9 +23,8 @@ func isIntegerTypeName(name string) bool {
 		"unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte",
 		"nonNegativeInteger", "positiveInteger", "negativeInteger", "nonPositiveInteger":
 		return true
-	default:
-		return false
 	}
+	return false
 }
 
 func isAnySimpleType(typ model.Type) bool {

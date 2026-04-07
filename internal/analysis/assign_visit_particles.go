@@ -3,13 +3,7 @@ package analysis
 import "github.com/jacoelho/xsd/internal/model"
 
 func (b *builder) visitElementNested(decl *model.ElementDecl) error {
-	if decl == nil || decl.IsReference || decl.Type == nil {
-		return nil
-	}
-	if decl.Type.IsBuiltin() {
-		return nil
-	}
-	if !decl.Type.Name().IsZero() {
+	if decl == nil || decl.IsReference || decl.Type == nil || decl.Type.IsBuiltin() || !decl.Type.Name().IsZero() {
 		return nil
 	}
 	if err := b.assignAnonymousType(decl.Type); err != nil {
@@ -34,9 +28,7 @@ func (b *builder) visitParticle(particle model.Particle) error {
 				return err
 			}
 		}
-	case *model.GroupRef:
-		return nil
-	case *model.AnyElement:
+	case *model.GroupRef, *model.AnyElement:
 		return nil
 	}
 	return nil
@@ -48,9 +40,8 @@ func (b *builder) visitTypeChildren(typ model.Type) error {
 		return b.visitComplexType(typed)
 	case *model.SimpleType:
 		return b.visitSimpleType(typed)
-	default:
-		return nil
 	}
+	return nil
 }
 
 func (b *builder) visitComplexType(ct *model.ComplexType) error {
@@ -70,15 +61,8 @@ func (b *builder) visitComplexType(ct *model.ComplexType) error {
 		if err := b.visitSimpleContent(content); err != nil {
 			return err
 		}
-	case *model.EmptyContent:
-		// no-op
 	}
-
-	if err := b.visitAttributeDecls(ct.Attributes()); err != nil {
-		return err
-	}
-
-	return nil
+	return b.visitAttributeDecls(ct.Attributes())
 }
 
 func (b *builder) visitComplexContent(content *model.ComplexContent) error {
@@ -89,18 +73,13 @@ func (b *builder) visitComplexContent(content *model.ComplexContent) error {
 		if err := b.visitParticle(ext.Particle); err != nil {
 			return err
 		}
-		if err := b.visitAttributeDecls(ext.Attributes); err != nil {
-			return err
-		}
-		return nil
+		return b.visitAttributeDecls(ext.Attributes)
 	}
 	if restr := content.RestrictionDef(); restr != nil {
 		if err := b.visitParticle(restr.Particle); err != nil {
 			return err
 		}
-		if err := b.visitAttributeDecls(restr.Attributes); err != nil {
-			return err
-		}
+		return b.visitAttributeDecls(restr.Attributes)
 	}
 	return nil
 }
@@ -110,18 +89,13 @@ func (b *builder) visitSimpleContent(content *model.SimpleContent) error {
 		return nil
 	}
 	if ext := content.ExtensionDef(); ext != nil {
-		if err := b.visitAttributeDecls(ext.Attributes); err != nil {
-			return err
-		}
-		return nil
+		return b.visitAttributeDecls(ext.Attributes)
 	}
 	if restr := content.RestrictionDef(); restr != nil {
 		if err := b.visitSimpleContentRestriction(restr); err != nil {
 			return err
 		}
-		if err := b.visitAttributeDecls(restr.Attributes); err != nil {
-			return err
-		}
+		return b.visitAttributeDecls(restr.Attributes)
 	}
 	return nil
 }

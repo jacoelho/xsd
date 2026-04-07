@@ -12,9 +12,8 @@ func runtimeWhitespaceMode(ws model.WhiteSpace) runtime.WhitespaceMode {
 		return runtime.WSReplace
 	case model.WhiteSpaceCollapse:
 		return runtime.WSCollapse
-	default:
-		return runtime.WSPreserve
 	}
+	return runtime.WSPreserve
 }
 
 func valueWhitespaceMode(mode runtime.WhitespaceMode) value.WhitespaceMode {
@@ -23,7 +22,6 @@ func valueWhitespaceMode(mode runtime.WhitespaceMode) value.WhitespaceMode {
 		return value.WhitespaceReplace
 	case runtime.WSCollapse:
 		return value.WhitespaceCollapse
-	default:
-		return value.WhitespacePreserve
 	}
+	return value.WhitespacePreserve
 }

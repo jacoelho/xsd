@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 type resolvedElementDeclType struct {
@@ -14,7 +13,7 @@ type resolvedElementDeclType struct {
 	hasTypeValue bool
 }
 
-func resolveElementDeclType(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, typeValue string) (resolvedElementDeclType, error) {
+func resolveElementDeclType(doc *Document, elem NodeID, schema *Schema, typeValue string) (resolvedElementDeclType, error) {
 	if typeValue != "" {
 		if hasInlineElementTypeChild(doc, elem) {
 			return resolvedElementDeclType{}, fmt.Errorf("element cannot have both 'type' attribute and inline type definition")
@@ -32,7 +31,7 @@ func resolveElementDeclType(doc *xmltree.Document, elem xmltree.NodeID, schema *
 	var typ model.Type
 	hasInline := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+		if doc.NamespaceURI(child) != value.XSDNamespace {
 			continue
 		}
 
@@ -65,9 +64,9 @@ func resolveElementDeclType(doc *xmltree.Document, elem xmltree.NodeID, schema *
 	return resolvedElementDeclType{typ: typ, hasInline: hasInline}, nil
 }
 
-func hasInlineElementTypeChild(doc *xmltree.Document, elem xmltree.NodeID) bool {
+func hasInlineElementTypeChild(doc *Document, elem NodeID) bool {
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+		if doc.NamespaceURI(child) != value.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {

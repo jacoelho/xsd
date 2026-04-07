@@ -1,12 +1,11 @@
 package parser
 
 import (
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
-func namespaceForPrefix(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, prefix string) string {
-	for current := elem; current != xmltree.InvalidNode; current = doc.Parent(current) {
+func namespaceForPrefix(doc *Document, elem NodeID, schema *Schema, prefix string) string {
+	for current := elem; current != InvalidNode; current = doc.Parent(current) {
 		for _, attr := range doc.Attributes(current) {
 			if !isXMLNSDeclaration(attr) {
 				continue
@@ -34,18 +33,18 @@ func namespaceForPrefix(doc *xmltree.Document, elem xmltree.NodeID, schema *Sche
 	}
 
 	if prefix == "xml" {
-		return xmlnames.XMLNamespace
+		return value.XMLNamespace
 	}
 	return ""
 }
 
-func namespaceContextForElement(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) map[string]string {
+func namespaceContextForElement(doc *Document, elem NodeID, schema *Schema) map[string]string {
 	context := make(map[string]string)
-	for current := elem; current != xmltree.InvalidNode; current = doc.Parent(current) {
+	for current := elem; current != InvalidNode; current = doc.Parent(current) {
 		for _, attr := range doc.Attributes(current) {
 			ns := attr.NamespaceURI()
 			local := attr.LocalName()
-			if ns != xmlnames.XMLNSNamespace && (ns != "" || local != "xmlns") {
+			if ns != value.XMLNSNamespace && (ns != "" || local != "xmlns") {
 				continue
 			}
 			prefix := local
@@ -67,7 +66,7 @@ func namespaceContextForElement(doc *xmltree.Document, elem xmltree.NodeID, sche
 	}
 
 	if _, exists := context["xml"]; !exists {
-		context["xml"] = xmlnames.XMLNamespace
+		context["xml"] = value.XMLNamespace
 	}
 
 	return context

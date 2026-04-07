@@ -4,13 +4,13 @@ import (
 	"bytes"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/xmlnames"
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
 const smallNamespaceDeclThreshold = 32
 
-var xmlNamespaceBytes = xmlnames.XMLNamespaceBytes()
+var xmlNamespaceBytes = value.XMLNamespaceBytes()
 
 type NameID uint32
 

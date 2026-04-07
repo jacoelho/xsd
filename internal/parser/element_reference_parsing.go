@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // parseElement parses an element reference or declaration within a content model
-func parseElement(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.ElementDecl, error) {
+func parseElement(doc *Document, elem NodeID, schema *Schema) (*model.ElementDecl, error) {
 	attrs := scanElementAttributes(doc, elem)
 
 	if attrs.hasID {
@@ -28,7 +27,7 @@ func parseElement(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*
 	return parseLocalElement(doc, elem, schema, &attrs)
 }
 
-func parseElementReference(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, attrs *elementAttrScan) (*model.ElementDecl, error) {
+func parseElementReference(doc *Document, elem NodeID, schema *Schema, attrs *elementAttrScan) (*model.ElementDecl, error) {
 	if err := validateElementReferenceAttributes(doc, elem, attrs); err != nil {
 		return nil, err
 	}
@@ -56,7 +55,7 @@ func parseElementReference(doc *xmltree.Document, elem xmltree.NodeID, schema *S
 	return parsed, nil
 }
 
-func validateElementReferenceAttributes(doc *xmltree.Document, elem xmltree.NodeID, attrs *elementAttrScan) error {
+func validateElementReferenceAttributes(doc *Document, elem NodeID, attrs *elementAttrScan) error {
 	if attrs.invalidRefAttr != "" {
 		return fmt.Errorf("invalid attribute '%s' on element reference", attrs.invalidRefAttr)
 	}

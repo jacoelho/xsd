@@ -5,10 +5,9 @@ import (
 	"strconv"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseLengthFacet(doc *xmltree.Document, elem xmltree.NodeID) (model.Facet, error) {
+func parseLengthFacet(doc *Document, elem NodeID) (model.Facet, error) {
 	length, err := parseFacetValueInt(doc, elem, "length")
 	if err != nil {
 		return nil, err
@@ -19,7 +18,7 @@ func parseLengthFacet(doc *xmltree.Document, elem xmltree.NodeID) (model.Facet, 
 	return &model.Length{Value: length}, nil
 }
 
-func parseMinLengthFacet(doc *xmltree.Document, elem xmltree.NodeID) (model.Facet, error) {
+func parseMinLengthFacet(doc *Document, elem NodeID) (model.Facet, error) {
 	length, err := parseFacetValueInt(doc, elem, "minLength")
 	if err != nil {
 		return nil, err
@@ -30,7 +29,7 @@ func parseMinLengthFacet(doc *xmltree.Document, elem xmltree.NodeID) (model.Face
 	return &model.MinLength{Value: length}, nil
 }
 
-func parseMaxLengthFacet(doc *xmltree.Document, elem xmltree.NodeID) (model.Facet, error) {
+func parseMaxLengthFacet(doc *Document, elem NodeID) (model.Facet, error) {
 	length, err := parseFacetValueInt(doc, elem, "maxLength")
 	if err != nil {
 		return nil, err
@@ -41,7 +40,7 @@ func parseMaxLengthFacet(doc *xmltree.Document, elem xmltree.NodeID) (model.Face
 	return &model.MaxLength{Value: length}, nil
 }
 
-func parseTotalDigitsFacet(doc *xmltree.Document, elem xmltree.NodeID) (model.Facet, error) {
+func parseTotalDigitsFacet(doc *Document, elem NodeID) (model.Facet, error) {
 	digits, err := parseFacetValueInt(doc, elem, "totalDigits")
 	if err != nil {
 		return nil, err
@@ -52,7 +51,7 @@ func parseTotalDigitsFacet(doc *xmltree.Document, elem xmltree.NodeID) (model.Fa
 	return &model.TotalDigits{Value: digits}, nil
 }
 
-func parseFractionDigitsFacet(doc *xmltree.Document, elem xmltree.NodeID) (model.Facet, error) {
+func parseFractionDigitsFacet(doc *Document, elem NodeID) (model.Facet, error) {
 	digits, err := parseFacetValueInt(doc, elem, "fractionDigits")
 	if err != nil {
 		return nil, err
@@ -63,7 +62,7 @@ func parseFractionDigitsFacet(doc *xmltree.Document, elem xmltree.NodeID) (model
 	return &model.FractionDigits{Value: digits}, nil
 }
 
-func parseFacetValueInt(doc *xmltree.Document, elem xmltree.NodeID, facetName string) (int, error) {
+func parseFacetValueInt(doc *Document, elem NodeID, facetName string) (int, error) {
 	if err := validateOnlyAnnotationChildren(doc, elem, facetName); err != nil {
 		return 0, err
 	}

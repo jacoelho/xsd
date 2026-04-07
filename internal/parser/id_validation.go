@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // hasIDAttribute checks if an element has an id attribute (even if empty)
-func hasIDAttribute(doc *xmltree.Document, elem xmltree.NodeID) bool {
+func hasIDAttribute(doc *Document, elem NodeID) bool {
 	for _, attr := range doc.Attributes(elem) {
 		if attr.LocalName() == "id" && attr.NamespaceURI() == "" {
 			return true
@@ -17,7 +16,7 @@ func hasIDAttribute(doc *xmltree.Document, elem xmltree.NodeID) bool {
 	return false
 }
 
-func validateOptionalID(doc *xmltree.Document, elem xmltree.NodeID, elementName string, schema *Schema) error {
+func validateOptionalID(doc *Document, elem NodeID, elementName string, schema *Schema) error {
 	if !hasIDAttribute(doc, elem) {
 		return nil
 	}

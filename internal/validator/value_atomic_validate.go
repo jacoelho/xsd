@@ -5,9 +5,9 @@ import (
 	"unsafe"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 func (s *Session) validateAtomicNoCanonical(meta runtime.ValidatorMeta, normalized []byte) error {

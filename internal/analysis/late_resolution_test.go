@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/semanticresolve"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func TestMissingTypeAllowedDuringResolution(t *testing.T) {
@@ -18,7 +18,7 @@ func TestMissingTypeAllowedDuringResolution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse schema: %v", err)
 	}
-	if err := semanticresolve.NewResolver(sch).Resolve(); err == nil {
+	if err := semantics.NewResolver(sch).Resolve(); err == nil {
 		t.Fatalf("expected missing type to fail resolution")
 	}
 }

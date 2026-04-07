@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/value"
-	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
 // ParseQNameValue parses a QName lexical value with namespace resolution.
@@ -21,12 +20,12 @@ func ParseQNameValue(lexical string, nsContext map[string]string) (QName, error)
 
 	var ns NamespaceURI
 	if hasPrefix {
-		if prefix == xmlnames.XMLPrefix {
+		if prefix == value.XMLPrefix {
 			resolved, ok := ResolveNamespace(prefix, nsContext)
-			if err := xmlnames.ValidateXMLPrefixBinding(resolved, ok); err != nil {
+			if err := value.ValidateXMLPrefixBinding(resolved, ok); err != nil {
 				return QName{}, err
 			}
-			return QName{Namespace: NamespaceURI(xmlnames.XMLNamespace), Local: local}, nil
+			return QName{Namespace: NamespaceURI(value.XMLNamespace), Local: local}, nil
 		}
 		var ok bool
 		ns, ok = ResolveNamespace(prefix, nsContext)

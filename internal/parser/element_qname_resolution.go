@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 type defaultNamespacePolicy uint8
@@ -15,9 +14,9 @@ const (
 )
 
 func resolveQNameWithPolicy(
-	doc *xmltree.Document,
+	doc *Document,
 	rawQName string,
-	elem xmltree.NodeID,
+	elem NodeID,
 	schema *Schema,
 	policy defaultNamespacePolicy,
 ) (model.QName, error) {
@@ -37,8 +36,8 @@ func resolveQNameWithPolicy(
 }
 
 func namespaceFromPrefixPolicy(
-	doc *xmltree.Document,
-	elem xmltree.NodeID,
+	doc *Document,
+	elem NodeID,
 	schema *Schema,
 	rawQName string,
 	prefix string,

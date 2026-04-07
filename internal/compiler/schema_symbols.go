@@ -6,8 +6,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/semantics"
-	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func (b *schemaBuilder) initSymbols() error {
@@ -47,7 +47,7 @@ func (b *schemaBuilder) initSymbols() error {
 			if attr == nil {
 				continue
 			}
-			b.internQName(typeresolve.EffectiveAttributeQName(b.schema, attr))
+			b.internQName(parser.EffectiveAttributeQName(b.schema, attr))
 		}
 		if wildcard != nil {
 			b.internNamespaceConstraint(wildcard.Namespace, wildcard.NamespaceList, wildcard.TargetNamespace)

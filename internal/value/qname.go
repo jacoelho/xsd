@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"unicode/utf8"
-
-	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
 // NSResolver resolves QName prefixes to namespace URIs.
@@ -32,11 +30,11 @@ func CanonicalQName(value []byte, resolver NSResolver, dst []byte) ([]byte, erro
 		if len(prefix) == 3 && prefix[0] == 'x' && prefix[1] == 'm' && prefix[2] == 'l' {
 			if resolver != nil {
 				resolved, ok := resolver.ResolvePrefix(prefix)
-				if err := xmlnames.ValidateXMLPrefixBindingBytes(resolved, ok); err != nil {
+				if err := ValidateXMLPrefixBindingBytes(resolved, ok); err != nil {
 					return nil, err
 				}
 			}
-			ns = xmlnames.XMLNamespaceBytes()
+			ns = XMLNamespaceBytes()
 		} else {
 			if resolver == nil {
 				return nil, fmt.Errorf("prefix %s not found in namespace context", string(prefix))

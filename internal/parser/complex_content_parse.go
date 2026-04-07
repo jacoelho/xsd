@@ -2,10 +2,9 @@ package parser
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseComplexContent(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.ComplexContent, error) {
+func parseComplexContent(doc *Document, elem NodeID, schema *Schema) (*model.ComplexContent, error) {
 	cc := &model.ComplexContent{}
 
 	if err := validateOptionalID(doc, elem, "complexContent", schema); err != nil {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 func comparableForPrimitiveName(primitive, lexical string, integerDerived bool) (model.ComparableValue, error) {
@@ -52,7 +52,6 @@ func comparableForPrimitiveName(primitive, lexical string, integerDerived bool) 
 			return nil, err
 		}
 		return model.ComparableXSDDuration{Value: dur}, nil
-	default:
-		return nil, fmt.Errorf("unsupported comparable type %s", primitive)
 	}
+	return nil, fmt.Errorf("unsupported comparable type %s", primitive)
 }

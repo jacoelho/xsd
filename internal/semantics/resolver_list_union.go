@@ -2,7 +2,7 @@ package semantics
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/typeresolve"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func (r *typeResolver) listItemTypeFromType(typ model.Type) (model.Type, bool) {
@@ -10,7 +10,7 @@ func (r *typeResolver) listItemTypeFromType(typ model.Type) (model.Type, bool) {
 		item  model.Type
 		found bool
 	)
-	typeresolve.Walk(typ, r.nextType, func(current model.Type) bool {
+	parser.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
 			if itemName, ok := model.BuiltinListItemTypeName(bt.Name().Local); ok {
 				item = model.GetBuiltin(itemName)
@@ -54,7 +54,7 @@ func (r *typeResolver) listItemTypeFromType(typ model.Type) (model.Type, bool) {
 
 func (r *typeResolver) unionMemberTypesFromType(typ model.Type) []model.Type {
 	var members []model.Type
-	typeresolve.Walk(typ, r.nextType, func(current model.Type) bool {
+	parser.Walk(typ, r.nextType, func(current model.Type) bool {
 		st, ok := model.AsSimpleType(current)
 		if !ok {
 			members = nil

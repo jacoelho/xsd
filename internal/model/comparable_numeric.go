@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 // ComparableValue is a unified interface for comparable values.

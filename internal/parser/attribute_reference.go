@@ -4,10 +4,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseAttributeReference(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, ref string) (*model.AttributeDecl, error) {
+func parseAttributeReference(doc *Document, elem NodeID, schema *Schema, ref string) (*model.AttributeDecl, error) {
 	if err := validateAttributeConflicts(doc, elem, attributeReferenceConflictRules); err != nil {
 		return nil, err
 	}

@@ -98,7 +98,6 @@ func resolveSimpleContentBaseType(
 		return typed, nil
 	case *model.ComplexType:
 		return resolveSimpleContentTextType(typed, opts, seen)
-	default:
-		return nil, fmt.Errorf("simpleContent base is not simple")
 	}
+	return nil, fmt.Errorf("simpleContent base is not simple")
 }

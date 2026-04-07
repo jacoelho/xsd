@@ -1,13 +1,9 @@
 package parser
 
 import (
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
-func isXMLNSDeclaration(attr xmltree.Attr) bool {
-	if attr.NamespaceURI() == xmlnames.XMLNSNamespace {
-		return true
-	}
-	return attr.NamespaceURI() == "" && attr.LocalName() == "xmlns"
+func isXMLNSDeclaration(attr Attr) bool {
+	return attr.NamespaceURI() == value.XMLNSNamespace || (attr.NamespaceURI() == "" && attr.LocalName() == "xmlns")
 }

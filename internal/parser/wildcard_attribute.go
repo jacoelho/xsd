@@ -1,16 +1,12 @@
 package parser
 
 import (
-	"fmt"
-
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // parseAnyAttribute parses an <anyAttribute> wildcard
 // Content model: (annotation?)
-func parseAnyAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.AnyAttribute, error) {
+func parseAnyAttribute(doc *Document, elem NodeID, schema *Schema) (*model.AnyAttribute, error) {
 	nsConstraint, nsList, processContents, err := parseWildcardConstraints(
 		doc,
 		elem,
@@ -22,24 +18,8 @@ func parseAnyAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Schem
 		return nil, err
 	}
 
-	if err := validateOptionalID(doc, elem, "anyAttribute", schema); err != nil {
+	if err := validateElementConstraints(doc, elem, "anyAttribute", schema); err != nil {
 		return nil, err
-	}
-
-	hasAnnotation := false
-	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
-			continue
-		}
-		switch doc.LocalName(child) {
-		case "annotation":
-			if hasAnnotation {
-				return nil, fmt.Errorf("anyAttribute: at most one annotation is allowed")
-			}
-			hasAnnotation = true
-		default:
-			return nil, fmt.Errorf("anyAttribute: unexpected child element '%s'", doc.LocalName(child))
-		}
 	}
 
 	anyAttr := &model.AnyAttribute{

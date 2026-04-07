@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/xmlnames"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestParseQNameValueWithPrefix(t *testing.T) {
@@ -31,8 +31,8 @@ func TestParseQNameValueXMLPrefix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseQNameValue(xml:lang) error = %v", err)
 	}
-	if got.Namespace != NamespaceURI(xmlnames.XMLNamespace) || got.Local != "lang" {
-		t.Fatalf("ParseQNameValue(xml:lang) = {%s}%s, want {%s}lang", got.Namespace, got.Local, xmlnames.XMLNamespace)
+	if got.Namespace != NamespaceURI(value.XMLNamespace) || got.Local != "lang" {
+		t.Fatalf("ParseQNameValue(xml:lang) = {%s}%s, want {%s}lang", got.Namespace, got.Local, value.XMLNamespace)
 	}
 }
 

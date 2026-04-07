@@ -5,16 +5,16 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/xmlnames"
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/pkg/xmltext"
 )
 
 // Common XML namespaces.
 const (
-	XMLNamespace   = xmlnames.XMLNamespace
-	XMLNSNamespace = xmlnames.XMLNSNamespace
-	XSINamespace   = xmlnames.XSINamespace
-	XSDNamespace   = xmlnames.XSDNamespace
+	XMLNamespace   = value.XMLNamespace
+	XMLNSNamespace = value.XMLNSNamespace
+	XSINamespace   = value.XSINamespace
+	XSDNamespace   = value.XSDNamespace
 )
 
 var errUnboundPrefix = errors.New("unbound namespace prefix")
@@ -172,56 +172,64 @@ func collectNamespaceScope(dec *xmltext.Decoder, nsBuf []byte, declBuf []Namespa
 	for i := 0; i < tok.AttrCount(); i++ {
 		attrName := tok.AttrName(i)
 		if isDefaultNamespaceDecl(attrName) {
-			var value string
-			if tok.AttrValueNeeds(i) {
-				var err error
-				nsBuf, value, err = decodeNamespaceValueString(dec, nsBuf, tok.AttrValue(i))
-				if err != nil {
-					return nsScope{}, nsBuf, declBuf, err
-				}
-			} else {
-				nsBuf, value = appendNamespaceValue(nsBuf, tok.AttrValue(i))
+			var err error
+			var uri string
+			nsBuf, uri, err = decodeNamespaceDeclURI(dec, nsBuf, tok, i)
+			if err != nil {
+				return nsScope{}, nsBuf, declBuf, err
 			}
-			if err := xmlnames.ValidateNamespaceDeclBinding("", value); err != nil {
+			if err := value.ValidateNamespaceDeclBinding("", uri); err != nil {
 				return nsScope{}, nsBuf, declBuf, namespaceDeclError(dec, tok.Line, tok.Column,
 					fmt.Errorf("%w: %w", errReservedNamespacePrefix, err))
 			}
-			scope.defaultNS = value
+			scope.defaultNS = uri
 			scope.defaultSet = true
-			declBuf = append(declBuf, NamespaceDecl{Prefix: "", URI: value})
+			declBuf = append(declBuf, NamespaceDecl{Prefix: "", URI: uri})
 			continue
 		}
 		if local, ok := prefixedNamespaceDecl(attrName); ok {
-			var value string
-			if tok.AttrValueNeeds(i) {
-				var err error
-				nsBuf, value, err = decodeNamespaceValueString(dec, nsBuf, tok.AttrValue(i))
-				if err != nil {
-					return nsScope{}, nsBuf, declBuf, err
-				}
-			} else {
-				nsBuf, value = appendNamespaceValue(nsBuf, tok.AttrValue(i))
+			var err error
+			var uri string
+			nsBuf, uri, err = decodeNamespaceDeclURI(dec, nsBuf, tok, i)
+			if err != nil {
+				return nsScope{}, nsBuf, declBuf, err
 			}
-			if len(local) == 3 && local[0] == 'x' && local[1] == 'm' && local[2] == 'l' {
-				if err := xmlnames.ValidateXMLPrefixBinding(value, true); err != nil {
-					return nsScope{}, nsBuf, declBuf, namespaceDeclError(dec, tok.Line, tok.Column,
-						fmt.Errorf("%w: %w", errReservedNamespacePrefix, err))
-				}
-				continue
-			}
-			if len(local) == 5 && local[0] == 'x' && local[1] == 'm' && local[2] == 'l' && local[3] == 'n' && local[4] == 's' {
-				return nsScope{}, nsBuf, declBuf, namespaceDeclError(dec, tok.Line, tok.Column,
-					fmt.Errorf("%w: prefix %q must not be declared", errReservedNamespacePrefix, xmlnames.XMLNSPrefix))
-			}
-			prefix := string(local)
-			if err := xmlnames.ValidateNamespaceDeclBinding(prefix, value); err != nil {
+			prefix, record, err := validatePrefixedNamespaceDecl(local, uri)
+			if err != nil {
 				return nsScope{}, nsBuf, declBuf, namespaceDeclError(dec, tok.Line, tok.Column,
 					fmt.Errorf("%w: %w", errReservedNamespacePrefix, err))
 			}
-			declBuf = append(declBuf, NamespaceDecl{Prefix: prefix, URI: value})
+			if record {
+				declBuf = append(declBuf, NamespaceDecl{Prefix: prefix, URI: uri})
+			}
 		}
 	}
 	return scope, nsBuf, declBuf, nil
+}
+
+func decodeNamespaceDeclURI(dec *xmltext.Decoder, nsBuf []byte, tok *xmltext.RawTokenSpan, attrIndex int) ([]byte, string, error) {
+	if tok.AttrValueNeeds(attrIndex) {
+		return decodeNamespaceValueString(dec, nsBuf, tok.AttrValue(attrIndex))
+	}
+	nsBuf, uri := appendNamespaceValue(nsBuf, tok.AttrValue(attrIndex))
+	return nsBuf, uri, nil
+}
+
+func validatePrefixedNamespaceDecl(local []byte, uri string) (string, bool, error) {
+	if len(local) == 3 && local[0] == 'x' && local[1] == 'm' && local[2] == 'l' {
+		if err := value.ValidateXMLPrefixBinding(uri, true); err != nil {
+			return "", false, err
+		}
+		return "", false, nil
+	}
+	if len(local) == 5 && local[0] == 'x' && local[1] == 'm' && local[2] == 'l' && local[3] == 'n' && local[4] == 's' {
+		return "", false, fmt.Errorf("prefix %q must not be declared", value.XMLNSPrefix)
+	}
+	prefix := string(local)
+	if err := value.ValidateNamespaceDeclBinding(prefix, uri); err != nil {
+		return "", false, err
+	}
+	return prefix, true, nil
 }
 
 func resolveAttrName(dec *xmltext.Decoder, ns *nsStack, name []byte, nameColon, depth, line, column int) (string, []byte, error) {
@@ -233,7 +241,7 @@ func resolveAttrName(dec *xmltext.Decoder, ns *nsStack, name []byte, nameColon, 
 		return "", local, nil
 	}
 	prefixName := unsafeString(prefix)
-	if prefixName == xmlnames.XMLNSPrefix {
+	if prefixName == value.XMLNSPrefix {
 		return XMLNSNamespace, local, nil
 	}
 	namespace, ok := ns.lookup(prefixName, depth)

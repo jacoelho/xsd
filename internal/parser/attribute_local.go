@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
-func parseLocalAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, local bool) (*model.AttributeDecl, error) {
+func parseLocalAttribute(doc *Document, elem NodeID, schema *Schema, local bool) (*model.AttributeDecl, error) {
 	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return nil, fmt.Errorf("attribute missing name and ref")
@@ -88,10 +87,10 @@ func parseLocalAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Sch
 	return parsed, nil
 }
 
-func countInlineSimpleTypes(doc *xmltree.Document, elem xmltree.NodeID) (int, error) {
+func countInlineSimpleTypes(doc *Document, elem NodeID) (int, error) {
 	count := 0
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+		if doc.NamespaceURI(child) != value.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -107,12 +106,12 @@ func countInlineSimpleTypes(doc *xmltree.Document, elem xmltree.NodeID) (int, er
 	return count, nil
 }
 
-func resolveLocalAttributeType(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, typeName string) (model.Type, error) {
+func resolveLocalAttributeType(doc *Document, elem NodeID, schema *Schema, typeName string) (model.Type, error) {
 	if typeName != "" {
 		return resolveLocalAttributeTypeName(doc, elem, schema, typeName)
 	}
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace || doc.LocalName(child) != "simpleType" {
+		if doc.NamespaceURI(child) != value.XSDNamespace || doc.LocalName(child) != "simpleType" {
 			continue
 		}
 		st, err := parseInlineSimpleType(doc, child, schema)
@@ -124,7 +123,7 @@ func resolveLocalAttributeType(doc *xmltree.Document, elem xmltree.NodeID, schem
 	return nil, nil
 }
 
-func resolveLocalAttributeTypeName(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, typeName string) (model.Type, error) {
+func resolveLocalAttributeTypeName(doc *Document, elem NodeID, schema *Schema, typeName string) (model.Type, error) {
 	typeQName, err := resolveQNameWithPolicy(doc, typeName, elem, schema, useDefaultNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("resolve type %s: %w", typeName, err)
@@ -135,7 +134,7 @@ func resolveLocalAttributeTypeName(doc *xmltree.Document, elem xmltree.NodeID, s
 	return model.NewPlaceholderSimpleType(typeQName), nil
 }
 
-func applyAttributeForm(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, local bool, attr *model.AttributeDecl) error {
+func applyAttributeForm(doc *Document, elem NodeID, schema *Schema, local bool, attr *model.AttributeDecl) error {
 	if doc.HasAttribute(elem, "form") {
 		formAttr := model.ApplyWhiteSpace(doc.GetAttribute(elem, "form"), model.WhiteSpaceCollapse)
 		switch formAttr {

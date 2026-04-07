@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/xmlnames"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 func TestNamespaceInterner(t *testing.T) {
@@ -70,10 +70,10 @@ func TestPredefinedSymbols(t *testing.T) {
 		t.Fatalf("predef xml:space = %d, lookup = %d", schema.Predef.XMLSpace, got)
 	}
 
-	if schema.Namespaces.Lookup([]byte(xmlnames.XMLNamespace)) != schema.PredefNS.XML {
+	if schema.Namespaces.Lookup([]byte(value.XMLNamespace)) != schema.PredefNS.XML {
 		t.Fatalf("xml namespace lookup mismatch")
 	}
-	if schema.Namespaces.Lookup([]byte(xmlnames.XSINamespace)) != schema.PredefNS.Xsi {
+	if schema.Namespaces.Lookup([]byte(value.XSINamespace)) != schema.PredefNS.Xsi {
 		t.Fatalf("xsi namespace lookup mismatch")
 	}
 }

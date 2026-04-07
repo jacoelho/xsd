@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 // parseTopLevelElement parses a top-level element declaration.
-func parseTopLevelElement(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) error {
+func parseTopLevelElement(doc *Document, elem NodeID, schema *Schema) error {
 	name, nameErr := validateTopLevelElementStructure(doc, elem, schema)
 	if nameErr != nil {
 		return nameErr
@@ -39,7 +38,7 @@ func parseTopLevelElement(doc *xmltree.Document, elem xmltree.NodeID, schema *Sc
 	return nil
 }
 
-func validateTopLevelElementStructure(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (string, error) {
+func validateTopLevelElementStructure(doc *Document, elem NodeID, schema *Schema) (string, error) {
 	name := model.TrimXMLWhitespace(doc.GetAttribute(elem, "name"))
 	if name == "" {
 		return "", fmt.Errorf("element missing name attribute")

@@ -4,10 +4,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseBoolAttribute(doc *xmltree.Document, elem xmltree.NodeID, name string) (bool, bool, error) {
+func parseBoolAttribute(doc *Document, elem NodeID, name string) (bool, bool, error) {
 	if !doc.HasAttribute(elem, name) {
 		return false, false, nil
 	}

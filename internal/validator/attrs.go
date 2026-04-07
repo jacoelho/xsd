@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/xmlnames"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // AttrNameID identifies one interned attribute name within a validation session.
@@ -154,9 +154,9 @@ func IsXMLNSAttr(attr *Attr, rt *runtime.Schema) bool {
 	}
 	if attr.NS != 0 {
 		nsBytes := rt.Namespaces.Bytes(attr.NS)
-		return bytes.Equal(nsBytes, []byte(xmlnames.XMLNSNamespace))
+		return bytes.Equal(nsBytes, []byte(value.XMLNSNamespace))
 	}
-	return bytes.Equal(attr.NSBytes, []byte(xmlnames.XMLNSNamespace))
+	return bytes.Equal(attr.NSBytes, []byte(value.XMLNSNamespace))
 }
 
 // AttrNamespaceMatches reports whether the attribute namespace matches the path op namespace.

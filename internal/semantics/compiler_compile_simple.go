@@ -75,13 +75,12 @@ func (c *compiler) compileSimpleTypeValidator(st *model.SimpleType, facetRef run
 		return c.addListValidator(ws, facetRef, itemID), nil
 	case model.UnionVariety:
 		return c.compileUnionValidator(st, ws, facetRef)
-	default:
-		kind, err := c.validatorKind(st)
-		if err != nil {
-			return 0, err
-		}
-		return c.addAtomicValidator(kind, ws, facetRef, c.stringKindForType(st), c.integerKindForType(st)), nil
 	}
+	kind, err := c.validatorKind(st)
+	if err != nil {
+		return 0, err
+	}
+	return c.addAtomicValidator(kind, ws, facetRef, c.stringKindForType(st), c.integerKindForType(st)), nil
 }
 
 func (c *compiler) compileUnionValidator(

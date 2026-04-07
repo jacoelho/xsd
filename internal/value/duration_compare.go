@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 // ErrIndeterminateDurationComparison reports that two durations are incomparable in XSD value space.

@@ -4,12 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
-type derivationRestrictionParser func(*xmltree.Document, xmltree.NodeID, *Schema) (*model.Restriction, model.QName, error)
-type derivationExtensionParser func(*xmltree.Document, xmltree.NodeID, *Schema) (*model.Extension, model.QName, error)
+type derivationRestrictionParser func(*Document, NodeID, *Schema) (*model.Restriction, model.QName, error)
+type derivationExtensionParser func(*Document, NodeID, *Schema) (*model.Extension, model.QName, error)
 
 type parsedDerivationContent struct {
 	restriction *model.Restriction
@@ -17,13 +16,13 @@ type parsedDerivationContent struct {
 	base        model.QName
 }
 
-func parseDerivationContent(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, context string, parseRestriction derivationRestrictionParser, parseExtension derivationExtensionParser) (parsedDerivationContent, error) {
+func parseDerivationContent(doc *Document, elem NodeID, schema *Schema, context string, parseRestriction derivationRestrictionParser, parseExtension derivationExtensionParser) (parsedDerivationContent, error) {
 	parsed := parsedDerivationContent{}
 	seenDerivation := false
 	seenAnnotation := false
 
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+		if doc.NamespaceURI(child) != value.XSDNamespace {
 			continue
 		}
 
@@ -80,7 +79,7 @@ func parseDerivationContent(doc *xmltree.Document, elem xmltree.NodeID, schema *
 	return parsed, nil
 }
 
-func parseDerivationBaseQName(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, kind string) (model.QName, error) {
+func parseDerivationBaseQName(doc *Document, elem NodeID, schema *Schema, kind string) (model.QName, error) {
 	if err := validateOptionalID(doc, elem, kind, schema); err != nil {
 		return model.QName{}, err
 	}

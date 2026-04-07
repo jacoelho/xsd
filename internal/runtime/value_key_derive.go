@@ -5,8 +5,8 @@ import (
 	"unsafe"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 // KeyForValidatorKind derives deterministic value-key encoding from canonical lexical bytes.

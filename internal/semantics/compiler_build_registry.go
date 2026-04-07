@@ -14,10 +14,7 @@ func (c *compiler) compileRegistry(registry *analysis.Registry) error {
 	if err := c.compileSimpleTypeRegistry(registry); err != nil {
 		return err
 	}
-	if err := c.compileSimpleContentRegistry(registry); err != nil {
-		return err
-	}
-	return nil
+	return c.compileSimpleContentRegistry(registry)
 }
 
 func (c *compiler) compileBuiltinRegistry() error {

@@ -2,7 +2,7 @@ package semantics
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/typeresolve"
+	"github.com/jacoelho/xsd/internal/parser"
 )
 
 func (c *compiler) collectFacets(st *model.SimpleType) ([]model.Facet, error) {
@@ -71,7 +71,7 @@ func (c *compiler) collectFacetsRecursive(st *model.SimpleType, seen map[*model.
 				result = append(result, facet)
 			case *model.DeferredFacet:
 				base := c.res.baseType(st)
-				resolved, err := typeresolve.DefaultDeferredFacetConverter(facet, base)
+				resolved, err := parser.DefaultDeferredFacetConverter(facet, base)
 				if err != nil {
 					return nil, err
 				}

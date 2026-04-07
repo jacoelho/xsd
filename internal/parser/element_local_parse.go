@@ -4,10 +4,9 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseLocalElement(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, attrs *elementAttrScan) (*model.ElementDecl, error) {
+func parseLocalElement(doc *Document, elem NodeID, schema *Schema, attrs *elementAttrScan) (*model.ElementDecl, error) {
 	if attrs.name == "" {
 		return nil, fmt.Errorf("element missing name and ref")
 	}

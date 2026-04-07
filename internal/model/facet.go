@@ -65,7 +65,7 @@ type Facet interface {
 }
 
 // LexicalFacet is a facet that has a lexical string value.
-// Examples include pattern and enumeration facets.
+// Examples include pattern and enumeration semantics.
 type LexicalFacet interface {
 	Facet
 	GetLexical() string
@@ -78,7 +78,7 @@ type LexicalValidator interface {
 }
 
 // IntValueFacet is a facet that has an integer value.
-// Examples include length, minLength, maxLength, totalDigits, and fractionDigits facets.
+// Examples include length, minLength, maxLength, totalDigits, and fractionDigits semantics.
 type IntValueFacet interface {
 	Facet
 	GetIntValue() int

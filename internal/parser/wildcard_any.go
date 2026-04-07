@@ -5,14 +5,12 @@ import (
 	"strings"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 // parseAnyElement parses an <any> wildcard element
 // Content model: (annotation?)
-func parseAnyElement(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema) (*model.AnyElement, error) {
+func parseAnyElement(doc *Document, elem NodeID, schema *Schema) (*model.AnyElement, error) {
 	nsConstraint, nsList, processContents, parseErr := parseWildcardConstraints(
 		doc,
 		elem,
@@ -24,35 +22,17 @@ func parseAnyElement(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema)
 		return nil, parseErr
 	}
 
-	if err := validateOptionalID(doc, elem, "any", schema); err != nil {
+	if err := validateElementConstraints(doc, elem, "any", schema); err != nil {
 		return nil, err
-	}
-
-	hasAnnotation := false
-	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
-			continue
-		}
-		switch doc.LocalName(child) {
-		case "annotation":
-			if hasAnnotation {
-				return nil, fmt.Errorf("any: at most one annotation is allowed")
-			}
-			hasAnnotation = true
-		default:
-			return nil, fmt.Errorf("any: unexpected child element '%s'", doc.LocalName(child))
-		}
 	}
 
 	minOccursAttr := doc.GetAttribute(elem, "minOccurs")
 	maxOccursAttr := doc.GetAttribute(elem, "maxOccurs")
-	for _, attr := range doc.Attributes(elem) {
-		if attr.LocalName() == "minOccurs" && attr.NamespaceURI() == "" && minOccursAttr == "" {
-			return nil, fmt.Errorf("minOccurs attribute cannot be empty")
-		}
-		if attr.LocalName() == "maxOccurs" && attr.NamespaceURI() == "" && maxOccursAttr == "" {
-			return nil, fmt.Errorf("maxOccurs attribute cannot be empty")
-		}
+	if doc.HasAttribute(elem, "minOccurs") && minOccursAttr == "" {
+		return nil, fmt.Errorf("minOccurs attribute cannot be empty")
+	}
+	if doc.HasAttribute(elem, "maxOccurs") && maxOccursAttr == "" {
+		return nil, fmt.Errorf("maxOccurs attribute cannot be empty")
 	}
 	if err := validateOccursValue(minOccursAttr); err != nil {
 		return nil, fmt.Errorf("invalid minOccurs value '%s': %w", minOccursAttr, err)

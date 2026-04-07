@@ -7,8 +7,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 // StringKeyBytes writes a tagged string key into dst, reusing capacity; dst is overwritten from the start.

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func (r *typeResolver) builtinNameForType(typ model.Type) (model.TypeName, bool) {
@@ -13,7 +13,7 @@ func (r *typeResolver) builtinNameForType(typ model.Type) (model.TypeName, bool)
 		out   model.TypeName
 		found bool
 	)
-	typeresolve.Walk(typ, r.nextType, func(current model.Type) bool {
+	parser.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
 			out = model.TypeName(bt.Name().Local)
 			found = true
@@ -27,7 +27,7 @@ func (r *typeResolver) builtinNameForType(typ model.Type) (model.TypeName, bool)
 
 func (r *typeResolver) isQNameOrNotation(typ model.Type) bool {
 	result := false
-	typeresolve.Walk(typ, r.nextType, func(current model.Type) bool {
+	parser.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
 			result = model.IsQNameOrNotation(bt.Name())
 			return false
@@ -60,7 +60,7 @@ func (r *typeResolver) isQNameOrNotation(typ model.Type) bool {
 
 func (r *typeResolver) isIntegerDerived(typ model.Type) bool {
 	result := false
-	typeresolve.Walk(typ, r.nextType, func(current model.Type) bool {
+	parser.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
 			result = isIntegerTypeName(bt.Name().Local)
 			return false
@@ -85,7 +85,7 @@ func (r *typeResolver) isIntegerDerived(typ model.Type) bool {
 
 func (r *typeResolver) whitespaceMode(typ model.Type) runtime.WhitespaceMode {
 	mode := runtime.WSPreserve
-	typeresolve.Walk(typ, r.nextType, func(current model.Type) bool {
+	parser.Walk(typ, r.nextType, func(current model.Type) bool {
 		if bt := builtinForType(current); bt != nil {
 			mode = runtimeWhitespaceMode(bt.WhiteSpace())
 			return false
@@ -95,11 +95,10 @@ func (r *typeResolver) whitespaceMode(typ model.Type) runtime.WhitespaceMode {
 			mode = runtime.WSPreserve
 			return false
 		}
+		mode = runtimeWhitespaceMode(st.WhiteSpace())
 		if st.WhiteSpaceExplicit() || st.List != nil || st.Union != nil {
-			mode = runtimeWhitespaceMode(st.WhiteSpace())
 			return false
 		}
-		mode = runtimeWhitespaceMode(st.WhiteSpace())
 		return true
 	})
 	return mode

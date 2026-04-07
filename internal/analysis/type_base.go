@@ -3,7 +3,6 @@ package analysis
 import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func baseTypeFor(schema *parser.Schema, typ model.Type) (model.Type, model.DerivationMethod, error) {
@@ -12,9 +11,8 @@ func baseTypeFor(schema *parser.Schema, typ model.Type) (model.Type, model.Deriv
 		return baseTypeForSimpleType(schema, typed)
 	case *model.ComplexType:
 		return baseTypeForComplexType(schema, typed)
-	default:
-		return nil, 0, nil
 	}
+	return nil, 0, nil
 }
 
 func baseTypeForSimpleType(schema *parser.Schema, st *model.SimpleType) (model.Type, model.DerivationMethod, error) {
@@ -32,7 +30,7 @@ func baseTypeForSimpleType(schema *parser.Schema, st *model.SimpleType) (model.T
 			return st.Restriction.SimpleType, model.DerivationRestriction, nil
 		}
 		if !st.Restriction.Base.IsZero() {
-			base, err := typeresolve.ResolveTypeQName(schema, st.Restriction.Base, typeresolve.TypeReferenceMustExist)
+			base, err := parser.ResolveTypeQName(schema, st.Restriction.Base)
 			if err != nil {
 				return nil, 0, err
 			}
@@ -63,7 +61,7 @@ func baseTypeForComplexType(schema *parser.Schema, ct *model.ComplexType) (model
 	if method == 0 {
 		method = model.DerivationRestriction
 	}
-	base, err := typeresolve.ResolveTypeQName(schema, baseQName, typeresolve.TypeReferenceMustExist)
+	base, err := parser.ResolveTypeQName(schema, baseQName)
 	if err != nil {
 		return nil, 0, err
 	}
