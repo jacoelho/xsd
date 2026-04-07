@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/names"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -18,7 +17,7 @@ func TestPathStackStringIncludesNamespace(t *testing.T) {
 	id2 := xmlstream.NameID(2)
 	sess.internName(id1, []byte("urn:a"), []byte("root"))
 	sess.internName(id2, []byte("urn:b"), []byte("root"))
-	sess.elemStack = append(sess.elemStack, elemFrame{name: names.ID(id1)}, elemFrame{name: names.ID(id2)})
+	sess.elemStack = append(sess.elemStack, elemFrame{name: NameID(id1)}, elemFrame{name: NameID(id2)})
 
 	if got := sess.pathString(); got != "/{urn:a}root/{urn:b}root" {
 		t.Fatalf("path = %q, want %q", got, "/{urn:a}root/{urn:b}root")
@@ -39,7 +38,7 @@ func TestInternNameSparseIDUsesMap(t *testing.T) {
 	if sess.Names.Sparse == nil {
 		t.Fatalf("expected sparse name map to be initialized")
 	}
-	sess.elemStack = append(sess.elemStack, elemFrame{name: names.ID(id)})
+	sess.elemStack = append(sess.elemStack, elemFrame{name: NameID(id)})
 	if got := sess.pathString(); got != "/{urn:big}root" {
 		t.Fatalf("path = %q, want %q", got, "/{urn:big}root")
 	}

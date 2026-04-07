@@ -3,9 +3,7 @@ package compiler
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/semantics"
 )
@@ -34,11 +32,11 @@ func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.M
 		return ref, runtime.ContentAll, nil
 	}
 
-	glu, err := contentmodel.BuildGlushkov(particle)
+	glu, err := semantics.BuildGlushkov(particle)
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
-	glu, err = contentmodel.ExpandSubstitution(glu, b.resolveSubstitutionHead, b.substitutionMembers)
+	glu, err = semantics.ExpandSubstitution(glu, b.resolveSubstitutionHead, b.substitutionMembers)
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
@@ -46,7 +44,7 @@ func (b *schemaBuilder) compileParticleModel(particle model.Particle) (runtime.M
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
-	compiled, err := contentmodel.Compile(glu, matchers, b.limits)
+	compiled, err := semantics.CompileContentModel(glu, matchers, b.limits)
 	if err != nil {
 		return runtime.ModelRef{}, 0, err
 	}
@@ -133,7 +131,7 @@ func (b *schemaBuilder) validateOccursLimit(particle model.Particle) error {
 	return nil
 }
 
-func (b *schemaBuilder) checkOccursValue(attr string, occ occurs.Occurs) error {
+func (b *schemaBuilder) checkOccursValue(attr string, occ model.Occurs) error {
 	if b == nil || b.maxOccurs == 0 {
 		return nil
 	}
@@ -141,10 +139,10 @@ func (b *schemaBuilder) checkOccursValue(attr string, occ occurs.Occurs) error {
 		return nil
 	}
 	if occ.IsOverflow() {
-		return fmt.Errorf("%w: %s value %s exceeds uint32", occurs.ErrOccursOverflow, attr, occ.String())
+		return fmt.Errorf("%w: %s value %s exceeds uint32", model.ErrOccursOverflow, attr, occ.String())
 	}
 	if occ.GreaterThanInt(int(b.maxOccurs)) {
-		return fmt.Errorf("%w: %s value %s exceeds limit %d", occurs.ErrOccursTooLarge, attr, occ.String(), b.maxOccurs)
+		return fmt.Errorf("%w: %s value %s exceeds limit %d", model.ErrOccursTooLarge, attr, occ.String(), b.maxOccurs)
 	}
 	return nil
 }

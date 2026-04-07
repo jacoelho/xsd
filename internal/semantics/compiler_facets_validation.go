@@ -3,7 +3,6 @@ package semantics
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -129,7 +128,7 @@ func rangeFacetLexical(facet model.Facet) (string, string, bool) {
 }
 
 func (c *compiler) shouldSkipLengthFacet(typ model.Type, facet model.Facet) bool {
-	if !facetvalue.IsLengthFacet(facet) {
+	if !model.IsLengthFacet(facet) {
 		return false
 	}
 	if c.res.isListType(typ) {

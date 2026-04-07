@@ -3,7 +3,7 @@ package runtime
 import (
 	"bytes"
 
-	"github.com/jacoelho/xsd/internal/wildcardpolicy"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 // Accepts reports whether the namespace is allowed by the wildcard rule.
@@ -18,8 +18,8 @@ func (w WildcardRule) Accepts(nsBytes []byte, nsID NamespaceID, nsTable *Namespa
 			break
 		}
 	}
-	return wildcardpolicy.AllowsRuntimeNamespace(
-		wildcardpolicy.RuntimeNamespaceConstraint{
+	return model.AllowsRuntimeNamespace(
+		model.RuntimeNamespaceConstraint{
 			Kind:      runtimeConstraintToPolicy(w.NS.Kind),
 			HasTarget: w.NS.HasTarget,
 			HasLocal:  w.NS.HasLocal,
@@ -30,18 +30,18 @@ func (w WildcardRule) Accepts(nsBytes []byte, nsID NamespaceID, nsTable *Namespa
 	)
 }
 
-func runtimeConstraintToPolicy(kind NSConstraintKind) wildcardpolicy.RuntimeNamespaceConstraintKind {
+func runtimeConstraintToPolicy(kind NSConstraintKind) model.RuntimeNamespaceConstraintKind {
 	switch kind {
 	case NSAny:
-		return wildcardpolicy.RuntimeNamespaceAny
+		return model.RuntimeNamespaceAny
 	case NSOther:
-		return wildcardpolicy.RuntimeNamespaceOther
+		return model.RuntimeNamespaceOther
 	case NSEnumeration:
-		return wildcardpolicy.RuntimeNamespaceEnumeration
+		return model.RuntimeNamespaceEnumeration
 	case NSNotAbsent:
-		return wildcardpolicy.RuntimeNamespaceNotAbsent
+		return model.RuntimeNamespaceNotAbsent
 	default:
-		return wildcardpolicy.RuntimeNamespaceAny + 255
+		return model.RuntimeNamespaceAny + 255
 	}
 }
 

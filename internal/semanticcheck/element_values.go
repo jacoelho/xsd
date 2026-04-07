@@ -1,11 +1,9 @@
 package semanticcheck
 
 import (
-	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/semantics"
-	"github.com/jacoelho/xsd/internal/typechain"
 )
 
 // validateDefaultOrFixedValueWithContext validates that a default or fixed value is valid for the given type.
@@ -21,7 +19,7 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 	}
 
 	if st, ok := typ.(*model.SimpleType); ok && model.IsPlaceholderSimpleType(st) && schema != nil {
-		if resolved, ok := typechain.LookupType(schema, st.QName); ok {
+		if resolved, ok := semantics.LookupType(schema, st.QName); ok {
 			typ = resolved
 		}
 	}
@@ -29,7 +27,7 @@ func validateDefaultOrFixedValueWithContext(schema *parser.Schema, value string,
 		return nil
 	}
 
-	if facetvalue.IsQNameOrNotationType(typ) && nsContext == nil {
+	if model.IsQNameOrNotationType(typ) && nsContext == nil {
 		return nil
 	}
 
@@ -51,7 +49,7 @@ func shouldDeferValueValidation(schema *parser.Schema, typ model.Type) bool {
 		if schema == nil {
 			return true
 		}
-		if _, ok := typechain.LookupType(schema, st.QName); !ok {
+		if _, ok := semantics.LookupType(schema, st.QName); !ok {
 			return true
 		}
 		return false

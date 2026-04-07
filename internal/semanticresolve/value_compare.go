@@ -3,10 +3,8 @@ package semanticresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 	"github.com/jacoelho/xsd/internal/value"
 )
@@ -26,12 +24,12 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *model.AttributeDecl) 
 		return false, err
 	}
 
-	if facetvalue.IsQNameOrNotationType(resolvedType) {
-		leftQName, qerr := qname.ParseQNameValue(left, attr.FixedContext)
+	if model.IsQNameOrNotationType(resolvedType) {
+		leftQName, qerr := model.ParseQNameValue(left, attr.FixedContext)
 		if qerr != nil {
 			return false, qerr
 		}
-		rightQName, qerr := qname.ParseQNameValue(right, target.FixedContext)
+		rightQName, qerr := model.ParseQNameValue(right, target.FixedContext)
 		if qerr != nil {
 			return false, qerr
 		}
@@ -54,7 +52,7 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *model.AttributeDecl) 
 		if rerr != nil {
 			return false, rerr
 		}
-		return value.ListValuesEqual(leftItems, rightItems, facetvalue.ValuesEqual), nil
+		return value.ListValuesEqual(leftItems, rightItems, model.CompareTypedValues), nil
 	}
 
 	leftValues, err := parseValueVariants(schema, left, resolvedType, attr.FixedContext)
@@ -65,7 +63,7 @@ func fixedValuesEqual(schema *parser.Schema, attr, target *model.AttributeDecl) 
 	if err != nil {
 		return false, err
 	}
-	return value.AnyValueEqual(leftValues, rightValues, facetvalue.ValuesEqual), nil
+	return value.AnyValueEqual(leftValues, rightValues, model.CompareTypedValues), nil
 }
 
 func parseValueVariants(schema *parser.Schema, lexical string, typ model.Type, context map[string]string) ([]model.TypedValue, error) {
@@ -87,9 +85,9 @@ func parseValueVariants(schema *parser.Schema, lexical string, typ model.Type, c
 }
 
 func parseTypedValueWithContext(lexical string, typ model.Type, context map[string]string) (model.TypedValue, error) {
-	if facetvalue.IsQNameOrNotationType(typ) {
+	if model.IsQNameOrNotationType(typ) {
 		normalized := model.NormalizeWhiteSpace(lexical, typ)
-		parsedQName, err := qname.ParseQNameValue(normalized, context)
+		parsedQName, err := model.ParseQNameValue(normalized, context)
 		if err != nil {
 			return nil, err
 		}

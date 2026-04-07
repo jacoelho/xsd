@@ -2,7 +2,6 @@ package validator
 
 import (
 	xsderrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/validator/diag"
 )
 
 func (e *validationExecutor) finalize() error {
@@ -25,7 +24,7 @@ func (e *validationExecutor) finalize() error {
 			return fatal
 		}
 	}
-	if errs := diag.AppendIssues(nil, e.s.icState.DrainCommitted()); len(errs) > 0 {
+	if errs := xsderrors.AppendIssues(nil, e.s.icState.DrainCommitted()); len(errs) > 0 {
 		if fatal := e.s.recordValidationErrors(errs, 0, 0); fatal != nil {
 			return fatal
 		}

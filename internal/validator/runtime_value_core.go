@@ -1,24 +1,32 @@
 package validator
 
 import (
+	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/valruntime"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, resolver value.NSResolver, opts valruntime.Options, metricState *valruntime.State) ([]byte, error) {
+func (s *Session) validateValueCore(id runtime.ValidatorID, lexical []byte, resolver value.NSResolver, opts valueOptions, metricState *ValueMetrics) ([]byte, error) {
 	meta, err := s.validatorMeta(id)
 	if err != nil {
 		return nil, err
 	}
-	return valruntime.Execute(meta, lexical, opts, valruntime.HasLengthFacet(meta, s.rt.Facets), metricState, valruntime.ExecuteCallbacks[*valruntime.State]{
-		PrepareMetrics: s.prepareValueMetrics,
-		Normalize:      s.normalizeValueInput,
-		ValidateNoCanonical: func(meta runtime.ValidatorMeta, normalized []byte, metrics *valruntime.State) ([]byte, error) {
-			return s.validateValueWithoutCanonical(id, meta, normalized, resolver, opts, metrics)
-		},
-		ValidateCanonical: func(meta runtime.ValidatorMeta, lexical, normalized []byte, plan valruntime.Plan, metrics *valruntime.State, metricsInternal bool) ([]byte, error) {
-			return s.validateValueWithCanonical(id, meta, lexical, normalized, resolver, opts, plan, metrics, metricsInternal)
-		},
-	})
+
+	plan := buildValueExecutionPlan(meta, opts, hasLengthFacet(meta, s.rt.Facets))
+	metrics, metricsInternal := s.prepareValueMetrics(plan, metricState)
+	normalized, finishNormalize := s.normalizeValueInput(meta, lexical, opts, plan)
+	defer finishNormalize()
+
+	if !plan.NeedCanonical {
+		return s.validateValueWithoutCanonical(id, meta, normalized, resolver, opts, metrics)
+	}
+	return s.validateValueWithCanonical(id, meta, lexical, normalized, resolver, opts, plan, metrics, metricsInternal)
+}
+
+func hasLengthFacet(meta runtime.ValidatorMeta, facetCode []runtime.FacetInstr) bool {
+	if meta.Facets.Len == 0 {
+		return false
+	}
+	ok, err := facets.RuntimeProgramHasOp(meta, facetCode, runtime.FLength, runtime.FMinLength, runtime.FMaxLength)
+	return err == nil && ok
 }

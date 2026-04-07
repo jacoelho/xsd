@@ -204,61 +204,55 @@ func (r *Reader) next(mode nextMode, event *Event, raw *RawEvent, resolved *Reso
 }
 
 func (r *Reader) emitStart(mode nextMode, tok *xmltext.RawTokenSpan, line, column int, event *Event, raw *RawEvent, resolved *ResolvedEvent) error {
-	switch mode {
-	case nextEvent:
-		ev, err := r.startEvent(tok, line, column)
-		if err != nil {
-			return err
-		}
-		if event != nil {
-			*event = ev
-		}
-	case nextResolved:
-		ev, err := r.startResolvedEvent(tok, line, column)
-		if err != nil {
-			return err
-		}
-		if resolved != nil {
-			*resolved = ev
-		}
-	default:
-		ev, err := r.startRawEvent(tok, line, column)
-		if err != nil {
-			return err
-		}
-		if raw != nil {
-			*raw = ev
-		}
-	}
-	return nil
+	return emitProjectedEvent(
+		mode,
+		event,
+		raw,
+		resolved,
+		func() (Event, error) { return r.startEvent(tok, line, column) },
+		func() (RawEvent, error) { return r.startRawEvent(tok, line, column) },
+		func() (ResolvedEvent, error) { return r.startResolvedEvent(tok, line, column) },
+	)
 }
 
 func (r *Reader) emitEnd(mode nextMode, tok *xmltext.RawTokenSpan, line, column int, event *Event, raw *RawEvent, resolved *ResolvedEvent) error {
+	return emitProjectedEvent(
+		mode,
+		event,
+		raw,
+		resolved,
+		func() (Event, error) { return r.endEvent(tok, line, column) },
+		func() (RawEvent, error) { return r.endRawEvent(tok, line, column) },
+		func() (ResolvedEvent, error) { return r.endResolvedEvent(tok, line, column) },
+	)
+}
+
+func emitProjectedEvent(
+	mode nextMode,
+	event *Event,
+	raw *RawEvent,
+	resolved *ResolvedEvent,
+	eventFn func() (Event, error),
+	rawFn func() (RawEvent, error),
+	resolvedFn func() (ResolvedEvent, error),
+) error {
 	switch mode {
 	case nextEvent:
-		ev, err := r.endEvent(tok, line, column)
-		if err != nil {
-			return err
-		}
-		if event != nil {
-			*event = ev
-		}
+		return assignProjectedEvent(event, eventFn)
 	case nextResolved:
-		ev, err := r.endResolvedEvent(tok, line, column)
-		if err != nil {
-			return err
-		}
-		if resolved != nil {
-			*resolved = ev
-		}
+		return assignProjectedEvent(resolved, resolvedFn)
 	default:
-		ev, err := r.endRawEvent(tok, line, column)
-		if err != nil {
-			return err
-		}
-		if raw != nil {
-			*raw = ev
-		}
+		return assignProjectedEvent(raw, rawFn)
+	}
+}
+
+func assignProjectedEvent[T any](dst *T, build func() (T, error)) error {
+	value, err := build()
+	if err != nil {
+		return err
+	}
+	if dst != nil {
+		*dst = value
 	}
 	return nil
 }

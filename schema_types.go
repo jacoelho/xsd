@@ -3,7 +3,7 @@ package xsd
 import (
 	"sync"
 
-	"github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validator"
 )
@@ -22,7 +22,7 @@ type Validator struct {
 }
 
 // QName is a public qualified name with namespace and local part.
-type QName = qname.QName
+type QName = model.QName
 
 func newSchema(rt *runtime.Schema, validateDefaults resolvedValidateOptions) *Schema {
 	if rt == nil {

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/valruntime"
 )
 
 func TestTrackValidatedUsesActualUnionMemberState(t *testing.T) {
@@ -12,8 +11,6 @@ func TestTrackValidatedUsesActualUnionMemberState(t *testing.T) {
 
 	var tracked []runtime.StringKind
 	var lookedUp bool
-	var state valruntime.State
-	state.ResultState().SetActual(0, 2)
 
 	err := trackValidated(
 		1,
@@ -29,7 +26,7 @@ func TestTrackValidatedUsesActualUnionMemberState(t *testing.T) {
 			},
 		},
 		[]byte("abc"),
-		&state,
+		2,
 		Callbacks{
 			Meta: func(id runtime.ValidatorID) (runtime.ValidatorMeta, bool, error) {
 				if int(id) >= len([]runtime.ValidatorMeta{{}, {Kind: runtime.VUnion, Flags: runtime.ValidatorMayTrackIDs}, {Kind: runtime.VString, Flags: runtime.ValidatorMayTrackIDs, Index: 1}}) {
@@ -121,5 +118,17 @@ func TestTrackDefaultRecursesThroughListItems(t *testing.T) {
 	}
 	if len(tracked) != 2 || tracked[0] != "one" || tracked[1] != "two" {
 		t.Fatalf("TrackDefault() tracked = %v, want [one two]", tracked)
+	}
+}
+
+func TestTrackValidatedIDsNilMetricsDoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	rt, validator := benchmarkCollapsedDoubleListRuntime()
+	sess := NewSession(rt)
+	input := benchmarkCollapsedDoubleList(16)
+
+	if err := sess.trackValidatedIDs(validator, input, nil, nil); err != nil {
+		t.Fatalf("trackValidatedIDs() error = %v", err)
 	}
 }

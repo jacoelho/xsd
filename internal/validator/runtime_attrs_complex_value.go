@@ -2,44 +2,50 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/attrs"
-	"github.com/jacoelho/xsd/internal/validator/valruntime"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
 func (s *Session) validateComplexAttrValue(
-	validated []attrs.Start,
-	attr attrs.Start,
+	validated []Start,
+	attr Start,
 	resolver value.NSResolver,
 	storeAttrs bool,
-	spec attrs.ValueSpec,
+	spec ValueSpec,
 	seenID *bool,
-) ([]attrs.Start, error) {
-	return attrs.ValidateValue(
+) ([]Start, error) {
+	return ValidateValue(
 		validated,
 		attr,
 		storeAttrs,
 		spec,
 		seenID,
-		attrs.ValidateValueCallbacks{
-			Validate: func(validator runtime.ValidatorID, lexical []byte, store bool) (attrs.ValueResult, error) {
-				canon, metrics, err := s.validateValueInternalWithMetrics(validator, lexical, resolver, valruntime.AttributeOptions(spec.Fixed.Present, store))
-				if err != nil {
-					return attrs.ValueResult{}, err
+		ValidateValueCallbacks{
+			Validate: func(validator runtime.ValidatorID, lexical []byte, store bool) (ValueResult, error) {
+				var metrics ValueMetrics
+				opts := valueOptions{
+					ApplyWhitespace:  true,
+					TrackIDs:         true,
+					RequireCanonical: spec.Fixed.Present,
+					StoreValue:       store,
+					NeedKey:          spec.Fixed.Present,
 				}
-				keyKind, keyBytes, _ := metrics.Result.Key()
-				return attrs.ValueResult{
+				canon, err := s.validateValueCore(validator, lexical, resolver, opts, &metrics)
+				if err != nil {
+					return ValueResult{}, err
+				}
+				keyKind, keyBytes, _ := metrics.State.Key()
+				return ValueResult{
 					Canonical: canon,
 					KeyKind:   keyKind,
 					KeyBytes:  keyBytes,
-					HasKey:    metrics.Result.HasKey(),
+					HasKey:    metrics.State.HasKey(),
 				}, nil
 			},
 			IsIDValidator: s.isIDValidator,
-			AppendCanonical: func(validated []attrs.Start, attr attrs.Start, store bool, canonical []byte, keyKind runtime.ValueKind, keyBytes []byte) []attrs.Start {
-				return s.appendValidatedAttr(validated, attr, store, canonical, keyKind, keyBytes)
+			AppendCanonical: func(validated []Start, attr Start, store bool, canonical []byte, keyKind runtime.ValueKind, keyBytes []byte) []Start {
+				return StoreCanonical(validated, attr, store, s.ensureAttrNameStable, canonical, keyKind, keyBytes)
 			},
-			MatchFixed: func(spec attrs.ValueSpec, result attrs.ValueResult) (bool, error) {
+			MatchFixed: func(spec ValueSpec, result ValueResult) (bool, error) {
 				return matchFixedValue(
 					spec.Validator,
 					spec.FixedMember,

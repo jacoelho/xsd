@@ -2,14 +2,13 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/valruntime"
 )
 
-func (s *Session) setKey(metrics *valruntime.State, kind runtime.ValueKind, key []byte, store bool) {
+func (s *Session) setKey(metrics *ValueMetrics, kind runtime.ValueKind, key []byte, store bool) {
 	if s == nil {
 		return
 	}
-	state := metrics.ResultState()
+	state := metrics.result()
 	if state == nil {
 		return
 	}
@@ -44,12 +43,12 @@ func (s *Session) storeKey(data []byte) []byte {
 	return s.keyBuf[start:len(s.keyBuf)]
 }
 
-func (s *Session) finalizeValue(canonical []byte, opts valruntime.Options, metrics *valruntime.State, metricsInternal bool) []byte {
+func (s *Session) finalizeValue(canonical []byte, opts valueOptions, metrics *ValueMetrics, metricsInternal bool) []byte {
 	if !opts.StoreValue {
 		return canonical
 	}
 	canonStored := s.storeValue(canonical)
-	state := metrics.ResultState()
+	state := metrics.result()
 	if state != nil && state.HasKey() && !metricsInternal {
 		kind, key, _ := state.Key()
 		s.setKey(metrics, kind, key, true)

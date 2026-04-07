@@ -2,7 +2,6 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/identity"
 )
 
 func (s *identityState) end(rt *runtime.Schema, in identityEndInput) error {
@@ -12,7 +11,7 @@ func (s *identityState) end(rt *runtime.Schema, in identityEndInput) error {
 	frames := s.Frames.Items()
 	index := len(frames) - 1
 	frame := &frames[index]
-	if err := identity.CloseFrame(rt, s.arena, &s.State, frame.ID, frame.Elem, frame.Nilled, frame.Captures, frame.Matches, in.KeyKind, in.KeyBytes); err != nil {
+	if err := CloseFrame(rt, s.arena, &s.State, frame.ID, frame.Elem, frame.Nilled, frame.Captures, frame.Matches, in.KeyKind, in.KeyBytes); err != nil {
 		return err
 	}
 

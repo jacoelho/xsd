@@ -55,6 +55,6 @@ func (s *Session) resolveEndTextValue(
 	}
 
 	result.canonText = canon
-	result.textKeyKind, result.textKeyBytes, _ = metrics.Result.Key()
+	result.textKeyKind, result.textKeyBytes, _ = metrics.State.Key()
 	return errs
 }

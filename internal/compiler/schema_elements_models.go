@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
 
@@ -129,8 +128,8 @@ func (b *schemaBuilder) buildAnyTypeModel() error {
 	anyElem := &model.AnyElement{
 		Namespace:       model.NSCAny,
 		ProcessContents: model.Lax,
-		MinOccurs:       occurs.OccursFromInt(0),
-		MaxOccurs:       occurs.OccursUnbounded,
+		MinOccurs:       model.OccursFromInt(0),
+		MaxOccurs:       model.OccursUnbounded,
 	}
 	ref, kind, err := b.compileParticleModel(anyElem)
 	if err != nil {

@@ -2,8 +2,6 @@ package preprocessor
 
 import (
 	"io"
-
-	"github.com/jacoelho/xsd/internal/parser"
 )
 
 type loadSession struct {
@@ -21,8 +19,4 @@ func newLoadSession(loader *Loader, systemID string, key loadKey, doc io.ReadClo
 		key:      key,
 		doc:      doc,
 	}
-}
-
-func (s *loadSession) handleCircularLoad() (*parser.Schema, error) {
-	return checkCircularLoad[loadKey, *parser.Schema](&s.loader.state, s.key, s.systemID)
 }

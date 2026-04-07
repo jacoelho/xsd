@@ -10,11 +10,7 @@ import (
 
 // validateSubstitutionGroupDerivation validates that the member element's type is derived from the head element's type.
 func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName model.QName, memberDecl, headDecl *model.ElementDecl) error {
-	if memberDecl != nil &&
-		!memberDecl.TypeExplicit &&
-		memberDecl.Type != nil &&
-		model.IsAnyTypeQName(memberDecl.Type.Name()) &&
-		headDecl.Type != nil {
+	if shouldInheritHeadType(memberDecl, headDecl) {
 		memberDecl.Type = headDecl.Type
 	}
 
@@ -23,62 +19,84 @@ func validateSubstitutionGroupDerivation(sch *parser.Schema, memberQName model.Q
 	if memberType == nil || headType == nil {
 		return nil
 	}
-	if !memberDecl.SubstitutionGroup.IsZero() &&
-		!memberDecl.TypeExplicit &&
-		memberDecl.Type != nil &&
-		model.IsAnyTypeQName(memberDecl.Type.Name()) {
+	if shouldReuseHeadType(memberDecl) {
 		memberType = headType
 	}
 
-	if memberDecl.TypeExplicit && memberDecl.Type != nil {
-		memberTypeName := memberDecl.Type.Name()
-		if memberTypeName.Namespace == model.XSDNamespace && memberTypeName.Local == "anyType" {
-			headIsAnyType := false
-			headTypeName := headType.Name()
-			headIsAnyType = headTypeName.Namespace == model.XSDNamespace && headTypeName.Local == "anyType"
-			if !headIsAnyType && headDecl.Type != nil {
-				headTypeName = headDecl.Type.Name()
-				headIsAnyType = headTypeName.Namespace == model.XSDNamespace && headTypeName.Local == "anyType"
-			}
-
-			if !headIsAnyType {
-				return fmt.Errorf("element %s: type '%s' is not derived from substitution group head type '%s'", memberQName, memberTypeName, headTypeName)
-			}
-			return nil
-		}
+	if err := validateExplicitAnyType(memberQName, memberDecl, headDecl, headType); err != nil {
+		return err
 	}
-
-	if headType.Name().Namespace == model.XSDNamespace && headType.Name().Local == "anyType" {
+	if isAnyType(headType.Name()) {
 		return nil
 	}
-
-	if headType.Name().Namespace == model.XSDNamespace && headType.Name().Local == "anySimpleType" {
-		switch memberType.(type) {
-		case *model.SimpleType, *model.BuiltinType:
-			return nil
-		}
+	if isAnySimpleType(headType.Name()) && isSimpleOrBuiltinType(memberType) {
+		return nil
 	}
-
-	derivedValid := memberType == headType
-	if !derivedValid {
-		memberName := memberType.Name()
-		headName := headType.Name()
-		if !memberName.IsZero() && !headName.IsZero() && memberName == headName {
-			derivedValid = true
-		}
+	if isValidSubstitutionDerivation(sch, memberType, headType) {
+		return nil
 	}
-	if !derivedValid && !model.IsValidlyDerivedFrom(memberType, headType) {
-		if memberCT, ok := memberType.(*model.ComplexType); ok {
-			baseQName := memberCT.Content().BaseTypeQName()
-			if typesAreEqual(baseQName, headType) || isTypeInDerivationChain(sch, baseQName, headType) {
-				derivedValid = true
-			}
-		}
-		if !derivedValid {
-			return fmt.Errorf("element %s: type '%s' is not derived from substitution group head type '%s'",
-				memberQName, memberType.Name(), headType.Name())
-		}
-	}
+	return fmt.Errorf("element %s: type '%s' is not derived from substitution group head type '%s'",
+		memberQName, memberType.Name(), headType.Name())
+}
 
-	return nil
+func shouldInheritHeadType(memberDecl, headDecl *model.ElementDecl) bool {
+	return memberDecl != nil &&
+		!memberDecl.TypeExplicit &&
+		memberDecl.Type != nil &&
+		model.IsAnyTypeQName(memberDecl.Type.Name()) &&
+		headDecl.Type != nil
+}
+
+func shouldReuseHeadType(memberDecl *model.ElementDecl) bool {
+	return !memberDecl.SubstitutionGroup.IsZero() &&
+		!memberDecl.TypeExplicit &&
+		memberDecl.Type != nil &&
+		model.IsAnyTypeQName(memberDecl.Type.Name())
+}
+
+func validateExplicitAnyType(memberQName model.QName, memberDecl, headDecl *model.ElementDecl, headType model.Type) error {
+	if !memberDecl.TypeExplicit || memberDecl.Type == nil {
+		return nil
+	}
+	memberTypeName := memberDecl.Type.Name()
+	if !isAnyType(memberTypeName) {
+		return nil
+	}
+	headTypeName := headType.Name()
+	if !isAnyType(headTypeName) && headDecl.Type != nil {
+		headTypeName = headDecl.Type.Name()
+	}
+	if isAnyType(headTypeName) {
+		return nil
+	}
+	return fmt.Errorf("element %s: type '%s' is not derived from substitution group head type '%s'", memberQName, memberTypeName, headTypeName)
+}
+
+func isAnyType(name model.QName) bool {
+	return name.Namespace == model.XSDNamespace && name.Local == "anyType"
+}
+
+func isAnySimpleType(name model.QName) bool {
+	return name.Namespace == model.XSDNamespace && name.Local == "anySimpleType"
+}
+
+func isSimpleOrBuiltinType(typ model.Type) bool {
+	switch typ.(type) {
+	case *model.SimpleType, *model.BuiltinType:
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidSubstitutionDerivation(sch *parser.Schema, memberType, headType model.Type) bool {
+	if typesMatch(memberType, headType) || model.IsValidlyDerivedFrom(memberType, headType) {
+		return true
+	}
+	memberCT, ok := memberType.(*model.ComplexType)
+	if !ok {
+		return false
+	}
+	baseQName := memberCT.Content().BaseTypeQName()
+	return typesAreEqual(baseQName, headType) || isTypeInDerivationChain(sch, baseQName, headType)
 }

@@ -2,7 +2,6 @@ package semanticcheck
 
 import (
 	"github.com/jacoelho/xsd/internal/facets"
-	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -57,19 +56,19 @@ func implicitRangeFacetsForBuiltin(bt *model.BuiltinType) []model.Facet {
 	var result []model.Facet
 	if info.hasMin {
 		if info.minInclusive {
-			if facet, err := facetvalue.NewMinInclusive(info.minValue, bt); err == nil {
+			if facet, err := model.NewMinInclusive(info.minValue, bt); err == nil {
 				result = append(result, facet)
 			}
-		} else if facet, err := facetvalue.NewMinExclusive(info.minValue, bt); err == nil {
+		} else if facet, err := model.NewMinExclusive(info.minValue, bt); err == nil {
 			result = append(result, facet)
 		}
 	}
 	if info.hasMax {
 		if info.maxInclusive {
-			if facet, err := facetvalue.NewMaxInclusive(info.maxValue, bt); err == nil {
+			if facet, err := model.NewMaxInclusive(info.maxValue, bt); err == nil {
 				result = append(result, facet)
 			}
-		} else if facet, err := facetvalue.NewMaxExclusive(info.maxValue, bt); err == nil {
+		} else if facet, err := model.NewMaxExclusive(info.maxValue, bt); err == nil {
 			result = append(result, facet)
 		}
 	}

@@ -3,7 +3,6 @@ package semanticresolve
 import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/semantics"
 )
 
@@ -21,11 +20,11 @@ type iterationIndex struct {
 
 func buildIterationIndex(sch *parser.Schema) *iterationIndex {
 	idx := &iterationIndex{
-		typeQNames:           qname.SortedMapKeys(sch.TypeDefs),
-		elementQNames:        qname.SortedMapKeys(sch.ElementDecls),
-		attributeQNames:      qname.SortedMapKeys(sch.AttributeDecls),
-		groupQNames:          qname.SortedMapKeys(sch.Groups),
-		attributeGroupQNames: qname.SortedMapKeys(sch.AttributeGroups),
+		typeQNames:           model.SortedMapKeys(sch.TypeDefs),
+		elementQNames:        model.SortedMapKeys(sch.ElementDecls),
+		attributeQNames:      model.SortedMapKeys(sch.AttributeDecls),
+		groupQNames:          model.SortedMapKeys(sch.Groups),
+		attributeGroupQNames: model.SortedMapKeys(sch.AttributeGroups),
 	}
 	idx.elementRefsInContent = collectElementReferencesInSchemaWithIndex(sch, idx)
 	idx.allIdentityConstraints = semantics.CollectAllIdentityConstraints(sch)

@@ -5,14 +5,13 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
 // validateAttributeDeclStructure validates structural constraints of an attribute declaration
 // Does not validate references (which might be forward references or imports)
 func validateAttributeDeclStructure(schemaDef *parser.Schema, attrQName model.QName, decl *model.AttributeDecl) error {
-	if !qname.IsValidNCName(attrQName.Local) {
+	if !model.IsValidNCName(attrQName.Local) {
 		return fmt.Errorf("invalid attribute name '%s': must be a valid NCName", attrQName.Local)
 	}
 	if attrQName.Local == "xmlns" {
@@ -68,7 +67,7 @@ func validateAttributeDeclStructure(schemaDef *parser.Schema, attrQName model.QN
 
 // validateAttributeGroupStructure validates structural constraints of an attribute group
 func validateAttributeGroupStructure(schema *parser.Schema, groupQName model.QName, ag *model.AttributeGroup) error {
-	if !qname.IsValidNCName(groupQName.Local) {
+	if !model.IsValidNCName(groupQName.Local) {
 		return fmt.Errorf("invalid attributeGroup name '%s': must be a valid NCName", groupQName.Local)
 	}
 	for _, attr := range ag.Attributes {

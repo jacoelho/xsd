@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/graphcycle"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -21,9 +20,9 @@ func detectGroupCycles(schema *parser.Schema) error {
 		return err
 	}
 
-	err := graphcycle.Detect(graphcycle.Config[model.QName]{
+	err := DetectGraphCycle(GraphCycleConfig[model.QName]{
 		Starts:  starts,
-		Missing: graphcycle.MissingPolicyError,
+		Missing: GraphCycleMissingPolicyError,
 		Exists: func(name model.QName) bool {
 			return schema.Groups[name] != nil
 		},
@@ -43,11 +42,11 @@ func detectGroupCycles(schema *parser.Schema) error {
 	if err == nil {
 		return nil
 	}
-	var cycleErr graphcycle.CycleError[model.QName]
+	var cycleErr GraphCycleError[model.QName]
 	if errors.As(err, &cycleErr) {
 		return fmt.Errorf("group cycle detected at %s", cycleErr.Key)
 	}
-	var missingErr graphcycle.MissingError[model.QName]
+	var missingErr GraphMissingError[model.QName]
 	if errors.As(err, &missingErr) {
 		return fmt.Errorf("group %s ref %s not found", missingErr.From, missingErr.Key)
 	}

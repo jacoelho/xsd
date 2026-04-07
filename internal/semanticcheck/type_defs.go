@@ -5,15 +5,17 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
 )
 
 // validateTypeDefStructure validates structural constraints of a type definition
 // Does not validate references (which might be forward references or imports)
 func validateTypeDefStructure(schema *parser.Schema, typeQName model.QName, typ model.Type) error {
 	// this is a structural constraint that is definitely invalid if violated
-	if !qname.IsValidNCName(typeQName.Local) {
+	if !model.IsValidNCName(typeQName.Local) {
 		return fmt.Errorf("invalid type name '%s': must be a valid NCName", typeQName.Local)
+	}
+	if model.IsNilType(typ) {
+		return fmt.Errorf("type definition is nil")
 	}
 
 	switch t := typ.(type) {
@@ -45,7 +47,7 @@ func validateWhiteSpaceRestriction(derivedType *model.SimpleType, baseType model
 
 	// get base type's whiteSpace
 	var baseWS model.WhiteSpace
-	if baseType != nil {
+	if !model.IsNilType(baseType) {
 		switch bt := baseType.(type) {
 		case *model.SimpleType:
 			baseWS = bt.WhiteSpace()

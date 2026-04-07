@@ -90,9 +90,9 @@ func TestPreparedArtifactsBuildMatchesDirectBuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("prepared.Build() error = %v", err)
 	}
-	rtDirect, err := BuildArtifacts(prepared.Schema(), reg, refs, prepared.Validators(), BuildConfig{})
+	rtDirect, err := Build(prepared.Schema(), reg, refs, prepared.Validators(), Config{})
 	if err != nil {
-		t.Fatalf("BuildArtifacts() error = %v", err)
+		t.Fatalf("Build() error = %v", err)
 	}
 
 	if rtPrepared.BuildHash != rtDirect.BuildHash {
@@ -176,9 +176,9 @@ func TestPrepareBuildArtifactsWithPrecomputedValidatorsSimpleContentRestriction(
 	if err != nil {
 		t.Fatalf("prepared.Build() error = %v", err)
 	}
-	rtDirect, err := BuildArtifacts(sch, reg, refs, validators, BuildConfig{})
+	rtDirect, err := Build(sch, reg, refs, validators, Config{})
 	if err != nil {
-		t.Fatalf("BuildArtifacts() error = %v", err)
+		t.Fatalf("Build() error = %v", err)
 	}
 	if len(rtPrepared.Elements) != len(rtDirect.Elements) {
 		t.Fatalf("element count mismatch: prepared=%d direct=%d", len(rtPrepared.Elements), len(rtDirect.Elements))

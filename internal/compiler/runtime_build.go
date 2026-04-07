@@ -17,21 +17,6 @@ type PreparedArtifacts struct {
 	validators *semantics.CompiledValidators
 }
 
-// BuildArtifacts compiles resolved semantic artifacts into a runtime schema model.
-func BuildArtifacts(
-	sch *parser.Schema,
-	reg *analysis.Registry,
-	refs *analysis.ResolvedReferences,
-	validators *semantics.CompiledValidators,
-	cfg BuildConfig,
-) (*runtime.Schema, error) {
-	prepared, err := PrepareBuildArtifacts(sch, reg, refs, validators)
-	if err != nil {
-		return nil, err
-	}
-	return prepared.Build(cfg)
-}
-
 // PrepareBuildArtifacts packages compiler-owned artifacts for repeated runtime builds.
 func PrepareBuildArtifacts(
 	sch *parser.Schema,

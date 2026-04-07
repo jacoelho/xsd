@@ -5,8 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/typechain"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -17,7 +15,7 @@ func CollectAttributeUses(schema *parser.Schema, ct *model.ComplexType) ([]*mode
 		return nil, nil, nil
 	}
 	attrMap := make(map[model.QName]*model.AttributeDecl)
-	chain := typechain.CollectComplexTypeChain(schema, ct, typechain.ComplexTypeChainExplicitBaseOnly)
+	chain := CollectComplexTypeChain(schema, ct, ComplexTypeChainExplicitBaseOnly)
 	var wildcard *model.AnyAttribute
 	for i := len(chain) - 1; i >= 0; i-- {
 		current := chain[i]
@@ -44,7 +42,7 @@ func CollectAttributeUses(schema *parser.Schema, ct *model.ComplexType) ([]*mode
 	slices.SortFunc(out, func(a, b *model.AttributeDecl) int {
 		left := typeresolve.EffectiveAttributeQName(schema, a)
 		right := typeresolve.EffectiveAttributeQName(schema, b)
-		return qname.Compare(left, right)
+		return model.Compare(left, right)
 	})
 	return out, wildcard, nil
 }

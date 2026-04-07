@@ -6,17 +6,17 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	"github.com/jacoelho/xsd/internal/xpath"
 )
 
-func resolvePathElementDecl(schema *parser.Schema, startDecl *model.ElementDecl, steps []xpath.Step) (*model.ElementDecl, error) {
+func resolvePathElementDecl(schema *parser.Schema, startDecl *model.ElementDecl, steps []runtime.Step) (*model.ElementDecl, error) {
 	current := resolveElementReference(schema, startDecl)
 	descendantNext := false
 
 	for _, step := range steps {
 		switch step.Axis {
-		case xpath.AxisDescendantOrSelf:
+		case runtime.AxisDescendantOrSelf:
 			if !step.Test.Any {
 				return nil, fmt.Errorf("xpath uses disallowed axis")
 			}
@@ -25,7 +25,7 @@ func resolvePathElementDecl(schema *parser.Schema, startDecl *model.ElementDecl,
 			}
 			descendantNext = true
 			continue
-		case xpath.AxisSelf:
+		case runtime.AxisSelf:
 			if descendantNext {
 				if step.Test.Any {
 					return nil, fmt.Errorf("%w: descendant self step", ErrXPathUnresolvable)
@@ -36,7 +36,7 @@ func resolvePathElementDecl(schema *parser.Schema, startDecl *model.ElementDecl,
 				return nil, fmt.Errorf("xpath self step does not match current element")
 			}
 			continue
-		case xpath.AxisChild:
+		case runtime.AxisChild:
 		default:
 			return nil, fmt.Errorf("xpath uses disallowed axis")
 		}
@@ -67,7 +67,7 @@ func resolvePathElementDecl(schema *parser.Schema, startDecl *model.ElementDecl,
 	return current, nil
 }
 
-func findElementDeclDescendant(schema *parser.Schema, elementDecl *model.ElementDecl, test xpath.NodeTest) (*model.ElementDecl, error) {
+func findElementDeclDescendant(schema *parser.Schema, elementDecl *model.ElementDecl, test runtime.NodeTest) (*model.ElementDecl, error) {
 	ct, err := resolveComplexTypeForElementSearch(schema, elementDecl)
 	if err != nil {
 		return nil, err
@@ -80,11 +80,11 @@ func findElementDeclDescendant(schema *parser.Schema, elementDecl *model.Element
 	return decl, err
 }
 
-func findElementDeclInContentDescendant(schema *parser.Schema, content model.Content, test xpath.NodeTest, visited map[*model.ComplexType]struct{}) (*model.ElementDecl, error) {
+func findElementDeclInContentDescendant(schema *parser.Schema, content model.Content, test runtime.NodeTest, visited map[*model.ComplexType]struct{}) (*model.ElementDecl, error) {
 	return findElementDeclInContentWithMode(schema, content, test, elementPathSearchDescendant, visited)
 }
 
-func findElementDecl(schema *parser.Schema, elementDecl *model.ElementDecl, test xpath.NodeTest) (*model.ElementDecl, error) {
+func findElementDecl(schema *parser.Schema, elementDecl *model.ElementDecl, test runtime.NodeTest) (*model.ElementDecl, error) {
 	if isWildcardNodeTest(test) {
 		return nil, fmt.Errorf("%w: wildcard element", ErrXPathUnresolvable)
 	}
@@ -95,7 +95,7 @@ func findElementDecl(schema *parser.Schema, elementDecl *model.ElementDecl, test
 	return findElementDeclInContent(ct.Content(), test)
 }
 
-func findElementDeclInContent(content model.Content, test xpath.NodeTest) (*model.ElementDecl, error) {
+func findElementDeclInContent(content model.Content, test runtime.NodeTest) (*model.ElementDecl, error) {
 	return findElementDeclInContentWithMode(nil, content, test, elementPathSearchDirect, nil)
 }
 
@@ -119,7 +119,7 @@ func resolveComplexTypeForElementSearch(schema *parser.Schema, elementDecl *mode
 	return ct, nil
 }
 
-func findElementDeclInContentWithMode(schema *parser.Schema, content model.Content, test xpath.NodeTest, mode elementPathSearchMode, visited map[*model.ComplexType]struct{}) (*model.ElementDecl, error) {
+func findElementDeclInContentWithMode(schema *parser.Schema, content model.Content, test runtime.NodeTest, mode elementPathSearchMode, visited map[*model.ComplexType]struct{}) (*model.ElementDecl, error) {
 	switch c := content.(type) {
 	case *model.ElementContent:
 		if c.Particle != nil {
@@ -166,7 +166,7 @@ func findElementDeclInContentWithMode(schema *parser.Schema, content model.Conte
 	return nil, fmt.Errorf("element '%s' not found in content model", formatNodeTest(test))
 }
 
-func findElementDeclInParticleWithMode(schema *parser.Schema, particle model.Particle, test xpath.NodeTest, mode elementPathSearchMode, visited map[*model.ComplexType]struct{}) (*model.ElementDecl, error) {
+func findElementDeclInParticleWithMode(schema *parser.Schema, particle model.Particle, test runtime.NodeTest, mode elementPathSearchMode, visited map[*model.ComplexType]struct{}) (*model.ElementDecl, error) {
 	switch p := particle.(type) {
 	case *model.ElementDecl:
 		elem := p

@@ -2,8 +2,6 @@ package validator
 
 import (
 	"fmt"
-
-	"github.com/jacoelho/xsd/internal/validator/identity"
 )
 
 func (s *Session) identityStart(in identityStartInput) error {
@@ -22,13 +20,13 @@ func (s *identityState) start(sess *Session, in identityStartInput) error {
 	if sess == nil || sess.rt == nil {
 		return fmt.Errorf("identity: schema missing")
 	}
-	return identity.StartFrame(sess.rt, &s.State, identity.StartInput{
+	return StartFrame(sess.rt, &s.State, StartInput{
 		Elem:   in.Elem,
 		Type:   in.Type,
 		Sym:    in.Sym,
 		NS:     in.NS,
 		Nilled: in.Nilled,
-	}, func() []identity.Attr {
+	}, func() []Attr {
 		if len(in.Attrs) == 0 && len(in.Applied) == 0 {
 			return nil
 		}

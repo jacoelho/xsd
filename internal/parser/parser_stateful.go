@@ -26,25 +26,15 @@ func NewParser(opts ...xmlstream.Option) *Parser {
 	}
 }
 
-// ParseWithOptions parses one schema and returns directive metadata.
-func ParseWithOptions(r io.Reader, opts ...xmlstream.Option) (*ParseResult, error) {
-	return ParseWithImportsOptions(r, opts...)
-}
-
-// ParseWithOptionsWithPool parses one schema with an explicit document pool.
-func ParseWithOptionsWithPool(r io.Reader, pool *xmltree.DocumentPool, opts ...xmlstream.Option) (*ParseResult, error) {
-	return ParseWithImportsOptionsWithPool(r, pool, opts...)
-}
-
 // Parse parses one schema and returns directive metadata.
 func (p *Parser) Parse(r io.Reader) (*ParseResult, error) {
 	if p == nil {
-		return ParseWithOptions(r)
+		return ParseWithImportsOptions(r)
 	}
 	pool := p.pool
 	if pool == nil {
 		pool = xmltree.NewDocumentPool()
 		p.pool = pool
 	}
-	return ParseWithOptionsWithPool(r, pool, p.opts...)
+	return ParseWithImportsOptionsWithPool(r, pool, p.opts...)
 }

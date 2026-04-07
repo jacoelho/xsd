@@ -3,7 +3,7 @@ package semanticcheck
 import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -40,7 +40,7 @@ func resolveSimpleContentBaseType(schema *parser.Schema, baseQName model.QName) 
 			}
 		}
 
-		baseType, ok := typechain.LookupType(schema, qname)
+		baseType, ok := semantics.LookupType(schema, qname)
 		if !ok || baseType == nil {
 			return nil, qname
 		}

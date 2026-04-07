@@ -7,11 +7,11 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	"github.com/jacoelho/xsd/internal/xpath"
 )
 
-func findAttributeType(schema *parser.Schema, elementDecl *model.ElementDecl, test xpath.NodeTest) (model.Type, error) {
+func findAttributeType(schema *parser.Schema, elementDecl *model.ElementDecl, test runtime.NodeTest) (model.Type, error) {
 	if isWildcardNodeTest(test) {
 		return nil, fmt.Errorf("%w: wildcard attribute", ErrXPathUnresolvable)
 	}
@@ -62,7 +62,7 @@ func findAttributeType(schema *parser.Schema, elementDecl *model.ElementDecl, te
 	return nil, fmt.Errorf("%w: attribute '%s' not found in element type", ErrXPathUnresolvable, formatNodeTest(test))
 }
 
-func findAttributeTypeDescendant(schema *parser.Schema, elementDecl *model.ElementDecl, test xpath.NodeTest) (model.Type, error) {
+func findAttributeTypeDescendant(schema *parser.Schema, elementDecl *model.ElementDecl, test runtime.NodeTest) (model.Type, error) {
 	if isWildcardNodeTest(test) {
 		return nil, fmt.Errorf("%w: wildcard attribute", ErrXPathUnresolvable)
 	}
@@ -85,7 +85,7 @@ func findAttributeTypeDescendant(schema *parser.Schema, elementDecl *model.Eleme
 	return findAttributeTypeInContentDescendant(schema, ct.Content(), test, visited)
 }
 
-func findAttributeTypeInContentDescendant(schema *parser.Schema, content model.Content, test xpath.NodeTest, visited map[*model.ComplexType]struct{}) (model.Type, error) {
+func findAttributeTypeInContentDescendant(schema *parser.Schema, content model.Content, test runtime.NodeTest, visited map[*model.ComplexType]struct{}) (model.Type, error) {
 	switch c := content.(type) {
 	case *model.ElementContent:
 		if c.Particle != nil {
@@ -108,7 +108,7 @@ func findAttributeTypeInContentDescendant(schema *parser.Schema, content model.C
 	return nil, fmt.Errorf("attribute '%s' not found in content model", formatNodeTest(test))
 }
 
-func findAttributeTypeInParticleDescendant(schema *parser.Schema, particle model.Particle, test xpath.NodeTest, visited map[*model.ComplexType]struct{}) (model.Type, error) {
+func findAttributeTypeInParticleDescendant(schema *parser.Schema, particle model.Particle, test runtime.NodeTest, visited map[*model.ComplexType]struct{}) (model.Type, error) {
 	switch p := particle.(type) {
 	case *model.ElementDecl:
 		elem := resolveElementReference(schema, p)
@@ -146,7 +146,7 @@ func findAttributeTypeInParticleDescendant(schema *parser.Schema, particle model
 	return nil, fmt.Errorf("attribute '%s' not found in particle", formatNodeTest(test))
 }
 
-func resolveFieldPathType(schema *parser.Schema, selectedElementDecl *model.ElementDecl, fieldPath xpath.Path) (model.Type, error) {
+func resolveFieldPathType(schema *parser.Schema, selectedElementDecl *model.ElementDecl, fieldPath runtime.Path) (model.Type, error) {
 	if selectedElementDecl == nil {
 		return nil, fmt.Errorf("cannot resolve field without selector element")
 	}

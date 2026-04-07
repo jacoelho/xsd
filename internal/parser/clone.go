@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/qname"
 )
 
 // CloneSchemaForMerge returns a schema copy suitable for in-place merge staging.
@@ -38,32 +37,32 @@ func CloneSchema(sch *Schema) *Schema {
 		PreserveSourceNamespace: true,
 	})
 
-	for _, name := range qname.SortedMapKeys(sch.ElementDecls) {
+	for _, name := range model.SortedMapKeys(sch.ElementDecls) {
 		clone.ElementDecls[name] = sch.ElementDecls[name].Copy(opts)
 	}
 	maps.Copy(clone.ElementOrigins, sch.ElementOrigins)
 
-	for _, name := range qname.SortedMapKeys(sch.TypeDefs) {
+	for _, name := range model.SortedMapKeys(sch.TypeDefs) {
 		clone.TypeDefs[name] = model.CopyType(sch.TypeDefs[name], opts)
 	}
 	maps.Copy(clone.TypeOrigins, sch.TypeOrigins)
 
-	for _, name := range qname.SortedMapKeys(sch.AttributeDecls) {
+	for _, name := range model.SortedMapKeys(sch.AttributeDecls) {
 		clone.AttributeDecls[name] = sch.AttributeDecls[name].Copy(opts)
 	}
 	maps.Copy(clone.AttributeOrigins, sch.AttributeOrigins)
 
-	for _, name := range qname.SortedMapKeys(sch.AttributeGroups) {
+	for _, name := range model.SortedMapKeys(sch.AttributeGroups) {
 		clone.AttributeGroups[name] = sch.AttributeGroups[name].Copy(opts)
 	}
 	maps.Copy(clone.AttributeGroupOrigins, sch.AttributeGroupOrigins)
 
-	for _, name := range qname.SortedMapKeys(sch.Groups) {
+	for _, name := range model.SortedMapKeys(sch.Groups) {
 		clone.Groups[name] = sch.Groups[name].Copy(opts)
 	}
 	maps.Copy(clone.GroupOrigins, sch.GroupOrigins)
 
-	for _, name := range qname.SortedMapKeys(sch.NotationDecls) {
+	for _, name := range model.SortedMapKeys(sch.NotationDecls) {
 		clone.NotationDecls[name] = sch.NotationDecls[name].Copy(opts)
 	}
 	maps.Copy(clone.NotationOrigins, sch.NotationOrigins)

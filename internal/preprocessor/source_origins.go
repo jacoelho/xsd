@@ -3,7 +3,6 @@ package preprocessor
 import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
 )
 
 func InitOrigins(sch *parser.Schema, location string) {
@@ -27,7 +26,7 @@ func assignMissingOrigins[V any](origins map[model.QName]string, decls map[model
 	if origins == nil {
 		origins = make(map[model.QName]string, len(decls))
 	}
-	for _, name := range qname.SortedMapKeys(decls) {
+	for _, name := range model.SortedMapKeys(decls) {
 		if origins[name] == "" {
 			origins[name] = location
 		}

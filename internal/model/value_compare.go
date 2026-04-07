@@ -31,154 +31,160 @@ func valuesEqual(left, right TypedValue) bool {
 
 	switch l := leftNative.(type) {
 	case num.Dec:
-		switch r := rightNative.(type) {
-		case num.Dec:
-			return l.Compare(r) == 0
-		case num.Int:
-			return l.Compare(r.AsDec()) == 0
-		default:
-			return false
-		}
-
+		return decimalValuesEqual(l, rightNative)
 	case num.Int:
-		switch r := rightNative.(type) {
-		case num.Int:
-			return l.Compare(r) == 0
-		case num.Dec:
-			return l.CompareDec(r) == 0
-		default:
-			return false
-		}
-
+		return integerValuesEqual(l, rightNative)
 	case time.Time:
-		r, ok := rightNative.(time.Time)
-		if !ok {
-			return false
-		}
-		leftKind, leftTemporal := temporalKindFromType(left.Type())
-		rightKind, rightTemporal := temporalKindFromType(right.Type())
-		if leftTemporal || rightTemporal {
-			if !leftTemporal || !rightTemporal || leftKind != rightKind {
-				return false
-			}
-			leftVal, lerr := value.Parse(leftKind, []byte(left.Lexical()))
-			rightVal, rerr := value.Parse(rightKind, []byte(right.Lexical()))
-			if lerr != nil || rerr != nil {
-				return false
-			}
-			return value.Equal(leftVal, rightVal)
-		}
-		return l.Equal(r)
-
+		return timeValuesEqual(left, right, l, rightNative)
 	case bool:
-		r, ok := rightNative.(bool)
-		if !ok {
-			return false
-		}
-		return l == r
-
+		return comparableValuesEqual(l, rightNative)
 	case string:
-		r, ok := rightNative.(string)
-		if !ok {
-			return false
-		}
-		return l == r
-
+		return comparableValuesEqual(l, rightNative)
 	case float32:
-		switch r := rightNative.(type) {
-		case float32:
-			if math.IsNaN(float64(l)) || math.IsNaN(float64(r)) {
-				return math.IsNaN(float64(l)) && math.IsNaN(float64(r))
-			}
-			return l == r
-		case float64:
-			if math.IsNaN(float64(l)) || math.IsNaN(r) {
-				return math.IsNaN(float64(l)) && math.IsNaN(r)
-			}
-			return float64(l) == r
-		default:
-			return false
-		}
-
+		return float32ValuesEqual(l, rightNative)
 	case float64:
-		switch r := rightNative.(type) {
-		case float64:
-			if math.IsNaN(l) || math.IsNaN(r) {
-				return math.IsNaN(l) && math.IsNaN(r)
-			}
-			return l == r
-		case float32:
-			if math.IsNaN(l) || math.IsNaN(float64(r)) {
-				return math.IsNaN(l) && math.IsNaN(float64(r))
-			}
-			return l == float64(r)
-		default:
-			return false
-		}
-
+		return float64ValuesEqual(l, rightNative)
 	case QName:
 		r, ok := rightNative.(QName)
 		return ok && l.Equal(r)
-
 	case value.Duration:
-		switch r := rightNative.(type) {
-		case value.Duration:
-			return durationsEqual(l, r, left.Type(), right.Type())
-		case ComparableXSDDuration:
-			return durationsEqual(l, r.Value, left.Type(), right.Type())
-		default:
-			return false
-		}
-
+		return rawDurationValuesEqual(l, left.Type(), right, rightNative)
 	case ComparableXSDDuration:
-		switch r := rightNative.(type) {
-		case ComparableXSDDuration:
-			cmp, err := l.Compare(r)
-			return err == nil && cmp == 0
-		case value.Duration:
-			return durationsEqual(l.Value, r, left.Type(), right.Type())
-		default:
-			return false
-		}
-
+		return comparableDurationValuesEqual(l, right, rightNative)
 	case int64:
-		r, ok := rightNative.(int64)
-		return ok && l == r
+		return comparableValuesEqual(l, rightNative)
 	case int32:
-		r, ok := rightNative.(int32)
-		return ok && l == r
+		return comparableValuesEqual(l, rightNative)
 	case int16:
-		r, ok := rightNative.(int16)
-		return ok && l == r
+		return comparableValuesEqual(l, rightNative)
 	case int8:
-		r, ok := rightNative.(int8)
-		return ok && l == r
+		return comparableValuesEqual(l, rightNative)
 	case uint64:
-		r, ok := rightNative.(uint64)
-		return ok && l == r
+		return comparableValuesEqual(l, rightNative)
 	case uint32:
-		r, ok := rightNative.(uint32)
-		return ok && l == r
+		return comparableValuesEqual(l, rightNative)
 	case uint16:
-		r, ok := rightNative.(uint16)
-		return ok && l == r
+		return comparableValuesEqual(l, rightNative)
 	case uint8:
-		r, ok := rightNative.(uint8)
-		return ok && l == r
+		return comparableValuesEqual(l, rightNative)
 	case []byte:
-		r, ok := rightNative.([]byte)
-		if !ok || len(l) != len(r) {
-			return false
-		}
-		for i := range l {
-			if l[i] != r[i] {
-				return false
-			}
-		}
-		return true
+		return bytesValuesEqual(l, rightNative)
 	}
 
 	return left.Lexical() == right.Lexical()
+}
+
+func decimalValuesEqual(left num.Dec, right any) bool {
+	switch r := right.(type) {
+	case num.Dec:
+		return left.Compare(r) == 0
+	case num.Int:
+		return left.Compare(r.AsDec()) == 0
+	default:
+		return false
+	}
+}
+
+func integerValuesEqual(left num.Int, right any) bool {
+	switch r := right.(type) {
+	case num.Int:
+		return left.Compare(r) == 0
+	case num.Dec:
+		return left.CompareDec(r) == 0
+	default:
+		return false
+	}
+}
+
+func timeValuesEqual(left, right TypedValue, leftTime time.Time, rightNative any) bool {
+	rightTime, ok := rightNative.(time.Time)
+	if !ok {
+		return false
+	}
+	leftKind, leftTemporal := temporalKindFromType(left.Type())
+	rightKind, rightTemporal := temporalKindFromType(right.Type())
+	if !leftTemporal && !rightTemporal {
+		return leftTime.Equal(rightTime)
+	}
+	if !leftTemporal || !rightTemporal || leftKind != rightKind {
+		return false
+	}
+	leftVal, lerr := value.Parse(leftKind, []byte(left.Lexical()))
+	rightVal, rerr := value.Parse(rightKind, []byte(right.Lexical()))
+	if lerr != nil || rerr != nil {
+		return false
+	}
+	return value.Equal(leftVal, rightVal)
+}
+
+func float32ValuesEqual(left float32, right any) bool {
+	switch r := right.(type) {
+	case float32:
+		return floatsEqual(float64(left), float64(r))
+	case float64:
+		return floatsEqual(float64(left), r)
+	default:
+		return false
+	}
+}
+
+func float64ValuesEqual(left float64, right any) bool {
+	switch r := right.(type) {
+	case float64:
+		return floatsEqual(left, r)
+	case float32:
+		return floatsEqual(left, float64(r))
+	default:
+		return false
+	}
+}
+
+func floatsEqual(left, right float64) bool {
+	if math.IsNaN(left) || math.IsNaN(right) {
+		return math.IsNaN(left) && math.IsNaN(right)
+	}
+	return left == right
+}
+
+func rawDurationValuesEqual(left value.Duration, leftType Type, right TypedValue, rightNative any) bool {
+	switch r := rightNative.(type) {
+	case value.Duration:
+		return durationsEqual(left, r, leftType, right.Type())
+	case ComparableXSDDuration:
+		return durationsEqual(left, r.Value, leftType, right.Type())
+	default:
+		return false
+	}
+}
+
+func comparableDurationValuesEqual(left ComparableXSDDuration, right TypedValue, rightNative any) bool {
+	switch r := rightNative.(type) {
+	case ComparableXSDDuration:
+		cmp, err := left.Compare(r)
+		return err == nil && cmp == 0
+	case value.Duration:
+		return durationsEqual(left.Value, r, left.Type(), right.Type())
+	default:
+		return false
+	}
+}
+
+func bytesValuesEqual(left []byte, right any) bool {
+	rightBytes, ok := right.([]byte)
+	if !ok || len(left) != len(rightBytes) {
+		return false
+	}
+	for i := range left {
+		if left[i] != rightBytes[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func comparableValuesEqual[T comparable](left T, right any) bool {
+	rightValue, ok := right.(T)
+	return ok && left == rightValue
 }
 
 func durationsEqual(left, right value.Duration, leftType, rightType Type) bool {

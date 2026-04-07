@@ -22,82 +22,152 @@ var fractionalLayouts = [...]string{
 
 var errFractionalSecondsTooLong = errors.New("fractional seconds exceed 9 digits (implementation limit)")
 
+type parsedDateTime struct {
+	trimmed        string
+	main           string
+	tz             string
+	datePart       string
+	timePart       string
+	year           int
+	month          int
+	day            int
+	hour           int
+	minute         int
+	second         int
+	fractionLength int
+	tzKind         TimezoneKind
+}
+
 // ParseDateTime parses an xs:dateTime lexical value.
 func ParseDateTime(lexical []byte) (time.Time, error) {
-	trimmed := string(TrimXMLWhitespace(lexical))
-	if err := validateYearPrefix(trimmed, "dateTime"); err != nil {
+	parsed, err := parseDateTimeLexical(lexical)
+	if err != nil {
 		return time.Time{}, err
 	}
+	needsDayOffset, leapSecond, err := validateParsedDateTime(parsed)
+	if err != nil {
+		return time.Time{}, err
+	}
+	value, layout := dateTimeParseInput(parsed, needsDayOffset, leapSecond)
+	ts, err := time.Parse(layout, value)
+	if err != nil {
+		return time.Time{}, invalidDateTimeValue(parsed.trimmed)
+	}
+	ts = normalizeParsedDateTime(ts, needsDayOffset, leapSecond)
+	if err := validateParsedDateTimeRange(parsed, ts); err != nil {
+		return time.Time{}, err
+	}
+	return ts, nil
+}
+
+func parseDateTimeLexical(lexical []byte) (parsedDateTime, error) {
+	trimmed := string(TrimXMLWhitespace(lexical))
+	if err := validateYearPrefix(trimmed, "dateTime"); err != nil {
+		return parsedDateTime{}, err
+	}
 	main, tz := SplitTimezone(trimmed)
-	tzKind := timezoneKindFromTZ(tz)
 	timeIndex := strings.IndexByte(main, 'T')
 	if timeIndex == -1 {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+		return parsedDateTime{}, invalidDateTimeValue(trimmed)
 	}
 	datePart := main[:timeIndex]
 	timePart := main[timeIndex+1:]
 	year, month, day, ok := ParseDateParts(datePart)
 	if !ok {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+		return parsedDateTime{}, invalidDateTimeValue(trimmed)
 	}
 	hour, minute, second, fractionLength, ok := ParseTimeParts(timePart)
 	if !ok {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+		return parsedDateTime{}, invalidDateTimeValue(trimmed)
 	}
-	if year < 1 || year > 9999 {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+	return parsedDateTime{
+		trimmed:        trimmed,
+		main:           main,
+		tz:             tz,
+		tzKind:         timezoneKindFromTZ(tz),
+		datePart:       datePart,
+		timePart:       timePart,
+		year:           year,
+		month:          month,
+		day:            day,
+		hour:           hour,
+		minute:         minute,
+		second:         second,
+		fractionLength: fractionLength,
+	}, nil
+}
+
+func validateParsedDateTime(parsed parsedDateTime) (bool, bool, error) {
+	if parsed.year < 1 || parsed.year > 9999 {
+		return false, false, invalidDateTimeValue(parsed.trimmed)
 	}
-	if month < 1 || month > 12 || !IsValidDate(year, month, day) {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+	if parsed.month < 1 || parsed.month > 12 || !IsValidDate(parsed.year, parsed.month, parsed.day) {
+		return false, false, invalidDateTimeValue(parsed.trimmed)
 	}
-	if err := ValidateTimezoneOffset(tz); err != nil {
-		return time.Time{}, err
+	if err := ValidateTimezoneOffset(parsed.tz); err != nil {
+		return false, false, err
 	}
-	if fractionLength > 9 {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %w", errFractionalSecondsTooLong)
+	if parsed.fractionLength > 9 {
+		return false, false, fmt.Errorf("invalid dateTime: %w", errFractionalSecondsTooLong)
 	}
-	needsDayOffset := hour == 24
+	needsDayOffset := parsed.hour == 24
 	if needsDayOffset {
-		if minute != 0 || second != 0 || !is24HourZero(timePart) {
-			return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+		if parsed.minute != 0 || parsed.second != 0 || !is24HourZero(parsed.timePart) {
+			return false, false, invalidDateTimeValue(parsed.trimmed)
 		}
-	} else if hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 60 {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+	} else if parsed.hour < 0 || parsed.hour > 23 || parsed.minute < 0 || parsed.minute > 59 || parsed.second < 0 || parsed.second > 60 {
+		return false, false, invalidDateTimeValue(parsed.trimmed)
 	}
-	if second == 60 && (hour != 23 || minute != 59) {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+	leapSecond := parsed.second == 60
+	if leapSecond && (parsed.hour != 23 || parsed.minute != 59) {
+		return false, false, invalidDateTimeValue(parsed.trimmed)
 	}
-	leapSecond := second == 60
+	return needsDayOffset, leapSecond, nil
+}
+
+func dateTimeParseInput(parsed parsedDateTime, needsDayOffset, leapSecond bool) (string, string) {
+	timePart := parsed.timePart
+	main := parsed.main
 	if leapSecond {
 		timePart = timePart[:6] + "59" + timePart[8:]
-		main = datePart + "T" + timePart
+		main = parsed.datePart + "T" + timePart
 	}
-	layout := "2006-01-02T15:04:05" + fractionalLayouts[fractionLength]
 	parseValue := main
 	if needsDayOffset {
-		parseValue = datePart + "T00:00:00" + timePart[len("24:00:00"):]
+		parseValue = parsed.datePart + "T00:00:00" + timePart[len("24:00:00"):]
 	}
-	layout = applyTimezoneLayout(layout, tz)
-	parseValue = appendTimezoneSuffix(parseValue, tz)
-	parsed, err := time.Parse(layout, parseValue)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
-	}
+	layout := "2006-01-02T15:04:05" + fractionalLayouts[parsed.fractionLength]
+	layout = applyTimezoneLayout(layout, parsed.tz)
+	parseValue = appendTimezoneSuffix(parseValue, parsed.tz)
+	return parseValue, layout
+}
+
+func normalizeParsedDateTime(ts time.Time, needsDayOffset, leapSecond bool) time.Time {
 	if leapSecond {
-		parsed = parsed.Add(time.Second)
+		ts = ts.Add(time.Second)
 	}
 	if needsDayOffset {
-		parsed = parsed.Add(24 * time.Hour)
+		ts = ts.Add(24 * time.Hour)
 	}
-	if tzKind == TZKnown {
-		utc := parsed.UTC()
+	return ts
+}
+
+func validateParsedDateTimeRange(parsed parsedDateTime, ts time.Time) error {
+	if parsed.tzKind == TZKnown {
+		utc := ts.UTC()
 		if utc.Year() < 1 || utc.Year() > 9999 {
-			return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+			return invalidDateTimeValue(parsed.trimmed)
 		}
-	} else if parsed.Year() < 1 || parsed.Year() > 9999 {
-		return time.Time{}, fmt.Errorf("invalid dateTime: %s", trimmed)
+		return nil
 	}
-	return parsed, nil
+	if ts.Year() < 1 || ts.Year() > 9999 {
+		return invalidDateTimeValue(parsed.trimmed)
+	}
+	return nil
+}
+
+func invalidDateTimeValue(trimmed string) error {
+	return fmt.Errorf("invalid dateTime: %s", trimmed)
 }
 
 // ParseDate parses an xs:date lexical value.

@@ -2,3 +2,5 @@ bin/
 testdata/xsdtests/
 testdata/gml/example.gml
 testdata/gml/xsd/
+.lab/
+run.log

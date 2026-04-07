@@ -4,7 +4,6 @@ import (
 	"maps"
 
 	"github.com/jacoelho/xsd/internal/analysis"
-	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
@@ -17,7 +16,7 @@ func (c *compiler) result(registry *analysis.Registry) *CompiledValidators {
 		Enums:           c.enums.table(),
 		Values:          c.values.table(),
 		ComplexTypes:    c.complexTypes,
-		TypeValidators:  make(map[ids.TypeID]runtime.ValidatorID),
+		TypeValidators:  make(map[analysis.TypeID]runtime.ValidatorID),
 		ValidatorByType: make(map[model.Type]runtime.ValidatorID),
 		elements:        c.elements,
 		attributes:      c.attributes,

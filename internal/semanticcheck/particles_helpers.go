@@ -4,7 +4,6 @@ import (
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurs"
 )
 
 func normalizePointlessParticle(p model.Particle) model.Particle {
@@ -79,28 +78,28 @@ func isBlockSuperset(restrictionBlock, baseBlock model.DerivationSet) bool {
 // for a model group by considering the group's occurrence and its children.
 // For sequences: effective = group.occ * sum(children.occ)
 // For choices: effective = group.occ * max(children.occ) for max, group.occ * min(children.minOcc) for min
-func calculateEffectiveOccurrence(mg *model.ModelGroup) (minOcc, maxOcc occurs.Occurs) {
+func calculateEffectiveOccurrence(mg *model.ModelGroup) (minOcc, maxOcc model.Occurs) {
 	groupMinOcc := mg.MinOcc()
 	groupMaxOcc := mg.MaxOcc()
 
 	if len(mg.Particles) == 0 {
-		return occurs.OccursFromInt(0), occurs.OccursFromInt(0)
+		return model.OccursFromInt(0), model.OccursFromInt(0)
 	}
 
 	switch mg.Kind {
 	case model.Sequence:
-		sumMinOcc := occurs.OccursFromInt(0)
-		sumMaxOcc := occurs.OccursFromInt(0)
+		sumMinOcc := model.OccursFromInt(0)
+		sumMaxOcc := model.OccursFromInt(0)
 		for _, p := range mg.Particles {
 			childMin, childMax := getParticleEffectiveOccurrence(p)
-			sumMinOcc = occurs.AddOccurs(sumMinOcc, childMin)
-			sumMaxOcc = occurs.AddOccurs(sumMaxOcc, childMax)
+			sumMinOcc = model.AddOccurs(sumMinOcc, childMin)
+			sumMaxOcc = model.AddOccurs(sumMaxOcc, childMax)
 		}
-		minOcc = occurs.MulOccurs(groupMinOcc, sumMinOcc)
-		maxOcc = occurs.MulOccurs(groupMaxOcc, sumMaxOcc)
+		minOcc = model.MulOccurs(groupMinOcc, sumMinOcc)
+		maxOcc = model.MulOccurs(groupMaxOcc, sumMaxOcc)
 	case model.Choice:
-		childMinOcc := occurs.OccursFromInt(0)
-		childMaxOcc := occurs.OccursFromInt(0)
+		childMinOcc := model.OccursFromInt(0)
+		childMaxOcc := model.OccursFromInt(0)
 		childMinOccSet := false
 		for _, p := range mg.Particles {
 			childMin, childMax := getParticleEffectiveOccurrence(p)
@@ -111,23 +110,23 @@ func calculateEffectiveOccurrence(mg *model.ModelGroup) (minOcc, maxOcc occurs.O
 				childMinOcc = childMin
 				childMinOccSet = true
 			}
-			childMaxOcc = occurs.MaxOccurs(childMaxOcc, childMax)
+			childMaxOcc = model.MaxOccurs(childMaxOcc, childMax)
 		}
 		if !childMinOccSet {
-			childMinOcc = occurs.OccursFromInt(0)
+			childMinOcc = model.OccursFromInt(0)
 		}
-		minOcc = occurs.MulOccurs(groupMinOcc, childMinOcc)
-		maxOcc = occurs.MulOccurs(groupMaxOcc, childMaxOcc)
+		minOcc = model.MulOccurs(groupMinOcc, childMinOcc)
+		maxOcc = model.MulOccurs(groupMaxOcc, childMaxOcc)
 	case model.AllGroup:
-		sumMinOcc := occurs.OccursFromInt(0)
-		sumMaxOcc := occurs.OccursFromInt(0)
+		sumMinOcc := model.OccursFromInt(0)
+		sumMaxOcc := model.OccursFromInt(0)
 		for _, p := range mg.Particles {
 			childMin, childMax := getParticleEffectiveOccurrence(p)
-			sumMinOcc = occurs.AddOccurs(sumMinOcc, childMin)
-			sumMaxOcc = occurs.AddOccurs(sumMaxOcc, childMax)
+			sumMinOcc = model.AddOccurs(sumMinOcc, childMin)
+			sumMaxOcc = model.AddOccurs(sumMaxOcc, childMax)
 		}
-		minOcc = occurs.MulOccurs(groupMinOcc, sumMinOcc)
-		maxOcc = occurs.MulOccurs(groupMaxOcc, sumMaxOcc)
+		minOcc = model.MulOccurs(groupMinOcc, sumMinOcc)
+		maxOcc = model.MulOccurs(groupMaxOcc, sumMaxOcc)
 	default:
 		minOcc = groupMinOcc
 		maxOcc = groupMaxOcc
@@ -136,7 +135,7 @@ func calculateEffectiveOccurrence(mg *model.ModelGroup) (minOcc, maxOcc occurs.O
 }
 
 // getParticleEffectiveOccurrence gets the effective occurrence of a single particle
-func getParticleEffectiveOccurrence(p model.Particle) (minOcc, maxOcc occurs.Occurs) {
+func getParticleEffectiveOccurrence(p model.Particle) (minOcc, maxOcc model.Occurs) {
 	switch particle := p.(type) {
 	case *model.ModelGroup:
 		return calculateEffectiveOccurrence(particle)

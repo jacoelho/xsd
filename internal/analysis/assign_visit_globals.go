@@ -24,7 +24,7 @@ func (b *builder) visitGlobalAttribute(name model.QName, decl *model.AttributeDe
 }
 
 func (b *builder) visitAttributeGroup(group *model.AttributeGroup) error {
-	return b.visitAttributeDeclsWithIDs(group.Attributes)
+	return b.visitAttributeDeclsWithAssigner(group.Attributes, b.assignLocalAttribute)
 }
 
 func (b *builder) visitGroup(group *model.ModelGroup) error {

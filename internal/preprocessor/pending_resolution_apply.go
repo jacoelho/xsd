@@ -2,7 +2,6 @@ package preprocessor
 
 import (
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/preprocessor/merge"
 )
 
 func (l *Loader) applyPendingInclude(directive Directive[loadKey], source *parser.Schema, target *stagedPendingTarget) error {
@@ -12,23 +11,23 @@ func (l *Loader) applyPendingInclude(directive Directive[loadKey], source *parse
 		DeclIndex:      directive.IncludeDeclIndex,
 		IncludeIndex:   directive.IncludeIndex,
 	}
-	plan, err := merge.PlanInclude(includingNS, target.includeInserted, target.schema, includeInfo, directive.SchemaLocation, source)
+	plan, err := PlanInclude(includingNS, target.includeInserted, target.schema, includeInfo, directive.SchemaLocation, source)
 	if err != nil {
 		return err
 	}
-	inserted, err := merge.ApplyPlanned(target.schema, source, plan, "included", directive.SchemaLocation)
+	inserted, err := ApplyPlanned(target.schema, source, plan, "included", directive.SchemaLocation)
 	if err != nil {
 		return err
 	}
-	return merge.RecordIncludeInserted(target.includeInserted, directive.IncludeIndex, inserted)
+	return RecordIncludeInserted(target.includeInserted, directive.IncludeIndex, inserted)
 }
 
 func (l *Loader) applyPendingImport(directive Directive[loadKey], source *parser.Schema, target *stagedPendingTarget) error {
-	plan, err := merge.PlanImport(directive.SchemaLocation, directive.ExpectedNamespace, source, len(target.schema.GlobalDecls))
+	plan, err := PlanImport(directive.SchemaLocation, directive.ExpectedNamespace, source, len(target.schema.GlobalDecls))
 	if err != nil {
 		return err
 	}
-	if _, err := merge.ApplyPlanned(target.schema, source, plan, "imported", directive.SchemaLocation); err != nil {
+	if _, err := ApplyPlanned(target.schema, source, plan, "imported", directive.SchemaLocation); err != nil {
 		return err
 	}
 	return nil

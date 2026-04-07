@@ -6,7 +6,7 @@ import (
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -35,7 +35,7 @@ func collectEffectiveAttributeUses(schema *parser.Schema, ct *model.ComplexType)
 	if ct == nil {
 		return nil
 	}
-	chain := typechain.CollectComplexTypeChain(schema, ct, typechain.ComplexTypeChainExplicitBaseOnly)
+	chain := semantics.CollectComplexTypeChain(schema, ct, semantics.ComplexTypeChainExplicitBaseOnly)
 	attrMap := make(map[model.QName]*model.AttributeDecl)
 	for i := len(chain) - 1; i >= 0; i-- {
 		mergeAttributesFromTypeForValidation(schema, chain[i], attrMap)

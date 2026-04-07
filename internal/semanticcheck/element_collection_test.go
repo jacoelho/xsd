@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 // TestCollectElementDeclarationsFromType tests the element collection logic
@@ -81,7 +81,7 @@ func TestCollectElementDeclarationsFromType(t *testing.T) {
 	schema.TypeDefs[extendedType.QName] = extendedType
 
 	// test collecting from extended type should get all elements
-	elements := typechain.CollectElementDeclsFromComplexType(schema, extendedType)
+	elements := semantics.CollectElementDeclsFromComplexType(schema, extendedType)
 	if len(elements) != 3 {
 		t.Errorf("Expected 3 elements, got %d", len(elements))
 	}

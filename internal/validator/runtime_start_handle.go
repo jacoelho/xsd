@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/model"
-	"github.com/jacoelho/xsd/internal/validator/start"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -19,7 +17,7 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 
 	s.pushNamespaceScope(s.reader.NamespaceDecls(ev.ScopeDepth))
 
-	eventInput := start.EventInput{
+	eventInput := StartEventInput{
 		Root: len(s.elemStack) == 0,
 		Sym:  sym,
 		NSID: nsID,
@@ -29,7 +27,7 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 	if !eventInput.Root {
 		parent = &s.elemStack[len(s.elemStack)-1]
 		parent.hasChildElements = true
-		eventInput.Parent = start.ChildInput{
+		eventInput.Parent = StartChildInput{
 			Content: parent.content,
 			Model:   parent.model,
 			Nilled:  parent.nilled,
@@ -43,10 +41,11 @@ func (s *Session) handleStartElement(ev *xmlstream.ResolvedEvent, resolver sessi
 		return err
 	}
 	eventInput.Attrs = classified
-	event, err := s.resolveStartEvent(
+	event, err := ResolveStartEvent(
+		s.rt,
 		eventInput,
 		resolver,
-		func(ref runtime.ModelRef, sym runtime.SymbolID, nsID runtime.NamespaceID, ns []byte) (model.Match, error) {
+		func(ref runtime.ModelRef, sym runtime.SymbolID, nsID runtime.NamespaceID, ns []byte) (StartMatch, error) {
 			return s.StepModel(ref, &parent.modelState, sym, nsID, ns)
 		},
 	)

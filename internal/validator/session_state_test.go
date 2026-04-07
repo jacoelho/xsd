@@ -5,17 +5,14 @@ import (
 	"testing"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/validator/attrs"
-	"github.com/jacoelho/xsd/internal/validator/identity"
-	"github.com/jacoelho/xsd/internal/validator/names"
 )
 
 func TestSessionReset(t *testing.T) {
 	s := &Session{}
 	s.elemStack = []elemFrame{{name: 1}, {name: 2}}
-	s.Names.Scopes.Push(names.ScopeFrame{Off: 1, Len: 2})
-	s.Names.Dense = []names.Entry{{LocalOff: 1, LocalLen: 2}}
-	s.Names.Sparse = map[names.ID]names.Entry{1: {LocalOff: 1, LocalLen: 2}}
+	s.Names.Scopes.Push(NamespaceScopeFrame{Off: 1, Len: 2})
+	s.Names.Dense = []NameEntry{{LocalOff: 1, LocalLen: 2}}
+	s.Names.Sparse = map[NameID]NameEntry{1: {LocalOff: 1, LocalLen: 2}}
 	s.Names.Local = []byte("local")
 	s.Names.NS = []byte("ns")
 	s.textBuf = []byte("text")
@@ -23,19 +20,19 @@ func TestSessionReset(t *testing.T) {
 	s.errBuf = []byte("err")
 	s.validationErrors = []xsderrors.Validation{{Code: "x"}}
 	s.icState.Active = true
-	s.icState.Frames.Push(identity.RuntimeFrame{ID: 1})
-	s.icState.Frames.Push(identity.RuntimeFrame{ID: 2})
-	s.icState.Scopes.Push(identity.Scope{RootID: 1})
+	s.icState.Frames.Push(RuntimeFrame{ID: 1})
+	s.icState.Frames.Push(RuntimeFrame{ID: 2})
+	s.icState.Scopes.Push(Scope{RootID: 1})
 	s.icState.Uncommitted = []error{dummyError{}}
-	s.icState.Committed = []identity.Violation{{Code: "x"}}
-	s.Names.PrefixCache = []names.PrefixEntry{{Hash: 1}}
-	s.attrState.Seen = []attrs.SeenEntry{{Hash: 1, Index: 1}}
-	s.attrState.Classes = []attrs.Class{attrs.ClassOther}
+	s.icState.Committed = []Violation{{Code: "x"}}
+	s.Names.PrefixCache = []prefixCacheEntry{{Hash: 1}}
+	s.attrState.Seen = []SeenEntry{{Hash: 1, Index: 1}}
+	s.attrState.Classes = []Class{ClassOther}
 	s.attrState.Present = []bool{true}
-	s.attrState.Starts = []attrs.Start{{Local: []byte("raw")}}
-	s.attrState.Validated = []attrs.Start{{Local: []byte("validated")}}
-	s.identityAttrs.Buckets = map[uint64][]identity.AttrNameID{1: {1}}
-	s.identityAttrs.Names = []identity.AttrName{{NS: []byte("urn"), Local: []byte("id")}}
+	s.attrState.Starts = []Start{{Local: []byte("raw")}}
+	s.attrState.Validated = []Start{{Local: []byte("validated")}}
+	s.identityAttrs.Buckets = map[uint64][]AttrNameID{1: {1}}
+	s.identityAttrs.Names = []AttrName{{NS: []byte("urn"), Local: []byte("id")}}
 
 	s.Reset()
 
@@ -95,17 +92,17 @@ func TestSessionResetShrinksOversizedBuffers(t *testing.T) {
 	s.Names.Local = make([]byte, maxSessionBuffer+1)
 	s.elemStack = make([]elemFrame, maxSessionEntries+1)
 	s.attrState.Present = make([]bool, maxSessionEntries+1)
-	s.attrState.Starts = make([]attrs.Start, maxSessionEntries+1)
-	s.attrState.Validated = make([]attrs.Start, maxSessionEntries+1)
-	s.attrState.Classes = make([]attrs.Class, maxSessionEntries+1)
+	s.attrState.Starts = make([]Start, maxSessionEntries+1)
+	s.attrState.Validated = make([]Start, maxSessionEntries+1)
+	s.attrState.Classes = make([]Class, maxSessionEntries+1)
 	s.idTable = make(map[string]struct{}, maxSessionIDTableEntries+1)
-	s.identityAttrs.Names = make([]identity.AttrName, maxSessionEntries+1)
-	s.identityAttrs.Buckets = make(map[uint64][]identity.AttrNameID, maxSessionEntries+1)
+	s.identityAttrs.Names = make([]AttrName, maxSessionEntries+1)
+	s.identityAttrs.Buckets = make(map[uint64][]AttrNameID, maxSessionEntries+1)
 	for i := range maxSessionIDTableEntries + 1 {
 		s.idTable[strconv.Itoa(i)] = struct{}{}
 	}
 	for i := range maxSessionEntries + 1 {
-		s.identityAttrs.Buckets[uint64(i)] = []identity.AttrNameID{identity.AttrNameID(i + 1)}
+		s.identityAttrs.Buckets[uint64(i)] = []AttrNameID{AttrNameID(i + 1)}
 	}
 
 	s.Reset()
@@ -142,9 +139,9 @@ func TestSessionResetShrinksOversizedBuffers(t *testing.T) {
 func TestSessionResetDropsOversizedStacks(t *testing.T) {
 	s := &Session{}
 	for range maxSessionEntries + 1 {
-		s.Names.Scopes.Push(names.ScopeFrame{})
-		s.icState.Frames.Push(identity.RuntimeFrame{})
-		s.icState.Scopes.Push(identity.Scope{})
+		s.Names.Scopes.Push(NamespaceScopeFrame{})
+		s.icState.Frames.Push(RuntimeFrame{})
+		s.icState.Scopes.Push(Scope{})
 	}
 
 	if s.Names.Scopes.Cap() <= maxSessionEntries {

@@ -2,8 +2,6 @@ package model
 
 import (
 	"fmt"
-
-	"github.com/jacoelho/xsd/internal/occurs"
 )
 
 // ComplexType represents a complex type definition
@@ -41,8 +39,8 @@ func NewAnyTypeComplexType() *ComplexType {
 		Particle: &AnyElement{
 			Namespace:       NSCAny,
 			ProcessContents: Lax,
-			MinOccurs:       occurs.OccursFromInt(0),
-			MaxOccurs:       occurs.OccursUnbounded,
+			MinOccurs:       OccursFromInt(0),
+			MaxOccurs:       OccursUnbounded,
 		},
 	})
 	ct.SetAnyAttribute(&AnyAttribute{

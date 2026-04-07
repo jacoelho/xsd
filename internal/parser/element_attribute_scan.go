@@ -41,87 +41,72 @@ func scanElementAttributes(doc *xmltree.Document, elem xmltree.NodeID) elementAt
 			continue
 		}
 		if attr.NamespaceURI() == xmlnames.XSDNamespace {
-			if attrs.invalidRefAttr == "" {
-				attrs.invalidRefAttr = attr.LocalName()
-			}
-			if attrs.invalidLocalAttr == "" {
-				attrs.invalidLocalAttr = attr.LocalName()
-			}
+			recordInvalidElementAttribute(&attrs, attr.LocalName())
 			continue
 		}
 		if attr.NamespaceURI() != "" {
 			continue
 		}
-		attrName := attr.LocalName()
-		switch attrName {
-		case "id":
-			attrs.hasID = true
-			attrs.id = attr.Value()
-		case "ref":
-			if !attrs.hasRef {
-				attrs.hasRef = true
-				attrs.ref = attr.Value()
-			}
-		case "name":
-			if !attrs.hasName {
-				attrs.hasName = true
-				attrs.name = attr.Value()
-			}
-		case "type":
-			if !attrs.hasType {
-				attrs.hasType = true
-				attrs.typ = attr.Value()
-			}
-		case "minOccurs":
-			if !attrs.hasMinOccurs {
-				attrs.hasMinOccurs = true
-				attrs.minOccurs = attr.Value()
-			}
-		case "maxOccurs":
-			if !attrs.hasMaxOccurs {
-				attrs.hasMaxOccurs = true
-				attrs.maxOccurs = attr.Value()
-			}
-		case "default":
-			if !attrs.hasDefault {
-				attrs.hasDefault = true
-				attrs.defaultVal = attr.Value()
-			}
-		case "fixed":
-			if !attrs.hasFixed {
-				attrs.hasFixed = true
-				attrs.fixedVal = attr.Value()
-			}
-		case "nillable":
-			if !attrs.hasNillable {
-				attrs.hasNillable = true
-				attrs.nillable = attr.Value()
-			}
-		case "block":
-			if !attrs.hasBlock {
-				attrs.hasBlock = true
-				attrs.block = attr.Value()
-			}
-		case "form":
-			if !attrs.hasForm {
-				attrs.hasForm = true
-				attrs.form = attr.Value()
-			}
-		case "abstract":
-			attrs.hasAbstract = true
-		case "final":
-			attrs.hasFinal = true
-		}
-
-		if attr.NamespaceURI() != "" {
-			continue
-		}
-		if attrs.invalidRefAttr == "" && !elementReferenceAttributeProfile.allows(attrName) {
-			attrs.invalidRefAttr = attrName
-		}
-		if attrs.invalidLocalAttr == "" && !localElementAttributeProfile.allows(attrName) {
-			attrs.invalidLocalAttr = attrName
-		}
+		recordElementAttribute(&attrs, attr.LocalName(), attr.Value())
 	}
 	return attrs
+}
+
+func recordInvalidElementAttribute(attrs *elementAttrScan, name string) {
+	if attrs.invalidRefAttr == "" {
+		attrs.invalidRefAttr = name
+	}
+	if attrs.invalidLocalAttr == "" {
+		attrs.invalidLocalAttr = name
+	}
+}
+
+func recordElementAttribute(attrs *elementAttrScan, name, value string) {
+	switch name {
+	case "id":
+		attrs.hasID = true
+		attrs.id = value
+	case "ref":
+		setElementAttributeValue(&attrs.hasRef, &attrs.ref, value)
+	case "name":
+		setElementAttributeValue(&attrs.hasName, &attrs.name, value)
+	case "type":
+		setElementAttributeValue(&attrs.hasType, &attrs.typ, value)
+	case "minOccurs":
+		setElementAttributeValue(&attrs.hasMinOccurs, &attrs.minOccurs, value)
+	case "maxOccurs":
+		setElementAttributeValue(&attrs.hasMaxOccurs, &attrs.maxOccurs, value)
+	case "default":
+		setElementAttributeValue(&attrs.hasDefault, &attrs.defaultVal, value)
+	case "fixed":
+		setElementAttributeValue(&attrs.hasFixed, &attrs.fixedVal, value)
+	case "nillable":
+		setElementAttributeValue(&attrs.hasNillable, &attrs.nillable, value)
+	case "block":
+		setElementAttributeValue(&attrs.hasBlock, &attrs.block, value)
+	case "form":
+		setElementAttributeValue(&attrs.hasForm, &attrs.form, value)
+	case "abstract":
+		attrs.hasAbstract = true
+	case "final":
+		attrs.hasFinal = true
+	}
+	recordElementAttributeProfileViolations(attrs, name)
+}
+
+func setElementAttributeValue(present *bool, dst *string, value string) {
+	if *present {
+		return
+	}
+	*present = true
+	*dst = value
+}
+
+func recordElementAttributeProfileViolations(attrs *elementAttrScan, name string) {
+	if attrs.invalidRefAttr == "" && !elementReferenceAttributeProfile.allows(name) {
+		attrs.invalidRefAttr = name
+	}
+	if attrs.invalidLocalAttr == "" && !localElementAttributeProfile.allows(name) {
+		attrs.invalidLocalAttr = name
+	}
 }

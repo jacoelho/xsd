@@ -4,14 +4,13 @@ import (
 	"testing"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/validator/attrs"
 )
 
 func TestClassifyAttrsClasses(t *testing.T) {
 	schema, ids := buildAttrFixtureNoRequired(t)
 	sess := NewSession(schema)
 
-	inputAttrs := []attrs.Start{
+	inputAttrs := []Start{
 		{
 			Sym:     schema.Predef.XsiType,
 			NS:      schema.PredefNS.Xsi,
@@ -51,17 +50,17 @@ func TestClassifyAttrsClasses(t *testing.T) {
 	if len(classified.Classes) != len(inputAttrs) {
 		t.Fatalf("classes length = %d, want %d", len(classified.Classes), len(inputAttrs))
 	}
-	if got := classified.Classes[0]; got != attrs.ClassXSIKnown {
-		t.Fatalf("class[0] = %d, want %d", got, attrs.ClassXSIKnown)
+	if got := classified.Classes[0]; got != ClassXSIKnown {
+		t.Fatalf("class[0] = %d, want %d", got, ClassXSIKnown)
 	}
-	if got := classified.Classes[1]; got != attrs.ClassXSIUnknown {
-		t.Fatalf("class[1] = %d, want %d", got, attrs.ClassXSIUnknown)
+	if got := classified.Classes[1]; got != ClassXSIUnknown {
+		t.Fatalf("class[1] = %d, want %d", got, ClassXSIUnknown)
 	}
-	if got := classified.Classes[2]; got != attrs.ClassXML {
-		t.Fatalf("class[2] = %d, want %d", got, attrs.ClassXML)
+	if got := classified.Classes[2]; got != ClassXML {
+		t.Fatalf("class[2] = %d, want %d", got, ClassXML)
 	}
-	if got := classified.Classes[3]; got != attrs.ClassOther {
-		t.Fatalf("class[3] = %d, want %d", got, attrs.ClassOther)
+	if got := classified.Classes[3]; got != ClassOther {
+		t.Fatalf("class[3] = %d, want %d", got, ClassOther)
 	}
 	if got := string(classified.XSIType); got != "t:Derived" {
 		t.Fatalf("xsiType = %q, want %q", got, "t:Derived")
@@ -76,7 +75,7 @@ func TestClassifyAttrsDuplicateAttributeSmallAndLarge(t *testing.T) {
 	sess := NewSession(schema)
 
 	t.Run("small", func(t *testing.T) {
-		inputAttrs := []attrs.Start{
+		inputAttrs := []Start{
 			{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")},
 			{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")},
 		}
@@ -94,9 +93,9 @@ func TestClassifyAttrsDuplicateAttributeSmallAndLarge(t *testing.T) {
 	})
 
 	t.Run("large", func(t *testing.T) {
-		inputAttrs := make([]attrs.Start, attrs.SmallDuplicateThreshold+2)
+		inputAttrs := make([]Start, SmallDuplicateThreshold+2)
 		for i := range inputAttrs {
-			inputAttrs[i] = attrs.Start{
+			inputAttrs[i] = Start{
 				NS:      ids.nsID,
 				NSBytes: []byte("urn:test"),
 				Local:   []byte{byte('a' + i)},
@@ -123,7 +122,7 @@ func TestClassifyAttrsDuplicateXsiTypeAndNil(t *testing.T) {
 	sess := NewSession(schema)
 
 	t.Run("xsiType", func(t *testing.T) {
-		inputAttrs := []attrs.Start{
+		inputAttrs := []Start{
 			{Sym: schema.Predef.XsiType, Value: []byte("t:Derived")},
 			{
 				NS:      schema.PredefNS.Xsi,
@@ -143,7 +142,7 @@ func TestClassifyAttrsDuplicateXsiTypeAndNil(t *testing.T) {
 	})
 
 	t.Run("xsiNil", func(t *testing.T) {
-		inputAttrs := []attrs.Start{
+		inputAttrs := []Start{
 			{Sym: schema.Predef.XsiNil, Value: []byte("true")},
 			{
 				NS:      schema.PredefNS.Xsi,

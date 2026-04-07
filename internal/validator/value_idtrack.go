@@ -1,9 +1,8 @@
 package validator
 
 import (
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/diag"
-	"github.com/jacoelho/xsd/internal/validator/valruntime"
 )
 
 // Callbacks supplies the caller-owned runtime lookups and side effects.
@@ -19,10 +18,10 @@ func trackValidated(
 	id runtime.ValidatorID,
 	validators runtime.ValidatorsBundle,
 	canonical []byte,
-	state *valruntime.State,
+	actual runtime.ValidatorID,
 	callbacks Callbacks,
 ) error {
-	return track(id, validators, canonical, actualState(state), 0, callbacks)
+	return track(id, validators, canonical, actual, 0, callbacks)
 }
 
 // trackDefault performs ID and IDREF tracking for one defaulted or fixed value.
@@ -33,21 +32,14 @@ func trackDefault(
 	member runtime.ValidatorID,
 	callbacks Callbacks,
 ) error {
-	return track(id, validators, canonical, nil, member, callbacks)
-}
-
-func actualState(state *valruntime.State) *valruntime.Result {
-	if state == nil {
-		return nil
-	}
-	return state.ResultState()
+	return track(id, validators, canonical, 0, member, callbacks)
 }
 
 func track(
 	id runtime.ValidatorID,
 	validators runtime.ValidatorsBundle,
 	canonical []byte,
-	actual *valruntime.Result,
+	actual runtime.ValidatorID,
 	member runtime.ValidatorID,
 	callbacks Callbacks,
 ) error {
@@ -63,25 +55,26 @@ func track(
 	case runtime.VString:
 		kind, ok := callbacks.StringKind(meta)
 		if !ok {
-			return diag.Invalid("string validator out of range")
+			return xsderrors.Invalid("string validator out of range")
 		}
 		return callbacks.TrackString(kind, canonical)
 	case runtime.VList:
-		return valruntime.TrackCanonicalList(meta, validators, canonical, func(itemValidator runtime.ValidatorID, itemValue []byte) error {
-			return track(itemValidator, validators, itemValue, nil, 0, callbacks)
+		return trackCanonicalList(meta, validators, canonical, func(itemValidator runtime.ValidatorID, itemValue []byte) error {
+			return track(itemValidator, validators, itemValue, 0, 0, callbacks)
 		})
 	case runtime.VUnion:
 		if member != 0 {
-			return track(member, validators, canonical, nil, 0, callbacks)
+			return track(member, validators, canonical, 0, 0, callbacks)
 		}
-		actualValidator := valruntime.ResolveActualUnionValidator(actual, func() (runtime.ValidatorID, error) {
-			if callbacks.LookupUnionMember == nil {
-				return 0, nil
+		actualValidator := actual
+		if actualValidator == 0 && callbacks.LookupUnionMember != nil {
+			lookedUp, err := callbacks.LookupUnionMember(id, canonical)
+			if err == nil {
+				actualValidator = lookedUp
 			}
-			return callbacks.LookupUnionMember(id, canonical)
-		})
+		}
 		if actualValidator != 0 {
-			return track(actualValidator, validators, canonical, nil, 0, callbacks)
+			return track(actualValidator, validators, canonical, 0, 0, callbacks)
 		}
 	}
 

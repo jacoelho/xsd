@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/xmllex"
 	"github.com/jacoelho/xsd/internal/xmlnames"
 )
 
@@ -335,7 +334,7 @@ func TestIsIgnorableOutsideRoot(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := xmllex.IsIgnorableOutsideRoot(tt.data, tt.allowBOM); got != tt.want {
+			if got := xmlnames.IsIgnorableOutsideRoot(tt.data, tt.allowBOM); got != tt.want {
 				t.Fatalf("IsIgnorableOutsideRoot() = %v, want %v", got, tt.want)
 			}
 		})

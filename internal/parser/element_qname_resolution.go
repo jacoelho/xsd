@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -22,7 +21,7 @@ func resolveQNameWithPolicy(
 	schema *Schema,
 	policy defaultNamespacePolicy,
 ) (model.QName, error) {
-	prefix, local, hasPrefix, err := qname.ParseQName(rawQName)
+	prefix, local, hasPrefix, err := model.ParseQName(rawQName)
 	if err != nil {
 		return model.QName{}, err
 	}

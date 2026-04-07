@@ -4,7 +4,6 @@ import (
 	"io/fs"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/preprocessor/resolve"
 	"github.com/jacoelho/xsd/internal/xmltree"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -12,7 +11,7 @@ import (
 // Config holds configuration for the schema loader
 type Config struct {
 	FS                          fs.FS
-	Resolver                    resolve.Resolver
+	Resolver                    SchemaResolver
 	DocumentPool                *xmltree.DocumentPool
 	SchemaParseOptions          []xmlstream.Option
 	AllowMissingImportLocations bool
@@ -21,7 +20,7 @@ type Config struct {
 // Loader loads XML schemas with import/include resolution.
 // It is not safe for concurrent use.
 type Loader struct {
-	resolver resolve.Resolver
+	resolver SchemaResolver
 	imports  Tracker[loadKey]
 	state    loadState
 	config   Config
@@ -31,7 +30,7 @@ type Loader struct {
 func NewLoader(cfg Config) *Loader {
 	res := cfg.Resolver
 	if res == nil && cfg.FS != nil {
-		res = resolve.NewFSResolver(cfg.FS)
+		res = NewFSResolver(cfg.FS)
 	}
 	if cfg.DocumentPool == nil {
 		cfg.DocumentPool = xmltree.NewDocumentPool()

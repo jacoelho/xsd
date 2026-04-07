@@ -3,7 +3,6 @@ package analysis
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -68,17 +67,17 @@ func hasGlobalDecls(schema *parser.Schema) bool {
 type builder struct {
 	schema   *parser.Schema
 	registry *Registry
-	typeIDs  map[model.Type]ids.TypeID
-	nextType ids.TypeID
-	nextElem ids.ElemID
-	nextAttr ids.AttrID
+	typeIDs  map[model.Type]TypeID
+	nextType TypeID
+	nextElem ElemID
+	nextAttr AttrID
 }
 
 func newBuilder(schema *parser.Schema) *builder {
 	return &builder{
 		schema:   schema,
 		registry: newRegistry(),
-		typeIDs:  make(map[model.Type]ids.TypeID),
+		typeIDs:  make(map[model.Type]TypeID),
 		nextType: 1,
 		nextElem: 1,
 		nextAttr: 1,

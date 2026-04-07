@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-
-	"github.com/jacoelho/xsd/internal/xsdpattern"
 )
 
 // Pattern represents a pattern facet (regex)
@@ -26,7 +24,7 @@ func (p *Pattern) ValidateSyntax() error {
 	// empty pattern is valid per XSD spec (matches only empty string)
 	if p.Value == "" {
 		// empty pattern translates to ^(?:)$
-		goPattern, err := xsdpattern.TranslateXSDPatternToGo("")
+		goPattern, err := TranslateXSDPatternToGo("")
 		if err != nil {
 			return fmt.Errorf("pattern facet: %w", err)
 		}
@@ -40,7 +38,7 @@ func (p *Pattern) ValidateSyntax() error {
 	}
 
 	// translate XSD pattern to Go regex
-	goPattern, err := xsdpattern.TranslateXSDPatternToGo(p.Value)
+	goPattern, err := TranslateXSDPatternToGo(p.Value)
 	if err != nil {
 		return fmt.Errorf("pattern facet: %w", err)
 	}

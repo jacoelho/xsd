@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/valruntime"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -23,12 +22,12 @@ func TestUnionStoredValueIsStable(t *testing.T) {
 	validatorID := mustValidatorID(t, rt, "U")
 	sess := NewSession(rt)
 
-	opts := valruntime.Options{
+	opts := valueOptions{
 		ApplyWhitespace:  true,
 		RequireCanonical: true,
 		StoreValue:       true,
 	}
-	canon, err := sess.validateValueInternalOptions(validatorID, []byte("  a  "), nil, opts)
+	canon, err := sess.validateValueCore(validatorID, []byte("  a  "), nil, opts, nil)
 	if err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
@@ -36,7 +35,7 @@ func TestUnionStoredValueIsStable(t *testing.T) {
 		t.Fatalf("canonical = %q, want %q", string(canon), "  a  ")
 	}
 
-	if _, err := sess.validateValueInternalOptions(validatorID, []byte("  b  "), nil, opts); err != nil {
+	if _, err := sess.validateValueCore(validatorID, []byte("  b  "), nil, opts, nil); err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
 	if string(canon) != "  a  " {
@@ -59,12 +58,12 @@ func TestListNormalizedValueIsStable(t *testing.T) {
 	validatorID := mustValidatorID(t, rt, "L")
 	sess := NewSession(rt)
 
-	opts := valruntime.Options{
+	opts := valueOptions{
 		ApplyWhitespace:  true,
 		RequireCanonical: false,
 		StoreValue:       false,
 	}
-	canon, err := sess.validateValueInternalOptions(validatorID, []byte("  a   b  "), nil, opts)
+	canon, err := sess.validateValueCore(validatorID, []byte("  a   b  "), nil, opts, nil)
 	if err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
@@ -72,7 +71,7 @@ func TestListNormalizedValueIsStable(t *testing.T) {
 		t.Fatalf("normalized = %q, want %q", string(canon), "a b")
 	}
 
-	if _, err := sess.validateValueInternalOptions(validatorID, []byte("c d"), nil, opts); err != nil {
+	if _, err := sess.validateValueCore(validatorID, []byte("c d"), nil, opts, nil); err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
 	if string(canon) != "a b" {
@@ -95,12 +94,12 @@ func TestHexBinaryCanonicalValueIsStable(t *testing.T) {
 	validatorID := mustValidatorID(t, rt, "H")
 	sess := NewSession(rt)
 
-	opts := valruntime.Options{
+	opts := valueOptions{
 		ApplyWhitespace:  true,
 		RequireCanonical: true,
 		StoreValue:       false,
 	}
-	canon, err := sess.validateValueInternalOptions(validatorID, []byte("0a"), nil, opts)
+	canon, err := sess.validateValueCore(validatorID, []byte("0a"), nil, opts, nil)
 	if err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
@@ -108,7 +107,7 @@ func TestHexBinaryCanonicalValueIsStable(t *testing.T) {
 		t.Fatalf("canonical = %q, want %q", string(canon), "0A")
 	}
 
-	if _, err := sess.validateValueInternalOptions(validatorID, []byte("0b"), nil, opts); err != nil {
+	if _, err := sess.validateValueCore(validatorID, []byte("0b"), nil, opts, nil); err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
 	if string(canon) != "0A" {
@@ -131,12 +130,12 @@ func TestBase64BinaryCanonicalValueIsStable(t *testing.T) {
 	validatorID := mustValidatorID(t, rt, "B")
 	sess := NewSession(rt)
 
-	opts := valruntime.Options{
+	opts := valueOptions{
 		ApplyWhitespace:  true,
 		RequireCanonical: true,
 		StoreValue:       false,
 	}
-	canon, err := sess.validateValueInternalOptions(validatorID, []byte(" YQ== "), nil, opts)
+	canon, err := sess.validateValueCore(validatorID, []byte(" YQ== "), nil, opts, nil)
 	if err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
@@ -144,7 +143,7 @@ func TestBase64BinaryCanonicalValueIsStable(t *testing.T) {
 		t.Fatalf("canonical = %q, want %q", string(canon), "YQ==")
 	}
 
-	if _, err := sess.validateValueInternalOptions(validatorID, []byte(" Yg== "), nil, opts); err != nil {
+	if _, err := sess.validateValueCore(validatorID, []byte(" Yg== "), nil, opts, nil); err != nil {
 		t.Fatalf("validate value: %v", err)
 	}
 	if string(canon) != "YQ==" {
@@ -184,7 +183,7 @@ func TestBinaryOctetLengthAllocationsStayAtParserBaseline(t *testing.T) {
 				}
 			})
 			lengthAllocs := testing.AllocsPerRun(200, func() {
-				var cache *valruntime.Cache
+				var cache *ValueCache
 				if _, err := cache.Length(tc.kind, tc.value); err != nil {
 					panic(err)
 				}

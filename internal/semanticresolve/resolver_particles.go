@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/resolveguard"
 )
 
 func (r *Resolver) resolveParticles(particles []model.Particle) error {
@@ -24,7 +24,7 @@ func (r *Resolver) resolveParticles(particles []model.Particle) error {
 			if !ok {
 				return fmt.Errorf("group %s not found", particle.RefQName)
 			}
-			if err := resolveguard.ResolveNamed[model.QName](r.detector, particle.RefQName, func() error {
+			if err := analysis.ResolveNamed[model.QName](r.detector, particle.RefQName, func() error {
 				return r.resolveParticles(group.Particles)
 			}); err != nil {
 				return err

@@ -5,7 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
 )
 
 // ValidateStructure validates that a parsed schema conforms to XSD structural constraints.
@@ -153,5 +152,5 @@ func collectUnseenKeys[T any](kind parser.GlobalDeclKind, seen map[parser.Global
 }
 
 func sortQNames(keys []model.QName) {
-	qname.SortInPlace(keys)
+	model.SortInPlace(keys)
 }

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/jacoelho/xsd/internal/stack"
-	"github.com/jacoelho/xsd/internal/xmllex"
 	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -80,8 +78,8 @@ const (
 type domBuilder struct {
 	doc             *Document
 	reader          *xmlstream.Reader
-	nodeStack       stack.Stack[NodeID]
-	childCountStack stack.Stack[int]
+	nodeStack       []NodeID
+	childCountStack []int
 	attrsScratch    []Attr
 	namespaceMode   namespaceAttrsMode
 }
@@ -91,13 +89,13 @@ func newDOMBuilder(doc *Document, reader *xmlstream.Reader, namespaceMode namesp
 		doc:             doc,
 		reader:          reader,
 		namespaceMode:   namespaceMode,
-		nodeStack:       stack.NewStack[NodeID](16),
-		childCountStack: stack.NewStack[int](16),
+		nodeStack:       make([]NodeID, 0, 16),
+		childCountStack: make([]int, 0, 16),
 	}
 }
 
 func (b *domBuilder) hasOpenNode() bool {
-	return b != nil && b.nodeStack.Len() > 0
+	return b != nil && len(b.nodeStack) > 0
 }
 
 func (b *domBuilder) addStart(event xmlstream.Event) {
@@ -106,12 +104,12 @@ func (b *domBuilder) addStart(event xmlstream.Event) {
 	}
 
 	parent := InvalidNode
-	if p, ok := b.nodeStack.Peek(); ok {
-		parent = p
+	if len(b.nodeStack) > 0 {
+		parent = b.nodeStack[len(b.nodeStack)-1]
 	}
 	if parent != InvalidNode {
-		count, _ := b.childCountStack.Pop()
-		b.childCountStack.Push(count + 1)
+		last := len(b.childCountStack) - 1
+		b.childCountStack[last]++
 	}
 
 	b.attrsScratch = b.attrsScratch[:0]
@@ -128,17 +126,18 @@ func (b *domBuilder) addStart(event xmlstream.Event) {
 	if parent == InvalidNode {
 		b.doc.root = id
 	}
-	b.nodeStack.Push(id)
-	b.childCountStack.Push(0)
+	b.nodeStack = append(b.nodeStack, id)
+	b.childCountStack = append(b.childCountStack, 0)
 }
 
 func (b *domBuilder) addEnd() bool {
 	if b == nil {
 		return false
 	}
-	if _, ok := b.nodeStack.Pop(); ok {
-		_, _ = b.childCountStack.Pop()
-		return b.nodeStack.Len() == 0 && b.doc.root != InvalidNode
+	if len(b.nodeStack) > 0 {
+		b.nodeStack = b.nodeStack[:len(b.nodeStack)-1]
+		b.childCountStack = b.childCountStack[:len(b.childCountStack)-1]
+		return len(b.nodeStack) == 0 && b.doc.root != InvalidNode
 	}
 	return false
 }
@@ -147,14 +146,14 @@ func (b *domBuilder) addCharData(text []byte) {
 	if b == nil {
 		return
 	}
-	nodeID, ok := b.nodeStack.Peek()
-	if !ok {
+	if len(b.nodeStack) == 0 {
 		return
 	}
+	nodeID := b.nodeStack[len(b.nodeStack)-1]
 	node := &b.doc.nodes[nodeID]
 	textOff := len(node.text)
 	node.text = append(node.text, text...)
-	count, _ := b.childCountStack.Peek()
+	count := b.childCountStack[len(b.childCountStack)-1]
 	b.doc.addTextSegment(nodeID, count, textOff, len(text))
 }
 
@@ -162,7 +161,7 @@ func (b *domBuilder) appendNamespaceAttrs(attrs []Attr, scopeDepth int) []Attr {
 	if b == nil {
 		return attrs
 	}
-	isRoot := b.nodeStack.Len() == 0
+	isRoot := len(b.nodeStack) == 0
 	if b.namespaceMode == namespaceAttrsSubtreeRootInScope && isRoot {
 		return appendInScopeNamespaceAttrs(attrs, b.reader, scopeDepth)
 	}
@@ -171,7 +170,7 @@ func (b *domBuilder) appendNamespaceAttrs(attrs []Attr, scopeDepth int) []Attr {
 
 func parseDOM(reader *xmlstream.Reader, doc *Document, mode parseMode, namespaceMode namespaceAttrsMode, start xmlstream.Event) error {
 	builder := newDOMBuilder(doc, reader, namespaceMode)
-	docState := xmllex.NewDocumentState()
+	docState := xmlnames.NewDocumentState()
 	depth := 0
 
 	if mode == parseModeSubtree {

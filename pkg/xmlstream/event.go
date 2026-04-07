@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/model"
 )
 
 // QName represents a namespace-qualified name.
-type QName = qname.QName
+type QName = model.QName
 
 // EventKind identifies the kind of streaming XML event.
 type EventKind int

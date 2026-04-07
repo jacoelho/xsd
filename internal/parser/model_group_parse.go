@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
@@ -33,10 +32,10 @@ func parseModelGroup(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema)
 		return nil, err
 	}
 	if kind == model.AllGroup {
-		switch occurs.CheckAllGroupBounds(minOccurs, maxOccurs) {
-		case occurs.AllGroupMinNotZeroOrOne:
+		switch model.CheckAllGroupBounds(minOccurs, maxOccurs) {
+		case model.AllGroupMinNotZeroOrOne:
 			return nil, fmt.Errorf("xs:all must have minOccurs='0' or '1'")
-		case occurs.AllGroupMaxNotOne:
+		case model.AllGroupMaxNotOne:
 			return nil, fmt.Errorf("xs:all must have maxOccurs='1'")
 		}
 	}

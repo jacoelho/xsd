@@ -1,9 +1,5 @@
 package model
 
-import (
-	"github.com/jacoelho/xsd/internal/qname"
-)
-
 // TypeName represents the local name of an XSD type
 // Using a typed string prevents mixing type names with other strings
 type TypeName string
@@ -79,11 +75,3 @@ func IsQNameOrNotation(name QName) bool {
 func (tn TypeName) String() string {
 	return string(tn)
 }
-
-// NamespaceURI is an alias of qname.NamespaceURI.
-type NamespaceURI = qname.NamespaceURI
-
-const NamespaceEmpty = qname.NamespaceEmpty
-
-// QName is an alias of qname.QName.
-type QName = qname.QName

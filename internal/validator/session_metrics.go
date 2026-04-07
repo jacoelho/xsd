@@ -1,19 +1,17 @@
 package validator
 
-import "github.com/jacoelho/xsd/internal/validator/valruntime"
-
-func (s *Session) acquireMetricsState() *valruntime.State {
+func (s *Session) acquireMetricsState() *ValueMetrics {
 	if s == nil {
-		return &valruntime.State{}
+		return &ValueMetrics{}
 	}
 	idx := s.metricsDepth
 	if idx < len(s.metricsPool) {
 		state := s.metricsPool[idx]
-		*state = valruntime.State{}
+		*state = ValueMetrics{}
 		s.metricsDepth++
 		return state
 	}
-	state := &valruntime.State{}
+	state := &ValueMetrics{}
 	s.metricsPool = append(s.metricsPool, state)
 	s.metricsDepth++
 	return state

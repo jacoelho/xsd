@@ -2,7 +2,6 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/valruntime"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -18,28 +17,31 @@ func (s *Session) trackIDs(kind runtime.StringKind, canonical []byte) error {
 	return nil
 }
 
-func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver, metrics *valruntime.State) error {
-	return trackValidated(id, s.rt.Validators, canonical, metrics, Callbacks{
-		Meta:       s.validatorMetaIfPresent,
-		StringKind: s.stringKind,
-		TrackString: func(kind runtime.StringKind, canonical []byte) error {
-			return s.trackIDs(kind, canonical)
-		},
-		LookupUnionMember: func(id runtime.ValidatorID, canonical []byte) (runtime.ValidatorID, error) {
-			return s.lookupActualUnionValidator(id, canonical, resolver)
-		},
-	})
+func (s *Session) trackValidatedIDs(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver, metrics *ValueMetrics) error {
+	actual := metricsActualValidator(metrics)
+	return trackValidated(id, s.rt.Validators, canonical, actual, s.idTrackCallbacks(resolver))
 }
 
 func (s *Session) trackDefaultValue(id runtime.ValidatorID, canonical []byte, resolver value.NSResolver, member runtime.ValidatorID) error {
-	return trackDefault(id, s.rt.Validators, canonical, member, Callbacks{
-		Meta:       s.validatorMetaIfPresent,
-		StringKind: s.stringKind,
-		TrackString: func(kind runtime.StringKind, canonical []byte) error {
-			return s.trackIDs(kind, canonical)
-		},
+	return trackDefault(id, s.rt.Validators, canonical, member, s.idTrackCallbacks(resolver))
+}
+
+func (s *Session) idTrackCallbacks(resolver value.NSResolver) Callbacks {
+	return Callbacks{
+		Meta:        s.validatorMetaIfPresent,
+		StringKind:  s.stringKind,
+		TrackString: s.trackIDs,
 		LookupUnionMember: func(id runtime.ValidatorID, canonical []byte) (runtime.ValidatorID, error) {
 			return s.lookupActualUnionValidator(id, canonical, resolver)
 		},
-	})
+	}
+}
+
+func metricsActualValidator(metrics *ValueMetrics) runtime.ValidatorID {
+	state := metrics.result()
+	if state == nil {
+		return 0
+	}
+	_, actual := state.Actual()
+	return actual
 }

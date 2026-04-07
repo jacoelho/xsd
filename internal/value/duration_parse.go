@@ -39,16 +39,50 @@ func ParseDuration(s string) (Duration, error) {
 	}
 
 	input := s
+	negative, body, err := durationPrefix(s)
+	if err != nil {
+		return Duration{}, err
+	}
+	datePart, timePart, sawTimeDesignator, err := durationParts(body)
+	if err != nil {
+		return Duration{}, err
+	}
+	if !durationPattern.MatchString(input) {
+		return Duration{}, fmt.Errorf("invalid duration format: %s", input)
+	}
+	parsed, hasDateComponent, err := parseDateDurationPart(datePart)
+	if err != nil {
+		return Duration{}, err
+	}
+	hasTimeComponent, err := parseTimeDurationPart(&parsed, timePart)
+	if err != nil {
+		return Duration{}, err
+	}
+	if !hasDateComponent && !hasTimeComponent {
+		return Duration{}, fmt.Errorf("duration must have at least one component")
+	}
+	if sawTimeDesignator && !hasTimeComponent {
+		return Duration{}, fmt.Errorf("time designator present but no time components specified")
+	}
+	if isZeroDuration(parsed) {
+		negative = false
+	}
+	parsed.Negative = negative
+	return parsed, nil
+}
+
+func durationPrefix(s string) (bool, string, error) {
 	negative := s[0] == '-'
 	if negative {
 		s = s[1:]
 	}
-
 	if s == "" || s[0] != 'P' {
-		return Duration{}, fmt.Errorf("duration must start with P")
+		return false, "", fmt.Errorf("duration must start with P")
 	}
-	s = s[1:]
+	return negative, s[1:], nil
+}
 
+func durationParts(s string) (string, string, bool, error) {
 	datePart := s
 	timePart := ""
 	sawTimeDesignator := false
@@ -57,114 +91,106 @@ func ParseDuration(s string) (Duration, error) {
 		datePart = before
 		timePart = after
 		if strings.IndexByte(timePart, 'T') != -1 {
-			return Duration{}, fmt.Errorf("invalid duration format: multiple T separators")
+			return "", "", false, fmt.Errorf("invalid duration format: multiple T separators")
 		}
 	}
+	return datePart, timePart, sawTimeDesignator, nil
+}
 
-	if !durationPattern.MatchString(input) {
-		return Duration{}, fmt.Errorf("invalid duration format: %s", input)
-	}
-
-	var years, months, days, hours, minutes int
-	var seconds num.Dec
-	hasDateComponent := false
-	hasTimeComponent := false
-	maxComponent := uint64(^uint(0) >> 1)
-	parseComponent := func(value, label string) (int, error) {
-		u, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			if errors.Is(err, strconv.ErrRange) {
-				return 0, fmt.Errorf("%s value too large", label)
+func parseDateDurationPart(datePart string) (Duration, bool, error) {
+	var out Duration
+	hasComponent := false
+	for _, match := range datePattern.FindAllStringSubmatch(datePart, -1) {
+		if match[1] != "" {
+			val, err := parseDurationComponent(match[1], "year")
+			if err != nil {
+				return Duration{}, false, err
 			}
-			return 0, fmt.Errorf("invalid %s value: %w", label, err)
+			out.Years = val
+			hasComponent = true
 		}
-		if u > maxComponent {
+		if match[2] != "" {
+			val, err := parseDurationComponent(match[2], "month")
+			if err != nil {
+				return Duration{}, false, err
+			}
+			out.Months = val
+			hasComponent = true
+		}
+		if match[3] != "" {
+			val, err := parseDurationComponent(match[3], "day")
+			if err != nil {
+				return Duration{}, false, err
+			}
+			out.Days = val
+			hasComponent = true
+		}
+	}
+	return out, hasComponent, nil
+}
+
+func parseTimeDurationPart(out *Duration, timePart string) (bool, error) {
+	hasComponent := false
+	for _, match := range timePattern.FindAllStringSubmatch(timePart, -1) {
+		if match[1] != "" {
+			val, err := parseDurationComponent(match[1], "hour")
+			if err != nil {
+				return false, err
+			}
+			out.Hours = val
+			hasComponent = true
+		}
+		if match[2] != "" {
+			val, err := parseDurationComponent(match[2], "minute")
+			if err != nil {
+				return false, err
+			}
+			out.Minutes = val
+			hasComponent = true
+		}
+		if match[3] != "" {
+			seconds, err := parseDurationSeconds(match[3])
+			if err != nil {
+				return false, err
+			}
+			out.Seconds = seconds
+			hasComponent = true
+		}
+	}
+	return hasComponent, nil
+}
+
+func parseDurationComponent(value, label string) (int, error) {
+	u, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
 			return 0, fmt.Errorf("%s value too large", label)
 		}
-		return int(u), nil
+		return 0, fmt.Errorf("invalid %s value: %w", label, err)
 	}
+	maxComponent := uint64(^uint(0) >> 1)
+	if u > maxComponent {
+		return 0, fmt.Errorf("%s value too large", label)
+	}
+	return int(u), nil
+}
 
-	if datePart != "" {
-		matches := datePattern.FindAllStringSubmatch(datePart, -1)
-		for _, match := range matches {
-			if match[1] != "" {
-				val, err := parseComponent(match[1], "year")
-				if err != nil {
-					return Duration{}, err
-				}
-				years = val
-				hasDateComponent = true
-			}
-			if match[2] != "" {
-				val, err := parseComponent(match[2], "month")
-				if err != nil {
-					return Duration{}, err
-				}
-				months = val
-				hasDateComponent = true
-			}
-			if match[3] != "" {
-				val, err := parseComponent(match[3], "day")
-				if err != nil {
-					return Duration{}, err
-				}
-				days = val
-				hasDateComponent = true
-			}
-		}
+func parseDurationSeconds(value string) (num.Dec, error) {
+	dec, err := num.ParseDec([]byte(value))
+	if err != nil {
+		return num.Dec{}, fmt.Errorf("invalid second value: %w", err)
 	}
+	if dec.Sign < 0 {
+		return num.Dec{}, fmt.Errorf("second value cannot be negative")
+	}
+	return dec, nil
+}
 
-	if timePart != "" {
-		matches := timePattern.FindAllStringSubmatch(timePart, -1)
-		for _, match := range matches {
-			if match[1] != "" {
-				val, err := parseComponent(match[1], "hour")
-				if err != nil {
-					return Duration{}, err
-				}
-				hours = val
-				hasTimeComponent = true
-			}
-			if match[2] != "" {
-				val, err := parseComponent(match[2], "minute")
-				if err != nil {
-					return Duration{}, err
-				}
-				minutes = val
-				hasTimeComponent = true
-			}
-			if match[3] != "" {
-				dec, perr := num.ParseDec([]byte(match[3]))
-				if perr != nil {
-					return Duration{}, fmt.Errorf("invalid second value: %w", perr)
-				}
-				if dec.Sign < 0 {
-					return Duration{}, fmt.Errorf("second value cannot be negative")
-				}
-				seconds = dec
-				hasTimeComponent = true
-			}
-		}
-	}
-
-	hasAnyComponent := hasDateComponent || hasTimeComponent
-	if !hasAnyComponent {
-		return Duration{}, fmt.Errorf("duration must have at least one component")
-	}
-	if sawTimeDesignator && !hasTimeComponent {
-		return Duration{}, fmt.Errorf("time designator present but no time components specified")
-	}
-
-	if years == 0 && months == 0 && days == 0 && hours == 0 && minutes == 0 && seconds.Sign == 0 {
-		negative = false
-	}
-	return Duration{
-		Negative: negative,
-		Years:    years,
-		Months:   months,
-		Days:     days,
-		Hours:    hours,
-		Minutes:  minutes,
-		Seconds:  seconds,
-	}, nil
+func isZeroDuration(v Duration) bool {
+	return v.Years == 0 &&
+		v.Months == 0 &&
+		v.Days == 0 &&
+		v.Hours == 0 &&
+		v.Minutes == 0 &&
+		v.Seconds.Sign == 0
 }

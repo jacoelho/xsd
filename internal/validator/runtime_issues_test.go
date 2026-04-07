@@ -9,7 +9,6 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/names"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
@@ -354,7 +353,7 @@ func TestPathStringFallbackUsesFrameName(t *testing.T) {
 	}
 	sess := NewSession(schema)
 	sess.elemStack = []elemFrame{{
-		name:  names.ID(maxNameMapSize + 1),
+		name:  NameID(maxNameMapSize + 1),
 		local: []byte("root"),
 		ns:    []byte("urn:test"),
 	}}

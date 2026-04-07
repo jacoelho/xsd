@@ -6,8 +6,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/typeresolve"
-	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 // ResolveSelectorElementType resolves the type of the element selected by the
@@ -42,7 +42,7 @@ func resolveSelectorElementDecls(schema *parser.Schema, constraintElement *model
 	if constraintElement == nil {
 		return nil, fmt.Errorf("constraint element is nil")
 	}
-	expr, err := parseXPathExpression(selectorXPath, nsContext, xpath.AttributesDisallowed)
+	expr, err := parseXPathExpression(selectorXPath, nsContext, runtime.AttributesDisallowed)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func ResolveFieldElementDecl(schema *parser.Schema, field *model.Field, constrai
 	if field == nil {
 		return nil, fmt.Errorf("field is nil")
 	}
-	fieldExpr, err := parseXPathExpression(field.XPath, nsContext, xpath.AttributesAllowed)
+	fieldExpr, err := parseXPathExpression(field.XPath, nsContext, runtime.AttributesAllowed)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func ResolveFieldElementDecls(schema *parser.Schema, field *model.Field, constra
 	if field == nil {
 		return nil, fmt.Errorf("field is nil")
 	}
-	fieldExpr, err := parseXPathExpression(field.XPath, nsContext, xpath.AttributesAllowed)
+	fieldExpr, err := parseXPathExpression(field.XPath, nsContext, runtime.AttributesAllowed)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func ResolveFieldElementDecls(schema *parser.Schema, field *model.Field, constra
 	return unique, nil
 }
 
-func resolveFieldElementDeclBranches(schema *parser.Schema, selectorDecls []*model.ElementDecl, fieldXPath string, paths []xpath.Path, tolerateUnresolved bool) ([]*model.ElementDecl, bool, error) {
+func resolveFieldElementDeclBranches(schema *parser.Schema, selectorDecls []*model.ElementDecl, fieldXPath string, paths []runtime.Path, tolerateUnresolved bool) ([]*model.ElementDecl, bool, error) {
 	hasUnion := hasFieldPathUnion(selectorDecls, paths)
 	var decls []*model.ElementDecl
 	unresolved := false
@@ -162,7 +162,7 @@ func ResolveFieldType(schema *parser.Schema, field *model.Field, constraintEleme
 	if field == nil {
 		return nil, fmt.Errorf("field is nil")
 	}
-	fieldExpr, err := parseXPathExpression(field.XPath, nsContext, xpath.AttributesAllowed)
+	fieldExpr, err := parseXPathExpression(field.XPath, nsContext, runtime.AttributesAllowed)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func ResolveFieldType(schema *parser.Schema, field *model.Field, constraintEleme
 	return combined, nil
 }
 
-func resolveFieldTypeBranches(schema *parser.Schema, selectorDecls []*model.ElementDecl, fieldXPath string, paths []xpath.Path) ([]model.Type, bool, bool, error) {
+func resolveFieldTypeBranches(schema *parser.Schema, selectorDecls []*model.ElementDecl, fieldXPath string, paths []runtime.Path) ([]model.Type, bool, bool, error) {
 	hasUnion := hasFieldPathUnion(selectorDecls, paths)
 	var resolvedTypes []model.Type
 	unresolved := false

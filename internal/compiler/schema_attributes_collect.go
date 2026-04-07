@@ -3,7 +3,7 @@ package compiler
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/ids"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/typeresolve"
@@ -95,7 +95,7 @@ func (b *schemaBuilder) resolveAttributeDecl(decl *model.AttributeDecl) *model.A
 	return b.schema.AttributeDecls[decl.Name]
 }
 
-func (b *schemaBuilder) schemaAttrID(decl *model.AttributeDecl) (ids.AttrID, bool) {
+func (b *schemaBuilder) schemaAttrID(decl *model.AttributeDecl) (analysis.AttrID, bool) {
 	if decl == nil {
 		return 0, false
 	}

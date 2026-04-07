@@ -1,6 +1,8 @@
 package facets
 
 import (
+	"errors"
+	"regexp"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -84,5 +86,70 @@ func TestRuntimeProgramEnumIDs(t *testing.T) {
 	}
 	if ids[0] != 2 || ids[1] != 9 {
 		t.Fatalf("enum ids = %v, want [2 9]", ids)
+	}
+}
+
+func TestValidateRuntimeProgramPatternViolation(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateRuntimeProgram(
+		RuntimeProgram{
+			Meta:       runtime.ValidatorMeta{Facets: runtime.FacetProgramRef{Off: 0, Len: 1}},
+			Facets:     []runtime.FacetInstr{{Op: runtime.FPattern, Arg0: 0}},
+			Patterns:   []runtime.Pattern{{Re: regexp.MustCompile(`^a+$`)}},
+			Normalized: []byte("bbb"),
+		},
+		RuntimeCallbacks{},
+	)
+	if err == nil || err.Error() != "pattern violation" {
+		t.Fatalf("ValidateRuntimeProgram() error = %v, want pattern violation", err)
+	}
+}
+
+func TestValidateRuntimeProgramUsesCachedEnumKey(t *testing.T) {
+	t.Parallel()
+
+	var deriveCalled bool
+	off := []uint32{0, 0}
+	lengths := []uint32{0, 1}
+	hashOff := []uint32{0, 1}
+	hashes := []uint64{0, runtime.HashKey(runtime.VKString, []byte("foo"))}
+	table := runtime.EnumTable{
+		Off:     off,
+		Len:     lengths,
+		HashOff: hashOff,
+		HashLen: lengths,
+		Hashes:  hashes,
+		Slots:   []uint32{0, 1},
+		Keys: []runtime.ValueKey{{
+			Kind:  runtime.VKString,
+			Hash:  hashes[1],
+			Bytes: []byte("foo"),
+		}},
+	}
+
+	err := ValidateRuntimeProgram(
+		RuntimeProgram{
+			Meta:      runtime.ValidatorMeta{Facets: runtime.FacetProgramRef{Off: 0, Len: 1}},
+			Facets:    []runtime.FacetInstr{{Op: runtime.FEnum, Arg0: 1}},
+			Enums:     table,
+			Values:    runtime.ValueBlob{Blob: []byte("foo")},
+			Canonical: []byte("foo"),
+		},
+		RuntimeCallbacks{
+			CachedEnumKey: func() (runtime.ValueKind, []byte, bool) {
+				return runtime.VKString, []byte("foo"), true
+			},
+			DeriveEnumKey: func([]byte) (runtime.ValueKind, []byte, error) {
+				deriveCalled = true
+				return runtime.VKInvalid, nil, errors.New("unexpected derive")
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("ValidateRuntimeProgram() error = %v", err)
+	}
+	if deriveCalled {
+		t.Fatal("DeriveEnumKey() was called with cached key present")
 	}
 }

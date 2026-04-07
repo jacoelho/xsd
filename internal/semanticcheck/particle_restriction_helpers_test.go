@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -55,20 +54,20 @@ func TestValidateChoiceRestrictionMatchesBase(t *testing.T) {
 func TestValidateSingleWildcardGroupRestriction(t *testing.T) {
 	baseMG := &model.ModelGroup{
 		Kind:      model.Sequence,
-		MinOccurs: occurs.OccursFromInt(1),
-		MaxOccurs: occurs.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 		Particles: []model.Particle{
 			&model.AnyElement{
-				MinOccurs: occurs.OccursFromInt(1),
-				MaxOccurs: occurs.OccursFromInt(1),
+				MinOccurs: model.OccursFromInt(1),
+				MaxOccurs: model.OccursFromInt(1),
 				Namespace: model.NSCAny,
 			},
 		},
 	}
 	restrictionMG := &model.ModelGroup{
 		Kind:      model.Sequence,
-		MinOccurs: occurs.OccursFromInt(1),
-		MaxOccurs: occurs.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 		Particles: []model.Particle{
 			makeElement("a", 1),
 		},
@@ -82,7 +81,7 @@ func TestValidateSingleWildcardGroupRestriction(t *testing.T) {
 func makeElement(local string, minOccurs int) *model.ElementDecl {
 	return &model.ElementDecl{
 		Name:      model.QName{Local: local},
-		MinOccurs: occurs.OccursFromInt(minOccurs),
-		MaxOccurs: occurs.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(minOccurs),
+		MaxOccurs: model.OccursFromInt(1),
 	}
 }

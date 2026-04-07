@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
@@ -29,8 +28,8 @@ func TestDuplicateConstraintNameDirect(t *testing.T) {
 	complexType.SetContent(&model.ElementContent{
 		Particle: &model.ModelGroup{
 			Kind:      model.Sequence,
-			MinOccurs: occurs.OccursFromInt(1),
-			MaxOccurs: occurs.OccursFromInt(1),
+			MinOccurs: model.OccursFromInt(1),
+			MaxOccurs: model.OccursFromInt(1),
 		},
 	})
 	complexTypeQName := model.QName{

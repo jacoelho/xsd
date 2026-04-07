@@ -6,8 +6,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
+	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/semantics"
-	"github.com/jacoelho/xsd/internal/xpath"
 )
 
 func validateLocalIdentityConstraintKeyrefsWithIndex(sch *parser.Schema, index *iterationIndex, allConstraints []*model.IdentityConstraint) []error {
@@ -28,7 +28,7 @@ func validateLocalIdentityConstraintResolution(sch *parser.Schema, index *iterat
 	forEachLocalConstraintElement(sch, index, func(elem *model.ElementDecl) {
 		for _, constraint := range elem.Constraints {
 			if err := semantics.ValidateIdentityConstraintResolution(sch, constraint, elem); err != nil {
-				if errors.Is(err, xpath.ErrInvalidXPath) {
+				if errors.Is(err, runtime.ErrInvalidXPath) {
 					continue
 				}
 				errs = append(errs, fmt.Errorf("element %s local identity constraint '%s': %w", elem.Name, constraint.Name, err))

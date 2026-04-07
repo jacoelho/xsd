@@ -2,8 +2,6 @@ package compiler
 
 import (
 	"github.com/jacoelho/xsd/internal/analysis"
-	"github.com/jacoelho/xsd/internal/contentmodel"
-	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -12,11 +10,11 @@ import (
 
 type schemaBuilder struct {
 	err             error
-	attrIDs         map[ids.AttrID]runtime.AttrID
-	elemIDs         map[ids.ElemID]runtime.ElemID
+	attrIDs         map[analysis.AttrID]runtime.AttrID
+	elemIDs         map[analysis.ElemID]runtime.ElemID
 	validators      *semantics.CompiledValidators
 	registry        *analysis.Registry
-	typeIDs         map[ids.TypeID]runtime.TypeID
+	typeIDs         map[analysis.TypeID]runtime.TypeID
 	builder         *runtime.Builder
 	schema          *parser.Schema
 	complexIDs      map[runtime.TypeID]uint32
@@ -31,7 +29,7 @@ type schemaBuilder struct {
 	notations       []runtime.SymbolID
 	maxOccurs       uint32
 	anyTypeComplex  uint32
-	limits          contentmodel.Limits
+	limits          semantics.Limits
 }
 
 const defaultMaxOccursLimit = 1_000_000

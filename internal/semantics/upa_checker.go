@@ -1,7 +1,6 @@
 package semantics
 
 import (
-	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
@@ -26,25 +25,25 @@ func newUPAChecker(schema *parser.Schema) *upaChecker {
 	}
 }
 
-func (c *upaChecker) positionsOverlap(left, right contentmodel.Position) bool {
-	if left.Kind == contentmodel.PositionWildcard && right.Kind == contentmodel.PositionWildcard && left.Wildcard == right.Wildcard {
+func (c *upaChecker) positionsOverlap(left, right Position) bool {
+	if left.Kind == PositionWildcard && right.Kind == PositionWildcard && left.Wildcard == right.Wildcard {
 		return false
 	}
 	switch {
-	case left.Kind == contentmodel.PositionElement && right.Kind == contentmodel.PositionElement:
+	case left.Kind == PositionElement && right.Kind == PositionElement:
 		return c.elementPositionsOverlap(left, right)
-	case left.Kind == contentmodel.PositionElement && right.Kind == contentmodel.PositionWildcard:
+	case left.Kind == PositionElement && right.Kind == PositionWildcard:
 		return c.elementWildcardOverlap(left, right)
-	case left.Kind == contentmodel.PositionWildcard && right.Kind == contentmodel.PositionElement:
+	case left.Kind == PositionWildcard && right.Kind == PositionElement:
 		return c.elementWildcardOverlap(right, left)
-	case left.Kind == contentmodel.PositionWildcard && right.Kind == contentmodel.PositionWildcard:
+	case left.Kind == PositionWildcard && right.Kind == PositionWildcard:
 		return wildcardsOverlap(left.Wildcard, right.Wildcard)
 	default:
 		return false
 	}
 }
 
-func (c *upaChecker) elementPositionsOverlap(left, right contentmodel.Position) bool {
+func (c *upaChecker) elementPositionsOverlap(left, right Position) bool {
 	if left.Element == nil || right.Element == nil {
 		return false
 	}
@@ -63,7 +62,7 @@ func (c *upaChecker) elementPositionsOverlap(left, right contentmodel.Position) 
 	return false
 }
 
-func (c *upaChecker) elementWildcardOverlap(elem, wildcard contentmodel.Position) bool {
+func (c *upaChecker) elementWildcardOverlap(elem, wildcard Position) bool {
 	if elem.Element == nil || wildcard.Wildcard == nil {
 		return false
 	}

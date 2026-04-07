@@ -3,9 +3,9 @@ package compiler
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func (b *schemaBuilder) addAllModel(group *model.ModelGroup) (runtime.ModelRef, error) {
@@ -48,7 +48,7 @@ func (b *schemaBuilder) addAllModel(group *model.ModelGroup) (runtime.ModelRef, 
 			if resolved := b.resolveSubstitutionHead(elem); resolved != nil {
 				head = resolved
 			}
-			list, err := contentmodel.ExpandSubstitutionMembers(head, b.substitutionMembers)
+			list, err := semantics.ExpandSubstitutionMembers(head, b.substitutionMembers)
 			if err != nil {
 				return runtime.ModelRef{}, err
 			}

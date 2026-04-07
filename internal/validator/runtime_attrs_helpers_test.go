@@ -2,20 +2,27 @@ package validator
 
 import (
 	"testing"
-
-	"github.com/jacoelho/xsd/internal/validator/attrs"
 )
 
 func TestValidateSimpleTypeAttrsRejectsNonXsi(t *testing.T) {
 	schema, ids := buildAttrFixture(t)
 	sess := NewSession(schema)
 
-	startAttrs := []attrs.Start{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
+	startAttrs := []Start{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
 	classified, err := sess.classifyAttrs(startAttrs, false)
 	if err != nil {
 		t.Fatalf("classifyAttrs: %v", err)
 	}
-	_, err = sess.validateSimpleTypeAttrsClassified(startAttrs, classified.Classes, false)
+	_, err = ValidateSimple(
+		sess.rt,
+		startAttrs,
+		classified.Classes,
+		false,
+		sess.attrState.PrepareValidated(false, len(startAttrs)),
+		func(validated []Start, attr Start, storeAttrs bool) []Start {
+			return StoreRaw(validated, attr, storeAttrs, sess.ensureAttrNameStable, sess.storeValue)
+		},
+	)
 	if err == nil {
 		t.Fatalf("expected non-xsi attribute error")
 	}
@@ -26,10 +33,10 @@ func TestValidateComplexAttrsMarksPresent(t *testing.T) {
 	sess := NewSession(schema)
 
 	ct := &schema.ComplexTypes[1]
-	uses := attrs.Uses(sess.rt.AttrIndex.Uses, ct.Attrs)
+	uses := Uses(sess.rt.AttrIndex.Uses, ct.Attrs)
 	present := sess.attrState.PreparePresent(len(uses))
 
-	startAttrs := []attrs.Start{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
+	startAttrs := []Start{{Sym: ids.attrSymDefault, NS: ids.nsID, NSBytes: []byte("urn:test"), Local: []byte("default")}}
 	classified, err := sess.classifyAttrs(startAttrs, false)
 	if err != nil {
 		t.Fatalf("classifyAttrs: %v", err)
@@ -62,7 +69,7 @@ func TestApplyDefaultAttrsAddsDefault(t *testing.T) {
 	sess := NewSession(schema)
 
 	ct := &schema.ComplexTypes[1]
-	uses := attrs.Uses(sess.rt.AttrIndex.Uses, ct.Attrs)
+	uses := Uses(sess.rt.AttrIndex.Uses, ct.Attrs)
 	present := sess.attrState.PreparePresent(len(uses))
 
 	applied, err := sess.applyDefaultAttrs(uses, present, false, false)

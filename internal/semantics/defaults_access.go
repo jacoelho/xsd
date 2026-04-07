@@ -1,7 +1,7 @@
 package semantics
 
 import (
-	"github.com/jacoelho/xsd/internal/ids"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 )
@@ -14,7 +14,7 @@ type DefaultFixedValue struct {
 }
 
 // ElementDefault returns the compiled default value for a global/local element.
-func (c *CompiledValidators) ElementDefault(id ids.ElemID) (DefaultFixedValue, bool) {
+func (c *CompiledValidators) ElementDefault(id analysis.ElemID) (DefaultFixedValue, bool) {
 	if c == nil {
 		return DefaultFixedValue{}, false
 	}
@@ -26,7 +26,7 @@ func (c *CompiledValidators) ElementDefault(id ids.ElemID) (DefaultFixedValue, b
 }
 
 // ElementFixed returns the compiled fixed value for a global/local element.
-func (c *CompiledValidators) ElementFixed(id ids.ElemID) (DefaultFixedValue, bool) {
+func (c *CompiledValidators) ElementFixed(id analysis.ElemID) (DefaultFixedValue, bool) {
 	if c == nil {
 		return DefaultFixedValue{}, false
 	}
@@ -38,7 +38,7 @@ func (c *CompiledValidators) ElementFixed(id ids.ElemID) (DefaultFixedValue, boo
 }
 
 // AttributeDefault returns the compiled default value for an attribute declaration.
-func (c *CompiledValidators) AttributeDefault(id ids.AttrID) (DefaultFixedValue, bool) {
+func (c *CompiledValidators) AttributeDefault(id analysis.AttrID) (DefaultFixedValue, bool) {
 	if c == nil {
 		return DefaultFixedValue{}, false
 	}
@@ -50,7 +50,7 @@ func (c *CompiledValidators) AttributeDefault(id ids.AttrID) (DefaultFixedValue,
 }
 
 // AttributeFixed returns the compiled fixed value for an attribute declaration.
-func (c *CompiledValidators) AttributeFixed(id ids.AttrID) (DefaultFixedValue, bool) {
+func (c *CompiledValidators) AttributeFixed(id analysis.AttrID) (DefaultFixedValue, bool) {
 	if c == nil {
 		return DefaultFixedValue{}, false
 	}

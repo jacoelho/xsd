@@ -1,87 +1,166 @@
 package validator
 
 import (
+	xsderrors "github.com/jacoelho/xsd/errors"
+	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/valruntime"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
-func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *valruntime.State) ([]byte, error) {
-	result, bufs, err := valruntime.Atomic(meta, normalized, needKey, s.canonicalKinds(), s.canonicalBuffers(), metrics.MeasureCache())
-	s.restoreCanonicalBuffers(bufs)
+func (s *Session) canonicalizeAtomic(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
+	switch meta.Kind {
+	case runtime.VString:
+		return s.canonicalizeAtomicString(meta, normalized, needKey, metrics)
+	case runtime.VBoolean:
+		return s.canonicalizeAtomicBoolean(normalized, needKey, metrics)
+	case runtime.VDecimal:
+		return s.canonicalizeAtomicDecimal(normalized, needKey, metrics)
+	case runtime.VInteger:
+		return s.canonicalizeAtomicInteger(meta, normalized, needKey, metrics)
+	case runtime.VFloat:
+		return s.canonicalizeAtomicFloat(normalized, needKey, metrics)
+	case runtime.VDouble:
+		return s.canonicalizeAtomicDouble(normalized, needKey, metrics)
+	case runtime.VDuration:
+		return s.canonicalizeAtomicDuration(normalized, needKey, metrics)
+	default:
+		return nil, xsderrors.Invalidf("unsupported atomic kind %d", meta.Kind)
+	}
+}
+
+func (s *Session) canonicalizeAtomicString(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
+	kind, ok := s.stringKind(meta)
+	if !ok {
+		return nil, xsderrors.Invalid("string validator out of range")
+	}
+	if err := runtime.ValidateStringKind(kind, normalized); err != nil {
+		return nil, xsderrors.Invalid(err.Error())
+	}
+	if needKey && s != nil {
+		s.setAtomicKey(metrics, runtime.VKString, runtime.StringKeyBytes(s.keyTmp[:0], 0, normalized))
+	}
+	return normalized, nil
+}
+
+func (s *Session) canonicalizeAtomicBoolean(normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
+	v, canonical, err := value.CanonicalizeBoolean(normalized)
 	if err != nil {
-		return nil, err
+		return nil, xsderrors.Invalid(err.Error())
 	}
-	return s.finishCanonicalResult(metrics, result), nil
+	if needKey && s != nil {
+		key := s.keyTmp[:0]
+		key = append(key, 0)
+		if v {
+			key[0] = 1
+		}
+		s.setAtomicKey(metrics, runtime.VKBool, key)
+	}
+	return canonical, nil
 }
 
-func (s *Session) canonicalizeTemporal(kind runtime.ValidatorKind, normalized []byte, needKey bool, metrics *valruntime.State) ([]byte, error) {
-	result, bufs, err := valruntime.Temporal(kind, normalized, needKey, s.canonicalBuffers())
-	s.restoreCanonicalBuffers(bufs)
+func (s *Session) canonicalizeAtomicDecimal(normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
+	buf1 := []byte(nil)
+	buf2 := []byte(nil)
+	if s != nil {
+		buf1 = s.Scratch.Buf1
+		buf2 = s.Scratch.Buf2[:0]
+	}
+
+	dec, parsedBuf, parseErr := num.ParseDecInto(normalized, buf1)
+	if parseErr != nil {
+		return nil, xsderrors.Invalid("invalid decimal")
+	}
+	if s != nil {
+		s.Scratch.Buf1 = parsedBuf
+	}
+	if cache := metrics.cache(); cache != nil {
+		cache.SetDecimal(dec)
+	}
+
+	canonical := dec.RenderCanonical(buf2)
+	if s != nil {
+		s.Scratch.Buf2 = canonical
+	}
+	if needKey && s != nil {
+		s.setAtomicKey(metrics, runtime.VKDecimal, num.EncodeDecKey(s.keyTmp[:0], dec))
+	}
+	return canonical, nil
+}
+
+func (s *Session) canonicalizeAtomicInteger(meta runtime.ValidatorMeta, normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
+	kind, ok := s.integerKind(meta)
+	if !ok {
+		return nil, xsderrors.Invalid("integer validator out of range")
+	}
+
+	intVal, parseErr := num.ParseInt(normalized)
+	if parseErr != nil {
+		return nil, xsderrors.Invalid("invalid integer")
+	}
+	if err := runtime.ValidateIntegerKind(kind, intVal); err != nil {
+		return nil, xsderrors.Invalid(err.Error())
+	}
+	if cache := metrics.cache(); cache != nil {
+		cache.SetInteger(intVal)
+	}
+
+	buf2 := []byte(nil)
+	if s != nil {
+		buf2 = s.Scratch.Buf2[:0]
+	}
+	canonical := intVal.RenderCanonical(buf2)
+	if s != nil {
+		s.Scratch.Buf2 = canonical
+	}
+	if needKey && s != nil {
+		s.setAtomicKey(metrics, runtime.VKDecimal, num.EncodeDecKey(s.keyTmp[:0], intVal.AsDec()))
+	}
+	return canonical, nil
+}
+
+func (s *Session) canonicalizeAtomicFloat(normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
+	v, class, canonical, err := value.CanonicalizeFloat32(normalized)
 	if err != nil {
-		return nil, err
+		return nil, xsderrors.Invalid(err.Error())
 	}
-	return s.finishCanonicalResult(metrics, result), nil
+	if cache := metrics.cache(); cache != nil {
+		cache.SetFloat32(v, class)
+	}
+	if needKey && s != nil {
+		s.setAtomicKey(metrics, runtime.VKFloat32, runtime.Float32Key(s.keyTmp[:0], v, class))
+	}
+	return canonical, nil
 }
 
-func (s *Session) canonicalizeAnyURI(normalized []byte, needKey bool, metrics *valruntime.State) ([]byte, error) {
-	result, bufs, err := valruntime.AnyURI(normalized, needKey, s.canonicalBuffers())
-	s.restoreCanonicalBuffers(bufs)
+func (s *Session) canonicalizeAtomicDouble(normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
+	v, class, canonical, err := value.CanonicalizeFloat64(normalized)
 	if err != nil {
-		return nil, err
+		return nil, xsderrors.Invalid(err.Error())
 	}
-	return s.finishCanonicalResult(metrics, result), nil
+	if cache := metrics.cache(); cache != nil {
+		cache.SetFloat64(v, class)
+	}
+	if needKey && s != nil {
+		s.setAtomicKey(metrics, runtime.VKFloat64, runtime.Float64Key(s.keyTmp[:0], v, class))
+	}
+	return canonical, nil
 }
 
-func (s *Session) canonicalizeHexBinary(normalized []byte, needKey bool, metrics *valruntime.State) ([]byte, error) {
-	result, bufs, err := valruntime.HexBinary(normalized, needKey, s.canonicalBuffers(), metrics.MeasureCache())
-	s.restoreCanonicalBuffers(bufs)
+func (s *Session) canonicalizeAtomicDuration(normalized []byte, needKey bool, metrics *ValueMetrics) ([]byte, error) {
+	dur, canonical, err := value.CanonicalizeDuration(normalized)
 	if err != nil {
-		return nil, err
+		return nil, xsderrors.Invalid(err.Error())
 	}
-	return s.finishCanonicalResult(metrics, result), nil
+	if needKey && s != nil {
+		s.setAtomicKey(metrics, runtime.VKDuration, runtime.DurationKeyBytes(s.keyTmp[:0], dur))
+	}
+	return canonical, nil
 }
 
-func (s *Session) canonicalizeBase64Binary(normalized []byte, needKey bool, metrics *valruntime.State) ([]byte, error) {
-	result, bufs, err := valruntime.Base64Binary(normalized, needKey, s.canonicalBuffers(), metrics.MeasureCache())
-	s.restoreCanonicalBuffers(bufs)
-	if err != nil {
-		return nil, err
-	}
-	return s.finishCanonicalResult(metrics, result), nil
-}
-
-func (s *Session) canonicalKinds() valruntime.KindLoader {
-	return valruntime.KindLoader{
-		StringKind:  s.stringKind,
-		IntegerKind: s.integerKind,
-	}
-}
-
-func (s *Session) canonicalBuffers() valruntime.CanonicalBuffers {
-	if s == nil {
-		return valruntime.CanonicalBuffers{}
-	}
-	return valruntime.CanonicalBuffers{
-		Buf1:  s.Scratch.Buf1,
-		Buf2:  s.Scratch.Buf2,
-		Value: s.valueScratch,
-		Key:   s.keyTmp,
-	}
-}
-
-func (s *Session) restoreCanonicalBuffers(bufs valruntime.CanonicalBuffers) {
+func (s *Session) setAtomicKey(metrics *ValueMetrics, kind runtime.ValueKind, key []byte) {
 	if s == nil {
 		return
 	}
-	s.Scratch.Buf1 = bufs.Buf1
-	s.Scratch.Buf2 = bufs.Buf2
-	s.valueScratch = bufs.Value
-	s.keyTmp = bufs.Key
-}
-
-func (s *Session) finishCanonicalResult(metrics *valruntime.State, result valruntime.CanonicalResult) []byte {
-	if result.HasKey() {
-		s.setKey(metrics, result.KeyKind, result.Key, false)
-	}
-	return result.Canonical
+	s.keyTmp = key
+	s.setKey(metrics, kind, key, false)
 }

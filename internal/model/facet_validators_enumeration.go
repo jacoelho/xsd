@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-
-	"github.com/jacoelho/xsd/internal/qname"
 )
 
 // Enumeration validates the xs:enumeration facet across atomic, list, and union model.
@@ -180,7 +178,7 @@ func (e *Enumeration) ValidateLexicalQName(lexical string, baseType Type, contex
 		return fmt.Errorf("namespace context unavailable for QName/NOTATION enumeration")
 	}
 	normalized := NormalizeWhiteSpace(lexical, baseType)
-	parsedQName, err := qname.ParseQNameValue(normalized, context)
+	parsedQName, err := ParseQNameValue(normalized, context)
 	if err != nil {
 		return err
 	}
@@ -509,7 +507,7 @@ func (e *Enumeration) ResolveQNameValues() ([]QName, error) {
 		if context == nil {
 			return nil, fmt.Errorf("missing namespace context for enumeration value %q", value)
 		}
-		parsedQName, err := qname.ParseQNameValue(value, context)
+		parsedQName, err := ParseQNameValue(value, context)
 		if err != nil {
 			return nil, fmt.Errorf("invalid QName enumeration value %q: %w", value, err)
 		}

@@ -2,14 +2,12 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/names"
-	"github.com/jacoelho/xsd/internal/validator/start"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
-func (s *Session) buildStartFrame(entry names.Entry, ev *xmlstream.ResolvedEvent, result start.Result, typ runtime.Type) (elemFrame, error) {
-	plan, err := start.PlanFrame(
-		start.NameInput{
+func (s *Session) buildStartFrame(entry NameEntry, ev *xmlstream.ResolvedEvent, result StartResult, typ runtime.Type) (elemFrame, error) {
+	plan, err := PlanStartFrame(
+		StartNameInput{
 			Local:  ev.Local,
 			NS:     ev.NS,
 			Cached: entry.LocalLen != 0 || entry.NSLen != 0,
@@ -26,7 +24,7 @@ func (s *Session) buildStartFrame(entry names.Entry, ev *xmlstream.ResolvedEvent
 		local:   plan.Local,
 		ns:      plan.NS,
 		model:   plan.Model,
-		name:    names.ID(ev.NameID),
+		name:    NameID(ev.NameID),
 		elem:    result.Elem,
 		typ:     result.Type,
 		content: plan.Content,

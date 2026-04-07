@@ -6,9 +6,8 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/xpath"
+	"github.com/jacoelho/xsd/internal/runtime"
 )
 
 func TestResolveFieldTypeMixedContent(t *testing.T) {
@@ -75,8 +74,8 @@ func TestResolveFieldTypeUnionComplexContent(t *testing.T) {
 	containerType := model.NewComplexType(model.QName{Namespace: "urn:field", Local: "containerType"}, "urn:field")
 	containerType.SetContent(&model.ElementContent{Particle: &model.ModelGroup{
 		Kind:      model.Sequence,
-		MinOccurs: occurs.OccursFromInt(1),
-		MaxOccurs: occurs.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 		Particles: []model.Particle{simple, complexElem},
 	}})
 	container := &model.ElementDecl{
@@ -128,7 +127,7 @@ func TestResolveFieldElementDeclBranchIndexDiagnostics(t *testing.T) {
 }
 
 func TestUnprefixedNodeTestMatchesNoNamespace(t *testing.T) {
-	expr, err := xpath.Parse("item", nil, xpath.AttributesDisallowed)
+	expr, err := runtime.Parse("item", nil, runtime.AttributesDisallowed)
 	if err != nil {
 		t.Fatalf("parse xpath: %v", err)
 	}
@@ -189,7 +188,7 @@ func TestFindElementDeclDescendantAbstractWrapsUnresolvable(t *testing.T) {
 		t.Fatalf("abstractStart element not found")
 	}
 
-	decl, err := findElementDeclDescendant(schema, start, xpath.NodeTest{
+	decl, err := findElementDeclDescendant(schema, start, runtime.NodeTest{
 		Local:              "missing",
 		Namespace:          "urn:test",
 		NamespaceSpecified: true,
@@ -205,9 +204,9 @@ func TestFindElementDeclDescendantAbstractWrapsUnresolvable(t *testing.T) {
 	}
 }
 
-func mustXPathSteps(t *testing.T, expr string, ns map[string]string) []xpath.Step {
+func mustXPathSteps(t *testing.T, expr string, ns map[string]string) []runtime.Step {
 	t.Helper()
-	parsed, err := parseXPathExpression(expr, ns, xpath.AttributesDisallowed)
+	parsed, err := parseXPathExpression(expr, ns, runtime.AttributesDisallowed)
 	if err != nil {
 		t.Fatalf("parse xpath %q: %v", expr, err)
 	}

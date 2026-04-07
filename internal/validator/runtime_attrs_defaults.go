@@ -2,10 +2,9 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/attrs"
 )
 
-func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, storeAttrs, seenID bool) ([]attrs.Applied, error) {
+func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, storeAttrs, seenID bool) ([]Applied, error) {
 	readValue := func(ref runtime.ValueRef) []byte { return valueBytes(s.rt.Values, ref) }
 	materializeKey := func(validator runtime.ValidatorID, canonical []byte, member runtime.ValidatorID, stored runtime.ValueKeyRef) (runtime.ValueKind, []byte, error) {
 		return materializeValueKey(
@@ -19,13 +18,13 @@ func (s *Session) applyDefaultAttrs(uses []runtime.AttrUse, present []bool, stor
 			},
 		)
 	}
-	return attrs.ApplyDefaults(
+	return ApplyDefaults(
 		uses,
 		present,
 		storeAttrs,
 		seenID,
 		s.attrAppliedBuf[:0],
-		attrs.SelectDefaultOrFixed,
+		SelectDefaultOrFixed,
 		s.isIDValidator,
 		readValue,
 		func(validator runtime.ValidatorID, canonical []byte, member runtime.ValidatorID) error {

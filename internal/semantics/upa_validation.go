@@ -3,11 +3,8 @@ package semantics
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/contentmodel"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typechain"
 )
 
 // ValidateUPA validates Unique Particle Attribution for a content model.
@@ -53,12 +50,12 @@ func ValidateUPA(schema *parser.Schema, content model.Content, _ model.Namespace
 		return nil
 	}
 
-	glu, err := contentmodel.BuildGlushkov(particle)
+	glu, err := BuildGlushkov(particle)
 	if err != nil {
 		return err
 	}
 	checker := newUPAChecker(schema)
-	return contentmodel.CheckDeterminism(glu, checker.positionsOverlap)
+	return CheckDeterminism(glu, checker.positionsOverlap)
 }
 
 func upaParticles(schema *parser.Schema, content model.Content) (model.Particle, model.Particle) {
@@ -72,7 +69,7 @@ func upaParticles(schema *parser.Schema, content model.Content) (model.Particle,
 		if c.Extension != nil {
 			particle = c.Extension.Particle
 			if !c.Extension.Base.IsZero() {
-				if baseCT, ok := typechain.LookupComplexType(schema, c.Extension.Base); ok {
+				if baseCT, ok := LookupComplexType(schema, c.Extension.Base); ok {
 					if baseEC, ok := baseCT.Content().(*model.ElementContent); ok {
 						baseParticle = baseEC.Particle
 					}
@@ -102,8 +99,8 @@ func combineBaseAndDerivedUPAParticles(baseParticle, particle model.Particle) mo
 	if baseParticle != nil && particle != nil {
 		return &model.ModelGroup{
 			Kind:      model.Sequence,
-			MinOccurs: occurs.OccursFromInt(1),
-			MaxOccurs: occurs.OccursFromInt(1),
+			MinOccurs: model.OccursFromInt(1),
+			MaxOccurs: model.OccursFromInt(1),
 			Particles: []model.Particle{baseParticle, particle},
 		}
 	}

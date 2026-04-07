@@ -5,8 +5,6 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/attrs"
-	"github.com/jacoelho/xsd/internal/validator/model"
 )
 
 func TestWildcardProcessParityElementAndAttribute(t *testing.T) {
@@ -85,7 +83,7 @@ func runElementWildcardPolicyCase(t *testing.T, pc runtime.ProcessContents, with
 		sym = ids.elemSym
 	}
 	result, err := sess.StartElement(
-		model.Match{Kind: model.MatchWildcard, Wildcard: 1},
+		StartMatch{Kind: StartMatchWildcard, Wildcard: 1},
 		sym,
 		ids.nsID,
 		[]byte("urn:test"),
@@ -121,7 +119,7 @@ func runAttributeWildcardPolicyCase(t *testing.T, pc runtime.ProcessContents, wi
 		attrSym = ids.attrSymGlobal
 		local = []byte("global")
 	}
-	startAttrs := []attrs.Start{{
+	startAttrs := []Start{{
 		Sym:     attrSym,
 		NS:      ids.nsID,
 		NSBytes: []byte("urn:test"),

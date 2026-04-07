@@ -89,71 +89,109 @@ func validateRangeFacetInheritance(derivedFacets, baseFacets []model.Facet, base
 	base := extractRangeFacetInfo(baseFacets)
 	derived := extractRangeFacetInfo(derivedFacets)
 
-	if base.hasMin && derived.hasMin {
-		cmp, err := facets.CompareFacetValues(derived.minValue, base.minValue, baseType)
-		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("min facet: cannot compare values: %w", err)
-		}
-		if cmp < 0 {
-			return fmt.Errorf("min facet: derived value (%s) must be >= base value (%s) to be a valid restriction", derived.minValue, base.minValue)
-		}
-		if cmp == 0 && !base.minInclusive && derived.minInclusive {
-			return fmt.Errorf("min facet: derived inclusive value (%s) cannot relax base exclusive bound", derived.minValue)
-		}
+	checks := []rangeFacetCheck{
+		{
+			active:             base.hasMin && derived.hasMin,
+			errPrefix:          "min facet",
+			left:               derived.minValue,
+			right:              base.minValue,
+			invalidOrdering:    func(cmp int) bool { return cmp < 0 },
+			invalidComparison:  "derived value (%s) must be >= base value (%s) to be a valid restriction",
+			invalidEquality:    cmpEqualsZero,
+			invalidEqualBounds: func() bool { return !base.minInclusive && derived.minInclusive },
+			invalidEqualMsg:    "derived inclusive value (%s) cannot relax base exclusive bound",
+		},
+		{
+			active:             base.hasMax && derived.hasMax,
+			errPrefix:          "max facet",
+			left:               derived.maxValue,
+			right:              base.maxValue,
+			invalidOrdering:    func(cmp int) bool { return cmp > 0 },
+			invalidComparison:  "derived value (%s) must be <= base value (%s) to be a valid restriction",
+			invalidEquality:    cmpEqualsZero,
+			invalidEqualBounds: func() bool { return !base.maxInclusive && derived.maxInclusive },
+			invalidEqualMsg:    "derived inclusive value (%s) cannot relax base exclusive bound",
+		},
+		{
+			active:             base.hasMax && derived.hasMin,
+			errPrefix:          "min/max facet",
+			left:               derived.minValue,
+			right:              base.maxValue,
+			invalidOrdering:    func(cmp int) bool { return cmp > 0 },
+			invalidComparison:  "derived min (%s) must be <= base max (%s)",
+			invalidEquality:    cmpEqualsZero,
+			invalidEqualBounds: func() bool { return !base.maxInclusive || !derived.minInclusive },
+			invalidEqualMsg:    "derived min (%s) cannot relax base max bound",
+		},
+		{
+			active:             base.hasMin && derived.hasMax,
+			errPrefix:          "min/max facet",
+			left:               derived.maxValue,
+			right:              base.minValue,
+			invalidOrdering:    func(cmp int) bool { return cmp < 0 },
+			invalidComparison:  "derived max (%s) must be >= base min (%s)",
+			invalidEquality:    cmpEqualsZero,
+			invalidEqualBounds: func() bool { return !base.minInclusive || !derived.maxInclusive },
+			invalidEqualMsg:    "derived max (%s) cannot relax base min bound",
+		},
 	}
 
-	if base.hasMax && derived.hasMax {
-		cmp, err := facets.CompareFacetValues(derived.maxValue, base.maxValue, baseType)
-		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
-			return nil
-		}
+	for _, check := range checks {
+		ok, err := validateRangeFacetCheck(check, baseType)
 		if err != nil {
-			return fmt.Errorf("max facet: cannot compare values: %w", err)
+			return err
 		}
-		if cmp > 0 {
-			return fmt.Errorf("max facet: derived value (%s) must be <= base value (%s) to be a valid restriction", derived.maxValue, base.maxValue)
-		}
-		if cmp == 0 && !base.maxInclusive && derived.maxInclusive {
-			return fmt.Errorf("max facet: derived inclusive value (%s) cannot relax base exclusive bound", derived.maxValue)
-		}
-	}
-
-	// ensure derived min does not exceed base max (inherited constraint).
-	if base.hasMax && derived.hasMin {
-		cmp, err := facets.CompareFacetValues(derived.minValue, base.maxValue, baseType)
-		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
+		if !ok {
 			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("min/max facet: cannot compare values: %w", err)
-		}
-		if cmp > 0 {
-			return fmt.Errorf("min/max facet: derived min (%s) must be <= base max (%s)", derived.minValue, base.maxValue)
-		}
-		if cmp == 0 && (!base.maxInclusive || !derived.minInclusive) {
-			return fmt.Errorf("min/max facet: derived min (%s) cannot relax base max bound", derived.minValue)
-		}
-	}
-
-	// ensure derived max does not fall below base min (inherited constraint).
-	if base.hasMin && derived.hasMax {
-		cmp, err := facets.CompareFacetValues(derived.maxValue, base.minValue, baseType)
-		if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("min/max facet: cannot compare values: %w", err)
-		}
-		if cmp < 0 {
-			return fmt.Errorf("min/max facet: derived max (%s) must be >= base min (%s)", derived.maxValue, base.minValue)
-		}
-		if cmp == 0 && (!base.minInclusive || !derived.maxInclusive) {
-			return fmt.Errorf("min/max facet: derived max (%s) cannot relax base min bound", derived.maxValue)
 		}
 	}
 
 	return nil
+}
+
+type rangeFacetCheck struct {
+	active             bool
+	errPrefix          string
+	left               string
+	right              string
+	invalidOrdering    func(int) bool
+	invalidComparison  string
+	invalidEquality    func(int) bool
+	invalidEqualBounds func() bool
+	invalidEqualMsg    string
+}
+
+func validateRangeFacetCheck(check rangeFacetCheck, baseType model.Type) (bool, error) {
+	if !check.active {
+		return true, nil
+	}
+	cmp, comparable, err := compareFacetBounds(check.left, check.right, baseType)
+	if !comparable {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("%s: cannot compare values: %w", check.errPrefix, err)
+	}
+	if check.invalidOrdering(cmp) {
+		return false, fmt.Errorf("%s: "+check.invalidComparison, check.errPrefix, check.left, check.right)
+	}
+	if check.invalidEquality(cmp) && check.invalidEqualBounds() {
+		return false, fmt.Errorf("%s: "+check.invalidEqualMsg, check.errPrefix, check.left)
+	}
+	return true, nil
+}
+
+func cmpEqualsZero(cmp int) bool {
+	return cmp == 0
+}
+
+func compareFacetBounds(left, right string, baseType model.Type) (int, bool, error) {
+	cmp, err := facets.CompareFacetValues(left, right, baseType)
+	if errors.Is(err, errDurationNotComparable) || errors.Is(err, errFloatNotComparable) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, true, err
+	}
+	return cmp, true, nil
 }

@@ -1,17 +1,16 @@
 package validator
 
 import (
-	"github.com/jacoelho/xsd/internal/validator/attrs"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
 
-func (s *Session) makeStartAttrs(resolvedAttrs []xmlstream.ResolvedAttr) []attrs.Start {
+func (s *Session) makeStartAttrs(resolvedAttrs []xmlstream.ResolvedAttr) []Start {
 	if len(resolvedAttrs) == 0 {
 		return nil
 	}
 	out := s.attrState.Starts[:0]
 	if cap(out) < len(resolvedAttrs) {
-		out = make([]attrs.Start, 0, len(resolvedAttrs))
+		out = make([]Start, 0, len(resolvedAttrs))
 	}
 	for _, attr := range resolvedAttrs {
 		entry := s.internName(attr.NameID, attr.NS, attr.Local)
@@ -27,7 +26,7 @@ func (s *Session) makeStartAttrs(resolvedAttrs []xmlstream.ResolvedAttr) []attrs
 			nsBytes = storedNS
 			nameCached = true
 		}
-		out = append(out, attrs.Start{
+		out = append(out, Start{
 			Sym:        entry.Sym,
 			NS:         entry.NS,
 			NSBytes:    nsBytes,
