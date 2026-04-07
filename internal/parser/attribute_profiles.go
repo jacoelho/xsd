@@ -2,8 +2,6 @@ package parser
 
 import (
 	"errors"
-
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
 type attributeProfile struct {
@@ -104,7 +102,7 @@ func validateElementReferenceConflicts(attrs *elementAttrScan) error {
 	return nil
 }
 
-func validateAttributeConflicts(doc *xmltree.Document, elem xmltree.NodeID, rules []attributeConflictRule) error {
+func validateAttributeConflicts(doc *Document, elem NodeID, rules []attributeConflictRule) error {
 	for _, rule := range rules {
 		if doc.HasAttribute(elem, rule.name) {
 			return errors.New(rule.message)

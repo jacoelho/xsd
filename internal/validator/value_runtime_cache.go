@@ -5,9 +5,9 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 
-	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 // ValueCache stores parsed primitive values and derived facet measurements for one validation.

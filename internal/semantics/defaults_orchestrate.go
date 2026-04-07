@@ -14,10 +14,7 @@ func (c *compiler) compileDefaults(registry *analysis.Registry) error {
 	if err := c.compileElementDefaults(registry); err != nil {
 		return err
 	}
-	if err := c.compileAttributeDefaults(registry); err != nil {
-		return err
-	}
-	return nil
+	return c.compileAttributeDefaults(registry)
 }
 
 func (c *compiler) compileAttributeUses(registry *analysis.Registry) error {

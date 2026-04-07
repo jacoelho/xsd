@@ -14,7 +14,6 @@ func TestRootPackagesDoNotDefineTypeAliases(t *testing.T) {
 	root := repoRoot(t)
 	rootDirs := []string{
 		filepath.Join(root, "internal", "compiler"),
-		filepath.Join(root, "internal", "preprocessor"),
 		filepath.Join(root, "internal", "validator"),
 	}
 

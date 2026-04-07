@@ -14,21 +14,23 @@ func detectAttributeGroupCycles(schema *parser.Schema) error {
 		Cycles:  CycleError,
 	})
 
-	return parser.ForEachGlobalAttributeGroup(&schema.SchemaGraph, func(name model.QName, group *model.AttributeGroup) error {
-		if group == nil {
-			return fmt.Errorf("missing attributeGroup %s", name)
-		}
-		if err := ctx.Walk([]model.QName{name}, nil); err != nil {
-			var cycleErr AttributeGroupCycleError
-			if errors.As(err, &cycleErr) {
-				return fmt.Errorf("attributeGroup cycle detected at %s", cycleErr.QName)
+	return parser.ForEachGlobalDecl(&schema.SchemaGraph, parser.GlobalDeclHandlers{
+		AttributeGroup: func(name model.QName, group *model.AttributeGroup) error {
+			if group == nil {
+				return fmt.Errorf("missing attributeGroup %s", name)
 			}
-			var missingErr AttributeGroupMissingError
-			if errors.As(err, &missingErr) {
-				return fmt.Errorf("attributeGroup %s ref %s not found", name, missingErr.QName)
+			if err := ctx.Walk([]model.QName{name}, nil); err != nil {
+				var cycleErr AttributeGroupCycleError
+				if errors.As(err, &cycleErr) {
+					return fmt.Errorf("attributeGroup cycle detected at %s", cycleErr.QName)
+				}
+				var missingErr AttributeGroupMissingError
+				if errors.As(err, &missingErr) {
+					return fmt.Errorf("attributeGroup %s ref %s not found", name, missingErr.QName)
+				}
+				return err
 			}
-			return err
-		}
-		return nil
+			return nil
+		},
 	})
 }

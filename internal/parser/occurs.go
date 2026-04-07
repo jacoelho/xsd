@@ -6,10 +6,9 @@ import (
 	"strconv"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
-func parseOccursAttr(doc *xmltree.Document, elem xmltree.NodeID, attr string) (model.Occurs, error) {
+func parseOccursAttr(doc *Document, elem NodeID, attr string) (model.Occurs, error) {
 	if !doc.HasAttribute(elem, attr) {
 		return model.OccursFromInt(1), nil
 	}

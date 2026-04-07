@@ -13,10 +13,7 @@ func (b *schemaBuilder) buildAttributes() error {
 	if err := b.buildGlobalAttributes(); err != nil {
 		return err
 	}
-	if err := b.buildComplexTypeAttributeIndexes(); err != nil {
-		return err
-	}
-	return nil
+	return b.buildComplexTypeAttributeIndexes()
 }
 
 func (b *schemaBuilder) buildGlobalAttributes() error {

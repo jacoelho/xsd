@@ -33,9 +33,8 @@ func relaxOccursCopy(particle model.Particle) model.Particle {
 			}
 		}
 		return &clone
-	default:
-		return particle
 	}
+	return particle
 }
 
 func relaxOccurs(minOccurs, maxOccurs model.Occurs) (model.Occurs, model.Occurs) {

@@ -5,8 +5,8 @@ import (
 
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
+	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func (b *schemaBuilder) collectAttrUses(ct *model.ComplexType) ([]runtime.AttrUse, *model.AnyAttribute, error) {
@@ -35,7 +35,7 @@ func (b *schemaBuilder) collectAttrUses(ct *model.ComplexType) ([]runtime.AttrUs
 				return nil, nil, fmt.Errorf("runtime build: attribute ref %s not found", decl.Name)
 			}
 		}
-		sym := b.internQName(typeresolve.EffectiveAttributeQName(b.schema, decl))
+		sym := b.internQName(parser.EffectiveAttributeQName(b.schema, decl))
 		use := runtime.AttrUse{
 			Name: sym,
 			Use:  toRuntimeAttrUse(decl.Use),

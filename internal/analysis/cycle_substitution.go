@@ -10,9 +10,11 @@ import (
 
 func detectSubstitutionGroupCycles(schema *parser.Schema) error {
 	starts := make([]model.QName, 0, len(schema.ElementDecls))
-	if err := parser.ForEachGlobalElement(&schema.SchemaGraph, func(name model.QName, _ *model.ElementDecl) error {
-		starts = append(starts, name)
-		return nil
+	if err := parser.ForEachGlobalDecl(&schema.SchemaGraph, parser.GlobalDeclHandlers{
+		Element: func(name model.QName, _ *model.ElementDecl) error {
+			starts = append(starts, name)
+			return nil
+		},
 	}); err != nil {
 		return err
 	}

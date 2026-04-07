@@ -3,17 +3,16 @@ package parser
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 // validateAnnotationOrder checks that annotation (if present) is the first XSD child element.
 // Per XSD spec, annotation must appear first in element, attribute, complexType, simpleType, etc.
-func validateAnnotationOrder(doc *xmltree.Document, elem xmltree.NodeID) error {
+func validateAnnotationOrder(doc *Document, elem NodeID) error {
 	seenNonAnnotation := false
-	annotationCount := 0
+	seenAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+		if doc.NamespaceURI(child) != value.XSDNamespace {
 			continue
 		}
 
@@ -21,10 +20,10 @@ func validateAnnotationOrder(doc *xmltree.Document, elem xmltree.NodeID) error {
 			if seenNonAnnotation {
 				return fmt.Errorf("annotation must be first child element, found after other XSD elements")
 			}
-			annotationCount++
-			if annotationCount > 1 {
+			if seenAnnotation {
 				return fmt.Errorf("at most one annotation element is allowed")
 			}
+			seenAnnotation = true
 		} else {
 			seenNonAnnotation = true
 		}
@@ -34,11 +33,11 @@ func validateAnnotationOrder(doc *xmltree.Document, elem xmltree.NodeID) error {
 
 // validateElementChildrenOrder checks that identity constraints follow any inline type definition.
 // Per XSD 1.0, element content model is: (annotation?, (simpleType|complexType)?, (unique|key|keyref)*).
-func validateElementChildrenOrder(doc *xmltree.Document, elem xmltree.NodeID) error {
+func validateElementChildrenOrder(doc *Document, elem NodeID) error {
 	seenType := false
 	seenConstraint := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+		if doc.NamespaceURI(child) != value.XSDNamespace {
 			continue
 		}
 		switch doc.LocalName(child) {
@@ -59,30 +58,28 @@ func validateElementChildrenOrder(doc *xmltree.Document, elem xmltree.NodeID) er
 	return nil
 }
 
-func validateOnlyAnnotationChildren(doc *xmltree.Document, elem xmltree.NodeID, elementName string) error {
+func validateOnlyAnnotationChildren(doc *Document, elem NodeID, elementName string) error {
 	seenAnnotation := false
 	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+		if doc.NamespaceURI(child) != value.XSDNamespace {
 			continue
 		}
-		if doc.LocalName(child) == "annotation" {
+		childName := doc.LocalName(child)
+		if childName == "annotation" {
 			if seenAnnotation {
 				return fmt.Errorf("%s: at most one annotation is allowed", elementName)
 			}
 			seenAnnotation = true
 			continue
 		}
-		return fmt.Errorf("%s: unexpected child element '%s'", elementName, doc.LocalName(child))
+		return fmt.Errorf("%s: unexpected child element '%s'", elementName, childName)
 	}
 	return nil
 }
 
-func validateElementConstraints(doc *xmltree.Document, elem xmltree.NodeID, elementName string, schema *Schema) error {
+func validateElementConstraints(doc *Document, elem NodeID, elementName string, schema *Schema) error {
 	if err := validateOptionalID(doc, elem, elementName, schema); err != nil {
 		return err
 	}
-	if err := validateOnlyAnnotationChildren(doc, elem, elementName); err != nil {
-		return err
-	}
-	return nil
+	return validateOnlyAnnotationChildren(doc, elem, elementName)
 }

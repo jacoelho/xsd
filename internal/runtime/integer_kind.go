@@ -3,7 +3,7 @@ package runtime
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/num"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 // IntegerSignRule describes the sign constraint for an integer kind.

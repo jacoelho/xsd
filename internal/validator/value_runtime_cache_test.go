@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	xsderrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/runtime"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 func TestLengthListCountsItems(t *testing.T) {

@@ -1,8 +1,7 @@
 package parser
 
 import (
-	"github.com/jacoelho/xsd/internal/xmlnames"
-	"github.com/jacoelho/xsd/internal/xmltree"
+	"github.com/jacoelho/xsd/internal/value"
 )
 
 type elementAttrScan struct {
@@ -34,13 +33,13 @@ type elementAttrScan struct {
 	hasID            bool
 }
 
-func scanElementAttributes(doc *xmltree.Document, elem xmltree.NodeID) elementAttrScan {
+func scanElementAttributes(doc *Document, elem NodeID) elementAttrScan {
 	var attrs elementAttrScan
 	for _, attr := range doc.Attributes(elem) {
 		if isXMLNSDeclaration(attr) {
 			continue
 		}
-		if attr.NamespaceURI() == xmlnames.XSDNamespace {
+		if attr.NamespaceURI() == value.XSDNamespace {
 			recordInvalidElementAttribute(&attrs, attr.LocalName())
 			continue
 		}

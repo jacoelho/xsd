@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jacoelho/xsd/internal/preprocessor"
+	"github.com/jacoelho/xsd/internal/compiler"
 )
 
 // Compile loads, prepares, and builds one schema root with explicit source/build options.
@@ -53,18 +53,18 @@ func CompileFile(path string, sourceOpts SourceOptions, buildOpts BuildOptions) 
 	entry.resolver = &compileFileResolver{
 		path:     path,
 		systemID: base,
-		nested:   preprocessor.NewFSResolver(root.FS()),
+		nested:   compiler.NewFSResolver(root.FS()),
 	}
 	return compileSourceEntry(entry, base, sourceOpts, buildOpts)
 }
 
 type compileFileResolver struct {
-	nested   preprocessor.SchemaResolver
+	nested   compiler.SchemaResolver
 	path     string
 	systemID string
 }
 
-func (r *compileFileResolver) Resolve(req preprocessor.ResolveRequest) (io.ReadCloser, string, error) {
+func (r *compileFileResolver) Resolve(req compiler.ResolveRequest) (io.ReadCloser, string, error) {
 	if req.BaseSystemID == "" && req.SchemaLocation == r.systemID {
 		f, err := os.Open(r.path)
 		if err != nil {

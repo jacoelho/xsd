@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jacoelho/xsd/internal/num"
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/value/num"
 )
 
 // ComparableXSDDuration wraps value.Duration to implement ComparableValue

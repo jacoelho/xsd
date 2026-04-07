@@ -8,22 +8,10 @@ import (
 func TestCorePhaseImportEdges(t *testing.T) {
 	imports := collectPackageImports(t)
 
-	forbiddenPhaseRoots := []string{
-		internalPkg("semanticresolve"),
-		internalPkg("semanticcheck"),
-		internalPkg("analysis"),
-		internalPkg("compiler"),
-		internalPkg("validator"),
-	}
-
-	assertNoExactImports(t, imports, internalPkg("preprocessor"), forbiddenPhaseRoots...)
-
 	assertNoExactImports(
 		t,
 		imports,
 		internalPkg("parser"),
-		internalPkg("semanticresolve"),
-		internalPkg("semanticcheck"),
 		internalPkg("analysis"),
 		internalPkg("compiler"),
 		internalPkg("validator"),
@@ -32,24 +20,7 @@ func TestCorePhaseImportEdges(t *testing.T) {
 	assertNoExactImports(
 		t,
 		imports,
-		internalPkg("semanticresolve"),
-		internalPkg("preprocessor"),
-		internalPkg("compiler"),
-		internalPkg("validator"),
-	)
-	assertNoExactImports(
-		t,
-		imports,
-		internalPkg("semanticcheck"),
-		internalPkg("preprocessor"),
-		internalPkg("compiler"),
-		internalPkg("validator"),
-	)
-	assertNoExactImports(
-		t,
-		imports,
 		internalPkg("analysis"),
-		internalPkg("preprocessor"),
 		internalPkg("compiler"),
 		internalPkg("validator"),
 	)
@@ -58,9 +29,6 @@ func TestCorePhaseImportEdges(t *testing.T) {
 		t,
 		imports,
 		internalPkg("semantics"),
-		internalPkg("preprocessor"),
-		internalPkg("semanticresolve"),
-		internalPkg("semanticcheck"),
 		internalPkg("compiler"),
 		internalPkg("validator"),
 	)
@@ -69,10 +37,7 @@ func TestCorePhaseImportEdges(t *testing.T) {
 		t,
 		imports,
 		internalPkg("validator"),
-		internalPkg("preprocessor"),
 		internalPkg("parser"),
-		internalPkg("semanticresolve"),
-		internalPkg("semanticcheck"),
 		internalPkg("analysis"),
 		internalPkg("compiler"),
 	)
@@ -81,10 +46,7 @@ func TestCorePhaseImportEdges(t *testing.T) {
 		t,
 		imports,
 		internalPkg("validator"),
-		internalPkg("preprocessor"),
 		internalPkg("parser"),
-		internalPkg("semanticresolve"),
-		internalPkg("semanticcheck"),
 		internalPkg("analysis"),
 		internalPkg("compiler"),
 	)

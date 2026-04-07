@@ -9,8 +9,6 @@ import (
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/semanticcheck"
-	"github.com/jacoelho/xsd/internal/semanticresolve"
 	"github.com/jacoelho/xsd/internal/semantics"
 )
 
@@ -41,29 +39,12 @@ func PrepareOwned(parsed *parser.Schema) (*Prepared, error) {
 
 // ResolveAndValidateOwned resolves semantic references and validates the schema in place.
 func ResolveAndValidateOwned(sch *parser.Schema) error {
-	if sch == nil {
-		return fmt.Errorf("schema is nil")
+	validationErrs, err := semantics.ResolveAndValidateSchema(sch)
+	if err != nil {
+		return err
 	}
-	if err := semantics.ResolveGroupReferences(sch); err != nil {
-		return fmt.Errorf("resolve group references: %w", err)
-	}
-	structureErrs := semanticcheck.ValidateStructure(sch)
-	if len(structureErrs) > 0 {
-		return formatValidationErrors(structureErrs)
-	}
-	if err := semanticresolve.NewResolver(sch).Resolve(); err != nil {
-		return fmt.Errorf("resolve type references: %w", err)
-	}
-	refErrs := semanticresolve.ValidateReferences(sch)
-	if len(refErrs) > 0 {
-		return formatValidationErrors(refErrs)
-	}
-	deferredRangeErrs := semantics.ValidateDeferredRangeFacetValues(sch)
-	if len(deferredRangeErrs) > 0 {
-		return formatValidationErrors(deferredRangeErrs)
-	}
-	if parser.HasPlaceholders(sch) {
-		return fmt.Errorf("schema has unresolved placeholders")
+	if len(validationErrs) > 0 {
+		return formatValidationErrors(validationErrs)
 	}
 	return nil
 }

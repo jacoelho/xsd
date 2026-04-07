@@ -59,7 +59,7 @@ func TestCompileWithComplexTypePlanPreservesEffectiveSemantics(t *testing.T) {
 	}
 	validators, err := semantics.CompileWithComplexTypePlan(sch, reg, complexTypes)
 	if err != nil {
-		t.Fatalf("CompileWithComplexTypePlan() error = %v", err)
+		t.Fatalf("semantics.CompileWithComplexTypePlan() error = %v", err)
 	}
 	if validators.ComplexTypes != complexTypes {
 		t.Fatal("compiled validators did not retain the supplied complex-type plan")

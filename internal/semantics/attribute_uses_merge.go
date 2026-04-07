@@ -4,7 +4,6 @@ import (
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
 func mergeAttributes(schema *parser.Schema, attrs []*model.AttributeDecl, groups []model.QName, attrMap map[model.QName]*model.AttributeDecl) error {
@@ -12,7 +11,7 @@ func mergeAttributes(schema *parser.Schema, attrs []*model.AttributeDecl, groups
 		if attr == nil {
 			continue
 		}
-		key := typeresolve.EffectiveAttributeQName(schema, attr)
+		key := parser.EffectiveAttributeQName(schema, attr)
 		attrMap[key] = attr
 	}
 	return mergeAttributesFromGroups(schema, groups, attrMap)
@@ -25,7 +24,7 @@ func mergeAttributesFromGroups(schema *parser.Schema, groups []model.QName, attr
 				// W3C attZ015: ignore prohibited uses from attribute groups.
 				continue
 			}
-			key := typeresolve.EffectiveAttributeQName(schema, attr)
+			key := parser.EffectiveAttributeQName(schema, attr)
 			attrMap[key] = attr
 		}
 		return nil
