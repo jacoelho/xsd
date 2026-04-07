@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/valruntime"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -15,17 +14,17 @@ type TextValueOptions struct {
 }
 
 // ValidateTextValue validates simple-content text and returns canonical bytes plus value metrics.
-func (s *Session) ValidateTextValue(typeID runtime.TypeID, text []byte, resolver value.NSResolver, textOpts TextValueOptions) ([]byte, valruntime.State, error) {
+func (s *Session) ValidateTextValue(typeID runtime.TypeID, text []byte, resolver value.NSResolver, textOpts TextValueOptions) ([]byte, ValueMetrics, error) {
 	metricState := s.acquireMetricsState()
 	defer s.releaseMetricsState()
 	canon, err := s.validateTextValueCore(typeID, text, resolver, textOpts, metricState)
 	if err != nil {
-		return nil, valruntime.State{}, err
+		return nil, ValueMetrics{}, err
 	}
 	return canon, *metricState, nil
 }
 
-func (s *Session) validateTextValueCore(typeID runtime.TypeID, text []byte, resolver value.NSResolver, textOpts TextValueOptions, metrics *valruntime.State) ([]byte, error) {
+func (s *Session) validateTextValueCore(typeID runtime.TypeID, text []byte, resolver value.NSResolver, textOpts TextValueOptions, metrics *ValueMetrics) ([]byte, error) {
 	if s == nil || s.rt == nil {
 		return nil, fmt.Errorf("session missing runtime schema")
 	}
@@ -34,7 +33,13 @@ func (s *Session) validateTextValueCore(typeID runtime.TypeID, text []byte, reso
 		return nil, fmt.Errorf("type %d not found", typeID)
 	}
 	storeValue := s.hasIdentityConstraints()
-	opts := valruntime.TextOptions(textOpts.RequireCanonical, textOpts.NeedKey, storeValue)
+	opts := valueOptions{
+		ApplyWhitespace:  true,
+		TrackIDs:         true,
+		RequireCanonical: textOpts.RequireCanonical,
+		StoreValue:       storeValue,
+		NeedKey:          textOpts.NeedKey,
+	}
 	var validatorID runtime.ValidatorID
 	switch typ.Kind {
 	case runtime.TypeSimple, runtime.TypeBuiltin:
@@ -52,8 +57,8 @@ func (s *Session) validateTextValueCore(typeID runtime.TypeID, text []byte, reso
 		return nil, fmt.Errorf("unknown type kind %d", typ.Kind)
 	}
 	// fast path: no identity constraints, skip metrics computation
-	if !valruntime.TextNeedsMetrics(opts) {
-		canon, err := s.validateValueInternalOptions(validatorID, text, resolver, opts)
+	if !opts.StoreValue && !opts.NeedKey {
+		canon, err := s.validateValueCore(validatorID, text, resolver, opts, nil)
 		if err != nil {
 			return nil, err
 		}

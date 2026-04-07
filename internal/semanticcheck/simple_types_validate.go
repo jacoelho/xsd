@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -134,7 +134,7 @@ func validateUnionType(schema *parser.Schema, unionType *model.UnionType) error 
 			continue
 		}
 
-		if memberType, ok := typechain.LookupType(schema, memberQName); ok {
+		if memberType, ok := semantics.LookupType(schema, memberQName); ok {
 			// union members must be simple types, not complex types
 			if _, isComplex := memberType.(*model.ComplexType); isComplex {
 				return fmt.Errorf("union memberType %d: '%s' is a complex type (union types can only have simple types as members)", i+1, memberQName.Local)
@@ -186,7 +186,7 @@ func validateListType(schema *parser.Schema, listType *model.ListType) error {
 	}
 
 	// check if it's a user-defined type in this schema
-	if defType, ok := typechain.LookupType(schema, listType.ItemType); ok {
+	if defType, ok := semantics.LookupType(schema, listType.ItemType); ok {
 		st, ok := defType.(*model.SimpleType)
 		if !ok {
 			return fmt.Errorf("list itemType must be a simple type, got %T", defType)

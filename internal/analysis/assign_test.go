@@ -93,55 +93,24 @@ func TestDeterministicIDs(t *testing.T) {
 		t.Fatalf("AssignIDs error = %v", err)
 	}
 
-	root := sch.ElementDecls[model.QName{Namespace: "urn:ids", Local: "root"}]
-	if root == nil {
-		t.Fatalf("root element not found")
-	}
-	rootCT, ok := root.Type.(*model.ComplexType)
-	if !ok {
-		t.Fatalf("root type = %T, want *model.ComplexType", root.Type)
-	}
-	rootContent, ok := rootCT.Content().(*model.ElementContent)
-	if !ok {
-		t.Fatalf("root content = %T, want *model.ElementContent", rootCT.Content())
-	}
-	rootGroup, ok := rootContent.Particle.(*model.ModelGroup)
-	if !ok {
-		t.Fatalf("root particle = %T, want *model.ModelGroup", rootContent.Particle)
-	}
+	root := requireElement(t, sch, "urn:ids", "root")
+	rootCT := requireComplexType(t, root.Type, "root type")
+	rootGroup := requireElementContentGroup(t, rootCT.Content(), "root")
 	first := findLocalElement(t, rootGroup, "first")
 	second := findLocalElement(t, rootGroup, "second")
 	attrInline := findAttribute(t, rootCT.Attributes(), "attrInline")
 
 	typeQName := model.QName{Namespace: "urn:ids", Local: "T"}
-	globalType, ok := sch.TypeDefs[typeQName].(*model.ComplexType)
-	if !ok {
-		t.Fatalf("global type T not found")
-	}
-	globalContent, ok := globalType.Content().(*model.ElementContent)
-	if !ok {
-		t.Fatalf("global type content = %T, want *model.ElementContent", globalType.Content())
-	}
-	globalGroup, ok := globalContent.Particle.(*model.ModelGroup)
-	if !ok {
-		t.Fatalf("global type particle = %T, want *model.ModelGroup", globalContent.Particle)
-	}
+	globalType := requireComplexType(t, sch.TypeDefs[typeQName], "global type T")
+	globalGroup := requireElementContentGroup(t, globalType.Content(), "global type T")
 	nested := findLocalElement(t, globalGroup, "nested")
 
-	globalAttr := sch.AttributeDecls[model.QName{Namespace: "urn:ids", Local: "gAttr"}]
-	if globalAttr == nil {
-		t.Fatalf("global attribute gAttr not found")
-	}
-	attrGroup := sch.AttributeGroups[model.QName{Namespace: "urn:ids", Local: "AG"}]
-	if attrGroup == nil {
-		t.Fatalf("attributeGroup AG not found")
-	}
-	if len(attrGroup.Attributes) != 1 {
-		t.Fatalf("attributeGroup AG attributes = %d, want 1", len(attrGroup.Attributes))
-	}
+	globalAttr := requireAttributeDecl(t, sch, "urn:ids", "gAttr")
+	attrGroup := requireAttributeGroup(t, sch, "urn:ids", "AG")
+	requireLen(t, "attributeGroup AG attributes", len(attrGroup.Attributes), 1)
 	agAttr := attrGroup.Attributes[0]
 
-	wantElements := []struct {
+	assertElementOrder(t, reg, []struct {
 		decl   *model.ElementDecl
 		global bool
 	}{
@@ -149,31 +118,13 @@ func TestDeterministicIDs(t *testing.T) {
 		{first, false},
 		{second, false},
 		{nested, false},
-	}
-	if len(reg.ElementOrder) != len(wantElements) {
-		t.Fatalf("element order length = %d, want %d", len(reg.ElementOrder), len(wantElements))
-	}
-	for i, want := range wantElements {
-		got := reg.ElementOrder[i]
-		if got.Decl != want.decl || got.Global != want.global {
-			t.Fatalf("element[%d] = (%p,%v), want (%p,%v)", i, got.Decl, got.Global, want.decl, want.global)
-		}
-	}
+	})
 
-	firstType, ok := first.Type.(*model.SimpleType)
-	if !ok {
-		t.Fatalf("first type = %T, want *model.SimpleType", first.Type)
-	}
-	attrInlineType, ok := attrInline.Type.(*model.SimpleType)
-	if !ok {
-		t.Fatalf("attrInline type = %T, want *model.SimpleType", attrInline.Type)
-	}
-	globalAttrType, ok := globalAttr.Type.(*model.SimpleType)
-	if !ok {
-		t.Fatalf("global attribute type = %T, want *model.SimpleType", globalAttr.Type)
-	}
+	firstType := requireSimpleType(t, first.Type, "first type")
+	attrInlineType := requireSimpleType(t, attrInline.Type, "attrInline type")
+	globalAttrType := requireSimpleType(t, globalAttr.Type, "global attribute type")
 
-	wantTypes := []struct {
+	assertTypeOrder(t, reg, []struct {
 		typ    model.Type
 		global bool
 	}{
@@ -182,33 +133,15 @@ func TestDeterministicIDs(t *testing.T) {
 		{attrInlineType, false},
 		{globalType, true},
 		{globalAttrType, false},
-	}
-	if len(reg.TypeOrder) != len(wantTypes) {
-		t.Fatalf("type order length = %d, want %d", len(reg.TypeOrder), len(wantTypes))
-	}
-	for i, want := range wantTypes {
-		got := reg.TypeOrder[i]
-		if got.Type != want.typ || got.Global != want.global {
-			t.Fatalf("type[%d] = (%p,%v), want (%p,%v)", i, got.Type, got.Global, want.typ, want.global)
-		}
-	}
+	})
 
-	wantAttrs := []struct {
+	assertAttributeOrder(t, reg, []struct {
 		decl   *model.AttributeDecl
 		global bool
 	}{
 		{globalAttr, true},
 		{agAttr, false},
-	}
-	if len(reg.AttributeOrder) != len(wantAttrs) {
-		t.Fatalf("attribute order length = %d, want %d", len(reg.AttributeOrder), len(wantAttrs))
-	}
-	for i, want := range wantAttrs {
-		got := reg.AttributeOrder[i]
-		if got.Decl != want.decl || got.Global != want.global {
-			t.Fatalf("attribute[%d] = (%p,%v), want (%p,%v)", i, got.Decl, got.Global, want.decl, want.global)
-		}
-	}
+	})
 
 	if _, ok := reg.LookupLocalAttributeID(attrInline); ok {
 		t.Fatalf("expected local attribute attrInline to be excluded from ID assignment")
@@ -226,6 +159,113 @@ func TestDeterministicIDs(t *testing.T) {
 	}
 	if !equalAttrOrder(reg.AttributeOrder, reg2.AttributeOrder) {
 		t.Fatalf("attribute order differs across runs")
+	}
+}
+
+func requireElement(t *testing.T, sch *parser.Schema, namespace, local string) *model.ElementDecl {
+	t.Helper()
+	decl := sch.ElementDecls[model.QName{Namespace: namespace, Local: local}]
+	if decl == nil {
+		t.Fatalf("element %s not found", local)
+	}
+	return decl
+}
+
+func requireAttributeDecl(t *testing.T, sch *parser.Schema, namespace, local string) *model.AttributeDecl {
+	t.Helper()
+	decl := sch.AttributeDecls[model.QName{Namespace: namespace, Local: local}]
+	if decl == nil {
+		t.Fatalf("attribute %s not found", local)
+	}
+	return decl
+}
+
+func requireAttributeGroup(t *testing.T, sch *parser.Schema, namespace, local string) *model.AttributeGroup {
+	t.Helper()
+	group := sch.AttributeGroups[model.QName{Namespace: namespace, Local: local}]
+	if group == nil {
+		t.Fatalf("attributeGroup %s not found", local)
+	}
+	return group
+}
+
+func requireComplexType(t *testing.T, typ model.Type, label string) *model.ComplexType {
+	t.Helper()
+	ct, ok := typ.(*model.ComplexType)
+	if !ok {
+		t.Fatalf("%s = %T, want *model.ComplexType", label, typ)
+	}
+	return ct
+}
+
+func requireSimpleType(t *testing.T, typ model.Type, label string) *model.SimpleType {
+	t.Helper()
+	st, ok := typ.(*model.SimpleType)
+	if !ok {
+		t.Fatalf("%s = %T, want *model.SimpleType", label, typ)
+	}
+	return st
+}
+
+func requireElementContentGroup(t *testing.T, content model.Content, label string) *model.ModelGroup {
+	t.Helper()
+	elementContent, ok := content.(*model.ElementContent)
+	if !ok {
+		t.Fatalf("%s content = %T, want *model.ElementContent", label, content)
+	}
+	group, ok := elementContent.Particle.(*model.ModelGroup)
+	if !ok {
+		t.Fatalf("%s particle = %T, want *model.ModelGroup", label, elementContent.Particle)
+	}
+	return group
+}
+
+func requireLen(t *testing.T, label string, got, want int) {
+	t.Helper()
+	if got != want {
+		t.Fatalf("%s = %d, want %d", label, got, want)
+	}
+}
+
+func assertElementOrder(t *testing.T, reg *analysis.Registry, want []struct {
+	decl   *model.ElementDecl
+	global bool
+}) {
+	t.Helper()
+	requireLen(t, "element order length", len(reg.ElementOrder), len(want))
+	for i, item := range want {
+		got := reg.ElementOrder[i]
+		if got.Decl != item.decl || got.Global != item.global {
+			t.Fatalf("element[%d] = (%p,%v), want (%p,%v)", i, got.Decl, got.Global, item.decl, item.global)
+		}
+	}
+}
+
+func assertTypeOrder(t *testing.T, reg *analysis.Registry, want []struct {
+	typ    model.Type
+	global bool
+}) {
+	t.Helper()
+	requireLen(t, "type order length", len(reg.TypeOrder), len(want))
+	for i, item := range want {
+		got := reg.TypeOrder[i]
+		if got.Type != item.typ || got.Global != item.global {
+			t.Fatalf("type[%d] = (%p,%v), want (%p,%v)", i, got.Type, got.Global, item.typ, item.global)
+		}
+	}
+}
+
+func assertAttributeOrder(t *testing.T, reg *analysis.Registry, want []struct {
+	decl   *model.AttributeDecl
+	global bool
+}) {
+	t.Helper()
+	requireLen(t, "attribute order length", len(reg.AttributeOrder), len(want))
+	for i, item := range want {
+		got := reg.AttributeOrder[i]
+		if got.Decl != item.decl || got.Global != item.global {
+			t.Fatalf("attribute[%d] = (%p,%v), want (%p,%v)", i, got.Decl, got.Global, item.decl, item.global)
+		}
 	}
 }
 

@@ -16,7 +16,7 @@ func resolveSchema(schemaXML string) (*parser.Schema, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := resolveAndValidateOwned(sch); err != nil {
+	if err := ResolveAndValidateOwned(sch); err != nil {
 		return nil, err
 	}
 	return sch, nil
@@ -27,7 +27,7 @@ func buildSchemaForTest(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, e
 		return nil, fmt.Errorf("runtime build: schema is nil")
 	}
 	resolvedSchema := parser.CloneSchema(sch)
-	if err := resolveAndValidateOwned(resolvedSchema); err != nil {
+	if err := ResolveAndValidateOwned(resolvedSchema); err != nil {
 		return nil, fmt.Errorf("runtime build: %w", err)
 	}
 	registry, err := analysis.AssignIDs(resolvedSchema)
@@ -55,7 +55,11 @@ func buildSchemaForTest(sch *parser.Schema, cfg BuildConfig) (*runtime.Schema, e
 	if err != nil {
 		return nil, fmt.Errorf("runtime build: compile validators: %w", err)
 	}
-	return BuildArtifacts(resolvedSchema, registry, refs, validators, cfg)
+	prepared, err := PrepareBuildArtifacts(resolvedSchema, registry, refs, validators)
+	if err != nil {
+		return nil, fmt.Errorf("runtime build: %w", err)
+	}
+	return prepared.Build(cfg)
 }
 
 func mustResolveSchema(tb testing.TB, schemaXML string) *parser.Schema {

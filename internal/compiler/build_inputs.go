@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/analysis"
-	"github.com/jacoelho/xsd/internal/contentmodel"
-	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -55,11 +53,11 @@ func Build(
 		registry:     reg,
 		refs:         refs,
 		validators:   validators,
-		limits:       contentmodel.Limits{MaxDFAStates: cfg.MaxDFAStates},
+		limits:       semantics.Limits{MaxDFAStates: cfg.MaxDFAStates},
 		builder:      runtime.NewBuilder(),
-		typeIDs:      make(map[ids.TypeID]runtime.TypeID),
-		elemIDs:      make(map[ids.ElemID]runtime.ElemID),
-		attrIDs:      make(map[ids.AttrID]runtime.AttrID),
+		typeIDs:      make(map[analysis.TypeID]runtime.TypeID),
+		elemIDs:      make(map[analysis.ElemID]runtime.ElemID),
+		attrIDs:      make(map[analysis.AttrID]runtime.AttrID),
 		builtinIDs:   make(map[model.TypeName]runtime.TypeID),
 		complexIDs:   make(map[runtime.TypeID]uint32),
 		maxOccurs:    maxOccursLimit,

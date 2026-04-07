@@ -5,7 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/typechain"
 )
 
 func (c *compiler) prepareComplexTypePlan(registry *analysis.Registry) error {
@@ -32,7 +31,7 @@ func (c *compiler) buildComplexTypes(registry *analysis.Registry) (*ComplexTypes
 			return CollectAttributeUses(c.schema, ct)
 		},
 		ContentParticle: func(ct *model.ComplexType) model.Particle {
-			return typechain.EffectiveContentParticle(c.schema, ct)
+			return EffectiveContentParticle(c.schema, ct)
 		},
 		SimpleContentType: func(ct *model.ComplexType) (model.Type, error) {
 			return c.simpleContentTextType(ct)

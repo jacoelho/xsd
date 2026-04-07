@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
@@ -17,7 +16,7 @@ func parseLocalAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Sch
 	if name == "xmlns" {
 		return nil, fmt.Errorf("attribute name cannot be 'xmlns'")
 	}
-	if !qname.IsValidNCName(name) {
+	if !model.IsValidNCName(name) {
 		return nil, fmt.Errorf("attribute name '%s' must be a valid NCName", name)
 	}
 
@@ -31,53 +30,19 @@ func parseLocalAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Sch
 	}
 
 	typeName := doc.GetAttribute(elem, "type")
-	simpleTypeCount := 0
-	for _, child := range doc.Children(elem) {
-		if doc.NamespaceURI(child) == xmlnames.XSDNamespace && doc.LocalName(child) == "simpleType" {
-			simpleTypeCount++
-		} else if doc.NamespaceURI(child) == xmlnames.XSDNamespace {
-			switch doc.LocalName(child) {
-			case "key", "keyref", "unique":
-				return nil, fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(child))
-			case "annotation":
-			default:
-				return nil, fmt.Errorf("invalid child element <%s> in <attribute> declaration", doc.LocalName(child))
-			}
-		}
+	simpleTypeCount, err := countInlineSimpleTypes(doc, elem)
+	if err != nil {
+		return nil, err
 	}
-
 	if typeName != "" && simpleTypeCount > 0 {
 		return nil, fmt.Errorf("attribute cannot have both 'type' attribute and inline simpleType")
 	}
 	if simpleTypeCount > 1 {
 		return nil, fmt.Errorf("attribute cannot have multiple simpleType children")
 	}
-
-	if typeName != "" {
-		typeQName, err := resolveQNameWithPolicy(doc, typeName, elem, schema, useDefaultNamespace)
-		if err != nil {
-			return nil, fmt.Errorf("resolve type %s: %w", typeName, err)
-		}
-
-		if builtinType := model.GetBuiltinNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
-			attr.Type = builtinType
-		} else {
-			attr.Type = model.NewPlaceholderSimpleType(typeQName)
-		}
-	} else {
-		for _, child := range doc.Children(elem) {
-			if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
-				continue
-			}
-
-			if doc.LocalName(child) == "simpleType" {
-				st, err := parseInlineSimpleType(doc, child, schema)
-				if err != nil {
-					return nil, fmt.Errorf("parse inline simpleType: %w", err)
-				}
-				attr.Type = st
-			}
-		}
+	attr.Type, err = resolveLocalAttributeType(doc, elem, schema, typeName)
+	if err != nil {
+		return nil, err
 	}
 	if attr.Type == nil {
 		attr.Type = model.GetBuiltin(model.TypeNameAnySimpleType)
@@ -111,23 +76,9 @@ func parseLocalAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Sch
 		attr.ValueContext = namespaceContextForElement(doc, elem, schema)
 	}
 
-	formExplicit := doc.HasAttribute(elem, "form")
-	if formExplicit {
-		formAttr := model.ApplyWhiteSpace(doc.GetAttribute(elem, "form"), model.WhiteSpaceCollapse)
-		switch formAttr {
-		case "qualified":
-			attr.Form = model.FormQualified
-		case "unqualified":
-			attr.Form = model.FormUnqualified
-		default:
-			return nil, fmt.Errorf("invalid form attribute value '%s': must be 'qualified' or 'unqualified'", formAttr)
-		}
-	} else if local {
-		if schema.AttributeFormDefault == Qualified {
-			attr.Form = model.FormQualified
-		} else {
-			attr.Form = model.FormUnqualified
-		}
+	formErr := applyAttributeForm(doc, elem, schema, local, attr)
+	if formErr != nil {
+		return nil, formErr
 	}
 
 	parsed, err := model.NewAttributeDeclFromParsed(attr)
@@ -135,4 +86,75 @@ func parseLocalAttribute(doc *xmltree.Document, elem xmltree.NodeID, schema *Sch
 		return nil, err
 	}
 	return parsed, nil
+}
+
+func countInlineSimpleTypes(doc *xmltree.Document, elem xmltree.NodeID) (int, error) {
+	count := 0
+	for _, child := range doc.Children(elem) {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace {
+			continue
+		}
+		switch doc.LocalName(child) {
+		case "simpleType":
+			count++
+		case "annotation":
+		case "key", "keyref", "unique":
+			return 0, fmt.Errorf("identity constraint '%s' is only allowed as a child of element declarations", doc.LocalName(child))
+		default:
+			return 0, fmt.Errorf("invalid child element <%s> in <attribute> declaration", doc.LocalName(child))
+		}
+	}
+	return count, nil
+}
+
+func resolveLocalAttributeType(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, typeName string) (model.Type, error) {
+	if typeName != "" {
+		return resolveLocalAttributeTypeName(doc, elem, schema, typeName)
+	}
+	for _, child := range doc.Children(elem) {
+		if doc.NamespaceURI(child) != xmlnames.XSDNamespace || doc.LocalName(child) != "simpleType" {
+			continue
+		}
+		st, err := parseInlineSimpleType(doc, child, schema)
+		if err != nil {
+			return nil, fmt.Errorf("parse inline simpleType: %w", err)
+		}
+		return st, nil
+	}
+	return nil, nil
+}
+
+func resolveLocalAttributeTypeName(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, typeName string) (model.Type, error) {
+	typeQName, err := resolveQNameWithPolicy(doc, typeName, elem, schema, useDefaultNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("resolve type %s: %w", typeName, err)
+	}
+	if builtinType := model.GetBuiltinNS(typeQName.Namespace, typeQName.Local); builtinType != nil {
+		return builtinType, nil
+	}
+	return model.NewPlaceholderSimpleType(typeQName), nil
+}
+
+func applyAttributeForm(doc *xmltree.Document, elem xmltree.NodeID, schema *Schema, local bool, attr *model.AttributeDecl) error {
+	if doc.HasAttribute(elem, "form") {
+		formAttr := model.ApplyWhiteSpace(doc.GetAttribute(elem, "form"), model.WhiteSpaceCollapse)
+		switch formAttr {
+		case "qualified":
+			attr.Form = model.FormQualified
+		case "unqualified":
+			attr.Form = model.FormUnqualified
+		default:
+			return fmt.Errorf("invalid form attribute value '%s': must be 'qualified' or 'unqualified'", formAttr)
+		}
+		return nil
+	}
+	if !local {
+		return nil
+	}
+	if schema.AttributeFormDefault == Qualified {
+		attr.Form = model.FormQualified
+		return nil
+	}
+	attr.Form = model.FormUnqualified
+	return nil
 }

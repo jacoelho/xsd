@@ -2,12 +2,11 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/attrs"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-func (s *Session) validateComplexAttrsClassified(ct *runtime.ComplexType, present []bool, inputAttrs []attrs.Start, classes []attrs.Class, resolver value.NSResolver, storeAttrs bool, validated []attrs.Start) ([]attrs.Start, bool, error) {
-	return attrs.ValidateComplex(
+func (s *Session) validateComplexAttrsClassified(ct *runtime.ComplexType, present []bool, inputAttrs []Start, classes []Class, resolver value.NSResolver, storeAttrs bool, validated []Start) ([]Start, bool, error) {
+	return ValidateComplex(
 		s.rt,
 		ct,
 		present,
@@ -15,24 +14,26 @@ func (s *Session) validateComplexAttrsClassified(ct *runtime.ComplexType, presen
 		classes,
 		storeAttrs,
 		validated,
-		attrs.ComplexCallbacks{
-			AppendRaw: s.appendRawValidatedAttr,
+		ComplexCallbacks{
+			AppendRaw: func(validated []Start, attr Start, storeAttrs bool) []Start {
+				return StoreRaw(validated, attr, storeAttrs, s.ensureAttrNameStable, s.storeValue)
+			},
 			ValidateUse: func(
-				validated []attrs.Start,
-				attr attrs.Start,
+				validated []Start,
+				attr Start,
 				use runtime.AttrUse,
 				storeAttrs bool,
 				seenID *bool,
-			) ([]attrs.Start, error) {
+			) ([]Start, error) {
 				return s.validateComplexAttrUse(validated, attr, resolver, storeAttrs, use, seenID)
 			},
 			ValidateWildcard: func(
-				validated []attrs.Start,
-				attr attrs.Start,
+				validated []Start,
+				attr Start,
 				anyAttr runtime.WildcardID,
 				storeAttrs bool,
 				seenID *bool,
-			) ([]attrs.Start, error) {
+			) ([]Start, error) {
 				return s.validateComplexWildcardAttr(validated, attr, resolver, storeAttrs, anyAttr, seenID)
 			},
 		},

@@ -9,7 +9,6 @@ import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/preprocessor"
-	"github.com/jacoelho/xsd/internal/preprocessor/merge"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -86,11 +85,11 @@ func loadAndMergeRoots(roots []Root, cfg LoadConfig) (*parser.Schema, error) {
 			continue
 		}
 
-		kind := merge.Import
+		kind := preprocessor.Import
 		if parsed.TargetNamespace == merged.TargetNamespace {
-			kind = merge.Include
+			kind = preprocessor.Include
 		}
-		if err := merge.Apply(merged, parsed, kind, merge.KeepNamespace, insertAt); err != nil {
+		if err := preprocessor.Apply(merged, parsed, kind, preprocessor.KeepNamespace, insertAt); err != nil {
 			return nil, fmt.Errorf("merge schema %s: %w", root.Location, err)
 		}
 		insertAt = len(merged.GlobalDecls)

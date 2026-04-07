@@ -5,8 +5,6 @@ import (
 	"io"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/preprocessor/merge"
-	"github.com/jacoelho/xsd/internal/preprocessor/resolve"
 )
 
 func (s *loadSession) processInclude(schema *parser.Schema, include parser.IncludeInfo) error {
@@ -15,10 +13,10 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 		Load: func(info parser.IncludeInfo) (LoadResult[loadKey], error) {
 			return Load(LoadConfig[loadKey]{
 				Resolve: func() (io.ReadCloser, string, error) {
-					return s.loader.resolver.Resolve(resolve.Request{
+					return s.loader.resolver.Resolve(ResolveRequest{
 						BaseSystemID:   s.systemID,
 						SchemaLocation: info.SchemaLocation,
-						Kind:           resolve.Include,
+						Kind:           ResolveInclude,
 					})
 				},
 				Key: func(systemID string) loadKey {
@@ -29,7 +27,13 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 				},
 				IsLoading: s.loader.state.IsLoading,
 				OnLoading: func(targetKey loadKey) {
-					_ = s.loader.deferInclude(targetKey, s.key, info, &s.journal)
+					_ = s.loader.deferDirective(targetKey, Directive[loadKey]{
+						Kind:             parser.DirectiveInclude,
+						TargetKey:        s.key,
+						SchemaLocation:   info.SchemaLocation,
+						IncludeDeclIndex: info.DeclIndex,
+						IncludeIndex:     info.IncludeIndex,
+					}, &s.journal)
 				},
 				Load: func(doc io.ReadCloser, systemID string, targetKey loadKey) (*parser.Schema, error) {
 					return s.loader.loadResolvedWithJournal(doc, systemID, targetKey, &s.journal)
@@ -42,18 +46,18 @@ func (s *loadSession) processInclude(schema *parser.Schema, include parser.Inclu
 			if !ok || entry == nil {
 				return fmt.Errorf("include tracking missing for %s", s.key.systemID)
 			}
-			plan, err := merge.PlanInclude(s.key.etn, entry.includeInserted, schema, include, include.SchemaLocation, includedSchema)
+			plan, err := PlanInclude(s.key.etn, entry.includeInserted, schema, include, include.SchemaLocation, includedSchema)
 			if err != nil {
 				if tracked, ok := s.loader.state.entry(includeKey); ok && tracked != nil {
 					s.loader.resetEntry(tracked, includeKey)
 				}
 				return err
 			}
-			inserted, err := merge.ApplyPlanned(schema, includedSchema, plan, "included", include.SchemaLocation)
+			inserted, err := ApplyPlanned(schema, includedSchema, plan, "included", include.SchemaLocation)
 			if err != nil {
 				return err
 			}
-			if err := merge.RecordIncludeInserted(entry.includeInserted, include.IncludeIndex, inserted); err != nil {
+			if err := RecordIncludeInserted(entry.includeInserted, include.IncludeIndex, inserted); err != nil {
 				return err
 			}
 			s.markDirectiveMerged(parser.DirectiveInclude, s.key, includeKey)

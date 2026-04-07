@@ -7,7 +7,6 @@ import (
 	"iter"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/xmllex"
 	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
@@ -128,7 +127,7 @@ type parseSession struct {
 	result             *ParseResult
 	importedNamespaces map[model.NamespaceURI]bool
 	dirState           directiveState
-	docState           xmllex.DocumentState
+	docState           xmlnames.DocumentState
 }
 
 func newParseSession(reader *xmlstream.Reader, pool *xmltree.DocumentPool) *parseSession {
@@ -144,7 +143,7 @@ func newParseSession(reader *xmlstream.Reader, pool *xmltree.DocumentPool) *pars
 			Includes:   []IncludeInfo{},
 		},
 		importedNamespaces: make(map[model.NamespaceURI]bool),
-		docState:           xmllex.NewDocumentState(),
+		docState:           xmlnames.NewDocumentState(),
 	}
 }
 

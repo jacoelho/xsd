@@ -3,7 +3,6 @@ package semanticresolve
 import (
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/typeresolve"
@@ -65,10 +64,10 @@ func TestValidateValueAgainstFacets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collect simple type facets: %v", err)
 	}
-	if err := facetvalue.Validate("abcd", st, collectedFacets, nil); err != nil {
+	if err := model.ValidateFacetValue("abcd", st, collectedFacets, nil); err != nil {
 		t.Fatalf("expected valid facet value, got %v", err)
 	}
-	if err := facetvalue.Validate("ab", st, collectedFacets, nil); err == nil {
+	if err := model.ValidateFacetValue("ab", st, collectedFacets, nil); err == nil {
 		t.Fatalf("expected facet violation for short value")
 	}
 }

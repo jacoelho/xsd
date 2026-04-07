@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 // validateElementDeclarationsConsistent validates extension element consistency with base.
@@ -21,12 +21,12 @@ func validateElementDeclarationsConsistent(schema *parser.Schema, complexType *m
 	}
 
 	baseQName := content.BaseTypeQName()
-	baseComplexType, ok := typechain.LookupComplexType(schema, baseQName)
+	baseComplexType, ok := semantics.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}
 
-	baseElements := typechain.CollectElementDeclsFromComplexType(schema, baseComplexType)
+	baseElements := semantics.CollectElementDeclsFromComplexType(schema, baseComplexType)
 	if ext.Particle == nil {
 		return nil
 	}

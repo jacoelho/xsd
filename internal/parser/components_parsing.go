@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/xmlnames"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
@@ -79,7 +78,7 @@ func parseTopLevelNotation(doc *xmltree.Document, elem xmltree.NodeID, schema *S
 		return fmt.Errorf("notation must have a 'name' attribute")
 	}
 
-	if !qname.IsValidNCName(name) {
+	if !model.IsValidNCName(name) {
 		return fmt.Errorf("notation name '%s' must be a valid NCName", name)
 	}
 

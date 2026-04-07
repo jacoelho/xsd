@@ -6,7 +6,6 @@ import (
 	"github.com/jacoelho/xsd/internal/facets"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -95,5 +94,5 @@ func isRangeFacetName(name string) bool {
 }
 
 func sortedTypeQNames[V any](m map[model.QName]V) []model.QName {
-	return qname.SortedMapKeys(m)
+	return model.SortedMapKeys(m)
 }

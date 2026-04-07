@@ -3,8 +3,8 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/resolveguard"
 )
 
 func (r *Resolver) resolveSimpleType(qname model.QName, st *model.SimpleType) error {
@@ -15,7 +15,7 @@ func (r *Resolver) resolveSimpleType(qname model.QName, st *model.SimpleType) er
 			return r.doResolveSimpleType(qname, st)
 		})
 	}
-	return resolveguard.ResolveNamed[model.QName](r.detector, qname, func() error {
+	return analysis.ResolveNamed[model.QName](r.detector, qname, func() error {
 		return r.doResolveSimpleType(qname, st)
 	})
 }

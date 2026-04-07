@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/semantics"
 )
@@ -21,13 +20,13 @@ func TestValidateUPA_DoesNotMutateOccurs(t *testing.T) {
 
 	elem := &model.ElementDecl{
 		Name:      model.QName{Namespace: schema.TargetNamespace, Local: "item"},
-		MinOccurs: occurs.OccursFromInt(0),
-		MaxOccurs: occurs.OccursFromInt(2),
+		MinOccurs: model.OccursFromInt(0),
+		MaxOccurs: model.OccursFromInt(2),
 	}
 	group := &model.ModelGroup{
 		Kind:      model.Sequence,
-		MinOccurs: occurs.OccursFromInt(1),
-		MaxOccurs: occurs.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 		Particles: []model.Particle{elem},
 	}
 	content := &model.ElementContent{Particle: group}
@@ -56,18 +55,18 @@ func TestValidateUPA_DuplicateElementRefs(t *testing.T) {
 	name := model.QName{Namespace: schema.TargetNamespace, Local: "a"}
 	elem1 := &model.ElementDecl{
 		Name:      name,
-		MinOccurs: occurs.OccursFromInt(1),
-		MaxOccurs: occurs.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 	}
 	elem2 := &model.ElementDecl{
 		Name:      name,
-		MinOccurs: occurs.OccursFromInt(1),
-		MaxOccurs: occurs.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 	}
 	choice := &model.ModelGroup{
 		Kind:      model.Choice,
-		MinOccurs: occurs.OccursFromInt(1),
-		MaxOccurs: occurs.OccursFromInt(1),
+		MinOccurs: model.OccursFromInt(1),
+		MaxOccurs: model.OccursFromInt(1),
 		Particles: []model.Particle{elem1, elem2},
 	}
 	content := &model.ElementContent{Particle: choice}

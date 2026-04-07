@@ -8,8 +8,6 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/attrs"
-	"github.com/jacoelho/xsd/internal/validator/model"
 )
 
 func collisionSchemaSession(tb testing.TB) (*Session, runtime.TypeID) {
@@ -26,7 +24,7 @@ func collisionSchemaSession(tb testing.TB) (*Session, runtime.TypeID) {
 	rt := mustBuildRuntimeSchema(tb, schema)
 	sess := NewSession(rt)
 	sym := rt.Symbols.Lookup(rt.PredefNS.Empty, []byte("root"))
-	elemID, ok := model.LookupGlobalElement(rt, sym)
+	elemID, ok := LookupStartGlobalElement(rt, sym)
 	if !ok {
 		tb.Fatalf("root element symbol not found")
 	}
@@ -36,7 +34,7 @@ func collisionSchemaSession(tb testing.TB) (*Session, runtime.TypeID) {
 
 func TestAttrDuplicateDetectionCollisionSafeDifferentNames(t *testing.T) {
 	sess, typeID := collisionSchemaSession(t)
-	attrs := []attrs.Start{
+	attrs := []Start{
 		{Local: []byte("a"), NSBytes: []byte("urn:one"), Value: []byte("1")},
 		{Local: []byte("b"), NSBytes: []byte("urn:two"), Value: []byte("2")},
 	}
@@ -47,7 +45,7 @@ func TestAttrDuplicateDetectionCollisionSafeDifferentNames(t *testing.T) {
 
 func TestAttrDuplicateDetectionCollisionSafeDuplicate(t *testing.T) {
 	sess, typeID := collisionSchemaSession(t)
-	attrs := []attrs.Start{
+	attrs := []Start{
 		{Local: []byte("dup"), NSBytes: []byte("urn:one"), Value: []byte("1")},
 		{Local: []byte("dup"), NSBytes: []byte("urn:one"), Value: []byte("2")},
 	}
@@ -63,12 +61,12 @@ func TestAttrDuplicateDetectionCollisionSafeDuplicate(t *testing.T) {
 
 func Benchmark_AttrDuplicateDetection_CollisionSafe(b *testing.B) {
 	const attrCount = 64
-	inputAttrs := make([]attrs.Start, attrCount)
+	inputAttrs := make([]Start, attrCount)
 	for i := 0; i < attrCount; i++ {
 		local := make([]byte, 0, 8)
 		local = append(local, 'a')
 		local = strconv.AppendInt(local, int64(i), 10)
-		inputAttrs[i] = attrs.Start{
+		inputAttrs[i] = Start{
 			Local:   local,
 			NSBytes: []byte("urn:bench"),
 			Value:   []byte("v"),

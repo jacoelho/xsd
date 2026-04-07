@@ -4,23 +4,22 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/graphcycle"
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
 )
 
 // validateNoCyclicSubstitutionGroups checks for cycles in substitution group chains.
 func validateNoCyclicSubstitutionGroups(sch *parser.Schema) error {
-	for _, startQName := range qname.SortedMapKeys(sch.ElementDecls) {
+	for _, startQName := range model.SortedMapKeys(sch.ElementDecls) {
 		decl := sch.ElementDecls[startQName]
 		if decl.SubstitutionGroup.IsZero() {
 			continue
 		}
 
-		err := graphcycle.Detect(graphcycle.Config[model.QName]{
+		err := analysis.DetectGraphCycle(analysis.GraphCycleConfig[model.QName]{
 			Starts:  []model.QName{startQName},
-			Missing: graphcycle.MissingPolicyIgnore,
+			Missing: analysis.GraphCycleMissingPolicyIgnore,
 			Exists: func(name model.QName) bool {
 				return sch.ElementDecls[name] != nil
 			},
@@ -33,7 +32,7 @@ func validateNoCyclicSubstitutionGroups(sch *parser.Schema) error {
 			},
 		})
 		if err != nil {
-			var cycleErr graphcycle.CycleError[model.QName]
+			var cycleErr analysis.GraphCycleError[model.QName]
 			if errors.As(err, &cycleErr) {
 				return fmt.Errorf("cyclic substitution group detected: element %s is part of a cycle", startQName)
 			}

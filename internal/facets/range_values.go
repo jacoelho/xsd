@@ -17,14 +17,20 @@ func ValidateRangeValues(minExclusive, maxExclusive, minInclusive, maxInclusive 
 			return bt.Validate(value)
 		}
 		whiteSpace = bt.WhiteSpace()
-	} else if baseType != nil {
+	} else if !model.IsNilType(baseType) {
 		switch t := baseType.(type) {
 		case *model.BuiltinType:
+			if t == nil {
+				return nil
+			}
 			validator = func(value string) error {
 				return t.Validate(value)
 			}
 			whiteSpace = t.WhiteSpace()
 		case *model.SimpleType:
+			if t == nil {
+				return nil
+			}
 			if t.IsBuiltin() || t.QName.Namespace == model.XSDNamespace {
 				if builtinType := model.GetBuiltinNS(t.QName.Namespace, t.QName.Local); builtinType != nil {
 					validator = func(value string) error {

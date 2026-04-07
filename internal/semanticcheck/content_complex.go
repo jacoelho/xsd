@@ -6,109 +6,149 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 // validateComplexContentStructure validates structural constraints of complex content
 func validateComplexContentStructure(schema *parser.Schema, cc *model.ComplexContent) error {
 	if cc.Extension != nil {
-		baseType, baseOK := typechain.LookupType(schema, cc.Extension.Base)
-		if baseOK {
-			if _, isSimple := baseType.(*model.SimpleType); isSimple {
-				return fmt.Errorf("complexContent extension cannot derive from simpleType '%s'", cc.Extension.Base)
-			}
-		}
-		if cc.Extension.Particle != nil {
-			var baseParticle model.Particle
-			if baseCT, ok := baseType.(*model.ComplexType); ok {
-				if _, isSimpleContent := baseCT.Content().(*model.SimpleContent); isSimpleContent {
-					return fmt.Errorf("cannot extend simpleContent type '%s' with particles", cc.Extension.Base)
-				}
-				baseParticle = typechain.EffectiveContentParticle(schema, baseCT)
-				if baseParticle != nil {
-					if baseMG, ok := baseParticle.(*model.ModelGroup); ok && baseMG.Kind == model.AllGroup {
-						if !isEmptiableParticle(baseMG) {
-							return fmt.Errorf("cannot extend type with non-emptiable xs:all content model (XSD 1.0)")
-						}
-					}
-				}
-			}
-			containsAll := false
-			if mg, ok := cc.Extension.Particle.(*model.ModelGroup); ok {
-				if mg.Kind == model.AllGroup {
-					containsAll = true
-				} else if mg.Kind == model.Sequence || mg.Kind == model.Choice {
-					for _, p := range mg.Particles {
-						if pmg, ok := p.(*model.ModelGroup); ok && pmg.Kind == model.AllGroup {
-							containsAll = true
-							break
-						}
-					}
-				}
-			}
-
-			if containsAll {
-				baseIsEmptiable := false
-				if baseOK {
-					if baseCT, ok := baseType.(*model.ComplexType); ok {
-						if baseParticle == nil {
-							baseParticle = typechain.EffectiveContentParticle(schema, baseCT)
-						}
-						if baseParticle != nil {
-							baseIsEmptiable = isEmptiableParticle(baseParticle)
-						} else {
-							baseIsEmptiable = true
-						}
-					}
-				} else {
-					baseIsEmptiable = false
-				}
-				if !baseIsEmptiable {
-					return fmt.Errorf("xs:all cannot be used in complex content extensions unless base content is emptiable (XSD 1.0 Errata E1-21)")
-				}
-			}
-			if err := validateParticleStructure(schema, cc.Extension.Particle); err != nil {
-				return err
-			}
-			if err := validateElementDeclarationsConsistentInParticle(schema, cc.Extension.Particle); err != nil {
-				return err
-			}
+		if err := validateComplexContentExtension(schema, cc.Extension); err != nil {
+			return err
 		}
 	}
 	if cc.Restriction != nil {
-		baseType, baseOK := typechain.LookupType(schema, cc.Restriction.Base)
-		if baseOK {
-			if _, isSimple := baseType.(*model.SimpleType); isSimple {
-				return fmt.Errorf("complexContent restriction cannot derive from simpleType '%s'", cc.Restriction.Base)
-			}
-			if baseCT, ok := baseType.(*model.ComplexType); ok {
-				if _, isSimpleContent := baseCT.Content().(*model.SimpleContent); isSimpleContent {
-					return fmt.Errorf("complexContent restriction cannot derive from simpleContent type '%s'", cc.Restriction.Base)
-				}
-			}
+		if err := validateComplexContentRestriction(schema, cc.Restriction); err != nil {
+			return err
 		}
-		if cc.Restriction.Particle != nil {
-			if baseOK {
-				if baseParticle := typechain.EffectiveContentParticle(schema, baseType); baseParticle != nil {
-					if err := validateParticlePairRestriction(schema, baseParticle, cc.Restriction.Particle); err != nil {
-						return err
-					}
-				}
-			}
-			if err := validateParticleStructure(schema, cc.Restriction.Particle); err != nil {
-				return err
-			}
-			if err := validateElementDeclarationsConsistentInParticle(schema, cc.Restriction.Particle); err != nil {
-				return err
-			}
+	}
+	return nil
+}
+
+func validateComplexContentExtension(schema *parser.Schema, ext *model.Extension) error {
+	baseType, baseOK := semantics.LookupType(schema, ext.Base)
+	if baseOK {
+		if _, isSimple := baseType.(*model.SimpleType); isSimple {
+			return fmt.Errorf("complexContent extension cannot derive from simpleType '%s'", ext.Base)
 		}
-		if baseCT, ok := baseType.(*model.ComplexType); ok {
-			restrictionAttrs := slices.Clone(cc.Restriction.Attributes)
-			restrictionAttrs = append(restrictionAttrs, collectAttributesFromGroups(schema, cc.Restriction.AttrGroups)...)
-			if err := validateRestrictionAttributes(schema, baseCT, restrictionAttrs, "complexContent restriction"); err != nil {
+	}
+	if ext.Particle == nil {
+		return nil
+	}
+	baseParticle, err := validateComplexExtensionBase(schema, ext.Base, baseType)
+	if err != nil {
+		return err
+	}
+	if extensionContainsAll(ext.Particle) && !baseParticleIsEmptiable(schema, baseType, baseOK, baseParticle) {
+		return fmt.Errorf("xs:all cannot be used in complex content extensions unless base content is emptiable (XSD 1.0 Errata E1-21)")
+	}
+	return validateComplexContentParticle(schema, ext.Particle)
+}
+
+func validateComplexExtensionBase(schema *parser.Schema, baseQName model.QName, baseType model.Type) (model.Particle, error) {
+	baseCT, ok := baseType.(*model.ComplexType)
+	if !ok {
+		return nil, nil
+	}
+	if _, isSimpleContent := baseCT.Content().(*model.SimpleContent); isSimpleContent {
+		return nil, fmt.Errorf("cannot extend simpleContent type '%s' with particles", baseQName)
+	}
+	baseParticle := semantics.EffectiveContentParticle(schema, baseCT)
+	if baseMG, ok := baseParticle.(*model.ModelGroup); ok && baseMG.Kind == model.AllGroup && !isEmptiableParticle(baseMG) {
+		return nil, fmt.Errorf("cannot extend type with non-emptiable xs:all content model (XSD 1.0)")
+	}
+	return baseParticle, nil
+}
+
+func extensionContainsAll(particle model.Particle) bool {
+	mg, ok := particle.(*model.ModelGroup)
+	if !ok {
+		return false
+	}
+	if mg.Kind == model.AllGroup {
+		return true
+	}
+	if mg.Kind != model.Sequence && mg.Kind != model.Choice {
+		return false
+	}
+	for _, p := range mg.Particles {
+		pmg, ok := p.(*model.ModelGroup)
+		if ok && pmg.Kind == model.AllGroup {
+			return true
+		}
+	}
+	return false
+}
+
+func baseParticleIsEmptiable(schema *parser.Schema, baseType model.Type, baseOK bool, baseParticle model.Particle) bool {
+	if !baseOK {
+		return false
+	}
+	if baseParticle != nil {
+		return isEmptiableParticle(baseParticle)
+	}
+	baseCT, ok := baseType.(*model.ComplexType)
+	if !ok {
+		return false
+	}
+	baseParticle = semantics.EffectiveContentParticle(schema, baseCT)
+	if baseParticle == nil {
+		return true
+	}
+	return isEmptiableParticle(baseParticle)
+}
+
+func validateComplexContentRestriction(schema *parser.Schema, restriction *model.Restriction) error {
+	baseType, baseOK := semantics.LookupType(schema, restriction.Base)
+	if err := validateComplexRestrictionBase(restriction.Base, baseType, baseOK); err != nil {
+		return err
+	}
+	if err := validateComplexRestrictionParticle(schema, baseType, baseOK, restriction.Particle); err != nil {
+		return err
+	}
+	if baseCT, ok := baseType.(*model.ComplexType); ok {
+		return validateComplexRestrictionAttributes(schema, baseCT, restriction)
+	}
+	return nil
+}
+
+func validateComplexRestrictionBase(baseQName model.QName, baseType model.Type, baseOK bool) error {
+	if !baseOK {
+		return nil
+	}
+	if _, isSimple := baseType.(*model.SimpleType); isSimple {
+		return fmt.Errorf("complexContent restriction cannot derive from simpleType '%s'", baseQName)
+	}
+	if baseCT, ok := baseType.(*model.ComplexType); ok {
+		if _, isSimpleContent := baseCT.Content().(*model.SimpleContent); isSimpleContent {
+			return fmt.Errorf("complexContent restriction cannot derive from simpleContent type '%s'", baseQName)
+		}
+	}
+	return nil
+}
+
+func validateComplexRestrictionParticle(schema *parser.Schema, baseType model.Type, baseOK bool, particle model.Particle) error {
+	if particle == nil {
+		return nil
+	}
+	if baseOK {
+		if baseParticle := semantics.EffectiveContentParticle(schema, baseType); baseParticle != nil {
+			if err := validateParticlePairRestriction(schema, baseParticle, particle); err != nil {
 				return err
 			}
 		}
 	}
-	return nil
+	return validateComplexContentParticle(schema, particle)
+}
+
+func validateComplexContentParticle(schema *parser.Schema, particle model.Particle) error {
+	if err := validateParticleStructure(schema, particle); err != nil {
+		return err
+	}
+	return validateElementDeclarationsConsistentInParticle(schema, particle)
+}
+
+func validateComplexRestrictionAttributes(schema *parser.Schema, baseCT *model.ComplexType, restriction *model.Restriction) error {
+	restrictionAttrs := slices.Clone(restriction.Attributes)
+	restrictionAttrs = append(restrictionAttrs, collectAttributesFromGroups(schema, restriction.AttrGroups)...)
+	return validateRestrictionAttributes(schema, baseCT, restrictionAttrs, "complexContent restriction")
 }

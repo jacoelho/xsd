@@ -3,7 +3,7 @@ package semanticcheck
 import (
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func isRestrictionDerivedFrom(schema *parser.Schema, derived, base model.Type) bool {
@@ -165,7 +165,7 @@ func resolveTypeByQName(schema *parser.Schema, qname model.QName) model.Type {
 	if schema == nil {
 		return nil
 	}
-	if def, ok := typechain.LookupType(schema, qname); ok {
+	if def, ok := semantics.LookupType(schema, qname); ok {
 		return def
 	}
 	return nil

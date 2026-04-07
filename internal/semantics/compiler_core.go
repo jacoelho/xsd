@@ -2,7 +2,6 @@ package semantics
 
 import (
 	"github.com/jacoelho/xsd/internal/analysis"
-	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/runtime"
@@ -10,10 +9,10 @@ import (
 
 // CompiledValidators contains all runtime validator artifacts generated from a schema.
 type CompiledValidators struct {
-	elements        defaultFixedSet[ids.ElemID]
-	attributes      defaultFixedSet[ids.AttrID]
+	elements        defaultFixedSet[analysis.ElemID]
+	attributes      defaultFixedSet[analysis.AttrID]
 	attrUses        defaultFixedSet[*model.AttributeDecl]
-	TypeValidators  map[ids.TypeID]runtime.ValidatorID
+	TypeValidators  map[analysis.TypeID]runtime.ValidatorID
 	ValidatorByType map[model.Type]runtime.ValidatorID
 	ComplexTypes    *ComplexTypes
 	Validators      runtime.ValidatorsBundle
@@ -46,13 +45,13 @@ type compiler struct {
 	complexTypes    *ComplexTypes
 	simpleContent   map[*model.ComplexType]model.Type
 	res             *typeResolver
-	runtimeTypeIDs  map[ids.TypeID]runtime.TypeID
+	runtimeTypeIDs  map[analysis.TypeID]runtime.TypeID
 	registry        *analysis.Registry
 	schema          *parser.Schema
 	compiling       map[model.Type]bool
 	validatorByType map[model.Type]runtime.ValidatorID
-	elements        defaultFixedSet[ids.ElemID]
-	attributes      defaultFixedSet[ids.AttrID]
+	elements        defaultFixedSet[analysis.ElemID]
+	attributes      defaultFixedSet[analysis.AttrID]
 	attrUses        defaultFixedSet[*model.AttributeDecl]
 	bundle          runtime.ValidatorsBundle
 	enums           enumBuilder
@@ -69,12 +68,12 @@ func newCompiler(sch *parser.Schema) *compiler {
 		compiling:       make(map[model.Type]bool),
 		facetsCache:     make(map[*model.SimpleType][]model.Facet),
 		elements: newDefaultFixedSet(
-			newDefaultFixedTable[ids.ElemID](),
-			newDefaultFixedTable[ids.ElemID](),
+			newDefaultFixedTable[analysis.ElemID](),
+			newDefaultFixedTable[analysis.ElemID](),
 		),
 		attributes: newDefaultFixedSet(
-			newDefaultFixedTable[ids.AttrID](),
-			newDefaultFixedTable[ids.AttrID](),
+			newDefaultFixedTable[analysis.AttrID](),
+			newDefaultFixedTable[analysis.AttrID](),
 		),
 		attrUses: newDefaultFixedSet(
 			newDefaultFixedTable[*model.AttributeDecl](),

@@ -2,18 +2,16 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/attrs"
-	"github.com/jacoelho/xsd/internal/validator/identity"
 )
 
 type identityState struct {
 	arena *Arena
-	identity.State[identity.RuntimeFrame]
+	State[RuntimeFrame]
 }
 
 type identityStartInput struct {
-	Attrs   []attrs.Start
-	Applied []attrs.Applied
+	Attrs   []Start
+	Applied []Applied
 	Elem    runtime.ElemID
 	Type    runtime.TypeID
 	Sym     runtime.SymbolID

@@ -3,14 +3,13 @@ package analysis
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
 // AncestorIndex stores ancestor chains and cumulative derivation masks by TypeID.
 type AncestorIndex struct {
-	IDs     []ids.TypeID
+	IDs     []TypeID
 	Masks   []model.DerivationMethod
 	Offsets []uint32
 	Lengths []uint32
@@ -31,7 +30,7 @@ func BuildAncestors(schema *parser.Schema, registry *Registry) (*AncestorIndex, 
 
 	maxID := len(registry.TypeOrder)
 	index := &AncestorIndex{
-		IDs:     []ids.TypeID{},
+		IDs:     []TypeID{},
 		Masks:   []model.DerivationMethod{},
 		Offsets: make([]uint32, maxID+1),
 		Lengths: make([]uint32, maxID+1),
@@ -55,8 +54,8 @@ func BuildAncestors(schema *parser.Schema, registry *Registry) (*AncestorIndex, 
 	return index, nil
 }
 
-func buildAncestorChain(schema *parser.Schema, registry *Registry, typ model.Type) ([]ids.TypeID, []model.DerivationMethod, error) {
-	var typeIDs []ids.TypeID
+func buildAncestorChain(schema *parser.Schema, registry *Registry, typ model.Type) ([]TypeID, []model.DerivationMethod, error) {
+	var typeIDs []TypeID
 	var masks []model.DerivationMethod
 	cumulative := model.DerivationMethod(0)
 	current := typ
@@ -86,7 +85,7 @@ func buildAncestorChain(schema *parser.Schema, registry *Registry, typ model.Typ
 	return typeIDs, masks, nil
 }
 
-func lookupAncestorTypeID(registry *Registry, typ model.Type) (ids.TypeID, bool) {
+func lookupAncestorTypeID(registry *Registry, typ model.Type) (TypeID, bool) {
 	if typ == nil || registry == nil {
 		return 0, false
 	}

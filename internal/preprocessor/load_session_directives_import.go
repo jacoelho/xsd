@@ -4,8 +4,6 @@ import (
 	"io"
 
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/preprocessor/merge"
-	"github.com/jacoelho/xsd/internal/preprocessor/resolve"
 )
 
 func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo) error {
@@ -16,11 +14,11 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 			return Load(LoadConfig[loadKey]{
 				AllowMissing: s.loader.config.AllowMissingImportLocations,
 				Resolve: func() (io.ReadCloser, string, error) {
-					return s.loader.resolver.Resolve(resolve.Request{
+					return s.loader.resolver.Resolve(ResolveRequest{
 						BaseSystemID:   s.systemID,
 						SchemaLocation: info.SchemaLocation,
 						ImportNS:       []byte(info.Namespace),
-						Kind:           resolve.Import,
+						Kind:           ResolveImport,
 					})
 				},
 				IsNotFound: isNotFound,
@@ -32,7 +30,12 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 				},
 				IsLoading: s.loader.state.IsLoading,
 				OnLoading: func(targetKey loadKey) {
-					_ = s.loader.deferImport(targetKey, s.key, info.SchemaLocation, info.Namespace, &s.journal)
+					_ = s.loader.deferDirective(targetKey, Directive[loadKey]{
+						Kind:              parser.DirectiveImport,
+						TargetKey:         s.key,
+						SchemaLocation:    info.SchemaLocation,
+						ExpectedNamespace: info.Namespace,
+					}, &s.journal)
 				},
 				Load: func(doc io.ReadCloser, systemID string, targetKey loadKey) (*parser.Schema, error) {
 					return s.loader.loadResolvedWithJournal(doc, systemID, targetKey, &s.journal)
@@ -41,14 +44,14 @@ func (s *loadSession) processImport(schema *parser.Schema, imp parser.ImportInfo
 			})
 		},
 		Merge: func(importedSchema *parser.Schema, importKey loadKey) error {
-			plan, err := merge.PlanImport(imp.SchemaLocation, imp.Namespace, importedSchema, len(schema.GlobalDecls))
+			plan, err := PlanImport(imp.SchemaLocation, imp.Namespace, importedSchema, len(schema.GlobalDecls))
 			if err != nil {
 				if entry, ok := s.loader.state.entry(importKey); ok && entry != nil {
 					s.loader.resetEntry(entry, importKey)
 				}
 				return err
 			}
-			if _, err := merge.ApplyPlanned(schema, importedSchema, plan, "imported", imp.SchemaLocation); err != nil {
+			if _, err := ApplyPlanned(schema, importedSchema, plan, "imported", imp.SchemaLocation); err != nil {
 				return err
 			}
 			s.markDirectiveMerged(parser.DirectiveImport, s.key, importKey)

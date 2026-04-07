@@ -35,131 +35,170 @@ type RuntimeCallbacks struct {
 
 // ValidateRuntimeProgram evaluates runtime facet instructions.
 func ValidateRuntimeProgram(in RuntimeProgram, cb RuntimeCallbacks) error {
-	invalidf := func(format string, args ...any) error {
-		if cb.Invalidf != nil {
-			return cb.Invalidf(format, args...)
-		}
-		return fmt.Errorf(format, args...)
-	}
-	facetViolation := func(name string) error {
-		if cb.FacetViolation != nil {
-			return cb.FacetViolation(name)
-		}
-		return fmt.Errorf("%s violation", name)
-	}
-	cachedEnumKey := func() (runtime.ValueKind, []byte, bool) {
-		if cb.CachedEnumKey == nil {
-			return runtime.VKInvalid, nil, false
-		}
-		return cb.CachedEnumKey()
-	}
-	deriveEnumKey := func(canonical []byte) (runtime.ValueKind, []byte, error) {
-		if cb.DeriveEnumKey == nil {
-			return runtime.VKInvalid, nil, fmt.Errorf("enum key callback is nil")
-		}
-		return cb.DeriveEnumKey(canonical)
-	}
-
 	program, err := RuntimeProgramSlice(in.Meta, in.Facets)
 	if err != nil {
-		return invalidf("%v", err)
+		return invalidRuntimeProgramf(cb, "%v", err)
 	}
+	eval := runtimeProgramEvaluator{in: in, cb: cb}
 	for _, instr := range program {
-		switch instr.Op {
-		case runtime.FPattern:
-			if in.Meta.Kind == runtime.VUnion {
-				continue
-			}
-			if cb.SkipPattern != nil && cb.SkipPattern() {
-				continue
-			}
-			if int(instr.Arg0) >= len(in.Patterns) {
-				return invalidf("pattern %d out of range", instr.Arg0)
-			}
-			pat := in.Patterns[instr.Arg0]
-			if pat.Re != nil && !pat.Re.Match(in.Normalized) {
-				return facetViolation("pattern")
-			}
-		case runtime.FEnum:
-			if cb.SkipEnum != nil && cb.SkipEnum() {
-				continue
-			}
-			kind, key, ok := cachedEnumKey()
-			if !ok {
-				derivedKind, derivedKey, err := deriveEnumKey(in.Canonical)
-				if err != nil {
-					return err
-				}
-				kind = derivedKind
-				key = derivedKey
-				if cb.StoreEnumKey != nil {
-					cb.StoreEnumKey(kind, key)
-				}
-			}
-			enumID := runtime.EnumID(instr.Arg0)
-			if !runtime.EnumContains(&in.Enums, enumID, kind, key) {
-				return facetViolation("enumeration")
-			}
-		case runtime.FMinInclusive, runtime.FMaxInclusive, runtime.FMinExclusive, runtime.FMaxExclusive:
-			ref := runtime.ValueRef{Off: instr.Arg0, Len: instr.Arg1, Present: true}
-			bound := facetValueBytes(in.Values, ref)
-			if bound == nil {
-				return invalidf("range facet bound out of range")
-			}
-			if cb.CheckRange == nil {
-				return invalidf("range callback is nil")
-			}
-			if err := cb.CheckRange(instr.Op, in.Meta.Kind, in.Canonical, bound); err != nil {
-				return err
-			}
-		case runtime.FLength, runtime.FMinLength, runtime.FMaxLength:
-			if cb.ShouldSkipLength != nil && cb.ShouldSkipLength(in.Meta.Kind) {
-				continue
-			}
-			if cb.ValueLength == nil {
-				return invalidf("length callback is nil")
-			}
-			length, err := cb.ValueLength(in.Meta.Kind, in.Normalized)
-			if err != nil {
-				return err
-			}
-			switch instr.Op {
-			case runtime.FLength:
-				if length != int(instr.Arg0) {
-					return facetViolation("length")
-				}
-			case runtime.FMinLength:
-				if length < int(instr.Arg0) {
-					return facetViolation("minLength")
-				}
-			case runtime.FMaxLength:
-				if length > int(instr.Arg0) {
-					return facetViolation("maxLength")
-				}
-			}
-		case runtime.FTotalDigits, runtime.FFractionDigits:
-			if cb.DigitCounts == nil {
-				return invalidf("digits callback is nil")
-			}
-			total, fraction, err := cb.DigitCounts(in.Meta.Kind, in.Canonical)
-			if err != nil {
-				return err
-			}
-			switch instr.Op {
-			case runtime.FTotalDigits:
-				if total > int(instr.Arg0) {
-					return facetViolation("totalDigits")
-				}
-			case runtime.FFractionDigits:
-				if fraction > int(instr.Arg0) {
-					return facetViolation("fractionDigits")
-				}
-			}
-		default:
-			return invalidf("unknown facet op %d", instr.Op)
+		if err := eval.validateInstruction(instr); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+type runtimeProgramEvaluator struct {
+	cb RuntimeCallbacks
+	in RuntimeProgram
+}
+
+func (e runtimeProgramEvaluator) validateInstruction(instr runtime.FacetInstr) error {
+	switch instr.Op {
+	case runtime.FPattern:
+		return e.validatePattern(instr)
+	case runtime.FEnum:
+		return e.validateEnum(instr)
+	case runtime.FMinInclusive, runtime.FMaxInclusive, runtime.FMinExclusive, runtime.FMaxExclusive:
+		return e.validateRange(instr)
+	case runtime.FLength, runtime.FMinLength, runtime.FMaxLength:
+		return e.validateLength(instr)
+	case runtime.FTotalDigits, runtime.FFractionDigits:
+		return e.validateDigits(instr)
+	default:
+		return e.invalidf("unknown facet op %d", instr.Op)
+	}
+}
+
+func (e runtimeProgramEvaluator) validatePattern(instr runtime.FacetInstr) error {
+	if e.in.Meta.Kind == runtime.VUnion {
+		return nil
+	}
+	if e.cb.SkipPattern != nil && e.cb.SkipPattern() {
+		return nil
+	}
+	if int(instr.Arg0) >= len(e.in.Patterns) {
+		return e.invalidf("pattern %d out of range", instr.Arg0)
+	}
+	pat := e.in.Patterns[instr.Arg0]
+	if pat.Re != nil && !pat.Re.Match(e.in.Normalized) {
+		return e.facetViolation("pattern")
+	}
+	return nil
+}
+
+func (e runtimeProgramEvaluator) validateEnum(instr runtime.FacetInstr) error {
+	if e.cb.SkipEnum != nil && e.cb.SkipEnum() {
+		return nil
+	}
+	kind, key, err := e.enumKey()
+	if err != nil {
+		return err
+	}
+	enumID := runtime.EnumID(instr.Arg0)
+	if !runtime.EnumContains(&e.in.Enums, enumID, kind, key) {
+		return e.facetViolation("enumeration")
+	}
+	return nil
+}
+
+func (e runtimeProgramEvaluator) validateRange(instr runtime.FacetInstr) error {
+	ref := runtime.ValueRef{Off: instr.Arg0, Len: instr.Arg1, Present: true}
+	bound := facetValueBytes(e.in.Values, ref)
+	if bound == nil {
+		return e.invalidf("range facet bound out of range")
+	}
+	if e.cb.CheckRange == nil {
+		return e.invalidf("range callback is nil")
+	}
+	return e.cb.CheckRange(instr.Op, e.in.Meta.Kind, e.in.Canonical, bound)
+}
+
+func (e runtimeProgramEvaluator) validateLength(instr runtime.FacetInstr) error {
+	if e.cb.ShouldSkipLength != nil && e.cb.ShouldSkipLength(e.in.Meta.Kind) {
+		return nil
+	}
+	if e.cb.ValueLength == nil {
+		return e.invalidf("length callback is nil")
+	}
+	length, err := e.cb.ValueLength(e.in.Meta.Kind, e.in.Normalized)
+	if err != nil {
+		return err
+	}
+	switch instr.Op {
+	case runtime.FLength:
+		if length != int(instr.Arg0) {
+			return e.facetViolation("length")
+		}
+	case runtime.FMinLength:
+		if length < int(instr.Arg0) {
+			return e.facetViolation("minLength")
+		}
+	case runtime.FMaxLength:
+		if length > int(instr.Arg0) {
+			return e.facetViolation("maxLength")
+		}
+	}
+	return nil
+}
+
+func (e runtimeProgramEvaluator) validateDigits(instr runtime.FacetInstr) error {
+	if e.cb.DigitCounts == nil {
+		return e.invalidf("digits callback is nil")
+	}
+	total, fraction, err := e.cb.DigitCounts(e.in.Meta.Kind, e.in.Canonical)
+	if err != nil {
+		return err
+	}
+	switch instr.Op {
+	case runtime.FTotalDigits:
+		if total > int(instr.Arg0) {
+			return e.facetViolation("totalDigits")
+		}
+	case runtime.FFractionDigits:
+		if fraction > int(instr.Arg0) {
+			return e.facetViolation("fractionDigits")
+		}
+	}
+	return nil
+}
+
+func (e runtimeProgramEvaluator) enumKey() (runtime.ValueKind, []byte, error) {
+	if e.cb.CachedEnumKey != nil {
+		kind, key, ok := e.cb.CachedEnumKey()
+		if ok {
+			return kind, key, nil
+		}
+	}
+	if e.cb.DeriveEnumKey == nil {
+		return runtime.VKInvalid, nil, fmt.Errorf("enum key callback is nil")
+	}
+	kind, key, err := e.cb.DeriveEnumKey(e.in.Canonical)
+	if err != nil {
+		return runtime.VKInvalid, nil, err
+	}
+	if e.cb.StoreEnumKey != nil {
+		e.cb.StoreEnumKey(kind, key)
+	}
+	return kind, key, nil
+}
+
+func (e runtimeProgramEvaluator) invalidf(format string, args ...any) error {
+	return invalidRuntimeProgramf(e.cb, format, args...)
+}
+
+func (e runtimeProgramEvaluator) facetViolation(name string) error {
+	if e.cb.FacetViolation != nil {
+		return e.cb.FacetViolation(name)
+	}
+	return fmt.Errorf("%s violation", name)
+}
+
+func invalidRuntimeProgramf(cb RuntimeCallbacks, format string, args ...any) error {
+	if cb.Invalidf != nil {
+		return cb.Invalidf(format, args...)
+	}
+	return fmt.Errorf(format, args...)
 }
 
 // RuntimeProgramSlice returns the facet instruction slice for a validator meta.

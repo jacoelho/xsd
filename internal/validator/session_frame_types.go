@@ -2,17 +2,15 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/model"
-	"github.com/jacoelho/xsd/internal/validator/names"
 )
 
 type elemFrame struct {
 	local              []byte
 	ns                 []byte
-	modelState         model.State
+	modelState         StartModelState
 	text               TextState
 	model              runtime.ModelRef
-	name               names.ID
+	name               NameID
 	elem               runtime.ElemID
 	typ                runtime.TypeID
 	content            runtime.ContentKind
