@@ -5,7 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
 )
 
 func validateElementParticle(schema *parser.Schema, elem *model.ElementDecl) error {
@@ -71,7 +70,7 @@ func validateInlineElementType(schema *parser.Schema, elem *model.ElementDecl) e
 // validateGroupStructure validates structural constraints of a group definition
 // Does not validate references (which might be forward references or imports)
 func validateGroupStructure(groupQName model.QName, group *model.ModelGroup) error {
-	if !qname.IsValidNCName(groupQName.Local) {
+	if !model.IsValidNCName(groupQName.Local) {
 		return fmt.Errorf("invalid group name '%s': must be a valid NCName", groupQName.Local)
 	}
 

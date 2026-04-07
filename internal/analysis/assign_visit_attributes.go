@@ -6,10 +6,6 @@ func (b *builder) visitAttributeDecls(attrs []*model.AttributeDecl) error {
 	return b.visitAttributeDeclsWithAssigner(attrs, nil)
 }
 
-func (b *builder) visitAttributeDeclsWithIDs(attrs []*model.AttributeDecl) error {
-	return b.visitAttributeDeclsWithAssigner(attrs, b.assignLocalAttribute)
-}
-
 func (b *builder) visitAttributeDeclsWithAssigner(attrs []*model.AttributeDecl, assign func(*model.AttributeDecl) error) error {
 	for _, attr := range attrs {
 		if attr == nil {

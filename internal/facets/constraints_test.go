@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -34,11 +33,11 @@ func TestValidateSchemaConstraintsDelegatesRangeChecks(t *testing.T) {
 	if base == nil {
 		t.Fatal("builtin int is nil")
 	}
-	minFacet, err := facetvalue.NewMinInclusive("1", base)
+	minFacet, err := model.NewMinInclusive("1", base)
 	if err != nil {
 		t.Fatalf("minInclusive: %v", err)
 	}
-	maxFacet, err := facetvalue.NewMaxInclusive("0", base)
+	maxFacet, err := model.NewMaxInclusive("0", base)
 	if err != nil {
 		t.Fatalf("maxInclusive: %v", err)
 	}

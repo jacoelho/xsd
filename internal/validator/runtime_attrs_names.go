@@ -2,10 +2,9 @@ package validator
 
 import (
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/attrs"
 )
 
-func (s *Session) ensureAttrNameStable(attr *attrs.Start) {
+func (s *Session) ensureAttrNameStable(attr *Start) {
 	if s == nil || attr == nil || attr.NameCached {
 		return
 	}

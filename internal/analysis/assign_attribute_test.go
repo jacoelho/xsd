@@ -22,8 +22,8 @@ func TestVisitAttributeDeclsAssignIDs(t *testing.T) {
 		t.Fatalf("expected no local attribute IDs assigned")
 	}
 
-	if err := b.visitAttributeDeclsWithIDs([]*model.AttributeDecl{attr}); err != nil {
-		t.Fatalf("visitAttributeDeclsWithIDs: %v", err)
+	if err := b.visitAttributeDeclsWithAssigner([]*model.AttributeDecl{attr}, b.assignLocalAttribute); err != nil {
+		t.Fatalf("visitAttributeDeclsWithAssigner: %v", err)
 	}
 	if len(b.registry.localAttributes) != 1 {
 		t.Fatalf("expected local attribute IDs to be assigned")

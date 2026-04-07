@@ -3,7 +3,6 @@ package facets
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 )
 
@@ -53,7 +52,7 @@ func ValidateSchemaConstraints(in SchemaConstraintInput, cb SchemaConstraintCall
 		if err := state.captureFacet(name, facet); err != nil {
 			return err
 		}
-		if err := facetvalue.ValidateApplicability(name, in.BaseType, in.BaseQName); err != nil {
+		if err := model.ValidateFacetApplicability(name, in.BaseType, in.BaseQName); err != nil {
 			return err
 		}
 	}
@@ -244,10 +243,10 @@ func getEffectiveIntegerTypeName(t model.Type) string {
 
 func shouldDeferEnumerationValidation(baseType model.Type) bool {
 	st, ok := baseType.(*model.SimpleType)
-	if !ok {
+	if !ok || st == nil {
 		return false
 	}
-	if st.ResolvedBase != nil {
+	if !model.IsNilType(st.ResolvedBase) {
 		return false
 	}
 	if st.Restriction == nil || st.Restriction.Base.IsZero() {
@@ -257,7 +256,7 @@ func shouldDeferEnumerationValidation(baseType model.Type) bool {
 }
 
 func validateEnumerationValues(facetList []model.Facet, baseType model.Type, validateValue func(value string, baseType model.Type, context map[string]string) error) error {
-	if baseType == nil || validateValue == nil {
+	if model.IsNilType(baseType) || validateValue == nil {
 		return nil
 	}
 	if shouldDeferEnumerationValidation(baseType) {

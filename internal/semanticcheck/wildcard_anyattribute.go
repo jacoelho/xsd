@@ -7,7 +7,7 @@ import (
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 // validateAnyAttributeDerivation validates anyAttribute constraints in type derivation
@@ -20,7 +20,7 @@ func validateAnyAttributeDerivation(schema *parser.Schema, ct *model.ComplexType
 		return nil
 	}
 
-	baseCT, ok := typechain.LookupComplexType(schema, baseQName)
+	baseCT, ok := semantics.LookupComplexType(schema, baseQName)
 	if !ok {
 		return nil
 	}

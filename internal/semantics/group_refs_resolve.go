@@ -5,7 +5,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
 )
 
 // ResolveGroupReferences expands group references across named groups and content models.
@@ -31,7 +30,7 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 		LeafClone:    LeafReuse,
 	}
 
-	for _, name := range qname.SortedMapKeys(sch.Groups) {
+	for _, name := range model.SortedMapKeys(sch.Groups) {
 		group := sch.Groups[name]
 		if group == nil {
 			continue
@@ -47,7 +46,7 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 		sch.Groups[name] = expandedGroup
 	}
 
-	for _, name := range qname.SortedMapKeys(sch.TypeDefs) {
+	for _, name := range model.SortedMapKeys(sch.TypeDefs) {
 		typ := sch.TypeDefs[name]
 		ct, ok := typ.(*model.ComplexType)
 		if !ok {
@@ -58,7 +57,7 @@ func ResolveGroupReferences(sch *parser.Schema) error {
 		}
 	}
 
-	for _, name := range qname.SortedMapKeys(sch.ElementDecls) {
+	for _, name := range model.SortedMapKeys(sch.ElementDecls) {
 		elem := sch.ElementDecls[name]
 		ct, ok := elem.Type.(*model.ComplexType)
 		if !ok {

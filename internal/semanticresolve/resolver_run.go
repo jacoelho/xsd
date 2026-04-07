@@ -3,8 +3,8 @@ package semanticresolve
 import (
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/resolveguard"
 )
 
 // Resolve resolves all references in the schema.
@@ -66,7 +66,7 @@ func (r *Resolver) resolveGroupsPhase(index *iterationIndex) error {
 	// 3. Groups (reference types and other groups)
 	for _, qname := range index.groupQNames {
 		grp := r.schema.Groups[qname]
-		if err := resolveguard.ResolveNamed[model.QName](r.detector, qname, func() error {
+		if err := analysis.ResolveNamed[model.QName](r.detector, qname, func() error {
 			return r.resolveParticles(grp.Particles)
 		}); err != nil {
 			return err

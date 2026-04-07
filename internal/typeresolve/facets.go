@@ -3,7 +3,6 @@ package typeresolve
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 )
@@ -15,13 +14,13 @@ func DefaultDeferredFacetConverter(df *model.DeferredFacet, baseType model.Type)
 	}
 	switch df.FacetName {
 	case "minInclusive":
-		return facetvalue.NewMinInclusive(df.FacetValue, baseType)
+		return model.NewMinInclusive(df.FacetValue, baseType)
 	case "maxInclusive":
-		return facetvalue.NewMaxInclusive(df.FacetValue, baseType)
+		return model.NewMaxInclusive(df.FacetValue, baseType)
 	case "minExclusive":
-		return facetvalue.NewMinExclusive(df.FacetValue, baseType)
+		return model.NewMinExclusive(df.FacetValue, baseType)
 	case "maxExclusive":
-		return facetvalue.NewMaxExclusive(df.FacetValue, baseType)
+		return model.NewMaxExclusive(df.FacetValue, baseType)
 	default:
 		return nil, fmt.Errorf("unknown deferred facet type: %s", df.FacetName)
 	}

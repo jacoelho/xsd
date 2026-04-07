@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/analysis"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/preprocessor/resolve"
+	"github.com/jacoelho/xsd/internal/preprocessor"
 	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/pkg/xmlstream"
 )
@@ -22,7 +22,7 @@ type LoadConfig struct {
 	Roots                       []Root
 	FS                          fs.FS
 	Location                    string
-	Resolver                    resolve.Resolver
+	Resolver                    preprocessor.SchemaResolver
 	SchemaParseOptions          []xmlstream.Option
 	AllowMissingImportLocations bool
 }

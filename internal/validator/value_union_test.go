@@ -2,8 +2,6 @@ package validator
 
 import (
 	"testing"
-
-	"github.com/jacoelho/xsd/internal/validator/valruntime"
 )
 
 func TestUnionIntegerDecimalNoMemberMatch(t *testing.T) {
@@ -23,11 +21,13 @@ func TestUnionIntegerDecimalNoMemberMatch(t *testing.T) {
 	}
 	validator := rt.Types[typeID].Validator
 
-	_, _, err := sess.validateValueInternalWithMetrics(
+	var metrics ValueMetrics
+	_, err := sess.validateValueCore(
 		validator,
 		[]byte("abc"),
 		nil,
-		valruntime.Options{ApplyWhitespace: true, RequireCanonical: true, NeedKey: true},
+		valueOptions{ApplyWhitespace: true, RequireCanonical: true, NeedKey: true},
+		&metrics,
 	)
 	if err == nil {
 		t.Fatalf("expected error for value that matches no union member")
@@ -61,11 +61,13 @@ func TestUnionIntegerDecimalSelectsMatchingMember(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.lexical, func(t *testing.T) {
-			canon, _, err := sess.validateValueInternalWithMetrics(
+			var metrics ValueMetrics
+			canon, err := sess.validateValueCore(
 				validator,
 				[]byte(tc.lexical),
 				nil,
-				valruntime.Options{ApplyWhitespace: true, RequireCanonical: true, NeedKey: true},
+				valueOptions{ApplyWhitespace: true, RequireCanonical: true, NeedKey: true},
+				&metrics,
 			)
 			if err != nil {
 				t.Fatalf("validate union %q: %v", tc.lexical, err)

@@ -2,8 +2,6 @@ package validator
 
 import (
 	"strings"
-
-	"github.com/jacoelho/xsd/internal/validator/names"
 )
 
 func (s *Session) pathString() string {
@@ -57,7 +55,7 @@ func (s *Session) pathString() string {
 	return out
 }
 
-func (s *Session) nameParts(id names.ID) ([]byte, []byte) {
+func (s *Session) nameParts(id NameID) ([]byte, []byte) {
 	if s == nil {
 		return nil, nil
 	}

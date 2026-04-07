@@ -1,81 +1,93 @@
 package validator
 
 import (
+	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/diag"
-	"github.com/jacoelho/xsd/internal/validator/valruntime"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
-func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized, lexical []byte, resolver value.NSResolver, opts valruntime.Options, needKey bool, metrics *valruntime.State) ([]byte, error) {
-	return valruntime.DispatchCanonical(meta.Kind, valruntime.CanonicalCallbacks[[]byte]{
-		Atomic: func() ([]byte, error) {
-			return s.canonicalizeAtomic(meta, normalized, needKey, metrics)
-		},
-		Temporal: func() ([]byte, error) {
-			return s.canonicalizeTemporal(meta.Kind, normalized, needKey, metrics)
-		},
-		AnyURI: func() ([]byte, error) {
-			return s.canonicalizeAnyURI(normalized, needKey, metrics)
-		},
-		QName: func() ([]byte, error) {
-			return s.canonicalizeQName(meta, normalized, resolver, needKey, metrics)
-		},
-		HexBinary: func() ([]byte, error) {
-			return s.canonicalizeHexBinary(normalized, needKey, metrics)
-		},
-		Base64Binary: func() ([]byte, error) {
-			return s.canonicalizeBase64Binary(normalized, needKey, metrics)
-		},
-		List: func() ([]byte, error) {
-			return s.canonicalizeList(meta, normalized, resolver, opts, needKey, metrics)
-		},
-		Union: func() ([]byte, error) {
-			return s.canonicalizeUnion(meta, normalized, lexical, resolver, opts, needKey, metrics)
-		},
-		Invalid: func(kind runtime.ValidatorKind) error {
-			return diag.Invalidf("unsupported validator kind %d", kind)
-		},
-	})
+func (s *Session) canonicalizeValueCore(meta runtime.ValidatorMeta, normalized, lexical []byte, resolver value.NSResolver, opts valueOptions, needKey bool, metrics *ValueMetrics) ([]byte, error) {
+	switch meta.Kind {
+	case runtime.VString, runtime.VBoolean, runtime.VDecimal, runtime.VInteger, runtime.VFloat, runtime.VDouble, runtime.VDuration:
+		return s.canonicalizeAtomic(meta, normalized, needKey, metrics)
+	case runtime.VDateTime, runtime.VTime, runtime.VDate, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
+		return s.canonicalizeTemporal(meta.Kind, normalized, needKey, metrics)
+	case runtime.VAnyURI:
+		if err := validateAnyURINoCanonical(normalized); err != nil {
+			return nil, xsderrors.Invalid(err.Error())
+		}
+		if needKey && s != nil {
+			key := runtime.StringKeyBytes(s.keyTmp[:0], 1, normalized)
+			s.keyTmp = key
+			s.setKey(metrics, runtime.VKString, key, false)
+		}
+		return normalized, nil
+	case runtime.VQName, runtime.VNotation:
+		return s.canonicalizeQName(meta, normalized, resolver, needKey, metrics)
+	case runtime.VHexBinary:
+		return s.canonicalizeHexBinary(normalized, needKey, metrics)
+	case runtime.VBase64Binary:
+		return s.canonicalizeBase64Binary(normalized, needKey, metrics)
+	case runtime.VList:
+		return s.canonicalizeList(meta, normalized, resolver, opts, needKey, metrics)
+	case runtime.VUnion:
+		return s.canonicalizeUnion(meta, normalized, lexical, resolver, opts, needKey, metrics)
+	default:
+		return nil, xsderrors.Invalidf("unsupported validator kind %d", meta.Kind)
+	}
 }
 
-func (s *Session) validateValueNoCanonical(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, opts valruntime.Options) ([]byte, error) {
-	return valruntime.DispatchNoCanonical(meta.Kind, valruntime.NoCanonicalCallbacks[[]byte]{
-		Atomic: func() error {
-			return s.validateAtomicNoCanonical(meta, normalized)
-		},
-		Temporal: func() error {
-			if err := valruntime.ValidateTemporal(meta.Kind, normalized); err != nil {
-				return diag.Invalid(err.Error())
-			}
-			return nil
-		},
-		AnyURI: func() error {
-			if err := valruntime.ValidateAnyURI(normalized); err != nil {
-				return diag.Invalid(err.Error())
-			}
-			return nil
-		},
-		HexBinary: func() error {
-			if err := valruntime.ValidateHexBinary(normalized); err != nil {
-				return diag.Invalid(err.Error())
-			}
-			return nil
-		},
-		Base64Binary: func() error {
-			if err := valruntime.ValidateBase64Binary(normalized); err != nil {
-				return diag.Invalid(err.Error())
-			}
-			return nil
-		},
-		List: func() error {
-			return s.validateListNoCanonical(meta, normalized, resolver, opts)
-		},
-		Result: func() []byte {
-			return s.maybeStore(normalized, opts.StoreValue)
-		},
-		Invalid: func(kind runtime.ValidatorKind) error {
-			return diag.Invalidf("unsupported validator kind %d", kind)
-		},
-	})
+func (s *Session) validateValueNoCanonical(meta runtime.ValidatorMeta, normalized []byte, resolver value.NSResolver, opts valueOptions) ([]byte, error) {
+	switch meta.Kind {
+	case runtime.VString, runtime.VBoolean, runtime.VDecimal, runtime.VInteger, runtime.VFloat, runtime.VDouble, runtime.VDuration:
+		if err := s.validateAtomicNoCanonical(meta, normalized); err != nil {
+			return nil, err
+		}
+	case runtime.VDateTime, runtime.VTime, runtime.VDate, runtime.VGYearMonth, runtime.VGYear, runtime.VGMonthDay, runtime.VGDay, runtime.VGMonth:
+		if err := validateTemporalNoCanonical(meta.Kind, normalized); err != nil {
+			return nil, xsderrors.Invalid(err.Error())
+		}
+	case runtime.VAnyURI:
+		if err := validateAnyURINoCanonical(normalized); err != nil {
+			return nil, xsderrors.Invalid(err.Error())
+		}
+	case runtime.VHexBinary:
+		if err := validateHexBinaryNoCanonical(normalized); err != nil {
+			return nil, xsderrors.Invalid(err.Error())
+		}
+	case runtime.VBase64Binary:
+		if err := validateBase64BinaryNoCanonical(normalized); err != nil {
+			return nil, xsderrors.Invalid(err.Error())
+		}
+	case runtime.VList:
+		if err := s.validateListNoCanonical(meta, normalized, resolver, opts); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, xsderrors.Invalidf("unsupported validator kind %d", meta.Kind)
+	}
+	return s.maybeStore(normalized, opts.StoreValue), nil
+}
+
+func validateTemporalNoCanonical(kind runtime.ValidatorKind, normalized []byte) error {
+	spec, ok := runtime.TemporalSpecForValidatorKind(kind)
+	if !ok {
+		return xsderrors.Invalidf("unsupported temporal kind %d", kind)
+	}
+	_, err := value.Parse(spec.Kind, normalized)
+	return err
+}
+
+func validateAnyURINoCanonical(normalized []byte) error {
+	return value.ValidateAnyURI(normalized)
+}
+
+func validateHexBinaryNoCanonical(normalized []byte) error {
+	_, err := value.ParseHexBinary(normalized)
+	return err
+}
+
+func validateBase64BinaryNoCanonical(normalized []byte) error {
+	_, err := value.ParseBase64Binary(normalized)
+	return err
 }

@@ -9,10 +9,6 @@ import (
 	"github.com/jacoelho/xsd/internal/semantics"
 )
 
-func resolveAndValidateOwned(sch *parser.Schema) error {
-	return ResolveAndValidateOwned(sch)
-}
-
 func validateUPA(schema *parser.Schema, registry *analysis.Registry) error {
 	if schema == nil {
 		return fmt.Errorf("schema is nil")

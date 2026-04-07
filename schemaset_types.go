@@ -5,12 +5,12 @@ import (
 	"io/fs"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/preprocessor/resolve"
+	"github.com/jacoelho/xsd/internal/preprocessor"
 )
 
 type sourceEntry struct {
 	fsys     fs.FS
-	resolver resolve.Resolver
+	resolver preprocessor.SchemaResolver
 	location string
 }
 

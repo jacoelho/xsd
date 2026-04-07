@@ -4,10 +4,6 @@ import (
 	"github.com/jacoelho/xsd/internal/parser"
 )
 
-func (l *Loader) loadParsed(result *parser.ParseResult, systemID string, key loadKey) (*parser.Schema, error) {
-	return l.loadParsedWithJournal(result, systemID, key, nil)
-}
-
 func (l *Loader) loadParsedWithJournal(
 	result *parser.ParseResult,
 	systemID string,

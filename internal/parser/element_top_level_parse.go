@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -78,8 +77,8 @@ func newTopLevelElementDecl(name string, schema *Schema) *model.ElementDecl {
 			Namespace: schema.TargetNamespace,
 			Local:     name,
 		},
-		MinOccurs:       occurs.OccursFromInt(1),
-		MaxOccurs:       occurs.OccursFromInt(1),
+		MinOccurs:       model.OccursFromInt(1),
+		MaxOccurs:       model.OccursFromInt(1),
 		SourceNamespace: schema.TargetNamespace,
 		Form:            model.FormQualified,
 	}

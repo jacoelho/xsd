@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/facets"
-	"github.com/jacoelho/xsd/internal/facetvalue"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
 	"github.com/jacoelho/xsd/internal/typeresolve"
@@ -101,7 +100,7 @@ func validateValue(
 
 	if typ.IsBuiltin() {
 		normalized := model.NormalizeWhiteSpace(value, typ)
-		if facetvalue.IsQNameOrNotationType(typ) {
+		if model.IsQNameOrNotationType(typ) {
 			if settings.requireQNameContext && context == nil {
 				return fmt.Errorf("namespace context unavailable for QName/NOTATION value")
 			}

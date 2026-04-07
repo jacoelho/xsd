@@ -1,7 +1,5 @@
 package model
 
-import "github.com/jacoelho/xsd/internal/stack"
-
 // GetContentParticle extracts the particle from any content type.
 func GetContentParticle(content Content) Particle {
 	switch c := content.(type) {
@@ -45,16 +43,18 @@ func collectFromParticles[T any](particles []Particle, visited map[*ModelGroup]b
 		return nil
 	}
 
-	particleStack := stack.NewStack[Particle](len(particles))
+	particleStack := make([]Particle, 0, len(particles))
 	for i := len(particles) - 1; i >= 0; i-- {
 		if particles[i] != nil {
-			particleStack.Push(particles[i])
+			particleStack = append(particleStack, particles[i])
 		}
 	}
 
 	var result []T
-	for particleStack.Len() > 0 {
-		particle, _ := particleStack.Pop()
+	for len(particleStack) > 0 {
+		last := len(particleStack) - 1
+		particle := particleStack[last]
+		particleStack = particleStack[:last]
 
 		group, ok := particle.(*ModelGroup)
 		if ok {
@@ -66,7 +66,7 @@ func collectFromParticles[T any](particles []Particle, visited map[*ModelGroup]b
 			}
 			for i := len(group.Particles) - 1; i >= 0; i-- {
 				if child := group.Particles[i]; child != nil {
-					particleStack.Push(child)
+					particleStack = append(particleStack, child)
 				}
 			}
 		}

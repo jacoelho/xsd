@@ -16,8 +16,7 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/compiler"
-	"github.com/jacoelho/xsd/internal/occurs"
-	"github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/runtime"
 	"github.com/jacoelho/xsd/internal/validator"
 	"github.com/jacoelho/xsd/internal/xmlnames"
@@ -479,7 +478,7 @@ func shouldSkipSchemaError(err error) (bool, string) {
 	if err == nil {
 		return false, ""
 	}
-	if errors.Is(err, occurs.ErrOccursOverflow) || errors.Is(err, occurs.ErrOccursTooLarge) {
+	if errors.Is(err, model.ErrOccursOverflow) || errors.Is(err, model.ErrOccursTooLarge) {
 		return true, "occurrence bounds exceed compile limits"
 	}
 	msg := err.Error()
@@ -1237,7 +1236,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup,
 		return "", nil
 	}
 	rootNS := info.rootNS
-	rootQName := qname.QName{
+	rootQName := model.QName{
 		Namespace: rootNS,
 		Local:     info.rootLocal,
 	}
@@ -1283,7 +1282,7 @@ func (r *W3CTestRunner) loadSchemaForInstance(t *testing.T, group *W3CTestGroup,
 	return "", nil
 }
 
-func runtimeDeclaresElement(schema *runtime.Schema, root qname.QName) bool {
+func runtimeDeclaresElement(schema *runtime.Schema, root model.QName) bool {
 	if schema == nil {
 		return false
 	}

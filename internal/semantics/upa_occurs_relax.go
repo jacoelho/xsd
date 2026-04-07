@@ -2,7 +2,6 @@ package semantics
 
 import (
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurs"
 )
 
 func relaxOccursCopy(particle model.Particle) model.Particle {
@@ -39,12 +38,12 @@ func relaxOccursCopy(particle model.Particle) model.Particle {
 	}
 }
 
-func relaxOccurs(minOccurs, maxOccurs occurs.Occurs) (occurs.Occurs, occurs.Occurs) {
+func relaxOccurs(minOccurs, maxOccurs model.Occurs) (model.Occurs, model.Occurs) {
 	if maxOccurs.IsUnbounded() || maxOccurs.GreaterThanInt(1) {
 		if minOccurs.IsZero() {
-			return occurs.OccursFromInt(0), occurs.OccursUnbounded
+			return model.OccursFromInt(0), model.OccursUnbounded
 		}
-		return occurs.OccursFromInt(1), occurs.OccursUnbounded
+		return model.OccursFromInt(1), model.OccursUnbounded
 	}
 	return minOccurs, maxOccurs
 }

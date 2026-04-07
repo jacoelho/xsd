@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/occurs"
 	"github.com/jacoelho/xsd/internal/xmltree"
 )
 
@@ -67,21 +66,21 @@ func validateElementReferenceAttributes(doc *xmltree.Document, elem xmltree.Node
 	return validateElementReferenceConflicts(attrs)
 }
 
-func parseElementOccurs(attrs *elementAttrScan) (occurs.Occurs, occurs.Occurs, error) {
-	minOccurs := occurs.OccursFromInt(1)
+func parseElementOccurs(attrs *elementAttrScan) (model.Occurs, model.Occurs, error) {
+	minOccurs := model.OccursFromInt(1)
 	if attrs.hasMinOccurs {
 		var err error
 		minOccurs, err = parseOccursValue("minOccurs", attrs.minOccurs)
 		if err != nil {
-			return occurs.OccursFromInt(0), occurs.OccursFromInt(0), err
+			return model.OccursFromInt(0), model.OccursFromInt(0), err
 		}
 	}
-	maxOccurs := occurs.OccursFromInt(1)
+	maxOccurs := model.OccursFromInt(1)
 	if attrs.hasMaxOccurs {
 		var err error
 		maxOccurs, err = parseOccursValue("maxOccurs", attrs.maxOccurs)
 		if err != nil {
-			return occurs.OccursFromInt(0), occurs.OccursFromInt(0), err
+			return model.OccursFromInt(0), model.OccursFromInt(0), err
 		}
 	}
 	return minOccurs, maxOccurs, nil

@@ -3,8 +3,6 @@ package model
 import (
 	"errors"
 	"fmt"
-
-	"github.com/jacoelho/xsd/internal/qname"
 )
 
 // SimpleTypeValidationOptions configures shared simple-type validation behavior.
@@ -155,7 +153,7 @@ func validateTypeWithOptions(
 			if opts.RequireQNameContext && context == nil {
 				return fmt.Errorf("namespace context unavailable for QName/NOTATION value")
 			}
-			if _, err := qname.ParseQNameValue(normalized, context); err != nil {
+			if _, err := ParseQNameValue(normalized, context); err != nil {
 				return err
 			}
 		}
@@ -169,7 +167,7 @@ func validateAtomicLexicalWithOptions(st *SimpleType, normalized string, context
 		if requireQNameContext && context == nil {
 			return fmt.Errorf("namespace context unavailable for QName/NOTATION value")
 		}
-		if _, err := qname.ParseQNameValue(normalized, context); err != nil {
+		if _, err := ParseQNameValue(normalized, context); err != nil {
 			return err
 		}
 	}

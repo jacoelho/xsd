@@ -2,11 +2,10 @@ package validator
 
 import (
 	xsderrors "github.com/jacoelho/xsd/errors"
-	"github.com/jacoelho/xsd/internal/validator/diag"
 )
 
 func validationErrorDetails(err error) validationDetails {
-	details := diag.DetailsOf(err)
+	details := xsderrors.DetailsOf(err)
 	return validationDetails{
 		code:     details.Code,
 		msg:      details.Message,
@@ -17,5 +16,5 @@ func validationErrorDetails(err error) validationDetails {
 }
 
 func validationErrorInfo(err error) (xsderrors.ErrorCode, bool) {
-	return diag.Info(err)
+	return xsderrors.Info(err)
 }

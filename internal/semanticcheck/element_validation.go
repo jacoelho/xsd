@@ -6,7 +6,6 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/semantics"
 )
 
@@ -15,7 +14,7 @@ import (
 func validateElementDeclStructure(schema *parser.Schema, elementQName model.QName, decl *model.ElementDecl) error {
 	// validate element name is a valid NCName (no spaces, valid XML name)
 	// this is a structural constraint that is definitely invalid if violated
-	if !qname.IsValidNCName(elementQName.Local) {
+	if !model.IsValidNCName(elementQName.Local) {
 		return fmt.Errorf("invalid element name '%s': must be a valid NCName", elementQName.Local)
 	}
 

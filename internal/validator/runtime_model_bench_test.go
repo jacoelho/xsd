@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/model"
 )
 
 func Benchmark_StepModel_DFA_Exact(b *testing.B) {
@@ -35,7 +34,7 @@ func Benchmark_StepModel_DFA_Exact(b *testing.B) {
 		if err != nil {
 			b.Fatalf("StepModel: %v", err)
 		}
-		if match.Kind != model.MatchElem || match.Elem != fx.elemA {
+		if match.Kind != StartMatchElem || match.Elem != fx.elemA {
 			b.Fatalf("match = %+v, want elem %d", match, fx.elemA)
 		}
 	}
@@ -60,7 +59,7 @@ func Benchmark_StepModel_NFA_Exact(b *testing.B) {
 		if err != nil {
 			b.Fatalf("StepModel: %v", err)
 		}
-		if match.Kind != model.MatchElem || match.Elem != fx.elemA {
+		if match.Kind != StartMatchElem || match.Elem != fx.elemA {
 			b.Fatalf("match = %+v, want elem %d", match, fx.elemA)
 		}
 	}
@@ -90,7 +89,7 @@ func Benchmark_StepModel_All_Exact(b *testing.B) {
 		if err != nil {
 			b.Fatalf("StepModel: %v", err)
 		}
-		if match.Kind != model.MatchElem || match.Elem != fx.elemA {
+		if match.Kind != StartMatchElem || match.Elem != fx.elemA {
 			b.Fatalf("match = %+v, want elem %d", match, fx.elemA)
 		}
 	}

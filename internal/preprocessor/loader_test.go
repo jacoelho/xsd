@@ -7,12 +7,11 @@ import (
 	"testing/fstest"
 
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/preprocessor/resolve"
 )
 
-type resolverFunc func(req resolve.Request) (io.ReadCloser, string, error)
+type resolverFunc func(req ResolveRequest) (io.ReadCloser, string, error)
 
-func (f resolverFunc) Resolve(req resolve.Request) (io.ReadCloser, string, error) {
+func (f resolverFunc) Resolve(req ResolveRequest) (io.ReadCloser, string, error) {
 	return f(req)
 }
 
@@ -49,7 +48,7 @@ func TestLoaderLoadIsIsolatedPerCall(t *testing.T) {
 		docs  []string
 		calls int
 	}
-	resolveDoc := func(r *rotatingResolver, _ resolve.Request) (io.ReadCloser, string, error) {
+	resolveDoc := func(r *rotatingResolver, _ ResolveRequest) (io.ReadCloser, string, error) {
 		doc := r.docs[r.calls%len(r.docs)]
 		r.calls++
 		return io.NopCloser(strings.NewReader(doc)), "schema.xsd", nil
@@ -62,7 +61,7 @@ func TestLoaderLoadIsIsolatedPerCall(t *testing.T) {
 		},
 	}
 	loader := NewLoader(Config{
-		Resolver: resolverFunc(func(req resolve.Request) (io.ReadCloser, string, error) {
+		Resolver: resolverFunc(func(req ResolveRequest) (io.ReadCloser, string, error) {
 			return resolveDoc(resolver, req)
 		}),
 	})

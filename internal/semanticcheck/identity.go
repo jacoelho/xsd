@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jacoelho/xsd/internal/identitypath"
 	"github.com/jacoelho/xsd/internal/model"
-	"github.com/jacoelho/xsd/internal/qname"
+	"github.com/jacoelho/xsd/internal/runtime"
 )
 
 // validateSelectorXPath validates that a selector XPath selects element nodes.
@@ -31,7 +30,7 @@ func validateSelectorXPathWithContext(expr string, nsContext map[string]string) 
 		return fmt.Errorf("selector xpath cannot use axis 'attribute::': %s", expr)
 	}
 
-	_, err := identitypath.ParseSelector(expr, nsContext)
+	_, err := runtime.Parse(expr, nsContext, runtime.AttributesDisallowed)
 	if err == nil {
 		return nil
 	}
@@ -48,7 +47,7 @@ func validateFieldXPathWithContext(expr string, nsContext map[string]string) err
 	if expr == "" {
 		return fmt.Errorf("field xpath cannot be empty")
 	}
-	_, err := identitypath.ParseField(expr, nsContext)
+	_, err := runtime.Parse(expr, nsContext, runtime.AttributesAllowed)
 	if err == nil {
 		return nil
 	}
@@ -109,7 +108,7 @@ func disallowedAxisFromError(msg string) string {
 // validateIdentityConstraint validates an identity constraint (key, keyref, unique).
 func validateIdentityConstraint(constraint *model.IdentityConstraint) error {
 	// per XSD spec section 3.11.1, identity constraint name must be an NCName
-	if !qname.IsValidNCName(constraint.Name) {
+	if !model.IsValidNCName(constraint.Name) {
 		return fmt.Errorf("identity constraint name '%s' must be a valid NCName (no colons)", constraint.Name)
 	}
 

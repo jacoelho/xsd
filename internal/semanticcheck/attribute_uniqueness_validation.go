@@ -6,7 +6,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/semantics"
 	"github.com/jacoelho/xsd/internal/typeresolve"
 )
 
@@ -39,7 +39,7 @@ func validateExtensionAttributeUniqueness(schema *parser.Schema, ct *model.Compl
 	if ext == nil || ext.Base.IsZero() {
 		return nil
 	}
-	baseCT, ok := typechain.LookupComplexType(schema, ext.Base)
+	baseCT, ok := semantics.LookupComplexType(schema, ext.Base)
 	if !ok || baseCT == nil {
 		return nil
 	}

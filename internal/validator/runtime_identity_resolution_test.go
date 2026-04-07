@@ -5,8 +5,6 @@ import (
 
 	xsderrors "github.com/jacoelho/xsd/errors"
 	"github.com/jacoelho/xsd/internal/runtime"
-	"github.com/jacoelho/xsd/internal/validator/attrs"
-	"github.com/jacoelho/xsd/internal/validator/diag"
 )
 
 func TestIdentityDuplicateUnique(t *testing.T) {
@@ -34,7 +32,7 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("identityStart root: %v", err)
 	}
-	startAttrs := []attrs.Start{{
+	startAttrs := []Start{{
 		Sym:      fx.symID,
 		NS:       fx.empty,
 		Local:    []byte("id"),
@@ -56,7 +54,7 @@ func TestIdentityDuplicateUnique(t *testing.T) {
 		t.Fatalf("identityEnd root: %v", err)
 	}
 
-	pending := diag.AppendIssues(nil, sess.icState.DrainCommitted())
+	pending := xsderrors.AppendIssues(nil, sess.icState.DrainCommitted())
 	if len(pending) != 1 {
 		t.Fatalf("violations = %d, want 1", len(pending))
 	}
@@ -102,7 +100,7 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		}
 		if err := sess.identityStart(identityStartInput{
 			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID,
-			Attrs: []attrs.Start{{
+			Attrs: []Start{{
 				Sym:      fx.symID,
 				NS:       fx.empty,
 				Local:    []byte("id"),
@@ -123,7 +121,7 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		}
 		if err := sess.identityStart(identityStartInput{
 			Elem: fx.elemItem, Type: fx.typeSimple, Sym: fx.symItem, NS: fx.nsID,
-			Attrs: []attrs.Start{{
+			Attrs: []Start{{
 				Sym:      fx.symID,
 				NS:       fx.empty,
 				Local:    []byte("id"),
@@ -143,7 +141,7 @@ func TestIdentityKeyrefMissing(t *testing.T) {
 		if err := sess.icState.end(sess.rt, identityEndInput{}); err != nil {
 			t.Fatalf("identityEnd root: %v", err)
 		}
-		return len(diag.AppendIssues(nil, sess.icState.DrainCommitted()))
+		return len(xsderrors.AppendIssues(nil, sess.icState.DrainCommitted()))
 	}
 
 	if got := runCase("two", "one"); got != 1 {

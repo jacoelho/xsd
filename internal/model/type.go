@@ -30,6 +30,11 @@ func AsBuiltinType(t Type) (*BuiltinType, bool) {
 	return as[*BuiltinType](t)
 }
 
+// IsNilType reports whether typ is nil or an interface holding a nil type pointer.
+func IsNilType(typ Type) bool {
+	return isNilType(typ)
+}
+
 // AsDerivedType performs a type assertion to DerivedType.
 func AsDerivedType(t Type) (DerivedType, bool) {
 	return as[DerivedType](t)

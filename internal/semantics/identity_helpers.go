@@ -5,27 +5,26 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/qname"
-	"github.com/jacoelho/xsd/internal/xpath"
+	"github.com/jacoelho/xsd/internal/runtime"
 )
 
-func parseXPathExpression(expr string, nsContext map[string]string, policy xpath.AttributePolicy) (xpath.Expression, error) {
-	parsed, err := xpath.Parse(expr, nsContext, policy)
+func parseXPathExpression(expr string, nsContext map[string]string, policy runtime.AttributePolicy) (runtime.Expression, error) {
+	parsed, err := runtime.Parse(expr, nsContext, policy)
 	if err != nil {
-		return xpath.Expression{}, err
+		return runtime.Expression{}, err
 	}
 	if len(parsed.Paths) == 0 {
-		return xpath.Expression{}, fmt.Errorf("xpath contains no paths")
+		return runtime.Expression{}, fmt.Errorf("xpath contains no paths")
 	}
 	return parsed, nil
 }
 
-func isWildcardNodeTest(test xpath.NodeTest) bool {
+func isWildcardNodeTest(test runtime.NodeTest) bool {
 	return test.Any || test.Local == "*"
 }
 
-func nodeTestMatchesQName(test xpath.NodeTest, name model.QName) bool {
-	test = xpath.CanonicalizeNodeTest(test)
+func nodeTestMatchesQName(test runtime.NodeTest, name model.QName) bool {
+	test = runtime.CanonicalizeNodeTest(test)
 	if test.Any {
 		return true
 	}
@@ -48,7 +47,7 @@ func resolveElementReference(schema *parser.Schema, decl *model.ElementDecl) *mo
 	return decl
 }
 
-func formatNodeTest(test xpath.NodeTest) string {
+func formatNodeTest(test runtime.NodeTest) string {
 	if isWildcardNodeTest(test) {
 		return "*"
 	}
@@ -141,19 +140,19 @@ func combineFieldTypes(fieldXPath string, values []model.Type) (model.Type, erro
 	}, nil
 }
 
-func isDescendantOnlySteps(steps []xpath.Step) bool {
+func isDescendantOnlySteps(steps []runtime.Step) bool {
 	if len(steps) == 0 {
 		return false
 	}
 	sawDescendant := false
 	for _, step := range steps {
 		switch step.Axis {
-		case xpath.AxisDescendantOrSelf:
+		case runtime.AxisDescendantOrSelf:
 			if !step.Test.Any {
 				return false
 			}
 			sawDescendant = true
-		case xpath.AxisSelf:
+		case runtime.AxisSelf:
 			if !step.Test.Any {
 				return false
 			}
@@ -185,15 +184,15 @@ func uniqueElementDecls(decls []*model.ElementDecl) []*model.ElementDecl {
 
 type fieldPathBranch struct {
 	selectorDecl *model.ElementDecl
-	path         xpath.Path
+	path         runtime.Path
 	pathIndex    int
 }
 
-func hasFieldPathUnion(selectorDecls []*model.ElementDecl, paths []xpath.Path) bool {
+func hasFieldPathUnion(selectorDecls []*model.ElementDecl, paths []runtime.Path) bool {
 	return len(selectorDecls) > 1 || len(paths) > 1
 }
 
-func forEachFieldPathBranch(selectorDecls []*model.ElementDecl, paths []xpath.Path, fn func(fieldPathBranch) error) error {
+func forEachFieldPathBranch(selectorDecls []*model.ElementDecl, paths []runtime.Path, fn func(fieldPathBranch) error) error {
 	for _, selectorDecl := range selectorDecls {
 		for pathIndex, path := range paths {
 			if err := fn(fieldPathBranch{
@@ -324,20 +323,20 @@ func CollectAllIdentityConstraints(sch *parser.Schema) []*model.IdentityConstrai
 		walkIdentityContent(content, state, collectConstraints)
 	}
 
-	for _, name := range qname.SortedMapKeys(sch.ElementDecls) {
+	for _, name := range model.SortedMapKeys(sch.ElementDecls) {
 		decl := sch.ElementDecls[name]
 		all = append(all, decl.Constraints...)
 		if ct, ok := decl.Type.(*model.ComplexType); ok {
 			collectFromContent(ct.Content())
 		}
 	}
-	for _, name := range qname.SortedMapKeys(sch.TypeDefs) {
+	for _, name := range model.SortedMapKeys(sch.TypeDefs) {
 		typ := sch.TypeDefs[name]
 		if ct, ok := typ.(*model.ComplexType); ok {
 			collectFromContent(ct.Content())
 		}
 	}
-	for _, name := range qname.SortedMapKeys(sch.Groups) {
+	for _, name := range model.SortedMapKeys(sch.Groups) {
 		group := sch.Groups[name]
 		walkIdentityParticles(group.Particles, state, collectConstraints)
 	}
@@ -364,13 +363,13 @@ func CollectLocalConstraintElements(sch *parser.Schema) []*model.ElementDecl {
 			out = append(out, elem)
 		}
 	}
-	for _, name := range qname.SortedMapKeys(sch.ElementDecls) {
+	for _, name := range model.SortedMapKeys(sch.ElementDecls) {
 		decl := sch.ElementDecls[name]
 		if ct, ok := decl.Type.(*model.ComplexType); ok {
 			collect(ct.Content())
 		}
 	}
-	for _, name := range qname.SortedMapKeys(sch.TypeDefs) {
+	for _, name := range model.SortedMapKeys(sch.TypeDefs) {
 		typ := sch.TypeDefs[name]
 		if ct, ok := typ.(*model.ComplexType); ok {
 			collect(ct.Content())

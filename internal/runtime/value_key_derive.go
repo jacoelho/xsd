@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/num"
-	"github.com/jacoelho/xsd/internal/qname"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -120,13 +120,13 @@ func KeyForPrimitiveName(primitive, normalized string, ctx map[string]string) (V
 		}
 		return VKBinary, BinaryKeyBytes(nil, 1, b), nil
 	case "QName":
-		qn, err := qname.ParseQNameValue(normalized, ctx)
+		qn, err := model.ParseQNameValue(normalized, ctx)
 		if err != nil {
 			return VKInvalid, nil, err
 		}
 		return VKQName, QNameKeyStrings(0, qn.Namespace, qn.Local), nil
 	case "NOTATION":
-		qn, err := qname.ParseQNameValue(normalized, ctx)
+		qn, err := model.ParseQNameValue(normalized, ctx)
 		if err != nil {
 			return VKInvalid, nil, err
 		}

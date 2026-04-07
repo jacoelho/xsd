@@ -5,7 +5,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/typechain"
+	"github.com/jacoelho/xsd/internal/semantics"
 )
 
 func validateLocalElementValueConstraints(sch *parser.Schema, index *iterationIndex) []error {
@@ -16,7 +16,7 @@ func validateLocalElementValueConstraints(sch *parser.Schema, index *iterationIn
 
 	seenLocal := make(map[*model.ElementDecl]bool)
 	validateLocals := func(ct *model.ComplexType) {
-		for _, elem := range typechain.CollectElementDeclsFromComplexType(sch, ct) {
+		for _, elem := range semantics.CollectElementDeclsFromComplexType(sch, ct) {
 			if elem == nil || elem.IsReference {
 				continue
 			}

@@ -3,16 +3,14 @@ package analysis
 import (
 	"fmt"
 
-	"github.com/jacoelho/xsd/internal/ids"
 	"github.com/jacoelho/xsd/internal/model"
 	"github.com/jacoelho/xsd/internal/parser"
-	"github.com/jacoelho/xsd/internal/resolveguard"
 )
 
 // ResolvedReferences records resolved references without mutating the parsed schema.
 type ResolvedReferences struct {
-	ElementRefs   map[model.QName]ids.ElemID
-	AttributeRefs map[model.QName]ids.AttrID
+	ElementRefs   map[model.QName]ElemID
+	AttributeRefs map[model.QName]AttrID
 	GroupRefs     map[model.QName]model.QName
 }
 
@@ -40,10 +38,10 @@ type referenceResolver struct {
 	schema           *parser.Schema
 	registry         *Registry
 	refs             *ResolvedReferences
-	elementState     *resolveguard.Pointer[*model.ElementDecl]
-	modelGroupState  *resolveguard.Pointer[*model.ModelGroup]
-	simpleTypeState  *resolveguard.Pointer[*model.SimpleType]
-	complexTypeState *resolveguard.Pointer[*model.ComplexType]
+	elementState     *Pointer[*model.ElementDecl]
+	modelGroupState  *Pointer[*model.ModelGroup]
+	simpleTypeState  *Pointer[*model.SimpleType]
+	complexTypeState *Pointer[*model.ComplexType]
 }
 
 func newReferenceResolver(schema *parser.Schema, registry *Registry) *referenceResolver {
@@ -51,14 +49,14 @@ func newReferenceResolver(schema *parser.Schema, registry *Registry) *referenceR
 		schema:   schema,
 		registry: registry,
 		refs: &ResolvedReferences{
-			ElementRefs:   make(map[model.QName]ids.ElemID),
-			AttributeRefs: make(map[model.QName]ids.AttrID),
+			ElementRefs:   make(map[model.QName]ElemID),
+			AttributeRefs: make(map[model.QName]AttrID),
 			GroupRefs:     make(map[model.QName]model.QName),
 		},
-		elementState:     resolveguard.NewPointer[*model.ElementDecl](),
-		modelGroupState:  resolveguard.NewPointer[*model.ModelGroup](),
-		simpleTypeState:  resolveguard.NewPointer[*model.SimpleType](),
-		complexTypeState: resolveguard.NewPointer[*model.ComplexType](),
+		elementState:     NewPointer[*model.ElementDecl](),
+		modelGroupState:  NewPointer[*model.ModelGroup](),
+		simpleTypeState:  NewPointer[*model.SimpleType](),
+		complexTypeState: NewPointer[*model.ComplexType](),
 	}
 }
 
